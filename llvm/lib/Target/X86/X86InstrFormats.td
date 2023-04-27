@@ -217,6 +217,7 @@ def T_MAP6    : Map<9>;
 #if INTEL_CUSTOMIZATION
 def T_MAP8    : Map<10>;
 def T_MAP4    : Map<11>;
+def T_MAP7    : Map<12>;
 #endif // INTEL_CUSTOMIZATION
 
 // Class specifying the encoding
@@ -260,6 +261,7 @@ class T8     { Map OpMap = T8; }
 class TA     { Map OpMap = TA; }
 #if INTEL_CUSTOMIZATION
 class T_MAP4     { Map OpMap = T_MAP4; }
+class T_MAP7     { Map OpMap = T_MAP7; }
 #endif // INTEL_CUSTOMIZATION
 class XOP8   { Map OpMap = XOP8; Prefix OpPrefix = PS; }
 class XOP9   { Map OpMap = XOP9; Prefix OpPrefix = PS; }
@@ -283,6 +285,8 @@ class T_MAP8XS : T_MAP8 { Prefix OpPrefix = XS; } // 0xF3
 class T_MAP8XD : T_MAP8 { Prefix OpPrefix = XD; } // 0xF2
 class OBXD   { Prefix OpPrefix = XD; }
 class T_MAP4PS : T_MAP4 { Prefix OpPrefix = PS; } // none
+class T_MAP7XS : T_MAP7 { Prefix OpPrefix = XS; } // 0xF3
+class T_MAP7XD : T_MAP7 { Prefix OpPrefix = XD; } // 0xF2
 #endif // INTEL_CUSTOMIZATION
 class OBXS   { Prefix OpPrefix = XS; }
 class PS   : TB { Prefix OpPrefix = PS; }

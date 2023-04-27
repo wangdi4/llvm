@@ -54,6 +54,7 @@ namespace X86Disassembler {
 #if INTEL_CUSTOMIZATION
 #define MAP8_SYM          x86DisassemblerMap8Opcodes
 #define MAP4_SYM          x86DisassemblerMap4Opcodes
+#define MAP7_SYM          x86DisassemblerMap7Opcodes
 #endif // INTEL_CUSTOMIZATION
 
 #define INSTRUCTIONS_STR  "x86DisassemblerInstrSpecifiers"
@@ -72,6 +73,7 @@ namespace X86Disassembler {
 #if INTEL_CUSTOMIZATION
 #define MAP8_STR          "x86DisassemblerMap8Opcodes"
 #define MAP4_STR          "x86DisassemblerMap4Opcodes"
+#define MAP7_STR          "x86DisassemblerMap7Opcodes"
 #endif // INTEL_CUSTOMIZATION
 
 // Attributes of an instruction that must be known before the opcode can be
@@ -590,7 +592,8 @@ enum OpcodeType {
 #if INTEL_CUSTOMIZATION
   MAP6          = 9,
   MAP8          = 10,
-  MAP4          = 11
+  MAP4          = 11,
+  MAP7          = 12
 #endif // INTEL_CUSTOMIZATION
 };
 
