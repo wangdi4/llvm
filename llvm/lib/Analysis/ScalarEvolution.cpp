@@ -6677,7 +6677,6 @@ const SCEV *ScalarEvolution::createNodeForPHI(PHINode *PN) {
   PhiDepth--;
 #endif // INTEL_CUSTOMIZATION
 
-<<<<<<< HEAD
   if (const SCEV *S = createNodeFromSelectLikePHI(PN))
     return S;
 
@@ -6703,14 +6702,7 @@ const SCEV *ScalarEvolution::createNodeForPHI(PHINode *PN) {
   if (const SCEV *S = createNodeForRedundantPHICycle(PN))
     return S;
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (Value *V = simplifyInstruction(PN, {getDataLayout(), &TLI, &DT, &AC}))
-    return getSCEV(V);
 
-  if (const SCEV *S = createNodeFromSelectLikePHI(PN))
-    return S;
-
->>>>>>> 079c525f206228c3343048bb5a74a8e9a428de1a
   // If it's not a loop phi, we can't handle it yet.
   return getUnknown(PN);
 }
