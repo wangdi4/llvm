@@ -1164,6 +1164,9 @@ PrefixKind X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand,
   case X86II::T_MAP4:
     Prefix.set5M(0x4);
     break;
+  case X86II::T_MAP7:
+    Prefix.set5M(0x7);
+    break;
 #endif // INTEL_CUSTOMIZATION
   }
 

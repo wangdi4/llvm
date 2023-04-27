@@ -911,6 +911,7 @@ namespace X86II {
     // MAP8 - Prefix after the 0x0F prefix.
     T_MAP8 = 10 << OpMapShift,
     T_MAP4 = 11 << OpMapShift,
+    T_MAP7 = 12 << OpMapShift,
 #endif // INTEL_CUSTOMIZATION
 
     //===------------------------------------------------------------------===//
