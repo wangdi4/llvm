@@ -83,7 +83,7 @@ __m128bf16 test_mm256_castpbf16256_pbf16128(__m256bf16 __a) {
 
 __m256bf16 test_mm256_castpbf16128_pbf16256(__m128bf16 __a) {
   // CHECK-LABEL: test_mm256_castpbf16128_pbf16256
-  // CHECK: shufflevector <8 x bfloat> %{{.*}}, <8 x bfloat> %{{.*}}, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+  // CHECK: shufflevector <8 x bfloat> %{{.*}}, <8 x bfloat> %{{.*}}, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison>
   return _mm256_castpbf16128_pbf16256(__a);
 }
 
