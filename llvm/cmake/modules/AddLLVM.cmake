@@ -2680,6 +2680,19 @@ macro(intel_clear_stdlib)
   string( REPLACE "-static-libstdc++" "" CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}" )
   string( REPLACE "-static-libstdc++" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}" )
 endmacro(intel_clear_stdlib)
+
+# CMPLRLLVM-40774 - SYCL RT should not link against Intel libraries or
+#
+#   $ icpx -fsycl -no-intel-lib
+#
+# won't work.
+macro(intel_remove_intel_lib_deps)
+  # Alternatively we could investigate if we can link them statically instead.
+  check_cxx_compiler_flag("-no-intel-lib" "CXX_SUPPORTS_-no-intel-lib_FLAG")
+  if (CXX_SUPPORTS_-no-intel-lib_FLAG)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -no-intel-lib")
+  endif()
+endmacro(intel_remove_intel_lib_deps)
 # end INTEL_CUSTOMIZATION
 
 function(setup_host_tool tool_name setting_name exe_var_name target_var_name)
