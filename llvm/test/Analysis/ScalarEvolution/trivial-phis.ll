@@ -24,8 +24,12 @@ do.end:                                           ; preds = %do.body
 
 ; CHECK-LABEL: @test2
 ; CHECK:      %tmp24 = phi i64 [ %tmp14, %bb22 ], [ %tmp14, %bb13 ]
+<<<<<<< HEAD
 ; INTEL: There is a customization to recognize phi with identical SCEV operands.
 ; CHECK-NEXT: --> {1,+,1}<nuw><nsw><%bb13> U: [1,9223372036854775807) S: [1,9223372036854775807) Exits: (-2 + %arg) LoopDispositions: { %bb13: Computable, %bb8: Variant, %bb17: Invariant, %bb27: Invariant } ;INTEL
+=======
+; CHECK-NEXT: -->  {1,+,1}<nuw><nsw><%bb13> U: [1,9223372036854775807) S: [1,9223372036854775807) Exits: (-2 + %arg)
+>>>>>>> 079c525f206228c3343048bb5a74a8e9a428de1a
 
 define void @test2(i64 %arg, ptr noalias %arg1) {
 bb:
