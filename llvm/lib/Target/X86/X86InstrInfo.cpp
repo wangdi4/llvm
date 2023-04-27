@@ -10662,19 +10662,6 @@ X86InstrInfo::insertOutlinedCall(Module &M, MachineBasicBlock &MBB,
   return It;
 }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-bool X86InstrInfo::isVecSpillInst(const MachineInstr &MI) const {
-  unsigned Opcode = MI.getOpcode();
-  if ((Opcode == X86::MOV64mi32 || Opcode == X86::MOV32mi) &&
-      MI.getOperand(5).isImm() &&
-      MI.getOperand(5).getImm() == 0) {
-    return true;
-  }
-  return false;
-}
-#endif // INTEL_CUSTOMIZATION
-=======
 bool X86InstrInfo::getMachineCombinerPatterns(
     MachineInstr &Root, SmallVectorImpl<MachineCombinerPattern> &Patterns,
     bool DoRegPressureReduce) const {
@@ -10811,6 +10798,16 @@ void X86InstrInfo::genAlternativeCodeSequence(
   }
 }
 
->>>>>>> 8f7f9d86a7555263ef08fded15a6b778d796ec3f
+#if INTEL_CUSTOMIZATION
+bool X86InstrInfo::isVecSpillInst(const MachineInstr &MI) const {
+  unsigned Opcode = MI.getOpcode();
+  if ((Opcode == X86::MOV64mi32 || Opcode == X86::MOV32mi) &&
+      MI.getOperand(5).isImm() &&
+      MI.getOperand(5).getImm() == 0) {
+    return true;
+  }
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
 #define GET_INSTRINFO_HELPERS
 #include "X86GenInstrInfo.inc"
