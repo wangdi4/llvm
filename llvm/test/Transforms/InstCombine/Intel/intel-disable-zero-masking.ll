@@ -75,7 +75,7 @@ define dso_local void @disable-zero-masking(i64* noalias %vec_ptr, i32* noalias 
 ; CHECK-NEXT:    [[EXTRACT59:%.*]] = shufflevector <4 x i64> [[XOR_I144]], <4 x i64> poison, <2 x i32> <i32 2, i32 3>
 ; CHECK-NEXT:    [[XOR_I143:%.*]] = xor <2 x i64> [[EXTRACT59]], [[SHUFFLE_I]]
 ; CHECK-NEXT:    [[TMP41:%.*]] = bitcast <2 x i64> [[XOR_I143]] to <4 x i32>
-; CHECK-NEXT:    [[PERMIL:%.*]] = shufflevector <4 x i32> [[TMP41]], <4 x i32> poison, <4 x i32> <i32 2, i32 3, i32 undef, i32 undef>
+; CHECK-NEXT:    [[PERMIL:%.*]] = shufflevector <4 x i32> [[TMP41]], <4 x i32> poison, <4 x i32> <i32 2, i32 3, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP42:%.*]] = bitcast <4 x i32> [[PERMIL]] to <2 x i64>
 ; CHECK-NEXT:    [[XOR_I:%.*]] = xor <2 x i64> [[XOR_I143]], [[TMP42]]
 ; CHECK-NEXT:    [[TMP43:%.*]] = extractelement <2 x i64> [[XOR_I]], i64 0

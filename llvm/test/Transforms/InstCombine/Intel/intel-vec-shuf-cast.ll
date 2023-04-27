@@ -12,9 +12,9 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local i8 @i1x8_to_i8(<8 x i1> %input) {
 ; CHECK-LABEL: @i1x8_to_i8(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <8 x i1> [[INPUT:%.*]] to i8
+; CHECK-NEXT:    [[OUTPUT:%.*]] = bitcast <8 x i1> [[INPUT:%.*]] to i8
 ; CHECK-NEXT:    store <8 x i1> [[INPUT]], ptr @loc, align 1
-; CHECK-NEXT:    ret i8 [[TMP0]]
+; CHECK-NEXT:    ret i8 [[OUTPUT]]
 ;
 entry:
   %0 = shufflevector <8 x i1> %input, <8 x i1> poison, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
@@ -27,8 +27,8 @@ entry:
 define dso_local i64 @i8x8_to_i64(<8 x i8> %input) {
 ; CHECK-LABEL: @i8x8_to_i64(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <8 x i8> [[INPUT:%.*]] to i64
-; CHECK-NEXT:    ret i64 [[TMP0]]
+; CHECK-NEXT:    [[OUTPUT:%.*]] = bitcast <8 x i8> [[INPUT:%.*]] to i64
+; CHECK-NEXT:    ret i64 [[OUTPUT]]
 ;
 entry:
   %0 = shufflevector <8 x i8> %input, <8 x i8> poison, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
@@ -41,7 +41,7 @@ entry:
 define dso_local i8 @bad_case1(<8 x i1> %input) {
 ; CHECK-LABEL: @bad_case1(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP0:%.*]] = shufflevector <8 x i1> [[INPUT:%.*]], <8 x i1> poison, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 5, i32 7, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[TMP0:%.*]] = shufflevector <8 x i1> [[INPUT:%.*]], <8 x i1> poison, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 5, i32 7, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <16 x i1> [[TMP0]] to <2 x i8>
 ; CHECK-NEXT:    [[OUTPUT:%.*]] = extractelement <2 x i8> [[TMP1]], i64 0
 ; CHECK-NEXT:    ret i8 [[OUTPUT]]
@@ -57,7 +57,7 @@ entry:
 define dso_local i8 @bad_case2(<8 x i1> %input) {
 ; CHECK-LABEL: @bad_case2(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP0:%.*]] = shufflevector <8 x i1> [[INPUT:%.*]], <8 x i1> poison, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[TMP0:%.*]] = shufflevector <8 x i1> [[INPUT:%.*]], <8 x i1> poison, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <16 x i1> [[TMP0]] to <2 x i8>
 ; CHECK-NEXT:    [[OUTPUT:%.*]] = extractelement <2 x i8> [[TMP1]], i64 0
 ; CHECK-NEXT:    ret i8 [[OUTPUT]]
@@ -73,7 +73,7 @@ entry:
 define dso_local i16 @bad_case3(<8 x i1> %input) {
 ; CHECK-LABEL: @bad_case3(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP0:%.*]] = shufflevector <8 x i1> [[INPUT:%.*]], <8 x i1> poison, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[TMP0:%.*]] = shufflevector <8 x i1> [[INPUT:%.*]], <8 x i1> poison, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <16 x i1> [[TMP0]] to <1 x i16>
 ; CHECK-NEXT:    [[OUTPUT:%.*]] = extractelement <1 x i16> [[TMP1]], i64 0
 ; CHECK-NEXT:    ret i16 [[OUTPUT]]
@@ -89,7 +89,7 @@ entry:
 define dso_local i8 @bad_case4(<8 x i1> %input) {
 ; CHECK-LABEL: @bad_case4(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP0:%.*]] = shufflevector <8 x i1> [[INPUT:%.*]], <8 x i1> poison, <16 x i32> <i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0>
+; CHECK-NEXT:    [[TMP0:%.*]] = shufflevector <8 x i1> [[INPUT:%.*]], <8 x i1> poison, <16 x i32> <i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0>
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <16 x i1> [[TMP0]] to <2 x i8>
 ; CHECK-NEXT:    [[OUTPUT:%.*]] = extractelement <2 x i8> [[TMP1]], i64 1
 ; CHECK-NEXT:    ret i8 [[OUTPUT]]

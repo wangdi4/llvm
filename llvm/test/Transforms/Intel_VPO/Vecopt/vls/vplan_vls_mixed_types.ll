@@ -20,10 +20,10 @@ define void @test_00(%struct.test_00* nocapture %src, %struct.test_00* nocapture
 ; CHECK-NEXT:    [[TMP1:%.*]] = shufflevector <8 x i32> [[VLS_LOAD]], <8 x i32> [[VLS_LOAD]], <4 x i32> <i32 1, i32 3, i32 5, i32 7>
 ; CHECK-NEXT:    [[VP_VAL_SND:%.*]] = bitcast <4 x i32> [[TMP1]] to <4 x float>
 ; CHECK-NEXT:    [[SCALAR_GEP3:%.*]] = getelementptr inbounds [[STRUCT_TEST_00]], %struct.test_00* [[DST:%.*]], i64 [[UNI_PHI]], i32 0
-; CHECK-NEXT:    [[EXTENDED_:%.*]] = shufflevector <4 x i32> [[VP_VAL_FST]], <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[EXTENDED_:%.*]] = shufflevector <4 x i32> [[VP_VAL_FST]], <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP2:%.*]] = shufflevector <8 x i32> undef, <8 x i32> [[EXTENDED_]], <8 x i32> <i32 8, i32 1, i32 9, i32 3, i32 10, i32 5, i32 11, i32 7>
 ; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <4 x float> [[VP_VAL_SND]] to <4 x i32>
-; CHECK-NEXT:    [[EXTENDED_4:%.*]] = shufflevector <4 x i32> [[TMP3]], <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[EXTENDED_4:%.*]] = shufflevector <4 x i32> [[TMP3]], <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP4:%.*]] = shufflevector <8 x i32> [[TMP2]], <8 x i32> [[EXTENDED_4]], <8 x i32> <i32 0, i32 8, i32 2, i32 9, i32 4, i32 10, i32 6, i32 11>
 ; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i32* [[SCALAR_GEP3]] to <8 x i32>*
 ; CHECK-NEXT:    store <8 x i32> [[TMP4]], <8 x i32>* [[TMP5]], align 4
@@ -73,10 +73,10 @@ define void @test_01(%struct.test_01* nocapture %src, %struct.test_01* nocapture
 ; CHECK-NEXT:    [[TMP2:%.*]] = add nuw nsw <4 x i32> [[VP_VAL_SRC_FST]], <i32 42, i32 42, i32 42, i32 42>
 ; CHECK-NEXT:    [[TMP3:%.*]] = fmul fast <4 x float> [[VP_VAL_SRC_SND]], [[VP_VAL_SRC_SND]]
 ; CHECK-NEXT:    [[SCALAR_GEP3:%.*]] = getelementptr inbounds [[STRUCT_TEST_01]], %struct.test_01* [[DST:%.*]], i64 [[UNI_PHI]], i32 0
-; CHECK-NEXT:    [[EXTENDED_:%.*]] = shufflevector <4 x i32> [[TMP2]], <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[EXTENDED_:%.*]] = shufflevector <4 x i32> [[TMP2]], <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP4:%.*]] = shufflevector <8 x i32> undef, <8 x i32> [[EXTENDED_]], <8 x i32> <i32 8, i32 1, i32 9, i32 3, i32 10, i32 5, i32 11, i32 7>
 ; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <4 x float> [[TMP3]] to <4 x i32>
-; CHECK-NEXT:    [[EXTENDED_4:%.*]] = shufflevector <4 x i32> [[TMP5]], <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[EXTENDED_4:%.*]] = shufflevector <4 x i32> [[TMP5]], <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP6:%.*]] = shufflevector <8 x i32> [[TMP4]], <8 x i32> [[EXTENDED_4]], <8 x i32> <i32 0, i32 8, i32 2, i32 9, i32 4, i32 10, i32 6, i32 11>
 ; CHECK-NEXT:    [[TMP7:%.*]] = bitcast i32* [[SCALAR_GEP3]] to <8 x i32>*
 ; CHECK-NEXT:    store <8 x i32> [[TMP6]], <8 x i32>* [[TMP7]], align 4
@@ -131,9 +131,9 @@ define void @test_02(%struct.test_02* nocapture %src, %struct.test_02* nocapture
 ; CHECK-NEXT:    [[TMP3:%.*]] = fmul fast <4 x double> [[VP_VAL_SRC_SND]], [[VP_VAL_SRC_SND]]
 ; CHECK-NEXT:    [[SCALAR_GEP3:%.*]] = getelementptr inbounds [[STRUCT_TEST_02]], %struct.test_02* [[DST:%.*]], i64 [[UNI_PHI]], i32 0
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast <8 x i32> [[TMP2]] to <4 x double>
-; CHECK-NEXT:    [[EXTENDED_:%.*]] = shufflevector <4 x double> [[TMP4]], <4 x double> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[EXTENDED_:%.*]] = shufflevector <4 x double> [[TMP4]], <4 x double> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP5:%.*]] = shufflevector <8 x double> undef, <8 x double> [[EXTENDED_]], <8 x i32> <i32 8, i32 1, i32 9, i32 3, i32 10, i32 5, i32 11, i32 7>
-; CHECK-NEXT:    [[EXTENDED_4:%.*]] = shufflevector <4 x double> [[TMP3]], <4 x double> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[EXTENDED_4:%.*]] = shufflevector <4 x double> [[TMP3]], <4 x double> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP6:%.*]] = shufflevector <8 x double> [[TMP5]], <8 x double> [[EXTENDED_4]], <8 x i32> <i32 0, i32 8, i32 2, i32 9, i32 4, i32 10, i32 6, i32 11>
 ; CHECK-NEXT:    [[TMP7:%.*]] = bitcast <2 x i32>* [[SCALAR_GEP3]] to <8 x double>*
 ; CHECK-NEXT:    store <8 x double> [[TMP6]], <8 x double>* [[TMP7]], align 4
@@ -187,10 +187,10 @@ define void @test_03(%struct.test_03* nocapture %src, %struct.test_03* nocapture
 ; CHECK-NEXT:    [[TMP2:%.*]] = fmul fast <4 x double> [[VP_VAL_SRC_FST]], [[VP_VAL_SRC_FST]]
 ; CHECK-NEXT:    [[TMP3:%.*]] = add nuw nsw <8 x i32> [[VP_VAL_SRC_SND]], <i32 11, i32 17, i32 11, i32 17, i32 11, i32 17, i32 11, i32 17>
 ; CHECK-NEXT:    [[SCALAR_GEP3:%.*]] = getelementptr inbounds [[STRUCT_TEST_03]], %struct.test_03* [[DST:%.*]], i64 [[UNI_PHI]], i32 0
-; CHECK-NEXT:    [[EXTENDED_:%.*]] = shufflevector <4 x double> [[TMP2]], <4 x double> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[EXTENDED_:%.*]] = shufflevector <4 x double> [[TMP2]], <4 x double> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP4:%.*]] = shufflevector <8 x double> undef, <8 x double> [[EXTENDED_]], <8 x i32> <i32 8, i32 1, i32 9, i32 3, i32 10, i32 5, i32 11, i32 7>
 ; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <8 x i32> [[TMP3]] to <4 x double>
-; CHECK-NEXT:    [[EXTENDED_4:%.*]] = shufflevector <4 x double> [[TMP5]], <4 x double> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[EXTENDED_4:%.*]] = shufflevector <4 x double> [[TMP5]], <4 x double> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP6:%.*]] = shufflevector <8 x double> [[TMP4]], <8 x double> [[EXTENDED_4]], <8 x i32> <i32 0, i32 8, i32 2, i32 9, i32 4, i32 10, i32 6, i32 11>
 ; CHECK-NEXT:    [[TMP7:%.*]] = bitcast double* [[SCALAR_GEP3]] to <8 x double>*
 ; CHECK-NEXT:    store <8 x double> [[TMP6]], <8 x double>* [[TMP7]], align 4
