@@ -23,7 +23,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--execdir', type=str, required=True)
     parser.add_argument('--codesign_identity', type=str, required=False, default=None)
-    parser.add_argument('--env', type=str, nargs='*', required=False, default=dict())
+    parser.add_argument('--env', type=str, nargs='*', required=False, default=[])
+    parser.add_argument('--prepend_env', type=str, nargs='*', required=False, default=[])
     parser.add_argument("command", nargs=argparse.ONE_OR_MORE)
     args = parser.parse_args()
     commandLine = args.command
@@ -42,6 +43,7 @@ def main():
             subprocess.check_call(['xcrun', 'codesign', '-f', '-s', args.codesign_identity, exe], env={})
 
     # Extract environment variables into a dictionary
+<<<<<<< HEAD
     # INTEL_CUSTOMIZATION
     # If no extra env args are passed in, the default empty value
     # will clear all env variable and cause the lit test to run fail.
@@ -50,6 +52,17 @@ def main():
     if args.env:
         env = {k : v  for (k, v) in map(lambda s: s.split('=', 1), args.env)}
     # end INTEL_CUSTOMIZATION
+=======
+    env = {k : v  for (k, v) in map(lambda s: s.split('=', 1), args.env)}
+
+    # Set environment variables where we prepend the given value to the
+    # existing environment variable.
+    for (k, v) in map(lambda s: s.split('=', 1), args.prepend_env):
+        if k in os.environ:
+            v = v + os.pathsep + os.environ[k]
+        env[k] = v
+
+>>>>>>> ba3bddb6f4736b99437c069d61f4e558c6198e5a
     if platform.system() == 'Windows':
         # Pass some extra variables through on Windows:
         # COMSPEC is needed for running subprocesses via std::system().
