@@ -1,3 +1,4 @@
+; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed  -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -hir-runtime-dd-read-dominance-threshold=5 < %s 2>&1 | FileCheck %s
 ; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed  -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -hir-runtime-dd-rtl-threshold=1  -hir-runtime-dd-read-dominance-threshold=2 < %s 2>&1 | FileCheck %s --check-prefix="NOLIBCALL"
 ; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -hir-details -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s --check-prefix="NOLIBCALL1"
 ; ModuleID = 'fast_test.c'
@@ -6,14 +7,16 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Check runtime dd multiversioning without library call.
-; It is previously lib call but now regular inlined for runtime DD checking.
 
 ; In this simple example loop, there are 4 vals in total, and 3 of them are
 ; read-only vals. Test size is 3.
-; With -hir-runtime-dd-rtl-threshold=1, it would call __intel_rtdd_indep.
-; But if setting hir-runtime-dd-read-dominance-threshold=2, which means once
-; number of read-only vals is more than 2 times of write vals, it is read
-; dominant. Then it would inline regular RTDD instead of calling library RTDD.
+; By default it would inlined regular RTDD because test size is only 3 which
+; is small than threshold 16. No matter if adding
+; -hir-runtime-dd-read-dominance-threshold=5 or not.
+; Unless with -hir-runtime-dd-rtl-threshold=1 or 2, it would call __intel_rtdd_indep.
+; But if adding hir-runtime-dd-read-dominance-threshold=2, which means it is
+; read dominant if number of read-only vals is more than 2 times of write vals.
+; Then it would inline regular RTDD instead of calling library RTDD.
 
 ;         BEGIN REGION { }
 ;               + DO i1 = 0, zext.i32.i64((1 + %M)) + -2, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
@@ -25,11 +28,19 @@ target triple = "x86_64-unknown-linux-gnu"
 ;               + END LOOP
 ;         END REGION
 
-;NOLIBCALL-NOT:           %call = @__intel_rtdd_indep;
-;NOLIBCALL:               %mv.test5 = &((%D)[zext.i32.i64((1 + %M)) + -1]) >=u &((%C)[1]);
-;NOLIBCALL:               %mv.test6 = &((%C)[zext.i32.i64((1 + %M)) + -1]) >=u &((%D)[1]);
-;NOLIBCALL:               %mv.and7 = %mv.test5  &  %mv.test6;
-;NOLIBCALL:               if (%mv.and == 0 & %mv.and4 == 0 & %mv.and7 == 0)
+;CHECK:               Function: foo
+;CHECK-NOT:           %call = @__intel_rtdd_indep;
+;CHECK:               %mv.test5 = &((%D)[zext.i32.i64((1 + %M)) + -1]) >=u &((%C)[1]);
+;CHECK:               %mv.test6 = &((%C)[zext.i32.i64((1 + %M)) + -1]) >=u &((%D)[1]);
+;CHECK:               %mv.and7 = %mv.test5  &  %mv.test6;
+;CHECK:               if (%mv.and == 0 & %mv.and4 == 0 & %mv.and7 == 0)
+
+;NOLIBCALL:           Function: foo
+;NOLIBCALL-NOT:       %call = @__intel_rtdd_indep;
+;NOLIBCALL:           %mv.test5 = &((%D)[zext.i32.i64((1 + %M)) + -1]) >=u &((%C)[1]);
+;NOLIBCALL:           %mv.test6 = &((%C)[zext.i32.i64((1 + %M)) + -1]) >=u &((%D)[1]);
+;NOLIBCALL:           %mv.and7 = %mv.test5  &  %mv.test6;
+;NOLIBCALL:           if (%mv.and == 0 & %mv.and4 == 0 & %mv.and7 == 0)
 
 define dso_local void @foo(ptr nocapture noundef readonly %A, ptr nocapture noundef readonly %B, ptr nocapture noundef readonly %C, ptr nocapture noundef writeonly %D, i32 noundef %M) local_unnamed_addr #0 {
 entry:
@@ -70,6 +81,7 @@ for.body:                                         ; preds = %for.body.preheader,
 declare i32 @llvm.smax.i32(i32, i32)
 
 
+; It is previously lib call but now regular inlined for runtime DD checking.
 ; In this loop, there are 16 vals in total, and 13 of them are
 ; read-only vals. If there is a overlap between the 13 read-only vals,
 ; RTDD library call would not pass and it might result in further
@@ -77,6 +89,7 @@ declare i32 @llvm.smax.i32(i32, i32)
 ; But actually no matter read-only vals have overlap or not, the case could
 ; run to optimized path. So there is a heuristic to supress the runtime DD
 ; library call if only load Rvals are much more than Lvals.
+; To make it call library RTDD, we could try to add -hir-runtime-dd-read-dominance-threshold >= 5
 
 ;          BEGIN REGION { }
 ;               + DO i1 = 0, zext.i32.i64((1 + %n1)) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483648>  <LEGAL_MAX_TC = 2147483648>
@@ -113,11 +126,18 @@ declare i32 @llvm.smax.i32(i32, i32)
 ;               + END LOOP
 ;          END REGION
 
-; NOLIBCALL1-NOT: __intel_rtdd_indep
-; NOLIBCALL1:     %mv.test122 = &((%ic)[zext.i32.i64((1 + %n1)) + -1]) >=u &((%is)[0]);
-; NOLIBCALL1:     %mv.test123 = &((%is)[zext.i32.i64((1 + %n1)) + -1]) >=u &((%ic)[0]);
-; NOLIBCALL1:     %mv.and124 = %mv.test122  &  %mv.test123;
-; NOLIBCALL1:     if (%mv.and == 0 & %mv.and4 == 0
+; CHECK:            Function: P7Viterbi
+; CHECK:            (%dd)[0][15].0 = &((%is)[0]);
+; CHECK:            (%dd)[0][15].1 = &((%is)[zext.i32.i64((1 + %n1)) + -1]);
+; CHECK:            %call = @__intel_rtdd_indep(&((i8*)(%dd)[0]),  16);
+; CHECK:            if (%call == 0)  <MVTag: 89>
+
+; NOLIBCALL1:       Function: P7Viterbi
+; NOLIBCALL1-NOT:   __intel_rtdd_indep
+; NOLIBCALL1:       %mv.test122 = &((%ic)[zext.i32.i64((1 + %n1)) + -1]) >=u &((%is)[0]);
+; NOLIBCALL1:       %mv.test123 = &((%is)[zext.i32.i64((1 + %n1)) + -1]) >=u &((%ic)[0]);
+; NOLIBCALL1:       %mv.and124 = %mv.test122  &  %mv.test123;
+; NOLIBCALL1:       if (%mv.and == 0 & %mv.and4 == 0
 
 define dso_local float @P7Viterbi(ptr nocapture noundef writeonly %dsq, i32 noundef %L, ptr nocapture noundef readonly %ms, ptr nocapture noundef readonly %is, i32 noundef %n1, i32 noundef %n2, i32 noundef %n3, ptr nocapture noundef %mc, ptr nocapture noundef %dc, ptr nocapture noundef %ic, ptr nocapture noundef readonly %tpmm, ptr nocapture noundef readonly %tpmi, ptr nocapture noundef readonly %tpmd, ptr nocapture noundef readonly %tpim, ptr nocapture noundef readonly %tpii, ptr nocapture noundef readonly %tpdm, ptr nocapture noundef readonly %tpdd, ptr nocapture noundef readonly %bp, ptr nocapture noundef readonly %mpp, ptr nocapture noundef readnone %mpc, ptr nocapture noundef readonly %ip, ptr nocapture noundef readonly %dpp, i32 noundef %xmb) local_unnamed_addr #0 {
 entry:
