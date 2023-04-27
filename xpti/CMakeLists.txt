@@ -1,3 +1,20 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2023 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
 cmake_minimum_required(VERSION 3.8)
 
 set(XPTI_VERSION 0.4.1)
@@ -9,6 +26,8 @@ set(XPTI_DIR ${CMAKE_CURRENT_LIST_DIR})
 set(CMAKE_CXX_STANDARD 17)
 
 option(XPTI_ENABLE_WERROR OFF)
+
+intel_remove_intel_lib_deps() # INTEL
 
 if (XPTI_ENABLE_WERROR)
   if(MSVC)

@@ -299,6 +299,8 @@ intel_clear_stdlib()
 # end INTEL_CUSTOMIZATION
 endif()
 
+intel_remove_intel_lib_deps() # INTEL
+
 check_cxx_compiler_flag(-fsemantic-interposition HAS_SEMANTIC_INTERPOSITION_FLAG)
 if (HAS_SEMANTIC_INTERPOSITION_FLAG)
   # See https://github.com/llvm/llvm-project/issues/58295.
