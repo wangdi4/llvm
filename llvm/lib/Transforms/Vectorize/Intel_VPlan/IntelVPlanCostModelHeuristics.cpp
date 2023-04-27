@@ -433,7 +433,7 @@ VPInstructionCost HeuristicSpillFill::operator()(const VPBasicBlock *VPBlock,
     // instruction generally can occupy the same register as one of its
     // operand, unless all its operands are alive throughout the intruction.
     if (!SkipInstRes(&VPInst))
-      LiveValues[&VPInst] = 0;
+      LiveValues.erase(&VPInst);
 
     // Populate LiveValues for operands of given inst.
 
