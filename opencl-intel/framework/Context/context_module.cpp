@@ -164,6 +164,8 @@ void ContextModule::ShutDown(bool wait_for_finish) {
 
   m_pPlatformModule->RemoveAllDevices(true);
 
+// Intentionally disable this code due to shutdown issue
+#if 0
   // FIXME: Autorun kernels will hold some internal objects so that devices
   // can't be closed during shutdown process. This is a workaround that we
   // don't wait for devices to close in FPGA emulator device mode. And the right
@@ -187,6 +189,7 @@ void ContextModule::ShutDown(bool wait_for_finish) {
     m_pPlatformModule->WaitForAllDevices();
 #endif
   }
+#endif
 
   // At that point still some internal threads in different DLLs may handle
   // SharedPtr's destruction We need to wait until all of them will end their
