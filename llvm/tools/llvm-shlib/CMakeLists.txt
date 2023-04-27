@@ -1,3 +1,21 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2023 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
+
 # This tool creates a shared library from the LLVM libraries. Generating this
 # library is enabled by setting LLVM_BUILD_LLVM_DYLIB=yes on the CMake
 # commandline. By default the shared library only exports the LLVM C API.
@@ -188,9 +206,14 @@ if(LLVM_BUILD_LLVM_C_DYLIB AND MSVC)
   # Finally link the target.
   add_llvm_library(LLVM-C SHARED INSTALL_WITH_TOOLCHAIN ${SOURCES} DEPENDS intrinsics_gen)
 
+  # INTEL_CUSTOMIZATION
+  # CMPLRLLVM-46987
+  set_target_properties(LLVM-C PROPERTIES LINK_FLAGS "-ignore:4199 -NODEFAULTLIB:libcmt\.lib")
+  # end INTEL_CUSTOMIZATION
+
   if (LLVM_INTEGRATED_CRT_ALLOC AND MSVC)
     # Make sure we search LLVMSupport first, before the CRT libs
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -INCLUDE:malloc")
   endif()
-  
+
 endif()
