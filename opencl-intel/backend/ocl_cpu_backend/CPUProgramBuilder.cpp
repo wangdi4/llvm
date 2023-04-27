@@ -410,18 +410,19 @@ void CPUProgramBuilder::PostOptimizationProcessing(Program *pProgram) const {
                    "HostAccess mode is invalid");
             // Get the decoration name
             DecoName = cast<MDString>(Node->getOperand(2))->getString();
-          }
-        }
 
-        // If a device global has property device_image_scope, its member
-        // variable should be the base type. Otherwise, the member variable
-        // should be a USM pointer.
-        Type *DeviceGlobalTy =
-            cast<StructType>(GV.getValueType())->getElementType(0);
-        if (!DeviceGlobalTy->isPointerTy() ||
-            cast<PointerType>(DeviceGlobalTy)->getAddressSpace() ==
-                CompilationUtils::ADDRESS_SPACE_GENERIC) {
-          DeviceImageScope = true;
+            // If a device global has property device_image_scope, its member
+            // variable should be the base type. Otherwise, the member variable
+            // should be a USM pointer.
+            Type *DeviceGlobalTy =
+                cast<StructType>(GV.getValueType())->getElementType(0);
+            if (!DeviceGlobalTy->isPointerTy() ||
+                cast<PointerType>(DeviceGlobalTy)->getAddressSpace() ==
+                    CompilationUtils::ADDRESS_SPACE_GENERIC) {
+              DeviceImageScope = true;
+            }
+            break;
+          }
         }
       }
 
