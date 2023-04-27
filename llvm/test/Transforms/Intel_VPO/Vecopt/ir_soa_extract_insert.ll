@@ -6,7 +6,7 @@
 ; CHECK-NEXT:  [[OP2:%.*]] = sitofp <4 x i32> [[EXTRACT2]] to <4 x float>
 ; CHECK:  [[ADD:%.*]] = fadd <4 x float> [[OP2]], [[OP1]]
 ; CHECK:  [[RES1:%.*]] = fptosi <4 x float> [[ADD]] 
-; CHECK:  [[EXTEND:%.*]] = shufflevector <4 x i32> [[RES1]], <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK:  [[EXTEND:%.*]] = shufflevector <4 x i32> [[RES1]], <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison>
 ; CHECK:  shufflevector <8 x i32> %{{.*}}, <8 x i32> [[EXTEND]], <8 x i32> <i32 0, i32 8, i32 2, i32 9, i32 4, i32 10, i32 6, i32 11>
 
 @arr2p = external global <2 x i32>*, align 8
