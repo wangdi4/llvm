@@ -328,7 +328,11 @@ template <> class SYCLConfig<SYCL_ENABLE_DEFAULT_CONTEXTS> {
 
 public:
   static bool get() {
+    // INTEL_CUSTOMIZATION
+    // See
+    // https://github.com/intel-restricted/applications.compilers.llvm-project/pull/206.
 #ifdef _WIN32
+    // END INTEL_CUSTOMIZATION
     constexpr bool DefaultValue = false;
 #else
     constexpr bool DefaultValue = true;

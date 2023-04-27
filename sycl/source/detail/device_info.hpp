@@ -1,20 +1,3 @@
-// INTEL_CUSTOMIZATION
-//
-// INTEL CONFIDENTIAL
-//
-// Modifications, Copyright (C) 2021 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
 //==-------- device_info.hpp - SYCL device info methods --------------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -829,7 +812,7 @@ template <> inline uint32_t get_device_info_host<info::device::vendor_id>() {
 
 template <>
 inline uint32_t get_device_info_host<info::device::max_compute_units>() {
-  return 1;
+  return std::thread::hardware_concurrency();
 }
 
 template <>
@@ -928,6 +911,7 @@ get_device_info_host<info::device::ext_oneapi_max_work_groups_3d>() {
 
 template <>
 inline size_t get_device_info_host<info::device::max_work_group_size>() {
+  // current value is the required minimum
   return 1;
 }
 
