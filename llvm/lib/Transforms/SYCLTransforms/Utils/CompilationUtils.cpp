@@ -3232,5 +3232,27 @@ TinyPtrVector<DbgDeclareInst *> findDbgUses(Value *V) {
   return DIs;
 }
 
+Type *getLLVMTypeFromReflectionType(LLVMContext &C,
+                                    const reflection::RefParamType &PT) {
+  auto *ParamTy = PT.get();
+  auto *VPT = reflection::dyn_cast<reflection::VectorType>(ParamTy);
+  if (VPT)
+    ParamTy = VPT->getScalarType().get();
+  Type *Ty = StringSwitch<Type *>(ParamTy->toString())
+                 .Case("bool", Type::getInt1Ty(C))
+                 .EndsWith("char", Type::getInt8Ty(C))
+                 .EndsWith("short", Type::getInt16Ty(C))
+                 .EndsWith("int", Type::getInt32Ty(C))
+                 .EndsWith("long", Type::getInt64Ty(C))
+                 .Case("half", Type::getHalfTy(C))
+                 .Case("float", Type::getFloatTy(C))
+                 .Case("double", Type::getDoubleTy(C))
+                 .Default(nullptr);
+  assert(Ty && "Unhandled primitive type");
+  if (VPT)
+    Ty = FixedVectorType::get(Ty, VPT->getLength());
+  return Ty;
+}
+
 } // end namespace CompilationUtils
 } // end namespace llvm

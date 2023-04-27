@@ -17,6 +17,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/SYCLTransforms/LocalBufferAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/ImplicitArgsUtils.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/NameMangleAPI.h"
 #include <algorithm>
 
 using namespace llvm;
@@ -90,7 +91,7 @@ createLoadForTLSGlobalIfExists(IRBuilder<> &Builder, Module *M,
 Function *ResolveWICallPass::runOnFunction(Function *F) {
   this->F = F;
   Value *SpecialBuf = nullptr;
-  IRBuilder<> Builder(F->getContext());
+  IRBuilder<> Builder(*Ctx);
   if (UseTLSGlobals) {
     Builder.SetInsertPoint(dyn_cast<Instruction>(F->getEntryBlock().begin()));
     WorkInfo = createLoadForTLSGlobal(Builder, M,
@@ -174,13 +175,14 @@ Function *ResolveWICallPass::runOnFunction(Function *F) {
       ExtExecArgs.push_back(getOrCreateBlock2KernelMapper());
       // Add the RuntimeHandle arg if needed
       ExtExecArgs.push_back(RuntimeHandle);
-      NewRes = updateEnqueueKernelFunction(ExtExecArgs, CallbackName, CI);
+      NewRes =
+          updateEnqueueKernelFunction(Builder, ExtExecArgs, CallbackName, CI);
       assert(NewRes && "Expected non-NULL results");
     } break;
     case ICT_PREFETCH:
       addPrefetchDeclaration();
       // Substitute extern operand with function parameter
-      updatePrefetch(CI);
+      updatePrefetch(Builder, CI);
       // prefetch* function returns void, no need to replace its usages!
       break;
     default:
@@ -518,33 +520,31 @@ Value *ResolveWICallPass::updatePrintf(IRBuilder<> &Builder, CallInst *CI) {
   return Res;
 }
 
-void ResolveWICallPass::updatePrefetch(CallInst *CI) {
+void ResolveWICallPass::updatePrefetch(IRBuilder<> &Builder, CallInst *CI) {
   unsigned int SizeT = getPointerSize();
 
   // Create new call instruction with extended parameters.
   SmallVector<Value *, 4> Params;
   // push original parameters.
   // Need bitcast to a general pointer.
-  CastInst *BCPtr = CastInst::CreatePointerCast(
-      CI->getArgOperand(0), PointerType::get(IntegerType::get(*Ctx, 8), 0), "",
-      CI);
+  Builder.SetInsertPoint(CI);
+  Value *BCPtr = Builder.CreatePointerBitCastOrAddrSpaceCast(
+      CI->getArgOperand(0), PointerType::get(IntegerType::get(*Ctx, 8), 0));
   Params.push_back(BCPtr);
   // Put number of elements.
   Params.push_back(CI->getArgOperand(1));
-  // Distinguish element size.
-  PointerType *PTy = dyn_cast<PointerType>(CI->getArgOperand(0)->getType());
-  assert(PTy && "Must be a pointer");
-  Type *PT = PTy->getNonOpaquePointerElementType();
-
-  assert(PT->getPrimitiveSizeInBits() &&
-         "Not primitive type, not valid calculation");
-  Align Size = M->getDataLayout().getPrefTypeAlign(PT);
-
-  Params.push_back(
-      ConstantInt::get(IntegerType::get(*Ctx, SizeT), Size.value()));
+  // Get element size from mangled builtin name. The first argument of OpenCL
+  // prefetch builtin has OpenCL built-in scalar or vector data type.
+  auto FDesc = NameMangleAPI::demangle(CI->getCalledFunction()->getName());
+  Type *Ty = CompilationUtils::getLLVMTypeFromReflectionType(
+      *Ctx, reflection::cast<reflection::PointerType>(FDesc.Parameters[0].get())
+                ->getPointee());
+  assert(Ty && "invalid LLVM type from reflection::PointerType");
+  unsigned EltSize = M->getDataLayout().getTypeAllocSize(Ty);
+  Params.push_back(ConstantInt::get(IntegerType::get(*Ctx, SizeT), EltSize));
   Function *Prefetch = M->getFunction("__lprefetch");
   assert(Prefetch && "Missing '__lprefetch' function");
-  CallInst::Create(Prefetch, ArrayRef<Value *>(Params), "", CI);
+  Builder.CreateCall(Prefetch, ArrayRef<Value *>(Params));
 }
 
 FunctionType *ResolveWICallPass::getOrCreatePrintfFuncType() {
@@ -672,21 +672,9 @@ Type *ResolveWICallPass::getLocalMemBufType() const {
   return IntegerType::get(*Ctx, SizeT);
 }
 
-static bool isPointerToStructType(Type *Ty) {
-  // check it is pointer.
-  if (!Ty->isPointerTy())
-    return false;
-
-  Type *PtrTy = cast<PointerType>(Ty)->getNonOpaquePointerElementType();
-  // pointer type is struct.
-  if (!PtrTy->isStructTy())
-    return false;
-  return true;
-}
-
 Value *ResolveWICallPass::updateEnqueueKernelFunction(
-    SmallVectorImpl<Value *> &NewParams, const StringRef FuncName,
-    CallInst *CI) {
+    IRBuilder<> &Builder, SmallVectorImpl<Value *> &NewParams,
+    const StringRef FuncName, CallInst *CI) {
   // Bitcast types from built-in argument type to type of callback function's
   // argument.
   // Handles scenario when types like ndrange_t.3, clk_event.2, queue_t.5, etc
@@ -697,6 +685,7 @@ Value *ResolveWICallPass::updateEnqueueKernelFunction(
   Function *CbkF = M->getFunction(FuncName);
   assert(CbkF && "Missing callback function");
   Function::arg_iterator ArgIt = CbkF->arg_begin();
+  Builder.SetInsertPoint(CI);
   for (auto It = NewParams.begin(), E = NewParams.end(); It != E;
        ++It, ++ArgIt) {
     Value *&NewParam = *It;
@@ -708,32 +697,38 @@ Value *ResolveWICallPass::updateEnqueueKernelFunction(
     // check it is pointer.
     if (!NewParamTy->isPointerTy())
       llvm_unreachable("Unsupported type of argument");
-    Type *PtrTy =
-        cast<PointerType>(NewParamTy)->getNonOpaquePointerElementType();
-    // pointer type is struct.
-    if (PtrTy->isStructTy()) {
-      *It = CastInst::CreatePointerCast(NewParam, ExpectedArgTy, "", CI);
+    if (cast<PointerType>(NewParamTy)->isOpaque()) {
+      NewParam =
+          Builder.CreatePointerBitCastOrAddrSpaceCast(NewParam, ExpectedArgTy);
       continue;
-    }
-    // check pointer is to pointer.
-    if (!PtrTy->isPointerTy())
+    } else {
+      Type *PtrTy =
+          cast<PointerType>(NewParamTy)->getNonOpaquePointerElementType();
+      // pointer type is struct.
+      if (PtrTy->isStructTy()) {
+        *It = CastInst::CreatePointerCast(NewParam, ExpectedArgTy, "", CI);
+        continue;
+      }
+      // check pointer is to pointer.
+      if (!PtrTy->isPointerTy())
+        llvm_unreachable("Unsupported type of argument");
+      // double pointer points to structure.
+      Type *PPtrTy = cast<PointerType>(PtrTy)->getNonOpaquePointerElementType();
+      if (PPtrTy->isStructTy()) {
+        NewParam = CastInst::CreatePointerCast(NewParam, ExpectedArgTy, "", CI);
+        continue;
+      }
       llvm_unreachable("Unsupported type of argument");
-    // double pointer points to structure.
-    Type *PPtrTy = cast<PointerType>(PtrTy)->getNonOpaquePointerElementType();
-    if (PPtrTy->isStructTy()) {
-      NewParam = CastInst::CreatePointerCast(NewParam, ExpectedArgTy, "", CI);
-      continue;
     }
-    llvm_unreachable("Unsupported type of argument");
   }
-  CallInst *NewCI =
-      CallInst::Create(M->getFunction(FuncName), NewParams, "", CI);
+  CallInst *NewCI = Builder.CreateCall(M->getFunction(FuncName), NewParams);
 
-  // If return value type does not match return type, bitcast to return type.
+  // If return value type does not match return type, cast to return type.
   Value *Ret = NewCI;
-  if (CI->getType() != NewCI->getType()) {
-    if (isPointerToStructType(CI->getType()))
-      Ret = CastInst::CreatePointerCast(NewCI, CI->getType(), "", CI);
+  Type *RetTy = CI->getType();
+  if (RetTy != NewCI->getType()) {
+    if (RetTy->isPointerTy())
+      Ret = Builder.CreatePointerBitCastOrAddrSpaceCast(NewCI, RetTy);
     else
       llvm_unreachable("Unsupported type of Return value");
   }

@@ -872,6 +872,11 @@ bool isBlockInvocationKernel(Function *F);
 /// Find all dbg.declare users of a value.
 TinyPtrVector<DbgDeclareInst *> findDbgUses(Value *V);
 
+/// Given a reflection ParamType, return its corresponding LLVM type.
+/// This function may return nullptr if the parsing isn't supported yet.
+Type *getLLVMTypeFromReflectionType(LLVMContext &C,
+                                    const reflection::RefParamType &PT);
+
 } // namespace CompilationUtils
 } // namespace llvm
 
