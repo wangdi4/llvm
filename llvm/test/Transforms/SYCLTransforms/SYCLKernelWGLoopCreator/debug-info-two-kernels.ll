@@ -1,13 +1,13 @@
 ; This test checks that implicit GIDs are preserved if there are more than one
 ; kernels.
 ;
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-wgloop-creator %s -S | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent norecurse nounwind
-define void @foo(i32 addrspace(1)* noalias %dst) local_unnamed_addr #0 !dbg !6 !kernel_arg_addr_space !17 !kernel_arg_access_qual !18 !kernel_arg_type !19 !kernel_arg_base_type !19 !kernel_arg_type_qual !20 !kernel_arg_name !21 !kernel_arg_host_accessible !22 !kernel_arg_pipe_depth !23 !kernel_arg_pipe_io !20 !kernel_arg_buffer_location !20 !vectorized_kernel !24 !no_barrier_path !25 !kernel_has_sub_groups !22 !opencl.stats.Vectorizer.CanVect !17 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !23 !vectorized_width !17 !scalar_kernel !26 !kernel_execution_length !27 !kernel_has_barrier !22 !kernel_has_global_sync !22 !max_wg_dimensions !17 {
+define void @foo(ptr addrspace(1) noalias %dst) local_unnamed_addr #0 !dbg !6 !kernel_arg_addr_space !17 !kernel_arg_access_qual !18 !kernel_arg_type !19 !kernel_arg_base_type !19 !kernel_arg_type_qual !20 !kernel_arg_name !21 !kernel_arg_host_accessible !22 !kernel_arg_pipe_depth !23 !kernel_arg_pipe_io !20 !kernel_arg_buffer_location !20 !vectorized_kernel !24 !no_barrier_path !25 !kernel_has_sub_groups !22 !opencl.stats.Vectorizer.CanVect !17 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !23 !vectorized_width !17 !scalar_kernel !26 !kernel_execution_length !27 !kernel_has_barrier !22 !kernel_has_global_sync !22 !max_wg_dimensions !17 {
 entry:
 ; CHECK-LABEL: @foo
 ; CHECK: %__ocl_dbg_gid0 = alloca
@@ -15,32 +15,32 @@ entry:
 ; CHECK: %__ocl_dbg_gid2 = alloca
 
 ; CHECK: entryvector_func:
-; CHECK: store volatile i64 %dim_0_vector_ind_var, i64* %__ocl_dbg_gid0
-; CHECK: store volatile i64 %init.gid.dim1, i64* %__ocl_dbg_gid1
-; CHECK: store volatile i64 %init.gid.dim2, i64* %__ocl_dbg_gid2
+; CHECK: store volatile i64 %dim_0_vector_ind_var, ptr %__ocl_dbg_gid0
+; CHECK: store volatile i64 %init.gid.dim1, ptr %__ocl_dbg_gid1
+; CHECK: store volatile i64 %init.gid.dim2, ptr %__ocl_dbg_gid2
 
 ; CHECK: scalar_kernel_entry:
-; CHECK: store volatile i64 %dim_0_ind_var, i64* %__ocl_dbg_gid0
-; CHECK: store volatile i64 %init.gid.dim1, i64* %__ocl_dbg_gid1
-; CHECK: store volatile i64 %init.gid.dim2, i64* %__ocl_dbg_gid2
+; CHECK: store volatile i64 %dim_0_ind_var, ptr %__ocl_dbg_gid0
+; CHECK: store volatile i64 %init.gid.dim1, ptr %__ocl_dbg_gid1
+; CHECK: store volatile i64 %init.gid.dim2, ptr %__ocl_dbg_gid2
 
   %__ocl_dbg_gid0 = alloca i64, align 8
-  call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0, metadata !28, metadata !DIExpression()), !dbg !31
+  call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid0, metadata !28, metadata !DIExpression()), !dbg !31
   %GlobalID_0 = call i64 @_Z13get_global_idj(i32 0)
-  store volatile i64 %GlobalID_0, i64* %__ocl_dbg_gid0, align 8
+  store volatile i64 %GlobalID_0, ptr %__ocl_dbg_gid0, align 8
   %__ocl_dbg_gid1 = alloca i64, align 8
-  call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid1, metadata !32, metadata !DIExpression()), !dbg !31
+  call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid1, metadata !32, metadata !DIExpression()), !dbg !31
   %GlobalID_1 = call i64 @_Z13get_global_idj(i32 1)
-  store volatile i64 %GlobalID_1, i64* %__ocl_dbg_gid1, align 8
+  store volatile i64 %GlobalID_1, ptr %__ocl_dbg_gid1, align 8
   %__ocl_dbg_gid2 = alloca i64, align 8
-  call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid2, metadata !33, metadata !DIExpression()), !dbg !31
+  call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid2, metadata !33, metadata !DIExpression()), !dbg !31
   %GlobalID_2 = call i64 @_Z13get_global_idj(i32 2)
-  store volatile i64 %GlobalID_2, i64* %__ocl_dbg_gid2, align 8
-  call void @llvm.dbg.value(metadata i32 addrspace(1)* %dst, metadata !12, metadata !DIExpression()), !dbg !31
+  store volatile i64 %GlobalID_2, ptr %__ocl_dbg_gid2, align 8
+  call void @llvm.dbg.value(metadata ptr addrspace(1) %dst, metadata !12, metadata !DIExpression()), !dbg !31
   %call = tail call i64 @_Z13get_global_idj(i32 0) #5, !dbg !34
   call void @llvm.dbg.value(metadata i64 %call, metadata !13, metadata !DIExpression()), !dbg !31
-  %ptridx = getelementptr inbounds i32, i32 addrspace(1)* %dst, i64 %call, !dbg !35
-  store i32 0, i32 addrspace(1)* %ptridx, align 4, !dbg !36, !tbaa !37
+  %ptridx = getelementptr inbounds i32, ptr addrspace(1) %dst, i64 %call, !dbg !35
+  store i32 0, ptr addrspace(1) %ptridx, align 4, !dbg !36, !tbaa !37
   ret void, !dbg !41
 }
 
@@ -48,7 +48,7 @@ entry:
 declare i64 @_Z13get_global_idj(i32) local_unnamed_addr #1
 
 ; Function Attrs: convergent norecurse nounwind
-define void @bar(i32 addrspace(1)* noalias %dst) local_unnamed_addr #2 !dbg !42 !kernel_arg_addr_space !17 !kernel_arg_access_qual !18 !kernel_arg_type !19 !kernel_arg_base_type !19 !kernel_arg_type_qual !20 !kernel_arg_name !21 !kernel_arg_host_accessible !22 !kernel_arg_pipe_depth !23 !kernel_arg_pipe_io !20 !kernel_arg_buffer_location !20 !vectorized_kernel !46 !no_barrier_path !25 !kernel_has_sub_groups !22 !opencl.stats.Vectorizer.CanVect !17 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !23 !vectorized_width !17 !scalar_kernel !26 !kernel_execution_length !27 !kernel_has_barrier !22 !kernel_has_global_sync !22 !max_wg_dimensions !17 {
+define void @bar(ptr addrspace(1) noalias %dst) local_unnamed_addr #2 !dbg !42 !kernel_arg_addr_space !17 !kernel_arg_access_qual !18 !kernel_arg_type !19 !kernel_arg_base_type !19 !kernel_arg_type_qual !20 !kernel_arg_name !21 !kernel_arg_host_accessible !22 !kernel_arg_pipe_depth !23 !kernel_arg_pipe_io !20 !kernel_arg_buffer_location !20 !vectorized_kernel !46 !no_barrier_path !25 !kernel_has_sub_groups !22 !opencl.stats.Vectorizer.CanVect !17 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !23 !vectorized_width !17 !scalar_kernel !26 !kernel_execution_length !27 !kernel_has_barrier !22 !kernel_has_global_sync !22 !max_wg_dimensions !17 {
 entry:
 ; CHECK-LABEL: @bar
 ; CHECK: %__ocl_dbg_gid0 = alloca
@@ -56,39 +56,39 @@ entry:
 ; CHECK: %__ocl_dbg_gid2 = alloca
 
 ; CHECK: entryvector_func:
-; CHECK: store volatile i64 %dim_0_vector_ind_var, i64* %__ocl_dbg_gid0
-; CHECK: store volatile i64 %init.gid.dim1, i64* %__ocl_dbg_gid1
-; CHECK: store volatile i64 %init.gid.dim2, i64* %__ocl_dbg_gid2
+; CHECK: store volatile i64 %dim_0_vector_ind_var, ptr %__ocl_dbg_gid0
+; CHECK: store volatile i64 %init.gid.dim1, ptr %__ocl_dbg_gid1
+; CHECK: store volatile i64 %init.gid.dim2, ptr %__ocl_dbg_gid2
 
 ; CHECK: scalar_kernel_entry:
-; CHECK: store volatile i64 %dim_0_ind_var, i64* %__ocl_dbg_gid0
-; CHECK: store volatile i64 %init.gid.dim1, i64* %__ocl_dbg_gid1
-; CHECK: store volatile i64 %init.gid.dim2, i64* %__ocl_dbg_gid2
+; CHECK: store volatile i64 %dim_0_ind_var, ptr %__ocl_dbg_gid0
+; CHECK: store volatile i64 %init.gid.dim1, ptr %__ocl_dbg_gid1
+; CHECK: store volatile i64 %init.gid.dim2, ptr %__ocl_dbg_gid2
 
   %__ocl_dbg_gid0 = alloca i64, align 8
-  call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0, metadata !47, metadata !DIExpression()), !dbg !48
+  call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid0, metadata !47, metadata !DIExpression()), !dbg !48
   %GlobalID_0 = call i64 @_Z13get_global_idj(i32 0)
-  store volatile i64 %GlobalID_0, i64* %__ocl_dbg_gid0, align 8
+  store volatile i64 %GlobalID_0, ptr %__ocl_dbg_gid0, align 8
   %__ocl_dbg_gid1 = alloca i64, align 8
-  call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid1, metadata !49, metadata !DIExpression()), !dbg !48
+  call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid1, metadata !49, metadata !DIExpression()), !dbg !48
   %GlobalID_1 = call i64 @_Z13get_global_idj(i32 1)
-  store volatile i64 %GlobalID_1, i64* %__ocl_dbg_gid1, align 8
+  store volatile i64 %GlobalID_1, ptr %__ocl_dbg_gid1, align 8
   %__ocl_dbg_gid2 = alloca i64, align 8
-  call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid2, metadata !50, metadata !DIExpression()), !dbg !48
+  call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid2, metadata !50, metadata !DIExpression()), !dbg !48
   %GlobalID_2 = call i64 @_Z13get_global_idj(i32 2)
-  store volatile i64 %GlobalID_2, i64* %__ocl_dbg_gid2, align 8
-  call void @llvm.dbg.value(metadata i32 addrspace(1)* %dst, metadata !44, metadata !DIExpression()), !dbg !48
+  store volatile i64 %GlobalID_2, ptr %__ocl_dbg_gid2, align 8
+  call void @llvm.dbg.value(metadata ptr addrspace(1) %dst, metadata !44, metadata !DIExpression()), !dbg !48
   %call = tail call i64 @_Z13get_global_idj(i32 0) #5, !dbg !51
   call void @llvm.dbg.value(metadata i64 %call, metadata !45, metadata !DIExpression()), !dbg !48
-  %ptridx = getelementptr inbounds i32, i32 addrspace(1)* %dst, i64 %call, !dbg !52
-  store i32 1, i32 addrspace(1)* %ptridx, align 4, !dbg !53, !tbaa !37
+  %ptridx = getelementptr inbounds i32, ptr addrspace(1) %dst, i64 %call, !dbg !52
+  store i32 1, ptr addrspace(1) %ptridx, align 4, !dbg !53, !tbaa !37
   ret void, !dbg !54
 }
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
 declare void @llvm.dbg.value(metadata, metadata, metadata) #3
 
-define [7 x i64] @WG.boundaries.foo(i32 addrspace(1)* %0) !recommended_vector_length !55 {
+define [7 x i64] @WG.boundaries.foo(ptr addrspace(1) %0) !recommended_vector_length !55 {
 entry:
   %1 = call i64 @_Z14get_local_sizej(i32 0)
   %2 = call i64 @get_base_global_id.(i32 0)
@@ -110,7 +110,7 @@ declare i64 @_Z14get_local_sizej(i32)
 
 declare i64 @get_base_global_id.(i32)
 
-define [7 x i64] @WG.boundaries.bar(i32 addrspace(1)* %0) !recommended_vector_length !55 {
+define [7 x i64] @WG.boundaries.bar(ptr addrspace(1) %0) !recommended_vector_length !55 {
 entry:
   %1 = call i64 @_Z14get_local_sizej(i32 0)
   %2 = call i64 @get_base_global_id.(i32 0)
@@ -129,21 +129,20 @@ entry:
 }
 
 ; Function Attrs: convergent norecurse nounwind
-define void @_ZGVeN16u_foo(i32 addrspace(1)* noalias %dst) local_unnamed_addr #0 !dbg !56 !kernel_arg_addr_space !17 !kernel_arg_access_qual !18 !kernel_arg_type !19 !kernel_arg_base_type !19 !kernel_arg_type_qual !20 !kernel_arg_name !21 !kernel_arg_host_accessible !22 !kernel_arg_pipe_depth !23 !kernel_arg_pipe_io !20 !kernel_arg_buffer_location !20 !vectorized_kernel !26 !no_barrier_path !25 !kernel_has_sub_groups !22 !opencl.stats.Vectorizer.CanVect !17 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !23 !vectorized_width !55 !scalar_kernel !60 !kernel_execution_length !61 !kernel_has_barrier !22 !kernel_has_global_sync !22 !max_wg_dimensions !17 !recommended_vector_length !55 !vectorization_dimension !23 !can_unite_workgroups !25 {
+define void @_ZGVeN16u_foo(ptr addrspace(1) noalias %dst) local_unnamed_addr #0 !dbg !56 !kernel_arg_addr_space !17 !kernel_arg_access_qual !18 !kernel_arg_type !19 !kernel_arg_base_type !19 !kernel_arg_type_qual !20 !kernel_arg_name !21 !kernel_arg_host_accessible !22 !kernel_arg_pipe_depth !23 !kernel_arg_pipe_io !20 !kernel_arg_buffer_location !20 !vectorized_kernel !26 !no_barrier_path !25 !kernel_has_sub_groups !22 !opencl.stats.Vectorizer.CanVect !17 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !23 !vectorized_width !55 !scalar_kernel !60 !kernel_execution_length !61 !kernel_has_barrier !22 !kernel_has_global_sync !22 !max_wg_dimensions !17 !recommended_vector_length !55 !vectorization_dimension !23 !can_unite_workgroups !25 {
 entry:
   %__ocl_dbg_gid0 = alloca i64, align 8
   %GlobalID_0 = call i64 @_Z13get_global_idj(i32 0)
-  store volatile i64 %GlobalID_0, i64* %__ocl_dbg_gid0, align 8
+  store volatile i64 %GlobalID_0, ptr %__ocl_dbg_gid0, align 8
   %__ocl_dbg_gid1 = alloca i64, align 8
   %GlobalID_1 = call i64 @_Z13get_global_idj(i32 1)
-  store volatile i64 %GlobalID_1, i64* %__ocl_dbg_gid1, align 8
+  store volatile i64 %GlobalID_1, ptr %__ocl_dbg_gid1, align 8
   %__ocl_dbg_gid2 = alloca i64, align 8
   %GlobalID_2 = call i64 @_Z13get_global_idj(i32 2)
-  store volatile i64 %GlobalID_2, i64* %__ocl_dbg_gid2, align 8
+  store volatile i64 %GlobalID_2, ptr %__ocl_dbg_gid2, align 8
   %call = tail call i64 @_Z13get_global_idj(i32 0) #5, !dbg !62
-  %scalar.gep = getelementptr inbounds i32, i32 addrspace(1)* %dst, i64 %call, !dbg !63
-  %0 = bitcast i32 addrspace(1)* %scalar.gep to <16 x i32> addrspace(1)*, !dbg !64
-  store <16 x i32> zeroinitializer, <16 x i32> addrspace(1)* %0, align 4, !dbg !64
+  %scalar.gep = getelementptr inbounds i32, ptr addrspace(1) %dst, i64 %call, !dbg !63
+  store <16 x i32> zeroinitializer, ptr addrspace(1) %scalar.gep, align 4, !dbg !64
   ret void, !dbg !65
 }
 
@@ -154,21 +153,20 @@ declare token @llvm.directive.region.entry() #4
 declare void @llvm.directive.region.exit(token) #4
 
 ; Function Attrs: convergent norecurse nounwind
-define void @_ZGVeN16u_bar(i32 addrspace(1)* noalias %dst) local_unnamed_addr #2 !dbg !66 !kernel_arg_addr_space !17 !kernel_arg_access_qual !18 !kernel_arg_type !19 !kernel_arg_base_type !19 !kernel_arg_type_qual !20 !kernel_arg_name !21 !kernel_arg_host_accessible !22 !kernel_arg_pipe_depth !23 !kernel_arg_pipe_io !20 !kernel_arg_buffer_location !20 !vectorized_kernel !26 !no_barrier_path !25 !kernel_has_sub_groups !22 !opencl.stats.Vectorizer.CanVect !17 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !23 !vectorized_width !55 !scalar_kernel !70 !kernel_execution_length !61 !kernel_has_barrier !22 !kernel_has_global_sync !22 !max_wg_dimensions !17 !recommended_vector_length !55 !vectorization_dimension !23 !can_unite_workgroups !25 {
+define void @_ZGVeN16u_bar(ptr addrspace(1) noalias %dst) local_unnamed_addr #2 !dbg !66 !kernel_arg_addr_space !17 !kernel_arg_access_qual !18 !kernel_arg_type !19 !kernel_arg_base_type !19 !kernel_arg_type_qual !20 !kernel_arg_name !21 !kernel_arg_host_accessible !22 !kernel_arg_pipe_depth !23 !kernel_arg_pipe_io !20 !kernel_arg_buffer_location !20 !vectorized_kernel !26 !no_barrier_path !25 !kernel_has_sub_groups !22 !opencl.stats.Vectorizer.CanVect !17 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !23 !vectorized_width !55 !scalar_kernel !70 !kernel_execution_length !61 !kernel_has_barrier !22 !kernel_has_global_sync !22 !max_wg_dimensions !17 !recommended_vector_length !55 !vectorization_dimension !23 !can_unite_workgroups !25 {
 entry:
   %__ocl_dbg_gid0 = alloca i64, align 8
   %GlobalID_0 = call i64 @_Z13get_global_idj(i32 0)
-  store volatile i64 %GlobalID_0, i64* %__ocl_dbg_gid0, align 8
+  store volatile i64 %GlobalID_0, ptr %__ocl_dbg_gid0, align 8
   %__ocl_dbg_gid1 = alloca i64, align 8
   %GlobalID_1 = call i64 @_Z13get_global_idj(i32 1)
-  store volatile i64 %GlobalID_1, i64* %__ocl_dbg_gid1, align 8
+  store volatile i64 %GlobalID_1, ptr %__ocl_dbg_gid1, align 8
   %__ocl_dbg_gid2 = alloca i64, align 8
   %GlobalID_2 = call i64 @_Z13get_global_idj(i32 2)
-  store volatile i64 %GlobalID_2, i64* %__ocl_dbg_gid2, align 8
+  store volatile i64 %GlobalID_2, ptr %__ocl_dbg_gid2, align 8
   %call = tail call i64 @_Z13get_global_idj(i32 0) #5, !dbg !71
-  %scalar.gep = getelementptr inbounds i32, i32 addrspace(1)* %dst, i64 %call, !dbg !72
-  %0 = bitcast i32 addrspace(1)* %scalar.gep to <16 x i32> addrspace(1)*, !dbg !73
-  store <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>, <16 x i32> addrspace(1)* %0, align 4, !dbg !73
+  %scalar.gep = getelementptr inbounds i32, ptr addrspace(1) %dst, i64 %call, !dbg !72
+  store <16 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>, ptr addrspace(1) %scalar.gep, align 4, !dbg !73
   ret void, !dbg !74
 }
 
@@ -191,7 +189,7 @@ attributes #5 = { convergent nounwind readnone }
 !2 = !{}
 !3 = !{i32 7, !"Dwarf Version", i32 4}
 !4 = !{i32 2, !"Debug Info Version", i32 3}
-!5 = !{void (i32 addrspace(1)*)* @foo, void (i32 addrspace(1)*)* @bar}
+!5 = !{ptr @foo, ptr @bar}
 !6 = distinct !DISubprogram(name: "foo", scope: !1, file: !1, line: 1, type: !7, scopeLine: 1, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition | DISPFlagOptimized, unit: !0, retainedNodes: !11)
 !7 = !DISubroutineType(cc: DW_CC_LLVM_OpenCLKernel, types: !8)
 !8 = !{null, !9}
@@ -210,7 +208,7 @@ attributes #5 = { convergent nounwind readnone }
 !21 = !{!"dst"}
 !22 = !{i1 false}
 !23 = !{i32 0}
-!24 = !{void (i32 addrspace(1)*)* @_ZGVeN16u_foo}
+!24 = !{ptr @_ZGVeN16u_foo}
 !25 = !{i1 true}
 !26 = !{null}
 !27 = !{i32 6}
@@ -232,7 +230,7 @@ attributes #5 = { convergent nounwind readnone }
 !43 = !{!44, !45}
 !44 = !DILocalVariable(name: "dst", arg: 1, scope: !42, file: !1, line: 6, type: !9)
 !45 = !DILocalVariable(name: "gid", scope: !42, file: !1, line: 7, type: !14)
-!46 = !{void (i32 addrspace(1)*)* @_ZGVeN16u_bar}
+!46 = !{ptr @_ZGVeN16u_bar}
 !47 = !DILocalVariable(name: "__ocl_dbg_gid0", scope: !42, file: !29, line: 1, type: !30, flags: DIFlagArtificial)
 !48 = !DILocation(line: 0, scope: !42)
 !49 = !DILocalVariable(name: "__ocl_dbg_gid1", scope: !42, file: !29, line: 1, type: !30, flags: DIFlagArtificial)
@@ -246,7 +244,7 @@ attributes #5 = { convergent nounwind readnone }
 !57 = !{!58, !59}
 !58 = !DILocalVariable(name: "dst", arg: 1, scope: !56, file: !1, line: 1, type: !9)
 !59 = !DILocalVariable(name: "gid", scope: !56, file: !1, line: 2, type: !14)
-!60 = !{void (i32 addrspace(1)*)* @foo}
+!60 = !{ptr @foo}
 !61 = !{i32 5}
 !62 = !DILocation(line: 2, column: 16, scope: !56)
 !63 = !DILocation(line: 3, column: 3, scope: !56)
@@ -256,7 +254,7 @@ attributes #5 = { convergent nounwind readnone }
 !67 = !{!68, !69}
 !68 = !DILocalVariable(name: "dst", arg: 1, scope: !66, file: !1, line: 6, type: !9)
 !69 = !DILocalVariable(name: "gid", scope: !66, file: !1, line: 7, type: !14)
-!70 = !{void (i32 addrspace(1)*)* @bar}
+!70 = !{ptr @bar}
 !71 = !DILocation(line: 7, column: 16, scope: !66)
 !72 = !DILocation(line: 8, column: 3, scope: !66)
 !73 = !DILocation(line: 8, column: 12, scope: !66)
