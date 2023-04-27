@@ -295,10 +295,8 @@ class SimplifyCFGOpt {
   bool tryToSimplifyUncondBranchWithICmpInIt(ICmpInst *ICI,
                                              IRBuilder<> &Builder);
 
-  bool HoistThenElseCodeToIf(BranchInst *BI, const TargetTransformInfo &TTI,
-                             bool EqTermsOnly);
-  bool SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
-                              const TargetTransformInfo &TTI);
+  bool HoistThenElseCodeToIf(BranchInst *BI, bool EqTermsOnly);
+  bool SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB);
   bool SimplifyTerminatorOnSelect(Instruction *OldTerm, Value *Cond,
                                   BasicBlock *TrueBB, BasicBlock *FalseBB,
                                   uint32_t TrueWeight, uint32_t FalseWeight);
@@ -1536,9 +1534,7 @@ static bool passingValueIsAlwaysUndefined(Value *V, Instruction *I, bool PtrValu
 /// guarantees that BI's block dominates BB1 and BB2. If EqTermsOnly is given,
 /// only perform hoisting in case both blocks only contain a terminator. In that
 /// case, only the original BI will be replaced and selects for PHIs are added.
-bool SimplifyCFGOpt::HoistThenElseCodeToIf(BranchInst *BI,
-                                           const TargetTransformInfo &TTI,
-                                           bool EqTermsOnly) {
+bool SimplifyCFGOpt::HoistThenElseCodeToIf(BranchInst *BI, bool EqTermsOnly) {
   // This does very trivial matching, with limited scanning, to find identical
   // instructions in the two blocks.  In particular, we don't want to get into
   // O(M*N) situations here where M and N are the sizes of BB1 and BB2.  As
@@ -2891,8 +2887,8 @@ static bool validateAndCostRequiredSelects(BasicBlock *BB, BasicBlock *ThenBB,
 /// \endcode
 ///
 /// \returns true if the conditional block is removed.
-bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
-                                            const TargetTransformInfo &TTI) {
+bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI,
+                                            BasicBlock *ThenBB) {
   // Be conservative for now. FP select instruction can often be expensive.
   Value *BrCond = BI->getCondition();
   if (isa<FCmpInst>(BrCond))
@@ -8684,8 +8680,7 @@ bool SimplifyCFGOpt::simplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder) {
   // can hoist it up to the branching block.
   if (BI->getSuccessor(0)->getSinglePredecessor()) {
     if (BI->getSuccessor(1)->getSinglePredecessor()) {
-      if (HoistCommon &&
-          HoistThenElseCodeToIf(BI, TTI, !Options.HoistCommonInsts))
+      if (HoistCommon && HoistThenElseCodeToIf(BI, !Options.HoistCommonInsts))
         return requestResimplify();
     } else {
       // If Successor #1 has multiple preds, we may be able to conditionally
@@ -8693,7 +8688,7 @@ bool SimplifyCFGOpt::simplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder) {
       Instruction *Succ0TI = BI->getSuccessor(0)->getTerminator();
       if (Succ0TI->getNumSuccessors() == 1 &&
           Succ0TI->getSuccessor(0) == BI->getSuccessor(1))
-        if (SpeculativelyExecuteBB(BI, BI->getSuccessor(0), TTI))
+        if (SpeculativelyExecuteBB(BI, BI->getSuccessor(0)))
           return requestResimplify();
     }
   } else if (BI->getSuccessor(1)->getSinglePredecessor()) {
@@ -8702,7 +8697,7 @@ bool SimplifyCFGOpt::simplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder) {
     Instruction *Succ1TI = BI->getSuccessor(1)->getTerminator();
     if (Succ1TI->getNumSuccessors() == 1 &&
         Succ1TI->getSuccessor(0) == BI->getSuccessor(0))
-      if (SpeculativelyExecuteBB(BI, BI->getSuccessor(1), TTI))
+      if (SpeculativelyExecuteBB(BI, BI->getSuccessor(1)))
         return requestResimplify();
   }
 
