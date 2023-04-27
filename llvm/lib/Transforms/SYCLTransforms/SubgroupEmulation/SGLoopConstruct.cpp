@@ -21,8 +21,6 @@ using namespace llvm;
 using namespace SYCLKernelMetadataAPI;
 using namespace CompilationUtils;
 
-extern bool SYCLEnableSubGroupEmulation;
-
 PreservedAnalyses SGLoopConstructPass::run(Module &M,
                                            ModuleAnalysisManager &AM) {
   const SGSizeInfo *SSI = &AM.getResult<SGSizeAnalysisPass>(M);
@@ -34,9 +32,6 @@ PreservedAnalyses SGLoopConstructPass::run(Module &M,
 }
 
 bool SGLoopConstructPass::runImpl(Module &M, const SGSizeInfo *SSI) {
-  if (!SYCLEnableSubGroupEmulation)
-    return false;
-
   Helper.initialize(M);
   FunctionsNeedEmulation = Helper.getAllFunctionsNeedEmulation();
   if (FunctionsNeedEmulation.empty())
