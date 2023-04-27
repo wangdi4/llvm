@@ -13,6 +13,7 @@ include(FetchContent)
 include(CheckIncludeFile)
 include(CheckSymbolExists)
 include(CheckCSourceCompiles)
+include(CheckTypeSize)
 
 #set repo
 if(INTEL_CUSTOMIZATION)
@@ -28,6 +29,8 @@ endif(INTEL_CUSTOMIZATION)
 
 #set hwloc version
 set(HWLOC_TAG hwloc-2.9.0)
+set(hwloc_patch git apply ${CMAKE_CURRENT_SOURCE_DIR}/fix_coverity_issues.patch)
+
 message(STATUS "Fetch HWLOC project from ${HWLOC_REPO}")
 
 #set args for download hwloc project
@@ -35,6 +38,7 @@ FetchContent_Declare(hwloc
   GIT_REPOSITORY    ${HWLOC_REPO}
   GIT_TAG           ${HWLOC_TAG}
   GIT_SHALLOW    TRUE
+  PATCH_COMMAND ${hwloc_patch}
   UPDATE_DISCONNECTED 1
  )
 
@@ -61,6 +65,12 @@ FetchContent_Declare(hwloc
     set(SIZEOF_UNSIGNED_LONG 8)
     set(HWLOC_SIZEOF_UNSIGNED_LONG 8)
   endif()
+
+  check_type_size("unsigned int" HWLOC_SIZEOF_UNSIGNED_INT 
+    BUILTIN_TYPES_ONLY LANGUAGE C)
+
+  check_type_size("unsigned long" HWLOC_SIZEOF_UNSIGNED_LONG 
+    BUILTIN_TYPES_ONLY LANGUAGE C)
 
   if(WIN32)
     set(HWLOC_WIN_SYS 1)

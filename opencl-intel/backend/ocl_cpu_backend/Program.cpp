@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2010-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -214,6 +214,8 @@ void Program::Serialize(IOutputStream &ost, SerializationStatus *stats) const {
       Serializer::SerialString(deco_name, ost);
       Serializer::SerialPrimitive<unsigned int>(&gv.host_access, ost);
     }
+    if (OCL_CACHED_BINARY_VERSION >= 20)
+      Serializer::SerialPrimitive<bool>(&gv.device_image_scope, ost);
     tmp = (unsigned long long int)gv.size;
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
   }
@@ -271,6 +273,9 @@ void Program::Deserialize(IInputStream &ist, SerializationStatus *stats) {
       Serializer::DeserialPrimitive<unsigned int>(
           &m_globalVariables[i].host_access, ist);
     }
+    if (OCL_CACHED_BINARY_VERSION >= 20)
+      Serializer::DeserialPrimitive<bool>(
+          &m_globalVariables[i].device_image_scope, ist);
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
     m_globalVariables[i].size = (size_t)tmp;
   }

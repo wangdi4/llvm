@@ -653,10 +653,10 @@
 /* #undef HWLOC_RSMI_COMPONENT_BUILTIN */
 
 /* The size of `unsigned int', as computed by sizeof */
-#define HWLOC_SIZEOF_UNSIGNED_INT 4
+#cmakedefine HWLOC_SIZEOF_UNSIGNED_INT @HWLOC_SIZEOF_UNSIGNED_INT@
 
 /* The size of `unsigned long', as computed by sizeof */
-#define HWLOC_SIZEOF_UNSIGNED_LONG 8
+#cmakedefine HWLOC_SIZEOF_UNSIGNED_LONG @HWLOC_SIZEOF_UNSIGNED_LONG@
 
 /* Define to 1 on Solaris */
 /* #undef HWLOC_SOLARIS_SYS */

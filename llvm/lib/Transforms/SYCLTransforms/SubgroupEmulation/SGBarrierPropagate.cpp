@@ -15,14 +15,9 @@
 using namespace llvm;
 using namespace CompilationUtils;
 
-extern bool SYCLEnableSubGroupEmulation;
-
 #define DEBUG_TYPE "sycl-kernel-sg-emu-barrier-propagate"
 
 bool SGBarrierPropagatePass::runImpl(Module &M, const SGSizeInfo *SSI) {
-  if (!SYCLEnableSubGroupEmulation)
-    return false;
-
   Helper.initialize(M);
 
   FuncVec WorkList;

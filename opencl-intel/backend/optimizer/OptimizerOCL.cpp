@@ -70,6 +70,7 @@
 using namespace llvm;
 
 extern bool SYCLForceOptnone;
+extern bool SYCLEnableSubGroupEmulation;
 extern cl::opt<bool> SYCLEnableO0Vectorization; // INTEL
 
 namespace Intel {
@@ -782,7 +783,7 @@ void OptimizerOCL::addBarrierPasses(ModulePassManager &MPM) const {
     MPM.addPass(RemoveDuplicatedBarrierPass(m_debugType == intel::Native));
   }
 
-  if (!SYCLEnableO0Vectorization) { // INTEL
+  if (SYCLEnableSubGroupEmulation) {
     // Begin sub-group emulation
     MPM.addPass(SGBuiltinPass(getVectInfos()));
     MPM.addPass(SGBarrierPropagatePass());

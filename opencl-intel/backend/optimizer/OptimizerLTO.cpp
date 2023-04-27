@@ -65,7 +65,7 @@ using namespace llvm;
 // If set, then optimization passes will process functions as if they have the
 // optnone attribute.
 extern bool SYCLForceOptnone;
-
+extern bool SYCLEnableSubGroupEmulation;
 extern cl::opt<bool> SYCLEnableO0Vectorization; // INTEL
 
 namespace Intel {
@@ -630,7 +630,7 @@ void OptimizerLTO::addBarrierPasses(ModulePassManager &MPM,
     MPM.addPass(RemoveDuplicatedBarrierPass(m_debugType == intel::Native));
   }
 
-  if (!SYCLEnableO0Vectorization) { // INTEL
+  if (SYCLEnableSubGroupEmulation) {
     // Begin sub-group emulation
     MPM.addPass(SGBuiltinPass(getVectInfos()));
     MPM.addPass(SGBarrierPropagatePass());

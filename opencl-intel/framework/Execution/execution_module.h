@@ -444,6 +444,10 @@ private:
   OclKernelEventMapTy m_OclKernelEventMap;
   EventsManager *m_pEventsManager; // Placeholder for all active events.
 
+  Program *m_pActiveProgram; // FPGA devices only support a single program at a
+                             // time, this variable is used to emulate such
+                             // behavior on FPGA emulator.
+
   ocl_entry_points *m_pOclEntryPoints;
 
   ocl_gpa_data *m_pGPAData;

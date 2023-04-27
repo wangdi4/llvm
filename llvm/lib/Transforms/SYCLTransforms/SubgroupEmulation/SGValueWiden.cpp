@@ -27,8 +27,6 @@ using namespace llvm;
 using namespace CompilationUtils;
 using namespace LoopUtils;
 
-extern bool SYCLEnableSubGroupEmulation;
-
 #define DEBUG_TYPE "sycl-kernel-sg-emu-value-widen"
 
 static std::string encodeVectorVariant(Function *F, unsigned EmuSize) {
@@ -55,9 +53,6 @@ static std::string encodeVectorVariant(Function *F, unsigned EmuSize) {
 PreservedAnalyses SGValueWidenPass::run(Module &M, ModuleAnalysisManager &AM) {
   const SGSizeInfo &SSI = AM.getResult<SGSizeAnalysisPass>(M);
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-
-  if (!SYCLEnableSubGroupEmulation)
-    return PreservedAnalyses::all();
 
   Helper.initialize(M);
   FunctionsToBeWidened = Helper.getAllFunctionsNeedEmulation();

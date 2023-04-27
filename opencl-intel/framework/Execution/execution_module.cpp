@@ -99,8 +99,9 @@ void callbackForKernelEventMap(cl_event Evt, ExecutionModule *EM) {
  ******************************************************************/
 ExecutionModule::ExecutionModule(PlatformModule *pPlatformModule,
                                  ContextModule *pContextModule)
-    : m_pContextModule(pContextModule), m_pOclCommandQueueMap(NULL),
-      m_pEventsManager(NULL), m_pOclEntryPoints(NULL), m_pGPAData(NULL) {
+    : m_pContextModule(pContextModule), m_pOclCommandQueueMap(nullptr),
+      m_pEventsManager(nullptr), m_pActiveProgram(nullptr),
+      m_pOclEntryPoints(nullptr), m_pGPAData(nullptr) {
   INIT_LOGGER_CLIENT(TEXT("ExecutionModel"), LL_DEBUG);
 
   LOG_DEBUG(TEXT("%s"), TEXT("ExecutionModule created"));
@@ -2132,6 +2133,23 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
   }
 #endif
 
+  SharedPtr<Program> program = pKernel->GetProgram();
+
+  // SYCL extension device global requires that when a device global is
+  // decorated with property device_image_scope, the implementation need to
+  // re-initializes it whenever the device image is loaded onto the device. And
+  // for fpga deivce, it only allows a single device program at a time. This
+  // means we need to reset device globals with the property when user trying to
+  // launch a kernel from an inactive device program.
+  if (isFPGAEmulator && m_pActiveProgram != program.GetPtr()) {
+    m_pActiveProgram = program.GetPtr();
+    errVal = program->ResetDeviceImageScopeGlobalVariable(
+        pCommandQueue->GetQueueDeviceHandle());
+
+    if (CL_FAILED(errVal))
+      return errVal;
+  }
+
   // Kernel serialization.
   // If we have the same kernel being enqueued on FPGA emulator several
   // times - we don't want two or more instances of this kernel being
@@ -2152,14 +2170,13 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
   // patch must be reverted and actually I don't know if kernel
   // serialization is possible in this case.
   bool updatedEventList = false;
-  // Do nothing in case of multi-device program
-  // Process kernel serialization only for out-of-order queues, so the
-  // runtime won't change any user's custom logic in his/her program.
-  SharedPtr<Program> program = pKernel->GetProgram();
 
   // Set a tracker event to track kernel execution.
   cl_event trackerEvent = nullptr;
 
+  // Do nothing in case of multi-device program
+  // Process kernel serialization only for out-of-order queues, so the
+  // runtime won't change any user's custom logic in his/her program.
   if (isFPGAEmulator && (program->GetNumDevices() == 1) &&
       pKernel->GetDeviceKernel(pDevice.GetPtr())->NeedSerializeWGs() &&
       pCommandQueue->IsOutOfOrderExecModeEnabled()) {
