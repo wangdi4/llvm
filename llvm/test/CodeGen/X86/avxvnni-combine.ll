@@ -110,9 +110,11 @@ define <2 x i64> @foo_128(i32 %0, <2 x i64> %1, <2 x i64> %2, ptr %3) {
 ; SPR-NEXT:  .LBB1_8: # =>This Inner Loop Header: Depth=1
 ; SPR-NEXT:    {vex} vpdpwssd -48(%rdi), %xmm1, %xmm0
 ; SPR-NEXT:    vpmaddwd -32(%rdi), %xmm1, %xmm2
+; if INTEL_CUSTOMIZATION
+; SPR-NEXT:    vpmaddwd -16(%rdi), %xmm1, %xmm3
 ; SPR-NEXT:    vpaddd %xmm2, %xmm0, %xmm0
-; SPR-NEXT:    vpmaddwd -16(%rdi), %xmm1, %xmm2
-; SPR-NEXT:    vpaddd %xmm2, %xmm0, %xmm0
+; SPR-NEXT:    vpaddd %xmm3, %xmm0, %xmm0
+; end
 ; SPR-NEXT:    vpmaddwd (%rdi), %xmm1, %xmm2
 ; SPR-NEXT:    vpaddd %xmm2, %xmm0, %xmm0
 ; SPR-NEXT:    addq $4, %rcx
@@ -313,12 +315,13 @@ define void @bar_128(i32 %0, ptr %1, <2 x i64> %2, ptr %3) {
 ; SPR-NEXT:    xorl %ecx, %ecx
 ; SPR-NEXT:    .p2align 4, 0x90
 ; SPR-NEXT:  .LBB2_7: # =>This Inner Loop Header: Depth=1
-; SPR-NEXT:    vmovdqa -16(%rsi,%r8), %xmm1
-; SPR-NEXT:    vmovdqa (%rsi,%r8), %xmm2
-; SPR-NEXT:    {vex} vpdpwssd -16(%rdx,%r8), %xmm0, %xmm1
-; SPR-NEXT:    vmovdqa %xmm1, -16(%rsi,%r8)
-; SPR-NEXT:    vpmaddwd (%rdx,%r8), %xmm0, %xmm1
-; SPR-NEXT:    vpaddd %xmm1, %xmm2, %xmm1
+; if INTEL_CUSTOMIZATION
+; SPR-NEXT:    vmovdqa (%rsi,%r8), %xmm1
+; SPR-NEXT:    vpmaddwd -16(%rdx,%r8), %xmm0, %xmm2
+; SPR-NEXT:    vpaddd -16(%rsi,%r8), %xmm2, %xmm2
+; SPR-NEXT:    vmovdqa %xmm2, -16(%rsi,%r8)
+; SPR-NEXT:    {vex} vpdpwssd (%rdx,%r8), %xmm0, %xmm1
+; end
 ; SPR-NEXT:    vmovdqa %xmm1, (%rsi,%r8)
 ; SPR-NEXT:    addq $2, %rcx
 ; SPR-NEXT:    addq $32, %r8
@@ -329,9 +332,11 @@ define void @bar_128(i32 %0, ptr %1, <2 x i64> %2, ptr %3) {
 ; SPR-NEXT:    je .LBB2_5
 ; SPR-NEXT:  # %bb.4:
 ; SPR-NEXT:    shlq $4, %rcx
-; SPR-NEXT:    vpmaddwd (%rdx,%rcx), %xmm0, %xmm0
-; SPR-NEXT:    vpaddd (%rsi,%rcx), %xmm0, %xmm0
-; SPR-NEXT:    vmovdqa %xmm0, (%rsi,%rcx)
+; if INTEL_CUSTOMIZATION
+; SPR-NEXT:    vmovdqa (%rsi,%rcx), %xmm1
+; SPR-NEXT:    {vex} vpdpwssd (%rdx,%rcx), %xmm0, %xmm1
+; SPR-NEXT:    vmovdqa %xmm1, (%rsi,%rcx)
+; end
 ; SPR-NEXT:  .LBB2_5:
 ; SPR-NEXT:    retq
 ;
@@ -543,9 +548,11 @@ define <4 x i64> @foo_256(i32 %0, <4 x i64> %1, <4 x i64> %2, ptr %3) {
 ; SPR-NEXT:  .LBB4_8: # =>This Inner Loop Header: Depth=1
 ; SPR-NEXT:    {vex} vpdpwssd -96(%rdi), %ymm1, %ymm0
 ; SPR-NEXT:    vpmaddwd -64(%rdi), %ymm1, %ymm2
+; if INTEL_CUSTOMIZATION
+; SPR-NEXT:    vpmaddwd -32(%rdi), %ymm1, %ymm3
 ; SPR-NEXT:    vpaddd %ymm2, %ymm0, %ymm0
-; SPR-NEXT:    vpmaddwd -32(%rdi), %ymm1, %ymm2
-; SPR-NEXT:    vpaddd %ymm2, %ymm0, %ymm0
+; SPR-NEXT:    vpaddd %ymm3, %ymm0, %ymm0
+; end
 ; SPR-NEXT:    vpmaddwd (%rdi), %ymm1, %ymm2
 ; SPR-NEXT:    vpaddd %ymm2, %ymm0, %ymm0
 ; SPR-NEXT:    addq $4, %rcx
@@ -754,12 +761,13 @@ define void @bar_256(i32 %0, ptr %1, <4 x i64> %2, ptr %3) {
 ; SPR-NEXT:    xorl %ecx, %ecx
 ; SPR-NEXT:    .p2align 4, 0x90
 ; SPR-NEXT:  .LBB5_7: # =>This Inner Loop Header: Depth=1
-; SPR-NEXT:    vmovdqa -32(%rsi,%r8), %ymm1
-; SPR-NEXT:    vmovdqa (%rsi,%r8), %ymm2
-; SPR-NEXT:    {vex} vpdpwssd -32(%rdx,%r8), %ymm0, %ymm1
-; SPR-NEXT:    vmovdqa %ymm1, -32(%rsi,%r8)
-; SPR-NEXT:    vpmaddwd (%rdx,%r8), %ymm0, %ymm1
-; SPR-NEXT:    vpaddd %ymm1, %ymm2, %ymm1
+; if INTEL_CUSTOMIZATION
+; SPR-NEXT:    vmovdqa (%rsi,%r8), %ymm1
+; SPR-NEXT:    vpmaddwd -32(%rdx,%r8), %ymm0, %ymm2
+; SPR-NEXT:    vpaddd -32(%rsi,%r8), %ymm2, %ymm2
+; SPR-NEXT:    vmovdqa %ymm2, -32(%rsi,%r8)
+; SPR-NEXT:    {vex} vpdpwssd (%rdx,%r8), %ymm0, %ymm1
+; end
 ; SPR-NEXT:    vmovdqa %ymm1, (%rsi,%r8)
 ; SPR-NEXT:    addq $2, %rcx
 ; SPR-NEXT:    addq $64, %r8
@@ -770,9 +778,10 @@ define void @bar_256(i32 %0, ptr %1, <4 x i64> %2, ptr %3) {
 ; SPR-NEXT:    je .LBB5_5
 ; SPR-NEXT:  # %bb.4:
 ; SPR-NEXT:    shlq $5, %rcx
-; SPR-NEXT:    vpmaddwd (%rdx,%rcx), %ymm0, %ymm0
-; SPR-NEXT:    vpaddd (%rsi,%rcx), %ymm0, %ymm0
-; SPR-NEXT:    vmovdqa %ymm0, (%rsi,%rcx)
+; if INTEL_CUSTOMIZATION
+; SPR-NEXT:    vmovdqa (%rsi,%rcx), %ymm1
+; SPR-NEXT:    {vex} vpdpwssd (%rdx,%rcx), %ymm0, %ymm1
+; SPR-NEXT:    vmovdqa %ymm1, (%rsi,%rcx)
 ; SPR-NEXT:  .LBB5_5:
 ; SPR-NEXT:    vzeroupper
 ; SPR-NEXT:    retq
