@@ -25,6 +25,9 @@
 
 #pragma once
 
+#warning                                                                       \
+    "CL/sycl/INTEL/dot_product.hpp is deprecated, use sycl/ext/oneapi/dot_product.hpp instead."
+
 namespace sycl {
 __SYCL_INLINE_VER_NAMESPACE(_V1) {
 namespace intel {
