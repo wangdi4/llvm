@@ -1,4 +1,4 @@
-// Copyright 2010-2022 Intel Corporation.
+// Copyright 2010-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -394,6 +394,7 @@ void CPUProgramBuilder::PostOptimizationProcessing(Program *pProgram) const {
 
       // Try to get decorations for device globals.
       StringRef DecoName = "";
+      bool DeviceImageScope = false;
       unsigned int HostAccessMode = HOST_ACCESS_READ_WRITE;
       if (MDNode *DecoMD = GV.getMetadata("spirv.Decorations")) {
         for (const MDOperand &MDOp : DecoMD->operands()) {
@@ -411,11 +412,22 @@ void CPUProgramBuilder::PostOptimizationProcessing(Program *pProgram) const {
             DecoName = cast<MDString>(Node->getOperand(2))->getString();
           }
         }
+
+        // If a device global has property device_image_scope, its member
+        // variable should be the base type. Otherwise, the member variable
+        // should be a USM pointer.
+        Type *DeviceGlobalTy =
+            cast<StructType>(GV.getValueType())->getElementType(0);
+        if (!DeviceGlobalTy->isPointerTy() ||
+            cast<PointerType>(DeviceGlobalTy)->getAddressSpace() ==
+                CompilationUtils::ADDRESS_SPACE_GENERIC) {
+          DeviceImageScope = true;
+        }
       }
 
       GlobalVariables.push_back({STRDUP(GV.getName().str().c_str()),
                                  STRDUP(DecoName.str().c_str()), HostAccessMode,
-                                 Size, nullptr});
+                                 DeviceImageScope, Size, nullptr});
     }
     pProgram->SetGlobalVariableTotalSize(GlobalVariableTotalSize);
     pProgram->SetGlobalVariables(std::move(GlobalVariables));

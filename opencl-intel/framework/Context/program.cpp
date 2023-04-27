@@ -144,6 +144,28 @@ cl_err_code Program::GetDeviceGlobalVariablePointer(cl_device_id device,
   return CL_SUCCESS;
 }
 
+cl_err_code Program::ResetDeviceImageScopeGlobalVariable(cl_device_id device) {
+  DeviceProgram *deviceProgram = InternalGetDeviceProgram(device);
+  if (!deviceProgram)
+    return CL_INVALID_DEVICE;
+
+  // Program already built?
+  if (CL_BUILD_SUCCESS != deviceProgram->GetBuildStatus())
+    return CL_INVALID_PROGRAM_EXECUTABLE;
+
+  if (!Finalize())
+    return CL_INVALID_PROGRAM_EXECUTABLE;
+
+  const std::map<std::string, cl_prog_gv> &gvs =
+      deviceProgram->GetGlobalVariablePointers();
+
+  for (const auto &gv : gvs)
+    if (gv.second.device_image_scope)
+      (void)memset(gv.second.pointer, 0, gv.second.size);
+
+  return CL_SUCCESS;
+}
+
 cl_err_code Program::AllocUSMForGVPointers() {
   for (cl_uint i = 0; i < m_szNumAssociatedDevices; ++i) {
     DeviceProgram *deviceProgram = m_ppDevicePrograms[i].get();
