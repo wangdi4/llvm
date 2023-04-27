@@ -80,7 +80,6 @@ struct RTLInfoTy {
                                          int32_t, int32_t, int32_t, void *,
                                          __tgt_async_info *);
   typedef void *(get_context_handle_ty)(int32_t);
-  typedef void *(data_alloc_managed_ty)(int32_t, int64_t);
   typedef void *(data_realloc_ty)(int32_t, void *, size_t, int32_t);
   typedef void *(data_aligned_alloc_ty)(int32_t, size_t, size_t, int32_t);
   typedef bool (register_host_pointer_ty)(int32_t, void *, size_t);
@@ -192,7 +191,6 @@ struct RTLInfoTy {
   get_device_name_ty *get_device_name = nullptr;
   run_team_nd_region_ty *run_team_nd_region = nullptr;
   get_context_handle_ty *get_context_handle = nullptr;
-  data_alloc_managed_ty *data_alloc_managed = nullptr;
   data_realloc_ty *data_realloc = nullptr;
   data_aligned_alloc_ty *data_aligned_alloc = nullptr;
   register_host_pointer_ty *register_host_pointer = nullptr;

@@ -453,72 +453,72 @@ bool RTLsTy::attemptLoadRTL(const std::string &RTLName, RTLInfoTy &RTL) {
       DynLibrary->getAddressOfSymbol("__tgt_rtl_init_async_info");
   *((void **)&RTL.init_device_info) =
       DynLibrary->getAddressOfSymbol("__tgt_rtl_init_device_info");
+
 #if INTEL_COLLAB
-    #define SET_OPTIONAL_INTERFACE(entry, name)                                \
-      do {                                                                     \
-        if ((*((void **)&RTL.entry) =                                            \
-            DynLibrary->getAddressOfSymbol("__tgt_rtl_" #name)))               \
-          DP("Optional interface: __tgt_rtl_" #name "\n");                     \
-      } while (0)
-    #define SET_OPTIONAL_INTERFACE_FN(name) SET_OPTIONAL_INTERFACE(name, name)
-    SET_OPTIONAL_INTERFACE_FN(data_alloc_base);
-    SET_OPTIONAL_INTERFACE_FN(data_alloc_managed);
-    SET_OPTIONAL_INTERFACE_FN(data_realloc);
-    SET_OPTIONAL_INTERFACE_FN(data_aligned_alloc);
-    SET_OPTIONAL_INTERFACE_FN(register_host_pointer);
-    SET_OPTIONAL_INTERFACE_FN(unregister_host_pointer);
-    SET_OPTIONAL_INTERFACE_FN(get_device_name);
-    SET_OPTIONAL_INTERFACE_FN(get_context_handle);
-    SET_OPTIONAL_INTERFACE_FN(get_data_alloc_info);
+#define SET_OPTIONAL_INTERFACE(Entry, Name)                                    \
+  do {                                                                         \
+    if ((*((void **)&RTL.Entry) =                                              \
+             DynLibrary->getAddressOfSymbol("__tgt_rtl_" #Name)))              \
+      DP("Optional interface: __tgt_rtl_" #Name "\n");                         \
+  } while (0)
+#define SET_OPTIONAL_INTERFACE_FN(Name) SET_OPTIONAL_INTERFACE(Name, Name)
+  SET_OPTIONAL_INTERFACE_FN(data_alloc_base);
+  SET_OPTIONAL_INTERFACE_FN(data_realloc);
+  SET_OPTIONAL_INTERFACE_FN(data_aligned_alloc);
+  SET_OPTIONAL_INTERFACE_FN(register_host_pointer);
+  SET_OPTIONAL_INTERFACE_FN(unregister_host_pointer);
+  SET_OPTIONAL_INTERFACE_FN(get_device_name);
+  SET_OPTIONAL_INTERFACE_FN(get_context_handle);
+  SET_OPTIONAL_INTERFACE_FN(get_data_alloc_info);
 #if INTEL_CUSTOMIZATION
-    SET_OPTIONAL_INTERFACE_FN(init_ompt);
+  SET_OPTIONAL_INTERFACE_FN(init_ompt);
 #endif // INTEL_CUSTOMIZATION
-    SET_OPTIONAL_INTERFACE_FN(requires_mapping);
-    SET_OPTIONAL_INTERFACE_FN(manifest_data_for_region);
-    SET_OPTIONAL_INTERFACE_FN(push_subdevice);
-    SET_OPTIONAL_INTERFACE_FN(pop_subdevice);
-    SET_OPTIONAL_INTERFACE_FN(add_build_options);
-    SET_OPTIONAL_INTERFACE_FN(is_supported_device);
+  SET_OPTIONAL_INTERFACE_FN(requires_mapping);
+  SET_OPTIONAL_INTERFACE_FN(manifest_data_for_region);
+  SET_OPTIONAL_INTERFACE_FN(push_subdevice);
+  SET_OPTIONAL_INTERFACE_FN(pop_subdevice);
+  SET_OPTIONAL_INTERFACE_FN(add_build_options);
+  SET_OPTIONAL_INTERFACE_FN(is_supported_device);
 #if INTEL_CUSTOMIZATION
-    SET_OPTIONAL_INTERFACE_FN(create_interop);
-    SET_OPTIONAL_INTERFACE_FN(release_interop);
-    SET_OPTIONAL_INTERFACE_FN(use_interop);
-    SET_OPTIONAL_INTERFACE_FN(get_num_interop_properties);
-    SET_OPTIONAL_INTERFACE_FN(get_interop_property_value);
-    SET_OPTIONAL_INTERFACE_FN(get_interop_property_info);
-    SET_OPTIONAL_INTERFACE_FN(get_interop_rc_desc);
+  SET_OPTIONAL_INTERFACE_FN(create_interop);
+  SET_OPTIONAL_INTERFACE_FN(release_interop);
+  SET_OPTIONAL_INTERFACE_FN(use_interop);
+  SET_OPTIONAL_INTERFACE_FN(get_num_interop_properties);
+  SET_OPTIONAL_INTERFACE_FN(get_interop_property_value);
+  SET_OPTIONAL_INTERFACE_FN(get_interop_property_info);
+  SET_OPTIONAL_INTERFACE_FN(get_interop_rc_desc);
 #endif // INTEL_CUSTOMIZATION
-    SET_OPTIONAL_INTERFACE_FN(get_num_sub_devices);
-    SET_OPTIONAL_INTERFACE_FN(is_accessible_addr_range);
+  SET_OPTIONAL_INTERFACE_FN(get_num_sub_devices);
+  SET_OPTIONAL_INTERFACE_FN(is_accessible_addr_range);
 #if INTEL_CUSTOMIZATION
-    SET_OPTIONAL_INTERFACE_FN(notify_indirect_access);
+  SET_OPTIONAL_INTERFACE_FN(notify_indirect_access);
 #endif // INTEL_CUSTOMIZATION
-    SET_OPTIONAL_INTERFACE_FN(is_private_arg_on_host);
-    SET_OPTIONAL_INTERFACE_FN(command_batch_begin);
-    SET_OPTIONAL_INTERFACE_FN(command_batch_end);
-    SET_OPTIONAL_INTERFACE_FN(kernel_batch_begin);
-    SET_OPTIONAL_INTERFACE_FN(kernel_batch_end);
-    SET_OPTIONAL_INTERFACE_FN(set_function_ptr_map);
-    SET_OPTIONAL_INTERFACE_FN(alloc_per_hw_thread_scratch);
-    SET_OPTIONAL_INTERFACE_FN(free_per_hw_thread_scratch);
-    SET_OPTIONAL_INTERFACE(run_team_nd_region, run_target_team_nd_region);
-    SET_OPTIONAL_INTERFACE_FN(get_device_info);
-    SET_OPTIONAL_INTERFACE_FN(data_aligned_alloc_shared);
-    SET_OPTIONAL_INTERFACE_FN(prefetch_shared_mem);
-    SET_OPTIONAL_INTERFACE_FN(get_device_from_ptr);
+  SET_OPTIONAL_INTERFACE_FN(is_private_arg_on_host);
+  SET_OPTIONAL_INTERFACE_FN(command_batch_begin);
+  SET_OPTIONAL_INTERFACE_FN(command_batch_end);
+  SET_OPTIONAL_INTERFACE_FN(kernel_batch_begin);
+  SET_OPTIONAL_INTERFACE_FN(kernel_batch_end);
+  SET_OPTIONAL_INTERFACE_FN(set_function_ptr_map);
+  SET_OPTIONAL_INTERFACE_FN(alloc_per_hw_thread_scratch);
+  SET_OPTIONAL_INTERFACE_FN(free_per_hw_thread_scratch);
+  SET_OPTIONAL_INTERFACE(run_team_nd_region, run_target_team_nd_region);
+  SET_OPTIONAL_INTERFACE_FN(get_device_info);
+  SET_OPTIONAL_INTERFACE_FN(data_aligned_alloc_shared);
+  SET_OPTIONAL_INTERFACE_FN(prefetch_shared_mem);
+  SET_OPTIONAL_INTERFACE_FN(get_device_from_ptr);
 #if INTEL_CUSTOMIZATION
-    SET_OPTIONAL_INTERFACE_FN(flush_queue);
-    SET_OPTIONAL_INTERFACE_FN(sync_barrier);
-    SET_OPTIONAL_INTERFACE_FN(async_barrier);
-    SET_OPTIONAL_INTERFACE_FN(memcpy_rect_3d);
-#endif
-    #undef SET_OPTIONAL_INTERFACE
-    #undef SET_OPTIONAL_INTERFACE_FN
+  SET_OPTIONAL_INTERFACE_FN(flush_queue);
+  SET_OPTIONAL_INTERFACE_FN(sync_barrier);
+  SET_OPTIONAL_INTERFACE_FN(async_barrier);
+  SET_OPTIONAL_INTERFACE_FN(memcpy_rect_3d);
+#endif // INTEL_CUSTOMIZATION
+#undef SET_OPTIONAL_INTERFACE
+#undef SET_OPTIONAL_INTERFACE_FN
 
 #if INTEL_CUSTOMIZATION
-    // Initialize RTL's OMPT data
-    if (RTL.init_ompt)
-      RTL.init_ompt(OmptGlobal);
+  // Initialize RTL's OMPT data
+  if (RTL.init_ompt)
+    RTL.init_ompt(OmptGlobal);
 #endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
   *((void **)&RTL.data_lock) =

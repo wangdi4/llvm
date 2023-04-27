@@ -1383,20 +1383,39 @@ VPlanTTICostModel::getTTICostForVF(const VPInstruction *VPInst, unsigned VF) {
     return 0;
 
   case VPInstruction::CompressExpandIndexInit:
-    return TTI.getVectorInstrCost(Instruction::InsertElement,
-                                  getWidenedType(VPInst->getType(), VF),
-                                  TTI::TCK_RecipThroughput, 0);
+    return 0;
 
   case VPInstruction::CompressExpandIndexInc: {
-    Type *ElType = VPInst->getType();
-    VectorType *VecType = getWidenedType(ElType, VF);
     VPInstructionCost Cost = 0;
-    Cost += TTI.getIntrinsicInstrCost(
-        IntrinsicCostAttributes(Intrinsic::vector_reduce_add, ElType,
-                                {VecType}),
-        TTI::TCK_RecipThroughput);
-    Cost += TTI.getVectorInstrCost(Instruction::InsertElement, VecType,
-                                   TTI::TCK_RecipThroughput, 0);
+    Type *IntTy = IntegerType::get(*Plan->getLLVMContext(), VF);
+    int64_t Stride = cast<VPConstant>(VPInst->getOperand(2))->getSExtValue();
+    if (Stride == 1) {
+      // For non-unit strided compress/expand we already have CompressExpandMask
+      // instruction generated with the same llvm.ctpop intrinsic call.
+      Type *MaskTy = FixedVectorType::get(
+          IntegerType::getInt1Ty(*Plan->getLLVMContext()), VF);
+      Cost += TTI.getCastInstrCost(Instruction::BitCast, IntTy, MaskTy,
+                                   TTI::CastContextHint::None,
+                                   TTI::TCK_RecipThroughput);
+      Cost += TTI.getIntrinsicInstrCost(
+          IntrinsicCostAttributes(Intrinsic::ctpop, IntTy, {IntTy}),
+          TTI::TCK_RecipThroughput);
+    }
+    Type *TargetTy = VPInst->getType();
+    Cost += TTI.getCastInstrCost(Instruction::ZExt, IntTy, TargetTy,
+                                 TTI::CastContextHint::None,
+                                 TTI::TCK_RecipThroughput);
+    if (Stride != 1)
+      Cost += TTI.getArithmeticInstrCost(
+          Instruction::Mul, TargetTy, TargetTransformInfo::TCK_RecipThroughput,
+          {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None},
+          {TargetTransformInfo::OK_UniformConstantValue,
+           isPowerOf2_32(Stride) ? TargetTransformInfo::OP_PowerOf2
+                                 : TargetTransformInfo::OP_None});
+    Cost += TTI.getArithmeticInstrCost(
+        Instruction::Add, TargetTy, TargetTransformInfo::TCK_RecipThroughput,
+        {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None},
+        {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None});
     return Cost;
   }
 

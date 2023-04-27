@@ -2710,11 +2710,12 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
                  llvm::any_of(Inst->users(), IsUsedByCompressExpandLoadStore);
         };
 
+    VPConstant *Stride = Plan.getVPConstant(
+        ConstantInt::get(Exit->getType(), CEIdiom->TotalStride));
+
     // If idiom's loads/stores are non-unit strided, CompressExpandIndex
     // instruction has to be created for each index instruction.
     if (!UnitStrided) {
-      VPConstant *Stride = Plan.getVPConstant(ConstantInt::get(
-          Type::getInt64Ty(*Plan.getLLVMContext()), CEIdiom->TotalStride));
       for (VPInstruction *Index : CEIdiom->Indices) {
         if (isa<VPPHINode>(Index))
           Builder.setInsertPointFirstNonPhi(Index->getParent());
@@ -2730,13 +2731,54 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
     }
     CEIdiom->Indices.clear();
 
+    // Create a chain of PHI instructions generating vector of i1 values
+    // equivalent to the mask compress/expand load/store instruction is being
+    // executed under.
+    Type *MaskPhiType = Type::getInt1Ty(*Plan.getLLVMContext());
+    std::function<VPPHINode *(VPPHINode *)> GenerateMaskPhi =
+        [&](VPPHINode *OrigPhi) {
+          Builder.setInsertPoint(OrigPhi);
+          VPPHINode *MaskPhi = Builder.createPhiInstruction(MaskPhiType);
+          for (unsigned I = 0; I < OrigPhi->getNumIncomingValues(); I++) {
+
+            VPValue *V = OrigPhi->getIncomingValue(I);
+            assert(isa<VPPHINode>(V) ||
+                   isa<VPInstruction>(V) &&
+                       CEIdiom->Increments.count(cast<VPInstruction>(V)) &&
+                       "Incoming PHI value should be either another PHI "
+                       "instruction or one of the increment instructions.");
+
+            VPValue *MaskV;
+            if (isa<VPPHINode>(V) && V != CEIdiom->RecurrentPhi)
+              MaskV = GenerateMaskPhi(cast<VPPHINode>(V));
+            else
+              MaskV = Plan.getVPConstant(ConstantInt::get(
+                  MaskPhiType, V == CEIdiom->RecurrentPhi ? 0 : 1));
+            MaskPhi->addIncoming(MaskV, OrigPhi->getIncomingBlock(I));
+          }
+          return MaskPhi;
+        };
+    VPPHINode *MaskPhi = GenerateMaskPhi(cast<VPPHINode>(Exit));
+
     // Add an index adjustment instruction into the loop latch.
     Builder.setInsertPointFirstNonPhi(Exit->getParent());
     VPInstruction *CEIndexInc = Builder.createNaryOp(
-        VPInstruction::CompressExpandIndexInc, Exit->getType(), {});
+        VPInstruction::CompressExpandIndexInc, Exit->getType(),
+        {CEIdiom->RecurrentPhi, MaskPhi, Stride});
     Exit->replaceAllUsesWith(CEIndexInc);
-    CEIndexInc->addOperand(Exit);
     CEIdiom->Increments.clear();
+
+    std::queue<VPInstruction *> Worklist({Exit});
+    while (!Worklist.empty()) {
+      VPInstruction *Inst = Worklist.front();
+      Worklist.pop();
+      if (Inst->getNumUsers())
+        continue;
+      for (auto *Op : Inst->operands())
+        if (auto *I = dyn_cast<VPInstruction>(Op))
+          Worklist.push(I);
+      Inst->getParent()->eraseInstruction(Inst);
+    }
   }
 }
 
