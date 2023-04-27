@@ -576,19 +576,29 @@ bool FrameworkProxy::NeedToDisableAPIsAtShutdown() const {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // FrameworkProxy::Destroy()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-void FrameworkProxy::Destroy() { Instance()->Release(true); }
+void FrameworkProxy::Destroy() {
+#if 0
+  // Disable it to avoid conflict with atexit() callback, we will refine the
+  // shutdown process after we merged all dynamic libraries into one.
+  if (Instance()->NeedToDisableAPIsAtShutdown()) {
+    // If this function is being called during process shutdown AND we
+    // should just disable external APIs. Do not delete or release
+    // anything as it may cause a deadlock.
+    if (TERMINATED != gGlobalState)
+      Instance()->Release(true);
+  } else
+    Instance()->Release(true);
+#endif
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // FrameworkProxy::Release()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void FrameworkProxy::Release(bool bTerminate) {
-// Intentionally disable this code on windows due to shutdown issue
-#if !defined(_WIN32)
   // Many modules assume that FrameWorkProxy singleton, execution_module,
   // context_module and platform_module exist all the time -> we must ensure
   // that everything is shut down before deleting them.
-  m_pContextModule->ShutDown(true);
-#endif
+  Instance()->m_pContextModule->ShutDown(true);
 
   if (nullptr != m_pExecutionModule) {
     m_pExecutionModule->Release(bTerminate);
@@ -601,10 +611,7 @@ void FrameworkProxy::Release(bool bTerminate) {
   }
 
   if (nullptr != m_pPlatformModule) {
-// Intentionally disable this code on windows due to shutdown issue
-#if !defined(_WIN32)
     m_pPlatformModule->Release(bTerminate);
-#endif
     delete m_pPlatformModule;
   }
 
