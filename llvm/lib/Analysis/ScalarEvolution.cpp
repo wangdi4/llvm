@@ -264,7 +264,7 @@ static cl::opt<bool>
 static cl::opt<unsigned> NoWrapUserTrackingThreshold(
     "scalar-evolution-nowrap-user-tracking-threshold", cl::Hidden,
     cl::desc("Maximum number of users to track for nowrap propagation"),
-    cl::init(40));
+    cl::init(45));
 #endif //INTEL_CUSTOMIZATION
 
 static cl::opt<bool> UseExpensiveRangeSharpening(
@@ -8063,6 +8063,47 @@ getRefinedFlagsUsingConstantFolding(const Value *Val, unsigned OrigOpcode,
                                                 IdentityVal, Flags);
 }
 
+// Collect \p OrigBinOp's SCEVable users transitively up to limit \p UserLimit.
+static void collectOrigBinOpUsers(const OverflowingBinaryOperator *OrigBinOp,
+                                  SmallPtrSetImpl<const Value *> &UserSet,
+                                  ScalarEvolution &OtherSE,
+                                  unsigned UserLimit) {
+
+  SmallVector<const Value *, 8> WorkList;
+  SmallPtrSet<const Value *, 8> Visited;
+  WorkList.push_back(OrigBinOp);
+
+  do {
+    auto *CurVal = WorkList.pop_back_val();
+
+    for (auto *ValUser : CurVal->users()) {
+      if (isa<CmpInst>(ValUser) || !OtherSE.isSCEVable(ValUser->getType()))
+        continue;
+
+      // Handle cycles by ignoring visited users.
+      if (!Visited.insert(ValUser).second)
+        continue;
+
+      auto *UserSCEV = OtherSE.getSCEV(const_cast<User *>(ValUser));
+
+      // If the SCEV form of this user is itself, we can ignore it.
+      if (auto *Unknown = dyn_cast<SCEVUnknown>(UserSCEV)) {
+        if (Unknown->getValue() == ValUser)
+          continue;
+      }
+
+      UserSet.insert(ValUser);
+
+      if (!--UserLimit) {
+        return;
+      }
+
+      WorkList.push_back(ValUser);
+    }
+
+  } while (!WorkList.empty());
+}
+
 bool ScalarEvolution::hasWrapSafeUses(
     const Value *Val, const OverflowingBinaryOperator *OrigBinOp,
     const SCEV *OrigSCEV, ScalarEvolution &OtherSE,
@@ -8079,6 +8120,12 @@ bool ScalarEvolution::hasWrapSafeUses(
 
   SmallVector<const Value *, 8> WorkList;
   SmallPtrSet<const Value *, 8> Visited;
+
+  SmallPtrSet<const Value *, 16> OrigBinOpTransitiveUsers;
+
+  unsigned UserLimit = NoWrapUserTrackingThreshold / 2;
+  collectOrigBinOpUsers(OrigBinOp, OrigBinOpTransitiveUsers, OtherSE,
+                        UserLimit);
 
   WorkList.push_back(Val);
 
@@ -8115,6 +8162,13 @@ bool ScalarEvolution::hasWrapSafeUses(
           // cannot invalidate the analysis.
           continue;
         }
+      }
+
+      // We can ignore any transitive user of OrigBinOp. Even though we ignore
+      // OrigBinOp at the start of the for loop we can encounter its users
+      // through another instruction.
+      if (OrigBinOpTransitiveUsers.count(ValUser)) {
+        continue;
       }
 
       // Keep tracing through certain instructions which we think are safe.
