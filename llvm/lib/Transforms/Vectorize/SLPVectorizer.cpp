@@ -11604,11 +11604,6 @@ Value *BoUpSLP::createBuildVector(const TreeEntry *E) {
         // process to keep correct order.
         return Delayed;
       }
-#if INTEL_CUSTOMIZATION
-      if (any_of(Entries,
-                 [&](const TreeEntry *E) { return PostponedGathers.count(E); }))
-        PostponedGathers.insert(E);
-#endif // INTEL_CUSTOMIZATION
       assert((Entries.size() == 1 || Entries.size() == 2) &&
              "Expected shuffle of 1 or 2 entries.");
       if (*GatherShuffle == TTI::SK_PermuteSingleSrc &&
@@ -12752,15 +12747,8 @@ Value *BoUpSLP::vectorizeTree(
     // buildvector nodes already.
     auto It = PostponedValues.find(PrevVec);
     if (It != PostponedValues.end()) {
-#if INTEL_CUSTOMIZATION
-      for (TreeEntry *VTE : It->getSecond()) {
+      for (TreeEntry *VTE : It->getSecond())
         VTE->VectorizedValue = Vec;
-        // Since VectorizedValue for VTE entry is updated we need to push it
-        // into PostponedValues because it might be required during next
-        // iterations over PostponedNodes.
-        PostponedValues[Vec].push_back(VTE);
-      }
-#endif // INTEL_CUSTOMIZATION
     }
     eraseInstruction(PrevVec);
   }
