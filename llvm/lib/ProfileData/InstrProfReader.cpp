@@ -548,7 +548,6 @@ template <class IntPtrT>
 Error RawInstrProfReader<IntPtrT>::readHeader(
     const RawInstrProf::Header &Header) {
   Version = swap(Header.Version);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (GET_VERSION(Version) != RawInstrProf::Version) {
     std::string Message =
@@ -557,7 +556,6 @@ Error RawInstrProfReader<IntPtrT>::readHeader(
     return error(instrprof_error::unsupported_version, Message);
   }
 #endif // INTEL_CUSTOMIZATION
-=======
   if (GET_VERSION(Version) != RawInstrProf::Version)
     return error(instrprof_error::raw_profile_version_mismatch,
                  ("Profile uses raw profile format version = " +
@@ -566,7 +564,6 @@ Error RawInstrProfReader<IntPtrT>::readHeader(
                   "\nPLEASE update this tool to version in the raw profile, or "
                   "regenerate raw profile with expected version.")
                      .str());
->>>>>>> 17cfd2e025cb3aa929ad219c6ed0974d6198bf5b
   if (useDebugInfoCorrelate() && !Correlator)
     return error(instrprof_error::missing_debug_info_for_correlation);
   if (!useDebugInfoCorrelate() && Correlator)
