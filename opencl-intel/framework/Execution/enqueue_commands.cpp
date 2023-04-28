@@ -1962,7 +1962,7 @@ ReadHostPipeIntelFPGACommand::ReadHostPipeIntelFPGACommand(
 }
 
 cl_err_code ReadHostPipeIntelFPGACommand::Execute() {
-  if (nullptr == m_pDst || nullptr == m_pDst)
+  if (nullptr == m_pDst || nullptr == m_pipeBS)
     return CL_INVALID_VALUE;
 
   NotifyCmdStatusChanged(CL_RUNNING, CL_SUCCESS,

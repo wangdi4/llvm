@@ -1112,7 +1112,7 @@ std::string getWorkGroupSortCopyName(StringRef SortFuncName, bool ToScratch) {
                                      : NAME_WORK_GROUP_PRIVATE_SORT_COPY;
 
   reflection::FunctionDescriptor SortFD = demangle(SortFuncName);
-  for (auto TypeIter : SortFD.Parameters) {
+  for (auto &TypeIter : SortFD.Parameters) {
     // Not add mask to copy builtin params, now assume sort is uniform
     // Only mask param in vector workgroup sort builtin is vector of uint
     if (TypeIter->getTypeId() == reflection::TYPE_ID_VECTOR) {
@@ -2356,7 +2356,7 @@ static void pushWGSortBuiltinVectInfo(reflection::TypeVector KeyValueParams,
   // Get mangled name of scalar builtin
   reflection::TypeVector ScalarParams;
   std::vector<llvm::VFParamKind> ParamKinds;
-  for (auto Param : KeyValueParams) {
+  for (auto &Param : KeyValueParams) {
     ParamKinds.push_back(llvm::VFParamKind::Vector);
     ScalarParams.push_back(Param);
   }
