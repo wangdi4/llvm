@@ -174,18 +174,7 @@ int main() {
   check_convert_from<double>();
   check_convert_from<bool>();
 
-<<<<<<< HEAD
-  // Check convert() from and to various types.
-  check_convert_from<int8_t>();
-  check_convert_from<int16_t>();
-  check_convert_from<int32_t>();
-  check_convert_from<int64_t>();
-  check_convert_from<sycl::half>();
-  check_convert_from<float>();
-  check_convert_from<double>();
-=======
   check_ops<int>(std::modulus(), 6, 3);
->>>>>>> 68e13d41f9c34eb2ecbcd034c16eaa69619fefb6
 
   return 0;
 }
