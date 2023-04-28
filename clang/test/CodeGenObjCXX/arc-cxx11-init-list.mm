@@ -1,7 +1,4 @@
-// INTEL_CUSTOMIZATION
-// Added -mllvm -xmain-enable-gep0-removal.
-// RUN: %clang_cc1 -mllvm -xmain-enable-gep0-removal -no-enable-noundef-analysis -triple armv7-ios5.0 -std=c++11 -fmerge-all-constants -fobjc-arc -Os -emit-llvm -o - %s | FileCheck %s
-// end INTEL_CUTOMIZATION
+// RUN: %clang_cc1 -no-enable-noundef-analysis -triple armv7-ios5.0 -std=c++11 -fmerge-all-constants -fobjc-arc -Os -emit-llvm -o - %s | FileCheck %s
 
 // CHECK: @[[STR0:.*]] = private unnamed_addr constant [5 x i8] c"str0\00", section "__TEXT,__cstring,cstring_literals"
 // CHECK: @[[UNNAMED_CFSTRING0:.*]] = private global %struct.__NSConstantString_tag { ptr @__CFConstantStringClassReference, i32 1992, ptr @[[STR0]], i32 4 }, section "__DATA,__cfstring"

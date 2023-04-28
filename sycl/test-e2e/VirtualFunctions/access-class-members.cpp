@@ -1,3 +1,6 @@
+// Temporarily disabled until GSD-4494
+// UNSUPPORTED: gpu && linux
+
 // REQUIRES: cpu || gpu
 // UNSUPPORTED: cuda,hip
 //

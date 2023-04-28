@@ -749,17 +749,16 @@ struct RTLFlagsTy {
   uint64_t UseDriverGroupSizes : 1;
   uint64_t EnableSimd : 1;
   uint64_t UseSVM : 1;
-  uint64_t UseBuffer : 1;
   uint64_t UseSingleContext : 1;
   uint64_t UseImageOptions : 1;
   uint64_t ShowBuildLog : 1;
   uint64_t LinkLibDevice : 1;
   uint64_t NDRangeIgnoreTripcount : 1;
   // Add new flags here
-  uint64_t Reserved : 54;
+  uint64_t Reserved : 55;
   RTLFlagsTy()
       : EnableProfile(0), UseDriverGroupSizes(0), EnableSimd(0), UseSVM(0),
-        UseBuffer(0), UseSingleContext(0), UseImageOptions(1), ShowBuildLog(0),
+        UseSingleContext(0), UseImageOptions(1), ShowBuildLog(0),
         LinkLibDevice(0), NDRangeIgnoreTripcount(0), Reserved(0) {}
 };
 
@@ -1147,12 +1146,6 @@ struct RTLOptionTy {
         Flags.UseSVM = 0;
     }
 
-    // Read LIBOMPTARGET_OPENCL_USE_BUFFER
-    if ((Env = readEnvVar("LIBOMPTARGET_OPENCL_USE_BUFFER"))) {
-      if (parseBool(Env) == 1)
-        Flags.UseBuffer = 1;
-    }
-
     // Read LIBOMPTARGET_USE_SINGLE_CONTEXT
     if ((Env = readEnvVar("LIBOMPTARGET_USE_SINGLE_CONTEXT"))) {
       if (parseBool(Env) == 1)
@@ -1398,8 +1391,6 @@ public:
 
   std::mutex *ProfileLocks;
 
-  std::vector<std::set<void *>> ClMemBuffers;
-
   /// Memory owned by the plugin
   std::vector<std::vector<void *>> OwnedMemory;
 
@@ -1480,9 +1471,6 @@ public:
 
   /// Reset program data
   int32_t resetProgramData(int32_t DeviceId);
-
-  /// Allocate cl_mem data
-  void *allocDataClMem(int32_t DeviceId, size_t Size);
 
   /// Get PCI device ID
   uint32_t getPCIDeviceId(int32_t DeviceId) const;
@@ -2027,18 +2015,6 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
   const char *ProfileKey = "DataWrite (Host to Device)";
   cl_event Event = nullptr;
 
-  if (DeviceInfo->Option.Flags.UseBuffer) {
-    std::lock_guard<std::mutex> Lock(DeviceInfo->Mutexes[DeviceId]);
-    if (DeviceInfo->ClMemBuffers[DeviceId].count(TgtPtr) > 0) {
-      CALL_CL_RET_FAIL(clEnqueueWriteBuffer, Queue, (cl_mem)TgtPtr, CL_FALSE, 0,
-                       Size, HstPtr, 0, nullptr, &Event);
-      CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
-      if (DeviceInfo->Option.Flags.EnableProfile)
-        DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
-      return OFFLOAD_SUCCESS;
-    }
-  }
-
   if (!DeviceInfo->Option.Flags.UseSVM) {
     CALL_CL_EXT_RET_FAIL(DeviceId, clEnqueueMemcpyINTEL, Queue, CL_FALSE,
                          TgtPtr, HstPtr, Size, 0, nullptr, &Event);
@@ -2098,18 +2074,6 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
 
   const char *ProfileKey = "DataRead (Device to Host)";
   cl_event Event = nullptr;
-
-  if (DeviceInfo->Option.Flags.UseBuffer) {
-    std::lock_guard<std::mutex> Lock(DeviceInfo->Mutexes[DeviceId]);
-    if (DeviceInfo->ClMemBuffers[DeviceId].count(TgtPtr) > 0) {
-      CALL_CL_RET_FAIL(clEnqueueReadBuffer, Queue, (cl_mem)TgtPtr, CL_FALSE, 0,
-                       Size, HstPtr, 0, nullptr, &Event);
-      CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
-      if (DeviceInfo->Option.Flags.EnableProfile)
-        DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
-      return OFFLOAD_SUCCESS;
-    }
-  }
 
   if (!DeviceInfo->Option.Flags.UseSVM) {
     CALL_CL_EXT_RET_FAIL(DeviceId, clEnqueueMemcpyINTEL, Queue, CL_FALSE,
@@ -2734,11 +2698,7 @@ static inline int32_t runTargetTeamNDRegion(
     } else {
       ArgType = "Pointer";
       void *Ptr = (void *)((intptr_t)TgtArgs[I] + Offset);
-      if (DeviceInfo->Option.Flags.UseBuffer &&
-          DeviceInfo->ClMemBuffers[DeviceId].count(Ptr) > 0) {
-        CALL_CL_RET_FAIL(clSetKernelArg, Kernel, I, sizeof(cl_mem), &Ptr);
-        ArgType = "ClMem";
-      } else if (DeviceInfo->Option.Flags.UseSVM) {
+      if (DeviceInfo->Option.Flags.UseSVM) {
         CALL_CL_RET_FAIL(clSetKernelArgSVMPointer, Kernel, I, Ptr);
       } else {
         CALL_CL_EXT_RET_FAIL(
@@ -2910,22 +2870,6 @@ int32_t RTLDeviceInfoTy::resetProgramData(int32_t DeviceId) {
   return OFFLOAD_SUCCESS;
 }
 #endif // INTEL_CUSTOMIZATION
-
-void *RTLDeviceInfoTy::allocDataClMem(int32_t DeviceId, size_t Size) {
-  cl_mem ret = nullptr;
-  cl_int rc;
-
-  CALL_CL_RVRC(ret, clCreateBuffer, rc, getContext(DeviceId),
-               CL_MEM_READ_WRITE, Size, nullptr);
-  if (rc != CL_SUCCESS)
-    return nullptr;
-
-  std::unique_lock<std::mutex> lock(Mutexes[DeviceId]);
-  ClMemBuffers[DeviceId].insert((void *)ret);
-
-  DP("Allocated cl_mem data " DPxMOD "\n", DPxPTR(ret));
-  return (void *)ret;
-}
 
 uint32_t RTLDeviceInfoTy::getPCIDeviceId(int32_t DeviceId) const {
   if (Extensions[DeviceId].DeviceAttributeQuery == ExtensionStatusEnabled)
@@ -4185,7 +4129,6 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->Queues.resize(DeviceInfo->NumDevices);
   DeviceInfo->QueuesInOrder.resize(DeviceInfo->NumDevices, nullptr);
   DeviceInfo->KernelProperties.resize(DeviceInfo->NumDevices);
-  DeviceInfo->ClMemBuffers.resize(DeviceInfo->NumDevices);
   DeviceInfo->ImplicitArgs.resize(DeviceInfo->NumDevices);
   DeviceInfo->Profiles.resize(DeviceInfo->NumDevices);
   DeviceInfo->Names.resize(DeviceInfo->NumDevices);
@@ -4384,10 +4327,6 @@ void *__tgt_rtl_data_alloc(int32_t DeviceId, int64_t Size, void *HstPtr,
       // Explicit allocation
       return dataAllocExplicit(DeviceId, Size, Kind);
     }
-    if (DeviceInfo->Option.Flags.UseBuffer) {
-      // Experimental CL buffer allocation
-      return DeviceInfo->allocDataClMem(DeviceId, Size);
-    }
   }
   return dataAlloc(DeviceId, Size, HstPtr, HstPtr, ImplicitArg);
 }
@@ -4433,20 +4372,6 @@ int32_t __tgt_rtl_data_exchange(int32_t SrcId, void *SrcPtr, int32_t DstId,
 }
 
 int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr, int32_t Kind) {
-  DeviceInfo->Mutexes[DeviceId].lock();
-
-  // Deallocate cl_mem data
-  if (DeviceInfo->Option.Flags.UseBuffer) {
-    auto &ClMemBuffers = DeviceInfo->ClMemBuffers[DeviceId];
-    if (ClMemBuffers.count(TgtPtr) > 0) {
-      ClMemBuffers.erase(TgtPtr);
-      CALL_CL_RET_FAIL(clReleaseMemObject, (cl_mem)TgtPtr);
-      return OFFLOAD_SUCCESS;
-    }
-  }
-
-  DeviceInfo->Mutexes[DeviceId].unlock();
-
   MemAllocInfoTy Info;
   auto &AllocInfos = DeviceInfo->MemAllocInfo;
   auto Removed = AllocInfos[DeviceId]->remove(TgtPtr, &Info);
