@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-split-on-barrier,sycl-kernel-barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-split-on-barrier,sycl-kernel-barrier -S < %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-split-on-barrier,sycl-kernel-barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-split-on-barrier,sycl-kernel-barrier -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ; This test checks the Barrier pass
@@ -24,18 +24,18 @@ target triple = "spir64-unknown-unknown"
 define spir_kernel void @build_hash_table() #0 !no_barrier_path !1 {
 entry:
   %done = alloca i32, align 4
-  store i32 0, i32* %done, align 4
+  store i32 0, ptr %done, align 4
   br label %while.cond
 
 while.cond:                                       ; preds = %while.body, %entry
-  %0 = load i32, i32* %done, align 4
+  %0 = load i32, ptr %done, align 4
   %call = call spir_func i32 @_Z14work_group_alli(i32 %0)
   %tobool = icmp ne i32 %call, 0
   %lnot = xor i1 %tobool, true
   br i1 %lnot, label %while.body, label %while.end
 
 while.body:                                       ; preds = %while.cond
-  store i32 1, i32* %done, align 4
+  store i32 1, ptr %done, align 4
   call spir_func void @_Z18work_group_barrierj(i32 1)
   br label %while.cond
 
@@ -59,7 +59,7 @@ attributes #1 = { "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "
 !opencl.compiler.options = !{!8}
 !llvm.ident = !{!9}
 
-!0 = !{void ()* @build_hash_table}
+!0 = !{ptr @build_hash_table}
 !1 = !{i1 false}
 !6 = !{i32 1, i32 2}
 !7 = !{i32 2, i32 0}
@@ -70,7 +70,7 @@ attributes #1 = { "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- %pCurrBarrier = alloca i32, align 4
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- %pCurrSBIndex = alloca i64, align 8
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- %pLocalIds = alloca [3 x i64], align 8
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- %pSB = call i8* @get_special_buffer.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- %pSB = call ptr @get_special_buffer.()
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- %LocalSize_0 = call i64 @_Z14get_local_sizej(i32 0)
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- %LocalSize_1 = call i64 @_Z14get_local_sizej(i32 1)
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- %LocalSize_2 = call i64 @_Z14get_local_sizej(i32 2)

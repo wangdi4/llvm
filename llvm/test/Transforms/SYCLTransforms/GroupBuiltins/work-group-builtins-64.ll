@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -S < %s
+; RUN: opt -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -S < %s
 ;; This file is used as Built-in module to test work group built-in pass for 64bit modules
 ;; The only requirment is to contain a valid LLVM IR.
 
@@ -742,34 +742,34 @@ declare <32 x i32> @_Z25__finalize_work_group_allDv32_i(<32 x i32> %accum) #3
 declare <64 x i32> @_Z25__finalize_work_group_allDv64_i(<64 x i32> %accum) #3
 
 ; Function Attrs: nounwind
-declare i32 @_Z14work_group_alliPi(i32 %predicate, i32* %accum) #5
+declare i32 @_Z14work_group_alliPi(i32 %predicate, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z14work_group_allDv4_iPS_(<4 x i32> %predicate, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z14work_group_allDv4_iPS_(<4 x i32> %predicate, ptr %accum) #5
 
 ; Function Attrs: nounwind readnone
 declare <4 x i32> @_Z19work_group_all_utilDv4_iS_(<4 x i32> %src, <4 x i32> %accum) #3
 
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z14work_group_allDv8_iPS_(<8 x i32> %predicate, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z14work_group_allDv8_iPS_(<8 x i32> %predicate, ptr %accum) #5
 
 ; Function Attrs: nounwind readnone
 declare <8 x i32> @_Z19work_group_all_utilDv8_iS_(<8 x i32> %src, <8 x i32> %accum) #3
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z14work_group_allDv16_iPS_(<16 x i32> %predicate, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z14work_group_allDv16_iPS_(<16 x i32> %predicate, ptr %accum) #5
 
 ; Function Attrs: nounwind readnone
 declare <16 x i32> @_Z19work_group_all_utilDv16_iS_(<16 x i32> %src, <16 x i32> %accum) #3
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z14work_group_allDv32_iPS_(<32 x i32> %predicate, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z14work_group_allDv32_iPS_(<32 x i32> %predicate, ptr %accum) #5
 
 ; Function Attrs: nounwind readnone
 declare <32 x i32> @_Z19work_group_all_utilDv32_iS_(<32 x i32> %src, <32 x i32> %accum) #3
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z14work_group_allDv64_iPS_(<64 x i32> %predicate, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z14work_group_allDv64_iPS_(<64 x i32> %predicate, ptr %accum) #5
 
 ; Function Attrs: nounwind readnone
 declare <64 x i32> @_Z19work_group_all_utilDv64_iS_(<64 x i32> %src, <64 x i32> %accum) #3
@@ -811,34 +811,34 @@ declare <32 x i32> @_Z25__finalize_work_group_anyDv32_i(<32 x i32> %accum) #3
 declare <64 x i32> @_Z25__finalize_work_group_anyDv64_i(<64 x i32> %accum) #3
 
 ; Function Attrs: nounwind
-declare i32 @_Z14work_group_anyiPi(i32 %predicate, i32* %accum) #5
+declare i32 @_Z14work_group_anyiPi(i32 %predicate, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z14work_group_anyDv4_iPS_(<4 x i32> %predicate, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z14work_group_anyDv4_iPS_(<4 x i32> %predicate, ptr %accum) #5
 
 ; Function Attrs: nounwind readnone
 declare <4 x i32> @_Z19work_group_any_utilDv4_iS_(<4 x i32> %src, <4 x i32> %accum) #3
 
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z14work_group_anyDv8_iPS_(<8 x i32> %predicate, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z14work_group_anyDv8_iPS_(<8 x i32> %predicate, ptr %accum) #5
 
 ; Function Attrs: nounwind readnone
 declare <8 x i32> @_Z19work_group_any_utilDv8_iS_(<8 x i32> %src, <8 x i32> %accum) #3
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z14work_group_anyDv16_iPS_(<16 x i32> %predicate, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z14work_group_anyDv16_iPS_(<16 x i32> %predicate, ptr %accum) #5
 
 ; Function Attrs: nounwind readnone
 declare <16 x i32> @_Z19work_group_any_utilDv16_iS_(<16 x i32> %src, <16 x i32> %accum) #3
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z14work_group_anyDv32_iPS_(<32 x i32> %predicate, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z14work_group_anyDv32_iPS_(<32 x i32> %predicate, ptr %accum) #5
 
 ; Function Attrs: nounwind readnone
 declare <32 x i32> @_Z19work_group_any_utilDv32_iS_(<32 x i32> %src, <32 x i32> %accum) #3
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z14work_group_anyDv64_iPS_(<64 x i32> %predicate, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z14work_group_anyDv64_iPS_(<64 x i32> %predicate, ptr %accum) #5
 
 ; Function Attrs: nounwind readnone
 declare <64 x i32> @_Z19work_group_any_utilDv64_iS_(<64 x i32> %src, <64 x i32> %accum) #3
@@ -1503,225 +1503,225 @@ declare <32 x double> @_Z20work_group_broadcastDv32_dmmmDv32_j(<32 x double>  %s
 
 declare <64 x double> @_Z20work_group_broadcastDv64_dmmmDv64_j(<64 x double>  %src, i64  %local_id_x, i64  %local_id_y, i64  %local_id_z, <64 x i32>  %mask) 
 
-declare signext i8 @_Z20work_group_broadcastcmmPc(i8  signext %src, i64  %linear_local_id, i64  %linear_id, i8*   %accum) 
+declare signext i8 @_Z20work_group_broadcastcmmPc(i8  signext %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <4 x i8> @_Z20work_group_broadcastDv4_cmmPS_(<4 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i8>*   %accum) 
+declare <4 x i8> @_Z20work_group_broadcastDv4_cmmPS_(<4 x i8>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <8 x i8> @_Z20work_group_broadcastDv8_cmmPS_(<8 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i8>*   %accum) 
+declare <8 x i8> @_Z20work_group_broadcastDv8_cmmPS_(<8 x i8>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <16 x i8> @_Z20work_group_broadcastDv16_cmmPS_(<16 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i8>*   %accum) 
+declare <16 x i8> @_Z20work_group_broadcastDv16_cmmPS_(<16 x i8>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <32 x i8> @_Z20work_group_broadcastDv32_cmmPS_(<32 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i8>*   %accum) 
+declare <32 x i8> @_Z20work_group_broadcastDv32_cmmPS_(<32 x i8>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <64 x i8> @_Z20work_group_broadcastDv64_cmmPS_(<64 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i8>*   %accum) 
+declare <64 x i8> @_Z20work_group_broadcastDv64_cmmPS_(<64 x i8>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare zeroext i8 @_Z20work_group_broadcasthmmPh(i8  zeroext %src, i64  %linear_local_id, i64  %linear_id, i8*   %accum) 
+declare zeroext i8 @_Z20work_group_broadcasthmmPh(i8  zeroext %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <4 x i8> @_Z20work_group_broadcastDv4_hmmPS_(<4 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i8>*   %accum) 
+declare <4 x i8> @_Z20work_group_broadcastDv4_hmmPS_(<4 x i8>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <8 x i8> @_Z20work_group_broadcastDv8_hmmPS_(<8 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i8>*   %accum) 
+declare <8 x i8> @_Z20work_group_broadcastDv8_hmmPS_(<8 x i8>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <16 x i8> @_Z20work_group_broadcastDv16_hmmPS_(<16 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i8>*   %accum) 
+declare <16 x i8> @_Z20work_group_broadcastDv16_hmmPS_(<16 x i8>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <32 x i8> @_Z20work_group_broadcastDv32_hmmPS_(<32 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i8>*   %accum) 
+declare <32 x i8> @_Z20work_group_broadcastDv32_hmmPS_(<32 x i8>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <64 x i8> @_Z20work_group_broadcastDv64_hmmPS_(<64 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i8>*   %accum) 
+declare <64 x i8> @_Z20work_group_broadcastDv64_hmmPS_(<64 x i8>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare signext i16 @_Z20work_group_broadcastsmmPs(i16  signext %src, i64  %linear_local_id, i64  %linear_id, i16*   %accum) 
+declare signext i16 @_Z20work_group_broadcastsmmPs(i16  signext %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <4 x i16> @_Z20work_group_broadcastDv4_smmPS_(<4 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i16>*   %accum) 
+declare <4 x i16> @_Z20work_group_broadcastDv4_smmPS_(<4 x i16>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <8 x i16> @_Z20work_group_broadcastDv8_smmPS_(<8 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i16>*   %accum) 
+declare <8 x i16> @_Z20work_group_broadcastDv8_smmPS_(<8 x i16>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <16 x i16> @_Z20work_group_broadcastDv16_smmPS_(<16 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i16>*   %accum) 
+declare <16 x i16> @_Z20work_group_broadcastDv16_smmPS_(<16 x i16>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <32 x i16> @_Z20work_group_broadcastDv32_smmPS_(<32 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i16>*   %accum) 
+declare <32 x i16> @_Z20work_group_broadcastDv32_smmPS_(<32 x i16>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <64 x i16> @_Z20work_group_broadcastDv64_smmPS_(<64 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i16>*   %accum) 
+declare <64 x i16> @_Z20work_group_broadcastDv64_smmPS_(<64 x i16>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare zeroext i16 @_Z20work_group_broadcasttmmPt(i16  zeroext %src, i64  %linear_local_id, i64  %linear_id, i16*   %accum) 
+declare zeroext i16 @_Z20work_group_broadcasttmmPt(i16  zeroext %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <4 x i16> @_Z20work_group_broadcastDv4_tmmPS_(<4 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i16>*   %accum) 
+declare <4 x i16> @_Z20work_group_broadcastDv4_tmmPS_(<4 x i16>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <8 x i16> @_Z20work_group_broadcastDv8_tmmPS_(<8 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i16>*   %accum) 
+declare <8 x i16> @_Z20work_group_broadcastDv8_tmmPS_(<8 x i16>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <16 x i16> @_Z20work_group_broadcastDv16_tmmPS_(<16 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i16>*   %accum) 
+declare <16 x i16> @_Z20work_group_broadcastDv16_tmmPS_(<16 x i16>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <32 x i16> @_Z20work_group_broadcastDv32_tmmPS_(<32 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i16>*   %accum) 
+declare <32 x i16> @_Z20work_group_broadcastDv32_tmmPS_(<32 x i16>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <64 x i16> @_Z20work_group_broadcastDv64_tmmPS_(<64 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i16>*   %accum) 
+declare <64 x i16> @_Z20work_group_broadcastDv64_tmmPS_(<64 x i16>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare i32 @_Z20work_group_broadcastimmPi(i32  %src, i64  %linear_local_id, i64  %linear_id, i32*   %accum) 
+declare i32 @_Z20work_group_broadcastimmPi(i32  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <4 x i32> @_Z20work_group_broadcastDv4_immPS_(<4 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>*   %accum) 
+declare <4 x i32> @_Z20work_group_broadcastDv4_immPS_(<4 x i32>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <8 x i32> @_Z20work_group_broadcastDv8_immPS_(<8 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>*   %accum) 
+declare <8 x i32> @_Z20work_group_broadcastDv8_immPS_(<8 x i32>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <16 x i32> @_Z20work_group_broadcastDv16_immPS_(<16 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>*   %accum) 
+declare <16 x i32> @_Z20work_group_broadcastDv16_immPS_(<16 x i32>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <32 x i32> @_Z20work_group_broadcastDv32_immPS_(<32 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>*   %accum) 
+declare <32 x i32> @_Z20work_group_broadcastDv32_immPS_(<32 x i32>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <64 x i32> @_Z20work_group_broadcastDv64_immPS_(<64 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>*   %accum) 
+declare <64 x i32> @_Z20work_group_broadcastDv64_immPS_(<64 x i32>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare i32 @_Z20work_group_broadcastjmmPj(i32  %src, i64  %linear_local_id, i64  %linear_id, i32*   %accum) 
+declare i32 @_Z20work_group_broadcastjmmPj(i32  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <4 x i32> @_Z20work_group_broadcastDv4_jmmPS_(<4 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>*   %accum) 
+declare <4 x i32> @_Z20work_group_broadcastDv4_jmmPS_(<4 x i32>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <8 x i32> @_Z20work_group_broadcastDv8_jmmPS_(<8 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>*   %accum) 
+declare <8 x i32> @_Z20work_group_broadcastDv8_jmmPS_(<8 x i32>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <16 x i32> @_Z20work_group_broadcastDv16_jmmPS_(<16 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>*   %accum) 
+declare <16 x i32> @_Z20work_group_broadcastDv16_jmmPS_(<16 x i32>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <32 x i32> @_Z20work_group_broadcastDv32_jmmPS_(<32 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>*   %accum) 
+declare <32 x i32> @_Z20work_group_broadcastDv32_jmmPS_(<32 x i32>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <64 x i32> @_Z20work_group_broadcastDv64_jmmPS_(<64 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>*   %accum) 
+declare <64 x i32> @_Z20work_group_broadcastDv64_jmmPS_(<64 x i32>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare i64 @_Z20work_group_broadcastlmmPl(i64  %src, i64  %linear_local_id, i64  %linear_id, i64*   %accum) 
+declare i64 @_Z20work_group_broadcastlmmPl(i64  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <4 x i64> @_Z20work_group_broadcastDv4_lmmPS_(<4 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i64>*   %accum) 
+declare <4 x i64> @_Z20work_group_broadcastDv4_lmmPS_(<4 x i64>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <8 x i64> @_Z20work_group_broadcastDv8_lmmPS_(<8 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i64>*   %accum) 
+declare <8 x i64> @_Z20work_group_broadcastDv8_lmmPS_(<8 x i64>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <16 x i64> @_Z20work_group_broadcastDv16_lmmPS_(<16 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i64>*   %accum) 
+declare <16 x i64> @_Z20work_group_broadcastDv16_lmmPS_(<16 x i64>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <32 x i64> @_Z20work_group_broadcastDv32_lmmPS_(<32 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i64>*   %accum) 
+declare <32 x i64> @_Z20work_group_broadcastDv32_lmmPS_(<32 x i64>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <64 x i64> @_Z20work_group_broadcastDv64_lmmPS_(<64 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i64>*   %accum) 
+declare <64 x i64> @_Z20work_group_broadcastDv64_lmmPS_(<64 x i64>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare i64 @_Z20work_group_broadcastmmmPm(i64  %src, i64  %linear_local_id, i64  %linear_id, i64*   %accum) 
+declare i64 @_Z20work_group_broadcastmmmPm(i64  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <4 x i64> @_Z20work_group_broadcastDv4_mmmPS_(<4 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i64>*   %accum) 
+declare <4 x i64> @_Z20work_group_broadcastDv4_mmmPS_(<4 x i64>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <8 x i64> @_Z20work_group_broadcastDv8_mmmPS_(<8 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i64>*   %accum) 
+declare <8 x i64> @_Z20work_group_broadcastDv8_mmmPS_(<8 x i64>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <16 x i64> @_Z20work_group_broadcastDv16_mmmPS_(<16 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i64>*   %accum) 
+declare <16 x i64> @_Z20work_group_broadcastDv16_mmmPS_(<16 x i64>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <32 x i64> @_Z20work_group_broadcastDv32_mmmPS_(<32 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i64>*   %accum) 
+declare <32 x i64> @_Z20work_group_broadcastDv32_mmmPS_(<32 x i64>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <64 x i64> @_Z20work_group_broadcastDv64_mmmPS_(<64 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i64>*   %accum) 
+declare <64 x i64> @_Z20work_group_broadcastDv64_mmmPS_(<64 x i64>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare float @_Z20work_group_broadcastfmmPf(float  %src, i64  %linear_local_id, i64  %linear_id, float*   %accum) 
+declare float @_Z20work_group_broadcastfmmPf(float  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <4 x float> @_Z20work_group_broadcastDv4_fmmPS_(<4 x float>  %src, i64  %linear_local_id, i64  %linear_id, <4 x float>*   %accum) 
+declare <4 x float> @_Z20work_group_broadcastDv4_fmmPS_(<4 x float>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <8 x float> @_Z20work_group_broadcastDv8_fmmPS_(<8 x float>  %src, i64  %linear_local_id, i64  %linear_id, <8 x float>*   %accum) 
+declare <8 x float> @_Z20work_group_broadcastDv8_fmmPS_(<8 x float>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <16 x float> @_Z20work_group_broadcastDv16_fmmPS_(<16 x float>  %src, i64  %linear_local_id, i64  %linear_id, <16 x float>*   %accum) 
+declare <16 x float> @_Z20work_group_broadcastDv16_fmmPS_(<16 x float>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <32 x float> @_Z20work_group_broadcastDv32_fmmPS_(<32 x float>  %src, i64  %linear_local_id, i64  %linear_id, <32 x float>*   %accum) 
+declare <32 x float> @_Z20work_group_broadcastDv32_fmmPS_(<32 x float>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <64 x float> @_Z20work_group_broadcastDv64_fmmPS_(<64 x float>  %src, i64  %linear_local_id, i64  %linear_id, <64 x float>*   %accum) 
+declare <64 x float> @_Z20work_group_broadcastDv64_fmmPS_(<64 x float>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare double @_Z20work_group_broadcastdmmPd(double  %src, i64  %linear_local_id, i64  %linear_id, double*   %accum) 
+declare double @_Z20work_group_broadcastdmmPd(double  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <4 x double> @_Z20work_group_broadcastDv4_dmmPS_(<4 x double>  %src, i64  %linear_local_id, i64  %linear_id, <4 x double>*   %accum) 
+declare <4 x double> @_Z20work_group_broadcastDv4_dmmPS_(<4 x double>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <8 x double> @_Z20work_group_broadcastDv8_dmmPS_(<8 x double>  %src, i64  %linear_local_id, i64  %linear_id, <8 x double>*   %accum) 
+declare <8 x double> @_Z20work_group_broadcastDv8_dmmPS_(<8 x double>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <16 x double> @_Z20work_group_broadcastDv16_dmmPS_(<16 x double>  %src, i64  %linear_local_id, i64  %linear_id, <16 x double>*   %accum) 
+declare <16 x double> @_Z20work_group_broadcastDv16_dmmPS_(<16 x double>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <32 x double> @_Z20work_group_broadcastDv32_dmmPS_(<32 x double>  %src, i64  %linear_local_id, i64  %linear_id, <32 x double>*   %accum) 
+declare <32 x double> @_Z20work_group_broadcastDv32_dmmPS_(<32 x double>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <64 x double> @_Z20work_group_broadcastDv64_dmmPS_(<64 x double>  %src, i64  %linear_local_id, i64  %linear_id, <64 x double>*   %accum) 
+declare <64 x double> @_Z20work_group_broadcastDv64_dmmPS_(<64 x double>  %src, i64  %linear_local_id, i64  %linear_id, ptr   %accum) 
 
-declare <4 x i8> @_Z20work_group_broadcastDv4_cmmDv4_jPS_(<4 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, <4 x i8>*   %accum) 
+declare <4 x i8> @_Z20work_group_broadcastDv4_cmmDv4_jPS_(<4 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, ptr   %accum) 
 
-declare <8 x i8> @_Z20work_group_broadcastDv8_cmmDv8_jPS_(<8 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, <8 x i8>*   %accum) 
+declare <8 x i8> @_Z20work_group_broadcastDv8_cmmDv8_jPS_(<8 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, ptr   %accum) 
 
-declare <16 x i8> @_Z20work_group_broadcastDv16_cmmDv16_jPS_(<16 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, <16 x i8>*   %accum) 
+declare <16 x i8> @_Z20work_group_broadcastDv16_cmmDv16_jPS_(<16 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, ptr   %accum) 
 
-declare <32 x i8> @_Z20work_group_broadcastDv32_cmmDv32_jPS_(<32 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, <32 x i8>*   %accum) 
+declare <32 x i8> @_Z20work_group_broadcastDv32_cmmDv32_jPS_(<32 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, ptr   %accum) 
 
-declare <64 x i8> @_Z20work_group_broadcastDv64_cmmDv64_jPS_(<64 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, <64 x i8>*   %accum) 
+declare <64 x i8> @_Z20work_group_broadcastDv64_cmmDv64_jPS_(<64 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, ptr   %accum) 
 
-declare <4 x i8> @_Z20work_group_broadcastDv4_hmmDv4_jPS_(<4 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, <4 x i8>*   %accum) 
+declare <4 x i8> @_Z20work_group_broadcastDv4_hmmDv4_jPS_(<4 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, ptr   %accum) 
 
-declare <8 x i8> @_Z20work_group_broadcastDv8_hmmDv8_jPS_(<8 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, <8 x i8>*   %accum) 
+declare <8 x i8> @_Z20work_group_broadcastDv8_hmmDv8_jPS_(<8 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, ptr   %accum) 
 
-declare <16 x i8> @_Z20work_group_broadcastDv16_hmmDv16_jPS_(<16 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, <16 x i8>*   %accum) 
+declare <16 x i8> @_Z20work_group_broadcastDv16_hmmDv16_jPS_(<16 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, ptr   %accum) 
 
-declare <32 x i8> @_Z20work_group_broadcastDv32_hmmDv32_jPS_(<32 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, <32 x i8>*   %accum) 
+declare <32 x i8> @_Z20work_group_broadcastDv32_hmmDv32_jPS_(<32 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, ptr   %accum) 
 
-declare <64 x i8> @_Z20work_group_broadcastDv64_hmmDv64_jPS_(<64 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, <64 x i8>*   %accum) 
+declare <64 x i8> @_Z20work_group_broadcastDv64_hmmDv64_jPS_(<64 x i8>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, ptr   %accum) 
 
-declare <4 x i16> @_Z20work_group_broadcastDv4_smmDv4_jPS_(<4 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, <4 x i16>*   %accum) 
+declare <4 x i16> @_Z20work_group_broadcastDv4_smmDv4_jPS_(<4 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, ptr   %accum) 
 
-declare <8 x i16> @_Z20work_group_broadcastDv8_smmDv8_jPS_(<8 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, <8 x i16>*   %accum) 
+declare <8 x i16> @_Z20work_group_broadcastDv8_smmDv8_jPS_(<8 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, ptr   %accum) 
 
-declare <16 x i16> @_Z20work_group_broadcastDv16_smmDv16_jPS_(<16 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, <16 x i16>*   %accum) 
+declare <16 x i16> @_Z20work_group_broadcastDv16_smmDv16_jPS_(<16 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, ptr   %accum) 
 
-declare <32 x i16> @_Z20work_group_broadcastDv32_smmDv32_jPS_(<32 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, <32 x i16>*   %accum) 
+declare <32 x i16> @_Z20work_group_broadcastDv32_smmDv32_jPS_(<32 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, ptr   %accum) 
 
-declare <64 x i16> @_Z20work_group_broadcastDv64_smmDv64_jPS_(<64 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, <64 x i16>*   %accum) 
+declare <64 x i16> @_Z20work_group_broadcastDv64_smmDv64_jPS_(<64 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, ptr   %accum) 
 
-declare <4 x i16> @_Z20work_group_broadcastDv4_tmmDv4_jPS_(<4 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, <4 x i16>*   %accum) 
+declare <4 x i16> @_Z20work_group_broadcastDv4_tmmDv4_jPS_(<4 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, ptr   %accum) 
 
-declare <8 x i16> @_Z20work_group_broadcastDv8_tmmDv8_jPS_(<8 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, <8 x i16>*   %accum) 
+declare <8 x i16> @_Z20work_group_broadcastDv8_tmmDv8_jPS_(<8 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, ptr   %accum) 
 
-declare <16 x i16> @_Z20work_group_broadcastDv16_tmmDv16_jPS_(<16 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, <16 x i16>*   %accum) 
+declare <16 x i16> @_Z20work_group_broadcastDv16_tmmDv16_jPS_(<16 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, ptr   %accum) 
 
-declare <32 x i16> @_Z20work_group_broadcastDv32_tmmDv32_jPS_(<32 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, <32 x i16>*   %accum) 
+declare <32 x i16> @_Z20work_group_broadcastDv32_tmmDv32_jPS_(<32 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, ptr   %accum) 
 
-declare <64 x i16> @_Z20work_group_broadcastDv64_tmmDv64_jPS_(<64 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, <64 x i16>*   %accum) 
+declare <64 x i16> @_Z20work_group_broadcastDv64_tmmDv64_jPS_(<64 x i16>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, ptr   %accum) 
 
-declare <4 x i32> @_Z20work_group_broadcastDv4_immDv4_jPS_(<4 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, <4 x i32>*   %accum) 
+declare <4 x i32> @_Z20work_group_broadcastDv4_immDv4_jPS_(<4 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, ptr   %accum) 
 
-declare <8 x i32> @_Z20work_group_broadcastDv8_immDv8_jPS_(<8 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, <8 x i32>*   %accum) 
+declare <8 x i32> @_Z20work_group_broadcastDv8_immDv8_jPS_(<8 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, ptr   %accum) 
 
-declare <16 x i32> @_Z20work_group_broadcastDv16_immDv16_jPS_(<16 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, <16 x i32>*   %accum) 
+declare <16 x i32> @_Z20work_group_broadcastDv16_immDv16_jPS_(<16 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, ptr   %accum) 
 
-declare <32 x i32> @_Z20work_group_broadcastDv32_immDv32_jPS_(<32 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, <32 x i32>*   %accum) 
+declare <32 x i32> @_Z20work_group_broadcastDv32_immDv32_jPS_(<32 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, ptr   %accum) 
 
-declare <64 x i32> @_Z20work_group_broadcastDv64_immDv64_jPS_(<64 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, <64 x i32>*   %accum) 
+declare <64 x i32> @_Z20work_group_broadcastDv64_immDv64_jPS_(<64 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, ptr   %accum) 
 
-declare <4 x i32> @_Z20work_group_broadcastDv4_jmmS_PS_(<4 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, <4 x i32>*   %accum) 
+declare <4 x i32> @_Z20work_group_broadcastDv4_jmmS_PS_(<4 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, ptr   %accum) 
 
-declare <8 x i32> @_Z20work_group_broadcastDv8_jmmS_PS_(<8 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, <8 x i32>*   %accum) 
+declare <8 x i32> @_Z20work_group_broadcastDv8_jmmS_PS_(<8 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, ptr   %accum) 
 
-declare <16 x i32> @_Z20work_group_broadcastDv16_jmmS_PS_(<16 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, <16 x i32>*   %accum) 
+declare <16 x i32> @_Z20work_group_broadcastDv16_jmmS_PS_(<16 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, ptr   %accum) 
 
-declare <32 x i32> @_Z20work_group_broadcastDv32_jmmS_PS_(<32 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, <32 x i32>*   %accum) 
+declare <32 x i32> @_Z20work_group_broadcastDv32_jmmS_PS_(<32 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, ptr   %accum) 
 
-declare <64 x i32> @_Z20work_group_broadcastDv64_jmmS_PS_(<64 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, <64 x i32>*   %accum) 
+declare <64 x i32> @_Z20work_group_broadcastDv64_jmmS_PS_(<64 x i32>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, ptr   %accum) 
 
-declare <4 x i64> @_Z20work_group_broadcastDv4_lmmDv4_jPS_(<4 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, <4 x i64>*   %accum) 
+declare <4 x i64> @_Z20work_group_broadcastDv4_lmmDv4_jPS_(<4 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, ptr   %accum) 
 
-declare <8 x i64> @_Z20work_group_broadcastDv8_lmmDv8_jPS_(<8 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, <8 x i64>*   %accum) 
+declare <8 x i64> @_Z20work_group_broadcastDv8_lmmDv8_jPS_(<8 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, ptr   %accum) 
 
-declare <16 x i64> @_Z20work_group_broadcastDv16_lmmDv16_jPS_(<16 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, <16 x i64>*   %accum) 
+declare <16 x i64> @_Z20work_group_broadcastDv16_lmmDv16_jPS_(<16 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, ptr   %accum) 
 
-declare <32 x i64> @_Z20work_group_broadcastDv32_lmmDv32_jPS_(<32 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, <32 x i64>*   %accum) 
+declare <32 x i64> @_Z20work_group_broadcastDv32_lmmDv32_jPS_(<32 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, ptr   %accum) 
 
-declare <64 x i64> @_Z20work_group_broadcastDv64_lmmDv64_jPS_(<64 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, <64 x i64>*   %accum) 
+declare <64 x i64> @_Z20work_group_broadcastDv64_lmmDv64_jPS_(<64 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, ptr   %accum) 
 
-declare <4 x i64> @_Z20work_group_broadcastDv4_mmmDv4_jPS_(<4 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, <4 x i64>*   %accum) 
+declare <4 x i64> @_Z20work_group_broadcastDv4_mmmDv4_jPS_(<4 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, ptr   %accum) 
 
-declare <8 x i64> @_Z20work_group_broadcastDv8_mmmDv8_jPS_(<8 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, <8 x i64>*   %accum) 
+declare <8 x i64> @_Z20work_group_broadcastDv8_mmmDv8_jPS_(<8 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, ptr   %accum) 
 
-declare <16 x i64> @_Z20work_group_broadcastDv16_mmmDv16_jPS_(<16 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, <16 x i64>*   %accum) 
+declare <16 x i64> @_Z20work_group_broadcastDv16_mmmDv16_jPS_(<16 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, ptr   %accum) 
 
-declare <32 x i64> @_Z20work_group_broadcastDv32_mmmDv32_jPS_(<32 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, <32 x i64>*   %accum) 
+declare <32 x i64> @_Z20work_group_broadcastDv32_mmmDv32_jPS_(<32 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, ptr   %accum) 
 
-declare <64 x i64> @_Z20work_group_broadcastDv64_mmmDv64_jPS_(<64 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, <64 x i64>*   %accum) 
+declare <64 x i64> @_Z20work_group_broadcastDv64_mmmDv64_jPS_(<64 x i64>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, ptr   %accum) 
 
-declare <4 x float> @_Z20work_group_broadcastDv4_fmmDv4_jPS_(<4 x float>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, <4 x float>*   %accum) 
+declare <4 x float> @_Z20work_group_broadcastDv4_fmmDv4_jPS_(<4 x float>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, ptr   %accum) 
 
-declare <8 x float> @_Z20work_group_broadcastDv8_fmmDv8_jPS_(<8 x float>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, <8 x float>*   %accum) 
+declare <8 x float> @_Z20work_group_broadcastDv8_fmmDv8_jPS_(<8 x float>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, ptr   %accum) 
 
-declare <16 x float> @_Z20work_group_broadcastDv16_fmmDv16_jPS_(<16 x float>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, <16 x float>*   %accum) 
+declare <16 x float> @_Z20work_group_broadcastDv16_fmmDv16_jPS_(<16 x float>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, ptr   %accum) 
 
-declare <32 x float> @_Z20work_group_broadcastDv32_fmmDv32_jPS_(<32 x float>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, <32 x float>*   %accum) 
+declare <32 x float> @_Z20work_group_broadcastDv32_fmmDv32_jPS_(<32 x float>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, ptr   %accum) 
 
-declare <64 x float> @_Z20work_group_broadcastDv64_fmmDv64_jPS_(<64 x float>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, <64 x float>*   %accum) 
+declare <64 x float> @_Z20work_group_broadcastDv64_fmmDv64_jPS_(<64 x float>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, ptr   %accum) 
 
-declare <4 x double> @_Z20work_group_broadcastDv4_dmmDv4_jPS_(<4 x double>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, <4 x double>*   %accum) 
+declare <4 x double> @_Z20work_group_broadcastDv4_dmmDv4_jPS_(<4 x double>  %src, i64  %linear_local_id, i64  %linear_id, <4 x i32>  %mask, ptr   %accum) 
 
-declare <8 x double> @_Z20work_group_broadcastDv8_dmmDv8_jPS_(<8 x double>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, <8 x double>*   %accum) 
+declare <8 x double> @_Z20work_group_broadcastDv8_dmmDv8_jPS_(<8 x double>  %src, i64  %linear_local_id, i64  %linear_id, <8 x i32>  %mask, ptr   %accum) 
 
-declare <16 x double> @_Z20work_group_broadcastDv16_dmmDv16_jPS_(<16 x double>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, <16 x double>*   %accum) 
+declare <16 x double> @_Z20work_group_broadcastDv16_dmmDv16_jPS_(<16 x double>  %src, i64  %linear_local_id, i64  %linear_id, <16 x i32>  %mask, ptr   %accum) 
 
-declare <32 x double> @_Z20work_group_broadcastDv32_dmmDv32_jPS_(<32 x double>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, <32 x double>*   %accum) 
+declare <32 x double> @_Z20work_group_broadcastDv32_dmmDv32_jPS_(<32 x double>  %src, i64  %linear_local_id, i64  %linear_id, <32 x i32>  %mask, ptr   %accum) 
 
-declare <64 x double> @_Z20work_group_broadcastDv64_dmmDv64_jPS_(<64 x double>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, <64 x double>*   %accum) 
+declare <64 x double> @_Z20work_group_broadcastDv64_dmmDv64_jPS_(<64 x double>  %src, i64  %linear_local_id, i64  %linear_id, <64 x i32>  %mask, ptr   %accum) 
 
 declare i8 @_Z30__finalize_work_group_identityc(i8  signext %src) 
 
@@ -2042,112 +2042,112 @@ declare <32 x double> @_Z32__finalize_work_group_reduce_addDv32_d(<32 x double> 
 declare <64 x double> @_Z32__finalize_work_group_reduce_addDv64_d(<64 x double> %accum) #3
 
 ; Function Attrs: nounwind
-declare i32 @_Z21work_group_reduce_addiPi(i32 %src, i32* %accum) #5
+declare i32 @_Z21work_group_reduce_addiPi(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z21work_group_reduce_addDv4_iPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z21work_group_reduce_addDv4_iPS_(<4 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z21work_group_reduce_addDv8_iPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z21work_group_reduce_addDv8_iPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z21work_group_reduce_addDv16_iPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z21work_group_reduce_addDv16_iPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z21work_group_reduce_addDv32_iPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z21work_group_reduce_addDv32_iPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z21work_group_reduce_addDv64_iPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z21work_group_reduce_addDv64_iPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i32 @_Z21work_group_reduce_addjPj(i32 %src, i32* %accum) #5
+declare i32 @_Z21work_group_reduce_addjPj(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z21work_group_reduce_addDv4_jPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z21work_group_reduce_addDv4_jPS_(<4 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z21work_group_reduce_addDv8_jPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z21work_group_reduce_addDv8_jPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z21work_group_reduce_addDv16_jPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z21work_group_reduce_addDv16_jPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z21work_group_reduce_addDv32_jPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z21work_group_reduce_addDv32_jPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z21work_group_reduce_addDv64_jPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z21work_group_reduce_addDv64_jPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i64 @_Z21work_group_reduce_addlPl(i64 %src, i64* %accum) #5
+declare i64 @_Z21work_group_reduce_addlPl(i64 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i64> @_Z21work_group_reduce_addDv4_lPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+declare <4 x i64> @_Z21work_group_reduce_addDv4_lPS_(<4 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i64> @_Z21work_group_reduce_addDv8_lPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+declare <8 x i64> @_Z21work_group_reduce_addDv8_lPS_(<8 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i64> @_Z21work_group_reduce_addDv16_lPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+declare <16 x i64> @_Z21work_group_reduce_addDv16_lPS_(<16 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i64> @_Z21work_group_reduce_addDv32_lPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+declare <32 x i64> @_Z21work_group_reduce_addDv32_lPS_(<32 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i64> @_Z21work_group_reduce_addDv64_lPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+declare <64 x i64> @_Z21work_group_reduce_addDv64_lPS_(<64 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i64 @_Z21work_group_reduce_addmPm(i64 %src, i64* %accum) #5
+declare i64 @_Z21work_group_reduce_addmPm(i64 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i64> @_Z21work_group_reduce_addDv4_mPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+declare <4 x i64> @_Z21work_group_reduce_addDv4_mPS_(<4 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i64> @_Z21work_group_reduce_addDv8_mPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+declare <8 x i64> @_Z21work_group_reduce_addDv8_mPS_(<8 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i64> @_Z21work_group_reduce_addDv16_mPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+declare <16 x i64> @_Z21work_group_reduce_addDv16_mPS_(<16 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i64> @_Z21work_group_reduce_addDv32_mPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+declare <32 x i64> @_Z21work_group_reduce_addDv32_mPS_(<32 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i64> @_Z21work_group_reduce_addDv64_mPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+declare <64 x i64> @_Z21work_group_reduce_addDv64_mPS_(<64 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare float @_Z21work_group_reduce_addfPf(float %src, float* %accum) #5
+declare float @_Z21work_group_reduce_addfPf(float %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x float> @_Z21work_group_reduce_addDv4_fPS_(<4 x float> %src, <4 x float>* %accum) #5
+declare <4 x float> @_Z21work_group_reduce_addDv4_fPS_(<4 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x float> @_Z21work_group_reduce_addDv8_fPS_(<8 x float> %src, <8 x float>* %accum) #5
+declare <8 x float> @_Z21work_group_reduce_addDv8_fPS_(<8 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x float> @_Z21work_group_reduce_addDv16_fPS_(<16 x float> %src, <16 x float>* %accum) #5
+declare <16 x float> @_Z21work_group_reduce_addDv16_fPS_(<16 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x float> @_Z21work_group_reduce_addDv32_fPS_(<32 x float> %src, <32 x float>* %accum) #5
+declare <32 x float> @_Z21work_group_reduce_addDv32_fPS_(<32 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x float> @_Z21work_group_reduce_addDv64_fPS_(<64 x float> %src, <64 x float>* %accum) #5
+declare <64 x float> @_Z21work_group_reduce_addDv64_fPS_(<64 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare double @_Z21work_group_reduce_adddPd(double %src, double* %accum) #5
+declare double @_Z21work_group_reduce_adddPd(double %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x double> @_Z21work_group_reduce_addDv4_dPS_(<4 x double> %src, <4 x double>* %accum) #5
+declare <4 x double> @_Z21work_group_reduce_addDv4_dPS_(<4 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x double> @_Z21work_group_reduce_addDv8_dPS_(<8 x double> %src, <8 x double>* %accum) #5
+declare <8 x double> @_Z21work_group_reduce_addDv8_dPS_(<8 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x double> @_Z21work_group_reduce_addDv16_dPS_(<16 x double> %src, <16 x double>* %accum) #5
+declare <16 x double> @_Z21work_group_reduce_addDv16_dPS_(<16 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x double> @_Z21work_group_reduce_addDv32_dPS_(<32 x double> %src, <32 x double>* %accum) #5
+declare <32 x double> @_Z21work_group_reduce_addDv32_dPS_(<32 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x double> @_Z21work_group_reduce_addDv64_dPS_(<64 x double> %src, <64 x double>* %accum) #5
+declare <64 x double> @_Z21work_group_reduce_addDv64_dPS_(<64 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind readnone
 declare i32 @_Z21work_group_reduce_muli(i32 %src) #3
@@ -2348,112 +2348,112 @@ declare <32 x double> @_Z32__finalize_work_group_reduce_mulDv32_d(<32 x double> 
 declare <64 x double> @_Z32__finalize_work_group_reduce_mulDv64_d(<64 x double> %accum) #3
 
 ; Function Attrs: nounwind
-declare i32 @_Z21work_group_reduce_muliPi(i32 %src, i32* %accum) #5
+declare i32 @_Z21work_group_reduce_muliPi(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z21work_group_reduce_mulDv4_iPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z21work_group_reduce_mulDv4_iPS_(<4 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z21work_group_reduce_mulDv8_iPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z21work_group_reduce_mulDv8_iPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z21work_group_reduce_mulDv16_iPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z21work_group_reduce_mulDv16_iPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z21work_group_reduce_mulDv32_iPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z21work_group_reduce_mulDv32_iPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z21work_group_reduce_mulDv64_iPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z21work_group_reduce_mulDv64_iPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i32 @_Z21work_group_reduce_muljPj(i32 %src, i32* %accum) #5
+declare i32 @_Z21work_group_reduce_muljPj(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z21work_group_reduce_mulDv4_jPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z21work_group_reduce_mulDv4_jPS_(<4 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z21work_group_reduce_mulDv8_jPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z21work_group_reduce_mulDv8_jPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z21work_group_reduce_mulDv16_jPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z21work_group_reduce_mulDv16_jPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z21work_group_reduce_mulDv32_jPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z21work_group_reduce_mulDv32_jPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z21work_group_reduce_mulDv64_jPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z21work_group_reduce_mulDv64_jPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i64 @_Z21work_group_reduce_mullPl(i64 %src, i64* %accum) #5
+declare i64 @_Z21work_group_reduce_mullPl(i64 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i64> @_Z21work_group_reduce_mulDv4_lPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+declare <4 x i64> @_Z21work_group_reduce_mulDv4_lPS_(<4 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i64> @_Z21work_group_reduce_mulDv8_lPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+declare <8 x i64> @_Z21work_group_reduce_mulDv8_lPS_(<8 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i64> @_Z21work_group_reduce_mulDv16_lPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+declare <16 x i64> @_Z21work_group_reduce_mulDv16_lPS_(<16 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i64> @_Z21work_group_reduce_mulDv32_lPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+declare <32 x i64> @_Z21work_group_reduce_mulDv32_lPS_(<32 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i64> @_Z21work_group_reduce_mulDv64_lPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+declare <64 x i64> @_Z21work_group_reduce_mulDv64_lPS_(<64 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i64 @_Z21work_group_reduce_mulmPm(i64 %src, i64* %accum) #5
+declare i64 @_Z21work_group_reduce_mulmPm(i64 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i64> @_Z21work_group_reduce_mulDv4_mPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+declare <4 x i64> @_Z21work_group_reduce_mulDv4_mPS_(<4 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i64> @_Z21work_group_reduce_mulDv8_mPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+declare <8 x i64> @_Z21work_group_reduce_mulDv8_mPS_(<8 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i64> @_Z21work_group_reduce_mulDv16_mPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+declare <16 x i64> @_Z21work_group_reduce_mulDv16_mPS_(<16 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i64> @_Z21work_group_reduce_mulDv32_mPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+declare <32 x i64> @_Z21work_group_reduce_mulDv32_mPS_(<32 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i64> @_Z21work_group_reduce_mulDv64_mPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+declare <64 x i64> @_Z21work_group_reduce_mulDv64_mPS_(<64 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare float @_Z21work_group_reduce_mulfPf(float %src, float* %accum) #5
+declare float @_Z21work_group_reduce_mulfPf(float %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x float> @_Z21work_group_reduce_mulDv4_fPS_(<4 x float> %src, <4 x float>* %accum) #5
+declare <4 x float> @_Z21work_group_reduce_mulDv4_fPS_(<4 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x float> @_Z21work_group_reduce_mulDv8_fPS_(<8 x float> %src, <8 x float>* %accum) #5
+declare <8 x float> @_Z21work_group_reduce_mulDv8_fPS_(<8 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x float> @_Z21work_group_reduce_mulDv16_fPS_(<16 x float> %src, <16 x float>* %accum) #5
+declare <16 x float> @_Z21work_group_reduce_mulDv16_fPS_(<16 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x float> @_Z21work_group_reduce_mulDv32_fPS_(<32 x float> %src, <32 x float>* %accum) #5
+declare <32 x float> @_Z21work_group_reduce_mulDv32_fPS_(<32 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x float> @_Z21work_group_reduce_mulDv64_fPS_(<64 x float> %src, <64 x float>* %accum) #5
+declare <64 x float> @_Z21work_group_reduce_mulDv64_fPS_(<64 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare double @_Z21work_group_reduce_muldPd(double %src, double* %accum) #5
+declare double @_Z21work_group_reduce_muldPd(double %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x double> @_Z21work_group_reduce_mulDv4_dPS_(<4 x double> %src, <4 x double>* %accum) #5
+declare <4 x double> @_Z21work_group_reduce_mulDv4_dPS_(<4 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x double> @_Z21work_group_reduce_mulDv8_dPS_(<8 x double> %src, <8 x double>* %accum) #5
+declare <8 x double> @_Z21work_group_reduce_mulDv8_dPS_(<8 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x double> @_Z21work_group_reduce_mulDv16_dPS_(<16 x double> %src, <16 x double>* %accum) #5
+declare <16 x double> @_Z21work_group_reduce_mulDv16_dPS_(<16 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x double> @_Z21work_group_reduce_mulDv32_dPS_(<32 x double> %src, <32 x double>* %accum) #5
+declare <32 x double> @_Z21work_group_reduce_mulDv32_dPS_(<32 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x double> @_Z21work_group_reduce_mulDv64_dPS_(<64 x double> %src, <64 x double>* %accum) #5
+declare <64 x double> @_Z21work_group_reduce_mulDv64_dPS_(<64 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind readnone
 declare i32 @_Z21work_group_reduce_maxi(i32 %src) #3
@@ -2654,112 +2654,112 @@ declare <32 x double> @_Z32__finalize_work_group_reduce_maxDv32_d(<32 x double> 
 declare <64 x double> @_Z32__finalize_work_group_reduce_maxDv64_d(<64 x double> %accum) #3
 
 ; Function Attrs: nounwind
-declare i32 @_Z21work_group_reduce_maxiPi(i32 %src, i32* %accum) #5
+declare i32 @_Z21work_group_reduce_maxiPi(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z21work_group_reduce_maxDv4_iPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z21work_group_reduce_maxDv4_iPS_(<4 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z21work_group_reduce_maxDv8_iPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z21work_group_reduce_maxDv8_iPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z21work_group_reduce_maxDv16_iPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z21work_group_reduce_maxDv16_iPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z21work_group_reduce_maxDv32_iPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z21work_group_reduce_maxDv32_iPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z21work_group_reduce_maxDv64_iPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z21work_group_reduce_maxDv64_iPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i32 @_Z21work_group_reduce_maxjPj(i32 %src, i32* %accum) #5
+declare i32 @_Z21work_group_reduce_maxjPj(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z21work_group_reduce_maxDv4_jPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z21work_group_reduce_maxDv4_jPS_(<4 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z21work_group_reduce_maxDv8_jPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z21work_group_reduce_maxDv8_jPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z21work_group_reduce_maxDv16_jPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z21work_group_reduce_maxDv16_jPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z21work_group_reduce_maxDv32_jPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z21work_group_reduce_maxDv32_jPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z21work_group_reduce_maxDv64_jPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z21work_group_reduce_maxDv64_jPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i64 @_Z21work_group_reduce_maxlPl(i64 %src, i64* %accum) #5
+declare i64 @_Z21work_group_reduce_maxlPl(i64 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i64> @_Z21work_group_reduce_maxDv4_lPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+declare <4 x i64> @_Z21work_group_reduce_maxDv4_lPS_(<4 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i64> @_Z21work_group_reduce_maxDv8_lPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+declare <8 x i64> @_Z21work_group_reduce_maxDv8_lPS_(<8 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i64> @_Z21work_group_reduce_maxDv16_lPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+declare <16 x i64> @_Z21work_group_reduce_maxDv16_lPS_(<16 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i64> @_Z21work_group_reduce_maxDv32_lPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+declare <32 x i64> @_Z21work_group_reduce_maxDv32_lPS_(<32 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i64> @_Z21work_group_reduce_maxDv64_lPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+declare <64 x i64> @_Z21work_group_reduce_maxDv64_lPS_(<64 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i64 @_Z21work_group_reduce_maxmPm(i64 %src, i64* %accum) #5
+declare i64 @_Z21work_group_reduce_maxmPm(i64 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i64> @_Z21work_group_reduce_maxDv4_mPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+declare <4 x i64> @_Z21work_group_reduce_maxDv4_mPS_(<4 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i64> @_Z21work_group_reduce_maxDv8_mPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+declare <8 x i64> @_Z21work_group_reduce_maxDv8_mPS_(<8 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i64> @_Z21work_group_reduce_maxDv16_mPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+declare <16 x i64> @_Z21work_group_reduce_maxDv16_mPS_(<16 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i64> @_Z21work_group_reduce_maxDv32_mPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+declare <32 x i64> @_Z21work_group_reduce_maxDv32_mPS_(<32 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i64> @_Z21work_group_reduce_maxDv64_mPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+declare <64 x i64> @_Z21work_group_reduce_maxDv64_mPS_(<64 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare float @_Z21work_group_reduce_maxfPf(float %src, float* %accum) #5
+declare float @_Z21work_group_reduce_maxfPf(float %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x float> @_Z21work_group_reduce_maxDv4_fPS_(<4 x float> %src, <4 x float>* %accum) #5
+declare <4 x float> @_Z21work_group_reduce_maxDv4_fPS_(<4 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x float> @_Z21work_group_reduce_maxDv8_fPS_(<8 x float> %src, <8 x float>* %accum) #5
+declare <8 x float> @_Z21work_group_reduce_maxDv8_fPS_(<8 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x float> @_Z21work_group_reduce_maxDv16_fPS_(<16 x float> %src, <16 x float>* %accum) #5
+declare <16 x float> @_Z21work_group_reduce_maxDv16_fPS_(<16 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x float> @_Z21work_group_reduce_maxDv32_fPS_(<32 x float> %src, <32 x float>* %accum) #5
+declare <32 x float> @_Z21work_group_reduce_maxDv32_fPS_(<32 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x float> @_Z21work_group_reduce_maxDv64_fPS_(<64 x float> %src, <64 x float>* %accum) #5
+declare <64 x float> @_Z21work_group_reduce_maxDv64_fPS_(<64 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare double @_Z21work_group_reduce_maxdPd(double %src, double* %accum) #5
+declare double @_Z21work_group_reduce_maxdPd(double %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x double> @_Z21work_group_reduce_maxDv4_dPS_(<4 x double> %src, <4 x double>* %accum) #5
+declare <4 x double> @_Z21work_group_reduce_maxDv4_dPS_(<4 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x double> @_Z21work_group_reduce_maxDv8_dPS_(<8 x double> %src, <8 x double>* %accum) #5
+declare <8 x double> @_Z21work_group_reduce_maxDv8_dPS_(<8 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x double> @_Z21work_group_reduce_maxDv16_dPS_(<16 x double> %src, <16 x double>* %accum) #5
+declare <16 x double> @_Z21work_group_reduce_maxDv16_dPS_(<16 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x double> @_Z21work_group_reduce_maxDv32_dPS_(<32 x double> %src, <32 x double>* %accum) #5
+declare <32 x double> @_Z21work_group_reduce_maxDv32_dPS_(<32 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x double> @_Z21work_group_reduce_maxDv64_dPS_(<64 x double> %src, <64 x double>* %accum) #5
+declare <64 x double> @_Z21work_group_reduce_maxDv64_dPS_(<64 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind readnone
 declare i32 @_Z21work_group_reduce_mini(i32 %src) #3
@@ -2960,112 +2960,112 @@ declare <32 x double> @_Z32__finalize_work_group_reduce_minDv32_d(<32 x double> 
 declare <64 x double> @_Z32__finalize_work_group_reduce_minDv64_d(<64 x double> %accum) #3
 
 ; Function Attrs: nounwind
-declare i32 @_Z21work_group_reduce_miniPi(i32 %src, i32* %accum) #5
+declare i32 @_Z21work_group_reduce_miniPi(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z21work_group_reduce_minDv4_iPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z21work_group_reduce_minDv4_iPS_(<4 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z21work_group_reduce_minDv8_iPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z21work_group_reduce_minDv8_iPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z21work_group_reduce_minDv16_iPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z21work_group_reduce_minDv16_iPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z21work_group_reduce_minDv32_iPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z21work_group_reduce_minDv32_iPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z21work_group_reduce_minDv64_iPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z21work_group_reduce_minDv64_iPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i32 @_Z21work_group_reduce_minjPj(i32 %src, i32* %accum) #5
+declare i32 @_Z21work_group_reduce_minjPj(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z21work_group_reduce_minDv4_jPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z21work_group_reduce_minDv4_jPS_(<4 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z21work_group_reduce_minDv8_jPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z21work_group_reduce_minDv8_jPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z21work_group_reduce_minDv16_jPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z21work_group_reduce_minDv16_jPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z21work_group_reduce_minDv32_jPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z21work_group_reduce_minDv32_jPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z21work_group_reduce_minDv64_jPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z21work_group_reduce_minDv64_jPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i64 @_Z21work_group_reduce_minlPl(i64 %src, i64* %accum) #5
+declare i64 @_Z21work_group_reduce_minlPl(i64 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i64> @_Z21work_group_reduce_minDv4_lPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+declare <4 x i64> @_Z21work_group_reduce_minDv4_lPS_(<4 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i64> @_Z21work_group_reduce_minDv8_lPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+declare <8 x i64> @_Z21work_group_reduce_minDv8_lPS_(<8 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i64> @_Z21work_group_reduce_minDv16_lPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+declare <16 x i64> @_Z21work_group_reduce_minDv16_lPS_(<16 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i64> @_Z21work_group_reduce_minDv32_lPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+declare <32 x i64> @_Z21work_group_reduce_minDv32_lPS_(<32 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i64> @_Z21work_group_reduce_minDv64_lPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+declare <64 x i64> @_Z21work_group_reduce_minDv64_lPS_(<64 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i64 @_Z21work_group_reduce_minmPm(i64 %src, i64* %accum) #5
+declare i64 @_Z21work_group_reduce_minmPm(i64 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i64> @_Z21work_group_reduce_minDv4_mPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+declare <4 x i64> @_Z21work_group_reduce_minDv4_mPS_(<4 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i64> @_Z21work_group_reduce_minDv8_mPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+declare <8 x i64> @_Z21work_group_reduce_minDv8_mPS_(<8 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i64> @_Z21work_group_reduce_minDv16_mPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+declare <16 x i64> @_Z21work_group_reduce_minDv16_mPS_(<16 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i64> @_Z21work_group_reduce_minDv32_mPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+declare <32 x i64> @_Z21work_group_reduce_minDv32_mPS_(<32 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i64> @_Z21work_group_reduce_minDv64_mPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+declare <64 x i64> @_Z21work_group_reduce_minDv64_mPS_(<64 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare float @_Z21work_group_reduce_minfPf(float %src, float* %accum) #5
+declare float @_Z21work_group_reduce_minfPf(float %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x float> @_Z21work_group_reduce_minDv4_fPS_(<4 x float> %src, <4 x float>* %accum) #5
+declare <4 x float> @_Z21work_group_reduce_minDv4_fPS_(<4 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x float> @_Z21work_group_reduce_minDv8_fPS_(<8 x float> %src, <8 x float>* %accum) #5
+declare <8 x float> @_Z21work_group_reduce_minDv8_fPS_(<8 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x float> @_Z21work_group_reduce_minDv16_fPS_(<16 x float> %src, <16 x float>* %accum) #5
+declare <16 x float> @_Z21work_group_reduce_minDv16_fPS_(<16 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x float> @_Z21work_group_reduce_minDv32_fPS_(<32 x float> %src, <32 x float>* %accum) #5
+declare <32 x float> @_Z21work_group_reduce_minDv32_fPS_(<32 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x float> @_Z21work_group_reduce_minDv64_fPS_(<64 x float> %src, <64 x float>* %accum) #5
+declare <64 x float> @_Z21work_group_reduce_minDv64_fPS_(<64 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare double @_Z21work_group_reduce_mindPd(double %src, double* %accum) #5
+declare double @_Z21work_group_reduce_mindPd(double %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x double> @_Z21work_group_reduce_minDv4_dPS_(<4 x double> %src, <4 x double>* %accum) #5
+declare <4 x double> @_Z21work_group_reduce_minDv4_dPS_(<4 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x double> @_Z21work_group_reduce_minDv8_dPS_(<8 x double> %src, <8 x double>* %accum) #5
+declare <8 x double> @_Z21work_group_reduce_minDv8_dPS_(<8 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x double> @_Z21work_group_reduce_minDv16_dPS_(<16 x double> %src, <16 x double>* %accum) #5
+declare <16 x double> @_Z21work_group_reduce_minDv16_dPS_(<16 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x double> @_Z21work_group_reduce_minDv32_dPS_(<32 x double> %src, <32 x double>* %accum) #5
+declare <32 x double> @_Z21work_group_reduce_minDv32_dPS_(<32 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x double> @_Z21work_group_reduce_minDv64_dPS_(<64 x double> %src, <64 x double>* %accum) #5
+declare <64 x double> @_Z21work_group_reduce_minDv64_dPS_(<64 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind readnone
 declare signext i8 @_Z29work_group_reduce_bitwise_andc(i8 signext %src) #3
@@ -3212,148 +3212,148 @@ declare <32 x i64> @_Z29work_group_reduce_bitwise_andDv32_m(<32 x i64> %src) #3
 declare <64 x i64> @_Z29work_group_reduce_bitwise_andDv64_m(<64 x i64> %src) #3
 
 ; Function Attrs: nounwind
-declare signext i8 @_Z29work_group_reduce_bitwise_andcPc(i8 signext %src, i8* %accum) #5
+declare signext i8 @_Z29work_group_reduce_bitwise_andcPc(i8 signext %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i8> @_Z29work_group_reduce_bitwise_andDv4_cPS_(<4 x i8> %src, <4 x i8>* %accum) #5
+declare <4 x i8> @_Z29work_group_reduce_bitwise_andDv4_cPS_(<4 x i8> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i8> @_Z29work_group_reduce_bitwise_andDv8_cPS_(<8 x i8> %src, <8 x i8>* %accum) #5
+declare <8 x i8> @_Z29work_group_reduce_bitwise_andDv8_cPS_(<8 x i8> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i8> @_Z29work_group_reduce_bitwise_andDv16_cPS_(<16 x i8> %src, <16 x i8>* %accum) #5
+declare <16 x i8> @_Z29work_group_reduce_bitwise_andDv16_cPS_(<16 x i8> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i8> @_Z29work_group_reduce_bitwise_andDv32_cPS_(<32 x i8> %src, <32 x i8>* %accum) #5
+declare <32 x i8> @_Z29work_group_reduce_bitwise_andDv32_cPS_(<32 x i8> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i8> @_Z29work_group_reduce_bitwise_andDv64_cPS_(<64 x i8> %src, <64 x i8>* %accum) #5
+declare <64 x i8> @_Z29work_group_reduce_bitwise_andDv64_cPS_(<64 x i8> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare zeroext i8 @_Z29work_group_reduce_bitwise_andhPh(i8 zeroext %src, i8* %accum) #5
+declare zeroext i8 @_Z29work_group_reduce_bitwise_andhPh(i8 zeroext %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i8> @_Z29work_group_reduce_bitwise_andDv4_hPS_(<4 x i8> %src, <4 x i8>* %accum) #5
+declare <4 x i8> @_Z29work_group_reduce_bitwise_andDv4_hPS_(<4 x i8> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i8> @_Z29work_group_reduce_bitwise_andDv8_hPS_(<8 x i8> %src, <8 x i8>* %accum) #5
+declare <8 x i8> @_Z29work_group_reduce_bitwise_andDv8_hPS_(<8 x i8> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i8> @_Z29work_group_reduce_bitwise_andDv16_hPS_(<16 x i8> %src, <16 x i8>* %accum) #5
+declare <16 x i8> @_Z29work_group_reduce_bitwise_andDv16_hPS_(<16 x i8> %src, ptr %accum) #5
  
 ; Function Attrs: nounwind
-declare <32 x i8> @_Z29work_group_reduce_bitwise_andDv32_hPS_(<32 x i8> %src, <32 x i8>* %accum) #5
+declare <32 x i8> @_Z29work_group_reduce_bitwise_andDv32_hPS_(<32 x i8> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i8> @_Z29work_group_reduce_bitwise_andDv64_hPS_(<64 x i8> %src, <64 x i8>* %accum) #5
+declare <64 x i8> @_Z29work_group_reduce_bitwise_andDv64_hPS_(<64 x i8> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare signext i16 @_Z29work_group_reduce_bitwise_andsPs(i16 signext %src, i16* %accum) #5
+declare signext i16 @_Z29work_group_reduce_bitwise_andsPs(i16 signext %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i16> @_Z29work_group_reduce_bitwise_andDv4_sPS_(<4 x i16> %src, <4 x i16>* %accum) #5
+declare <4 x i16> @_Z29work_group_reduce_bitwise_andDv4_sPS_(<4 x i16> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i16> @_Z29work_group_reduce_bitwise_andDv8_sPS_(<8 x i16> %src, <8 x i16>* %accum) #5
+declare <8 x i16> @_Z29work_group_reduce_bitwise_andDv8_sPS_(<8 x i16> %src, ptr %accum) #5
  
 ; Function Attrs: nounwind
-declare <16 x i16> @_Z29work_group_reduce_bitwise_andDv16_sPS_(<16 x i16> %src, <16 x i16>* %accum) #5
+declare <16 x i16> @_Z29work_group_reduce_bitwise_andDv16_sPS_(<16 x i16> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i16> @_Z29work_group_reduce_bitwise_andDv32_sPS_(<32 x i16> %src, <32 x i16>* %accum) #5
+declare <32 x i16> @_Z29work_group_reduce_bitwise_andDv32_sPS_(<32 x i16> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i16> @_Z29work_group_reduce_bitwise_andDv64_sPS_(<64 x i16> %src, <64 x i16>* %accum) #5
+declare <64 x i16> @_Z29work_group_reduce_bitwise_andDv64_sPS_(<64 x i16> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare zeroext i16 @_Z29work_group_reduce_bitwise_andtPt(i16 zeroext %src, i16* %accum) #5
+declare zeroext i16 @_Z29work_group_reduce_bitwise_andtPt(i16 zeroext %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i16> @_Z29work_group_reduce_bitwise_andDv4_tPS_(<4 x i16> %src, <4 x i16>* %accum) #5
+declare <4 x i16> @_Z29work_group_reduce_bitwise_andDv4_tPS_(<4 x i16> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i16> @_Z29work_group_reduce_bitwise_andDv8_tPS_(<8 x i16> %src, <8 x i16>* %accum) #5
+declare <8 x i16> @_Z29work_group_reduce_bitwise_andDv8_tPS_(<8 x i16> %src, ptr %accum) #5
  
 ; Function Attrs: nounwind
-declare <16 x i16> @_Z29work_group_reduce_bitwise_andDv16_tPS_(<16 x i16> %src, <16 x i16>* %accum) #5
+declare <16 x i16> @_Z29work_group_reduce_bitwise_andDv16_tPS_(<16 x i16> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i16> @_Z29work_group_reduce_bitwise_andDv32_tPS_(<32 x i16> %src, <32 x i16>* %accum) #5
+declare <32 x i16> @_Z29work_group_reduce_bitwise_andDv32_tPS_(<32 x i16> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i16> @_Z29work_group_reduce_bitwise_andDv64_tPS_(<64 x i16> %src, <64 x i16>* %accum) #5
+declare <64 x i16> @_Z29work_group_reduce_bitwise_andDv64_tPS_(<64 x i16> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i32 @_Z29work_group_reduce_bitwise_andiPi(i32 %src, i32* %accum) #5
+declare i32 @_Z29work_group_reduce_bitwise_andiPi(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z29work_group_reduce_bitwise_andDv4_iPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z29work_group_reduce_bitwise_andDv4_iPS_(<4 x i32> %src, ptr %accum) #5
  
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z29work_group_reduce_bitwise_andDv8_iPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z29work_group_reduce_bitwise_andDv8_iPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z29work_group_reduce_bitwise_andDv16_iPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z29work_group_reduce_bitwise_andDv16_iPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z29work_group_reduce_bitwise_andDv32_iPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z29work_group_reduce_bitwise_andDv32_iPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z29work_group_reduce_bitwise_andDv64_iPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z29work_group_reduce_bitwise_andDv64_iPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i32 @_Z29work_group_reduce_bitwise_andjPj(i32 %src, i32* %accum) #5
+declare i32 @_Z29work_group_reduce_bitwise_andjPj(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z29work_group_reduce_bitwise_andDv4_jPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z29work_group_reduce_bitwise_andDv4_jPS_(<4 x i32> %src, ptr %accum) #5
  
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z29work_group_reduce_bitwise_andDv8_jPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z29work_group_reduce_bitwise_andDv8_jPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z29work_group_reduce_bitwise_andDv16_jPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z29work_group_reduce_bitwise_andDv16_jPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z29work_group_reduce_bitwise_andDv32_jPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z29work_group_reduce_bitwise_andDv32_jPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z29work_group_reduce_bitwise_andDv64_jPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z29work_group_reduce_bitwise_andDv64_jPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i64 @_Z29work_group_reduce_bitwise_andlPl(i64 %src, i64* %accum) #5
+declare i64 @_Z29work_group_reduce_bitwise_andlPl(i64 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i64> @_Z29work_group_reduce_bitwise_andDv4_lPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+declare <4 x i64> @_Z29work_group_reduce_bitwise_andDv4_lPS_(<4 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i64> @_Z29work_group_reduce_bitwise_andDv8_lPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+declare <8 x i64> @_Z29work_group_reduce_bitwise_andDv8_lPS_(<8 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i64> @_Z29work_group_reduce_bitwise_andDv16_lPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+declare <16 x i64> @_Z29work_group_reduce_bitwise_andDv16_lPS_(<16 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i64> @_Z29work_group_reduce_bitwise_andDv32_lPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+declare <32 x i64> @_Z29work_group_reduce_bitwise_andDv32_lPS_(<32 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i64> @_Z29work_group_reduce_bitwise_andDv64_lPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+declare <64 x i64> @_Z29work_group_reduce_bitwise_andDv64_lPS_(<64 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i64 @_Z29work_group_reduce_bitwise_andmPm(i64 %src, i64* %accum) #5
+declare i64 @_Z29work_group_reduce_bitwise_andmPm(i64 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i64> @_Z29work_group_reduce_bitwise_andDv4_mPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+declare <4 x i64> @_Z29work_group_reduce_bitwise_andDv4_mPS_(<4 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i64> @_Z29work_group_reduce_bitwise_andDv8_mPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+declare <8 x i64> @_Z29work_group_reduce_bitwise_andDv8_mPS_(<8 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i64> @_Z29work_group_reduce_bitwise_andDv16_mPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+declare <16 x i64> @_Z29work_group_reduce_bitwise_andDv16_mPS_(<16 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i64> @_Z29work_group_reduce_bitwise_andDv32_mPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+declare <32 x i64> @_Z29work_group_reduce_bitwise_andDv32_mPS_(<32 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i64> @_Z29work_group_reduce_bitwise_andDv64_mPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+declare <64 x i64> @_Z29work_group_reduce_bitwise_andDv64_mPS_(<64 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind readnone
 declare signext i8 @_Z28work_group_reduce_bitwise_orc(i8 signext %src) #3
@@ -3500,148 +3500,148 @@ declare <32 x i64> @_Z28work_group_reduce_bitwise_orDv32_m(<32 x i64> %src) #3
 declare <64 x i64> @_Z28work_group_reduce_bitwise_orDv64_m(<64 x i64> %src) #3
 
 ; Function Attrs: nounwind
-declare signext i8 @_Z28work_group_reduce_bitwise_orcPc(i8 signext %src, i8* %accum) #5
+declare signext i8 @_Z28work_group_reduce_bitwise_orcPc(i8 signext %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i8> @_Z28work_group_reduce_bitwise_orDv4_cPS_(<4 x i8> %src, <4 x i8>* %accum) #5
+declare <4 x i8> @_Z28work_group_reduce_bitwise_orDv4_cPS_(<4 x i8> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i8> @_Z28work_group_reduce_bitwise_orDv8_cPS_(<8 x i8> %src, <8 x i8>* %accum) #5
+declare <8 x i8> @_Z28work_group_reduce_bitwise_orDv8_cPS_(<8 x i8> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i8> @_Z28work_group_reduce_bitwise_orDv16_cPS_(<16 x i8> %src, <16 x i8>* %accum) #5
+declare <16 x i8> @_Z28work_group_reduce_bitwise_orDv16_cPS_(<16 x i8> %src, ptr %accum) #5
  
 ; Function Attrs: nounwind
-declare <32 x i8> @_Z28work_group_reduce_bitwise_orDv32_cPS_(<32 x i8> %src, <32 x i8>* %accum) #5
+declare <32 x i8> @_Z28work_group_reduce_bitwise_orDv32_cPS_(<32 x i8> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i8> @_Z28work_group_reduce_bitwise_orDv64_cPS_(<64 x i8> %src, <64 x i8>* %accum) #5
+declare <64 x i8> @_Z28work_group_reduce_bitwise_orDv64_cPS_(<64 x i8> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare zeroext i8 @_Z28work_group_reduce_bitwise_orhPh(i8 zeroext %src, i8* %accum) #5
+declare zeroext i8 @_Z28work_group_reduce_bitwise_orhPh(i8 zeroext %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i8> @_Z28work_group_reduce_bitwise_orDv4_hPS_(<4 x i8> %src, <4 x i8>* %accum) #5
+declare <4 x i8> @_Z28work_group_reduce_bitwise_orDv4_hPS_(<4 x i8> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i8> @_Z28work_group_reduce_bitwise_orDv8_hPS_(<8 x i8> %src, <8 x i8>* %accum) #5
+declare <8 x i8> @_Z28work_group_reduce_bitwise_orDv8_hPS_(<8 x i8> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i8> @_Z28work_group_reduce_bitwise_orDv16_hPS_(<16 x i8> %src, <16 x i8>* %accum) #5
+declare <16 x i8> @_Z28work_group_reduce_bitwise_orDv16_hPS_(<16 x i8> %src, ptr %accum) #5
  
 ; Function Attrs: nounwind
-declare <32 x i8> @_Z28work_group_reduce_bitwise_orDv32_hPS_(<32 x i8> %src, <32 x i8>* %accum) #5
+declare <32 x i8> @_Z28work_group_reduce_bitwise_orDv32_hPS_(<32 x i8> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i8> @_Z28work_group_reduce_bitwise_orDv64_hPS_(<64 x i8> %src, <64 x i8>* %accum) #5
+declare <64 x i8> @_Z28work_group_reduce_bitwise_orDv64_hPS_(<64 x i8> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare signext i16 @_Z28work_group_reduce_bitwise_orsPs(i16 signext %src, i16* %accum) #5
+declare signext i16 @_Z28work_group_reduce_bitwise_orsPs(i16 signext %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i16> @_Z28work_group_reduce_bitwise_orDv4_sPS_(<4 x i16> %src, <4 x i16>* %accum) #5
+declare <4 x i16> @_Z28work_group_reduce_bitwise_orDv4_sPS_(<4 x i16> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i16> @_Z28work_group_reduce_bitwise_orDv8_sPS_(<8 x i16> %src, <8 x i16>* %accum) #5
+declare <8 x i16> @_Z28work_group_reduce_bitwise_orDv8_sPS_(<8 x i16> %src, ptr %accum) #5
  
 ; Function Attrs: nounwind
-declare <16 x i16> @_Z28work_group_reduce_bitwise_orDv16_sPS_(<16 x i16> %src, <16 x i16>* %accum) #5
+declare <16 x i16> @_Z28work_group_reduce_bitwise_orDv16_sPS_(<16 x i16> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i16> @_Z28work_group_reduce_bitwise_orDv32_sPS_(<32 x i16> %src, <32 x i16>* %accum) #5
+declare <32 x i16> @_Z28work_group_reduce_bitwise_orDv32_sPS_(<32 x i16> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i16> @_Z28work_group_reduce_bitwise_orDv64_sPS_(<64 x i16> %src, <64 x i16>* %accum) #5
+declare <64 x i16> @_Z28work_group_reduce_bitwise_orDv64_sPS_(<64 x i16> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare zeroext i16 @_Z28work_group_reduce_bitwise_ortPt(i16 zeroext %src, i16* %accum) #5
+declare zeroext i16 @_Z28work_group_reduce_bitwise_ortPt(i16 zeroext %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i16> @_Z28work_group_reduce_bitwise_orDv4_tPS_(<4 x i16> %src, <4 x i16>* %accum) #5
+declare <4 x i16> @_Z28work_group_reduce_bitwise_orDv4_tPS_(<4 x i16> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i16> @_Z28work_group_reduce_bitwise_orDv8_tPS_(<8 x i16> %src, <8 x i16>* %accum) #5
+declare <8 x i16> @_Z28work_group_reduce_bitwise_orDv8_tPS_(<8 x i16> %src, ptr %accum) #5
  
 ; Function Attrs: nounwind
-declare <16 x i16> @_Z28work_group_reduce_bitwise_orDv16_tPS_(<16 x i16> %src, <16 x i16>* %accum) #5
+declare <16 x i16> @_Z28work_group_reduce_bitwise_orDv16_tPS_(<16 x i16> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i16> @_Z28work_group_reduce_bitwise_orDv32_tPS_(<32 x i16> %src, <32 x i16>* %accum) #5
+declare <32 x i16> @_Z28work_group_reduce_bitwise_orDv32_tPS_(<32 x i16> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i16> @_Z28work_group_reduce_bitwise_orDv64_tPS_(<64 x i16> %src, <64 x i16>* %accum) #5
+declare <64 x i16> @_Z28work_group_reduce_bitwise_orDv64_tPS_(<64 x i16> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i32 @_Z28work_group_reduce_bitwise_oriPi(i32 %src, i32* %accum) #5
+declare i32 @_Z28work_group_reduce_bitwise_oriPi(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z28work_group_reduce_bitwise_orDv4_iPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z28work_group_reduce_bitwise_orDv4_iPS_(<4 x i32> %src, ptr %accum) #5
  
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z28work_group_reduce_bitwise_orDv8_iPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z28work_group_reduce_bitwise_orDv8_iPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z28work_group_reduce_bitwise_orDv16_iPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z28work_group_reduce_bitwise_orDv16_iPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z28work_group_reduce_bitwise_orDv32_iPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z28work_group_reduce_bitwise_orDv32_iPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z28work_group_reduce_bitwise_orDv64_iPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z28work_group_reduce_bitwise_orDv64_iPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i32 @_Z28work_group_reduce_bitwise_orjPj(i32 %src, i32* %accum) #5
+declare i32 @_Z28work_group_reduce_bitwise_orjPj(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z28work_group_reduce_bitwise_orDv4_jPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z28work_group_reduce_bitwise_orDv4_jPS_(<4 x i32> %src, ptr %accum) #5
  
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z28work_group_reduce_bitwise_orDv8_jPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z28work_group_reduce_bitwise_orDv8_jPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z28work_group_reduce_bitwise_orDv16_jPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z28work_group_reduce_bitwise_orDv16_jPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z28work_group_reduce_bitwise_orDv32_jPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z28work_group_reduce_bitwise_orDv32_jPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z28work_group_reduce_bitwise_orDv64_jPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z28work_group_reduce_bitwise_orDv64_jPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i64 @_Z28work_group_reduce_bitwise_orlPl(i64 %src, i64* %accum) #5
+declare i64 @_Z28work_group_reduce_bitwise_orlPl(i64 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i64> @_Z28work_group_reduce_bitwise_orDv4_lPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+declare <4 x i64> @_Z28work_group_reduce_bitwise_orDv4_lPS_(<4 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i64> @_Z28work_group_reduce_bitwise_orDv8_lPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+declare <8 x i64> @_Z28work_group_reduce_bitwise_orDv8_lPS_(<8 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i64> @_Z28work_group_reduce_bitwise_orDv16_lPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+declare <16 x i64> @_Z28work_group_reduce_bitwise_orDv16_lPS_(<16 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i64> @_Z28work_group_reduce_bitwise_orDv32_lPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+declare <32 x i64> @_Z28work_group_reduce_bitwise_orDv32_lPS_(<32 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i64> @_Z28work_group_reduce_bitwise_orDv64_lPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+declare <64 x i64> @_Z28work_group_reduce_bitwise_orDv64_lPS_(<64 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i64 @_Z28work_group_reduce_bitwise_ormPm(i64 %src, i64* %accum) #5
+declare i64 @_Z28work_group_reduce_bitwise_ormPm(i64 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i64> @_Z28work_group_reduce_bitwise_orDv4_mPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+declare <4 x i64> @_Z28work_group_reduce_bitwise_orDv4_mPS_(<4 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i64> @_Z28work_group_reduce_bitwise_orDv8_mPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+declare <8 x i64> @_Z28work_group_reduce_bitwise_orDv8_mPS_(<8 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i64> @_Z28work_group_reduce_bitwise_orDv16_mPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+declare <16 x i64> @_Z28work_group_reduce_bitwise_orDv16_mPS_(<16 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i64> @_Z28work_group_reduce_bitwise_orDv32_mPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+declare <32 x i64> @_Z28work_group_reduce_bitwise_orDv32_mPS_(<32 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i64> @_Z28work_group_reduce_bitwise_orDv64_mPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+declare <64 x i64> @_Z28work_group_reduce_bitwise_orDv64_mPS_(<64 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind readnone
 declare signext i8 @_Z29work_group_reduce_bitwise_xorc(i8 signext %src) #3
@@ -3788,148 +3788,148 @@ declare <32 x i64> @_Z29work_group_reduce_bitwise_xorDv32_m(<32 x i64> %src) #3
 declare <64 x i64> @_Z29work_group_reduce_bitwise_xorDv64_m(<64 x i64> %src) #3
 
 ; Function Attrs: nounwind
-declare signext i8 @_Z29work_group_reduce_bitwise_xorcPc(i8 signext %src, i8* %accum) #5
+declare signext i8 @_Z29work_group_reduce_bitwise_xorcPc(i8 signext %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i8> @_Z29work_group_reduce_bitwise_xorDv4_cPS_(<4 x i8> %src, <4 x i8>* %accum) #5
+declare <4 x i8> @_Z29work_group_reduce_bitwise_xorDv4_cPS_(<4 x i8> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i8> @_Z29work_group_reduce_bitwise_xorDv8_cPS_(<8 x i8> %src, <8 x i8>* %accum) #5
+declare <8 x i8> @_Z29work_group_reduce_bitwise_xorDv8_cPS_(<8 x i8> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i8> @_Z29work_group_reduce_bitwise_xorDv16_cPS_(<16 x i8> %src, <16 x i8>* %accum) #5
+declare <16 x i8> @_Z29work_group_reduce_bitwise_xorDv16_cPS_(<16 x i8> %src, ptr %accum) #5
  
 ; Function Attrs: nounwind
-declare <32 x i8> @_Z29work_group_reduce_bitwise_xorDv32_cPS_(<32 x i8> %src, <32 x i8>* %accum) #5
+declare <32 x i8> @_Z29work_group_reduce_bitwise_xorDv32_cPS_(<32 x i8> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i8> @_Z29work_group_reduce_bitwise_xorDv64_cPS_(<64 x i8> %src, <64 x i8>* %accum) #5
+declare <64 x i8> @_Z29work_group_reduce_bitwise_xorDv64_cPS_(<64 x i8> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare zeroext i8 @_Z29work_group_reduce_bitwise_xorhPh(i8 zeroext %src, i8* %accum) #5
+declare zeroext i8 @_Z29work_group_reduce_bitwise_xorhPh(i8 zeroext %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i8> @_Z29work_group_reduce_bitwise_xorDv4_hPS_(<4 x i8> %src, <4 x i8>* %accum) #5
+declare <4 x i8> @_Z29work_group_reduce_bitwise_xorDv4_hPS_(<4 x i8> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i8> @_Z29work_group_reduce_bitwise_xorDv8_hPS_(<8 x i8> %src, <8 x i8>* %accum) #5
+declare <8 x i8> @_Z29work_group_reduce_bitwise_xorDv8_hPS_(<8 x i8> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i8> @_Z29work_group_reduce_bitwise_xorDv16_hPS_(<16 x i8> %src, <16 x i8>* %accum) #5
+declare <16 x i8> @_Z29work_group_reduce_bitwise_xorDv16_hPS_(<16 x i8> %src, ptr %accum) #5
  
 ; Function Attrs: nounwind
-declare <32 x i8> @_Z29work_group_reduce_bitwise_xorDv32_hPS_(<32 x i8> %src, <32 x i8>* %accum) #5
+declare <32 x i8> @_Z29work_group_reduce_bitwise_xorDv32_hPS_(<32 x i8> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i8> @_Z29work_group_reduce_bitwise_xorDv64_hPS_(<64 x i8> %src, <64 x i8>* %accum) #5
+declare <64 x i8> @_Z29work_group_reduce_bitwise_xorDv64_hPS_(<64 x i8> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare signext i16 @_Z29work_group_reduce_bitwise_xorsPs(i16 signext %src, i16* %accum) #5
+declare signext i16 @_Z29work_group_reduce_bitwise_xorsPs(i16 signext %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i16> @_Z29work_group_reduce_bitwise_xorDv4_sPS_(<4 x i16> %src, <4 x i16>* %accum) #5
+declare <4 x i16> @_Z29work_group_reduce_bitwise_xorDv4_sPS_(<4 x i16> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i16> @_Z29work_group_reduce_bitwise_xorDv8_sPS_(<8 x i16> %src, <8 x i16>* %accum) #5
+declare <8 x i16> @_Z29work_group_reduce_bitwise_xorDv8_sPS_(<8 x i16> %src, ptr %accum) #5
  
 ; Function Attrs: nounwind
-declare <16 x i16> @_Z29work_group_reduce_bitwise_xorDv16_sPS_(<16 x i16> %src, <16 x i16>* %accum) #5
+declare <16 x i16> @_Z29work_group_reduce_bitwise_xorDv16_sPS_(<16 x i16> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i16> @_Z29work_group_reduce_bitwise_xorDv32_sPS_(<32 x i16> %src, <32 x i16>* %accum) #5
+declare <32 x i16> @_Z29work_group_reduce_bitwise_xorDv32_sPS_(<32 x i16> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i16> @_Z29work_group_reduce_bitwise_xorDv64_sPS_(<64 x i16> %src, <64 x i16>* %accum) #5
+declare <64 x i16> @_Z29work_group_reduce_bitwise_xorDv64_sPS_(<64 x i16> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare zeroext i16 @_Z29work_group_reduce_bitwise_xortPt(i16 zeroext %src, i16* %accum) #5
+declare zeroext i16 @_Z29work_group_reduce_bitwise_xortPt(i16 zeroext %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i16> @_Z29work_group_reduce_bitwise_xorDv4_tPS_(<4 x i16> %src, <4 x i16>* %accum) #5
+declare <4 x i16> @_Z29work_group_reduce_bitwise_xorDv4_tPS_(<4 x i16> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i16> @_Z29work_group_reduce_bitwise_xorDv8_tPS_(<8 x i16> %src, <8 x i16>* %accum) #5
+declare <8 x i16> @_Z29work_group_reduce_bitwise_xorDv8_tPS_(<8 x i16> %src, ptr %accum) #5
  
 ; Function Attrs: nounwind
-declare <16 x i16> @_Z29work_group_reduce_bitwise_xorDv16_tPS_(<16 x i16> %src, <16 x i16>* %accum) #5
+declare <16 x i16> @_Z29work_group_reduce_bitwise_xorDv16_tPS_(<16 x i16> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i16> @_Z29work_group_reduce_bitwise_xorDv32_tPS_(<32 x i16> %src, <32 x i16>* %accum) #5
+declare <32 x i16> @_Z29work_group_reduce_bitwise_xorDv32_tPS_(<32 x i16> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i16> @_Z29work_group_reduce_bitwise_xorDv64_tPS_(<64 x i16> %src, <64 x i16>* %accum) #5
+declare <64 x i16> @_Z29work_group_reduce_bitwise_xorDv64_tPS_(<64 x i16> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i32 @_Z29work_group_reduce_bitwise_xoriPi(i32 %src, i32* %accum) #5
+declare i32 @_Z29work_group_reduce_bitwise_xoriPi(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z29work_group_reduce_bitwise_xorDv4_iPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z29work_group_reduce_bitwise_xorDv4_iPS_(<4 x i32> %src, ptr %accum) #5
  
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z29work_group_reduce_bitwise_xorDv8_iPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z29work_group_reduce_bitwise_xorDv8_iPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z29work_group_reduce_bitwise_xorDv16_iPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z29work_group_reduce_bitwise_xorDv16_iPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z29work_group_reduce_bitwise_xorDv32_iPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z29work_group_reduce_bitwise_xorDv32_iPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z29work_group_reduce_bitwise_xorDv64_iPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z29work_group_reduce_bitwise_xorDv64_iPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i32 @_Z29work_group_reduce_bitwise_xorjPj(i32 %src, i32* %accum) #5
+declare i32 @_Z29work_group_reduce_bitwise_xorjPj(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z29work_group_reduce_bitwise_xorDv4_jPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z29work_group_reduce_bitwise_xorDv4_jPS_(<4 x i32> %src, ptr %accum) #5
  
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z29work_group_reduce_bitwise_xorDv8_jPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z29work_group_reduce_bitwise_xorDv8_jPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z29work_group_reduce_bitwise_xorDv16_jPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z29work_group_reduce_bitwise_xorDv16_jPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z29work_group_reduce_bitwise_xorDv32_jPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z29work_group_reduce_bitwise_xorDv32_jPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z29work_group_reduce_bitwise_xorDv64_jPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z29work_group_reduce_bitwise_xorDv64_jPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i64 @_Z29work_group_reduce_bitwise_xorlPl(i64 %src, i64* %accum) #5
+declare i64 @_Z29work_group_reduce_bitwise_xorlPl(i64 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i64> @_Z29work_group_reduce_bitwise_xorDv4_lPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+declare <4 x i64> @_Z29work_group_reduce_bitwise_xorDv4_lPS_(<4 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i64> @_Z29work_group_reduce_bitwise_xorDv8_lPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+declare <8 x i64> @_Z29work_group_reduce_bitwise_xorDv8_lPS_(<8 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i64> @_Z29work_group_reduce_bitwise_xorDv16_lPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+declare <16 x i64> @_Z29work_group_reduce_bitwise_xorDv16_lPS_(<16 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i64> @_Z29work_group_reduce_bitwise_xorDv32_lPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+declare <32 x i64> @_Z29work_group_reduce_bitwise_xorDv32_lPS_(<32 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i64> @_Z29work_group_reduce_bitwise_xorDv64_lPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+declare <64 x i64> @_Z29work_group_reduce_bitwise_xorDv64_lPS_(<64 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i64 @_Z29work_group_reduce_bitwise_xormPm(i64 %src, i64* %accum) #5
+declare i64 @_Z29work_group_reduce_bitwise_xormPm(i64 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i64> @_Z29work_group_reduce_bitwise_xorDv4_mPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+declare <4 x i64> @_Z29work_group_reduce_bitwise_xorDv4_mPS_(<4 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i64> @_Z29work_group_reduce_bitwise_xorDv8_mPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+declare <8 x i64> @_Z29work_group_reduce_bitwise_xorDv8_mPS_(<8 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i64> @_Z29work_group_reduce_bitwise_xorDv16_mPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+declare <16 x i64> @_Z29work_group_reduce_bitwise_xorDv16_mPS_(<16 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i64> @_Z29work_group_reduce_bitwise_xorDv32_mPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+declare <32 x i64> @_Z29work_group_reduce_bitwise_xorDv32_mPS_(<32 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i64> @_Z29work_group_reduce_bitwise_xorDv64_mPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+declare <64 x i64> @_Z29work_group_reduce_bitwise_xorDv64_mPS_(<64 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind readnone
 declare i32 @_Z29work_group_reduce_logical_andi(i32 %src) #3
@@ -3950,22 +3950,22 @@ declare <32 x i32> @_Z29work_group_reduce_logical_andDv32_i(<32 x i32> %src) #3
 declare <64 x i32> @_Z29work_group_reduce_logical_andDv64_i(<64 x i32> %src) #3
 
 ; Function Attrs: nounwind
-declare i32 @_Z29work_group_reduce_logical_andiPi(i32 %src, i32* %accum) #5
+declare i32 @_Z29work_group_reduce_logical_andiPi(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z29work_group_reduce_logical_andDv4_iPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z29work_group_reduce_logical_andDv4_iPS_(<4 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z29work_group_reduce_logical_andDv8_iPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z29work_group_reduce_logical_andDv8_iPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z29work_group_reduce_logical_andDv16_iPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z29work_group_reduce_logical_andDv16_iPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z29work_group_reduce_logical_andDv32_iPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z29work_group_reduce_logical_andDv32_iPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z29work_group_reduce_logical_andDv64_iPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z29work_group_reduce_logical_andDv64_iPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind readnone
 declare i32 @_Z28work_group_reduce_logical_ori(i32 %src) #3
@@ -3986,22 +3986,22 @@ declare <32 x i32> @_Z28work_group_reduce_logical_orDv32_i(<32 x i32> %src) #3
 declare <64 x i32> @_Z28work_group_reduce_logical_orDv64_i(<64 x i32> %src) #3
 
 ; Function Attrs: nounwind
-declare i32 @_Z28work_group_reduce_logical_oriPi(i32 %src, i32* %accum) #5
+declare i32 @_Z28work_group_reduce_logical_oriPi(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z28work_group_reduce_logical_orDv4_iPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z28work_group_reduce_logical_orDv4_iPS_(<4 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z28work_group_reduce_logical_orDv8_iPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z28work_group_reduce_logical_orDv8_iPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z28work_group_reduce_logical_orDv16_iPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z28work_group_reduce_logical_orDv16_iPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z28work_group_reduce_logical_orDv32_iPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z28work_group_reduce_logical_orDv32_iPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z28work_group_reduce_logical_orDv64_iPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z28work_group_reduce_logical_orDv64_iPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind readnone
 declare i32 @_Z29work_group_reduce_logical_xori(i32 %src) #3
@@ -4022,22 +4022,22 @@ declare <32 x i32> @_Z29work_group_reduce_logical_xorDv32_i(<32 x i32> %src) #3
 declare <64 x i32> @_Z29work_group_reduce_logical_xorDv64_i(<64 x i32> %src) #3
 
 ; Function Attrs: nounwind
-declare i32 @_Z29work_group_reduce_logical_xoriPi(i32 %src, i32* %accum) #5
+declare i32 @_Z29work_group_reduce_logical_xoriPi(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z29work_group_reduce_logical_xorDv4_iPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z29work_group_reduce_logical_xorDv4_iPS_(<4 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z29work_group_reduce_logical_xorDv8_iPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z29work_group_reduce_logical_xorDv8_iPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z29work_group_reduce_logical_xorDv16_iPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z29work_group_reduce_logical_xorDv16_iPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z29work_group_reduce_logical_xorDv32_iPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z29work_group_reduce_logical_xorDv32_iPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z29work_group_reduce_logical_xorDv64_iPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z29work_group_reduce_logical_xorDv64_iPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind readnone
 declare <4 x i8> @_Z40__finalize_work_group_reduce_bitwise_andDv4_c(<4 x i8> %accum) #3
@@ -4553,112 +4553,112 @@ declare <32 x double> @_Z29work_group_scan_exclusive_addDv32_d(<32 x double> %sr
 declare <64 x double> @_Z29work_group_scan_exclusive_addDv64_d(<64 x double> %src) #3
 
 ; Function Attrs: nounwind
-declare i32 @_Z29work_group_scan_exclusive_addiPi(i32 %src, i32* %accum) #5
+declare i32 @_Z29work_group_scan_exclusive_addiPi(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z29work_group_scan_exclusive_addDv4_iPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z29work_group_scan_exclusive_addDv4_iPS_(<4 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z29work_group_scan_exclusive_addDv8_iPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z29work_group_scan_exclusive_addDv8_iPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z29work_group_scan_exclusive_addDv16_iPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z29work_group_scan_exclusive_addDv16_iPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z29work_group_scan_exclusive_addDv32_iPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z29work_group_scan_exclusive_addDv32_iPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z29work_group_scan_exclusive_addDv64_iPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z29work_group_scan_exclusive_addDv64_iPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i32 @_Z29work_group_scan_exclusive_addjPj(i32 %src, i32* %accum) #5
+declare i32 @_Z29work_group_scan_exclusive_addjPj(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z29work_group_scan_exclusive_addDv4_jPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z29work_group_scan_exclusive_addDv4_jPS_(<4 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z29work_group_scan_exclusive_addDv8_jPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z29work_group_scan_exclusive_addDv8_jPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z29work_group_scan_exclusive_addDv16_jPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z29work_group_scan_exclusive_addDv16_jPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z29work_group_scan_exclusive_addDv32_jPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z29work_group_scan_exclusive_addDv32_jPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z29work_group_scan_exclusive_addDv64_jPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z29work_group_scan_exclusive_addDv64_jPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i64 @_Z29work_group_scan_exclusive_addlPl(i64 %src, i64* %accum) #5
+declare i64 @_Z29work_group_scan_exclusive_addlPl(i64 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i64> @_Z29work_group_scan_exclusive_addDv4_lPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+declare <4 x i64> @_Z29work_group_scan_exclusive_addDv4_lPS_(<4 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i64> @_Z29work_group_scan_exclusive_addDv8_lPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+declare <8 x i64> @_Z29work_group_scan_exclusive_addDv8_lPS_(<8 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i64> @_Z29work_group_scan_exclusive_addDv16_lPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+declare <16 x i64> @_Z29work_group_scan_exclusive_addDv16_lPS_(<16 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i64> @_Z29work_group_scan_exclusive_addDv32_lPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+declare <32 x i64> @_Z29work_group_scan_exclusive_addDv32_lPS_(<32 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i64> @_Z29work_group_scan_exclusive_addDv64_lPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+declare <64 x i64> @_Z29work_group_scan_exclusive_addDv64_lPS_(<64 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i64 @_Z29work_group_scan_exclusive_addmPm(i64 %src, i64* %accum) #5
+declare i64 @_Z29work_group_scan_exclusive_addmPm(i64 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i64> @_Z29work_group_scan_exclusive_addDv4_mPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+declare <4 x i64> @_Z29work_group_scan_exclusive_addDv4_mPS_(<4 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i64> @_Z29work_group_scan_exclusive_addDv8_mPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+declare <8 x i64> @_Z29work_group_scan_exclusive_addDv8_mPS_(<8 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i64> @_Z29work_group_scan_exclusive_addDv16_mPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+declare <16 x i64> @_Z29work_group_scan_exclusive_addDv16_mPS_(<16 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i64> @_Z29work_group_scan_exclusive_addDv32_mPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+declare <32 x i64> @_Z29work_group_scan_exclusive_addDv32_mPS_(<32 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i64> @_Z29work_group_scan_exclusive_addDv64_mPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+declare <64 x i64> @_Z29work_group_scan_exclusive_addDv64_mPS_(<64 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare float @_Z29work_group_scan_exclusive_addfPf(float %src, float* %accum) #5
+declare float @_Z29work_group_scan_exclusive_addfPf(float %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x float> @_Z29work_group_scan_exclusive_addDv4_fPS_(<4 x float> %src, <4 x float>* %accum) #5
+declare <4 x float> @_Z29work_group_scan_exclusive_addDv4_fPS_(<4 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x float> @_Z29work_group_scan_exclusive_addDv8_fPS_(<8 x float> %src, <8 x float>* %accum) #5
+declare <8 x float> @_Z29work_group_scan_exclusive_addDv8_fPS_(<8 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x float> @_Z29work_group_scan_exclusive_addDv16_fPS_(<16 x float> %src, <16 x float>* %accum) #5
+declare <16 x float> @_Z29work_group_scan_exclusive_addDv16_fPS_(<16 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x float> @_Z29work_group_scan_exclusive_addDv32_fPS_(<32 x float> %src, <32 x float>* %accum) #5
+declare <32 x float> @_Z29work_group_scan_exclusive_addDv32_fPS_(<32 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x float> @_Z29work_group_scan_exclusive_addDv64_fPS_(<64 x float> %src, <64 x float>* %accum) #5
+declare <64 x float> @_Z29work_group_scan_exclusive_addDv64_fPS_(<64 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare double @_Z29work_group_scan_exclusive_adddPd(double %src, double* %accum) #5
+declare double @_Z29work_group_scan_exclusive_adddPd(double %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x double> @_Z29work_group_scan_exclusive_addDv4_dPS_(<4 x double> %src, <4 x double>* %accum) #5
+declare <4 x double> @_Z29work_group_scan_exclusive_addDv4_dPS_(<4 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x double> @_Z29work_group_scan_exclusive_addDv8_dPS_(<8 x double> %src, <8 x double>* %accum) #5
+declare <8 x double> @_Z29work_group_scan_exclusive_addDv8_dPS_(<8 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x double> @_Z29work_group_scan_exclusive_addDv16_dPS_(<16 x double> %src, <16 x double>* %accum) #5
+declare <16 x double> @_Z29work_group_scan_exclusive_addDv16_dPS_(<16 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x double> @_Z29work_group_scan_exclusive_addDv32_dPS_(<32 x double> %src, <32 x double>* %accum) #5
+declare <32 x double> @_Z29work_group_scan_exclusive_addDv32_dPS_(<32 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x double> @_Z29work_group_scan_exclusive_addDv64_dPS_(<64 x double> %src, <64 x double>* %accum) #5
+declare <64 x double> @_Z29work_group_scan_exclusive_addDv64_dPS_(<64 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind readnone
 declare i32 @_Z29work_group_scan_exclusive_maxi(i32 %src) #3
@@ -4769,112 +4769,112 @@ declare <32 x double> @_Z29work_group_scan_exclusive_maxDv32_d(<32 x double> %sr
 declare <64 x double> @_Z29work_group_scan_exclusive_maxDv64_d(<64 x double> %src) #3
 
 ; Function Attrs: nounwind
-declare i32 @_Z29work_group_scan_exclusive_maxiPi(i32 %src, i32* %accum) #5
+declare i32 @_Z29work_group_scan_exclusive_maxiPi(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z29work_group_scan_exclusive_maxDv4_iPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z29work_group_scan_exclusive_maxDv4_iPS_(<4 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z29work_group_scan_exclusive_maxDv8_iPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z29work_group_scan_exclusive_maxDv8_iPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z29work_group_scan_exclusive_maxDv16_iPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z29work_group_scan_exclusive_maxDv16_iPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z29work_group_scan_exclusive_maxDv32_iPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z29work_group_scan_exclusive_maxDv32_iPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z29work_group_scan_exclusive_maxDv64_iPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z29work_group_scan_exclusive_maxDv64_iPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i32 @_Z29work_group_scan_exclusive_maxjPj(i32 %src, i32* %accum) #5
+declare i32 @_Z29work_group_scan_exclusive_maxjPj(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z29work_group_scan_exclusive_maxDv4_jPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z29work_group_scan_exclusive_maxDv4_jPS_(<4 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z29work_group_scan_exclusive_maxDv8_jPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z29work_group_scan_exclusive_maxDv8_jPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z29work_group_scan_exclusive_maxDv16_jPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z29work_group_scan_exclusive_maxDv16_jPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z29work_group_scan_exclusive_maxDv32_jPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z29work_group_scan_exclusive_maxDv32_jPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z29work_group_scan_exclusive_maxDv64_jPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z29work_group_scan_exclusive_maxDv64_jPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i64 @_Z29work_group_scan_exclusive_maxlPl(i64 %src, i64* %accum) #5
+declare i64 @_Z29work_group_scan_exclusive_maxlPl(i64 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i64> @_Z29work_group_scan_exclusive_maxDv4_lPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+declare <4 x i64> @_Z29work_group_scan_exclusive_maxDv4_lPS_(<4 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i64> @_Z29work_group_scan_exclusive_maxDv8_lPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+declare <8 x i64> @_Z29work_group_scan_exclusive_maxDv8_lPS_(<8 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i64> @_Z29work_group_scan_exclusive_maxDv16_lPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+declare <16 x i64> @_Z29work_group_scan_exclusive_maxDv16_lPS_(<16 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i64> @_Z29work_group_scan_exclusive_maxDv32_lPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+declare <32 x i64> @_Z29work_group_scan_exclusive_maxDv32_lPS_(<32 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i64> @_Z29work_group_scan_exclusive_maxDv64_lPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+declare <64 x i64> @_Z29work_group_scan_exclusive_maxDv64_lPS_(<64 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i64 @_Z29work_group_scan_exclusive_maxmPm(i64 %src, i64* %accum) #5
+declare i64 @_Z29work_group_scan_exclusive_maxmPm(i64 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i64> @_Z29work_group_scan_exclusive_maxDv4_mPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+declare <4 x i64> @_Z29work_group_scan_exclusive_maxDv4_mPS_(<4 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i64> @_Z29work_group_scan_exclusive_maxDv8_mPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+declare <8 x i64> @_Z29work_group_scan_exclusive_maxDv8_mPS_(<8 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i64> @_Z29work_group_scan_exclusive_maxDv16_mPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+declare <16 x i64> @_Z29work_group_scan_exclusive_maxDv16_mPS_(<16 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i64> @_Z29work_group_scan_exclusive_maxDv32_mPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+declare <32 x i64> @_Z29work_group_scan_exclusive_maxDv32_mPS_(<32 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i64> @_Z29work_group_scan_exclusive_maxDv64_mPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+declare <64 x i64> @_Z29work_group_scan_exclusive_maxDv64_mPS_(<64 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare float @_Z29work_group_scan_exclusive_maxfPf(float %src, float* %accum) #5
+declare float @_Z29work_group_scan_exclusive_maxfPf(float %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x float> @_Z29work_group_scan_exclusive_maxDv4_fPS_(<4 x float> %src, <4 x float>* %accum) #5
+declare <4 x float> @_Z29work_group_scan_exclusive_maxDv4_fPS_(<4 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x float> @_Z29work_group_scan_exclusive_maxDv8_fPS_(<8 x float> %src, <8 x float>* %accum) #5
+declare <8 x float> @_Z29work_group_scan_exclusive_maxDv8_fPS_(<8 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x float> @_Z29work_group_scan_exclusive_maxDv16_fPS_(<16 x float> %src, <16 x float>* %accum) #5
+declare <16 x float> @_Z29work_group_scan_exclusive_maxDv16_fPS_(<16 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x float> @_Z29work_group_scan_exclusive_maxDv32_fPS_(<32 x float> %src, <32 x float>* %accum) #5
+declare <32 x float> @_Z29work_group_scan_exclusive_maxDv32_fPS_(<32 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x float> @_Z29work_group_scan_exclusive_maxDv64_fPS_(<64 x float> %src, <64 x float>* %accum) #5
+declare <64 x float> @_Z29work_group_scan_exclusive_maxDv64_fPS_(<64 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare double @_Z29work_group_scan_exclusive_maxdPd(double %src, double* %accum) #5
+declare double @_Z29work_group_scan_exclusive_maxdPd(double %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x double> @_Z29work_group_scan_exclusive_maxDv4_dPS_(<4 x double> %src, <4 x double>* %accum) #5
+declare <4 x double> @_Z29work_group_scan_exclusive_maxDv4_dPS_(<4 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x double> @_Z29work_group_scan_exclusive_maxDv8_dPS_(<8 x double> %src, <8 x double>* %accum) #5
+declare <8 x double> @_Z29work_group_scan_exclusive_maxDv8_dPS_(<8 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x double> @_Z29work_group_scan_exclusive_maxDv16_dPS_(<16 x double> %src, <16 x double>* %accum) #5
+declare <16 x double> @_Z29work_group_scan_exclusive_maxDv16_dPS_(<16 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x double> @_Z29work_group_scan_exclusive_maxDv32_dPS_(<32 x double> %src, <32 x double>* %accum) #5
+declare <32 x double> @_Z29work_group_scan_exclusive_maxDv32_dPS_(<32 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x double> @_Z29work_group_scan_exclusive_maxDv64_dPS_(<64 x double> %src, <64 x double>* %accum) #5
+declare <64 x double> @_Z29work_group_scan_exclusive_maxDv64_dPS_(<64 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind readnone
 declare i32 @_Z29work_group_scan_exclusive_mini(i32 %src) #3
@@ -4985,112 +4985,112 @@ declare <32 x double> @_Z29work_group_scan_exclusive_minDv32_d(<32 x double> %sr
 declare <64 x double> @_Z29work_group_scan_exclusive_minDv64_d(<64 x double> %src) #3
 
 ; Function Attrs: nounwind
-declare i32 @_Z29work_group_scan_exclusive_miniPi(i32 %src, i32* %accum) #5
+declare i32 @_Z29work_group_scan_exclusive_miniPi(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z29work_group_scan_exclusive_minDv4_iPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z29work_group_scan_exclusive_minDv4_iPS_(<4 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z29work_group_scan_exclusive_minDv8_iPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z29work_group_scan_exclusive_minDv8_iPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z29work_group_scan_exclusive_minDv16_iPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z29work_group_scan_exclusive_minDv16_iPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z29work_group_scan_exclusive_minDv32_iPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z29work_group_scan_exclusive_minDv32_iPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z29work_group_scan_exclusive_minDv64_iPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z29work_group_scan_exclusive_minDv64_iPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i32 @_Z29work_group_scan_exclusive_minjPj(i32 %src, i32* %accum) #5
+declare i32 @_Z29work_group_scan_exclusive_minjPj(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z29work_group_scan_exclusive_minDv4_jPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z29work_group_scan_exclusive_minDv4_jPS_(<4 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z29work_group_scan_exclusive_minDv8_jPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z29work_group_scan_exclusive_minDv8_jPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z29work_group_scan_exclusive_minDv16_jPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z29work_group_scan_exclusive_minDv16_jPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z29work_group_scan_exclusive_minDv32_jPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z29work_group_scan_exclusive_minDv32_jPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z29work_group_scan_exclusive_minDv64_jPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z29work_group_scan_exclusive_minDv64_jPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i64 @_Z29work_group_scan_exclusive_minlPl(i64 %src, i64* %accum) #5
+declare i64 @_Z29work_group_scan_exclusive_minlPl(i64 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i64> @_Z29work_group_scan_exclusive_minDv4_lPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+declare <4 x i64> @_Z29work_group_scan_exclusive_minDv4_lPS_(<4 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i64> @_Z29work_group_scan_exclusive_minDv8_lPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+declare <8 x i64> @_Z29work_group_scan_exclusive_minDv8_lPS_(<8 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i64> @_Z29work_group_scan_exclusive_minDv16_lPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+declare <16 x i64> @_Z29work_group_scan_exclusive_minDv16_lPS_(<16 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i64> @_Z29work_group_scan_exclusive_minDv32_lPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+declare <32 x i64> @_Z29work_group_scan_exclusive_minDv32_lPS_(<32 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i64> @_Z29work_group_scan_exclusive_minDv64_lPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+declare <64 x i64> @_Z29work_group_scan_exclusive_minDv64_lPS_(<64 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i64 @_Z29work_group_scan_exclusive_minmPm(i64 %src, i64* %accum) #5
+declare i64 @_Z29work_group_scan_exclusive_minmPm(i64 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i64> @_Z29work_group_scan_exclusive_minDv4_mPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+declare <4 x i64> @_Z29work_group_scan_exclusive_minDv4_mPS_(<4 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i64> @_Z29work_group_scan_exclusive_minDv8_mPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+declare <8 x i64> @_Z29work_group_scan_exclusive_minDv8_mPS_(<8 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i64> @_Z29work_group_scan_exclusive_minDv16_mPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+declare <16 x i64> @_Z29work_group_scan_exclusive_minDv16_mPS_(<16 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i64> @_Z29work_group_scan_exclusive_minDv32_mPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+declare <32 x i64> @_Z29work_group_scan_exclusive_minDv32_mPS_(<32 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i64> @_Z29work_group_scan_exclusive_minDv64_mPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+declare <64 x i64> @_Z29work_group_scan_exclusive_minDv64_mPS_(<64 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare float @_Z29work_group_scan_exclusive_minfPf(float %src, float* %accum) #5
+declare float @_Z29work_group_scan_exclusive_minfPf(float %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x float> @_Z29work_group_scan_exclusive_minDv4_fPS_(<4 x float> %src, <4 x float>* %accum) #5
+declare <4 x float> @_Z29work_group_scan_exclusive_minDv4_fPS_(<4 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x float> @_Z29work_group_scan_exclusive_minDv8_fPS_(<8 x float> %src, <8 x float>* %accum) #5
+declare <8 x float> @_Z29work_group_scan_exclusive_minDv8_fPS_(<8 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x float> @_Z29work_group_scan_exclusive_minDv16_fPS_(<16 x float> %src, <16 x float>* %accum) #5
+declare <16 x float> @_Z29work_group_scan_exclusive_minDv16_fPS_(<16 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x float> @_Z29work_group_scan_exclusive_minDv32_fPS_(<32 x float> %src, <32 x float>* %accum) #5
+declare <32 x float> @_Z29work_group_scan_exclusive_minDv32_fPS_(<32 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x float> @_Z29work_group_scan_exclusive_minDv64_fPS_(<64 x float> %src, <64 x float>* %accum) #5
+declare <64 x float> @_Z29work_group_scan_exclusive_minDv64_fPS_(<64 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare double @_Z29work_group_scan_exclusive_mindPd(double %src, double* %accum) #5
+declare double @_Z29work_group_scan_exclusive_mindPd(double %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x double> @_Z29work_group_scan_exclusive_minDv4_dPS_(<4 x double> %src, <4 x double>* %accum) #5
+declare <4 x double> @_Z29work_group_scan_exclusive_minDv4_dPS_(<4 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x double> @_Z29work_group_scan_exclusive_minDv8_dPS_(<8 x double> %src, <8 x double>* %accum) #5
+declare <8 x double> @_Z29work_group_scan_exclusive_minDv8_dPS_(<8 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x double> @_Z29work_group_scan_exclusive_minDv16_dPS_(<16 x double> %src, <16 x double>* %accum) #5
+declare <16 x double> @_Z29work_group_scan_exclusive_minDv16_dPS_(<16 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x double> @_Z29work_group_scan_exclusive_minDv32_dPS_(<32 x double> %src, <32 x double>* %accum) #5
+declare <32 x double> @_Z29work_group_scan_exclusive_minDv32_dPS_(<32 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x double> @_Z29work_group_scan_exclusive_minDv64_dPS_(<64 x double> %src, <64 x double>* %accum) #5
+declare <64 x double> @_Z29work_group_scan_exclusive_minDv64_dPS_(<64 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind readnone
 declare i32 @_Z29work_group_scan_inclusive_addi(i32 %src) #3
@@ -5201,112 +5201,112 @@ declare <32 x double> @_Z29work_group_scan_inclusive_addDv32_d(<32 x double> %sr
 declare <64 x double> @_Z29work_group_scan_inclusive_addDv64_d(<64 x double> %src) #3
 
 ; Function Attrs: nounwind
-declare i32 @_Z29work_group_scan_inclusive_addiPi(i32 %src, i32* %accum) #5
+declare i32 @_Z29work_group_scan_inclusive_addiPi(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z29work_group_scan_inclusive_addDv4_iPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z29work_group_scan_inclusive_addDv4_iPS_(<4 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z29work_group_scan_inclusive_addDv8_iPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z29work_group_scan_inclusive_addDv8_iPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z29work_group_scan_inclusive_addDv16_iPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z29work_group_scan_inclusive_addDv16_iPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z29work_group_scan_inclusive_addDv32_iPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z29work_group_scan_inclusive_addDv32_iPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z29work_group_scan_inclusive_addDv64_iPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z29work_group_scan_inclusive_addDv64_iPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i32 @_Z29work_group_scan_inclusive_addjPj(i32 %src, i32* %accum) #5
+declare i32 @_Z29work_group_scan_inclusive_addjPj(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z29work_group_scan_inclusive_addDv4_jPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z29work_group_scan_inclusive_addDv4_jPS_(<4 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z29work_group_scan_inclusive_addDv8_jPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z29work_group_scan_inclusive_addDv8_jPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z29work_group_scan_inclusive_addDv16_jPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z29work_group_scan_inclusive_addDv16_jPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z29work_group_scan_inclusive_addDv32_jPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z29work_group_scan_inclusive_addDv32_jPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z29work_group_scan_inclusive_addDv64_jPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z29work_group_scan_inclusive_addDv64_jPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i64 @_Z29work_group_scan_inclusive_addlPl(i64 %src, i64* %accum) #5
+declare i64 @_Z29work_group_scan_inclusive_addlPl(i64 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i64> @_Z29work_group_scan_inclusive_addDv4_lPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+declare <4 x i64> @_Z29work_group_scan_inclusive_addDv4_lPS_(<4 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i64> @_Z29work_group_scan_inclusive_addDv8_lPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+declare <8 x i64> @_Z29work_group_scan_inclusive_addDv8_lPS_(<8 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i64> @_Z29work_group_scan_inclusive_addDv16_lPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+declare <16 x i64> @_Z29work_group_scan_inclusive_addDv16_lPS_(<16 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i64> @_Z29work_group_scan_inclusive_addDv32_lPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+declare <32 x i64> @_Z29work_group_scan_inclusive_addDv32_lPS_(<32 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i64> @_Z29work_group_scan_inclusive_addDv64_lPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+declare <64 x i64> @_Z29work_group_scan_inclusive_addDv64_lPS_(<64 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i64 @_Z29work_group_scan_inclusive_addmPm(i64 %src, i64* %accum) #5
+declare i64 @_Z29work_group_scan_inclusive_addmPm(i64 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i64> @_Z29work_group_scan_inclusive_addDv4_mPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+declare <4 x i64> @_Z29work_group_scan_inclusive_addDv4_mPS_(<4 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i64> @_Z29work_group_scan_inclusive_addDv8_mPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+declare <8 x i64> @_Z29work_group_scan_inclusive_addDv8_mPS_(<8 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i64> @_Z29work_group_scan_inclusive_addDv16_mPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+declare <16 x i64> @_Z29work_group_scan_inclusive_addDv16_mPS_(<16 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i64> @_Z29work_group_scan_inclusive_addDv32_mPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+declare <32 x i64> @_Z29work_group_scan_inclusive_addDv32_mPS_(<32 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i64> @_Z29work_group_scan_inclusive_addDv64_mPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+declare <64 x i64> @_Z29work_group_scan_inclusive_addDv64_mPS_(<64 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare float @_Z29work_group_scan_inclusive_addfPf(float %src, float* %accum) #5
+declare float @_Z29work_group_scan_inclusive_addfPf(float %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x float> @_Z29work_group_scan_inclusive_addDv4_fPS_(<4 x float> %src, <4 x float>* %accum) #5
+declare <4 x float> @_Z29work_group_scan_inclusive_addDv4_fPS_(<4 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x float> @_Z29work_group_scan_inclusive_addDv8_fPS_(<8 x float> %src, <8 x float>* %accum) #5
+declare <8 x float> @_Z29work_group_scan_inclusive_addDv8_fPS_(<8 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x float> @_Z29work_group_scan_inclusive_addDv16_fPS_(<16 x float> %src, <16 x float>* %accum) #5
+declare <16 x float> @_Z29work_group_scan_inclusive_addDv16_fPS_(<16 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x float> @_Z29work_group_scan_inclusive_addDv32_fPS_(<32 x float> %src, <32 x float>* %accum) #5
+declare <32 x float> @_Z29work_group_scan_inclusive_addDv32_fPS_(<32 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x float> @_Z29work_group_scan_inclusive_addDv64_fPS_(<64 x float> %src, <64 x float>* %accum) #5
+declare <64 x float> @_Z29work_group_scan_inclusive_addDv64_fPS_(<64 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare double @_Z29work_group_scan_inclusive_adddPd(double %src, double* %accum) #5
+declare double @_Z29work_group_scan_inclusive_adddPd(double %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x double> @_Z29work_group_scan_inclusive_addDv4_dPS_(<4 x double> %src, <4 x double>* %accum) #5
+declare <4 x double> @_Z29work_group_scan_inclusive_addDv4_dPS_(<4 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x double> @_Z29work_group_scan_inclusive_addDv8_dPS_(<8 x double> %src, <8 x double>* %accum) #5
+declare <8 x double> @_Z29work_group_scan_inclusive_addDv8_dPS_(<8 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x double> @_Z29work_group_scan_inclusive_addDv16_dPS_(<16 x double> %src, <16 x double>* %accum) #5
+declare <16 x double> @_Z29work_group_scan_inclusive_addDv16_dPS_(<16 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x double> @_Z29work_group_scan_inclusive_addDv32_dPS_(<32 x double> %src, <32 x double>* %accum) #5
+declare <32 x double> @_Z29work_group_scan_inclusive_addDv32_dPS_(<32 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x double> @_Z29work_group_scan_inclusive_addDv64_dPS_(<64 x double> %src, <64 x double>* %accum) #5
+declare <64 x double> @_Z29work_group_scan_inclusive_addDv64_dPS_(<64 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind readnone
 declare i32 @_Z29work_group_scan_inclusive_maxi(i32 %src) #3
@@ -5417,112 +5417,112 @@ declare <32 x double> @_Z29work_group_scan_inclusive_maxDv32_d(<32 x double> %sr
 declare <64 x double> @_Z29work_group_scan_inclusive_maxDv64_d(<64 x double> %src) #3
 
 ; Function Attrs: nounwind
-declare i32 @_Z29work_group_scan_inclusive_maxiPi(i32 %src, i32* %accum) #5
+declare i32 @_Z29work_group_scan_inclusive_maxiPi(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z29work_group_scan_inclusive_maxDv4_iPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z29work_group_scan_inclusive_maxDv4_iPS_(<4 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z29work_group_scan_inclusive_maxDv8_iPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z29work_group_scan_inclusive_maxDv8_iPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z29work_group_scan_inclusive_maxDv16_iPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z29work_group_scan_inclusive_maxDv16_iPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z29work_group_scan_inclusive_maxDv32_iPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z29work_group_scan_inclusive_maxDv32_iPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z29work_group_scan_inclusive_maxDv64_iPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z29work_group_scan_inclusive_maxDv64_iPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i32 @_Z29work_group_scan_inclusive_maxjPj(i32 %src, i32* %accum) #5
+declare i32 @_Z29work_group_scan_inclusive_maxjPj(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z29work_group_scan_inclusive_maxDv4_jPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z29work_group_scan_inclusive_maxDv4_jPS_(<4 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z29work_group_scan_inclusive_maxDv8_jPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z29work_group_scan_inclusive_maxDv8_jPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z29work_group_scan_inclusive_maxDv16_jPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z29work_group_scan_inclusive_maxDv16_jPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z29work_group_scan_inclusive_maxDv32_jPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z29work_group_scan_inclusive_maxDv32_jPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z29work_group_scan_inclusive_maxDv64_jPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z29work_group_scan_inclusive_maxDv64_jPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i64 @_Z29work_group_scan_inclusive_maxlPl(i64 %src, i64* %accum) #5
+declare i64 @_Z29work_group_scan_inclusive_maxlPl(i64 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i64> @_Z29work_group_scan_inclusive_maxDv4_lPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+declare <4 x i64> @_Z29work_group_scan_inclusive_maxDv4_lPS_(<4 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i64> @_Z29work_group_scan_inclusive_maxDv8_lPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+declare <8 x i64> @_Z29work_group_scan_inclusive_maxDv8_lPS_(<8 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i64> @_Z29work_group_scan_inclusive_maxDv16_lPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+declare <16 x i64> @_Z29work_group_scan_inclusive_maxDv16_lPS_(<16 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i64> @_Z29work_group_scan_inclusive_maxDv32_lPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+declare <32 x i64> @_Z29work_group_scan_inclusive_maxDv32_lPS_(<32 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i64> @_Z29work_group_scan_inclusive_maxDv64_lPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+declare <64 x i64> @_Z29work_group_scan_inclusive_maxDv64_lPS_(<64 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i64 @_Z29work_group_scan_inclusive_maxmPm(i64 %src, i64* %accum) #5
+declare i64 @_Z29work_group_scan_inclusive_maxmPm(i64 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i64> @_Z29work_group_scan_inclusive_maxDv4_mPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+declare <4 x i64> @_Z29work_group_scan_inclusive_maxDv4_mPS_(<4 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i64> @_Z29work_group_scan_inclusive_maxDv8_mPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+declare <8 x i64> @_Z29work_group_scan_inclusive_maxDv8_mPS_(<8 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i64> @_Z29work_group_scan_inclusive_maxDv16_mPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+declare <16 x i64> @_Z29work_group_scan_inclusive_maxDv16_mPS_(<16 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i64> @_Z29work_group_scan_inclusive_maxDv32_mPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+declare <32 x i64> @_Z29work_group_scan_inclusive_maxDv32_mPS_(<32 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i64> @_Z29work_group_scan_inclusive_maxDv64_mPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+declare <64 x i64> @_Z29work_group_scan_inclusive_maxDv64_mPS_(<64 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare float @_Z29work_group_scan_inclusive_maxfPf(float %src, float* %accum) #5
+declare float @_Z29work_group_scan_inclusive_maxfPf(float %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x float> @_Z29work_group_scan_inclusive_maxDv4_fPS_(<4 x float> %src, <4 x float>* %accum) #5
+declare <4 x float> @_Z29work_group_scan_inclusive_maxDv4_fPS_(<4 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x float> @_Z29work_group_scan_inclusive_maxDv8_fPS_(<8 x float> %src, <8 x float>* %accum) #5
+declare <8 x float> @_Z29work_group_scan_inclusive_maxDv8_fPS_(<8 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x float> @_Z29work_group_scan_inclusive_maxDv16_fPS_(<16 x float> %src, <16 x float>* %accum) #5
+declare <16 x float> @_Z29work_group_scan_inclusive_maxDv16_fPS_(<16 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x float> @_Z29work_group_scan_inclusive_maxDv32_fPS_(<32 x float> %src, <32 x float>* %accum) #5
+declare <32 x float> @_Z29work_group_scan_inclusive_maxDv32_fPS_(<32 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x float> @_Z29work_group_scan_inclusive_maxDv64_fPS_(<64 x float> %src, <64 x float>* %accum) #5
+declare <64 x float> @_Z29work_group_scan_inclusive_maxDv64_fPS_(<64 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare double @_Z29work_group_scan_inclusive_maxdPd(double %src, double* %accum) #5
+declare double @_Z29work_group_scan_inclusive_maxdPd(double %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x double> @_Z29work_group_scan_inclusive_maxDv4_dPS_(<4 x double> %src, <4 x double>* %accum) #5
+declare <4 x double> @_Z29work_group_scan_inclusive_maxDv4_dPS_(<4 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x double> @_Z29work_group_scan_inclusive_maxDv8_dPS_(<8 x double> %src, <8 x double>* %accum) #5
+declare <8 x double> @_Z29work_group_scan_inclusive_maxDv8_dPS_(<8 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x double> @_Z29work_group_scan_inclusive_maxDv16_dPS_(<16 x double> %src, <16 x double>* %accum) #5
+declare <16 x double> @_Z29work_group_scan_inclusive_maxDv16_dPS_(<16 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x double> @_Z29work_group_scan_inclusive_maxDv32_dPS_(<32 x double> %src, <32 x double>* %accum) #5
+declare <32 x double> @_Z29work_group_scan_inclusive_maxDv32_dPS_(<32 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x double> @_Z29work_group_scan_inclusive_maxDv64_dPS_(<64 x double> %src, <64 x double>* %accum) #5
+declare <64 x double> @_Z29work_group_scan_inclusive_maxDv64_dPS_(<64 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind readnone
 declare i32 @_Z29work_group_scan_inclusive_mini(i32 %src) #3
@@ -5633,112 +5633,112 @@ declare <32 x double> @_Z29work_group_scan_inclusive_minDv32_d(<32 x double> %sr
 declare <64 x double> @_Z29work_group_scan_inclusive_minDv64_d(<64 x double> %src) #3
 
 ; Function Attrs: nounwind
-declare i32 @_Z29work_group_scan_inclusive_miniPi(i32 %src, i32* %accum) #5
+declare i32 @_Z29work_group_scan_inclusive_miniPi(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z29work_group_scan_inclusive_minDv4_iPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z29work_group_scan_inclusive_minDv4_iPS_(<4 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z29work_group_scan_inclusive_minDv8_iPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z29work_group_scan_inclusive_minDv8_iPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z29work_group_scan_inclusive_minDv16_iPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z29work_group_scan_inclusive_minDv16_iPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z29work_group_scan_inclusive_minDv32_iPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z29work_group_scan_inclusive_minDv32_iPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z29work_group_scan_inclusive_minDv64_iPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z29work_group_scan_inclusive_minDv64_iPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i32 @_Z29work_group_scan_inclusive_minjPj(i32 %src, i32* %accum) #5
+declare i32 @_Z29work_group_scan_inclusive_minjPj(i32 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i32> @_Z29work_group_scan_inclusive_minDv4_jPS_(<4 x i32> %src, <4 x i32>* %accum) #5
+declare <4 x i32> @_Z29work_group_scan_inclusive_minDv4_jPS_(<4 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i32> @_Z29work_group_scan_inclusive_minDv8_jPS_(<8 x i32> %src, <8 x i32>* %accum) #5
+declare <8 x i32> @_Z29work_group_scan_inclusive_minDv8_jPS_(<8 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i32> @_Z29work_group_scan_inclusive_minDv16_jPS_(<16 x i32> %src, <16 x i32>* %accum) #5
+declare <16 x i32> @_Z29work_group_scan_inclusive_minDv16_jPS_(<16 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i32> @_Z29work_group_scan_inclusive_minDv32_jPS_(<32 x i32> %src, <32 x i32>* %accum) #5
+declare <32 x i32> @_Z29work_group_scan_inclusive_minDv32_jPS_(<32 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i32> @_Z29work_group_scan_inclusive_minDv64_jPS_(<64 x i32> %src, <64 x i32>* %accum) #5
+declare <64 x i32> @_Z29work_group_scan_inclusive_minDv64_jPS_(<64 x i32> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i64 @_Z29work_group_scan_inclusive_minlPl(i64 %src, i64* %accum) #5
+declare i64 @_Z29work_group_scan_inclusive_minlPl(i64 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i64> @_Z29work_group_scan_inclusive_minDv4_lPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+declare <4 x i64> @_Z29work_group_scan_inclusive_minDv4_lPS_(<4 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i64> @_Z29work_group_scan_inclusive_minDv8_lPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+declare <8 x i64> @_Z29work_group_scan_inclusive_minDv8_lPS_(<8 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i64> @_Z29work_group_scan_inclusive_minDv16_lPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+declare <16 x i64> @_Z29work_group_scan_inclusive_minDv16_lPS_(<16 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i64> @_Z29work_group_scan_inclusive_minDv32_lPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+declare <32 x i64> @_Z29work_group_scan_inclusive_minDv32_lPS_(<32 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i64> @_Z29work_group_scan_inclusive_minDv64_lPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+declare <64 x i64> @_Z29work_group_scan_inclusive_minDv64_lPS_(<64 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare i64 @_Z29work_group_scan_inclusive_minmPm(i64 %src, i64* %accum) #5
+declare i64 @_Z29work_group_scan_inclusive_minmPm(i64 %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x i64> @_Z29work_group_scan_inclusive_minDv4_mPS_(<4 x i64> %src, <4 x i64>* %accum) #5
+declare <4 x i64> @_Z29work_group_scan_inclusive_minDv4_mPS_(<4 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x i64> @_Z29work_group_scan_inclusive_minDv8_mPS_(<8 x i64> %src, <8 x i64>* %accum) #5
+declare <8 x i64> @_Z29work_group_scan_inclusive_minDv8_mPS_(<8 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x i64> @_Z29work_group_scan_inclusive_minDv16_mPS_(<16 x i64> %src, <16 x i64>* %accum) #5
+declare <16 x i64> @_Z29work_group_scan_inclusive_minDv16_mPS_(<16 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x i64> @_Z29work_group_scan_inclusive_minDv32_mPS_(<32 x i64> %src, <32 x i64>* %accum) #5
+declare <32 x i64> @_Z29work_group_scan_inclusive_minDv32_mPS_(<32 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x i64> @_Z29work_group_scan_inclusive_minDv64_mPS_(<64 x i64> %src, <64 x i64>* %accum) #5
+declare <64 x i64> @_Z29work_group_scan_inclusive_minDv64_mPS_(<64 x i64> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare float @_Z29work_group_scan_inclusive_minfPf(float %src, float* %accum) #5
+declare float @_Z29work_group_scan_inclusive_minfPf(float %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x float> @_Z29work_group_scan_inclusive_minDv4_fPS_(<4 x float> %src, <4 x float>* %accum) #5
+declare <4 x float> @_Z29work_group_scan_inclusive_minDv4_fPS_(<4 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x float> @_Z29work_group_scan_inclusive_minDv8_fPS_(<8 x float> %src, <8 x float>* %accum) #5
+declare <8 x float> @_Z29work_group_scan_inclusive_minDv8_fPS_(<8 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x float> @_Z29work_group_scan_inclusive_minDv16_fPS_(<16 x float> %src, <16 x float>* %accum) #5
+declare <16 x float> @_Z29work_group_scan_inclusive_minDv16_fPS_(<16 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x float> @_Z29work_group_scan_inclusive_minDv32_fPS_(<32 x float> %src, <32 x float>* %accum) #5
+declare <32 x float> @_Z29work_group_scan_inclusive_minDv32_fPS_(<32 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x float> @_Z29work_group_scan_inclusive_minDv64_fPS_(<64 x float> %src, <64 x float>* %accum) #5
+declare <64 x float> @_Z29work_group_scan_inclusive_minDv64_fPS_(<64 x float> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare double @_Z29work_group_scan_inclusive_mindPd(double %src, double* %accum) #5
+declare double @_Z29work_group_scan_inclusive_mindPd(double %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <4 x double> @_Z29work_group_scan_inclusive_minDv4_dPS_(<4 x double> %src, <4 x double>* %accum) #5
+declare <4 x double> @_Z29work_group_scan_inclusive_minDv4_dPS_(<4 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <8 x double> @_Z29work_group_scan_inclusive_minDv8_dPS_(<8 x double> %src, <8 x double>* %accum) #5
+declare <8 x double> @_Z29work_group_scan_inclusive_minDv8_dPS_(<8 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <16 x double> @_Z29work_group_scan_inclusive_minDv16_dPS_(<16 x double> %src, <16 x double>* %accum) #5
+declare <16 x double> @_Z29work_group_scan_inclusive_minDv16_dPS_(<16 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <32 x double> @_Z29work_group_scan_inclusive_minDv32_dPS_(<32 x double> %src, <32 x double>* %accum) #5
+declare <32 x double> @_Z29work_group_scan_inclusive_minDv32_dPS_(<32 x double> %src, ptr %accum) #5
 
 ; Function Attrs: nounwind
-declare <64 x double> @_Z29work_group_scan_inclusive_minDv64_dPS_(<64 x double> %src, <64 x double>* %accum) #5
+declare <64 x double> @_Z29work_group_scan_inclusive_minDv64_dPS_(<64 x double> %src, ptr %accum) #5
 
 
 attributes #3 = { nounwind readnone }
