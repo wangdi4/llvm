@@ -7825,6 +7825,8 @@ void VPOParoptTransform::genPrivatizationReplacement(
         // This is a list of users that we are able to fixup.
 
         switch (I->getOpcode()) {
+        case Instruction::AddrSpaceCast:
+          return true;
         case Instruction::GetElementPtr:
           return true;
         case Instruction::BitCast:
@@ -7906,11 +7908,40 @@ void VPOParoptTransform::genPrivatizationReplacement(
       UserInsts.push_back(NewInst);
   }
 
+  unsigned NewPrivAS =
+      cast<PointerType>(NewPrivValue->getType())->getAddressSpace();
   while (!FixupInsts.empty()) {
     Instruction *I = FixupInsts.pop_back_val();
     bool CollectUsers = false;
 
     switch (I->getOpcode()) {
+    case Instruction::AddrSpaceCast: {
+      auto *ASI = cast<AddrSpaceCastInst>(I);
+      PointerType *DstTy = cast<PointerType>(ASI->getDestTy());
+      unsigned DstAS = DstTy->getAddressSpace();
+      CollectUsers = true;
+      // For cases like:
+      //
+      //------------------------+------------------------+----------------------
+      // IR with PrivValue      | IR with NewPrivValue   | With addrspace fixup
+      //------------------------+------------------------+----------------------
+      // PRIVATE(p1 @x)         | PRIVATE(p0 %x)         | PRIVATE(p0 %x)
+      // %1 = ascast p1 to p4   | %1 = ascast p0 to p4   | %1 = ascast p0 to p4
+      // %2 = ascast p4 to p1   | %2 = ascast p4 to p1   | %2 = ascast p4 to p0
+      // %v = load i32, p1 %2   | %v = load i32, p1 %2   | %v = load i32, p0 %2
+      //------------------------+------------------------+----------------------
+      //
+      // privatization of `@x` into a stack-local, addrspace 0 `ptr %x` would
+      // cause an illegal chain of addrspace casts from 0 -> 4 -> 1.
+      // Mutate the result type to match with NewPrivAS, if incompatible.
+      if (!VPOParoptUtils::areCompatibleAddrSpaces(DstAS, NewPrivAS,
+                                                   isTargetSPIRV())) {
+        LLVM_DEBUG(dbgs() << "Changing addrspace of '" << *ASI << "' to '"
+                          << NewPrivAS << "'.\n");
+        ASI->mutateType(PointerType::getWithSamePointeeType(DstTy, NewPrivAS));
+      }
+      break;
+    }
     case Instruction::GetElementPtr: {
       auto *GEPI = cast<GetElementPtrInst>(I);
       unsigned SrcAS = GEPI->getAddressSpace();
@@ -7918,6 +7949,8 @@ void VPOParoptTransform::genPrivatizationReplacement(
       unsigned DstAS = DstTy->getAddressSpace();
       // Mutate the result type to match the address space of the operand.
       if (SrcAS != DstAS) {
+        LLVM_DEBUG(dbgs() << "Changing addrspace of '" << *GEPI << "' to '"
+                          << DstAS << "'.\n");
         GEPI->mutateType(PointerType::getWithSamePointeeType(DstTy, SrcAS));
         CollectUsers = true;
       }
@@ -7931,6 +7964,8 @@ void VPOParoptTransform::genPrivatizationReplacement(
       unsigned DstAS = DstTy->getAddressSpace();
       // Mutate the result type to match the address space of the operand.
       if (SrcAS != DstAS) {
+        LLVM_DEBUG(dbgs() << "Changing addrspace of '" << *BCI << "' to '"
+                          << DstAS << "'.\n");
         BCI->mutateType(PointerType::getWithSamePointeeType(DstTy, SrcAS));
         CollectUsers = true;
       }
