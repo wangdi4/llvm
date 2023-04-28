@@ -64,7 +64,7 @@ static bool rebindVectorizedKernel(Function *F) {
     return Changed;
 
   // Set origin's metadata if vectorizer didn't run.
-  if (!FMD.VectorizedWidth.hasValue()) {
+  if (!FMD.VectorizedWidth.hasValue() && !FMD.SubgroupEmuSize.hasValue()) {
     FMD.VectorizedWidth.set(1);
     Changed = true;
   }

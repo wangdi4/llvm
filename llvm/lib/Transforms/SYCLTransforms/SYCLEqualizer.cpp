@@ -11,12 +11,14 @@
 #include "llvm/Transforms/SYCLTransforms/SYCLEqualizer.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/Analysis/CallGraph.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/SYCLTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
@@ -630,6 +632,48 @@ static void materializeTargetExtType(Module &M,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+/// For OpenMP constructs that aren't supported by vectorizer, set their user
+/// kernels' intel_vec_len_hint MD to 1 so that the kernels won't be vectorized.
+/// This is a temporary fix until there is a bail out in vectorizer.
+static void setNotVectorizeForUnsupportedOmpConstructs(
+    Module &M, KernelList::KernelVectorTy &Kernels, TargetLibraryInfo &TLI) {
+  // Refer to LoopVectorizationPlanner::isInvalidOMPConstructInSIMD
+  auto IsInvalidOMPConstructInSIMD = [](LibFunc Func) {
+    switch (Func) {
+    case LibFunc_kmpc_atomic_compare_exchange:
+    case LibFunc_kmpc_atomic_fixed4_add:
+    case LibFunc_kmpc_atomic_float8_add:
+    case LibFunc_kmpc_atomic_load:
+    case LibFunc_kmpc_atomic_store:
+      return false;
+    default:
+      return true;
+    }
+  };
+  FuncSet UnsupportedOMPFuncs;
+  for (auto &F : M) {
+    LibFunc Func;
+    if (TLI.getLibFunc(F, Func) && TLI.isOMPLibFunc(Func) &&
+        IsInvalidOMPConstructInSIMD(Func))
+      UnsupportedOMPFuncs.insert(&F);
+  }
+  if (UnsupportedOMPFuncs.empty())
+    return;
+
+  FuncSet NotVectorizeFuncs;
+  LoopUtils::fillFuncUsersSet(UnsupportedOMPFuncs, NotVectorizeFuncs);
+  if (!NotVectorizeFuncs.empty()) {
+    for (Function *F : Kernels) {
+      if (NotVectorizeFuncs.contains(F)) {
+        SYCLKernelMetadataAPI::KernelMetadataAPI KMD(F);
+        KMD.VecLenHint.set(1);
+      }
+    }
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 PreservedAnalyses SYCLEqualizerPass::run(Module &M, ModuleAnalysisManager &AM) {
   // Find kernel list in the module.
   auto Kernels = findKernels(M);
@@ -653,6 +697,17 @@ PreservedAnalyses SYCLEqualizerPass::run(Module &M, ModuleAnalysisManager &AM) {
   std::ignore = FuncMaterializer.isChanged();
 
   std::ignore = renameAliasingBuiltins(M);
+
+#if INTEL_CUSTOMIZATION
+  // Set intel_vec_len_hint metadata before unsupported OpenMP functions are
+  // inlined at a later stage.
+  if (isGeneratedFromOMP(M) && !Kernels.empty()) {
+    auto &FAM =
+        AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+    TargetLibraryInfo TLI = FAM.getResult<TargetLibraryAnalysis>(*Kernels[0]);
+    setNotVectorizeForUnsupportedOmpConstructs(M, Kernels, TLI);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Module is always changed.
   return PreservedAnalyses::none();
