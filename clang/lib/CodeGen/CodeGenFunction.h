@@ -2347,6 +2347,8 @@ private:
       return CurLexicalScope->getNoAliasScope();
     return RootNoAliasScope;
   }
+
+  void EmitRestrictMetadata(const VarDecl *D, llvm::Value *AllocaInst);
 #endif // INTEL_CUSTOMIZATION
 
   /// The current lexical scope.
