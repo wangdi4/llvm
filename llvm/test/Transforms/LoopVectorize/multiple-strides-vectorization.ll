@@ -36,20 +36,14 @@ define void @Test(ptr nocapture %obj, i64 %z) #0 {
 ; CHECK:       .outer.preheader:
 ; CHECK-NEXT:    [[I:%.*]] = phi i64 [ 0, [[TMP0:%.*]] ], [ [[I_NEXT:%.*]], [[DOTOUTER:%.*]] ]
 ; CHECK-NEXT:    [[TMP3:%.*]] = shl nuw nsw i64 [[I]], 7
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[TMP4:%.*]] = add nuw i64 [[TMP3]], 256
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[TMP4:%.*]] = add i64 [[TMP3]], 256
 ; CHECK-NEXT:    [[UGLYGEP:%.*]] = getelementptr i8, ptr [[OBJ]], i64 [[TMP4]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = add i64 [[TMP2]], [[TMP3]]
 ; CHECK-NEXT:    [[UGLYGEP1:%.*]] = getelementptr i8, ptr [[OBJ]], i64 [[TMP5]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = shl nuw nsw i64 [[I]], 2
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[TMP7:%.*]] = add nuw i64 [[TMP6]], 128
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[TMP7:%.*]] = add i64 [[TMP6]], 128
 ; CHECK-NEXT:    [[UGLYGEP3:%.*]] = getelementptr i8, ptr [[OBJ]], i64 [[TMP7]]
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    [[TMP8:%.*]] = add nuw i64 [[TMP6]], 132
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[TMP8:%.*]] = add i64 [[TMP6]], 132
 ; CHECK-NEXT:    [[UGLYGEP4:%.*]] = getelementptr i8, ptr [[OBJ]], i64 [[TMP8]]
 ; CHECK-NEXT:    [[TMP9:%.*]] = getelementptr inbounds [[STRUCT_S:%.*]], ptr [[OBJ]], i64 0, i32 1, i64 [[I]]
 ; CHECK-NEXT:    [[MIN_ITERS_CHECK:%.*]] = icmp ult i64 [[Z]], 4

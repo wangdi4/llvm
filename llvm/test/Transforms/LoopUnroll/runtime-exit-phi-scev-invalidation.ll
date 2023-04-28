@@ -15,10 +15,7 @@ define void @pr56282() {
 ; CHECK-NEXT:    br label [[OUTER_HEADER:%.*]]
 ; CHECK:       outer.header:
 ; CHECK-NEXT:    [[OUTER_IV:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[OUTER_IV_NEXT:%.*]], [[INNER_2:%.*]] ]
-; INTEL_CUSTOMIZATION
-; nuw flag deduced in xmain
-; CHECK-NEXT:    [[TMP0:%.*]] = add nuw i64 [[OUTER_IV]], 1
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[TMP0:%.*]] = add i64 [[OUTER_IV]], 1
 ; CHECK-NEXT:    [[TMP1:%.*]] = freeze i64 [[TMP0]]
 ; CHECK-NEXT:    [[TMP2:%.*]] = add i64 [[TMP1]], -1
 ; CHECK-NEXT:    [[XTRAITER:%.*]] = and i64 [[TMP1]], 7
