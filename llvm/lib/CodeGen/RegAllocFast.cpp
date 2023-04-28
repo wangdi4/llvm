@@ -123,7 +123,7 @@ namespace {
       }
     };
 
-    using LiveRegMap = SparseSet<LiveReg>;
+    using LiveRegMap = SparseSet<LiveReg, identity<unsigned>, uint16_t>;
     /// This map contains entries for each virtual register that is currently
     /// available in a physical register.
     LiveRegMap LiveVirtRegs;
