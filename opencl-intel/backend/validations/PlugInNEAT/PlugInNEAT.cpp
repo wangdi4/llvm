@@ -1366,7 +1366,7 @@ void NEATPlugIn::visitShuffleVectorInst(ShuffleVectorInst &I) {
   assert(ShuffleMaskSize > 1);
   std::vector<unsigned> mask_vec;
   for (unsigned i = 0; i < ShuffleMaskSize; ++i) {
-    if (ShuffleMask[i] == UndefMaskElem) {
+    if (ShuffleMask[i] == PoisonMaskElem) {
       // Use safe value (0). The result will be overwritten below with
       // NEATValue::ANY.
       mask_vec.push_back(0);
@@ -1384,7 +1384,7 @@ void NEATPlugIn::visitShuffleVectorInst(ShuffleVectorInst &I) {
 
   bool isAnyUndef = false;
   for (unsigned i = 0; i < ShuffleMaskSize; ++i) {
-    if (ShuffleMask[i] == UndefMaskElem) {
+    if (ShuffleMask[i] == PoisonMaskElem) {
       isAnyUndef = true;
       undef_vec[i] = 1; // mark undef values
     }
