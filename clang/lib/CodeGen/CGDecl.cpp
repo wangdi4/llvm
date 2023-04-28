@@ -1753,6 +1753,7 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
     }
   }
 
+  EmitRestrictMetadata(&D, AllocaAddr.getPointer());
   AssignAliasScope(emission);
 #endif // INTEL_CUSTOMIZATION
 
@@ -1999,6 +2000,21 @@ void CodeGenFunction::AssignAliasScope(
       CapturedByInit ? emission.Addr : emission.getObjectAddress(*this);
 
   NoAliasSlotMap[Loc.getPointer()] = ScopeList;
+}
+
+void CodeGenFunction::EmitRestrictMetadata(const VarDecl *D,
+                                           llvm::Value *AllocaInst) {
+  if (CGM.getCodeGenOpts().OptimizationLevel == 0 ||
+      CGM.getLangOpts().CPlusPlus || CurLexicalScope ||
+      !CGM.getLangOpts().isIntelCompat(LangOptions::RestrictMetadata))
+    return;
+
+  if (D->getType().isRestrictQualified()) {
+    if (auto *I = dyn_cast_or_null<llvm::Instruction>(AllocaInst)) {
+      llvm::LLVMContext &C = CGM.getLLVMContext();
+      I->setMetadata("predicate-opt-restrict", llvm::MDNode::get(C, {}));
+    }
+  }
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -2821,6 +2837,7 @@ void CodeGenFunction::EmitParmDecl(const VarDecl &D, ParamValue Arg,
   }
 
 #if INTEL_CUSTOMIZATION
+  EmitRestrictMetadata(&D, AllocaPtr.getPointer());
   if (const FunctionDecl *FD = dyn_cast_if_present<FunctionDecl>(CurCodeDecl)) {
     if (CGM.getLangOpts().OpenMPLateOutline &&
         FD->hasAttr<OMPDeclareSimdDeclAttr>()) {

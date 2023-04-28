@@ -230,6 +230,45 @@ location, which inhibits optimization. This option enables type-based alias
 analysis, which allows the compiler to better optimize these references.
   }];
 }
+def RestrictMetadataDocs : Documentation {
+  let Category = DocCatIntelOptimization;
+  let Option = "IntelCompat";
+  let BugTracker= "CMPLRLLVM-44252";
+  let RegressionTest = "test/CodeGen/intel/predicate_opt_restrict.c";
+  let Content = [{
+Adds restrict metadata to variables with restrict qualifiers.
+
+Example:
+
+.. code-block:: c
+
+ int *get();
+ int something(int *restrict p1, int *p2) {
+    int *p3 = get();
+    int *restrict p4 = get();
+    return *p1 + *p2 + *p3 + *p4;
+  }
+
+.. code-block:: llvm
+
+  define dso_local i32 @something(ptr noalias noundef %p1, ptr noundef %p2) #0 {
+    %p1.addr = alloca ptr, align 8, !predicate-opt-restrict !2
+    %p2.addr = alloca ptr, align 8
+    %p3 = alloca ptr, align 8
+    %p4 = alloca ptr, align 8, !predicate-opt-restrict !2
+  }
+
+  !2 = !{}
+
+.. code-block:: console
+
+  $ clang -cc1 -O2 -fintel-compatibility p.c -emit-llvm -o - -disable-llvm-passes
+
+  }];
+  let UserContent = [{
+Enable additional optimization related to 'restrict' pointer variables.
+  }];
+}
 def FArgumentNoaliasDocs : Documentation {
   let Category = DocCatIntelOptimization;
   let Option = "IntelCompat";
