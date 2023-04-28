@@ -212,8 +212,8 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
             Config.GetSubGroupConstructionMode())));
 
         if (m_IsFpgaEmulator) {
-          MPM.addPass(SYCLRewritePipesPass());
           MPM.addPass(ChannelPipeTransformationPass());
+          MPM.addPass(SYCLRewritePipesPass());
           MPM.addPass(PipeIOTransformationPass());
           MPM.addPass(PipeOrderingPass());
           MPM.addPass(AutorunReplicatorPass());

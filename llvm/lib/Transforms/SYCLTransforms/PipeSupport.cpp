@@ -53,37 +53,44 @@ static bool hasUsersInFunction(Value &V, Function &F) {
 }
 
 static int getNumUsedPipes(Function &F, const PipeTypesHelper &PipeTypes) {
-  int PipesNum = 0;
+  SmallPtrSet<Value *, 8> Pipes;
 
-  // Count local pipes
+  // Count local pipes.
   SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(&F);
+  // TODO update LIT tests so that ArgTypeNullValList exists.
   if (KIMD.ArgTypeNullValList.hasValue()) {
-    for (Constant *C : KIMD.ArgTypeNullValList)
+    for (const auto &[Idx, C] : llvm::enumerate(KIMD.ArgTypeNullValList))
       if (auto *TETy = dyn_cast<TargetExtType>(C->getType());
-          TETy && TETy->getName() == "spirv.Pipe")
-        ++PipesNum;
+          TETy && (TETy->getName() == "spirv.Pipe" ||
+                   TETy->getName() == "spirv.Channel"))
+        Pipes.insert(F.getArg(Idx));
   }
-  if (PipesNum == 0) {
+  // TODO not needed when opaque pointer is enabled.
+  if (Pipes.empty()) {
     for (auto &Arg : F.args())
       if (PipeTypes.isPipeType(Arg.getType()))
-        ++PipesNum;
+        Pipes.insert(&Arg);
   }
 
   // Count global pipes
   auto *M = F.getParent();
-  for (auto &GV : M->globals()) {
-    auto *Ty = GV.getValueType();
+  for (auto &GV : M->globals())
+    if (isGlobalPipe(&GV))
+      Pipes.insert(&GV);
 
-    auto *ArrTy = dyn_cast<ArrayType>(Ty);
-    if (ArrTy)
-      Ty = getArrayElementType(ArrTy);
+  unsigned PipesNum = 0;
+  llvm::for_each(Pipes, [&](Value *V) {
+    if (!hasUsersInFunction(*V, F) && !isa<Argument>(V))
+      return;
+    if (const auto *GV = dyn_cast<GlobalVariable>(V)) {
+      if (auto *ArrTy = dyn_cast<ArrayType>(GV->getValueType())) {
+        PipesNum += getNumElementsOfNestedArray(ArrTy);
+        return;
+      }
+    }
+    PipesNum += 1;
+  });
 
-    if (!PipeTypes.isGlobalPipeType(Ty))
-      continue;
-
-    if (hasUsersInFunction(GV, F))
-      PipesNum += (ArrTy) ? getNumElementsOfNestedArray(ArrTy) : 1;
-  }
   return PipesNum;
 }
 

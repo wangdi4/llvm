@@ -51,15 +51,15 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK: %[[PIPE3:.*]] = load {{.*}} getelementptr {{.*}} @ch.pipe, i64 0, i64 3
 ; CHECK: call void @sendData4({{.*}} %[[PIPE0]], {{.*}} %[[PIPE1]], {{.*}} %[[PIPE2]], {{.*}} %[[PIPE3]])
 ;
-; CHECK: define {{.*}} @sendData4(%opencl.pipe_rw_t {{.*}}* %0, %opencl.pipe_rw_t {{.*}}* %1, %opencl.pipe_rw_t {{.*}}* %2, %opencl.pipe_rw_t {{.*}}* %3)
+; CHECK: define {{.*}} @sendData4(%opencl.pipe_rw_t {{.*}}* %a, %opencl.pipe_rw_t {{.*}}* %b, %opencl.pipe_rw_t {{.*}}* %c, %opencl.pipe_rw_t {{.*}}* %d)
 ; CHECK: %[[SD4_PIPE_A_ADDR:.*]] = alloca %opencl.pipe_rw_t
 ; CHECK: %[[SD4_PIPE_B_ADDR:.*]] = alloca %opencl.pipe_rw_t
 ; CHECK: %[[SD4_PIPE_C_ADDR:.*]] = alloca %opencl.pipe_rw_t
 ; CHECK: %[[SD4_PIPE_D_ADDR:.*]] = alloca %opencl.pipe_rw_t
-; CHECK: store {{.*}} %0, {{.*}} %[[SD4_PIPE_A_ADDR]]
-; CHECK: store {{.*}} %1, {{.*}} %[[SD4_PIPE_B_ADDR]]
-; CHECK: store {{.*}} %2, {{.*}} %[[SD4_PIPE_C_ADDR]]
-; CHECK: store {{.*}} %3, {{.*}} %[[SD4_PIPE_D_ADDR]]
+; CHECK: store {{.*}} %a, {{.*}} %[[SD4_PIPE_A_ADDR]]
+; CHECK: store {{.*}} %b, {{.*}} %[[SD4_PIPE_B_ADDR]]
+; CHECK: store {{.*}} %c, {{.*}} %[[SD4_PIPE_C_ADDR]]
+; CHECK: store {{.*}} %d, {{.*}} %[[SD4_PIPE_D_ADDR]]
 ; CHECK: %[[SD4_PIPE:.*]] = load {{.*}} %[[SD4_PIPE_A_ADDR]]
 ; CHECK: %[[SD4_PIPE_BITCAST:.*]] = bitcast {{.*}} %[[SD4_PIPE]] to %opencl.pipe_wo_t
 ; CHECK: call i32 @__write_pipe_2{{.*}} %[[SD4_PIPE_BITCAST]]
@@ -68,13 +68,13 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK: %[[SD4_PIPE_D:.*]] = load {{.*}} %[[SD4_PIPE_D_ADDR]]
 ; CHECK: call void @sendData3({{.*}} %[[SD4_PIPE_B]], {{.*}} %[[SD4_PIPE_C]], {{.*}} %[[SD4_PIPE_D]])
 ;
-; CHECK: define {{.*}} @sendData3(%opencl.pipe_rw_t {{.*}}* %0, %opencl.pipe_rw_t {{.*}}* %1, %opencl.pipe_rw_t {{.*}}* %2)
+; CHECK: define {{.*}} @sendData3(%opencl.pipe_rw_t {{.*}}* %a, %opencl.pipe_rw_t {{.*}}* %b, %opencl.pipe_rw_t {{.*}}* %c)
 ; CHECK: %[[SD3_PIPE_A_ADDR:.*]] = alloca %opencl.pipe_rw_t
 ; CHECK: %[[SD3_PIPE_B_ADDR:.*]] = alloca %opencl.pipe_rw_t
 ; CHECK: %[[SD3_PIPE_C_ADDR:.*]] = alloca %opencl.pipe_rw_t
-; CHECK: store {{.*}} %0, {{.*}} %[[SD3_PIPE_A_ADDR]]
-; CHECK: store {{.*}} %1, {{.*}} %[[SD3_PIPE_B_ADDR]]
-; CHECK: store {{.*}} %2, {{.*}} %[[SD3_PIPE_C_ADDR]]
+; CHECK: store {{.*}} %a, {{.*}} %[[SD3_PIPE_A_ADDR]]
+; CHECK: store {{.*}} %b, {{.*}} %[[SD3_PIPE_B_ADDR]]
+; CHECK: store {{.*}} %c, {{.*}} %[[SD3_PIPE_C_ADDR]]
 ; CHECK: %[[SD3_PIPE:.*]] = load {{.*}} %[[SD3_PIPE_A_ADDR]]
 ; CHECK: %[[SD3_PIPE_BITCAST:.*]] = bitcast {{.*}} %[[SD3_PIPE]] to %opencl.pipe_wo_t
 ; CHECK: call i32 @__write_pipe_2{{.*}} %[[SD3_PIPE_BITCAST]]
@@ -82,20 +82,20 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; CHECK: %[[SD3_PIPE_C:.*]] = load {{.*}} %[[SD3_PIPE_C_ADDR]]
 ; CHECK: call void @sendData2({{.*}} %[[SD3_PIPE_B]], {{.*}} %[[SD3_PIPE_C]])
 ;
-; CHECK: define {{.*}} @sendData2(%opencl.pipe_rw_t {{.*}}* %0, %opencl.pipe_rw_t {{.*}}* %1)
+; CHECK: define {{.*}} @sendData2(%opencl.pipe_rw_t {{.*}}* %a, %opencl.pipe_rw_t {{.*}}* %b)
 ; CHECK: %[[SD2_PIPE_A_ADDR:.*]] = alloca %opencl.pipe_rw_t
 ; CHECK: %[[SD2_PIPE_B_ADDR:.*]] = alloca %opencl.pipe_rw_t
-; CHECK: store {{.*}} %0, {{.*}} %[[SD2_PIPE_A_ADDR]]
-; CHECK: store {{.*}} %1, {{.*}} %[[SD2_PIPE_B_ADDR]]
+; CHECK: store {{.*}} %a, {{.*}} %[[SD2_PIPE_A_ADDR]]
+; CHECK: store {{.*}} %b, {{.*}} %[[SD2_PIPE_B_ADDR]]
 ; CHECK: %[[SD2_PIPE:.*]] = load {{.*}} %[[SD2_PIPE_A_ADDR]]
 ; CHECK: %[[SD2_PIPE_BITCAST:.*]] = bitcast {{.*}} %[[SD2_PIPE]] to %opencl.pipe_wo_t
 ; CHECK: call i32 @__write_pipe_2{{.*}} %[[SD2_PIPE_BITCAST]]
 ; CHECK: %[[SD2_PIPE_B:.*]] = load {{.*}} %[[SD2_PIPE_B_ADDR]]
 ; CHECK: call void @sendData1({{.*}} %[[SD2_PIPE_B]])
 ;
-; CHECK: define {{.*}} @sendData1(%opencl.pipe_rw_t {{.*}}* %0)
+; CHECK: define {{.*}} @sendData1(%opencl.pipe_rw_t {{.*}}* %a)
 ; CHECK: %[[SD1_PIPE_A_ADDR:.*]] = alloca %opencl.pipe_rw_t
-; CHECK: store {{.*}} %0, {{.*}} %[[SD1_PIPE_A_ADDR]]
+; CHECK: store {{.*}} %a, {{.*}} %[[SD1_PIPE_A_ADDR]]
 ; CHECK: %[[SD1_PIPE:.*]] = load {{.*}} %[[SD1_PIPE_A_ADDR]]
 ; CHECK: %[[SD1_PIPE_BITCAST:.*]] = bitcast {{.*}} %[[SD1_PIPE]] to %opencl.pipe_wo_t
 ; CHECK: call i32 @__write_pipe_2{{.*}} %[[SD1_PIPE_BITCAST]]

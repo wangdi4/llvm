@@ -189,6 +189,14 @@ private:
       }
     }
 
+    for (size_t Idx = 0; Idx < NewArgs.size(); ++Idx) {
+      if (auto *PTy = dyn_cast<PointerType>(NewArgs[Idx]->getType())) {
+        auto *FArgTy = NewF->getArg(Idx)->getType();
+        if (PTy->getAddressSpace() != FArgTy->getPointerAddressSpace())
+          NewArgs[Idx] = Builder.CreateAddrSpaceCast(NewArgs[Idx], FArgTy);
+      }
+    }
+
     // With materialization of fpga pipe built-in calls, we import new
     // declarations for them, leaving old declarations unused. Add these unused
     // declarations with avoiding of duplications to the list of functions to
@@ -397,17 +405,18 @@ static bool renameAliasingBuiltins(Module &M) {
   return Changed;
 }
 
-/// Save kernel parameter's type, including target extension type, to metadata.
-static void formArgTypeNullValMetadata(KernelList::KernelVectorTy &Kernels,
+/// Save function parameter's type, including target extension type, to
+/// metadata.
+static void formArgTypeNullValMetadata(SmallVectorImpl<Function *> &Funcs,
                                        ValueToValueMapTy &VMap) {
-  for (auto It = Kernels.begin(), E = Kernels.end(); It != E; ++It) {
+  for (Function *F : Funcs) {
     SmallVector<Constant *, 8> ArgTypesMD;
-    llvm::transform(
-        (*It)->args(), std::back_inserter(ArgTypesMD),
-        [](Argument &A) { return Constant::getNullValue(A.getType()); });
-    if (auto VMapIt = VMap.find(*It); VMapIt != VMap.end())
-      *It = cast<Function>(VMapIt->second);
-    SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(*It);
+    llvm::transform(F->args(), std::back_inserter(ArgTypesMD), [](Argument &A) {
+      return Constant::getNullValue(A.getType());
+    });
+    if (auto VMapIt = VMap.find(F); VMapIt != VMap.end())
+      F = cast<Function>(VMapIt->second);
+    SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
     KIMD.ArgTypeNullValList.set(std::move(ArgTypesMD));
   }
 }
@@ -470,6 +479,8 @@ static void findInstUsers(Value *Val, SmallVectorImpl<Instruction *> &Users,
 /// Replace target extension type with its layout type.
 /// Assume target extension type, e.g. pipe and image2d_t, is only allowed for
 /// function parameter.
+/// FPGA channel global variables are not handled in this function. They'll be
+/// handled in ChannelPipeTransformationPass.
 static void materializeTargetExtType(Module &M,
                                      KernelList::KernelVectorTy &Kernels) {
   // Retrieve address space for TargetExtType pointer argument.
@@ -562,9 +573,15 @@ static void materializeTargetExtType(Module &M,
                       &TETypeMap);
 
   // Handle each function.
+  SmallVector<Function *, 32> FuncsToAddMD;
   for (Function &F : M) {
-    if (F.isDeclaration())
+    if (F.isDeclaration()) {
+      if (llvm::find(Kernels, &F) == Kernels.end())
+        if (auto It = VMap.find(&F);
+            It != VMap.end() && !cast<Function>(It->second)->isDeclaration())
+          FuncsToAddMD.push_back(&F);
       continue;
+    }
 
     DenseSet<Value *> Visited;
     SmallVector<Instruction *, 16> ToRemap;
@@ -595,8 +612,17 @@ static void materializeTargetExtType(Module &M,
       VMapper.remapInstruction(*I);
   }
 
-  // Save target extension type before function is erased.
-  formArgTypeNullValMetadata(Kernels, VMap);
+  // Save target extention type to kernels.
+  // Also save for non-kernel functions with argument of target extension type.
+  // E.g., fpga channel can be used as argument of non-kernel function.
+  FuncsToAddMD.append(Kernels.begin(), Kernels.end());
+  formArgTypeNullValMetadata(FuncsToAddMD, VMap);
+
+  // Replace old kernels with new kernels.
+  llvm::for_each(Kernels, [&](Function *&F) {
+    if (auto It = VMap.find(F); It != VMap.end())
+      F = cast<Function>(It->second);
+  });
 
   for (Function *F : FuncsToRemove) {
     assert(F->use_empty() && "function still has use");
