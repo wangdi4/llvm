@@ -251,6 +251,11 @@ if config.intel_llvm_has_libompdevice:
     config.available_features.add("intel_libompdevice")
 
 llvm_config.add_intel_features()
+
+import lit.llvm.util
+config.options_to_revert_to_llorg_behavior = [ "-mllvm -xmain-enable-gep0-removal" ]
+lit.llvm.util.add_default_options_to_tool(config, 'clang_cc1', config.options_to_revert_to_llorg_behavior)
+
 # end INTEL_CUSTOMIZATION
 
 # Check if we should allow outputs to console.
