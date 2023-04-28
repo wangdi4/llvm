@@ -400,6 +400,19 @@ for.body:                                         ; preds = %for.body, %entry
   br i1 %exitcond, label %for.end, label %for.body
 
 
+<<<<<<< HEAD
+=======
+; CHECK:for.body:
+; CHECK:  %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
+; CHECK:  %0 = add i64 %indvars.iv, 6
+; CHECK:  %arrayidx = getelementptr inbounds i32, i32* %x, i64 %indvars.iv
+; CHECK:  store i32 %call, i32* %arrayidx, align 4
+; CHECK:  %arrayidx6 = getelementptr inbounds i32, i32* %x, i64 %0
+; CHECK:  store i32 %call, i32* %arrayidx6, align 4
+; CHECK:  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+; CHECK:  %exitcond1 = icmp eq i64 %indvars.iv, 1499
+; CHECK:  br i1 %exitcond1, label %for.end, label %for.body
+>>>>>>> d73ccdbf63e8ffcd4d2a278ab06ee323f370c3cb
 
 for.end:                                          ; preds = %for.body
   ret void
@@ -467,6 +480,19 @@ for.body:                                         ; preds = %for.body, %entry
   br i1 %exitcond, label %for.end, label %for.body
 
 
+<<<<<<< HEAD
+=======
+; CHECK:for.body:
+; CHECK:  %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
+; CHECK:  %0 = add i64 %indvars.iv, 3
+; CHECK:  %arrayidx = getelementptr inbounds i32, i32* %x, i64 %indvars.iv
+; CHECK:  store i32 %call, i32* %arrayidx, align 4
+; CHECK:  %arrayidx6 = getelementptr inbounds i32, i32* %x, i64 %0
+; CHECK:  store i32 %call, i32* %arrayidx6, align 4
+; CHECK:  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+; CHECK:  %exitcond1 = icmp eq i64 %indvars.iv, 1499
+; CHECK:  br i1 %exitcond1, label %for.end, label %for.body
+>>>>>>> d73ccdbf63e8ffcd4d2a278ab06ee323f370c3cb
 
 for.end:                                          ; preds = %for.body
   ret void
@@ -521,6 +547,18 @@ for.body:                                         ; preds = %for.body, %entry
   %exitcond = icmp eq i64 %indvars.iv.next, 500
   br i1 %exitcond, label %for.end, label %for.body
 
+<<<<<<< HEAD
+=======
+; CHECK-LABEL: @multi3
+; CHECK: for.body:
+; CHECK:   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
+; CHECK:   %0 = add i64 %indvars.iv, 3
+; CHECK:   %arrayidx = getelementptr inbounds i32, i32* %x, i64 %0
+; CHECK:   store i32 %call, i32* %arrayidx, align 4
+; CHECK:   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+; CHECK:   %exitcond1 = icmp eq i64 %indvars.iv, 1499
+; CHECK:   br i1 %exitcond1, label %for.end, label %for.body
+>>>>>>> d73ccdbf63e8ffcd4d2a278ab06ee323f370c3cb
 
 for.end:                                          ; preds = %for.body
   ret void
@@ -862,6 +900,7 @@ define void @pointer_bitcast_baseinst(ptr %arg, ptr %arg1, i64 %arg2) {
 ; CHECK-NEXT:    [[TMP3:%.*]] = add nuw nsw i64 [[TMP2]], 1
 ; CHECK-NEXT:    br label [[BB3:%.*]]
 ; CHECK:       bb3:
+<<<<<<< HEAD
 ; CHECK-NEXT:    [[INDVAR:%.*]] = phi i64 [ [[INDVAR_NEXT:%.*]], [[BB3]] ], [ 0, [[BB:%.*]] ]
 ; CHECK-NEXT:    [[TMP4:%.*]] = shl nuw i64 [[INDVAR]], 3
 ; CHECK-NEXT:    [[TMP5:%.*]] = add nuw nsw i64 [[TMP4]], 1 ;INTEL
@@ -876,6 +915,21 @@ define void @pointer_bitcast_baseinst(ptr %arg, ptr %arg1, i64 %arg2) {
 ; CHECK:       bb19:
 ; CHECK-NEXT:    ret void
 ;
+=======
+; CHECK-NEXT:    %indvar = phi i64 [ %indvar.next, %bb3 ], [ 0, %bb ]
+; CHECK-NEXT:    %4 = shl nuw i64 %indvar, 3
+; CHECK-NEXT:    %5 = add i64 %4, 1
+; CHECK-NEXT:    %tmp5 = shl nuw i64 %5, 1
+; CHECK-NEXT:    %tmp6 = getelementptr i8, i8* %arg1, i64 %tmp5
+; CHECK-NEXT:    %tmp7 = bitcast i8* %tmp6 to <8 x i16>*
+; CHECK-NEXT:    %tmp8 = load <8 x i16>, <8 x i16>* %tmp7, align 2
+; CHECK-NEXT:    %tmp13 = getelementptr i16, i16* %arg, i64 %5
+; CHECK-NEXT:    %tmp14 = bitcast i16* %tmp13 to <8 x i16>*
+; CHECK-NEXT:    store <8 x i16> %tmp8, <8 x i16>* %tmp14, align 2
+; CHECK-NEXT:    %indvar.next = add i64 %indvar, 1
+; CHECK-NEXT:    %exitcond = icmp eq i64 %indvar, %3
+; CHECK-NEXT:    br i1 %exitcond, label %bb19, label %bb3
+>>>>>>> d73ccdbf63e8ffcd4d2a278ab06ee323f370c3cb
 bb:
   br label %bb3
 
