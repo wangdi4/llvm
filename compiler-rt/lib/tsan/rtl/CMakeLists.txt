@@ -1,3 +1,21 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2023 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
+
 include_directories(../..)
 
 set(TSAN_RTL_CFLAGS ${TSAN_CFLAGS})
@@ -106,6 +124,17 @@ set(TSAN_HEADERS
   tsan_trace.h
   tsan_vector_clock.h
   )
+
+# INTEL_CUSTOMIZATION
+# JIRA: CMPLRLLVM-46911
+# We have aggressive loop-unrolling strategy, which will make some functions in 
+# tsan_mman.cpp have too large stack size(above 530). Therefore we disable 
+# loop-unrolling for the file.
+set_property(SOURCE tsan_mman.cpp
+  APPEND_STRING PROPERTY COMPILE_FLAGS
+  " -fno-unroll-loops "
+)
+# end INTEL_CUSTOMIZATION
 
 set(TSAN_RUNTIME_LIBRARIES)
 add_compiler_rt_component(tsan)
