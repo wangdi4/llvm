@@ -118,8 +118,7 @@ define void @test_03(ptr %arr, i32 %n, i32 %bound) {
 ; CHECK-NEXT:    [[SMIN:%.*]] = call i32 @llvm.smin.i32(i32 [[BOUND]], i32 0)
 ; CHECK-NEXT:    [[SMAX1:%.*]] = call i32 @llvm.smax.i32(i32 [[SMIN]], i32 -1)
 ; CHECK-NEXT:    [[TMP2:%.*]] = add nsw i32 [[SMAX1]], 1
-; INTEL - SCEV improvements prove stronger NoWrap flags
-; CHECK-NEXT:    [[TMP3:%.*]] = mul nsw i32 [[TMP1]], [[TMP2]]
+; CHECK-NEXT:    [[TMP3:%.*]] = mul i32 [[TMP1]], [[TMP2]]
 ; CHECK-NEXT:    [[SMIN2:%.*]] = call i32 @llvm.smin.i32(i32 [[N]], i32 [[TMP3]])
 ; CHECK-NEXT:    [[EXIT_MAINLOOP_AT:%.*]] = call i32 @llvm.smax.i32(i32 [[SMIN2]], i32 0)
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp slt i32 0, [[EXIT_MAINLOOP_AT]]
@@ -399,8 +398,7 @@ define void @test_07(ptr %arr, i32 %n, i32 %bound) {
 ; CHECK-NEXT:    [[SMIN:%.*]] = call i32 @llvm.smin.i32(i32 [[BOUND]], i32 0)
 ; CHECK-NEXT:    [[SMAX1:%.*]] = call i32 @llvm.smax.i32(i32 [[SMIN]], i32 -1)
 ; CHECK-NEXT:    [[TMP2:%.*]] = add nsw i32 [[SMAX1]], 1
-; INTEL - SCEV improvements prove stronger NoWrap flags
-; CHECK-NEXT:    [[TMP3:%.*]] = mul nsw i32 [[TMP1]], [[TMP2]]
+; CHECK-NEXT:    [[TMP3:%.*]] = mul i32 [[TMP1]], [[TMP2]]
 ; CHECK-NEXT:    [[SMIN2:%.*]] = call i32 @llvm.smin.i32(i32 [[N]], i32 [[TMP3]])
 ; CHECK-NEXT:    [[EXIT_MAINLOOP_AT:%.*]] = call i32 @llvm.smax.i32(i32 [[SMIN2]], i32 0)
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp slt i32 0, [[EXIT_MAINLOOP_AT]]
