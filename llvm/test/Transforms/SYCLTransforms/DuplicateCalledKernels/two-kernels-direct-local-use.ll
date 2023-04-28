@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-duplicate-called-kernels %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-duplicate-called-kernels %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-duplicate-called-kernels %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-duplicate-called-kernels %s -S | FileCheck %s
 
 ; Check local variable @foo.v_local2 is cloned since it is directly used in two
 ; kernels.
@@ -14,30 +14,30 @@ target triple = "x86_64-pc-linux"
 ; CHECK: @foo.v_local2 = internal addrspace(3) global i32 undef, align 4
 ; CHECK: @foo.v_local2.clone = internal addrspace(3) global i32 undef, align 4
 
-define dso_local void @foo(i32 addrspace(1)* %result) {
+define dso_local void @foo(ptr addrspace(1) %result) {
 entry:
 ; CHECK-LABEL: define dso_local void @foo(
-; CHECK: store i32 33, i32 addrspace(3)* @foo.v_local1,
-; CHECK: load i32, i32 addrspace(3)* @foo.v_local2,
+; CHECK: store i32 33, ptr addrspace(3) @foo.v_local1,
+; CHECK: load i32, ptr addrspace(3) @foo.v_local2,
 ;
-  store i32 33, i32 addrspace(3)* @foo.v_local1, align 4
-  %0 = load i32, i32 addrspace(3)* @foo.v_local2, align 4
+  store i32 33, ptr addrspace(3) @foo.v_local1, align 4
+  %0 = load i32, ptr addrspace(3) @foo.v_local2, align 4
   ret void
 }
 
-define dso_local void @bar(i32 addrspace(1)* %result) {
+define dso_local void @bar(ptr addrspace(1) %result) {
 entry:
 ; CHECK-LABEL: define dso_local void @bar(
-; CHECK: store i32 66, i32 addrspace(3)* @foo.v_local2.clone,
-; CHECK: store i32 0, i32* addrspacecast (i32 addrspace(3)* @foo.v_local2.clone to i32*), align 4
+; CHECK: store i32 66, ptr addrspace(3) @foo.v_local2.clone,
+; CHECK: store i32 0, ptr addrspacecast (ptr addrspace(3) @foo.v_local2.clone to ptr), align 4
 ;
-  store i32 66, i32 addrspace(3)* @foo.v_local2, align 4
-  store i32 0, i32* addrspacecast (i32 addrspace(3)* @foo.v_local2 to i32*), align 4
+  store i32 66, ptr addrspace(3) @foo.v_local2, align 4
+  store i32 0, ptr addrspacecast (ptr addrspace(3) @foo.v_local2 to ptr), align 4
   ret void
 }
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32 addrspace(1)*)* @foo, void (i32 addrspace(1)*)* @bar}
+!0 = !{ptr @foo, ptr @bar}
 
 ; DEBUGIFY-NOT: WARNING
