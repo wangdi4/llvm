@@ -3679,7 +3679,7 @@ cl_int CL_API_CALL clGetKernelSubGroupInfo(
     void *param_value, size_t *param_value_size_ret) {
   if (FrameworkProxy::Instance()->GetOCLConfig()->GetOpenCLVersion() <
       OPENCL_VERSION_2_1) {
-    return CL_INVALID_DEVICE;
+    return CL_INVALID_OPERATION;
   }
 
   if (FrameworkUserLogger::GetInstance()->IsApiLoggingEnabled()) {
