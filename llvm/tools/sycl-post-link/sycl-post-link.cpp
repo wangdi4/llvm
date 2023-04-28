@@ -67,7 +67,6 @@
 #include "llvm/SYCLLowerIR/HostPipes.h"
 #include "llvm/SYCLLowerIR/LowerInvokeSimd.h"
 #include "llvm/SYCLLowerIR/LowerKernelProps.h"
-#include "llvm/SYCLLowerIR/SYCLUtils.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/InitLLVM.h"
@@ -668,49 +667,11 @@ std::string saveModuleProperties(module_split::ModuleDesc &MD,
   if (MD.isESIMD()) {
     PropSet[PropSetRegTy::SYCL_MISC_PROP].insert({"isEsimdImage", true});
   }
-
-  {
-    // check for large GRF property
-    bool HasLargeGRF = llvm::any_of(MD.entries(), [](const Function *F) {
-      return F->hasFnAttribute(::sycl::kernel_props::ATTR_LARGE_GRF);
-    });
-
-    if (HasLargeGRF)
-      PropSet[PropSetRegTy::SYCL_MISC_PROP].insert({"isLargeGRF", true});
-  }
-  // FIXME: Remove 'if' below when possible
-  // GPU backend has a problem with accepting optimization level options in form
-  // described by Level Zero specification (-ze-opt-level=1) when 'invoke_simd'
-  // functionality is involved. JIT compilation results in the following error:
-  //     error: VLD: Failed to compile SPIR-V with following error:
-  //     invalid api option: -ze-opt-level=O1
-  //     -11 (PI_ERROR_BUILD_PROGRAM_FAILURE)
-  // 'if' below essentially preserves the behavior (presumably mistakenly)
-  // implemented in intel/llvm#8763: ignore 'optLevel' property for images which
-  // were produced my merge after ESIMD split
-  if (MD.getEntryPointGroup().Props.HasESIMD !=
-      module_split::SyclEsimdSplitStatus::SYCL_AND_ESIMD) {
-    // Handle sycl-optlevel property
-    int OptLevel = -1;
-    for (const Function *F : MD.entries()) {
-      if (!F->hasFnAttribute(llvm::sycl::utils::ATTR_SYCL_OPTLEVEL))
-        continue;
-
-      // getAsInteger returns true on error
-      if (!F->getFnAttribute(llvm::sycl::utils::ATTR_SYCL_OPTLEVEL)
-               .getValueAsString()
-               .getAsInteger(10, OptLevel)) {
-        // It is expected that device-code split has separated kernels with
-        // different values of sycl-optlevel attribute. Therefore, it is enough
-        // to only look at the first function with such attribute to compute
-        // the property for the whole device image.
-        break;
-      }
-    }
-
-    if (OptLevel != -1)
-      PropSet[PropSetRegTy::SYCL_MISC_PROP].insert({"optLevel", OptLevel});
-  }
+  if (MD.isLargeGRF())
+    PropSet[PropSetRegTy::SYCL_MISC_PROP].insert({"isLargeGRF", true});
+  if (MD.getOptLevel() != -1)
+    PropSet[PropSetRegTy::SYCL_MISC_PROP].insert(
+        {"optLevel", MD.getOptLevel()});
   {
     std::vector<StringRef> FuncNames = getKernelNamesUsingAssert(M);
     for (const StringRef &FName : FuncNames)
@@ -850,6 +811,9 @@ bool lowerEsimdConstructs(module_split::ModuleDesc &MD) {
 
 // Compute the filename suffix for the module
 StringRef getModuleSuffix(const module_split::ModuleDesc &MD) {
+  if (MD.isLargeGRF()) {
+    return MD.isESIMD() ? "_esimd_large_grf" : "_large_grf";
+  }
   return MD.isESIMD() ? "_esimd" : "";
 }
 
@@ -1091,7 +1055,6 @@ processInputModule(std::unique_ptr<Module> M) {
           (SplitMode == module_split::SPLIT_AUTO)) &&
          "invalid split mode for IR-only output");
 
-<<<<<<< HEAD
   // Top-level per-kernel/per-source splitter. SYCL/ESIMD splitting is applied
   // to modules resulting from all other kinds of splitting.
   std::unique_ptr<module_split::ModuleSplitterBase> ScopedSplitter =
@@ -1102,20 +1065,13 @@ processInputModule(std::unique_ptr<Module> M) {
 #else  // INTEL_COLLAB
           EmitOnlyKernelsAsEntryPoints);
 #endif // INTEL_COLLAB
-=======
-  std::unique_ptr<module_split::ModuleSplitterBase> Splitter =
-      module_split::getDeviceCodeSplitter(
-          module_split::ModuleDesc{std::move(M)}, SplitMode, IROutputOnly,
-          EmitOnlyKernelsAsEntryPoints);
-  bool SplitOccurred = Splitter->remainingSplits() > 1;
-  Modified |= SplitOccurred;
->>>>>>> 67da385a5be41c232ca311322a3a5ac214fe89b2
 
-  // FIXME: this check is not performed for ESIMD splits
+  SmallVector<module_split::ModuleDesc, 8> TopLevelModules;
+
+  // FIXME: this check should be performed on all split levels
   if (DeviceGlobals)
-    Splitter->verifyNoCrossModuleDeviceGlobalUsage();
+    ScopedSplitter->verifyNoCrossModuleDeviceGlobalUsage();
 
-<<<<<<< HEAD
   const bool SplitByScope = ScopedSplitter->remainingSplits() > 1;
   bool SplitByOptionalFeatures = false;
 
@@ -1173,13 +1129,6 @@ processInputModule(std::unique_ptr<Module> M) {
   // Based on results from the top-level splitting, we perform some lower-level
   // splitting for various unique features.
   for (module_split::ModuleDesc &MDesc : TopLevelModules) {
-=======
-  // It is important that we *DO NOT* preserve all the splits in memory at the
-  // same time, because it leads to a huge RAM consumption by the tool on bigger
-  // inputs.
-  while (Splitter->hasMoreSplits()) {
-    module_split::ModuleDesc MDesc = Splitter->nextSplit();
->>>>>>> 67da385a5be41c232ca311322a3a5ac214fe89b2
     DUMP_ENTRY_POINTS(MDesc.entries(), MDesc.Name.c_str(), 1);
 
     MDesc.fixupLinkageOfDirectInvokeSimdTargets();
@@ -1193,9 +1142,10 @@ processInputModule(std::unique_ptr<Module> M) {
     std::unique_ptr<module_split::ModuleSplitterBase> ESIMDSplitter =
         module_split::getSplitterByKernelType(std::move(MDesc),
                                               EmitOnlyKernelsAsEntryPoints);
-    bool ESIMDSplitOccurred = ESIMDSplitter->remainingSplits() > 1;
+    const bool SplitByESIMD = ESIMDSplitter->remainingSplits() > 1;
+    Modified |= SplitByESIMD;
 
-    if (ESIMDSplitOccurred && SplitOccurred &&
+    if (SplitByESIMD && SplitByScope &&
         (SplitMode == module_split::SPLIT_PER_KERNEL) && !SplitEsimd) {
       // Controversial state reached - SYCL and ESIMD entry points resulting
       // from SYCL/ESIMD split (which is done always) are linked back, since
@@ -1205,8 +1155,6 @@ processInputModule(std::unique_ptr<Module> M) {
               SplitEsimd.ValueStr + " must also be specified");
     }
     SmallVector<module_split::ModuleDesc, 2> MMs;
-    SplitOccurred |= ESIMDSplitOccurred;
-    Modified |= SplitOccurred;
 
     while (ESIMDSplitter->hasMoreSplits()) {
       module_split::ModuleDesc MDesc2 = ESIMDSplitter->nextSplit();
@@ -1241,6 +1189,9 @@ processInputModule(std::unique_ptr<Module> M) {
       DUMP_ENTRY_POINTS(MMs.back().entries(), MMs.back().Name.c_str(), 3);
       Modified = true;
     }
+
+    bool SplitOccurred =
+        SplitByScope || SplitByESIMD || SplitByOptionalFeatures;
 
     if (IROutputOnly) {
       if (SplitOccurred) {
