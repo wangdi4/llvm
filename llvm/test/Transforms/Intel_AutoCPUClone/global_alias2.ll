@@ -7,11 +7,11 @@
 
 
 ; CHECK: @_ZN3VertexObjectD2Ev.A = alias void (ptr), ptr @_ZN3ObjectD2Ev.A
-; CHECK: @_ZN3VertexObjectD1Ev.A = alias void (ptr), ptr @_ZN3VertexObjectD2Ev
+; CHECK: @_ZN3VertexObjectD1Ev.A = alias void (ptr), ptr @_ZN3VertexObjectD2Ev.A
 ; CHECK: @_ZN3VertexObjectD2Ev = alias void (ptr), ptr @_ZN3ObjectD2Ev
 ; CHECK: @_ZN3VertexObjectD2Ev.V = alias void (ptr), ptr @_ZN3ObjectD2Ev.V
 ; CHECK: @_ZN3VertexObjectD1Ev = alias void (ptr), ptr @_ZN3VertexObjectD2Ev
-; CHECK: @_ZN3VertexObjectD1Ev.V = alias void (ptr), ptr @_ZN3VertexObjectD2Ev
+; CHECK: @_ZN3VertexObjectD1Ev.V = alias void (ptr), ptr @_ZN3VertexObjectD2Ev.V
 
 ; CHECK: define void @_ZN3ObjectD2Ev.A() #0 !llvm.acd.clone !0 {
 ; CHECK: define void @_ZN3ObjectD2Ev.V() #1 !llvm.acd.clone !0 {
