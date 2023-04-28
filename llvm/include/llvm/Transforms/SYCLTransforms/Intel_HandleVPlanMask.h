@@ -23,6 +23,8 @@ public:
 
   bool runImpl(Module &M);
 
+  static bool isRequired() { return true; }
+
 private:
   // TODO:
   // Include VectInfo.gen directly and remove this member after porting the

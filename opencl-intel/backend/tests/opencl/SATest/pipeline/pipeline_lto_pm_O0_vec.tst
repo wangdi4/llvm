@@ -1,5 +1,5 @@
-; RUN: SATest -BUILD -pass-manager-type=lto -llvm-option="-debug-pass-manager -enable-o0-vectorization" -config=%S/pipeline_lto_O0.tst.cfg 2>&1 | FileCheck %s
-; RUN: SATest -BUILD -llvm-option="-debug-pass-manager -enable-o0-vectorization" -config=%S/pipeline_lto_O0.tst.cfg 2>&1 | FileCheck %s
+; RUN: CL_CONFIG_CPU_O0_VECTORIZATION=1 SATest -BUILD -pass-manager-type=lto -llvm-option="-debug-pass-manager" -config=%S/pipeline_lto_O0.tst.cfg 2>&1 | FileCheck %s
+; RUN: CL_CONFIG_CPU_O0_VECTORIZATION=1 SATest -BUILD -llvm-option="-debug-pass-manager" -config=%S/pipeline_lto_O0.tst.cfg 2>&1 | FileCheck %s
 
 ; CHECK: Running pass: ReqdSubGroupSizePass
 ; CHECK-NEXT: Running pass: SetVectorizationFactorPass

@@ -280,7 +280,7 @@ InstCountResultImpl::InstCountResultImpl(Function &F, TargetTransformInfo &TTI,
 }
 
 void InstCountResultImpl::analyze() {
-  if (F.hasOptNone() || isGlobalCtorDtor(&F))
+  if (isGlobalCtorDtor(&F))
     return;
 
   // for statistics:
@@ -1030,9 +1030,9 @@ void InstCountResultImpl::estimateProbability(
       for (BasicBlock *Ancestor : Frontier) {
         // find allZero/allOne conditions, and filter them out.
         BranchInst *BR = dyn_cast<BranchInst>(Ancestor->getTerminator());
-        // The ancestor's terminator isn't a branch, definitely not an
-        // allZero one.
-        if (!BR)
+        // The ancestor's terminator isn't a conditional branch, definitely not
+        // an allZero one.
+        if (!BR || BR->isUnconditional())
           continue;
 
         Value *Cond = BR->getCondition();
