@@ -569,17 +569,6 @@ Enables/disables using SVM memory for default memory type.
 
 **Default**: Disabled (USM device by default)
 
-``LIBOMPTARGET_OPENCL_USE_BUFFER=<Enable>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. code-block:: rst
-
-  <Enable> := 1 | T | t
-
-Enables using OpenCL buffer (``cl_mem``) for memory allocated by
-``omp_target_alloc`` routine.
-
-**Default**: Disabled
-
 ``LIBOMPTARGET_OPENCL_USE_SINGLE_CONTEXT=<Enable>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code-block:: rst
