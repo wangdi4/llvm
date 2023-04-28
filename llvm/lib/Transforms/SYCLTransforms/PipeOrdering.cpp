@@ -38,12 +38,21 @@ static bool isCalledFromNDRange(const SmallPtrSetImpl<Function *> &Kernels,
 
   // Check if the function is a kernel
   if (Kernels.count(F)) {
-    // If there is no 'max_global_work_dim' attribute or it not equals to '0'
-    // this may be an NDRange kernel
-    auto KMD = KernelMetadataAPI(F);
-    if (!KMD.MaxGlobalWorkDim.hasValue() || KMD.MaxGlobalWorkDim.get() != 0) {
+    const Module *M = F->getParent();
+    // For SYCL kernel, NDRange for all kernel execution.
+    if (CompilationUtils::isGeneratedFromOCLCPP(*M)) {
       ProcessedFuncs.insert({F, true});
       return true;
+    } else {
+      // TODO: Even for OpenCL, it seems the following logic is not accurate. We
+      // need to double check.
+      // If there is no 'max_global_work_dim' attribute or it not equals to '0'
+      // this may be an NDRange kernel
+      auto KMD = KernelMetadataAPI(F);
+      if (!KMD.MaxGlobalWorkDim.hasValue() || KMD.MaxGlobalWorkDim.get() != 0) {
+        ProcessedFuncs.insert({F, true});
+        return true;
+      }
     }
   }
   // If the function not a kernel or this is a SingleWI kernel, iterate
