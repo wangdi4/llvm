@@ -53,8 +53,7 @@ define void @foo(ptr nocapture %a, ptr nocapture %b, i32 %k, i32 %m) #0 {
 ; CHECK-NEXT:    br i1 [[EXITCOND32]], label [[FOR_END_US:%.*]], label [[FOR_BODY3_US]], !llvm.loop [[LOOP3:![0-9]+]]
 ; CHECK:       for.body3.lr.ph.us:
 ; CHECK-NEXT:    [[INDVARS_IV33]] = phi i64 [ [[INDVARS_IV_NEXT34]], [[FOR_END_US]] ], [ 0, [[FOR_BODY3_LR_PH_US_PREHEADER]] ]
-; INTEL - SCEV improvements prove stronger NoWrap flags
-; CHECK-NEXT:    [[TMP6:%.*]] = add nuw nsw i64 [[TMP1]], [[INDVARS_IV33]]
+; CHECK-NEXT:    [[TMP6:%.*]] = add i64 [[TMP1]], [[INDVARS_IV33]]
 ; CHECK-NEXT:    [[TMP7:%.*]] = trunc i64 [[TMP6]] to i32
 ; CHECK-NEXT:    [[TMP8:%.*]] = trunc i64 [[INDVARS_IV33]] to i32
 ; CHECK-NEXT:    [[ADD_US]] = add i32 [[TMP8]], [[K]]

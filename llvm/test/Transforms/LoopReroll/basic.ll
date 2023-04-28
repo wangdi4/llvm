@@ -371,8 +371,7 @@ for.body:                                         ; preds = %for.body, %entry
 
 ; CHECK:for.body:
 ; CHECK:  %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-; INTEL - SCEV improvements prove stronger NoWrap flags
-; CHECK:  %0 = add nuw nsw i64 %indvars.iv, 6
+; CHECK:  %0 = add i64 %indvars.iv, 6
 ; CHECK:  %arrayidx = getelementptr inbounds i32, i32* %x, i64 %indvars.iv
 ; CHECK:  store i32 %call, i32* %arrayidx, align 4
 ; CHECK:  %arrayidx6 = getelementptr inbounds i32, i32* %x, i64 %0
@@ -432,8 +431,7 @@ for.body:                                         ; preds = %for.body, %entry
 
 ; CHECK:for.body:
 ; CHECK:  %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-; INTEL - SCEV improvements prove stronger NoWrap flags
-; CHECK:  %0 = add nuw nsw i64 %indvars.iv, 3
+; CHECK:  %0 = add i64 %indvars.iv, 3
 ; CHECK:  %arrayidx = getelementptr inbounds i32, i32* %x, i64 %indvars.iv
 ; CHECK:  store i32 %call, i32* %arrayidx, align 4
 ; CHECK:  %arrayidx6 = getelementptr inbounds i32, i32* %x, i64 %0
@@ -482,8 +480,7 @@ for.body:                                         ; preds = %for.body, %entry
 ; CHECK-LABEL: @multi3
 ; CHECK: for.body:
 ; CHECK:   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-; INTEL - SCEV improvements prove stronger NoWrap flags
-; CHECK:   %0 = add nuw nsw i64 %indvars.iv, 3
+; CHECK:   %0 = add i64 %indvars.iv, 3
 ; CHECK:   %arrayidx = getelementptr inbounds i32, i32* %x, i64 %0
 ; CHECK:   store i32 %call, i32* %arrayidx, align 4
 ; CHECK:   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -749,8 +746,7 @@ define void @pointer_bitcast_baseinst(i16* %arg, i8* %arg1, i64 %arg2) {
 ; CHECK:       bb3:
 ; CHECK-NEXT:    %indvar = phi i64 [ %indvar.next, %bb3 ], [ 0, %bb ]
 ; CHECK-NEXT:    %4 = shl nuw i64 %indvar, 3
-; INTEL - SCEV improvements prove stronger NoWrap flags
-; CHECK-NEXT:    %5 = add nuw nsw i64 %4, 1
+; CHECK-NEXT:    %5 = add i64 %4, 1
 ; CHECK-NEXT:    %tmp5 = shl nuw i64 %5, 1
 ; CHECK-NEXT:    %tmp6 = getelementptr i8, i8* %arg1, i64 %tmp5
 ; CHECK-NEXT:    %tmp7 = bitcast i8* %tmp6 to <8 x i16>*

@@ -257,6 +257,11 @@ static cl::opt<bool> PrintLoopRangeBounds(
     cl::desc("Print out the call getRangeBoundedByLoop in addition"));
 
 static cl::opt<bool>
+    XmainInferWraps("scalar-evolution-xmain-infer-nsw-nuw", cl::Hidden,
+                    cl::init(true),
+                    cl::desc("Do xmain specific NSW NUW infer optimization"));
+
+static cl::opt<bool>
     PrintScopedMode("scalar-evolution-print-scoped-mode", cl::Hidden,
                     cl::init(false),
                     cl::desc("Print SCEV results in scoped mode"));
@@ -2632,7 +2637,8 @@ StrengthenNoWrapFlags(ScalarEvolution *SE, SCEVTypes Type,
   auto IsKnownNonNegativeOrGlobalPtr = [&](const SCEV *S) {
     auto *GlobalPtr = dyn_cast<SCEVUnknown>(S);
     return SE->isKnownNonNegative(S) ||
-           (GlobalPtr && isa<GlobalVariable>(GlobalPtr->getValue()) &&
+           (XmainInferWraps && GlobalPtr &&
+            isa<GlobalVariable>(GlobalPtr->getValue()) &&
             GlobalPtr->getType()->isPointerTy());
   };
 #endif // INTEL_CUSTOMIZATION
@@ -2677,10 +2683,9 @@ StrengthenNoWrapFlags(ScalarEvolution *SE, SCEVTypes Type,
         Flags = ScalarEvolution::setFlags(Flags, SCEV::FlagNUW);
     }
 #if INTEL_CUSTOMIZATION
-  } else if (SignOrUnsignWrap != SignOrUnsignMask &&
-      (Type == scAddExpr || Type == scMulExpr) &&
-      Ops.size() >= 2 &&
-      Ops.size() <= NAryOperandStrengthenThreshold ) {
+  } else if (XmainInferWraps && SignOrUnsignWrap != SignOrUnsignMask &&
+             (Type == scAddExpr || Type == scMulExpr) && Ops.size() >= 2 &&
+             Ops.size() <= NAryOperandStrengthenThreshold) {
 
     // This is essentially a more generic version of the "if" statement above.
     // Generate all sets of unique partitions of the operands of size 2. The

@@ -1,4 +1,4 @@
-; RUN: opt -S -passes=loop-reroll   %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes=loop-reroll   %s | FileCheck %s
 target triple = "aarch64--linux-gnu"
 
 define void @rerollable1([2 x i32]* nocapture %a) {
@@ -145,10 +145,8 @@ loop:
 
 ; CHECK-LABEL: loop:
 ; CHECK-NEXT:    %iv = phi i32 [ 0, %entry ], [ %iv.next, %loop ]
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:    {{%.*}} = add nuw nsw i32 %iv, {{20|24}}
-; CHECK-NEXT:    {{%.*}} = add nuw nsw i32 %iv, {{20|24}}
-; end INTEL_CUSTOMIZATION
+; CHECK-NEXT:    {{%.*}} = add i32 %iv, {{20|24}}
+; CHECK-NEXT:    {{%.*}} = add i32 %iv, {{20|24}}
 
   ; induction variable
   %iv = phi i32 [ 0, %entry ], [ %iv.next, %loop ]

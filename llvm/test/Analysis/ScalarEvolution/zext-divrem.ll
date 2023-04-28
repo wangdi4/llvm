@@ -37,7 +37,6 @@ define i64 @test4(i32 %t) {
   %sub = sub i32 %a, %mul
   %zext = zext i32 %sub to i64
 ; CHECK: %zext
-; INTEL - SCEV improvements prove stronger NoWrap flags
-; CHECK-NEXT: -->  ((-56 * ((zext i32 %t to i64) /u 112))<nsw> + ((zext i32 %t to i64) /u 2))<nsw>
+; CHECK-NEXT: -->  ((-56 * ((zext i32 %t to i64) /u 112))<nsw> + ((zext i32 %t to i64) /u 2))
   ret i64 %zext
 }

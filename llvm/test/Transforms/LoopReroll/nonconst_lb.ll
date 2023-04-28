@@ -104,8 +104,7 @@ define void @daxpy_ur(i32 %n, float %da, ptr nocapture readonly %dx, ptr nocaptu
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[INDVAR:%.*]] = phi i32 [ 0, [[FOR_BODY_PREHEADER]] ], [ [[INDVAR_NEXT:%.*]], [[FOR_BODY]] ]
-; INTEL - SCEV improvements prove stronger NoWrap flags
-; CHECK-NEXT:    [[TMP5:%.*]] = add nsw i32 [[REM]], [[INDVAR]] ;INTEL
+; CHECK-NEXT:    [[TMP5:%.*]] = add i32 [[REM]], [[INDVAR]]
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds float, ptr [[DY:%.*]], i32 [[TMP5]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = load float, ptr [[ARRAYIDX]], align 4
 ; CHECK-NEXT:    [[ARRAYIDX1:%.*]] = getelementptr inbounds float, ptr [[DX:%.*]], i32 [[TMP5]]
