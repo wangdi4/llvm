@@ -1332,40 +1332,39 @@ PointerType *mutatePtrElementType(PointerType *SrcPTy, Type *DstTy) {
 
 Function *importFunctionDecl(Module *Dst, const Function *Orig,
                              bool DuplicateIfExists) {
-  assert(Dst && "Invalid module");
-  assert(Orig && "Invalid function");
+  FunctionType *NewFnType = Orig->getFunctionType();
 
-  std::vector<StructType *> DstSTys = Dst->getIdentifiedStructTypes();
-  FunctionType *OrigFnTy = Orig->getFunctionType();
+  if (Dst->getContext().supportsTypedPointers()) {
+    std::vector<StructType *> DstSTys = Dst->getIdentifiedStructTypes();
 
-  SmallVector<Type *, 8> NewArgTypes;
-  bool Changed = false;
-  for (const auto &Arg : Orig->args()) {
-    auto *ArgTy = Arg.getType();
-    NewArgTypes.push_back(ArgTy);
+    SmallVector<Type *, 8> NewArgTypes;
+    bool Changed = false;
+    for (const auto &Arg : Orig->args()) {
+      auto *ArgTy = Arg.getType();
+      NewArgTypes.push_back(ArgTy);
+      StructType *STy = nullptr;
+      if (isa<PointerType>(ArgTy))
+        STy = dyn_cast_or_null<StructType>(Arg.getParamByValType());
+      if (!STy)
+        STy = getStructFromTypePtr(ArgTy);
+      if (!STy)
+        continue;
 
-    StructType *STy = nullptr;
-    if (isa<PointerType>(ArgTy))
-      STy = dyn_cast_or_null<StructType>(Arg.getParamByValType());
-    if (!STy)
-      STy = getStructFromTypePtr(ArgTy);
-    if (!STy)
-      continue;
-
-    for (auto *DstSTy : DstSTys) {
-      if (isSameStructType(DstSTy, STy)) {
-        NewArgTypes.back() =
-            mutatePtrElementType(cast<PointerType>(ArgTy), DstSTy);
-        Changed = true;
-        break;
+      for (auto *DstSTy : DstSTys) {
+        if (isSameStructType(DstSTy, STy)) {
+          NewArgTypes.back() =
+              mutatePtrElementType(cast<PointerType>(ArgTy), DstSTy);
+          Changed = true;
+          break;
+        }
       }
     }
+
+    if (Changed)
+      NewFnType = FunctionType::get(Orig->getReturnType(), NewArgTypes,
+                                    Orig->isVarArg());
   }
 
-  FunctionType *NewFnType =
-      (!Changed) ? OrigFnTy
-                 : FunctionType::get(Orig->getReturnType(), NewArgTypes,
-                                     Orig->isVarArg());
   if (!DuplicateIfExists)
     return cast<Function>(Dst->getOrInsertFunction(Orig->getName(), NewFnType,
                                                    Orig->getAttributes())
@@ -2024,12 +2023,14 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
         };
         auto IntParams = TETy->int_params();
         if (IntParams[ImageArrayed]) {
-          if (IntParams[ImageDepth] && IntParams[ImageDim] == 2)
+          if (IntParams[ImageDepth] && IntParams[ImageDim] == 1)
             CurArg.Ty = KRNL_ARG_PTR_IMG_2D_ARR_DEPTH;
-          else if (IntParams[ImageDim] == 2)
-            CurArg.Ty = KRNL_ARG_PTR_IMG_2D_ARR;
           else if (IntParams[ImageDim] == 1)
+            CurArg.Ty = KRNL_ARG_PTR_IMG_2D_ARR;
+          else if (IntParams[ImageDim] == 0)
             CurArg.Ty = KRNL_ARG_PTR_IMG_1D_ARR;
+          else
+            assert(false && "unhandled array image TargetExtType");
         } else if (IntParams[ImageDepth] && IntParams[ImageDim] == 2) {
           CurArg.Ty = KRNL_ARG_PTR_IMG_2D_DEPTH;
         } else if (IntParams[ImageDim] == 5) {

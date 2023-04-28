@@ -145,6 +145,11 @@ int __pipe_get_total_size_fpga(int packet_size, int depth, int mode) {
 DiagnosticKind LargeChannelPipeWarningDiagInfo::Kind =
     static_cast<DiagnosticKind>(getNextAvailablePluginDiagnosticKind());
 
+bool isGlobalPipe(GlobalVariable *GV) {
+  auto MD = SYCLKernelMetadataAPI::GlobalVariableMetadataAPI(GV);
+  return MD.PipePacketSize.hasValue() && MD.PipePacketAlign.hasValue();
+}
+
 void getSYCLPipeMetadata(GlobalVariable *StorageVar, ChannelPipeMD &PipeMD) {
   LLVM_DEBUG(dbgs() << "Extracting pipe metadata from: " << *StorageVar
                     << "\n");
@@ -346,6 +351,13 @@ PipeTypesHelper::PipeTypesHelper(Module &M)
           StructType::getTypeByName(M.getContext(), "opencl.pipe_rw_t"),
           StructType::getTypeByName(M.getContext(), "opencl.pipe_ro_t"),
           StructType::getTypeByName(M.getContext(), "opencl.pipe_wo_t")) {
+  for (auto &GV : M.globals()) {
+    if (isGlobalPipe(&GV)) {
+      GlobalPipeTy = GV.getValueType();
+      break;
+    }
+  }
+
   for (Function *F : getKernels(M)) {
     SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
     if (KIMD.ArgTypeNullValList.hasValue()) {
@@ -388,10 +400,6 @@ bool PipeTypesHelper::isGlobalPipeType(Type *Ty) const {
 
 bool PipeTypesHelper::isPipeType(Type *Ty) const {
   return isLocalPipeType(Ty) || isGlobalPipeType(Ty);
-}
-
-bool PipeTypesHelper::isPipeArrayType(Type *Ty) const {
-  return isa<ArrayType>(Ty) && getArrayElementType(cast<ArrayType>(Ty));
 }
 
 Function *getPipeBuiltin(Module &M, RuntimeService &RTS, const PipeKind &Kind) {

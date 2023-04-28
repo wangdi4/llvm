@@ -350,8 +350,8 @@ void OptimizerOCL::populatePassesPreFailCheck(ModulePassManager &MPM) const {
       Config.GetSubGroupConstructionMode())));
 
   if (m_IsFpgaEmulator) {
-    MPM.addPass(SYCLRewritePipesPass());
     MPM.addPass(ChannelPipeTransformationPass());
+    MPM.addPass(SYCLRewritePipesPass());
     MPM.addPass(PipeIOTransformationPass());
     MPM.addPass(PipeOrderingPass());
     MPM.addPass(AutorunReplicatorPass());

@@ -25,9 +25,6 @@ class ChannelPipeTransformationPass
     : public PassInfoMixin<ChannelPipeTransformationPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
-
-  // Glue for old PM.
-  bool runImpl(Module &M, BuiltinLibInfo *BLI);
 };
 
 } // namespace llvm

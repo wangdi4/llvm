@@ -40,7 +40,7 @@ target triple = "spir"
 
 @a = common local_unnamed_addr addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
 
-; CHECK: define spir_func void @helper(%opencl.pipe_rw_t addrspace(1)* %0, i32 %1)
+; CHECK: define spir_func void @helper(%opencl.pipe_rw_t addrspace(1)* %a, i32 %data)
 
 ; All unused functions with channels should be erased
 ; check is done using --implicit-check-not
