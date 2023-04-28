@@ -4118,7 +4118,7 @@ private:
 
       unsigned NumLanes = Scalars.size();
 
-      Mask.assign(NumLanes, UndefMaskElem);
+      Mask.assign(NumLanes, PoisonMaskElem);
       SmallVector<int> OrderMask;
       if (!ReorderIndices.empty())
         inversePermutation(ReorderIndices, OrderMask);
@@ -4142,9 +4142,9 @@ private:
       }
 
       if (!ReuseShuffleIndices.empty()) {
-        SmallVector<int> NewMask(ReuseShuffleIndices.size(), UndefMaskElem);
+        SmallVector<int> NewMask(ReuseShuffleIndices.size(), PoisonMaskElem);
         transform(ReuseShuffleIndices, NewMask.begin(), [&Mask](int Idx) {
-          return Idx != UndefMaskElem ? Mask[Idx] : UndefMaskElem;
+          return Idx != PoisonMaskElem ? Mask[Idx] : PoisonMaskElem;
         });
         Mask.swap(NewMask);
       }
