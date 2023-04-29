@@ -537,4 +537,62 @@ define <8 x float> @test_f32v8_8(ptr %base, <8 x i32> %i1, i32 %i2, <8 x i1> %ma
   ret <8 x float> %res
 }
 
+define <8 x i32> @test_i32v8_zext_9(<8 x i32> %index, ptr %base, <8 x i1> %mask) {
+; SKL-LABEL: test_i32v8_zext_9:
+; SKL:       # %bb.0:
+; SKL-NEXT:    vpmovzxwd {{.*#+}} ymm1 = xmm1[0],zero,xmm1[1],zero,xmm1[2],zero,xmm1[3],zero,xmm1[4],zero,xmm1[5],zero,xmm1[6],zero,xmm1[7],zero
+; SKL-NEXT:    vpslld $31, %ymm1, %ymm1
+; SKL-NEXT:    vpbroadcastd {{.*#+}} ymm2 = [2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648,2147483648]
+; SKL-NEXT:    vpsubd %ymm2, %ymm0, %ymm2
+; SKL-NEXT:    movabsq $8589934592, %rax # imm = 0x200000000
+; SKL-NEXT:    addq %rdi, %rax
+; SKL-NEXT:    vpxor %xmm0, %xmm0, %xmm0
+; SKL-NEXT:    vpgatherdd %ymm1, (%rax,%ymm2,4), %ymm0
+; SKL-NEXT:    retq
+;
+; SKL-32-LABEL: test_i32v8_zext_9:
+; SKL-32:       # %bb.0:
+; SKL-32-NEXT:    vpmovzxwd {{.*#+}} ymm1 = xmm1[0],zero,xmm1[1],zero,xmm1[2],zero,xmm1[3],zero,xmm1[4],zero,xmm1[5],zero,xmm1[6],zero,xmm1[7],zero
+; SKL-32-NEXT:    vpslld $31, %ymm1, %ymm1
+; SKL-32-NEXT:    movl {{[0-9]+}}(%esp), %eax
+; SKL-32-NEXT:    vpmovzxdq {{.*#+}} ymm2 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero
+; SKL-32-NEXT:    vextracti128 $1, %ymm0, %xmm0
+; SKL-32-NEXT:    vpmovzxdq {{.*#+}} ymm0 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero
+; SKL-32-NEXT:    vextracti128 $1, %ymm1, %xmm3
+; SKL-32-NEXT:    vpxor %xmm4, %xmm4, %xmm4
+; SKL-32-NEXT:    vpxor %xmm5, %xmm5, %xmm5
+; SKL-32-NEXT:    vpgatherqd %xmm3, (%eax,%ymm0,4), %xmm5
+; SKL-32-NEXT:    vpgatherqd %xmm1, (%eax,%ymm2,4), %xmm4
+; SKL-32-NEXT:    vinserti128 $1, %xmm5, %ymm4, %ymm0
+; SKL-32-NEXT:    retl
+;
+; SKX-LABEL: test_i32v8_zext_9:
+; SKX:       # %bb.0:
+; SKX-NEXT:    vpsllw $15, %xmm1, %xmm1
+; SKX-NEXT:    vpmovw2m %xmm1, %k1
+; SKX-NEXT:    movabsq $8589934592, %rax # imm = 0x200000000
+; SKX-NEXT:    addq %rdi, %rax
+; SKX-NEXT:    vpsubd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm0, %ymm1
+; SKX-NEXT:    vpxor %xmm0, %xmm0, %xmm0
+; SKX-NEXT:    vpgatherdd (%rax,%ymm1,4), %ymm0 {%k1}
+; SKX-NEXT:    retq
+;
+; SKX-32-LABEL: test_i32v8_zext_9:
+; SKX-32:       # %bb.0:
+; SKX-32-NEXT:    vpsllw $15, %xmm1, %xmm1
+; SKX-32-NEXT:    vpmovw2m %xmm1, %k1
+; SKX-32-NEXT:    movl {{[0-9]+}}(%esp), %eax
+; SKX-32-NEXT:    vpmovzxdq {{.*#+}} zmm1 = ymm0[0],zero,ymm0[1],zero,ymm0[2],zero,ymm0[3],zero,ymm0[4],zero,ymm0[5],zero,ymm0[6],zero,ymm0[7],zero
+; SKX-32-NEXT:    vpxor %xmm0, %xmm0, %xmm0
+; SKX-32-NEXT:    vpgatherqd (%eax,%zmm1,4), %ymm0 {%k1}
+; SKX-32-NEXT:    retl
+  %index_i64 = zext <8 x i32> %index to <8 x i64>
+  %gather_ptr = getelementptr inbounds i32, ptr %base, <8 x i64> %index_i64
+  %res = tail call <8 x i32> @llvm.masked.gather.v8i32.v8p0(<8 x ptr> %gather_ptr, i32 4, <8 x i1> %mask, <8 x i32> poison)
+  ret <8 x i32> %res
+}
+
+; Function Attrs: nocallback nofree nosync nounwind willreturn memory(read)
+declare <8 x i32> @llvm.masked.gather.v8i32.v8p0(<8 x ptr>, i32 immarg, <8 x i1>, <8 x i32>)
+
 declare <8 x float> @llvm.masked.gather.v8float(<8 x float*> %ptrs, i32 %align, <8 x i1> %masks, <8 x float> %passthru)
