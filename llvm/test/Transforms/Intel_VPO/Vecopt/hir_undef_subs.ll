@@ -6,7 +6,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree noreturn nosync nounwind uwtable
 define void @ocn_diagnostic_solve_() local_unnamed_addr #0 {
-; CHECK: <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
+; CHECK: <DO_LOOP> <MAX_TC_EST = 536870911> <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ;
 alloca_0:
   %"addr_a0$_fetch.32[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 undef, i64 undef, float* elementtype(float) null, i64 0)
