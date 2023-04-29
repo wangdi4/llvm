@@ -1377,13 +1377,8 @@ private:
   }
 
   void onCallArgumentSetup(const CallBase &Call) override {
-<<<<<<< HEAD
-    increment(InlineCostFeatureIndex::CallArgumentSetup,
-              Call.arg_size() * static_cast<int64_t>(InstrCost)); // INTEL
-=======
     increment(InlineCostFeatureIndex::call_argument_setup,
-              Call.arg_size() * InstrCost);
->>>>>>> f9b3e3411cc09393afecfdef6439a77e9ba77cc9
+              Call.arg_size() * static_cast<int64_t>(InstrCost)); // INTEL
   }
 
   void onLoadRelativeIntrinsic() override {
@@ -1392,13 +1387,8 @@ private:
 
   void onLoweredCall(Function *F, CallBase &Call,
                      bool IsIndirectCall) override {
-<<<<<<< HEAD
-    increment(InlineCostFeatureIndex::LoweredCallArgSetup,
-              Call.arg_size() * static_cast<int64_t>(InstrCost)); // INTEL
-=======
     increment(InlineCostFeatureIndex::lowered_call_arg_setup,
-              Call.arg_size() * InstrCost);
->>>>>>> f9b3e3411cc09393afecfdef6439a77e9ba77cc9
+              Call.arg_size() * static_cast<int64_t>(InstrCost)); // INTEL
 
     if (IsIndirectCall) {
       InlineParams IndirectCallParams = {/* DefaultThreshold*/ 0,
@@ -1424,19 +1414,12 @@ private:
           InlineConstants::IndirectCallThreshold;
 
       InlineCostCallAnalyzer CA(*F, Call, IndirectCallParams, TTI,
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
                                 GetAssumptionCache, GetBFI, PSI, ORE,
                                 nullptr, nullptr, nullptr, false, true);
       if (CA.analyze(TTI).isSuccess()) {
 #endif // INTEL)CUSTOMIZATION
-        increment(InlineCostFeatureIndex::NestedInlineCostEstimate,
-=======
-                                GetAssumptionCache, GetBFI, PSI, ORE, false,
-                                true);
-      if (CA.analyze().isSuccess()) {
         increment(InlineCostFeatureIndex::nested_inline_cost_estimate,
->>>>>>> f9b3e3411cc09393afecfdef6439a77e9ba77cc9
                   CA.getCost());
         increment(InlineCostFeatureIndex::nested_inlines, 1);
       }
@@ -1523,15 +1506,10 @@ private:
     increment(InlineCostFeatureIndex::load_elimination, 1);
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   InlineResult onAnalysisStart(const TargetTransformInfo &CalleeTTI) override {
 #endif // INTEL_CUSTOMIZATION
-    increment(InlineCostFeatureIndex::CallSiteCost,
-=======
-  InlineResult onAnalysisStart() override {
     increment(InlineCostFeatureIndex::callsite_cost,
->>>>>>> f9b3e3411cc09393afecfdef6439a77e9ba77cc9
               -1 * getCallsiteCost(this->CandidateCall, DL));
 
     set(InlineCostFeatureIndex::cold_cc_penalty,
