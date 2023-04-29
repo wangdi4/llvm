@@ -6837,13 +6837,15 @@ int32_t __tgt_rtl_synchronize(int32_t DeviceId, __tgt_async_info *AsyncInfo) {
     if (DeviceInfo->Option.CommandMode == CommandModeTy::AsyncOrdered) {
       // Only need to wait for the last event
       CALL_ZE_RET_FAIL(zeEventHostSynchronize, WaitEvents.back(), UINT64_MAX);
+      for (auto &Event : WaitEvents)
+        EventPool.releaseEvent(Event);
     } else { // Async
       // Wait for all events
-      for (auto &Event : WaitEvents)
+      for (auto &Event : WaitEvents) {
         CALL_ZE_RET_FAIL(zeEventHostSynchronize, Event, UINT64_MAX);
+        EventPool.releaseEvent(Event);
+      }
     }
-    for (auto &Event : WaitEvents)
-      EventPool.releaseEvent(Event);
   }
 
   // Commit delayed H2M copies
