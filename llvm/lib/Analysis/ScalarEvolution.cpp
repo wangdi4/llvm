@@ -7941,17 +7941,6 @@ ConstantRange ScalarEvolution::getRangeBoundedByLoop(const PHINode &HeaderPhi) {
   return SR.intersectWith(UR, ConstantRange::Smallest);
 }
 
-static const Loop *getOutermostLoop(const Loop *Lp) {
-  auto *OuterLp = Lp;
-
-  while (OuterLp) {
-    Lp = OuterLp;
-    OuterLp = OuterLp->getParentLoop();
-  }
-
-  return Lp;
-}
-
 static bool getRefinedFlags(const OverflowingBinaryOperator *UserBinOp,
                             SCEV::NoWrapFlags &Flags) {
   if (!UserBinOp->hasNoUnsignedWrap())
@@ -9535,11 +9524,42 @@ const SCEV *ScalarEvolution::getBackedgeTakenCount(const Loop *L,
     return getBackedgeTakenInfo(L).getExact(L, this);
   case ConstantMaximum:
 #if INTEL_CUSTOMIZATION // HIR parsing
-    // Regular scalar evolution is likely to have more precise info so use it
-    // instead.
-    if (auto *ScopedSE = dyn_cast<ScopedScalarEvolution>(this))
-      return ScopedSE->getOrigSE().getBackedgeTakenInfo(L).getConstantMax(
-          &ScopedSE->getOrigSE());
+    // Either of scoped or regular scalar evolution may have more precise info
+    // so return whichever is more precise.
+    if (auto *ScopedSE = dyn_cast<ScopedScalarEvolution>(this)) {
+      auto *ScopedConstMaxTakenCount =
+          getBackedgeTakenInfo(L).getConstantMax(this);
+
+      auto *OrigConstMaxTakenCount =
+          ScopedSE->getOrigSE().getBackedgeTakenInfo(L).getConstantMax(
+              &ScopedSE->getOrigSE());
+
+      if (ScopedConstMaxTakenCount == ScopedSE->getCouldNotCompute()) {
+        return OrigConstMaxTakenCount;
+
+      } else if (OrigConstMaxTakenCount ==
+                 ScopedSE->getOrigSE().getCouldNotCompute()) {
+        return ScopedConstMaxTakenCount;
+
+      } else {
+        // Return whichever is smaller.
+        APInt OrigVal = cast<SCEVConstant>(OrigConstMaxTakenCount)->getAPInt();
+        APInt ScopedVal =
+            cast<SCEVConstant>(ScopedConstMaxTakenCount)->getAPInt();
+
+        unsigned OrigBitWidth = OrigVal.getBitWidth();
+        unsigned ScopedBitWidth = ScopedVal.getBitWidth();
+
+        if (OrigBitWidth < ScopedBitWidth) {
+          OrigVal = OrigVal.zext(ScopedBitWidth);
+        } else if (ScopedBitWidth < OrigBitWidth) {
+          ScopedVal = ScopedVal.zext(OrigBitWidth);
+        }
+
+        return OrigVal.ult(ScopedVal) ? OrigConstMaxTakenCount
+                                      : ScopedConstMaxTakenCount;
+      }
+    }
 #endif // INTEL_CUSTOMIZATION
     return getBackedgeTakenInfo(L).getConstantMax(this);
   case SymbolicMaximum:
@@ -15976,6 +15996,10 @@ static void PrintLoopInfo(raw_ostream &OS, ScalarEvolution *SE,
   for (Loop *I : *L)
     PrintLoopInfo(OS, SE, I);
 
+#if INTEL_CUSTOMIZATION
+  if (PrintScopedMode)
+    cast<ScopedScalarEvolution>(SE)->setScope(L->getOutermostLoop());
+#endif // INTEL_CUSTOMIZATION
   OS << "Loop ";
   L->getHeader()->printAsOperand(OS, /*PrintType=*/false);
   OS << ": ";
@@ -16089,10 +16113,8 @@ void ScalarEvolution::print(raw_ostream &OS) const {
       if (isSCEVable(I.getType()) && !isa<CmpInst>(I)) {
 #if INTEL_CUSTOMIZATION
         if (PrintScopedMode) {
-          auto *OutermostLoop = getOutermostLoop(LI.getLoopFor(I.getParent()));
-
-          if (OutermostLoop) {
-            ScopedSE.setScope(OutermostLoop);
+          if (auto *Loop = LI.getLoopFor(I.getParent())) {
+            ScopedSE.setScope(Loop->getOutermostLoop());
           } else {
             ScopedSE.setScope({});
           }
