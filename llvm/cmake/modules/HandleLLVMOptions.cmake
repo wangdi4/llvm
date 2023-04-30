@@ -1109,15 +1109,6 @@ add_compile_definitions(__STDC_CONSTANT_MACROS)
 add_compile_definitions(__STDC_FORMAT_MACROS)
 add_compile_definitions(__STDC_LIMIT_MACROS)
 
-# INTEL_CUSTOMIZATION
-# FIXME: After llvm switched to c++17, there are a lot of build failures like
-# "reference to 'byte' is ambiguous". It looks like the windows sdk used to
-# build xmain has some bugs and doesn't support c++17. So we will have such
-# workaround fix here util there is another better fix.
-if (WIN32)
-  add_definitions( -D_HAS_STD_BYTE=0 )
-endif()
-
 # CMPLRLLVM-41540: CMake omits an explicit optimization level for "Debug"
 # builds with the expectation that this means no optimizations. Intel drivers
 # behave this way with '-g', but emit a warning. Silence the warning for
