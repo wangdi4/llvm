@@ -103,6 +103,7 @@ typedef cl_int (CL_API_CALL *clSetProgramSpecializationConstant_fn)(
   M(clDeviceMemAllocINTEL)                                                     \
   M(clSharedMemAllocINTEL)                                                     \
   M(clMemFreeINTEL)                                                            \
+  M(clMemBlockingFreeINTEL)                                                    \
   M(clSetKernelArgMemPointerINTEL)                                             \
   M(clEnqueueMemcpyINTEL)                                                      \
   M(clSetProgramSpecializationConstant)                                        \
@@ -842,6 +843,17 @@ cl_program TRACE_FN(clCreateProgramWithBinary)(
 
 cl_int TRACE_FN(clMemFreeINTEL)(
     clMemFreeINTEL_fn funcptr,
+    cl_context context,
+    void *ptr) {
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(context);
+  TRACE_FN_ARG_PTR(ptr);
+  TRACE_FN_ARG_END();
+  return funcptr(context, ptr);
+}
+
+cl_int TRACE_FN(clMemBlockingFreeINTEL)(
+    clMemBlockingFreeINTEL_fn funcptr,
     cl_context context,
     void *ptr) {
   TRACE_FN_ARG_BEGIN();

@@ -1451,6 +1451,7 @@ public:
     case clDeviceMemAllocINTELId:
     case clSharedMemAllocINTELId:
     case clMemFreeINTELId:
+    case clMemBlockingFreeINTELId:
     case clSetKernelArgMemPointerINTELId:
     case clEnqueueMemcpyINTELId:
       return Extensions[DeviceId].UnifiedSharedMemory == ExtensionStatusEnabled;
@@ -2818,26 +2819,17 @@ static inline int32_t runTargetTeamNDRegion(
 #endif // INTEL_CUSTOMIZATION
 
   cl_event Event;
-  bool IsDiscrete = DeviceInfo->isDiscreteDevice(DeviceId);
 #if INTEL_CUSTOMIZATION
   OCL_KERNEL_BEGIN(DeviceId);
 #endif // INTEL_CUSTOMIZATION
   CALL_CL_RET_FAIL(clEnqueueNDRangeKernel, DeviceInfo->Queues[DeviceId],
                    Kernel, 3, nullptr, GlobalWorkSize,
                    LocalWorkSize, 0, nullptr, &Event);
-  if (IsDiscrete)
-    KernelLock.unlock();
+  KernelLock.unlock();
 
   DP("Started executing kernel.\n");
 
   CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
-
-  // There seems to be subtle race condition when launching target regions with
-  // reduction from multiple host threads on integrated devices. We do not have
-  // overlapping kernel execution anyway with this plugin, so protect the kernel
-  // execution only on integrated devices.
-  if (!IsDiscrete)
-    KernelLock.unlock();
 
 #if INTEL_CUSTOMIZATION
   OCL_KERNEL_END(DeviceId);
@@ -4388,7 +4380,8 @@ int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr, int32_t Kind) {
   if (DeviceInfo->Option.Flags.UseSVM) {
     CALL_CL_VOID(clSVMFree, Context, Info.Base);
   } else {
-    CALL_CL_EXT_VOID(DeviceId, clMemFreeINTEL, Context, Info.Base);
+    std::lock_guard<std::mutex> LG(DeviceInfo->Mutexes[DeviceId]);
+    CALL_CL_EXT_VOID(DeviceId, clMemBlockingFreeINTEL, Context, Info.Base);
   }
 
   return OFFLOAD_SUCCESS;
