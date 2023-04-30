@@ -1533,6 +1533,12 @@ static bool passingValueIsAlwaysUndefined(Value *V, Instruction *I, bool PtrValu
 /// instructions \p I1 and \p I2 can and should be hoisted.
 static bool shouldHoistCommonInstructions(Instruction *I1, Instruction *I2,
                                           const TargetTransformInfo &TTI) {
+#if INTEL_COLLAB
+  // Do not hoist llvm.directive.region.entry/exit intrinsics.
+  if (IntrinsicUtils::isDirective(I1))
+    return false;
+#endif //INTEL_COLLAB
+
   // If we're going to hoist a call, make sure that the two instructions
   // we're commoning/hoisting are both marked with musttail, or neither of
   // them is marked as such. Otherwise, we might end up in a situation where
@@ -1640,46 +1646,6 @@ bool SimplifyCFGOpt::HoistThenElseCodeToIf(BranchInst *BI, bool EqTermsOnly) {
       goto HoistTerminator;
     }
 
-<<<<<<< HEAD
-    if (I1->isIdenticalToWhenDefined(I2)) {
-      // Even if the instructions are identical, it may not be safe to hoist
-      // them if we have skipped over instructions with side effects or their
-      // operands weren't hoisted.
-      if (!isSafeToHoistInstr(I1, SkipFlagsBB1) ||
-          !isSafeToHoistInstr(I2, SkipFlagsBB2))
-        return Changed;
-
-#if INTEL_COLLAB
-    // Do not hoist llvm.directive.region.entry/exit intrinsics.
-    if (IntrinsicUtils::isDirective(I1))
-      return Changed;
-#endif //INTEL_COLLAB
-
-      // If we're going to hoist a call, make sure that the two instructions
-      // we're commoning/hoisting are both marked with musttail, or neither of
-      // them is marked as such. Otherwise, we might end up in a situation where
-      // we hoist from a block where the terminator is a `ret` to a block where
-      // the terminator is a `br`, and `musttail` calls expect to be followed by
-      // a return.
-      auto *C1 = dyn_cast<CallInst>(I1);
-      auto *C2 = dyn_cast<CallInst>(I2);
-      if (C1 && C2)
-        if (C1->isMustTailCall() != C2->isMustTailCall())
-          return Changed;
-
-      if (!TTI.isProfitableToHoist(I1) || !TTI.isProfitableToHoist(I2))
-        return Changed;
-
-      // If any of the two call sites has nomerge or convergent attribute, stop
-      // hoisting.
-      if (const auto *CB1 = dyn_cast<CallBase>(I1))
-        if (CB1->cannotMerge() || CB1->isConvergent())
-          return Changed;
-      if (const auto *CB2 = dyn_cast<CallBase>(I2))
-        if (CB2->cannotMerge() || CB2->isConvergent())
-          return Changed;
-
-=======
     if (I1->isIdenticalToWhenDefined(I2) &&
         // Even if the instructions are identical, it may not be safe to hoist
         // them if we have skipped over instructions with side effects or their
@@ -1687,7 +1653,6 @@ bool SimplifyCFGOpt::HoistThenElseCodeToIf(BranchInst *BI, bool EqTermsOnly) {
         isSafeToHoistInstr(I1, SkipFlagsBB1) &&
         isSafeToHoistInstr(I2, SkipFlagsBB2) &&
         shouldHoistCommonInstructions(I1, I2, TTI)) {
->>>>>>> 31ec0a6845299dc3486c1339d40342d858a42e3f
       if (isa<DbgInfoIntrinsic>(I1) || isa<DbgInfoIntrinsic>(I2)) {
         assert(isa<DbgInfoIntrinsic>(I1) && isa<DbgInfoIntrinsic>(I2));
         // The debug location is an integral part of a debug info intrinsic
