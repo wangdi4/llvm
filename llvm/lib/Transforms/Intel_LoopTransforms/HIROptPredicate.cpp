@@ -78,6 +78,7 @@
 #define OPT_SWITCH "hir-opt-predicate"
 #define OPT_DESC "HIR OptPredicate"
 #define DEBUG_TYPE OPT_SWITCH
+#define LLVM_DEBUG_DETAIL(X) DEBUG_WITH_TYPE(OPT_SWITCH "-detail", X)
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -1068,6 +1069,14 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
   // Skip candidates that are already at the outer most possible level.
   unsigned Level;
 
+  LLVM_DEBUG_DETAIL(dbgs() << "\n"; dbgs() << "TransformLoop: ";
+                    StringRef Answer = TransformLoop ? "yes" : "no";
+                    dbgs() << Answer << "\n");
+  LLVM_DEBUG_DETAIL(dbgs() << "IsCandidate: ";
+                    StringRef Answer = IsCandidate ? "yes" : "no";
+                    dbgs() << Answer << "\n");
+  LLVM_DEBUG_DETAIL(dbgs() << "MinLevel: " << MinLevel << "\n");
+
   if (IsCandidate) {
     // Determine target level to unswitch.
     Level = std::max(Pass.getPossibleDefLevel(Node, PUC), MinLevel);
@@ -1080,6 +1089,23 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
       IsCandidate = false;
     }
   } else {
+    Level = CurrLoop->getNestingLevel();
+  }
+
+  if (IsCandidate && Node->getParentLoopAtLevel(Level + 1)->isSIMD()) {
+    // We don't support hoisting outside non-innermost loop
+    // with SIMD pragma as it can inhibit the outer-loop vectorization
+    // of that outer loop. We update the level to CurrLoop's level
+    // so that inner-if see some valid opportunities.
+    // TODO: enhance the logic so that SIMD pragma can be moved/copied
+    //       with Opt Pred when possible (JR-47148)
+    //       Level updating logic can be further relaxed to hoist
+    //       inner-if to outside of outer-if when needed.
+    LLVM_DEBUG(
+        dbgs()
+        << "Outerloop is a simd loop, hoisting will inhibit simd pragma.\n");
+
+    IsCandidate = false;
     Level = CurrLoop->getNestingLevel();
   }
 
@@ -1161,6 +1187,14 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
              << ResultString << "needed\n";
     });
   }
+
+  LLVM_DEBUG_DETAIL(dbgs() << "WillUnswitchParent: ";
+                    StringRef Answer = WillUnswitchParent ? "yes" : "no";
+                    dbgs() << Answer << "\n");
+  LLVM_DEBUG_DETAIL(dbgs() << "Level: " << Level << "\n");
+  LLVM_DEBUG_DETAIL(dbgs() << "CurrLoop: " << CurrLoop->getNumber() << "\n");
+  LLVM_DEBUG_DETAIL(dbgs() << "Node: " << Node->getNumber() << "\n");
+  LLVM_DEBUG_DETAIL(dbgs() << "CostOfRegion: " << CostOfRegion << "\n");
 
   // Collect candidates within HLIf branches.
   CandidateLookup
