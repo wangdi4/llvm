@@ -414,19 +414,36 @@ TEST(IncludeCleaner, MacroExpandedThroughIncludes) {
   ParsedAST AST = TU.build();
 
   auto Findings = computeIncludeCleanerFindings(AST).MissingIncludes;
-#if INTEL_CUSTOMIZATION
-  // FIXME: Deduplicate references resulting from expansion of the same macro in
-  // multiple places.
-  EXPECT_THAT(Findings, testing::SizeIs(2));
-#endif // INTEL_CUSTOMIZATION
+  EXPECT_THAT(Findings, testing::SizeIs(1));
   auto RefRange = Findings.front().SymRefRange;
   auto &SM = AST.getSourceManager();
   EXPECT_EQ(RefRange.file(), SM.getMainFileID());
   // FIXME: Point at the spelling location, rather than the include.
   EXPECT_EQ(halfOpenToRange(SM, RefRange.toCharRange(SM)), MainFile.range());
-#if INTEL_CUSTOMIZATION
-  EXPECT_EQ(RefRange, Findings[1].SymRefRange);
-#endif // INTEL_CUSTOMIZATION
+}
+
+TEST(IncludeCleaner, MissingIncludesAreUnique) {
+  Annotations MainFile(R"cpp(
+    #include "all.h"
+    FOO([[Foo]]);
+  )cpp");
+
+  TestTU TU;
+  TU.AdditionalFiles["foo.h"] = guard("struct Foo {};");
+  TU.AdditionalFiles["all.h"] = guard(R"cpp(
+    #include "foo.h"
+    #define FOO(X) X y; X z
+  )cpp");
+
+  TU.Code = MainFile.code();
+  ParsedAST AST = TU.build();
+
+  auto Findings = computeIncludeCleanerFindings(AST).MissingIncludes;
+  EXPECT_THAT(Findings, testing::SizeIs(1));
+  auto RefRange = Findings.front().SymRefRange;
+  auto &SM = AST.getSourceManager();
+  EXPECT_EQ(RefRange.file(), SM.getMainFileID());
+  EXPECT_EQ(halfOpenToRange(SM, RefRange.toCharRange(SM)), MainFile.range());
 }
 
 TEST(IncludeCleaner, NoCrash) {
