@@ -341,6 +341,18 @@ unsigned int VPInduction::getInductionOpcode() const {
   return IndUpdate->getOpcode();
 }
 
+void VPInduction::replaceBinOp(VPInstruction *NewBinOp) {
+#ifndef NDEBUG
+  auto OldBinOp = getInductionBinOp();
+  assert((OldBinOp &&
+          (isa<VPHIRCopyInst>(OldBinOp) || isa<VPPHINode>(OldBinOp) ||
+           OldBinOp->getOpcode() == NewBinOp->getOpcode()) &&
+          OldBinOp->getType() == NewBinOp->getType()) &&
+         "Inconsistent BinOp replacement!");
+#endif
+  InductionBinOp = NewBinOp;
+}
+
 VPInstruction *VPLoopEntityList::getInductionLoopExitInstr(
     const VPInduction *Induction) const {
   auto BinOp = Induction->getInductionBinOp();
@@ -3112,6 +3124,7 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
     if (ExitIns == BinOp)
       relinkLiveOuts(ExitIns, NewInd, Loop);
     linkValue(Induction, NewInd);
+    Induction->replaceBinOp(NewInd);
     return;
   }
 

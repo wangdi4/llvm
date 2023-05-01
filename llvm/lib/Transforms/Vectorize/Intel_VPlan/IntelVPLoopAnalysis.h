@@ -457,6 +457,10 @@ private:
   unsigned int IndOpcode; // Explicitly set opcode.
   bool NeedCloseForm = false;
   bool IsLinearIV = false;
+
+  /// Replace InductionBinOp with a new instruction.  Required for
+  /// inductions that need a new closed form created.
+  void replaceBinOp(VPInstruction *NewBinOp);
 };
 
 /// Private descriptor. Privates can be declared explicitly or detected

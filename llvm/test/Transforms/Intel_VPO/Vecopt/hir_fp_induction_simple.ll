@@ -41,8 +41,8 @@ define dso_local noundef float @_Z3subPfi(float* nocapture noundef readonly %A, 
 ; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: ? BinOp: i64 [[VP6:%.*]] = add i64 [[VP7:%.*]] i64 [[VP__IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:    Linked values: i64 [[VP7]], i64 [[VP6]], i64 [[VP__IND_INIT:%.*]], i64 [[VP__IND_INIT_STEP]], i64 [[VP__IND_FINAL:%.*]],
 ; CHECK-EMPTY:
-; CHECK-NEXT:   FpInduction(+) Start: float [[R_0140:%.*]] Step: float 1.000000e+00 StartVal: ? EndVal: ? BinOp: float [[VP8:%.*]] = fadd float [[VP9:%.*]] float 1.000000e+00 need close form
-; CHECK-NEXT:    Linked values: float [[VP9]], float [[VP8]], float [[VP__IND_INIT_1:%.*]], float [[VP__IND_INIT_STEP_1:%.*]], float [[VP10:%.*]], float [[VP__IND_FINAL_1:%.*]],
+; CHECK-NEXT:   FpInduction(+) Start: float [[R_0140:%.*]] Step: float 1.000000e+00 StartVal: ? EndVal: ? BinOp: float [[VP10:%.*]] = fadd float [[VP9:%.*]] float [[VP__IND_INIT_STEP_1:%.*]] need close form
+; CHECK-NEXT:    Linked values: float [[VP9]], float [[VP8:%.*]], float [[VP__IND_INIT_1:%.*]], float [[VP__IND_INIT_STEP_1]], float [[VP10]], float [[VP__IND_FINAL_1:%.*]],
 ; CHECK:         [[BB1:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
