@@ -124,6 +124,21 @@ class DTransInfoGenerator {
   llvm::Metadata *CreateStructMD(QualType ClangType, llvm::Type *LLVMType,
                                  const Expr *InitExpr);
 
+  // A helper to CreateStructMD, which figures out how to decompose a struct
+  // type when it has been 'flattened', which might be more complicated with
+  // base types.
+  void
+  HandleDecomposedRecordDecl(llvm::SmallVectorImpl<llvm::Metadata *> &LitMD,
+                             const RecordDecl *RD, const Expr *InitExpr,
+                             llvm::StructType *ST, unsigned &LLVMIdx,
+                             unsigned &ClangIdx);
+  // A helper to CreateStructMD, which figures out how to decompose a struct
+  // type, but doesn't consider base types, just fields.
+  void HandleDecomposedRecordDeclFields(
+      llvm::SmallVectorImpl<llvm::Metadata *> &LitMD, const RecordDecl *RD,
+      const Expr *InitExpr, llvm::StructType *ST, unsigned &LLVMIdx,
+      unsigned &ClangIdx);
+
   // A generalized function to correctly generate a metadata chain for an
   // individual type element.  By the time it gets HERE, it should have been
   // stripped of pointers.
@@ -824,6 +839,86 @@ llvm::Metadata *DTransInfoGenerator::CreateElementMD(QualType ClangType,
   return llvm::ConstantAsMetadata::get(llvm::Constant::getNullValue(LLVMType));
   }
 }
+
+void DTransInfoGenerator::HandleDecomposedRecordDeclFields(
+    llvm::SmallVectorImpl<llvm::Metadata *> &LitMD, const RecordDecl *RD,
+    const Expr *InitExpr, llvm::StructType *ST, unsigned &LLVMIdx,
+    unsigned &ClangIdx) {
+  for (const auto *FD : RD->fields()) {
+  const Expr *CurInit = nullptr;
+  if (const auto *ILE = dyn_cast_or_null<InitListExpr>(InitExpr))
+      CurInit = ILE->getInit(ClangIdx);
+
+  if (FD->isBitField()) {
+      // Bitfields for these seem to be broken down into the correct
+      // 'chars'.  I'm not sure what happens with various combinations,
+      // so I suspect we'll have to deal with this again.
+      unsigned Width = FD->getBitWidthValue(CGM.getContext());
+
+      // Bitfields can require padding when stored in a global array before
+      // them to get the alignment right, particularly on windows. We know
+      // at this point it is an i8 array, so just encode that if we've run
+      // across it.
+      if (ST->getElementType(LLVMIdx)->isArrayTy()) {
+        llvm::Type *LLVMPadding = ST->getElementType(LLVMIdx);
+        assert(LLVMPadding->getArrayElementType()->isIntegerTy(8) &&
+               "Not bitfield leading padding?");
+        QualType ClangPadding = FixupPaddingType(LLVMPadding);
+        LitMD.push_back(CreateTypeMD(ClangPadding, LLVMPadding, CurInit));
+        ++LLVMIdx;
+      }
+
+      for (unsigned Cur = 0; Cur < Width; Cur += 8) {
+        LitMD.push_back(CreateTypeMD(CGM.getContext().CharTy,
+                                     ST->getElementType(LLVMIdx), CurInit));
+        ++LLVMIdx;
+      }
+      ++ClangIdx;
+
+      // If there is a remaining LLVM field, there is a possibility for it
+      // to be padding between this bitfield and the next field.
+      if (ST->getNumElements() > LLVMIdx) {
+        llvm::Type *LLVMPadding = ST->getElementType(LLVMIdx);
+        if (IsPaddingAfterBitfield(CGM, ST, LLVMPadding, LLVMIdx, RD,
+                                   ClangIdx)) {
+          QualType ClangPadding = FixupPaddingType(LLVMPadding);
+          LitMD.push_back(CreateTypeMD(ClangPadding, LLVMPadding, CurInit));
+          ++LLVMIdx;
+        }
+      }
+  } else {
+      LitMD.push_back(
+          CreateTypeMD(FD->getType(), ST->getElementType(LLVMIdx), CurInit));
+      ++ClangIdx;
+      ++LLVMIdx;
+  }
+  }
+}
+
+void DTransInfoGenerator::HandleDecomposedRecordDecl(
+    llvm::SmallVectorImpl<llvm::Metadata *> &LitMD, const RecordDecl *RD,
+    const Expr *InitExpr, llvm::StructType *ST, unsigned &LLVMIdx,
+    unsigned &ClangIdx) {
+  // If this is a C++ type, it might have base classes, so handle those first.
+  if (auto *CXXRD = dyn_cast<CXXRecordDecl>(RD)) {
+  // It seems that when these types are decomposed into a literal, they are
+  // 'flattened', such that base types are included too, particularly in the
+  // case of constexpr constructors. Make sure we consider those as well.
+  assert(CXXRD->getNumVBases() == 0 &&
+         "Don't know how to handle virtual base classes yet");
+
+  for (const CXXBaseSpecifier &Base : CXXRD->bases()) {
+      QualType BaseType = Base.getType();
+      assert(BaseType->isRecordType() &&
+             "Base class that isn't a record type?");
+      HandleDecomposedRecordDecl(LitMD, BaseType->getAsRecordDecl(), InitExpr,
+                                 ST, LLVMIdx, ClangIdx);
+  }
+  }
+
+  HandleDecomposedRecordDeclFields(LitMD, RD, InitExpr, ST, LLVMIdx, ClangIdx);
+}
+
   // A function to create the metadata for a struct type, which is a fairly
   // complex operation.
 llvm::Metadata *DTransInfoGenerator::CreateStructMD(QualType ClangType,
@@ -868,55 +963,8 @@ llvm::Metadata *DTransInfoGenerator::CreateStructMD(QualType ClangType,
       // here.
       unsigned Idx = 0;
       unsigned ClangIdx = 0;
-      for (const auto *FD : RD->fields()) {
-        const Expr *CurInit = nullptr;
-        if (const auto *ILE = dyn_cast_or_null<InitListExpr>(InitExpr))
-          CurInit = ILE->getInit(ClangIdx);
 
-        if (FD->isBitField()) {
-          // Bitfields for these seem to be broken down into the correct
-          // 'chars'.  I'm not sure what happens with various combinations,
-          // so I suspect we'll have to deal with this again.
-          unsigned Width = FD->getBitWidthValue(CGM.getContext());
-
-          // Bitfields can require padding when stored in a global array before
-          // them to get the alignment right, particularly on windows. We know
-          // at this point it is an i8 array, so just encode that if we've run
-          // across it.
-          if (ST->getElementType(Idx)->isArrayTy()) {
-            llvm::Type *LLVMPadding = ST->getElementType(Idx);
-            assert(LLVMPadding->getArrayElementType()->isIntegerTy(8) &&
-                   "Not bitfield leading padding?");
-            QualType ClangPadding = FixupPaddingType(LLVMPadding);
-            LitMD.push_back(CreateTypeMD(ClangPadding, LLVMPadding, CurInit));
-            ++Idx;
-          }
-
-          for (unsigned Cur = 0; Cur < Width; Cur += 8) {
-            LitMD.push_back(CreateTypeMD(CGM.getContext().CharTy,
-                                            ST->getElementType(Idx), CurInit));
-            ++Idx;
-          }
-          ++ClangIdx;
-
-          // If there is a remaining LLVM field, there is a possibility for it
-          // to be padding between this bitfield and the next field.
-          if (ST->getNumElements() > Idx) {
-            llvm::Type *LLVMPadding = ST->getElementType(Idx);
-            if (IsPaddingAfterBitfield(CGM, ST, LLVMPadding, Idx, RD,
-                                       ClangIdx)) {
-              QualType ClangPadding = FixupPaddingType(LLVMPadding);
-              LitMD.push_back(CreateTypeMD(ClangPadding, LLVMPadding, CurInit));
-              ++Idx;
-            }
-          }
-        } else {
-          LitMD.push_back(
-              CreateTypeMD(FD->getType(), ST->getElementType(Idx), CurInit));
-          ++ClangIdx;
-          ++Idx;
-        }
-      }
+      HandleDecomposedRecordDecl(LitMD, RD, InitExpr, ST, Idx, ClangIdx);
 
       // Handle tail padding. No clang field to do it with, so just emit it.
       if (ST->getNumElements() > Idx) {
