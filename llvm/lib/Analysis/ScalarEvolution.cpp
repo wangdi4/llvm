@@ -4775,7 +4775,6 @@ const SCEV *ScalarEvolution::getSCEV(Value *V) {
 
   if (const SCEV *S = getExistingSCEV(V))
     return S;
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
   // createSCEVIter fails HIRCodeGen/large-coef.ll.
@@ -4793,14 +4792,11 @@ const SCEV *ScalarEvolution::getSCEV(Value *V) {
     return S;
   }
 #endif // INTEL_CUSTOMIZATION
-  return createSCEVIter(V);
-=======
   const SCEV *S = createSCEVIter(V);
   assert((!isa<Instruction>(V) || !isAlwaysUnknown(cast<Instruction>(V)) ||
           isa<SCEVUnknown>(S)) &&
          "isAlwaysUnknown() instruction is not SCEVUnknown");
   return S;
->>>>>>> 3ddd1ffb721dd0ac3faa4a53c76b6904e862b7ab
 }
 
 const SCEV *ScalarEvolution::getExistingSCEV(Value *V) {
