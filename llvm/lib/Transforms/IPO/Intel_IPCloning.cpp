@@ -5399,6 +5399,9 @@ bool PredicateOpt::findSpine() {
   BigLoopCB = LocalBigLoopCB;
   if (BigLoopCB && EnablePreferFunctionRegion)
     BigLoopCB->getCaller()->addFnAttr("prefer-function-level-region");
+  getInlineReport()->initFunctionClosure(WrapperCB->getCalledFunction());
+  getInlineReport()->initFunctionClosure(WrapperCB->getCaller());
+  getInlineReport()->initFunctionClosure(BigLoopCB->getCaller());
   return BigLoopCB;
 }
 
@@ -5845,7 +5848,9 @@ Function *PredicateOpt::extractColdCode(Function *OptBaseF) {
   CodeExtractorAnalysisCache CEAC(*OptBaseF);
   SetVector<Value *> Inputs, Outputs, Sinks;
   CE.findInputsOutputs(Inputs, Outputs, Sinks);
-  return CE.extractCodeRegion(CEAC);
+  Function *ColdF = CE.extractCodeRegion(CEAC);
+  ColdF->addFnAttr(Attribute::NoInline);
+  return ColdF;
 }
 
 //
@@ -6635,9 +6640,13 @@ bool PredicateOpt::doPredicateOpt() {
   LoadInst *CacheInfo = makeHoistedRestrictVar();
   RegionSplitter MultiLoopSplitter(DT, BFI, BPI);
   Function *NoOptF = MultiLoopSplitter.splitRegion(*MultiLoop);
+  NoOptF->removeFnAttr(Attribute::NoInline);
+  NoOptF->addFnAttr(Attribute::AlwaysInline);
   CallBase *NoOptCB = cast<CallBase>(NoOptF->user_back());
+  getInlineReport()->doOutlining(BigLoopF, NoOptF, NoOptCB);
   ValueToValueMapTy VMap;
   OptF = IPCloneFunction(NoOptF, VMap);
+  OptF->addFnAttr(Attribute::AlwaysInline);
   CallBase *OptCB = cast<CallBase>(NoOptCB->clone());
   setCalledFunction(OptCB, OptF);
   BasicBlock *BBPred = NoOptCB->getParent();
@@ -6663,6 +6672,9 @@ bool PredicateOpt::doPredicateOpt() {
   Function *OptColdF = extractColdCode(OptBaseF);
   if (!OptColdF)
     return false;
+  CallBase *OptColdCB = findUniqueCB(OptBaseF, OptColdF);
+  assert(OptBaseCB && "Expecting OptBaseCB");
+  getInlineReport()->doOutlining(OptBaseF, OptColdF, OptColdCB);
   LLVM_DEBUG(dbgs() << "MRC Predicate: ColdF : " << OptColdF->getName()
                     << "\n");
   unsigned RVCount = simplifyCacheInfoBranches(LIRestrict);
