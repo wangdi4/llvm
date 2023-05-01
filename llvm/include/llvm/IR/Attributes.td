@@ -58,15 +58,13 @@ class TypeAttr<string S, list<AttrProperty> P> : Attr<S, P>;
 /// StringBool attribute.
 class StrBoolAttr<string S> : Attr<S, []>;
 
-<<<<<<< HEAD
 // if INTEL_CUSTOMIZATION
 /// String attribute.
 class StrAttr<string S> : Attr<S, []>;
 // endif INTEL_CUSTOMIZATION
-=======
+
 /// Arbitrary string attribute.
 class ComplexStrAttr<string S, list<AttrProperty> P> : Attr<S, P>;
->>>>>>> bc37be1855773c1dcf8c6bf577a096a81fd58652
 
 /// Target-independent enum attributes.
 

@@ -2439,11 +2439,32 @@ static bool HasStrictReturn(const CodeGenModule &Module, QualType RetTy,
          Module.getLangOpts().Sanitize.has(SanitizerKind::Return);
 }
 
-<<<<<<< HEAD
-void CodeGenModule::getDefaultFunctionAttributes(StringRef Name,
-                                                 bool HasOptnone,
-                                                 bool AttrOnCallSite,
-                                               llvm::AttrBuilder &FuncAttrs) {
+/// Add denormal-fp-math and denormal-fp-math-f32 as appropriate for the
+/// requested denormal behavior, accounting for the overriding behavior of the
+/// -f32 case.
+static void addDenormalModeAttrs(llvm::DenormalMode FPDenormalMode,
+                                 llvm::DenormalMode FP32DenormalMode,
+                                 llvm::AttrBuilder &FuncAttrs) {
+  if (FPDenormalMode != llvm::DenormalMode::getDefault())
+    FuncAttrs.addAttribute("denormal-fp-math", FPDenormalMode.str());
+
+  if (FP32DenormalMode != FPDenormalMode && FP32DenormalMode.isValid())
+    FuncAttrs.addAttribute("denormal-fp-math-f32", FP32DenormalMode.str());
+}
+
+/// Add default attributes to a function, which have merge semantics under
+/// -mlink-builtin-bitcode and should not simply overwrite any existing
+/// attributes in the linked library.
+static void
+addMergableDefaultFunctionAttributes(const CodeGenOptions &CodeGenOpts,
+                                     llvm::AttrBuilder &FuncAttrs) {
+  addDenormalModeAttrs(CodeGenOpts.FPDenormalMode, CodeGenOpts.FP32DenormalMode,
+                       FuncAttrs);
+}
+
+void CodeGenModule::getTrivialDefaultFunctionAttributes(
+    StringRef Name, bool HasOptnone, bool AttrOnCallSite,
+    llvm::AttrBuilder &FuncAttrs) {
 #if INTEL_CUSTOMIZATION
   if (getLangOpts().isIntelCompat(LangOptions::IMFAttributes)) {
     // Explicitly specify medium precision for sincos calls because they can't
@@ -2482,34 +2503,6 @@ void CodeGenModule::getDefaultFunctionAttributes(StringRef Name,
   }
 #endif // INTEL_CUSTOMIZATION
 
-=======
-/// Add denormal-fp-math and denormal-fp-math-f32 as appropriate for the
-/// requested denormal behavior, accounting for the overriding behavior of the
-/// -f32 case.
-static void addDenormalModeAttrs(llvm::DenormalMode FPDenormalMode,
-                                 llvm::DenormalMode FP32DenormalMode,
-                                 llvm::AttrBuilder &FuncAttrs) {
-  if (FPDenormalMode != llvm::DenormalMode::getDefault())
-    FuncAttrs.addAttribute("denormal-fp-math", FPDenormalMode.str());
-
-  if (FP32DenormalMode != FPDenormalMode && FP32DenormalMode.isValid())
-    FuncAttrs.addAttribute("denormal-fp-math-f32", FP32DenormalMode.str());
-}
-
-/// Add default attributes to a function, which have merge semantics under
-/// -mlink-builtin-bitcode and should not simply overwrite any existing
-/// attributes in the linked library.
-static void
-addMergableDefaultFunctionAttributes(const CodeGenOptions &CodeGenOpts,
-                                     llvm::AttrBuilder &FuncAttrs) {
-  addDenormalModeAttrs(CodeGenOpts.FPDenormalMode, CodeGenOpts.FP32DenormalMode,
-                       FuncAttrs);
-}
-
-void CodeGenModule::getTrivialDefaultFunctionAttributes(
-    StringRef Name, bool HasOptnone, bool AttrOnCallSite,
-    llvm::AttrBuilder &FuncAttrs) {
->>>>>>> bc37be1855773c1dcf8c6bf577a096a81fd58652
   // OptimizeNoneAttr takes precedence over -Os or -Oz. No warning needed.
   if (!HasOptnone) {
     if (CodeGenOpts.OptimizeSize)
