@@ -595,7 +595,7 @@ class VPCompressExpandIdiom : public VPLoopEntity {
 
 public:
   VPCompressExpandIdiom(VPPHINode *RecurrentPhi, VPValue *LiveIn,
-                        VPInstruction *LiveOut, int64_t TotalStride,
+                        VPPHINode *LiveOut, int64_t TotalStride,
                         const SmallVectorImpl<VPInstruction *> &Increments,
                         const SmallVectorImpl<VPLoadStoreInst *> &Stores,
                         const SmallVectorImpl<VPLoadStoreInst *> &Loads,
@@ -614,7 +614,7 @@ public:
 
   VPPHINode *getRecurrentPhi() const { return RecurrentPhi; }
   VPValue *getLiveIn() const { return LiveIn; }
-  VPInstruction *getLiveOut() const { return LiveOut; }
+  VPPHINode *getLiveOut() const { return LiveOut; }
   int64_t getTotalStride() const { return TotalStride; }
 
   VPCompressExpandInit *getInit() const { return Init; }
@@ -639,7 +639,7 @@ public:
 private:
   VPPHINode *RecurrentPhi;
   VPValue *LiveIn;
-  VPInstruction *LiveOut;
+  VPPHINode *LiveOut;
   int64_t TotalStride;
 
   VPCompressExpandInit *Init = nullptr;
@@ -794,7 +794,7 @@ public:
 
   VPCompressExpandIdiom *
   addCompressExpandIdiom(VPPHINode *RecurrentPhi, VPValue *LiveIn,
-                         VPInstruction *LiveOut, int64_t TotalStride,
+                         VPPHINode *LiveOut, int64_t TotalStride,
                          const SmallVectorImpl<VPInstruction *> &Increments,
                          const SmallVectorImpl<VPLoadStoreInst *> &Stores,
                          const SmallVectorImpl<VPLoadStoreInst *> &Loads,
@@ -1717,7 +1717,7 @@ class CompressExpandIdiomDescr : public VPEntityImportDescr {
   int64_t TotalStride = 0;
   VPPHINode *RecurrentPhi = nullptr;
   VPValue *LiveIn = nullptr;
-  VPInstruction *LiveOut = nullptr;
+  VPPHINode *LiveOut = nullptr;
 
   bool IsIncomplete = true;
 

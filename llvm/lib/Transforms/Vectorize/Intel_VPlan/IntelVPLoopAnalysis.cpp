@@ -529,7 +529,7 @@ VPPrivateNonPOD *VPLoopEntityList::addNonPODPrivate(
 }
 
 VPCompressExpandIdiom *VPLoopEntityList::addCompressExpandIdiom(
-    VPPHINode *RecurrentPhi, VPValue *LiveIn, VPInstruction *LiveOut,
+    VPPHINode *RecurrentPhi, VPValue *LiveIn, VPPHINode *LiveOut,
     int64_t TotalStride, const SmallVectorImpl<VPInstruction *> &Increments,
     const SmallVectorImpl<VPLoadStoreInst *> &Stores,
     const SmallVectorImpl<VPLoadStoreInst *> &Loads,
@@ -2647,20 +2647,23 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
   for (VPCompressExpandIdiom *CEIdiom : vpceidioms()) {
 
     Plan.setCompressExpandUsed();
+
+    // Look for Exit instruction in RecurrentPhi.
+    VPPHINode *Exit = CEIdiom->LiveOut;
+    if (!Exit)
+      for (VPValue *V : CEIdiom->RecurrentPhi->incoming_values())
+        if (V != CEIdiom->LiveIn) {
+          Exit = cast<VPPHINode>(V);
+          break;
+        }
+    assert(Exit && "Non-null exit instruction is expected.");
+
     // Create Init instruction using live-in instruction as an operand.
     Builder.setInsertPoint(Preheader);
     assert(CEIdiom->LiveIn && "Expected a valid live-in value.");
     auto *Init = Builder.create<VPCompressExpandInit>("init", CEIdiom->LiveIn);
     assert(CEIdiom->RecurrentPhi && "Expected a valid recurrent phi value.");
     CEIdiom->RecurrentPhi->replaceUsesOfWith(CEIdiom->LiveIn, Init);
-
-    // Look for Exit instruction in RecurrentPhi.
-    VPInstruction *Exit = CEIdiom->LiveOut;
-    for (auto It = CEIdiom->RecurrentPhi->op_begin();
-         (!Exit || Exit == Init) && It != CEIdiom->RecurrentPhi->op_end(); It++)
-      if (VPInstruction *I = dyn_cast<VPInstruction>(*It))
-        Exit = I;
-    assert(Exit && "Non-null exit instruction is expected.");
 
     // Create Final instruction replacing live-out external uses with it.
     Builder.setInsertPoint(PostExit);
@@ -4218,7 +4221,7 @@ void CompressExpandIdiomDescr::tryToCompleteByVPlan(VPlanVector *Plan,
           if (Loop->isLiveOut(Inst)) {
             if (LiveOut && LiveOut != Inst)
               return false;
-            LiveOut = Inst;
+            LiveOut = cast<VPPHINode>(Inst);
           }
       }
     }
