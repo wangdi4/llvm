@@ -867,19 +867,8 @@ EXTERN int __tgt_get_target_memory_info(
 // Pass target code build options to plugins.
 // This should be called after __tgt_register_lib().
 // TODO: remove this if we choose to modify device image description.
-EXTERN void __tgt_add_build_options(
-    const char *CompileOptions, const char *LinkOptions);
-
-// Check if reduction scratch is supported
-EXTERN int __tgt_target_supports_per_hw_thread_scratch(int64_t DeviceId);
-
-// Allocate per-hw-thread reducion scratch
-EXTERN void *__tgt_target_alloc_per_hw_thread_scratch(
-    int64_t DeviceId, size_t ObjSize, int32_t AllocKind);
-
-// Free per-hw-thread reduction scratch
-EXTERN void __tgt_target_free_per_hw_thread_scratch(
-    int64_t DeviceId, void *Ptr);
+EXTERN void __tgt_add_build_options(const char *CompileOptions,
+                                    const char *LinkOptions);
 #endif // INTEL_COLLAB
 
 #if INTEL_COLLAB

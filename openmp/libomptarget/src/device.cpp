@@ -1162,25 +1162,6 @@ int32_t DeviceTy::setFunctionPtrMap() {
   return RTL->set_function_ptr_map(RTLDeviceID, Size, FnPtrs.data());
 }
 
-int32_t DeviceTy::supportsPerHWThreadScratch(void) {
-  if (RTL->alloc_per_hw_thread_scratch)
-    return 1;
-  else
-    return 0;
-}
-
-void *DeviceTy::allocPerHWThreadScratch(size_t ObjSize, int32_t AllocKind) {
-  if (RTL->alloc_per_hw_thread_scratch)
-    return RTL->alloc_per_hw_thread_scratch(RTLDeviceID, ObjSize, AllocKind);
-  else
-    return nullptr;
-}
-
-void DeviceTy::freePerHWThreadScratch(void *Ptr) {
-  if (RTL->free_per_hw_thread_scratch)
-    RTL->free_per_hw_thread_scratch(RTLDeviceID, Ptr);
-}
-
 int32_t DeviceTy::getDeviceInfo(int32_t InfoID, size_t InfoSize,
                                 void *InfoValue, size_t *InfoSizeRet) {
   if (RTL->get_device_info)
