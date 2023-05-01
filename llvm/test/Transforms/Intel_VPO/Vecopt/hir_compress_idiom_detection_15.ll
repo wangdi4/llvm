@@ -104,14 +104,14 @@
 ; CHECK-NEXT:        |   [[SHL0:%.*]] = -1  <<  [[POPCNT0]]
 ; CHECK-NEXT:        |   [[XOR0:%.*]] = [[SHL0]]  ^  -1
 ; CHECK-NEXT:        |   [[CAST20:%.*]] = bitcast.i16.<16 x i1>([[XOR0]])
-; CHECK-NEXT:        |   [[SHUFFLE0:%.*]] = shufflevector [[PHI_TEMP0]],  undef,  zeroinitializer
+; CHECK-NEXT:        |   [[SHUFFLE0:%.*]] = shufflevector [[PHI_TEMP0]],  poison,  zeroinitializer
 ; CHECK-NEXT:        |   [[ADD30:%.*]] = [[SHUFFLE0]]  +  <i64 0, i64 5, i64 10, i64 15, i64 20, i64 25, i64 30, i64 35, i64 40, i64 45, i64 50, i64 55, i64 60, i64 65, i64 70, i64 75>
-; CHECK-NEXT:        |   [[GATHER0:%.*]] = @llvm.masked.gather.v16f32.v16p0f32(&((<16 x float*>)([[A0]])[%add3]),  0,  [[CAST20]],  undef)
-; CHECK-NEXT:        |   [[EXPAND0:%.*]] = @llvm.x86.avx512.mask.expand.v16f32([[GATHER0]],  undef,  [[DOTVEC10]])
-; CHECK-NEXT:        |   [[GATHER40:%.*]] = @llvm.masked.gather.v16f32.v16p0f32(&((<16 x float*>)([[B0]])[%add3]),  0,  [[CAST20]],  undef)
-; CHECK-NEXT:        |   [[EXPAND50:%.*]] = @llvm.x86.avx512.mask.expand.v16f32([[GATHER40]],  undef,  [[DOTVEC10]])
+; CHECK-NEXT:        |   [[GATHER0:%.*]] = @llvm.masked.gather.v16f32.v16p0f32(&((<16 x float*>)([[A0]])[%add3]),  0,  [[CAST20]],  poison)
+; CHECK-NEXT:        |   [[EXPAND0:%.*]] = @llvm.x86.avx512.mask.expand.v16f32([[GATHER0]],  poison,  [[DOTVEC10]])
+; CHECK-NEXT:        |   [[GATHER40:%.*]] = @llvm.masked.gather.v16f32.v16p0f32(&((<16 x float*>)([[B0]])[%add3]),  0,  [[CAST20]],  poison)
+; CHECK-NEXT:        |   [[EXPAND50:%.*]] = @llvm.x86.avx512.mask.expand.v16f32([[GATHER40]],  poison,  [[DOTVEC10]])
 ; CHECK-NEXT:        |   [[DOTVEC60:%.*]] = [[EXPAND0]]  +  [[EXPAND50]]
-; CHECK-NEXT:        |   [[COMPRESS0:%.*]] = @llvm.x86.avx512.mask.compress.v16f32([[DOTVEC60]],  undef,  [[DOTVEC10]])
+; CHECK-NEXT:        |   [[COMPRESS0:%.*]] = @llvm.x86.avx512.mask.compress.v16f32([[DOTVEC60]],  poison,  [[DOTVEC10]])
 ; CHECK-NEXT:        |   @llvm.masked.scatter.v16f32.v16p0f32([[COMPRESS0]],  &((<16 x float*>)([[A0]])[%add3]),  0,  [[CAST20]])
 ; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC10]] == <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>) ? -1 : 0
 ; CHECK-NEXT:        |   [[CAST70:%.*]] = bitcast.<16 x i1>.i16([[SELECT0]])

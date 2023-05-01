@@ -112,7 +112,7 @@
 ; CHECK:             + DO i1 = 0, [[LOOP_UB0]], 8   <DO_LOOP>  <MAX_TC_EST = 268435455>  <LEGAL_MAX_TC = 268435455> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:        |   [[DOTVEC120:%.*]] = (<8 x i32>*)([[A0]])[i1]
 ; CHECK-NEXT:        |   [[DOTVEC130:%.*]] = [[DOTVEC120]] != 0
-; CHECK-NEXT:        |   [[EXP_LOAD0:%.*]] = @llvm.masked.expandload.v8f32(&((float*)([[F0]])[%phi.temp10]),  [[DOTVEC130]],  undef)
+; CHECK-NEXT:        |   [[EXP_LOAD0:%.*]] = @llvm.masked.expandload.v8f32(&((float*)([[F0]])[%phi.temp10]),  [[DOTVEC130]],  poison)
 ; CHECK-NEXT:        |   [[DOTVEC140:%.*]] = [[EXP_LOAD0]]  +  [[PHI_TEMP80]]
 ; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC130]] == <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>) ? [[DOTVEC140]] : [[PHI_TEMP80]]
 ; CHECK-NEXT:        |   [[SELECT150:%.*]] = ([[DOTVEC130]] == <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>) ? -1 : 0

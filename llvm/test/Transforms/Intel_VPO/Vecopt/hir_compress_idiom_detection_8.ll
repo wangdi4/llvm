@@ -92,7 +92,7 @@
 ; CHECK-NEXT:        |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[C0]])[i1]
 ; CHECK-NEXT:        |   [[DOTVEC30:%.*]] = [[DOTVEC0]] != 0
 ; CHECK-NEXT:        |   [[DOTVEC40]] = (<4 x float>*)([[A0]])[i1], Mask = @{[[DOTVEC30]]}
-; CHECK-NEXT:        |   [[EXP_LOAD0:%.*]] = @llvm.masked.expandload.v4f32(&((float*)([[B0]])[%phi.temp]),  [[DOTVEC30]],  undef)
+; CHECK-NEXT:        |   [[EXP_LOAD0:%.*]] = @llvm.masked.expandload.v4f32(&((float*)([[B0]])[%phi.temp]),  [[DOTVEC30]],  poison)
 ; CHECK-NEXT:        |   [[DOTVEC50:%.*]] = [[DOTVEC40]]  +  [[EXP_LOAD0]]
 ; CHECK-NEXT:        |   @llvm.masked.compressstore.v4f32([[DOTVEC50]],  &((float*)([[B0]])[%phi.temp]),  [[DOTVEC30]])
 ; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC30]] == <i1 true, i1 true, i1 true, i1 true>) ? -1 : 0
