@@ -31,8 +31,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT: Running pass: GlobalDCEPass
 ; CHECK-NEXT: Running pass: IntelIPOPrefetchPass
 ; CHECK-NEXT: Running pass: IntelFoldWPIntrinsicPass
-; CHECK: Running pass: ForceFunctionAttrsPass
-; CHECK-NEXT: Running pass: InferFunctionAttrsPass
+; CHECK: Running pass: InferFunctionAttrsPass
 ; CHECK: Running pass: OptimizeDynamicCastsPass
 ; CHECK: Running pass: {{.*}}SimplifyCFGPass{{.*}}
 ; CHECK-NEXT: Running pass: {{.*}}SimplifyCFGPass{{.*}}

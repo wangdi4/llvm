@@ -101,7 +101,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-NEXT:    vaddpd %ymm2, %ymm1, %ymm1
 ; X64-NEXT:    vextractf128 $1, %ymm1, %xmm2
 ; X64-NEXT:    vaddpd %xmm2, %xmm1, %xmm1
-; X64-NEXT:    vpermilpd {{.*#+}} xmm2 = xmm1[1,0]
+; X64-NEXT:    vshufpd {{.*#+}} xmm2 = xmm1[1,0]
 ; X64-NEXT:    vaddsd %xmm2, %xmm1, %xmm1
 ; X64-NEXT:    vaddsd %xmm1, %xmm0, %xmm0
 ; X64-NEXT:    movq (%r14,%rax,8), %rdx
@@ -130,7 +130,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-NEXT:    # in Loop: Header=BB0_11 Depth=2
 ; X64-NEXT:    vextractf128 $1, %ymm1, %xmm2
 ; X64-NEXT:    vaddpd %xmm2, %xmm1, %xmm1
-; X64-NEXT:    vpermilpd {{.*#+}} xmm2 = xmm1[1,0]
+; X64-NEXT:    vshufpd {{.*#+}} xmm2 = xmm1[1,0]
 ; X64-NEXT:    vaddsd %xmm2, %xmm1, %xmm1
 ; X64-NEXT:    vaddsd %xmm1, %xmm0, %xmm0
 ; X64-NEXT:    leaq 1(%rsi), %rdi
@@ -237,7 +237,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-NEXT:    vaddpd %ymm3, %ymm2, %ymm2
 ; X64-NEXT:    vextractf128 $1, %ymm2, %xmm3
 ; X64-NEXT:    vaddpd %xmm3, %xmm2, %xmm2
-; X64-NEXT:    vpermilpd {{.*#+}} xmm3 = xmm2[1,0]
+; X64-NEXT:    vshufpd {{.*#+}} xmm3 = xmm2[1,0]
 ; X64-NEXT:    vaddsd %xmm3, %xmm2, %xmm2
 ; X64-NEXT:    vaddsd %xmm2, %xmm0, %xmm0
 ; X64-NEXT:    movq (%r14,%rax,8), %rdx
@@ -266,7 +266,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-NEXT:    # in Loop: Header=BB0_19 Depth=2
 ; X64-NEXT:    vextractf128 $1, %ymm2, %xmm3
 ; X64-NEXT:    vaddpd %xmm3, %xmm2, %xmm2
-; X64-NEXT:    vpermilpd {{.*#+}} xmm3 = xmm2[1,0]
+; X64-NEXT:    vshufpd {{.*#+}} xmm3 = xmm2[1,0]
 ; X64-NEXT:    vaddsd %xmm3, %xmm2, %xmm2
 ; X64-NEXT:    vaddsd %xmm2, %xmm0, %xmm0
 ; X64-NEXT:    leaq 1(%rsi), %rdi
@@ -409,7 +409,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X86-NEXT:    vaddpd %ymm1, %ymm0, %ymm0
 ; X86-NEXT:    vextractf128 $1, %ymm0, %xmm1
 ; X86-NEXT:    vaddpd %xmm1, %xmm0, %xmm0
-; X86-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
+; X86-NEXT:    vshufpd {{.*#+}} xmm1 = xmm0[1,0]
 ; X86-NEXT:    vaddsd %xmm1, %xmm0, %xmm0
 ; X86-NEXT:    vmovsd {{[-0-9]+}}(%e{{[sb]}}p), %xmm3 # 8-byte Reload
 ; X86-NEXT:    # xmm3 = mem[0],zero
@@ -457,7 +457,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X86-NEXT:    # in Loop: Header=BB0_8 Depth=2
 ; X86-NEXT:    vextractf128 $1, %ymm1, %xmm0
 ; X86-NEXT:    vaddpd %xmm0, %xmm1, %xmm0
-; X86-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
+; X86-NEXT:    vshufpd {{.*#+}} xmm1 = xmm0[1,0]
 ; X86-NEXT:    vaddsd %xmm1, %xmm0, %xmm0
 ; X86-NEXT:    vaddsd %xmm0, %xmm3, %xmm3
 ; X86-NEXT:    movl {{[-0-9]+}}(%e{{[sb]}}p), %edx # 4-byte Reload
@@ -595,7 +595,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X86-NEXT:    vaddpd %ymm1, %ymm0, %ymm0
 ; X86-NEXT:    vextractf128 $1, %ymm0, %xmm1
 ; X86-NEXT:    vaddpd %xmm1, %xmm0, %xmm0
-; X86-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
+; X86-NEXT:    vshufpd {{.*#+}} xmm1 = xmm0[1,0]
 ; X86-NEXT:    vaddsd %xmm1, %xmm0, %xmm0
 ; X86-NEXT:    vmovsd {{[-0-9]+}}(%e{{[sb]}}p), %xmm3 # 8-byte Reload
 ; X86-NEXT:    # xmm3 = mem[0],zero
@@ -643,7 +643,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X86-NEXT:    # in Loop: Header=BB0_16 Depth=2
 ; X86-NEXT:    vextractf128 $1, %ymm2, %xmm0
 ; X86-NEXT:    vaddpd %xmm0, %xmm2, %xmm0
-; X86-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
+; X86-NEXT:    vshufpd {{.*#+}} xmm1 = xmm0[1,0]
 ; X86-NEXT:    vaddsd %xmm1, %xmm0, %xmm0
 ; X86-NEXT:    vaddsd %xmm0, %xmm3, %xmm3
 ; X86-NEXT:    movl {{[-0-9]+}}(%e{{[sb]}}p), %edx # 4-byte Reload

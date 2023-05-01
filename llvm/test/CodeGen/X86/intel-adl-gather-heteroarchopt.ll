@@ -102,7 +102,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-CORE-AVX2-NEXT:    vaddpd %ymm2, %ymm1, %ymm1
 ; X64-CORE-AVX2-NEXT:    vextractf128 $1, %ymm1, %xmm2
 ; X64-CORE-AVX2-NEXT:    vaddpd %xmm2, %xmm1, %xmm1
-; X64-CORE-AVX2-NEXT:    vpermilpd {{.*#+}} xmm2 = xmm1[1,0]
+; X64-CORE-AVX2-NEXT:    vshufpd {{.*#+}} xmm2 = xmm1[1,0]
 ; X64-CORE-AVX2-NEXT:    vaddsd %xmm2, %xmm1, %xmm1
 ; X64-CORE-AVX2-NEXT:    vaddsd %xmm1, %xmm0, %xmm0
 ; X64-CORE-AVX2-NEXT:    leaq 1(%rcx), %rax
@@ -198,7 +198,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-CORE-AVX2-NEXT:    vaddpd %ymm3, %ymm2, %ymm2
 ; X64-CORE-AVX2-NEXT:    vextractf128 $1, %ymm2, %xmm3
 ; X64-CORE-AVX2-NEXT:    vaddpd %xmm3, %xmm2, %xmm2
-; X64-CORE-AVX2-NEXT:    vpermilpd {{.*#+}} xmm3 = xmm2[1,0]
+; X64-CORE-AVX2-NEXT:    vshufpd {{.*#+}} xmm3 = xmm2[1,0]
 ; X64-CORE-AVX2-NEXT:    vaddsd %xmm3, %xmm2, %xmm2
 ; X64-CORE-AVX2-NEXT:    vaddsd %xmm2, %xmm0, %xmm0
 ; X64-CORE-AVX2-NEXT:    leaq 1(%rcx), %rax
@@ -312,7 +312,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-ADL-NEXT:    vaddpd %ymm2, %ymm1, %ymm1
 ; X64-ADL-NEXT:    vextractf128 $1, %ymm1, %xmm2
 ; X64-ADL-NEXT:    vaddpd %xmm2, %xmm1, %xmm1
-; X64-ADL-NEXT:    vpermilpd {{.*#+}} xmm2 = xmm1[1,0]
+; X64-ADL-NEXT:    vshufpd {{.*#+}} xmm2 = xmm1[1,0]
 ; X64-ADL-NEXT:    vaddsd %xmm2, %xmm1, %xmm1
 ; X64-ADL-NEXT:    vaddsd %xmm1, %xmm0, %xmm0
 ; X64-ADL-NEXT:    leaq 1(%rcx), %rax
@@ -411,7 +411,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-ADL-NEXT:    vaddpd %ymm3, %ymm2, %ymm2
 ; X64-ADL-NEXT:    vextractf128 $1, %ymm2, %xmm3
 ; X64-ADL-NEXT:    vaddpd %xmm3, %xmm2, %xmm2
-; X64-ADL-NEXT:    vpermilpd {{.*#+}} xmm3 = xmm2[1,0]
+; X64-ADL-NEXT:    vshufpd {{.*#+}} xmm3 = xmm2[1,0]
 ; X64-ADL-NEXT:    vaddsd %xmm3, %xmm2, %xmm2
 ; X64-ADL-NEXT:    vaddsd %xmm2, %xmm0, %xmm0
 ; X64-ADL-NEXT:    leaq 1(%rcx), %rax
@@ -558,7 +558,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X86-CORE-AVX2-NEXT:    vaddpd %ymm1, %ymm0, %ymm0
 ; X86-CORE-AVX2-NEXT:    vextractf128 $1, %ymm0, %xmm1
 ; X86-CORE-AVX2-NEXT:    vaddpd %xmm1, %xmm0, %xmm0
-; X86-CORE-AVX2-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
+; X86-CORE-AVX2-NEXT:    vshufpd {{.*#+}} xmm1 = xmm0[1,0]
 ; X86-CORE-AVX2-NEXT:    vaddsd %xmm1, %xmm0, %xmm0
 ; X86-CORE-AVX2-NEXT:    vmovsd {{[-0-9]+}}(%e{{[sb]}}p), %xmm1 # 8-byte Reload
 ; X86-CORE-AVX2-NEXT:    # xmm1 = mem[0],zero
@@ -683,7 +683,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X86-CORE-AVX2-NEXT:    vaddpd %ymm2, %ymm0, %ymm0
 ; X86-CORE-AVX2-NEXT:    vextractf128 $1, %ymm0, %xmm2
 ; X86-CORE-AVX2-NEXT:    vaddpd %xmm2, %xmm0, %xmm0
-; X86-CORE-AVX2-NEXT:    vpermilpd {{.*#+}} xmm2 = xmm0[1,0]
+; X86-CORE-AVX2-NEXT:    vshufpd {{.*#+}} xmm2 = xmm0[1,0]
 ; X86-CORE-AVX2-NEXT:    vaddsd %xmm2, %xmm0, %xmm0
 ; X86-CORE-AVX2-NEXT:    vmovsd {{[-0-9]+}}(%e{{[sb]}}p), %xmm1 # 8-byte Reload
 ; X86-CORE-AVX2-NEXT:    # xmm1 = mem[0],zero
@@ -820,7 +820,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X86-ADL-NEXT:    vaddpd %ymm1, %ymm0, %ymm0
 ; X86-ADL-NEXT:    vextractf128 $1, %ymm0, %xmm1
 ; X86-ADL-NEXT:    vaddpd %xmm1, %xmm0, %xmm0
-; X86-ADL-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
+; X86-ADL-NEXT:    vshufpd {{.*#+}} xmm1 = xmm0[1,0]
 ; X86-ADL-NEXT:    vaddsd %xmm1, %xmm0, %xmm0
 ; X86-ADL-NEXT:    vmovsd {{[-0-9]+}}(%e{{[sb]}}p), %xmm1 # 8-byte Reload
 ; X86-ADL-NEXT:    # xmm1 = mem[0],zero
@@ -944,7 +944,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X86-ADL-NEXT:    vaddpd %ymm2, %ymm0, %ymm0
 ; X86-ADL-NEXT:    vextractf128 $1, %ymm0, %xmm2
 ; X86-ADL-NEXT:    vaddpd %xmm2, %xmm0, %xmm0
-; X86-ADL-NEXT:    vpermilpd {{.*#+}} xmm2 = xmm0[1,0]
+; X86-ADL-NEXT:    vshufpd {{.*#+}} xmm2 = xmm0[1,0]
 ; X86-ADL-NEXT:    vaddsd %xmm2, %xmm0, %xmm0
 ; X86-ADL-NEXT:    vmovsd {{[-0-9]+}}(%e{{[sb]}}p), %xmm1 # 8-byte Reload
 ; X86-ADL-NEXT:    # xmm1 = mem[0],zero

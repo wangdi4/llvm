@@ -838,7 +838,7 @@ let Predicates = [HasAMXTRANSPOSE, In64BitMode] in {
     def T2RPNTLVWZ0 : I<0x6e, MRMSrcMemFSIB, (outs TILEPair:$dst),
                        (ins sibmem:$src),
                        "t2rpntlvwz0\t{$src, $dst|$dst, $src}",
-                       []>, VEX, VEX_WIG, T8PS;
+                       []>, VEX, WIG, T8PS;
 
     def T2RPNTLVWZ0T1 : I<0x6f, MRMSrcMemFSIB, (outs TILEPair:$dst),
                          (ins sibmem:$src),
@@ -869,7 +869,7 @@ let Predicates = [HasAMXTRANSPOSE, In64BitMode] in {
       def TCONJTCMMIMFP16PS : I<0x6b, MRMSrcReg4VOp3, (outs TILE:$dst),
                             (ins TILE:$src1, TILE:$src2, TILE:$src3),
                             "tconjtcmmimfp16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
-                            []>, VEX_4V, VEX_WIG, T8PS;
+                            []>, VEX_4V, WIG, T8PS;
       def TTCMMIMFP16PS : I<0x6b, MRMSrcReg4VOp3, (outs TILE:$dst),
                             (ins TILE:$src1, TILE:$src2, TILE:$src3),
                             "ttcmmimfp16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
@@ -1109,7 +1109,7 @@ let Predicates = [HasAMXCONVERT, In64BitMode] in {
     def TCVT2PS2BF16mr : I<0x5d, MRMDestMem4VOp2FSIB, (outs),
                          (ins sibmem:$dst, TILE:$src1, TILE:$src2),
                          "tcvt2ps2bf16\t{$src2, $src1, $dst|$dst, $src1, $src2}",
-                         []>, VEX_4V, VEX_WIG, T8XS;
+                         []>, VEX_4V, WIG, T8XS;
     let usesCustomInserter = 1 in {
       def PTCVT2PS2BF16mr : PseudoI<(outs),
                                     (ins sibmem:$dst,
@@ -1119,7 +1119,7 @@ let Predicates = [HasAMXCONVERT, In64BitMode] in {
     def TCVT2PS2PHmr : I<0x5d, MRMDestMem4VOp2FSIB, (outs),
                        (ins sibmem:$dst, TILE:$src1, TILE:$src2),
                        "tcvt2ps2ph\t{$src2, $src1, $dst|$dst, $src1, $src2}",
-                       []>, VEX_4V, VEX_WIG, T8XD;
+                       []>, VEX_4V, WIG, T8XD;
     let usesCustomInserter = 1 in {
       def PTCVT2PS2PHmr : PseudoI<(outs),
                                   (ins sibmem:$dst,

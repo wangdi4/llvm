@@ -1,4 +1,4 @@
-add_libc_testsuite(libc_math_unittests)
+add_custom_target(libc_math_unittests)
 
 add_library(
   libc_math_test_utils
@@ -1483,18 +1483,6 @@ add_fp_unittest(
 )
 
 add_fp_unittest(
-  asin_test
-  NEED_MPFR
-  SUITE
-    libc_math_unittests
-  SRCS
-    asin_test.cpp
-  DEPENDS
-    libc.src.errno.errno
-    libc.src.math.asin
-)
-
-add_fp_unittest(
   acosf_test
   NEED_MPFR
   SUITE
@@ -1532,18 +1520,6 @@ add_fp_unittest(
   DEPENDS
     libc.src.math.generic.inv_trigf_utils
     libc.src.__support.FPUtil.fp_bits
-)
-
-add_fp_unittest(
-  pow_test
-  NEED_MPFR
-  SUITE
-    libc_math_unittests
-  SRCS
-    pow_test.cpp
-  DEPENDS
-    libc.src.errno.errno
-    libc.src.math.pow
 )
 
 add_fp_unittest(
@@ -1595,5 +1571,8 @@ add_fp_unittest(
 )
 
 add_subdirectory(generic)
-add_subdirectory(exhaustive)
-add_subdirectory(differential_testing)
+
+if(NOT LLVM_LIBC_FULL_BUILD)
+  add_subdirectory(exhaustive)
+  add_subdirectory(differential_testing)
+endif()

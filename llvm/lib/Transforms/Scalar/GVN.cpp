@@ -1032,6 +1032,7 @@ Value *AvailableValue::MaterializeAdjustedValue(LoadInst *Load,
     LoadInst *CoercedLoad = getCoercedLoadValue();
     if (CoercedLoad->getType() == LoadTy && Offset == 0) {
       Res = CoercedLoad;
+      combineMetadataForCSE(CoercedLoad, Load, false);
     } else {
       Res = getValueForLoad(CoercedLoad, Offset, LoadTy, InsertPt, DL);
       // We are adding a new user for this load, for which the original
@@ -1577,6 +1578,7 @@ void GVNPass::eliminatePartiallyRedundantLoad(
 
   // Perform PHI construction.
   Value *V = ConstructSSAForLoadSet(Load, ValuesPerBlock, *this);
+  // ConstructSSAForLoadSet is responsible for combining metadata.
   Load->replaceAllUsesWith(V);
   if (isa<PHINode>(V))
     V->takeName(Load);
@@ -2054,6 +2056,7 @@ bool GVNPass::processNonLocalLoad(LoadInst *Load) {
 
     // Perform PHI construction.
     Value *V = ConstructSSAForLoadSet(Load, ValuesPerBlock, *this);
+    // ConstructSSAForLoadSet is responsible for combining metadata.
     Load->replaceAllUsesWith(V);
 
     if (isa<PHINode>(V))
@@ -2327,8 +2330,8 @@ bool GVNPass::processLoad(LoadInst *L) {
 
   Value *AvailableValue = AV->MaterializeAdjustedValue(L, L, *this);
 
-  // Replace the load!
-  patchAndReplaceAllUsesWith(L, AvailableValue);
+  // MaterializeAdjustedValue is responsible for combining metadata.
+  L->replaceAllUsesWith(AvailableValue);
   markInstructionForDeletion(L);
   if (MSSAU)
     MSSAU->removeMemoryAccess(L);

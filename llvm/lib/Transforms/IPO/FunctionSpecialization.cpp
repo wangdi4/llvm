@@ -364,6 +364,33 @@ bool FunctionSpecializer::run() {
     updateCallSites(F, AllSpecs.begin() + Begin, AllSpecs.begin() + End);
   }
 
+  for (Function *F : Clones) {
+    if (F->getReturnType()->isVoidTy())
+      continue;
+    if (F->getReturnType()->isStructTy()) {
+      auto *STy = cast<StructType>(F->getReturnType());
+      if (!Solver.isStructLatticeConstant(F, STy))
+        continue;
+    } else {
+      auto It = Solver.getTrackedRetVals().find(F);
+      assert(It != Solver.getTrackedRetVals().end() &&
+             "Return value ought to be tracked");
+      if (SCCPSolver::isOverdefined(It->second))
+        continue;
+    }
+    for (User *U : F->users()) {
+      if (auto *CS = dyn_cast<CallBase>(U)) {
+        //The user instruction does not call our function.
+        if (CS->getCalledFunction() != F)
+          continue;
+        Solver.resetLatticeValueFor(CS);
+      }
+    }
+  }
+
+  // Rerun the solver to notify the users of the modified callsites.
+  Solver.solveWhileResolvedUndefs();
+
   promoteConstantStackValues();
   return true;
 }
@@ -498,13 +525,10 @@ bool FunctionSpecializer::findSpecializations(Function *F, InstructionCost Cost,
 }
 
 bool FunctionSpecializer::isCandidateFunction(Function *F) {
-  if (F->isDeclaration())
+  if (F->isDeclaration() || F->arg_empty())
     return false;
 
   if (F->hasFnAttribute(Attribute::NoDuplicate))
-    return false;
-
-  if (!Solver.isArgumentTrackedFunction(F))
     return false;
 
   // Do not specialize the cloned function again.
@@ -533,13 +557,17 @@ bool FunctionSpecializer::isCandidateFunction(Function *F) {
 Function *FunctionSpecializer::createSpecialization(Function *F, const SpecSig &S) {
   Function *Clone = cloneCandidateFunction(F);
 
+  // The original function does not neccessarily have internal linkage, but the
+  // clone must.
+  Clone->setLinkage(GlobalValue::InternalLinkage);
+
   // Initialize the lattice state of the arguments of the function clone,
   // marking the argument on which we specialized the function constant
   // with the given value.
   Solver.setLatticeValueForSpecializationArguments(Clone, S.Args);
-
-  Solver.addArgumentTrackedFunction(Clone);
   Solver.markBlockExecutable(&Clone->front());
+  Solver.addArgumentTrackedFunction(Clone);
+  Solver.addTrackedFunction(Clone);
 
   // Mark all the specialized functions
   Specializations.insert(Clone);
@@ -676,6 +704,10 @@ bool FunctionSpecializer::isArgumentInteresting(Argument *A) {
   if (A->hasByValAttr() && !A->getParent()->onlyReadsMemory())
     return false;
 
+  // For non-argument-tracked functions every argument is overdefined.
+  if (!Solver.isArgumentTrackedFunction(A->getParent()))
+    return true;
+
   // Check the lattice value and decide if we should attemt to specialize,
   // based on this argument. No point in specialization, if the lattice value
   // is already a constant.
@@ -761,7 +793,7 @@ void FunctionSpecializer::updateCallSites(Function *F, const Spec *Begin,
 
   // If the function has been completely specialized, the original function
   // is no longer needed. Mark it unreachable.
-  if (NCallsLeft == 0) {
+  if (NCallsLeft == 0 && Solver.isArgumentTrackedFunction(F)) {
     Solver.markFunctionUnreachable(F);
     FullySpecialized.insert(F);
   }

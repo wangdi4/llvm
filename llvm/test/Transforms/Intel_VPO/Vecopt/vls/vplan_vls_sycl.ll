@@ -43,9 +43,9 @@ define void @foo(i32* nocapture %dst, i32* nocapture %src, i64 %x) {
 ; CHECK-NEXT:    [[TMP4:%.*]] = add nsw <4 x i64> [[BROADCAST_SPLAT5:%.*]], [[VEC_PHI:%.*]]
 ; CHECK-NEXT:    [[DOTEXTRACT_0_6:%.*]] = extractelement <4 x i64> [[TMP4]], i32 0
 ; CHECK-NEXT:    [[SCALAR_GEP7:%.*]] = getelementptr inbounds i32, i32* [[DST:%.*]], i64 [[DOTEXTRACT_0_6]]
-; CHECK-NEXT:    [[EXTENDED_:%.*]] = shufflevector <4 x i32> [[TMP2]], <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[EXTENDED_:%.*]] = shufflevector <4 x i32> [[TMP2]], <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP5:%.*]] = shufflevector <8 x i32> undef, <8 x i32> [[EXTENDED_]], <8 x i32> <i32 8, i32 1, i32 9, i32 3, i32 10, i32 5, i32 11, i32 7>
-; CHECK-NEXT:    [[EXTENDED_8:%.*]] = shufflevector <4 x i32> [[TMP3]], <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[EXTENDED_8:%.*]] = shufflevector <4 x i32> [[TMP3]], <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP6:%.*]] = shufflevector <8 x i32> [[TMP5]], <8 x i32> [[EXTENDED_8]], <8 x i32> <i32 0, i32 8, i32 2, i32 9, i32 4, i32 10, i32 6, i32 11>
 ; CHECK-NEXT:    [[TMP7:%.*]] = bitcast i32* [[SCALAR_GEP7]] to <8 x i32>*
 ; CHECK-NEXT:    store <8 x i32> [[TMP6]], <8 x i32>* [[TMP7]], align 4

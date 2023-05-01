@@ -174,13 +174,13 @@ define i32 @x264_pixel_satd_16x16(ptr nocapture readonly %pix1, i32 %i_pix1, ptr
 ; CHECK-NEXT:    [[TMP66:%.*]] = extractelement <4 x i32> [[TMP65]], i32 0
 ; CHECK-NEXT:    [[TMP67:%.*]] = extractelement <4 x i32> [[TMP65]], i32 1
 ; CHECK-NEXT:    [[BRIDGE_T797_2968:%.*]] = sub nsw i32 [[TMP66]], [[TMP67]]
-; CHECK-NEXT:    [[TMP68:%.*]] = shufflevector <2 x i32> [[TMP44]], <2 x i32> poison, <8 x i32> <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
-; CHECK-NEXT:    [[TMP69:%.*]] = shufflevector <4 x i32> [[TMP65]], <4 x i32> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
-; CHECK-NEXT:    [[TMP70:%.*]] = shufflevector <8 x i32> [[TMP68]], <8 x i32> [[TMP69]], <8 x i32> <i32 0, i32 1, i32 8, i32 9, i32 10, i32 11, i32 undef, i32 undef>
+; CHECK-NEXT:    [[TMP68:%.*]] = shufflevector <2 x i32> [[TMP44]], <2 x i32> poison, <8 x i32> <i32 0, i32 1, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison>
+; CHECK-NEXT:    [[TMP69:%.*]] = shufflevector <4 x i32> [[TMP65]], <4 x i32> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison>
+; CHECK-NEXT:    [[TMP70:%.*]] = shufflevector <8 x i32> [[TMP68]], <8 x i32> [[TMP69]], <8 x i32> <i32 0, i32 1, i32 8, i32 9, i32 10, i32 11, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP71:%.*]] = insertelement <8 x i32> [[TMP70]], i32 [[CHAIN_T775_2764]], i32 6
 ; CHECK-NEXT:    [[TMP72:%.*]] = shufflevector <8 x i32> [[TMP71]], <8 x i32> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 4>
-; CHECK-NEXT:    [[TMP73:%.*]] = shufflevector <8 x i32> [[TMP71]], <8 x i32> poison, <8 x i32> <i32 undef, i32 undef, i32 3, i32 2, i32 5, i32 4, i32 5, i32 5>
-; CHECK-NEXT:    [[TMP74:%.*]] = shufflevector <2 x i32> [[TMP34]], <2 x i32> poison, <8 x i32> <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[TMP73:%.*]] = shufflevector <8 x i32> [[TMP71]], <8 x i32> poison, <8 x i32> <i32 poison, i32 poison, i32 3, i32 2, i32 5, i32 4, i32 5, i32 5>
+; CHECK-NEXT:    [[TMP74:%.*]] = shufflevector <2 x i32> [[TMP34]], <2 x i32> poison, <8 x i32> <i32 0, i32 1, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP75:%.*]] = shufflevector <8 x i32> [[TMP73]], <8 x i32> [[TMP74]], <8 x i32> <i32 8, i32 9, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 ; CHECK-NEXT:    [[TMP76:%.*]] = add nsw <8 x i32> [[TMP72]], [[TMP75]]
 ; CHECK-NEXT:    [[TMP77:%.*]] = sub nsw <8 x i32> [[TMP72]], [[TMP75]]
@@ -189,7 +189,7 @@ define i32 @x264_pixel_satd_16x16(ptr nocapture readonly %pix1, i32 %i_pix1, ptr
 ; CHECK-NEXT:    [[TMP80:%.*]] = add <8 x i32> [[TMP78]], [[TMP79]]
 ; CHECK-NEXT:    [[TMP81:%.*]] = sub <8 x i32> [[TMP78]], [[TMP79]]
 ; CHECK-NEXT:    [[TMP82:%.*]] = shufflevector <8 x i32> [[TMP80]], <8 x i32> [[TMP81]], <8 x i32> <i32 0, i32 9, i32 10, i32 11, i32 4, i32 5, i32 14, i32 7>
-; CHECK-NEXT:    [[TMP83:%.*]] = shufflevector <8 x i32> [[TMP78]], <8 x i32> poison, <8 x i32> <i32 1, i32 undef, i32 1, i32 1, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[TMP83:%.*]] = shufflevector <8 x i32> [[TMP78]], <8 x i32> poison, <8 x i32> <i32 1, i32 poison, i32 1, i32 1, i32 poison, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP84:%.*]] = insertelement <8 x i32> [[TMP83]], i32 [[BRIDGE_T797_2968]], i32 1
 ; CHECK-NEXT:    [[TMP85:%.*]] = insertelement <8 x i32> [[TMP84]], i32 [[CHAIN_T775_2771]], i32 4
 ; CHECK-NEXT:    [[TMP86:%.*]] = shufflevector <8 x i32> [[TMP85]], <8 x i32> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 4, i32 4, i32 4>

@@ -115,7 +115,7 @@ TEST_F(VPlanTTIMemrefCostTest, ScalarLoadCost) {
 // Check irregular types.
 
 TEST_F(VPlanTTIMemrefCostTest, Check_1xi1) {
-  EXPECT_EQ(CM->getLoadStoreCost(VPInsts[1], Align(4), 1 /* VF */), 1);
+  EXPECT_EQ(CM->getLoadStoreCost(VPInsts[1], Align(4), 1 /* VF */), 2);
 }
 
 TEST_F(VPlanTTIMemrefCostTest, Check1xi8Ptr) {

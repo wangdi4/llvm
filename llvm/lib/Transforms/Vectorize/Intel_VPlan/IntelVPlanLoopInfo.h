@@ -22,7 +22,7 @@
 
 #include "llvm/Analysis/Intel_OptReport/OptReport.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
-#include "llvm/Analysis/LoopInfoImpl.h"
+#include "llvm/Support/GenericLoopInfoImpl.h"
 
 namespace llvm {
 namespace vpo {

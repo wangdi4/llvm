@@ -10,6 +10,12 @@ collect_stack_traces = ""
 if config.tool_name == "asan":
   tool_cflags = ["-fsanitize=address"]
   tool_options = "ASAN_OPTIONS"
+elif config.tool_name == "hwasan":
+  tool_cflags = ["-fsanitize=hwaddress", "-fuse-ld=lld"]
+  if config.target_arch == "x86_64":
+    tool_cflags += ["-fsanitize-hwaddress-experimental-aliasing"]
+    config.available_features.add("hwasan-aliasing")
+  tool_options = "HWASAN_OPTIONS"
 elif config.tool_name == "tsan":
   tool_cflags = ["-fsanitize=thread"]
   tool_options = "TSAN_OPTIONS"
@@ -82,3 +88,15 @@ if not config.parallelism_group:
 
 if config.host_os == 'NetBSD':
   config.substitutions.insert(0, ('%run', config.netbsd_noaslr_prefix))
+
+# INTEL_CUSTOMIZATION
+# JIRA: CMPLRLLVM-47137, CMPLRLLVM-47138
+# Add detection for 5-level paging, some testes may fail with that.
+# LA57 is the control register flag name for 5-level paging.
+import subprocess
+cmd = subprocess.Popen('lscpu | grep la57', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+cmd_stdout, _ = cmd.communicate()
+have_la57 = cmd_stdout.strip()
+if len(have_la57) > 0:
+  config.available_features.add('la57')
+# end INTEL_CUSTOMIZATION

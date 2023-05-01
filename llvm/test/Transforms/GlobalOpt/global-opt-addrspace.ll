@@ -1,58 +1,34 @@
-; RUN: opt -opaque-pointers=0 -S -passes=globalopt < %s | FileCheck %s
+; RUN: opt -S -passes=globalopt < %s | FileCheck %s
 ;; Check that Global Opt preserves address space of llvm.used and
 ;; llvm.compiler.used variables.
 
-; ModuleID = 'device_global_internal_failure.cpp'
-source_filename = "device_global_internal_failure.cpp"
-target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
-target triple = "spir64-unknown-unknown"
-
-%struct.FakeDeviceGlobal = type { i32 addrspace(4)* }
+%struct.FakeDeviceGlobal = type { ptr addrspace(4) }
 %class.anon = type { i8 }
 
-$_ZTSZ4mainEUlvE_ = comdat any
+@_ZM2C = internal addrspace(1) global %struct.FakeDeviceGlobal zeroinitializer, align 8
+@_ZL1C = internal addrspace(1) global %struct.FakeDeviceGlobal zeroinitializer, align 8
 
-@_ZL1C = internal addrspace(1) global %struct.FakeDeviceGlobal zeroinitializer, align 8 #0
-@llvm.compiler.used = appending global [1 x i8 addrspace(4)*] [i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast (%struct.FakeDeviceGlobal addrspace(1)*@_ZL1C to i8 addrspace(1)*) to i8 addrspace(4)*)], section "llvm.metadata"
+@llvm.compiler.used = appending global [2 x ptr addrspace(4)] [ptr addrspace(4) addrspacecast (ptr addrspace(1) @_ZM2C to ptr addrspace(4)), ptr addrspace(4) addrspacecast (ptr addrspace(1) @_ZL1C to ptr addrspace(4))]
 
-; CHECK: @llvm.compiler.used = appending global [1 x i8 addrspace(4)*] [i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast (%struct.FakeDeviceGlobal addrspace(1)* @_ZL1C to i8 addrspace(1)*) to i8 addrspace(4)*)], section "llvm.metadata"
+; CHECK: @llvm.compiler.used = appending global [2 x ptr addrspace(4)] [ptr addrspace(4) addrspacecast (ptr addrspace(1) @_ZL1C to ptr addrspace(4)), ptr addrspace(4) addrspacecast (ptr addrspace(1) @_ZM2C to ptr addrspace(4))]
 
-; Function Attrs: convergent mustprogress noinline norecurse optnone
-define weak_odr dso_local spir_kernel void @_ZTSZ4mainEUlvE_() #1 comdat !kernel_arg_buffer_location !5 {
+define weak_odr dso_local void @foo() {
 entry:
-  %0 = alloca %class.anon, align 1
-  %1 = addrspacecast %class.anon* %0 to %class.anon addrspace(4)*
-  call spir_func void @_ZZ4mainENKUlvE_clEv(%class.anon addrspace(4)* noundef align 1 dereferenceable_or_null(1) %1) #3
+  %A = alloca %class.anon, align 1
+  %A.addrspacecast = addrspacecast ptr %A to ptr addrspace(4)
+  call void @bar(ptr addrspace(4) noundef align 1 dereferenceable_or_null(1) %A.addrspacecast)
   ret void
 }
 
-; Function Attrs: convergent mustprogress noinline norecurse nounwind optnone
-define internal spir_func void @_ZZ4mainENKUlvE_clEv(%class.anon addrspace(4)* noundef align 1 dereferenceable_or_null(1) %this) #2 align 2 {
+define internal void @bar(ptr addrspace(4) noundef align 1 dereferenceable_or_null(1) %this) align 2 {
 entry:
-  %this.addr = alloca %class.anon addrspace(4)*, align 8
-  %this.addr.ascast = addrspacecast %class.anon addrspace(4)** %this.addr to %class.anon addrspace(4)* addrspace(4)*
-  store %class.anon addrspace(4)* %this, %class.anon addrspace(4)* addrspace(4)* %this.addr.ascast, align 8
-  %this1 = load %class.anon addrspace(4)*, %class.anon addrspace(4)* addrspace(4)* %this.addr.ascast, align 8
-  %0 = load i32 addrspace(4)*, i32 addrspace(4)* addrspace(4)* getelementptr inbounds (%struct.FakeDeviceGlobal, %struct.FakeDeviceGlobal addrspace(4)* addrspacecast (%struct.FakeDeviceGlobal addrspace(1)* @_ZL1C to %struct.FakeDeviceGlobal addrspace(4)*), i32 0, i32 0), align 8
-  store i32 42, i32 addrspace(4)* %0, align 4
+  %this.addr = alloca ptr addrspace(4), align 8
+  %this.addr.ascast = addrspacecast ptr %this.addr to ptr addrspace(4)
+  store ptr addrspace(4) %this, ptr addrspace(4) %this.addr.ascast, align 8
+  %v1 = load ptr addrspace(4), ptr addrspace(4) addrspacecast (ptr addrspace(1) @_ZM2C to ptr addrspace(4)), align 8
+  store i32 42, ptr addrspace(4) %v1, align 4
+  %v2 = load ptr addrspace(4), ptr addrspace(4) addrspacecast (ptr addrspace(1) @_ZL1C to ptr addrspace(4)), align 8
+  store i32 42, ptr addrspace(4) %v2, align 4
   ret void
 }
 
-declare dso_local spir_func i32 @_Z18__spirv_ocl_printfPU3AS2Kcz(i8 addrspace(2)*, ...)
-
-attributes #0 = { "sycl-unique-id"="c5b4ae0b52852573____ZL1C" }
-attributes #1 = { convergent mustprogress noinline norecurse optnone "frame-pointer"="all" "min-legal-vector-width"="0" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "sycl-module-id"="device_global_internal_failure.cpp" "uniform-work-group-size"="true" }
-attributes #2 = { convergent mustprogress noinline norecurse nounwind optnone "frame-pointer"="all" "min-legal-vector-width"="0" "no-trapping-math"="true" "stack-protector-buffer-size"="8" }
-attributes #3 = { convergent }
-
-!llvm.module.flags = !{!0, !1}
-!opencl.spir.version = !{!2}
-!spirv.Source = !{!3}
-!llvm.ident = !{!4}
-
-!0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{i32 7, !"frame-pointer", i32 2}
-!2 = !{i32 1, i32 2}
-!3 = !{i32 4, i32 100000}
-!4 = !{!"clang version 15.0.0 (https://github.com/intel/llvm.git 537e51b08b74438ed64eb7de6e254922e8ddeaa0)"}
-!5 = !{}

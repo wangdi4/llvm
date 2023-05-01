@@ -256,8 +256,8 @@ define <2 x double> @intrinsic_slow_v2f64(<2 x double> %z, <2 x double> %w) {
 ; ALL-NEXT:    pushq %rax
 ; ALL-NEXT:    .cfi_def_cfa_offset 16
 ; ALL-NEXT:    vmovapd %xmm1, %xmm2
-; ALL-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
-; ALL-NEXT:    vpermilpd {{.*#+}} xmm3 = xmm2[1,0]
+; ALL-NEXT:    vshufpd {{.*#+}} xmm1 = xmm0[1,0]
+; ALL-NEXT:    vshufpd {{.*#+}} xmm3 = xmm2[1,0]
 ; ALL-NEXT:    callq __muldc3@PLT
 ; ALL-NEXT:    vunpcklpd {{.*#+}} xmm0 = xmm0[0],xmm1[0]
 ; ALL-NEXT:    popq %rax
@@ -270,8 +270,8 @@ define <2 x double> @intrinsic_slow_v2f64(<2 x double> %z, <2 x double> %w) {
 define <2 x double> @intrinsic_fast_v2f64(<2 x double> %z, <2 x double> %w) {
 ; ALL-LABEL: intrinsic_fast_v2f64:
 ; ALL:       # %bb.0:
-; ALL-NEXT:    vpermilpd {{.*#+}} xmm2 = xmm1[1,1]
-; ALL-NEXT:    vpermilpd {{.*#+}} xmm3 = xmm0[1,0]
+; ALL-NEXT:    vshufpd {{.*#+}} xmm2 = xmm1[1,1]
+; ALL-NEXT:    vshufpd {{.*#+}} xmm3 = xmm0[1,0]
 ; ALL-NEXT:    vmulpd %xmm2, %xmm3, %xmm2
 ; ALL-NEXT:    vmovddup {{.*#+}} xmm1 = xmm1[0,0]
 ; ALL-NEXT:    vfmaddsub213pd {{.*#+}} xmm0 = (xmm1 * xmm0) +/- xmm2
@@ -283,8 +283,8 @@ define <2 x double> @intrinsic_fast_v2f64(<2 x double> %z, <2 x double> %w) {
 define <2 x double> @intrinsic_limited_v2f64(<2 x double> %z, <2 x double> %w) {
 ; ALL-LABEL: intrinsic_limited_v2f64:
 ; ALL:       # %bb.0:
-; ALL-NEXT:    vpermilpd {{.*#+}} xmm2 = xmm1[1,1]
-; ALL-NEXT:    vpermilpd {{.*#+}} xmm3 = xmm0[1,0]
+; ALL-NEXT:    vshufpd {{.*#+}} xmm2 = xmm1[1,1]
+; ALL-NEXT:    vshufpd {{.*#+}} xmm3 = xmm0[1,0]
 ; ALL-NEXT:    vmulpd %xmm2, %xmm3, %xmm2
 ; ALL-NEXT:    vmovddup {{.*#+}} xmm1 = xmm1[0,0]
 ; ALL-NEXT:    vfmaddsub213pd {{.*#+}} xmm0 = (xmm1 * xmm0) +/- xmm2
@@ -299,8 +299,8 @@ define <4 x double> @intrinsic_slow_v4f64(<4 x double> %z, <4 x double> %w) {
 ; ALL-NEXT:    pushq %rax
 ; ALL-NEXT:    .cfi_def_cfa_offset 16
 ; ALL-NEXT:    vmovapd %ymm1, %ymm2
-; ALL-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
-; ALL-NEXT:    vpermilpd {{.*#+}} xmm3 = xmm2[1,0]
+; ALL-NEXT:    vshufpd {{.*#+}} xmm1 = xmm0[1,0]
+; ALL-NEXT:    vshufpd {{.*#+}} xmm3 = xmm2[1,0]
 ; ALL-NEXT:    # kill: def $xmm0 killed $xmm0 killed $ymm0
 ; ALL-NEXT:    # kill: def $xmm2 killed $xmm2 killed $ymm2
 ; ALL-NEXT:    vzeroupper
@@ -316,8 +316,8 @@ define <4 x double> @intrinsic_slow_v4f64(<4 x double> %z, <4 x double> %w) {
 define <4 x double> @intrinsic_fast_v4f64(<4 x double> %z, <4 x double> %w) {
 ; ALL-LABEL: intrinsic_fast_v4f64:
 ; ALL:       # %bb.0:
-; ALL-NEXT:    vpermilpd {{.*#+}} ymm2 = ymm1[1,1,3,3]
-; ALL-NEXT:    vpermilpd {{.*#+}} ymm3 = ymm0[1,0,3,2]
+; ALL-NEXT:    vshufpd {{.*#+}} ymm2 = ymm1[1,1,3,3]
+; ALL-NEXT:    vshufpd {{.*#+}} ymm3 = ymm0[1,0,3,2]
 ; ALL-NEXT:    vmulpd %ymm2, %ymm3, %ymm2
 ; ALL-NEXT:    vmovddup {{.*#+}} ymm1 = ymm1[0,0,2,2]
 ; ALL-NEXT:    vfmaddsub213pd {{.*#+}} ymm0 = (ymm1 * ymm0) +/- ymm2
@@ -329,8 +329,8 @@ define <4 x double> @intrinsic_fast_v4f64(<4 x double> %z, <4 x double> %w) {
 define <4 x double> @intrinsic_limited_v4f64(<4 x double> %z, <4 x double> %w) {
 ; ALL-LABEL: intrinsic_limited_v4f64:
 ; ALL:       # %bb.0:
-; ALL-NEXT:    vpermilpd {{.*#+}} ymm2 = ymm1[1,1,3,3]
-; ALL-NEXT:    vpermilpd {{.*#+}} ymm3 = ymm0[1,0,3,2]
+; ALL-NEXT:    vshufpd {{.*#+}} ymm2 = ymm1[1,1,3,3]
+; ALL-NEXT:    vshufpd {{.*#+}} ymm3 = ymm0[1,0,3,2]
 ; ALL-NEXT:    vmulpd %ymm2, %ymm3, %ymm2
 ; ALL-NEXT:    vmovddup {{.*#+}} ymm1 = ymm1[0,0,2,2]
 ; ALL-NEXT:    vfmaddsub213pd {{.*#+}} ymm0 = (ymm1 * ymm0) +/- ymm2
@@ -344,8 +344,8 @@ define <8 x double> @intrinsic_slow_v8f64(<8 x double> %z, <8 x double> %w) {
 ; FMA:       # %bb.0:
 ; FMA-NEXT:    pushq %rax
 ; FMA-NEXT:    .cfi_def_cfa_offset 16
-; FMA-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
-; FMA-NEXT:    vpermilpd {{.*#+}} xmm3 = xmm2[1,0]
+; FMA-NEXT:    vshufpd {{.*#+}} xmm1 = xmm0[1,0]
+; FMA-NEXT:    vshufpd {{.*#+}} xmm3 = xmm2[1,0]
 ; FMA-NEXT:    # kill: def $xmm0 killed $xmm0 killed $ymm0
 ; FMA-NEXT:    # kill: def $xmm2 killed $xmm2 killed $ymm2
 ; FMA-NEXT:    vzeroupper
@@ -360,8 +360,8 @@ define <8 x double> @intrinsic_slow_v8f64(<8 x double> %z, <8 x double> %w) {
 ; AVX512VL-NEXT:    pushq %rax
 ; AVX512VL-NEXT:    .cfi_def_cfa_offset 16
 ; AVX512VL-NEXT:    vmovapd %zmm1, %zmm2
-; AVX512VL-NEXT:    vpermilpd {{.*#+}} xmm1 = xmm0[1,0]
-; AVX512VL-NEXT:    vpermilpd {{.*#+}} xmm3 = xmm2[1,0]
+; AVX512VL-NEXT:    vshufpd {{.*#+}} xmm1 = xmm0[1,0]
+; AVX512VL-NEXT:    vshufpd {{.*#+}} xmm3 = xmm2[1,0]
 ; AVX512VL-NEXT:    # kill: def $xmm0 killed $xmm0 killed $zmm0
 ; AVX512VL-NEXT:    # kill: def $xmm2 killed $xmm2 killed $zmm2
 ; AVX512VL-NEXT:    vzeroupper
@@ -377,13 +377,13 @@ define <8 x double> @intrinsic_slow_v8f64(<8 x double> %z, <8 x double> %w) {
 define <8 x double> @intrinsic_fast_v8f64(<8 x double> %z, <8 x double> %w) {
 ; FMA-LABEL: intrinsic_fast_v8f64:
 ; FMA:       # %bb.0:
-; FMA-NEXT:    vpermilpd {{.*#+}} ymm4 = ymm2[1,1,3,3]
-; FMA-NEXT:    vpermilpd {{.*#+}} ymm5 = ymm0[1,0,3,2]
+; FMA-NEXT:    vshufpd {{.*#+}} ymm4 = ymm2[1,1,3,3]
+; FMA-NEXT:    vshufpd {{.*#+}} ymm5 = ymm0[1,0,3,2]
 ; FMA-NEXT:    vmulpd %ymm4, %ymm5, %ymm4
 ; FMA-NEXT:    vmovddup {{.*#+}} ymm2 = ymm2[0,0,2,2]
 ; FMA-NEXT:    vfmaddsub213pd {{.*#+}} ymm0 = (ymm2 * ymm0) +/- ymm4
-; FMA-NEXT:    vpermilpd {{.*#+}} ymm2 = ymm3[1,1,3,3]
-; FMA-NEXT:    vpermilpd {{.*#+}} ymm4 = ymm1[1,0,3,2]
+; FMA-NEXT:    vshufpd {{.*#+}} ymm2 = ymm3[1,1,3,3]
+; FMA-NEXT:    vshufpd {{.*#+}} ymm4 = ymm1[1,0,3,2]
 ; FMA-NEXT:    vmulpd %ymm2, %ymm4, %ymm2
 ; FMA-NEXT:    vmovddup {{.*#+}} ymm3 = ymm3[0,0,2,2]
 ; FMA-NEXT:    vfmaddsub213pd {{.*#+}} ymm1 = (ymm3 * ymm1) +/- ymm2
@@ -391,8 +391,8 @@ define <8 x double> @intrinsic_fast_v8f64(<8 x double> %z, <8 x double> %w) {
 ;
 ; AVX512VL-LABEL: intrinsic_fast_v8f64:
 ; AVX512VL:       # %bb.0:
-; AVX512VL-NEXT:    vpermilpd {{.*#+}} zmm2 = zmm1[1,1,3,3,5,5,7,7]
-; AVX512VL-NEXT:    vpermilpd {{.*#+}} zmm3 = zmm0[1,0,3,2,5,4,7,6]
+; AVX512VL-NEXT:    vshufpd {{.*#+}} zmm2 = zmm1[1,1,3,3,5,5,7,7]
+; AVX512VL-NEXT:    vshufpd {{.*#+}} zmm3 = zmm0[1,0,3,2,5,4,7,6]
 ; AVX512VL-NEXT:    vmulpd %zmm2, %zmm3, %zmm2
 ; AVX512VL-NEXT:    vmovddup {{.*#+}} zmm1 = zmm1[0,0,2,2,4,4,6,6]
 ; AVX512VL-NEXT:    vfmaddsub213pd {{.*#+}} zmm0 = (zmm1 * zmm0) +/- zmm2
@@ -404,13 +404,13 @@ define <8 x double> @intrinsic_fast_v8f64(<8 x double> %z, <8 x double> %w) {
 define <8 x double> @intrinsic_limited_v8f64(<8 x double> %z, <8 x double> %w) {
 ; FMA-LABEL: intrinsic_limited_v8f64:
 ; FMA:       # %bb.0:
-; FMA-NEXT:    vpermilpd {{.*#+}} ymm4 = ymm2[1,1,3,3]
-; FMA-NEXT:    vpermilpd {{.*#+}} ymm5 = ymm0[1,0,3,2]
+; FMA-NEXT:    vshufpd {{.*#+}} ymm4 = ymm2[1,1,3,3]
+; FMA-NEXT:    vshufpd {{.*#+}} ymm5 = ymm0[1,0,3,2]
 ; FMA-NEXT:    vmulpd %ymm4, %ymm5, %ymm4
 ; FMA-NEXT:    vmovddup {{.*#+}} ymm2 = ymm2[0,0,2,2]
 ; FMA-NEXT:    vfmaddsub213pd {{.*#+}} ymm0 = (ymm2 * ymm0) +/- ymm4
-; FMA-NEXT:    vpermilpd {{.*#+}} ymm2 = ymm3[1,1,3,3]
-; FMA-NEXT:    vpermilpd {{.*#+}} ymm4 = ymm1[1,0,3,2]
+; FMA-NEXT:    vshufpd {{.*#+}} ymm2 = ymm3[1,1,3,3]
+; FMA-NEXT:    vshufpd {{.*#+}} ymm4 = ymm1[1,0,3,2]
 ; FMA-NEXT:    vmulpd %ymm2, %ymm4, %ymm2
 ; FMA-NEXT:    vmovddup {{.*#+}} ymm3 = ymm3[0,0,2,2]
 ; FMA-NEXT:    vfmaddsub213pd {{.*#+}} ymm1 = (ymm3 * ymm1) +/- ymm2
@@ -418,8 +418,8 @@ define <8 x double> @intrinsic_limited_v8f64(<8 x double> %z, <8 x double> %w) {
 ;
 ; AVX512VL-LABEL: intrinsic_limited_v8f64:
 ; AVX512VL:       # %bb.0:
-; AVX512VL-NEXT:    vpermilpd {{.*#+}} zmm2 = zmm1[1,1,3,3,5,5,7,7]
-; AVX512VL-NEXT:    vpermilpd {{.*#+}} zmm3 = zmm0[1,0,3,2,5,4,7,6]
+; AVX512VL-NEXT:    vshufpd {{.*#+}} zmm2 = zmm1[1,1,3,3,5,5,7,7]
+; AVX512VL-NEXT:    vshufpd {{.*#+}} zmm3 = zmm0[1,0,3,2,5,4,7,6]
 ; AVX512VL-NEXT:    vmulpd %zmm2, %zmm3, %zmm2
 ; AVX512VL-NEXT:    vmovddup {{.*#+}} zmm1 = zmm1[0,0,2,2,4,4,6,6]
 ; AVX512VL-NEXT:    vfmaddsub213pd {{.*#+}} zmm0 = (zmm1 * zmm0) +/- zmm2
@@ -450,15 +450,15 @@ define <6 x double> @intrinsic_fast_v6f64(<6 x double> %z, <6 x double> %w) {
 ; FMA-NEXT:    vinsertf128 $1, %xmm2, %ymm0, %ymm0
 ; FMA-NEXT:    vmovlhps {{.*#+}} xmm1 = xmm6[0],xmm7[0]
 ; FMA-NEXT:    vinsertf128 $1, {{[0-9]+}}(%rsp), %ymm1, %ymm1
-; FMA-NEXT:    vpermilpd {{.*#+}} ymm2 = ymm0[1,0,3,2]
-; FMA-NEXT:    vpermilpd {{.*#+}} ymm3 = ymm1[1,1,3,3]
+; FMA-NEXT:    vshufpd {{.*#+}} ymm2 = ymm0[1,0,3,2]
+; FMA-NEXT:    vshufpd {{.*#+}} ymm3 = ymm1[1,1,3,3]
 ; FMA-NEXT:    vmulpd %ymm3, %ymm2, %ymm2
 ; FMA-NEXT:    vmovddup {{.*#+}} ymm1 = ymm1[0,0,2,2]
 ; FMA-NEXT:    vfmaddsub213pd {{.*#+}} ymm1 = (ymm0 * ymm1) +/- ymm2
 ; FMA-NEXT:    vunpcklpd {{.*#+}} xmm0 = xmm4[0],xmm5[0]
 ; FMA-NEXT:    vunpcklpd {{.*#+}} xmm2 = xmm5[0],xmm4[0]
 ; FMA-NEXT:    vmovapd {{[0-9]+}}(%rsp), %xmm3
-; FMA-NEXT:    vpermilpd {{.*#+}} xmm4 = xmm3[1,1]
+; FMA-NEXT:    vshufpd {{.*#+}} xmm4 = xmm3[1,1]
 ; FMA-NEXT:    vmulpd %xmm4, %xmm2, %xmm2
 ; FMA-NEXT:    vmovddup {{.*#+}} xmm3 = xmm3[0,0]
 ; FMA-NEXT:    vfmaddsub213pd {{.*#+}} xmm3 = (xmm0 * xmm3) +/- xmm2
@@ -469,8 +469,8 @@ define <6 x double> @intrinsic_fast_v6f64(<6 x double> %z, <6 x double> %w) {
 ;
 ; AVX512VL-LABEL: intrinsic_fast_v6f64:
 ; AVX512VL:       # %bb.0:
-; AVX512VL-NEXT:    vpermilpd {{.*#+}} zmm2 = zmm1[1,1,3,3,5,5,7,7]
-; AVX512VL-NEXT:    vpermilpd {{.*#+}} zmm3 = zmm0[1,0,3,2,5,4,7,6]
+; AVX512VL-NEXT:    vshufpd {{.*#+}} zmm2 = zmm1[1,1,3,3,5,5,7,7]
+; AVX512VL-NEXT:    vshufpd {{.*#+}} zmm3 = zmm0[1,0,3,2,5,4,7,6]
 ; AVX512VL-NEXT:    vmulpd %zmm2, %zmm3, %zmm2
 ; AVX512VL-NEXT:    vmovddup {{.*#+}} zmm1 = zmm1[0,0,2,2,4,4,6,6]
 ; AVX512VL-NEXT:    vfmaddsub213pd {{.*#+}} zmm0 = (zmm1 * zmm0) +/- zmm2

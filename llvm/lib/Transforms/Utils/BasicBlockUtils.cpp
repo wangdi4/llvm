@@ -2405,3 +2405,20 @@ BasicBlock *llvm::CreateControlFlowHub(
 
   return FirstGuardBlock;
 }
+
+void llvm::InvertBranch(BranchInst *PBI, IRBuilderBase &Builder) {
+  Value *NewCond = PBI->getCondition();
+#if INTEL_CUSTOMIZATION
+  // If this instruction is a compare with a single use, it is also legal to
+  // just invert the condition here instead of adding a not. However, in some
+  // important benchmarks this has resulted in missed CSE opportunities that
+  // cascaded into non-structured control flow and ultimately disabled some
+  // important optimizations later in the pipeline. Therefore, it's better to
+  // add a not in every case here and let it get folded later if it is
+  // profitable to do so.
+  NewCond = Builder.CreateNot(NewCond, PBI->getCondition()->getName() + ".not");
+#endif
+
+  PBI->setCondition(NewCond);
+  PBI->swapSuccessors();
+}
