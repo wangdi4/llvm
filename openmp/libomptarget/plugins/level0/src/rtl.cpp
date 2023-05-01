@@ -7415,27 +7415,6 @@ int32_t __tgt_rtl_set_function_ptr_map(
 
   return OFFLOAD_SUCCESS;
 }
-
-void *__tgt_rtl_alloc_per_hw_thread_scratch(
-    int32_t DeviceId, size_t ObjSize, int32_t AllocKind) {
-  auto &P = DeviceInfo->DeviceProperties[DeviceId];
-  uint32_t NumHWThreads = P.numThreadsPerEU * P.numEUsPerSubslice *
-      P.numSubslicesPerSlice * P.numSlices;
-  size_t AllocSize = ObjSize * NumHWThreads;
-  if (AllocKind == TARGET_ALLOC_DEFAULT)
-    AllocKind = TARGET_ALLOC_DEVICE;
-
-  void *Mem = DeviceInfo->dataAlloc(DeviceId, AllocSize, 0, AllocKind, 0,
-                                    false);
-  DP("Allocated %zu byte per-hw-thread scratch space at " DPxMOD "\n",
-     AllocSize, DPxPTR(Mem));
-
-  return Mem;
-}
-
-void __tgt_rtl_free_per_hw_thread_scratch(int32_t DeviceId, void *Ptr) {
-  DeviceInfo->dataDelete(DeviceId, Ptr);
-}
 #endif // INTEL_CUSTOMIZATION
 
 int32_t __tgt_rtl_get_device_info(int32_t DeviceId, int32_t InfoID,

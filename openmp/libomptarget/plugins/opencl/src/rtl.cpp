@@ -4888,52 +4888,6 @@ int32_t __tgt_rtl_set_function_ptr_map(
 }
 #endif // INTEL_CUSTOMIZATION
 
-void *__tgt_rtl_alloc_per_hw_thread_scratch(
-    int32_t DeviceId, size_t ObjSize, int32_t AllocKind) {
-  void *Mem = nullptr;
-  cl_uint NumHWThreads = DeviceInfo->DeviceProperties[DeviceId].NumHWThreads;
-
-  if (NumHWThreads == 0)
-    return Mem;
-
-  // Only support USM
-  cl_int RC;
-  auto Context = DeviceInfo->getContext(DeviceId);
-  auto Device = DeviceInfo->Devices[DeviceId];
-  size_t AllocSize = ObjSize * NumHWThreads;
-  auto AllocProp = DeviceInfo->getAllocMemProperties(DeviceId, AllocSize);
-
-  switch (AllocKind) {
-  case TARGET_ALLOC_HOST:
-    CALL_CL_EXT_RVRC(DeviceId, Mem, clHostMemAllocINTEL, RC, Context,
-                     AllocProp->data(), AllocSize, 0 /* Align */);
-    break;
-  case TARGET_ALLOC_SHARED:
-    CALL_CL_EXT_RVRC(DeviceId, Mem, clSharedMemAllocINTEL, RC, Context, Device,
-                     AllocProp->data(), AllocSize, 0 /* Align */);
-    break;
-  case TARGET_ALLOC_DEVICE:
-  default:
-    CALL_CL_EXT_RVRC(DeviceId, Mem, clDeviceMemAllocINTEL, RC, Context, Device,
-                     AllocProp->data(), AllocSize, 0 /* Align */);
-  }
-
-  if (RC != CL_SUCCESS) {
-    DP("Failed to allocate per-hw-thread scratch space.\n");
-    return nullptr;
-  }
-
-  DP("Allocated %zu byte per-hw-thread scratch space at " DPxMOD "\n",
-     AllocSize, DPxPTR(Mem));
-
-  return Mem;
-}
-
-void __tgt_rtl_free_per_hw_thread_scratch(int32_t DeviceId, void *Ptr) {
-  auto Context = DeviceInfo->getContext(DeviceId);
-  CALL_CL_EXT_VOID(DeviceId, clMemFreeINTEL, Context, Ptr);
-}
-
 int32_t __tgt_rtl_get_device_info(int32_t DeviceId, int32_t InfoID,
                                   size_t InfoSize, void *InfoValue,
                                   size_t *InfoSizeRet) {
