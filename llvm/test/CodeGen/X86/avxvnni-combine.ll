@@ -316,21 +316,14 @@ define void @bar_128(i32 %0, ptr %1, <2 x i64> %2, ptr %3) {
 ; SPR-NEXT:    xorl %ecx, %ecx
 ; SPR-NEXT:    .p2align 4, 0x90
 ; SPR-NEXT:  .LBB2_7: # =>This Inner Loop Header: Depth=1
-<<<<<<< HEAD
 ; if INTEL_CUSTOMIZATION
-=======
->>>>>>> 40222ddcf8f54fe523b2d14ab7005ebf412330f1
 ; SPR-NEXT:    vmovdqa (%rsi,%r8), %xmm1
 ; SPR-NEXT:    vpmaddwd -16(%rdx,%r8), %xmm0, %xmm2
 ; SPR-NEXT:    vpaddd -16(%rsi,%r8), %xmm2, %xmm2
 ; SPR-NEXT:    vmovdqa %xmm2, -16(%rsi,%r8)
-<<<<<<< HEAD
-; SPR-NEXT:    {vex} vpdpwssd (%rdx,%r8), %xmm0, %xmm1
+; SPR-NEXT:    vpmaddwd	(%rdx,%r8), %xmm0, %xmm2
+; SPR-NEXT:    vpaddd	%xmm2, %xmm1, %xmm
 ; end INTEL_CUSTOMIZATION
-=======
-; SPR-NEXT:    vpmaddwd (%rdx,%r8), %xmm0, %xmm2
-; SPR-NEXT:    vpaddd %xmm2, %xmm1, %xmm1
->>>>>>> 40222ddcf8f54fe523b2d14ab7005ebf412330f1
 ; SPR-NEXT:    vmovdqa %xmm1, (%rsi,%r8)
 ; SPR-NEXT:    addq $2, %rcx
 ; SPR-NEXT:    addq $32, %r8
@@ -771,21 +764,14 @@ define void @bar_256(i32 %0, ptr %1, <4 x i64> %2, ptr %3) {
 ; SPR-NEXT:    xorl %ecx, %ecx
 ; SPR-NEXT:    .p2align 4, 0x90
 ; SPR-NEXT:  .LBB5_7: # =>This Inner Loop Header: Depth=1
-<<<<<<< HEAD
 ; if INTEL_CUSTOMIZATION
-=======
->>>>>>> 40222ddcf8f54fe523b2d14ab7005ebf412330f1
 ; SPR-NEXT:    vmovdqa (%rsi,%r8), %ymm1
 ; SPR-NEXT:    vpmaddwd -32(%rdx,%r8), %ymm0, %ymm2
 ; SPR-NEXT:    vpaddd -32(%rsi,%r8), %ymm2, %ymm2
 ; SPR-NEXT:    vmovdqa %ymm2, -32(%rsi,%r8)
-<<<<<<< HEAD
-; SPR-NEXT:    {vex} vpdpwssd (%rdx,%r8), %ymm0, %ymm1
+; SPR-NEXT:    vpmaddwd	(%rdx,%r8), %ymm0, %ymm2
+; SPR-NEXT:    vpaddd	%ymm2, %ymm1, %ymm1
 ; end INTEL_CUSTOMIZATION
-=======
-; SPR-NEXT:    vpmaddwd (%rdx,%r8), %ymm0, %ymm2
-; SPR-NEXT:    vpaddd %ymm2, %ymm1, %ymm1
->>>>>>> 40222ddcf8f54fe523b2d14ab7005ebf412330f1
 ; SPR-NEXT:    vmovdqa %ymm1, (%rsi,%r8)
 ; SPR-NEXT:    addq $2, %rcx
 ; SPR-NEXT:    addq $64, %r8
