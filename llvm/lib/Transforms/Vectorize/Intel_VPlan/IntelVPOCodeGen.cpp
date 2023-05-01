@@ -1633,6 +1633,9 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
         cast<StructType>(PrivCmplx->getAllocatedType())->getElementType(0);
     // Represent complex struct type as a packed vector type like <2 x ElemTy>.
     Type *CmplxTyAsVec = FixedVectorType::get(ElemTy, 2);
+    // Determine alignment of wide load/store using element type of complex.
+    const DataLayout &DL = *Plan->getDataLayout();
+    Align Alignment = Align(DL.getABITypeAlign(ElemTy));
 
     // We treat the widened private memory of complex reduction as a wide vector
     // with real and imaginary parts for each lane stored consecutively like -
@@ -1662,8 +1665,9 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     // reduction.
     Value *PrivLdBasePtr = createWidenedBasePtrConsecutiveLoadStore(
         PrivCmplx, CmplxTyAsVec, false /*Reverse*/);
-    Value *PrivLd = Builder.CreateLoad(getWidenedType(CmplxTyAsVec, VF),
-                                       PrivLdBasePtr, "cmplx.fin.vec");
+    Value *PrivLd =
+        Builder.CreateAlignedLoad(getWidenedType(CmplxTyAsVec, VF),
+                                  PrivLdBasePtr, Alignment, "cmplx.fin.vec");
 
     Value *CmplxFinVec = PrivLd;
     auto *CmplxFinVecTy = cast<FixedVectorType>(CmplxFinVec->getType());
@@ -1721,15 +1725,15 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     }
     // Reduce the finalized complex value with original and store back the
     // result.
-    Value *OrigCmplxLd =
-        Builder.CreateLoad(CmplxTyAsVec, OrigCmplx, "orig.cmplx");
+    Value *OrigCmplxLd = Builder.CreateAlignedLoad(CmplxTyAsVec, OrigCmplx,
+                                                   Alignment, "orig.cmplx");
     Value *CmplxFinBinOp = Builder.CreateBinOp(
         static_cast<Instruction::BinaryOps>(CmplxRedFinal->getBinOpcode()),
         OrigCmplxLd, CmplxFinVecRedShuf, "cmplx.final");
     if (isa<FPMathOperator>(CmplxFinBinOp) && CmplxRedFinal->hasFastMathFlags())
       cast<Instruction>(CmplxFinBinOp)
           ->setFastMathFlags(CmplxRedFinal->getFastMathFlags());
-    Builder.CreateStore(CmplxFinBinOp, OrigCmplx);
+    Builder.CreateAlignedStore(CmplxFinBinOp, OrigCmplx, Alignment);
     return;
   }
   case VPInstruction::InductionInit: {

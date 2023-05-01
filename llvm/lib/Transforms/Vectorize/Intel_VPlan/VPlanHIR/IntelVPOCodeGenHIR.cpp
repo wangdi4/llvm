@@ -4499,6 +4499,9 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     RegDDRef *OrigCmplx = getUniformScalarRef(CmplxRedFinal->getOperand(1));
     Type *ElemTy =
         cast<StructType>(PrivCmplx->getAllocatedType())->getElementType(0);
+    // Determine alignment of wide load/store using element type of complex.
+    const DataLayout &DL = *Plan->getDataLayout();
+    Align Alignment = Align(DL.getABITypeAlign(ElemTy));
 
     // We treat the widened private memory of complex reduction as a wide vector
     // with real and imaginary parts for each lane stored consecutively like -
@@ -4533,6 +4536,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     PrivLdBasePtr->setAddressOf(false);
     PrivLdBasePtr->setBitCastDestVecOrElemType(
         FixedVectorType::get(ElemTy, getVF() * 2));
+    PrivLdBasePtr->setAlignment(Alignment.value());
     HLInst *PrivLd = HLNodeUtilities.createLoad(PrivLdBasePtr, "cmplx.fin.vec");
     addInstUnmasked(PrivLd);
 
@@ -4590,6 +4594,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
         OrigCmplx->getDefinedAtLevel(), OrigCmplx->getSymbase());
     OrigCmplxPtr->setBitCastDestVecOrElemType(FixedVectorType::get(ElemTy, 2));
     OrigCmplxPtr->setAddressOf(false);
+    OrigCmplxPtr->setAlignment(Alignment.value());
 
     // Reduce the finalized complex value with original and store back the
     // result.
