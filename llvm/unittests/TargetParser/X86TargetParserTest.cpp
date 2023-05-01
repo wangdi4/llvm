@@ -74,6 +74,7 @@ TEST_F(X86VecABITest, testX86VecABIInfo) {
       {"core-avx2", "haswell", 'Y', 'd', 32, 32},
       {"core_4th_gen_avx", "haswell", 'Y', 'd', 32, 32},
       {"core_5th_gen_avx", "broadwell", 'Y', 'd', 32, 32},
+      {"common-avx512", "common-avx512", 'Z', 'e', 64, 64},
       {"skylake_avx512", "skylake_avx512", 'Z', 'e', 64, 64},
       {"skylake-avx512", "skylake_avx512", 'Z', 'e', 64, 64},
       {"sapphirerapids", "sapphirerapids", 'Z', 'e', 64, 64},
@@ -82,7 +83,7 @@ TEST_F(X86VecABITest, testX86VecABIInfo) {
   for (auto &R : Array) {
     EXPECT_EQ(testVecABIInfo(R), true);
   }
-  for (auto S: {"sse42", "core-i7", "avx", "avx2", "common-avx512"})
+  for (auto S : {"sse42", "core-i7", "avx", "avx2"})
     EXPECT_EQ(testVecABIInfoUndef(S), true);
 }
 #endif // INTEL_CUSTOMIZATION
