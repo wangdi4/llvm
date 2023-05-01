@@ -642,12 +642,6 @@ struct DeviceTy {
   void kernelBatchBegin(uint32_t MaxKernels);
   void kernelBatchEnd(void);
   int32_t setFunctionPtrMap(void);
-  // Check if reduction scratch is supported
-  int32_t supportsPerHWThreadScratch(void);
-  // Allocate per-hw-thread reduction scratch
-  void *allocPerHWThreadScratch(size_t ObjSize, int32_t AllocKind);
-  // Free per-hw-thread reduction scratch
-  void freePerHWThreadScratch(void *Ptr);
   /// Get device information
   int32_t getDeviceInfo(int32_t InfoID, size_t InfoSize, void *InfoValue,
                         size_t *InfoSizeRet);

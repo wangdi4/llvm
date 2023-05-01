@@ -86,6 +86,7 @@ sycl/include/std/experimental/simd.hpp @intel-restricted/dpcpp-esimd-reviewers
 llvm/lib/SYCLLowerIR/LowerInvokeSimd.cpp @intel-restricted/dpcpp-esimd-reviewers
 llvm/include/llvm/SYCLLowerIR/LowerInvokeSimd.h @intel-restricted/dpcpp-esimd-reviewers
 invoke_simd @intel-restricted/dpcpp-esimd-reviewers
+InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 
 # COMPONENT: CG
 # JIRA: CMPLRLLVM->LLVM Code Generator

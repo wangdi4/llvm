@@ -499,8 +499,6 @@ bool RTLsTy::attemptLoadRTL(const std::string &RTLName, RTLInfoTy &RTL) {
   SET_OPTIONAL_INTERFACE_FN(kernel_batch_begin);
   SET_OPTIONAL_INTERFACE_FN(kernel_batch_end);
   SET_OPTIONAL_INTERFACE_FN(set_function_ptr_map);
-  SET_OPTIONAL_INTERFACE_FN(alloc_per_hw_thread_scratch);
-  SET_OPTIONAL_INTERFACE_FN(free_per_hw_thread_scratch);
   SET_OPTIONAL_INTERFACE(run_team_nd_region, run_target_team_nd_region);
   SET_OPTIONAL_INTERFACE_FN(get_device_info);
   SET_OPTIONAL_INTERFACE_FN(data_aligned_alloc_shared);

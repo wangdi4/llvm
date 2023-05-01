@@ -953,44 +953,6 @@ EXTERN void __tgt_add_build_options(
   if (RTLInfo->add_build_options)
     RTLInfo->add_build_options(CompileOptions, LinkOptions);
 }
-
-EXTERN int __tgt_target_supports_per_hw_thread_scratch(int64_t DeviceNum) {
-  if (checkDeviceAndCtors(DeviceNum, nullptr) != OFFLOAD_SUCCESS) {
-    DP("Failed to get device %" PRId64 " ready\n", DeviceNum);
-    handleTargetOutcome(false, nullptr);
-    return 0;
-  }
-
-  return PM->Devices[DeviceNum]->supportsPerHWThreadScratch();
-}
-
-EXTERN void *__tgt_target_alloc_per_hw_thread_scratch(
-    int64_t DeviceNum, size_t ObjSize, int32_t AllocKind) {
-  if (ObjSize == 0)
-    return nullptr;
-
-  if (checkDeviceAndCtors(DeviceNum, nullptr) != OFFLOAD_SUCCESS) {
-    DP("Failed to get device %" PRId64 " ready\n", DeviceNum);
-    handleTargetOutcome(false, nullptr);
-    return nullptr;
-  }
-
-  return PM->Devices[DeviceNum]->allocPerHWThreadScratch(ObjSize, AllocKind);
-}
-
-EXTERN void __tgt_target_free_per_hw_thread_scratch(
-    int64_t DeviceNum, void *Ptr) {
-  if (!Ptr)
-    return;
-
-  if (checkDeviceAndCtors(DeviceNum, nullptr) != OFFLOAD_SUCCESS) {
-    DP("Failed to get device %" PRId64 " ready\n", DeviceNum);
-    handleTargetOutcome(false, nullptr);
-    return;
-  }
-
-  return PM->Devices[DeviceNum]->freePerHWThreadScratch(Ptr);
-}
 #endif // INTEL_COLLAB
 
 EXTERN void __tgt_set_info_flag(uint32_t NewInfoLevel) {

@@ -12,8 +12,8 @@ define void @foo(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, 
 ; CHECK-NEXT:   IntInduction(+) Start: i64 1 Step: i64 1 StartVal: i64 1 EndVal: ? BinOp: i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP_INDVARS_IV_IND_INIT_STEP]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
 ; CHECK-EMPTY:
-; CHECK-NEXT:   IntInduction(+) Start: i64 [[K_IV_B0:%.*]] Step: i64 2 StartVal: ? EndVal: ? BinOp: i64 [[VP_K_IV_NEXT:%.*]] = add i64 [[VP_K_IV_N1:%.*]] i64 1 need close form
-; CHECK-NEXT:    Linked values: i64 [[VP_K_IV:%.*]], i64 [[VP_K_IV_NEXT]], i64 [[VP_K_IV_IND_INIT:%.*]], i64 [[VP_K_IV_IND_INIT_STEP:%.*]], i64 [[VP0:%.*]], i64 [[VP_K_IV_IND_FINAL:%.*]],
+; CHECK-NEXT:   IntInduction(+) Start: i64 [[K_IV_B0:%.*]] Step: i64 2 StartVal: ? EndVal: ? BinOp: i64 [[VP0:%.*]] = add i64 [[VP_K_IV:%.*]] i64 [[VP_K_IV_IND_INIT_STEP:%.*]] need close form
+; CHECK-NEXT:    Linked values: i64 [[VP_K_IV]], i64 [[VP_K_IV_NEXT:%.*]], i64 [[VP_K_IV_IND_INIT:%.*]], i64 [[VP_K_IV_IND_INIT_STEP]], i64 [[VP0]], i64 [[VP_K_IV_IND_FINAL:%.*]],
 ; CHECK:         [[BB1:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -27,7 +27,7 @@ define void @foo(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, 
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB2]], [[BB0]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB2]] ],  [ i64 [[VP_INDVARS_IV_NEXT]], [[BB0]] ]
 ; CHECK-NEXT:     i64 [[VP_K_IV]] = phi  [ i64 [[VP_K_IV_IND_INIT]], [[BB2]] ],  [ i64 [[VP0]], [[BB0]] ]
-; CHECK-NEXT:     i64 [[VP_K_IV_N1]] = add i64 [[VP_K_IV]] i64 1
+; CHECK-NEXT:     i64 [[VP_K_IV_N1:%.*]] = add i64 [[VP_K_IV]] i64 1
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     i64 [[VP0]] = add i64 [[VP_K_IV]] i64 [[VP_K_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     i64 [[VP_K_IV_NEXT]] = add i64 [[VP_K_IV_N1]] i64 1

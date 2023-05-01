@@ -120,8 +120,6 @@ struct RTLInfoTy {
   typedef void(kernel_batch_end_ty)(int32_t);
   typedef int32_t(set_function_ptr_map_ty)(int32_t, uint64_t,
                                            const __omp_offloading_fptr_map_t *);
-  typedef void *(alloc_per_hw_thread_scratch_ty)(int32_t, size_t, int32_t);
-  typedef void(free_per_hw_thread_scratch_ty)(int32_t, void *);
   typedef int32_t(get_device_info_ty)(int32_t, int32_t, size_t, void *,
                                       size_t *);
   typedef void *(data_aligned_alloc_shared_ty)(int32_t, size_t, size_t,
@@ -224,8 +222,6 @@ struct RTLInfoTy {
   kernel_batch_begin_ty *kernel_batch_begin = nullptr;
   kernel_batch_end_ty *kernel_batch_end = nullptr;
   set_function_ptr_map_ty *set_function_ptr_map = nullptr;
-  alloc_per_hw_thread_scratch_ty *alloc_per_hw_thread_scratch = nullptr;
-  free_per_hw_thread_scratch_ty *free_per_hw_thread_scratch = nullptr;
   get_device_info_ty *get_device_info = nullptr;
   data_aligned_alloc_shared_ty *data_aligned_alloc_shared = nullptr;
   prefetch_shared_mem_ty *prefetch_shared_mem = nullptr;
