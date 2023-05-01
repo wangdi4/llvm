@@ -8837,7 +8837,8 @@ static void addCanonicalIVRecipes(VPlan &Plan, Type *IdxTy, DebugLoc DL,
   VPBasicBlock *EB = TopRegion->getExitingBasicBlock();
   if (useActiveLaneMaskForControlFlow(Style)) {
     // Create the active lane mask instruction in the vplan preheader.
-    VPBasicBlock *Preheader = Plan.getEntry()->getEntryBasicBlock();
+    VPBasicBlock *VecPreheader =
+        cast<VPBasicBlock>(Plan.getVectorLoopRegion()->getSinglePredecessor());
 
     // We can't use StartV directly in the ActiveLaneMask VPInstruction, since
     // we have to take unrolling into account. Each part needs to start at
@@ -8846,7 +8847,7 @@ static void addCanonicalIVRecipes(VPlan &Plan, Type *IdxTy, DebugLoc DL,
         new VPInstruction(HasNUW ? VPInstruction::CanonicalIVIncrementForPartNUW
                                  : VPInstruction::CanonicalIVIncrementForPart,
                           {StartV}, DL, "index.part.next");
-    Preheader->appendRecipe(CanonicalIVIncrementParts);
+    VecPreheader->appendRecipe(CanonicalIVIncrementParts);
 
     // Create the ActiveLaneMask instruction using the correct start values.
     VPValue *TC = Plan.getOrCreateTripCount();
@@ -8858,7 +8859,7 @@ static void addCanonicalIVRecipes(VPlan &Plan, Type *IdxTy, DebugLoc DL,
       // done after the active.lane.mask intrinsic is called.
       auto *TCMinusVF =
           new VPInstruction(VPInstruction::CalculateTripCountMinusVF, {TC}, DL);
-      Preheader->appendRecipe(TCMinusVF);
+      VecPreheader->appendRecipe(TCMinusVF);
       IncrementValue = CanonicalIVPHI;
       TripCount = TCMinusVF;
     } else {
@@ -8873,7 +8874,7 @@ static void addCanonicalIVRecipes(VPlan &Plan, Type *IdxTy, DebugLoc DL,
     auto *EntryALM = new VPInstruction(VPInstruction::ActiveLaneMask,
                                        {CanonicalIVIncrementParts, TC}, DL,
                                        "active.lane.mask.entry");
-    Preheader->appendRecipe(EntryALM);
+    VecPreheader->appendRecipe(EntryALM);
 
     // Now create the ActiveLaneMaskPhi recipe in the main loop using the
     // preheader ActiveLaneMask instruction.
