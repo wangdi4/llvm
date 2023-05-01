@@ -84,11 +84,34 @@ int main() {
       krn.get_info<info::kernel_device_specific::compile_num_sub_groups>(dev);
   assert(compileNumSg <= maxNumSg);
 
-  try {
-    krn.get_info<sycl::info::kernel_device_specific::global_work_size>(dev);
-    assert(dev.get_info<sycl::info::device::device_type>() ==
-           sycl::info::device_type::custom);
-  } catch (sycl::exception &e) {
-    assert(e.code() == sycl::errc::invalid);
+  {
+    std::error_code Errc;
+    std::string ErrMsg = "";
+    bool IsExceptionThrown = false;
+    try {
+      krn.get_info<sycl::info::kernel_device_specific::global_work_size>(dev);
+      auto BuiltInIds = dev.get_info<info::device::built_in_kernel_ids>();
+      bool isBuiltInKernel = std::find(BuiltInIds.begin(), BuiltInIds.end(),
+                                       KernelID) != BuiltInIds.end();
+      bool isCustomDevice = dev.get_info<sycl::info::device::device_type>() ==
+                            sycl::info::device_type::custom;
+      assert((isCustomDevice || isBuiltInKernel) &&
+             "info::kernel_device_specific::global_work_size descriptor can "
+             "only be used with custom device "
+             "or built-in kernel.");
+
+    } catch (sycl::exception &e) {
+      IsExceptionThrown = true;
+      Errc = e.code();
+      ErrMsg = e.what();
+    }
+    assert(IsExceptionThrown &&
+           "Invalid using of info::kernel_device_specific::global_work_size "
+           "query should throw an exception.");
+    assert(Errc == errc::invalid);
+    assert(ErrMsg ==
+           "info::kernel_device_specific::global_work_size descriptor may only "
+           "be used if the device type is device_type::custom or if the "
+           "kernel is a built-in kernel.");
   }
 }
