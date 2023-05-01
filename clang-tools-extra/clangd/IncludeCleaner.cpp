@@ -40,7 +40,13 @@
 #include "clang/Tooling/Syntax/Tokens.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseSet.h"
+#if INTEL_CUSTOMIZATION
+// Temporarily revert this change because of the bug in the llvm-project.
+// Tracker: CMPLRLLVM-47255.
+#if 0
 #include "llvm/ADT/GenericUniformityImpl.h"
+#endif
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/ADT/SmallString.h"
@@ -417,6 +423,10 @@ IncludeCleanerFindings computeIncludeCleanerFindings(ParsedAST &AST) {
             Ref.Target, TouchingTokens.back().range(SM), Providers};
         MissingIncludes.push_back(std::move(DiagInfo));
       });
+#if INTEL_CUSTOMIZATION
+// Temporarily revert this change because of the bug in the llvm-project.
+// Tracker: CMPLRLLVM-47255.
+#if 0
   // Put possibly equal diagnostics together for deduplication.
   // The duplicates might be from macro arguments that get expanded multiple
   // times.
@@ -431,6 +441,8 @@ IncludeCleanerFindings computeIncludeCleanerFindings(ParsedAST &AST) {
     return true;
   });
   MissingIncludes.erase(llvm::unique(MissingIncludes), MissingIncludes.end());
+#endif
+#endif // INTEL_CUSTOMIZATION
   std::vector<const Inclusion *> UnusedIncludes =
       getUnused(AST, Used, /*ReferencedPublicHeaders*/ {});
   return {std::move(UnusedIncludes), std::move(MissingIncludes)};
