@@ -8921,11 +8921,23 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (const Arg *Tgts = Args.getLastArg(options::OPT_ax)) {
     SmallString<128> TargetInfo("-ax=");
 
-    for (unsigned i = 0; i < Tgts->getNumValues(); ++i) {
-      if (i)
+    for (unsigned I = 0; I < Tgts->getNumValues(); ++I) {
+      if (I)
         TargetInfo += ',';
       // Normalize CPU name, e.g. "CORE-AVX2" -> "core-avx2"
-      TargetInfo += x86::getCPUForIntelOnly(D, Tgts->getValue(i), Triple, Tgts);
+      TargetInfo += x86::getCPUForIntelOnly(D, Tgts->getValue(I), Triple, Tgts);
+    }
+    CmdArgs.push_back(Args.MakeArgString(TargetInfo.str()));
+  }
+  // Forward -mauto-arch option
+  if (const Arg *Tgts = Args.getLastArg(options::OPT_mauto_arch_EQ)) {
+    SmallString<128> TargetInfo("-mauto-arch=");
+
+    for (unsigned I = 0; I < Tgts->getNumValues(); ++I) {
+      if (I)
+        TargetInfo += ',';
+      // Normalize CPU name, e.g. "CORE-AVX2" -> "core-avx2"
+      TargetInfo += x86::getCPUForIntelOnly(D, Tgts->getValue(I), Triple, Tgts);
     }
     CmdArgs.push_back(Args.MakeArgString(TargetInfo.str()));
   }

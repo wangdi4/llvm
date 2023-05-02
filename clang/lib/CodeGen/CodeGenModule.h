@@ -807,22 +807,28 @@ public:
     if (AutoMultiVersionMetadata)
       return AutoMultiVersionMetadata;
 
-    std::vector<std::string> &Targets =
-        Target.getTargetOpts().AutoMultiVersionTargets;
-    if (Targets.empty())
+    using namespace llvm;
+    LLVMContext &Ctx = getLLVMContext();
+
+    MDString *MagicStr = nullptr;
+    std::vector<std::string> *Targets = nullptr;
+
+    if (!Target.getTargetOpts().AutoCPUDispatchTargets.empty()) {
+      MagicStr = MDString::get(Ctx, "auto-cpu-dispatch-target");
+      Targets = &Target.getTargetOpts().AutoCPUDispatchTargets;
+    } else if (!Target.getTargetOpts().AutoArchTargets.empty()) {
+      MagicStr = MDString::get(Ctx, "auto-arch-target");
+      Targets = &Target.getTargetOpts().AutoArchTargets;
+    } else
       return nullptr;
 
-    using namespace llvm;
-    llvm::SmallVector<llvm::Metadata *> TargetMDs;
-    llvm::LLVMContext &Ctx = getLLVMContext();
-    llvm::Metadata *MagicStr =
-        llvm::MDString::get(Ctx, "auto-cpu-dispatch-target");
-    for (llvm::StringRef Target : Targets) {
-      std::array<llvm::Metadata *, 2> Ops = {MagicStr,
-                                             llvm::MDString::get(Ctx, Target)};
-      TargetMDs.push_back(llvm::MDNode::get(Ctx, Ops));
+    SmallVector<Metadata *> TargetMDs;
+    for (StringRef Target : *Targets) {
+      std::array<Metadata *, 2> Ops = {MagicStr, MDString::get(Ctx, Target)};
+      TargetMDs.push_back(MDNode::get(Ctx, Ops));
     }
-    AutoMultiVersionMetadata = llvm::MDNode::get(Ctx, TargetMDs);
+
+    AutoMultiVersionMetadata = MDNode::get(Ctx, TargetMDs);
     return AutoMultiVersionMetadata;
   }
 #endif //INTEL_CUSTOMIZATION

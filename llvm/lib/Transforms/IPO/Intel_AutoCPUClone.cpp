@@ -32,27 +32,34 @@ static cl::opt<bool>
                                    cl::ReallyHidden,
                                    cl::desc("Enable multi-versioning of select functions"));
 
-static StringRef getTargetCPUFromMD(MDNode *TargetInfoMD) {
-  // Expected format:
-  //
+static std::pair<StringRef, StringRef>
+getTargetCPUFromMD(MDNode *TargetInfoMD) {
+  // Expected format is either:
+  //   !{!"auto-arch-target", !"target-cpu"}
+  // or:
   //   !{!"auto-cpu-dispatch-target", !"target-cpu"}
+
+  assert(TargetInfoMD->getNumOperands() == 2 &&
+         "Expected two operands in Auto CPU Dispatch target metadata!");
+
   assert(all_of(TargetInfoMD->operands(),
                 [](const MDOperand &Op) { return isa<MDString>(Op.get()); }) &&
          "Auto CPU Dispatch target metadata must consists of MDString's "
          "only!");
-  assert(TargetInfoMD->getNumOperands() == 2 &&
-         "Expected 2 entries in Auto CPU Dispatch target metadata!");
 
   auto Op = [TargetInfoMD](unsigned Idx) {
     return cast<MDString>(TargetInfoMD->getOperand(Idx).get())->getString();
   };
 
-  assert(Op(0) == "auto-cpu-dispatch-target" &&
+  StringRef TargetCpuType = Op(0);
+
+  assert((TargetCpuType == "auto-arch-target" ||
+          TargetCpuType == "auto-cpu-dispatch-target") &&
          "Invalid Auto CPU Dispatch target metadata format!");
 
   StringRef TargetCpu = Op(1);
 
-  return TargetCpu;
+  return std::make_pair(TargetCpuType, TargetCpu);
 }
 
 static std::string getTargetFeatures(StringRef TargetCpu) {
@@ -399,7 +406,8 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     std::map<std::string, GlobalValue *> Clones;
 
     for (const MDOperand &TargetInfoIt : AutoCPUDispatchMD->operands()) {
-      const StringRef TargetCpu =
+      StringRef TargetCpuType, TargetCpu;
+      std::tie(TargetCpuType, TargetCpu) =
           getTargetCPUFromMD(cast<MDNode>(TargetInfoIt.get()));
 
       // Get llvm/TargetParser/X86TargetParser.def friendly target name.
@@ -438,8 +446,10 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       New->removeFnAttr("tune-cpu");
       New->addFnAttr("tune-cpu", TargetCpu);
 
-      New->addFnAttr("loopopt-pipeline", "full");
-      New->addFnAttr("advanced-optim", "true");
+      if (TargetCpuType == "auto-cpu-dispatch-target") {
+        New->addFnAttr("loopopt-pipeline", "full");
+        New->addFnAttr("advanced-optim", "true");
+      }
 
       New->setMetadata("llvm.acd.clone", MDNode::get(Ctx, {}));
 

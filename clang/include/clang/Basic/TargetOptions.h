@@ -133,7 +133,8 @@ public:
 
 #ifdef INTEL_CUSTOMIZATION
   /// If given, list of names of the target CPUs to multiversion code for
-  std::vector<std::string> AutoMultiVersionTargets;
+  std::vector<std::string> AutoCPUDispatchTargets;
+  std::vector<std::string> AutoArchTargets;
 #endif //INTEL_CUSTOMIZATION
   /// The validator version for dxil.
   std::string DxilValidatorVersion;

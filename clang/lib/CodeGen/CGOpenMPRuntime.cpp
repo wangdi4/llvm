@@ -12702,7 +12702,7 @@ void CGOpenMPRuntime::emitDeclareSimdFunction(const FunctionDecl *FD,
             ProcessorNames.push_back(CPUName);
           // From option: -ax<code>[,<code>]...
           for (StringRef AutoName :
-               CGM.getTarget().getTargetOpts().AutoMultiVersionTargets)
+               CGM.getTarget().getTargetOpts().AutoCPUDispatchTargets)
             ProcessorNames.push_back(AutoName);
           // From ompx_processor clauses.
           for (auto *P : Attr->processors())

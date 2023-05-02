@@ -1004,10 +1004,16 @@ def ax : CommaJoined<["-"], "ax">,
   HelpText<"generate multiple, processor-specific, auto-dispatched code paths "
   "for Intel® processors, specified by <codes>, if there is a performance benefit">,
   MetaVarName<"<codes>">,
-  MarshallingInfoStringVector<TargetOpts<"AutoMultiVersionTargets">>;
+  MarshallingInfoStringVector<TargetOpts<"AutoCPUDispatchTargets">>;
 def ax_EQ : CommaJoined<["-"], "ax=">,
   Flags<[CC1Option]>, Group<m_Group>,
   Alias<ax>;
+def mauto_arch_EQ : CommaJoined<["-"], "mauto-arch=">,
+  Flags<[CC1Option]>, Group<m_Group>,
+  HelpText<"generate multiple, processor-specific, auto-dispatched code paths "
+  "for X86 processors, specified by <codes>, if there is a performance benefit">,
+  MetaVarName<"<codes>">,
+  MarshallingInfoStringVector<TargetOpts<"AutoArchTargets">>;
 def _intel : Flag<["--"], "intel">, Flags<[NoXarchOption, CoreOption]>,
   HelpText<"Run in Intel Compiler mode">;
 def _icx : Flag<["--"], "icx">,
@@ -8997,6 +9003,14 @@ def _SLASH_fp_COL : CLJoined<"fp:">, Alias<ffp_model_EQ>;
 def _SLASH_ax : CLCommaJoined<"Qax">, Alias<ax>,
   HelpText<"generate multiple, processor-specific, auto-dispatched code paths "
   "for Intel® processors, specified by <codes>, if there is a performance benefit">,
+  MetaVarName<"<codes>">;
+def _SLASH_auto_arch_EQ : CLCommaJoined<"Qauto-arch=">, Alias<mauto_arch_EQ>,
+  HelpText<"generate multiple, processor-specific, auto-dispatched code paths "
+  "for X86 processors, specified by <codes>, if there is a performance benefit">,
+  MetaVarName<"<codes>">;
+def _SLASH_auto_arch_COL : CLCommaJoined<"Qauto-arch:">, Alias<mauto_arch_EQ>,
+  HelpText<"generate multiple, processor-specific, auto-dispatched code paths "
+  "for X86 processors, specified by <codes>, if there is a performance benefit">,
   MetaVarName<"<codes>">;
 def _SLASH_Qcf_protection_EQ : CLJoined<"Qcf-protection=">, Alias<fcf_protection_EQ>,
   HelpText<"Instrument control-flow architecture protection. Options: return, branch, full, none.">;
