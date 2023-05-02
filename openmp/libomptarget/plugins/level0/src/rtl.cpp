@@ -2050,15 +2050,13 @@ struct MemAllocInfoTy {
   bool InPool = false;
   /// Is implicit argument
   bool ImplicitArg = false;
-  /// Allocation-time hint used for shared memory
-  uint32_t MemAdvice = UINT32_MAX;
 
   MemAllocInfoTy() = default;
 
   MemAllocInfoTy(void *_Base, size_t _Size, int32_t _Kind, bool _InPool,
-                 bool _ImplicitArg, uint32_t _MemAdvice) :
-      Base(_Base), Size(_Size), Kind(_Kind), InPool(_InPool),
-      ImplicitArg(_ImplicitArg), MemAdvice(_MemAdvice) {}
+                 bool _ImplicitArg)
+      : Base(_Base), Size(_Size), Kind(_Kind), InPool(_InPool),
+        ImplicitArg(_ImplicitArg) {}
 };
 
 /// Responsible for all activities involving memory allocation/deallocation.
@@ -2468,11 +2466,9 @@ class MemAllocatorTy {
   public:
     /// Add allocation information to the map
     void add(void *Ptr, void *Base, size_t Size, int32_t Kind,
-             bool InPool = false, bool ImplicitArg = false,
-             uint32_t MemAdvice = UINT32_MAX) {
+             bool InPool = false, bool ImplicitArg = false) {
       auto Inserted = Map.emplace(
-          Ptr,
-          MemAllocInfoTy{Base, Size, Kind, InPool, ImplicitArg, MemAdvice});
+          Ptr, MemAllocInfoTy{Base, Size, Kind, InPool, ImplicitArg});
 #if INTEL_INTERNAL_BUILD
       // Check if we keep valid disjoint memory ranges.
       bool Valid = Inserted.second;
@@ -2687,7 +2683,7 @@ public:
     AllocBase = allocL0(AllocSize, Align, Kind);
     if (AllocBase) {
       Mem = (void *)((uintptr_t)AllocBase + Offset);
-      AllocInfo.add(Mem, AllocBase, Size, Kind, false, UserAlloc, MemAdvice);
+      AllocInfo.add(Mem, AllocBase, Size, Kind, false, UserAlloc);
       if (Owned)
         MemOwned.push_back(AllocBase);
       if (UseDedicatedPool) {
@@ -5220,8 +5216,8 @@ void *RTLDeviceInfoTy::dataAlloc(int32_t DeviceId, size_t Size, size_t Align,
   }
   auto &Allocator = (Kind == TARGET_ALLOC_HOST)
                     ? MemAllocator.at(nullptr) : MemAllocator.at(Device);
-  return Allocator.alloc(Size, Align, Kind, Offset, UserAlloc, Owned,
-                         MemAdvice, AllocOpt);
+  return Allocator.alloc(Size, Align, Kind, Offset, UserAlloc, Owned, MemAdvice,
+                         AllocOpt);
 }
 
 int32_t RTLDeviceInfoTy::dataDelete(int32_t DeviceId, void *Ptr) {
@@ -5229,41 +5225,8 @@ int32_t RTLDeviceInfoTy::dataDelete(int32_t DeviceId, void *Ptr) {
   auto Device = Devices[DeviceId];
   auto AllocType = getMemAllocType(Ptr);
   auto &Allocator = (AllocType == ZE_MEMORY_TYPE_HOST)
-                    ? MemAllocator.at(nullptr) : MemAllocator.at(Device);
-  if (AllocType == ZE_MEMORY_TYPE_SHARED) {
-    // We need to "clear" any "set" memory advice here. Otherwise, we can see
-    // inconsistent shared memory state if subsequent new allocation happen to
-    // use the same memory range.
-    const MemAllocInfoTy *Info = Allocator.getAllocInfo(Ptr);
-    if (Info && Info->MemAdvice != UINT32_MAX) {
-      uint32_t ClearAdvice;
-      switch (Info->MemAdvice) {
-      case ZE_MEMORY_ADVICE_SET_READ_MOSTLY:
-        ClearAdvice = ZE_MEMORY_ADVICE_CLEAR_READ_MOSTLY;
-        break;
-      case ZE_MEMORY_ADVICE_SET_PREFERRED_LOCATION:
-        ClearAdvice = ZE_MEMORY_ADVICE_CLEAR_PREFERRED_LOCATION;
-        break;
-      case ZE_MEMORY_ADVICE_SET_NON_ATOMIC_MOSTLY:
-        ClearAdvice = ZE_MEMORY_ADVICE_CLEAR_NON_ATOMIC_MOSTLY;
-        break;
-      default:
-        ClearAdvice = UINT32_MAX;
-      }
-      if (ClearAdvice != UINT32_MAX) {
-        auto CmdList = getLinkCopyCmdList(DeviceId);
-        auto CmdQueue = getLinkCopyCmdQueue(DeviceId);
-        CALL_ZE_RET_FAIL(zeCommandListAppendMemAdvise, CmdList, Device, Ptr,
-                         Info->Size,
-                         static_cast<ze_memory_advice_t>(ClearAdvice));
-        CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
-        CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, CmdQueue, 1,
-                         &CmdList, nullptr);
-        CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
-        CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
-      }
-    }
-  }
+                        ? MemAllocator.at(nullptr)
+                        : MemAllocator.at(Device);
   return Allocator.dealloc(Ptr);
 }
 
@@ -7571,16 +7534,22 @@ void *__tgt_rtl_data_aligned_alloc_shared(int32_t DeviceId, size_t Align,
   if (MemAdvice == UINT32_MAX)
     return Mem;
 
-  auto CmdList = DeviceInfo->getLinkCopyCmdList(DeviceId);
-  auto CmdQueue = DeviceInfo->getLinkCopyCmdQueue(DeviceId);
   auto Device = DeviceInfo->Devices[DeviceId];
-  CALL_ZE_RET_NULL(zeCommandListAppendMemAdvise, CmdList, Device, Mem, Size,
-                   static_cast<ze_memory_advice_t>(MemAdvice));
-  CALL_ZE_RET_NULL(zeCommandListClose, CmdList);
-  CALL_ZE_RET_NULL(zeCommandQueueExecuteCommandLists, CmdQueue, 1, &CmdList,
-                   nullptr);
-  CALL_ZE_RET_NULL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
-  CALL_ZE_RET_NULL(zeCommandListReset, CmdList);
+  if (DeviceInfo->useImmForCopy(DeviceId)) {
+    auto CmdList = DeviceInfo->getImmCopyCmdList(DeviceId);
+    CALL_ZE_RET_NULL(zeCommandListAppendMemAdvise, CmdList, Device, Mem, Size,
+                     static_cast<ze_memory_advice_t>(MemAdvice));
+  } else {
+    auto CmdList = DeviceInfo->getLinkCopyCmdList(DeviceId);
+    auto CmdQueue = DeviceInfo->getLinkCopyCmdQueue(DeviceId);
+    CALL_ZE_RET_NULL(zeCommandListAppendMemAdvise, CmdList, Device, Mem, Size,
+                     static_cast<ze_memory_advice_t>(MemAdvice));
+    CALL_ZE_RET_NULL(zeCommandListClose, CmdList);
+    CALL_ZE_RET_NULL(zeCommandQueueExecuteCommandLists, CmdQueue, 1, &CmdList,
+                     nullptr);
+    CALL_ZE_RET_NULL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
+    CALL_ZE_RET_NULL(zeCommandListReset, CmdList);
+  }
 
   return Mem;
 }
@@ -7595,17 +7564,21 @@ int32_t __tgt_rtl_prefetch_shared_mem(int32_t DeviceId, size_t NumPtrs,
     return OFFLOAD_FAIL;
   }
 
-  auto CmdList = DeviceInfo->getLinkCopyCmdList(DeviceId);
-  auto CmdQueue = DeviceInfo->getLinkCopyCmdQueue(DeviceId);
+  bool UseImm = DeviceInfo->useImmForCopy(DeviceId);
+  auto CmdList = UseImm ? DeviceInfo->getImmCopyCmdList(DeviceId)
+                        : DeviceInfo->getLinkCopyCmdList(DeviceId);
   for (size_t I = 0; I < NumPtrs; I++) {
     CALL_ZE_RET_FAIL(zeCommandListAppendMemoryPrefetch, CmdList, Ptrs[I],
                      Sizes[I]);
   }
-  CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
-  CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, CmdQueue, 1, &CmdList,
-                   nullptr);
-  CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
-  CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
+  if (!UseImm) {
+    auto CmdQueue = DeviceInfo->getLinkCopyCmdQueue(DeviceId);
+    CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
+    CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, CmdQueue, 1, &CmdList,
+                     nullptr);
+    CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
+    CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
+  }
 
   return OFFLOAD_SUCCESS;
 }
