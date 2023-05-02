@@ -91,7 +91,8 @@ EXTERN void *__tgt_sycl_get_interop(void *zedevice) {
   return NULL;
 }
 
-EXTERN void __tgt_sycl_create_interop_wrapper(omp_interop_t interop) {
+EXTERN void __tgt_sycl_create_interop_wrapper(omp_interop_t interop,
+                                              bool is_imm_cmd_list) {
 
   void *ZeDevice;
   void *ZeQueue;
@@ -109,12 +110,16 @@ EXTERN void __tgt_sycl_create_interop_wrapper(omp_interop_t interop) {
   ZeQueue = TgtInterop->TargetSync;
   SyclWrapperObj->ZeQueue = ZeQueue;
 
-  ze_command_queue_handle_t ZeQueueT =
-      static_cast<ze_command_queue_handle_t>(ZeQueue);
+  std::variant<ze_command_queue_handle_t, ze_command_list_handle_t> ZeQorL;
+  if (is_imm_cmd_list)
+    ZeQorL = static_cast<ze_command_list_handle_t>(ZeQueue);
+  else
+    ZeQorL = static_cast<ze_command_queue_handle_t>(ZeQueue);
 
   sycl::backend_input_t<sycl::backend::ext_oneapi_level_zero, sycl::queue>
-      QueueInteropInput = {ZeQueueT, *SyclWrapperObj->SyclDevice,
+      QueueInteropInput = {ZeQorL, *SyclWrapperObj->SyclDevice,
                            sycl::ext::oneapi::level_zero::ownership::keep};
+
   SyclWrapperObj->SyclQueue = std::make_unique<sycl::queue>(
       sycl::make_queue<sycl::backend::ext_oneapi_level_zero>(QueueInteropInput,
                                                              *SyclContext));

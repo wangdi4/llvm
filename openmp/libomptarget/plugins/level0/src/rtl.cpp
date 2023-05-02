@@ -192,179 +192,6 @@ std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
 #endif // INTEL_CUSTOMIZATION
 };
 
-#if INTEL_CUSTOMIZATION
-/// Interop support
-namespace L0Interop {
-  // Library needed to convert interop object into a sycl interop object
-  // when preferred type is sycl for interop object
-#if _WIN32
-  const char *SyclWrapName = "omptarget.sycl.wrap.dll";
-#else  // !_WIN32
-  const char *SyclWrapName = "libomptarget.sycl.wrap.so";
-#endif // !_WIN32
-
-  // ID and names from openmp.org
-  const int32_t Vendor = 8;
-  const char *VendorName = GETNAME(intel);
-  const int32_t FrId = 6;
-  const char *FrName = GETNAME(level_zero);
-
-  // targetsync = -9, device_context = -8, ...,  fr_id = -1
-  std::vector<const char *> IprNames{"targetsync",
-                                     "device_context",
-                                     "device",
-                                     "platform",
-                                     "device_num",
-                                     "vendor_name",
-                                     "vendor",
-                                     "fr_name",
-                                     "fr_id",
-                                     "device_num_eus",
-                                     "device_num_threads_per_eu",
-                                     "device_eu_simd_width",
-                                     "device_num_eus_per_subslice",
-                                     "device_num_subslices_per_slice",
-                                     "device_num_slices",
-                                     "device_local_mem_size",
-                                     "device_global_mem_size",
-                                     "device_global_mem_cache_size",
-                                     "device_max_clock_frequency",
-                                     "is_imm_cmd_list"};
-
-  std::vector<const char *> IprTypeDescs{
-      "ze_command_queue_handle_t, level_zero command queue handle",
-      "ze_context_handle_t, level_zero context handle",
-      "ze_device_handle_t, level_zero device handle",
-      "ze_driver_handle_t, level_zero driver handle",
-      "intptr_t, OpenMP device ID",
-      "const char *, vendor name",
-      "intptr_t, vendor ID",
-      "const char *, foreign runtime name",
-      "intptr_t, foreign runtime ID",
-      "intptr_t, total number of EUs",
-      "intptr_t, number of threads per EU",
-      "intptr_t, physical EU simd width",
-      "intptr_t, number of EUs per sub-slice",
-      "intptr_t, number of sub-slices per slice",
-      "intptr_t, number of slices",
-      "intptr_t, local memory size in bytes",
-      "intptr_t, global memory size in bytes",
-      "intptr_t, global memory cache size in bytes",
-      "intptr_t, max clock frequency in MHz",
-      "intptr_t, Using immediate command list"};
-
-  // Level Zero property ID
-  enum IprIDTy : int32_t {
-    device_num_eus = 0,
-    device_num_threads_per_eu,
-    device_eu_simd_width,
-    device_num_eus_per_subslice,
-    device_num_subslices_per_slice,
-    device_num_slices,
-    device_local_mem_size,
-    device_global_mem_size,
-    device_global_mem_cache_size,
-    device_max_clock_frequency,
-    is_imm_cmd_list
-  };
-
-  /// Level Zero interop property
-  struct Property {
-    // Use this when command queue needs to be accessed as
-    // the targetsync field in interop will be changed if preferred type is sycl.
-    ze_command_queue_handle_t CommandQueue;
-    ze_command_list_handle_t ImmCmdList;
-  };
-
-  /// Dump implementation-defined properties
-  static void printInteropProperties(void) {
-    DP("Interop property IDs, Names, Descriptions\n");
-    for (int I = -omp_ipr_first; I < (int)IprNames.size(); I++)
-      DP("-- %" PRId32 ", %s, %s\n", I + omp_ipr_first, IprNames[I],
-         IprTypeDescs[I]);
-  }
-
-  struct SyclWrapperTy {
-    bool WrapApiValid = false;
-    typedef void(init_sycl_interop_ty)(void *);
-    typedef void*(get_sycl_interop_ty)(void *);
-    typedef void(create_sycl_interop_ty)(omp_interop_t);
-    typedef void(delete_sycl_interop_ty)(omp_interop_t);
-    typedef void(delete_all_sycl_interop_ty)();
-    typedef int32_t (flush_queue_sycl_ty)(omp_interop_t);
-    typedef int32_t (append_barrier_sycl_ty)(omp_interop_t);
-
-    init_sycl_interop_ty *init_sycl_interop = nullptr;
-    get_sycl_interop_ty *get_sycl_interop = nullptr;
-    create_sycl_interop_ty *create_sycl_interop = nullptr;
-    delete_sycl_interop_ty *delete_sycl_interop = nullptr;
-    delete_all_sycl_interop_ty *delete_all_sycl_interop = nullptr;
-    flush_queue_sycl_ty        *flush_queue_sycl        = nullptr;
-    append_barrier_sycl_ty     *append_barrier_sycl     = nullptr;
-
-    std::unique_ptr<llvm::sys::DynamicLibrary> LibHandle;
-  } SyclWrapper;
-
-  /// Wrap interop object as a SYCl object
-  static void wrapInteropSycl(__tgt_interop * Interop) {
-    static std::once_flag Flag{};
-
-    std::call_once(Flag, [&Interop]() {
-      std::string ErrMsg;
-      auto DynLib = std::make_unique<llvm::sys::DynamicLibrary>(
-          llvm::sys::DynamicLibrary::getPermanentLibrary(
-              L0Interop::SyclWrapName, &ErrMsg));
-
-      if (!DynLib->isValid()) {
-        DP("Unable to load library '%s': %s!\n",
-           L0Interop::SyclWrapName, ErrMsg.c_str());
-        return;
-      }
-
-      DP("Loaded library '%s': \n", L0Interop::SyclWrapName);
-
-      if (!(*((void **)&SyclWrapper.init_sycl_interop) =
-                DynLib->getAddressOfSymbol("__tgt_sycl_init_interop")))
-        return;
-
-      if (!(*((void **)&SyclWrapper.get_sycl_interop) =
-          DynLib->getAddressOfSymbol("__tgt_sycl_get_interop")))
-        return;
-
-      if (!(*((void **)&SyclWrapper.create_sycl_interop) =
-          DynLib->getAddressOfSymbol("__tgt_sycl_create_interop_wrapper")))
-        return;
-
-      if (!(*((void **)&SyclWrapper.delete_sycl_interop) =
-          DynLib->getAddressOfSymbol("__tgt_sycl_delete_interop_wrapper")))
-        return;
-
-      if (!(*((void **)&SyclWrapper.delete_all_sycl_interop) =
-          DynLib->getAddressOfSymbol("__tgt_sycl_delete_all_interop_wrapper")))
-        return;
-      if(!(*((void **)&SyclWrapper.flush_queue_sycl) =
-          DynLib->getAddressOfSymbol("__tgt_sycl_flush_queue_wrapper")))
-          return;
-      if(!(*((void **)&SyclWrapper.append_barrier_sycl) =
-          DynLib->getAddressOfSymbol("__tgt_sycl_append_barrier_wrapper")))
-          return;
-
-      SyclWrapper.WrapApiValid = true;
-      SyclWrapper.LibHandle = std::move(DynLib);
-      SyclWrapper.init_sycl_interop(Interop);
-    });
-
-    if (!SyclWrapper.WrapApiValid) {
-      DP("SyclWrapper API is invalid\n");
-      return;
-    }
-
-    // Call to replace L0 info with Sycl info.
-    SyclWrapper.create_sycl_interop(Interop);
-  }
-}
-#endif // INTEL_CUSTOMIZATION
-
 /// Tentative enumerators used with ompx_get_device_info() and the data type
 /// ompx_devinfo_name, char[N],
 /// ompx_devinfo_pci_id, uint32_t
@@ -3485,6 +3312,181 @@ struct RTLDeviceInfoTy {
 };
 
 static RTLDeviceInfoTy *DeviceInfo = nullptr;
+
+#if INTEL_CUSTOMIZATION
+/// Interop support
+namespace L0Interop {
+// Library needed to convert interop object into a sycl interop object
+// when preferred type is sycl for interop object
+#if _WIN32
+const char *SyclWrapName = "omptarget.sycl.wrap.dll";
+#else  // !_WIN32
+const char *SyclWrapName = "libomptarget.sycl.wrap.so";
+#endif // !_WIN32
+
+// ID and names from openmp.org
+const int32_t Vendor = 8;
+const char *VendorName = GETNAME(intel);
+const int32_t FrId = 6;
+const char *FrName = GETNAME(level_zero);
+
+// targetsync = -9, device_context = -8, ...,  fr_id = -1
+std::vector<const char *> IprNames{"targetsync",
+                                   "device_context",
+                                   "device",
+                                   "platform",
+                                   "device_num",
+                                   "vendor_name",
+                                   "vendor",
+                                   "fr_name",
+                                   "fr_id",
+                                   "device_num_eus",
+                                   "device_num_threads_per_eu",
+                                   "device_eu_simd_width",
+                                   "device_num_eus_per_subslice",
+                                   "device_num_subslices_per_slice",
+                                   "device_num_slices",
+                                   "device_local_mem_size",
+                                   "device_global_mem_size",
+                                   "device_global_mem_cache_size",
+                                   "device_max_clock_frequency",
+                                   "is_imm_cmd_list"};
+
+std::vector<const char *> IprTypeDescs{
+    "ze_command_queue_handle_t, level_zero command queue handle",
+    "ze_context_handle_t, level_zero context handle",
+    "ze_device_handle_t, level_zero device handle",
+    "ze_driver_handle_t, level_zero driver handle",
+    "intptr_t, OpenMP device ID",
+    "const char *, vendor name",
+    "intptr_t, vendor ID",
+    "const char *, foreign runtime name",
+    "intptr_t, foreign runtime ID",
+    "intptr_t, total number of EUs",
+    "intptr_t, number of threads per EU",
+    "intptr_t, physical EU simd width",
+    "intptr_t, number of EUs per sub-slice",
+    "intptr_t, number of sub-slices per slice",
+    "intptr_t, number of slices",
+    "intptr_t, local memory size in bytes",
+    "intptr_t, global memory size in bytes",
+    "intptr_t, global memory cache size in bytes",
+    "intptr_t, max clock frequency in MHz",
+    "intptr_t, Using immediate command list"};
+
+// Level Zero property ID
+enum IprIDTy : int32_t {
+  device_num_eus = 0,
+  device_num_threads_per_eu,
+  device_eu_simd_width,
+  device_num_eus_per_subslice,
+  device_num_subslices_per_slice,
+  device_num_slices,
+  device_local_mem_size,
+  device_global_mem_size,
+  device_global_mem_cache_size,
+  device_max_clock_frequency,
+  is_imm_cmd_list
+};
+
+/// Level Zero interop property
+struct Property {
+  // Use this when command queue needs to be accessed as
+  // the targetsync field in interop will be changed if preferred type is sycl.
+  ze_command_queue_handle_t CommandQueue;
+  ze_command_list_handle_t ImmCmdList;
+};
+
+/// Dump implementation-defined properties
+static void printInteropProperties(void) {
+  DP("Interop property IDs, Names, Descriptions\n");
+  for (int I = -omp_ipr_first; I < (int)IprNames.size(); I++)
+    DP("-- %" PRId32 ", %s, %s\n", I + omp_ipr_first, IprNames[I],
+       IprTypeDescs[I]);
+}
+
+struct SyclWrapperTy {
+  bool WrapApiValid = false;
+  typedef void(init_sycl_interop_ty)(void *);
+  typedef void *(get_sycl_interop_ty)(void *);
+  typedef void(create_sycl_interop_ty)(omp_interop_t, bool);
+  typedef void(delete_sycl_interop_ty)(omp_interop_t);
+  typedef void(delete_all_sycl_interop_ty)();
+  typedef int32_t(flush_queue_sycl_ty)(omp_interop_t);
+  typedef int32_t(append_barrier_sycl_ty)(omp_interop_t);
+
+  init_sycl_interop_ty *init_sycl_interop = nullptr;
+  get_sycl_interop_ty *get_sycl_interop = nullptr;
+  create_sycl_interop_ty *create_sycl_interop = nullptr;
+  delete_sycl_interop_ty *delete_sycl_interop = nullptr;
+  delete_all_sycl_interop_ty *delete_all_sycl_interop = nullptr;
+  flush_queue_sycl_ty *flush_queue_sycl = nullptr;
+  append_barrier_sycl_ty *append_barrier_sycl = nullptr;
+
+  std::unique_ptr<llvm::sys::DynamicLibrary> LibHandle;
+} SyclWrapper;
+
+/// Wrap interop object as a SYCl object
+static void wrapInteropSycl(__tgt_interop *Interop) {
+  static std::once_flag Flag{};
+
+  std::call_once(Flag, [&Interop]() {
+    std::string ErrMsg;
+    auto DynLib = std::make_unique<llvm::sys::DynamicLibrary>(
+        llvm::sys::DynamicLibrary::getPermanentLibrary(L0Interop::SyclWrapName,
+                                                       &ErrMsg));
+
+    if (!DynLib->isValid()) {
+      DP("Unable to load library '%s': %s!\n", L0Interop::SyclWrapName,
+         ErrMsg.c_str());
+      return;
+    }
+
+    DP("Loaded library '%s': \n", L0Interop::SyclWrapName);
+
+    if (!(*((void **)&SyclWrapper.init_sycl_interop) =
+              DynLib->getAddressOfSymbol("__tgt_sycl_init_interop")))
+      return;
+
+    if (!(*((void **)&SyclWrapper.get_sycl_interop) =
+              DynLib->getAddressOfSymbol("__tgt_sycl_get_interop")))
+      return;
+
+    if (!(*((void **)&SyclWrapper.create_sycl_interop) =
+              DynLib->getAddressOfSymbol("__tgt_sycl_create_interop_wrapper")))
+      return;
+
+    if (!(*((void **)&SyclWrapper.delete_sycl_interop) =
+              DynLib->getAddressOfSymbol("__tgt_sycl_delete_interop_wrapper")))
+      return;
+
+    if (!(*((void **)&SyclWrapper.delete_all_sycl_interop) =
+              DynLib->getAddressOfSymbol(
+                  "__tgt_sycl_delete_all_interop_wrapper")))
+      return;
+    if (!(*((void **)&SyclWrapper.flush_queue_sycl) =
+              DynLib->getAddressOfSymbol("__tgt_sycl_flush_queue_wrapper")))
+      return;
+    if (!(*((void **)&SyclWrapper.append_barrier_sycl) =
+              DynLib->getAddressOfSymbol("__tgt_sycl_append_barrier_wrapper")))
+      return;
+
+    SyclWrapper.WrapApiValid = true;
+    SyclWrapper.LibHandle = std::move(DynLib);
+    SyclWrapper.init_sycl_interop(Interop);
+  });
+
+  if (!SyclWrapper.WrapApiValid) {
+    DP("SyclWrapper API is invalid\n");
+    return;
+  }
+
+  // Call to replace L0 info with Sycl info.
+  SyclWrapper.create_sycl_interop(
+      Interop, DeviceInfo->useImmForCompute(Interop->DeviceNum));
+}
+} // namespace L0Interop
+#endif // INTEL_CUSTOMIZATION
 
 /// For scoped start/stop
 class ScopedTimerTy {
