@@ -1919,7 +1919,7 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setOperationAction(ISD::EXTRACT_SUBVECTOR, VT, Custom);
   }
 
-  // This block controls legalization for 512-bit operations with 32/64 bit
+  // This block controls legalization for 512-bit operations with 8/16/32/64 bit
   // elements. 512-bits can be disabled based on prefer-vector-width and
   // required-vector-width function attributes.
   if (!Subtarget.useSoftFloat() && Subtarget.useAVX512Regs()) {
@@ -2316,6 +2316,7 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
   }
 
   // This block control legalization of v32i1/v64i1 which are available with
+<<<<<<< HEAD
   // AVX512BW. 512-bit v32i16 and v64i8 vector legalization is controlled with
   // useBWIRegs.
 #if INTEL_CUSTOMIZATION
@@ -2332,6 +2333,9 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     setOperationAction(ISD::CONCAT_VECTORS, VT, Custom);
     setOperationAction(ISD::INSERT_SUBVECTOR, VT, Custom);
   } ;
+=======
+  // AVX512BW..
+>>>>>>> 644f0c0faa5749abcc85c02ac3a5cbac380a9bec
   if (!Subtarget.useSoftFloat() && Subtarget.hasBWI()) {
     addRegisterClass(MVT::v64i1, &X86::VK64RegClass);
     SetGroup(MVT::v64i1);
