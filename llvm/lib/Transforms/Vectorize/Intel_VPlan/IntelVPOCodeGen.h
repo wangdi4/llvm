@@ -186,10 +186,26 @@ public:
                         const Twine &Name = "cloned.loop");
 
 private:
+  /// Helper method to generate an empty SESE loop structure  at current
+  /// insertion point. This is achieved by splitting current BB and creating a
+  /// single BB loop structure. \p TC is used to set the known trip count of
+  /// loop. Generated loop's IVPhi and exit basicblock are returned. NOTE: This
+  /// method explicitly sets the insertion point to IV increment instruction.
+  /// Hence caller clients can populate loop's body without updating insertion
+  /// point.
+  std::pair<PHINode *, BasicBlock *>
+  generateKnownTCEmptyLoop(unsigned TC, StringRef LoopName);
+
   /// Helper function to process SOA layout for private final arrays and
   /// generate exit basic block as a result.
   BasicBlock *processSOALayout(VPAllocatePrivate *Priv, Value *Orig,
                                Type *ElementType, Value *ElementPosition);
+
+  /// Helper function to process SOA layout for array reductions and generate
+  /// exit basic block as a result.
+  BasicBlock *
+  processSOALayoutArrayReduction(VPReductionFinalArray *RedFinalArr);
+
   /// Return true if instruction \p V needs scalar code generated, i.e. is
   /// used in scalar context after vectorization.
   bool needScalarCode(VPInstruction *V);
@@ -377,6 +393,13 @@ private:
   // %or = call i1 @llvm.vector.reduce.or.v4i1(<4 x i1> %cmp)
   // %sel = select i1 %or, i32 %vpchg, i32 %vpstart
   void vectorizeSelectCmpReductionFinal(VPReductionFinal *RedFinal);
+
+  /// Helper utility to generate vector reduce intrinsic based on provided \p
+  /// Intrin and vector \p VecValue. Final scalar operation is also emitted here
+  /// if accumulator value \p Acc is provided. Check vectorizeReductionFinal for
+  /// example.
+  Value *createVectorReduce(Intrinsic::ID Intrin, Value *VecValue, Value *Acc,
+                            unsigned BinOpcode, FastMathFlags FMF);
 
   /// Generate vector code for induction initialization.
   /// InductionInit has two arguments {Start, Step} and keeps the operation

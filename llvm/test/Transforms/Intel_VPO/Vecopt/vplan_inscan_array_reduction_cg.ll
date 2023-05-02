@@ -60,7 +60,7 @@ define dso_local void @_Z3foov() local_unnamed_addr {
 ; CHECK-NEXT:    [[INITLOOP_COND:%.*]] = icmp ult i64 [[NEXT_ELEM_IDX]], 12
 ; CHECK-NEXT:    br i1 [[INITLOOP_COND]], label [[ARRAY_REDN_INIT_LOOP]], label [[ARRAY_REDN_INIT_LOOPEXIT:%.*]]
 
-; CHECK:       array.redn.init.loopexit:
+; CHECK:       array.redn.init.loop.exit:
 ; CHECK-NEXT:    br label [[VPLANNEDBB5:%.*]]
 
 ; CHECK:       VPlannedBB5:

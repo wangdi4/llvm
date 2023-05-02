@@ -19,6 +19,7 @@
 
 #include "IntelVPlan.h"
 #include "IntelVPlanLoopUnroller.h"
+#include "IntelVPlanVerifier.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
@@ -393,6 +394,24 @@ public:
   /// Pre VPlan CodeGen pass to verify that we can lower the final VPlan into
   /// corresponding vector code.
   bool canLowerVPlan(const VPlanVector &Plan, unsigned VF);
+
+#ifndef NDEBUG
+  /// Go through all VPlans and run the VPlan verifier on them
+  // TODO: VerifyLoopInfo should change to be flags for skipping/running
+  //       checks once verifyVPlan uses that
+  void verifyAllVPlans(VPlanVerifier *V, const bool VerifyLoopInfo = false) {
+    SmallPtrSet<VPlan *, 2> Visited;
+
+    for (auto &Pair : VPlans) {
+      VPlanVector *P = Pair.second.MainPlan.get();
+      if (Visited.insert(P).second)
+        V->verifyVPlan(P, *P->getDT(), P->getVPLoopInfo(), VerifyLoopInfo);
+      P = Pair.second.MaskedModeLoop.get();
+      if (P && Visited.insert(P).second)
+        V->verifyVPlan(P, *P->getDT(), P->getVPLoopInfo(), VerifyLoopInfo);
+    }
+  }
+#endif
 
   /// Select the best plan and dispose all other VPlans.
   /// \Returns the selected vectorization factor and corresponding VPlan.

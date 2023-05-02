@@ -252,12 +252,18 @@ bool VPSOAAnalysis::SOASafetyChecker::isSafeLoadStore(
 bool VPSOAAnalysis::SOASafetyChecker::isSafeGEPInst(
     const VPGEPInstruction *VPGEP, Type *AllocatedType,
     Type *PrivElemSize) const {
+  Type *SourceType = VPGEP->getSourceElementType();
+
   // Any GEP with original type is safe.
-  if (VPGEP->getSourceElementType() == AllocatedType)
+  if (SourceType == AllocatedType)
     return true;
 
-  // Non-scalar types are not supported yet.
-  if (!isScalarTy(VPGEP->getSourceElementType()))
+  if (!Analysis.isSOASupportedTy(SourceType))
+    return false;
+
+  // If the GEP is for an array type, check whether it has same type elements.
+  auto *SourceArrayType = dyn_cast<ArrayType>(SourceType);
+  if (SourceArrayType && SourceArrayType->getElementType() != PrivElemSize)
     return false;
 
   // GEP can be potentially unsafe when it computes pointers
@@ -271,7 +277,7 @@ bool VPSOAAnalysis::SOASafetyChecker::isSafeGEPInst(
   // TODO: for struct aggregates, check if the type is the same as the
   // original private element type.
   return areTypeSizesEqual(Analysis.Plan.getDataLayout(),
-                           VPGEP->getSourceElementType(), PrivElemSize);
+                           VPGEP->getResultElementType(), PrivElemSize);
 }
 
 bool VPSOAAnalysis::SOASafetyChecker::isSafeVPSubscriptInst(
@@ -436,8 +442,8 @@ bool VPSOAAnalysis::SOASafetyChecker::isSafeUse(const VPInstruction *UseInst,
     return VPlanAllowSOAPhis && isMergeSafeForSOA(UseInst);
 
   case VPInstruction::ReductionInitArr:
-    // Array reduction initialization does not affect layout. It's currently
-    // implemented as a scalar loop.
+  case VPInstruction::ReductionFinalArr:
+    // SOA support is available for array reductions in CG.
     return true;
 
   case VPInstruction::InductionInit:
@@ -512,12 +518,6 @@ bool VPSOAAnalysis::SOASafetyChecker::isSafeForSOA() {
     // Analyze the users of the current-instruction.
     for (VPValue *User : CurrentI->users()) {
       const VPInstruction *UseInst = cast<VPInstruction>(User);
-
-      // Array reduction finalization assumes AOS layout strictly.
-      // TODO: Remove this when array reduction finalization is updated to
-      // handle SOA layout memory.
-      if (isa<VPReductionFinalArray>(UseInst))
-        return false;
 
       // We are only interested in pointer or its alias which is either in the
       // Loop-preheader of within the loop itself.

@@ -485,6 +485,12 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   // VPlan Predicator
   LVP.predicate();
 
+#ifndef NDEBUG
+  // Run verifier after predicator
+  std::unique_ptr<VPlanVerifier> Verifier(new VPlanVerifier(Lp, *DL));
+  LVP.verifyAllVPlans(Verifier.get());
+#endif
+
   // VPlan construction stress test ends here.
   if (VPlanConstrStressTest)
     return bailout(VPORBuilder, Lp, WRLp, OptReportVerbosity::High,
@@ -631,6 +637,12 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   // WRLp is null and no directives need deletion.
   if (WRLp)
     VPOUtils::stripDirectives(WRLp);
+
+#ifndef NDEBUG
+  // Run verifier before code gen
+  Verifier->verifyVPlan(Plan, *Plan->getDT(), Plan->getVPLoopInfo(),
+                        false /*VerifyLoopInfo*/);
+#endif
 
   CandLoopsVectorized++;
 
