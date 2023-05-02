@@ -105,6 +105,7 @@ add_clang_library(clangSema
   ClangOpenCLBuiltinsImpl
   ClangSPIRVBuiltinsImpl
   omp_gen
+  RISCVTargetParserTableGen
 
   LINK_LIBS
   clangAST
