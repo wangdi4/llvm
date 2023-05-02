@@ -191,6 +191,9 @@ public:
   /// Returns a RegDDRef representing an undef value with type \p Type.
   RegDDRef *createUndefDDRef(Type *Type);
 
+  /// Returns a RegDDRef representing a poison value with type \p Type.
+  RegDDRef *createPoisonDDRef(Type *Type);
+
   /// Returns a new BlobDDRef representing blob with Index. Level is the defined
   /// at level for the blob.
   BlobDDRef *createBlobDDRef(unsigned Index, unsigned Level = NonLinearLevel);

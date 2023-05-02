@@ -173,6 +173,10 @@ RegDDRef *DDRefUtils::createUndefDDRef(Type *Ty) {
   return createConstDDRef(UndefVal);
 }
 
+RegDDRef *DDRefUtils::createPoisonDDRef(Type *Ty) {
+  return createConstDDRef(PoisonValue::get(Ty));
+}
+
 BlobDDRef *DDRefUtils::createBlobDDRef(unsigned Index, unsigned Level) {
   return new BlobDDRef(*this, Index, Level);
 }

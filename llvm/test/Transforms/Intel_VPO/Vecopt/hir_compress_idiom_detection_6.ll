@@ -97,8 +97,8 @@
 ; CHECK-NEXT:        [[PHI_TEMP0:%.*]] = [[K_0130]]
 ; CHECK-NEXT:        [[DOTVEC0:%.*]] = (<4 x i32>*)([[C0]])[0]
 ; CHECK-NEXT:        [[DOTVEC30:%.*]] = [[DOTVEC0]] != 0
-; CHECK-NEXT:        [[EXP_LOAD0:%.*]] = @llvm.masked.expandload.v4f32(&((float*)([[A0]])[%phi.temp]),  [[DOTVEC30]],  undef)
-; CHECK-NEXT:        [[EXP_LOAD40:%.*]] = @llvm.masked.expandload.v4f32(&((float*)([[B0]])[%phi.temp]),  [[DOTVEC30]],  undef)
+; CHECK-NEXT:        [[EXP_LOAD0:%.*]] = @llvm.masked.expandload.v4f32(&((float*)([[A0]])[%phi.temp]),  [[DOTVEC30]],  poison)
+; CHECK-NEXT:        [[EXP_LOAD40:%.*]] = @llvm.masked.expandload.v4f32(&((float*)([[B0]])[%phi.temp]),  [[DOTVEC30]],  poison)
 ; CHECK-NEXT:        [[DOTVEC50:%.*]] = [[EXP_LOAD0]]  +  [[EXP_LOAD40]]
 ; CHECK-NEXT:        @llvm.masked.compressstore.v4f32([[DOTVEC50]],  &((float*)([[A0]])[%phi.temp]),  [[DOTVEC30]])
 ; CHECK-NEXT:        [[SELECT0:%.*]] = ([[DOTVEC30]] == <i1 true, i1 true, i1 true, i1 true>) ? -1 : 0
@@ -110,8 +110,8 @@
 ; CHECK-NEXT:        [[PHI_TEMP0]] = [[ADD60]]
 ; CHECK-NEXT:        [[DOTVEC0]] = (<4 x i32>*)([[C0]])[4]
 ; CHECK-NEXT:        [[DOTVEC30]] = [[DOTVEC0]] != 0
-; CHECK-NEXT:        [[EXP_LOAD0]] = @llvm.masked.expandload.v4f32(&((float*)([[A0]])[%phi.temp]),  [[DOTVEC30]],  undef)
-; CHECK-NEXT:        [[EXP_LOAD40]] = @llvm.masked.expandload.v4f32(&((float*)([[B0]])[%phi.temp]),  [[DOTVEC30]],  undef)
+; CHECK-NEXT:        [[EXP_LOAD0]] = @llvm.masked.expandload.v4f32(&((float*)([[A0]])[%phi.temp]),  [[DOTVEC30]],  poison)
+; CHECK-NEXT:        [[EXP_LOAD40]] = @llvm.masked.expandload.v4f32(&((float*)([[B0]])[%phi.temp]),  [[DOTVEC30]],  poison)
 ; CHECK-NEXT:        [[DOTVEC50]] = [[EXP_LOAD0]]  +  [[EXP_LOAD40]]
 ; CHECK-NEXT:        @llvm.masked.compressstore.v4f32([[DOTVEC50]],  &((float*)([[A0]])[%phi.temp]),  [[DOTVEC30]])
 ; CHECK-NEXT:        [[SELECT0]] = ([[DOTVEC30]] == <i1 true, i1 true, i1 true, i1 true>) ? -1 : 0
@@ -123,8 +123,8 @@
 ; CHECK-NEXT:        [[PHI_TEMP0]] = [[ADD60]]
 ; CHECK-NEXT:        [[DOTVEC0]] = (<4 x i32>*)([[C0]])[8]
 ; CHECK-NEXT:        [[DOTVEC30]] = [[DOTVEC0]] != 0
-; CHECK-NEXT:        [[EXP_LOAD0]] = @llvm.masked.expandload.v4f32(&((float*)([[A0]])[%phi.temp]),  [[DOTVEC30]],  undef)
-; CHECK-NEXT:        [[EXP_LOAD40]] = @llvm.masked.expandload.v4f32(&((float*)([[B0]])[%phi.temp]),  [[DOTVEC30]],  undef)
+; CHECK-NEXT:        [[EXP_LOAD0]] = @llvm.masked.expandload.v4f32(&((float*)([[A0]])[%phi.temp]),  [[DOTVEC30]],  poison)
+; CHECK-NEXT:        [[EXP_LOAD40]] = @llvm.masked.expandload.v4f32(&((float*)([[B0]])[%phi.temp]),  [[DOTVEC30]],  poison)
 ; CHECK-NEXT:        [[DOTVEC50]] = [[EXP_LOAD0]]  +  [[EXP_LOAD40]]
 ; CHECK-NEXT:        @llvm.masked.compressstore.v4f32([[DOTVEC50]],  &((float*)([[A0]])[%phi.temp]),  [[DOTVEC30]])
 ; CHECK-NEXT:        [[SELECT0]] = ([[DOTVEC30]] == <i1 true, i1 true, i1 true, i1 true>) ? -1 : 0

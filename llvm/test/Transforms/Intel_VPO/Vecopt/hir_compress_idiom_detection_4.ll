@@ -127,13 +127,13 @@
 ; CHECK-NEXT:        |   [[XOR0:%.*]] = [[SHL0]]  ^  -1
 ; CHECK-NEXT:        |   [[CAST90:%.*]] = bitcast.i8.<8 x i1>([[XOR0]])
 ; CHECK-NEXT:        |   [[DOTVEC100]] = (<8 x double>*)([[A0]])[i1], Mask = @{[[DOTVEC80]]}
-; CHECK-NEXT:        |   [[SHUFFLE0:%.*]] = shufflevector [[PHI_TEMP50]],  undef,  zeroinitializer
+; CHECK-NEXT:        |   [[SHUFFLE0:%.*]] = shufflevector [[PHI_TEMP50]],  poison,  zeroinitializer
 ; CHECK-NEXT:        |   [[ADD0:%.*]] = [[SHUFFLE0]]  +  <i64 0, i64 9, i64 18, i64 27, i64 36, i64 45, i64 54, i64 63>
-; CHECK-NEXT:        |   [[COMPRESS0:%.*]] = @llvm.x86.avx512.mask.compress.v8f64([[DOTVEC100]],  undef,  [[DOTVEC80]])
+; CHECK-NEXT:        |   [[COMPRESS0:%.*]] = @llvm.x86.avx512.mask.compress.v8f64([[DOTVEC100]],  poison,  [[DOTVEC80]])
 ; CHECK-NEXT:        |   @llvm.masked.scatter.v8f64.v8p0f64([[COMPRESS0]],  &((<8 x double*>)([[B0]])[%add]),  0,  [[CAST90]])
-; CHECK-NEXT:        |   [[SHUFFLE110:%.*]] = shufflevector [[PHI_TEMP50]] + 5,  undef,  zeroinitializer
+; CHECK-NEXT:        |   [[SHUFFLE110:%.*]] = shufflevector [[PHI_TEMP50]] + 5,  poison,  zeroinitializer
 ; CHECK-NEXT:        |   [[ADD120:%.*]] = [[SHUFFLE110]]  +  <i64 0, i64 9, i64 18, i64 27, i64 36, i64 45, i64 54, i64 63>
-; CHECK-NEXT:        |   [[COMPRESS130:%.*]] = @llvm.x86.avx512.mask.compress.v8f64([[DOTVEC100]],  undef,  [[DOTVEC80]])
+; CHECK-NEXT:        |   [[COMPRESS130:%.*]] = @llvm.x86.avx512.mask.compress.v8f64([[DOTVEC100]],  poison,  [[DOTVEC80]])
 ; CHECK-NEXT:        |   @llvm.masked.scatter.v8f64.v8p0f64([[COMPRESS130]],  &((<8 x double*>)([[B0]])[%add12]),  0,  [[CAST90]])
 ; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC80]] == <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>) ? -1 : 0
 ; CHECK-NEXT:        |   [[CAST140:%.*]] = bitcast.<8 x i1>.i8([[SELECT0]])

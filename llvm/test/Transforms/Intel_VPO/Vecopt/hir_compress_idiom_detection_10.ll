@@ -90,7 +90,7 @@
 ; CHECK:             + DO i1 = 0, 1023, 16   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:        |   [[DOTVEC0:%.*]] = (<16 x i32>*)([[C0]])[i1]
 ; CHECK-NEXT:        |   [[DOTVEC10:%.*]] = [[DOTVEC0]] != 0
-; CHECK-NEXT:        |   [[EXP_LOAD0:%.*]] = @llvm.masked.expandload.v16f64(&((double*)([[B0]])[%phi.temp]),  [[DOTVEC10]],  undef)
+; CHECK-NEXT:        |   [[EXP_LOAD0:%.*]] = @llvm.masked.expandload.v16f64(&((double*)([[B0]])[%phi.temp]),  [[DOTVEC10]],  poison)
 ; CHECK-NEXT:        |   [[DOTVEC20:%.*]] = [[EXP_LOAD0]]  *  3.000000e+00
 ; CHECK-NEXT:        |   [[DOTVEC30:%.*]] = [[DOTVEC20]]  +  2.000000e+00
 ; CHECK-NEXT:        |   @llvm.masked.compressstore.v16f64([[DOTVEC30]],  &((double*)([[B0]])[%phi.temp]),  [[DOTVEC10]])

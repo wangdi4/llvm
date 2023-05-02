@@ -104,10 +104,10 @@
 ; CHECK-NEXT:        |   [[SHL0:%.*]] = -1  <<  [[POPCNT0]]
 ; CHECK-NEXT:        |   [[XOR0:%.*]] = [[SHL0]]  ^  -1
 ; CHECK-NEXT:        |   [[CAST90:%.*]] = bitcast.i8.<8 x i1>([[XOR0]])
-; CHECK-NEXT:        |   [[SHUFFLE0:%.*]] = shufflevector [[PHI_TEMP50]] + 3,  undef,  zeroinitializer
+; CHECK-NEXT:        |   [[SHUFFLE0:%.*]] = shufflevector [[PHI_TEMP50]] + 3,  poison,  zeroinitializer
 ; CHECK-NEXT:        |   [[ADD100:%.*]] = [[SHUFFLE0]]  +  <i64 0, i64 3, i64 6, i64 9, i64 12, i64 15, i64 18, i64 21>
-; CHECK-NEXT:        |   [[GATHER0:%.*]] = @llvm.masked.gather.v8i32.v8p0i32(&((<8 x i32*>)([[D20]])[%add10]),  0,  [[CAST90]],  undef)
-; CHECK-NEXT:        |   [[EXPAND0:%.*]] = @llvm.x86.avx512.mask.expand.v8i32([[GATHER0]],  undef,  [[DOTVEC80]])
+; CHECK-NEXT:        |   [[GATHER0:%.*]] = @llvm.masked.gather.v8i32.v8p0i32(&((<8 x i32*>)([[D20]])[%add10]),  0,  [[CAST90]],  poison)
+; CHECK-NEXT:        |   [[EXPAND0:%.*]] = @llvm.x86.avx512.mask.expand.v8i32([[GATHER0]],  poison,  [[DOTVEC80]])
 ; CHECK-NEXT:        |   (<8 x i32>*)([[V20]])[i1] = [[EXPAND0]], Mask = @{[[DOTVEC80]]}
 ; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC80]] == <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>) ? -1 : 0
 ; CHECK-NEXT:        |   [[CAST110:%.*]] = bitcast.<8 x i1>.i8([[SELECT0]])

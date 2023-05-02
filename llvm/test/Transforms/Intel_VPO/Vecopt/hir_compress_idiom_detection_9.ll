@@ -87,7 +87,7 @@
 ; CHECK-NEXT:        |   [[DOTVEC20:%.*]] = undef
 ; CHECK-NEXT:        |   [[DOTVEC0:%.*]] = (<8 x i32>*)([[C0]])[i1]
 ; CHECK-NEXT:        |   [[DOTVEC10:%.*]] = [[DOTVEC0]] != 0
-; CHECK-NEXT:        |   [[EXP_LOAD0:%.*]] = @llvm.masked.expandload.v8p0f64(&((double**)([[B20]])[%phi.temp]),  [[DOTVEC10]],  undef)
+; CHECK-NEXT:        |   [[EXP_LOAD0:%.*]] = @llvm.masked.expandload.v8p0f64(&((double**)([[B20]])[%phi.temp]),  [[DOTVEC10]],  poison)
 ; CHECK-NEXT:        |   [[DOTVEC20]] = (<8 x double>*)([[A0]])[i1], Mask = @{[[DOTVEC10]]}
 ; CHECK-NEXT:        |   [[EXTRACT_0_0:%.*]] = extractelement [[EXP_LOAD0]],  0
 ; CHECK-NEXT:        |   (<8 x double>*)([[EXP_LOAD0]])[%t] = [[DOTVEC20]], Mask = @{[[DOTVEC10]]}

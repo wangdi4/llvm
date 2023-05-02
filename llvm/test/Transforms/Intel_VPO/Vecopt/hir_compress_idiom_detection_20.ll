@@ -106,7 +106,7 @@
 ; CHECK-NEXT:        |   [[DOTVEC110:%.*]] = ([[DOTVEC0]] != 0) ? [[DOTVEC80]] : 0
 ; CHECK-NEXT:        |   [[DOTVEC120:%.*]] = sitofp.<4 x i32>.<4 x float>([[DOTVEC0]])
 ; CHECK-NEXT:        |   [[DOTCOPY130:%.*]] = [[DOTVEC120]]
-; CHECK-NEXT:        |   [[EXP_LOAD0:%.*]] = @llvm.masked.expandload.v4f32(&((float*)([[F0]])[%phi.temp4]),  [[DOTVEC110]],  undef)
+; CHECK-NEXT:        |   [[EXP_LOAD0:%.*]] = @llvm.masked.expandload.v4f32(&((float*)([[F0]])[%phi.temp4]),  [[DOTVEC110]],  poison)
 ; CHECK-NEXT:        |   [[EXTRACT_0_0:%.*]] = extractelement [[EXP_LOAD0]],  0
 ; CHECK-NEXT:        |   [[DOTCOPY140:%.*]] = [[EXTRACT_0_0]]
 ; CHECK-NEXT:        |   [[SELECT0:%.*]] = ([[DOTVEC110]] == <i1 true, i1 true, i1 true, i1 true>) ? -1 : 0

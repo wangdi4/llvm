@@ -5326,16 +5326,16 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     //
     // type %ld = expand-load type, type* %ptr
     // =>
-    // %Tmp = call <VF x type> @llvm.masked.expandload.XXXX(type* %ptr, <VF x i1> %Mask, <VF x type> undef)
+    // %Tmp = call <VF x type> @llvm.masked.expandload.XXXX(type* %ptr, <VF x i1> %Mask, <VF x type> poison)
     VectorType *VecType = getWidenedType(VPInst->getType(), getVF());
     Function *ExpandLoadFunc = Intrinsic::getDeclaration(
         &HLNodeUtilities.getModule(), Intrinsic::masked_expandload, {VecType});
 
     RegDDRef *PtrRef = getOrCreateScalarRef(VPInst->getOperand(0), 0);
-    RegDDRef *Undef = DDRefUtilities.createUndefDDRef(VecType);
+    RegDDRef *Poison = DDRefUtilities.createPoisonDDRef(VecType);
 
     HLInst *ExpandLoadCall = HLNodeUtilities.createCall(
-        ExpandLoadFunc, {PtrRef, getCurMaskValueOrAllOnes(), Undef},
+        ExpandLoadFunc, {PtrRef, getCurMaskValueOrAllOnes(), Poison},
         "exp.load");
     addInstUnmasked(ExpandLoadCall);
 
@@ -5350,16 +5350,16 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     //
     // compress-store-nonu %value, %ptr
     // =>
-    // %val.to.store = call <VF x type> @x86.masked.compress.XXXXX(<VF x type> %value, <VF x type> undef, <VF x i1> %Mask)
+    // %val.to.store = call <VF x type> @x86.masked.compress.XXXXX(<VF x type> %value, <VF x type> poison, <VF x i1> %Mask)
     Type *ElType = VPInst->getOperand(0)->getType();
     VectorType *VecType = getWidenedType(ElType, getVF());
     Function *CompressFunc = getCompressExpandIntrinsicDeclaration(
         Intrinsic::x86_avx512_mask_compress, VecType);
 
     RegDDRef *ValueRef = widenRef(VPInst->getOperand(0), getVF());
-    RegDDRef *Undef = DDRefUtilities.createUndefDDRef(ValueRef->getDestType());
+    RegDDRef *Poison = DDRefUtilities.createPoisonDDRef(VecType);
     HLInst *CompressCall = HLNodeUtilities.createCall(
-        CompressFunc, {ValueRef, Undef, getCurMaskValueOrAllOnes()},
+        CompressFunc, {ValueRef, Poison, getCurMaskValueOrAllOnes()},
         "compress");
     addInstUnmasked(CompressCall);
 
@@ -5404,21 +5404,21 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
 
     RegDDRef *Align = DDRefUtilities.createConstDDRef(Type::getInt32Ty(Context),
                                                       PtrRef->getAlignment());
-    RegDDRef *Undef = DDRefUtilities.createUndefDDRef(VecType);
+    RegDDRef *Poison = DDRefUtilities.createPoisonDDRef(VecType);
     HLInst *GatherCall = HLNodeUtilities.createCall(
-        GatherFunc, {PtrRef, Align, Mask, Undef}, "gather");
+        GatherFunc, {PtrRef, Align, Mask, Poison}, "gather");
     addInstUnmasked(GatherCall);
 
     // Last step, expand loaded value.
     //
-    // %value = call <VF x type> @x86.masked.expand.XXXX(%load.val, <VF x type> undef, <VF x i1> %mask)
+    // %value = call <VF x type> @x86.masked.expand.XXXX(%load.val, <VF x type> poison, <VF x i1> %mask)
     Function *ExpandFunc = getCompressExpandIntrinsicDeclaration(
         Intrinsic::x86_avx512_mask_expand, VecType);
-    HLInst *ExpandCall =
-        HLNodeUtilities.createCall(ExpandFunc,
-                                   {GatherCall->getLvalDDRef()->clone(),
-                                    Undef->clone(), getCurMaskValueOrAllOnes()},
-                                   "expand");
+    HLInst *ExpandCall = HLNodeUtilities.createCall(
+        ExpandFunc,
+        {GatherCall->getLvalDDRef()->clone(), Poison->clone(),
+         getCurMaskValueOrAllOnes()},
+        "expand");
     addInstUnmasked(ExpandCall);
 
     addVPValueWideRefMapping(VPInst, ExpandCall->getLvalDDRef());
@@ -5437,12 +5437,12 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     VectorType *VecType = getWidenedType(ElType, getVF());
 
     RegDDRef *OrigIndex = widenRef(VPInst->getOperand(0), 0);
-    RegDDRef *Undef = DDRefUtilities.createUndefDDRef(VecType);
+    RegDDRef *Poison = DDRefUtilities.createPoisonDDRef(VecType);
     RegDDRef *Zeros =
         DDRefUtilities.createConstDDRef(Constant::getNullValue(VecType));
 
     HLInst *Bcast =
-        HLNodeUtilities.createShuffleVectorInst(OrigIndex, Undef, Zeros);
+        HLNodeUtilities.createShuffleVectorInst(OrigIndex, Poison, Zeros);
     addInstUnmasked(Bcast);
 
     int64_t Stride = cast<VPConstant>(VPInst->getOperand(1))->getSExtValue();
