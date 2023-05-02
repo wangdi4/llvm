@@ -14,9 +14,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "IntelVPlanVerifier.h"
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanUtils.h"
-#include "IntelVPlanVerifier.h"
 #include "llvm/Support/CommandLine.h"
 
 #define DEBUG_TYPE "vplan-verifier"
@@ -31,17 +31,16 @@
 #define ASSERT_VPVALUE(Check, V, Msg)                                          \
   do {                                                                         \
     if (!(Check)) {                                                            \
-      dbgs() << "VPlan verifier check failed for:\n";                          \
-      (V)->dump();                                                             \
+      dbgs() << "VPlan verifier check failed for value:\n";                    \
+      if (V) (V)->dump();                                                      \
       assert((Check) && (Msg));                                                \
     }                                                                          \
   } while (0)
-
 #define ASSERT_VPBB(Check, BB, Msg)                                            \
   do {                                                                         \
     if (!(Check)) {                                                            \
-      dbgs() << "VPlan verifier check failed for VPBasicBlock:\n"              \
-             << (BB)->getName();                                               \
+      dbgs() << "VPlan verifier check failed for VPBasicBlock:\n";             \
+      if (BB) dbgs() << (BB)->getName();                                       \
       assert((Check) && (Msg));                                                \
     }                                                                          \
   } while (0)
@@ -89,9 +88,12 @@ void VPlanVerifier::verifyCFGExternals(const VPlan *Plan) {
 }
 
 // Public interface to verify the loop and its loop info.
-void VPlanVerifier::verifyLoops(const VPlanVector *Plan,
+// TODO: The last argument should eventually be a list of verifications to
+//       skip (or run), but there isn't an immediate need for it to cover
+//       more than just the loopinfo checks.
+void VPlanVerifier::verifyVPlan(const VPlanVector *Plan,
                                 const VPDominatorTree &VPDomTree,
-                                VPLoopInfo *VPLI) {
+                                VPLoopInfo *VPLI, const bool VerifyLoopInfo) {
 
   VPLInfo = VPLI;
 
@@ -111,7 +113,7 @@ void VPlanVerifier::verifyLoops(const VPlanVector *Plan,
 
   assert(Plan->size() == BBNum && "Plan has wrong size!");
 
-  if (!VPLInfo)
+  if (!VPLInfo || !VerifyLoopInfo)
     return;
 
   // TODO: Verify domination and postdomination trees.

@@ -2427,9 +2427,10 @@ void LoopVectorizationPlanner::printAndVerifyAfterInitialTransforms(
   if (auto *VPlanVec = dyn_cast<VPlanVector>(Plan)) {
 
     LLVM_DEBUG(VPlanVec->printVectorVPlanData());
-
-    LLVM_DEBUG(Verifier->verifyLoops(VPlanVec, *VPlanVec->getDT(),
-                                     VPlanVec->getVPLoopInfo()));
+#ifndef NDEBUG
+    Verifier->verifyVPlan(VPlanVec, *VPlanVec->getDT(),
+                          VPlanVec->getVPLoopInfo(), false);
+#endif
     (void)VPlanVec;
     (void)Verifier;
   }
