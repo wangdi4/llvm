@@ -6077,7 +6077,9 @@ bool Sema::CheckCXXDefaultArgExpr(SourceLocation CallLoc, FunctionDecl *FD,
       Param);
   ExprEvalContexts.back().IsCurrentlyCheckingDefaultArgumentOrInitializer =
       SkipImmediateInvocations;
-  MarkDeclarationsReferencedInExpr(Init, /*SkipLocalVariables*/ true);
+  runWithSufficientStackSpace(CallLoc, [&] {
+    MarkDeclarationsReferencedInExpr(Init, /*SkipLocalVariables=*/true);
+  });
   return false;
 }
 
@@ -6187,8 +6189,11 @@ ExprResult Sema::BuildCXXDefaultArgExpr(SourceLocation CallLoc,
       ExprEvalContexts.back().DelayedDefaultInitializationContext = {
           CallLoc, Param, CurContext};
       EnsureImmediateInvocationInDefaultArgs Immediate(*this);
-      ExprResult Res = Immediate.TransformInitializer(Param->getInit(),
-                                                      /*NotCopy=*/false);
+      ExprResult Res;
+      runWithSufficientStackSpace(CallLoc, [&] {
+        Res = Immediate.TransformInitializer(Param->getInit(),
+                                             /*NotCopy=*/false);
+      });
       if (Res.isInvalid())
         return ExprError();
       Res = ConvertParamDefaultArgument(Param, Res.get(),
@@ -6268,10 +6273,11 @@ ExprResult Sema::BuildCXXDefaultInitExpr(SourceLocation Loc, FieldDecl *Field) {
         NestedDefaultChecking;
 
     EnsureImmediateInvocationInDefaultArgs Immediate(*this);
-
-    ExprResult Res =
-        Immediate.TransformInitializer(Field->getInClassInitializer(),
-                                       /*CXXDirectInit=*/false);
+    ExprResult Res;
+    runWithSufficientStackSpace(Loc, [&] {
+      Res = Immediate.TransformInitializer(Field->getInClassInitializer(),
+                                           /*CXXDirectInit=*/false);
+    });
     if (!Res.isInvalid())
       Res = ConvertMemberDefaultInitExpression(Field, Res.get(), Loc);
     if (Res.isInvalid()) {
@@ -6284,7 +6290,9 @@ ExprResult Sema::BuildCXXDefaultInitExpr(SourceLocation Loc, FieldDecl *Field) {
   if (Field->getInClassInitializer()) {
     Expr *E = Init ? Init : Field->getInClassInitializer();
     if (!NestedDefaultChecking)
-      MarkDeclarationsReferencedInExpr(E, /*SkipLocalVariables=*/false);
+      runWithSufficientStackSpace(Loc, [&] {
+        MarkDeclarationsReferencedInExpr(E, /*SkipLocalVariables=*/false);
+      });
     // C++11 [class.base.init]p7:
     //   The initialization of each base and member constitutes a
     //   full-expression.
@@ -18915,7 +18923,9 @@ void Sema::MarkFunctionReferenced(SourceLocation Loc, FunctionDecl *Func,
   if (CXXConstructorDecl *Constructor = dyn_cast<CXXConstructorDecl>(Func)) {
     for (CXXCtorInitializer *Init : Constructor->inits()) {
       if (Init->isInClassMemberInitializer())
-        MarkDeclarationsReferencedInExpr(Init->getInit());
+        runWithSufficientStackSpace(Init->getSourceLocation(), [&]() {
+          MarkDeclarationsReferencedInExpr(Init->getInit());
+        });
     }
   }
 

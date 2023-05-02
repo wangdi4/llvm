@@ -127,6 +127,10 @@ add_llvm_library(omptarget
   Support
   Object
 
+  LINK_LIBS
+  PUBLIC
+  omp
+
   NO_INSTALL_RPATH
 )
 target_include_directories(omptarget PRIVATE ${LIBOMPTARGET_INCLUDE_DIR})
