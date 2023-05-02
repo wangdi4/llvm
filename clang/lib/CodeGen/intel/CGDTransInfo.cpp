@@ -669,7 +669,7 @@ llvm::MDNode *DTransInfoGenerator::CreateTypeMD(QualType ClangType,
     // away.
     assert(!ClangType.isNull() && "Pointers should always have a field decl");
     assert((ClangType->isPointerType() || ClangType->isReferenceType() ||
-            ClangType->isVariableArrayType() || ClangType->isNullPtrType() ||
+            ClangType->isArrayType() || ClangType->isNullPtrType() ||
             (ClangType->isMemberFunctionPointerType() &&
              CGM.getTriple().isWindowsMSVCEnvironment())) &&
            "Not a pointer/vla/reference type?");
@@ -687,9 +687,10 @@ llvm::MDNode *DTransInfoGenerator::CreateTypeMD(QualType ClangType,
     }
     // VLAs are just represented by the internal type, so we just need to
     // get the element type and count on the rest to 'just work'.
-    if (ClangType->isVariableArrayType()) {
+    // A constant-array type that gets here is decayed as a return/parameter
+    // type, so it too is just the element type.
+    if (ClangType->isArrayType())
       ClangType = CGM.getContext().getBaseElementType(ClangType);
-    }
 
     // Unroll all the pointers, and increment the PointerCount as we go.
     while (ClangType->isPointerType()) {
