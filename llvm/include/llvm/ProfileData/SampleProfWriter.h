@@ -431,6 +431,7 @@ private:
   }
 };
 
+<<<<<<< HEAD
 // CompactBinary is a compact format of binary profile which both reduces
 // the profile size and the load time needed when compiling. It has two
 // major difference with Binary format.
@@ -480,6 +481,8 @@ protected:
   std::error_code writeFuncOffsetTable();
 };
 
+=======
+>>>>>>> d38d6ca1798b339a8d292e91f8e0708c334769ff
 } // end namespace sampleprof
 } // end namespace llvm
 
