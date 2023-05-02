@@ -552,6 +552,10 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {25586, "Peeled loop for fusion"},
     {25587, "Loop has reduction"},
     {25588, "Loop has SIMD reduction"},
+    {25589, "%d loads hoisted out of If at line %d to make them unconditional "
+            "in loop"},
+    {25590, "%d stores sunk out of If at line %d to make them unconditional "
+            "in loop"},
 };
 
 const char *OptReportDiag::getMsg(unsigned Id) {
