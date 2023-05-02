@@ -33,17 +33,28 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
 
 add_subdirectory(GlobalISel)
 
-set(LLVM_LINK_COMPONENTS Support)
-
-add_tablegen(llvm-min-tblgen LLVM_HEADERS
+add_llvm_library(LLVMTableGenCommon STATIC OBJECT EXCLUDE_FROM_ALL
   Attributes.cpp
   CodeGenIntrinsics.cpp
   DirectiveEmitter.cpp
   IntrinsicEmitter.cpp
   RISCVTargetDefEmitter.cpp
   SDNodeProperties.cpp
-  TableGen.cpp
   VTEmitter.cpp
+# INTEL_COLLAB
+  DirectivesEmitter.cpp
+# end INTEL_COLLAB
+  Intel_SVMLEmitter.cpp       # INTEL_CUSTOMIZATION -- TODO: VEC to COLLAB
+  Intel_LibmvecEmitter.cpp    # INTEL_CUSTOMIZATION
+  PARTIAL_SOURCES_INTENDED
+  )
+set_target_properties(LLVMTableGenCommon PROPERTIES FOLDER "Tablegenning")
+
+set(LLVM_LINK_COMPONENTS Support)
+
+add_tablegen(llvm-min-tblgen LLVM_HEADERS
+  TableGen.cpp
+  $<TARGET_OBJECTS:obj.LLVMTableGenCommon>
   PARTIAL_SOURCES_INTENDED
   )
 set_target_properties(llvm-min-tblgen PROPERTIES FOLDER "Tablegenning")
@@ -85,16 +96,7 @@ add_tablegen(llvm-tblgen LLVM
   InfoByHwMode.cpp
   InstrInfoEmitter.cpp
   InstrDocsEmitter.cpp
-<<<<<<< HEAD
-  IntrinsicEmitter.cpp
-# INTEL_COLLAB
-  DirectivesEmitter.cpp
-# end INTEL_COLLAB
-  Intel_LibmvecEmitter.cpp    # INTEL_CUSTOMIZATION
   Intel_MAPatternsEmitter.cpp # INTEL_CUSTOMIZATION
-  Intel_SVMLEmitter.cpp       # INTEL_CUSTOMIZATION -- TODO: VEC to COLLAB
-=======
->>>>>>> 243e8f8d23ac71717115c73725658dac071ac4c2
   OptEmitter.cpp
   OptParserEmitter.cpp
   OptRSTEmitter.cpp
@@ -106,6 +108,7 @@ add_tablegen(llvm-tblgen LLVM
   SearchableTableEmitter.cpp
   SubtargetEmitter.cpp
   SubtargetFeatureInfo.cpp
+  TableGen.cpp
   Types.cpp
   VarLenCodeEmitterGen.cpp
   X86DisassemblerTables.cpp
@@ -115,7 +118,7 @@ add_tablegen(llvm-tblgen LLVM
   X86ModRMFilters.cpp
   X86RecognizableInstr.cpp
   WebAssemblyDisassemblerEmitter.cpp
-  $<TARGET_OBJECTS:llvm-min-tblgen>
+  $<TARGET_OBJECTS:obj.LLVMTableGenCommon>
 
   DEPENDS
   intrinsics_gen
