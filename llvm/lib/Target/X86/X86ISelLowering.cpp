@@ -2316,9 +2316,7 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
   }
 
   // This block control legalization of v32i1/v64i1 which are available with
-<<<<<<< HEAD
-  // AVX512BW. 512-bit v32i16 and v64i8 vector legalization is controlled with
-  // useBWIRegs.
+  // AVX512BW..
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
   auto SetGroup = [&](MVT VT) {
@@ -2333,9 +2331,6 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     setOperationAction(ISD::CONCAT_VECTORS, VT, Custom);
     setOperationAction(ISD::INSERT_SUBVECTOR, VT, Custom);
   } ;
-=======
-  // AVX512BW..
->>>>>>> 644f0c0faa5749abcc85c02ac3a5cbac380a9bec
   if (!Subtarget.useSoftFloat() && Subtarget.hasBWI()) {
     addRegisterClass(MVT::v64i1, &X86::VK64RegClass);
     SetGroup(MVT::v64i1);
