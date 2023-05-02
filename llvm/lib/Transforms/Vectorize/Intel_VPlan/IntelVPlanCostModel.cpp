@@ -1336,7 +1336,7 @@ VPlanTTICostModel::getTTICostForVF(const VPInstruction *VPInst, unsigned VF) {
       Intrin = Intrinsic::vector_reduce_or;
     }
     else
-      Intrin = VPRedFinal->getVectorReduceIntrinsic();
+      Intrin = getVectorReduceIntrinsic(VPRedFinal->getBinOpcode());
 
     bool IsFAddMul = (Intrin == Intrinsic::vector_reduce_fadd ||
                       Intrin == Intrinsic::vector_reduce_fmul);
@@ -1586,10 +1586,7 @@ VPlanTTICostModel::getTTICostForVF(const VPInstruction *VPInst, unsigned VF) {
         isa<VPRunningExclusiveReduction>(VPInst)
             ? cast<VPRunningExclusiveReduction>(VPInst)->getBinOpcode()
             : cast<VPRunningInclusiveReduction>(VPInst)->getBinOpcode();
-    // TODO: refactor this.
-    auto isMinMax = isa<VPRunningExclusiveReduction>(VPInst)
-                        ? cast<VPRunningExclusiveReduction>(VPInst)->isMinMax()
-                        : cast<VPRunningInclusiveReduction>(VPInst)->isMinMax();
+    auto isMinMax = isMinMaxOpcode(BinOpcode);
     auto *VecTy = getWidenedType(VPInst->getType(), VF);
     VPInstructionCost Cost = TTI.getShuffleCost(TTI::SK_Broadcast, VecTy);
 

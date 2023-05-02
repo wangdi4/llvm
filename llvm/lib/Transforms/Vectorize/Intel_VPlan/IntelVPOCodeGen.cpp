@@ -157,6 +157,14 @@ convertAggregateIndicesToIntVector(Constant *IdxsConst) {
   return Result;
 }
 
+// Track if this private alloca is for an array (inscan) reduction variable.
+static bool isArrayReductionPrivate(VPAllocatePrivate *Priv) {
+  Type *AllocTy = Priv->getAllocatedType();
+  return (Priv->getEntityKind() == VPLoopEntity::Reduction ||
+          Priv->getEntityKind() == VPLoopEntity::InscanReduction) &&
+         isa<ArrayType>(AllocTy);
+}
+
 Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
                                              ArrayRef<Value *> Ops) {
   Value *SerialInst = nullptr;
@@ -2373,6 +2381,35 @@ Value *VPOCodeGen::vectorizeExtractLastVectorLane(VPInstruction *VPInst) {
                                       Lane, "last.active.lane");
 }
 
+std::pair<PHINode *, BasicBlock *>
+VPOCodeGen::generateKnownTCEmptyLoop(unsigned TC, StringRef LoopName) {
+  BasicBlock *BBLoop =
+      SplitBlock(Builder.GetInsertBlock(), &*Builder.GetInsertPoint(), DT, LI,
+                 nullptr /*Memory SSA Updater*/, LoopName);
+  BasicBlock *BBExit =
+      SplitBlock(BBLoop, BBLoop->getTerminator(), DT, LI,
+                 nullptr /*Memory SSA Updater*/, LoopName + ".exit");
+  Builder.SetInsertPoint(BBLoop->getTerminator());
+
+  // Creating phi node to count loop iterations.
+  PHINode *Phi = Builder.CreatePHI(Type::getInt64Ty(Builder.getContext()), 2);
+  Phi->addIncoming(Builder.getInt64(0), BBLoop->getSinglePredecessor());
+
+  // Increment of loop variable until known TC.
+  Value *Index = Builder.CreateAdd(Phi, Builder.getInt64(1));
+  Phi->addIncoming(Index, BBLoop);
+  Value *Cond = Builder.CreateICmpULT(Index, Builder.getInt64(TC));
+
+  Builder.CreateCondBr(Cond, BBLoop, BBExit);
+  BBLoop->getTerminator()->eraseFromParent();
+
+  // Explicitly set the insertion point to IV update so that body can be
+  // inserted next.
+  Builder.SetInsertPoint(BBLoop, cast<Instruction>(Index)->getIterator());
+
+  return std::make_pair(Phi, BBExit);
+}
+
 BasicBlock *VPOCodeGen::processSOALayout(VPAllocatePrivate *Priv, Value *Orig,
                                          Type *ElementType,
                                          Value *ElementPosition) {
@@ -2382,36 +2419,73 @@ BasicBlock *VPOCodeGen::processSOALayout(VPAllocatePrivate *Priv, Value *Orig,
 
   // In case of SOA layout we need to extract array elements one by one from
   // the each vector and then store it to the original array. To do so we
-  // create a fixed trip count loop.
-  BasicBlock *BBLoop =
-      SplitBlock(Builder.GetInsertBlock(), &*Builder.GetInsertPoint(), DT, LI,
-                 nullptr, "array.last.private.loop");
-  BasicBlock *BBExit = SplitBlock(BBLoop, BBLoop->getTerminator(), DT, LI,
-                                  nullptr, "array.last.private.loop.exit");
-  Builder.SetInsertPoint(BBLoop->getTerminator());
-
-  // Creating phi node to count loop iterations.
-  PHINode *Phi = Builder.CreatePHI(Type::getInt64Ty(Builder.getContext()), 2);
-  Phi->addIncoming(Builder.getInt64(0), BBLoop->getSinglePredecessor());
+  // create a fixed trip count empty loop.
+  auto PhiExitPair =
+      generateKnownTCEmptyLoop(cast<ArrayType>(ElementType)->getNumElements(),
+                               "array.last.private.loop");
+  auto *IVPhi = PhiExitPair.first;
 
   // Loop body. Copying element in ElementPosition position from each vector.
   Value *Ptr = Builder.CreateGEP(getSOAType(ElementType, VF), Res,
-                                 {Builder.getInt64(0), Phi, ElementPosition});
+                                 {Builder.getInt64(0), IVPhi, ElementPosition});
   Value *Val = Builder.CreateLoad(
       cast<GetElementPtrInst>(Ptr)->getResultElementType(), Ptr);
   Value *Target =
-      Builder.CreateGEP(ElementType, Orig, {Builder.getInt64(0), Phi});
+      Builder.CreateGEP(ElementType, Orig, {Builder.getInt64(0), IVPhi});
   Builder.CreateStore(Val, Target);
 
-  // Increment of loop variable.
-  Value *Index = Builder.CreateAdd(Phi, Builder.getInt64(1));
-  Phi->addIncoming(Index, BBLoop);
-  Value *Cond = Builder.CreateICmpULT(
-      Index, Builder.getInt64(cast<ArrayType>(ElementType)->getNumElements()));
+  // Return loop's exit BB.
+  return PhiExitPair.second;
+}
 
-  Builder.CreateCondBr(Cond, BBLoop, BBExit);
-  BBLoop->getTerminator()->eraseFromParent();
-  return BBExit;
+BasicBlock *
+VPOCodeGen::processSOALayoutArrayReduction(VPReductionFinalArray *RedFinalArr) {
+  auto *PrivArr = cast<VPAllocatePrivate>(RedFinalArr->getOperand(0));
+  auto *OrigArr = getScalarValue(RedFinalArr->getOperand(1), 0);
+  auto *ArrTy = cast<ArrayType>(PrivArr->getAllocatedType());
+  Type *ElemTy = ArrTy->getElementType();
+
+  assert(LoopPrivateVPWidenMap.count(PrivArr) > 0 &&
+         "Expected widened alloca for SOA array reduction.");
+  Value *Res = LoopPrivateVPWidenMap[PrivArr];
+
+  // In case of SOA layout we need to horizontally reduce the VF-wide vector for
+  // each array element and then store it to the original array. To do so we
+  // create a fixed trip count empty loop.
+  auto PhiExitPair = generateKnownTCEmptyLoop(ArrTy->getNumElements(),
+                                              "soa.array.redn.final.loop");
+  auto *IVPhi = PhiExitPair.first;
+
+  // Loop body
+  // Load current index's SOA array vector and original array element.
+  Value *SOAArrElemPtr = Builder.CreateGEP(getSOAType(ArrTy, VF), Res,
+                                           {Builder.getInt64(0), IVPhi});
+  Value *SOAArrElem =
+      Builder.CreateLoad(getWidenedType(ElemTy, VF), SOAArrElemPtr);
+  Value *OrigArrElemPtr =
+      Builder.CreateGEP(ArrTy, OrigArr, {Builder.getInt64(0), IVPhi});
+  Value *OrigArrElem = Builder.CreateLoad(ElemTy, OrigArrElemPtr);
+
+  // Horizontally reduce the vector. Additional binop is generated by
+  // createVectorReduce if needed.
+  unsigned BinOpcode = RedFinalArr->getBinOpcode();
+  Intrinsic::ID Intrin = getVectorReduceIntrinsic(BinOpcode);
+  FastMathFlags FMF = RedFinalArr->hasFastMathFlags()
+                          ? RedFinalArr->getFastMathFlags()
+                          : FastMathFlags();
+  // For min/max reduction accumulator is expected to be empty. We will account
+  // for the original array element later.
+  Value *Acc = isMinMaxOpcode(BinOpcode) ? nullptr : OrigArrElem;
+  Value *FinalVal = createVectorReduce(Intrin, SOAArrElem, Acc, BinOpcode, FMF);
+
+  // Generate final update for min/max reductions using original array element.
+  if (isMinMaxOpcode(BinOpcode))
+    FinalVal = generateMinMaxSequence(BinOpcode, FinalVal, OrigArrElem, FMF);
+
+  Builder.CreateStore(FinalVal, OrigArrElemPtr);
+
+  // Return loop's exit BB.
+  return PhiExitPair.second;
 }
 
 Value *VPOCodeGen::getOrCreateVectorTripCount(Loop *L, IRBuilder<> &IBuilder) {
@@ -4500,25 +4574,15 @@ void VPOCodeGen::vectorizePrivateLastValueNonPODArray(
   // array.nonpod.last.private.loop.exit:
   //   unreachable
 
-  BasicBlock *CurrentBB = Builder.GetInsertBlock();
-
-  // Create necessary BBs.
-  BasicBlock *BBLoop =
-      SplitBlock(Builder.GetInsertBlock(), &*Builder.GetInsertPoint(), DT, LI,
-                 nullptr, "array.nonpod.last.private.loop");
-  BasicBlock *BBExit =
-      SplitBlock(BBLoop, BBLoop->getTerminator(), DT, LI, nullptr,
-                 "array.nonpod.last.private.loop.exit");
-
   VPAllocatePrivate *Priv = cast<VPAllocatePrivate>(VPInst->getOperand(0));
   Value *Orig = getScalarValue(VPInst->getOperand(1), 0);
-
-  Builder.SetInsertPoint(BBLoop->getTerminator());
-  PHINode *Phi = Builder.CreatePHI(Type::getInt64Ty(Builder.getContext()), 2);
-  Phi->addIncoming(Builder.getInt64(0), CurrentBB);
   Type *ElementType = Priv->getAllocatedType();
+  auto PhiExitPair =
+      generateKnownTCEmptyLoop(cast<ArrayType>(ElementType)->getNumElements(),
+                               "array.nonpod.last.private.loop");
+  auto *Phi = PhiExitPair.first;
 
-  // Create copy assign call
+  // Create copy assign call in loop body.
   Value *Target =
       Builder.CreateGEP(ElementType, Res, {Builder.getInt64(0), Phi});
   Value *OrigTarget =
@@ -4526,15 +4590,8 @@ void VPOCodeGen::vectorizePrivateLastValueNonPODArray(
   auto *CopyAssignFn = cast<PrivateInstType>(VPInst)->getFn();
   Builder.CreateCall(CopyAssignFn, {OrigTarget, Target});
 
-  // Increment loop IV
-  Value *Index = Builder.CreateAdd(Phi, Builder.getInt64(1));
-  Phi->addIncoming(Index, BBLoop);
-  Value *Cond = Builder.CreateICmpULT(
-      Index, Builder.getInt64(cast<ArrayType>(ElementType)->getNumElements()));
-  Builder.CreateCondBr(Cond, BBLoop, BBExit);
-  BBLoop->getTerminator()->eraseFromParent();
-
   // Exit loops.
+  auto *BBExit = PhiExitPair.second;
   Builder.SetInsertPoint(BBExit->getTerminator());
 
   State->CFG.PrevBB = BBExit;
@@ -4605,7 +4662,7 @@ Value *VPOCodeGen::vectorizeRunningReduction(
   auto CreateReductionStep = [&SetFastMathFlags, &FMF, this,
                               RunningReduction](Value *Op1, Value *Op2) {
     auto BinOpCode = RunningReduction->getBinOpcode();
-    if (!RunningReduction->isMinMax()) {
+    if (!isMinMaxOpcode(BinOpCode)) {
       auto *BinOp = Builder.CreateBinOp(
           static_cast<Instruction::BinaryOps>(BinOpCode), Op1, Op2);
       // Set FMF for generated reduction code.
@@ -4676,6 +4733,7 @@ void VPOCodeGen::generateArrayReductionInit(VPInstruction *RedInitArr) {
   auto *ArrTy = cast<ArrayType>(PrivArr->getAllocatedType());
   Type *ElemTy = ArrTy->getElementType();
   unsigned NumElems = ArrTy->getNumElements();
+  unsigned NumIters = NumElems * VF;
 
   // Pseudo IR for generic array reduction initialization -
   //
@@ -4701,18 +4759,8 @@ void VPOCodeGen::generateArrayReductionInit(VPInstruction *RedInitArr) {
           ElemTy, cast<PointerType>(PrivArr->getType())->getAddressSpace()),
       "arr.red.base.addr.bc");
 
-  BasicBlock *InitLoop =
-      SplitBlock(Builder.GetInsertBlock(), &*Builder.GetInsertPoint(), DT, LI,
-                 nullptr /*Memory SSAUpdater*/, "array.redn.init.loop");
-  BasicBlock *InitLoopExit =
-      SplitBlock(InitLoop, InitLoop->getTerminator(), DT, LI,
-                 nullptr /*Memory SSAUpdater*/, "array.redn.init.loopexit");
-  Builder.SetInsertPoint(InitLoop->getTerminator());
-
-  // Loop IV phi to count loop iterations.
-  PHINode *IVPhi = Builder.CreatePHI(Type::getInt64Ty(Builder.getContext()), 2,
-                                     "cur.elem.idx");
-  IVPhi->addIncoming(Builder.getInt64(0), InitLoop->getSinglePredecessor());
+  auto PhiExitPair = generateKnownTCEmptyLoop(NumIters, "array.redn.init.loop");
+  PHINode *IVPhi = PhiExitPair.first;
 
   // Loop body. Access each element of wide alloca (assumes contiguous memory)
   // and store reduction's identity value in it -
@@ -4722,16 +4770,7 @@ void VPOCodeGen::generateArrayReductionInit(VPInstruction *RedInitArr) {
       Builder.CreateGEP(ElemTy, BaseAddrBc, {IVPhi}, "cur.elem.ptr");
   Builder.CreateStore(getScalarValue(RedInitArr->getOperand(0), 0), ElemPtr);
 
-  // Increment loop IV phi.
-  Value *IVAdd = Builder.CreateAdd(IVPhi, Builder.getInt64(1), "next.elem.idx");
-  IVPhi->addIncoming(IVAdd, InitLoop);
-  unsigned NumIters = NumElems * VF;
-  Value *IVCond =
-      Builder.CreateICmpULT(IVAdd, Builder.getInt64(NumIters), "initloop.cond");
-
-  Builder.CreateCondBr(IVCond, InitLoop, InitLoopExit);
-  InitLoop->getTerminator()->eraseFromParent();
-
+  BasicBlock *InitLoopExit = PhiExitPair.second;
   Builder.SetInsertPoint(InitLoopExit->getTerminator());
   State->CFG.PrevBB = InitLoopExit;
   return;
@@ -4745,6 +4784,17 @@ void VPOCodeGen::generateArrayReductionFinal(
   Type *ElemTy = ArrTy->getElementType();
   unsigned NumElems = ArrTy->getNumElements();
   assert(NumElems && "Reduction array should not be empty.");
+
+  if (PrivArr->isSOALayout()) {
+    // Process SOA layout separately. Optimized finalization can be done for
+    // memory in this layout.
+    BasicBlock *Exit = processSOALayoutArrayReduction(RedFinalArr);
+    Builder.SetInsertPoint(Exit->getTerminator());
+    State->CFG.PrevBB = Exit;
+    return;
+  }
+
+  // The code below handles finalization of array reductions in AOS layout.
 
   // Pseudo IR for generic array reduction finalization -
   //
@@ -4913,7 +4963,7 @@ void VPOCodeGen::vectorizeReductionFinal(VPReductionFinal *RedFinal) {
   }
 
   Value *VecValue = getVectorValue(RedFinal->getOperand(0));
-  Intrinsic::ID Intrin = RedFinal->getVectorReduceIntrinsic();
+  Intrinsic::ID Intrin = getVectorReduceIntrinsic(BinOpcode);
   Type *ElType = RedFinal->getOperand(0)->getType();
   if (isa<VectorType>(ElType))
     // TODO: can implement as shufle/OP sequence for vectors.
@@ -4925,6 +4975,33 @@ void VPOCodeGen::vectorizeReductionFinal(VPReductionFinal *RedFinal) {
   if (StartVPVal)
     Acc = getScalarValue(StartVPVal, 0);
 
+  FastMathFlags FMF = RedFinal->hasFastMathFlags()
+                          ? RedFinal->getFastMathFlags()
+                          : FastMathFlags();
+  Value *Ret = createVectorReduce(Intrin, VecValue, Acc, BinOpcode, FMF);
+  VPScalarMap[RedFinal][0] = Ret;
+}
+
+void VPOCodeGen::vectorizeSelectCmpReductionFinal(VPReductionFinal *RedFinal) {
+  assert(RedFinal->getNumOperands() == 3 &&
+         "Wrong operand count for SelectCmp reduction-final!");
+  assert(!isa<VectorType>(RedFinal->getOperand(0)->getType()) &&
+         "Unsupported vector data type in reduction");
+
+  Value *VecValue = getVectorValue(RedFinal->getOperand(0));
+  Value *StartVPVal = getScalarValue(RedFinal->getOperand(1), 0);
+  Value *ChangeVPVal = getScalarValue(RedFinal->getOperand(2), 0);
+  Value *Splat = Builder.CreateVectorSplat(VF, StartVPVal);
+  // FIXME: Can handle floating-point reductions with FCmp UNE also.
+  Value *Cmp = Builder.CreateICmpNE(VecValue, Splat);
+  Value *Reduc = Builder.CreateOrReduce(Cmp);
+  Value *Ret = Builder.CreateSelect(Reduc, ChangeVPVal, StartVPVal);
+  VPScalarMap[RedFinal][0] = Ret;
+}
+
+Value *VPOCodeGen::createVectorReduce(Intrinsic::ID Intrin, Value *VecValue,
+                                      Value *Acc, unsigned BinOpcode,
+                                      FastMathFlags FMF) {
   Value *Ret = nullptr;
   // TODO: Need meaningful processing for Acc for FP reductions, and NoNan
   // parameter.
@@ -4983,38 +5060,20 @@ void VPOCodeGen::vectorizeReductionFinal(VPReductionFinal *RedFinal) {
     break;
   }
   // Utility to set FastMathFlags for generated instructions.
-  auto SetFastMathFlags = [RedFinal](Value *V) {
-    if (isa<FPMathOperator>(V) && RedFinal->hasFastMathFlags())
-      cast<Instruction>(V)->setFastMathFlags(RedFinal->getFastMathFlags());
+  auto SetFastMathFlags = [FMF](Value *V) {
+    if (isa<FPMathOperator>(V) && FMF.any())
+      cast<Instruction>(V)->setFastMathFlags(FMF);
   };
   // Set FMF for generated vector reduce intrinsic.
   SetFastMathFlags(Ret);
 
   if (Acc) {
-    Ret = Builder.CreateBinOp(
-        static_cast<Instruction::BinaryOps>(RedFinal->getBinOpcode()), Acc, Ret,
-        "final.red");
+    Ret = Builder.CreateBinOp(static_cast<Instruction::BinaryOps>(BinOpcode),
+                              Acc, Ret, "final.red");
     SetFastMathFlags(Ret);
   }
 
-  VPScalarMap[RedFinal][0] = Ret;
-}
-
-void VPOCodeGen::vectorizeSelectCmpReductionFinal(VPReductionFinal *RedFinal) {
-  assert(RedFinal->getNumOperands() == 3
-         && "Wrong operand count for SelectCmp reduction-final!");
-  assert(!isa<VectorType>(RedFinal->getOperand(0)->getType())
-         && "Unsupported vector data type in reduction");
-
-  Value *VecValue = getVectorValue(RedFinal->getOperand(0));
-  Value *StartVPVal = getScalarValue(RedFinal->getOperand(1), 0);
-  Value *ChangeVPVal = getScalarValue(RedFinal->getOperand(2), 0);
-  Value *Splat = Builder.CreateVectorSplat(VF, StartVPVal);
-  // FIXME: Can handle floating-point reductions with FCmp UNE also.
-  Value *Cmp = Builder.CreateICmpNE(VecValue, Splat);
-  Value *Reduc = Builder.CreateOrReduce(Cmp);
-  Value *Ret = Builder.CreateSelect(Reduc, ChangeVPVal, StartVPVal);
-  VPScalarMap[RedFinal][0] = Ret;
+  return Ret;
 }
 
 void VPOCodeGen::serializeAllocateMem(VPAllocateMemBase *V) {
@@ -5077,12 +5136,9 @@ void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
   assert(FirstBB.getTerminator() &&
          "Expect the 'entry' basic-block to be well-formed.");
   Builder.SetInsertPoint(FirstBB.getTerminator());
-  // Track if this a private alloca is for an array (inscan) reduction
-  // variable. We don't want to serialize such allocas since the
-  // initialization algorithm assumes contiguous allocation of elements.
-  bool IsArrayRedn = (V->getEntityKind() == VPLoopEntity::Reduction ||
-                      V->getEntityKind() == VPLoopEntity::InscanReduction) &&
-                     isa<ArrayType>(OrigTy);
+  // We don't want to serialize array reduction allocas since the initialization
+  // algorithm assumes contiguous allocation of elements.
+  bool IsArrayRedn = isArrayReductionPrivate(V);
   // TODO: We potentially need additional divisibility-based checks here to
   // ensure that correct alignment is set for each vector lane. Check JIRA :
   // CMPLRLLVM-11372.

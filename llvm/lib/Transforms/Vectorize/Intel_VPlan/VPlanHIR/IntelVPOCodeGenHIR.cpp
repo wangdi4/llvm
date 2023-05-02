@@ -2042,7 +2042,8 @@ static HLInst *createVectorReduce(const VPReductionFinal *RedFinal,
                                   RegDDRef *VecRef, RegDDRef *&Acc,
                                   RegDDRef *RednDescriptor,
                                   HLNodeUtils &HLNodeUtilities) {
-  Intrinsic::ID VecRedIntrin = RedFinal->getVectorReduceIntrinsic();
+  Intrinsic::ID VecRedIntrin =
+      getVectorReduceIntrinsic(RedFinal->getBinOpcode());
   assert(isa<VectorType>(VecRef->getDestType()) &&
          "Ref to reduce is not a vector.");
 

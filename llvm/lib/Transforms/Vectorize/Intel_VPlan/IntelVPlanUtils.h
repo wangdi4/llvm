@@ -150,6 +150,43 @@ inline bool isDivisorSpeculationSafeForDivRem(unsigned Opcode, VPValue *Div) {
   return !ConstVal->isZero() && (!IsSigned || !ConstVal->isMinusOne());
 }
 
+/// Return ID of the corresponding vector reduce intrinsic.
+inline Intrinsic::ID getVectorReduceIntrinsic(unsigned BinOpcode) {
+  switch (BinOpcode) {
+  case Instruction::Add:
+  case Instruction::Sub:
+    return Intrinsic::vector_reduce_add;
+  case Instruction::FAdd:
+  case Instruction::FSub:
+    return Intrinsic::vector_reduce_fadd;
+  case Instruction::Mul:
+    return Intrinsic::vector_reduce_mul;
+  case Instruction::FMul:
+  case Instruction::FDiv:
+    return Intrinsic::vector_reduce_fmul;
+  case Instruction::And:
+    return Intrinsic::vector_reduce_and;
+  case Instruction::Or:
+    return Intrinsic::vector_reduce_or;
+  case Instruction::Xor:
+    return Intrinsic::vector_reduce_xor;
+  case VPInstruction::UMin:
+    return Intrinsic::vector_reduce_umin;
+  case VPInstruction::SMin:
+    return Intrinsic::vector_reduce_smin;
+  case VPInstruction::UMax:
+    return Intrinsic::vector_reduce_umax;
+  case VPInstruction::SMax:
+    return Intrinsic::vector_reduce_smax;
+  case VPInstruction::FMax:
+    return Intrinsic::vector_reduce_fmax;
+  case VPInstruction::FMin:
+    return Intrinsic::vector_reduce_fmin;
+  default:
+    llvm_unreachable("Vector reduction opcode not supported.");
+  }
+}
+
 // Return ID of the corresponding intrinsic for opcodes that are not
 // Instruction::BinaryOps.
 inline Intrinsic::ID getIntrinsicForMinMaxOpcode(unsigned BinOpcode) {
@@ -168,6 +205,21 @@ inline Intrinsic::ID getIntrinsicForMinMaxOpcode(unsigned BinOpcode) {
     return Intrinsic::minnum;
   default:
     llvm_unreachable("Reduction opcode not supported.");
+  }
+}
+
+// Return true if given opcode represents min/max operation, false otherwise.
+inline bool isMinMaxOpcode(unsigned BinOpcode) {
+  switch (BinOpcode) {
+  case VPInstruction::UMin:
+  case VPInstruction::SMin:
+  case VPInstruction::UMax:
+  case VPInstruction::SMax:
+  case VPInstruction::FMax:
+  case VPInstruction::FMin:
+    return true;
+  default:
+    return false;
   }
 }
 
