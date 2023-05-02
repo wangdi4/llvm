@@ -1373,16 +1373,6 @@ VPlanTTICostModel::getTTICostForVF(const VPInstruction *VPInst, unsigned VF) {
           VPRedFinal->getBinOpcode(), VPInst->getType(),
           TargetTransformInfo::TCK_RecipThroughput);
     }
-#if INTEL_FEATURE_SW_ADVANCED
-    // For partial sum candidate reductions, we add an additional
-    // cost for the UF-1 reduction operations required to combine
-    // the parallel accumulators before this reduction-final.
-    if (UF > 1 && getOrCreatePartialSumAnalysis().isCandidate(VPRedFinal)) {
-      Cost += (UF - 1) * TTI.getArithmeticInstrCost(
-                             VPRedFinal->getBinOpcode(), IDVecTy,
-                             TargetTransformInfo::TCK_RecipThroughput);
-    }
-#endif // INTEL_FEATURE_SW_ADVANCED
     return Cost;
   }
 

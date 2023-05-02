@@ -84,49 +84,53 @@ public:
   void initForVPlan() {}
 };
 
-// Records information and costs for partial sum candidates.
-class PartialSumAnalysis {
+// Analyzes the PHIs in a header block, classifying them as an induction, 
+// partial sum candidate reduction, or 'other'. 
+// A partial sum candidate reduction is expected to be parallelized
+// during unrolling.
+class RecurrenceAnalysis {
 public:
-  struct RedInfo {
-    // The reduction-final node. This should be unique for
-    // all RedInfo entries.
-    const VPReductionFinal *RedFinal = nullptr;
-
-    // Total TTI-based costs for the reduction.
-    VPInstructionCost Cost = 0;
+  enum RecKind {
+    NotRecurrent = 0,
+    Induction,
+    PartialSumReduction,
+    Other,
+    NumKinds
   };
 
   // Map from PHI nodes to their recurrence kind and associated cost.
-  using RedInfoMap = MapVector<const VPPHINode *, RedInfo>;
+  using RecInfo = std::pair<RecKind, VPInstructionCost>;
+  using RecMap = MapVector<const VPPHINode *, RecInfo>;
 
 protected:
-  RedInfoMap Candidates;
+  RecMap RecurrenceInfo;
 
   // Set to indicate analysis has been computed for the given plan.  
   const VPlanVector *AnalyzedPlan = nullptr;
 
 public:
-  PartialSumAnalysis() = default;
+  RecurrenceAnalysis() = default;
 
   // Clear any existing recurrence info and perform
   // analysis of the given VPlanVector.
   void analyze(VPlanTTICostModel *CM, const VPlanVector &Plan);
 
-  // Returns true if there is a partial sum candidate for the given
-  // reduction-final.
-  bool isCandidate(const VPReductionFinal *VPRF) const {
-    for (auto It : Candidates)
-      if (It.second.RedFinal == VPRF)
-        return true;
-    return false;
+  RecKind getRecurrenceKind(const VPPHINode *Phi) const {
+    auto I = RecurrenceInfo.find(Phi);
+    if (I == RecurrenceInfo.end())
+      return RecKind::NotRecurrent;
+    return I->second.first;
   }
 
-  bool isCandidate(const VPPHINode *Phi) const {
-    return Candidates.find(Phi) != Candidates.end();
+  VPInstructionCost getRecurrenceCost(const VPPHINode *Phi) const {
+    auto I = RecurrenceInfo.find(Phi);
+    if (I == RecurrenceInfo.end())
+      return VPInstructionCost();
+    return I->second.second;
   }
 
   // Provide const access to the map for access to size(), empty() etc.
-  const RedInfoMap &getCandidates() const { return Candidates; }
+  const RecMap &getRecurrences() const { return RecurrenceInfo; }
 };
 
 // Heurstic that calculates the cost of VPlan vectorization when VPlan
