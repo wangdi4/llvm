@@ -1,21 +1,4 @@
 //===- llvm-profdata.cpp - LLVM profile data tool -------------------------===//
-// INTEL_CUSTOMIZATION
-//
-// INTEL CONFIDENTIAL
-//
-// Modifications, Copyright (C) 2023 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may
-// not use, modify, copy, publish, distribute, disclose or transmit this
-// software or the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -325,15 +308,6 @@ static void loadInput(const WeightedFile &Input, SymbolRemapper *Remapper,
   auto ReaderOrErr = InstrProfReader::create(Input.Filename, *FS, Correlator);
   if (Error E = ReaderOrErr.takeError()) {
     // Skip the empty profiles by returning silently.
-#if INTEL_CUSTOMIZATION
-    instrprof_error IPE;
-    std::string Message;
-    std::tie(IPE, Message) = InstrProfError::takeWithMessage(std::move(E));
-    if (IPE != instrprof_error::empty_raw_profile)
-      WC->Errors.emplace_back(make_error<InstrProfError>(IPE, Message),
-                              Filename);
-#endif // INTEL_CUSTOMIZATION
-
     auto [ErrCode, Msg] = InstrProfError::take(std::move(E));
     if (ErrCode != instrprof_error::empty_raw_profile)
       WC->Errors.emplace_back(make_error<InstrProfError>(ErrCode, Msg),
