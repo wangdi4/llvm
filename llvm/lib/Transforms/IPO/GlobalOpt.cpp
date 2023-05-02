@@ -1183,9 +1183,12 @@ optimizeOnceStoredGlobal(GlobalVariable *GV, Value *StoredOnceVal,
         else
 #endif // INTEL_CUSTOMIZATION
         SOVC = ConstantExpr::getBitCast(SOVC, GV->getInitializer()->getType());
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       }
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 48fc3f1cd2b645ab78a27bff4aaaab5acfd03db7
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
       // Optimize away any trapping uses of the loaded value.
       if (OptimizeAwayTrappingUsesOfLoads(GV, SOVC, DL, GetTLI))
