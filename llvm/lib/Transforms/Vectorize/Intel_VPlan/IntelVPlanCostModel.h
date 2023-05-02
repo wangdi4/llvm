@@ -147,13 +147,11 @@ public:
                                                  const unsigned VF);
 
 #if INTEL_FEATURE_SW_ADVANCED
-  /// \Returns the PartialSumAnalysis, which will be populated if enabled and
-  /// not already populated.
-  const VPlanCostModelHeuristics::PartialSumAnalysis &
-  getOrCreatePartialSumAnalysis() {
+  /// \Returns the RecurrenceAnalysis for Plan.
+  const VPlanCostModelHeuristics::RecurrenceAnalysis &getVPRA() {
     // analyze() is a noop after the first invocation on Plan.
-    PSA.analyze(this, *Plan);
-    return PSA;
+    VPRA.analyze(this, *Plan);
+    return VPRA;
   }
 #endif // INTEL_FEATURE_SW_ADVANCED
 
@@ -198,9 +196,9 @@ private:
   VPlanAlignmentAnalysis VPAA;
 
 #if INTEL_FEATURE_SW_ADVANCED
-  // Analysis of partial sum candidates. This is populated
-  // on a call to getOrCreatePartialSumAnalysis().
-  VPlanCostModelHeuristics::PartialSumAnalysis PSA;
+  // Shared analysis of recurrences (i.e. reductions/inductions) for
+  // heuristics. This is populated when a heuristic calls getRecurrences().
+  VPlanCostModelHeuristics::RecurrenceAnalysis VPRA;
 #endif // INTEL_FEATURE_SW_ADVANCED
 
   // The utility checks whether the Cost Model can assume that 32-bit indexes

@@ -39,8 +39,12 @@
 /clang-tools-extra/ @aaronballman
 
 # DPC++ Tools
-/clang/tools/clang-offload-* @asudarsa
-# Temporarily removed @AlexeySachkov, @mlychkov
+# JIRA: CMPLRLLVM->DPC++ Tools
+/clang/tools/clang-offload-* @asudarsa @AlexeySachkov
+/llvm/include/llvm/SYCLLowerIR @asudarsa @AlexeySachkov
+/llvm/lib/SYCLLowerIR @asudarsa @AlexeySachkov
+/llvm/lib/SYCLLowerIR/CMakeLists.txt @asudarsa @AlexeySachkov @intel-restricted/dpcpp-esimd-reviewers
+sycl-post-link/ @asudarsa @AlexeySachkov
 
 # CFE/OpenMP
 /llvm/include/llvm/Frontend/OpenMP/ @mikerice1969 @jyu2-git @mdfazlay
@@ -879,9 +883,6 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 xpti/ @intel-restricted/llvm-reviewers-runtime
 xptifw/ @intel-restricted/llvm-reviewers-runtime
 
-# JIRA: CMPLRLLVM->DPC++ Tools
-sycl-post-link/ @asudarsa
-# Temporarily removed @AlexeySachkov, @mlychkov
 
 # JIRA: COMPLRLLVM->LLVM Compiler Runtime Library
 /compiler-rt/ @zhaomaosu @jinge90
