@@ -35,20 +35,32 @@ add_subdirectory(GlobalISel)
 
 set(LLVM_LINK_COMPONENTS Support)
 
+add_tablegen(llvm-min-tblgen LLVM_HEADERS
+  Attributes.cpp
+  CodeGenIntrinsics.cpp
+  DirectiveEmitter.cpp
+  IntrinsicEmitter.cpp
+  RISCVTargetDefEmitter.cpp
+  SDNodeProperties.cpp
+  TableGen.cpp
+  VTEmitter.cpp
+  PARTIAL_SOURCES_INTENDED
+  )
+set_target_properties(llvm-min-tblgen PROPERTIES FOLDER "Tablegenning")
+
 add_tablegen(llvm-tblgen LLVM
   DESTINATION "${LLVM_TOOLS_INSTALL_DIR}"
   EXPORT LLVM
   AsmMatcherEmitter.cpp
   AsmWriterEmitter.cpp
   AsmWriterInst.cpp
-  Attributes.cpp
+  CTagsEmitter.cpp
   CallingConvEmitter.cpp
   CodeEmitterGen.cpp
   CodeGenDAGPatterns.cpp
   CodeGenHwModes.cpp
   CodeGenInstAlias.cpp
   CodeGenInstruction.cpp
-  CodeGenIntrinsics.cpp
   CodeGenMapTable.cpp
   CodeGenRegisters.cpp
   CodeGenSchedule.cpp
@@ -64,7 +76,6 @@ add_tablegen(llvm-tblgen LLVM
   DecoderEmitter.cpp
   DFAEmitter.cpp
   DFAPacketizerEmitter.cpp
-  DirectiveEmitter.cpp
   DisassemblerEmitter.cpp
   DXILEmitter.cpp
   ExegesisEmitter.cpp
@@ -74,6 +85,7 @@ add_tablegen(llvm-tblgen LLVM
   InfoByHwMode.cpp
   InstrInfoEmitter.cpp
   InstrDocsEmitter.cpp
+<<<<<<< HEAD
   IntrinsicEmitter.cpp
 # INTEL_COLLAB
   DirectivesEmitter.cpp
@@ -81,6 +93,8 @@ add_tablegen(llvm-tblgen LLVM
   Intel_LibmvecEmitter.cpp    # INTEL_CUSTOMIZATION
   Intel_MAPatternsEmitter.cpp # INTEL_CUSTOMIZATION
   Intel_SVMLEmitter.cpp       # INTEL_CUSTOMIZATION -- TODO: VEC to COLLAB
+=======
+>>>>>>> 243e8f8d23ac71717115c73725658dac071ac4c2
   OptEmitter.cpp
   OptParserEmitter.cpp
   OptRSTEmitter.cpp
@@ -89,14 +103,10 @@ add_tablegen(llvm-tblgen LLVM
   CompressInstEmitter.cpp
   RegisterBankEmitter.cpp
   RegisterInfoEmitter.cpp
-  RISCVTargetDefEmitter.cpp
-  SDNodeProperties.cpp
   SearchableTableEmitter.cpp
   SubtargetEmitter.cpp
   SubtargetFeatureInfo.cpp
-  TableGen.cpp
   Types.cpp
-  VTEmitter.cpp
   VarLenCodeEmitterGen.cpp
   X86DisassemblerTables.cpp
   X86EVEX2VEXTablesEmitter.cpp
@@ -105,7 +115,10 @@ add_tablegen(llvm-tblgen LLVM
   X86ModRMFilters.cpp
   X86RecognizableInstr.cpp
   WebAssemblyDisassemblerEmitter.cpp
-  CTagsEmitter.cpp
+  $<TARGET_OBJECTS:llvm-min-tblgen>
+
+  DEPENDS
+  intrinsics_gen
   )
 target_link_libraries(llvm-tblgen PRIVATE LLVMTableGenGlobalISel)
 set_target_properties(llvm-tblgen PROPERTIES FOLDER "Tablegenning")
