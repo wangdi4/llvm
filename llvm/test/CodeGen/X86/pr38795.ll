@@ -108,8 +108,7 @@ define dso_local void @fn() {
 ; CHECK-NEXT:    # implicit-def: $ebp
 ; CHECK-NEXT:    jmp .LBB0_9
 ; CHECK-NEXT:    .p2align 4, 0x90
-; CHECK-NEXT:  .LBB0_7: # %for.cond35 ;INTEL
-; CHECK-NEXT:    # in Loop: Header=BB0_1 Depth=1 ;INTEL
+; CHECK-NEXT:  .LBB0_7: # in Loop: Header=BB0_1 Depth=1
 ; CHECK-NEXT:    xorl %edi, %edi
 ; CHECK-NEXT:    movb %dl, %dh
 ; CHECK-NEXT:    movb {{[-0-9]+}}(%e{{[sb]}}p), %dl # 1-byte Reload
@@ -142,13 +141,11 @@ define dso_local void @fn() {
 ; CHECK-NEXT:    xorl %ebp, %ebp
 ; CHECK-NEXT:    jmp .LBB0_16
 ; CHECK-NEXT:    .p2align 4, 0x90
-; CHECK-NEXT:  .LBB0_10: # %ae ;INTEL
-; CHECK-NEXT:    # in Loop: Header=BB0_1 Depth=1 ;INTEL
+; CHECK-NEXT:  .LBB0_10: # in Loop: Header=BB0_1 Depth=1
 ; CHECK-NEXT:    # implicit-def: $eax
 ; CHECK-NEXT:    testb %bl, %bl
 ; CHECK-NEXT:    je .LBB0_17
-; CHECK-NEXT:  .LBB0_12: # %af ;INTEL
-; CHECK-NEXT:    # in Loop: Header=BB0_1 Depth=1 ;INTEL
+; CHECK-NEXT:  .LBB0_12: # in Loop: Header=BB0_1 Depth=1
 ; CHECK-NEXT:    # implicit-def: $edi
 ; CHECK-NEXT:    # implicit-def: $cl
 ; CHECK-NEXT:    # kill: killed $cl

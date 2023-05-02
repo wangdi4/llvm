@@ -34,10 +34,10 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-CORE-AVX2-NEXT:    movq __cpu_core_type@GOTPCREL(%rip), %rax
 ; X64-CORE-AVX2-NEXT:    cmpb $-1, 1024(%rax)
 ; X64-CORE-AVX2-NEXT:    je .LBB0_4
-; X64-CORE-AVX2-NEXT:  # %bb.3: # %for.body.preheader
+; X64-CORE-AVX2-NEXT:  # %bb.3:
 ; X64-CORE-AVX2-NEXT:    xorl %eax, %eax
 ; X64-CORE-AVX2-NEXT:    jmp .LBB0_5
-; X64-CORE-AVX2-NEXT:  .LBB0_1: # %entry
+; X64-CORE-AVX2-NEXT:  .LBB0_1:
 ; X64-CORE-AVX2-NEXT:    vxorpd %xmm0, %xmm0, %xmm0
 ; X64-CORE-AVX2-NEXT:    jmp .LBB0_13
 ; X64-CORE-AVX2-NEXT:  .LBB0_4:
@@ -321,7 +321,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-ADL-NEXT:    movq %rax, %rcx
 ; X64-ADL-NEXT:    jne .LBB0_8
 ; X64-ADL-NEXT:    jmp .LBB0_11
-; X64-ADL-NEXT:  .LBB0_1: # %entry
+; X64-ADL-NEXT:  .LBB0_1:
 ; X64-ADL-NEXT:    vxorpd %xmm0, %xmm0, %xmm0
 ; X64-ADL-NEXT:    jmp .LBB0_11
 ; X64-ADL-NEXT:  .LBB0_4:
@@ -569,7 +569,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X86-CORE-AVX2-NEXT:    movl %eax, %edi
 ; X86-CORE-AVX2-NEXT:    jne .LBB0_6
 ; X86-CORE-AVX2-NEXT:    jmp .LBB0_10
-; X86-CORE-AVX2-NEXT:  .LBB0_1: # %entry
+; X86-CORE-AVX2-NEXT:  .LBB0_1:
 ; X86-CORE-AVX2-NEXT:    vxorpd %xmm1, %xmm1, %xmm1
 ; X86-CORE-AVX2-NEXT:    jmp .LBB0_10
 ; X86-CORE-AVX2-NEXT:  .LBB0_11:
@@ -831,7 +831,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X86-ADL-NEXT:    movl %eax, %edi
 ; X86-ADL-NEXT:    jne .LBB0_5
 ; X86-ADL-NEXT:    jmp .LBB0_9
-; X86-ADL-NEXT:  .LBB0_1: # %entry
+; X86-ADL-NEXT:  .LBB0_1:
 ; X86-ADL-NEXT:    vxorpd %xmm1, %xmm1, %xmm1
 ; X86-ADL-NEXT:    jmp .LBB0_9
 ; X86-ADL-NEXT:  .LBB0_10:

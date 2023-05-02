@@ -4,12 +4,6 @@
 ; RUN: llc -march=amdgcn -mcpu=gfx1010 -mattr=+wavefrontsize32,-wavefrontsize64 -amdgpu-early-ifcvt=1 -verify-machineinstrs -simplifycfg-require-and-preserve-domtree=1 < %s | FileCheck -check-prefixes=GCN,GFX1032 %s
 ; RUN: llc -march=amdgcn -mcpu=gfx1010 -mattr=-wavefrontsize32,+wavefrontsize64 -amdgpu-early-ifcvt=1 -verify-machineinstrs -simplifycfg-require-and-preserve-domtree=1 < %s | FileCheck -check-prefixes=GCN,GFX1064 %s
 ; RUN: llc -march=amdgcn -mcpu=gfx1010 -verify-machineinstrs -simplifycfg-require-and-preserve-domtree=1 < %s | FileCheck -check-prefixes=GCN,GFX1032,GFX10DEFWAVE %s
-; UNSUPPORTED: windows
-
-; INTEL_CUSTOMIZATION
-; See CMPLRLLVM-45738 - Temporarily marking as expected to fail.
-; XFAIL: *
-; end INTEL_CUSTOMIZATION
 
 define amdgpu_kernel void @test_vopc_i32(ptr addrspace(1) %arg) {
 ; GFX1032-LABEL: test_vopc_i32:
