@@ -1173,6 +1173,7 @@ optimizeOnceStoredGlobal(GlobalVariable *GV, Value *StoredOnceVal,
           nullptr /* F */,
           GV->getInitializer()->getType()->getPointerAddressSpace())) {
     if (Constant *SOVC = dyn_cast<Constant>(StoredOnceVal)) {
+<<<<<<< HEAD
       if (GV->getInitializer()->getType() != SOVC->getType())
 #if INTEL_CUSTOMIZATION
       {
@@ -1186,6 +1187,8 @@ optimizeOnceStoredGlobal(GlobalVariable *GV, Value *StoredOnceVal,
       }
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> b52db60cbbb2b258acb4aad056aba7ad3ca572fa
       // Optimize away any trapping uses of the loaded value.
       if (OptimizeAwayTrappingUsesOfLoads(GV, SOVC, DL, GetTLI))
         return true;
