@@ -904,7 +904,13 @@ TargetInfo::CreateTargetInfo(DiagnosticsEngine &Diags,
   // Check that targets for automatic-multiversion-dispatch specified are legal.
   {
     bool IncorrectTargetNameSeen = false;
-    for (const std::string &TargetName : Opts->AutoMultiVersionTargets) {
+    for (const std::string &TargetName : Opts->AutoCPUDispatchTargets) {
+      if (!Target->isValidCPUName(TargetName)) {
+        Diags.Report(diag::err_target_unknown_cpu) << TargetName;
+        IncorrectTargetNameSeen = true;
+      }
+    }
+    for (const std::string &TargetName : Opts->AutoArchTargets) {
       if (!Target->isValidCPUName(TargetName)) {
         Diags.Report(diag::err_target_unknown_cpu) << TargetName;
         IncorrectTargetNameSeen = true;

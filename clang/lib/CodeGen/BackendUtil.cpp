@@ -1120,7 +1120,8 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
   PTO.CallGraphProfile = !CodeGenOpts.DisableIntegratedAS;
 #if INTEL_CUSTOMIZATION
   PTO.DisableIntelProprietaryOpts = CodeGenOpts.DisableIntelProprietaryOpts;
-  PTO.EnableAutoCPUDispatch = !TargetOpts.AutoMultiVersionTargets.empty();
+  PTO.EnableAutoCPUDispatch = !TargetOpts.AutoCPUDispatchTargets.empty() ||
+                              !TargetOpts.AutoArchTargets.empty();
 #endif // INTEL_CUSTOMIZATION
   // Enable a custom optimization pipeline for non-user SYCL code.
   PTO.OptimizeSYCLFramework =
