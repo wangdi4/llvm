@@ -105,10 +105,8 @@ bool Parser::isCXXDeclarationStatement(
       }
       case tok::kw_operator:
         return true;
-      case tok::annot_cxxscope: // Check if this is a dtor.
-        if (NextToken().is(tok::tilde))
-          return true;
-        break;
+      case tok::tilde:
+        return true;
       default:
         break;
       }
