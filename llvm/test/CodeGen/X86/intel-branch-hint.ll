@@ -32,11 +32,11 @@ define dso_local void @foo(i32 noundef %a, i32 noundef %b, i8* noundef readnone 
 ; CHECK-NEXT:    ds # encoding: [0x3e]
 ; CHECK-NEXT:    jne .LBB0_5 # encoding: [0x75,A]
 ; CHECK-NEXT:    # fixup A - offset: 1, value: .LBB0_5-1, kind: FK_PCRel_1
-; CHECK-NEXT:  # %bb.3: # %if.else
+; CHECK-NEXT:  # %bb.3:
 ; CHECK-NEXT:    movl $2, %eax # encoding: [0xb8,0x02,0x00,0x00,0x00]
 ; CHECK-NEXT:    jmp .LBB0_4 # encoding: [0xeb,A]
 ; CHECK-NEXT:    # fixup A - offset: 1, value: .LBB0_4-1, kind: FK_PCRel_1
-; CHECK-NEXT:  .LBB0_1: # %entry
+; CHECK-NEXT:  .LBB0_1:
 ; CHECK-NEXT:    movl $1, %eax # encoding: [0xb8,0x01,0x00,0x00,0x00]
 ; CHECK-NEXT:  .LBB0_4: # %if.end4.sink.split
 ; CHECK-NEXT:    addl %eax, XX(%rip) # encoding: [0x01,0x05,A,A,A,A]

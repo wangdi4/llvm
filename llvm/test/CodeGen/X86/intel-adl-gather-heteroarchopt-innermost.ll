@@ -145,7 +145,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-NEXT:    movq %rax, %rcx
 ; X64-NEXT:    jne .LBB0_8
 ; X64-NEXT:    jmp .LBB0_16
-; X64-NEXT:  .LBB0_1: # %entry
+; X64-NEXT:  .LBB0_1:
 ; X64-NEXT:    vxorpd %xmm0, %xmm0, %xmm0
 ; X64-NEXT:    jmp .LBB0_16
 ; X64-NEXT:  .LBB0_4:
@@ -485,7 +485,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X86-NEXT:    movl 32(%ebp), %esi
 ; X86-NEXT:    jne .LBB0_5
 ; X86-NEXT:    jmp .LBB0_13
-; X86-NEXT:  .LBB0_1: # %entry
+; X86-NEXT:  .LBB0_1:
 ; X86-NEXT:    vxorpd %xmm3, %xmm3, %xmm3
 ; X86-NEXT:    jmp .LBB0_13
 ; X86-NEXT:  .LBB0_21:
