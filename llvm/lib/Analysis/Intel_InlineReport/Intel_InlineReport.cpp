@@ -343,7 +343,8 @@ void InlineReportCallSite::moveOutlinedChildren(
     InlineReportCallSiteVector &IRCSV,
     SmallPtrSetImpl<InlineReportCallSite *> &OutFCBSet,
     InlineReportCallSite *NewIRCS) {
-  for (InlineReportCallSite *IRCS : IRCSV) {
+  InlineReportCallSiteVector TIRCSV = IRCSV;
+  for (InlineReportCallSite *IRCS : TIRCSV) {
     if (OutFCBSet.count(IRCS)) {
       if (IRCS->getCall()) {
         IRCS->move(this, NewIRCS);
@@ -359,7 +360,8 @@ void InlineReportCallSite::moveOutlinedChildren(
 void InlineReportFunction::moveOutlinedCallSites(
     InlineReportFunction *NewIRF,
     SmallPtrSetImpl<InlineReportCallSite *> &OutFCBSet) {
-  for (InlineReportCallSite *IRCS : getCallSites()) {
+  InlineReportCallSiteVector TIRCSV = getCallSites();
+  for (InlineReportCallSite *IRCS : TIRCSV) {
     if (OutFCBSet.count(IRCS)) {
       if (IRCS->getCall()) {
         IRCS->move(this, NewIRF);
