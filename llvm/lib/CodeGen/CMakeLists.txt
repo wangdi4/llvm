@@ -65,6 +65,9 @@ add_llvm_component_library(LLVMCodeGenTypes
   LowLevelType.cpp
   PARTIAL_SOURCES_INTENDED
 
+  DEPENDS
+  vt_gen
+
   LINK_COMPONENTS
   Support
   )
