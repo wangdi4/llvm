@@ -2119,8 +2119,9 @@ public:
     for (auto &PointeePair :
          PtrInfo.getElementPointeeSet(ValueTypeInfo::VAT_Use)) {
       DTransType *ParentTy = PointeePair.first;
-      assert((ParentTy->isStructTy() || ParentTy->isArrayTy()) &&
-             "Expect pointee pair only for structure/array types");
+      assert((ParentTy->isStructTy() || ParentTy->isArrayTy() ||
+              ParentTy->isVectorTy()) &&
+             "Expect pointee pair only for structure/array/vector types");
 
       if (IsVolatile)
         setBaseTypeInfoSafetyData(ParentTy, dtrans::VolatileData,
@@ -2135,13 +2136,18 @@ public:
         continue;
       }
 
-      // Identify the field type or array member type being accessed
+      // Identify the aggregate element type being accessed
       DTransType *IndexedType = nullptr;
       size_t ElementNum = PointeePair.second.getElementNum();
       if (auto *StTy = dyn_cast<DTransStructType>(ParentTy))
         IndexedType = StTy->getFieldType(ElementNum);
       else if (auto *ArTy = dyn_cast<DTransArrayType>(ParentTy))
         IndexedType = ArTy->getArrayElementType();
+      else if (auto *VecTy = dyn_cast<DTransVectorType>(ParentTy))
+        IndexedType = VecTy->getVectorElementType();
+      else
+        llvm_unreachable(
+            "Expect pointee pair only for structure/array/vector types");
 
       if (!IndexedType) {
         // If the IndexedType was not resolved, then there either a problem
