@@ -72,7 +72,7 @@
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB3]], [[BB0]]
 ; CHECK-NEXT:     float [[VP5]] = phi  [ float [[VP7]], [[BB3]] ],  [ float [[VP6]], [[BB0]] ]
 ; CHECK-NEXT:     i1 [[VP11:%.*]] = phi  [ i1 true, [[BB3]] ],  [ i1 false, [[BB0]] ]
-; CHECK-NEXT:     i32 [[VP21]] = compress-expand-index-inc i32 [[VP10]] i1 [[VP11]] i32 1
+; CHECK-NEXT:     i32 [[VP21]] = compress-expand-index-inc {stride: 1} i32 [[VP10]] i1 [[VP11]]
 ; CHECK-NEXT:     i64 [[VP8]] = add i64 [[VP9]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP16:%.*]] = icmp slt i64 [[VP8]] i64 [[VP14]]
 ; CHECK-NEXT:     br i1 [[VP16]], [[BB0]], [[BB5:BB[0-9]+]]

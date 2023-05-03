@@ -80,11 +80,11 @@
 ; CHECK-NEXT:       double* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds double* [[A0:%.*]] i64 [[VP8]]
 ; CHECK-NEXT:       double [[VP_LOAD]] = load double* [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:       i64 [[VP12]] = sext i32 [[VP9]] to i64
-; CHECK-NEXT:       i64 [[VP22:%.*]] = compress-expand-index i64 [[VP12]] i32 3
+; CHECK-NEXT:       i64 [[VP22:%.*]] = compress-expand-index {stride: 3} i64 [[VP12]]
 ; CHECK-NEXT:       double* [[VP_SUBSCRIPT]] = subscript inbounds double* [[B0]] i64 [[VP22]]
 ; CHECK-NEXT:       compress-store-nonu double [[VP_LOAD]] double* [[VP_SUBSCRIPT]] i64 [[MASK]]
 ; CHECK-NEXT:       i64 [[VP16]] = sext i32 [[VP13]] to i64
-; CHECK-NEXT:       i64 [[VP24:%.*]] = compress-expand-index i64 [[VP16]] i32 2
+; CHECK-NEXT:       i64 [[VP24:%.*]] = compress-expand-index {stride: 2} i64 [[VP16]]
 ; CHECK-NEXT:       double* [[VP_SUBSCRIPT_1]] = subscript inbounds double* [[B20]] i64 [[VP24]]
 ; CHECK-NEXT:       compress-store-nonu double [[VP_LOAD]] double* [[VP_SUBSCRIPT_1]] i64 [[MASK]]
 ; CHECK-NEXT:       br [[BB2]]
@@ -92,8 +92,8 @@
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB4]], [[BB0]]
 ; CHECK-NEXT:     i1 [[VP14:%.*]] = phi  [ i1 true, [[BB4]] ],  [ i1 false, [[BB0]] ]
 ; CHECK-NEXT:     i1 [[VP10:%.*]] = phi  [ i1 true, [[BB4]] ],  [ i1 false, [[BB0]] ]
-; CHECK-NEXT:     i32 [[VP25]] = compress-expand-index-inc i32 [[VP13]] i1 [[VP14]] i32 2
-; CHECK-NEXT:     i32 [[VP23]] = compress-expand-index-inc i32 [[VP9]] i1 [[VP10]] i32 3
+; CHECK-NEXT:     i32 [[VP25]] = compress-expand-index-inc {stride: 2} i32 [[VP13]] i1 [[VP14]]
+; CHECK-NEXT:     i32 [[VP23]] = compress-expand-index-inc {stride: 3} i32 [[VP9]] i1 [[VP10]]
 ; CHECK-NEXT:     i64 [[VP7]] = add i64 [[VP8]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP19:%.*]] = icmp slt i64 [[VP7]] i64 1024
 ; CHECK-NEXT:     br i1 [[VP19]], [[BB0]], [[BB5:BB[0-9]+]]

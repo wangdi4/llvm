@@ -69,7 +69,7 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB4]], [[BB0]]
 ; CHECK-NEXT:     i1 [[VP8:%.*]] = phi  [ i1 true, [[BB4]] ],  [ i1 false, [[BB0]] ]
-; CHECK-NEXT:     i32 [[VP15]] = compress-expand-index-inc i32 [[VP7]] i1 [[VP8]] i32 1
+; CHECK-NEXT:     i32 [[VP15]] = compress-expand-index-inc {stride: 1} i32 [[VP7]] i1 [[VP8]]
 ; CHECK-NEXT:     i64 [[VP5]] = add i64 [[VP6]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp slt i64 [[VP5]] i64 1024
 ; CHECK-NEXT:     br i1 [[VP13]], [[BB0]], [[BB5:BB[0-9]+]]
@@ -102,12 +102,12 @@
 
 ; CM4: Cost 0 for i32 [[VP2:%.*]] = compress-expand-index-init i32 live-in1
 ; CM4: Cost 10 for compress-store double [[VP_LOAD_1:%.*]] double* [[VP_SUBSCRIPT_2:%.*]]
-; CM4: Cost 4 for i32 [[VP9:%.*]] = compress-expand-index-inc i32 [[VP3:%.*]]
+; CM4: Cost 4 for i32 [[VP9:%.*]] = compress-expand-index-inc {stride: 1} i32 [[VP3:%.*]]
 ; CM4: Cost Unknown for i32 [[VP11:%.*]] = compress-expand-index-final i32 [[VP9]]
 
 ; CM8: Cost 0 for i32 [[VP2:%.*]] = compress-expand-index-init i32 live-in1
 ; CM8: Cost 20 for compress-store double [[VP_LOAD_1:%.*]] double* [[VP_SUBSCRIPT_2:%.*]]
-; CM8: Cost 4 for i32 [[VP9:%.*]] = compress-expand-index-inc i32 [[VP3:%.*]]
+; CM8: Cost 4 for i32 [[VP9:%.*]] = compress-expand-index-inc {stride: 1} i32 [[VP3:%.*]]
 ; CM8: Cost Unknown for i32 [[VP11:%.*]] = compress-expand-index-final i32 [[VP9]]
 
 ; OPTREPORT: remark #15497: vector compress: 1

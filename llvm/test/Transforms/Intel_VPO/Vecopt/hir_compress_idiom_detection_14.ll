@@ -65,7 +65,7 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB4]], [[BB0]]
 ; CHECK-NEXT:     i1 [[VP9:%.*]] = phi  [ i1 true, [[BB4]] ],  [ i1 false, [[BB0]] ]
-; CHECK-NEXT:     i32 [[VP17]] = compress-expand-index-inc i32 [[VP8]] i1 [[VP9]] i32 1
+; CHECK-NEXT:     i32 [[VP17]] = compress-expand-index-inc {stride: 1} i32 [[VP8]] i1 [[VP9]]
 ; CHECK-NEXT:     i64 [[VP6]] = add i64 [[VP7]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP15:%.*]] = icmp slt i64 [[VP6]] i64 1024
 ; CHECK-NEXT:     br i1 [[VP15]], [[BB0]], [[BB5:BB[0-9]+]]

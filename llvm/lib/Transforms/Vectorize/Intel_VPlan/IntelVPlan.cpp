@@ -659,6 +659,16 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
   if (auto *Adapter = dyn_cast<VPlanAdapter>(this))
     Adapter->printImpl(O);
 
+  if (isa<VPCompressExpandIndex>(this) || isa<VPCompressExpandIndexInc>(this)) {
+    O << " {";
+    auto *CEIndex = static_cast<const VPCompressExpandIndex *>(this);
+    if (CEIndex->isPtrInc()) {
+      CEIndex->getValueType()->print(O);
+      O << ", ";
+    }
+    O << "stride: " << CEIndex->getTotalStride() << "}";
+  }
+
   // TODO: print type when this information will be available.
   // So far don't print anything, because PHI may not have Instruction
   if (auto *Phi = dyn_cast<const VPPHINode>(this)) {

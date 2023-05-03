@@ -5434,30 +5434,49 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     // =>
     // %bcast = broadcast %orig.index
     // %index = add %bcast, <0, %stride, %stride * 2, %stride * 3, ...>
-    Type *ElType = VPInst->getType();
-    VectorType *VecType = getWidenedType(ElType, getVF());
+    auto *CEIndex = cast<VPCompressExpandIndex>(VPInst);
+    Type *IntTy = CEIndex->isPtrInc() ? IntegerType::get(Context, 64)
+                                      : CEIndex->getType();
 
-    RegDDRef *OrigIndex = widenRef(VPInst->getOperand(0), 0);
-    RegDDRef *Poison = DDRefUtilities.createPoisonDDRef(VecType);
-    RegDDRef *Zeros =
-        DDRefUtilities.createConstDDRef(Constant::getNullValue(VecType));
-
-    HLInst *Bcast =
-        HLNodeUtilities.createShuffleVectorInst(OrigIndex, Poison, Zeros);
-    addInstUnmasked(Bcast);
-
-    int64_t Stride = cast<VPConstant>(VPInst->getOperand(1))->getSExtValue();
     SmallVector<Constant *, 8> Offsets;
     for (unsigned I = 0; I < getVF(); I++)
-      Offsets.push_back(ConstantInt::get(ElType, I * Stride));
+      Offsets.push_back(ConstantInt::get(IntTy, I * CEIndex->getTotalStride()));
+    Constant *Cv = ConstantVector::get(Offsets);
 
-    RegDDRef *OffsetsRef =
-        DDRefUtilities.createConstDDRef(ConstantVector::get(Offsets));
-    HLInst *Add =
-        HLNodeUtilities.createAdd(Bcast->getLvalDDRef()->clone(), OffsetsRef);
-    addInstUnmasked(Add);
+    RegDDRef *Index = widenRef(CEIndex->getOrigIndex(), 0);
+    if (CEIndex->isPtrInc()) {
 
-    addVPValueWideRefMapping(VPInst, Add->getLvalDDRef());
+      CanonExpr *CE = CanonExprUtilities.createConstStandAloneBlobCanonExpr(Cv);
+      if (Index->isAddressOf())
+        CanonExprUtilities.add(Index->getSingleCanonExpr(), CE);
+      else {
+        Index = DDRefUtilities.createAddressOfRef(CEIndex->getValueType(),
+                                                  Index->getSelfBlobIndex(),
+                                                  Index->getDefinedAtLevel());
+        Index->setBitCastDestVecOrElemType(
+            getWidenedType(CEIndex->getType(), getVF()));
+        Index->addDimension(CE);
+      }
+
+    } else {
+
+      VectorType *VecType = getWidenedType(IntTy, getVF());
+      RegDDRef *Poison = DDRefUtilities.createPoisonDDRef(VecType);
+      RegDDRef *Zeros =
+          DDRefUtilities.createConstDDRef(Constant::getNullValue(VecType));
+
+      HLInst *Bcast =
+          HLNodeUtilities.createShuffleVectorInst(Index, Poison, Zeros);
+      addInstUnmasked(Bcast);
+
+      HLInst *Add = HLNodeUtilities.createAdd(
+          Bcast->getLvalDDRef()->clone(), DDRefUtilities.createConstDDRef(Cv));
+      addInstUnmasked(Add);
+
+      Index = Add->getLvalDDRef();
+    }
+
+    addVPValueWideRefMapping(VPInst, Index);
     return;
   }
 
@@ -5468,8 +5487,9 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     // =>
     // %mask.i = bitcast <VF x i1> %mask to i8 (iVF)
     // %mask.i.popcnt = call i8 @llvm.ctpop.i8(i8 %mask.i)
+    auto *CEIndexInc = cast<VPCompressExpandIndexInc>(VPInst);
     Type *IntTy = IntegerType::get(Context, getVF());
-    RegDDRef *Mask = widenRef(VPInst->getOperand(1), getVF());
+    RegDDRef *Mask = widenRef(CEIndexInc->getMask(), getVF());
     HLInst *BitCastInst = createBitCast(IntTy, Mask);
 
     Function *CtpopFunc = Intrinsic::getDeclaration(
@@ -5483,24 +5503,37 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     // %mask.i64 = zext i8 %mask.i.popcnt to i64
     // %mul = mul i64 %mask.i64, %stride
     // %new.index = add i64 %orig.index, %mul
+    IntTy = CEIndexInc->isPtrInc() ? IntegerType::get(Context, 64)
+                                   : CEIndexInc->getType();
     HLInst *ZExt = CtpopCall;
-    if (VPInst->getType()->getIntegerBitWidth() > getVF()) {
-      ZExt = HLNodeUtilities.createZExt(VPInst->getType(),
-                                        CtpopCall->getLvalDDRef()->clone());
+    if (IntTy->getIntegerBitWidth() > getVF()) {
+      ZExt =
+          HLNodeUtilities.createZExt(IntTy, CtpopCall->getLvalDDRef()->clone());
       addInstUnmasked(ZExt);
     }
 
-    RegDDRef *Stride = getOrCreateScalarRef(VPInst->getOperand(2), 0);
+    RegDDRef *Stride = DDRefUtilities.createConstDDRef(
+        ConstantInt::get(IntTy, CEIndexInc->getTotalStride()));
     HLInst *Mul =
         HLNodeUtilities.createMul(ZExt->getLvalDDRef()->clone(), Stride);
     addInstUnmasked(Mul);
 
-    RegDDRef *OrigIndex = getOrCreateScalarRef(VPInst->getOperand(0), 0);
-    HLInst *Add =
-        HLNodeUtilities.createAdd(OrigIndex, Mul->getLvalDDRef()->clone());
-    addInstUnmasked(Add);
+    RegDDRef *OrigIndex = getOrCreateScalarRef(CEIndexInc->getOrigIndex(), 0);
+    HLInst *Res;
+    if (CEIndexInc->isPtrInc()) {
+      RegDDRef *MemRef = DDRefUtilities.createAddressOfRef(
+          CEIndexInc->getValueType(), OrigIndex->getSelfBlobIndex(),
+          OrigIndex->getDefinedAtLevel());
+      MemRef->addDimension(
+          CanonExprUtilities.createSelfBlobCanonExpr(Mul->getLvalBlobIndex()));
+      MemRef->makeConsistent({Mul->getLvalDDRef()},
+                             getNestingLevelFromInsertPoint());
+      Res = HLNodeUtilities.createCopyInst(MemRef);
+    } else
+      Res = HLNodeUtilities.createAdd(OrigIndex, Mul->getLvalDDRef()->clone());
 
-    addVPValueScalRefMapping(VPInst, Add->getLvalDDRef(), 0);
+    addInstUnmasked(Res);
+    addVPValueScalRefMapping(VPInst, Res->getLvalDDRef(), 0);
     return;
   }
 

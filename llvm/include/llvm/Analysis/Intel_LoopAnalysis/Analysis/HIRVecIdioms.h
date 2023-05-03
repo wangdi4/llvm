@@ -231,6 +231,9 @@ public:
 
   static bool isIncrementInst(const HLInst *Inst, int64_t &Stride) {
 
+    if (isPointerIncrementInst(Inst, Stride))
+      return true;
+
     if (Inst->getLLVMInstruction()->getOpcode() != Instruction::Add)
       return false;
 
@@ -260,6 +263,27 @@ public:
 
     // TODO: relax the restriction to check for invariant strides.
     return StrideCE->isIntConstant(&Stride);
+  }
+
+  static bool isPointerIncrementInst(const HLInst *Inst, int64_t &Stride) {
+
+    const RegDDRef *RVal = Inst->getRvalDDRef();
+    if (!RVal || !RVal->isAddressOf())
+      return false;
+
+    const RegDDRef *LVal = Inst->getLvalDDRef();
+    if (!LVal->isSelfBlob())
+      return false;
+
+    const CanonExpr *BaseCE = RVal->getBaseCE();
+    if (!BaseCE->containsStandAloneBlob(LVal->getSelfBlobIndex()))
+      return false;
+
+    if (RVal->getNumDimensions() != 1)
+      return false;
+
+    const CanonExpr *CE = RVal->getSingleCanonExpr();
+    return CE->isIntConstant(&Stride);
   }
 
 private:

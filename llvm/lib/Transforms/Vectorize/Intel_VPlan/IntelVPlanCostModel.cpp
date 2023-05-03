@@ -1387,8 +1387,9 @@ VPlanTTICostModel::getTTICostForVF(const VPInstruction *VPInst, unsigned VF) {
 
   case VPInstruction::CompressExpandIndexInc: {
     VPInstructionCost Cost = 0;
+    auto *CEIndexInc = cast<VPCompressExpandIndexInc>(VPInst);
     Type *IntTy = IntegerType::get(*Plan->getLLVMContext(), VF);
-    int64_t Stride = cast<VPConstant>(VPInst->getOperand(2))->getSExtValue();
+    int64_t Stride = CEIndexInc->getTotalStride();
     if (Stride == 1) {
       // For non-unit strided compress/expand we already have CompressExpandMask
       // instruction generated with the same llvm.ctpop intrinsic call.
@@ -1401,7 +1402,9 @@ VPlanTTICostModel::getTTICostForVF(const VPInstruction *VPInst, unsigned VF) {
           IntrinsicCostAttributes(Intrinsic::ctpop, IntTy, {IntTy}),
           TTI::TCK_RecipThroughput);
     }
-    Type *TargetTy = VPInst->getType();
+    Type *TargetTy = CEIndexInc->isPtrInc()
+                         ? IntegerType::get(*Plan->getLLVMContext(), 64)
+                         : CEIndexInc->getType();
     Cost += TTI.getCastInstrCost(Instruction::ZExt, IntTy, TargetTy,
                                  TTI::CastContextHint::None,
                                  TTI::TCK_RecipThroughput);
@@ -1412,18 +1415,22 @@ VPlanTTICostModel::getTTICostForVF(const VPInstruction *VPInst, unsigned VF) {
           {TargetTransformInfo::OK_UniformConstantValue,
            isPowerOf2_32(Stride) ? TargetTransformInfo::OP_PowerOf2
                                  : TargetTransformInfo::OP_None});
-    Cost += TTI.getArithmeticInstrCost(
-        Instruction::Add, TargetTy, TargetTransformInfo::TCK_RecipThroughput,
-        {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None},
-        {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None});
+    if (!CEIndexInc->isPtrInc())
+      Cost += TTI.getArithmeticInstrCost(
+          Instruction::Add, TargetTy, TargetTransformInfo::TCK_RecipThroughput,
+          {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None},
+          {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None});
     return Cost;
   }
 
   case VPInstruction::CompressExpandIndex: {
-    VectorType *VecType = getWidenedType(VPInst->getType(), VF);
     VPInstructionCost Cost = 0;
-    Cost += TTI.getShuffleCost(TTI::SK_Broadcast, VecType);
-    Cost += TTI.getArithmeticInstrCost(Instruction::Add, VecType);
+    auto *CEIndex = cast<VPCompressExpandIndex>(VPInst);
+    if (!CEIndex->isPtrInc()) {
+      VectorType *VecType = getWidenedType(CEIndex->getType(), VF);
+      Cost += TTI.getShuffleCost(TTI::SK_Broadcast, VecType);
+      Cost += TTI.getArithmeticInstrCost(Instruction::Add, VecType);
+    }
     return Cost;
   }
 
