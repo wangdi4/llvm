@@ -47,6 +47,10 @@ add_llvm_library(LLVMTableGenCommon STATIC OBJECT EXCLUDE_FROM_ALL
   Intel_SVMLEmitter.cpp       # INTEL_CUSTOMIZATION -- TODO: VEC to COLLAB
   Intel_LibmvecEmitter.cpp    # INTEL_CUSTOMIZATION
   PARTIAL_SOURCES_INTENDED
+
+  LINK_COMPONENTS
+  Support
+  TableGen
   )
 set_target_properties(LLVMTableGenCommon PROPERTIES FOLDER "Tablegenning")
 
