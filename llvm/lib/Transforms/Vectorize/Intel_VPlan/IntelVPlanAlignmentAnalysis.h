@@ -100,6 +100,7 @@ public:
                       Align TargetAlignment);
 
   VPLoadStoreInst *memref() { return Memref; }
+  const VPLoadStoreInst *memref() const { return Memref; }
   VPlanSCEV *invariantBase() { return InvariantBase; }
   Align requiredAlignment() { return RequiredAlignment; }
   Align targetAlignment() { return TargetAlignment; }

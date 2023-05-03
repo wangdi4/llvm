@@ -1121,6 +1121,31 @@ void VPlanDriverImpl::addOptReportRemarksForScalRemainder(
   ScalarLpI->addOriginRemark({RemainderLoopForVectorizationRemarkID});
 }
 
+static std::optional<RemarkRecord>
+getPeeledMemrefRemark(const VPlanPeelingVariant *V) {
+  if (!VPlanDriverImpl::EmitDebugOptRemarks)
+    return {};
+
+  if (!isa<VPlanDynamicPeeling>(V))
+    return {};
+
+  const auto *Memref = cast<VPlanDynamicPeeling>(V)->memref();
+  assert(Memref && "dynamic peel with no memref?");
+
+  // Try to get a valid debug location, preferably from the pointer we are
+  // loading from/storing to.
+  DebugLoc Loc = Memref->getDebugLocation();
+  if (const auto *PtrI = dyn_cast<VPInstruction>(Memref->getPointerOperand()))
+    if (PtrI->getDebugLocation())
+      Loc = PtrI->getDebugLocation();
+  if (!Loc)
+    return {};
+
+  return VPlanDriverImpl::getDebugRemark<RemarkRecord>(
+      "peeled by memref at ", Loc->getLine(), ":", Loc->getColumn(), " (",
+      Memref->getOpcode() == Instruction::Load ? "load" : "store", ")");
+}
+
 void VPlanDriverImpl::addOptReportRemarksForVecPeel(
     const CfgMergerPlanDescr &PlanDescr, const VPlanPeelingVariant *Variant) {
   assert(PlanDescr.getLoopType() == CfgMergerPlanDescr::LoopType::LTPeel &&
@@ -1148,6 +1173,9 @@ void VPlanDriverImpl::addOptReportRemarksForVecPeel(
   OptRptStats.GeneralRemarks.emplace_back(
       EstimatedPeelCountRemarkID, OptReportVerbosity::High,
       std::to_string(Variant->maxPeelCount()));
+
+  if (const auto PeeledMemrefRemark = getPeeledMemrefRemark(Variant))
+    OptRptStats.GeneralRemarks.push_back(*std::move(PeeledMemrefRemark));
 }
 
 void VPlanDriverImpl::addOptReportRemarksForScalPeel(
@@ -1167,6 +1195,9 @@ void VPlanDriverImpl::addOptReportRemarksForScalPeel(
   ScalarLpI->addGeneralRemark({EstimatedPeelCountRemarkID,
                                OptReportVerbosity::High,
                                std::to_string(Variant->maxPeelCount())});
+
+  if (const auto PeeledMemrefRemark = getPeeledMemrefRemark(Variant))
+    ScalarLpI->addGeneralRemark(*std::move(PeeledMemrefRemark));
 }
 
 void VPlanDriverImpl::populateVPlanAnalyses(LoopVectorizationPlanner &LVP,
