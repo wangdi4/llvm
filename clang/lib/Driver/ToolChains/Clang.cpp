@@ -8910,29 +8910,31 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
 #if INTEL_CUSTOMIZATION
-  // Forward -ax option
-  if (const Arg *Tgts = Args.getLastArg(options::OPT_ax)) {
-    SmallString<128> TargetInfo("-ax=");
-
-    for (unsigned I = 0; I < Tgts->getNumValues(); ++I) {
-      if (I)
-        TargetInfo += ',';
+  auto ForwardArguments = [&](StringRef Flag, const Arg *Targets) {
+    SmallString<128> ForwardStr(Flag);
+    llvm::SmallSet<std::string, 4> SeenTargets;
+    for (unsigned I = 0; I < Targets->getNumValues(); ++I) {
       // Normalize CPU name, e.g. "CORE-AVX2" -> "core-avx2"
-      TargetInfo += x86::getCPUForIntelOnly(D, Tgts->getValue(I), Triple, Tgts);
+      std::string Target =
+          x86::getCPUForIntelOnly(D, Targets->getValue(I), Triple, Targets);
+      // The second value of the returned pair will be true, if Target
+      // was not inserted in the set before.
+      auto Success = SeenTargets.insert(Target);
+      if (!Success.second)
+        continue;
+      if (I)
+        ForwardStr += ',';
+      ForwardStr += Target;
     }
-    CmdArgs.push_back(Args.MakeArgString(TargetInfo.str()));
+    CmdArgs.push_back(Args.MakeArgString(ForwardStr.str()));
+  };
+  // Forward -ax option
+  if (const Arg *Targets = Args.getLastArg(options::OPT_ax)) {
+    ForwardArguments("-ax=", Targets);
   }
   // Forward -mauto-arch option
-  if (const Arg *Tgts = Args.getLastArg(options::OPT_mauto_arch_EQ)) {
-    SmallString<128> TargetInfo("-mauto-arch=");
-
-    for (unsigned I = 0; I < Tgts->getNumValues(); ++I) {
-      if (I)
-        TargetInfo += ',';
-      // Normalize CPU name, e.g. "CORE-AVX2" -> "core-avx2"
-      TargetInfo += x86::getCPUForIntelOnly(D, Tgts->getValue(I), Triple, Tgts);
-    }
-    CmdArgs.push_back(Args.MakeArgString(TargetInfo.str()));
+  if (const Arg *Targets = Args.getLastArg(options::OPT_mauto_arch_EQ)) {
+    ForwardArguments("-mauto-arch=", Targets);
   }
 #endif // INTEL_CUSTOMIZATION
 
