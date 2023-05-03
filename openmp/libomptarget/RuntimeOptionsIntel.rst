@@ -482,24 +482,6 @@ memory type.
 Plugin OpenCL
 -------------
 
-``LIBOMPTARGET_OPENCL_DATA_TRANSFER_METHOD=<Method>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. code-block:: rst
-
-  <Method> := 0 | 1 | 2
-
-Uses the specified method when performing memory copy operations.
-This is only effective when ``LIBOMPTARGET_OPENCL_USE_SVM=1``.
-
-``<Method>=0``: Uses ``clEnqueueRead/WriteBuffer`` API function on a temporary
-OpenCL buffer (``cl_mem``) created from a SVM pointer.
-
-``<Method>=1``: Uses ``clEnqueueSVMMap/Unmap`` API function.
-
-``<Method>=2``: Uses ``clEnqueueSVMMemcpy`` API function.
-
-**Default**: ``<Method>=1`` if ``LIBOMPTARGET_OPENCL_USE_SVM=1``
-
 ``LIBOMPTARGET_OPENCL_SUBSCRIPTION_RATE=<Num>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Sets over-subscription parameter that is used when computing the team
@@ -558,16 +540,6 @@ binaries.
 Enables using local work size (i.e., team size) suggested by OpenCL runtime.
 
 **Default**: Disabled
-
-``LIBOMPTARGET_OPENCL_USE_SVM=<Bool>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. code-block:: rst
-
-  <Bool> := 1 | T | t | 0 | F | f
-
-Enables/disables using SVM memory for default memory type.
-
-**Default**: Disabled (USM device by default)
 
 ``LIBOMPTARGET_OPENCL_USE_SINGLE_CONTEXT=<Enable>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
