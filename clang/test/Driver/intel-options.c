@@ -56,11 +56,25 @@
 // CHECK-AX-BROADWELL: "-ax=broadwell"
 // CHECK-AX-BOTH: "-ax=core-avx2,broadwell"
 
-// RUN: %clang -### -mauto-arch=broadwell  %s -c 2>&1 | \
+// RUN: %clang -### -mauto-archbroadwell %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-MAA-BROADWELL
+// RUN: %clang -### -mauto-archCORE-AVX2,broadwell %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-MAA-BOTH
+// RUN: %clang -### -mauto-archCORE-AVX2,broadwell,core-avx2 %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-MAA-BOTH
+//
+// RUN: %clang -### -mauto-arch=broadwell %s -c 2>&1 | \
 // RUN:  FileCheck %s -check-prefixes=CHECK-MAA-BROADWELL
 // RUN: %clang -### -mauto-arch=CORE-AVX2,broadwell %s -c 2>&1 | \
 // RUN:  FileCheck %s -check-prefixes=CHECK-MAA-BOTH
 // RUN: %clang -### -mauto-arch=CORE-AVX2,broadwell,core-avx2 %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-MAA-BOTH
+//
+// RUN: %clang_cl -### /Qauto-archbroadwell %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-MAA-BROADWELL
+// RUN: %clang_cl -### /Qauto-archCORE-AVX2,broadwell %s -c 2>&1 | \
+// RUN:  FileCheck %s -check-prefixes=CHECK-MAA-BOTH
+// RUN: %clang_cl -### /Qauto-archCORE-AVX2,broadwell,core-avx2 %s -c 2>&1 | \
 // RUN:  FileCheck %s -check-prefixes=CHECK-MAA-BOTH
 //
 // RUN: %clang_cl -### /Qauto-arch:broadwell %s -c 2>&1 | \
