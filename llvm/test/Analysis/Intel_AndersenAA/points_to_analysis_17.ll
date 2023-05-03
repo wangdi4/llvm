@@ -8,12 +8,12 @@
 ; CHECK: foo:%1        --> (0): <universal>
 ; CHECK-NOT: [0] foo:%1        -->
 
-@fp = common global i32** (i32)* null, align 8
+@fp = common global ptr null, align 8
 
-define void @foo(i32* nocapture readonly %inp) {
+define void @foo(ptr nocapture readonly %inp) {
 entry:
-  %0 = load i32** (i32)*, i32** (i32)** @fp
-  %call = tail call i32** %0(i32 2)
-  %1 = load i32*, i32** %call
+  %0 = load ptr, ptr @fp
+  %call = tail call ptr %0(i32 2)
+  %1 = load ptr, ptr %call
   ret void
 }

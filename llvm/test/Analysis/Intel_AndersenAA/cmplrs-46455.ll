@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 < %s -passes='require<anders-aa>,cgscc(inline),module(globalopt),cgscc(function-attrs)' -S | FileCheck %s
+; RUN: opt < %s -passes='require<anders-aa>,cgscc(inline),module(globalopt),cgscc(function-attrs)' -S | FileCheck %s
 
 ;
 ; This is a regression test for the scenario in cmplrs-46455. The scenario
@@ -50,16 +50,16 @@ define internal fastcc void @test_512() unnamed_addr #2 {
   %3 = alloca %union.union512i_w, align 64
   %4 = alloca [512 x i16], align 2
 
-  %5 = getelementptr inbounds [512 x i16], [512 x i16]* %4, i32 0, i32 0
-  call fastcc void @merge_masking_i_w(i16* nonnull %5)
+  %5 = getelementptr inbounds [512 x i16], ptr %4, i32 0, i32 0
+  call fastcc void @merge_masking_i_w(ptr nonnull %5)
   ret void
   }
 
-; CHECK: define internal fastcc void @merge_masking_i_w(i16* nocapture writeonly %0) unnamed_addr #2 {
+; CHECK: define internal fastcc void @merge_masking_i_w(ptr nocapture writeonly %0) unnamed_addr #2 {
 ; CHECK-NOT: attributes #2 { .*readnone.* }
 ; Function Attrs: noinline norecurse nounwind
-define internal fastcc void @merge_masking_i_w(i16* nocapture) unnamed_addr #3 {
-  store i16 -1, i16* %0, align 2
+define internal fastcc void @merge_masking_i_w(ptr nocapture) unnamed_addr #3 {
+  store i16 -1, ptr %0, align 2
   ret void
 }
 

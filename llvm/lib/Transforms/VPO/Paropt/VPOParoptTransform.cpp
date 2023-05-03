@@ -2231,6 +2231,15 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNTargetEnterData:
       case WRegionNode::WRNTargetExitData:
       case WRegionNode::WRNTargetUpdate:
+        if (W->getNowait()) {
+          // Propagate the NOWAIT info to the parent TARGET_TASK so it
+          // can use hidden helper threads.
+          if (WRegionNode *WParent = W->getParent()) {
+            assert(WParent->getIsTask() && WParent->getIsTargetTask() &&
+                   "Parent WRN of TARGET * NOWAIT must be a TARGET_TASK");
+            WParent->setIsTargetNowaitTask(true);
+          } // else WParent is null in device compilation
+        }
         if (DisableOffload) {
           // Ignore TARGET UPDATE and TARGET ENTER/EXIT DATA constructs
           LLVM_DEBUG(dbgs()<<"VPO: Ignored " << W->getName() << " construct\n");

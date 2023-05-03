@@ -8943,7 +8943,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     ForwardArguments("-ax=", Targets);
   }
   // Forward -mauto-arch option
-  if (const Arg *Targets = Args.getLastArg(options::OPT_mauto_arch_EQ)) {
+  if (const Arg *Targets = Args.getLastArg(options::OPT_mauto_arch)) {
     ForwardArguments("-mauto-arch=", Targets);
   }
 #endif // INTEL_CUSTOMIZATION
