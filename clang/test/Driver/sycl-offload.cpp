@@ -160,8 +160,6 @@
 /// Check -fsycl-targets=spir64 enables addition of -ffine-grained-bitfield-accesses option
 // RUN:   %clangxx -### -fsycl-device-only %s 2>&1 | FileCheck -check-prefixes=CHECK_BITFIELD_OPTION %s
 // CHECK_BITFIELD_OPTION: clang{{.*}} "-ffine-grained-bitfield-accesses"
-<<<<<<< HEAD
-=======
 
 /// Using linker specific items at the end of the command should not fail when
 /// we are performing a non-linking compilation behavior
@@ -173,4 +171,3 @@
 // RUN:  | FileCheck -check-prefix IGNORE_INPUT %s
 // IGNORE_INPUT: input unused
 
->>>>>>> ef0d151e57a4dfb79603fe5b386b524a41c2f59c

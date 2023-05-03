@@ -7693,17 +7693,11 @@ public:
     return C.MakeAction<OffloadAction>(HDep, DDeps);
   }
 
-<<<<<<< HEAD
-  void unbundleStaticArchives(Compilation &C, DerivedArgList &Args,
-                              DeviceActionBuilder::PhasesTy &PL) {
+  void unbundleStaticArchives(Compilation &C, DerivedArgList &Args) {
 #if INTEL_CUSTOMIZATION
     if (!Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false) &&
         !Args.hasArg(options::OPT_fopenmp_targets_EQ))
 #endif // INTEL_CUSTOMIZATION
-=======
-  void unbundleStaticArchives(Compilation &C, DerivedArgList &Args) {
-    if (!Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false))
->>>>>>> ef0d151e57a4dfb79603fe5b386b524a41c2f59c
       return;
 
     // Go through all of the args, and create a Linker specific argument list.
