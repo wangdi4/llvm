@@ -275,13 +275,19 @@ public:
   /// 25519: Remainder loop for vectorization
   static constexpr unsigned RemainderLoopForVectorizationRemarkID = 25519;
 
-  /// Utility function for adding/constructing debug remarks.
+  /// Utility functions for adding/constructing debug remarks.
+  template <typename RemarkRecordT, typename... ArgsT>
+  static RemarkRecordT getDebugRemark(ArgsT &&...Args) {
+    std::string Remark;
+    ((llvm::raw_string_ostream{Remark} << std::forward<ArgsT>(Args)), ...);
+    return RemarkRecordT{VPlanDriverImpl::DebugRemarkID, std::move(Remark)};
+  }
+
   template <typename... ArgsT, typename RemarkRecordT>
   static void addDebugRemark(SmallVectorImpl<RemarkRecordT> &Remarks,
                              ArgsT &&...Args) {
-    std::string Remark;
-    ((llvm::raw_string_ostream{Remark} << std::forward<ArgsT>(Args)), ...);
-    Remarks.emplace_back(VPlanDriverImpl::DebugRemarkID, std::move(Remark));
+    Remarks.push_back(
+        getDebugRemark<RemarkRecordT>(std::forward<ArgsT>(Args)...));
   }
 };
 
