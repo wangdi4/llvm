@@ -35,6 +35,12 @@ endif()
 
 function(tablegen project ofn)
   cmake_parse_arguments(ARG "" "" "DEPENDS;EXTRA_INCLUDES" ${ARGN})
+
+  # Override ${project} with ${project}_TABLEGEN_PROJECT
+  if(NOT "${${project}_TABLEGEN_PROJECT}" STREQUAL "")
+    set(project ${${project}_TABLEGEN_PROJECT})
+  endif()
+
   # Validate calling context.
   if(NOT ${project}_TABLEGEN_EXE)
     message(FATAL_ERROR "${project}_TABLEGEN_EXE not set")
@@ -172,12 +178,6 @@ macro(add_tablegen target project)
   set(${target}_OLD_LLVM_LINK_COMPONENTS ${LLVM_LINK_COMPONENTS})
   set(LLVM_LINK_COMPONENTS ${LLVM_LINK_COMPONENTS} TableGen)
 
-  # CMake doesn't let compilation units depend on their dependent libraries on some generators.
-  if(NOT CMAKE_GENERATOR MATCHES "Ninja" AND NOT XCODE)
-    # FIXME: It leaks to user, callee of add_tablegen.
-    set(LLVM_ENABLE_OBJLIB ON)
-  endif()
-
   add_llvm_executable(${target} DISABLE_LLVM_LINK_LLVM_DYLIB
     ${ADD_TABLEGEN_UNPARSED_ARGUMENTS})
   set(LLVM_LINK_COMPONENTS ${${target}_OLD_LLVM_LINK_COMPONENTS})
@@ -188,8 +188,22 @@ macro(add_tablegen target project)
       set(${project}_TABLEGEN_DEFAULT "${LLVM_NATIVE_TOOL_DIR}/${target}${LLVM_HOST_EXECUTABLE_SUFFIX}")
     endif()
   endif()
-  set(${project}_TABLEGEN "${${project}_TABLEGEN_DEFAULT}" CACHE
+
+  # FIXME: Quick fix to reflect LLVM_TABLEGEN to llvm-min-tblgen
+  if("${target}" STREQUAL "llvm-min-tblgen"
+      AND NOT "${LLVM_TABLEGEN}" STREQUAL ""
+      AND NOT "${LLVM_TABLEGEN}" STREQUAL "llvm-tblgen")
+    set(${project}_TABLEGEN_DEFAULT "${LLVM_TABLEGEN}")
+  endif()
+
+  if(ADD_TABLEGEN_EXPORT)
+    set(${project}_TABLEGEN "${${project}_TABLEGEN_DEFAULT}" CACHE
       STRING "Native TableGen executable. Saves building one when cross-compiling.")
+  else()
+    # Internal tablegen
+    set(${project}_TABLEGEN "${${project}_TABLEGEN_DEFAULT}")
+    set_target_properties(${target} PROPERTIES EXCLUDE_FROM_ALL ON)
+  endif()
 
   # Effective tblgen executable to be used:
   set(${project}_TABLEGEN_EXE ${${project}_TABLEGEN} PARENT_SCOPE)
