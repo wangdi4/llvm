@@ -99,9 +99,6 @@
 #endif // _WIN32
 #endif // INTEL_CUSTOMIZATION
 
-/// Additional TARGET_ALLOC* definition for the plugin
-constexpr int32_t TARGET_ALLOC_SVM = INT32_MAX;
-
 /// Device type enumeration common to compiler and runtime
 enum DeviceArch : uint64_t {
   DeviceArch_None   = 0,
@@ -555,15 +552,6 @@ struct ExtensionsTy {
   int32_t getExtensionsInfoForDevice(int32_t DeviceId);
 };
 
-/// Data transfer method
-enum DataTransferMethodTy {
-  DATA_TRANSFER_METHOD_INVALID = -1,   // Invalid
-  DATA_TRANSFER_METHOD_CLMEM = 0,      // Use Buffer on SVM
-  DATA_TRANSFER_METHOD_SVMMAP,         // Use SVMMap/Unmap
-  DATA_TRANSFER_METHOD_SVMMEMCPY,      // Use SVMMemcpy
-  DATA_TRANSFER_METHOD_LAST,
-};
-
 #if INTEL_CUSTOMIZATION
 struct DynamicMemHeapTy {
   /// Base address memory is allocated from
@@ -748,16 +736,15 @@ struct RTLFlagsTy {
   uint64_t EnableProfile : 1;
   uint64_t UseDriverGroupSizes : 1;
   uint64_t EnableSimd : 1;
-  uint64_t UseSVM : 1;
   uint64_t UseSingleContext : 1;
   uint64_t UseImageOptions : 1;
   uint64_t ShowBuildLog : 1;
   uint64_t LinkLibDevice : 1;
   uint64_t NDRangeIgnoreTripcount : 1;
   // Add new flags here
-  uint64_t Reserved : 55;
+  uint64_t Reserved : 56;
   RTLFlagsTy()
-      : EnableProfile(0), UseDriverGroupSizes(0), EnableSimd(0), UseSVM(0),
+      : EnableProfile(0), UseDriverGroupSizes(0), EnableSimd(0),
         UseSingleContext(0), UseImageOptions(1), ShowBuildLog(0),
         LinkLibDevice(0), NDRangeIgnoreTripcount(0), Reserved(0) {}
 };
@@ -923,15 +910,11 @@ public:
   }
 
   /// Add a list of implicit arguments to the output vector.
-  void getImplicitArgs(
-      std::vector<void *> &SVMArgs, std::vector<void *> &USMArgs) {
+  void getImplicitArgs(std::vector<void *> &USMArgs) {
     std::lock_guard<std::mutex> Lock(Mtx);
     for (auto &AllocInfo : Map) {
       if (AllocInfo.second.ImplicitArg) {
-        if (AllocInfo.second.Kind == TARGET_ALLOC_SVM)
-          SVMArgs.push_back(AllocInfo.first);
-        else
-          USMArgs.push_back(AllocInfo.first);
+        USMArgs.push_back(AllocInfo.first);
       }
     }
   }
@@ -953,9 +936,6 @@ public:
 struct RTLOptionTy {
   /// Binary flags
   RTLFlagsTy Flags;
-
-  /// Data transfer method when SVM is used
-  int32_t DataTransferMethod = DATA_TRANSFER_METHOD_SVMMAP;
 
   /// Plugin profiling resolution (msec by default)
   int64_t ProfileResolution = 1000;
@@ -1034,22 +1014,6 @@ struct RTLOptionTy {
 
   RTLOptionTy() {
     const char *Env;
-
-    // Read LIBOMPTARGET_OPENCL_DATA_TRANSFER_METHOD
-    if ((Env = readEnvVar("LIBOMPTARGET_OPENCL_DATA_TRANSFER_METHOD"))) {
-      std::string Value(Env);
-      DataTransferMethod = DATA_TRANSFER_METHOD_INVALID;
-      if (Value.size() == 1 && std::isdigit(Value.c_str()[0])) {
-        int Method = std::stoi(Env);
-        if (Method < DATA_TRANSFER_METHOD_LAST)
-          DataTransferMethod = Method;
-      }
-      if (DataTransferMethod == DATA_TRANSFER_METHOD_INVALID) {
-        WARNING("Invalid data transfer method (%s) selected"
-                " -- using default method.\n", Env);
-        DataTransferMethod = DATA_TRANSFER_METHOD_SVMMAP;
-      }
-    }
 
     // Read LIBOMPTARGET_DEVICETYPE
     if ((Env = readEnvVar("LIBOMPTARGET_DEVICETYPE"))) {
@@ -1136,15 +1100,6 @@ struct RTLOptionTy {
         Flags.UseDriverGroupSizes = 1;
     }
 #endif  // INTEL_CUSTOMIZATION
-
-    // Read LIBOMPTARGET_OPENCL_USE_SVM
-    if ((Env = readEnvVar("LIBOMPTARGET_OPENCL_USE_SVM"))) {
-      int32_t Value = parseBool(Env);
-      if (Value == 1)
-        Flags.UseSVM = 1;
-      else if (Value == 0)
-        Flags.UseSVM = 0;
-    }
 
     // Read LIBOMPTARGET_USE_SINGLE_CONTEXT
     if ((Env = readEnvVar("LIBOMPTARGET_USE_SINGLE_CONTEXT"))) {
@@ -1927,18 +1882,14 @@ static inline void *dataAlloc(int32_t DeviceId, int64_t Size, void *HstPtr,
   ProfileIntervalTy DataAllocTimer("DataAlloc", DeviceId);
   DataAllocTimer.start();
 
-  if (DeviceInfo->Option.Flags.UseSVM) {
-    AllocKind = TARGET_ALLOC_SVM;
-    CALL_CL_RV(Base, clSVMAlloc, Context, CL_MEM_READ_WRITE, AllocSize, Align);
-  } else {
-    cl_int RC;
-    auto AllocProp = DeviceInfo->getAllocMemProperties(DeviceId, AllocSize);
-    CALL_CL_EXT_RVRC(DeviceId, Base, clDeviceMemAllocINTEL, RC, Context,
-                     DeviceInfo->Devices[DeviceId], AllocProp->data(),
-                     AllocSize, Align);
-    if (RC != CL_SUCCESS)
-      return nullptr;
-  }
+  cl_int RC;
+  auto AllocProp = DeviceInfo->getAllocMemProperties(DeviceId, AllocSize);
+  CALL_CL_EXT_RVRC(DeviceId, Base, clDeviceMemAllocINTEL, RC, Context,
+                   DeviceInfo->Devices[DeviceId], AllocProp->data(), AllocSize,
+                   Align);
+  if (RC != CL_SUCCESS)
+    return nullptr;
+
   if (!Base) {
     DP("Error: Failed to allocate base buffer\n");
     return nullptr;
@@ -2015,52 +1966,12 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
 
   const char *ProfileKey = "DataWrite (Host to Device)";
   cl_event Event = nullptr;
+  CALL_CL_EXT_RET_FAIL(DeviceId, clEnqueueMemcpyINTEL, Queue, CL_FALSE, TgtPtr,
+                       HstPtr, Size, 0, nullptr, &Event);
+  CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
+  if (DeviceInfo->Option.Flags.EnableProfile)
+    DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
 
-  if (!DeviceInfo->Option.Flags.UseSVM) {
-    CALL_CL_EXT_RET_FAIL(DeviceId, clEnqueueMemcpyINTEL, Queue, CL_FALSE,
-                         TgtPtr, HstPtr, Size, 0, nullptr, &Event);
-    CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
-    if (DeviceInfo->Option.Flags.EnableProfile)
-      DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
-    return OFFLOAD_SUCCESS;
-  }
-
-  switch (DeviceInfo->Option.DataTransferMethod) {
-  case DATA_TRANSFER_METHOD_SVMMAP: {
-    ProfileIntervalTy SubmitTime(ProfileKey, DeviceId);
-    SubmitTime.start();
-    CALL_CL_RET_FAIL(clEnqueueSVMMap, Queue, CL_TRUE, CL_MAP_WRITE, TgtPtr,
-                     Size, 0, nullptr, nullptr);
-    memcpy(TgtPtr, HstPtr, Size);
-    CALL_CL_RET_FAIL(clEnqueueSVMUnmap, Queue, TgtPtr, 0, nullptr, &Event);
-    CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
-    SubmitTime.stop();
-  } break;
-  case DATA_TRANSFER_METHOD_SVMMEMCPY: {
-    CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, Queue, CL_TRUE, TgtPtr, HstPtr, Size,
-                     0, nullptr, &Event);
-    if (DeviceInfo->Option.Flags.EnableProfile)
-      DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
-  } break;
-  case DATA_TRANSFER_METHOD_CLMEM:
-  default: {
-    cl_int RC;
-    cl_mem Mem = nullptr;
-    CALL_CL_RVRC(Mem, clCreateBuffer, RC, DeviceInfo->getContext(DeviceId),
-                 CL_MEM_USE_HOST_PTR, Size, TgtPtr);
-    if (RC != CL_SUCCESS) {
-      DP("Error: Failed to create a buffer from a SVM pointer " DPxMOD "\n",
-         DPxPTR(TgtPtr));
-      return OFFLOAD_FAIL;
-    }
-    CALL_CL_RET_FAIL(clEnqueueWriteBuffer, Queue, Mem, CL_FALSE, 0, Size,
-                     HstPtr, 0, nullptr, &Event);
-    CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
-    CALL_CL_RET_FAIL(clReleaseMemObject, Mem);
-    if (DeviceInfo->Option.Flags.EnableProfile)
-      DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
-  }
-  }
   return OFFLOAD_SUCCESS;
 }
 
@@ -2075,52 +1986,11 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
 
   const char *ProfileKey = "DataRead (Device to Host)";
   cl_event Event = nullptr;
-
-  if (!DeviceInfo->Option.Flags.UseSVM) {
-    CALL_CL_EXT_RET_FAIL(DeviceId, clEnqueueMemcpyINTEL, Queue, CL_FALSE,
-                         HstPtr, TgtPtr, Size, 0, nullptr, &Event);
-    CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
-    if (DeviceInfo->Option.Flags.EnableProfile)
-      DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
-    return OFFLOAD_SUCCESS;
-  }
-
-  switch (DeviceInfo->Option.DataTransferMethod) {
-  case DATA_TRANSFER_METHOD_SVMMAP: {
-    ProfileIntervalTy RetrieveTime(ProfileKey, DeviceId);
-    RetrieveTime.start();
-    CALL_CL_RET_FAIL(clEnqueueSVMMap, Queue, CL_TRUE, CL_MAP_READ, TgtPtr, Size,
-                     0, nullptr, nullptr);
-    memcpy(HstPtr, TgtPtr, Size);
-    CALL_CL_RET_FAIL(clEnqueueSVMUnmap, Queue, TgtPtr, 0, nullptr, &Event);
-    CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
-    RetrieveTime.stop();
-  } break;
-  case DATA_TRANSFER_METHOD_SVMMEMCPY: {
-    CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, Queue, CL_TRUE, HstPtr, TgtPtr, Size,
-                     0, nullptr, &Event);
-    if (DeviceInfo->Option.Flags.EnableProfile)
-      DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
-  } break;
-  case DATA_TRANSFER_METHOD_CLMEM:
-  default: {
-    cl_int RC;
-    cl_mem Mem = nullptr;
-    CALL_CL_RVRC(Mem, clCreateBuffer, RC, DeviceInfo->getContext(DeviceId),
-                 CL_MEM_USE_HOST_PTR, Size, TgtPtr);
-    if (RC != CL_SUCCESS) {
-      DP("Error: Failed to create a buffer from a SVM pointer " DPxMOD "\n",
-         DPxPTR(TgtPtr));
-      return OFFLOAD_FAIL;
-    }
-    CALL_CL_RET_FAIL(clEnqueueReadBuffer, Queue, Mem, CL_FALSE, 0, Size, HstPtr,
-                     0, nullptr, &Event);
-    CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
-    CALL_CL_RET_FAIL(clReleaseMemObject, Mem);
-    if (DeviceInfo->Option.Flags.EnableProfile)
-      DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
-  }
-  }
+  CALL_CL_EXT_RET_FAIL(DeviceId, clEnqueueMemcpyINTEL, Queue, CL_FALSE, HstPtr,
+                       TgtPtr, Size, 0, nullptr, &Event);
+  CALL_CL_RET_FAIL(clWaitForEvents, 1, &Event);
+  if (DeviceInfo->Option.Flags.EnableProfile)
+    DeviceInfo->getProfiles(DeviceId).update(ProfileKey, Event);
   return OFFLOAD_SUCCESS;
 }
 
@@ -2699,19 +2569,14 @@ static inline int32_t runTargetTeamNDRegion(
     } else {
       ArgType = "Pointer";
       void *Ptr = (void *)((intptr_t)TgtArgs[I] + Offset);
-      if (DeviceInfo->Option.Flags.UseSVM) {
-        CALL_CL_RET_FAIL(clSetKernelArgSVMPointer, Kernel, I, Ptr);
-      } else {
-        CALL_CL_EXT_RET_FAIL(
-            DeviceId, clSetKernelArgMemPointerINTEL, Kernel, I, Ptr);
-      }
+      CALL_CL_EXT_RET_FAIL(DeviceId, clSetKernelArgMemPointerINTEL, Kernel, I,
+                           Ptr);
     }
     DP("Kernel %s Arg %d set successfully\n", ArgType, I);
     (void)ArgType;
   }
 
   auto &KernelProperty = DeviceInfo->KernelProperties[DeviceId][Kernel];
-  std::vector<void *> ImplicitSVMArgs;
   std::vector<void *> ImplicitUSMArgs;
   std::map<int32_t, bool> HasUSMArgs{
       {TARGET_ALLOC_DEVICE, false},
@@ -2745,12 +2610,8 @@ static inline int32_t runTargetTeamNDRegion(
     // use "search" instead of "find".
     auto *Info = AllocInfos[DeviceId]->search(Ptr);
     if (Info) {
-      if ((int32_t)Info->Kind == TARGET_ALLOC_SVM) {
-        ImplicitSVMArgs.push_back(Ptr);
-      } else {
-        ImplicitUSMArgs.push_back(Ptr);
-        HasUSMArgs[Info->Kind] = true;
-      }
+      ImplicitUSMArgs.push_back(Ptr);
+      HasUSMArgs[Info->Kind] = true;
     }
     if (DeviceInfo->Option.Flags.UseSingleContext) {
       Info = AllocInfos[DeviceInfo->NumDevices]->search(Ptr);
@@ -2762,23 +2623,15 @@ static inline int32_t runTargetTeamNDRegion(
   }
 
   /// Kernel-independent implicit arguments
-  AllocInfos[DeviceId]->getImplicitArgs(ImplicitSVMArgs, ImplicitUSMArgs);
+  AllocInfos[DeviceId]->getImplicitArgs(ImplicitUSMArgs);
   for (auto &ArgKind : HasUSMArgs)
     if (AllocInfos[DeviceId]->hasImplicitUSMArg(ArgKind.first))
       ArgKind.second = true;
   if (DeviceInfo->Option.Flags.UseSingleContext) {
     auto ID = DeviceInfo->NumDevices;
-    AllocInfos[ID]->getImplicitArgs(ImplicitSVMArgs, ImplicitUSMArgs);
+    AllocInfos[ID]->getImplicitArgs(ImplicitUSMArgs);
     if (AllocInfos[ID]->hasImplicitUSMArg(TARGET_ALLOC_HOST))
       HasUSMArgs[TARGET_ALLOC_HOST] = true;
-  }
-
-  if (ImplicitSVMArgs.size() > 0) {
-    DP("Calling clSetKernelExecInfo to pass %zu implicit SVM arguments "
-       "to kernel " DPxMOD "\n", ImplicitSVMArgs.size(), DPxPTR(Kernel));
-    CALL_CL_RET_FAIL(clSetKernelExecInfo, Kernel, CL_KERNEL_EXEC_INFO_SVM_PTRS,
-                     sizeof(void *) * ImplicitSVMArgs.size(),
-                     ImplicitSVMArgs.data());
   }
 
   if (ImplicitUSMArgs.size() > 0) {
@@ -4359,7 +4212,7 @@ int32_t __tgt_rtl_data_exchange(int32_t SrcId, void *SrcPtr, int32_t DstId,
   if (SrcId != DstId)
     return OFFLOAD_FAIL;
 
-  // This is OK for same-device copy with SVM or USM extension.
+  // This is OK for same-device copy.
   return __tgt_rtl_data_submit(DstId, DstPtr, SrcPtr, Size);
 }
 
@@ -4377,12 +4230,8 @@ int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr, int32_t Kind) {
   }
 
   auto Context = DeviceInfo->getContext(DeviceId);
-  if (DeviceInfo->Option.Flags.UseSVM) {
-    CALL_CL_VOID(clSVMFree, Context, Info.Base);
-  } else {
-    std::lock_guard<std::mutex> LG(DeviceInfo->Mutexes[DeviceId]);
-    CALL_CL_EXT_VOID(DeviceId, clMemBlockingFreeINTEL, Context, Info.Base);
-  }
+  std::lock_guard<std::mutex> LG(DeviceInfo->Mutexes[DeviceId]);
+  CALL_CL_EXT_VOID(DeviceId, clMemBlockingFreeINTEL, Context, Info.Base);
 
   return OFFLOAD_SUCCESS;
 }
@@ -4496,17 +4345,10 @@ void *__tgt_rtl_data_realloc(
   void *Mem = dataAllocExplicit(DeviceId, Size, AllocKind);
 
   if (Mem && Info) {
-    if (AllocKind == TARGET_ALLOC_DEVICE || Info->Kind == TARGET_ALLOC_DEVICE ||
-        Info->Kind == TARGET_ALLOC_SVM) {
-      // TARGET_ALLOC_SVM is for "Device" memory type when SVM is enabled
+    if (AllocKind == TARGET_ALLOC_DEVICE || Info->Kind == TARGET_ALLOC_DEVICE) {
       auto Queue = DeviceInfo->Queues[DeviceId];
-      if (DeviceInfo->Option.Flags.UseSVM) {
-        CALL_CL_RET_NULL(clEnqueueSVMMemcpy, Queue, CL_TRUE, Mem, Ptr,
-                         Info->Size, 0, nullptr, nullptr);
-      } else {
-        CALL_CL_EXT_RET_NULL(DeviceId, clEnqueueMemcpyINTEL, Queue, CL_TRUE,
-                             Mem, Ptr, Info->Size, 0, nullptr, nullptr);
-      }
+      CALL_CL_EXT_RET_NULL(DeviceId, clEnqueueMemcpyINTEL, Queue, CL_TRUE, Mem,
+                           Ptr, Info->Size, 0, nullptr, nullptr);
     } else {
       std::copy_n((char *)Ptr, Info->Size, (char *)Mem);
     }
