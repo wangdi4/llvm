@@ -3,10 +3,7 @@
 
 ; Verify that we are able to simplify the backedge taken count of this loop iterating the global structure to 1.
 
-; NOTE: the backedge-taken count used to be 1 but it isn't simplified anymore due to community changes.
-
-; CHECK: Loop %loop: backedge-taken count is ((-1 + (-1 * (ptrtoint [2 x %struct]* @glob_const to i64)) + ((8 + (ptrtoint [2 x %struct]* @glob_const to i64))<nuw><nsw> umax (16 + (ptrtoint [2 x %struct]* @glob_const to i64)))) /u 8)
-
+; CHECK: Loop %loop: backedge-taken count is 1
 
 %struct = type { i32, i32 }
 
