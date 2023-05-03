@@ -61,6 +61,15 @@ add_tablegen(llvm-min-tblgen LLVM_HEADERS
   $<TARGET_OBJECTS:obj.LLVMTableGenCommon>
   PARTIAL_SOURCES_INTENDED
   )
+set_target_properties(LLVMTableGenCommon PROPERTIES FOLDER "Tablegenning")
+
+set(LLVM_LINK_COMPONENTS Support)
+
+add_tablegen(llvm-min-tblgen LLVM_HEADERS
+  TableGen.cpp
+  $<TARGET_OBJECTS:obj.LLVMTableGenCommon>
+  PARTIAL_SOURCES_INTENDED
+  )
 set_target_properties(llvm-min-tblgen PROPERTIES FOLDER "Tablegenning")
 
 add_tablegen(llvm-tblgen LLVM
