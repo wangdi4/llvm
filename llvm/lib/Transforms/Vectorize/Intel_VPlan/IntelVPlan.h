@@ -4985,6 +4985,80 @@ public:
   }
 };
 
+class VPCompressExpandIndex : public VPInstruction {
+protected:
+  VPCompressExpandIndex(unsigned Opcode, Type *ValueType, int64_t TotalStride,
+                        VPInstruction *OrigIndex)
+      : VPInstruction(Opcode, OrigIndex->getType(), {OrigIndex}),
+        ValueType(ValueType), TotalStride(TotalStride) {
+
+    assert(!ValueType ||
+           getType()->isPointerTy() &&
+               "ValueType should be null for non-pointer increments.");
+  }
+
+public:
+  VPCompressExpandIndex(Type *ValueType, int64_t TotalStride,
+                        VPInstruction *OrigIndex)
+      : VPCompressExpandIndex(VPInstruction::CompressExpandIndex, ValueType,
+                              TotalStride, OrigIndex) {}
+
+  bool isPtrInc() const { return getType()->isPointerTy(); }
+  Type *getValueType() const {
+    assert(isPtrInc() &&
+           "Not expected to be called for non-pointer increments");
+    return ValueType;
+  }
+  int64_t getTotalStride() const { return TotalStride; }
+  VPInstruction *getOrigIndex() const {
+    return cast<VPInstruction>(getOperand(0));
+  }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::CompressExpandIndex;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPCompressExpandIndex *cloneImpl() const override {
+    return new VPCompressExpandIndex(ValueType, TotalStride, getOrigIndex());
+  }
+
+protected:
+  Type *ValueType;
+  int64_t TotalStride;
+};
+
+class VPCompressExpandIndexInc : public VPCompressExpandIndex {
+
+public:
+  VPCompressExpandIndexInc(Type *ValueType, int64_t TotalStride,
+                           VPInstruction *OrigIndex, VPValue *Mask)
+      : VPCompressExpandIndex(VPInstruction::CompressExpandIndexInc, ValueType,
+                              TotalStride, OrigIndex) {
+    addOperand(Mask);
+  }
+
+  VPValue *getMask() const { return getOperand(1); }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::CompressExpandIndexInc;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPCompressExpandIndexInc *cloneImpl() const override {
+    return new VPCompressExpandIndexInc(ValueType, TotalStride, getOrigIndex(),
+                                        getMask());
+  }
+};
+
 /// VPlan models a candidate for vectorization, encoding various decisions take
 /// to produce efficient output IR, including which branches, basic-blocks and
 /// output IR instructions to generate, and their cost.

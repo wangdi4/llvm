@@ -1453,7 +1453,13 @@ HIRIdiomAnalyzer::collectLoadsStores(const SetVector<HLInst *> &Increments) {
       if (CE->hasIV(Loop->getNestingLevel()))
         return Failure("IV found in UseMemRef", UseMemRef);
 
-      if (!CE->containsStandAloneBlob(BlobRef->getBlobIndex(), true, true))
+      int64_t Stride;
+      bool IsPtrInc =
+          HIRVectorIdioms::isPointerIncrementInst(Increment, Stride);
+      if (IsPtrInc && !CE->isIntConstant())
+        return Failure("Non-constant expression found", CE);
+      else if (!IsPtrInc &&
+               !CE->containsStandAloneBlob(BlobRef->getBlobIndex(), true, true))
         return Failure("Non-standalone blob found", CE);
 
       for (auto *BRef : UseMemRef->blobs())
@@ -1558,10 +1564,12 @@ void HIRIdiomAnalyzer::detectCompressExpandIdioms() {
       // For loads we add DDRefs, but HLInsts for stores.
       if (IdiomId == HIRVectorIdioms::CEStore)
         IdiomMaster = cast<HLInst>(LoadStore->getHLDDNode());
-
       IdiomList.addLinked(IndexIncFirst, IdiomMaster, IdiomId);
-      IdiomList.addLinked(IdiomMaster, LoadStore->getDimensionIndex(1),
-                          HIRVectorIdioms::CELdStIndex);
+
+      CanonExpr *CE = LoadStore->getDimensionIndex(1);
+      if (CE->isIntConstant())
+        CE = LoadStore->getBaseCE();
+      IdiomList.addLinked(IdiomMaster, CE, HIRVectorIdioms::CELdStIndex);
     }
   }
 }

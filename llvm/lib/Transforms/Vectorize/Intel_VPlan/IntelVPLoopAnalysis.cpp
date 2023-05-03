@@ -2676,6 +2676,9 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
     CEIdiom->Init = Init;
     CEIdiom->Final = Final;
 
+    bool IsPtrInc = CEIdiom->RecurrentPhi->getType()->isPointerTy();
+    Type *ValueType = nullptr;
+
     bool UnitStrided = CEIdiom->TotalStride == 1;
     auto ProcessLoadsStores = [&](auto &LoadsStores, unsigned Opcode) {
       for (VPLoadStoreInst *LoadStore : LoadsStores) {
@@ -2685,6 +2688,13 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
             "", Opcode, LoadStore->getType(),
             ArrayRef<VPValue *>(LoadStore->op_begin(), LoadStore->op_end()));
         LoadStore->replaceAllUsesWith(CompressExpand);
+
+        if (IsPtrInc)
+          if (!ValueType)
+            ValueType = LoadStore->getValueType();
+          else
+            assert(ValueType == LoadStore->getValueType() &&
+                   "All linked loads/stores should have the same value type.");
 
         VPBasicBlock *VPBB = LoadStore->getParent();
         VPBB->eraseInstruction(LoadStore);
@@ -2712,21 +2722,9 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
                                            ? VPInstruction::ExpandLoad
                                            : VPInstruction::ExpandLoadNonu);
 
-    std::function<bool(VPUser *)> IsUsedByCompressExpandLoadStore =
-        [&](VPUser *User) {
-          VPInstruction *Inst = dyn_cast<VPInstruction>(User);
-          if (!Inst || isa<VPPHINode>(Inst))
-            return false;
-          unsigned Opcode = Inst->getOpcode();
-          return Opcode == VPInstruction::CompressStore ||
-                 Opcode == VPInstruction::CompressStoreNonu ||
-                 Opcode == VPInstruction::ExpandLoad ||
-                 Opcode == VPInstruction::ExpandLoadNonu ||
-                 llvm::any_of(Inst->users(), IsUsedByCompressExpandLoadStore);
-        };
-
-    VPConstant *Stride = Plan.getVPConstant(
-        ConstantInt::get(Exit->getType(), CEIdiom->TotalStride));
+    if (IsPtrInc)
+      assert(ValueType &&
+             "ValueType should have been set by load/store processing lambda.");
 
     // If idiom's loads/stores are non-unit strided, CompressExpandIndex
     // instruction has to be created for each index instruction.
@@ -2737,11 +2735,24 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
         else
           Builder.setInsertPoint(Index->getParent(),
                                  std::next(Index->getIterator()));
-        VPInstruction *CEIndex = Builder.createNaryOp(
-            VPInstruction::CompressExpandIndex, Index->getType(), {});
+
+        std::function<bool(VPUser *)> IsUsedByCompressExpandLoadStore =
+            [&](VPUser *User) {
+              VPInstruction *Inst = dyn_cast<VPInstruction>(User);
+              if (!Inst || Inst == Index || isa<VPPHINode>(Inst))
+                return false;
+              unsigned Opcode = Inst->getOpcode();
+              return Opcode == VPInstruction::CompressStore ||
+                     Opcode == VPInstruction::CompressStoreNonu ||
+                     Opcode == VPInstruction::ExpandLoad ||
+                     Opcode == VPInstruction::ExpandLoadNonu ||
+                     llvm::any_of(Inst->users(),
+                                  IsUsedByCompressExpandLoadStore);
+            };
+
+        VPInstruction *CEIndex = Builder.create<VPCompressExpandIndex>(
+            "", ValueType, CEIdiom->TotalStride, Index);
         Index->replaceUsesWithIf(CEIndex, IsUsedByCompressExpandLoadStore);
-        CEIndex->addOperand(Index);
-        CEIndex->addOperand(Stride);
       }
     }
     CEIdiom->Indices.clear();
@@ -2777,9 +2788,8 @@ void VPLoopEntityList::insertCompressExpandVPInstructions(
 
     // Add an index adjustment instruction into the loop latch.
     Builder.setInsertPointFirstNonPhi(Exit->getParent());
-    VPInstruction *CEIndexInc = Builder.createNaryOp(
-        VPInstruction::CompressExpandIndexInc, Exit->getType(),
-        {CEIdiom->RecurrentPhi, MaskPhi, Stride});
+    VPInstruction *CEIndexInc = Builder.create<VPCompressExpandIndexInc>(
+        "", ValueType, CEIdiom->TotalStride, CEIdiom->RecurrentPhi, MaskPhi);
     Exit->replaceAllUsesWith(CEIndexInc);
     CEIdiom->Increments.clear();
 
@@ -4194,7 +4204,7 @@ void CompressExpandIdiomDescr::tryToCompleteByVPlan(VPlanVector *Plan,
   assert(!Indices.empty() && "At least one index is expected.");
 
   std::function<bool(VPInstruction *)> GatherIdiomInfo = [&](VPInstruction *I) {
-    if (I->getOpcode() == Instruction::Add) {
+    if (I->getOpcode() == Instruction::Add || isa<VPSubscriptInst>(I)) {
 
       for (VPValue *Op : I->operands())
         if (auto *Inst = dyn_cast<VPInstruction>(Op))
