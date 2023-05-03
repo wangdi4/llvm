@@ -7693,12 +7693,17 @@ public:
     return C.MakeAction<OffloadAction>(HDep, DDeps);
   }
 
+<<<<<<< HEAD
   void unbundleStaticArchives(Compilation &C, DerivedArgList &Args,
                               DeviceActionBuilder::PhasesTy &PL) {
 #if INTEL_CUSTOMIZATION
     if (!Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false) &&
         !Args.hasArg(options::OPT_fopenmp_targets_EQ))
 #endif // INTEL_CUSTOMIZATION
+=======
+  void unbundleStaticArchives(Compilation &C, DerivedArgList &Args) {
+    if (!Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false))
+>>>>>>> ef0d151e57a4dfb79603fe5b386b524a41c2f59c
       return;
 
     // Go through all of the args, and create a Linker specific argument list.
@@ -7710,6 +7715,7 @@ public:
       Arg *InputArg = MakeInputArg(Args, Opts, Args.MakeArgString(A));
       Action *Current = C.MakeAction<InputAction>(*InputArg, T);
       addHostDependenceToDeviceActions(Current, InputArg, Args);
+      auto PL = types::getCompilationPhases(T);
       addDeviceDependencesToHostAction(Current, InputArg, phases::Link,
                                        PL.back(), PL);
     };
@@ -8118,7 +8124,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
         C.getDriver().getOffloadStaticLibSeen())
       OffloadBuilder->addDeviceLinkDependenciesFromHost(LinkerInputs);
 
-    OffloadBuilder->unbundleStaticArchives(C, Args, PL);
+    OffloadBuilder->unbundleStaticArchives(C, Args);
   }
 #endif // INTEL_CUSTOMIZATION
 
