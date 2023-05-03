@@ -95,6 +95,9 @@ static void collectAllRelevantUsers(Value *RedVarPtr,
       }
       if (isa<GetElementPtrInst>(U))
         WorkList.push_back(U);
+
+      if ((isa<PHINode>(U) || isa<SelectInst>(U)) && Visited.insert(U).second)
+        WorkList.push_back(U);
     }
   }
 }

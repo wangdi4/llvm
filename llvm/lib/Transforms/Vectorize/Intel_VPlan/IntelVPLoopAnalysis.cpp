@@ -1369,6 +1369,12 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
   VPValue *Identity = getReductionIdentity(Reduction);
   Type *Ty = Reduction->getRecurrenceType();
   VPValue *PrivateMem = createPrivateMemory(*Reduction, Builder, AI, Preheader);
+
+  // Add memory aliases (if any) collected for this reduction.
+  SmallPtrSet<const Instruction *, 4> AddedAliasInstrs;
+  if (PrivateMem)
+    insertEntityMemoryAliases(Reduction, Preheader, AddedAliasInstrs, Builder);
+
   if (Reduction->getIsMemOnly() && !isa<VPConstant>(Identity)) {
     assert(!Reduction->isComplex() &&
            "Complex type reduction is not expected here.");
@@ -1543,6 +1549,9 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
     auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue());
     createLifetimeMarker(Builder, Plan, PostExit, PrivateMem, OrigAI,
                          Intrinsic::lifetime_end);
+
+    replaceUsesOfExtDefWithMemoryAliases(Reduction, Preheader, Loop,
+                                         AddedAliasInstrs);
   }
 
   if (!Reduction->isComplex())

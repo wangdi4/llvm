@@ -392,11 +392,8 @@ public:
     Descriptor.setExit(nullptr);
     Descriptor.setKind(CurValue.second.Kind);
     auto *AI = cast<AllocaInst>(OrigV);
-    // Array reductions can have memory alias due to partial registerization.
-    // TODO: This may be needed for non-array reductions as well, extend support
-    // based on use-case.
-    if (AI->getAllocatedType()->isArrayTy())
-      collectMemoryAliases(Descriptor, AI);
+    // Reductions can have memory alias.
+    collectMemoryAliases(Descriptor, AI);
     Descriptor.setRecType(AI->getAllocatedType());
     Descriptor.setSigned(false);
     Descriptor.setAllocaInst(OrigAlloca); // Keep original value from clause.
