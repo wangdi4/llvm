@@ -42,6 +42,11 @@ static cl::opt<bool, true>
                             cl::location(ForceUDSReductionVec), cl::Hidden,
                             cl::desc("Force vectorization of UDS reduction."));
 
+static cl::opt<bool, true>
+    EnableHIRPrivateArraysOpt("vplan-enable-hir-private-arrays",
+                            cl::location(EnableHIRPrivateArrays), cl::Hidden,
+                            cl::desc("Enable private arrays for HIR path."));
+
 static cl::opt<bool>
     UseSimdChannels("use-simd-channels", cl::init(true), cl::Hidden,
                     cl::desc("use simd versions of read/write pipe functions"));
@@ -55,6 +60,7 @@ static cl::opt<bool>
 namespace llvm {
 namespace vpo {
 bool ForceUDSReductionVec = true;
+bool EnableHIRPrivateArrays = false;
 } // namespace vpo
 } // namespace llvm
 
