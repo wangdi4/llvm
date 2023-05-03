@@ -3676,6 +3676,8 @@ bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
                                      const HLNode *ParentNode, bool IsMin,
                                      bool IsExact, int64_t &Val) {
 
+  LLVM_DEBUG(dbgs() << "\tgetMinMaxValueImpl() called for "; CE->dump();
+             dbgs() << "\n";);
   assert(CE && "CE is null!");
 
   if (!ParentNode) {
@@ -3694,24 +3696,46 @@ bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
     return false;
   }
 
-  int64_t MinOrMax = 0;
+  auto *ParentLoop = isa<HLLoop>(ParentNode) ? cast<HLLoop>(ParentNode)
+                                             : ParentNode->getParentLoop();
+
+  APInt MinOrMax(64, 0);
 
   for (auto Blob = CE->blob_begin(), E = CE->blob_end(); Blob != E; ++Blob) {
     unsigned Index = CE->getBlobIndex(Blob);
-    int64_t Coeff = CE->getBlobCoeff(Blob);
+    int64_t CoeffVal = CE->getBlobCoeff(Blob);
     int64_t BlobVal;
 
-    if (!getMinMaxBlobVal(Index, Coeff, ParentNode, IsMin, BlobVal)) {
+    // If upper looks like this: (%n + -1 * %s)
+    // and CE looks like this: (i1 + %s)
+    //
+    // We can ignore %s blob as it has already been taken into account in the
+    // loop's legal max trip count.
+    if (!IsMin && (CoeffVal == 1) && ParentLoop && !ParentLoop->isUnknown() &&
+        (ParentLoop->getUpperCanonExpr()->getBlobCoeff(Index) == -1) &&
+        (CE->getIVConstCoeff(ParentLoop->getNestingLevel()) == 1) &&
+        (CE->getIVBlobCoeff(ParentLoop->getNestingLevel()) ==
+         InvalidBlobIndex)) {
+      continue;
+    }
+
+    if (!getMinMaxBlobVal(Index, CoeffVal, ParentNode, IsMin, BlobVal)) {
       return false;
     }
 
-    MinOrMax += (Coeff * BlobVal);
+    // Calculate MinOrMax += (Coeff * BlobVal) checking for overflow.
+    bool Overflow = false;
+    APInt Coeff(64, CoeffVal);
+    APInt BlobInt(64, BlobVal);
+    BlobInt = BlobInt.smul_ov(Coeff, Overflow);
+    if (Overflow)
+      return false;
+    MinOrMax = MinOrMax.sadd_ov(BlobInt, Overflow);
+    if (Overflow)
+      return false;
   }
 
   if (CE->hasIV()) {
-    auto ParentLoop = isa<HLLoop>(ParentNode) ? cast<HLLoop>(ParentNode)
-                                              : ParentNode->getParentLoop();
-
     assert(ParentLoop && "Parent loop of CE containing IV not found!");
 
     auto *Lp = ParentLoop;
@@ -3719,16 +3743,16 @@ bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
          --Level, Lp = Lp->getParentLoop()) {
 
       unsigned Index;
-      int64_t Coeff, BlobVal = 1;
+      int64_t CoeffVal, BlobVal = 1;
 
-      CE->getIVCoeff(Level, &Index, &Coeff);
+      CE->getIVCoeff(Level, &Index, &CoeffVal);
 
-      if (!Coeff) {
+      if (!CoeffVal) {
         continue;
       }
 
       if (Index != InvalidBlobIndex &&
-          !getMinMaxBlobVal(Index, Coeff, ParentNode, IsMin, BlobVal)) {
+          !getMinMaxBlobVal(Index, CoeffVal, ParentNode, IsMin, BlobVal)) {
         return false;
       }
 
@@ -3736,8 +3760,8 @@ bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
         continue;
       }
 
-      bool HasPositiveCoeff =
-          ((Coeff > 0) && (BlobVal > 0)) || ((Coeff < 0) && (BlobVal < 0));
+      bool HasPositiveCoeff = ((CoeffVal > 0) && (BlobVal > 0)) ||
+                              ((CoeffVal < 0) && (BlobVal < 0));
 
       bool UseLowerBound =
           ((IsMin && HasPositiveCoeff) || (!IsMin && !HasPositiveCoeff));
@@ -3757,7 +3781,13 @@ bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
       } else if (Lp->isUnknown() ||
                  !getMinMaxValueImpl(Lp->getUpperCanonExpr(), Lp, false,
                                      IsExact, BoundVal)) {
-        return false;
+        if (IsExact)
+          return false;
+
+        int64_t LegalMaxTC = Lp->getLegalMaxTripCount();
+        if (!LegalMaxTC)
+          return false;
+        BoundVal = LegalMaxTC - 1;
       }
 
       // Conservatively return false if bound is too big.
@@ -3766,21 +3796,45 @@ bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
         return false;
       }
 
-      MinOrMax += (Coeff * BlobVal * BoundVal);
+      // Calculate MinOrMax += (CoeffVal * BlobVal * BoundVal) checking for
+      // overflow.
+      bool Overflow = false;
+      APInt Coeff(64, CoeffVal);
+      APInt BlobInt(64, BlobVal);
+      BlobInt = BlobInt.smul_ov(Coeff, Overflow);
+      if (Overflow)
+        return false;
+      APInt Bound(64, BoundVal);
+      BlobInt = BlobInt.smul_ov(Bound, Overflow);
+      if (Overflow)
+        return false;
+      MinOrMax = MinOrMax.sadd_ov(BlobInt, Overflow);
+      if (Overflow)
+        return false;
     }
   }
 
-  MinOrMax += CE->getConstant();
+  bool Overflow = false;
+  APInt Const(64, CE->getConstant());
+  MinOrMax = MinOrMax.sadd_ov(Const, Overflow);
+  if (Overflow)
+    return false;
 
-  if (CE->getDenominator() != 1) {
-    if ((MinOrMax < 0) && CE->isUnsignedDiv()) {
+  int64_t DenomVal = CE->getDenominator();
+  if (DenomVal != 1) {
+    if (MinOrMax.isNegative() && CE->isUnsignedDiv()) {
       return false;
     }
 
-    MinOrMax = MinOrMax / CE->getDenominator();
+    APInt Denom(64, DenomVal);
+    MinOrMax = MinOrMax.sdiv_ov(Denom, Overflow);
+    if (Overflow)
+      return false;
   }
 
-  Val = MinOrMax;
+  Val = MinOrMax.getSExtValue();
+
+  LLVM_DEBUG(dbgs() << "\tgetMinMaxValueImpl() returned " << Val << "\n";);
 
   return true;
 }
