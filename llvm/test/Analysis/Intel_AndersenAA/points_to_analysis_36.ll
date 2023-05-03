@@ -1,6 +1,6 @@
 ; Verifies that points-to analysis doesn't crash.
 
-; RUN: opt < %s -opaque-pointers  -passes='require<anders-aa>' -disable-output 2>/dev/null
+; RUN: opt < %s -passes='require<anders-aa>' -disable-output 2>/dev/null
 
 %struct.S = type { ptr }
 

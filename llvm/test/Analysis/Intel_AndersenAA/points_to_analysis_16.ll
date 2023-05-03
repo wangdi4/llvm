@@ -11,28 +11,27 @@
 ; CHECK: bar:%1        --> (0): <universal>
 ; CHECK-NOT: [0] bar:%1        -->
 
-%struct.S = type { i32* }
+%struct.S = type { ptr }
 
-@p = internal dso_local global %struct.S* null, align 8
+@p = internal dso_local global ptr null, align 8
 
-define dso_local i32* @bar() {
+define dso_local ptr @bar() {
 entry:
-  call void @foo(%struct.S** @p)
-  %0 = load %struct.S*, %struct.S** @p, align 8
-  %ptr = getelementptr inbounds %struct.S, %struct.S* %0, i32 0, i32 0
-  %1 = load i32*, i32** %ptr, align 8
-  ret i32* %1
+  call void @foo(ptr @p)
+  %0 = load ptr, ptr @p, align 8
+  %ptr = getelementptr inbounds %struct.S, ptr %0, i32 0, i32 0
+  %1 = load ptr, ptr %ptr, align 8
+  ret ptr %1
 }
 
-define internal void @foo(%struct.S** %q) {
+define internal void @foo(ptr %q) {
 entry:
-  %call = call i8* @malloc(i64 4)
-  %0 = bitcast i8* %call to %struct.S*
-  %int = ptrtoint %struct.S* %0 to i64
-  %ptr1 = bitcast %struct.S** %q to i64*
-  store i64 %int, i64* %ptr1, align 8
+  %call = call ptr @malloc(i64 4)
+  %0 = bitcast ptr %call to ptr
+  %int = ptrtoint ptr %0 to i64
+  %ptr1 = bitcast ptr %q to ptr
+  store i64 %int, ptr %ptr1, align 8
   ret void
 }
 
-declare dso_local i8* @malloc(i64) #1
-
+declare dso_local ptr @malloc(i64) #1

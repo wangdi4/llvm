@@ -12,22 +12,21 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-
 @appludata_mp_ipr_ = internal global i32 0
 
-; Function Attrs: nounwind uwtable
-define internal void @read_input(i8* nocapture noundef readonly %0) #0 {
+define internal void @read_input(ptr nocapture noundef readonly %arg) #0 {
+bb:
   %i9 = alloca [4 x i8], align 1
-  %i10 = alloca <{ i8* }>, align 8
-  %i106 = getelementptr inbounds [4 x i8], [4 x i8]* %i9, i64 0, i64 0
-   store i8 9, i8* %i106, align 1
-  %i110 = getelementptr inbounds <{ i8* }>, <{ i8* }>* %i10, i64 0, i32 0
-  store i8* bitcast (i32* @appludata_mp_ipr_ to i8*), i8** %i110, align 8
-  %i111 = bitcast <{ i8* }>* %i10 to i8*
-  %i112 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_read_seq_lis(i8* nonnull %0, i32 3, i64 1239157112576, i8* nonnull %i106, i8* nonnull %i111)
+  %i10 = alloca <{ ptr }>, align 8
+  %i106 = getelementptr inbounds [4 x i8], ptr %i9, i64 0, i64 0
+  store i8 9, ptr %i106, align 1
+  %i110 = getelementptr inbounds <{ ptr }>, ptr %i10, i64 0, i32 0
+  store ptr @appludata_mp_ipr_, ptr %i110, align 8
+  %i111 = bitcast ptr %i10 to ptr
+  %i112 = call i32 (ptr, i32, i64, ptr, ptr, ...) @for_read_seq_lis(ptr nonnull %arg, i32 3, i64 1239157112576, ptr nonnull %i106, ptr nonnull %i111)
   ret void
 }
 
-declare dso_local i32 @for_read_seq_lis(i8*, i32, i64, i8*, i8*, ...) local_unnamed_addr #0
+declare dso_local i32 @for_read_seq_lis(ptr, i32, i64, ptr, ptr, ...) local_unnamed_addr #0
 
 attributes #0 = { "intel-lang"="fortran" }

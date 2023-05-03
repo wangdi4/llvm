@@ -28,28 +28,30 @@
 
 @g = external global i8, align 1
 
-define { i32*, i32* } @bar() {
-  %gep = getelementptr i8, i8* @g, <2 x i64> zeroinitializer
-  %alloc1 = call noalias i8* @malloc(i64 16)
-  %bc1 = bitcast i8* %alloc1 to { i32*, i32* }*
-  %aload = load { i32*, i32* }, { i32*, i32* }* %bc1
-  store { i32*, i32* } %aload, { i32*, i32* }* %bc1
-  %alloc2 = call noalias i8* @malloc(i64 8)
-  %bc2 = bitcast i8* %alloc2 to i32*
-  %alloc3 = call noalias i8* @malloc(i64 8)
-  %bc3 = bitcast i8* %alloc2 to [2 x i32]*
-  %aload2 = load [2 x i32], [2 x i32]* %bc3
-  %insertv1 = insertvalue  { i32*, i32* } %aload, i32* %bc2, 0
-  %insertv2 = insertvalue  { i32*, i32* } %aload, i32* %bc2, 1
+define { ptr, ptr } @bar() {
+bb:
+  %gep = getelementptr i8, ptr @g, <2 x i64> zeroinitializer
+  %alloc1 = call noalias ptr @malloc(i64 16)
+  %bc1 = bitcast ptr %alloc1 to ptr
+  %aload = load { ptr, ptr }, ptr %bc1, align 8
+  store { ptr, ptr } %aload, ptr %bc1, align 8
+  %alloc2 = call noalias ptr @malloc(i64 8)
+  %bc2 = bitcast ptr %alloc2 to ptr
+  %alloc3 = call noalias ptr @malloc(i64 8)
+  %bc3 = bitcast ptr %alloc2 to ptr
+  %aload2 = load [2 x i32], ptr %bc3, align 4
+  %insertv1 = insertvalue { ptr, ptr } %aload, ptr %bc2, 0
+  %insertv2 = insertvalue { ptr, ptr } %aload, ptr %bc2, 1
   %shufflev = shufflevector <2 x i32> undef, <2 x i32> undef, <2 x i32> zeroinitializer
   %inserte1 = insertelement <2 x i32> undef, i32 undef, i32 1
   %extracte1 = extractelement <2 x i32> %shufflev, i32 1
   %add1 = add <2 x i32> %shufflev, %inserte1
-  %call1 = call { i32*, i32* } @foo(<2 x i32> %shufflev, [2 x i32] %aload2)
-  %extractv1 = extractvalue { i32*, i32* } %call1, 0
-  %extractv2 = extractvalue { i32*, i32* } %call1, 1
-  ret { i32*, i32* } %insertv2
+  %call1 = call { ptr, ptr } @foo(<2 x i32> %shufflev, [2 x i32] %aload2)
+  %extractv1 = extractvalue { ptr, ptr } %call1, 0
+  %extractv2 = extractvalue { ptr, ptr } %call1, 1
+  ret { ptr, ptr } %insertv2
 }
 
-declare noalias i8* @malloc(i64)
-declare { i32*, i32* } @foo(<2 x i32>, [2 x i32])
+declare noalias ptr @malloc(i64)
+
+declare { ptr, ptr } @foo(<2 x i32>, [2 x i32])
