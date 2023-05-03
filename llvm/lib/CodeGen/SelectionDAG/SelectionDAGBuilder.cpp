@@ -4641,6 +4641,14 @@ static bool getUniformBaseExt(const Value *Ptr, SDValue &Base, SDValue &Index,
       ComputeNumSignBits(IndexVal, DL, 0, AC, nullptr, DT, true, SCEV, LPI);
   unsigned NumBitWidth = IndexTy->getScalarSizeInBits();
   unsigned NumValueBits = NumBitWidth - NumSignBits;
+  unsigned ZExtBits = 0;
+  // Only handle 64-bit pointer which have enough bits.
+  if (DL.getPointerSizeInBits() == 64) {
+    if (auto *ZExt = dyn_cast<ZExtInst>(IndexVal)) {
+      auto *SrcTy = cast<VectorType>(ZExt->getSrcTy())->getElementType();
+      ZExtBits = SrcTy->getScalarSizeInBits();
+    }
+  }
 
   if (NumValueBits > 63)
     return false;
@@ -4718,12 +4726,25 @@ static bool getUniformBaseExt(const Value *Ptr, SDValue &Base, SDValue &Index,
 
   // Try to truncate Index's type to Data's type when it is profitable.
   if (DataTy->getScalarSizeInBits() < NumBitWidth &&
-    DataTy->getScalarSizeInBits() > NumValueBits) {
+      ((DataTy->getScalarSizeInBits() > NumValueBits) ||
+       (ZExtBits && DataTy->getScalarSizeInBits() == NumValueBits))) {
     EVT ResultVT = TLI.getValueType(
-      DL, Type::getIntNTy(*DAG.getContext(), DataTy->getScalarSizeInBits()));
+        DL, Type::getIntNTy(*DAG.getContext(), DataTy->getScalarSizeInBits()));
     ElementCount NumElts = cast<VectorType>(Ptr->getType())->getElementCount();
     EVT VT = EVT::getVectorVT(*DAG.getContext(), ResultVT, NumElts);
     Index = DAG.getNode(ISD::TRUNCATE, SDB->getCurSDLoc(), VT, Index);
+
+    // The index is sign extend, but we can move the MSB from INDEX to BASE,
+    // and transform the type of INDEX to signed type.
+    // base -> base + (0x80000000 * scale)
+    // index -> index - 0x80000000
+    if (ZExtBits && DataTy->getScalarSizeInBits() == NumValueBits) {
+      Index = DAG.getNode(ISD::SUB, SDB->getCurSDLoc(), VT, Index,
+                          DAG.getConstant(1ull << (ZExtBits - 1),
+                                          SDB->getCurSDLoc(),
+                                          Index.getValueType()));
+      Disp += MinScale * (1ull << (ZExtBits - 1));
+    }
   }
 
   // Add the addtional displacement to Base.
