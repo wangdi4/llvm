@@ -1803,7 +1803,13 @@ void OpenMPLateOutliner::emitOMPFirstprivateClause(
   auto *IPriv = Cl->private_copies().begin();
   for (auto *E : Cl->varlists()) {
     const VarDecl *VD = getExplicitVarDecl(E);
+    bool IsCapturedExpr = isa<OMPCapturedExprDecl>(VD);
+    bool IsRef = !IsCapturedExpr && VD->getType()->isReferenceType();
 
+    if (!Cl->isImplicit() && IsRef && CurrentDirectiveKind == OMPD_target)
+      // skip emitting firstprivatre for variable with reference type
+      // it will be emitted during map clause processing.
+      continue;
     // Handle implicit firstprivates added to target directives.
     if (Cl->isImplicit() &&
         isOpenMPTargetExecutionDirective(Directive.getDirectiveKind())) {
@@ -1825,8 +1831,6 @@ void OpenMPLateOutliner::emitOMPFirstprivateClause(
     assert(VD && "expected VarDecl in firstprivate clause");
     addExplicit(VD, OMPC_firstprivate);
     bool IsPODType = E->getType().isPODType(CGF.getContext());
-    bool IsCapturedExpr = isa<OMPCapturedExprDecl>(VD);
-    bool IsRef = !IsCapturedExpr && VD->getType()->isReferenceType();
     if (CurrentDirectiveKind == OMPD_target &&
         VD->getType()->isVariablyModifiedType())
       CSB.setVarLen();
@@ -2610,6 +2614,11 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
       }
     }
   }
+  llvm::DenseMap<CanonicalDeclPtr<const VarDecl>, bool> FirstPrivateDecls;
+  for (const auto *C : Directive.getClausesOfKind<OMPFirstprivateClause>())
+    for (const auto *D : C->varlists())
+      FirstPrivateDecls.try_emplace(
+          cast<VarDecl>(cast<DeclRefExpr>(D)->getDecl()), C->isImplicit());
   SmallVector<CGOpenMPRuntime::LOMapInfo, 4> Info;
   {
     // Generate map values and emit outside the current directive.
@@ -2669,6 +2678,15 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
             QualType VTy = I.Var->getType().getNonReferenceType();
             emitImplicit(I.Base, CGF.ConvertTypeForMem(VTy),
                          ImplicitMap[I.Var]);
+            continue;
+          }
+          auto ItFirst = FirstPrivateDecls.find(I.Var);
+          if (ItFirst != FirstPrivateDecls.end() && !ItFirst->second &&
+              Ty->isReferenceType()) {
+            // Emit first private clause using map BasePointer instead map.
+            QualType VTy = I.Var->getType().getNonReferenceType();
+            emitImplicit(I.Base, CGF.ConvertTypeForMem(VTy), ICK_firstprivate,
+                         /*Handled=*/true);
             continue;
           }
         }

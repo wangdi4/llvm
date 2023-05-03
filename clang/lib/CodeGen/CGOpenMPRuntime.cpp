@@ -9924,7 +9924,8 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
           }
           const VarDecl *VD =
               CI->capturesVariable() ? CI->getCapturedVar() : nullptr;
-          if (VD && MEHandler.isExplicitFirstPrivateDecls(VD))
+          if (VD && MEHandler.isExplicitFirstPrivateDecls(VD) &&
+              !VD->getType()->isReferenceType())
             continue;
 #endif // INTEL_CUSTOMIZATION
           MEHandler.generateDefaultMapInfo(*CI, **RI, *CV, CurInfo);
