@@ -616,6 +616,7 @@ cc_library(
     features = ["-header_modules"],
     strip_include_prefix = "utils/TableGen",
     deps = [
+        ":CodeGen",
         ":Support",
         ":TableGen",
         ":config",
@@ -642,11 +643,11 @@ cc_binary(
     copts = llvm_copts,
     stamp = 0,
     deps = [
+        ":CodeGen",
         ":Support",
         ":TableGen",
         ":TableGenGlobalISel",
         ":config",
-        ":intrinsic_enums_gen",
         ":llvm-tblgen-headers",
     ],
 )
@@ -2341,6 +2342,7 @@ gentbl(
         copts = llvm_copts,
         features = ["-layering_check"],
         deps = [
+            ":CodeGen",
             ":MC",
             ":MCA",
             ":MCParser",
@@ -3409,6 +3411,7 @@ cc_binary(
     deps = [
         ":AllTargetsAsmParsers",
         ":AllTargetsCodeGens",
+        ":CodeGen",
         ":DWARFLinker",
         ":DebugInfoDWARF",
         ":DwarfutilOptionsTableGen",
@@ -3449,6 +3452,7 @@ cc_binary(
         ":AllTargetsAsmParsers",
         ":AllTargetsCodeGens",
         ":AllTargetsDisassemblers",
+        ":CodeGen",
         ":Exegesis",
         ":MC",
         ":MCParser",
