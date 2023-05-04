@@ -225,8 +225,8 @@ public:
               const LoopToDimInfoTy &InnermostLoopToDimInfos,
               const LoopToConstRefTy &InnermostLoopToRepRef,
               const InnermostLoopToShiftTy &InnermostLoopToShift,
-              HLLoop *OutermostLoop, HLIf *OuterIf, HIRDDAnalysis &DDA,
-              StringRef Func, bool CloneDVLoads = true);
+              HLNode *NodeOutsideByStrip, HIRDDAnalysis &DDA, StringRef Func,
+              bool CloneDVLoads = true);
 
   static unsigned getNumByStripLoops(ArrayRef<unsigned> StripmineSizes) {
     return count_if(StripmineSizes, [](unsigned Size) { return Size; });
@@ -269,13 +269,12 @@ private:
                                        unsigned UseLastTopSortNum, DDGraph DDG,
                                        SmallVectorImpl<unsigned> &LiveInOrOut);
 
-  void updateDefAtLevelOfSpatialLoops(HLNode *Node,
-                                      const HLNode *OutermostNode) const;
+  void updateDefAtLevelOfSpatialLoops(HLNode *Node, unsigned LowestLevel) const;
 
   // Increase def@level of Ref by Increase if current def@level is
   // greater than equal to LevelThreshold.
   static void incDefinedAtLevelBy(RegDDRef *Ref, unsigned Increase,
-                                  unsigned LevelThreshold);
+                                  unsigned LowestLevel);
 
   // Add AdjustingRef to loop's bounds.
   CanonExpr *alignSpatialLoopBounds(RegDDRef *Ref, const RegDDRef *AdjustingRef,
@@ -375,7 +374,7 @@ private:
   // i1, i2, i3, i4 becomes
   // --> i1, i5, i6, i7
   void updateSpatialIVs(HLNode *Node, unsigned ByStripLoopDepth,
-                        const HLNode *OutermostNode);
+                        unsigned LowestLevel) const;
 
   // TODO: Make it a local lambda.
   std::pair<const RegDDRef *, unsigned>
@@ -508,9 +507,8 @@ private:
   const LoopToConstRefTy &InnermostLoopToRepRef;
   const InnermostLoopToShiftTy &InnermostLoopToShift;
   // Loop enclosing all the spatial loopnests.
-  // Inside OutermostLoop, by-strip loops are generated.
-  HLLoop *OutermostLoop;
-  HLIf *OuterIf;
+  // Inside NodeOutsideByStrip, by-strip loops are generated.
+  HLNode *NodeOutsideByStrip;
 
   SmallVector<std::pair<BlobTy, unsigned>, 4> ByStripLoopLowerBlobs;
   SmallVector<std::pair<BlobTy, unsigned>, 4> ByStripLoopUpperBlobs;

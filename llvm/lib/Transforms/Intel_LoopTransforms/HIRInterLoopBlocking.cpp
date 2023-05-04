@@ -1518,13 +1518,13 @@ Transformer::Transformer(ArrayRef<unsigned> StripmineSizes,
                          const LoopToDimInfoTy &InnermostLoopToDimInfos,
                          const LoopToConstRefTy &InnermostLoopToRepRef,
                          const InnermostLoopToShiftTy &InnermostLoopToShift,
-                         HLLoop *OutermostLoop, HLIf *OuterIf,
-                         HIRDDAnalysis &DDA, StringRef Func, bool CloneDVLoads)
+                         HLNode *NodeOutsideByStrip, HIRDDAnalysis &DDA,
+                         StringRef Func, bool CloneDVLoads)
     : DDA(DDA), StripmineSizes(StripmineSizes),
       InnermostLoopToDimInfos(InnermostLoopToDimInfos),
       InnermostLoopToRepRef(InnermostLoopToRepRef),
-      InnermostLoopToShift(InnermostLoopToShift), OutermostLoop(OutermostLoop),
-      OuterIf(OuterIf), NumByStripLoops(0), Func(Func),
+      InnermostLoopToShift(InnermostLoopToShift),
+      NodeOutsideByStrip(NodeOutsideByStrip), NumByStripLoops(0), Func(Func),
       CloneDVLoads(CloneDVLoads) {
   unsigned NumDims = StripmineSizes.size();
   ByStripLoopLowerBlobs.resize(NumDims);
@@ -1535,8 +1535,6 @@ Transformer::Transformer(ArrayRef<unsigned> StripmineSizes,
   NumByStripLoops = getNumByStripLoops(StripmineSizes);
 
   calcLoopMatchingDimNum();
-
-  assert((!OutermostLoop && OuterIf) || (OutermostLoop && !OuterIf));
 }
 
 // Make sure every dimension has a target loop.
@@ -1585,12 +1583,10 @@ bool Transformer::rewrite() {
     return false;
   }
 
-  HLNode *OutermostNode = OutermostLoop ? static_cast<HLNode *>(OutermostLoop)
-                                        : static_cast<HLNode *>(OuterIf);
-  HLRegion *Region = OutermostNode->getParentRegion();
+  HLRegion *Region = NodeOutsideByStrip->getParentRegion();
 
 #if 0
-    printMarker("Initial: ", {OutermostNode}, true, false);
+    printMarker("Initial: ", {NodeOutsideByStrip}, true, false);
 #endif
   LLVM_DEBUG(dbgs() << "Region to update: " << Region->getNumber() << "\n");
   LLVM_DEBUG(Region->dump(1));
@@ -1603,7 +1599,7 @@ bool Transformer::rewrite() {
   prepareAdjustingRefs(InnermostLoopToAdjustingRef);
 
   HLNode *AnchorNode = findTheLowestAncestor(
-      (*InnermostLoopToDimInfos.begin()).first, OutermostNode);
+      (*InnermostLoopToDimInfos.begin()).first, NodeOutsideByStrip);
 
 #if 0
     printMarker("AnchorNode: ", {AnchorNode});
@@ -1640,28 +1636,29 @@ bool Transformer::rewrite() {
   // Align original spatial loops
   alignSpatialLoops(InnermostLoopToAdjustingRef);
 
-  assert(isa<HLLoop>(AnchorNode) && AnchorNode->getNodeLevel() ==
-                                        (OutermostNode->getNodeLevel() + 1) ||
+  assert(isa<HLLoop>(AnchorNode) &&
+             AnchorNode->getNodeLevel() ==
+                 (NodeOutsideByStrip->getNodeLevel() + 1) ||
          !isa<HLLoop>(AnchorNode) &&
-             AnchorNode->getNodeLevel() == OutermostNode->getNodeLevel());
+             AnchorNode->getNodeLevel() == NodeOutsideByStrip->getNodeLevel());
 
   // Step 1. Create a map from NodeToMove to InnermostLoop
-  // The vector of OutermostNode should be enough, innermost loop is for
+  // The vector of NodeOutsideByStrip should be enough, innermost loop is for
   // debugging.
   SmallVector<std::pair<HLNode *, HLNode *>, 16> OuterNodeToInnermostLoop;
 
   for (auto &LoopAndDimInfo : InnermostLoopToDimInfos) {
     HLNode *NodeToMove =
-        findTheLowestAncestor(LoopAndDimInfo.first, OutermostNode);
+        findTheLowestAncestor(LoopAndDimInfo.first, NodeOutsideByStrip);
 
     OuterNodeToInnermostLoop.emplace_back(NodeToMove, LoopAndDimInfo.first);
   }
 
   HLNode *LastByStripNode = findTheLowestAncestor(
-      (InnermostLoopToDimInfos.back()).first, OutermostNode);
+      (InnermostLoopToDimInfos.back()).first, NodeOutsideByStrip);
 
-  // TODO: Verify skipping this phase when OutermostLoop is nullptr (i.e.
-  // OuterIf)
+  // TODO: Verify skipping this phase when LoopOutsideByStrip is nullptr (i.e.
+  // IfOutsideByStrip)
   //       Using region's live-in/out in addByStripLoops() is conservative but
   //       should be enough.
   collectLiveInsToByStripLoops(AnchorNode, LastByStripNode);
@@ -1676,8 +1673,8 @@ bool Transformer::rewrite() {
   // Note that invalidation only happens here because DDG of original
   // HLNodes are needed before this point. For example,
   // collectLoadsToClone() uses DDG to traceback load instructions.
-  if (OutermostLoop) {
-    HIRInvalidationUtils::invalidateBody(OutermostLoop);
+  if (HLLoop *ToInvalidate = dyn_cast<HLLoop>(NodeOutsideByStrip)) {
+    HIRInvalidationUtils::invalidateBody(ToInvalidate);
   } else {
     HIRInvalidationUtils::invalidateNonLoopRegion(Region);
   }
@@ -1727,8 +1724,9 @@ bool Transformer::rewrite() {
   for (HLNode &Node : make_range(
            AnchorNode->getIterator(),
            std::next(OuterNodeToInnermostLoop.back().first->getIterator()))) {
-    updateSpatialIVs(&Node, NumByStripLoops, OutermostNode);
-    updateDefAtLevelOfSpatialLoops(&Node, OutermostNode);
+    updateSpatialIVs(&Node, NumByStripLoops,
+                     NodeOutsideByStrip->getNodeLevel());
+    updateDefAtLevelOfSpatialLoops(&Node, NodeOutsideByStrip->getNodeLevel());
   }
 
   // Step 3. apply blocking guards to target loops
@@ -1741,9 +1739,9 @@ bool Transformer::rewrite() {
   normalizeSpatialLoops();
 
   LLVM_DEBUG_PROFIT_REPORT(dbgs() << "After updating in " << Func << ": ";
-                           OutermostNode->dump());
+                           NodeOutsideByStrip->dump());
 #if 0
-    printMarker("Detail: After updating inner Loops: ", {OutermostNode}, true,
+    printMarker("Detail: After updating inner Loops: ", {NodeOutsideByStrip}, true,
                 true);
 #endif
 
@@ -1775,11 +1773,14 @@ void Transformer::collectLiveInsToByStripLoops(HLNode *AnchorNode,
   HLContainerTy::iterator DefBeginIt;
   DDGraph DDG;
 
-  if (OutermostLoop) {
-    DefBeginIt = OutermostLoop->child_begin();
-    DDG = DDA.getGraph(OutermostLoop);
+  if (HLLoop *OutsideLoop = dyn_cast<HLLoop>(NodeOutsideByStrip)) {
+    DefBeginIt = OutsideLoop->child_begin();
+    DDG = DDA.getGraph(OutsideLoop);
   } else {
-    HLRegion *Region = OuterIf->getParentRegion();
+    // TODO: When there are enclosing loop to this
+    //       IfOutsideByStrip, instead of its ParentRegion
+    //       its Parent Loop may could be used.
+    HLRegion *Region = NodeOutsideByStrip->getParentRegion();
     DefBeginIt = Region->child_begin();
     DDG = DDA.getGraph(Region);
   }
@@ -1807,36 +1808,42 @@ Transformer::collectLiveOutsOfByStripLoops(HLNode *AnchorNode,
   HLContainerTy::iterator DefBeginIt = AnchorNode->getIterator();
   HLContainerTy::iterator DefEndIt = std::next(LastByStripNode->getIterator());
   DDGraph DDG;
-  HLNode *OutermostNode = nullptr;
-  HLContainerTy::iterator OutermostEndIt;
-  HLNode *EnclosingNodeWithLiveInfo = nullptr;
+  HLContainerTy::iterator OutsideEndIt;
   HLRegion *Region = nullptr;
+  HLNode *EnclosingNodeWithLiveInfo = nullptr;
 
-  if (OutermostLoop) {
-    Region = OutermostLoop->getParentRegion();
-    DDG = DDA.getGraph(OutermostLoop);
-    OutermostNode = EnclosingNodeWithLiveInfo = OutermostLoop;
-    OutermostEndIt = OutermostLoop->child_end();
-  } else {
-    Region = OuterIf->getParentRegion();
+  if (HLLoop *OutsideLoop = dyn_cast<HLLoop>(NodeOutsideByStrip)) {
+
+    Region = NodeOutsideByStrip->getParentRegion();
+    DDG = DDA.getGraph(OutsideLoop);
+    OutsideEndIt = OutsideLoop->child_end();
+    EnclosingNodeWithLiveInfo = OutsideLoop;
+
+  } else if (HLIf *OutsideIf = dyn_cast<HLIf>(NodeOutsideByStrip)) {
+
+    Region = NodeOutsideByStrip->getParentRegion();
     DDG = DDA.getGraph(Region);
-    OutermostNode = OuterIf;
-    OutermostEndIt = OuterIf->child_end();
+    OutsideEndIt = OutsideIf->child_end();
     EnclosingNodeWithLiveInfo = Region;
+
+  } else {
+    llvm_unreachable("Node outside the by-strip loop should be"
+                     "Loop or If or Region\n");
   }
 
   SmallVector<unsigned, 16> LiveOutsOfByStrip;
-  if (DefEndIt != OutermostEndIt) {
+  if (DefEndIt != OutsideEndIt) {
     collectLiveInOutForByStripLoops<true>(
         DefBeginIt, DefEndIt, (*DefEndIt).getTopSortNum(),
         EnclosingNodeWithLiveInfo->getMaxTopSortNum(), DDG, LiveOutsOfByStrip);
-  } else if (std::next(OutermostNode->getIterator()) != Region->child_end()) {
+  } else if (std::next(NodeOutsideByStrip->getIterator()) !=
+             Region->child_end()) {
     // Same as the following in effect
-    // OuterIf && std::next(OuterIf->getIterator()) != Region->child_end()
-    // UseBegin should  be std::next of OuterIf.
+    // IfOutsideByStrip && std::next(IfOutsideByStrip->getIterator()) !=
+    // Region->child_end() UseBegin should  be std::next of IfOutsideByStrip.
     collectLiveInOutForByStripLoops<false>(
         DefBeginIt, DefEndIt,
-        (*std::next(OutermostNode->getIterator())).getTopSortNum(),
+        (*std::next(NodeOutsideByStrip->getIterator())).getTopSortNum(),
         EnclosingNodeWithLiveInfo->getMaxTopSortNum(), DDG, LiveOutsOfByStrip);
   }
 
@@ -1885,29 +1892,28 @@ void Transformer::collectLiveInOutForByStripLoops(
   }
 }
 
-void Transformer::updateDefAtLevelOfSpatialLoops(
-    HLNode *Node, const HLNode *OutermostNode) const {
+void Transformer::updateDefAtLevelOfSpatialLoops(HLNode *Node,
+                                                 unsigned LowestLevel) const {
 
   // Increase the blob DDRef's defined at level first
 
-  unsigned ThresholdLoopLevel = OutermostNode->getNodeLevel();
   unsigned ByStripLoopDepth = NumByStripLoops;
 
-  ForEach<RegDDRef>::visit(Node, [ThresholdLoopLevel,
-                                  ByStripLoopDepth](RegDDRef *Ref) {
-    Transformer::incDefinedAtLevelBy(Ref, ByStripLoopDepth, ThresholdLoopLevel);
-  });
+  ForEach<RegDDRef>::visit(
+      Node, [LowestLevel, ByStripLoopDepth](RegDDRef *Ref) {
+        Transformer::incDefinedAtLevelBy(Ref, ByStripLoopDepth, LowestLevel);
+      });
 }
 
 // Increase def@level of Ref by Increase if current def@level is
-// greater than equal to LevelThreshold.
+// greater than equal to LowestLevel.
 void Transformer::incDefinedAtLevelBy(RegDDRef *Ref, unsigned Increase,
-                                      unsigned LevelThreshold) {
+                                      unsigned LowestLevel) {
 
-  auto IncreaseDefLevel = [Increase, LevelThreshold](CanonExpr *CE) {
+  auto IncreaseDefLevel = [Increase, LowestLevel](CanonExpr *CE) {
     unsigned PrevDefLevel = CE->getDefinedAtLevel();
 
-    if (PrevDefLevel < LevelThreshold)
+    if (PrevDefLevel < LowestLevel)
       return;
 
     assert(PrevDefLevel + Increase <= MaxLoopNestLevel);
@@ -2089,8 +2095,8 @@ void Transformer::printDDEdges(const HLInst *LoadInst, DDGraph DDG) {
 #endif
 
 bool Transformer::checkInvariance(const HLInst *HInst) const {
-  if (OutermostLoop) {
-    unsigned Level = OutermostLoop->getNestingLevel();
+  if (isa<HLLoop>(NodeOutsideByStrip)) {
+    unsigned Level = NodeOutsideByStrip->getNodeLevel();
     for (auto *Rval :
          make_range(HInst->rval_op_ddref_begin(), HInst->rval_op_ddref_end())) {
       if (!Rval->isLinearAtLevel(Level)) {
@@ -2281,8 +2287,8 @@ bool Transformer::collectLoadsToClone(
     SmallVectorImpl<std::pair<unsigned, unsigned>> &CopyToLoadIndexMap) const {
 
   DDGraph DDG;
-  if (OutermostLoop) {
-    DDG = DDA.getGraph(OutermostLoop);
+  if (isa<HLLoop>(NodeOutsideByStrip)) {
+    DDG = DDA.getGraph(cast<HLLoop>(NodeOutsideByStrip));
   } else {
     DDG = DDA.getGraph(AnchorNode->getParentRegion());
   }
@@ -2623,9 +2629,11 @@ HLLoop *Transformer::addByStripLoops(
     }
     ByStrip->addLiveInTemp(LiveInsOfAllSpatialLoop);
 
-    if (OutermostLoop) {
-      ByStrip->addLiveInTemp(ArrayRef<unsigned>(OutermostLoop->live_in_begin(),
-                                                OutermostLoop->live_in_end()));
+    if (isa<HLLoop>(NodeOutsideByStrip)) {
+      HLLoop *LoopOutsideByStrip = cast<HLLoop>(NodeOutsideByStrip);
+      ByStrip->addLiveInTemp(
+          ArrayRef<unsigned>(LoopOutsideByStrip->live_in_begin(),
+                             LoopOutsideByStrip->live_in_end()));
     } else {
       // TODO: This might not be needed because now region's DDG is scanned
       //       from its child_begin() using function
@@ -2665,14 +2673,13 @@ HLLoop *Transformer::addByStripLoops(
 // i1, i2, i3, i4 becomes
 // --> i1, i5, i6, i7
 void Transformer::updateSpatialIVs(HLNode *Node, unsigned ByStripLoopDepth,
-                                   const HLNode *OutermostNode) {
+                                   unsigned LowestLevel) const {
 
   // Now loop levels get as deep as by-strip loopnests
-  unsigned OutermostLevel = OutermostNode->getNodeLevel();
   ForEach<RegDDRef>::visit(
-      Node, [OutermostLevel, ByStripLoopDepth](RegDDRef *Ref) {
+      Node, [LowestLevel, ByStripLoopDepth](RegDDRef *Ref) {
         for (auto *CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
-          for (unsigned Lvl = MaxLoopNestLevel; Lvl > OutermostLevel; Lvl--) {
+          for (unsigned Lvl = MaxLoopNestLevel; Lvl > LowestLevel; Lvl--) {
             unsigned Index;
             int64_t Coeff;
             CE->getIVCoeff(Lvl, &Index, &Coeff);
@@ -3384,7 +3391,7 @@ bool isOptVarPredNeeded(const ProfitabilityChecker &PC) {
 bool doTransformation(const LoopToDimInfoTy &InnermostLoopToDimInfos,
                       const LoopToConstRefTy &InnermostLoopToRepRef,
                       const InnermostLoopToShiftTy &InnermostLoopToShift,
-                      HLLoop *OutermostLoop, HLIf *OuterIf, HIRDDAnalysis &DDA,
+                      HLNode *NodeOutsideByStrip, HIRDDAnalysis &DDA,
                       StringRef Func, bool UseKnownGoodSizes) {
 
   if (DisableTransform) {
@@ -3423,8 +3430,8 @@ bool doTransformation(const LoopToDimInfoTy &InnermostLoopToDimInfos,
   }
 
   return Transformer(PreSetStripmineSizes, InnermostLoopToDimInfos,
-                     InnermostLoopToRepRef, InnermostLoopToShift, OutermostLoop,
-                     OuterIf, DDA, Func)
+                     InnermostLoopToRepRef, InnermostLoopToShift,
+                     NodeOutsideByStrip, DDA, Func)
       .rewrite();
 }
 
@@ -4093,11 +4100,9 @@ void testDriver::testInnermostLoops(SmallVectorImpl<HLLoop *> &InnermostLoops,
   calcShiftAmtFuncs(InnermostLoopToDimInfo, InnermostLoopToRepRef, MinDimNums,
                     InnermostLoopToShiftVec);
 
-  HLLoop *OutermostLoop = dyn_cast<HLLoop>(OuterNode);
-  HLIf *OuterIf = dyn_cast<HLIf>(OuterNode);
   doTransformation(InnermostLoopToDimInfo, InnermostLoopToRepRef,
-                   InnermostLoopToShiftVec, OutermostLoop, OuterIf, DDA,
-                   Func.getName(), UseKnownGoodSizes);
+                   InnermostLoopToShiftVec, OuterNode, DDA, Func.getName(),
+                   UseKnownGoodSizes);
 }
 
 bool testDriver::areTwoLoopsInExclusiveFlows(const HLLoop *Loop1,
@@ -4199,7 +4204,7 @@ bool tryTransform(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
     return doTransformation(Checker.getInnermostLoopToDimInfos(),
                             Checker.getInnermostLoopToRepRef(),
                             InnermostLoopToShiftVec, Checker.getOutermostLoop(),
-                            nullptr, DDA, FuncName, UseKnownGoodSizes);
+                            DDA, FuncName, UseKnownGoodSizes);
   }
 
   return false;
