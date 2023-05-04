@@ -102,8 +102,8 @@
 ; CHECK-O-NEXT: Running pass: InlinerPass
 ; CHECK-O-NEXT: Running pass: InlinerPass
 ; INTEL_CUSTOMIZATION
-; CHECK-O-NEXT: Running pass: ArgumentPromotionPass on (foo)
-; CHECK-O-NEXT: Running pass: SROAPass on foo
+; CHECK-O23SZ-NEXT: Running pass: ArgumentPromotionPass on (foo)
+; CHECK-O23SZ-NEXT: Running pass: SROAPass on foo
 ; CHECK-O-NEXT: Running pass: PostOrderFunctionAttrsPass
 ; end INTEL_CUSTOMIZATION
 ; CHECK-O2-NEXT: Running pass: OpenMPOptCGSCCPass on (foo)

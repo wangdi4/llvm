@@ -1459,9 +1459,11 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   // promotion pass and the passes computing attributes fixes this problem.
   // Additionally adding SROA after the argument promotion to cleanup allocas
   // allows to get more accurate attributes for the promoted arguments.
-  MainCGPipeline.addPass(ArgumentPromotionPass(true));
-  MainCGPipeline.addPass(createCGSCCToFunctionPassAdaptor(
-      SROAPass(SROAPass(SROAOptions::ModifyCFG))));
+  if (Level.getSpeedupLevel() > 1) {
+    MainCGPipeline.addPass(ArgumentPromotionPass(true));
+    MainCGPipeline.addPass(createCGSCCToFunctionPassAdaptor(
+        SROAPass(SROAPass(SROAOptions::ModifyCFG))));
+  }
 #endif // INTEL_CUSTOMIZATION
 
   if (AttributorRun & AttributorRunOption::CGSCC)
