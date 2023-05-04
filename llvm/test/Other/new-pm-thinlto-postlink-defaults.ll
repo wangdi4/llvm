@@ -101,13 +101,9 @@
 ; CHECK-O-NEXT: Running pass: DevirtSCCRepeatedPass
 ; CHECK-O-NEXT: Running pass: InlinerPass
 ; CHECK-O-NEXT: Running pass: InlinerPass
-; CHECK-O23SZ-NEXT: Running pass: ArgumentPromotionPass ;INTEL
-; CHECK-O23SZ-NEXT: Running pass: SROA                  ;INTEL
+; CHECK-O-NEXT: Running pass: ArgumentPromotionPass ;INTEL
+; CHECK-O-NEXT: Running pass: SROA                  ;INTEL
 ; CHECK-O-NEXT: Running pass: PostOrderFunctionAttrsPass
-<<<<<<< HEAD
-=======
-; CHECK-O-NEXT: Running pass: ArgumentPromotionPass
->>>>>>> 6f29d1adf29820daae9ea7a01ae2588b67735b9e
 ; CHECK-O2-NEXT: Running pass: OpenMPOptCGSCCPass on (foo)
 ; CHECK-O3-NEXT: Running pass: OpenMPOptCGSCCPass on (foo)
 ; CHECK-O-NEXT: Running pass: TbaaMDPropagationPass  ;INTEL

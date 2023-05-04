@@ -1459,11 +1459,9 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   // promotion pass and the passes computing attributes fixes this problem.
   // Additionally adding SROA after the argument promotion to cleanup allocas
   // allows to get more accurate attributes for the promoted arguments.
-  if (Level.getSpeedupLevel() > 1) {
-    MainCGPipeline.addPass(ArgumentPromotionPass(true));
-    MainCGPipeline.addPass(createCGSCCToFunctionPassAdaptor(
-        SROAPass(SROAPass(SROAOptions::ModifyCFG))));
-  }
+  MainCGPipeline.addPass(ArgumentPromotionPass(true));
+  MainCGPipeline.addPass(createCGSCCToFunctionPassAdaptor(
+      SROAPass(SROAPass(SROAOptions::ModifyCFG))));
 #endif // INTEL_CUSTOMIZATION
 
   if (AttributorRun & AttributorRunOption::CGSCC)
@@ -1475,12 +1473,6 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   // functions.
   MainCGPipeline.addPass(PostOrderFunctionAttrsPass(/*SkipNonRecursive*/ true));
 
-<<<<<<< HEAD
-=======
-  // Try to promote pointer arguments for internal functions.
-  MainCGPipeline.addPass(ArgumentPromotionPass());
-
->>>>>>> 6f29d1adf29820daae9ea7a01ae2588b67735b9e
   // Try to perform OpenMP specific optimizations. This is a (quick!) no-op if
   // there are no OpenMP runtime calls present in the module.
   if (Level == OptimizationLevel::O2 || Level == OptimizationLevel::O3)
