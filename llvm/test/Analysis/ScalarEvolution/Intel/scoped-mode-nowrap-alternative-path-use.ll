@@ -21,7 +21,7 @@
 ; SCOPED-MODE-NEXT:   -->  3
 
 
-define i64 @foo(i32 %n) "intel-lang"="fortran" {
+define i64 @foo(i32 %n) {
 entry:
   %add = add nsw i32 %n, 3
   %sexta = sext i32 %add to i64

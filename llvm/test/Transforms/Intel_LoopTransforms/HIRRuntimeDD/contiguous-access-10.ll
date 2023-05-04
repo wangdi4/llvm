@@ -80,11 +80,9 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly mustprogress nofree norecurse nosync nounwind uwtable
-define dso_local void @_Z3fooPA100_iS0_ii([100 x i32]* nocapture noundef writeonly %A, [100 x i32]* nocapture noundef readonly %B, i32 noundef %m, i32 noundef %t) local_unnamed_addr #0 {
+define dso_local void @_Z3fooPA100_iS0_ii([100 x i32]* nocapture noundef writeonly %A, [100 x i32]* nocapture noundef readonly %B, i32 noundef %m, i64 noundef %t) local_unnamed_addr #0 {
 entry:
-  %idxprom14 = sext i32 %t to i64
-  %add24 = add nsw i32 %t, 3
-  %idxprom25 = sext i32 %add24 to i64
+  %add24 = add nsw i64 %t, 3
   %0 = zext i32 %m to i64
   br label %for.body
 
@@ -103,8 +101,8 @@ if.then:                                          ; preds = %for.body
 
 if.end:                                           ; preds = %if.then, %for.body
   %1 = shl nsw i64 %indvars.iv53, 2
-  %arrayidx15 = getelementptr inbounds [100 x i32], [100 x i32]* %A, i64 %1, i64 %idxprom14
-  %arrayidx26 = getelementptr inbounds [100 x i32], [100 x i32]* %A, i64 %1, i64 %idxprom25
+  %arrayidx15 = getelementptr inbounds [100 x i32], [100 x i32]* %A, i64 %1, i64 %t
+  %arrayidx26 = getelementptr inbounds [100 x i32], [100 x i32]* %A, i64 %1, i64 %add24
   br label %for.body6
 
 for.cond.cleanup5:                                ; preds = %for.body6

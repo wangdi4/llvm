@@ -16,7 +16,7 @@
 ;           |   |   + DO i3 = 0, sext.i32.i64(%2) + -1, 1
 ;           |   |   |   %126 = (%3)[sext.i32.i64(%2) * i1 + i3];
 ;           |   |   |   %130 = (%4)[i2 + sext.i32.i64(%1) * i3];
-;           |   |   |   %123 = (%126 * %130)  +  %123;
+;           |   |   |   %123 = (%130 * %126)  +  %123;
 ;           |   |   + END LOOP
 ;           |   |      %110 = %123;
 ;           |   |
@@ -47,7 +47,7 @@
 ; CHECK:         |   |   |   %126 = (%3)[sext.i32.i64(%2) * i1 + i3];
 ; CHECK:         |   |   |   %130 = (%TranspTmpArr)[i2][i3];
 ; CHECK:         |   |   |      <RVAL-REG> (LINEAR i32* %TranspTmpArr)[LINEAR i64 i2][LINEAR i64 i3] inbounds  {sb:[[SB]]}
-; CHECK:         |   |   |   %123 = (%126 * %130)  +  %123;
+; CHECK:         |   |   |   %123 = (%130 * %126)  +  %123;
 ; CHECK:         |   |   + END LOOP
 ; CHECK:         |   |      %110 = %123;
 ; CHECK:         |   |

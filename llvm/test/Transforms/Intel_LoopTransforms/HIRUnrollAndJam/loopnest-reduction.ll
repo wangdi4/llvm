@@ -8,7 +8,7 @@
 ; CHECK: |   + DO i2 = 0, 999, 1   <DO_LOOP>
 ; CHECK: |   |   %0 = (%A)[i1][i2];
 ; CHECK: |   |   %1 = (%B)[i1][i2];
-; CHECK: |   |   %r.026 = (%0 * %1)  +  %r.026;
+; CHECK: |   |   %r.026 = (%1 * %0)  +  %r.026;
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
 ; CHECK: END REGION
@@ -20,16 +20,16 @@
 ; CHECK: |   + DO i2 = 0, 999, 1   <DO_LOOP>
 ; CHECK: |   |   %0 = (%A)[4 * i1][i2];
 ; CHECK: |   |   %1 = (%B)[4 * i1][i2];
-; CHECK: |   |   %r.026 = (%0 * %1)  +  %r.026;
+; CHECK: |   |   %r.026 = (%1 * %0)  +  %r.026;
 ; CHECK: |   |   %0 = (%A)[4 * i1 + 1][i2];
 ; CHECK: |   |   %1 = (%B)[4 * i1 + 1][i2];
-; CHECK: |   |   %r.026 = (%0 * %1)  +  %r.026;
+; CHECK: |   |   %r.026 = (%1 * %0)  +  %r.026;
 ; CHECK: |   |   %0 = (%A)[4 * i1 + 2][i2];
 ; CHECK: |   |   %1 = (%B)[4 * i1 + 2][i2];
-; CHECK: |   |   %r.026 = (%0 * %1)  +  %r.026;
+; CHECK: |   |   %r.026 = (%1 * %0)  +  %r.026;
 ; CHECK: |   |   %0 = (%A)[4 * i1 + 3][i2];
 ; CHECK: |   |   %1 = (%B)[4 * i1 + 3][i2];
-; CHECK: |   |   %r.026 = (%0 * %1)  +  %r.026;
+; CHECK: |   |   %r.026 = (%1 * %0)  +  %r.026;
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
 

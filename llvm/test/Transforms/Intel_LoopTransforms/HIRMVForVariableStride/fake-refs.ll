@@ -5,24 +5,18 @@
 ; Original HIR
 ;<0>          BEGIN REGION { }
 ;<29>               + DO i1 = 0, %x + -1, 1   <DO_LOOP>
-;<2>                |   if (%x >= 1)
-;<2>                |   {
-;<30>               |      + DO i2 = 0, %x + -1, 1   <DO_LOOP>
-;<13>               |      |   @llvm.memcpy.p0i8.p0i8.i64(&((%B)[0:i1:%l(i8*:0)][0:i2:%n(i8*:0)]),  &((%A)[0:i1:%k(i8*:0)][0:i2:%m(i8*:0)]),  %y,  0);
-;<30>               |      + END LOOP
-;<2>                |   }
+;<30>               |   + DO i2 = 0, %x + -1, 1   <DO_LOOP>
+;<13>               |   |   @llvm.memcpy.p0i8.p0i8.i64(&((%B)[0:i1:%l(i8*:0)][0:i2:%n(i8*:0)]),  &((%A)[0:i1:%k(i8*:0)][0:i2:%m(i8*:0)]),  %y,  0);
+;<30>               |   + END LOOP
 ;<29>               + END LOOP
 ;<0>          END REGION
 
 ; ORIG: Function: foo
 ; ORIG:     BEGIN REGION { }
 ; ORIG:           + DO i1 = 0, %x + -1, 1   <DO_LOOP>
-; ORIG:           |   if (%x >= 1)
-; ORIG:           |   {
-; ORIG:           |      + DO i2 = 0, %x + -1, 1   <DO_LOOP>
-; ORIG:           |      |   @llvm.memcpy.p0i8.p0i8.i64(&((%B)[0:i1:%l(i8*:0)][0:i2:%n(i8*:0)]),  &((%A)[0:i1:%k(i8*:0)][0:i2:%m(i8*:0)]),  %y,  0);
-; ORIG:           |      + END LOOP
-; ORIG:           |   }
+; ORIG:           |   + DO i2 = 0, %x + -1, 1   <DO_LOOP>
+; ORIG:           |   |   @llvm.memcpy.p0i8.p0i8.i64(&((%B)[0:i1:%l(i8*:0)][0:i2:%n(i8*:0)]),  &((%A)[0:i1:%k(i8*:0)][0:i2:%m(i8*:0)]),  %y,  0);
+; ORIG:           |   + END LOOP
 ; ORIG:           + END LOOP
 ; ORIG:     END REGION
 
@@ -35,23 +29,17 @@
 ; OPT:             if (%n == 1 & %m == 1)
 ; OPT:             {
 ; OPT:                + DO i1 = 0, %x + -1, 1   <DO_LOOP>
-; OPT:                |   if (%x >= 1)
-; OPT:                |   {
-; OPT:                |      + DO i2 = 0, %x + -1, 1   <DO_LOOP>
-; OPT:                |      |   @llvm.memcpy.p0i8.p0i8.i64(&((%B)[0:i1:%l(i8*:0)][0:i2:1(i8*:0)]),  &((%A)[0:i1:%k(i8*:0)][0:i2:1(i8*:0)]),  %y,  0);
-; OPT:                |      + END LOOP
-; OPT:                |   }
+; OPT:                |   + DO i2 = 0, %x + -1, 1   <DO_LOOP>
+; OPT:                |   |   @llvm.memcpy.p0i8.p0i8.i64(&((%B)[0:i1:%l(i8*:0)][0:i2:1(i8*:0)]),  &((%A)[0:i1:%k(i8*:0)][0:i2:1(i8*:0)]),  %y,  0);
+; OPT:                |   + END LOOP
 ; OPT:                + END LOOP
 ; OPT:             }
 ; OPT:             else
 ; OPT:             {
 ; OPT:                + DO i1 = 0, %x + -1, 1   <DO_LOOP>
-; OPT:                |   if (%x >= 1)
-; OPT:                |   {
-; OPT:                |      + DO i2 = 0, %x + -1, 1   <DO_LOOP>
-; OPT:                |      |   @llvm.memcpy.p0i8.p0i8.i64(&((%B)[0:i1:%l(i8*:0)][0:i2:%n(i8*:0)]),  &((%A)[0:i1:%k(i8*:0)][0:i2:%m(i8*:0)]),  %y,  0);
-; OPT:                |      + END LOOP
-; OPT:                |   }
+; OPT:                |   + DO i2 = 0, %x + -1, 1   <DO_LOOP>
+; OPT:                |   |   @llvm.memcpy.p0i8.p0i8.i64(&((%B)[0:i1:%l(i8*:0)][0:i2:%n(i8*:0)]),  &((%A)[0:i1:%k(i8*:0)][0:i2:%m(i8*:0)]),  %y,  0);
+; OPT:                |   + END LOOP
 ; OPT:                + END LOOP
 ; OPT:             }
 

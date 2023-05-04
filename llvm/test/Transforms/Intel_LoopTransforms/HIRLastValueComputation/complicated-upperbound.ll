@@ -6,7 +6,7 @@
 ;Function: conj_grad.DIR.OMP.DISTRIBUTE.PARLOOP.88.split57
 ;
 ;<0>          BEGIN REGION { }
-;<71>               + DO i1 = 0, sext.i32.i64((1 + %ub.new)) + -1 * sext.i32.i64(%lb.new) + -1, 1   <DO_LOOP>
+;<71>               + DO i1 = 0, sext.i32.i64(%ub.new) + -1 * sext.i32.i64(%lb.new), 1   <DO_LOOP>
 ;<3>                |   %3 = (%rowstr.map.ptr.tmp306.priv.v)[i1 + sext.i32.i64(%lb.new)];
 ;<6>                |   %4 = (%rowstr.map.ptr.tmp306.priv.v)[i1 + sext.i32.i64(%lb.new) + 1];
 ;<8>                |   %d.fpriv538.priv.sroa.0.0 = 0;
@@ -46,7 +46,7 @@
 ;Function: conj_grad.DIR.OMP.DISTRIBUTE.PARLOOP.88.split57
 ;
 ; CHECK:    BEGIN REGION { }
-; CHECK:           + DO i1 = 0, sext.i32.i64((1 + %ub.new)) + -1 * sext.i32.i64(%lb.new) + -1, 1   <DO_LOOP>
+; CHECK:           + DO i1 = 0, sext.i32.i64(%ub.new) + -1 * sext.i32.i64(%lb.new), 1   <DO_LOOP>
 ; CHECK:           |   %3 = (%rowstr.map.ptr.tmp306.priv.v)[i1 + sext.i32.i64(%lb.new)];
 ; CHECK:           |   %4 = (%rowstr.map.ptr.tmp306.priv.v)[i1 + sext.i32.i64(%lb.new) + 1];
 ; CHECK:           |   %d.fpriv538.priv.sroa.0.0 = 0;

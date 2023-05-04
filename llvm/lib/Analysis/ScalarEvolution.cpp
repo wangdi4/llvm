@@ -8221,11 +8221,6 @@ bool ScalarEvolution::hasWrapSafeOperands(const BinaryOperator *BinOp,
   if (!ScopedSE || !ScopedSE->mayAssumeImmutableIR())
     return false;
 
-  // Ugly temporary hack to skip C/C++ cases to avoid performance regressions.
-  // TODO: remove hack.
-  if (!F.isFortran())
-    return false;
-
   auto *OverflowingOp = dyn_cast<OverflowingBinaryOperator>(BinOp);
 
   if (!OverflowingOp)

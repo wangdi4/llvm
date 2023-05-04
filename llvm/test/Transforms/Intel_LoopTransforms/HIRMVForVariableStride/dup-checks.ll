@@ -7,7 +7,7 @@
 ; CHECK:              + DO i1 = 0, %div421 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK:              |   if (%"step2d_tile_$M2_fetch" + 1 >= %"step2d_tile_$L2_fetch" + -1)
 ; CHECK:              |   {
-; CHECK:              |      + DO i2 = 0, -1 * sext.i32.i64((-1 + %"step2d_tile_$L2_fetch")) + smax(sext.i32.i64((-1 + %"step2d_tile_$L2_fetch")), (1 + sext.i32.i64(%"step2d_tile_$M2_fetch"))), 1   <DO_LOOP>
+; CHECK:              |      + DO i2 = 0, sext.i32.i64(%"step2d_tile_$M2_fetch") + -1 * sext.i32.i64((-1 + %"step2d_tile_$L2_fetch")) + 1, 1   <DO_LOOP>
 ; CHECK:              |      + END LOOP
 ; CHECK:              |   }
 ; CHECK:              + END LOOP
@@ -20,7 +20,7 @@
 ; CHECK:                 + DO i1 = 0, %div421 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK:                 |   if (%"step2d_tile_$M2_fetch" + 1 >= %"step2d_tile_$L2_fetch" + -1)
 ; CHECK:                 |   {
-; CHECK:                 |      + DO i2 = 0, -1 * sext.i32.i64((-1 + %"step2d_tile_$L2_fetch")) + smax(sext.i32.i64((-1 + %"step2d_tile_$L2_fetch")), (1 + sext.i32.i64(%"step2d_tile_$M2_fetch"))), 1   <DO_LOOP>
+; CHECK:                 |      + DO i2 = 0, sext.i32.i64(%"step2d_tile_$M2_fetch") + -1 * sext.i32.i64((-1 + %"step2d_tile_$L2_fetch")) + 1, 1   <DO_LOOP>
 ; CHECK:                 |      + END LOOP
 ; CHECK:                 |   }
 ; CHECK:                 + END LOOP
@@ -30,7 +30,7 @@
 ; CHECK:                 + DO i1 = 0, %div421 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK:                 |   if (%"step2d_tile_$M2_fetch" + 1 >= %"step2d_tile_$L2_fetch" + -1)
 ; CHECK:                 |   {
-; CHECK:                 |      + DO i2 = 0, -1 * sext.i32.i64((-1 + %"step2d_tile_$L2_fetch")) + smax(sext.i32.i64((-1 + %"step2d_tile_$L2_fetch")), (1 + sext.i32.i64(%"step2d_tile_$M2_fetch"))), 1   <DO_LOOP>
+; CHECK:                 |      + DO i2 = 0, sext.i32.i64(%"step2d_tile_$M2_fetch") + -1 * sext.i32.i64((-1 + %"step2d_tile_$L2_fetch")) + 1, 1   <DO_LOOP>
 ; CHECK:                 |      + END LOOP
 ; CHECK:                 |   }
 ; CHECK:                 + END LOOP
@@ -42,7 +42,7 @@
 ;              + DO i1 = 0, %div421 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ;              |   if (%"step2d_tile_$M2_fetch" + 1 >= %"step2d_tile_$L2_fetch" + -1)
 ;              |   {
-;              |      + DO i2 = 0, -1 * sext.i32.i64((-1 + %"step2d_tile_$L2_fetch")) + smax(sext.i32.i64((-1 + %"step2d_tile_$L2_fetch")), (1 + sext.i32.i64(%"step2d_tile_$M2_fetch"))), 1   <DO_LOOP>
+;              |      + DO i2 = 0, sext.i32.i64(%"step2d_tile_$M2_fetch") + -1 * sext.i32.i64((-1 + %"step2d_tile_$L2_fetch")) + 1, 1   <DO_LOOP>
 ;              |      |   %add525 = (%"step2d_tile_$ZETA_$field0$_fetch")[1:1:%func_result451_fetch(double*:0)][%"step2d_tile_$L2_fetch":4 * i1 + sext.i32.i64(%add393):%func_result443_fetch(double*:0)][%"step2d_tile_$L1_fetch":i2 + sext.i32.i64((-1 + %"step2d_tile_$L2_fetch")):%func_result435_fetch(double*:0)]  +  (%"step2d_tile_$H_$field0$_fetch")[%"step2d_tile_$L2_fetch":4 * i1 + sext.i32.i64(%add393):%func_result493_fetch(double*:0)][%"step2d_tile_$L1_fetch":i2 + sext.i32.i64((-1 + %"step2d_tile_$L2_fetch")):%func_result483_fetch(double*:0)];
 ;              |      |   (%"step2d_tile_$DRHS")[%"step2d_tile_$L2_fetch":4 * i1 + sext.i32.i64(%add393):8 * sext.i32.i64((1 + (-1 * %"step2d_tile_$L1_fetch") + %"step2d_tile_$U1_fetch"))(double*:0)][%"step2d_tile_$L1_fetch":i2 + sext.i32.i64((-1 + %"step2d_tile_$L2_fetch")):8(double*:0)] = %add525;
 ;              |      |   %mul567 = (%"step2d_tile_$OM_V")[1:4 * i1 + sext.i32.i64(%add393):8 * sext.i32.i64(%"step2d_tile_$M1_fetch")(double*:0)][1:i2 + sext.i32.i64((-1 + %"step2d_tile_$L2_fetch")):8(double*:0)]  *  5.000000e-01;

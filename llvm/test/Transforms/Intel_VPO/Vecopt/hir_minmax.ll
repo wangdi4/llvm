@@ -7,7 +7,7 @@
 ; match. CG checks ensure that the generated vector HLInst retains a form so
 ; that isMax()/isMin() remains true for the same.
 ;
-define dso_local i64 @getmax(i64* noalias nocapture readonly %larr) local_unnamed_addr #0 {
+define dso_local i64 @getmax(i64* noalias nocapture readonly %larr, i64 %t) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK-NEXT:  VPlan IR for: getmax:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
@@ -64,7 +64,7 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %l1.013 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
-  %max.012 = phi i64 [ -9223372036854775808, %entry ], [ %1, %for.body ]
+  %max.012 = phi i64 [ %t, %entry ], [ %1, %for.body ]
   %arrayidx = getelementptr inbounds i64, i64* %larr, i64 %l1.013
   %0 = load i64, i64* %arrayidx, align 8
   %mul = mul nsw i64 %0, 3

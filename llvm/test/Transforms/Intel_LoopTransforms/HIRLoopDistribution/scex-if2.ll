@@ -63,7 +63,7 @@
 ; CHECK:  |   |      %1 = (%.TempArray4)[0][i2];
 ; CHECK:  |   |      %2 = (%.TempArray6)[0][i2];
 
-; CHECK:  |   |      (@B1)[0][%x.addr.020] = %2 + (%0 * %1);
+; CHECK:  |   |      (@B1)[0][%x.addr.020] = %2 + (%1 * %0);
 ;         |   |   }
 ;         |   + END LOOP
 ;         + END LOOP

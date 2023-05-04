@@ -26,7 +26,7 @@
 ; CHECK:       |   |   |   if (%0 != 0)
 ; CHECK:       |   |   |   {
 ; CHECK:       |   |   |      %1 = (@glob)[0][i3][i2];
-; CHECK:       |   |   |      %sum.addr.043 = (%0 * %1)  +  %sum.addr.043;
+; CHECK:       |   |   |      %sum.addr.043 = (%1 * %0)  +  %sum.addr.043;
 ; CHECK:       |   |   |   }
 ; CHECK:       |   |   + END LOOP
 ; CHECK:       |   + END LOOP

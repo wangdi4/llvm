@@ -33,7 +33,7 @@
 ; SCOPED-MODE-THRESHOLD: %add = add nuw nsw i32 %n, 3
 ; SCOPED-MODE-THRESHOLD-NEXT: -->  (3 + %n) U: full-set S: full-set
 
-define i32 @foo(i32 %n) "intel-lang"="fortran" {
+define i32 @foo(i32 %n) {
 entry:
   %cmp17 = icmp slt i32 %n, 5
   %add = add nsw nuw i32 %n, 3
