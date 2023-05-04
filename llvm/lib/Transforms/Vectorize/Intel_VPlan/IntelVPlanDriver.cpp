@@ -1129,20 +1129,31 @@ getPeeledMemrefRemark(const VPlanPeelingVariant *V) {
   if (!isa<VPlanDynamicPeeling>(V))
     return {};
 
-  const auto *Memref = cast<VPlanDynamicPeeling>(V)->memref();
+  const VPLoadStoreInst *Memref = cast<VPlanDynamicPeeling>(V)->memref();
   assert(Memref && "dynamic peel with no memref?");
 
-  // Try to get a valid debug location, preferably from the pointer we are
-  // loading from/storing to.
-  DebugLoc Loc = Memref->getDebugLocation();
-  if (const auto *PtrI = dyn_cast<VPInstruction>(Memref->getPointerOperand()))
-    if (PtrI->getDebugLocation())
-      Loc = PtrI->getDebugLocation();
-  if (!Loc)
-    return {};
+  // Try to get a suitable name/location to associate with the memref. First try
+  // looking at the underlying HIR -- if this exists, the info is usually
+  // accurate.
+  std::string NameAndDbgLoc;
+  if (const RegDDRef *Ref = Memref->getHIRMemoryRef())
+    NameAndDbgLoc = Ref->getNameAndDbgLocForOptRpt();
+
+  // If we have no HIR, try just reporting a valid debug location, preferably
+  // the location of the pointer we are loading from/storing to.
+  if (NameAndDbgLoc.empty()) {
+    DebugLoc Loc = Memref->getDebugLocation();
+    if (const auto *PtrI = dyn_cast<VPInstruction>(Memref->getPointerOperand()))
+      if (PtrI->getDebugLocation())
+        Loc = PtrI->getDebugLocation();
+    if (Loc)
+      NameAndDbgLoc = (Twine("(") + Twine(Loc->getLine()) + ":" +
+                       Twine(Loc->getColumn()) + ") ")
+                          .str();
+  }
 
   return VPlanDriverImpl::getDebugRemark<RemarkRecord>(
-      "peeled by memref at ", Loc->getLine(), ":", Loc->getColumn(), " (",
+      "peeled by memref ", NameAndDbgLoc, "(",
       Memref->getOpcode() == Instruction::Load ? "load" : "store", ")");
 }
 

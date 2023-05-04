@@ -5,25 +5,35 @@
 ; RUN: opt -S < %s -passes='vplan-vec,intel-ir-optreport-emitter' \
 ; RUN:     -disable-output -vplan-debug-opt-report -intel-opt-report=high \
 ; RUN:     -vplan-enable-peeling -vplan-force-dyn-alignment \
-; RUN:     -vplan-vec-scenario="s1;v4;s1" 2>&1 | FileCheck %s
+; RUN:     -vplan-vec-scenario="s1;v4;s1" 2>&1 | FileCheck %s --check-prefixes=CHECK,IR
+; RUN: opt -S < %s -passes='hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter' \
+; RUN:     -disable-output -vplan-debug-opt-report -intel-opt-report=high \
+; RUN:     -vplan-enable-peeling -vplan-force-dyn-alignment \
+; RUN:     -vplan-vec-scenario="s1;v4;s1" 2>&1 | FileCheck %s --check-prefixes=CHECK,HIR
 
 source_filename = "test.c"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
+
+; TODO: IR and HIR should both report the store's location at (3:5) (i.e. the
+; location of the memref B[I]) rather than (3:10) (i.e. the location of the '='
+; in the assignment statement.)
 
 ; Function Attrs: nofree norecurse nosync nounwind memory(argmem: readwrite) uwtable
 define dso_local void @foo(ptr nocapture noundef readonly %A, ptr nocapture noundef writeonly %B, i64 noundef %N) local_unnamed_addr #0 !dbg !7 {
 ; test.c:
 ; <1>void foo(int *A, int *B, uint64_t N) {
 ; <2>  for (unsigned I = 0; I < N; ++I)
-; <3>    B[I] = A[I] + A[I + 1]
+; <3>    B[I] = A[I] + A[I + 1];
 ; <4>}
-; CHECK-LABEL:  Global optimization report for : foo
+; IR-LABEL:  Global optimization report for : foo
+; HIR-LABEL:  Report from: HIR Loop optimizations framework for : foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  LOOP BEGIN at test.c (2, 3)
 ; CHECK-NEXT:  <Peeled loop for vectorization>
 ; CHECK-NEXT:      remark #15576: peel loop is dynamic
-; CHECK:           remark #15578: DEBUG: peeled by memref at 3:5 (store)
+; IR:              remark #15578: DEBUG: peeled by memref (3:5) (store)
+; HIR:             remark #15578: DEBUG: peeled by memref B (3:10) (store)
 ; CHECK-NEXT:  LOOP END
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  LOOP BEGIN at test.c (2, 3)
