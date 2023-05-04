@@ -112,6 +112,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/utils/UpdateTestChecks/ @KanRobert
 /llvm/test/tools/UpdateTestChecks/ @KanRobert
 /llvm/utils/UpdateTestChecks/intel_update_markup.py @KanRobert @phoebewang @FreddyLeaf @HaohaiWen
+/llvm/utils/UpdateTestChecks/intel_default_options.py @jsji
 /llvm/test/tools/UpdateTestChecks/intel_update_markup/ @KanRobert @phoebewang @FreddyLeaf @HaohaiWen
 /llvm/utils/update_analyze_test_checks.py @KanRobert
 /llvm/utils/update_llc_test_checks.py @KanRobert

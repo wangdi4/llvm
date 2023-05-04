@@ -26,6 +26,7 @@ import sys
 import tempfile
 
 from UpdateTestChecks import common
+from UpdateTestChecks import intel_default_options # INTEL
 
 SUBST = {
     '%clang': [],
@@ -237,6 +238,13 @@ def exec_run_line(exe):
     sys.stderr.write(stdout)
     sys.exit(3)
 
+# INTEL_CUSTOMIZATION
+def update_subst_with_default_options(ti):
+    default_options = intel_default_options.get_default_options_for_tool(ti, ti.args.clang)
+    SUBST['%clang_cc1'].extend(default_options.split(' '))
+    pass
+# end INTEL_CUSTOMIZATION
+
 def main():
   initial_args, parser = config()
   script_name = os.path.basename(__file__)
@@ -255,6 +263,8 @@ def main():
 
     for l in ti.run_lines:
       commands = [cmd.strip() for cmd in l.split('|')]
+
+      update_subst_with_default_options(ti) #INTEL
 
       triple_in_cmd = None
       m = common.TRIPLE_ARG_RE.search(commands[0])
