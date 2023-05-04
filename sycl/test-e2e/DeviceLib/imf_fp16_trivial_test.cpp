@@ -1,5 +1,10 @@
+<<<<<<< HEAD
 // REQUIRES: aspect-fp16
 // DEFINE: %{mathflags} = %if cl_options %{/clang:-fno-fast-math%} %else %{-fno-fast-math%}
+=======
+// DEFINE: %{mathflags} = %if cl_options %{/clang:-fno-fast-math%} %else %{-fno-fast-math%}
+
+>>>>>>> 32edd8f91248cb0584d2b48bc513f04976133e2b
 // RUN: %clangxx -fsycl %{mathflags} %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
