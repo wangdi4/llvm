@@ -2004,6 +2004,16 @@ def executeShTest(test, litConfig, useExternalSh,
     substitutions += getDefaultSubstitutions(test, tmpDir, tmpBase,
                                              normalize_slashes=useExternalSh)
     conditions = { feature: True for feature in test.config.available_features }
+
+# INTEL_CUSTOMIZATION
+    if litConfig.show_final_subst:
+        substitutions = sorted(substitutions)
+        substitutions = ('%s => %s' % (x, y) for (x, y) in substitutions)
+        substitutions = '\n'.ljust(30).join(substitutions)
+        print('Available Substitutions:\n%s' % substitutions)
+        return lit.Test.Result(Test.PASS)
+# end INTEL_CUSTOMIZATION
+
     script = applySubstitutions(script, substitutions, conditions,
                                 recursion_limit=test.config.recursiveExpansionLimit)
 

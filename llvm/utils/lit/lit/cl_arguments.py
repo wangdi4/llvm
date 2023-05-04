@@ -208,6 +208,13 @@ def parse_args():
     debug_group.add_argument("--show-suites",
             help="Show discovered test suites and exit",
             action="store_true")
+
+# INTEL_CUSTOMIZATION
+    debug_group.add_argument("--show-final-subst",
+            help="Show subst before run and exit",
+            action="store_true")
+# end INTEL_CUSTOMIZATION
+
     debug_group.add_argument("--show-tests",
             help="Show all discovered tests and exit",
             action="store_true")
