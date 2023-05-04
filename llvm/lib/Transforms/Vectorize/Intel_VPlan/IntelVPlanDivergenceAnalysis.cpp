@@ -1706,13 +1706,13 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
   else if (Opcode == VPInstruction::ExtractLastVectorLane)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::CompressStore)
-    NewShape = computeVectorShapeForStoreInst(I);
+    NewShape = getRandomVectorShape();
   else if (Opcode == VPInstruction::CompressStoreNonu)
-    NewShape = computeVectorShapeForStoreInst(I);
+    NewShape = getRandomVectorShape();
   else if (Opcode == VPInstruction::ExpandLoad)
-    NewShape = computeVectorShapeForLoadInst(I);
+    NewShape = getRandomVectorShape();
   else if (Opcode == VPInstruction::ExpandLoadNonu)
-    NewShape = computeVectorShapeForLoadInst(I);
+    NewShape = getRandomVectorShape();
   else if (Opcode == VPInstruction::CompressExpandIndexInit)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::CompressExpandIndexFinal)
