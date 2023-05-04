@@ -1028,6 +1028,15 @@ static Function *promoteArguments(Function *F, FunctionAnalysisManager &FAM,
       if (CS.getInstruction()->isMustTailCall())
         return nullptr;
 
+      // If the caller is marked minsize, this transformation may increase code
+      // size. We assume that there is more than one call to this function since
+      // otherwise this function would be inlined or is dead.
+      // TODO: compare the number of loads/stores removed from the function with
+      // the number of introduced loads in callees to see if this is profitable
+      // code-size-wise.
+      if (CS.getInstruction()->getFunction()->hasMinSize())
+        return nullptr;
+
       if (CS.getInstruction()->getFunction() == F) {
         IsRecursive = true;
         IsSelfRecursive = true;
