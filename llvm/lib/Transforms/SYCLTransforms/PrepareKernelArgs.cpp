@@ -65,6 +65,9 @@ bool PrepareKernelArgsPass::runImpl(
   // Handle all kernels.
   for (auto *F : kernelsFuncSet)
     runOnFunction(F, GetAC(*F));
+  // Update llvm.used after handling all kernels
+  if (!ReplaceMap.empty())
+    CompilationUtils::updateGlobalSymbols(ReplaceMap, this->M);
 
   return !kernelsFuncSet.empty();
 }
@@ -177,8 +180,6 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
               EltTy = getMaxSizeType(DL, EltTy, GEP->getSourceElementType());
           }
         }
-      } else {
-        EltTy = PTy->getNonOpaquePointerElementType();
       }
       if (EltTy) {
         if (VecSize != 1 && VectorType::isValidElementType(EltTy))
@@ -505,6 +506,7 @@ void PrepareKernelArgsPass::replaceFunctionPointers(Function *Wrapper,
         Op->setOperand(2, WrapperOp);
     }
   }
+  ReplaceMap[WrappedKernel] = Wrapper;
 }
 
 void PrepareKernelArgsPass::createDummyRetWrappedKernel(Function *Wrapper,

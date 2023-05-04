@@ -3255,5 +3255,30 @@ Type *getLLVMTypeFromReflectionType(LLVMContext &C,
   return Ty;
 }
 
+void updateGlobalSymbols(std::map<Function *, Function *> &ReplaceMap,
+                         Module *M) {
+  GlobalVariable *GV = M->getGlobalVariable("llvm.used");
+  if (!GV || !GV->hasInitializer())
+    return;
+  ConstantArray *Inits = cast<ConstantArray>(GV->getInitializer());
+  SmallVector<Constant *, 32> FuncsMarkedAsUsed;
+  for (unsigned I = 0, E = Inits->getNumOperands(); I != E; ++I) {
+    auto *Operand = Inits->getOperand(I);
+    if (auto *WrappedKernel = dyn_cast<Function>(Operand)) {
+      if (ReplaceMap.find(WrappedKernel) != ReplaceMap.end())
+        FuncsMarkedAsUsed.push_back(ReplaceMap[WrappedKernel]);
+      else
+        FuncsMarkedAsUsed.push_back(Operand);
+    } else
+      FuncsMarkedAsUsed.push_back(Operand);
+  }
+
+  if (FuncsMarkedAsUsed.size()) {
+    ArrayType *ArrTy = ArrayType::get(Inits->getType()->getElementType(),
+                                      FuncsMarkedAsUsed.size());
+    GV->replaceUsesOfWith(Inits, ConstantArray::get(ArrTy, FuncsMarkedAsUsed));
+  }
+}
+
 } // end namespace CompilationUtils
 } // end namespace llvm
