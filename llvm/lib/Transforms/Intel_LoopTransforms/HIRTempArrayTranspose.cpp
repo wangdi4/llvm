@@ -79,25 +79,29 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
 
 static cl::opt<bool> AllowUnknownSizes(
     OPT_SWITCH "-allow-unknown-sizes", cl::init(false), cl::Hidden,
-    cl::desc("Allow transformation in HIR temp array transform when dimsizes "
+    cl::desc("Allow transformation in HIRTempArrayTranspose when dimsizes "
              "and loop TC is unknown."));
+
+static cl::opt<bool>
+    SkipProfitChecks(OPT_SWITCH "-skip-profit", cl::init(false), cl::Hidden,
+                     cl::desc("Skip profit checks in HIRTempArrayTranspose."));
 
 static cl::opt<unsigned>
     MinTCThreshold(OPT_SWITCH "-mintc",
                    cl::desc("minimum profitable TC count for enabling "
-                            "HIR temp array transpose."),
+                            "HIRTempArrayTranspose."),
                    cl::Hidden, cl::init(8));
 
 static cl::opt<unsigned> MaxConstSizeThreshold(
     OPT_SWITCH "-max-const-dimsize",
     cl::desc("maximum profitable constant dimsize for single alloca "
-             "used in HIR temp array transpose."),
+             "used in HIRTempArrayTranspose."),
     cl::Hidden, cl::init(250));
 
 static cl::opt<unsigned> MaxVarSizeThreshold(
     OPT_SWITCH "-max-var-dimsize",
     cl::desc("maximum profitable variable dimsize for single alloca "
-             "used in HIR temp array transpose."),
+             "used in HIRTempArrayTranspose."),
     cl::Hidden, cl::init(512));
 
 class ArrayTransposeAnalyzer {
@@ -406,30 +410,90 @@ bool ArrayTransposeAnalyzer::isValidRefGroup(
   return true;
 }
 
+// Return true if the Loop Trip count is under the Max Threshold. We only
+// call this on Loop corresponding to the unknown dimension for our
+// transpose candidate.
+static bool isProfitableLoopTC(const HLLoop *Loop) {
+  unsigned MaxTCEst;
+  uint64_t TripCount;
+
+  if (Loop->isConstTripLoop(&TripCount)) {
+    if (TripCount > MaxConstSizeThreshold) {
+      return false;
+    }
+  } else {
+    MaxTCEst = Loop->getMaxTripCountEstimate();
+    if (!AllowUnknownSizes && (!MaxTCEst || MaxTCEst > MaxConstSizeThreshold)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 bool ArrayTransposeAnalyzer::isProfitable() {
+  if (SkipProfitChecks) {
+    return true;
+  }
+
   // Note: InnerDim corresponds to the original outer loop
   Dim1Size = Uses.front().DelinearRef->getNumDimensionElements(1);
   Dim2Size = Uses.front().DelinearRef->getNumDimensionElements(2);
 
-  // TODO: workaround to currently bail out for unknown dimsizes unless
-  // the loop is already multiversioned for our target benchmark (by RTDD).
+  // Only allow both unknown sizes if specified by flag or if Loop is MV'd.
+  // MV condition will only allow smaller sizes.
   if (!AllowUnknownSizes && !Dim1Size && !Dim2Size &&
       !Uses.front().OrigInnerLoop->getMVTag()) {
     return false;
   }
 
-  // Check tripcount estimate to not consider candidates if LoopTC are small
+  unsigned MaxTCEst;
+  const HLLoop *InnerLp = Uses.front().OrigInnerLoop;
+  const HLLoop *OuterLp = Uses.front().OrigOuterLoop;
+
+  // Check our known dimsize against threshold. If the other dimsize is unknown
+  // check against the loopTC and then MaxTC if they surpass the threshold.
+  if (Dim1Size) {
+    if (Dim1Size > MaxConstSizeThreshold) {
+      LLVM_DEBUG(
+          dbgs() << "[Profit] DimSize surpasses Alloca Size threshold!\n";);
+      return false;
+    }
+
+    if (!Dim2Size && !isProfitableLoopTC(InnerLp)) {
+      LLVM_DEBUG(dbgs() << "[Profit] InnerLp TC surpasses threshold!\n";);
+      return false;
+    }
+  }
+
+  if (Dim2Size) {
+    if (Dim2Size > MaxConstSizeThreshold) {
+      LLVM_DEBUG(
+          dbgs() << "[Profit] DimSize surpasses Alloca Size threshold!\n";);
+      return false;
+    }
+
+    // Check unknown Dim1Size, corresponds to outerlp
+    if (!Dim1Size && !isProfitableLoopTC(OuterLp)) {
+      LLVM_DEBUG(dbgs() << "[Profit] OuterLp TC surpasses threshold!\n";);
+      return false;
+    }
+  }
+
+  // Follow checks are to see if we have enough uses which would make the
+  // transformation profitable. Either there should be multiple uses for a
+  // 2 level loop or it should be under a sizeable 3 level loopnest.
   unsigned NumProfitableUses = 0;
   for (auto &Use : Uses) {
     bool MeetsTCThreshold = true;
-    const HLLoop *Lp = Use.OrigInnerLoop;
+    const HLLoop *Lp = InnerLp;
     unsigned Level = Lp->getNestingLevel();
 
     // Here we try to avoid copying arrays that have very small tripcount
     // and are unlikely to be profitable. Entire loopnest is checked even
     // though we mostly care about the IV levels mostly.
     while (Lp) {
-      auto MaxTCEst = Lp->getMaxTripCountEstimate();
+      MaxTCEst = Lp->getMaxTripCountEstimate();
       if (MaxTCEst && MaxTCEst < MinTCThreshold) {
         MeetsTCThreshold = false;
         break;
@@ -546,70 +610,6 @@ static bool areEqualLoopsWithExt(const HLLoop *Loop1, const HLLoop *Loop2) {
   return UnderlyingIndex1 == UnderlyingIndex2;
 }
 
-#if 0
-// Returns the HLIf that encloses Lp1 that proves equivalency of CE1 and CE2,
-// where CE1 and CE2 are the UBCEs of Lp1 and Lp2 respectively. E.g.
-//
-// if (-1 * ptrtoint.i8*.i64(%24) + ptrtoint.i8*.i64(%23) == %11)
-//   DO i1 = 0, sext.i32.i64(%10) + -1,
-//     DO i2 = 0, -1 * ptrtoint.i8*.i64(%24) + ptrtoint.i8*.i64(%23) + -1, 1
-//
-// We want to prove that above i2 loop is equivalent to DO i2 = 0, %11 + -1, 1
-static HLIf *findEquivalencePredicate(const HLLoop *Lp1, const HLLoop *Lp2,
-                                      const CanonExpr *CE1,
-                                      const CanonExpr *CE2) {
-
-  HLNode *Node = const_cast<HLLoop *>(Lp1);
-
-  // Traverse up the parent chain to see if we can find a predicate
-  // where CE1 == CE2.
-  while (Node->getParent() && !isa<HLRegion>(Node->getParent())) {
-    Node = Node->getParent();
-
-    auto *IfNode = dyn_cast<HLIf>(Node);
-
-    if (!IfNode) {
-      continue;
-    }
-
-    for (auto &Pred : make_range(IfNode->pred_begin(), IfNode->pred_end())) {
-      if (!CmpInst::isEquality(Pred)) {
-        continue;
-      }
-
-      RegDDRef *LHS = IfNode->getLHSPredicateOperandDDRef(&Pred);
-      RegDDRef *RHS = IfNode->getRHSPredicateOperandDDRef(&Pred);
-
-      if (!LHS->isSingleDimension() || !RHS->isSingleDimension()) {
-        LLVM_DEBUG(dbgs() << "[Unequal] Gave up due to dimension.\n";);
-        continue;
-      }
-
-      CanonExpr *LHSCE = LHS->getSingleCanonExpr();
-      CanonExpr *RHSCE = RHS->getSingleCanonExpr();
-
-      // We want to prove the following 2 CEs are equivalent.
-      // LINEAR i64 sext.i32.i64(%11) <- sign extended blob
-      // LINEAR sext.i32.i64(%11) {sb:2} <- CE with different src/dst types
-
-      if (areEqualWithSExt(LHSCE, CE1) && areEqualWithSExt(RHSCE, CE2)) {
-        LLVM_DEBUG(dbgs() << "[Equal Pred] "; LHS->dump(1); dbgs() << "\t";
-                   RHS->dump(1); dbgs() << "\n";);
-        return IfNode;
-      }
-
-      if (areEqualWithSExt(LHSCE, CE2) && areEqualWithSExt(RHSCE, CE1)) {
-        LLVM_DEBUG(dbgs() << "[Equal Pred] "; LHS->dump(1); dbgs() << "\t";
-                   RHS->dump(1); dbgs() << "\n";);
-        return IfNode;
-      }
-    }
-  }
-
-  return nullptr;
-}
-#endif
-
 struct UnsafeCallsVisitor : HLNodeVisitorBase {
   HIRLoopStatistics &HLS;
   unsigned MinTSNum;
@@ -651,11 +651,6 @@ struct UnsafeCallsVisitor : HLNodeVisitorBase {
     if (Inst->getMinTopSortNum() < MinTSNum) {
       return;
     }
-
-    // if (Inst->getMaxTopSortNum() > MaxTSNum) {
-    //   Done = true;
-    //   return;
-    // }
 
     if (Inst->isCallInst() && Inst->isUnsafeSideEffectsCallInst()) {
       LLVM_DEBUG(dbgs() << "[UNSAFE] "; Inst->dump(););
@@ -709,74 +704,8 @@ bool ArrayTransposeAnalyzer::checkLoopLegality() {
                                     ParentLoop2->getUpperCanonExpr(), true) &&
           !areEqualLoopsWithExt(ParentLoop1, ParentLoop2)) {
         return false;
-
-#if 0
-        // This logic is meant to check for if predicates that ensure Loop UB
-        // refs are equal. For example, if UB1 is %0 and UB2 is %1, there is an
-        // if (%0 == %1), in which case, the loops would be equal. However,
-        // the benchmark where we needed this logic was modified.
-        CanonExpr *TC1 = ParentLoop1->getTripCountCanonExpr();
-        CanonExpr *TC2 = ParentLoop2->getTripCountCanonExpr();
-
-        LLVM_DEBUG(dbgs() << "[CandCheck] Checking CE mismatch.\n1) ";
-                   TC1->dump(1); dbgs() << "\n2) "; TC2->dump(1);
-                   dbgs() << "\n";);
-
-        // CEs could unequal if there is a parent predicate proving CE
-        // equivalence.
-        HLIf *EqualIf =
-            findEquivalencePredicate(ParentLoop1, ParentLoop2, TC1, TC2);
-        if (EqualIf) {
-          // If we find the predicate proving equivalence, then it must be in
-          // then path.
-          if (EqualIf->isThenChild(ParentLoop1)) {
-            LLVM_DEBUG(dbgs() << "[Equal CEs] Found CE equivalence 1.\n";);
-          } else {
-            return false;
-          }
-        } else {
-          // Try again with ParentLoop2
-          EqualIf =
-              findEquivalencePredicate(ParentLoop2, ParentLoop1, TC1, TC2);
-          if (EqualIf) {
-            if (EqualIf->isThenChild(ParentLoop2)) {
-              LLVM_DEBUG(dbgs() << "[Equal CEs] Found CE equivalence 2.\n";);
-            } else {
-              return false;
-            }
-          } else {
-            LLVM_DEBUG(dbgs()
-                           << "[BadCand1] Could not prove CE equivalence.\n";);
-            return false;
-          }
-        }
-        TC1->getCanonExprUtils().destroy(TC1);
-        TC2->getCanonExprUtils().destroy(TC2);
-#endif
       }
     }
-  }
-
-  // Bail out if constant dimsize is greater than threshold
-  if (Dim1Size > MaxConstSizeThreshold || Dim2Size > MaxConstSizeThreshold) {
-    LLVM_DEBUG(
-        dbgs() << "[Profit] DimSize surpasses Alloca Size threshold!\n";);
-    return false;
-  }
-
-  uint64_t TripCount;
-  if (FirstUse.OrigOuterLoop->isConstTripLoop(&TripCount) &&
-      TripCount > MaxConstSizeThreshold) {
-    LLVM_DEBUG(
-        dbgs() << "[Profit] OuterLp surpasses Alloca Size threshold!\n";);
-    return false;
-  }
-
-  if (FirstUse.OrigInnerLoop->isConstTripLoop(&TripCount) &&
-      TripCount > MaxConstSizeThreshold) {
-    LLVM_DEBUG(
-        dbgs() << "[Profit] InnerLp surpasses Alloca Size threshold!\n";);
-    return false;
   }
 
   SmallPtrSet<const HLNode *, 2> IgnoreNodes;
@@ -881,9 +810,9 @@ bool ArrayTransposeAnalyzer::checkLoopLegality() {
           Use.OrigOuterLoop->isUnconditionallyExecutedinRegion(IgnoreNodes)) {
         SafeToExecute = true;
         break;
-      } else if (!Dim2Size &&
-                 Use.OrigInnerLoop->isUnconditionallyExecutedinRegion(
-                     IgnoreNodes)) {
+      }
+      if (!Dim2Size &&
+          Use.OrigInnerLoop->isUnconditionallyExecutedinRegion(IgnoreNodes)) {
         SafeToExecute = true;
         break;
       }
