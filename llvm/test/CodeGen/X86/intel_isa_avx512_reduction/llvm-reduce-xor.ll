@@ -112,8 +112,8 @@ define i64 @reduce_xorq_4xi64(<4 x i64> %vec) {
 define i64 @reduce_xorq_3xi64(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_xorq_3xi64:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vxorps %xmm0, %xmm0, %xmm0
-; AVX512REDUCTION-NEXT:    vblendps {{.*#+}} ymm0 = mem[0,1,2,3,4,5],ymm0[6,7]
+; AVX512REDUCTION-NEXT:    vpxor %xmm0, %xmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vpblendd {{.*#+}} ymm0 = mem[0,1,2,3,4,5],ymm0[6,7]
 ; AVX512REDUCTION-NEXT:    vphrxorq %ymm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vmovq %xmm0, %rax
 ; AVX512REDUCTION-NEXT:    vzeroupper
@@ -281,8 +281,8 @@ define i32 @reduce_xord_8xi32(<8 x i32> %vec) {
 define i32 @reduce_xord_7xi32(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_xord_7xi32:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vxorps %xmm0, %xmm0, %xmm0
-; AVX512REDUCTION-NEXT:    vblendps {{.*#+}} ymm0 = mem[0,1,2,3,4,5,6],ymm0[7]
+; AVX512REDUCTION-NEXT:    vpxor %xmm0, %xmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vpblendd {{.*#+}} ymm0 = mem[0,1,2,3,4,5,6],ymm0[7]
 ; AVX512REDUCTION-NEXT:    vphrxord %ymm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
 ; AVX512REDUCTION-NEXT:    vzeroupper
@@ -326,8 +326,8 @@ define i32 @reduce_xord_4xi32(<4 x i32> %vec) {
 define i32 @reduce_xord_3xi32(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_xord_3xi32:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vxorps %xmm0, %xmm0, %xmm0
-; AVX512REDUCTION-NEXT:    vblendps {{.*#+}} xmm0 = mem[0,1,2],xmm0[3]
+; AVX512REDUCTION-NEXT:    vpxor %xmm0, %xmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vpblendd {{.*#+}} xmm0 = mem[0,1,2],xmm0[3]
 ; AVX512REDUCTION-NEXT:    vphrxord %xmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
 ; AVX512REDUCTION-NEXT:    retq
@@ -521,8 +521,8 @@ define i16 @reduce_xorw_16xi16(<16 x i16> %vec) {
 define i16 @reduce_xorw_13xi16(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_xorw_13xi16:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vmovaps (%rdi), %ymm0
-; AVX512REDUCTION-NEXT:    vandps {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0, %ymm0
+; AVX512REDUCTION-NEXT:    vmovdqa (%rdi), %ymm0
+; AVX512REDUCTION-NEXT:    vpand {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0, %ymm0
 ; AVX512REDUCTION-NEXT:    vphrxorw %ymm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
 ; AVX512REDUCTION-NEXT:    # kill: def $ax killed $ax killed $eax
@@ -662,8 +662,8 @@ define i16 @reduce_xorw_3xi16(ptr %p) {
 define i16 @reduce_xorw_2xi16(<2 x i16> %vec) {
 ; AVX512REDUCTION-LABEL: reduce_xorw_2xi16:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vxorps %xmm1, %xmm1, %xmm1
-; AVX512REDUCTION-NEXT:    vblendps {{.*#+}} xmm0 = xmm0[0],xmm1[1,2,3]
+; AVX512REDUCTION-NEXT:    vpxor %xmm1, %xmm1, %xmm1
+; AVX512REDUCTION-NEXT:    vpblendw {{.*#+}} xmm0 = xmm0[0,1],xmm1[2,3,4,5,6,7]
 ; AVX512REDUCTION-NEXT:    vphrxorw %xmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
 ; AVX512REDUCTION-NEXT:    # kill: def $ax killed $ax killed $eax
@@ -879,8 +879,8 @@ define i8 @reduce_xorb_32xi8(<32 x i8> %vec) {
 define i8 @reduce_xorb_17xi8(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_xorb_17xi8:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vmovaps (%rdi), %ymm0
-; AVX512REDUCTION-NEXT:    vandps {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0, %ymm0
+; AVX512REDUCTION-NEXT:    vmovdqa (%rdi), %ymm0
+; AVX512REDUCTION-NEXT:    vpand {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0, %ymm0
 ; AVX512REDUCTION-NEXT:    vphrxorb %ymm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
 ; AVX512REDUCTION-NEXT:    # kill: def $al killed $al killed $eax
@@ -957,8 +957,8 @@ define i8 @reduce_xorb_16xi8(<16 x i8> %vec) {
 define i8 @reduce_xorb_13xi8(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_xorb_13xi8:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vmovaps (%rdi), %xmm0
-; AVX512REDUCTION-NEXT:    vandps {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovdqa (%rdi), %xmm0
+; AVX512REDUCTION-NEXT:    vpand {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vphrxorb %xmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
 ; AVX512REDUCTION-NEXT:    # kill: def $al killed $al killed $eax
@@ -1026,8 +1026,8 @@ define i8 @reduce_xorb_8xi8(<8 x i8> %vec) {
 define i8 @reduce_xorb_7xi8(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_xorb_7xi8:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vmovsd {{.*#+}} xmm0 = mem[0],zero
-; AVX512REDUCTION-NEXT:    vandps {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovq {{.*#+}} xmm0 = mem[0],zero
+; AVX512REDUCTION-NEXT:    vpand {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vphrxorb %xmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
 ; AVX512REDUCTION-NEXT:    # kill: def $al killed $al killed $eax
@@ -1063,8 +1063,8 @@ define i8 @reduce_xorb_7xi8(ptr %p) {
 define i8 @reduce_xorb_4xi8(<4 x i8> %vec) {
 ; AVX512REDUCTION-LABEL: reduce_xorb_4xi8:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vxorps %xmm1, %xmm1, %xmm1
-; AVX512REDUCTION-NEXT:    vblendps {{.*#+}} xmm0 = xmm0[0],xmm1[1,2,3]
+; AVX512REDUCTION-NEXT:    vpxor %xmm1, %xmm1, %xmm1
+; AVX512REDUCTION-NEXT:    vpblendw {{.*#+}} xmm0 = xmm0[0,1],xmm1[2,3,4,5,6,7]
 ; AVX512REDUCTION-NEXT:    vphrxorb %xmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
 ; AVX512REDUCTION-NEXT:    # kill: def $al killed $al killed $eax
@@ -1086,8 +1086,8 @@ define i8 @reduce_xorb_4xi8(<4 x i8> %vec) {
 define i8 @reduce_xorb_3xi8(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_xorb_3xi8:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
-; AVX512REDUCTION-NEXT:    vandps {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
+; AVX512REDUCTION-NEXT:    vmovd {{.*#+}} xmm0 = mem[0],zero,zero,zero
+; AVX512REDUCTION-NEXT:    vpand {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vphrxorb %xmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
 ; AVX512REDUCTION-NEXT:    # kill: def $al killed $al killed $eax

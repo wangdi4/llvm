@@ -18077,6 +18077,7 @@ multiclass avx512_reduction_2op_packed_maskable<bits<8> opc, string OpcodeStr,
                                        X86VectorVTInfo DstVTI,
                                        X86VectorVTInfo SrcVTI,
                                        string mem, string VL, SDNode MaskOpNode> {
+  let ExeDomain = SSEPackedInt in {
   def rr : AVX512<opc, MRMSrcReg, (outs DstVTI.RC:$dst),
                   (ins SrcVTI.RC:$src1),
                   OpcodeStr#"\t{$src1, $dst|$dst, $src1}",
@@ -18101,6 +18102,7 @@ multiclass avx512_reduction_2op_packed_maskable<bits<8> opc, string OpcodeStr,
                     [(set DstVTI.RC:$dst, (DstVTI.VT (MaskOpNode SrcVTI.KRCWM:$mask,
                      (SrcVTI.VT (SrcVTI.LdFrag addr:$src1)))))]>,
                     EVEX_K, EVEX_CD8<SrcVTI.EltSize, CD8VF>;
+  }
 
   // Allow registers with the x, y, z suffix.
   def : InstAlias<OpcodeStr#mem#
@@ -18118,6 +18120,7 @@ multiclass avx512_reduction_2op_mb_packed<bits<8> opc, string OpcodeStr,
                                           X86VectorVTInfo SrcVTI,
                                           string mem, string VL,
                                           SDNode MaskOpNode> {
+  let ExeDomain = SSEPackedInt in {
   def rmb : AVX512<opc, MRMSrcMem, (outs DstVTI.RC:$dst),
                     (ins SrcVTI.ScalarMemOp:$src1),
                     OpcodeStr#"\t{${src1}"#SrcVTI.BroadcastStr#", $dst|"#
@@ -18133,6 +18136,7 @@ multiclass avx512_reduction_2op_mb_packed<bits<8> opc, string OpcodeStr,
                     [(set DstVTI.RC:$dst, (DstVTI.VT (MaskOpNode SrcVTI.KRCWM:$mask,
                    (SrcVTI.VT (SrcVTI.BroadcastLdFrag addr:$src1)))))]>,
                   EVEX_B, EVEX_K, EVEX_CD8<SrcVTI.EltSize, CD8VF>;
+  }
   // Allow broadcast with the x, y, z suffix.
   def : InstAlias<OpcodeStr#mem#
                   "\t{${src1}"#SrcVTI.BroadcastStr#", $dst|$dst, ${src1}"#SrcVTI.BroadcastStr#"}",
@@ -18148,6 +18152,7 @@ multiclass avx512_reduction_2op_mb_packed<bits<8> opc, string OpcodeStr,
 multiclass avx512_reduction_2op_packed<bits<8> opc, string OpcodeStr,
              X86VectorVTInfo DstVTI, X86VectorVTInfo SrcVTI, string mem,
              string VL> {
+  let ExeDomain = SSEPackedInt in {
   def rr : AVX512<opc, MRMSrcReg, (outs DstVTI.RC:$dst), (ins SrcVTI.RC:$src1),
               OpcodeStr#"\t{$src1, $dst|$dst, $src1}",
               [(set DstVTI.RC:$dst,
@@ -18158,7 +18163,7 @@ multiclass avx512_reduction_2op_packed<bits<8> opc, string OpcodeStr,
               [(set DstVTI.RC:$dst, (DstVTI.VT
                      (!cast<Intrinsic>("int_x86_avx512reduction_"#OpcodeStr#VL)
                       (SrcVTI.VT (SrcVTI.LdFrag addr:$src1)))))]>;
-
+  }
   def : InstAlias<OpcodeStr#"{"#mem#"}\t{$src1, $dst|$dst, $src1}",
                 (!cast<Instruction>(NAME#"rr") DstVTI.RC:$dst, SrcVTI.RC:$src1),
                 0, "att">;
@@ -18318,6 +18323,12 @@ let Predicates = [HasAVX512REDUCTION] in {
             (EXTRACT_SUBREG
               (i32 (COPY_TO_REGCLASS (VPHRADDBDZrr VR512:$src), GR32)),
               sub_8bit)>;
+  def : Pat<(store (i64 (vecreduce_add (v4i64 VR256X:$src))), addr:$dst),
+            (VMOVPQI2QIZmr addr:$dst, (VPHRADDQZ256rr VR256X:$src))>;
+  def : Pat<(store (i32 (vecreduce_add (v8i32 VR256X:$src))), addr:$dst),
+            (VMOVPDI2DIZmr addr:$dst, (VPHRADDDZ256rr VR256X:$src))>;
+  def : Pat<(store (i16 (vecreduce_add (v16i16 VR256X:$src))), addr:$dst),
+            (VMOVWmr addr:$dst, (VPHRADDWDZ256rr VR256X:$src))>;
   // AND
   def : Pat<(i64 (vecreduce_and (v8i64 VR512:$src))),
             (i64 (COPY_TO_REGCLASS (VPHRANDQZrr VR512:$src), GR64))>;
@@ -18331,6 +18342,12 @@ let Predicates = [HasAVX512REDUCTION] in {
             (EXTRACT_SUBREG
               (i32 (COPY_TO_REGCLASS (VPHRANDBZrr VR512:$src), GR32)),
               sub_8bit)>;
+  def : Pat<(store (i64 (vecreduce_and (v4i64 VR256X:$src))), addr:$dst),
+            (VMOVPQI2QIZmr addr:$dst, (VPHRANDQZ256rr VR256X:$src))>;
+  def : Pat<(store (i32 (vecreduce_and (v8i32 VR256X:$src))), addr:$dst),
+            (VMOVPDI2DIZmr addr:$dst, (VPHRANDDZ256rr VR256X:$src))>;
+  def : Pat<(store (i16 (vecreduce_and (v16i16 VR256X:$src))), addr:$dst),
+            (VMOVWmr addr:$dst, (VPHRANDWZ256rr VR256X:$src))>;
   // OR
   def : Pat<(i64 (vecreduce_or (v8i64 VR512:$src))),
             (i64 (COPY_TO_REGCLASS (VPHRORQZrr VR512:$src), GR64))>;
@@ -18344,6 +18361,12 @@ let Predicates = [HasAVX512REDUCTION] in {
             (EXTRACT_SUBREG
               (i32 (COPY_TO_REGCLASS (VPHRORBZrr VR512:$src), GR32)),
               sub_8bit)>;
+  def : Pat<(store (i64 (vecreduce_or (v4i64 VR256X:$src))), addr:$dst),
+            (VMOVPQI2QIZmr addr:$dst, (VPHRORQZ256rr VR256X:$src))>;
+  def : Pat<(store (i32 (vecreduce_or (v8i32 VR256X:$src))), addr:$dst),
+            (VMOVPDI2DIZmr addr:$dst, (VPHRORDZ256rr VR256X:$src))>;
+  def : Pat<(store (i16 (vecreduce_or (v16i16 VR256X:$src))), addr:$dst),
+            (VMOVWmr addr:$dst, (VPHRORWZ256rr VR256X:$src))>;
   // XOR
   def : Pat<(i64 (vecreduce_xor (v8i64 VR512:$src))),
             (i64 (COPY_TO_REGCLASS (VPHRXORQZrr VR512:$src), GR64))>;
@@ -18357,6 +18380,12 @@ let Predicates = [HasAVX512REDUCTION] in {
             (EXTRACT_SUBREG
               (i32 (COPY_TO_REGCLASS (VPHRXORBZrr VR512:$src), GR32)),
               sub_8bit)>;
+  def : Pat<(store (i64 (vecreduce_xor (v4i64 VR256X:$src))), addr:$dst),
+            (VMOVPQI2QIZmr addr:$dst, (VPHRXORQZ256rr VR256X:$src))>;
+  def : Pat<(store (i32 (vecreduce_xor (v8i32 VR256X:$src))), addr:$dst),
+            (VMOVPDI2DIZmr addr:$dst, (VPHRXORDZ256rr VR256X:$src))>;
+  def : Pat<(store (i16 (vecreduce_xor (v16i16 VR256X:$src))), addr:$dst),
+            (VMOVWmr addr:$dst, (VPHRXORWZ256rr VR256X:$src))>;
   // SMAX
   def : Pat<(i64 (vecreduce_smax (v8i64 VR512:$src))),
             (i64 (COPY_TO_REGCLASS (VPHRMAXSQZrr VR512:$src), GR64))>;
@@ -18370,6 +18399,12 @@ let Predicates = [HasAVX512REDUCTION] in {
             (EXTRACT_SUBREG
               (i32 (COPY_TO_REGCLASS (VPHRMAXSBZrr VR512:$src), GR32)),
               sub_8bit)>;
+  def : Pat<(store (i64 (vecreduce_smax (v4i64 VR256X:$src))), addr:$dst),
+            (VMOVPQI2QIZmr addr:$dst, (VPHRMAXSQZ256rr VR256X:$src))>;
+  def : Pat<(store (i32 (vecreduce_smax (v8i32 VR256X:$src))), addr:$dst),
+            (VMOVPDI2DIZmr addr:$dst, (VPHRMAXSDZ256rr VR256X:$src))>;
+  def : Pat<(store (i16 (vecreduce_smax (v16i16 VR256X:$src))), addr:$dst),
+            (VMOVWmr addr:$dst, (VPHRMAXSWZ256rr VR256X:$src))>;
   // SMIN
   def : Pat<(i64 (vecreduce_smin (v8i64 VR512:$src))),
             (i64 (COPY_TO_REGCLASS (VPHRMINSQZrr VR512:$src), GR64))>;
@@ -18383,6 +18418,12 @@ let Predicates = [HasAVX512REDUCTION] in {
             (EXTRACT_SUBREG
               (i32 (COPY_TO_REGCLASS (VPHRMINSBZrr VR512:$src), GR32)),
               sub_8bit)>;
+  def : Pat<(store (i64 (vecreduce_smin (v4i64 VR256X:$src))), addr:$dst),
+            (VMOVPQI2QIZmr addr:$dst, (VPHRMINSQZ256rr VR256X:$src))>;
+  def : Pat<(store (i32 (vecreduce_smin (v8i32 VR256X:$src))), addr:$dst),
+            (VMOVPDI2DIZmr addr:$dst, (VPHRMINSDZ256rr VR256X:$src))>;
+  def : Pat<(store (i16 (vecreduce_smin (v16i16 VR256X:$src))), addr:$dst),
+            (VMOVWmr addr:$dst, (VPHRMINSWZ256rr VR256X:$src))>;
   // UMAX
   def : Pat<(i64 (vecreduce_umax (v8i64 VR512:$src))),
             (i64 (COPY_TO_REGCLASS (VPHRMAXQZrr VR512:$src), GR64))>;
@@ -18396,6 +18437,12 @@ let Predicates = [HasAVX512REDUCTION] in {
             (EXTRACT_SUBREG
               (i32 (COPY_TO_REGCLASS (VPHRMAXBZrr VR512:$src), GR32)),
               sub_8bit)>;
+  def : Pat<(store (i64 (vecreduce_umax (v4i64 VR256X:$src))), addr:$dst),
+            (VMOVPQI2QIZmr addr:$dst, (VPHRMAXQZ256rr VR256X:$src))>;
+  def : Pat<(store (i32 (vecreduce_umax (v8i32 VR256X:$src))), addr:$dst),
+            (VMOVPDI2DIZmr addr:$dst, (VPHRMAXDZ256rr VR256X:$src))>;
+  def : Pat<(store (i16 (vecreduce_umax (v16i16 VR256X:$src))), addr:$dst),
+            (VMOVWmr addr:$dst, (VPHRMAXWZ256rr VR256X:$src))>;
   // UMIN
   def : Pat<(i64 (vecreduce_umin (v8i64 VR512:$src))),
             (i64 (COPY_TO_REGCLASS (VPHRMINQZrr VR512:$src), GR64))>;
@@ -18409,6 +18456,12 @@ let Predicates = [HasAVX512REDUCTION] in {
             (EXTRACT_SUBREG
               (i32 (COPY_TO_REGCLASS (VPHRMINBZrr VR512:$src), GR32)),
               sub_8bit)>;
+  def : Pat<(store (i64 (vecreduce_umin (v4i64 VR256X:$src))), addr:$dst),
+            (VMOVPQI2QIZmr addr:$dst, (VPHRMINQZ256rr VR256X:$src))>;
+  def : Pat<(store (i32 (vecreduce_umin (v8i32 VR256X:$src))), addr:$dst),
+            (VMOVPDI2DIZmr addr:$dst, (VPHRMINDZ256rr VR256X:$src))>;
+  def : Pat<(store (i16 (vecreduce_umin (v16i16 VR256X:$src))), addr:$dst),
+            (VMOVWmr addr:$dst, (VPHRMINWZ256rr VR256X:$src))>;
 }
 
 let Predicates = [HasAVX512REDUCTION, HasVLX] in {
