@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt %s -passes='hir-ssa-deconstruction,hir-temp-array-transpose' -print-after=hir-temp-array-transpose -debug-only=hir-temp-array-transpose -disable-output -hir-details-dims 2>&1 | FileCheck %s
+; RUN: opt %s -passes='hir-ssa-deconstruction,hir-temp-array-transpose' -print-after=hir-temp-array-transpose -debug-only=hir-temp-array-transpose -hir-temp-array-transpose-skip-profit -disable-output -hir-details-dims 2>&1 | FileCheck %s
 
 ; Check that we bail out for mismatch between %2 UBCE and the stride CEs for @nsarh_mp_wty_
 ; Candidate transpose ref. Were transpose to happen, the Innerloop TC would have become
