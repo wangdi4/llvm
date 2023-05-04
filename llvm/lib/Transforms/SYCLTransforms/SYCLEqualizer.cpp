@@ -278,18 +278,77 @@ private:
   SmallPtrSetImpl<Function *> &FuncDeclToRemove;
 };
 
-class TypeMapTy : public ValueMapTypeRemapper {
-  /// Map from source type to destination type.
+/// Type mapper for target extension type.
+class TargetExtTypeMapTy : public ValueMapTypeRemapper {
+  /// Map from source type to destination type. Source type contains target
+  /// extension type, while destination type doesn't.
   DenseMap<Type *, Type *> MappedTypes;
 
 public:
-  void addMapping(Type *SrcTy, Type *DstTy) { MappedTypes[SrcTy] = DstTy; }
+  void addMapping(Type *SrcTy, Type *DstTy) {
+    if (!hasMapping(SrcTy))
+      MappedTypes[SrcTy] = DstTy;
+  }
 
   bool hasMapping(Type *SrcTy) const { return MappedTypes.contains(SrcTy); }
 
   Type *remapType(Type *SrcTy) override {
     auto It = MappedTypes.find(SrcTy);
     return It != MappedTypes.end() ? It->second : SrcTy;
+  }
+
+  /// Recursively check if source type contains target extension type. If yes,
+  /// add its mapping.
+  /// Return mapped type if mapping exists, or source type otherwise.
+  Type *get(Type *Ty, SmallPtrSetImpl<Type *> &Visited) {
+    if (Visited.contains(Ty))
+      return remapType(Ty);
+
+    Visited.insert(Ty);
+
+    if (auto It = MappedTypes.find(Ty); It != MappedTypes.end())
+      return It->second;
+
+    if (auto *TETy = dyn_cast<TargetExtType>(Ty)) {
+      addMapping(Ty, TETy->getLayoutType());
+      return TETy->getLayoutType();
+    }
+
+    bool Changed = false;
+    SmallVector<Type *, 8> NewEltTypes;
+    for (auto *SubTy : Ty->subtypes()) {
+      auto *MappedTy = get(SubTy, Visited);
+      Changed |= MappedTy != SubTy;
+      NewEltTypes.push_back(MappedTy);
+    }
+
+    if (!Changed)
+      return Ty;
+
+    Type *NewTy;
+    switch (Ty->getTypeID()) {
+    case Type::ArrayTyID:
+      NewTy = ArrayType::get(NewEltTypes[0], Ty->getArrayNumElements());
+      break;
+    case Type::FixedVectorTyID:
+    case Type::ScalableVectorTyID:
+      NewTy = VectorType::get(NewEltTypes[0],
+                              cast<VectorType>(Ty)->getElementCount());
+      break;
+    case Type::StructTyID:
+      if (cast<StructType>(Ty)->isLiteral())
+        NewTy = StructType::get(Ty->getContext(), NewEltTypes,
+                                cast<StructType>(Ty)->isPacked());
+      else
+        NewTy = StructType::create(NewEltTypes, Ty->getStructName(),
+                                   cast<StructType>(Ty)->isPacked());
+      break;
+    default:
+      llvm_unreachable("Unhandled derived type to remap");
+    }
+
+    addMapping(Ty, NewTy);
+    return NewTy;
   }
 };
 
@@ -423,45 +482,32 @@ static void formArgTypeNullValMetadata(SmallVectorImpl<Function *> &Funcs,
   }
 }
 
-/// Find TargetExtType in a type which either is TargetExtType or contains
-/// TargetExtType.
-static bool findTargetExtTypeInType(Type *Ty, TypeMapTy &TETypeMap) {
-  if (isa<TargetExtType>(Ty) || TETypeMap.hasMapping(Ty))
-    return true;
-  if (auto *STy = dyn_cast<StructType>(Ty)) {
-    // Only handle the case that a TargetExtType is an element of StructType
-    // since we haven't seen other cases so far.
-    if (llvm::none_of(STy->subtypes(),
-                      [&](Type *T) { return isa<TargetExtType>(T); }))
-      return false;
-    SmallVector<Type *> Elements;
-    llvm::transform(STy->subtypes(), std::back_inserter(Elements),
-                    [&](Type *T) { return TETypeMap.remapType(T); });
-    TETypeMap.addMapping(
-        Ty, StructType::get(Ty->getContext(), Elements, STy->isPacked()));
-    return true;
-  }
-  return false;
-}
-
 /// Find all users that are instructions.
-static void findInstUsers(Value *Val, SmallVectorImpl<Instruction *> &Users,
+static void findInstUsers(Value *Val, SmallPtrSetImpl<Instruction *> &Users,
                           DenseSet<Value *> &Visited) {
   if (Visited.contains(Val))
     return;
 
   if (auto *I = dyn_cast<Instruction>(Val))
-    Users.push_back(I);
+    Users.insert(I);
 
   if (isa<AllocaInst>(Val)) {
     auto DbgUses = findDbgUses(Val);
-    Users.append(DbgUses.begin(), DbgUses.end());
+    Users.insert(DbgUses.begin(), DbgUses.end());
   }
 
   SmallVector<Value *, 16> WorkList{Val};
   while (!WorkList.empty()) {
     Value *V = WorkList.pop_back_val();
     Visited.insert(V);
+    if (auto *SI = dyn_cast<StoreInst>(V)) {
+      auto *Op = SI->getPointerOperand();
+      if (!Visited.contains(Op)) {
+        WorkList.push_back(Op);
+        if (auto *I = dyn_cast<Instruction>(Op))
+          Users.insert(I);
+      }
+    }
     for (User *U : V->users()) {
       for (auto It = df_begin(U), E = df_end(U); It != E;) {
         if (auto *I = dyn_cast<Instruction>(*It)) {
@@ -470,7 +516,7 @@ static void findInstUsers(Value *Val, SmallVectorImpl<Instruction *> &Users,
             continue;
           }
           WorkList.push_back(I);
-          Users.push_back(I);
+          Users.insert(I);
         }
         ++It;
       }
@@ -486,7 +532,7 @@ static void findInstUsers(Value *Val, SmallVectorImpl<Instruction *> &Users,
 static void materializeTargetExtType(Module &M,
                                      KernelList::KernelVectorTy &Kernels) {
   // Retrieve address space for TargetExtType pointer argument.
-  TypeMapTy TETypeMap;
+  TargetExtTypeMapTy TETypeMap;
   for (Function &F : M) {
     SYCLKernelMetadataAPI::KernelMetadataAPI KMD(&F);
     if (KMD.ArgAddrSpaceList.hasValue()) {
@@ -573,6 +619,7 @@ static void materializeTargetExtType(Module &M,
 
   ValueMapper VMapper(VMap, RF_NoModuleLevelChanges | RF_IgnoreMissingLocals,
                       &TETypeMap);
+  SmallPtrSet<Type *, 16> VisitedType;
 
   // Handle each function.
   SmallVector<Function *, 32> FuncsToAddMD;
@@ -586,7 +633,7 @@ static void materializeTargetExtType(Module &M,
     }
 
     DenseSet<Value *> Visited;
-    SmallVector<Instruction *, 16> ToRemap;
+    SmallPtrSet<Instruction *, 32> ToRemap;
 
     // Find instructions that need to be remapped.
     for (auto &Arg : F.args())
@@ -598,7 +645,7 @@ static void materializeTargetExtType(Module &M,
     for (Instruction &I : instructions(&F)) {
       if (auto *AI = dyn_cast<AllocaInst>(&I)) {
         Type *AllocTy = AI->getAllocatedType();
-        if (findTargetExtTypeInType(AllocTy, TETypeMap))
+        if (TETypeMap.get(AllocTy, VisitedType) != AllocTy)
           findInstUsers(&I, ToRemap, Visited);
       } else if (auto *LI = dyn_cast<LoadInst>(&I)) {
         if (TETypeMap.hasMapping(LI->getType()))
