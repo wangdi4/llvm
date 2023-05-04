@@ -287,7 +287,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/lib/Analysis/Intel_InlineCost.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/Intel_InlineReport @robertcox-github @pvbattin
 /llvm/lib/Analysis/Intel_IPCloningAnalysis.cpp @robertcox-github @pvbattin
-/llvm/lib/Analysis/Intel_OPAnalysis.cpp @robertcox-github @pvbattin
+/llvm/lib/Analysis/Intel_OPAnalysisUtils.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/Intel_PartialInlineAnalysis.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/Intel_WP.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/LazyCallGraph.cpp @robertcox-github @pvbattin
