@@ -69,8 +69,10 @@ public:
 
   using PrivDescrTy = PrivDescr<DDRef>;
   using PrivDescrNonPODTy = PrivDescrNonPOD<DDRef>;
+  using PrivDescrF90DVTy = PrivDescrF90DV<DDRef>;
   using PrivatesListTy = SmallVector<PrivDescrTy, 8>;
   using PrivatesNonPODListTy = SmallVector<PrivDescrNonPODTy, 8>;
+  using PrivatesF90DVListTy = SmallVector<PrivDescrF90DVTy, 8>;
   // Specialized class to represent linear descriptors specified explicitly via
   // SIMD linear clause. The linear's Step value is also stored within this
   // class.
@@ -110,6 +112,9 @@ public:
   const PrivatesNonPODListTy &getNonPODPrivates() const {
     return PrivatesNonPODList;
   }
+  const PrivatesF90DVListTy &getF90DVPrivates() const {
+    return PrivatesF90DVList;
+  }
   const LinearListTy &getLinears() const { return LinearList; }
   const ReductionListTy &getReductions() const { return ReductionList; }
   const UDRListTy &getUDRs() const { return UDRList; }
@@ -119,6 +124,9 @@ public:
   }
   PrivDescrNonPODTy *getPrivateDescrNonPOD(const DDRef *Ref) const {
     return findDescr<PrivDescrNonPODTy>(PrivatesNonPODList, Ref);
+  }
+  PrivDescrF90DVTy *getPrivateDescrF90DV(const DDRef *Ref) const {
+    return findDescr<PrivDescrF90DVTy>(PrivatesF90DVList, Ref);
   }
   LinearDescr *getLinearDescr(const DDRef *Ref) const {
     return findDescr<LinearDescr>(LinearList, Ref);
@@ -184,9 +192,12 @@ private:
 
   /// Add an explicit POD private to PrivatesList
   void addLoopPrivate(RegDDRef *PrivVal, Type *PrivTy, PrivateKindTy Kind,
-                      bool IsF90) {
+                      Type *F90DVElementType) {
     assert(PrivVal->isAddressOf() && "Private ref is not address of type.");
-    PrivatesList.emplace_back(PrivVal, PrivTy, Kind, IsF90);
+    if (F90DVElementType)
+      PrivatesF90DVList.emplace_back(PrivVal, PrivTy, Kind, F90DVElementType);
+    else
+      PrivatesList.emplace_back(PrivVal, PrivTy, Kind, false /*IsF90*/);
   }
 
   /// Add an explicit linear.
@@ -244,6 +255,7 @@ private:
   HIRDDAnalysis *DDAnalysis;
   PrivatesListTy PrivatesList;
   PrivatesNonPODListTy PrivatesNonPODList;
+  PrivatesF90DVListTy PrivatesF90DVList;
   LinearListTy LinearList;
   ReductionListTy ReductionList;
   UDRListTy UDRList;

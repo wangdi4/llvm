@@ -57,10 +57,15 @@ static cl::opt<bool>
     EnableNestedRegions("vplan-enable-nested-simd", cl::init(false), cl::Hidden,
                     cl::desc("Allow nesting of different SIMD regions"));
 
+static cl::opt<bool, true> EnableF90DVSupportOpt(
+    "vplan-enable-f90-dv", cl::location(EnableF90DVSupport), cl::Hidden,
+    cl::desc("Enable OMP SIMD private support for Fortran Dope Vectors."));
+
 namespace llvm {
 namespace vpo {
 bool ForceUDSReductionVec = true;
 bool EnableHIRPrivateArrays = false;
+bool EnableF90DVSupport = false;
 } // namespace vpo
 } // namespace llvm
 

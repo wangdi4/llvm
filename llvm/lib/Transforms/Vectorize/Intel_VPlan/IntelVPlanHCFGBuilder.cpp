@@ -242,6 +242,7 @@ public:
   using UDRList = VPOVectorizationLegality::UDRList;
   using PrivDescrTy = VPOVectorizationLegality::PrivDescrTy;
   using PrivDescrNonPODTy = VPOVectorizationLegality::PrivDescrNonPODTy;
+  using PrivDescrF90DVTy = VPOVectorizationLegality::PrivDescrF90DVTy;
 
   VPEntityConverterBase(PlainCFGBuilder &Bld) : Builder(Bld) {}
 
@@ -616,6 +617,9 @@ public:
       Descriptor.setCtor(NonPODCurValue->getCtor());
       Descriptor.setDtor(NonPODCurValue->getDtor());
       Descriptor.setCopyAssign(NonPODCurValue->getCopyAssign());
+    } else if (CurValue->isF90()) {
+      auto *F90DVCurValue = cast<PrivDescrF90DVTy>(CurValue);
+      Descriptor.setF90DVElementType(F90DVCurValue->getF90DVElementType());
     }
     SmallVector<VPInstruction *, 4> AliasUpdates;
     for (auto *Alias : CurValue->aliases()) {

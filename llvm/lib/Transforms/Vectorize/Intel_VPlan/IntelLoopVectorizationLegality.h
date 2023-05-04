@@ -41,6 +41,7 @@ class VPOVectorizationLegality;
 
 extern bool ForceUDSReductionVec;
 extern bool EnableHIRPrivateArrays;
+extern bool EnableF90DVSupport;
 
 template <typename LegalityTy> class VectorizationLegalityBase {
   static constexpr IRKind IR =
@@ -87,7 +88,7 @@ private:
     }
 
     for (PrivateItem *Item : WRLp->getPriv().items()) {
-      if (Item->getIsF90DopeVector())
+      if (!EnableF90DVSupport && Item->getIsF90DopeVector())
         // See CMPLRLLVM-10783.
         return bailout(OptReportVerbosity::High,
                        VPlanDriverImpl::BailoutRemarkID,
@@ -204,6 +205,10 @@ private:
     Value *NumElements = nullptr;
     std::tie(PrivType, NumElements, /* AddrSpace */ std::ignore) =
         VPOParoptUtils::getItemInfo(Item);
+    Type *F90DVElementType = nullptr;
+    if (Item->getIsF90DopeVector())
+      std::tie(std::ignore, F90DVElementType) =
+          VPOParoptUtils::getF90DVItemInfo(Item);
 
     assert(PrivType && "Missed OMP clause item type!");
 
@@ -226,8 +231,7 @@ private:
       return bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
                      "Private array is not supported");
 
-    addLoopPrivate(Val, PrivType, PrivateKindTy::NonLast,
-                   Item->getIsF90DopeVector());
+    addLoopPrivate(Val, PrivType, PrivateKindTy::NonLast, F90DVElementType);
     return true;
   }
 
@@ -239,6 +243,10 @@ private:
     std::tie(LPrivType, NumElements, /* AddrSpace */ std::ignore) =
         VPOParoptUtils::getItemInfo(Item);
     assert(LPrivType && "Missed OMP clause item type!");
+    Type *F90DVElementType = nullptr;
+    if (Item->getIsF90DopeVector())
+      std::tie(std::ignore, F90DVElementType) =
+          VPOParoptUtils::getF90DVItemInfo(Item);
 
     LPrivType = adjustTypeIfArray(LPrivType, NumElements);
     if (!LPrivType)
@@ -268,7 +276,7 @@ private:
     addLoopPrivate(Val, LPrivType,
                    Item->getIsConditional() ? PrivateKindTy::Conditional
                                             : PrivateKindTy::Last,
-                   Item->getIsF90DopeVector());
+                   F90DVElementType);
     return true;
   }
 
@@ -414,9 +422,10 @@ private:
         Val, Ty, Constr, Destr, CopyAssign, Kind, IsF90);
   }
 
-  void addLoopPrivate(ValueTy *Val, Type *Ty, PrivateKindTy Kind, bool IsF90) {
+  void addLoopPrivate(ValueTy *Val, Type *Ty, PrivateKindTy Kind,
+                      Type *F90DVElementType) {
     return static_cast<LegalityTy *>(this)->addLoopPrivate(Val, Ty, Kind,
-                                                           IsF90);
+                                                           F90DVElementType);
   }
 
   void addLinear(ValueTy *Val, Type *Ty, Type *PointeeType, ValueTy *Step,
@@ -469,6 +478,7 @@ public:
   using DescrWithAliasesTy = DescrWithAliases<Value>;
   using PrivDescrTy = PrivDescr<Value>;
   using PrivDescrNonPODTy = PrivDescrNonPOD<Value>;
+  using PrivDescrF90DVTy = PrivDescrF90DV<Value>;
   using UDRDescrTy = RedDescrUDR<Value>;
 
   /// Container-class for storing the different types of Privates
@@ -705,9 +715,13 @@ private:
 
   /// Add an in memory POD private to the vector of private values.
   void addLoopPrivate(Value *PrivVal, Type *PrivTy, PrivateKindTy Kind,
-                      bool IsF90) {
-    Privates.insert(
-        {PrivVal, std::make_unique<PrivDescrTy>(PrivVal, PrivTy, Kind, IsF90)});
+                      Type *F90DVElementType) {
+    if (F90DVElementType)
+      Privates.insert({PrivVal, std::make_unique<PrivDescrF90DVTy>(
+                                    PrivVal, PrivTy, Kind, F90DVElementType)});
+    else
+      Privates.insert({PrivVal, std::make_unique<PrivDescrTy>(
+                                    PrivVal, PrivTy, Kind, false /* isF90 */)});
   }
 
   /// Add linear value to Linears map

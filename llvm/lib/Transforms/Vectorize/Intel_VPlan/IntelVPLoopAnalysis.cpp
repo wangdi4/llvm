@@ -218,6 +218,9 @@ void VPPrivate::dump(raw_ostream &OS) const {
     case PrivateTag::PTNonPod:
       OS << "Non-POD";
       break;
+    case PrivateTag::PTF90DV:
+      OS << "F90DV";
+      break;
     }
   }
   printLinkedValues(OS);
@@ -492,9 +495,9 @@ VPPrivate *VPLoopEntityList::addPrivate(VPInstruction *FinalI,
                                         VPEntityAliasesTy &Aliases,
                                         VPPrivate::PrivateKind K, bool Explicit,
                                         Type *AllocatedTy, VPValue *AI,
-                                        bool ValidMemOnly, bool IsF90) {
+                                        bool ValidMemOnly) {
   auto *Priv = new VPPrivate(FinalI, std::move(Aliases), K, Explicit,
-                             AllocatedTy, ValidMemOnly, IsF90);
+                             AllocatedTy, ValidMemOnly, false /* F90 */);
   PrivatesList.emplace_back(Priv);
   linkValue(PrivateMap, Priv, FinalI);
   linkValue(PrivateMap, Priv, AI);
@@ -506,9 +509,9 @@ VPPrivate *VPLoopEntityList::addPrivate(VPPrivate::PrivateTag Tag,
                                         VPEntityAliasesTy &Aliases,
                                         VPPrivate::PrivateKind K, bool Explicit,
                                         Type *AllocatedTy, VPValue *AI,
-                                        bool ValidMemOnly, bool IsF90) {
+                                        bool ValidMemOnly) {
   auto *Priv = new VPPrivate(Tag, std::move(Aliases), K, Explicit, AllocatedTy,
-                             ValidMemOnly, IsF90);
+                             ValidMemOnly, false /* F90 */);
   PrivatesList.emplace_back(Priv);
   linkValue(PrivateMap, Priv, AI);
   createMemDescFor(Priv, AI);
@@ -522,6 +525,17 @@ VPPrivateNonPOD *VPLoopEntityList::addNonPODPrivate(
   VPPrivateNonPOD *Priv =
       new VPPrivateNonPOD(std::move(Aliases), K, Explicit, Ctor, Dtor,
                           AllocatedTy, CopyAssign, IsF90);
+  PrivatesList.emplace_back(Priv);
+  linkValue(PrivateMap, Priv, AI);
+  createMemDescFor(Priv, AI);
+  return Priv;
+}
+
+VPPrivateF90DV *VPLoopEntityList::addF90DVPrivate(
+    VPEntityAliasesTy &Aliases, VPPrivate::PrivateKind K, bool Explicit,
+    Type *AllocatedTy, VPValue *AI, bool ValidMemOnly, Type *F90DVElementType) {
+  auto *Priv = new VPPrivateF90DV(std::move(Aliases), K, Explicit, AllocatedTy,
+                                  ValidMemOnly, F90DVElementType);
   PrivatesList.emplace_back(Priv);
   linkValue(PrivateMap, Priv, AI);
   createMemDescFor(Priv, AI);
@@ -3790,9 +3804,14 @@ void PrivateDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
                                AllocaInst, isMemOnly());
     for (VPInstruction *I : UpdateVPInsts)
       LE->linkValue(Priv, I);
-  } else
-    LE->addPrivate(PTag, MemAliases, K, IsExplicit, AllocatedTy, AllocaInst,
-                   isMemOnly());
+  } else {
+    if (F90DVElementType)
+      LE->addF90DVPrivate(MemAliases, K, IsExplicit, AllocatedTy, AllocaInst,
+                          isMemOnly(), F90DVElementType);
+    else
+      LE->addPrivate(PTag, MemAliases, K, IsExplicit, AllocatedTy, AllocaInst,
+                     isMemOnly());
+  }
 }
 
 void PrivateDescr::checkParentVPLoop(const VPLoop *Loop) const {
