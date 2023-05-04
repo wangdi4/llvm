@@ -20,19 +20,19 @@ target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:
 
 ; CMPLRLLVM-39584
 define weak void @test_constexprs() {
-  store double 0.000000e+00, double addrspace(3)* getelementptr inbounds (%"struct.std::complex", %"struct.std::complex" addrspace(3)* @counter_N0.ascast.red.__local, i64 0, i32 0, i32 0), align 8
-  %_M_value.real.i.i.i = load double, double addrspace(4)* getelementptr inbounds (%"struct.std::complex", %"struct.std::complex" addrspace(4)* addrspacecast (%"struct.std::complex" addrspace(3)* @counter_N0.ascast.red.__local to %"struct.std::complex" addrspace(4)*), i64 0, i32 0, i32 0), align 8
+  store double 0.000000e+00, ptr addrspace(3) @counter_N0.ascast.red.__local, align 8
+  %_M_value.real.i.i.i = load double, ptr addrspace(4) addrspacecast (ptr addrspace(3) @counter_N0.ascast.red.__local to ptr addrspace(4)), align 8
   %add.r.i.i22 = fadd fast double 0.000000e+00, %_M_value.real.i.i.i
   ret void
 }
 
 ; CMPLRLLVM-45318
 define weak void @test_constvec() {
-  call void @llvm.masked.scatter.v2f64.v2p3f64(<2 x double> <double 1.000000e+00, double 2.000000e+00>, <2 x double addrspace(3)*> <double addrspace(3)* getelementptr inbounds (%"struct.std::complex", %"struct.std::complex" addrspace(3)* @counter_N0.ascast.red.__local, i64 0, i32 0, i32 0), double addrspace(3)* getelementptr inbounds (%"struct.std::complex", %"struct.std::complex" addrspace(3)* @counter_N0.ascast.red.__local, i64 0, i32 0, i32 0)>, i32 8, <2 x i1> <i1 true, i1 true>)
+  call void @llvm.masked.scatter.v2f64.v2p3(<2 x double> <double 1.000000e+00, double 2.000000e+00>, <2 x ptr addrspace(3)> <ptr addrspace(3) @counter_N0.ascast.red.__local, ptr addrspace(3) @counter_N0.ascast.red.__local>, i32 8, <2 x i1> <i1 true, i1 true>)
   ret void
 }
 
-declare void @llvm.masked.scatter.v2f64.v2p3f64(<2 x double>, <2 x double addrspace(3)*>, i32, <2 x i1>)
+declare void @llvm.masked.scatter.v2f64.v2p3(<2 x double>, <2 x ptr addrspace(3)>, i32 immarg, <2 x i1>) #0
 
 !llvm.module.flags = !{!0, !1}
 

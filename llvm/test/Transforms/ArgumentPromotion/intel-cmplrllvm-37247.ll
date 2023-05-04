@@ -1,48 +1,48 @@
-; RUN: opt -opaque-pointers=0 -passes=argpromotion -S < %s | FileCheck %s
+; RUN: opt -passes=argpromotion -S < %s | FileCheck %s
 
 ; Check that argument promotion was not performed on mutually recursive
 ; functions.
 
-; CHECK: define dso_local noundef i32 @_Z3fooR9_MYSTRUCT(%struct._MYSTRUCT* noundef nonnull align 8 dereferenceable(16) %myarg)
-; CHECK: define dso_local noundef i32 @_Z3gooR9_MYSTRUCT(%struct._MYSTRUCT* noundef nonnull align 8 dereferenceable(16) %myarg)
+; CHECK: define dso_local noundef i32 @_Z3fooR9_MYSTRUCT(ptr noundef nonnull align 8 dereferenceable(16) %myarg)
+; CHECK: define dso_local noundef i32 @_Z3gooR9_MYSTRUCT(ptr noundef nonnull align 8 dereferenceable(16) %myarg)
 ; CHECK: define dso_local noundef i32 @main()
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct._MYSTRUCT = type { %struct._MYSTRUCT*, i32 }
+%struct._MYSTRUCT = type { ptr, i32 }
 
-@mylocalstruct = dso_local global %struct._MYSTRUCT { %struct._MYSTRUCT* null, i32 2 }, align 8
+@mylocalstruct = dso_local global %struct._MYSTRUCT { ptr null, i32 2 }, align 8
 
 ; Function Attrs: mustprogress uwtable
-define dso_local noundef i32 @_Z3fooR9_MYSTRUCT(%struct._MYSTRUCT* noundef nonnull align 8 dereferenceable(16) %myarg) #0 {
+define dso_local noundef i32 @_Z3fooR9_MYSTRUCT(ptr noundef nonnull align 8 dereferenceable(16) %myarg) #0 {
 entry:
-  %myint = getelementptr inbounds %struct._MYSTRUCT, %struct._MYSTRUCT* %myarg, i32 0, i32 1, !intel-tbaa !3
-  %0 = load i32, i32* %myint, align 8, !tbaa !3
-  %myptr = getelementptr inbounds %struct._MYSTRUCT, %struct._MYSTRUCT* %myarg, i32 0, i32 0, !intel-tbaa !9
-  %1 = load %struct._MYSTRUCT*, %struct._MYSTRUCT** %myptr, align 8, !tbaa !9
-  %call = call noundef i32 @_Z3gooR9_MYSTRUCT(%struct._MYSTRUCT* noundef nonnull align 8 dereferenceable(16) %1)
-  %add = add nsw i32 %0, %call
+  %myint = getelementptr inbounds %struct._MYSTRUCT, ptr %myarg, i32 0, i32 1, !intel-tbaa !3
+  %i = load i32, ptr %myint, align 8, !tbaa !3
+  %myptr = getelementptr inbounds %struct._MYSTRUCT, ptr %myarg, i32 0, i32 0, !intel-tbaa !9
+  %i1 = load ptr, ptr %myptr, align 8, !tbaa !9
+  %call = call noundef i32 @_Z3gooR9_MYSTRUCT(ptr noundef nonnull align 8 dereferenceable(16) %i1)
+  %add = add nsw i32 %i, %call
   ret i32 %add
 }
 
 ; Function Attrs: mustprogress uwtable
-define dso_local noundef i32 @_Z3gooR9_MYSTRUCT(%struct._MYSTRUCT* noundef nonnull align 8 dereferenceable(16) %myarg) #0 {
+define dso_local noundef i32 @_Z3gooR9_MYSTRUCT(ptr noundef nonnull align 8 dereferenceable(16) %myarg) #0 {
 entry:
-  %myint = getelementptr inbounds %struct._MYSTRUCT, %struct._MYSTRUCT* %myarg, i32 0, i32 1, !intel-tbaa !3
-  %0 = load i32, i32* %myint, align 8, !tbaa !3
-  %myptr = getelementptr inbounds %struct._MYSTRUCT, %struct._MYSTRUCT* %myarg, i32 0, i32 0, !intel-tbaa !9
-  %1 = load %struct._MYSTRUCT*, %struct._MYSTRUCT** %myptr, align 8, !tbaa !9
-  %call = call noundef i32 @_Z3fooR9_MYSTRUCT(%struct._MYSTRUCT* noundef nonnull align 8 dereferenceable(16) %1)
-  %add = add nsw i32 %0, %call
+  %myint = getelementptr inbounds %struct._MYSTRUCT, ptr %myarg, i32 0, i32 1, !intel-tbaa !3
+  %i = load i32, ptr %myint, align 8, !tbaa !3
+  %myptr = getelementptr inbounds %struct._MYSTRUCT, ptr %myarg, i32 0, i32 0, !intel-tbaa !9
+  %i1 = load ptr, ptr %myptr, align 8, !tbaa !9
+  %call = call noundef i32 @_Z3fooR9_MYSTRUCT(ptr noundef nonnull align 8 dereferenceable(16) %i1)
+  %add = add nsw i32 %i, %call
   ret i32 %add
 }
 
 ; Function Attrs: mustprogress norecurse uwtable
 define dso_local noundef i32 @main() #1 {
 entry:
-  %call = call noundef i32 @_Z3fooR9_MYSTRUCT(%struct._MYSTRUCT* noundef nonnull align 8 dereferenceable(16) @mylocalstruct)
-  %call1 = call noundef i32 @_Z3gooR9_MYSTRUCT(%struct._MYSTRUCT* noundef nonnull align 8 dereferenceable(16) @mylocalstruct)
+  %call = call noundef i32 @_Z3fooR9_MYSTRUCT(ptr noundef nonnull align 8 dereferenceable(16) @mylocalstruct)
+  %call1 = call noundef i32 @_Z3gooR9_MYSTRUCT(ptr noundef nonnull align 8 dereferenceable(16) @mylocalstruct)
   %add = add nsw i32 %call, %call1
   ret i32 %add
 }
