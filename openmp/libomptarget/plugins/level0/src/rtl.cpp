@@ -1506,8 +1506,10 @@ struct RTLOptionTy {
   // Spec constants used for all modules.
   SpecConstantsTy CommonSpecConstants;
 
-  /// Command execution mode
-  CommandModeTy CommandMode = CommandModeTy::Sync;
+  /// Command execution mode.
+  /// Whether the runtime uses asynchronous mode or not depends on the type of
+  /// devices and whether immediate command list is fully enabled.
+  CommandModeTy CommandMode = CommandModeTy::Async;
 
   /// Force memory resident
   int32_t ForceResidency = 2;
@@ -1924,7 +1926,20 @@ struct RTLOptionTy {
     // sync: perform synchronization after each command
     // async: perform synchronization when it is required
     // async_ordered: same as "async", but command is ordered
-    // This option is ignored unless IMM is fully enabled on compute and copy
+    // This option is ignored unless IMM is fully enabled on compute and copy.
+    // On Intel PVC GPU, when used with immediate command lists over Level Zero
+    // backend, a target region may involve multiple command submissions to the
+    // L0 copy queue and compute queue. L0 events are used for each submission
+    // (data transfer of a single item or kernel execution). When "async" is
+    // specified, a) each data transfer to device is submitted with an event.
+    // b) The kernel is submitted next with a dependence on all the previous
+    // data transfer events. The kernel also has an event associated with it.
+    // c) The data transfer from device will be submitted with a dependence on
+    // the kernel event. d) Finally wait on the host for all the events
+    // associated with the data transfer from device.
+    // The env-var also affects any "target update" constructs as well.
+    // The env-var only affects the L0 copy/compute commands issued from a
+    // single target construct execution, not across multiple invocations.
     if ((Env = readEnvVar("LIBOMPTARGET_LEVEL_ZERO_COMMAND_MODE"))) {
       if (match(Env, "sync"))
         CommandMode = CommandModeTy::Sync;
