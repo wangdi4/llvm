@@ -76,6 +76,7 @@ public:
     Induction,
     Private,
     PrivateNonPOD,
+    PrivateF90DV,
     CompressExpand,
   };
   unsigned char getID() const { return SubclassID; }
@@ -484,6 +485,7 @@ public:
     PTArray,        // Private of an array type.
     PTInMemory,     // In-memory allocated private.
     PTNonPod,       // Non-POD private.
+    PTF90DV,        // F90 Dope Vector private.
   };
 
   VPPrivate(VPInstruction *ExitI, VPEntityAliasesTy &&InAliases, PrivateKind K,
@@ -523,7 +525,8 @@ public:
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPLoopEntity *V) {
-    return V->getID() == Private || V->getID() == PrivateNonPOD;
+    return V->getID() == Private || V->getID() == PrivateNonPOD ||
+           V->getID() == PrivateF90DV;
   }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump(raw_ostream &OS) const override;
@@ -562,6 +565,8 @@ private:
   bool IsF90;
 };
 
+/// Specialized class for non-POD privates explicitly declared using OMP SIMD
+/// clause.
 class VPPrivateNonPOD : public VPPrivate {
 public:
   VPPrivateNonPOD(VPEntityAliasesTy &&InAliases, PrivateKind K, bool IsExplicit,
@@ -588,6 +593,34 @@ private:
   Function *Ctor;
   Function *Dtor;
   Function *CopyAssign;
+};
+
+/// Specialized class for Fortran Dope Vector private descriptor. Private Dope
+/// Vectors can be declared explicitly using OMP SIMD clause. Class stores dope
+/// vector element type in F90DVElementType variable which is required for
+/// further lowering and generating required code during VPEntities instruction
+/// lowering.
+class VPPrivateF90DV : public VPPrivate {
+public:
+  VPPrivateF90DV(VPEntityAliasesTy &&InAliases, PrivateKind K, bool IsExplicit,
+                 Type *AllocatedTy, bool IsMemOnly, Type *ElType)
+      : VPPrivate(PrivateTag::PTF90DV, std::move(InAliases), K, IsExplicit,
+                  AllocatedTy, IsMemOnly, true /*IsF90*/, PrivateF90DV),
+        F90DVElementType(ElType) {}
+
+  Type *getF90DVElementType() const { return F90DVElementType; }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPLoopEntity *V) {
+    return V->getID() == PrivateF90DV;
+  }
+
+  static inline bool classof(const VPPrivate *V) {
+    return V->getID() == PrivateF90DV;
+  }
+
+private:
+  Type *F90DVElementType;
 };
 
 class VPCompressExpandIdiom : public VPLoopEntity {
@@ -774,23 +807,26 @@ public:
   /// and explicit.
   VPPrivate *addPrivate(VPInstruction *ExitI, VPEntityAliasesTy &PtrAliases,
                         VPPrivate::PrivateKind K, bool Explicit,
-                        Type *AllocatedTy, VPValue *AI = nullptr,
-                        bool ValidMemOnly = false, bool IsF90 = false);
+                        Type *AllocatedTy, VPValue *AI, bool ValidMemOnly);
 
   /// Add private corresponding to \p Alloca along with the specified private
   /// tag. Also store other relavant attributes of the private like the
   /// conditional, last and explicit.
   VPPrivate *addPrivate(VPPrivate::PrivateTag Tag,
                         VPEntityAliasesTy &PtrAliases, VPPrivate::PrivateKind K,
-                        bool Explicit, Type *AllocatedTy, VPValue *AI = nullptr,
-                        bool ValidMemOnly = false, bool IsF90 = false);
+                        bool Explicit, Type *AllocatedTy, VPValue *AI,
+                        bool ValidMemOnly);
 
   VPPrivateNonPOD *addNonPODPrivate(VPEntityAliasesTy &PtrAliases,
                                     VPPrivate::PrivateKind K, bool Explicit,
                                     Function *Ctor, Function *Dtor,
                                     Function *CopyAssign, bool IsF90,
-                                    Type *AllocatedTy = nullptr,
-                                    VPValue *AI = nullptr);
+                                    Type *AllocatedTy, VPValue *AI);
+
+  VPPrivateF90DV *addF90DVPrivate(VPEntityAliasesTy &PtrAliases,
+                                  VPPrivate::PrivateKind K, bool Explicit,
+                                  Type *AllocatedTy, VPValue *AI,
+                                  bool ValidMemOnly, Type *F90DVElementType);
 
   VPCompressExpandIdiom *
   addCompressExpandIdiom(VPPHINode *RecurrentPhi, VPValue *LiveIn,
@@ -1648,6 +1684,7 @@ public:
   Function *getCtor() const { return Ctor; }
   Function *getDtor() const { return Dtor; }
   Function *getCopyAssign() const { return CopyAssign; }
+  Type *getF90DVElementType() const { return F90DVElementType; }
 
   /// Clear the content.
   void clear() override {
@@ -1682,6 +1719,7 @@ public:
   void setDtor(Function *DtorFn) { Dtor = DtorFn; }
   void setCopyAssign(Function *CopyAssignFn) { CopyAssign = CopyAssignFn; }
   void setIsF90(bool F90) { IsF90 = F90; }
+  void setF90DVElementType(Type *ElType) { F90DVElementType = ElType; }
 
 private:
   /// Set fields to define PrivateKind for the imported private.
@@ -1701,6 +1739,7 @@ private:
   bool IsLast = false;
   bool IsExplicit = false;
   bool IsF90 = false;
+  Type *F90DVElementType = nullptr;
   Function *Ctor = nullptr;
   Function *Dtor = nullptr;
   Function *CopyAssign = nullptr;

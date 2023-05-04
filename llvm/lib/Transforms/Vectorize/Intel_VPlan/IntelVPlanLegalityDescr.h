@@ -580,6 +580,58 @@ public:
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
 
+// Specialized class to represent Fortran Dope Vector private descriptors
+// specified explicitly via SIMD private clause.
+template <typename Value> class PrivDescrF90DV : public PrivDescr<Value> {
+  using PrivateKind = typename PrivDescr<Value>::PrivateKind;
+  Type *F90DVElementType;
+
+public:
+  // Value can be of type llvm::Value or loopopt::DDRef
+  PrivDescrF90DV(Value *RegV, Type *Ty, PrivateKind KindV, Type *ElTy)
+      : PrivDescr<Value>(RegV, Ty, KindV, true /* IsF90 */),
+        F90DVElementType(ElTy) {}
+
+  // Copy constructor
+  PrivDescrF90DV(const PrivDescrF90DV &Other)
+      : PrivDescr<Value>(Other), F90DVElementType(Other.F90DVElementType) {}
+
+  // Move constructor
+  PrivDescrF90DV(PrivDescrF90DV &&Other)
+      : PrivDescr<Value>(std::move(Other)),
+        F90DVElementType(std::exchange(Other.F90DVElementType, nullptr)) {}
+
+  // Copy assign
+  PrivDescrF90DV &operator=(const PrivDescrF90DV &Other) {
+    if (this == &Other)
+      return *this;
+    PrivDescr<Value>::operator=(Other);
+    F90DVElementType = Other.F90DVElementType;
+    return *this;
+  }
+
+  // Move assign
+  PrivDescrF90DV &operator=(PrivDescrF90DV &&Other) {
+    if (this == &Other)
+      return *this;
+    PrivDescr<Value>::operator=(std::move(Other));
+    std::swap(F90DVElementType, Other.F90DVElementType);
+    return *this;
+  }
+
+  /// Get element type of Fortran Dope Vector.
+  Type *getF90DVElementType() const { return F90DVElementType; }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void print(raw_ostream &OS, unsigned Indent = 0) const override {
+    PrivDescr<Value>::print(OS);
+    OS << "PrivDescrF90DV: ";
+    OS << "{F90DVElementType: " << F90DVElementType;
+    OS << "}\n";
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+};
+
 } // End namespace vpo
 
 } // End namespace llvm

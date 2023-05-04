@@ -459,7 +459,8 @@ public:
     bool IsSIMDDescr = HIRLegality.getReductionDescr(Ref) != nullptr ||
                        HIRLegality.getLinearDescr(Ref) != nullptr ||
                        HIRLegality.getPrivateDescr(Ref) != nullptr ||
-                       HIRLegality.getPrivateDescrNonPOD(Ref) != nullptr;
+                       HIRLegality.getPrivateDescrNonPOD(Ref) != nullptr ||
+                       HIRLegality.getPrivateDescrF90DV(Ref) != nullptr;
     if (HIRVectorizationLegality::LinearDescr *LinDescr =
             HIRLegality.getLinearDescr(Ref)) {
       // Create a VPExternalDef for variable stride DDRef

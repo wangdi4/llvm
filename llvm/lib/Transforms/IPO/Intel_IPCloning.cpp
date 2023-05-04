@@ -5397,7 +5397,8 @@ bool PredicateOpt::findSpine() {
   if (!WrapperCB || (WrapperCB->arg_size() != BaseF->arg_size()))
     return false;
   BigLoopCB = LocalBigLoopCB;
-  if (BigLoopCB && EnablePreferFunctionRegion)
+  assert(BigLoopCB && "Expecting spine");
+  if (EnablePreferFunctionRegion)
     BigLoopCB->getCaller()->addFnAttr("prefer-function-level-region");
   getInlineReport()->initFunctionClosure(WrapperCB->getCalledFunction());
   getInlineReport()->initFunctionClosure(WrapperCB->getCaller());
