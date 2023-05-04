@@ -452,8 +452,9 @@ Controls how dedicated reduction scratch pool is configured.
 
   <Mode> := sync | async | async_ordered
 
-Determines how each commands in a target region are executed when immediate
-command list is fully enabled by setting
+This variable has no effect on integrated devices.
+Determines how each command in a target region is executed when immediate
+command lists are fully enabled by setting
 ``LIBOMPTARGET_LEVEL_ZERO_USE_IMMEDIATE_COMMAND_LIST=all``.
 
 ``sync``: Host waits for completion of the current submitted command
@@ -461,7 +462,7 @@ command list is fully enabled by setting
 and synchronization occurs later when it is required
 ``async_ordered``: Same as ``async``, but command execution is ordered
 
-**Default**: ``sync``
+**Default**: ``async``
 
 ``LIBOMPTARGET_LEVEL_ZERO_USM_RESIDENT=<Num>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

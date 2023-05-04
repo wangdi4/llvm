@@ -8,11 +8,10 @@
 ; |   + DO i2 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; |   |   %.vec = (<4 x i32>*)(%A)[i2];
 ; |   |   %.vec2 = (<4 x i32>*)(%A)[i2 + 1];
-; |   |   %.vec3 = %phi.temp  +  %.vec + %.vec2;
-; |   |   %.vec4 = (<4 x i32>*)(%A)[i2];
-; |   |   %.vec5 = (<4 x i32>*)(%A)[i2 + 1];
-; |   |   %.vec6 = %.vec3  +  %.vec4 + %.vec5;
-; |   |   %phi.temp = %.vec6;
+; |   |   %.vec3 = (<4 x i32>*)(%A)[i2];
+; |   |   %.vec4 = (<4 x i32>*)(%A)[i2 + 1];
+; |   |   %.vec5 = %phi.temp + %.vec + %.vec2  +  %.vec3 + %.vec4;
+; |   |   %phi.temp = %.vec5;
 ; |   + END LOOP
 ; + END LOOP
 
@@ -21,13 +20,12 @@
 ; CHECK: |   + DO i2 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK: |   |   %scalarepl.vec = (<4 x i32>*)(%A)[i2];
 ; CHECK: |   |   %.vec = %scalarepl.vec;
-; CHECK: |   |   %scalarepl.vec9 = (<4 x i32>*)(%A)[i2 + 1];
-; CHECK: |   |   %.vec2 = %scalarepl.vec9;
-; CHECK: |   |   %.vec3 = %phi.temp  +  %.vec + %.vec2;
-; CHECK: |   |   %.vec4 = %scalarepl.vec;
-; CHECK: |   |   %.vec5 = %scalarepl.vec9;
-; CHECK: |   |   %.vec6 = %.vec3  +  %.vec4 + %.vec5;
-; CHECK: |   |   %phi.temp = %.vec6;
+; CHECK: |   |   %scalarepl.vec8 = (<4 x i32>*)(%A)[i2 + 1];
+; CHECK: |   |   %.vec2 = %scalarepl.vec8;
+; CHECK: |   |   %.vec3 = %scalarepl.vec;
+; CHECK: |   |   %.vec4 = %scalarepl.vec8;
+; CHECK: |   |   %.vec5 = %phi.temp + %.vec + %.vec2  +  %.vec3 + %.vec4;
+; CHECK: |   |   %phi.temp = %.vec5;
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
 

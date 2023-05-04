@@ -30,11 +30,10 @@
 ; CHECK-NEXT:        |   [[VLS_EXTRACT0:%.*]] = shufflevector [[DOTVLS_LOAD0]],  [[DOTVLS_LOAD0]],  <i32 0, i32 3, i32 6, i32 9>
 ; CHECK-NEXT:        |   [[VLS_EXTRACT60:%.*]] = shufflevector [[DOTVLS_LOAD0]],  [[DOTVLS_LOAD0]],  <i32 1, i32 4, i32 7, i32 10>
 ; CHECK-NEXT:        |   [[VLS_EXTRACT70:%.*]] = shufflevector [[DOTVLS_LOAD0]],  [[DOTVLS_LOAD0]],  <i32 2, i32 5, i32 8, i32 11>
-; CHECK-NEXT:        |   [[DOTVEC80:%.*]] = [[VLS_EXTRACT60]] + [[VLS_EXTRACT70]]  +  [[DOTCOPY50]]
-; CHECK-NEXT:        |   [[DOTVEC90:%.*]] = [[DOTVEC80]]  +  [[VLS_EXTRACT0]]
-; CHECK-NEXT:        |   [[PHI_TEMP30]] = [[DOTVEC90]]
+; CHECK-NEXT:        |   [[DOTVEC80:%.*]] = [[DOTCOPY50]] + [[VLS_EXTRACT60]] + [[VLS_EXTRACT70]]  +  [[VLS_EXTRACT0]]
+; CHECK-NEXT:        |   [[PHI_TEMP30]] = [[DOTVEC80]]
 ; CHECK-NEXT:        + END LOOP
-; CHECK:             [[SUM_0220]] = @llvm.vector.reduce.add.v4i32([[DOTVEC90]])
+; CHECK:             [[SUM_0220]] = @llvm.vector.reduce.add.v4i32([[DOTVEC80]])
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

@@ -93,14 +93,12 @@ define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr
 ; CGCHECK-NEXT:                    [[PHI_TEMP:%.*]] = [[RED_INIT_INSERT]]
 ; CGCHECK:                         + DO i1 = 0, {{.*}}, 12   <DO_LOOP>
 ; CGCHECK-NEXT:                    |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
-; CGCHECK-NEXT:                    |   [[DOTVEC10:%.*]] = [[DOTVEC0]]  +  [[PHI_TEMP]]
-; CGCHECK-NEXT:                    |   [[DOTVEC20:%.*]] = (<4 x i32>*)([[A0]])[i1 + 4]
-; CGCHECK-NEXT:                    |   [[DOTVEC30:%.*]] = [[DOTVEC20]]  +  [[DOTVEC10]]
-; CGCHECK-NEXT:                    |   [[DOTVEC40:%.*]] = (<4 x i32>*)([[A0]])[i1 + 8]
-; CGCHECK-NEXT:                    |   [[DOTVEC50:%.*]] = [[DOTVEC40]]  +  [[DOTVEC30]]
-; CGCHECK-NEXT:                    |   [[PHI_TEMP]] = [[DOTVEC50]]
+; CGCHECK-NEXT:                    |   [[DOTVEC10:%.*]] = (<4 x i32>*)([[A0]])[i1 + 4]
+; CGCHECK-NEXT:                    |   [[DOTVEC20:%.*]] = (<4 x i32>*)([[A0]])[i1 + 8]
+; CGCHECK-NEXT:                    |   [[DOTVEC30:%.*]] = [[DOTVEC20]]  +  [[PHI_TEMP]] + [[DOTVEC0]] + [[DOTVEC10]]
+; CGCHECK-NEXT:                    |   [[PHI_TEMP]] = [[DOTVEC30]]
 ; CGCHECK-NEXT:                    + END LOOP
-; CGCHECK:                         [[ACC_080]] = @llvm.vector.reduce.add.v4i32([[DOTVEC50]])
+; CGCHECK:                         [[ACC_080]] = @llvm.vector.reduce.add.v4i32([[DOTVEC30]])
 
 ; CGCHECK:                      + DO i1 = {{.*}}, zext.i32.i64([[N0:%.*]]) + -1, 1   <DO_LOOP>
 ; CGCHECK-NEXT:                  |   [[ACC_080]] = ([[A0]])[i1]  +  [[ACC_080]]
