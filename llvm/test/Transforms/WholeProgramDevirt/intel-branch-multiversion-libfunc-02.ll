@@ -4,29 +4,29 @@
 ; This test case checks that the indirect call is preserved and the PHI
 ; nodes are correct after devirtualization when the target is a LibFunc.
 
-; RUN: opt -opaque-pointers=0 -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -S -whole-program-assume -passes=wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify %s 2>&1 | FileCheck %s
+; RUN: opt -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -S -whole-program-assume -passes=wholeprogramdevirt -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify %s 2>&1 | FileCheck %s
 
 target datalayout = "e-p:64:64"
 target triple = "x86_64-unknown-linux-gnu"
 
-@vt1 = constant [1 x i8*] [i8* bitcast (i32 (i8*, i8*, i32)* @_ZNSt15basic_streambufIcSt11char_traitsIcEE6xsgetnEPcl to i8*)], !type !8
+@vt1 = constant [1 x ptr] [ptr bitcast (ptr @_ZNSt15basic_streambufIcSt11char_traitsIcEE6xsgetnEPcl to ptr)], !type !8
 
-declare i32 @_ZNSt15basic_streambufIcSt11char_traitsIcEE6xsgetnEPcl(i8*, i8*, i32)
+declare i32 @_ZNSt15basic_streambufIcSt11char_traitsIcEE6xsgetnEPcl(ptr, ptr, i32)
 
-define i32 @call(i8* %obj, i8* %alloc, i32 %a) #1 !dbg !5 {
-  %vtableptr = bitcast i8* %obj to [1 x i8*]**
-  %vtable = load [1 x i8*]*, [1 x i8*]** %vtableptr
-  %vtablei8 = bitcast [1 x i8*]* %vtable to i8*
-  %p = call i1 @llvm.type.test(i8* %vtablei8, metadata !"typeid")
+define i32 @call(ptr %obj, ptr %alloc, i32 %a) #1 !dbg !5 {
+  %vtableptr = bitcast ptr %obj to ptr
+  %vtable = load ptr, ptr %vtableptr
+  %vtablei8 = bitcast ptr %vtable to ptr
+  %p = call i1 @llvm.type.test(ptr %vtablei8, metadata !"typeid")
   call void @llvm.assume(i1 %p)
-  %fptrptr = getelementptr [1 x i8*], [1 x i8*]* %vtable, i32 0, i32 0
-  %fptr = load i8*, i8** %fptrptr
-  %fptr_casted = bitcast i8* %fptr to i32 (i8*, i8*, i32)*
-  %retval = call i32 %fptr_casted(i8* %obj, i8* %alloc, i32 %a), !dbg !6
+  %fptrptr = getelementptr [1 x ptr], ptr %vtable, i32 0, i32 0
+  %fptr = load ptr, ptr %fptrptr
+  %fptr_casted = bitcast ptr %fptr to ptr
+  %retval = call i32 %fptr_casted(ptr %obj, ptr %alloc, i32 %a), !dbg !6
   ret i32 %retval
 }
 
-declare i1 @llvm.type.test(i8*, metadata)
+declare i1 @llvm.type.test(ptr, metadata)
 declare void @llvm.assume(i1)
 
 !llvm.dbg.cu = !{!0}
@@ -44,17 +44,17 @@ declare void @llvm.assume(i1)
 !8 = !{i32 0, !"typeid"}
 
 ; Check that the branching to _ZNSt15basic_streambufIcSt11char_traitsIcEE6xsgetnEPcl is generated
-; CHECK: [[T1:%[^ ]*]] = bitcast i32 (i8*, i8*, i32)* %fptr_casted to i8*
-; CHECK: [[T2:%[^ ]*]] = bitcast i32 (i8*, i8*, i32)* @_ZNSt15basic_streambufIcSt11char_traitsIcEE6xsgetnEPcl to i8*
-; CHECK: [[T3:%[^ ]*]] = icmp eq i8* [[T1]], [[T2]]
+; CHECK: [[T1:%[^ ]*]] = bitcast ptr %fptr_casted to ptr
+; CHECK: [[T2:%[^ ]*]] = bitcast ptr @_ZNSt15basic_streambufIcSt11char_traitsIcEE6xsgetnEPcl to ptr
+; CHECK: [[T3:%[^ ]*]] = icmp eq ptr [[T1]], [[T2]]
 ; CHECK: br i1 [[T3]], label %BBDevirt__ZNSt15basic_streambufIcSt11char_traitsIcEE6xsgetnEPcl, label %DefaultBB
 
 ; Check that the call to _ZNSt15basic_streambufIcSt11char_traitsIcEE6xsgetnEPcl is generated
-; CHECK: [[T4:%[^ ]*]] = call i32 @_ZNSt15basic_streambufIcSt11char_traitsIcEE6xsgetnEPcl(i8* %obj, i8* %alloc, i32 %a)
+; CHECK: [[T4:%[^ ]*]] = call i32 @_ZNSt15basic_streambufIcSt11char_traitsIcEE6xsgetnEPcl(ptr %obj, ptr %alloc, i32 %a)
 ; CHECK: br label %MergeBB
 
 ; Check that the default branch is generated
-; CHECK: [[T5:%[^ ]*]] = call i32 %fptr_casted(i8* %obj, i8* %alloc, i32 %a)
+; CHECK: [[T5:%[^ ]*]] = call i32 %fptr_casted(ptr %obj, ptr %alloc, i32 %a)
 ; CHECK: br label %MergeBB
 
 ; Check that the PHI node was generated correctly

@@ -17,8 +17,8 @@
 
 define dso_local i32 @main() {
 entry:
-  %0 = load i32, i32* @glob1, align 4
-  %1 = load i32, i32* @glob2, align 4
+  %0 = load i32, ptr @glob1, align 4
+  %1 = load i32, ptr @glob2, align 4
   %call = call i32 @foo(i32 %0, i32 %1)
   ret i32 %call
 }
@@ -27,8 +27,8 @@ entry:
 define internal i32 @foo(i32 %i, i32 %x) #0 {
 entry:
   %i.addr = alloca i32, align 4
-  store i32 %i, i32* %i.addr, align 4
-  %t1 = load i32, i32* %i.addr, align 4
+  store i32 %i, ptr %i.addr, align 4
+  %t1 = load i32, ptr %i.addr, align 4
   %add = add nsw i32 0, %t1
   ret i32 %add
 }
