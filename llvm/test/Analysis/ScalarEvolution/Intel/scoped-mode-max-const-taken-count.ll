@@ -15,7 +15,7 @@
 ; CHECK-SCOPED: Loop %loop: constant max backedge-taken count is 2147483646
 
 
-define void @foo(i32 %n) "intel-lang"="fortran" {
+define void @foo(i32 %n) {
 entry:
   %cmp = icmp slt i32 %n, 1
   %add = add nuw nsw i32 %n, 1

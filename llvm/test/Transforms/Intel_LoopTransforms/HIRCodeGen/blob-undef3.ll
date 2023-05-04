@@ -12,7 +12,7 @@
 
 ; check blob calculation
 ;CHECK: [[BLOB_LOAD:%t[0-9]+.*]] = load i32, i32*
-;CHECK: [[BLOB_MUL:%.*]] = mul i32 [[BLOB_LOAD]], undef
+;CHECK: [[BLOB_MUL:%.*]] = mul nsw i32 [[BLOB_LOAD]], undef
 
 ;and that its added to 5*i
 ;CHECK: [[IV_LOAD:%.*]] = load i32, i32* %i1.i32

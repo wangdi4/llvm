@@ -30,15 +30,15 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ;CHECK:               Function: foo
 ;CHECK-NOT:           %call = @__intel_rtdd_indep;
-;CHECK:               %mv.test5 = &((%D)[zext.i32.i64((1 + %M)) + -1]) >=u &((%C)[1]);
-;CHECK:               %mv.test6 = &((%C)[zext.i32.i64((1 + %M)) + -1]) >=u &((%D)[1]);
+;CHECK:               %mv.test5 = &((%D)[zext.i32.i64(%M)]) >=u &((%C)[1]);
+;CHECK:               %mv.test6 = &((%C)[zext.i32.i64(%M)]) >=u &((%D)[1]);
 ;CHECK:               %mv.and7 = %mv.test5  &  %mv.test6;
 ;CHECK:               if (%mv.and == 0 & %mv.and4 == 0 & %mv.and7 == 0)
 
 ;NOLIBCALL:           Function: foo
 ;NOLIBCALL-NOT:       %call = @__intel_rtdd_indep;
-;NOLIBCALL:           %mv.test5 = &((%D)[zext.i32.i64((1 + %M)) + -1]) >=u &((%C)[1]);
-;NOLIBCALL:           %mv.test6 = &((%C)[zext.i32.i64((1 + %M)) + -1]) >=u &((%D)[1]);
+;NOLIBCALL:           %mv.test5 = &((%D)[zext.i32.i64(%M)]) >=u &((%C)[1]);
+;NOLIBCALL:           %mv.test6 = &((%C)[zext.i32.i64(%M)]) >=u &((%D)[1]);
 ;NOLIBCALL:           %mv.and7 = %mv.test5  &  %mv.test6;
 ;NOLIBCALL:           if (%mv.and == 0 & %mv.and4 == 0 & %mv.and7 == 0)
 
@@ -128,14 +128,14 @@ declare i32 @llvm.smax.i32(i32, i32)
 
 ; CHECK:            Function: P7Viterbi
 ; CHECK:            (%dd)[0][15].0 = &((%is)[0]);
-; CHECK:            (%dd)[0][15].1 = &((%is)[zext.i32.i64((1 + %n1)) + -1]);
+; CHECK:            (%dd)[0][15].1 = &((%is)[zext.i32.i64(%n1)]);
 ; CHECK:            %call = @__intel_rtdd_indep(&((i8*)(%dd)[0]),  16);
 ; CHECK:            if (%call == 0)  <MVTag: 89>
 
 ; NOLIBCALL1:       Function: P7Viterbi
 ; NOLIBCALL1-NOT:   __intel_rtdd_indep
-; NOLIBCALL1:       %mv.test122 = &((%ic)[zext.i32.i64((1 + %n1)) + -1]) >=u &((%is)[0]);
-; NOLIBCALL1:       %mv.test123 = &((%is)[zext.i32.i64((1 + %n1)) + -1]) >=u &((%ic)[0]);
+; NOLIBCALL1:       %mv.test122 = &((%ic)[zext.i32.i64(%n1)]) >=u &((%is)[0]);
+; NOLIBCALL1:       %mv.test123 = &((%is)[zext.i32.i64(%n1)]) >=u &((%ic)[0]);
 ; NOLIBCALL1:       %mv.and124 = %mv.test122  &  %mv.test123;
 ; NOLIBCALL1:       if (%mv.and == 0 & %mv.and4 == 0
 

@@ -15,7 +15,7 @@
 ; SCOPED-MODE:   -->  (-128 + %n) U: full-set S: full-set
 
 
-define void @foo(i8 %n) "intel-lang"="fortran" {
+define void @foo(i8 %n) {
 entry:
   %cmp = icmp sgt i8 %n, 0
   br i1 %cmp, label %bb1, label %bb2

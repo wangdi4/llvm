@@ -44,75 +44,70 @@
 ; HIR before transformation
 
 ;   BEGIN REGION { }
-;         + DO i1 = 0, sext.i32.i64((1 + %I_ENDBLK_fetch.104)) + -1 * sext.i32.i64(%I_STARTBLK_fetch.103) + -1, 1   <DO_LOOP>
-;         |   if (%I_ENDLEV_fetch.107 >= %I_STARTLEV_fetch.106)
-;         |   {
-;         |      + DO i2 = 0, sext.i32.i64((1 + %I_ENDLEV_fetch.107)) + -1 * sext.i32.i64(%I_STARTLEV_fetch.106) + -1, 1   <DO_LOOP>
-;         |      |   if (%I_ENDIDX_fetch.110 >= %I_STARTIDX_fetch.109)
-;         |      |   {
-;         |      |      %"BLKIDX[][]_fetch.118" = (%BLKIDX)[i1 + sext.i32.i64(%I_STARTBLK_fetch.103) + -1][i2 + sext.i32.i64(%I_STARTLEV_fetch.106) + -1];
-;         |      |      %slct.7 = (%"BLKIDX[][]_fetch.118" > 0) ? %"BLKIDX[][]_fetch.118" : 1;
-;         |      |
-;         |      |      + DO i3 = 0, sext.i32.i64((1 + %I_ENDIDX_fetch.110)) + -1 * sext.i32.i64(%I_STARTIDX_fetch.109) + -1, 1   <DO_LOOP>
-;         |      |      |   %"ARRAY[][][]_fetch.137" = (%ARRAY)[i1 + sext.i32.i64(%I_STARTBLK_fetch.103)][i2 + sext.i32.i64(%I_STARTLEV_fetch.106) + -1][i3 + sext.i32.i64(%I_STARTIDX_fetch.109) + -1];
-;         |      |      |   %slct.8 = (%"BLKIDX[][]_fetch.118" > 0) ? %"ARRAY[][][]_fetch.137" : 0.000000e+00;
-;         |      |      |   %neg.1 =  - %"ARRAY[][][]_fetch.137";
-;         |      |      |   %slct.9 = (%"BLKIDX[][]_fetch.118" > 0) ? %neg.1 : 0.000000e+00;
-;         |      |      |   %add.26 = %slct.8  +  %slct.9;
-;         |      |      |   %add.27 = %slct.8  +  %add.26;
-;         |      |      |   (%ARRAY)[%slct.7][i2 + sext.i32.i64(%I_STARTLEV_fetch.106) + -1][i3 + sext.i32.i64(%I_STARTIDX_fetch.109) + -1] = %add.27;
-;         |      |      + END LOOP
-;         |      |   }
-;         |      + END LOOP
-;         |   }
+;         + DO i1 = 0, sext.i32.i64(%I_ENDBLK_fetch.104) + -1 * sext.i32.i64(%I_STARTBLK_fetch.103), 1   <DO_LOOP>
+;         |   + DO i2 = 0, sext.i32.i64(%I_ENDLEV_fetch.107) + -1 * sext.i32.i64(%I_STARTLEV_fetch.106), 1   <DO_LOOP>
+;         |   |   if (%I_ENDIDX_fetch.110 >= %I_STARTIDX_fetch.109)
+;         |   |   {
+;         |   |      %"BLKIDX[][]_fetch.118" = (%BLKIDX)[i1 + sext.i32.i64(%I_STARTBLK_fetch.103) + -1][i2 + sext.i32.i64(%I_STARTLEV_fetch.106) + -1];
+;         |   |      %slct.7 = (%"BLKIDX[][]_fetch.118" > 0) ? %"BLKIDX[][]_fetch.118" : 1;
+;         |   |
+;         |   |      + DO i3 = 0, sext.i32.i64((1 + %I_ENDIDX_fetch.110)) + -1 * sext.i32.i64(%I_STARTIDX_fetch.109) + -1, 1   <DO_LOOP>
+;         |   |      |   %"ARRAY[][][]_fetch.137" = (%ARRAY)[i1 + sext.i32.i64(%I_STARTBLK_fetch.103)][i2 + sext.i32.i64(%I_STARTLEV_fetch.106) + -1][i3 + sext.i32.i64(%I_STARTIDX_fetch.109) + -1];
+;         |   |      |   %slct.8 = (%"BLKIDX[][]_fetch.118" > 0) ? %"ARRAY[][][]_fetch.137" : 0.000000e+00;
+;         |   |      |   %neg.1 =  - %"ARRAY[][][]_fetch.137";
+;         |   |      |   %slct.9 = (%"BLKIDX[][]_fetch.118" > 0) ? %neg.1 : 0.000000e+00;
+;         |   |      |   %add.26 = %slct.8  +  %slct.9;
+;         |   |      |   %add.27 = %slct.8  +  %add.26;
+;         |   |      |   (%ARRAY)[%slct.7][i2 + sext.i32.i64(%I_STARTLEV_fetch.106) + -1][i3 + sext.i32.i64(%I_STARTIDX_fetch.109) + -1] = %add.27;
+;         |   |      + END LOOP
+;         |   |   }
+;         |   + END LOOP
 ;         + END LOOP
 ;   END REGION
 
 ; HIR after transformation
 
 ; CHECK:   BEGIN REGION { modified }
-; CHECK:         if (%I_ENDLEV_fetch.107 >= %I_STARTLEV_fetch.106)
-; CHECK:         {
-; CHECK:            if (%I_ENDIDX_fetch.110 >= %I_STARTIDX_fetch.109)
-; CHECK:            {
-; CHECK:               + DO i1 = 0, sext.i32.i64((1 + %I_ENDBLK_fetch.104)) + -1 * sext.i32.i64(%I_STARTBLK_fetch.103) + -1, 1   <DO_LOOP>
-; CHECK:               |   + DO i2 = 0, sext.i32.i64((1 + %I_ENDLEV_fetch.107)) + -1 * sext.i32.i64(%I_STARTLEV_fetch.106) + -1, 1   <DO_LOOP>
-; CHECK:               |   |   %"BLKIDX[][]_fetch.118" = (%BLKIDX)[i1 + sext.i32.i64(%I_STARTBLK_fetch.103) + -1][i2 + sext.i32.i64(%I_STARTLEV_fetch.106) + -1];
-; CHECK:               |   |   %slct.7 = (%"BLKIDX[][]_fetch.118" > 0) ? %"BLKIDX[][]_fetch.118" : 1;
-; CHECK:               |   |   if (%"BLKIDX[][]_fetch.118" > 0)
-; CHECK:               |   |   {
-; CHECK:               |   |      + DO i3 = 0, sext.i32.i64((1 + %I_ENDIDX_fetch.110)) + -1 * sext.i32.i64(%I_STARTIDX_fetch.109) + -1, 1   <DO_LOOP>
-; CHECK:               |   |      |   %"ARRAY[][][]_fetch.137" = (%ARRAY)[i1 + sext.i32.i64(%I_STARTBLK_fetch.103)][i2 + sext.i32.i64(%I_STARTLEV_fetch.106) + -1][i3 + sext.i32.i64(%I_STARTIDX_fetch.109) + -1];
-; CHECK:               |   |      |   %slct.8 = %"ARRAY[][][]_fetch.137";
-; CHECK:               |   |      |   %neg.1 =  - %"ARRAY[][][]_fetch.137";
-; CHECK:               |   |      |   %slct.9 = %neg.1;
-; CHECK:               |   |      |   %add.26 = %slct.8  +  %slct.9;
-; CHECK:               |   |      |   %add.27 = %slct.8  +  %add.26;
-; CHECK:               |   |      |   (%ARRAY)[%slct.7][i2 + sext.i32.i64(%I_STARTLEV_fetch.106) + -1][i3 + sext.i32.i64(%I_STARTIDX_fetch.109) + -1] = %add.27;
-; CHECK:               |   |      + END LOOP
-; CHECK:               |   |   }
-; CHECK:               |   |   else
-; CHECK:               |   |   {
-; CHECK:               |   |      + DO i3 = 0, sext.i32.i64((1 + %I_ENDIDX_fetch.110)) + -1 * sext.i32.i64(%I_STARTIDX_fetch.109) + -1, 1   <DO_LOOP>
-; CHECK:               |   |      |   %"ARRAY[][][]_fetch.137" = (%ARRAY)[i1 + sext.i32.i64(%I_STARTBLK_fetch.103)][i2 + sext.i32.i64(%I_STARTLEV_fetch.106) + -1][i3 + sext.i32.i64(%I_STARTIDX_fetch.109) + -1];
-; CHECK:               |   |      |   %slct.8 = 0.000000e+00;
-; CHECK:               |   |      |   %neg.1 =  - %"ARRAY[][][]_fetch.137";
-; CHECK:               |   |      |   %slct.9 = 0.000000e+00;
-; CHECK:               |   |      |   %add.26 = %slct.8  +  %slct.9;
-; CHECK:               |   |      |   %add.27 = %slct.8  +  %add.26;
-; CHECK:               |   |      |   (%ARRAY)[%slct.7][i2 + sext.i32.i64(%I_STARTLEV_fetch.106) + -1][i3 + sext.i32.i64(%I_STARTIDX_fetch.109) + -1] = %add.27;
-; CHECK:               |   |      + END LOOP
-; CHECK:               |   |   }
-; CHECK:               |   + END LOOP
-; CHECK:               + END LOOP
-; CHECK:            }
-; CHECK:         }
+; CHECK: + DO i1 = 0, sext.i32.i64(%I_ENDBLK_fetch.104) + -1 * sext.i32.i64(%I_STARTBLK_fetch.103), 1   <DO_LOOP>
+; CHECK: |   + DO i2 = 0, sext.i32.i64(%I_ENDLEV_fetch.107) + -1 * sext.i32.i64(%I_STARTLEV_fetch.106), 1   <DO_LOOP>
+; CHECK: |   |   if (%I_ENDIDX_fetch.110 >= %I_STARTIDX_fetch.109)
+; CHECK: |   |   {
+; CHECK: |   |      %"BLKIDX[][]_fetch.118" = (%BLKIDX)[i1 + sext.i32.i64(%I_STARTBLK_fetch.103) + -1][i2 + sext.i32.i64(%I_STARTLEV_fetch.106) + -1];
+; CHECK: |   |      %slct.7 = (%"BLKIDX[][]_fetch.118" > 0) ? %"BLKIDX[][]_fetch.118" : 1;
+; CHECK: |   |      if (%"BLKIDX[][]_fetch.118" > 0)
+; CHECK: |   |      {
+; CHECK: |   |         + DO i3 = 0, sext.i32.i64(%I_ENDIDX_fetch.110) + -1 * sext.i32.i64(%I_STARTIDX_fetch.109), 1   <DO_LOOP>
+; CHECK: |   |         |   %"ARRAY[][][]_fetch.137" = (%ARRAY)[i1 + sext.i32.i64(%I_STARTBLK_fetch.103)][i2 + sext.i32.i64(%I_STARTLEV_fetch.106) + -1][i3 + sext.i32.i64(%I_STARTIDX_fetch.109) + -1];
+; CHECK: |   |         |   %slct.8 = %"ARRAY[][][]_fetch.137";
+; CHECK: |   |         |   %neg.1 =  - %"ARRAY[][][]_fetch.137";
+; CHECK: |   |         |   %slct.9 = %neg.1;
+; CHECK: |   |         |   %add.26 = %slct.8  +  %slct.9;
+; CHECK: |   |         |   %add.27 = %slct.8  +  %add.26;
+; CHECK: |   |         |   (%ARRAY)[%slct.7][i2 + sext.i32.i64(%I_STARTLEV_fetch.106) + -1][i3 + sext.i32.i64(%I_STARTIDX_fetch.109) + -1] = %add.27;
+; CHECK: |   |         + END LOOP
+; CHECK: |   |      }
+; CHECK: |   |      else
+; CHECK: |   |      {
+; CHECK: |   |         + DO i3 = 0, sext.i32.i64(%I_ENDIDX_fetch.110) + -1 * sext.i32.i64(%I_STARTIDX_fetch.109), 1   <DO_LOOP>
+; CHECK: |   |         |   %"ARRAY[][][]_fetch.137" = (%ARRAY)[i1 + sext.i32.i64(%I_STARTBLK_fetch.103)][i2 + sext.i32.i64(%I_STARTLEV_fetch.106) + -1][i3 + sext.i32.i64(%I_STARTIDX_fetch.109) + -1];
+; CHECK: |   |         |   %slct.8 = 0.000000e+00;
+; CHECK: |   |         |   %neg.1 =  - %"ARRAY[][][]_fetch.137";
+; CHECK: |   |         |   %slct.9 = 0.000000e+00;
+; CHECK: |   |         |   %add.26 = %slct.8  +  %slct.9;
+; CHECK: |   |         |   %add.27 = %slct.8  +  %add.26;
+; CHECK: |   |         |   (%ARRAY)[%slct.7][i2 + sext.i32.i64(%I_STARTLEV_fetch.106) + -1][i3 + sext.i32.i64(%I_STARTIDX_fetch.109) + -1] = %add.27;
+; CHECK: |   |         + END LOOP
+; CHECK: |   |      }
+; CHECK: |   |   }
+; CHECK: |   + END LOOP
+; CHECK: + END LOOP
+
 ; CHECK:   END REGION
 
 ; Verify the debug information
 
 ; CHECK-DBG: Opt Predicate for Function: loop_merge_mod_mp_loop_merge_compute_
-; CHECK-DBG: Candidates, count: 4
+; CHECK-DBG: Candidates, count: 2 
 ; CHECK-DBG:          %slct.9 = (%"BLKIDX[][]_fetch.118" > 0) ? %neg.1 : 0.000000e+00;
 ; CHECK-DBG: , L: 2, PU: [ F/F ]}
 ; CHECK-DBG:          %slct.8 = (%"BLKIDX[][]_fetch.118" > 0) ? %"ARRAY[][][]_fetch.137" : 0.000000e+00;

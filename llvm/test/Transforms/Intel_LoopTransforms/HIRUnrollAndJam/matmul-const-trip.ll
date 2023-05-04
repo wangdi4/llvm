@@ -10,7 +10,7 @@
 ; CHECK: |   |   |   %0 = (@A)[0][i1][i3];
 ; CHECK: |   |   |   %1 = (@B)[0][i3][i2];
 ; CHECK: |   |   |   %2 = (@C)[0][i1][i2];
-; CHECK: |   |   |   (@C)[0][i1][i2] = %2 + (%1 * %0);
+; CHECK: |   |   |   (@C)[0][i1][i2] = %2 + (%0 * %1);
 ; CHECK: |   |   + END LOOP
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP

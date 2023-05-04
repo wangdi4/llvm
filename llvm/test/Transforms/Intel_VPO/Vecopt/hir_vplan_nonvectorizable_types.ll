@@ -31,7 +31,7 @@
 ; CHECK-NEXT:    Cost 6 for %"EXTENT$.btINTVL" = type { i32, i32 } [[VP13:%.*]] = select i1 [[VP12]] %"EXTENT$.btINTVL" = type { i32, i32 } [[VP7]] %"EXTENT$.btINTVL" = type { i32, i32 } [[VP11]]
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP14:%.*]] = extractvalue %"EXTENT$.btINTVL" = type { i32, i32 } [[VP13]]
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP15:%.*]] = extractvalue %"EXTENT$.btINTVL" = type { i32, i32 } [[VP13]]
-; CHECK-NEXT:    Cost 1 for i32 [[VP16:%.*]] = add i32 [[VP15]] i32 [[VP14]]
+; CHECK-NEXT:    Cost 1 for i32 [[VP16:%.*]] = add i32 [[VP14]] i32 [[VP15]]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* %"var$6" i64 [[VP2]]
 ; CHECK-NEXT:    Cost 1.0625 for store i32 [[VP16]] i32* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:    Cost 1 for i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]

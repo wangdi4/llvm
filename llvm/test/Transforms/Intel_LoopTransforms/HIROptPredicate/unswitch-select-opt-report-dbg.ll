@@ -43,11 +43,7 @@
 
 ;   BEGIN REGION { }
 ;         + DO i1 = 0, sext.i32.i64((1 + %I_ENDBLK_fetch.104)) + -1 * sext.i32.i64(%I_STARTBLK_fetch.103) + -1, 1   <DO_LOOP>
-;         |   if (%I_ENDLEV_fetch.107 >= %I_STARTLEV_fetch.106)
-;         |   {
 ;         |      + DO i2 = 0, sext.i32.i64((1 + %I_ENDLEV_fetch.107)) + -1 * sext.i32.i64(%I_STARTLEV_fetch.106) + -1, 1   <DO_LOOP>
-;         |      |   if (%I_ENDIDX_fetch.110 >= %I_STARTIDX_fetch.109)
-;         |      |   {
 ;         |      |      %"BLKIDX[][]_fetch.118" = (%BLKIDX)[i1 + sext.i32.i64(%I_STARTBLK_fetch.103) + -1][i2 + sext.i32.i64(%I_STARTLEV_fetch.106) + -1];
 ;         |      |      %slct.7 = (%"BLKIDX[][]_fetch.118" > 0) ? %"BLKIDX[][]_fetch.118" : 1;
 ;         |      |
@@ -60,19 +56,13 @@
 ;         |      |      |   %add.27 = %slct.8  +  %add.26;
 ;         |      |      |   (%ARRAY)[%slct.7][i2 + sext.i32.i64(%I_STARTLEV_fetch.106) + -1][i3 + sext.i32.i64(%I_STARTIDX_fetch.109) + -1] = %add.27;
 ;         |      |      + END LOOP
-;         |      |   }
 ;         |      + END LOOP
-;         |   }
 ;         + END LOOP
 ;   END REGION
 
 ; HIR after transformation
 
 ;  BEGIN REGION { modified }
-;        if (%I_ENDLEV_fetch.107 >= %I_STARTLEV_fetch.106)
-;        {
-;           if (%I_ENDIDX_fetch.110 >= %I_STARTIDX_fetch.109)
-;           {
 ;              + DO i1 = 0, sext.i32.i64((1 + %I_ENDBLK_fetch.104)) + -1 * sext.i32.i64(%I_STARTBLK_fetch.103) + -1, 1   <DO_LOOP>
 ;              |   + DO i2 = 0, sext.i32.i64((1 + %I_ENDLEV_fetch.107)) + -1 * sext.i32.i64(%I_STARTLEV_fetch.106) + -1, 1   <DO_LOOP>
 ;              |   |   %"BLKIDX[][]_fetch.118" = (%BLKIDX)[i1 + sext.i32.i64(%I_STARTBLK_fetch.103) + -1][i2 + sext.i32.i64(%I_STARTLEV_fetch.106) + -1];
@@ -103,17 +93,15 @@
 ;              |   |   }
 ;              |   + END LOOP
 ;              + END LOOP
-;           }
-;        }
 ;  END REGION
 
 ; Check that the debug information is correct
 
 ; CHECK:   LOOP BEGIN at loop_merge_mod.F90 (62, 18)
-; CHECK:   <Predicate Optimized v4>
+; CHECK:   <Predicate Optimized v2>
 ; CHECK:   LOOP END
 ; CHECK:   LOOP BEGIN at loop_merge_mod.F90 (62, 18)
-; CHECK:   <Predicate Optimized v3>
+; CHECK:   <Predicate Optimized v1>
 ; CHECK:       remark #25422: Invariant Condition at lines 62 and 61 hoisted out of this loop
 ; CHECK:   LOOP END
 
