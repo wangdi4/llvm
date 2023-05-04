@@ -787,9 +787,13 @@ private:
 
   SmallVector<HLDDNode *, 8> InsertRegionsStack;
 
-  // Set of VPInsts involved in a reduction - used to avoid folding of
+  // Track if loop has any reductions.
+  bool LoopHasReductions = false;
+
+  // Collection of VPInstructions that set incoming values from loop
+  // latches for loop recurrences like reductions - used to avoid folding of
   // operations.
-  SmallPtrSet<const VPInstruction *, 4> ReductionVPInsts;
+  SmallPtrSet<const VPInstruction *, 8> LoopRecurrentLatchVal;
 
   // Collection of VPPHINodes that correspond to loop IV.
   SmallPtrSet<const VPPHINode *, 8> LoopIVPhis;
@@ -888,8 +892,9 @@ private:
   }
 
   // Capture canonical IV(integer type IV with start value of 0 and stride of 1)
-  // for given VPLoop. This is expected to be called only for inner loops.
-  void captureCanonicalIV(VPLoop *VPLp);
+  // for given VPLoop. Also captures values that feed into non-IV recurrences.
+  // This is expected to be called only for inner loops.
+  void captureCanonicalIVAndRecValues(VPLoop *VPLp);
 
   // Return the upper bound of VPLp's IVPhi if this can be determined given the
   // canonical IVPhi of VPLp. If this can be determined, we can use this to

@@ -921,7 +921,7 @@ void VPOCodeGenHIR::setRednHoistPtForVectorLoop() {
   // If loop has any reductions then find appropriate HLLoop that reduction
   // init/finalize can be hoisted out to. If loop has no reductions then hoist
   // loop is set to current loop being vectorized.
-  if (!ReductionVPInsts.empty())
+  if (LoopHasReductions)
     RednHoistLp = findRednHoistInsertionPoint(OrigLoop);
   else
     RednHoistLp = OrigLoop;
@@ -6850,6 +6850,9 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     RefOp1 = RefOps[1];
   }
 
+  // Avoid folding any instruction that is last value of recurrence.
+  bool AvoidFold = LoopRecurrentLatchVal.count(VPInst);
+
   switch (VPInst->getOpcode()) {
   case Instruction::FNeg:
     NewInst = HLNodeUtilities.createFNeg(RefOp0, InstName, nullptr /*Lval*/,
@@ -6880,7 +6883,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     //
     //  This cannot be done blindly as we need to make sure that no overflow
     //  occurs. To prevent issues, we avoid folding when we have a denominator.
-    if (!ReductionVPInsts.count(VPInst) && CE1->getDenominator() == 1 &&
+    if (!AvoidFold && CE1->getDenominator() == 1 &&
         CE2->getDenominator() == 1 && CanonExprUtilities.canAdd(CE1, CE2) &&
         VPInst->getNumUsers()) {
       SmallVector<const RegDDRef *, 2> AuxRefs = {RefOp0->clone(), RefOp1};
@@ -6913,7 +6916,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     // Also, we don't fold for VPInstructions that don't have any uses, that
     // might lead to an empty loop generation and assertion in HIR verifier.
     auto *ConstOp = dyn_cast<VPConstant>(VPInst->getOperand(1));
-    if (Plan->getVPLoopInfo()->getLoopFor(VPInst->getParent()) &&
+    if (!AvoidFold && Plan->getVPLoopInfo()->getLoopFor(VPInst->getParent()) &&
         CE1->isLinearAtLevel(getNestingLevelFromInsertPoint()) &&
         CE1->getDenominator() == 1 && ConstOp && VPInst->getNumUsers()) {
       auto *CI = cast<ConstantInt>(ConstOp->getConstant());
@@ -6961,8 +6964,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     const VPConstant *ConstOp = nullptr;
     unsigned NonConstIndex = 0;
 
-    if (Plan->getVPLoopInfo()->getLoopFor(VPInst->getParent()) &&
-        !ReductionVPInsts.count(VPInst) && VPInst->getNumUsers() &&
+    if (!AvoidFold && Plan->getVPLoopInfo()->getLoopFor(VPInst->getParent()) &&
+        VPInst->getNumUsers() &&
         CE1->isLinearAtLevel(getNestingLevelFromInsertPoint()) &&
         CE2->isLinearAtLevel(getNestingLevelFromInsertPoint())) {
       if ((ConstOp = dyn_cast<VPConstant>(VPInst->getOperand(0))))
@@ -7763,7 +7766,7 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask) {
     generateHIR(VPInst, Mask, false /*Widen*/, 0 /*LaneID*/);
 }
 
-void VPOCodeGenHIR::captureCanonicalIV(VPLoop *VPLp) {
+void VPOCodeGenHIR::captureCanonicalIVAndRecValues(VPLoop *VPLp) {
   assert(VPLp->getParentLoop() &&
          "Unexpected canonical IV capture call for outermost loop");
   VPBasicBlock *Header = VPLp->getHeader();
@@ -7771,8 +7774,19 @@ void VPOCodeGenHIR::captureCanonicalIV(VPLoop *VPLp) {
   VPBasicBlock *Latch = VPLp->getLoopLatch();
 
   // Loop over all of the PHI nodes in the header, looking for a canonical
-  // induction variable.
+  // induction variable and other recurrences.
   for (VPPHINode &VPPhi : Header->getVPPhis()) {
+    VPHIRCopyInst *LatchCopy =
+        dyn_cast<VPHIRCopyInst>(VPPhi.getIncomingValue(Latch));
+    if (!LatchCopy)
+      continue;
+    VPInstruction *CopySrc = dyn_cast<VPInstruction>(LatchCopy->getOperand(0));
+    if (!CopySrc)
+      continue;
+    // Copy instruction in the loop latch that is incoming value for header PHI
+    // represents recurrence idiom (given SSA deconstruction of PHIs).
+    LoopRecurrentLatchVal.insert(CopySrc);
+
     // Search for a PHI of the form and add it as canonical IV for VPLp
     //  BB4: # preds: BB3
     //    ...
@@ -7802,13 +7816,8 @@ void VPOCodeGenHIR::captureCanonicalIV(VPLoop *VPLp) {
       continue;
 
     // Check for constant stride of 1.
-    VPHIRCopyInst *LatchCopy =
-        dyn_cast<VPHIRCopyInst>(VPPhi.getIncomingValue(Latch));
-    if (!LatchCopy)
-      continue;
-
-    VPInstruction *Inc = dyn_cast<VPInstruction>(LatchCopy->getOperand(0));
-    if (!Inc || Inc->getOpcode() != Instruction::Add)
+    VPInstruction *Inc = CopySrc;
+    if (Inc->getOpcode() != Instruction::Add)
       continue;
 
     VPConstant *IncConst;
@@ -7829,37 +7838,44 @@ void VPOCodeGenHIR::captureCanonicalIV(VPLoop *VPLp) {
     if (IncConst && IncConst->getConstant()->isOneValue()) {
       LoopIVPhis.insert(&VPPhi);
       VPLoopIVPhiMap[VPLp] = &VPPhi;
+
+      // We still want to fold IV increments to preserve linearity
+      LoopRecurrentLatchVal.erase(Inc);
       return;
     }
   }
 }
 
 void VPOCodeGenHIR::collectLoopEntityInsts() {
-  // Collect set of VPInstructions that are involved in a reduction. This set
-  // is used to avoid folding instructions involved in reductions. This is
-  // done by recursively collecting relevant instructions via def-use chains,
-  // starting from the reduction initializers.
-  std::function<void(const VPInstruction *)> collectRednVPInsts =
-      [&](const VPInstruction *Inst) {
-        // Do not process an already seen instruction.
-        if (ReductionVPInsts.count(Inst)) {
-          return;
-        }
+  // Collect set of VPInstructions that represent the last live-out value of a
+  // reduction. This set is used to avoid folding such instructions. This is
+  // done by using the copy instruction that is incoming value for reduction phi
+  // along the backedge from latch (given SSA deconstruction).
+  // TODO: Consider dropping this since we already seem to have special handling
+  // of folded live-outs in makeConsistentAndAddToMap.
+  auto captureOuterLoopRednLatchVals = [&](VPLoop *OuterLp) {
+    VPBasicBlock *Header = OuterLp->getHeader();
+    VPBasicBlock *Preheader = OuterLp->getLoopPreheader();
+    VPBasicBlock *Latch = OuterLp->getLoopLatch();
 
-        ReductionVPInsts.insert(Inst);
-        for (auto *User : Inst->users()) {
-          if (!isa<VPInstruction>(User))
-            continue;
+    for (VPPHINode &Phi : Header->getVPPhis()) {
+      if (auto *PreheaderCopy =
+              dyn_cast<VPHIRCopyInst>(Phi.getIncomingValue(Preheader))) {
+        // We are only interested in reduction header PHIs.
+        if (!isa<VPReductionInit>(PreheaderCopy->getOperand(0)))
+          continue;
+      }
 
-          auto *UserInst = cast<VPInstruction>(User);
-          // We are interested only in instructions that participate in
-          // reduction, so return types should match.
-          if (UserInst->getType() != Inst->getType())
-            continue;
+      auto *LatchCopy = dyn_cast<VPHIRCopyInst>(Phi.getIncomingValue(Latch));
+      if (!LatchCopy)
+        continue;
+      auto *CopySrc = cast<VPInstruction>(LatchCopy->getOperand(0));
 
-          collectRednVPInsts(UserInst);
-        }
-      };
+      // Update tracker that reduction was encountered.
+      LoopHasReductions = true;
+      LoopRecurrentLatchVal.insert(CopySrc);
+    }
+  };
 
   // Capture outer loop IV instructions.
   auto captureOuterLoopIVPhi = [&](VPBasicBlock *OuterLpPreheader,
@@ -7889,18 +7905,14 @@ void VPOCodeGenHIR::collectLoopEntityInsts() {
   for (auto *OuterLp : *VPLI) {
     VPBasicBlock *OuterLpPreheader =
         cast<VPBasicBlock>(OuterLp->getLoopPreheader());
-    for (VPInstruction &Inst : *OuterLpPreheader) {
-      if (auto *RedInit = dyn_cast<VPReductionInit>(&Inst)) {
-        collectRednVPInsts(RedInit);
-      }
-    }
+    captureOuterLoopRednLatchVals(OuterLp);
     captureOuterLoopIVPhi(OuterLpPreheader, OuterLp);
 
     // Capture inner loop canonical IV
     for (auto *VPLp : post_order(OuterLp)) {
       if (VPLp == OuterLp)
         continue;
-      captureCanonicalIV(VPLp);
+      captureCanonicalIVAndRecValues(VPLp);
     }
   }
 

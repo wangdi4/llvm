@@ -77,14 +77,12 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; VPVALCG-NEXT:                    [[PHI_TEMP:%.*]]  = [[RED_INIT_INSERT]]
 ; VPVALCG:                         + DO i1 = 0, {{.*}}, 12 <DO_LOOP>
 ; VPVALCG-NEXT:                    |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
-; VPVALCG-NEXT:                    |   [[DOTVEC20:%.*]] = [[DOTVEC0]]  +  [[PHI_TEMP]]
-; VPVALCG-NEXT:                    |   [[DOTVEC30:%.*]] = (<4 x i32>*)([[A0]])[i1 + 4]
-; VPVALCG-NEXT:                    |   [[DOTVEC40:%.*]] = [[DOTVEC30]]  +  [[DOTVEC20]]
-; VPVALCG-NEXT:                    |   [[DOTVEC50:%.*]] = (<4 x i32>*)([[A0]])[i1 + 8]
-; VPVALCG-NEXT:                    |   [[DOTVEC60:%.*]] = [[DOTVEC50]]  +  [[DOTVEC40]]
-; VPVALCG-NEXT:                    |   [[PHI_TEMP]] = [[DOTVEC60]]
+; VPVALCG-NEXT:                    |   [[DOTVEC20:%.*]] = (<4 x i32>*)([[A0]])[i1 + 4]
+; VPVALCG-NEXT:                    |   [[DOTVEC30:%.*]] = (<4 x i32>*)([[A0]])[i1 + 8]
+; VPVALCG-NEXT:                    |   [[DOTVEC40:%.*]] = [[DOTVEC30]]  +  [[PHI_TEMP]] + [[DOTVEC0]] + [[DOTVEC20]]
+; VPVALCG-NEXT:                    |   [[PHI_TEMP]] = [[DOTVEC40]]
 ; VPVALCG-NEXT:                    + END LOOP
-; VPVALCG:                         [[ACC_0190]] = @llvm.vector.reduce.add.v4i32([[DOTVEC60]])
+; VPVALCG:                         [[ACC_0190]] = @llvm.vector.reduce.add.v4i32([[DOTVEC40]])
 
 ; VPVALCG:                      + DO i1 = {{.*}}, sext.i32.i64([[N0:%.*]]) + -1, 1   <DO_LOOP>
 ; VPVALCG-NEXT:                 |   [[ACC_0190]] = ([[A0]])[i1]  +  [[ACC_0190]]

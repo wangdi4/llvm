@@ -45,25 +45,28 @@ define dso_local void @foo(i64 %n1, i64 %n2) local_unnamed_addr #0 {
 ; CHECK:       |   %phi.temp4 = 0;
 ; CHECK:       |   <LVAL-REG> NON-LINEAR i64 %phi.temp4 {sb:24}
 ; CHECK:       |   + LiveIn symbases: 9, 10, 23, 24
-; CHECK:       |   + LiveOut symbases: 23, 27
+; CHECK:       |   + LiveOut symbases: 28
 ; CHECK:       |   + Loop metadata:
 ; CHECK:       |   + DO i64 i2 = 0, 99, 1   <DO_LOOP> <novectorize>
 ; CHECK:       |   |   %.vec = (<4 x i64>*)(@larr2)[0][i2 + 2 * %n2][i1];
+; CHECK:       |   |   <LVAL-REG> NON-LINEAR <4 x i64> %.vec {sb:27}
 ; CHECK:       |   |      <BLOB> LINEAR [100 x [100 x i64]]* @larr2 {sb:9}
-; CHECK:       |   |   %.vec6 = i2 + 1 < 100;
-; CHECK:       |   |   %phi.temp = %phi.temp + %.vec;
+; CHECK:       |   |   %.vec6 = %.vec  +  %phi.temp;
+; CHECK:       |   |   <LVAL-REG> NON-LINEAR <4 x i64> %.vec6 {sb:28}
+; CHECK:       |   |   <RVAL-REG> NON-LINEAR <4 x i64> %.vec {sb:27}
+; CHECK:       |   |   <RVAL-REG> NON-LINEAR <4 x i64> %phi.temp {sb:23}
+; CHECK:       |   |   %.vec7 = i2 + 1 < 100;
+; CHECK:       |   |   %phi.temp = %.vec6;
 ; CHECK:       |   |   <LVAL-REG> NON-LINEAR <4 x i64> %phi.temp {sb:23}
-; CHECK:       |   |      <BLOB> NON-LINEAR <4 x i64> %phi.temp {sb:23}
+; CHECK:       |   |   <RVAL-REG> NON-LINEAR <4 x i64> %.vec6 {sb:28}
 ; CHECK:       |   |   %phi.temp4 = i2 + 1;
 ; CHECK:       |   |   <LVAL-REG> NON-LINEAR i64 %phi.temp4 {sb:24}
 ; CHECK:       |   + END LOOP
-; CHECK:       |   (<4 x i64>*)(@larr1)[0][i1 + 2 * %n2 + %n1] = %phi.temp + %.vec;
+; CHECK:       |   (<4 x i64>*)(@larr1)[0][i1 + 2 * %n2 + %n1] = %.vec6;
 ; CHECK:       |      <BLOB> LINEAR [100 x i64]* @larr1 {sb:16}
 ; CHECK:       |      <BLOB> LINEAR i64 %n2 {sb:10}
 ; CHECK:       |      <BLOB> LINEAR i64 %n1 {sb:17}
-; CHECK:       |   <RVAL-REG> NON-LINEAR <4 x i64> %phi.temp + %.vec {sb:2}
-; CHECK:       |      <BLOB> NON-LINEAR <4 x i64> %phi.temp {sb:23}
-; CHECK:       |      <BLOB> NON-LINEAR <4 x i64> %.vec {sb:27}
+; CHECK:       |   <RVAL-REG> NON-LINEAR <4 x i64> %.vec6 {sb:28}
 ; CHECK:       + END LOOP
 ;
 entry:

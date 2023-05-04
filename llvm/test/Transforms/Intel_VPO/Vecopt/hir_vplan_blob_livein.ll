@@ -18,12 +18,11 @@ define double @sum_pairs_(i64 %"sum_pairs_0_$JHI_fetch.9.i.i", i1 %rel.3.i.i) #0
 ; CHECK-NEXT:           [[LOOP_UB290:%.*]] = [[VEC_TC260:%.*]]  -  1
 ;
 ; CHECK:                + DO i1 = 0, [[LOOP_UB290]], 8   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
-; CHECK-NEXT:           |   [[DOTVEC300:%.*]] = [[PHI_TEMP270]]  +  1
-; CHECK-NEXT:           |   [[DOTVEC310:%.*]] = [[DOTVEC300]]  +  0
-; CHECK-NEXT:           |   [[PHI_TEMP270]] = [[DOTVEC310]]
+; CHECK-NEXT:           |   [[DOTVEC300:%.*]] = [[PHI_TEMP270]]  +  1  +  0
+; CHECK-NEXT:           |   [[PHI_TEMP270]] = [[DOTVEC300]]
 ; CHECK-NEXT:           + END LOOP
 ;
-; CHECK:                %"sum_pairs_0_$OFF.0.i.i" = @llvm.vector.reduce.add.v8i64([[DOTVEC310]])
+; CHECK:                %"sum_pairs_0_$OFF.0.i.i" = @llvm.vector.reduce.add.v8i64([[DOTVEC300]])
 ; CHECK-NEXT:           [[IND_FINAL330:%.*]] = 0  +  [[VEC_TC260]]
 ; CHECK-NEXT:           [[DOTVEC340:%.*]] = %"sum_pairs_0_$JHI_fetch.9.i.i" + 1 == [[VEC_TC260]]
 ; CHECK-NEXT:           [[PHI_TEMP200:%.*]] = [[IND_FINAL330]]
@@ -33,7 +32,7 @@ define double @sum_pairs_(i64 %"sum_pairs_0_$JHI_fetch.9.i.i", i1 %rel.3.i.i) #0
 ; CHECK-NEXT:           [[EXTRACT_0_410:%.*]] = extractelement [[DOTVEC340]],  0
 ; CHECK-NEXT:           if ([[EXTRACT_0_410]] == 1)
 ; CHECK-NEXT:           {
-; CHECK-NEXT:              goto final.merge.122
+; CHECK-NEXT:              goto final.merge.121
 ; CHECK-NEXT:           }
 ; CHECK-NEXT:           [[MERGE_BLK1:.*]].92:
 ; CHECK-NEXT:           [[LB_TMP160:%.*]] = [[PHI_TEMP200]]
@@ -45,7 +44,7 @@ define double @sum_pairs_(i64 %"sum_pairs_0_$JHI_fetch.9.i.i", i1 %rel.3.i.i) #0
 ;
 ; CHECK:                [[PHI_TEMP370]] = %"sum_pairs_0_$JHI_fetch.9.i.i"
 ; CHECK-NEXT:           [[PHI_TEMP390]] = %"sum_pairs_0_$OFF.0.i.i"
-; CHECK-NEXT:           final.merge.122:
+; CHECK-NEXT:           final.merge.121:
 ; CHECK-NEXT:           [[ADD_4_I_I2_LCSSA50:.*]] = 0.000000e+00
 ; CHECK-NEXT:        }
 ; CHECK-NEXT:  END REGION
