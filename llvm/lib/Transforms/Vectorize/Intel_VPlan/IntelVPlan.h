@@ -5897,6 +5897,18 @@ public:
                                   std::forward<Args>(args)...);
   }
 
+  /// Add a pre-built vectorization-related remark for the HIR loop \p Lp.
+  void addRemark(loopopt::HLLoop *Lp, OptReportVerbosity::Level Verbosity,
+                 OptRemark Remark) {
+    ORBuilder(*Lp).addRemark(Verbosity, Remark);
+  }
+
+  /// Add a pre-built vectorization-related remark for the LLVM loop \p Lp.
+  void addRemark(Loop *Lp, OptReportVerbosity::Level Verbosity,
+                 OptRemark Remark) {
+    ORBuilder(*Lp, *LI).addRemark(Verbosity, Remark);
+  }
+
   /// Add a origin related remark for the HIR loop \p Lp. The remark
   /// message is identified by \p MsgID.
   template <typename... Args>

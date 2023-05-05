@@ -1332,12 +1332,24 @@ PrefixKind X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand,
     //
     //  FMA4:
     //  dst(ModR/M.reg), src1(VEX_4V), src2(ModR/M), src3(Imm[7:4])
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (IsND)
+      Prefix.set4VV2(MI, CurOp++, true);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     Prefix.setRR2(MI, CurOp++);
 
     if (HasEVEX_K)
       Prefix.setAAA(MI, CurOp++);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (HasVEX_4V && !IsND)
+#else  // INTEL_FEATURE_ISA_APX_F
     if (HasVEX_4V)
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
       Prefix.set4VV2(MI, CurOp++);
 
 #if INTEL_CUSTOMIZATION
@@ -1437,7 +1449,13 @@ PrefixKind X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand,
       Prefix.setAAA(MI, CurOp++);
 
     if (HasVEX_4V)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+      Prefix.set4VV2(MI, CurOp++, IsND);
+#else  // INTEL_FEATURE_ISA_APX_F
       Prefix.set4VV2(MI, CurOp++);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
@@ -2174,6 +2192,13 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI,
   case X86II::MRMSrcMem: {
     unsigned FirstMemOp = CurOp + 1;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if ((TSFlags & X86II::OpMapMask) == X86II::T_MAP4 &&
+        (TSFlags & X86II::EVEX_B))
+      CurOp++;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     if (HasEVEX_K) // Skip writemask
       ++FirstMemOp;
 

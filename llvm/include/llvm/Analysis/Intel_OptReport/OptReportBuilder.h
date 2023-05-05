@@ -229,6 +229,16 @@ public:
     return *this;
   }
 
+  // Interface to add pre-built opt-report remark.
+  OptReportThunk<T> &addRemark(OptReportVerbosity::Level MessageVerbosity,
+                               OptRemark Remark) {
+    if (Builder.getVerbosity() < MessageVerbosity)
+      return *this;
+
+    getOrCreateOptReport().addRemark(Remark);
+    return *this;
+  }
+
   OptReportThunk<T> &addChild(OptReport Child) {
     if (!Builder.getVerbosity())
       return *this;

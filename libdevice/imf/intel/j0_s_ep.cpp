@@ -66,7 +66,8 @@ static const union {
 static const uint32_t __sj0_ep_invpi_tbl[] = {
     0,          0x28BE60DB, 0x9391054A, 0x7F09D5F4,
     0x7D4D3770, 0x36D8A566, 0x4F10E410, 0x7F9458EA};
-int __sj0_ep_sincos_kernel_fp32(float xf, int n, float *psin, float *pcos) {
+static int __sj0_ep_sincos_kernel_fp32(float xf, int n, float *psin,
+                                       float *pcos) {
   int nRet = 0;
   float xin = xf;
   uint64_t IP, IP2, N64 = (uint64_t)n;

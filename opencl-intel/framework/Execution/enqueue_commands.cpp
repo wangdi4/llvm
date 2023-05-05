@@ -1956,8 +1956,9 @@ void NDRangeKernelCommand::GPA_WriteWorkMetadata(
 
 ReadHostPipeIntelFPGACommand::ReadHostPipeIntelFPGACommand(
     const SharedPtr<IOclCommandQueueBase> &cmdQueue, void *pDst, void *pipeBS,
-    size_t size)
-    : Command(cmdQueue), m_pDst(pDst), m_pipeBS(pipeBS), m_size(size) {
+    size_t size, cl_bool blocking)
+    : Command(cmdQueue), m_pDst(pDst), m_pipeBS(pipeBS), m_size(size),
+      m_blocking(blocking) {
   m_commandType = CL_COMMAND_READ_HOST_PIPE_INTEL;
 }
 
@@ -1968,21 +1969,28 @@ cl_err_code ReadHostPipeIntelFPGACommand::Execute() {
   NotifyCmdStatusChanged(CL_RUNNING, CL_SUCCESS,
                          Intel::OpenCL::Utils::HostTime());
 
-  if (__read_pipe_2_fpga(m_pipeBS, m_pDst, m_size, m_size))
-    return CL_PIPE_EMPTY;
+  cl_err_code ret = CL_SUCCESS;
 
-  __flush_read_pipe(m_pipeBS);
+  if (m_blocking) {
+    // Under blocking mode, it will try to read until success.
+    while (__read_pipe_2_fpga(m_pipeBS, m_pDst, m_size, m_size))
+      hw_pause();
+  } else {
+    // Under non-blocking mode, it will try to read for one time.
+    if (__read_pipe_2_fpga(m_pipeBS, m_pDst, m_size, m_size))
+      ret = CL_PIPE_EMPTY;
+  }
 
-  NotifyCmdStatusChanged(CL_COMPLETE, CL_SUCCESS,
-                         Intel::OpenCL::Utils::HostTime());
+  NotifyCmdStatusChanged(CL_COMPLETE, ret, Intel::OpenCL::Utils::HostTime());
 
-  return CL_SUCCESS;
+  return ret;
 }
 
 WriteHostPipeIntelFPGACommand::WriteHostPipeIntelFPGACommand(
     const SharedPtr<IOclCommandQueueBase> &cmdQueue, void *pipeBS,
-    const void *pSrc, size_t size)
-    : Command(cmdQueue), m_pipeBS(pipeBS), m_pSrc(pSrc), m_size(size) {
+    const void *pSrc, size_t size, cl_bool blocking)
+    : Command(cmdQueue), m_pipeBS(pipeBS), m_pSrc(pSrc), m_size(size),
+      m_blocking(blocking) {
   m_commandType = CL_COMMAND_WRITE_HOST_PIPE_INTEL;
 }
 
@@ -1992,16 +2000,23 @@ cl_err_code WriteHostPipeIntelFPGACommand::Execute() {
 
   NotifyCmdStatusChanged(CL_RUNNING, CL_SUCCESS,
                          Intel::OpenCL::Utils::HostTime());
+
+  cl_err_code ret = CL_SUCCESS;
   // The m_size should be the packet size of this pipe.
-  if (__write_pipe_2_fpga(m_pipeBS, m_pSrc, m_size, m_size))
-    return CL_PIPE_EMPTY;
 
-  __flush_write_pipe(m_pipeBS);
+  if (m_blocking) {
+    // Under blocking mode, it will try to write until success.
+    while (__write_pipe_2_fpga(m_pipeBS, m_pSrc, m_size, m_size))
+      hw_pause();
+  } else {
+    // Under non-blocking mode, it will try to write for one time.
+    if (__write_pipe_2_fpga(m_pipeBS, m_pSrc, m_size, m_size))
+      ret = CL_PIPE_FULL;
+  }
 
-  NotifyCmdStatusChanged(CL_COMPLETE, CL_SUCCESS,
-                         Intel::OpenCL::Utils::HostTime());
+  NotifyCmdStatusChanged(CL_COMPLETE, ret, Intel::OpenCL::Utils::HostTime());
 
-  return CL_SUCCESS;
+  return ret;
 }
 
 ReadGVCommand::ReadGVCommand(const SharedPtr<IOclCommandQueueBase> &cmdQueue,

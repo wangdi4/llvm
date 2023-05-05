@@ -825,13 +825,25 @@ void RecognizableInstr::emitInstructionSpecifier() {
     assert(numPhysicalOperands >= 2 + additionalOperands &&
            numPhysicalOperands <= 4 + additionalOperands &&
            "Unexpected number of operands for MRMSrcMemFrm");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (IsND)
+      HANDLE_OPERAND(vvvvRegister)
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
     HANDLE_OPERAND(roRegister)
 
     if (HasEVEX_K)
       HANDLE_OPERAND(writemaskRegister)
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (!IsND && HasVEX_4V)
+#else  // INTEL_FEATURE_ISA_APX_F
     if (HasVEX_4V)
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
       // FIXME: In AVX, the register below becomes the one encoded
       // in ModRMVEX and the one above the one in the VEX.VVVV field
       HANDLE_OPERAND(vvvvRegister)

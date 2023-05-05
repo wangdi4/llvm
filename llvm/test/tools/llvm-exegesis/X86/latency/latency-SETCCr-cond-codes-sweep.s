@@ -1,3 +1,8 @@
+# INTEL_CUSTOMIZATION
+# INTEL_FEATURE_ISA_APX_F
+# UNSUPPORTED: intel_feature_isa_apx_f
+# end INTEL_FEATURE_ISA_APX_F
+# end INTEL_CUSTOMIZATION
 # RUN: llvm-exegesis -mtriple=x86_64-unknown-unknown -mcpu=x86-64 -mode=latency --benchmark-phase=assemble-measured-code -opcode-name=SETCCr --max-configs-per-opcode=1 | FileCheck %s --check-prefix=CHECK
 # RUN: llvm-exegesis -mtriple=x86_64-unknown-unknown -mcpu=x86-64 -mode=latency --benchmark-phase=assemble-measured-code -opcode-name=SETCCr --max-configs-per-opcode=256 | FileCheck %s --check-prefix=SWEEP
 

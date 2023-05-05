@@ -179,8 +179,62 @@ target triple = "x86_64-unknown-linux-gnu"
 
 declare dso_local void @__intel_new_feature_proc_init(i32, i64)
 
+; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
+declare { i64, i1 } @llvm.umul.with.overflow.i64(i64 %0, i64 %1)
+
+; Function Attrs: mustprogress nofree nosync nounwind willreturn memory(none)
+declare dso_local ptr @__errno_location()
+
+; Function Attrs: mustprogress nofree nounwind willreturn allockind("alloc,uninitialized") allocsize(0) memory(inaccessiblemem: readwrite)
+declare dso_local noalias noundef ptr @malloc(i64 noundef %0)
+
 ; Function Attrs: mustprogress nofree nounwind willreturn allocsize(0,1) memory(write, inaccessiblemem: readwrite) uwtable
-declare "intel_dtrans_func_index"="1" ptr @AcquireAlignedMemory(i64 noundef, i64 noundef) #0
+define internal ptr @AcquireAlignedMemory(i64 noundef %0, i64 noundef %1) {
+  %3 = tail call { i64, i1 } @llvm.umul.with.overflow.i64(i64 %0, i64 %1)
+  %4 = extractvalue { i64, i1 } %3, 0
+  %5 = icmp eq i64 %0, 0
+  br i1 %5, label %8, label %6
+
+6:                                                ; preds = %2
+  %7 = extractvalue { i64, i1 } %3, 1
+  br i1 %7, label %8, label %10
+
+8:                                                ; preds = %6, %2
+  %9 = tail call ptr @__errno_location()
+  store i32 12, ptr %9, align 4
+  br label %28
+
+10:                                               ; preds = %6
+  %11 = icmp eq i64 %4, 0
+  br i1 %11, label %28, label %12
+
+12:                                               ; preds = %10
+  %13 = add i64 %4, 63
+  %14 = and i64 %13, -64
+  %15 = icmp uge i64 %14, %4
+  %16 = icmp ult i64 %4, -71
+  %17 = and i1 %15, %16
+  br i1 %17, label %18, label %28
+
+18:                                               ; preds = %12
+  %19 = add nuw i64 %4, 71
+  %20 = tail call noalias ptr @malloc(i64 noundef %19)
+  %21 = icmp eq ptr %20, null
+  br i1 %21, label %28, label %22
+
+22:                                               ; preds = %18
+  %23 = ptrtoint ptr %20 to i64
+  %24 = add i64 %23, 71
+  %25 = and i64 %24, -64
+  %26 = inttoptr i64 %25 to ptr
+  %27 = getelementptr inbounds ptr, ptr %26, i64 -1
+  store ptr %20, ptr %27, align 8
+  br label %28
+
+28:                                               ; preds = %22, %18, %12, %10, %8
+  %29 = phi ptr [ null, %8 ], [ null, %12 ], [ null, %10 ], [ %26, %22 ], [ null, %18 ]
+  ret ptr %29
+}
 
 ; Function Attrs: nounwind uwtable
 declare "intel_dtrans_func_index"="1" ptr @AcquireAuthenticCacheView(ptr noundef "intel_dtrans_func_index"="2", ptr noundef "intel_dtrans_func_index"="3") #1
@@ -236,8 +290,23 @@ declare fastcc i32 @ReadPixelCacheIndexes(ptr noalias noundef "intel_dtrans_func
 ; Function Attrs: nounwind uwtable
 declare fastcc i32 @ReadPixelCachePixels(ptr noalias noundef "intel_dtrans_func_index"="1", ptr noalias nocapture noundef readonly "intel_dtrans_func_index"="2", ptr noundef "intel_dtrans_func_index"="3") unnamed_addr #1
 
+; Function Attrs: mustprogress nounwind willreturn allockind("free") memory(argmem: readwrite, inaccessiblemem: readwrite)
+declare dso_local void @free(ptr allocptr nocapture noundef %0)
+
 ; Function Attrs: mustprogress nounwind willreturn uwtable
-declare noalias "intel_dtrans_func_index"="1" ptr @RelinquishAlignedMemory(ptr noundef readonly "intel_dtrans_func_index"="2") #6
+define internal noalias ptr @RelinquishAlignedMemory(ptr noundef readonly %0) {
+  %2 = icmp eq ptr %0, null
+  br i1 %2, label %6, label %3
+
+3:                                                ; preds = %1
+  %4 = getelementptr inbounds ptr, ptr %0, i64 -1
+  %5 = load ptr, ptr %4, align 8
+  tail call void @free(ptr noundef %5)
+  br label %6
+
+6:                                                ; preds = %3, %1
+  ret ptr null
+}
 
 ; Function Attrs: nounwind uwtable
 declare "intel_dtrans_func_index"="1" ptr @RelinquishMagickMemory(ptr noundef "intel_dtrans_func_index"="2") #1
@@ -921,8 +990,6 @@ bb122:                                            ; preds = %bb116
 
 bb124:                                            ; preds = %bb122, %bb116
   %i125 = phi ptr [ %i123, %bb122 ], [ null, %bb116 ]
-  tail call void @llvm.experimental.noalias.scope.decl(metadata !168)
-  tail call void @llvm.experimental.noalias.scope.decl(metadata !171)
   %i126 = load i32, ptr %i11, align 8, !tbaa !121, !alias.scope !168, !noalias !171
   %i127 = icmp eq i32 %i126, 4
   br i1 %i127, label %bb128, label %bb135
