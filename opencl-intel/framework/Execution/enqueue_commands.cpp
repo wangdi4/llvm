@@ -1974,7 +1974,7 @@ cl_err_code ReadHostPipeIntelFPGACommand::Execute() {
   if (m_blocking) {
     // Under blocking mode, it will try to read until success.
     while (__read_pipe_2_fpga(m_pipeBS, m_pDst, m_size, m_size))
-      ;
+      hw_pause();
   } else {
     // Under non-blocking mode, it will try to read for one time.
     if (__read_pipe_2_fpga(m_pipeBS, m_pDst, m_size, m_size))
@@ -2007,7 +2007,7 @@ cl_err_code WriteHostPipeIntelFPGACommand::Execute() {
   if (m_blocking) {
     // Under blocking mode, it will try to write until success.
     while (__write_pipe_2_fpga(m_pipeBS, m_pSrc, m_size, m_size))
-      ;
+      hw_pause();
   } else {
     // Under non-blocking mode, it will try to write for one time.
     if (__write_pipe_2_fpga(m_pipeBS, m_pSrc, m_size, m_size))
