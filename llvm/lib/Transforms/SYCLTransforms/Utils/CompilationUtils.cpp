@@ -161,7 +161,6 @@ const StringRef NAME_IB_KMP_RELEASE_LOCK = "__builtin_IB_kmp_release_lock";
 // subgroup functions
 const StringRef NAME_SUB_GROUP_ALL = "sub_group_all";
 const StringRef NAME_SUB_GROUP_ANY = "sub_group_any";
-const StringRef NAME_SUB_GROUP_BALLOT = "sub_group_ballot";
 const StringRef NAME_SUB_GROUP_BROADCAST = "sub_group_broadcast";
 const StringRef NAME_SUB_GROUP_REDUCE_ADD = "sub_group_reduce_add";
 const StringRef NAME_SUB_GROUP_REDUCE_MIN = "sub_group_reduce_min";
@@ -921,14 +920,16 @@ bool isSubGroupBroadCast(StringRef S) {
 }
 
 static bool isSubGroupBallot(StringRef S) {
-  return isMangleOf(S, NAME_SUB_GROUP_BALLOT) ||
-         isMangleOf(S, "sub_group_inverse_ballot") ||
-         isMangleOf(S, "sub_group_ballot_bit_extract") ||
-         isMangleOf(S, "sub_group_ballot_bit_count") ||
-         isMangleOf(S, "sub_group_ballot_inclusive_scan") ||
-         isMangleOf(S, "sub_group_ballot_exclusive_scan") ||
-         isMangleOf(S, "sub_group_ballot_find_lsb") ||
-         isMangleOf(S, "sub_group_ballot_find_msb");
+  return StringSwitch<bool>(S)
+      .Case("sub_group_ballot", true)
+      .Case("sub_group_inverse_ballot", true)
+      .Case("sub_group_ballot_bit_extract", true)
+      .Case("sub_group_ballot_bit_count", true)
+      .Case("sub_group_ballot_inclusive_scan", true)
+      .Case("sub_group_ballot_exclusive_scan", true)
+      .Case("sub_group_ballot_find_lsb", true)
+      .Case("sub_group_ballot_find_msb", true)
+      .Default(false);
 }
 
 bool isSubGroupReduceAdd(StringRef S) {
@@ -1022,8 +1023,30 @@ static bool isSubGroupBlockWrite(StringRef S) {
   return isIntelSubGroupBlockReadWrite(S, NAME_SUB_GROUP_BLOCK_WRITE);
 }
 
+bool isSubGroupNonUniformFlow(StringRef S) {
+  if (!isMangledName(S))
+    return false;
+  S = stripName(S);
+  if (isSubGroupBallot(S))
+    return true;
+  if (!S.consume_front("sub_group_non_uniform_"))
+    return false;
+
+  // From extension cl_khr_subgroup_non_uniform_arithmetic.
+  if (S.consume_front("reduce_") || S.consume_front("scan_inclusive_") ||
+      S.consume_front("scan_exclusive_"))
+    return S.equals("add") || S.equals("min") || S.equals("max") ||
+           S.equals("mul") || S.equals("and") || S.equals("or") ||
+           S.equals("xor") || S.equals("logical_and") ||
+           S.equals("logical_or") || S.equals("logical_xor");
+
+  // From extension cl_khr_subgroup_non_uniform_vote and cl_khr_subgroup_ballot.
+  return S.equals("all") || S.equals("any") || S.equals("all_equal") ||
+         S.equals("broadcast");
+}
+
 // TODO: refactor OCLVecClone - opencl-vec-uniform-return.
-bool isSubGroupUniform(StringRef S) {
+bool isSubGroupUniformFlowUniformRet(StringRef S) {
   return isGetSubGroupSize(S) || isGetSubGroupId(S) ||
          isGetMaxSubGroupSize(S) || isGetNumSubGroups(S) ||
          isGetEnqueuedNumSubGroups(S) || isSubGroupAll(S) || isSubGroupAny(S) ||
@@ -1031,14 +1054,14 @@ bool isSubGroupUniform(StringRef S) {
          isSubGroupReduceMin(S) || isSubGroupReduceMax(S) || isSubGroupSort(S);
 }
 
-bool isSubGroupDivergent(StringRef S) {
-  return isSubGroupBallot(S) || isGetSubGroupLocalId(S) || isSubGroupScan(S) ||
-         isSubGroupShuffle(S) || isSubGroupBlockRead(S) ||
-         isSubGroupBlockWrite(S);
+bool isSubGroupUniformFlowNonUniformRet(StringRef S) {
+  return isGetSubGroupLocalId(S) || isSubGroupScan(S) || isSubGroupShuffle(S) ||
+         isSubGroupBlockRead(S) || isSubGroupBlockWrite(S);
 }
 
 bool isSubGroupBuiltin(StringRef S) {
-  return isSubGroupUniform(S) || isSubGroupDivergent(S);
+  return isSubGroupUniformFlowUniformRet(S) ||
+         isSubGroupUniformFlowNonUniformRet(S) || isSubGroupNonUniformFlow(S);
 }
 
 bool isSubGroupBarrier(StringRef S) {

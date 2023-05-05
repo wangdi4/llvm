@@ -11,6 +11,8 @@
 #include "llvm/Transforms/SYCLTransforms/SYCLEqualizer.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/Analysis/CallGraph.h"
+#include "llvm/Analysis/IteratedDominanceFrontier.h"
+#include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
@@ -680,11 +682,86 @@ static void materializeTargetExtType(Module &M,
 }
 
 #if INTEL_CUSTOMIZATION
+/// Find functions containing divergent subgroup builtin call where only some of
+/// the workitems in a subgroup are active.
+FuncSet getFuncWithDivergentSGBuiltin(
+    Module &M, function_ref<PostDominatorTree &(Function &)> GetPDT) {
+  FuncSet Result;
+  Function *GetSGLocalId = nullptr;
+  SmallVector<Function *, 8> NonUniformSGFuncs;
+  for (auto &F : M) {
+    if (!F.isDeclaration())
+      continue;
+    StringRef FName = F.getName();
+    if (isGetSubGroupLocalId(FName))
+      GetSGLocalId = &F;
+    // TODO check only isSubGroupNonUniformFlow. Pending on CMPLRLLVM-47407
+    else if (isSubGroupNonUniformFlow(FName) || isSubGroupAll(FName) ||
+             isSubGroupAny(FName) || isSubGroupBroadCast(FName) ||
+             isSubGroupReduceAdd(FName) || isSubGroupReduceMin(FName) ||
+             isSubGroupReduceMax(FName))
+      NonUniformSGFuncs.push_back(&F);
+  }
+  if (!GetSGLocalId)
+    return Result;
+
+  SmallPtrSet<BasicBlock *, 8> BBWithNonUniformSGCalls;
+  for (auto *F : NonUniformSGFuncs)
+    for (User *U : F->users())
+      BBWithNonUniformSGCalls.insert(cast<Instruction>(U)->getParent());
+
+  // Find basic blocks with a conditional branch and the condition is dependent
+  // on get_sub_group_local_id call.
+  // Only check the case that get_sub_group_local_id call is an operand of the
+  // condition instruction, since we're yet to see other use cases.
+  SmallVector<BasicBlock *, 8> DivergentRegionStartBB;
+  for (User *U : GetSGLocalId->users()) {
+    auto *CI = cast<CallInst>(U);
+    auto *BB = CI->getParent();
+    if (auto *Br = dyn_cast<BranchInst>(BB->getTerminator());
+        Br && Br->isConditional())
+      if (auto *Cmp = dyn_cast<ICmpInst>(Br->getCondition()))
+        if (Cmp->getOperand(0) == CI || Cmp->getOperand(1) == CI)
+          DivergentRegionStartBB.push_back(BB);
+  }
+  // Only one workitem is active in kmp critical region.
+  if (Function *KMP_CRITICAL = M.getFunction("__kmpc_critical")) {
+    for (User *U : KMP_CRITICAL->users()) {
+      auto *BB = cast<CallInst>(U)->getParent();
+      DivergentRegionStartBB.push_back(BB);
+      if (BBWithNonUniformSGCalls.contains(BB))
+        Result.insert(BB->getParent());
+    }
+  }
+
+  for (auto *BB : DivergentRegionStartBB) {
+    Function *F = BB->getParent();
+    if (Result.contains(F))
+      continue;
+    auto &PDT = GetPDT(*F);
+    SmallPtrSet<BasicBlock *, 16> SuccNonUniformSG;
+    for (auto *Succ : successors(BB))
+      if (BBWithNonUniformSGCalls.contains(Succ) && !PDT.dominates(Succ, BB))
+        SuccNonUniformSG.insert(Succ);
+    if (SuccNonUniformSG.empty())
+      continue;
+    SmallVector<BasicBlock *, 16> IDFBlocks;
+    ReverseIDFCalculator IDF(PDT);
+    IDF.setDefiningBlocks(SuccNonUniformSG);
+    IDF.calculate(IDFBlocks);
+    if (llvm::find(IDFBlocks, BB) != IDFBlocks.end())
+      Result.insert(F);
+  }
+
+  return Result;
+}
+
 /// For OpenMP constructs that aren't supported by vectorizer, set their user
 /// kernels' intel_vec_len_hint MD to 1 so that the kernels won't be vectorized.
 /// This is a temporary fix until there is a bail out in vectorizer.
 static void setNotVectorizeForUnsupportedOmpConstructs(
-    Module &M, KernelList::KernelVectorTy &Kernels, TargetLibraryInfo &TLI) {
+    Module &M, KernelList::KernelVectorTy &Kernels, TargetLibraryInfo &TLI,
+    function_ref<PostDominatorTree &(Function &)> GetPDT) {
   // Refer to LoopVectorizationPlanner::isInvalidOMPConstructInSIMD
   auto IsInvalidOMPConstructInSIMD = [](LibFunc Func) {
     switch (Func) {
@@ -708,11 +785,15 @@ static void setNotVectorizeForUnsupportedOmpConstructs(
   if (UnsupportedOMPFuncs.empty())
     return;
 
-  FuncSet NotVectorizeFuncs;
-  LoopUtils::fillFuncUsersSet(UnsupportedOMPFuncs, NotVectorizeFuncs);
-  if (!NotVectorizeFuncs.empty()) {
+  FuncSet UnsupportedOMPKernels;
+  LoopUtils::fillFuncUsersSet(UnsupportedOMPFuncs, UnsupportedOMPKernels);
+  if (!UnsupportedOMPKernels.empty()) {
+    auto DivergentSGFuncs = getFuncWithDivergentSGBuiltin(M, GetPDT);
+    FuncSet DivergentSGKernels;
+    LoopUtils::fillFuncUsersSet(DivergentSGFuncs, DivergentSGKernels);
     for (Function *F : Kernels) {
-      if (NotVectorizeFuncs.contains(F)) {
+      if (UnsupportedOMPKernels.contains(F) && !DivergentSGFuncs.contains(F) &&
+          !DivergentSGKernels.contains(F)) {
         SYCLKernelMetadataAPI::KernelMetadataAPI KMD(F);
         KMD.VecLenHint.set(1);
       }
@@ -743,8 +824,6 @@ PreservedAnalyses SYCLEqualizerPass::run(Module &M, ModuleAnalysisManager &AM) {
     FDecl->eraseFromParent();
   std::ignore = FuncMaterializer.isChanged();
 
-  std::ignore = renameAliasingBuiltins(M);
-
 #if INTEL_CUSTOMIZATION
   // Set intel_vec_len_hint metadata before unsupported OpenMP functions are
   // inlined at a later stage.
@@ -752,9 +831,14 @@ PreservedAnalyses SYCLEqualizerPass::run(Module &M, ModuleAnalysisManager &AM) {
     auto &FAM =
         AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
     TargetLibraryInfo TLI = FAM.getResult<TargetLibraryAnalysis>(*Kernels[0]);
-    setNotVectorizeForUnsupportedOmpConstructs(M, Kernels, TLI);
+    auto GetPDT = [&](Function &F) -> PostDominatorTree & {
+      return FAM.getResult<PostDominatorTreeAnalysis>(F);
+    };
+    setNotVectorizeForUnsupportedOmpConstructs(M, Kernels, TLI, GetPDT);
   }
 #endif // INTEL_CUSTOMIZATION
+
+  std::ignore = renameAliasingBuiltins(M);
 
   // Module is always changed.
   return PreservedAnalyses::none();

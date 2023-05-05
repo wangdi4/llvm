@@ -544,13 +544,19 @@ bool isSubGroupScan(StringRef S);
 bool isSubGroupSort(StringRef S);
 /// }@
 
-/// Returns true if \p S is a name of subgroup builtin, and it's uniform inside
-/// a subgroup.
-bool isSubGroupUniform(StringRef S);
+/// Returns true if \p S is a name of subgroup builtin, the builtin is
+/// encountered by all work items in a subgroup, and its return value is
+/// uniform inside the subgroup.
+bool isSubGroupUniformFlowUniformRet(StringRef S);
 
-/// Returns true if \p S is a name of subgroup builtin, and it's non-uniform
-/// (divergent) inside a subgroup.
-bool isSubGroupDivergent(StringRef S);
+/// Returns true if \p S is a name of subgroup builtin, the builtin is
+/// encountered by all work items in a subgroup, and its return value is
+/// divergent inside the subgroup.
+bool isSubGroupUniformFlowNonUniformRet(StringRef S);
+
+/// Returns true if \p S is a name of subgroup builtin, and it needs not to be
+/// encountered by all work items in a subgroup.
+bool isSubGroupNonUniformFlow(StringRef S);
 
 /// Returns true if \p S is a name of subgroup builtin.
 bool isSubGroupBuiltin(StringRef S);
