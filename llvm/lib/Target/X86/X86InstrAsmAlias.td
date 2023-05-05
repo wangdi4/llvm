@@ -1,4 +1,21 @@
 //==- X86InstrAsmAlias.td - Assembler Instruction Aliases --*- tablegen -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -57,6 +74,33 @@ multiclass CMPCCXADD_Aliases<string Cond, int CC> {
                   (CMPCCXADDmr64 GR64:$dst, i64mem:$dstsrc2, GR64:$src3, CC), 0>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+// CCMP Instructions Alias
+multiclass CCMP_Aliases<string Cond, int CC> {
+def : InstAlias<"ccmp"#Cond#"{l} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CCMP32rr GR32:$src1, GR32:$src2, cflags:$dcf, CC), 0>;
+def : InstAlias<"ccmp"#Cond#"{q} $dcf\t{$src2, $src1|$src1, $src2}",
+                (CCMP64rr GR64:$src1, GR64:$src2, cflags:$dcf, CC), 0>;
+}
+defm : CCMP_Aliases<"o" ,  0>;
+defm : CCMP_Aliases<"no",  1>;
+defm : CCMP_Aliases<"b" ,  2>;
+defm : CCMP_Aliases<"ae",  3>;
+defm : CCMP_Aliases<"e" ,  4>;
+defm : CCMP_Aliases<"ne",  5>;
+defm : CCMP_Aliases<"be",  6>;
+defm : CCMP_Aliases<"a" ,  7>;
+defm : CCMP_Aliases<"s" ,  8>;
+defm : CCMP_Aliases<"ns",  9>;
+defm : CCMP_Aliases<"p" , 10>;
+defm : CCMP_Aliases<"np", 11>;
+defm : CCMP_Aliases<"l" , 12>;
+defm : CCMP_Aliases<"ge", 13>;
+defm : CCMP_Aliases<"le", 14>;
+defm : CCMP_Aliases<"g" , 15>;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // Assembler Mnemonic Aliases
 //===----------------------------------------------------------------------===//

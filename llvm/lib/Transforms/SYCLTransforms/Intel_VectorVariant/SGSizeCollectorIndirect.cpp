@@ -143,20 +143,12 @@ bool SGSizeCollectorIndirectPass::runImpl(Module &M, CallGraph &CG) {
         continue;
 
       // Add vector-variants attribute.
-      FunctionType *FuncTy = Call.getFunctionType();
-      assert(FuncTy->getNumParams() > 0 &&
-             "Expected at least one function argument");
-
-      Type *ParamTy = FuncTy->getParamType(0);
-      PointerType *Pointer = cast<PointerType>(ParamTy);
-      Pointer = cast<PointerType>(Pointer->getNonOpaquePointerElementType());
-      FuncTy = cast<FunctionType>(Pointer->getNonOpaquePointerElementType());
-
+      unsigned ArgSize = Call.arg_size();
+      assert(ArgSize > 0 && "Expected at least one function argument");
       // Update attributes.
       Attrs = Attrs.addFnAttribute(
           M.getContext(), "vector-variants",
-          GenerateVectorVariants("__intel_indirect_call_XXX",
-                                 FuncTy->getNumParams()));
+          GenerateVectorVariants("__intel_indirect_call_XXX", ArgSize - 1));
       Call.setAttributes(Attrs);
 
       Modified = true;

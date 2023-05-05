@@ -226,10 +226,20 @@ public:
   void setB(const MCInst &MI, unsigned OpNum) {
     B = getRegEncoding(MI, OpNum) >> 3 & 1;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  void set4V(const MCInst &MI, unsigned OpNum, bool IsImm = false) {
+    // OF, SF, ZF and CF reuse VEX_4V bits but are not reversed
+    if (IsImm)
+      set4V(~(MI.getOperand(OpNum).getImm()));
+    else
+      set4V(getRegEncoding(MI, OpNum));
+  }
+#else // INTEL_FEATURE_ISA_APX_F
   void set4V(const MCInst &MI, unsigned OpNum) {
     set4V(getRegEncoding(MI, OpNum));
   }
-#if INTEL_CUSTOMIZATION
+#endif // INTEL_FEATURE_ISA_APX_F
 #if INTEL_FEATURE_ISA_AVX256P
   void setP10(bool V) { EVEX_P10 = V; }
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -327,6 +337,11 @@ public:
   void setAAA(unsigned Encoding) {
     assert((Encoding < 8) && "Invalid EVEX.aaa");
     EVEX_aaa = Encoding;
+  }
+  void setSC(const MCInst &MI, unsigned OpNum) {
+    unsigned Encoding = MI.getOperand(OpNum).getImm();
+    EVEX_V2 = ~(Encoding >> 3) & 0x1;
+    setAAA(Encoding & 0x7);
   }
   void setNF(bool V) { EVEX_aaa |= V << 2; }
 #endif // INTEL_FEATURE_ISA_APX_F
@@ -1201,7 +1216,8 @@ PrefixKind X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
   bool IsND = (TSFlags & X86II::OpMapMask) == X86II::T_MAP4 &&
-              (TSFlags & X86II::EVEX_B);
+              (TSFlags & X86II::EVEX_B) && HasVEX_4V;
+  bool HasTwoConditionalOps = TSFlags & X86II::TwoConditionalOps;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
@@ -1522,6 +1538,14 @@ PrefixKind X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand,
       Prefix.set4VV2(MI, CurOp++);
 
     Prefix.setRR2(MI, CurOp++);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (HasTwoConditionalOps) {
+      Prefix.set4V(MI, CurOp++, /*IsImm=*/true);
+      Prefix.setSC(MI, CurOp++);
+    }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     if (TSFlags & X86II::EVEX_B)
       EncodeRC = true;
     break;
@@ -1936,6 +1960,14 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI,
 
   unsigned OpcodeOffset = 0;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  bool IsND = (TSFlags & X86II::OpMapMask) == X86II::T_MAP4 &&
+              (TSFlags & X86II::EVEX_B) && HasVEX_4V;
+  bool HasTwoConditionalOps = TSFlags & X86II::TwoConditionalOps;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+
   uint64_t Form = TSFlags & X86II::FormMask;
   switch (Form) {
   default:
@@ -2006,8 +2038,7 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI,
       ++SrcRegNum;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-    if ((TSFlags & X86II::OpMapMask) == X86II::T_MAP4 &&
-        (TSFlags & X86II::EVEX_B))
+    if (IsND) // Skip non-destructive destination encoded in EVEX_VVVV
       ++CurOp;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
@@ -2015,6 +2046,12 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI,
     emitRegModRMByte(MI.getOperand(CurOp),
                      getX86RegNum(MI.getOperand(SrcRegNum)), CB);
     CurOp = SrcRegNum + 1;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (HasTwoConditionalOps) // Skip two conditional operands
+      CurOp += 2;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     break;
   }
 #if INTEL_CUSTOMIZATION
@@ -2066,10 +2103,8 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-    if ((TSFlags & X86II::OpMapMask) == X86II::T_MAP4 &&
-        (TSFlags & X86II::EVEX_B))
+    if (IsND) // Skip non-destructive destination
       ++CurOp;
-
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     bool ForceSIB = (Form == X86II::MRMDestMemFSIB);

@@ -105,7 +105,7 @@ public:
   virtual llvm::Value *getPipeElemAlign(const Expr *PipeArg);
 
 #if INTEL_CUSTOMIZATION
-  virtual llvm::Type *getChannelType();
+  virtual llvm::Type *getChannelType(const ChannelType *T);
 
   // \brief Returns a value which indicates the size in bytes of the channel
   // element.

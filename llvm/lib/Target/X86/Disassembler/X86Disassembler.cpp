@@ -1408,6 +1408,9 @@ static bool isPush2Pop2(InternalInstruction *insn) {
          ((Opcode == 0xff && regFromModRM(insn->modRM) == 6) ||
           (Opcode == 0x8f && regFromModRM(insn->modRM) == 0));
 }
+static bool isCCMPOrCTEST(InternalInstruction *insn) {
+  return (insn->opcodeType == MAP4) && ((insn->opcode & 0xfe) == 0x38);
+}
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
@@ -1456,7 +1459,8 @@ static int getInstructionID(struct InternalInstruction *insn,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
       if (nfFromEVEX4of4(insn->vectorExtensionPrefix[3]) &&
-          (insn->opcodeType == MAP4) && !isPush2Pop2(insn))
+          (insn->opcodeType == MAP4) && !isPush2Pop2(insn) &&
+          !isCCMPOrCTEST(insn))
         attrMask |= ATTR_EVEXNF;
 #endif // INTEL_FEATURE_ISA_APX_F
       // aaa is not used a opmask in MAP4
@@ -2058,8 +2062,23 @@ static int readOperands(struct InternalInstruction *insn) {
       if (readOpcodeRegister(insn, 0))
         return -1;
       break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    case ENCODING_CF:
+      insn->immediates[1] = oszcFromEVEX3of4(insn->vectorExtensionPrefix[2]);
+      needVVVV = false; // oszc shares the same bits with VVVV
+      break;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     case ENCODING_CC:
-      insn->immediates[1] = insn->opcode & 0xf;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+      if (isCCMPOrCTEST(insn))
+        insn->immediates[2] = scFromEVEX4of4(insn->vectorExtensionPrefix[3]);
+      else
+#endif // INTEL_FEATURE_ISA_APX_F
+        insn->immediates[1] = insn->opcode & 0xf;
+#endif // INTEL_CUSTOMIZATION
       break;
     case ENCODING_FP:
       break;
@@ -2730,8 +2749,22 @@ static bool translateOperand(MCInst &mcInst, const OperandSpecifier &operand,
   case ENCODING_Rv:
     translateRegister(mcInst, insn.opcodeRegister);
     return false;
-  case ENCODING_CC:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case ENCODING_CF:
     mcInst.addOperand(MCOperand::createImm(insn.immediates[1]));
+    return false;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+  case ENCODING_CC:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (isCCMPOrCTEST(&insn))
+      mcInst.addOperand(MCOperand::createImm(insn.immediates[2]));
+    else
+#endif // INTEL_FEATURE_ISA_APX_F
+      mcInst.addOperand(MCOperand::createImm(insn.immediates[1]));
+#endif // INTEL_CUSTOMIZATION
     return false;
   case ENCODING_FP:
     translateFPRegister(mcInst, insn.modRM & 7);

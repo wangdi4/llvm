@@ -818,6 +818,16 @@ def u4imm : Operand<i8> {
   let OperandType = "OPERAND_IMMEDIATE";
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+def cflags : Operand<i8> {
+  let PrintMethod = "printCondFlags";
+  let ParserMatchClass = ImmUnsignedi4AsmOperand;
+  let OperandType = "OPERAND_IMMEDIATE";
+}
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+
 // Unsigned 8-bit immediate used by SSE/AVX instructions.
 def u8imm : Operand<i8> {
   let PrintMethod = "printU8Imm";
@@ -1895,6 +1905,9 @@ include "Intel_X86XuCC.td"
 #if INTEL_FEATURE_ISA_AVX256P
 include "Intel_X86InstrAVX256P.td"
 #endif // INTEL_FEATURE_ISA_AVX256P
+#if INTEL_FEATURE_ISA_APX_F
+include "Intel_X86InstrAPXCondition.td"
+#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 // RAO-INT instructions

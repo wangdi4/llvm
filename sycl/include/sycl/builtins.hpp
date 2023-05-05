@@ -3233,10 +3233,12 @@ extern __DPCPP_SYCL_EXTERNAL float __imf_nanf (const char* x);
 extern __DPCPP_SYCL_EXTERNAL float __imf_scalbnf (float x, int y);
 extern __DPCPP_SYCL_EXTERNAL int __imf_signbitf (float x);
 extern __DPCPP_SYCL_EXTERNAL float __imf_i0f(float x);
+extern __DPCPP_SYCL_EXTERNAL float __imf_i1f(float x);
 extern __DPCPP_SYCL_EXTERNAL float __imf_j0f(float x);
 extern __DPCPP_SYCL_EXTERNAL float __imf_j1f(float x);
 extern __DPCPP_SYCL_EXTERNAL float __imf_y0f(float x);
 extern __DPCPP_SYCL_EXTERNAL float __imf_y1f(float x);
+extern __DPCPP_SYCL_EXTERNAL float __imf_pownf(float x, int y);
 // float64 imf builtins
 extern __DPCPP_SYCL_EXTERNAL double __imf_erfinv(double x);
 extern __DPCPP_SYCL_EXTERNAL double __imf_acos (double x);
@@ -3305,6 +3307,12 @@ extern __DPCPP_SYCL_EXTERNAL double __imf_tanh (double x);
 extern __DPCPP_SYCL_EXTERNAL double __imf_tgamma (double x);
 extern __DPCPP_SYCL_EXTERNAL double __imf_lgamma (double x);
 extern __DPCPP_SYCL_EXTERNAL double __imf_i0(double x);
+extern __DPCPP_SYCL_EXTERNAL double __imf_i1(double x);
+extern __DPCPP_SYCL_EXTERNAL double __imf_j0(double x);
+extern __DPCPP_SYCL_EXTERNAL double __imf_j1(double x);
+extern __DPCPP_SYCL_EXTERNAL double __imf_y0(double x);
+extern __DPCPP_SYCL_EXTERNAL double __imf_y1(double x);
+extern __DPCPP_SYCL_EXTERNAL double __imf_pown(double x, int y);
 /* end INTEL_CUSTOMIZATION */
 }
 #ifdef __GLIBC__

@@ -263,6 +263,8 @@ struct RecognizableInstrBase {
 #if INTEL_FEATURE_ISA_APX_F
   /// The hasEVEX_NF field from the record
   bool HasEVEX_NF;
+  /// The hasTwoConditionalOps field from the record
+  bool HasTwoConditionalOps;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
