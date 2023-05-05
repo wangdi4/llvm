@@ -7076,39 +7076,21 @@ public:
   using MapNonContiguousArrayTy =
       llvm::OpenMPIRBuilder::MapNonContiguousArrayTy;
   using MapExprsArrayTy = SmallVector<MappingExprInfo, 4>;
-<<<<<<< HEAD
-  using MapBaseValuesArrayTy = SmallVector<BasePointerInfo, 4>;
-  using MapValuesArrayTy = SmallVector<llvm::Value *, 4>;
-  using MapFlagsArrayTy = SmallVector<OpenMPOffloadMappingFlags, 4>;
-  using MapMappersArrayTy = SmallVector<const ValueDecl *, 4>;
-  using MapDimArrayTy = SmallVector<uint64_t, 4>;
-  using MapNonContiguousArrayTy = SmallVector<MapValuesArrayTy, 4>;
+  using MapValueDeclsArrayTy = SmallVector<const ValueDecl *, 4>;
 #if INTEL_COLLAB
   using MapVarChainsTy = SmallVector<std::pair<const VarDecl *, bool>, 4>;
 #endif // INTEL_COLLAB
-=======
-  using MapValueDeclsArrayTy = SmallVector<const ValueDecl *, 4>;
->>>>>>> 35309db7dcefde20180e924df303f65a14d97d68
 
   /// This structure contains combined information generated for mappable
   /// clauses, including base pointers, pointers, sizes, map types, user-defined
   /// mappers, and non-contiguous information.
   struct MapCombinedInfoTy : llvm::OpenMPIRBuilder::MapInfosTy {
     MapExprsArrayTy Exprs;
-<<<<<<< HEAD
-    MapBaseValuesArrayTy BasePointers;
-    MapValuesArrayTy Pointers;
-    MapValuesArrayTy Sizes;
-    MapFlagsArrayTy Types;
-    MapMappersArrayTy Mappers;
-    StructNonContiguousInfo NonContigInfo;
+    MapValueDeclsArrayTy Mappers;
+    MapValueDeclsArrayTy DevicePtrDecls;
 #if INTEL_COLLAB
     MapVarChainsTy VarChain;
 #endif // INTEL_COLLAB
-=======
-    MapValueDeclsArrayTy Mappers;
-    MapValueDeclsArrayTy DevicePtrDecls;
->>>>>>> 35309db7dcefde20180e924df303f65a14d97d68
 
     /// Append arrays in \a CurInfo.
     void append(MapCombinedInfoTy &CurInfo) {
@@ -7116,21 +7098,10 @@ public:
       DevicePtrDecls.append(CurInfo.DevicePtrDecls.begin(),
                             CurInfo.DevicePtrDecls.end());
       Mappers.append(CurInfo.Mappers.begin(), CurInfo.Mappers.end());
-<<<<<<< HEAD
-      NonContigInfo.Dims.append(CurInfo.NonContigInfo.Dims.begin(),
-                                 CurInfo.NonContigInfo.Dims.end());
-      NonContigInfo.Offsets.append(CurInfo.NonContigInfo.Offsets.begin(),
-                                    CurInfo.NonContigInfo.Offsets.end());
-      NonContigInfo.Counts.append(CurInfo.NonContigInfo.Counts.begin(),
-                                   CurInfo.NonContigInfo.Counts.end());
-      NonContigInfo.Strides.append(CurInfo.NonContigInfo.Strides.begin(),
-                                    CurInfo.NonContigInfo.Strides.end());
+      llvm::OpenMPIRBuilder::MapInfosTy::append(CurInfo);
 #if INTEL_COLLAB
       VarChain.append(CurInfo.VarChain.begin(), CurInfo.VarChain.end());
 #endif // INTEL_COLLAB
-=======
-      llvm::OpenMPIRBuilder::MapInfosTy::append(CurInfo);
->>>>>>> 35309db7dcefde20180e924df303f65a14d97d68
     }
   };
 
@@ -7980,7 +7951,7 @@ public:
             (Next == CE && MapType != OMPC_MAP_unknown)) {
           CombinedInfo.Exprs.emplace_back(MapDecl, MapExpr);
           CombinedInfo.BasePointers.push_back(BP.getPointer());
-<<<<<<< HEAD
+          CombinedInfo.DevicePtrDecls.push_back(nullptr);
 #if INTEL_COLLAB
           if (CGF.CGM.getLangOpts().OpenMPLateOutline &&
               I->getAssociatedExpression()->getType()
@@ -7993,9 +7964,6 @@ public:
                 LB.getElementType(), LB.getPointer(), Idx, "arrayidx"));
           } else
 #endif //INTEL_COLLAB
-=======
-          CombinedInfo.DevicePtrDecls.push_back(nullptr);
->>>>>>> 35309db7dcefde20180e924df303f65a14d97d68
           CombinedInfo.Pointers.push_back(LB.getPointer());
           CombinedInfo.Sizes.push_back(
               CGF.Builder.CreateIntCast(Size, CGF.Int64Ty, /*isSigned=*/true));
@@ -10015,7 +9983,7 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
   assert(CombinedInfo.BasePointers.size() == CombinedInfo.VarChain.size());
   for (unsigned int I = 0, E = CombinedInfo.BasePointers.size(); I < E; ++I) {
     Info->push_back(
-        {*CombinedInfo.BasePointers[I], CombinedInfo.Pointers[I],
+        {CombinedInfo.BasePointers[I], CombinedInfo.Pointers[I],
          CombinedInfo.Sizes[I],
          llvm::ConstantInt::get(
              CGF.CGM.Int64Ty,
