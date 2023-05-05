@@ -397,6 +397,7 @@ foreach( t ${LIBCLC_TARGETS_TO_BUILD} )
                 # Enable SPIR-V builtin function declarations, so they don't
                 # have to be explicity declared in the soruce.
                 list( APPEND flags -Xclang -fdeclare-spirv-builtins)
+<<<<<<< HEAD
 
                 if (INTEL_CUSTOMIZATION)
                         # disabling opts to be able to generate IR in
@@ -409,6 +410,14 @@ foreach( t ${LIBCLC_TARGETS_TO_BUILD} )
                   list(APPEND flags "-UENABLE_OPAQUE_POINTERS")
                   list(APPEND flags "SHELL:-Xclang -no-opaque-pointers")
                   list(APPEND opt_flags "-opaque-pointers=0")
+=======
+                if (${ARCH} STREQUAL "spirv" OR ${ARCH} STREQUAL "spirv64")
+                  if(NOT SPIRV_ENABLE_OPAQUE_POINTERS)
+                    list(APPEND flags "-UENABLE_OPAQUE_POINTERS")
+                    list(APPEND flags "SHELL:-Xclang -no-opaque-pointers")
+                    list(APPEND opt_flags "-opaque-pointers=0")
+                  endif()
+>>>>>>> 4d4c21a3961179450e4bd7591f381ee89d184a0d
                 endif()
 
                 # OpenCL 3.0 extensions
