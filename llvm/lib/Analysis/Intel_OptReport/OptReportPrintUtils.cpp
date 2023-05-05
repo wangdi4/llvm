@@ -144,9 +144,7 @@ void printRemark(formatted_raw_ostream &FOS, unsigned Depth, OptRemark Remark) {
   assert(Remark && "Client code is responsible for providing non-null Remark");
   FOS.indent(IntentationStep * Depth);
   std::string RemarkPrefixStr;
-  const ConstantAsMetadata *CRemarkID =
-      cast<ConstantAsMetadata>(Remark.getOperand(0));
-  unsigned RemarkID = getMDNodeAsUnsigned(CRemarkID);
+  unsigned RemarkID = Remark.getRemarkID();
   if (RemarkID == OptReportDiag::InvalidRemarkID)
     RemarkPrefixStr = "remark: ";
   else
@@ -158,9 +156,7 @@ void printOrigin(formatted_raw_ostream &FOS, unsigned Depth, OptRemark Origin) {
   assert(Origin && "Client code is responsible for providing non-null Origin");
 
   FOS.indent(IntentationStep * Depth);
-  const ConstantAsMetadata *CRemarkID =
-      cast<ConstantAsMetadata>(Origin.getOperand(0));
-  unsigned RemarkID = getMDNodeAsUnsigned(CRemarkID);
+  unsigned RemarkID = Origin.getRemarkID();
   FOS << "<" << formatRemarkMessage(Origin, RemarkID) << ">\n";
 }
 
