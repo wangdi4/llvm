@@ -116,6 +116,7 @@ VERS1.0 {
     __tgt_interop_init;
     __tgt_interop_use;
     __tgt_interop_destroy;
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
     __tgt_get_interop_obj;
     __tgt_target_sync;
@@ -123,6 +124,9 @@ VERS1.0 {
     __tgt_task_completed;
     __tgt_interop_use_async;
 # end INTEL_CUSTOMIZATION
+=======
+    ompt_libomptarget_connect;
+>>>>>>> 01035dc04df49061adf4c7c0ddf4b2e2df6e31f7
   local:
     *;
 };

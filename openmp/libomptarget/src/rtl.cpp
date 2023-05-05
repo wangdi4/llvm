@@ -103,6 +103,7 @@ PluginManager *PM;
 OmptGlobalTy *OmptGlobal;
 #endif // INTEL_CUSTOMIZATION
 
+<<<<<<< HEAD
 #ifdef INTEL_CUSTOMIZATION
 #ifdef _WIN32
 #define __ATTRIBUTE__(X)
@@ -116,6 +117,13 @@ static char *ProfileTraceFile = nullptr;
 #endif
 
 __ATTRIBUTE__(constructor(101)) void init() { // INTEL
+=======
+#ifdef OMPT_SUPPORT
+extern void InitOmptLibomp();
+#endif
+
+__attribute__((constructor(101))) void init() {
+>>>>>>> 01035dc04df49061adf4c7c0ddf4b2e2df6e31f7
   DP("Init target library!\n");
 
   bool UseEventsForAtomicTransfers = true;
@@ -144,7 +152,15 @@ __ATTRIBUTE__(constructor(101)) void init() { // INTEL
     timeTraceProfilerInitialize(500 /* us */, "libomptarget");
 #endif
 
+<<<<<<< HEAD
 #if !INTEL_CUSTOMIZATION
+=======
+  #ifdef OMPT_SUPPORT
+    // Initialize OMPT first
+    InitOmptLibomp();
+  #endif
+
+>>>>>>> 01035dc04df49061adf4c7c0ddf4b2e2df6e31f7
   PM->RTLs.loadRTLs();
   PM->registerDelayedLibraries();
 #endif // !INTEL_CUSTOMIZATION
