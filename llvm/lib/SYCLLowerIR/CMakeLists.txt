@@ -34,6 +34,7 @@ if (NOT TARGET LLVMGenXIntrinsics)
     # Date: Tue, 25 Apr 2023 15:13:02 +0000
     # Use target extension types for SPIR-V opaque arguments
     set(LLVMGenXIntrinsics_GIT_TAG 2c39bf09756c3afd6ce77c7aa104e4a6e025405d)
+<<<<<<< HEAD
 
     if (INTEL_CUSTOMIZATION)
       # for xmain builds the LLVMGenXIntrinsics_GIT_REPO is constructed from
@@ -86,6 +87,8 @@ if (NOT TARGET LLVMGenXIntrinsics)
       set( LLVMGenXIntrinsics_GIT_REPO
         ${LLVMGenXIntrinsics_GIT_REPO_PATH}/${LLVMGenXIntrinsics_GIT_REPO_NAME} )
     endif (INTEL_CUSTOMIZATION)
+=======
+>>>>>>> 5ca5f3ab272e3c392d60d220cb1ad9cae1c4e91e
 
     message(STATUS "vc-intrinsics repo is missing. Will try to download it from ${LLVMGenXIntrinsics_GIT_REPO}")
     include(FetchContent)
