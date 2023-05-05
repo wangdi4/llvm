@@ -25,6 +25,7 @@
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
@@ -44,6 +45,9 @@ static cl::opt<bool>
 typedef SmallVector<uint64_t, 1> DebugExprOp;
 typedef SmallVector<DebugExprOp, 1> DebugExpr;
 
+static const unsigned DefaultAddressSpace = 0;
+static const size_t MINIMUM_ELEMENTS_FOR_XDEREF = 4;
+
 static void append(DebugExpr &DE, const DIExpression *E) {
   for (auto EO : E->expr_ops()) {
     DebugExprOp DEO;
@@ -62,59 +66,8 @@ static DIExpression *create(LLVMContext &Context, DebugExpr &DE) {
   return DIExpression::get(Context, Elements);
 }
 
-IntelDebugRemoveXDeref::IntelDebugRemoveXDeref(TargetMachine *TM) : TM(TM) {}
-
-bool IntelDebugRemoveXDeref::run(Module &M) {
-  if (!EnableIntelDebugRemoveXDeref)
-    return false;
-
-  // A target machine is required to determine where xderef should be removed.
-  if (!TM)
-    return false;
-
-  // Currently, CLANG only emits XDeref opcodes for SPIRV.
-  if (!M.getNamedMetadata("opencl.spir.version"))
-    return false;
-
-  bool Changed = false;
-  for (Function &F : M)
-    Changed |= run(F);
-  return Changed;
-}
-
-bool IntelDebugRemoveXDeref::run(Function &F) {
-  // Skip functions without debug information.
-  if (!F.getSubprogram())
-    return false;
-
-  bool Changed = false;
-  for (auto &I : instructions(F))
-    if (auto *DVI = dyn_cast_or_null<DbgVariableIntrinsic>(&I))
-      Changed |= run(*DVI);
-  return Changed;
-}
-
-bool IntelDebugRemoveXDeref::run(DbgVariableIntrinsic &DVI) {
-  DIExpression *E = DVI.getExpression();
-  if (E->getNumElements() == 0)
-    return false;
-
-  LLVM_DEBUG(dbgs() << "DVI: " << DVI << "\n");
-
-  const unsigned DefaultAddressSpace = 0;
-  unsigned SrcAS = DefaultAddressSpace;
-  // Eventually we'll need to support variable location lists.
-  if (!DVI.hasArgList()) {
-    Value *Op = DVI.getVariableLocationOp(0);
-    // Malformed IR can result in an invalid location operand. Check Op first.
-    if (auto P = Op ? dyn_cast<PointerType>(Op->getType()) : nullptr)
-      SrcAS = P->getPointerAddressSpace();
-  }
-
-  // This algorithm should properly parse the expression opcodes.
-  DebugExpr DE;
-  append(DE, E);
-
+static bool maybeRemoveXDeref(DebugExpr &DE, unsigned SrcAS,
+                              TargetMachine *TM) {
   bool Changed = false;
   for (size_t i = 0, e = DE.size(); i < e; ++i) {
     if (i + 2 < e && // Make sure we don't overrun the expression.
@@ -135,11 +88,92 @@ bool IntelDebugRemoveXDeref::run(DbgVariableIntrinsic &DVI) {
       }
     }
   }
+  return Changed;
+}
+
+IntelDebugRemoveXDeref::IntelDebugRemoveXDeref(TargetMachine *TM) : TM(TM) {}
+
+bool IntelDebugRemoveXDeref::run(Module &M) {
+  if (!EnableIntelDebugRemoveXDeref)
+    return false;
+
+  // A target machine is required to determine where xderef should be removed.
+  if (!TM)
+    return false;
+
+  // Currently, CLANG only emits XDeref opcodes for SPIRV.
+  if (!M.getNamedMetadata("opencl.spir.version"))
+    return false;
+
+  bool Changed = false;
+  for (GlobalVariable &GV : M.globals())
+    Changed |= run(GV);
+  for (Function &F : M)
+    Changed |= run(F);
+  return Changed;
+}
+
+bool IntelDebugRemoveXDeref::run(Function &F) {
+  // Skip functions without debug information.
+  if (!F.getSubprogram())
+    return false;
+
+  bool Changed = false;
+  for (auto &I : instructions(F))
+    if (auto *DVI = dyn_cast_or_null<DbgVariableIntrinsic>(&I))
+      Changed |= run(*DVI);
+  return Changed;
+}
+
+bool IntelDebugRemoveXDeref::run(DbgVariableIntrinsic &DVI) {
+  DIExpression *E = DVI.getExpression();
+  if (E->getNumElements() < MINIMUM_ELEMENTS_FOR_XDEREF)
+    return false;
+
+  LLVM_DEBUG(dbgs() << "DVI: " << DVI << "\n");
+
+  unsigned SrcAS = DefaultAddressSpace;
+  // Eventually we'll need to support variable location lists.
+  if (!DVI.hasArgList()) {
+    Value *Op = DVI.getVariableLocationOp(0);
+    // Malformed IR can result in an invalid location operand. Check Op first.
+    if (auto P = Op ? dyn_cast<PointerType>(Op->getType()) : nullptr)
+      SrcAS = P->getPointerAddressSpace();
+  }
+
+  DebugExpr DE;
+  append(DE, E);
+
+  bool Changed = maybeRemoveXDeref(DE, SrcAS, TM);
 
   if (Changed) {
     DVI.setExpression(create(E->getContext(), DE));
     LLVM_DEBUG(dbgs() << " ==> " << DVI << "\n");
   }
 
+  return Changed;
+}
+
+bool IntelDebugRemoveXDeref::run(GlobalVariable &GV) {
+  bool Changed = false;
+  SmallVector<DIGlobalVariableExpression *, 1> GVEs;
+  GV.getDebugInfo(GVEs);
+
+  for (auto *GVE : GVEs) {
+    DIExpression *E = GVE->getExpression();
+    if (E->getNumElements() < MINIMUM_ELEMENTS_FOR_XDEREF)
+      continue;
+    LLVM_DEBUG(dbgs() << "GVE: " << *GVE << "\n");
+    DebugExpr DE;
+    append(DE, E);
+    unsigned SrcAS = DefaultAddressSpace;
+    bool ChangedGVE = maybeRemoveXDeref(DE, SrcAS, TM);
+    if (ChangedGVE) {
+      DIExpression *NewE = create(E->getContext(), DE);
+      GVE->replaceOperandWith(1, NewE);
+      Changed = true;
+      LLVM_DEBUG(dbgs() << " ==> " << *GVE << "\n");
+    }
+  }
   return Changed;
 }
