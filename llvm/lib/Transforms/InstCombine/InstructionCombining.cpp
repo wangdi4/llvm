@@ -1137,7 +1137,8 @@ static Constant *constantFoldOperationIntoSelectOperand(Instruction &I,
                                        : SI->getFalseValue());
     } else if (match(SI->getCondition(),
                      m_ICmp(Pred, m_Specific(Op), m_Constant(C))) &&
-               Pred == (IsTrueArm ? ICmpInst::ICMP_EQ : ICmpInst::ICMP_NE)) {
+               Pred == (IsTrueArm ? ICmpInst::ICMP_EQ : ICmpInst::ICMP_NE) &&
+               isGuaranteedNotToBeUndefOrPoison(C)) {
       // Pass
     } else {
       C = dyn_cast<Constant>(Op);
@@ -2022,9 +2023,9 @@ Instruction *InstCombinerImpl::foldVectorBinop(BinaryOperator &Inst) {
     // TODO: Allow arbitrary shuffles by shuffling after binop?
     //       That might be legal, but we have to deal with poison.
     if (LShuf->isSelect() &&
-        !is_contained(LShuf->getShuffleMask(), UndefMaskElem) &&
+        !is_contained(LShuf->getShuffleMask(), PoisonMaskElem) &&
         RShuf->isSelect() &&
-        !is_contained(RShuf->getShuffleMask(), UndefMaskElem)) {
+        !is_contained(RShuf->getShuffleMask(), PoisonMaskElem)) {
       // Example:
       // LHS = shuffle V1, V2, <0, 5, 6, 3>
       // RHS = shuffle V2, V1, <0, 5, 6, 3>
@@ -2325,13 +2326,6 @@ Instruction *InstCombinerImpl::visitGEPOfGEP(GetElementPtrInst &GEP,
   // indices of the two getelementptr instructions into a single instruction.
   if (!shouldMergeGEPs(*cast<GEPOperator>(&GEP), *Src))
     return nullptr;
-
-  // Note that if our source is a gep chain itself then we wait for that
-  // chain to be resolved before we perform this transformation.  This
-  // avoids us creating a TON of code in some cases.
-  if (auto *SrcGEP = dyn_cast<GEPOperator>(Src->getOperand(0)))
-    if (SrcGEP->getNumOperands() == 2 && shouldMergeGEPs(*Src, *SrcGEP))
-      return nullptr;   // Wait until our source is folded to completion.
 
   // For constant GEPs, use a more general offset-based folding approach.
   // Only do this for opaque pointers, as the result element type may change.

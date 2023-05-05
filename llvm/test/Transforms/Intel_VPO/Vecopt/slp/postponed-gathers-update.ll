@@ -14,7 +14,7 @@ define void @f(i64 %i) {
 ; CHECK:       bb5:
 ; CHECK-NEXT:    br i1 false, label [[BB7]], label [[BB6:%.*]]
 ; CHECK:       bb6:
-; CHECK-NEXT:    [[TMP2:%.*]] = shufflevector <2 x i64> [[TMP0]], <2 x i64> <i64 6, i64 poison>, <2 x i32> <i32 2, i32 1>
+; CHECK-NEXT:    [[TMP2:%.*]] = shufflevector <2 x i64> [[TMP1]], <2 x i64> <i64 6, i64 poison>, <2 x i32> <i32 2, i32 1>
 ; CHECK-NEXT:    br label [[BB7]]
 ; CHECK:       bb7:
 ; CHECK-NEXT:    [[TMP3:%.*]] = phi <2 x i64> [ [[TMP1]], [[BB5]] ], [ [[TMP1]], [[BB4]] ], [ [[TMP1]], [[BB3]] ], [ [[TMP2]], [[BB6]] ], [ [[TMP0]], [[BB2:%.*]] ]

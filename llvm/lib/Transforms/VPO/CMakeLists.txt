@@ -115,6 +115,7 @@ add_llvm_component_library(LLVMVPOTransforms
   LINK_COMPONENTS
   Analysis
   Core
+  CodeGenTypes
 # INTEL_CUSTOMIZATION
   Intel_LoopAnalysis
   Intel_LoopTransforms

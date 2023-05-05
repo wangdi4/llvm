@@ -3471,9 +3471,11 @@ Instruction *InstCombinerImpl::foldICmpEqIntrinsicWithConstant(
     }
     break;
 
+  case Intrinsic::umax:
   case Intrinsic::uadd_sat: {
     // uadd.sat(a, b) == 0  ->  (a | b) == 0
-    if (C.isZero()) {
+    // umax(a, b) == 0  ->  (a | b) == 0
+    if (C.isZero() && II->hasOneUse()) {
       Value *Or = Builder.CreateOr(II->getArgOperand(0), II->getArgOperand(1));
       return new ICmpInst(Pred, Or, Constant::getNullValue(Ty));
     }

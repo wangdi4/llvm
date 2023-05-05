@@ -1,21 +1,4 @@
 //===- InstrProf.h - Instrumented profiling format support ------*- C++ -*-===//
-// INTEL_CUSTOMIZATION
-//
-// INTEL CONFIDENTIAL
-//
-// Modifications, Copyright (C) 2023 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may
-// not use, modify, copy, publish, distribute, disclose or transmit this
-// software or the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -347,7 +330,8 @@ enum class instrprof_error {
   compress_failed,
   uncompress_failed,
   empty_raw_profile,
-  zlib_unavailable
+  zlib_unavailable,
+  raw_profile_version_mismatch
 };
 
 /// An ordered list of functions identified by their NameRef found in
@@ -379,31 +363,19 @@ public:
   instrprof_error get() const { return Err; }
   const std::string &getMessage() const { return Msg; }
 
-  /// Consume an Error and return the raw enum value contained within it. The
-  /// Error must either be a success value, or contain a single InstrProfError.
-  static instrprof_error take(Error E) {
+  /// Consume an Error and return the raw enum value contained within it, and
+  /// the optional error message. The Error must either be a success value, or
+  /// contain a single InstrProfError.
+  static std::pair<instrprof_error, std::string> take(Error E) {
     auto Err = instrprof_error::success;
-    handleAllErrors(std::move(E), [&Err](const InstrProfError &IPE) {
+    std::string Msg = "";
+    handleAllErrors(std::move(E), [&Err, &Msg](const InstrProfError &IPE) {
       assert(Err == instrprof_error::success && "Multiple errors encountered");
       Err = IPE.get();
+      Msg = IPE.getMessage();
     });
-    return Err;
+    return {Err, Msg};
   }
-
-#if INTEL_CUSTOMIZATION
-  /// Consume an Error and return the raw enum value and any additional message
-  /// information contained within it.
-  static std::pair<instrprof_error, std::string> takeWithMessage(Error E) {
-    auto Err = instrprof_error::success;
-    std::string Message;
-    handleAllErrors(std::move(E), [&Err, &Message](const InstrProfError &IPE) {
-      assert(Err == instrprof_error::success && "Multiple errors encountered");
-      Err = IPE.get();
-      Message = IPE.getMessage();
-    });
-    return {Err, Message};
-  }
-#endif // INTEL_CUSTOMIZATION
 
   static char ID;
 

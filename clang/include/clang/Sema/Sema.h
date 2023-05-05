@@ -1915,6 +1915,9 @@ public:
   /// Indicate RISC-V vector builtin functions enabled or not.
   bool DeclareRISCVVBuiltins = false;
 
+  /// Indicate RISC-V Sifive vector builtin functions enabled or not.
+  bool DeclareRISCVVectorBuiltins = false;
+
 private:
   std::unique_ptr<sema::RISCVIntrinsicManager> RVIntrinsicManager;
 
@@ -13402,6 +13405,7 @@ public:
                                        SourceLocation Loc, bool IsCompAssign);
 
   bool isValidSveBitcast(QualType srcType, QualType destType);
+  bool isValidRVVBitcast(QualType srcType, QualType destType);
 
   bool areMatrixTypesOfTheSameDimension(QualType srcTy, QualType destTy);
 

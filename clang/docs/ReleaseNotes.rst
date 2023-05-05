@@ -157,6 +157,8 @@ Non-comprehensive list of changes in this release
 - A new builtin type trait ``__is_trivially_equaltiy_comparable`` has been added,
   which checks whether comparing two instances of a type is equivalent to
   ``memcmp(&lhs, &rhs, sizeof(T)) == 0``.
+- Clang now ignores null directives outside of the include guard when deciding
+  whether a file can be enabled for the multiple-include optimization.
 
 New Compiler Flags
 ------------------
@@ -231,6 +233,8 @@ Improvements to Clang's diagnostics
 - ``-Wformat`` now recognizes ``%lb`` for the ``printf``/``scanf`` family of
   functions.
   (`#62247: <https://github.com/llvm/llvm-project/issues/62247>`_).
+- Clang now diagnoses shadowing of lambda's template parameter by a capture.
+  (`#61105: <https://github.com/llvm/llvm-project/issues/61105>`_).
 
 Bug Fixes in This Version
 -------------------------
@@ -309,8 +313,8 @@ Bug Fixes in This Version
   not a type concept.
 - Fix crash when a doc comment contains a line splicing.
   (`#62054 <https://github.com/llvm/llvm-project/issues/62054>`_)
-- Work around with a clang coverage crash which happens when visiting 
-  expressions/statements with invalid source locations in non-assert builds. 
+- Work around with a clang coverage crash which happens when visiting
+  expressions/statements with invalid source locations in non-assert builds.
   Assert builds may still see assertions triggered from this.
 - Fix a failed assertion due to an invalid source location when trying to form
   a coverage report for an unresolved constructor expression.
@@ -327,10 +331,15 @@ Bug Fixes in This Version
   (`#62122 <https://github.com/llvm/llvm-project/issues/62122>`_)
 - Fix crash when handling undefined template partial specialization
   (`#61356 <https://github.com/llvm/llvm-project/issues/61356>`_)
-- Fix a crash caused by incorrectly evaluating constraints on an inheriting
-  constructor declaration.
-  (`#62361 <https://github.com/llvm/llvm-project/issues/62361>`_)
-  (`#62362 <https://github.com/llvm/llvm-project/issues/62362>`_)
+- Fix premature substitution into the constraints of an inherited constructor.
+- Fix crash when attempting to perform parenthesized initialization of an
+  aggregate with a base class with only non-public constructors.
+  (`#62296 <https://github.com/llvm/llvm-project/issues/62296>`_)
+- Fix a stack overflow issue when evaluating ``consteval`` default arguments.
+  (`#60082` <https://github.com/llvm/llvm-project/issues/60082>`_)
+- Fix the assertion hit when generating code for global variable initializer of
+  _BitInt(1) type.
+  (`#62207 <https://github.com/llvm/llvm-project/issues/62207>`_)
 
 Bug Fixes to Compiler Builtins
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -369,6 +378,12 @@ Bug Fixes to C++ Support
 - Fix bug in the computation of the ``__has_unique_object_representations``
   builtin for types with unnamed bitfields.
   (`#61336 <https://github.com/llvm/llvm-project/issues/61336>`_)
+- Fix default member initializers sometimes being ignored when performing
+  parenthesized aggregate initialization of templated types.
+  (`#62266 <https://github.com/llvm/llvm-project/issues/62266>`_)
+- Fix overly aggressive lifetime checks for parenthesized aggregate
+  initialization.
+  (`#61567 <https://github.com/llvm/llvm-project/issues/61567>`_)
 
 Bug Fixes to AST Handling
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -416,6 +431,18 @@ Arm and AArch64 Support
 - Clang builtin ``__arithmetic_fence`` and the command line option ``-fprotect-parens``
   are now enabled for AArch64.
 
+- Clang supports flag output operands by which conditions in the NZCV could be outputs
+  of inline assembly for AArch64. This change is more consistent with the behavior of
+  GCC.
+
+   .. code-block:: c
+
+     // int a = foo(); int* b = bar();
+     asm("ands %w[a], %w[a], #3" : [a] "+r"(a), "=@cceq"(*b));
+
+- Fix a crash when ``preserve_all`` calling convention is used on AArch64.
+  `Issue 58145 <https://github.com/llvm/llvm-project/issues/58145>`_
+
 Windows Support
 ^^^^^^^^^^^^^^^
 
@@ -434,6 +461,11 @@ RISC-V Support
 - Fixed incorrect ABI lowering of ``_Float16`` in the case of structs
   containing ``_Float16`` that are eligible for passing via GPR+FPR or
   FPR+FPR.
+- Removed support for ``__attribute__((interrupt("user")))``. User-level
+  interrupts are not in version 1.12 of the privileged specification.
+- Added ``attribute(riscv_rvv_vector_bits(__riscv_v_fixed_vlen))`` to allow
+  the size of a RVV (RISC-V Vector) scalable type to be specified. This allows
+  RVV scalable vector types to be used in structs or in global variables.
 
 CUDA/HIP Language Changes
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -489,6 +521,8 @@ clang-format
 - Add additional Qualifier Ordering support for special cases such
   as templates, requires clauses, long qualified names.
 - Fix all known issues associated with ``LambdaBodyIndentation: OuterScope``.
+- Add ``BracedInitializerIndentWidth`` which can be used to configure
+  the indentation level of the contents of braced init lists.
 
 libclang
 --------

@@ -32,6 +32,7 @@
 
 #include "CodeGenTarget.h"
 #include "CodeGenInstruction.h"
+#include "CodeGenRegisters.h"
 #include "CodeGenSchedule.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Twine.h"
@@ -446,6 +447,10 @@ void CodeGenTarget::ReadRegAltNameIndices() const {
 /// return it.
 const CodeGenRegister *CodeGenTarget::getRegisterByName(StringRef Name) const {
   return getRegBank().getRegistersByName().lookup(Name);
+}
+
+const CodeGenRegisterClass &CodeGenTarget::getRegisterClass(Record *R) const {
+  return *getRegBank().getRegClass(R);
 }
 
 std::vector<ValueTypeByHwMode> CodeGenTarget::getRegisterVTs(Record *R)

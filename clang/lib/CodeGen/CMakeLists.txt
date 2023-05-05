@@ -20,6 +20,7 @@ set(LLVM_LINK_COMPONENTS
   Analysis
   BitReader
   BitWriter
+  CodeGenTypes
   Core
   Coroutines
   Coverage

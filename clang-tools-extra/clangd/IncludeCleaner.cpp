@@ -40,13 +40,7 @@
 #include "clang/Tooling/Syntax/Tokens.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseSet.h"
-#if INTEL_CUSTOMIZATION
-// Temporarily revert this change because of the bug in the llvm-project.
-// Tracker: CMPLRLLVM-47255.
-#if 0
 #include "llvm/ADT/GenericUniformityImpl.h"
-#endif
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/ADT/SmallString.h"
@@ -423,26 +417,24 @@ IncludeCleanerFindings computeIncludeCleanerFindings(ParsedAST &AST) {
             Ref.Target, TouchingTokens.back().range(SM), Providers};
         MissingIncludes.push_back(std::move(DiagInfo));
       });
-#if INTEL_CUSTOMIZATION
-// Temporarily revert this change because of the bug in the llvm-project.
-// Tracker: CMPLRLLVM-47255.
-#if 0
   // Put possibly equal diagnostics together for deduplication.
   // The duplicates might be from macro arguments that get expanded multiple
   // times.
   llvm::stable_sort(MissingIncludes, [](const MissingIncludeDiagInfo &LHS,
                                         const MissingIncludeDiagInfo &RHS) {
-    if (LHS.Symbol == RHS.Symbol) {
+    // First sort by reference location.
+    if (LHS.SymRefRange != RHS.SymRefRange) {
       // We can get away just by comparing the offsets as all the ranges are in
       // main file.
       return LHS.SymRefRange.beginOffset() < RHS.SymRefRange.beginOffset();
     }
-    // If symbols are different we don't care about the ordering.
-    return true;
+    // For the same location, break ties using the symbol. Note that this won't
+    // be stable across runs.
+    using MapInfo = llvm::DenseMapInfo<include_cleaner::Symbol>;
+    return MapInfo::getHashValue(LHS.Symbol) <
+           MapInfo::getHashValue(RHS.Symbol);
   });
   MissingIncludes.erase(llvm::unique(MissingIncludes), MissingIncludes.end());
-#endif
-#endif // INTEL_CUSTOMIZATION
   std::vector<const Inclusion *> UnusedIncludes =
       getUnused(AST, Used, /*ReferencedPublicHeaders*/ {});
   return {std::move(UnusedIncludes), std::move(MissingIncludes)};

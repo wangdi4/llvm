@@ -198,10 +198,10 @@ cl::opt<unsigned>
 #endif // INTEL_CUSTOMIZATION
 
 static bool inSubLoop(BasicBlock *BB, Loop *CurLoop, LoopInfo *LI);
-static bool isNotUsedOrFreeInLoop(const Instruction &I, const Loop *CurLoop,
-                                  const LoopSafetyInfo *SafetyInfo,
-                                  TargetTransformInfo *TTI, bool &FreeInLoop,
-                                  bool LoopNestMode);
+static bool isNotUsedOrFoldableInLoop(const Instruction &I, const Loop *CurLoop,
+                                      const LoopSafetyInfo *SafetyInfo,
+                                      TargetTransformInfo *TTI,
+                                      bool &FoldableInLoop, bool LoopNestMode);
 static void hoist(Instruction &I, const DominatorTree *DT, const Loop *CurLoop,
                   BasicBlock *Dest, ICFLoopSafetyInfo *SafetyInfo,
                   MemorySSAUpdater &MSSAU, ScalarEvolution *SE,
@@ -567,7 +567,7 @@ bool LoopInvariantCodeMotion::runOnLoop(Loop *L, AAResults *AA, LoopInfo *LI,
       // SSAUpdater strategy during promotion that was LCSSA aware and reformed
       // it as it went.
       if (Promoted)
-        formLCSSARecursively(*L, *DT, LI, SE);
+        formLCSSARecursively(*L, *DT, LI);
 
       Changed |= Promoted;
     }
@@ -638,14 +638,15 @@ bool llvm::sinkRegion(DomTreeNode *N, AAResults *AA, LoopInfo *LI,
       // outside of the loop.  In this case, it doesn't even matter if the
       // operands of the instruction are loop invariant.
       //
-      bool FreeInLoop = false;
+      bool FoldableInLoop = false;
       bool LoopNestMode = OutermostLoop != nullptr;
       if (!I.mayHaveSideEffects() &&
-          isNotUsedOrFreeInLoop(I, LoopNestMode ? OutermostLoop : CurLoop,
-                                SafetyInfo, TTI, FreeInLoop, LoopNestMode) &&
+          isNotUsedOrFoldableInLoop(I, LoopNestMode ? OutermostLoop : CurLoop,
+                                    SafetyInfo, TTI, FoldableInLoop,
+                                    LoopNestMode) &&
           canSinkOrHoistInst(I, AA, DT, CurLoop, MSSAU, true, Flags, ORE)) {
         if (sink(I, LI, DT, CurLoop, SafetyInfo, MSSAU, ORE)) {
-          if (!FreeInLoop) {
+          if (!FoldableInLoop) {
             ++II;
             salvageDebugInfo(I);
             eraseInstruction(I, *SafetyInfo, MSSAU);
@@ -1405,13 +1406,12 @@ static bool isTriviallyReplaceablePHI(const PHINode &PN, const Instruction &I) {
   return true;
 }
 
-/// Return true if the instruction is free in the loop.
-static bool isFreeInLoop(const Instruction &I, const Loop *CurLoop,
+/// Return true if the instruction is foldable in the loop.
+static bool isFoldableInLoop(const Instruction &I, const Loop *CurLoop,
                          const TargetTransformInfo *TTI) {
-  InstructionCost CostI =
-      TTI->getInstructionCost(&I, TargetTransformInfo::TCK_SizeAndLatency);
-
   if (auto *GEP = dyn_cast<GetElementPtrInst>(&I)) {
+    InstructionCost CostI =
+        TTI->getInstructionCost(&I, TargetTransformInfo::TCK_SizeAndLatency);
     if (CostI != TargetTransformInfo::TCC_Free)
       return false;
     // For a GEP, we cannot simply use getInstructionCost because currently
@@ -1428,7 +1428,7 @@ static bool isFreeInLoop(const Instruction &I, const Loop *CurLoop,
     return true;
   }
 
-  return CostI == TargetTransformInfo::TCC_Free;
+  return false;
 }
 
 /// Return true if the only users of this instruction are outside of
@@ -1437,12 +1437,12 @@ static bool isFreeInLoop(const Instruction &I, const Loop *CurLoop,
 ///
 /// We also return true if the instruction could be folded away in lowering.
 /// (e.g.,  a GEP can be folded into a load as an addressing mode in the loop).
-static bool isNotUsedOrFreeInLoop(const Instruction &I, const Loop *CurLoop,
-                                  const LoopSafetyInfo *SafetyInfo,
-                                  TargetTransformInfo *TTI, bool &FreeInLoop,
-                                  bool LoopNestMode) {
+static bool isNotUsedOrFoldableInLoop(const Instruction &I, const Loop *CurLoop,
+                                      const LoopSafetyInfo *SafetyInfo,
+                                      TargetTransformInfo *TTI,
+                                      bool &FoldableInLoop, bool LoopNestMode) {
   const auto &BlockColors = SafetyInfo->getBlockColors();
-  bool IsFree = isFreeInLoop(I, CurLoop, TTI);
+  bool IsFoldable = isFoldableInLoop(I, CurLoop, TTI);
   for (const User *U : I.users()) {
     const Instruction *UI = cast<Instruction>(U);
     if (const PHINode *PN = dyn_cast<PHINode>(UI)) {
@@ -1469,8 +1469,8 @@ static bool isNotUsedOrFreeInLoop(const Instruction &I, const Loop *CurLoop,
     }
 
     if (CurLoop->contains(UI)) {
-      if (IsFree) {
-        FreeInLoop = true;
+      if (IsFoldable) {
+        FoldableInLoop = true;
         continue;
       }
       return false;

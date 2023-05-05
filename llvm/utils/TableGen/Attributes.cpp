@@ -73,6 +73,7 @@ void Attributes::emitTargetIndependentNames(raw_ostream &OS) {
   Emit({"EnumAttr", "TypeAttr", "IntAttr"}, "ATTRIBUTE_ENUM");
   Emit({"StrBoolAttr"}, "ATTRIBUTE_STRBOOL");
   Emit({"StrAttr"}, "ATTRIBUTE_STRING"); // INTEL
+  Emit({"ComplexStrAttr"}, "ATTRIBUTE_COMPLEXSTR");
 
   OS << "#undef ATTRIBUTE_ALL\n";
   OS << "#endif\n\n";

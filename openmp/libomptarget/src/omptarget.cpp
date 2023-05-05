@@ -135,8 +135,9 @@ static const int64_t MaxAlignment = 16;
 /// Return the alignment requirement of partially mapped structs, see
 /// MaxAlignment above.
 static uint64_t getPartialStructRequiredAlignment(void *HstPtrBase) {
-  auto BaseAlignment = reinterpret_cast<uintptr_t>(HstPtrBase) % MaxAlignment;
-  return BaseAlignment == 0 ? MaxAlignment : BaseAlignment;
+  int LowestOneBit = __builtin_ffsl(reinterpret_cast<uintptr_t>(HstPtrBase));
+  uint64_t BaseAlignment = 1 << (LowestOneBit - 1);
+  return MaxAlignment < BaseAlignment ? MaxAlignment : BaseAlignment;
 }
 
 /// Map global data and execute pending ctors
@@ -853,6 +854,15 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
           return OFFLOAD_FAIL;
       }
     }
+
+    // Check if variable can be used on the device:
+    bool IsStructMember = ArgTypes[I] & OMP_TGT_MAPTYPE_MEMBER_OF;
+    if (getInfoLevel() & OMP_INFOTYPE_EMPTY_MAPPING && ArgTypes[I] != 0 &&
+        !IsStructMember && !IsImplicit && !TPR.isPresent() &&
+        !TPR.isContained() && !TPR.isHostPointer())
+      INFO(OMP_INFOTYPE_EMPTY_MAPPING, Device.DeviceID,
+           "variable %s does not have a valid device counterpart\n",
+           (HstPtrName) ? getNameFromMapping(HstPtrName).c_str() : "unknown");
   }
 #if INTEL_COLLAB
   if (!ArgMappers && Device.commandBatchEnd() != OFFLOAD_SUCCESS) {
