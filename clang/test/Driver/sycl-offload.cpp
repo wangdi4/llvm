@@ -170,7 +170,3 @@
 // RUN:          -target x86_64-unknown-linux-gnu -### 2>&1 \
 // RUN:  | FileCheck -check-prefix IGNORE_INPUT %s
 // IGNORE_INPUT: input unused
-<<<<<<< HEAD
-=======
-
->>>>>>> 21ff6aa5d6ccaca43e3d1011b3a0bded847ceac8
