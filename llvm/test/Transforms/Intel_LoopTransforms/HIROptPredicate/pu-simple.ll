@@ -1,7 +1,4 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -xmain-opt-level=3 -disable-output < %s 2>&1 | FileCheck --check-prefixes CHECK,CHECK1 %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -xmain-opt-level=3 -disable-output < %s 2>&1 | FileCheck --check-prefixes CHECK,CHECK2 %s
-
-; Please note the test incorporates two cases covered by CHECK1 and CHECK2.
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -xmain-opt-level=3 -disable-output < %s 2>&1 | FileCheck --check-prefix CHECK-TEMP-CLEANUP %s
 
 ; BEGIN REGION { }
 ; + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>
@@ -19,35 +16,51 @@
 ; + END LOOP
 ; END REGION
 
-; CHECK: BEGIN REGION { modified }
-; CHECK2: %0 = (%p)[0];
-; CHECK2: if (%0 > 100)
-; CHECK1: if ((%p)[0] > 100)
-; CHECK: {
-; CHECK:   + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>
-; CHECK2:  |   %0 = (%p)[0];
-; CHECK2:  |   if (%0 > 100)
-; CHECK1:  |   if ((%p)[0] > 100)
-; CHECK-SAME: <no_unswitch>
-; CHECK:   |   {
-; CHECK:   |      (%p)[i1] = i1;
-; CHECK:   |      %.pre-phi = i1;
-; CHECK:   |   }
-; CHECK:   |   else
-; CHECK:   |   {
-; CHECK:   |      %.pre-phi = i1 + 1;
-; CHECK:   |   }
-; CHECK:   |   (%q)[i1] = %.pre-phi;
-; CHECK:   + END LOOP
-; CHECK: }
-; CHECK: else
-; CHECK: {
-; CHECK:   + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>
-; CHECK:   |   %.pre-phi = i1 + 1;
-; CHECK:   |   (%q)[i1] = %.pre-phi;
-; CHECK:   + END LOOP
-; CHECK: }
-; CHECK: END REGION
+; CHECK-TEMP-CLEANUP: BEGIN REGION { modified }
+; CHECK-TEMP-CLEANUP: if ((%p)[0] > 100)
+; CHECK-TEMP-CLEANUP: {
+; CHECK-TEMP-CLEANUP:   + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>
+; CHECK-TEMP-CLEANUP:   |   if ((%p)[0] > 100)
+; CHECK-TEMP-CLEANUP-SAME: <no_unswitch>
+; CHECK-TEMP-CLEANUP:   |   {
+; CHECK-TEMP-CLEANUP:   |      (%p)[i1] = i1;
+; CHECK-TEMP-CLEANUP:   |      %.pre-phi = i1;
+; CHECK-TEMP-CLEANUP:   |   }
+; CHECK-TEMP-CLEANUP:   |   else
+; CHECK-TEMP-CLEANUP:   |   {
+; CHECK-TEMP-CLEANUP:   |      %.pre-phi = i1 + 1;
+; CHECK-TEMP-CLEANUP:   |   }
+; CHECK-TEMP-CLEANUP:   |   (%q)[i1] = %.pre-phi;
+; CHECK-TEMP-CLEANUP:   + END LOOP
+; CHECK-TEMP-CLEANUP: }
+; CHECK-TEMP-CLEANUP: else
+; CHECK-TEMP-CLEANUP: {
+; CHECK-TEMP-CLEANUP:   + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>
+; CHECK-TEMP-CLEANUP:   |   %.pre-phi = i1 + 1;
+; CHECK-TEMP-CLEANUP:   |   (%q)[i1] = %.pre-phi;
+; CHECK-TEMP-CLEANUP:   + END LOOP
+; CHECK-TEMP-CLEANUP: }
+; CHECK-TEMP-CLEANUP: END REGION
+
+; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -xmain-opt-level=3 -disable-output < %s 2>&1 | FileCheck --check-prefix CHECK-NO-CLEANUP %s
+
+; This is the same test as before, but without hir-temp-cleanup. The temp
+; won't be removed from the condition.
+
+; CHECK-NO-CLEANUP:     %0 = (%p)[0];
+; CHECK-NO-CLEANUP:     if (%0 > 100)
+; CHECK-NO-CLEANUP:        + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; CHECK-NO-CLEANUP:        |   %0 = (%p)[0];
+; CHECK-NO-CLEANUP:        |   if (%0 > 100) <no_unswitch>
+
+; CHECK-NO-CLEANUP:     else
+; CHECK-NO-CLEANUP:     {
+; CHECK-NO-CLEANUP:        + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; CHECK-NO-CLEANUP:        |   %.pre-phi = i1 + 1;
+; CHECK-NO-CLEANUP:        |   (%q)[i1] = %.pre-phi;
+; CHECK-NO-CLEANUP:        + END LOOP
+; CHECK-NO-CLEANUP:     }
+
 
 ;Module Before HIR; ModuleID = '/export/iusers/pgprokof/loopopt-6/pu.c'
 source_filename = "/export/iusers/pgprokof/loopopt-6/pu.c"
