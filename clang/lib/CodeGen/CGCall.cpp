@@ -1891,7 +1891,17 @@ static void handleDTransStructInfo(CodeGenTypes &CGT, CodeGenModule &CGM,
     // If size is 1, it could be:
     // The first/only effective field.
     if (EffectiveTypes.size() == 1) {
-      ClangTypes[0] = EffectiveTypes[0];
+      ASTContext &Ctx = CGT.getContext();
+
+      // It is possible for a pointer to just be represented as an i64 (or i32
+      // on 32 bit?), so do that fixup here.  We can tell easily from the LLVM
+      // type, so just do it.
+      if (LLVMTypes[0]->isIntegerTy() && EffectiveTypes[0]->isPointerType() &&
+          LLVMTypes[0]->getIntegerBitWidth() ==
+              Ctx.getTypeInfo(Ctx.getIntPtrType()).Width)
+        ClangTypes[0] = Ctx.getIntPtrType();
+      else
+        ClangTypes[0] = EffectiveTypes[0];
       return;
     }
 
