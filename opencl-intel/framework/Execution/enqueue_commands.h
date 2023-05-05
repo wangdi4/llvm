@@ -339,7 +339,8 @@ private:
 class ReadHostPipeIntelFPGACommand : public Command {
 public:
   ReadHostPipeIntelFPGACommand(const SharedPtr<IOclCommandQueueBase> &cmdQueue,
-                               void *pDst, void *pipeBS, size_t size);
+                               void *pDst, void *pipeBS, size_t size,
+                               cl_bool blocking);
 
   ~ReadHostPipeIntelFPGACommand() {}
 
@@ -361,12 +362,14 @@ protected:
   void *m_pDst;
   void *m_pipeBS;
   size_t m_size;
+  cl_bool m_blocking;
 };
 
 class WriteHostPipeIntelFPGACommand : public Command {
 public:
   WriteHostPipeIntelFPGACommand(const SharedPtr<IOclCommandQueueBase> &cmdQueue,
-                                void *pipeBS, const void *pSrc, size_t size);
+                                void *pipeBS, const void *pSrc, size_t size,
+                                cl_bool blocking);
 
   ~WriteHostPipeIntelFPGACommand() {}
 
@@ -388,6 +391,7 @@ protected:
   void *m_pipeBS;
   const void *m_pSrc;
   size_t m_size;
+  cl_bool m_blocking;
 };
 
 class ReadGVCommand : public Command {

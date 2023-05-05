@@ -4030,8 +4030,8 @@ cl_err_code ExecutionModule::EnqueueReadHostPipeINTEL(
   if (!gvPipeBS)
     return CL_INVALID_MEM_OBJECT;
 
-  Command *readHostPipeCmd =
-      new ReadHostPipeIntelFPGACommand(queue, ptr, gvPipeBS, size);
+  Command *readHostPipeCmd = new ReadHostPipeIntelFPGACommand(
+      queue, ptr, gvPipeBS, size, blocking_read);
   if (nullptr == readHostPipeCmd)
     return CL_OUT_OF_HOST_MEMORY;
 
@@ -4077,8 +4077,8 @@ cl_err_code ExecutionModule::EnqueueWriteHostPipeINTEL(
   if (!gvPipeBS)
     return CL_INVALID_MEM_OBJECT;
 
-  Command *writeHostPipeCmd =
-      new WriteHostPipeIntelFPGACommand(queue, gvPipeBS, ptr, size);
+  Command *writeHostPipeCmd = new WriteHostPipeIntelFPGACommand(
+      queue, gvPipeBS, ptr, size, blocking_write);
 
   if (nullptr == writeHostPipeCmd)
     return CL_OUT_OF_HOST_MEMORY;
