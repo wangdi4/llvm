@@ -257,6 +257,14 @@ static void migrateDebugInfo(AllocaInst *OldAlloca, bool IsSplit,
   DIAssignID *NewID = nullptr;
   auto &Ctx = Inst->getContext();
   DIBuilder DIB(*OldInst->getModule(), /*AllowUnresolved*/ false);
+#if INTEL_CUSTOMIZATION
+  // code cannot handle dynamic alloca, or alloca that is not in the
+  // entry block. CMPLRLLVM-47301.
+  // I am guessing that it actually can handle non-entry alloca, but
+  // it's risky to make that guess.
+  if (!OldAlloca->isStaticAlloca())
+    return;
+#endif
   assert(OldAlloca->isStaticAlloca());
 
   for (DbgAssignIntrinsic *DbgAssign : MarkerRange) {
