@@ -10964,9 +10964,11 @@ Instruction &BoUpSLP::getLastInstructionInBundle(const TreeEntry *E) {
           LastInst = I;
         continue;
       }
-      assert(isVectorLikeInstWithConstOps(LastInst) &&
-             isVectorLikeInstWithConstOps(I) &&
-             "Expected vector-like insts only.");
+      assert(((E->getOpcode() == Instruction::GetElementPtr &&
+               !isa<GetElementPtrInst>(I)) ||
+              (isVectorLikeInstWithConstOps(LastInst) &&
+               isVectorLikeInstWithConstOps(I))) &&
+             "Expected vector-like or non-GEP in GEP node insts only.");
       if (!DT->isReachableFromEntry(LastInst->getParent())) {
         LastInst = I;
         continue;
@@ -11028,7 +11030,12 @@ Instruction &BoUpSLP::getLastInstructionInBundle(const TreeEntry *E) {
       (doesNotNeedToSchedule(E->Scalars) ||
        all_of(E->Scalars, isVectorLikeInstWithConstOps))) {
     Instruction *InsertInst;
-    if (all_of(E->Scalars, [](Value *V) {
+    if ((E->getOpcode() == Instruction::GetElementPtr &&
+         any_of(E->Scalars,
+                [](Value *V) {
+                  return !isa<GetElementPtrInst>(V) && isa<Instruction>(V);
+                })) ||
+        all_of(E->Scalars, [](Value *V) {
           return !isVectorLikeInstWithConstOps(V) && isUsedOutsideBlock(V);
         }))
       InsertInst = FindLastInst();
