@@ -945,7 +945,7 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
   }
 #if INTEL_CUSTOMIZATION
   case Type::Channel: {
-    ResultType = CGM.getOpenCLRuntime().getChannelType();
+    ResultType = CGM.getOpenCLRuntime().getChannelType(cast<ChannelType>(Ty));
     break;
   }
 #endif // INTEL_CUSTOMIZATION
