@@ -272,10 +272,10 @@ void KernelBarrier::findSyncBBSuccessors() {
     }
     while (!BBsToHandle.empty()) {
       BasicBlock *V = BBsToHandle.pop_back_val();
-      if (!SyncBBSuccs.count(V))
+      if (!SyncBBSuccs.contains(V))
         continue;
       for (BasicBlock *Succ : SyncBBSuccs[V]) {
-        if (SyncBBSuccessors[BB].count(Succ))
+        if (SyncBBSuccessors[BB].contains(Succ))
           continue;
         SyncBBSuccessors[BB].insert(Succ);
         BBsToHandle.push_back(Succ);
@@ -292,7 +292,7 @@ BasicBlock *KernelBarrier::findNearestDominatorSyncBB(DominatorTree &DT,
       continue;
     if (Dominator) {
       // Skip if Dominator is SyncBB's successor.
-      if (SyncBBSuccessors[SyncBB].count(Dominator))
+      if (SyncBBSuccessors[SyncBB].contains(Dominator))
         continue;
       Dominator = SyncBB;
       continue;
@@ -382,25 +382,25 @@ void KernelBarrier::bindUsersToBasicBlock(
     UIToInsertPointBB[UI] = BB;
     BBs.insert(BB);
 
-    if (SyncPerBB.count(BB))
+    if (SyncPerBB.contains(BB))
       continue;
 
     // Collect BB's predecessors that are SyncBB.
-    if (!BBToPredSyncBB.count(BB) && DPB->hasPredecessors(BB)) {
+    if (!BBToPredSyncBB.contains(BB) && DPB->hasPredecessors(BB)) {
       CompilationUtils::BBSet &Preds = DPB->getPredecessors(BB);
       for (BasicBlock *Pred : Preds) {
-        if (SyncPerBB.count(Pred))
+        if (SyncPerBB.contains(Pred))
           BBToPredSyncBB[BB].push_back(Pred);
       }
       for (auto &OldToNewSync : OldToNewSyncBBMap[&F]) {
         BasicBlock *Pred = OldToNewSync.second;
-        if (Preds.count(OldToNewSync.first) && SyncPerBB.count(Pred))
+        if (Preds.contains(OldToNewSync.first) && SyncPerBB.contains(Pred))
           BBToPredSyncBB[BB].push_back(Pred);
       }
     }
 
     // Find the nearest SyncBB that dominates BB.
-    if (!BBToNearestDominatorSyncBB.count(BB))
+    if (!BBToNearestDominatorSyncBB.contains(BB))
       BBToNearestDominatorSyncBB[BB] = findNearestDominatorSyncBB(DT, BB);
   }
 
@@ -431,17 +431,17 @@ void KernelBarrier::bindUsersToBasicBlock(
   for (BasicBlock *BB : BBs) {
     DenseMap<BasicBlock *, bool> &HasBarrierTo = HasBarrierFromTo[BB];
 
-    if (!BBToDominatedBBs.count(BB))
+    if (!BBToDominatedBBs.contains(BB))
       DT.getDescendants(BB, BBToDominatedBBs[BB]);
 
     for (auto *DominatedBB : BBToDominatedBBs[BB]) {
       // Skip if DominatedBB is a SyncBB because binding to SyncBB is already
       // handled above.
-      if (BB == DominatedBB || !BBs.count(DominatedBB) ||
-          SyncPerBB.count(DominatedBB))
+      if (BB == DominatedBB || !BBs.contains(DominatedBB) ||
+          SyncPerBB.contains(DominatedBB))
         continue;
       // Skip if binding is already done.
-      if (BBBindToNearestSyncDominator.count(DominatedBB))
+      if (BBBindToNearestSyncDominator.contains(DominatedBB))
         continue;
       // Skip if DominatedBB is already bound to either the basic block
       // containing DbgVariableIntrinsic or a basic block that BB doesn't
@@ -450,7 +450,7 @@ void KernelBarrier::bindUsersToBasicBlock(
                            BBBindToDominator[DominatedBB] == DIBB))
         continue;
 
-      if (!HasBarrierTo.count(DominatedBB))
+      if (!HasBarrierTo.contains(DominatedBB))
         HasBarrierTo[DominatedBB] =
             Utils.isCrossedByBarrier(*SyncInstructions, DominatedBB, BB);
       if (!HasBarrierTo[DominatedBB])
@@ -559,7 +559,7 @@ void KernelBarrier::fixAllocaAndDbg(Function &F) {
     for (auto &BBUser : BBUsers) {
       BasicBlock *BB = BBUser.first;
       Instruction *InsertBefore;
-      if (SyncPerBB.count(BB)) {
+      if (SyncPerBB.contains(BB)) {
         InsertBefore = SyncPerBB[BB]->getNextNode();
         assert(
             InsertBefore->getParent() == BB &&
@@ -720,6 +720,18 @@ void KernelBarrier::fixSpecialValues() {
       // Replace the use of old value with the new loaded value from special
       // buffer.
       UserInst->replaceUsesOfWith(Inst, RealValue);
+
+      // If UserInst is a sync instruction, then it will not be the first
+      // instruction of basic block, which will break the assumption of
+      // BarrierUtils::isCrossedByBarrier, thus we split it to satisfy the
+      // assumption
+      if (SyncInstructions->contains(UserInst)) {
+        assert(UserInst == InsertBefore &&
+               "UserInst should be the insertion point");
+        const auto Name = UserInst->getParent()->getName() + ".BarrierFix";
+        UserInst->getParent()->splitBasicBlock(BasicBlock::iterator(UserInst),
+                                               Name);
+      }
     }
   }
 }
@@ -773,6 +785,21 @@ void KernelBarrier::fixCrossBarrierValues(Instruction *InsertBefore) {
       // Replace the use of old value with the new loaded value from special
       // buffer.
       UserInst->replaceUsesOfWith(Inst, LoadedValue);
+
+      // FIXME: For the same reason as the end of fixSpecialValues, this also
+      // need to be done here. But:
+      //   1. Currently, BarrierUtils::isCrossedByBarrier is not called after
+      //      this function
+      //   2. It's complex to update the containers in fixAllocaAndDbg
+      // So, it's unnecessary and a little risky to do this fix now.
+      //
+      // if (SyncInstructions->contains(UserInst)) {
+      //   assert(UserInst == InsertBefore &&
+      //          "UserInst should be the insertion point");
+      //   const auto Name = UserInst->getParent()->getName() + ".BarrierFix";
+      //   UserInst->getParent()->splitBasicBlock(BasicBlock::iterator(UserInst),
+      //                                          Name);
+      // }
     }
   }
 }
@@ -1340,7 +1367,7 @@ void KernelBarrier::fixCallInstruction(CallInst *CallToFix) {
       // Split sync instruction basic-block that contains the call instruction.
       BasicBlock *PreBB = CallToFix->getParent();
       BasicBlock::iterator FirstInst = PreBB->begin();
-      assert(DPB->getSyncInstructions(Func).count(&*FirstInst) &&
+      assert(DPB->getSyncInstructions(Func).contains(&*FirstInst) &&
              "assume first instruction to be sync instruction");
       BasicBlock *CallBB = PreBB->splitBasicBlock(FirstInst, "CallBB");
       InsertBefore = PreBB->getTerminator();
@@ -1373,7 +1400,7 @@ void KernelBarrier::fixCallInstruction(CallInst *CallToFix) {
   assert(BrInst && BrInst->getNumSuccessors() == 1 &&
          "callInst BB has more than one successor");
   BasicBlock::iterator FirstInst = BrInst->getSuccessor(0)->begin();
-  assert(DPB->getSyncInstructions(Func).count(&*FirstInst) &&
+  assert(DPB->getSyncInstructions(Func).contains(&*FirstInst) &&
          "assume first instruction to be sync instruction");
   // Find next instruction so we can create new instruction before it.
   Instruction *NextInst = &*(++FirstInst);
@@ -1428,7 +1455,7 @@ getCalculatedPrivateSize(Function *Func,
   // External function or function pointer.
   if (!Func || Func->isDeclaration())
     return 0;
-  if (!FnPrivSize.count(Func)) {
+  if (!FnPrivSize.contains(Func)) {
     LLVM_DEBUG(dbgs() << "No private size calculated for function "
                       << Func->getName() << "\n");
     return 0;
@@ -1448,8 +1475,8 @@ void KernelBarrier::calculateDirectPrivateSize(
       continue;
 
     DirectPrivateSizeMap[&F] =
-        (AddrAllocaSize.count(&F) ? (size_t)AddrAllocaSize[&F] : 0) +
-        (FnsWithSync.count(&F) ? 0 : (size_t)DPV->getStrideSize(&F));
+        (AddrAllocaSize.contains(&F) ? (size_t)AddrAllocaSize[&F] : 0) +
+        (FnsWithSync.contains(&F) ? 0 : (size_t)DPV->getStrideSize(&F));
   }
 }
 
