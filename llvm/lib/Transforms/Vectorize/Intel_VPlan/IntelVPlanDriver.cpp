@@ -209,8 +209,8 @@ bool VPlanDriverImpl::hasDedicatedAndUniqueExits(Loop *Lp,
     LLVM_DEBUG(dbgs() << "VD: loop form "
                       << "(" << Lp->getName()
                       << ") is not supported: no dedicated exits.\n");
-    setBailoutData(OptReportVerbosity::Medium, BailoutRemarkID,
-                   "Loop has no dedicated exits.");
+    setBailoutRemark(OptReportVerbosity::Medium, BailoutRemarkID,
+                     std::string("Loop has no dedicated exits."));
     return false;
   }
 
@@ -218,8 +218,9 @@ bool VPlanDriverImpl::hasDedicatedAndUniqueExits(Loop *Lp,
     LLVM_DEBUG(dbgs() << "VD: loop form "
                       << "(" << Lp->getName()
                       << ") is not supported: multiple exit blocks.\n");
-    setBailoutData(OptReportVerbosity::Medium, BadSearchRemarkID,
-                   WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop");
+    setBailoutRemark(OptReportVerbosity::Medium, BadSearchRemarkID,
+                     WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
+                                                   : std::string("loop"));
     return false;
   }
   return true;
@@ -429,9 +430,6 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   VPOVectorizationLegality LVL(Lp, PSE, &Fn);
   VPlanOptReportBuilder VPORBuilder(ORBuilder, LI);
 
-  // Clear bailout reason data.
-  setBailoutData(OptReportVerbosity::High, 0, "");
-
   // If region has SIMD directive mark then we will reuse community metadata on
   // Loop so that WarnMissedTransforms pass will detect if this loop is not
   // vectorized later
@@ -492,9 +490,11 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
 #endif
 
   // VPlan construction stress test ends here.
-  if (VPlanConstrStressTest)
-    return bailout(VPORBuilder, Lp, WRLp, OptReportVerbosity::High,
-                   BailoutRemarkID, "Stress testing only.");
+  if (VPlanConstrStressTest) {
+    setBailoutRemark(OptReportVerbosity::High, BailoutRemarkID,
+                     std::string("Stress testing only."));
+    return bailout(VPORBuilder, Lp, WRLp, BR);
+  }
 
   assert((WRLp || VPlanVectCand) && "WRLp can be null in stress testing only!");
 
@@ -609,9 +609,11 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
 
   preprocessPrivateFinalCondInstructions(Plan);
 
-  if (DisableCodeGen)
-    return bailout(VPORBuilder, Lp, WRLp, OptReportVerbosity::High,
-                   BailoutRemarkID, "Code generation is disabled.");
+  if (DisableCodeGen) {
+    setBailoutRemark(OptReportVerbosity::High, BailoutRemarkID,
+                     std::string("Code generation is disabled."));
+    return bailout(VPORBuilder, Lp, WRLp, BR);
+  }
 
   if (VF == 1 || !LVP.canLowerVPlan(*Plan, VF)) {
     auto &LVPBD = LVP.getBailoutData();
@@ -697,8 +699,7 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
 // Bail-out reasons with messages of more interest to compiler maintainers
 // than to users should be marked with verbosity High and never emitted in
 // release compilers.  For these, we first emit a more generic Medium message.
-// TODO: Instead of a single argument, convert to variadic template function
-// to simplify the argument-handling logic.
+// TODO: ### Delete this version after full conversion to VPlanBailoutRemark.
 template <class Loop>
 bool VPlanDriverImpl::bailout(VPlanOptReportBuilder &VPORBuilder, Loop *Lp,
                               WRNVecLoopNode *WRLp,
@@ -722,6 +723,33 @@ bool VPlanDriverImpl::bailout(VPlanOptReportBuilder &VPORBuilder, Loop *Lp,
   return false;
 }
 
+// Add an opt-report remark indicating why we can't vectorize the loop.
+// Returns false as a convenience to facilitate "return bailout(...);" usage.
+// Bail-out reasons with messages of more interest to compiler maintainers
+// than to users should be marked with verbosity High and never emitted in
+// release compilers.  For these, we first emit a more generic Medium message.
+template <class Loop>
+bool VPlanDriverImpl::bailout(VPlanOptReportBuilder &VPORBuilder, Loop *Lp,
+                              WRNVecLoopNode *WRLp,
+                              VPlanBailoutRemark RemarkData) {
+
+  unsigned ID = RemarkData.BailoutRemark.getRemarkID();
+
+  if (RemarkData.BailoutLevel == OptReportVerbosity::High &&
+      ID == BailoutRemarkID) {
+    VPORBuilder.addRemark(Lp, OptReportVerbosity::Medium, ID, std::string());
+#ifndef NDEBUG
+    VPORBuilder.addRemark(Lp, RemarkData.BailoutLevel,
+                          RemarkData.BailoutRemark);
+#endif
+  } else {
+    VPORBuilder.addRemark(Lp, RemarkData.BailoutLevel,
+                          RemarkData.BailoutRemark);
+  }
+  return false;
+}
+
+// TODO: ### Delete this version after full conversion to VPlanBailoutRemark.
 template <>
 bool VPlanDriverImpl::bailout<vpo::HLLoop>(VPlanOptReportBuilder &VPORB,
                                            vpo::HLLoop *Lp,
@@ -730,6 +758,15 @@ bool VPlanDriverImpl::bailout<vpo::HLLoop>(VPlanOptReportBuilder &VPORB,
                                            unsigned ID, std::string Reason) {
   auto *Self = static_cast<VPlanDriverHIRImpl *>(this);
   return Self->bailout(VPORB, Lp, WRLp, Level, ID, Reason);
+}
+
+template <>
+bool VPlanDriverImpl::bailout<vpo::HLLoop>(VPlanOptReportBuilder &VPORB,
+                                           vpo::HLLoop *Lp,
+                                           WRNVecLoopNode *WRLp,
+                                           VPlanBailoutRemark RemarkData) {
+  auto *Self = static_cast<VPlanDriverHIRImpl *>(this);
+  return Self->bailout(VPORB, Lp, WRLp, RemarkData);
 }
 
 template <>
@@ -752,7 +789,7 @@ bool VPlanDriverImpl::isSupported<llvm::Loop>(Loop *Lp, WRNVecLoopNode *WRLp) {
   assert(Lp->isRecursivelyLCSSAForm(*DT, *LI) && "Loop is not in LCSSA form!");
 
   if (!hasDedicatedAndUniqueExits(Lp, WRLp)) {
-    assert(BD.BailoutID &&
+    assert(BR.BailoutRemark &&
            "hasDedicatedAndUniqueExits did not set bailout data!");
     return false;
   }
@@ -761,7 +798,7 @@ bool VPlanDriverImpl::isSupported<llvm::Loop>(Loop *Lp, WRNVecLoopNode *WRLp) {
   if (!isSupportedRec(Lp, WRLp)) {
     LLVM_DEBUG(dbgs() << "VD: loop nest "
                       << "(" << Lp->getName() << ") is not supported.\n");
-    assert(BD.BailoutID && "isSupportedRec() did not set bailout data!");
+    assert(BR.BailoutRemark && "isSupportedRec() did not set bailout data!");
     return false;
   }
 
@@ -770,8 +807,9 @@ bool VPlanDriverImpl::isSupported<llvm::Loop>(Loop *Lp, WRNVecLoopNode *WRLp) {
     LLVM_DEBUG(dbgs() << "VD: loop nest "
                       << "(" << Lp->getName()
                       << ") is not supported: irreducible CFG.\n");
-    setBailoutData(OptReportVerbosity::Medium, ComplexFlowRemarkID,
-                   WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop");
+    setBailoutRemark(OptReportVerbosity::Medium, ComplexFlowRemarkID,
+                     WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
+                                                   : std::string("loop"));
     return false;
   }
 
@@ -779,8 +817,9 @@ bool VPlanDriverImpl::isSupported<llvm::Loop>(Loop *Lp, WRNVecLoopNode *WRLp) {
     // We don't support switch statements inside loops.
     if (!isa<BranchInst>(BB->getTerminator())) {
       LLVM_DEBUG(dbgs() << "VD: loop nest contains a switch statement.\n");
-      setBailoutData(OptReportVerbosity::Medium, SwitchRemarkID,
-                     WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop");
+      setBailoutRemark(OptReportVerbosity::Medium, SwitchRemarkID,
+                       WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
+                                                     : std::string("loop"));
       return false;
     }
   }
@@ -822,6 +861,7 @@ bool VPlanDriverImpl::runStandardMode(Function &Fn) {
 
     if (WRNVecLoopNode *WRLp = dyn_cast<WRNVecLoopNode>(WRNode)) {
       Loop *Lp = WRLp->getTheLoop<Loop>();
+      clearBailoutRemark();
       //      simplifyLoop(Lp, DT, LI, SE, AC, false /* PreserveLCSSA */);
       //      formLCSSARecursively(*Lp, *DT, LI, SE);
 
@@ -833,11 +873,10 @@ bool VPlanDriverImpl::runStandardMode(Function &Fn) {
 
       if (!VPlanForceBuild && !isSupported(Lp, WRLp)) {
         LLVM_DEBUG(dbgs() << "Bailing out: Loop is not supported!\n");
-        assert(BD.BailoutID &&
+        assert(BR.BailoutRemark &&
                "isSupported() failed to provide bailout data!\n");
         VPlanOptReportBuilder VPORB(ORBuilder, LI);
-        (void)bailout(VPORB, Lp, WRLp, BD.BailoutLevel, BD.BailoutID,
-                      BD.BailoutMessage);
+        (void)bailout(VPORB, Lp, WRLp, BR);
         continue;
       }
 
@@ -876,6 +915,7 @@ bool VPlanDriverImpl::runStandardMode<llvm::Loop>(Function &Fn) {
   for (auto WRNode : *WRGraph) {
     if (WRNVecLoopNode *WRLp = dyn_cast<WRNVecLoopNode>(WRNode)) {
       Loop *Lp = WRLp->getTheLoop<Loop>();
+      clearBailoutRemark();
 
       if (!Lp) {
         LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop was optimized out.\n");
@@ -885,11 +925,10 @@ bool VPlanDriverImpl::runStandardMode<llvm::Loop>(Function &Fn) {
 
       if (!VPlanForceBuild && !isSupported(Lp, WRLp)) {
         LLVM_DEBUG(dbgs() << "Bailing out: Loop is not supported!\n");
-        assert(BD.BailoutID &&
+        assert(BR.BailoutRemark &&
                "isSupported() failed to provide bailout data!\n");
         VPlanOptReportBuilder VPORB(ORBuilder, LI);
-        (void)bailout(VPORB, Lp, WRLp, BD.BailoutLevel, BD.BailoutID,
-                      BD.BailoutMessage);
+        (void)bailout(VPORB, Lp, WRLp, BR);
         continue;
       }
 
@@ -923,6 +962,7 @@ bool VPlanDriverImpl::runConstructStressTestMode(Function &Fn) {
   bool ModifiedFunc = false;
   for (Loop *Lp : Worklist) {
     HIRLoopAdapter<Loop> LpAdapter(Lp);
+    clearBailoutRemark();
     // Process only innermost loops if VPlanStressOnlyInnermost is enabled
     if (!VPlanStressOnlyInnermost || LpAdapter.isInnermost()) {
       // simplifyLoop(Lp, DT, LI, SE, AC, false /* PreserveLCSSA */);
@@ -949,6 +989,7 @@ bool VPlanDriverImpl::runCGStressTestMode(Function &Fn) {
 
   int ModifiedFunc = false;
   for (Loop *Lp : Worklist) {
+    clearBailoutRemark();
     if (CandLoopsVectorized < VPlanVectCand && isVPlanCandidate(Fn, Lp)) {
       ModifiedFunc |= processLoop(Lp, Fn, nullptr /* No WRegion */);
     }
@@ -1584,8 +1625,6 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   VPlanEnablePeeling = VPlanEnablePeelingHIROpt && VPlanEnablePeelingOpt;
   VPlanEnableGeneralPeeling = VPlanEnableGeneralPeelingHIROpt;
 
-  // Clear bailout reason data.
-  setBailoutData(OptReportVerbosity::High, 0, "");
   bool IsOmpSIMD = WRLp && WRLp->isOmpSIMDLoop();
 
   // TODO: How do we allow stress-testing for HIR path?
@@ -1612,8 +1651,8 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   if (IsOmpSIMD && !WRLp->isValidHIRSIMDRegion()) {
     WithColor::warning() << "Loop was not vectorized. Invalid SIMD region "
                             "detected for given loop\n";
-    return bailout(VPORBuilder, Lp, WRLp, OptReportVerbosity::Medium,
-                   BadSimdRemarkID, "");
+    setBailoutRemark(OptReportVerbosity::Medium, BadSimdRemarkID);
+    return bailout(VPORBuilder, Lp, WRLp, BR);
   }
 
   if (!Lp->isInnermost()) {
@@ -1626,9 +1665,10 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     if (NumMultiExitLps > 1) {
       LLVM_DEBUG(dbgs() << "VD: Not vectorizing: Cannot support multiple "
                            "multi-exit loops.\n");
-      return bailout(VPORBuilder, Lp, WRLp, OptReportVerbosity::High,
-                     BailoutRemarkID,
-                     "Cannot support more than one multiple-exit loop.");
+      setBailoutRemark(
+          OptReportVerbosity::High, BailoutRemarkID,
+          std::string("Cannot support more than one multiple-exit loop."));
+      return bailout(VPORBuilder, Lp, WRLp, BR);
     }
   }
 
@@ -1674,10 +1714,11 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     LLVM_DEBUG(dbgs() << "Delegating peel and remainder vectorization to post "
                          "loopopt vplan-vec\n");
 #ifndef NDEBUG
-    return bailout(VPORBuilder, Lp, WRLp, OptReportVerbosity::High,
-                   BailoutRemarkID,
-                   "Delegating peel and remainder vectorization to "
-                   "post-loopopt vplan-vec");
+    setBailoutRemark(
+        OptReportVerbosity::High, BailoutRemarkID,
+        std::string("Delegating peel and remainder vectorization to "
+                    "post-loopopt vplan-vec"));
+    return bailout(VPORBuilder, Lp, WRLp, BR);
 #else
     return false;
 #endif // NDEBUG
@@ -1699,9 +1740,11 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   // VPlan construction stress test ends here.
   // TODO: Move after predication.
-  if (VPlanConstrStressTest)
-    return bailout(VPORBuilder, Lp, WRLp, OptReportVerbosity::High,
-                   BailoutRemarkID, "Stress testing only.");
+  if (VPlanConstrStressTest) {
+    setBailoutRemark(OptReportVerbosity::High, BailoutRemarkID,
+                     std::string("Stress testing only."));
+    return bailout(VPORBuilder, Lp, WRLp, BR);
+  }
 
   LVP.runPeepholeBeforePredicator();
 
@@ -1729,8 +1772,9 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     if (WRLp->getIsAutoVec())
       eraseLoopIntrins(Lp, WRLp);
     LLVM_DEBUG(dbgs() << "VConflict idiom is not supported.\n");
-    return bailout(VPORBuilder, Lp, WRLp, OptReportVerbosity::High,
-                   BailoutRemarkID, "Unsupported VConflict idiom.");
+    setBailoutRemark(OptReportVerbosity::High, BailoutRemarkID,
+                     std::string("Unsupported VConflict idiom."));
+    return bailout(VPORBuilder, Lp, WRLp, BR);
   }
 
   // Transform masked integer div/rem before CM.
@@ -1832,9 +1876,11 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   preprocessPrivateFinalCondInstructions(Plan);
 
-  if (DisableCodeGen)
-    return bailout(VPORBuilder, Lp, WRLp, OptReportVerbosity::High,
-                   BailoutRemarkID, "Code generation is disabled.");
+  if (DisableCodeGen) {
+    setBailoutRemark(OptReportVerbosity::High, BailoutRemarkID,
+                     std::string("Code generation is disabled."));
+    return bailout(VPORBuilder, Lp, WRLp, BR);
+  }
 
   bool ModifiedLoop = false;
   RegDDRef *PeelArrayRef = nullptr;
@@ -1904,8 +1950,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 //  - If we have an OMP SIMD loop and we bail out, we might later vectorize
 //    along the LLVM-IR path.  To avoid confusion and double reporting, report
 //    only for internal compilers when this can occur.
-// TODO: Instead of a single argument, convert to variadic template function
-// to simplify the argument-handling logic.
+// TODO: ### Delete this version
 bool VPlanDriverHIRImpl::bailout(VPlanOptReportBuilder &VPORBuilder, HLLoop *Lp,
                                  WRNVecLoopNode *WRLp,
                                  OptReportVerbosity::Level Level, unsigned ID,
@@ -1945,29 +1990,65 @@ bool VPlanDriverHIRImpl::bailout(VPlanOptReportBuilder &VPORBuilder, HLLoop *Lp,
   return false;
 }
 
+// Add an opt-report remark indicating why we can't vectorize the loop.
+// Returns false as a convenience to faciliate "return bailout(...);" usage.
+//  - Bail-out reasons with messages of more interest to compiler maintainers
+//    than to users should be marked with verbosity High.  For these, we first
+//    emit a more generic Medium message.
+//  - If we have an OMP SIMD loop and we bail out, we might later vectorize
+//    along the LLVM-IR path.  To avoid confusion and double reporting, report
+//    only for internal compilers when this can occur.
+bool VPlanDriverHIRImpl::bailout(VPlanOptReportBuilder &VPORBuilder, HLLoop *Lp,
+                                 WRNVecLoopNode *WRLp,
+                                 VPlanBailoutRemark RemarkData) {
+
+  unsigned ID = RemarkData.BailoutRemark.getRemarkID();
+
+  if (WRLp && WRLp->isOmpSIMDLoop() && WillRunLLVMIRVPlan) {
+#if !INTEL_PRODUCT_RELEASE
+    // TODO: Update the first remark string (if present) to prepend "HIR: ".
+    VPORBuilder.addRemark(Lp, RemarkData.BailoutLevel,
+                          RemarkData.BailoutRemark);
+#endif // !INTEL_PRODUCT_RELEASE
+  } else if (RemarkData.BailoutLevel == OptReportVerbosity::High &&
+             ID == BailoutRemarkID) {
+    VPORBuilder.addRemark(Lp, OptReportVerbosity::Medium, ID, std::string());
+#if !INTEL_PRODUCT_RELEASE
+    VPORBuilder.addRemark(Lp, RemarkData.BailoutLevel,
+                          RemarkData.BailoutRemark);
+#endif // !INTEL_PRODUCT_RELEASE
+  } else {
+    VPORBuilder.addRemark(Lp, RemarkData.BailoutLevel,
+                          RemarkData.BailoutRemark);
+  }
+  return false;
+}
+
 bool VPlanDriverHIRImpl::isSupported(HLLoop *Lp, WRNVecLoopNode *WRLp) {
   if (HIRLoopStats->getTotalLoopStatistics(Lp).hasSwitches()) {
-    setBailoutData(OptReportVerbosity::Medium, SwitchRemarkID,
-                   WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop");
+    setBailoutRemark(OptReportVerbosity::Medium, SwitchRemarkID,
+                     WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
+                                                   : std::string("loop"));
     return false;
   }
 
   // Bail out for outer loops if not enabled
   if (!EnableOuterLoopHIR && !Lp->isInnermost()) {
-    setBailoutData(OptReportVerbosity::Medium, BailoutRemarkID,
-                   "Outer loop vectorization is not supported.");
+    setBailoutRemark(OptReportVerbosity::Medium, BailoutRemarkID,
+                     std::string("Outer loop vectorization is not supported."));
     return false;
   }
 
   // Unsupported HLLoop types for vectorization
   if (!(Lp->isDo() || Lp->isDoMultiExit())) {
-    setBailoutData(OptReportVerbosity::Medium, LoopIVRemarkID,
-                   WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop");
+    setBailoutRemark(OptReportVerbosity::Medium, LoopIVRemarkID,
+                     WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
+                                                   : std::string("loop"));
     return false;
   }
   if (!Lp->isNormalized()) {
-    setBailoutData(OptReportVerbosity::Medium, BailoutRemarkID,
-                   "Unnormalized loop is not supported.");
+    setBailoutRemark(OptReportVerbosity::Medium, BailoutRemarkID,
+                     std::string("Unnormalized loop is not supported."));
     return false;
   }
 

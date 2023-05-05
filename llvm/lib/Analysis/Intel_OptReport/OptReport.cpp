@@ -358,3 +358,11 @@ const Metadata *OptRemark::getOperand(unsigned Idx) const {
 unsigned OptRemark::getNumOperands() const {
   return Remark->getNumOperands() - 1;
 }
+
+unsigned OptRemark::getRemarkID() const {
+  assert(getNumOperands() > 0 && "No remark ID present!");
+  const Metadata *MD = getOperand(0);
+  const ConstantAsMetadata *ConstMD = cast_or_null<ConstantAsMetadata>(MD);
+  assert(ConstMD && "Remark ID is not a constant!");
+  return cast<ConstantInt>(ConstMD->getValue())->getZExtValue();
+}
