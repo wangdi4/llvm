@@ -405,10 +405,12 @@ foreach( t ${LIBCLC_TARGETS_TO_BUILD} )
                         list( APPEND flags "SHELL:-Xclang -disable-intel-proprietary-opts")
                 endif (INTEL_CUSTOMIZATION)
 
-                if(NOT SPIRV_ENABLE_OPAQUE_POINTERS)
-                  list(APPEND flags "-UENABLE_OPAQUE_POINTERS")
-                  list(APPEND flags "SHELL:-Xclang -no-opaque-pointers")
-                  list(APPEND opt_flags "-opaque-pointers=0")
+                if (${ARCH} STREQUAL "spirv" OR ${ARCH} STREQUAL "spirv64")
+                  if(NOT SPIRV_ENABLE_OPAQUE_POINTERS)
+                    list(APPEND flags "-UENABLE_OPAQUE_POINTERS")
+                    list(APPEND flags "SHELL:-Xclang -no-opaque-pointers")
+                    list(APPEND opt_flags "-opaque-pointers=0")
+                  endif()
                 endif()
 
                 # OpenCL 3.0 extensions
