@@ -162,7 +162,7 @@ static cl::opt<bool> EnableManyRecCallsSplitting("ip-manyreccalls-splitting",
 
 static cl::opt<bool>
     EnablePreferFunctionRegion("ip-manyreccalls-preferfunctionlevelregion",
-                               cl::init(true), cl::ReallyHidden);
+                               cl::init(false), cl::ReallyHidden);
 
 static cl::opt<bool>
     EnableManyRecCallsPredicateOpt("ip-manyreccalls-predicateopt",
