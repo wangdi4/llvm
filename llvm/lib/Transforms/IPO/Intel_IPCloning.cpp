@@ -4805,9 +4805,11 @@ public:
   PredicateOpt(Function *BaseF,
                std::function<DominatorTree &(Function &)> *GetDT,
                std::function<BlockFrequencyInfo &(Function &)> *GetBFI,
-               std::function<BranchProbabilityInfo &(Function &)> *GetBPI)
+               std::function<BranchProbabilityInfo &(Function &)> *GetBPI,
+               std::function<TargetLibraryInfo &(Function &)> *GetTLI)
       : BaseF(BaseF), GetDT(GetDT), GetBFI(GetBFI), GetBPI(GetBPI),
-        WrapperCB(nullptr), BigLoopCB(nullptr), SimpleLoopDepth(0) {}
+        GetTLI(GetTLI), WrapperCB(nullptr), BigLoopCB(nullptr),
+        SimpleLoopDepth(0) {}
   // Find 'WrapperCB' and 'BigLoopCB'.
   bool findSpine();
   // Return 'true' if the desired predicate opt should be attempted.
@@ -4824,6 +4826,8 @@ private:
   std::function<BlockFrequencyInfo &(Function &)> *GetBFI{};
   // BranchProbabilityInfo getter
   std::function<BranchProbabilityInfo &(Function &)> *GetBPI{};
+  // TargetLibraryInfo getter
+  std::function<TargetLibraryInfo &(Function &)> *GetTLI{};
   // The call site which calls 'BaseF' in the wrapper function.
   CallBase *WrapperCB = nullptr;
   // The call site that calls the wrapper function and is enclosed
@@ -5486,6 +5490,22 @@ bool PredicateOpt::isRestrictVarHoistablePastWrapperF(Function *BaseF,
   return isa<Instruction>(BigLoopCB->getArgOperand(Arg->getArgNo()));
 }
 
+// Return 'true' if 'GEPI' is a simple three operand GetElementPtrInst
+// with pointer operand 'PO', first operand 0, and second operand a
+// constant 'Offset'. Set the value of 'Offset' in this case.
+bool isSimpleGEPI(GetElementPtrInst *GEPI, Value *PO, unsigned &Offset) {
+  if (GEPI->getNumOperands() != 3 || GEPI->getPointerOperand() != PO)
+    return false;
+  auto CI1 = dyn_cast<ConstantInt>(GEPI->getOperand(1));
+  if (!CI1 || !CI1->isZero())
+    return false;
+  auto CI2 = dyn_cast<ConstantInt>(GEPI->getOperand(2));
+  if (!CI2)
+    return false;
+  Offset = CI2->getZExtValue();
+  return true;
+}
+
 //
 // First, prove that the first field of '%6' is a structure of 4 ia64s
 // which, when it is assigned, is assigned to the values of a set of
@@ -5603,6 +5623,374 @@ bool PredicateOpt::isBaseFArg6Field1Hoistable(Function *BaseF) {
     return false;
   };
 
+  // Starting with 'GEPI6F1', the GEPI that selects the 'region' field:
+  //  %26 = getelementptr inbounds %struct._ZTS10_NexusInfo._NexusInfo,
+  //    ptr %6, i64 0, i32 1
+  // Find the basic blocks in which the fields within the 'region' field
+  // are loaded. For example, if the field values are stored as:
+  //   store i64 %4, ptr %26, align 8, !tbaa.struct !631
+  //   %27 = getelementptr inbounds i8, ptr %26, i64 8
+  //   store i64 %5, ptr %27, align 8, !tbaa.struct !1161
+  //   %28 = getelementptr inbounds i8, ptr %26, i64 16
+  //   store i64 %2, ptr %28, align 8, !tbaa.struct !633
+  //   %29 = getelementptr inbounds i8, ptr %26, i64 24
+  //   store i64 %3, ptr %29, align 8, !tbaa.struct !1162
+  // we want the list of basic blocks that contain a LoadInst which is
+  // accessed using %26, %27, %28, or %29 or some GEPI based on them.
+  auto FindBBTerms = [](GetElementPtrInst *GEPI6F1,
+                        SetVector<BasicBlock *> &BBTerms) -> bool {
+    BasicBlock *BBP = GEPI6F1->getParent();
+    StoreInst *SIUniqueBase = nullptr;
+    for (User *U : GEPI6F1->users()) {
+      if (auto GEPIT = dyn_cast<GetElementPtrInst>(U)) {
+        StoreInst *SIUnique = nullptr;
+        for (auto *UU : GEPIT->users()) {
+          if (auto LI = dyn_cast<LoadInst>(UU)) {
+            BBTerms.insert(LI->getParent());
+          } else if (auto SI = dyn_cast<StoreInst>(UU)) {
+            if (SIUnique)
+              return false;
+            if (SI->getParent() != BBP)
+              return false;
+            SIUnique = SI;
+          } else {
+            return false;
+          }
+        }
+      } else if (auto SI = dyn_cast<StoreInst>(U)) {
+        if (SIUniqueBase)
+          return false;
+        if (SI->getParent() != BBP)
+          return false;
+        SIUniqueBase = SI;
+      } else {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  // Let 'BBT' be the basic block containing
+  //  %26 = getelementptr inbounds %struct._ZTS10_NexusInfo._NexusInfo,
+  //    ptr %6, i64 0, i32 1
+  // and let 'BBCheck' be the list of basic blocks produced by calling
+  // FindBBTerms(). Augment 'BBCheck' by all basic blocks traversed on
+  // a path from 'BBT' to some basic block originally in 'BBCheck'.
+  // We will need to prove that none of these basic blocks except 'BBT'
+  // can assign values to the 'region' field.
+  auto FindBBPredCheck = [](BasicBlock *BBT, SetVector<BasicBlock *> &BBCheck) {
+    SetVector<BasicBlock *> BBWorklist = BBCheck;
+    BBCheck.clear();
+    while (!BBWorklist.empty()) {
+      BasicBlock *BB = BBWorklist.pop_back_val();
+      if (BBCheck.insert(BB))
+        if (BB != BBT)
+          for (BasicBlock *PBB : predecessors(BB))
+            BBWorklist.insert(PBB);
+    }
+  };
+
+  // Return the unique PHINode feeding the unique ReturnInst in 'F'.
+  // For example, if 'F' ends in:
+  //   %29 = phi ptr [ null, %8 ], [ null, %12 ], [ null, %10 ], [ %26, %22 ],
+  //     [ null, %18 ]
+  //   ret ptr %29
+  // and this is the only ReturnInst in 'F', return %29.
+  auto FindUniqueReturnPHINode = [](Function *F) -> PHINode * {
+    PHINode *PHINUnique = nullptr;
+    for (BasicBlock &BB : *F) {
+      auto RI = dyn_cast_or_null<ReturnInst>(BB.getTerminator());
+      if (!RI || !RI->getReturnValue())
+        continue;
+      auto PHIN = dyn_cast<PHINode>(RI->getReturnValue());
+      if (!PHIN)
+        continue;
+      if (PHINUnique)
+        return nullptr;
+      PHINUnique = PHIN;
+    }
+    return PHINUnique;
+  };
+
+  // Return 'true' if 'CB' calls a function that allocates memory with
+  // malloc and only writes to either errno_location() or the memory
+  // that is allocated. For example, consider a function that returns a
+  // pointer to 8-byte aligned memory allocated with malloc. This can
+  // be implemented by calling malloc with the number of bytes requested
+  // + 71 bytes. 64 bytes would be used to hold a pointer to the address
+  // returned by malloc, which could then be passed to free() when the
+  // memory is deallocated. We would write to errno_location() only if
+  // an error occurred.
+  auto WritesOnlyToMallocedMemory = [&](CallBase *CB) -> bool {
+    Function *Callee = CB->getCalledFunction();
+    if (!Callee)
+      return false;
+    PHINode *PHIN = FindUniqueReturnPHINode(Callee);
+    if (!PHIN)
+      return false;
+    // Look up the PHINode to find 'VUnique', the unique non-null incoming
+    // value to the PHINode. For example:
+    //   %29 = phi ptr [ null, %8 ], [ null, %12 ], [ null, %10 ], [ %26, %22 ],
+    //     [ null, %18 ]
+    // 'VUnique' would be '%26'.
+    Value *VUnique = nullptr;
+    StoreInst *SIMalloc = nullptr;
+    CallBase *CBMul = nullptr;
+    CallBase *CBMalloc = nullptr;
+    for (unsigned I = 0, E = PHIN->getNumIncomingValues(); I < E; ++I) {
+      Value *V = PHIN->getIncomingValue(I);
+      auto CV = dyn_cast<Constant>(V);
+      if (CV && CV->isNullValue())
+        continue;
+      if (VUnique)
+        return false;
+      VUnique = V;
+      Value *VM = nullptr;
+      ConstantInt *CI71A = nullptr;
+      ConstantInt *CIM64 = nullptr;
+      // Look for a sequence like:
+      //   %23 = ptrtoint ptr %20 to i64
+      //   %24 = add i64 %23, 71
+      //   %25 = and i64 %24, -64
+      //   %26 = inttoptr i64 %25 to ptr
+      // which implements finding the actual value to be returned by the
+      // aligned malloc.
+      if (!match(V, m_IntToPtr(m_And(
+                        m_Add(m_PtrToInt(m_Value(VM)), m_ConstantInt(CI71A)),
+                        m_ConstantInt(CIM64)))))
+        return false;
+      if (CI71A->getZExtValue() != 71)
+        return false;
+      if (CIM64->getSExtValue() != -64)
+        return false;
+      // Make sure the above sequence starts with a call to malloc:
+      //   %20 = tail call noalias ptr @malloc(i64 noundef %19)
+      auto CB0 = dyn_cast<CallBase>(VM);
+      if (!CB0)
+        return false;
+      Function *CBF = CB0->getCalledFunction();
+      if (!CBF)
+        return false;
+      LibFunc TheLibFunc;
+      const TargetLibraryInfo &TLI = (*GetTLI)(*Callee);
+      if (!TLI.getLibFunc(CBF->getName(), TheLibFunc) || !TLI.has(TheLibFunc) ||
+          TheLibFunc != LibFunc_malloc)
+        return false;
+      CBMalloc = CB0;
+      // Make sure the amount allocated with malloc is %0 * %1 + 71, where
+      // %0 and %1 are the arguments to the aligned malloc function.
+      //   %3 = tail call { i64, i1 } @llvm.umul.with.overflow.i64(i64 %0,
+      //     i64 %1)
+      //   %4 = extractvalue { i64, i1 } %3, 0
+      //   %19 = add nuw i64 %4, 71
+      Value *VMul = nullptr;
+      ConstantInt *CI71B = nullptr;
+      if (!match(CB0->getOperand(0),
+                 m_Add(m_ExtractValue<0>(m_Value(VMul)), m_ConstantInt(CI71B))))
+        return false;
+      if (CI71B->getZExtValue() != 71)
+        return false;
+      auto II = dyn_cast<IntrinsicInst>(VMul);
+      if (!II || II->getIntrinsicID() != Intrinsic::umul_with_overflow)
+        return false;
+      if (!isa<Argument>(II->getArgOperand(0)))
+        return false;
+      if (!isa<Argument>(II->getArgOperand(1)))
+        return false;
+      // Check that the address of the memory allocated by malloc is
+      // stored in the extra 71 bytes that were allocated, just above the
+      // returned aligned address:
+      //   %27 = getelementptr inbounds ptr, ptr %26, i64 -1
+      //   store ptr %20, ptr %27, align 8, !tbaa !1029
+      CBMul = II;
+      GetElementPtrInst *GEPIUnique = nullptr;
+      for (User *U : V->users()) {
+        if (U == PHIN)
+          continue;
+        auto GEPI = dyn_cast<GetElementPtrInst>(U);
+        if (!GEPI)
+          return false;
+        if (GEPIUnique)
+          return false;
+        GEPIUnique = GEPI;
+      }
+      if (!GEPIUnique || GEPIUnique->getPointerOperand() != V)
+        return false;
+      if (GEPIUnique->getNumOperands() != 2)
+        return false;
+      auto CI = dyn_cast<ConstantInt>(GEPIUnique->getOperand(1));
+      if (!CI || !CI->isMinusOne())
+        return false;
+      if (!GEPIUnique->hasOneUser())
+        return false;
+      auto SI = dyn_cast<StoreInst>(GEPIUnique->user_back());
+      if (!SI || SI->getPointerOperand() != GEPIUnique ||
+          SI->getValueOperand() != VM)
+        return false;
+      SIMalloc = SI;
+    }
+    // Check that the only other CallBase and StoreInst in the function
+    // are the following, which will be called if an error occurs:
+    //  %9 = tail call ptr @__errno_location()
+    //  store i32 12, ptr %9, align 4
+    CallBase *CBErrnoLocation = nullptr;
+    for (auto &I : instructions(*Callee)) {
+      if (auto CB1 = dyn_cast<CallBase>(&I)) {
+        if (CB1 != CBMul && CB1 != CBMalloc) {
+          Function *CBF = CB1->getCalledFunction();
+          if (!CBF)
+            return false;
+          LibFunc TheLibFunc;
+          const TargetLibraryInfo &TLI = (*GetTLI)(*Callee);
+          if (!TLI.getLibFunc(CBF->getName(), TheLibFunc) ||
+              !TLI.has(TheLibFunc) || TheLibFunc != LibFunc_errno_location)
+            return false;
+          CBErrnoLocation = CB1;
+        }
+      } else if (auto SI = dyn_cast<StoreInst>(&I)) {
+        if (SI != SIMalloc && SI->getPointerOperand() != CBErrnoLocation)
+          return false;
+      }
+    }
+    return true;
+  };
+
+  // Return 'true' if 'BB0' matches the following basic block:
+  //   %2 = icmp eq ptr 'F->getArg(0)', null
+  //   br i1 %2, label 'BB2', label 'BB1'
+  // If we return 'true', set 'BB2' and 'BB1'.
+  auto MatchRAM0 = [](BasicBlock *BB0, BasicBlock *&BB1,
+                      BasicBlock *&BB2) -> bool {
+    Function *F = BB0->getParent();
+    auto BI = dyn_cast_or_null<BranchInst>(BB0->getTerminator());
+    if (!BI || BI->isUnconditional())
+      return false;
+    auto IC = dyn_cast_or_null<ICmpInst>(BI->getPrevNonDebugInstruction());
+    if (!IC || BI->getCondition() != IC || IC->getPrevNonDebugInstruction())
+      return false;
+    ICmpInst::Predicate Pred = ICmpInst::BAD_ICMP_PREDICATE;
+    if (!match(IC, m_ICmp(Pred, m_Specific(F->getArg(0)), m_Zero())))
+      return false;
+    if (Pred != ICmpInst::ICMP_EQ)
+      return false;
+    BB1 = BI->getSuccessor(0);
+    BB2 = BI->getSuccessor(1);
+    return true;
+  };
+
+  // Return 'true" if 'BB1' matches the following basic block:
+  //   %4 = getelementptr inbounds ptr, ptr %0, i64 -1
+  //   %5 = load ptr, ptr %4, align 8
+  //   tail call void @free(ptr noundef %5) #71
+  //   br label 'BB2'
+  auto MatchRAM1 = [&](BasicBlock *BB1, BasicBlock *BB2) -> bool {
+    Function *F = BB1->getParent();
+    auto BI = dyn_cast_or_null<BranchInst>(BB1->getTerminator());
+    if (!BI || BI->isConditional() || BI->getSuccessor(0) != BB2)
+      return false;
+    auto CB = dyn_cast_or_null<CallBase>(BI->getPrevNonDebugInstruction());
+    if (!CB)
+      return false;
+    Function *CBF = CB->getCalledFunction();
+    if (!CBF)
+      return false;
+    LibFunc TheLibFunc;
+    const TargetLibraryInfo &TLI = (*GetTLI)(*F);
+    if (!TLI.getLibFunc(CBF->getName(), TheLibFunc) || !TLI.has(TheLibFunc) ||
+        TheLibFunc != LibFunc_free)
+      return false;
+    auto LI = dyn_cast<LoadInst>(CB->getPrevNonDebugInstruction());
+    if (!LI || CB->getArgOperand(0) != LI)
+      return false;
+    auto GEPI = dyn_cast<GetElementPtrInst>(LI->getPrevNonDebugInstruction());
+    if (!GEPI || LI->getPointerOperand() != GEPI)
+      return false;
+    if (GEPI->getNumOperands() != 2)
+      return false;
+    if (GEPI->getOperand(0) != F->getArg(0))
+      return false;
+    auto CI = dyn_cast<ConstantInt>(GEPI->getOperand(1));
+    if (!CI || !CI->isMinusOne())
+      return false;
+    if (GEPI->getPrevNonDebugInstruction())
+      return false;
+    return true;
+  };
+
+  // Return 'true' if 'BB2' matches the following basic block:
+  //   ret ptr null
+  auto MatchRAM2 = [](BasicBlock *BB2) -> bool {
+    auto RI = dyn_cast<ReturnInst>(BB2->getTerminator());
+    if (!RI || RI->getPrevNonDebugInstruction())
+      return false;
+    auto CV = dyn_cast<Constant>(RI->getReturnValue());
+    if (!CV || !CV->isNullValue())
+      return false;
+    return true;
+  };
+
+  // Return 'true' if 'CB' retrieves a pointer from a field other than the
+  // 'region' field and frees it using an aligned free function. For example:
+  //   %82 = getelementptr inbounds %struct._ZTS10_NexusInfo._NexusInfo,
+  //     ptr 'PO', i64 0, i32 3
+  //   %83 = load ptr, ptr %82, align 8
+  //   %105 = tail call ptr @RelinquishAlignedMemory(ptr noundef nonnull %83)
+  // Here field 3 is NOT the 'region' field of the NexusInfo structure.
+  // We use pattern matching to recognize the aligned free function.
+  auto FreesSafeMallocedMemory = [&](Value *POB, CallBase *CB) -> bool {
+    if (CB->arg_size() != 1)
+      return false;
+    auto LI = dyn_cast<LoadInst>(CB->getArgOperand(0));
+    if (!LI)
+      return false;
+    auto GEPI = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
+    unsigned Offset = 0;
+    if (!GEPI || !isSimpleGEPI(GEPI, POB, Offset) || Offset == 1)
+      return false;
+    Function *Callee = CB->getCalledFunction();
+    if (!Callee || Callee->size() != 3)
+      return false;
+    BasicBlock *BB1 = nullptr;
+    BasicBlock *BB2 = nullptr;
+    if (!MatchRAM0(&Callee->getEntryBlock(), BB2, BB1))
+      return false;
+    if (!MatchRAM1(BB1, BB2))
+      return false;
+    if (!MatchRAM2(BB2))
+      return false;
+    return true;
+  };
+
+  // Return 'true' if none of the basic blocks in 'BBCheck' write to the
+  // 'region' field selected by 'GEPI6F1' except the basic block containing
+  // 'GEPI6F1'.
+  auto DoBBPredCheck = [&](GetElementPtrInst *GEPI6F1,
+                           SetVector<BasicBlock *> &BBCheck) -> bool {
+    Value *POB = GEPI6F1->getPointerOperand();
+    BasicBlock *BBT = GEPI6F1->getParent();
+    for (BasicBlock *BB : BBCheck) {
+      if (BB == BBT)
+        continue;
+      for (Instruction &I : *BB) {
+        if (auto SI = dyn_cast<StoreInst>(&I)) {
+          Value *PO = SI->getPointerOperand();
+          if (auto GEPI = dyn_cast<GetElementPtrInst>(PO)) {
+            unsigned Offset = 0;
+            if (!isSimpleGEPI(GEPI, POB, Offset) || Offset == 1)
+              return false;
+          } else {
+            return false;
+          }
+        } else if (auto CB = dyn_cast<CallBase>(&I)) {
+          if (!WritesOnlyToMallocedMemory(CB) &&
+              !FreesSafeMallocedMemory(POB, CB))
+            return false;
+        }
+      }
+    }
+    return true;
+  };
+
   // Find 'GEPIF61' which points to the first first field in the structure
   // pointed to by argument 6 in the base function.
   if (BaseF->arg_size() <= 6)
@@ -5653,7 +6041,7 @@ bool PredicateOpt::isBaseFArg6Field1Hoistable(Function *BaseF) {
         return false;
     }
   }
-  // Check that the bssic block containing 'GEPI6F1' starts with assignments
+  // Check that the basic block containing 'GEPI6F1' starts with assignments
   // of various argumemts of 'BaseF' ('ArgsToCheck') to the field pointed to
   // by 'GEPI6F1'.
   if (!isa<PHINode>(GEPI6F1->getPrevNonDebugInstruction()))
@@ -5686,6 +6074,10 @@ bool PredicateOpt::isBaseFArg6Field1Hoistable(Function *BaseF) {
     II = SI->getNextNonDebugInstruction();
     Offset += 8;
   }
+  // Ensure that there are no other stores or calls in this basic block.
+  for (; II; II = II->getNextNonDebugInstruction())
+    if (isa<StoreInst>(II) || isa<CallBase>(II))
+      return false;
   // Check that each of the actual arguments in the call to 'BaseF' is
   // either an argument in the wrapper function or a constant integer.
   for (auto Arg : ArgsToCheck) {
@@ -5693,6 +6085,15 @@ bool PredicateOpt::isBaseFArg6Field1Hoistable(Function *BaseF) {
     if (!isa<Argument>(V) && !isa<ConstantInt>(V))
       return false;
   }
+  // Check that from the basic block where the 'nexus_info->region' field
+  // is assigned to all of the basic blocks where it is used, that none of
+  // the fields within this 'nexus_info->region' field is written.
+  SetVector<BasicBlock *> BBPredCheck;
+  if (!FindBBTerms(GEPI6F1, BBPredCheck))
+    return false;
+  FindBBPredCheck(GEPI6F1->getParent(), BBPredCheck);
+  if (!DoBBPredCheck(GEPI6F1, BBPredCheck))
+    return false;
   return true;
 }
 
@@ -6059,23 +6460,6 @@ Value *PredicateOpt::makeOptTest(LoadInst *CacheInfo,
 //
 unsigned PredicateOpt::simplifyCacheInfoBranches(LoadInst *LIRestrict) {
 
-  // Return 'true' if 'GEPI' is a simple three operand GetElementPtrInst
-  // with pointer operand 'PO', first operand 0, and second operand a
-  // constant 'Offset'. Set the value of 'Offset' in this case.
-  auto IsSimpleGEPI = [](GetElementPtrInst *GEPI, Value *PO,
-                         unsigned &Offset) -> bool {
-    if (GEPI->getNumOperands() != 3 || GEPI->getPointerOperand() != PO)
-      return false;
-    auto CI1 = dyn_cast<ConstantInt>(GEPI->getOperand(1));
-    if (!CI1 || !CI1->isZero())
-      return false;
-    auto CI2 = dyn_cast<ConstantInt>(GEPI->getOperand(2));
-    if (!CI2)
-      return false;
-    Offset = CI2->getZExtValue();
-    return true;
-  };
-
   // Match a basic block which has the form:
   //    'GEPI' = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo,
   //        ptr 'PO', i64 0, i32 'Offset'
@@ -6084,9 +6468,8 @@ unsigned PredicateOpt::simplifyCacheInfoBranches(LoadInst *LIRestrict) {
   //    br i1 %199, label 'BB0', label 'BB1'
   // and return 'true' if a match is found. In this case, set 'BB0' and
   // 'BB1'.
-  auto MatchBB = [&IsSimpleGEPI](GetElementPtrInst *GEPI, Value *PO,
-                                 unsigned Offset, unsigned V, BasicBlock *&BB0,
-                                 BasicBlock *&BB1) -> bool {
+  auto MatchBB = [](GetElementPtrInst *GEPI, Value *PO, unsigned Offset,
+                    unsigned V, BasicBlock *&BB0, BasicBlock *&BB1) -> bool {
     BasicBlock *BB = GEPI->getParent();
     if (GEPI != &BB->front())
       return false;
@@ -6094,7 +6477,7 @@ unsigned PredicateOpt::simplifyCacheInfoBranches(LoadInst *LIRestrict) {
     if (!BBP)
       return false;
     unsigned MyOffset = 0;
-    if (!IsSimpleGEPI(GEPI, PO, MyOffset) || MyOffset != Offset)
+    if (!isSimpleGEPI(GEPI, PO, MyOffset) || MyOffset != Offset)
       return false;
     auto LI = dyn_cast_or_null<LoadInst>(GEPI->getNextNonDebugInstruction());
     if (!LI || LI->getPointerOperand() != GEPI)
@@ -6315,7 +6698,7 @@ unsigned PredicateOpt::simplifyCacheInfoBranches(LoadInst *LIRestrict) {
     Instruction *NI0 = BOAdd->getNextNonDebugInstruction();
     auto GEPI = dyn_cast_or_null<GetElementPtrInst>(NI0);
     unsigned Offset = 0;
-    if (!GEPI || !IsSimpleGEPI(GEPI, LIRestrict, Offset) || Offset != 6)
+    if (!GEPI || !isSimpleGEPI(GEPI, LIRestrict, Offset) || Offset != 6)
       return false;
     auto LI = dyn_cast_or_null<LoadInst>(GEPI->getNextNonDebugInstruction());
     if (!LI || LI->getPointerOperand() != GEPI)
@@ -6354,8 +6737,8 @@ unsigned PredicateOpt::simplifyCacheInfoBranches(LoadInst *LIRestrict) {
     if (BB->getSinglePredecessor() != BBP)
       return false;
     auto GEPI = dyn_cast<GetElementPtrInst>(&BB->front());
-    unsigned Offset = 0; 
-    if (!GEPI || !IsSimpleGEPI(GEPI, LIRestrict, Offset) || Offset != 7)
+    unsigned Offset = 0;
+    if (!GEPI || !isSimpleGEPI(GEPI, LIRestrict, Offset) || Offset != 7)
       return false;
     auto LI = dyn_cast_or_null<LoadInst>(GEPI->getNextNonDebugInstruction());
     if (!LI || LI->getPointerOperand() != GEPI)
@@ -6593,7 +6976,7 @@ unsigned PredicateOpt::simplifyCacheInfoBranches(LoadInst *LIRestrict) {
     auto GEPI = dyn_cast<GetElementPtrInst>(U);
     if (!GEPI)
       continue;
-    if (!IsSimpleGEPI(GEPI, LIRestrict, Offset))
+    if (!isSimpleGEPI(GEPI, LIRestrict, Offset))
       continue;
     if (Offset == 0)
       RVCount += SimplifyCacheInfo01(GEPI);
@@ -7375,7 +7758,8 @@ static bool analysisCallsCloneFunctions(
     Module &M, bool AfterInl, bool EnableDTrans, bool IFSwitchHeuristic,
     WholeProgramInfo *WPInfo, std::function<DominatorTree &(Function &)> *GetDT,
     std::function<BlockFrequencyInfo &(Function &)> *GetBFI,
-    std::function<BranchProbabilityInfo &(Function &)> *GetBPI) {
+    std::function<BranchProbabilityInfo &(Function &)> *GetBPI,
+    std::function<TargetLibraryInfo &(Function &)> *GetTLI) {
 
   bool FunctionAddressTaken;
 
@@ -7457,13 +7841,13 @@ static bool analysisCallsCloneFunctions(
           if (EnableManyRecCallsPredicateOpt) {
             LLVM_DEBUG(dbgs() << "    Selected many recursive calls "
                               << "predicate opt\n");
-            PredicateOpt MRCPO(&F, GetDT, GetBFI, GetBPI);
+            PredicateOpt MRCPO(&F, GetDT, GetBFI, GetBPI, GetTLI);
             if (MRCPO.shouldAttemptPredicateOpt())
               MRCPO.doPredicateOpt();
           } else if (EnableManyRecCallsSplitting) {
             // This is needed to set "prefer-function-level-region" for
             // LoopOpt.
-            PredicateOpt MRCPO(&F, GetDT, GetBFI, GetBPI);
+            PredicateOpt MRCPO(&F, GetDT, GetBFI, GetBPI, GetTLI);
             MRCPO.findSpine();
             LLVM_DEBUG(dbgs() << "    Selected many recursive calls splitting "
                               << "\n");
@@ -7593,13 +7977,14 @@ runIPCloning(Module &M, bool AfterInl, bool EnableDTrans,
              WholeProgramInfo *WPInfo,
              std::function<DominatorTree &(Function &)> *GetDT,
              std::function<BlockFrequencyInfo &(Function &)> *GetBFI,
-             std::function<BranchProbabilityInfo &(Function &)> *GetBPI) {
+             std::function<BranchProbabilityInfo &(Function &)> *GetBPI,
+             std::function<TargetLibraryInfo &(Function &)> *GetTLI) {
   bool Change = false;
   bool IFSwitchHeuristicOn = EnableDTrans || ForceIFSwitchHeuristic;
   bool EnableDTransOn = EnableDTrans || ForceEnableDTrans;
   Change = analysisCallsCloneFunctions(M, AfterInl, EnableDTransOn,
                                        IFSwitchHeuristicOn, WPInfo, GetDT,
-                                       GetBFI, GetBPI);
+                                       GetBFI, GetBPI, GetTLI);
   clearAllMaps();
   return Change;
 }
@@ -7629,11 +8014,16 @@ PreservedAnalyses IPCloningPass::run(Module &M, ModuleAnalysisManager &AM) {
     return FAM.getResult<BranchProbabilityAnalysis>(F);
   };
 
+  std::function<TargetLibraryInfo &(Function &)> GetTLI =
+      [&FAM](Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(F);
+  };
+
   if (IPCloningAfterInl)
     AfterInl = true;
 
   if (!runIPCloning(M, AfterInl, EnableDTrans, &WPInfo, &GetDT, &GetBFI,
-                    &GetBPI))
+                    &GetBPI, &GetTLI))
     return PreservedAnalyses::all();
 
   auto PA = PreservedAnalyses();
