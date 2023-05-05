@@ -30,10 +30,10 @@ endif()
 if (NOT TARGET LLVMGenXIntrinsics)
   if (NOT DEFINED LLVMGenXIntrinsics_SOURCE_DIR)
     set(LLVMGenXIntrinsics_GIT_REPO https://github.com/intel/vc-intrinsics.git)
-    # Author: "Gorban, Igor" <igor.gorban@intel.com>
-    # Date: Wed Feb 15 09:37:04 2023 +0000
-    # Fix module globals accessors
-    set(LLVMGenXIntrinsics_GIT_TAG 3ac855c9253d608a36d10b8ff87e62aa413bbf23)
+    # Author: "Victor Mustya" <victor.mustya@intel.com>
+    # Date: Tue, 25 Apr 2023 15:13:02 +0000
+    # Use target extension types for SPIR-V opaque arguments
+    set(LLVMGenXIntrinsics_GIT_TAG 2c39bf09756c3afd6ce77c7aa104e4a6e025405d)
 
     if (INTEL_CUSTOMIZATION)
       # for xmain builds the LLVMGenXIntrinsics_GIT_REPO is constructed from
@@ -44,10 +44,10 @@ if (NOT TARGET LLVMGenXIntrinsics)
       # default repo path for public xmain builds, not using ICS
       set(LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/intel)
       set(LLVMGenXIntrinsics_GIT_REPO_NAME vc-intrinsics.git)
-      # Author: Gorban, Igor <igor.gorban@intel.com>
-      # Date: Wed Feb 15 09:37:04 2023 +0000
-      # Fix module globals accessors
-      set(LLVMGenXIntrinsics_GIT_TAG 3ac855c9253d608a36d10b8ff87e62aa413bbf23)
+      # Author: "Victor Mustya" <victor.mustya@intel.com>
+      # Date: Tue, 25 Apr 2023 15:13:02 +0000
+      # Use target extension types for SPIR-V opaque arguments
+      set(LLVMGenXIntrinsics_GIT_TAG 2c39bf09756c3afd6ce77c7aa104e4a6e025405d)
 
       # Determine if the build is embargo and provide specific settings.
       set(IS_INTERNAL_ESIMD_BUILD FALSE)
@@ -57,10 +57,10 @@ if (NOT TARGET LLVMGenXIntrinsics)
       if (IS_INTERNAL_ESIMD_BUILD)
         # override git repo name and tag for the internal ESIMD EMBARGO build
         set(LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git)
-        # Author: Igor Gorban <igor.gorban@intel.com>
-        # Date:   Wed Feb 15 16:53:29 2023 +0100
-        # [LLVM] Fix module globals accessors
-        set(LLVMGenXIntrinsics_GIT_TAG 15c5667f52fefac72630c478726c8b1fee821795)
+        # Author: "Victor Mustya" <victor.mustya@intel.com>
+        # Date: Wed, 3 May 2023 11:59:18 -0700
+        # [Feature] Use target extension types for SPIR-V opaque arguments
+        set(LLVMGenXIntrinsics_GIT_TAG 0872997aa7b4aae3d3281efb7dbf29fb6b602d8f)
 
         add_compile_definitions(__INTEL_EMBARGO__)
         # LLVM_CMAKE_DIR is required by the internal vc-intrinsics repo, but is
