@@ -153,6 +153,7 @@ RecognizableInstrBase::RecognizableInstrBase(const CodeGenInstruction &insn) {
 #endif // INTEL_FEATURE_ISA_AVX256P
 #if INTEL_FEATURE_ISA_APX_F
   HasEVEX_NF = Rec->getValueAsBit("hasEVEX_NF");
+  HasTwoConditionalOps = Rec->getValueAsBit("hasTwoConditionalOps");
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   IsCodeGenOnly = Rec->getValueAsBit("isCodeGenOnly");
@@ -596,12 +597,17 @@ void RecognizableInstr::emitInstructionSpecifier() {
     ++additionalOperands;
   if (HasEVEX_K)
     ++additionalOperands;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  if (HasTwoConditionalOps)
+    additionalOperands += 2;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 #endif
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-  bool IsND = OpMap == X86Local::T_MAP4 && HasEVEX_B;
-
+  bool IsND = OpMap == X86Local::T_MAP4 && HasEVEX_B && HasVEX_4V;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   switch (Form) {
@@ -676,6 +682,11 @@ void RecognizableInstr::emitInstructionSpecifier() {
 
     HANDLE_OPERAND(roRegister)
     HANDLE_OPTIONAL(immediate)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    HANDLE_OPTIONAL(immediate)
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     break;
 #if INTEL_CUSTOMIZATION
   case X86Local::MRMDestReg4VOp3:
@@ -1186,6 +1197,9 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
   TYPE("i16imm_brtarget",     TYPE_REL)
   TYPE("i32imm_brtarget",     TYPE_REL)
   TYPE("ccode",               TYPE_IMM)
+#if INTEL_FEATURE_ISA_APX_F
+  TYPE("cflags",              TYPE_IMM)
+#endif // INTEL_FEATURE_ISA_APX_F
   TYPE("AVX512RC",            TYPE_IMM)
   TYPE("brtarget32",          TYPE_REL)
   TYPE("brtarget16",          TYPE_REL)
@@ -1300,6 +1314,10 @@ RecognizableInstr::immediateEncodingFromString(const std::string &s,
 #if INTEL_CUSTOMIZATION
   ENCODING("u1imm",           ENCODING_I_EVEX_a)
   ENCODING("u2imm",           ENCODING_I_EVEX_aa)
+#if INTEL_FEATURE_ISA_APX_F
+  ENCODING("ccode",           ENCODING_CC)
+  ENCODING("cflags",          ENCODING_CF)
+#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   ENCODING("u4imm",           ENCODING_IB)
   ENCODING("u8imm",           ENCODING_IB)

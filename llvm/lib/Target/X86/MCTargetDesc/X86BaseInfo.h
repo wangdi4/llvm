@@ -1072,6 +1072,10 @@ namespace X86II {
     // EVEX_NF - Set if this instruction has EVEX.NF field set.
     EVEX_NFShift = EVEX_P10Shift + 1,
     EVEX_NF      = 1ULL << EVEX_NFShift,
+
+    // TwoConditionalOps - Set if this instruction has two conditional operands
+    TwoConditionalOps_Shift = EVEX_NFShift + 1,
+    TwoConditionalOps       = 1ULL << TwoConditionalOps_Shift,
 #endif // INTEL_FEATURE_XISA_COMMON
 #endif // INTEL_CUSTOMIZATION
   };

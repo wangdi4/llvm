@@ -80,6 +80,7 @@ namespace X86Disassembler {
 #endif // INTEL_FEATURE_ISA_AVX256P
 #if INTEL_FEATURE_ISA_APX_F
 #define x2FromEVEX3of4(evex)    (((~(evex)) & 0x4) >> 2)
+#define oszcFromEVEX3of4(evex)  (((evex) >> 3) & 0xf)
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 #define ppFromEVEX3of4(evex)    ((evex) & 0x3)
@@ -92,6 +93,7 @@ namespace X86Disassembler {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
 #define nfFromEVEX4of4(evex)    (((evex) >> 2) & 0x1)
+#define scFromEVEX4of4(evex)    ((evex) & 0xf)
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 

@@ -451,6 +451,7 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
 #endif // INTEL_FEATURE_ISA_AVX256P
 #if INTEL_FEATURE_ISA_APX_F
   bit hasEVEX_NF = 0;      // Does this inst set the EVEX_NF field?
+  bit hasTwoConditionalOps = 0;   // Does this inst have two conditional operands?
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   // Force to check predicate before compress EVEX to VEX encoding.
@@ -491,6 +492,7 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
 #endif // INTEL_FEATURE_ISA_AVX256P
 #if INTEL_FEATURE_ISA_APX_F
   let TSFlags{55}    = hasEVEX_NF;
+  let TSFlags{56}    = hasTwoConditionalOps;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 }

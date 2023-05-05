@@ -1,0 +1,92 @@
+# REQUIRES: intel_feature_isa_apx_f
+# RUN: llvm-mc -triple x86_64 -show-encoding -x86-asm-syntax=intel -output-asm-variant=1 %s | FileCheck %s
+
+## Condition flags
+
+# CHECK: ccmpo {}	rbx, rax
+# CHECK: encoding: [0x62,0xf4,0x84,0x10,0x39,0xc3]
+         ccmpo {}	rbx, rax
+# CHECK: ccmpo {of}	rbx, rax
+# CHECK: encoding: [0x62,0xf4,0xc4,0x10,0x39,0xc3]
+         ccmpo {of}	rbx, rax
+# CHECK: ccmpo {sf}	rbx, rax
+# CHECK: encoding: [0x62,0xf4,0xa4,0x10,0x39,0xc3]
+         ccmpo {sf}	rbx, rax
+# CHECK: ccmpo {zf}	rbx, rax
+# CHECK: encoding: [0x62,0xf4,0x94,0x10,0x39,0xc3]
+         ccmpo {zf}	rbx, rax
+# CHECK: ccmpo {cf}	rbx, rax
+# CHECK: encoding: [0x62,0xf4,0x8c,0x10,0x39,0xc3]
+         ccmpo {cf}	rbx, rax
+# CHECK: ccmpo {of,sf}	rbx, rax
+# CHECK: encoding: [0x62,0xf4,0xe4,0x10,0x39,0xc3]
+         ccmpo {of,sf}	rbx, rax
+# CHECK: ccmpo {of,sf}	rbx, rax
+# CHECK: encoding: [0x62,0xf4,0xe4,0x10,0x39,0xc3]
+         ccmpo {sf,of}	rbx, rax
+# CHECK: ccmpo {of,sf,zf}	rbx, rax
+# CHECK: encoding: [0x62,0xf4,0xf4,0x10,0x39,0xc3]
+         ccmpo {of,sf,zf}	rbx, rax
+# CHECK: ccmpo {of,sf,zf}	rbx, rax
+# CHECK: encoding: [0x62,0xf4,0xf4,0x10,0x39,0xc3]
+         ccmpo {zf,of,sf}	rbx, rax
+# CHECK: ccmpo {of,sf,zf,cf}	rbx, rax
+# CHECK: encoding: [0x62,0xf4,0xfc,0x10,0x39,0xc3]
+         ccmpo {of,sf,zf,cf}	rbx, rax
+# CHECK: ccmpo {of,sf,zf,cf}	rbx, rax
+# CHECK: encoding: [0x62,0xf4,0xfc,0x10,0x39,0xc3]
+         ccmpo {cf,zf,sf,of}	rbx, rax
+
+## Condition code
+
+# CHECK: ccmpno {of}	rbx, rax
+# CHECK: encoding: [0x62,0xf4,0xc4,0x11,0x39,0xc3]
+         ccmpno {of}	rbx, rax
+# CHECK: ccmpb {of}	rbx, rax
+# CHECK: encoding: [0x62,0xf4,0xc4,0x12,0x39,0xc3]
+         ccmpb {of}	rbx, rax
+# CHECK: ccmpae {of}	rbx, rax
+# CHECK: encoding: [0x62,0xf4,0xc4,0x13,0x39,0xc3]
+         ccmpae {of}	rbx, rax
+# CHECK: ccmpe {of}	rbx, rax
+# CHECK: encoding: [0x62,0xf4,0xc4,0x14,0x39,0xc3]
+         ccmpe {of}	rbx, rax
+# CHECK: ccmpne {of}	rbx, rax
+# CHECK: encoding: [0x62,0xf4,0xc4,0x15,0x39,0xc3]
+         ccmpne {of}	rbx, rax
+# CHECK: ccmpbe {of}	rbx, rax
+# CHECK: encoding: [0x62,0xf4,0xc4,0x16,0x39,0xc3]
+         ccmpbe {of}	rbx, rax
+# CHECK: ccmpa {of}	rbx, rax
+# CHECK: encoding: [0x62,0xf4,0xc4,0x17,0x39,0xc3]
+         ccmpa {of}	rbx, rax
+# CHECK: ccmps {of}	rbx, rax
+# CHECK: encoding: [0x62,0xf4,0xc4,0x18,0x39,0xc3]
+         ccmps {of}	rbx, rax
+# CHECK: ccmpns {of}	rbx, rax
+# CHECK: encoding: [0x62,0xf4,0xc4,0x19,0x39,0xc3]
+         ccmpns {of}	rbx, rax
+# CHECK: ccmpp {of}	rbx, rax
+# CHECK: encoding: [0x62,0xf4,0xc4,0x1a,0x39,0xc3]
+         ccmpp {of}	rbx, rax
+# CHECK: ccmpnp {of}	rbx, rax
+# CHECK: encoding: [0x62,0xf4,0xc4,0x1b,0x39,0xc3]
+         ccmpnp {of}	rbx, rax
+# CHECK: ccmpl {of}	rbx, rax
+# CHECK: encoding: [0x62,0xf4,0xc4,0x1c,0x39,0xc3]
+         ccmpl {of}	rbx, rax
+# CHECK: ccmpge {of}	rbx, rax
+# CHECK: encoding: [0x62,0xf4,0xc4,0x1d,0x39,0xc3]
+         ccmpge {of}	rbx, rax
+# CHECK: ccmple {of}	rbx, rax
+# CHECK: encoding: [0x62,0xf4,0xc4,0x1e,0x39,0xc3]
+         ccmple {of}	rbx, rax
+# CHECK: ccmpg {of}	rbx, rax
+# CHECK: encoding: [0x62,0xf4,0xc4,0x1f,0x39,0xc3]
+         ccmpg {of}	rbx, rax
+
+## 32/16/8-bit
+
+# CHECK: ccmpb {sf}	ebx, eax
+# CHECK: encoding: [0x62,0xf4,0x24,0x12,0x39,0xc3]
+         ccmpb {sf}	ebx, eax
