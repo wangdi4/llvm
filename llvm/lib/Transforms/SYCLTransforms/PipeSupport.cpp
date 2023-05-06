@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/SYCLTransforms/PipeSupport.h"
+#include "llvm/Demangle/Demangle.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Transforms/SYCLTransforms/BuiltinLibInfoAnalysis.h"
@@ -70,6 +71,31 @@ static int getNumUsedPipes(Function &F, const PipeTypesHelper &PipeTypes) {
     for (auto &Arg : F.args())
       if (PipeTypes.isPipeType(Arg.getType()))
         Pipes.insert(&Arg);
+  }
+  if (Pipes.empty()) {
+    // Parse pipe from mangled non-kernel function name, e.g. the first
+    // parameter of a sycl device function:
+    // static int32_t
+    // __latency_control_nb_read_wrapper(__ocl_RPipeTy<_T> Pipe, _T *Data,
+    //                                   int32_t AnchorID, int32_t TargetAnchor,
+    //                                   int32_t Type, int32_t Cycle)
+    ItaniumPartialDemangler Demangler;
+    std::string FName = F.getName().str();
+    if (!Demangler.partialDemangle(FName.c_str())) {
+      char *Params = Demangler.getFunctionParameters(nullptr, nullptr);
+      SmallVector<StringRef, 8> ParamList;
+      StringRef ParamsRef(Params);
+      std::ignore = ParamsRef.consume_front("(");
+      std::ignore = ParamsRef.consume_back(")");
+      SplitString(ParamsRef, ParamList, ",");
+      // Skip kernel name which doesn't follow Itanium C++ ABI mangling.
+      if (ParamList.size() == F.getFunctionType()->getNumParams()) {
+        for (const auto &[Idx, Arg] : llvm::enumerate(F.args()))
+          if (ParamList[Idx].ltrim(" ") == "ocl_pipe")
+            Pipes.insert(&Arg);
+      }
+      free(Params);
+    }
   }
 
   // Count global pipes
