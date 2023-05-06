@@ -319,7 +319,7 @@ void OptimizerOCL::createStandardLLVMPasses(ModulePassManager &MPM) const {
 
 void OptimizerOCL::populatePassesPreFailCheck(ModulePassManager &MPM) const {
   MPM.addPass(SetPreferVectorWidthPass(ISA));
-  if (m_IsSPIRV && Config.GetRelaxedMath())
+  if (m_IsSYCL && Config.GetRelaxedMath())
     MPM.addPass(createModuleToFunctionPassAdaptor(AddFastMathPass()));
 
   // Here we are internalizing non-kernal functions to allow inliner to remove
@@ -360,7 +360,7 @@ void OptimizerOCL::populatePassesPreFailCheck(ModulePassManager &MPM) const {
   // OCL2.0 add Generic Address Resolution
   // LLVM IR converted from any version of SPIRV may have Generic
   // adress space pointers.
-  if ((m_IsOcl20 || m_IsSPIRV) && Level != OptimizationLevel::O0) {
+  if ((m_IsOcl20 || m_IsSYCL) && Level != OptimizationLevel::O0) {
     FunctionPassManager FPM;
     // Static resolution of generic address space pointers
     FPM.addPass(PromotePass());
@@ -390,7 +390,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
 
   MPM.addPass(RequireAnalysisPass<ImplicitArgsAnalysis, Module>());
 
-  if ((m_IsOcl20 || m_IsSPIRV) && Level != OptimizationLevel::O0) {
+  if ((m_IsOcl20 || m_IsSYCL) && Level != OptimizationLevel::O0) {
     FunctionPassManager FPM;
     // Repeat resolution of generic address space pointers after LLVM
     // IR was optimized
