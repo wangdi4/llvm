@@ -6,7 +6,7 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 %struct.struct1 = type <{ <4 x i32> , i8}>
 
 ; CHECK: @t1
-define void @t1(ptr byval(%struct.struct1) %arg0, ptr %arg1) {
+define void @t1(ptr byval(%struct.struct1) %arg0, ptr addrspace(1) %arg1) !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
   ret void
 }
@@ -15,7 +15,7 @@ entry:
 ; CHECK: [[ARG0_BUFF_INDEX:%.*]] = getelementptr i8, ptr %UniformArgs, i32 0
 ;; struct1* arg1 - 4 bytes - expected alignment: 20
 ; CHECK: [[ARG1_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8, ptr %UniformArgs, i32 20
-; CHECK-NEXT: %explicit_1 = load ptr, ptr [[ARG1_BUFF_INDEX]], align 4
+; CHECK-NEXT: %explicit_1 = load ptr addrspace(1), ptr [[ARG1_BUFF_INDEX]], align 4
 ;;implicit args
 
 ;; copy of byval arg
@@ -24,6 +24,8 @@ entry:
 
 !sycl.kernels = !{!0}
 !0 = !{ptr @t1}
+!1 = !{!"%struct.struct1", !"%struct.struct1*"}
+!2 = !{%struct.struct1* null, %struct.struct1 addrspace(1)* null}
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY-COUNT-32: WARNING: Instruction with empty DebugLoc in function {{.*}}

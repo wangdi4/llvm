@@ -4,7 +4,7 @@
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v24:32:32-v32:32:32-v48:64:64-v64:64:64-v96:128:128-v128:128:128-v192:256:256-v256:256:256-v512:512:512-v1024:1024:1024-a0:0:64-f80:32:32-n8:16:32-S32"
 
 ; CHECK: @t1
-define void @t1(i16 %arg1, ptr %arg2, i8 %arg3, i32 %arg4, float %arg5, i64 %arg6, double %arg7 ) {
+define void @t1(i16 %arg1, ptr addrspace(1) %arg2, i8 %arg3, i32 %arg4, float %arg5, i64 %arg6, double %arg7 ) !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
   ret void
 }
@@ -16,7 +16,7 @@ entry:
 
 ;;char* arg2 - alignment: 4 - in UniformArgs 0+2 = 2 is aligned to 4
 ; CHECK-NEXT: [[ARG1_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8, ptr %UniformArgs, i32 4
-; CHECK-NEXT: %explicit_1 = load ptr, ptr [[ARG1_BUFF_INDEX]], align 4
+; CHECK-NEXT: %explicit_1 = load ptr addrspace(1), ptr [[ARG1_BUFF_INDEX]], align 4
 
 ;;char arg3 - alignment: 1 - in UniformArgs 4+4=8 is aligned to 8
 ; CHECK-NEXT: [[ARG2_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8, ptr %UniformArgs, i32 8
@@ -42,6 +42,8 @@ entry:
 
 !sycl.kernels = !{!0}
 !0 = !{ptr @t1}
+!1 = !{!"short", !"char*", !"char", !"int", !"float", !"long", !"double"}
+!2 = !{i16 0, i8 addrspace(1)* null, i8 0, i32 0, float 0.000000e+00, i64 0, double 0.000000e+00}
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY-COUNT-42: WARNING: Instruction with empty DebugLoc in function t1 {{.*}}

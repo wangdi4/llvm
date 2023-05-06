@@ -4,7 +4,7 @@
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32-S32"
 
 ; CHECK: @t1
-define void @t1(ptr %arg1) {
+define void @t1(ptr addrspace(1) %arg1) !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
   ret void
 }
@@ -12,12 +12,14 @@ entry:
 ;; new func - Win64
 ;;int* arg1 - expected alignment: 8
 ; CHECK: [[ARG0_BUFF_INDEX:%[a-zA-Z0-9]+]] = getelementptr i8, ptr %UniformArgs, i32 0
-; CHECK-NEXT: %explicit_0 = load ptr, ptr [[ARG0_BUFF_INDEX]], align 8
+; CHECK-NEXT: %explicit_0 = load ptr addrspace(1), ptr [[ARG0_BUFF_INDEX]], align 8
 ;;implicit args
 ; CHECK: ret void
 
 !sycl.kernels = !{!0}
 !0 = !{ptr @t1}
+!1 = !{!"int*"}
+!2 = !{i32 addrspace(1)* null}
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY-COUNT-30: WARNING: Instruction with empty DebugLoc in function {{.*}}
