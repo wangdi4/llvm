@@ -1601,6 +1601,8 @@ Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
   // to new function.
   NewF->copyAttributesFrom(F);
   NewF->copyMetadata(F, 0);
+  NewF->setCallingConv(F->getCallingConv());
+  NewF->setDSOLocal(F->isDSOLocal());
 
   // Set original arguments' names.
   Function::arg_iterator NewI = NewF->arg_begin();

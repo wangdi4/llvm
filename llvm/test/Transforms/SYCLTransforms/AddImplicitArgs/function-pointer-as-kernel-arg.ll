@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers -passes=sycl-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers -passes=sycl-kernel-add-implicit-args %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-add-implicit-args %s -S | FileCheck %s
 
 ; CHECK: define spir_func i32 @foo(i32 %arg, ptr addrspace(3) noalias %pLocalMemBase,
 ; CHECK-SAME:          ptr noalias %pWorkDim

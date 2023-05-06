@@ -1,10 +1,9 @@
-; RUN: opt -opaque-pointers -passes=sycl-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers -passes=sycl-kernel-add-implicit-args %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-add-implicit-args %s -S | FileCheck %s
 
 ; CHECK: define void @_ZTS1K
 ; CHECK: %[[ALLOCA:.*]] = alloca ptr
-; CHECK: [[FUNCPTR:%.*]] = bitcast ptr @_Z3addii to ptr
-; CHECK: store ptr [[FUNCPTR]], ptr %[[ALLOCA]]
+; CHECK: store ptr @_Z3addii, ptr %[[ALLOCA]]
 ; CHECK: %[[LOAD:.*]] = load ptr, ptr %[[ALLOCA]]
 ; CHECK: [[FUNCPTR1:%.*]] = bitcast ptr %[[LOAD]] to ptr
 ; CHECK: call spir_func i32 [[FUNCPTR1]] 
@@ -48,8 +47,7 @@ entry:
 }
 
 
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function {{.*}} bitcast
-; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function {{.*}} bitcast
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZTS1K {{.*}} bitcast
 ; DEBUGIFY-NOT: WARNING
 
 !sycl.kernels = !{!0}
