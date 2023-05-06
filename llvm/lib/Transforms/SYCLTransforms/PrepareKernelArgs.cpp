@@ -65,9 +65,6 @@ bool PrepareKernelArgsPass::runImpl(
   // Handle all kernels.
   for (auto *F : kernelsFuncSet)
     runOnFunction(F, GetAC(*F));
-  // Update llvm.used after handling all kernels
-  if (!ReplaceMap.empty())
-    CompilationUtils::updateGlobalSymbols(ReplaceMap, this->M);
 
   return !kernelsFuncSet.empty();
 }
@@ -489,22 +486,41 @@ void PrepareKernelArgsPass::replaceFunctionPointers(Function *Wrapper,
     }
   }
 
-  for (User *U : WrappedKernel->users()) {
-    // Replace bitcast operator user, e.g. in global value.
-    if (auto *Op = dyn_cast<BitCastOperator>(U)) {
-      auto *WrapperOp = ConstantExpr::getBitCast(Wrapper, Op->getDestTy());
-      Op->replaceAllUsesWith(WrapperOp);
-    } else if (auto *Op = dyn_cast<SelectInst>(U)) {
-      // WrappedKernel is used as select instruction operand
-      auto *WrapperOp =
-          ConstantExpr::getBitCast(Wrapper, Op->getOperand(1)->getType());
-      if (Op->getOperand(1)->getName() == WrappedKernel->getName())
-        Op->setOperand(1, WrapperOp);
-      else
-        Op->setOperand(2, WrapperOp);
+  if (M->getContext().supportsTypedPointers()) {
+    for (User *U : WrappedKernel->users()) {
+      // Replace bitcast operator user, e.g. in global value.
+      if (auto *Op = dyn_cast<BitCastOperator>(U)) {
+        auto *WrapperOp = ConstantExpr::getBitCast(Wrapper, Op->getDestTy());
+        Op->replaceAllUsesWith(WrapperOp);
+      } else if (auto *Op = dyn_cast<SelectInst>(U)) {
+        // WrappedKernel is used as select instruction operand
+        auto *WrapperOp =
+            ConstantExpr::getBitCast(Wrapper, Op->getOperand(1)->getType());
+        if (Op->getOperand(1)->getName() == WrappedKernel->getName())
+          Op->setOperand(1, WrapperOp);
+        else
+          Op->setOperand(2, WrapperOp);
+      }
     }
+    return;
   }
-  ReplaceMap[WrappedKernel] = Wrapper;
+
+  ValueToValueMapTy VMap;
+  VMap[WrappedKernel] = Wrapper;
+  ValueMapper VMapper(VMap, RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
+  SmallVector<User *, 16> Users{WrappedKernel->users()};
+  for (User *U : Users) {
+    // Skip the CallInst that was created in createWrapperBody.
+    if (auto *CI = dyn_cast<CallInst>(U); CI && CI->getFunction() == Wrapper)
+      continue;
+
+    if (auto *I = dyn_cast<Instruction>(U))
+      VMapper.remapInstruction(*I);
+    else if (auto *C = dyn_cast<Constant>(U))
+      C->replaceAllUsesWith(VMapper.mapConstant(*C));
+    else
+      llvm_unreachable("unhandled wrapped kernel user");
+  }
 }
 
 void PrepareKernelArgsPass::createDummyRetWrappedKernel(Function *Wrapper,
