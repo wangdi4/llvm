@@ -167,18 +167,16 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
       // support instructions such as MOVUPS
       unsigned VecSize =
           KIMD.VectorizedWidth.hasValue() ? KIMD.VectorizedWidth.get() : 1;
-      auto *PTy = cast<PointerType>(CallIt->getType());
-      if (PTy->isOpaque()) {
-        // Nonspirv doesn't have argument type metadata. Get type/align from IR.
-        if (auto A = CallIt->getParamAlign().valueOrOne().value(); A > 1) {
-          Alignment = NextPowerOf2((VecSize == 3 ? 4 : VecSize) * A - 1);
-        } else {
-          for (User *U : CallIt->users()) {
-            if (isa<LoadInst>(U) || isa<StoreInst>(U))
-              EltTy = getMaxSizeType(DL, EltTy, getLoadStoreType(U));
-            else if (auto *GEP = dyn_cast<GetElementPtrInst>(U))
-              EltTy = getMaxSizeType(DL, EltTy, GEP->getSourceElementType());
-          }
+      // Nonspirv doesn't have argument type metadata. Get type/align from IR.
+      if (auto A = CallIt->getParamAlign()) {
+        Alignment =
+            NextPowerOf2((VecSize == 3 ? 4 : VecSize) * A.value().value() - 1);
+      } else {
+        for (User *U : CallIt->users()) {
+          if (isa<LoadInst>(U) || isa<StoreInst>(U))
+            EltTy = getMaxSizeType(DL, EltTy, getLoadStoreType(U));
+          else if (auto *GEP = dyn_cast<GetElementPtrInst>(U))
+            EltTy = getMaxSizeType(DL, EltTy, GEP->getSourceElementType());
         }
       }
       if (EltTy) {
