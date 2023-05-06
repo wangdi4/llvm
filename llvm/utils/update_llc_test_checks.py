@@ -103,7 +103,7 @@ def main():
         llc_cmd_args += ' -x mir'
 
       # INTEL_CUSTOMIZATION
-      default_options = intel_default_options.get_default_options_for_tool(ti, ti.args.llc_binary)
+      default_options = intel_default_options.get_default_options_for_tool(ti, ti.args.llc_binary or llc_tool)
       llc_cmd_args = default_options + " " +  llc_cmd_args
       # end INTEL_CUSTOMIZATION
 
