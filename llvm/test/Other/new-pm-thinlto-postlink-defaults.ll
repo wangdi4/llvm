@@ -104,6 +104,10 @@
 ; CHECK-O-NEXT: Running pass: ArgumentPromotionPass ;INTEL
 ; CHECK-O-NEXT: Running pass: SROA                  ;INTEL
 ; CHECK-O-NEXT: Running pass: PostOrderFunctionAttrsPass
+<<<<<<< HEAD
+=======
+; CHECK-O3-NEXT: Running pass: ArgumentPromotionPass
+>>>>>>> 141be5c062ecf22bd287afffd310e8ac4711444a
 ; CHECK-O2-NEXT: Running pass: OpenMPOptCGSCCPass on (foo)
 ; CHECK-O3-NEXT: Running pass: OpenMPOptCGSCCPass on (foo)
 ; CHECK-O-NEXT: Running pass: TbaaMDPropagationPass  ;INTEL
