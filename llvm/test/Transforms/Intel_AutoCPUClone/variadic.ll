@@ -55,5 +55,4 @@ attributes #1 = { mustprogress noinline norecurse nounwind uwtable "approx-func-
 !1 = !{i32 7, !"uwtable", i32 1}
 !2 = !{i32 7, !"frame-pointer", i32 2}
 !3 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2022.1.0 (2022.x.0.YYYYMMDD)"}
-!4 = !{!5}
-!5 = !{!"auto-cpu-dispatch-target", !"core-avx2"}
+!4 = !{!"core-avx2"}

@@ -1,4 +1,4 @@
-; RUN: opt -passes=auto-cpu-clone < %s -S | FileCheck %s
+; RUN: opt -passes=auto-cpu-clone -enable-selective-mv=0 < %s -S | FileCheck %s
 
 ; The test checks that functions that have inline assembly are not
 ; multiversioned
@@ -20,7 +20,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: mustprogress nounwind uwtable
 define dso_local void @_Z3foov() #0 !llvm.auto.cpu.dispatch !3 {
 entry:
-  call void asm sideeffect "bar:", "~{dirflag},~{fpsr},~{flags}"() #1, !srcloc !5
+  call void asm sideeffect "bar:", "~{dirflag},~{fpsr},~{flags}"() #1
   ret void
 }
 
@@ -33,6 +33,4 @@ attributes #1 = { nounwind }
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{i32 7, !"uwtable", i32 2}
 !2 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2022.1.0 (2022.x.0.YYYYMMDD)"}
-!3 = !{!4}
-!4 = !{!"auto-cpu-dispatch-target", !"core-avx2"}
-!5 = !{i64 27}
+!3 = !{!"core-avx2"}

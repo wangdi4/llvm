@@ -39,14 +39,14 @@ struct MultiVersionResolverOption {
 // Emits the body of a multiversion function's resolver. Assumes that the
 // options are already sorted in the proper order, with the 'default' option
 // last (if it exists).
-void emitMultiVersionResolver(Function *Resolver,
-                              GlobalVariable *DispatchPtr,
+void emitMultiVersionResolver(Function *Resolver, GlobalVariable *DispatchPtr,
                               ArrayRef<MultiVersionResolverOption> Options,
-                              bool UseIFunc, bool UseLibIRC);
+                              bool UseIFunc, bool UseLibIRC,
+                              bool PerformCPUBrandCheck);
 
 Value *formResolverCondition(IRBuilderBase &Builder,
                              const MultiVersionResolverOption &RO,
-                             bool UseLibIRC);
+                             bool UseLibIRC, bool PerformCPUBrandCheck);
 
 namespace X86 {
 
@@ -54,8 +54,10 @@ void emitCPUInit(IRBuilderBase &Builder, bool UseIFunc);
 Value *emitCpuIs(IRBuilderBase &Builder, StringRef CPUStr);
 Value *emitCpuSupports(IRBuilderBase &Builder, uint64_t FeaturesMask);
 Value *emitCpuSupports(IRBuilderBase &Builder, ArrayRef<StringRef> FeatureStrs);
-void emitCpuFeaturesInit(IRBuilderBase &Builder, bool UseIFunc);
-Value *mayIUseCpuFeatureHelper(IRBuilderBase &Builder, ArrayRef<APSInt> Pages);
+void emitCpuFeaturesInit(IRBuilderBase &Builder, bool UseIFunc,
+                         bool PerformCPUBrandCheck);
+Value *mayIUseCpuFeatureHelper(IRBuilderBase &Builder, ArrayRef<APSInt> Pages,
+                               bool PerformCPUBrandCheck);
 
 } // namespace X86
 

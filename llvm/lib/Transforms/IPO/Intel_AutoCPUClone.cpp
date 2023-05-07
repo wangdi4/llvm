@@ -32,36 +32,6 @@ static cl::opt<bool>
                                    cl::ReallyHidden,
                                    cl::desc("Enable multi-versioning of select functions"));
 
-static std::pair<StringRef, StringRef>
-getTargetCPUFromMD(MDNode *TargetInfoMD) {
-  // Expected format is either:
-  //   !{!"auto-arch-target", !"target-cpu"}
-  // or:
-  //   !{!"auto-cpu-dispatch-target", !"target-cpu"}
-
-  assert(TargetInfoMD->getNumOperands() == 2 &&
-         "Expected two operands in Auto CPU Dispatch target metadata!");
-
-  assert(all_of(TargetInfoMD->operands(),
-                [](const MDOperand &Op) { return isa<MDString>(Op.get()); }) &&
-         "Auto CPU Dispatch target metadata must consists of MDString's "
-         "only!");
-
-  auto Op = [TargetInfoMD](unsigned Idx) {
-    return cast<MDString>(TargetInfoMD->getOperand(Idx).get())->getString();
-  };
-
-  StringRef TargetCpuType = Op(0);
-
-  assert((TargetCpuType == "auto-arch-target" ||
-          TargetCpuType == "auto-cpu-dispatch-target") &&
-         "Invalid Auto CPU Dispatch target metadata format!");
-
-  StringRef TargetCpu = Op(1);
-
-  return std::make_pair(TargetCpuType, TargetCpu);
-}
-
 static std::string getTargetFeatures(StringRef TargetCpu) {
   SmallVector<StringRef, 16> CPUFeatures;
   X86::getFeaturesForCPU(TargetCpu, CPUFeatures);
@@ -157,8 +127,9 @@ emitWrapperBasedDispatcher(Function &Fn, std::string OrigName,
 static void
 emitWrapperBasedResolver(Function &Fn, std::string OrigName,
                          SmallVector<MultiVersionResolverOption> &MVOptions,
-                         Function*& Resolver, GlobalValue*& Dispatcher,
-                         GlobalVariable*& DispatchPtr) {
+                         Function *&Resolver, GlobalValue *&Dispatcher,
+                         GlobalVariable *&DispatchPtr,
+                         bool PerformCPUBrandCheck) {
 
   Module *M = Fn.getParent();
   Resolver = M->getFunction("__intel.acd.resolver");
@@ -179,8 +150,8 @@ emitWrapperBasedResolver(Function &Fn, std::string OrigName,
                          Constant::getNullValue(DispatchPtrType), DispatchPtrName);
   DispatchPtr->setDSOLocal(true);
 
-  emitMultiVersionResolver(Resolver, DispatchPtr, MVOptions,
-                           false /*UseIFunc*/, true /*UseLibIRC*/);
+  emitMultiVersionResolver(Resolver, DispatchPtr, MVOptions, false /*UseIFunc*/,
+                           true /*UseLibIRC*/, PerformCPUBrandCheck);
 
   emitWrapperBasedDispatcher(Fn, OrigName, DispatchPtr, (Function*&)Dispatcher);
 }
@@ -188,7 +159,8 @@ emitWrapperBasedResolver(Function &Fn, std::string OrigName,
 static void
 emitIFuncBasedResolver(Function &Fn, std::string OrigName,
                        SmallVector<MultiVersionResolverOption> &MVOptions,
-                       Function*& Resolver, GlobalValue*& Dispatcher) {
+                       Function *&Resolver, GlobalValue *&Dispatcher,
+                       bool PerformCPUBrandCheck) {
 
   FunctionType *ResolverTy = FunctionType::get(Fn.getType(), false /*IsVarArg*/);
   Resolver = Function::Create(ResolverTy, Fn.getLinkage(),
@@ -202,7 +174,8 @@ emitIFuncBasedResolver(Function &Fn, std::string OrigName,
   Dispatcher->setDSOLocal(Fn.isDSOLocal());
 
   emitMultiVersionResolver(Resolver, nullptr /*DispatchPtr*/, MVOptions,
-                           true /*UseIFunc*/, true /*UseLibIRC*/);
+                           true /*UseIFunc*/, true /*UseLibIRC*/,
+                           PerformCPUBrandCheck);
   setResolverAttributes(Resolver, Fn);
 }
 
@@ -210,7 +183,12 @@ static bool
 shouldMultiVersion(Module& M, Function& Fn,
                    function_ref<TargetLibraryInfo &(Function &)> GetTLI) {
 
-  if (Fn.isDeclaration() || !Fn.hasMetadata("llvm.auto.cpu.dispatch"))
+  if (Fn.isDeclaration())
+    return false;
+
+  // Skip functions that are not intended to be auto multi-versioned.
+  if (!Fn.hasMetadata("llvm.auto.arch") &&
+      !Fn.hasMetadata("llvm.auto.cpu.dispatch"))
     return false;
 
   // Skip available externally functions as they will be removed anyway.
@@ -393,22 +371,26 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     if (UseWrapperBasedResolver && Fn->isVarArg())
       continue;
 
-    MDNode *AutoCPUDispatchMD = Fn->getMetadata("llvm.auto.cpu.dispatch");
-    // Remove llvm.auto.cpu.dispatch metadata here, to prevent cloning it
-    // unnecessarily during multi-versioning as well as dispatcher code generation.
-    Fn->eraseMetadata(Ctx.getMDKindID("llvm.auto.cpu.dispatch"));
+    MDNode *TargetsMD = Fn->getMetadata("llvm.auto.cpu.dispatch");
+    bool EnableAdvancedOpts = TargetsMD != nullptr;
+    if (!TargetsMD) {
+      TargetsMD = Fn->getMetadata("llvm.auto.arch");
+    }
 
-    if (AutoCPUDispatchMD)
-      LLVM_DEBUG(dbgs() << Fn->getName() << ": " << *AutoCPUDispatchMD << "\n");
+    // Erase metadata here, to prevent cloning it unnecessarily
+    // during multi-versioning as well as dispatcher code generation.
+    Fn->eraseMetadata(Ctx.getMDKindID("llvm.auto.cpu.dispatch"));
+    Fn->eraseMetadata(Ctx.getMDKindID("llvm.auto.arch"));
+
+    if (TargetsMD)
+      LLVM_DEBUG(dbgs() << Fn->getName() << ": " << *TargetsMD << "\n");
 
     SmallVector<MultiVersionResolverOption> MVOptions;
 
     std::map<std::string, GlobalValue *> Clones;
 
-    for (const MDOperand &TargetInfoIt : AutoCPUDispatchMD->operands()) {
-      StringRef TargetCpuType, TargetCpu;
-      std::tie(TargetCpuType, TargetCpu) =
-          getTargetCPUFromMD(cast<MDNode>(TargetInfoIt.get()));
+    for (const MDOperand &TargetInfoIt : TargetsMD->operands()) {
+      StringRef TargetCpu = cast<MDString>(TargetInfoIt.get())->getString();
 
       // Get llvm/TargetParser/X86TargetParser.def friendly target name.
       const StringRef TargetCpuDealiased =
@@ -446,7 +428,7 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       New->removeFnAttr("tune-cpu");
       New->addFnAttr("tune-cpu", TargetCpu);
 
-      if (TargetCpuType == "auto-cpu-dispatch-target") {
+      if (EnableAdvancedOpts) {
         New->addFnAttr("loopopt-pipeline", "full");
         New->addFnAttr("advanced-optim", "true");
       }
@@ -493,10 +475,11 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     GlobalValue* Dispatcher = nullptr;
     GlobalVariable* DispatchPtr = nullptr;
     if (UseWrapperBasedResolver)
-      emitWrapperBasedResolver(*Fn, OrigName, MVOptions, Resolver,
-                               Dispatcher, DispatchPtr);
+      emitWrapperBasedResolver(*Fn, OrigName, MVOptions, Resolver, Dispatcher,
+                               DispatchPtr, EnableAdvancedOpts);
     else
-      emitIFuncBasedResolver(*Fn, OrigName, MVOptions, Resolver, Dispatcher);
+      emitIFuncBasedResolver(*Fn, OrigName, MVOptions, Resolver, Dispatcher,
+                             EnableAdvancedOpts);
 
     Orig2MultiFuncs[Fn] = {Resolver, Dispatcher, DispatchPtr, std::move(Clones)};
     Dispatcher2BaselineGV[Dispatcher] = Fn;
@@ -692,7 +675,8 @@ clearMetadataAndSetAttributes(
   for (Function &Fn : M) {
     if (Fn.isDeclaration())
       continue;
-    // Remove "llvm.auto.cpu.dispatch" metadata from all functions
+    // Remove all metadata storing multi-versioning targets from all functions
+    Fn.eraseMetadata(Ctx.getMDKindID("llvm.auto.arch"));
     Fn.eraseMetadata(Ctx.getMDKindID("llvm.auto.cpu.dispatch"));
     // Add "advanced-optim" attribute on functions that are skipped
     // and not multi-versioned.

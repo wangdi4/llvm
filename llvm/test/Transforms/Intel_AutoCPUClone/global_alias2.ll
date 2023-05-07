@@ -27,5 +27,4 @@ define void @_ZN3ObjectD2Ev() !llvm.auto.cpu.dispatch !0 {
   ret void
 }
 
-!0 = !{!1}
-!1 = !{!"auto-cpu-dispatch-target", !"core-avx2"}
+!0 = !{!"core-avx2"}

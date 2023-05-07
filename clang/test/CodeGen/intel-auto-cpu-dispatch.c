@@ -29,6 +29,4 @@ int __attribute__((cpu_dispatch(generic,ivybridge))) baz(void) { }
 #pragma omp declare simd simdlen(4)
 int vec_variant(void) { return 4; }
 
-// CHECK: [[MD]] = !{[[MD_TARGET1:![0-9]*]], [[MD_TARGET2:![0-9]*]]}
-// CHECK: [[MD_TARGET1]] = !{!"auto-cpu-dispatch-target", !"broadwell"}
-// CHECK: [[MD_TARGET2]] = !{!"auto-cpu-dispatch-target", !"skylake-avx512"}
+// CHECK: [[MD]] = !{!"broadwell", !"skylake-avx512"}

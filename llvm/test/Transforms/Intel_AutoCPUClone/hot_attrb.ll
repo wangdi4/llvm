@@ -24,5 +24,4 @@ attributes #0 = { hot mustprogress nofree norecurse nosync nounwind willreturn m
 
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{i32 7, !"uwtable", i32 2}
-!3 = !{!4}
-!4 = !{!"auto-cpu-dispatch-target", !"core-avx2"}
+!3 = !{!"core-avx2"}

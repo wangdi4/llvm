@@ -55,6 +55,5 @@ attributes #0 = { inlinehint mustprogress nofree norecurse nosync nounwind willr
 !29 = !{i32 999990, i64 10000, i32 1}
 !30 = !{i32 999999, i64 10000, i32 1}
 !32 = !{!"function_entry_count", i64 10000}
-!33 = !{!34}
-!34 = !{!"auto-cpu-dispatch-target", !"core-avx2"}
+!33 = !{!"core-avx2"}
 

@@ -19,8 +19,7 @@ define void @foo() !llvm.auto.cpu.dispatch !0 {
   ret void
 }
 
-!llvm.module.flags = !{!2}
+!llvm.module.flags = !{!1}
 
-!0 = !{!1}
-!1 = !{!"auto-cpu-dispatch-target", !"haswell"}
-!2 = !{i32 8, !"PIC Level", i32 1}
+!0 = !{!"haswell"}
+!1 = !{i32 8, !"PIC Level", i32 1}

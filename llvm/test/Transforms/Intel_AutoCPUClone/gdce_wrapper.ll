@@ -96,5 +96,4 @@ define i32 @bar(i32 %a) !llvm.auto.cpu.dispatch !0 {
 
 attributes #0 = { noinline }
 
-!0 = !{!1}
-!1 = !{!"auto-cpu-dispatch-target", !"haswell"}
+!0 = !{!"haswell"}
