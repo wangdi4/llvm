@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021-2023 Intel Corporation
+# Modifications, Copyright (C) 2021 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -83,40 +83,15 @@ if (LLVM_TREE_AVAILABLE)
     ${LLVM_RUNTIME_OUTPUT_INTDIR}/clang${_host_executable_suffix})
   set(COMPILER_RT_TEST_CXX_COMPILER
     ${LLVM_RUNTIME_OUTPUT_INTDIR}/clang++${_host_executable_suffix})
-
-  # INTEL_CUSTOMIZATION
-  # We want clang to use the gcc toolchain on rdrive instead of the gcc on system
-  # when that gcc version is not supported(too low on old system)
+# INTEL_CUSTOMIZATION
+  # We want clang to use the gcc toolchain on rdrive instead of the system
+  # default.
   if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    set(USE_RDRIVE_GCC_FLAG "")
-    set(_unsupported_gcc_versions
-      4.8.5
-    )
-
-    # In ics build context, there will be a clang, using that clang to detect which gcc will be used
-    execute_process(
-      COMMAND sh -c "clang -v 2>&1 | grep \"Selected GCC installation\""
-      OUTPUT_VARIABLE _selected_gcc_line
-      ERROR_QUIET
-    )
-    set(_have_unsupported_gcc FALSE)
-    foreach(version ${_unsupported_gcc_versions})
-      string(FIND "${_selected_gcc_line}" ${version} pos)
-      if(NOT ${pos} EQUAL -1)
-        set(_have_unsupported_gcc TRUE)
-      endif()
-    endforeach()
-
-    if(_have_unsupported_gcc)
-      message(WARNING "Detect unsupported gcc version on system, use gcc on rdrive instead.")
-      get_filename_component(_gcc_path "gcc" PROGRAM)
-      string(REGEX REPLACE "/bin/[^/]*" "" _gcc_path "${_gcc_path}")
-      set(USE_RDRIVE_GCC_FLAG "--gcc-toolchain=${_gcc_path}")
-    endif()
-
-    append("${USE_RDRIVE_GCC_FLAG}" COMPILER_RT_TEST_COMPILER_CFLAGS)
+    get_filename_component(COMPILER_ROOT "gcc" PROGRAM)
+    string(REGEX REPLACE "/bin/[^/]*" "" COMPILER_ROOT "${COMPILER_ROOT}")
+    append("--gcc-toolchain=${COMPILER_ROOT}" COMPILER_RT_TEST_COMPILER_CFLAGS)
   endif()
-  # end INTEL_CUSTOMIZATION
+# end INTEL_CUSTOMIZATION
 else()
     # Take output dir and install path from the user.
   set(COMPILER_RT_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR} CACHE PATH
