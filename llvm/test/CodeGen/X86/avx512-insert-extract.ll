@@ -1613,14 +1613,6 @@ define zeroext i8 @test_extractelement_varible_v32i1(<32 x i8> %a, <32 x i8> %b,
 ;
 ; SKX-LABEL: test_extractelement_varible_v32i1:
 ; SKX:       ## %bb.0:
-<<<<<<< HEAD
-=======
-; SKX-NEXT:    pushq %rbp
-; SKX-NEXT:    movq %rsp, %rbp
-; SKX-NEXT:    andq $-32, %rsp
-; SKX-NEXT:    subq $64, %rsp
-; SKX-NEXT:    ## kill: def $edi killed $edi def $rdi
->>>>>>> 55f8083f7bd0b5762add4e624e0ef246095bb40b
 ; SKX-NEXT:    vpcmpnleub %ymm1, %ymm0, %k0
 ; SKX-NEXT:    vpmovm2b %k0, %ymm0
 ; SKX-NEXT:    vpmovmskb %ymm0, %ecx ;INTEL
