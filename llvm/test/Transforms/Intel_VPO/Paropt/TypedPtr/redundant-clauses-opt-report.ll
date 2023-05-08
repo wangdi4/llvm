@@ -50,17 +50,17 @@
 
 ; CHECK:      Global optimization report for : __omp_offloading_35_d6824d91__Z5test1_l3{{[[:space:]]}}
 ; CHECK-NEXT: OMP TARGET BEGIN at test.c (3, 1)
-; CHECK-NEXT:     remark: FIRSTPRIVATE clause for variable 'A' is redundant
-; CHECK-NEXT:     remark: FIRSTPRIVATE clause for variable 'B' is redundant{{[[:space:]]}}
+; CHECK-NEXT:     remark #25594: OpenMP: FIRSTPRIVATE clause for variable 'A' is redundant
+; CHECK-NEXT:     remark #25594: OpenMP: FIRSTPRIVATE clause for variable 'B' is redundant{{[[:space:]]}}
 ; CHECK-NEXT:     OMP TEAMS BEGIN at test.c (3, 1)
-; CHECK-NEXT:         remark: SHARED clause for variable 'A' has been changed to PRIVATE
-; CHECK-NEXT:         remark: SHARED clause for variable 'B' has been changed to PRIVATE{{[[:space:]]}}
+; CHECK-NEXT:         remark #25595: OpenMP: SHARED clause for variable 'A' has been changed to PRIVATE
+; CHECK-NEXT:         remark #25595: OpenMP: SHARED clause for variable 'B' has been changed to PRIVATE{{[[:space:]]}}
 ; CHECK-NEXT:         OMP DISTRIBUTE BEGIN at test.c (4, 1)
-; CHECK-NEXT:             remark: FIRSTPRIVATE clause for variable 'A' has been changed to PRIVATE{{[[:space:]]}}
+; CHECK-NEXT:             remark #25595: OpenMP: FIRSTPRIVATE clause for variable 'A' has been changed to PRIVATE{{[[:space:]]}}
 ; CHECK-NEXT:             OMP PARALLEL BEGIN at test.c (6, 1)
-; CHECK-NEXT:                 remark: SHARED clause for variable 'B' has been changed to PRIVATE{{[[:space:]]}}
+; CHECK-NEXT:                 remark #25595: OpenMP: SHARED clause for variable 'B' has been changed to PRIVATE{{[[:space:]]}}
 ; CHECK-NEXT:                 OMP FOR BEGIN at test.c (7, 1)
-; CHECK-NEXT:                     remark: FIRSTPRIVATE clause for variable 'B' has been changed to PRIVATE
+; CHECK-NEXT:                     remark #25595: OpenMP: FIRSTPRIVATE clause for variable 'B' has been changed to PRIVATE
 ; CHECK-NEXT:                 OMP FOR END
 ; CHECK-NEXT:             OMP PARALLEL END
 ; CHECK-NEXT:         OMP DISTRIBUTE END
@@ -69,33 +69,33 @@
 
 ; CHECK:      Global optimization report for : __omp_offloading_35_d6824d91__Z5test2_l17{{[[:space:]]}}
 ; CHECK-NEXT: OMP TARGET BEGIN at test.c (17, 1)
-; CHECK-NEXT:     remark: MAP:TO clause for variable 'C' can be changed to FIRSTPRIVATE to reduce mapping overhead
-; CHECK-NEXT:     remark: MAP:TOFROM clause for variable 'D' can be changed to FIRSTPRIVATE to reduce mapping overhead
-; CHECK-NEXT:     remark: MAP:FROM clause for variable 'F' is redundant
-; CHECK-NEXT:     remark: MAP:TOFROM clause for variable 'H' is redundant
-; CHECK-NEXT:     remark: MAP:TO clause for variable 'G' is redundant
-; CHECK-NEXT:     remark: FIRSTPRIVATE clause for variable 'I' is redundant{{[[:space:]]}}
+; CHECK-NEXT:     remark #25596: OpenMP: MAP:TO clause for variable 'C' can be changed to FIRSTPRIVATE to reduce mapping overhead
+; CHECK-NEXT:     remark #25596: OpenMP: MAP:TOFROM clause for variable 'D' can be changed to FIRSTPRIVATE to reduce mapping overhead
+; CHECK-NEXT:     remark #25594: OpenMP: MAP:FROM clause for variable 'F' is redundant
+; CHECK-NEXT:     remark #25594: OpenMP: MAP:TOFROM clause for variable 'H' is redundant
+; CHECK-NEXT:     remark #25594: OpenMP: MAP:TO clause for variable 'G' is redundant
+; CHECK-NEXT:     remark #25594: OpenMP: FIRSTPRIVATE clause for variable 'I' is redundant{{[[:space:]]}}
 ; CHECK-NEXT:     OMP PARALLEL FOR BEGIN at test.c (21, 1)
-; CHECK-NEXT:         remark: FIRSTPRIVATE clause for variable 'F' has been changed to PRIVATE
-; CHECK-NEXT:         remark: LASTPRIVATE clause for variable 'F' has been changed to PRIVATE
-; CHECK-NEXT:         remark: SHARED clause for variable 'H' has been changed to PRIVATE
-; CHECK-NEXT:         remark: SHARED clause for variable 'I' has been changed to PRIVATE
+; CHECK-NEXT:         remark #25595: OpenMP: FIRSTPRIVATE clause for variable 'F' has been changed to PRIVATE
+; CHECK-NEXT:         remark #25595: OpenMP: LASTPRIVATE clause for variable 'F' has been changed to PRIVATE
+; CHECK-NEXT:         remark #25595: OpenMP: SHARED clause for variable 'H' has been changed to PRIVATE
+; CHECK-NEXT:         remark #25595: OpenMP: SHARED clause for variable 'I' has been changed to PRIVATE
 ; CHECK-NEXT:     OMP PARALLEL FOR END
 ; CHECK-NEXT: OMP TARGET END
 
 ; CHECK:      Global optimization report for : __omp_offloading_35_d6824d91__Z5test3_l30{{[[:space:]]}}
 ; CHECK-NEXT: OMP TARGET BEGIN at test.c (30, 1)
-; CHECK-NEXT:     remark: FIRSTPRIVATE clause for variable 'J' is redundant
-; CHECK-NEXT:     remark: FIRSTPRIVATE clause for variable 'K' is redundant{{[[:space:]]}}
+; CHECK-NEXT:     remark #25594: OpenMP: FIRSTPRIVATE clause for variable 'J' is redundant
+; CHECK-NEXT:     remark #25594: OpenMP: FIRSTPRIVATE clause for variable 'K' is redundant{{[[:space:]]}}
 ; CHECK-NEXT:     OMP TEAMS BEGIN at test.c (30, 1)
-; CHECK-NEXT:         remark: SHARED clause for variable 'J' has been changed to PRIVATE
-; CHECK-NEXT:         remark: SHARED clause for variable 'K' has been changed to PRIVATE{{[[:space:]]}}
+; CHECK-NEXT:         remark #25595: OpenMP: SHARED clause for variable 'J' has been changed to PRIVATE
+; CHECK-NEXT:         remark #25595: OpenMP: SHARED clause for variable 'K' has been changed to PRIVATE{{[[:space:]]}}
 ; CHECK-NEXT:         OMP DISTRIBUTE BEGIN at test.c (30, 1){{[[:space:]]}}
 ; CHECK-NEXT:             OMP PARALLEL FOR BEGIN at test.c (32, 1)
-; CHECK-NEXT:                 remark: FIRSTPRIVATE clause for variable 'J' has been changed to PRIVATE
+; CHECK-NEXT:                 remark #25595: OpenMP: FIRSTPRIVATE clause for variable 'J' has been changed to PRIVATE
 ; CHECK-NEXT:             OMP PARALLEL FOR END{{[[:space:]]}}
 ; CHECK-NEXT:             OMP PARALLEL FOR BEGIN at test.c (34, 1)
-; CHECK-NEXT:                 remark: FIRSTPRIVATE clause for variable 'K' has been changed to PRIVATE
+; CHECK-NEXT:                 remark #25595: OpenMP: FIRSTPRIVATE clause for variable 'K' has been changed to PRIVATE
 ; CHECK-NEXT:             OMP PARALLEL FOR END
 ; CHECK-NEXT:         OMP DISTRIBUTE END
 ; CHECK-NEXT:     OMP TEAMS END
@@ -103,17 +103,17 @@
 
 ; CHECK:      Global optimization report for : __omp_offloading_35_d6824d91__Z5test3_l37{{[[:space:]]}}
 ; CHECK-NEXT: OMP TARGET BEGIN at test.c (37, 1)
-; CHECK-NEXT:     remark: FIRSTPRIVATE clause for variable 'L' is redundant
-; CHECK-NEXT:     remark: FIRSTPRIVATE clause for variable 'M' is redundant{{[[:space:]]}}
+; CHECK-NEXT:     remark #25594: OpenMP: FIRSTPRIVATE clause for variable 'L' is redundant
+; CHECK-NEXT:     remark #25594: OpenMP: FIRSTPRIVATE clause for variable 'M' is redundant{{[[:space:]]}}
 ; CHECK-NEXT:     OMP TEAMS BEGIN at test.c (37, 1)
-; CHECK-NEXT:         remark: SHARED clause for variable 'L' has been changed to PRIVATE
-; CHECK-NEXT:         remark: SHARED clause for variable 'M' has been changed to PRIVATE{{[[:space:]]}}
+; CHECK-NEXT:         remark #25595: OpenMP: SHARED clause for variable 'L' has been changed to PRIVATE
+; CHECK-NEXT:         remark #25595: OpenMP: SHARED clause for variable 'M' has been changed to PRIVATE{{[[:space:]]}}
 ; CHECK-NEXT:         OMP DISTRIBUTE BEGIN at test.c (37, 1){{[[:space:]]}}
 ; CHECK-NEXT:             OMP PARALLEL FOR BEGIN at test.c (39, 1)
-; CHECK-NEXT:                 remark: SHARED clause for variable 'L' has been changed to PRIVATE
+; CHECK-NEXT:                 remark #25595: OpenMP: SHARED clause for variable 'L' has been changed to PRIVATE
 ; CHECK-NEXT:             OMP PARALLEL FOR END{{[[:space:]]}}
 ; CHECK-NEXT:             OMP PARALLEL FOR BEGIN at test.c (41, 1)
-; CHECK-NEXT:                 remark: SHARED clause for variable 'M' has been changed to PRIVATE
+; CHECK-NEXT:                 remark #25595: OpenMP: SHARED clause for variable 'M' has been changed to PRIVATE
 ; CHECK-NEXT:             OMP PARALLEL FOR END
 ; CHECK-NEXT:         OMP DISTRIBUTE END
 ; CHECK-NEXT:     OMP TEAMS END

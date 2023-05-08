@@ -556,6 +556,14 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
             "in loop"},
     {25590, "%d stores sunk out of If at line %d to make them unconditional "
             "in loop"},
+    {25591, "OpenMP: Outlined parallel loop"},
+    {25592, "OpenMP: Enclosed parallel loop was outlined"},
+    {25593, "OpenMP: Worksharing loop"},
+    {25594, "OpenMP: %s clause for variable '%s' is redundant"},
+    {25595, "OpenMP: %s clause for variable '%s' has been changed to %s"},
+    {25596, "OpenMP: %s clause for variable '%s' can be changed to %s to reduce mapping overhead"},
+    {25597, "CSA: OpenMP parallel loop will be pipelined"},
+    {25598, "CSA: OpenMP worksharing loop will be pipelined"},
 };
 
 const char *OptReportDiag::getMsg(unsigned Id) {
