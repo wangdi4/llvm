@@ -339,13 +339,11 @@ static void applyTargetCPUData(
 
   LLVM_DEBUG(dbgs() << "Auto-cpu dispatching " << Clone->getName() << "\n");
   LLVMContext &Ctx = Clone->getContext();
-  Metadata *MagicStr = MDString::get(Ctx, "auto-cpu-dispatch-target");
 
   SmallVector<Metadata *> TargetMDs;
   for (StringRef TargetCPU : TargetCpuList) {
     StringRef TargetCpu = resolveCPUName(TargetCPU, Clone->getParent());
-    SmallVector<Metadata *> Ops = {MagicStr, MDString::get(Ctx, TargetCpu)};
-    TargetMDs.push_back(MDNode::get(Ctx, Ops));
+    TargetMDs.push_back(MDString::get(Ctx, TargetCpu));
   }
   MDNode *AutoCPUMultiVersionMetadata = MDNode::get(Ctx, TargetMDs);
   Clone->addMetadata("llvm.auto.cpu.dispatch", *AutoCPUMultiVersionMetadata);
