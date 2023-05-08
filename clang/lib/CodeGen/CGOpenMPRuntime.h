@@ -1699,6 +1699,14 @@ public:
                    ArrayRef<OMPTaskDataTy::DependData> Dependencies,
                    SourceLocation Loc);
 
+#if INTEL_COLLAB
+  /// Emits list of affinities based on the provided data in affinity clause.
+  /// \returns Pointer to the first element of the array casted to VoidPtr type.
+  std::pair<llvm::Value *, Address>
+  emitAffinityClause(CodeGenFunction &CGF, const OMPExecutableDirective &D,
+                     SourceLocation Loc);
+#endif // INTEL_COLLAB
+
   /// Emits list of dependecies based on the provided data (array of
   /// dependence/expression pairs) for depobj construct. In this case, the
   /// variable is allocated in dynamically. \returns Pointer to the first

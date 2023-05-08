@@ -4163,123 +4163,12 @@ CGOpenMPRuntime::emitTaskInit(CodeGenFunction &CGF, SourceLocation Loc,
   // Process affinity clauses.
   if (D.hasClausesOfKind<OMPAffinityClause>()) {
     // Process list of affinity data.
-    ASTContext &C = CGM.getContext();
     Address AffinitiesArray = Address::invalid();
     // Calculate number of elements to form the array of affinity data.
     llvm::Value *NumOfElements = nullptr;
-    unsigned NumAffinities = 0;
-    for (const auto *C : D.getClausesOfKind<OMPAffinityClause>()) {
-      if (const Expr *Modifier = C->getModifier()) {
-        const auto *IE = cast<OMPIteratorExpr>(Modifier->IgnoreParenImpCasts());
-        for (unsigned I = 0, E = IE->numOfIterators(); I < E; ++I) {
-          llvm::Value *Sz = CGF.EmitScalarExpr(IE->getHelper(I).Upper);
-          Sz = CGF.Builder.CreateIntCast(Sz, CGF.SizeTy, /*isSigned=*/false);
-          NumOfElements =
-              NumOfElements ? CGF.Builder.CreateNUWMul(NumOfElements, Sz) : Sz;
-        }
-      } else {
-        NumAffinities += C->varlist_size();
-      }
-    }
-    getKmpAffinityType(CGM.getContext(), KmpTaskAffinityInfoTy);
-    // Fields ids in kmp_task_affinity_info record.
-    enum RTLAffinityInfoFieldsTy { BaseAddr, Len, Flags };
-
-    QualType KmpTaskAffinityInfoArrayTy;
-    if (NumOfElements) {
-      NumOfElements = CGF.Builder.CreateNUWAdd(
-          llvm::ConstantInt::get(CGF.SizeTy, NumAffinities), NumOfElements);
-      auto *OVE = new (C) OpaqueValueExpr(
-          Loc,
-          C.getIntTypeForBitwidth(C.getTypeSize(C.getSizeType()), /*Signed=*/0),
-          VK_PRValue);
-      CodeGenFunction::OpaqueValueMapping OpaqueMap(CGF, OVE,
-                                                    RValue::get(NumOfElements));
-      KmpTaskAffinityInfoArrayTy =
-          C.getVariableArrayType(KmpTaskAffinityInfoTy, OVE, ArrayType::Normal,
-                                 /*IndexTypeQuals=*/0, SourceRange(Loc, Loc));
-      // Properly emit variable-sized array.
-      auto *PD = ImplicitParamDecl::Create(C, KmpTaskAffinityInfoArrayTy,
-                                           ImplicitParamDecl::Other);
-      CGF.EmitVarDecl(*PD);
-      AffinitiesArray = CGF.GetAddrOfLocalVar(PD);
-      NumOfElements = CGF.Builder.CreateIntCast(NumOfElements, CGF.Int32Ty,
-                                                /*isSigned=*/false);
-    } else {
-      KmpTaskAffinityInfoArrayTy = C.getConstantArrayType(
-          KmpTaskAffinityInfoTy,
-          llvm::APInt(C.getTypeSize(C.getSizeType()), NumAffinities), nullptr,
-          ArrayType::Normal, /*IndexTypeQuals=*/0);
-      AffinitiesArray =
-          CGF.CreateMemTemp(KmpTaskAffinityInfoArrayTy, ".affs.arr.addr");
-      AffinitiesArray = CGF.Builder.CreateConstArrayGEP(AffinitiesArray, 0);
-      NumOfElements = llvm::ConstantInt::get(CGM.Int32Ty, NumAffinities,
-                                             /*isSigned=*/false);
-    }
-
-    const auto *KmpAffinityInfoRD = KmpTaskAffinityInfoTy->getAsRecordDecl();
-    // Fill array by elements without iterators.
-    unsigned Pos = 0;
-    bool HasIterator = false;
-    for (const auto *C : D.getClausesOfKind<OMPAffinityClause>()) {
-      if (C->getModifier()) {
-        HasIterator = true;
-        continue;
-      }
-      for (const Expr *E : C->varlists()) {
-        llvm::Value *Addr;
-        llvm::Value *Size;
-        std::tie(Addr, Size) = getPointerAndSize(CGF, E);
-        LValue Base =
-            CGF.MakeAddrLValue(CGF.Builder.CreateConstGEP(AffinitiesArray, Pos),
-                               KmpTaskAffinityInfoTy);
-        // affs[i].base_addr = &<Affinities[i].second>;
-        LValue BaseAddrLVal = CGF.EmitLValueForField(
-            Base, *std::next(KmpAffinityInfoRD->field_begin(), BaseAddr));
-        CGF.EmitStoreOfScalar(CGF.Builder.CreatePtrToInt(Addr, CGF.IntPtrTy),
-                              BaseAddrLVal);
-        // affs[i].len = sizeof(<Affinities[i].second>);
-        LValue LenLVal = CGF.EmitLValueForField(
-            Base, *std::next(KmpAffinityInfoRD->field_begin(), Len));
-        CGF.EmitStoreOfScalar(Size, LenLVal);
-        ++Pos;
-      }
-    }
-    LValue PosLVal;
-    if (HasIterator) {
-      PosLVal = CGF.MakeAddrLValue(
-          CGF.CreateMemTemp(C.getSizeType(), "affs.counter.addr"),
-          C.getSizeType());
-      CGF.EmitStoreOfScalar(llvm::ConstantInt::get(CGF.SizeTy, Pos), PosLVal);
-    }
-    // Process elements with iterators.
-    for (const auto *C : D.getClausesOfKind<OMPAffinityClause>()) {
-      const Expr *Modifier = C->getModifier();
-      if (!Modifier)
-        continue;
-      OMPIteratorGeneratorScope IteratorScope(
-          CGF, cast_or_null<OMPIteratorExpr>(Modifier->IgnoreParenImpCasts()));
-      for (const Expr *E : C->varlists()) {
-        llvm::Value *Addr;
-        llvm::Value *Size;
-        std::tie(Addr, Size) = getPointerAndSize(CGF, E);
-        llvm::Value *Idx = CGF.EmitLoadOfScalar(PosLVal, E->getExprLoc());
-        LValue Base = CGF.MakeAddrLValue(
-            CGF.Builder.CreateGEP(AffinitiesArray, Idx), KmpTaskAffinityInfoTy);
-        // affs[i].base_addr = &<Affinities[i].second>;
-        LValue BaseAddrLVal = CGF.EmitLValueForField(
-            Base, *std::next(KmpAffinityInfoRD->field_begin(), BaseAddr));
-        CGF.EmitStoreOfScalar(CGF.Builder.CreatePtrToInt(Addr, CGF.IntPtrTy),
-                              BaseAddrLVal);
-        // affs[i].len = sizeof(<Affinities[i].second>);
-        LValue LenLVal = CGF.EmitLValueForField(
-            Base, *std::next(KmpAffinityInfoRD->field_begin(), Len));
-        CGF.EmitStoreOfScalar(Size, LenLVal);
-        Idx = CGF.Builder.CreateNUWAdd(
-            Idx, llvm::ConstantInt::get(Idx->getType(), 1));
-        CGF.EmitStoreOfScalar(Idx, PosLVal);
-      }
-    }
+#if INTEL_COLLAB
+    std::tie(NumOfElements, AffinitiesArray) = emitAffinityClause(CGF, D, Loc);
+#endif // INTEL_COLLAB
     // Call to kmp_int32 __kmpc_omp_reg_task_with_affinity(ident_t *loc_ref,
     // kmp_int32 gtid, kmp_task_t *new_task, kmp_int32
     // naffins, kmp_task_affinity_info_t *affin_list);
@@ -4362,6 +4251,134 @@ CGOpenMPRuntime::emitTaskInit(CodeGenFunction &CGF, SourceLocation Loc,
   Result.KmpTaskTQTyRD = KmpTaskTQTyRD;
   return Result;
 }
+
+#if INTEL_COLLAB
+std::pair<llvm::Value *, Address> CGOpenMPRuntime::emitAffinityClause(
+    CodeGenFunction &CGF, const OMPExecutableDirective &D, SourceLocation Loc) {
+  // Process list of affinity data.
+  ASTContext &C = CGM.getContext();
+  Address AffinitiesArray = Address::invalid();
+  // Calculate number of elements to form the array of affinity data.
+  llvm::Value *NumOfElements = nullptr;
+  unsigned NumAffinities = 0;
+  for (const auto *C : D.getClausesOfKind<OMPAffinityClause>()) {
+    if (const Expr *Modifier = C->getModifier()) {
+      const auto *IE = cast<OMPIteratorExpr>(Modifier->IgnoreParenImpCasts());
+      for (unsigned I = 0, E = IE->numOfIterators(); I < E; ++I) {
+        llvm::Value *Sz = CGF.EmitScalarExpr(IE->getHelper(I).Upper);
+        Sz = CGF.Builder.CreateIntCast(Sz, CGF.SizeTy, /*isSigned=*/false);
+        NumOfElements =
+            NumOfElements ? CGF.Builder.CreateNUWMul(NumOfElements, Sz) : Sz;
+      }
+    } else {
+      NumAffinities += C->varlist_size();
+    }
+  }
+  getKmpAffinityType(CGM.getContext(), KmpTaskAffinityInfoTy);
+  // Fields ids in kmp_task_affinity_info record.
+  enum RTLAffinityInfoFieldsTy { BaseAddr, Len, Flags };
+
+  QualType KmpTaskAffinityInfoArrayTy;
+  if (NumOfElements) {
+    NumOfElements = CGF.Builder.CreateNUWAdd(
+        llvm::ConstantInt::get(CGF.SizeTy, NumAffinities), NumOfElements);
+    auto *OVE = new (C) OpaqueValueExpr(
+        Loc,
+        C.getIntTypeForBitwidth(C.getTypeSize(C.getSizeType()), /*Signed=*/0),
+        VK_PRValue);
+    CodeGenFunction::OpaqueValueMapping OpaqueMap(CGF, OVE,
+                                                  RValue::get(NumOfElements));
+    KmpTaskAffinityInfoArrayTy =
+        C.getVariableArrayType(KmpTaskAffinityInfoTy, OVE, ArrayType::Normal,
+                               /*IndexTypeQuals=*/0, SourceRange(Loc, Loc));
+    // Properly emit variable-sized array.
+    auto *PD = ImplicitParamDecl::Create(C, KmpTaskAffinityInfoArrayTy,
+                                         ImplicitParamDecl::Other);
+    CGF.EmitVarDecl(*PD);
+    AffinitiesArray = CGF.GetAddrOfLocalVar(PD);
+    NumOfElements = CGF.Builder.CreateIntCast(NumOfElements, CGF.Int32Ty,
+                                              /*isSigned=*/false);
+  } else {
+    KmpTaskAffinityInfoArrayTy = C.getConstantArrayType(
+        KmpTaskAffinityInfoTy,
+        llvm::APInt(C.getTypeSize(C.getSizeType()), NumAffinities), nullptr,
+        ArrayType::Normal, /*IndexTypeQuals=*/0);
+    AffinitiesArray =
+        CGF.CreateMemTemp(KmpTaskAffinityInfoArrayTy, ".affs.arr.addr");
+    AffinitiesArray = CGF.Builder.CreateConstArrayGEP(AffinitiesArray, 0);
+    NumOfElements = llvm::ConstantInt::get(CGM.Int32Ty, NumAffinities,
+                                           /*isSigned=*/false);
+  }
+
+  const auto *KmpAffinityInfoRD = KmpTaskAffinityInfoTy->getAsRecordDecl();
+  // Fill array by elements without iterators.
+  unsigned Pos = 0;
+  bool HasIterator = false;
+  for (const auto *C : D.getClausesOfKind<OMPAffinityClause>()) {
+    if (C->getModifier()) {
+      HasIterator = true;
+      continue;
+    }
+    for (const Expr *E : C->varlists()) {
+      llvm::Value *Addr;
+      llvm::Value *Size;
+      std::tie(Addr, Size) = getPointerAndSize(CGF, E);
+      LValue Base =
+          CGF.MakeAddrLValue(CGF.Builder.CreateConstGEP(AffinitiesArray, Pos),
+                             KmpTaskAffinityInfoTy);
+      // affs[i].base_addr = &<Affinities[i].second>;
+      LValue BaseAddrLVal = CGF.EmitLValueForField(
+          Base, *std::next(KmpAffinityInfoRD->field_begin(), BaseAddr));
+      CGF.EmitStoreOfScalar(CGF.Builder.CreatePtrToInt(Addr, CGF.IntPtrTy),
+                            BaseAddrLVal);
+      // affs[i].len = sizeof(<Affinities[i].second>);
+      LValue LenLVal = CGF.EmitLValueForField(
+          Base, *std::next(KmpAffinityInfoRD->field_begin(), Len));
+      CGF.EmitStoreOfScalar(Size, LenLVal);
+      ++Pos;
+    }
+  }
+  LValue PosLVal;
+  if (HasIterator) {
+    PosLVal = CGF.MakeAddrLValue(
+        CGF.CreateMemTemp(C.getSizeType(), "affs.counter.addr"),
+        C.getSizeType());
+    CGF.EmitStoreOfScalar(llvm::ConstantInt::get(CGF.SizeTy, Pos), PosLVal);
+  }
+  // Process elements with iterators.
+  for (const auto *C : D.getClausesOfKind<OMPAffinityClause>()) {
+    const Expr *Modifier = C->getModifier();
+    if (!Modifier)
+      continue;
+    OMPIteratorGeneratorScope IteratorScope(
+        CGF, cast_or_null<OMPIteratorExpr>(Modifier->IgnoreParenImpCasts()));
+    for (const Expr *E : C->varlists()) {
+      llvm::Value *Addr;
+      llvm::Value *Size;
+      std::tie(Addr, Size) = getPointerAndSize(CGF, E);
+      llvm::Value *Idx = CGF.EmitLoadOfScalar(PosLVal, E->getExprLoc());
+      LValue Base = CGF.MakeAddrLValue(
+          CGF.Builder.CreateGEP(AffinitiesArray, Idx), KmpTaskAffinityInfoTy);
+      // affs[i].base_addr = &<Affinities[i].second>;
+      LValue BaseAddrLVal = CGF.EmitLValueForField(
+          Base, *std::next(KmpAffinityInfoRD->field_begin(), BaseAddr));
+      CGF.EmitStoreOfScalar(CGF.Builder.CreatePtrToInt(Addr, CGF.IntPtrTy),
+                            BaseAddrLVal);
+      // affs[i].len = sizeof(<Affinities[i].second>);
+      LValue LenLVal = CGF.EmitLValueForField(
+          Base, *std::next(KmpAffinityInfoRD->field_begin(), Len));
+      CGF.EmitStoreOfScalar(Size, LenLVal);
+      Idx = CGF.Builder.CreateNUWAdd(Idx,
+                                     llvm::ConstantInt::get(Idx->getType(), 1));
+      CGF.EmitStoreOfScalar(Idx, PosLVal);
+    }
+  }
+
+  AffinitiesArray = CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
+      AffinitiesArray, CGF.VoidPtrTy, CGF.Int8Ty);
+  return std::make_pair(NumOfElements, AffinitiesArray);
+}
+#endif // INTEL_COLLAB
 
 /// Translates internal dependency kind into the runtime kind.
 static RTLDependenceKindTy translateDependencyKind(OpenMPDependClauseKind K) {

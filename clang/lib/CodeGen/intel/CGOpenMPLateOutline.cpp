@@ -2570,6 +2570,20 @@ void OpenMPLateOutliner::emitOMPAllDependClauses() {
   addArg(DependenciesArray.getPointer());
 }
 
+void OpenMPLateOutliner::emitOMPAllAffinityClauses() {
+  if (!Directive.hasClausesOfKind<OMPAffinityClause>())
+    return;
+  Address AffinitiesArray = Address::invalid();
+  llvm::Value *NumOfElements;
+  std::tie(NumOfElements, AffinitiesArray) =
+      CGF.CGM.getOpenMPRuntime().emitAffinityClause(CGF, Directive,
+                                                    Directive.getBeginLoc());
+  ClauseEmissionHelper CEH(*this, OMPC_affinity);
+  addArg("QUAL.OMP.AFFARRAY");
+  addArg(NumOfElements);
+  addArg(AffinitiesArray.getPointer());
+}
+
 void OpenMPLateOutliner::emitOMPAllMapClauses() {
   llvm::DenseMap<const ValueDecl *, const Expr *> UseDeviceAddrExpr;
   llvm::SmallVector<std::pair<const Expr *, llvm::Value *>, 8> UseDeviceAddr;
@@ -3160,7 +3174,9 @@ void OpenMPLateOutliner::emitOMPDetachClause(const OMPDetachClause *Cl) {
 
 void OpenMPLateOutliner::emitOMPUsesAllocatorsClause(
     const OMPUsesAllocatorsClause *) {}
-void OpenMPLateOutliner::emitOMPAffinityClause(const OMPAffinityClause *) {}
+void OpenMPLateOutliner::emitOMPAffinityClause(const OMPAffinityClause *Cl) {
+  assert(false && "clauses handled in emitOMPAllAffinityClauses");
+}
 void OpenMPLateOutliner::emitOMPSizesClause(const OMPSizesClause *) {}
 void OpenMPLateOutliner::emitOMPAlignClause(const OMPAlignClause *Cl) {}
 void OpenMPLateOutliner::emitOMPFullClause(const OMPFullClause *Cl) {}
@@ -3743,7 +3759,7 @@ operator<<(ArrayRef<OMPClause *> Clauses) {
     if (ClauseKind == OMPC_map || ClauseKind == OMPC_to ||
         ClauseKind == OMPC_from || ClauseKind == OMPC_need_device_ptr ||
         ClauseKind == OMPC_use_device_addr ||
-        ClauseKind == OMPC_has_device_addr)
+        ClauseKind == OMPC_has_device_addr || ClauseKind == OMPC_affinity)
       continue;
     switch (ClauseKind) {
 #define GEN_CLANG_CLAUSE_CLASS
@@ -3759,6 +3775,8 @@ operator<<(ArrayRef<OMPClause *> Clauses) {
   }
   if (!shouldSkipExplicitClause(OMPC_depend))
     emitOMPAllDependClauses();
+  if (!shouldSkipExplicitClause(OMPC_affinity))
+    emitOMPAllAffinityClauses();
   if (!shouldSkipExplicitClause(OMPC_map) ||
       !shouldSkipExplicitClause(OMPC_from) ||
       !shouldSkipExplicitClause(OMPC_to))

@@ -325,6 +325,7 @@ class OpenMPLateOutliner {
                          const VarDecl *MapVar);
   void emitOMPAllMapClauses();
   void emitOMPAllDependClauses();
+  void emitOMPAllAffinityClauses();
   void emitOMPMapClause(const OMPMapClause *C);
   void emitOMPScheduleClause(const OMPScheduleClause *C);
   void emitOMPFirstprivateClause(const OMPFirstprivateClause *Cl);
