@@ -43,6 +43,4 @@ attributes #0 = { mustprogress nofree norecurse nosync nounwind willreturn memor
 !1 = !{!"int", !2, i64 0}
 !2 = !{!"omnipotent char", !3, i64 0}
 !3 = !{!"Simple C++ TBAA"}
-; CHECK:  ![[MD1]] = !{![[MD2:.*]], ![[MD3:.*]]}
-; CHECK:  ![[MD2]] = !{!"auto-cpu-dispatch-target", !"skylake-avx512"}
-; CHECK:  ![[MD3]] = !{!"auto-cpu-dispatch-target", !"tigerlake"}
+; CHECK:  ![[MD1]] = !{!"skylake-avx512", !"tigerlake"}
