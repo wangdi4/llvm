@@ -105,11 +105,8 @@
 ; CHECK-O-NEXT: Running pass: ArgumentPromotionPass on (foo)
 ; CHECK-O-NEXT: Running pass: SROAPass on foo
 ; CHECK-O-NEXT: Running pass: PostOrderFunctionAttrsPass
-<<<<<<< HEAD
 ; end INTEL_CUSTOMIZATION
-=======
 ; CHECK-O3-NEXT: Running pass: ArgumentPromotionPass
->>>>>>> 141be5c062ecf22bd287afffd310e8ac4711444a
 ; CHECK-O2-NEXT: Running pass: OpenMPOptCGSCCPass on (foo)
 ; CHECK-O3-NEXT: Running pass: OpenMPOptCGSCCPass on (foo)
 ; INTEL_CUSTOMIZATION
