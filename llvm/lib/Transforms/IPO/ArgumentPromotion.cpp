@@ -1046,6 +1046,8 @@ static Function *promoteArguments(Function *F, FunctionAnalysisManager &FAM,
     if (CS.isCallbackCall())
       isCallback = true;
 #endif // INTEL_CUSTOMIZATION
+    if (CB->getFunction() == F)
+      IsRecursive = true;
   }
 
   // Can't change signature of musttail caller
