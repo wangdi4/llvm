@@ -574,19 +574,18 @@ static bool cleanupItem(
   // both host and device sides will be changed the same way.
   if (isa<WRNTargetNode>(W) || !CleanupRedundantClauses) {
     ORBuilder(*W, WRegionList)
-        .addRemark(OptReportVerbosity::Low,
-                   (Twine(ClauseName) + " clause for variable '" +
-                    V->getName() + "' is redundant")
-                       .str());
+      .addRemark(OptReportVerbosity::Low, 25594u,
+                   ClauseName,
+                   V->getName());
+
     return Changed;
   }
 
   ORBuilder(*W, WRegionList)
-      .addRemark(OptReportVerbosity::Low,
-                 (Twine(ClauseName) + " clause for variable '" + V->getName() +
-                  "' has been changed to " +
-                  VPOAnalysisUtils::getOmpClauseName(QUAL_OMP_PRIVATE))
-                     .str());
+      .addRemark(OptReportVerbosity::Low, 25595u,
+                 ClauseName,
+                 V->getName(),
+                 VPOAnalysisUtils::getOmpClauseName(QUAL_OMP_PRIVATE));
 
   // Add V to the list of items to be privatized.
   if (!ToPrivatize.count(V)) {
@@ -810,10 +809,9 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
             << "' on '" << W->getName() << "' construct is redundant");
 
         ORBuilder(*W, WRegionList)
-            .addRemark(OptReportVerbosity::Low,
-                       (Twine(GetMapName(MI)) + " clause for variable '" +
-                        AI->getName() + "' is redundant")
-                           .str());
+            .addRemark(OptReportVerbosity::Low, 25594u,
+                       GetMapName(MI),
+                       AI->getName());
         continue;
       }
 
@@ -847,12 +845,10 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
 
       ORBuilder(*W, WRegionList)
           .addRemark(
-              OptReportVerbosity::Low,
-              (Twine(GetMapName(MI)) + " clause for variable '" +
-               AI->getName() + "' can be changed to " +
-               VPOAnalysisUtils::getOmpClauseName(QUAL_OMP_FIRSTPRIVATE) +
-               " to reduce mapping overhead")
-                  .str());
+	      OptReportVerbosity::Low, 25596u,
+              GetMapName(MI),
+              AI->getName(),
+              VPOAnalysisUtils::getOmpClauseName(QUAL_OMP_FIRSTPRIVATE));
     }
   }
 

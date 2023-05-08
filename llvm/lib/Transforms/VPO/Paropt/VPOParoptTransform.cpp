@@ -1973,8 +1973,7 @@ bool VPOParoptTransform::paroptTransforms() {
               ORLoop = W->getWRNLoopInfo().getLoop();
               if (ORLoop != nullptr)
                 ORBuilder(*ORLoop, *ORLinfo)
-                    .addRemark(OptReportVerbosity::Low,
-                               "CSA: OpenMP parallel loop will be pipelined");
+                    .addRemark(OptReportVerbosity::Low, 25597u);
             }
 
             if (W->getIsParSections()) {
@@ -2035,15 +2034,13 @@ bool VPOParoptTransform::paroptTransforms() {
                ORLoop = W->getWRNLoopInfo().getLoop();
                if (ORLoop != nullptr) {
                  ORBuilder(*ORLoop, *ORLinfo)
-                     .addRemark(OptReportVerbosity::Low,
-                                "OpenMP: Outlined parallel loop");
+                     .addRemark(OptReportVerbosity::Low, 25591u);
 
                  // Add remark to enclosing loop (if any).
                  if (ORLoop->getParentLoop() != nullptr)
                    // An enclosing loop is present.
                    ORBuilder(*(ORLoop->getParentLoop()), *ORLinfo)
-                       .addRemark(OptReportVerbosity::Low,
-                                  "OpenMP: Parallel loop was outlined");
+                       .addRemark(OptReportVerbosity::Low, 25592u);
                }
             }
 #endif  // INTEL_CUSTOMIZATION
@@ -2456,8 +2453,7 @@ bool VPOParoptTransform::paroptTransforms() {
                if (ORLoop != nullptr)
                  ORBuilder(*ORLoop, *ORLinfo)
                      .addRemark(
-                         OptReportVerbosity::Low,
-                         "CSA: OpenMP worksharing loop will be pipelined");
+                         OptReportVerbosity::Low, 25598u);
             }
 
             if (W->getIsSections()) {
@@ -2526,8 +2522,7 @@ bool VPOParoptTransform::paroptTransforms() {
                ORLoop = W->getWRNLoopInfo().getLoop();
                if (ORLoop != nullptr)
                  ORBuilder(*ORLoop, *ORLinfo)
-                     .addRemark(OptReportVerbosity::Low,
-                                "OpenMP: Worksharing loop");
+                     .addRemark(OptReportVerbosity::Low, 25593u);
             }
 #endif  // INTEL_CUSTOMIZATION
 
