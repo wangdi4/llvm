@@ -1459,9 +1459,11 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   // promotion pass and the passes computing attributes fixes this problem.
   // Additionally adding SROA after the argument promotion to cleanup allocas
   // allows to get more accurate attributes for the promoted arguments.
-  MainCGPipeline.addPass(ArgumentPromotionPass(true));
-  MainCGPipeline.addPass(createCGSCCToFunctionPassAdaptor(
-      SROAPass(SROAPass(SROAOptions::ModifyCFG))));
+  if (Level.getSpeedupLevel() > 1) {
+    MainCGPipeline.addPass(ArgumentPromotionPass(true));
+    MainCGPipeline.addPass(createCGSCCToFunctionPassAdaptor(
+        SROAPass(SROAPass(SROAOptions::ModifyCFG))));
+  }
 #endif // INTEL_CUSTOMIZATION
 
   if (AttributorRun & AttributorRunOption::CGSCC)
@@ -1472,11 +1474,6 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   // function simplification pipeline, which is only the case with recursive
   // functions.
   MainCGPipeline.addPass(PostOrderFunctionAttrsPass(/*SkipNonRecursive*/ true));
-
-  // When at O3 add argument promotion to the pass pipeline.
-  // FIXME: It isn't at all clear why this should be limited to O3.
-  if (Level == OptimizationLevel::O3)
-    MainCGPipeline.addPass(ArgumentPromotionPass());
 
   // Try to perform OpenMP specific optimizations. This is a (quick!) no-op if
   // there are no OpenMP runtime calls present in the module.
