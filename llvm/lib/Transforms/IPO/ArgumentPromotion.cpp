@@ -1028,6 +1028,7 @@ static Function *promoteArguments(Function *F, FunctionAnalysisManager &FAM,
       if (CS.getInstruction()->isMustTailCall())
         return nullptr;
 
+<<<<<<< HEAD
       // If the caller is marked minsize, this transformation may increase code
       // size. We assume that there is more than one call to this function since
       // otherwise this function would be inlined or is dead.
@@ -1046,6 +1047,10 @@ static Function *promoteArguments(Function *F, FunctionAnalysisManager &FAM,
     if (CS.isCallbackCall())
       isCallback = true;
 #endif // INTEL_CUSTOMIZATION
+=======
+    if (CB->getFunction() == F)
+      IsRecursive = true;
+>>>>>>> 0e2b4b2dbac3ae878098003940274d3396b46e18
   }
 
   // Can't change signature of musttail caller
