@@ -1563,6 +1563,7 @@ static bool shouldMergeGEPs(GEPOperator &GEP, GEPOperator &Src) {
   return true;
 }
 
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
 /// Return a value X such that Val = X * Scale, or null if none.
 /// If the multiplication is known not to overflow, then NoSignedWrap is set.
 #if INTEL_CUSTOMIZATION
@@ -1922,6 +1923,7 @@ Value *InstCombinerImpl::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
     Ancestor = Ancestor->user_back();
   } while (true);
 }
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
 Instruction *InstCombinerImpl::foldVectorBinop(BinaryOperator &Inst) {
   if (!isa<VectorType>(Inst.getType()))
