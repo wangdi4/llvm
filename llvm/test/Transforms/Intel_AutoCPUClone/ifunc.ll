@@ -1,4 +1,4 @@
-; RUN: opt -passes=auto-cpu-clone < %s -S | FileCheck %s
+; RUN: opt -passes=auto-cpu-clone -enable-selective-mv=0 < %s -S | FileCheck %s
 
 ; This lit test checks that the resolvers of ifuncs in user code
 ; are never multi-versioned.
@@ -37,5 +37,4 @@ attributes #0 = { nounwind uwtable "approx-func-fp-math"="true" "denormal-fp-mat
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{i32 7, !"uwtable", i32 2}
 !2 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2022.1.0 (2022.x.0.YYYYMMDD)"}
-!3 = !{!4}
-!4 = !{!"auto-cpu-dispatch-target", !"skylake-avx512"}
+!3 = !{!"skylake-avx512"}

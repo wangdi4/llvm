@@ -29,5 +29,4 @@ attributes #0 = { mustprogress noinline nounwind optnone uwtable "approx-func-fp
 
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{i32 7, !"uwtable", i32 2}
-!2 = !{!3}
-!3 = !{!"auto-cpu-dispatch-target", !"skylake-avx512"}
+!2 = !{!"skylake-avx512"}

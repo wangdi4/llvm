@@ -3216,9 +3216,12 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
   // and those which are tuned by a user using attribute "target".
   if (FD->hasBody() && !FD->hasAttr<TargetAttr>() && !FD->isMultiVersion() &&
       !FD->hasAttr<OMPDeclareSimdDeclAttr>() &&
-      !FD->hasAttr<OMPDeclareVariantAttr>())
-    if (llvm::MDNode *AutoMultiVersionMetadata = getAutoMultiversionMetadata())
-      F->addMetadata("llvm.auto.cpu.dispatch", *AutoMultiVersionMetadata);
+      !FD->hasAttr<OMPDeclareVariantAttr>()) {
+    if (llvm::MDNode *TargetsMD = getAutoCPUDispatchTargetsMetadata())
+      F->addMetadata("llvm.auto.cpu.dispatch", *TargetsMD);
+    else if (llvm::MDNode *TargetsMD = getAutoArchTargetsMetadata())
+      F->addMetadata("llvm.auto.arch", *TargetsMD);
+  }
 #endif //INTEL_CUSTOMIZATION
 }
 

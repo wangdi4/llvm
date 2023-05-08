@@ -65,9 +65,6 @@ bool PrepareKernelArgsPass::runImpl(
   // Handle all kernels.
   for (auto *F : kernelsFuncSet)
     runOnFunction(F, GetAC(*F));
-  // Update llvm.used after handling all kernels
-  if (!ReplaceMap.empty())
-    CompilationUtils::updateGlobalSymbols(ReplaceMap, this->M);
 
   return !kernelsFuncSet.empty();
 }
@@ -167,18 +164,16 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
       // support instructions such as MOVUPS
       unsigned VecSize =
           KIMD.VectorizedWidth.hasValue() ? KIMD.VectorizedWidth.get() : 1;
-      auto *PTy = cast<PointerType>(CallIt->getType());
-      if (PTy->isOpaque()) {
-        // Nonspirv doesn't have argument type metadata. Get type/align from IR.
-        if (auto A = CallIt->getParamAlign().valueOrOne().value(); A > 1) {
-          Alignment = NextPowerOf2((VecSize == 3 ? 4 : VecSize) * A - 1);
-        } else {
-          for (User *U : CallIt->users()) {
-            if (isa<LoadInst>(U) || isa<StoreInst>(U))
-              EltTy = getMaxSizeType(DL, EltTy, getLoadStoreType(U));
-            else if (auto *GEP = dyn_cast<GetElementPtrInst>(U))
-              EltTy = getMaxSizeType(DL, EltTy, GEP->getSourceElementType());
-          }
+      // Nonspirv doesn't have argument type metadata. Get type/align from IR.
+      if (auto A = CallIt->getParamAlign()) {
+        Alignment =
+            NextPowerOf2((VecSize == 3 ? 4 : VecSize) * A.value().value() - 1);
+      } else {
+        for (User *U : CallIt->users()) {
+          if (isa<LoadInst>(U) || isa<StoreInst>(U))
+            EltTy = getMaxSizeType(DL, EltTy, getLoadStoreType(U));
+          else if (auto *GEP = dyn_cast<GetElementPtrInst>(U))
+            EltTy = getMaxSizeType(DL, EltTy, GEP->getSourceElementType());
         }
       }
       if (EltTy) {
@@ -491,22 +486,41 @@ void PrepareKernelArgsPass::replaceFunctionPointers(Function *Wrapper,
     }
   }
 
-  for (User *U : WrappedKernel->users()) {
-    // Replace bitcast operator user, e.g. in global value.
-    if (auto *Op = dyn_cast<BitCastOperator>(U)) {
-      auto *WrapperOp = ConstantExpr::getBitCast(Wrapper, Op->getDestTy());
-      Op->replaceAllUsesWith(WrapperOp);
-    } else if (auto *Op = dyn_cast<SelectInst>(U)) {
-      // WrappedKernel is used as select instruction operand
-      auto *WrapperOp =
-          ConstantExpr::getBitCast(Wrapper, Op->getOperand(1)->getType());
-      if (Op->getOperand(1)->getName() == WrappedKernel->getName())
-        Op->setOperand(1, WrapperOp);
-      else
-        Op->setOperand(2, WrapperOp);
+  if (M->getContext().supportsTypedPointers()) {
+    for (User *U : WrappedKernel->users()) {
+      // Replace bitcast operator user, e.g. in global value.
+      if (auto *Op = dyn_cast<BitCastOperator>(U)) {
+        auto *WrapperOp = ConstantExpr::getBitCast(Wrapper, Op->getDestTy());
+        Op->replaceAllUsesWith(WrapperOp);
+      } else if (auto *Op = dyn_cast<SelectInst>(U)) {
+        // WrappedKernel is used as select instruction operand
+        auto *WrapperOp =
+            ConstantExpr::getBitCast(Wrapper, Op->getOperand(1)->getType());
+        if (Op->getOperand(1)->getName() == WrappedKernel->getName())
+          Op->setOperand(1, WrapperOp);
+        else
+          Op->setOperand(2, WrapperOp);
+      }
     }
+    return;
   }
-  ReplaceMap[WrappedKernel] = Wrapper;
+
+  ValueToValueMapTy VMap;
+  VMap[WrappedKernel] = Wrapper;
+  ValueMapper VMapper(VMap, RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
+  SmallVector<User *, 16> Users{WrappedKernel->users()};
+  for (User *U : Users) {
+    // Skip the CallInst that was created in createWrapperBody.
+    if (auto *CI = dyn_cast<CallInst>(U); CI && CI->getFunction() == Wrapper)
+      continue;
+
+    if (auto *I = dyn_cast<Instruction>(U))
+      VMapper.remapInstruction(*I);
+    else if (auto *C = dyn_cast<Constant>(U))
+      C->replaceAllUsesWith(VMapper.mapConstant(*C));
+    else
+      llvm_unreachable("unhandled wrapped kernel user");
+  }
 }
 
 void PrepareKernelArgsPass::createDummyRetWrappedKernel(Function *Wrapper,

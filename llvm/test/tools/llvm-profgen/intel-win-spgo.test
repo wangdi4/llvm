@@ -1,33 +1,64 @@
 ; RUN: llvm-profgen --binary=%S/Inputs/intel-win-spgo-dwarf.exe --perfscript=%S/Inputs/intel-win-spgo-dwarf.perfscript --format=text --output %t
-; RUN: FileCheck %s --input-file %t --check-prefix=CHECK
+; RUN: FileCheck %s --input-file %t --check-prefix=CHECK-SINGLE
+; RUN: llvm-profgen --binary=%S/Inputs/intel-win-spgo-dwarf.exe --perfscript=%S/Inputs/intel-win-spgo-dwarf.perfscript,%S/Inputs/intel-win-spgo-dwarf.perfscript,%S/Inputs/intel-win-spgo-dwarf.perfscript --format=text --output %t
+; RUN: FileCheck %s --input-file %t --check-prefix=CHECK-MULTI
 
-; CHECK:      main:42367090:0
-; CHECK-NEXT:  0: 0
-; CHECK-NEXT:  3.1: 1
-; CHECK-NEXT:  4: 0
-; CHECK-NEXT:  5: 0
-; CHECK-NEXT:  9: 0
-; CHECK-NEXT:  65508.1: 0
-; CHECK-NEXT:  65509: 1
-; CHECK-NEXT:  1: ??$init@HG@MyNameSpace2@@YAXHPEAG@Z:23064
-; CHECK-NEXT:   1.1: 62
-; CHECK-NEXT:   2: 62
-; CHECK-NEXT:   2.2: 0
-; CHECK-NEXT:  4: ?work1@?$MyClass@GH@MyNameSpace1@@QEAAXQEAGH@Z:5126567
-; CHECK-NEXT:   0: ?work@?$MyClass@GH@MyNameSpace1@@AEAAXQEAGHH@Z:5126567
-; CHECK-NEXT:    1.1: 12443
-; CHECK-NEXT:    2: 1
-; CHECK-NEXT:    3: 12443
-; CHECK-NEXT:  5: ?work2@?$MyClass@GH@MyNameSpace1@@QEAAXQEAGH@Z:37217430
-; CHECK-NEXT:   0: ?work@?$MyClass@GH@MyNameSpace1@@AEAAXQEAGHH@Z:37217430
-; CHECK-NEXT:    1.1: 110437
-; CHECK-NEXT:    2: 1
-; CHECK-NEXT:    3: 110437
-; CHECK-NEXT:  7: ?print@MyNameSpace2@@YAXPEAGH@Z:0
-; CHECK-NEXT:   1: 0
+; CHECK-SINGLE:      main:42585226:0
+; CHECK-SINGLE-NEXT:  0: 0
+; CHECK-SINGLE-NEXT:  3.1: 2
+; CHECK-SINGLE-NEXT:  4: 0
+; CHECK-SINGLE-NEXT:  5: 0
+; CHECK-SINGLE-NEXT:  9: 0
+; CHECK-SINGLE-NEXT:  65501: 2
+; CHECK-SINGLE-NEXT:  1: ??$init@HG@MyNameSpace2@@YAXHPEAG@Z:11545
+; CHECK-SINGLE-NEXT:   1.1: 31
+; CHECK-SINGLE-NEXT:   2: 31
+; CHECK-SINGLE-NEXT:   2.2: 0
+; CHECK-SINGLE-NEXT:  4: ?work1@?$MyClass@GH@MyNameSpace1@@QEAAXQEAGH@Z:5595029
+; CHECK-SINGLE-NEXT:   0: ?work@?$MyClass@GH@MyNameSpace1@@AEAAXQEAGHH@Z:5595029
+; CHECK-SINGLE-NEXT:    1.1: 13579
+; CHECK-SINGLE-NEXT:    2: 13579
+; CHECK-SINGLE-NEXT:    3: 13579
+; CHECK-SINGLE-NEXT:    65530: 2
+; CHECK-SINGLE-NEXT:  5: ?work2@?$MyClass@GH@MyNameSpace1@@QEAAXQEAGH@Z:36978594
+; CHECK-SINGLE-NEXT:   0: ?work@?$MyClass@GH@MyNameSpace1@@AEAAXQEAGHH@Z:36978594
+; CHECK-SINGLE-NEXT:    1.1: 109729
+; CHECK-SINGLE-NEXT:    2: 109728
+; CHECK-SINGLE-NEXT:    3: 109729
+; CHECK-SINGLE-NEXT:    65530: 2
+; CHECK-SINGLE-NEXT:  7: ?print@MyNameSpace2@@YAXPEAGH@Z:0
+; CHECK-SINGLE-NEXT:   1: 0
+; CHECK-SINGLE-NEXT:   65508: 0
+
+; CHECK-MULTI:       main:127755678:0
+; CHECK-MULTI-NEXT:   0: 0
+; CHECK-MULTI-NEXT:   3.1: 6
+; CHECK-MULTI-NEXT:   4: 0
+; CHECK-MULTI-NEXT:   5: 0
+; CHECK-MULTI-NEXT:   9: 0
+; CHECK-MULTI-NEXT:   65501: 6
+; CHECK-MULTI-NEXT:   1: ??$init@HG@MyNameSpace2@@YAXHPEAG@Z:34635
+; CHECK-MULTI-NEXT:    1.1: 93
+; CHECK-MULTI-NEXT:    2: 93
+; CHECK-MULTI-NEXT:    2.2: 0
+; CHECK-MULTI-NEXT:   4: ?work1@?$MyClass@GH@MyNameSpace1@@QEAAXQEAGH@Z:16785087
+; CHECK-MULTI-NEXT:    0: ?work@?$MyClass@GH@MyNameSpace1@@AEAAXQEAGHH@Z:16785087
+; CHECK-MULTI-NEXT:     1.1: 40737
+; CHECK-MULTI-NEXT:     2: 40737
+; CHECK-MULTI-NEXT:     3: 40737
+; CHECK-MULTI-NEXT:     65530: 6
+; CHECK-MULTI-NEXT:   5: ?work2@?$MyClass@GH@MyNameSpace1@@QEAAXQEAGH@Z:110935782
+; CHECK-MULTI-NEXT:    0: ?work@?$MyClass@GH@MyNameSpace1@@AEAAXQEAGHH@Z:110935782
+; CHECK-MULTI-NEXT:     1.1: 329187
+; CHECK-MULTI-NEXT:     2: 329184
+; CHECK-MULTI-NEXT:     3: 329187
+; CHECK-MULTI-NEXT:     65530: 6
+; CHECK-MULTI-NEXT:   7: ?print@MyNameSpace2@@YAXPEAGH@Z:0
+; CHECK-MULTI-NEXT:    1: 0
+; CHECK-MULTI-NEXT:    65508: 0
 
 ; Original code:
-; icx -O2 -gdwarf intel-win-spgo.cpp -fuse-ld=lld -Xclang -fdebug-info-for-profiling -o intel-win-spgo-dwarf.exe /link /debug:dwarf
+; icx -O2 /fprofile-sample-generate intel-win-spgo.cpp /ZI -o intel-win-spgo-dwarf.exe
 #include <stdio.h>
 
 namespace MyNameSpace1 {

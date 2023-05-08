@@ -6,10 +6,10 @@ define i32 @foo(i32 %a, float %b, i32 %c, i32* %d) uwtable {
 ; NO-SPILL-LABEL: foo:
 ; NO-SPILL:       # %bb.0: # %entry
 ; NO-SPILL-NEXT:    cvttss2si %xmm0, %eax
-; NO-SPILL-NEXT:    imull %edi, %eax
-; NO-SPILL-NEXT:    addl %esi, %eax
-; NO-SPILL-NEXT:    subl (%rdx), %eax
-; NO-SPILL-NEXT:    retq
+; NO-SPILL-NEXT:    imull %eax, %edi
+; NO-SPILL-NEXT:    addl %esi, %edi
+; NO-SPILL-NEXT:    subl (%rdx), %edi
+; NO-SPILL-NEXT:    jmp foo@PLT # TAILCALL
 ;
 ; SPILL-LABEL: foo:
 ; SPILL:       # %bb.0: # %entry
@@ -23,23 +23,24 @@ define i32 @foo(i32 %a, float %b, i32 %c, i32* %d) uwtable {
 ; SPILL-NEXT:    .cfi_offset %rsi, -24
 ; SPILL-NEXT:    .cfi_offset %rdx, -16
 ; SPILL-NEXT:    cvttss2si %xmm0, %eax
-; SPILL-NEXT:    imull %edi, %eax
-; SPILL-NEXT:    addl %esi, %eax
-; SPILL-NEXT:    subl (%rdx), %eax
-; SPILL-NEXT:    popq %rdi
+; SPILL-NEXT:    imull %eax, %edi
+; SPILL-NEXT:    addl %esi, %edi
+; SPILL-NEXT:    subl (%rdx), %edi
+; SPILL-NEXT:    popq %rax
 ; SPILL-NEXT:    .cfi_def_cfa_offset 24
-; SPILL-NEXT:    popq %rsi
+; SPILL-NEXT:    popq %rax
 ; SPILL-NEXT:    .cfi_def_cfa_offset 16
-; SPILL-NEXT:    popq %rdx
+; SPILL-NEXT:    popq %rax
 ; SPILL-NEXT:    .cfi_def_cfa_offset 8
-; SPILL-NEXT:    retq
+; SPILL-NEXT:    jmp foo@PLT # TAILCALL
 entry:
   %conv = fptosi float %b to i32
   %mul = mul nsw i32 %conv, %a
   %add = add nsw i32 %mul, %c
   %ldd = load i32, i32* %d
   %sub = sub i32 %add, %ldd
-  ret i32 %sub
+  %ret = tail call i32 @foo(i32 %sub, float %b, i32 %c, i32* %d)
+  ret i32 %ret
 }
 
 define i32 @bar(i32 %a, float %b, i32 %c, i32* %d) uwtable {
@@ -64,11 +65,11 @@ define i32 @bar(i32 %a, float %b, i32 %c, i32* %d) uwtable {
 ; SPILL-NEXT:    .cfi_offset %rsi, -24
 ; SPILL-NEXT:    .cfi_offset %rdx, -16
 ; SPILL-NEXT:    callq foo@PLT
-; SPILL-NEXT:    popq %rdi
+; SPILL-NEXT:    popq %rcx
 ; SPILL-NEXT:    .cfi_def_cfa_offset 24
-; SPILL-NEXT:    popq %rsi
+; SPILL-NEXT:    popq %rcx
 ; SPILL-NEXT:    .cfi_def_cfa_offset 16
-; SPILL-NEXT:    popq %rdx
+; SPILL-NEXT:    popq %rcx
 ; SPILL-NEXT:    .cfi_def_cfa_offset 8
 ; SPILL-NEXT:    retq
 entry:

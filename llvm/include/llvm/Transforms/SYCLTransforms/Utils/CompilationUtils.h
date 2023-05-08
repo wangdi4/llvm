@@ -883,10 +883,6 @@ TinyPtrVector<DbgDeclareInst *> findDbgUses(Value *V);
 Type *getLLVMTypeFromReflectionType(LLVMContext &C,
                                     const reflection::RefParamType &PT);
 
-/// Update symbols for llvm.used global
-void updateGlobalSymbols(std::map<Function *, Function *> &ReplaceMap,
-                         Module *M);
-
 } // namespace CompilationUtils
 } // namespace llvm
 

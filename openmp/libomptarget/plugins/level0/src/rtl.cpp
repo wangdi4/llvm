@@ -6820,10 +6820,11 @@ int32_t __tgt_rtl_synchronize(int32_t DeviceId, __tgt_async_info *AsyncInfo) {
       for (auto &Event : WaitEvents)
         EventPool.releaseEvent(Event);
     } else { // Async
-      // Wait for all events
-      for (auto &Event : WaitEvents) {
-        CALL_ZE_RET_FAIL(zeEventHostSynchronize, Event, UINT64_MAX);
-        EventPool.releaseEvent(Event);
+      // Wait for all events. We should wait and reset events in reverse order
+      // to avoid premature event reset.
+      for (auto Itr = WaitEvents.rbegin(); Itr != WaitEvents.rend(); Itr++) {
+        CALL_ZE_RET_FAIL(zeEventHostSynchronize, *Itr, UINT64_MAX);
+        EventPool.releaseEvent(*Itr);
       }
     }
   }

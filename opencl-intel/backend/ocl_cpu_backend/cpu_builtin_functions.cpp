@@ -205,74 +205,91 @@ class IDeviceCommandManager;
 #include "Intel_opencl_task_sequence.h" // INTEL
 #include "opencl20_ext_execution.h"
 
-#define GET_VALUE_SUFFIX(_k, _v)                                               \
-  (strcmp(_k, _v) ? (std::string("PU3AS4") + _v) : std::string("S0_"))
+static std::map<std::string, std::string> initSortBuiltinNames() {
+  std::map<std::string, std::string> BuiltinNames;
+  const std::string TypeSuffix[11] = {"c", "h", "s",  "t", "i", "j",
+                                      "l", "m", "Dh", "f", "d"};
+  for (auto &KeySuffix : TypeSuffix) {
+    std::string KeyOnlyBIName = "_Z10__ocl_sortPU3AS4" + KeySuffix + "jb";
+    BuiltinNames.insert(std::make_pair(KeySuffix, KeyOnlyBIName));
+    for (auto &ValueSuffix : TypeSuffix) {
+      std::string NewValueSuffix =
+          (KeySuffix == ValueSuffix) ? "S0_" : "PU3AS4" + ValueSuffix;
+      std::string KeyValueBIName =
+          "_Z10__ocl_sortPU3AS4" + KeySuffix + NewValueSuffix + "jb";
+      BuiltinNames.insert(
+          std::make_pair(KeySuffix + "_" + ValueSuffix, KeyValueBIName));
+    }
+  }
+  return BuiltinNames;
+}
 
-#define REGISTER_KEY_VALUE_SORT_HELPER(KEYTYPE, KEYSUFFIX)                     \
-  REGISTER_KEY_VALUE_SORT_BI(KEYTYPE, KEYSUFFIX, char, "c")                    \
-  REGISTER_KEY_VALUE_SORT_BI(KEYTYPE, KEYSUFFIX, uint8_t, "h")                 \
-  REGISTER_KEY_VALUE_SORT_BI(KEYTYPE, KEYSUFFIX, short, "s")                   \
-  REGISTER_KEY_VALUE_SORT_BI(KEYTYPE, KEYSUFFIX, uint16_t, "t")                \
-  REGISTER_KEY_VALUE_SORT_BI(KEYTYPE, KEYSUFFIX, int, "i")                     \
-  REGISTER_KEY_VALUE_SORT_BI(KEYTYPE, KEYSUFFIX, uint32_t, "j")                \
-  REGISTER_KEY_VALUE_SORT_BI(KEYTYPE, KEYSUFFIX, long, "l")                    \
-  REGISTER_KEY_VALUE_SORT_BI(KEYTYPE, KEYSUFFIX, uint64_t, "m")                \
-  REGISTER_KEY_VALUE_SORT_BI(KEYTYPE, KEYSUFFIX, half, "Dh")                   \
-  REGISTER_KEY_VALUE_SORT_BI(KEYTYPE, KEYSUFFIX, float, "f")                   \
-  REGISTER_KEY_VALUE_SORT_BI(KEYTYPE, KEYSUFFIX, double, "d")
+#define REGISTER_KEY_VALUE_SORT_HELPER(BUILTIN_NAME_MAP, KEYTYPE, KEYSUFFIX)   \
+  REGISTER_KEY_VALUE_SORT_BI(BUILTIN_NAME_MAP, KEYTYPE, KEYSUFFIX, char, "c")  \
+  REGISTER_KEY_VALUE_SORT_BI(BUILTIN_NAME_MAP, KEYTYPE, KEYSUFFIX, uint8_t,    \
+                             "h")                                              \
+  REGISTER_KEY_VALUE_SORT_BI(BUILTIN_NAME_MAP, KEYTYPE, KEYSUFFIX, short, "s") \
+  REGISTER_KEY_VALUE_SORT_BI(BUILTIN_NAME_MAP, KEYTYPE, KEYSUFFIX, uint16_t,   \
+                             "t")                                              \
+  REGISTER_KEY_VALUE_SORT_BI(BUILTIN_NAME_MAP, KEYTYPE, KEYSUFFIX, int, "i")   \
+  REGISTER_KEY_VALUE_SORT_BI(BUILTIN_NAME_MAP, KEYTYPE, KEYSUFFIX, uint32_t,   \
+                             "j")                                              \
+  REGISTER_KEY_VALUE_SORT_BI(BUILTIN_NAME_MAP, KEYTYPE, KEYSUFFIX, long, "l")  \
+  REGISTER_KEY_VALUE_SORT_BI(BUILTIN_NAME_MAP, KEYTYPE, KEYSUFFIX, uint64_t,   \
+                             "m")                                              \
+  REGISTER_KEY_VALUE_SORT_BI(BUILTIN_NAME_MAP, KEYTYPE, KEYSUFFIX, half, "Dh") \
+  REGISTER_KEY_VALUE_SORT_BI(BUILTIN_NAME_MAP, KEYTYPE, KEYSUFFIX, float, "f") \
+  REGISTER_KEY_VALUE_SORT_BI(BUILTIN_NAME_MAP, KEYTYPE, KEYSUFFIX, double, "d")
 
-#define REGISTER_SORT_BI(ArgType, Suffix)                                      \
-  REGISTER_BI_FUNCTION(                                                        \
-      (std::string("_Z10__ocl_sortPU3AS4") + Suffix + "jb").c_str(),           \
-      __ocl_sort_##ArgType)
+#define REGISTER_SORT_BI(BUILTIN_NAME_MAP, ARGTYPE, SUFFIX)                    \
+  REGISTER_BI_FUNCTION(BUILTIN_NAME_MAP[SUFFIX], __ocl_sort_##ARGTYPE)
 
-#define REGISTER_KEY_VALUE_SORT_BI(KeyArgType, KeySuffix, ValueArgType,        \
-                                   ValueSuffix)                                \
-  REGISTER_BI_FUNCTION((std::string("_Z10__ocl_sortPU3AS4") + KeySuffix +      \
-                        GET_VALUE_SUFFIX(KeySuffix, ValueSuffix) + "jb")       \
-                           .c_str(),                                           \
-                       __ocl_sort_##KeyArgType##_##ValueArgType)
+#define REGISTER_KEY_VALUE_SORT_BI(BUILTIN_NAME_MAP, KEYARGTYPE, KEYSUFFIX,    \
+                                   VALUEARGTYPE, VALUESUFFIX)                  \
+  REGISTER_BI_FUNCTION(BUILTIN_NAME_MAP[std::string(KEYSUFFIX) + "_" +         \
+                                        std::string(VALUESUFFIX)],             \
+                       __ocl_sort_##KEYARGTYPE##_##VALUEARGTYPE)
 
-#define SORT_BI_REGISTER(TYPE, SUFFIX)                                         \
-  REGISTER_SORT_BI(TYPE, SUFFIX)                                               \
-  REGISTER_KEY_VALUE_SORT_HELPER(TYPE, SUFFIX)
+#define SORT_BI_REGISTER(BUILTIN_NAME_MAP, TYPE, SUFFIX)                       \
+  REGISTER_SORT_BI(BUILTIN_NAME_MAP, TYPE, SUFFIX)                             \
+  REGISTER_KEY_VALUE_SORT_HELPER(BUILTIN_NAME_MAP, TYPE, SUFFIX)
 
-#define SORT_KEY_ONLY_BI_DECRATION(ArgType)                                    \
-  extern "C" LLVM_BACKEND_API void __ocl_sort_##ArgType(ArgType *, uint32_t,   \
+#define SORT_KEY_ONLY_BI_DECLARATION(ARGTYPE)                                  \
+  extern "C" LLVM_BACKEND_API void __ocl_sort_##ARGTYPE(ARGTYPE *, uint32_t,   \
                                                         bool);
 
-#define SORT_KEY_VALUE_BI_DECRATION(KeyType, ValueType)                        \
+#define SORT_KEY_VALUE_BI_DECLARATION(KeyType, ValueType)                      \
   extern "C" LLVM_BACKEND_API void __ocl_sort_##KeyType##_##ValueType(         \
       KeyType *, ValueType *, uint32_t, bool);
 
-#define SORT_KEY_VALUE_BI_DECRATION_HELPER(KeyType)                            \
-  SORT_KEY_VALUE_BI_DECRATION(KeyType, char)                                   \
-  SORT_KEY_VALUE_BI_DECRATION(KeyType, uint8_t)                                \
-  SORT_KEY_VALUE_BI_DECRATION(KeyType, short)                                  \
-  SORT_KEY_VALUE_BI_DECRATION(KeyType, uint16_t)                               \
-  SORT_KEY_VALUE_BI_DECRATION(KeyType, int)                                    \
-  SORT_KEY_VALUE_BI_DECRATION(KeyType, uint32_t)                               \
-  SORT_KEY_VALUE_BI_DECRATION(KeyType, long)                                   \
-  SORT_KEY_VALUE_BI_DECRATION(KeyType, uint64_t)                               \
-  SORT_KEY_VALUE_BI_DECRATION(KeyType, half)                                   \
-  SORT_KEY_VALUE_BI_DECRATION(KeyType, float)                                  \
-  SORT_KEY_VALUE_BI_DECRATION(KeyType, double)
+#define SORT_KEY_VALUE_BI_DECLARATION_HELPER(KeyType)                          \
+  SORT_KEY_VALUE_BI_DECLARATION(KeyType, char)                                 \
+  SORT_KEY_VALUE_BI_DECLARATION(KeyType, uint8_t)                              \
+  SORT_KEY_VALUE_BI_DECLARATION(KeyType, short)                                \
+  SORT_KEY_VALUE_BI_DECLARATION(KeyType, uint16_t)                             \
+  SORT_KEY_VALUE_BI_DECLARATION(KeyType, int)                                  \
+  SORT_KEY_VALUE_BI_DECLARATION(KeyType, uint32_t)                             \
+  SORT_KEY_VALUE_BI_DECLARATION(KeyType, long)                                 \
+  SORT_KEY_VALUE_BI_DECLARATION(KeyType, uint64_t)                             \
+  SORT_KEY_VALUE_BI_DECLARATION(KeyType, half)                                 \
+  SORT_KEY_VALUE_BI_DECLARATION(KeyType, float)                                \
+  SORT_KEY_VALUE_BI_DECLARATION(KeyType, double)
 
-#define SORT_BI_DECRATION(TYPE)                                                \
-  SORT_KEY_ONLY_BI_DECRATION(TYPE)                                             \
-  SORT_KEY_VALUE_BI_DECRATION_HELPER(TYPE)
+#define SORT_BI_DECLARATION(TYPE)                                              \
+  SORT_KEY_ONLY_BI_DECLARATION(TYPE)                                           \
+  SORT_KEY_VALUE_BI_DECLARATION_HELPER(TYPE)
 
-SORT_BI_DECRATION(char)
-SORT_BI_DECRATION(uint8_t)
-SORT_BI_DECRATION(short)
-SORT_BI_DECRATION(uint16_t)
-SORT_BI_DECRATION(int)
-SORT_BI_DECRATION(uint32_t)
-SORT_BI_DECRATION(long)
-SORT_BI_DECRATION(uint64_t)
-SORT_BI_DECRATION(half)
-SORT_BI_DECRATION(float)
-SORT_BI_DECRATION(double)
+SORT_BI_DECLARATION(char)
+SORT_BI_DECLARATION(uint8_t)
+SORT_BI_DECLARATION(short)
+SORT_BI_DECLARATION(uint16_t)
+SORT_BI_DECLARATION(int)
+SORT_BI_DECLARATION(uint32_t)
+SORT_BI_DECLARATION(long)
+SORT_BI_DECLARATION(uint64_t)
+SORT_BI_DECLARATION(half)
+SORT_BI_DECLARATION(float)
+SORT_BI_DECLARATION(double)
 
 // Register BI functions defined above to JIT.
 //   MCJIT: use llvm::sys::DynamicLibrary::AddSymbol for each function.
@@ -390,17 +407,19 @@ llvm::Error RegisterCPUBIFunctions(bool isFPGAEmuDev, llvm::orc::LLJIT *LLJIT) {
 #endif
 #endif
 
-  SORT_BI_REGISTER(char, "c")
-  SORT_BI_REGISTER(uint8_t, "h")
-  SORT_BI_REGISTER(short, "s")
-  SORT_BI_REGISTER(uint16_t, "t")
-  SORT_BI_REGISTER(int, "i")
-  SORT_BI_REGISTER(uint32_t, "j")
-  SORT_BI_REGISTER(long, "l")
-  SORT_BI_REGISTER(uint64_t, "m")
-  SORT_BI_REGISTER(half, "Dh")
-  SORT_BI_REGISTER(float, "f")
-  SORT_BI_REGISTER(double, "d")
+  std::map<std::string, std::string> BuiltinNames = initSortBuiltinNames();
+
+  SORT_BI_REGISTER(BuiltinNames, char, "c")
+  SORT_BI_REGISTER(BuiltinNames, uint8_t, "h")
+  SORT_BI_REGISTER(BuiltinNames, short, "s")
+  SORT_BI_REGISTER(BuiltinNames, uint16_t, "t")
+  SORT_BI_REGISTER(BuiltinNames, int, "i")
+  SORT_BI_REGISTER(BuiltinNames, uint32_t, "j")
+  SORT_BI_REGISTER(BuiltinNames, long, "l")
+  SORT_BI_REGISTER(BuiltinNames, uint64_t, "m")
+  SORT_BI_REGISTER(BuiltinNames, half, "Dh")
+  SORT_BI_REGISTER(BuiltinNames, float, "f")
+  SORT_BI_REGISTER(BuiltinNames, double, "d")
 
   return llvm::Error::success();
 }

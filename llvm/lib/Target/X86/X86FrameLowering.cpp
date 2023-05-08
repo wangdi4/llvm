@@ -2935,9 +2935,13 @@ bool X86FrameLowering::assignCalleeSavedSpillSlots(
       (MF.getTarget().Options.IntelSpillParms ||
        MF.getMMI().getModule()->getModuleFlag("IntelSpillParms"))) {
     MachineRegisterInfo &MRI = MF.getRegInfo();
-    for (auto I = MRI.livein_begin(), E = MRI.livein_end(); I != E; ++I)
-      if (TRI->isGeneralPurposeRegister(MF, I->first))
-        CSI.push_back(CalleeSavedInfo(getX86SubSuperRegister(I->first, 64)));
+    for (auto I = MRI.livein_begin(), E = MRI.livein_end(); I != E; ++I) {
+      if (TRI->isGeneralPurposeRegister(MF, I->first)) {
+        CalleeSavedInfo Parm(getX86SubSuperRegister(I->first, 64));
+        Parm.setRestored(false);
+        CSI.push_back(Parm);
+      }
+    }
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -3269,6 +3273,15 @@ bool X86FrameLowering::restoreCalleeSavedRegisters(
     if (!X86::GR64RegClass.contains(Reg) &&
         !X86::GR32RegClass.contains(Reg))
       continue;
+
+#if INTEL_CUSTOMIZATION
+    // Don't restore spilled parameter registers because they may be modified
+    // for tail call. Always pop to a dead register to make stack balanced.
+    if (!I.isRestored()) {
+      assert(STI.is64Bit() && "This is used for parameters spill only");
+      Reg = this->TRI->findDeadCallerSavedReg(MBB, MI);
+    }
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F

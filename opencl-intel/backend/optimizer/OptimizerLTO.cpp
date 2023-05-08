@@ -182,7 +182,7 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
         MPM.addPass(SetPreferVectorWidthPass(
             VectorizerUtils::getCPUIdISA(Config.GetCpuId())));
 
-        if (m_IsSPIRV && Config.GetRelaxedMath())
+        if (m_IsSYCL && Config.GetRelaxedMath())
           MPM.addPass(createModuleToFunctionPassAdaptor(AddFastMathPass()));
 
         if (Level != OptimizationLevel::O0)
@@ -221,7 +221,7 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
 
         FunctionPassManager FPM;
         // Static resolution of generic address space pointers
-        if (Level != OptimizationLevel::O0 && (m_IsOcl20 || m_IsSPIRV)) {
+        if (Level != OptimizationLevel::O0 && (m_IsOcl20 || m_IsSYCL)) {
           FPM.addPass(PromotePass());
           FPM.addPass(
               InferAddressSpacesPass(CompilationUtils::ADDRESS_SPACE_GENERIC));
@@ -251,7 +251,7 @@ void OptimizerLTO::registerOptimizerEarlyCallback(PassBuilder &PB) {
     if (Level != OptimizationLevel::O0) {
       FunctionPassManager FPM;
       FPM.addPass(ReassociatePass());
-      if (m_IsOcl20 || m_IsSPIRV) {
+      if (m_IsOcl20 || m_IsSYCL) {
         // Repeat resolution of generic address space pointers after LLVM
         // IR was optimized.
         FPM.addPass(

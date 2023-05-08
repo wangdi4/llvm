@@ -273,6 +273,11 @@ def err_drv_cannot_read_config_file : Error<
 def err_drv_arg_requires_bitcode_input: Error<
   "option '%0' requires input to be LLVM bitcode">;
 
+#if INTEL_CUSTOMIZATION
+def err_drv_not_supported_spgo_opt
+  : Error<"option '%0' not supported for SPGO%select{|, use '%2' instead}1">;
+#endif // INTEL_CUSTOMIZATION
+
 def err_target_unsupported_arch
   : Error<"the target architecture '%0' is not supported by the target '%1'">;
 def err_cpu_unsupported_isa

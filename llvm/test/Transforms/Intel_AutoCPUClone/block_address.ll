@@ -1,4 +1,4 @@
-; RUN: opt -passes=auto-cpu-clone < %s -S | FileCheck %s
+; RUN: opt -passes=auto-cpu-clone -enable-selective-mv=0 < %s -S | FileCheck %s
 
 ; The test checks that functions that have indirect goto's are not
 ; multiversioned
@@ -38,13 +38,10 @@ attributes #1 = { argmemonly nocallback nofree nosync nounwind willreturn }
 attributes #2 = { nounwind }
 
 !llvm.module.flags = !{!0, !1}
-!llvm.ident = !{!2}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{i32 7, !"uwtable", i32 1}
-!2 = !{!""}
-!3 = !{!4}
-!4 = !{!"auto-cpu-dispatch-target", !"broadwell"}
+!3 = !{!"broadwell"}
 !5 = !{!6, !6, i64 0}
 !6 = !{!"pointer@_ZTSPv", !7, i64 0}
 !7 = !{!"omnipotent char", !8, i64 0}

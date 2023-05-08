@@ -1,4 +1,4 @@
-; RUN: opt -passes=auto-cpu-clone < %s -S | FileCheck %s
+; RUN: opt -passes=auto-cpu-clone -enable-selective-mv=0 < %s -S | FileCheck %s
 
 ; The test checks that functions that have linkonce or weak linkage are not
 ; multiversioned.
@@ -54,5 +54,4 @@ entry:
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{i32 7, !"uwtable", i32 1}
 !2 = !{!""}
-!3 = !{!4}
-!4 = !{!"auto-cpu-dispatch-target", !"broadwell"}
+!3 = !{!"broadwell"}

@@ -803,33 +803,36 @@ public:
   }
 
 #ifdef INTEL_CUSTOMIZATION
-  llvm::MDNode *getAutoMultiversionMetadata() {
+  llvm::MDNode *getAutoMultiVersionMetadata(std::vector<std::string> &Targets) {
     if (AutoMultiVersionMetadata)
       return AutoMultiVersionMetadata;
 
     using namespace llvm;
     LLVMContext &Ctx = getLLVMContext();
 
-    MDString *MagicStr = nullptr;
-    std::vector<std::string> *Targets = nullptr;
-
-    if (!Target.getTargetOpts().AutoCPUDispatchTargets.empty()) {
-      MagicStr = MDString::get(Ctx, "auto-cpu-dispatch-target");
-      Targets = &Target.getTargetOpts().AutoCPUDispatchTargets;
-    } else if (!Target.getTargetOpts().AutoArchTargets.empty()) {
-      MagicStr = MDString::get(Ctx, "auto-arch-target");
-      Targets = &Target.getTargetOpts().AutoArchTargets;
-    } else
-      return nullptr;
-
     SmallVector<Metadata *> TargetMDs;
-    for (StringRef Target : *Targets) {
-      std::array<Metadata *, 2> Ops = {MagicStr, MDString::get(Ctx, Target)};
-      TargetMDs.push_back(MDNode::get(Ctx, Ops));
+    for (StringRef Target : Targets) {
+      TargetMDs.push_back(MDString::get(Ctx, Target));
     }
 
     AutoMultiVersionMetadata = MDNode::get(Ctx, TargetMDs);
     return AutoMultiVersionMetadata;
+  }
+
+  llvm::MDNode *getAutoCPUDispatchTargetsMetadata() {
+    if (Target.getTargetOpts().AutoCPUDispatchTargets.empty())
+      return nullptr;
+    assert(Target.getTargetOpts().AutoArchTargets.empty() &&
+           "AutoArchTargets should be empty");
+    return getAutoMultiVersionMetadata(Target.getTargetOpts().AutoCPUDispatchTargets);
+  }
+
+  llvm::MDNode *getAutoArchTargetsMetadata() {
+    if (Target.getTargetOpts().AutoArchTargets.empty())
+      return nullptr;
+    assert(Target.getTargetOpts().AutoCPUDispatchTargets.empty() &&
+           "AutoCPUDispatchTargets should be empty");
+    return getAutoMultiVersionMetadata(Target.getTargetOpts().AutoArchTargets);
   }
 #endif //INTEL_CUSTOMIZATION
 

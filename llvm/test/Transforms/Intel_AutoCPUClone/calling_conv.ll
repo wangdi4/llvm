@@ -22,5 +22,4 @@ define i32 @bar(i32 %a) {
   ret i32 %ret
 }
 
-!0 = !{!1}
-!1 = !{!"auto-cpu-dispatch-target", !"corei7"}
+!0 = !{!"corei7"}

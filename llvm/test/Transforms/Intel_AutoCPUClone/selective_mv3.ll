@@ -68,8 +68,7 @@ attributes #0 = { noinline nounwind uwtable "approx-func-fp-math"="true" "denorm
 
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{i32 7, !"uwtable", i32 2}
-!3 = !{!4}
-!4 = !{!"auto-cpu-dispatch-target", !"skylake"}
+!3 = !{!"skylake"}
 !5 = distinct !{!5, !6}
 !6 = !{!"llvm.loop.mustprogress"}
 !7 = distinct !{!7, !6}

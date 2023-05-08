@@ -101,8 +101,6 @@ private:
   IntegerType *I32Ty = nullptr;
 
   Type *ArgsBufferValueTy = nullptr;
-  /// Map from WrappedKernel to Wrapper
-  std::map<Function *, Function *> ReplaceMap;
 
   /// Use TLS globals instead of implicit arguments.
   bool UseTLSGlobals;
