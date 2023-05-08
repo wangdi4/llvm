@@ -764,7 +764,6 @@ public:
   /// Returns a value X such that Val = X * Scale, or null if none.
   ///
   /// If the multiplication is known not to overflow then NoSignedWrap is set.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // If "TestOnly" is true, then Descale makes no modifications and only tests
   // whether or not a value can be descaled.
@@ -775,10 +774,7 @@ public:
   /// pair. Returns whether or not it was successful.
   bool createComplexMathInstruction(Value *Real, Value *Imag);
 #endif // INTEL_CUSTOMIZATION
-=======
-  Value *Descale(Value *Val, APInt Scale, bool &NoSignedWrap);
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
->>>>>>> c4c25c4230747c7ee47a4a88e913fe1d8f7ce6c7
 };
 
 class Negator final {
