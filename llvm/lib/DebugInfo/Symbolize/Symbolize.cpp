@@ -1,4 +1,21 @@
 //===-- LLVMSymbolize.cpp -------------------------------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -585,7 +602,16 @@ LLVMSymbolizer::getOrCreateModuleInfo(const std::string &ModuleName) {
     const codeview::DebugInfo *DebugInfo;
     StringRef PDBFileName;
     auto EC = CoffObject->getDebugPDBInfo(DebugInfo, PDBFileName);
-    if (!EC && DebugInfo != nullptr && !PDBFileName.empty()) {
+#if INTEL_CUSTOMIZATION
+    // Use DWARF if there're DWARF sections.
+    bool HasDwarf =
+        llvm::any_of(Objects.first->sections(), [](SectionRef Section) -> bool {
+          if (Expected<StringRef> SectionName = Section.getName())
+            return SectionName.get() == ".debug_info";
+          return false;
+        });
+    if (!EC && !HasDwarf && DebugInfo != nullptr && !PDBFileName.empty()) {
+#endif // INTEL_CUSTOMIZATION
       using namespace pdb;
       std::unique_ptr<IPDBSession> Session;
 
