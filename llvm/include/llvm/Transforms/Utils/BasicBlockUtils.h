@@ -527,7 +527,6 @@ void SplitBlockAndInsertForEachLane(ElementCount EC, Type *IndexTy,
     Instruction *InsertBefore,
     std::function<void(IRBuilderBase&, Value*)> Func);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// GetIfCondition(BasicBlock *, BasicBlock *&, BasicBlock *&, BasicBlock *)
 /// is an Intel customized routine that overloads the more limited
@@ -556,7 +555,7 @@ void SplitBlockAndInsertForEachLane(ElementCount EC, Type *IndexTy,
 BranchInst *GetIfCondition(BasicBlock *BB, BasicBlock *Pred,
                            BasicBlock *&IfTrue, BasicBlock *&IfFalse);
 #endif // INTEL_CUSTOMIZATION
-=======
+
 /// Utility function for performing a given action on each lane of a vector
 /// with \p EVL effective length. EVL is assumed > 0. To simplify porting legacy
 /// code, this defaults to unrolling the implied loop for non-scalable element
@@ -568,7 +567,6 @@ BranchInst *GetIfCondition(BasicBlock *BB, BasicBlock *Pred,
 void SplitBlockAndInsertForEachLane(
     Value *End, Instruction *InsertBefore,
     std::function<void(IRBuilderBase &, Value *)> Func);
->>>>>>> 42601e116b662a2329f9bf6db9e16b561a9d7337
 
 /// Check whether BB is the merge point of a if-region.
 /// If so, return the branch instruction that determines which entry into

@@ -1976,12 +1976,6 @@ void llvm::SplitBlockAndInsertForEachLane(ElementCount EC,
   }
 }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-/// We replace the 3-argument function with a call to the 4-argument function.
-/// Any changes made to the open-source 3-argument function will need to be
-/// merged properly.
-=======
 void llvm::SplitBlockAndInsertForEachLane(
     Value *EVL, Instruction *InsertBefore,
     std::function<void(IRBuilderBase &, Value *)> Func) {
@@ -2003,7 +1997,10 @@ void llvm::SplitBlockAndInsertForEachLane(
   }
 }
 
->>>>>>> 42601e116b662a2329f9bf6db9e16b561a9d7337
+#if INTEL_CUSTOMIZATION
+/// We replace the 3-argument function with a call to the 4-argument function.
+/// Any changes made to the open-source 3-argument function will need to be
+/// merged properly.
 BranchInst *llvm::GetIfCondition(BasicBlock *BB, BasicBlock *&IfTrue,
                                  BasicBlock *&IfFalse) {
   PHINode *SomePHI = dyn_cast<PHINode>(BB->begin());
