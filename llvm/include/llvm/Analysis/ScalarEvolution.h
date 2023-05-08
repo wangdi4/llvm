@@ -1544,19 +1544,14 @@ public: // INTEL
   /// Return the Value set from which the SCEV expr is generated.
   ArrayRef<Value *> getSCEVValues(const SCEV *S);
 
-<<<<<<< HEAD
   /// External interface for checkValidity. Returns false iff the SCEV has
   /// been deleted: there are SCEVUnknowns in the ops, and the value is null.
   bool isValid(const SCEV *S) const {
     return checkValidity(S);
   }
 protected: // INTEL
-  /// Private helper method for the GetMinTrailingZeros method
-  uint32_t getMinTrailingZerosImpl(const SCEV *S);
-=======
   /// Private helper method for the getConstantMultiple method.
   APInt getConstantMultipleImpl(const SCEV *S);
->>>>>>> 9c1d5e4ae3498d22287c6f36f7f029bab6cd5d81
 
   /// Information about the number of times a particular loop exit may be
   /// reached before exiting the loop.
