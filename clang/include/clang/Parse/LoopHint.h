@@ -40,15 +40,16 @@ struct LoopHint {
   // Identifier corresponding to the name of the pragma.  "loop" for
   // "#pragma clang loop" directives and "unroll" for "#pragma unroll"
   // hints.
-  IdentifierLoc *PragmaNameLoc;
+  IdentifierLoc *PragmaNameLoc = nullptr;
   // Name of the loop hint.  Examples: "unroll", "vectorize".  In the
   // "#pragma unroll" and "#pragma nounroll" cases, this is identical to
   // PragmaNameLoc.
-  IdentifierLoc *OptionLoc;
+  IdentifierLoc *OptionLoc = nullptr;
   // Identifier for the hint state argument.  If null, then the state is
   // default value such as for "#pragma unroll".
-  IdentifierLoc *StateLoc;
+  IdentifierLoc *StateLoc = nullptr;
   // Expression for the hint argument if it exists, null otherwise.
+<<<<<<< HEAD
   Expr *ValueExpr;
 #if INTEL_CUSTOMIZATION
   Expr *ArrayExpr;
@@ -56,6 +57,11 @@ struct LoopHint {
   LoopHint()
       : PragmaNameLoc(nullptr), OptionLoc(nullptr), StateLoc(nullptr),
         ValueExpr(nullptr), ArrayExpr(nullptr) {} // INTEL
+=======
+  Expr *ValueExpr = nullptr;
+
+  LoopHint() = default;
+>>>>>>> 749b4ad315215534f0c6de2c9c732e1de750d8af
 };
 
 } // end namespace clang
