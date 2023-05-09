@@ -625,11 +625,14 @@ struct AsyncQueueTy {
   std::vector<ze_event_handle_t> WaitEvents;
   /// Pending staging buffer to host copies
   std::list<std::tuple<void *, void *, size_t>> H2MList;
+  /// Pending USM memory copy commands that must wait for kernel completion
+  std::list<std::tuple<void *, void *, size_t>> USM2MList;
   /// Kernel event not signaled
   ze_event_handle_t KernelEvent = nullptr;
   void reset() {
     WaitEvents.clear();
     H2MList.clear();
+    USM2MList.clear();
     KernelEvent = nullptr;
   }
 };
@@ -4057,8 +4060,19 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
   auto TgtPtrType = DeviceInfo->getMemAllocType(TgtPtr);
   if (TgtPtrType == ZE_MEMORY_TYPE_HOST ||
       TgtPtrType == ZE_MEMORY_TYPE_SHARED) {
-    std::copy_n(
-        static_cast<char *>(TgtPtr), Size, static_cast<char *>(HstPtr));
+    bool CopyNow = true;
+    if (IsAsync) {
+      auto &AsyncQueue = getTLS()->getAsyncQueue();
+      if (AsyncQueue.KernelEvent) {
+        // Delay Host/Shared USM to host memory copy since it must wait for
+        // kernel completion.
+        AsyncQueue.USM2MList.emplace_back(TgtPtr, HstPtr, Size);
+        CopyNow = false;
+      }
+    }
+    if (CopyNow)
+      std::copy_n(static_cast<char *>(TgtPtr), Size,
+                  static_cast<char *>(HstPtr));
   } else {
     void *DstPtr = HstPtr;
     if (DeviceInfo->isDiscreteDevice(DeviceId) &&
@@ -6829,6 +6843,11 @@ int32_t __tgt_rtl_synchronize(int32_t DeviceId, __tgt_async_info *AsyncInfo) {
     }
   }
 
+  // Commit delayed USM2M copies
+  for (auto &USM2M : AsyncQueue.USM2MList) {
+    std::copy_n(static_cast<char *>(std::get<0>(USM2M)), std::get<2>(USM2M),
+                static_cast<char *>(std::get<1>(USM2M)));
+  }
   // Commit delayed H2M copies
   for (auto &H2M : AsyncQueue.H2MList) {
     std::copy_n(static_cast<char *>(std::get<0>(H2M)), std::get<2>(H2M),

@@ -34,7 +34,9 @@
 ; CHECK: MRC Predicate: TO FALSE: {{.*}}icmp {{.*}}, 4 
 ; CHECK: MRC Predicate: TO TRUE: {{.*}}icmp {{.*}}, 2 
 ; CHECK: MRC Predicate: TO FALSE: {{.*}}icmp {{.*}}, 0 
-; CHECK: MRC Predicate: 6 Branches Simplified
+; CHECK: MRC Predicate: 6 CacheInfo Branches Simplified
+; CHECK: MRC Predicate: 5 NexusInfoRegion Uses Simplified
+; CHECK: MRC Predicate: 2 OptBaseF Args Propagated
 
 ; Check the IR
 
@@ -117,7 +119,7 @@
 
 ; This is the predicate optimized version.
 ; CHECK-LABEL: define internal {{.*}} ptr @GetVirtualPixelsFromNexus.3(
-; The next two are optimized conditionals and branch instructions
+; Check for two optimized conditionals
 ; CHECK: br i1 false, label
 ; CHECK: %[[I100:[A-Za-z0-9]+]] = or i1 {{.*}}, true
 ; The next two basic blocks will branch around the complex conditional
@@ -131,8 +133,34 @@
 ; CHECK: %[[I105:[A-Za-z0-9]+]] = load i64, ptr %[[I104]], align 8
 ; Check for the alternate branch
 ; CHECK: [[L100]]
+; Check that the assignments to the fields of nexus_info->region were eliminated
+; CHECK: tail call ptr @RelinquishAlignedMemory(
+; CHECK: br label %[[L303:[A-Za-z0-9]+]]
+; CHECK: [[L301:[A-Za-z0-9]+]]:
+; CHECK: br label %[[L303]]
 ; Check for one more optimized conditional
 ; CHECK: br i1 false, label
+; Check that key tests after SetPixelCacheNexusPixels have been optimized
+; CHECK: %[[N3:[A-Za-z0-9]+]] = add i64 1, -1
+; CHECK: %[[N4:[A-Za-z0-9]+]] = mul i64 %[[N3]], %[[N1:[A-Za-z0-9]+]]
+; CHECK: %[[N5:[A-Za-z0-9]+]] = add nsw i64 %[[N12:[A-Za-z0-9]+]], -1
+; CHECK: %[[N6:[A-Za-z0-9]+]] = add i64 %[[N13:[A-Za-z0-9]+]], 1
+; CHECK: %[[N7:[A-Za-z0-9]+]] = add i64 %[[N6]], %[[N14:[A-Za-z0-9]+]]
+; CHECK: %[[N8:[A-Za-z0-9]+]] = icmp ult i64 %[[N7]], %[[N2:[A-Za-z0-9]+]]
+; CHECK: %[[N9:[A-Za-z0-9]+]] = icmp sgt i64 %arg2, -1
+; CHECK: %[[N10:[A-Za-z0-9]+]] = and i1 %[[N8]], %[[N9]]
+; CHECK: br i1 %[[N10]], label %[[L200:[A-Za-z0-9]+]], label %[[L201:[A-Za-z0-9]+]]
+; CHECK: [[L200]]: 
+; CHECK: %[[N21:[A-Za-z0-9]+]] = add i64 1, %arg2
+; CHECK: %[[N22:[A-Za-z0-9]+]] = icmp sgt i64 %[[N21]], %[[N28:[A-Za-z0-9]+]]
+; CHECK: %[[N23:[A-Za-z0-9]+]] = icmp slt i64 %arg3, 0
+; CHECK: %[[N24:[A-Za-z0-9]+]] = or i1 %[[N22]], %[[N23]]
+; CHECK: %[[N25:[A-Za-z0-9]+]] = add i64 1, %arg3
+; CHECK: %[[N26:[A-Za-z0-9]+]] = icmp sgt i64 %[[N25]], %[[N0:[A-Za-z0-9]+]]
+; CHECK: %[[N27:[A-Za-z0-9]+]] = select i1 %[[N24]], i1 true, i1 %[[N26]]
+; CHECK: br i1 %[[N27]], label %[[L201]], label
+; CHECK: tail call fastcc i32 @ReadPixelCachePixels(
+
 
 ; CHECK: call void @GetVirtualPixelsFromNexus.3.bb206
 

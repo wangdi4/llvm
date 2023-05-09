@@ -4856,6 +4856,9 @@ private:
   Instruction *W2 = nullptr;
   // height/2
   Instruction *H2 = nullptr;
+  // Unique reference to Argument 6 Field 1 of 'BaseF', which represents
+  // nexus_info->region.
+  GetElementPtrInst *GEPI6F1 = nullptr;
   // Return 'true' if 'F' is a wrapper function.
   bool isWrapper(Function &F);
   // Return the number of simple loops enclosing 'CB'.
@@ -4885,8 +4888,9 @@ private:
                                           LoadInst *LIRestrict);
   // Return 'true' if the subfields in field 1 of the structure pointed to
   // by formal argument 6 of the base function are hoistable past the entry
-  // of the wrapper function.
-  bool isBaseFArg6Field1Hoistable(Function *BaseF);
+  // of the wrapper function. If we return 'true' set 'GEPI6F1' to the
+  // unique GetElementPtrInst * that references field 1.
+  bool isBaseFArg6Field1Hoistable(Function *BaseF, GetElementPtrInst *&GEPI6F1);
   // Find the fields referenced by 'V'in 'F' that are hoistable and put their
   // indices in 'HoistYes' and 'HoistNo'.
   bool findHoistableFields(Function *F, Value *V, std::set<unsigned> &HoistYes,
@@ -4903,6 +4907,11 @@ private:
   // Return the number of branches simplified, using the values of
   // cache_info fields that are specialized in the optimized version.
   unsigned simplifyCacheInfoBranches(LoadInst *LIRestrict);
+  // Return the number of uses of nexus_info->region that were simplified.
+  unsigned simplifyNexusInfoRegionUses(GetElementPtrInst *GEPI6F1);
+  // Return the number of constant arguments of 'OptBaseF' that were 
+  // propagated. 'OptBaseF' has a single call site 'OptBaseCB'.
+  unsigned propagateOptBaseFArgConsts(CallBase *OptBaseCB, Function *OptBaseF);
 };
 
 //
@@ -5580,7 +5589,8 @@ bool isSimpleGEPI(GetElementPtrInst *GEPI, Value *PO, unsigned &Offset) {
 //     i32 noundef %22, i64 noundef %1, i64 noundef %2, i64 noundef 1,
 //     i64 noundef 1, ptr noundef %25, ptr noundef %4) #72
 //
-bool PredicateOpt::isBaseFArg6Field1Hoistable(Function *BaseF) {
+bool PredicateOpt::isBaseFArg6Field1Hoistable(Function *BaseF,
+                                              GetElementPtrInst *&GEPI6F1) {
 
   // Put the basic blocks which are predecessors of 'BBIn', direct or
   // indirect into 'BBOut'.  In the above IR, if block 24 is 'BBIn',
@@ -5996,7 +6006,7 @@ bool PredicateOpt::isBaseFArg6Field1Hoistable(Function *BaseF) {
   if (BaseF->arg_size() <= 6)
     return false;
   Argument *Arg6 = BaseF->getArg(6);
-  GetElementPtrInst *GEPI6F1 = nullptr;
+  GEPI6F1 = nullptr;
   for (User *U : Arg6->users())
     if (auto GEPI = dyn_cast<GetElementPtrInst>(U)) {
       if (GEPI->getNumOperands() != 3)
@@ -6170,7 +6180,7 @@ bool PredicateOpt::shouldAttemptPredicateOpt() {
                     << (IsResHoist ? "T" : "F") << "\n");
   if (!IsResHoist)
     return false;
-  bool IsBaseFArg6Field1Hoistable = isBaseFArg6Field1Hoistable(BaseF);
+  bool IsBaseFArg6Field1Hoistable = isBaseFArg6Field1Hoistable(BaseF, GEPI6F1);
   LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
                     << "BaseFArg6Field1Hoistable: "
                     << (IsBaseFArg6Field1Hoistable ? "T" : "F") << "\n");
@@ -6989,6 +6999,105 @@ unsigned PredicateOpt::simplifyCacheInfoBranches(LoadInst *LIRestrict) {
 }
 
 //
+// Simplify the uses of the fields of nexus_info->region field by replacing
+// them with the values to whch they are assigned. 'GEPI6F1' is a GEPI which
+// accesses the nexus_info->region field.
+//
+unsigned PredicateOpt::simplifyNexusInfoRegionUses(GetElementPtrInst *GEPI6F1) {
+
+  // Check thet the 'GEPI' has uses, all of which are LoadInsts except
+  // one which is a StoreInst. The StoreInst is deduced and eliminated
+  // if 'SIIn' is nullptr, otherwise it is assumed to be 'SIIn'. If the
+  // check is passed, return 'true' and replace all of the LoadInst uses
+  // with the value operand of the StoreInst.
+  auto CheckGEPI = [](GetElementPtrInst *GEPI, StoreInst *SIIn) -> bool {
+    SmallVector<LoadInst *, 2> Loads;
+    StoreInst *Store = SIIn;
+    for (User *U : GEPI->users())
+      if (auto SI = dyn_cast<StoreInst>(U)) {
+        if (!Store && SI->getPointerOperand() == GEPI)
+          Store = SI;
+        else
+          return false;
+      } else if (auto LI = dyn_cast<LoadInst>(U)) {
+        Loads.push_back(LI);
+      } else {
+        return false;
+      }
+    if (!Store)
+      return false;
+    for (auto LI : Loads) {
+      LI->replaceAllUsesWith(Store->getValueOperand());
+      LI->eraseFromParent();
+    }
+    if (!SIIn)
+      Store->eraseFromParent();
+    GEPI->eraseFromParent();
+    return true;
+  };
+
+  // Find all of GEPIs which are uses of 'GEPI6F1' and its single StoreInst.
+  unsigned Count = 0;
+  StoreInst *SIGEPI6F1 = nullptr;
+  SmallVector<GetElementPtrInst *, 5> GEPIs;
+  for (User *U : GEPI6F1->users()) {
+    if (auto SI = dyn_cast<StoreInst>(U)) {
+      if (SI->getPointerOperand() == GEPI6F1 && !SIGEPI6F1)
+        SIGEPI6F1 = SI;
+      else
+        return false;
+    } else if (auto GEPI = dyn_cast<GetElementPtrInst>(U)) {
+      GEPIs.push_back(GEPI);
+    } else {
+      return false;
+    }
+  }
+  // Return if the StoreInst is not unique.
+  if (!SIGEPI6F1)
+    return false;
+  // Forward substitute field values of nexus_info->region.
+  for (auto GEPI : GEPIs) {
+    unsigned Offset = 0;
+    if (isSimpleGEPI(GEPI, GEPI6F1, Offset)) {
+      if (Offset == 0 && CheckGEPI(GEPI, SIGEPI6F1))
+        Count++;
+      else
+        return false;
+    } else {
+      if (GEPI->getNumOperands() != 2)
+        return false;
+      if (CheckGEPI(GEPI, nullptr))
+        Count++;
+      else
+        return false;
+    }
+  }
+  // Eliminate 'GEPI6F1' and the value stored to it.
+  Count++;
+  SIGEPI6F1->eraseFromParent();
+  GEPI6F1->eraseFromParent();
+  return Count;
+}
+
+//
+// Simple constant propagation for certain arguments of 'OptBaseF', which has
+// a single call site 'OptBaseCB'.
+//
+unsigned PredicateOpt::propagateOptBaseFArgConsts(CallBase *OptBaseCB,
+                                                  Function *OptBaseF) {
+  unsigned Count = 0;
+  if (auto CI4 = dyn_cast<ConstantInt>(OptBaseCB->getArgOperand(4))) {
+    OptBaseF->getArg(4)->replaceAllUsesWith(CI4);
+    Count++;
+  }
+  if (auto CI5 = dyn_cast<ConstantInt>(OptBaseCB->getArgOperand(5))) {
+    OptBaseF->getArg(5)->replaceAllUsesWith(CI5);
+    Count++;
+  }
+  return Count;
+}
+
+//
 // Attempt to perform the predicate opt. Return 'true' if it was possible.
 // NOTE: Right now we simply emit a trace indicating the key elements
 // on the hot path, and the extracted and enclosing functions.
@@ -7050,6 +7159,7 @@ bool PredicateOpt::doPredicateOpt() {
   CallBase *OptBaseCB = findUniqueCB(OptWrapperF, BaseF);
   Function *OptBaseF = IPCloneFunction(BaseF, VMap);
   LIRestrict = cast<LoadInst>(VMap[LIRestrict]);
+  GEPI6F1 = cast<GetElementPtrInst>(VMap[GEPI6F1]);
   setCalledFunction(OptBaseCB, OptBaseF);
   LLVM_DEBUG(dbgs() << "MRC Predicate: OptBaseF : " << OptBaseF->getName()
                     << "\n");
@@ -7061,11 +7171,20 @@ bool PredicateOpt::doPredicateOpt() {
   getInlineReport()->doOutlining(OptBaseF, OptColdF, OptColdCB);
   LLVM_DEBUG(dbgs() << "MRC Predicate: ColdF : " << OptColdF->getName()
                     << "\n");
-  unsigned RVCount = simplifyCacheInfoBranches(LIRestrict);
-  LLVM_DEBUG(dbgs() << "MRC Predicate: " << RVCount
-                    << " Branches Simplified\n");
-  
-  if (RVCount < 6)
+  unsigned RVCount0 = simplifyCacheInfoBranches(LIRestrict);
+  LLVM_DEBUG(dbgs() << "MRC Predicate: " << RVCount0
+                    << " CacheInfo Branches Simplified\n");
+  if (RVCount0 < 6)
+    return false;
+  unsigned RVCount1 = simplifyNexusInfoRegionUses(GEPI6F1);
+  LLVM_DEBUG(dbgs() << "MRC Predicate: " << RVCount1
+                    << " NexusInfoRegion Uses Simplified\n");
+  if (RVCount1 < 5)
+    return false;
+  unsigned RVCount2 = propagateOptBaseFArgConsts(OptBaseCB, OptBaseF);
+  LLVM_DEBUG(dbgs() << "MRC Predicate: " << RVCount2
+                    << " OptBaseF Args Propagated\n");
+  if (RVCount2 < 2)
     return false;
   return true;
 }
