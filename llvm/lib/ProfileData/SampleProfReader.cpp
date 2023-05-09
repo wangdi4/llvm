@@ -1097,16 +1097,13 @@ std::error_code SampleProfileReaderExtBinaryBase::readCSNameTableSec() {
   if (std::error_code EC = Size.getError())
     return EC;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   std::unique_ptr<std::vector<SampleContextFrameVector>> PNameVec =
       std::make_unique<std::vector<SampleContextFrameVector>>();
 #endif // INTEL_CUSTOMIZATION
   PNameVec->reserve(*Size);
-=======
   CSNameTable.clear();
   CSNameTable.reserve(*Size);
->>>>>>> 776bb279d6429ae8a47f05a903aef34dcd7f7657
   for (size_t I = 0; I < *Size; ++I) {
     CSNameTable.emplace_back(SampleContextFrameVector());
     auto ContextSize = readNumber<uint32_t>();
@@ -1132,11 +1129,6 @@ std::error_code SampleProfileReaderExtBinaryBase::readCSNameTableSec() {
     }
   }
 
-<<<<<<< HEAD
-  // From this point the underlying object of CSNameTable should be immutable.
-  CSNameTable.reset(PNameVec.release()); // INTEL
-=======
->>>>>>> 776bb279d6429ae8a47f05a903aef34dcd7f7657
   return sampleprof_error::success;
 }
 
