@@ -30,5 +30,4 @@ define i32 @bar(i32 %a) {
   ret i32 %ret
 }
 
-!0 = !{!1}
-!1 = !{!"auto-cpu-dispatch-target", !"haswell"}
+!0 = !{!"haswell"}
