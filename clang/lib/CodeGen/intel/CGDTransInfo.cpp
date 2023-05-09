@@ -1081,12 +1081,19 @@ llvm::MDNode *DTransInfoGenerator::CreateVectorTypeMD(QualType ClangType,
   VecMD.push_back(llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(
       llvm::Type::getInt32Ty(Ctx), VT->getNumElements())));
 
-  const VectorType *VTy = ClangType->castAs<VectorType>();
-  assert(VTy->getNumElements() == VT->getNumElements() &&
-         "Mismatched vector type sizes");
+  QualType EltTy;
 
-  VecMD.push_back(
-      CreateTypeMD(VTy->getElementType(), VT->getElementType(), nullptr));
+  if (const auto *VTy = ClangType->getAs<VectorType>()) {
+    assert(VTy->getNumElements() == VT->getNumElements() &&
+           "Mismatched vector type sizes");
+    EltTy = VTy->getElementType();
+  } else {
+    const auto *CplxTy = ClangType->getAs<ComplexType>();
+    assert(VT->getNumElements() == 2 && "Mismatched complex type size");
+    EltTy = CplxTy->getElementType();
+  }
+
+  VecMD.push_back(CreateTypeMD(EltTy, VT->getElementType(), nullptr));
 
   return llvm::MDNode::get(Ctx, VecMD);
 }
