@@ -1097,11 +1097,6 @@ std::error_code SampleProfileReaderExtBinaryBase::readCSNameTableSec() {
   if (std::error_code EC = Size.getError())
     return EC;
 
-#if INTEL_CUSTOMIZATION
-  std::unique_ptr<std::vector<SampleContextFrameVector>> PNameVec =
-      std::make_unique<std::vector<SampleContextFrameVector>>();
-#endif // INTEL_CUSTOMIZATION
-  PNameVec->reserve(*Size);
   CSNameTable.clear();
   CSNameTable.reserve(*Size);
   for (size_t I = 0; I < *Size; ++I) {
