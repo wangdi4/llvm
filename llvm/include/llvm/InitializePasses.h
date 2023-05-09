@@ -234,11 +234,8 @@ void initializeInterleavedLoadCombinePass(PassRegistry &);
 void initializeIntervalPartitionPass(PassRegistry&);
 void initializeJMCInstrumenterPass(PassRegistry&);
 void initializeJumpThreadingPass(PassRegistry&);
-<<<<<<< HEAD
 void initializeIVSplitLegacyPassPass(PassRegistry&); // INTEL
-=======
 void initializeKCFIPass(PassRegistry &);
->>>>>>> e9569748def85a2f6bb8066e516a84e6933ef407
 void initializeLCSSAVerificationPassPass(PassRegistry&);
 void initializeLCSSAWrapperPassPass(PassRegistry&);
 void initializeLazyBlockFrequencyInfoPassPass(PassRegistry&);
