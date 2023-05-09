@@ -29,7 +29,7 @@ define void @_Test(ptr addrspace(1) noalias %0,
         ptr addrspace(3) noalias %pLocalMemBase,
         ptr noalias %pWorkDim,
         ptr noalias %pWGId, [4 x i64] %BaseGlbId,
-        ptr noalias %pSpecialBuf, ptr noalias %RuntimeHandle) local_unnamed_addr {
+        ptr noalias %pSpecialBuf, ptr noalias %RuntimeHandle) local_unnamed_addr !kernel_arg_base_type !1 !arg_type_null_val !2 {
 WGLoopsEntry:
   %BaseGlobalID_0.i = extractvalue [4 x i64] %BaseGlbId, 0
   %8 = getelementptr { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], ptr, ptr, [3 x i64], [2 x [3 x i64]], [3 x i64] }, ptr %pWorkDim, i64 0, i32 4, i64 0
@@ -61,3 +61,8 @@ scalar_kernel_entry:                              ; preds = %scalar_kernel_entry
 dim_0_exit:                                       ; preds = %scalar_kernel_entry
   ret void
 }
+
+!sycl.kernels = !{!0}
+!0 = !{ptr @_Test}
+!1 = !{!"double*", !"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", !"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", !"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", !"double*", !"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", !"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range", !"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"}
+!2 = !{double addrspace(1)* null, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* null, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* null, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* null, double addrspace(1)* null, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* null, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* null, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* null}

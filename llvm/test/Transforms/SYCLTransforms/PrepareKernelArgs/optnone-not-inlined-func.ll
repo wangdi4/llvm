@@ -13,7 +13,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent noinline norecurse nounwind optnone
-define dso_local i32 @foo(ptr addrspace(1) noalias noundef %dst, i32 noundef %v, i64 noundef %gid) #0 {
+define dso_local i32 @foo(ptr addrspace(1) noalias noundef %dst, i32 noundef %v, i64 noundef %gid) #0 !kernel_arg_base_type !19 !arg_type_null_val !20 {
 entry:
   %retval = alloca i32, align 4
   %dst.addr = alloca ptr addrspace(1), align 8
@@ -32,7 +32,7 @@ entry:
 }
 
 ; Function Attrs: convergent noinline norecurse nounwind optnone
-define dso_local void @test(ptr addrspace(1) noalias noundef align 4 %dst, i32 noundef %v) #1 !kernel_arg_addr_space !4 !kernel_arg_access_qual !5 !kernel_arg_type !6 !kernel_arg_base_type !6 !kernel_arg_type_qual !7 !kernel_arg_name !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !11 !kernel_arg_buffer_location !11 !no_barrier_path !12 !kernel_has_sub_groups !13 !barrier_buffer_size !14 !kernel_execution_length !15 !kernel_has_global_sync !13 !recommended_vector_length !16 !private_memory_size !17 {
+define dso_local void @test(ptr addrspace(1) noalias noundef align 4 %dst, i32 noundef %v) #1 !kernel_arg_addr_space !4 !kernel_arg_access_qual !5 !kernel_arg_type !6 !kernel_arg_base_type !6 !kernel_arg_type_qual !7 !kernel_arg_name !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !11 !kernel_arg_buffer_location !11 !no_barrier_path !12 !kernel_has_sub_groups !13 !barrier_buffer_size !14 !kernel_execution_length !15 !kernel_has_global_sync !13 !recommended_vector_length !16 !private_memory_size !17 !arg_type_null_val !18 {
   %dst.addr = alloca ptr addrspace(1), align 8
   %v.addr = alloca i32, align 4
   %gid = alloca i64, align 8
@@ -130,6 +130,9 @@ attributes #3 = { convergent }
 !15 = !{i32 12}
 !16 = !{i32 1}
 !17 = !{i32 56}
+!18 = !{i32 addrspace(1)* null, i32 0}
+!19 = !{!"int*", !"int", !"long"}
+!20 = !{i32 addrspace(1)* null, i32 0, i64 0}
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY-COUNT-32: WARNING: Instruction with empty DebugLoc in function test {{.*}}
