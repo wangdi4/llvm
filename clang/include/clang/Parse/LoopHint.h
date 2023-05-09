@@ -49,19 +49,12 @@ struct LoopHint {
   // default value such as for "#pragma unroll".
   IdentifierLoc *StateLoc = nullptr;
   // Expression for the hint argument if it exists, null otherwise.
-<<<<<<< HEAD
-  Expr *ValueExpr;
-#if INTEL_CUSTOMIZATION
-  Expr *ArrayExpr;
-#endif // INTEL_CUSTOMIZATION
-  LoopHint()
-      : PragmaNameLoc(nullptr), OptionLoc(nullptr), StateLoc(nullptr),
-        ValueExpr(nullptr), ArrayExpr(nullptr) {} // INTEL
-=======
   Expr *ValueExpr = nullptr;
+#if INTEL_CUSTOMIZATION
+  Expr *ArrayExpr = nullptr;
+#endif // INTEL_CUSTOMIZATION
 
   LoopHint() = default;
->>>>>>> 749b4ad315215534f0c6de2c9c732e1de750d8af
 };
 
 } // end namespace clang
