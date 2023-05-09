@@ -700,7 +700,11 @@ def OMP_Atomic : Directive<"atomic"> {
     VersionedClause<OMPC_Write>,
     VersionedClause<OMPC_Update>,
     VersionedClause<OMPC_Capture>,
+#if INTEL_COLLAB
+    VersionedClause<OMPC_Compare>
+#else // INTEL_COLLAB
     VersionedClause<OMPC_Compare, 51>
+#endif // INTEL_COLLAB
   ];
   let allowedOnceClauses = [
     VersionedClause<OMPC_SeqCst>,

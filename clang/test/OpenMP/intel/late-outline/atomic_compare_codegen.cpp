@@ -5,6 +5,10 @@
 // RUN:  | FileCheck %s --check-prefix CHK-C
 
 // RUN: %clang_cc1 -opaque-pointers -verify -triple x86_64-unknown-linux-gnu -fopenmp -x c \
+// RUN:  -fopenmp-late-outline -emit-llvm %s -o - \
+// RUN:  | FileCheck %s --check-prefix CHK-C
+
+// RUN: %clang_cc1 -opaque-pointers -verify -triple x86_64-unknown-linux-gnu -fopenmp -x c \
 // RUN: -fopenmp-late-outline -fopenmp-version=51 -emit-pch %s -o %t.pch
 
 // RUN: %clang_cc1 -opaque-pointers -verify -triple x86_64-unknown-linux-gnu -fopenmp  -x c \
