@@ -1351,6 +1351,7 @@ PointerType *mutatePtrElementType(PointerType *SrcPTy, Type *DstTy) {
 
 Function *importFunctionDecl(Module *Dst, const Function *Orig,
                              bool DuplicateIfExists) {
+  assert(Orig && "Invalid types!");
   FunctionType *NewFnType = Orig->getFunctionType();
 
   if (Dst->getContext().supportsTypedPointers()) {
