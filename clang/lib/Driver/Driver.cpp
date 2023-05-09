@@ -7694,8 +7694,7 @@ public:
     return C.MakeAction<OffloadAction>(HDep, DDeps);
   }
 
-  void unbundleStaticArchives(Compilation &C, DerivedArgList &Args,
-                              DeviceActionBuilder::PhasesTy &PL) {
+  void unbundleStaticArchives(Compilation &C, DerivedArgList &Args) {
 #if INTEL_CUSTOMIZATION
     if (!Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false) &&
         !Args.hasArg(options::OPT_fopenmp_targets_EQ))
@@ -7711,6 +7710,7 @@ public:
       Arg *InputArg = MakeInputArg(Args, Opts, Args.MakeArgString(A));
       Action *Current = C.MakeAction<InputAction>(*InputArg, T);
       addHostDependenceToDeviceActions(Current, InputArg, Args);
+      auto PL = types::getCompilationPhases(T);
       addDeviceDependencesToHostAction(Current, InputArg, phases::Link,
                                        PL.back(), PL);
     };
@@ -8119,7 +8119,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
         C.getDriver().getOffloadStaticLibSeen())
       OffloadBuilder->addDeviceLinkDependenciesFromHost(LinkerInputs);
 
-    OffloadBuilder->unbundleStaticArchives(C, Args, PL);
+    OffloadBuilder->unbundleStaticArchives(C, Args);
   }
 #endif // INTEL_CUSTOMIZATION
 
