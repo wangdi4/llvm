@@ -13,10 +13,8 @@
 #include "OptimizerLTO.h"
 #include "VectorizerUtils.h"
 
-#include "llvm/TargetParser/Triple.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/Transforms/SYCLTransforms/SGRemapWICall.h"
 #ifndef NDEBUG
 #include "llvm/IR/Verifier.h"
 #endif // #ifndef NDEBUG
@@ -24,6 +22,7 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/StandardInstrumentations.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/DeadArgumentElimination.h"
 #include "llvm/Transforms/IPO/GlobalDCE.h"
@@ -32,6 +31,8 @@
 #include "llvm/Transforms/IPO/SCCP.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/SYCLTransforms/Passes.h"
+#include "llvm/Transforms/SYCLTransforms/SGRemapWICall.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/Scalar/ADCE.h"
 #include "llvm/Transforms/Scalar/DCE.h"
 #include "llvm/Transforms/Scalar/DeadStoreElimination.h"
@@ -156,8 +157,10 @@ void OptimizerLTO::Optimize(raw_ostream &LogStream) {
 void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
   PB.registerPipelineStartEPCallback(
       [this](ModulePassManager &MPM, OptimizationLevel Level) {
-        MPM.addPass(SYCLPreprocessSPIRVFriendlyIRPass());
-        MPM.addPass(SPIRVLowerConstExprPass());
+        if (m_IsSYCL && !CompilationUtils::generatedFromSPIRV(m_M)) {
+          MPM.addPass(SYCLPreprocessSPIRVFriendlyIRPass());
+          MPM.addPass(SPIRVLowerConstExprPass());
+        }
         MPM.addPass(SPIRVToOCL20Pass());
         MPM.addPass(NameAnonGlobalPass());
         MPM.addPass(SpecializeConstantPass());

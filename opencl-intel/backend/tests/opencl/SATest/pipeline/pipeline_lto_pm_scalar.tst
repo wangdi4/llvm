@@ -4,9 +4,7 @@
 ;   check VPlan driver pass is not run when VPlan is enabled in buildPerModuleDefaultPipeline.
 ;   check CoerceWin64Types pass when SATest is enabled on Windows.
 
-; CHECK:      Running pass: SYCLPreprocessSPIRVFriendlyIRPass
-; CHECK-NEXT: Running pass: SPIRV::SPIRVLowerConstExprPass
-; CHECK-NEXT: Running pass: SPIRV::SPIRVToOCL20Pass
+; CHECK:      Running pass: SPIRV::SPIRVToOCL20Pass
 ; CHECK-NEXT: Running pass: NameAnonGlobalPass
 ; CHECK-NEXT: Running pass: SpecializeConstantPass
 

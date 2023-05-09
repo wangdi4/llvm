@@ -9,9 +9,9 @@
 ; TODO:
 ;   check CoerceWin64Types pass when SATest is enabled
 
-; CHECK:      Running pass: SYCLPreprocessSPIRVFriendlyIRPass
-; CHECK-NEXT: Running pass: SPIRV::SPIRVLowerConstExprPass
-; CHECK-NEXT: Running pass: SPIRV::SPIRVToOCL20Pass
+; CHECK-NOT:  Running pass: SYCLPreprocessSPIRVFriendlyIRPass
+; CHECK-NOT:  Running pass: SPIRV::SPIRVLowerConstExprPass
+; CHECK:      Running pass: SPIRV::SPIRVToOCL20Pass
 ; CHECK-NEXT: Running pass: NameAnonGlobalPass
 ; CHECK-NEXT: Running pass: SpecializeConstantPass
 
@@ -188,9 +188,7 @@
 
 
 ; need not to check all outputs
-; QUIET:      Running pass: SYCLPreprocessSPIRVFriendlyIRPass
-; QUIET-NEXT: Running pass: SPIRV::SPIRVLowerConstExprPass
-; QUIET-NEXT: Running pass: SPIRV::SPIRVToOCL20Pass
+; QUIET:      Running pass: SPIRV::SPIRVToOCL20Pass
 ; QUIET-NEXT: Running pass: NameAnonGlobalPass
 ; QUIET-NEXT: Running pass: SpecializeConstantPass
 ; QUIET-NEXT: Running pass: VerifierPass
@@ -210,11 +208,7 @@
 
 
 ; need not to check all outputs
-; VERIFY-EACH:      Running pass: SYCLPreprocessSPIRVFriendlyIRPass
-; VERIFY-EACH-NEXT: Verifying module main
-; VERIFY-EACH-NEXT: Running pass: SPIRV::SPIRVLowerConstExprPass
-; VERIFY-EACH-NEXT: Verifying module main
-; VERIFY-EACH-NEXT: Running pass: SPIRV::SPIRVToOCL20Pass
+; VERIFY-EACH:      Running pass: SPIRV::SPIRVToOCL20Pass
 ; VERIFY-EACH-NEXT: Verifying module main
 ; VERIFY-EACH-NEXT: Running pass: NameAnonGlobalPass
 ; VERIFY-EACH-NEXT: Verifying module main
