@@ -623,6 +623,11 @@ static void materializeTargetExtType(Module &M,
                       &TETypeMap);
   SmallPtrSet<Type *, 16> VisitedType;
 
+  // Handle named struct type.
+  bool HasNamedStructToRemap = false;
+  for (auto *Ty : M.getIdentifiedStructTypes())
+    HasNamedStructToRemap |= TETypeMap.get(Ty, VisitedType) != Ty;
+
   // Handle each function.
   SmallVector<Function *, 32> FuncsToAddMD;
   for (Function &F : M) {
@@ -655,6 +660,10 @@ static void materializeTargetExtType(Module &M,
       } else if (auto *CI = dyn_cast<CallInst>(&I)) {
         if (VMap.count(CI->getCalledFunction()))
           findInstUsers(&I, ToRemap, Visited);
+      } else if (HasNamedStructToRemap) {
+        if (auto *GEP = dyn_cast<GetElementPtrInst>(&I))
+          if (TETypeMap.hasMapping(GEP->getSourceElementType()))
+            findInstUsers(&I, ToRemap, Visited);
       }
     }
 
