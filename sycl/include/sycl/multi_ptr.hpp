@@ -1,18 +1,3 @@
-// INTEL_CUSTOMIZATION
-//
-// Modifications, Copyright (C) 2023 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may
-// not use, modify, copy, publish, distribute, disclose or transmit this
-// software or the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
 //==------------ multi_ptr.hpp - SYCL multi_ptr class ----------------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -164,10 +149,7 @@ public:
                 (Space == access::address_space::generic_space ||
                  Space == access::address_space::local_space)>>
   multi_ptr(local_accessor<ElementType, Dimensions> Accessor)
-      /* INTEL_CUSTOMIZATION */
-      : multi_ptr(
-            Accessor.template get_multi_ptr<access::decorated::yes>().get()) {}
-  /* end INTEL_CUSTOMIZATION */
+      : m_Pointer(detail::cast_AS<decorated_type *>(Accessor.get_pointer())) {}
 
   // The following constructors are necessary to create multi_ptr<const
   // ElementType, Space, DecorateAddress> from accessor<ElementType, ...>.
@@ -226,10 +208,7 @@ public:
   multi_ptr(
       local_accessor<typename std::remove_const_t<RelayElementType>, Dimensions>
           Accessor)
-      /* INTEL_CUSTOMIZATION */
-      : multi_ptr(
-            Accessor.template get_multi_ptr<access::decorated::yes>().get()) {}
-  /* end INTEL_CUSTOMIZATION */
+      : m_Pointer(detail::cast_AS<decorated_type *>(Accessor.get_pointer())) {}
 
   // Assignment and access operators
   multi_ptr &operator=(const multi_ptr &) = default;
@@ -484,10 +463,7 @@ public:
       typename = typename std::enable_if_t<
           RelaySpace == Space && Space == access::address_space::local_space>>
   multi_ptr(local_accessor<ElementType, Dimensions> Accessor)
-      /* INTEL_CUSTOMIZATION */
-      : multi_ptr(
-            Accessor.template get_multi_ptr<access::decorated::yes>().get()) {}
-  /* end INTEL_CUSTOMIZATION */
+      : m_Pointer(detail::cast_AS<decorated_type *>(Accessor.get_pointer())) {}
 
   // Assignment operators
   multi_ptr &operator=(const multi_ptr &) = default;
@@ -613,10 +589,7 @@ public:
       typename = typename std::enable_if_t<
           RelaySpace == Space && Space == access::address_space::local_space>>
   multi_ptr(local_accessor<ElementType, Dimensions> Accessor)
-      /* INTEL_CUSTOMIZATION */
-      : multi_ptr(
-            Accessor.template get_multi_ptr<access::decorated::yes>().get()) {}
-  /* end INTEL_CUSTOMIZATION */
+      : m_Pointer(detail::cast_AS<decorated_type *>(Accessor.get_pointer())) {}
 
   // Assignment operators
   multi_ptr &operator=(const multi_ptr &) = default;
@@ -805,10 +778,7 @@ public:
   // Only if Space == local_space || generic_space
   template <int dimensions>
   multi_ptr(local_accessor<ElementType, dimensions> Accessor)
-      /* INTEL_CUSTOMIZATION */
-      : multi_ptr(
-            Accessor.template get_multi_ptr<access::decorated::legacy>()) {}
-  /* end INTEL_CUSTOMIZATION */
+      : multi_ptr(Accessor.get_pointer()) {}
 
   // Only if Space == constant_space
   template <
@@ -874,10 +844,7 @@ public:
                 std::is_const_v<ET> && std::is_same_v<ET, ElementType>>>
   multi_ptr(
       local_accessor<typename std::remove_const_t<ET>, dimensions> Accessor)
-      /* INTEL_CUSTOMIZATION */
-      : multi_ptr(
-            Accessor.template get_multi_ptr<access::decorated::legacy>()) {}
-  /* end INTEL_CUSTOMIZATION */
+      : m_Pointer(detail::cast_AS<pointer_t>(Accessor.get_pointer())) {}
 
   // Only if Space == constant_space and element type is const
   template <
@@ -1116,10 +1083,7 @@ public:
           _Space == Space && (Space == access::address_space::generic_space ||
                               Space == access::address_space::local_space)>>
   multi_ptr(local_accessor<ElementType, dimensions> Accessor)
-      /* INTEL_CUSTOMIZATION */
-      : multi_ptr(
-            Accessor.template get_multi_ptr<access::decorated::legacy>()) {}
-  /* end INTEL_CUSTOMIZATION */
+      : m_Pointer(detail::cast_AS<pointer_t>(Accessor.get_pointer())) {}
 
   // Only if Space == constant_space
   template <
@@ -1262,10 +1226,7 @@ public:
           _Space == Space && (Space == access::address_space::generic_space ||
                               Space == access::address_space::local_space)>>
   multi_ptr(local_accessor<ElementType, dimensions> Accessor)
-      /* INTEL_CUSTOMIZATION */
-      : multi_ptr(
-            Accessor.template get_multi_ptr<access::decorated::legacy>()) {}
-  /* end INTEL_CUSTOMIZATION */
+      : m_Pointer(detail::cast_AS<pointer_t>(Accessor.get_pointer())) {}
 
   // Only if Space == constant_space
   template <

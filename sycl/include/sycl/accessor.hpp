@@ -1,18 +1,3 @@
-// INTEL_CUSTOMIZATION
-//
-// Modifications, Copyright (C) 2023 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may
-// not use, modify, copy, publish, distribute, disclose or transmit this
-// software or the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
 //==------------ accessor.hpp - SYCL standard header file ------------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -2139,13 +2124,11 @@ public:
             typename = std::enable_if_t<
                 (AccessTarget_ == access::target::host_buffer) ||
                 (AccessTarget_ == access::target::host_task)>>
-  /* INTEL_CUSTOMIZATION */
-#if SYCL_LANGUAGE_VERSION >= 202001 && defined(SYCL2020_CONFORMANT_APIS)
+#if SYCL_LANGUAGE_VERSION >= 202001
   std::add_pointer_t<value_type> get_pointer() const noexcept
 #else
   DataT *get_pointer() const
 #endif
-  /* end INTEL_CUSTOMIZATION */
   {
     return getPointerAdjusted();
   }
@@ -2859,17 +2842,9 @@ public:
     return const_reverse_iterator(begin());
   }
 
-  /* INTEL_CUSTOMIZATION */
-#ifdef SYCL2020_CONFORMANT_APIS
   std::add_pointer_t<value_type> get_pointer() const noexcept {
     return std::add_pointer_t<value_type>(local_acc::getQualifiedPtr());
   }
-#else
-  local_ptr<DataT> get_pointer() const {
-    return local_ptr<DataT>(local_acc::getQualifiedPtr());
-  }
-#endif
-  /* end INTEL_CUSTOMIZATION */
 
   template <access::decorated IsDecorated>
   accessor_ptr<IsDecorated> get_multi_ptr() const noexcept {
