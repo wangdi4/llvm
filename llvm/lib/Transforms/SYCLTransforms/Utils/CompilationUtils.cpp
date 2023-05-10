@@ -2360,7 +2360,7 @@ static void pushWGSortBuiltinVectInfo(reflection::TypeVector KeyValueParams,
     ParamKinds.push_back(llvm::VFParamKind::Vector);
     ScalarParams.push_back(Param);
   }
-  for (auto Param : OtherParams) {
+  for (auto &Param : OtherParams) {
     ParamKinds.push_back(llvm::VFParamKind::OMP_Uniform);
     ScalarParams.push_back(Param);
   }
