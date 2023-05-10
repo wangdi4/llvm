@@ -4912,6 +4912,10 @@ private:
   // Return the number of constant arguments of 'OptBaseF' that were 
   // propagated. 'OptBaseF' has a single call site 'OptBaseCB'.
   unsigned propagateOptBaseFArgConsts(CallBase *OptBaseCB, Function *OptBaseF);
+  // Return the number of mixed expressions that were optimized. Mixed
+  // expressions include arguments of 'OptBaseF' and fields from the structure
+  // pointed to by 'LIRestrict'.
+  unsigned simplifyMixedExpressions(Function *OptBaseF, LoadInst *LIRestrict);
 };
 
 //
@@ -6006,7 +6010,6 @@ bool PredicateOpt::isBaseFArg6Field1Hoistable(Function *BaseF,
   if (BaseF->arg_size() <= 6)
     return false;
   Argument *Arg6 = BaseF->getArg(6);
-  GEPI6F1 = nullptr;
   for (User *U : Arg6->users())
     if (auto GEPI = dyn_cast<GetElementPtrInst>(U)) {
       if (GEPI->getNumOperands() != 3)
@@ -7098,6 +7101,179 @@ unsigned PredicateOpt::propagateOptBaseFArgConsts(CallBase *OptBaseCB,
 }
 
 //
+// Simplify mixed expressions involving the arguments of the optimized
+// base function 'OptBaseF' and fields from the structure pointed to
+// by 'LIRestrict'. In particular, let 'x' and 'y' be arguments of the
+// optimized base function, and let field 6 pointed to by 'LIRestrict'
+// represent cache_info->columns and field 7 pointed to be 'LIRestrict'
+// represent cache_info->rows. Then since the guards on the optimized
+// base function imply:
+//   (x >= 0) && ((ssize_t) (x+columns) <= (ssize_t) cache_info->columns) &&
+//   (y >= 0) && ((ssize_t) (y+rows) <= (ssize_t) cache_info->rows))
+// evaluates to 'true', ensure that this expression is optimized to 'true'.
+//
+unsigned PredicateOpt::simplifyMixedExpressions(Function *OptBaseF,
+                                                LoadInst *LIRestrict) {
+
+  // If 'V' represents a LoadInst fed by a GetElementPtrInst of the form:
+  //   'GEPI' = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo,
+  //      ptr 'LIRestrict', i64 0, i32 'Offset'
+  //   'V' = load i64, ptr 'GEPI', align 8
+  // return 'LI' and set the value of 'Offset'.
+  auto LoadInstWithGEPI = [](Value *V, LoadInst *LIRestrict,
+                             unsigned &Offset) -> LoadInst * {
+    auto LI = dyn_cast<LoadInst>(V);
+    if (!LI)
+      return nullptr;
+    auto GEPI = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
+    if (!GEPI || !isSimpleGEPI(GEPI, LIRestrict, Offset))
+      return nullptr;
+    return LI;
+  };
+
+  // If 'PHIN' is a PHINode, fill 'PHINodeTerms' with the non-PHINode
+  // terminals that define 'PHIN'. For example, in:
+  //   %61 = add i64 %60, %2
+  //   %134 = add i64 %133, %2
+  //   %139 = add i64 %138, %2
+  //   %146 = phi i64 [ %134, %130 ], [ %139, %135 ]
+  //   %157 = phi i64 [ %146, %145 ], [ %61, %152 ]
+  // If '%157" is 'PHIN', then on return 'PHINodeTerms" will contain
+  //   %61, %134, and %139.
+  std::function<void(PHINode *, SmallVectorImpl<Value *> &)>
+      GetPHINodeTerminals =
+          [&](PHINode *PHIN, SmallVectorImpl<Value *> &PHINodeTerms) {
+            for (unsigned I = 0, E = PHIN->getNumIncomingValues(); I < E; ++I) {
+              Value *V = PHIN->getIncomingValue(I);
+              if (auto PHIN0 = dyn_cast<PHINode>(V))
+                GetPHINodeTerminals(PHIN0, PHINodeTerms);
+              else
+                PHINodeTerms.push_back(V);
+            }
+          };
+
+  // Find a representative LoadInst whose pointer operand is a
+  // GetElementPtrInst having the form:
+  //   'GEPI' = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo,
+  //      ptr 'LIRestrict', i64 0, i32 'Offset'
+  //   'V' = load i64, ptr 'GEPI', align 8
+  // If 'V' is a LoadInst and has the above form, return 'V'. If 'V' is
+  // a PHINode and all of the terminals of the PHINode have the above form
+  // with the same 'Offset', return one of the terminals. Otherwise, return
+  // 'nullptr'.
+  auto RepLoadInstWithGEPI = [&](Value *V, LoadInst *LIRestrict) -> LoadInst * {
+    unsigned Offset = 0;
+    unsigned CommonOffset = 0;
+    if (auto LI = LoadInstWithGEPI(V, LIRestrict, Offset))
+      return LI;
+    if (auto PHIN = dyn_cast<PHINode>(V)) {
+      SmallVector<Value *, 8> PHINodeTerms;
+      GetPHINodeTerminals(PHIN, PHINodeTerms);
+      LoadInst *LIRep = nullptr;
+      for (auto V : PHINodeTerms)
+        if (auto LI = LoadInstWithGEPI(V, LIRestrict, Offset))
+          if (!LIRep) {
+            CommonOffset = Offset;
+            LIRep = LI;
+          } else if (Offset != CommonOffset) {
+            return nullptr;
+          }
+      return LIRep;
+    }
+    return nullptr;
+  };
+
+  // Let 'A' be an argument of the optimized base function. Let 'LIRestrict'
+  // point to the key restrict variable. Replace the users of ICmpInsts
+  // with either 'true' or 'false' as follows:
+  // Replace the uses of:
+  //   icmp 'PredTestOuter' 'A', 'CIValue'
+  // with 'BOuter'.
+  // Replace the uses of:
+  //   'GEPI' = getelementptr 'LIRestrict', 0, 'OffsetTest'
+  //   'LI' = load 'GEPI'
+  //   'UU' = add 'A', 1
+  //   icmp 'PredTestInner' 'UU', 'LI'
+  // with 'BOuter'.
+  auto ReplaceExp = [&](Argument *A, LoadInst *LIRestrict,
+                        ICmpInst::Predicate PredTestInner,
+                        ICmpInst::Predicate PredTestOuter, unsigned OffsetTest,
+                        int64_t CIValue, bool BOuter, bool BInner) -> unsigned {
+    unsigned Count = 0;
+    for (User *U : A->users()) {
+      ICmpInst::Predicate Pred0 = ICmpInst::BAD_ICMP_PREDICATE;
+      ConstantInt *CIO = nullptr;
+      if (match(U, m_Add(m_Specific(A), m_One())) ||
+          match(U, m_Add(m_One(), m_Specific(A)))) {
+        for (User *UU : U->users()) {
+          Value *V = nullptr;
+          ICmpInst::Predicate Pred1 = ICmpInst::BAD_ICMP_PREDICATE;
+          if (match(UU, m_ICmp(Pred1, m_Specific(U), m_Value(V))))
+            if (Pred1 == PredTestInner) {
+              if (LoadInst *LI = RepLoadInstWithGEPI(V, LIRestrict)) {
+                auto GEPI = cast<GetElementPtrInst>(LI->getPointerOperand());
+                auto CI = cast<ConstantInt>(GEPI->getOperand(2));
+                unsigned Offset = CI->getSExtValue();
+                if (Offset == OffsetTest) {
+                  auto CII = ConstantInt::getBool(UU->getType(), BInner);
+                  UU->replaceAllUsesWith(CII);
+                  Count++;
+                }
+              }
+            }
+        }
+      } else if (match(U, m_ICmp(Pred0, m_Specific(A), m_ConstantInt(CIO)))) {
+        if (Pred0 == PredTestOuter && CIO->getSExtValue() == CIValue) {
+          auto CII = ConstantInt::getBool(U->getType(), BOuter);
+          U->replaceAllUsesWith(CII);
+          Count++;
+        }
+      }
+    }
+    return Count;
+  };
+
+  unsigned Count = 0;
+  // Replace the uses of %174 in:
+  //   %174 = icmp sgt i64 %2, -1
+  // with 'true'.
+  // Replace the uses of %178 in:
+  //   %56 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo,
+  //     ptr %12, i64 0, i32 6
+  //   %57 = load i64, ptr %56, align 8
+  //   %131 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo,
+  //     ptr %12, i64 0, i32 6
+  //   %132 = load i64, ptr %131, align 8
+  //   %136 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo,
+  //     ptr %12, i64 0, i32 6
+  //   %137 = load i64, ptr %136, align 8
+  //   %147 = phi i64 [ %132, %130 ], [ %137, %135 ]
+  //   %161 = phi i64 [ %147, %145 ], [ %57, %152 ]
+  //   %177 = add i64 1, %2
+  //   %178 = icmp sgt i64 %177, %161
+  // with 'false'.
+  Count += ReplaceExp(OptBaseF->getArg(2), LIRestrict, ICmpInst::ICMP_SGT,
+                      ICmpInst::ICMP_SGT, 6, -1, true, false);
+  // Replace the uses of %179 in:
+  //   %179 = icmp slt i64 %3, 0
+  // with 'false'.
+  // Replace the uses of %182 in:
+  //   %58 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo,
+  //     ptr %12, i64 0, i32 7
+  //   %59 = load i64, ptr %58, align 8
+  //   %150 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo,
+  //     ptr %12, i64 0, i32 7
+  //   %151 = load i64, ptr %150, align 8
+  //   %160 = phi i64 [ %151, %145 ], [ %59, %152 ]
+  //   %181 = add i64 1, %3
+  //   %182 = icmp sgt i64 %181, %160
+  // with 'false'.
+  Count += ReplaceExp(OptBaseF->getArg(3), LIRestrict, ICmpInst::ICMP_SGT,
+                      ICmpInst::ICMP_SLT, 7, 0, false, false);
+  return Count;
+}
+
+//
 // Attempt to perform the predicate opt. Return 'true' if it was possible.
 // NOTE: Right now we simply emit a trace indicating the key elements
 // on the hot path, and the extracted and enclosing functions.
@@ -7185,6 +7361,11 @@ bool PredicateOpt::doPredicateOpt() {
   LLVM_DEBUG(dbgs() << "MRC Predicate: " << RVCount2
                     << " OptBaseF Args Propagated\n");
   if (RVCount2 < 2)
+    return false;
+  unsigned RVCount3 = simplifyMixedExpressions(OptBaseF, LIRestrict);
+  LLVM_DEBUG(dbgs() << "MRC Predicate: " << RVCount3
+                    << " Mixed Expressions Simplified\n");
+  if (RVCount3 < 6)
     return false;
   return true;
 }
