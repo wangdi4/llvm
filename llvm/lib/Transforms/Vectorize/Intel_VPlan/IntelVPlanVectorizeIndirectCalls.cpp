@@ -273,8 +273,10 @@ void IndirectCallCodeGenerator::fillVectorIndirectCallBB(
     CallArgsTy.pop_back();
   }
 
-  CodeGen->createVectorMaskArg(VPCallInst, MatchedVariant, CallArgs, CallArgsTy,
-                               VF, FinalMask);
+  Value *Mask =
+      CodeGen->createVectorMaskArg(VPCallInst, *MatchedVariant, FinalMask);
+  CallArgs.push_back(Mask);
+  CallArgsTy.push_back(Mask->getType());
 
   // Generate the call to the vectorized version of the function pointer.
   Value *IndirectCallReturn = generateIndirectCall(VPCallInst, CurrentFPtr);
