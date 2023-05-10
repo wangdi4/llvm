@@ -55,7 +55,6 @@ define hidden i32 @main() #0 {
 ; CHECK-NEXT:    store i8* [[TMP11]], i8** [[TMP10]], align 8
 
 ; CHECK:       omp_offload.failed:
-; CHECK-NEXT:    call void @__kmpc_push_num_teams(%struct.ident_t* @{{.*}}, i32 0, i32 0, i32 1)
 ; CHECK-NEXT:    call void @__omp_offloading{{.*}}(i32* [[X]], %struct.S* [[S]])
 ;
 entry:
