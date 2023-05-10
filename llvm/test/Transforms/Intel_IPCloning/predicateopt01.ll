@@ -148,19 +148,18 @@
 ; CHECK: %[[N7:[A-Za-z0-9]+]] = add i64 %[[N6]], %[[N14:[A-Za-z0-9]+]]
 ; CHECK: %[[N8:[A-Za-z0-9]+]] = icmp ult i64 %[[N7]], %[[N2:[A-Za-z0-9]+]]
 ; CHECK: %[[N9:[A-Za-z0-9]+]] = icmp sgt i64 %arg2, -1
-; CHECK: %[[N10:[A-Za-z0-9]+]] = and i1 %[[N8]], %[[N9]]
+; CHECK: %[[N10:[A-Za-z0-9]+]] = and i1 %[[N8]], true
 ; CHECK: br i1 %[[N10]], label %[[L200:[A-Za-z0-9]+]], label %[[L201:[A-Za-z0-9]+]]
 ; CHECK: [[L200]]: 
 ; CHECK: %[[N21:[A-Za-z0-9]+]] = add i64 1, %arg2
-; CHECK: %[[N22:[A-Za-z0-9]+]] = icmp sgt i64 %[[N21]], %[[N28:[A-Za-z0-9]+]]
+; CHECK: %[[N22:[A-Za-z0-9]+]] = icmp sgt i64 %[[N21]], %[[N1]]
 ; CHECK: %[[N23:[A-Za-z0-9]+]] = icmp slt i64 %arg3, 0
-; CHECK: %[[N24:[A-Za-z0-9]+]] = or i1 %[[N22]], %[[N23]]
+; CHECK: %[[N24:[A-Za-z0-9]+]] = or i1 false, false
 ; CHECK: %[[N25:[A-Za-z0-9]+]] = add i64 1, %arg3
 ; CHECK: %[[N26:[A-Za-z0-9]+]] = icmp sgt i64 %[[N25]], %[[N0:[A-Za-z0-9]+]]
-; CHECK: %[[N27:[A-Za-z0-9]+]] = select i1 %[[N24]], i1 true, i1 %[[N26]]
+; CHECK: %[[N27:[A-Za-z0-9]+]] = select i1 %[[N24]], i1 true, i1 false
 ; CHECK: br i1 %[[N27]], label %[[L201]], label
 ; CHECK: tail call fastcc i32 @ReadPixelCachePixels(
-
 
 ; CHECK: call void @GetVirtualPixelsFromNexus.3.bb206
 
