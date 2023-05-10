@@ -822,8 +822,8 @@ public:
   virtual ElfLNoteImplBase *clone() const = 0;
   virtual size_t getNameSize() const = 0;
   virtual const char *getName() const = 0;
-  virtual size_t getDescSize() const = 0;
-  virtual const uint8_t *getDesc() const = 0;
+  virtual size_t getDescSize(size_t Align) const = 0;
+  virtual const uint8_t *getDesc(size_t Align) const = 0;
   virtual uint32_t getType() const = 0;
 };
 
@@ -838,8 +838,8 @@ public:
   ~ElfLNoteImpl() = default;
   size_t getNameSize() const override { return Note.getName().size(); }
   const char *getName() const override { return Note.getName().data(); }
-  size_t getDescSize() const override { return Note.getDesc().size(); }
-  const uint8_t *getDesc() const override { return Note.getDesc().data(); }
+  size_t getDescSize(size_t Align) const override { return Note.getDesc(Align).size(); }
+  const uint8_t *getDesc(size_t Align) const override { return Note.getDesc(Align).data(); }
   uint32_t getType() const override { return Note.getType(); }
 };
 
@@ -1573,16 +1573,16 @@ const char *ElfLNote::getName() const {
   return NImpl->getName();
 }
 
-uint64_t ElfLNote::getDescSize() const {
+uint64_t ElfLNote::getDescSize(size_t Align) const {
   const ElfLNoteImplBase *NImpl =
       reinterpret_cast<const ElfLNoteImplBase *>(Impl);
-  return NImpl->getDescSize();
+  return NImpl->getDescSize(Align);
 }
 
-const uint8_t *ElfLNote::getDesc() const {
+const uint8_t *ElfLNote::getDesc(size_t Align) const {
   const ElfLNoteImplBase *NImpl =
       reinterpret_cast<const ElfLNoteImplBase *>(Impl);
-  return NImpl->getDesc();
+  return NImpl->getDesc(Align);
 }
 
 uint64_t ElfLNote::getType() const {
