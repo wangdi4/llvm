@@ -698,7 +698,7 @@ defm RCL32r1  : mshift_r1_NoNF<0xD1, MRM2r, "rcl", Xi32>;
 defm RCL64r1  : mshift_r1_NoNF<0xD1, MRM2r, "rcl", Xi64>;
 } // hasSideEffects = 0
 
-let mayStore = 1 in {
+let mayLoad = 1, mayStore = 1 in {
 let Uses = [CL, EFLAGS], SchedRW = [WriteRotateCLLd, WriteRMW] in {
 defm RCL8mCL  : mshift_mCL_NoNF<0xD2, MRM2m, "rcl", Xi8>;
 defm RCL16mCL : mshift_mCL_NoNF<0xD3, MRM2m, "rcl", Xi16>;
@@ -718,7 +718,7 @@ defm RCL16m1  : mshift_m1_NoNF<0xD1, MRM2m, "rcl", Xi16>;
 defm RCL32m1  : mshift_m1_NoNF<0xD1, MRM2m, "rcl", Xi32>;
 defm RCL64m1  : mshift_m1_NoNF<0xD1, MRM2m, "rcl", Xi64>;
 } // SchedRW
-} // mayStore
+} // mayLoad, mayStore
 
 // =====================RCR=========================
 
@@ -743,7 +743,7 @@ defm RCR32r1  : mshift_r1_NoNF<0xD1, MRM3r, "rcr", Xi32>;
 defm RCR64r1  : mshift_r1_NoNF<0xD1, MRM3r, "rcr", Xi64>;
 } // hasSideEffects = 0
 
-let mayStore = 1 in {
+let mayLoad = 1, mayStore = 1 in {
 let Uses = [CL, EFLAGS], SchedRW = [WriteRotateCLLd, WriteRMW] in {
 defm RCR8mCL  : mshift_mCL_NoNF<0xD2, MRM3m, "rcr", Xi8>;
 defm RCR16mCL : mshift_mCL_NoNF<0xD3, MRM3m, "rcr", Xi16>;
@@ -763,7 +763,7 @@ defm RCR16m1  : mshift_m1_NoNF<0xD1, MRM3m, "rcr", Xi16>;
 defm RCR32m1  : mshift_m1_NoNF<0xD1, MRM3m, "rcr", Xi32>;
 defm RCR64m1  : mshift_m1_NoNF<0xD1, MRM3m, "rcr", Xi64>;
 } // SchedRW
-} // mayStore
+} // mayLoad, mayStore
 } // hasSideEffects = 0
 
 // ================== ROL =======================
