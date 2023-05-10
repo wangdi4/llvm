@@ -11586,27 +11586,42 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
   };
 
   Instruction *ForkInsPt = NewCall;
-  if (Value *IfClause = !W->getIsTeams() ? W->getIf() : nullptr) {
-    // TODO: change this to assert once FE starts generating if clause condition
-    // with i1 type.
+  Value *IfClause = !W->getIsTeams() ? W->getIf() : nullptr;
+  bool IsDistParLoopIf = false; // is it DISTRIBUTE PARALLEL FOR with IF clause?
+  if (IfClause) {
+#if INTEL_CUSTOMIZATION
+    // TODO: Once FFE starts generating if clause condition with i1 type we
+    // no longer need the code below, which should just change to assert that
+    // IfClause->getType()->isIntegerTy(1).
+    // CFE already emits IF clause conditions in i1 type.
+#endif // INTEL_CUSTOMIZATION
     if (!IfClause->getType()->isIntegerTy(1))
-      IfClause = new ICmpInst(NewCall, ICmpInst::ICMP_NE, IfClause,
-                              ConstantInt::getSigned(IfClause->getType(), 0),
-                              "if.cond");
+      IfClause = IRBuilder<>(NewCall).CreateICmpNE(
+          IfClause, ConstantInt::getSigned(IfClause->getType(), 0), "if.cond");
 
-    Instruction *ElseInsPt = nullptr;
-    VPOParoptUtils::buildCFGForIfClause(IfClause, ForkInsPt, ElseInsPt, NewCall,
-                                        DT);
+    if (!isa<WRNDistributeParLoopNode>(W)) {
+      // PARALLEL IF(false) should be run with 1 thread. The optimization below
+      // calls the outlined function directly and bypasses __kmpc_fork_call().
+      // However, for the DISTRIBUTE PARALLEL FOR IF(false) case, we cannot do
+      // this optimization. Instead, we set the number of threads to 1 and still
+      // call __kmpc_fork_call() and __kmpc_dist_for_static_init*().
+      Instruction *ElseInsPt = nullptr;
+      VPOParoptUtils::buildCFGForIfClause(IfClause, ForkInsPt, ElseInsPt,
+                                          NewCall, DT);
 
-    // Emit __kmpc_serialized_parallel(void *loc, i32 tid )
-    VPOParoptUtils::genKmpcSerializedParallelCall(W, IdentTy, TidPtrHolder,
-                                                  ElseInsPt, true);
-    // Create serial call in 'else' block.
-    CreateMtFnCall(ElseInsPt);
+      // Emit __kmpc_serialized_parallel(void *loc, i32 tid )
+      VPOParoptUtils::genKmpcSerializedParallelCall(W, IdentTy, TidPtrHolder,
+                                                    ElseInsPt, true);
+      // Create serial call in 'else' block.
+      CreateMtFnCall(ElseInsPt);
 
-    // Emit __kmpc_end_serialized_parallel(void *loc, i32 tid )
-    VPOParoptUtils::genKmpcSerializedParallelCall(W, IdentTy, TidPtrHolder,
-                                                  ElseInsPt, false);
+      // Emit __kmpc_end_serialized_parallel(void *loc, i32 tid )
+      VPOParoptUtils::genKmpcSerializedParallelCall(W, IdentTy, TidPtrHolder,
+                                                    ElseInsPt, false);
+    } else {
+      // Skip the optmization.
+      IsDistParLoopIf = true;
+    }
   }
 
   CallInst *MTFnCI = CreateMtFnCall(ForkInsPt);
@@ -11647,20 +11662,59 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     NumThreads = W->getNumThreads();
   }
 
-  if (NumThreads || NumTeams) {
+  if (IsDistParLoopIf || NumThreads || NumTeams) {
     Type *I32Ty = Type::getInt32Ty(F->getParent()->getContext());
     LoadInst *Tid = new LoadInst(I32Ty, TidPtrHolder, "my.tid", ForkCI);
     Tid->setAlignment(Align(4));
-    if (W->getIsTeams())
+    if (W->getIsTeams()) {
+      // TODO: OMP6.0/TR11 allows IF clause in TEAMS.
       VPOParoptUtils::genKmpcPushNumTeams(W, IdentTy, Tid, NumTeams, NumTeamsTy,
                                           NumThreads, NumThreadsTy, ForkCI);
-    else
+    } else if (IsDistParLoopIf) {
+      // Handle DISTRIBUTE PARALLEL FOR IF(%tobool):
+      //   - %tobool==true:  run with N threads if num_threads(N) is present
+      //   - %tobool==false: run with 1 thread
+      //
+      // Emit this before the fork call:
+      //  ...
+      //  br i1 %tobool, label %if.then, label %if.else
+      //
+      // if.then:
+      //  ; this block is empty if there is no num_threads(N) clause
+      //  call void @__kmpc_push_num_threads(LOC, i32 %my.tid, i32 N) //    (1)
+      //  br label %if.end
+      //
+      // if.else:
+      //  call void @__kmpc_push_num_threads(LOC, i32 %my.tid, i32 1) //    (2)
+      //  br label %if.end
+      //
+      // if.end:
+      //  call void (ptr, i32, ptr, ...) @__kmpc_fork_call(...)
+
+      Instruction *ThenTerm = nullptr;
+      Instruction *ElseTerm = nullptr;
+      VPOParoptUtils::buildCFGForIfClause(IfClause, ThenTerm, ElseTerm, ForkCI,
+                                          DT);
+
+      // "Then" block holds call to push_num_threads(N) if the num_threads(N)
+      // clause is present. Otherwise this block is empty and will be optimized
+      // away.
+      if (NumThreads)
+        VPOParoptUtils::genKmpcPushNumThreads(W, IdentTy, Tid, NumThreads,
+                                              ThenTerm); //                 (1)
+
+      // "Else" block holds call to push_num_threads(1). Per OMP Spec,
+      // PARALLEL IF(false) means the PARALLEL region is run with 1 thread.
+      ConstantInt *ValueOne = ConstantInt::get(cast<IntegerType>(I32Ty), 1);
+      VPOParoptUtils::genKmpcPushNumThreads(W, IdentTy, Tid, ValueOne,
+                                            ElseTerm); //                   (2)
+    } else { // NumThreads && !(IfClause && DistParLoop)
       VPOParoptUtils::genKmpcPushNumThreads(W, IdentTy, Tid, NumThreads,
                                             ForkCI);
+    }
   }
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genMultiThreadedCode\n");
-
   W->resetBBSet(); // CFG changed; clear BBSet
   return true;
 }

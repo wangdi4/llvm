@@ -95,9 +95,10 @@ for.end:                                          ; preds = %for.cond
 ; CHECK-NEXT: store i32 -1, i32* %.run_host_version
 ; CHECK-NEXT: call void @test_target_data_if.DIR.OMP.TARGET.DATA.{{.*}}(i32* %map_size.addr, [1024 x i32]* %a)
 
-; The host fallback code has to call __kmpc_push_num_teams(LOC, 0, 0, 1) to set thread limit to 1
+; Check that the host fallback code is not forced to run with 1 thread
+; by calling __kmpc_push_num_teams(LOC, 0, 0, 1) to set thread limit to 1
 ; CHECK-LABEL: omp_offload.failed:
-; CHECK-NEXT: call void @__kmpc_push_num_teams(%struct.ident_t* @.kmpc_loc{{.*}}, i32 0, i32 0, i32 1)
+; CHECK-NOT: call void @__kmpc_push_num_teams({{.*}}, i32 0, i32 0, i32 1)
 
   %9 = load i32, i32* %map_size.addr, align 4
   %cmp3 = icmp sgt i32 %9, 512
@@ -152,9 +153,5 @@ attributes #1 = { nounwind }
 attributes #2 = { noinline nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="all" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
 !omp_offload.info = !{!0}
-!llvm.module.flags = !{!1}
-!llvm.ident = !{!2}
 
 !0 = !{i32 0, i32 2053, i32 8914597, !"test_target_data_if", i32 16, i32 0, i32 0}
-!1 = !{i32 1, !"wchar_size", i32 4}
-!2 = !{!"clang version 9.0.0"}

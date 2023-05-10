@@ -660,13 +660,6 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
       LastLoad->getParent()->getTerminator()->getSuccessor(1)->setName(
           "omp_offload.cont");
 
-      // Host fallback code should be run with 1 thread. Set thread_limit to 1
-      // with __kmpc_push_num_teams(LOC, /*tid*/ 0,
-      //                            /*default num_teams*/ 0, /*num_threads*/ 1)
-      ConstantInt *ValueOne = ConstantInt::getSigned(Type::getInt32Ty(C), 1);
-      VPOParoptUtils::genKmpcPushNumTeams(W, IdentTy, ValueZero, ValueZero,
-                                          ValueZero->getType(),
-                                          ValueOne, ValueOne->getType(), Term);
       NewCall->removeFromParent();
       NewCall->insertBefore(Term->getParent()->getTerminator());
     } else if (isa<WRNTargetDataNode>(W)) {
