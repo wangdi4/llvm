@@ -623,6 +623,11 @@ static void materializeTargetExtType(Module &M,
                       &TETypeMap);
   SmallPtrSet<Type *, 16> VisitedType;
 
+  // Handle named struct type.
+  bool HasNamedStructToRemap = false;
+  for (auto *Ty : M.getIdentifiedStructTypes())
+    HasNamedStructToRemap |= TETypeMap.get(Ty, VisitedType) != Ty;
+
   // Handle each function.
   SmallVector<Function *, 32> FuncsToAddMD;
   for (Function &F : M) {
@@ -655,6 +660,10 @@ static void materializeTargetExtType(Module &M,
       } else if (auto *CI = dyn_cast<CallInst>(&I)) {
         if (VMap.count(CI->getCalledFunction()))
           findInstUsers(&I, ToRemap, Visited);
+      } else if (HasNamedStructToRemap) {
+        if (auto *GEP = dyn_cast<GetElementPtrInst>(&I))
+          if (TETypeMap.hasMapping(GEP->getSourceElementType()))
+            findInstUsers(&I, ToRemap, Visited);
       }
     }
 
@@ -705,16 +714,19 @@ FuncSet getFuncWithDivergentSGBuiltin(
   if (!GetSGLocalId)
     return Result;
 
-  SmallPtrSet<BasicBlock *, 8> BBWithNonUniformSGCalls;
-  for (auto *F : NonUniformSGFuncs)
-    for (User *U : F->users())
-      BBWithNonUniformSGCalls.insert(cast<Instruction>(U)->getParent());
+  DenseMap<Function *, SmallPtrSet<BasicBlock *, 8>> BBWithNonUniformSGCalls;
+  for (auto *F : NonUniformSGFuncs) {
+    for (User *U : F->users()) {
+      auto *I = cast<Instruction>(U);
+      BBWithNonUniformSGCalls[I->getFunction()].insert(I->getParent());
+    }
+  }
 
   // Find basic blocks with a conditional branch and the condition is dependent
   // on get_sub_group_local_id call.
   // Only check the case that get_sub_group_local_id call is an operand of the
   // condition instruction, since we're yet to see other use cases.
-  SmallVector<BasicBlock *, 8> DivergentRegionStartBB;
+  DenseMap<Function *, SmallVector<BasicBlock *, 8>> DivergentRegionStartBB;
   for (User *U : GetSGLocalId->users()) {
     auto *CI = cast<CallInst>(U);
     auto *BB = CI->getParent();
@@ -722,35 +734,34 @@ FuncSet getFuncWithDivergentSGBuiltin(
         Br && Br->isConditional())
       if (auto *Cmp = dyn_cast<ICmpInst>(Br->getCondition()))
         if (Cmp->getOperand(0) == CI || Cmp->getOperand(1) == CI)
-          DivergentRegionStartBB.push_back(BB);
+          DivergentRegionStartBB[BB->getParent()].push_back(BB);
   }
   // Only one workitem is active in kmp critical region.
   if (Function *KMP_CRITICAL = M.getFunction("__kmpc_critical")) {
     for (User *U : KMP_CRITICAL->users()) {
       auto *BB = cast<CallInst>(U)->getParent();
-      DivergentRegionStartBB.push_back(BB);
-      if (BBWithNonUniformSGCalls.contains(BB))
-        Result.insert(BB->getParent());
+      DivergentRegionStartBB[BB->getParent()].push_back(BB);
+      for (auto &Item : BBWithNonUniformSGCalls)
+        if (Item.second.contains(BB))
+          Result.insert(BB->getParent());
     }
   }
 
-  for (auto *BB : DivergentRegionStartBB) {
-    Function *F = BB->getParent();
-    if (Result.contains(F))
-      continue;
-    auto &PDT = GetPDT(*F);
-    SmallPtrSet<BasicBlock *, 16> SuccNonUniformSG;
-    for (auto *Succ : successors(BB))
-      if (BBWithNonUniformSGCalls.contains(Succ) && !PDT.dominates(Succ, BB))
-        SuccNonUniformSG.insert(Succ);
-    if (SuccNonUniformSG.empty())
+  for (auto &Item : DivergentRegionStartBB) {
+    Function *F = Item.first;
+    auto It = BBWithNonUniformSGCalls.find(F);
+    if (It == BBWithNonUniformSGCalls.end())
       continue;
     SmallVector<BasicBlock *, 16> IDFBlocks;
-    ReverseIDFCalculator IDF(PDT);
-    IDF.setDefiningBlocks(SuccNonUniformSG);
+    ReverseIDFCalculator IDF(GetPDT(*F));
+    IDF.setDefiningBlocks(It->second);
     IDF.calculate(IDFBlocks);
-    if (llvm::find(IDFBlocks, BB) != IDFBlocks.end())
-      Result.insert(F);
+    for (auto *BB : Item.second) {
+      if (llvm::find(IDFBlocks, BB) != IDFBlocks.end()) {
+        Result.insert(F);
+        break;
+      }
+    }
   }
 
   return Result;
