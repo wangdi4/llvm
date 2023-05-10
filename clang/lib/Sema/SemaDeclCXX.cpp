@@ -11659,8 +11659,7 @@ QualType Sema::CheckComparisonCategoryType(ComparisonCategoryType Kind,
 /// Retrieve the special "std" namespace, which may require us to
 /// implicitly define the namespace.
 #ifdef INTEL_CUSTOMIZATION
-NamespaceDecl *
-Sema::getOrCreateStdNamespace(bool MakeAvailableForLookup) {
+NamespaceDecl *Sema::getOrCreateStdNamespace(bool MakeAvailableForLookup) {
 #endif // INTEL_CUSTOMIZATION
   if (!StdNamespace) {
     // The "std" namespace has not yet been defined, so build one implicitly.

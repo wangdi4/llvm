@@ -6560,8 +6560,7 @@ public:
 
   NamespaceDecl *getStdNamespace() const;
 #ifdef INTEL_CUSTOMIZATION
-  NamespaceDecl *
-  getOrCreateStdNamespace(bool MakeAvailableForLookup = false);
+  NamespaceDecl *getOrCreateStdNamespace(bool MakeAvailableForLookup = false);
 #endif // INTEL_CUSTOMIZATION
 
   CXXRecordDecl *getStdBadAlloc() const;
