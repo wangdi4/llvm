@@ -242,7 +242,7 @@ bool SGValueWidenPass::isWIRelated(Value *V) {
         Name = CompilationUtils::removeWorkGroupFinalizePrefix(Name);
       // Once WIRelatedAnalysis is ported to SGEmulation, we can remove
       // isWorkGroupUniform.
-      if (isSubGroupUniform(Name) || isWorkGroupUniform(Name))
+      if (isSubGroupUniformFlowUniformRet(Name) || isWorkGroupUniform(Name))
         return false;
     }
   }
