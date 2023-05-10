@@ -1694,7 +1694,7 @@ public:
             typename = std::enable_if_t<
                 detail::IsRunTimePropertyListT<PropertyListT>::value &&
                 IsSameAsBuffer<T, Dims>::value && IsValidTag<TagT>::value &&
-                (IsGlobalBuf || IsConstantBuf)>>
+                (IsGlobalBuf || IsConstantBuf || IsHostTask)>>
   accessor(
       buffer<T, Dims, AllocatorT> &BufferRef, range<Dimensions> AccessRange,
       TagT, const property_list &PropertyList = {},
@@ -1708,7 +1708,7 @@ public:
             typename = std::enable_if_t<
                 detail::IsCxPropertyList<PropertyListT>::value &&
                 IsSameAsBuffer<T, Dims>::value && IsValidTag<TagT>::value &&
-                (IsGlobalBuf || IsConstantBuf)>>
+                (IsGlobalBuf || IsConstantBuf || IsHostTask)>>
   accessor(
       buffer<T, Dims, AllocatorT> &BufferRef, range<Dimensions> AccessRange,
       TagT,
@@ -1865,7 +1865,7 @@ public:
             typename = std::enable_if_t<
                 detail::IsRunTimePropertyListT<PropertyListT>::value &&
                 IsSameAsBuffer<T, Dims>::value && IsValidTag<TagT>::value &&
-                (IsGlobalBuf || IsConstantBuf)>>
+                (IsGlobalBuf || IsConstantBuf || IsHostTask)>>
   accessor(
       buffer<T, Dims, AllocatorT> &BufferRef, range<Dimensions> AccessRange,
       id<Dimensions> AccessOffset, TagT, const property_list &PropertyList = {},
@@ -1879,7 +1879,7 @@ public:
             typename = std::enable_if_t<
                 detail::IsCxPropertyList<PropertyListT>::value &&
                 IsSameAsBuffer<T, Dims>::value && IsValidTag<TagT>::value &&
-                (IsGlobalBuf || IsConstantBuf)>>
+                (IsGlobalBuf || IsConstantBuf || IsHostTask)>>
   accessor(
       buffer<T, Dims, AllocatorT> &BufferRef, range<Dimensions> AccessRange,
       id<Dimensions> AccessOffset, TagT,
