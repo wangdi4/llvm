@@ -2,18 +2,17 @@
 
 #define SUB_GROUP_SIZE 4
 
-#define __ovld __attribute__((overloadable))
-char __ovld __devicelib_default_sub_group_private_sort_ascending_i8(char);
-uchar __ovld __devicelib_default_sub_group_private_sort_descending_u8(uchar);
-short __ovld __devicelib_default_sub_group_private_sort_ascending_i16(short);
-ushort __ovld __devicelib_default_sub_group_private_sort_descending_u16(ushort);
-int __ovld __devicelib_default_sub_group_private_sort_ascending_i32(int);
-uint __ovld __devicelib_default_sub_group_private_sort_descending_u32(uint);
-long __ovld __devicelib_default_sub_group_private_sort_ascending_i64(long);
-ulong __ovld __devicelib_default_sub_group_private_sort_descending_u64(ulong);
-float __ovld __devicelib_default_sub_group_private_sort_ascending_f32(float);
-double __ovld __devicelib_default_sub_group_private_sort_descending_f64(double);
-half __ovld __devicelib_default_sub_group_private_sort_ascending_f16(half);
+char __devicelib_default_sub_group_private_sort_ascending_i8(char);
+uchar __devicelib_default_sub_group_private_sort_descending_u8(uchar);
+short __devicelib_default_sub_group_private_sort_ascending_i16(short);
+ushort __devicelib_default_sub_group_private_sort_descending_u16(ushort);
+int __devicelib_default_sub_group_private_sort_ascending_i32(int);
+uint __devicelib_default_sub_group_private_sort_descending_u32(uint);
+long __devicelib_default_sub_group_private_sort_ascending_i64(long);
+ulong __devicelib_default_sub_group_private_sort_descending_u64(ulong);
+float __devicelib_default_sub_group_private_sort_ascending_f32(float);
+double __devicelib_default_sub_group_private_sort_descending_f64(double);
+half __devicelib_default_sub_group_private_sort_ascending_f16(half);
 
 __attribute__((intel_reqd_sub_group_size(SUB_GROUP_SIZE))) __kernel void
 SubGroupSort(__global char *data1, __global uchar *data2, __global short *data3,

@@ -1,51 +1,38 @@
 // Check results for scalar version work group sort builtin
 #pragma OPENCL EXTENSION cl_khr_fp16 : enable
 
-#define __ovld __attribute__((overloadable))
-
 // double - char
-void __ovld
-__devicelib_default_work_group_private_sort_close_ascending_p3f64_p3i8_u32_p1i8(
+void __devicelib_default_work_group_private_sort_close_ascending_p3f64_p3i8_u32_p1i8(
     __local double *, __local char *, uint, __local char *);
 // half - uchar
-void __ovld
-__devicelib_default_work_group_private_sort_close_descending_p3f16_p3u8_u32_p1i8(
+void __devicelib_default_work_group_private_sort_close_descending_p3f16_p3u8_u32_p1i8(
     __local half *, __local uchar *, uint, __local char *);
 // ulong - short
-void __ovld
-__devicelib_default_work_group_private_sort_close_ascending_p3u64_p3i16_u32_p1i8(
+void __devicelib_default_work_group_private_sort_close_ascending_p3u64_p3i16_u32_p1i8(
     __local ulong *, __local short *, uint, __local char *);
 // float - ushort
-void __ovld
-__devicelib_default_work_group_private_sort_close_descending_p3f32_p3u16_u32_p1i8(
+void __devicelib_default_work_group_private_sort_close_descending_p3f32_p3u16_u32_p1i8(
     __local float *, __local ushort *, uint, __local char *);
 // uint - int
-void __ovld
-__devicelib_default_work_group_private_sort_close_ascending_p3u32_p3i32_u32_p1i8(
+void __devicelib_default_work_group_private_sort_close_ascending_p3u32_p3i32_u32_p1i8(
     __local uint *, __local int *, uint, __local char *);
 // long - uint
-void __ovld
-__devicelib_default_work_group_private_sort_close_descending_p3i64_p3u32_u32_p1i8(
+void __devicelib_default_work_group_private_sort_close_descending_p3i64_p3u32_u32_p1i8(
     __local long *, __local uint *, uint, __local char *);
 // ushort - long
-void __ovld
-__devicelib_default_work_group_private_sort_close_ascending_p3u16_p3i64_u32_p1i8(
+void __devicelib_default_work_group_private_sort_close_ascending_p3u16_p3i64_u32_p1i8(
     __local ushort *, __local long *, uint, __local char *);
 // int - ulong
-void __ovld
-__devicelib_default_work_group_private_sort_close_descending_p3i32_p3u64_u32_p1i8(
+void __devicelib_default_work_group_private_sort_close_descending_p3i32_p3u64_u32_p1i8(
     __local int *, __local ulong *, uint, __local char *);
 // uchar - float
-void __ovld
-__devicelib_default_work_group_private_sort_close_ascending_p3u8_p3f32_u32_p3i8(
+void __devicelib_default_work_group_private_sort_close_ascending_p3u8_p3f32_u32_p3i8(
     __local uchar *, __local float *, uint, __local char *);
 // char - double
-void __ovld
-__devicelib_default_work_group_private_sort_close_descending_p3i8_p3f64_u32_p3i8(
+void __devicelib_default_work_group_private_sort_close_descending_p3i8_p3f64_u32_p3i8(
     __local char *, __local double *, uint, __local char *);
 // short - half
-void __ovld
-__devicelib_default_work_group_private_sort_close_ascending_p3i16_p3f16_u32_p3i8(
+void __devicelib_default_work_group_private_sort_close_ascending_p3i16_p3f16_u32_p3i8(
     __local short *, __local half *, uint, __local char *);
 
 const uint pre_wg_item_data_size = 4;
@@ -202,48 +189,37 @@ WG_private_close_sort(__global char *data1, __global uchar *data2,
 }
 
 // double - char
-void __ovld
-__devicelib_default_work_group_private_sort_spread_ascending_p3f64_p3i8_u32_p1i8(
+void __devicelib_default_work_group_private_sort_spread_ascending_p3f64_p3i8_u32_p1i8(
     __local double *, __local char *, uint, __local char *);
 // half - uchar
-void __ovld
-__devicelib_default_work_group_private_sort_spread_descending_p3f16_p3u8_u32_p1i8(
+void __devicelib_default_work_group_private_sort_spread_descending_p3f16_p3u8_u32_p1i8(
     __local half *, __local uchar *, uint, __local char *);
 // ulong - short
-void __ovld
-__devicelib_default_work_group_private_sort_spread_ascending_p3u64_p3i16_u32_p1i8(
+void __devicelib_default_work_group_private_sort_spread_ascending_p3u64_p3i16_u32_p1i8(
     __local ulong *, __local short *, uint, __local char *);
 // float - ushort
-void __ovld
-__devicelib_default_work_group_private_sort_spread_descending_p3f32_p3u16_u32_p1i8(
+void __devicelib_default_work_group_private_sort_spread_descending_p3f32_p3u16_u32_p1i8(
     __local float *, __local ushort *, uint, __local char *);
 // uint - int
-void __ovld
-__devicelib_default_work_group_private_sort_spread_ascending_p3u32_p3i32_u32_p1i8(
+void __devicelib_default_work_group_private_sort_spread_ascending_p3u32_p3i32_u32_p1i8(
     __local uint *, __local int *, uint, __local char *);
 // long - uint
-void __ovld
-__devicelib_default_work_group_private_sort_spread_descending_p3i64_p3u32_u32_p3i8(
+void __devicelib_default_work_group_private_sort_spread_descending_p3i64_p3u32_u32_p3i8(
     __local long *, __local uint *, uint, __local char *);
 // ushort - long
-void __ovld
-__devicelib_default_work_group_private_sort_spread_ascending_p3u16_p3i64_u32_p3i8(
+void __devicelib_default_work_group_private_sort_spread_ascending_p3u16_p3i64_u32_p3i8(
     __local ushort *, __local long *, uint, __local char *);
 // int - ulong
-void __ovld
-__devicelib_default_work_group_private_sort_spread_descending_p3i32_p3u64_u32_p3i8(
+void __devicelib_default_work_group_private_sort_spread_descending_p3i32_p3u64_u32_p3i8(
     __local int *, __local ulong *, uint, __local char *);
 // uchar - float
-void __ovld
-__devicelib_default_work_group_private_sort_spread_ascending_p3u8_p3f32_u32_p1i8(
+void __devicelib_default_work_group_private_sort_spread_ascending_p3u8_p3f32_u32_p1i8(
     __local uchar *, __local float *, uint, __local char *);
 // char - double
-void __ovld
-__devicelib_default_work_group_private_sort_spread_descending_p3i8_p3f64_u32_p1i8(
+void __devicelib_default_work_group_private_sort_spread_descending_p3i8_p3f64_u32_p1i8(
     __local char *, __local double *, uint, __local char *);
 // short - half
-void __ovld
-__devicelib_default_work_group_private_sort_spread_ascending_p3i16_p3f16_u32_p1i8(
+void __devicelib_default_work_group_private_sort_spread_ascending_p3i16_p3f16_u32_p1i8(
     __local short *, __local half *, uint, __local char *);
 
 __attribute__((intel_reqd_sub_group_size(1))) __kernel void
@@ -398,48 +374,37 @@ WG_private_spread_sort(__global char *data1, __global uchar *data2,
 }
 
 // double - char
-void __ovld
-__devicelib_default_work_group_joint_sort_ascending_p3f64_p3i8_u32_p1i8(
+void __devicelib_default_work_group_joint_sort_ascending_p3f64_p3i8_u32_p1i8(
     __local double *, __local char *, uint, __local char *);
 // half - uchar
-void __ovld
-__devicelib_default_work_group_joint_sort_descending_p3f16_p3u8_u32_p1i8(
+void __devicelib_default_work_group_joint_sort_descending_p3f16_p3u8_u32_p1i8(
     __local half *, __local uchar *, uint, __local char *);
 // ulong - short
-void __ovld
-__devicelib_default_work_group_joint_sort_ascending_p3u64_p3i16_u32_p3i8(
+void __devicelib_default_work_group_joint_sort_ascending_p3u64_p3i16_u32_p3i8(
     __local ulong *, __local short *, uint, __local char *);
 // float - ushort
-void __ovld
-__devicelib_default_work_group_joint_sort_descending_p3f32_p3u16_u32_p3i8(
+void __devicelib_default_work_group_joint_sort_descending_p3f32_p3u16_u32_p3i8(
     __local float *, __local ushort *, uint, __local char *);
 // uint - int
-void __ovld
-__devicelib_default_work_group_joint_sort_ascending_p3u32_p3i32_u32_p3i8(
+void __devicelib_default_work_group_joint_sort_ascending_p3u32_p3i32_u32_p3i8(
     __local uint *, __local int *, uint, __local char *);
 // long - uint
-void __ovld
-__devicelib_default_work_group_joint_sort_descending_p3i64_p3u32_u32_p1i8(
+void __devicelib_default_work_group_joint_sort_descending_p3i64_p3u32_u32_p1i8(
     __local long *, __local uint *, uint, __local char *);
 // ushort - long
-void __ovld
-__devicelib_default_work_group_joint_sort_ascending_p3u16_p3i64_u32_p1i8(
+void __devicelib_default_work_group_joint_sort_ascending_p3u16_p3i64_u32_p1i8(
     __local ushort *, __local long *, uint, __local char *);
 // int - ulong
-void __ovld
-__devicelib_default_work_group_joint_sort_descending_p3i32_p3u64_u32_p1i8(
+void __devicelib_default_work_group_joint_sort_descending_p3i32_p3u64_u32_p1i8(
     __local int *, __local ulong *, uint, __local char *);
 // uchar - float
-void __ovld
-__devicelib_default_work_group_joint_sort_ascending_p3u8_p3f32_u32_p1i8(
+void __devicelib_default_work_group_joint_sort_ascending_p3u8_p3f32_u32_p1i8(
     __local uchar *, __local float *, uint, __local char *);
 // char - double
-void __ovld
-__devicelib_default_work_group_joint_sort_descending_p3i8_p3f64_u32_p1i8(
+void __devicelib_default_work_group_joint_sort_descending_p3i8_p3f64_u32_p1i8(
     __local char *, __local double *, uint, __local char *);
 // short - half
-void __ovld
-__devicelib_default_work_group_joint_sort_ascending_p3i16_p3f16_u32_p1i8(
+void __devicelib_default_work_group_joint_sort_ascending_p3i16_p3f16_u32_p1i8(
     __local short *, __local half *, uint, __local char *);
 
 __attribute__((intel_reqd_sub_group_size(1))) __kernel void

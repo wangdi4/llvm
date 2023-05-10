@@ -22,6 +22,7 @@
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/NameMangleAPI.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
 using namespace llvm;
@@ -37,6 +38,18 @@ static cl::opt<bool>
 static cl::opt<bool>
     DemangleFPGAPipes("sycl-demangle-fpga-pipes", cl::init(false), cl::Hidden,
                       cl::desc("Remove custom mangling from pipe built-ins"));
+
+static const SmallVector<StringRef, 6> AllWorkGroupSortBuiltinBasicNames = {
+    "__devicelib_default_work_group_joint_sort_ascending_",
+    "__devicelib_default_work_group_joint_sort_descending_",
+    "__devicelib_default_work_group_private_sort_close_ascending_",
+    "__devicelib_default_work_group_private_sort_close_descending_",
+    "__devicelib_default_work_group_private_sort_spread_ascending_",
+    "__devicelib_default_work_group_private_sort_spread_descending_"};
+
+static const SmallVector<StringRef, 2> AllSubGroupSortBuiltinBasicNames = {
+    "__devicelib_default_sub_group_private_sort_ascending_",
+    "__devicelib_default_sub_group_private_sort_descending_"};
 
 namespace {
 
@@ -83,6 +96,8 @@ public:
         if (DemangleFPGAPipes)
           IsChanged |=
               demangleFPGAPipeBICall(CI, InstToRemove, FuncDeclToRemove);
+
+        IsChanged |= handleSortBuiltins(CI, InstToRemove, FuncDeclToRemove);
       }
     }
 
@@ -249,6 +264,136 @@ private:
     FuncDeclToRemove.insert(F);
     InstToRemove.push_back(CI);
     return true;
+  }
+
+  bool handleSortBuiltins(CallInst *CI,
+                          SmallVectorImpl<Instruction *> &InstToRemove,
+                          SmallPtrSetImpl<Function *> &FuncDeclToRemove) {
+    Function *Func = CI->getCalledFunction();
+    if (!Func)
+      return false;
+    StringRef FuncName = Func->getName();
+    if (!isWorkGroupSort(FuncName) && !isSubGroupSort(FuncName))
+      return false;
+
+    // sort builtin always need be mangled
+    std::string MangledFuncName = mangleSortBuiltinName(CI, FuncName);
+
+    SmallVector<Type *> FuncArgTys;
+    SmallVector<Value *> FuncArgValues;
+    IRBuilder<> Builder(CI);
+    // Get builtin params type
+    // If pointer params is not generic, cast pointer to generic
+    reflection::FunctionDescriptor SortFD =
+        NameMangleAPI::demangle(MangledFuncName);
+    unsigned Idx = 0;
+    for (auto &Arg : CI->args()) {
+      auto *PType = dyn_cast<PointerType>(Arg->getType());
+      if (PType && PType->getPointerAddressSpace() !=
+                       CompilationUtils::ADDRESS_SPACE_GENERIC) {
+        // Get type and value for create or get new builtin function
+        PointerType *NewType = PointerType::getWithSamePointeeType(
+            dyn_cast<PointerType>(Arg->getType()),
+            CompilationUtils::ADDRESS_SPACE_GENERIC);
+        Value *NewOp =
+            Builder.CreateAddrSpaceCast(Arg, NewType, Twine("cast.data"));
+        FuncArgValues.push_back(NewOp);
+        FuncArgTys.push_back(NewType);
+        // Get params reflection type for remangle builtin
+        reflection::PointerType *OldParam =
+            reflection::dyn_cast<reflection::PointerType>(
+                SortFD.Parameters[Idx].get());
+        reflection::RefParamType NewParam = new reflection::PointerType(
+            OldParam->getPointee(), {reflection::ATTR_GENERIC});
+        SortFD.Parameters[Idx] = NewParam;
+      } else {
+        // No need to cast, just push_back
+        reflection::ParamType *Param = SortFD.Parameters[Idx].get();
+        FuncArgValues.push_back(Arg);
+        FuncArgTys.push_back(Arg->getType());
+        SortFD.Parameters[Idx] = Param;
+      }
+      ++Idx;
+    }
+
+    std::string NewFuncName = NameMangleAPI::mangle(SortFD);
+    Type *Result = CI->getType();
+    // get or create new functon
+    Function *NewFunc = CI->getModule()->getFunction(NewFuncName);
+    if (!NewFunc) {
+      FunctionType *FuncTy = FunctionType::get(
+          /*Result=*/Result,
+          /*Params=*/FuncArgTys,
+          /*isVarArg=*/false);
+      assert(FuncTy && "Failed to create new function type");
+      NewFunc = Function::Create(
+          /*Type=*/FuncTy,
+          /*Linkage=*/GlobalValue::ExternalLinkage,
+          /*Name=*/NewFuncName, CI->getModule());
+      assert(NewFunc && "Failed to create new function declaration");
+      NewFunc->setCallingConv(CallingConv::C);
+    }
+    CallInst *NewCI = Builder.CreateCall(NewFunc, FuncArgValues, "");
+    CI->replaceAllUsesWith(NewCI);
+    FuncDeclToRemove.insert(Func);
+    InstToRemove.push_back(CI);
+    return true;
+  }
+
+  // Analyze sort builtin's suffix, to get mangled name
+  std::string mangleSortBuiltinName(CallInst *CI, StringRef FuncName) {
+    std::string BasicFuncName = FuncName.data();
+
+    // Consume the basic name to get builtin's suffix
+    // The suffix means params type
+    // e.g.
+    // "__devicelib_default_work_group_private_sort_close_ascending_p1i32_u32_p1i8"
+    // Consume the basic name
+    // "__devicelib_default_work_group_private_sort_close_ascending_"
+    // get "p1i32_u32_p1i8"
+    for (auto &Str : AllWorkGroupSortBuiltinBasicNames) {
+      if (FuncName.consume_front(Str))
+        break;
+    }
+    for (auto &Str : AllSubGroupSortBuiltinBasicNames) {
+      if (FuncName.consume_front(Str))
+        break;
+    }
+
+    // Use the suffix to generate the FunctionDescriptor's param types
+    reflection::FunctionDescriptor NewFD;
+    NewFD.Name = BasicFuncName;
+    for (StringRef ArgStr : llvm::split(FuncName, "_")) {
+      unsigned Idx = 0;
+      StringRef ArgTypeStr;
+      if (ArgStr.starts_with("p")) {
+        // Pointer type
+        assert(CI->getArgOperand(Idx)->getType()->isPointerTy() &&
+               "Function args type do not match its name");
+        ArgTypeStr = ArgStr.substr(2, ArgStr.size());
+        // Get paramType for mangle
+        reflection::TypePrimitiveEnum PointeeType =
+            llvm::CompilationUtils::getPrimitiveTypeOfString(ArgTypeStr);
+        reflection::RefParamType ParamTy(
+            new reflection::PrimitiveType(PointeeType));
+        reflection::PointerType *PType = new reflection::PointerType(
+            ParamTy,
+            {reflection::TypeAttributeEnum(
+                CI->getArgOperand(Idx)->getType()->getPointerAddressSpace())});
+
+        NewFD.Parameters.push_back(PType);
+      } else {
+        // Not pointer type, which is the size of sort and its type is uint
+        ArgTypeStr = ArgStr;
+        reflection::TypePrimitiveEnum PrimitiveType =
+            llvm::CompilationUtils::getPrimitiveTypeOfString(ArgTypeStr);
+        reflection::PrimitiveType *NumType =
+            new reflection::PrimitiveType(PrimitiveType);
+        NewFD.Parameters.push_back(NumType);
+      }
+      ++Idx;
+    }
+    return NameMangleAPI::mangle(NewFD);
   }
 
 private:
@@ -433,13 +578,58 @@ static auto findKernels(Module &M) {
   return Kernels;
 }
 
+static void addWGSortBuiltinAliasInfo(
+    std::unordered_map<std::string, std::string> &AliasMappings) {
+  SmallVector<std::string, 11> BasicTypeStr = {"i8",  "i16", "i32", "i64",
+                                               "u8",  "u16", "u32", "u64",
+                                               "f16", "f32", "f64"};
+  for (StringRef BuiltinName : AllWorkGroupSortBuiltinBasicNames) {
+    for (StringRef KeyBasicTypeStr : BasicTypeStr) {
+      // key only type
+      std::string ImplementedName =
+          (BuiltinName + "p1" + KeyBasicTypeStr + "_u32_p1i8").str();
+      for (StringRef DataP : {"p1", "p3"}) {
+        for (StringRef ScratchP : {"p1", "p3"}) {
+          if (DataP == "p1" && ScratchP == "p1")
+            continue;
+          std::string NewName = (BuiltinName + DataP + KeyBasicTypeStr +
+                                 "_u32_" + ScratchP + "i8")
+                                    .str();
+          AliasMappings.insert(std::make_pair(NewName, ImplementedName));
+        }
+      }
+      // key value type
+      for (StringRef ValueBasicTypeStr : BasicTypeStr) {
+        std::string ImplementedNameKV =
+            (BuiltinName + "p1" + KeyBasicTypeStr + "_p1" + ValueBasicTypeStr +
+             "_u32_p1i8")
+                .str();
+        for (StringRef DataP : {"p1", "p3"}) {
+          for (StringRef ScratchP : {"p1", "p3"}) {
+            if (DataP == "p1" && ScratchP == "p1")
+              continue;
+            std::string NewName =
+                (BuiltinName.str() + DataP + KeyBasicTypeStr + "_" + DataP +
+                 ValueBasicTypeStr + "_u32_" + ScratchP + "i8")
+                    .str();
+            AliasMappings.insert(std::make_pair(NewName, ImplementedNameKV));
+          }
+        }
+      }
+    }
+  }
+}
+
 // Rename builtin functions that may alias to other functions.
 // e.g. intel_sub_group_broadcast --> sub_group_broadcast
 static bool renameAliasingBuiltins(Module &M) {
-  const static std::unordered_map<std::string, std::string> TrivialMappings = {
+  static std::unordered_map<std::string, std::string> TrivialMappings = {
       {"sub_group_non_uniform_broadcast", "sub_group_broadcast"},
       {"intel_sub_group_broadcast", "sub_group_broadcast"},
   };
+
+  // Add workgroup sort builtin alias info to TrivialMappings
+  addWGSortBuiltinAliasInfo(TrivialMappings);
 
   bool Changed = false;
   for (auto &F : M) {
@@ -834,7 +1024,6 @@ PreservedAnalyses SYCLEqualizerPass::run(Module &M, ModuleAnalysisManager &AM) {
   for (auto *FDecl : FuncDeclToRemove)
     FDecl->eraseFromParent();
   std::ignore = FuncMaterializer.isChanged();
-
 #if INTEL_CUSTOMIZATION
   // Set intel_vec_len_hint metadata before unsupported OpenMP functions are
   // inlined at a later stage.
