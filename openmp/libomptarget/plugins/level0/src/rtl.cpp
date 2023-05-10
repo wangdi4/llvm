@@ -3236,11 +3236,11 @@ struct RTLDeviceInfoTy {
   /// Enqueue copy command
   int32_t enqueueMemCopy(int32_t DeviceId, void *Dst, const void *Src,
                          size_t Size, ScopedTimerTy *Timer = nullptr,
-                         bool Locked = false, bool IsD2D = false);
+                         bool Locked = false, bool UseCopyEngine = true);
 
   /// Enqueue asynchronous copy command
   int32_t enqueueMemCopyAsync(int32_t DeviceId, void *Dst, const void *Src,
-                              size_t Size, bool IsD2D = false);
+                              size_t Size);
 
   /// Return memory allocation type
   uint32_t getMemAllocType(const void *Ptr);
@@ -5084,24 +5084,25 @@ int32_t RTLDeviceInfoTy::setKernelIndirectAccessFlags(
 int32_t RTLDeviceInfoTy::enqueueMemCopy(int32_t DeviceId, void *Dst,
                                         const void *Src, size_t Size,
                                         ScopedTimerTy *Timer, bool Locked,
-                                        bool IsD2D) {
+                                        bool UseCopyEngine) {
   ze_command_list_handle_t CmdList = nullptr;
   ze_command_queue_handle_t CmdQueue = nullptr;
   ze_event_handle_t Event = nullptr;
 
   if (useImmForCopy(DeviceId)) {
-    CmdList = IsD2D ? getImmCmdList(DeviceId) : getImmCopyCmdList(DeviceId);
+    CmdList =
+        UseCopyEngine ? getImmCopyCmdList(DeviceId) : getImmCmdList(DeviceId);
     Event = EventPool.getEvent();
     CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, CmdList, Dst, Src, Size,
                      Event, 0, nullptr);
     CALL_ZE_RET_FAIL(zeEventHostSynchronize, Event, UINT64_MAX);
   } else {
-    if (IsD2D) {
+    if (UseCopyEngine) {
+      CmdList = getCopyCmdList(DeviceId);
+      CmdQueue = getCopyCmdQueue(DeviceId);
+    } else {
       CmdList = getCmdList(DeviceId);
       CmdQueue = getCmdQueue(DeviceId);
-    } else {
-      CmdList = getLinkCopyCmdList(DeviceId);
-      CmdQueue = getLinkCopyCmdQueue(DeviceId);
     }
 
     if (Timer && Option.Flags.EnableProfile)
@@ -5133,8 +5134,7 @@ int32_t RTLDeviceInfoTy::enqueueMemCopy(int32_t DeviceId, void *Dst,
 /// Enqueue non-blocking memory copy. This function is invoked only when IMM is
 /// fully enabled and async mode is requested.
 int32_t RTLDeviceInfoTy::enqueueMemCopyAsync(int32_t DeviceId, void *Dst,
-                                             const void *Src, size_t Size,
-                                             bool IsD2D) {
+                                             const void *Src, size_t Size) {
   bool Ordered = (Option.CommandMode == CommandModeTy::AsyncOrdered);
   auto &AsyncQueue = getTLS()->getAsyncQueue();
   ze_event_handle_t SignalEvent = EventPool.getEvent();
@@ -5150,7 +5150,7 @@ int32_t RTLDeviceInfoTy::enqueueMemCopyAsync(int32_t DeviceId, void *Dst,
     else
       NumWaitEvents = 0;
   }
-  auto CmdList = IsD2D ? getImmCmdList(DeviceId) : getImmCopyCmdList(DeviceId);
+  auto CmdList = getImmCopyCmdList(DeviceId);
   CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, CmdList, Dst, Src, Size,
                    SignalEvent, NumWaitEvents, WaitEvents);
   AsyncQueue.WaitEvents.push_back(SignalEvent);
@@ -6785,14 +6785,11 @@ int32_t __tgt_rtl_is_data_exchangable(int32_t SrcId, int32_t DstId) {
 
 int32_t __tgt_rtl_data_exchange(int32_t SrcId, void *SrcPtr, int32_t DstId,
                                 void *DstPtr, int64_t Size) {
-#if INTEL_CUSTOMIZATION
-  // TODO: D2D copy with copy engine is slower than using the default queue as
-  // reported in CMPLRLIBS-33721. Use the default queue for now until we find
-  // different result.
-#endif // INTEL_CUSTOMIZATION
+  // Use copy engine only for across-tile/device copies.
+  bool UseCopyEngine = DeviceInfo->Devices[SrcId] != DeviceInfo->Devices[DstId];
   return DeviceInfo->enqueueMemCopy(DstId, DstPtr, SrcPtr, Size,
                                     /* Timer */ nullptr, /* Locked */ false,
-                                    /* IsD2D */ true);
+                                    UseCopyEngine);
 }
 
 int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr, int32_t Kind) {
