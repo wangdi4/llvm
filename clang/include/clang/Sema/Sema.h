@@ -6559,7 +6559,10 @@ public:
   void ActOnFinishNamespaceDef(Decl *Dcl, SourceLocation RBrace);
 
   NamespaceDecl *getStdNamespace() const;
-  NamespaceDecl *getOrCreateStdNamespace();
+#ifdef INTEL_CUSTOMIZATION
+  NamespaceDecl *
+  getOrCreateStdNamespace(bool MakeAvailableForLookup = false);
+#endif // INTEL_CUSTOMIZATION
 
   CXXRecordDecl *getStdBadAlloc() const;
   EnumDecl *getStdAlignValT() const;

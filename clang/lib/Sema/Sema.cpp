@@ -516,9 +516,10 @@ void Sema::Initialize() {
   if (PP.getLangOpts().CPlusPlus && !PP.getLangOpts().CPlusPlus17 &&
       PP.getLangOpts().AlignedAllocation &&
       PP.getLangOpts().isIntelCompat(LangOptions::PredeclareAlignValT)) {
-    NamespaceDecl *StdNamespace = getOrCreateStdNamespace();
+    NamespaceDecl *StdNamespace =
+        getOrCreateStdNamespace(/*MakeAvailableForLookup=*/true);
     if (StdNamespace->isImplicit()) {
-      PushOnScopeChains(StdNamespace, TUScope);
+      PushOnScopeChains(StdNamespace, TUScope, /*AddToContext=*/false);
     }
 
     // In C++17 this should be picked up in <new> but the Intel compiler

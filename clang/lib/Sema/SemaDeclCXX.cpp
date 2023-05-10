@@ -11658,7 +11658,10 @@ QualType Sema::CheckComparisonCategoryType(ComparisonCategoryType Kind,
 
 /// Retrieve the special "std" namespace, which may require us to
 /// implicitly define the namespace.
-NamespaceDecl *Sema::getOrCreateStdNamespace() {
+#ifdef INTEL_CUSTOMIZATION
+NamespaceDecl *
+Sema::getOrCreateStdNamespace(bool MakeAvailableForLookup) {
+#endif // INTEL_CUSTOMIZATION
   if (!StdNamespace) {
     // The "std" namespace has not yet been defined, so build one implicitly.
     StdNamespace = NamespaceDecl::Create(
@@ -11670,7 +11673,10 @@ NamespaceDecl *Sema::getOrCreateStdNamespace() {
     // We want the created NamespaceDecl to be available for redeclaration
     // lookups, but not for regular name lookups.
     Context.getTranslationUnitDecl()->addDecl(getStdNamespace());
-    getStdNamespace()->clearIdentifierNamespace();
+#ifdef INTEL_CUSTOMIZATION
+    if (!MakeAvailableForLookup)
+      getStdNamespace()->clearIdentifierNamespace();
+#endif // INTEL_CUSTOMIZATION
   }
 
   return getStdNamespace();
