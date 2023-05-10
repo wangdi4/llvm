@@ -1,6 +1,6 @@
 //===-------- Intel_VecClone.h - Class definition -*- C++ -*---------------===//
 //
-// Copyright (C) 2015-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -80,16 +80,6 @@ class VecCloneImpl {
                                          BasicBlock *ReturnBlock,
                                          int VL);
 
-    /// \brief Generate vector alloca instructions for vector arguments and
-    /// change the arguments types to vector types. Widen the return value of
-    /// the function to a vector type. This function returns the instruction
-    /// corresponding to the widened return and the instruction corresponding
-    /// to the mask.
-    Instruction *widenVectorArgumentsAndReturn(
-        Function *Clone, Function &F, const VFInfo &V, Instruction *&Mask,
-        BasicBlock *EntryBlock, BasicBlock *LoopHeader, BasicBlock *ReturnBlock,
-        PHINode *Phi, ValueToValueMapTy &VMap);
-
     /// Updates users of vector arguments with gep/load of lane element.
     void updateVectorArgumentUses(Function *Clone, Function &OrigFn,
                                   const DataLayout &DL, Argument *Arg,
@@ -97,24 +87,16 @@ class VecCloneImpl {
                                   MaybeAlign Align, BasicBlock *EntryBlock,
                                   BasicBlock *LoopHeader, PHINode *Phi);
 
-    /// \brief Widen the function arguments to vector types. This function
-    /// returns the instruction corresponding to the mask. LastAlloca indicates
-    /// where the alloca of the function argument should be placed in
-    /// EntryBlock. We process the function arguments from left to right. The
-    /// alloca of the most left argument is placed at the top of the EntryBlock.
-    Instruction *widenVectorArguments(Function *Clone, Function &OrigFn,
-                                      const VFInfo &V, BasicBlock *EntryBlock,
-                                      BasicBlock *LoopHeader, PHINode *Phi,
-                                      ValueToValueMapTy &VMap,
-                                      AllocaInst *&LastAlloca);
-
-    /// \brief Widen the function's return value to a vector type. LastAlloca
-    /// indicates where the alloca of the return value should be placed in
-    /// EntryBlock.
-    Instruction *widenReturn(Function *Clone, Function &F,
-                             BasicBlock *EntryBlock, BasicBlock *LoopHeader,
-                             BasicBlock *ReturnBlock, PHINode *Phi,
-                             AllocaInst *&LastAlloca);
+    /// Widen the function arguments and non-void return value of the function
+    /// to a vector type. We process the function arguments from left to right.
+    /// The alloca of the most left argument is placed at the top of the
+    /// EntryBlock. This function returns the instruction corresponding to the
+    /// widened return and the instruction corresponding to the mask.
+    Instruction *
+    widenVectorArgumentsAndReturn(Function *Clone, Function &F, const VFInfo &V,
+                                  Instruction *&Mask, BasicBlock *EntryBlock,
+                                  BasicBlock *LoopHeader,
+                                  BasicBlock *ReturnBlock, PHINode *Phi);
 
     /// Mark memory as uniform for SIMD directives.
     void processUniformArgs(Function *Clone, const VFInfo &V,
@@ -150,13 +132,6 @@ class VecCloneImpl {
     /// \brief Create the basic block indicating the end of the SIMD loop.
     void insertEndRegion(Module &M, Function *Clone, BasicBlock *LoopLatch,
                          BasicBlock *ReturnBlock, CallInst *EntryDirCall);
-
-    /// \brief Create a new vector alloca instruction for the return vector and
-    /// bitcast to the appropriate element type. LastAlloca indicates where the
-    /// alloca of the return value should be placed.
-    Instruction *createWidenedReturn(Function *F, BasicBlock *BB,
-                                     Type *OrigFuncReturnType,
-                                     AllocaInst *&LastAlloca);
 
     /// \brief Check to see if the function is simple enough that a loop does
     /// not need to be inserted into the function.
