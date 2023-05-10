@@ -1,7 +1,4 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -fsyntax-only
-// INTEL_CUSTOMIZATION
-// RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -fsyntax-only -DSYCL2020_CONFORMANT_APIS
-// end INTEL_CUSTOMIZATION
 
 #include <cassert>
 #include <sycl/sycl.hpp>
@@ -25,12 +22,6 @@ void test_get_multi_ptr(handler &cgh, buffer<int, size> &buffer) {
   auto local_pointer = local_acc.get_pointer();
   static_assert(std::is_same_v<decltype(acc_ptr), std::add_pointer_t<int>>);
   static_assert(std::is_same_v<decltype(target_local_ptr), local_ptr<int>>);
-  /* INTEL_CUSTOMIZATION */
-#ifdef SYCL2020_CONFORMANT_APIS
   static_assert(
       std::is_same_v<decltype(local_pointer), std::add_pointer_t<int>>);
-#else
-  static_assert(std::is_same_v<decltype(local_pointer), local_ptr<int>>);
-#endif // SYCL2020_CONFORMANT_APIS
-  /* end INTEL_CUSTOMIZATION */
 }
