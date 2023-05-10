@@ -4,8 +4,9 @@
 // UNSUPPORTED: true
 // end INTEL_CUSTOMIZATION
 
-// RUN: %clangxx -S -ftime-trace -ftime-trace-granularity=0 -o %T/check-time-trace-sections %s
-// RUN: cat %T/check-time-trace-sections.json | %python %S/check-time-trace-sections.py
+// RUN: rm -rf %t && mkdir %t && cd %t
+// RUN: %clangxx -S -ftime-trace -ftime-trace-granularity=0 -o out %s
+// RUN: %python %S/ftime-trace-sections.py < out.json
 
 template <typename T>
 void foo(T) {}
