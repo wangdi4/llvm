@@ -2193,10 +2193,6 @@ if (INTEL_CUSTOMIZATION)
       # Libdev components
       libdev-libirc libdev-frtl libdev-libbfp754 libdev-libifport
       libdev-libistrconv libdev-svml libdev-libimf libdev-libirng
-
-      # IFX -check-uninit support
-      libdev-frtl-msan libdev-libirc-msan libdev-svml-msan
-      libdev-libimf-msan libdev-libifport-msan
     )
 
     if (WIN32)
