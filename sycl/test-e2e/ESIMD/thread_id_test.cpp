@@ -1,13 +1,7 @@
 // REQUIRES: gpu
 // UNSUPPORTED: cuda || hip
-<<<<<<< HEAD
 // RUN: %{build} -o %t.out
 // RUN: %{run} %t.out
-// XFAIL: linux && gpu && !esimd_emulator
-=======
-// RUN: %clangxx -fsycl %s -o %t.out
-// RUN: %GPU_RUN_PLACEHOLDER %t.out
->>>>>>> 3bce500b35f9cc4b01f0c8c2bdaf67c9e80ab4f1
 //==- thread_id_test.cpp - Test to verify thread id functionlity-==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
