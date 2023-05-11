@@ -1721,8 +1721,7 @@ void SYCLToolChain::AddImpliedTargetArgs(
 #if INTEL_CUSTOMIZATION
     // -ftarget-compile-fast
     if (Args.hasArg(options::OPT_ftarget_compile_fast)) {
-      BeArgs.push_back(
-          "\"-igc_opts PartitionUnit=1,SubroutineThreshold=50000\"");
+      BeArgs.push_back("-igc_opts 'PartitionUnit=1,SubroutineThreshold=50000'");
     }
 #endif // INTEL_CUSTOMIZATION
   }
