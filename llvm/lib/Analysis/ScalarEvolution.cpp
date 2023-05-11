@@ -6505,21 +6505,15 @@ const SCEV *ScalarEvolution::createNodeFromSelectLikePHI(PHINode *PN) {
 
     if (BI && BI->isConditional() &&
         BrPHIToSelect(DT, BI, PN, Cond, LHS, RHS) &&
-<<<<<<< HEAD
-        properlyDominates(getSCEV(LHS), PN->getParent()) &&
+        IsAvailableOnEntry(L, DT, getSCEV(LHS), PN->getParent()) &&
 #if INTEL_CUSTOMIZATION
-        properlyDominates(getSCEV(RHS), PN->getParent())) {
+        IsAvailableOnEntry(L, DT, getSCEV(RHS), PN->getParent())) {
       auto *S = createNodeForSelectOrPHI(PN, Cond, LHS, RHS);
       // Avoid returning a conservative answer to allow the caller to try other
       // things.
       return (S != getUnknown(PN)) ? S : nullptr;
     }
 #endif // INTEL_CUSTOMIZATION
-=======
-        IsAvailableOnEntry(L, DT, getSCEV(LHS), PN->getParent()) &&
-        IsAvailableOnEntry(L, DT, getSCEV(RHS), PN->getParent()))
-      return createNodeForSelectOrPHI(PN, Cond, LHS, RHS);
->>>>>>> 9fb9c7776edcade522e5718c91189d51796cedd6
   }
 
   return nullptr;
