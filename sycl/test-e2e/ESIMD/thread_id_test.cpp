@@ -2,7 +2,6 @@
 // UNSUPPORTED: cuda || hip
 // RUN: %{build} -o %t.out
 // RUN: %{run} %t.out
-// XFAIL: linux && gpu && !esimd_emulator
 //==- thread_id_test.cpp - Test to verify thread id functionlity-==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
