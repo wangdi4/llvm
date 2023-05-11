@@ -183,7 +183,8 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare double @cabs([2 x double])\n"
       "declare float @cabsf([2 x float])\n"
       "declare x86_fp80 @cabsl([2 x x86_fp80])\n"
-      "declare [2 x double] @cexp(double, double)\n"
+      "declare {double, double} @cexp(double, double)\n" // INTEL
+      "declare <2 x float> @cexpf(<2 x float>)\n" // INTEL
       "declare double @cos(double)\n"
 #if INTEL_CUSTOMIZATION
       "declare double @cosd(double)\n"
@@ -1240,6 +1241,10 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i8* @bsearch(i8*, i8*, i32, i32, i8*)\n"
       "declare i32 @chdir(i8*)\n"
       "declare i32 @clock()\n"
+#if INTEL_CUSTOMIZATION
+      "declare {double, double} @clog(double, double)\n"
+      "declare <2 x float> @clogf(<2 x float>)\n"
+#endif // INTEL_CUSTOMIZATION
       "declare i32 @close(i32)\n"
       "declare i8* @ctime(i8*)\n"
       "declare i32 @CloseHandle(i8*)\n"

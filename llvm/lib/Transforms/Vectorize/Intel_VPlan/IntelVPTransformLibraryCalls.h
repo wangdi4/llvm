@@ -41,6 +41,16 @@ private:
   /// \brief Perform scalar 'sincos' -> vector 'sincos' transforms.
   void transformSincosCalls();
 
+  /// \brief Perform argument repacking transform on scalar call. In some cases,
+  /// FE breaks down a value into multiple registers to be compliant with ABI of
+  /// the called function. For example, functions that accept double-precision
+  /// complex type values as arguments. However, the vector library (SVML)
+  /// functions for these scalar functions expect the arguments and return value
+  /// to be passed in same vector register. This transform bridges this gap in
+  /// order to vectorize the scalar function using corresponding vector library
+  /// function.
+  void transformCallsWithArgRepacking();
+
 private:
   VPlanVector &Plan;
   VPlanDivergenceAnalysis &DA;

@@ -168,9 +168,8 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
                 "identified as an induction or reduction.");
         return false;
       }
-      // Specialization for handling sincos functions in CG is done based on
-      // underlying HIR. Privatization for such sincos cannot be implemented
-      // until it is uplifted to be fully VPValue-based.
+
+      // Nested regions are not supported.
       if (auto *VPCall = dyn_cast<VPCallInstruction>(&Inst)) {
         auto *CalledF = VPCall->getCalledFunction();
         if (!CalledF)

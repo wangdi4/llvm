@@ -1520,6 +1520,13 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
 #if INTEL_CUSTOMIZATION
   if (T.isSPIR())
     TLI.setUseSVMLDevice(true);
+
+  // Set complex type library call signature info. So far we support only
+  // non-Windows X86_64 ABI.
+  if (!T.isOSWindows()) {
+    TLI.setCmplxFloatSignInfo(ComplexLibCallSignatureInfo::X86NonWinFloat);
+    TLI.setCmplxDoubleSignInfo(ComplexLibCallSignatureInfo::X86NonWinDouble);
+  }
 #endif // INTEL_CUSTOMIZATION
 
   TLI.addVectorizableFunctionsFromVecLib(ClVectorLibrary, T);
@@ -1546,7 +1553,8 @@ TargetLibraryInfoImpl::TargetLibraryInfoImpl(const TargetLibraryInfoImpl &TLI)
       ShouldSignExtI32Param(TLI.ShouldSignExtI32Param),
       ShouldSignExtI32Return(TLI.ShouldSignExtI32Return),
 #if INTEL_CUSTOMIZATION
-      SizeOfInt(TLI.SizeOfInt),
+      SizeOfInt(TLI.SizeOfInt), CmplxFloatSignInfo(TLI.CmplxFloatSignInfo),
+      CmplxDoubleSignInfo(TLI.CmplxDoubleSignInfo),
       CurVectorLibrary(TLI.CurVectorLibrary) {
 #else // INTEL_CUSTOMIZATION
       SizeOfInt(TLI.SizeOfInt) {
@@ -1564,7 +1572,8 @@ TargetLibraryInfoImpl::TargetLibraryInfoImpl(TargetLibraryInfoImpl &&TLI)
       ShouldSignExtI32Param(TLI.ShouldSignExtI32Param),
       ShouldSignExtI32Return(TLI.ShouldSignExtI32Return),
 #if INTEL_CUSTOMIZATION
-      SizeOfInt(TLI.SizeOfInt),
+      SizeOfInt(TLI.SizeOfInt), CmplxFloatSignInfo(TLI.CmplxFloatSignInfo),
+      CmplxDoubleSignInfo(TLI.CmplxDoubleSignInfo),
       CurVectorLibrary(TLI.CurVectorLibrary) {
 #else // INTEL_CUSTOMIZATION
       SizeOfInt(TLI.SizeOfInt) {
@@ -1582,6 +1591,8 @@ TargetLibraryInfoImpl &TargetLibraryInfoImpl::operator=(const TargetLibraryInfoI
   ShouldExtI32Return = TLI.ShouldExtI32Return;
   ShouldSignExtI32Param = TLI.ShouldSignExtI32Param;
 #if INTEL_CUSTOMIZATION
+  CmplxFloatSignInfo = TLI.CmplxFloatSignInfo;
+  CmplxDoubleSignInfo = TLI.CmplxDoubleSignInfo;
   CurVectorLibrary = TLI.CurVectorLibrary;
   VectorDescs = TLI.VectorDescs;
   ScalarDescs = TLI.ScalarDescs;
@@ -1601,6 +1612,8 @@ TargetLibraryInfoImpl &TargetLibraryInfoImpl::operator=(TargetLibraryInfoImpl &&
   ShouldExtI32Return = TLI.ShouldExtI32Return;
   ShouldSignExtI32Param = TLI.ShouldSignExtI32Param;
 #if INTEL_CUSTOMIZATION
+  CmplxFloatSignInfo = TLI.CmplxFloatSignInfo;
+  CmplxDoubleSignInfo = TLI.CmplxDoubleSignInfo;
   CurVectorLibrary = TLI.CurVectorLibrary;
   VectorDescs = std::move(TLI.VectorDescs);
   ScalarDescs = std::move(TLI.ScalarDescs);
@@ -1689,6 +1702,78 @@ static bool matchType(FuncArgTypeID ArgTy, const Type *Ty, unsigned IntBits,
 
   llvm_unreachable("Invalid type");
 }
+
+#if INTEL_CUSTOMIZATION
+// Determine if provided function's signature matches the expected prototype
+// described by corresponding complex type library call signature info.
+static bool
+isValidProtoForComplexTyLibFunc(const FunctionType &FTy,
+                                ComplexLibCallSignatureInfo SignInfo) {
+  unsigned NumParams = FTy.getNumParams();
+
+  switch (SignInfo) {
+  case X86NonWinFloat: {
+    // Expected call signature for single-precision FP type in non-Windows X86
+    // ABI -
+    // <2 x float> %ret = call @called_func(<2 x float> %arg)
+
+    if (NumParams != 1)
+      return false;
+
+    auto *ParamTy = dyn_cast<FixedVectorType>(FTy.getParamType(0));
+    if (!ParamTy)
+      return false;
+
+    if (ParamTy->getNumElements() != 2)
+      return false;
+
+    if (!ParamTy->getElementType()->isFloatTy())
+      return false;
+
+    if (FTy.getReturnType() != ParamTy)
+      return false;
+
+    // All checks passed.
+    return true;
+  }
+
+  case X86NonWinDouble: {
+    // Expected call signature for double-precision FP type in non-Windows X86
+    // ABI -
+    // {double, double} %ret = call @called_func(double %real, double %imag)
+
+    if (NumParams != 2)
+      return false;
+
+    auto *Param0Ty = FTy.getParamType(0);
+    if (!Param0Ty->isDoubleTy())
+      return false;
+
+    if (FTy.getParamType(1) != Param0Ty)
+      return false;
+
+    auto *RetTy = dyn_cast<StructType>(FTy.getReturnType());
+    if (!RetTy)
+      return false;
+
+    if (RetTy->getNumElements() != 2)
+      return false;
+
+    if (!RetTy->hasIdenticalElementTypes())
+      return false;
+
+    if (RetTy->getElementType(0) != Param0Ty)
+      return false;
+
+    // All checks passed.
+    return true;
+  }
+
+  case UnknownSign:
+    return false;
+  }
+}
+#endif // INTEL_CUSTOMIZATION
 
 bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
                                                    LibFunc F,
@@ -2725,11 +2810,11 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
             FTy.getReturnType() == FTy.getParamType(0) &&
             FTy.getReturnType() == FTy.getParamType(1));
   case LibFunc_cexp:
-    return (NumParams == 2 && FTy.getParamType(0)->isDoubleTy() &&
-            FTy.getParamType(1)->isDoubleTy() &&
-            FTy.getReturnType()->isArrayTy() &&
-            FTy.getReturnType()->getArrayNumElements() == 2 &&
-            FTy.getReturnType()->getArrayElementType()->isDoubleTy());
+  case LibFunc_clog:
+    return isValidProtoForComplexTyLibFunc(FTy, getCmplxDoubleSignInfo());
+  case LibFunc_cexpf:
+  case LibFunc_clogf:
+    return isValidProtoForComplexTyLibFunc(FTy, getCmplxFloatSignInfo());
   // Note: These are being placed after the case for LibFunc::NumLibFuncs to
   // avoid conflicts during community pulldowns, which otherwise occur
   // every time a new entry is added to the enumeration.
@@ -6006,7 +6091,22 @@ bool TargetLibraryInfoImpl::isOCLVectorFunction(StringRef FuncName) const {
   std::vector<VecDesc>::const_iterator I =
       llvm::lower_bound(VectorDescs, FuncName, compareWithScalarFnName);
   if (I != VectorDescs.end() && StringRef(I->ScalarFnName) == FuncName) {
-    return I->IsOCLFn;
+    return I->AttrBits.test(static_cast<unsigned>(VecDescAttrs::IsOCLFn));
+  }
+  return false;
+}
+
+bool TargetLibraryInfoImpl::doesVectorFuncNeedArgRepacking(
+    StringRef FuncName) const {
+  FuncName = sanitizeFunctionName(FuncName);
+  if (FuncName.empty())
+    return false;
+
+  std::vector<VecDesc>::const_iterator I =
+      llvm::lower_bound(VectorDescs, FuncName, compareWithScalarFnName);
+  if (I != VectorDescs.end() && StringRef(I->ScalarFnName) == FuncName) {
+    return I->AttrBits.test(
+        static_cast<unsigned>(VecDescAttrs::NeedsArgRepacking));
   }
   return false;
 }
