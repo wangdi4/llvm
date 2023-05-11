@@ -796,6 +796,45 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
       continue;
     }
 
+#if INTEL_CUSTOMIZATION
+    // Rewrite SPGO options to several detail options.
+    if (A->getOption().matches(options::OPT_fprofile_sample_generate) ||
+        A->getOption().matches(options::OPT_fprofile_sample_use_EQ)) {
+      // /Ob0 /Ob1 will disable inlining which is important for SPGO.
+      if (Arg *O = Args.getLastArg(options::OPT__SLASH_O)) {
+        StringRef V = O->getValue(0);
+        if (V.equals_insensitive("b0") || V.equals_insensitive("b1"))
+          Diag(clang::diag::err_drv_not_supported_spgo_opt)
+              << Twine(O->getSpelling() + V).str() << 1 << "Ob2/Ob3";
+      }
+
+      if (Arg *O =
+              Args.getLastArg(options::OPT_fno_unique_internal_linkage_names,
+                              options::OPT_fno_debug_info_for_profiling))
+        Diag(clang::diag::err_drv_not_supported_spgo_opt)
+            << O->getSpelling().str() << 0;
+
+      DAL->AddFlagArg(
+          A, Opts.getOption(options::OPT_funique_internal_linkage_names));
+      DAL->AddFlagArg(A,
+                      Opts.getOption(options::OPT_fdebug_info_for_profiling));
+
+      if (A->getOption().matches(options::OPT_fprofile_sample_generate)) {
+        // This option will be expanded to debug options later.
+        DAL->AddFlagArg(A,
+                        Opts.getOption(options::OPT_fprofile_sample_generate));
+        if (IsCLMode())
+          DAL->AddJoinedArg(A, Opts.getOption(options::OPT_fuse_ld_EQ), "lld");
+      }
+
+      if (A->getOption().matches(options::OPT_fprofile_sample_use_EQ))
+        DAL->AddJoinedArg(A,
+                          Opts.getOption(options::OPT_fprofile_sample_use_EQ),
+                          A->getValue());
+      continue;
+    }
+#endif // INTEL_CUSTOMIZATION
+
     // Rewrite reserved library names.
     if (A->getOption().matches(options::OPT_l)) {
       StringRef Value = A->getValue();

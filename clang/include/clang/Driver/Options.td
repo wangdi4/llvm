@@ -1559,14 +1559,24 @@ defm gnu_inline_asm : BoolFOption<"gnu-inline-asm",
   LangOpts<"GNUAsm">, DefaultTrue,
   NegFlag<SetFalse, [CC1Option], "Disable GNU style inline asm">, PosFlag<SetTrue>>;
 
+#if INTEL_CUSTOMIZATION
+def fprofile_sample_generate : Flag<["-"], "fprofile-sample-generate">,
+  Group<f_Group>, Flags<[NoXarchOption, CoreOption]>,
+  HelpText<"Enable compiler and linker generating information for Sample-based "
+           "Profile Guided Optimizations (SPGO). (experimental)">;
+#endif // INTEL_CUSTOMIZATION
+
 def fprofile_sample_use : Flag<["-"], "fprofile-sample-use">, Group<f_Group>,
     Flags<[CoreOption]>;
 def fno_profile_sample_use : Flag<["-"], "fno-profile-sample-use">, Group<f_Group>,
     Flags<[CoreOption]>;
+#if INTEL_CUSTOMIZATION
 def fprofile_sample_use_EQ : Joined<["-"], "fprofile-sample-use=">,
     Group<f_Group>, Flags<[NoXarchOption, CC1Option]>,
-    HelpText<"Enable sample-based profile guided optimizations">,
+    HelpText<"Enable compiler and linker using information for Sample-based "
+             "Profile Guided Optimizations (SPGO). (experimental)">,
     MarshallingInfoString<CodeGenOpts<"SampleProfileFile">>;
+#endif // INTEL_CUSTOMIZATION
 def fprofile_sample_accurate : Flag<["-"], "fprofile-sample-accurate">,
     Group<f_Group>, Flags<[NoXarchOption, CC1Option]>,
     HelpText<"Specifies that the sample profile is accurate">,
@@ -8310,6 +8320,8 @@ def _SLASH_fprofile_remapping_file_COL : CLJoined<"fprofile-remapping-file:">,
   Alias<fprofile_remapping_file_EQ>;
 def _SLASH_fprofile_remapping_file_EQ : CLJoined<"fprofile-remapping-file=">,
   Alias<fprofile_remapping_file_EQ>;
+def _SLASH_fprofile_sample_generate : CLFlag<"fprofile-sample-generate">,
+  Alias<fprofile_sample_generate>;
 def _SLASH_fprofile_sample_use : CLFlag<"fprofile-sample-use">,
   Alias<fprofile_sample_use>;
 def _SLASH_fprofile_sample_use_COL : CLJoined<"fprofile-sample-use:">,

@@ -4563,6 +4563,20 @@ static void renderDebugOptions(const ToolChain &TC, const Driver &D,
   if (const Arg *A = Args.getLastArg(options::OPT_gcodeview))
     EmitCodeView = checkDebugInfoOption(A, Args, D, TC);
 
+#if INTEL_CUSTOMIZATION
+  if (Args.getLastArg(options::OPT_fprofile_sample_generate)) {
+    if (DebugInfoKind < codegenoptions::DebugLineTablesOnly)
+      DebugInfoKind = codegenoptions::DebugLineTablesOnly;
+    EmitDwarf = true;
+#ifndef NDEBUG
+    Option GDwarfOpt = D.getOpts().getOption(options::OPT_gdwarf);
+    Arg TmpGDwarf = Arg(GDwarfOpt, GDwarfOpt.getName(), Args.size());
+    assert(checkDebugInfoOption(&TmpGDwarf, Args, D, TC) &&
+           "Target doesn't support -gdwarf");
+#endif
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // If the user asked for debug info but did not explicitly specify -gcodeview
   // or -gdwarf, ask the toolchain for the default format.
   if (!EmitCodeView && !EmitDwarf &&
