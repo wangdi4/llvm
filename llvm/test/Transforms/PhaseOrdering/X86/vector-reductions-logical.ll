@@ -113,9 +113,8 @@ define float @test_merge_anyof_v4sf(<4 x float> %t) {
 ; CHECK-NEXT:    [[TMP4:%.*]] = fcmp ogt <4 x float> [[T]], <float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 0.000000e+00>
 ; CHECK-NEXT:    [[TMP5:%.*]] = fcmp olt <4 x float> [[T]], <float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 0.000000e+00>
 ; CHECK-NEXT:    [[TMP6:%.*]] = shufflevector <4 x i1> [[TMP4]], <4 x i1> [[TMP5]], <4 x i32> <i32 0, i32 1, i32 2, i32 7>
-; CHECK-NEXT:    [[TMP7:%.*]] = freeze <4 x i1> [[TMP6]]
-; CHECK-NEXT:    [[TMP8:%.*]] = bitcast <4 x i1> [[TMP7]] to i4
-; CHECK-NEXT:    [[DOTNOT:%.*]] = icmp eq i4 [[TMP8]], 0
+; CHECK-NEXT:    [[TMP7:%.*]] = bitcast <4 x i1> [[TMP6]] to i4
+; CHECK-NEXT:    [[DOTNOT:%.*]] = icmp eq i4 [[TMP7]], 0
 ; CHECK-NEXT:    br i1 [[DOTNOT]], label [[LOR_LHS_FALSE31:%.*]], label [[RETURN]]
 ; CHECK:       lor.lhs.false31:
 ; CHECK-NEXT:    [[CMP34:%.*]] = fcmp ogt float [[TMP0]], 1.000000e+00
@@ -293,9 +292,8 @@ define float @test_separate_anyof_v4sf(<4 x float> %t) {
 ; CHECK-NEXT:    [[TMP4:%.*]] = fcmp ogt <4 x float> [[T]], <float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 0.000000e+00>
 ; CHECK-NEXT:    [[TMP5:%.*]] = fcmp olt <4 x float> [[T]], <float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 0.000000e+00>
 ; CHECK-NEXT:    [[TMP6:%.*]] = shufflevector <4 x i1> [[TMP4]], <4 x i1> [[TMP5]], <4 x i32> <i32 0, i32 1, i32 2, i32 7>
-; CHECK-NEXT:    [[TMP7:%.*]] = freeze <4 x i1> [[TMP6]]
-; CHECK-NEXT:    [[TMP8:%.*]] = bitcast <4 x i1> [[TMP7]] to i4
-; CHECK-NEXT:    [[DOTNOT:%.*]] = icmp eq i4 [[TMP8]], 0
+; CHECK-NEXT:    [[TMP7:%.*]] = bitcast <4 x i1> [[TMP6]] to i4
+; CHECK-NEXT:    [[DOTNOT:%.*]] = icmp eq i4 [[TMP7]], 0
 ; CHECK-NEXT:    br i1 [[DOTNOT]], label [[LOR_LHS_FALSE30:%.*]], label [[RETURN]]
 ; CHECK:       lor.lhs.false30:
 ; CHECK-NEXT:    [[CMP33:%.*]] = fcmp ogt float [[TMP0]], 1.000000e+00
