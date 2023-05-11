@@ -412,6 +412,7 @@ def OMPC_Affinity : Clause<"affinity"> {
 }
 def OMPC_UseDeviceAddr : Clause<"use_device_addr"> {
   let clangClass = "OMPUseDeviceAddrClause";
+  let flangClass = "OmpObjectList";
 }
 #if INTEL_COLLAB
 def OMPC_Interop : Clause<"interop"> {

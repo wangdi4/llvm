@@ -633,8 +633,6 @@ Error lto::thinBackend(const Config &Conf, unsigned Task, AddStreamFn AddStream,
   // the module, if applicable.
   Mod.setPartialSampleProfileRatio(CombinedIndex);
 
-  updateMemProfAttributes(Mod, CombinedIndex);
-
   updatePublicTypeTestCalls(Mod, CombinedIndex.withWholeProgramVisibility());
 
   if (Conf.CodeGenOnly) {
@@ -720,6 +718,9 @@ Error lto::thinBackend(const Config &Conf, unsigned Task, AddStreamFn AddStream,
                             ClearDSOLocalOnDeclarations);
   if (Error Err = Importer.importFunctions(Mod, ImportList).takeError())
     return Err;
+
+  // Do this after any importing so that imported code is updated.
+  updateMemProfAttributes(Mod, CombinedIndex);
 
   if (Conf.PostImportModuleHook && !Conf.PostImportModuleHook(Task, Mod))
     return finalizeOptimizationRemarks(std::move(DiagnosticOutputFile));
