@@ -54,11 +54,11 @@ public:
   // Returns a pointer to the beginning of the note's name.
   const char *getName() const;
   // Returns the number of bytes in the descriptor.
-  uint64_t getDescSize() const;
+  uint64_t getDescSize(size_t Align) const;
   // Returns a pointer to the beginning of the note's descriptor.
   // It is illegal to access more that getDescSize() bytes
   // via this pointer.
-  const uint8_t *getDesc() const;
+  const uint8_t *getDesc(size_t Align) const;
   uint64_t getType() const;
 };
 

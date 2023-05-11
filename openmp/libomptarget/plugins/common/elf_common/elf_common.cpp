@@ -74,7 +74,7 @@ static void printELFNotes(const ELFObjectFile<ELFT> *Object) {
       case NT_LLVM_OPENMP_OFFLOAD_VERSION:
       case NT_LLVM_OPENMP_OFFLOAD_PRODUCER:
       case NT_LLVM_OPENMP_OFFLOAD_PRODUCER_VERSION: {
-        StringRef Desc = Note.getDescAsStringRef();
+        StringRef Desc = Note.getDescAsStringRef(SB->sh_addralign);
         DP("LLVMOMPOFFLOAD ELF note %s with value: '%s'\n",
            getOffloadNoteTypeName(Type), Desc.str().c_str());
         break;
