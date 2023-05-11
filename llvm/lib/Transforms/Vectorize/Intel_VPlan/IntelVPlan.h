@@ -752,7 +752,11 @@ private:
   void copyAttributesFrom(const VPInstruction &Inst) {
     DbgLoc = Inst.DbgLoc;
     // Copy other general attributes here when imported.
-    OperatorFlags = Inst.OperatorFlags;
+    // We need to copy operator flags only if source instruction was an
+    // operator.
+    if (Inst.OperatorFlags.getOperatorKind(Inst.getOpcode(), Inst.getType()) !=
+        VPOperatorIRFlags::FlagsKind::UnknownOperatorFlags)
+      OperatorFlags = Inst.OperatorFlags;
   }
 
 protected:
@@ -4973,6 +4977,7 @@ public:
     setVectorizeWithLibraryFn(OrigCall.getVectorLibraryFunc(),
                               OrigCall.getPumpFactor());
     copyUnderlyingFrom(OrigCall);
+    copyAttributesFrom(OrigCall);
   }
 
   /// Methods for supporting type inquiry through isa, cast and dyn_cast:
@@ -4983,6 +4988,49 @@ public:
   static inline bool classof(const VPValue *V) {
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
+};
+
+/// Concrete class to represent insert/extractvalue instruction in VPlan.
+class VPInsertExtractValue final : public VPInstruction {
+public:
+  VPInsertExtractValue(unsigned Opc, Type *ResTy, ArrayRef<VPValue *> Ops,
+                       ArrayRef<unsigned> Idxs)
+      : VPInstruction(Opc, ResTy, Ops), Indices(Idxs) {
+    assert(
+        (Opc == Instruction::InsertValue || Opc == Instruction::ExtractValue) &&
+        "Expected only insert/extract value opcode here.");
+    assert(!Indices.empty() && "insert/extract value indices cannot be empty.");
+  }
+
+  using idx_iterator = const unsigned *;
+
+  inline idx_iterator idx_begin() const { return Indices.begin(); }
+  inline idx_iterator idx_end() const { return Indices.end(); }
+  inline iterator_range<idx_iterator> indices() const {
+    return make_range(idx_begin(), idx_end());
+  }
+
+  ArrayRef<unsigned> getIndices() const { return Indices; }
+
+  unsigned getNumIndices() const { return (unsigned)Indices.size(); }
+
+  VPInsertExtractValue *cloneImpl() const override {
+    SmallVector<VPValue *, 2> Ops(operands());
+    return new VPInsertExtractValue(getOpcode(), getType(), Ops, getIndices());
+  }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == Instruction::InsertValue ||
+           VPI->getOpcode() == Instruction::ExtractValue;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+private:
+  SmallVector<unsigned, 2> Indices;
 };
 
 class VPCompressExpandIndex : public VPInstruction {
@@ -5263,6 +5311,10 @@ public:
 
   VPConstant *getUndef(Type *Ty) {
     return getVPConstant(UndefValue::get(Ty));
+  }
+
+  VPConstant *getPoison(Type *Ty) {
+    return getVPConstant(PoisonValue::get(Ty));
   }
 
   /// Create or retrieve a VPExternalDef for a given Value \p ExtVal.

@@ -47,11 +47,21 @@ class IntrinFormat<bit intrin> {
 def NoIntrin : IntrinFormat<0>;
 def Intrin   : IntrinFormat<1>;
 
-class VariantType<Type Ty, Variant V, IntrinFormat IF> {
+// Extra attributes (represented via bits) for every SVML table entry. Default is NoAttrs.
+class ExtraAttrs<bits<2> attrs> {
+  bits<2> extraAttrs = attrs;
+}
+
+def NoAttrs     : ExtraAttrs<0>;
+def IsOCLFn     : ExtraAttrs<1>;
+def IsComplexFn : ExtraAttrs<2>;
+
+class VariantType<Type Ty, Variant V, IntrinFormat IF, ExtraAttrs Attrs = NoAttrs> {
   bit isMasked  = V.isMasked;
   bit hasSingle = Ty.Type{0};
   bit hasDouble = Ty.Type{1};
   bit hasIntrinsic = IF.hasIntrinsic;
+  bits<2> extraAttrs = Attrs.extraAttrs;
 }
 
 class SvmlVariants<list<VariantType> Variants> {
@@ -64,6 +74,7 @@ def FPDoubleMasked          : VariantType<FPDouble, Masked,    NoIntrin>;
 def FPDoubleNonMasked       : VariantType<FPDouble, NonMasked, NoIntrin>;
 def FPBothMasked            : VariantType<FPBoth,   Masked,    NoIntrin>;
 def FPBothNonMasked         : VariantType<FPBoth,   NonMasked, NoIntrin>;
+def FPBothMaskedComplex     : VariantType<FPBoth,   Masked, NoIntrin, IsComplexFn>;
 
 def FPSingleMaskedIntrin    : VariantType<FPSingle, Masked,    Intrin>;
 def FPSingleNonMaskedIntrin : VariantType<FPSingle, NonMasked, Intrin>;
@@ -95,6 +106,8 @@ def cbrt       : SvmlVariants<[FPBothMasked]>;
 def cdfnorm    : SvmlVariants<[FPBothMasked]>;
 def cdfnorminv : SvmlVariants<[FPBothMasked]>;
 def ceil       : SvmlVariants<[FPBothMasked]>;
+def cexp       : SvmlVariants<[FPBothMaskedComplex]>;
+def clog       : SvmlVariants<[FPBothMaskedComplex]>;
 def cosd       : SvmlVariants<[FPBothMasked]>;
 def cosh       : SvmlVariants<[FPBothMasked]>;
 def erf        : SvmlVariants<[FPBothMasked]>;

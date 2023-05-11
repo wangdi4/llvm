@@ -947,6 +947,20 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       NewVPInst = cast<VPSubscriptInst>(VPOperands[0]);
       // Make subscript the master instruction since it was already created.
       NewVPInst->HIR().setUnderlyingNode(DDNode);
+    } else if (isa<InsertValueInst>(LLVMInst)) {
+      // Obtain the implicit indices field and pass them to VPInsertExtractValue
+      // instruction.
+      ArrayRef<unsigned> Idxs = HInst->getInsertValueIndices();
+      NewVPInst = Builder.createHIR<VPInsertExtractValue>(
+          DDNode, "vpinsert", Instruction::InsertValue, LLVMInst->getType(),
+          VPOperands, Idxs);
+    } else if (isa<ExtractValueInst>(LLVMInst)) {
+      // Obtain the implicit indices field and pass them to VPInsertExtractValue
+      // instruction.
+      ArrayRef<unsigned> Idxs = HInst->getExtractValueIndices();
+      NewVPInst = Builder.createHIR<VPInsertExtractValue>(
+          DDNode, "vpextract", Instruction::ExtractValue, LLVMInst->getType(),
+          VPOperands, Idxs);
     } else {
       // Generic VPInstruction.
       NewVPInst = cast<VPInstruction>(Builder.createNaryOp(

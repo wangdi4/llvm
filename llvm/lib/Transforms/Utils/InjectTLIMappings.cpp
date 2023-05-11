@@ -116,13 +116,16 @@ static void addMappingsFromTLI(const TargetLibraryInfo &TLI, CallInst &CI) {
 #if INTEL_CUSTOMIZATION
   // Nothing to be done if the TLI thinks the function is not
   // vectorizable or vector library function does not match scalar function's
-  // prototype for non-intrinsic calls.
+  // prototype for non-intrinsic calls. Revectorization and functions that
+  // return StructTy (needs argument repacking in vectorizer) are also not
+  // supported.
   LibFunc VecLibF;
   bool IsIntrinsic =
       getIntrinsicForCallSite(CI, &TLI) != Intrinsic::not_intrinsic;
   bool IsVectorizable =
       TLI.isFunctionVectorizable(ScalarName) &&
-      (IsIntrinsic || TLI.getLibFunc(*CI.getCalledFunction(), VecLibF));
+      (IsIntrinsic || TLI.getLibFunc(*CI.getCalledFunction(), VecLibF)) &&
+      !CI.getType()->isVectorTy() && !CI.getType()->isStructTy();
   if (!IsVectorizable)
 #endif // INTEL_CUSTOMIZATION
     return;

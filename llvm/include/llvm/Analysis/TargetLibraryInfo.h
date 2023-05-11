@@ -51,6 +51,23 @@ struct AltMathDesc {
   float Accuracy;
 };
 
+#if INTEL_CUSTOMIZATION
+/// Enum for the various bits that represent additional attributes of a
+/// vectorizable function described by VecDesc.
+enum class VecDescAttrs {
+  // Scalar/vector function is an OCL library function.
+  IsOCLFn = 0,
+  // Vector function needs argument repacking feature.
+  NeedsArgRepacking = 1,
+  LastAttr = NeedsArgRepacking
+};
+
+/// Bitset to represent and track status of each attribute for a VecDesc.
+/// Default value for all attributes is false.
+using VecDescAttrBits =
+    std::bitset<static_cast<unsigned>(VecDescAttrs::LastAttr) + 1>;
+#endif // INTEL_CUSTOMIZATION
+
 /// Describes a possible vectorization of a function.
 /// Function 'VectorFnName' is equivalent to 'ScalarFnName' vectorized
 /// by a factor 'VectorizationFactor'.
@@ -59,9 +76,7 @@ struct VecDesc {
   StringRef VectorFnName;
   ElementCount VectorizationFactor;
   bool Masked;
-#if INTEL_CUSTOMIZATION
-  bool IsOCLFn = false;
-#endif
+  VecDescAttrBits AttrBits = 0; // INTEL
 };
 
   enum LibFunc : unsigned {
@@ -71,6 +86,17 @@ struct VecDesc {
     NumLibFuncs,
     NotLibFunc
   };
+
+#if INTEL_CUSTOMIZATION
+/// Describes different possible signatures for complex type math library
+/// functions. This is determined based on ABI of target being compiled for.
+enum ComplexLibCallSignatureInfo {
+  X86NonWinFloat,
+  X86NonWinDouble,
+  // Use this enum value for unsupported ABIs.
+  UnknownSign
+};
+#endif // INTEL_CUSTOMIZATION
 
 /// Implementation of the target library information.
 ///
@@ -86,6 +112,12 @@ class TargetLibraryInfoImpl {
   static StringLiteral const StandardNames[NumLibFuncs];
   bool ShouldExtI32Param, ShouldExtI32Return, ShouldSignExtI32Param, ShouldSignExtI32Return;
   unsigned SizeOfInt;
+#if INTEL_CUSTOMIZATION
+  // Complex type library call signature for single-precision FP type.
+  ComplexLibCallSignatureInfo CmplxFloatSignInfo;
+  // Complex type library call signature for double-precision FP type.
+  ComplexLibCallSignatureInfo CmplxDoubleSignInfo;
+#endif // INTEL_CUSTOMIZATION
 
   enum AvailabilityState {
     StandardName = 3, // (memset to all ones)
@@ -253,6 +285,12 @@ public:
   /// vectorized using its vector library equivalent.
   bool isOCLVectorFunction(StringRef F) const;
 
+  /// True if the provided function \p F needs arguments repacking feature in
+  /// order to be vectorized using its vector library equivalent. Refer to
+  /// VPTransformLibraryCalls::transformCallsWithArgRepacking to learn more
+  /// about argument repacking feature.
+  bool doesVectorFuncNeedArgRepacking(StringRef F) const;
+
   // True if the provided LibFunc \p F identifies an OpenMP library function,
   // i.e. the LibFunc_kmpc_* LibFuncs.
   bool isOMPLibFunc(LibFunc F) const;
@@ -309,6 +347,26 @@ public:
   void setIntSize(unsigned Bits) {
     SizeOfInt = Bits;
   }
+
+#if INTEL_CUSTOMIZATION
+  /// Get complex type library call signature info for single-precision FP type.
+  ComplexLibCallSignatureInfo getCmplxFloatSignInfo() const {
+    return CmplxFloatSignInfo;
+  }
+  /// Get complex type library call signature info for double-precision FP type.
+  ComplexLibCallSignatureInfo getCmplxDoubleSignInfo() const {
+    return CmplxDoubleSignInfo;
+  }
+
+  /// Set complex type library call signature info for single-precision FP type.
+  void setCmplxFloatSignInfo(ComplexLibCallSignatureInfo I) {
+    CmplxFloatSignInfo = I;
+  }
+  /// Set complex type library call signature info for double-precision FP type.
+  void setCmplxDoubleSignInfo(ComplexLibCallSignatureInfo I) {
+    CmplxDoubleSignInfo = I;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   /// Returns the largest vectorization factor used in the list of
   /// vector functions.
@@ -467,6 +525,14 @@ public:
   /// vectorized using its vector library equivalent.
   bool isOCLVectorFunction(StringRef F) const {
     return Impl->isOCLVectorFunction(F);
+  }
+
+  /// True if the provided function \p F needs arguments repacking feature in
+  /// order to be vectorized using its vector library equivalent. Refer to
+  /// VPTransformLibraryCalls::transformCallsWithArgRepacking to learn more
+  /// about argument repacking feature.
+  bool doesVectorFuncNeedArgRepacking(StringRef F) const {
+    return Impl->doesVectorFuncNeedArgRepacking(F);
   }
 
   // True if the provided LibFunc \p F identifies an OpenMP library function,
