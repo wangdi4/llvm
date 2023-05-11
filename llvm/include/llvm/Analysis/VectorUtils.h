@@ -959,14 +959,10 @@ Type *calcCharacteristicType(Type *ReturnType, RangeIterator Args,
   return CharacteristicDataType;
 }
 
-/// Promote provided boolean (i1) mask, \p MaskToUse, to a type suitable for the
-/// \p VecVariant call and add it into vector arguments/vector argument types
-/// arrays.
-void createVectorMaskArg(IRBuilder<> &Builder, Type *CharacteristicType,
-                         const VFInfo *VecVariant,
-                         SmallVectorImpl<Value *> &VecArgs,
-                         SmallVectorImpl<Type *> &VecArgTys, unsigned VF,
-                         Value *MaskToUse);
+/// Promote provided boolean (i1) mask, \p MaskToUse, to a type suitable
+/// for the \p VecVariant call. Return mask value.
+Value *createVectorMaskArg(IRBuilder<> &Builder, Type *CharacteristicType,
+                           const VFInfo &VecVariant, Value *MaskToUse);
 
 /// Helper function that returns widened type of given type \p Ty.
 inline FixedVectorType *getWidenedType(const Type *Ty, unsigned VF) {
@@ -975,12 +971,12 @@ inline FixedVectorType *getWidenedType(const Type *Ty, unsigned VF) {
   return FixedVectorType::get(Ty->getScalarType(), NumElts);
 }
 
-/// \brief Widens the call to function \p OrigF  using a vector length of \p VL
+/// Widens the call to function \p OrigF using information from \p Variant
 /// and inserts the appropriate function declaration if not already created.
-/// This function will insert functions for simd functions.
-Function *getOrInsertVectorVariantFunction(
-  Function *OrigF, unsigned VL, ArrayRef<Type *> ArgTys,
-  const VFInfo *VecVariant, bool Masked);
+/// This function will insert functions for simd declared functions.
+Function *getOrInsertVectorVariantFunction(Function &OrigF,
+                                           const VFInfo &Variant,
+                                           ArrayRef<Type *> ArgTys);
 
 /// \brief Widens the call to function \p OrigF  using a vector length of \p VL
 /// and inserts the appropriate function declaration if not already created.

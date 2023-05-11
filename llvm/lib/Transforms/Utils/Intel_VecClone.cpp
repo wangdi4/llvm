@@ -413,8 +413,7 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
     ParmTypes.push_back(MaskVecTy);
   }
 
-  Function* Clone = getOrInsertVectorVariantFunction(&F, V.getVF(), ParmTypes,
-                                                     &V, V.isMasked());
+  Function *Clone = getOrInsertVectorVariantFunction(F, V, ParmTypes);
 
   // Copy all the attributes from the scalar function to its vector version.
   // Vector variants attribute will be stripped off later in this routine.
