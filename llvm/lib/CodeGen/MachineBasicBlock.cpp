@@ -1122,7 +1122,6 @@ MachineBasicBlock *MachineBasicBlock::SplitCriticalEdge(
   MachineBasicBlock *PrevFallthrough = getNextNode();
   DebugLoc DL;  // FIXME: this is nowhere
 
-<<<<<<< HEAD
   const BasicBlock *BaseBB = getBasicBlock(); // INTEL
 
 #if INTEL_CUSTOMIZATION
@@ -1192,8 +1191,6 @@ MachineBasicBlock *MachineBasicBlock::SplitCriticalEdge(
 #endif // INTEL_CUSTOMIZATION
 
   MachineBasicBlock *NMBB = MF->CreateMachineBasicBlock(BaseBB); // INTEL
-=======
-  MachineBasicBlock *NMBB = MF->CreateMachineBasicBlock();
 
   // Is there an indirect jump with jump table?
   bool ChangedIndirectJump = false;
@@ -1204,7 +1201,6 @@ MachineBasicBlock *MachineBasicBlock::SplitCriticalEdge(
     ChangedIndirectJump = true;
   }
 
->>>>>>> b8817825b9dcb45f204d3a3a9056f929e12c7a3b
   MF->insert(std::next(MachineFunction::iterator(this)), NMBB);
   LLVM_DEBUG(dbgs() << "Splitting critical edge: " << printMBBReference(*this)
                     << " -- " << printMBBReference(*NMBB) << " -- "
