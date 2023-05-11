@@ -3996,10 +3996,18 @@ int32_t __tgt_rtl_number_of_devices() {
 }
 
 int32_t __tgt_rtl_init_device(int32_t DeviceId) {
+  if (DeviceId < 0 || (cl_uint)DeviceId >= DeviceInfo->NumDevices) {
+    DP("Bad device ID %" PRId32 "\n", DeviceId);
+    return OFFLOAD_FAIL;
+  }
+  if ((DeviceInfo->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) &&
+      DeviceInfo->Option.DeviceType == CL_DEVICE_TYPE_GPU) {
+    WARNING("Required \"unified_shared_memory\" is not supported.\n");
+    return OFFLOAD_FAIL;
+  }
+
   cl_int RC;
   DP("Initialize OpenCL device\n");
-  assert(DeviceId >= 0 && (cl_uint)DeviceId < DeviceInfo->NumDevices &&
-         "bad device id");
 
   // Use out-of-order queue by default.
   std::vector<cl_queue_properties> QProperties {

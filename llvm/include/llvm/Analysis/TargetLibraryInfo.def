@@ -3432,6 +3432,10 @@ TLI_DEFINE_SIG_INTERNAL(LDbl, LDbl)
 TLI_DEFINE_ENUM_INTERNAL(cexp)
 TLI_DEFINE_STRING_INTERNAL("cexp")
 TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+/// <2 x float> cexpf(<2 x float>);
+TLI_DEFINE_ENUM_INTERNAL(cexpf)
+TLI_DEFINE_STRING_INTERNAL("cexpf")
+TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 /// int chdir(const char *path);
 TLI_DEFINE_ENUM_INTERNAL(chdir)
 TLI_DEFINE_STRING_INTERNAL("chdir")
@@ -3457,6 +3461,14 @@ TLI_DEFINE_SIG_INTERNAL(Void, Ptr)
 /// clock_t clock(void);
 TLI_DEFINE_ENUM_INTERNAL(clock)
 TLI_DEFINE_STRING_INTERNAL("clock")
+TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+/// double complex clog(double complex);
+TLI_DEFINE_ENUM_INTERNAL(clog)
+TLI_DEFINE_STRING_INTERNAL("clog")
+TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
+/// <2 x float> clogf(<2 x float>);
+TLI_DEFINE_ENUM_INTERNAL(clogf)
+TLI_DEFINE_STRING_INTERNAL("clogf")
 TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 /// int close(int fildes);
 TLI_DEFINE_ENUM_INTERNAL(close)

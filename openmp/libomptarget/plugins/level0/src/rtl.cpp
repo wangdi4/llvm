@@ -1535,15 +1535,18 @@ struct RTLOptionTy {
     }
 
     // Compilation options for IGC
-    if ((Env = readEnvVar("LIBOMPTARGET_LEVEL0_COMPILATION_OPTIONS")))
+    if ((Env = readEnvVar("LIBOMPTARGET_LEVEL_ZERO_COMPILATION_OPTIONS",
+                          "LIBOMPTARGET_LEVEL0_COMPILATION_OPTIONS")))
       UserCompilationOptions += std::string(" ") + Env;
 
     if (DeviceType == ZE_DEVICE_TYPE_GPU) {
-      Env = readEnvVar("LIBOMPTARGET_LEVEL0_MATCH_SINCOSPI");
+      Env = readEnvVar("LIBOMPTARGET_LEVEL_ZERO_MATCH_SINCOSPI",
+                       "LIBOMPTARGET_LEVEL0_MATCH_SINCOSPI");
       if (!Env || parseBool(Env) != 0) {
         InternalCompilationOptions += " -cl-match-sincospi ";
       }
-      Env = readEnvVar("LIBOMPTARGET_LEVEL0_USE_DRIVER_GROUP_SIZES");
+      Env = readEnvVar("LIBOMPTARGET_LEVEL_ZERO_USE_DRIVER_GROUP_SIZES",
+                       "LIBOMPTARGET_LEVEL0_USE_DRIVER_GROUP_SIZES");
       if (Env && parseBool(Env) == 1) {
         Flags.UseDriverGroupSizes = 1;
       }
@@ -1582,7 +1585,7 @@ struct RTLOptionTy {
     }
 
     // Memory pool
-    // LIBOMPTARGET_LEVEL0_MEMORY_POOL=<Option>
+    // LIBOMPTARGET_LEVEL_ZERO_MEMORY_POOL=<Option>
     //  <Option>       := 0 | <PoolInfoList>
     //  <PoolInfoList> := <PoolInfo>[,<PoolInfoList>]
     //  <PoolInfo>     := <MemType>[,<AllocMax>[,<Capacity>[,<PoolSize>]]]
@@ -1593,7 +1596,8 @@ struct RTLOptionTy {
     //                    a single block (default: 4)
     //  <PoolSize>     := positive integer or empty, max pool size in MB
     //                    (default: 256)
-    if ((Env = readEnvVar("LIBOMPTARGET_LEVEL0_MEMORY_POOL"))) {
+    if ((Env = readEnvVar("LIBOMPTARGET_LEVEL_ZERO_MEMORY_POOL",
+                          "LIBOMPTARGET_LEVEL0_MEMORY_POOL"))) {
       if (Env[0] == '0' && Env[1] == '\0') {
         Flags.UseMemoryPool = 0;
         MemPoolInfo.clear();
@@ -1660,8 +1664,9 @@ struct RTLOptionTy {
           }
         } else {
           DP("Ignoring incorrect memory pool configuration "
-             "LIBOMPTARGET_LEVEL0_MEMORY_POOL=%s\n", Env);
-          DP("LIBOMPTARGET_LEVEL0_MEMORY_POOL=<Option>\n");
+             "LIBOMPTARGET_LEVEL_ZERO_MEMORY_POOL=%s\n",
+             Env);
+          DP("LIBOMPTARGET_LEVEL_ZERO_MEMORY_POOL=<Option>\n");
           DP("  <Option>       := 0 | <PoolInfoList>\n");
           DP("  <PoolInfoList> := <PoolInfo>[,<PoolInfoList>]\n");
           DP("  <PoolInfo>     := "
@@ -1689,7 +1694,8 @@ struct RTLOptionTy {
     }
 
     // Use copy engine if available
-    if ((Env = readEnvVar("LIBOMPTARGET_LEVEL0_USE_COPY_ENGINE"))) {
+    if ((Env = readEnvVar("LIBOMPTARGET_LEVEL_ZERO_USE_COPY_ENGINE",
+                          "LIBOMPTARGET_LEVEL0_USE_COPY_ENGINE"))) {
       if (Env[0] == 'F' || Env[0] == 'f' || Env[0] == '0') {
         UseCopyEngine = 0;
       } else {
@@ -1702,8 +1708,9 @@ struct RTLOptionTy {
           UseCopyEngine = 3;
         else {
           DP("Ignoring incorrect definition, "
-             "LIBOMPTARGET_LEVEL0_USE_COPY_ENGINE=%s\n", Env);
-          DP("LIBOMPTARGET_LEVEL0_USE_COPY_ENGINE=<Value>\n");
+             "LIBOMPTARGET_LEVEL_ZERO_USE_COPY_ENGINE=%s\n",
+             Env);
+          DP("LIBOMPTARGET_LEVEL_ZERO_USE_COPY_ENGINE=<Value>\n");
           DP("  <Value>   := <Disable> | <Type>\n");
           DP("  <Disable> := 0 | F | f\n");
           DP("  <Type>    := main | link | all\n");
@@ -1721,7 +1728,8 @@ struct RTLOptionTy {
 #endif // INTEL_CUSTOMIZATION
 
     // Global default target memory that overrides device-specific default
-    if ((Env = readEnvVar("LIBOMPTARGET_LEVEL0_DEFAULT_TARGET_MEM"))) {
+    if ((Env = readEnvVar("LIBOMPTARGET_LEVEL_ZERO_DEFAULT_TARGET_MEM",
+                          "LIBOMPTARGET_LEVEL0_DEFAULT_TARGET_MEM"))) {
       std::string Mem(Env);
       if (Mem == "host" || Mem == "HOST")
         TargetAllocKind = TARGET_ALLOC_HOST;
@@ -1734,7 +1742,8 @@ struct RTLOptionTy {
     }
 
     // Subscription rate
-    if ((Env = readEnvVar("LIBOMPTARGET_LEVEL0_SUBSCRIPTION_RATE"))) {
+    if ((Env = readEnvVar("LIBOMPTARGET_LEVEL_ZERO_SUBSCRIPTION_RATE",
+                          "LIBOMPTARGET_LEVEL0_SUBSCRIPTION_RATE"))) {
       int32_t Value = std::stoi(Env);
       if (Value > 0 && Value <= 0xFFFF)
         SubscriptionRate = Value;
@@ -1821,8 +1830,9 @@ struct RTLOptionTy {
         Flags.UseImageOptions = 0;
     }
 
-    // LIBOMPTARGET_LEVEL0_STAGING_BUFFER_SIZE=<SizeInKB>
-    if ((Env = readEnvVar("LIBOMPTARGET_LEVEL0_STAGING_BUFFER_SIZE"))) {
+    // LIBOMPTARGET_LEVEL_ZERO_STAGING_BUFFER_SIZE=<SizeInKB>
+    if ((Env = readEnvVar("LIBOMPTARGET_LEVEL_ZERO_STAGING_BUFFER_SIZE",
+                          "LIBOMPTARGET_LEVEL0_STAGING_BUFFER_SIZE"))) {
       size_t SizeInKB = std::stoi(Env);
       StagingBufferSize = SizeInKB << 10;
     }
@@ -6659,6 +6669,10 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
       (DeviceInfo->Option.DeviceMode == DEVICE_MODE_TOP &&
        DeviceId >= (int32_t)DeviceInfo->NumRootDevices)) {
     DP("Bad device ID %" PRId32 "\n", DeviceId);
+    return OFFLOAD_FAIL;
+  }
+  if (DeviceInfo->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
+    WARNING("Required \"unified_shared_memory\" is not supported.\n");
     return OFFLOAD_FAIL;
   }
 

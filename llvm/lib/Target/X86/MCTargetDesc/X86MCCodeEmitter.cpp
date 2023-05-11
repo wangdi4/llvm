@@ -2194,8 +2194,7 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-    if ((TSFlags & X86II::OpMapMask) == X86II::T_MAP4 &&
-        (TSFlags & X86II::EVEX_B))
+    if (IsND)
       CurOp++;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION

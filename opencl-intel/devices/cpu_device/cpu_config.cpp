@@ -183,6 +183,9 @@ CPUDeviceConfig::GetExtensionsWithVersion() {
   GetExtVer(OCL_EXT_KHR_ICD, 1, 0, 0);
   GetExtVer(OCL_EXT_KHR_IL_PROGRAM, 1, 0, 0);
 
+  // USM extension for both ocl cpu rt and fpga emu rt
+  GetExtVer(OCL_EXT_INTEL_UNIFIED_SHARED_MEMORY, 1, 0, 0);
+
   if (FPGA_EMU_DEVICE == GetDeviceMode()) {
     GetExtVer(OCL_EXT_INTEL_FPGA_HOST_PIPE, 1, 0, 0);
     GetExtVer(OCL_EXT_INTEL_PROGRAM_SCOPE_HOST_PIPE, 1, 0, 0);
@@ -219,7 +222,6 @@ CPUDeviceConfig::GetExtensionsWithVersion() {
   GetExtVer(OCL_EXT_KHR_INT64_EXTENDED_ATOMICS, 1, 0, 0);
 
   // common Intel extensions
-  GetExtVer(OCL_EXT_INTEL_UNIFIED_SHARED_MEMORY, 1, 0, 0);
   GetExtVer(OCL_EXT_INTEL_DEVICE_ATTRIBUTE_QUERY, 1, 0, 0);
 
   // INTEL CPU execlusive extensions

@@ -37,8 +37,8 @@ define i32 @vec_sum(i32 %i, i32 %j) #0 {
 ; CHECK-NEXT:    [[VEC_J_CAST0:%.*]] = bitcast <4 x i32>* [[VEC_J0]] to i32*
 ; CHECK-NEXT:    store <4 x i32> [[J0]], <4 x i32>* [[VEC_J0]], align 16
 ; CHECK-NEXT:    [[MASK_CAST0:%.*]] = bitcast <4 x i32>* [[VEC_MASK0]] to i32*
-; CHECK-NEXT:    [[RET_CAST0:%.*]] = bitcast <4 x i32>* [[VEC_RETVAL0]] to i32*
 ; CHECK-NEXT:    store <4 x i32> [[MASK0]], <4 x i32>* [[VEC_MASK0]], align 16
+; CHECK-NEXT:    [[RET_CAST0:%.*]] = bitcast <4 x i32>* [[VEC_RETVAL0]] to i32*
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:

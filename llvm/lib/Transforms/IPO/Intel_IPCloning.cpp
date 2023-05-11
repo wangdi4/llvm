@@ -4916,6 +4916,9 @@ private:
   // expressions include arguments of 'OptBaseF' and fields from the structure
   // pointed to by 'LIRestrict'.
   unsigned simplifyMixedExpressions(Function *OptBaseF, LoadInst *LIRestrict);
+  // Perform Partial Dead Store Elimination on argument 3 of 'WrapperF',
+  // whose call site inside 'BigLoopF' is 'BigLoopCB'.
+  bool doPDSEinWrapperFArg3(CallBase *BigLoopCB, Function *WrapperF);
 };
 
 //
@@ -7274,6 +7277,167 @@ unsigned PredicateOpt::simplifyMixedExpressions(Function *OptBaseF,
 }
 
 //
+// Perform Partial Dead Store Elimination of 'WrapperF' argument 3,
+// converting:
+//   *pixel=cache_view->image->background_color;
+//   pixels=GetVirtualPixelsFromNexus(cache_view->image,
+//     cache_view->virtual_pixel_method,x,y,1,1,cache_view->nexus_info[id],
+//     exception);
+//   if (pixels == (const PixelPacket *) NULL)
+//     return(MagickFalse);
+//   *pixel=(*pixels);
+//   return(MagickTrue);
+// into:
+//   pixels=GetVirtualPixelsFromNexus(cache_view->image,
+//     cache_view->virtual_pixel_method,x,y,1,1,cache_view->nexus_info[id],
+//     exception);
+//   if (pixels == (const PixelPacket *) NULL) {
+//     *pixel=cache_view->image->background_color;
+//     return(MagickFalse);
+//   }
+//   *pixel=(*pixels);
+//   return(MagickTrue);
+//
+bool PredicateOpt::doPDSEinWrapperFArg3(CallBase *BigLoopCB,
+                                        Function *WrapperF) {
+
+  // Return 'true' if the 'BB' has exactly 'ECount' stores.
+  auto StoreCount = [](BasicBlock *BB, unsigned ECount) -> bool {
+    unsigned Count = 0;
+    for (auto &I : *BB)
+      if (isa<StoreInst>(&I))
+        Count++;
+    return Count == ECount;
+  };
+
+  // Check that argument 3 is defined by an AllocaInst in
+  // the caller of 'WrapperF', which allocates a StructType.
+  auto AI = dyn_cast<AllocaInst>(BigLoopCB->getArgOperand(3));
+  if (!AI)
+    return false;
+  auto STy = dyn_cast<StructType>(AI->getAllocatedType());
+  if (!STy)
+    return false;
+  // Check that argument 3 has 'ECount' uses, one for each
+  // field of the StructType.
+  unsigned ECount = STy->getNumElements();
+  Module *M = WrapperF->getParent();
+  Argument *A3 = WrapperF->getArg(3);
+  if (!A3->hasNUses(ECount))
+    return false;
+  // Check that the control flow of 'WrapperF' is a simple if-then.
+  DenseMap<unsigned, GetElementPtrInst *> GEPIMap;
+  BasicBlock *BB0 = &WrapperF->getEntryBlock();
+  auto BI0 = dyn_cast<BranchInst>(BB0->getTerminator());
+  if (!BI0 || BI0->isUnconditional() || BI0->getNumSuccessors() != 2)
+    return false;
+  BasicBlock *BB1 = BI0->getSuccessor(0);
+  BasicBlock *BB2 = BI0->getSuccessor(1);
+  auto RI = dyn_cast<ReturnInst>(BB1->getTerminator());
+  if (!RI)
+    return false;
+  auto BI2 = dyn_cast<BranchInst>(BB2->getTerminator());
+  if (!BI2 || !BI2->isUnconditional() || BI2->getSuccessor(0) != BB1)
+    return false;
+  // Check that each field of argument 3 is accessed by a GEPI.
+  for (User *U : A3->users()) {
+    auto GEPI = dyn_cast<GetElementPtrInst>(U);
+    unsigned Offset = 0;
+    if (!GEPI || !isSimpleGEPI(GEPI, A3, Offset) || Offset >= ECount)
+      return false;
+    if (GEPI->getParent() != BB0 || GEPIMap.count(Offset))
+      return false;
+    GEPIMap.insert({Offset, GEPI});
+  }
+  // Check that each sinkable store and the instructions feeding it
+  // which can also be sunk have the form:
+  //   %i7 = getelementptr inbounds { i16, i16, i16, i16 }, ptr %i6,
+  //     i64 0, i32 'Offset'
+  //   %i9 = load i16, ptr %i7, align 2
+  //   store i16 %i9, ptr %i8, align 2
+  // While checking, see if we can also sink:
+  //   %i6 = getelementptr inbounds %struct._ZTS6_Image._Image,
+  //     ptr %i5, i64 0, i32 12
+  SmallVector<StoreInst *, 4> StoresToMove;
+  bool ShouldSinkGEPI1 = true;
+  GetElementPtrInst *GEPI1 = nullptr;
+  for (unsigned I = 0, E = ECount; I < E; ++I) {
+    auto GEPI = GEPIMap.lookup(I);
+    bool BB0Seen = false;
+    bool BB2Seen = false;
+    for (User *U : GEPI->users()) {
+      auto SI = dyn_cast<StoreInst>(U);
+      if (!SI || SI->getPointerOperand() != GEPI)
+        return false;
+      if (SI->getParent() == BB0) {
+        if (BB0Seen)
+          return false;
+        BB0Seen = true;
+        auto LI = dyn_cast<LoadInst>(SI->getValueOperand());
+        if (!LI || !LI->hasOneUse() || LI->getParent() != BB0)
+          return false;
+        auto GEPI0 = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
+        if (!GEPI0 || !GEPI0->hasOneUse() || GEPI0->getParent() != BB0)
+          return false;
+        if (ShouldSinkGEPI1) {
+          Value *PO = GEPI0->getPointerOperand();
+          auto GEPIT = dyn_cast<GetElementPtrInst>(PO);
+          if (!GEPIT || GEPIT->getParent() != BB0)
+            ShouldSinkGEPI1 = false;
+          if (!GEPI1)
+            GEPI1 = GEPIT;
+          else if (GEPIT != GEPI1)
+            ShouldSinkGEPI1 = false;
+        }
+        StoresToMove.push_back(SI);
+      } else if (SI->getParent() == BB2) {
+        if (BB2Seen)
+          return false;
+        BB2Seen = true;
+      } else {
+        return false;
+      }
+    }
+    if (!BB0Seen || !BB2Seen)
+      return false;
+  }
+  // Check that the stores we have analyzed above are the only ones
+  // in 'WrapperF'.
+  if (!StoreCount(BB0, 4))
+    return false;
+  if (!StoreCount(BB1, 0))
+    return false;
+  if (!StoreCount(BB2, 4))
+    return false;
+  // Create a new basic block and sink the appropriate instructions
+  // into it.
+  BasicBlock *BB3 = BasicBlock::Create(M->getContext(), "sink", WrapperF);
+  auto BI3 = BranchInst::Create(BB1, BB3);
+  if (ShouldSinkGEPI1) {
+    GEPI1->removeFromParent();
+    GEPI1->insertBefore(BI3);
+  }
+  for (auto SI : StoresToMove) {
+    auto *LI = cast<LoadInst>(SI->getValueOperand());
+    auto *GEPI = cast<GetElementPtrInst>(LI->getPointerOperand());
+    GEPI->removeFromParent();
+    GEPI->insertBefore(BI3);
+    LI->removeFromParent();
+    LI->insertBefore(BI3);
+    SI->removeFromParent();
+    SI->insertBefore(BI3);
+  }
+  // Patch up the control flow and PHINodes.
+  BI0->setSuccessor(0, BB3);
+  for (auto &I : *BB1)
+    if (auto PHIN = dyn_cast<PHINode>(&I))
+      for (unsigned I = 0, E = PHIN->getNumIncomingValues(); I < E; ++I)
+        if (PHIN->getIncomingBlock(I) == BB0)
+          PHIN->setIncomingBlock(I, BB3);
+  return true;
+}
+
+//
 // Attempt to perform the predicate opt. Return 'true' if it was possible.
 // NOTE: Right now we simply emit a trace indicating the key elements
 // on the hot path, and the extracted and enclosing functions.
@@ -7306,6 +7470,11 @@ bool PredicateOpt::doPredicateOpt() {
   DominatorTree &DT = (*GetDT)(*FxnOuter);
   BlockFrequencyInfo &BFI = (*GetBFI)(*FxnOuter);
   BranchProbabilityInfo &BPI = (*GetBPI)(*FxnOuter);
+  bool DidPDSE = doPDSEinWrapperFArg3(BigLoopCB, WrapperF);
+  LLVM_DEBUG(dbgs() << "MRC Predicate: DidPDSE : " << (DidPDSE ? "T" : "F")
+                    << "\n");
+  if (!DidPDSE)
+    return false;
   LoadInst *CacheInfo = makeHoistedRestrictVar();
   RegionSplitter MultiLoopSplitter(DT, BFI, BPI);
   Function *NoOptF = MultiLoopSplitter.splitRegion(*MultiLoop);

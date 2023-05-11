@@ -1610,8 +1610,8 @@ bool AndersensAAResult::analyzeGlobalEscape(
         if (!isPointsToType(LI->getType()))
           NonPointerAssignments.insert(LI);
 
-        CE = dyn_cast<ConstantExpr>(V);
-        if (LI->getOperand(0) == V && CE) {
+        if (LI->getOperand(0) == V &&
+            (isa<ConstantExpr>(V) || isa<GlobalValue>(V))) {
           if (analyzeGlobalEscape(LI, PhiUsers, SingleAcessingFunction,
                                   Cache)) {
             escapes = true;
@@ -2449,7 +2449,12 @@ void AndersensAAResult::visitStoreInst(StoreInst &SI) {
     // Make sure load has single use to simplify the implementation.
     if (!LI || !LI->getType()->isIntegerTy() || !LI->hasOneUse())
       return false;
-    auto *BC = dyn_cast<BitCastInst>(LI->getPointerOperand());
+    Value *PtrOp = LI->getPointerOperand();
+    // Check if pointer operand is a pointer type GlobalVariable.
+    auto *GV = dyn_cast<GlobalVariable>(PtrOp->stripPointerCasts());
+    if (GV && GV->getValueType()->isPointerTy())
+      return true;
+    auto *BC = dyn_cast<BitCastInst>(PtrOp);
     if (!BC)
       return false;
     // Check source type of Bitcast is pointer to pointer to some type.

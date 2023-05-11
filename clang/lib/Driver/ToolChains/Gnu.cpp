@@ -485,17 +485,13 @@ static void addMKLLibs(ArgStringList &CmdArgs,
 // Add TBB libraries
 static void addTBBLibs(ArgStringList &CmdArgs,
     const llvm::opt::ArgList &Args, const ToolChain &TC) {
-  // default link type is dynamically link
-  bool linkStatic = false;
-
+  // Only dynamic libraries are available for TBB
   // Additions of libraries are currently not smart enough at an individual
   // basis to only add the 'switch' before the library.  We must put the link
   // state back to the original setting.
   bool curStaticLinkState = isStaticLinkState(CmdArgs);
-  if (curStaticLinkState && !linkStatic)
+  if (curStaticLinkState)
     CmdArgs.push_back(Args.MakeArgString("-Bdynamic"));
-  if (!curStaticLinkState && linkStatic)
-    CmdArgs.push_back(Args.MakeArgString("-Bstatic"));
   TC.AddTBBLibArgs(Args, CmdArgs, "-l");
   if (curStaticLinkState && !isStaticLinkState(CmdArgs))
     CmdArgs.push_back(Args.MakeArgString("-Bstatic"));
@@ -507,7 +503,7 @@ static void addTBBLibs(ArgStringList &CmdArgs,
 static void addDAALLibs(ArgStringList &CmdArgs,
     const llvm::opt::ArgList &Args, const ToolChain &TC) {
   // default link type is dynamically link
-  bool linkStatic = false;
+  bool linkStatic = Args.hasArg(options::OPT_static);
 
   // Additions of libraries are currently not smart enough at an individual
   // basis to only add the 'switch' before the library.  We must put the link
@@ -530,7 +526,7 @@ static void addDAALLibs(ArgStringList &CmdArgs,
 static void addACTypesLibs(ArgStringList &CmdArgs,
     const llvm::opt::ArgList &Args, const ToolChain &TC) {
   // default link type is dynamically link
-  bool linkStatic = false;
+  bool linkStatic = Args.hasArg(options::OPT_static);
 
   // Additions of libraries are currently not smart enough at an individual
   // basis to only add the 'switch' before the library.  We must put the link

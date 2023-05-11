@@ -94,6 +94,10 @@
 #include <vector>
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+#include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
+#endif // INTEL_FEATURE_SW_DTRANS
+
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/AbstractCallSite.h"
@@ -184,10 +188,21 @@ static Value *createByteGEP(IRBuilderBase &IRB, const DataLayout &DL,
 /// DoPromotion - This method actually performs the promotion of the specified
 /// arguments, and returns the new function.  At this point, we know that it's
 /// safe to do so.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
 static Function *doPromotion(
     Function *F, FunctionAnalysisManager &FAM,
     const DenseMap<Argument *, SmallVector<OffsetAndArgPart, 4>> &ArgsToPromote,
-    bool isCallback) { // INTEL
+    bool isCallback,
+    dtransOP::DTransTypeMDArgPromoPropagator *DTransMDPropagator) {
+#else // INTEL_FEATURE_SW_DTRANS
+static Function *doPromotion(
+    Function *F, FunctionAnalysisManager &FAM,
+    const DenseMap<Argument *, SmallVector<OffsetAndArgPart, 4>> &ArgsToPromote,
+    bool isCallback) {
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
+
   // Start by computing a new prototype for the function, which is the same as
   // the old function, but has modified arguments.
   FunctionType *FTy = F->getFunctionType();
@@ -199,6 +214,14 @@ static Function *doPromotion(
   SmallVector<AttributeSet, 8> ArgAttrVec;
   AttributeList PAL = F->getAttributes();
   const DataLayout &DL = F->getParent()->getDataLayout(); // INTEL
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  // Set up an object that will handle the DTrans metadata and DTrans function
+  // attribute updating, if they are present on the function being converted.
+  DTransMDPropagator->initialize(F);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   // First, determine the new argument list
   unsigned ArgNo = 0;
@@ -216,6 +239,14 @@ static Function *doPromotion(
       for (const auto &Pair : ArgParts) {
 #if INTEL_CUSTOMIZATION
         Type *ParamTy = Pair.second.Ty;
+#if INTEL_FEATURE_SW_DTRANS
+        // Collect information needed about the new parameter passed to the
+        // function to handle the case where DTrans attributes should be added
+        // for the case where the field being extracted from a structure is a
+        // pointer type.
+        DTransMDPropagator->addArg(ParamTy, ArgNo, Params.size(), Pair.first);
+#endif // INTEL_FEATURE_SW_DTRANS
+
         if (isCallback && !isa<PointerType>(ParamTy))
           ParamTy = DL.getIntPtrType(I->getType());
         Params.push_back(ParamTy);
@@ -263,6 +294,13 @@ static Function *doPromotion(
                                        PAL.getRetAttrs(), ArgAttrVec));
   AttributeFuncs::updateMinLegalVectorWidthAttr(*NF, LargestVectorWidth);
   ArgAttrVec.clear();
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  // Update the DTrans parameter attributes and metadata, if appropriate.
+  DTransMDPropagator->setMDAttributes(NF);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   F->getParent()->getFunctionList().insert(F->getIterator(), NF);
   NF->takeName(F);
@@ -963,9 +1001,17 @@ static bool areTypesABICompatible(ArrayRef<Type *> Types, const Function &F,
 /// example, all callers are direct).  If safe to promote some arguments, it
 /// calls the DoPromotion method.
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+static Function *
+promoteArguments(Function *F, FunctionAnalysisManager &FAM,
+                 bool RemoveHomedArguments, unsigned MaxElements,
+                 bool &IsRecursive,
+                 dtransOP::DTransTypeMDArgPromoPropagator *DTransMDPropagator) {
+#else  // INTEL_FEATURE_SW_DTRANS
 static Function *promoteArguments(Function *F, FunctionAnalysisManager &FAM,
                                   bool RemoveHomedArguments,
                                   unsigned MaxElements, bool &IsRecursive) {
+#endif // INTEL_FEATURE_SW_DTRANS
   RemoveHomedArguments |= ForceRemoveHomedArguments;
 #endif // INTEL_CUSTOMIZATION
   // Don't perform argument promotion for naked functions; otherwise we can end
@@ -1127,7 +1173,13 @@ static Function *promoteArguments(Function *F, FunctionAnalysisManager &FAM,
   if (NumArgsAfterPromote > TTI.getMaxNumArgs())
     return nullptr;
 
-  return doPromotion(F, FAM, ArgsToPromote, isCallback); // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  return doPromotion(F, FAM, ArgsToPromote, isCallback, DTransMDPropagator);
+#else // INTEL_FEATURE_SW_DTRANS
+  return doPromotion(F, FAM, ArgsToPromote, isCallback);
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 }
 
 PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
@@ -1142,6 +1194,12 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
     // the ability to do any argument promotion on pointer arguments in
     // recursive functions. We would like to restore that partially for xmain.
     SmallPtrSet<Function *, 4> RecursiveFunctions;
+
+#if INTEL_FEATURE_SW_DTRANS
+    // Set up an object that will handle the DTrans metadata and DTrans function
+    // attribute updating, if they are present on the function being converted.
+    dtransOP::DTransTypeMDArgPromoPropagator DTransMDPropagator;
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   // Iterate until we stop promoting from this SCC.
@@ -1157,9 +1215,14 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
 #if INTEL_CUSTOMIZATION
       if (RecursiveFunctions.count(&OldF))
         continue;
-
+#if INTEL_FEATURE_SW_DTRANS
+      Function *NewF =
+          promoteArguments(&OldF, FAM, RemoveHomedArguments, MaxElements,
+                           IsRecursive, &DTransMDPropagator);
+#else // INTEL_FEATURE_SW_DTRANS
       Function *NewF = promoteArguments(&OldF, FAM, RemoveHomedArguments,
                                         MaxElements, IsRecursive);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
       if (!NewF)

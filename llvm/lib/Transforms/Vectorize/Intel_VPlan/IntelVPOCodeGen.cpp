@@ -139,24 +139,6 @@ static bool requiresUnsupportedSVAFeatures(const VPInstruction *VInst,
          SVA->instNeedsLastScalarCode(VInst);
 }
 
-// Helper utility to convert aggregate extract/insert operation indices from
-// llvm::Constant to a vector of integers.
-static SmallVector<unsigned, 2>
-convertAggregateIndicesToIntVector(Constant *IdxsConst) {
-  SmallVector<unsigned, 2> Result;
-
-  // The indices are represented as a ConstantDataArray field in VPlan, hence
-  // the type will be an array.
-  unsigned NumElts = cast<ArrayType>(IdxsConst->getType())->getNumElements();
-  for (unsigned I = 0; I != NumElts; ++I) {
-    Constant *C = IdxsConst->getAggregateElement(I);
-    assert(C && "Unexpected nullptr for index.");
-    Result.push_back(cast<ConstantInt>(C)->getZExtValue());
-  }
-
-  return Result;
-}
-
 // Track if this private alloca is for an array (inscan) reduction variable.
 static bool isArrayReductionPrivate(VPAllocatePrivate *Priv) {
   Type *AllocTy = Priv->getAllocatedType();
@@ -322,19 +304,14 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     SerialInst = SerialAtomicCmpXchg;
     SerialInst->setName("serial.cmpxchg");
   } else if (VPInst->getOpcode() == Instruction::ExtractValue) {
-    assert(Ops.size() == 2 && "ExtractValue should have only two operands.");
-    // Second operand of extractvalue VPInstruction will be the array of
-    // indices.
-    auto *IdxConst = cast<Constant>(Ops[1]);
+    assert(Ops.size() == 1 && "ExtractValue should have only one operand.");
     SerialInst = Builder.CreateExtractValue(
-        Ops[0], convertAggregateIndicesToIntVector(IdxConst),
+        Ops[0], cast<VPInsertExtractValue>(VPInst)->getIndices(),
         "serial.extractvalue");
   } else if (VPInst->getOpcode() == Instruction::InsertValue) {
-    // Third operand of insertvalue VPInstruction will be the array of indices.
-    assert(Ops.size() == 3 && "InsertValue should have only three operands.");
-    auto *IdxConst = cast<Constant>(Ops[2]);
+    assert(Ops.size() == 2 && "InsertValue should have only two operands.");
     SerialInst = Builder.CreateInsertValue(
-        Ops[0], Ops[1], convertAggregateIndicesToIntVector(IdxConst),
+        Ops[0], Ops[1], cast<VPInsertExtractValue>(VPInst)->getIndices(),
         "serial.insertvalue");
   } else if (VPInst->getOpcode() == Instruction::ShuffleVector) {
     SerialInst = Builder.CreateShuffleVector(Ops[0], Ops[1], Ops[2]);
@@ -756,8 +733,15 @@ void VPOCodeGen::addMaskToSVMLCall(Function *OrigF, Value *CallMaskValue,
                                    bool IsDevice = false) {
   assert(CallMaskValue && "Expected mask to be present");
   auto *VecTy = cast<FixedVectorType>(VecArgTys[0]);
+  unsigned MaskNumElems = VecTy->getNumElements();
+  StringRef FnName = OrigF->getName();
+  // For calls transformed via arg repacking, the mask value should have VF
+  // elements not VF * num_args elements.
+  if (TLI->doesVectorFuncNeedArgRepacking(FnName))
+    MaskNumElems = VF;
+
   assert(
-      VecTy->getNumElements() ==
+      MaskNumElems ==
           cast<FixedVectorType>(CallMaskValue->getType())->getNumElements() &&
       "Re-vectorization of SVML functions is not supported yet");
 
@@ -770,7 +754,7 @@ void VPOCodeGen::addMaskToSVMLCall(Function *OrigF, Value *CallMaskValue,
     IntegerType *MaskElemTyExt = IntegerType::get(
         OrigF->getContext(), (IsDevice ? 32 : VecTy->getScalarSizeInBits()));
     VectorType *MaskTyExt =
-        VectorType::get(MaskElemTyExt, VecTy->getElementCount());
+        VectorType::get(MaskElemTyExt, MaskNumElems, false /*Scalable*/);
     Value *MaskValueExt = Builder.CreateSExt(CallMaskValue, MaskTyExt);
     VecArgTys.push_back(MaskTyExt);
     VecArgs.push_back(MaskValueExt);
@@ -787,7 +771,6 @@ void VPOCodeGen::addMaskToSVMLCall(Function *OrigF, Value *CallMaskValue,
     SmallVector<AttributeSet, 1> NewArgAttrs;
 
     Type *SourceTy = VecTy;
-    StringRef FnName = OrigF->getName();
     if (FnName == "sincos" || FnName == "sincosf")
       SourceTy = StructType::get(VecTy, VecTy);
 

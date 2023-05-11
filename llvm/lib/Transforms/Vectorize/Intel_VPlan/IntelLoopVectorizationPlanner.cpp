@@ -2477,12 +2477,8 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
     // Bailouts for complex type reductions.
     if (Red->isComplex()) {
       auto *RecTy = cast<StructType>(Red->getRecurrenceType());
-      // Recurrence struct type that represents complex type should have unique
-      // element type.
-      assert(RecTy->hasIdenticalElementTypes() &&
-             RecTy->getNumElements() == 2 &&
-             "Identical element type expected for complex type reduction "
-             "structs.");
+      assert(RecTy->isPossibleComplexFPType() &&
+             "Complex type expected for reduction");
       auto RecTySize = Plan.getDataLayout()->getTypeAllocSize(RecTy);
 
       // Based on the unique element type, compute size of the equivalent packed
@@ -2601,6 +2597,37 @@ bool LoopVectorizationPlanner::canLowerVPlan(const VPlanVector &Plan,
         LLVM_DEBUG(dbgs() << VPI << "\n");
         return false;
       }
+
+    // Check if a library call that needs argument repacking transform has only
+    // extractvalue users in VPlan. We can optimize this case to completely
+    // eliminate redundant usage of aggregate types in the loop.
+    if (auto *VPCall = dyn_cast<VPCallInstruction>(&VPI)) {
+      auto *CalledFn = VPCall->getCalledFunction();
+      if (!CalledFn)
+        continue;
+
+      // Check if call will be vectorized using vector library scenario.
+      if (VPCall->getVectorizationScenario() !=
+          VPCallInstruction::CallVecScenariosTy::LibraryFunc)
+        continue;
+
+      // Check if call needs argument repacking transform.
+      if (!TLI->doesVectorFuncNeedArgRepacking(CalledFn->getName()))
+        continue;
+
+      // Check that all users of this call are extractvalue instructions.
+      if (!all_of(VPCall->users(), [](VPUser *U) {
+            return isa<VPInstruction>(U) &&
+                   cast<VPInstruction>(U)->getOpcode() ==
+                       Instruction::ExtractValue;
+          })) {
+        bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+                "Argument repacking call has non-optimizable aggregate "
+                "operations.");
+        LLVM_DEBUG(dbgs() << VPI << "\n");
+        return false;
+      }
+    }
   }
 
   // All checks passed.

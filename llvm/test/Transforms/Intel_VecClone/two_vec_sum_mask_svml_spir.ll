@@ -34,8 +34,8 @@ define float @__svml_device_add(float %i, float %j) #0 {
 ; CHECK-NEXT:    [[VEC_J_CAST0:%.*]] = bitcast <4 x float>* [[VEC_J0]] to float*
 ; CHECK-NEXT:    store <4 x float> [[J0]], <4 x float>* [[VEC_J0]], align 16
 ; CHECK-NEXT:    [[MASK_CAST0:%.*]] = bitcast <4 x i32>* [[VEC_MASK0]] to i32*
-; CHECK-NEXT:    [[RET_CAST0:%.*]] = bitcast <4 x float>* [[VEC_RETVAL0]] to float*
 ; CHECK-NEXT:    store <4 x i32> [[MASK0]], <4 x i32>* [[VEC_MASK0]], align 16
+; CHECK-NEXT:    [[RET_CAST0:%.*]] = bitcast <4 x float>* [[VEC_RETVAL0]] to float*
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:

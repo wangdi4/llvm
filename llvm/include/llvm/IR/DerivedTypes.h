@@ -364,8 +364,25 @@ public:
     if (isOpaque())
       return false;
 
+    // Empty structs have no element types.
+    if (getNumElements() == 0)
+      return false;
+
     Type *BaseTy = getElementType(0);
     return all_of(elements(), [BaseTy](Type *T) { return T == BaseTy; });
+  }
+
+  /// Return true if this struct type possibly represents a complex type. FP
+  /// Complex type can be represented in LLVM-IR as {float, float} or {double,
+  /// double}.
+  bool isPossibleComplexFPType() const {
+    if (getNumElements() != 2)
+      return false;
+
+    if (!hasIdenticalElementTypes())
+      return false;
+
+    return getElementType(0)->isFloatTy() || getElementType(0)->isDoubleTy();
   }
 #endif // INTEL_CUSTOMIZATION
 

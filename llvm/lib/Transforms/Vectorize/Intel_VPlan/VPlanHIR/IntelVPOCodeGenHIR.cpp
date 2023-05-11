@@ -526,6 +526,7 @@ private:
   bool VectorizableCallSeen;
   unsigned LoopLevel;
   VPOCodeGenHIR *CG;
+  SmallPtrSet<RegDDRef *, 2> ArgRepackCallRefs = {};
 
   void visitRegDDRef(RegDDRef *RegDD);
   void visitCanonExpr(CanonExpr *CExpr, bool InMemRef, bool InMaskedStmt);
@@ -698,6 +699,13 @@ void HandledCheck::visit(HLDDNode *Node) {
         return;
       }
 
+      // Capture calls that will be optimized by VPlan using argument repacking
+      // feature.
+      if (TLI->isFunctionVectorizable(*Call,
+                                      ElementCount::getFixed(2) /*DummyVF*/))
+        if (TLI->doesVectorFuncNeedArgRepacking(CalledFunc))
+          ArgRepackCallRefs.insert(Inst->getLvalDDRef());
+
       if (!CG->isIgnoredCall(Call))
         VectorizableCallSeen = true;
     }
@@ -729,12 +737,26 @@ void HandledCheck::visit(HLDDNode *Node) {
 void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
 
   bool NodeIsCall = false;
-  if (auto *Inst = dyn_cast<HLInst>(RegDD->getHLDDNode()))
+  bool NodeIsExtractValUserOfArgRepackCall = false;
+  if (auto *Inst = dyn_cast<HLInst>(RegDD->getHLDDNode())) {
     NodeIsCall = Inst->isCallInst();
 
-  // Call serialization is supported by CG, so don't check for non-vectorizable
-  // types for calls.
-  if (!NodeIsCall && !isVectorizableTy(RegDD->getDestType())) {
+    if (Inst->getLLVMInstruction()->getOpcode() == Instruction::ExtractValue) {
+      RegDDRef *FromOp = Inst->getOperandDDRef(1);
+      DDRefUtils &DDU = OrigLoop->getDDRefUtils();
+      if (any_of(ArgRepackCallRefs, [FromOp, &DDU](RegDDRef *Ref) {
+            return DDU.areEqual(Ref, FromOp);
+          }))
+        NodeIsExtractValUserOfArgRepackCall = true;
+    }
+  }
+
+  // Following are cases where check for non-vectorizable types can be relaxed -
+  // 1. Calls - CG supports call serialization
+  // 2. extractvalue users of argument repacked calls - the VPlan transform
+  // ensures aggregate operations are replaced with vector operations instead.
+  if (!NodeIsCall && !NodeIsExtractValUserOfArgRepackCall &&
+      !isVectorizableTy(RegDD->getDestType())) {
     DEBUG_WITH_TYPE("VPOCGHIR-bailout", RegDD->dump(); dbgs() << "\n");
     DEBUG_WITH_TYPE("VPOCGHIR-bailout", RegDD->getDestType()->dump());
     IsHandled = false;
@@ -1610,6 +1632,11 @@ void VPOCodeGenHIR::replaceLibCallsInScalarLoop(HLInst *HInst) {
 
   // Check to see if the call was library vectorized in the main loop.
   if (VectorizedLibraryCalls.count(Call)) {
+    // Skip calls transformed via argument repacking feature.
+    // TODO: Extend this utility to support arg repacked calls.
+    if (TLI->doesVectorFuncNeedArgRepacking(FnName))
+      return;
+
     assert(TLI->isFunctionVectorizable(FnName, ElementCount::getFixed(MaxVF)) &&
            "non-vectorizable call vectorized in main loop?");
     // SVML provides VL = 1 variant of vector functions for usage in remainder
@@ -2665,7 +2692,13 @@ void VPOCodeGenHIR::addMaskToSVMLCall(
     SmallVectorImpl<RegDDRef *> &VecArgs, SmallVectorImpl<Type *> &VecArgTys,
     SmallVectorImpl<AttributeSet> &VecArgAttrs, RegDDRef *MaskValue) {
   assert(MaskValue && "Expected mask to be present");
-  VectorType *VecTy = cast<VectorType>(VecArgTys[0]);
+  auto *VecTy = cast<FixedVectorType>(VecArgTys[0]);
+  unsigned MaskNumElems = VecTy->getNumElements();
+  StringRef FnName = OrigF->getName();
+  // For calls transformed via arg repacking, the mask value should have VF
+  // elements not VF * num_args elements.
+  if (TLI->doesVectorFuncNeedArgRepacking(FnName))
+    MaskNumElems = VF;
 
   if (VecTy->getPrimitiveSizeInBits().getFixedValue() < 512) {
     // For 128-bit and 256-bit masked calls, mask value is appended to the
@@ -2674,7 +2707,7 @@ void VPOCodeGenHIR::addMaskToSVMLCall(
     //  %sin.vec = call <4 x float> @__svml_sinf4_mask(<4 x float>, <4 x i32>)
     VectorType *MaskTyExt =
         VectorType::get(IntegerType::get(Context, VecTy->getScalarSizeInBits()),
-                        VecTy->getElementCount());
+                        MaskNumElems, false /*Scalable*/);
     HLInst *MaskValueExt =
         HLNodeUtilities.createSExt(MaskTyExt, MaskValue->clone());
     addInst(MaskValueExt, nullptr);
@@ -2693,7 +2726,6 @@ void VPOCodeGenHIR::addMaskToSVMLCall(
     SmallVector<AttributeSet, 1> NewArgAttrs;
 
     Type *SourceTy = VecTy;
-    StringRef FnName = OrigF->getName();
     if (FnName == "sincos" || FnName == "sincosf")
       SourceTy = StructType::get(VecTy, VecTy);
 
