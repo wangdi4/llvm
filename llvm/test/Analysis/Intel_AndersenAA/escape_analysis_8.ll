@@ -1,10 +1,6 @@
 ; RUN: opt < %s -passes='require<anders-aa>' -print-non-escape-candidates -disable-output 2>&1 | grep "foo." | count 2
 ; RUN: opt < %s -passes=convert-to-subscript -S | opt -passes='require<anders-aa>' -print-non-escape-candidates -disable-output 2>&1 | grep "foo." | count 2
 
-; CMPLRLLVM-46466: Test fails after conversion to opaque pointers.
-; CMPLRLLVM-47271 created to track issue.
-; XFAIL: *
-
 ; Non-Escape-Static-Vars_Begin
 ; foo.fooBuf<mem>
 ; foo.init<mem>
