@@ -25,6 +25,7 @@
 ; CHECK: BaseF: GetVirtualPixelsFromNexus
 ; CHECK: WrapperF: GetOneCacheViewVirtualPixel
 ; CHECK: BigLoopF: MeanShiftImage
+; CHECK: MRC Predicate: DidPDSE : T
 ; CHECK: MRC Predicate: OptF: MeanShiftImage.bb123.1
 ; CHECK: MRC Predicate: NoOptF: MeanShiftImage.bb123
 ; CHECK: MRC Predicate: OptWrapperF : GetOneCacheViewVirtualPixel.2
@@ -101,6 +102,27 @@
 ; CHECK: [[L2]]:
 
 ; This is the non-predicate optimized version.
+; CHECK-LABEL: define internal i32 @GetOneCacheViewVirtualPixel(
+; CHECK: %[[Y0:[A-Za-z0-9]+]] = tail call ptr @GetVirtualPixelsFromNexus(
+; CHECK: %[[Y1:[A-Za-z0-9]+]] = icmp eq ptr %[[Y0]], null
+; CHECK: br i1 %[[Y1]], label %[[LY0:[A-Za-z0-9]+]], label %[[LY1:[A-Za-z0-9]+]]
+; CHECK: [[LY1]]:
+; CHECK: store i16
+; CHECK: store i16
+; CHECK: store i16
+; CHECK: store i16
+; CHECK: br label %[[LY2:[A-Za-z0-9]+]]
+; CHECK: [[LY2]]:
+; CHECK: %[[Y2:[A-Za-z0-9]+]] = phi i32 [ 1, %[[LY1]] ], [ 0, %[[LY3:[A-Za-z0-9]+]] ]
+; CHECK: ret i32 %[[Y2]]
+; CHECK: [[LY3]]:
+; CHECK: store i16
+; CHECK: store i16
+; CHECK: store i16
+; CHECK: store i16
+; CHECK: br label %[[LY2]]
+
+; This is the non-predicate optimized version.
 ; CHECK-LABEL: define internal {{.*}} @GetVirtualPixelsFromNexus(
 ; CHECK: load ptr, ptr {{.*}} !predicate-opt-data ![[P0:[0-9]+]]
 ; CHECK: tail call ptr @AcquirePixelCacheNexus
@@ -108,14 +130,30 @@
 ; This is the non-predicate optimized version.
 ; CHECK-LABEL: define internal void @MeanShiftImage.bb123(
 ; CHECK: call i32 @GetOneCacheViewVirtualPixel(
-
 ; This is the predicate optimized version.
 ; CHECK-LABEL: define internal void @MeanShiftImage.bb123.1(
 ; CHECK: call i32 @GetOneCacheViewVirtualPixel.2(
 
 ; This is the predicate optimized version.
 ; CHECK-LABEL: define internal i32 @GetOneCacheViewVirtualPixel.2(
-; CHECK: tail call ptr @GetVirtualPixelsFromNexus.3(
+; CHECK: %[[Z0:[A-Za-z0-9]+]] = tail call ptr @GetVirtualPixelsFromNexus.3(
+; CHECK: %[[Z1:[A-Za-z0-9]+]] = icmp eq ptr %[[Z0]], null
+; CHECK: br i1 %[[Z1]], label %[[LZ0:[A-Za-z0-9]+]], label %[[LZ1:[A-Za-z0-9]+]]
+; CHECK: [[LZ1]]:
+; CHECK: store i16
+; CHECK: store i16
+; CHECK: store i16
+; CHECK: store i16
+; CHECK: br label %[[LZ2:[A-Za-z0-9]+]]
+; CHECK: [[LZ2]]:
+; CHECK: %[[Z2:[A-Za-z0-9]+]] = phi i32 [ 1, %[[LZ1]] ], [ 0, %[[LZ3:[A-Za-z0-9]+]] ]
+; CHECK: ret i32 %[[Z2]]
+; CHECK: [[LZ3]]:
+; CHECK: store i16
+; CHECK: store i16
+; CHECK: store i16
+; CHECK: store i16
+; CHECK: br label %[[LZ2]]
 
 ; This is the predicate optimized version.
 ; CHECK-LABEL: define internal {{.*}} ptr @GetVirtualPixelsFromNexus.3(
