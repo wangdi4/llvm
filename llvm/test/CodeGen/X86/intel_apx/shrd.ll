@@ -9,9 +9,7 @@ declare i64 @llvm.fshr.i64(i64 %a, i64 %b, i64 %cl)
 define i16 @shrd16rrcl(i16 noundef %a, i16 noundef %b, i8 %cl) {
 ; CHECK-LABEL: shrd16rrcl:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    movl %edx, %ecx
-; CHECK-NEXT:    andb $15, %cl
-; CHECK-NEXT:    # kill: def $cl killed $cl killed $ecx
+; CHECK-NEXT:    andb $15, %dl, %cl
 ; CHECK-NEXT:    shrdw %cl, %di, %si, %ax
 ; CHECK-NEXT:    retq
 entry:
@@ -79,10 +77,8 @@ entry:
 define i16 @shrd16mrcl(ptr %ptr, i16 noundef %b, i8 %cl) {
 ; CHECK-LABEL: shrd16mrcl:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    movl %edx, %ecx
 ; CHECK-NEXT:    movzwl (%rdi), %eax
-; CHECK-NEXT:    andb $15, %cl
-; CHECK-NEXT:    # kill: def $cl killed $cl killed $ecx
+; CHECK-NEXT:    andb $15, %dl, %cl
 ; CHECK-NEXT:    shrdw %cl, %ax, %si, %ax
 ; CHECK-NEXT:    retq
 entry:
