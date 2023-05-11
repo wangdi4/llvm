@@ -51,6 +51,7 @@
 #include "llvm/Support/SmallVectorMemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include <cerrno>
 #include <map>
 
 #if !defined(_MSC_VER) && !defined(__MINGW32__)
