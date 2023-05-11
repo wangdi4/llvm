@@ -102,8 +102,8 @@ Plugin Common
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code-block:: rst
 
-  <Name> := LEVEL0 | OPENCL | CUDA | X86_64 | NIOS2 |
-            level0 | opencl | cuda | x86_64 | nios2
+  <Name> := LEVEL_ZERO | LEVEL0 | OPENCL | X86_64 |
+            level_zero | level0 | opencl | x86_64
 
 Designates offload plugin name to use.
 Offload runtime does not try to load other RTLs if this option is used.
@@ -236,13 +236,18 @@ This is mostly for experimental purposes.
 Plugin LevelZero
 ----------------
 
-``LIBOMPTARGET_LEVEL0_COMPILATION_OPTIONS=<Options>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``LIBOMPTARGET_LEVEL_ZERO_COMPILATION_OPTIONS=<Options>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Passes ``<Options>`` when building native target program binaries.
 ``<Options>`` may include valid OpenCL/Level Zero build options.
 
-``LIBOMPTARGET_LEVEL0_MATCH_SINCOSPI=<Disable>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``LIBOMPTARGET_LEVEL0_COMPILATION_OPTIONS=<Options>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This variable is being deprecated.
+Use ``LIBOMPTARGET_LEVEL_ZERO_COMPILATION_OPTIONS`` instead.
+
+``LIBOMPTARGET_LEVEL_ZERO_MATCH_SINCOSPI=<Disable>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code-block:: rst
 
   <Disable> := 0 | F | f
@@ -252,8 +257,13 @@ binaries.
 
 **Default**: Enabled
 
-``LIBOMPTARGET_LEVEL0_USE_DRIVER_GROUP_SIZES=<Enable>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``LIBOMPTARGET_LEVEL0_MATCH_SINCOSPI=<Disable>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This variable is being deprecated.
+Use ``LIBOMPTARGET_LEVEL_ZERO_MATCH_SINCOSPI`` instead.
+
+``LIBOMPTARGET_LEVEL_ZERO_USE_DRIVER_GROUP_SIZES=<Enable>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code-block:: rst
 
   <Enable> := 1 | T | t
@@ -262,6 +272,11 @@ Enables using local work size (i.e., team size) suggested by Level Zero
 runtime.
 
 **Default**: Disabled
+
+``LIBOMPTARGET_LEVEL0_USE_DRIVER_GROUP_SIZES=<Enable>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This variable is being deprecated.
+Use ``LIBOMPTARGET_LEVEL_ZERO_USE_DRIVER_GROUP_SIZES`` instead.
 
 ``LIBOMPTARGET_DEVICES=<DeviceKind>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -290,8 +305,8 @@ and is being deprecated.
 
 **Default**: Equivalent to ``<DeviceKind>=device``
 
-``LIBOMPTARGET_LEVEL0_MEMORY_POOL=<Option>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``LIBOMPTARGET_LEVEL_ZERO_MEMORY_POOL=<Option>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code-block:: rst
 
   <Option>       := 0 | <PoolInfoList>
@@ -313,8 +328,13 @@ be disabled by specifying 0 for ``<AllocMax>`` for the memory type.
 
 **Default**: Equivalent to ``<Option>=device,1,4,256,host,1,4,256,shared,8,4,256``
 
-``LIBOMPTARGET_LEVEL0_USE_COPY_ENGINE=<Value>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``LIBOMPTARGET_LEVEL0_MEMORY_POOL=<Option>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This variable is being deprecated.
+Use ``LIBOMPTARGET_LEVEL_ZERO_MEMORY_POOL`` instead.
+
+``LIBOMPTARGET_LEVEL_ZERO_USE_COPY_ENGINE=<Value>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code-block:: rst
 
   <Value>   := <Disable> | <Type>
@@ -330,8 +350,13 @@ Controls how to use copy engines for data transfer if device supports.
 
 **Default**: all
 
-``LIBOMPTARGET_LEVEL0_DEFAULT_TARGET_MEM=<MemType>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``LIBOMPTARGET_LEVEL0_USE_COPY_ENGINE=<Value>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This variable is being deprecated.
+Use ``LIBOMPTARGET_LEVEL_ZERO_USE_COPY_ENGINE`` instead.
+
+``LIBOMPTARGET_LEVEL_ZERO_DEFAULT_TARGET_MEM=<MemType>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code-block:: rst
 
   <MemType> := DEVICE | HOST | SHARED | device | host | shared
@@ -340,12 +365,22 @@ Decides memory type returned by ``omp_target_alloc`` routine.
 
 **Default**: device
 
-``LIBOMPTARGET_LEVEL0_SUBSCRIPTION_RATE=<Num>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``LIBOMPTARGET_LEVEL0_DEFAULT_TARGET_MEM=<MemType>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This variable is being deprecated.
+Use ``LIBOMPTARGET_LEVEL_ZERO_DEFAULT_TARGET_MEM`` instead.
+
+``LIBOMPTARGET_LEVEL_ZERO_SUBSCRIPTION_RATE=<Num>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Sets over-subscription parameter that is used when computing the team
 size/counts for a target region.
 
 **Default**: 4
+
+``LIBOMPTARGET_LEVEL0_SUBSCRIPTION_RATE=<Num>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This variable is being deprecated.
+Use ``LIBOMPTARGET_LEVEL_ZERO_SUBSCRIPTION_RATE`` instead.
 
 ``LIBOMPTARGET_ONEAPI_REDUCTION_SUBSCRIPTION_RATE=<Num>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -355,19 +390,24 @@ counts for a target region that requires cross-team reduction updates.
   <Num> is a number greater than or equal to 0.
 
 '0' disables special handling for kernels with reductions, so
-``LIBOMPTARGET_LEVEL0_SUBSCRIPTION_RATE`` takes the effect.
+``LIBOMPTARGET_LEVEL_ZERO_SUBSCRIPTION_RATE`` takes the effect.
 
 **Default**: 8 for discrete devices, 1 for non-discrete devices or/and
 for kernels that use atomic-free reductions.
 
-``LIBOMPTARGET_LEVEL0_STAGING_BUFFER_SIZE=<Num>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``LIBOMPTARGET_LEVEL_ZERO_STAGING_BUFFER_SIZE=<Num>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Sets the staging buffer size to ``<Num>`` KB.
 Staging buffer is used in copy operations between host and device as a
 temporary storage for two-step copy operation. The buffer is only used for
 discrete devices.
 
 **Default**: 16
+
+``LIBOMPTARGET_LEVEL0_STAGING_BUFFER_SIZE=<Num>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This variable is being deprecated.
+Use ``LIBOMPTARGET_LEVEL_ZERO_STAGING_BUFFER_SIZE`` instead.
 
 ``LIBOMPTARGET_LEVEL_ZERO_COMMAND_BATCH=<Value>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

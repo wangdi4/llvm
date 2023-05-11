@@ -236,47 +236,33 @@ void RTLsTy::loadRTLs() {
   DP("Loading RTLs...\n");
 
 #if INTEL_COLLAB
+
+#if _WIN32
+#define GET_RTL_NAME(Name) "omptarget.rtl." #Name ".dll"
+#else
+#define GET_RTL_NAME(Name) "libomptarget.rtl." #Name ".so"
+#endif
+
   // Only check a single plugin if specified by user
   std::vector<const char *> RTLChecked;
-  if (char *envStr = getenv("LIBOMPTARGET_PLUGIN")) {
-    std::string PlugInName(envStr);
+  if (char *EnvStr = getenv("LIBOMPTARGET_PLUGIN")) {
+    std::string PlugInName(EnvStr);
     if (PlugInName == "OPENCL" || PlugInName == "opencl") {
-#if _WIN32
-      RTLChecked.push_back("omptarget.rtl.opencl.dll");
-#else
-      RTLChecked.push_back("libomptarget.rtl.opencl.so");
-#endif
+      RTLChecked.push_back(GET_RTL_NAME(opencl));
 #if INTEL_CUSTOMIZATION
     } else if (PlugInName == "LEVEL0" || PlugInName == "level0" ||
                PlugInName == "LEVEL_ZERO" || PlugInName == "level_zero") {
-#if _WIN32
-      RTLChecked.push_back("omptarget.rtl.level0.dll");
-#else
-      RTLChecked.push_back("libomptarget.rtl.level0.so");
-#endif
+      RTLChecked.push_back(GET_RTL_NAME(level0));
 #if OMPTARGET_UNIFIED_RUNTIME_BUILD
     } else if (PlugInName == "UNIFIED_RUNTIME" ||
                PlugInName == "unified_runtime") {
-#if _WIN32
-// TODO
-#else
-      RTLChecked.push_back("libomptarget.rtl.unified_runtime.so");
-#endif
+      RTLChecked.push_back(GET_RTL_NAME(unified_runtime));
 #endif // OMPTARGET_UNIFIED_RUNTIME_BUILD
 #endif // INTEL_CUSTOMIZATION
-    } else if (PlugInName == "CUDA" || PlugInName == "cuda") {
-      RTLChecked.push_back("libomptarget.rtl.cuda.so");
     } else if (PlugInName == "X86_64" || PlugInName == "x86_64") {
-#if _WIN32
-      RTLChecked.push_back("omptarget.rtl.x86_64.dll");
-#else
-      RTLChecked.push_back("libomptarget.rtl.x86_64.so");
-#endif
-    } else if (PlugInName == "NIOS2" || PlugInName == "nios2") {
-      RTLChecked.push_back("libomptarget.rtl.nios2.so");
-    // TODO: any other plugins to be listed here?
+      RTLChecked.push_back(GET_RTL_NAME(x86_64));
     } else {
-      DP("Unknown plugin name '%s'\n", envStr);
+      DP("Unknown plugin name '%s'\n", EnvStr);
     }
   }
   // Use the whole list by default
@@ -296,19 +282,16 @@ void RTLsTy::loadRTLs() {
     DP("Checking user-specified plugin '%s'...\n", RTLChecked[0]);
   }
 
+#undef GET_RTL_NAME
+
   for (auto *Name : RTLChecked) {
     AllRTLs.emplace_back();
-
     RTLInfoTy &RTL = AllRTLs.back();
-
     const std::string BaseRTLName(Name);
-
 #ifdef OMPTARGET_DEBUG
-  RTL.RTLName = Name;
+    RTL.RTLName = Name;
 #endif
-#if INTEL_COLLAB
     RTL.RTLConstName = Name;
-#endif  // INTEL_COLLAB
 
     if (!attemptLoadRTL(BaseRTLName, RTL))
 #else // INTEL_COLLAB

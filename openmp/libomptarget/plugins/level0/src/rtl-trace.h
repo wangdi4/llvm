@@ -37,7 +37,7 @@
 #define STR(x) #x
 #define TO_STRING(x) STR(x)
 
-#define TARGET_NAME LEVEL0
+#define TARGET_NAME LEVEL_ZERO
 #define DEBUG_PREFIX "Target " GETNAME(TARGET_NAME) " RTL"
 
 extern int DebugLevel;
