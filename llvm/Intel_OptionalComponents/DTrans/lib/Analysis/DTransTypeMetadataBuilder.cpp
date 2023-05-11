@@ -1,6 +1,6 @@
 //===-------DTransTypeMetadataBuilder.cpp --Builder for DTrans metadata ---===//
 //
-// Copyright (C) 2022-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2022-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -36,10 +36,6 @@ void DTransTypeMetadataBuilder::addDTransMDNode(Value &V, MDNode *MD) {
 void DTransTypeMetadataBuilder::setDTransFuncMetadata(
     Function *F, DTransFunctionType *FnType) {
 
-  auto RemoveDTransFuncIndexAttribute = [](Function *F, unsigned Index) {
-    F->removeAttributeAtIndex(Index, DTransFuncIndexTag);
-  };
-
   // Add a DTrans function index attribute to 'F' if 'Ty' requires an attribute
   // because it refers to a pointer type, and update the MDTypeList with the
   // metadata reference to add to the function. 'Index' is used to specify the
@@ -48,22 +44,19 @@ void DTransTypeMetadataBuilder::setDTransFuncMetadata(
                                  SmallVectorImpl<Metadata *> &MDTypeList) {
     if (hasPointerType(Ty)) {
       Metadata *RetMD = Ty->createMetadataReference();
-      MDTypeList.push_back(RetMD);
-      // Attribute numbering starts with 1.
-      unsigned AttrNumber = MDTypeList.size();
-      std::string Label = std::to_string(AttrNumber);
-      Attribute Attr =
-          Attribute::get(F->getContext(), DTransFuncIndexTag, Label);
-      F->addAttributeAtIndex(Index, Attr);
+      DTransTypeAttributeUtil::AddDTransFuncIndexAttribute(F, RetMD, Index,
+                                                           MDTypeList);
     }
   };
 
   // Clear any existing DTrans attributes for the function
   F->setMetadata(DTransFuncTypeMDTag, nullptr);
-  RemoveDTransFuncIndexAttribute(F, AttributeList::ReturnIndex);
+  DTransTypeAttributeUtil::RemoveDTransFuncIndexAttribute(
+      F, AttributeList::ReturnIndex);
   unsigned NumArgs = F->arg_size();
   for (unsigned ArgIdx = 0; ArgIdx < NumArgs; ++ArgIdx)
-    RemoveDTransFuncIndexAttribute(F, AttributeList::FirstArgIndex + ArgIdx);
+    DTransTypeAttributeUtil::RemoveDTransFuncIndexAttribute(
+        F, AttributeList::FirstArgIndex + ArgIdx);
 
   if (!FnType)
     return;
@@ -135,6 +128,33 @@ MDTuple *DTransTypeMetadataBuilder::createLiteralStructMetadata(
     FieldEncodings.push_back(TypeNode);
   MDTuple *LiteralMD = MDTuple::get(Ctx, FieldEncodings);
   return LiteralMD;
+}
+
+uint64_t DTransTypeAttributeUtil::GetMetadataIndex(AttributeSet &Attrs) {
+  Attribute Attr = Attrs.getAttribute(DTransFuncIndexTag);
+  if (Attr.isValid()) {
+    StringRef TagName = Attr.getValueAsString();
+    uint64_t Index = stoi(TagName.str());
+    assert(Index >= 1 && "Expected 1 based indexing");
+    return Index;
+  }
+
+  return 0;
+}
+
+void DTransTypeAttributeUtil::RemoveDTransFuncIndexAttribute(Function *F,
+                                                             unsigned Index) {
+  F->removeAttributeAtIndex(Index, DTransFuncIndexTag);
+}
+
+void DTransTypeAttributeUtil::AddDTransFuncIndexAttribute(
+    Function *F, Metadata *MD, unsigned Index,
+    SmallVectorImpl<Metadata *> &MDTypeList) {
+  MDTypeList.push_back(MD);
+  unsigned AttrNumber = MDTypeList.size();
+  std::string Label = std::to_string(AttrNumber);
+  Attribute Attr = Attribute::get(F->getContext(), DTransFuncIndexTag, Label);
+  F->addAttributeAtIndex(Index, Attr);
 }
 
 } // end namespace dtransOP

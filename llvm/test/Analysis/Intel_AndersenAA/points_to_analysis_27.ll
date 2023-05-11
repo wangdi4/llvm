@@ -4,10 +4,6 @@
 ; RUN: opt < %s -passes='require<anders-aa>' -print-anders-points-to -disable-output 2>&1 | FileCheck %s
 ; CHECK:  pr<mem>        --> ({{[0-9a-f]+}}): foo:call
 
-; CMPLRLLVM-46466: Test fails after conversion to opaque pointers.
-; CMPLRLLVM-47271 created to track issue.
-; XFAIL: *
-
 @pr = internal global ptr null, align 8
 @temp = internal global ptr null, align 8
 

@@ -1,6 +1,6 @@
 //===----DTransTypeMetadataPropagator.h - DTrans metadata propagation------===//
 //
-// Copyright (C) 2022-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2022-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -27,6 +27,7 @@ class AllocaInst;
 class GlobalVariable;
 class DataLayout;
 class MDNode;
+class Function;
 class Module;
 class StructType;
 class Type;
@@ -113,6 +114,65 @@ private:
   bool Initialized = false;
   bool DTransTypeMetadataAvailable = false;
   MapVector<llvm::StructType *, MDNode *> StructToMDDescriptor;
+};
+
+// Helper class that can retrieve the metadata node that describes a structure
+// field type within the metadata node that describes a structure type. This is
+// used during metadata propagation for argument promotion where a function is
+// changed to take a field of a structure which is passed to a function instead
+// of a pointer to the complete structure. This is meant to be used as a
+// lightweight method of propagating the metadata without having to parse all
+// the DTrans type metadata which requires having to build all the DTransTypes
+// objects.
+class DTransMDFieldNodeRetriever {
+public:
+  MDNode *GetNodeForField(Function *F, llvm::StructType *STy,
+                          uint32_t FieldNum);
+
+private:
+  void ParseAllTypesTag(Module *M);
+
+  // Module that this object has parse the named DTrans type metadata node for.
+  Module *InitializedM = nullptr;
+  MapVector<StructType *, MDNode *> TypeToMDDescriptor;
+};
+
+// Helper class used to set up the DTrans metadata and attributes on a function
+// during the argument promotion transformation when that transformation changes
+// a function parameter from being a pointer to a structure to being a pointer
+// to one of fields within the structure instead.
+class DTransTypeMDArgPromoPropagator {
+public:
+  // This class stores information about the current function being processed by
+  // argument promotion, and must be initialized at the start of each new
+  // function processed.
+  void initialize(Function *F);
+
+  // Checks whether the original argument was a pointer to a structure type,
+  // based on the DTrans type metadata, and checks whether the new argument is a
+  // field member of a structure that will need DTrans type metadata.
+  void addArg(llvm::Type *NewArgTy, uint32_t OrigArgNo, uint32_t NewArgNo,
+              uint32_t ByteOffset);
+
+  // Updates the DTrans type metadata on the new function based on the
+  // information collected by the calls to 'addArg'.
+  void setMDAttributes(Function *NF);
+
+private:
+  DTransMDFieldNodeRetriever Retriever;
+
+  // These members must be reinitialized each time a new IR function is
+  // processed.
+  struct PerFunction {
+    Function *F;
+
+    // The existing !intel.dtrans.func.type tag, if one exists.
+    MDNode *MDTypeListNode;
+
+    // List of parameter numbers and the MDNode* to add for DTrans type metadata
+    // attributes once the new function signature is created.
+    SmallVector<std::pair<uint32_t, MDNode *>, 8> DTransMDAttrs;
+  } PerFunction;
 };
 
 } // end namespace dtransOP

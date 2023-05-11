@@ -83,8 +83,8 @@ attributes #0 = { "vector-variants"="_ZGVeM16v_foo_sg,_ZGVeN16v_foo_sg,_ZGVeM8v_
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} bitcast
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} store
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} bitcast
-; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} bitcast
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} store
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} bitcast
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} trunc
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} call
@@ -129,8 +129,8 @@ attributes #0 = { "vector-variants"="_ZGVeM16v_foo_sg,_ZGVeN16v_foo_sg,_ZGVeM8v_
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} bitcast
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} store
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} bitcast
-; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} bitcast
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} store
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} bitcast
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} trunc
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} call

@@ -45,8 +45,8 @@ attributes #0 = { "vector-variants"="_ZGVeM4_foo,_ZGVeN4_foo" }
 ; DEBUGIFY:      WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} alloca
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} alloca
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} bitcast
-; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} bitcast
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} store
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} bitcast
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} trunc
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} call
