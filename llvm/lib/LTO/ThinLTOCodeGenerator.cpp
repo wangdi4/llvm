@@ -508,11 +508,6 @@ ProcessThinLTOModule(Module &TheModule, ModuleSummaryIndex &Index,
                      bool Freestanding, unsigned OptLevel, unsigned count,
                      bool UseNewPM, // INTEL
                      bool DebugPassManager) {
-  // See comment at call to updateVCallVisibilityInIndex() for why
-  // WholeProgramVisibilityEnabledInLTO is false.
-  updatePublicTypeTestCalls(TheModule,
-                            /* WholeProgramVisibilityEnabledInLTO */ false);
-
   // "Benchmark"-like optimization: single-source case
   bool SingleModule = (ModuleMap.size() == 1);
 
@@ -543,13 +538,18 @@ ProcessThinLTOModule(Module &TheModule, ModuleSummaryIndex &Index,
   // Save internalized bitcode
   saveTempBitcode(TheModule, SaveTempsDir, count, ".2.internalized.bc");
 
-  if (!SingleModule) {
+  if (!SingleModule)
     crossImportIntoModule(TheModule, Index, ModuleMap, ImportList,
                           ClearDSOLocalOnDeclarations);
 
-    // Save temps: after cross-module import.
-    saveTempBitcode(TheModule, SaveTempsDir, count, ".3.imported.bc");
-  }
+  // Do this after any importing so that imported code is updated.
+  // See comment at call to updateVCallVisibilityInIndex() for why
+  // WholeProgramVisibilityEnabledInLTO is false.
+  updatePublicTypeTestCalls(TheModule,
+                            /* WholeProgramVisibilityEnabledInLTO */ false);
+
+  // Save temps: after cross-module import.
+  saveTempBitcode(TheModule, SaveTempsDir, count, ".3.imported.bc");
 
 #if INTEL_CUSTOMIZATION
   if (UseNewPM)
