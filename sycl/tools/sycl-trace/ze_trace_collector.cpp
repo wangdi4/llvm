@@ -21,9 +21,10 @@
 #include <string_view>
 #include <thread>
 
-#define COLLECTOR_EXPORT_API __attribute__((__visibility__("default")))
+extern sycl::detail::SpinLock GlobalLock;
 
-int IndentationLevel = 0;
+extern bool HasZEPrinter;
+extern bool HasPIPrinter;
 
 enum class ZEApiKind {
 #define _ZE_API(call, domain, cb, params_type) call,
@@ -245,16 +246,14 @@ static std::string getResult(ze_result_t Res) {
   return ResultStr;
 }
 
-extern "C" {
-
-COLLECTOR_EXPORT_API void callback(uint16_t TraceType,
-                                   xpti::trace_event_data_t * /*Parent*/,
-                                   xpti::trace_event_data_t * /*Event*/,
-                                   uint64_t /*Instance*/,
-                                   const void *UserData) {
+XPTI_CALLBACK_API void zeCallback(uint16_t TraceType,
+                                  xpti::trace_event_data_t * /*Parent*/,
+                                  xpti::trace_event_data_t * /*Event*/,
+                                  uint64_t /*Instance*/, const void *UserData) {
+  std::lock_guard<sycl::detail::SpinLock> _{GlobalLock};
   const auto *Data = static_cast<const xpti::function_with_args_t *>(UserData);
   const auto PrintPrefix = [] {
-    if (IndentationLevel)
+    if (HasPIPrinter)
       std::cout << "*  ";
   };
   if (TraceType == xpti::trace_function_with_args_begin) {
@@ -294,7 +293,7 @@ COLLECTOR_EXPORT_API void callback(uint16_t TraceType,
       break; // unknown API
     }
 
-    if (IndentationLevel) {
+    if (HasPIPrinter) {
       std::cout << "*  ";
     }
     std::cout << std::flush;
@@ -307,7 +306,9 @@ COLLECTOR_EXPORT_API void callback(uint16_t TraceType,
   }
 }
 
-COLLECTOR_EXPORT_API void init() {
+void zePrintersInit() {
+  HasZEPrinter = true;
+
   std::string_view PrinterType(std::getenv("SYCL_TRACE_PRINT_FORMAT"));
   if (PrinterType == "classic") {
     std::cerr << "Classic output is unsupported for Level Zero\n";
@@ -319,9 +320,4 @@ COLLECTOR_EXPORT_API void init() {
 }
 
 // For unification purpose
-COLLECTOR_EXPORT_API void finish() {}
-
-COLLECTOR_EXPORT_API void setIndentationLevel(int NewLevel) {
-  IndentationLevel = NewLevel;
-}
-}
+void zePrintersFinish() {}

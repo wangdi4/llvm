@@ -26,6 +26,7 @@
 extern sycl::detail::SpinLock GlobalLock;
 
 extern bool HasZEPrinter;
+extern bool HasPIPrinter;
 
 using HeaderPrinterT =
     std::function<void(const pi_plugin &, const xpti::function_with_args_t *)>;
@@ -110,6 +111,7 @@ static void setupPrettyPrinter(bool Verbose) {
 }
 
 void piPrintersInit() {
+  HasPIPrinter = true;
   std::string_view PrinterType(std::getenv("SYCL_TRACE_PRINT_FORMAT"));
 
   if (PrinterType == "classic") {

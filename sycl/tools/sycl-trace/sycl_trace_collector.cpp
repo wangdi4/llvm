@@ -21,6 +21,8 @@
 
 extern sycl::detail::SpinLock GlobalLock;
 
+extern bool HasSYCLPrinter;
+
 bool PrintSyclVerbose = false;
 
 void TraceDiagnosticsMessage(xpti::trace_event_data_t * /*Parent*/,
@@ -64,6 +66,8 @@ XPTI_CALLBACK_API void syclCallback(uint16_t TraceType,
 }
 
 void syclPrintersInit() {
+  HasSYCLPrinter = true;
+
   std::string_view PrinterType(std::getenv("SYCL_TRACE_PRINT_FORMAT"));
   if (PrinterType == "classic") {
     std::cerr << "Classic output is not supported yet for SYCL API\n";
