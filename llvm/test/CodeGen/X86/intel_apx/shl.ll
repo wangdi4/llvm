@@ -47,7 +47,7 @@ define i8 @shl8m1(ptr %ptr) {
 ; CHECK-LABEL: shl8m1:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    movzbl (%rdi), %eax
-; CHECK-NEXT:    addb %al, %al
+; CHECK-NEXT:    addb %al, %al, %al
 ; CHECK-NEXT:    retq
 entry:
   %a = load i8, ptr %ptr
@@ -59,7 +59,7 @@ define i16 @shl16m1(ptr %ptr) {
 ; CHECK-LABEL: shl16m1:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    movzwl (%rdi), %eax
-; CHECK-NEXT:    addl %eax, %eax
+; CHECK-NEXT:    addl %eax, %eax, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -72,7 +72,7 @@ define i32 @shl32m1(ptr %ptr) {
 ; CHECK-LABEL: shl32m1:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    movl (%rdi), %eax
-; CHECK-NEXT:    addl %eax, %eax
+; CHECK-NEXT:    addl %eax, %eax, %eax
 ; CHECK-NEXT:    retq
 entry:
   %a = load i32, ptr %ptr
@@ -84,7 +84,7 @@ define i64 @shl64m1(ptr %ptr) {
 ; CHECK-LABEL: shl64m1:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    movq (%rdi), %rax
-; CHECK-NEXT:    addq %rax, %rax
+; CHECK-NEXT:    addq %rax, %rax, %rax
 ; CHECK-NEXT:    retq
 entry:
   %a = load i64, ptr %ptr
@@ -195,9 +195,7 @@ entry:
 define i8 @shl8r1(i8 noundef %a) {
 ; CHECK-LABEL: shl8r1:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    # kill: def $edi killed $edi def $rdi
-; CHECK-NEXT:    leal (%rdi,%rdi), %eax
-; CHECK-NEXT:    # kill: def $al killed $al killed $eax
+; CHECK-NEXT:    addb %dil, %dil, %al
 ; CHECK-NEXT:    retq
 entry:
   %shl = shl i8 %a, 1
@@ -207,8 +205,7 @@ entry:
 define i16 @shl16r1(i16 noundef %a) {
 ; CHECK-LABEL: shl16r1:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    # kill: def $edi killed $edi def $rdi
-; CHECK-NEXT:    leal (%rdi,%rdi), %eax
+; CHECK-NEXT:    addl %edi, %edi, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -219,8 +216,7 @@ entry:
 define i32 @shl32r1(i32 noundef %a) {
 ; CHECK-LABEL: shl32r1:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    # kill: def $edi killed $edi def $rdi
-; CHECK-NEXT:    leal (%rdi,%rdi), %eax
+; CHECK-NEXT:    addl %edi, %edi, %eax
 ; CHECK-NEXT:    retq
 entry:
   %shl = shl i32 %a, 1
@@ -230,7 +226,7 @@ entry:
 define i64 @shl64r1(i64 noundef %a) {
 ; CHECK-LABEL: shl64r1:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    leaq (%rdi,%rdi), %rax
+; CHECK-NEXT:    addq %rdi, %rdi, %rax
 ; CHECK-NEXT:    retq
 entry:
   %shl = shl i64 %a, 1

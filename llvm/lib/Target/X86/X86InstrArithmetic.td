@@ -2295,7 +2295,7 @@ class BinOpMR_RMW_FF_EVEX<bits<8> opcode, string mnemonic,
           WriteALU.ReadAfterFold]>;  // EFLAGS
 
 // BinOpMR_FF_ND - Binary instructions with inputs "reg, [mem], reg", where
-// the pattern use EFLAGS as operand and implicitly use EFLAGS, ndd version.
+// the pattern sets EFLAGS and implicitly uses EFLAGS, ndd version.
 class BinOpMR_FF_ND<bits<8> opcode, string mnemonic, X86TypeInfo typeinfo,
                     SDNode opnode>
   : BinOpMR_EVEX<opcode, mnemonic, typeinfo, (outs typeinfo.RegClass:$dst),
@@ -2309,8 +2309,8 @@ class BinOpMR_FF_ND<bits<8> opcode, string mnemonic, X86TypeInfo typeinfo,
            WriteADC.ReadAfterFold]>;  // EFLAGS
 
 // BinOpMR_RMW_FF_Common - Binary instructions with inputs "[mem], reg", where
-// the pattern use EFLAGS as operand and implicitly use EFLAGS, contains legacy
-// and APX version.
+// the pattern sets EFLAGS and implicitly uses EFLAGS, contains legacy and
+// APX version.
 multiclass BinOpMR_RMW_FF_Common<bits<8> opcode, string mnemonic,
                                  X86TypeInfo typeinfo, SDNode opnode>{
 let Predicates = [NoNDD] in
@@ -2329,8 +2329,7 @@ class BinOpMI8_RMW_FF_EVEX<string mnemonic, X86TypeInfo typeinfo, Format f>
     Sched<[WriteADCRMW]>;
 
 // BinOpMI8_FF_ND - Binary instructions with inputs "reg, [mem], imm8",
-// where the pattern use EFLAGS as operand and implicitly use EFLAGS,
-// ndd version.
+// where the pattern sets EFLAGS and implicitly uses EFLAGS, ndd version.
 class BinOpMI8_FF_ND<string mnemonic, X86TypeInfo typeinfo,
                      SDPatternOperator opnode, Format f>
   : BinOpMI8_EVEX<mnemonic, typeinfo, (outs typeinfo.RegClass:$dst),
@@ -2340,8 +2339,8 @@ class BinOpMI8_FF_ND<string mnemonic, X86TypeInfo typeinfo,
                                             (implicit EFLAGS)]>,
     Sched<[WriteADC]>;
 
-// BinOpMI8_RMW_FF_Common - Binary instructions with inputs "[mem], imm8", where
-// the pattern use EFLAGS as operand and implicitly use EFLAGS, contains legacy
+// BinOpMI8_RMW_FF_Common - Binary instructions with inputs "[mem], imm8",
+// where the pattern sets EFLAGS and implicitly uses EFLAGS, contains legacy
 // and APX version.
 multiclass BinOpMI8_RMW_FF_Common<string mnemonic, X86TypeInfo typeinfo,
                                   SDPatternOperator opnode, Format f,
@@ -2363,7 +2362,7 @@ class BinOpMI_RMW_FF_EVEX<bits<8> opcode, string mnemonic,
     Sched<[WriteADCRMW]>;
 
 // BinOpMI_FF_ND - Binary instructions with inputs "[mem], imm", where
-// the pattern use EFLAGS as operand and implicitly use EFLAGS, ndd version.
+// the pattern sets EFLAGS and implicitly uses EFLAGS, ndd version.
 class BinOpMI_FF_ND<bits<8> opcode, string mnemonic, X86TypeInfo typeinfo,
                     SDNode opnode, Format f>
   : BinOpMI_EVEX<opcode, mnemonic, typeinfo, (outs typeinfo.RegClass:$dst),
@@ -2374,7 +2373,7 @@ class BinOpMI_FF_ND<bits<8> opcode, string mnemonic, X86TypeInfo typeinfo,
     Sched<[WriteADC]>;
 
 // BinOpMI_RMW_FF_Common - Binary instructions with inputs "[mem], imm", where
-// the pattern use EFLAGS as operand and implicitly use EFLAGS, contains legacy
+// the pattern sets EFLAGS and implicitly uses EFLAGS, contains legacy
 // and APX version.
 multiclass BinOpMI_RMW_FF_Common<bits<8> opcode, string mnemonic,
                                  X86TypeInfo typeinfo, SDNode opnode,
@@ -2708,6 +2707,11 @@ def : Pat<(store (X86adc_flag GR64:$src, (loadi64 addr:$dst), EFLAGS),
 
 // Patterns for basic arithmetic ops with relocImm for the immediate field.
 multiclass ArithBinOp_RF_relocImm_Pats<SDNode OpNodeFlag, SDNode OpNode> {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+let Predicates = [NoNDD] in {
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(OpNodeFlag GR8:$src1, relocImm8_su:$src2),
             (!cast<Instruction>(NAME#"8ri") GR8:$src1, relocImm8_su:$src2)>;
   def : Pat<(OpNodeFlag GR16:$src1, i16relocImmSExt8_su:$src2),
@@ -2737,9 +2741,50 @@ multiclass ArithBinOp_RF_relocImm_Pats<SDNode OpNodeFlag, SDNode OpNode> {
             (!cast<Instruction>(NAME#"64mi8") addr:$dst, i64relocImmSExt8_su:$src)>;
   def : Pat<(store (OpNode (load addr:$dst), i64relocImmSExt32_su:$src), addr:$dst),
             (!cast<Instruction>(NAME#"64mi32") addr:$dst, i64relocImmSExt32_su:$src)>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+}
+let Predicates = [HasNDD] in {
+  def : Pat<(OpNodeFlag GR8:$src1, relocImm8_su:$src2),
+            (!cast<Instruction>(NAME#"8ri_ND") GR8:$src1, relocImm8_su:$src2)>;
+  def : Pat<(OpNodeFlag GR16:$src1, i16relocImmSExt8_su:$src2),
+            (!cast<Instruction>(NAME#"16ri8_ND") GR16:$src1, i16relocImmSExt8_su:$src2)>;
+  def : Pat<(OpNodeFlag GR16:$src1, relocImm16_su:$src2),
+            (!cast<Instruction>(NAME#"16ri_ND") GR16:$src1, relocImm16_su:$src2)>;
+  def : Pat<(OpNodeFlag GR32:$src1, i32relocImmSExt8_su:$src2),
+            (!cast<Instruction>(NAME#"32ri8_ND") GR32:$src1, i32relocImmSExt8_su:$src2)>;
+  def : Pat<(OpNodeFlag GR32:$src1, relocImm32_su:$src2),
+            (!cast<Instruction>(NAME#"32ri_ND") GR32:$src1, relocImm32_su:$src2)>;
+  def : Pat<(OpNodeFlag GR64:$src1, i64relocImmSExt8_su:$src2),
+            (!cast<Instruction>(NAME#"64ri8_ND") GR64:$src1, i64relocImmSExt8_su:$src2)>;
+  def : Pat<(OpNodeFlag GR64:$src1, i64relocImmSExt32_su:$src2),
+            (!cast<Instruction>(NAME#"64ri32_ND") GR64:$src1, i64relocImmSExt32_su:$src2)>;
+
+  def : Pat<(OpNode (load addr:$dst), relocImm8_su:$src),
+            (!cast<Instruction>(NAME#"8mi_ND") addr:$dst, relocImm8_su:$src)>;
+  def : Pat<(OpNode (load addr:$dst), i16relocImmSExt8_su:$src),
+            (!cast<Instruction>(NAME#"16mi8_ND") addr:$dst, i16relocImmSExt8_su:$src)>;
+  def : Pat<(OpNode (load addr:$dst), relocImm16_su:$src),
+            (!cast<Instruction>(NAME#"16mi_ND") addr:$dst, relocImm16_su:$src)>;
+  def : Pat<(OpNode (load addr:$dst), i32relocImmSExt8_su:$src),
+            (!cast<Instruction>(NAME#"32mi8_ND") addr:$dst, i32relocImmSExt8_su:$src)>;
+  def : Pat<(OpNode (load addr:$dst), relocImm32_su:$src),
+            (!cast<Instruction>(NAME#"32mi_ND") addr:$dst, relocImm32_su:$src)>;
+  def : Pat<(OpNode (load addr:$dst), i64relocImmSExt8_su:$src),
+            (!cast<Instruction>(NAME#"64mi8_ND") addr:$dst, i64relocImmSExt8_su:$src)>;
+  def : Pat<(OpNode (load addr:$dst), i64relocImmSExt32_su:$src),
+            (!cast<Instruction>(NAME#"64mi32_ND") addr:$dst, i64relocImmSExt32_su:$src)>;
+}
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 }
 
 multiclass ArithBinOp_RFF_relocImm_Pats<SDNode OpNodeFlag> {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+let Predicates = [NoNDD] in {
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(OpNodeFlag GR8:$src1, relocImm8_su:$src2, EFLAGS),
             (!cast<Instruction>(NAME#"8ri") GR8:$src1, relocImm8_su:$src2)>;
   def : Pat<(OpNodeFlag GR16:$src1, i16relocImmSExt8_su:$src2, EFLAGS),
@@ -2769,6 +2814,42 @@ multiclass ArithBinOp_RFF_relocImm_Pats<SDNode OpNodeFlag> {
             (!cast<Instruction>(NAME#"64mi8") addr:$dst, i64relocImmSExt8_su:$src)>;
   def : Pat<(store (OpNodeFlag (load addr:$dst), i64relocImmSExt32_su:$src, EFLAGS), addr:$dst),
             (!cast<Instruction>(NAME#"64mi32") addr:$dst, i64relocImmSExt32_su:$src)>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+}
+let Predicates = [HasNDD] in {
+  def : Pat<(OpNodeFlag GR8:$src1, relocImm8_su:$src2, EFLAGS),
+            (!cast<Instruction>(NAME#"8ri_ND") GR8:$src1, relocImm8_su:$src2)>;
+  def : Pat<(OpNodeFlag GR16:$src1, i16relocImmSExt8_su:$src2, EFLAGS),
+            (!cast<Instruction>(NAME#"16ri8_ND") GR16:$src1, i16relocImmSExt8_su:$src2)>;
+  def : Pat<(OpNodeFlag GR16:$src1, relocImm16_su:$src2, EFLAGS),
+            (!cast<Instruction>(NAME#"16ri_ND") GR16:$src1, relocImm16_su:$src2)>;
+  def : Pat<(OpNodeFlag GR32:$src1, i32relocImmSExt8_su:$src2, EFLAGS),
+            (!cast<Instruction>(NAME#"32ri8_ND") GR32:$src1, i32relocImmSExt8_su:$src2)>;
+  def : Pat<(OpNodeFlag GR32:$src1, relocImm32_su:$src2, EFLAGS),
+            (!cast<Instruction>(NAME#"32ri_ND") GR32:$src1, relocImm32_su:$src2)>;
+  def : Pat<(OpNodeFlag GR64:$src1, i64relocImmSExt8_su:$src2, EFLAGS),
+            (!cast<Instruction>(NAME#"64ri8_ND") GR64:$src1, i64relocImmSExt8_su:$src2)>;
+  def : Pat<(OpNodeFlag GR64:$src1, i64relocImmSExt32_su:$src2, EFLAGS),
+            (!cast<Instruction>(NAME#"64ri32_ND") GR64:$src1, i64relocImmSExt32_su:$src2)>;
+
+  def : Pat<(OpNodeFlag (load addr:$dst), relocImm8_su:$src, EFLAGS),
+            (!cast<Instruction>(NAME#"8mi_ND") addr:$dst, relocImm8_su:$src)>;
+  def : Pat<(OpNodeFlag (load addr:$dst), i16relocImmSExt8_su:$src, EFLAGS),
+            (!cast<Instruction>(NAME#"16mi8_ND") addr:$dst, i16relocImmSExt8_su:$src)>;
+  def : Pat<(OpNodeFlag (load addr:$dst), relocImm16_su:$src, EFLAGS),
+            (!cast<Instruction>(NAME#"16mi_ND") addr:$dst, relocImm16_su:$src)>;
+  def : Pat<(OpNodeFlag (load addr:$dst), i32relocImmSExt8_su:$src, EFLAGS),
+            (!cast<Instruction>(NAME#"32mi8_ND") addr:$dst, i32relocImmSExt8_su:$src)>;
+  def : Pat<(OpNodeFlag (load addr:$dst), relocImm32_su:$src, EFLAGS),
+            (!cast<Instruction>(NAME#"32mi_ND") addr:$dst, relocImm32_su:$src)>;
+  def : Pat<(OpNodeFlag (load addr:$dst), i64relocImmSExt8_su:$src, EFLAGS),
+            (!cast<Instruction>(NAME#"64mi8_ND") addr:$dst, i64relocImmSExt8_su:$src)>;
+  def : Pat<(OpNodeFlag (load addr:$dst), i64relocImmSExt32_su:$src, EFLAGS),
+            (!cast<Instruction>(NAME#"64mi32_ND") addr:$dst, i64relocImmSExt32_su:$src)>;
+}
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 }
 
 multiclass ArithBinOp_F_relocImm_Pats<SDNode OpNodeFlag> {
