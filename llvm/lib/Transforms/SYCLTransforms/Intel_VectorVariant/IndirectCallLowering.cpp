@@ -124,8 +124,10 @@ bool IndirectCallLowering::runImpl(Module &M) {
           map_range(Args, [](Use &U) -> Value & { return *U.get(); }), Variant,
           Call.getParent()->getParent()->getParent()->getDataLayout());
 
-      createVectorMaskArg(Builder, CharacteristicType, &Variant, VecArgs,
-                          VecArgTy, VecLen, MaskToUse);
+      Value *Mask =
+          createVectorMaskArg(Builder, CharacteristicType, Variant, MaskToUse);
+      VecArgs.push_back(Mask);
+      VecArgTy.push_back(Mask->getType());
 
       // Preparing chosen variant call.
       Type *RetTy = FTy->getReturnType();

@@ -946,23 +946,20 @@ Type *llvm::calcCharacteristicType(Function &F, const VFInfo &Variant) {
                                 F.getParent()->getDataLayout());
 }
 
-void llvm::createVectorMaskArg(IRBuilder<> &Builder, Type *CharacteristicType,
-                               const VFInfo *VecVariant,
-                               SmallVectorImpl<Value *> &VecArgs,
-                               SmallVectorImpl<Type *> &VecArgTys,
-                               unsigned VF, Value *MaskToUse) {
-
+Value *llvm::createVectorMaskArg(IRBuilder<> &Builder, Type *CharacteristicType,
+                                 const VFInfo &VecVariant, Value *MaskToUse) {
   // Add the mask parameter for masked simd functions.
   // Mask should already be vectorized as i1 type.
   VectorType *MaskTy = cast<VectorType>(MaskToUse->getType());
   assert(MaskTy->getElementType()->isIntegerTy(1) &&
          "Mask parameter is not vector of i1");
 
+  unsigned VF = VecVariant.getVF();
   // Promote the i1 to an integer type that has the same size as the
   // characteristic type.
   Type *ScalarToType = IntegerType::get(
       MaskTy->getContext(), CharacteristicType->getPrimitiveSizeInBits());
-  VectorType *VecToType = FixedVectorType::get(ScalarToType, VF);
+  Type *VecToType = FixedVectorType::get(ScalarToType, VF);
   Value *MaskExt = Builder.CreateSExt(MaskToUse, VecToType, "maskext");
 
   // Bitcast if the promoted type is not the same as the characteristic
@@ -970,12 +967,9 @@ void llvm::createVectorMaskArg(IRBuilder<> &Builder, Type *CharacteristicType,
   if (ScalarToType != CharacteristicType) {
     Type *MaskCastTy = FixedVectorType::get(CharacteristicType, VF);
     Value *MaskCast = Builder.CreateBitCast(MaskExt, MaskCastTy, "maskcast");
-    VecArgs.push_back(MaskCast);
-    VecArgTys.push_back(MaskCastTy);
-  } else {
-    VecArgs.push_back(MaskExt);
-    VecArgTys.push_back(VecToType);
+    return MaskCast;
   }
+  return MaskExt;
 }
 
 bool llvm::isOpenCLSinCos(StringRef FcnName) {
@@ -1121,45 +1115,42 @@ void llvm::setRequiredAttributes(AttributeList Attrs, CallInst *VecCall,
                                             Attrs.getRetAttrs(), ArgAttrs));
 }
 
-Function *llvm::getOrInsertVectorVariantFunction(Function *OrigF, unsigned VL,
-                                                 ArrayRef<Type *> ArgTys,
-                                                 const VFInfo *VecVariant,
-                                                 bool Masked) {
+Function *llvm::getOrInsertVectorVariantFunction(Function &OrigF,
+                                                 const VFInfo &Variant,
+                                                 ArrayRef<Type *> ArgTys) {
   // OrigF is the original scalar function being called.
-  assert(OrigF && "Function not found for call instruction");
-  assert(VecVariant && "Expect VectorVariant to be present");
+  StringRef VFnName = Variant.VectorName;
+  LLVM_DEBUG(dbgs() << "Getting or inserting " << VFnName << '\n');
+  Module *M = OrigF.getParent();
+  Function *VectorF = M->getFunction(VFnName);
+  if (VectorF)
+    return VectorF;
 
-  Module *M = OrigF->getParent();
-  Type *RetTy = OrigF->getReturnType();
+  Type *RetTy = OrigF.getReturnType();
   Type *VecRetTy = RetTy;
   if (!RetTy->isVoidTy()) {
     // GEPs into vectors of i1 do not make sense, so promote it to i8
     // similar to its later processing in CodeGen.
     if (RetTy->isIntegerTy(1))
       RetTy = Type::getInt8Ty(RetTy->getContext());
-    VecRetTy = getWidenedType(RetTy, VL);
+    VecRetTy = getWidenedType(RetTy, Variant.getVF());
   }
 
-  std::string VFnName = VecVariant->VectorName;
-  LLVM_DEBUG(dbgs() << "Getting or inserting " << VFnName << '\n');
-  Function *VectorF = M->getFunction(VFnName);
-  if (!VectorF) {
-    FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
-    VectorF = Function::Create(FTy, OrigF->getLinkage(), VFnName, M);
-    VectorF->copyAttributesFrom(OrigF);
-    // Alias analysis models the high-level memory effects of functions
-    // using FunctionModRefBehavior.
-    // Explicitly set ModRef flag to force AA to behave conservatively
-    // and prevent any illegal code motion/elimination.
-    VectorF->setAttributes(VectorF->getAttributes().addFnAttribute(
-        VectorF->getContext(),
-        Attribute::getWithMemoryEffects(VectorF->getContext(),
-                                        MemoryEffects::unknown())));
-    if (VFInfo::isIntelVFABIMangling(VFnName))
-      VectorF->setCallingConv(CallingConv::X86_RegCall);
+  FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
+  VectorF = Function::Create(FTy, OrigF.getLinkage(), VFnName, M);
+  VectorF->copyAttributesFrom(&OrigF);
+  // Alias analysis models the high-level memory effects of functions
+  // using FunctionModRefBehavior.
+  // Explicitly set ModRef flag to force AA to behave conservatively
+  // and prevent any illegal code motion/elimination.
+  VectorF->setAttributes(VectorF->getAttributes().addFnAttribute(
+      VectorF->getContext(),
+      Attribute::getWithMemoryEffects(VectorF->getContext(),
+                                      MemoryEffects::unknown())));
+  if (VFInfo::isIntelVFABIMangling(VFnName))
+    VectorF->setCallingConv(CallingConv::X86_RegCall);
 
-    VectorF->setVisibility(OrigF->getVisibility());
-  }
+  VectorF->setVisibility(OrigF.getVisibility());
 
   return VectorF;
 }
