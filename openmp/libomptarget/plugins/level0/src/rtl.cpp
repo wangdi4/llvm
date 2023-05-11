@@ -6673,6 +6673,10 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
     DP("Bad device ID %" PRId32 "\n", DeviceId);
     return OFFLOAD_FAIL;
   }
+  if (DeviceInfo->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
+    WARNING("Required \"unified_shared_memory\" is not supported.\n");
+    return OFFLOAD_FAIL;
+  }
 
   DeviceInfo->initMemAllocator(DeviceId);
 
