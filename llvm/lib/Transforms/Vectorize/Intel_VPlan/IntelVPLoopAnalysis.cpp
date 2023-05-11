@@ -347,10 +347,8 @@ unsigned int VPInduction::getInductionOpcode() const {
 void VPInduction::replaceBinOp(VPInstruction *NewBinOp) {
 #ifndef NDEBUG
   auto OldBinOp = getInductionBinOp();
-  assert((OldBinOp &&
-          (isa<VPHIRCopyInst>(OldBinOp) || isa<VPPHINode>(OldBinOp) ||
-           OldBinOp->getOpcode() == NewBinOp->getOpcode()) &&
-          OldBinOp->getType() == NewBinOp->getType()) &&
+  assert(OldBinOp && OldBinOp->getType() == NewBinOp->getType() &&
+         getInductionOpcode() == NewBinOp->getOpcode() &&
          "Inconsistent BinOp replacement!");
 #endif
   InductionBinOp = NewBinOp;
