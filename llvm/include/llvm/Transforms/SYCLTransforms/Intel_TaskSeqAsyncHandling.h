@@ -24,6 +24,8 @@ namespace llvm {
 class TaskSeqAsyncHandling : public PassInfoMixin<TaskSeqAsyncHandling> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+
+  static bool isRequired() { return true; }
 };
 
 } // namespace llvm
