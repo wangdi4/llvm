@@ -32,17 +32,17 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind uwtable willreturn writeonly
 define dso_local void @_Z7initBard(double %I) local_unnamed_addr #0 {
 entry:
-  store double %I, double* getelementptr inbounds (%struct._ZTS10TestStruct.TestStruct, %struct._ZTS10TestStruct.TestStruct* @globBar, i64 0, i32 0), align 8, !tbaa !8
+  store double %I, ptr getelementptr inbounds (%struct._ZTS10TestStruct.TestStruct, ptr @globBar, i64 0, i32 0), align 8, !tbaa !8
   %add = fadd fast double %I, 1.000000e+02
-  store double %add, double* getelementptr inbounds (%struct._ZTS10TestStruct.TestStruct, %struct._ZTS10TestStruct.TestStruct* @globBar, i64 0, i32 1), align 8, !tbaa !13
+  store double %add, ptr getelementptr inbounds (%struct._ZTS10TestStruct.TestStruct, ptr @globBar, i64 0, i32 1), align 8, !tbaa !13
   ret void
 }
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind readonly uwtable willreturn
 define dso_local double @_Z3bard(double %I) local_unnamed_addr #1 {
 entry:
-  %0 = load double, double* getelementptr inbounds (%struct._ZTS10TestStruct.TestStruct, %struct._ZTS10TestStruct.TestStruct* @globBar, i64 0, i32 0), align 8, !tbaa !8
-  %1 = load double, double* getelementptr inbounds (%struct._ZTS10TestStruct.TestStruct, %struct._ZTS10TestStruct.TestStruct* @globBar, i64 0, i32 1), align 8, !tbaa !13
+  %0 = load double, ptr getelementptr inbounds (%struct._ZTS10TestStruct.TestStruct, ptr @globBar, i64 0, i32 0), align 8, !tbaa !8
+  %1 = load double, ptr getelementptr inbounds (%struct._ZTS10TestStruct.TestStruct, ptr @globBar, i64 0, i32 1), align 8, !tbaa !13
   %add = fadd fast double %0, %I
   %add1 = fadd fast double %add, %1
   ret double %add1

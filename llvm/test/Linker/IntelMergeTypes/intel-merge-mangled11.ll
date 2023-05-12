@@ -28,8 +28,8 @@
 ;     return glob->arr[i];
 ;   }
 
+; CHECK: %struct._ZTS10TestStruct.TestStruct = type { [5 x ptr] }
 ; CHECK: %struct._ZTS10TestStruct.TestStruct.0 = type { [5 x i32] }
-; CHECK: %struct._ZTS10TestStruct.TestStruct = type { [5 x i32*] }
 
 ; CHECK: !intel.dtrans.types = !{!1, !4}
 
