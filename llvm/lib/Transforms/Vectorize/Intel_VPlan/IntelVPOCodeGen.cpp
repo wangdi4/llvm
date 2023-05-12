@@ -3925,7 +3925,7 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
       if (isSOAAccess(V, Plan)) {
         auto *NewPtrTy = cast<PointerType>(NewTy);
         if (!NewPtrTy->isOpaque()) {
-          Type *ElemTy = NewTy->getPointerElementType();
+          Type *ElemTy = NewTy->getNonOpaquePointerElementType();
           NewTy = PointerType::get(getSOAType(ElemTy, VF),
                                    NewPtrTy->getAddressSpace());
         }
