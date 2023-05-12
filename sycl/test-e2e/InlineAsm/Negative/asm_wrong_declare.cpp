@@ -1,5 +1,10 @@
+<<<<<<< HEAD
 // UNSUPPORTED: cuda || hip
 // UNSUPPORTED: ze_debug-1,ze_debug4
+=======
+// UNSUPPORTED: cuda || hip_nvidia
+// UNSUPPORTED: ze_debug
+>>>>>>> 10799dc796980ebd4d423969ff33d8fe506e3b58
 // REQUIRES: gpu,linux
 // RUN: %{build} -o %t.out
 // RUN: %{run} %t.out

@@ -1,9 +1,16 @@
 // REQUIRES: gpu, level_zero
 
+<<<<<<< HEAD
 // RUN: %{build} -o %t.ooo.out
 // RUN: %{build} -DUSING_INORDER -o %t.ino.out
 // RUN: %{build} -DUSING_DISCARD_EVENTS -o %t.discard_events.out
 // UNSUPPORTED: ze_debug-1,ze_debug4
+=======
+// RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple  %s -o %t.ooo.out
+// RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple  %s -DUSING_INORDER -o %t.ino.out
+// RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple  %s -DUSING_DISCARD_EVENTS -o %t.discard_events.out
+// UNSUPPORTED: ze_debug
+>>>>>>> 10799dc796980ebd4d423969ff33d8fe506e3b58
 
 // To test batching on out-of-order queue:
 // Set batching to 4 explicitly
