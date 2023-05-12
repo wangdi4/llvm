@@ -359,24 +359,114 @@ bool VecClone::runOnModule(Module &M) {
   return Impl.runImpl(M, &ORBuilder, getLimiter());
 }
 
+bool VecCloneImpl::vlaAllocasExist(Function &F) {
+  for (auto BBIt = F.front().begin(), BBEnd = F.front().end(); BBIt != BBEnd;
+       ++BBIt) {
+    if (auto *Alloca = dyn_cast<AllocaInst>(BBIt)) {
+      if (Alloca->isArrayAllocation() &&
+          !isa<ConstantInt>(Alloca->getArraySize()))
+        return true;
+    }
+  }
+  return false;
+}
+
 // The following two functions are virtual and they are overloaded when
 // VecClone is called by language-specific optimizations. Their default
 // implementation is empty.
 void VecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
-                                       Function *Clone,
-                                       BasicBlock *EntryBlock,
-                                       const VFInfo &Variant) {}
+                                           Function *Clone,
+                                           BasicBlock *EntryBlock,
+                                           const VFInfo &Variant) {}
 
 void VecCloneImpl::languageSpecificInitializations(Module &M) {}
 
-Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
-                                      ValueToValueMapTy &VMap,
-                                      ValueToValueMapTy &ReverseVMap) {
+Function *VecCloneImpl::Factory::run() {
+  cloneFunction();
+
+  if (isSimpleFunction())
+    return Clone;
+
+  LoopHeader = splitEntryIntoLoop();
+
+  LoopPreHeader = EntryBlock->splitBasicBlock(EntryBlock->getTerminator(),
+                                              "simd.loop.preheader");
+
+  ReturnBlock = splitLoopIntoReturn();
+  if (!ReturnBlock) {
+    // OpenCL, it's valid to have an infinite loop inside kernel with no
+    // independent forward progress guarantee. As such, creating a VecClone
+    // loop around the body is required. Handle such cases.
+    // For OpenMP cases, it's probably UB in the incoming IR, so creation of
+    // the loop is still valid.
+    ReturnBlock =
+        BasicBlock::Create(Clone->getContext(), "unreachable.ret", Clone);
+    IRBuilder<> B(ReturnBlock);
+    B.CreateUnreachable();
+  }
+
+  LoopLatch = BasicBlock::Create(Clone->getContext(), "simd.loop.latch", Clone,
+                                 ReturnBlock);
+  ReturnBlock->replaceAllUsesWith(LoopLatch);
+
+  PHINode *Phi = createPhiAndBackedgeForLoop();
+
+  // At this point, we've gathered some parameter information and have
+  // restructured the function into an entry block, a set of blocks
+  // forming the loop, a loop latch block, and a return block. Now,
+  // we can go through and update instructions since we know what
+  // is part of the loop.
+
+  // Create a new vector alloca instruction for all vector arguments and
+  // return. Store the vector argument to the alloca. Replace users with
+  // gep/load using the loop index.
+
+  Instruction *Mask = nullptr;
+  Instruction *WidenedReturn = widenVectorArgumentsAndReturn(Mask, Phi);
+
+  // Mark uniform memory for SIMD directives
+  processUniformArgs();
+
+  // Update any linear variables with the appropriate stride. This function
+  // will insert a mul/add sequence before the use of the argument. For
+  // linear pointer arguments, the stride calculation is just a mul
+  // instruction using the loop induction var and the stride value on the
+  // argument. This mul instruction is then used as the index of the gep
+  // that will be inserted before the next use of the argument. The
+  // function also updates the users of the argument with the new
+  // calculation involving the stride. Also mark linear memory for SIMD
+  // directives.
+  processLinearArgs(Phi);
+
+  // Remove the old scalar instructions associated with the return and
+  // replace with packing instructions.
+  updateReturnBlockInstructions(WidenedReturn);
+
+  // If this is the masked vector variant, insert the mask condition and
+  // if/else blocks.
+  if (V.isMasked())
+    insertSplitForMaskedVariant(Mask, Phi);
+  // Language specific hook.
+  Parent->handleLanguageSpecifics(F, Phi, Clone, EntryBlock, V);
+
+  // Insert the basic blocks that mark the beginning/end of the SIMD loop.
+  insertDirectiveIntrinsics();
+
+  // Add may-have-openmp-directive attribute since we inserted directives.
+  Clone->addFnAttr("may-have-openmp-directive", "true");
+
+  // Disable unrolling from kicking in on the simd loop.
+  disableLoopUnrolling();
+
+  return Clone;
+}
+
+void VecCloneImpl::Factory::cloneFunction() {
 
   LLVM_DEBUG(dbgs() << "Cloning Function: " << F.getName() << "\n");
   LLVM_DEBUG(F.dump());
 
-  FunctionType* OrigFunctionType = F.getFunctionType();
+  FunctionType *OrigFunctionType = F.getFunctionType();
   Type *CharacteristicType = nullptr;
   // IGC requires device versions of Intel math functions to have
   // masks of i32 elements
@@ -386,7 +476,7 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
     CharacteristicType = calcCharacteristicType(F, V);
 
   const auto *VKIt = V.getParameters().begin();
-  SmallVector<Type*, 4> ParmTypes;
+  SmallVector<Type *, 4> ParmTypes;
   for (auto ParmIt = OrigFunctionType->param_begin(),
             ParmEnd = OrigFunctionType->param_end();
        ParmIt != ParmEnd; ++ParmIt, ++VKIt) {
@@ -407,13 +497,14 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
   }
 
   if (V.isMasked()) {
-    Type *MaskScalarTy = (Usei1MaskForSimdFunctions) ?
-      Type::getInt1Ty(F.getContext()) : CharacteristicType;
+    Type *MaskScalarTy = Usei1MaskForSimdFunctions
+                             ? Type::getInt1Ty(F.getContext())
+                             : CharacteristicType;
     Type *MaskVecTy = FixedVectorType::get(MaskScalarTy, V.getVF());
     ParmTypes.push_back(MaskVecTy);
   }
 
-  Function *Clone = getOrInsertVectorVariantFunction(F, V, ParmTypes);
+  Clone = getOrInsertVectorVariantFunction(F, V, ParmTypes);
 
   // Copy all the attributes from the scalar function to its vector version.
   // Vector variants attribute will be stripped off later in this routine.
@@ -438,7 +529,7 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
     MaskArg.setName("mask");
   }
 
-  SmallVector<ReturnInst*, 8> Returns;
+  SmallVector<ReturnInst *, 8> Returns;
   CloneFunctionInto(Clone, &F, VMap, CloneFunctionChangeType::LocalChangesOnly,
                     Returns);
 
@@ -485,33 +576,16 @@ Function *VecCloneImpl::CloneFunction(Function &F, const VFInfo &V,
   // getOrInsertVectorVariantFunction() because it's possible that the function
   // is only declared and we won't make it here. The declared only function
   // will be created from VPlan calling getOrInsertVectorVariantFunction().
-  Clone->setAttributes(
-      Clone->getAttributes().addFnAttribute(
-            Clone->getContext(),
-            Attribute::getWithMemoryEffects(Clone->getContext(),
-                                      MemoryEffects::unknown())));
+  Clone->setAttributes(Clone->getAttributes().addFnAttribute(
+      Clone->getContext(), Attribute::getWithMemoryEffects(
+                               Clone->getContext(), MemoryEffects::unknown())));
+  EntryBlock = &Clone->front();
 
   LLVM_DEBUG(dbgs() << "After Cloning and Parameter/Return Expansion\n");
   LLVM_DEBUG(Clone->dump());
-
-  return Clone;
 }
 
-bool VecCloneImpl::vlaAllocasExist(Function &F) {
-  for (auto BBIt = F.front().begin(), BBEnd = F.front().end(); BBIt != BBEnd;
-       ++BBIt) {
-    if (auto *Alloca = dyn_cast<AllocaInst>(BBIt)) {
-      if (Alloca->isArrayAllocation() &&
-          !isa<ConstantInt>(Alloca->getArraySize()))
-        return true;
-    }
-  }
-  return false;
-}
-
-BasicBlock *VecCloneImpl::splitEntryIntoLoop(Function *Clone, const VFInfo &V,
-                                             BasicBlock *EntryBlock) {
-
+BasicBlock *VecCloneImpl::Factory::splitEntryIntoLoop() {
   SmallVector<Instruction *, 4> EntryInsts;
   for (auto BBIt = EntryBlock->begin(), BBEnd = EntryBlock->end();
        BBIt != BBEnd; ++BBIt) {
@@ -522,7 +596,7 @@ BasicBlock *VecCloneImpl::splitEntryIntoLoop(Function *Clone, const VFInfo &V,
     }
   }
 
-  BasicBlock *LoopHeader =
+  BasicBlock *LpHeader =
       EntryBlock->splitBasicBlock(EntryBlock->begin(), "simd.loop.header");
 
   for (auto *Inst : EntryInsts) {
@@ -532,12 +606,10 @@ BasicBlock *VecCloneImpl::splitEntryIntoLoop(Function *Clone, const VFInfo &V,
 
   LLVM_DEBUG(dbgs() << "After Entry Block Split\n");
   LLVM_DEBUG(Clone->dump());
-
-  return LoopHeader;
+  return LpHeader;
 }
 
-BasicBlock *VecCloneImpl::splitLoopIntoReturn(Function *Clone,
-                                              BasicBlock *LoopHeader) {
+BasicBlock *VecCloneImpl::Factory::splitLoopIntoReturn() {
   assert(count_if(*Clone,
                   [](const BasicBlock &BB) {
                     return isa<ReturnInst>(BB.getTerminator());
@@ -546,7 +618,7 @@ BasicBlock *VecCloneImpl::splitLoopIntoReturn(Function *Clone,
 
   auto RetBlockIt = find_if(*Clone, [](const BasicBlock &BB) {
     return isa<ReturnInst>(BB.getTerminator());
-                                    });
+  });
   if (RetBlockIt == Clone->end())
     return nullptr;
 
@@ -555,27 +627,25 @@ BasicBlock *VecCloneImpl::splitLoopIntoReturn(Function *Clone,
   return RetBlock.splitBasicBlock(Return, "return");
 }
 
-PHINode *VecCloneImpl::createPhiAndBackedgeForLoop(
-    Function *Clone, BasicBlock *LoopPreHeader, BasicBlock *LoopHeader,
-    BasicBlock *LoopLatch, BasicBlock *ReturnBlock, int VectorLength) {
+PHINode *VecCloneImpl::Factory::createPhiAndBackedgeForLoop() {
   // Create the phi node for the top of the loop header and add the back
   // edge to the loop from the loop latch.
-
+  int VectorLength = V.getVF();
   PHINode *Phi = PHINode::Create(Type::getInt32Ty(Clone->getContext()), 2,
                                  "index", &*LoopHeader->getFirstInsertionPt());
 
   Constant *Inc = ConstantInt::get(Type::getInt32Ty(Clone->getContext()), 1);
-  Constant *IndInit = ConstantInt::get(Type::getInt32Ty(Clone->getContext()),
-                                       0);
+  Constant *IndInit =
+      ConstantInt::get(Type::getInt32Ty(Clone->getContext()), 0);
 
-  Instruction *Induction = BinaryOperator::CreateNUWAdd(Phi, Inc, "indvar",
-                                                        LoopLatch);
+  Instruction *Induction =
+      BinaryOperator::CreateNUWAdd(Phi, Inc, "indvar", LoopLatch);
 
-  Constant *VL = ConstantInt::get(Type::getInt32Ty(Clone->getContext()),
-                                  VectorLength);
+  Constant *VL =
+      ConstantInt::get(Type::getInt32Ty(Clone->getContext()), VectorLength);
 
-  Instruction *VLCmp = new ICmpInst(*LoopLatch, CmpInst::ICMP_ULT,
-                                    Induction, VL, "vl.cond");
+  Instruction *VLCmp =
+      new ICmpInst(*LoopLatch, CmpInst::ICMP_ULT, Induction, VL, "vl.cond");
 
   BranchInst::Create(LoopHeader, ReturnBlock, VLCmp, LoopLatch);
 
@@ -598,14 +668,14 @@ static AssumeInst *insertAlignmentAssumption(IRBuilder<> &Builder,
   return cast<AssumeInst>(Assume);
 }
 
-void VecCloneImpl::updateVectorArgumentUses(
-    Function *Clone, Function &OrigFn, const DataLayout &DL, Argument *Arg,
-    Type *ElemType, Instruction *VecArg, MaybeAlign ArgAlign,
-    BasicBlock *EntryBlock, BasicBlock *LoopLatch, PHINode *Phi) {
-
+void VecCloneImpl::Factory::updateVectorArgumentUses(Argument *Arg,
+                                                     Type *ElemType,
+                                                     Instruction *VecArg,
+                                                     MaybeAlign ArgAlign,
+                                                     PHINode *Phi) {
   // This code updates argument users with a gep/load of an element for a
   // specific lane using the loop index.
-  for (auto &U:  make_early_inc_range(Arg->uses())) {
+  for (auto &U : make_early_inc_range(Arg->uses())) {
     auto *User = cast<Instruction>(U.getUser());
 
     // Don't update any users in the entry block; e.g., the store of the
@@ -614,8 +684,8 @@ void VecCloneImpl::updateVectorArgumentUses(
       continue;
 
     // If arg is returned, make sure gep and load appear in the loop.
-    Instruction *InsertPt = isa<ReturnInst>(User) ?
-        LoopLatch->getFirstNonPHI() : User;
+    Instruction *InsertPt =
+        isa<ReturnInst>(User) ? LoopHeader->getFirstNonPHI() : User;
 
     GetElementPtrInst *VecGep = nullptr;
     if (!isa<PHINode>(User))
@@ -647,7 +717,7 @@ void VecCloneImpl::updateVectorArgumentUses(
     }
 
     Value *ArgValue = ArgElemLoad;
-    Type *OrigArgTy = OrigFn.getArg(Arg->getArgNo())->getType();
+    Type *OrigArgTy = F.getArg(Arg->getArgNo())->getType();
     if (OrigArgTy->isIntOrIntVectorTy(1)) {
       // If the original arg type was `i1` or `<N x i1>`, we need truncate the
       // value back to its original type after loads.
@@ -667,19 +737,17 @@ void VecCloneImpl::updateVectorArgumentUses(
   }
 }
 
-Instruction *VecCloneImpl::widenVectorArgumentsAndReturn(
-    Function *Clone, Function &F, const VFInfo &V, Instruction *&Mask,
-    BasicBlock *EntryBlock, BasicBlock *LoopHeader, BasicBlock *ReturnBlock,
-    PHINode *Phi) {
-  const DataLayout &DL = Clone->getParent()->getDataLayout();
-  auto GenStore = [DL, EntryBlock](Value *Ptr, Argument *Arg) {
+Instruction *
+VecCloneImpl::Factory::widenVectorArgumentsAndReturn(Instruction *&Mask,
+                                                     PHINode *Phi) {
+  auto GenStore = [this](Value *Ptr, Argument *Arg) {
     auto *SI = new StoreInst(Arg, Ptr, false /*volatile*/,
                              DL.getABITypeAlign(Arg->getType()));
     SI->insertBefore(EntryBlock->getTerminator());
   };
 
-  auto GenBitCast = [EntryBlock](AllocaInst *AI, Type *ElemType,
-                                 const Twine &&Name) -> Instruction * {
+  auto GenBitCast = [this](AllocaInst *AI, Type *ElemType,
+                           const Twine &&Name) -> Instruction * {
     if (AI->getType()->isOpaquePointerTy())
       return AI;
     Instruction *BC = new BitCastInst(
@@ -688,8 +756,7 @@ Instruction *VecCloneImpl::widenVectorArgumentsAndReturn(
     return BC;
   };
   AllocaInst *LastAlloca = nullptr;
-  auto GenAlloca = [&LastAlloca, DL, EntryBlock](Type *VecType,
-                                                 const Twine &&Name) {
+  auto GenAlloca = [&LastAlloca, this](Type *VecType, const Twine &&Name) {
     AllocaInst *AI = new AllocaInst(VecType, DL.getAllocaAddrSpace(), nullptr,
                                     DL.getPrefTypeAlign(VecType), Name);
     if (LastAlloca)
@@ -776,8 +843,7 @@ Instruction *VecCloneImpl::widenVectorArgumentsAndReturn(
     // Don't RAUW linear val arguments because they need to be handled in
     // processLinearArgs().
     if (!Parm.isLinearVal())
-      updateVectorArgumentUses(Clone, F, DL, Arg, ElemType, VecArg,
-                               Parm.Alignment, EntryBlock, LoopHeader, Phi);
+      updateVectorArgumentUses(Arg, ElemType, VecArg, Parm.Alignment, Phi);
   }
 
   // If the function returns void, then don't attempt to widen to vector.
@@ -838,11 +904,9 @@ Instruction *VecCloneImpl::widenVectorArgumentsAndReturn(
   return VecReturn;
 }
 
-Value *VecCloneImpl::generateStrideForArgument(Function *Clone, Value *Arg,
-                                               Instruction *ArgUser,
-                                               Value *Stride, PHINode *Phi,
-                                               const VFParameter &Parm,
-                                               ValueToValueMapTy &ReverseVMap) {
+Value *VecCloneImpl::Factory::generateStrideForArgument(
+    Value *Arg, Instruction *ArgUser, Value *Stride, PHINode *Phi,
+    const VFParameter &Parm) {
   // For linear values, a mul + add/gep sequence is needed to generate the
   // correct value. i.e., val = linear_var + stride * loop_index;
 
@@ -888,7 +952,7 @@ Value *VecCloneImpl::generateStrideForArgument(Function *Clone, Value *Arg,
       // stride, then the stride in bytes is %c * pointee size. The pointee
       // size information is obtained via the
       // llvm.intel.directive.elementsize intrinsic.
-      Value *EltSize = PointeeTypeSize[ReverseVMap[Arg]];
+      Value *EltSize = PointeeTypeSize.lookup(ReverseVMap[Arg]);
       assert(EltSize && "No llvm.intel.directive.elementsize intrinsic?");
       // TODO: We can change VecClone to generate i64 phis for the loop iv and
       // make the last conversion unnecessary. This will also remove a
@@ -922,15 +986,14 @@ Value *VecCloneImpl::generateStrideForArgument(Function *Clone, Value *Arg,
   // arg + loop idx * stride.
   Value *PhiCast = Phi;
   if (StrideCast->getType() != Phi->getType()) {
-    PhiCast = Builder.CreateCast(
-        CastInst::getCastOpcode(Phi, false /* SrcIsSigned */,
-                                StrideCast->getType(),
-                                false /* DestIsSigned */),
-        Phi, StrideCast->getType(), "phi.cast");
+    PhiCast =
+        Builder.CreateCast(CastInst::getCastOpcode(Phi, false /* SrcIsSigned */,
+                                                   StrideCast->getType(),
+                                                   false /* DestIsSigned */),
+                           Phi, StrideCast->getType(), "phi.cast");
   }
 
-  Value *Mul =
-      Builder.CreateMul(StrideCast, PhiCast, "stride.mul");
+  Value *Mul = Builder.CreateMul(StrideCast, PhiCast, "stride.mul");
 
   // Floating point strides are not allowed.
   assert(!Arg->getType()->isFloatingPointTy() &&
@@ -956,20 +1019,21 @@ static void emitDebugForParameter(Value *ArgValue, AllocaInst *Alloca,
     return; // No debug information found for the parameter.
 
   // Ignore variables described by llvm.dbg.declare intrinsics.
-  auto IsDbgDeclare =
-      [](DbgVariableIntrinsic *I) -> bool { return isa<DbgDeclareInst>(I); };
+  auto IsDbgDeclare = [](DbgVariableIntrinsic *I) -> bool {
+    return isa<DbgDeclareInst>(I);
+  };
   if (llvm::any_of(DVIs, IsDbgDeclare))
     return;
 
   Module *M = Clone->getParent();
   DICompileUnit *Unit = CloneSP->getUnit();
-  DIBuilder DIB (*M, true, Unit);
+  DIBuilder DIB(*M, true, Unit);
 
   SmallPtrSet<DILocalVariable *, 1> VariableSet;
   for (DbgVariableIntrinsic *DVI : DVIs) {
     DILocalVariable *DV = DVI->getVariable();
-    DIExpression    *DE = DVI->getExpression();
-    DILocation      *DL = DVI->getDebugLoc().get();
+    DIExpression *DE = DVI->getExpression();
+    DILocation *DL = DVI->getDebugLoc().get();
 
     // Emit only one debug intrinsic per-variable per-parameter.
     if (DVI->getNumVariableLocationOps() == 1 && !VariableSet.contains(DV)) {
@@ -1023,17 +1087,15 @@ static void getOrCreateArgMemory(Argument &Arg, BasicBlock *EntryBlock,
   // TODO:  Should it be !hasPointeeInMemoryValueAttr() instead?
   if (!Arg.hasByValAttr()) {
     IRBuilder<> Builder(&*EntryBlock->begin());
-    AllocaInst *ArgAlloca = Builder.CreateAlloca(Arg.getType(), nullptr,
-                                                 "alloca." + Arg.getName());
+    AllocaInst *ArgAlloca =
+        Builder.CreateAlloca(Arg.getType(), nullptr, "alloca." + Arg.getName());
     ArgVal = emitLoadStoreForParameter(cast<AllocaInst>(ArgAlloca), ArgVal,
                                        ArgAlign, LoopPreHeader);
     ArgMemory = ArgAlloca;
   }
 }
 
-void VecCloneImpl::processUniformArgs(Function *Clone, const VFInfo &V,
-                                      BasicBlock *EntryBlock,
-                                      BasicBlock *LoopPreHeader) {
+void VecCloneImpl::Factory::processUniformArgs() {
   ArrayRef<VFParameter> Parms = V.getParameters();
   for (Argument &Arg : Clone->args()) {
     const VFParameter Parm = Parms[Arg.getArgNo()];
@@ -1047,10 +1109,7 @@ void VecCloneImpl::processUniformArgs(Function *Clone, const VFInfo &V,
   }
 }
 
-void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
-                                     PHINode *Phi, BasicBlock *EntryBlock,
-                                     BasicBlock *LoopPreHeader,
-                                     ValueToValueMapTy &ReverseVMap) {
+void VecCloneImpl::Factory::processLinearArgs(PHINode *Phi) {
   // Add stride to arguments marked as linear. These instructions are added
   // before the arg user and uses are updated accordingly.
   ArrayRef<VFParameter> Parms = V.getParameters();
@@ -1087,9 +1146,8 @@ void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
                  "Expected integer type for arg");
           // For integer types with constant stride, the value of the stride
           // must be the same type as the arg.
-          StrideVal =
-              GeneralUtils::getConstantValue(Arg.getType(),
-              Clone->getContext(), Stride);
+          StrideVal = GeneralUtils::getConstantValue(
+              Arg.getType(), Clone->getContext(), Stride);
         }
         getOrCreateArgMemory(Arg, EntryBlock, LoopPreHeader, Parm.Alignment,
                              ArgVal, ArgMemory);
@@ -1110,7 +1168,7 @@ void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
       // just marking the allocas as linear and letting VPlan deal with
       // accounting for stride calculations rather than VecClone inserting
       // new instructions for the stride and updating users.
-      for (auto &U:  make_early_inc_range(ArgVal->uses())) {
+      for (auto &U : make_early_inc_range(ArgVal->uses())) {
         auto *User = cast<Instruction>(U.getUser());
 
         if (Parm.isAligned()) {
@@ -1120,8 +1178,8 @@ void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
             continue;
         }
 
-        Value *StrideInst = generateStrideForArgument(
-            Clone, ArgVal, User, StrideVal, Phi, Parm, ReverseVMap);
+        Value *StrideInst =
+            generateStrideForArgument(ArgVal, User, StrideVal, Phi, Parm);
         User->setOperand(U.getOperandNo(), StrideInst);
       }
     } else if (Parm.isLinearUVal() || Parm.isLinearVal()) {
@@ -1195,19 +1253,17 @@ void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
         //    it will use Arg.
         // 2) We can't use RAUW because the argument has been widened and RAUW
         //    will complain. See comment below.
-        auto *BasePtrExtract =
-            Builder.CreateExtractElement(&Arg, (uint64_t)0,
-                                         Arg.getName() + ".ext");
+        auto *BasePtrExtract = Builder.CreateExtractElement(
+            &Arg, (uint64_t)0, Arg.getName() + ".ext");
         auto *ArgElemType = cast<VectorType>(Arg.getType())->getElementType();
-        ArgMemory =
-            Builder.CreateAlloca(ArgElemType, nullptr,
-                                 "alloca." + Arg.getName() + ".scalar");
+        ArgMemory = Builder.CreateAlloca(ArgElemType, nullptr,
+                                         "alloca." + Arg.getName() + ".scalar");
         Builder.CreateStore(BasePtrExtract, ArgMemory);
         Builder.SetInsertPoint(PreHeaderInsertPt);
-        ScalarArg = Builder.CreateLoad(
-            cast<AllocaInst>(ArgMemory)->getAllocatedType(), ArgMemory,
-                             "load." + ArgMemory->getName());
-        for (auto &U:  make_early_inc_range(Arg.uses())) {
+        ScalarArg =
+            Builder.CreateLoad(cast<AllocaInst>(ArgMemory)->getAllocatedType(),
+                               ArgMemory, "load." + ArgMemory->getName());
+        for (auto &U : make_early_inc_range(Arg.uses())) {
           auto *User = cast<Instruction>(U.getUser());
           // Replace uses of Arg with the extracted base ptr. Be careful not to
           // replace the newly created extract instruction. We only want to
@@ -1231,8 +1287,8 @@ void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
       // For both uval/val modifiers, ScalarArg is now the pointer argument
       // that is used for finding the loaded values for which stride is applied.
 
-      SmallVector<Value*, 4> ArgLocalMem;
-      SmallVector<LoadInst*, 4> ArgValLoads;
+      SmallVector<Value *, 4> ArgLocalMem;
+      SmallVector<LoadInst *, 4> ArgValLoads;
       // Determine whether the argument is stored through local memory. If
       // so, then record the local memory used for the arg. Later, we'll
       // find the associated loads from this memory to find aliases for the
@@ -1300,9 +1356,8 @@ void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
       Value *StrideVal = nullptr;
       if (Parm.isConstantStrideLinear()) {
         int Stride = Parm.getStride();
-        StrideVal =
-            GeneralUtils::getConstantValue(Phi->getType(), Clone->getContext(),
-                                           Stride);
+        StrideVal = GeneralUtils::getConstantValue(Phi->getType(),
+                                                   Clone->getContext(), Stride);
         LinearMemory[ArgMemory] = StrideVal;
       } else if (Parm.isVariableStride()) {
         // Get the stride value from the argument holding it.
@@ -1317,22 +1372,21 @@ void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
         // this will need to be fixed. All that needs to be done here is to
         // remove TempStrideVal and replace with the value coming from
         // UniformMemory.
-        Value *TempStrideVal =
-            GeneralUtils::getConstantValue(Phi->getType(), Clone->getContext(),
-                                           0);
+        Value *TempStrideVal = GeneralUtils::getConstantValue(
+            Phi->getType(), Clone->getContext(), 0);
         // Uncomment this line of code and remove the line after it once
         // importing bugs are fixed.
-        //LinearMemory[ArgMemory] = UniformMemory[StrideArg].first;
+        // LinearMemory[ArgMemory] = UniformMemory[StrideArg].first;
         LinearMemory[ArgMemory] = TempStrideVal;
       } else {
         llvm_unreachable("Unsupported linear modifier");
       }
       // Generate stride instruction and update users of the load.
       for (auto *ArgValLoad : ArgValLoads) {
-        for (auto &U:  make_early_inc_range(ArgValLoad->uses())) {
+        for (auto &U : make_early_inc_range(ArgValLoad->uses())) {
           auto *User = cast<Instruction>(U.getUser());
-          Value *StrideInst = generateStrideForArgument(
-              Clone, ArgValLoad, User, StrideVal, Phi, Parm, ReverseVMap);
+          Value *StrideInst =
+              generateStrideForArgument(ArgValLoad, User, StrideVal, Phi, Parm);
           User->setOperand(U.getOperandNo(), StrideInst);
         }
       }
@@ -1343,9 +1397,8 @@ void VecCloneImpl::processLinearArgs(Function *Clone, const VFInfo &V,
   LLVM_DEBUG(Clone->dump());
 }
 
-void VecCloneImpl::updateReturnBlockInstructions(Function *Clone,
-                                                 BasicBlock *ReturnBlock,
-                                                 Instruction *WidenedReturn) {
+void VecCloneImpl::Factory::updateReturnBlockInstructions(
+    Instruction *WidenedReturn) {
   // If the vector function returns void, then there is no need to do any
   // packing. The only instruction in the ReturnBlock is 'ret void', so
   // we can just leave this instruction and we're done.
@@ -1392,7 +1445,7 @@ void VecCloneImpl::updateReturnBlockInstructions(Function *Clone,
   LLVM_DEBUG(Clone->dump());
 }
 
-static Type* getMemoryType(Value* Memory) {
+static Type *getMemoryType(Value *Memory) {
   if (AllocaInst *Alloca = dyn_cast<AllocaInst>(Memory))
     return Alloca->getAllocatedType();
   else if (Argument *Arg = dyn_cast<Argument>(Memory)) {
@@ -1415,10 +1468,7 @@ static Type* getMemoryType(Value* Memory) {
 // emitted in the EntryBlock). Next, we load it and we update its uses (the load
 // is emitted in simd.loop.preheader). This is similar to the code emitted by
 // the front-end for simd loops.
-CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
-                                          Function &F, const VFInfo &V,
-                                          BasicBlock *EntryBlock,
-                                          BasicBlock *LoopPreHeader) {
+CallInst *VecCloneImpl::Factory::insertBeginRegion() {
   IRBuilder<> Builder(&*EntryBlock->begin());
 
   SmallVector<llvm::OperandBundleDef, 4> OpndBundles;
@@ -1426,7 +1476,7 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
       std::string(IntrinsicUtils::getDirectiveString(DIR_OMP_SIMD)),
       std::nullopt);
 
-  auto Clause = [](OMP_CLAUSES ClauseId, auto &&... Mods) -> std::string {
+  auto Clause = [](OMP_CLAUSES ClauseId, auto &&...Mods) -> std::string {
     std::initializer_list<StringRef> Modifiers = {Mods...};
     std::string Result = IntrinsicUtils::getClauseString(ClauseId).str();
     if (Modifiers.size() == 0)
@@ -1440,7 +1490,7 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
   };
 
   auto AddTypedClause = [&OpndBundles, Clause](OMP_CLAUSES ClauseId, Value *Ptr,
-                                               Type *Ty, auto &&... Ops) {
+                                               Type *Ty, auto &&...Ops) {
     if (!EmitTypedOMP) {
       OpndBundles.push_back(OperandBundleDef{Clause(ClauseId), {Ptr, Ops...}});
       return;
@@ -1470,7 +1520,7 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
     AddTypedClause(QUAL_OMP_LINEAR, LinearMem.first, LinearTy,
                    LinearMem.second);
   }
-  
+
   // Mark uniform memory for the SIMD directives
   for (const auto &UniformMem : UniformMemory) {
     // The alloca for the arg.
@@ -1497,10 +1547,7 @@ CallInst *VecCloneImpl::insertBeginRegion(Module &M, Function *Clone,
   return SIMDBeginCall;
 }
 
-void VecCloneImpl::insertEndRegion(Module &M, Function *Clone,
-                                   BasicBlock *LoopLatch,
-                                   BasicBlock *ReturnBlock,
-                                   CallInst *EntryDirCall) {
+void VecCloneImpl::Factory::insertEndRegion(CallInst *EntryDirCall) {
   BasicBlock *EndDirectiveBlock = BasicBlock::Create(
       Clone->getContext(), "simd.end.region", Clone, ReturnBlock);
 
@@ -1516,20 +1563,14 @@ void VecCloneImpl::insertEndRegion(Module &M, Function *Clone,
   SIMDEndCall->insertBefore(EndDirectiveBlock->getTerminator());
 }
 
-void VecCloneImpl::insertDirectiveIntrinsics(Module &M, Function *Clone,
-                                             Function &F, const VFInfo &V,
-                                             BasicBlock *EntryBlock,
-                                             BasicBlock *LoopPreHeader,
-                                             BasicBlock *LoopLatch,
-                                             BasicBlock *ReturnBlock) {
-  CallInst *EntryDirCall = insertBeginRegion(M, Clone, F, V, EntryBlock,
-                                             LoopPreHeader);
-  insertEndRegion(M, Clone, LoopLatch, ReturnBlock, EntryDirCall);
+void VecCloneImpl::Factory::insertDirectiveIntrinsics() {
+  CallInst *EntryDirCall = insertBeginRegion();
+  insertEndRegion(EntryDirCall);
   LLVM_DEBUG(dbgs() << "After Directives Insertion\n");
   LLVM_DEBUG(Clone->dump());
 }
 
-bool VecCloneImpl::isSimpleFunction(Function *Func) {
+bool VecCloneImpl::Factory::isSimpleFunction() {
   // For really simple functions, there is no need to go through the process
   // of inserting a loop.
 
@@ -1543,22 +1584,17 @@ bool VecCloneImpl::isSimpleFunction(Function *Func) {
   // clone the function and return. It's possible that we could have some code
   // inside of a vector function that modifies global memory. Let that case go
   // through.
-  return isa<ReturnInst>(Func->front().front()) &&
-         Func->getReturnType()->isVoidTy();
+  return isa<ReturnInst>(EntryBlock->front()) &&
+         Clone->getReturnType()->isVoidTy();
 }
 
-void VecCloneImpl::insertSplitForMaskedVariant(Function *Clone,
-                                               BasicBlock *LoopHeader,
-                                               BasicBlock *LoopLatch,
-                                               Instruction *Mask,
-                                               PHINode *Phi) {
-  BasicBlock *LoopThenBlock =
-      LoopHeader->splitBasicBlock(LoopHeader->getFirstNonPHI(),
-                                 "simd.loop.then");
+void VecCloneImpl::Factory::insertSplitForMaskedVariant(Instruction *Mask,
+                                                        PHINode *Phi) {
+  BasicBlock *LoopThenBlock = LoopHeader->splitBasicBlock(
+      LoopHeader->getFirstNonPHI(), "simd.loop.then");
 
-  BasicBlock *LoopElseBlock = BasicBlock::Create(Clone->getContext(),
-                                                 "simd.loop.else",
-                                                 Clone, LoopLatch);
+  BasicBlock *LoopElseBlock = BasicBlock::Create(
+      Clone->getContext(), "simd.loop.else", Clone, LoopLatch);
 
   BranchInst::Create(LoopLatch, LoopElseBlock);
 
@@ -1574,29 +1610,26 @@ void VecCloneImpl::insertSplitForMaskedVariant(Function *Clone,
   Type *PointeeType =
       cast<VectorType>(Alloca->getAllocatedType())->getElementType();
 
-  GetElementPtrInst *MaskGep =
-      GetElementPtrInst::Create(PointeeType, Mask, Phi, "mask.gep",
-                                LoopHeader->getTerminator());
+  GetElementPtrInst *MaskGep = GetElementPtrInst::Create(
+      PointeeType, Mask, Phi, "mask.gep", LoopHeader->getTerminator());
 
   Type *LoadTy = MaskGep->getResultElementType();
-  LoadInst *MaskLoad = new LoadInst(LoadTy, MaskGep, "mask.parm",
-                                    LoopHeader->getTerminator());
+  LoadInst *MaskLoad =
+      new LoadInst(LoadTy, MaskGep, "mask.parm", LoopHeader->getTerminator());
 
   Type *CompareTy = MaskLoad->getType();
   Instruction *MaskCmp;
-  Constant* Zero;
+  Constant *Zero;
 
   // Generate the compare instruction to see if the mask bit is on. In ICC, we
   // use the movemask intrinsic which takes both float/int mask registers and
   // converts to an integer scalar value, one bit representing each element.
   if (CompareTy->isIntegerTy()) {
-    Zero = GeneralUtils::getConstantValue(CompareTy, Clone->getContext(),
-                                               0);
+    Zero = GeneralUtils::getConstantValue(CompareTy, Clone->getContext(), 0);
     MaskCmp = new ICmpInst(LoopHeader->getTerminator(), CmpInst::ICMP_NE,
                            MaskLoad, Zero, "mask.cond");
   } else if (CompareTy->isFloatingPointTy()) {
-    Zero = GeneralUtils::getConstantValue(CompareTy, Clone->getContext(),
-                                               0.0);
+    Zero = GeneralUtils::getConstantValue(CompareTy, Clone->getContext(), 0.0);
     MaskCmp = new FCmpInst(LoopHeader->getTerminator(), CmpInst::FCMP_UNE,
                            MaskLoad, Zero, "mask.cond");
   } else {
@@ -1611,7 +1644,7 @@ void VecCloneImpl::insertSplitForMaskedVariant(Function *Clone,
   LLVM_DEBUG(Clone->dump());
 }
 
-void VecCloneImpl::disableLoopUnrolling(BasicBlock *Latch) {
+void VecCloneImpl::Factory::disableLoopUnrolling() {
   // Set disable unroll metadata on the conditional branch of the loop latch
   // for the simd loop. The following is an example of what the loop latch
   // and Metadata will look like. The !llvm.loop marks the beginning of the
@@ -1639,7 +1672,7 @@ void VecCloneImpl::disableLoopUnrolling(BasicBlock *Latch) {
   MDs.push_back(nullptr);
 
   // Add unroll(disable) metadata to disable future unrolling.
-  LLVMContext &Context = Latch->getContext();
+  LLVMContext &Context = LoopLatch->getContext();
   SmallVector<Metadata *, 1> DisableOperands;
   DisableOperands.push_back(MDString::get(Context, "llvm.loop.unroll.disable"));
   MDNode *DisableNode = MDNode::get(Context, DisableOperands);
@@ -1648,7 +1681,7 @@ void VecCloneImpl::disableLoopUnrolling(BasicBlock *Latch) {
   MDNode *NewLoopID = MDNode::get(Context, MDs);
   // Set operand 0 to refer to the loop id itself.
   NewLoopID->replaceOperandWith(0, NewLoopID);
-  Latch->getTerminator()->setMetadata("llvm.loop", NewLoopID);
+  LoopLatch->getTerminator()->setMetadata("llvm.loop", NewLoopID);
 }
 
 PreservedAnalyses VecClonePass::run(Module &M, ModuleAnalysisManager &AM) {
@@ -1686,7 +1719,7 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
   getFunctionsToVectorize(M, FunctionsToVectorize);
 
   for (const auto &VarIt : FunctionsToVectorize) {
-    Function& F = *(VarIt.first);
+    Function &F = *(VarIt.first);
 
     if (!doesLoopOptPipelineAllowToRun(Limiter, F))
       continue;
@@ -1712,7 +1745,8 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
     // before cloning will ensure they don't make it into the vector versions
     // of the function.
     SmallVector<IntrinsicInst *, 2> IntrinsicsToRemove;
-    PointeeTypeSize.clear();
+    /// The map of linear pointer args to pointee type size.
+    DenseMap<Value *, Value *> PointeeTypeSize;
     for (auto &Inst : instructions(F)) {
       Instruction *I = &Inst;
       if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
@@ -1729,7 +1763,7 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
       II->eraseFromParent();
 
     auto Variants = map_range(VarIt.second, [](StringRef Name) {
-        return VFABI::demangleForVFABI(Name);
+      return VFABI::demangleForVFABI(Name);
     });
 
     SmallDenseMap<StringRef, SmallVector<StringRef>> CPUDispatchMap;
@@ -1747,100 +1781,15 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
       // Clone the original function.
       LLVM_DEBUG(dbgs() << "Before SIMD Function Cloning\n");
       LLVM_DEBUG(F.dump());
-      ValueToValueMapTy VMap;
-      ValueToValueMapTy ReverseVMap;
-      Function *Clone = CloneFunction(F, Variant, VMap, ReverseVMap);
+      Factory VecCloneFactory(this, M, M.getDataLayout(), F, Variant,
+                              PointeeTypeSize);
+      Function *Clone = VecCloneFactory.run();
 
       applyTargetCPUData(Clone, CPUDispatchMap);
-
-      if (isSimpleFunction(Clone))
-        continue;
-
-      BasicBlock *EntryBlock = &Clone->front();
-      BasicBlock *LoopHeader = splitEntryIntoLoop(Clone, Variant, EntryBlock);
-
-      BasicBlock *LoopPreHeader = EntryBlock->splitBasicBlock(
-          EntryBlock->getTerminator(), "simd.loop.preheader");
-
-      BasicBlock *ReturnBlock = splitLoopIntoReturn(Clone, &Clone->back());
-      if (!ReturnBlock) {
-        // OpenCL, it's valid to have an infinite loop inside kernel with no
-        // independent forward progress guarantee. As such, creating a VecClone
-        // loop around the body is required. Handle such cases.
-        // For OpenMP cases, it's probably UB in the incoming IR, so creation of
-        // the loop is still valid.
-        ReturnBlock =
-            BasicBlock::Create(Clone->getContext(), "unreachable.ret", Clone);
-        IRBuilder<> B(ReturnBlock);
-        B.CreateUnreachable();
-      }
-
-      BasicBlock *LoopLatch = BasicBlock::Create(
-          Clone->getContext(), "simd.loop.latch", Clone, ReturnBlock);
-      ReturnBlock->replaceAllUsesWith(LoopLatch);
-
-      PHINode *Phi = createPhiAndBackedgeForLoop(Clone, LoopPreHeader,
-                                                 LoopHeader, LoopLatch,
-                                                 ReturnBlock,
-                                                 Variant.getVF());
-
-      // At this point, we've gathered some parameter information and have
-      // restructured the function into an entry block, a set of blocks
-      // forming the loop, a loop latch block, and a return block. Now,
-      // we can go through and update instructions since we know what
-      // is part of the loop.
-
-      // Create a new vector alloca instruction for all vector arguments and
-      // return. Store the vector argument to the alloca. Replace users with
-      // gep/load using the loop index.
-
-      Instruction *Mask = nullptr;
-      Instruction *WidenedReturn = widenVectorArgumentsAndReturn(
-          Clone, F, Variant, Mask, EntryBlock, LoopHeader, ReturnBlock, Phi);
-
-      // Mark uniform memory for SIMD directives
-      processUniformArgs(Clone, Variant, EntryBlock, LoopPreHeader);
-
-      // Update any linear variables with the appropriate stride. This function
-      // will insert a mul/add sequence before the use of the argument. For
-      // linear pointer arguments, the stride calculation is just a mul
-      // instruction using the loop induction var and the stride value on the
-      // argument. This mul instruction is then used as the index of the gep
-      // that will be inserted before the next use of the argument. The
-      // function also updates the users of the argument with the new
-      // calculation involving the stride. Also mark linear memory for SIMD
-      // directives.
-      processLinearArgs(Clone, Variant, Phi, EntryBlock, LoopPreHeader,
-                        ReverseVMap);
-
-      // Remove the old scalar instructions associated with the return and
-      // replace with packing instructions.
-      updateReturnBlockInstructions(Clone, ReturnBlock, WidenedReturn);
-
-      // If this is the masked vector variant, insert the mask condition and
-      // if/else blocks.
-      if (Variant.isMasked()) {
-        insertSplitForMaskedVariant(Clone, LoopHeader, LoopLatch, Mask, Phi);
-      }
-
-      // Language specific hook.
-      handleLanguageSpecifics(F, Phi, Clone, EntryBlock, Variant);
-
-      // Insert the basic blocks that mark the beginning/end of the SIMD loop.
-      insertDirectiveIntrinsics(M, Clone, F, Variant, EntryBlock, LoopPreHeader,
-                                LoopLatch, ReturnBlock);
-      PrivateMemory.clear();
-      UniformMemory.clear();
-      LinearMemory.clear();
-
-      // Add may-have-openmp-directive attribute since we inserted directives.
-      Clone->addFnAttr("may-have-openmp-directive", "true");
 
       LLVM_DEBUG(dbgs() << "After SIMD Function Cloning\n");
       LLVM_DEBUG(Clone->dump());
 
-      // Disable unrolling from kicking in on the simd loop.
-      disableLoopUnrolling(LoopLatch);
     } // End of function cloning for the variant
 
     if (F.hasFnAttribute(VectorDispatchAttrName))
@@ -1848,7 +1797,7 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
     // TODO: Remove "vector-variants" attribute as we are done with cloning.
   } // End of function cloning for all variants
 
-  //FIXME: return false if all functions were skipped or IR was not modified.
+  // FIXME: return false if all functions were skipped or IR was not modified.
   return true; // LLVM IR has been modified
 }
 
