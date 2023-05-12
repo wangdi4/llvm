@@ -384,7 +384,7 @@ void HIRSCCFormation::removeIntermediateNodes(SCC &CurSCC) const {
 
   SmallVector<NodeTy *, 8> IntermediateNodes;
 
-  Type *RootTy = CurSCC.getRoot()->getType();
+  Type *RootTy = CurSCC.getOrigRoot()->getType();
   bool IsSCEVable = ScopedSE.isSCEVable(RootTy);
 
   // Collect all the intermediate nodes of the SCC for removal afterwards.
@@ -537,7 +537,7 @@ bool HIRSCCFormation::isMulByConstRecurrence(const SCC &CurSCC) const {
     return false;
   }
 
-  auto Phi = cast<PHINode>(CurSCC.getRoot());
+  auto Phi = cast<PHINode>(CurSCC.getOrigRoot());
 
   auto InstIt = CurSCC.begin();
 
@@ -570,7 +570,7 @@ bool HIRSCCFormation::isProfitableSCC(const SCC &CurSCC) const {
       // Thus, this is more of a cost-model decision.
       if (LiveoutValueFound) {
         LLVM_DEBUG(dbgs() << "SCC with root node ";
-                   CurSCC.getRoot()->printAsOperand(dbgs(), false);
+                   CurSCC.getOrigRoot()->printAsOperand(dbgs(), false);
                    dbgs() << " considered non-profitable due multiple region "
                              "liveout nodes.\n");
         return false;
@@ -831,17 +831,29 @@ bool HIRSCCFormation::isValidSCCRootNode(const NodeTy *Root,
     return false;
   }
 
-  // Do not form SCCs where root nodes have range info which doesn't match other
-  // nodes' range info. This allows ScalarEvolution to optimize closed form
+  return true;
+}
+
+void HIRSCCFormation::resetUnsafeSubstitutableRoot(SCC &CurSCC) const {
+  // Using a root node which has a different range info than the other nodes in
+  // the SCC is unsafe.  This allows ScalarEvolution to optimize closed form
   // expressions. For example if a 32 bit value is within i8 range [0,256),
   // zext.i8.i32(trunc.i32.i8(t)) can be simplified to t. This is problematic
   // for parser which wants to substitute all occurences of temps in the SCC
   // with the base/root temp. If such simplification occurs during substitution,
   // we will form incorrect HIR.
   //
-  // TODO: This seems like an artificial limitation. Can we get rid of it by
-  // creating new temps like we do in HLNodeUtils::createTemp() during SSA
-  // deconstruction?
+  // To resolve this issue, we reset the SubstitutableRoot of the SCC to null to
+  // indicate to HIRSSADeconstruction pass that a new instruction needs to be
+  // created to act as the SubstitutableRoot.
+
+  auto *Root = CurSCC.getSubstitutableRoot();
+
+  if (!Root->getType()->isIntegerTy()) {
+    return;
+  }
+
+  auto *SC = ScopedSE.getSCEV(const_cast<NodeTy *>(Root));
 
   auto UnsignedRange = ScopedSE.getUnsignedRange(SC);
 
@@ -850,7 +862,8 @@ bool HIRSCCFormation::isValidSCCRootNode(const NodeTy *Root,
       if (Node != Root && (Node->getType() == Root->getType()) &&
           (ScopedSE.getUnsignedRange(ScopedSE.getSCEV(Node)) !=
            UnsignedRange)) {
-        return false;
+        CurSCC.setSubstitutableRoot(nullptr);
+        return;
       }
     }
   }
@@ -861,17 +874,16 @@ bool HIRSCCFormation::isValidSCCRootNode(const NodeTy *Root,
     for (auto *Node : CurSCC) {
       if (Node != Root && (Node->getType() == Root->getType()) &&
           (ScopedSE.getSignedRange(ScopedSE.getSCEV(Node)) != SignedRange)) {
-        return false;
+        CurSCC.setSubstitutableRoot(nullptr);
+        return;
       }
     }
   }
-
-  return true;
 }
 
 bool HIRSCCFormation::isValidSCC(const SCC &CurSCC) const {
   SmallPtrSet<BasicBlock *, 12> BBlocks;
-  auto Root = CurSCC.getRoot();
+  auto Root = CurSCC.getOrigRoot();
 
   if (!isValidSCCRootNode(Root, CurSCC)) {
     return false;
@@ -945,9 +957,10 @@ void HIRSCCFormation::updateRoot(SCC &CurSCC, NodeTy *NewRoot) const {
     return;
   }
 
+  auto *OrigRoot = CurSCC.getOrigRoot();
   // Update blindly if NewRoot is a phi and old root is not. This avoids loop
   // lookup for single phi SCCs.
-  if (!isa<PHINode>(CurSCC.getRoot())) {
+  if (!isa<PHINode>(OrigRoot)) {
     CurSCC.setRoot(NewRoot);
     return;
   }
@@ -960,7 +973,7 @@ void HIRSCCFormation::updateRoot(SCC &CurSCC, NodeTy *NewRoot) const {
     return;
   }
 
-  auto OldLp = LI.getLoopFor(CurSCC.getRoot()->getParent());
+  auto OldLp = LI.getLoopFor(OrigRoot->getParent());
 
   // If new loop contains old loop, we have found an outer loop header phi.
   if (NewLp->contains(OldLp)) {
@@ -1029,13 +1042,17 @@ unsigned HIRSCCFormation::findSCC(NodeTy *Node) {
         VisitedNodes[SCCNode] = 0;
       } while (SCCNode != Node);
 
-      assert(isa<PHINode>(NewSCC.getRoot()) &&
-             RI.isHeaderPhi(cast<PHINode>(NewSCC.getRoot())) &&
+      assert(isa<PHINode>(NewSCC.getOrigRoot()) &&
+             RI.isHeaderPhi(cast<PHINode>(NewSCC.getOrigRoot())) &&
              "No phi found in SCC!");
+      assert((NewSCC.getOrigRoot() == NewSCC.getSubstitutableRoot()) &&
+             "Mismatch between original and substitutable SCC root!");
 
       SCCNodesTy CurSCCNodes(NewSCC.begin(), NewSCC.end());
 
       removeIntermediateNodes(NewSCC);
+
+      resetUnsafeSubstitutableRoot(NewSCC);
 
       if (isValidSCC(NewSCC) && isProfitableSCC(NewSCC)) {
         // Add new SCC to the list.

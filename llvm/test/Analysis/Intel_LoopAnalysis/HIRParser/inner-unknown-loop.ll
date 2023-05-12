@@ -5,10 +5,10 @@
 ; CHECK: + UNKNOWN LOOP i1
 ; CHECK: |   <i1 = 0>
 ; CHECK: |   for.body3:
-; CHECK: |   %j.013.out = %j.013;
+; CHECK: |   %j.013.out = %j.013.root;
 ; CHECK: |   %add14 = %add14  +  %j.013.out;
-; CHECK: |   %j.013 = 2 * %j.013.out;
-; CHECK: |   if (2 * %j.013.out < %n)
+; CHECK: |   %j.013.root = %j.013.root  <<  1;
+; CHECK: |   if (%j.013.root < %n)
 ; CHECK: |   {
 ; CHECK: |      <i1 = i1 + 1>
 ; CHECK: |      goto for.body3;

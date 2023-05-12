@@ -1,5 +1,9 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
+; The test is not working as expected since we started forming SCC for
+; %phi and %mul.1.i.i.
+; TODO: modify to test for the original intention.
+
 ; Verify that the assignment to %mul.lcssa.res after i2 loop is not
 ; parsed in terms of i2 loop's header phi %iv.inner as it causes live
 ; range violation. Previously, the parsing was like this-
@@ -15,15 +19,13 @@
 ; CHECK: |   %mul.lcssa.res = 1;
 ; CHECK: |   if (3 * i1 + -2 >=u 2)
 ; CHECK: |   {
-; CHECK: |      %phi = 1;
+; CHECK: |      %phi.root = 1;
 ; CHECK: |
 ; CHECK: |      + DO i2 = 0, smax(3, (1 + %iv.outer)) + -3, 1   <DO_LOOP>  <MAX_TC_EST = 18>  <LEGAL_MAX_TC = 18>
-; CHECK: |      |   %phi.out = %phi;
-; CHECK: |      |   %mul.1.i.i = %phi.out  *  i2 + 2;
-; CHECK: |      |   %phi = %phi.out * i2 + 2 * %phi.out;
+; CHECK: |      |   %phi.root = %phi.root  *  i2 + 2;
 ; CHECK: |      + END LOOP
 ; CHECK: |
-; CHECK: |      %mul.lcssa.res = %mul.1.i.i;
+; CHECK: |      %mul.lcssa.res = %phi.root;
 ; CHECK: |   }
 ; CHECK: |   (i32*)(%argblock)[0].0 = %mul.lcssa.res;
 ; CHECK: |   %iv.outer = 3 * i1 + 1;
