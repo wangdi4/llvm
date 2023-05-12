@@ -34,6 +34,8 @@ config.test_source_root = os.path.dirname(__file__)
 # test_exec_root: The root path where tests should be run.
 config.test_exec_root = config.sycl_obj_root
 
+config.recursiveExpansionLimit = 10
+
 # Cleanup environment variables which may affect tests
 possibly_dangerous_env_vars = ['COMPILER_PATH', 'RC_DEBUG_OPTIONS',
                                'CINDEXTEST_PREAMBLE_FILE', 'LIBRARY_PATH',
@@ -385,7 +387,6 @@ config.substitutions.append( ('%ACC_CHECK_PLACEHOLDER',  acc_check_substitute) )
 
 if config.run_launcher:
     config.substitutions.append(('%e2e_tests_root', config.test_source_root))
-    config.recursiveExpansionLimit = 10
 
 if config.sycl_be == 'ext_oneapi_cuda' or (config.sycl_be == 'ext_oneapi_hip' and config.hip_platform == 'NVIDIA'):
     config.substitutions.append( ('%sycl_triple',  "nvptx64-nvidia-cuda" ) )
