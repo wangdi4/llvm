@@ -9,11 +9,10 @@
 ; O3: + UNKNOWN LOOP i1
 ; O3: |   <i1 = 0>
 ; O3: |   for.body:
-; O3: |   %i.06.out = %i.06;
-; O3: |   %call = @bar(%i.06.out);
-; O3: |   (%A)[%i.06.out] = %call;
-; O3: |   %i.06 = 2 * %i.06.out;
-; O3: |   if (2 * %i.06.out < %n)
+; O3: |   %call = @bar(%i.06.root);
+; O3: |   (%A)[%i.06.root] = %call;
+; O3: |   %i.06.root = %i.06.root  <<  1;
+; O3: |   if (%i.06.root < %n)
 ; O3: |   {
 ; O3: |      <i1 = i1 + 1>
 ; O3: |      goto for.body;
