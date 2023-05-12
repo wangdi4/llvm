@@ -18,11 +18,6 @@ import sys
 config.llvm_src_root = "@LLVM_SOURCE_DIR@"
 config.llvm_obj_root = "@LLVM_BINARY_DIR@"
 config.llvm_tools_dir = "@LLVM_TOOLS_DIR@"
-<<<<<<< HEAD:llvm/Intel_OptionalComponents/CSA/test/lit.site.cfg.py.in
-=======
-config.llvm_spirv_dir = "@LLVM_SPIRV_DIR@"
-config.llvm_spirv_lib_dir = "@LLVM_SPIRV_LIB_DIR@"
->>>>>>> a47067c4b2d183d37de4f8c842bc0706404ae23a:llvm-spirv/test/lit.site.cfg.py.in
 config.llvm_libs_dir = "@LLVM_LIBS_DIR@"
 config.llvm_shlib_dir = "@SHLIBDIR@"
 config.llvm_plugin_ext = "@LLVM_PLUGIN_EXT@"
