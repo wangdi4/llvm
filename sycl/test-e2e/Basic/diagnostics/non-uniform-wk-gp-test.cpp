@@ -1,13 +1,9 @@
 // REQUIRES: level_zero
-<<<<<<< HEAD
 
 // RUN: %{build} -o %t.out
 // RUN: %{run} %t.out
 
-// UNSUPPORTED: ze_debug-1,ze_debug4
-=======
 // UNSUPPORTED: ze_debug
->>>>>>> 10799dc796980ebd4d423969ff33d8fe506e3b58
 //==------- non-uniform-wk-gp-test.cpp -------==//
 // This is a diagnostic test which verifies that
 // for loops with non-uniform work groups size
