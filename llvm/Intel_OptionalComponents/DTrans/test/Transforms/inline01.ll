@@ -17,7 +17,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK-RPT: -> INLINE: myinit ({{[-0-9\<\=]+}}) <<Callee has single callsite and local linkage>>
 
-%struct.MYSTRUCT = type { i32 ()*, i32 ()*, i32 ()* }
+%struct.MYSTRUCT = type { ptr, ptr, ptr }
 
 @myglobal = common dso_local global %struct.MYSTRUCT zeroinitializer, align 8
 
@@ -51,25 +51,25 @@ define dso_local i32 @baz() {
   ret i32 %add
 }
 
-define internal void @myinit(%struct.MYSTRUCT* %myglobalptr) {
-  %field1 = getelementptr inbounds %struct.MYSTRUCT, %struct.MYSTRUCT* %myglobalptr, i32 0, i32 0
-  store i32 ()* @foo, i32 ()** %field1, align 8
-  %field2 = getelementptr inbounds %struct.MYSTRUCT, %struct.MYSTRUCT* %myglobalptr, i32 0, i32 1
-  store i32 ()* @bar, i32 ()** %field2, align 8
-  %field3 = getelementptr inbounds %struct.MYSTRUCT, %struct.MYSTRUCT* %myglobalptr, i32 0, i32 2
-  store i32 ()* @baz, i32 ()** %field3, align 8
+define internal void @myinit(ptr %myglobalptr) {
+  %field1 = getelementptr inbounds %struct.MYSTRUCT, ptr %myglobalptr, i32 0, i32 0
+  store ptr @foo, ptr %field1, align 8
+  %field2 = getelementptr inbounds %struct.MYSTRUCT, ptr %myglobalptr, i32 0, i32 1
+  store ptr @bar, ptr %field2, align 8
+  %field3 = getelementptr inbounds %struct.MYSTRUCT, ptr %myglobalptr, i32 0, i32 2
+  store ptr @baz, ptr %field3, align 8
   ret void
 }
 
 define dso_local i32 @main() local_unnamed_addr {
 entry:
-  call fastcc void @myinit(%struct.MYSTRUCT* @myglobal)
-  %0 = load i32 ()*, i32 ()** getelementptr inbounds (%struct.MYSTRUCT, %struct.MYSTRUCT* @myglobal, i64 0, i32 0), align 8
+  call fastcc void @myinit(ptr @myglobal)
+  %0 = load ptr, ptr getelementptr inbounds (%struct.MYSTRUCT, ptr @myglobal, i64 0, i32 0), align 8
   %call = call i32 %0()
-  %1 = load i32 ()*, i32 ()** getelementptr inbounds (%struct.MYSTRUCT, %struct.MYSTRUCT* @myglobal, i64 0, i32 1), align 8
+  %1 = load ptr, ptr getelementptr inbounds (%struct.MYSTRUCT, ptr @myglobal, i64 0, i32 1), align 8
   %call1 = call i32 %1()
   %add = add nsw i32 %call, %call1
-  %2 = load i32 ()*, i32 ()** getelementptr inbounds (%struct.MYSTRUCT, %struct.MYSTRUCT* @myglobal, i64 0, i32 2), align 8
+  %2 = load ptr, ptr getelementptr inbounds (%struct.MYSTRUCT, ptr @myglobal, i64 0, i32 2), align 8
   %call2 = call i32 %2()
   %add3 = add nsw i32 %add, %call2
   ret i32 %add3
