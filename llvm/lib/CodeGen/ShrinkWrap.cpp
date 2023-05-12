@@ -346,10 +346,10 @@ bool ShrinkWrap::useOrDefCSROrFI(const MachineInstr &MI,
   // TODO:
   //       - Further, data dependency and alias analysis can validate
   //         that load and stores never derive from the stack pointer.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-  if (MI.mayLoadOrStore() && (MI.isCall() || MI.hasUnmodeledSideEffects() ||
-                              !all_of(MI.memoperands(), IsKnownNonStackPtr))) {
+  if (MI.mayLoadOrStore() &&
+      (MI.isCall() || MI.hasUnmodeledSideEffects() || MI.memoperands_empty() ||
+       !all_of(MI.memoperands(), IsKnownNonStackPtr))) {
     // Give up on InlineAsm since we can't extract MachineMemOperand from it for
     // analysis,
     if (MI.isInlineAsm())
@@ -367,12 +367,6 @@ bool ShrinkWrap::useOrDefCSROrFI(const MachineInstr &MI,
     }
   }
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (MI.mayLoadOrStore() &&
-      (MI.isCall() || MI.hasUnmodeledSideEffects() || MI.memoperands_empty() ||
-       !all_of(MI.memoperands(), IsKnownNonStackPtr)))
-    return true;
->>>>>>> d0718ff410cc0911766b86cd162d19b0b780b0ea
 
   if (MI.getOpcode() == FrameSetupOpcode ||
       MI.getOpcode() == FrameDestroyOpcode) {
