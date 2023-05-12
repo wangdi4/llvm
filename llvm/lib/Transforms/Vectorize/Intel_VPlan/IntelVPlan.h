@@ -717,6 +717,8 @@ public:
                                // signature. (e.g. sincos)
     SOAExtractValue,           // Like LLVM extract value, but specialized for
                                // when we know the aggregate is in SOA layout
+    F90DVBufferInit, // Lowered into set of instructions required for F90_DV
+                     // private initialization
   };
 
 private:
@@ -1118,6 +1120,39 @@ using VPPrivateLastValueNonPODMaskedInst = VPPrivateLastValueNonPODTemplInst<
     VPInstruction::PrivateLastValueNonPODMasked>;
 using VPPrivateLastValueNonPODInst =
     VPPrivateLastValueNonPODTemplInst<VPInstruction::PrivateLastValueNonPOD>;
+
+/// Concrete class to represent VPInstruction to initialize F90 private dope
+/// vector in VPlan.
+class F90DVBufferInit : public VPInstruction {
+public:
+  /// Create F90DVBufferInit with its BaseType, operands and
+  /// type of a dope vector element.
+  F90DVBufferInit(Type *BaseTy, ArrayRef<VPValue *> Operands, Type *ElementType)
+      : VPInstruction(VPInstruction::F90DVBufferInit, BaseTy, Operands),
+        ElementType(ElementType) {}
+
+  /// Return the element type of dope vector stored by this instruction
+  Type *getF90DVElementType() const { return ElementType; }
+
+  /// Methods for supporting type inquiry through isa, cast, and
+  /// dyn_cast:
+  static bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::F90DVBufferInit;
+  }
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+protected:
+  virtual VPInstruction *cloneImpl() const final {
+    SmallVector<VPValue *, 2> Ops(operands());
+    return new F90DVBufferInit(getType(), Ops, getF90DVElementType());
+  }
+
+private:
+  // Type of element of dope vector required for proper alloca generation
+  Type *ElementType = nullptr;
+};
 
 /// Concrete class to represent branch instruction in VPlan.
 class VPBranchInst : public VPInstruction {
@@ -5169,6 +5204,8 @@ public:
   LLVMContext *getLLVMContext(void) const { return Externals.getLLVMContext(); }
 
   const DataLayout *getDataLayout() const { return Externals.getDataLayout(); }
+
+  Module *getModule(void) const { return Externals.getModule(); }
 
   const VPLiveInValue *getLiveInValue(unsigned MergeId) const {
     return LiveInValues[MergeId].get();

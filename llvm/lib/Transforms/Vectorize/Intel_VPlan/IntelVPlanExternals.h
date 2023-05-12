@@ -217,6 +217,8 @@ class VPExternalValues {
 
   LLVMContext *Context = nullptr;
 
+  Module *M = nullptr;
+
   /// Holds all the VPConstants created for this VPlan.
   DenseMap<Constant *, std::unique_ptr<VPConstant>> VPConstants;
 
@@ -274,7 +276,8 @@ class VPExternalValues {
   mutable DenseMap<const VPLoop *, OptReportStatsTracker> OptRptStatsTrackers;
 
 public:
-  VPExternalValues(LLVMContext *Ctx, const DataLayout *L) : DL(L), Context(Ctx) {}
+  VPExternalValues(LLVMContext *Ctx, const DataLayout *L, Module *M)
+      : DL(L), Context(Ctx), M(M) {}
   VPExternalValues(const VPExternalValues &) = delete;
 
   ~VPExternalValues() {
@@ -290,6 +293,7 @@ public:
 
   const DataLayout *getDataLayout() const { return DL; }
   LLVMContext *getLLVMContext(void) const { return Context; }
+  Module *getModule() const { return M; }
 
   /// Create a new VPConstant for \p Const if it doesn't exist or retrieve the
   /// existing one.

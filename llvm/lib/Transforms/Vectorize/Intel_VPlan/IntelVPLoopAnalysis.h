@@ -1090,6 +1090,8 @@ private:
   // original PHI.
   SmallVector<std::pair<VPPHINode *, VPPHINode *>, 4> DuplicateInductionPHIs;
 
+  bool GeneratedSSForDV = false;
+
   // Find an item in the map defined as T<K,item>
   template <typename T, class K>
   typename T::mapped_type find(T &Map, K Key) const {

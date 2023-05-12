@@ -809,7 +809,6 @@ void VPlanCFGMerger::createTCCheckAfter(PlanDescr &Descr,
 }
 
 VPCmpInst *VPlanCFGMerger::createPeelCntVFCheck(VPValue *UB, VPBuilder &Builder,
-                                                CmpInst::Predicate Pred,
                                                 unsigned VF) {
   // Create the check for VF+PeelCount is greater then UB.
   VPValue *PeelCnt = Builder.createIntCast(PeelCount, UB->getType());
@@ -874,7 +873,7 @@ VPBasicBlock *VPlanCFGMerger::createTopTest(VPlan *VecPlan,
   //
   VPValue *Cmp;
   if (Peel) {
-    Cmp = createPeelCntVFCheck(OrigUB, Builder, CmpInst::ICMP_UGT, VF);
+    Cmp = createPeelCntVFCheck(OrigUB, Builder, VF);
   } else {
     auto *VectorUB =
         cast<VPVectorTripCountCalculation>(findVectorUB(*VecPlan)->clone());
@@ -1161,8 +1160,7 @@ void VPlanCFGMerger::insertPeelCntAndChecks(PlanDescr &P,
       new VPBasicBlock(VPlanUtils::createUniqueName("peel.checkv"), &Plan);
   VPBlockUtils::insertBlockBefore(TestBB2, P.FirstBB);
   Builder.setInsertPoint(TestBB2);
-  VPCmpInst *Cmp =
-      createPeelCntVFCheck(OrigUB, Builder, CmpInst::ICMP_UGE, MainVF * MainUF);
+  VPCmpInst *Cmp = createPeelCntVFCheck(OrigUB, Builder, MainVF * MainUF);
   Plan.getVPlanDA()->markUniform(*Cmp);
   // goto merge before remainder or to peel
   TestBB2->setTerminator(FinalRemainderMerge, P.FirstBB, Cmp);
