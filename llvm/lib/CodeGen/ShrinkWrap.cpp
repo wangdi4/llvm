@@ -347,8 +347,9 @@ bool ShrinkWrap::useOrDefCSROrFI(const MachineInstr &MI,
   //       - Further, data dependency and alias analysis can validate
   //         that load and stores never derive from the stack pointer.
 #if INTEL_CUSTOMIZATION
-  if (MI.mayLoadOrStore() && (MI.isCall() || MI.hasUnmodeledSideEffects() ||
-                              !all_of(MI.memoperands(), IsKnownNonStackPtr))) {
+  if (MI.mayLoadOrStore() &&
+      (MI.isCall() || MI.hasUnmodeledSideEffects() || MI.memoperands_empty() ||
+       !all_of(MI.memoperands(), IsKnownNonStackPtr))) {
     // Give up on InlineAsm since we can't extract MachineMemOperand from it for
     // analysis,
     if (MI.isInlineAsm())
