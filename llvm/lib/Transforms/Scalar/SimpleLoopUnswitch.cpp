@@ -3530,11 +3530,6 @@ static bool unswitchBestCondition(
   if (Best.TI != PartialIVCondBranch)
     PartialIVInfo.InstToDuplicate.clear();
 
-<<<<<<< HEAD
-  // If the best candidate is a guard, turn it into a branch.
-  if (isGuard(Best.TI))
-    Best.TI =
-        turnGuardIntoBranch(cast<IntrinsicInst>(Best.TI), L, DT, LI, MSSAU);
 #if INTEL_CUSTOMIZATION
   if (unswitchingMayAffectPerfectLoopnest(LI, L, Best.TI, TLI)) {
     LLVM_DEBUG(dbgs() << "NOT unswitching loop %" << L.getHeader()->getName()
@@ -3547,7 +3542,7 @@ static bool unswitchBestCondition(
     return false;
   }
 #endif // INTEL_CUSTOMIZATION
-=======
+
   bool InsertFreeze;
   if (auto *SI = dyn_cast<SelectInst>(Best.TI)) {
     // If the best candidate is a select, turn it into a branch. Select
@@ -3565,7 +3560,6 @@ static bool unswitchBestCondition(
     InsertFreeze = shouldInsertFreeze(L, *Best.TI, DT, AC);
   }
 
->>>>>>> 5cfb9aa428416f23eaab433eb7cab85ca64002d1
   LLVM_DEBUG(dbgs() << "  Unswitching non-trivial (cost = " << Best.Cost
                     << ") terminator: " << *Best.TI << "\n");
   unswitchNontrivialInvariants(L, *Best.TI, Best.Invariants, PartialIVInfo, DT,
