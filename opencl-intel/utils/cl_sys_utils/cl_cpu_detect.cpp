@@ -138,24 +138,20 @@ void CPUDetect::ResetCPU(
   m_CPUFeatures["sse2"] = true;
 
   // Add standard features
-  if (cpuId >=
-      (unsigned int)Intel::OpenCL::Utils::CPUDetect::GetCPUByName("core2")) {
+  if (cpuId >= Intel::OpenCL::Utils::CPUDetect::GetCPUByName("core2")) {
     m_CPUFeatures["sse3"] = true;
     m_CPUFeatures["ssse3"] = true;
   }
 
-  if (cpuId >=
-      (unsigned int)Intel::OpenCL::Utils::CPUDetect::GetCPUByName("corei7")) {
+  if (cpuId >= Intel::OpenCL::Utils::CPUDetect::GetCPUByName("corei7")) {
     m_CPUFeatures["sse4.1"] = true;
     m_CPUFeatures["sss4.2"] = true;
   }
 
-  if (cpuId >=
-      (unsigned int)Intel::OpenCL::Utils::CPUDetect::GetCPUByName("corei7-avx"))
+  if (cpuId >= Intel::OpenCL::Utils::CPUDetect::GetCPUByName("corei7-avx"))
     m_CPUFeatures["avx"] = true;
 
-  if (cpuId >= (unsigned int)Intel::OpenCL::Utils::CPUDetect::GetCPUByName(
-                   "core-avx2")) {
+  if (cpuId >= Intel::OpenCL::Utils::CPUDetect::GetCPUByName("core-avx2")) {
     m_CPUFeatures["avx"] = true;
     m_CPUFeatures["avx2"] = true;
     m_CPUFeatures["fma"] = true;
