@@ -566,7 +566,7 @@
 #define HWLOC_HAVE_LIBTERMCAP 1
 
 /* Define to 1 if you have libudev. */
-#define HWLOC_HAVE_LIBUDEV 1
+#cmakedefine HWLOC_HAVE_LIBUDEV @HWLOC_HAVE_LIBUDEV@
 
 /* Define to 1 if you have the `libxml2' library. */
 /* #undef HWLOC_HAVE_LIBXML2 */
@@ -599,7 +599,7 @@
 /* #undef HWLOC_HAVE_PTHREAD_GETTHRDS_NP */
 
 /* Define to 1 if pthread mutexes are available */
-#define HWLOC_HAVE_PTHREAD_MUTEX 1
+#cmakedefine HWLOC_HAVE_PTHREAD_MUTEX @HWLOC_HAVE_PTHREAD_MUTEX@
 
 /* Define to 1 if you have the `RSMI' library. */
 /* #undef HWLOC_HAVE_RSMI */
