@@ -1487,8 +1487,8 @@ void RegDDRef::makeConsistent(ArrayRef<const RegDDRef *> AuxRefs,
 
   // Refine Defined At Level, when DefLevel returned from
   // findTempBlobLevel is NonLinearLevel.
-  auto RefineDefLevel = [](const RegDDRef *AuxRef, unsigned DefLevel,
-                           unsigned Index) {
+  auto RefineDefLevel = [&](const RegDDRef *AuxRef, unsigned DefLevel,
+                            unsigned Index) {
     const HLDDNode *AuxNode = AuxRef->getHLDDNode();
     unsigned AuxNodeLevel = 0;
 
@@ -1496,6 +1496,17 @@ void RegDDRef::makeConsistent(ArrayRef<const RegDDRef *> AuxRefs,
         AuxRef->isSelfBlob()) {
 
       assert(Index == AuxRef->getSingleCanonExpr()->getSingleBlobIndex());
+
+      // If auxiliary temp definition is in a sibling loop, we should use the
+      // LCA loop to set a more precise def level.
+      auto *RefNode = getHLDDNode();
+
+      if (RefNode && RefNode->isAttached() &&
+          (NewLevel == RefNode->getNodeLevel())) {
+        auto *LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(
+            getParentLoop(), AuxRef->getParentLoop());
+        return LCALoop ? LCALoop->getNestingLevel() : 0;
+      }
 
       AuxNodeLevel = AuxNode->getNodeLevel();
 
