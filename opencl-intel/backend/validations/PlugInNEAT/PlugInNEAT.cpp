@@ -2621,7 +2621,7 @@ typedef void (*vstoreOp)(NEATVector, size_t, const NEATValue *);
     NEATValue *p = (NEATValue *)NGVTOP(ValArg2);                               \
     const Type *Ty2 = arg2->getType();                                         \
     const PointerType *PTy = dyn_cast<PointerType>(Ty2);                       \
-    const Type *ETy = PTy->getElementType();                                   \
+    const Type *ETy = PTy->getNonOpaquePointerElementType();                   \
     if (ETy->isFloatTy()) {                                                    \
       NEAT_WRAP::vstore##n##_f(data, offset, p);                               \
     } else if (ETy->isDoubleTy()) {                                            \

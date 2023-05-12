@@ -721,11 +721,8 @@ public:
     return get(PT->PointeeTy, AddressSpace);
   }
 
-#ifdef INTEL_CUSTOMIZATION
-#else // INTEL_CUSTOMIZATION
   [[deprecated("Pointer element types are deprecated. You can *temporarily* "
                "use Type::getPointerElementType() instead")]]
-#endif // INTEL_CUSTOMIZATION
   Type *getElementType() const {
     assert(!isOpaque() && "Attempting to get element type of opaque pointer");
     return PointeeTy;
