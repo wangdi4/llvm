@@ -50,37 +50,37 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local i32 @_Z3barv() local_unnamed_addr #0 {
 entry:
   %T = alloca %class._ZTS9TestClassIiE.TestClass, align 4
-  %0 = bitcast %class._ZTS9TestClassIiE.TestClass* %T to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %0) #3
-  call void @_Z3fooP9TestClassIiEi(%class._ZTS9TestClassIiE.TestClass* nonnull %T, i32 10)
-  %val.i = getelementptr inbounds %class._ZTS9TestClassIiE.TestClass, %class._ZTS9TestClassIiE.TestClass* %T, i64 0, i32 0, !intel-tbaa !10
-  %1 = load i32, i32* %val.i, align 4, !tbaa !10
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %0) #3
+  %0 = bitcast ptr %T to ptr
+  call void @llvm.lifetime.start.p0i8(i64 4, ptr nonnull %0) #3
+  call void @_Z3fooP9TestClassIiEi(ptr nonnull %T, i32 10)
+  %val.i = getelementptr inbounds %class._ZTS9TestClassIiE.TestClass, ptr %T, i64 0, i32 0, !intel-tbaa !10
+  %1 = load i32, ptr %val.i, align 4, !tbaa !10
+  call void @llvm.lifetime.end.p0i8(i64 4, ptr nonnull %0) #3
   ret i32 %1
 }
 
 ; Function Attrs: argmemonly mustprogress nofree nosync nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0i8(i64 immarg, ptr nocapture) #1
 
-declare !intel.dtrans.func.type !15 dso_local void @_Z3fooP9TestClassIiEi(%class._ZTS9TestClassIiE.TestClass* "intel_dtrans_func_index"="1", i32) local_unnamed_addr #2
+declare !intel.dtrans.func.type !15 dso_local void @_Z3fooP9TestClassIiEi(ptr "intel_dtrans_func_index"="1", i32) local_unnamed_addr #2
 
 ; Function Attrs: argmemonly mustprogress nofree nosync nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0i8(i64 immarg, ptr nocapture) #1
 
 ; Function Attrs: uwtable
 define dso_local double @_Z3cazv() local_unnamed_addr #0 {
 entry:
   %T = alloca %class._ZTS9TestClassIdE.TestClass, align 8
-  %0 = bitcast %class._ZTS9TestClassIdE.TestClass* %T to i8*
-  call void @llvm.lifetime.start.p0i8(i64 8, i8* nonnull %0) #3
-  call void @_Z3basP9TestClassIdEd(%class._ZTS9TestClassIdE.TestClass* nonnull %T, double 1.000000e+01)
-  %val.i = getelementptr inbounds %class._ZTS9TestClassIdE.TestClass, %class._ZTS9TestClassIdE.TestClass* %T, i64 0, i32 0, !intel-tbaa !17
-  %1 = load double, double* %val.i, align 8, !tbaa !17
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* nonnull %0) #3
+  %0 = bitcast ptr %T to ptr
+  call void @llvm.lifetime.start.p0i8(i64 8, ptr nonnull %0) #3
+  call void @_Z3basP9TestClassIdEd(ptr nonnull %T, double 1.000000e+01)
+  %val.i = getelementptr inbounds %class._ZTS9TestClassIdE.TestClass, ptr %T, i64 0, i32 0, !intel-tbaa !17
+  %1 = load double, ptr %val.i, align 8, !tbaa !17
+  call void @llvm.lifetime.end.p0i8(i64 8, ptr nonnull %0) #3
   ret double %1
 }
 
-declare !intel.dtrans.func.type !20 dso_local void @_Z3basP9TestClassIdEd(%class._ZTS9TestClassIdE.TestClass* "intel_dtrans_func_index"="1", double) local_unnamed_addr #2
+declare !intel.dtrans.func.type !20 dso_local void @_Z3basP9TestClassIdEd(ptr "intel_dtrans_func_index"="1", double) local_unnamed_addr #2
 
 attributes #0 = { uwtable "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
 attributes #1 = { argmemonly mustprogress nofree nosync nounwind willreturn }

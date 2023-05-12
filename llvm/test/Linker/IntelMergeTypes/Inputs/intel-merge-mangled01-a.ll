@@ -44,23 +44,23 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local i32 @_Z3barv() local_unnamed_addr #0 {
 entry:
   %T = alloca %class._ZTS9TestClass.TestClass, align 4
-  %0 = bitcast %class._ZTS9TestClass.TestClass* %T to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %0) #3
-  %val.i = getelementptr inbounds %class._ZTS9TestClass.TestClass, %class._ZTS9TestClass.TestClass* %T, i64 0, i32 0, !intel-tbaa !8
-  store i32 0, i32* %val.i, align 4, !tbaa !8
-  call void @_Z3fooP9TestClassi(%class._ZTS9TestClass.TestClass* nonnull %T, i32 10)
-  %1 = load i32, i32* %val.i, align 4, !tbaa !8
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %0) #3
+  %0 = bitcast ptr %T to ptr
+  call void @llvm.lifetime.start.p0i8(i64 4, ptr nonnull %0) #3
+  %val.i = getelementptr inbounds %class._ZTS9TestClass.TestClass, ptr %T, i64 0, i32 0, !intel-tbaa !8
+  store i32 0, ptr %val.i, align 4, !tbaa !8
+  call void @_Z3fooP9TestClassi(ptr nonnull %T, i32 10)
+  %1 = load i32, ptr %val.i, align 4, !tbaa !8
+  call void @llvm.lifetime.end.p0i8(i64 4, ptr nonnull %0) #3
   ret i32 %1
 }
 
 ; Function Attrs: argmemonly mustprogress nofree nosync nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0i8(i64 immarg, ptr nocapture) #1
 
-declare !intel.dtrans.func.type !13 dso_local void @_Z3fooP9TestClassi(%class._ZTS9TestClass.TestClass* "intel_dtrans_func_index"="1", i32) local_unnamed_addr #2
+declare !intel.dtrans.func.type !13 dso_local void @_Z3fooP9TestClassi(ptr "intel_dtrans_func_index"="1", i32) local_unnamed_addr #2
 
 ; Function Attrs: argmemonly mustprogress nofree nosync nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0i8(i64 immarg, ptr nocapture) #1
 
 attributes #0 = { uwtable "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
 attributes #1 = { argmemonly mustprogress nofree nosync nounwind willreturn }

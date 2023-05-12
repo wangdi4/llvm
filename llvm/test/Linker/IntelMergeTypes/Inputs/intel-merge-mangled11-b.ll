@@ -21,15 +21,15 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %struct._ZTS10TestStruct.TestStruct = type { [5 x i32] }
 
-@glob = dso_local local_unnamed_addr global %struct._ZTS10TestStruct.TestStruct* null, align 8, !intel_dtrans_type !0
+@glob = dso_local local_unnamed_addr global ptr null, align 8, !intel_dtrans_type !0
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind readonly uwtable willreturn
 define dso_local i32 @_Z3bari(i32 %i) local_unnamed_addr #0 {
 entry:
-  %0 = load %struct._ZTS10TestStruct.TestStruct*, %struct._ZTS10TestStruct.TestStruct** @glob, align 8, !tbaa !9
+  %0 = load ptr, ptr @glob, align 8, !tbaa !9
   %idxprom = sext i32 %i to i64
-  %arrayidx = getelementptr inbounds %struct._ZTS10TestStruct.TestStruct, %struct._ZTS10TestStruct.TestStruct* %0, i64 0, i32 0, i64 %idxprom, !intel-tbaa !13
-  %1 = load i32, i32* %arrayidx, align 4, !tbaa !13
+  %arrayidx = getelementptr inbounds %struct._ZTS10TestStruct.TestStruct, ptr %0, i64 0, i32 0, i64 %idxprom, !intel-tbaa !13
+  %1 = load i32, ptr %arrayidx, align 4, !tbaa !13
   ret i32 %1
 }
 

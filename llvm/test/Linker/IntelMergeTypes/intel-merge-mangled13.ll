@@ -30,7 +30,7 @@
 ;     return glob->arr[i];
 ;   }
 
-; CHECK: %struct.ident_t = type { i32, i32, i32, i32, i8* }
+; CHECK: %struct.ident_t = type { i32, i32, i32, i32, ptr }
 ; CHECK-NOT: %struct.ident_t.
 
 ; CHECK: !intel.dtrans.types = !{!1, !3, !6, !3}

@@ -7,10 +7,10 @@
 ; already merged in, the metadata attachments also get remapped appropriately,
 ; without leaving references to deleted types.
 
-%struct.op = type { %struct.op*, %struct.op*, %struct.op* ()*, i64, i16, i8, i8 }
+%struct.op = type { ptr, ptr, ptr, i64, i16, i8, i8 }
 
-define "intel_dtrans_func_index"="1" %struct.op* @test01(%struct.op* "intel_dtrans_func_index"="2" returned %0) !intel.dtrans.func.type !7 {
-  ret %struct.op* %0
+define "intel_dtrans_func_index"="1" ptr @test01(ptr "intel_dtrans_func_index"="2" returned %0) !intel.dtrans.func.type !7 {
+  ret ptr %0
 }
 
 !1 = !{%struct.op zeroinitializer, i32 1}  ; %struct.op*
@@ -24,7 +24,7 @@ define "intel_dtrans_func_index"="1" %struct.op* @test01(%struct.op* "intel_dtra
 
 !intel.dtrans.types = !{!8}
 
-; CHECK: declare !intel.dtrans.func.type ![[TEST02_MD:[0-9]+]] "intel_dtrans_func_index"="1" %struct.op.0* @test02(%struct.op.0* "intel_dtrans_func_index"="2")
+; CHECK: declare !intel.dtrans.func.type ![[TEST02_MD:[0-9]+]] "intel_dtrans_func_index"="1" ptr @test02(ptr "intel_dtrans_func_index"="2")
 ; CHECK: ![[SOP_MD:[0-9]+]] = !{%struct.op.0 zeroinitializer, i32 1}
 ; CHECK: ![[TEST02_MD]] = distinct !{![[SOP_MD]], ![[SOP_MD]]}
 ; CHECK-NOT: !{%"type 0x

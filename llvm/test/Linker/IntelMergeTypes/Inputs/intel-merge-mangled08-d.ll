@@ -36,10 +36,10 @@ target triple = "x86_64-pc-windows-msvc19.16.27045"
 %"class..?AV?$TestClass@N@@.TestClass" = type { double }
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind uwtable willreturn writeonly
-define dso_local void @"?bas@@YAXPEAV?$TestClass@N@@N@Z"(%"class..?AV?$TestClass@N@@.TestClass"* nocapture "intel_dtrans_func_index"="1" %T, double %I) local_unnamed_addr #0 !intel.dtrans.func.type !15 {
+define dso_local void @"?bas@@YAXPEAV?$TestClass@N@@N@Z"(ptr nocapture "intel_dtrans_func_index"="1" %T, double %I) local_unnamed_addr #0 !intel.dtrans.func.type !15 {
 entry:
-  %val.i = getelementptr inbounds %"class..?AV?$TestClass@N@@.TestClass", %"class..?AV?$TestClass@N@@.TestClass"* %T, i64 0, i32 0, !intel-tbaa !17
-  store double %I, double* %val.i, align 8, !tbaa !17
+  %val.i = getelementptr inbounds %"class..?AV?$TestClass@N@@.TestClass", ptr %T, i64 0, i32 0, !intel-tbaa !17
+  store double %I, ptr %val.i, align 8, !tbaa !17
   ret void
 }
 
