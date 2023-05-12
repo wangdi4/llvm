@@ -1,10 +1,11 @@
 ; INTEL_FEATURE_SW_DTRANS
 
-; REQUIRES: intel_feature_sw_dtrans
-; RUN: llvm-link -irmover-enable-merge-with-dtrans -irmover-enable-dtrans-incomplete-metadata -irmover-enable-module-verify -irmover-type-merging=false -opaque-pointers -S %S/Inputs/intel-merge-types-opq-02a.ll %S/Inputs/intel-merge-types-opq-02b.ll | FileCheck %s
+; REQUIRES: intel_feature_sw_dtrans, asserts
+; RUN: llvm-link -debug-only=irmover-dtrans-types  -irmover-enable-merge-with-dtrans -irmover-enable-dtrans-incomplete-metadata -irmover-enable-module-verify -irmover-type-merging=false -opaque-pointers -S %S/Inputs/intel-merge-types-02a.ll %S/Inputs/intel-merge-types-02b.ll 2>&1 | FileCheck %s
 
 ; This test case checks that the types aren't merged during the IR mover since
-; the pointer types don't match. The test case use template class. It
+; the pointer types don't match. The test case use template class. It is the
+; same test case as intel-merge-types-02-debug.ll. This test case
 ; represents the following C/C++ source code:
 
 ; file: simple.h
@@ -60,6 +61,25 @@
 ;   int barInt(int i) {
 ;     return globInt->getVal(i);
 ;   }
+
+; Check the debug information:
+
+; CHECK: Merging types from source module:
+; CHECK-SAME: intel-merge-types-02a.ll
+; CHECK:   Source type: %class._ZTS9TestClassIiE.TestClass = type { ptr }
+; CHECK:     Destination type: None
+; CHECK:     Fields that will be repaired:
+; CHECK: Destination module passed verification
+; CHECK: -------------------------------------------------------
+
+; CHECK: Merging types from source module:
+; CHECK-SAME: intel-merge-types-02b.ll
+; CHECK:   Source type: %class._ZTS9TestClassIdE.TestClass = type { ptr }
+; CHECK:     Destination type: None
+; CHECK:     Fields that will be repaired:
+; CHECK: Destination module passed verification
+; CHECK: -------------------------------------------------------
+
 
 
 ; Check that both structures are in the IR

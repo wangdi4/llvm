@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans, asserts
-; RUN: llvm-link -irmover-trace-dtrans-metadata-loss -irmover-enable-merge-with-dtrans -irmover-type-merging=false -opaque-pointers -S %S/Inputs/intel-merge-types-opq-09a.ll %S/Inputs/intel-merge-types-opq-09b.ll 2>&1 | FileCheck %s
+; RUN: llvm-link -irmover-trace-dtrans-metadata-loss -irmover-enable-merge-with-dtrans -irmover-type-merging=false -opaque-pointers -S %S/Inputs/intel-merge-types-09a.ll %S/Inputs/intel-merge-types-09b.ll 2>&1 | FileCheck %s
 
 ; This test case checks that the information is printed correctly when the
 ; metadata is missing in the input modules. It was created from the following
@@ -40,20 +40,20 @@
 ;   }
 
 ; Check that there is no metadata loss in the source module
-; intel-merge-types-opq-09a.ll.
+; intel-merge-types-09a.ll.
 
 ; CHECK: Merging types from source module:
-; CHECK-SAME: intel-merge-types-opq-09a.ll
+; CHECK-SAME: intel-merge-types-09a.ll
 
 ; CHECK: Checking for metadata loss in source module:
 ; CHECK-NEXT: Checking for metadata loss in destination module:
 ; CHECK-EMPTY:
 
 ; Check that the metadata for %struct._ZTS11TestStructB.TestStructB
-; in the source module intel-merge-types-opq-09b.ll is missing.
+; in the source module intel-merge-types-09b.ll is missing.
 
 ; CHECK: Merging types from source module:
-; CHECK-SAME: intel-merge-types-opq-09b.ll
+; CHECK-SAME: intel-merge-types-09b.ll
 
 ; CHECK:     llvm::Type: %struct._ZTS11TestStructB.TestStructB = type { ptr, ptr }
 ; CHECK:     DTransType: None

@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans, asserts
-; RUN: llvm-link -irmover-enable-merge-with-dtrans -irmover-trace-dtrans-metadata-loss -debug-only=irmover-dtrans-types -opaque-pointers -S %S/Inputs/intel-cmplrllvm-45774b.ll 2>&1 | FileCheck %s
+; RUN: llvm-link -irmover-enable-merge-with-dtrans -irmover-trace-dtrans-metadata-loss -debug-only=irmover-dtrans-types -S %S/Inputs/intel-cmplrllvm-45774b.ll 2>&1 | FileCheck %s
 
 ; Check that types beginning with "%rtti." or "%eh." do not have DTrans
 ; metdata, but also do not inhibit DTrans Type Merging and are flagged

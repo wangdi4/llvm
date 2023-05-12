@@ -39,10 +39,10 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct._ZTSN9TestClassIdEUt_E.anon = type { double }
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind uwtable willreturn writeonly
-define dso_local void @_Z3basP9TestClassIdEd(%class._ZTS9TestClassIdE.TestClass* nocapture "intel_dtrans_func_index"="1" %T, double %I) local_unnamed_addr #0 !intel.dtrans.func.type !10 {
+define dso_local void @_Z3basP9TestClassIdEd(ptr nocapture "intel_dtrans_func_index"="1" %T, double %I) local_unnamed_addr #0 !intel.dtrans.func.type !10 {
 entry:
-  %val.i = getelementptr inbounds %class._ZTS9TestClassIdE.TestClass, %class._ZTS9TestClassIdE.TestClass* %T, i64 0, i32 0, !intel-tbaa !12
-  store double %I, double* %val.i, align 8, !tbaa !12
+  %val.i = getelementptr inbounds %class._ZTS9TestClassIdE.TestClass, ptr %T, i64 0, i32 0, !intel-tbaa !12
+  store double %I, ptr %val.i, align 8, !tbaa !12
   ret void
 }
 

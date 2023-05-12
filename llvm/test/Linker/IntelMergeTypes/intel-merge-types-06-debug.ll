@@ -1,11 +1,11 @@
 ; INTEL_FEATURE_SW_DTRANS
 
 ; REQUIRES: intel_feature_sw_dtrans, asserts
-; RUN: llvm-link -debug-only=irmover-dtrans-types -irmover-enable-merge-with-dtrans -irmover-enable-dtrans-incomplete-metadata -irmover-enable-module-verify -irmover-type-merging=false -opaque-pointers -S %S/Inputs/intel-merge-types-opq-06a.ll %S/Inputs/intel-merge-types-opq-06b.ll 2>&1 | FileCheck %s
+; RUN: llvm-link -debug-only=irmover-dtrans-types -irmover-enable-merge-with-dtrans -irmover-enable-dtrans-incomplete-metadata -irmover-enable-module-verify -irmover-type-merging=false -opaque-pointers -S %S/Inputs/intel-merge-types-06a.ll %S/Inputs/intel-merge-types-06b.ll 2>&1 | FileCheck %s
 
 ; This test case checks that the types aren't merged during the IR mover since
 ; the arrays type won't match. This is the same test case as
-; intel-merge-types-opq-05.ll but it checks the debug information. It
+; intel-merge-types-05.ll but it checks the debug information. It
 ; represents the following C/C++ source code:
 
 ; file: simple.cpp
@@ -33,14 +33,14 @@
 ; Check the debug output
 
 ; CHECK: Merging types from source module:
-; CHECK-SAME: intel-merge-types-opq-06a.ll
+; CHECK-SAME: intel-merge-types-06a.ll
 ; CHECK:   Source type: %struct._ZTS10TestStruct.TestStruct = type { [8 x ptr] }
 ; CHECK:     Destination type: None
 ; CHECK:     Fields that will be repaired:
 ; CHECK: Destination module passed verification
 
 ; CHECK: Merging types from source module:
-; CHECK-SAME: intel-merge-types-opq-06b.ll
+; CHECK-SAME: intel-merge-types-06b.ll
 ; CHECK:   Source type: %struct._ZTS10TestStruct.TestStruct.0 = type { [8 x ptr] }
 ; CHECK:     Destination type: None
 ; CHECK:     Fields that will be repaired:

@@ -1,11 +1,11 @@
 ; INTEL_FEATURE_SW_DTRANS
 
 ; REQUIRES: intel_feature_sw_dtrans, asserts
-; RUN: llvm-link -debug-only=irmover-dtrans-types -irmover-enable-merge-with-dtrans -irmover-enable-dtrans-incomplete-metadata -irmover-enable-module-verify -irmover-type-merging=false -opaque-pointers -S %S/Inputs/intel-merge-types-opq-04a.ll %S/Inputs/intel-merge-types-opq-04b.ll 2>&1 | FileCheck %s
+; RUN: llvm-link -debug-only=irmover-dtrans-types -irmover-enable-merge-with-dtrans -irmover-enable-dtrans-incomplete-metadata -irmover-enable-module-verify -irmover-type-merging=false -opaque-pointers -S %S/Inputs/intel-merge-types-04a.ll %S/Inputs/intel-merge-types-04b.ll 2>&1 | FileCheck %s
 
 ; This test case checks that the types aren't merged during the IR mover since
 ; the pointers in the anonymous structures won't match. This is the same test
-; case as intel-merge-types-opq-04.ll but it checks the debug output.
+; case as intel-merge-types-04.ll but it checks the debug output.
 
 ; file: simple.cpp
 ;   struct TestStruct {
@@ -38,14 +38,14 @@
 
 
 ; CHECK: Merging types from source module:
-; CHECK-SAME: intel-merge-types-opq-04a.ll
+; CHECK-SAME: intel-merge-types-04a.ll
 ; CHECK:   Source type: %struct._ZTS10TestStruct.TestStruct = type { ptr, %struct._ZTSN10TestStructUt_E.anon }
 ; CHECK:     Destination type: None
 ; CHECK:     Fields that will be repaired:
 ; CHECK: Destination module passed verification
 
 ; CHECK: Merging types from source module:
-; CHECK-SAME: intel-merge-types-opq-04b.ll
+; CHECK-SAME: intel-merge-types-04b.ll
 ; CHECK:   Source type: %struct._ZTS10TestStruct.TestStruct.0 = type { ptr, %struct._ZTSN10TestStructUt_E.anon.1 }
 ; CHECK:     Destination type: None
 ; CHECK:     Fields that will be repaired:

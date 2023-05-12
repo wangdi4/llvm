@@ -6,25 +6,25 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct._IO_FILE = type { i32, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, %struct._IO_marker*, %struct._IO_FILE*, i32, i32, i64, i16, i8, [1 x i8], i8*, i64, %struct._IO_codecvt*, %struct._IO_wide_data*, %struct._IO_FILE*, i8*, i64, i32, [20 x i8] }
+%struct._IO_FILE = type { i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, i32, i32, i64, i16, i8, [1 x i8], ptr, i64, ptr, ptr, ptr, ptr, i64, i32, [20 x i8] }
 %struct._IO_marker = type opaque
 %struct._IO_codecvt = type opaque
 %struct._IO_wide_data = type opaque
-%struct.network = type { [200 x i8], [200 x i8], i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, double, i64, %struct.node*, %struct.node*, %struct.arc*, %struct.arc*, %struct.arc*, %struct.arc*, %struct.arc*, i64, i64, i64, i64, i64 }
-%struct.node = type { i64, i32, %struct.node*, %struct.node*, %struct.node*, %struct.node*, %struct.arc*, %struct.arc*, %struct.arc*, %struct.arc*, i64, i64, i32, i32 }
-%struct.arc = type { i32, i64, %struct.node*, %struct.node*, i16, %struct.arc*, %struct.arc*, i64, i64 }
+%struct.network = type { [200 x i8], [200 x i8], i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, double, i64, ptr, ptr, ptr, ptr, ptr, ptr, ptr, i64, i64, i64, i64, i64 }
+%struct.node = type { i64, i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, i64, i64, i32, i32 }
+%struct.arc = type { i32, i64, ptr, ptr, i16, ptr, ptr, i64, i64 }
 
-@stderr = external dso_local local_unnamed_addr global %struct._IO_FILE*, align 8, !intel_dtrans_type !0
+@stderr = external dso_local local_unnamed_addr global ptr, align 8, !intel_dtrans_type !0
 @.str.4 = private unnamed_addr constant [23 x i8] c"12345678901234567890: \00", align 1
 
-define dso_local i64 @test(%struct.network* nocapture readonly "intel_dtrans_func_index"="1" %net) local_unnamed_addr !intel.dtrans.func.type !22 {
+define dso_local i64 @test(ptr nocapture readonly "intel_dtrans_func_index"="1" %net) local_unnamed_addr !intel.dtrans.func.type !22 {
 entry:
-  %t10 = load %struct._IO_FILE*, %struct._IO_FILE** @stderr, align 8
-  %t11 = tail call i64 @fwrite(i8* getelementptr inbounds ([23 x i8], [23 x i8]* @.str.4, i64 0, i64 0), i64 22, i64 1, %struct._IO_FILE* %t10)
+  %t10 = load ptr, ptr @stderr, align 8
+  %t11 = tail call i64 @fwrite(ptr getelementptr inbounds ([23 x i8], ptr @.str.4, i64 0, i64 0), i64 22, i64 1, ptr %t10)
   ret i64 0
 }
 
-declare noundef i64 @fwrite(i8* nocapture noundef, i64 noundef, i64 noundef, %struct._IO_FILE* nocapture noundef) local_unnamed_addr
+declare noundef i64 @fwrite(ptr nocapture noundef, i64 noundef, i64 noundef, ptr nocapture noundef) local_unnamed_addr
 
 !intel.dtrans.types = !{!1, !8, !10, !12, !19, !20, !21}
 

@@ -9,9 +9,9 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct.network = type { [200 x i8], [200 x i8], i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, double, i64, %struct.node*, %struct.node*, %struct.arc*, %struct.arc*, %struct.arc*, %struct.arc*, %struct.arc*, i64, i64, i64, i64, i64 }
-%struct.node = type { i64, i32, %struct.node*, %struct.node*, %struct.node*, %struct.node*, %struct.arc*, %struct.arc*, %struct.arc*, %struct.arc*, i64, i64, i32, i32 }
-%struct.arc = type { i32, i64, %struct.node*, %struct.node*, i16, %struct.arc*, %struct.arc*, i64, i64 }
+%struct.network = type { [200 x i8], [200 x i8], i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, i64, double, i64, ptr, ptr, ptr, ptr, ptr, ptr, ptr, i64, i64, i64, i64, i64 }
+%struct.node = type { i64, i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, i64, i64, i32, i32 }
+%struct.arc = type { i32, i64, ptr, ptr, i16, ptr, ptr, i64, i64 }
 
 !intel.dtrans.types = !{!0, !7, !9}
 
@@ -27,7 +27,7 @@ target triple = "x86_64-unknown-linux-gnu"
 !9 = !{!"S", %struct.arc zeroinitializer, i32 9, !8, !3, !5, !5, !10, !6, !6, !3, !3}
 !10 = !{i16 0, i32 0}
 
-; CHECK: @stderr = external dso_local local_unnamed_addr global %struct._IO_FILE*, align 8, !intel_dtrans_type ![[MD:[0-9]+]]
+; CHECK: @stderr = external dso_local local_unnamed_addr global ptr, align 8, !intel_dtrans_type ![[MD:[0-9]+]]
 ; CHECK-NOT: !{%"type 0x
 ; CHECK ![[MD]]= !{%struct._IO_FILE zeroinitializer, i32 1}
 

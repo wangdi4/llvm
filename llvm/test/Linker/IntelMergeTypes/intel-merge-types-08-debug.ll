@@ -1,10 +1,10 @@
 ; INTEL_FEATURE_SW_DTRANS
 
 ; REQUIRES: intel_feature_sw_dtrans, asserts
-; RUN: llvm-link -debug-only=irmover-dtrans-types -irmover-enable-merge-with-dtrans -irmover-enable-dtrans-incomplete-metadata -irmover-enable-module-verify -irmover-type-merging=false -opaque-pointers -S %S/Inputs/intel-merge-types-opq-08a.ll %S/Inputs/intel-merge-types-opq-08b.ll 2>&1 | FileCheck %s
+; RUN: llvm-link -debug-only=irmover-dtrans-types -irmover-enable-merge-with-dtrans -irmover-enable-dtrans-incomplete-metadata -irmover-enable-module-verify -irmover-type-merging=false -opaque-pointers -S %S/Inputs/intel-merge-types-08a.ll %S/Inputs/intel-merge-types-08b.ll 2>&1 | FileCheck %s
 
 ; This test case checks that the structures without mangled names were merged
-; correctly. It is the same test case as intel-merge-types-opq-08.ll, but it
+; correctly. It is the same test case as intel-merge-types-08.ll, but it
 ; checks the debug output. This test case was created from the following test
 ; by adding %struct.ident_t, which will be added by PAROPT:
 
@@ -20,7 +20,7 @@
 ;   }
 
 ; CHECK: Merging types from source module:
-; CHECK-SAME: intel-merge-types-opq-08a.ll
+; CHECK-SAME: intel-merge-types-08a.ll
 ; CHECK:   Source type: %struct._ZTS10TestStruct.TestStruct = type { ptr }
 ; CHECK:     Destination type: None
 ; CHECK:     Fields that will be repaired:
@@ -30,7 +30,7 @@
 ; CHECK: Destination module passed verification
 
 ; CHECK: Merging types from source module:
-; CHECK-SAME: intel-merge-types-opq-08b.ll
+; CHECK-SAME: intel-merge-types-08b.ll
 ; CHECK:   Source type: %struct._ZTS10TestStruct.TestStruct.0 = type { ptr }
 ; CHECK:     Destination type: None
 ; CHECK:     Fields that will be repaired:
