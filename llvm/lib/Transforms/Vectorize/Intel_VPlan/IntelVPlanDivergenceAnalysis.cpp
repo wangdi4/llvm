@@ -1728,7 +1728,9 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     // instructions are currently being used. This has to be reevaluated if how
     // it is used changes.
     NewShape = getUniformVectorShape();
-  } else {
+  } else if (Opcode == VPInstruction::F90DVBufferInit)
+    NewShape = getRandomVectorShape();
+  else {
     LLVM_DEBUG(dbgs() << "Instruction not supported: " << *I);
     NewShape = getRandomVectorShape();
     assert(Opcode <= Instruction::OtherOpsEnd &&

@@ -35,7 +35,6 @@ static cl::opt<bool> DumpVPlanEntities("vplan-entities-dump", cl::init(false),
                                        cl::desc("Print VPlan entities"));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
 void VPReduction::dump(raw_ostream &OS) const {
   OS << (isIntegerRecurrenceKind(getRecurrenceKind()) && isSigned() ? " signed "
                                                                     : " ");
@@ -2629,6 +2628,41 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
       VPValue* StoreMem = Private->getIsMemOnly() ? AI : nullptr;
       processFinalValue(*Private, StoreMem, Builder, *Final, Exit->getType(),
                         Exit);
+    } else if (auto *PrivateF90DV = dyn_cast<VPPrivateF90DV>(Private)) {
+      VPInstruction *VPStackSave = nullptr;
+      auto *I64 = Type::getInt64Ty(*Plan.getLLVMContext());
+      auto *ptrI8 = Type::getInt8PtrTy(*Plan.getLLVMContext());
+      FunctionType *NewFnTy = FunctionType::get(I64, {ptrI8, ptrI8}, false);
+      FunctionCallee FnC = Plan.getModule()->getOrInsertFunction(
+          "_f90_dope_vector_init2", NewFnTy);
+      Function *InitFn = dyn_cast_or_null<Function>(FnC.getCallee());
+      assert(InitFn && "InitFn cannot be nullptr.");
+      VPValue *i8AI = Builder.createNaryOp(Instruction::BitCast, ptrI8, {AI});
+      VPValue *i8PrivateMem =
+          Builder.createNaryOp(Instruction::BitCast, ptrI8, {PrivateMem});
+      auto *VPInitF90Call = Builder.createCall(InitFn, {i8PrivateMem, i8AI});
+
+      // Emit StackSave only single time
+      if (!GeneratedSSForDV) {
+        Function *StackSaveFunc =
+            Intrinsic::getDeclaration(Plan.getModule(), Intrinsic::stacksave);
+        VPStackSave = Builder.createCall(StackSaveFunc, {});
+      }
+
+      Builder.create<F90DVBufferInit>(
+          ".priv_f90_init", Type::getVoidTy(*Plan.getLLVMContext()),
+          ArrayRef<VPValue *>{VPInitF90Call, PrivateMem},
+          PrivateF90DV->getF90DVElementType());
+
+      // Emit StackRestore only single time
+      if (!GeneratedSSForDV) {
+        VPBuilder::InsertPointGuard Guard(Builder);
+        Builder.setInsertPoint(PostExit);
+        Function *StackRestoreFunc = Intrinsic::getDeclaration(
+            Plan.getModule(), Intrinsic::stackrestore);
+        Builder.createCall(StackRestoreFunc, {VPStackSave});
+        GeneratedSSForDV = true;
+      }
     }
 
     if (PrivateMem) {

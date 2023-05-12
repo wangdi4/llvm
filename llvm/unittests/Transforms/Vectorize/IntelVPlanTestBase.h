@@ -82,7 +82,7 @@ protected:
       PSE.reset(new PredicatedScalarEvolution(*SE, *Loop));
       Legal.reset(new VPOVectorizationLegality(Loop, *PSE, &F));
     }
-    Externals.reset(new VPExternalValues(Ctx.get(), DL.get()));
+    Externals.reset(new VPExternalValues(Ctx.get(), DL.get(), M.get()));
     UVPI.reset(new VPUnlinkedInstructions());
     LVP.reset(new LoopVectorizationPlanner(
         nullptr /* no WRLp */, Loop, LI.get(), TLI.get(), TTI.get(), DL.get(),

@@ -419,6 +419,13 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
     return;
   }
 
+  // llvm.stacksave and llvm.stackrestore intrinsics should not be widened.
+  if (VPCall->isIntrinsicFromList(
+          {Intrinsic::stacksave, Intrinsic::stackrestore})) {
+    VPCall->setShouldNotBeWidened();
+    return;
+  }
+
   StringRef CalledFuncName = F->getName();
   // Currently we assume CallVecDecisions analysis is run after predication. So
   // call is masked only if its parent VPBB has predicate.

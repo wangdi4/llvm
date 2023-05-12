@@ -270,6 +270,92 @@ static bool canProcessMaskedVariant(const VPlanVector &P) {
   return true;
 }
 
+// Below function converts
+//
+// f90-dv-buffer-init i64 %dv.init ptr %alloca.priv
+//
+// Into
+//
+// %dv.init = call ptr %alloca.priv ptr %priv ptr @_f90_dope_vector_init2
+// i64 %num.el = udiv i64 %dv.init i64 4
+// i1 %is.allocated = icmp sgt i64 %dv.init i64 0
+// br i1 %is.allocated, BB1, BB2
+//
+// BB1:
+//   ptr %dv.array.buffer = allocate-dv-buffer i32 i64 %num.el, OrigAlign = 4
+//   ptr %alloca.addr = getelementptr %"DVType", ptr %alloca.priv i32 0 i32 0
+//   store ptr %dv.array.buffer ptr %alloca.addr
+//   br BB2
+//
+// BB2:
+// ...
+
+static void preprocessDopeVectorInstructions(VPlanVector *Plan) {
+  VPLoopInfo *VPLI = Plan->getVPLoopInfo();
+  VPDominatorTree *DT = Plan->getDT();
+  VPPostDominatorTree *PDT = Plan->getPDT();
+  VPlanDivergenceAnalysisBase *DA = Plan->getVPlanDA();
+
+  const auto &VPInstRange =
+      map_range(make_filter_range(vpinstructions(Plan),
+                                  [](const VPInstruction &VPInst) {
+                                    return VPInst.getOpcode() ==
+                                           VPInstruction::F90DVBufferInit;
+                                  }),
+                [](VPInstruction &VPInst) { return &VPInst; });
+
+  SmallVector<VPInstruction *, 2> DVInitInst(VPInstRange.begin(),
+                                             VPInstRange.end());
+  const DataLayout *DL = Plan->getDataLayout();
+  auto *I32 = Type::getInt32Ty(*Plan->getLLVMContext());
+  VPConstant *I32Zero = Plan->getVPConstant(ConstantInt::get(I32, 0));
+
+  for (VPInstruction *VPInst : DVInitInst) {
+    auto *VPF90DVInitInst = dyn_cast<F90DVBufferInit>(VPInst);
+    VPBuilder Builder;
+    VPBasicBlock *VPBB = VPF90DVInitInst->getParent();
+    VPBasicBlock *VPBBTrue = VPBlockUtils::splitBlock(
+        VPBB, VPF90DVInitInst->getIterator(), VPLI, DT, PDT);
+    VPInstruction *NextInst = &*std::next(VPF90DVInitInst->getIterator());
+    VPBasicBlock *VPBBFalse = VPBlockUtils::splitBlock(
+        VPBBTrue, NextInst->getIterator(), VPLI, DT, PDT);
+    Builder.setInsertPoint(VPBB);
+    VPValue *DVInit = VPF90DVInitInst->getOperand(0);
+    VPValue *PrivateMem = VPF90DVInitInst->getOperand(1);
+    Type *DVElementType = VPF90DVInitInst->getF90DVElementType();
+
+    auto *NumElements = Builder.createNaryOp(
+        Instruction::UDiv, DVInit->getType(),
+        {DVInit,
+         Plan->getVPConstant(ConstantInt::get(
+             DVInit->getType(), DL->getTypeSizeInBits(DVElementType) / 8))});
+    DA->updateDivergence(*NumElements);
+
+    VPConstant *DVTypeZero =
+        Plan->getVPConstant(ConstantInt::get(DVInit->getType(), 0));
+    auto *IsAllocated = Builder.createCmpInst(CmpInst::ICMP_SGT, DVInit,
+                                              DVTypeZero, "is.allocated");
+    DA->updateDivergence(*IsAllocated);
+    VPBB->setTerminator(VPBBTrue, VPBBFalse, IsAllocated);
+
+    Builder.setInsertPoint(&*VPBBTrue->begin());
+    auto *VPAllocaPriv = cast<VPAllocatePrivate>(PrivateMem);
+    auto *DVTypePtr = PointerType::get(DVElementType, 0);
+    // TODO: Use <VF x element_type> for alignment instead of current approach
+    // using alignment of DV Element
+    auto *AllocateBuffer = Builder.create<VPAllocateDVBuffer>(
+        ".array.buffer", DVTypePtr, DVElementType,
+        DL->getPrefTypeAlign(DVElementType), ArrayRef<VPValue *>{NumElements});
+    auto *BaseAddrGEP = Builder.createGEP(
+        VPAllocaPriv->getAllocatedType(), DVTypePtr, VPAllocaPriv,
+        {I32Zero, I32Zero}, nullptr /* Underlying Instruction */);
+    DA->updateDivergence(*BaseAddrGEP);
+    Builder.createStore(AllocateBuffer, BaseAddrGEP);
+
+    VPBB->eraseInstruction(VPF90DVInitInst);
+  }
+}
+
 static void preprocessPrivateFinalCondInstructions(VPlanVector *Plan) {
 
   VPLoopInfo *VPLI = Plan->getVPLoopInfo();
@@ -464,7 +550,8 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   LVP.readLoopMetadata();
   VPAnalysesFactory VPAF(SE, Lp, DT, DL);
-  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, VPlanName, *AC, VPAF, &SE,
+  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, Header->getModule(),
+                              VPlanName, *AC, VPAF, &SE,
                               CanVectorize || DisableCodeGen)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     auto &LVPBD = LVP.getBailoutData();
@@ -607,6 +694,7 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
     LVP.emitPeelRemainderVPLoops(VF, UF);
   }
 
+  preprocessDopeVectorInstructions(Plan);
   preprocessPrivateFinalCondInstructions(Plan);
 
   if (DisableCodeGen) {
@@ -1724,7 +1812,9 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 #endif // NDEBUG
   }
   VPAnalysesFactoryHIR VPAF(Lp, getDT(), DL);
-  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, VPlanName, *getAC(), VPAF)) {
+  HLNodeUtils &HNU = Lp->getHLNodeUtils();
+  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, &HNU.getModule(), VPlanName,
+                              *getAC(), VPAF)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     // Erase intrinsics before and after the loop if this loop is an auto
     // vectorization candidate.
@@ -1874,6 +1964,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     LVP.emitPeelRemainderVPLoops(VF, UF);
   }
 
+  preprocessDopeVectorInstructions(Plan);
   preprocessPrivateFinalCondInstructions(Plan);
 
   if (DisableCodeGen) {
