@@ -53,6 +53,8 @@ public:
 
   // Glue for old PM.
   bool runImpl(Module &M);
+
+  static bool isRequired() { return true; }
 };
 
 } // namespace llvm
