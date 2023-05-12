@@ -8,15 +8,9 @@
 
 // REQUIRES: gpu
 // UNSUPPORTED: gpu-intel-gen9 && windows
-<<<<<<< HEAD
-// UNSUPPORTED: cuda || hip
+// UNSUPPORTED: cuda || hip || esimd_emulator
 // RUN: %{build} -I%S/.. -o %t.out
 // RUN: %{run} %t.out 3 2 1
-=======
-// UNSUPPORTED: cuda || hip || esimd_emulator
-// RUN: %clangxx -fsycl %s -I%S/.. -o %t.out
-// RUN: %GPU_RUN_PLACEHOLDER %t.out 3 2 1
->>>>>>> 30148ba3e8063df03a943f1dc6904e84a77ecd2e
 //
 // This test checks the correctness of ESIMD program for batched LU
 // decomposition without pivoting. The program contains multiple branches
