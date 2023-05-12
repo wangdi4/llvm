@@ -55,7 +55,7 @@ static void TestImage(cl_context context, cl_command_queue queue,
   float *output = (float *)malloc(ByteSizeF);
   ASSERT_NE(output, nullptr);
 
-  static const float val[] = {.1, .3, .5, .7, .9};
+  static const float val[] = {.1f, .3f, .5f, .7f, .9f};
 
   for (size_t i = 0; i < ByteSize; ++i)
     input[i] = 255 * val[i % 5];

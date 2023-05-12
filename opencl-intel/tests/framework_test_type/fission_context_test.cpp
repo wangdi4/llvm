@@ -71,7 +71,7 @@ bool fission_context_test() {
   cl_uint num_devices = 0;
 
   cl_device_partition_property properties[] = {CL_DEVICE_PARTITION_BY_COUNTS,
-                                               numComputeUnits - 1, 0, 0};
+                                               (int)numComputeUnits - 1, 0, 0};
   err = clCreateSubDevices(device, properties, num_entries, out_devices,
                            &num_devices);
   bResult = SilentCheck("clCreateSubDevices", CL_SUCCESS, err);

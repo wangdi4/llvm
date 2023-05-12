@@ -83,7 +83,7 @@ enum ECPUBrandFamily {
       modificator(CPU_SKX) modificator(CPU_ICL) modificator(CPU_ICX)           \
           modificator(CPU_SPR)
 
-enum ECPU {
+enum ECPU : unsigned {
   CPU_UNKNOWN = 0,
 #define CREATE_ENUM(name) name,
   CPU_ARCHS(CREATE_ENUM)
