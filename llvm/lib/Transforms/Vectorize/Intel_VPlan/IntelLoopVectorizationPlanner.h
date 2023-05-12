@@ -340,8 +340,8 @@ public:
   /// when it checked if it is legal to vectorize this loop.
   /// Returns the number of VPlans built, zero if failed.
   unsigned buildInitialVPlans(LLVMContext *Context, const DataLayout *DL,
-                              std::string VPlanName, AssumptionCache &AC,
-                              VPAnalysesFactoryBase &VPAF,
+                              Module *M, std::string VPlanName,
+                              AssumptionCache &AC, VPAnalysesFactoryBase &VPAF,
                               ScalarEvolution *SE = nullptr,
                               bool IsLegalToVec = true);
 

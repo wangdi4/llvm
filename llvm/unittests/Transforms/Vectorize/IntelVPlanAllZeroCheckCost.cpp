@@ -60,8 +60,8 @@ entry:
 
   // Construct simple function-based VPlan and run the minimal set of
   // analyses needed.
-  auto Externals =
-      std::make_unique<VPExternalValues>(&M.getContext(), &M.getDataLayout());
+  auto Externals = std::make_unique<VPExternalValues>(&M.getContext(),
+                                                      &M.getDataLayout(), &M);
   auto UnlinkedVPInsts = std::make_unique<VPUnlinkedInstructions>();
   auto Plan = std::make_unique<VPlanNonMasked>(*Externals, *UnlinkedVPInsts);
   VPlanFunctionCFGBuilder FunctionCFGBuilder(Plan.get(), *F, *AC.get(),

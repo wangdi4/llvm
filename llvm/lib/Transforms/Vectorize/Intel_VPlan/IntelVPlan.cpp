@@ -401,6 +401,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "transform-lib-call";
   case VPInstruction::SOAExtractValue:
     return "soa-extract-value";
+  case VPInstruction::F90DVBufferInit:
+    return "f90-dv-buffer-init";
   default:
     return Instruction::getOpcodeName(Opcode);
   }
