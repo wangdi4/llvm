@@ -6,10 +6,10 @@
 ; SCEV: -->  %bf.ashr3579 U: [-268435456,268435456) S: [-268435456,268435456)
 
 
-; Verify that we do not form SCC (%bf.ashr3579 -> %dec -> %bf.ashr35) because %bf.ashr3579 has signed range info.
+; Verify that we do form SCC (%bf.ashr3579 -> %dec -> %bf.ashr35) even though %bf.ashr3579 has signed range info.
 
 ; CHECK: SCC1: %bf.load3378 -> %bf.set39
-; CHECK-NOT: SCC2
+; CHECK: SCC2: %bf.ashr35 -> %dec -> %bf.ashr3579
 
 define void @foo(i32 %bf.set27, i32 %t) {
 entry:

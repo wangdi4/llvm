@@ -4,10 +4,12 @@
 ; caused assertion. We now have a check for that.
 
 ; CHECK: + DO i1 = 0, 43, 1   <DO_LOOP>
+; CHECK: |   %v_dmzu.7607.out1 = %v_dmzu.7607.root;
+; CHECK: |   %v_dmzu.7607.root = 4294967242 * %v_dmzu.7607.out1  &  4294967294;
 ; CHECK: |   %ld = (@a1_zalp)[0][-1 * i1 + 63];
-; CHECK: |   (@a1_m)[0][-1 * i1 + 63] = -1 * trunc.i32.i2(%ld) + -2 * (trunc.i64.i2(%v_dmzu.7607) * trunc.i64.i2(%indvars.iv621));
-; CHECK: |   %or332 = 2 * zext.i31.i64((-27 * trunc.i64.i31(%v_dmzu.7607)))  |  97;
-; CHECK: |   %v_dmzu.7607 = %or332;
+; CHECK: |   (@a1_m)[0][-1 * i1 + 63] = -1 * trunc.i32.i2(%ld) + (trunc.i64.i2(%indvars.iv621) * trunc.i64.i2(%v_dmzu.7607.root));
+; CHECK: |   %v_dmzu.7607.root = %v_dmzu.7607.root  |  97;
+; CHECK: |   %v_dmzu.7607.out = %v_dmzu.7607.root;
 ; CHECK: |   %indvars.iv621 = -1 * i1 + 62;
 ; CHECK: + END LOOP
 

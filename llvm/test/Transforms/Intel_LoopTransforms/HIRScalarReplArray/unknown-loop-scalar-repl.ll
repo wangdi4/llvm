@@ -7,12 +7,11 @@
 ; CHECK: + UNKNOWN LOOP i1  <MAX_TC_EST = 99>
 ; CHECK: |   <i1 = 0>
 ; CHECK: |   for.body:
-; CHECK: |   %i.013.out = %i.013;
 ; CHECK: |   %0 = (@A)[0][i1];
 ; CHECK: |   %1 = (@A)[0][i1 + 1];
-; CHECK: |   (@B)[0][%i.013.out] = %0 + %1;
-; CHECK: |   %i.013 = 2 * %i.013.out;
-; CHECK: |   if (2 * %i.013.out < %n)
+; CHECK: |   (@B)[0][%i.013.root] = %0 + %1;
+; CHECK: |   %i.013.root = %i.013.root  <<  1;
+; CHECK: |   if (%i.013.root < %n)
 ; CHECK: |   {
 ; CHECK: |      <i1 = i1 + 1>
 ; CHECK: |      goto for.body;
@@ -26,13 +25,12 @@
 ; CHECK: + UNKNOWN LOOP i1  <MAX_TC_EST = 99>
 ; CHECK: |   <i1 = 0>
 ; CHECK: |   for.body:
-; CHECK: |   %i.013.out = %i.013;
 ; CHECK: |   %0 = %scalarepl;
 ; CHECK: |   %scalarepl1 = (@A)[0][i1 + 1];
 ; CHECK: |   %1 = %scalarepl1;
-; CHECK: |   (@B)[0][%i.013.out] = %0 + %1;
-; CHECK: |   %i.013 = 2 * %i.013.out;
-; CHECK: |   if (2 * %i.013.out < %n)
+; CHECK: |   (@B)[0][%i.013.root] = %0 + %1;
+; CHECK: |   %i.013.root = %i.013.root  <<  1;
+; CHECK: |   if (%i.013.root < %n)
 ; CHECK: |   {
 ; CHECK: |      <i1 = i1 + 1>
 ; CHECK: |      %scalarepl = %scalarepl1;

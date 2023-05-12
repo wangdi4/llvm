@@ -1673,6 +1673,13 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
   HLLoop *UseLoop = isa<HLLoop>(CurNode) ? cast<HLLoop>(CurNode)
                                          : CurNode->getLexicalParentLoop();
 
+  auto *OrigBaseInst = BaseInst;
+
+  if (Inst != BaseInst) {
+    BaseInst = ScalarSA.getOutermostLoopHeaderSCCPhi(BaseInst,
+                                                     CurRegion->getIRRegion());
+  }
+
   // Handle the easier region livein case.
   // Use BaseInst to correctly handle case 3) above.
   if (!CurRegion->containsBBlock(BaseInst->getParent())) {
@@ -1706,8 +1713,8 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
   const Loop *SCCDefLoop = nullptr;
   HLLoop *ReachingDefLoop = nullptr;
   if (BaseIsLoopHeaderPhi && UseLoop &&
-      (SCCDefLoop = ScalarSA.getDeepestSCCLoop(BaseInst, UseLoop->getLLVMLoop(),
-                                               CurRegion->getIRRegion()))) {
+      (SCCDefLoop = ScalarSA.getDeepestSCCLoop(
+           OrigBaseInst, UseLoop->getLLVMLoop(), CurRegion->getIRRegion()))) {
     ReachingDefLoop = LF.findHLLoop(SCCDefLoop);
   } else if (BaseIsDeconstructedPhi) {
     ReachingDefLoop = OrigDefLoop;
