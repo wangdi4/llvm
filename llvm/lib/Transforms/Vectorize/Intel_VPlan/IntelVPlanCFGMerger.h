@@ -175,10 +175,9 @@ private:
 
   // Create a sequence of instructions to compare (PeelCount + \p VF) with
   // \p UB (PeelCount is a class member initialized during corresponding
-  // instructions insertion). The comparison is created with predicate \p Pred.
+  // instructions insertion). The comparison is created with predicate ICMP_UGT.
   // The \p Builder's insertion point should be setup before the call.
-  VPCmpInst *createPeelCntVFCheck(VPValue *UB, VPBuilder &Builder,
-                                  CmpInst::Predicate Pred, unsigned VF);
+  VPCmpInst *createPeelCntVFCheck(VPValue *UB, VPBuilder &Builder, unsigned VF);
 
   // Create a top test, i.e. the sequence of instructions (placed in a separate
   // basic block)
