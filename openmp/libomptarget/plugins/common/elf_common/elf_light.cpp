@@ -822,24 +822,35 @@ public:
   virtual ElfLNoteImplBase *clone() const = 0;
   virtual size_t getNameSize() const = 0;
   virtual const char *getName() const = 0;
-  virtual size_t getDescSize(size_t Align) const = 0;
-  virtual const uint8_t *getDesc(size_t Align) const = 0;
+  virtual size_t getDescSize() const = 0;
+  virtual const uint8_t *getDesc() const = 0;
   virtual uint32_t getType() const = 0;
 };
 
 template <class ELFT> class ElfLNoteImpl : public ElfLNoteImplBase {
   using Elf_Note = typename ELFT::Note;
   const Elf_Note Note;
+  // FIXME: Using 1 as default alignment.
+  size_t Align = 1;
 
 public:
   ElfLNoteImpl(const Elf_Note Note) : Note(Note) {}
+  ElfLNoteImpl(const Elf_Note Note, size_t Align_) : Note(Note) {
+    // FIXME: 0 alignment will hit assertion when calling getDesc().
+    if (Align_ > 0)
+      Align = Align_;
+  }
   ElfLNoteImpl(const ElfLNoteImpl &) = default;
   ElfLNoteImplBase *clone() const override { return new ElfLNoteImpl(*this); }
   ~ElfLNoteImpl() = default;
   size_t getNameSize() const override { return Note.getName().size(); }
   const char *getName() const override { return Note.getName().data(); }
-  size_t getDescSize(size_t Align) const override { return Note.getDesc(Align).size(); }
-  const uint8_t *getDesc(size_t Align) const override { return Note.getDesc(Align).data(); }
+  size_t getDescSize() const override { return Note.getDesc(Align).size(); }
+  const uint8_t *getDesc() const override {
+    // FIXME: For some reason, the returned descriptor array is off by one
+    // while the base address has '\0'.
+    return Note.getDesc(Align).data() + 1;
+  }
   uint32_t getType() const override { return Note.getType(); }
 };
 
@@ -1019,7 +1030,7 @@ public:
   ElfLNoteImplBase *operator*() const override {
     assert(*this != ElfLSectionNoteIteratorImpl(getEF(), getErr(), true) &&
            "Dereferencing the end iterator.");
-    return new ElfLNoteImpl<ELFT>(*getNotesIt());
+    return new ElfLNoteImpl<ELFT>(*getNotesIt(), SectionsIt->sh_addralign);
   }
 
   static bool classof(const ElfLNoteIteratorImplBase *B) {
@@ -1152,7 +1163,7 @@ public:
   ElfLNoteImplBase *operator*() const override {
     assert(*this != ElfLSegmentNoteIteratorImpl(getEF(), getErr(), true) &&
            "Dereferencing the end iterator.");
-    return new ElfLNoteImpl<ELFT>(*getNotesIt());
+    return new ElfLNoteImpl<ELFT>(*getNotesIt(), SegmentsIt->p_align);
   }
 
   static bool classof(const ElfLNoteIteratorImplBase *B) {
@@ -1573,16 +1584,16 @@ const char *ElfLNote::getName() const {
   return NImpl->getName();
 }
 
-uint64_t ElfLNote::getDescSize(size_t Align) const {
+uint64_t ElfLNote::getDescSize() const {
   const ElfLNoteImplBase *NImpl =
       reinterpret_cast<const ElfLNoteImplBase *>(Impl);
-  return NImpl->getDescSize(Align);
+  return NImpl->getDescSize();
 }
 
-const uint8_t *ElfLNote::getDesc(size_t Align) const {
+const uint8_t *ElfLNote::getDesc() const {
   const ElfLNoteImplBase *NImpl =
       reinterpret_cast<const ElfLNoteImplBase *>(Impl);
-  return NImpl->getDesc(Align);
+  return NImpl->getDesc();
 }
 
 uint64_t ElfLNote::getType() const {

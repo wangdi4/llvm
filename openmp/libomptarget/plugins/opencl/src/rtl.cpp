@@ -1731,9 +1731,8 @@ static bool isValidOneOmpImage(__tgt_device_image *Image,
     uint64_t Type = Note.getType();
     if (Type != NT_INTEL_ONEOMP_OFFLOAD_VERSION)
       continue;
-    size_t Align = 0;
-    std::string DescStr(reinterpret_cast<const char *>(Note.getDesc(Align)),
-                        Note.getDescSize(Align));
+    std::string DescStr(reinterpret_cast<const char *>(Note.getDesc()),
+                        Note.getDescSize());
     auto DelimPos = DescStr.find('.');
     if (DelimPos == std::string::npos) {
       // The version has to look like "Major#.Minor#".
@@ -3097,9 +3096,8 @@ int32_t OpenCLProgramTy::buildPrograms(std::string &CompilationOptions,
     if (NameStr != "INTELONEOMPOFFLOAD")
       continue;
     uint64_t Type = Note.getType();
-    size_t Align = 0;
-    std::string DescStr(reinterpret_cast<const char *>(Note.getDesc(Align)),
-                        Note.getDescSize(Align));
+    std::string DescStr(reinterpret_cast<const char *>(Note.getDesc()),
+                        Note.getDescSize());
     switch (Type) {
     default:
       DP("Warning: unrecognized INTELONEOMPOFFLOAD note.\n");
