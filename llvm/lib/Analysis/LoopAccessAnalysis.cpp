@@ -2743,7 +2743,7 @@ void LoopAccessInfo::collectStridedAccess(Value *MemAccess) {
   // getStrideFromPointer() was modified to return constant strides for the
   // purpose of analyzing function call arguments. Previously, it returned
   // only constant symbolic strides (i.e., loop invariant SCEVUnknown)
-  if (isa<ConstantInt>(Stride))
+  if (StrideExpr->getSCEVType() == scConstant)
     return;
 #endif // INTEL_CUSTOMIZATION
 
