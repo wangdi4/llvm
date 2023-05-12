@@ -1,13 +1,7 @@
 // REQUIRES: gpu,level_zero
-<<<<<<< HEAD
 // RUN: %{build} -o %t.out
 // RUN: env ZE_DEBUG=1 %{run} %t.out 2>&1 | FileCheck %s
-// UNSUPPORTED: ze_debug-1,ze_debug4
-=======
-// RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
-// RUN: env ZE_DEBUG=1 %GPU_RUN_PLACEHOLDER %t.out 2> %t1.out; cat %t1.out %GPU_CHECK_PLACEHOLDER
 // UNSUPPORTED: ze_debug
->>>>>>> 10799dc796980ebd4d423969ff33d8fe506e3b58
 
 #include <iostream>
 #include <sycl/sycl.hpp>
