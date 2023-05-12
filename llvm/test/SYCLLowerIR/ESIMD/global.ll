@@ -1,11 +1,7 @@
 ; This test checks whether globals are converted
 ; correctly to llvm's native vector type.
 ;
-<<<<<<< HEAD
-; RUN: opt -opaque-pointers=0 < %s -passes=ESIMDLowerVecArg -S | FileCheck %s                            
-=======
-; RUN: opt < %s -passes=LowerESIMD,ESIMDLowerVecArg -S | FileCheck %s
->>>>>>> 2c20fdb998bc65dd2487ba33d7bb5985f59fa5de
+; RUN: opt -opaque-pointers=0 < %s -passes=LowerESIMD,ESIMDLowerVecArg -S | FileCheck %s
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64-unknown-unknown"
