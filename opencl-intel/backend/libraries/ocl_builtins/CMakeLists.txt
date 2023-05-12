@@ -94,6 +94,7 @@ set(CLANG_CL_COMMON_COMPILER_FLAGS
     -faddress-space-map-mangling=yes
     -mstackrealign
     -ffp-contract=fast
+    -fdenormal-fp-math=dynamic
     -cl-ext=+cl_khr_fp16
     -D
     float_atomics_enable
@@ -395,7 +396,7 @@ function(tblgenllblt OUTPUT_VAR OUTPUT_DIR INPUT_FILE)
   add_custom_command(
     OUTPUT ${LL_FILE}
     COMMAND python ${CL_BUILTIN_SOURCE_DIR}/utils/LLTableGen/emit_ll.py
-            ${JSON_FILE} -o ${LL_FILE}
+            ${JSON_FILE} -o ${LL_FILE} --global-func-attr '"denormal-fp-math"="dynamic,dynamic"'
     DEPENDS ${LLVM_TBLGEN} ${JSON_FILE}
             ${CL_BUILTIN_SOURCE_DIR}/utils/LLTableGen/emit_ll.py
     COMMENT "Generating ${LL_FILE}")

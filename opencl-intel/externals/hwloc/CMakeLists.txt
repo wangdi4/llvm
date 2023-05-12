@@ -87,6 +87,8 @@ FetchContent_Declare(hwloc
   check_include_file("sys/mman.h" HAVE_SYS_MMAN_H)
   check_include_file("sys/param.h" HAVE_SYS_PARAM_H)
   check_include_file("sched.h" HWLOC_HAVE_CPU_SET)
+  check_include_file("libudev.h" HWLOC_HAVE_LIBUDEV)
+  check_include_file("pthread.h" HWLOC_HAVE_PTHREAD_MUTEX)
   if(HWLOC_HAVE_CPU_SET)
     set(HWLOC_HAVE_CPU_SET_S 1)
   endif()

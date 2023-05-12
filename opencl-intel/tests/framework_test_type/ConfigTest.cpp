@@ -11,14 +11,14 @@ TEST(FrameworkTestType, ConfigEnvSize) {
 #endif
 
   const char *env = nullptr;
-  size_t expected = 0;
+  cl_ulong expected = 0;
 
   if (sizeof(size_t) == 8) {
     env = "8GB";
-    expected = 8LL * 1024 * 1024 * 1024;
+    expected = (cl_ulong)8 * 1024 * 1024 * 1024;
   } else {
     env = "3GB";
-    expected = 3LL * 1024 * 1024 * 1024;
+    expected = (cl_ulong)3 * 1024 * 1024 * 1024;
   }
 
   SETENV("CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE", env);

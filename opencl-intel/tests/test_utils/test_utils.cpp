@@ -133,11 +133,7 @@ bool CheckSize(const char *name, size_t expected, size_t result) {
   } else {
     printf("FAIL: %s\n", name);
   }
-#if defined(_WIN32)
-  printf("\t\texpected = %lld, result = %lld\n", expected, result);
-#else
-  printf("\t\texpected = %ld, result = %ld\n", expected, result);
-#endif
+  printf("\t\texpected = %zu, result = %zu\n", expected, result);
   return bRes;
 }
 
@@ -204,11 +200,7 @@ bool SilentCheckSize(const char *name, size_t expected, size_t result) {
 
   if (!bRes) {
     printf("FAIL: %s\n", name);
-#if defined(_WIN32)
-    printf("\t\texpected = %lld, result = %lld\n", expected, result);
-#else
-    printf("\t\texpected = %ld, result = %ld\n", expected, result);
-#endif
+    printf("\t\texpected = %zu, result = %zu\n", expected, result);
   }
   return bRes;
 }
