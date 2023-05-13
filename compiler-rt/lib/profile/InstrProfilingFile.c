@@ -59,6 +59,22 @@
 #include <dlfcn.h>
 #include <link.h>
 #endif // __linux__
+#include <time.h>
+
+// These macros are to support using a numeric constant for computations, and
+// printf format specifiers.
+
+// Number of characters to use in the filename for timestamp.
+#define TIMESTAMP_BYTES 8
+#define QUOTE(x) #x
+#define STR(x) QUOTE(x)
+#define TIMESTAMP_BYTES_FMT STR(TIMESTAMP_BYTES) "lx"
+
+#if defined(_WIN32)
+#define SPRINTF sprintf_s
+#else
+#define SPRINTF snprintf
+#endif // _WIN32
 #endif // INTEL_CUSTOMIZATION
 
 /* From where is profile name specified.
@@ -111,10 +127,18 @@ typedef struct lprofFilename {
    * can only appear once at the end of the name pattern. */
   unsigned MergePoolSize;
   ProfileNameSpecifier PNS;
+#if INTEL_CUSTOMIZATION
+  /*
+   * For embedding a timestamp into the raw profile filename. Number
+   * of occurrences of the "%e" placeholder.
+   */
+  unsigned NumEpochs;
+#endif // INTEL_CUSTOMIZATION
 } lprofFilename;
 
 static lprofFilename lprofCurFilename = {0,   0, 0, {0}, NULL,
-                                         {0}, 0, 0, 0,   PNS_unknown};
+                                         {0}, 0, 0, 0,   PNS_unknown, // INTEL
+                                         0};                          // INTEL
 
 static int ProfileMergeRequested = 0;
 static int getProfileFileSizeForMerging(FILE *ProfileFile,
@@ -583,6 +607,14 @@ static void truncateCurrentFile(void) {
   if (lprofCurFilename.MergePoolSize)
     return;
 
+#if INTEL_CUSTOMIZATION
+  /* Bypass the file truncation of the filename computed at startup if the epoch
+   * timestamp is being used since a new filename will be generated when it's
+   * time to write the actual data. */
+  if (lprofCurFilename.NumEpochs)
+    return;
+#endif // INTEL_CUSTOMIZATION
+
   /* Truncate the file.  Later we'll reopen and append. */
   File = fopen(Filename, "w");
   if (!File)
@@ -730,6 +762,9 @@ static int checkBounds(int Idx, int Strlen) {
 static int parseFilenamePattern(const char *FilenamePat,
                                 unsigned CopyFilenamePat) {
   int NumPids = 0, NumHosts = 0, I;
+#if INTEL_CUSTOMIZATION
+  int NumEpochs = 0;
+#endif // INTEL_CUSTOMIZATION
   char *PidChars = &lprofCurFilename.PidChars[0];
   char *Hostname = &lprofCurFilename.Hostname[0];
   int MergingEnabled = 0;
@@ -796,6 +831,10 @@ static int parseFilenamePattern(const char *FilenamePat,
                         " ELF and COFF formats.");
         return -1;
 #endif
+#if INTEL_CUSTOMIZATION
+      } else if (FilenamePat[I] == 'e') {
+        NumEpochs++;
+#endif // INTEL_CUSTOMIZATION
       } else {
         unsigned MergePoolSize = getMergePoolSize(FilenamePat, &I);
         if (!MergePoolSize)
@@ -813,6 +852,9 @@ static int parseFilenamePattern(const char *FilenamePat,
 
   lprofCurFilename.NumPids = NumPids;
   lprofCurFilename.NumHosts = NumHosts;
+#if INTEL_CUSTOMIZATION
+  lprofCurFilename.NumEpochs = NumEpochs;
+#endif // INTEL_CUSTOMIZATION
   return 0;
 }
 
@@ -866,13 +908,17 @@ static int getCurFilenameLength(void) {
     return 0;
 
   if (!(lprofCurFilename.NumPids || lprofCurFilename.NumHosts ||
-        lprofCurFilename.TmpDir || lprofCurFilename.MergePoolSize))
+        lprofCurFilename.TmpDir || lprofCurFilename.MergePoolSize || // INTEL
+        lprofCurFilename.NumEpochs))                                 // INTEL
     return strlen(lprofCurFilename.FilenamePat);
 
   Len = strlen(lprofCurFilename.FilenamePat) +
         lprofCurFilename.NumPids * (strlen(lprofCurFilename.PidChars) - 2) +
         lprofCurFilename.NumHosts * (strlen(lprofCurFilename.Hostname) - 2) +
         (lprofCurFilename.TmpDir ? (strlen(lprofCurFilename.TmpDir) - 1) : 0);
+#if INTEL_CUSTOMIZATION
+  Len += lprofCurFilename.NumEpochs * TIMESTAMP_BYTES;
+#endif // INTEL_CUSTOMIZATION
   if (lprofCurFilename.MergePoolSize)
     Len += SIGLEN;
   return Len;
@@ -886,12 +932,23 @@ static int getCurFilenameLength(void) {
 static const char *getCurFilename(char *FilenameBuf, int ForceUseBuf) {
   int I, J, PidLength, HostNameLength, TmpDirLength, FilenamePatLength;
   const char *FilenamePat = lprofCurFilename.FilenamePat;
+#if INTEL_CUSTOMIZATION
+  time_t TimeStamp;
+  char TimeStampBuf[TIMESTAMP_BYTES + 1];
+  int TimeStampBufLen;
+  if (lprofCurFilename.NumEpochs) {
+    TimeStamp = time(NULL);
+    TimeStampBufLen = SPRINTF(TimeStampBuf, sizeof(TimeStampBuf),
+                              "%0" TIMESTAMP_BYTES_FMT, TimeStamp);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (!lprofCurFilename.FilenamePat || !lprofCurFilename.FilenamePat[0])
     return 0;
 
   if (!(lprofCurFilename.NumPids || lprofCurFilename.NumHosts ||
-        lprofCurFilename.TmpDir || lprofCurFilename.MergePoolSize ||
+        lprofCurFilename.TmpDir || lprofCurFilename.MergePoolSize || // INTEL
+        lprofCurFilename.NumEpochs ||                                // INTEL
         __llvm_profile_is_continuous_mode_enabled())) {
     if (!ForceUseBuf)
       return lprofCurFilename.FilenamePat;
@@ -918,6 +975,11 @@ static const char *getCurFilename(char *FilenameBuf, int ForceUseBuf) {
         memcpy(FilenameBuf + J, lprofCurFilename.TmpDir, TmpDirLength);
         FilenameBuf[J + TmpDirLength] = DIR_SEPARATOR;
         J += TmpDirLength + 1;
+#if INTEL_CUSTOMIZATION
+      } else if (FilenamePat[I] == 'e') {
+        memcpy(FilenameBuf + J, TimeStampBuf, TimeStampBufLen);
+        J += TimeStampBufLen;
+#endif
       } else {
         if (!getMergePoolSize(FilenamePat, &I))
           continue;
