@@ -833,7 +833,6 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(versions);
   KEYWORD(memProf);
   KEYWORD(notcold);
-  KEYWORD(notcoldandcold);
 
 #undef KEYWORD
 

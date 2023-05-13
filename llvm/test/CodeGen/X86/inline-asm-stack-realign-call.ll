@@ -11,7 +11,7 @@ define dso_local void @test_fn() {
 ; CHECK-NEXT:    .cfi_def_cfa_offset 16
 ; CHECK-NEXT:    #APP
 ; CHECK-EMPTY:
-; CHECK-NEXT:    callq bar
+; CHECK-NEXT:    callq *bar
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    popq %rax

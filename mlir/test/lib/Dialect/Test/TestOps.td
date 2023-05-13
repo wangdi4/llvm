@@ -495,10 +495,17 @@ def ConversionCallOp : TEST_Op<"conversion_call_op",
   let extraClassDeclaration = [{
     /// Return the callee of this operation.
     ::mlir::CallInterfaceCallable getCallableForCallee();
+
+    /// Set the callee for this operation.
+    void setCalleeFromCallable(::mlir::CallInterfaceCallable);
   }];
   let extraClassDefinition = [{
     ::mlir::CallInterfaceCallable $cppClass::getCallableForCallee() {
       return (*this)->getAttrOfType<::mlir::SymbolRefAttr>("callee");
+    }
+
+    void $cppClass::setCalleeFromCallable(::mlir::CallInterfaceCallable callee) {
+      (*this)->setAttr("callee", callee.get<SymbolRefAttr>());
     }
   }];
 }
@@ -1691,20 +1698,20 @@ def TestEitherOpA : TEST_Op<"either_op_a"> {
 }
 
 def TestEitherOpB : TEST_Op<"either_op_b"> {
-  let arguments = (ins AnyInteger:$arg0);
+  let arguments = (ins AnyInteger:$arg0, AnyInteger:$arg1);
   let results = (outs I32:$output);
 }
 
-def : Pat<(TestEitherOpA (either I32:$arg1, I16:$arg2), $_),
-          (TestEitherOpB $arg2)>;
+def : Pat<(TestEitherOpA (either I32:$arg1, I16:$arg2), $x),
+          (TestEitherOpB $arg2, $x)>;
 
-def : Pat<(TestEitherOpA (either (TestEitherOpB I32:$arg1), I16:$arg2), $_),
-          (TestEitherOpB $arg2)>;
+def : Pat<(TestEitherOpA (either (TestEitherOpB I32:$arg1, $_), I16:$arg2), $x),
+          (TestEitherOpB $arg2, $x)>;
 
-def : Pat<(TestEitherOpA (either (TestEitherOpB I32:$arg1),
-                                 (TestEitherOpB I16:$arg2)),
-                          $_),
-          (TestEitherOpB $arg2)>;
+def : Pat<(TestEitherOpA (either (TestEitherOpB I32:$arg1, $_),
+                                 (TestEitherOpB I16:$arg2, $_)),
+                          $x),
+          (TestEitherOpB $arg2, $x)>;
 
 //===----------------------------------------------------------------------===//
 // Test Patterns (Location)

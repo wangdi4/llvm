@@ -1976,6 +1976,27 @@ void llvm::SplitBlockAndInsertForEachLane(ElementCount EC,
   }
 }
 
+void llvm::SplitBlockAndInsertForEachLane(
+    Value *EVL, Instruction *InsertBefore,
+    std::function<void(IRBuilderBase &, Value *)> Func) {
+
+  IRBuilder<> IRB(InsertBefore);
+  Type *Ty = EVL->getType();
+
+  if (!isa<ConstantInt>(EVL)) {
+    auto [BodyIP, Index] = SplitBlockAndInsertSimpleForLoop(EVL, InsertBefore);
+    IRB.SetInsertPoint(BodyIP);
+    Func(IRB, Index);
+    return;
+  }
+
+  unsigned Num = cast<ConstantInt>(EVL)->getZExtValue();
+  for (unsigned Idx = 0; Idx < Num; ++Idx) {
+    IRB.SetInsertPoint(InsertBefore);
+    Func(IRB, ConstantInt::get(Ty, Idx));
+  }
+}
+
 #if INTEL_CUSTOMIZATION
 /// We replace the 3-argument function with a call to the 4-argument function.
 /// Any changes made to the open-source 3-argument function will need to be

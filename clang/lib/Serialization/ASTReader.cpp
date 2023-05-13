@@ -2415,12 +2415,15 @@ InputFile ASTReader::getInputFile(ModuleFile &F, unsigned ID, bool Complain) {
   StringRef Filename = FI.Filename;
   uint64_t StoredContentHash = FI.ContentHash;
 
+  // For standard C++ modules, we don't need to check the inputs.
+  bool SkipChecks = F.StandardCXXModule;
+
   OptionalFileEntryRefDegradesToFileEntryPtr File = OptionalFileEntryRef(
       expectedToOptional(FileMgr.getFileRef(Filename, /*OpenFile=*/false)));
 
   // For an overridden file, create a virtual file with the stored
   // size/timestamp.
-  if ((Overridden || Transient) && !File)
+  if ((Overridden || Transient || SkipChecks) && !File)
     File = FileMgr.getVirtualFileRef(Filename, StoredSize, StoredTime);
 
   if (!File) {
@@ -2443,7 +2446,7 @@ InputFile ASTReader::getInputFile(ModuleFile &F, unsigned ID, bool Complain) {
   // PCH.
   SourceManager &SM = getSourceManager();
   // FIXME: Reject if the overrides are different.
-  if ((!Overridden && !Transient) && SM.isFileOverridden(File)) {
+  if ((!Overridden && !Transient) && !SkipChecks && SM.isFileOverridden(File)) {
     if (Complain)
       Error(diag::err_fe_pch_file_overridden, Filename);
 
@@ -2502,7 +2505,7 @@ InputFile ASTReader::getInputFile(ModuleFile &F, unsigned ID, bool Complain) {
   };
 
   bool IsOutOfDate = false;
-  auto FileChange = HasInputFileChanged();
+  auto FileChange = SkipChecks ? Change{Change::None} : HasInputFileChanged();
   // For an overridden file, there is nothing to validate.
   if (!Overridden && FileChange.Kind != Change::None) {
     if (Complain && !Diags.isDiagnosticInFlight()) {
@@ -2847,7 +2850,7 @@ ASTReader::ReadControlBlock(ModuleFile &F,
         return VersionMismatch;
       }
 
-      bool hasErrors = Record[6];
+      bool hasErrors = Record[7];
       if (hasErrors && !DisableValidation) {
         // If requested by the caller and the module hasn't already been read
         // or compiled, mark modules on error as out-of-date.
@@ -2871,7 +2874,9 @@ ASTReader::ReadControlBlock(ModuleFile &F,
       if (F.RelocatablePCH)
         F.BaseDirectory = isysroot.empty() ? "/" : isysroot;
 
-      F.HasTimestamps = Record[5];
+      F.StandardCXXModule = Record[5];
+
+      F.HasTimestamps = Record[6];
 
       const std::string &CurBranch = getClangFullRepositoryVersion();
       StringRef ASTBranch = Blob;
@@ -4451,7 +4456,7 @@ ASTReader::ASTReadResult ASTReader::ReadAST(StringRef FileName,
       Id->second->setOutOfDate(true);
   }
   // Mark selectors as out of date.
-  for (auto Sel : SelectorGeneration)
+  for (const auto &Sel : SelectorGeneration)
     SelectorOutOfDate[Sel.first] = true;
 
   // Resolve any unresolved module exports.
@@ -7736,7 +7741,7 @@ void ASTReader::FindExternalLexicalDecls(
   };
 
   if (isa<TranslationUnitDecl>(DC)) {
-    for (auto Lexical : TULexicalDecls)
+    for (const auto &Lexical : TULexicalDecls)
       Visit(Lexical.first, Lexical.second);
   } else {
     auto I = LexicalDecls.find(DC);

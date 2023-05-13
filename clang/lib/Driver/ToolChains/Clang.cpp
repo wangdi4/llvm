@@ -4021,7 +4021,8 @@ static bool RenderModulesOptions(Compilation &C, const Driver &D,
   bool HaveStdCXXModules =
       IsCXX && Std &&
       (Std->containsValue("c++2a") || Std->containsValue("c++20") ||
-       Std->containsValue("c++2b") || Std->containsValue("c++latest"));
+       Std->containsValue("c++2b") || Std->containsValue("c++23") ||
+       Std->containsValue("c++latest"));
   bool HaveModules = HaveStdCXXModules;
 
   // -fmodules enables the use of precompiled modules (off by default).
@@ -6042,6 +6043,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     }
   }
 
+  Args.AddLastArg(CmdArgs, options::OPT_dumpdir);
+
   if (const Arg *A = Args.getLastArg(options::OPT_fthinlto_index_EQ)) {
     if (!types::isLLVMIR(Input.getType()))
       D.Diag(diag::err_drv_arg_requires_bitcode_input) << A->getAsString(Args);
@@ -7864,6 +7867,11 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     }
   }
 
+  if (Arg *A = Args.getLastArgNoClaim(options::OPT_K);
+      A && !TC.getTriple().isOSAIX())
+    D.Diag(diag::err_drv_unsupported_opt_for_target)
+        << A->getAsString(Args) << TripleStr;
+
   if (Args.getLastArg(options::OPT_fapple_kext) ||
       (Args.hasArg(options::OPT_mkernel) && types::isCXX(InputType)))
     CmdArgs.push_back("-fapple-kext");
@@ -8208,7 +8216,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                              .Case("c++14", "-std=c++14")
                              .Case("c++17", "-std=c++17")
                              .Case("c++20", "-std=c++20")
-                             .Case("c++latest", "-std=c++2b")
+                             // TODO add c++23 when MSVC supports it.
+                             .Case("c++latest", "-std=c++23")
                              .Default("");
       if (LanguageStandard.empty())
         D.Diag(clang::diag::warn_drv_unused_argument)
@@ -10486,6 +10495,14 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
     addRunTimeWrapperOpts(C, OffloadingKind, TCArgs, WrapperArgs,
                           getToolChain(), JA); // INTEL
 
+    bool IsEmbeddedIR = cast<OffloadWrapperJobAction>(JA).isEmbeddedIR();
+    if (IsEmbeddedIR) {
+      // When the offload-wrapper is called to embed LLVM IR, add a prefix to
+      // the target triple to distinguish the LLVM IR from the actual device
+      // binary for that target.
+      TargetTripleOpt = ("llvm_" + TargetTripleOpt).str();
+    }
+
     WrapperArgs.push_back(
         C.getArgs().MakeArgString(Twine("-target=") + TargetTripleOpt));
 
@@ -10515,7 +10532,7 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
     assert(I.isFilename() && "Invalid input.");
 
     if (I.getType() == types::TY_Tempfiletable ||
-        I.getType() == types::TY_Tempfilelist)
+        I.getType() == types::TY_Tempfilelist || IsEmbeddedIR)
       // wrapper actual input files are passed via the batch job file table:
       WrapperArgs.push_back(C.getArgs().MakeArgString("-batch"));
     WrapperArgs.push_back(C.getArgs().MakeArgString(I.getFilename()));

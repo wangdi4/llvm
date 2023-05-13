@@ -1413,6 +1413,10 @@ def module_dependency_dir : Separate<["-"], "module-dependency-dir">,
 def dsym_dir : JoinedOrSeparate<["-"], "dsym-dir">,
   Flags<[NoXarchOption, RenderAsInput]>,
   HelpText<"Directory to output dSYM's (if any) to">, MetaVarName<"<dir>">;
+// GCC style -dumpdir. We intentionally don't implement the less useful -dumpbase{,-ext}.
+def dumpdir : Separate<["-"], "dumpdir">, Flags<[CC1Option]>,
+  MetaVarName<"<dumppfx>">,
+  HelpText<"Use <dumpfpx> as a prefix to form auxiliary and dump file names">;
 def dumpmachine : Flag<["-"], "dumpmachine">;
 def dumpspecs : Flag<["-"], "dumpspecs">, Flags<[Unsupported]>;
 def dumpversion : Flag<["-"], "dumpversion">;
@@ -3512,6 +3516,8 @@ def fintelfpga : Flag<["-"], "fintelfpga">, Group<f_Group>,
   HelpText<"Perform ahead-of-time compilation for FPGA">;
 def fsycl_device_only : Flag<["-"], "fsycl-device-only">, Flags<[CoreOption, DpcppOption]>,
   HelpText<"Compile SYCL kernels for device">;
+def fsycl_embed_ir : Flag<["-"], "fsycl-embed-ir">, Flags<[CoreOption]>,
+  HelpText<"Embed LLVM IR for runtime kernel fusion">;
 defm sycl_esimd_force_stateless_mem : BoolFOption<"sycl-esimd-force-stateless-mem",
     LangOpts<"SYCLESIMDForceStatelessMem">, DefaultFalse,
     PosFlag<SetTrue, [], "Enforce using stateless memory accesses. "
@@ -4174,6 +4180,7 @@ def vfsoverlay : JoinedOrSeparate<["-", "--"], "vfsoverlay">, Flags<[CC1Option, 
   HelpText<"Overlay the virtual filesystem described by file over the real file system. "
            "Additionally, pass this overlay file to the linker if it supports it">;
 def imultilib : Separate<["-"], "imultilib">, Group<gfortran_Group>;
+def K : Flag<["-"], "K">, Flags<[LinkerInput]>;
 def keep__private__externs : Flag<["-"], "keep_private_externs">;
 def l : JoinedOrSeparate<["-"], "l">, Flags<[LinkerInput, RenderJoined]>,
         Group<Link_Group>;

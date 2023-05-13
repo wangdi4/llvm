@@ -235,6 +235,7 @@ void initializeIntervalPartitionPass(PassRegistry&);
 void initializeJMCInstrumenterPass(PassRegistry&);
 void initializeJumpThreadingPass(PassRegistry&);
 void initializeIVSplitLegacyPassPass(PassRegistry&); // INTEL
+void initializeKCFIPass(PassRegistry &);
 void initializeLCSSAVerificationPassPass(PassRegistry&);
 void initializeLCSSAWrapperPassPass(PassRegistry&);
 void initializeLazyBlockFrequencyInfoPassPass(PassRegistry&);

@@ -1588,6 +1588,8 @@ const EnumEntry<unsigned> ElfHeaderAMDGPUFlagsABIVersion3[] = {
   LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_MACH_AMDGCN_GFX90A),
   LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_MACH_AMDGCN_GFX90C),
   LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_MACH_AMDGCN_GFX940),
+  LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_MACH_AMDGCN_GFX941),
+  LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_MACH_AMDGCN_GFX942),
   LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_MACH_AMDGCN_GFX1010),
   LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_MACH_AMDGCN_GFX1011),
   LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_MACH_AMDGCN_GFX1012),
@@ -1648,6 +1650,8 @@ const EnumEntry<unsigned> ElfHeaderAMDGPUFlagsABIVersion4[] = {
   LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_MACH_AMDGCN_GFX90A),
   LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_MACH_AMDGCN_GFX90C),
   LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_MACH_AMDGCN_GFX940),
+  LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_MACH_AMDGCN_GFX941),
+  LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_MACH_AMDGCN_GFX942),
   LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_MACH_AMDGCN_GFX1010),
   LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_MACH_AMDGCN_GFX1011),
   LLVM_READOBJ_ENUM_ENT(ELF, EF_AMDGPU_MACH_AMDGCN_GFX1012),
@@ -5514,10 +5518,16 @@ static AMDGPUNote getAMDGPUNote(uint32_t NoteType, ArrayRef<uint8_t> Desc) {
     if (!MsgPackDoc.readFromBlob(MsgPackString, /*Multi=*/false))
       return {"", ""};
 
-    AMDGPU::HSAMD::V3::MetadataVerifier Verifier(true);
     std::string MetadataString;
-    if (!Verifier.verify(MsgPackDoc.getRoot()))
-      MetadataString = "Invalid AMDGPU Metadata\n";
+
+    // FIXME: Metadata Verifier only works with AMDHSA.
+    //  This is an ugly workaround to avoid the verifier for other MD
+    //  formats (e.g. amdpal)
+    if (MsgPackString.find("amdhsa.") != StringRef::npos) {
+      AMDGPU::HSAMD::V3::MetadataVerifier Verifier(true);
+      if (!Verifier.verify(MsgPackDoc.getRoot()))
+        MetadataString = "Invalid AMDGPU Metadata\n";
+    }
 
     raw_string_ostream StrOS(MetadataString);
     if (MsgPackDoc.getRoot().isScalar()) {

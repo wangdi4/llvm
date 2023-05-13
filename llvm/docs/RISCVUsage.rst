@@ -100,10 +100,10 @@ on support follow.
      ``Zbkc``         Supported
      ``Zbkx``         Supported (`See note <#riscv-scalar-crypto-note1>`__)
      ``Zbs``          Supported
-     ``Zdinx``        Assembly Support
+     ``Zdinx``        Assembly Support for RV32. Full support for RV64.
      ``Zfh``          Supported
      ``Zfhmin``       Supported
-     ``Zfinx``        Assembly Support
+     ``Zfinx``        Supported
      ``Zhinx``        Assembly Support
      ``Zhinxmin``     Assembly Support
      ``Zicbom``       Assembly Support
@@ -194,6 +194,12 @@ The primary goal of experimental support is to assist in the process of ratifica
 
 ``experimental-zcf``
   LLVM implements the `1.0.1 draft specification <https://github.com/riscv/riscv-code-size-reduction/releases/tag/v1.0.1>`__.
+
+``experimental-zcmp``
+  LLVM implements the `1.0.1 draft specification <https://github.com/riscv/riscv-code-size-reduction/releases/tag/v1.0.1>`__.
+
+``experimental-zcmt``
+  LLVM implements the `1.0.1 draft specification <https://github.com/riscv/riscv-code-size-reduction/releases/tag/v1.0.1>`_.
 
 ``experimental-zfa``
   LLVM implements the `0.2 draft specification <https://github.com/riscv/riscv-isa-manual/releases/download/draft-20230131-c0b298a/zfa-20230414.pdf>`__.

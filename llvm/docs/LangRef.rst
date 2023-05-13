@@ -7932,10 +7932,10 @@ is shown in the example in ``out.de.ssa`` metadata section where
 '``annotation``' Metadata
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The ``annotation`` metadata can be used to attach a tuple of annotation strings
-to any instruction. This metadata does not impact the semantics of the program
-and may only be used to provide additional insight about the program and
-transformations to users.
+The ``annotation`` metadata can be used to attach a tuple of annotation strings 
+or a tuple of a tuple of annotation strings to any instruction. This metadata does 
+not impact the semantics of the program and may only be used to provide additional 
+insight about the program and transformations to users.
 
 Example:
 
@@ -7943,6 +7943,14 @@ Example:
 
     %a.addr = alloca ptr, align 8, !annotation !0
     !0 = !{!"auto-init"}
+
+Embedding tuple of strings example:
+
+.. code-block:: text
+
+  %a.ptr = getelementptr ptr, ptr %base, i64 0. !annotation !0
+  !0 = !{!1}
+  !1 = !{!"gep offset", !"0"}
 
 '``func_sanitize``' Metadata
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

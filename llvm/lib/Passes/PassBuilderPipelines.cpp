@@ -1459,9 +1459,11 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   // promotion pass and the passes computing attributes fixes this problem.
   // Additionally adding SROA after the argument promotion to cleanup allocas
   // allows to get more accurate attributes for the promoted arguments.
-  MainCGPipeline.addPass(ArgumentPromotionPass(true));
-  MainCGPipeline.addPass(createCGSCCToFunctionPassAdaptor(
-      SROAPass(SROAPass(SROAOptions::ModifyCFG))));
+  if (Level.getSpeedupLevel() > 1) {
+    MainCGPipeline.addPass(ArgumentPromotionPass(true));
+    MainCGPipeline.addPass(createCGSCCToFunctionPassAdaptor(
+        SROAPass(SROAPass(SROAOptions::ModifyCFG))));
+  }
 #endif // INTEL_CUSTOMIZATION
 
   if (AttributorRun & AttributorRunOption::CGSCC)
@@ -2992,6 +2994,11 @@ ModulePassManager PassBuilder::buildThinLTODefaultPipeline(
   ModulePassManager MPM;
 
   if (ImportSummary) {
+    // For ThinLTO we must apply the context disambiguation decisions early, to
+    // ensure we can correctly match the callsites to summary data.
+    if (EnableMemProfContextDisambiguation)
+      MPM.addPass(MemProfContextDisambiguation(ImportSummary));
+
     // These passes import type identifier resolutions for whole-program
     // devirtualization and CFI. They must run early because other passes may
     // disturb the specific instruction patterns that these passes look for,

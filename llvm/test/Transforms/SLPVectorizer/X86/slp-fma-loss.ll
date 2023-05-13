@@ -3,9 +3,9 @@
 ; Note: awaiting for https://reviews.llvm.org/D125987
 ; The patch has been merged into xmain already hence the test behavior diverged.
 
-; RUN: opt -passes=slp-vectorizer -S -mcpu=corei7 -mtriple=x86_64-unknown-linux-gnu -slp-threshold=-2 < %s | FileCheck %s --check-prefixes=CHECKNOFMA
-; RUN: opt -passes=slp-vectorizer -S -mcpu=bdver2 -mtriple=x86_64-unknown-linux-gnu -slp-threshold=-2 < %s | FileCheck %s --check-prefixes=CHECK
-; RUN: opt -passes=slp-vectorizer -S -mcpu=core-avx2 -mtriple=x86_64-unknown-linux-gnu -slp-threshold=-2 < %s | FileCheck %s  --check-prefixes=CHECK
+; RUN: opt -passes=slp-vectorizer -S -mcpu=corei7 -mtriple=x86_64-unknown-linux-gnu -slp-threshold=-2 -slp-optimize-identity-hor-reduction-ops=false < %s | FileCheck %s --check-prefixes=CHECKNOFMA
+; RUN: opt -passes=slp-vectorizer -S -mcpu=bdver2 -mtriple=x86_64-unknown-linux-gnu -slp-threshold=-2 -slp-optimize-identity-hor-reduction-ops=false < %s | FileCheck %s --check-prefixes=CHECK
+; RUN: opt -passes=slp-vectorizer -S -mcpu=core-avx2 -mtriple=x86_64-unknown-linux-gnu -slp-threshold=-2 -slp-optimize-identity-hor-reduction-ops=false < %s | FileCheck %s  --check-prefixes=CHECK
 
 ; This test checks for a case when a horizontal reduction of floating-point
 ; adds may look profitable, but is not because it eliminates generation of

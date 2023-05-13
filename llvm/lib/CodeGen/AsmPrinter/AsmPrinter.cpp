@@ -1350,6 +1350,7 @@ AsmPrinter::getFunctionCFISectionType(const Function &F) const {
       F.needsUnwindTableEntry())
     return CFISection::EH;
 
+  assert(MMI != nullptr && "Invalid machine module info");
   if (MMI->hasDebugInfo() || TM.Options.ForceDwarfFrameSection)
     return CFISection::Debug;
 
@@ -4367,7 +4368,7 @@ unsigned int AsmPrinter::getDwarfOffsetByteSize() const {
 }
 
 dwarf::FormParams AsmPrinter::getDwarfFormParams() const {
-  return {getDwarfVersion(), uint8_t(getPointerSize()),
+  return {getDwarfVersion(), uint8_t(MAI->getCodePointerSize()),
           OutStreamer->getContext().getDwarfFormat(),
           doesDwarfUseRelocationsAcrossSections()};
 }

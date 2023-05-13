@@ -760,6 +760,7 @@ public:
 
   Value *EvaluateInDifferentType(Value *V, Type *Ty, bool isSigned);
 
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   /// Returns a value X such that Val = X * Scale, or null if none.
   ///
   /// If the multiplication is known not to overflow then NoSignedWrap is set.
@@ -773,6 +774,7 @@ public:
   /// pair. Returns whether or not it was successful.
   bool createComplexMathInstruction(Value *Real, Value *Imag);
 #endif // INTEL_CUSTOMIZATION
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 };
 
 class Negator final {

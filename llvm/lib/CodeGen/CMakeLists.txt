@@ -65,6 +65,9 @@ add_llvm_component_library(LLVMCodeGenTypes
   LowLevelType.cpp
   PARTIAL_SOURCES_INTENDED
 
+  DEPENDS
+  vt_gen
+
   LINK_COMPONENTS
   Support
   )
@@ -128,6 +131,7 @@ add_llvm_component_library(LLVMCodeGen
   InterleavedLoadCombinePass.cpp
   IntrinsicLowering.cpp
   JMCInstrumenter.cpp
+  KCFI.cpp
   LatencyPriorityQueue.cpp
   LazyMachineBlockFrequencyInfo.cpp
   LexicalScopes.cpp

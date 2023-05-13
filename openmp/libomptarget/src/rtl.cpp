@@ -115,6 +115,10 @@ OmptGlobalTy *OmptGlobal;
 static char *ProfileTraceFile = nullptr;
 #endif
 
+#ifdef OMPT_SUPPORT
+extern void InitOmptLibomp();
+#endif
+
 __ATTRIBUTE__(constructor(101)) void init() { // INTEL
   DP("Init target library!\n");
 
@@ -143,6 +147,11 @@ __ATTRIBUTE__(constructor(101)) void init() { // INTEL
   if (ProfileTraceFile)
     timeTraceProfilerInitialize(500 /* us */, "libomptarget");
 #endif
+
+  #ifdef OMPT_SUPPORT
+    // Initialize OMPT first
+    InitOmptLibomp();
+  #endif
 
 #if !INTEL_CUSTOMIZATION
   PM->RTLs.loadRTLs();

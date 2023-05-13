@@ -101,8 +101,8 @@
 ; CHECK-O-NEXT: Running pass: DevirtSCCRepeatedPass
 ; CHECK-O-NEXT: Running pass: InlinerPass
 ; CHECK-O-NEXT: Running pass: InlinerPass
-; CHECK-O-NEXT: Running pass: ArgumentPromotionPass ;INTEL
-; CHECK-O-NEXT: Running pass: SROA                  ;INTEL
+; CHECK-O23SZ-NEXT: Running pass: ArgumentPromotionPass ;INTEL
+; CHECK-O23SZ-NEXT: Running pass: SROA                  ;INTEL
 ; CHECK-O-NEXT: Running pass: PostOrderFunctionAttrsPass
 ; CHECK-O2-NEXT: Running pass: OpenMPOptCGSCCPass on (foo)
 ; CHECK-O3-NEXT: Running pass: OpenMPOptCGSCCPass on (foo)

@@ -34,13 +34,13 @@ define void @foo() nounwind {
 ; CHECK-EMPTY:
 
 ;   call func
-; CHECK-NEXT:    callq func@PLT
+; CHECK-NEXT:    callq *func@PLT
 ;   jmp func
-; CHECK-NEXT:    jmpq *(%rdx)
+; CHECK-NEXT:    jmpq *func@PLT
 ;   call sfunc
-; CHECK-NEXT:    callq sfunc
+; CHECK-NEXT:    callq *sfunc
 ;   jmp sfunc
-; CHECK-NEXT:    jmp sfunc
+; CHECK-NEXT:    jmpq *sfunc
 ;   mov rax, func
 ; CHECK-NEXT:    movq (%rdx), %rax
 ;   mov rax, sfunc

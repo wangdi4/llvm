@@ -1312,7 +1312,7 @@ static void annotateFunctionWithHashMismatch(Function &F, LLVMContext &ctx) {
   if (Existing) {
     MDTuple *Tuple = cast<MDTuple>(Existing);
     for (const auto &N : Tuple->operands()) {
-      if (cast<MDString>(N.get())->getString() == MetadataName)
+      if (N.equalsStr(MetadataName))
         return;
       Names.push_back(N.get());
     }
@@ -1351,9 +1351,9 @@ static void addCallStack(CallStackTrie &AllocTrie,
   SmallVector<uint64_t> StackIds;
   for (const auto &StackFrame : AllocInfo->CallStack)
     StackIds.push_back(computeStackId(StackFrame));
-  auto AllocType = getAllocType(AllocInfo->Info.getMaxAccessCount(),
-                                AllocInfo->Info.getMinSize(),
-                                AllocInfo->Info.getMinLifetime());
+  auto AllocType = getAllocType(AllocInfo->Info.getTotalLifetimeAccessDensity(),
+                                AllocInfo->Info.getAllocCount(),
+                                AllocInfo->Info.getTotalLifetime());
   AllocTrie.addCallStack(AllocType, StackIds);
 }
 

@@ -123,6 +123,7 @@ VERS1.0 {
     __tgt_task_completed;
     __tgt_interop_use_async;
 # end INTEL_CUSTOMIZATION
+    ompt_libomptarget_connect;
   local:
     *;
 };
