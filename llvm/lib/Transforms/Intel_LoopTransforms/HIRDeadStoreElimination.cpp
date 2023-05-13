@@ -690,11 +690,10 @@ static const HLLoop *getImmediateChildLoop(const HLLoop *OuterLoop,
   return ImmediateChildLoop;
 }
 
-static bool hasValidParentLoopBounds(const HLLoop *PostDominatingLoop,
-                                     const HLLoop *PrevLoop,
-                                     const RegDDRef *Ref,
-                                     const HLNode *&OutermostPostDominatingNode,
-                                     const HLNode *&OutermostPrevNode) {
+bool HIRDeadStoreElimination::hasValidParentLoopBounds(
+    const HLLoop *PostDominatingLoop, const HLLoop *PrevLoop,
+    const RegDDRef *Ref, const HLNode *&OutermostPostDominatingNode,
+    const HLNode *&OutermostPrevNode) {
 
   // PostDominatingLoop is the LCA loop if it contains PrevLoop.
   if (HLNodeUtils::contains(PostDominatingLoop, PrevLoop)) {
@@ -771,10 +770,16 @@ static bool hasValidParentLoopBounds(const HLLoop *PostDominatingLoop,
   //   END DO
   // END DO
   //
+  // There is one exception to this. If we know that the only non-linear blob in
+  // the ref has a single definition which dominates all its uses, we can still
+  // perform DSE.
   // TODO: refine the check in the visitor.
   if (PostDominatingLoop) {
     // PostDominatingLoop is now the LCA loop.
-    if (!Ref->isLinearAtLevel(PostDominatingLoop->getNestingLevel())) {
+    unsigned LCALevel = PostDominatingLoop->getNestingLevel();
+
+    if (!Ref->isLinearAtLevel(LCALevel) &&
+        !hasSingleDominatingNonLinearTempAtLevel(Ref, LCALevel)) {
       return false;
     }
   } else {
@@ -1360,6 +1365,80 @@ void HIRDeadStoreElimination::insertFakeLifetimeRefs(RefGroupTy &RefGroup) {
   }
 }
 
+// Finds definitions of temp with \p Symbase. Stops as soon as it finds the
+// second definition.
+class DefFinder final : public HLNodeVisitorBase {
+  unsigned Symbase;
+  unsigned NumSymbaseDefs;
+
+public:
+  DefFinder(unsigned Symbase) : Symbase(Symbase), NumSymbaseDefs(0) {}
+
+  void visit(const HLNode *) {}
+  void postVisit(const HLNode *) {}
+
+  void visit(const HLInst *Inst);
+
+  bool foundMultipleDefs() const { return NumSymbaseDefs > 1; }
+  bool isDone() const { return foundMultipleDefs(); }
+};
+
+void DefFinder::visit(const HLInst *Inst) {
+  auto *LvalRef = Inst->getLvalDDRef();
+
+  if (LvalRef && (LvalRef->getSymbase() == Symbase)) {
+    ++NumSymbaseDefs;
+  }
+}
+
+bool HIRDeadStoreElimination::hasSingleDominatingNonLinearTempAtLevel(
+    const RegDDRef *Ref, unsigned Level) {
+  if (Level == 0) {
+    return false;
+  }
+
+  auto *SingleBlob = Ref->getSingleNonLinearBlobRef(Level);
+
+  if (!SingleBlob) {
+    return false;
+  }
+
+  unsigned Symbase = SingleBlob->getSymbase();
+
+  auto *ParLoop = Ref->getParentLoop()->getParentLoopAtLevel(Level);
+
+  auto It = NonLinearTempInfoMap.find(Symbase);
+
+  if (It != NonLinearTempInfoMap.end()) {
+    for (auto &Info : It->second) {
+      if (Info.DefLoop == ParLoop) {
+        return Info.HasSingleDominatingDef;
+      }
+    }
+  }
+
+  // To prove that the temp dominates all its uses in the loop, we check that-
+  // 1) It is not livein to the loop.
+  // 2) It has a single definition inside the loop.
+  if (ParLoop->isLiveIn(Symbase)) {
+    NonLinearTempInfoMap[Symbase].emplace_back(ParLoop, false);
+    return false;
+  }
+
+  DefFinder DF(Symbase);
+
+  HLNodeUtils::visitRange(DF, ParLoop->child_begin(), ParLoop->child_end());
+
+  // Ideally, we would like to assert that we found at least one definition for
+  // the base ptr but some transformations are not able to set precise def level
+  // info so we can't do that.
+  bool FoundSingleDef = !DF.foundMultipleDefs();
+
+  NonLinearTempInfoMap[Symbase].emplace_back(ParLoop, FoundSingleDef);
+
+  return FoundSingleDef;
+}
+
 bool HIRDeadStoreElimination::run(HLRegion &Region) {
   // It isn't worth optimizing incoming single bblock regions.
   if (Region.isLoopMaterializationCandidate()) {
@@ -1399,7 +1478,14 @@ bool HIRDeadStoreElimination::run(HLRegion &Region) {
     assert(Ref && "Ref is unexpectedly null!");
 
     if (Ref->isNonLinear()) {
-      continue;
+      // We can handle non-linear refs if the only non-linear blob has a single
+      // definition in the appropriate scope. The node could be detached if it
+      // was optimized away while processing a previous ref group.
+      auto *RefNode = Ref->getHLDDNode();
+      if (!RefNode->isAttached() || !hasSingleDominatingNonLinearTempAtLevel(
+                                        Ref, RefNode->getNodeLevel())) {
+        continue;
+      }
     }
 
     LLVM_DEBUG({

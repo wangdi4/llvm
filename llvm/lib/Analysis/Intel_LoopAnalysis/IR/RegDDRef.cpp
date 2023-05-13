@@ -1217,6 +1217,22 @@ const BlobDDRef *RegDDRef::getSingleNonLinearBlobRef() const {
   return NonLinearBlobRef;
 }
 
+const BlobDDRef *RegDDRef::getSingleNonLinearBlobRef(unsigned Level) const {
+  const BlobDDRef *NonLinearBlobRef = nullptr;
+
+  for (auto *BlobRef : blobs()) {
+    if (BlobRef->getDefinedAtLevel() >= Level) {
+      if (NonLinearBlobRef) {
+        return nullptr;
+      }
+
+      NonLinearBlobRef = BlobRef;
+    }
+  }
+
+  return NonLinearBlobRef;
+}
+
 bool RegDDRef::usesTempBlob(unsigned Index, bool *IsSelfBlob,
                             bool AssumeLvalIfDetached) const {
 

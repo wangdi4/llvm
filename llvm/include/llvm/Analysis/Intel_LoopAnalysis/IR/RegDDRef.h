@@ -1182,6 +1182,11 @@ public:
   // nullptr if zero or multiple non-linear blob is found.
   const BlobDDRef *getSingleNonLinearBlobRef() const;
 
+  /// Returns the single non-linear blob attached to this ref w.r.t \p Level.
+  /// Returns null if the ref has zero or more than one non-linear blob at \p
+  /// Level.
+  const BlobDDRef *getSingleNonLinearBlobRef(unsigned Level) const;
+
   /// Removes and returns blob DDRef corresponding to CBlobI iterator.
   BlobDDRef *removeBlobDDRef(const_blob_iterator CBlobI);
 
