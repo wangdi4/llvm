@@ -58,7 +58,7 @@
 ; CHECK: %[[I9:[A-Za-z0-9]+]] = icmp eq i32 %[[I8]], 12
 ; CHECK: %[[I10:[A-Za-z0-9]+]] = or i1 %[[I6]], %[[I9]]
 ; CHECK: %[[I11:[A-Za-z0-9]+]] = xor i1 %[[I10]], true
-; CHECK: %[[I12:[A-Za-z0-9]+]] = getelementptr %struct._ZTS10_CacheInfo._CacheInfo, ptr %[[I3]], i64 0, i32 4
+; CHECK: %[[I12:[A-Za-z0-9]+]] = getelementptr %struct._ZTS10_CacheInfo._CacheInfo, ptr %[[I3]], i64 0, i32 3
 ; CHECK: %[[I13:[A-Za-z0-9]+]] = load i32, ptr %[[I12]], align 4
 ; CHECK: %[[I14:[A-Za-z0-9]+]] = icmp eq i32 %[[I13]], 1
 ; CHECK: %[[I15:[A-Za-z0-9]+]] = icmp eq i32 %[[I13]], 2
