@@ -6,7 +6,7 @@
 ; CHECK: LLVM ERROR: Bitcode output disabled because proprietary optimizations have been performed.
 
 ; Function Attrs: nounwind uwtable
-define i32 @main(i32 %argc, i8** nocapture readnone %argv) {
+define i32 @main(i32 %argc, ptr nocapture readnone %argv) {
 entry:
   %call = tail call zeroext i1 @"\01?check_argc@@YA_NH@Z"(i32 %argc)
   %t0 = zext i1 %call to i32

@@ -9,19 +9,18 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: define fastcc void @index_tree_init
 ; CHECK: call{{.*}}@llvm.memset
 
-%struct.index_tree = type { %struct.index_tree_node_s*, %struct.index_tree_node_s*, %struct.index_tree_node_s*, i32 }
-%struct.index_tree_node_s = type { i64, i64, %struct.index_tree_node_s*, %struct.index_tree_node_s*, %struct.index_tree_node_s* }
+%struct.index_tree = type { ptr, ptr, ptr, i32 }
+%struct.index_tree_node_s = type { i64, i64, ptr, ptr, ptr }
 
-define fastcc void @index_tree_init(%struct.index_tree* nocapture %tree) unnamed_addr #4 {
+define fastcc void @index_tree_init(ptr nocapture %tree) unnamed_addr #4 {
 entry:
-  %root = getelementptr inbounds %struct.index_tree, %struct.index_tree* %tree, i64 0, i32 0
-  store %struct.index_tree_node_s* null, %struct.index_tree_node_s** %root, align 8
-  %leftmost = getelementptr inbounds %struct.index_tree, %struct.index_tree* %tree, i64 0, i32 1
-  store %struct.index_tree_node_s* null, %struct.index_tree_node_s** %leftmost, align 8
-  %rightmost = getelementptr inbounds %struct.index_tree, %struct.index_tree* %tree, i64 0, i32 2
-  store %struct.index_tree_node_s* null, %struct.index_tree_node_s** %rightmost, align 8
-  %count = getelementptr inbounds %struct.index_tree, %struct.index_tree* %tree, i64 0, i32 3
-  store i32 0, i32* %count, align 8
+  %root = getelementptr inbounds %struct.index_tree, ptr %tree, i64 0, i32 0
+  store ptr null, ptr %root, align 8
+  %leftmost = getelementptr inbounds %struct.index_tree, ptr %tree, i64 0, i32 1
+  store ptr null, ptr %leftmost, align 8
+  %rightmost = getelementptr inbounds %struct.index_tree, ptr %tree, i64 0, i32 2
+  store ptr null, ptr %rightmost, align 8
+  %count = getelementptr inbounds %struct.index_tree, ptr %tree, i64 0, i32 3
+  store i32 0, ptr %count, align 8
   ret void
 }
-
