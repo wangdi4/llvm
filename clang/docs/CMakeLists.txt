@@ -107,7 +107,6 @@ if (LLVM_ENABLE_DOXYGEN)
 endif()
 endif()
 
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # Add c_status.html and cxx_status.html to deploy list
 install(FILES ${CLANG_SOURCE_DIR}/www/c_status.html ${CLANG_SOURCE_DIR}/www/cxx_status.html
@@ -116,10 +115,7 @@ install(FILES ${CLANG_SOURCE_DIR}/www/c_status.html ${CLANG_SOURCE_DIR}/www/cxx_
 )
 # end INTEL_CUSTOMIZATION
 
-function (gen_rst_file_from_td output_file td_option source docs_target)
-=======
 function (gen_rst_file_from_td output_file td_option source docs_targets)
->>>>>>> db63fb5d45e0f58a1c657b23a24e85f28e3dbf73
   if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${source}")
     message(FATAL_ERROR "Cannot find source file: ${source} in ${CMAKE_CURRENT_SOURCE_DIR}")
   endif()
@@ -167,15 +163,7 @@ if (LLVM_ENABLE_SPHINX)
         "${CMAKE_CURRENT_BINARY_DIR}/html/cxx_status.html")
 # end INTEL_CUSTOMIZATION
 
-<<<<<<< HEAD
-      # Generated files
-      gen_rst_file_from_td(AttributeReference.rst -gen-attr-docs ../include/clang/Basic/Attr.td docs-clang-html)
-      gen_rst_file_from_td(DiagnosticsReference.rst -gen-diag-docs ../include/clang/Basic/Diagnostic.td docs-clang-html)
-      gen_rst_file_from_td(ClangCommandLineReference.rst -gen-opt-docs ../include/clang/Driver/ClangOptionDocs.td docs-clang-html)
-      gen_rst_file_from_td(IntelCustomizations.rst -gen-intel-cust-docs ../include/clang/Basic/intel/IntelCustDocs.td docs-clang-html) # INTEL
-=======
       list(APPEND docs_targets "docs-clang-html")
->>>>>>> db63fb5d45e0f58a1c657b23a24e85f28e3dbf73
     endif()
     if (${SPHINX_OUTPUT_MAN})
       add_sphinx_target(man clang SOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}")
@@ -186,6 +174,7 @@ if (LLVM_ENABLE_SPHINX)
     gen_rst_file_from_td(AttributeReference.rst -gen-attr-docs ../include/clang/Basic/Attr.td "${docs_targets}")
     gen_rst_file_from_td(DiagnosticsReference.rst -gen-diag-docs ../include/clang/Basic/Diagnostic.td "${docs_targets}")
     gen_rst_file_from_td(ClangCommandLineReference.rst -gen-opt-docs ../include/clang/Driver/ClangOptionDocs.td "${docs_targets}")
+    gen_rst_file_from_td(IntelCustomizations.rst -gen-intel-cust-docs ../include/clang/Basic/intel/IntelCustDocs.td "${docs_targets}") # INTEL
 
     foreach(target ${docs_targets})
       add_dependencies(${target} copy-clang-rst-docs)
