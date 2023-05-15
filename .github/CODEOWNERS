@@ -121,6 +121,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/utils/update_any_test_checks.py @KanRobert
 /llvm/utils/update_mca_test_checks.py @KanRobert
 /llvm/utils/update_cc_test_checks.py @KanRobert
+/llvm/utils/intel_update_vplan_checks.py @tylanphear @skozhukh @sguggill @offsake @karthik-senthil
 /llvm/include/llvm/CodeGen/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
 /llvm/include/llvm/IR/IntrinsicsX86.td @phoebewang
 /llvm/include/llvm/MC/ @LuoYuanke @phoebewang @williamweixiao
