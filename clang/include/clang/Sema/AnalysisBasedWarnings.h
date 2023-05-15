@@ -41,7 +41,7 @@ class FunctionDecl;
 class QualType;
 class Sema;
 namespace sema {
-  class FunctionScopeInfo;
+class FunctionScopeInfo;
 }
 
 namespace sema {
@@ -58,6 +58,7 @@ public:
 #if INTEL_CUSTOMIZATION
     unsigned enableFPGAChannelsAnalysis : 1;
 #endif // INTEL_CUSTOMIZATION
+
   public:
     Policy();
     void disableCheckFallThrough() { enableCheckFallThrough = 0; }
@@ -71,7 +72,7 @@ private:
   std::unique_ptr<InterProceduralData> IPData;
 
   enum VisitFlag { NotVisited = 0, Visited = 1, Pending = 2 };
-  llvm::DenseMap<const FunctionDecl*, VisitFlag> VisitedFD;
+  llvm::DenseMap<const FunctionDecl *, VisitFlag> VisitedFD;
 
   /// \name Statistics
   /// @{
@@ -113,11 +114,11 @@ public:
   AnalysisBasedWarnings(Sema &s);
   ~AnalysisBasedWarnings();
 
-  void IssueWarnings(Policy P, FunctionScopeInfo *fscope,
-                     const Decl *D, QualType BlockType);
+  void IssueWarnings(Policy P, FunctionScopeInfo *fscope, const Decl *D,
+                     QualType BlockType);
 
   // Issue warnings that require whole-translation-unit analysis.
-  void IssueWarnings(const TranslationUnitDecl *D);
+  void IssueWarnings(TranslationUnitDecl *D);
 
   Policy getDefaultPolicy() { return DefaultPolicy; }
 
