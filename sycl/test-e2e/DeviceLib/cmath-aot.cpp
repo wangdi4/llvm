@@ -1,7 +1,11 @@
 // REQUIRES: opencl-aot, cpu
 // UNSUPPORTED: windows
 
+<<<<<<< HEAD
 // DEFINE: %{mathflags} = %if cl_options %{/clang:-fno-fast-math%} %else %{-fno-fast-math%}
+=======
+// DEFINE:  = %if cl_options %{/clang:-fno-fast-math%} %else %{-fno-fast-math%}
+>>>>>>> 7fccf614302e2404b4725b2257be57b7ee6a4dd7
 
 // RUN: %clangxx -fsycl -fsycl-targets=spir64_x86_64 %{mathflags} %S/cmath_test.cpp -o %t.cmath.out
 // RUN: %{run} %t.cmath.out
