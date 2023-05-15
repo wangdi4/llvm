@@ -1,6 +1,5 @@
 // REQUIRES: aspect-fp64
 // UNSUPPORTED: gpu
-
 // DEFINE: %{mathflags} = %if cl_options %{/clang:-fno-fast-math%} %else %{-fno-fast-math%}
 
 // RUN: %{build} %{mathflags} -o %t.out
