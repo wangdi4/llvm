@@ -5151,16 +5151,11 @@ GlobalVariable *VPOParoptUtils::genKmpcCriticalLockVar(
 //   ...
 //   __kmpc_end_critical()
 //   EndInst
-bool VPOParoptUtils::genKmpcCriticalSectionImpl(WRegionNode *W,
-                                                StructType *IdentTy,
-                                                Constant *TidPtr,
-                                                Instruction *BeginInst,
-                                                Instruction *EndInst,
-                                                GlobalVariable *LockVar,
-                                                DominatorTree *DT,
-                                                LoopInfo *LI,
-                                                bool IsTargetSPIRV,
-                                                uint32_t Hint) {
+bool VPOParoptUtils::genKmpcCriticalSectionImpl(
+    WRegionNode *W, StructType *IdentTy, Constant *TidPtr,
+    Instruction *BeginInst, Instruction *EndInst, GlobalVariable *LockVar,
+    DominatorTree *DT, LoopInfo *LI, bool IsTargetSPIRV, uint32_t Hint,
+    bool GenerateLoop) {
 
   assert(W && "WRegionNode is null.");
   assert(IdentTy && "IdentTy is null.");
@@ -5244,13 +5239,12 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(WRegionNode *W,
   EndCritical->insertBefore(EndInst);
   addFuncletOperandBundle(EndCritical, DT);
 
-  if (IsTargetSPIRV) {
-    if (!isa<WRNTeamsNode>(W))
-      // Critical loop must not be generated for teams region,
-      // since it will result in redundant execution and incorrect
-      // result. Only the master thread must execute the critical
-      // section (the master thread guards will be generated later).
-      genCriticalLoopForSPIR(W, BeginCritical, EndCritical, DT, LI);
+  if (GenerateLoop && IsTargetSPIRV && !isa<WRNTeamsNode>(W)) {
+    // Critical loop must not be generated for teams region,
+    // since it will result in redundant execution and incorrect
+    // result. Only the master thread must execute the critical
+    // section (the master thread guards will be generated later).
+    genCriticalLoopForSPIR(W, BeginCritical, EndCritical, DT, LI);
   }
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Critical Section generated.\n");
@@ -5513,14 +5507,14 @@ bool VPOParoptUtils::genCriticalLoopForSPIRHelper(Instruction *BeginInst,
 
 // Generate the serialization loop for code inside a critical section.
 bool VPOParoptUtils::genCriticalLoopForSPIR(WRegionNode *W,
-                                            CallInst *BeginCritical,
-                                            CallInst *EndCritical,
-                                            DominatorTree *DT,
-                                            LoopInfo *LI) {
+                                            Instruction *BeginCritical,
+                                            Instruction *EndCritical,
+                                            DominatorTree *DT, LoopInfo *LI) {
   assert(BeginCritical && EndCritical && "Invalid begin and end instructions.");
 
   Module *M = BeginCritical->getModule();
-  std::pair<CallInst *, CallInst *> Regions[2] = {{BeginCritical, EndCritical}};
+  std::pair<Instruction *, Instruction *> Regions[2] = {
+      {BeginCritical, EndCritical}};
 
   // We will need to split the block *before* EndCritical, because it will be
   // an exit point for the get_sub_group_size() loop. We may also need to
@@ -5555,13 +5549,13 @@ bool VPOParoptUtils::genCriticalLoopForSPIR(WRegionNode *W,
     VPOUtils::singleRegionMultiVersioning(
         BeginCriticalBB, EndCriticalBB, BBSet, VMap, Cond, DT, LI);
 
-    CallInst *NewBeginCritical = cast<CallInst>(VMap[BeginCritical]);
-    CallInst *NewEndCritical = cast<CallInst>(VMap[EndCritical]);
+    Instruction *NewBeginCritical = cast<Instruction>(VMap[BeginCritical]);
+    Instruction *NewEndCritical = cast<Instruction>(VMap[EndCritical]);
     Regions[1] = {NewBeginCritical, NewEndCritical};
   }
 
   for (int I = 0; I < 2; ++I) {
-    CallInst *CurBeginCritical = Regions[I].first;
+    Instruction *CurBeginCritical = Regions[I].first;
     if (!CurBeginCritical)
       continue;
 
@@ -5594,15 +5588,11 @@ bool VPOParoptUtils::genCriticalLoopForSPIR(WRegionNode *W,
 // Generates a critical section around Instructions `BeginInst` and `Endinst`,
 // by emitting calls to `__kmpc_critical` before `BeginInst`, and
 // `__kmpc_end_critical` after `EndInst`.
-bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
-                                            Constant *TidPtr,
-                                            Instruction *BeginInst,
-                                            Instruction *EndInst,
-                                            DominatorTree *DT,
-                                            LoopInfo *LI,
-                                            bool IsTargetSPIRV,
-                                            const Twine &LockNameSuffix,
-                                            uint32_t Hint) {
+bool VPOParoptUtils::genKmpcCriticalSection(
+    WRegionNode *W, StructType *IdentTy, Constant *TidPtr,
+    Instruction *BeginInst, Instruction *EndInst, DominatorTree *DT,
+    LoopInfo *LI, bool IsTargetSPIRV, const Twine &LockNameSuffix,
+    uint32_t Hint, bool GenerateLoop) {
   assert(W != nullptr && "WRegionNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(TidPtr != nullptr && "TidPtr is null.");
@@ -5615,7 +5605,8 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
   assert(Lock != nullptr && "Could not create critical section lock variable.");
 
   return genKmpcCriticalSectionImpl(W, IdentTy, TidPtr, BeginInst, EndInst,
-                                    Lock, DT, LI, IsTargetSPIRV, Hint);
+                                    Lock, DT, LI, IsTargetSPIRV, Hint,
+                                    GenerateLoop);
 }
 
 // Generates and inserts a 'kmpc_cancel[lationpoint]' CallInst.
