@@ -36,13 +36,10 @@ class SYCLEndToEndTest(lit.formats.ShTest):
             if 'ext_oneapi_cuda:gpu' in sycl_devices:
                 extra_env.append('SYCL_PI_CUDA_ENABLE_IMAGE_SUPPORT=1')
 
-<<<<<<< HEAD
             # ESIMD_EMULATOR backend uses CM_EMU library package for
             # multi-threaded execution on CPU, and the package emulates
             # multiple target platforms. In case user does not specify
             # what target platform to emulate, 'skl' is chosen by default.
-=======
->>>>>>> ea515f2dcd93ad34b2238c0bd6754c437d58903e
             if 'ext_intel_esimd_emulator:gpu' in sycl_devices and not "CM_RT_PLATFORM" in os.environ:
                 extra_env.append('CM_RT_PLATFORM=skl')
 

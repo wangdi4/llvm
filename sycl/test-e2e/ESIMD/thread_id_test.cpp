@@ -1,8 +1,3 @@
-<<<<<<< HEAD
-=======
-// REQUIRES: gpu
-// UNSUPPORTED: cuda || hip
->>>>>>> ea515f2dcd93ad34b2238c0bd6754c437d58903e
 // RUN: %{build} -o %t.out
 // RUN: %{run} %t.out
 //==- thread_id_test.cpp - Test to verify thread id functionlity-==//

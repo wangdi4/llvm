@@ -7,12 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 // REQUIRES: gpu-intel-gen9
-<<<<<<< HEAD
 // UNSUPPORTED: gpu-intel-dg1,gpu-intel-dg2,gpu-intel-pvc
-=======
-// UNSUPPORTED: gpu-intel-gen9 && windows
-// UNSUPPORTED: gpu-intel-dg1,gpu-intel-dg2,cuda,hip, gpu-intel-pvc
->>>>>>> ea515f2dcd93ad34b2238c0bd6754c437d58903e
 // UNSUPPORTED: ze_debug
 // RUN: %{build} -o %t1.out
 // RUN: %{run} %t1.out
