@@ -1,18 +1,10 @@
 // UNSUPPORTED: hip
 
-<<<<<<< HEAD
-// RUN: %{build} -o %t.out
-// RUN: %{run} %t.out
-
 // DEFINE: %{mathflags} = %if cl_options %{/clang:-fno-fast-math%} %else %{-fno-fast-math%}
 
-=======
-// DEFINE: %{mathflags} = %if cl_options %{/clang:-fno-fast-math%} %else %{-fno-fast-math%}
-
-// RUN: %{build}i %{mathflags} -o %t.out
+// RUN: %{build} %{mathflags} -o %t.out
 // RUN: %{run} %t.out
 
->>>>>>> 7fccf614302e2404b4725b2257be57b7ee6a4dd7
 // RUN: %{build} -fsycl-device-lib-jit-link %{mathflags} -o %t.out
 // RUN: %if !gpu %{ %{run} %t.out %}
 
