@@ -2347,7 +2347,7 @@ private:
   /// should be kept to supply loop tripcounts to runtime to possibly limit
   /// number of teams the kernel is run with to reduce launch latency for
   /// kernels with short loops only.
-  bool shouldNotUseKnownNDRange(const WRegionNode *W) const;
+  bool shouldNotUseKnownNDRange(WRegionNode *W) const;
 
   /// Checks if the given OpenMP loop region may use SPIR paritioning
   /// with known loop(s) bounds and if it is profitable.

@@ -15036,7 +15036,7 @@ void VPOParoptTransform::assignParallelDimensions() const {
 
 // Return true, if the given region should not use specific ND-range
 // partitioning, e.g. it cannot use it or using it is unprofitable.
-bool VPOParoptTransform::shouldNotUseKnownNDRange(const WRegionNode *W) const {
+bool VPOParoptTransform::shouldNotUseKnownNDRange(WRegionNode *W) const {
   if (!W->getIsOmpLoop())
     return true;
 
@@ -15162,6 +15162,8 @@ bool VPOParoptTransform::shouldNotUseKnownNDRange(const WRegionNode *W) const {
   // which we check above.
   if (WTeams) {
     if (auto *WGL = dyn_cast<WRNGenericLoopNode>(W)) {
+      if (WGL->getMappedDir() == -1)
+        WGL->mapLoopScheme();
       if (WGL->getMappedDir() != DIR_OMP_DISTRIBUTE_PARLOOP &&
           WGL->getMappedDir() != DIR_OMP_DISTRIBUTE)
         return true;
