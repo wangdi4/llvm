@@ -1,5 +1,5 @@
 // UNSUPPORTED: hip
-<<<<<<< HEAD
+
 // RUN: %{build} -o %t.out
 // RUN: %{run} %t.out
 
@@ -7,19 +7,6 @@
 
 // RUN: %{build} -fsycl-device-lib-jit-link %{mathflags} -o %t.out
 // RUN: %if !gpu %{ %{run} %t.out %}
-=======
-
-// DEFINE: %{mathflags} = %if cl_options %{/clang:-fno-fast-math%} %else %{-fno-fast-math%}
-
-// RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %{mathflags}  %s -o %t.out
-// RUN: %CPU_RUN_PLACEHOLDER %t.out
-// RUN: %GPU_RUN_PLACEHOLDER %t.out
-// RUN: %ACC_RUN_PLACEHOLDER %t.out
-
-// RUN: %clangxx -fsycl -fsycl-device-lib-jit-link %{mathflags}  %s -o %t.out
-// RUN: %CPU_RUN_PLACEHOLDER %t.out
-// RUN: %ACC_RUN_PLACEHOLDER %t.out
->>>>>>> 591d1c8c0e6f2d96cd959da38696b15894af05be
 
 #include "math_utils.hpp"
 #include <cstdint>
