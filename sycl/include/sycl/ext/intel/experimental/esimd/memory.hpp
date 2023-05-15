@@ -2402,7 +2402,7 @@ public:
   /// </summary>
   /// <returns>surface base address</returns>
   T *get_data_pointer() const {
-    return (T *)(const_cast<config_2d_mem_access>(this)
+    return (T *)(const_cast<config_2d_mem_access *>(this)
                      ->payload_data.template bit_cast_view<uint64_t>()
                      .template select<1, 1>(0));
   }
@@ -2412,7 +2412,7 @@ public:
   /// </summary>
   /// <returns>Surface Width</returns>
   uint32_t get_surface_width() const {
-    return const_cast<config_2d_mem_access>(this)
+    return const_cast<config_2d_mem_access *>(this)
         ->payload_data.template select<1, 1>(2);
   }
 
@@ -2421,7 +2421,7 @@ public:
   /// </summary>
   /// <returns>Surface Height</returns>
   uint32_t get_surface_height() const {
-    return const_cast<config_2d_mem_access>(this)
+    return const_cast<config_2d_mem_access *>(this)
         ->payload_data.template select<1, 1>(3);
   }
 
@@ -2430,7 +2430,7 @@ public:
   /// </summary>
   /// <returns>Surface Pitch</returns>
   uint32_t get_surface_pitch() const {
-    return const_cast<config_2d_mem_access>(this)
+    return const_cast<config_2d_mem_access *>(this)
         ->payload_data.template select<1, 1>(4);
   }
 
@@ -2439,7 +2439,7 @@ public:
   /// </summary>
   /// <returns>Top left corner X coordinate of the block</returns>
   int32_t get_x() const {
-    return const_cast<config_2d_mem_access>(this)
+    return const_cast<config_2d_mem_access *>(this)
         ->payload_data.template select<1, 1>(5);
   }
 
@@ -2448,7 +2448,7 @@ public:
   /// </summary>
   /// <returns>Top left corner Y coordinate of the block</returns>
   int32_t get_y() const {
-    return const_cast<config_2d_mem_access>(this)
+    return const_cast<config_2d_mem_access *>(this)
         ->payload_data.template select<1, 1>(6);
   }
 
