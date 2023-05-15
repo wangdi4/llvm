@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 #
 # INTEL CONFIDENTIAL
@@ -16,10 +15,7 @@
 # License.
 #
 # end INTEL_CUSTOMIZATION
-cmake_minimum_required(VERSION 3.13.4)
-=======
 cmake_minimum_required(VERSION 3.20.0)
->>>>>>> 9609aee4c6409a13bcb481d6da8d4cf4f2bac1e8
 
 add_custom_target(libspirv-builtins COMMENT "Build libspirv builtins")
 add_custom_target(libclc-builtins COMMENT "Build libclc builtins")

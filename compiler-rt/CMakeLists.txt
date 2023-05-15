@@ -20,7 +20,6 @@
 # An important constraint of the build is that it only produces libraries
 # based on the ability of the host toolchain to target various platforms.
 
-<<<<<<< HEAD
 
 # INTEL_CUSTOMIZATION
 #
@@ -51,10 +50,7 @@
 #
 # end INTEL_CUSTOMIZATION
 
-cmake_minimum_required(VERSION 3.13.4)
-=======
 cmake_minimum_required(VERSION 3.20.0)
->>>>>>> 9609aee4c6409a13bcb481d6da8d4cf4f2bac1e8
 
 # Check if compiler-rt is built as a standalone project.
 if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR OR COMPILER_RT_STANDALONE_BUILD)
