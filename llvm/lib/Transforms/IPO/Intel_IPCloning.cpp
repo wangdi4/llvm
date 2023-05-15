@@ -6341,7 +6341,7 @@ LoadInst *PredicateOpt::makeHoistedRestrictVar() {
 //
 //   cache_info->type == MemoryCache || cache_info->type == MapCache
 //
-//   %12 = getelementptr %struct._ZTS6_Image._Image, ptr %3, i64 0, i32 4
+//   %12 = getelementptr %struct._ZTS6_Image._Image, ptr %3, i64 0, i32 3
 //   %13 = load i32, ptr %12, align 4
 //   %14 = icmp eq i32 %13, 1
 //   %15 = icmp eq i32 %13, 2
@@ -6429,7 +6429,7 @@ Value *PredicateOpt::makeOptTest(LoadInst *CacheInfo,
   CmpInst *IC1 = MakeGEPILoadICmp(II, CacheInfo, LIRestrictType, 1, 12);
   auto BOr0 = BinaryOperator::CreateOr(IC0, IC1, "", II);
   auto BNot = BinaryOperator::CreateNot(BOr0, "", II);
-  auto LI = MakeGEPILoad(II, CacheInfo, LIRestrictType, 4);
+  auto LI = MakeGEPILoad(II, CacheInfo, LIRestrictType, 3);
   llvm::CmpInst::Predicate ICMPEQ = ICmpInst::ICMP_EQ;
   auto CI1 = ConstantInt::get(LI->getType(), 1);
   auto IC01 = CmpInst::Create(Instruction::ICmp, ICMPEQ, LI, CI1, "", II);
