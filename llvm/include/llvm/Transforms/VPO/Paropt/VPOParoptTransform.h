@@ -102,6 +102,16 @@ enum DeviceArch : uint64_t {
   DeviceArch_x86_64 = 0x0100  // Internal use: OpenCL CPU offloading
 };
 
+/// Every reduction item belongs to one of the following three types depending
+/// on which kind of critical section it requires
+enum class ReductionCriticalSectionKind {
+  NONE,   // No critical section required: atomic-free or atomic-based reduction
+  SERIAL, // Critical section must be emitted, but no serializing loop required:
+          // horizontal reduction
+  LOOP // Critical section must be emitted, serializing loop required: any other
+       // item
+};
+
 constexpr StringRef GuardedByThreadCheckMDStr =
     "paropt_guarded_by_thread_check";
 
@@ -881,7 +891,7 @@ private:
                         Instruction *InsertPt, DominatorTree *DT);
 
   /// Generate the reduction update code.
-  /// Returns true iff critical section is required around the generated
+  /// Returns the kind of critical section required around the generated
   /// reduction update code. If \p NoNeedToOffsetOrDerefOldV is true, then that
   /// means that \p OldV has already been pre-processed to include any pointer
   /// dereference/offset, and can be used directly as the destination base
@@ -889,10 +899,11 @@ private:
   /// the reduction items, contains !nullptr iff atomic-free reduction
   /// uses SLM for the local computations to be able copy its contents to the
   /// global buffer. (default = nullptr)
-  bool genReductionFini(WRegionNode *W, ReductionItem *RedI, Value *OldV,
-                        Instruction *InsertPt, DominatorTree *DT,
-                        bool NoNeedToOffsetOrDerefOldV = false,
-                        Value *LocalRedVar = nullptr);
+  ReductionCriticalSectionKind
+  genReductionFini(WRegionNode *W, ReductionItem *RedI, Value *OldV,
+                   Instruction *InsertPt, DominatorTree *DT,
+                   bool NoNeedToOffsetOrDerefOldV = false,
+                   Value *LocalRedVar = nullptr);
 
   /// Generate the reduction initialization code for Min/Max.
   Value *genReductionMinMaxInit(ReductionItem *RedI, Type *Ty, bool IsMax);
@@ -963,13 +974,13 @@ private:
                        BasicBlock *EntryBB, BasicBlock *EndBB);
 
   /// Generate local update loop for atomic-free GPU reduction
-  bool
+  void
   genAtomicFreeReductionLocalFini(WRegionNode *W, ReductionItem *RedI,
                                   std::unique_ptr<ReductionCombiner> Combiner,
                                   IRBuilder<> &Builder, DominatorTree *DT);
 
   /// Generate global update loop for atomic-free GPU reduction
-  bool
+  void
   genAtomicFreeReductionGlobalFini(WRegionNode *W, ReductionItem *RedI,
                                    std::unique_ptr<ReductionCombiner> Combiner,
                                    bool UseExistingUpdateLoop,
@@ -1031,15 +1042,14 @@ private:
                                        IRBuilder<> &Builder);
 
   /// Generate the reduction update instructions.
-  /// Returns true iff critical section is required around the generated
+  /// Returns the kind of critical section is required around the generated
   /// reduction update code. If \p NoNeedToOffsetOrDerefOldV is true, then that
   /// means that \p RedI has no extra by-ref related loads that may require
   /// special hoisting when atomic-free reduction is used. (default = false)
-  bool genReductionScalarFini(WRegionNode *W, ReductionItem *RedI,
-                              Value *ReductionVar, Value *ReductionValueLoc,
-                              Type *ScalarTy, IRBuilder<> &Builder,
-                              DominatorTree *DT,
-                              bool NoNeedToOffsetOrDerefOldV = false);
+  ReductionCriticalSectionKind genReductionScalarFini(
+      WRegionNode *W, ReductionItem *RedI, Value *ReductionVar,
+      Value *ReductionValueLoc, Type *ScalarTy, IRBuilder<> &Builder,
+      DominatorTree *DT, bool NoNeedToOffsetOrDerefOldV = false);
 
   /// Generate the reduction operator with the given arguments \p Rhs1
   /// and \p Rhs2 and the operator in \p RedI.
@@ -1050,16 +1060,17 @@ private:
                                      Type *ScalarTy, Value *Rhs1, Value *Rhs2);
 
   /// Generate the reduction initialization/update for array.
-  /// Returns true iff critical section is required around the generated
+  /// Returns the kind of critical section required around the generated
   /// reduction update code. The method always returns false, when
   /// IsInit is true. If \p NoNeedToOffsetOrDerefOldV is true, then that means
   /// that \p OldV has already been pre-processed to include any pointer
   /// dereference/offset, and can be used directly as the destination base
   /// pointer. (default = false)
-  bool genRedAggregateInitOrFini(WRegionNode *W, ReductionItem *RedI, Value *AI,
-                                 Value *OldV, Instruction *InsertPt,
-                                 bool IsInit, DominatorTree *DT,
-                                 bool NoNeedToOffsetOrDerefOldV = false);
+  ReductionCriticalSectionKind
+  genRedAggregateInitOrFini(WRegionNode *W, ReductionItem *RedI, Value *AI,
+                            Value *OldV, Instruction *InsertPt, bool IsInit,
+                            DominatorTree *DT,
+                            bool NoNeedToOffsetOrDerefOldV = false);
 
   /// Generate the reduction fini code for bool and/or.
   static Value *genReductionFiniForBoolOps(Value *Rhs1, Value *Rhs2,

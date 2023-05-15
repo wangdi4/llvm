@@ -797,6 +797,8 @@ public:
   /// \param EndInst is the Instruction \b after which the call to
   /// `__kmpc_end_critical` is inserted.
   /// \param IsTargetSPIRV is true, iff compilation is for SPIRV target.
+  /// \param GenerateLoop indicates whether a subgroup loop must be generated
+  /// within the critical section
   ///
   /// Note: Other Instructions, aside from the `__kmpc_critical`,
   /// `__kmpc_critical_with_hint` and
@@ -814,7 +816,8 @@ public:
                                      Instruction *EndInst, DominatorTree *DT,
                                      LoopInfo *LI, bool IsTargetSPIRV,
                                      const Twine &LockNameSuffix = "",
-                                     uint32_t Hint = 0);
+                                     uint32_t Hint = 0,
+                                     bool GenerateLoop = true);
 
   /// Generate tree reduce block and atomic reduce block. The tree reduce block
   /// is around Instructions \p BeginInst and \p EndInst. The function emits
@@ -2309,15 +2312,11 @@ private:
   /// \returns `true` if the calls to `__kmpc_critical` or
   /// `__kmpc_critical_with_hint`and `__kmpc_end_critical` are successfully
   /// inserted, `false` otherwise.
-  static bool genKmpcCriticalSectionImpl(WRegionNode *W, StructType *IdentTy,
-                                         Constant *TidPtr,
-                                         Instruction *BeginInst,
-                                         Instruction *EndInst,
-                                         GlobalVariable *LockVar,
-                                         DominatorTree *DT,
-                                         LoopInfo *LI,
-                                         bool IsTargetSPIRV,
-                                         uint32_t Hint);
+  static bool genKmpcCriticalSectionImpl(
+      WRegionNode *W, StructType *IdentTy, Constant *TidPtr,
+      Instruction *BeginInst, Instruction *EndInst, GlobalVariable *LockVar,
+      DominatorTree *DT, LoopInfo *LI, bool IsTargetSPIRV, uint32_t Hint,
+      bool GenerateLoop = true);
 
   /// Handles generation of tree reduce block around \p BeginInst and \p
   /// EndInst, atomic reduce block around \p AtomicBeginInst and \p
@@ -2406,11 +2405,9 @@ private:
   /// __kmpc_critical lock setup will dead-lock on such devices, unless
   /// we explicitly execute the lock-unlock sequence of blocks for each
   /// fused sub-group separately.
-  static bool genCriticalLoopForSPIR(WRegionNode *W,
-                                     CallInst *BeginCritical,
-                                     CallInst *EndCritical,
-                                     DominatorTree *DT,
-                                     LoopInfo *LI);
+  static bool genCriticalLoopForSPIR(WRegionNode *W, Instruction *BeginCritical,
+                                     Instruction *EndCritical,
+                                     DominatorTree *DT, LoopInfo *LI);
 
   /// Generate a call to `__kmpc_[end_]taskgroup`.
   /// \code
