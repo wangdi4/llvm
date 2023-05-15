@@ -134,11 +134,12 @@
 // RUN:   %clang_cl -### /fprofile-instr-generate:foo %s 2>&1 | FileCheck -check-prefix=CHECK-ERROR %s
 // RUN:   %clang_cl -### /fprofile-instr-generate=foo %s 2>&1 | FileCheck -check-prefix=CHECK-ERROR %s
 
-// /fprofile-instr-use, /fno-profile-instr-use, /fprofile-instr-use:, /fprofile-instr-use=
+// /fprofile-use, /fprofile-instr-use, /fno-profile-instr-use, /fprofile-instr-use:, /fprofile-instr-use=
 // RUN:   %clang_cl -### /fprofile-instr-use %s 2>&1 | FileCheck -check-prefix=CHECK-ERROR %s
 // RUN:   %clang_cl -### /fno-profile-instr-use %s 2>&1 | FileCheck -check-prefix=CHECK-ERROR %s
 // RUN:   %clang_cl -### /fprofile-instr-use:foo %s 2>&1 | FileCheck -check-prefix=CHECK-ERROR %s
 // RUN:   %clang_cl -### /fprofile-instr-use=foo %s 2>&1 | FileCheck -check-prefix=CHECK-ERROR %s
+// RUN: %clang_cl -### /fprofile-use=a.profdata -- %s 2>&1 | FileCheck -check-prefix=CHECK-ERROR %s
 
 // /fprofile-remapping-file:, /fprofile-remapping-file=
 // RUN:   %clang_cl -### /fprofile-remapping-file:foo %s 2>&1 | FileCheck -check-prefix=CHECK-ERROR %s

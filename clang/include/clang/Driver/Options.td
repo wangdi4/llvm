@@ -8363,6 +8363,8 @@ def _SLASH_fprofile_instr_use_COL : CLJoined<"fprofile-instr-use:">,
   Alias<fprofile_instr_use_EQ>;
 def _SLASH_fprofile_instr_use_EQ : CLJoined<"fprofile-instr-use=">,
   Alias<fprofile_instr_use_EQ>;
+def _SLASH_fprofile_use_EQ : CLJoined<"fprofile-use=">,
+  Alias<fprofile_use_EQ>;
 def _SLASH_fno_profile_instr_use : CLFlag<"fno-profile-instr-use">,
   Alias<fno_profile_instr_use>;
 def _SLASH_fprofile_remapping_file_COL : CLJoined<"fprofile-remapping-file:">,
