@@ -60,32 +60,32 @@ def : OclBuiltinImpl<work_group_identity_finalize_helper, work_group_identity_fi
 // p1 for global/private address space.
 // p3 for shared local memory
 
+// To reduce RTL size, cast all pointer type params to generic address space type,
+// then p1 and p3 type will have the same implementation.
+// so we just support p1 type here and handle p3 type in Pass
+
 defvar wg_sort_type_name_list = ["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f16", "f32", "f64"];
 
 // Prototypes
 let Attrs = [OVERLOADABLE], NeedForwardDecl = true in {
   foreach func = ["ascending", "descending"] in {
     foreach method = ["joint_sort", "private_sort_close", "private_sort_spread"] in {
-      foreach addr = ["p1", "p3"] in {
-      foreach stratch_addr = ["p1", "p3"] in {
-        // scalar
-        foreach type_name = wg_sort_type_name_list in {
-          defvar type = !cast<OclType>("v1"#type_name);
-          // key only sorting
-          let Types = [type] in
-            def work_group_#method#_#func#_#type_name#_#addr#_#stratch_addr : OclBuiltin<
-              "__devicelib_default_work_group_"#method#"_"#func#"_"#addr#type_name#"_u32_"#stratch_addr#"i8",
-              (outs void:$ret), (ins pgentype:$first, uint:$n, ptr_char:$scratch)>;
-          // key value sorting, scalar
-          foreach value_type_name = wg_sort_type_name_list in {
-            let Types = [type] in {
-              defvar value_type = !cast<OclType>("pv1"#value_type_name);
-              def work_group_#method#_#func#_#type_name#_#value_type_name#_#addr#_#stratch_addr : OclBuiltin<
-                "__devicelib_default_work_group_"#method#"_"#func#"_"#addr#type_name#"_"#addr#value_type_name#"_u32_"#stratch_addr#"i8",
-                (outs void:$ret), (ins pgentype:$key, value_type:$value, uint:$n, ptr_char:$scratch)>;
-            }
+      // scalar
+      foreach type_name = wg_sort_type_name_list in {
+        defvar type = !cast<OclType>("v1"#type_name);
+        // key only sorting
+        let Types = [type] in
+          def work_group_#method#_#func#_#type_name : OclBuiltin<
+            "__devicelib_default_work_group_"#method#"_"#func#"_p1"#type_name#"_u32_p1i8",
+            (outs void:$ret), (ins pgentype:$first, uint:$n, ptr_char:$scratch)>;
+        // key value sorting, scalar
+        foreach value_type_name = wg_sort_type_name_list in {
+          let Types = [type] in {
+            defvar value_type = !cast<OclType>("pv1"#value_type_name);
+            def work_group_#method#_#func#_#type_name#_#value_type_name : OclBuiltin<
+              "__devicelib_default_work_group_"#method#"_"#func#"_p1"#type_name#"_p1"#value_type_name#"_u32_p1i8",
+              (outs void:$ret), (ins pgentype:$key, value_type:$value, uint:$n, ptr_char:$scratch)>;
           }
-        }
         }
       }
     }
@@ -131,21 +131,17 @@ foreach func = ["ascending", "descending"] in {
       !eq(sort_type, "joint_sort"): joint_sort_key_value_code,
       !eq(sort_type, "private_sort_close"): private_sort_close_key_value_code,
       !eq(sort_type, "private_sort_spread"): private_sort_spread_key_value_code);
-    foreach addr = ["p1", "p3"] in {
-    foreach stratch_addr = ["p1", "p3"] in {
-      foreach type_name = wg_sort_type_name_list in {
-        // scalar
-        defvar builtin1 = !cast<OclBuiltin>("work_group_"#sort_type#"_"#func#"_"#type_name#"_"#addr#"_"#stratch_addr);
-        // key-only
-        def : OclBuiltinImpl<builtin1, builtin1.Types, false, codes, [["$Mode", !cast<string>(mode)]]>, SHARED;
-        defvar key_type = !cast<OclType>("v1"#type_name);
-        // key-value
-        foreach value_type_name = wg_sort_type_name_list in {
-          defvar builtin4 = !cast<OclBuiltin>("work_group_"#sort_type#"_"#func#"_"#type_name#"_"#value_type_name#"_"#addr#"_"#stratch_addr);
-          def : OclBuiltinImpl<builtin4, builtin4.Types, false, kv_codes, [["$Mode", !cast<string>(mode)], ["$KeyBitWidth", !cast<string>(key_type.BitWidth)]]>, SHARED;
-        }
+    foreach type_name = wg_sort_type_name_list in {
+      // scalar
+      defvar builtin1 = !cast<OclBuiltin>("work_group_"#sort_type#"_"#func#"_"#type_name);
+      // key-only
+      def : OclBuiltinImpl<builtin1, builtin1.Types, false, codes, [["$Mode", !cast<string>(mode)]]>, SHARED;
+      defvar key_type = !cast<OclType>("v1"#type_name);
+      // key-value
+      foreach value_type_name = wg_sort_type_name_list in {
+        defvar builtin4 = !cast<OclBuiltin>("work_group_"#sort_type#"_"#func#"_"#type_name#"_"#value_type_name);
+        def : OclBuiltinImpl<builtin4, builtin4.Types, false, kv_codes, [["$Mode", !cast<string>(mode)], ["$KeyBitWidth", !cast<string>(key_type.BitWidth)]]>, SHARED;
       }
-    }
     }
   }
 }

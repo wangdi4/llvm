@@ -253,105 +253,101 @@ let EmitMangledName = true,
 // args will like <16 x i32 addrspace(4)*>
 foreach func = ["ascending", "descending"] in {
   foreach method = ["joint_sort", "private_sort_close", "private_sort_spread"] in {
-    foreach addr = ["p1", "p3"] in {
-    foreach temp_addr = ["p1", "p3"] in {
-      foreach type_name = ["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f16", "f32", "f64"] in {
-        defvar type = GetIRTypeName<type_name>.ret;
-        defvar signed = GetSignedInfoByTypeName<type_name>.ret;
-        // scalar arg type
-        defvar data_type = !cast<PointerType>("pAS4"#type);
-        defvar size_type = !cast<IntType>("i32");
-        defvar temp_type = !cast<PointerType>("pAS4i8");
-        // scalar arg type mangle info
-        defvar data_mangle = ManglePointerType<data_type, signed>.ret;
-        defvar size_mangle = MangleType<size_type, /*signed*/ false>.ret;
-        defvar temp_mangle_for_decl = !cond(!eq(type_name, "i8"): "S0_",
-                                      true: ManglePointerType<temp_type, true>.ret);
-        defvar builtin = "__devicelib_default_work_group_"#method#"_"#func#"_"#addr#type_name#"_u32_"#temp_addr#"i8";
-        // scalar key-only builtin declare
-        defvar MangledName = "_Z" # !size(builtin) # builtin # data_mangle # size_mangle # temp_mangle_for_decl;
-        let EmitMangledName = false in 
-        def : LLDeclare<MangledName, [data_type, size_type, temp_type], void, "">;
-        foreach value_type_name = ["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f16", "f32", "f64"] in {
-          defvar kv_builtin = "__devicelib_default_work_group_"#method#"_"#func#"_"#addr#type_name#"_"#addr#value_type_name#"_u32_"#temp_addr#"i8";
-          defvar value_type = GetIRTypeName<value_type_name>.ret;
-          defvar value_signed = GetSignedInfoByTypeName<value_type_name>.ret;
-          // value scalar arg type
-          defvar value_data_type = !cast<PointerType>("pAS4"#value_type);
-          // value scalar arg type mangle
-          defvar value_data_mangle = !cond(!eq(value_type_name, type_name): "S0_", 
-                                          true: ManglePointerType<value_data_type, value_signed>.ret);
-          defvar value_temp_mangle_for_decl = !cond(!eq(type_name, "i8"): "S0_",
-                                            !eq(value_type_name, "i8"): "S2_",
-                                            true: ManglePointerType<temp_type, true>.ret);
-          // scalar key-value builtin declare
-          defvar KVMangledName = "_Z" # !size(kv_builtin) # kv_builtin # data_mangle # value_data_mangle # size_mangle # value_temp_mangle_for_decl;
-          let EmitMangledName = false in 
-          def : LLDeclare<KVMangledName, [data_type, value_data_type, size_type, temp_type], void, "">;
-        }
-        // vector version
-        let FuncAttrs = ["memory(readwrite)", "nounwind", "alwaysinline"] in {
-          let EmitMangledName = true in 
-          foreach vf = [4, 8, 16, 32, 64] in {
-            // ----- key-only -----
-            // vector arg type
-            defvar vec_data_type = VectorType<data_type, vf>;
-            // vector mask arg type
-            defvar mask_type = !cast<VectorType>("v" # vf # "i32");    
-            // vector arg mangle info
-            defvar vec_data_mangle = MangleVectorOfPointersType<vec_data_type, signed>.ret;
-            defvar mask_mangle = MangleVectorType<mask_type, /*signed*/ false>.ret;
-            defvar temp_mangle_for_vec = !cond(!eq(type_name, "i8"): "S0_",      
+    foreach type_name = ["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f16", "f32", "f64"] in {
+      defvar type = GetIRTypeName<type_name>.ret;
+      defvar signed = GetSignedInfoByTypeName<type_name>.ret;
+      // scalar arg type
+      defvar data_type = !cast<PointerType>("pAS4"#type);
+      defvar size_type = !cast<IntType>("i32");
+      defvar temp_type = !cast<PointerType>("pAS4i8");
+      // scalar arg type mangle info
+      defvar data_mangle = ManglePointerType<data_type, signed>.ret;
+      defvar size_mangle = MangleType<size_type, /*signed*/ false>.ret;
+      defvar temp_mangle_for_decl = !cond(!eq(type_name, "i8"): "S0_",
+                                    true: ManglePointerType<temp_type, true>.ret);
+      defvar builtin = "__devicelib_default_work_group_"#method#"_"#func#"_p1"#type_name#"_u32_p1i8";
+      // scalar key-only builtin declare
+      defvar MangledName = "_Z" # !size(builtin) # builtin # data_mangle # size_mangle # temp_mangle_for_decl;
+      let EmitMangledName = false in 
+      def : LLDeclare<MangledName, [data_type, size_type, temp_type], void, "">;
+      foreach value_type_name = ["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f16", "f32", "f64"] in {
+        defvar kv_builtin = "__devicelib_default_work_group_"#method#"_"#func#"_p1"#type_name#"_p1"#value_type_name#"_u32_p1i8";
+        defvar value_type = GetIRTypeName<value_type_name>.ret;
+        defvar value_signed = GetSignedInfoByTypeName<value_type_name>.ret;
+        // value scalar arg type
+        defvar value_data_type = !cast<PointerType>("pAS4"#value_type);
+        // value scalar arg type mangle
+        defvar value_data_mangle = !cond(!eq(value_type_name, type_name): "S0_", 
+                                        true: ManglePointerType<value_data_type, value_signed>.ret);
+        defvar value_temp_mangle_for_decl = !cond(!eq(type_name, "i8"): "S0_",
+                                          !eq(value_type_name, "i8"): "S2_",
                                           true: ManglePointerType<temp_type, true>.ret);
-            // vector key-only builtin define
-            defm work_group_sort # func # method # type_name # addr # temp_addr # vf: LLDefine<builtin,
-              [Value<vec_data_type, "first">,  Value<size_type, "n">, 
-               Value<temp_type, "scratch">, Value<mask_type, "mask">], void, [{
-                %vecext = extractelement {Args[0]}, i32 0
-                call void @{MANGLED_FUNC}({EXT_TYPE} %vecext, {Args[1]}, {Args[2]})
-                ret void
-              }], [Macro<"MANGLED_FUNC", !cast<string>(MangledName)>, 
-                   Macro<"EXT_TYPE", !cast<string>(data_type.Name)>], vec_data_mangle # size_mangle # temp_mangle_for_vec # mask_mangle>;
-            
-            // ----- key-value -----
-            foreach value_type_name = ["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f16", "f32", "f64"] in {
-              defvar kv_builtin = "__devicelib_default_work_group_"#method#"_"#func#"_"#addr#type_name#"_"#addr#value_type_name#"_u32_"#temp_addr#"i8";
-              defvar value_type = GetIRTypeName<value_type_name>.ret;
-              defvar value_signed = GetSignedInfoByTypeName<value_type_name>.ret;
-              // generate arg type
-              defvar value_data_type = !cast<PointerType>("pAS4"#value_type);
-              defvar vec_value_data_type = VectorType<value_data_type, vf>;
-              // generate value mangle info
-              defvar vec_value_data_mangle = !cond(!eq(value_type_name, type_name): "S1_", 
-                        true: MangleVectorOfPointersType<vec_value_data_type, value_signed>.ret);
+        // scalar key-value builtin declare
+        defvar KVMangledName = "_Z" # !size(kv_builtin) # kv_builtin # data_mangle # value_data_mangle # size_mangle # value_temp_mangle_for_decl;
+        let EmitMangledName = false in 
+        def : LLDeclare<KVMangledName, [data_type, value_data_type, size_type, temp_type], void, "">;
+      }
+      // vector version
+      let FuncAttrs = ["memory(readwrite)", "nounwind", "alwaysinline"] in {
+        let EmitMangledName = true in 
+        foreach vf = [4, 8, 16, 32, 64] in {
+          // ----- key-only -----
+          // vector arg type
+          defvar vec_data_type = VectorType<data_type, vf>;
+          // vector mask arg type
+          defvar mask_type = !cast<VectorType>("v" # vf # "i32");    
+          // vector arg mangle info
+          defvar vec_data_mangle = MangleVectorOfPointersType<vec_data_type, signed>.ret;
+          defvar mask_mangle = MangleVectorType<mask_type, /*signed*/ false>.ret;
+          defvar temp_mangle_for_vec = !cond(!eq(type_name, "i8"): "S0_",      
+                                        true: ManglePointerType<temp_type, true>.ret);
+          // vector key-only builtin define
+          defm work_group_sort # func # method # type_name # vf: LLDefine<builtin,
+            [Value<vec_data_type, "first">,  Value<size_type, "n">, 
+              Value<temp_type, "scratch">, Value<mask_type, "mask">], void, [{
+              %vecext = extractelement {Args[0]}, i32 0
+              call void @{MANGLED_FUNC}({EXT_TYPE} %vecext, {Args[1]}, {Args[2]})
+              ret void
+            }], [Macro<"MANGLED_FUNC", !cast<string>(MangledName)>, 
+                  Macro<"EXT_TYPE", !cast<string>(data_type.Name)>], vec_data_mangle # size_mangle # temp_mangle_for_vec # mask_mangle>;
+          
+          // ----- key-value -----
+          foreach value_type_name = ["i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f16", "f32", "f64"] in {
+            defvar kv_builtin = "__devicelib_default_work_group_"#method#"_"#func#"_p1"#type_name#"_p1"#value_type_name#"_u32_p1i8";
+            defvar value_type = GetIRTypeName<value_type_name>.ret;
+            defvar value_signed = GetSignedInfoByTypeName<value_type_name>.ret;
+            // generate arg type
+            defvar value_data_type = !cast<PointerType>("pAS4"#value_type);
+            defvar vec_value_data_type = VectorType<value_data_type, vf>;
+            // generate value mangle info
+            defvar vec_value_data_mangle = !cond(!eq(value_type_name, type_name): "S1_", 
+                      true: MangleVectorOfPointersType<vec_value_data_type, value_signed>.ret);
 
-              // value scalar arg type mangle, , for call scalar sort
-              defvar value_data_mangle = !cond(!eq(value_type_name, type_name): "S0_", 
-                                              true: ManglePointerType<value_data_type, value_signed>.ret);
-              defvar value_temp_mangle_for_decl = !cond(!eq(type_name, "i8"): "S0_",
-                                                  !eq(value_type_name, "i8"): "S2_",
-                                                  true: ManglePointerType<temp_type, true>.ret);
-              defvar value_temp_mangle_for_vec = !cond(!eq(type_name, "i8"): "S0_",
-                                                 !eq(value_type_name, "i8"): "S3_",    
-                                                 true: ManglePointerType<temp_type, true>.ret);
-              defvar KVMangledName = "_Z" # !size(kv_builtin) # kv_builtin # data_mangle # value_data_mangle # size_mangle # value_temp_mangle_for_decl;
-              // vector key-value builtin define
-              defm work_group_sort # func # method # type_name # value_type_name # addr # temp_addr # vf: LLDefine<kv_builtin,
-                [Value<vec_data_type, "key_first">,  Value<vec_value_data_type, "value_first">, 
-                  Value<size_type, "n">, Value<temp_type, "scratch">, Value<mask_type, "mask">], void, [{
-                  %key_vecext = extractelement {Args[0]}, i32 0
-                  %value_vecext = extractelement {Args[1]}, i32 0
-                  call void @{MANGLED_FUNC}({KEY_EXT_TYPE} %key_vecext, {VALUE_EXT_TYPE} %value_vecext, {Args[2]}, {Args[3]})
-                  ret void
-                }], [Macro<"MANGLED_FUNC", !cast<string>(KVMangledName)>, 
-                      Macro<"KEY_EXT_TYPE", !cast<string>(data_type.Name)>,
-                      Macro<"VALUE_EXT_TYPE", !cast<string>(value_data_type.Name)>],
-                    vec_data_mangle # vec_value_data_mangle # size_mangle # value_temp_mangle_for_vec # mask_mangle>;
-            }
+            // value scalar arg type mangle, , for call scalar sort
+            defvar value_data_mangle = !cond(!eq(value_type_name, type_name): "S0_", 
+                                            true: ManglePointerType<value_data_type, value_signed>.ret);
+            defvar value_temp_mangle_for_decl = !cond(!eq(type_name, "i8"): "S0_",
+                                                !eq(value_type_name, "i8"): "S2_",
+                                                true: ManglePointerType<temp_type, true>.ret);
+            defvar value_temp_mangle_for_vec = !cond(!eq(type_name, "i8"): "S0_",
+                                                !eq(value_type_name, "i8"): "S3_",    
+                                                true: ManglePointerType<temp_type, true>.ret);
+            defvar KVMangledName = "_Z" # !size(kv_builtin) # kv_builtin # data_mangle # value_data_mangle # size_mangle # value_temp_mangle_for_decl;
+            // vector key-value builtin define
+            defm work_group_sort # func # method # type_name # value_type_name # vf: LLDefine<kv_builtin,
+              [Value<vec_data_type, "key_first">,  Value<vec_value_data_type, "value_first">, 
+                Value<size_type, "n">, Value<temp_type, "scratch">, Value<mask_type, "mask">], void, [{
+                %key_vecext = extractelement {Args[0]}, i32 0
+                %value_vecext = extractelement {Args[1]}, i32 0
+                call void @{MANGLED_FUNC}({KEY_EXT_TYPE} %key_vecext, {VALUE_EXT_TYPE} %value_vecext, {Args[2]}, {Args[3]})
+                ret void
+              }], [Macro<"MANGLED_FUNC", !cast<string>(KVMangledName)>, 
+                    Macro<"KEY_EXT_TYPE", !cast<string>(data_type.Name)>,
+                    Macro<"VALUE_EXT_TYPE", !cast<string>(value_data_type.Name)>],
+                  vec_data_mangle # vec_value_data_mangle # size_mangle # value_temp_mangle_for_vec # mask_mangle>;
           }
         }
       }
-    }
     }
   }
 }

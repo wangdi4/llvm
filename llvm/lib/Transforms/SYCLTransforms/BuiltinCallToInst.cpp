@@ -9,15 +9,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/SYCLTransforms/BuiltinCallToInst.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Twine.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/Transforms/SYCLTransforms/ImplicitArgsAnalysis.h"
-#include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/NameMangleAPI.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/VectorizerUtils.h"
 
@@ -103,10 +99,6 @@ bool BuiltinCallToInstPass::handleSupportedBuiltinCalls() {
     case BI_UREM:
     case BI_SREM:
       handleDivRemCalls(BuiltinCall, BuiltinTy);
-      break;
-    case BI_SG_SORT:
-    case BI_WG_SORT:
-      handleSortCalls(BuiltinCall, BuiltinTy);
       break;
     default:
       llvm_unreachable("Need to handle new supported built-in");
@@ -431,175 +423,6 @@ void BuiltinCallToInstPass::handleDivRemCalls(CallInst *CI,
   CI->eraseFromParent();
 }
 
-// Analyze sort builtin's suffix, to get mangled name
-static std::string mangleWGSortBuiltinName(CallInst *CI, StringRef FuncName) {
-  std::string BasicFuncName = FuncName.data();
-
-  SmallVector<std::string, 6> AvailableSortNames = {
-      "__devicelib_default_work_group_joint_sort_ascending_",
-      "__devicelib_default_work_group_joint_sort_descending_",
-      "__devicelib_default_work_group_private_sort_close_ascending_",
-      "__devicelib_default_work_group_private_sort_close_descending_",
-      "__devicelib_default_work_group_private_sort_spread_ascending_",
-      "__devicelib_default_work_group_private_sort_spread_descending_"};
-  for (auto &Str : AvailableSortNames) {
-    // e.g.
-    // "__devicelib_default_work_group_private_sort_close_ascending_p1i32_u32_p1i8"
-    // Consume the basic name
-    // "__devicelib_default_work_group_private_sort_close_ascending_"
-    if (FuncName.consume_front(Str))
-      break;
-  }
-  // Get suffix, which means params type.
-  // e.g. p1i32_u32_p1i8
-  // Generate the FunctionDescriptor's param types
-  reflection::FunctionDescriptor NewFD;
-  for (StringRef ArgStr : llvm::split(FuncName, "_")) {
-    unsigned Idx = 0;
-    NewFD.Name = BasicFuncName;
-    StringRef ArgTypeStr;
-    if (ArgStr.starts_with("p")) {
-      // Pointer type
-      assert(CI->getArgOperand(Idx)->getType()->isPointerTy() &&
-             "Function args type do not match its name");
-      ArgTypeStr = ArgStr.substr(2, ArgStr.size());
-      // Get paramType for mangle
-      reflection::TypePrimitiveEnum PointeeType =
-          llvm::CompilationUtils::getPrimitiveTypeOfString(ArgTypeStr);
-      reflection::RefParamType ParamTy(
-          new reflection::PrimitiveType(PointeeType));
-      reflection::PointerType *PType = new reflection::PointerType(
-          ParamTy,
-          {reflection::TypeAttributeEnum(
-              CI->getArgOperand(Idx)->getType()->getPointerAddressSpace())});
-
-      NewFD.Parameters.push_back(PType);
-    } else {
-      // Not pointer type, which is the size of sort and its type is uint
-      ArgTypeStr = ArgStr;
-      reflection::TypePrimitiveEnum PrimitiveType =
-          llvm::CompilationUtils::getPrimitiveTypeOfString(ArgTypeStr);
-      reflection::PrimitiveType *NumType =
-          new reflection::PrimitiveType(PrimitiveType);
-      NewFD.Parameters.push_back(NumType);
-    }
-    ++Idx;
-  }
-  return NameMangleAPI::mangle(NewFD);
-}
-
-static std::string mangleSGSortBuiltinName(CallInst *CI, StringRef FuncName) {
-  std::string FuncNoMangledName = FuncName.data();
-
-  std::string SGSortDesName =
-      "__devicelib_default_sub_group_private_sort_descending_";
-  std::string SGSortAsName =
-      "__devicelib_default_sub_group_private_sort_ascending_";
-
-  if (!FuncName.consume_front(SGSortDesName) &&
-      !FuncName.consume_front(SGSortAsName))
-    assert(false && "Unknown sub group sort builtin");
-
-  StringRef ArgTypeStr = FuncName;
-
-  // mangle
-  reflection::FunctionDescriptor NewFD;
-  NewFD.Name = FuncNoMangledName;
-  reflection::TypePrimitiveEnum PrimitiveType =
-      llvm::CompilationUtils::getPrimitiveTypeOfString(ArgTypeStr);
-  reflection::PrimitiveType *ArgType =
-      new reflection::PrimitiveType(PrimitiveType);
-  NewFD.Parameters.push_back(ArgType);
-
-  return NameMangleAPI::mangle(NewFD);
-}
-
-void BuiltinCallToInstPass::handleSortCalls(CallInst *CI,
-                                            BuiltinType BuiltinTy) {
-  Function *Func = CI->getCalledFunction();
-  assert(Func && "Indirect function call");
-
-  StringRef FuncName = Func->getName();
-  bool NeedMangle = false;
-  std::string MangledFuncName;
-
-  // Try to get mangled name
-  reflection::FunctionDescriptor FD = NameMangleAPI::demangle(FuncName);
-  if (BuiltinTy == BI_SG_SORT && !FD.isNull())
-    // subgroup sort have been mangled, return
-    return;
-  if (BuiltinTy == BI_SG_SORT && FD.isNull()) {
-    // subgroup sort is not mangled
-    MangledFuncName = mangleSGSortBuiltinName(CI, FuncName);
-    NeedMangle = true;
-  } else if (BuiltinTy == BI_WG_SORT && FD.isNull()) {
-    // workgroup sort is not mangled
-    MangledFuncName = mangleWGSortBuiltinName(CI, FuncName);
-    NeedMangle = true;
-  } else {
-    // subgroup sort have been mangled, but it maybe need cast
-    MangledFuncName = FuncName;
-  }
-
-  SmallVector<Type *> FuncArgTys;
-  SmallVector<Value *> FuncArgValues;
-  IRBuilder<> Builder(CI);
-  bool NeedCast = false;
-  // Get builtin params type
-  // If pointer params is not generic, cast pointer to generic
-  reflection::FunctionDescriptor SortFD =
-      NameMangleAPI::demangle(MangledFuncName);
-  unsigned Idx = 0;
-  for (auto &Arg : CI->args()) {
-    if (auto *PType = dyn_cast<PointerType>(Arg->getType())) {
-      if (PType->getPointerAddressSpace() !=
-          CompilationUtils::ADDRESS_SPACE_GENERIC) {
-        // Get type and value for create or get new builtin function
-        PointerType *NewType = PointerType::getWithSamePointeeType(
-            PType, CompilationUtils::ADDRESS_SPACE_GENERIC);
-        Value *NewOp =
-            Builder.CreateAddrSpaceCast(Arg, NewType, Twine("new.data"));
-        FuncArgValues.push_back(NewOp);
-        FuncArgTys.push_back(NewType);
-        // Get params reflection type for remangle builtin
-        reflection::PointerType *OldParam =
-            reflection::dyn_cast<reflection::PointerType>(
-                SortFD.Parameters[Idx].get());
-        reflection::RefParamType NewParam = new reflection::PointerType(
-            OldParam->getPointee(), {reflection::ATTR_GENERIC});
-        SortFD.Parameters[Idx] = NewParam;
-        NeedCast = true;
-      }
-    } else {
-      // No need to cast, just push_back
-      FuncArgTys.push_back(Arg->getType());
-      FuncArgValues.push_back(Arg);
-    }
-    ++Idx;
-  }
-  if (NeedMangle || NeedCast) {
-    std::string NewFuncName = NameMangleAPI::mangle(SortFD);
-    Type *VoidResult = Type::getVoidTy(CI->getContext());
-    // get or create new functon
-    Function *NewFunc = CI->getModule()->getFunction(NewFuncName);
-    if (!NewFunc) {
-      FunctionType *FuncTy = FunctionType::get(
-          /*Result=*/VoidResult,
-          /*Params=*/FuncArgTys,
-          /*isVarArg=*/false);
-      assert(FuncTy && "Failed to create new function type");
-      NewFunc = Function::Create(
-          /*Type=*/FuncTy,
-          /*Linkage=*/GlobalValue::ExternalLinkage,
-          /*Name=*/NewFuncName, CI->getModule());
-      assert(NewFunc && "Failed to create new function declaration");
-      NewFunc->setCallingConv(CallingConv::C);
-    }
-    Builder.CreateCall(NewFunc, FuncArgValues, "");
-    CI->eraseFromParent();
-  }
-}
-
 BuiltinCallToInstPass::BuiltinType
 BuiltinCallToInstPass::isSupportedBuiltin(CallInst *CI) {
   Value *CalledOp = CI->getCalledOperand();
@@ -611,11 +434,6 @@ BuiltinCallToInstPass::isSupportedBuiltin(CallInst *CI) {
     return BI_NOT_SUPPORTED;
 
   StringRef CalledFuncName = CalledFunc->getName();
-  if (CompilationUtils::isWorkGroupSort(CalledFuncName))
-    return BI_WG_SORT;
-  if (CompilationUtils::isSubGroupSort(CalledFuncName))
-    return BI_SG_SORT;
-
   if (!NameMangleAPI::isMangledName(CalledFuncName))
     return BI_NOT_SUPPORTED;
   StringRef StrippedName = NameMangleAPI::stripName(CalledFuncName);

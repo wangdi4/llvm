@@ -2418,59 +2418,52 @@ static void pushWGSortBuiltinVectInfo(reflection::TypeVector KeyValueParams,
 }
 
 static void pushWGSortBuiltinVectorInfo(VectInfoList &ExtendedVectInfos) {
-  // const StringRef NAME_WORK_GROUP_JOINT_SORT_ASCEND =
-  //     "__devicelib_default_work_group_joint_sort_ascending_";
-  SmallVector<StringRef, 6> AllSortBuiltinBasicNames = {
+  // Get size and scratch args type
+  reflection::RefParamType SizeType = PRIM_TYPE(reflection::PRIMITIVE_UINT);
+  reflection::RefParamType ScratchType = new reflection::PointerType(
+      PRIM_TYPE(reflection::PRIMITIVE_CHAR), {reflection::ATTR_GENERIC});
+
+  const SmallVector<StringRef, 6> AllWorkGroupSortBuiltinBasicNames = {
       NAME_WORK_GROUP_JOINT_SORT_ASCEND,
       NAME_WORK_GROUP_JOINT_SORT_DESCEND,
       NAME_WORK_GROUP_PRIVATE_CLOSE_SORT_ASCEND,
       NAME_WORK_GROUP_PRIVATE_CLOSE_SORT_DESCEND,
       NAME_WORK_GROUP_PRIVATE_SPREAD_SORT_ASCEND,
       NAME_WORK_GROUP_PRIVATE_SPREAD_SORT_DESCEND};
-  // Get size and scratch args type
-  reflection::RefParamType SizeType = PRIM_TYPE(reflection::PRIMITIVE_UINT);
-  reflection::RefParamType ScratchType = new reflection::PointerType(
-      PRIM_TYPE(reflection::PRIMITIVE_CHAR), {reflection::ATTR_GENERIC});
+  const SmallVector<std::string, 11> BasicTypeStr = {"i8",  "i16", "i32", "i64",
+                                                     "u8",  "u16", "u32", "u64",
+                                                     "f16", "f32", "f64"};
 
-  SmallVector<std::string, 11> BasicTypeStr = {"i8",  "i16", "i32", "i64",
-                                               "u8",  "u16", "u32", "u64",
-                                               "f16", "f32", "f64"};
+  for (StringRef BuiltinName : AllWorkGroupSortBuiltinBasicNames) {
+    for (StringRef KeyBasicTypeStr : BasicTypeStr) {
+      std::string KeyOnlyBuiltinBasicName =
+          (BuiltinName + "p1" + KeyBasicTypeStr + "_u32_p1i8").str();
+      // Get key data type
+      reflection::RefParamType KeyType = new reflection::PointerType(
+          PRIM_TYPE(getPrimitiveTypeOfString(KeyBasicTypeStr)),
+          {reflection::ATTR_GENERIC});
 
-  for (StringRef BuiltinName : AllSortBuiltinBasicNames) {
-    for (std::string KeyBasicTypeStr : BasicTypeStr) {
-      for (std::string P : {"p1", "p3"}) {
-        for (std::string StratchP : {"p1", "p3"}) {
-          std::string KeyOnlyBuiltinBasicName =
-              (BuiltinName + P + KeyBasicTypeStr + "_u32_" + StratchP + "i8")
-                  .str();
-          // Get key data type
-          reflection::RefParamType KeyType = new reflection::PointerType(
-              PRIM_TYPE(getPrimitiveTypeOfString(KeyBasicTypeStr)),
-              {reflection::ATTR_GENERIC});
+      reflection::TypeVector KeyScalarParams = {KeyType};
+      reflection::TypeVector OtherScalarParams = {SizeType, ScratchType};
+      pushWGSortBuiltinVectInfo(KeyScalarParams, OtherScalarParams,
+                                KeyOnlyBuiltinBasicName, ExtendedVectInfos,
+                                true);
 
-          reflection::TypeVector KeyScalarParams = {KeyType};
-          reflection::TypeVector OtherScalarParams = {SizeType, ScratchType};
-          pushWGSortBuiltinVectInfo(KeyScalarParams, OtherScalarParams,
-                                    KeyOnlyBuiltinBasicName, ExtendedVectInfos,
-                                    true);
+      for (StringRef ValueBasicTypeStr : BasicTypeStr) {
+        std::string KeyValueBuiltinBasicName =
+            (BuiltinName + "p1" + KeyBasicTypeStr + "_p1" + ValueBasicTypeStr +
+             "_u32_p1i8")
+                .str();
+        // Get value data type
+        reflection::RefParamType ValueType = new reflection::PointerType(
+            PRIM_TYPE(getPrimitiveTypeOfString(ValueBasicTypeStr)),
+            {reflection::ATTR_GENERIC});
 
-          for (std::string ValueBasicTypeStr : BasicTypeStr) {
-            std::string KeyValueBuiltinBasicName =
-                (BuiltinName + P + KeyBasicTypeStr + "_" + P +
-                 ValueBasicTypeStr + "_u32_" + StratchP + "i8")
-                    .str();
-            // Get value data type
-            reflection::RefParamType ValueType = new reflection::PointerType(
-                PRIM_TYPE(getPrimitiveTypeOfString(ValueBasicTypeStr)),
-                {reflection::ATTR_GENERIC});
-
-            reflection::TypeVector KeyScalarParams = {KeyType, ValueType};
-            reflection::TypeVector OtherScalarParams = {SizeType, ScratchType};
-            pushWGSortBuiltinVectInfo(KeyScalarParams, OtherScalarParams,
-                                      KeyValueBuiltinBasicName,
-                                      ExtendedVectInfos, true);
-          }
-        }
+        reflection::TypeVector KeyScalarParams = {KeyType, ValueType};
+        reflection::TypeVector OtherScalarParams = {SizeType, ScratchType};
+        pushWGSortBuiltinVectInfo(KeyScalarParams, OtherScalarParams,
+                                  KeyValueBuiltinBasicName, ExtendedVectInfos,
+                                  true);
       }
     }
   }
