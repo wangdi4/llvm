@@ -4,9 +4,7 @@
 
 // REQUIRES: cpu
 // RUN: %clangxx -fsycl -fsycl-enable-function-pointers %s -o %t.out
-// RUN: %CPU_RUN_PLACEHOLDER %t.out %CPU_CHECK_PLACEHOLDER
-
-// CHECK: Test PASSED.
+// RUN: %{run}
 
 #include <sycl.hpp>
 

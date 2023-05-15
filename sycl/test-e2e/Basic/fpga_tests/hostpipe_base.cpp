@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 // REQUIRES: accelerator
-// RUN: %clangxx -fsycl %s -o %t.out -fsycl-targets=%sycl_triple
-// RUN: %ACC_RUN_PLACEHOLDER %t.out
+// RUN: %{build} -o %t.out
+// RUN: %{run} %t.out
 
 #include <algorithm>
 #include <numeric>

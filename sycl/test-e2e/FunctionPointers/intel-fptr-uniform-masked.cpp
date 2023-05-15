@@ -4,9 +4,7 @@
 
 // REQUIRES: cpu
 // RUN: %clangxx -fsycl -fsycl-enable-function-pointers %s -o %t.out
-// RUN: %CPU_RUN_PLACEHOLDER %t.out %CPU_CHECK_PLACEHOLDER
-
-// CHECK: Test PASSED.
+// RUN: %{run} %t.out
 
 #include <sycl.hpp>
 #include <CL/sycl/INTEL/function_ref_tuned.hpp>
@@ -68,13 +66,13 @@ int main() {
   }
   if (Passed) {
     std::cout << "Test PASSED." << std::endl;
+    return 0;
   } else {
     std::cout << "Test FAILED." << std::endl;
     for (int I = 0; I < Size; ++I) {
       std::cout << HostAcc[I] << " ";
     }
     std::cout << std::endl;
+    return 1;
   }
-
-  return 0;
 }

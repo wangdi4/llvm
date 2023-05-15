@@ -4,9 +4,8 @@
 // REQUIRES: cpu || gpu
 // UNSUPPORTED: cuda,hip
 //
-// RUN: %clangxx -fsycl -Xclang -fsycl-allow-virtual-functions -fsycl-targets=%sycl_triple %s -o %t.out
-// RUN: %CPU_RUN_PLACEHOLDER %t.out
-// RUN: %GPU_RUN_PLACEHOLDER %t.out
+// RUN: %{build} -Xclang -fsycl-allow-virtual-functions -o %t.out
+// RUN: %{run} %t.out
 //
 // Purpose of this test is to check that we can pass an object of class with
 // virtual functions between kernels and that those virtual functions will
