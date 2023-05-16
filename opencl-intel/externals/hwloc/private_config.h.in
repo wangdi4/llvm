@@ -848,7 +848,7 @@
 #define hwloc_pid_t HANDLE
 #define hwloc_thread_t HANDLE
 
-#else /* HWLOC_HAVE_WINDOWS_H */
+#elif HWLOC_HAVE_PTHREAD_MUTEX
 #define hwloc_pid_t pid_t
 #define hwloc_thread_t pthread_t
 #endif /* HWLOC_HAVE_WINDOWS_H */

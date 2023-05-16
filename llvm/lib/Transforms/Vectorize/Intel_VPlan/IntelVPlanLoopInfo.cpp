@@ -210,6 +210,19 @@ VPCmpInst *VPLoop::getLatchComparison() const {
   return nullptr;
 }
 
+VPInductionInit *VPLoop::getInduction() const {
+  // Return the VPInductionInit which serves as the incoming value from the loop
+  // preheader to the induction PHI used in the latch condition.
+  LatchCondDescr CD = classifyLatchCond();
+  assert(CD.Kind != LckUnknown && "Unexpected loop latch!");
+  assert(CD.IndIncr &&
+         "No induction increment for LckDoLoop or LckAllZero loop?");
+  auto *LoopPHI = isa<VPPHINode>(CD.IndIncr->getOperand(0))
+                      ? cast<VPPHINode>(CD.IndIncr->getOperand(0))
+                      : cast<VPPHINode>(CD.IndIncr->getOperand(1));
+  return cast<VPInductionInit>(LoopPHI->getIncomingValue(getLoopPreheader()));
+}
+
 MDNode *VPLoop::getLoopID() const {
   // Get the latch block and check the terminator for the metadata.
   VPBranchInst *TI = getLoopLatch()->getTerminator();

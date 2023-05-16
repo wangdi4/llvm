@@ -28,6 +28,7 @@ namespace llvm {
 namespace vpo {
 class VPBasicBlock;
 class VPValue;
+class VPInductionInit;
 class VPInstruction;
 class VPCmpInst;
 class VPlanDivergenceAnalysis;
@@ -134,6 +135,9 @@ public:
   /// Return the comparison used for loop latch condition.
   /// If not found, return nullptr.
   VPCmpInst *getLatchComparison() const;
+
+  /// Return the main induction used in the loop latch condition.
+  VPInductionInit *getInduction() const;
 
   /// Return the loop id metadata node for this VPLoop if present. This is
   /// obtained by checking loop latch's terminator instruction.

@@ -84,21 +84,25 @@
 #  include <windows.h>
 typedef DWORDLONG hwloc_uint64_t;
 
-#else /* HWLOC_HAVE_WINDOWS_H */
+#else
+#if HWLOC_HAVE_PTHREAD_MUTEX  /*HWLOC_HAVE_PTHREAD_MUTEX*/
 #define hwloc_pid_t pid_t
 #define hwloc_thread_t pthread_t
-#  ifdef hwloc_thread_t
-#    include <pthread.h>
-#  endif /* hwloc_thread_t */
+#  include <pthread.h>
+#endif  /*HWLOC_HAVE_PTHREAD_MUTEX */
 
 /* Defined to 1 if you have the <stdint.h> header file. */
-#  define HWLOC_HAVE_STDINT_H 1
-
-#  include <unistd.h>
+#cmakedefine HAVE_UNISTD_H @HAVE_UNISTD_H@
+#cmakedefine HWLOC_HAVE_STDINT_H @HWLOC_HAVE_STDINT_H@
+#  ifdef HAVE_UNISTD_H
+#    include <unistd.h>
+#  endif
 #  ifdef HWLOC_HAVE_STDINT_H
 #    include <stdint.h>
+     typedef uint64_t hwloc_uint64_t;
+#  else
+     typedef unsigned long long hwloc_uint64_t;
 #  endif
-typedef uint64_t hwloc_uint64_t;
 
 #endif /* HWLOC_HAVE_WINDOWS_H */
 
