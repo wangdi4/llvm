@@ -79,9 +79,20 @@ MasterVPInstData *HIRSpecifics::getVPInstData() {
   return nullptr;
 }
 
-void HIRSpecifics::setSymbase(unsigned SB) {
+void HIRSpecifics::setGepRefSpecifics(const loopopt::RegDDRef *Ref) {
   assert(hasSymbase(Inst) && "This VPInstruction can't have a symbase!");
-  HIRData().Symbase = SB;
+  HIRData().Symbase = Ref->getSymbase();
+}
+
+void HIRSpecifics::setGepRefSpecifics(const VPInstruction &SrcInst) {
+  assert(hasSymbase(Inst) && "This VPInstruction can't have a symbase!");
+  assert(hasSymbase(SrcInst) && "This VPInstruction can't have a symbase!");
+  HIRData().Symbase = SrcInst.HIR().HIRData().Symbase;
+}
+
+void HIRSpecifics::setGepRefSpecifics(unsigned Symbase) {
+  assert(hasSymbase(Inst) && "This VPInstruction can't have a symbase!");
+  HIRData().Symbase = Symbase;
 }
 
 unsigned HIRSpecifics::getSymbase() const {

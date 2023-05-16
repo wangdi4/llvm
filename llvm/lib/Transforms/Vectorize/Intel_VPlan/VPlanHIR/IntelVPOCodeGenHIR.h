@@ -1267,6 +1267,17 @@ private:
   std::pair<HLLoop *, RegDDRef *>
   emitHLLoopSkeletonAndLoopIVRef(unsigned LB, unsigned UB, unsigned Stride);
 
+  /// Helper utility to set GEP ref specifics - currently symbase. The symbase
+  /// from VPInst is used unless a preferred symbas is specified.
+  /// TODO - extend relevant interfaces to also set number of collapsed levels.
+  void setGepRefSpecifics(RegDDRef *Ref, const VPInstruction &VPInst,
+                          unsigned PreferredSymbase = loopopt::InvalidSymbase) {
+    unsigned Symbase = PreferredSymbase != loopopt::InvalidSymbase
+                           ? PreferredSymbase
+                           : VPInst.HIR().getSymbase();
+    Ref->setSymbase(Symbase);
+  }
+
   // The small loop trip count and body thresholds used to determine where it
   // is appropriate for complete unrolling. May eventually need to be moved to
   // the cost model.

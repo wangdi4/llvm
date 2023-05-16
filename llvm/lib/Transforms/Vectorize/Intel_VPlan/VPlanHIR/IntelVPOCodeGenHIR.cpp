@@ -3687,14 +3687,14 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
     // element type.
     IndexedElementType = IndexedElementType->getScalarType();
 
-  unsigned ScalSymbase = VPLdSt->HIR().getSymbase();
+  unsigned PrefScalSymbase = loopopt::InvalidSymbase;
   if (auto *Priv = getVPValuePrivateMemoryPtr(VPPtr)) {
     // For accesses to private memory we need to use new private alloca's
     // symbase.
     auto *PrivAlloca = cast<VPAllocatePrivate>(Priv);
     assert(PrivateMemBlobRefs.count(PrivAlloca) &&
            "Private memory pointer not widened.");
-    ScalSymbase = PrivateMemBlobRefs[PrivAlloca].second;
+    PrefScalSymbase = PrivateMemBlobRefs[PrivAlloca].second;
   }
   Align Alignment = VPLdSt->getAlignment();
   AAMDNodes AANodes;
@@ -3727,7 +3727,7 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
     // MemRef's bitcast type needs to be set to a pointer to <VF x ValType>.
     MemRef->setBitCastDestVecOrElemType(VecValTy);
   }
-  MemRef->setSymbase(ScalSymbase);
+  setGepRefSpecifics(MemRef, *VPLdSt, PrefScalSymbase);
   propagateMetadata(MemRef, VPLdSt);
 
   // Adjust the memory reference for the negative one stride case so that
@@ -3784,7 +3784,7 @@ RegDDRef *VPOCodeGenHIR::getVLSMemoryRef(const VLSOpTy *LoadStore) {
   }
   MemRef->setBitCastDestVecOrElemType(LoadStore->getValueType());
   MemRef->setAlignment(LoadStore->getAlignment().value());
-  MemRef->setSymbase(LoadStore->HIR().getSymbase());
+  setGepRefSpecifics(MemRef, *LoadStore);
 
   for (std::pair<unsigned, MDNode *> It : LoadStore->getMetadata())
     MemRef->setMetadata(It.first, It.second);

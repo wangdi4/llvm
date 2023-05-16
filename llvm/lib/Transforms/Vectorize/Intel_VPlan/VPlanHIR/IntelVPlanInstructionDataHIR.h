@@ -531,7 +531,20 @@ public:
        << " IsNew=" << !isSet() << " HasValidHIR= " << isValid() << "\n";
   }
 
-  void setSymbase(unsigned SB);
+  // Interfaces to store GEP ref specifics such as symbase in HIRSpecifics.
+  // This information is later propagated to GEP refs created during HIR
+  // vector code generation.
+  void setGepRefSpecifics(const loopopt::RegDDRef *Ref);
+
+  // Copy GEP ref specifics from source instruction to current instruction's
+  // HIR specifics.
+  void setGepRefSpecifics(const VPInstruction &SrcInst);
+
+  // Interface used to set appropriate symbase for GEP refs created for entities
+  // such as privates. We only need to ensure that GEP refs that correspond
+  // to the same private have the appropriate symbase.
+  void setGepRefSpecifics(unsigned Symbase);
+
   unsigned getSymbase() const;
 
   void setFoldIVConvert(bool Fold);
