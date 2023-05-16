@@ -16,9 +16,9 @@ rdseed   %rax
 # CHECK-NEXT: [6]: HasSideEffects (U)
 
 # CHECK:      [1]    [2]    [3]    [4]    [5]    [6]    Instructions:
-# CHECK-NEXT:  25     1381   7.00                  U     rdseedw	%ax
-# CHECK-NEXT:  25     100   7.00                  U     rdseedl	%eax
-# CHECK-NEXT:  25     100   7.00                  U     rdseedq	%rax
+# CHECK-NEXT:  5      5     0.67                  U     rdseedw	%ax
+# CHECK-NEXT:  5      5     0.67                  U     rdseedl	%eax
+# CHECK-NEXT:  5      5     0.67                  U     rdseedq	%rax
 
 # CHECK:      Resources:
 # CHECK-NEXT: [0]   - RYLPort00
@@ -33,15 +33,28 @@ rdseed   %rax
 # CHECK-NEXT: [9]   - RYLPort09
 # CHECK-NEXT: [10]  - RYLPort10
 # CHECK-NEXT: [11]  - RYLPort11
-# CHECK-NEXT: [12]  - RYLPortInvalid
+# CHECK-NEXT: [12]  - RYLPort12
+# CHECK-NEXT: [13]  - RYLPort13
+# CHECK-NEXT: [14]  - RYLPort14
+# CHECK-NEXT: [15]  - RYLPort15
+# CHECK-NEXT: [16]  - RYLPort16
+# CHECK-NEXT: [17]  - RYLPort17
+# CHECK-NEXT: [18]  - RYLPort18
+# CHECK-NEXT: [19]  - RYLPort19
+# CHECK-NEXT: [20]  - RYLPort20
+# CHECK-NEXT: [21]  - RYLPort21
+# CHECK-NEXT: [22]  - RYLPort22
+# CHECK-NEXT: [23]  - RYLPort23
+# CHECK-NEXT: [24]  - RYLPort24
+# CHECK-NEXT: [25]  - RYLPortInvalid
 
 # CHECK:      Resource pressure per iteration:
-# CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]
-# CHECK-NEXT: 19.50  24.00  1.00   1.00    -     18.00  10.50   -      -      -      -     1.00    -
+# CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]   [13]   [14]   [15]   [16]   [17]   [18]   [19]   [20]   [21]   [22]   [23]   [24]   [25]
+# CHECK-NEXT: 2.00   2.00   2.00   2.00   2.00   2.00   0.75    -     0.75    -     0.75    -     0.75    -      -      -      -      -      -      -      -      -      -      -      -      -
 
 # CHECK:      Resource pressure by instruction:
-# CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]   Instructions:
-# CHECK-NEXT: 6.50   8.00   0.33   0.33    -     6.00   3.50    -      -      -      -     0.33    -     rdseedw	%ax
-# CHECK-NEXT: 6.50   8.00   0.33   0.33    -     6.00   3.50    -      -      -      -     0.33    -     rdseedl	%eax
-# CHECK-NEXT: 6.50   8.00   0.33   0.33    -     6.00   3.50    -      -      -      -     0.33    -     rdseedq	%rax
+# CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]   [13]   [14]   [15]   [16]   [17]   [18]   [19]   [20]   [21]   [22]   [23]   [24]   [25]   Instructions:
+# CHECK-NEXT: 0.67   0.67   0.67   0.67   0.67   0.67   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     rdseedw	%ax
+# CHECK-NEXT: 0.67   0.67   0.67   0.67   0.67   0.67   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     rdseedl	%eax
+# CHECK-NEXT: 0.67   0.67   0.67   0.67   0.67   0.67   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     rdseedq	%rax
 # end INTEL_FEATURE_CPU_RYL
