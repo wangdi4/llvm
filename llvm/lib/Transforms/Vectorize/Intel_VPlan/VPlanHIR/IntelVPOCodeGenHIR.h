@@ -303,11 +303,10 @@ public:
   /// defines the position of the part to extract i.e. starts from
   /// Part*(subvector size)-th element of the vector. Subvector size is
   /// determined by given vector size and number of parts to be divided into.
-  /// Generated instruction is also attached to outgoing IR and l-val is
-  /// returned. In case when \p LValRef is non-null, returned l-val is written
-  /// to \p LValRef.
-  RegDDRef *extractSubVector(RegDDRef *Input, unsigned Part, unsigned NumParts,
-                             RegDDRef *LValRef = nullptr);
+  /// Generated instruction is returned. In case when \p LValRef is non-null,
+  /// instruction's l-val is written to \p LValRef.
+  HLInst *extractSubVector(RegDDRef *Input, unsigned Part, unsigned NumParts,
+                           RegDDRef *LValRef = nullptr);
 
   HLInst *createReverseVector(RegDDRef *ValRef);
 

@@ -114,9 +114,9 @@ class TargetLibraryInfoImpl {
   unsigned SizeOfInt;
 #if INTEL_CUSTOMIZATION
   // Complex type library call signature for single-precision FP type.
-  ComplexLibCallSignatureInfo CmplxFloatSignInfo;
+  ComplexLibCallSignatureInfo CmplxFloatSignInfo = UnknownSign;
   // Complex type library call signature for double-precision FP type.
-  ComplexLibCallSignatureInfo CmplxDoubleSignInfo;
+  ComplexLibCallSignatureInfo CmplxDoubleSignInfo = UnknownSign;
 #endif // INTEL_CUSTOMIZATION
 
   enum AvailabilityState {

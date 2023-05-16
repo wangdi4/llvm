@@ -1748,9 +1748,16 @@ void VPOCodeGenHIR::replaceLibCallsInScalarLoop(HLInst *HInst) {
     InstsToRemove.push_back(HInst);
 
     if (auto LvalDDRef = HInst->getLvalDDRef()) {
-      HLInst *ExtractInst = HLNodeUtilities.createExtractElementInst(
-          WideCall->getLvalDDRef()->clone(), unsigned(0), "elem",
-          LvalDDRef->clone());
+      HLInst *ExtractInst;
+      if (LvalDDRef->getDestType()->isVectorTy()) {
+        ExtractInst = extractSubVector(
+            WideCall->getLvalDDRef()->clone(), 0 /*Part*/,
+            RemainderLibCallVF /*NumParts*/, LvalDDRef->clone());
+      } else {
+        ExtractInst = HLNodeUtilities.createExtractElementInst(
+            WideCall->getLvalDDRef()->clone(), unsigned(0), "elem",
+            LvalDDRef->clone());
+      }
       HLNodeUtils::insertAfter(WideCall, ExtractInst);
     }
   }
@@ -2408,18 +2415,12 @@ HLInst *VPOCodeGenHIR::replicateVectorElts(RegDDRef *Input,
   return ReplVecInst;
 }
 
-RegDDRef *VPOCodeGenHIR::extractSubVector(RegDDRef *Input, unsigned Part,
-                                          unsigned NumParts,
-                                          RegDDRef *LValRef) {
+HLInst *VPOCodeGenHIR::extractSubVector(RegDDRef *Input, unsigned Part,
+                                        unsigned NumParts, RegDDRef *LValRef) {
   if (!Input)
     return nullptr; // No vector to extract from.
 
   assert(NumParts > 0 && "Invalid number of subparts of vector.");
-
-  if (NumParts == 1) {
-    // Return the original vector as there is only one Part.
-    return Input;
-  }
 
   unsigned VecLen =
       cast<FixedVectorType>(Input->getDestType())->getNumElements();
@@ -2442,9 +2443,7 @@ RegDDRef *VPOCodeGenHIR::extractSubVector(RegDDRef *Input, unsigned Part,
   LLVM_DEBUG(dbgs() << "[VPOCGHIR] ExtractSubVec: "; SubVec->dump();
              dbgs() << "\n");
 
-  // Attach sub-vector instruction to HIR.
-  addInstUnmasked(SubVec);
-  return SubVec->getLvalDDRef()->clone();
+  return SubVec;
 }
 
 HLInst *VPOCodeGenHIR::createBitCast(Type *Ty, RegDDRef *Ref,
@@ -2989,7 +2988,11 @@ void VPOCodeGenHIR::widenCallArgs(const VPCallInstruction *VPCall,
     if ((!MatchedVariant || Parms[I].isVector() || Parms[I].isLinearVal()) &&
         !isVectorIntrinsicWithScalarOpAtArg(VectorIntrinID, I)) {
       WideArg = widenRef(VPCall->getOperand(I), VF);
-      WideArg = extractSubVector(WideArg, PumpPart, PumpFactor);
+      if (PumpFactor > 1) {
+        HLInst *SubVec = extractSubVector(WideArg, PumpPart, PumpFactor);
+        addInstUnmasked(SubVec);
+        WideArg = SubVec->getLvalDDRef()->clone();
+      }
       assert(WideArg && "Vectorized call arg cannot be nullptr.");
     } else {
       // TODO: support pumping for vector variants
@@ -3010,7 +3013,13 @@ void VPOCodeGenHIR::widenCallArgs(const VPCallInstruction *VPCall,
     assert(VectorIntrinID == Intrinsic::not_intrinsic &&
            "Vectorization of trivial intrinsics is not expected to be masked.");
     // Compute mask paramter for current part being pumped.
-    RegDDRef *PumpPartMask = extractSubVector(Mask, PumpPart, PumpFactor);
+    RegDDRef *PumpPartMask = Mask;
+    if (PumpFactor > 1) {
+      HLInst *PumpPartMaskSubVec =
+          extractSubVector(PumpPartMask, PumpPart, PumpFactor);
+      addInstUnmasked(PumpPartMaskSubVec);
+      PumpPartMask = PumpPartMaskSubVec->getLvalDDRef()->clone();
+    }
     StringRef VecFuncName = TLI->getVectorizedFunction(
         Fn->getName(), ElementCount::getFixed(PumpedVF), Masked);
     // Masks of SVML function calls need special treatment, it's different from
@@ -5055,15 +5064,16 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     }
     RegDDRef *VecRef = widenRef(VPInst->getOperand(0), getVF());
 
-    RegDDRef *ResultRef;
+    HLInst *PrivExtract;
     if (VPInst->getOperand(0)->getType()->isVectorTy()) {
-      ResultRef = extractSubVector(VecRef, getVF() - 1, getVF(), OrigPrivDescr);
+      PrivExtract =
+          extractSubVector(VecRef, getVF() - 1, getVF(), OrigPrivDescr);
     } else {
-      HLInst *PrivExtract = HLNodeUtilities.createExtractElementInst(
+      PrivExtract = HLNodeUtilities.createExtractElementInst(
           VecRef, getVF() - 1, "extracted.priv", OrigPrivDescr);
-      addInstUnmasked(PrivExtract);
-      ResultRef = PrivExtract->getLvalDDRef();
     }
+    addInstUnmasked(PrivExtract);
+    RegDDRef *ResultRef = PrivExtract->getLvalDDRef();
     // Make the original private descriptor non-linear since we have a
     // definition to the temp in loop post-exit.
     if (OrigPrivDescr)
