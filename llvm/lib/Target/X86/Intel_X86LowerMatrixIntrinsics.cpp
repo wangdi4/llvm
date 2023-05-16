@@ -421,14 +421,21 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixMad(IntrinsicInst *II) {
     assert(false && "Invalid Intrinsic ID!");
     break;
   case Intrinsic::experimental_matrix_mad:
-#if INTEL_FEATURE_ISA_AMX_TF32
     if (SrcMatrixElemType->isFloatTy() && DstMatrixElemType->isFloatTy()) {
+#if INTEL_FEATURE_ISA_AMX_TF32
       IID = Intrinsic::x86_tmmultf32ps_internal;
-      break;
-    }
+#else  // INTEL_FEATURE_ISA_AMX_TF32
+      llvm_unreachable("unsupported Matrix type: A&B is tf32 and C is float!");
 #endif // INTEL_FEATURE_ISA_AMX_TF32
-    IID = DstMatrixElemType->isFloatTy() ? Intrinsic::x86_tdpbf16ps_internal
-                                         : Intrinsic::x86_tdpbssd_internal;
+    } else if (SrcMatrixElemType->isIntegerTy(16) &&
+               DstMatrixElemType->isFloatTy()) {
+      IID = Intrinsic::x86_tdpbf16ps_internal;
+    } else if (SrcMatrixElemType->isIntegerTy(8) &&
+               DstMatrixElemType->isIntegerTy(32)) {
+      IID = Intrinsic::x86_tdpbssd_internal;
+    } else {
+      llvm_unreachable("unsupported Matrix type of matrix.mad!");
+    }
     break;
   case Intrinsic::experimental_matrix_sumad:
     IID = Intrinsic::x86_tdpbsud_internal;
