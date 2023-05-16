@@ -90,19 +90,31 @@
 ; CHECK: %[[I41:[A-Za-z0-9]+]] = sub i64 %[[I40]], %i48
 ; CHECK: %[[I42:[A-Za-z0-9]+]] = icmp sle i64 %i120, %[[I41]]
 ; CHECK: %[[I43:[A-Za-z0-9]+]] = and i1 %[[I39]], %[[I42]]
-; CHECK: br i1 %[[I43]], label %[[L0:[A-Za-z0-9.]+]], label %[[L1:[A-Za-z0-9.]+]]
-; CHECK: [[L1]]:
+; CHECK: br i1 %[[I43]], label %optpath, label %codeRepl
 ; This is the branch to the non-predicate optimized version.
-; CHECK: call void @MeanShiftImage.bb123
-; CHECK: br label %[[L2:[A-Za-z0-9.]+]]
-; CHECK: [[L0]]:
+; CHECK-LABEL: codeRepl:
+; CHECK: call void @MeanShiftImage.bb123(
+; CHECK: %[[NO1:[A-Za-z0-9.]+]] = load i32, ptr
+; CHECK: %[[NO2:[A-Za-z0-9.]+]] = load double, ptr
+; CHECK: %[[NO3:[A-Za-z0-9.]+]] = load double, ptr
+; CHECK: %[[NO4:[A-Za-z0-9.]+]] = load i64, ptr
+; CHECK: br label %bb194
+; This is the branch to the common code:
+; CHECK-LABEL: bb194:
+; CHECK: phi i32 {{.*}}, [ %[[NO1]], %codeRepl ], [ %[[YO1:[A-Za-z0-9.]+]], %optpath ]
+; CHECK: phi double {{.*}}, [ %[[NO2]], %codeRepl ], [ %[[YO2:[A-Za-z0-9.]+]], %optpath ]
+; CHECK: phi double {{.*}}, [ %[[NO3]], %codeRepl ], [ %[[YO3:[A-Za-z0-9.]+]], %optpath ]
+; CHECK: phi i64 {{.*}}, [ %[[NO4]], %codeRepl ], [ %[[YO4:[A-Za-z0-9.]+]], %optpath ]
 ; This is the branch to the predicate optimized version.
-; CHECK: call void @MeanShiftImage.bb123.1
-; CHECK: br label %[[L2]]
-; CHECK: [[L2]]:
-
+; CHECK-LABEL: optpath:
+; CHECK: call void @MeanShiftImage.bb123.1(
+; CHECK: %[[YO1]] = load i32, ptr
+; CHECK: %[[YO2]] = load double, ptr
+; CHECK: %[[YO3]] = load double, ptr
+; CHECK: %[[YO4]] = load i64, ptr
+; CHECK: br label %bb194
 ; This is the non-predicate optimized version.
-; CHECK-LABEL: define internal i32 @GetOneCacheViewVirtualPixel(
+; CHECK: define internal i32 @GetOneCacheViewVirtualPixel(
 ; CHECK: %[[Y0:[A-Za-z0-9]+]] = tail call ptr @GetVirtualPixelsFromNexus(
 ; CHECK: %[[Y1:[A-Za-z0-9]+]] = icmp eq ptr %[[Y0]], null
 ; CHECK: br i1 %[[Y1]], label %[[LY0:[A-Za-z0-9]+]], label %[[LY1:[A-Za-z0-9]+]]

@@ -4841,8 +4841,6 @@ private:
   // optimized version, and the second being the general version.
   Loop *MultiLoop = nullptr;
   // The incoming basic block to the multiloop.
-  BasicBlock *HoistBlock = nullptr;
-  // LoadInst of a key local ptr declared "restrict" in the source code.
   LoadInst *LIRestrict = nullptr;
   // The type of the structure pointed to by 'LIRestrict'.
   StructType *LIRestrictType = nullptr;
@@ -4898,10 +4896,15 @@ private:
   // Return a pointer to a newly created hoisted restrict variable that
   // can be used in the condition testing for the optimized code.
   LoadInst *makeHoistedRestrictVar();
+  // Clone the multiloop code to create optimized and non-optimized versions.
+  void cloneNoOptBB(BasicBlock *BBIn, Function *OptF, Function *NoOptF,
+                    BasicBlock *&BBHoist, BasicBlock *&BBOpt,
+                    BasicBlock *&BBNoOpt);
   // Make the condition which tests for the optimized code.
-  Value *makeOptTest(LoadInst *CacheInfo, StructType *LIRestrictType,
-                     Instruction *MLX, Instruction *MLY, Instruction *W2,
-                     Instruction *H2, BasicBlock *HoistBlock);
+  void makeOptTest(LoadInst *CacheInfo, StructType *LIRestrictType,
+                   Instruction *MLX, Instruction *MLY, Instruction *W2,
+                   Instruction *H2, BasicBlock *HoistBlock,
+                   BasicBlock *OptBlock, BasicBlock *NoOptBlock);
   // Return Function with cold code extracted from 'OptBaseF'.
   Function *extractColdCode(Function *OptBaseF);
   // Return the number of branches simplified, using the values of
@@ -6203,12 +6206,6 @@ bool PredicateOpt::shouldAttemptPredicateOpt() {
                     << "FindMultiLoop: " << (MultiLoop ? "T" : "F") << "\n");
   if (!MultiLoop)
     return false;
-  BasicBlock *LatchBlock = nullptr;
-  MultiLoop->getIncomingAndBackEdge(HoistBlock, LatchBlock);
-  LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
-                    << "HoistBlock: " << (HoistBlock ? "T" : "F") << "\n");
-  if (!HoistBlock)
-    return false;
   bool IsValid = validateMultiLoop(MultiLoop, BigLoopCB->getCalledFunction());
   LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
                     << "ValidateMultiLoop: " << (IsValid ? "T" : "F") << "\n");
@@ -6323,7 +6320,56 @@ LoadInst *PredicateOpt::makeHoistedRestrictVar() {
 }
 
 //
-// Make the condition which tests for the optimized code.
+// With 'BBIn' being the extracted basic block containing the call to the
+// 'NoOptF', create a copy of it that calls 'OptF'. Set 'BBNoOpt' to the
+// basic block that calls 'NoOptF', 'BBOpt' to the basic block that calls
+// 'OptF' and 'BBHoist' to the basic block which will contain the test of
+// whether we should execute 'BBOpt' or 'BBNoOpt'.
+//
+void PredicateOpt::cloneNoOptBB(BasicBlock *BBIn, Function *OptF,
+                                Function *NoOptF, BasicBlock *&BBHoist,
+                                BasicBlock *&BBOpt, BasicBlock *&BBNoOpt) {
+  Function *F = BBIn->getParent();
+  Module *M = F->getParent();
+  auto BIIn = cast<BranchInst>(BBIn->getTerminator());
+  assert(BIIn->getNumSuccessors() == 1 && "Expecting unconditional");
+  // Create the basic blocks needed for control flow.
+  BasicBlock *BBOut = BIIn->getSuccessor(0);
+  BBNoOpt = BBIn;
+  BBHoist = BBIn->splitBasicBlockBefore(&BBIn->front());
+  BBOpt = BasicBlock::Create(M->getContext(), "optpath", F);
+  auto BIOpt = BranchInst::Create(BBOut, BBOpt);
+  // Copy instructions from 'BBNoOpt' to 'BBOpt'.
+  ValueToValueMapTy VMap;
+  for (auto &I : *BBNoOpt) {
+    if (&I != BIIn) {
+      Instruction *II = I.clone();
+      VMap[&I] = II;
+      II->insertBefore(BIOpt);
+      if (auto CB = dyn_cast<CallBase>(&I))
+        if (CB->getCalledFunction() == NoOptF)
+          setCalledFunction(cast<CallBase>(II), OptF);
+    }
+  }
+  // Patch up PHINodes coming into 'BBOut'.
+  auto ITerm = BBOut->getFirstNonPHIOrDbgOrLifetime();
+  for (auto &II : *BBOut) {
+     if (auto PHIN = dyn_cast<PHINode>(&II)) {
+       for (unsigned I = 0, E = PHIN->getNumIncomingValues(); I < E; ++I)
+         if (PHIN->getIncomingBlock(I) == BBIn) {
+           PHIN->addIncoming(VMap[PHIN->getIncomingValue(I)], BBOpt);
+           break;
+         }
+     } else if (&II == ITerm) {
+       break;
+     }
+  } 
+}
+
+//
+// Make the condition which tests for the optimized code and place it at
+// the end of 'HoistBB'. Terminate 'HoistBB' with a conditional BranchInst
+// whose true branch is to 'OptBlock' and whose false branch is to 'NoOptBlock'.
 //
 //   cache_info->storage_class == PseudoClass
 //
@@ -6388,10 +6434,11 @@ LoadInst *PredicateOpt::makeHoistedRestrictVar() {
 // %struct._ZTS10_CacheInfo._CacheInfo, %i120 is 'MLX', %i122 is 'MLY',
 // %i48 is 'W2' and %i49 is 'H2'.
 //
-Value *PredicateOpt::makeOptTest(LoadInst *CacheInfo,
-                                 StructType *LIRestrictType, Instruction *MLX,
-                                 Instruction *MLY, Instruction *W2,
-                                 Instruction *H2, BasicBlock *HoistBlock) {
+void PredicateOpt::makeOptTest(LoadInst *CacheInfo, StructType *LIRestrictType,
+                               Instruction *MLX, Instruction *MLY,
+                               Instruction *W2, Instruction *H2,
+                               BasicBlock *HoistBlock, BasicBlock *OptBlock,
+                               BasicBlock *NoOptBlock) {
 
   // Make a GetElementPtr and Load sequence where 'PO' is the pointer
   // operand of the GetElementPtrInst, 'Ty' is the source element type of
@@ -6466,7 +6513,8 @@ Value *PredicateOpt::makeOptTest(LoadInst *CacheInfo,
   auto BSub3 = BinaryOperator::CreateSub(BSub2, W2, "", II);
   auto IC10 = CmpInst::Create(Instruction::ICmp, ICMPSLE, MLX, BSub3, "", II);
   auto BAnd8 = BinaryOperator::CreateAnd(BAnd7, IC10, "", II);
-  return BAnd8;
+  BranchInst::Create(OptBlock, NoOptBlock, BAnd8, II);
+  II->eraseFromParent();
 }
 
 //
@@ -7485,14 +7533,12 @@ bool PredicateOpt::doPredicateOpt() {
   ValueToValueMapTy VMap;
   OptF = IPCloneFunction(NoOptF, VMap);
   OptF->addFnAttr(Attribute::AlwaysInline);
-  CallBase *OptCB = cast<CallBase>(NoOptCB->clone());
-  setCalledFunction(OptCB, OptF);
-  BasicBlock *BBPred = NoOptCB->getParent();
-  BBPred->splitBasicBlock(NoOptCB);
-  BBPred->getTerminator()->eraseFromParent();
-  Value *OptTest =
-      makeOptTest(CacheInfo, LIRestrictType, MLX, MLY, W2, H2, HoistBlock);
-  makeBlocks(NoOptCB, OptCB, OptTest, BBPred);
+  BasicBlock *NoOptBB = nullptr;
+  BasicBlock *HoistBB = nullptr;
+  BasicBlock *OptBB = nullptr;
+  cloneNoOptBB(NoOptCB->getParent(), OptF, NoOptF, HoistBB, OptBB, NoOptBB);
+  makeOptTest(CacheInfo, LIRestrictType, MLX, MLY, W2, H2, HoistBB, OptBB,
+              NoOptBB);
   LLVM_DEBUG(dbgs() << "MRC Predicate: OptF: " << OptF->getName() << "\n");
   LLVM_DEBUG(dbgs() << "MRC Predicate: NoOptF: " << NoOptF->getName() << "\n");
   CallBase *OptWrapperCB = findUniqueCB(OptF, WrapperF);
