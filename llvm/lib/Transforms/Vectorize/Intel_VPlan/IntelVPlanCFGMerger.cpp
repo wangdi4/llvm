@@ -37,6 +37,12 @@ static cl::opt<bool> NeedPeelForSafety(
     "vplan-peel-for-safety", cl::Hidden,
     cl::desc("flag to emit peel for safety (e.g. in search loops)"));
 
+static cl::opt<uint64_t> SkipDynamicPeelTC(
+    "vplan-skip-dynamic-peel-tc", cl::init(0), cl::Hidden,
+    cl::desc("When dynamic peeling, VPlan emits a trip count check to see if "
+             "peeling should be skipped. This flag controls the maximum trip "
+             "count value."));
+
 namespace llvm {
 namespace vpo {
 bool EmitPushPopVF = false;
@@ -1020,11 +1026,11 @@ VPlanCFGMerger::emitPeelBasePtr<Loop>(VPlanDynamicPeeling &Peeling,
 }
 
 template <class LoopTy>
-void VPlanCFGMerger::createPeelPtrCheck(VPlanDynamicPeeling &Peeling,
-                                        VPBasicBlock *InsertBefore,
-                                        VPBasicBlock *NonZeroMerge, VPlan &P,
-                                        VPValue *&PeelBasePtr,
-                                        LoopTy *OrigLoop) {
+VPBasicBlock *
+VPlanCFGMerger::createPeelPtrCheck(VPlanDynamicPeeling &Peeling,
+                                   VPBasicBlock *InsertBefore,
+                                   VPBasicBlock *NonZeroMerge, VPlan &P,
+                                   VPValue *&PeelBasePtr, LoopTy *OrigLoop) {
   // See full comment in the *.h file.
   // The following sequence is generated to check the lower bits of pointer are
   // not zero:
@@ -1060,6 +1066,7 @@ void VPlanCFGMerger::createPeelPtrCheck(VPlanDynamicPeeling &Peeling,
   // set successors
   TestBB->setTerminator(InsertBefore, NonZeroMerge, Cmp);
   updateMergeBlockIncomings(Plan, NonZeroMerge, TestBB, true /* UseLiveIn */);
+  return TestBB;
 }
 
 template <class LoopTy>
@@ -1089,7 +1096,9 @@ void VPlanCFGMerger::insertPeelCntAndChecks(PlanDescr &P,
   } else {
     assert(RemainderMerge && "expected remainder");
     auto *Peeling = cast<VPlanDynamicPeeling>(PeelVariant);
+
     VPValue *PeelBasePtr = nullptr;
+    VPBasicBlock *FirstBB = TestBB;
     VPLoadStoreInst *PeelMemref = cast<VPLoadStoreInst>(Peeling->memref());
     if (PeelMemref->getAlignment() < Peeling->requiredAlignment()) {
       // If alignment of peeled memref is unknown create the check for low bits
@@ -1099,9 +1108,10 @@ void VPlanCFGMerger::insertPeelCntAndChecks(PlanDescr &P,
       // of the marge block before main loop.
       VPBasicBlock *UnalignedMerge =
           needPeelForSafety() ? FinalRemainderMerge : RemainderMerge;
-      createPeelPtrCheck(*Peeling, TestBB, UnalignedMerge, *P.Plan, PeelBasePtr,
-                         OrigLoop);
+      FirstBB = createPeelPtrCheck(*Peeling, TestBB, UnalignedMerge, *P.Plan,
+                                   PeelBasePtr, OrigLoop);
     }
+
     PeelCount = emitDynamicPeelCount(*Peeling, PeelBasePtr, Builder, OrigLoop);
     // Then insert check for peel count is zero
     auto *Zero =
@@ -1113,6 +1123,26 @@ void VPlanCFGMerger::insertPeelCntAndChecks(PlanDescr &P,
     TestBB->setTerminator(P.PrevMerge, P.FirstBB, Cmp);
     // Update merge block incoming values
     updateMergeBlockIncomings(Plan, P.PrevMerge, TestBB, true /* UseLiveIn */);
+
+    // If specified via switch, emit a trip count check to skip the peel loop
+    // if less than the given threshold, as long as we don't need the peel loop
+    // to safely execute the main loop.
+    if (SkipDynamicPeelTC != 0 && !needPeelForSafety()) {
+      VPBasicBlock *CheckTripBB = new VPBasicBlock(
+          VPlanUtils::createUniqueName("peel.check.tc"), &Plan);
+      VPBlockUtils::insertBlockBefore(CheckTripBB, FirstBB);
+
+      Builder.setInsertPoint(CheckTripBB);
+      VPCmpInst *TripCntCmp = Builder.createCmpInst(
+          CmpInst::ICMP_ULT, OrigUB,
+          Plan.getVPConstant(ConstantInt::get(OrigUB->getType(),
+                                              SkipDynamicPeelTC.getValue())));
+
+      Plan.getVPlanDA()->markUniform(*TripCntCmp);
+      CheckTripBB->setTerminator(P.PrevMerge, FirstBB, TripCntCmp);
+      updateMergeBlockIncomings(Plan, P.PrevMerge, CheckTripBB,
+                                true /* UseLiveIn */);
+    }
   }
 
   // Update peel adaptor's upper bound.
@@ -1224,32 +1254,35 @@ void VPlanCFGMerger::updateAdapterOperands(VPBasicBlock *AdapterBB,
 //
 //                         Entry
 //                           |
-//   ___false- (Base pointer vector element aligned ? )    : Check1
-//  /                      true
-// |                         |
-// |                 ( PeelCount == 0 ? ) -true_______     : Check2
-// |                       false                      \
-// |                         |                         |
-// |    ____true- ( (PeelCount + mainVF) > OrigUB ? )  |   : Check3
-// |   /                   false                       |
-// |  |                      |                         |
-// |  |             +-------------------+              |
-// |  |             |   Peel loop       |              |
-// |  |             +-------------------+              |
-// |  |                      |                         |
-// |  |    ____true- ( RemUB == 0 ? )                  |   : Check4
-// |  |   /                false                       |
-// |  |  |                   |                         |
-// |  |  |     __true- ( MainUB == 0 ? )               |   : Check5
-// |  |  |    /             false     ________________/
-// |  |  |   |               |      /
+//               ( TripCount < ProfitableTC ) -true_______   : Check0
+//                           |                            \
+//   ___false- (Base pointer vector element aligned ? )   |  : Check1
+//  /                      true                           |
+// |                         |                            |
+// |                 ( PeelCount == 0 ? ) -true_______    |  : Check2
+// |                       false                      \   |
+// |                         |                         |  |
+// |    ____true- ( (PeelCount + mainVF) > OrigUB ? )  |  |  : Check3
+// |   /                   false                       |  |
+// |  |                      |                         |  |
+// |  |             +-------------------+              |  |
+// |  |             |   Peel loop       |              |  |
+// |  |             +-------------------+              |  |
+// |  |                      |                         |  |
+// |  |    ____true- ( RemUB == 0 ? )                  |  |  : Check4
+// |  |   /                false                       |  |
+// |  |  |                   |                         |  |
+// |  |  |     __true- ( MainUB == 0 ? )               |  |  : Check5
+// |  |  |    /             false     ________________/  /
+// |  |  |   |               |      /  _________________/
+// |  |  |   |               |     /  /
 // |  |  |   |      +-----------------------+
 // |  |  |   |      |   Merge before main   |
 // |  |  |   |      +-----------------------+  MainVF
 // |  |  |   |      |    Main vector loop   |  MainUB
 // |  |  |   |      +-----------------------+
 // |  |  |   |               |
-// |  |  |   |     ( MainUB == RemUB ? ) -true______       : Check6
+// |  |  |   |     ( MainUB == RemUB ? ) -true______         : Check6
 // |  |  |    \            false                    \
 // |  |  |     \_________    |                       |
 // |  |  |               \   |                       |
@@ -1265,7 +1298,7 @@ void VPlanCFGMerger::updateAdapterOperands(VPBasicBlock *AdapterBB,
 // |  |  |          +-----------------------+
 // |  |  |                   |
 // |  |  |                   |
-// |  |  |         ( RemUB == OrigUB ? )  -true____        : Check7
+// |  |  |         ( RemUB == OrigUB ? )  -true____          : Check7
 // |  |   \                false                   \
 //  \  \   \____________     |                      \
 //   \  \______________  \   |                       \
@@ -1795,12 +1828,12 @@ template void VPlanCFGMerger::insertPeelCntAndChecks<loopopt::HLLoop>(
     PlanDescr &PeelDescr, VPBasicBlock *FinalRemainderMerge,
     VPBasicBlock *RemainderMerge, loopopt::HLLoop *OrigLoop);
 
-template void
+template VPBasicBlock *
 VPlanCFGMerger::createPeelPtrCheck<Loop>(VPlanDynamicPeeling &Peeling,
                                          VPBasicBlock *InsertBefore,
                                          VPBasicBlock *NonZeroMerge, VPlan &P,
                                          VPValue *&PeelBasePtr, Loop *OrigLoop);
-template void VPlanCFGMerger::createPeelPtrCheck<loopopt::HLLoop>(
+template VPBasicBlock *VPlanCFGMerger::createPeelPtrCheck<loopopt::HLLoop>(
     VPlanDynamicPeeling &Peeling, VPBasicBlock *InsertBefore,
     VPBasicBlock *NonZeroMerge, VPlan &P, VPValue *&PeelBasePtr,
     loopopt::HLLoop *OrigLoop);
