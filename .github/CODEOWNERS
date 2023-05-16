@@ -105,6 +105,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/lib/TargetParser/X86TargetParser.cpp @phoebewang @FreddyLeaf
 /llvm/lib/CodeGen/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
 /llvm/lib/Target/X86/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
+/llvm/lib/Target/X86/Intel_X86ScheduleRYL.td @e-kud @jsji @daniel-zabawa
 /llvm/lib/Transforms/Intel_MapIntrinToIml/ @tianqingw @KanRobert @FreddyLeaf
 /llvm/lib/Transforms/Utils/Intel_IMLUtils.cpp @tianqingw @KanRobert @FreddyLeaf
 /llvm/lib/MC/ @LuoYuanke @phoebewang @williamweixiao @KanRobert

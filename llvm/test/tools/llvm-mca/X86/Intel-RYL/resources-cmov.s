@@ -114,102 +114,102 @@ cmovgq    (%rax), %rdi
 # CHECK-NEXT: [6]: HasSideEffects (U)
 
 # CHECK:      [1]    [2]    [3]    [4]    [5]    [6]    Instructions:
-# CHECK-NEXT:  1      1     0.50                        cmovow	%si, %di
-# CHECK-NEXT:  1      1     0.50                        cmovnow	%si, %di
-# CHECK-NEXT:  1      1     0.50                        cmovbw	%si, %di
-# CHECK-NEXT:  1      1     0.50                        cmovaew	%si, %di
-# CHECK-NEXT:  1      1     0.50                        cmovew	%si, %di
-# CHECK-NEXT:  1      1     0.50                        cmovnew	%si, %di
-# CHECK-NEXT:  1      1     0.50                        cmovbew	%si, %di
-# CHECK-NEXT:  1      1     0.50                        cmovaw	%si, %di
-# CHECK-NEXT:  1      1     0.50                        cmovsw	%si, %di
-# CHECK-NEXT:  1      1     0.50                        cmovnsw	%si, %di
-# CHECK-NEXT:  1      1     0.50                        cmovpw	%si, %di
-# CHECK-NEXT:  1      1     0.50                        cmovnpw	%si, %di
-# CHECK-NEXT:  1      1     0.50                        cmovlw	%si, %di
-# CHECK-NEXT:  1      1     0.50                        cmovgew	%si, %di
-# CHECK-NEXT:  1      1     0.50                        cmovlew	%si, %di
-# CHECK-NEXT:  1      1     0.50                        cmovgw	%si, %di
-# CHECK-NEXT:  2      7     0.50    *                   cmovow	(%rax), %di
-# CHECK-NEXT:  2      7     0.50    *                   cmovnow	(%rax), %di
-# CHECK-NEXT:  2      7     0.50    *                   cmovbw	(%rax), %di
-# CHECK-NEXT:  2      7     0.50    *                   cmovaew	(%rax), %di
-# CHECK-NEXT:  2      7     0.50    *                   cmovew	(%rax), %di
-# CHECK-NEXT:  2      7     0.50    *                   cmovnew	(%rax), %di
-# CHECK-NEXT:  2      7     0.50    *                   cmovbew	(%rax), %di
-# CHECK-NEXT:  2      7     0.50    *                   cmovaw	(%rax), %di
-# CHECK-NEXT:  2      7     0.50    *                   cmovsw	(%rax), %di
-# CHECK-NEXT:  2      7     0.50    *                   cmovnsw	(%rax), %di
-# CHECK-NEXT:  2      7     0.50    *                   cmovpw	(%rax), %di
-# CHECK-NEXT:  2      7     0.50    *                   cmovnpw	(%rax), %di
-# CHECK-NEXT:  2      7     0.50    *                   cmovlw	(%rax), %di
-# CHECK-NEXT:  2      7     0.50    *                   cmovgew	(%rax), %di
-# CHECK-NEXT:  2      7     0.50    *                   cmovlew	(%rax), %di
-# CHECK-NEXT:  2      7     0.50    *                   cmovgw	(%rax), %di
-# CHECK-NEXT:  1      1     0.50                        cmovol	%esi, %edi
-# CHECK-NEXT:  1      1     0.50                        cmovnol	%esi, %edi
-# CHECK-NEXT:  1      1     0.50                        cmovbl	%esi, %edi
-# CHECK-NEXT:  1      1     0.50                        cmovael	%esi, %edi
-# CHECK-NEXT:  1      1     0.50                        cmovel	%esi, %edi
-# CHECK-NEXT:  1      1     0.50                        cmovnel	%esi, %edi
-# CHECK-NEXT:  1      1     0.50                        cmovbel	%esi, %edi
-# CHECK-NEXT:  1      1     0.50                        cmoval	%esi, %edi
-# CHECK-NEXT:  1      1     0.50                        cmovsl	%esi, %edi
-# CHECK-NEXT:  1      1     0.50                        cmovnsl	%esi, %edi
-# CHECK-NEXT:  1      1     0.50                        cmovpl	%esi, %edi
-# CHECK-NEXT:  1      1     0.50                        cmovnpl	%esi, %edi
-# CHECK-NEXT:  1      1     0.50                        cmovll	%esi, %edi
-# CHECK-NEXT:  1      1     0.50                        cmovgel	%esi, %edi
-# CHECK-NEXT:  1      1     0.50                        cmovlel	%esi, %edi
-# CHECK-NEXT:  1      1     0.50                        cmovgl	%esi, %edi
-# CHECK-NEXT:  2      7     0.50    *                   cmovol	(%rax), %edi
-# CHECK-NEXT:  2      7     0.50    *                   cmovnol	(%rax), %edi
-# CHECK-NEXT:  2      7     0.50    *                   cmovbl	(%rax), %edi
-# CHECK-NEXT:  2      7     0.50    *                   cmovael	(%rax), %edi
-# CHECK-NEXT:  2      7     0.50    *                   cmovel	(%rax), %edi
-# CHECK-NEXT:  2      7     0.50    *                   cmovnel	(%rax), %edi
-# CHECK-NEXT:  2      7     0.50    *                   cmovbel	(%rax), %edi
-# CHECK-NEXT:  2      7     0.50    *                   cmoval	(%rax), %edi
-# CHECK-NEXT:  2      7     0.50    *                   cmovsl	(%rax), %edi
-# CHECK-NEXT:  2      7     0.50    *                   cmovnsl	(%rax), %edi
-# CHECK-NEXT:  2      7     0.50    *                   cmovpl	(%rax), %edi
-# CHECK-NEXT:  2      7     0.50    *                   cmovnpl	(%rax), %edi
-# CHECK-NEXT:  2      7     0.50    *                   cmovll	(%rax), %edi
-# CHECK-NEXT:  2      7     0.50    *                   cmovgel	(%rax), %edi
-# CHECK-NEXT:  2      7     0.50    *                   cmovlel	(%rax), %edi
-# CHECK-NEXT:  2      7     0.50    *                   cmovgl	(%rax), %edi
-# CHECK-NEXT:  1      1     0.50                        cmovoq	%rsi, %rdi
-# CHECK-NEXT:  1      1     0.50                        cmovnoq	%rsi, %rdi
-# CHECK-NEXT:  1      1     0.50                        cmovbq	%rsi, %rdi
-# CHECK-NEXT:  1      1     0.50                        cmovaeq	%rsi, %rdi
-# CHECK-NEXT:  1      1     0.50                        cmoveq	%rsi, %rdi
-# CHECK-NEXT:  1      1     0.50                        cmovneq	%rsi, %rdi
-# CHECK-NEXT:  1      1     0.50                        cmovbeq	%rsi, %rdi
-# CHECK-NEXT:  1      1     0.50                        cmovaq	%rsi, %rdi
-# CHECK-NEXT:  1      1     0.50                        cmovsq	%rsi, %rdi
-# CHECK-NEXT:  1      1     0.50                        cmovnsq	%rsi, %rdi
-# CHECK-NEXT:  1      1     0.50                        cmovpq	%rsi, %rdi
-# CHECK-NEXT:  1      1     0.50                        cmovnpq	%rsi, %rdi
-# CHECK-NEXT:  1      1     0.50                        cmovlq	%rsi, %rdi
-# CHECK-NEXT:  1      1     0.50                        cmovgeq	%rsi, %rdi
-# CHECK-NEXT:  1      1     0.50                        cmovleq	%rsi, %rdi
-# CHECK-NEXT:  1      1     0.50                        cmovgq	%rsi, %rdi
-# CHECK-NEXT:  2      7     0.50    *                   cmovoq	(%rax), %rdi
-# CHECK-NEXT:  2      7     0.50    *                   cmovnoq	(%rax), %rdi
-# CHECK-NEXT:  2      7     0.50    *                   cmovbq	(%rax), %rdi
-# CHECK-NEXT:  2      7     0.50    *                   cmovaeq	(%rax), %rdi
-# CHECK-NEXT:  2      7     0.50    *                   cmoveq	(%rax), %rdi
-# CHECK-NEXT:  2      7     0.50    *                   cmovneq	(%rax), %rdi
-# CHECK-NEXT:  2      7     0.50    *                   cmovbeq	(%rax), %rdi
-# CHECK-NEXT:  2      7     0.50    *                   cmovaq	(%rax), %rdi
-# CHECK-NEXT:  2      7     0.50    *                   cmovsq	(%rax), %rdi
-# CHECK-NEXT:  2      7     0.50    *                   cmovnsq	(%rax), %rdi
-# CHECK-NEXT:  2      7     0.50    *                   cmovpq	(%rax), %rdi
-# CHECK-NEXT:  2      7     0.50    *                   cmovnpq	(%rax), %rdi
-# CHECK-NEXT:  2      7     0.50    *                   cmovlq	(%rax), %rdi
-# CHECK-NEXT:  2      7     0.50    *                   cmovgeq	(%rax), %rdi
-# CHECK-NEXT:  2      7     0.50    *                   cmovleq	(%rax), %rdi
-# CHECK-NEXT:  2      7     0.50    *                   cmovgq	(%rax), %rdi
+# CHECK-NEXT:  1      1     0.33                        cmovow	%si, %di
+# CHECK-NEXT:  1      1     0.33                        cmovnow	%si, %di
+# CHECK-NEXT:  1      1     0.33                        cmovbw	%si, %di
+# CHECK-NEXT:  1      1     0.33                        cmovaew	%si, %di
+# CHECK-NEXT:  1      1     0.33                        cmovew	%si, %di
+# CHECK-NEXT:  1      1     0.33                        cmovnew	%si, %di
+# CHECK-NEXT:  1      1     0.33                        cmovbew	%si, %di
+# CHECK-NEXT:  1      1     0.33                        cmovaw	%si, %di
+# CHECK-NEXT:  1      1     0.33                        cmovsw	%si, %di
+# CHECK-NEXT:  1      1     0.33                        cmovnsw	%si, %di
+# CHECK-NEXT:  1      1     0.33                        cmovpw	%si, %di
+# CHECK-NEXT:  1      1     0.33                        cmovnpw	%si, %di
+# CHECK-NEXT:  1      1     0.33                        cmovlw	%si, %di
+# CHECK-NEXT:  1      1     0.33                        cmovgew	%si, %di
+# CHECK-NEXT:  1      1     0.33                        cmovlew	%si, %di
+# CHECK-NEXT:  1      1     0.33                        cmovgw	%si, %di
+# CHECK-NEXT:  2      2     0.33    *                   cmovow	(%rax), %di
+# CHECK-NEXT:  2      2     0.33    *                   cmovnow	(%rax), %di
+# CHECK-NEXT:  2      2     0.33    *                   cmovbw	(%rax), %di
+# CHECK-NEXT:  2      2     0.33    *                   cmovaew	(%rax), %di
+# CHECK-NEXT:  2      2     0.33    *                   cmovew	(%rax), %di
+# CHECK-NEXT:  2      2     0.33    *                   cmovnew	(%rax), %di
+# CHECK-NEXT:  2      2     0.33    *                   cmovbew	(%rax), %di
+# CHECK-NEXT:  2      2     0.33    *                   cmovaw	(%rax), %di
+# CHECK-NEXT:  2      2     0.33    *                   cmovsw	(%rax), %di
+# CHECK-NEXT:  2      2     0.33    *                   cmovnsw	(%rax), %di
+# CHECK-NEXT:  2      2     0.33    *                   cmovpw	(%rax), %di
+# CHECK-NEXT:  2      2     0.33    *                   cmovnpw	(%rax), %di
+# CHECK-NEXT:  2      2     0.33    *                   cmovlw	(%rax), %di
+# CHECK-NEXT:  2      2     0.33    *                   cmovgew	(%rax), %di
+# CHECK-NEXT:  2      2     0.33    *                   cmovlew	(%rax), %di
+# CHECK-NEXT:  2      2     0.33    *                   cmovgw	(%rax), %di
+# CHECK-NEXT:  1      1     0.33                        cmovol	%esi, %edi
+# CHECK-NEXT:  1      1     0.33                        cmovnol	%esi, %edi
+# CHECK-NEXT:  1      1     0.33                        cmovbl	%esi, %edi
+# CHECK-NEXT:  1      1     0.33                        cmovael	%esi, %edi
+# CHECK-NEXT:  1      1     0.33                        cmovel	%esi, %edi
+# CHECK-NEXT:  1      1     0.33                        cmovnel	%esi, %edi
+# CHECK-NEXT:  1      1     0.33                        cmovbel	%esi, %edi
+# CHECK-NEXT:  1      1     0.33                        cmoval	%esi, %edi
+# CHECK-NEXT:  1      1     0.33                        cmovsl	%esi, %edi
+# CHECK-NEXT:  1      1     0.33                        cmovnsl	%esi, %edi
+# CHECK-NEXT:  1      1     0.33                        cmovpl	%esi, %edi
+# CHECK-NEXT:  1      1     0.33                        cmovnpl	%esi, %edi
+# CHECK-NEXT:  1      1     0.33                        cmovll	%esi, %edi
+# CHECK-NEXT:  1      1     0.33                        cmovgel	%esi, %edi
+# CHECK-NEXT:  1      1     0.33                        cmovlel	%esi, %edi
+# CHECK-NEXT:  1      1     0.33                        cmovgl	%esi, %edi
+# CHECK-NEXT:  2      2     0.33    *                   cmovol	(%rax), %edi
+# CHECK-NEXT:  2      2     0.33    *                   cmovnol	(%rax), %edi
+# CHECK-NEXT:  2      2     0.33    *                   cmovbl	(%rax), %edi
+# CHECK-NEXT:  2      2     0.33    *                   cmovael	(%rax), %edi
+# CHECK-NEXT:  2      2     0.33    *                   cmovel	(%rax), %edi
+# CHECK-NEXT:  2      2     0.33    *                   cmovnel	(%rax), %edi
+# CHECK-NEXT:  2      2     0.33    *                   cmovbel	(%rax), %edi
+# CHECK-NEXT:  2      2     0.33    *                   cmoval	(%rax), %edi
+# CHECK-NEXT:  2      2     0.33    *                   cmovsl	(%rax), %edi
+# CHECK-NEXT:  2      2     0.33    *                   cmovnsl	(%rax), %edi
+# CHECK-NEXT:  2      2     0.33    *                   cmovpl	(%rax), %edi
+# CHECK-NEXT:  2      2     0.33    *                   cmovnpl	(%rax), %edi
+# CHECK-NEXT:  2      2     0.33    *                   cmovll	(%rax), %edi
+# CHECK-NEXT:  2      2     0.33    *                   cmovgel	(%rax), %edi
+# CHECK-NEXT:  2      2     0.33    *                   cmovlel	(%rax), %edi
+# CHECK-NEXT:  2      2     0.33    *                   cmovgl	(%rax), %edi
+# CHECK-NEXT:  1      1     0.33                        cmovoq	%rsi, %rdi
+# CHECK-NEXT:  1      1     0.33                        cmovnoq	%rsi, %rdi
+# CHECK-NEXT:  1      1     0.33                        cmovbq	%rsi, %rdi
+# CHECK-NEXT:  1      1     0.33                        cmovaeq	%rsi, %rdi
+# CHECK-NEXT:  1      1     0.33                        cmoveq	%rsi, %rdi
+# CHECK-NEXT:  1      1     0.33                        cmovneq	%rsi, %rdi
+# CHECK-NEXT:  1      1     0.33                        cmovbeq	%rsi, %rdi
+# CHECK-NEXT:  1      1     0.33                        cmovaq	%rsi, %rdi
+# CHECK-NEXT:  1      1     0.33                        cmovsq	%rsi, %rdi
+# CHECK-NEXT:  1      1     0.33                        cmovnsq	%rsi, %rdi
+# CHECK-NEXT:  1      1     0.33                        cmovpq	%rsi, %rdi
+# CHECK-NEXT:  1      1     0.33                        cmovnpq	%rsi, %rdi
+# CHECK-NEXT:  1      1     0.33                        cmovlq	%rsi, %rdi
+# CHECK-NEXT:  1      1     0.33                        cmovgeq	%rsi, %rdi
+# CHECK-NEXT:  1      1     0.33                        cmovleq	%rsi, %rdi
+# CHECK-NEXT:  1      1     0.33                        cmovgq	%rsi, %rdi
+# CHECK-NEXT:  2      2     0.33    *                   cmovoq	(%rax), %rdi
+# CHECK-NEXT:  2      2     0.33    *                   cmovnoq	(%rax), %rdi
+# CHECK-NEXT:  2      2     0.33    *                   cmovbq	(%rax), %rdi
+# CHECK-NEXT:  2      2     0.33    *                   cmovaeq	(%rax), %rdi
+# CHECK-NEXT:  2      2     0.33    *                   cmoveq	(%rax), %rdi
+# CHECK-NEXT:  2      2     0.33    *                   cmovneq	(%rax), %rdi
+# CHECK-NEXT:  2      2     0.33    *                   cmovbeq	(%rax), %rdi
+# CHECK-NEXT:  2      2     0.33    *                   cmovaq	(%rax), %rdi
+# CHECK-NEXT:  2      2     0.33    *                   cmovsq	(%rax), %rdi
+# CHECK-NEXT:  2      2     0.33    *                   cmovnsq	(%rax), %rdi
+# CHECK-NEXT:  2      2     0.33    *                   cmovpq	(%rax), %rdi
+# CHECK-NEXT:  2      2     0.33    *                   cmovnpq	(%rax), %rdi
+# CHECK-NEXT:  2      2     0.33    *                   cmovlq	(%rax), %rdi
+# CHECK-NEXT:  2      2     0.33    *                   cmovgeq	(%rax), %rdi
+# CHECK-NEXT:  2      2     0.33    *                   cmovleq	(%rax), %rdi
+# CHECK-NEXT:  2      2     0.33    *                   cmovgq	(%rax), %rdi
 
 # CHECK:      Resources:
 # CHECK-NEXT: [0]   - RYLPort00
@@ -224,108 +224,121 @@ cmovgq    (%rax), %rdi
 # CHECK-NEXT: [9]   - RYLPort09
 # CHECK-NEXT: [10]  - RYLPort10
 # CHECK-NEXT: [11]  - RYLPort11
-# CHECK-NEXT: [12]  - RYLPortInvalid
+# CHECK-NEXT: [12]  - RYLPort12
+# CHECK-NEXT: [13]  - RYLPort13
+# CHECK-NEXT: [14]  - RYLPort14
+# CHECK-NEXT: [15]  - RYLPort15
+# CHECK-NEXT: [16]  - RYLPort16
+# CHECK-NEXT: [17]  - RYLPort17
+# CHECK-NEXT: [18]  - RYLPort18
+# CHECK-NEXT: [19]  - RYLPort19
+# CHECK-NEXT: [20]  - RYLPort20
+# CHECK-NEXT: [21]  - RYLPort21
+# CHECK-NEXT: [22]  - RYLPort22
+# CHECK-NEXT: [23]  - RYLPort23
+# CHECK-NEXT: [24]  - RYLPort24
+# CHECK-NEXT: [25]  - RYLPortInvalid
 
 # CHECK:      Resource pressure per iteration:
-# CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]
-# CHECK-NEXT: 48.00   -     16.00  16.00   -      -     48.00   -      -      -      -     16.00   -
+# CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]   [13]   [14]   [15]   [16]   [17]   [18]   [19]   [20]   [21]   [22]   [23]   [24]   [25]
+# CHECK-NEXT: 32.00  32.00   -      -      -     32.00  12.00   -     12.00   -     12.00   -     12.00   -      -      -      -      -      -      -      -      -      -      -      -      -
 
 # CHECK:      Resource pressure by instruction:
-# CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]   Instructions:
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovow	%si, %di
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovnow	%si, %di
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovbw	%si, %di
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovaew	%si, %di
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovew	%si, %di
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovnew	%si, %di
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovbew	%si, %di
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovaw	%si, %di
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovsw	%si, %di
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovnsw	%si, %di
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovpw	%si, %di
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovnpw	%si, %di
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovlw	%si, %di
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovgew	%si, %di
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovlew	%si, %di
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovgw	%si, %di
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovow	(%rax), %di
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovnow	(%rax), %di
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovbw	(%rax), %di
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovaew	(%rax), %di
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovew	(%rax), %di
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovnew	(%rax), %di
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovbew	(%rax), %di
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovaw	(%rax), %di
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovsw	(%rax), %di
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovnsw	(%rax), %di
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovpw	(%rax), %di
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovnpw	(%rax), %di
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovlw	(%rax), %di
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovgew	(%rax), %di
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovlew	(%rax), %di
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovgw	(%rax), %di
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovol	%esi, %edi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovnol	%esi, %edi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovbl	%esi, %edi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovael	%esi, %edi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovel	%esi, %edi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovnel	%esi, %edi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovbel	%esi, %edi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmoval	%esi, %edi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovsl	%esi, %edi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovnsl	%esi, %edi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovpl	%esi, %edi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovnpl	%esi, %edi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovll	%esi, %edi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovgel	%esi, %edi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovlel	%esi, %edi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovgl	%esi, %edi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovol	(%rax), %edi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovnol	(%rax), %edi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovbl	(%rax), %edi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovael	(%rax), %edi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovel	(%rax), %edi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovnel	(%rax), %edi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovbel	(%rax), %edi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmoval	(%rax), %edi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovsl	(%rax), %edi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovnsl	(%rax), %edi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovpl	(%rax), %edi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovnpl	(%rax), %edi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovll	(%rax), %edi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovgel	(%rax), %edi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovlel	(%rax), %edi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovgl	(%rax), %edi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovoq	%rsi, %rdi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovnoq	%rsi, %rdi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovbq	%rsi, %rdi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovaeq	%rsi, %rdi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmoveq	%rsi, %rdi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovneq	%rsi, %rdi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovbeq	%rsi, %rdi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovaq	%rsi, %rdi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovsq	%rsi, %rdi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovnsq	%rsi, %rdi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovpq	%rsi, %rdi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovnpq	%rsi, %rdi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovlq	%rsi, %rdi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovgeq	%rsi, %rdi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovleq	%rsi, %rdi
-# CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     cmovgq	%rsi, %rdi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovoq	(%rax), %rdi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovnoq	(%rax), %rdi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovbq	(%rax), %rdi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovaeq	(%rax), %rdi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmoveq	(%rax), %rdi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovneq	(%rax), %rdi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovbeq	(%rax), %rdi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovaq	(%rax), %rdi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovsq	(%rax), %rdi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovnsq	(%rax), %rdi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovpq	(%rax), %rdi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovnpq	(%rax), %rdi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovlq	(%rax), %rdi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovgeq	(%rax), %rdi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovleq	(%rax), %rdi
-# CHECK-NEXT: 0.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     cmovgq	(%rax), %rdi
+# CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]   [13]   [14]   [15]   [16]   [17]   [18]   [19]   [20]   [21]   [22]   [23]   [24]   [25]   Instructions:
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovow	%si, %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovnow	%si, %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovbw	%si, %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovaew	%si, %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovew	%si, %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovnew	%si, %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovbew	%si, %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovaw	%si, %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovsw	%si, %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovnsw	%si, %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovpw	%si, %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovnpw	%si, %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovlw	%si, %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovgew	%si, %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovlew	%si, %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovgw	%si, %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovow	(%rax), %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovnow	(%rax), %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovbw	(%rax), %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovaew	(%rax), %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovew	(%rax), %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovnew	(%rax), %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovbew	(%rax), %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovaw	(%rax), %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovsw	(%rax), %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovnsw	(%rax), %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovpw	(%rax), %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovnpw	(%rax), %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovlw	(%rax), %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovgew	(%rax), %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovlew	(%rax), %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovgw	(%rax), %di
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovol	%esi, %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovnol	%esi, %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovbl	%esi, %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovael	%esi, %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovel	%esi, %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovnel	%esi, %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovbel	%esi, %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmoval	%esi, %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovsl	%esi, %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovnsl	%esi, %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovpl	%esi, %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovnpl	%esi, %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovll	%esi, %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovgel	%esi, %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovlel	%esi, %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovgl	%esi, %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovol	(%rax), %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovnol	(%rax), %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovbl	(%rax), %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovael	(%rax), %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovel	(%rax), %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovnel	(%rax), %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovbel	(%rax), %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmoval	(%rax), %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovsl	(%rax), %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovnsl	(%rax), %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovpl	(%rax), %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovnpl	(%rax), %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovll	(%rax), %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovgel	(%rax), %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovlel	(%rax), %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovgl	(%rax), %edi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovoq	%rsi, %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovnoq	%rsi, %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovbq	%rsi, %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovaeq	%rsi, %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmoveq	%rsi, %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovneq	%rsi, %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovbeq	%rsi, %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovaq	%rsi, %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovsq	%rsi, %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovnsq	%rsi, %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovpq	%rsi, %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovnpq	%rsi, %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovlq	%rsi, %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovgeq	%rsi, %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovleq	%rsi, %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33    -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -      -     cmovgq	%rsi, %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovoq	(%rax), %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovnoq	(%rax), %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovbq	(%rax), %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovaeq	(%rax), %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmoveq	(%rax), %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovneq	(%rax), %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovbeq	(%rax), %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovaq	(%rax), %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovsq	(%rax), %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovnsq	(%rax), %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovpq	(%rax), %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovnpq	(%rax), %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovlq	(%rax), %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovgeq	(%rax), %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovleq	(%rax), %rdi
+# CHECK-NEXT: 0.33   0.33    -      -      -     0.33   0.25    -     0.25    -     0.25    -     0.25    -      -      -      -      -      -      -      -      -      -      -      -      -     cmovgq	(%rax), %rdi
 # end INTEL_FEATURE_CPU_RYL
