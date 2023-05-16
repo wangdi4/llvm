@@ -1571,6 +1571,12 @@ void ToolChain::AddIPPLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
     }
     for (const auto &Lib : IPPLibs) {
       std::string LibName(Lib);
+      if (getTriple().isWindowsMSVCEnvironment()) {
+        if (const Arg *IPPArg = Args.getLastArg(options::OPT_qipp_link_EQ)) {
+          if (IPPArg->getValue() == StringRef("static"))
+            LibName += "mt";
+        }
+      }
       if (Prefix.size() > 0)
         LibName.insert(0, Prefix);
       CmdArgs.push_back(Args.MakeArgString(LibName));

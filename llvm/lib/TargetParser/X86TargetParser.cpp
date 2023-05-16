@@ -181,12 +181,14 @@ constexpr FeatureBitset FeaturesHaswell =
 constexpr FeatureBitset FeaturesBroadwell =
     FeaturesHaswell | FeatureADX | FeaturePRFCHW | FeatureRDSEED;
 
+#if !INTEL_CUSTOMIZATION
 // Intel Knights Landing and Knights Mill
 // Knights Landing has feature parity with Broadwell.
 constexpr FeatureBitset FeaturesKNL =
     FeaturesBroadwell | FeatureAES | FeatureAVX512F | FeatureAVX512CD |
     FeatureAVX512ER | FeatureAVX512PF | FeaturePREFETCHWT1;
 constexpr FeatureBitset FeaturesKNM = FeaturesKNL | FeatureAVX512VPOPCNTDQ;
+#endif // !INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 constexpr FeatureBitset FeaturesCommonAVX512 =
@@ -565,10 +567,12 @@ constexpr ProcInfo Processors[] = {
   { {"graniterapids"}, CK_Graniterapids, FEATURE_AVX512BF16, FeaturesGraniteRapids },
   // Emerald Rapids microarchitecture based processors.
   { {"emeraldrapids"}, CK_Emeraldrapids, FEATURE_AVX512BF16, FeaturesSapphireRapids },
+#if !INTEL_CUSTOMIZATION
   // Knights Landing processor.
   { {"knl"}, CK_KNL, FEATURE_AVX512F, FeaturesKNL },
   // Knights Mill processor.
   { {"knm"}, CK_KNM, FEATURE_AVX5124FMAPS, FeaturesKNM },
+#endif // !INTEL_CUSTOMIZATION
   // Lakemont microarchitecture based processors.
   { {"lakemont"}, CK_Lakemont, ~0U, FeatureCMPXCHG8B },
   // K6 architecture processors.

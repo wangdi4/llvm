@@ -814,9 +814,11 @@
 // CHECK_SKL_M64: #define __x86_64 1
 // CHECK_SKL_M64: #define __x86_64__ 1
 
-// RUN: %clang -march=knl -m32 -E -dM %s -o - 2>&1 \
-// RUN:     -target i386-unknown-linux \
-// RUN:   | FileCheck -match-full-lines %s -check-prefix=CHECK_KNL_M32
+// INTEL_CUSTOMIZATION
+// SKIP: %clang -march=knl -m32 -E -dM %s -o - 2>&1 \
+// SKIP:     -target i386-unknown-linux \
+// SKIP:   | FileCheck -match-full-lines %s -check-prefix=CHECK_KNL_M32
+// end INTEL_CUSTOMIZATION
 // CHECK_KNL_M32: #define __AES__ 1
 // CHECK_KNL_M32: #define __AVX2__ 1
 // CHECK_KNL_M32: #define __AVX512CD__ 1
@@ -851,9 +853,11 @@
 // CHECK_KNL_M32: #define __tune_knl__ 1
 // CHECK_KNL_M32: #define i386 1
 
-// RUN: %clang -march=knl -m64 -E -dM %s -o - 2>&1 \
-// RUN:     -target i386-unknown-linux \
-// RUN:   | FileCheck -match-full-lines %s -check-prefix=CHECK_KNL_M64
+// INTEL_CUSTOMIZATION
+// SKIP: %clang -march=knl -m64 -E -dM %s -o - 2>&1 \
+// SKIP:     -target i386-unknown-linux \
+// SKIP:   | FileCheck -match-full-lines %s -check-prefix=CHECK_KNL_M64
+// end INTEL_CUSTOMIZATION
 // CHECK_KNL_M64: #define __AES__ 1
 // CHECK_KNL_M64: #define __AVX2__ 1
 // CHECK_KNL_M64: #define __AVX512CD__ 1
@@ -891,9 +895,11 @@
 // CHECK_KNL_M64: #define __x86_64 1
 // CHECK_KNL_M64: #define __x86_64__ 1
 
-// RUN: %clang -march=knm -m32 -E -dM %s -o - 2>&1 \
-// RUN:     -target i386-unknown-linux \
-// RUN:   | FileCheck -match-full-lines %s -check-prefix=CHECK_KNM_M32
+// INTEL_CUSTOMIZATION
+// SKIP: %clang -march=knm -m32 -E -dM %s -o - 2>&1 \
+// SKIP:     -target i386-unknown-linux \
+// SKIP:   | FileCheck -match-full-lines %s -check-prefix=CHECK_KNM_M32
+// end INTEL_CUSTOMIZATION
 // CHECK_KNM_M32: #define __AES__ 1
 // CHECK_KNM_M32: #define __AVX2__ 1
 // CHECK_KNM_M32: #define __AVX512CD__ 1
@@ -926,9 +932,11 @@
 // CHECK_KNM_M32: #define __i386__ 1
 // CHECK_KNM_M32: #define i386 1
 
-// RUN: %clang -march=knm -m64 -E -dM %s -o - 2>&1 \
-// RUN:     -target i386-unknown-linux \
-// RUN:   | FileCheck -match-full-lines %s -check-prefix=CHECK_KNM_M64
+// INTEL_CUSTOMIZATION
+// SKIP: %clang -march=knm -m64 -E -dM %s -o - 2>&1 \
+// SKIP:     -target i386-unknown-linux \
+// SKIP:   | FileCheck -match-full-lines %s -check-prefix=CHECK_KNM_M64
+// end INTEL_CUSTOMIZATION
 // CHECK_KNM_M64: #define __AES__ 1
 // CHECK_KNM_M64: #define __AVX2__ 1
 // CHECK_KNM_M64: #define __AVX512CD__ 1
