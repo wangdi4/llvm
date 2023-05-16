@@ -267,10 +267,10 @@ private:
   //  speculative loads the alignment is required and we should go to the scalar
   //  remainder.
   template <class LoopTy>
-  void createPeelPtrCheck(VPlanDynamicPeeling &Peeling,
-                          VPBasicBlock *InsertBefore,
-                          VPBasicBlock *NonZeroMerge, VPlan &P,
-                          VPValue *&PeelBasePtr, LoopTy *OrigLoop);
+  VPBasicBlock *createPeelPtrCheck(VPlanDynamicPeeling &Peeling,
+                                   VPBasicBlock *InsertBefore,
+                                   VPBasicBlock *NonZeroMerge, VPlan &P,
+                                   VPValue *&PeelBasePtr, LoopTy *OrigLoop);
 
   // Predicate whether we need peel for safety, e.g. in the search loop.
   bool needPeelForSafety() const;
