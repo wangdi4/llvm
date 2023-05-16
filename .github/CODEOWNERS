@@ -877,6 +877,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/test/Analysis/Intel_OptReport/RegisterAllocation @LuoYuanke @phoebewang @williamweixiao @dwoodwor-intel
 
 /llvm/tools/llvm-profgen/ @williamweixiao @HaohaiWen
+/llvm/test/tools/llvm-profgen/ @williamweixiao @HaohaiWen
 
 # JIRA: CMPLRLLVM->Cmake
 **/CMakeLists.txt* @intel-restricted/cmplrllvm-cmake

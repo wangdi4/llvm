@@ -56,6 +56,11 @@ static cl::opt<bool>
                                 "and produce context-insensitive profile."));
 cl::opt<bool> ShowDetailedWarning("show-detailed-warning",
                                   cl::desc("Show detailed warning message."));
+#if INTEL_CUSTOMIZATION
+cl::opt<bool>
+    LeadingIPOnly("leading-ip-only",
+                  cl::desc("Form a profile based only on sample IPs"));
+#endif // INTEL_CUSTOMIZATION
 
 extern cl::opt<std::string> PerfTraceFilename;
 extern cl::opt<bool> ShowDisassemblyOnly;
@@ -585,6 +590,21 @@ bool PerfScriptReader::extractLBRStack(TraceStream &TraceIt,
     Index = 1;
   }
 
+#if INTEL_CUSTOMIZATION
+  if (LeadingIPOnly && Index == 1) {
+    // Form a profile only from the sample IP. Do not assume an LBR stack
+    // follows, and ignore it if it does.
+    uint64_t SampleIP = Binary->canonicalizeVirtualAddress(LeadingAddr);
+    bool SampleIPIsInternal = Binary->addressIsCode(SampleIP);
+    if (SampleIPIsInternal) {
+      // Form a half LBR entry where the sample IP is the destination.
+      LBRStack.emplace_back(LBREntry(SampleIP, SampleIP));
+    }
+    TraceIt.advance();
+    return !LBRStack.empty();
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Now extract LBR samples - note that we do not reverse the
   // LBR entry order so we can unwind the sample stack as we walk
   // through LBR entries.
@@ -902,6 +922,22 @@ void PerfScriptReader::computeCounterFromLBR(const PerfSample *Sample,
                                              uint64_t Repeat) {
   SampleCounter &Counter = SampleCounters.begin()->second;
   uint64_t EndAddress = 0;
+
+#if INTEL_CUSTOMIZATION
+  if (LeadingIPOnly) {
+    assert(Sample->LBRStack.size() == 1 &&
+           "Expected only half LBR entries for ip-only mode");
+    const LBREntry &LBR = *(Sample->LBRStack.begin());
+    uint64_t SourceAddress = LBR.Source;
+    uint64_t TargetAddress = LBR.Target;
+    if (SourceAddress == TargetAddress &&
+        Binary->addressIsCode(TargetAddress)) {
+      Counter.recordRangeCount(SourceAddress, TargetAddress, Repeat);
+    }
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   for (const LBREntry &LBR : Sample->LBRStack) {
     uint64_t SourceAddress = LBR.Source;
     uint64_t TargetAddress = LBR.Target;
@@ -1147,6 +1183,20 @@ void PerfScriptReader::warnInvalidRange() {
     const PerfSample *Sample = Item.first.getPtr();
     uint64_t Count = Item.second;
     uint64_t EndAddress = 0;
+
+#if INTEL_CUSTOMIZATION
+    if (LeadingIPOnly) {
+      assert(Sample->LBRStack.size() == 1 &&
+             "Expected only half LBR entries for ip-only mode");
+      const LBREntry &LBR = *(Sample->LBRStack.begin());
+      if (LBR.Source == LBR.Target && LBR.Source != ExternalAddr) {
+        // This is an leading-addr-only profile.
+        Ranges[{LBR.Source, LBR.Source}] += Count;
+      }
+      continue;
+    }
+#endif // INTEL_CUSTOMIZATION
+
     for (const LBREntry &LBR : Sample->LBRStack) {
       uint64_t SourceAddress = LBR.Source;
       uint64_t StartAddress = LBR.Target;
@@ -1194,6 +1244,12 @@ void PerfScriptReader::warnInvalidRange() {
         !Binary->addressIsCode(EndAddress))
       continue;
 
+#if INTEL_CUSTOMIZATION
+    // IP samples can indicate activity on individual instructions rather than
+    // basic blocks/edges. In this mode, don't warn if sampled IPs aren't
+    // branches.
+    if (!LeadingIPOnly)
+#endif // INTEL_CUSTOMIZATION
     if (!Binary->addressIsCode(StartAddress) ||
         !Binary->addressIsTransfer(EndAddress)) {
       InstNotBoundary += I.second;
