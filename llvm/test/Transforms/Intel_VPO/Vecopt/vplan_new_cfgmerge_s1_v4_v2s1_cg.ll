@@ -34,11 +34,11 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[PEEL_CHECKZ32]] ], [ [[INDVARS_IV_NEXT_SL_CLONE:%.*]], [[VPLANNEDBB:%.*]] ]
 ; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
-; CHECK-NEXT:    [[TMP7:%.*]] = add i64 [[TMP3]], 2
+; CHECK-NEXT:    [[TMP7:%.*]] = add i64 [[UNI_PHI]], 2
 ; CHECK-NEXT:    [[TMP8:%.*]] = icmp ugt i64 [[TMP7]], 1024
 ; CHECK-NEXT:    br i1 [[TMP8]], label [[MERGE_BLK24]], label [[VPLANNEDBB2:%.*]]
 ; CHECK:       VPlannedBB2:
-; CHECK-NEXT:    [[TMP9:%.*]] = add i64 [[TMP3]], 4
+; CHECK-NEXT:    [[TMP9:%.*]] = add i64 [[UNI_PHI]], 4
 ; CHECK-NEXT:    [[TMP10:%.*]] = icmp ugt i64 [[TMP9]], 1024
 ; CHECK-NEXT:    br i1 [[TMP10]], label [[MERGE_BLK28:%.*]], label [[VPLANNEDBB3:%.*]]
 ; CHECK:       VPlannedBB3:
@@ -49,7 +49,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:    [[UNI_PHIIND_START_BCAST_SPLATINSERT:%.*]] = insertelement <4 x i64> poison, i64 [[UNI_PHI]], i64 0
 ; CHECK-NEXT:    [[UNI_PHIIND_START_BCAST_SPLAT:%.*]] = shufflevector <4 x i64> [[UNI_PHIIND_START_BCAST_SPLATINSERT]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP11:%.*]] = add <4 x i64> [[UNI_PHIIND_START_BCAST_SPLAT]], <i64 0, i64 1, i64 2, i64 3>
-; CHECK-NEXT:    [[N_ADJST:%.*]] = sub nuw nsw i64 1024, [[TMP3]]
+; CHECK-NEXT:    [[N_ADJST:%.*]] = sub nuw nsw i64 1024, [[UNI_PHI]]
 ; CHECK-NEXT:    [[N_MOD_VF:%.*]] = urem i64 [[N_ADJST]], 4
 ; CHECK-NEXT:    [[N_VEC:%.*]] = sub nuw nsw i64 1024, [[N_MOD_VF]]
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
@@ -72,7 +72,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK:       VPlannedBB10:
 ; CHECK-NEXT:    br label [[VPLANNEDBB11:%.*]]
 ; CHECK:       VPlannedBB11:
-; CHECK-NEXT:    [[N_ADJST12:%.*]] = sub nuw nsw i64 1024, [[TMP3]]
+; CHECK-NEXT:    [[N_ADJST12:%.*]] = sub nuw nsw i64 1024, [[UNI_PHI]]
 ; CHECK-NEXT:    [[N_MOD_VF13:%.*]] = urem i64 [[N_ADJST12]], 2
 ; CHECK-NEXT:    [[N_VEC14:%.*]] = sub nuw nsw i64 1024, [[N_MOD_VF13]]
 ; CHECK-NEXT:    [[TMP20:%.*]] = icmp eq i64 [[N_VEC14]], [[N_VEC]]
@@ -88,7 +88,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:    [[UNI_PHI15IND_START_BCAST_SPLATINSERT:%.*]] = insertelement <2 x i64> poison, i64 [[UNI_PHI15]], i64 0
 ; CHECK-NEXT:    [[UNI_PHI15IND_START_BCAST_SPLAT:%.*]] = shufflevector <2 x i64> [[UNI_PHI15IND_START_BCAST_SPLATINSERT]], <2 x i64> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP21:%.*]] = add <2 x i64> [[UNI_PHI15IND_START_BCAST_SPLAT]], <i64 0, i64 1>
-; CHECK-NEXT:    [[N_ADJST18:%.*]] = sub nuw nsw i64 1024, [[TMP3]]
+; CHECK-NEXT:    [[N_ADJST18:%.*]] = sub nuw nsw i64 1024, [[UNI_PHI]]
 ; CHECK-NEXT:    [[N_MOD_VF19:%.*]] = urem i64 [[N_ADJST18]], 2
 ; CHECK-NEXT:    [[N_VEC20:%.*]] = sub nuw nsw i64 1024, [[N_MOD_VF19]]
 ; CHECK-NEXT:    br label [[VPLANNEDBB21:%.*]]
@@ -114,7 +114,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:    [[UNI_PHI29:%.*]] = phi i64 [ [[TMP29]], [[VPLANNEDBB28]] ], [ [[TMP19]], [[VPLANNEDBB11]] ]
 ; CHECK-NEXT:    br label [[VPLANNEDBB30:%.*]]
 ; CHECK:       VPlannedBB30:
-; CHECK-NEXT:    [[N_ADJST31:%.*]] = sub nuw nsw i64 1024, [[TMP3]]
+; CHECK-NEXT:    [[N_ADJST31:%.*]] = sub nuw nsw i64 1024, [[UNI_PHI]]
 ; CHECK-NEXT:    [[N_MOD_VF32:%.*]] = urem i64 [[N_ADJST31]], 2
 ; CHECK-NEXT:    [[N_VEC33:%.*]] = sub nuw nsw i64 1024, [[N_MOD_VF32]]
 ; CHECK-NEXT:    [[TMP30:%.*]] = icmp eq i64 1024, [[N_VEC33]]

@@ -65,7 +65,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:    [[UNI_PHI11:%.*]] = phi i64 [ 0, [[PEEL_CHECKZ26]] ], [ [[TMP19]], [[VPLANNEDBB10]] ]
 ; CHECK-NEXT:    br label [[VPLANNEDBB12:%.*]]
 ; CHECK:       VPlannedBB12:
-; CHECK-NEXT:    [[TMP20:%.*]] = add i64 [[TMP3]], 4
+; CHECK-NEXT:    [[TMP20:%.*]] = add i64 [[UNI_PHI11]], 4
 ; CHECK-NEXT:    [[TMP21:%.*]] = icmp ugt i64 [[TMP20]], 1024
 ; CHECK-NEXT:    br i1 [[TMP21]], label [[MERGE_BLK22]], label [[VPLANNEDBB13:%.*]]
 ; CHECK:       VPlannedBB13:
@@ -76,7 +76,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:    [[UNI_PHI11IND_START_BCAST_SPLATINSERT:%.*]] = insertelement <4 x i64> poison, i64 [[UNI_PHI11]], i64 0
 ; CHECK-NEXT:    [[UNI_PHI11IND_START_BCAST_SPLAT:%.*]] = shufflevector <4 x i64> [[UNI_PHI11IND_START_BCAST_SPLATINSERT]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP22:%.*]] = add <4 x i64> [[UNI_PHI11IND_START_BCAST_SPLAT]], <i64 0, i64 1, i64 2, i64 3>
-; CHECK-NEXT:    [[N_ADJST:%.*]] = sub nuw nsw i64 1024, [[TMP3]]
+; CHECK-NEXT:    [[N_ADJST:%.*]] = sub nuw nsw i64 1024, [[UNI_PHI11]]
 ; CHECK-NEXT:    [[N_MOD_VF:%.*]] = urem i64 [[N_ADJST]], 4
 ; CHECK-NEXT:    [[N_VEC:%.*]] = sub nuw nsw i64 1024, [[N_MOD_VF]]
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
@@ -118,7 +118,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK:       VPlannedBB27:
 ; CHECK-NEXT:    [[UNI_PHI28:%.*]] = phi i64 [ 0, [[VPLANNEDBB26]] ], [ [[TMP39:%.*]], [[NEW_LATCH17:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI29:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VPLANNEDBB26]] ], [ [[TMP38:%.*]], [[NEW_LATCH17]] ]
-; CHECK-NEXT:    [[TMP33:%.*]] = add nuw nsw  <4 x i64> [[VEC_PHI29]], [[BROADCAST_SPLAT31]]
+; CHECK-NEXT:    [[TMP33:%.*]] = add nuw nsw <4 x i64> [[VEC_PHI29]], [[BROADCAST_SPLAT31]]
 ; CHECK-NEXT:    [[DOTEXTRACT_0_35:%.*]] = extractelement <4 x i64> [[TMP33]], i32 0
 ; CHECK-NEXT:    [[TMP34:%.*]] = icmp ult <4 x i64> [[VEC_PHI29]], [[BROADCAST_SPLAT33]]
 ; CHECK-NEXT:    br label [[VPLANNEDBB34:%.*]]

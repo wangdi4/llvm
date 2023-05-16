@@ -1,6 +1,6 @@
 //===-- IntelVPlanCFGMerger.cpp -----------------------------------------===//
 //
-//   Copyright (C) 2021 Intel Corporation. All rights reserved.
+//   Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -10,8 +10,8 @@
 //===----------------------------------------------------------------------===//
 ///
 /// \file
-/// This file implements the algorithm that creates auxiliary loops (peel/remainder)
-/// and merges them into one flattened CFG.
+/// This file implements the algorithm that creates auxiliary loops
+/// (peel/remainder) and merges them into one flattened CFG.
 ///
 //===----------------------------------------------------------------------===//
 #include "IntelVPlanCFGMerger.h"
@@ -1147,25 +1147,50 @@ void VPlanCFGMerger::insertPeelCntAndChecks(PlanDescr &P,
   // Merge block after peel needs live out values.
   updateMergeBlockIncomings(P, P.PrevMerge, P.FirstBB, false /* UseLiveIn */);
 
-  if (!FinalRemainderMerge) {
+  if (FinalRemainderMerge) {
+    // Emit the check for (peel-count + main_VF) is greater than original upper
+    // bound, jumping to remainder if so.
+    VPBasicBlock *TestBB2 =
+        new VPBasicBlock(VPlanUtils::createUniqueName("peel.checkv"), &Plan);
+    VPBlockUtils::insertBlockBefore(TestBB2, P.FirstBB);
+    Builder.setInsertPoint(TestBB2);
+    VPCmpInst *Cmp = createPeelCntVFCheck(OrigUB, Builder, MainVF * MainUF);
+    Plan.getVPlanDA()->markUniform(*Cmp);
+    // goto merge before remainder or to peel
+    TestBB2->setTerminator(FinalRemainderMerge, P.FirstBB, Cmp);
+    updateMergeBlockIncomings(Plan, FinalRemainderMerge, TestBB2,
+                              true /* UseLiveIn */);
+  } else {
     // No remainder. A bit strange with peel but that can happen when TC is
     // known and static peel. Will not generate anything.
     assert(StaticPeel && "remainder is expected with non-static peel");
-    return;
   }
 
-  // Emit the check for (peel-count + main_VF) is greater than original upper
-  // bound, jumping to remainder if so.
-  VPBasicBlock *TestBB2 =
-      new VPBasicBlock(VPlanUtils::createUniqueName("peel.checkv"), &Plan);
-  VPBlockUtils::insertBlockBefore(TestBB2, P.FirstBB);
-  Builder.setInsertPoint(TestBB2);
-  VPCmpInst *Cmp = createPeelCntVFCheck(OrigUB, Builder, MainVF * MainUF);
-  Plan.getVPlanDA()->markUniform(*Cmp);
-  // goto merge before remainder or to peel
-  TestBB2->setTerminator(FinalRemainderMerge, P.FirstBB, Cmp);
-  updateMergeBlockIncomings(Plan, FinalRemainderMerge, TestBB2,
-                            true /* UseLiveIn */);
+  if (isa<VPlanDynamicPeeling>(PeelVariant)) {
+    // In the dynamic peel case, the computed peel count is valid to use before
+    // the peel loop, and is live-in to the peel loop as its UB, but after the
+    // peel loop we should use the merge PHI that was created for the
+    // corresponding live-out. This is to account for paths where peeling is
+    // skipped and the peel count should be treated as '0'.
+    //
+    // In order to identify the correct merge PHI, we first identify the main
+    // loop's IV; its start value should be a live-in corresponding to the
+    // incoming peel count. From here we get the merge ID, and then obtain the
+    // corresponding merge PHI from the outgoing merge block.
+    const auto *PeelCountLiveIn =
+        Plan.getMainLoop(true)->getInduction()->getStartValueOperand();
+    assert(isa<VPLiveInValue>(PeelCountLiveIn) &&
+           "Loop IV start is not livein?");
+    const auto MergeId = cast<VPLiveInValue>(PeelCountLiveIn)->getMergeId();
+    const auto PeelCountPHI =
+        llvm::find_if(P.PrevMerge->getVPPhis(), [=](const VPPHINode &PHI) {
+          return PHI.getMergeId() == MergeId;
+        });
+    assert(PeelCountPHI != P.PrevMerge->getVPPhis().end() &&
+           "No merge phi for peel count?");
+    LLVM_DEBUG(dbgs() << "PeelCountPHI = " << *PeelCountPHI << '\n');
+    PeelCount = &*PeelCountPHI;
+  }
 }
 
 void VPlanCFGMerger::updateAdapterOperands(VPBasicBlock *AdapterBB,

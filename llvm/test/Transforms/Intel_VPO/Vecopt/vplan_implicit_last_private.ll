@@ -28,7 +28,7 @@ define dso_local i32 @_Z3fooPi(i32* nocapture readonly %A) {
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 {{.*}} i64 1
+; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 live-in1 i64 1
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 100, UF = 1
 ; CHECK-NEXT:     br [[BB0]]
@@ -105,7 +105,7 @@ define dso_local i32 @_Z3fooPi(i32* nocapture readonly %A) {
 ; CHECK-NEXT:    br label %[[VPLANNEDBB20:.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB2:
-; CHECK-NEXT:    [[TMP8:%.*]] = add i64 [[TMP4]], 4
+; CHECK-NEXT:    [[TMP8:%.*]] = add i64 [[UNI_PHI10]], 4
 ; CHECK-NEXT:    [[TMP9:%.*]] = icmp ugt i64 [[TMP8]], 100
 ; CHECK-NEXT:    br i1 [[TMP9]], label %[[MERGE_BLK1]], label [[VPLANNEDBB30:%.*]]
 ; CHECK-EMPTY:
@@ -116,7 +116,7 @@ define dso_local i32 @_Z3fooPi(i32* nocapture readonly %A) {
 ; CHECK-NEXT:    [[UNI_PHI1IND_START_BCAST_SPLATINSERT0:%.*]] = insertelement <4 x i64> poison, i64 [[UNI_PHI10]], i64 0
 ; CHECK-NEXT:    [[UNI_PHI1IND_START_BCAST_SPLAT0:%.*]] = shufflevector <4 x i64> [[UNI_PHI1IND_START_BCAST_SPLATINSERT0]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP10:%.*]] = add <4 x i64> [[UNI_PHI1IND_START_BCAST_SPLAT0]], <i64 0, i64 1, i64 2, i64 3>
-; CHECK-NEXT:    [[N_ADJST0:%.*]] = sub nuw nsw i64 100, [[TMP4]]
+; CHECK-NEXT:    [[N_ADJST0:%.*]] = sub nuw nsw i64 100, [[UNI_PHI10]]
 ; CHECK-NEXT:    [[N_MOD_VF0:%.*]] = urem i64 [[N_ADJST0]], 4
 ; CHECK-NEXT:    [[N_VEC0:%.*]] = sub nuw nsw i64 100, [[N_MOD_VF0]]
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]

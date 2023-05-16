@@ -42,7 +42,7 @@ define void @foo(i64* %lp, i64 %n1) {
 ; CHECK-NEXT:       [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB1]]: # preds: [[MERGE_BLK0]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP5:%.*]] = add i64 [[VP_PEEL_COUNT]] i64 4
+; CHECK-NEXT:       [DA: Uni] i64 [[VP5:%.*]] = add i64 [[VP4]] i64 4
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_PEEL_VEC_TC_CHECK_1:%.*]] = icmp ugt i64 [[VP5]] i64 [[VP2]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_PEEL_VEC_TC_CHECK_1]], [[MERGE_BLK1]], [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -51,7 +51,7 @@ define void @foo(i64* %lp, i64 %n1) {
 ; CHECK-NEXT:       [DA: Uni] br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP2]] i64 [[VP_PEEL_COUNT]], UF = 1
+; CHECK-NEXT:       [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP2]] i64 [[VP4]], UF = 1
 ; CHECK-NEXT:       [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 [[VP4]] i64 1
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:       [DA: Uni] br [[BB4:BB[0-9]+]]
@@ -128,19 +128,17 @@ define void @foo(i64* %lp, i64 %n1) {
 
 ; CHECK:             [[PHI_TEMP0]] = [[UB_TMP0]]
 ; CHECK:             [[MERGE_AFTER_PEEL]]:
-; CHECK:             [[DOTVEC110:%.*]] = [[DOTVEC30]] + 4 >u [[N10]]
+; CHECK:             [[DOTVEC110:%.*]] = [[PHI_TEMP0]] + 4 >u [[N10]]
 ; CHECK:             [[PHI_TEMP60]] = [[PHI_TEMP0]]
 ; CHECK:             [[EXTRACT_0_130:%.*]] = extractelement [[DOTVEC110]],  0
 ; CHECK:             if ([[EXTRACT_0_130]] == 1)
 ; CHECK:             {
 ; CHECK:                goto [[MERGE_AFTER_MAIN]]
 ; CHECK:             }
-; CHECK:             [[EXTRACT_0_140:%.*]] = extractelement [[DOTVEC30]],  0
-; CHECK:             [[ADJ_TC0:%.*]] = [[N10]]  -  [[EXTRACT_0_140]]
+; CHECK:             [[ADJ_TC0:%.*]] = [[N10]]  -  [[PHI_TEMP0]]
 ; CHECK:             [[TGU0:%.*]] = [[ADJ_TC0]]  /u  4
 ; CHECK:             [[VEC_TC0:%.*]] = [[TGU0]]  *  4
-; CHECK:             [[EXTRACT_0_150:%.*]] = extractelement [[DOTVEC30]],  0
-; CHECK:             [[ADJ_TC160:%.*]] = [[VEC_TC0]]  +  [[EXTRACT_0_150]]
+; CHECK:             [[ADJ_TC160:%.*]] = [[VEC_TC0]]  +  [[PHI_TEMP0]]
 ; CHECK:             [[TMP0:%.*]] = [[PHI_TEMP0]] + <i64 0, i64 1, i64 2, i64 3>
 ; CHECK:             [[LOOP_UB0:%.*]] = [[ADJ_TC160]]  -  1
 

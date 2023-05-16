@@ -47,19 +47,17 @@ define dso_local void @init(i32* nocapture noundef writeonly %a, i32 noundef %n,
 ; PEEL-NEXT:        [[IND_FINAL0:%.*]] = 0  +  [[EXTRACT_0_170]]
 ; PEEL-NEXT:        [[PHI_TEMP0]] = [[IND_FINAL0]]
 ; PEEL-NEXT:        [[MERGE_BLK0]].30:
-; PEEL-NEXT:        [[DOTVEC190:%.*]] = [[DOTVEC30]] + 8 >u zext.i32.i64([[N0]])
+; PEEL-NEXT:        [[DOTVEC190:%.*]] = [[PHI_TEMP0]] + 8 >u zext.i32.i64([[N0]])
 ; PEEL-NEXT:        [[PHI_TEMP60]] = [[PHI_TEMP0]]
 ; PEEL-NEXT:        [[EXTRACT_0_210:%.*]] = extractelement [[DOTVEC190]],  0
 ; PEEL-NEXT:        if ([[EXTRACT_0_210]] == 1)
 ; PEEL-NEXT:        {
 ; PEEL-NEXT:           goto [[MERGE_BLK1]].38
 ; PEEL-NEXT:        }
-; PEEL-NEXT:        [[EXTRACT_0_220:%.*]] = extractelement [[DOTVEC30]],  0
-; PEEL-NEXT:        [[ADJ_TC0:%.*]] = zext.i32.i64([[N0]])  -  [[EXTRACT_0_220]]
+; PEEL-NEXT:        [[ADJ_TC0:%.*]] = zext.i32.i64([[N0]])  -  [[PHI_TEMP0]]
 ; PEEL-NEXT:        [[TGU0:%.*]] = [[ADJ_TC0]]  /u  8
 ; PEEL-NEXT:        [[VEC_TC0:%.*]] = [[TGU0]]  *  8
-; PEEL-NEXT:        [[EXTRACT_0_230:%.*]] = extractelement [[DOTVEC30]],  0
-; PEEL-NEXT:        [[ADJ_TC240:%.*]] = [[VEC_TC0]]  +  [[EXTRACT_0_230]]
+; PEEL-NEXT:        [[ADJ_TC240:%.*]] = [[VEC_TC0]]  +  [[PHI_TEMP0]]
 ; PEEL-NEXT:        [[TMP1:%.*]] = [[PHI_TEMP0]]  +  <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>
 ; PEEL-NEXT:        [[LOOP_UB250:%.*]] = [[ADJ_TC240]]  -  1
 ;
@@ -76,7 +74,7 @@ define dso_local void @init(i32* nocapture noundef writeonly %a, i32 noundef %n,
 ; PEEL-NEXT:        [[EXTRACT_0_330:%.*]] = extractelement [[DOTVEC290]],  0
 ; PEEL-NEXT:        if ([[EXTRACT_0_330]] == 1)
 ; PEEL-NEXT:        {
-; PEEL-NEXT:           goto final.merge.105
+; PEEL-NEXT:           goto final.merge.103
 ; PEEL-NEXT:        }
 ; PEEL-NEXT:        [[MERGE_BLK1]].38:
 ; PEEL-NEXT:        [[DOTVEC340:%.*]] = zext.i32.i64([[N0]])  -  [[PHI_TEMP60]]
@@ -98,7 +96,7 @@ define dso_local void @init(i32* nocapture noundef writeonly %a, i32 noundef %n,
 ; PEEL-NEXT:        + END LOOP
 ; PEEL:             [[IND_FINAL470:%.*]] = 0  +  zext.i32.i64([[N0]])
 ; PEEL-NEXT:        [[PHI_TEMP310]] = [[IND_FINAL470]]
-; PEEL-NEXT:        final.merge.105:
+; PEEL-NEXT:        final.merge.103:
 ; PEEL-NEXT:  END REGION
 ;
 ; REM:       BEGIN REGION { modified }
