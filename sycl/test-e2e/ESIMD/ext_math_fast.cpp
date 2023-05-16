@@ -5,14 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-<<<<<<< HEAD
-// RUN: %{build} -fsycl-device-code-split=per_kernel -ffast-math -o %t.out
-=======
-// REQUIRES: gpu
-// UNSUPPORTED: gpu-intel-gen9 && windows
-// UNSUPPORTED: cuda || hip
 // RUN: %{build} -fsycl-device-code-split=per_kernel -ffast-math -fno-slp-vectorize -o %t.out
->>>>>>> 818f49590f87e7972da2e8b97611f52c01297d56
 // RUN: %{run} %t.out
 
 // This test checks extended math operations. Combinations of
