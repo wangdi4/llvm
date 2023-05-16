@@ -115,8 +115,8 @@ CompilationUtils::InstVec BarrierUtils::getWGCallInstructions(CALL_BI_TYPE Ty) {
       continue;
     }
     StringRef FName = F.getName();
-    if ((CALL_BI_TYPE_WG == Ty &&
-         CompilationUtils::isWorkGroupBuiltin(FName)) ||
+    if ((CALL_BI_TYPE_WG == Ty && CompilationUtils::isWorkGroupBuiltin(FName) &&
+         !CompilationUtils::isWorkGroupSort(FName)) ||
         (CALL_BI_TYPE_WG_ASYNC_OR_PIPE == Ty &&
          CompilationUtils::isWorkGroupAsyncOrPipeBuiltin(FName, *M)) ||
         (CALL_BI_TYPE_WG_SORT == Ty &&
