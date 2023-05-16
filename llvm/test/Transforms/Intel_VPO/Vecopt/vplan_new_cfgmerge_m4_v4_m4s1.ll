@@ -184,7 +184,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:       [DA: Uni] br [[BB20:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB20]]: # preds: [[MERGE_BLK0]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP19:%.*]] = add i64 [[VP_PEEL_COUNT]] i64 4
+; CHECK-NEXT:       [DA: Uni] i64 [[VP19:%.*]] = add i64 [[VP18]] i64 4
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_PEEL_VEC_TC_CHECK_1:%.*]] = icmp ugt i64 [[VP19]] i64 1024
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_PEEL_VEC_TC_CHECK_1]], [[MERGE_BLK2:merge.blk[0-9]+]], [[BB6]]
 ; CHECK-EMPTY:
@@ -195,7 +195,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:        [[BB7]]: # preds: [[BB6]]
 ; CHECK-NEXT:         [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i64 1
-; CHECK-NEXT:         [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT]] = vector-trip-count i64 1024 i64 [[VP_PEEL_COUNT]], UF = 1
+; CHECK-NEXT:         [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT]] = vector-trip-count i64 1024 i64 [[VP18]], UF = 1
 ; CHECK-NEXT:         [DA: Uni] br [[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB8]]: # preds: [[BB7]], [[BB8]]
@@ -312,7 +312,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:       [DA: Uni] br [[BB20]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB20]]: # preds: [[MERGE_BLK0]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP19]] = add i64 [[VP_PEEL_COUNT]] i64 4
+; CHECK-NEXT:       [DA: Uni] i64 [[VP19]] = add i64 [[VP18]] i64 4
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_PEEL_VEC_TC_CHECK_1]] = icmp ugt i64 [[VP19]] i64 1024
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_PEEL_VEC_TC_CHECK_1]], [[MERGE_BLK2]], [[BB6]]
 ; CHECK-EMPTY:
@@ -323,7 +323,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:        [[BB7]]: # preds: [[BB6]]
 ; CHECK-NEXT:         [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 [[VP18]] i64 1
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i64 1
-; CHECK-NEXT:         [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT]] = vector-trip-count i64 1024 i64 [[VP_PEEL_COUNT]], UF = 1
+; CHECK-NEXT:         [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT]] = vector-trip-count i64 1024 i64 [[VP18]], UF = 1
 ; CHECK-NEXT:         [DA: Uni] br [[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB8]]: # preds: [[BB7]], [[BB8]]

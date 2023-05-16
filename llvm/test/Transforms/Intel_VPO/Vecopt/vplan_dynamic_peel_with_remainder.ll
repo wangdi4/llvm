@@ -50,7 +50,7 @@ define void @test(i64* nocapture %ary) {
 ; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB1:
-; CHECK-NEXT:    [[TMP7:%.*]] = add i64 [[TMP3]], 4
+; CHECK-NEXT:    [[TMP7:%.*]] = add i64 [[UNI_PHI0]], 4
 ; CHECK-NEXT:    [[TMP8:%.*]] = icmp ugt i64 [[TMP7]], 1027
 ; CHECK-NEXT:    br i1 [[TMP8]], label %[[MERGE_BLK1]], label [[VPLANNEDBB20:%.*]]
 ; CHECK-EMPTY:
@@ -61,7 +61,7 @@ define void @test(i64* nocapture %ary) {
 ; CHECK-NEXT:    [[UNI_PHIIND_START_BCAST_SPLATINSERT0:%.*]] = insertelement <4 x i64> poison, i64 [[UNI_PHI0]], i64 0
 ; CHECK-NEXT:    [[UNI_PHIIND_START_BCAST_SPLAT0:%.*]] = shufflevector <4 x i64> [[UNI_PHIIND_START_BCAST_SPLATINSERT0]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP9:%.*]] = add <4 x i64> [[UNI_PHIIND_START_BCAST_SPLAT0]], <i64 0, i64 1, i64 2, i64 3>
-; CHECK-NEXT:    [[N_ADJST0:%.*]] = sub nuw nsw i64 1027, [[TMP3]]
+; CHECK-NEXT:    [[N_ADJST0:%.*]] = sub nuw nsw i64 1027, [[UNI_PHI0]]
 ; CHECK-NEXT:    [[N_MOD_VF0:%.*]] = urem i64 [[N_ADJST0]], 4
 ; CHECK-NEXT:    [[N_VEC0:%.*]] = sub nuw nsw i64 1027, [[N_MOD_VF0]]
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]

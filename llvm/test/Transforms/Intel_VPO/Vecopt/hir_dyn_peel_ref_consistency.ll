@@ -35,19 +35,17 @@
 
 ; CHECK:             [[PHI_TEMP0]] = [[UB_TMP0]]
 ; CHECK-NEXT:        [[MERGE_AFTER_PEEL]]:
-; CHECK-NEXT:        [[DOTVEC110:%.*]] = [[DOTVEC30]] + 4 >u 400
+; CHECK-NEXT:        [[DOTVEC110:%.*]] = [[PHI_TEMP0]] + 4 >u 400
 ; CHECK-NEXT:        [[PHI_TEMP60]] = [[PHI_TEMP0]]
 ; CHECK-NEXT:        [[EXTRACT_0_130:%.*]] = extractelement [[DOTVEC110]],  0
 ; CHECK-NEXT:        if ([[EXTRACT_0_130]] == 1)
 ; CHECK-NEXT:        {
 ; CHECK-NEXT:           goto [[MERGE_AFTER_MAIN]]
 ; CHECK-NEXT:        }
-; CHECK-NEXT:        [[EXTRACT_0_140:%.*]] = extractelement [[DOTVEC30]],  0
-; CHECK-NEXT:        [[ADJ_TC0:%.*]] = 400  -  [[EXTRACT_0_140]]
+; CHECK-NEXT:        [[ADJ_TC0:%.*]] = 400  -  [[PHI_TEMP0]]
 ; CHECK-NEXT:        [[TGU0:%.*]] = [[ADJ_TC0]]  /u  4
 ; CHECK-NEXT:        [[VEC_TC0:%.*]] = [[TGU0]]  *  4
-; CHECK-NEXT:        [[EXTRACT_0_150:%.*]] = extractelement [[DOTVEC30]],  0
-; CHECK-NEXT:        [[ADJ_TC160:%.*]] = [[VEC_TC0]]  +  [[EXTRACT_0_150]]
+; CHECK-NEXT:        [[ADJ_TC160:%.*]] = [[VEC_TC0]]  +  [[PHI_TEMP0]]
 ; CHECK-NEXT:        [[TMP0:%.*]] = [[PHI_TEMP0]] + <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:        [[LOOP_UB0:%.*]] = [[ADJ_TC160]]  -  1
 
