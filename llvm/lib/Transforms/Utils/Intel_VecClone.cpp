@@ -1781,6 +1781,12 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
       // Clone the original function.
       LLVM_DEBUG(dbgs() << "Before SIMD Function Cloning\n");
       LLVM_DEBUG(F.dump());
+
+      assert(F.getFunctionType()->getNumParams() ==
+                 (Variant.isMasked() ? Variant.getParameters().size() - 1
+                                     : Variant.getParameters().size()) &&
+             "Number of arguments of a variant and the original do not match.");
+
       Factory VecCloneFactory(this, M, M.getDataLayout(), F, Variant,
                               PointeeTypeSize);
       Function *Clone = VecCloneFactory.run();
