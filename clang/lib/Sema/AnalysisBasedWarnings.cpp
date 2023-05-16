@@ -1,5 +1,4 @@
 //=- AnalysisBasedWarnings.cpp - Sema warnings based on libAnalysis -*- C++ -*-=//
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 //
 // INTEL CONFIDENTIAL
@@ -17,10 +16,6 @@
 // License.
 //
 #endif // INTEL_CUSTOMIZATION
-//=- AnalysisBasedWarnings.cpp - Sema warnings based on libAnalysis -*- C++
-//-*-=//
-=======
->>>>>>> f39fd750ab59cb2482688168b25db303dbebdb09
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
