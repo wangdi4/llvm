@@ -2,7 +2,7 @@
 
 // DEFINE: %{mathflags} = %if cl_options %{/clang:-fno-fast-math%} %else %{-fno-fast-math%}
 
-// RUN: %{build}i %{mathflags} -o %t.out
+// RUN: %{build} %{mathflags} -o %t.out
 // RUN: %{run} %t.out
 
 // RUN: %{build} -fsycl-device-lib-jit-link %{mathflags} -o %t.out
