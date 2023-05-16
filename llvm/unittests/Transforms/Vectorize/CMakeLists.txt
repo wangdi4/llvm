@@ -24,6 +24,7 @@ add_llvm_unittest(VectorizeTests
   IntelVPlanCheckNodeParent.cpp
   IntelVPlanClonePlanTest.cpp
   IntelVPlanDATest.cpp
+  IntelVPlanLoopInfoTest.cpp
   IntelVPlanTest.cpp
   IntelVPlanTTIMemrefCostTest.cpp
   IntelVPlanValueTrackingTest.cpp
