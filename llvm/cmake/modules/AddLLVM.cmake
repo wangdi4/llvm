@@ -2559,7 +2559,6 @@ function(find_first_existing_vc_file path out_var)
   endif()
 endfunction()
 
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # is_intel_feature_enabled() macro returns TRUE in 'result',
 # if the given 'feature' is supported in the current compiler
@@ -2704,12 +2703,8 @@ macro(intel_remove_intel_lib_deps)
 endmacro(intel_remove_intel_lib_deps)
 # end INTEL_CUSTOMIZATION
 
-function(setup_host_tool tool_name setting_name exe_var_name target_var_name)
-  set(${setting_name}_DEFAULT "${tool_name}")
-=======
 function(get_host_tool_path tool_name setting_name exe_var_name target_var_name)
   set(${setting_name}_DEFAULT "")
->>>>>>> f649599ea93301bd0d0a2b8e450d1f77425ea92e
 
   if(LLVM_NATIVE_TOOL_DIR)
     if(EXISTS "${LLVM_NATIVE_TOOL_DIR}/${tool_name}${LLVM_HOST_EXECUTABLE_SUFFIX}")
