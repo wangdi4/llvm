@@ -5200,8 +5200,12 @@ public:
 
     bool ZttIsTrue = false;
     bool IsTrivialZtt = Loop->isKnownZttPredicate(&ZttIsTrue);
+    int64_t UpperVal;
+    bool HasNonSensicalBounds =
+        (Loop->hasSignedIV() && !Loop->isUnknown() &&
+         Loop->getUpperCanonExpr()->isIntConstant(&UpperVal) && (UpperVal < 0));
 
-    if (IsTrivialZtt && !ZttIsTrue) {
+    if (HasNonSensicalBounds || (IsTrivialZtt && !ZttIsTrue)) {
       RedundantLoops++;
       notifyWillRemoveNode(Loop);
 
