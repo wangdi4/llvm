@@ -134,14 +134,25 @@ void ContextModule::ShutDown(bool wait_for_finish) {
   framework_proxy->CancelAllTasks(wait_for_finish);
 
   // 2. Switch all active command queues to a cancel state
+  // If a command is enqueued just before this, there is a race condition
+  // between 'RuntimeCommandTask::Cancel' and 'TaskExecutor::execute_command'.
+  // Since we will try to finish all active queues below, this behavior try to
+  // cancel all active queues is not necessary. So we intentionally disable this
+  // code here.
+#if 0
   execution_module->CancelAllActiveQueues();
+#endif
 
   // 3. Signal all non-completed user events to push queues forward
   //    Release all non-released user events
   execution_module->ReleaseAllUserEvents(true);
 
   // 4. clFinish() of all queueus
-  if (wait_for_finish) {
+  // FIXME: Some fpga tests intentionally write a kernel with infinite loop that
+  // will cause hang at this line. So we temporarily allow FPGA emulator not to
+  // wait for command queues finish.
+  if (wait_for_finish &&
+      framework_proxy->GetOCLConfig()->GetDeviceMode() != FPGA_EMU_DEVICE) {
     execution_module->FinishAllActiveQueues();
   }
 
@@ -164,6 +175,8 @@ void ContextModule::ShutDown(bool wait_for_finish) {
 
   m_pPlatformModule->RemoveAllDevices(true);
 
+// Intentionally disable this code due to shutdown issue
+#if 0
   // FIXME: Autorun kernels will hold some internal objects so that devices
   // can't be closed during shutdown process. This is a workaround that we
   // don't wait for devices to close in FPGA emulator device mode. And the right
@@ -187,6 +200,7 @@ void ContextModule::ShutDown(bool wait_for_finish) {
     m_pPlatformModule->WaitForAllDevices();
 #endif
   }
+#endif
 
   // At that point still some internal threads in different DLLs may handle
   // SharedPtr's destruction We need to wait until all of them will end their
