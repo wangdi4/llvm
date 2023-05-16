@@ -89,6 +89,7 @@ FetchContent_Declare(hwloc
   check_include_file("sched.h" HWLOC_HAVE_CPU_SET)
   check_include_file("libudev.h" HWLOC_HAVE_LIBUDEV)
   check_include_file("pthread.h" HWLOC_HAVE_PTHREAD_MUTEX)
+  check_include_file("stdint.h" HWLOC_HAVE_STDINT_H)
   if(HWLOC_HAVE_CPU_SET)
     set(HWLOC_HAVE_CPU_SET_S 1)
   endif()
