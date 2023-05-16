@@ -61,6 +61,13 @@ using namespace llvm;
 static cl::opt<bool>
 EnableBasePointer("x86-use-base-pointer", cl::Hidden, cl::init(true),
           cl::desc("Enable use of a base pointer for complex stack frames"));
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+static cl::opt<bool> AggressiveEGPR(
+    "x86-aggressive-egpr", cl::Hidden, cl::init(false),
+    cl::desc("Prefer EGPR than legacy GPR (for stress testing)"));
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 X86RegisterInfo::X86RegisterInfo(const Triple &TT)
     : X86GenRegisterInfo((TT.isArch64Bit() ? X86::RIP : X86::EIP),
@@ -1296,6 +1303,19 @@ bool X86RegisterInfo::getRegAllocationHints(Register VirtReg,
   const TargetRegisterClass &RC = *MRI->getRegClass(VirtReg);
   bool BaseImplRetVal = TargetRegisterInfo::getRegAllocationHints(
       VirtReg, Order, Hints, MF, VRM, Matrix);
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  auto ID = RC.getID();
+  if (AggressiveEGPR &&
+      (ID == X86::GR8RegClassID || ID == X86::GR16RegClassID ||
+       ID == X86::GR32RegClassID || ID == X86::GR64RegClassID)) {
+    for (auto Reg : Order)
+      if (X86II::isApxExtendedReg(Reg))
+        Hints.push_back(Reg);
+  }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
   if (RC.getID() != X86::TILERegClassID
