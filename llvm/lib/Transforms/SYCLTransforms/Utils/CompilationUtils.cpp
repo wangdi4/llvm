@@ -827,7 +827,9 @@ bool isWorkGroupMul(StringRef S) {
          isWorkGroupScanInclusiveMul(S);
 }
 
-bool isWorkGroupBuiltinDivergent(StringRef S) { return isWorkGroupScan(S); }
+bool isWorkGroupBuiltinDivergent(StringRef S) {
+  return isWorkGroupScan(S) || isWorkGroupSort(S);
+}
 
 bool isWorkGroupUniform(StringRef S) {
   return isWorkGroupBuiltinUniform(S) || isGetMaxSubGroupSize(S) ||
