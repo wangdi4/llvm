@@ -123,7 +123,7 @@ void VPTransformLibraryCalls::transformSincosCalls() {
 
       if (auto *Subscript = dyn_cast<VPSubscriptInst>(ArgValue)) {
         // In the HIR path, our operands should always be subscript insts.
-        Store->HIR().setSymbase(Subscript->HIR().getSymbase());
+        Store->HIR().setGepRefSpecifics(*Subscript);
       }
     }
 

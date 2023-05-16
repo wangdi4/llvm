@@ -891,7 +891,7 @@ static void updateHIROperand(VPValue *AI, VPLoadStoreInst *V) {
   if (auto *ExtDef = dyn_cast<VPExternalDef>(AI)) {
     unsigned ExtDefSym = ExtDef->HIR().getSymbase();
     if (ExtDefSym != loopopt::InvalidSymbase)
-      V->HIR().setSymbase(ExtDefSym);
+      V->HIR().setGepRefSpecifics(ExtDefSym);
   }
 }
 

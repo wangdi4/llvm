@@ -641,7 +641,7 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
   auto *Subscript = Builder.create<VPSubscriptInst>(
       "subscript", SubscriptResultType, DecompBaseCE, Dimensions);
   Subscript->setIsInBounds(Ref->isInBounds());
-  Subscript->HIR().setSymbase(Ref->getSymbase());
+  Subscript->HIR().setGepRefSpecifics(Ref);
   MemOpVPI = Subscript;
 
   // Create a bitcast instruction if needed
@@ -683,7 +683,7 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
       RefToVPLoadConflict[Ref] = MemOpVPInst;
 
     // Save away scalar memref symbase and original alignment for later use.
-    MemOpVPInst->HIR().setSymbase(Ref->getSymbase());
+    MemOpVPInst->HIR().setGepRefSpecifics(Ref);
     MemOpVPInst->setAlignment(getAlignForMemref(Ref));
 
     // FIXME: This special-casing for loads that are HLInst is becoming more
@@ -1017,7 +1017,7 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       if (NewVPInst->getOpcode() == Instruction::Store) {
         assert(LvalDDR->isMemRef() &&
                "Expected Lval of a store HLInst to be a memref");
-        NewVPInst->HIR().setSymbase(LvalDDR->getSymbase());
+        NewVPInst->HIR().setGepRefSpecifics(LvalDDR);
         cast<VPLoadStoreInst>(NewVPInst)->setAlignment(
             getAlignForMemref(LvalDDR));
       }

@@ -279,7 +279,7 @@ void VLSTransform::setMemOpProperties(VLSMemoryOpTy *VLSMemoryOp) {
     VLSMemoryOp->setMetadata(Kind, ResultMD);
   }
 
-  VLSMemoryOp->HIR().setSymbase(FirstMemrefInst->HIR().getSymbase());
+  VLSMemoryOp->HIR().setGepRefSpecifics(*FirstMemrefInst);
   for (const VPLoadStoreInst *Inst : instructions(Group))
     VLSMemoryOp->HIR().addFakeSymbase(Inst->HIR().getSymbase());
 }
