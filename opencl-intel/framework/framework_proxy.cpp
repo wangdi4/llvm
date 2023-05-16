@@ -577,17 +577,8 @@ bool FrameworkProxy::NeedToDisableAPIsAtShutdown() const {
 // FrameworkProxy::Destroy()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void FrameworkProxy::Destroy() {
-#if 0
-  // Disable it to avoid conflict with atexit() callback, we will refine the
-  // shutdown process after we merged all dynamic libraries into one.
-  if (Instance()->NeedToDisableAPIsAtShutdown()) {
-    // If this function is being called during process shutdown AND we
-    // should just disable external APIs. Do not delete or release
-    // anything as it may cause a deadlock.
-    if (TERMINATED != gGlobalState)
-      Instance()->Release(true);
-  } else
-    Instance()->Release(true);
+#if !DISABLE_SHUTDOWN && !_WIN32
+  Instance()->Release(true);
 #endif
 }
 

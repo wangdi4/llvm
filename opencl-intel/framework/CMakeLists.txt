@@ -31,6 +31,11 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/Tracing
   ${OCL_BINARY_DIR})
 
+# If llvm is built as shared libs, the shutdown process can't work properly.
+if(BUILD_SHARED_LIBS)
+  add_definitions(-DDISABLE_SHUTDOWN)
+endif()
+
 # For debug only
 if(USE_ITT_INTERNAL)
   add_definitions(-DUSE_ITT_INTERNAL)
