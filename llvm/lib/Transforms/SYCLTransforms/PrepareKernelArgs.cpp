@@ -157,7 +157,7 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
       const auto AllocaAddrSpace = DL.getAllocaAddrSpace();
 
       // Set alignment of buffer to type size.
-      unsigned Alignment = 16; // Cacheline
+      unsigned Alignment = DEV_MAXIMUM_ALIGN;
       Type *EltTy = nullptr;
       // If the kernel was vectorized, choose an alignment that is good for the
       // *vectorized* type. This can be good for unaligned loads on targets that
