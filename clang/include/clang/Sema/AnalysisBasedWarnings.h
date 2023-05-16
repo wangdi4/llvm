@@ -117,7 +117,7 @@ public:
                      const Decl *D, QualType BlockType);
 
   // Issue warnings that require whole-translation-unit analysis.
-  void IssueWarnings(const TranslationUnitDecl *D);
+  void IssueWarnings(TranslationUnitDecl *D);
 
   Policy getDefaultPolicy() { return DefaultPolicy; }
 
