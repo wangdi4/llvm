@@ -38,13 +38,28 @@ static cl::opt<unsigned> NumberOfSpillsPerExtraReg(
 // and HPC programs.
 // TODO: There is no fundamental reason why those thresholds can not be the
 // same. We might want to tune CM to match them.
+// These threholds apply when estimating load/store port pressure, i.e. for
+// hardware gather and scatter instructions.
+// TODO: We might want to have separate code and threshold for estimating
+// load and store ports pressure independently.
 unsigned const CMGatherScatterDefaultThreshold = 50;
 unsigned const CMGatherScatterDefaultThresholdZMM = 70;
+// Separate setting for software gather/scatter intructions as we estimate
+// shuffle port pressure for them.
+unsigned const CMSWGatherScatterDefaultThreshold = 60;
 
 static cl::opt<unsigned> CMGatherScatterThreshold(
   "vplan-cm-gather-scatter-threshold",
   cl::init(CMGatherScatterDefaultThreshold),
-  cl::desc("If gather/scatter cost is more than CMGatherScatterThreshold "
+  cl::desc("If HW gather/scatter cost is more than CMGatherScatterThreshold "
+           "percent of whole loop price the price of gather/scatter is "
+           "doubled to make it harder to choose in favor of "
+           "loop with gathers/scatters."));
+
+static cl::opt<unsigned> CMSWGatherScatterThreshold(
+  "vplan-cm-sw-gather-scatter-threshold",
+  cl::init(CMSWGatherScatterDefaultThreshold),
+  cl::desc("If SW gather/scatter cost is more than CMGatherScatterThreshold "
            "percent of whole loop price the price of gather/scatter is "
            "doubled to make it harder to choose in favor of "
            "loop with gathers/scatters."));
@@ -676,72 +691,165 @@ void HeuristicSpillFill::dump(raw_ostream &OS, const VPBasicBlock *VPBB) const {
 void HeuristicGatherScatter::apply(
   const VPInstructionCost &TTICost, VPInstructionCost &Cost,
   const VPlanVector *Plan, raw_ostream *OS) const {
-  if (VF == 1)
+  VPlanCostPair GSCost = (*this)(Plan);
+  if (GSCost.first == 0 && GSCost.second == 0)
     return;
 
-  VPInstructionCost GSCost = 0;
-  for (auto *Block : depth_first(&Plan->getEntryBlock()))
-    // FIXME: Use Block Frequency Info (or similar VPlan-specific analysis) to
-    // correctly scale the cost of the basic block.
-    GSCost += (*this)(Block);
-
-  unsigned CGThreshold = CMGatherScatterThreshold;
+  unsigned HWGSThreshold = CMGatherScatterThreshold;
+  // TODO:
+  // SWGSThreshold for VF = 2 is yet gets the old value default value to
+  // minimize impact on benchmarks. This check has to be replaced with VF
+  // sentisitive formulae or removed altogether eventually.
+  // Same for Cost related check: it is there to cut off regressions observed
+  // w/o this check. The regression have to be addressed and the check has to
+  // be removed.
+  unsigned SWGSThreshold = ((VF > 2) && (Cost < 100)) ?
+    CMSWGatherScatterThreshold : CMGatherScatterThreshold;
 
   // If CMGatherScatterThreshold is not specified in the command line the
   // default value for heuristic is different in ZMM-enabled context.
   if (CMGatherScatterThreshold.getNumOccurrences() == 0 &&
       CM->TTI.getRegisterBitWidth(
         TargetTransformInfo::RGK_FixedWidthVector) >= 512)
-    CGThreshold = CMGatherScatterDefaultThresholdZMM;
+    HWGSThreshold = CMGatherScatterDefaultThresholdZMM;
 
-  // Increase GatherScatter cost contribution in case Gathers/Scatters take too
-  // much.
-  if (TTICost * CGThreshold < GSCost * 100)
-    Cost += CMGatherScatterPenaltyFactor.getValue() * GSCost;
+  // Increase GatherScatter cost contribution in case HW or SW Gathers/Scatters
+  // (or both) take too much.
+  if (TTICost * HWGSThreshold < GSCost.first * 100)
+    Cost += CMGatherScatterPenaltyFactor.getValue() * GSCost.first;
+
+  if (TTICost * SWGSThreshold < GSCost.second * 100)
+    Cost += CMGatherScatterPenaltyFactor.getValue() * GSCost.second;
 }
 
-VPInstructionCost HeuristicGatherScatter::operator()(
+VPlanCostPair HeuristicGatherScatter::operator()(
+  const VPlanVector *Plan) const {
+  VPlanCostPair GSCost = {0, 0};
+  if (VF == 1)
+    return GSCost;
+
+  for (auto *Block : depth_first(&Plan->getEntryBlock()))
+    // FIXME: Use Block Frequency Info (or similar VPlan-specific analysis) to
+    // correctly scale the cost of the basic block.
+    GSCost = GSCost + (*this)(Block);
+
+  return GSCost;
+}
+
+VPlanCostPair HeuristicGatherScatter::operator()(
   const VPBasicBlock *VPBlock) const {
-  VPInstructionCost Cost = 0;
+  VPlanCostPair Cost = {0, 0};
   if (VF == 1)
     return Cost;
 
   for (const VPInstruction &VPInst : *VPBlock)
-    Cost += (*this)(&VPInst);
+    Cost = Cost + (*this)(&VPInst);
   return Cost;
 }
 
-VPInstructionCost HeuristicGatherScatter::operator()(
-  const VPInstruction *VPInst) const {
+// CM local utility to determine if the input load/store instruction is
+// inducing HW or SW gather or scatter intructions for given VF.
+// The rotine returns VPLoadStoreInst if it is gather/scatter or nullptr
+// otherwise. Iff the routne returns non null pointer the type of instruction
+// (hardware or software) is indicated through IsHWGatherScatter argument.
+static const VPLoadStoreInst *isGatherScatter(
+    bool &IsHWGatherScatter,
+    const VPInstruction *VPInst,
+    unsigned VF,
+    const VPlanTTICostModel *CM) {
+  // The compiler doesn't generate HW or SW gather or scatter for VF = 1.
   if (VF == 1)
-    return 0;
+    return nullptr;
 
   auto *LoadStore = dyn_cast<VPLoadStoreInst>(VPInst);
   if (!LoadStore)
-    return 0;
+    return nullptr;
 
   bool NegativeStride;
-  if (!CM->isOptimizedVLSGroupMember(LoadStore) &&
-      !CM->isUniformLoadStore(LoadStore) &&
-      !CM->isUnitStrideLoadStore(LoadStore, NegativeStride))
-    return CM->getLoadStoreCost(LoadStore, VF,
-                                true /* only need gather/scatter cost */);
+  if (CM->isOptimizedVLSGroupMember(LoadStore) ||
+      CM->isUniformLoadStore(LoadStore) ||
+      CM->isUnitStrideLoadStore(LoadStore, NegativeStride))
+    return nullptr;
 
-  return 0;
+  IsHWGatherScatter = false;
+  // Unvectorizable by VPlan types will be serialized.
+  if (!isVectorizableLoadStore(LoadStore))
+    return LoadStore;
+
+  // Check for unsupported gather/scatter instruction.
+  // Note: any gather/scatter is considered as masked.
+  Align Alignment = Align(CM->getMemInstAlignment(LoadStore));
+  Type *VTy = getWidenedType(LoadStore->getValueType(), VF);
+
+  if (VPInst->getOpcode() == Instruction::Load) {
+    if (!CM->TTI.isLegalMaskedGather(VTy, Alignment) ||
+        CM->TTI.forceScalarizeMaskedGather(cast<VectorType>(VTy), Alignment))
+      return LoadStore;
+  }
+  else {
+    if (!CM->TTI.isLegalMaskedScatter(VTy, Alignment) ||
+        CM->TTI.forceScalarizeMaskedScatter(cast<VectorType>(VTy), Alignment))
+      return LoadStore;
+  }
+
+  // Only HW gathers/scatters are expected to reach this code.
+  IsHWGatherScatter = true;
+  return LoadStore;
+}
+
+VPlanCostPair HeuristicGatherScatter::operator()(
+  const VPInstruction *VPInst) const {
+  bool IsHWGatherScatter = true;
+  auto LoadStore = isGatherScatter(IsHWGatherScatter, VPInst, VF, CM);
+  if (!LoadStore)
+    return std::make_pair(0, 0);
+
+  auto GSInstCost = CM->getLoadStoreCost(
+    LoadStore, VF, true /* only need gather/scatter cost */);
+
+  // TODO:
+  // Currently we enable separate handling for i16 types only to reduce
+  // other benchmarks impact. Eventually type checks either removed altogether
+  // OR we may need to introduce separate tracking for SW gathers and scatters
+  // typed differently if proven it is neccesary.
+  Type *LSType = LoadStore->getValueType()->getScalarType();
+  if (!IsHWGatherScatter && LSType->isIntegerTy() &&
+      LSType->getIntegerBitWidth() == 16)
+    return std::make_pair(0, GSInstCost);
+  else
+    return std::make_pair(GSInstCost, 0);
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void HeuristicGatherScatter::dump(raw_ostream &OS,
+                                  const VPlanVector *Plan) const {
+  VPlanCostPair GatherScatterCost = (*this)(Plan);
+  if (GatherScatterCost.first > 0)
+    OS << "Plan total cost includes HW GS Cost: " <<
+      GatherScatterCost.first << '\n';
+  if (GatherScatterCost.second > 0)
+    OS << "Plan total cost includes SW GS Cost: " <<
+      GatherScatterCost.second << '\n';
+}
+
+void HeuristicGatherScatter::dump(raw_ostream &OS,
                                   const VPBasicBlock *VPBB) const {
-  VPInstructionCost GatherScatterCost = (*this)(VPBB);
-  if (GatherScatterCost > 0)
-    OS << "Block total cost includes GS Cost: " << GatherScatterCost << '\n';
+  VPlanCostPair GatherScatterCost = (*this)(VPBB);
+  if (GatherScatterCost.first > 0)
+    OS << "Block total cost includes HW GS Cost: " <<
+      GatherScatterCost.first << '\n';
+  if (GatherScatterCost.second > 0)
+    OS << "Block total cost includes SW GS Cost: " <<
+      GatherScatterCost.second << '\n';
 }
 
 void HeuristicGatherScatter::dump(raw_ostream &OS,
                                   const VPInstruction *VPInst) const {
-  if ((*this)(VPInst) > 0)
-    OS << " *GS*";
+  VPlanCostPair GatherScatterCost = (*this)(VPInst);
+  if (GatherScatterCost.first > 0)
+    OS << " *HW GS*";
+  if (GatherScatterCost.second > 0)
+    OS << " *SW GS*";
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 

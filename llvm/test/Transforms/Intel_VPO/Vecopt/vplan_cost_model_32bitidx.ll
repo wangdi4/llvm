@@ -35,28 +35,29 @@ define void @test_fit_32bitindex_gather() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i32 [[VP2:%.*]] = mul i32 3 i32 [[VP0]]
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 3 for i64 [[VP3:%.*]] = sext i32 [[VP2]] to i64
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.0 i64 0 i64 [[VP3]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 4 for i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]] *GS*
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 4 for i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]] *HW GS*
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.1 i64 1 i64 [[VP3]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 4 for i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]] *GS*
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 4 for i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]] *HW GS*
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.2 i64 2147483647 i64 [[VP3]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 4 for i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_2]] *GS*
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 4 for i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_2]] *HW GS*
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.3 i64 2147483648 i64 [[VP3]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 4 for i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUBSCRIPT_3]] *GS*
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 4 for i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUBSCRIPT_3]] *HW GS*
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.0 i64 0 i64 [[VP3]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 8 for store i32 [[VP_LOAD_1]] i32* [[VP_SUBSCRIPT_4]] *GS*
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 8 for store i32 [[VP_LOAD_1]] i32* [[VP_SUBSCRIPT_4]] *HW GS*
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.1 i64 1 i64 [[VP3]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 8 for store i32 [[VP_LOAD_2]] i32* [[VP_SUBSCRIPT_5]] *GS*
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 8 for store i32 [[VP_LOAD_2]] i32* [[VP_SUBSCRIPT_5]] *HW GS*
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_6:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.2 i64 2147483647 i64 [[VP3]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 8 for store i32 [[VP_LOAD_3]] i32* [[VP_SUBSCRIPT_6]] *GS*
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 8 for store i32 [[VP_LOAD_3]] i32* [[VP_SUBSCRIPT_6]] *HW GS*
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_7:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.3 i64 2147483648 i64 [[VP3]]
-; VPLAN-HIR-CM-VF8-NEXT:    Cost 8 for store i32 [[VP_LOAD]] i32* [[VP_SUBSCRIPT_7]] *GS*
+; VPLAN-HIR-CM-VF8-NEXT:    Cost 8 for store i32 [[VP_LOAD]] i32* [[VP_SUBSCRIPT_7]] *HW GS*
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i32 [[VP1]] = add i32 [[VP0]] i32 [[VP__IND_INIT_STEP]]
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i1 [[VP4:%.*]] = icmp slt i32 [[VP1]] i32 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for br i1 [[VP4]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF8-NEXT:  [[BB2]]: base cost: 54
-; VPLAN-HIR-CM-VF8-NEXT:  Block total cost includes GS Cost: 48
+; VPLAN-HIR-CM-VF8-NEXT:  Block total cost includes HW GS Cost: 48
 ; VPLAN-HIR-CM-VF8-NEXT:  Base Cost: 54
 ; VPLAN-HIR-CM-VF8-NEXT:  Extra cost due to Gather/Scatter heuristic is 96
+; VPLAN-HIR-CM-VF8-NEXT:  Plan total cost includes HW GS Cost: 48
 ; VPLAN-HIR-CM-VF8-NEXT:  Total Cost: 150
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for i32 [[VP__IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
@@ -66,6 +67,7 @@ define void @test_fit_32bitindex_gather() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for br <External Block>
 ; VPLAN-HIR-CM-VF8-NEXT:  [[BB4]]: base cost: 0
 ; VPLAN-HIR-CM-VF8-NEXT:  Cost Model for Loop postexit [[BB3]] : [[BB4]] for VF = 8 resulted Cost = 0
+;
 ;
 ; Verify that GS heuristic does not cause penalty on this test with threshold set to 93.
 ; VPLAN-HIR-CM-VF8-GS93-NOT:  Extra cost due to Gather/Scatter heuristic

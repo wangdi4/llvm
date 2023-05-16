@@ -607,6 +607,14 @@ inline VPInstructionCost operator/(const VPInstructionCost &LHS,
 // initiliazations/finalizations reside.
 using VPlanCostPair = std::pair<VPInstructionCost, VPInstructionCost>;
 
+inline VPlanCostPair operator+(const VPlanCostPair &LHS,
+                               const VPlanCostPair &RHS) {
+  VPlanCostPair RVAL;
+  RVAL.first = LHS.first + RHS.first;
+  RVAL.second = LHS.second + RHS.second;
+  return RVAL;
+}
+
 } // namespace vpo
 #endif // INTEL_CUSTOMIZATION
 
