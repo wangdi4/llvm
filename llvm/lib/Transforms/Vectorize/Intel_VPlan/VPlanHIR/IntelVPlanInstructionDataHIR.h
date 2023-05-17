@@ -371,9 +371,10 @@ class HIRSpecificsData {
   std::unique_ptr<VPOperandHIR> LHSHIROperand;
 
   // Union used to save needed information based on instruction opcode.
-  // 1) For a load/store instruction, save the symbase of the corresponding
-  //    scalar memref. Vector memref generated during vector CG is assigned
-  //    the same symbase.
+  // 1) For a load/store instruction, save the symbase and the number
+  //    of collapsed levels of the corresponding scalar memref. Vector memref
+  //    generated during vector CG is assigned the same symbase and number
+  //    of collapsed levels.
   // 2) For convert instructions, save whether the convert represents a
   //    convert of a loop IV that needs to be folded into the containing canon
   //    expression.
@@ -381,6 +382,7 @@ class HIRSpecificsData {
     unsigned Symbase = loopopt::InvalidSymbase;
     bool FoldIVConvert;
   };
+  unsigned NumCollapsedLevels = 0;
 
   /// Pointer to access the underlying HIR data attached to this
   /// VPInstruction, if any, depending on its sub-type:
@@ -543,9 +545,10 @@ public:
   // Interface used to set appropriate symbase for GEP refs created for entities
   // such as privates. We only need to ensure that GEP refs that correspond
   // to the same private have the appropriate symbase.
-  void setGepRefSpecifics(unsigned Symbase);
+  void setGepRefSymbase(unsigned Symbase);
 
   unsigned getSymbase() const;
+  unsigned getNumCollapsedLevels() const;
 
   void setFoldIVConvert(bool Fold);
   bool getFoldIVConvert() const;
