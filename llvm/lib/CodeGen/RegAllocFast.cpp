@@ -257,13 +257,9 @@ namespace {
     void addRegClassDefCounts(std::vector<unsigned> &RegClassDefCounts,
                               Register Reg) const;
 
-<<<<<<< HEAD
-    bool allocateInstruction(MachineInstr &MI); //INTEL
-=======
     void findAndSortDefOperandIndexes(const MachineInstr &MI);
 
-    void allocateInstruction(MachineInstr &MI);
->>>>>>> c4a872badb538b53ce93c113dbb6be5b40a95d54
+    bool allocateInstruction(MachineInstr &MI); // INTEL
     void handleDebugValue(MachineInstr &MI);
     void handleBundle(MachineInstr &MI);
 
@@ -1176,10 +1172,6 @@ void RegAllocFast::addRegClassDefCounts(std::vector<unsigned> &RegClassDefCounts
   }
 }
 
-<<<<<<< HEAD
-bool RegAllocFast::allocateInstruction(MachineInstr &MI) {
-  bool HasVirtualRegs = false;  // INTEL{
-=======
 /// Compute \ref DefOperandIndexes so it contains the indices of "def" operands
 /// that are to be allocated. Those are ordered in a way that small classes,
 /// early clobbers and livethroughs are allocated first.
@@ -1246,8 +1238,9 @@ void RegAllocFast::findAndSortDefOperandIndexes(const MachineInstr &MI) {
   });
 }
 
-void RegAllocFast::allocateInstruction(MachineInstr &MI) {
->>>>>>> c4a872badb538b53ce93c113dbb6be5b40a95d54
+bool RegAllocFast::allocateInstruction(MachineInstr &MI) { // INTEL
+  bool HasVirtualRegs = false;  // INTEL
+
   // The basic algorithm here is:
   // 1. Mark registers of def operands as free
   // 2. Allocate registers to use operands and place reload instructions for
