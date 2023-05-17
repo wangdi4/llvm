@@ -795,11 +795,12 @@ public:
   /// \p InductionOp, starting instruction \pStart, incoming value
   /// \p Incoming, stride \p Step, and alloca-instruction \p AI.
   VPInduction *addInduction(VPInstruction *Start, VPValue *Incoming,
-                            InductionKind K, VPValue *Step, int StepMultiplier,
-                            Type *StepTy, const SCEV *StepSCEV,
-                            VPValue *StartVal, VPValue *EndVal,
-                            VPInstruction *InductionOp, unsigned int Opc,
-                            VPValue *AI = nullptr, bool ValidMemOnly = false);
+                            Type *IndTy, InductionKind K, VPValue *Step,
+                            int StepMultiplier, Type *StepTy,
+                            const SCEV *StepSCEV, VPValue *StartVal,
+                            VPValue *EndVal, VPInstruction *InductionOp,
+                            unsigned int Opc, VPValue *AI = nullptr,
+                            bool ValidMemOnly = false);
 
   /// Add private corresponding to \p Alloca along with the final store
   /// instruction which writes to the private memory witin the for-loop. Also
@@ -1387,7 +1388,7 @@ public:
   }
 
 protected:
-  VPValue *findMemoryUses(VPValue *Start, const VPLoop *Loop);
+  bool findMemoryUses(VPValue *Start, const VPLoop *Loop);
 
   virtual void clear() {
     AllocaInst = nullptr;
@@ -1561,6 +1562,7 @@ public:
   VPInstruction *getStartPhi() const { return StartPhi; }
   InductionKind getKind() const { return K; }
   VPValue *getStart() const { return Start; }
+  Type *getIndType() const { return IndTy; }
   VPValue *getStep() const { return Step; }
   int getStepMultiplier() const { return StepMultiplier; }
   Type *getStepType() const { return StepTy; }
@@ -1574,6 +1576,7 @@ public:
   void setStartPhi(VPInstruction *V) { StartPhi = V; }
   void setKind(InductionKind V) { K = V; }
   void setStart(VPValue *V) { Start = V; }
+  void setIndType(Type *Ty) { IndTy = Ty; }
   void setStep(VPValue *V) { Step = V; }
   void setStepMultiplier(int multiplier) { StepMultiplier = multiplier; }
   void setStepType(Type *Ty) { StepTy = Ty; }
@@ -1618,6 +1621,7 @@ public:
     StartPhi = nullptr;
     K = InductionKind::IK_NoInduction;
     Start = nullptr;
+    IndTy = nullptr;
     Step = nullptr;
     StepMultiplier = 1;
     StepSCEV = nullptr;
@@ -1658,6 +1662,7 @@ private:
   VPInstruction *StartPhi = nullptr;
   InductionKind K = InductionKind::IK_NoInduction;
   VPValue *Start = nullptr;
+  Type *IndTy = nullptr;
   VPValue *Step = nullptr;
   int StepMultiplier = 1;
   Type *StepTy = nullptr;
