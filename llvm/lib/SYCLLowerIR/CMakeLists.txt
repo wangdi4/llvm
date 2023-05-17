@@ -34,7 +34,6 @@ if (NOT TARGET LLVMGenXIntrinsics)
     # Date: Mon, 15 May 2023 23:44:14 +0000
     # Mark new lsc_load_merge intrinsics as LSC ones
     set(LLVMGenXIntrinsics_GIT_TAG fe92a377338258b725cfbd0a1bd49a9cf5e2864c)
-<<<<<<< HEAD
 
     if (INTEL_CUSTOMIZATION)
       # for xmain builds the LLVMGenXIntrinsics_GIT_REPO is constructed from
@@ -87,8 +86,6 @@ if (NOT TARGET LLVMGenXIntrinsics)
       set( LLVMGenXIntrinsics_GIT_REPO
         ${LLVMGenXIntrinsics_GIT_REPO_PATH}/${LLVMGenXIntrinsics_GIT_REPO_NAME} )
     endif (INTEL_CUSTOMIZATION)
-=======
->>>>>>> 79396ae0eeef3db59b4d612698bcc8ecb19e5d9e
 
     message(STATUS "vc-intrinsics repo is missing. Will try to download it from ${LLVMGenXIntrinsics_GIT_REPO}")
     include(FetchContent)
