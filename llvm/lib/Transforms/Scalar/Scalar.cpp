@@ -29,15 +29,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-<<<<<<< HEAD
-#include "llvm/Transforms/Scalar.h"
-#include "llvm/Analysis/BasicAliasAnalysis.h"
-#include "llvm/Analysis/ScopedNoAliasAA.h"
-#include "llvm/Analysis/TypeBasedAliasAnalysis.h"
 #include "llvm/IR/LegacyPassManager.h" // INTEL
-#include "llvm/IR/Verifier.h"
-=======
->>>>>>> 3ce72cd5f6d584d83d47e54edef5c132a6c3703d
 #include "llvm/InitializePasses.h"
 
 #if INTEL_CUSTOMIZATION
