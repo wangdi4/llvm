@@ -429,8 +429,9 @@ private:
   SmallPtrSet<HLLoop *, 8> OptReportVisitedSet;
 
   /// Returns true if the non-linear rval Ref of the If condition may be
-  /// unswitched together with its definition.
-  bool isPUCandidate(const HLIf *If, const RegDDRef *Ref, PUContext &PU) const;
+  /// unswitched together with its definition. Also, set the PU as required.
+  bool checkAndSetPUCandidate(const HLIf *If, const RegDDRef *Ref,
+                              PUContext &PU) const;
 
   /// Returns true of false whatever \p Edge prevents unswitching of non-linear
   /// condition. Populates PU and RefsStack.
@@ -452,16 +453,14 @@ private:
 
   /// Returns the deepest level at which any of the If/Ref operands is defined.
   unsigned getPossibleDefLevel(const HLIf *If, PUContext &PUC);
-  unsigned getPossibleDefLevel(const HLSwitch *Switch, PUContext &PUC);
+  unsigned getPossibleDefLevel(const HLSwitch *Switch);
   unsigned getPossibleDefLevel(const HLDDNode *Node, const RegDDRef *Ref,
-                               PUContext &PUC);
+                               bool *NonLinearRef = nullptr);
 
   /// Returns the possible level where CE is defined.
   ///
-  /// NonLinearBlob is set true whenever CE contains a non-linear blob.
   /// UDivBlob is set to true whenever CE contains a non-constant division.
-  unsigned getPossibleDefLevel(const CanonExpr *CE, bool &NonLinearBlob,
-                               bool &UDivBlob);
+  unsigned getPossibleCEDefLevel(const CanonExpr *CE, bool &UDivBlob);
 
   // Return true if we should reduce the cost of doing unswitching for Switch
   bool shouldUseReducedSwitchCost(const HLLoop *ParentLoop,
@@ -864,8 +863,9 @@ bool HIROptPredicate::processPUEdge(
 //   END DO
 // }
 //
-bool HIROptPredicate::isPUCandidate(const HLIf *If, const RegDDRef *Ref,
-                                    PUContext &PU) const {
+bool HIROptPredicate::checkAndSetPUCandidate(const HLIf *If,
+                                             const RegDDRef *Ref,
+                                             PUContext &PU) const {
   assert(isa<HLIf>(Ref->getHLDDNode()) && "Ref parent is not an HLIf");
   assert(Ref->getHLDDNode() == If && "HLIf should be a parent of Ref");
 
@@ -879,6 +879,14 @@ bool HIROptPredicate::isPUCandidate(const HLIf *If, const RegDDRef *Ref,
 
   HLLoop *ParentLoop = If->getParentLoop();
   unsigned ParentLoopLevel = ParentLoop->getNestingLevel();
+
+  // TODO: Removing this check allows to run the DDG graph. The issue is that
+  // it turns on HIRScalarReplArray for other benchmarks, even if we didn't
+  // enable HIROptPredicate and/or return early during the while loop. It seems
+  // that some data is being cached and/or not updated (CMPLRLLVM-47804).
+  if (Ref->hasIV(ParentLoopLevel))
+    return false;
+
   DDGraph DDG = DDA.getGraph(ParentLoop);
 
 #ifndef NDEBUG
@@ -919,6 +927,7 @@ bool HIROptPredicate::isPUCandidate(const HLIf *If, const RegDDRef *Ref,
     }
   }
 
+  PU.setPURequired();
   return true;
 }
 
@@ -1079,7 +1088,12 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
 
   if (IsCandidate) {
     // Determine target level to unswitch.
-    Level = std::max(Pass.getPossibleDefLevel(Node, PUC), MinLevel);
+    if (auto *If = dyn_cast<HLIf>(Node))
+      Level = std::max(Pass.getPossibleDefLevel(If, PUC), MinLevel);
+    else if (auto *Switch = dyn_cast<HLSwitch>(Node))
+      Level = std::max(Pass.getPossibleDefLevel(Switch), MinLevel);
+    else
+      llvm_unreachable("Trying to unswitch a Node that is not If or Switch");
 
     if (Level < CurrLoop->getNestingLevel()) {
       // Check if condition does not depend on both T/F branches at the same
@@ -1531,8 +1545,7 @@ void HIROptPredicate::CandidateLookup::visit(HLInst *Inst) {
     if (CmpOp->getDestType()->isVectorTy())
       return;
 
-    PUContext PUC;
-    unsigned DefLevel = Pass.getPossibleDefLevel(Inst, CmpOp, PUC);
+    unsigned DefLevel = Pass.getPossibleDefLevel(Inst, CmpOp);
     if (DefLevel >= LoopLevel)
       return;
 
@@ -1655,9 +1668,8 @@ bool HIROptPredicate::run() {
   return false;
 }
 
-unsigned HIROptPredicate::getPossibleDefLevel(const CanonExpr *CE,
-                                              bool &NonLinearBlob,
-                                              bool &UDivBlob) {
+unsigned HIROptPredicate::getPossibleCEDefLevel(const CanonExpr *CE,
+                                                bool &UDivBlob) {
   unsigned IVMaxLevel = 0;
   unsigned IVLevel = 0;
   for (auto I = CE->iv_begin(), E = CE->iv_end(); I != E; ++I) {
@@ -1685,41 +1697,47 @@ unsigned HIROptPredicate::getPossibleDefLevel(const CanonExpr *CE,
   }
 
   unsigned DefLevel = CE->getDefinedAtLevel();
-  if (DefLevel == NonLinearLevel) {
-    // The caller uses max IV level if there was non linear blobs.
-    NonLinearBlob = true;
-    return IVMaxLevel;
-  }
-
+  assert(DefLevel != NonLinearLevel && "Non linear CE found");
   return std::max(IVMaxLevel, DefLevel);
 }
 
+// Given a Ref that is used in Node, return at which loop level it is defined.
+// If NonLinearRef is passed, then store true or false if the Ref is considered
+// non-linear.
 unsigned HIROptPredicate::getPossibleDefLevel(const HLDDNode *Node,
                                               const RegDDRef *Ref,
-                                              PUContext &PUC) {
+                                              bool *NonLinearRef) {
+
+  // If the input Ref is NonLinear or a memref, then return the current node
+  // level
+  if (Ref->isMemRef() || Ref->isNonLinear()) {
+    if (NonLinearRef)
+      *NonLinearRef = true;
+
+    return Node->getNodeLevel();
+  }
+
   unsigned Level = 0;
-  bool NonLinearRef = false;
   bool UDivBlob = false;
   bool HasGEPInfo = Ref->hasGEPInfo();
 
   if (HasGEPInfo) {
-    Level = getPossibleDefLevel(Ref->getBaseCE(), NonLinearRef, UDivBlob);
+    Level = getPossibleCEDefLevel(Ref->getBaseCE(), UDivBlob);
   }
 
   for (unsigned I = 1, NumDims = Ref->getNumDimensions(); I <= NumDims; ++I) {
-    Level = std::max(Level, getPossibleDefLevel(Ref->getDimensionIndex(I),
-                                                NonLinearRef, UDivBlob));
+    Level = std::max(
+        Level, getPossibleCEDefLevel(Ref->getDimensionIndex(I), UDivBlob));
 
     if (HasGEPInfo) {
-      Level = std::max(Level, getPossibleDefLevel(Ref->getDimensionLower(I),
-                                                  NonLinearRef, UDivBlob));
-      Level = std::max(Level, getPossibleDefLevel(Ref->getDimensionStride(I),
-                                                  NonLinearRef, UDivBlob));
+      Level = std::max(
+          Level, getPossibleCEDefLevel(Ref->getDimensionLower(I), UDivBlob));
+      Level = std::max(
+          Level, getPossibleCEDefLevel(Ref->getDimensionStride(I), UDivBlob));
     }
   }
 
   unsigned NodeLevel = Node->getNodeLevel();
-
   if (NodeLevel == Level) {
     // Reference is dependent on If's nesting level. Ex.: a[i1] or i1 + %b
     return Level;
@@ -1730,19 +1748,6 @@ unsigned HIROptPredicate::getPossibleDefLevel(const HLDDNode *Node,
     Level = NodeLevel - 1;
   }
 
-  if (NonLinearRef || Ref->isMemRef()) {
-    // Return current level of attachment.
-    Level = NodeLevel;
-
-    const HLIf *If = dyn_cast<HLIf>(Node);
-
-    // May hoist one level up only.
-    if (If && isPUCandidate(If, Ref, PUC)) {
-      PUC.setPURequired();
-      Level -= 1;
-    }
-  }
-
   return Level;
 }
 
@@ -1750,26 +1755,30 @@ unsigned HIROptPredicate::getPossibleDefLevel(const HLIf *If, PUContext &PUC) {
   unsigned Level = 0;
 
   for (auto PI = If->pred_begin(), PE = If->pred_end(); PI != PE; ++PI) {
-    const RegDDRef *Ref1 = If->getLHSPredicateOperandDDRef(PI);
-    const RegDDRef *Ref2 = If->getRHSPredicateOperandDDRef(PI);
+    const RegDDRef *LRef = If->getLHSPredicateOperandDDRef(PI);
+    const RegDDRef *RRef = If->getRHSPredicateOperandDDRef(PI);
 
-    Level = std::max(Level, getPossibleDefLevel(If, Ref1, PUC));
-    if (Level == NonLinearLevel) {
-      return Level;
-    }
+    // Collect the possible level where the Ref was defined
+    bool NonLinearLRef = false;
+    unsigned LRefLevel = getPossibleDefLevel(If, LRef, &NonLinearLRef);
+    if (NonLinearLRef && checkAndSetPUCandidate(If, LRef, PUC))
+      --LRefLevel;
 
-    Level = std::max(Level, getPossibleDefLevel(If, Ref2, PUC));
-    if (Level == NonLinearLevel) {
-      return Level;
-    }
+    Level = std::max(Level, LRefLevel);
+
+    bool NonLinearRRef = false;
+    unsigned RRefLevel = getPossibleDefLevel(If, RRef, &NonLinearRRef);
+    if (NonLinearRRef && checkAndSetPUCandidate(If, RRef, PUC))
+      --RRefLevel;
+
+    Level = std::max(Level, RRefLevel);
   }
 
   return Level;
 }
 
-unsigned HIROptPredicate::getPossibleDefLevel(const HLSwitch *Switch,
-                                              PUContext &PUC) {
-  return getPossibleDefLevel(Switch, Switch->getConditionDDRef(), PUC);
+unsigned HIROptPredicate::getPossibleDefLevel(const HLSwitch *Switch) {
+  return getPossibleDefLevel(Switch, Switch->getConditionDDRef());
 }
 
 void HIROptPredicate::clearOptReportState() {
