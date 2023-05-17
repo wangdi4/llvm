@@ -23,26 +23,25 @@ int main() {
   std::vector<long> A(Size, 1);
   std::vector<long> B(Size, 2);
 
-  cl::sycl::queue Q;
+  sycl::queue Q;
 
-  cl::sycl::buffer<long> BufA(A.data(), cl::sycl::range<1>(Size));
-  cl::sycl::buffer<long> BufB(B.data(), cl::sycl::range<1>(Size));
+  sycl::buffer<long> BufA(A.data(), sycl::range<1>(Size));
+  sycl::buffer<long> BufB(B.data(), sycl::range<1>(Size));
 
-  Q.submit([&](cl::sycl::handler &CGH) {
+  Q.submit([&](sycl::handler &CGH) {
     sycl::accessor AccA{BufA, CGH, sycl::read_write};
     sycl::accessor AccB{BufB, CGH, sycl::read_only};
-    CGH.parallel_for<class K>(cl::sycl::range<1>(Size),
-                              [=](cl::sycl::id<1> Index) {
-                                int (*Fptr)(int, int) = nullptr;
-                                if (Index % 2 == 0)
-                                  Fptr = add;
-                                else
-                                  Fptr = sub;
-                                AccA[Index] = Fptr(AccA[Index], AccB[Index]);
-                              });
+    CGH.parallel_for<class K>(sycl::range<1>(Size), [=](sycl::id<1> Index) {
+      int (*Fptr)(int, int) = nullptr;
+      if (Index % 2 == 0)
+        Fptr = add;
+      else
+        Fptr = sub;
+      AccA[Index] = Fptr(AccA[Index], AccB[Index]);
+    });
   });
 
-  host_accessor HostAcc{BufA, read_only};
+  sycl::host_accessor HostAcc{BufA, sycl::read_only};
   auto *Data = HostAcc.get_pointer();
 
   bool Passed = true;
