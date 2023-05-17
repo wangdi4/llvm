@@ -5297,7 +5297,9 @@ public:
       return;
     }
 
-    if (!isValidAllocationSize(Call, Kind, DomTy))
+    assert(DomTy->isPointerTy() && "Expecting a pointer type for allocation");
+    if (!DomTy->getPointerElementType()->getLLVMType()->isSized() ||
+        !isValidAllocationSize(Call, Kind, DomTy))
       setBaseTypeInfoSafetyData(
           DomTy, dtrans::BadAllocSizeArg,
           "Allocation size does not match expected type size", Call);
