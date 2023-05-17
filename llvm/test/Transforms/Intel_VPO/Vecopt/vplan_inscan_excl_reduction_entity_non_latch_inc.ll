@@ -36,7 +36,7 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 1024 BinOp: i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP_INDVARS_IV_IND_INIT_STEP]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
 ; CHECK-EMPTY:
-; CHECK-NEXT:   IntInduction(+) Start: i32 [[VP0:%.*]] Step: i32 1 StartVal: ? EndVal: ? need close form
+; CHECK-NEXT:   IntInduction(+) Start: i32 [[VP0:undef]] Step: i32 1 StartVal: ? EndVal: ? need close form
 ; CHECK-NEXT:    Linked values: ptr [[VP_I_LINEAR_IV:%.*]], i32 [[VP_I_LINEAR_IV_IND_INIT:%.*]], i32 [[VP_I_LINEAR_IV_IND_INIT_STEP:%.*]], void [[VP_STORE_1:%.*]], i32 [[VP_I_LINEAR_IV_IND_FINAL:%.*]],
 ; CHECK-NEXT:   Memory: ptr [[I_LINEAR_IV0:%.*]]
 ; CHECK-EMPTY:
@@ -76,8 +76,8 @@ define float @_Z3fooPfS_(ptr %A, ptr %B) {
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
-; CHECK-NEXT:     i32 [[VP0]] = trunc i64 [[VP_INDVARS_IV]] to i32
-; CHECK-NEXT:     store i32 [[VP0]] ptr [[VP_I_LINEAR_IV]]
+; CHECK-NEXT:     i32 [[VP0_1:%.*]] = trunc i64 [[VP_INDVARS_IV]] to i32
+; CHECK-NEXT:     store i32 [[VP0_1]] ptr [[VP_I_LINEAR_IV]]
 ; CHECK-NEXT:     br [[BB55:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB55]]: # preds: [[BB4]]

@@ -1551,6 +1551,7 @@ public:
     Descriptor.setInductionOp(ID->getUpdateInstr());
     Descriptor.setIndOpcode(VPInduction::UnknownOpcode);
     Type *IndTy = Descriptor.getInductionOp()->getType();
+    Descriptor.setIndType(IndTy);
     VPInduction::InductionKind Kind;
     std::tie(std::ignore, Kind) = Descriptor.getKindAndOpcodeFromTy(IndTy);
     Descriptor.setKind(Kind);
@@ -1572,6 +1573,7 @@ public:
                   const LinearList::value_type &CurrValue) {
     const auto *Linear = cast<RegDDRef>(CurrValue.getRef());
     Type *IndTy = CurrValue.LinearTy;
+    Descriptor.setIndType(IndTy);
     // Save data type and find opcode for the induction.
     // Based on data type it is either Add, FAdd or GEP.
     Descriptor.setKindAndOpcodeFromTy(IndTy);

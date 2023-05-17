@@ -228,9 +228,6 @@ protected:
   // values are specified by the TargetInfo constructor.
   bool BigEndian;
   bool TLSSupported;
-#if INTEL_CUSTOMIZATION
-  bool IsFloat128Enabled;
-#endif // INTEL_CUSTOMIZATION
   bool VLASupported;
   bool NoAsmVariants;  // True if {|} are normal characters.
   bool HasLegalHalfType; // True if the backend supports operations on the half

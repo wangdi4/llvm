@@ -447,6 +447,7 @@ public:
         dyn_cast<VPInstruction>(Builder.getOrCreateVPOperand(CurValue.first)));
     Descriptor.setKind(ID.getKind());
     Descriptor.setStart(Builder.getOrCreateVPOperand(ID.getStartValue()));
+    Descriptor.setIndType(Descriptor.getStart()->getType());
     const SCEV *Step = ID.getStep();
     Value *V = nullptr;
     if (auto UndefStep = dyn_cast<SCEVUnknown>(Step))
@@ -546,6 +547,7 @@ public:
     std::tie(IndTy, IndPointeeTy, Step, IsIV) = CurValue.second;
     Descriptor.setKindAndOpcodeFromTy(IndTy);
 
+    Descriptor.setIndType(IndTy);
     Type *StepTy = IndTy;
     Descriptor.setStepType(StepTy);
     if (isa<ConstantInt>(Step)) {

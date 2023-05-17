@@ -471,11 +471,21 @@ VPUserDefinedReduction *VPLoopEntityList::addUserDefinedReduction(
 }
 
 VPInduction *VPLoopEntityList::addInduction(
-    VPInstruction *Start, VPValue *Incoming, InductionKind Kind, VPValue *Step,
-    int StepMultiplier, Type *StepTy, const SCEV *StepSCEV, VPValue *StartVal,
-    VPValue *EndVal, VPInstruction *InductionOp, unsigned int Opc, VPValue *AI,
-    bool ValidMemOnly) {
+    VPInstruction *Start, VPValue *Incoming, Type *IndTy, InductionKind Kind,
+    VPValue *Step, int StepMultiplier, Type *StepTy, const SCEV *StepSCEV,
+    VPValue *StartVal, VPValue *EndVal, VPInstruction *InductionOp,
+    unsigned int Opc, VPValue *AI, bool ValidMemOnly) {
   //  assert(Start && "null starting instruction");
+  if (Incoming->getType() != IndTy) {
+    // This is the case with in-memory inductions. In such cases the Incoming
+    // is set to a pointer to induction variable declared in the clause. The
+    // induction descriptor requires Incoming to be of the type of induction so
+    // we can't pass the pointer and we create an undef to overcome that
+    // restriction. During emitting induction initialization that undef is
+    // ignored and replaced by the load from the induction variable.
+    assert((ValidMemOnly && AI) && "Expected in-memory induction");
+    Incoming = Plan.getVPConstant(UndefValue::get(IndTy));
+  }
   VPInduction *Ind =
       new VPInduction(Incoming, Kind, Step, StepMultiplier, StepTy, StepSCEV,
                       StartVal, EndVal, InductionOp, ValidMemOnly, Opc);
@@ -3962,8 +3972,7 @@ bool VPEntityImportDescr::hasRealUserInLoop(VPValue *Val, const VPLoop *Loop,
 // is really of a pointed-to type. We replace Start with a load in this case
 // and Start should not be used at initialization, use AI in this case to
 // generate a load.
-VPValue *VPEntityImportDescr::findMemoryUses(VPValue *Start,
-                                             const VPLoop *Loop) {
+bool VPEntityImportDescr::findMemoryUses(VPValue *Start, const VPLoop *Loop) {
   Importing = hasRealUserInLoop(Start, Loop, MemAliases);
   ValidMemOnly = true;
 
@@ -3982,40 +3991,26 @@ VPValue *VPEntityImportDescr::findMemoryUses(VPValue *Start,
     //  enddo
     //  use(k);
     //
-    // TODO: for inductions, this situation can be handled using close-form
-    // re-calculation at the beginning of the loop.
-    VPValue *LdStInstr = nullptr;
     SmallVector<VPValue *, 4> Worklist;
     Worklist.push_back(Start);
 
-    while (!LdStInstr && !Worklist.empty()) {
+    while (!Worklist.empty()) {
       const VPValue *CurWorkItem = Worklist.pop_back_val();
       for (auto *User : CurWorkItem->users()) {
         auto *InstUser = dyn_cast<VPInstruction>(User);
         if (!InstUser || !Loop->contains(InstUser))
           continue;
 
-        auto *LdStUser = dyn_cast<VPLoadStoreInst>(User);
-        if (LdStUser) {
-          if (LdStUser->getOpcode() == Instruction::Load)
-            LdStInstr = LdStUser;
-          else
-            LdStInstr = LdStUser->getOperand(0);
-          break;
+        if (dyn_cast<VPLoadStoreInst>(User) ||
+            dyn_cast<VPCallInstruction>(User)) {
+          return true;
         } else if (isSelfAddressOfInst(InstUser)) {
           Worklist.push_back(InstUser);
         }
       }
     }
-    if (!LdStInstr) {
-      // No able to find load/store. Assert in debug mode and don't
-      // import it in product compiler. So far no cases detected.
-      assert(false && "Can't handle explicit induction/reduction");
-      Importing = false;
-    } else
-      Start = LdStInstr;
   }
-  return Start;
+  return false;
 }
 
 void InductionDescr::checkParentVPLoop(const VPLoop *Loop) const {
@@ -4187,8 +4182,8 @@ void InductionDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
 
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
   VPInduction *VPInd = LE->addInduction(
-      StartPhi, Start, K, Step, StepMultiplier, StepTy, StepSCEV, StartVal,
-      EndVal, InductionOp, IndOpcode, AllocaInst, ValidMemOnly);
+      StartPhi, Start, IndTy, K, Step, StepMultiplier, StepTy, StepSCEV,
+      StartVal, EndVal, InductionOp, IndOpcode, AllocaInst, ValidMemOnly);
   if (inductionNeedsCloseForm(Loop))
     VPInd->setNeedCloseForm(true);
   VPInd->setIsLinearIV(getIsLinearIV());
@@ -4220,7 +4215,11 @@ void InductionDescr::tryToCompleteByVPlan(VPlanVector *Plan,
       // Start should represent AllocaIns.
       assert((isa<VPExternalDef>(Start) && InductionOp == nullptr) &&
              "Induction is not properly defined");
-      Start = findMemoryUses(Start, Loop);
+      if (!findMemoryUses(Start, Loop)) {
+        Importing = false;
+        return; // We are not going to import that induction so we don't need to
+                // execute that code.
+      }
     }
   }
 
