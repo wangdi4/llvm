@@ -52,7 +52,7 @@ typedef enum {
 
 // #define OCL_EVENT_WAIT_STRATEGY OCL_EVENT_WAIT_SPIN
 // #define OCL_EVENT_WAIT_STRATEGY OCL_EVENT_WAIT_YIELD
-#ifdef WIN32
+#ifdef _WIN32
 #define OCL_EVENT_WAIT_STRATEGY OCL_EVENT_WAIT_OS_DEPENDENT
 #else // For Linux, the CFS performs much better without active wait
 #define OCL_EVENT_WAIT_STRATEGY OCL_EVENT_WAIT_OS_DEPENDENT

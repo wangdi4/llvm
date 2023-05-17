@@ -338,7 +338,7 @@ static void TestEnqueueSVMCommands(cl_context context, cl_command_queue queue,
   CheckException("clCreateSubBuffer", CL_SUCCESS, iRet);
 
   char *srcBuf
-#ifdef WIN32
+#ifdef _WIN32
       = (char *)_aligned_malloc(
           BUF_SIZE,
           sizeof(pattern)); // srcBuf is initialized using clEnqueueSVMMemFill

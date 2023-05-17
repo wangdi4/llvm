@@ -40,7 +40,7 @@
 #include <tbb/task.h>
 #include <vector>
 
-#ifdef WIN32
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
@@ -448,7 +448,7 @@ unsigned int TBBTaskExecutor::GetMaxNumOfConcurrentThreads() const {
 ocl_gpa_data *TBBTaskExecutor::GetGPAData() const { return m_pGPAData; }
 
 bool TBBTaskExecutor::LoadTBBLibrary() {
-#ifdef WIN32
+#ifdef _WIN32
   // The loading on tbb.dll was delayed,
   // Need to load manually before default dll is loaded
 

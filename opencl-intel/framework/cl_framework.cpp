@@ -44,7 +44,7 @@ using namespace Intel::OpenCL::Utils;
 
 #if defined(USE_ITT)
 
-#ifdef WIN32
+#ifdef _WIN32
 #define itt_thread_local __declspec(thread)
 #else
 #define itt_thread_local __thread

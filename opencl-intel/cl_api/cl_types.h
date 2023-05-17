@@ -132,7 +132,7 @@ typedef struct _cl_mem_obj_descriptor {
   cl_mem_object_type memObjType = 0; // type of the memory object
 } cl_mem_obj_descriptor;
 
-#ifdef WIN32
+#ifdef _WIN32
 #define ALIGN16 __declspec(align(16))
 #else
 #define ALIGN16 __attribute__((aligned(16)))
