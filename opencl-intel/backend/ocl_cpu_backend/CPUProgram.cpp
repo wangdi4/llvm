@@ -11,7 +11,7 @@
 // License.
 
 #define NOMINMAX
-#ifndef WIN32
+#ifndef _WIN32
 #include "cl_amx_syscall.h"
 #endif
 #include "BitCodeContainer.h"
@@ -153,7 +153,7 @@ cl_dev_err_code CPUProgram::Finalize() {
   // is enabled on Windows.
   CreateAndSetBlockToKernelMapper();
 
-#ifndef WIN32
+#ifndef _WIN32
   // Read the HasMatrixCall Property of each kernel and run amx syscall.
   static llvm::once_flag OnceFlag;
   for (size_t i = 0; i < m_kernels->GetCount(); ++i) {

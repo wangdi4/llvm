@@ -18,7 +18,7 @@
 
 using namespace Intel::OpenCL::Utils;
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <windows.h>
 #endif
 #include <assert.h>

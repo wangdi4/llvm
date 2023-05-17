@@ -142,9 +142,9 @@ GetCPUDevInfo(CPUDeviceConfig &config) {
 static const cl_device_partition_property CPU_SUPPORTED_FISSION_MODES[] = {
     CL_DEVICE_PARTITION_BY_COUNTS, CL_DEVICE_PARTITION_EQUALLY,
     CL_DEVICE_PARTITION_BY_NAMES_INTEL,
-#ifndef WIN32
+#ifndef _WIN32
     CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN
-#endif // WIN32
+#endif
 };
 
 typedef enum {
@@ -449,7 +449,7 @@ void CPUDevice::calculateComputeUnitMap() {
   bool hasEnvPlaces = getEnvVar(places, "SYCL_CPU_PLACES") ||
                       getEnvVar(places, "DPCPP_CPU_PLACES");
 
-#ifndef WIN32
+#ifndef _WIN32
   // For Linux, respect the process affinity mask in determining which cores to
   // run on
   affinityMask_t myParentMask;
@@ -1875,7 +1875,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
     std::vector<cl_device_partition_property> supportedProperties(
         std::begin(CPU_SUPPORTED_FISSION_MODES),
         std::end(CPU_SUPPORTED_FISSION_MODES));
-#ifndef WIN32
+#ifndef _WIN32
     if (GetMaxNumaNode() <= 1) {
       auto it =
           std::find(supportedProperties.begin(), supportedProperties.end(),
@@ -1910,12 +1910,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
     // if OUT paramVal is NULL it should be ignored
     if (nullptr != paramVal) {
       *((cl_device_affinity_domain *)paramVal) =
-#ifndef WIN32
+#ifndef _WIN32
           GetMaxNumaNode() > 1
               ? (cl_device_affinity_domain)(CL_DEVICE_AFFINITY_DOMAIN_NUMA |
                                             CL_DEVICE_AFFINITY_DOMAIN_NEXT_PARTITIONABLE)
               :
-#endif // WIN32
+#endif
               (cl_device_affinity_domain)0;
     }
     return CL_DEV_SUCCESS;
@@ -2356,7 +2356,7 @@ static void rollBackSubdeviceAllocation(cl_dev_subdevice_id *IN subdevice_ids,
 
 bool CPUDevice::CoreToCoreIndex(unsigned int *core) {
   // Only support affinity masks on Linux
-#ifdef WIN32
+#ifdef _WIN32
   return true;
 #else
   // Todo: maybe use binary search here

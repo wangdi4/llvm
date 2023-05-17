@@ -12,9 +12,9 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#ifdef WIN32
+#ifdef _WIN32
 #define CL_DX9_MEDIA_SHARING_INTEL_EXT
-#endif /*WIN32*/
+#endif
 
 #include "cl_utils.h"
 
@@ -30,7 +30,7 @@
 using namespace std;
 using namespace Intel::OpenCL;
 
-#ifdef WIN32
+#ifdef _WIN32
 // recordering the header files will lead to compilation error on Windows.
 // clang-format off
 #include <CL/cl_d3d11.h>
@@ -752,7 +752,7 @@ std::string GetConfigFilePath() {
   char ModuleName[MAX_PATH];
   Intel::OpenCL::Utils::GetModulePathName((void *)GetConfigFilePath, ModuleName,
                                           MAX_PATH);
-#ifdef WIN32
+#ifdef _WIN32
 #define DLL_EXT ".dll"
 #else
 #define DLL_EXT ".so"
@@ -807,7 +807,7 @@ int internal_clz(unsigned int pattern) {
 }
 #endif // defined(_MSC_VER) && !defined(_WIN64)
 
-#ifdef WIN32
+#ifdef _WIN32
 bool GetStringValueFromRegistryOrETC(HKEY top_hkey, const char *keyPath,
                                      const char *valueName, char *retValue,
                                      DWORD size) {

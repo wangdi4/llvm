@@ -28,7 +28,7 @@ static bool isIRFileName(const string &name) {
   return false;
 }
 
-#if defined(WIN32)
+#if defined(_WIN32)
 #include <windows.h>
 
 namespace Intel {
@@ -58,7 +58,7 @@ bool getIRFileNames(const char *dirName, vector<string> &fileList) {
   return true;
 }
 } // namespace Intel
-#else // WIN32
+#else // _WIN32
 
 #include <dirent.h>
 #include <sys/stat.h>
@@ -100,4 +100,4 @@ bool getIRFileNames(const char *dirName, vector<string> &fileList) {
   return true;
 }
 } // namespace Intel
-#endif // WIN32
+#endif // _WIN32

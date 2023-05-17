@@ -182,15 +182,15 @@ extern "C" {
 #endif
 
 #ifndef CDECL
-#if defined WIN32 || defined _WIN32
+#if defined _WIN32
 #define CDECL __cdecl
-#else /* defined WIN32 || defined _WIN32 */
+#else /* defined _WIN32 */
 #if defined _M_X64 || defined _M_AMD64 || defined __x86_64__
 #define CDECL /* not actual on x86_64 platform */
 #else         /* _M_X64 || _M_AMD64 || __x86_64__ */
 #define CDECL __attribute__((cdecl))
 #endif /* _M_X64 || _M_AMD64 || __x86_64__ */
-#endif /* defined WIN32 || defined _WIN32 */
+#endif /* defined _WIN32 */
 #endif /* CDECL */
 
 #define JITAPI CDECL

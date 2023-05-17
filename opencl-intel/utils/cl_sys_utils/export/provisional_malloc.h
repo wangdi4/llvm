@@ -28,7 +28,7 @@
  * objects.
  */
 
-#ifdef WIN32
+#ifdef _WIN32
 #define IGNORE_GCC_UNUSED
 #else
 #define IGNORE_GCC_UNUSED __attribute__((unused))

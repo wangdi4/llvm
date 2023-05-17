@@ -46,7 +46,7 @@
 #include <limits.h>
 #include <stdlib.h>
 
-#if defined(_WIN32)
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
@@ -338,7 +338,7 @@ bool TaskDispatcher::isDestributedAllocationRequired() {
 }
 
 bool TaskDispatcher::isThreadAffinityRequired() {
-#if (defined(WIN32)) // Not pinning threads for Windows
+#ifdef _WIN32 // Not pinning threads for Windows
   return false;
 #else
   return true;

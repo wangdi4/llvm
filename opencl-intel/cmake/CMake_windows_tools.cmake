@@ -46,10 +46,6 @@ if(NOT DEFINED INTEL_COMPILER)
   set(ADD_C_FLAGS_RELEASE "${ADD_C_FLAGS_RELEASE} /GS")
 endif()
 
-# Compiler switches that CAN be modified during makefile generation and
-# configuration-independent
-add_definitions(-DWIN32)
-
 # INTEL_CUSTOMIZATION
 # ITT/GPA/VTUNE integration
 if(USE_GPA)
