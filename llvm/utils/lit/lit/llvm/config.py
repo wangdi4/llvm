@@ -768,23 +768,6 @@ class LLVMConfig(object):
 
         # Discover the LLD executables to use.
 
-<<<<<<< HEAD
-        ld_lld = self.use_llvm_tool('ld.lld', required=required,
-                                    search_paths=paths,
-                                    use_installed=use_installed)
-        lld_link = self.use_llvm_tool('lld-link', required=required,
-                                      search_paths=paths,
-                                      use_installed=use_installed)
-        # INTEL_CUSTOMIZATION
-        # Setting required=False temporarily as we do not build these tools
-        ld64_lld = self.use_llvm_tool('ld64.lld', required=False,
-                                      search_paths=paths,
-                                      use_installed=use_installed)
-        wasm_ld = self.use_llvm_tool('wasm-ld', required=False,
-                                     search_paths=paths,
-                                     use_installed=use_installed)
-        # end INTEL_CUSTOMIZATION
-=======
         ld_lld = self.use_llvm_tool(
             "ld.lld", required=required, search_paths=paths, use_installed=use_installed
         )
@@ -794,20 +777,21 @@ class LLVMConfig(object):
             search_paths=paths,
             use_installed=use_installed,
         )
+        # INTEL_CUSTOMIZATION
+        # Setting required=False temporarily as we do not build these tools
         ld64_lld = self.use_llvm_tool(
-            "ld64.lld",
-            required=required,
-            search_paths=paths,
-            use_installed=use_installed,
+             "ld64.lld",
+             required=False,
+             search_paths=paths,
+             use_installed=use_installed,
         )
         wasm_ld = self.use_llvm_tool(
             "wasm-ld",
-            required=required,
+            required=False,
             search_paths=paths,
             use_installed=use_installed,
         )
->>>>>>> 4843e9e8d1be088b29fa4b4e898043c75ef53589
-
+        # end INTEL_CUSTOMIZATION
         was_found = ld_lld and lld_link and ld64_lld and wasm_ld
         tool_substitutions = []
         if ld_lld:

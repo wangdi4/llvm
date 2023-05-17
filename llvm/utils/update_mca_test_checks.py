@@ -578,13 +578,9 @@ def main():
             prefix_pad,
         )
 
-<<<<<<< HEAD
     intel_update_markup.update(test_path) # INTEL
 
-  return 0
-=======
     return 0
->>>>>>> 4843e9e8d1be088b29fa4b4e898043c75ef53589
 
 
 if __name__ == "__main__":

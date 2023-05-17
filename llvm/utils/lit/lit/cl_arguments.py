@@ -278,27 +278,6 @@ def parse_args():
     )
 
     debug_group = parser.add_argument_group("Debug and Experimental Options")
-<<<<<<< HEAD
-    debug_group.add_argument("--debug",
-            help="Enable debugging (for 'lit' development)",
-            action="store_true")
-    debug_group.add_argument("--show-suites",
-            help="Show discovered test suites and exit",
-            action="store_true")
-
-# INTEL_CUSTOMIZATION
-    debug_group.add_argument("--show-final-subst",
-            help="Show subst before run and exit",
-            action="store_true")
-# end INTEL_CUSTOMIZATION
-
-    debug_group.add_argument("--show-tests",
-            help="Show all discovered tests and exit",
-            action="store_true")
-    debug_group.add_argument("--show-used-features",
-            help="Show all features used in the test suite (in XFAIL, UNSUPPORTED and REQUIRES) and exit",
-            action="store_true")
-=======
     debug_group.add_argument(
         "--debug", help="Enable debugging (for 'lit' development)", action="store_true"
     )
@@ -307,6 +286,11 @@ def parse_args():
         help="Show discovered test suites and exit",
         action="store_true",
     )
+# INTEL_CUSTOMIZATION
+    debug_group.add_argument("--show-final-subst",
+           help="Show subst before run and exit",
+           action="store_true")
+# end INTEL_CUSTOMIZATION
     debug_group.add_argument(
         "--show-tests", help="Show all discovered tests and exit", action="store_true"
     )
@@ -315,7 +299,6 @@ def parse_args():
         help="Show all features used in the test suite (in XFAIL, UNSUPPORTED and REQUIRES) and exit",
         action="store_true",
     )
->>>>>>> 4843e9e8d1be088b29fa4b4e898043c75ef53589
 
     # LIT is special: environment variables override command line arguments.
     env_args = shlex.split(os.environ.get("LIT_OPTS", ""))

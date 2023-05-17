@@ -20,16 +20,6 @@ class LitConfig(object):
     easily.
     """
 
-<<<<<<< HEAD
-    def __init__(self, progname, path, quiet,
-                 useValgrind, valgrindLeakCheck, valgrindArgs,
-                 noExecute, debug, isWindows, order,
-                 params, config_prefix = None,
-                 maxIndividualTestTime = 0,
-                 parallelism_groups = {},
-                 show_final_subst = False, #INTEL
-                 echo_all_commands = False):
-=======
     def __init__(
         self,
         progname,
@@ -46,9 +36,9 @@ class LitConfig(object):
         config_prefix=None,
         maxIndividualTestTime=0,
         parallelism_groups={},
+        show_final_subst = False, #INTEL
         echo_all_commands=False,
     ):
->>>>>>> 4843e9e8d1be088b29fa4b4e898043c75ef53589
         # The name of the test runner.
         self.progname = progname
         # The items to add to the PATH environment variable.

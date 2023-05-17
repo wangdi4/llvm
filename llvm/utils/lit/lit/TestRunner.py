@@ -2118,11 +2118,10 @@ def executeShTest(
 
     tmpDir, tmpBase = getTempPaths(test)
     substitutions = list(extra_substitutions)
-<<<<<<< HEAD
-    substitutions += getDefaultSubstitutions(test, tmpDir, tmpBase,
-                                             normalize_slashes=useExternalSh)
-    conditions = { feature: True for feature in test.config.available_features }
-
+    substitutions += getDefaultSubstitutions(
+        test, tmpDir, tmpBase, normalize_slashes=useExternalSh
+    )
+    conditions = {feature: True for feature in test.config.available_features}
 # INTEL_CUSTOMIZATION
     if litConfig.show_final_subst:
         substitutions = sorted(substitutions)
@@ -2132,19 +2131,11 @@ def executeShTest(
         return lit.Test.Result(Test.PASS)
 # end INTEL_CUSTOMIZATION
 
-    script = applySubstitutions(script, substitutions, conditions,
-                                recursion_limit=test.config.recursiveExpansionLimit)
-=======
-    substitutions += getDefaultSubstitutions(
-        test, tmpDir, tmpBase, normalize_slashes=useExternalSh
-    )
-    conditions = {feature: True for feature in test.config.available_features}
     script = applySubstitutions(
         script,
         substitutions,
         conditions,
         recursion_limit=test.config.recursiveExpansionLimit,
     )
->>>>>>> 4843e9e8d1be088b29fa4b4e898043c75ef53589
 
     return _runShTest(test, litConfig, useExternalSh, script, tmpBase)

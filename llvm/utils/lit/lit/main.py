@@ -40,13 +40,9 @@ def main(builtin_params={}):
         order=opts.order,
         params=params,
         config_prefix=opts.configPrefix,
-<<<<<<< HEAD
         show_final_subst=opts.show_final_subst, #INTEL
-        echo_all_commands=opts.echoAllCommands)
-=======
         echo_all_commands=opts.echoAllCommands,
     )
->>>>>>> 4843e9e8d1be088b29fa4b4e898043c75ef53589
 
     discovered_tests = lit.discovery.find_tests_for_inputs(
         lit_config, opts.test_paths, opts.indirectlyRunCheck

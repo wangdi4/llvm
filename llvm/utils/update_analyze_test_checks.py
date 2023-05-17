@@ -38,11 +38,9 @@ import re
 
 from UpdateTestChecks import common
 
-<<<<<<< HEAD
+
 from UpdateTestChecks import intel_update_markup # INTEL
 from UpdateTestChecks import intel_default_options # INTEL
-=======
->>>>>>> 4843e9e8d1be088b29fa4b4e898043c75ef53589
 
 def main():
     from argparse import RawTextHelpFormatter
@@ -89,24 +87,16 @@ def main():
                 common.warn("WSkipping non-%s RUN line: %s" % (opt_basename, l))
                 continue
 
-<<<<<<< HEAD
-      tool_cmd_args = tool_cmd[len(opt_basename):].strip()
-      tool_cmd_args = tool_cmd_args.replace('< %s', '').replace('%s', '').strip()
-
-      # INTEL_CUSTOMIZATION
-      default_options = intel_default_options.get_default_options_for_tool(ti, ti.args.opt_binary)
-      tool_cmd_args = default_options + " " +  tool_cmd_args
-      # end INTEL_CUSTOMIZATION
-
-      check_prefixes = common.get_check_prefixes(filecheck_cmd)
-=======
             if not filecheck_cmd.startswith("FileCheck "):
                 common.warn("Skipping non-FileChecked RUN line: " + l)
                 continue
->>>>>>> 4843e9e8d1be088b29fa4b4e898043c75ef53589
 
             tool_cmd_args = tool_cmd[len(opt_basename) :].strip()
             tool_cmd_args = tool_cmd_args.replace("< %s", "").replace("%s", "").strip()
+            # INTEL_CUSTOMIZATION
+            default_options = intel_default_options.get_default_options_for_tool(ti, ti.args.opt_binary)
+            tool_cmd_args = default_options + " " +  tool_cmd_args
+            # end INTEL_CUSTOMIZATION
             check_prefixes = common.get_check_prefixes(filecheck_cmd)
 
             # FIXME: We should use multiple check prefixes to common check lines. For

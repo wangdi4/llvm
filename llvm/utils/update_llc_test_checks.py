@@ -112,25 +112,17 @@ def main():
                 common.warn("Skipping non-FileChecked RUN line: " + l)
                 continue
 
-<<<<<<< HEAD
-      llc_cmd_args = llc_cmd[len(llc_tool):].strip()
-      llc_cmd_args = llc_cmd_args.replace('< %s', '').replace('%s', '').strip()
-      if ti.path.endswith('.mir'):
-        llc_cmd_args += ' -x mir'
-
-      # INTEL_CUSTOMIZATION
-      default_options = intel_default_options.get_default_options_for_tool(ti, ti.args.llc_binary or llc_tool)
-      llc_cmd_args = default_options + " " +  llc_cmd_args
-      # end INTEL_CUSTOMIZATION
-
-      check_prefixes = common.get_check_prefixes(filecheck_cmd)
-=======
             llc_cmd_args = llc_cmd[len(llc_tool) :].strip()
             llc_cmd_args = llc_cmd_args.replace("< %s", "").replace("%s", "").strip()
             if ti.path.endswith(".mir"):
                 llc_cmd_args += " -x mir"
+
+            # INTEL_CUSTOMIZATION
+            default_options = intel_default_options.get_default_options_for_tool(ti, ti.args.llc_binary or llc_tool)
+            llc_cmd_args = default_options + " " +  llc_cmd_args
+            # end INTEL_CUSTOMIZATION
+
             check_prefixes = common.get_check_prefixes(filecheck_cmd)
->>>>>>> 4843e9e8d1be088b29fa4b4e898043c75ef53589
 
             # FIXME: We should use multiple check prefixes to common check lines. For
             # now, we just ignore all but the last.

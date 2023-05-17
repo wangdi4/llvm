@@ -323,19 +323,12 @@ def main():
         for l in ti.run_lines:
             commands = [cmd.strip() for cmd in l.split("|")]
 
-<<<<<<< HEAD
-      update_subst_with_default_options(ti) #INTEL
+            update_subst_with_default_options(ti) #INTEL
 
-      triple_in_cmd = None
-      m = common.TRIPLE_ARG_RE.search(commands[0])
-      if m:
-        triple_in_cmd = m.groups()[0]
-=======
             triple_in_cmd = None
             m = common.TRIPLE_ARG_RE.search(commands[0])
             if m:
                 triple_in_cmd = m.groups()[0]
->>>>>>> 4843e9e8d1be088b29fa4b4e898043c75ef53589
 
             # Parse executable args.
             exec_args = shlex.split(commands[0])

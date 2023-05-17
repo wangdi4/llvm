@@ -43,26 +43,16 @@ except ImportError:
     if not tags.has("builder-man"):
         raise
 else:
-<<<<<<< HEAD
-  import sphinx
-  if sphinx.version_info >= (3, 0):
-    # This requires 0.5 or later.
-# INTEL_CUSTOMIZATION
-    extensions.extend(['recommonmark', 'sphinx.ext.mathjax', 'sphinx.ext.graphviz'])
-# // INTEL_CUSTOMIZATION
-  else:
-    source_parsers = {'.md': 'recommonmark.parser.CommonMarkParser'}
-  source_suffix['.md'] = 'markdown'
-=======
     import sphinx
 
     if sphinx.version_info >= (3, 0):
         # This requires 0.5 or later.
-        extensions.append("recommonmark")
+# INTEL_CUSTOMIZATION
+        extensions.extend(["recommonmark", "sphinx.ext.mathjax", "sphinx.ext.graphviz"])
+# //  INTEL_CUSTOMIZATION
     else:
         source_parsers = {".md": "recommonmark.parser.CommonMarkParser"}
     source_suffix[".md"] = "markdown"
->>>>>>> 4843e9e8d1be088b29fa4b4e898043c75ef53589
 
 # The encoding of source files.
 # source_encoding = 'utf-8-sig'
