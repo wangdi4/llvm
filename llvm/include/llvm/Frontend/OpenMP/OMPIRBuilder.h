@@ -503,7 +503,11 @@ public:
   /// Finalize the underlying module, e.g., by outlining regions.
   /// \param Fn                    The function to be finalized. If not used,
   ///                              all functions are finalized.
-  void finalize(Function *Fn = nullptr);
+  void finalize(
+#if INTEL_COLLAB
+      bool IsLateOutline,
+#endif // INTEL_COLLAB
+      Function *Fn = nullptr);
 
   /// Add attributes known for \p FnID to \p Fn.
   void addAttributes(omp::RuntimeFunction FnID, Function &Fn);

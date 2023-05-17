@@ -499,7 +499,11 @@ void OpenMPIRBuilder::initialize(StringRef HostFilePath) {
   loadOffloadInfoMetadata(*M.get());
 }
 
-void OpenMPIRBuilder::finalize(Function *Fn) {
+void OpenMPIRBuilder::finalize(
+#if INTEL_COLLAB
+    bool IsLateOutline,
+#endif // INTEL_COLLAB
+    Function *Fn) {
   SmallPtrSet<BasicBlock *, 32> ParallelRegionBlockSet;
   SmallVector<BasicBlock *, 32> Blocks;
   SmallVector<OutlineInfo, 16> DeferredOutlines;
@@ -596,7 +600,11 @@ void OpenMPIRBuilder::finalize(Function *Fn) {
   };
 
   if (!OffloadInfoManager.empty())
+#if INTEL_COLLAB
+    createOffloadEntriesAndInfoMetadata(IsLateOutline, ErrorReportFn);
+#else  // INTEL_COLLAB
     createOffloadEntriesAndInfoMetadata(ErrorReportFn);
+#endif // INTEL_COLLAB
 }
 
 OpenMPIRBuilder::~OpenMPIRBuilder() {

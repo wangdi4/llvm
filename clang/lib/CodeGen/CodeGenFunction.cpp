@@ -114,7 +114,16 @@ CodeGenFunction::~CodeGenFunction() {
   // time of the CodeGenModule, because we have to ensure the IR has not yet
   // been "emitted" to the outside, thus, modifications are still sensible.
   if (CGM.getLangOpts().OpenMPIRBuilder && CurFn)
+#if INTEL_COLLAB
+    CGM.getOpenMPRuntime().getOMPBuilder().finalize(
+#if INTEL_CUSTOMIZATION
+        CGM.getLangOpts().OpenMPLateOutlineTarget &&
+#endif // INTEL_CUSTOMIZATION
+            CGM.getLangOpts().OpenMPLateOutline,
+        CurFn);
+#else  // INTEL_COLLAB
     CGM.getOpenMPRuntime().getOMPBuilder().finalize(CurFn);
+#endif // INTEL_COLLAB
 }
 
 // Map the LangOption for exception behavior into
