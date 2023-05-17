@@ -1123,6 +1123,22 @@ PrefixKind X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand,
 
   assert(!(TSFlags & X86II::LOCK) && "Can't have LOCK VEX.");
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  unsigned NumOps = MI.getNumOperands();
+  for (unsigned I = NumOps ? X86II::getOperandBias(Desc) : 0; I != NumOps;
+       ++I) {
+    const MCOperand &MO = MI.getOperand(I);
+    if (!MO.isReg())
+      continue;
+    unsigned Reg = MO.getReg();
+    if (Reg == X86::AH || Reg == X86::BH || Reg == X86::CH || Reg == X86::DH)
+      report_fatal_error(
+          "Cannot encode high byte register in VEX/EVEX-prefixed instruction");
+  }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+
   X86OpcodePrefixHelper Prefix(*Ctx.getRegisterInfo(), STI); // INTEL
   switch (TSFlags & X86II::EncodingMask) {
   default:

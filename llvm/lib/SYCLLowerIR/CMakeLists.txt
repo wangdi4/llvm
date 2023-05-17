@@ -31,9 +31,9 @@ if (NOT TARGET LLVMGenXIntrinsics)
   if (NOT DEFINED LLVMGenXIntrinsics_SOURCE_DIR)
     set(LLVMGenXIntrinsics_GIT_REPO https://github.com/intel/vc-intrinsics.git)
     # Author: "Victor Mustya" <victor.mustya@intel.com>
-    # Date: Tue, 25 Apr 2023 15:13:02 +0000
-    # Use target extension types for SPIR-V opaque arguments
-    set(LLVMGenXIntrinsics_GIT_TAG 2c39bf09756c3afd6ce77c7aa104e4a6e025405d)
+    # Date: Mon, 15 May 2023 23:44:14 +0000
+    # Mark new lsc_load_merge intrinsics as LSC ones
+    set(LLVMGenXIntrinsics_GIT_TAG fe92a377338258b725cfbd0a1bd49a9cf5e2864c)
 
     if (INTEL_CUSTOMIZATION)
       # for xmain builds the LLVMGenXIntrinsics_GIT_REPO is constructed from
@@ -45,9 +45,9 @@ if (NOT TARGET LLVMGenXIntrinsics)
       set(LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/intel)
       set(LLVMGenXIntrinsics_GIT_REPO_NAME vc-intrinsics.git)
       # Author: "Victor Mustya" <victor.mustya@intel.com>
-      # Date: Tue, 25 Apr 2023 15:13:02 +0000
-      # Use target extension types for SPIR-V opaque arguments
-      set(LLVMGenXIntrinsics_GIT_TAG 2c39bf09756c3afd6ce77c7aa104e4a6e025405d)
+      # Date: Mon, 15 May 2023 23:44:14 +0000
+      # Mark new lsc_load_merge intrinsics as LSC ones
+      set(LLVMGenXIntrinsics_GIT_TAG fe92a377338258b725cfbd0a1bd49a9cf5e2864c)
 
       # Determine if the build is embargo and provide specific settings.
       set(IS_INTERNAL_ESIMD_BUILD FALSE)
@@ -58,9 +58,9 @@ if (NOT TARGET LLVMGenXIntrinsics)
         # override git repo name and tag for the internal ESIMD EMBARGO build
         set(LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git)
         # Author: "Victor Mustya" <victor.mustya@intel.com>
-        # Date: Wed, 3 May 2023 11:59:18 -0700
-        # [Feature] Use target extension types for SPIR-V opaque arguments
-        set(LLVMGenXIntrinsics_GIT_TAG 0872997aa7b4aae3d3281efb7dbf29fb6b602d8f)
+        # Date: Mon, 15 May 2023 16:51:13 -0700
+        # [BugFix] Mark new lsc_load_merge intrinsics as LSC ones
+        set(LLVMGenXIntrinsics_GIT_TAG 0fa8556cc23ae1d6c0493ee9c6f4b14971b6dc7f)
 
         add_compile_definitions(__INTEL_EMBARGO__)
         # LLVM_CMAKE_DIR is required by the internal vc-intrinsics repo, but is
