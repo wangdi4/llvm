@@ -82,15 +82,17 @@ MasterVPInstData *HIRSpecifics::getVPInstData() {
 void HIRSpecifics::setGepRefSpecifics(const loopopt::RegDDRef *Ref) {
   assert(hasSymbase(Inst) && "This VPInstruction can't have a symbase!");
   HIRData().Symbase = Ref->getSymbase();
+  HIRData().NumCollapsedLevels = Ref->getNumCollapsedLevels();
 }
 
 void HIRSpecifics::setGepRefSpecifics(const VPInstruction &SrcInst) {
   assert(hasSymbase(Inst) && "This VPInstruction can't have a symbase!");
   assert(hasSymbase(SrcInst) && "This VPInstruction can't have a symbase!");
   HIRData().Symbase = SrcInst.HIR().HIRData().Symbase;
+  HIRData().NumCollapsedLevels = SrcInst.HIR().HIRData().NumCollapsedLevels;
 }
 
-void HIRSpecifics::setGepRefSpecifics(unsigned Symbase) {
+void HIRSpecifics::setGepRefSymbase(unsigned Symbase) {
   assert(hasSymbase(Inst) && "This VPInstruction can't have a symbase!");
   HIRData().Symbase = Symbase;
 }
@@ -99,6 +101,12 @@ unsigned HIRSpecifics::getSymbase() const {
   assert(hasSymbase(Inst) && "This VPInstruction can't have a symbase!");
   auto Symbase = HIRData().Symbase;
   return Symbase;
+}
+
+unsigned HIRSpecifics::getNumCollapsedLevels() const {
+  assert(hasSymbase(Inst) &&
+         "This VPInstruction can't have number of collapsed levels!");
+  return HIRData().NumCollapsedLevels;
 }
 
 void HIRSpecifics::setFoldIVConvert(bool Fold) {

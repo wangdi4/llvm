@@ -35,31 +35,31 @@ int main() {
   const int Size = 100;
   std::vector<long> A(Size, 1);
 
-  cl::sycl::queue Q;
+  sycl::queue Q;
 
-  cl::sycl::buffer<long> BufA(A.data(), cl::sycl::range<1>(Size));
+  sycl::buffer<long> BufA(A.data(), sycl::range<1>(Size));
 
-  cl::sycl::buffer<wrapper_type> BufC(cl::sycl::range<1>(2));
+  sycl::buffer<wrapper_type> BufC(sycl::range<1>(2));
 
-  Q.submit([&](cl::sycl::handler &CGH) {
+  Q.submit([&](sycl::handler &CGH) {
      auto AccC =
-         BufC.template get_access<cl::sycl::access::mode::discard_write>(CGH);
+         BufC.template get_access<sycl::access::mode::discard_write>(CGH);
      CGH.single_task<class Init>([=]() {
        AccC[0] = make_function_ref<add>();
        AccC[1] = make_function_ref<sub>();
      });
    }).wait();
-  Q.submit([&](cl::sycl::handler &CGH) {
+  Q.submit([&](sycl::handler &CGH) {
     sycl::accessor AccA{BufA, CGH, sycl::write_only};
     sycl::accessor AccC{BufC, CGH, sycl::read_only};
     CGH.parallel_for<class K>(
-        cl::sycl::range<1>(Size), [=
-    ](cl::sycl::id<1> Index) [[intel::reqd_sub_group_size(8)]] {
+        sycl::range<1>(Size),
+        [=](sycl::id<1> Index) [[intel::reqd_sub_group_size(8)]] {
           AccA[Index] = AccC[Index % 2](AccA[Index], Index);
         });
   });
 
-  host_accessor HostAcc{BufA, read_only};
+  sycl::host_accessor HostAcc{BufA, sycl::read_only};
   auto *Data = HostAcc.get_pointer();
 
   bool Passed = true;

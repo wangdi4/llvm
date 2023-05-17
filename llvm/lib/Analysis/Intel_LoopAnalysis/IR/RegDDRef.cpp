@@ -309,6 +309,9 @@ void RegDDRef::printImpl(formatted_raw_ostream &OS, bool Detailed,
         if (Detailed && getAlignment()) {
           OS << "{al:" << getAlignment() << "}";
         }
+        if (Detailed && getNumCollapsedLevels()) {
+          OS << "{Collapsed levels:" << getNumCollapsedLevels() << "}";
+        }
         if (Detailed && isFake() && canUsePointeeSize()) {
           OS << "{canUsePointeeSize}";
         }
