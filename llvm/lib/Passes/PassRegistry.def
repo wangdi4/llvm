@@ -382,6 +382,7 @@ MODULE_PASS("tilemvinlmarker", TileMVInlMarkerPass())
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
 MODULE_PASS("trigger-crash", TriggerCrashPass())
+MODULE_PASS("unpredictable-profile-loader", UnpredictableProfileLoaderPass()) // INTEL
 MODULE_PASS("verify", VerifierPass())
 MODULE_PASS("view-callgraph", CallGraphViewerPass())
 MODULE_PASS("wholeprogramdevirt", WholeProgramDevirtPass())

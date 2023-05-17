@@ -189,6 +189,7 @@
 #include "llvm/Transforms/IPO/Intel_QsortRecognizer.h"
 #include "llvm/Transforms/IPO/Intel_TileMVInlMarker.h"
 #endif // INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Transforms/IPO/Intel_UnpredictableProfileLoader.h"
 #include "llvm/Transforms/IPO/Intel_VTableFixup.h"
 #include "llvm/Transforms/IPO/Internalize.h"
 #include "llvm/Transforms/Scalar/Intel_IVSplit.h"
@@ -1663,6 +1664,10 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(EarlyFPM),
                                                 PTO.EagerlyInvalidateAnalyses));
+
+#if INTEL_CUSTOMIZATION
+  MPM.addPass(UnpredictableProfileLoaderPass());
+#endif // INTEL_CUSTOMIZATION
 
   if (LoadSampleProfile) {
     // Annotate sample profile right after early FPM to ensure freshness of
