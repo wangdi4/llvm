@@ -1,4 +1,4 @@
-; RUN: opt < %s -aa-pipeline=basic-aa -passes=licm -disable-output
+; RUN: opt < %s -passes=licm -disable-output
 
 ;%MoveArray = external global [64 x ulong]
 
