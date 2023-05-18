@@ -21,8 +21,6 @@
 
 #define NORMALIZED_SAMPLER 0x08
 
-#define ALIGN16 __attribute__((aligned(16)))
-
 const constant int fVec4FloatZeroCoordMask3D[4] ALIGN16 = {
     0xffffffff, 0xffffffff, 0xffffffff, 0};
 ALIGN16 const constant int4 UndefCoordInt = {0, 0, 0, 0};
