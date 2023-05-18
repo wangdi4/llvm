@@ -367,13 +367,11 @@ private:
 
 // inlines
 inline void ArenaHandler::on_scheduler_entry(bool bIsWorker) {
-  if (!Intel::OpenCL::Utils::IsShuttingDown())
-    m_device->on_scheduler_entry(bIsWorker, *this);
+  m_device->on_scheduler_entry(bIsWorker, *this);
 }
 
 inline void ArenaHandler::on_scheduler_exit(bool bIsWorker) {
-  if (!Intel::OpenCL::Utils::IsShuttingDown())
-    m_device->on_scheduler_exit(bIsWorker, *this);
+  m_device->on_scheduler_exit(bIsWorker, *this);
 }
 
 template <class F> class TrappingEnqueueFunctor {
