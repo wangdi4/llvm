@@ -290,8 +290,7 @@ private:
                        CompilationUtils::ADDRESS_SPACE_GENERIC) {
         // Get type and value for create or get new builtin function
         PointerType *NewType = PointerType::getWithSamePointeeType(
-            dyn_cast<PointerType>(Arg->getType()),
-            CompilationUtils::ADDRESS_SPACE_GENERIC);
+            PType, CompilationUtils::ADDRESS_SPACE_GENERIC);
         Value *NewOp =
             Builder.CreateAddrSpaceCast(Arg, NewType, Twine("cast.data"));
         FuncArgValues.push_back(NewOp);
