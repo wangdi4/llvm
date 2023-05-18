@@ -62,7 +62,6 @@ attributes #0 = { "vector-variants"="_ZGVeM4_foo,_ZGVeN4_foo" }
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} call
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} br
-; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} bitcast
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} load
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM4_foo {{.*}} ret
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_foo {{.*}} alloca
@@ -74,7 +73,6 @@ attributes #0 = { "vector-variants"="_ZGVeM4_foo,_ZGVeN4_foo" }
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_foo {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_foo {{.*}} call
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_foo {{.*}} br
-; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_foo {{.*}} bitcast
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_foo {{.*}} load
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4_foo {{.*}} ret
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVbN4uu_basic {{.*}} br

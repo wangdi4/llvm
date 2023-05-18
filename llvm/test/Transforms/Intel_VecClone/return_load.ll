@@ -75,8 +75,7 @@ define dso_local i32 @_Z11shift_rows4ji(i32 %v, i32 %n) #0 {
 ; CHECK-NEXT:    br label [[RETURN0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  return:
-; CHECK-NEXT:    [[VEC_RET_CAST0:%.*]] = bitcast i32* [[RET_CAST0]] to <8 x i32>*
-; CHECK-NEXT:    [[VEC_RET0:%.*]] = load <8 x i32>, <8 x i32>* [[VEC_RET_CAST0]], align 32
+; CHECK-NEXT:    [[VEC_RET0:%.*]] = load <8 x i32>, <8 x i32>* [[VEC_RETVAL0]], align 32
 ; CHECK-NEXT:    ret <8 x i32> [[VEC_RET0]]
 ; CHECK-NEXT:  }
 ;
