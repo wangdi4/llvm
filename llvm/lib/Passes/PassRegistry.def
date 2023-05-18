@@ -129,6 +129,7 @@ MODULE_PASS("sycl-kernel-resolve-matrix-layout", ResolveMatrixLayoutPass())
 MODULE_PASS("sycl-kernel-resolve-matrix-wi-slice", ResolveMatrixWISlicePass())
 #endif // INTEL_CUSTOMIZATION
 MODULE_PASS("sycl-kernel-resolve-sub-group-wi-call", ResolveSubGroupWICallPass())
+MODULE_PASS("sycl-kernel-target-ext-type-lower", KernelTargetExtTypeLowerPass())
 MODULE_PASS("sycl-kernel-resolve-var-tid-call", ResolveVarTIDCallPass())
 MODULE_PASS("sycl-kernel-resolve-wi-call", ResolveWICallPass())
 MODULE_PASS("sycl-kernel-patch-callback-args", PatchCallbackArgsPass())

@@ -1,5 +1,5 @@
-; RUN: opt -passes=sycl-kernel-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=sycl-kernel-equalizer -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-target-ext-type-lower -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-target-ext-type-lower -S %s | FileCheck %s
 
 ; Check that target extension type in named struct type is replaced.
 
@@ -14,10 +14,10 @@ target triple = "spir64_x86_64-unknown-unknown"
 
 define weak_odr dso_local spir_func void @_ZNK4sycl3_V16detail14image_accessorINS0_3vecIfLi4EEELi2ELNS0_6access4modeE1024ELNS5_6targetE2017ELNS5_11placeholderE0EE4readINS3_IiLi2EEELi2EvEES4_RKT_(ptr addrspace(4) noalias sret(%"class.sycl::_V1::vec") align 16 %agg.result, ptr addrspace(4) noundef align 8 dereferenceable_or_null(32) %this, ptr addrspace(4) noundef align 8 dereferenceable(8) %Coords) {
 entry:
-; CHECK-LABEL: define weak_odr dso_local void @_ZNK4sycl3_V16detail14image_accessorINS0_3vecIfLi4EEELi2ELNS0_6access4modeE1024ELNS5_6targetE2017ELNS5_11placeholderE0EE4readINS3_IiLi2EEELi2EvEES4_RKT_(
+; CHECK-LABEL: define weak_odr dso_local spir_func void @_ZNK4sycl3_V16detail14image_accessorINS0_3vecIfLi4EEELi2ELNS0_6access4modeE1024ELNS5_6targetE2017ELNS5_11placeholderE0EE4readINS3_IiLi2EEELi2EvEES4_RKT_(
 ; CHECK: %MImageObj = getelementptr inbounds [[ACCESSOR]], ptr addrspace(4) %this1, i32 0, i32 0
 ; CHECK: load ptr addrspace(1), ptr addrspace(4) %MImageObj, align 8
-; CHECK: call void @_ZL19__invoke__ImageReadIN4sycl3_V13vecIfLi4EEE14ocl_image2d_roNS2_IiLi2EEEET_T0_T1_(ptr addrspace(4) sret(%"class.sycl::_V1::vec") align 16 %agg.result, ptr addrspace(1) %0, ptr noundef byval(%"class.sycl::_V1::vec.3") align 8 %agg.tmp.ascast.ascast)
+; CHECK: call spir_func void @_ZL19__invoke__ImageReadIN4sycl3_V13vecIfLi4EEE14ocl_image2d_roNS2_IiLi2EEEET_T0_T1_(ptr addrspace(4) sret(%"class.sycl::_V1::vec") align 16 %agg.result, ptr addrspace(1) %0, ptr noundef byval(%"class.sycl::_V1::vec.3") align 8 %agg.tmp.ascast.ascast)
 
   %this1 = load ptr addrspace(4), ptr addrspace(4) null, align 8
   %MImageObj = getelementptr inbounds %"class.sycl::_V1::detail::image_accessor", ptr addrspace(4) %this1, i32 0, i32 0
@@ -42,7 +42,7 @@ entry:
   ret void
 }
 
-; CHECK: declare void @_ZL19__invoke__ImageReadIN4sycl3_V13vecIfLi4EEE14ocl_image2d_roNS2_IiLi2EEEET_T0_T1_(ptr addrspace(4), ptr addrspace(1), ptr)
+; CHECK: declare spir_func void @_ZL19__invoke__ImageReadIN4sycl3_V13vecIfLi4EEE14ocl_image2d_roNS2_IiLi2EEEET_T0_T1_(ptr addrspace(4), ptr addrspace(1), ptr)
 
 declare spir_func void @_ZL19__invoke__ImageReadIN4sycl3_V13vecIfLi4EEE14ocl_image2d_roNS2_IiLi2EEEET_T0_T1_(ptr addrspace(4), target("spirv.Image", void, 1, 0, 0, 0, 0, 0, 0), ptr)
 

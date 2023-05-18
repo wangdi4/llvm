@@ -11,6 +11,7 @@
 
 ; CHECK-NOT:  Running pass: SYCLPreprocessSPIRVFriendlyIRPass
 ; CHECK-NOT:  Running pass: SPIRV::SPIRVLowerConstExprPass
+; CHECK:      Running pass: KernelTargetExtTypeLowerPass
 ; CHECK:      Running pass: SPIRV::SPIRVToOCL20Pass
 ; CHECK-NEXT: Running pass: NameAnonGlobalPass
 ; CHECK-NEXT: Running pass: SpecializeConstantPass

@@ -1,4 +1,4 @@
-; RUN: opt -passes=sycl-kernel-equalizer -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-target-ext-type-lower -S %s | FileCheck %s
 
 ; Compiled from OpenCL kernel with option "-g -cl-opt-disable":
 ; kernel void sample_kernel(read_only image3d_t input) {
@@ -13,20 +13,19 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-; CHECK: define dso_local void @sample_kernel(ptr addrspace(1) %input)
-
 define dso_local spir_kernel void @sample_kernel(target("spirv.Image", void, 2, 0, 0, 0, 0, 0, 0) %input) #0 !dbg !6 !kernel_arg_addr_space !11 !kernel_arg_access_qual !12 !kernel_arg_type !13 !kernel_arg_base_type !13 !kernel_arg_type_qual !14 !kernel_arg_name !15 !kernel_arg_host_accessible !16 !kernel_arg_pipe_depth !17 !kernel_arg_pipe_io !14 !kernel_arg_buffer_location !14 {
 entry:
+; CHECK-LABEL: define dso_local spir_kernel void @sample_kernel(ptr addrspace(1) %input)
 ; CHECK: %input.addr = alloca ptr addrspace(1), align 8
 ; CHECK: store ptr addrspace(1) %input, ptr %input.addr, align 8
 ; CHECK: call void @llvm.dbg.declare(metadata ptr %input.addr, metadata !{{[0-9]+}}, metadata !DIExpression(DW_OP_constu, 0, DW_OP_swap, DW_OP_xderef)), !dbg
 ; CHECK: load ptr addrspace(1), ptr %input.addr, align 8, !dbg
-; CHECK: call i32 @_Z15get_image_width14ocl_image3d_ro(ptr addrspace(1)
-; CHECK: call i32 @_Z16get_image_height14ocl_image3d_ro(ptr addrspace(1)
-; CHECK: call i32 @_Z15get_image_depth14ocl_image3d_ro(ptr addrspace(1)
-; CHECK: call <4 x i32> @_Z13get_image_dim14ocl_image3d_ro(ptr addrspace(1)
-; CHECK: call i32 @_Z27get_image_channel_data_type14ocl_image3d_ro(ptr addrspace(1)
-; CHECK: call i32 @_Z23get_image_channel_order14ocl_image3d_ro(ptr addrspace(1)
+; CHECK: call spir_func i32 @_Z15get_image_width14ocl_image3d_ro(ptr addrspace(1)
+; CHECK: call spir_func i32 @_Z16get_image_height14ocl_image3d_ro(ptr addrspace(1)
+; CHECK: call spir_func i32 @_Z15get_image_depth14ocl_image3d_ro(ptr addrspace(1)
+; CHECK: call spir_func <4 x i32> @_Z13get_image_dim14ocl_image3d_ro(ptr addrspace(1)
+; CHECK: call spir_func i32 @_Z27get_image_channel_data_type14ocl_image3d_ro(ptr addrspace(1)
+; CHECK: call spir_func i32 @_Z23get_image_channel_order14ocl_image3d_ro(ptr addrspace(1)
 
   %input.addr = alloca target("spirv.Image", void, 2, 0, 0, 0, 0, 0, 0), align 8
   %dim = alloca <4 x i32>, align 16
@@ -51,12 +50,12 @@ entry:
 
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
 
-; CHECK-DAG: declare i32 @_Z15get_image_width14ocl_image3d_ro(ptr addrspace(1))
-; CHECK-DAG: declare i32 @_Z16get_image_height14ocl_image3d_ro(ptr addrspace(1))
-; CHECK-DAG: declare i32 @_Z15get_image_depth14ocl_image3d_ro(ptr addrspace(1))
-; CHECK-DAG: declare <4 x i32> @_Z13get_image_dim14ocl_image3d_ro(ptr addrspace(1))
-; CHECK-DAG: declare i32 @_Z27get_image_channel_data_type14ocl_image3d_ro(ptr addrspace(1))
-; CHECK-DAG: declare i32 @_Z23get_image_channel_order14ocl_image3d_ro(ptr addrspace(1))
+; CHECK-DAG: declare spir_func i32 @_Z15get_image_width14ocl_image3d_ro(ptr addrspace(1))
+; CHECK-DAG: declare spir_func i32 @_Z16get_image_height14ocl_image3d_ro(ptr addrspace(1))
+; CHECK-DAG: declare spir_func i32 @_Z15get_image_depth14ocl_image3d_ro(ptr addrspace(1))
+; CHECK-DAG: declare spir_func <4 x i32> @_Z13get_image_dim14ocl_image3d_ro(ptr addrspace(1))
+; CHECK-DAG: declare spir_func i32 @_Z27get_image_channel_data_type14ocl_image3d_ro(ptr addrspace(1))
+; CHECK-DAG: declare spir_func i32 @_Z23get_image_channel_order14ocl_image3d_ro(ptr addrspace(1))
 
 declare spir_func i32 @_Z15get_image_width14ocl_image3d_ro(target("spirv.Image", void, 2, 0, 0, 0, 0, 0, 0)) #2
 

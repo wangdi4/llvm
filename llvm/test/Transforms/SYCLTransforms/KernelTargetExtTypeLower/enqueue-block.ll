@@ -1,5 +1,5 @@
-; RUN: opt -passes=sycl-kernel-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=sycl-kernel-equalizer -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-target-ext-type-lower -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-target-ext-type-lower -S %s | FileCheck %s
 
 ; Compiled from OpenCL kernel:
 ; void block_fn() {
@@ -23,17 +23,21 @@ target triple = "x86_64-pc-linux"
 
 define dso_local spir_func void @block_fn() #1 {
 entry:
+; CHECk-LABEL: define dso_local spir_func void @block_fn(
+; CHECK-NOT: !arg_type_null_val
+
   ret void
 }
 
 define dso_local spir_kernel void @test() #1 !kernel_arg_addr_space !1 !kernel_arg_access_qual !1 !kernel_arg_type !1 !kernel_arg_base_type !1 !kernel_arg_type_qual !1 !kernel_arg_name !1 !kernel_arg_host_accessible !1 !kernel_arg_pipe_depth !1 !kernel_arg_pipe_io !1 !kernel_arg_buffer_location !1 {
 entry:
-; CHECK: define dso_local void @test() {{.*}} !arg_type_null_val [[MD_ARG_TY_NULL:![0-9]+]]
+; CHECK-LABEL: define dso_local spir_kernel void @test()
+; CHECK-SAME: !arg_type_null_val [[MD_ARG_TY_NULL:![0-9]+]]
 ; CHECK: %def_q = alloca ptr, align 8
-; CHECK: %call = call ptr @_Z17get_default_queuev()
+; CHECK: %call = call spir_func ptr @_Z17get_default_queuev()
 ; CHECK: store ptr %call, ptr %def_q, align 8
 ; CHECK: load ptr, ptr %def_q, align 8
-; CHECK: call i32 @__enqueue_kernel_basic(ptr
+; CHECK: call spir_func i32 @__enqueue_kernel_basic(ptr
 
   %kernelBlock = alloca ptr addrspace(4), align 8
   %def_q = alloca target("spirv.Queue"), align 8
@@ -51,27 +55,33 @@ entry:
 
 define internal spir_func void @__test_block_invoke(ptr addrspace(4) noundef %.block_descriptor) #3 {
 entry:
+; CHECK-LABEL: define internal spir_func void @__test_block_invoke(
+; CHECK-NOT: !arg_type_null_val
+
   %.block_descriptor.addr = alloca ptr addrspace(4), align 8
   store ptr addrspace(4) %.block_descriptor, ptr %.block_descriptor.addr, align 8
   call spir_func void @block_fn() #3
   ret void
 }
 
-; CHECK: declare ptr @_Z17get_default_queuev()
+define spir_kernel void @__test_block_invoke_kernel(ptr addrspace(4) %0) #3 {
+entry:
+; CHECK-LABEL: define spir_kernel void @__test_block_invoke_kernel(
+; CHECK-SAME: !arg_type_null_val
+
+  call spir_func void @__test_block_invoke(ptr addrspace(4) %0)
+  ret void
+}
+
+; CHECK: declare spir_func ptr @_Z17get_default_queuev()
+
+; CHECK: declare spir_func i32 @__enqueue_kernel_basic(ptr, i32, ptr, ptr addrspace(4), ptr addrspace(4))
 
 declare spir_func target("spirv.Queue") @_Z17get_default_queuev() #3
 
 declare spir_func void @_Z10ndrange_1Dm(ptr sret(%struct.ndrange_t) align 8, i64 noundef) #3
 
 declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #4
-
-define spir_kernel void @__test_block_invoke_kernel(ptr addrspace(4) %0) #3 {
-entry:
-  call spir_func void @__test_block_invoke(ptr addrspace(4) %0)
-  ret void
-}
-
-; CHECK: declare i32 @__enqueue_kernel_basic(ptr, i32, ptr, ptr addrspace(4), ptr addrspace(4))
 
 declare spir_func i32 @__enqueue_kernel_basic(target("spirv.Queue"), i32, ptr, ptr addrspace(4), ptr addrspace(4))
 

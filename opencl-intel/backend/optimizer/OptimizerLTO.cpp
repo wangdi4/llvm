@@ -161,6 +161,7 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
           MPM.addPass(SYCLPreprocessSPIRVFriendlyIRPass());
           MPM.addPass(SPIRVLowerConstExprPass());
         }
+        MPM.addPass(KernelTargetExtTypeLowerPass());
         MPM.addPass(SPIRVToOCL20Pass());
         MPM.addPass(NameAnonGlobalPass());
         MPM.addPass(SpecializeConstantPass());

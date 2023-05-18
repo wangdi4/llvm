@@ -157,6 +157,7 @@ void OptimizerOCL::Optimize(raw_ostream &LogStream) {
 }
 
 void OptimizerOCL::materializerPM(ModulePassManager &MPM) const {
+  MPM.addPass(KernelTargetExtTypeLowerPass());
   if (m_IsSYCL)
     MPM.addPass(SPIRVToOCL20Pass());
 
