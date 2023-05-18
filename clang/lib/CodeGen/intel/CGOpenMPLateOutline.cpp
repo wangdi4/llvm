@@ -1803,6 +1803,7 @@ void OpenMPLateOutliner::emitOMPFirstprivateClause(
   auto *IPriv = Cl->private_copies().begin();
   for (auto *E : Cl->varlists()) {
     const VarDecl *VD = getExplicitVarDecl(E);
+    assert(VD && "expected VarDecl in firstprivate clause");
     bool IsCapturedExpr = isa<OMPCapturedExprDecl>(VD);
     bool IsRef = !IsCapturedExpr && VD->getType()->isReferenceType();
 
