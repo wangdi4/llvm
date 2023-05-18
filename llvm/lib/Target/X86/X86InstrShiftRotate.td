@@ -165,7 +165,7 @@ class shift_rCL_NDD_NoPat<bits<8> opcode, Format f, string mnemonic,
 
 multiclass mshift_rCL<bits<8> opcode, Format f, string mnemonic, SDNode node,
                       X86TypeInfo typeinfo>{
-let Defs = [EFLAGS] in {
+let Defs = [EFLAGS], hasSideEffects = 0 in {
 let Constraints = "$src1 = $dst" in {
 let Predicates = [NoNDD] in
   def NAME : shift_rCL<opcode, f, mnemonic, node, typeinfo>;
@@ -264,8 +264,6 @@ defm SHL32ri  : mshift_ri<0xC1, MRM4r, "shl", shl, Xi32>;
 defm SHL64ri  : mshift_ri<0xC1, MRM4r, "shl", shl, Xi64>;
 } // SchedRW
 
-// NOTE: We don't include patterns for shifts of a register by one, because
-// 'add reg,reg' is cheaper (and we have a Pat pattern for shift-by-one).
 let hasSideEffects = 0, SchedRW = [WriteShift] in {
 defm SHL8r1   : mshiftl_r1<0xD0, MRM4r, Xi8>;
 defm SHL16r1  : mshiftl_r1<0xD1, MRM4r, Xi16>;
@@ -391,9 +389,7 @@ multiclass mshift_m1<bits<8> opcode, Format f, string mnemonic, SDNode node,
 let Defs = [EFLAGS] in {
 let Predicates = !if(typeinfo.HasREX_W, [NoNDD, In64BitMode],
                                         [NoNDD]) in
-  def NAME : I_N_M<opcode, f, typeinfo, mnemonic, "$dst",
-                   [(store (node (typeinfo.LoadNode addr:$dst),
-                                            (i8 1)),addr:$dst)]>;
+  def NAME : I_N_M<opcode, f, typeinfo, mnemonic, "$dst", []>;
   def _EVEX : shift_m1_NoPat<opcode, f, mnemonic, typeinfo>,
               EmitVEXOrEVEXPrefix;
 let Predicates = [HasNDD] in
@@ -420,9 +416,7 @@ defm SHL64m1  : mshift_m1<0xD1, MRM4m, "shl", shl, Xi64>;
 //=======================SHR==========================
 class shift_r1<bits<8> opcode, Format f, string mnemonic, SDNode node,
                X86TypeInfo typeinfo>
-  : I_R_R<opcode, f, typeinfo, mnemonic, "$dst",
-          [(set typeinfo.RegClass:$dst,
-           (node typeinfo.RegClass:$src1, (i8 1)))]>;
+  : I_R_R<opcode, f, typeinfo, mnemonic, "$dst", []>;
 
 class shift_r1_NDD<bits<8> opcode, Format f, string mnemonic, SDNode node,
                    X86TypeInfo typeinfo>
@@ -510,8 +504,6 @@ defm SAR32ri  : mshift_ri<0xC1, MRM7r, "sar", sra, Xi32>;
 defm SAR64ri  : mshift_ri<0xC1, MRM7r, "sar", sra, Xi64>;
 } // SchedRW
 
-// NOTE: We don't include patterns for shifts of a register by one, because
-// 'add reg,reg' is cheaper (and we have a Pat pattern for shift-by-one).
 let SchedRW = [WriteShift] in {
 defm SAR8r1   : mshift_r1<0xD0, MRM7r, "sar", sra, Xi8>;
 defm SAR16r1  : mshift_r1<0xD1, MRM7r, "sar", sra, Xi16>;
