@@ -461,7 +461,7 @@ operations
 ``<True>``: Equivalent to ``compute``
 ``<False>``: Immediate command list is disabled
 
-**Default**: Disabled
+**Default**: ``all`` on PVC Linux, ``0`` on other devices/platforms
 
 ``LIBOMPTARGET_LEVEL_ZERO_REDUCTION_POOL=<PoolInfo>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

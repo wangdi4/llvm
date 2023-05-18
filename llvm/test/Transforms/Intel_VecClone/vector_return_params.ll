@@ -43,8 +43,7 @@ define <4 x i32> @foo(<4 x i32> %a, <4 x i32> %b) #0 {
 ; CHECK-NEXT:    br label [[RETURN0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  return:
-; CHECK-NEXT:    [[VEC_RET_CAST0:%.*]] = bitcast <4 x i32>* [[RET_CAST0]] to <16 x i32>*
-; CHECK-NEXT:    [[VEC_RET0:%.*]] = load <16 x i32>, <16 x i32>* [[VEC_RET_CAST0]], align 64
+; CHECK-NEXT:    [[VEC_RET0:%.*]] = load <16 x i32>, <16 x i32>* [[VEC_RETVAL0]], align 64
 ; CHECK-NEXT:    ret <16 x i32> [[VEC_RET0]]
 ; CHECK-NEXT:  }
 ;

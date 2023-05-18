@@ -1,5 +1,5 @@
-; RUN: opt -passes=sycl-kernel-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=sycl-kernel-equalizer -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-target-ext-type-lower -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-target-ext-type-lower -S %s | FileCheck %s
 
 ; Compiled from OpenCL kernel:
 ; void check_res(size_t tid, const clk_event_t evt, __global ulong *res) {
@@ -48,7 +48,7 @@ declare spir_func void @_Z13release_event12ocl_clkevent(target("spirv.DeviceEven
 
 define dso_local spir_kernel void @enqueue_block_profiling(ptr addrspace(1) noundef align 8 %res) #0 !kernel_arg_addr_space !8 !kernel_arg_access_qual !9 !kernel_arg_type !10 !kernel_arg_base_type !10 !kernel_arg_type_qual !11 !kernel_arg_name !12 !kernel_arg_host_accessible !13 !kernel_arg_pipe_depth !14 !kernel_arg_pipe_io !11 !kernel_arg_buffer_location !11 {
 entry:
-; CHECK-LABEL: @enqueue_block_profiling(
+; CHECK-LABEL: define dso_local spir_kernel void @enqueue_block_profiling(
 
   %res.addr = alloca ptr addrspace(1), align 8
   %tid = alloca i64, align 8
@@ -64,7 +64,7 @@ entry:
   store ptr addrspace(1) %res, ptr %res.addr, align 8, !tbaa !6
   %call = call spir_func i64 @_Z13get_global_idj(i32 noundef 0) #2
   store i64 %call, ptr %tid, align 8, !tbaa !0
-; CHECK: %call1 = call ptr @_Z17get_default_queuev()
+; CHECK: %call1 = call spir_func ptr @_Z17get_default_queuev()
 ; CHECK: store ptr %call1, ptr %def_q, align 8, !tbaa
   %call1 = call spir_func target("spirv.Queue") @_Z17get_default_queuev() #1
   store target("spirv.Queue") %call1, ptr %def_q, align 8, !tbaa !15
@@ -100,7 +100,7 @@ entry:
   %4 = addrspacecast ptr %block_evt1 to ptr addrspace(4)
   %5 = load ptr addrspace(4), ptr %checkBlock, align 8, !tbaa !17
   %6 = addrspacecast ptr %block to ptr addrspace(4)
-; CHECK: call i32 @__enqueue_kernel_basic_events(ptr {{%[0-9]+}},
+; CHECK: call spir_func i32 @__enqueue_kernel_basic_events(ptr {{%[0-9]+}},
   %7 = call spir_func i32 @__enqueue_kernel_basic_events(target("spirv.Queue") %3, i32 0, ptr %tmp, i32 1, ptr addrspace(4) %4, ptr addrspace(4) null, ptr addrspace(4) addrspacecast (ptr @__enqueue_block_profiling_block_invoke_kernel to ptr addrspace(4)), ptr addrspace(4) %6)
   %conv = sext i32 %7 to i64
   %8 = load ptr addrspace(1), ptr %res.addr, align 8, !tbaa !6
@@ -109,15 +109,9 @@ entry:
   ret void
 }
 
-declare spir_func i64 @_Z13get_global_idj(i32 noundef) #2
-
-declare spir_func target("spirv.Queue") @_Z17get_default_queuev() #1
-
-declare spir_func void @_Z10ndrange_1Dm(ptr sret(%struct.ndrange_t) align 8, i64 noundef) #1
-
 define internal spir_func void @__enqueue_block_profiling_block_invoke(ptr addrspace(4) noundef %.block_descriptor) #1 {
 entry:
-; CHECK-LABEL: @__enqueue_block_profiling_block_invoke(
+; CHECK-LABEL: define internal spir_func void @__enqueue_block_profiling_block_invoke(
   %.block_descriptor.addr = alloca ptr addrspace(4), align 8
   store ptr addrspace(4) %.block_descriptor, ptr %.block_descriptor.addr, align 8
 ; CHECK: %block.capture.addr = getelementptr inbounds <{ i32, i32, ptr addrspace(4), i64, ptr, ptr addrspace(1) }>, ptr addrspace(4) %.block_descriptor, i32 0, i32 3
@@ -134,13 +128,19 @@ entry:
   ret void
 }
 
-declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #3
-
 define spir_kernel void @__enqueue_block_profiling_block_invoke_kernel(ptr addrspace(4) %0) #1 {
 entry:
   call spir_func void @__enqueue_block_profiling_block_invoke(ptr addrspace(4) %0)
   ret void
 }
+
+declare spir_func i64 @_Z13get_global_idj(i32 noundef) #2
+
+declare spir_func target("spirv.Queue") @_Z17get_default_queuev() #1
+
+declare spir_func void @_Z10ndrange_1Dm(ptr sret(%struct.ndrange_t) align 8, i64 noundef) #1
+
+declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #3
 
 declare spir_func i32 @__enqueue_kernel_basic_events(target("spirv.Queue"), i32, ptr, i32, ptr addrspace(4), ptr addrspace(4), ptr addrspace(4), ptr addrspace(4))
 

@@ -616,6 +616,172 @@ private:
       Innermost2TargetLoop;
 };
 
+// SmallSet wanted the size be less than 32 with assertion
+// SmallSet<unsigned, 64> will incur an assertion.
+typedef DenseSet<unsigned> BasePtrIndexSetTy;
+
+// Legality checker for an innermost loop.
+// It examines if the memrefs are spatial accesses. Also it checks
+// if an adjustment of dimension indices is possible. Through the
+// adjustment, subsequent loops are aligned together to check mutual
+// data dependencies.
+// For a given innermost loop, its reads dependencies to upward loops
+// are verified.
+class InnermostLoopAnalyzer {
+
+public:
+  InnermostLoopAnalyzer(
+      const HLLoop *Loop, unsigned OutermostLoopLevel,
+      SmallVectorImpl<DimInfoTy> &DimInfos,
+      BaseIndexToLowersAndStridesTy &BaseIndexToLowersAndStrides,
+      StringRef FuncName, bool RelaxedMode = false)
+      : InnermostLoop(Loop), DimInfos(DimInfos),
+        BaseIndexToLowersAndStrides(BaseIndexToLowersAndStrides),
+        Func(FuncName), OutermostLoopLevel(OutermostLoopLevel),
+        RelaxedMode(RelaxedMode) {
+
+    MemRefGatherer::gatherRange(InnermostLoop->child_begin(),
+                                InnermostLoop->child_end(), Refs);
+  }
+
+  // The loopnest containing this innermost loop belongs to
+  // could be a member of HLNodes to be enclosed by by-strip loops.
+  const RegDDRef *couldBeAMember(BasePtrIndexSetTy &DefinedBasePtr,
+                                 BasePtrIndexSetTy &ReadOnlyBasePtr,
+                                 DDGraph DDG, const HLLoop *LCA = nullptr);
+
+private:
+  bool areMostlyStructuallyStencilRefs(RefGroupVecTy &Groups) const;
+
+  // Check dependencies of this loop against previous loops.
+  // It checks if a use of A[i+b] in this loop is dependent to
+  // the def to A[i+a] in a lexicographically previous loop.
+  // If b <= a, there is no dependency from A[i+a] to A[i+b].
+  // Because the loopnests are
+  // executed tile by tile, a tile executed eariler than a tile comes later
+  // than that.
+  // Notice that comparing a rval ddref
+  // against RepDepRef of the current loop is sufficient to cover all the def
+  // refs in upward loops. This is because, it is verified all def refs in all
+  // loops will be aligned in the same fashion as A[i][j][k] regardless of
+  // basePtr "A". In other words,
+  // All indices with IV + (const) + (blob) will become just IV by substracting
+  // (const) + (blob) part. This physical transformation happens later
+  // if all checks pass.
+  // BasePtrs defined in the previous loops are given as "DefinedBasePtr".
+  // After rvals in this loop are checked against "DefinedBasePtr",
+  // Notice that RepDefRef's basePtr could be different from that of Rval Refs
+  // that are being compared against. This is possible because DimInfoVec are
+  // equal over all defined Refs. (Exceptions are const and blob dimInfos)
+  bool checkDepToUpwardLoops(BasePtrIndexSetTy &DefinedBasePtr,
+                             const RegDDRef *RepDefRef);
+
+  const RegDDRef *getLvalWithMinDims() const;
+
+  // Alignment of making every Lval in the form of Array[I_n][I_n+1][I_n+2]
+  // will be used for future dep check.
+  // Thus, this function makes sure all LvalRefs dimensions CEs are equal.
+  // If so, return one of the DefRef as a representative Ref.
+  // Otherwise, a nullptr is returned.
+  const RegDDRef *checkDefsForAlignment() const;
+
+  bool areEqualLowerBoundsAndStrides(const RegDDRef *FirstRef,
+                                     const RefGroupTy &OneGroup);
+
+  // Make sure if lower bounds and strides are the same.
+  // For temps, sometimes tracing back towards a load is required.
+  // For constants, direct comparison should work.
+  //
+  // Example:
+  // Two memrefs with Baseptr (%5) in the following two loops, have
+  // different lowerbounds, %2122 and %4773.
+  // However, RHSs of the loads (marked with * and **, respectively) are the
+  // same.
+  //
+  // %2122 = (@A_)[0:0:24([6 x i32]*:0)][0:4:4([6 x
+  // i32]:6)]; (*)
+  // + DO i2 = 0, sext.i32.i64((1 + %2)) + -2, 1   <DO_LOOP>
+  // |   + DO i3 = 0, sext.i32.i64(%1) + -1, 1   <DO_LOOP>
+  // |   |   %2230 = (%5)[%2122:i2 + 1:8 * (sext.i32.i64((1 + (-1 * %2120) +
+  // %2121)) * sext.i32.i64((1 + (-1 * %2118) + %2119)))(double*:0)][%2120:i3 +
+  // 1:8 * sext.i32.i64((1 + (-1 * %2118) +
+  // %2119))(double*:0)][%2118:2:8(double*:0)] ...
+
+  // %4773 = (@A_)[0:0:24([6 x i32]*:0)][0:4:4([6 x
+  // i32]:6)]; (**)
+  // + DO i2 = 0, sext.i32.i64(%1) + -1 * sext.i32.i64(%4925), 1   <DO_LOOP>
+  // |   + DO i3 = 0, sext.i32.i64(%0) + -1 * zext.i32.i64(%4837), 1   <DO_LOOP>
+  // |   |
+  // |   |   %5033 = %5032  +  (%5)[%4773:1:8 * (sext.i32.i64((1 + (-1 * %4771)
+  // + %4772)) * sext.i32.i64((1 + (-1 * %4769) + %4770)))(double*:0)][%4771:i2
+  // + sext.i32.i64(%492 + (-1 * %4769) + %4770))(double*:0)][%4769:i3 +
+  // zext.i32.i64(%4837):8(double*:0)];
+  //
+  bool tracebackEqualityOfLowersAndStrides(const RegDDRef *Ref1,
+                                           const RegDDRef *Ref2, DDGraph DDG,
+                                           const HLLoop *LCA = nullptr);
+
+  bool tracebackEqualityOfLowersAndStrides(const RegDDRef *Ref, DDGraph DDG,
+                                           const HLLoop *LCA = nullptr);
+
+  // Make sure all dimensions with Blob type, are equal.
+  // If not, the memref should be read-only so far.
+  // Store that piece of information.
+  bool checkEqualityOfBlobDimensions(const RefGroupTy &OneGroup,
+                                     const DimInfoVecTy &FirstRefDimInfoVec,
+                                     const BasePtrIndexSetTy &DefinedBasePtr,
+                                     BasePtrIndexSetTy &ReadOnlyBasePtr,
+                                     unsigned CommonDims) const;
+
+  // - DimInfo should be picked from a ref with
+  //     1 the largest number of Dimensions
+  //     2 also with the largest number of IVs
+  //     if the 1, and 2 ties (contradict), we just bail out.
+  // - If so, how to take care of dependencies of Refs regarding constant
+  //   and blobs.
+  // - Actually, co-existence of A[K][J][I] and B[K][1][I] suggests bail-out
+  //             we cannot gurantee a safe tiling in that case.
+  //             Equality of A and B doesn't matter here.
+  bool canCalcDimInfo(const RefGroupVecTy &Groups,
+                      BasePtrIndexSetTy &DefinedBasePtr,
+                      BasePtrIndexSetTy &ReadOnlyBasePtr, DDGraph DDG,
+                      DimInfoVecImplTy &DimInfos, const RegDDRef *RepDef,
+                      const HLLoop *LCA = nullptr);
+
+  // Checks each CE has in one of the three forms:
+  //  - single IV + (optional constant) + (optional blob)
+  //  - only-constant
+  //  - only-blob + (optional constant)
+  // In the output argument CEKinds, marks CE forms out the the three.
+  // In addition, it checks IV's level strictly decreases as dimnum increases.
+  //  e.g. A[i1][i2][i3]
+  // Return true, if all conditions are met.
+  bool analyzeDims(const RegDDRef *Ref, DimInfoVecImplTy &DimInfoVec) const;
+
+  // - Single IV + <optional constant> + <optional blob>
+  // - Constant
+  // - blob-only + <optional constant>
+  bool isValidDim(const CanonExpr *CE, DimInfoTy &DimInfo) const;
+
+  static bool DimInfoCompPred(const DimInfoTy &DI1, const DimInfoTy &DI2);
+  static bool DimInfoCompPredRelaxed(const DimInfoTy &DI1,
+                                     const DimInfoTy &DI2);
+  static bool containsEqualTempBlobs(const CanonExpr *CE1,
+                                     const CanonExpr *CE2);
+
+private:
+  const HLLoop *InnermostLoop;
+  SmallVectorImpl<DimInfoTy> &DimInfos;
+  BaseIndexToLowersAndStridesTy &BaseIndexToLowersAndStrides;
+  MemRefGatherer::VectorTy Refs;
+  StringRef Func;
+
+  // level of the loop enclosing all spatial loops.
+  unsigned OutermostLoopLevel;
+
+  bool RelaxedMode;
+};
+
 } // namespace loopopt
 
 } // namespace llvm

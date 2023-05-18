@@ -2808,7 +2808,6 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
                                    SmallVectorImpl<Value *> &VecArgs,
                                    SmallVectorImpl<Type *> &VecArgTys,
                                    SmallVectorImpl<AttributeSet> &VecArgAttrs) {
-  unsigned PumpedVF = VF / PumpFactor;
   ArrayRef<VFParameter> Parms;
   if (VecVariant) {
     Parms = VecVariant->getParameters();
@@ -2880,18 +2879,18 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
 
   AttributeList Attrs = VPCall->getOrigCallAttrs();
 
-  unsigned NumArgOperands = VPCall->getNumArgOperands();
-
-  for (unsigned OrigArgIdx = VPCall->isIntelIndirectCall() ? 1 : 0,
-                ParamsIdx = 0;
-       OrigArgIdx < NumArgOperands; OrigArgIdx++, ParamsIdx++) {
+  unsigned NumArgs = VPCall->getNumArgOperands();
+  if (VPCall->isIntelIndirectCall())
+    --NumArgs;
+  for (unsigned OrigArgIdx = VPCall->isIntelIndirectCall() ? 1 : 0, ArgIdx = 0;
+       ArgIdx < NumArgs; ++OrigArgIdx, ++ArgIdx) {
     if (isOpenCLReadChannelDest(FnName, OrigArgIdx))
       continue;
 
-    Value *VecArg = ProcessCallArg(OrigArgIdx, ParamsIdx);
+    Value *VecArg = ProcessCallArg(OrigArgIdx, ArgIdx);
     VecArgs.push_back(VecArg);
     VecArgTys.push_back(VecArg->getType());
-    VecArgAttrs.push_back(Attrs.getParamAttrs(ParamsIdx));
+    VecArgAttrs.push_back(Attrs.getParamAttrs(ArgIdx));
   }
 
   // Process mask parameters for current part being pumped. Masked intrinsics
@@ -2907,6 +2906,7 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
   // in the future if we need very clean outgoing vector code.
   Value *PumpPartMaskValue =
       generateExtractSubVector(MaskValue, PumpPart, PumpFactor, Builder);
+  unsigned PumpedVF = VF / PumpFactor;
   StringRef VecFnName =
       TLI->getVectorizedFunction(FnName, ElementCount::getFixed(PumpedVF),
                                  IsMasked);

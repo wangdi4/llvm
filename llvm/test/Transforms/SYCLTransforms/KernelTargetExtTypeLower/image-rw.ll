@@ -1,5 +1,5 @@
-; RUN: opt -passes=sycl-kernel-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=sycl-kernel-equalizer -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-target-ext-type-lower -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-target-ext-type-lower -S %s | FileCheck %s
 
 ; Compiled from OpenCL kernel:
 ; kernel void test_rw_images(read_write image1d_t src1, read_write image2d_t src2, __write_only image3d_t src3, sampler_t s, local queue_t *q, int2 coords) {
@@ -12,7 +12,7 @@ target triple = "x86_64-pc-linux"
 
 define dso_local spir_kernel void @test_rw_images(target("spirv.Image", void, 0, 0, 0, 0, 0, 0, 2) %src1, target("spirv.Image", void, 1, 0, 0, 0, 0, 0, 2) %src2, target("spirv.Image", void, 2, 0, 0, 0, 0, 0, 1) %src3, target("spirv.Sampler") %s, ptr addrspace(3) noundef align 8 %q, <2 x i32> noundef %coords) #0 !kernel_arg_addr_space !0 !kernel_arg_access_qual !1 !kernel_arg_type !2 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_name !5 !kernel_arg_host_accessible !6 !kernel_arg_pipe_depth !7 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 {
 entry:
-; CHECK: define dso_local void @test_rw_images(ptr addrspace(1) %src1, ptr addrspace(1) %src2, ptr addrspace(1) %src3, ptr %s, ptr addrspace(3) noundef align 8 %q, <2 x i32> noundef %coords) {{.*}} !arg_type_null_val [[MD_ARG_TY_NULL:![0-9]+]]
+; CHECK: define dso_local spir_kernel void @test_rw_images(ptr addrspace(1) %src1, ptr addrspace(1) %src2, ptr addrspace(1) %src3, ptr %s, ptr addrspace(3) noundef align 8 %q, <2 x i32> noundef %coords) {{.*}} !arg_type_null_val [[MD_ARG_TY_NULL:![0-9]+]]
 ; CHECK: %src1.addr = alloca ptr addrspace(1), align 8
 ; CHECK: %src2.addr = alloca ptr addrspace(1), align 8
 ; CHECK: %src3.addr = alloca ptr addrspace(1), align 8
@@ -22,9 +22,9 @@ entry:
 ; CHECK: store ptr addrspace(1) %src3, ptr %src3.addr, align 8
 ; CHECK: store ptr addrspace(3) %q, ptr %q.addr, align 8
 ; CHECK: load ptr addrspace(1), ptr %src2.addr, align 8
-; CHECK: call <4 x i32> @_Z12read_imageui14ocl_image2d_rwDv2_i(ptr addrspace(1)
+; CHECK: call spir_func <4 x i32> @_Z12read_imageui14ocl_image2d_rwDv2_i(ptr addrspace(1)
 ; CHECK: load ptr addrspace(1), ptr %src2.addr, align 8
-; CHECK: call void @_Z13write_imageui14ocl_image2d_rwDv2_iDv4_j(ptr addrspace(1)
+; CHECK: call spir_func void @_Z13write_imageui14ocl_image2d_rwDv2_iDv4_j(ptr addrspace(1)
 
   %src1.addr = alloca target("spirv.Image", void, 0, 0, 0, 0, 0, 0, 2), align 8
   %src2.addr = alloca target("spirv.Image", void, 1, 0, 0, 0, 0, 0, 2), align 8
@@ -50,11 +50,11 @@ entry:
   ret void
 }
 
-; CHECK: declare <4 x i32> @_Z12read_imageui14ocl_image2d_rwDv2_i(ptr addrspace(1), <2 x i32> noundef)
+; CHECK-DAG: declare spir_func <4 x i32> @_Z12read_imageui14ocl_image2d_rwDv2_i(ptr addrspace(1), <2 x i32> noundef)
 
 declare spir_func <4 x i32> @_Z12read_imageui14ocl_image2d_rwDv2_i(target("spirv.Image", void, 1, 0, 0, 0, 0, 0, 2), <2 x i32> noundef) #2
 
-; CHECK: declare void @_Z13write_imageui14ocl_image2d_rwDv2_iDv4_j(ptr addrspace(1), <2 x i32> noundef, <4 x i32> noundef)
+; CHECK-DAG: declare spir_func void @_Z13write_imageui14ocl_image2d_rwDv2_iDv4_j(ptr addrspace(1), <2 x i32> noundef, <4 x i32> noundef)
 
 declare spir_func void @_Z13write_imageui14ocl_image2d_rwDv2_iDv4_j(target("spirv.Image", void, 1, 0, 0, 0, 0, 0, 2), <2 x i32> noundef, <4 x i32> noundef) #3
 

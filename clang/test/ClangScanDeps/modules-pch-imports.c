@@ -46,13 +46,14 @@
 // CHECK:            "name": "C"
 // CHECK:          }
 
-
+// INTEL_CUSTOMIZATION
 //--- cdb_pch.json.template
 [{
   "file": "DIR/prefix.h",
   "directory": "DIR",
-  "command": "clang -x c-header DIR/prefix.h -o DIR/prefix.h.pch -fmodules -fimplicit-modules -fimplicit-module-maps -fmodules-cache-path=DIR/module-cache"
+  "command": "clang -x c-header DIR/prefix.h -o DIR/prefix.h.pchi -fmodules -fimplicit-modules -fimplicit-module-maps -fmodules-cache-path=DIR/module-cache"
 }]
+// end INTEL_CUSTOMIZATION
 
 //--- cdb.json.template
 [{

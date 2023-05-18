@@ -1,5 +1,5 @@
-; RUN: opt -passes=sycl-kernel-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=sycl-kernel-equalizer -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-target-ext-type-lower -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-target-ext-type-lower -S %s | FileCheck %s
 
 ; Compiled from OpenCL kernel:
 ; kernel void test(global int* p) {
@@ -22,7 +22,7 @@ entry:
   store ptr addrspace(1) %p, ptr %p.addr, align 8, !tbaa !7
   store i32 -1, ptr addrspace(3) @test.val, align 4, !tbaa !11
   %0 = load ptr addrspace(1), ptr %p.addr, align 8, !tbaa !7
-; CHECK: %call = call ptr @_Z21async_work_group_copyPU3AS1iPU3AS3Kim9ocl_event(ptr addrspace(1) noundef {{.*}}, ptr addrspace(3) noundef @test.val, i64 noundef 4, ptr null)
+; CHECK: %call = call spir_func ptr @_Z21async_work_group_copyPU3AS1iPU3AS3Kim9ocl_event(ptr addrspace(1) noundef {{.*}}, ptr addrspace(3) noundef @test.val, i64 noundef 4, ptr null)
 ; CHECK: store ptr %call, ptr %ev
   %call = call spir_func target("spirv.Event") @_Z21async_work_group_copyPU3AS1iPU3AS3Kim9ocl_event(ptr addrspace(1) noundef %0, ptr addrspace(3) noundef @test.val, i64 noundef 4, target("spirv.Event") zeroinitializer) #2
   store target("spirv.Event") %call, ptr %ev, align 8, !tbaa !13
@@ -31,7 +31,7 @@ entry:
   ret void
 }
 
-; CHECK: declare ptr @_Z21async_work_group_copyPU3AS1iPU3AS3Kim9ocl_event(ptr addrspace(1) noundef, ptr addrspace(3) noundef, i64 noundef, ptr)
+; CHECK: declare spir_func ptr @_Z21async_work_group_copyPU3AS1iPU3AS3Kim9ocl_event(ptr addrspace(1) noundef, ptr addrspace(3) noundef, i64 noundef, ptr)
 
 declare spir_func target("spirv.Event") @_Z21async_work_group_copyPU3AS1iPU3AS3Kim9ocl_event(ptr addrspace(1) noundef, ptr addrspace(3) noundef, i64 noundef, target("spirv.Event")) #2
 

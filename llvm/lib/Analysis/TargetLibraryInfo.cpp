@@ -145,9 +145,7 @@ static bool hasBcmp(const Triple &TT) {
 }
 
 #if INTEL_CUSTOMIZATION
-bool TargetLibraryInfo::isFunctionVectorizable(const CallBase &CB,
-                                               const ElementCount &VF,
-                                               bool IsMasked) const {
+bool TargetLibraryInfo::isValidCallForVectorization(const CallBase &CB) const {
   // Track if call allows substitution with approximate functions. We use
   // FastMathFlags to determine this property for FP computations.
   bool CallAllowsApproxFn = true;
@@ -169,9 +167,24 @@ bool TargetLibraryInfo::isFunctionVectorizable(const CallBase &CB,
   // known library function, is an LLVM intrinsic or an OCL vector function.
   bool IsValidMathLibFunc = getLibFunc(*F, LibF) || F->isIntrinsic() ||
                             isOCLVectorFunction(CalledFnName);
+  return IsValidMathLibFunc;
+}
 
-  return IsValidMathLibFunc &&
+bool TargetLibraryInfo::isFunctionVectorizable(const CallBase &CB,
+                                               const ElementCount &VF,
+                                               bool IsMasked) const {
+  Function *F = CB.getCalledFunction();
+  StringRef CalledFnName = F->getName();
+  return isValidCallForVectorization(CB) &&
          isFunctionVectorizable(CalledFnName, VF, IsMasked);
+}
+
+bool TargetLibraryInfo::isFunctionVectorizable(const CallBase &CB,
+                                               bool IsMasked) const {
+  Function *F = CB.getCalledFunction();
+  StringRef CalledFnName = F->getName();
+  return isValidCallForVectorization(CB) &&
+         isFunctionVectorizable(CalledFnName, IsMasked);
 }
 #endif // INTEL_CUSTOMIZATION
 

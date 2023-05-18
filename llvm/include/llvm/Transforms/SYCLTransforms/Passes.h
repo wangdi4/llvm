@@ -37,6 +37,7 @@
 #include "llvm/Transforms/SYCLTransforms/InstToFuncCall.h"
 #include "llvm/Transforms/SYCLTransforms/InternalizeGlobalVariables.h"
 #include "llvm/Transforms/SYCLTransforms/InternalizeNonKernelFunc.h"
+#include "llvm/Transforms/SYCLTransforms/KernelTargetExtTypeLower.h"
 #include "llvm/Transforms/SYCLTransforms/LinearIdResolver.h"
 #include "llvm/Transforms/SYCLTransforms/LocalBuffers.h"
 #include "llvm/Transforms/SYCLTransforms/LoopStridedCodeMotion.h"

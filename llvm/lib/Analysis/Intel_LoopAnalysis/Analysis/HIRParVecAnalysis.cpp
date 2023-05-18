@@ -647,8 +647,8 @@ void DDWalk::visit(HLDDNode *Node) {
               IntrinsicId == Intrinsic::assume ||
               IntrinsicId == Intrinsic::intel_directive_elementsize;
         } else {
-          IsVectorizable = TLI.isFunctionVectorizable(Func->getName()) ||
-              Func->hasFnAttribute("vector-variants");
+          IsVectorizable = TLI.isFunctionVectorizable(*Call) ||
+                           Func->hasFnAttribute("vector-variants");
         }
       } else {
         IsVectorizable = false;

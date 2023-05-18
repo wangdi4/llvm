@@ -41,8 +41,7 @@ define zeroext i1 @_Z3fooj(i32 %i) #0 {
 ; CHECK-NEXT:    br label [[RETURN0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  return:
-; CHECK-NEXT:    [[VEC_RET_CAST0:%.*]] = bitcast i8* [[RET_CAST0]] to <16 x i8>*
-; CHECK-NEXT:    [[VEC_RET0:%.*]] = load <16 x i8>, <16 x i8>* [[VEC_RET_CAST0]], align 16
+; CHECK-NEXT:    [[VEC_RET0:%.*]] = load <16 x i8>, <16 x i8>* [[VEC_RETVAL0]], align 16
 ; CHECK-NEXT:    ret <16 x i8> [[VEC_RET0]]
 ; CHECK-NEXT:  }
 ;
