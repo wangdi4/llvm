@@ -935,11 +935,17 @@ static const char *getCurFilename(char *FilenameBuf, int ForceUseBuf) {
 #if INTEL_CUSTOMIZATION
   time_t TimeStamp;
   char TimeStampBuf[TIMESTAMP_BYTES + 1];
-  int TimeStampBufLen;
+  int TimeStampBufLen = 0;
+  TimeStampBuf[0] = '\0';
   if (lprofCurFilename.NumEpochs) {
     TimeStamp = time(NULL);
-    TimeStampBufLen = SPRINTF(TimeStampBuf, sizeof(TimeStampBuf),
-                              "%0" TIMESTAMP_BYTES_FMT, TimeStamp);
+    TimeStampBufLen =
+        SPRINTF(TimeStampBuf, sizeof(TimeStampBuf), "%0" TIMESTAMP_BYTES_FMT,
+                (unsigned long)TimeStamp);
+
+    /* Set length to zero, on error, which will disable copying data from
+       the buffer, in that case. */
+    TimeStampBufLen = TimeStampBufLen < 0 ? 0 : TimeStampBufLen;
   }
 #endif // INTEL_CUSTOMIZATION
 
