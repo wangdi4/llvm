@@ -578,7 +578,7 @@ def main():
             prefix_pad,
         )
 
-    intel_update_markup.update(test_path) # INTEL
+        intel_update_markup.update(test_path) # INTEL
 
     return 0
 
