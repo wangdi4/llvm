@@ -205,7 +205,7 @@ void check_ast()
   // No diagnostic is emitted because the arguments match.
   // Duplicate attribute is silently ignored.
   //CHECK: VarDecl{{.*}}var_bankwidth 'int'
-  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit Default
+  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit memory Default ;INTEL
   //CHECK: SYCLIntelBankWidthAttr
   //CHECK-NEXT: ConstantExpr{{.*}}'int'
   //CHECK-NEXT: value: Int 16
@@ -218,7 +218,7 @@ void check_ast()
   // No diagnostic is emitted because the arguments match.
   // Duplicate attribute is silently ignored.
   //CHECK: VarDecl{{.*}}var_numbanks 'int'
-  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit Default
+  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit memory Default ;INTEL
   //CHECK: SYCLIntelNumBanksAttr
   //CHECK-NEXT: ConstantExpr{{.*}}'int'
   //CHECK-NEXT: value: Int 8
@@ -229,7 +229,7 @@ void check_ast()
 
   // Checking of different argument values.
   //CHECK: VarDecl{{.*}}bw_bw 'unsigned int[64]'
-  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit Default
+  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit memory Default ;INTEL
   //CHECK: SYCLIntelBankWidthAttr
   //CHECK-NEXT: ConstantExpr{{.*}}'int'
   //CHECK-NEXT: value: Int 8
@@ -240,7 +240,7 @@ void check_ast()
 
   // Checking of different argument values.
   //CHECK: VarDecl{{.*}}nb_nb 'unsigned int[64]'
-  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit Default
+  //CHECK: SYCLIntelMemoryAttr{{.*}}Implicit memory Default ;INTEL
   //CHECK: SYCLIntelNumBanksAttr
   //CHECK-NEXT: ConstantExpr{{.*}}'int'
   //CHECK-NEXT: value: Int 8
@@ -464,14 +464,14 @@ int main() {
 // Check redeclaration of duplicate argument values with implicit memory
 // attribute. No diagnostic is generated.
 //CHECK: VarDecl{{.*}}var_max_replicates 'const int' extern
-//CHECK: SYCLIntelMemoryAttr{{.*}}Implicit Default
+//CHECK: SYCLIntelMemoryAttr{{.*}}Implicit memory Default ;INTEL
 //CHECK: SYCLIntelMaxReplicatesAttr
 //CHECK-NEXT: ConstantExpr{{.*}}'int'
 //CHECK-NEXT: value: Int 12
 //CHECK-NEXT: IntegerLiteral{{.*}}'int' 12
 //CHECK: VarDecl{{.*}}var_max_replicates 'const int' cinit
 //CHECK: IntegerLiteral{{.*}}'int' 0
-//CHECK: SYCLIntelMemoryAttr{{.*}}Implicit Default
+//CHECK: SYCLIntelMemoryAttr{{.*}}Implicit memory Default ;INTEL
 //CHECK: SYCLIntelMaxReplicatesAttr
 //CHECK-NEXT: ConstantExpr{{.*}}'int'
 //CHECK-NEXT: value: Int 12
@@ -485,14 +485,14 @@ int main() {
 // Check redeclaration of duplicate argument values with implicit memory.
 // No diagnostic is generated.
 //CHECK: VarDecl{{.*}}var_force_pow2_depth 'const int' extern
-//CHECK: SYCLIntelMemoryAttr{{.*}}Implicit Default
+//CHECK: SYCLIntelMemoryAttr{{.*}}Implicit memory Default ;INTEL
 //CHECK: SYCLIntelForcePow2DepthAttr
 //CHECK-NEXT: ConstantExpr{{.*}}'int'
 //CHECK-NEXT: value: Int 1
 //CHECK-NEXT: IntegerLiteral{{.*}}'int' 1
 //CHECK: VarDecl{{.*}}var_force_pow2_depth 'const int' cinit
 //CHECK: IntegerLiteral{{.*}}'int' 0
-//CHECK: SYCLIntelMemoryAttr{{.*}}Implicit Default
+//CHECK: SYCLIntelMemoryAttr{{.*}}Implicit memory Default ;INTEL
 //CHECK: SYCLIntelForcePow2DepthAttr
 //CHECK-NEXT: ConstantExpr{{.*}} 'int'
 //CHECK-NEXT: value: Int 1
@@ -506,7 +506,7 @@ int main() {
 // Check redeclaration of duplicate argument values with implicit memory.
 // No diagnostic is generated.
 //CHECK: VarDecl{{.*}}var_numbanks 'const int' extern
-//CHECK: SYCLIntelMemoryAttr{{.*}}Implicit Default
+//CHECK: SYCLIntelMemoryAttr{{.*}}Implicit memory Default ;INTEL
 //CHECK: SYCLIntelNumBanksAttr
 //CHECK-NEXT: ConstantExpr{{.*}}'int'
 //CHECK-NEXT: value: Int 16
@@ -526,7 +526,7 @@ int main() {
 // Check redeclaration of duplicate argument values with implicit memory.
 // No diagnostic is generated.
 //CHECK: VarDecl{{.*}}var_bankwidth 'const int' extern
-//CHECK: SYCLIntelMemoryAttr{{.*}}Implicit Default
+//CHECK: SYCLIntelMemoryAttr{{.*}}Implicit memory Default ;INTEL
 //CHECK: SYCLIntelBankWidthAttr
 //CHECK-NEXT: ConstantExpr{{.*}}'int'
 //CHECK-NEXT: value: Int 8
