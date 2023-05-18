@@ -8,7 +8,9 @@
 
 # RUN: lld-link /debug /out:%t.exe /entry:main %t.obj %p/Inputs/std64.lib
 # RUN: llvm-readobj --symbols %t.exe | FileCheck -check-prefix=NO %s
-# RUN: lld-link /debug /merge:.blank=.debug_info /out:%t.exe /entry:main %t.obj %p/Inputs/std64.lib
+# INTEL_CUSTOMIZATION
+# RUN: lld-link /debug /merge:.blank=.debug_info /profile /out:%t.exe /entry:main %t.obj %p/Inputs/std64.lib
+# END INTEL_CUSTOMIZATION
 # RUN: llvm-readobj --symbols %t.exe | FileCheck %s
 
 # CHECK:      Symbols [
