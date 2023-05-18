@@ -745,7 +745,7 @@ Value *InstCombinerImpl::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
         else if (SignBitOne)
           Known.One.setSignBit();
         if (Known.hasConflict())
-          return UndefValue::get(VTy);
+          return PoisonValue::get(VTy);
       }
     } else {
       // This is a variable shift, so we can't shift the demand mask by a known
@@ -940,14 +940,12 @@ Value *InstCombinerImpl::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
     break;
   }
   case Instruction::URem: {
-    KnownBits Known2(BitWidth);
     APInt AllOnes = APInt::getAllOnes(BitWidth);
-    if (SimplifyDemandedBits(I, 0, AllOnes, Known2, Depth + 1) ||
-        SimplifyDemandedBits(I, 1, AllOnes, Known2, Depth + 1))
+    if (SimplifyDemandedBits(I, 0, AllOnes, LHSKnown, Depth + 1) ||
+        SimplifyDemandedBits(I, 1, AllOnes, RHSKnown, Depth + 1))
       return I;
 
-    unsigned Leaders = Known2.countMinLeadingZeros();
-    Known.Zero = APInt::getHighBitsSet(BitWidth, Leaders) & DemandedMask;
+    Known = KnownBits::urem(LHSKnown, RHSKnown);
     break;
   }
   case Instruction::Call: {
@@ -1162,6 +1160,8 @@ Value *InstCombinerImpl::SimplifyMultipleUseDemandedBits(
     if (DemandedFromOps.isSubsetOf(LHSKnown.Zero))
       return I->getOperand(1);
 
+    bool NSW = cast<OverflowingBinaryOperator>(I)->hasNoSignedWrap();
+    Known = KnownBits::computeForAddSub(/*Add*/ true, NSW, LHSKnown, RHSKnown);
     break;
   }
   case Instruction::Sub: {
@@ -1174,6 +1174,9 @@ Value *InstCombinerImpl::SimplifyMultipleUseDemandedBits(
     if (DemandedFromOps.isSubsetOf(RHSKnown.Zero))
       return I->getOperand(0);
 
+    bool NSW = cast<OverflowingBinaryOperator>(I)->hasNoSignedWrap();
+    computeKnownBits(I->getOperand(0), LHSKnown, Depth + 1, CxtI);
+    Known = KnownBits::computeForAddSub(/*Add*/ false, NSW, LHSKnown, RHSKnown);
     break;
   }
   case Instruction::AShr: {
