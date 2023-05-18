@@ -80,14 +80,13 @@ protected:
     SE.reset(new ScalarEvolution(F, *TLI, *AC, *DT, *LI));
     if (Loop) {
       PSE.reset(new PredicatedScalarEvolution(*SE, *Loop));
-      Legal.reset(
-          new VPOVectorizationLegality(Loop, *PSE, &F, &F.getContext()));
+      Legal.reset(new VPOVectorizationLegality(Loop, *PSE, &F));
     }
     Externals.reset(new VPExternalValues(Ctx.get(), DL.get(), M.get()));
     UVPI.reset(new VPUnlinkedInstructions());
     LVP.reset(new LoopVectorizationPlanner(
         nullptr /* no WRLp */, Loop, LI.get(), TLI.get(), TTI.get(), DL.get(),
-        DT.get(), Legal.get(), nullptr /* no VLSA */, &F.getContext()));
+        DT.get(), Legal.get(), nullptr /* no VLSA */));
   }
 
   std::unique_ptr<VPlanNonMasked> buildHCFG(BasicBlock *LoopHeader) {

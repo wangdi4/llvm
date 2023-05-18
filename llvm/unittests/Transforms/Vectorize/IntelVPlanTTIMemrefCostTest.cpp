@@ -91,10 +91,14 @@ protected:
     const TargetTransformInfo &TTI =
       (static_cast<TargetTransformInfoWrapperPass *>(TTIPass))->getTTI(*Func);
 
-    LoopVectorizationPlanner LVP(
-        nullptr /* WRL */, nullptr /* Loop */, nullptr /* LoopInfo */,
-        nullptr /* LibraryInfo */, &TTI, DL.get(), nullptr /* DominatorTree */,
-        nullptr /* legality */, nullptr /* VLSA*/, &Func->getContext());
+    LoopVectorizationPlanner LVP(nullptr /* WRL */,
+                                 nullptr /* Loop */,
+                                 nullptr /* LoopInfo */,
+                                 nullptr /* LibraryInfo */,
+                                 &TTI, DL.get(),
+                                 nullptr /* DominatorTree */,
+                                 nullptr /* legality */,
+                                 nullptr /* VLSA*/);
 
     CM = LVP.createCostModel(Plan.get(), 1);
     for (const VPInstruction &VPInst : Plan->front())
