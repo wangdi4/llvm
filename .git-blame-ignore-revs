@@ -47,8 +47,13 @@ d8f0e6caa91e230a486c948ab643174e40bdf215
 # [libc++][NFC] clang-format <__config>
 ac251726f84d5b7e6533a2e3712920184435b61b
 
+<<<<<<< HEAD
 # [OpenCL][NFC] Format code in opencl-intel folder
 abfd5759b258fdb01f170f2e0b1811b266951678
 
 # Python black reformatting, llvm subdir
+=======
+# Python black reformatting, by subdir. NFC
+>>>>>>> cc1c1a55ea33e5f8278c70f1fb3b501bc07a3736
 b71edfaa4ec3c998aadb35255ce2f60bba2940b0
+f84bac329ba6c9f0c022bcf77237e912362e247a
