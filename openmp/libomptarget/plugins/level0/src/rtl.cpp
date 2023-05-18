@@ -432,6 +432,34 @@ public:
   T getAvg() const { return Count > 0 ? (Total / Count) : 0; }
 };
 
+/// Predefined strings used as profile keys -- must match with ProfKeyTy below.
+const char *ProfKeys[] = {
+    "Compiling",
+    "Linking",
+    "DataAlloc",
+    "DataRead (Device to Host)",
+    "DataWrite (Host to Device)",
+    "DataCopy",
+    "Kernel",
+    "OffloadEntriesInit",
+    "FunctionPointersInit",
+};
+
+/// Predefined profile key types -- must match with ProfKeys above.
+enum class ProfKeyTy {
+  First = 0,
+  Comp = 0,
+  Link,
+  Alloc,
+  D2H,
+  H2D,
+  Copy,
+  Kernel,
+  TblInit,
+  FnPtrInit,
+  Last
+};
+
 /// RTL profile -- only host timer for now
 class RTLProfileTy {
   struct TimeTy {
@@ -567,8 +595,22 @@ public:
       PrintNum((double)HT.count());
       fprintf(stderr, "\n");
     }
-
     fprintf(stderr, "%s\n", BoldLine.c_str());
+  }
+
+  void update(ProfKeyTy Key, double HostTime) {
+    if (Key >= ProfKeyTy::First && Key < ProfKeyTy::Last)
+      update(ProfKeys[static_cast<int>(Key)], HostTime);
+  }
+
+  void update(ProfKeyTy Key, double HostTime, double DeviceTime) {
+    if (Key >= ProfKeyTy::First && Key < ProfKeyTy::Last)
+      update(ProfKeys[static_cast<int>(Key)], HostTime, DeviceTime);
+  }
+
+  void update(ProfKeyTy Key, ze_event_handle_t Event) {
+    if (Key >= ProfKeyTy::First && Key < ProfKeyTy::Last)
+      update(ProfKeys[static_cast<int>(Key)], Event);
   }
 
   void update(const char *Name, double HostTime) {
@@ -581,6 +623,11 @@ public:
     update(Key, HostTime, DeviceTime);
   }
 
+  void update(const char *Name, ze_event_handle_t Event) {
+    std::string Key(Name);
+    update(Key, Event);
+  }
+
   void update(std::string &Name, double HostTime) {
     auto &Time = Data[Name];
     Time.HostTime += HostTime;
@@ -590,6 +637,10 @@ public:
     auto &Time = Data[Name];
     Time.HostTime += HostTime;
     Time.DeviceTime += DeviceTime;
+  }
+
+  void update(std::string &Name, ze_event_handle_t Event) {
+    Data[Name].DeviceTime += getEventTime(Event);
   }
 
   /// Return elapsed time from the given profile event
@@ -612,10 +663,6 @@ public:
 
     return WallTime;
   }
-
-  void update(std::string &Name, ze_event_handle_t Event) {
-    Data[Name].DeviceTime += getEventTime(Event);
-  }
 };
 int64_t RTLProfileTy::Multiplier;
 
@@ -623,17 +670,37 @@ int64_t RTLProfileTy::Multiplier;
 struct AsyncQueueTy {
   /// List of events attahced to submitted commands
   std::vector<ze_event_handle_t> WaitEvents;
+  /// Profile keys for each event
+  std::unordered_map<ze_event_handle_t, ProfKeyTy> PKeys;
   /// Pending staging buffer to host copies
   std::list<std::tuple<void *, void *, size_t>> H2MList;
   /// Pending USM memory copy commands that must wait for kernel completion
   std::list<std::tuple<void *, void *, size_t>> USM2MList;
   /// Kernel event not signaled
   ze_event_handle_t KernelEvent = nullptr;
+  /// Kernel profile name if profile is enabled
+  std::string KernelPKey;
+  /// Update the given profile with the given event
+  void updateProf(RTLProfileTy *Prof, ze_event_handle_t Event) {
+    if (!Prof || !Event)
+      return;
+    auto Itr = PKeys.find(Event);
+    if (Itr == PKeys.end())
+      return;
+    auto Key = Itr->second;
+    if (Key == ProfKeyTy::Kernel)
+      Prof->update(KernelPKey, Event);
+    else
+      Prof->update(Key, Event);
+  }
+  /// Clear data
   void reset() {
     WaitEvents.clear();
+    PKeys.clear();
     H2MList.clear();
     USM2MList.clear();
     KernelEvent = nullptr;
+    KernelPKey.clear();
   }
 };
 
@@ -2813,7 +2880,7 @@ public:
   int32_t enqueueMemCopy(void *Dst, const void *Src, size_t Size);
 }; /// MemAllocatorTy
 
-class ScopedTimerTy; // Forward declaration
+struct ScopedTimerTy; // Forward declaration
 
 /// Device information
 struct RTLDeviceInfoTy {
@@ -3250,7 +3317,7 @@ struct RTLDeviceInfoTy {
 
   /// Enqueue asynchronous copy command
   int32_t enqueueMemCopyAsync(int32_t DeviceId, void *Dst, const void *Src,
-                              size_t Size);
+                              size_t Size, bool CopyTo = true);
 
   /// Return memory allocation type
   uint32_t getMemAllocType(const void *Ptr);
@@ -3513,12 +3580,11 @@ static void wrapInteropSycl(__tgt_interop *Interop) {
 #endif // INTEL_CUSTOMIZATION
 
 /// For scoped start/stop
-class ScopedTimerTy {
+struct ScopedTimerTy {
   std::string Name;
   double TimeStamp = 0.0;
   bool Active = false;
   RTLProfileTy *Profile = nullptr;
-public:
   ScopedTimerTy(int32_t DeviceId, const char *name) : Name(name) {
     if (!DeviceInfo->Option.Flags.EnableProfile)
       return;
@@ -3536,6 +3602,15 @@ public:
       return;
     Name = Prefix;
     Name += name;
+    Profile = DeviceInfo->getProfile(DeviceId);
+    start();
+  }
+  ScopedTimerTy(int32_t DeviceId, const ProfKeyTy Key) {
+    if (!DeviceInfo->Option.Flags.EnableProfile)
+      return;
+    if (Key < ProfKeyTy::First || Key >= ProfKeyTy::Last)
+      return;
+    Name = ProfKeys[static_cast<int>(Key)];
     Profile = DeviceInfo->getProfile(DeviceId);
     start();
   }
@@ -4014,7 +4089,7 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
   }
 #endif // INTEL_CUSTOMIZATION
 
-  ScopedTimerTy Timer(DeviceId, "DataWrite (Host to Device)");
+  ScopedTimerTy Timer(DeviceId, ProfKeyTy::H2D);
 
   auto TgtPtrType = DeviceInfo->getMemAllocType(TgtPtr);
   if (TgtPtrType == ZE_MEMORY_TYPE_SHARED ||
@@ -4033,10 +4108,11 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
       std::copy_n(static_cast<char *>(HstPtr), Size,
                   static_cast<char *>(SrcPtr));
     }
-    int32_t RC = IsAsync ? DeviceInfo->enqueueMemCopyAsync(DeviceId, TgtPtr,
-                                                           SrcPtr, Size)
-                         : DeviceInfo->enqueueMemCopy(DeviceId, TgtPtr, SrcPtr,
-                                                      Size, &Timer);
+    int32_t RC;
+    if (IsAsync)
+      RC = DeviceInfo->enqueueMemCopyAsync(DeviceId, TgtPtr, SrcPtr, Size);
+    else
+      RC = DeviceInfo->enqueueMemCopy(DeviceId, TgtPtr, SrcPtr, Size, &Timer);
     if (RC != OFFLOAD_SUCCESS)
       return RC;
   }
@@ -4065,7 +4141,7 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
   }
 #endif // INTEL_CUSTOMIZATION
 
-  ScopedTimerTy Timer(DeviceId, "DataRead (Device to Host)");
+  ScopedTimerTy Timer(DeviceId, ProfKeyTy::D2H);
 
   auto TgtPtrType = DeviceInfo->getMemAllocType(TgtPtr);
   if (TgtPtrType == ZE_MEMORY_TYPE_HOST ||
@@ -4093,10 +4169,12 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
       DstPtr = IsAsync ? DeviceInfo->getStagingBuffer().getNext()
                        : DeviceInfo->getStagingBuffer().get();
     }
-    int32_t RC = IsAsync ? DeviceInfo->enqueueMemCopyAsync(DeviceId, DstPtr,
-                                                           TgtPtr, Size)
-                         : DeviceInfo->enqueueMemCopy(DeviceId, DstPtr, TgtPtr,
-                                                      Size, &Timer);
+    int32_t RC;
+    if (IsAsync)
+      RC = DeviceInfo->enqueueMemCopyAsync(DeviceId, DstPtr, TgtPtr, Size,
+                                           /* CopyTo */ false);
+    else
+      RC = DeviceInfo->enqueueMemCopy(DeviceId, DstPtr, TgtPtr, Size, &Timer);
     if (RC != OFFLOAD_SUCCESS)
       return RC;
     if (DstPtr != HstPtr) {
@@ -4741,6 +4819,8 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
       CmdQueue = DeviceInfo->getCmdQueue(SubId);
   }
 
+  bool Profile = Option.Flags.EnableProfile;
+
   if (DeviceInfo->BatchCmdQueues[RootId].MaxCommands > 0 && OnRoot) {
     // Enable only for OpenMP device ID
     auto &BatchQueue = DeviceInfo->BatchCmdQueues[RootId];
@@ -4773,15 +4853,19 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
     if (IsAsync) {
       AsyncQueue.WaitEvents.push_back(Event);
       AsyncQueue.KernelEvent = Event;
+      if (Profile) {
+        AsyncQueue.PKeys.emplace(Event, ProfKeyTy::Kernel);
+        AsyncQueue.KernelPKey = KernelTimer.Name;
+      }
     } else {
       CALL_ZE_RET_FAIL(zeEventHostSynchronize, Event, UINT64_MAX);
-      if (Option.Flags.EnableProfile)
+      if (Profile)
         KernelTimer.updateDeviceTime(Event);
       DeviceInfo->EventPool.releaseEvent(Event);
     }
   } else {
     ze_event_handle_t Event = nullptr;
-    if (Option.Flags.EnableProfile)
+    if (Profile)
       Event = DeviceInfo->EventPool.getEvent();
     CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, CmdList, Kernel,
                      &GroupCounts, Event, 0, nullptr);
@@ -4796,7 +4880,7 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
     DP("Submitted kernel " DPxMOD " to device %s\n", DPxPTR(Kernel), SubIdStr);
     CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
     CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
-    if (Option.Flags.EnableProfile) {
+    if (Profile) {
       KernelTimer.updateDeviceTime(Event);
       DeviceInfo->EventPool.releaseEvent(Event);
     }
@@ -4953,11 +5037,11 @@ int32_t CommandBatchTy::commit(bool Always) {
         DeviceInfo->EventPool.releaseEvent(KernelEvent);
     }
     if (NumCopyTo > 0 && NumCopyFrom > 0)
-      Profile->update("DataCopy", BatchTime, BatchTime);
+      Profile->update(ProfKeyTy::Copy, BatchTime, BatchTime);
     else if (NumCopyTo > 0)
-      Profile->update("DataWrite (Host to Device)", BatchTime, BatchTime);
+      Profile->update(ProfKeyTy::H2D, BatchTime, BatchTime);
     else if (NumCopyFrom > 0)
-      Profile->update("DataRead (Device to Host)", BatchTime, BatchTime);
+      Profile->update(ProfKeyTy::D2H, BatchTime, BatchTime);
   }
 
   // Commit enqueued memory copy from staging buffer to host buffer
@@ -5144,7 +5228,8 @@ int32_t RTLDeviceInfoTy::enqueueMemCopy(int32_t DeviceId, void *Dst,
 /// Enqueue non-blocking memory copy. This function is invoked only when IMM is
 /// fully enabled and async mode is requested.
 int32_t RTLDeviceInfoTy::enqueueMemCopyAsync(int32_t DeviceId, void *Dst,
-                                             const void *Src, size_t Size) {
+                                             const void *Src, size_t Size,
+                                             bool CopyTo) {
   bool Ordered = (Option.CommandMode == CommandModeTy::AsyncOrdered);
   auto &AsyncQueue = getTLS()->getAsyncQueue();
   ze_event_handle_t SignalEvent = EventPool.getEvent();
@@ -5164,6 +5249,10 @@ int32_t RTLDeviceInfoTy::enqueueMemCopyAsync(int32_t DeviceId, void *Dst,
   CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, CmdList, Dst, Src, Size,
                    SignalEvent, NumWaitEvents, WaitEvents);
   AsyncQueue.WaitEvents.push_back(SignalEvent);
+  if (Option.Flags.EnableProfile) {
+    auto PKey = CopyTo ? ProfKeyTy::H2D : ProfKeyTy::D2H;
+    AsyncQueue.PKeys.emplace(SignalEvent, PKey);
+  }
 
   return OFFLOAD_SUCCESS;
 }
@@ -5237,7 +5326,7 @@ void *RTLDeviceInfoTy::dataAlloc(int32_t DeviceId, size_t Size, size_t Align,
                                  int32_t Kind, intptr_t Offset, bool UserAlloc,
                                  bool Owned, uint32_t MemAdvice,
                                  int32_t AllocOpt) {
-  ScopedTimerTy TM(DeviceId, "DataAlloc");
+  ScopedTimerTy TM(DeviceId, ProfKeyTy::Alloc);
   DeviceId = getInternalDeviceId(DeviceId);
   auto Device = DeviceInfo->Devices[DeviceId];
   bool UseDedicatedPool = (AllocOpt == ALLOC_OPT_REDUCTION_SCRATCH) ||
@@ -5780,7 +5869,7 @@ int32_t LevelZeroProgramTy::addModule(
 }
 
 int32_t LevelZeroProgramTy::linkModules() {
-  ScopedTimerTy MoudleLinkTimer(DeviceId, "Linking");
+  ScopedTimerTy MoudleLinkTimer(DeviceId, ProfKeyTy::Link);
 
   if (!RequiresModuleLink) {
     DP("Module link is not required\n");
@@ -5829,7 +5918,7 @@ int32_t LevelZeroProgramTy::linkModules() {
 }
 
 int32_t LevelZeroProgramTy::buildModules(std::string &BuildOptions) {
-  ScopedTimerTy ModuleBuildTimer(DeviceId, "Compiling");
+  ScopedTimerTy ModuleBuildTimer(DeviceId, ProfKeyTy::Comp);
   uint64_t MajorVer, MinorVer;
   if (!isValidOneOmpImage(Image, MajorVer, MinorVer)) {
     // Handle legacy plain SPIR-V image.
@@ -6087,7 +6176,7 @@ void *LevelZeroProgramTy::getOffloadVarDeviceAddr(
 }
 
 bool LevelZeroProgramTy::loadOffloadTable(size_t NumEntries) {
-  ScopedTimerTy OffloadTableInitTimer(DeviceId, "OffloadEntriesInit");
+  ScopedTimerTy OffloadTableInitTimer(DeviceId, ProfKeyTy::TblInit);
 
   const char *OffloadTableSizeVarName = "__omp_offloading_entries_table_size";
   void *OffloadTableSizeVarAddr =
@@ -6836,14 +6925,18 @@ int32_t __tgt_rtl_synchronize(int32_t DeviceId, __tgt_async_info *AsyncInfo) {
 
   AsyncQueueTy &AsyncQueue = getTLS()->getAsyncQueue();
   auto &EventPool = DeviceInfo->EventPool;
+  RTLProfileTy *Prof = DeviceInfo->getProfile(DeviceId);
 
   if (!AsyncQueue.WaitEvents.empty()) {
     auto &WaitEvents = AsyncQueue.WaitEvents;
     if (DeviceInfo->Option.CommandMode == CommandModeTy::AsyncOrdered) {
       // Only need to wait for the last event
       CALL_ZE_RET_FAIL(zeEventHostSynchronize, WaitEvents.back(), UINT64_MAX);
-      for (auto &Event : WaitEvents)
+      for (auto &Event : WaitEvents) {
+        if (Prof)
+          AsyncQueue.updateProf(Prof, Event);
         EventPool.releaseEvent(Event);
+      }
     } else { // Async
       // Wait for all events. We should wait and reset events in reverse order
       // to avoid premature event reset. If we have a kernel event in the queue,
@@ -6856,6 +6949,8 @@ int32_t __tgt_rtl_synchronize(int32_t DeviceId, __tgt_async_info *AsyncInfo) {
           if (*Itr == AsyncQueue.KernelEvent)
             WaitDone = true;
         }
+        if (Prof)
+          AsyncQueue.updateProf(Prof, *Itr);
         EventPool.releaseEvent(*Itr);
       }
     }
@@ -7365,7 +7460,7 @@ int32_t __tgt_rtl_set_function_ptr_map(
   if (Size == 0)
     return OFFLOAD_SUCCESS;
 
-  ScopedTimerTy Timer(DeviceId, "Function pointers init");
+  ScopedTimerTy Timer(DeviceId, ProfKeyTy::FnPtrInit);
   // FIXME: What happens if we have multiple programs?
   auto &Program = DeviceInfo->Programs[DeviceId].back();
   void *DeviceMapSizeVarAddr = Program.getVarDeviceAddr(
