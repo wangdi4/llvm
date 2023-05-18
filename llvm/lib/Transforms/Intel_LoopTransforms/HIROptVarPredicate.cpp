@@ -680,8 +680,7 @@ std::unique_ptr<CanonExpr> HIROptVarPredicate::findIVSolution(
     return nullptr;
   }
 
-  if (CmpInst::isUnsigned(Pred) ||
-      !SkipIVOverflowCheck && mayIVOverflowCE(LHS, Loop)) {
+  if (!SkipIVOverflowCheck && mayIVOverflowCE(LHS, Loop)) {
     return nullptr;
   }
 
@@ -1356,6 +1355,16 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
       LLVM_DEBUG(
           dbgs() << "Could not convert split point to a stand-alone blob\n");
       continue;
+    }
+
+    if (CmpInst::isUnsigned(Pred)) {
+      if (HLNodeUtils::isKnownNonNegative(LHS->getSingleCanonExpr(), Loop) &&
+          HLNodeUtils::isKnownNonNegative(RHS->getSingleCanonExpr(), Loop)) {
+        Pred = CmpInst::getSignedPredicate(Pred);
+      } else {
+        LLVM_DEBUG(dbgs() << "Unsigned predicate .\n");
+        continue;
+      }
     }
 
     if (HaveBothSidesIV) {
