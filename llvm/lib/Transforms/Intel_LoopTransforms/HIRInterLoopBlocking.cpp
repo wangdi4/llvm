@@ -91,6 +91,7 @@
 
 #define OPT_SWITCH "hir-inter-loop-blocking"
 #define OPT_DESC "HIR Spatial blocking over multiple loopnests"
+
 #define DEBUG_TYPE OPT_SWITCH
 #define LLVM_DEBUG_PROFIT_REPORT(X) DEBUG_WITH_TYPE(OPT_SWITCH "-profit", X)
 #define LLVM_DEBUG_DD_EDGES(X) DEBUG_WITH_TYPE(OPT_SWITCH "-dd", X)
@@ -200,11 +201,10 @@ typedef DenseSet<unsigned> BasePtrIndexSetTy;
 // I/O calls happen only at specific early iterations.
 class CheckerVisitor : public HLNodeVisitorBase {
 public:
-  CheckerVisitor(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
-                 HIRDDAnalysis &DDA, StringRef FuncName)
-      : SkipNode(nullptr), IsDone(false), HIRF(HIRF), HASA(HASA), DDA(DDA),
-        Func(FuncName), FirstSpatialLoop(nullptr), LastSpatialLoop(nullptr),
-        PrevLCA(nullptr), HasIOCall(false) {}
+  CheckerVisitor(HIRFramework &HIRF, StringRef FuncName)
+      : SkipNode(nullptr), IsDone(false), HIRF(HIRF), Func(FuncName),
+        FirstSpatialLoop(nullptr), LastSpatialLoop(nullptr), PrevLCA(nullptr),
+        HasIOCall(false) {}
 
   bool skipRecursion(const HLNode *Node) const { return SkipNode == Node; }
   bool isDone() const { return IsDone; }
@@ -305,8 +305,6 @@ protected:
 
 protected:
   HIRFramework &HIRF;
-  HIRArraySectionAnalysis &HASA;
-  HIRDDAnalysis &DDA;
 
   StringRef Func;
 
@@ -479,8 +477,8 @@ protected:
 
 public:
   ProfitabilityChecker(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
-                       HIRDDAnalysis &DDA, StringRef FuncName)
-      : CheckerVisitor(HIRF, HASA, DDA, FuncName), State(INIT),
+                       StringRef FuncName)
+      : CheckerVisitor(HIRF, FuncName), HASA(HASA), State(INIT),
         IsProfitable(false) {}
 
   bool isProfitable() {
@@ -531,6 +529,7 @@ protected:
   }
 
 protected:
+  HIRArraySectionAnalysis &HASA;
   OuterLoopState State;
   bool IsProfitable;
 
@@ -1514,6 +1513,47 @@ HLNode *findTheLowestAncestor(HLLoop *InnermostLoop, const HLNode *Limit) {
 }
 } // namespace
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DEBUG)
+void Transformer::dump() {
+  unsigned Size = StripmineSizes.size();
+  dbgs() << "Size: " << Size << "\n";
+  dbgs() << "StripmineSizes: ";
+  for (auto S : StripmineSizes)
+    dbgs() << S << " ";
+  dbgs() << "\n";
+
+  dbgs() << "InnermostLoopToDimInfos\n";
+  for (auto &Entry : InnermostLoopToDimInfos) {
+    dbgs() << "Lp :" << Entry.first->getNumber() << " ";
+    dbgs() << "DimInfoSize: " << Entry.second.size() << ", ";
+    for (auto LevelOffset : Entry.second)
+      dbgs() << "LevelOffset:" << LevelOffset << " ";
+    dbgs() << "\n";
+  }
+
+  dbgs() << "InnermostLoopToRepRefs\n";
+  for (auto &Entry : InnermostLoopToRepRef) {
+    dbgs() << "Lp :" << Entry.first->getNumber() << " ";
+    Entry.second->dump();
+    dbgs() << " ";
+  }
+
+  dbgs() << "InnermostLoopToShift\n";
+  for (auto &Vector : InnermostLoopToShift) {
+    dbgs() << "Size: " << Vector.size() << " ";
+    for (auto Shift : Vector)
+      dbgs() << Shift << " ";
+    dbgs() << "\n";
+  }
+
+  dbgs() << "NodeOutsideByStrip: ";
+  if (NodeOutsideByStrip)
+    dbgs() << NodeOutsideByStrip->getNumber() << "\n";
+
+  dbgs() << "CloneDVLoads: " << CloneDVLoads << "\n";
+}
+#endif
+
 Transformer::Transformer(ArrayRef<unsigned> StripmineSizes,
                          const LoopToDimInfoTy &InnermostLoopToDimInfos,
                          const LoopToConstRefTy &InnermostLoopToRepRef,
@@ -1525,16 +1565,9 @@ Transformer::Transformer(ArrayRef<unsigned> StripmineSizes,
       InnermostLoopToRepRef(InnermostLoopToRepRef),
       InnermostLoopToShift(InnermostLoopToShift),
       NodeOutsideByStrip(NodeOutsideByStrip), NumByStripLoops(0), Func(Func),
-      CloneDVLoads(CloneDVLoads) {
-  unsigned NumDims = StripmineSizes.size();
-  ByStripLoopLowerBlobs.resize(NumDims);
-  ByStripLoopUpperBlobs.resize(NumDims);
-  ByStripLoops.resize(NumDims, 0x0);
+      CloneDVLoads(CloneDVLoads), HasNonDimMatchingLoop(false) {
 
-  // Initialize the number of ByStripLoops.
-  NumByStripLoops = getNumByStripLoops(StripmineSizes);
-
-  calcLoopMatchingDimNum();
+  LLVM_DEBUG(dump());
 }
 
 // Make sure every dimension has a target loop.
@@ -1562,6 +1595,9 @@ bool Transformer::checkDimsToLoops(
     }
 
     if (!FoundTargetLoop) {
+
+      LLVM_DEBUG(dbgs() << "Missing DimNum: " << DimNum << "\n");
+
       // This dimension had no target loop.
       // I.e. all refs have either constants or blobs in this dimension,
       // and no IV.
@@ -1574,16 +1610,12 @@ bool Transformer::checkDimsToLoops(
 
 bool Transformer::rewrite() {
 
-  // This check is done after StripmineSizes are determined.
-  // If the check fails, transformation does not happen.
-  if (getNumByStripLoops(StripmineSizes) == 0 ||
-      !checkDimsToLoops(StripmineSizes, InnermostLoopToDimInfos)) {
-    LLVM_DEBUG_PROFIT_REPORT(dbgs() << "No transformation: Some dimensions "
-                                       "have no matching loop level.\n");
+  if (!init())
     return false;
-  }
 
-  HLRegion *Region = NodeOutsideByStrip->getParentRegion();
+  HLRegion *Region = isa<HLRegion>(NodeOutsideByStrip)
+                         ? cast<HLRegion>(NodeOutsideByStrip)
+                         : NodeOutsideByStrip->getParentRegion();
 
 #if 0
     printMarker("Initial: ", {NodeOutsideByStrip}, true, false);
@@ -1600,6 +1632,9 @@ bool Transformer::rewrite() {
 
   HLNode *AnchorNode = findTheLowestAncestor(
       (*InnermostLoopToDimInfos.begin()).first, NodeOutsideByStrip);
+
+  assert((!HasNonDimMatchingLoop || isa<HLLoop>(AnchorNode)) &&
+         "If NonDimMatchingLoop exists, AnchorNode should be a loop");
 
 #if 0
     printMarker("AnchorNode: ", {AnchorNode});
@@ -1636,7 +1671,8 @@ bool Transformer::rewrite() {
   // Align original spatial loops
   alignSpatialLoops(InnermostLoopToAdjustingRef);
 
-  assert(isa<HLLoop>(AnchorNode) &&
+  assert(HasNonDimMatchingLoop ||
+         isa<HLLoop>(AnchorNode) &&
              AnchorNode->getNodeLevel() ==
                  (NodeOutsideByStrip->getNodeLevel() + 1) ||
          !isa<HLLoop>(AnchorNode) &&
@@ -1714,7 +1750,8 @@ bool Transformer::rewrite() {
   // not related to any innermost loops or NodeToMoves
   // Note: Step 2. should come after Step 1. Once moved, findTheLowestAncestor
   //       returns different values.
-  assert(AnchorNode == OuterNodeToInnermostLoop.front().first);
+  assert(HasNonDimMatchingLoop ||
+         AnchorNode == OuterNodeToInnermostLoop.front().first);
 
   HLNodeUtils::moveAsLastChildren(
       InnermostByStripLoop, AnchorNode->getIterator(),
@@ -1724,10 +1761,14 @@ bool Transformer::rewrite() {
   for (HLNode &Node : make_range(
            AnchorNode->getIterator(),
            std::next(OuterNodeToInnermostLoop.back().first->getIterator()))) {
-    updateSpatialIVs(&Node, NumByStripLoops,
-                     NodeOutsideByStrip->getNodeLevel());
-    updateDefAtLevelOfSpatialLoops(&Node, NodeOutsideByStrip->getNodeLevel());
+    unsigned OutsideLevel = isa<HLRegion>(NodeOutsideByStrip)
+                                ? 0
+                                : NodeOutsideByStrip->getNodeLevel();
+    updateSpatialIVs(&Node, NumByStripLoops, OutsideLevel);
+    updateDefAtLevelOfSpatialLoops(&Node, OutsideLevel);
   }
+
+  LLVM_DEBUG(dbgs() << "Update IVs are done.\n");
 
   // Step 3. apply blocking guards to target loops
   // Note: Step 3 should come after Step 2.
@@ -1735,13 +1776,21 @@ bool Transformer::rewrite() {
 
   applyBlockingGuardsToSpatialLoops(InnermostLoopToAdjustingRef);
 
+  LLVM_DEBUG(dbgs() << "applyBlockingGuards are done.\n");
+
   // Normalize all spatial Loops and byStripLoops.
   normalizeSpatialLoops();
+
+  if (HasNonDimMatchingLoop) {
+    assert(isa<HLLoop>(AnchorNode) &&
+           "OutermostNonMatching Loop should exists!!");
+    addLiveInToNonDimMatchingLoops(cast<HLLoop>(AnchorNode));
+  }
 
   LLVM_DEBUG_PROFIT_REPORT(dbgs() << "After updating in " << Func << ": ";
                            NodeOutsideByStrip->dump());
 #if 0
-    printMarker("Detail: After updating inner Loops: ", {NodeOutsideByStrip}, true,
+    printMarker("Detail: After updating inner Loops: ", {NodeOutsideByStrip},
                 true);
 #endif
 
@@ -1761,14 +1810,43 @@ void Transformer::prepareAdjustingRefs(
   assert(InnermostLoopToRepRef.size() == InnermostLoopToAdjustingRef.size());
 }
 
-// TODO: Non of the arguments are being changed by this function, but
-//       only scanned. See if "const" canbe used.
+SmallVector<unsigned, 16> Transformer::quickCollectLiveInOutsOfByStrip(
+    const HLLoop *AnchorLoop, HLLoop::const_live_in_iterator begin,
+    HLLoop::const_live_in_iterator end) const {
+
+  if (HLRegion *Region = dyn_cast<HLRegion>(NodeOutsideByStrip)) {
+
+    SmallVector<unsigned, 16> LiveInOuts;
+    std::copy(begin, end, std::back_inserter(LiveInOuts));
+
+    return LiveInOuts;
+  } else if (HLLoop *OutsideLoop = dyn_cast<HLLoop>(NodeOutsideByStrip)) {
+
+    SmallVector<unsigned, 16> LiveInOuts;
+    std::copy(begin, end, std::back_inserter(LiveInOuts));
+
+    return LiveInOuts;
+  }
+
+  return {};
+}
+
 void Transformer::collectLiveInsToByStripLoops(HLNode *AnchorNode,
                                                HLNode *LastByStripNode) {
+  if (HasNonDimMatchingLoop) {
+    // HasNonDimMatchingLoop --> AnchorNode is a loop
+    const HLLoop *AnchorLoop = cast<HLLoop>(AnchorNode);
+    SmallVector<unsigned, 16> LiveInsToByStrip(quickCollectLiveInOutsOfByStrip(
+        AnchorLoop, AnchorLoop->live_in_begin(), AnchorLoop->live_in_end()));
+    std::copy(LiveInsToByStrip.begin(), LiveInsToByStrip.end(),
+              std::back_inserter(LiveInsOfAllSpatialLoop));
+    return;
+  }
 
   // LiveIns to ByStripLoops
   //
   // DefRange - before the potential ByStripLoop
+
   // UseRange - the range of the potential ByStripLoop
   HLContainerTy::iterator DefBeginIt;
   DDGraph DDG;
@@ -1776,13 +1854,18 @@ void Transformer::collectLiveInsToByStripLoops(HLNode *AnchorNode,
   if (HLLoop *OutsideLoop = dyn_cast<HLLoop>(NodeOutsideByStrip)) {
     DefBeginIt = OutsideLoop->child_begin();
     DDG = DDA.getGraph(OutsideLoop);
-  } else {
+
+  } else if (isa<HLIf>(NodeOutsideByStrip)) {
     // TODO: When there are enclosing loop to this
     //       IfOutsideByStrip, instead of its ParentRegion
     //       its Parent Loop may could be used.
     HLRegion *Region = NodeOutsideByStrip->getParentRegion();
     DefBeginIt = Region->child_begin();
     DDG = DDA.getGraph(Region);
+
+  } else {
+    llvm_unreachable("Node outside the by-strip loop should be"
+                     "Loop or If or Region\n");
   }
 
   HLContainerTy::iterator DefEndIt = AnchorNode->getIterator();
@@ -1793,13 +1876,21 @@ void Transformer::collectLiveInsToByStripLoops(HLNode *AnchorNode,
   collectLiveInOutForByStripLoops<true>(DefBeginIt, DefEndIt,
                                         UseStartTopSortNum, UseLastTopSortNum,
                                         DDG, LiveInsToByStrip);
+
   std::copy(LiveInsToByStrip.begin(), LiveInsToByStrip.end(),
             std::back_inserter(LiveInsOfAllSpatialLoop));
 }
 
 SmallVector<unsigned, 16>
 Transformer::collectLiveOutsOfByStripLoops(HLNode *AnchorNode,
-                                           HLNode *LastByStripNode) {
+                                           HLNode *LastByStripNode) const {
+  if (HasNonDimMatchingLoop) {
+    // HasNonDimMatchingLoop --> AnchorNode is a loop
+    const HLLoop *AnchorLoop = cast<HLLoop>(AnchorNode);
+    return quickCollectLiveInOutsOfByStrip(
+        AnchorLoop, AnchorLoop->live_out_begin(), AnchorLoop->live_out_end());
+  }
+
   // LiveOuts of ByStripLoops
   //
   // DefRange - the range of the potential ByStripLoop
@@ -1850,19 +1941,11 @@ Transformer::collectLiveOutsOfByStripLoops(HLNode *AnchorNode,
   return LiveOutsOfByStrip;
 }
 
-// Collect LiveIns and LiveOuts.
-// [DefBeginIt, DefEndIt) is the range where Lvals are found.
-// [UseStartTopSortNum, UseTopSortNum] is the range of TopSortNumbers where
-// uses are found. If an edge from the def-range to use-range exists, the
-// symbase of the corresponding lval(ddref)'s symbase is populated into
-// LiveInOrOut. Being LiveIn or LiveOut are dependent on the caller site of
-// this function.
-// template <bool IsAllRefer = false>
 template <bool IsAllRefer>
 void Transformer::collectLiveInOutForByStripLoops(
     HLContainerTy::iterator DefBeginIt, HLContainerTy::iterator DefEndIt,
     unsigned UseStartTopSortNum, unsigned UseLastTopSortNum, DDGraph DDG,
-    SmallVectorImpl<unsigned> &LiveInOrOut) {
+    SmallVectorImpl<unsigned> &LiveInOrOut) const {
 
   for (HLRangeIterator It = HLRangeIterator(DefBeginIt),
                        EIt = HLRangeIterator(DefEndIt);
@@ -1905,8 +1988,6 @@ void Transformer::updateDefAtLevelOfSpatialLoops(HLNode *Node,
       });
 }
 
-// Increase def@level of Ref by Increase if current def@level is
-// greater than equal to LowestLevel.
 void Transformer::incDefinedAtLevelBy(RegDDRef *Ref, unsigned Increase,
                                       unsigned LowestLevel) {
 
@@ -1941,7 +2022,6 @@ void Transformer::incDefinedAtLevelBy(RegDDRef *Ref, unsigned Increase,
   Ref->updateDefLevel();
 }
 
-// Add AdjustingRef to loop's bounds.
 CanonExpr *Transformer::alignSpatialLoopBounds(RegDDRef *Ref,
                                                const RegDDRef *AdjustingRef,
                                                unsigned DimNum) const {
@@ -1958,21 +2038,6 @@ CanonExpr *Transformer::alignSpatialLoopBounds(RegDDRef *Ref,
   return CE;
 }
 
-// Adjust a loops LB, and UB and subscripts so that
-// all Lval ddrefs has only IVs but no constant of blob
-// in every dimension.
-// For example, if a lval was a[i + const1][j + blob]
-// it will become a[i][j] by subtraction const1, blob
-// Example:
-// Input loop before alignment
-// for i = 0, N
-//  for j = 0, M
-//   a[i][j+1] = b[i][j] + 3;
-//
-// After alignment
-// for i = 0, N
-//  for j = 1, M + 1
-//   a[i][j] = b[i][j - 1] + 3;
 void Transformer::alignSpatialLoops(
     const LoopToRefTy &InnermostLoopToAdjustingRef) {
 
@@ -2060,7 +2125,6 @@ void Transformer::alignSpatialLoops(
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-// Only for debugging.
 void Transformer::printDDEdges(const HLInst *LoadInst, DDGraph DDG) {
   auto *RvalOfLoad = LoadInst->getRvalDDRef();
   if (DDG.incoming_edges_begin(RvalOfLoad) !=
@@ -2116,23 +2180,6 @@ bool Transformer::checkInvariance(const HLInst *HInst) const {
   return true;
 }
 
-// Start from the RHS of Copy or any other instruction
-// to find the eventual load instruction or the instruction
-// whose rvals are all liveIn to the region.
-// If not found or meet an unexpected situation, return false.
-// Example 1)
-//   %t1 = %a[..] -- (1)
-//   %t2 = %t1    -- (2)
-// Starting from %t1, a load instruction (1) is found.
-// Example 2)
-//   %t1 = %a[..] -- (1)
-//   %t3 = %b[..] -- (2)
-//   %t2 = %t1 + %t3   -- (3)
-// Starting from  %t1 and %t3, loads (1) and (2) are found.
-// Example 3)
-//   %t1 = %liveIn0 < %liveIn1; --(1)
-//   %t2 = (%liveIn2 != 1) ? -1 : %t1; --(2)
-// From %t1 in (2) inst (1) is found.
 bool Transformer::tracebackToLoad(const RegDDRef *Rval, DDGraph DDG,
                                   SmallVectorImpl<const HLInst *> &Res) const {
 
@@ -2192,9 +2239,6 @@ bool Transformer::tracebackToLoad(const RegDDRef *Rval, DDGraph DDG,
   return true;
 }
 
-// Find the load instruction starting from SrcNode.
-// If SrcNode is a load, return it.
-// If it is a copy, trace back to a load and return it.
 bool Transformer::findLoad(
     const HLDDNode *SrcNode, DDGraph DDG,
     SmallVectorImpl<std::pair<const HLInst *, const HLInst *>> &Res) const {
@@ -2386,10 +2430,6 @@ bool Transformer::collectLoadsToClone(
   return true;
 }
 
-// LB(UB) of a By-strip loop is the "min"("max") of all lower bounds of
-// original spatial loop corresponding to the same DimNum.
-// This function collects all LBs(UBs) of original spatial loops, and
-// generate min(max) blobs of them.
 bool Transformer::computeByStripLoopBounds(
     const DenseMap<unsigned, unsigned> &OrigToCloneIndexMap,
     SmallVectorImpl<const RegDDRef *> &AuxRefs) {
@@ -2447,7 +2487,8 @@ bool Transformer::computeByStripLoopBounds(
     if (!MaxBlob.first)
       return false;
 
-    if (!InnermostLoopToShift[DimNum - 1].empty()) {
+    if (!InnermostLoopToShift.empty() &&
+        !InnermostLoopToShift[DimNum - 1].empty()) {
       int64_t ShiftVal = InnermostLoopToShift[DimNum - 1].back() + 1;
       BlobUtils &BU = AlignedUpperBounds[DimNum - 1].front()->getBlobUtils();
       BlobTy ShiftBlob = BU.createBlob(ShiftVal, Type::getInt64Ty(Context));
@@ -2490,7 +2531,6 @@ bool Transformer::computeByStripLoopBounds(
   return true;
 }
 
-// Replace all use with new Lval
 void Transformer::cloneAndAddLoadInsts(
     InstsToCloneSetTy &LoadInstsToClone, HLNode *AnchorNode,
     DenseMap<unsigned, unsigned> &OrigToCloneIndexMap,
@@ -2542,13 +2582,6 @@ void Transformer::cloneAndAddLoadInsts(
   }
 }
 
-// Generate by-strip loops and insert before AnchorNode.
-// Returns the innermost by-strip loop, where spatial loops will be added.
-// Add ByStrip loops, and also compute UBs of unit-strided Loop
-//   e.g. DO IV = by_strip_lb, by_strip_ub, by_strip_step
-//          tile_end = min(IV + by_strip_step - 1, by_strip_ub)
-//   IV is the tile's begin.
-//   tile_end is the last element of tile, not the past the last.
 HLLoop *Transformer::addByStripLoops(
     HLNode *AnchorNode, const InstsToCloneSetTy &LoadInstsToClone,
     const SmallVectorImpl<unsigned> &LiveOutsOfByStrip,
@@ -2666,12 +2699,6 @@ HLLoop *Transformer::addByStripLoops(
   return ParentByStripLoop;
 }
 
-// IV update caused by stripmining.
-// Increase all IV levels greater than equal to LowestSpatialLoopLevel
-// by ByStripLoopDepth.
-// For example, if ByStripLoopDepth = 3, and LowestSpatialLoopLevel = 2
-// i1, i2, i3, i4 becomes
-// --> i1, i5, i6, i7
 void Transformer::updateSpatialIVs(HLNode *Node, unsigned ByStripLoopDepth,
                                    unsigned LowestLevel) const {
 
@@ -2693,7 +2720,6 @@ void Transformer::updateSpatialIVs(HLNode *Node, unsigned ByStripLoopDepth,
       });
 }
 
-// TODO: Make it a local lambda.
 std::pair<const RegDDRef *, unsigned>
 Transformer::findAuxRefWithCE(const HLLoop *InnermostLoop,
                               const CanonExpr *TargetCE) {
@@ -2719,10 +2745,6 @@ Transformer::findAuxRefWithCE(const HLLoop *InnermostLoop,
   llvm_unreachable("blob CE should have been found.");
 }
 
-// Add blocking guards to loop bounds or as an if-stmt.
-// When index CEs are constant or blob, i.e., no loop exists corresponding to
-// that dimension, if-stmt is added.
-// Also, update live-in temps.
 void Transformer::applyBlockingGuardsToSpatialLoops(
     const LoopToRefTy &InnermostLoopToAdjustingRef) {
 
@@ -2851,8 +2873,16 @@ void Transformer::applyBlockingGuardsToSpatialLoops(
   }
 }
 
-// Return the loop matching DimNum.
-// InnermostLoop and DimInfos are data to consult with.
+void Transformer::calcLoopMatchingDimNum() {
+  for (auto const &Pair : InnermostLoopToDimInfos) {
+    int NumDims = Pair.second.size();
+    Innermost2TargetLoop[Pair.first].resize(NumDims);
+
+    for (int I = 1; I <= NumDims; I++)
+      calcLoopMatchingDimNum(I, Pair.second, Pair.first);
+  }
+}
+
 void Transformer::calcLoopMatchingDimNum(unsigned DimNum,
                                          ArrayRef<DimInfoTy> DimInfos,
                                          const HLLoop *InnermostLoop) {
@@ -2879,8 +2909,6 @@ void Transformer::calcLoopMatchingDimNum(unsigned DimNum,
   Innermost2TargetLoop[InnermostLoop][DimNum - 1] = TargetLoop;
 }
 
-// Return the loop matching DimNum.
-// InnermostLoop and DimInfos are data to consult with.
 const HLLoop *
 Transformer::getLoopMatchingDimNum(unsigned DimNum, unsigned DimInfoSize,
                                    const HLLoop *InnermostLoop) const {
@@ -2896,10 +2924,6 @@ Transformer::getLoopMatchingDimNum(unsigned DimNum, unsigned DimInfoSize,
   return Innermost2TargetLoop.at(InnermostLoop)[DimNum - 1];
 }
 
-// Add "if (ByStripIV <= Ref <= TileEndRef)"
-// Ref: dimension index, either constant or a blob.
-// ByStripIV: tile begin,
-// TileEndRef : last element of the tile.
 void Transformer::addIfGuards(RegDDRef *Ref, const HLLoop *ByStripLoop,
                               HLNode *NodeToEnclose, int64_t Shift,
                               const RegDDRef *AuxRef) const {
@@ -2948,16 +2972,6 @@ void Transformer::addIfGuards(RegDDRef *Ref, const HLLoop *ByStripLoop,
   }
 }
 
-// Add guards to the original spatial loop
-// DO i = LB', UB'
-// -->
-// Do i = max(LB', by-strip-loop's IV), min(UB', min(by-strip-loop's IV + step
-// - 1, by-strip-loop's UB)) TileEnd =
-// min(by-strip-loop's IV + step - 1,
-// by-strip-loop's UB) is already available as the first child of the
-// corresponding by-strip loop.
-// TODO: consider make it a lambda to its caller. It is used only in that
-// context
 unsigned Transformer::addLoopBoundsGuards(HLLoop *Loop, unsigned DimNum,
                                           int64_t Shift) const {
 
@@ -3064,11 +3078,6 @@ Transformer::getGlobalMinMaxBlob(ArrayRef<CanonExpr *> Bounds) {
   return {LowerBlob, BlobIndex};
 }
 
-// Given a ByStrip Loop, calculate the UB of the inner unit-strided loop
-//    min (IV + step - 1, UB)
-// where IV, step, and UB are induction var, loop step, and upperbound of
-// the ByStrip loop.
-// TODO: A candidate for a lambda function
 HLInst *Transformer::createTileEnd(HLLoop *ByStrip) const {
   int64_t LoopStrideVal;
   if (!ByStrip->getStrideCanonExpr()->isIntConstant(&LoopStrideVal)) {
@@ -3089,8 +3098,6 @@ HLInst *Transformer::createTileEnd(HLLoop *ByStrip) const {
   return TileEnd;
 }
 
-// Notice that ByStripLoops are not normalized.
-// Only the children loops of ByStripLoops are normalized.
 void Transformer::normalizeSpatialLoops() {
 
   std::unordered_set<HLLoop *> ProcessedTargetLoops;
@@ -3122,6 +3129,134 @@ void Transformer::normalizeSpatialLoops() {
   }
 }
 
+bool Transformer::hasNonDimMatchingLoop(
+    unsigned NumDims, const LoopToDimInfoTy &InnermostLoopToDimInfo,
+    const HLNode *NodeOutsideByStrip) const {
+
+  unsigned OutsideLevel = isa<HLRegion>(NodeOutsideByStrip)
+                              ? 0
+                              : NodeOutsideByStrip->getNodeLevel();
+
+  // Get the deepest level of all sibling loopnests.
+  // Notice sibling loopnests might not have the same loopnest depth.
+  auto MaxI = std::max_element(
+      InnermostLoopToDimInfo.begin(), InnermostLoopToDimInfo.end(),
+      [](const LoopAndDimInfoTy &A, const LoopAndDimInfoTy &B) {
+        return A.first->getNestingLevel() < B.first->getNestingLevel();
+      });
+
+  // (Deepest level - OutsideLevel) are the depths (i.e. number of
+  // loop levels) to be placed inside the ByStrip loops. However,
+  // if the depths of spatial loops were smaller than NumDims,
+  // it means there are intermediate loops between spatial loops and
+  // potential ByStripLoops after transformation.
+  //
+  // Before adding ByStripLoops:
+  //
+  //  NodeOutsideByStrip        Lv0_0
+  //      NonDimMatchingLoops    Lv2_0, Lv2_1
+  //        SpatialLoops (blocked unit-stride loops) Lv3_0, Lv3_1, ...
+  // Thus, (Lv3_0 - Lv0_0) -  NumDims > 0 means the existence of
+  // NonDimMatchingLoops as NumDims are number of spatial loops.
+  //
+  // After adding ByStripLoops:
+  //
+  //  NodeOutsideByStrip        Lv0_0
+  //    ByStripLoops            Lv1_0, Lv1_1, ... <-- ByStripLoops added here.
+  //      NonDimMatchingLoops    Lv2_0, Lv2_1
+  //        SpatialLoops (blocked unit-stride loops) Lv3_0, Lv3_1, ...
+  int DepthOfOutsideLoops =
+      (MaxI->first->getNestingLevel() - OutsideLevel) - NumDims;
+
+  return DepthOfOutsideLoops > 0;
+}
+
+bool Transformer::verifyAssumptionsWithNonDimMatchingLoop(
+    const HLNode *AnchorNode) const {
+  if (!HasNonDimMatchingLoop)
+    return true;
+
+  const HLLoop *Lp = dyn_cast<HLLoop>(AnchorNode);
+  if (!Lp)
+    return false;
+
+  if (NodeOutsideByStrip != Lp->getParent())
+    return false;
+
+  return true;
+}
+
+bool Transformer::init() {
+
+  // Initialize the number of ByStripLoops.
+  NumByStripLoops = getNumByStripLoops(StripmineSizes);
+
+  if (!NumByStripLoops) {
+    LLVM_DEBUG_PROFIT_REPORT(
+        dbgs() << "No transformation: all stripmine sizes are zero.");
+    return false;
+  }
+
+  unsigned NumDims = StripmineSizes.size();
+  ByStripLoopLowerBlobs.resize(NumDims);
+  ByStripLoopUpperBlobs.resize(NumDims);
+  ByStripLoops.resize(NumDims, 0x0);
+
+  HasNonDimMatchingLoop = hasNonDimMatchingLoop(
+      NumDims, InnermostLoopToDimInfos, NodeOutsideByStrip);
+
+  LLVM_DEBUG(dbgs() << "HasNonDimMathcingLoop: " << HasNonDimMatchingLoop
+                    << "\n");
+
+  calcLoopMatchingDimNum();
+
+  if (!checkDimsToLoops(StripmineSizes, InnermostLoopToDimInfos)) {
+    LLVM_DEBUG_PROFIT_REPORT(dbgs() << "No transformation: Some dimensions "
+                                       "have no matching loop level.\n");
+    return false;
+  }
+
+  return true;
+}
+
+void Transformer::addLiveInToNonDimMatchingLoops(
+    HLLoop *OutermostNonDimMatchingLoop) {
+
+  // Get the outermost spatial loop (i.e. dimension-matching loop)
+  // of the first innermost loop.
+  // Loops in the range of (that outermost loop, OutermostNonDimMatchingLoop]
+  // are all NonDimMatchingLoops. For these loops, ByStripLoops's LiveIn infos
+  // should be added.
+
+  const HLLoop *OutermostSpatialLoop = InnermostLoopToDimInfos.begin()->first;
+  for (const HLLoop *Loop :
+       make_range(Innermost2TargetLoop[OutermostSpatialLoop].rbegin(),
+                  Innermost2TargetLoop[OutermostSpatialLoop].rend())) {
+    if (Loop) {
+      OutermostSpatialLoop = Loop;
+      break;
+    }
+  }
+
+  LLVM_DEBUG(dbgs() << "OutermostSpatialLoop: "
+                    << OutermostSpatialLoop->getNumber() << "\n");
+
+  HLLoop *L = const_cast<HLLoop *>(OutermostSpatialLoop);
+  while (L != OutermostNonDimMatchingLoop) {
+    L = L->getParentLoop();
+    // tile end
+    for (unsigned I = 0; I < NumByStripLoops; I++) {
+      for (auto &Node : make_range(ByStripLoops[I]->child_begin(),
+                                   ByStripLoops[I]->child_end())) {
+        if (auto *HInst = dyn_cast<HLInst>(&Node))
+          L->addLiveInTemp(HInst->getLvalDDRef());
+        else
+          break;
+      }
+    }
+  }
+}
+
 namespace {
 // Collects a candidate set of spatial loops by
 // applying profitablity and legality checks.
@@ -3146,7 +3281,7 @@ public:
                                  HIRArraySectionAnalysis &HASA,
                                  HIRDDAnalysis &DDA, HLLoop *OutermostLoop,
                                  StringRef FuncName)
-      : ProfitabilityChecker(HIRF, HASA, DDA, FuncName),
+      : ProfitabilityChecker(HIRF, HASA, FuncName), DDA(DDA),
         OutermostLoop(OutermostLoop), FoundGoodCand(false) {}
 
   bool run() {
@@ -3369,6 +3504,7 @@ private:
   }
 
 private:
+  HIRDDAnalysis &DDA;
   // OutermostLoop should be the same with PrevLCP.
   HLLoop *OutermostLoop;
   bool FoundGoodCand;
@@ -3432,6 +3568,35 @@ bool doTransformation(const LoopToDimInfoTy &InnermostLoopToDimInfos,
   return Transformer(PreSetStripmineSizes, InnermostLoopToDimInfos,
                      InnermostLoopToRepRef, InnermostLoopToShift,
                      NodeOutsideByStrip, DDA, Func)
+      .rewrite();
+}
+
+bool doTransformation2(const LoopToDimInfoTy &InnermostLoopToDimInfos,
+                       const LoopToConstRefTy &InnermostLoopToRepRef,
+                       const InnermostLoopToShiftTy &InnermostLoopToShift,
+                       HLNode *NodeOutsideByStrip, HIRDDAnalysis &DDA,
+                       StringRef Func) {
+
+  if (DisableTransform) {
+    LLVM_DEBUG(dbgs() << "Transformation is disabled.\n");
+
+    return false;
+  }
+
+  if (!RewriteFilterFunc.empty() && !Func.equals(RewriteFilterFunc)) {
+    LLVM_DEBUG(dbgs() << "Transformation is disabled for function " << Func
+                      << "\n");
+
+    return false;
+  }
+
+  // Magic numbers.
+  unsigned Size = InnermostLoopToDimInfos.begin()->second.size();
+  SmallVector<unsigned, 4> PreSetStripmineSizes(Size, DefaultStripmineSize);
+
+  return Transformer(PreSetStripmineSizes, InnermostLoopToDimInfos,
+                     InnermostLoopToRepRef, InnermostLoopToShift,
+                     NodeOutsideByStrip, DDA, Func, false /* ClongDVLoads */)
       .rewrite();
 }
 
@@ -4226,13 +4391,16 @@ bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
     return false;
   }
 
-  // Strictly for lit-tests
-  if (ForceTestDriver)
+  if (ForceTestDriver) {
+    LLVM_DEBUG(dbgs() << "Test driver is forced.\n");
+
+    // Look for a second chance
     return testDriver(HIRF, HASA, DDA, TTI, HLS, F).run();
+  }
 
   StringRef FuncName = F.getName();
 
-  ProfitabilityChecker PC(HIRF, HASA, DDA, FuncName);
+  ProfitabilityChecker PC(HIRF, HASA, FuncName);
 
   // Looks profitable if true. Actual profitablity
   // can be decided after optVarPred.
@@ -4254,6 +4422,7 @@ bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
       TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2);
 
   if (!isOptVarPredNeeded(PC)) {
+
     // Needed to lit-test cases
     LLVM_DEBUG(PC.getOutermostLoop()->dump());
 
@@ -4298,6 +4467,7 @@ bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
                               OutLoops[OutLoops.size() - 1], UseKnownGoodSizes);
   return Success;
 }
+
 } // namespace
 
 PreservedAnalyses HIRInterLoopBlockingPass::runImpl(
@@ -4354,4 +4524,5 @@ INITIALIZE_PASS_END(HIRInterLoopBlockingLegacyPass, OPT_SWITCH, OPT_DESC, false,
 FunctionPass *llvm::createHIRInterLoopBlockingPass() {
   return new HIRInterLoopBlockingLegacyPass();
 }
+
 #endif // INTEL_FEATURE_SW_ADVANCED
