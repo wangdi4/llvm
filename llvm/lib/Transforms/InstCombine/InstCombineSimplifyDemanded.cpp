@@ -937,14 +937,7 @@ Value *InstCombinerImpl::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
       }
     }
 
-    // The sign bit is the LHS's sign bit, except when the result of the
-    // remainder is zero.
-    if (DemandedMask.isSignBitSet()) {
-      computeKnownBits(I->getOperand(0), LHSKnown, Depth + 1, CxtI);
-      // If it's known zero, our sign bit is also zero.
-      if (LHSKnown.isNonNegative())
-        Known.makeNonNegative();
-    }
+    computeKnownBits(I, Known, Depth, CxtI);
     break;
   }
   case Instruction::URem: {
@@ -1627,7 +1620,7 @@ Value *InstCombinerImpl::SimplifyDemandedVectorElts(Value *V,
       // Found constant vector with single element - convert to insertelement.
       if (Op && Value) {
         Instruction *New = InsertElementInst::Create(
-            Op, Value, ConstantInt::get(Type::getInt32Ty(I->getContext()), Idx),
+            Op, Value, ConstantInt::get(Type::getInt64Ty(I->getContext()), Idx),
             Shuffle->getName());
         InsertNewInstWith(New, *Shuffle);
         return New;
