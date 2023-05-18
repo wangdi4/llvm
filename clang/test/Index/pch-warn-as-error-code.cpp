@@ -1,6 +1,6 @@
 // RUN: rm -f %t.head.h.pch
 // RUN: c-index-test -write-pch %t.head.h.pch %s -Wuninitialized -Werror=unused 2>&1 | FileCheck -check-prefix=HEAD_DIAGS %s
-// RUN: c-index-test -test-load-source local %s -include %t.head.h -Wuninitialized -Werror=unused 2>&1 | FileCheck -check-prefix=MAIN_DIAGS %s
+// INTEL RUN: c-index-test -test-load-source local %s -include-pch %t.head.h.pch -Wuninitialized -Werror=unused 2>&1 | FileCheck -check-prefix=MAIN_DIAGS %s
 
 // Make sure -Wuninitialized works even though the header had a warn-as-error occurrence.
 

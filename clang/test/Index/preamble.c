@@ -11,7 +11,7 @@ void f(int x) {
   x = MACRO_USED
 }
 // RUN: c-index-test -write-pch %t.pch -x c-header %S/Inputs/prefix.h
-// RUN: env CINDEXTEST_EDITING=1 c-index-test -test-load-source-reparse 5 local -I %S/Inputs -include %t %s -Wunused-macros 2> %t.stderr.txt | FileCheck %s
+// INTEL RUN: env CINDEXTEST_EDITING=1 c-index-test -test-load-source-reparse 5 local -I %S/Inputs -include-pch %t.pch %s -Wunused-macros 2> %t.stderr.txt | FileCheck %s
 // RUN: FileCheck -check-prefix CHECK-DIAG %s < %t.stderr.txt
 // CHECK: preamble.h:1:12: FunctionDecl=bar:1:12 (Definition) Extent=[1:1 - 6:2]
 // CHECK: preamble.h:4:3: BinaryOperator= Extent=[4:3 - 4:13]
@@ -25,7 +25,7 @@ void f(int x) {
 // FIXME: Should see:
 //     preamble.c:5:9: warning: macro is not used
 // CHECK-DIAG-NOT: preamble.c:6:9: warning: macro is not used
-// RUN: env CINDEXTEST_EDITING=1 c-index-test -code-completion-at=%s:11:1 -I %S/Inputs -include %t %s 2> %t.stderr.txt | FileCheck -check-prefix CHECK-CC %s
+// INTEL RUN: env CINDEXTEST_EDITING=1 c-index-test -code-completion-at=%s:11:1 -I %S/Inputs -include-pch %t.pch %s 2> %t.stderr.txt | FileCheck -check-prefix CHECK-CC %s
 // CHECK-CC: FunctionDecl:{ResultType int}{TypedText bar}{LeftParen (}{Placeholder int i}{RightParen )} (50)
 // CHECK-CC: FunctionDecl:{ResultType void}{TypedText f}{LeftParen (}{Placeholder int x}{RightParen )} (50)
 // CHECK-CC: FunctionDecl:{ResultType int}{TypedText foo}{LeftParen (}{Placeholder int}{RightParen )} (50)
