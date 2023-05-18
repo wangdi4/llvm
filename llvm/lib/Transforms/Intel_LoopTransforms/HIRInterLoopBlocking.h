@@ -236,6 +236,51 @@ public:
   bool checkDimsToLoops(ArrayRef<unsigned> StripmineSizes,
                         const LoopToDimInfoTy &InnermostLoopToDimInfos);
 
+  // A spatial loopnest's depth is as many as the number of dimensions in refs.
+  // (e.g. i, j, k-loop for A[i][j][k] ref). All these spatial loops are
+  // considered dimension-matching loops.
+  // If there are loops between NodeOutsideByStrip and outermost spatial loop
+  // (in the previous example i-loop is the outermost spatial loop),
+  // these loops are loops that doesn't correspond to any dimension of a memref
+  // and can be called nonDimMatchingLoop.
+  //
+  // This function sees if there are nonDimMatchingLoops by comparing levels of
+  // NodeOutside and outermost spatial loop.
+  //
+  // See the following example.
+  //
+  // Region                      <-- NodeOutsideByStrip level = 0
+  // DO i1 = 0, N
+  //    DO i2 = 0, M             <-- Outermost Spatial Loop Level = 2
+  //       A[i2] = A[i2] + ...
+  //
+  // NumDims = 1, with only one-dimension and is the number of ByStrip loops.
+  //
+  //  NodeOutsideByStrip        Lv0_0
+  //      NonDimMatchinLoops    Lv2_0, Lv2_1
+  //        SpatialLoops (blocked unit-stride loops) Lv3_0, Lv3_1, ...
+  //
+  // Here, (Lv3_0 - Lv0_0) -  NumDims > 0 means the existence of
+  // NonDimMatchingLoops. For the example above, (2 - 0) - 1 > 0 shows that
+  // i1-loop is not a dimension-matching, but a nonDimMatchingLoop.
+  //
+  // This function is supposed to be called in the initialization stage
+  // before ByStripLoops are added.
+  // During transformation, ByStripLoops will be added before
+  // outermost NonDimMatchingLoop.
+  //
+  // After transformation.
+  //  NodeOutsideByStrip        Lv0_0
+  //    ByStripLoops (as many as NumDims)           Lv1_0, Lv1_1, Lv1_2
+  //      NonDimMatchinLoops    Lv2_0, Lv2_1
+  //        SpatialLoops (blocked unit-stride loops) Lv3_0, Lv3_1, ...
+  bool hasNonDimMatchingLoop(unsigned NumDims,
+                             const LoopToDimInfoTy &InnermostLoopToDimInfo,
+                             const HLNode *NodeOutsideByStripLevel) const;
+
+  // Checks minimal assumptions when HasNonDimMatchingLoop is true.
+  bool verifyAssumptionsWithNonDimMatchingLoop(const HLNode *AnchorNode) const;
+
   bool rewrite();
 
 private:
@@ -247,13 +292,16 @@ private:
   // and become B[i+1][j-1].
   void prepareAdjustingRefs(LoopToRefTy &InnermostLoopToAdjustingRef) const;
 
-  // TODO: Non of the arguments are being changed by this function, but
-  //       only scanned. See if "const" canbe used.
   void collectLiveInsToByStripLoops(HLNode *AnchorNode,
                                     HLNode *LastByStripNode);
 
   SmallVector<unsigned, 16>
-  collectLiveOutsOfByStripLoops(HLNode *AnchorNode, HLNode *LastByStripNode);
+  collectLiveOutsOfByStripLoops(HLNode *AnchorNode,
+                                HLNode *LastByStripNode) const;
+  SmallVector<unsigned, 16>
+  quickCollectLiveInOutsOfByStrip(const HLLoop *AnchorNode,
+                                  HLLoop::const_live_in_iterator begin,
+                                  HLLoop::const_live_in_iterator end) const;
 
   // Collect LiveIns and LiveOuts.
   // [DefBeginIt, DefEndIt) is the range where Lvals are found.
@@ -263,11 +311,10 @@ private:
   // LiveInOrOut. Being LiveIn or LiveOut are dependent on the caller site of
   // this function.
   template <bool IsAllRefer = false>
-  void collectLiveInOutForByStripLoops(HLContainerTy::iterator DefBeginIt,
-                                       HLContainerTy::iterator DefEndIt,
-                                       unsigned UseStartTopSortNum,
-                                       unsigned UseLastTopSortNum, DDGraph DDG,
-                                       SmallVectorImpl<unsigned> &LiveInOrOut);
+  void collectLiveInOutForByStripLoops(
+      HLContainerTy::iterator DefBeginIt, HLContainerTy::iterator DefEndIt,
+      unsigned UseStartTopSortNum, unsigned UseLastTopSortNum, DDGraph DDG,
+      SmallVectorImpl<unsigned> &LiveInOrOut) const;
 
   void updateDefAtLevelOfSpatialLoops(HLNode *Node, unsigned LowestLevel) const;
 
@@ -298,7 +345,6 @@ private:
   void alignSpatialLoops(const LoopToRefTy &InnermostLoopToAdjustingRef);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DEBUG)
-  // Only for debugging.
   static void printDDEdges(const HLInst *LoadInst, DDGraph DDG);
 #endif
 
@@ -376,7 +422,6 @@ private:
   void updateSpatialIVs(HLNode *Node, unsigned ByStripLoopDepth,
                         unsigned LowestLevel) const;
 
-  // TODO: Make it a local lambda.
   std::pair<const RegDDRef *, unsigned>
   findAuxRefWithCE(const HLLoop *InnermostLoop, const CanonExpr *TargetCE);
 
@@ -411,15 +456,7 @@ private:
     CEs.erase(Last, CEs.end());
   }
 
-  void calcLoopMatchingDimNum() {
-    for (auto const &Pair : InnermostLoopToDimInfos) {
-      int NumDims = Pair.second.size();
-      Innermost2TargetLoop[Pair.first].resize(NumDims);
-
-      for (int I = 1; I <= NumDims; I++)
-        calcLoopMatchingDimNum(I, Pair.second, Pair.first);
-    }
-  }
+  void calcLoopMatchingDimNum();
 
   // Return the loop matching DimNum.
   // InnermostLoop and DimInfos are data to consult with.
@@ -499,6 +536,30 @@ private:
   // Only the children loops of ByStripLoops are normalized.
   void normalizeSpatialLoops();
 
+  // This function add ByStripLoop-definitions to NonDimMatching Loops,
+  // if NonDimMatchingLoops exist.
+  // Notice that for all spatial loops, i.e., DimMatchingLoops,
+  // ByStripLoop-definitions are already added as LiveIns.
+  // e.g)
+  //
+  //  + DO i1 = 0, // ByStrip loop
+  //  |   %tile_e_min =  ...
+  //  |
+  //  |   // NonDimMatching loop <-- LiveIn info should have %tile_e_min!
+  //  |   + DO i2 = 0,
+  //  |   |      %lb_max = (0 <= i1) ? i1 : 0;
+  //  |   |      %ub_min = ( ub <= %tile_e_min) ? ub : %tile_e_min;
+  //  |   |
+  //  |   |   // Spatial loop -- contains %tile, %lb_,%ub_ as live-in
+  //  |   |    DO i3 = %lb_max, %ub_min
+  //
+  void addLiveInToNonDimMatchingLoops(HLLoop *OutermostNonDimMatchingLoop);
+
+  bool init();
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DEBUG)
+  void dump();
+#endif
+
 private:
   // In the order of DimNum, [DimNum = 1][DimNum = 2] .. and so on.
   ArrayRef<unsigned> StripmineSizes;
@@ -528,6 +589,26 @@ private:
   // the non-leading spatial loops, are cloned at the beginning of the body of
   // the outermost loop in order to be used in the LB/UB of by-strip loops.
   bool CloneDVLoads;
+
+  // Represents there is a loop that won't be stripmined, but byStrip loops
+  // of other loop will placed outside of this loop.
+  // For example, i1-loop is a NonDimMatching loop. Notice that there is no
+  // memref where i1 appears in an index. Also notice that i1-loop still
+  // will be placed within the by-strip loop of i2-loop. If a NonDimMatching
+  // loop exists, HasNonDimMatchingLoop is true. Otherwise, false.
+  //
+  // Before transformation:
+  // DO i1 = 0, N
+  //    DO i2 = 0, M
+  //       A[i2] = A[i2] + ...
+  //
+  // After transformation
+  // DO II = 0, M, S -- ByStripLoop of i2 loop
+  //    DO i1 = 0, N
+  //      DO i2 = II, min(M, II+S)
+  //        A[i2] = A[i2] + ...
+  //
+  bool HasNonDimMatchingLoop;
 
   // A map from an innermost loop to its outer enclosing loops
   // matching to dimnum (includes the innermost loop).
