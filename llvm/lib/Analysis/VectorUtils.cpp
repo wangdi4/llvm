@@ -1178,7 +1178,7 @@ Function *llvm::getOrInsertVectorLibFunction(
   // For calls that need argument repacking feature, the return type is
   // converted into vector of struct element types by VPlan. Account for that
   // here in order to obtain the correct return type of vectorized library call.
-  if (TLI->doesVectorFuncNeedArgRepacking(FnName)) {
+  if (TLI && TLI->doesVectorFuncNeedArgRepacking(FnName)) {
     assert(RetTy->isStructTy() && "Function call that needs arg repacking is "
                                   "expected to return StructTy.");
     auto *RetStructTy = cast<StructType>(RetTy);
