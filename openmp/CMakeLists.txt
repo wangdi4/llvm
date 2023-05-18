@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 #
 # INTEL CONFIDENTIAL
@@ -16,10 +15,7 @@
 # License.
 #
 # end INTEL_CUSTOMIZATION
-cmake_minimum_required(VERSION 3.20.0)
-=======
 cmake_minimum_required(VERSION 3.13.4)
->>>>>>> d763c6e5e2d0a6b34097aa7dabca31e9aff9b0b6
 
 set(LLVM_COMMON_CMAKE_UTILS ${CMAKE_CURRENT_SOURCE_DIR}/../cmake)
 
