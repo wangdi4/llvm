@@ -649,18 +649,38 @@ public:
   // permute tree reduction.
   bool getTreeConflictsLowered();
 
-  // Bailout data accessors.
-  void setBailoutData(OptReportVerbosity::Level Level, unsigned ID,
-                      std::string Message) {
-    BD.BailoutLevel = Level;
-    BD.BailoutID = ID;
-    BD.BailoutMessage = Message;
-  }
-  VPlanBailoutData &getBailoutData() { return BD; }
+  // Non-template version when no arguments are required.
+  bool bailout(OptReportVerbosity::Level Level, unsigned ID);
 
-  // Set the bailout reason for this loop and optionally print a debug msg.
-  void bailout(OptReportVerbosity::Level Level, unsigned ID,
-               std::string Message, std::string Debug = "");
+  // Reports a reason for vectorization bailout. Always returns false.
+  // \p Message will appear both in the debug dump and the opt report remark.
+  template <typename... Args>
+  bool bailout(OptReportVerbosity::Level Level, unsigned ID,
+               std::string Message, Args &&...BailoutArgs);
+
+  // Reports a reason for vectorization bailout. Always returns false.
+  // \p Debug will appear in the debug dump, but not in the opt report remark.
+  template <typename... Args>
+  bool bailoutWithDebug(OptReportVerbosity::Level Level, unsigned ID,
+                        std::string Debug, Args &&...BailoutArgs);
+
+  // Initialize cached bailout remark data.
+  void clearBailoutRemark() { BR.BailoutRemark = OptRemark(); }
+
+  // Store a variadic remark indicating the reason for not vectorizing a loop.
+  // Clients should pass string constants as std::string to avoid extra
+  // instantiations of this template function.
+  template <typename... Args>
+  void setBailoutRemark(OptReportVerbosity::Level BailoutLevel,
+                        unsigned BailoutID, Args &&...BailoutArgs) {
+    BR.BailoutLevel = BailoutLevel;
+    BR.BailoutRemark =
+        OptRemark::get(Context, BailoutID, OptReportDiag::getMsg(BailoutID),
+                       std::forward<Args>(BailoutArgs)...);
+  }
+
+  // Access reason for bailing out of vectorization.
+  VPlanBailoutRemark &getBailoutRemark() { return BR; }
 
 private:
   // Target Library Info is used to check for svml.
@@ -853,7 +873,7 @@ private:
   SmallDenseSet<const CallInst*> VectorizedLibraryCalls;
 
   // Bail-out information when we can't vectorize the loop.
-  VPlanBailoutData BD;
+  VPlanBailoutRemark BR;
 
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
   void setPeelLoop(HLLoop *L) { PeelLoop = L; }

@@ -1049,6 +1049,13 @@ public:
     NoAliasScope(const NoAliasScope &ParentScope)
         : NoAliasScopes(ParentScope.NoAliasScopes) {}
 
+    // Delete copy assignment operator.
+    NoAliasScope &operator=(const NoAliasScope &) = delete;
+
+    // Delete move constructor and assignment operator.
+    NoAliasScope(NoAliasScope &&) = delete;
+    NoAliasScope &operator=(NoAliasScope &&) = delete;
+
     void addNoAliasScope(llvm::Metadata *Scope) {
       NoAliasScopes.push_back(Scope);
     }
