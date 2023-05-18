@@ -2,12 +2,7 @@
 /// 3.4 redesigns the format and changed .da to .gcda
 /// 4.7 enables cfg_checksum.
 /// 4.8 (default, compatible with gcov 7) emits the exit block the second.
-<<<<<<< HEAD
-// INTEL_CUSTOMIZATION
-// RUN: %clang_cc1 -emit-llvm -disable-red-zone -fprofile-arcs -coverage-version='304*' %s -o - | \
-=======
 // RUN: %clang_cc1 -emit-llvm -disable-red-zone -coverage-data-file /dev/null -coverage-version='304*' %s -o - | \
->>>>>>> 71a35f7e3d6c78f8035f2eb7d58beba3b7208f9d
 // RUN:   FileCheck --check-prefixes=CHECK,304 %s
 // RUN: %clang_cc1 -emit-llvm -disable-red-zone -coverage-data-file /dev/null -coverage-version='407*' %s -o - | \
 // RUN:   FileCheck --check-prefixes=CHECK,407 %s
@@ -16,14 +11,8 @@
 
 // RUN: %clang_cc1 -emit-llvm -disable-red-zone -coverage-notes-file=aaa.gcno -coverage-data-file=bbb.gcda -debug-info-kind=limited -dwarf-version=4 %s -o - | FileCheck %s --check-prefix GCOV_FILE_INFO
 
-<<<<<<< HEAD
-// RUN: %clang_cc1 -emit-llvm-bc -o /dev/null -fdebug-pass-manager -fprofile-arcs %s 2>&1 | FileCheck --check-prefix=NEWPM %s
-// RUN: %clang_cc1 -emit-llvm-bc -o /dev/null -fdebug-pass-manager -fprofile-arcs -O3 %s 2>&1 | FileCheck --check-prefix=NEWPM-O3 %s
-// end INTEL_CUSTOMIZATION
-=======
 // RUN: %clang_cc1 -emit-llvm-bc -o /dev/null -fdebug-pass-manager -coverage-data-file=/dev/null %s 2>&1 | FileCheck --check-prefix=NEWPM %s
 // RUN: %clang_cc1 -emit-llvm-bc -o /dev/null -fdebug-pass-manager -coverage-data-file=/dev/null -O3 %s 2>&1 | FileCheck --check-prefix=NEWPM-O3 %s
->>>>>>> 71a35f7e3d6c78f8035f2eb7d58beba3b7208f9d
 
 // NEWPM-NOT: Running pass
 // NEWPM: Running pass: GCOVProfilerPass

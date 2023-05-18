@@ -1685,25 +1685,14 @@ def fno_profile_instr_use : Flag<["-"], "fno-profile-instr-use">,
     HelpText<"Disable using instrumentation data for profile-guided optimization">;
 def fno_profile_use : Flag<["-"], "fno-profile-use">,
     Alias<fno_profile_instr_use>;
-<<<<<<< HEAD
-defm profile_arcs : BoolFOption<"profile-arcs",
-  CodeGenOpts<"EmitGcovArcs">, DefaultFalse,
 #if INTEL_CUSTOMIZATION
-  PosFlag<SetTrue, [CC1Option, LinkOption]>, NegFlag<SetFalse>, BothFlags<[CoreOption]>>;
-#endif // INTEL_CUSTOMIZATION
-defm test_coverage : BoolFOption<"test-coverage",
-  CodeGenOpts<"EmitGcovNotes">, DefaultFalse,
-#if INTEL_CUSTOMIZATION
-  PosFlag<SetTrue, [CC1Option]>, NegFlag<SetFalse>, BothFlags<[CoreOption]>>;
-#endif // INTEL_CUSTOMIZATION
-=======
-def ftest_coverage : Flag<["-"], "ftest-coverage">, Group<f_Group>,
+def ftest_coverage : Flag<["-"], "ftest-coverage">, Group<f_Group>, Flags<[CoreOption]>,
     HelpText<"Produce gcov notes files (*.gcno)">;
-def fno_test_coverage : Flag<["-"], "fno-test-coverage">, Group<f_Group>;
-def fprofile_arcs : Flag<["-"], "fprofile-arcs">, Group<f_Group>,
+def fno_test_coverage : Flag<["-"], "fno-test-coverage">, Group<f_Group>, Flags<[CoreOption]>;
+def fprofile_arcs : Flag<["-"], "fprofile-arcs">, Group<f_Group>, Flags<[CoreOption]>,
     HelpText<"Instrument code to produce gcov data files (*.gcda)">;
-def fno_profile_arcs : Flag<["-"], "fno-profile-arcs">, Group<f_Group>;
->>>>>>> 71a35f7e3d6c78f8035f2eb7d58beba3b7208f9d
+def fno_profile_arcs : Flag<["-"], "fno-profile-arcs">, Group<f_Group>, Flags<[CoreOption]>;
+#endif // INTEL_CUSTOMIZATION
 def fprofile_filter_files_EQ : Joined<["-"], "fprofile-filter-files=">,
     Group<f_Group>, Flags<[CC1Option, CoreOption]>,
     HelpText<"Instrument only functions from files where names match any regex separated by a semi-colon">,

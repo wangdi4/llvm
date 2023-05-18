@@ -1122,17 +1122,13 @@ void CodeGenModule::Release() {
       getLangOpts().IntelCompat && getLangOpts().MSVCCompat)
     EmitMSDebugInfoMetadata();
 
-<<<<<<< HEAD
   // CQ#411303 Intel driver requires front-end to produce special file if
   // translation unit has any target code.
   if (HasTargetCode)
     EmitIntelDriverTempfile();
 #endif // INTEL_CUSTOMIZATION
-  if (getCodeGenOpts().EmitGcovArcs || getCodeGenOpts().EmitGcovNotes)
-=======
   if (getCodeGenOpts().CoverageNotesFile.size() ||
       getCodeGenOpts().CoverageDataFile.size())
->>>>>>> 71a35f7e3d6c78f8035f2eb7d58beba3b7208f9d
     EmitCoverageFile();
 
   if (CGDebugInfo *DI = getModuleDebugInfo())
