@@ -1374,7 +1374,8 @@ void DevirtModule::applySingleImplDevirt(VTableSlotInfo &SlotInfo,
       // type for the call, rather than a mismatched argument type. The
       // devirtualizer has proven the types to match, so this marking avoids
       // needing to try to prove the types match again during DTrans analysis.
-      if (TheFn->getType() != VCallSite.CB.getCalledOperand()->getType())
+      if (!M.getContext().supportsTypedPointers() ||
+          TheFn->getType() != VCallSite.CB.getCalledOperand()->getType())
         (&VCallSite.CB)->setMetadata("_Intel.Devirt.Call",
          IntelDevirtMV.getDevirtCallMDNode());
       }
