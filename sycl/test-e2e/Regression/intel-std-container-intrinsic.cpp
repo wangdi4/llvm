@@ -1,4 +1,4 @@
-// RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
+// RUN: %clangxx -fsycl -fsycl-targets=%{sycl_triple} %s -o %t.out
 //
 // The purpose of this test is to check that we are able to successfully compile
 // the following example:

@@ -4,7 +4,7 @@
 
 // REQUIRES: cpu
 // RUN: %clangxx -fsycl -fsycl-enable-function-pointers %s -o %t.out
-// RUN: %{run}
+// RUN: %{run} %t.out
 
 #include <sycl.hpp>
 #include <CL/sycl/INTEL/function_ref_tuned.hpp>
