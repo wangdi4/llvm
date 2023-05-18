@@ -124,6 +124,21 @@ class X86FoldTablesEmitter {
       OS << SimplifiedAttrs << "},\n";
     }
 
+#ifndef NDEBUG
+    // Check that Uses and Defs are same after memory fold.
+    void checkCorrectness() const {
+      auto &RegInstRec = *RegInst->TheDef;
+      auto &MemInstRec = *MemInst->TheDef;
+      auto ListOfUsesReg = RegInstRec.getValueAsListOfDefs("Uses");
+      auto ListOfUsesMem = MemInstRec.getValueAsListOfDefs("Uses");
+      auto ListOfDefsReg = RegInstRec.getValueAsListOfDefs("Defs");
+      auto ListOfDefsMem = MemInstRec.getValueAsListOfDefs("Defs");
+      if (ListOfUsesReg != ListOfUsesMem || ListOfDefsReg != ListOfDefsMem)
+        report_fatal_error("Uses/Defs couldn't be changed after folding " +
+                           RegInstRec.getName() + " to " +
+                           MemInstRec.getName());
+    }
+#endif
   };
 
   // NOTE: We check the fold tables are sorted in X86InstrFoldTables.cpp by the enum of the
@@ -330,7 +345,14 @@ public:
                         RegRI.HasEVEX_L2, RegRec->getValueAsBit("hasEVEX_RC"),
                         RegRec->getValueAsBit("hasLockPrefix"),
                         RegRec->getValueAsBit("hasNoTrackPrefix"),
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+                        RegRec->getValueAsBit("EVEX_W1_VEX_W0"),
+                        RegRI.HasEVEX_NF) !=
+#else  // INTEL_FEATURE_ISA_APX_F
                         RegRec->getValueAsBit("EVEX_W1_VEX_W0")) !=
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
         std::make_tuple(MemRI.Encoding, MemRI.Opcode, MemRI.OpPrefix,
                         MemRI.OpMap, MemRI.OpSize, MemRI.AdSize, MemRI.HasREX_W,
                         MemRI.HasVEX_4V, MemRI.HasVEX_L, MemRI.IgnoresVEX_L,
@@ -338,7 +360,14 @@ public:
                         MemRI.HasEVEX_L2, MemRec->getValueAsBit("hasEVEX_RC"),
                         MemRec->getValueAsBit("hasLockPrefix"),
                         MemRec->getValueAsBit("hasNoTrackPrefix"),
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+                        MemRec->getValueAsBit("EVEX_W1_VEX_W0"),
+                        MemRI.HasEVEX_NF))
+#else  // INTEL_FEATURE_ISA_APX_F
                         MemRec->getValueAsBit("EVEX_W1_VEX_W0")))
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
       return false;
 
     // Make sure the sizes of the operands of both instructions suit each other.
@@ -628,6 +657,20 @@ void X86FoldTablesEmitter::run(raw_ostream &o) {
                  &(Target.getInstruction(MemInstIter)), Entry.Strategy, true);
   }
 
+#ifndef NDEBUG
+  auto CheckMemFoldTable = [](const FoldTable &Table) -> void {
+    for (const auto &Record : Table) {
+      auto &FoldEntry = Record.second;
+      FoldEntry.checkCorrectness();
+    }
+  };
+  CheckMemFoldTable(Table2Addr);
+  CheckMemFoldTable(Table0);
+  CheckMemFoldTable(Table1);
+  CheckMemFoldTable(Table2);
+  CheckMemFoldTable(Table3);
+  CheckMemFoldTable(Table4);
+#endif
   // Print all tables.
   printTable(Table2Addr, "Table2Addr", OS);
   printTable(Table0, "Table0", OS);
