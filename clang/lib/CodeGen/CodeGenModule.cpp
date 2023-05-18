@@ -222,7 +222,8 @@ CodeGenModule::CodeGenModule(ASTContext &C,
   // If debug info or coverage generation is enabled, create the CGDebugInfo
   // object.
   if (CodeGenOpts.getDebugInfo() != llvm::codegenoptions::NoDebugInfo ||
-      CodeGenOpts.EmitGcovArcs || CodeGenOpts.EmitGcovNotes)
+      CodeGenOpts.CoverageNotesFile.size() ||
+      CodeGenOpts.CoverageDataFile.size())
     DebugInfo.reset(new CGDebugInfo(*this));
 
   Block.GlobalUniqueCount = 0;
@@ -1121,12 +1122,17 @@ void CodeGenModule::Release() {
       getLangOpts().IntelCompat && getLangOpts().MSVCCompat)
     EmitMSDebugInfoMetadata();
 
+<<<<<<< HEAD
   // CQ#411303 Intel driver requires front-end to produce special file if
   // translation unit has any target code.
   if (HasTargetCode)
     EmitIntelDriverTempfile();
 #endif // INTEL_CUSTOMIZATION
   if (getCodeGenOpts().EmitGcovArcs || getCodeGenOpts().EmitGcovNotes)
+=======
+  if (getCodeGenOpts().CoverageNotesFile.size() ||
+      getCodeGenOpts().CoverageDataFile.size())
+>>>>>>> 71a35f7e3d6c78f8035f2eb7d58beba3b7208f9d
     EmitCoverageFile();
 
   if (CGDebugInfo *DI = getModuleDebugInfo())
@@ -8570,10 +8576,6 @@ void CodeGenModule::EmitSoxIdentMetadata() {
 #endif // INTEL_CUSTOMIZATION
 
 void CodeGenModule::EmitCoverageFile() {
-  if (getCodeGenOpts().CoverageDataFile.empty() &&
-      getCodeGenOpts().CoverageNotesFile.empty())
-    return;
-
   llvm::NamedMDNode *CUNode = TheModule.getNamedMetadata("llvm.dbg.cu");
   if (!CUNode)
     return;
