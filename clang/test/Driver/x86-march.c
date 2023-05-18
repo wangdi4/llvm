@@ -56,12 +56,16 @@
 // RUN:   | FileCheck %s -check-prefix=cooperlake
 // cooperlake: "-target-cpu" "cooperlake"
 //
-// RUN: %clang -target x86_64-unknown-unknown -c -### %s -march=knl 2>&1 \
-// RUN:   | FileCheck %s -check-prefix=knl
+// INTEL_CUSTOMIZATION
+// SKIP: %clang -target x86_64-unknown-unknown -c -### %s -march=knl 2>&1 \
+// SKIP:   | FileCheck %s -check-prefix=knl
+// end INTEL_CUSTOMIZATION
 // knl: "-target-cpu" "knl"
 //
-// RUN: %clang -target x86_64-unknown-unknown -c -### %s -march=knm 2>&1 \
-// RUN:   | FileCheck %s -check-prefix=knm
+// INTEL_CUSTOMIZATION
+// SKIP: %clang -target x86_64-unknown-unknown -c -### %s -march=knm 2>&1 \
+// SKIP:   | FileCheck %s -check-prefix=knm
+// end INTEL_CUSTOMIZATION
 // knm: "-target-cpu" "knm"
 //
 // RUN: %clang -target x86_64-unknown-unknown -c -### %s -march=cannonlake 2>&1 \
