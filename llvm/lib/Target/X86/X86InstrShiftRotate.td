@@ -2061,13 +2061,9 @@ def SHRD64mri8 : RIi8<0xAC, MRMDestMem,
                  TB;
 } // SchedRW
 
-<<<<<<< HEAD
-} // Defs = [EFLAGS]
+} // Defs = [EFLAGS], hasSideEffects
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
-=======
-} // Defs = [EFLAGS], hasSideEffects
->>>>>>> 77589e945f0d167bd46ed3218b81c16af1e917ae
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
