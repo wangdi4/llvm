@@ -97,7 +97,7 @@ using namespace Intel::OpenCL::Framework;
 // #define FLOAT2HALF_SIMD 1
 #undef FLOAT2HALF_SIMD
 
-ALIGN16 int ones[] = {1, 1, 1, 1};
+alignas(16) int ones[] = {1, 1, 1, 1};
 
 #ifdef _WIN32
 __m128i _4x32to4x16 =

@@ -1563,55 +1563,41 @@ defm IMUL64rmi32 : IMulOpRMI<0x69, "imul", Xi64, WriteIMul64Imm>;
 let hasSideEffects = 1 in { // so that we don't speculatively execute
 // AX/r8 = AL,AH
 defm DIV8r  : DivOpR<0xF6, MRM6r, "div", Xi8, AL, AH, [AX], WriteDiv8, []>;
-let Defs = [AX,DX,EFLAGS], Uses = [AX,DX] in
 // DX:AX/r16 = AX,DX
 defm DIV16r : DivOpR<0xF7, MRM6r, "div", Xi16, AX, DX, [AX, DX], WriteDiv16, []>;
-let Defs = [EAX,EDX,EFLAGS], Uses = [EAX,EDX] in
 // EDX:EAX/r32 = EAX,EDX
 defm DIV32r : DivOpR<0xF7, MRM6r, "div", Xi32, EAX, EDX, [EAX, EDX], WriteDiv32, []>;
 // RDX:RAX/r64 = RAX,RDX
-let Defs = [RAX,RDX,EFLAGS], Uses = [RAX,RDX] in
 defm DIV64r : DivOpR<0xF7, MRM6r, "div", Xi64, RAX, RDX, [RAX, RDX], WriteDiv64, []>;
 
 let mayLoad = 1 in {
-let Defs = [AL,AH,EFLAGS], Uses = [AX] in
 // AX/[mem8] = AL,AH
 defm DIV8m  : DivOpM<0xF6, MRM6m, "div", Xi8, AL, AH, [AX], WriteDiv8, []>;
-let Defs = [AX,DX,EFLAGS], Uses = [AX,DX] in
 // DX:AX/[mem16] = AX,DX
 defm DIV16m : DivOpM<0xF7, MRM6m, "div", Xi16, AX, DX, [AX, DX], WriteDiv16, []>;
-let Defs = [EAX,EDX,EFLAGS], Uses = [EAX,EDX] in    // EDX:EAX/[mem32] = EAX,EDX
+// EDX:EAX/[mem32] = EAX,EDX
 defm DIV32m : DivOpM<0xF7, MRM6m, "div", Xi32, EAX, EDX, [EAX, EDX], WriteDiv32, []>;
 // RDX:RAX/[mem64] = RAX,RDX
-let Defs = [RAX,RDX,EFLAGS], Uses = [RAX,RDX] in
 defm DIV64m : DivOpM<0xF7, MRM6m, "div", Xi64, RAX, RDX, [RAX, RDX], WriteDiv64, []>;
 }
 
 // Signed division/remainder.
-let Defs = [AL,AH,EFLAGS], Uses = [AX] in
 // AX/r8 = AL,AH
 defm IDIV8r : DivOpR<0xF6, MRM7r, "idiv", Xi8, AL, AH, [AX], WriteIDiv8, []>;
-let Defs = [AX,DX,EFLAGS], Uses = [AX,DX] in
 // DX:AX/r16 = AX,DX
 defm IDIV16r: DivOpR<0xF7, MRM7r, "idiv", Xi16, AX, DX, [AX, DX], WriteIDiv16, []>;
-let Defs = [EAX,EDX,EFLAGS], Uses = [EAX,EDX] in
 // EDX:EAX/r32 = EAX,EDX
 defm IDIV32r: DivOpR<0xF7, MRM7r, "idiv", Xi32, EAX, EDX, [EAX, EDX], WriteIDiv32, []>;
 // RDX:RAX/r64 = RAX,RDX
-let Defs = [RAX,RDX,EFLAGS], Uses = [RAX,RDX] in
 defm IDIV64r: DivOpR<0xF7, MRM7r, "idiv", Xi64, RAX, RDX, [RAX, RDX], WriteIDiv64, []>;
 
 let mayLoad = 1 in {
-let Defs = [AL,AH,EFLAGS], Uses = [AX] in
 // AX/[mem8] = AL,AH
 defm IDIV8m : DivOpM<0xF6, MRM7m, "idiv", Xi8, AL, AH, [AX], WriteIDiv8, []>;
-let Defs = [AX,DX,EFLAGS], Uses = [AX,DX] in
 // DX:AX/[mem16] = AX,DX
 defm IDIV16m: DivOpM<0xF7, MRM7m, "idiv", Xi16, AX, DX, [AX, DX], WriteIDiv16, []>;
-let Defs = [EAX,EDX,EFLAGS], Uses = [EAX,EDX] in
 // EDX:EAX/[mem32] = EAX,EDX
 defm IDIV32m: DivOpM<0xF7, MRM7m, "idiv", Xi32, EAX, EDX, [EAX, EDX], WriteIDiv32, []>;
-let Defs = [RAX,RDX,EFLAGS], Uses = [RAX,RDX] in // RDX:RAX/[mem64] = RAX,RDX
 // RDX:RAX/[mem64] = RAX,RDX
 defm IDIV64m: DivOpM<0xF7, MRM7m, "idiv", Xi64, RAX, RDX, [RAX, RDX], WriteIDiv64, []>;
 }
