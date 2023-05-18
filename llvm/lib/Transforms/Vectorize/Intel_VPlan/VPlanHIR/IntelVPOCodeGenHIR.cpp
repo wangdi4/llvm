@@ -2969,7 +2969,6 @@ void VPOCodeGenHIR::widenCallArgs(const VPCallInstruction *VPCall,
                                   SmallVectorImpl<RegDDRef *> &CallArgs,
                                   SmallVectorImpl<Type *> &ArgTys,
                                   SmallVectorImpl<AttributeSet> &ArgAttrs) {
-  unsigned PumpedVF = getVF() / PumpFactor;
   ArrayRef<VFParameter> Parms;
   if (MatchedVariant) {
     Parms = MatchedVariant->getParameters();
@@ -2979,11 +2978,10 @@ void VPOCodeGenHIR::widenCallArgs(const VPCallInstruction *VPCall,
   assert(Fn && "Unexpected null called function");
 
   // Widen all arg operands of the call and adjust them based on masking.
-  unsigned ArgIgnored = 0;
-
   AttributeList Attrs = VPCall->getOrigCallAttrs();
 
-  for (unsigned I = 0; I < VPCall->getNumArgOperands() - ArgIgnored; I++) {
+  unsigned NumArgs = VPCall->getNumArgOperands();
+  for (unsigned I = 0; I < NumArgs; I++) {
     RegDDRef *WideArg = nullptr;
     if ((!MatchedVariant || Parms[I].isVector() || Parms[I].isLinearVal()) &&
         !isVectorIntrinsicWithScalarOpAtArg(VectorIntrinID, I)) {
@@ -2996,44 +2994,42 @@ void VPOCodeGenHIR::widenCallArgs(const VPCallInstruction *VPCall,
       assert(WideArg && "Vectorized call arg cannot be nullptr.");
     } else {
       // TODO: support pumping for vector variants
-      assert(PumpFactor == 1 &&
-             "Pumping feature is not expected.");
+      assert(PumpFactor == 1 && "Pumping feature is not expected.");
       WideArg = getOrCreateScalarRef(VPCall->getOperand(I), 0 /*Lane*/);
     }
     CallArgs.push_back(WideArg);
     ArgTys.push_back(WideArg->getDestType());
     ArgAttrs.push_back(Attrs.getParamAttrs(I));
   }
+  if (!Mask)
+    return;
 
-  bool Masked = Mask != nullptr;
-  if (Masked) {
-    // Masked intrinsics will not have explicit mask parameter. They are handled
-    // like other BinOp HLInsts i.e. execute on all lanes and extract active
-    // lanes during HIR-CG.
-    assert(VectorIntrinID == Intrinsic::not_intrinsic &&
-           "Vectorization of trivial intrinsics is not expected to be masked.");
-    // Compute mask paramter for current part being pumped.
-    RegDDRef *PumpPartMask = Mask;
-    if (PumpFactor > 1) {
-      HLInst *PumpPartMaskSubVec =
-          extractSubVector(PumpPartMask, PumpPart, PumpFactor);
-      addInstUnmasked(PumpPartMaskSubVec);
-      PumpPartMask = PumpPartMaskSubVec->getLvalDDRef()->clone();
-    }
-    StringRef VecFuncName = TLI->getVectorizedFunction(
-        Fn->getName(), ElementCount::getFixed(PumpedVF), Masked);
-    // Masks of SVML function calls need special treatment, it's different from
-    // the normal case for AVX512.
-    if (!VecFuncName.empty() &&
-        isSVMLFunction(TLI, Fn->getName(), VecFuncName)) {
-      addMaskToSVMLCall(Fn, Attrs, CallArgs, ArgTys, ArgAttrs, PumpPartMask);
-    } else {
-      RegDDRef *MaskArg = generateMaskArg(PumpPartMask, MatchedVariant, VPCall);
-      auto CE = MaskArg->getSingleCanonExpr();
-      ArgTys.push_back(CE->getDestType());
-      CallArgs.push_back(MaskArg->clone());
-      ArgAttrs.push_back(AttributeSet());
-    }
+  // Masked intrinsics will not have explicit mask parameter. They are handled
+  // like other BinOp HLInsts i.e. execute on all lanes and extract active
+  // lanes during HIR-CG.
+  assert(VectorIntrinID == Intrinsic::not_intrinsic &&
+         "Vectorization of trivial intrinsics is not expected to be masked.");
+  // Compute mask paramter for current part being pumped.
+  RegDDRef *PumpPartMask = Mask;
+  if (PumpFactor > 1) {
+    HLInst *PumpPartMaskSubVec =
+        extractSubVector(PumpPartMask, PumpPart, PumpFactor);
+    addInstUnmasked(PumpPartMaskSubVec);
+    PumpPartMask = PumpPartMaskSubVec->getLvalDDRef()->clone();
+  }
+  unsigned PumpedVF = getVF() / PumpFactor;
+  StringRef VecFuncName = TLI->getVectorizedFunction(
+      Fn->getName(), ElementCount::getFixed(PumpedVF), true /*Masked*/);
+  // Masks of SVML function calls need special treatment, it's different from
+  // the normal case for AVX512.
+  if (!VecFuncName.empty() && isSVMLFunction(TLI, Fn->getName(), VecFuncName)) {
+    addMaskToSVMLCall(Fn, Attrs, CallArgs, ArgTys, ArgAttrs, PumpPartMask);
+  } else {
+    RegDDRef *MaskArg = generateMaskArg(PumpPartMask, MatchedVariant, VPCall);
+    auto CE = MaskArg->getSingleCanonExpr();
+    ArgTys.push_back(CE->getDestType());
+    CallArgs.push_back(MaskArg->clone());
+    ArgAttrs.push_back(AttributeSet());
   }
 }
 
