@@ -19,7 +19,7 @@
 ; OPTRPTMED: remark #15436: loop was not vectorized:
 ; OPTRPTHI: remark #15436: loop was not vectorized:
 ; OPTRPTHI: remark #15436: loop was not vectorized: Code generation is disabled.
-; OPTRPTHI-HIR: remark #15436: loop was not vectorized: Code generation is disabled.
+; OPTRPTHI-HIR: remark #15436: loop was not vectorized: HIR: Code generation is disabled.
 
 
 %struct.int_int = type { i32, i32 }

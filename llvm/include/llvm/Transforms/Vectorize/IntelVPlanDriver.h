@@ -35,16 +35,6 @@ class VPLoop;
 class VPLoopInfo;
 class CfgMergerPlanDescr;
 
-// Data to be passed to VPlanOptReportBuilder::addRemark().  At present, we
-// support a single string argument, which suffices for the remark strings
-// that we utilize.
-// TODO: ### Delete this after converting fully to VPlanBailoutRemark.
-struct VPlanBailoutData {
-  OptReportVerbosity::Level BailoutLevel = OptReportVerbosity::High;
-  unsigned BailoutID = 0;
-  std::string BailoutMessage;
-};
-
 // Data to be passed to VPlanOptReportBuilder::addRemark().
 struct VPlanBailoutRemark {
   OptReportVerbosity::Level BailoutLevel = OptReportVerbosity::High;
@@ -81,12 +71,6 @@ private:
   template <class Loop>
   bool isVPlanCandidate(Function &Fn, Loop *Lp);
 
-  // TODO: ### Delete this version after full conversion to VPlanBailoutRemark.
-  template <class Loop>
-  bool bailout(VPlanOptReportBuilder &ORBuilder, Loop *Lp, WRNVecLoopNode *WRLp,
-               OptReportVerbosity::Level Level, unsigned ID,
-               std::string Reason);
-
   template <class Loop>
   bool bailout(VPlanOptReportBuilder &ORBuilder, Loop *Lp, WRNVecLoopNode *WRLp,
                VPlanBailoutRemark RemarkData);
@@ -108,8 +92,6 @@ protected:
   const DataLayout *DL;
 
   OptReportBuilder ORBuilder;
-  // TODO: ### Delete after full conversion to VPlanBailoutRemark.
-  VPlanBailoutData BD;
   VPlanBailoutRemark BR;
 
   template <typename Loop = llvm::Loop>
@@ -166,14 +148,6 @@ protected:
 
   DominatorTree *getDT() const { return DT; }
   void setDT(DominatorTree *NewDT) { DT = NewDT; }
-
-  // TODO: ### Delete after full conversion to VPlanBailoutRemark.
-  void setBailoutData(OptReportVerbosity::Level BailoutLevel,
-                      unsigned BailoutID, std::string BailoutMessage) {
-    BD.BailoutLevel = BailoutLevel;
-    BD.BailoutID = BailoutID;
-    BD.BailoutMessage = BailoutMessage;
-  }
 
   void clearBailoutRemark() { BR.BailoutRemark = OptRemark(); }
 
@@ -367,12 +341,9 @@ private:
   bool isVPlanCandidate(Function &Fn, loopopt::HLLoop *Lp);
   // Delete intel intrinsic directives before/after the given loop.
   void eraseLoopIntrins(loopopt::HLLoop *Lp, WRNVecLoopNode *WRLp);
-  // TODO: ### Delete this version after full conversion to VPlanBailoutRemark
-  bool bailout(VPlanOptReportBuilder &VPORBuilder, loopopt::HLLoop *Lp,
-               WRNVecLoopNode *WRLp, OptReportVerbosity::Level Level,
-               unsigned ID, std::string Reason);
   bool bailout(VPlanOptReportBuilder &VPORBuilder, loopopt::HLLoop *Lp,
                WRNVecLoopNode *WRLp, VPlanBailoutRemark RemarkData);
+  OptRemark prependHIR(OptRemark R);
 
 public:
   bool runImpl(Function &F, loopopt::HIRFramework *HIRF,

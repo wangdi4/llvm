@@ -259,21 +259,29 @@ void HIRVectorizationLegality::recordPotentialSIMDDescrUpdate(
   }
 }
 
+template <typename... Args>
 bool HIRVectorizationLegality::bailout(OptReportVerbosity::Level Level,
                                        unsigned ID, std::string Message,
-                                       std::string Debug = "") {
-  if (Debug == "")
-    DEBUG_WITH_TYPE("HIRLegality", dbgs() << Message << "\n");
-  else
-    DEBUG_WITH_TYPE("HIRLegality", dbgs() << Debug << "\n");
-  setBailoutData(Level, ID, Message);
+                                       Args &&...BailoutArgs) {
+  DEBUG_WITH_TYPE("HIRLegality", dbgs() << Message << "\n");
+  setBailoutRemark(Level, ID, Message, std::forward<Args>(BailoutArgs)...);
+  return false;
+}
+
+template <typename... Args>
+bool HIRVectorizationLegality::bailoutWithDebug(OptReportVerbosity::Level Level,
+                                                unsigned ID, std::string Debug,
+                                                Args &&...BailoutArgs) {
+  DEBUG_WITH_TYPE("HIRLegality", dbgs() << Debug << "\n");
+  setBailoutRemark(Level, ID, std::forward<Args>(BailoutArgs)...);
   return false;
 }
 
 bool HIRVectorizationLegality::canVectorize(const WRNVecLoopNode *WRLp) {
+  clearBailoutRemark();
   // Send explicit data from WRLoop to the Legality.
   bool RetVal = EnterExplicitData(WRLp);
-  assert((RetVal || BD.BailoutID) &&
+  assert((RetVal || BR.BailoutRemark) &&
          "EnterExplicitData didn't set bailout data!");
   return RetVal;
 }
