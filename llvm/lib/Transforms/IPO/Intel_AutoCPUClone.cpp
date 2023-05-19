@@ -28,9 +28,9 @@ using namespace llvm;
 
 // Internal option to control whether to multi-version select functions.
 static cl::opt<bool>
-    EnableSelectiveMultiVersioning("enable-selective-mv", cl::init(true),
-                                   cl::ReallyHidden,
-                                   cl::desc("Enable multi-versioning of select functions"));
+    DisableSelectiveMultiVersioning("disable-selective-mv", cl::init(false),
+                                    cl::ReallyHidden,
+                                    cl::desc("Disable multi-versioning of select functions"));
 
 static std::string getTargetFeatures(StringRef TargetCpu) {
   SmallVector<StringRef, 16> CPUFeatures;
@@ -271,7 +271,7 @@ CollectMVCandidates(Module &M, SetVector<Function *> &MVCandidates,
     //   3) functions that contain non-annotation like intrinsics,
     //   4) functions that contain loops, or
     //   5) functions that are callable from loop bodies.
-    if (!EnableSelectiveMultiVersioning) {
+    if (DisableSelectiveMultiVersioning) {
       MVCandidates.insert(&Fn);
       continue;
     }

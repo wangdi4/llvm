@@ -1,4 +1,4 @@
-; RUN: opt -passes=auto-cpu-clone -enable-selective-mv=0 < %s -S | FileCheck %s
+; RUN: opt -passes=auto-cpu-clone -disable-selective-mv < %s -S | FileCheck %s
 
 
 ; CHECK:      @baz.ptr = internal global ptr @baz.A, !llvm.acd.dispatcher !0

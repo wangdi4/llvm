@@ -1,6 +1,6 @@
 //===----- HIRUnrollAndJam.cpp - Implements UnrollAndJam class ------------===//
 //
-// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -1868,9 +1868,10 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
         LoopMap ? OptimizationType::UnrollAndJam : OptimizationType::Unroll);
   }
 
-  if (!NeedRemainderLoop && !IsUnknownLoop) {
+  if (!NeedRemainderLoop) {
     // Invalidate analysis for original loopnest if remainder loop is not needed
-    // since we reuse the instructions inside them.
+    // since we reuse the instructions inside them. For unknown loops we reuse
+    // the entire loop, that's why we need to invalidate the loop body.
     HIRInvalidationUtils::invalidateLoopNestBody(Loop);
   }
   unrollMainLoop(Loop, MainLoop, UnrollFactor, NeedRemainderLoop, LoopMap);
