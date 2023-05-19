@@ -2321,7 +2321,7 @@ void SampleProfileMatcher::runOnFunction(const Function &F,
       if (!isa<CallBase>(&I) || isa<IntrinsicInst>(&I))
         continue;
 
-      const auto *CB = dyn_cast<CallBase>(&I);
+      const auto *CB = cast<CallBase>(&I); // INTEL
       if (auto &DLoc = I.getDebugLoc()) {
         LineLocation IRCallsite = FunctionSamples::getCallSiteIdentifier(DLoc);
 
