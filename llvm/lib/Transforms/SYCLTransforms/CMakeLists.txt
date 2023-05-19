@@ -66,6 +66,7 @@ add_llvm_component_library(LLVMSYCLTransforms
   # end INTEL_CUSTOMIZATION
   InternalizeGlobalVariables.cpp
   InternalizeNonKernelFunc.cpp
+  KernelTargetExtTypeLower.cpp
   LinearIdResolver.cpp
   LocalBufferAnalysis.cpp
   LocalBuffers.cpp

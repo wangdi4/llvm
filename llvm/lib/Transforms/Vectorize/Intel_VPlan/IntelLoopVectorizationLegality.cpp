@@ -636,33 +636,25 @@ bool VPOVectorizationLegality::isExplicitReductionPhi(PHINode *Phi) {
   return ExplicitReductions.count(Phi);
 }
 
-template <typename... Args>
 bool VPOVectorizationLegality::bailout(OptReportVerbosity::Level Level,
                                        unsigned ID, std::string Message,
-                                       Args &&...BailoutArgs) {
-  LLVM_DEBUG(dbgs() << Message << '\n');
-  setBailoutRemark(Level, ID, Message, std::forward<Args>(BailoutArgs)...);
-  return false;
-}
-
-template <typename... Args>
-bool VPOVectorizationLegality::bailoutWithDebug(OptReportVerbosity::Level Level,
-                                                unsigned ID, std::string Debug,
-                                                Args &&...BailoutArgs) {
-  LLVM_DEBUG(dbgs() << Debug << '\n');
-  setBailoutRemark(Level, ID, std::forward<Args>(BailoutArgs)...);
+                                       std::string Debug = "") {
+  if (Debug == "")
+    LLVM_DEBUG(dbgs() << Message << '\n');
+  else
+    LLVM_DEBUG(dbgs() << Debug << '\n');
+  setBailoutData(Level, ID, Message);
   return false;
 }
 
 bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
                                             const WRNVecLoopNode *WRLp) {
   IsSimdLoop = WRLp;
-  clearBailoutRemark();
 
   // Import explicit data from WRLoop.
   // Decision about loop vectorization is based on this data.
   if (!EnterExplicitData(WRLp)) {
-    assert(BR.BailoutRemark && "EnterExplicitData didn't set bailout data!");
+    assert(BD.BailoutID && "EnterExplicitData didn't set bailout data!");
     return false;
   }
 
@@ -672,33 +664,26 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
   }
 
   if (TheLoop->getNumBackEdges() != 1 || !TheLoop->getExitingBlock())
-    return bailoutWithDebug(
-        OptReportVerbosity::Medium, VPlanDriverImpl::ComplexFlowRemarkID,
-        "Loop control flow is not understood by vectorizer",
-        WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
-                                      : std::string("loop"),
-        std::string(" 5.0"));
+    return bailout(OptReportVerbosity::Medium,
+                   VPlanDriverImpl::ComplexFlowRemarkID,
+                   WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop",
+                   "Loop control flow is not understood by vectorizer");
 
   // We only handle bottom-tested loops, i.e. loop in which the condition is
   // checked at the end of each iteration. With that we can assume that all
   // instructions in the loop are executed the same number of times.
   if (TheLoop->getExitingBlock() != TheLoop->getLoopLatch())
-    return bailoutWithDebug(
-        OptReportVerbosity::Medium, VPlanDriverImpl::ComplexFlowRemarkID,
-        "Loop control flow is not understood by vectorizer",
-        WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
-                                      : std::string("loop"),
-        std::string(" 5.0"));
+    return bailout(OptReportVerbosity::Medium,
+                   VPlanDriverImpl::ComplexFlowRemarkID,
+                   WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop",
+                   "Loop control flow is not understood by vectorizer");
 
   // ScalarEvolution needs to be able to find the exit count.
   const SCEV *ExitCount = PSE.getBackedgeTakenCount();
   if (ExitCount == PSE.getSE()->getCouldNotCompute())
-    return bailoutWithDebug(
-        OptReportVerbosity::High, VPlanDriverImpl::LoopIVRemarkID,
-        "LV: SCEV could not compute the loop iteration count.",
-        WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
-                                      : std::string("loop"),
-        std::string(" 5.0"));
+    return bailout(OptReportVerbosity::High, VPlanDriverImpl::LoopIVRemarkID,
+                   WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop",
+                   "LV: SCEV could not compute the loop iteration count.");
 
   // Check if aliasing of privates is safe outside of the loop.
   CallInst *RegionEntry =
@@ -706,8 +691,8 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
 
   if (!isAliasingSafe(DT, RegionEntry))
     return bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
-                   std::string("Aliasing of privates outside the loop can't be "
-                               "determined to be safe."));
+                   "Aliasing of privates outside the loop can't be determined "
+                   "to be safe.");
 
   BasicBlock *Header = TheLoop->getHeader();
   // For each block in the loop.
@@ -716,11 +701,10 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
     for (Instruction &I : *BB) {
 
       if (!isSupportedInstructionType(I))
-        return bailoutWithDebug(
-            OptReportVerbosity::Medium, VPlanDriverImpl::BadTypeRemarkID,
-            "Instruction contains unsupported data type",
-            WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
-                                          : std::string("loop"));
+        return bailout(OptReportVerbosity::Medium,
+                       VPlanDriverImpl::BadTypeRemarkID,
+                       WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop",
+                       "Instruction contains unsupported data type");
 
       if (auto *Phi = dyn_cast<PHINode>(&I)) {
 
@@ -748,23 +732,20 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
                   [&](PHINode *Phi) { return Inductions.count(Phi); }))
             continue;
 
-          return bailoutWithDebug(
-              OptReportVerbosity::Medium, VPlanDriverImpl::BadLiveOutRemarkID,
-              "Loop contains a live-out value that could not be "
-              "identified as an induction or reduction.",
-              WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
-                                            : std::string("loop"));
+          return bailout(OptReportVerbosity::Medium,
+                         VPlanDriverImpl::BadLiveOutRemarkID,
+                         WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop",
+                         "Loop contains a live-out value that could not be "
+                         "identified as an induction or reduction.");
         }
 
         // We only allow if-converted PHIs with exactly two incoming values.
         if (Phi->getNumIncomingValues() != 2)
-          return bailoutWithDebug(
-              OptReportVerbosity::Medium, VPlanDriverImpl::ComplexFlowRemarkID,
-              "Loop contains a recurrent computation without "
-              "exactly two predecessors.",
-              WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
-                                            : std::string("loop"),
-              std::string(" 5.0"));
+          return bailout(OptReportVerbosity::Medium,
+                         VPlanDriverImpl::ComplexFlowRemarkID,
+                         WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop",
+                         "Loop contains a recurrent computation without "
+                         "exactly two predecessors.");
 
         if (isExplicitReductionPhi(Phi))
           continue;
@@ -798,12 +779,11 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
           continue;
 
         LLVM_DEBUG(dbgs() << "LV: Found an unidentified PHI." << *Phi << "\n");
-        return bailoutWithDebug(
-            OptReportVerbosity::Medium, VPlanDriverImpl::BadRecurPhiRemarkID,
-            "Loop contains a recurrent computation that could not "
-            "be identified as an induction or reduction.",
-            WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
-                                          : std::string("loop"));
+        return bailout(OptReportVerbosity::Medium,
+                       VPlanDriverImpl::BadRecurPhiRemarkID,
+                       WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop",
+                       "Loop contains a recurrent computation that could not "
+                       "be identified as an induction or reduction.");
       } // end of PHI handling
 
       // Bail out if we need to scalarize the read/write pipe OpenCL calls. We
@@ -833,34 +813,30 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
               VPOAnalysisUtils::getDirectiveID(Call) == DIR_OMP_ORDERED;
           LLVM_DEBUG(dbgs() << "LV: For call " << *Call << ":\n");
           if (OmpOrd)
-            return bailout(
-                OptReportVerbosity::Medium, VPlanDriverImpl::BailoutRemarkID,
-                std::string("#pragma omp simd ordered is not yet supported."));
+            return bailout(OptReportVerbosity::Medium,
+                           VPlanDriverImpl::BailoutRemarkID,
+                           "#pragma omp simd ordered is not yet supported.");
           else
-            return bailoutWithDebug(
-                OptReportVerbosity::Medium, VPlanDriverImpl::NestedSimdRemarkID,
-                "Unsupported nested OpenMP (simd) loop or region.",
-                WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
-                                              : std::string("loop"));
+            return bailout(OptReportVerbosity::Medium,
+                           VPlanDriverImpl::NestedSimdRemarkID,
+                           WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop",
+                           "Unsupported nested OpenMP (simd) loop or region.");
         }
 
         if ((isOpenCLReadChannel(F->getName()) ||
              isOpenCLWriteChannel(F->getName())) &&
             !UseSimdChannels) {
-          return bailout(
-              OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
-              std::string("OpenCL read/write channel is not enabled."));
+          return bailout(OptReportVerbosity::High,
+                         VPlanDriverImpl::BailoutRemarkID,
+                         "OpenCL read/write channel is not enabled.");
         }
       }
     }
   }
   if (!Induction && Inductions.empty())
-    return bailoutWithDebug(
-        OptReportVerbosity::High, VPlanDriverImpl::LoopIVRemarkID,
-        "LV: Did not find one integer induction var.",
-        WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
-                                      : std::string("loop"),
-        std::string(" 5.0"));
+    return bailout(OptReportVerbosity::High, VPlanDriverImpl::LoopIVRemarkID,
+                   WRLp && WRLp->isOmpSIMDLoop() ? "simd loop" : "loop",
+                   "LV: Did not find one integer induction var.");
 
   return true;
 }

@@ -36,8 +36,7 @@ define i32 @foo(%struct.pair* byval(%struct.pair) %x) #0 {
 ; CHECK-NEXT:    call void @llvm.directive.region.exit(token [[ENTRY_REGION]]) [ "DIR.OMP.END.SIMD"() ]
 ; CHECK-NEXT:    br label [[RETURN:%.*]]
 ; CHECK:       return:
-; CHECK-NEXT:    [[VEC_RET_CAST:%.*]] = bitcast i32* [[RET_CAST]] to <4 x i32>*
-; CHECK-NEXT:    [[VEC_RET:%.*]] = load <4 x i32>, <4 x i32>* [[VEC_RET_CAST]]
+; CHECK-NEXT:    [[VEC_RET:%.*]] = load <4 x i32>, <4 x i32>* [[VEC_RETVAL]]
 ; CHECK-NEXT:    ret <4 x i32> [[VEC_RET]]
 ;
   %fst.p = getelementptr inbounds %struct.pair, %struct.pair* %x, i32 0, i32 0

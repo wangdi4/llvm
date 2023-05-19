@@ -9,13 +9,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/SYCLTransforms/SYCLEqualizer.h"
-#include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/IteratedDominanceFrontier.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/SYCLTransforms/BuiltinLibInfoAnalysis.h"
@@ -23,7 +21,6 @@
 #include "llvm/Transforms/SYCLTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/NameMangleAPI.h"
-#include "llvm/Transforms/Utils/ValueMapper.h"
 
 using namespace llvm;
 using namespace llvm::CompilationUtils;
@@ -293,8 +290,7 @@ private:
                        CompilationUtils::ADDRESS_SPACE_GENERIC) {
         // Get type and value for create or get new builtin function
         PointerType *NewType = PointerType::getWithSamePointeeType(
-            dyn_cast<PointerType>(Arg->getType()),
-            CompilationUtils::ADDRESS_SPACE_GENERIC);
+            PType, CompilationUtils::ADDRESS_SPACE_GENERIC);
         Value *NewOp =
             Builder.CreateAddrSpaceCast(Arg, NewType, Twine("cast.data"));
         FuncArgValues.push_back(NewOp);
@@ -423,80 +419,6 @@ public:
 private:
   ArrayRef<Module *> BuiltinModules;
   SmallPtrSetImpl<Function *> &FuncDeclToRemove;
-};
-
-/// Type mapper for target extension type.
-class TargetExtTypeMapTy : public ValueMapTypeRemapper {
-  /// Map from source type to destination type. Source type contains target
-  /// extension type, while destination type doesn't.
-  DenseMap<Type *, Type *> MappedTypes;
-
-public:
-  void addMapping(Type *SrcTy, Type *DstTy) {
-    if (!hasMapping(SrcTy))
-      MappedTypes[SrcTy] = DstTy;
-  }
-
-  bool hasMapping(Type *SrcTy) const { return MappedTypes.contains(SrcTy); }
-
-  Type *remapType(Type *SrcTy) override {
-    auto It = MappedTypes.find(SrcTy);
-    return It != MappedTypes.end() ? It->second : SrcTy;
-  }
-
-  /// Recursively check if source type contains target extension type. If yes,
-  /// add its mapping.
-  /// Return mapped type if mapping exists, or source type otherwise.
-  Type *get(Type *Ty, SmallPtrSetImpl<Type *> &Visited) {
-    if (Visited.contains(Ty))
-      return remapType(Ty);
-
-    Visited.insert(Ty);
-
-    if (auto It = MappedTypes.find(Ty); It != MappedTypes.end())
-      return It->second;
-
-    if (auto *TETy = dyn_cast<TargetExtType>(Ty)) {
-      addMapping(Ty, TETy->getLayoutType());
-      return TETy->getLayoutType();
-    }
-
-    bool Changed = false;
-    SmallVector<Type *, 8> NewEltTypes;
-    for (auto *SubTy : Ty->subtypes()) {
-      auto *MappedTy = get(SubTy, Visited);
-      Changed |= MappedTy != SubTy;
-      NewEltTypes.push_back(MappedTy);
-    }
-
-    if (!Changed)
-      return Ty;
-
-    Type *NewTy;
-    switch (Ty->getTypeID()) {
-    case Type::ArrayTyID:
-      NewTy = ArrayType::get(NewEltTypes[0], Ty->getArrayNumElements());
-      break;
-    case Type::FixedVectorTyID:
-    case Type::ScalableVectorTyID:
-      NewTy = VectorType::get(NewEltTypes[0],
-                              cast<VectorType>(Ty)->getElementCount());
-      break;
-    case Type::StructTyID:
-      if (cast<StructType>(Ty)->isLiteral())
-        NewTy = StructType::get(Ty->getContext(), NewEltTypes,
-                                cast<StructType>(Ty)->isPacked());
-      else
-        NewTy = StructType::create(NewEltTypes, Ty->getStructName(),
-                                   cast<StructType>(Ty)->isPacked());
-      break;
-    default:
-      llvm_unreachable("Unhandled derived type to remap");
-    }
-
-    addMapping(Ty, NewTy);
-    return NewTy;
-  }
 };
 
 } // namespace
@@ -658,228 +580,6 @@ static bool renameAliasingBuiltins(Module &M) {
   return Changed;
 }
 
-/// Save function parameter's type, including target extension type, to
-/// metadata.
-static void formArgTypeNullValMetadata(SmallVectorImpl<Function *> &Funcs,
-                                       ValueToValueMapTy &VMap) {
-  for (Function *F : Funcs) {
-    SmallVector<Constant *, 8> ArgTypesMD;
-    llvm::transform(F->args(), std::back_inserter(ArgTypesMD), [](Argument &A) {
-      return Constant::getNullValue(A.getType());
-    });
-    if (auto VMapIt = VMap.find(F); VMapIt != VMap.end())
-      F = cast<Function>(VMapIt->second);
-    SYCLKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
-    KIMD.ArgTypeNullValList.set(std::move(ArgTypesMD));
-  }
-}
-
-/// Find all users that are instructions.
-static void findInstUsers(Value *Val, SmallPtrSetImpl<Instruction *> &Users,
-                          DenseSet<Value *> &Visited) {
-  if (Visited.contains(Val))
-    return;
-
-  if (auto *I = dyn_cast<Instruction>(Val))
-    Users.insert(I);
-
-  if (isa<AllocaInst>(Val)) {
-    auto DbgUses = findDbgUses(Val);
-    Users.insert(DbgUses.begin(), DbgUses.end());
-  }
-
-  SmallVector<Value *, 16> WorkList{Val};
-  while (!WorkList.empty()) {
-    Value *V = WorkList.pop_back_val();
-    Visited.insert(V);
-    if (auto *SI = dyn_cast<StoreInst>(V)) {
-      auto *Op = SI->getPointerOperand();
-      if (!Visited.contains(Op)) {
-        WorkList.push_back(Op);
-        if (auto *I = dyn_cast<Instruction>(Op))
-          Users.insert(I);
-      }
-    }
-    for (User *U : V->users()) {
-      for (auto It = df_begin(U), E = df_end(U); It != E;) {
-        if (auto *I = dyn_cast<Instruction>(*It)) {
-          if (Visited.contains(I)) {
-            It.skipChildren();
-            continue;
-          }
-          WorkList.push_back(I);
-          Users.insert(I);
-        }
-        ++It;
-      }
-    }
-  }
-}
-
-/// Replace target extension type with its layout type.
-/// Assume target extension type, e.g. pipe and image2d_t, is only allowed for
-/// function parameter.
-/// FPGA channel global variables are not handled in this function. They'll be
-/// handled in ChannelPipeTransformationPass.
-static void materializeTargetExtType(Module &M,
-                                     KernelList::KernelVectorTy &Kernels) {
-  // Retrieve address space for TargetExtType pointer argument.
-  TargetExtTypeMapTy TETypeMap;
-  for (Function &F : M) {
-    SYCLKernelMetadataAPI::KernelMetadataAPI KMD(&F);
-    if (KMD.ArgAddrSpaceList.hasValue()) {
-      // OpenCL or spirv kernels. Read from kernel_arg_addr_space metadata.
-      for (const auto &[Idx, A] : llvm::enumerate(F.args())) {
-        if (auto *TETy = dyn_cast<TargetExtType>(A.getType());
-            TETy && !TETypeMap.hasMapping(TETy)) {
-          auto *Ty = TETy->getLayoutType();
-          if (isa<PointerType>(TETy->getLayoutType()))
-            Ty = PointerType::get(Ty, KMD.ArgAddrSpaceList.getItem(Idx));
-          TETypeMap.addMapping(TETy, Ty);
-        }
-      }
-    } else {
-      // nonspirv kernels and non-kernel functions.
-      auto AddMapping = [&](Type *Ty) {
-        if (auto *TETy = dyn_cast<TargetExtType>(Ty);
-            TETy && !TETypeMap.hasMapping(TETy)) {
-          auto *LTy = TETy->getLayoutType();
-          if (isa<PointerType>(LTy)) {
-            unsigned AS = StringSwitch<unsigned>(TETy->getName())
-                              .Case("spirv.DeviceEvent", ADDRESS_SPACE_PRIVATE)
-                              .Case("spirv.Event", ADDRESS_SPACE_PRIVATE)
-                              .Case("spirv.Queue", ADDRESS_SPACE_PRIVATE)
-                              .Case("spirv.Sampler", ADDRESS_SPACE_CONSTANT)
-                              .Default(ADDRESS_SPACE_GLOBAL);
-            LTy = PointerType::get(LTy, AS);
-          }
-          TETypeMap.addMapping(TETy, LTy);
-        }
-      };
-      for (auto &A : F.args())
-        AddMapping(A.getType());
-      AddMapping(F.getReturnType());
-    }
-  }
-
-  // Find functions with argument of target extension type. Create a new
-  // function with new argument of layout type.
-  ValueToValueMapTy VMap;
-  SmallVector<Function *, 16> FuncsToRemove;
-  for (Function &F : M) {
-    if (!isa<TargetExtType>(F.getReturnType()) &&
-        !llvm::any_of(F.args(), [](Argument &Arg) {
-          return isa<TargetExtType>(Arg.getType());
-        }))
-      continue;
-
-    SmallVector<Type *, 8> NewArgTypes;
-    llvm::transform(
-        F.args(), std::back_inserter(NewArgTypes),
-        [&](Argument &Arg) { return TETypeMap.remapType(Arg.getType()); });
-    Type *RetTy = TETypeMap.remapType(F.getReturnType());
-    auto *NewFnTy = FunctionType::get(RetTy, NewArgTypes, F.isVarArg());
-    auto *NewF = Function::Create(NewFnTy, F.getLinkage(), "", M);
-    NewF->setCallingConv(F.getCallingConv());
-    NewF->copyMetadata(&F, 0);
-    NewF->setDSOLocal(F.isDSOLocal());
-    NewF->setComdat(F.getComdat());
-    NewF->setAttributes(F.getAttributes());
-    NewF->splice(NewF->begin(), &F);
-    NewF->takeName(&F);
-    VMap[&F] = NewF;
-    FuncsToRemove.push_back(&F);
-
-    // Add argument with TargetExtType to VMap.
-    if (!NewF->isDeclaration()) {
-      for (auto It = F.arg_begin(), E = F.arg_end(), NewIt = NewF->arg_begin();
-           It != E; ++It, ++NewIt) {
-        NewIt->takeName(&*It);
-        auto *TETy = dyn_cast<TargetExtType>(It->getType());
-        if (TETy)
-          VMap[&*It] = &*NewIt;
-        else
-          It->replaceAllUsesWith(&*NewIt);
-      }
-    }
-  }
-
-  if (FuncsToRemove.empty()) {
-    formArgTypeNullValMetadata(Kernels, VMap);
-    return;
-  }
-
-  ValueMapper VMapper(VMap, RF_NoModuleLevelChanges | RF_IgnoreMissingLocals,
-                      &TETypeMap);
-  SmallPtrSet<Type *, 16> VisitedType;
-
-  // Handle named struct type.
-  bool HasNamedStructToRemap = false;
-  for (auto *Ty : M.getIdentifiedStructTypes())
-    HasNamedStructToRemap |= TETypeMap.get(Ty, VisitedType) != Ty;
-
-  // Handle each function.
-  SmallVector<Function *, 32> FuncsToAddMD;
-  for (Function &F : M) {
-    if (F.isDeclaration()) {
-      if (llvm::find(Kernels, &F) == Kernels.end())
-        if (auto It = VMap.find(&F);
-            It != VMap.end() && !cast<Function>(It->second)->isDeclaration())
-          FuncsToAddMD.push_back(&F);
-      continue;
-    }
-
-    DenseSet<Value *> Visited;
-    SmallPtrSet<Instruction *, 32> ToRemap;
-
-    // Find instructions that need to be remapped.
-    for (auto &Arg : F.args())
-      if (VMap.count(&Arg))
-        findInstUsers(&Arg, ToRemap, Visited);
-    if (F.getName().startswith("__") && F.getName().endswith("_block_invoke"))
-      for (auto &Arg : F.args())
-        findInstUsers(&Arg, ToRemap, Visited);
-    for (Instruction &I : instructions(&F)) {
-      if (auto *AI = dyn_cast<AllocaInst>(&I)) {
-        Type *AllocTy = AI->getAllocatedType();
-        if (TETypeMap.get(AllocTy, VisitedType) != AllocTy)
-          findInstUsers(&I, ToRemap, Visited);
-      } else if (auto *LI = dyn_cast<LoadInst>(&I)) {
-        if (TETypeMap.hasMapping(LI->getType()))
-          findInstUsers(&I, ToRemap, Visited);
-      } else if (auto *CI = dyn_cast<CallInst>(&I)) {
-        if (VMap.count(CI->getCalledFunction()))
-          findInstUsers(&I, ToRemap, Visited);
-      } else if (HasNamedStructToRemap) {
-        if (auto *GEP = dyn_cast<GetElementPtrInst>(&I))
-          if (TETypeMap.hasMapping(GEP->getSourceElementType()))
-            findInstUsers(&I, ToRemap, Visited);
-      }
-    }
-
-    // Fix operands with TargetExtType.
-    for (auto *I : ToRemap)
-      VMapper.remapInstruction(*I);
-  }
-
-  // Save target extention type to kernels.
-  // Also save for non-kernel functions with argument of target extension type.
-  // E.g., fpga channel can be used as argument of non-kernel function.
-  FuncsToAddMD.append(Kernels.begin(), Kernels.end());
-  formArgTypeNullValMetadata(FuncsToAddMD, VMap);
-
-  // Replace old kernels with new kernels.
-  llvm::for_each(Kernels, [&](Function *&F) {
-    if (auto It = VMap.find(F); It != VMap.end())
-      F = cast<Function>(It->second);
-  });
-
-  for (Function *F : FuncsToRemove) {
-    assert(F->use_empty() && "function still has use");
-    F->eraseFromParent();
-  }
-}
-
 #if INTEL_CUSTOMIZATION
 /// Find functions containing divergent subgroup builtin call where only some of
 /// the workitems in a subgroup are active.
@@ -1006,9 +706,6 @@ static void setNotVectorizeForUnsupportedOmpConstructs(
 PreservedAnalyses SYCLEqualizerPass::run(Module &M, ModuleAnalysisManager &AM) {
   // Find kernel list in the module.
   auto Kernels = findKernels(M);
-
-  // Materialize target extension type.
-  materializeTargetExtType(M, Kernels);
 
   // Set sycl.kernels metadata.
   SYCLKernelMetadataAPI::KernelList KernelList(M);

@@ -330,21 +330,18 @@ public:
                            const TargetTransformInfo *TTI, const DataLayout *DL,
                            class DominatorTree *DT,
                            VPOVectorizationLegality *Legal,
-                           VPlanVLSAnalysis *VLSA, LLVMContext *C,
+                           VPlanVLSAnalysis *VLSA,
                            BlockFrequencyInfo *BFI = nullptr)
       : VectorlengthMD(nullptr), WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL),
-        Legal(Legal), VLSA(VLSA), DT(DT), TheLoop(Lp), LI(LI), Context(C),
-        BFI(BFI) {
-    clearBailoutRemark();
-  }
+        Legal(Legal), VLSA(VLSA), DT(DT), TheLoop(Lp), LI(LI), BFI(BFI) {}
 
   virtual ~LoopVectorizationPlanner() {}
   /// Build initial VPlans according to the information gathered by Legal
   /// when it checked if it is legal to vectorize this loop.
   /// Returns the number of VPlans built, zero if failed.
-  unsigned buildInitialVPlans(const DataLayout *DL, Module *M,
-                              std::string VPlanName, AssumptionCache &AC,
-                              VPAnalysesFactoryBase &VPAF,
+  unsigned buildInitialVPlans(LLVMContext *Context, const DataLayout *DL,
+                              Module *M, std::string VPlanName,
+                              AssumptionCache &AC, VPAnalysesFactoryBase &VPAF,
                               ScalarEvolution *SE = nullptr,
                               bool IsLegalToVec = true);
 
@@ -527,23 +524,14 @@ public:
 
   static int getVPlanOrderNumber() { return VPlanOrderNumber; }
 
-  /// Initialize cached bailout remark data.
-  void clearBailoutRemark() const { BR.BailoutRemark = OptRemark(); }
-
-  /// Store a variadic remark indicating the reason for not vectorizing a loop.
-  /// Clients should pass string constants as std::string to avoid extra
-  /// instantiations of this template function.
-  template <typename... Args>
-  void setBailoutRemark(OptReportVerbosity::Level BailoutLevel,
-                        unsigned BailoutID, Args &&...BailoutArgs) const {
-    BR.BailoutLevel = BailoutLevel;
-    BR.BailoutRemark =
-        OptRemark::get(*Context, BailoutID, OptReportDiag::getMsg(BailoutID),
-                       std::forward<Args>(BailoutArgs)...);
+  /// Accessors for bail-out reason.
+  void setBailoutData(OptReportVerbosity::Level Level, unsigned ID,
+                      std::string Message) const {
+    BD.BailoutLevel = Level;
+    BD.BailoutID = ID;
+    BD.BailoutMessage = Message;
   }
-
-  /// Access the cached bailout remark.
-  VPlanBailoutRemark &getBailoutRemark() const { return BR; }
+  VPlanBailoutData &getBailoutData() { return BD; }
 
 protected:
   /// Build an initial VPlan according to the information gathered by Legal
@@ -649,17 +637,9 @@ protected:
   /// for them and they are created only during CG
   void fillLoopDescrs();
 
-  /// Reports a reason for vectorization bailout. Always returns false.
-  /// \p Message will appear both in the debug dump and the opt report remark.
-  template <typename... Args>
+  /// Set the bailout reason for this loop and optionally print a debug msg.
   void bailout(OptReportVerbosity::Level Level, unsigned ID,
-               std::string Message, Args &&...BailoutArgs) const;
-
-  /// Reports a reason for vectorization bailout. Always returns false.
-  /// \p Debug will appear in the debug dump, but not in the opt report remark.
-  template <typename... Args>
-  void bailoutWithDebug(OptReportVerbosity::Level Level, unsigned ID,
-                        std::string Debug, Args &&...BailoutArgs) const;
+               std::string Message, std::string Debug = "") const;
 
   /// Go through all VPlans and run \p ProcessPlan on each of them.
   template <class F> void transformAllVPlans(F &ProcessPlan) {
@@ -732,7 +712,7 @@ protected:
   VPLoopDescrMap TopLoopDescrs;
 
   // Bail-out reason data.
-  mutable VPlanBailoutRemark BR;
+  mutable VPlanBailoutData BD;
 
   struct VPPeelSummary {
     std::string Scenario;
@@ -820,9 +800,6 @@ private:
 
   /// Loop Info analysis.
   LoopInfo *LI;
-
-  // Context for the current function.
-  LLVMContext *Context;
 
   /// Block frequency info
   BlockFrequencyInfo *BFI;

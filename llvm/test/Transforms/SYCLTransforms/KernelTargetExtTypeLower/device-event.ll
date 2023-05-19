@@ -1,5 +1,5 @@
-; RUN: opt -passes=sycl-kernel-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=sycl-kernel-equalizer -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-target-ext-type-lower -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-target-ext-type-lower -S %s | FileCheck %s
 
 ; Compiled from OpenCL kernel and only host_kernel is extracted:
 ; kernel void device_kernel(__global int * inout, clk_event_t event) {
@@ -27,9 +27,9 @@ entry:
 ; CHECK: %block = alloca <{ i32, i32, ptr addrspace(4), ptr addrspace(1), ptr }>, align 8
   %block = alloca <{ i32, i32, ptr addrspace(4), ptr addrspace(1), target("spirv.DeviceEvent") }>, align 8
   store ptr addrspace(1) %inout, ptr %inout.addr, align 8, !tbaa !7
-; CHECK: %call = call ptr @_Z17create_user_eventv() #
+; CHECK: %call = call spir_func ptr @_Z17create_user_eventv() #
 ; CHECK-NEXT: store ptr %call, ptr %event, align 8, !tbaa
-; CHECK-NEXT: %call1 = call ptr @_Z17get_default_queuev() #
+; CHECK-NEXT: %call1 = call spir_func ptr @_Z17get_default_queuev() #
   %call = call spir_func target("spirv.DeviceEvent") @_Z17create_user_eventv() #1
   store target("spirv.DeviceEvent") %call, ptr %event, align 8, !tbaa !11
   %call1 = call spir_func target("spirv.Queue") @_Z17get_default_queuev() #1
@@ -54,14 +54,14 @@ entry:
   %1 = load target("spirv.DeviceEvent"), ptr %event, align 8, !tbaa !11
   store target("spirv.DeviceEvent") %1, ptr %block.captured2, align 8, !tbaa !11
   %2 = addrspacecast ptr %block to ptr addrspace(4)
-; CHECK: call i32 @__enqueue_kernel_basic(ptr %call1,
+; CHECK: call spir_func i32 @__enqueue_kernel_basic(ptr %call1,
   %3 = call spir_func i32 @__enqueue_kernel_basic(target("spirv.Queue") %call1, i32 0, ptr byval(%struct.ndrange_t) %tmp, ptr addrspace(4) addrspacecast (ptr @__host_kernel_block_invoke_kernel to ptr addrspace(4)), ptr addrspace(4) %2)
   ret void
 }
 
-; CHECK-DAG: declare ptr @_Z17create_user_eventv() #
-; CHECK-DAG: declare ptr @_Z17get_default_queuev() #
-; CHECK-DAG: declare i32 @__enqueue_kernel_basic(ptr, i32, ptr, ptr addrspace(4), ptr addrspace(4))
+; CHECK-DAG: declare spir_func ptr @_Z17create_user_eventv() #
+; CHECK-DAG: declare spir_func ptr @_Z17get_default_queuev() #
+; CHECK-DAG: declare spir_func i32 @__enqueue_kernel_basic(ptr, i32, ptr, ptr addrspace(4), ptr addrspace(4))
 
 declare spir_func target("spirv.DeviceEvent") @_Z17create_user_eventv() #1
 

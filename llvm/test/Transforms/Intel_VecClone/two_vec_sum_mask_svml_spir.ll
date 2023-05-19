@@ -79,8 +79,7 @@ define float @__svml_device_add(float %i, float %j) #0 {
 ; CHECK-NEXT:    br label [[RETURN0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  return:
-; CHECK-NEXT:    [[VEC_RET_CAST0:%.*]] = bitcast float* [[RET_CAST0]] to <4 x float>*
-; CHECK-NEXT:    [[VEC_RET0:%.*]] = load <4 x float>, <4 x float>* [[VEC_RET_CAST0]], align 16
+; CHECK-NEXT:    [[VEC_RET0:%.*]] = load <4 x float>, <4 x float>* [[VEC_RETVAL0]], align 16
 ; CHECK-NEXT:    ret <4 x float> [[VEC_RET0]]
 ; CHECK-NEXT:  }
 ;

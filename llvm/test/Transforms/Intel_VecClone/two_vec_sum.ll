@@ -70,8 +70,7 @@ define i32 @vec_sum(i32 %i, i32 %j) #0 {
 ; CHECK-NEXT:    br label [[RETURN0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  return:
-; CHECK-NEXT:    [[VEC_RET_CAST0:%.*]] = bitcast i32* [[RET_CAST0]] to <4 x i32>*
-; CHECK-NEXT:    [[VEC_RET0:%.*]] = load <4 x i32>, <4 x i32>* [[VEC_RET_CAST0]], align 16
+; CHECK-NEXT:    [[VEC_RET0:%.*]] = load <4 x i32>, <4 x i32>* [[VEC_RETVAL0]], align 16
 ; CHECK-NEXT:    ret <4 x i32> [[VEC_RET0]]
 ; CHECK-NEXT:  }
 ;

@@ -46,7 +46,7 @@
 ; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec,hir-optreport-emitter -disable-output -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI
 
 ; CHECK: VD: Not vectorizing: Cannot support multiple multi-exit loops.
-; OPTRPTHI: remark #15436: loop was not vectorized: HIR: Cannot support more than one multiple-exit loop.
+; OPTRPTHI: remark #15436: loop was not vectorized: Cannot support more than one multiple-exit loop.
 
 declare token @llvm.directive.region.entry()
 

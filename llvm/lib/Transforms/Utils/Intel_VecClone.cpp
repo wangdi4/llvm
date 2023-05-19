@@ -1412,33 +1412,26 @@ void VecCloneImpl::Factory::updateReturnBlockInstructions(
   while (!ReturnBlock->empty())
     ReturnBlock->back().eraseFromParent();
 
-  // Pack up the elements into a vector temp and return it. If the return
-  // vector was bitcast to a pointer to the element type, we must bitcast to
-  // vector before returning.
-  // Operand 0 is the actual alloc reference in the bitcast.
-  Instruction *WidenedSrc = WidenedReturn;
-  if (!WidenedReturn->getType()->isOpaquePointerTy()) {
-    assert(isa<BitCastInst>(WidenedReturn) && "Expected cast instruction");
-    AllocaInst *Alloca = cast<AllocaInst>(WidenedReturn->getOperand(0));
-    PointerType *PtrVecType = PointerType::get(
-        Clone->getReturnType(), Alloca->getType()->getAddressSpace());
-    WidenedSrc =
-        new BitCastInst(WidenedReturn, PtrVecType,
-                        "vec." + WidenedReturn->getName(), ReturnBlock);
-  }
+  auto GetRetAllocaInst = [](Instruction *WidenedReturn) {
+    Value *V = WidenedReturn;
+    if (!WidenedReturn->getType()->isOpaquePointerTy()) {
+      assert(isa<BitCastInst>(WidenedReturn) && "Expected cast instruction");
+      V = WidenedReturn->getOperand(0);
+    }
+    return cast<AllocaInst>(V);
+  };
 
+  // Pack up the elements into a vector temp and return it.
   // Return can't be void here due to early exit at the top of this function.
-  // Return is expected to be a bitcast instruction because we always create
-  // a vector alloca for the return value and cast that to a scalar pointer.
-  // for use within the loop. I.e., this cast is used with the loop index to
-  // reference a specific vector element. At the point of the function return,
-  // the scalar cast is converted back to vector and we load from that to the
-  // return vector.
-  // TODO: this can actually be simplified further by just returning Alloca
-  // from above. There doesn't seem to be a good reason to do this extra
-  // casting. Leaving for now because this change is NFC.
+  // With regular pointers WidenedReturn is expected to be a bitcast instruction
+  // because we always create a vector alloca for the return value and cast that
+  // to a scalar pointer for use within the loop. I.e., this cast is used with
+  // the loop index to reference a specific vector element. With opaque pointers
+  // WidenedReturn is already the return vector alloca instruction. At the point
+  // of the function return, we load return value from the vector alloca.
+  AllocaInst *RetAlloca = GetRetAllocaInst(WidenedReturn);
   LoadInst *VecReturn =
-      new LoadInst(Clone->getReturnType(), WidenedSrc, "vec.ret", ReturnBlock);
+      new LoadInst(Clone->getReturnType(), RetAlloca, "vec.ret", ReturnBlock);
   ReturnInst::Create(Clone->getContext(), VecReturn, ReturnBlock);
 
   LLVM_DEBUG(dbgs() << "After Return Block Update\n");

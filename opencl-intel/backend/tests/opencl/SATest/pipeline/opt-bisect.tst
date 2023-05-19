@@ -10,6 +10,7 @@
 
 ; TODO add subgroup kernel when O0 vectorization is enabled by default.
 
+; CHECK: Running pass: KernelTargetExtTypeLowerPass
 ; CHECK: Running pass: SYCLEqualizerPass
 ; CHECK: Running pass: LinearIdResolverPass
 ; CHECK: Running pass: ResolveVarTIDCallPass

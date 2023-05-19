@@ -1448,7 +1448,11 @@ void Clang::AddPreprocessingOptions(Compilation &C, const JobAction &JA,
       // We want the files to have a name like foo.h.pch. Add a dummy extension
       // so that replace_extension does the right thing.
       P += ".dummy";
-      llvm::sys::path::replace_extension(P, "pch");
+#if INTEL_CUSTOMIZATION
+      // Generate precompiled header files with .pchi file extension.
+      llvm::sys::path::replace_extension(P, "pchi");
+#endif // INTEL_CUSTOMIZATION
+
       if (D.getVFS().exists(P))
         FoundPCH = true;
 

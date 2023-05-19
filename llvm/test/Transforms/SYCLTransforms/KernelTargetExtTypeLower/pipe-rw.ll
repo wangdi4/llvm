@@ -1,5 +1,5 @@
-; RUN: opt -passes=sycl-kernel-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=sycl-kernel-equalizer -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-target-ext-type-lower -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-target-ext-type-lower -S %s | FileCheck %s
 
 ; Compiled from OpenCL kernel:
 ; kernel void test_write(write_only pipe int p, int data) {
@@ -12,11 +12,11 @@ target triple = "x86_64-pc-linux"
 
 define dso_local spir_kernel void @test_write(target("spirv.Pipe", 1) %p, i32 noundef %data) #0 !kernel_arg_addr_space !0 !kernel_arg_access_qual !1 !kernel_arg_type !2 !kernel_arg_base_type !2 !kernel_arg_type_qual !3 !kernel_arg_name !4 !kernel_arg_host_accessible !5 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !7 !kernel_arg_buffer_location !7 {
 entry:
-; CHECK: define dso_local void @test_write(ptr addrspace(1) %p, i32 noundef %data) {{.*}} !arg_type_null_val [[MD_ARG_TY_W_NULL:![0-9]+]]
+; CHECK: define dso_local spir_kernel void @test_write(ptr addrspace(1) %p, i32 noundef %data) {{.*}} !arg_type_null_val [[MD_ARG_TY_W_NULL:![0-9]+]]
 ; CHECK: %p.addr = alloca ptr addrspace(1), align 8
 ; CHECK: store ptr addrspace(1) %p, ptr %p.addr, align 8
 ; CHECK: load ptr addrspace(1), ptr %p.addr, align 8
-; CHECK: call i32 @__write_pipe_2(ptr addrspace(1) {{.*}}, ptr addrspace(4) {{.*}}, i32 4, i32 4)
+; CHECK: call spir_func i32 @__write_pipe_2(ptr addrspace(1) {{.*}}, ptr addrspace(4) {{.*}}, i32 4, i32 4)
 
   %p.addr = alloca target("spirv.Pipe", 1), align 8
   %data.addr = alloca i32, align 4
@@ -32,11 +32,11 @@ declare spir_func i32 @__write_pipe_2(target("spirv.Pipe", 1), ptr addrspace(4),
 
 define dso_local spir_kernel void @test_read(target("spirv.Pipe", 0) %p, i32 noundef %data) #0 !kernel_arg_addr_space !0 !kernel_arg_access_qual !13 !kernel_arg_type !2 !kernel_arg_base_type !2 !kernel_arg_type_qual !3 !kernel_arg_name !4 !kernel_arg_host_accessible !5 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !7 !kernel_arg_buffer_location !7 {
 entry:
-; CHECK: define dso_local void @test_read(ptr addrspace(1) %p, i32 noundef %data) {{.*}} !arg_type_null_val [[MD_ARG_TY_R_NULL:![0-9]+]]
+; CHECK: define dso_local spir_kernel void @test_read(ptr addrspace(1) %p, i32 noundef %data) {{.*}} !arg_type_null_val [[MD_ARG_TY_R_NULL:![0-9]+]]
 ; CHECK: %p.addr = alloca ptr addrspace(1), align 8
 ; CHECK: store ptr addrspace(1) %p, ptr %p.addr, align 8
 ; CHECK: load ptr addrspace(1), ptr %p.addr, align 8
-; CHECK: call i32 @__read_pipe_2(ptr addrspace(1) {{.*}}, ptr addrspace(4) {{.*}}, i32 4, i32 4)
+; CHECK: call spir_func i32 @__read_pipe_2(ptr addrspace(1) {{.*}}, ptr addrspace(4) {{.*}}, i32 4, i32 4)
 
   %p.addr = alloca target("spirv.Pipe", 0), align 8
   %data.addr = alloca i32, align 4
@@ -48,7 +48,7 @@ entry:
   ret void
 }
 
-; CHECK: declare i32 @__read_pipe_2(ptr addrspace(1), ptr addrspace(4), i32, i32)
+; CHECK: declare spir_func i32 @__read_pipe_2(ptr addrspace(1), ptr addrspace(4), i32, i32)
 
 declare spir_func i32 @__read_pipe_2(target("spirv.Pipe", 0), ptr addrspace(4), i32, i32)
 

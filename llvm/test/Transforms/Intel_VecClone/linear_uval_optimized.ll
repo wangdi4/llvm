@@ -43,8 +43,7 @@ define dso_local noundef i64 @_Z3fooRl(i64* nocapture noundef nonnull readonly a
 ; CHECK-NEXT:    br label [[RETURN0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  return:
-; CHECK-NEXT:    [[VEC_RET_CAST0:%.*]] = bitcast i64* [[RET_CAST0]] to <8 x i64>*
-; CHECK-NEXT:    [[VEC_RET0:%.*]] = load <8 x i64>, <8 x i64>* [[VEC_RET_CAST0]], align 64
+; CHECK-NEXT:    [[VEC_RET0:%.*]] = load <8 x i64>, <8 x i64>* [[VEC_RETVAL0]], align 64
 ; CHECK-NEXT:    ret <8 x i64> [[VEC_RET0]]
 ; CHECK-NEXT:  }
 ;

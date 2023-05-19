@@ -513,7 +513,7 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   // maps with Loop's as keys would be stale.
   ScalarEvolution SE(Fn, *TLI, *AC, *DT, *LI);
   PredicatedScalarEvolution PSE(SE, *Lp);
-  VPOVectorizationLegality LVL(Lp, PSE, &Fn, &Fn.getContext());
+  VPOVectorizationLegality LVL(Lp, PSE, &Fn);
   VPlanOptReportBuilder VPORBuilder(ORBuilder, LI);
 
   // If region has SIMD directive mark then we will reuse community metadata on
@@ -533,29 +533,31 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
     // Only bail out if we are generating code, we want to continue if
     // we are only stress testing VPlan builds below.
     if (!VPlanConstrStressTest && !DisableCodeGen) {
-      auto &LVLBR = LVL.getBailoutRemark();
-      assert(LVLBR.BailoutRemark && "Legality didn't set bailout data!");
-      return bailout(VPORBuilder, Lp, WRLp, LVLBR);
+      auto &LVLBD = LVL.getBailoutData();
+      assert(LVLBD.BailoutID && "Legality didn't set bailout data!");
+      return bailout(VPORBuilder, Lp, WRLp, LVLBD.BailoutLevel, LVLBD.BailoutID,
+                     LVLBD.BailoutMessage);
     }
   }
 
   BasicBlock *Header = Lp->getHeader();
   VPlanVLSAnalysis VLSA(Lp, Header->getContext(), *DL, TTI);
   LoopVectorizationPlanner LVP(WRLp, Lp, LI, TLI, TTI, DL, DT, &LVL, &VLSA,
-                               &Fn.getContext(), BFI);
+                               BFI);
   std::string VPlanName = "";
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   VPlanName = std::string(Fn.getName()) + ":" + std::string(Lp->getName());
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   LVP.readLoopMetadata();
   VPAnalysesFactory VPAF(SE, Lp, DT, DL);
-  if (!LVP.buildInitialVPlans(DL, Header->getModule(), VPlanName, *AC, VPAF,
-                              &SE, CanVectorize || DisableCodeGen)) {
+  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, Header->getModule(),
+                              VPlanName, *AC, VPAF, &SE,
+                              CanVectorize || DisableCodeGen)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
-    auto &LVPBR = LVP.getBailoutRemark();
-    assert(LVPBR.BailoutRemark &&
-           "buildInitialVPlans did not set bailout data!");
-    return bailout(VPORBuilder, Lp, WRLp, LVPBR);
+    auto &LVPBD = LVP.getBailoutData();
+    assert(LVPBD.BailoutID && "buildInitialVPlans did not set bailout data!");
+    return bailout(VPORBuilder, Lp, WRLp, LVPBD.BailoutLevel, LVPBD.BailoutID,
+                   LVPBD.BailoutMessage);
   }
 
   populateVPlanAnalyses(LVP, VPAF);
@@ -702,9 +704,10 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   }
 
   if (VF == 1 || !LVP.canLowerVPlan(*Plan, VF)) {
-    auto &LVPBR = LVP.getBailoutRemark();
-    assert(LVPBR.BailoutRemark && "canLowerVPlan did not set bailout data!");
-    return bailout(VPORBuilder, Lp, WRLp, LVPBR);
+    auto &LVPBD = LVP.getBailoutData();
+    assert(LVPBD.BailoutID && "canLowerVPlan did not set bailout data!");
+    return bailout(VPORBuilder, Lp, WRLp, LVPBD.BailoutLevel, LVPBD.BailoutID,
+                   LVPBD.BailoutMessage);
   }
 
   LLVM_DEBUG(dbgs() << "VD: VPlan Generating code in function: " << Fn.getName()
@@ -784,6 +787,35 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
 // Bail-out reasons with messages of more interest to compiler maintainers
 // than to users should be marked with verbosity High and never emitted in
 // release compilers.  For these, we first emit a more generic Medium message.
+// TODO: ### Delete this version after full conversion to VPlanBailoutRemark.
+template <class Loop>
+bool VPlanDriverImpl::bailout(VPlanOptReportBuilder &VPORBuilder, Loop *Lp,
+                              WRNVecLoopNode *WRLp,
+                              OptReportVerbosity::Level Level, unsigned ID,
+                              std::string Reason) {
+  if (Level == OptReportVerbosity::High && ID == BailoutRemarkID) {
+    VPORBuilder.addRemark(Lp, OptReportVerbosity::Medium, ID, "");
+#ifndef NDEBUG
+    VPORBuilder.addRemark(Lp, Level, ID, Reason.c_str());
+#endif
+  } else if (ID == BadSimdRemarkID || ID == IndCallRemarkID) {
+    // These remarks require that no operand be passed.
+    VPORBuilder.addRemark(Lp, Level, ID);
+  } else if (ID == LoopIVRemarkID || ID == ComplexFlowRemarkID) {
+    // These remarks require a second string for the OpenMP
+    // specification number.
+    VPORBuilder.addRemark(Lp, Level, ID, Reason.c_str(), " 5.0");
+  } else {
+    VPORBuilder.addRemark(Lp, Level, ID, Reason.c_str());
+  }
+  return false;
+}
+
+// Add an opt-report remark indicating why we can't vectorize the loop.
+// Returns false as a convenience to facilitate "return bailout(...);" usage.
+// Bail-out reasons with messages of more interest to compiler maintainers
+// than to users should be marked with verbosity High and never emitted in
+// release compilers.  For these, we first emit a more generic Medium message.
 template <class Loop>
 bool VPlanDriverImpl::bailout(VPlanOptReportBuilder &VPORBuilder, Loop *Lp,
                               WRNVecLoopNode *WRLp,
@@ -803,6 +835,17 @@ bool VPlanDriverImpl::bailout(VPlanOptReportBuilder &VPORBuilder, Loop *Lp,
                           RemarkData.BailoutRemark);
   }
   return false;
+}
+
+// TODO: ### Delete this version after full conversion to VPlanBailoutRemark.
+template <>
+bool VPlanDriverImpl::bailout<vpo::HLLoop>(VPlanOptReportBuilder &VPORB,
+                                           vpo::HLLoop *Lp,
+                                           WRNVecLoopNode *WRLp,
+                                           OptReportVerbosity::Level Level,
+                                           unsigned ID, std::string Reason) {
+  auto *Self = static_cast<VPlanDriverHIRImpl *>(this);
+  return Self->bailout(VPORB, Lp, WRLp, Level, ID, Reason);
 }
 
 template <>
@@ -1725,11 +1768,9 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   VPlanVLSAnalysisHIR VLSA(DDA, Fn.getContext(), *DL, TTI, Lp);
 
-  HIRVectorizationLegality HIRVecLegal(TTI, SafeRedAnalysis, DDA,
-                                       &Fn.getContext());
+  HIRVectorizationLegality HIRVecLegal(TTI, SafeRedAnalysis, DDA);
   LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, DL, getDT(), &HIRVecLegal,
-                                  DDA, &VLSA, LightWeightMode,
-                                  &Fn.getContext());
+                                  DDA, &VLSA, LightWeightMode);
 
   // Send explicit data from WRLoop to the Legality and check whether we can
   // handle it.
@@ -1737,9 +1778,10 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   if (!CanVectorize) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: Cannot prove legality.\n");
-    auto &HVLBR = HIRVecLegal.getBailoutRemark();
-    assert(HVLBR.BailoutRemark && "HIR legality didn't set bailout data!");
-    return bailout(VPORBuilder, Lp, WRLp, HVLBR);
+    auto &HVLBD = HIRVecLegal.getBailoutData();
+    assert(HVLBD.BailoutID && "HIR legality didn't set bailout data!");
+    return bailout(VPORBuilder, Lp, WRLp, HVLBD.BailoutLevel, HVLBD.BailoutID,
+                   HVLBD.BailoutMessage);
   }
   // Find any DDRefs in loop pre-header/post-exit that are aliases to the
   // descriptor variables
@@ -1771,17 +1813,17 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   }
   VPAnalysesFactoryHIR VPAF(Lp, getDT(), DL);
   HLNodeUtils &HNU = Lp->getHLNodeUtils();
-  if (!LVP.buildInitialVPlans(DL, &HNU.getModule(), VPlanName, *getAC(),
-                              VPAF)) {
+  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, &HNU.getModule(), VPlanName,
+                              *getAC(), VPAF)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     // Erase intrinsics before and after the loop if this loop is an auto
     // vectorization candidate.
     if (WRLp->getIsAutoVec())
       eraseLoopIntrins(Lp, WRLp);
-    auto &LVPBR = LVP.getBailoutRemark();
-    assert(LVPBR.BailoutRemark &&
-           "buildInitialVPlans did not set bailout data!");
-    return bailout(VPORBuilder, Lp, WRLp, LVPBR);
+    auto &LVPBD = LVP.getBailoutData();
+    assert(LVPBD.BailoutID && "buildInitialVPlans did not set bailout data!");
+    return bailout(VPORBuilder, Lp, WRLp, LVPBD.BailoutLevel, LVPBD.BailoutID,
+                   LVPBD.BailoutMessage);
   }
 
   populateVPlanAnalyses(LVP, VPAF);
@@ -1945,18 +1987,20 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     // intrinsics are left around for loops that are not vectorized.
     if (WRLp->getIsAutoVec())
       eraseLoopIntrins(Lp, WRLp);
-    auto &CGBR = VCodeGen.getBailoutRemark();
-    assert(CGBR.BailoutRemark && "loopIsHandled did not set bailout data!");
-    return bailout(VPORBuilder, Lp, WRLp, CGBR);
+    auto &CGBD = VCodeGen.getBailoutData();
+    assert(CGBD.BailoutID && "loopIsHandled did not set bailout data!");
+    return bailout(VPORBuilder, Lp, WRLp, CGBD.BailoutLevel, CGBD.BailoutID,
+                   CGBD.BailoutMessage);
   }
 
   if (!LVP.canLowerVPlan(*Plan, VF) || VF == 1) {
     // Likewise.
     if (WRLp->getIsAutoVec())
       eraseLoopIntrins(Lp, WRLp);
-    auto &LVPBR = LVP.getBailoutRemark();
-    assert(LVPBR.BailoutRemark && "Planner did not set bailout data!");
-    return bailout(VPORBuilder, Lp, WRLp, LVPBR);
+    auto &LVPBD = LVP.getBailoutData();
+    assert(LVPBD.BailoutID && "Planner did not set bailout data!");
+    return bailout(VPORBuilder, Lp, WRLp, LVPBD.BailoutLevel, LVPBD.BailoutID,
+                   LVPBD.BailoutMessage);
   }
 
   VCodeGen.setTreeConflictsLowered(TreeConflictsLowered);
@@ -1989,26 +2033,52 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   return ModifiedLoop;
 }
 
-// Given a remark R, generate an otherwise identical remark that prepends
-// "HIR: " to the first argument string (if present).
-OptRemark VPlanDriverHIRImpl::prependHIR(OptRemark R) {
+// Add an opt-report remark indicating why we can't vectorize the loop.
+// Returns false as a convenience to faciliate "return bailout(...);" usage.
+//  - Bail-out reasons with messages of more interest to compiler maintainers
+//    than to users should be marked with verbosity High.  For these, we first
+//    emit a more generic Medium message.
+//  - If we have an OMP SIMD loop and we bail out, we might later vectorize
+//    along the LLVM-IR path.  To avoid confusion and double reporting, report
+//    only for internal compilers when this can occur.
+// TODO: ### Delete this version
+bool VPlanDriverHIRImpl::bailout(VPlanOptReportBuilder &VPORBuilder, HLLoop *Lp,
+                                 WRNVecLoopNode *WRLp,
+                                 OptReportVerbosity::Level Level, unsigned ID,
+                                 std::string Reason) {
 
-  // The first two operands are the unsigned RemarkID and the format
-  // string associated with the RemarkID.  The third is the string we
-  // want to update.
-  assert(R.getNumOperands() >= 2);
-  if (R.getNumOperands() == 2)
-    return R;
-
-  const MDString *MDMsg = cast_or_null<MDString>(R.getOperand(2));
-  assert(MDMsg && "Expected a string!");
-  std::string NewMsg = "HIR: " + std::string(MDMsg->getString());
-  MDString *NewMDMsg = MDString::get(ORBuilder.getContext(), NewMsg);
-  MDTuple *Tuple = R.get();
-  // Operand number for raw tuple is adjusted by one for the
-  // intel.optreport.remark tag at operand 0.
-  Tuple->replaceOperandWith(3, NewMDMsg);
-  return OptRemark(Tuple);
+  if (WRLp && WRLp->isOmpSIMDLoop() && WillRunLLVMIRVPlan) {
+#if !INTEL_PRODUCT_RELEASE
+    if (ID == BadSimdRemarkID || ID == IndCallRemarkID) {
+      // These remarks require that no operand be passed.
+      VPORBuilder.addRemark(Lp, Level, ID);
+    } else {
+      std::string HIRReason = "HIR: " + Reason;
+      if (ID == LoopIVRemarkID || ID == ComplexFlowRemarkID) {
+        // These remarks require a second string for the OpenMP
+        // specification number.
+        VPORBuilder.addRemark(Lp, Level, ID, HIRReason.c_str(), " 5.0");
+      } else {
+        VPORBuilder.addRemark(Lp, Level, ID, HIRReason.c_str());
+      }
+    }
+#endif // !INTEL_PRODUCT_RELEASE
+  } else if (Level == OptReportVerbosity::High && ID == BailoutRemarkID) {
+    VPORBuilder.addRemark(Lp, OptReportVerbosity::Medium, ID, "");
+#if !INTEL_PRODUCT_RELEASE
+    VPORBuilder.addRemark(Lp, Level, ID, Reason.c_str());
+#endif // !INTEL_PRODUCT_RELEASE
+  } else if (ID == BadSimdRemarkID || ID == IndCallRemarkID) {
+    // These remarks require that no operand be passed.
+    VPORBuilder.addRemark(Lp, Level, ID);
+  } else if (ID == LoopIVRemarkID || ID == ComplexFlowRemarkID) {
+    // These remarks require a second string for the OpenMP
+    // specification number.
+    VPORBuilder.addRemark(Lp, Level, ID, Reason.c_str(), " 5.0");
+  } else {
+    VPORBuilder.addRemark(Lp, Level, ID, Reason.c_str());
+  }
+  return false;
 }
 
 // Add an opt-report remark indicating why we can't vectorize the loop.
@@ -2027,8 +2097,9 @@ bool VPlanDriverHIRImpl::bailout(VPlanOptReportBuilder &VPORBuilder, HLLoop *Lp,
 
   if (WRLp && WRLp->isOmpSIMDLoop() && WillRunLLVMIRVPlan) {
 #if !INTEL_PRODUCT_RELEASE
+    // TODO: Update the first remark string (if present) to prepend "HIR: ".
     VPORBuilder.addRemark(Lp, RemarkData.BailoutLevel,
-                          prependHIR(RemarkData.BailoutRemark));
+                          RemarkData.BailoutRemark);
 #endif // !INTEL_PRODUCT_RELEASE
   } else if (RemarkData.BailoutLevel == OptReportVerbosity::High &&
              ID == BailoutRemarkID) {

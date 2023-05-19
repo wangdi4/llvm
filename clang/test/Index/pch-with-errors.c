@@ -28,8 +28,8 @@ void foo(void) {
 #endif
 
 // RUN: c-index-test -write-pch %t.h.pch %s -Xclang -detailed-preprocessing-record
-// RUN: c-index-test -test-load-source local %s -include %t.h -Xclang -detailed-preprocessing-record | FileCheck -check-prefix=CHECK-PARSE %s
-// RUN: c-index-test -index-file %s -include %t.h -Xclang -detailed-preprocessing-record | FileCheck -check-prefix=CHECK-INDEX %s
+// INTEL RUN: c-index-test -test-load-source local %s -include-pch %t.h.pch -Xclang -detailed-preprocessing-record | FileCheck -check-prefix=CHECK-PARSE %s
+// RUN: c-index-test -index-file %s -include-pch %t.h.pch -Xclang -detailed-preprocessing-record | FileCheck -check-prefix=CHECK-INDEX %s
 
 // CHECK-PARSE: pch-with-errors.c:{{.*}}:6: FunctionDecl=foo
 // CHECK-PARSE: pch-with-errors.c:{{.*}}:3: CallExpr=erroneous
@@ -37,11 +37,11 @@ void foo(void) {
 // CHECK-INDEX: [indexDeclaration]: kind: function | name: foo
 // CHECK-INDEX: [indexEntityReference]: kind: function | name: erroneous
 
-// RUN: not %clang -fsyntax-only %s -include %t.h 2>&1 | FileCheck -check-prefix=PCH-ERR %s
+// INTEL RUN: not %clang -fsyntax-only %s -include-pch %t.h.pch 2>&1 | FileCheck -check-prefix=PCH-ERR %s
 // PCH-ERR: error: PCH file contains compiler errors
 
 // RUN: not c-index-test -write-pch %t.pch foobar.c 2>&1 | FileCheck -check-prefix=NONEXISTENT %s
 // NONEXISTENT: Unable to load translation unit
 
 // RUN: %clang -x c-header %s -o %t-clang.h.pch -Xclang -detailed-preprocessing-record -Xclang -fallow-pch-with-compiler-errors
-// RUN: c-index-test -index-file %s -include %t-clang.h -Xclang -detailed-preprocessing-record | FileCheck -check-prefix=CHECK-INDEX %s
+// INTEL RUN: c-index-test -index-file %s -include-pch %t-clang.h.pch -Xclang -detailed-preprocessing-record | FileCheck -check-prefix=CHECK-INDEX %s

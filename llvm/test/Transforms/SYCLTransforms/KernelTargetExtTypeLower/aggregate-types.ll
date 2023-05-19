@@ -1,5 +1,5 @@
-; RUN: opt -passes=sycl-kernel-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=sycl-kernel-equalizer -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-target-ext-type-lower -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-target-ext-type-lower -S %s | FileCheck %s
 
 ; Compile from OpenCL kernel:
 ; typedef struct T_ {
@@ -29,7 +29,7 @@ target triple = "x86_64-pc-linux"
 
 define dso_local spir_kernel void @enqueue_block_multi_queue(ptr addrspace(1) noundef align 4 %res, target("spirv.Queue") %q0, target("spirv.Queue") %q1) #1 !kernel_arg_addr_space !0 !kernel_arg_access_qual !1 !kernel_arg_type !2 !kernel_arg_base_type !2 !kernel_arg_type_qual !3 !kernel_arg_name !4 !kernel_arg_host_accessible !5 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !3 !kernel_arg_buffer_location !3 {
 entry:
-; CHECK-LABEL: define dso_local void @enqueue_block_multi_queue(ptr addrspace(1) noundef align 4 %res, ptr %q0, ptr %q1)
+; CHECK-LABEL: define dso_local spir_kernel void @enqueue_block_multi_queue(ptr addrspace(1) noundef align 4 %res, ptr %q0, ptr %q1)
 ; CHECK-SAME: !arg_type_null_val [[MD_ARG_TY_NULL:![0-9]+]]
 ; CHECK: %q0.addr = alloca ptr, align 8
 ; CHECK: %q1.addr = alloca ptr, align 8
@@ -44,8 +44,8 @@ entry:
   %tmp = alloca %struct.ndrange_t, align 8
   store ptr addrspace(1) %res, ptr %res.addr, align 8, !tbaa !7
 
-; CHECK: store ptr %q0, ptr %q0.addr, align 8, !tbaa !15
-; CHECK: store ptr %q1, ptr %q1.addr, align 8, !tbaa !15
+; CHECK: store ptr %q0, ptr %q0.addr, align 8, !tbaa
+; CHECK: store ptr %q1, ptr %q1.addr, align 8, !tbaa
 ; CHECK: %q = getelementptr inbounds [[StructT]], ptr %t, i32 0, i32 1
 ; CHECK: %arrayidx = getelementptr inbounds [4 x [2 x [8 x ptr]]], ptr %q, i64 0, i64 0
 ; CHECK: %arrayidx1 = getelementptr inbounds [2 x [8 x ptr]], ptr %arrayidx, i64 0, i64 0
@@ -74,7 +74,7 @@ entry:
 ; CHECK: %arrayidx5 = getelementptr inbounds [64 x [32 x [7 x ptr]]], ptr %arrayidx4, i64 0, i64 0
 ; CHECK: %arrayidx6 = getelementptr inbounds [32 x [7 x ptr]], ptr %arrayidx5, i64 0, i64 0
 ; CHECK: %arrayidx7 = getelementptr inbounds [7 x ptr], ptr %arrayidx6, i64 0, i64 0
-; CHECK: call i32 @__enqueue_kernel_basic_events(ptr
+; CHECK: call spir_func i32 @__enqueue_kernel_basic_events(ptr
 
   %block_evt = getelementptr inbounds %struct.T_, ptr %t, i32 0, i32 0
   %arrayidx4 = getelementptr inbounds [1000 x [64 x [32 x [7 x target("spirv.DeviceEvent")]]]], ptr %block_evt, i64 0, i64 0
