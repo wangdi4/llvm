@@ -498,17 +498,20 @@ and synchronization occurs later when it is required
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code-block:: rst
 
-  <Num> := 0 | 1 | 2
+Make memory resident on devices at allocation time.
+``<Num>`` is a hexadecimal number in the form of ``0xHSD`` where each digit
+controls memory residency of host memory (``H``), shared memory (``S``), and
+device memory (``D``). The following values of each digit controls memory
+residency at allocation time.
 
-Make memory resident on devices after allocation.
+``0``: Do not make the memory resident.
+``1``: Make the memory resident on the device that allocates the memory.
+``2``: Make the memory resident on all devices that can access the memory.
 
-``<Num>=0``: Residency is not forced.
-``<Num>=1``: Force device and shared memory resident on the device that
-allocates the memory. Force memory resident on all devices if the memory is host
-memory type.
-``<Num>=2``: Force memory resident on all devices.
+For host memory, non-zero value makes the memory resident on all devices, and
+only device memory becomes resident on all devices at allocation time by default.
 
-**Default**: 2
+**Default**: ``0x002``
 
 Plugin OpenCL
 -------------

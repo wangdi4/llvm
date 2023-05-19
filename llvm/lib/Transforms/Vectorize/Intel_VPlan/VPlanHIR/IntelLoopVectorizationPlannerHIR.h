@@ -80,9 +80,9 @@ public:
                               const DataLayout *DL, DominatorTree *DT,
                               HIRVectorizationLegality *HIRLegal,
                               HIRDDAnalysis *DDA, VPlanVLSAnalysisHIR *VLSA,
-                              bool LightWeightMode)
+                              bool LightWeightMode, LLVMContext *C)
       : LoopVectorizationPlanner(WRL, /*Lp=*/nullptr, /*LI=*/nullptr, TLI, TTI,
-                                 DL, DT, nullptr, VLSA, nullptr /* BFI */),
+                                 DL, DT, nullptr, VLSA, C, nullptr /* BFI */),
         TheLoop(Lp), LightWeightMode(LightWeightMode), DDA(DDA),
         HIRLegality(HIRLegal) {
     // Set the flag in scenario to indicate if we are dealing with a constant

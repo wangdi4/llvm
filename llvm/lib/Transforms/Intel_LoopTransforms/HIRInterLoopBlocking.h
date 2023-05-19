@@ -24,6 +24,8 @@ using namespace llvm::loopopt;
 namespace llvm {
 
 namespace loopopt {
+
+namespace interloopblocking {
 // Per-dimension information
 // Records the matching loop to a dimension as an offset of levels from
 // innermost loop. For example, with a following example
@@ -154,66 +156,7 @@ class Transformer {
     bool skipRecursion(HLNode *Node) { return SkipNode == Node; }
 
     // Main logic: update all ddrefs of a HLDDNode
-    void visit(HLDDNode *Node) {
-      for (auto *Ref : make_range(Node->ddref_begin(), Node->ddref_end())) {
-
-        if (!Ref->hasGEPInfo())
-          continue;
-
-        std::unique_ptr<RegDDRef> OrigRef(Ref->clone());
-
-        // For a Ref, go through dimensions, and get IV Level
-        // Get the dim and get the CE from RepRef
-        for (auto *CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
-
-          assert(CE->numIVs() <= 1);
-
-          // get IV Level from CE
-          unsigned FoundIVLevel = 0;
-          for (auto Level : make_range(AllLoopLevelRange::begin(),
-                                       AllLoopLevelRange::end())) {
-            int64_t Coeff = 0;
-            unsigned Index = 0;
-            CE->getIVCoeff(Level, &Index, &Coeff);
-            if (Coeff != 0) {
-              FoundIVLevel = Level;
-              break;
-            }
-          }
-
-          if (!FoundIVLevel)
-            continue;
-
-          auto It = MapFromLevelToDim.find(FoundIVLevel);
-          assert(It != MapFromLevelToDim.end());
-          unsigned Dim = It->second;
-          const CanonExpr *AdjustCE = AdjustingRef->getDimensionIndex(Dim);
-
-          CanonExprUtils::subtract(CE, AdjustCE);
-        }
-
-#if 0
-        // Initial makeConsistent using original refs.
-        // After this point, nonlinear is truly nonlinear.
-        // Also, IV + const should have Def@Level zero.
-        //llvm::loopopt::printMarker("Orig Ref: ", {OrigRef.get()}, true);
-        printMarker("AdjustingRef: ", {AdjustingRef}, true);
-        printMarker("Ref: ", {Ref}, true);
-#endif
-
-        // Cannot use RepRef here as an auxiliary ref
-        // because RepRef itself is aligned by this function
-        // and get changed. Instead, use AdjustingRef,
-        // since it is a RepRef minus IVs.
-        // It contains all the blobs.
-        Ref->makeConsistent({OrigRef.get(), AdjustingRef});
-      }
-    }
-
-  private:
-    static void alignSpatialLoopBounds(RegDDRef *Ref,
-                                       const CanonExpr *AdjustingCE,
-                                       const RegDDRef *AdjustingRef);
+    void visit(HLDDNode *Node);
   };
 
 public:
@@ -781,6 +724,8 @@ private:
 
   bool RelaxedMode;
 };
+
+} // namespace interloopblocking
 
 } // namespace loopopt
 
