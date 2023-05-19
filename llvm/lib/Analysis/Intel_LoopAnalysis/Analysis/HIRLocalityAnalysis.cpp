@@ -870,7 +870,22 @@ static bool hasEdgeOutsideGroup(const RegDDRef *FirstRef,
 
   for (auto *Edge :
        IsIncoming ? DDG.incoming(FirstRef) : DDG.outgoing(FirstRef)) {
-    if (Edge->getDV().isIndepFromLevel(Level)) {
+    auto &DV = Edge->getDV();
+    if (DV.isIndepFromLevel(Level)) {
+      continue;
+    }
+
+    // We only care about '*' dependencies so others can be ignored.
+    bool IsKnownDep = true;
+
+    for (unsigned I = Level, E = DV.size(); I < E; ++I) {
+      if (DV[I - 1] == DVKind::ALL) {
+        IsKnownDep = false;
+        break;
+      }
+    }
+
+    if (IsKnownDep) {
       continue;
     }
 
@@ -879,6 +894,7 @@ static bool hasEdgeOutsideGroup(const RegDDRef *FirstRef,
 
     if (std::none_of(CurGroup.begin(), CurGroup.end(),
                      [=](const RegDDRef *Ref) { return Ref == OtherRef; })) {
+      LLVM_DEBUG(dbgs() << "Aliasing edge: \n"; Edge->dump());
       return true;
     }
   }

@@ -349,6 +349,7 @@
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
 #include "llvm/Transforms/Scalar/Intel_AddSubReassociate.h"
+#include "llvm/Transforms/Scalar/Intel_AggressiveSpeculation.h"
 #include "llvm/Transforms/Scalar/Intel_DopeVectorHoist.h"
 #include "llvm/Transforms/Scalar/Intel_ForcedCMOVGeneration.h"
 #include "llvm/Transforms/Scalar/Intel_HandlePragmaVectorAligned.h"
