@@ -19,7 +19,8 @@ define i1 @trunc_v2i64_v2i1(<2 x i64>) {
 ; AVX-LABEL: trunc_v2i64_v2i1:
 ; AVX:       # %bb.0:
 ; AVX-NEXT:    vpsllq $63, %xmm0, %xmm0
-; AVX-NEXT:    vtestpd %xmm0, %xmm0
+; AVX-NEXT:    vmovmskpd %xmm0, %eax
+; AVX-NEXT:    testl %eax, %eax
 ; AVX-NEXT:    setne %al
 ; AVX-NEXT:    retq
 ;
@@ -48,7 +49,8 @@ define i1 @trunc_v4i32_v4i1(<4 x i32>) {
 ; AVX-LABEL: trunc_v4i32_v4i1:
 ; AVX:       # %bb.0:
 ; AVX-NEXT:    vpslld $31, %xmm0, %xmm0
-; AVX-NEXT:    vtestps %xmm0, %xmm0
+; AVX-NEXT:    vmovmskps %xmm0, %eax
+; AVX-NEXT:    testl %eax, %eax
 ; AVX-NEXT:    setne %al
 ; AVX-NEXT:    retq
 ;
@@ -177,7 +179,8 @@ define i1 @trunc_v4i64_v4i1(<4 x i64>) {
 ; AVX-LABEL: trunc_v4i64_v4i1:
 ; AVX:       # %bb.0:
 ; AVX-NEXT:    vpsllq $63, %ymm0, %ymm0
-; AVX-NEXT:    vtestpd %ymm0, %ymm0
+; AVX-NEXT:    vmovmskpd %ymm0, %eax
+; AVX-NEXT:    testl %eax, %eax
 ; AVX-NEXT:    setne %al
 ; AVX-NEXT:    vzeroupper
 ; AVX-NEXT:    retq
@@ -212,7 +215,8 @@ define i1 @trunc_v8i32_v8i1(<8 x i32>) {
 ; AVX-LABEL: trunc_v8i32_v8i1:
 ; AVX:       # %bb.0:
 ; AVX-NEXT:    vpslld $31, %ymm0, %ymm0
-; AVX-NEXT:    vtestps %ymm0, %ymm0
+; AVX-NEXT:    vmovmskps %ymm0, %eax
+; AVX-NEXT:    testl %eax, %eax
 ; AVX-NEXT:    setne %al
 ; AVX-NEXT:    vzeroupper
 ; AVX-NEXT:    retq
@@ -324,7 +328,8 @@ define i1 @trunc_v8i64_v8i1(<8 x i64>) {
 ; AVX-NEXT:    vinsertf128 $1, %xmm1, %ymm0, %ymm0
 ; AVX-NEXT:    vshufps {{.*#+}} ymm0 = ymm0[0,2],ymm2[0,2],ymm0[4,6],ymm2[4,6]
 ; AVX-NEXT:    vpslld $31, %ymm0, %ymm0
-; AVX-NEXT:    vtestps %ymm0, %ymm0
+; AVX-NEXT:    vmovmskps %ymm0, %eax
+; AVX-NEXT:    testl %eax, %eax
 ; AVX-NEXT:    setne %al
 ; AVX-NEXT:    vzeroupper
 ; AVX-NEXT:    retq
@@ -483,7 +488,8 @@ define i1 @icmp_v2i64_v2i1(<2 x i64>) {
 ; AVX:       # %bb.0:
 ; AVX-NEXT:    vpxor %xmm1, %xmm1, %xmm1
 ; AVX-NEXT:    vpcmpeqq %xmm1, %xmm0, %xmm0
-; AVX-NEXT:    vtestpd %xmm0, %xmm0
+; AVX-NEXT:    vmovmskpd %xmm0, %eax
+; AVX-NEXT:    testl %eax, %eax
 ; AVX-NEXT:    setne %al
 ; AVX-NEXT:    retq
 ;
@@ -513,7 +519,8 @@ define i1 @icmp_v4i32_v4i1(<4 x i32>) {
 ; AVX:       # %bb.0:
 ; AVX-NEXT:    vpxor %xmm1, %xmm1, %xmm1
 ; AVX-NEXT:    vpcmpeqd %xmm1, %xmm0, %xmm0
-; AVX-NEXT:    vtestps %xmm0, %xmm0
+; AVX-NEXT:    vmovmskps %xmm0, %eax
+; AVX-NEXT:    testl %eax, %eax
 ; AVX-NEXT:    setne %al
 ; AVX-NEXT:    retq
 ;
@@ -608,7 +615,8 @@ define i1 @icmp_v4i64_v4i1(<4 x i64>) {
 ; AVX:       # %bb.0:
 ; AVX-NEXT:    vpxor %xmm1, %xmm1, %xmm1
 ; AVX-NEXT:    vpcmpeqq %ymm1, %ymm0, %ymm0
-; AVX-NEXT:    vtestpd %ymm0, %ymm0
+; AVX-NEXT:    vmovmskpd %ymm0, %eax
+; AVX-NEXT:    testl %eax, %eax
 ; AVX-NEXT:    setne %al
 ; AVX-NEXT:    vzeroupper
 ; AVX-NEXT:    retq
@@ -642,7 +650,8 @@ define i1 @icmp_v8i32_v8i1(<8 x i32>) {
 ; AVX:       # %bb.0:
 ; AVX-NEXT:    vpxor %xmm1, %xmm1, %xmm1
 ; AVX-NEXT:    vpcmpeqd %ymm1, %ymm0, %ymm0
-; AVX-NEXT:    vtestps %ymm0, %ymm0
+; AVX-NEXT:    vmovmskps %ymm0, %eax
+; AVX-NEXT:    testl %eax, %eax
 ; AVX-NEXT:    setne %al
 ; AVX-NEXT:    vzeroupper
 ; AVX-NEXT:    retq
@@ -752,7 +761,8 @@ define i1 @icmp_v8i64_v8i1(<8 x i64>) {
 ; AVX-NEXT:    vpcmpeqq %ymm2, %ymm1, %ymm1
 ; AVX-NEXT:    vpcmpeqq %ymm2, %ymm0, %ymm0
 ; AVX-NEXT:    vpor %ymm1, %ymm0, %ymm0
-; AVX-NEXT:    vtestpd %ymm0, %ymm0
+; AVX-NEXT:    vmovmskpd %ymm0, %eax
+; AVX-NEXT:    testl %eax, %eax
 ; AVX-NEXT:    setne %al
 ; AVX-NEXT:    vzeroupper
 ; AVX-NEXT:    retq
@@ -792,7 +802,8 @@ define i1 @icmp_v16i32_v16i1(<16 x i32>) {
 ; AVX-NEXT:    vpcmpeqd %ymm2, %ymm1, %ymm1
 ; AVX-NEXT:    vpcmpeqd %ymm2, %ymm0, %ymm0
 ; AVX-NEXT:    vpor %ymm1, %ymm0, %ymm0
-; AVX-NEXT:    vtestps %ymm0, %ymm0
+; AVX-NEXT:    vmovmskps %ymm0, %eax
+; AVX-NEXT:    testl %eax, %eax
 ; AVX-NEXT:    setne %al
 ; AVX-NEXT:    vzeroupper
 ; AVX-NEXT:    retq
