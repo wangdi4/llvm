@@ -98,6 +98,7 @@
 
 using namespace llvm;
 using namespace llvm::loopopt;
+using namespace llvm::loopopt::interloopblocking;
 
 static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden, cl::desc("Disable " OPT_DESC "."));
@@ -142,7 +143,13 @@ static cl::opt<std::string> PrintDiagFunc(
     cl::desc("Print Diag why " OPT_DESC " did not happen for the function."));
 #endif
 
-namespace {
+namespace llvm {
+namespace loopopt {
+namespace interloopblocking {
+
+// These functions are wrappers to pass command-line options
+// to generic functions declared in HIRPrintDiag.h
+
 void printMarker(StringRef Marker, ArrayRef<const HLNode *> Nodes,
                  bool DumpNode = false, bool Detail = false) {
 
@@ -176,7 +183,10 @@ void printDiag(StringRef Msg, StringRef FuncName, const HLLoop *Loop = nullptr,
             DiagLevel);
 #endif
 }
-} // namespace
+
+} // namespace interloopblocking
+} // namespace loopopt
+} // namespace llvm
 
 namespace {
 
@@ -737,9 +747,6 @@ const RegDDRef *InnermostLoopAnalyzer::getLvalWithMinDims() const {
   return RepRef;
 }
 
-// TODO: In many places of InnermostLoopAnalyzer's functions,
-//       printMarker() and printDiag() are commented out for the interim
-//       refactoring. Reinstate them as furter refactoring is getting done.
 const RegDDRef *
 InnermostLoopAnalyzer::couldBeAMember(BasePtrIndexSetTy &DefinedBasePtr,
                                       BasePtrIndexSetTy &ReadOnlyBasePtr,
@@ -747,21 +754,21 @@ InnermostLoopAnalyzer::couldBeAMember(BasePtrIndexSetTy &DefinedBasePtr,
   // Check for alignment
   const RegDDRef *RepDefRef = checkDefsForAlignment();
 
-  // printMarker("Checking loop: ", {InnermostLoop});
+  printMarker("Checking loop: ", {InnermostLoop});
 
   if (!RepDefRef) {
-    // printDiag("Aligment ", Func, InnermostLoop);
+    printDiag("Aligment ", Func, InnermostLoop);
     return nullptr;
   }
 
   unsigned DeepestLoopDepth =
       RepDefRef->getNumDimensions() + InnermostLoop->getNestingLevel();
   if (DeepestLoopDepth >= MaxLoopNestLevel) {
-    // printDiag("Too many loopnests are needed ", Func, InnermostLoop);
+    printDiag("Too many loopnests are needed ", Func, InnermostLoop);
     return nullptr;
   }
 
-  // printMarker("RepDefRef: ", {RepDefRef});
+  printMarker("RepDefRef: ", {RepDefRef});
 
   RefGroupVecTy Groups;
   DDRefIndexGrouping(Groups, Refs);
@@ -770,7 +777,7 @@ InnermostLoopAnalyzer::couldBeAMember(BasePtrIndexSetTy &DefinedBasePtr,
   // spatial locality across multiple loopnests.
   if (!canCalcDimInfo(Groups, DefinedBasePtr, ReadOnlyBasePtr, DDG, DimInfos,
                       RepDefRef, LCA)) {
-    // printDiag("calcDimInfo ", Func, InnermostLoop);
+    printDiag("calcDimInfo ", Func, InnermostLoop);
     return nullptr;
   }
 
@@ -780,7 +787,7 @@ InnermostLoopAnalyzer::couldBeAMember(BasePtrIndexSetTy &DefinedBasePtr,
   }
 
   if (!areMostlyStructuallyStencilRefs(Groups)) {
-    // printDiag("Failed Stencil check", Func, InnermostLoop);
+    printDiag("Failed Stencil check", Func, InnermostLoop);
     return nullptr;
   }
 
@@ -789,7 +796,7 @@ InnermostLoopAnalyzer::couldBeAMember(BasePtrIndexSetTy &DefinedBasePtr,
     return RepDefRef;
 
   } else {
-    // printDiag("checkDepToUpwardLoops", Func, InnermostLoop);
+    printDiag("checkDepToUpwardLoops", Func, InnermostLoop);
 
     return nullptr;
   }
@@ -798,7 +805,7 @@ InnermostLoopAnalyzer::couldBeAMember(BasePtrIndexSetTy &DefinedBasePtr,
 bool InnermostLoopAnalyzer::checkDepToUpwardLoops(
     BasePtrIndexSetTy &DefinedBasePtr, const RegDDRef *RepDefRef) {
 
-  // printMarker("check dep for innermost loop ", {InnermostLoop});
+  printMarker("check dep for innermost loop ", {InnermostLoop});
 
   // Check Rvals with upward defs
   // Since rvals with defs in upward loopnests(i.e. loopnests lexically before
@@ -823,10 +830,10 @@ bool InnermostLoopAnalyzer::checkDepToUpwardLoops(
       int64_t Dist = 0;
       if (!CanonExprUtils::getConstDistance(CE, RepDefCE, &Dist) || Dist > 0) {
 
-        // printMarker(
-        //    "Dependency violation!! in Region: ",
-        //    {Ref->getHLDDNode()->getParentRegion(), Ref->getHLDDNode()});
-        // printMarker("Troublesome CE: ", {Ref});
+        printMarker(
+            "Dependency violation!! in Region: ",
+            {Ref->getHLDDNode()->getParentRegion(), Ref->getHLDDNode()});
+        printMarker("Troublesome CE: ", {Ref});
 
         return false;
       }
@@ -864,8 +871,7 @@ const RegDDRef *InnermostLoopAnalyzer::checkDefsForAlignment() const {
                         Representative->canon_end()))) {
 
       if (!CanonExprUtils::areEqual(std::get<0>(CEPair), std::get<1>(CEPair))) {
-        // printMarker("checkDefsForAlignemnts() fails: ", {Representative,
-        // Ref});
+        printMarker("checkDefsForAlignemnts() fails: ", {Representative, Ref});
         return nullptr;
       }
     }
@@ -902,7 +908,7 @@ bool InnermostLoopAnalyzer::areEqualLowerBoundsAndStrides(
          make_range(Ref->dim_num_begin(), Ref->dim_num_end())) {
       if (!CanonExprUtils::areEqual(FirstRef->getDimensionLower(DimNum),
                                     Ref->getDimensionLower(DimNum))) {
-        // printMarker("&& LowerBounds:", {FirstRef, Ref}, false, true);
+        printMarker("&& LowerBounds:", {FirstRef, Ref}, false, true);
 
         return false;
       }
@@ -910,7 +916,7 @@ bool InnermostLoopAnalyzer::areEqualLowerBoundsAndStrides(
       if (!CanonExprUtils::areEqual(FirstRef->getDimensionStride(DimNum),
                                     Ref->getDimensionStride(DimNum))) {
 
-        // printMarker("&& Strides:", {FirstRef, Ref}, false, true);
+        printMarker("&& Strides:", {FirstRef, Ref}, false, true);
 
         return false;
       }
@@ -954,13 +960,11 @@ bool InnermostLoopAnalyzer::tracebackEqualityOfLowersAndStrides(
     if (CE1->isIntConstant(&Konstant1)) {
       int64_t Konstant2 = 0;
       if (!CE2->isIntConstant(&Konstant2) || Konstant1 != Konstant2) {
-        // printMarker("Konstants are diff .\n Ref1, Ref2: ", {Ref1, Ref2},
-        // true,
-        //            true);
-        // printMarker("CE1, CE2: ", {CE1, CE2}, true);
-        // printMarker("Ref1 Loop, Ref2 Loop, LCA: ",
-        //            {Ref1->getParentLoop(), Ref2->getParentLoop(), LCA},
-        //            true);
+        printMarker("Konstants are diff .\n Ref1, Ref2: ", {Ref1, Ref2}, true,
+                    true);
+        printMarker("CE1, CE2: ", {CE1, CE2}, true);
+        printMarker("Ref1 Loop, Ref2 Loop, LCA: ",
+                    {Ref1->getParentLoop(), Ref2->getParentLoop(), LCA}, true);
         (void)LCA;
 
         return false;
@@ -971,28 +975,28 @@ bool InnermostLoopAnalyzer::tracebackEqualityOfLowersAndStrides(
 
     // Temp -- Then there should be a blob ddref
     if (CE1->numBlobs() != CE2->numBlobs()) {
-      // printMarker("NumBlobs are diff.\n Ref1, Ref2: ", {Ref1, Ref2}, true);
-      // printMarker("CE1, CE2: ", {CE1, CE2}, true);
-      // printMarker("Ref1 Loop, Ref2 Loop, LCA: ",
-      //            {Ref1->getParentLoop(), Ref2->getParentLoop(), LCA}, true);
+      printMarker("NumBlobs are diff.\n Ref1, Ref2: ", {Ref1, Ref2}, true);
+      printMarker("CE1, CE2: ", {CE1, CE2}, true);
+      printMarker("Ref1 Loop, Ref2 Loop, LCA: ",
+                  {Ref1->getParentLoop(), Ref2->getParentLoop(), LCA}, true);
 
       return false;
 
     } else if (CE1->numBlobs() != 1) {
-      // printMarker("NumBlobs is NOT 1.\n Ref1, Ref2: ", {Ref1, Ref2}, true);
-      // printMarker("CE1, CE2: ", {CE1, CE2}, true);
-      // printMarker("Ref1 Loop, Ref2 Loop, LCA: ",
-      //            {Ref1->getParentLoop(), Ref2->getParentLoop(), LCA}, true);
+      printMarker("NumBlobs is NOT 1.\n Ref1, Ref2: ", {Ref1, Ref2}, true);
+      printMarker("CE1, CE2: ", {CE1, CE2}, true);
+      printMarker("Ref1 Loop, Ref2 Loop, LCA: ",
+                  {Ref1->getParentLoop(), Ref2->getParentLoop(), LCA}, true);
 
       return false;
     }
 
     if (CE1->getSingleBlobCoeff() != CE2->getSingleBlobCoeff()) {
-      // printMarker("SingleBlobCoeffs are diff.\n Ref1, Ref2: ", {Ref1, Ref2},
-      //            true);
-      // printMarker("CE1, CE2: ", {CE1, CE2}, true);
-      // printMarker("Ref1 Loop, Ref2 Loop, LCA: ",
-      //            {Ref1->getParentLoop(), Ref2->getParentLoop(), LCA}, true);
+      printMarker("SingleBlobCoeffs are diff.\n Ref1, Ref2: ", {Ref1, Ref2},
+                  true);
+      printMarker("CE1, CE2: ", {CE1, CE2}, true);
+      printMarker("Ref1 Loop, Ref2 Loop, LCA: ",
+                  {Ref1->getParentLoop(), Ref2->getParentLoop(), LCA}, true);
 
       return false;
     }
@@ -1009,13 +1013,12 @@ bool InnermostLoopAnalyzer::tracebackEqualityOfLowersAndStrides(
     }
 
     if (LoadRval1 && LoadRval2 && !DDRefUtils::areEqual(LoadRval1, LoadRval2)) {
-      // printMarker("LoadRval1 != LoadRval2\n Ref1, Ref2: ", {Ref1, Ref2},
-      // true,
-      //            true);
-      // printMarker("LoadRval1, LoadRval2: ", {LoadRval1, LoadRval2}, true,
-      // true); printMarker("BRef1, BRef2: ", {BRef1, BRef2}, true);
-      // printMarker("Ref1 Loop, Ref2 Loop, LCA: ",
-      //            {Ref1->getParentLoop(), Ref2->getParentLoop(), LCA}, true);
+      printMarker("LoadRval1 != LoadRval2\n Ref1, Ref2: ", {Ref1, Ref2}, true,
+                  true);
+      printMarker("LoadRval1, LoadRval2: ", {LoadRval1, LoadRval2}, true, true);
+      printMarker("BRef1, BRef2: ", {BRef1, BRef2}, true);
+      printMarker("Ref1 Loop, Ref2 Loop, LCA: ",
+                  {Ref1->getParentLoop(), Ref2->getParentLoop(), LCA}, true);
 
       return false;
     }
@@ -1139,7 +1142,7 @@ bool InnermostLoopAnalyzer::checkEqualityOfBlobDimensions(
         } else if (RelaxedMode &&
                    containsEqualTempBlobs(FirstRef->getDimensionIndex(DimNum),
                                           Ref->getDimensionIndex(DimNum))) {
-          // printMarker("blobs are similar enough: ", {FirstRef, Ref});
+          printMarker("blobs are similar enough: ", {FirstRef, Ref});
         } else {
           // Some examples:
           // RepDefRef:  (%50)[%10][i1 + sext.i32.i64(%160)][i2 +
@@ -1150,7 +1153,7 @@ bool InnermostLoopAnalyzer::checkEqualityOfBlobDimensions(
           // FirstRef: (%89)[i1 + sext.i32.i64(%160)][i2 + sext.i32.i64(%130) +
           // -1] FirstRef: (%50)[%9][i1 + sext.i32.i64(%160)][i2 +
           // sext.i32.i64(%130)]
-          // printMarker("Def but different blobIndex: ", {FirstRef, Ref});
+          printMarker("Def but different blobIndex: ", {FirstRef, Ref});
 
           return false;
         }
@@ -1463,9 +1466,8 @@ bool Transformer::rewrite() {
                          ? cast<HLRegion>(NodeOutsideByStrip)
                          : NodeOutsideByStrip->getParentRegion();
 
-#if 0
-    printMarker("Initial: ", {NodeOutsideByStrip}, true, false);
-#endif
+  printMarker("Initial: ", {NodeOutsideByStrip}, true, false);
+
   LLVM_DEBUG(dbgs() << "Region to update: " << Region->getNumber() << "\n");
   LLVM_DEBUG(Region->dump(1));
   LLVM_DEBUG(dbgs() << "== * == AAAA \n"; for (auto &LoopAndDimInfo
@@ -1482,9 +1484,7 @@ bool Transformer::rewrite() {
   assert((!HasNonDimMatchingLoop || isa<HLLoop>(AnchorNode)) &&
          "If NonDimMatchingLoop exists, AnchorNode should be a loop");
 
-#if 0
-    printMarker("AnchorNode: ", {AnchorNode});
-#endif
+  printMarker("AnchorNode: ", {AnchorNode});
 
   // Collect load instructions for loop bounds and RepRefs.
   // NOTE: This collection should be done before alignment.
@@ -1635,10 +1635,9 @@ bool Transformer::rewrite() {
 
   LLVM_DEBUG_PROFIT_REPORT(dbgs() << "After updating in " << Func << ": ";
                            NodeOutsideByStrip->dump());
-#if 0
-    printMarker("Detail: After updating inner Loops: ", {NodeOutsideByStrip},
-                true);
-#endif
+
+  printMarker("Detail: After updating inner Loops: ", {NodeOutsideByStrip},
+              true);
 
   Region->setGenCode();
   return true;
@@ -1958,13 +1957,12 @@ void Transformer::alignSpatialLoops(
       const RegDDRef *AdjustingRef =
           InnermostLoopToAdjustingRef.at(InnermostLoop);
 
-#if 0
-        printMarker("LB before: ", {TargetLoop->getLowerDDRef()}, true);
-#endif
+      printMarker("LB before: ", {TargetLoop->getLowerDDRef()}, true);
+
       alignSpatialLoopBounds(TargetLoop->getLowerDDRef(), AdjustingRef, DimNum);
-#if 0
-        printMarker("LB after: ", {TargetLoop->getLowerDDRef()}, true);
-#endif
+
+      printMarker("LB after: ", {TargetLoop->getLowerDDRef()}, true);
+
       alignSpatialLoopBounds(TargetLoop->getUpperDDRef(), AdjustingRef, DimNum);
     }
   }
@@ -2049,9 +2047,7 @@ bool Transformer::tracebackToLoad(const RegDDRef *Rval, DDGraph DDG,
 
       if (isa<LoadInst>(LoadOrCopy->getLLVMInstruction())) {
 
-#if 0
-          printMarker(" == Found Load: \n", {LoadOrCopy});
-#endif
+        printMarker(" == Found Load: \n", {LoadOrCopy});
 
         if (!checkInvariance(LoadOrCopy))
           return false;
@@ -2060,17 +2056,13 @@ bool Transformer::tracebackToLoad(const RegDDRef *Rval, DDGraph DDG,
 
       } else if (LoadOrCopy->isCopyInst()) {
 
-#if 0
-          printMarker("Found Copy: \n", {LoadOrCopy});
-#endif
+        printMarker("Found Copy: \n", {LoadOrCopy});
 
         RvalQueue.push_back(LoadOrCopy->getRvalDDRef());
 
       } else if (LoadOrCopy->isCallInst()) {
 
-#if 0
-          printMarker("Found CallInst: \n", {LoadOrCopy});
-#endif
+        printMarker("Found CallInst: \n", {LoadOrCopy});
 
         return false;
 
@@ -2095,14 +2087,14 @@ bool Transformer::findLoad(
 
   if (isa<LoadInst>(LoadOrCopy->getLLVMInstruction())) {
 
-    //      printMarker(" == Found Load: \n", {LoadOrCopy});
+    printMarker(" == Found Load: \n", {LoadOrCopy});
 
     Res.push_back({LoadOrCopy, nullptr});
     return checkInvariance(LoadOrCopy);
 
   } else if (LoadOrCopy->isCopyInst()) {
 
-    //      printMarker("Found Copy: \n", {LoadOrCopy});
+    printMarker("Found Copy: \n", {LoadOrCopy});
 
     SmallVector<const HLInst *> Insts;
     if (!tracebackToLoad(LoadOrCopy->getRvalDDRef(), DDG, Insts) ||
@@ -2119,7 +2111,7 @@ bool Transformer::findLoad(
 
   } else { // any other inst
 
-    //      printMarker("Found non-load clone: \n", {LoadOrCopy});
+    printMarker("Found non-load clone: \n", {LoadOrCopy});
 
     Res.push_back({LoadOrCopy, nullptr});
     SmallVector<const HLInst *> Insts;
@@ -2380,9 +2372,7 @@ bool Transformer::computeByStripLoopBounds(
 void Transformer::cloneAndAddLoadInsts(
     InstsToCloneSetTy &LoadInstsToClone, HLNode *AnchorNode,
     DenseMap<unsigned, unsigned> &OrigToCloneIndexMap,
-    SmallVectorImpl<const RegDDRef *> &AuxRefsForByStripBounds
-
-) {
+    SmallVectorImpl<const RegDDRef *> &AuxRefsForByStripBounds) {
 
   SmallVector<HLInst *> NewLoads;
 
@@ -2403,8 +2393,8 @@ void Transformer::cloneAndAddLoadInsts(
 
     OrigToCloneIndexMap.insert({OldIndex, NewIndex});
 
-    //      printMarker("Orig Load: ", Load, true, true);
-    //      printMarker("New Load: ", NewLoad, true, true);
+    printMarker("Orig Load: ", Load, true, true);
+    printMarker("New Load: ", NewLoad, true, true);
 
     HLNodeUtils::insertBefore(AnchorNode, NewLoad);
 
@@ -2501,7 +2491,7 @@ HLLoop *Transformer::addByStripLoops(
                       << ByStrip->getNumber() << ", "
                       << ByStrip->getNestingLevel() << ", "
                       << ByStrip->getLowerDDRef()->getDefinedAtLevel() << "\n");
-    //      printMarker(" ", {ByStrip->getLowerDDRef()});
+    printMarker(" ", {ByStrip->getLowerDDRef()});
 
     if (ParentByStripLoop) {
       LiveInsOfAllSpatialLoop.push_back(PrevTileEndSymbase);
@@ -3103,6 +3093,60 @@ void Transformer::addLiveInToNonDimMatchingLoops(
   }
 }
 
+void Transformer::LoopBodyAligner::visit(HLDDNode *Node) {
+  for (auto *Ref : make_range(Node->ddref_begin(), Node->ddref_end())) {
+
+    if (!Ref->hasGEPInfo())
+      continue;
+
+    std::unique_ptr<RegDDRef> OrigRef(Ref->clone());
+
+    // For a Ref, go through dimensions, and get IV Level
+    // Get the dim and get the CE from RepRef
+    for (auto *CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
+
+      assert(CE->numIVs() <= 1);
+
+      // get IV Level from CE
+      unsigned FoundIVLevel = 0;
+      for (auto Level :
+           make_range(AllLoopLevelRange::begin(), AllLoopLevelRange::end())) {
+        int64_t Coeff = 0;
+        unsigned Index = 0;
+        CE->getIVCoeff(Level, &Index, &Coeff);
+        if (Coeff != 0) {
+          FoundIVLevel = Level;
+          break;
+        }
+      }
+
+      if (!FoundIVLevel)
+        continue;
+
+      auto It = MapFromLevelToDim.find(FoundIVLevel);
+      assert(It != MapFromLevelToDim.end());
+      unsigned Dim = It->second;
+      const CanonExpr *AdjustCE = AdjustingRef->getDimensionIndex(Dim);
+
+      CanonExprUtils::subtract(CE, AdjustCE);
+    }
+
+    // Initial makeConsistent using original refs.
+    // After this point, nonlinear is truly nonlinear.
+    // Also, IV + const should have Def@Level zero.
+    printMarker("Orig Ref: ", {OrigRef.get()}, true);
+    printMarker("AdjustingRef: ", {AdjustingRef}, true);
+    printMarker("Ref: ", {Ref}, true);
+
+    // Cannot use RepRef here as an auxiliary ref
+    // because RepRef itself is aligned by this function
+    // and get changed. Instead, use AdjustingRef,
+    // since it is a RepRef minus IVs.
+    // It contains all the blobs.
+    Ref->makeConsistent({OrigRef.get(), AdjustingRef});
+  }
+}
+
 namespace {
 // Collects a candidate set of spatial loops by
 // applying profitablity and legality checks.
@@ -3205,7 +3249,7 @@ private:
         IA.couldBeAMember(DefinedBasePtr, ReadOnlyBasePtr, DDG, LCA);
 
     if (!RepRef) {
-      //      printMarker("Fail: ", {Loop});
+      printMarker("Fail: ", {Loop});
 
       // Legality check failed with the current loop.
       // The current loop cannot make a candidate, so stop here.
@@ -3240,9 +3284,9 @@ private:
     InnermostLoopToDimInfos.emplace_back(Loop, DimInfos);
     InnermostLoopToRepRef[Loop] = RepRef;
 
-    //    printMarker("Passed: ", {Loop});
-    //    printMarker("RepRef before move: ", {RepRef});
-    //    printMarker("RepRef after move: ", {InnermostLoopToRepRef[Loop]});
+    printMarker("Passed: ", {Loop});
+    printMarker("RepRef before move: ", {RepRef});
+    printMarker("RepRef after move: ", {InnermostLoopToRepRef[Loop]});
 
     return true;
   }
@@ -3278,10 +3322,10 @@ private:
     }
 
     // Passed postCheck(), thus a legit candidate.
-    //    printMarker("Transformation will be done on\n FirstSpatialLoop: ",
-    //                {FirstSpatialLoop});
-    //    printMarker("LastSpatialLoop: ", {LastSpatialLoop});
-    //    printMarker("Input Loop: ", {PrevLCA});
+    printMarker("Transformation will be done on\n FirstSpatialLoop: ",
+                {FirstSpatialLoop});
+    printMarker("LastSpatialLoop: ", {LastSpatialLoop});
+    printMarker("Input Loop: ", {PrevLCA});
     LLVM_DEBUG(PrevLCA->dump());
     LLVM_DEBUG_PROFIT_REPORT(dbgs() << "Legal\n");
 
@@ -4137,7 +4181,6 @@ bool testDriver::areTwoLoopsInExclusiveFlows(const HLLoop *Loop1,
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-// TODO: Make printMarker work
 void printLoopVec(const SmallVectorImpl<HLLoop *> &LV) {
   for (auto *L : LV) {
     dbgs() << "Loop number: " << L->getNumber() << "\n";
@@ -4174,7 +4217,7 @@ bool testDriver::run() {
       InnermostLoops.push_back(Lp);
     } else if (HLGoto *HGoto = dyn_cast<HLGoto>(*It)) {
 
-      //      printMarker("Met a goto ", {HGoto}, true);
+      printMarker("Met a goto ", {HGoto}, true);
       LLVM_DEBUG(dbgs() << "1. Innermost loops collected: ");
       LLVM_DEBUG(printLoopVec(InnermostLoops));
 
