@@ -255,8 +255,12 @@ static bool isGoodStructMemcpyOpaque(AnyMemTransferInst *MI, uint64_t Size,
   // potentially miss some more complex padding issues.
   STy = StructType::get(MI->getContext(), Fields);
   const StructLayout *Layout = DL.getStructLayout(STy);
-  return Offsets == Layout->getMemberOffsets() &&
-    Size == Layout->getSizeInBytes();
+  auto Pred = [](uint64_t A, TypeSize B) -> bool {
+    return A == B.getKnownMinValue();
+  };
+  bool OffsetsEqual = std::equal(Offsets.begin(), Offsets.end(),
+                                 Layout->getMemberOffsets().begin(), Pred);
+  return OffsetsEqual && Size == Layout->getSizeInBytes().getKnownMinValue();
 }
 
 static bool isGoodStructMemcpy(AnyMemTransferInst *MI, uint64_t Size,
