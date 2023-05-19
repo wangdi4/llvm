@@ -2324,6 +2324,8 @@ StringRef SourceLocExpr::getBuiltinStr() const {
     return "__builtin_FILE_NAME";
   case Function:
     return "__builtin_FUNCTION";
+  case FuncSig:
+    return "__builtin_FUNCSIG";
   case Line:
     return "__builtin_LINE";
   case Column:
@@ -2377,12 +2379,19 @@ APValue SourceLocExpr::EvaluateInContext(const ASTContext &Ctx,
     }
     return MakeStringLiteral(llvm::sys::path::filename(PLoc.getFilename()));
   }
+<<<<<<< HEAD
 #endif  // INTEL_CUSTOMIZATION
   case SourceLocExpr::Function: {
+=======
+  case SourceLocExpr::Function:
+  case SourceLocExpr::FuncSig: {
+>>>>>>> 78d8312acea96f58f13a876f98d241590c16d530
     const auto *CurDecl = dyn_cast<Decl>(Context);
+    const auto Kind = getIdentKind() == SourceLocExpr::Function
+                          ? PredefinedExpr::Function
+                          : PredefinedExpr::FuncSig;
     return MakeStringLiteral(
-        CurDecl ? PredefinedExpr::ComputeName(PredefinedExpr::Function, CurDecl)
-                : std::string(""));
+        CurDecl ? PredefinedExpr::ComputeName(Kind, CurDecl) : std::string(""));
   }
   case SourceLocExpr::Line:
   case SourceLocExpr::Column: {
