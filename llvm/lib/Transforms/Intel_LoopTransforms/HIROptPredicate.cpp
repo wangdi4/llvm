@@ -880,10 +880,6 @@ bool HIROptPredicate::checkAndSetPUCandidate(const HLIf *If,
   HLLoop *ParentLoop = If->getParentLoop();
   unsigned ParentLoopLevel = ParentLoop->getNestingLevel();
 
-  // TODO: Removing this check allows to run the DDG graph. The issue is that
-  // it turns on HIRScalarReplArray for other benchmarks, even if we didn't
-  // enable HIROptPredicate and/or return early during the while loop. It seems
-  // that some data is being cached and/or not updated (CMPLRLLVM-47804).
   if (Ref->hasIV(ParentLoopLevel))
     return false;
 
