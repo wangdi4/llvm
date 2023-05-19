@@ -2379,13 +2379,9 @@ APValue SourceLocExpr::EvaluateInContext(const ASTContext &Ctx,
     }
     return MakeStringLiteral(llvm::sys::path::filename(PLoc.getFilename()));
   }
-<<<<<<< HEAD
 #endif  // INTEL_CUSTOMIZATION
-  case SourceLocExpr::Function: {
-=======
   case SourceLocExpr::Function:
   case SourceLocExpr::FuncSig: {
->>>>>>> 78d8312acea96f58f13a876f98d241590c16d530
     const auto *CurDecl = dyn_cast<Decl>(Context);
     const auto Kind = getIdentKind() == SourceLocExpr::Function
                           ? PredefinedExpr::Function
