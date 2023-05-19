@@ -88,6 +88,10 @@ FunctionPass *createX86VecSpillPass();
 /// This pass performs x86 intrinsics lowering right before ISel.
 ModulePass *createX86PreISelIntrinsicLoweringPass();
 FunctionPass *createX86StackRealignPass();
+#if INTEL_FEATURE_ISA_APX_F
+/// This pass performs CCMP optimization.
+FunctionPass *createX86ConditionalCompares();
+#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 /// Return a pass that selectively replaces certain instructions (like add,
@@ -276,6 +280,9 @@ void initializeX86InstCombinePass(PassRegistry &);
 void initializeX86SplitLongBlockPassPass(PassRegistry &);
 void initializeX86PreISelIntrinsicLoweringPass(PassRegistry &);
 void initializeX86StackRealignPass(PassRegistry &);
+#if INTEL_FEATURE_ISA_APX_F
+void initializeX86ConditionalComparesPass(PassRegistry &);
+#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
 namespace X86AS {
