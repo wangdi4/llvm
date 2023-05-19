@@ -4348,150 +4348,6 @@ bool llvm::CannotBeOrderedLessThanZero(const Value *V, const DataLayout &DL,
   return cannotBeOrderedLessThanZeroImpl(V, DL, TLI, false, 0);
 }
 
-bool llvm::isKnownNeverInfinity(const Value *V, const DataLayout &DL,
-                                const TargetLibraryInfo *TLI, unsigned Depth,
-                                AssumptionCache *AC, const Instruction *CtxI,
-                                const DominatorTree *DT,
-                                OptimizationRemarkEmitter *ORE,
-                                bool UseInstrInfo) {
-  assert(V->getType()->isFPOrFPVectorTy() && "Querying for Inf on non-FP type");
-
-  // If we're told that infinities won't happen, assume they won't.
-  if (auto *FPMathOp = dyn_cast<FPMathOperator>(V))
-    if (FPMathOp->hasNoInfs())
-      return true;
-
-  if (const auto *Arg = dyn_cast<Argument>(V)) {
-    if ((Arg->getNoFPClass() & fcInf) == fcInf)
-      return true;
-  }
-
-  // TODO: Use fpclass like API for isKnown queries and distinguish +inf from
-  // -inf.
-  if (const auto *CB = dyn_cast<CallBase>(V)) {
-    if ((CB->getRetNoFPClass() & fcInf) == fcInf)
-      return true;
-  }
-
-  // Handle scalar constants.
-  if (auto *CFP = dyn_cast<ConstantFP>(V))
-    return !CFP->isInfinity();
-
-  if (Depth == MaxAnalysisRecursionDepth)
-    return false;
-
-  if (auto *Inst = dyn_cast<Instruction>(V)) {
-    switch (Inst->getOpcode()) {
-    case Instruction::Select: {
-      return isKnownNeverInfinity(Inst->getOperand(1), DL, TLI, Depth + 1) &&
-             isKnownNeverInfinity(Inst->getOperand(2), DL, TLI, Depth + 1);
-    }
-    case Instruction::SIToFP:
-    case Instruction::UIToFP: {
-      // Get width of largest magnitude integer (remove a bit if signed).
-      // This still works for a signed minimum value because the largest FP
-      // value is scaled by some fraction close to 2.0 (1.0 + 0.xxxx).
-      int IntSize = Inst->getOperand(0)->getType()->getScalarSizeInBits();
-      if (Inst->getOpcode() == Instruction::SIToFP)
-        --IntSize;
-
-      // If the exponent of the largest finite FP value can hold the largest
-      // integer, the result of the cast must be finite.
-      Type *FPTy = Inst->getType()->getScalarType();
-      return ilogb(APFloat::getLargest(FPTy->getFltSemantics())) >= IntSize;
-    }
-    case Instruction::FNeg:
-    case Instruction::FPExt: {
-      // Peek through to source op. If it is not infinity, this is not infinity.
-      return isKnownNeverInfinity(Inst->getOperand(0), DL, TLI, Depth + 1);
-    }
-    case Instruction::FPTrunc: {
-      // Need a range check.
-      return false;
-    }
-    default:
-      break;
-    }
-
-    if (const auto *II = dyn_cast<IntrinsicInst>(V)) {
-      switch (II->getIntrinsicID()) {
-      case Intrinsic::sin:
-      case Intrinsic::cos:
-        // Return NaN on infinite inputs.
-        return true;
-      case Intrinsic::fabs:
-      case Intrinsic::sqrt:
-      case Intrinsic::canonicalize:
-      case Intrinsic::copysign:
-      case Intrinsic::arithmetic_fence:
-      case Intrinsic::trunc:
-        return isKnownNeverInfinity(Inst->getOperand(0), DL, TLI, Depth + 1);
-      case Intrinsic::floor:
-      case Intrinsic::ceil:
-      case Intrinsic::rint:
-      case Intrinsic::nearbyint:
-      case Intrinsic::round:
-      case Intrinsic::roundeven:
-        // PPC_FP128 is a special case.
-        if (V->getType()->isMultiUnitFPType())
-          return false;
-        return isKnownNeverInfinity(Inst->getOperand(0), DL, TLI, Depth + 1);
-      case Intrinsic::fptrunc_round:
-        // Requires knowing the value range.
-        return false;
-      case Intrinsic::minnum:
-      case Intrinsic::maxnum:
-      case Intrinsic::minimum:
-      case Intrinsic::maximum:
-        return isKnownNeverInfinity(Inst->getOperand(0), DL, TLI, Depth + 1) &&
-               isKnownNeverInfinity(Inst->getOperand(1), DL, TLI, Depth + 1);
-      case Intrinsic::log:
-      case Intrinsic::log10:
-      case Intrinsic::log2:
-        // log(+inf) -> +inf
-        // log([+-]0.0) -> -inf
-        // log(-inf) -> nan
-        // log(-x) -> nan
-        // TODO: We lack API to check the == 0 case.
-        return false;
-      case Intrinsic::exp:
-      case Intrinsic::exp2:
-      case Intrinsic::pow:
-      case Intrinsic::powi:
-      case Intrinsic::fma:
-      case Intrinsic::fmuladd:
-        // These can return infinities on overflow cases, so it's hard to prove
-        // anything about it.
-        return false;
-      default:
-        break;
-      }
-    }
-  }
-
-  // try to handle fixed width vector constants
-  auto *VFVTy = dyn_cast<FixedVectorType>(V->getType());
-  if (VFVTy && isa<Constant>(V)) {
-    // For vectors, verify that each element is not infinity.
-    unsigned NumElts = VFVTy->getNumElements();
-    for (unsigned i = 0; i != NumElts; ++i) {
-      Constant *Elt = cast<Constant>(V)->getAggregateElement(i);
-      if (!Elt)
-        return false;
-      if (isa<UndefValue>(Elt))
-        continue;
-      auto *CElt = dyn_cast<ConstantFP>(Elt);
-      if (!CElt || CElt->isInfinity())
-        return false;
-    }
-    // All elements were confirmed non-infinity or undefined.
-    return true;
-  }
-
-  // was not able to prove that V never contains infinity
-  return false;
-}
-
 bool llvm::SignBitMustBeZero(const Value *V, const DataLayout &DL,
                              const TargetLibraryInfo *TLI) {
   return cannotBeOrderedLessThanZeroImpl(V, DL, TLI, true, 0);
@@ -5119,8 +4975,8 @@ void computeKnownFPClass(const Value *V, const APInt &DemandedElts,
 
         // If the input denormal mode could be PreserveSign, a negative
         // subnormal input could produce a negative zero output.
-        if (KnownSrc.isKnownNeverLogicalNegZero(*II->getFunction(),
-                                                II->getType())) {
+        const Function *F = II->getFunction();
+        if (F && KnownSrc.isKnownNeverLogicalNegZero(*F, II->getType())) {
           Known.knownNot(fcNegZero);
           if (KnownSrc.isKnownNeverNaN())
             Known.SignBit = false;
@@ -5199,6 +5055,9 @@ void computeKnownFPClass(const Value *V, const APInt &DemandedElts,
         if ((Known.KnownFPClasses & fcZero) != fcNone &&
             !Known.isKnownNeverSubnormal()) {
           const Function *Parent = II->getFunction();
+          if (!Parent)
+            break;
+
           DenormalMode Mode = Parent->getDenormalMode(
               II->getType()->getScalarType()->getFltSemantics());
           if (Mode != DenormalMode::getIEEE())
@@ -5213,11 +5072,15 @@ void computeKnownFPClass(const Value *V, const APInt &DemandedElts,
         // Canonicalize is guaranteed to quiet signaling nans.
         Known.knownNot(fcSNan);
 
+        const Function *F = II->getFunction();
+        if (!F)
+          break;
+
         // If the parent function flushes denormals, the canonical output cannot
         // be a denormal.
         const fltSemantics &FPType =
             II->getType()->getScalarType()->getFltSemantics();
-        DenormalMode DenormMode = II->getFunction()->getDenormalMode(FPType);
+        DenormalMode DenormMode = F->getDenormalMode(FPType);
         if (DenormMode.inputsAreZero() || DenormMode.outputsAreZero())
           Known.knownNot(fcSubnormal);
 
@@ -5317,7 +5180,8 @@ void computeKnownFPClass(const Value *V, const APInt &DemandedElts,
             KnownSrc.cannotBeOrderedLessThanZero())
           Known.knownNot(fcNan);
 
-        if (KnownSrc.isKnownNeverLogicalZero(*II->getFunction(), II->getType()))
+        const Function *F = II->getFunction();
+        if (F && KnownSrc.isKnownNeverLogicalZero(*F, II->getType()))
           Known.knownNot(fcNegInf);
 
         break;
@@ -5398,7 +5262,11 @@ void computeKnownFPClass(const Value *V, const APInt &DemandedElts,
           (KnownLHS.isKnownNeverInfinity() || KnownRHS.isKnownNeverInfinity()))
         Known.knownNot(fcNan);
 
+      // FIXME: Context function should always be passed in separately
       const Function *F = cast<Instruction>(Op)->getFunction();
+      if (!F)
+        break;
+
       if (Op->getOpcode() == Instruction::FAdd) {
         // (fadd x, 0.0) is guaranteed to return +0.0, not -0.0.
         if ((KnownLHS.isKnownNeverLogicalNegZero(*F, Op->getType()) ||
@@ -5443,9 +5311,9 @@ void computeKnownFPClass(const Value *V, const APInt &DemandedElts,
       // TODO: Check operand combinations.
       // e.g. fmul nofpclass(inf nan zero), nofpclass(nan) -> nofpclass(nan)
       if ((KnownLHS.isKnownNeverInfinity() ||
-           KnownLHS.isKnownNeverLogicalZero(*F, Op->getType())) &&
+           (F && KnownLHS.isKnownNeverLogicalZero(*F, Op->getType()))) &&
           (KnownRHS.isKnownNeverInfinity() ||
-           KnownRHS.isKnownNeverLogicalZero(*F, Op->getType())))
+           (F && KnownRHS.isKnownNeverLogicalZero(*F, Op->getType()))))
         Known.knownNot(fcNan);
     }
 
@@ -5499,8 +5367,8 @@ void computeKnownFPClass(const Value *V, const APInt &DemandedElts,
       if (KnownLHS.isKnownNeverNaN() && KnownRHS.isKnownNeverNaN() &&
           (KnownLHS.isKnownNeverInfinity() ||
            KnownRHS.isKnownNeverInfinity()) &&
-          (KnownLHS.isKnownNeverLogicalZero(*F, Op->getType()) ||
-           KnownRHS.isKnownNeverLogicalZero(*F, Op->getType()))) {
+          ((F && KnownLHS.isKnownNeverLogicalZero(*F, Op->getType())) ||
+           (F && KnownRHS.isKnownNeverLogicalZero(*F, Op->getType())))) {
         Known.knownNot(fcNan);
       }
 
@@ -5511,7 +5379,7 @@ void computeKnownFPClass(const Value *V, const APInt &DemandedElts,
     } else {
       // Inf REM x and x REM 0 produce NaN.
       if (KnownLHS.isKnownNeverNaN() && KnownRHS.isKnownNeverNaN() &&
-          KnownLHS.isKnownNeverInfinity() &&
+          KnownLHS.isKnownNeverInfinity() && F &&
           KnownRHS.isKnownNeverLogicalZero(*F, Op->getType())) {
         Known.knownNot(fcNan);
       }
