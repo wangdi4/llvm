@@ -1,7 +1,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 // ===- HIRInterLoopBlocking.cpp - Blocking over multiple loopnests -==//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2023 Intel Corporation. All rights reserved.
 //
 //
 //===----------------------------------------------------------------------===//
