@@ -1,32 +1,16 @@
-//==-------- elemwise_irreg_size_ops_bf16.cpp  - DPC++ joint_matrix---- ----==//
-//
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//===----------------------------------------------------------------------===//
-// This test is for element wise operations when matrix size does not multiply
-// SG size. This corner case only applies to AMX. Also, it tests bf16 type.
-// only run this on AMX
-// REQUIRES: cpu
-// REQUIRES: matrix
-
-// RUN: %{build} -o %t.out -DSYCL_EXT_ONEAPI_MATRIX_VERSION=1
-// RUN: %{run} %t.out
-
+// RUN: %clangxx -fsycl -O2 -DSYCL_EXT_ONEAPI_MATRIX_VERSION=1 %s -o %t.out
 #include <iostream>
 #include <sycl/sycl.hpp>
 
 using namespace sycl;
 using namespace sycl::ext::oneapi::experimental::matrix;
 
-#define SG_SZ 16
+#define TILE_SZ 16
+#define TM (TILE_SZ - 1)
+#define TN (TILE_SZ - 1)
+#define TK (2 * TILE_SZ - 2)
 
-// 10x12 is not multiply the sg size, slicing implementation will have to insert
-// padding
-#define TM 10
-#define TN 12
-#define TK 16
+#define SG_SZ 16
 
 template <typename T, size_t NUM_ROWS, size_t NUM_COLS> struct big_matrix {
 public:
@@ -47,12 +31,13 @@ void matrix_multiply(big_matrix<T1, NUM_ROWS_C, NUM_COLS_C> &C,
   size_t M = NUM_ROWS_C;
   size_t N = NUM_COLS_C;
   size_t K = NUM_COLS_A;
-
+  // B => K/4 x N*4, A => M x K, C => M, N
+  // stride should be X's cols, e.g., B's stirde = N*4
   assert(NUM_ROWS_C == NUM_ROWS_A && NUM_COLS_A == NUM_ROWS_B * 2);
   size_t NDRangeM = M / TM;
   size_t NDRangeN = N / TN;
   buffer<unsigned short, 2> bufA(A.get_data(), range<2>(M, K));
-  buffer<unsigned short, 2> bufB(B.get_data(), range<2>(K / 2, N * 2));
+  buffer<unsigned short, 2> bufB(B.get_data(), range<2>(K, N));
   buffer<float, 2> bufC((float *)C.get_data(), range<2>(M, N));
 
   queue q;
@@ -75,36 +60,36 @@ void matrix_multiply(big_matrix<T1, NUM_ROWS_C, NUM_COLS_C> &C,
            const auto sg_startx = global_idx - spmd_item.get_local_id(0);
            const auto sg_starty = global_idy - spmd_item.get_local_id(1);
 
-           sub_group sg = spmd_item.get_sub_group();
+           ext::oneapi::sub_group sg = spmd_item.get_sub_group();
            joint_matrix<unsigned short, TM, TK> sub_a(sg);
            // For B, since current implementation does not support non-packed
-           // layout, users need to specify the packed_b layout.
-           // By default, the layout is row_major
+           // layout, users need to specify the updated VNNI sizes along with
+           // the packed_b layout. By default, the layout is row_major and size
+           // is (TK, TN).
            joint_matrix<unsigned short, TK, TN, matrix_layout::packed_b> sub_b(
                sg);
            joint_matrix<float, TM, TN> sub_c(sg);
+
+           // AMX: 8 register tiles : 1k byte size, SMmaxxSKmax =16x64
+           // strideX = X's cols, so strideC = N, strideA = K, strideB = N*4
            joint_matrix_load(
                sg, sub_c,
                accC.template get_multi_ptr<access::decorated::no>() +
                    (sg_startx * TM) * N + sg_starty / SG_SZ * TN,
                N, matrix_layout::row_major);
-           for (int k = 0; k < K; k += TK) {
+           for (int k = 0; k < K / TK; k += 1) { //
              joint_matrix_load(
                  sg, sub_a,
                  accA.template get_multi_ptr<access::decorated::no>() +
-                     (sg_startx * TM) * K + k,
+                     (sg_startx * TM) * K + k * TK,
                  K, matrix_layout::row_major);
-             // Assume we alreay in vnni format.
+             // Assuming B data is already in VNNI format.
              joint_matrix_load(
                  sg, sub_b,
                  accB.template get_multi_ptr<access::decorated::no>() +
-                     (k) * (N) + sg_starty / SG_SZ * TN * 2,
+                     (k * TK / 2) * (N * 2) + sg_starty / SG_SZ * TN * 2,
                  N * 2, matrix_layout::packed_b);
              sub_c = joint_matrix_mad(sg, sub_a, sub_b, sub_c);
-           }
-           auto wi_slice_c = sub_c.get_wi_data();
-           for (int i = 0; i < wi_slice_c.length(); i++) {
-             wi_slice_c[i] += 5.0;
            }
            joint_matrix_store(
                sg, sub_c,
@@ -151,7 +136,6 @@ void matrix_multiply_ref(int *A_mem, int *B_mem, int *C_mem, int M, int N,
         }
         *((float *)(C_mem + m * N + n)) = acc;
       }
-      *((float *)(C_mem + m * N + n)) += 5.0;
     }
 }
 
@@ -193,4 +177,15 @@ int main() {
     std::cout << "passed\n";
   else
     std::cout << "failed\n";
+  for (int i = 0; i < MATRIX_M; i++) {
+    for (int j = 0; j < MATRIX_N; j++)
+      std::cout << C[i][j] << ", ";
+    std::cout << "\n";
+  }
+  std::cout << std::endl;
+  for (int i = 0; i < MATRIX_M; i++) {
+    for (int j = 0; j < MATRIX_N; j++)
+      std::cout << D[i][j] << ", ";
+    std::cout << "\n";
+  }
 }
