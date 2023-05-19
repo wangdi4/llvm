@@ -648,28 +648,17 @@ static bool isECObject(object::SymbolicFile &Obj) {
 
 static Expected<std::vector<unsigned>>
 getSymbols(MemoryBufferRef Buf, uint16_t Index, raw_ostream &SymNames,
-<<<<<<< HEAD
            SymMap *SymMap, bool &HasObject, bool IsOpaque = false) { // INTEL
-  std::vector<unsigned> Ret;
-
-=======
-           SymMap *SymMap, bool &HasObject) {
->>>>>>> 38d3c6cb9b9dc67a8a5460aa241824be3240b81e
   // In the scenario when LLVMContext is populated SymbolicFile will contain a
   // reference to it, thus SymbolicFile should be destroyed first.
   LLVMContext Context;
 
-<<<<<<< HEAD
 #ifdef INTEL_CUSTOMIZATION
   // enable opaque pointers support for the context
   if (IsOpaque)
     Context.setOpaquePointers(true);
 #endif // INTEL_CUSTOMIZATION
 
-  const file_magic Type = identify_magic(Buf.getBuffer());
-  // Treat unsupported file types as having no symbols.
-  if (!object::SymbolicFile::isSymbolicFile(Type, &Context))
-=======
   std::vector<unsigned> Ret;
   Expected<std::unique_ptr<SymbolicFile>> ObjOrErr =
       getSymbolicFile(Buf, Context);
@@ -678,7 +667,6 @@ getSymbols(MemoryBufferRef Buf, uint16_t Index, raw_ostream &SymNames,
 
   // If the member is non-symbolic file, treat it as having no symbols.
   if (!*ObjOrErr)
->>>>>>> 38d3c6cb9b9dc67a8a5460aa241824be3240b81e
     return Ret;
 
   std::unique_ptr<object::SymbolicFile> Obj = std::move(*ObjOrErr);
