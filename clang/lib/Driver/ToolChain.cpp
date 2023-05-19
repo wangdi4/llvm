@@ -1775,8 +1775,7 @@ SanitizerMask ToolChain::getSupportedSanitizers() const {
   // platform dependent.
 
   SanitizerMask Res =
-      (SanitizerKind::Undefined & ~SanitizerKind::Vptr &
-       ~SanitizerKind::Function) |
+      (SanitizerKind::Undefined & ~SanitizerKind::Vptr) |
       (SanitizerKind::CFI & ~SanitizerKind::CFIICall) |
       SanitizerKind::CFICastStrict | SanitizerKind::FloatDivideByZero |
       SanitizerKind::KCFI | SanitizerKind::UnsignedIntegerOverflow |
