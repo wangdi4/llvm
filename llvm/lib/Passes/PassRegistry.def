@@ -770,6 +770,7 @@ FUNCTION_PASS("tlshoist", TLSVariableHoistPass())
 FUNCTION_PASS("transform-warning", WarnMissedTransformationsPass())
 
 #if INTEL_CUSTOMIZATION
+FUNCTION_PASS("aggressive-speculation", AggressiveSpeculationPass())
 FUNCTION_PASS("forced-cmov-generation", ForcedCMOVGenerationPass())
 FUNCTION_PASS("transform-sin-cos-calls", TransformSinAndCosCallsPass())
 FUNCTION_PASS("load-coalescing", LoadCoalescingPass())
