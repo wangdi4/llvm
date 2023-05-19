@@ -6,9 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-// REQUIRES: (aoc || accelerator)
+// REQUIRES: accelerator
 // RUN: %clangxx -fsycl -fintelfpga %s -o %t.out
-// RUN: %ACC_RUN_PLACEHOLDER %t.out
+// RUN: %{run} %t.out
 
 #include <CL/sycl.hpp>
 #include "sycl/ext/intel/experimental/task_sequence.hpp"

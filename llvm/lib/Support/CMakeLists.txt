@@ -242,6 +242,7 @@ set (SUPPORT_SOURCES
   StringMap.cpp
   StringSaver.cpp
   StringRef.cpp
+  SuffixTreeNode.cpp
   SuffixTree.cpp
   SystemUtils.cpp
   TarWriter.cpp

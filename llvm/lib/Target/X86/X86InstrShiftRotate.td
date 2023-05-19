@@ -250,28 +250,28 @@ let Constraints = "$src1 = $dst" in
   def _ND_NF : shiftl_r1_NDD<opcode, f, typeinfo>, EVEX_B4V, EVEX_NF;
 }
 
+let hasSideEffects = 0 in {
 let Uses = [CL], SchedRW = [WriteShiftCL] in {
 defm SHL8rCL  : mshift_rCL<0xD2, MRM4r, "shl", shl, Xi8>;
 defm SHL16rCL : mshift_rCL<0xD3, MRM4r, "shl", shl, Xi16>;
 defm SHL32rCL : mshift_rCL<0xD3, MRM4r, "shl", shl, Xi32>;
 defm SHL64rCL : mshift_rCL<0xD3, MRM4r, "shl", shl, Xi64>;
-} // Uses = [CL], SchedRW
+}
 
 let SchedRW = [WriteShift], isConvertibleToThreeAddress = 1 in {
 defm SHL8ri   : mshift_ri<0xC0, MRM4r, "shl", shl, Xi8>;
 defm SHL16ri  : mshift_ri<0xC1, MRM4r, "shl", shl, Xi16>;
 defm SHL32ri  : mshift_ri<0xC1, MRM4r, "shl", shl, Xi32>;
 defm SHL64ri  : mshift_ri<0xC1, MRM4r, "shl", shl, Xi64>;
-} // SchedRW
+}
 
-// NOTE: We don't include patterns for shifts of a register by one, because
-// 'add reg,reg' is cheaper (and we have a Pat pattern for shift-by-one).
-let hasSideEffects = 0, SchedRW = [WriteShift] in {
+let SchedRW = [WriteShift] in {
 defm SHL8r1   : mshiftl_r1<0xD0, MRM4r, Xi8>;
 defm SHL16r1  : mshiftl_r1<0xD1, MRM4r, Xi16>;
 defm SHL32r1  : mshiftl_r1<0xD1, MRM4r, Xi32>;
 defm SHL64r1  : mshiftl_r1<0xD1, MRM4r, Xi64>;
-} // hasSideEffects = 0
+}
+}
 
 // FIXME: Why do we need an explicit "Uses = [CL]" when the instr has a pattern
 // using CL?
@@ -313,7 +313,7 @@ let Predicates = [HasNDD] in
                EVEX_B4V, EVEX_NF;
 }
 
-let Uses = [CL], SchedRW = [WriteShiftCLLd, WriteRMW] in {
+let Uses = [CL], SchedRW = [WriteShiftCLLd, WriteRMW], hasSideEffects = 0 in {
 defm SHL8mCL  : mshift_mCL<0xD2, MRM4m, "shl", shl, Xi8>;
 defm SHL16mCL : mshift_mCL<0xD3, MRM4m, "shl", shl, Xi16>;
 defm SHL32mCL : mshift_mCL<0xD3, MRM4m, "shl", shl, Xi32>;
@@ -389,11 +389,9 @@ class shift_m1_NDD_NoPat<bits<8> opcode, Format f, string mnemonic,
 multiclass mshift_m1<bits<8> opcode, Format f, string mnemonic, SDNode node,
                      X86TypeInfo typeinfo>{
 let Defs = [EFLAGS] in {
-let Predicates = !if(typeinfo.HasREX_W, [NoNDD, In64BitMode],
-                                        [NoNDD]) in
-  def NAME : I_N_M<opcode, f, typeinfo, mnemonic, "$dst",
-                   [(store (node (typeinfo.LoadNode addr:$dst),
-                                            (i8 1)),addr:$dst)]>;
+let Predicates = !if(typeinfo.HasREX_W, [NoNDD, In64BitMode], [NoNDD]),
+    mayLoad = 1, mayStore = 1 in
+  def NAME : I_N_M<opcode, f, typeinfo, mnemonic, "$dst", []>;
   def _EVEX : shift_m1_NoPat<opcode, f, mnemonic, typeinfo>,
               EmitVEXOrEVEXPrefix;
 let Predicates = [HasNDD] in
@@ -404,25 +402,21 @@ let Predicates = [HasNDD] in
                EVEX_B4V, EVEX_NF;
 }
 
-let SchedRW = [WriteShiftLd, WriteRMW] in {
+let SchedRW = [WriteShiftLd, WriteRMW], hasSideEffects = 0 in {
 defm SHL8mi   : mshift_mi<0xC0, MRM4m, "shl", shl, Xi8>;
 defm SHL16mi  : mshift_mi<0xC1, MRM4m, "shl", shl, Xi16>;
 defm SHL32mi  : mshift_mi<0xC1, MRM4m, "shl", shl, Xi32>;
 defm SHL64mi  : mshift_mi<0xC1, MRM4m, "shl", shl, Xi64>;
 
-// Shift by 1
 defm SHL8m1   : mshift_m1<0xD0, MRM4m, "shl", shl, Xi8>;
 defm SHL16m1  : mshift_m1<0xD1, MRM4m, "shl", shl, Xi16>;
 defm SHL32m1  : mshift_m1<0xD1, MRM4m, "shl", shl, Xi32>;
 defm SHL64m1  : mshift_m1<0xD1, MRM4m, "shl", shl, Xi64>;
-} // SchedRW
+}
 
 //=======================SHR==========================
-class shift_r1<bits<8> opcode, Format f, string mnemonic, SDNode node,
-               X86TypeInfo typeinfo>
-  : I_R_R<opcode, f, typeinfo, mnemonic, "$dst",
-          [(set typeinfo.RegClass:$dst,
-           (node typeinfo.RegClass:$src1, (i8 1)))]>;
+class shift_r1<bits<8> opcode, Format f, string mnemonic, X86TypeInfo typeinfo>
+  : I_R_R<opcode, f, typeinfo, mnemonic, "$dst", []>;
 
 class shift_r1_NDD<bits<8> opcode, Format f, string mnemonic, SDNode node,
                    X86TypeInfo typeinfo>
@@ -443,7 +437,7 @@ multiclass mshift_r1<bits<8> opcode, Format f, string mnemonic, SDNode node,
 let Defs = [EFLAGS] in {
 let Constraints = "$src1 = $dst" in {
 let Predicates = [NoNDD] in
-  def NAME : shift_r1<opcode, f, mnemonic, node, typeinfo>;
+  def NAME : shift_r1<opcode, f, mnemonic, typeinfo>;
   def _EVEX : shift_r1_NoPat<opcode, f, mnemonic, typeinfo>,
               EmitVEXOrEVEXPrefix;
 }
@@ -456,6 +450,7 @@ let Constraints = "$src1 = $dst" in
                EVEX_B4V, EVEX_NF;
 }
 
+let hasSideEffects = 0 in {
 let Uses = [CL], SchedRW = [WriteShiftCL] in {
 defm SHR8rCL  : mshift_rCL<0xD2, MRM5r, "shr", srl, Xi8>;
 defm SHR16rCL : mshift_rCL<0xD3, MRM5r, "shr", srl, Xi16>;
@@ -463,7 +458,7 @@ defm SHR32rCL : mshift_rCL<0xD3, MRM5r, "shr", srl, Xi32>;
 defm SHR64rCL : mshift_rCL<0xD3, MRM5r, "shr", srl, Xi64>;
 } // Uses = [CL], SchedRW
 
-let SchedRW = [WriteShift]in {
+let SchedRW = [WriteShift] in {
 defm SHR8ri   : mshift_ri<0xC0, MRM5r, "shr", srl, Xi8>;
 defm SHR16ri  : mshift_ri<0xC1, MRM5r, "shr", srl, Xi16>;
 defm SHR32ri  : mshift_ri<0xC1, MRM5r, "shr", srl, Xi32>;
@@ -488,7 +483,6 @@ defm SHR16mi  : mshift_mi<0xC1, MRM5m, "shr", srl, Xi16>;
 defm SHR32mi  : mshift_mi<0xC1, MRM5m, "shr", srl, Xi32>;
 defm SHR64mi  : mshift_mi<0xC1, MRM5m, "shr", srl, Xi64>;
 
-// Shift by 1
 defm SHR8m1   : mshift_m1<0xD0, MRM5m, "shr", srl, Xi8>;
 defm SHR16m1  : mshift_m1<0xD1, MRM5m, "shr", srl, Xi16>;
 defm SHR32m1  : mshift_m1<0xD1, MRM5m, "shr", srl, Xi32>;
@@ -510,14 +504,12 @@ defm SAR32ri  : mshift_ri<0xC1, MRM7r, "sar", sra, Xi32>;
 defm SAR64ri  : mshift_ri<0xC1, MRM7r, "sar", sra, Xi64>;
 } // SchedRW
 
-// NOTE: We don't include patterns for shifts of a register by one, because
-// 'add reg,reg' is cheaper (and we have a Pat pattern for shift-by-one).
 let SchedRW = [WriteShift] in {
 defm SAR8r1   : mshift_r1<0xD0, MRM7r, "sar", sra, Xi8>;
 defm SAR16r1  : mshift_r1<0xD1, MRM7r, "sar", sra, Xi16>;
 defm SAR32r1  : mshift_r1<0xD1, MRM7r, "sar", sra, Xi32>;
 defm SAR64r1  : mshift_r1<0xD1, MRM7r, "sar", sra, Xi64>;
-} // hasSideEffects = 0
+}
 
 let Uses = [CL], SchedRW = [WriteShiftCLLd, WriteRMW] in {
 defm SAR8mCL  : mshift_mCL<0xD2, MRM7m, "sar", sra, Xi8>;
@@ -538,6 +530,7 @@ defm SAR16m1  : mshift_m1<0xD1, MRM7m, "sar", sra, Xi16>;
 defm SAR32m1  : mshift_m1<0xD1, MRM7m, "sar", sra, Xi32>;
 defm SAR64m1  : mshift_m1<0xD1, MRM7m, "sar", sra, Xi64>;
 } // SchedRW
+}
 
 //===----------------------------------------------------------------------===//
 // Rotate instructions
@@ -682,21 +675,21 @@ defm RCL8rCL  : mshift_rCL_NoNF<0xD2, MRM2r, "rcl", Xi8>;
 defm RCL16rCL : mshift_rCL_NoNF<0xD3, MRM2r, "rcl", Xi16>;
 defm RCL32rCL : mshift_rCL_NoNF<0xD3, MRM2r, "rcl", Xi32>;
 defm RCL64rCL : mshift_rCL_NoNF<0xD3, MRM2r, "rcl", Xi64>;
-} // Uses = [CL, EFLAGS], SchedRW
+}
 
-let Uses = [EFLAGS], SchedRW = [WriteRotate]in {
+let Uses = [EFLAGS], SchedRW = [WriteRotate] in {
 defm RCL8ri   : mshift_ri_NoNF<0xC0, MRM2r, "rcl", Xi8>;
 defm RCL16ri  : mshift_ri_NoNF<0xC1, MRM2r, "rcl", Xi16>;
 defm RCL32ri  : mshift_ri_NoNF<0xC1, MRM2r, "rcl", Xi32>;
 defm RCL64ri  : mshift_ri_NoNF<0xC1, MRM2r, "rcl", Xi64>;
-} // SchedRW
+}
 
 let Uses = [EFLAGS], SchedRW = [WriteRotate] in {
 defm RCL8r1   : mshift_r1_NoNF<0xD0, MRM2r, "rcl", Xi8>;
 defm RCL16r1  : mshift_r1_NoNF<0xD1, MRM2r, "rcl", Xi16>;
 defm RCL32r1  : mshift_r1_NoNF<0xD1, MRM2r, "rcl", Xi32>;
 defm RCL64r1  : mshift_r1_NoNF<0xD1, MRM2r, "rcl", Xi64>;
-} // hasSideEffects = 0
+}
 
 let mayLoad = 1, mayStore = 1 in {
 let Uses = [CL, EFLAGS], SchedRW = [WriteRotateCLLd, WriteRMW] in {
@@ -734,14 +727,14 @@ defm RCR8ri   : mshift_ri_NoNF<0xC0, MRM3r, "rcr", Xi8>;
 defm RCR16ri  : mshift_ri_NoNF<0xC1, MRM3r, "rcr", Xi16>;
 defm RCR32ri  : mshift_ri_NoNF<0xC1, MRM3r, "rcr", Xi32>;
 defm RCR64ri  : mshift_ri_NoNF<0xC1, MRM3r, "rcr", Xi64>;
-} // SchedRW
+}
 
 let Uses = [EFLAGS], SchedRW = [WriteRotate] in {
 defm RCR8r1   : mshift_r1_NoNF<0xD0, MRM3r, "rcr", Xi8>;
 defm RCR16r1  : mshift_r1_NoNF<0xD1, MRM3r, "rcr", Xi16>;
 defm RCR32r1  : mshift_r1_NoNF<0xD1, MRM3r, "rcr", Xi32>;
 defm RCR64r1  : mshift_r1_NoNF<0xD1, MRM3r, "rcr", Xi64>;
-} // hasSideEffects = 0
+}
 
 let mayLoad = 1, mayStore = 1 in {
 let Uses = [CL, EFLAGS], SchedRW = [WriteRotateCLLd, WriteRMW] in {
@@ -757,13 +750,12 @@ defm RCR16mi  : mshift_mi_NoNF<0xC1, MRM3m, "rcr", Xi16>;
 defm RCR32mi  : mshift_mi_NoNF<0xC1, MRM3m, "rcr", Xi32>;
 defm RCR64mi  : mshift_mi_NoNF<0xC1, MRM3m, "rcr", Xi64>;
 
-// Shift by 1
 defm RCR8m1   : mshift_m1_NoNF<0xD0, MRM3m, "rcr", Xi8>;
 defm RCR16m1  : mshift_m1_NoNF<0xD1, MRM3m, "rcr", Xi16>;
 defm RCR32m1  : mshift_m1_NoNF<0xD1, MRM3m, "rcr", Xi32>;
 defm RCR64m1  : mshift_m1_NoNF<0xD1, MRM3m, "rcr", Xi64>;
-} // SchedRW
-} // mayLoad, mayStore
+}
+}
 } // hasSideEffects = 0
 
 // ================== ROL =======================
@@ -772,21 +764,21 @@ defm ROL8rCL  : mshift_rCL<0xD2, MRM0r, "rol", rotl, Xi8>;
 defm ROL16rCL : mshift_rCL<0xD3, MRM0r, "rol", rotl, Xi16>;
 defm ROL32rCL : mshift_rCL<0xD3, MRM0r, "rol", rotl, Xi32>;
 defm ROL64rCL : mshift_rCL<0xD3, MRM0r, "rol", rotl, Xi64>;
-} // Uses = [CL], SchedRW
+}
 
 let SchedRW = [WriteRotate]in {
 defm ROL8ri   : mshift_ri<0xC0, MRM0r, "rol", rotl, Xi8>;
 defm ROL16ri  : mshift_ri<0xC1, MRM0r, "rol", rotl, Xi16>;
 defm ROL32ri  : mshift_ri<0xC1, MRM0r, "rol", rotl, Xi32>;
 defm ROL64ri  : mshift_ri<0xC1, MRM0r, "rol", rotl, Xi64>;
-} // SchedRW
+}
 
 let SchedRW = [WriteRotate] in {
 defm ROL8r1   : mshift_r1<0xD0, MRM0r, "rol", rotl, Xi8>;
 defm ROL16r1  : mshift_r1<0xD1, MRM0r, "rol", rotl, Xi16>;
 defm ROL32r1  : mshift_r1<0xD1, MRM0r, "rol", rotl, Xi32>;
 defm ROL64r1  : mshift_r1<0xD1, MRM0r, "rol", rotl, Xi64>;
-} // hasSideEffects = 0
+}
 
 let Uses = [CL], SchedRW = [WriteRotateCLLd, WriteRMW] in {
 defm ROL8mCL  : mshift_mCL<0xD2, MRM0m, "rol", rotl, Xi8>;
@@ -801,34 +793,33 @@ defm ROL16mi  : mshift_mi<0xC1, MRM0m, "rol", rotl, Xi16>;
 defm ROL32mi  : mshift_mi<0xC1, MRM0m, "rol", rotl, Xi32>;
 defm ROL64mi  : mshift_mi<0xC1, MRM0m, "rol", rotl, Xi64>;
 
-// Shift by 1
 defm ROL8m1   : mshift_m1<0xD0, MRM0m, "rol", rotl, Xi8>;
 defm ROL16m1  : mshift_m1<0xD1, MRM0m, "rol", rotl, Xi16>;
 defm ROL32m1  : mshift_m1<0xD1, MRM0m, "rol", rotl, Xi32>;
 defm ROL64m1  : mshift_m1<0xD1, MRM0m, "rol", rotl, Xi64>;
-} // SchedRW
+}
 
-// ================== ROL =======================
+// ================== ROR =======================
 let Uses = [CL], SchedRW = [WriteRotateCL] in {
 defm ROR8rCL  : mshift_rCL<0xD2, MRM1r, "ror", rotr, Xi8>;
 defm ROR16rCL : mshift_rCL<0xD3, MRM1r, "ror", rotr, Xi16>;
 defm ROR32rCL : mshift_rCL<0xD3, MRM1r, "ror", rotr, Xi32>;
 defm ROR64rCL : mshift_rCL<0xD3, MRM1r, "ror", rotr, Xi64>;
-} // Uses = [CL], SchedRW
+}
 
 let SchedRW = [WriteRotate]in {
 defm ROR8ri   : mshift_ri<0xC0, MRM1r, "ror", rotr, Xi8>;
 defm ROR16ri  : mshift_ri<0xC1, MRM1r, "ror", rotr, Xi16>;
 defm ROR32ri  : mshift_ri<0xC1, MRM1r, "ror", rotr, Xi32>;
 defm ROR64ri  : mshift_ri<0xC1, MRM1r, "ror", rotr, Xi64>;
-} // SchedRW
+}
 
 let SchedRW = [WriteRotate] in {
 defm ROR8r1   : mshift_r1<0xD0, MRM1r, "ror", rotr, Xi8>;
 defm ROR16r1  : mshift_r1<0xD1, MRM1r, "ror", rotr, Xi16>;
 defm ROR32r1  : mshift_r1<0xD1, MRM1r, "ror", rotr, Xi32>;
 defm ROR64r1  : mshift_r1<0xD1, MRM1r, "ror", rotr, Xi64>;
-} // hasSideEffects = 0
+}
 
 let Uses = [CL], SchedRW = [WriteRotateCLLd, WriteRMW] in {
 defm ROR8mCL  : mshift_mCL<0xD2, MRM1m, "ror", rotr, Xi8>;
@@ -843,12 +834,11 @@ defm ROR16mi  : mshift_mi<0xC1, MRM1m, "ror", rotr, Xi16>;
 defm ROR32mi  : mshift_mi<0xC1, MRM1m, "ror", rotr, Xi32>;
 defm ROR64mi  : mshift_mi<0xC1, MRM1m, "ror", rotr, Xi64>;
 
-// Shift by 1
 defm ROR8m1   : mshift_m1<0xD0, MRM1m, "ror", rotr, Xi8>;
 defm ROR16m1  : mshift_m1<0xD1, MRM1m, "ror", rotr, Xi16>;
 defm ROR32m1  : mshift_m1<0xD1, MRM1m, "ror", rotr, Xi32>;
 defm ROR64m1  : mshift_m1<0xD1, MRM1m, "ror", rotr, Xi64>;
-} // SchedRW
+}
 
 //===----------------------------------------------------------------------===//
 // Double shift instructions (generalizations of rotate)
@@ -1313,7 +1303,7 @@ defm SHRD64mri8 : mshiftRD_mri8<0xAC, 0x2C, MRMDestMem, "shrd", fshr, Xi64>;
 #else // INTEL_FEATURE_ISA_APX_F
 // FIXME: Someone needs to smear multipattern goodness all over this file.
 
-let Defs = [EFLAGS] in {
+let Defs = [EFLAGS], hasSideEffects = 0 in {
 
 let Constraints = "$src1 = $dst" in {
 let Uses = [CL], SchedRW = [WriteShiftCL] in {
@@ -1351,9 +1341,6 @@ def SHL64ri  : RIi8<0xC1, MRM4r, (outs GR64:$dst),
                     [(set GR64:$dst, (shl GR64:$src1, (i8 imm:$src2)))]>;
 } // isConvertibleToThreeAddress = 1
 
-// NOTE: We don't include patterns for shifts of a register by one, because
-// 'add reg,reg' is cheaper (and we have a Pat pattern for shift-by-one).
-let hasSideEffects = 0 in {
 def SHL8r1   : I<0xD0, MRM4r, (outs GR8:$dst), (ins GR8:$src1),
                  "shl{b}\t$dst", []>;
 def SHL16r1  : I<0xD1, MRM4r, (outs GR16:$dst), (ins GR16:$src1),
@@ -1362,7 +1349,6 @@ def SHL32r1  : I<0xD1, MRM4r, (outs GR32:$dst), (ins GR32:$src1),
                  "shl{l}\t$dst", []>, OpSize32;
 def SHL64r1  : RI<0xD1, MRM4r, (outs GR64:$dst), (ins GR64:$src1),
                  "shl{q}\t$dst", []>;
-} // hasSideEffects = 0
 } // SchedRW
 } // Constraints = "$src = $dst"
 
@@ -1386,7 +1372,7 @@ def SHL64mCL : RI<0xD3, MRM4m, (outs), (ins i64mem:$dst),
                   Requires<[In64BitMode]>;
 } // Uses, SchedRW
 
-let SchedRW = [WriteShiftLd, WriteRMW] in {
+let SchedRW = [WriteShiftLd, WriteRMW], mayLoad = 1, mayStore = 1 in {
 def SHL8mi   : Ii8<0xC0, MRM4m, (outs), (ins i8mem :$dst, u8imm:$src),
                    "shl{b}\t{$src, $dst|$dst, $src}",
                 [(store (shl (loadi8 addr:$dst), (i8 imm:$src)), addr:$dst)]>;
@@ -1405,21 +1391,14 @@ def SHL64mi : RIi8<0xC1, MRM4m, (outs), (ins i64mem:$dst, u8imm:$src),
 
 // Shift by 1
 def SHL8m1   : I<0xD0, MRM4m, (outs), (ins i8mem :$dst),
-                 "shl{b}\t$dst",
-                [(store (shl (loadi8 addr:$dst), (i8 1)), addr:$dst)]>;
+                 "shl{b}\t$dst", []>;
 def SHL16m1  : I<0xD1, MRM4m, (outs), (ins i16mem:$dst),
-                 "shl{w}\t$dst",
-                 [(store (shl (loadi16 addr:$dst), (i8 1)), addr:$dst)]>,
-                 OpSize16;
+                 "shl{w}\t$dst", []>, OpSize16;
 def SHL32m1  : I<0xD1, MRM4m, (outs), (ins i32mem:$dst),
-                 "shl{l}\t$dst",
-                 [(store (shl (loadi32 addr:$dst), (i8 1)), addr:$dst)]>,
-                 OpSize32;
+                 "shl{l}\t$dst", []>, OpSize32;
 def SHL64m1 : RI<0xD1, MRM4m, (outs), (ins i64mem:$dst),
-                  "shl{q}\t$dst",
-                 [(store (shl (loadi64 addr:$dst), (i8 1)), addr:$dst)]>,
-                 Requires<[In64BitMode]>;
-} // SchedRW
+                  "shl{q}\t$dst", []>, Requires<[In64BitMode]>;
+} // SchedRW, mayLoad, mayStore
 
 let Constraints = "$src1 = $dst" in {
 let Uses = [CL], SchedRW = [WriteShiftCL] in {
@@ -1455,17 +1434,13 @@ def SHR64ri : RIi8<0xC1, MRM5r, (outs GR64:$dst), (ins GR64:$src1, u8imm:$src2),
 
 // Shift right by 1
 def SHR8r1   : I<0xD0, MRM5r, (outs GR8:$dst), (ins GR8:$src1),
-                 "shr{b}\t$dst",
-                 [(set GR8:$dst, (srl GR8:$src1, (i8 1)))]>;
+                 "shr{b}\t$dst", []>;
 def SHR16r1  : I<0xD1, MRM5r, (outs GR16:$dst), (ins GR16:$src1),
-                 "shr{w}\t$dst",
-                 [(set GR16:$dst, (srl GR16:$src1, (i8 1)))]>, OpSize16;
+                 "shr{w}\t$dst", []>, OpSize16;
 def SHR32r1  : I<0xD1, MRM5r, (outs GR32:$dst), (ins GR32:$src1),
-                 "shr{l}\t$dst",
-                 [(set GR32:$dst, (srl GR32:$src1, (i8 1)))]>, OpSize32;
+                 "shr{l}\t$dst", []>, OpSize32;
 def SHR64r1  : RI<0xD1, MRM5r, (outs GR64:$dst), (ins GR64:$src1),
-                 "shr{q}\t$dst",
-                 [(set GR64:$dst, (srl GR64:$src1, (i8 1)))]>;
+                 "shr{q}\t$dst", []>;
 } // SchedRW
 } // Constraints = "$src = $dst"
 
@@ -1488,7 +1463,7 @@ def SHR64mCL : RI<0xD3, MRM5m, (outs), (ins i64mem:$dst),
                   Requires<[In64BitMode]>;
 } // Uses, SchedRW
 
-let SchedRW = [WriteShiftLd, WriteRMW] in {
+let SchedRW = [WriteShiftLd, WriteRMW], mayLoad = 1, mayStore = 1 in {
 def SHR8mi   : Ii8<0xC0, MRM5m, (outs), (ins i8mem :$dst, u8imm:$src),
                    "shr{b}\t{$src, $dst|$dst, $src}",
                 [(store (srl (loadi8 addr:$dst), (i8 imm:$src)), addr:$dst)]>;
@@ -1507,21 +1482,15 @@ def SHR64mi : RIi8<0xC1, MRM5m, (outs), (ins i64mem:$dst, u8imm:$src),
 
 // Shift by 1
 def SHR8m1   : I<0xD0, MRM5m, (outs), (ins i8mem :$dst),
-                 "shr{b}\t$dst",
-                 [(store (srl (loadi8 addr:$dst), (i8 1)), addr:$dst)]>;
+                 "shr{b}\t$dst", []>;
 def SHR16m1  : I<0xD1, MRM5m, (outs), (ins i16mem:$dst),
-                 "shr{w}\t$dst",
-                 [(store (srl (loadi16 addr:$dst), (i8 1)), addr:$dst)]>,
-                 OpSize16;
+                 "shr{w}\t$dst", []>, OpSize16;
 def SHR32m1  : I<0xD1, MRM5m, (outs), (ins i32mem:$dst),
-                 "shr{l}\t$dst",
-                 [(store (srl (loadi32 addr:$dst), (i8 1)), addr:$dst)]>,
-                 OpSize32;
+                 "shr{l}\t$dst", []>, OpSize32;
 def SHR64m1 : RI<0xD1, MRM5m, (outs), (ins i64mem:$dst),
-                  "shr{q}\t$dst",
-                 [(store (srl (loadi64 addr:$dst), (i8 1)), addr:$dst)]>,
-                 Requires<[In64BitMode]>;
-} // SchedRW
+                  "shr{q}\t$dst", []>, Requires<[In64BitMode]>;
+} // SchedRW, mayLoad, mayStore
+
 
 let Constraints = "$src1 = $dst" in {
 let Uses = [CL], SchedRW = [WriteShiftCL] in {
@@ -1560,17 +1529,13 @@ def SAR64ri  : RIi8<0xC1, MRM7r, (outs GR64:$dst),
 
 // Shift by 1
 def SAR8r1   : I<0xD0, MRM7r, (outs GR8 :$dst), (ins GR8 :$src1),
-                 "sar{b}\t$dst",
-                 [(set GR8:$dst, (sra GR8:$src1, (i8 1)))]>;
+                 "sar{b}\t$dst", []>;
 def SAR16r1  : I<0xD1, MRM7r, (outs GR16:$dst), (ins GR16:$src1),
-                 "sar{w}\t$dst",
-                 [(set GR16:$dst, (sra GR16:$src1, (i8 1)))]>, OpSize16;
+                 "sar{w}\t$dst", []>, OpSize16;
 def SAR32r1  : I<0xD1, MRM7r, (outs GR32:$dst), (ins GR32:$src1),
-                 "sar{l}\t$dst",
-                 [(set GR32:$dst, (sra GR32:$src1, (i8 1)))]>, OpSize32;
+                 "sar{l}\t$dst", []>, OpSize32;
 def SAR64r1  : RI<0xD1, MRM7r, (outs GR64:$dst), (ins GR64:$src1),
-                  "sar{q}\t$dst",
-                  [(set GR64:$dst, (sra GR64:$src1, (i8 1)))]>;
+                  "sar{q}\t$dst", []>;
 } // SchedRW
 } // Constraints = "$src = $dst"
 
@@ -1593,7 +1558,7 @@ def SAR64mCL : RI<0xD3, MRM7m, (outs), (ins i64mem:$dst),
                  Requires<[In64BitMode]>;
 } // Uses, SchedRW
 
-let SchedRW = [WriteShiftLd, WriteRMW] in {
+let SchedRW = [WriteShiftLd, WriteRMW], mayLoad = 1, mayStore = 1 in {
 def SAR8mi   : Ii8<0xC0, MRM7m, (outs), (ins i8mem :$dst, u8imm:$src),
                    "sar{b}\t{$src, $dst|$dst, $src}",
                 [(store (sra (loadi8 addr:$dst), (i8 imm:$src)), addr:$dst)]>;
@@ -1612,27 +1577,19 @@ def SAR64mi  : RIi8<0xC1, MRM7m, (outs), (ins i64mem:$dst, u8imm:$src),
 
 // Shift by 1
 def SAR8m1   : I<0xD0, MRM7m, (outs), (ins i8mem :$dst),
-                 "sar{b}\t$dst",
-                [(store (sra (loadi8 addr:$dst), (i8 1)), addr:$dst)]>;
+                 "sar{b}\t$dst", []>;
 def SAR16m1  : I<0xD1, MRM7m, (outs), (ins i16mem:$dst),
-                 "sar{w}\t$dst",
-               [(store (sra (loadi16 addr:$dst), (i8 1)), addr:$dst)]>,
-               OpSize16;
+                 "sar{w}\t$dst", []>, OpSize16;
 def SAR32m1  : I<0xD1, MRM7m, (outs), (ins i32mem:$dst),
-                 "sar{l}\t$dst",
-               [(store (sra (loadi32 addr:$dst), (i8 1)), addr:$dst)]>,
-               OpSize32;
+                 "sar{l}\t$dst", []>, OpSize32;
 def SAR64m1 : RI<0xD1, MRM7m, (outs), (ins i64mem:$dst),
-                  "sar{q}\t$dst",
-                 [(store (sra (loadi64 addr:$dst), (i8 1)), addr:$dst)]>,
-                 Requires<[In64BitMode]>;
+                  "sar{q}\t$dst", []>, Requires<[In64BitMode]>;
 } // SchedRW
 
 //===----------------------------------------------------------------------===//
 // Rotate instructions
 //===----------------------------------------------------------------------===//
 
-let hasSideEffects = 0 in {
 let Constraints = "$src1 = $dst" in {
 
 let Uses = [CL, EFLAGS], SchedRW = [WriteRotateCL] in {
@@ -1694,7 +1651,6 @@ def RCR64r1 : RI<0xD1, MRM3r, (outs GR64:$dst), (ins GR64:$src1),
 def RCR64ri : RIi8<0xC1, MRM3r, (outs GR64:$dst), (ins GR64:$src1, u8imm:$cnt),
                    "rcr{q}\t{$cnt, $dst|$dst, $cnt}", []>;
 } // Uses = [EFLAGS], SchedRW
-
 } // Constraints = "$src = $dst"
 
 let mayLoad = 1, mayStore = 1 in {
@@ -1758,7 +1714,6 @@ def RCR64mCL : RI<0xD3, MRM3m, (outs), (ins i64mem:$dst),
                   Requires<[In64BitMode]>;
 } // Uses = [CL, EFLAGS], SchedRW
 } // mayLoad, mayStore
-} // hasSideEffects = 0
 
 let Constraints = "$src1 = $dst" in {
 // FIXME: provide shorter instructions when imm8 == 1
@@ -1796,17 +1751,13 @@ def ROL64ri  : RIi8<0xC1, MRM0r, (outs GR64:$dst),
 
 // Rotate by 1
 def ROL8r1   : I<0xD0, MRM0r, (outs GR8 :$dst), (ins GR8 :$src1),
-                 "rol{b}\t$dst",
-                 [(set GR8:$dst, (rotl GR8:$src1, (i8 1)))]>;
+                 "rol{b}\t$dst", []>;
 def ROL16r1  : I<0xD1, MRM0r, (outs GR16:$dst), (ins GR16:$src1),
-                 "rol{w}\t$dst",
-                 [(set GR16:$dst, (rotl GR16:$src1, (i8 1)))]>, OpSize16;
+                 "rol{w}\t$dst", []>, OpSize16;
 def ROL32r1  : I<0xD1, MRM0r, (outs GR32:$dst), (ins GR32:$src1),
-                 "rol{l}\t$dst",
-                 [(set GR32:$dst, (rotl GR32:$src1, (i8 1)))]>, OpSize32;
+                 "rol{l}\t$dst", []>, OpSize32;
 def ROL64r1  : RI<0xD1, MRM0r, (outs GR64:$dst), (ins GR64:$src1),
-                  "rol{q}\t$dst",
-                  [(set GR64:$dst, (rotl GR64:$src1, (i8 1)))]>;
+                  "rol{q}\t$dst", []>;
 } // SchedRW
 } // Constraints = "$src = $dst"
 
@@ -1826,7 +1777,7 @@ def ROL64mCL :  RI<0xD3, MRM0m, (outs), (ins i64mem:$dst),
                    Requires<[In64BitMode]>;
 } // Uses, SchedRW
 
-let SchedRW = [WriteRotateLd, WriteRMW] in {
+let SchedRW = [WriteRotateLd, WriteRMW], mayLoad = 1, mayStore = 1 in {
 def ROL8mi   : Ii8<0xC0, MRM0m, (outs), (ins i8mem :$dst, u8imm:$src1),
                    "rol{b}\t{$src1, $dst|$dst, $src1}",
                [(store (rotl (loadi8 addr:$dst), (i8 imm:$src1)), addr:$dst)]>;
@@ -1845,21 +1796,14 @@ def ROL64mi  : RIi8<0xC1, MRM0m, (outs), (ins i64mem:$dst, u8imm:$src1),
 
 // Rotate by 1
 def ROL8m1   : I<0xD0, MRM0m, (outs), (ins i8mem :$dst),
-                 "rol{b}\t$dst",
-                 [(store (rotl (loadi8 addr:$dst), (i8 1)), addr:$dst)]>;
+                 "rol{b}\t$dst", []>;
 def ROL16m1  : I<0xD1, MRM0m, (outs), (ins i16mem:$dst),
-                 "rol{w}\t$dst",
-                 [(store (rotl (loadi16 addr:$dst), (i8 1)), addr:$dst)]>,
-                 OpSize16;
+                 "rol{w}\t$dst", []>, OpSize16;
 def ROL32m1  : I<0xD1, MRM0m, (outs), (ins i32mem:$dst),
-                 "rol{l}\t$dst",
-                 [(store (rotl (loadi32 addr:$dst), (i8 1)), addr:$dst)]>,
-                 OpSize32;
+                 "rol{l}\t$dst", []>, OpSize32;
 def ROL64m1  : RI<0xD1, MRM0m, (outs), (ins i64mem:$dst),
-                 "rol{q}\t$dst",
-                 [(store (rotl (loadi64 addr:$dst), (i8 1)), addr:$dst)]>,
-                 Requires<[In64BitMode]>;
-} // SchedRW
+                 "rol{q}\t$dst", []>, Requires<[In64BitMode]>;
+} // SchedRW, mayLoad, mayStore
 
 let Constraints = "$src1 = $dst" in {
 let Uses = [CL], SchedRW = [WriteRotateCL] in {
@@ -1896,17 +1840,13 @@ def ROR64ri  : RIi8<0xC1, MRM1r, (outs GR64:$dst),
 
 // Rotate by 1
 def ROR8r1   : I<0xD0, MRM1r, (outs GR8 :$dst), (ins GR8 :$src1),
-                 "ror{b}\t$dst",
-                 [(set GR8:$dst, (rotr GR8:$src1, (i8 1)))]>;
+                 "ror{b}\t$dst", []>;
 def ROR16r1  : I<0xD1, MRM1r, (outs GR16:$dst), (ins GR16:$src1),
-                 "ror{w}\t$dst",
-                 [(set GR16:$dst, (rotr GR16:$src1, (i8 1)))]>, OpSize16;
+                 "ror{w}\t$dst", []>, OpSize16;
 def ROR32r1  : I<0xD1, MRM1r, (outs GR32:$dst), (ins GR32:$src1),
-                 "ror{l}\t$dst",
-                 [(set GR32:$dst, (rotr GR32:$src1, (i8 1)))]>, OpSize32;
+                 "ror{l}\t$dst", []>, OpSize32;
 def ROR64r1  : RI<0xD1, MRM1r, (outs GR64:$dst), (ins GR64:$src1),
-                  "ror{q}\t$dst",
-                  [(set GR64:$dst, (rotr GR64:$src1, (i8 1)))]>;
+                  "ror{q}\t$dst", []>;
 } // SchedRW
 } // Constraints = "$src = $dst", SchedRW
 
@@ -1926,7 +1866,7 @@ def ROR64mCL : RI<0xD3, MRM1m, (outs), (ins i64mem:$dst),
                   Requires<[In64BitMode]>;
 } // Uses, SchedRW
 
-let SchedRW = [WriteRotateLd, WriteRMW] in {
+let SchedRW = [WriteRotateLd, WriteRMW], mayLoad = 1, mayStore =1 in {
 def ROR8mi   : Ii8<0xC0, MRM1m, (outs), (ins i8mem :$dst, u8imm:$src),
                    "ror{b}\t{$src, $dst|$dst, $src}",
                    [(store (rotr (loadi8 addr:$dst), (i8 imm:$src)), addr:$dst)]>;
@@ -1945,21 +1885,15 @@ def ROR64mi  : RIi8<0xC1, MRM1m, (outs), (ins i64mem:$dst, u8imm:$src),
 
 // Rotate by 1
 def ROR8m1   : I<0xD0, MRM1m, (outs), (ins i8mem :$dst),
-                 "ror{b}\t$dst",
-                 [(store (rotr (loadi8 addr:$dst), (i8 1)), addr:$dst)]>;
+                 "ror{b}\t$dst", []>;
 def ROR16m1  : I<0xD1, MRM1m, (outs), (ins i16mem:$dst),
-                 "ror{w}\t$dst",
-                 [(store (rotr (loadi16 addr:$dst), (i8 1)), addr:$dst)]>,
-                 OpSize16;
+                 "ror{w}\t$dst", []>, OpSize16;
 def ROR32m1  : I<0xD1, MRM1m, (outs), (ins i32mem:$dst),
-                 "ror{l}\t$dst",
-                 [(store (rotr (loadi32 addr:$dst), (i8 1)), addr:$dst)]>,
+                 "ror{l}\t$dst", []>,
                  OpSize32;
 def ROR64m1  : RI<0xD1, MRM1m, (outs), (ins i64mem:$dst),
-                 "ror{q}\t$dst",
-                 [(store (rotr (loadi64 addr:$dst), (i8 1)), addr:$dst)]>,
-                 Requires<[In64BitMode]>;
-} // SchedRW
+                 "ror{q}\t$dst", []>, Requires<[In64BitMode]>;
+} // SchedRW, mayLoad, mayStore
 
 
 //===----------------------------------------------------------------------===//
@@ -2117,7 +2051,7 @@ def SHRD64mri8 : RIi8<0xAC, MRMDestMem,
                  TB;
 } // SchedRW
 
-} // Defs = [EFLAGS]
+} // Defs = [EFLAGS], hasSideEffects
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 

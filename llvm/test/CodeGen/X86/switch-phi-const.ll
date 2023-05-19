@@ -8,11 +8,11 @@ define void @switch_phi_const(i32 %x) {
 ; CHECK-LABEL: switch_phi_const:
 ; CHECK:       # %bb.0: # %bb0
 ; CHECK-NEXT:    # kill: def $edi killed $edi def $rdi
-; CHECK-NEXT:    leal -1(%rdi), %eax ;INTEL
-; CHECK-NEXT:    cmpl $54, %eax ;INTEL
+; CHECK-NEXT:    leal -1(%rdi), %eax
+; CHECK-NEXT:    cmpl $54, %eax
 ; CHECK-NEXT:    ja .LBB0_4 ;INTEL
 ; CHECK-NEXT:  # %bb.1: # %bb0
-; CHECK-NEXT:    jmpq *.LJTI0_0(,%rax,8) ;INTEL
+; CHECK-NEXT:    jmpq *.LJTI0_0(,%rax,8)
 ; CHECK-NEXT:  .LBB0_5: # %case_7 ;INTEL
 ; CHECK-NEXT:    movq g@GOTPCREL(%rip), %rax
 ; CHECK-NEXT:    movl (%rax), %edi
@@ -37,7 +37,7 @@ define void @switch_phi_const(i32 %x) {
 ; CHECK-NEXT:  .LBB0_4: # %default ;INTEL
 ; CHECK-NEXT:    retq
 ; CHECK-NEXT:  .LBB0_2: # %case_55 ;INTEL
-; CHECK-NEXT:    movl $42, %eax ;INTEL
+; CHECK-NEXT:    movl $42, %eax
 ; CHECK-NEXT:    jmp .LBB0_3 ;INTEL
 bb0:
   switch i32 %x, label %default [
@@ -97,15 +97,13 @@ define void @switch_trunc_phi_const(i32 %x) {
 ; CHECK-NEXT:    movzbl %dil, %eax
 ; CHECK-NEXT:    leal -1(%rax), %ecx
 ; CHECK-NEXT:    cmpl $54, %ecx
-; CHECK-NEXT:    ja .LBB1_9 ;INTEL
+; CHECK-NEXT:    ja .LBB1_9
 ; CHECK-NEXT:  # %bb.1: # %bb0
 ; CHECK-NEXT:    jmpq *.LJTI1_0(,%rcx,8)
-; INTEL_CUSTOMIZATION
-; CHECK-NEXT:  .LBB1_2: # %case_55
+; CHECK-NEXT:  .LBB1_2: # %case_55 ;INTEL
 ; CHECK-NEXT:    movl $3895, %eax # imm = 0xF37
-; CHECK-NEXT:    jmp .LBB1_3
+; CHECK-NEXT:    jmp .LBB1_3 ;INTEL
 ; CHECK-NEXT:  .LBB1_9: # %default
-; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    retq
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:  .LBB1_3: # %.split
@@ -129,8 +127,8 @@ define void @switch_trunc_phi_const(i32 %x) {
 ; CHECK-NEXT:  .LBB1_8: # %.split1 ;INTEL
 ; CHECK-NEXT:    movq effect64@GOTPCREL(%rip), %rcx
 ; CHECK-NEXT:    movq %rax, (%rcx)
-; CHECK-NEXT:    movl $55, %eax ;INTEL
-; CHECK-NEXT:    jmp .LBB1_3 ;INTEL
+; CHECK-NEXT:    movl $55, %eax
+; CHECK-NEXT:    jmp .LBB1_3
 bb0:
   %x_trunc = trunc i32 %x to i8
   switch i8 %x_trunc, label %default [

@@ -1388,6 +1388,8 @@ Currently, only the following parameter attributes are defined:
     a valid attribute for return values and can only be applied to one
     parameter.
 
+.. _swiftasync:
+
 ``swiftasync``
     This indicates that the parameter is the asynchronous context parameter and
     triggers the creation of a target-specific extended frame record to store
@@ -4335,7 +4337,7 @@ or '``void``') and be used anywhere a constant is permitted.
 
 .. note::
 
-  A '``poison``' value (decribed in the next section) should be used instead of
+  A '``poison``' value (described in the next section) should be used instead of
   '``undef``' whenever possible. Poison values are stronger than undef, and
   enable more optimizations. Just the existence of '``undef``' blocks certain
   optimizations (see the examples below).
@@ -6149,7 +6151,8 @@ The current supported opcode vocabulary is limited:
   instruction.
 
   Because ``DW_OP_LLVM_entry_value`` is defined in terms of registers, it is
-  only allowed in MIR. The operation is introduced by:
+  usually used in MIR, but it is also allowed in LLVM IR when targetting a
+  :ref:`swiftasync <swiftasync>` argument. The operation is introduced by:
 
     - ``LiveDebugValues`` pass, which applies it to function parameters that
       are unmodified throughout the function. Support is limited to simple
@@ -6159,6 +6162,10 @@ The current supported opcode vocabulary is limited:
     - ``AsmPrinter`` pass when a call site parameter value
       (``DW_AT_call_site_parameter_value``) is represented as entry value of
       the parameter.
+    - ``CoroSplit`` pass, which may move variables from allocas into a
+      coroutine frame. If the coroutine frame is a
+      :ref:`swiftasync <swiftasync>` argument, the variable is described with
+      an ``DW_OP_LLVM_entry_value`` operation.
 
 - ``DW_OP_LLVM_arg, N`` is used in debug intrinsics that refer to more than one
   value, such as one that calculates the sum of two registers. This is always
@@ -15439,10 +15446,9 @@ Follows the IEEE-754 semantics for minNum, except for handling of
 signaling NaNs. This match's the behavior of libm's fmin.
 
 If either operand is a NaN, returns the other non-NaN operand. Returns
-NaN only if both operands are NaN. The returned NaN is always
-quiet. If the operands compare equal, returns a value that compares
-equal to both operands. This means that fmin(+/-0.0, +/-0.0) could
-return either -0.0 or 0.0.
+NaN only if both operands are NaN. If the operands compare equal,
+returns either one of the operands. For example, this means that
+fmin(+0.0, -0.0) returns either operand.
 
 Unlike the IEEE-754 2008 behavior, this does not distinguish between
 signaling and quiet NaN inputs. If a target's implementation follows
@@ -15490,10 +15496,9 @@ Follows the IEEE-754 semantics for maxNum except for the handling of
 signaling NaNs. This matches the behavior of libm's fmax.
 
 If either operand is a NaN, returns the other non-NaN operand. Returns
-NaN only if both operands are NaN. The returned NaN is always
-quiet. If the operands compare equal, returns a value that compares
-equal to both operands. This means that fmax(+/-0.0, +/-0.0) could
-return either -0.0 or 0.0.
+NaN only if both operands are NaN. If the operands compare equal,
+returns either one of the operands. For example, this means that
+fmax(+0.0, -0.0) returns either -0.0 or 0.0.
 
 Unlike the IEEE-754 2008 behavior, this does not distinguish between
 signaling and quiet NaN inputs. If a target's implementation follows

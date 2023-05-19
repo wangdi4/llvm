@@ -74,9 +74,17 @@ static void printELFNotes(const ELFObjectFile<ELFT> *Object) {
       case NT_LLVM_OPENMP_OFFLOAD_VERSION:
       case NT_LLVM_OPENMP_OFFLOAD_PRODUCER:
       case NT_LLVM_OPENMP_OFFLOAD_PRODUCER_VERSION: {
-        StringRef Desc = Note.getDescAsStringRef();
+#if 0
+        StringRef Desc = Note.getDescAsStringRef(SB->sh_addralign);
         DP("LLVMOMPOFFLOAD ELF note %s with value: '%s'\n",
            getOffloadNoteTypeName(Type), Desc.str().c_str());
+#else
+        // FIXME: For some reason, the returned descriptor array is off by one
+        // while the base address (Desc[0]) has '\0'.
+        auto Desc = Note.getDesc(SB->sh_addralign);
+        DP("LLVMOMPOFFLOAD ELF note %s with value: '%s'\n",
+           getOffloadNoteTypeName(Type), &Desc[1]);
+#endif
         break;
       }
       }
