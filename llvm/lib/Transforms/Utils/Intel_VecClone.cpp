@@ -852,11 +852,11 @@ VecCloneImpl::Factory::widenVectorArgumentsAndReturn(Instruction *&Mask,
 
   auto *FuncReturn = cast<ReturnInst>(ReturnBlock->getTerminator());
   Value *ValToStore = FuncReturn->getOperand(0);
-  Type *RetTy = F.getReturnType();
+  Type *RetEltTy = F.getReturnType();
   // GEPs into vectors of i1 do not make sense, so promote it to i8,
   // similar to later CodeGen processing.
-  if (RetTy->isIntegerTy(1))
-    RetTy = Type::getInt8Ty(RetTy->getContext());
+  if (RetEltTy->isIntegerTy(1))
+    RetEltTy = Type::getInt8Ty(RetEltTy->getContext());
 
   auto *InsertPt = dyn_cast<Instruction>(ValToStore);
   if (InsertPt) {
@@ -877,28 +877,31 @@ VecCloneImpl::Factory::widenVectorArgumentsAndReturn(Instruction *&Mask,
   // here, the cast<Integer> will fail because the argument has already
   // been widened to vector. For now, check for IntegerType before
   // promoting return values.
-  if (RetTy->isIntegerTy())
+  if (RetEltTy->isIntegerTy())
     if (auto *ValToStoreTy = dyn_cast<IntegerType>(ValToStore->getType())) {
-      if (RetTy != ValToStoreTy) {
+      if (RetEltTy != ValToStoreTy) {
         assert(ValToStoreTy->getBitWidth() <
-                   cast<IntegerType>(RetTy)->getBitWidth() &&
+                   cast<IntegerType>(RetEltTy)->getBitWidth() &&
                "Expect the type to be promoted.");
-        Value *ZExt = Builder.CreateZExt(ValToStore, RetTy,
+        Value *ZExt = Builder.CreateZExt(ValToStore, RetEltTy,
                                          ValToStore->getName() + ".zext");
         ValToStore = ZExt;
       }
     }
-
   // Expand the return temp to a vector. Also create the bitcast to
   // scalar element type ptr so that it can be used to reference
   // individual elements in the loop using loop index.
   auto *VecRetType = cast<VectorType>(Clone->getReturnType());
   AllocaInst *VecAlloca = GenAlloca(VecRetType, "vec.retval");
-  Instruction *VecReturn = GenBitCast(VecAlloca, RetTy, "ret.cast");
-  Value *VecGep =
-      Builder.CreateGEP(RetTy, VecReturn, Phi, VecReturn->getName() + ".gep");
-  Builder.CreateAlignedStore(ValToStore, VecGep, DL.getABITypeAlign(RetTy),
+  Instruction *VecReturn = GenBitCast(VecAlloca, RetEltTy, "ret.cast");
+  Value *VecGep = Builder.CreateGEP(RetEltTy, VecReturn, Phi,
+                                    VecReturn->getName() + ".gep");
+  Builder.CreateAlignedStore(ValToStore, VecGep, DL.getABITypeAlign(RetEltTy),
                              false);
+  // Done with the return value. Note that at this point the return instruction
+  // of the Clone still remains scalar. It will be replaced with widened one
+  // later in updateReturnBlockInstructions.
+
   LLVM_DEBUG(dbgs() << "After Parameter/Return Expansion\n");
   LLVM_DEBUG(Clone->dump());
   return VecReturn;
@@ -1084,28 +1087,28 @@ static void getOrCreateArgMemory(Argument &Arg, BasicBlock *EntryBlock,
                                  Value *&ArgVal, Value *&ArgMemory) {
   ArgVal = &Arg;
   ArgMemory = &Arg;
-  // TODO:  Should it be !hasPointeeInMemoryValueAttr() instead?
-  if (!Arg.hasByValAttr()) {
-    IRBuilder<> Builder(&*EntryBlock->begin());
-    AllocaInst *ArgAlloca =
-        Builder.CreateAlloca(Arg.getType(), nullptr, "alloca." + Arg.getName());
-    ArgVal = emitLoadStoreForParameter(cast<AllocaInst>(ArgAlloca), ArgVal,
-                                       ArgAlign, LoopPreHeader);
-    ArgMemory = ArgAlloca;
-  }
+  // TODO:  Should it be hasPointeeInMemoryValueAttr() instead?
+  if (Arg.hasByValAttr())
+    return;
+  IRBuilder<> Builder(&*EntryBlock->begin());
+  AllocaInst *ArgAlloca =
+      Builder.CreateAlloca(Arg.getType(), nullptr, "alloca." + Arg.getName());
+  ArgVal = emitLoadStoreForParameter(cast<AllocaInst>(ArgAlloca), ArgVal,
+                                     ArgAlign, LoopPreHeader);
+  ArgMemory = ArgAlloca;
 }
 
 void VecCloneImpl::Factory::processUniformArgs() {
   ArrayRef<VFParameter> Parms = V.getParameters();
   for (Argument &Arg : Clone->args()) {
     const VFParameter Parm = Parms[Arg.getArgNo()];
-    if (Parm.isUniform()) {
-      Value *ArgVal;
-      Value *ArgMemory;
-      getOrCreateArgMemory(Arg, EntryBlock, LoopPreHeader, Parm.Alignment,
-                           ArgVal, ArgMemory);
-      UniformMemory[&Arg] = std::make_pair(ArgMemory, ArgVal);
-    }
+    if (!Parm.isUniform())
+      continue;
+    Value *ArgVal;
+    Value *ArgMemory;
+    getOrCreateArgMemory(Arg, EntryBlock, LoopPreHeader, Parm.Alignment, ArgVal,
+                         ArgMemory);
+    UniformMemory[&Arg] = std::make_pair(ArgMemory, ArgVal);
   }
 }
 
@@ -1126,7 +1129,6 @@ void VecCloneImpl::Factory::processLinearArgs(PHINode *Phi) {
           // For pointer types with constant stride, the gep index is the same
           // type as the phi (loop index), which is i32.
           if (!PtrTy->isOpaque()) {
-            const DataLayout &DL = Clone->getParent()->getDataLayout();
             unsigned PointeeEltSize =
                 DL.getTypeAllocSize(PtrTy->getNonOpaquePointerElementType());
             assert(Stride % PointeeEltSize == 0 &&

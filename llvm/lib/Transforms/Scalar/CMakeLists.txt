@@ -55,6 +55,7 @@ add_llvm_component_library(LLVMScalarOpts
 # INTEL_FEATURE_SW_ADVANCED
   Intel_NontemporalStore.cpp
 #end INTEL_FEATURE_SW_ADVANCED
+  Intel_AggressiveSpeculation.cpp
   Intel_StdContainerOpt.cpp
 # INTEL_FEATURE_SW_ADVANCED
   Intel_TightLoopEmitter.cpp

@@ -251,6 +251,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/include/llvm/Transforms/IPO/Intel_AutoCPUClone.h @abuyukku
 # Temporarily removed @romanovvlad
 /llvm/include/llvm/Transforms/IPO.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/Scalar/Intel_AggressiveSpeculation.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer @tcreech-intel @williamweixiao
 /llvm/include/llvm/Transforms/Scalar/Intel_ForcedCMOVGeneration.h @asudarsa
 /llvm/include/llvm/Transforms/Scalar/Intel_FunctionRecognizer.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Scalar/Intel_IndirectCallConv.h @robertcox-github @pvbattin
@@ -304,6 +305,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/lib/Transforms/IPO/Intel_AutoCPUClone.cpp @abuyukku
 /llvm/lib/Transforms/IPO/Intel_UnpredictableProfileLoader.cpp @robertcox-github @pvbattin @tcreech-intel @williamweixiao
 # Temporarily removed @romanovvlad
+/llvm/lib/Transforms/Scalar/Intel_AggressiveSpeculation.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer @tcreech-intel @williamweixiao
 /llvm/lib/Transforms/Scalar/Intel_ForcedCMOVGeneration.cpp @asudarsa
 /llvm/lib/Transforms/Scalar/Intel_FunctionRecognizer.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Scalar/Intel_IndirectCallConv.cpp @robertcox-github @pvbattin
@@ -351,6 +353,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/test/Transforms/InferFunctionAttrs/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Inline/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_AdvancedFastCall/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Intel_AggressiveSpeculation/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer @tcreech-intel @williamweixiao
 /llvm/test/Transforms/Intel_ArgumentAlignment/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_AutoCPUClone/ @abuyukku
 # Temporarily removed @romanovvlad

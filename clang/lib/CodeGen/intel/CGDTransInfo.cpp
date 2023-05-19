@@ -1088,7 +1088,7 @@ llvm::MDNode *DTransInfoGenerator::CreateVectorTypeMD(QualType ClangType,
            "Mismatched vector type sizes");
     EltTy = VTy->getElementType();
   } else {
-    const auto *CplxTy = ClangType->getAs<ComplexType>();
+    const auto *CplxTy = ClangType->castAs<ComplexType>();
     assert(VT->getNumElements() == 2 && "Mismatched complex type size");
     EltTy = CplxTy->getElementType();
   }
