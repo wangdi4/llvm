@@ -176,20 +176,20 @@
 ; CM4: Cost 1 for i32 [[VP_INIT:%.*]] = compress-expand-index-init i32 live-in1
 ; CM4: Cost 5 for i64 [[MASK:%.*]] = compress-expand-mask
 ; CM4: Cost 2 for i64 [[VP9:%.*]] = compress-expand-index i64 [[VP8:%.*]] i64 9
-; CM4: Cost 5 for compress-store-nonu double [[VP_LOAD_1:%.*]] double* [[VP_SUBSCRIPT_2:%.*]] *GS*
+; CM4: Cost 5 for compress-store-nonu double [[VP_LOAD_1:%.*]] double* [[VP_SUBSCRIPT_2:%.*]] *HW GS*
 ; CM4: Cost 2 for i64 [[VP13:%.*]] = compress-expand-index i64 [[VP12:%.*]] i64 9
-; CM4: Cost 5 for compress-store-nonu double [[VP_LOAD_1]] double* [[VP_SUBSCRIPT_3:%.*]] *GS*
-; CM4: Block total cost includes GS Cost: 8
+; CM4: Cost 5 for compress-store-nonu double [[VP_LOAD_1]] double* [[VP_SUBSCRIPT_3:%.*]] *HW GS*
+; CM4: Block total cost includes HW GS Cost: 8
 ; CM4: Cost 4 for i32 [[VP3:%.*]] = compress-expand-index-inc i32 [[VP__BLEND_BB4:%.*]]
 ; CM4: Cost Unknown for i32 [[VP_FINAL:%.*]] = compress-expand-index-final i32 [[VP3]]
 
 ; CM8: Cost 1 for i32 [[VP_INIT:%.*]] = compress-expand-index-init i32 live-in1
 ; CM8: Cost 5 for i64 [[MASK:%.*]] = compress-expand-mask
 ; CM8: Cost 3 for i64 [[VP9:%.*]] = compress-expand-index i64 [[VP8:%.*]] i64 9
-; CM8: Cost 9 for compress-store-nonu double [[VP_LOAD_1:%.*]] double* [[VP_SUBSCRIPT_2:%.*]] *GS*
+; CM8: Cost 9 for compress-store-nonu double [[VP_LOAD_1:%.*]] double* [[VP_SUBSCRIPT_2:%.*]] *HW GS*
 ; CM8: Cost 3 for i64 [[VP13:%.*]] = compress-expand-index i64 [[VP12:%.*]] i64 9
-; CM8: Cost 9 for compress-store-nonu double [[VP_LOAD_1]] double* [[VP_SUBSCRIPT_3:%.*]] *GS*
-; CM8: Block total cost includes GS Cost: 16
+; CM8: Cost 9 for compress-store-nonu double [[VP_LOAD_1]] double* [[VP_SUBSCRIPT_3:%.*]] *HW GS*
+; CM8: Block total cost includes HW GS Cost: 16
 ; CM8: Cost 6 for i32 [[VP3:%.*]] = compress-expand-index-inc i32 [[VP__BLEND_BB4:%.*]]
 ; CM8: Cost Unknown for i32 [[VP_FINAL:%.*]] = compress-expand-index-final i32 [[VP3]]
 

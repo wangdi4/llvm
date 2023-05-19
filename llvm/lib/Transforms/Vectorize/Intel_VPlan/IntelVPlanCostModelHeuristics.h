@@ -250,8 +250,11 @@ public:
 // most likely are implemented with gather or scatter HW instructions
 // or just serialized).
 class HeuristicGatherScatter : public HeuristicBase {
-  VPInstructionCost operator()(const VPInstruction *VPInst) const;
-  VPInstructionCost operator()(const VPBasicBlock *VPBlock) const;
+  // operator() calculates cost pair for HW and SW gathers/scatters separately.
+  // The first element in the pair stands for HW cost, the second for SW cost.
+  VPlanCostPair operator()(const VPInstruction *VPInst) const;
+  VPlanCostPair operator()(const VPBasicBlock *VPBlock) const;
+  VPlanCostPair operator()(const VPlanVector *Plan) const;
 public:
   HeuristicGatherScatter(VPlanTTICostModel *CM) :
     HeuristicBase(CM, "Gather/Scatter") {};
@@ -259,6 +262,7 @@ public:
              const VPlanVector *Plan, raw_ostream *OS = nullptr) const;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   using HeuristicBase::dump;
+  void dump(raw_ostream &OS, const VPlanVector *Plan) const;
   void dump(raw_ostream &OS, const VPBasicBlock *VPBB) const;
   void dump(raw_ostream &OS, const VPInstruction *VPInst) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP

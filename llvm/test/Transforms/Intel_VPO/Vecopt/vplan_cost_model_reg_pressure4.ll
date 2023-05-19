@@ -19,7 +19,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "i586-unknown-linux-gnu"
 
-@e = dso_local local_unnamed_addr global [1024 x i64] zeroinitializer, align 16
+@e = dso_local local_unnamed_addr global [1024 x i16] zeroinitializer, align 16
 @d = dso_local local_unnamed_addr global [1024 x i64] zeroinitializer, align 16
 @c = dso_local local_unnamed_addr global [1024 x i64] zeroinitializer, align 16
 @b = dso_local local_unnamed_addr global [1024 x i64] zeroinitializer, align 16
@@ -44,29 +44,32 @@ define dso_local void @foo() {
 ; VPLAN-CM-AVX2-NEXT:    Cost 8 for i64 [[VP2:%.*]] = mul i64 [[VP_LOAD]] i64 2
 ; VPLAN-CM-AVX2-NEXT:    Cost 24 for i64 [[VP3:%.*]] = mul i64 2 i64 [[VP0]]
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i64]* @b i64 0 i64 [[VP3]]
-; VPLAN-CM-AVX2-NEXT:    Cost 72 for store i64 [[VP2]] i64* [[VP_SUBSCRIPT_1]] *GS*
+; VPLAN-CM-AVX2-NEXT:    Cost 72 for store i64 [[VP2]] i64* [[VP_SUBSCRIPT_1]] *HW GS*
 ; VPLAN-CM-AVX2-NEXT:    Cost 8 for i64 [[VP4:%.*]] = mul i64 [[VP_LOAD]] i64 4
 ; VPLAN-CM-AVX2-NEXT:    Cost 24 for i64 [[VP5:%.*]] = mul i64 3 i64 [[VP0]]
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [1024 x i64]* @c i64 0 i64 [[VP5]]
-; VPLAN-CM-AVX2-NEXT:    Cost 72 for store i64 [[VP4]] i64* [[VP_SUBSCRIPT_2]] *GS*
+; VPLAN-CM-AVX2-NEXT:    Cost 72 for store i64 [[VP4]] i64* [[VP_SUBSCRIPT_2]] *HW GS*
 ; VPLAN-CM-AVX2-NEXT:    Cost 12 for i64 [[VP6:%.*]] = mul i64 [[VP_LOAD]] i64 5
 ; VPLAN-CM-AVX2-NEXT:    Cost 24 for i64 [[VP7:%.*]] = mul i64 4 i64 [[VP0]]
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [1024 x i64]* @d i64 0 i64 [[VP7]]
-; VPLAN-CM-AVX2-NEXT:    Cost 72 for store i64 [[VP6]] i64* [[VP_SUBSCRIPT_3]] *GS*
-; VPLAN-CM-AVX2-NEXT:    Cost 24 for i64 [[VP8:%.*]] = mul i64 5 i64 [[VP0]]
-; VPLAN-CM-AVX2-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds [1024 x i64]* @e i64 0 i64 [[VP8]]
-; VPLAN-CM-AVX2-NEXT:    Cost 72 for store i64 [[VP_LOAD]] i64* [[VP_SUBSCRIPT_4]] *GS*
+; VPLAN-CM-AVX2-NEXT:    Cost 72 for store i64 [[VP6]] i64* [[VP_SUBSCRIPT_3]] *HW GS*
+; VPLAN-CM-AVX2-NEXT:    Cost 21 for i16 [[VP8:%.*]] = trunc i64 [[VP_LOAD]] to i16
+; VPLAN-CM-AVX2-NEXT:    Cost 24 for i64 [[VP9:%.*]] = mul i64 5 i64 [[VP0]]
+; VPLAN-CM-AVX2-NEXT:    Cost 0 for i16* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds [1024 x i16]* @e i64 0 i64 [[VP9]]
+; VPLAN-CM-AVX2-NEXT:    Cost 53 for store i16 [[VP8]] i16* [[VP_SUBSCRIPT_4]] *SW GS*
 ; VPLAN-CM-AVX2-NEXT:    Cost 4 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
-; VPLAN-CM-AVX2-NEXT:    Cost 16 for i1 [[VP9:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; VPLAN-CM-AVX2-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
-; VPLAN-CM-AVX2-NEXT:  [[BB2]]: base cost: 436.5
-; VPLAN-CM-AVX2-NEXT:  Block total cost includes GS Cost: 288
+; VPLAN-CM-AVX2-NEXT:    Cost 16 for i1 [[VP10:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-CM-AVX2-NEXT:    Cost 0 for br i1 [[VP10]], [[BB2]], [[BB3:BB[0-9]+]]
+; VPLAN-CM-AVX2-NEXT:  [[BB2]]: base cost: 438.5
+; VPLAN-CM-AVX2-NEXT:  Block total cost includes HW GS Cost: 216
+; VPLAN-CM-AVX2-NEXT:  Block total cost includes SW GS Cost: 53
 ; VPLAN-CM-AVX2-NEXT:  Block Scalar spill/fill approximate cost (not included into base cost): 128
 ; VPLAN-CM-AVX2-NEXT:  Block Vector spill/fill approximate cost (not included into base cost): 172
-; VPLAN-CM-AVX2-NEXT:  Base Cost: 436.5
-; VPLAN-CM-AVX2-NEXT:  Extra cost due to Gather/Scatter heuristic is 576
+; VPLAN-CM-AVX2-NEXT:  Base Cost: 438.5
 ; VPLAN-CM-AVX2-NEXT:  Extra cost due to Spill/Fill heuristic is 300
-; VPLAN-CM-AVX2-NEXT:  Total Cost: 1312.5
+; VPLAN-CM-AVX2-NEXT:  Plan total cost includes HW GS Cost: 216
+; VPLAN-CM-AVX2-NEXT:  Plan total cost includes SW GS Cost: 53
+; VPLAN-CM-AVX2-NEXT:  Total Cost: 738.5
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
@@ -94,24 +97,32 @@ define dso_local void @foo() {
 ; VPLAN-CM-AVX512-NEXT:    Cost 2 for i64 [[VP2:%.*]] = mul i64 [[VP_LOAD]] i64 2
 ; VPLAN-CM-AVX512-NEXT:    Cost 12 for i64 [[VP3:%.*]] = mul i64 2 i64 [[VP0]]
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i64]* @b i64 0 i64 [[VP3]]
-; VPLAN-CM-AVX512-NEXT:    Cost 36 for store i64 [[VP2]] i64* [[VP_SUBSCRIPT_1]] *GS*
+; VPLAN-CM-AVX512-NEXT:    Cost 36 for store i64 [[VP2]] i64* [[VP_SUBSCRIPT_1]] *HW GS*
 ; VPLAN-CM-AVX512-NEXT:    Cost 2 for i64 [[VP4:%.*]] = mul i64 [[VP_LOAD]] i64 4
 ; VPLAN-CM-AVX512-NEXT:    Cost 12 for i64 [[VP5:%.*]] = mul i64 3 i64 [[VP0]]
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [1024 x i64]* @c i64 0 i64 [[VP5]]
-; VPLAN-CM-AVX512-NEXT:    Cost 36 for store i64 [[VP4]] i64* [[VP_SUBSCRIPT_2]] *GS*
+; VPLAN-CM-AVX512-NEXT:    Cost 36 for store i64 [[VP4]] i64* [[VP_SUBSCRIPT_2]] *HW GS*
 ; VPLAN-CM-AVX512-NEXT:    Cost 4 for i64 [[VP6:%.*]] = mul i64 [[VP_LOAD]] i64 5
 ; VPLAN-CM-AVX512-NEXT:    Cost 12 for i64 [[VP7:%.*]] = mul i64 4 i64 [[VP0]]
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [1024 x i64]* @d i64 0 i64 [[VP7]]
-; VPLAN-CM-AVX512-NEXT:    Cost 36 for store i64 [[VP6]] i64* [[VP_SUBSCRIPT_3]] *GS*
-; VPLAN-CM-AVX512-NEXT:    Cost 12 for i64 [[VP8:%.*]] = mul i64 5 i64 [[VP0]]
-; VPLAN-CM-AVX512-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds [1024 x i64]* @e i64 0 i64 [[VP8]]
-; VPLAN-CM-AVX512-NEXT:    Cost 36 for store i64 [[VP_LOAD]] i64* [[VP_SUBSCRIPT_4]] *GS*
+; VPLAN-CM-AVX512-NEXT:    Cost 36 for store i64 [[VP6]] i64* [[VP_SUBSCRIPT_3]] *HW GS*
+; VPLAN-CM-AVX512-NEXT:    Cost 4 for i16 [[VP8:%.*]] = trunc i64 [[VP_LOAD]] to i16
+; VPLAN-CM-AVX512-NEXT:    Cost 12 for i64 [[VP9:%.*]] = mul i64 5 i64 [[VP0]]
+; VPLAN-CM-AVX512-NEXT:    Cost 0 for i16* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds [1024 x i16]* @e i64 0 i64 [[VP9]]
+; VPLAN-CM-AVX512-NEXT:    Cost 55 for store i16 [[VP8]] i16* [[VP_SUBSCRIPT_4]] *SW GS*
 ; VPLAN-CM-AVX512-NEXT:    Cost 2 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
-; VPLAN-CM-AVX512-NEXT:    Cost 2 for i1 [[VP9:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; VPLAN-CM-AVX512-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
-; VPLAN-CM-AVX512-NEXT:  [[BB2]]: base cost: 206.75
-; VPLAN-CM-AVX512-NEXT:  Block total cost includes GS Cost: 144
-; VPLAN-CM-AVX512-NEXT:  Base Cost: 206.75
+; VPLAN-CM-AVX512-NEXT:    Cost 2 for i1 [[VP10:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-CM-AVX512-NEXT:    Cost 0 for br i1 [[VP10]], [[BB2]], [[BB3:BB[0-9]+]]
+; VPLAN-CM-AVX512-NEXT:  [[BB2]]: base cost: 229.75
+; VPLAN-CM-AVX512-NEXT:  Block total cost includes HW GS Cost: 108
+; VPLAN-CM-AVX512-NEXT:  Block total cost includes SW GS Cost: 55
+; VPLAN-CM-AVX512-NEXT:  Block Scalar spill/fill approximate cost (not included into base cost): 92
+; VPLAN-CM-AVX512-NEXT:  Block Vector spill/fill approximate cost (not included into base cost): 100
+; VPLAN-CM-AVX512-NEXT:  Base Cost: 229.75
+; VPLAN-CM-AVX512-NEXT:  Extra cost due to Spill/Fill heuristic is 192
+; VPLAN-CM-AVX512-NEXT:  Plan total cost includes HW GS Cost: 108
+; VPLAN-CM-AVX512-NEXT:  Plan total cost includes SW GS Cost: 55
+; VPLAN-CM-AVX512-NEXT:  Total Cost: 421.75
 ; VPLAN-CM-AVX512-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
@@ -134,16 +145,18 @@ for.body:                                         ; preds = %for.inc, %entry
   %step4 = mul i64 %indvars.iv, 4
   %arrayidx4 = getelementptr inbounds [1024 x i64], [1024 x i64]* @d, i64 0, i64 %step4
   %step5 = mul i64 %indvars.iv, 5
-  %arrayidx5 = getelementptr inbounds [1024 x i64], [1024 x i64]* @e, i64 0, i64 %step5
+  %arrayidx5 = getelementptr inbounds [1024 x i16], [1024 x i16]* @e, i64 0, i64 %step5
 
   %load = load i64, i64* %arrayidx1, align 4
   %add1 = add nsw nuw i64 %load, %load
   %add2 = add nsw nuw i64 %add1, %add1
   %add3 = add nsw nuw i64 %add2, %load
+  %trunc = trunc i64 %load to i16
+
   store i64 %add1, i64* %arrayidx2, align 4
   store i64 %add2, i64* %arrayidx3, align 4
   store i64 %add3, i64* %arrayidx4, align 4
-  store i64 %load, i64* %arrayidx5, align 4
+  store i16 %trunc, i16* %arrayidx5, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %for.end, label %for.body
