@@ -5380,7 +5380,11 @@ TEST_F(OpenMPIRBuilderTest, TargetRegionDevice) {
       OMPBuilder.createTarget(Loc, EntryIP, EntryInfo, /*NumTeams=*/-1,
                               /*NumThreads=*/-1, CapturedArgs, BodyGenCB));
   Builder.CreateRetVoid();
+#if INTEL_COLLAB
+  OMPBuilder.finalize(false /* IsLateOutline */);
+#else
   OMPBuilder.finalize();
+#endif
 
   // Check outlined function
   EXPECT_FALSE(verifyModule(*M, &errs()));

@@ -2511,17 +2511,13 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
       if ((Opc != X86::POP32r || !PI->getFlag(MachineInstr::FrameDestroy)) &&
           (Opc != X86::POP64r || !PI->getFlag(MachineInstr::FrameDestroy)) &&
           (Opc != X86::BTR64ri8 || !PI->getFlag(MachineInstr::FrameDestroy)) &&
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-          (Opc != X86::ADD64ri8 || !PI->getFlag(MachineInstr::FrameDestroy))
+          (Opc != X86::ADD64ri32 || !PI->getFlag(MachineInstr::FrameDestroy))
 #if INTEL_FEATURE_ISA_APX_F
           &&  (Opc != X86::POP2 || !PI->getFlag(MachineInstr::FrameDestroy))
 #endif // INTEL_FEATURE_ISA_APX_F
         )
 #endif // INTEL_CUSTOMIZATION
-=======
-          (Opc != X86::ADD64ri32 || !PI->getFlag(MachineInstr::FrameDestroy)))
->>>>>>> c81a121f3f230cfe468b6def6d2904b4aefb855b
         break;
       FirstCSPop = PI;
     }
