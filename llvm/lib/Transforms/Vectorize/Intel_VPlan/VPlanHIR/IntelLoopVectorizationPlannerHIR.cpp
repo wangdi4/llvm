@@ -112,8 +112,9 @@ std::shared_ptr<VPlanVector> LoopVectorizationPlannerHIR::buildInitialVPlan(
   VPlanHCFGBuilderHIR HCFGBuilder(WRLp, TheLoop, Plan, HIRLegality, DDG, *DT,
                                   AC);
   if (!HCFGBuilder.buildHierarchicalCFG()) {
-    bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
-            "Unable to construct control-flow graph for this loop.");
+    bailout(
+        OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+        std::string("Unable to construct control-flow graph for this loop."));
     return nullptr;
   }
 
@@ -140,8 +141,8 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
   assert(LE && "No loop entities for loop!");
   if (!LE) {
     bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
-            "There are no loop entities (e.g., inductions or "
-            "reductions) for this loop.");
+            std::string("There are no loop entities (e.g., inductions or "
+                        "reductions) for this loop."));
     return false;
   }
 
@@ -151,10 +152,11 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
       // inductions and reductions.
       if (LE->getReduction(&Inst) || LE->getInduction(&Inst)) {
         if (isa<VectorType>(Inst.getType())) {
-          bailout(OptReportVerbosity::Medium,
-                  VPlanDriverImpl::VecTypeRednRemarkID, "loop",
-                  "A reduction or induction of a vector type is not "
-                  "supported.");
+          bailoutWithDebug(OptReportVerbosity::Medium,
+                           VPlanDriverImpl::VecTypeRednRemarkID,
+                           "A reduction or induction of a vector type is not "
+                           "supported.",
+                           std::string("loop"));
           LLVM_DEBUG(dbgs() << Inst << "\n");
           return false;
         }
@@ -162,10 +164,11 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
                  !LE->getCompressExpandIdiom(&Inst)) {
         // Some liveouts are left unrecognized due to unvectorizable use-def
         // chains.
-        bailout(OptReportVerbosity::Medium, VPlanDriverImpl::BadLiveOutRemarkID,
-                "loop",
-                "Loop contains a live-out value that could not be "
-                "identified as an induction or reduction.");
+        bailoutWithDebug(OptReportVerbosity::Medium,
+                         VPlanDriverImpl::BadLiveOutRemarkID,
+                         "Loop contains a live-out value that could not be "
+                         "identified as an induction or reduction.",
+                         std::string("loop"));
         return false;
       }
 
@@ -178,9 +181,10 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
         auto *UnderlyingCall = VPCall->getUnderlyingCallInst();
         if (UnderlyingCall &&
             vpo::VPOAnalysisUtils::isBeginDirective(UnderlyingCall)) {
-          bailout(OptReportVerbosity::Medium,
-                  VPlanDriverImpl::NestedSimdRemarkID, "simd loop",
-                  "Unsupported nested OpenMP (simd) loop or region.");
+          bailoutWithDebug(OptReportVerbosity::Medium,
+                           VPlanDriverImpl::NestedSimdRemarkID,
+                           "Unsupported nested OpenMP (simd) loop or region.",
+                           std::string("simd loop"));
           LLVM_DEBUG(dbgs() << *UnderlyingCall << "\n");
           return false;
         }
@@ -192,8 +196,8 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
     if (Red->getRecurrenceKind() == RecurKind::SelectICmp ||
         Red->getRecurrenceKind() == RecurKind::SelectFCmp) {
       bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
-              "Select-compare reductions are not expected on this "
-              "path.");
+              std::string("Select-compare reductions are not expected on this "
+                          "path."));
       return false;
     }
   // All checks passed.

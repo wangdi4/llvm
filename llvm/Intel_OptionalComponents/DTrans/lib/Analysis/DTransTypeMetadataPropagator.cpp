@@ -441,10 +441,13 @@ MDNode *DTransMDFieldNodeRetriever::GetNodeForField(Function *F,
   auto *StructMDNode = TypeToMDDescriptor.lookup(STy);
   if (StructMDNode) {
     unsigned int NumOps = StructMDNode->getNumOperands();
-    auto *FieldCountMD = dyn_cast<ConstantAsMetadata>(
+    if (NumOps < DTransStructMDConstants::FieldNodeOffset)
+      return nullptr;
+    auto *FieldCountVal = mdconst::dyn_extract<llvm::ConstantInt>(
         StructMDNode->getOperand(DTransStructMDConstants::FieldCountOffset));
-    int32_t FieldCount =
-        cast<ConstantInt>(FieldCountMD->getValue())->getSExtValue();
+    if (!FieldCountVal)
+      return nullptr;
+    int32_t FieldCount = FieldCountVal->getSExtValue();
 
     // Opaque structure types have a field count of -1.
     if (FieldCount < 0)
@@ -511,8 +514,11 @@ void DTransTypeMDArgPromoPropagator::addArg(llvm::Type *NewArgTy,
     return;
 
   auto *RefTypeMD = dyn_cast<ConstantAsMetadata>(RefMD->getOperand(0));
-  auto *PtrLevelMD = dyn_cast<ConstantAsMetadata>(RefMD->getOperand(1));
-  unsigned PtrLevel = cast<ConstantInt>(PtrLevelMD->getValue())->getZExtValue();
+  auto *PtrLevelCI =
+      mdconst::dyn_extract<llvm::ConstantInt>(RefMD->getOperand(1));
+  if (!RefTypeMD || !PtrLevelCI)
+    return;
+  unsigned PtrLevel = PtrLevelCI->getZExtValue();
   llvm::Type *RefTy = RefTypeMD->getType();
   if (!RefTy->isStructTy() || PtrLevel != 1)
     return;

@@ -67,6 +67,9 @@ extern int DebugLevel;
     fprintf(stderr, "Warning: " __VA_ARGS__);                                  \
   } while (0)
 
+#define INVALID_OPTION(Name, Value)                                            \
+  WARNING("Ignoring invalid option " #Name "=%s\n", Value)
+
 ///
 /// Wrappers for tracing ze API calls.
 ///

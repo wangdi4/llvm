@@ -99,8 +99,8 @@ public:
 
   HIRVectorizationLegality(const TargetTransformInfo *TTI,
                            HIRSafeReductionAnalysis *SafeReds,
-                           HIRDDAnalysis *DDA)
-      : TTI(TTI), SRA(SafeReds), DDAnalysis(DDA) {}
+                           HIRDDAnalysis *DDA, LLVMContext *C)
+      : TTI(TTI), SRA(SafeReds), DDAnalysis(DDA), Context(C) {}
 
   /// Returns true if it is legal to vectorize this loop.
   bool canVectorize(const WRNVecLoopNode *WRLp);
@@ -159,16 +159,8 @@ public:
   /// instruction.
   void recordPotentialSIMDDescrUpdate(HLInst *UpdateInst);
 
-  /// Set bail-out reason information.
-  void setBailoutData(OptReportVerbosity::Level Level, unsigned ID,
-                      std::string Message) {
-    BD.BailoutLevel = Level;
-    BD.BailoutID = ID;
-    BD.BailoutMessage = Message;
-  }
-
   /// Return the reason for bailing out.
-  VPlanBailoutData &getBailoutData() { return BD; }
+  VPlanBailoutRemark &getBailoutRemark() { return BR; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Debug print utility to display contents of the descriptor lists
@@ -178,7 +170,31 @@ public:
 
 private:
   /// Reports a reason for vectorization bailout. Always returns false.
-  bool bailout(OptReportVerbosity::Level, unsigned, std::string, std::string);
+  /// \p Message will appear both in the debug dump and the opt report remark.
+  template <typename... Args>
+  bool bailout(OptReportVerbosity::Level Level, unsigned ID,
+               std::string Message, Args &&...BailoutArgs);
+
+  /// Reports a reason for vectorization bailout. Always returns false.
+  /// \p Debug will appear in the debug dump, but not in the opt report remark.
+  template <typename... Args>
+  bool bailoutWithDebug(OptReportVerbosity::Level Level, unsigned ID,
+                        std::string Debug, Args &&...BailoutArgs);
+
+  /// Initialize cached bailout remark data.
+  void clearBailoutRemark() { BR.BailoutRemark = OptRemark(); }
+
+  /// Store a variadic remark indicating the reason for not vectorizing a loop.
+  /// Clients should pass string constants as std::string to avoid extra
+  /// instantiations of this template function.
+  template <typename... Args>
+  void setBailoutRemark(OptReportVerbosity::Level BailoutLevel,
+                        unsigned BailoutID, Args &&...BailoutArgs) {
+    BR.BailoutLevel = BailoutLevel;
+    BR.BailoutRemark =
+        OptRemark::get(*Context, BailoutID, OptReportDiag::getMsg(BailoutID),
+                       std::forward<Args>(BailoutArgs)...);
+  }
 
   /// Add an explicit non-POD private to PrivatesList
   /// TODO: Use Constr, Destr and CopyAssign for non-POD privates.
@@ -253,6 +269,7 @@ private:
   const TargetTransformInfo *TTI;
   HIRSafeReductionAnalysis *SRA;
   HIRDDAnalysis *DDAnalysis;
+  LLVMContext *Context;
   PrivatesListTy PrivatesList;
   PrivatesNonPODListTy PrivatesNonPODList;
   PrivatesF90DVListTy PrivatesF90DVList;

@@ -186,6 +186,9 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86PreISelIntrinsicLoweringPass(PR);
   initializeX86StackRealignPass(PR);
   initializeX86HeteroArchOptPass(PR);
+#if INTEL_FEATURE_ISA_APX_F
+  initializeX86ConditionalComparesPass(PR);
+#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
   initializeX86ArgumentStackSlotPassPass(PR);
 }
@@ -642,6 +645,11 @@ bool X86PassConfig::addGlobalInstructionSelect() {
 }
 
 bool X86PassConfig::addILPOpts() {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  addPass(createX86ConditionalCompares());
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   addPass(&EarlyIfConverterID);
   if (EnableMachineCombinerPass)
     addPass(&MachineCombinerID);

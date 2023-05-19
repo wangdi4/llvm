@@ -1581,8 +1581,8 @@ struct RTLOptionTy {
   /// devices and whether immediate command list is fully enabled.
   CommandModeTy CommandMode = CommandModeTy::Async;
 
-  /// Force memory resident
-  int32_t ForceResidency = 2;
+  /// Make USM memory resident
+  int32_t MakeResident = 0x002;
 
   /// Read environment variables
   RTLOptionTy() {
@@ -2028,9 +2028,7 @@ struct RTLOptionTy {
       else if (match(Env, "async_ordered"))
         CommandMode = CommandModeTy::AsyncOrdered;
       else
-        WARNING("Ignoring invalid option "
-                "LIBOMPTARGET_LEVEL_ZERO_COMMAND_MODE=%s\n",
-                Env);
+        INVALID_OPTION(LIBOMPTARGET_LEVEL_ZERO_COMMAND_MODE, Env);
     }
 
     // LIBOMPTARGET_NDRANGE_IGNORE_TRIPCOUNT=<Bool>
@@ -2042,9 +2040,20 @@ struct RTLOptionTy {
 
     // LIBOMPTARGET_LEVEL_ZERO_USM_RESIDENT=<Num>
     if ((Env = readEnvVar("LIBOMPTARGET_LEVEL_ZERO_USM_RESIDENT"))) {
-      int32_t Value = std::atoi(Env);
-      if (Value >= 0 && Value <= 2)
-        ForceResidency = Value;
+      std::string ValueStr(Env);
+      int32_t Value = std::stoi(ValueStr, nullptr, 16);
+      bool Valid = true;
+      for (int32_t I = 0; I <= 8; I += 4) {
+        int32_t MemValue = (Value >> I) & 0xF;
+        if (MemValue > 2) {
+          Valid = false;
+          break;
+        }
+      }
+      if (Valid)
+        MakeResident = Value;
+      else
+        INVALID_OPTION(LIBOMPTARGET_LEVEL_ZERO_USM_RESIDENT, Env);
     }
 
     adjustOptions();
@@ -3376,29 +3385,42 @@ struct RTLDeviceInfoTy {
   /// Post-process memory allocated from L0.
   void postMemAlloc(void *Mem, size_t Size, int32_t Kind,
                     ze_device_handle_t Device) {
-    // Force the requested memory residency
-    if (Option.ForceResidency != 1 && Option.ForceResidency != 2)
+    int32_t MakeResident = 0;
+    switch (Kind) {
+    case TARGET_ALLOC_HOST:
+      MakeResident = (Option.MakeResident >> 8) & 0xF;
+      break;
+    case TARGET_ALLOC_SHARED:
+      MakeResident = (Option.MakeResident >> 4) & 0xF;
+      break;
+    case TARGET_ALLOC_DEVICE:
+      MakeResident = Option.MakeResident & 0xF;
+      break;
+    default:
       return;
-    if (Option.ForceResidency == 2 || Kind == TARGET_ALLOC_HOST) {
-      // Make it resident on all devices
-      for (auto &Allocator : MemAllocator) {
-        auto &D = Allocator.first;
-        if (D == nullptr)
-          continue;
-        if (Kind != TARGET_ALLOC_HOST) {
-          // Check if D can access Device.
-          ze_result_t RC;
-          ze_bool_t CanAccess;
-          CALL_ZE(RC, zeDeviceCanAccessPeer, D, Device, &CanAccess);
-          if (RC != ZE_RESULT_SUCCESS || !CanAccess)
-            continue;
-        }
-        CALL_ZE_RET_VOID(zeContextMakeMemoryResident, Context, D, Mem, Size);
-      }
-    } else {
-      // Make it resident only on the allocating device
-      CALL_ZE_RET_VOID(zeContextMakeMemoryResident, Context, Device, Mem, Size);
     }
+    // Force the requested memory residency
+    if (MakeResident != 1 && MakeResident != 2)
+      return;
+    std::list<ze_device_handle_t> ResDevices{Device};
+    if (MakeResident == 2 || Kind == TARGET_ALLOC_HOST) {
+      // Check if other devices can access allocation
+      for (auto &Allocator : MemAllocator) {
+        auto PeerDevice = Allocator.first;
+        if (PeerDevice == nullptr || PeerDevice == Device)
+          continue;
+        if (Kind == TARGET_ALLOC_HOST) {
+          ResDevices.push_back(PeerDevice);
+          continue;
+        }
+        ze_bool_t CanAccess;
+        CALL_ZE_RET_VOID(zeDeviceCanAccessPeer, PeerDevice, Device, &CanAccess);
+        if (CanAccess)
+          ResDevices.push_back(PeerDevice);
+      }
+    }
+    for (auto &D : ResDevices)
+      CALL_ZE_RET_VOID(zeContextMakeMemoryResident, Context, D, Mem, Size);
   }
 };
 

@@ -317,6 +317,8 @@ def FeaturePush2Pop2 : SubtargetFeature<"push2pop2", "HasPush2Pop2", "true",
                                    "Support PUSH2/POP2 instructions">;
 def FeatureNDD : SubtargetFeature<"ndd", "HasNDD", "true",
                                    "Support non-destructive destination">;
+def FeatureCCMP : SubtargetFeature<"ccmp", "HasCCMP", "true",
+                                   "Support conditional cmp & test instructions">;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 

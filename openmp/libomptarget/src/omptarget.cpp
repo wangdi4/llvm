@@ -135,8 +135,17 @@ static const int64_t MaxAlignment = 16;
 /// Return the alignment requirement of partially mapped structs, see
 /// MaxAlignment above.
 static uint64_t getPartialStructRequiredAlignment(void *HstPtrBase) {
+#if INTEL_COLLAB
+  // Return MaxAlignment for nullptr.
+  if (!HstPtrBase)
+    return MaxAlignment;
+  int LowestOneBit = __builtin_ffsl(reinterpret_cast<uintptr_t>(HstPtrBase));
+  // [Coverity] Unintended integer overflow
+  uint64_t BaseAlignment = static_cast<uint64_t>(1) << (LowestOneBit - 1);
+#else  // INTEL_COLLAB
   int LowestOneBit = __builtin_ffsl(reinterpret_cast<uintptr_t>(HstPtrBase));
   uint64_t BaseAlignment = 1 << (LowestOneBit - 1);
+#endif // INTEL_COLLAB
   return MaxAlignment < BaseAlignment ? MaxAlignment : BaseAlignment;
 }
 
