@@ -99,14 +99,11 @@ entry:
       createTargetTransformInfoWrapperPass(TM->getTargetIRAnalysis());
     const TargetTransformInfo &TTI =
       (static_cast<TargetTransformInfoWrapperPass *>(TTIPass))->getTTI(*F);
-    LoopVectorizationPlanner LVP(nullptr /* WRL */,
-                                 nullptr /* Loop */,
-                                 nullptr /* LoopInfo */,
-                                 nullptr /* LibraryInfo */,
-                                 &TTI, &M.getDataLayout(),
-                                 nullptr /* DominatorTree */,
-                                 nullptr /* legality */,
-                                 nullptr /* VLSA*/);
+    LoopVectorizationPlanner LVP(
+        nullptr /* WRL */, nullptr /* Loop */, nullptr /* LoopInfo */,
+        nullptr /* LibraryInfo */, &TTI, &M.getDataLayout(),
+        nullptr /* DominatorTree */, nullptr /* legality */, nullptr /* VLSA*/,
+        &F->getContext());
 
     SmallVector<unsigned> VFs = { 1, 2, 4, 8, 16, 32 };
     for (auto VF : VFs) {
