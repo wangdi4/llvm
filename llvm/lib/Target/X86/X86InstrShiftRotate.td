@@ -165,7 +165,7 @@ class shift_rCL_NDD_NoPat<bits<8> opcode, Format f, string mnemonic,
 
 multiclass mshift_rCL<bits<8> opcode, Format f, string mnemonic, SDNode node,
                       X86TypeInfo typeinfo>{
-let Defs = [EFLAGS], hasSideEffects = 0 in {
+let Defs = [EFLAGS] in {
 let Constraints = "$src1 = $dst" in {
 let Predicates = [NoNDD] in
   def NAME : shift_rCL<opcode, f, mnemonic, node, typeinfo>;
@@ -250,26 +250,28 @@ let Constraints = "$src1 = $dst" in
   def _ND_NF : shiftl_r1_NDD<opcode, f, typeinfo>, EVEX_B4V, EVEX_NF;
 }
 
+let hasSideEffects = 0 in {
 let Uses = [CL], SchedRW = [WriteShiftCL] in {
 defm SHL8rCL  : mshift_rCL<0xD2, MRM4r, "shl", shl, Xi8>;
 defm SHL16rCL : mshift_rCL<0xD3, MRM4r, "shl", shl, Xi16>;
 defm SHL32rCL : mshift_rCL<0xD3, MRM4r, "shl", shl, Xi32>;
 defm SHL64rCL : mshift_rCL<0xD3, MRM4r, "shl", shl, Xi64>;
-} // Uses = [CL], SchedRW
+}
 
 let SchedRW = [WriteShift], isConvertibleToThreeAddress = 1 in {
 defm SHL8ri   : mshift_ri<0xC0, MRM4r, "shl", shl, Xi8>;
 defm SHL16ri  : mshift_ri<0xC1, MRM4r, "shl", shl, Xi16>;
 defm SHL32ri  : mshift_ri<0xC1, MRM4r, "shl", shl, Xi32>;
 defm SHL64ri  : mshift_ri<0xC1, MRM4r, "shl", shl, Xi64>;
-} // SchedRW
+}
 
-let hasSideEffects = 0, SchedRW = [WriteShift] in {
+let SchedRW = [WriteShift] in {
 defm SHL8r1   : mshiftl_r1<0xD0, MRM4r, Xi8>;
 defm SHL16r1  : mshiftl_r1<0xD1, MRM4r, Xi16>;
 defm SHL32r1  : mshiftl_r1<0xD1, MRM4r, Xi32>;
 defm SHL64r1  : mshiftl_r1<0xD1, MRM4r, Xi64>;
-} // hasSideEffects = 0
+}
+}
 
 // FIXME: Why do we need an explicit "Uses = [CL]" when the instr has a pattern
 // using CL?
@@ -311,7 +313,7 @@ let Predicates = [HasNDD] in
                EVEX_B4V, EVEX_NF;
 }
 
-let Uses = [CL], SchedRW = [WriteShiftCLLd, WriteRMW] in {
+let Uses = [CL], SchedRW = [WriteShiftCLLd, WriteRMW], hasSideEffects = 0 in {
 defm SHL8mCL  : mshift_mCL<0xD2, MRM4m, "shl", shl, Xi8>;
 defm SHL16mCL : mshift_mCL<0xD3, MRM4m, "shl", shl, Xi16>;
 defm SHL32mCL : mshift_mCL<0xD3, MRM4m, "shl", shl, Xi32>;
@@ -387,8 +389,8 @@ class shift_m1_NDD_NoPat<bits<8> opcode, Format f, string mnemonic,
 multiclass mshift_m1<bits<8> opcode, Format f, string mnemonic, SDNode node,
                      X86TypeInfo typeinfo>{
 let Defs = [EFLAGS] in {
-let Predicates = !if(typeinfo.HasREX_W, [NoNDD, In64BitMode],
-                                        [NoNDD]) in
+let Predicates = !if(typeinfo.HasREX_W, [NoNDD, In64BitMode], [NoNDD]),
+    mayLoad = 1, mayStore = 1 in
   def NAME : I_N_M<opcode, f, typeinfo, mnemonic, "$dst", []>;
   def _EVEX : shift_m1_NoPat<opcode, f, mnemonic, typeinfo>,
               EmitVEXOrEVEXPrefix;
@@ -400,22 +402,20 @@ let Predicates = [HasNDD] in
                EVEX_B4V, EVEX_NF;
 }
 
-let SchedRW = [WriteShiftLd, WriteRMW] in {
+let SchedRW = [WriteShiftLd, WriteRMW], hasSideEffects = 0 in {
 defm SHL8mi   : mshift_mi<0xC0, MRM4m, "shl", shl, Xi8>;
 defm SHL16mi  : mshift_mi<0xC1, MRM4m, "shl", shl, Xi16>;
 defm SHL32mi  : mshift_mi<0xC1, MRM4m, "shl", shl, Xi32>;
 defm SHL64mi  : mshift_mi<0xC1, MRM4m, "shl", shl, Xi64>;
 
-// Shift by 1
 defm SHL8m1   : mshift_m1<0xD0, MRM4m, "shl", shl, Xi8>;
 defm SHL16m1  : mshift_m1<0xD1, MRM4m, "shl", shl, Xi16>;
 defm SHL32m1  : mshift_m1<0xD1, MRM4m, "shl", shl, Xi32>;
 defm SHL64m1  : mshift_m1<0xD1, MRM4m, "shl", shl, Xi64>;
-} // SchedRW
+}
 
 //=======================SHR==========================
-class shift_r1<bits<8> opcode, Format f, string mnemonic, SDNode node,
-               X86TypeInfo typeinfo>
+class shift_r1<bits<8> opcode, Format f, string mnemonic, X86TypeInfo typeinfo>
   : I_R_R<opcode, f, typeinfo, mnemonic, "$dst", []>;
 
 class shift_r1_NDD<bits<8> opcode, Format f, string mnemonic, SDNode node,
@@ -437,7 +437,7 @@ multiclass mshift_r1<bits<8> opcode, Format f, string mnemonic, SDNode node,
 let Defs = [EFLAGS] in {
 let Constraints = "$src1 = $dst" in {
 let Predicates = [NoNDD] in
-  def NAME : shift_r1<opcode, f, mnemonic, node, typeinfo>;
+  def NAME : shift_r1<opcode, f, mnemonic, typeinfo>;
   def _EVEX : shift_r1_NoPat<opcode, f, mnemonic, typeinfo>,
               EmitVEXOrEVEXPrefix;
 }
@@ -450,6 +450,7 @@ let Constraints = "$src1 = $dst" in
                EVEX_B4V, EVEX_NF;
 }
 
+let hasSideEffects = 0 in {
 let Uses = [CL], SchedRW = [WriteShiftCL] in {
 defm SHR8rCL  : mshift_rCL<0xD2, MRM5r, "shr", srl, Xi8>;
 defm SHR16rCL : mshift_rCL<0xD3, MRM5r, "shr", srl, Xi16>;
@@ -457,7 +458,7 @@ defm SHR32rCL : mshift_rCL<0xD3, MRM5r, "shr", srl, Xi32>;
 defm SHR64rCL : mshift_rCL<0xD3, MRM5r, "shr", srl, Xi64>;
 } // Uses = [CL], SchedRW
 
-let SchedRW = [WriteShift]in {
+let SchedRW = [WriteShift] in {
 defm SHR8ri   : mshift_ri<0xC0, MRM5r, "shr", srl, Xi8>;
 defm SHR16ri  : mshift_ri<0xC1, MRM5r, "shr", srl, Xi16>;
 defm SHR32ri  : mshift_ri<0xC1, MRM5r, "shr", srl, Xi32>;
@@ -482,7 +483,6 @@ defm SHR16mi  : mshift_mi<0xC1, MRM5m, "shr", srl, Xi16>;
 defm SHR32mi  : mshift_mi<0xC1, MRM5m, "shr", srl, Xi32>;
 defm SHR64mi  : mshift_mi<0xC1, MRM5m, "shr", srl, Xi64>;
 
-// Shift by 1
 defm SHR8m1   : mshift_m1<0xD0, MRM5m, "shr", srl, Xi8>;
 defm SHR16m1  : mshift_m1<0xD1, MRM5m, "shr", srl, Xi16>;
 defm SHR32m1  : mshift_m1<0xD1, MRM5m, "shr", srl, Xi32>;
@@ -509,7 +509,7 @@ defm SAR8r1   : mshift_r1<0xD0, MRM7r, "sar", sra, Xi8>;
 defm SAR16r1  : mshift_r1<0xD1, MRM7r, "sar", sra, Xi16>;
 defm SAR32r1  : mshift_r1<0xD1, MRM7r, "sar", sra, Xi32>;
 defm SAR64r1  : mshift_r1<0xD1, MRM7r, "sar", sra, Xi64>;
-} // hasSideEffects = 0
+}
 
 let Uses = [CL], SchedRW = [WriteShiftCLLd, WriteRMW] in {
 defm SAR8mCL  : mshift_mCL<0xD2, MRM7m, "sar", sra, Xi8>;
@@ -530,6 +530,7 @@ defm SAR16m1  : mshift_m1<0xD1, MRM7m, "sar", sra, Xi16>;
 defm SAR32m1  : mshift_m1<0xD1, MRM7m, "sar", sra, Xi32>;
 defm SAR64m1  : mshift_m1<0xD1, MRM7m, "sar", sra, Xi64>;
 } // SchedRW
+}
 
 //===----------------------------------------------------------------------===//
 // Rotate instructions
@@ -674,21 +675,21 @@ defm RCL8rCL  : mshift_rCL_NoNF<0xD2, MRM2r, "rcl", Xi8>;
 defm RCL16rCL : mshift_rCL_NoNF<0xD3, MRM2r, "rcl", Xi16>;
 defm RCL32rCL : mshift_rCL_NoNF<0xD3, MRM2r, "rcl", Xi32>;
 defm RCL64rCL : mshift_rCL_NoNF<0xD3, MRM2r, "rcl", Xi64>;
-} // Uses = [CL, EFLAGS], SchedRW
+}
 
-let Uses = [EFLAGS], SchedRW = [WriteRotate]in {
+let Uses = [EFLAGS], SchedRW = [WriteRotate] in {
 defm RCL8ri   : mshift_ri_NoNF<0xC0, MRM2r, "rcl", Xi8>;
 defm RCL16ri  : mshift_ri_NoNF<0xC1, MRM2r, "rcl", Xi16>;
 defm RCL32ri  : mshift_ri_NoNF<0xC1, MRM2r, "rcl", Xi32>;
 defm RCL64ri  : mshift_ri_NoNF<0xC1, MRM2r, "rcl", Xi64>;
-} // SchedRW
+}
 
 let Uses = [EFLAGS], SchedRW = [WriteRotate] in {
 defm RCL8r1   : mshift_r1_NoNF<0xD0, MRM2r, "rcl", Xi8>;
 defm RCL16r1  : mshift_r1_NoNF<0xD1, MRM2r, "rcl", Xi16>;
 defm RCL32r1  : mshift_r1_NoNF<0xD1, MRM2r, "rcl", Xi32>;
 defm RCL64r1  : mshift_r1_NoNF<0xD1, MRM2r, "rcl", Xi64>;
-} // hasSideEffects = 0
+}
 
 let mayLoad = 1, mayStore = 1 in {
 let Uses = [CL, EFLAGS], SchedRW = [WriteRotateCLLd, WriteRMW] in {
@@ -726,14 +727,14 @@ defm RCR8ri   : mshift_ri_NoNF<0xC0, MRM3r, "rcr", Xi8>;
 defm RCR16ri  : mshift_ri_NoNF<0xC1, MRM3r, "rcr", Xi16>;
 defm RCR32ri  : mshift_ri_NoNF<0xC1, MRM3r, "rcr", Xi32>;
 defm RCR64ri  : mshift_ri_NoNF<0xC1, MRM3r, "rcr", Xi64>;
-} // SchedRW
+}
 
 let Uses = [EFLAGS], SchedRW = [WriteRotate] in {
 defm RCR8r1   : mshift_r1_NoNF<0xD0, MRM3r, "rcr", Xi8>;
 defm RCR16r1  : mshift_r1_NoNF<0xD1, MRM3r, "rcr", Xi16>;
 defm RCR32r1  : mshift_r1_NoNF<0xD1, MRM3r, "rcr", Xi32>;
 defm RCR64r1  : mshift_r1_NoNF<0xD1, MRM3r, "rcr", Xi64>;
-} // hasSideEffects = 0
+}
 
 let mayLoad = 1, mayStore = 1 in {
 let Uses = [CL, EFLAGS], SchedRW = [WriteRotateCLLd, WriteRMW] in {
@@ -749,13 +750,12 @@ defm RCR16mi  : mshift_mi_NoNF<0xC1, MRM3m, "rcr", Xi16>;
 defm RCR32mi  : mshift_mi_NoNF<0xC1, MRM3m, "rcr", Xi32>;
 defm RCR64mi  : mshift_mi_NoNF<0xC1, MRM3m, "rcr", Xi64>;
 
-// Shift by 1
 defm RCR8m1   : mshift_m1_NoNF<0xD0, MRM3m, "rcr", Xi8>;
 defm RCR16m1  : mshift_m1_NoNF<0xD1, MRM3m, "rcr", Xi16>;
 defm RCR32m1  : mshift_m1_NoNF<0xD1, MRM3m, "rcr", Xi32>;
 defm RCR64m1  : mshift_m1_NoNF<0xD1, MRM3m, "rcr", Xi64>;
-} // SchedRW
-} // mayLoad, mayStore
+}
+}
 } // hasSideEffects = 0
 
 // ================== ROL =======================
@@ -764,21 +764,21 @@ defm ROL8rCL  : mshift_rCL<0xD2, MRM0r, "rol", rotl, Xi8>;
 defm ROL16rCL : mshift_rCL<0xD3, MRM0r, "rol", rotl, Xi16>;
 defm ROL32rCL : mshift_rCL<0xD3, MRM0r, "rol", rotl, Xi32>;
 defm ROL64rCL : mshift_rCL<0xD3, MRM0r, "rol", rotl, Xi64>;
-} // Uses = [CL], SchedRW
+}
 
 let SchedRW = [WriteRotate]in {
 defm ROL8ri   : mshift_ri<0xC0, MRM0r, "rol", rotl, Xi8>;
 defm ROL16ri  : mshift_ri<0xC1, MRM0r, "rol", rotl, Xi16>;
 defm ROL32ri  : mshift_ri<0xC1, MRM0r, "rol", rotl, Xi32>;
 defm ROL64ri  : mshift_ri<0xC1, MRM0r, "rol", rotl, Xi64>;
-} // SchedRW
+}
 
 let SchedRW = [WriteRotate] in {
 defm ROL8r1   : mshift_r1<0xD0, MRM0r, "rol", rotl, Xi8>;
 defm ROL16r1  : mshift_r1<0xD1, MRM0r, "rol", rotl, Xi16>;
 defm ROL32r1  : mshift_r1<0xD1, MRM0r, "rol", rotl, Xi32>;
 defm ROL64r1  : mshift_r1<0xD1, MRM0r, "rol", rotl, Xi64>;
-} // hasSideEffects = 0
+}
 
 let Uses = [CL], SchedRW = [WriteRotateCLLd, WriteRMW] in {
 defm ROL8mCL  : mshift_mCL<0xD2, MRM0m, "rol", rotl, Xi8>;
@@ -793,34 +793,33 @@ defm ROL16mi  : mshift_mi<0xC1, MRM0m, "rol", rotl, Xi16>;
 defm ROL32mi  : mshift_mi<0xC1, MRM0m, "rol", rotl, Xi32>;
 defm ROL64mi  : mshift_mi<0xC1, MRM0m, "rol", rotl, Xi64>;
 
-// Shift by 1
 defm ROL8m1   : mshift_m1<0xD0, MRM0m, "rol", rotl, Xi8>;
 defm ROL16m1  : mshift_m1<0xD1, MRM0m, "rol", rotl, Xi16>;
 defm ROL32m1  : mshift_m1<0xD1, MRM0m, "rol", rotl, Xi32>;
 defm ROL64m1  : mshift_m1<0xD1, MRM0m, "rol", rotl, Xi64>;
-} // SchedRW
+}
 
-// ================== ROL =======================
+// ================== ROR =======================
 let Uses = [CL], SchedRW = [WriteRotateCL] in {
 defm ROR8rCL  : mshift_rCL<0xD2, MRM1r, "ror", rotr, Xi8>;
 defm ROR16rCL : mshift_rCL<0xD3, MRM1r, "ror", rotr, Xi16>;
 defm ROR32rCL : mshift_rCL<0xD3, MRM1r, "ror", rotr, Xi32>;
 defm ROR64rCL : mshift_rCL<0xD3, MRM1r, "ror", rotr, Xi64>;
-} // Uses = [CL], SchedRW
+}
 
 let SchedRW = [WriteRotate]in {
 defm ROR8ri   : mshift_ri<0xC0, MRM1r, "ror", rotr, Xi8>;
 defm ROR16ri  : mshift_ri<0xC1, MRM1r, "ror", rotr, Xi16>;
 defm ROR32ri  : mshift_ri<0xC1, MRM1r, "ror", rotr, Xi32>;
 defm ROR64ri  : mshift_ri<0xC1, MRM1r, "ror", rotr, Xi64>;
-} // SchedRW
+}
 
 let SchedRW = [WriteRotate] in {
 defm ROR8r1   : mshift_r1<0xD0, MRM1r, "ror", rotr, Xi8>;
 defm ROR16r1  : mshift_r1<0xD1, MRM1r, "ror", rotr, Xi16>;
 defm ROR32r1  : mshift_r1<0xD1, MRM1r, "ror", rotr, Xi32>;
 defm ROR64r1  : mshift_r1<0xD1, MRM1r, "ror", rotr, Xi64>;
-} // hasSideEffects = 0
+}
 
 let Uses = [CL], SchedRW = [WriteRotateCLLd, WriteRMW] in {
 defm ROR8mCL  : mshift_mCL<0xD2, MRM1m, "ror", rotr, Xi8>;
@@ -835,12 +834,11 @@ defm ROR16mi  : mshift_mi<0xC1, MRM1m, "ror", rotr, Xi16>;
 defm ROR32mi  : mshift_mi<0xC1, MRM1m, "ror", rotr, Xi32>;
 defm ROR64mi  : mshift_mi<0xC1, MRM1m, "ror", rotr, Xi64>;
 
-// Shift by 1
 defm ROR8m1   : mshift_m1<0xD0, MRM1m, "ror", rotr, Xi8>;
 defm ROR16m1  : mshift_m1<0xD1, MRM1m, "ror", rotr, Xi16>;
 defm ROR32m1  : mshift_m1<0xD1, MRM1m, "ror", rotr, Xi32>;
 defm ROR64m1  : mshift_m1<0xD1, MRM1m, "ror", rotr, Xi64>;
-} // SchedRW
+}
 
 //===----------------------------------------------------------------------===//
 // Double shift instructions (generalizations of rotate)
