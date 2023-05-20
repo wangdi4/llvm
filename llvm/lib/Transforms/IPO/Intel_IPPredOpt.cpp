@@ -61,6 +61,8 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/GeneralUtils.h"
 
 using namespace llvm;
 
@@ -118,7 +120,8 @@ public:
   bool isHoistableSimpleLoad(Value *V,
                              SmallVectorImpl<Instruction *> &HoistingInst);
   bool isHoistableFieldVtableLoad(Value *V, Constant *C,
-                                  SmallVectorImpl<Instruction *> &HoistingInst);
+                                  SmallVectorImpl<Instruction *> &HoistingInst,
+                                  SmallVector<Instruction *, 2> &NonNullChecks);
   bool checkAllHoistingInstInControlBlocks(
       SmallVectorImpl<Instruction *> &HoistingInst);
   bool checkPointerHasNonNullValue(Value *V);
@@ -126,6 +129,10 @@ public:
   void getValueConstant(ICmpInst *IC, Value **VPtr, Constant **CPtr);
   bool applyHeuristics();
   void hoistConditions();
+  void generateRuntimeChecksCloneCFG();
+  void replaceOperandsWithClonedInst(
+      Instruction *Cloned,
+      SmallDenseMap<Instruction *, Instruction *, 8> &InstCloneInstMap);
   PredCandidate(const PredCandidate &) = delete;
   PredCandidate(PredCandidate &&) = delete;
   PredCandidate &operator=(const PredCandidate &) = delete;
@@ -178,6 +185,11 @@ private:
   // To hoist a condition value, set of instructions that need to be
   // hoisted.
   SmallDenseMap<Value *, SmallVector<Instruction *, 8>, 4> BBHoistCondsMap;
+
+  // Can't prove that some pointers are non-null at compile-time. Generate
+  // runtime checks to prove the same.
+  SmallDenseMap<Value *, SmallVector<Instruction *, 2>, 2>
+      SpecialNonNullCheckCondsMap;
 };
 
 // Main class to implement the transformation.
@@ -574,7 +586,8 @@ bool PredCandidate::isHoistableSimpleLoad(
 //    %i328 = icmp eq ptr %i327, @func
 //
 bool PredCandidate::isHoistableFieldVtableLoad(
-    Value *V, Constant *C, SmallVectorImpl<Instruction *> &HoistingInst) {
+    Value *V, Constant *C, SmallVectorImpl<Instruction *> &HoistingInst,
+    SmallVector<Instruction *, 2> &NonNullChecks) {
 
   // Check LI is used by type_test and assume intrinsics.
   auto IsVtableLoad = [](LoadInst *LI, GetElementPtrInst *GEPUse) -> bool {
@@ -638,6 +651,10 @@ bool PredCandidate::isHoistableFieldVtableLoad(
   if (!guaranteedToBeNonNullOnCondCallEntry(FieldLI->getPointerOperand()))
     return false;
 
+  // Generate runtime checks for FieldLI to prove it is non-null pointer.
+  NonNullChecks.push_back(FieldLI);
+  NonNullChecks.push_back(cast<Instruction>(FieldLI->getPointerOperand()));
+
   HoistingInst.push_back(FieldLI);
   HoistingInst.push_back(cast<Instruction>(FieldLI->getPointerOperand()));
   return true;
@@ -680,12 +697,18 @@ bool PredCandidate::checkLegalityIssues() {
       continue;
     }
     HoistingInst.clear();
-    if (isHoistableFieldVtableLoad(V, C, HoistingInst)) {
+    SmallVector<Instruction *, 2> NonNullCheckInst;
+    if (isHoistableFieldVtableLoad(V, C, HoistingInst, NonNullCheckInst)) {
       if (!checkAllHoistingInstInControlBlocks(HoistingInst))
         return false;
       LLVM_DEBUG(dbgs() << "      Field Vtable Load Hoisting  \n");
       CondTypeMap[V] = CT_VtableFieldLoad;
       BBHoistCondsMap[V] = HoistingInst;
+
+      // If there are any pointers that can't be proved at compile-time,
+      // save the pointers in SpecialNonNullCheckCondsMap.
+      if (!NonNullCheckInst.empty())
+        SpecialNonNullCheckCondsMap[V] = NonNullCheckInst;
       continue;
     }
     LLVM_DEBUG(dbgs() << "      Hoisting can't be done \n");
@@ -717,6 +740,22 @@ void PredCandidate::getValueConstant(ICmpInst *IC, Value **VPtr,
     return;
   *VPtr = V;
   *CPtr = C;
+}
+
+// If there are any operands of "Cloned" instruction are also hoisted, replace
+// them with newly hoisted instructions using "InstCloneInstMap".
+void PredCandidate::replaceOperandsWithClonedInst(
+    Instruction *Cloned,
+    SmallDenseMap<Instruction *, Instruction *, 8> &InstCloneInstMap) {
+  for (Value *Op : Cloned->operands()) {
+    auto *II = dyn_cast<Instruction>(Op);
+    if (!II)
+      continue;
+    // Ignore if operand is not hoisted.
+    if (!InstCloneInstMap.contains(II))
+      continue;
+    Cloned->replaceUsesOfWith(Op, InstCloneInstMap[II]);
+  }
 }
 
 // This routine handles all transformations needed to hoist conditions.
@@ -781,22 +820,6 @@ void PredCandidate::getValueConstant(ICmpInst *IC, Value **VPtr,
 //
 void PredCandidate::hoistConditions() {
 
-  // If there are any operands of "Cloned" instruction are also hoisted, replace
-  // them with newly hoisted instructions using "InstCloneInstMap".
-  auto ReplaceOperandsWithClonedInst =
-      [](Instruction *Cloned,
-         SmallDenseMap<Instruction *, Instruction *, 8> &InstCloneInstMap) {
-        for (Value *Op : Cloned->operands()) {
-          auto *II = dyn_cast<Instruction>(Op);
-          if (!II)
-            continue;
-          // Ignore if operand is not hoisted.
-          if (!InstCloneInstMap.contains(II))
-            continue;
-          Cloned->replaceUsesOfWith(Op, InstCloneInstMap[II]);
-        }
-      };
-
   // BBHoistCondsMap provides all necessary instructions that need to be hoisted
   // for given "V" condition value. "IC" is the main ICmpInst that needs to be
   // hoisted. "CondFlag" indicates whether predicate should be inversed.
@@ -812,7 +835,7 @@ void PredCandidate::hoistConditions() {
       Instruction *CV = *(&*I);
       Cloned = B.Insert(CV->clone());
       InstCloneInstMap[CV] = Cloned;
-      ReplaceOperandsWithClonedInst(Cloned, InstCloneInstMap);
+      replaceOperandsWithClonedInst(Cloned, InstCloneInstMap);
     }
     assert(Cloned && "Expected Cloned instruction");
     assert(isa<ICmpInst>(IC) && "Expected ICmpInst");
@@ -898,6 +921,189 @@ void PredCandidate::hoistConditions() {
   ReplaceInstWithInst(OrigCallBB->getTerminator(), NewBr);
 
   // TODO: Need to add more code to handle NullPtrChecks and special conditions.
+}
+
+// Generate runtime checks for non-null pointers and virtual call
+// possible targets.
+//
+// Before:
+//
+//   -------------------
+//   |  if (contains()) |
+//   |    OriginalCFG   |
+//   |                  |
+//   --------------------
+//          |
+//          |
+//        ExitBB
+//
+// After:
+//                       ----------------------
+//                       | Null-Pointer checks |
+//                       | and other checks.   |
+//                       |                     |
+//                       -----------------------
+//                        /                  \
+//                       /                    \
+//   -------------------                      --------------------
+//   |  if (contains()) |                     |  (Cloned Version) |
+//   |    OriginalCFG   |                     |  if (contains())  |
+//   |                  |                     |    CloneCFG       |
+//   --------------------                     ---------------------
+//                       \                     /
+//                        \                   /
+//                         \                 /
+//                          \               /
+//                              NewExitBB
+//                                 |
+//                                 |
+//                              ExitBB
+//
+void PredCandidate::generateRuntimeChecksCloneCFG() {
+
+  // Return true if any non-null pointer checks are needed.
+  auto NeedRuntimeChecks = [&]() -> bool {
+    if (!SpecialNonNullCheckCondsMap.empty())
+      return true;
+    return false;
+  };
+
+  // Find any definitions in BBset which are used in outside basicblocks that
+  // are not in BBSet.
+  auto FindDefsUsedOutside = [](SmallVectorImpl<BasicBlock *> &BBSet,
+                                SmallVectorImpl<Instruction *> &LiveOut) {
+    for (auto *Block : BBSet)
+      for (auto &Inst : *Block) {
+        auto Users = Inst.users();
+        if (std::any_of(Users.begin(), Users.end(), [&](User *U) {
+              auto *Use = cast<Instruction>(U);
+              return std::find(BBSet.begin(), BBSet.end(), Use->getParent()) ==
+                     BBSet.end();
+            }))
+          LiveOut.push_back(&Inst);
+      }
+  };
+
+  // Create PHI nodes in original ExitBB by joining LiveOut of
+  // BBSet and the corresponding cloned LiveOuts.
+  auto JoinWithPHINodes = [](ValueToValueMapTy &VMap,
+                             SmallVectorImpl<BasicBlock *> &BBSet,
+                             SmallVectorImpl<Instruction *> &LiveOut) {
+    // NewExitBB is ensured to be the last item in BBSet.
+    BasicBlock *NewExitBB = BBSet.back();
+    BasicBlock *ClonedExitBB = cast<BasicBlock>(VMap[NewExitBB]);
+    // OriginalExitBB is the 'NewTail'.
+    BasicBlock *OriginalExitBB = NewExitBB->getSingleSuccessor();
+
+    for (auto *Inst : LiveOut) {
+      auto *ClonedInst = cast<Instruction>(VMap[Inst]);
+      PHINode *PH =
+          PHINode::Create(Inst->getType(), 2, Inst->getName() + ".join.phi",
+                          &OriginalExitBB->front());
+
+      for (auto *User : Inst->users())
+        if (std::find(BBSet.begin(), BBSet.end(),
+                      cast<Instruction>(User)->getParent()) == BBSet.end())
+          User->replaceUsesOfWith(Inst, PH);
+
+      PH->addIncoming(Inst, NewExitBB);
+      PH->addIncoming(ClonedInst, ClonedExitBB);
+    }
+  };
+
+  if (!NeedRuntimeChecks())
+    return;
+
+  bool FirstCond = true;
+  Value *ResultCond = nullptr;
+  SmallPtrSet<Value *, 4> Processed;
+
+  // Create insertion pointer just before CondCall.
+  IRBuilder<> B(CondCall);
+
+  // Create condition to do non-null pointer check for all pointers that
+  // are saved in SpecialNonNullCheckCondsMap.
+  // For now, walk through control conditions of all executed blocks
+  // to get all pointers that require non-null pointer checks.
+  for (auto *BB : ExecutedBlocks) {
+    for (auto I = BBControlCondsMap[BB].rbegin(),
+              E = BBControlCondsMap[BB].rend();
+         I != E; I++) {
+      ControlCond *C = &*I;
+
+      auto *IC = cast<ICmpInst>(C->getPointer());
+      Value *V = nullptr;
+      Constant *CompC = nullptr;
+      getValueConstant(IC, &V, &CompC);
+      assert(V && CompC && "Unexpected ICmpInst");
+
+      // No need to generate null pointer check multiple times.
+      if (Processed.count(V))
+        continue;
+
+      Processed.insert(V);
+      if (!SpecialNonNullCheckCondsMap.contains(V))
+        continue;
+
+      assert(CondTypeMap[V] == CT_VtableFieldLoad &&
+             "Unexpected Condition type");
+      SmallDenseMap<Instruction *, Instruction *, 8> InstCloneInstMap;
+      Instruction *Cloned = nullptr;
+
+      for (auto I = SpecialNonNullCheckCondsMap[V].rbegin(),
+                E = SpecialNonNullCheckCondsMap[V].rend();
+           I != E; I++) {
+        Instruction *CV = *(&*I);
+        Cloned = B.Insert(CV->clone());
+        InstCloneInstMap[CV] = Cloned;
+        replaceOperandsWithClonedInst(Cloned, InstCloneInstMap);
+      }
+      // Generate check for "ICmpNE Ptr, null".
+      Value *NewC =
+          B.CreateICmpNE(Cloned, Constant::getNullValue(Cloned->getType()));
+      if (FirstCond)
+        ResultCond = NewC;
+      else
+        ResultCond = B.CreateLogicalAnd(ResultCond, NewC);
+      FirstCond = false;
+    }
+  }
+
+  ValueToValueMapTy VMap;
+  SmallVector<BasicBlock *, 16> ClonedBBSet;
+  BasicBlock *OrigCallBB = CondCall->getParent();
+  // Insert the condition just before CondCall.
+  BasicBlock *NewEntryBB = OrigCallBB->splitBasicBlock(CondCall->getIterator());
+
+  // Create NewTailBB just before ExitBB.
+  BasicBlock *NewTailBB =
+      ExitBB->splitBasicBlock(ExitBB->front().getIterator());
+  (void)NewTailBB;
+
+  // Collect all basic blocks in the CFG from NewEntryBB to ExitBB.
+  SmallVector<BasicBlock *> BBSet;
+  GeneralUtils::collectBBSet(NewEntryBB, ExitBB, BBSet);
+
+  // Clone all basicblocks in BBSet.
+  Function *F = OrigCallBB->getParent();
+  for (BasicBlock *BB : BBSet) {
+    BasicBlock *NewBB = CloneBasicBlock(BB, VMap, ".clone", F, nullptr);
+    // Add basic block to the mapping.
+    VMap[BB] = NewBB;
+    ClonedBBSet.push_back(NewBB);
+  }
+  remapInstructionsInBlocks(ClonedBBSet, VMap);
+
+  // Fix CFG.
+  BasicBlock *ClonedEntryBB = ClonedBBSet.front();
+  F->splice(ExitBB->getIterator(), F, ClonedEntryBB->getIterator(), F->end());
+  BranchInst *NewBr = BranchInst::Create(NewEntryBB, ClonedEntryBB, ResultCond);
+  ReplaceInstWithInst(OrigCallBB->getTerminator(), NewBr);
+
+  // Fix liveout values of the CFG.
+  SmallVector<Instruction *> LiveOut;
+  FindDefsUsedOutside(BBSet, LiveOut);
+  JoinWithPHINodes(VMap, BBSet, LiveOut);
 }
 
 // Collect all executed blocks that are controlled by all conditions.
@@ -1094,6 +1300,7 @@ void IPPredOptImpl::applyTransformations() {
   LLVM_DEBUG(dbgs() << "  IP Pred Opt: Transformations\n");
 
   auto *Candidate = *Candidates.begin();
+  Candidate->generateRuntimeChecksCloneCFG();
   Candidate->hoistConditions();
 }
 

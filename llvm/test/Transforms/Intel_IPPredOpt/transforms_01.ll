@@ -6,38 +6,64 @@
 ; RUN: opt < %s  -S -ippred-skip-callee-legal-checks=true  -whole-program-assume -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -passes=ippredopt 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: void @_ZN11xercesc_2_712FieldMatcher7matchedEPKtPNS_17DatatypeValidatorEb(
-; CHECK:   %0 = getelementptr inbounds %"__DFDT___SOADT__DPRE_class._ZTSN11xercesc_2_710ValueStoreE.xercesc_2_7::ValueStore", ptr %i28, i64 0, i32 0, !intel-tbaa !950
-; CHECK:  %1 = load i8, ptr %0, align 8, !tbaa !950, !range !917, !noundef !918
-; CHECK:  %2 = icmp ne i8 %1, 0
-; CHECK:  %3 = getelementptr inbounds %"__DFDT___SOADT__DPRE_class._ZTSN11xercesc_2_710ValueStoreE.xercesc_2_7::ValueStore", ptr %i28, i64 0, i32 2, !intel-tbaa !1038
-; CHECK:  %4 = load ptr, ptr %3, align 8, !tbaa !1038
-; CHECK:  %5 = getelementptr %"class._ZTSN11xercesc_2_718IdentityConstraintE.xercesc_2_7::IdentityConstraint", ptr %4, i64 0, i32 0, i32 0
-; CHECK:  %6 = load ptr, ptr %5, align 8, !tbaa !862
-; CHECK:  %7 = getelementptr inbounds ptr, ptr %6, i64 5
-; CHECK:  %8 = load ptr, ptr %7, align 8
-; CHECK:  %9 = icmp eq ptr %8, @_ZNK11xercesc_2_76IC_Key7getTypeEv
-; CHECK:  %10 = select i1 %2, i1 %9, i1 false
-; CHECK:  %11 = getelementptr inbounds %"__DFDT___SOADT__DPRE_class._ZTSN11xercesc_2_710ValueStoreE.xercesc_2_7::ValueStore", ptr %i28, i64 0, i32 0, !intel-tbaa !950
-; CHECK:  %12 = load i8, ptr %11, align 8, !tbaa !950, !range !917, !noundef !918
-; CHECK:  %13 = icmp ne i8 %12, 0
-; CHECK:  %14 = getelementptr inbounds %"__DFDT___SOADT__DPRE_class._ZTSN11xercesc_2_710ValueStoreE.xercesc_2_7::ValueStore", ptr %i28, i64 0, i32 2, !intel-tbaa !1038
-; CHECK:  %15 = load ptr, ptr %14, align 8, !tbaa !1038
-; CHECK:  %16 = getelementptr %"class._ZTSN11xercesc_2_718IdentityConstraintE.xercesc_2_7::IdentityConstraint", ptr %15, i64 0, i32 0, i32 0
-; CHECK:  %17 = load ptr, ptr %16, align 8, !tbaa !862
-; CHECK:  %18 = getelementptr inbounds ptr, ptr %17, i64 5
-; CHECK:  %19 = load ptr, ptr %18, align 8
-; CHECK:  %20 = icmp ne ptr %19, @_ZNK11xercesc_2_76IC_Key7getTypeEv
-; CHECK:  %21 = select i1 %13, i1 %20, i1 false
-; CHECK:  %22 = getelementptr inbounds %"__DFDT___SOADT__DPRE_class._ZTSN11xercesc_2_710ValueStoreE.xercesc_2_7::ValueStore", ptr %i28, i64 0, i32 2, !intel-tbaa !1038
-; CHECK:  %23 = load ptr, ptr %22, align 8, !tbaa !1038
-; CHECK:  %24 = getelementptr %"class._ZTSN11xercesc_2_718IdentityConstraintE.xercesc_2_7::IdentityConstraint", ptr %23, i64 0, i32 0, i32 0
-; CHECK:  %25 = load ptr, ptr %24, align 8, !tbaa !862
-; CHECK:  %26 = getelementptr inbounds ptr, ptr %25, i64 5
-; CHECK:  %27 = load ptr, ptr %26, align 8
-; CHECK:  %28 = icmp ne ptr %27, @_ZNK11xercesc_2_79IC_KeyRef7getTypeEv
-; CHECK:  %29 = select i1 %21, i1 %28, i1 false
-; CHECK:  %30 = select i1 %10, i1 true, i1 %29
+; CHECK: bb314:                                            ; preds = %bb311
+; CHECK:  %0 = getelementptr inbounds %"__DFDT___SOADT__DPRE_class._ZTSN11xercesc_2_710ValueStoreE.xercesc_2_7::ValueStore", ptr %i28, i64 0, i32 2
+; CHECK:  %1 = load ptr, ptr %0, align 8
+; CHECK:  %2 = icmp ne ptr %1, null
+; CHECK:  br i1 %2, label %3, label %36
 
+
+; CHECK:   %4 = getelementptr inbounds %"__DFDT___SOADT__DPRE_class._ZTSN11xercesc_2_710ValueStoreE.xercesc_2_7::ValueStore", ptr %i28, i64 0, i32 0
+; CHECK:  %5 = load i8, ptr %4, align 8
+; CHECK:  %6 = icmp ne i8 %5, 0
+; CHECK:  %7 = getelementptr inbounds %"__DFDT___SOADT__DPRE_class._ZTSN11xercesc_2_710ValueStoreE.xercesc_2_7::ValueStore", ptr %i28, i64 0, i32 2
+; CHECK:  %8 = load ptr, ptr %7, align 8
+; CHECK:  %9 = getelementptr %"class._ZTSN11xercesc_2_718IdentityConstraintE.xercesc_2_7::IdentityConstraint", ptr %8, i64 0, i32 0, i32 0
+; CHECK:  %10 = load ptr, ptr %9, align 8
+; CHECK:  %11 = getelementptr inbounds ptr, ptr %10, i64 5
+; CHECK:  %12 = load ptr, ptr %11, align 8
+; CHECK:  %13 = icmp eq ptr %12, @_ZNK11xercesc_2_76IC_Key7getTypeEv
+; CHECK:  %14 = select i1 %6, i1 %13, i1 false
+; CHECK:  %15 = getelementptr inbounds %"__DFDT___SOADT__DPRE_class._ZTSN11xercesc_2_710ValueStoreE.xercesc_2_7::ValueStore", ptr %i28, i64 0, i32 0
+; CHECK:  %16 = load i8, ptr %15, align 8
+; CHECK:  %17 = icmp ne i8 %16, 0
+; CHECK:  %18 = getelementptr inbounds %"__DFDT___SOADT__DPRE_class._ZTSN11xercesc_2_710ValueStoreE.xercesc_2_7::ValueStore", ptr %i28, i64 0, i32 2
+; CHECK:  %19 = load ptr, ptr %18, align 8
+; CHECK:  %20 = getelementptr %"class._ZTSN11xercesc_2_718IdentityConstraintE.xercesc_2_7::IdentityConstraint", ptr %19, i64 0, i32 0, i32 0
+; CHECK:  %21 = load ptr, ptr %20, align 8
+; CHECK:  %22 = getelementptr inbounds ptr, ptr %21, i64 5
+; CHECK:  %23 = load ptr, ptr %22, align 8
+; CHECK:  %24 = icmp ne ptr %23, @_ZNK11xercesc_2_76IC_Key7getTypeEv
+; CHECK:  %25 = select i1 %17, i1 %24, i1 false
+; CHECK:  %26 = getelementptr inbounds %"__DFDT___SOADT__DPRE_class._ZTSN11xercesc_2_710ValueStoreE.xercesc_2_7::ValueStore", ptr %i28, i64 0, i32 2
+; CHECK:  %27 = load ptr, ptr %26, align 8
+; CHECK:  %28 = getelementptr %"class._ZTSN11xercesc_2_718IdentityConstraintE.xercesc_2_7::IdentityConstraint", ptr %27, i64 0, i32 0, i32 0
+; CHECK:  %29 = load ptr, ptr %28, align 8
+; CHECK:  %30 = getelementptr inbounds ptr, ptr %29, i64 5
+; CHECK:  %31 = load ptr, ptr %30, align 8
+; CHECK:  %32 = icmp ne ptr %31, @_ZNK11xercesc_2_79IC_KeyRef7getTypeEv
+; CHECK:  %33 = select i1 %25, i1 %32, i1 false
+; CHECK:  %34 = select i1 %14, i1 true, i1 %33
+; CHECK:  br i1 %34, label %35, label %bb347
+
+; CHECK: 35:                                               ; preds = %3
+; CHECK:  %i315 = tail call fastcc noundef zeroext i1 @_ZN11xercesc_2_710ValueStore8containsEPKNS_13FieldValueMapE
+
+; CHECK: 36
+; CHECK:   %i315.clone = tail call fastcc noundef zeroext i1 @_ZN11xercesc_2_710ValueStore8containsEPKNS_13FieldValueMapE
+; CHECK:  br i1 %i315.clone, label %bb316.clone, label %bb347.clone
+
+; CHECK:bb316.clone:                                      ; preds = %36
+; CHECK:  %i317.clone = getelementptr inbounds %"__DFDT___SOADT__DPRE_class._ZTSN11xercesc_2_710ValueStoreE.xercesc_2_7::ValueStore", ptr %i28, i64 0, i32 0
+
+; CHECK: bb347.clone:
+; CHECK:   br label %37
+
+; CHECK: bb347:
+; CHECK:   br label %37
+
+; CHECK: 37:
+; CHECK:   %i348 = getelementptr inbounds %"__DFDT___SOADT__DPRE_class._ZTSN11xercesc_2_710ValueStoreE.xercesc_2_7::ValueStore", ptr %i28, i64 0, i32 4
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
