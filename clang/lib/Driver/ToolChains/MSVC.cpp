@@ -570,9 +570,11 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back(
           Args.MakeArgString(std::string("/vfsoverlay:") + A->getValue()));
 
-    if (Args.hasArg(options::OPT_fprofile_sample_generate) &&
-        !Args.hasArg(options::OPT__SLASH_Z7, options::OPT_g_Group))
-      CmdArgs.push_back("-debug:dwarf");
+    if (Args.hasArg(options::OPT_fprofile_sample_generate)) {
+      if (!Args.hasArg(options::OPT__SLASH_Z7, options::OPT_g_Group))
+        CmdArgs.push_back("-debug:dwarf");
+      CmdArgs.push_back("-profile");
+    }
   }
 #endif // INTEL_CUSTOMIZATION
 

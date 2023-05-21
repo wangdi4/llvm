@@ -201,6 +201,9 @@ struct Configuration {
 
   // Used for /opt:fintel-preserve-value-names
   bool intelShouldDiscardValueNames = true;
+
+  // Used for /profile
+  bool profile = false;
 #endif // INTEL_CUSTOMIZATION
   // Used for /opt:[no]ltodebugpassmanager
   bool ltoDebugPassManager = false;

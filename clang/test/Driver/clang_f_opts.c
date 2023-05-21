@@ -62,7 +62,7 @@
 
 // RUN: %clang_cl -### -target x86_64-unknown-windows-msvc /fprofile-sample-generate %s 2>&1 | FileCheck --check-prefix=CHECK-PROFILE-SAMPLE-GENERATE-CL %s
 // CHECK-PROFILE-SAMPLE-GENERATE-CL: "-fdebug-info-for-profiling" "-debug-info-kind=line-tables-only" "-dwarf-version=4" "-funique-internal-linkage-names"
-// CHECK-PROFILE-SAMPLE-GENERATE-CL: lld-link" {{.*}} "-incremental:no" {{.*}} "-debug:dwarf"
+// CHECK-PROFILE-SAMPLE-GENERATE-CL: lld-link" {{.*}} "-incremental:no" {{.*}} "-debug:dwarf" "-profile"
 
 // RUN: %clang_cl -### -target x86_64-unknown-windows-msvc -S /fprofile-sample-generate /Ob1 %s 2>&1 | FileCheck --check-prefix=CHECK-PROFILE-SAMPLE-GENERATE-ERROR1 %s
 // CHECK-PROFILE-SAMPLE-GENERATE-ERROR1: error: option '/Ob1' not supported for SPGO, use 'Ob2/Ob3' instead

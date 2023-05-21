@@ -1963,6 +1963,11 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
 
   config->noimplib = args.hasArg(OPT_noimplib);
 
+#if INTEL_CUSTOMIZATION
+  // Handle /profile
+  config->profile = args.hasArg(OPT_profile);
+#endif // INTEL_CUSTOMIZATION
+
   // Handle /opt.
   bool doGC = debug == DebugKind::None || args.hasArg(OPT_profile);
   std::optional<ICFLevel> icfLevel;
