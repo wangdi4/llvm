@@ -123,19 +123,12 @@ private:
   using NodeRef = typename GT::NodeRef;
   using ChildItTy = typename GT::ChildIteratorType;
 
-<<<<<<< HEAD
   // VisitStack - Used to maintain the ordering.  Top = current block
   // First element is basic block pointer, second is the 'next child' to visit
 #if INTEL_CUSTOMIZATION
   // TODO: Revert this back to SmallVector after VPlan code is fixed.
-  std::vector<std::pair<NodeRef, ChildItTy>> VisitStack;
+  std::vector<std::tuple<NodeRef, ChildItTy, ChildItTy>> VisitStack;
 #endif // INTEL_CUSTOMIZATION
-=======
-  /// Used to maintain the ordering.
-  /// First element is basic block pointer, second is iterator for the next
-  /// child to visit, third is the end iterator.
-  SmallVector<std::tuple<NodeRef, ChildItTy, ChildItTy>, 8> VisitStack;
->>>>>>> 50f0ee8fbfc1f597ae7d2d49e0996c4338e5652f
 
   po_iterator(NodeRef BB) {
     this->insertEdge(std::optional<NodeRef>(), BB);
