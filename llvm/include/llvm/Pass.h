@@ -45,14 +45,11 @@
 #ifndef LLVM_PASS_H
 #define LLVM_PASS_H
 
-<<<<<<< HEAD
 #include "llvm/Config/llvm-config.h" // INTEL
 
-=======
 #ifdef EXPENSIVE_CHECKS
 #include <cstdint>
 #endif
->>>>>>> 0887443b96618aaf6a7bc730a2119fd438ed5648
 #include <string>
 
 namespace llvm {
