@@ -37023,14 +37023,11 @@ SDValue X86TargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   case ISD::GC_TRANSITION_END:  return LowerGC_TRANSITION(Op, DAG);
   case ISD::ADDRSPACECAST:      return LowerADDRSPACECAST(Op, DAG);
   case X86ISD::CVTPS2PH:        return LowerCVTPS2PH(Op, DAG);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case ISD::COMPLEX_MUL:        return LowerComplexMUL(Op, DAG, Subtarget);
   case ISD::INLINEASM:          return LowerInlineAsm(Op, DAG);
 #endif // INTEL_CUSTOMIZATION
-=======
   case ISD::PREFETCH:           return LowerPREFETCH(Op, Subtarget, DAG);
->>>>>>> 022aefa59c28323d961603abaa34caaffe273ee4
   }
 }
 
