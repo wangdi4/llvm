@@ -579,7 +579,7 @@ InferAddressSpacesImpl::collectFlatAddressExpressions(Function &F) const {
       if (Cmp->getOperand(0)->getType()->isPtrOrPtrVectorTy()) {
 #else
       // FIXME: Handle vectors of pointers
-      if (Cmp->getOperand(0)->getType()->isPointerTy()) {      
+      if (Cmp->getOperand(0)->getType()->isPointerTy()) {
 #endif
         PushPtrOperand(Cmp->getOperand(0));
         PushPtrOperand(Cmp->getOperand(1));
@@ -1575,9 +1575,12 @@ bool InferAddressSpacesImpl::rewriteWithNewAddressSpaces(
         if (AddrSpaceCastInst *ASC = dyn_cast<AddrSpaceCastInst>(CurUser)) {
           unsigned NewAS = NewV->getType()->getPointerAddressSpace();
           if (ASC->getDestAddressSpace() == NewAS) {
+<<<<<<< HEAD
 #if INTEL_COLLAB
             auto *BCNewV = NewV;
 #endif // INTEL_COLLAB
+=======
+>>>>>>> 7d172378ae459cd912df0af3d9cf7f15daa090f4
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
             if (!cast<PointerType>(ASC->getType()->getScalarType())
                      ->hasSameElementTypeAs(
