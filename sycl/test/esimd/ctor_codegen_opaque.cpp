@@ -1,4 +1,4 @@
-// RUN: %clangxx -Xclang -opaque-pointers -fsycl -fsycl-device-only -S %s -o - | FileCheck %s
+// RUN: %clangxx -Xclang -opaque-pointers -mllvm -xmain-enable-gep0-removal -fsycl -fsycl-device-only -S %s -o - | FileCheck %s ;INTEL
 
 // Check efficiency of LLVM IR generated for various simd constructors.
 
