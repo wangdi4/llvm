@@ -294,6 +294,10 @@ public:
   // True if the provided LibFunc \p F identifies an OpenMP library function,
   // i.e. the LibFunc_kmpc_* LibFuncs.
   bool isOMPLibFunc(LibFunc F) const;
+
+  // True if the provided LibFunc \p F identifies a complex float type math
+  // library function.
+  bool isComplexFloatLibFunc(LibFunc F) const;
 #endif
 
   /// Return true if the function F has a vector equivalent with any
@@ -554,6 +558,12 @@ public:
   // i.e. the LibFunc_kmpc_* LibFuncs.
   bool isOMPLibFunc(LibFunc F) const {
     return Impl->isOMPLibFunc(F);
+  }
+
+  // True if the provided LibFunc \p F identifies a complex float type math
+  // library function.
+  bool isComplexFloatLibFunc(LibFunc F) const {
+    return Impl->isComplexFloatLibFunc(F);
   }
 #endif // INTEL_CUSTOMIZATION
 

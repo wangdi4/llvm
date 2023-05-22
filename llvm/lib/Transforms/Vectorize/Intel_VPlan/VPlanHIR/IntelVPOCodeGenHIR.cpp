@@ -2720,9 +2720,13 @@ void VPOCodeGenHIR::addMaskToSVMLCall(
   auto *VecTy = cast<FixedVectorType>(VecArgTys[0]);
   unsigned MaskNumElems = VecTy->getNumElements();
   StringRef FnName = OrigF->getName();
-  // For calls transformed via arg repacking, the mask value should have VF
-  // elements not VF * num_args elements.
-  if (TLI->doesVectorFuncNeedArgRepacking(FnName))
+  // For calls transformed via arg repacking and for complex float-type math
+  // library calls, the mask value should have VF elements not VF * num_args
+  // elements.
+  LibFunc CmplxFloatLibFunc;
+  if (TLI->doesVectorFuncNeedArgRepacking(FnName) ||
+      (TLI->getLibFunc(*OrigF, CmplxFloatLibFunc) &&
+       TLI->isComplexFloatLibFunc(CmplxFloatLibFunc)))
     MaskNumElems = VF;
 
   if (VecTy->getPrimitiveSizeInBits().getFixedValue() < 512) {
