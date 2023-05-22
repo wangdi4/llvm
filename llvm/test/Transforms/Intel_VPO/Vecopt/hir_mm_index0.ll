@@ -17,7 +17,7 @@
 ; CHECK-NEXT:   IsLinearIndex: 1  Parent exit: i32 [[VP0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
-; CHECK-NEXT:   IntInduction(+) Start: i32 0 Step: i32 1 StartVal: i32 0 EndVal: ? BinOp: i32 [[VP4:%.*]] = add i32 [[VP5:%.*]] i32 [[VP__IND_INIT_STEP:%.*]]
+; CHECK-NEXT:   IntInduction(+) Start: i32 0 Step: i32 1 StartVal: i32 0 EndVal: i32 2147483647 BinOp: i32 [[VP4:%.*]] = add i32 [[VP5:%.*]] i32 [[VP__IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:    Linked values: i32 [[VP5]], i32 [[VP4]], i32 [[VP__IND_INIT:%.*]], i32 [[VP__IND_INIT_STEP]], i32 [[VP__IND_FINAL:%.*]],
 ;
 ; CHECK:    [[BB1:BB[0-9]+]]:

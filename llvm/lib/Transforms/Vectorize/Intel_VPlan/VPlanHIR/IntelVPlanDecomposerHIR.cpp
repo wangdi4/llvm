@@ -1328,6 +1328,9 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
 
   if (UpperCE->isIntConstant(&Upper))
     EndVal = Plan->getVPConstant(ConstantInt::get(HLp->getIVType(), Upper));
+  else
+    EndVal = Plan->getVPConstant(ConstantInt::get(HLp->getIVType(),
+                                 HLp->getLegalMaxTripCount()));
 
   // Add to the induction descriptors. Push it at the beginning as main
   // induction.

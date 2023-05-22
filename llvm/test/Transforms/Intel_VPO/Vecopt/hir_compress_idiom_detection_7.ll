@@ -21,7 +21,7 @@
 ; CHECK:       Loop Entities of the loop with header [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
-; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: ? BinOp: i64 [[VP5:%.*]] = add i64 [[VP6:%.*]] i64 1
+; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 2147483647 BinOp: i64 [[VP5:%.*]] = add i64 [[VP6:%.*]] i64 1
 ; CHECK-NEXT:    Linked values: i64 [[VP6]], i64 [[VP5]],
 ; CHECK:       Compress/expand idiom list
 ; CHECK-NEXT:    Phi: i32 [[VP7:%.*]] = phi  [ i32 [[K_0340]], [[BB1:BB[0-9]+]] ],  [ i32 [[VP8:%.*]], [[BB2:BB[0-9]+]] ]

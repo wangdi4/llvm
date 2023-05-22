@@ -38,7 +38,7 @@ define dso_local noundef float @_Z3subPfi(float* nocapture noundef readonly %A, 
 ; CHECK-NEXT:   (+) Start: float [[SUM_0130:%.*]] Exit: float [[VP4:%.*]]
 ; CHECK-NEXT:    Linked values: float [[VP5:%.*]], float [[VP4]], float [[VP_RED_INIT:%.*]], float [[VP_RED_FINAL:%.*]],
 ; CHECK:       Induction list
-; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: ? BinOp: i64 [[VP6:%.*]] = add i64 [[VP7:%.*]] i64 [[VP__IND_INIT_STEP:%.*]]
+; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 2147483647 BinOp: i64 [[VP6:%.*]] = add i64 [[VP7:%.*]] i64 [[VP__IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:    Linked values: i64 [[VP7]], i64 [[VP6]], i64 [[VP__IND_INIT:%.*]], i64 [[VP__IND_INIT_STEP]], i64 [[VP__IND_FINAL:%.*]],
 ; CHECK-EMPTY:
 ; CHECK-NEXT:   FpInduction(+) Start: float [[R_0140:%.*]] Step: float 1.000000e+00 StartVal: ? EndVal: ? BinOp: float [[VP10:%.*]] = fadd float [[VP9:%.*]] float [[VP__IND_INIT_STEP_1:%.*]] need close form
