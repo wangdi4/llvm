@@ -131,24 +131,25 @@ INLINE int __kmp_get_active_sub_group_leader_id() {
   return sub_group_scan_inclusive_min(id);
 }
 
-/// Exponential backoff for acquiring lock
-INLINE void backoff(uint cnt, volatile int *lock) {
-  uint max_cnt = 20;
-  if (cnt > max_cnt)
-    cnt = max_cnt;
-  uint ub = (1 << cnt);
-  for (uint i = 0; i < ub; i++)
-    if (i == ub - 1)
+/// Delay for exponential backoff
+INLINE void delay(size_t len, volatile int *lock) {
+  for (size_t i = 0; i < len; i++)
+    if (i == len - 1)
       *(lock);
 }
 
 /// Acquire lock for a sub group
 INLINE void __kmp_acquire_lock(int *lock) {
+#if KMP_SUBGROUP_NON_UNIFORM_VOTE_SUPPORTED
+  if (sub_group_elect()) {
+#else
   if (__spirv_BuiltInSubgroupLocalInvocationId ==
       __kmp_get_active_sub_group_leader_id()) {
+#endif
     int expected;
     bool acquired = false;
     uint backoff_cnt = 1;
+    size_t len_max = __kmp_get_num_groups();
     do {
       expected = 0;
       if (!atomic_load((volatile atomic_int *)lock)) {
@@ -156,20 +157,24 @@ INLINE void __kmp_acquire_lock(int *lock) {
             (volatile atomic_int *)lock, &expected, 1, memory_order_acq_rel,
             memory_order_relaxed);
       }
-      if (!acquired)
-        backoff(backoff_cnt++, lock);
+      if (!acquired) {
+        // Decide backoff delay based on the degree of contention
+        size_t len = OP_MIN(len_max, 1 << backoff_cnt++, 0 /* Unused */);
+        delay(len, lock);
+      }
     } while (!acquired);
   }
-  sub_group_barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 }
 
 /// Release lock for a sub group
 INLINE void __kmp_release_lock(int *lock) {
-  sub_group_barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+#if KMP_SUBGROUP_NON_UNIFORM_VOTE_SUPPORTED
+  if (sub_group_elect())
+#else
   if (__spirv_BuiltInSubgroupLocalInvocationId ==
-      __kmp_get_active_sub_group_leader_id()) {
+      __kmp_get_active_sub_group_leader_id())
+#endif
     atomic_store_explicit((volatile atomic_int *)lock, 0, memory_order_release);
-  }
 }
 
 /// Acquire lock with explicit SIMD
