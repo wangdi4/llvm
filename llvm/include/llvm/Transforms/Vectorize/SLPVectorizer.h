@@ -94,17 +94,11 @@ private:
   ///       every time we run into a memory barrier.
   void collectSeedInstructions(BasicBlock *BB);
 
-<<<<<<< HEAD
 #ifdef INTEL_COLLAB
   /// Adjust cost if vectorizing a tree will lose FMA opportunities.
   void adjustForFMAs(InstructionCost &Cost, ArrayRef<Value *> &VL);
 #endif // INTEL_COLLAB
 
-  /// Try to vectorize a chain that starts at two arithmetic instrs.
-  bool tryToVectorizePair(Value *A, Value *B, slpvectorizer::BoUpSLP &R);
-
-=======
->>>>>>> 806dea46be4c49dc587b98dab5e4d9d242a6abdb
   /// Try to vectorize a list of operands.
   /// \param MaxVFOnly Vectorize only using maximal allowed register size.
   /// \returns true if a value was vectorized.

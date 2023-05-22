@@ -14877,16 +14877,6 @@ void SLPVectorizerPass::collectSeedInstructions(BasicBlock *BB) {
   }
 }
 
-<<<<<<< HEAD
-bool SLPVectorizerPass::tryToVectorizePair(Value *A, Value *B, BoUpSLP &R) {
-  if (!A || !B)
-    return false;
-  if (isa<InsertElementInst>(A) || isa<InsertElementInst>(B))
-    return false;
-  Value *VL[] = {A, B};
-  return tryToVectorizeList(VL, R);
-}
-
 #ifdef INTEL_CUSTOMIZATION
 static bool isHighRegPressureFMALoop(BasicBlock *BB, LoopInfo *LI,
                                      ArrayRef<Value *> &VL) {
@@ -14968,8 +14958,6 @@ void SLPVectorizerPass::adjustForFMAs(InstructionCost &Cost,
 }
 #endif // INTEL_COLLAB
 
-=======
->>>>>>> 806dea46be4c49dc587b98dab5e4d9d242a6abdb
 bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
                                            bool MaxVFOnly) {
   if (VL.size() < 2)
