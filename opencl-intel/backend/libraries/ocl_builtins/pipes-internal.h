@@ -22,6 +22,13 @@
 #define ATTR_ALIGN(alignment) __attribute__((aligned(alignment)))
 #define ALIGNED(decl, alignment) decl ATTR_ALIGN(alignment)
 
+// This struct is used to construct a extensible circular linked list
+// to work as pipe for host pipe.
+typedef struct __hostpipe_packet {
+  void *data;
+  struct __hostpipe_packet *next;
+} __hostpipe_packet;
+
 // Utility struct for maintaining a pipe internal cache.
 struct __pipe_internal_buf {
   int end;   // index for a new element
@@ -52,6 +59,9 @@ size_t fread(void *ptr, size_t size_of_elements, size_t number_of_elements,
 size_t fwrite(const void *ptr, size_t size_of_elements,
               size_t number_of_elements, FILE *a_file);
 
+void *malloc(size_t size);
+void free(void *ptr);
+
 struct __pipe_t {
   int packet_size;
   int max_packets;
@@ -66,7 +76,8 @@ struct __pipe_t {
 
   FILE *io;
   int protocol;
-
+  ALIGNED(struct __hostpipe_packet *hp_read_ptr, 64);
+  ALIGNED(struct __hostpipe_packet *hp_write_ptr, 64);
   // Pipe object also has a trailing buffer for packets:
   // char buffer[max_packets * packet_size];
 } ATTR_ALIGN(64);
@@ -121,7 +132,6 @@ int __read_pipe_2_fpga(read_only pipe uchar p, void *dst, uint size,
                        uint align);
 int __write_pipe_2_fpga(write_only pipe uchar p, const void *src, uint size,
                         uint align);
-
 //
 // Info queries
 //

@@ -26,11 +26,11 @@ target triple = "x86_64-pc-linux"
 ; CHECK: @EXTERNAL_STREAM_B_processed = internal
 ; CHECK: @llvm.global_ctors = appending global [1 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 65535, ptr @__pipe_global_ctor, ptr null }]
 ; CHECK: @EXTERNAL_STREAM_B_ready.pipe = addrspace(1) global [3 x ptr addrspace(1)] zeroinitializer, align 16, !packet_size {{.*}}, !packet_align
-; CHECK: @EXTERNAL_STREAM_B_ready.pipe.bs = addrspace(1) global [966 x i8] zeroinitializer, align 1
+; CHECK: @EXTERNAL_STREAM_B_ready.pipe.bs = addrspace(1) global [1350 x i8] zeroinitializer, align 1
 ; CHECK: @EXTERNAL_STREAM_B.pipe = addrspace(1) global [4 x ptr addrspace(1)] zeroinitializer, align 16, !packet_size {{.*}}, !packet_align
-; CHECK: @EXTERNAL_STREAM_B.pipe.bs = addrspace(1) global [1344 x i8] zeroinitializer, align 8
+; CHECK: @EXTERNAL_STREAM_B.pipe.bs = addrspace(1) global [1856 x i8] zeroinitializer, align 8
 ; CHECK: @EXTERNAL_STREAM_B_processed.pipe = addrspace(1) global [2 x ptr addrspace(1)] zeroinitializer, align 8, !packet_size {{.*}}, !packet_align
-; CHECK: @EXTERNAL_STREAM_B_processed.pipe.bs = addrspace(1) global [644 x i8] zeroinitializer, align 1
+; CHECK: @EXTERNAL_STREAM_B_processed.pipe.bs = addrspace(1) global [900 x i8] zeroinitializer, align 1
 
 @EXTERNAL_STREAM_B_ready = addrspace(1) global [3 x target("spirv.Channel")] zeroinitializer, align 1, !packet_size !0, !packet_align !0
 @EXTERNAL_STREAM_B = addrspace(1) global [4 x target("spirv.Channel")] zeroinitializer, align 8, !packet_size !1, !packet_align !1
