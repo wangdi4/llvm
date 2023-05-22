@@ -46,6 +46,10 @@ class VecCloneImpl {
     BasicBlock *LoopPreHeader = nullptr;
     BasicBlock *LoopLatch = nullptr;
     BasicBlock *ReturnBlock = nullptr;
+    /// Type for each logical argument of a clone
+    SmallVector<Type *, 4> LogicalArgTypes;
+    /// The clone return type
+    Type *LogicalRetType;
 
     /// Set of memory locations to mark as private for the SIMD loop
     SetVector<Value *> PrivateMemory;

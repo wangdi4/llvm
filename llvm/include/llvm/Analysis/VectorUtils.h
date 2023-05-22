@@ -971,12 +971,74 @@ inline FixedVectorType *getWidenedType(const Type *Ty, unsigned VF) {
   return FixedVectorType::get(Ty->getScalarType(), NumElts);
 }
 
-/// Widens the call to function \p OrigF using information from \p Variant
-/// and inserts the appropriate function declaration if not already created.
+/// Helper function that returns widened type of given type \p Ty.
+/// When PromoteI1 is true i1 type promoted to i8 before widening.
+inline FixedVectorType *getWidenedType(Type *Ty, unsigned VF, bool PromoteI1) {
+  // Promote i1 return type to i8 before widening if requested;
+  Type *VecEltTy =
+      PromoteI1 && Ty->isIntOrIntVectorTy(1) ? Ty->getWithNewBitWidth(8) : Ty;
+  return getWidenedType(VecEltTy, VF);
+}
+
+/// Helper function that returns widened type of given type \p RetTy
+/// Type is widened with function return specifics.
+inline Type *getWidenedReturnType(Type *RetTy, unsigned VF) {
+  if (RetTy->isVoidTy())
+    return RetTy;
+
+  Type *VecEltRetTy = RetTy;
+  // Promote i1 return type to i8 before widening
+  if (RetTy->isIntegerTy(1))
+    VecEltRetTy = Type::getInt8Ty(RetTy->getContext());
+  return getWidenedType(VecEltRetTy, VF);
+}
+
+/// Using the \p Args, the arguments of actual call or a function declaration,
+/// and information from \p Variant, build the signature of the vector variant.
+/// Output is \p LogicalArgTypes array populated with types of arguments and
+/// \p LogicalRetType is the vector variant return type.
+template <typename ArgsItT>
+void buildVectorVariantLogicalSignature(
+    Type *RetTy, iterator_range<ArgsItT> Args, const VFInfo &Variant,
+    Type *MaskEltType, SmallVectorImpl<Type *> &LogicalArgTypes,
+    Type *&LogicalRetType) {
+
+  LogicalArgTypes.clear();
+  unsigned VF = Variant.getVF();
+  const auto *VKIt = Variant.getParameters().begin();
+  for (auto ArgIt = Args.begin(), ArgEnd = Args.end(); ArgIt != ArgEnd;
+       ++ArgIt, ++VKIt) {
+    Type *ParmType = ArgIt->getType();
+    if (VKIt->isVector() || VKIt->isLinearVal())
+      ParmType = getWidenedType(ParmType, VF, true /*Promote i1*/);
+
+    LogicalArgTypes.push_back(ParmType);
+  }
+
+  if (Variant.isMasked()) {
+    assert(MaskEltType && "Mask type not provided for masked variant");
+    Type *MaskType = getWidenedType(MaskEltType, VF);
+    LogicalArgTypes.push_back(MaskType);
+  }
+
+  LogicalRetType = getWidenedReturnType(RetTy, VF);
+}
+
+/// Helper function to instantiate buildVectorVariantLogicalSignature template
+/// specialized for Function.
+void buildVectorVariantLogicalSignature(
+    Function &OrigF, const VFInfo &Variant, Type *MaskEltType,
+    SmallVectorImpl<Type *> &LogicalArgTypes, Type *&LogicalRetType);
+
 /// This function will insert functions for simd declared functions.
+/// If does not exist already the function creates a vector function
+/// variant type using information from \p ArgTys and \p RetTy for their logical
+/// types respectively. The original function \p OrigF and variant information
+/// \p Variant is used to set proper vector variant attributes.
 Function *getOrInsertVectorVariantFunction(Function &OrigF,
                                            const VFInfo &Variant,
-                                           ArrayRef<Type *> ArgTys);
+                                           ArrayRef<Type *> ArgTys,
+                                           Type *RetTy);
 
 /// \brief Widens the call to function \p OrigF  using a vector length of \p VL
 /// and inserts the appropriate function declaration if not already created.

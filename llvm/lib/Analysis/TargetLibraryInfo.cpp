@@ -6176,6 +6176,16 @@ bool TargetLibraryInfoImpl::isOMPLibFunc(LibFunc F) const {
       return false;
   }
 }
+
+bool TargetLibraryInfoImpl::isComplexFloatLibFunc(LibFunc F) const {
+  switch (F) {
+    case LibFunc_cexpf:
+    case LibFunc_clogf:
+      return true;
+    default:
+      return false;
+  }
+}
 #endif // INTEL_CUSTOMIZATION
 
 bool TargetLibraryInfoImpl::isFunctionVectorizable(StringRef funcName,

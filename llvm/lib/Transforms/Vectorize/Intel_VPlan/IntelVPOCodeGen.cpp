@@ -735,9 +735,13 @@ void VPOCodeGen::addMaskToSVMLCall(Function *OrigF, Value *CallMaskValue,
   auto *VecTy = cast<FixedVectorType>(VecArgTys[0]);
   unsigned MaskNumElems = VecTy->getNumElements();
   StringRef FnName = OrigF->getName();
-  // For calls transformed via arg repacking, the mask value should have VF
-  // elements not VF * num_args elements.
-  if (TLI->doesVectorFuncNeedArgRepacking(FnName))
+  // For calls transformed via arg repacking and for complex float-type math
+  // library calls, the mask value should have VF elements not VF * num_args
+  // elements.
+  LibFunc CmplxFloatLibFunc;
+  if (TLI->doesVectorFuncNeedArgRepacking(FnName) ||
+      (TLI->getLibFunc(*OrigF, CmplxFloatLibFunc) &&
+       TLI->isComplexFloatLibFunc(CmplxFloatLibFunc)))
     MaskNumElems = VF;
 
   assert(
@@ -3513,13 +3517,17 @@ void VPOCodeGen::generateVectorCalls(VPCallInstruction *VPCall,
 
     Function *VectorF = nullptr;
     if (MatchedVariant) {
+      Type *VecRetTy =
+          getWidenedReturnType(VPCall->getType(), MatchedVariant->getVF());
+
       assert(VF / PumpFactor == MatchedVariant->getVF() &&
              "VLEN mismatch for vector variant.");
       VectorF = getOrInsertVectorVariantFunction(*CalledFunc, *MatchedVariant,
-                                                 VecArgTys);
+                                                 VecArgTys, VecRetTy);
     } else {
-      VectorF = getOrInsertVectorLibFunction(
-        CalledFunc, VF / PumpFactor, VecArgTys, TLI, VectorIntrinID, IsMasked);
+      VectorF =
+          getOrInsertVectorLibFunction(CalledFunc, VF / PumpFactor, VecArgTys,
+                                       TLI, VectorIntrinID, IsMasked);
     }
     assert(VectorF && "Can't create vector function.");
     CallInst *VecCall = Builder.CreateCall(VectorF, VecArgs);
