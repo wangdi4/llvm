@@ -606,7 +606,7 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
 #endif // INTEL_CUSTOMIZATION
     setOperationAction(ISD::PREFETCH      , MVT::Other, Legal);
   if (Subtarget.hasSSEPrefetch() || Subtarget.hasThreeDNow())
-    setOperationAction(ISD::PREFETCH      , MVT::Other, Legal);
+    setOperationAction(ISD::PREFETCH      , MVT::Other, Custom);
 
   setOperationAction(ISD::ATOMIC_FENCE  , MVT::Other, Custom);
 
@@ -36726,6 +36726,18 @@ static SDValue LowerCVTPS2PH(SDValue Op, SelectionDAG &DAG) {
   return DAG.getNode(ISD::CONCAT_VECTORS, dl, VT, Lo, Hi);
 }
 
+static SDValue LowerPREFETCH(SDValue Op, const X86Subtarget &Subtarget,
+                             SelectionDAG &DAG) {
+  unsigned IsData = cast<ConstantSDNode>(Op.getOperand(4))->getZExtValue();
+
+  // We don't support non-data prefetch without PREFETCHI.
+  // Just preserve the chain.
+  if (!IsData && !Subtarget.hasPREFETCHI())
+    return Op.getOperand(0);
+
+  return Op;
+}
+
 static StringRef getInstrStrFromOpNo(const SmallVectorImpl<StringRef> &AsmStrs,
                                      unsigned OpNo) {
   const APInt Operand(32, OpNo);
@@ -37015,6 +37027,7 @@ SDValue X86TargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   case ISD::COMPLEX_MUL:        return LowerComplexMUL(Op, DAG, Subtarget);
   case ISD::INLINEASM:          return LowerInlineAsm(Op, DAG);
 #endif // INTEL_CUSTOMIZATION
+  case ISD::PREFETCH:           return LowerPREFETCH(Op, Subtarget, DAG);
   }
 }
 
