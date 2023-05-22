@@ -5246,6 +5246,7 @@ X86TTIImpl::getMaskedMemoryOpCost(unsigned Opcode, Type *SrcTy, Align Alignment,
   return Cost + LT.first;
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 InstructionCost X86TTIImpl::getFMACostSavings(Type *Ty, FastMathFlags FMF) {
 
@@ -5306,6 +5307,13 @@ X86TTIImpl::getSerializationCost(Type *EltTy, unsigned NumElts,
 InstructionCost X86TTIImpl::getPointersChainCost(
     ArrayRef<const Value *> Ptrs, const Value *Base,
     const TTI::PointersChainInfo &Info, TTI::TargetCostKind CostKind) {
+=======
+InstructionCost
+X86TTIImpl::getPointersChainCost(ArrayRef<const Value *> Ptrs,
+                                 const Value *Base,
+                                 const TTI::PointersChainInfo &Info,
+                                 Type *AccessTy, TTI::TargetCostKind CostKind) {
+>>>>>>> c27a0b21c5782d61c3c3125571239d08085565da
   if (Info.isSameBase() && Info.isKnownStride()) {
     // If all the pointers have known stride all the differences are translated
     // into constants. X86 memory addressing allows encoding it into
@@ -5317,7 +5325,7 @@ InstructionCost X86TTIImpl::getPointersChainCost(
     }
     return TTI::TCC_Free;
   }
-  return BaseT::getPointersChainCost(Ptrs, Base, Info, CostKind);
+  return BaseT::getPointersChainCost(Ptrs, Base, Info, AccessTy, CostKind);
 }
 
 InstructionCost X86TTIImpl::getAddressComputationCost(Type *Ty,
