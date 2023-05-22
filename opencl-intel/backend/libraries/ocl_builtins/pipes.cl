@@ -209,33 +209,49 @@ void __pipe_init_ext_fpga(__global void *pp, int packet_size, int depth,
                           int mode, int protocol) {
   __global struct __pipe_t *p = (__global struct __pipe_t *)pp;
   p->packet_size = packet_size;
-  p->max_packets = __pipe_get_max_packets_fpga(depth, mode);
+  p->max_packets =
+      depth == -1 ? depth : __pipe_get_max_packets_fpga(depth, mode);
+
   p->io = NULL;
   p->protocol = protocol;
-  atomic_init(&p->head, 0);
-  atomic_init(&p->tail, 0);
 
-  p->read_buf.end = 0;
-  p->read_buf.size = -1;
-  p->read_buf.limit = PIPE_READ_BUF_PREFERRED_LIMIT;
-
-  p->write_buf.end = 0;
-  p->write_buf.size = -1;
-
-  if (mode == CHANNEL_DEPTH_MODE_STRICT ||
-      (mode == CHANNEL_DEPTH_MODE_DEFAULT && depth != 0)) {
-    // See notes in __pipe_get_max_packets function: "We must ensure that at
-    // least 'depth' packets can be written without blocking..."
-    p->write_buf.limit = 1;
+  if (depth == -1) {
+    // preserve at list 2 empty elements in the circular linked list at the
+    // beginning.
+    p->hp_write_ptr = (__hostpipe_packet *)malloc(sizeof(__hostpipe_packet));
+    p->hp_write_ptr->data = malloc(packet_size);
+    p->hp_write_ptr->next =
+        (__hostpipe_packet *)malloc(sizeof(__hostpipe_packet));
+    p->hp_write_ptr->next->data = malloc(packet_size);
+    p->hp_write_ptr->next->next = p->hp_write_ptr;
+    // At the beginging read_buf and write_buf points to the same element.
+    p->hp_read_ptr = p->hp_write_ptr;
   } else {
-    // Limit pipe write buffer by pipe write capacity, which is a maximum
-    // capacity, since the pipe is empty.
-    int write_buf_limit =
-        min(get_write_capacity(p), PIPE_WRITE_BUF_PREFERRED_LIMIT);
-    // Ensure that write buffer limit is a multiple of max supported vector
-    // length
-    p->write_buf.limit =
-        write_buf_limit - (write_buf_limit % MAX_VL_SUPPORTED_BY_PIPES);
+    atomic_init(&p->head, 0);
+    atomic_init(&p->tail, 0);
+
+    p->read_buf.end = 0;
+    p->read_buf.size = -1;
+    p->read_buf.limit = PIPE_READ_BUF_PREFERRED_LIMIT;
+
+    p->write_buf.end = 0;
+    p->write_buf.size = -1;
+
+    if (mode == CHANNEL_DEPTH_MODE_STRICT ||
+        (mode == CHANNEL_DEPTH_MODE_DEFAULT && depth != 0)) {
+      // See notes in __pipe_get_max_packets function: "We must ensure that at
+      // least 'depth' packets can be written without blocking..."
+      p->write_buf.limit = 1;
+    } else {
+      // Limit pipe write buffer by pipe write capacity, which is a maximum
+      // capacity, since the pipe is empty.
+      int write_buf_limit =
+          min(get_write_capacity(p), PIPE_WRITE_BUF_PREFERRED_LIMIT);
+      // Ensure that write buffer limit is a multiple of max supported vector
+      // length
+      p->write_buf.limit =
+          write_buf_limit - (write_buf_limit % MAX_VL_SUPPORTED_BY_PIPES);
+    }
   }
 }
 
@@ -243,6 +259,21 @@ void __pipe_release_fpga(__global void *pp) {
   __global struct __pipe_t *p = (__global struct __pipe_t *)pp;
   if (p->io != NULL)
     fclose(p->io);
+
+  if (p->max_packets == -1) { // host pipe
+    __hostpipe_packet *indicator = p->hp_write_ptr->next;
+    p->hp_write_ptr->next = NULL; // cut the link
+
+    while (indicator != NULL) {
+      __hostpipe_packet *release = indicator;
+      indicator = indicator->next;
+      // Release data.
+      if (release->data)
+        free(release->data);
+      // Release packet itself.
+      free(release);
+    }
+  }
 }
 
 void __pipe_init_array_fpga(__global void *__global *p, int array_size,
@@ -276,6 +307,19 @@ int __read_pipe_2_fpga(read_only pipe uchar pp, void *dst, uint size,
   __global struct __pipe_t *p = __ocl_rpipe2ptr(pp);
   __global struct __pipe_internal_buf *buf = &p->read_buf;
 
+  if (p->max_packets == -1) {
+    __hostpipe_packet *hp_read_ptr = p->hp_read_ptr;
+    __hostpipe_packet *hp_write_ptr = p->hp_write_ptr;
+
+    if (hp_read_ptr == NULL || hp_read_ptr->data == NULL ||
+        hp_read_ptr == hp_write_ptr)
+      return -1; // Initialized failed or empty;
+
+    __builtin_memcpy(dst, hp_read_ptr->data, size);
+    p->hp_read_ptr = hp_read_ptr->next;
+    return 0;
+  }
+
   if (buf->size < 0) {
     // Try to reserve a buffer
     if (!reserve_read_buffer(buf, get_read_capacity(p)))
@@ -304,6 +348,33 @@ int __write_pipe_2_fpga(write_only pipe uchar pp, const void *src, uint size,
                         uint align) {
   __global struct __pipe_t *p = __ocl_wpipe2ptr(pp);
   __global struct __pipe_internal_buf *buf = &p->write_buf;
+
+  if (p->max_packets == -1) {
+    __hostpipe_packet *hp_read_ptr = p->hp_read_ptr;
+    __hostpipe_packet *hp_write_ptr = p->hp_write_ptr;
+
+    if (hp_write_ptr == NULL || hp_write_ptr->data == NULL) {
+      return -1; // pipe initialization failed.
+    }
+    if (hp_write_ptr->next == hp_read_ptr) { // full
+                                             // allocat one packet
+      __hostpipe_packet *tmppacket =
+          (__hostpipe_packet *)malloc(sizeof(__hostpipe_packet));
+      if (tmppacket == NULL)
+        return -1;
+
+      tmppacket->data = malloc(p->packet_size);
+
+      if (tmppacket->data == NULL)
+        return -1;
+
+      tmppacket->next = hp_write_ptr->next;
+      hp_write_ptr->next = tmppacket;
+    }
+    __builtin_memcpy(hp_write_ptr->data, src, size);
+    p->hp_write_ptr = hp_write_ptr->next;
+    return 0;
+  }
 
   if (buf->size < 0) {
     // Try to reserve a buffer

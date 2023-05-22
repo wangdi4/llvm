@@ -11,9 +11,9 @@ target triple = "spir64-unknown-unknown"
 %opencl.pipe_wo_t = type opaque
 ; CHECK: %opencl.pipe_rw_t = type opaque
 ; CHECK-DAG: @_ZN2cl4sycl5intel23kernel_readable_io_pipeIN9intelfpga16ethernet_pipe_idILj0EEEiLm0EE9m_StorageE.syclpipe = addrspace(1) global %opencl.pipe_rw_t addrspace(1)* null, align 8, !packet_size !{{[0-9]+}}, !packet_align !{{[0-9]+}}, !depth !{{[0-9]+}}, !io ![[READ_IO_MD:[0-9]+]]
-; CHECK-DAG: @_ZN2cl4sycl5intel23kernel_readable_io_pipeIN9intelfpga16ethernet_pipe_idILj0EEEiLm0EE9m_StorageE.syclpipe.bs = addrspace(1) global [328 x i8] zeroinitializer, align 4
+; CHECK-DAG: @_ZN2cl4sycl5intel23kernel_readable_io_pipeIN9intelfpga16ethernet_pipe_idILj0EEEiLm0EE9m_StorageE.syclpipe.bs = addrspace(1) global [456 x i8] zeroinitializer, align 4
 ; CHECK-DAG: _ZN2cl4sycl5intel24kernel_writeable_io_pipeIN9intelfpga16ethernet_pipe_idILj1EEEiLm0EE9m_StorageE.syclpipe = addrspace(1) global %opencl.pipe_rw_t addrspace(1)* null, align 8, !packet_size !{{[0-9]+}}, !packet_align !{{[0-9]+}}, !depth !{{[0-9]+}}, !io ![[WRITE_IO_MD:[0-9]+]]
-; CHECK-DAG: @_ZN2cl4sycl5intel24kernel_writeable_io_pipeIN9intelfpga16ethernet_pipe_idILj1EEEiLm0EE9m_StorageE.syclpipe.bs = addrspace(1) global [328 x i8] zeroinitializer, align 4
+; CHECK-DAG: @_ZN2cl4sycl5intel24kernel_writeable_io_pipeIN9intelfpga16ethernet_pipe_idILj1EEEiLm0EE9m_StorageE.syclpipe.bs = addrspace(1) global [456 x i8] zeroinitializer, align 4
 
 @_ZN2cl4sycl5intel23kernel_readable_io_pipeIN9intelfpga16ethernet_pipe_idILj0EEEiLm0EE9m_StorageE = available_externally addrspace(1) constant %struct._ZTS19ConstantPipeStorage.ConstantPipeStorage { i32 4, i32 4, i32 0 }, align 4, !io_pipe_id !0
 @_ZN2cl4sycl5intel24kernel_writeable_io_pipeIN9intelfpga16ethernet_pipe_idILj1EEEiLm0EE9m_StorageE = available_externally addrspace(1) constant %struct._ZTS19ConstantPipeStorage.ConstantPipeStorage { i32 4, i32 4, i32 0 }, align 4, !io_pipe_id !1

@@ -4873,9 +4873,9 @@ private:
   // stores to a local variable inside the function containing 'L' which
   // will not alias with actual arguments passed to 'WrapperF'.
   bool validateMultiLoop(Loop *L, Function *WrapperF);
-  // Return a LoadInst to a ptr that will be temporarily annotated with
-  // "predicate-opt-restrict" metadata.
-  LoadInst *annotateWithRestrictHack(Function *BaseF);
+  // Find a unique LoadInst with a 'predicate-opt-restrict' metadata in the
+  // entry block of 'BaseF'.
+  LoadInst *findUniqueRestrictLoadInst(Function *BaseF);
   // Recursive version of findHoistableFields() with 'Depth".
   bool findHoistableFieldsX(Function *F, Value *V, unsigned Depth,
                             std::set<unsigned> &HoistYes,
@@ -5172,52 +5172,19 @@ bool PredicateOpt::validateMultiLoop(Loop *L, Function *WrapperF) {
 }
 
 //
-// Return a LoadInst to a ptr that will be temporarily annotated with
-// "predicate-opt-restrict" metadata.
-// NOTE: This is a temporary workaround until we get the front end to mark
-// local pointer variables which are declared "restrict". For example,
-//     CacheInfo *restrict cache_info;
-// in the IR becomes:
-//     %t = load ptr, ptr %u, align 8, !tbaa !MD0, "predicate-opt-data" !MD1
+// Find a unique LoadInst with a 'predicate-opt-restrict' metadata in the
+// entry block of 'BaseF'.
 //
-LoadInst *PredicateOpt::annotateWithRestrictHack(Function *BaseF) {
-  BasicBlock &BB = BaseF->getEntryBlock();
+LoadInst *PredicateOpt::findUniqueRestrictLoadInst(Function *BaseF) {
   LoadInst *LIR = nullptr;
-  for (auto &I : BB) {
-    if (auto LI = dyn_cast<LoadInst>(&I)) {
-      if (auto GEPI = dyn_cast<GetElementPtrInst>(LI->getPointerOperand())) {
-        if (GEPI->getNumOperands() != 3)
+  for (auto &I : BaseF->getEntryBlock())
+    if (auto LI = dyn_cast<LoadInst>(&I))
+      if (LI->getMetadata("predicate-opt-restrict")) {
+        if (!LIR)
+          LIR = LI;
+        else
           return nullptr;
-        if (auto Arg = dyn_cast<Argument>(GEPI->getPointerOperand())) {
-          if (Arg->getArgNo() != 0)
-            return nullptr;
-        } else {
-          return nullptr;
-        }
-        if (auto CI1 = dyn_cast<ConstantInt>(GEPI->getOperand(1))) {
-          if (!CI1->isZero())
-            return nullptr;
-        } else {
-          return nullptr;
-        }
-        if (auto CI2 = dyn_cast<ConstantInt>(GEPI->getOperand(2))) {
-          if (CI2->getZExtValue() != 49)
-            return nullptr;
-        } else {
-          return nullptr;
-        }
-        LIR = LI;
-        break;
-      } else {
-        return nullptr;
       }
-    }
-  }
-  if (!LIR)
-    return nullptr;
-  LLVMContext &C = LIR->getContext();
-  MDNode *N = MDNode::get(C, MDString::get(C, "predicate-opt-restrict"));
-  LIR->setMetadata("predicate-opt-data", N);
   return LIR;
 }
 
@@ -6171,7 +6138,7 @@ bool PredicateOpt::shouldAttemptPredicateOpt() {
   LLVM_DEBUG(dbgs() << "MRC Predicate Opt: Loops: " << SimpleLoopDepth << "\n");
   if (SimpleLoopDepth < PredicateOptMinLoops)
     return false;
-  LIRestrict = annotateWithRestrictHack(BaseF);
+  LIRestrict = findUniqueRestrictLoadInst(BaseF);
   LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
                     << "LIRestrict: " << (LIRestrict ? "T" : "F") << "\n");
   if (!LIRestrict)

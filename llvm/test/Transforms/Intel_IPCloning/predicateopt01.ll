@@ -136,7 +136,7 @@
 
 ; This is the non-predicate optimized version.
 ; CHECK-LABEL: define internal {{.*}} @GetVirtualPixelsFromNexus(
-; CHECK: load ptr, ptr {{.*}} !predicate-opt-data ![[P0:[0-9]+]]
+; CHECK: load ptr, ptr {{.*}} !predicate-opt-restrict ![[P0:[0-9]+]]
 ; CHECK: tail call ptr @AcquirePixelCacheNexus
 
 ; This is the non-predicate optimized version.
@@ -217,8 +217,8 @@
 ; CHECK-LABEL: define internal void @GetVirtualPixelsFromNexus.3.bb206(
 ; CHECK: tail call ptr @AcquirePixelCacheNexus(
 
-; This indicates that the memory opt was for a restrict pointer.
-; CHECK: ![[P0]] = !{!"predicate-opt-restrict"}
+; This is the terminator for the restrict metadata
+; CHECK: ![[P0]] = !{}
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -870,7 +870,7 @@ bb:
   call void @llvm.lifetime.start.p0(i64 2, ptr nonnull %i) #11
   call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %i8) #11
   %i9 = getelementptr inbounds %struct._ZTS6_Image._Image, ptr %arg, i64 0, i32 49, !intel-tbaa !120
-  %i10 = load ptr, ptr %i9, align 8, !tbaa !120
+  %i10 = load ptr, ptr %i9, align 8, !tbaa !120, !predicate-opt-restrict !230 
   %i11 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo, ptr %i10, i64 0, i32 3, !intel-tbaa !121
   %i12 = load i32, ptr %i11, align 8, !tbaa !121, !alias.scope !132, !noalias !135
   %i13 = icmp eq i32 %i12, 0
@@ -1997,4 +1997,5 @@ attributes #14 = { hot }
 !227 = distinct !{!227, !95}
 !228 = distinct !{!228, !95}
 !229 = !{!154, !48, i64 80}
+!230 = !{}
 ; end INTEL_FEATURE_SW_ADVANCED
