@@ -619,7 +619,7 @@ multiclass BinOpRI8_RF_Common<bits<8> opcode, string mnemonic,
   let Constraints = "$src1 = $dst" in {
     let Defs = [EFLAGS] in {
       let Predicates = [NoNDD] in
-      def NAME: BinOpRI8_RF<opcode, mnemonic, typeinfo, opnodeflag, f>;
+      def NAME: BinOpRI8_RF<opcode, mnemonic, typeinfo, f>;
       def _EVEX: BinOpRI8_RF_EVEX<opcode, mnemonic, typeinfo, f, WriteALU>,
                  EmitVEXOrEVEXPrefix;
     }
@@ -693,7 +693,7 @@ multiclass BinOpMI8_RMW_Common<string mnemonic, X86TypeInfo typeinfo,
                                Predicate pred = TruePredicate>{
 let Defs = [EFLAGS] in {
   let Predicates = [pred, NoNDD] in
-    def NAME : BinOpMI8_RMW<mnemonic, typeinfo, opnode, f>;
+    def NAME : BinOpMI8_RMW<mnemonic, typeinfo, f>;
     def _EVEX : BinOpMI8_RMW_EVEX<mnemonic, typeinfo, f>,
                 EmitVEXOrEVEXPrefix;
   let Predicates = [HasNDD] in {
@@ -1960,9 +1960,9 @@ multiclass ArithBinOp_RF<bits<8> BaseOpc, bits<8> BaseOpc2, bits<8> BaseOpc4,
   let Predicates = [Not64BitMode], isCodeGenOnly = 1, ForceDisassemble = 1,
       hasSideEffects = 0, Defs = [EFLAGS] in {
     let Constraints = "$src1 = $dst" in
-      def NAME#8ri8 : BinOpRI8_RF<0x82, mnemonic, Xi8, null_frag, RegMRM>;
+      def NAME#8ri8 : BinOpRI8_RF<0x82, mnemonic, Xi8, RegMRM>;
     let mayLoad = 1, mayStore = 1 in
-      def NAME#8mi8 : BinOpMI8_RMW<mnemonic, Xi8, null_frag, MemMRM>;
+      def NAME#8mi8 : BinOpMI8_RMW<mnemonic, Xi8, MemMRM>;
   }
 
   def NAME#8i8   : BinOpAI<BaseOpc4, mnemonic, Xi8 , AL,
@@ -2212,7 +2212,7 @@ multiclass BinOpRI8_RFF_Common<bits<8> opcode, string mnemonic,
                                SDPatternOperator opnode, Format f>{
 let Constraints = "$src1 = $dst" in {
   let Predicates = [NoNDD] in
-  def NAME : BinOpRI8_RFF<opcode, mnemonic, typeinfo, opnode, f>;
+  def NAME : BinOpRI8_RFF<opcode, mnemonic, typeinfo, f>;
   def _EVEX : BinOpRI8_RFF_EVEX<opcode, mnemonic, typeinfo, f>,
               EmitVEXOrEVEXPrefix;
 }
@@ -2292,7 +2292,7 @@ multiclass BinOpMI8_RMW_FF_Common<string mnemonic, X86TypeInfo typeinfo,
                                   SDPatternOperator opnode, Format f,
                                   Predicate pred = TruePredicate>{
 let Predicates = [NoNDD, pred] in
-  def NAME : BinOpMI8_RMW_FF<mnemonic, typeinfo, opnode, f>;
+  def NAME : BinOpMI8_RMW_FF<mnemonic, typeinfo, f>;
   def _EVEX : BinOpMI8_RMW_FF_EVEX<mnemonic, typeinfo, f>,
               EmitVEXOrEVEXPrefix;
 let Predicates = [HasNDD] in
@@ -2411,9 +2411,9 @@ multiclass ArithBinOp_RFF<bits<8> BaseOpc, bits<8> BaseOpc2, bits<8> BaseOpc4,
     let Predicates = [Not64BitMode], isCodeGenOnly = 1, ForceDisassemble = 1,
         hasSideEffects = 0 in {
       let Constraints = "$src1 = $dst" in
-        def NAME#8ri8 : BinOpRI8_RFF<0x82, mnemonic, Xi8, null_frag, RegMRM>;
+        def NAME#8ri8 : BinOpRI8_RFF<0x82, mnemonic, Xi8, RegMRM>;
       let mayLoad = 1, mayStore = 1 in
-        def NAME#8mi8 : BinOpMI8_RMW_FF<mnemonic, Xi8, null_frag, MemMRM>;
+        def NAME#8mi8 : BinOpMI8_RMW_FF<mnemonic, Xi8, MemMRM>;
     }
   } // Uses = [EFLAGS], Defs = [EFLAGS]
 

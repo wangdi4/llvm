@@ -573,7 +573,7 @@ def : InstRW<[RYLWriteResGroup10], (instregex "^PUSH(16|32|64)(r|i8)$",
                                               "^PUSH((64)?)i32$")>;
 def : InstRW<[RYLWriteResGroup10], (instrs CLDEMOTE,
                                            CLFLUSHOPT,
-                                           PUSHi16)>;
+                                           PUSH16i)>;
 
 def RYLWriteResGroup11 : SchedWriteRes<[RYLPort00_01_02, RYLPort00_01_02_03_04_05]> {
   let ResourceCycles = [2, 2];
