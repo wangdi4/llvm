@@ -3517,13 +3517,17 @@ void VPOCodeGen::generateVectorCalls(VPCallInstruction *VPCall,
 
     Function *VectorF = nullptr;
     if (MatchedVariant) {
+      Type *VecRetTy =
+          getWidenedReturnType(VPCall->getType(), MatchedVariant->getVF());
+
       assert(VF / PumpFactor == MatchedVariant->getVF() &&
              "VLEN mismatch for vector variant.");
       VectorF = getOrInsertVectorVariantFunction(*CalledFunc, *MatchedVariant,
-                                                 VecArgTys);
+                                                 VecArgTys, VecRetTy);
     } else {
-      VectorF = getOrInsertVectorLibFunction(
-        CalledFunc, VF / PumpFactor, VecArgTys, TLI, VectorIntrinID, IsMasked);
+      VectorF =
+          getOrInsertVectorLibFunction(CalledFunc, VF / PumpFactor, VecArgTys,
+                                       TLI, VectorIntrinID, IsMasked);
     }
     assert(VectorF && "Can't create vector function.");
     CallInst *VecCall = Builder.CreateCall(VectorF, VecArgs);

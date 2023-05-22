@@ -462,49 +462,26 @@ Function *VecCloneImpl::Factory::run() {
 }
 
 void VecCloneImpl::Factory::cloneFunction() {
-
-  LLVM_DEBUG(dbgs() << "Cloning Function: " << F.getName() << "\n");
+  StringRef FName = F.getName();
+  LLVM_DEBUG(dbgs() << "Cloning Function: " << FName << "\n");
   LLVM_DEBUG(F.dump());
 
-  FunctionType *OrigFunctionType = F.getFunctionType();
-  Type *CharacteristicType = nullptr;
-  // IGC requires device versions of Intel math functions to have
-  // masks of i32 elements
-  if (llvm::isSVMLDeviceScalarFunctionName(F.getName()))
-    CharacteristicType = IntegerType::getInt32Ty(F.getContext());
-  else
-    CharacteristicType = calcCharacteristicType(F, V);
-
-  const auto *VKIt = V.getParameters().begin();
-  SmallVector<Type *, 4> ParmTypes;
-  for (auto ParmIt = OrigFunctionType->param_begin(),
-            ParmEnd = OrigFunctionType->param_end();
-       ParmIt != ParmEnd; ++ParmIt, ++VKIt) {
-    Type *ParmType = *ParmIt;
-    if (VKIt->isVector() || VKIt->isLinearVal()) {
-      if (ParmType->isIntOrIntVectorTy(1)) {
-        // Promote an `i1` or `<N x i1>` argument to `i8` or `<N x i8>` to
-        // avoid a GEP into `<VF x i1>` when accessing elements.
-        ParmType = ParmType->getWithNewBitWidth(8);
-      }
-      unsigned VF = V.getVF();
-      if (auto *FVT = dyn_cast<FixedVectorType>(ParmType))
-        VF *= FVT->getNumElements();
-      ParmTypes.push_back(FixedVectorType::get(ParmType->getScalarType(), VF));
-    } else {
-      ParmTypes.push_back(*ParmIt);
-    }
-  }
-
+  Type *MaskEltTy = nullptr;
   if (V.isMasked()) {
-    Type *MaskScalarTy = Usei1MaskForSimdFunctions
-                             ? Type::getInt1Ty(F.getContext())
-                             : CharacteristicType;
-    Type *MaskVecTy = FixedVectorType::get(MaskScalarTy, V.getVF());
-    ParmTypes.push_back(MaskVecTy);
+    // IGC requires device versions of Intel math functions to have
+    // masks of i32 elements
+    if (llvm::isSVMLDeviceScalarFunctionName(FName))
+      MaskEltTy = IntegerType::getInt32Ty(F.getContext());
+    else
+      MaskEltTy = Usei1MaskForSimdFunctions
+                      ? Type::getInt1Ty(F.getContext())
+                      : llvm::calcCharacteristicType(F, V);
   }
 
-  Clone = getOrInsertVectorVariantFunction(F, V, ParmTypes);
+  llvm::buildVectorVariantLogicalSignature(F, V, MaskEltTy, LogicalArgTypes,
+                                           LogicalRetType);
+  Clone =
+      getOrInsertVectorVariantFunction(F, V, LogicalArgTypes, LogicalRetType);
 
   // Copy all the attributes from the scalar function to its vector version.
   // Vector variants attribute will be stripped off later in this routine.

@@ -3174,9 +3174,13 @@ void VPOCodeGenHIR::generateWideCalls(const VPCallInstruction *VPCall,
 
     Function *VectorF = nullptr;
     if (MatchedVariant) {
+      Type *VecRetTy =
+          getWidenedReturnType(Fn->getReturnType(), MatchedVariant->getVF());
+
       assert(VF / PumpFactor == MatchedVariant->getVF() &&
              "VLEN mismatch for vector variant.");
-      VectorF = getOrInsertVectorVariantFunction(*Fn, *MatchedVariant, ArgTys);
+      VectorF = getOrInsertVectorVariantFunction(*Fn, *MatchedVariant, ArgTys,
+                                                 VecRetTy);
     } else {
       VectorF = getOrInsertVectorLibFunction(Fn, VF / PumpFactor, ArgTys, TLI,
                                              VectorIntrinID, Mask != nullptr);

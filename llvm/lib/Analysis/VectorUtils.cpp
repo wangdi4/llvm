@@ -1115,9 +1115,19 @@ void llvm::setRequiredAttributes(AttributeList Attrs, CallInst *VecCall,
                                             Attrs.getRetAttrs(), ArgAttrs));
 }
 
+void llvm::buildVectorVariantLogicalSignature(
+    Function &OrigF, const VFInfo &Variant, Type *MaskEltType,
+    SmallVectorImpl<Type *> &LogicalArgTypes, Type *&LogicalRetType) {
+
+  buildVectorVariantLogicalSignature(OrigF.getReturnType(), OrigF.args(),
+                                     Variant, MaskEltType, LogicalArgTypes,
+                                     LogicalRetType);
+}
+
 Function *llvm::getOrInsertVectorVariantFunction(Function &OrigF,
                                                  const VFInfo &Variant,
-                                                 ArrayRef<Type *> ArgTys) {
+                                                 ArrayRef<Type *> ArgTys,
+                                                 Type *RetTy) {
   // OrigF is the original scalar function being called.
   StringRef VFnName = Variant.VectorName;
   LLVM_DEBUG(dbgs() << "Getting or inserting " << VFnName << '\n');
@@ -1126,17 +1136,7 @@ Function *llvm::getOrInsertVectorVariantFunction(Function &OrigF,
   if (VectorF)
     return VectorF;
 
-  Type *RetTy = OrigF.getReturnType();
-  Type *VecRetTy = RetTy;
-  if (!RetTy->isVoidTy()) {
-    // GEPs into vectors of i1 do not make sense, so promote it to i8
-    // similar to its later processing in CodeGen.
-    if (RetTy->isIntegerTy(1))
-      RetTy = Type::getInt8Ty(RetTy->getContext());
-    VecRetTy = getWidenedType(RetTy, Variant.getVF());
-  }
-
-  FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
+  FunctionType *FTy = FunctionType::get(RetTy, ArgTys, false);
   VectorF = Function::Create(FTy, OrigF.getLinkage(), VFnName, M);
   VectorF->copyAttributesFrom(&OrigF);
   // Alias analysis models the high-level memory effects of functions
