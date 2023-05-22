@@ -66,6 +66,7 @@
 ; CHECK-O-NEXT: Running pass: UnpredictableProfileLoaderPass ;INTEL
 ; CHECK-O-NEXT: Running pass: AggressiveSpeculationPass on foo ;INTEL
 ; CHECK-O-NEXT: Running pass: OpenMPOptPass
+; CHECK-O3-NEXT: Running pass: RecursiveFunctionMemoizePass ;INTEL
 ; CHECK-O-NEXT: Running pass: IPSCCPPass
 ; CHECK-O-NEXT: Running pass: CalledValuePropagationPass
 ; CHECK-O-NEXT: Running pass: GlobalOptPass

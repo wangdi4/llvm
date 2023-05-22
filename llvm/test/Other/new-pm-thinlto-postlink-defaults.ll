@@ -69,6 +69,7 @@
 ; CHECK-O-NEXT: Running pass: AggressiveSpeculationPass ;INTEL
 ; CHECK-O-NEXT: Running pass: OpenMPOptPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: LowerTypeTestsPass
+; CHECK-O3-NEXT: Running pass: RecursiveFunctionMemoizePass ;INTEL
 ; CHECK-O-NEXT: Running pass: IPSCCPPass
 ; CHECK-FUNC-SPEC-NEXT: Running analysis: LoopAnalysis
 ; CHECK-O-NEXT: Running pass: CalledValuePropagationPass
