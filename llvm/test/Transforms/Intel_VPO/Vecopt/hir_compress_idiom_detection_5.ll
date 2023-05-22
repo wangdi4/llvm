@@ -25,7 +25,7 @@
 ; CHECK-NEXT:   (+) Start: float [[R_0150:%.*]] Exit: float [[VP5:%.*]]
 ; CHECK-NEXT:    Linked values: float [[VP6:%.*]], float [[VP5]], float [[VP7:%.*]],
 ; CHECK:       Induction list
-; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: ? BinOp: i64 [[VP8:%.*]] = add i64 [[VP9:%.*]] i64 1
+; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 2147483647 BinOp: i64 [[VP8:%.*]] = add i64 [[VP9:%.*]] i64 1
 ; CHECK-NEXT:    Linked values: i64 [[VP9]], i64 [[VP8]],
 ; CHECK:       Compress/expand idiom list
 ; CHECK-NEXT:    Phi: i32 [[VP10:%.*]] = phi  [ i32 [[C_0140]], [[BB1:BB[0-9]+]] ],  [ i32 [[VP11:%.*]], [[BB2:BB[0-9]+]] ]

@@ -53,7 +53,7 @@ define i32 @foo(i32* nocapture readonly %A, i32 %N, i32 %Init) {
 ; CHECK-NEXT:   (+) Start: i32 [[SUM_070]] Exit: i32 [[VP4:%.*]]
 ; CHECK-NEXT:    Linked values: i32 [[VP5:%.*]], i32 [[VP4]], i32 [[VP_RED_INIT:%.*]], i32 [[VP_RED_FINAL:%.*]],
 ; CHECK:       Induction list
-; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: ? BinOp: i64 [[VP6:%.*]] = add i64 [[VP7:%.*]] i64 [[VP__IND_INIT_STEP:%.*]]
+; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 2147483647 BinOp: i64 [[VP6:%.*]] = add i64 [[VP7:%.*]] i64 [[VP__IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:    Linked values: i64 [[VP7]], i64 [[VP6]], i64 [[VP__IND_INIT:%.*]], i64 [[VP__IND_INIT_STEP]], i64 [[VP__IND_FINAL:%.*]],
 ; CHECK:       Private list
 ; CHECK-EMPTY:

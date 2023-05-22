@@ -44,7 +44,7 @@ define dso_local i32 @maxloc(i32 %m, i32* nocapture readonly %ordering) local_un
 ; CHECK-NEXT:  IsLinearIndex: 0 Parent exit: i32 [[VP5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
-; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: ? BinOp: i64 [[VP11:%.*]] = add i64 [[VP12:%.*]] i64 1
+; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 2147483647 BinOp: i64 [[VP11:%.*]] = add i64 [[VP12:%.*]] i64 1
 ; CHECK-NEXT:    Linked values: i64 [[VP12]], i64 [[VP11]],
 ; CHECK:         [[BB1:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
@@ -111,7 +111,7 @@ define dso_local i32 @maxloc(i32 %m, i32* nocapture readonly %ordering) local_un
 ; CHECK-NEXT:  IsLinearIndex: 1 Parent exit: i32 [[VP5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
-; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: ? BinOp: i64 [[VP11]] = add i64 [[VP12]] i64 [[VP__IND_INIT_STEP:%.*]]
+; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 2147483647 BinOp: i64 [[VP11]] = add i64 [[VP12]] i64 [[VP__IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:    Linked values: i64 [[VP12]], i64 [[VP11]], i64 [[VP__IND_INIT:%.*]], i64 [[VP__IND_INIT_STEP]], i64 [[VP__IND_FINAL:%.*]],
 ; CHECK:         [[BB1]]: # preds:
 ; CHECK-NEXT:     br [[BB2]]
