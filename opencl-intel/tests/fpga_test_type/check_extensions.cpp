@@ -64,7 +64,6 @@ TEST_F(CheckExtensions, FPGADevice) {
                          OCL_EXT_KHR_3D_IMAGE_WRITES,
                          OCL_EXT_KHR_BYTE_ADDRESSABLE_STORE,
                          OCL_EXT_KHR_DEPTH_IMAGES,
-                         OCL_EXT_KHR_FP16,
                          OCL_EXT_KHR_FP64,
                          OCL_EXT_KHR_GLOBAL_BASE_ATOMICS,
                          OCL_EXT_KHR_GLOBAL_EXTENDED_ATOMICS,

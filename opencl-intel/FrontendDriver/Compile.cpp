@@ -195,6 +195,7 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
 #else
 #error "Can't define target triple: unknown architecture."
 #endif
+    optionsEx << " -cl-ext=+cl_khr_fp16";
   }
 
   if (m_sDeviceInfo.bImageSupport)

@@ -33,7 +33,7 @@ namespace Validation {
   " cl_intel_unified_shared_memory"
 
 #define BE_FE_COMPILER_USE_EXTENSIONS_FPGA                                     \
-  " cl_khr_fp16 cl_intel_channels cl_intel_fpga_host_pipe"                     \
+  " cl_intel_channels cl_intel_fpga_host_pipe"                                 \
   " cl_intel_mem_channel_property"
 
 #define BE_FE_COMPILER_USE_EXTENSIONS_CPU                                      \
