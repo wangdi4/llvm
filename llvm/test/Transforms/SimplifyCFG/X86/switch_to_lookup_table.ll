@@ -1817,9 +1817,7 @@ bb6:                                              ; preds = %start, %bb3, %bb4, 
   %.sroa.0.0 = phi i32 [ 2222, %bb5 ], [ 1111, %bb4 ], [ 4444, %bb3 ], [ 3333, %start ]
   ret i32 %.sroa.0.0
 }
-<<<<<<< HEAD
 ; end INTEL_CUSTOMIZATION
-=======
 
 ; can attach nsw because of default's unreachability and case value type size
 ; is big enough to hold max signed value.
@@ -1944,4 +1942,3 @@ bb6:                                              ; preds = %start, %bb3, %bb4, 
   %.sroa.0.0 = phi i32 [ 0, %bb1 ], [ 2222, %bb5 ], [ 1111, %bb4 ], [ 4444, %bb3 ], [ 3333, %start ]
   ret i32 %.sroa.0.0
 }
->>>>>>> 1362dfe16583607e39ac88e2a4de0f356c407cc7
