@@ -628,12 +628,8 @@ multiclass BinOpRI8_RF_Common<bits<8> opcode, string mnemonic,
   let Constraints = "$src1 = $dst" in {
     let Defs = [EFLAGS] in {
       let Predicates = [NoNDD] in
-<<<<<<< HEAD
       def NAME: BinOpRI8_RF<opcode, mnemonic, typeinfo, f>;
-=======
-      def NAME: BinOpRI8_RF<opcode, mnemonic, typeinfo, opnodeflag, f>;
       let Predicates = [In64BitMode] in
->>>>>>> 755d11e3685a94899371f9a3a5f7a9d80dfdf650
       def _EVEX: BinOpRI8_RF_EVEX<opcode, mnemonic, typeinfo, f, WriteALU>,
                  EmitVEXOrEVEXPrefix;
     }
@@ -712,12 +708,8 @@ multiclass BinOpMI8_RMW_Common<string mnemonic, X86TypeInfo typeinfo,
                                Predicate pred = TruePredicate>{
 let Defs = [EFLAGS] in {
   let Predicates = [pred, NoNDD] in
-<<<<<<< HEAD
     def NAME : BinOpMI8_RMW<mnemonic, typeinfo, f>;
-=======
-    def NAME : BinOpMI8_RMW<mnemonic, typeinfo, opnode, f>;
   let Predicates = [In64BitMode] in
->>>>>>> 755d11e3685a94899371f9a3a5f7a9d80dfdf650
     def _EVEX : BinOpMI8_RMW_EVEX<mnemonic, typeinfo, f>,
                 EmitVEXOrEVEXPrefix;
   let Predicates = [HasNDD, In64BitMode] in {
@@ -2272,12 +2264,8 @@ multiclass BinOpRI8_RFF_Common<bits<8> opcode, string mnemonic,
                                SDPatternOperator opnode, Format f>{
 let Constraints = "$src1 = $dst" in {
   let Predicates = [NoNDD] in
-<<<<<<< HEAD
   def NAME : BinOpRI8_RFF<opcode, mnemonic, typeinfo, f>;
-=======
-  def NAME : BinOpRI8_RFF<opcode, mnemonic, typeinfo, opnode, f>;
   let Predicates = [In64BitMode] in
->>>>>>> 755d11e3685a94899371f9a3a5f7a9d80dfdf650
   def _EVEX : BinOpRI8_RFF_EVEX<opcode, mnemonic, typeinfo, f>,
               EmitVEXOrEVEXPrefix;
 }
@@ -2358,12 +2346,8 @@ multiclass BinOpMI8_RMW_FF_Common<string mnemonic, X86TypeInfo typeinfo,
                                   SDPatternOperator opnode, Format f,
                                   Predicate pred = TruePredicate>{
 let Predicates = [NoNDD, pred] in
-<<<<<<< HEAD
   def NAME : BinOpMI8_RMW_FF<mnemonic, typeinfo, f>;
-=======
-  def NAME : BinOpMI8_RMW_FF<mnemonic, typeinfo, opnode, f>;
 let Predicates = [In64BitMode] in
->>>>>>> 755d11e3685a94899371f9a3a5f7a9d80dfdf650
   def _EVEX : BinOpMI8_RMW_FF_EVEX<mnemonic, typeinfo, f>,
               EmitVEXOrEVEXPrefix;
 let Predicates = [HasNDD, In64BitMode] in
