@@ -445,6 +445,8 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {15576, "peel loop is dynamic"},
     {15577, "estimated number of scalar loop iterations peeled: %s"},
     {15578, "DEBUG: %s"},
+    {15579,
+     "Multi-exit loop is not safe to vectorize or has unsupported structure."},
 
     {25018, "Total number of lines prefetched=%d"},
     {25019, "Number of spatial prefetches=%d, default dist=%d"},
@@ -561,7 +563,8 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {25593, "OpenMP: Worksharing loop"},
     {25594, "OpenMP: %s clause for variable '%s' is redundant"},
     {25595, "OpenMP: %s clause for variable '%s' has been changed to %s"},
-    {25596, "OpenMP: %s clause for variable '%s' can be changed to %s to reduce mapping overhead"},
+    {25596, "OpenMP: %s clause for variable '%s' can be changed to %s to "
+            "reduce mapping overhead"},
     {25597, "CSA: OpenMP parallel loop will be pipelined"},
     {25598, "CSA: OpenMP worksharing loop will be pipelined"},
 };
