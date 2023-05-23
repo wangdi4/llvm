@@ -1030,6 +1030,13 @@ void buildVectorVariantLogicalSignature(
     Function &OrigF, const VFInfo &Variant, Type *MaskEltType,
     SmallVectorImpl<Type *> &LogicalArgTypes, Type *&LogicalRetType);
 
+/// Build new AttributeList (Fn, return and Parameters) for a vector variant
+/// and update the attributes of the \p VectorF. The attributes derived from
+/// original function \p OrigF.
+void updateVectorVariantAttributes(Function &VectorF, const Function &OrigF,
+                                   const VFInfo &Variant,
+                                   ArrayRef<Type *> ArgTys);
+
 /// This function will insert functions for simd declared functions.
 /// If does not exist already the function creates a vector function
 /// variant type using information from \p ArgTys and \p RetTy for their logical

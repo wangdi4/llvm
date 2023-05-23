@@ -483,16 +483,6 @@ void VecCloneImpl::Factory::cloneFunction() {
   Clone =
       getOrInsertVectorVariantFunction(F, V, LogicalArgTypes, LogicalRetType);
 
-  // Copy all the attributes from the scalar function to its vector version.
-  // Vector variants attribute will be stripped off later in this routine.
-  Clone->copyAttributesFrom(&F);
-
-  // Remove incompatible argument attributes (applied to the scalar argument,
-  // does not apply to its vector counterpart).
-  for (unsigned Idx = 0, End = F.arg_size(); Idx < End; ++Idx)
-    Clone->removeParamAttrs(
-        Idx, AttributeFuncs::typeIncompatible(Clone->getArg(Idx)->getType()));
-
   Function::arg_iterator NewArgIt = Clone->arg_begin();
   for (Argument &Arg : F.args()) {
     NewArgIt->setName(Arg.getName());
@@ -510,16 +500,16 @@ void VecCloneImpl::Factory::cloneFunction() {
   CloneFunctionInto(Clone, &F, VMap, CloneFunctionChangeType::LocalChangesOnly,
                     Returns);
 
+  // Reinstate attributes as CloneFunctionInto takes it back from the scalar
+  // function.
+  updateVectorVariantAttributes(*Clone, F, V, LogicalArgTypes);
+
+  // Strip off vector variants and dispatch attributes.
   AttributeMask AM;
   AM.addAttribute(VectorUtils::VectorVariantsAttrName);
   if (F.hasFnAttribute(VectorDispatchAttrName))
     AM.addAttribute(VectorDispatchAttrName);
   Clone->removeFnAttrs(AM);
-
-  // Reinstate calling convention for Intel VFABI function as calling
-  // copyAttributesFrom above takes it from the scalar function.
-  if (VFInfo::isIntelVFABIMangling(V.VectorName))
-    Clone->setCallingConv(CallingConv::X86_RegCall);
 
   /// Add the 'align' attribute to any params with specified alignment.
   for (const auto &It : enumerate(Clone->args())) {
@@ -535,27 +525,6 @@ void VecCloneImpl::Factory::cloneFunction() {
                                ParamAlign->value()));
   }
 
-  // Mark the vector function as having side-effects. This will prevent
-  // downstream optimizations from doing code motion/elimination optimizations
-  // around private memory for vector of pointer operands. The problem is that
-  // when a ptr arg is widened, underlying AA/ModRef can longer reason about
-  // aliasing properties due to the type change. E.g., once
-  // call <4 x i32> @_ZGVbN4v_f_plus_one_(i32* nonnull %3)
-  // becomes:
-  // call <4 x i32> @_ZGVbN4v_f_plus_one_(<4 x i32*> nonnull %3)
-  // type checking on pointer no longer works and causes AA to return non-
-  // conservative results (i.e., NoModRef). This also affects things like
-  // MemorySSA from being able to stop at the closest dominating defining
-  // memory access since that also uses getModRefInfo. There will undoubtably
-  // be many other places where AA/ModRef is used. Also, this solution was
-  // made in favor of changes in AA because it seemed much simpler and less
-  // intrusive to do. These attributes must also be removed in
-  // getOrInsertVectorVariantFunction() because it's possible that the function
-  // is only declared and we won't make it here. The declared only function
-  // will be created from VPlan calling getOrInsertVectorVariantFunction().
-  Clone->setAttributes(Clone->getAttributes().addFnAttribute(
-      Clone->getContext(), Attribute::getWithMemoryEffects(
-                               Clone->getContext(), MemoryEffects::unknown())));
   EntryBlock = &Clone->front();
 
   LLVM_DEBUG(dbgs() << "After Cloning and Parameter/Return Expansion\n");

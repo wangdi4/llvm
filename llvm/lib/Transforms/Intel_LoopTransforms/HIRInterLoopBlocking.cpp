@@ -3461,35 +3461,6 @@ bool doTransformation(const LoopToDimInfoTy &InnermostLoopToDimInfos,
       .rewrite();
 }
 
-bool doTransformation2(const LoopToDimInfoTy &InnermostLoopToDimInfos,
-                       const LoopToConstRefTy &InnermostLoopToRepRef,
-                       const InnermostLoopToShiftTy &InnermostLoopToShift,
-                       HLNode *NodeOutsideByStrip, HIRDDAnalysis &DDA,
-                       StringRef Func) {
-
-  if (DisableTransform) {
-    LLVM_DEBUG(dbgs() << "Transformation is disabled.\n");
-
-    return false;
-  }
-
-  if (!RewriteFilterFunc.empty() && !Func.equals(RewriteFilterFunc)) {
-    LLVM_DEBUG(dbgs() << "Transformation is disabled for function " << Func
-                      << "\n");
-
-    return false;
-  }
-
-  // Magic numbers.
-  unsigned Size = InnermostLoopToDimInfos.begin()->second.size();
-  SmallVector<unsigned, 4> PreSetStripmineSizes(Size, DefaultStripmineSize);
-
-  return Transformer(PreSetStripmineSizes, InnermostLoopToDimInfos,
-                     InnermostLoopToRepRef, InnermostLoopToShift,
-                     NodeOutsideByStrip, DDA, Func, false /* ClongDVLoads */)
-      .rewrite();
-}
-
 template <bool isNeg = false>
 static int64_t getMaxUseDist(ArrayRef<const RegDDRef *> Rvals,
                              const RegDDRef *RepRef, unsigned DimIndex) {

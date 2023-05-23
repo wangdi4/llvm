@@ -200,8 +200,8 @@ public:
   // NumDims = 1, with only one-dimension and is the number of ByStrip loops.
   //
   //  NodeOutsideByStrip        Lv0_0
-  //      NonDimMatchinLoops    Lv2_0, Lv2_1
-  //        SpatialLoops (blocked unit-stride loops) Lv3_0, Lv3_1, ...
+  //    NonDimMatchingLoops    Lv2_0, Lv2_1
+  //      SpatialLoops (blocked unit-stride loops) Lv3_0, Lv3_1, ...
   //
   // Here, (Lv3_0 - Lv0_0) -  NumDims > 0 means the existence of
   // NonDimMatchingLoops. For the example above, (2 - 0) - 1 > 0 shows that
@@ -215,7 +215,7 @@ public:
   // After transformation.
   //  NodeOutsideByStrip        Lv0_0
   //    ByStripLoops (as many as NumDims)           Lv1_0, Lv1_1, Lv1_2
-  //      NonDimMatchinLoops    Lv2_0, Lv2_1
+  //      NonDimMatchingLoops    Lv2_0, Lv2_1
   //        SpatialLoops (blocked unit-stride loops) Lv3_0, Lv3_1, ...
   bool hasNonDimMatchingLoop(unsigned NumDims,
                              const LoopToDimInfoTy &InnermostLoopToDimInfo,
