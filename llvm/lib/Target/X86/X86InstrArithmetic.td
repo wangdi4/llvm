@@ -528,18 +528,21 @@ multiclass BinOpRR_RF_Common<bits<8> opcode, string mnemonic,
           let Defs = [EFLAGS] in {
           let Predicates = [NoNDD] in
             def NAME: BinOpRR_RF<opcode, mnemonic, typeinfo, opnodeflag>;
+          let Predicates = [In64BitMode] in
             def _EVEX: BinOpRR_RF_EVEX<opcode, mnemonic, typeinfo>,
                        EmitVEXOrEVEXPrefix;
           } // Defs = [EFLAGS]
+          let Predicates = [In64BitMode] in
             def _NF:BinOpRR_RF_EVEX<opcode, mnemonic, typeinfo>, EVEX_NF;
   }}
-  let Defs = [EFLAGS], Predicates = [HasNDD] in {
+  let Defs = [EFLAGS], Predicates = [HasNDD, In64BitMode] in {
       def _ND:  BinOpRR_RF_ND<opcode, mnemonic, typeinfo,
                               [(set typeinfo.RegClass:$dst, EFLAGS,
                                (opnodeflag typeinfo.RegClass:$src1,
                                            typeinfo.RegClass:$src2))]>,
               EVEX_B4V;
   }
+  let Predicates = [HasNDD, In64BitMode] in
       def _ND_NF: BinOpRR_RF_ND<opcode, mnemonic, typeinfo>, EVEX_B4V, EVEX_NF;
   }
 }
@@ -578,14 +581,17 @@ multiclass BinOpRR_Rev_Common<bits<8> opcode, string mnemonic,
       let Defs = [EFLAGS] in {
         let Predicates = [NoNDD] in
         def _REV: BinOpRR_Rev<opcode, mnemonic, typeinfo>;
+        let Predicates = [In64BitMode] in
         def _REV_EVEX: BinOpRR_Rev_EVEX<opcode, mnemonic, typeinfo>,
                        EmitVEXOrEVEXPrefix;
       }
+        let Predicates = [In64BitMode] in
         def _NF_REV: BinOpRR_Rev_EVEX<opcode, mnemonic, typeinfo>, EVEX_NF;
   }
-  let Defs = [EFLAGS], Predicates = [HasNDD] in {
+  let Defs = [EFLAGS], Predicates = [HasNDD, In64BitMode] in {
       def _ND_REV : BinOpRR_Rev_ND<opcode, mnemonic, typeinfo>, EVEX_B4V;
   }
+  let Predicates = [HasNDD, In64BitMode] in
       def _ND_NF_REV : BinOpRR_Rev_ND<opcode, mnemonic, typeinfo>,
           EVEX_B4V, EVEX_NF;
 }
@@ -613,18 +619,21 @@ multiclass BinOpRM_RF_Common<bits<8> opcode, string mnemonic,
   let Defs = [EFLAGS] in {
     let Predicates = [NoNDD] in
       def NAME: BinOpRM_RF<opcode, mnemonic, typeinfo, opnodeflag>;
+    let Predicates = [In64BitMode] in
       def _EVEX: BinOpRM_RF_EVEX<opcode, mnemonic, typeinfo>,
                  EmitVEXOrEVEXPrefix;
   }
+  let Predicates = [In64BitMode] in
       def _NF: BinOpRM_RF_EVEX<opcode, mnemonic, typeinfo>, EVEX_NF;
   }
-  let Defs = [EFLAGS], Predicates = [HasNDD] in {
+  let Defs = [EFLAGS], Predicates = [HasNDD, In64BitMode] in {
   def _ND : BinOpRM_RF_ND<opcode, mnemonic, typeinfo,
                           [(set typeinfo.RegClass:$dst, EFLAGS,
                            (opnodeflag typeinfo.RegClass:$src1,
                            (typeinfo.LoadNode addr:$src2)))]>,
             EVEX_B4V;
   }
+  let Predicates = [HasNDD, In64BitMode] in
   def _ND_NF : BinOpRM_RF_ND<opcode, mnemonic, typeinfo, []>,
                EVEX_B4V, EVEX_NF;
 }
@@ -650,19 +659,22 @@ multiclass BinOpRI8_RF_Common<bits<8> opcode, string mnemonic,
     let Defs = [EFLAGS] in {
       let Predicates = [NoNDD] in
       def NAME: BinOpRI8_RF<opcode, mnemonic, typeinfo, opnodeflag, f>;
+      let Predicates = [In64BitMode] in
       def _EVEX: BinOpRI8_RF_EVEX<opcode, mnemonic, typeinfo, f, WriteALU>,
                  EmitVEXOrEVEXPrefix;
     }
+    let Predicates = [In64BitMode] in
       def _NF: BinOpRI8_RF_EVEX<opcode, mnemonic, typeinfo, f, WriteALU>,
                EVEX_NF;
   }
-  let Defs = [EFLAGS], Predicates = [HasNDD] in {
+  let Defs = [EFLAGS], Predicates = [HasNDD, In64BitMode] in {
     def _ND : BinOpRI8_RF_ND<opcode, mnemonic, typeinfo, f,
                              [(set typeinfo.RegClass:$dst, EFLAGS,
                               (opnodeflag typeinfo.RegClass:$src1,
                                       typeinfo.Imm8Operator:$src2))]>,
               EVEX_B4V;
   }
+  let Predicates = [HasNDD, In64BitMode] in
     def _ND_NF : BinOpRI8_RF_ND<opcode, mnemonic, typeinfo, f, []>,
                  EVEX_B4V, EVEX_NF;
 }
@@ -677,18 +689,21 @@ multiclass BinOpRI_RF_Common<bits<8> opcode, string mnemonic,
     let Defs = [EFLAGS] in {
       let Predicates = [NoNDD] in
       def NAME: BinOpRI_RF<opcode, mnemonic, typeinfo, opnodeflag, f>;
+      let Predicates = [In64BitMode] in
       def _EVEX : BinOpRI_RF_EVEX<opcode, mnemonic, typeinfo, f>,
                   EmitVEXOrEVEXPrefix;
     }
+    let Predicates = [In64BitMode] in
       def _NF: BinOpRI_RF_EVEX<opcode, mnemonic, typeinfo, f>, EVEX_NF;
   }
-  let Defs = [EFLAGS], Predicates = [HasNDD] in {
+  let Defs = [EFLAGS], Predicates = [HasNDD, In64BitMode] in {
     def _ND : BinOpRI_RF_ND<opcode, mnemonic, typeinfo, f,
                             [(set typeinfo.RegClass:$dst, EFLAGS,
                              (opnodeflag typeinfo.RegClass:$src1,
                                          typeinfo.ImmOperator:$src2))]>,
               EVEX_B4V;
   }
+  let Predicates = [HasNDD, In64BitMode] in
     def _ND_NF : BinOpRI_RF_ND<opcode, mnemonic, typeinfo, f>,
                  EVEX_B4V, EVEX_NF;
 }
@@ -724,9 +739,10 @@ multiclass BinOpMI8_RMW_Common<string mnemonic, X86TypeInfo typeinfo,
 let Defs = [EFLAGS] in {
   let Predicates = [pred, NoNDD] in
     def NAME : BinOpMI8_RMW<mnemonic, typeinfo, opnode, f>;
+  let Predicates = [In64BitMode] in
     def _EVEX : BinOpMI8_RMW_EVEX<mnemonic, typeinfo, f>,
                 EmitVEXOrEVEXPrefix;
-  let Predicates = [HasNDD] in {
+  let Predicates = [HasNDD, In64BitMode] in {
     def _ND : BinOpMI8_ND<mnemonic, typeinfo, f,
                           [(set typeinfo.RegClass:$dst,
                            (opnode (load addr:$src1),
@@ -734,7 +750,9 @@ let Defs = [EFLAGS] in {
               EVEX_B4V;
   }
 }
+  let Predicates = [In64BitMode] in
     def _NF : BinOpMI8_RMW_EVEX<mnemonic, typeinfo, f>, EVEX_NF;
+  let Predicates = [HasNDD, In64BitMode] in
     def _ND_NF : BinOpMI8_ND<mnemonic, typeinfo, f, []>, EVEX_B4V, EVEX_NF;
 }
 
@@ -772,10 +790,11 @@ multiclass BinOpMI_Common<bits<8> opcode, string mnemonic,
   let Predicates = [pred, NoNDD] in {
     def NAME: BinOpMI_RMW<opcode, mnemonic, typeinfo, opnode, f>;
   }
+  let Predicates = [In64BitMode] in
     def _EVEX : BinOpMI_RMW_EVEX<opcode, mnemonic, typeinfo, f>,
                 EmitVEXOrEVEXPrefix;
   // Instructions like "add reg, [mem], imm".
-  let Predicates = [HasNDD] in {
+  let Predicates = [HasNDD, In64BitMode] in {
     def _ND : BinOpMI_ND<opcode, mnemonic, typeinfo, f,
                          [(set typeinfo.RegClass:$dst,
                           (opnode (typeinfo.VT (load addr:$src1)),
@@ -783,8 +802,10 @@ multiclass BinOpMI_Common<bits<8> opcode, string mnemonic,
               EVEX_B4V;
   }
   }
+  let Predicates = [In64BitMode] in
   // Instructions like "{nf} add [mem], imm".
     def _NF: BinOpMI_RMW_EVEX<opcode, mnemonic, typeinfo, f>, EVEX_NF;
+  let Predicates = [HasNDD, In64BitMode] in
   // Instructions like "{nf} add reg, [mem], imm".
     def _ND_NF : BinOpMI_ND<opcode, mnemonic, typeinfo, f, []>,
                  EVEX_B4V, EVEX_NF;
@@ -797,21 +818,25 @@ multiclass BinOpMR_Common<bits<8> opcode, string mnemonic,
   // Instructions like "add [mem], reg".
   let mayStore = 1 in {
   let Defs = [EFLAGS] in {
+    let Predicates = [NoNDD] in
     def NAME: BinOpMR_RMW<opcode, mnemonic, typeinfo, opnode>;
+    let Predicates = [In64BitMode] in
     def _EVEX: BinOpMR_RMW_EVEX<opcode, mnemonic, typeinfo>,
                EmitVEXOrEVEXPrefix;
   }
   // Instructions like "{nf} add [mem], reg".
+  let Predicates = [In64BitMode] in
     def _NF: BinOpMR_RMW_EVEX<opcode, mnemonic, typeinfo>, EVEX_NF;
   }
   // Instructions like "add reg, [mem], reg".
-  let Defs = [EFLAGS], Predicates = [HasNDD] in {
+  let Defs = [EFLAGS], Predicates = [HasNDD, In64BitMode] in {
   def _ND : BinOpMR_ND<opcode, mnemonic, typeinfo,
                        [(set typeinfo.RegClass:$dst,
                         (opnode (load addr:$src1),
                          typeinfo.RegClass:$src2)), (implicit EFLAGS)]>,
             EVEX_B4V;
   }
+  let Predicates = [HasNDD, In64BitMode] in
   // Instructions like "{nf} add reg, [mem], reg".
   def _ND_NF : BinOpMR_ND<opcode, mnemonic, typeinfo, []>,
                EVEX_B4V, EVEX_NF;
@@ -861,22 +886,22 @@ class UnaryOpR_NDD<bits<8> opcode, Format f, string mnemonic, X86TypeInfo info,
 
 multiclass INCDECR<Format f, string mnemonic, X86TypeInfo info,
                    SDPatternOperator node>{
-let isConvertibleToThreeAddress = 1 in {
+let isConvertibleToThreeAddress = 1, CodeSize = 2 in {
 let Defs = [EFLAGS] in {
-let Constraints = "$src1 = $dst", CodeSize = 2, Predicates = [NoNDD] in
+let Constraints = "$src1 = $dst", Predicates = [NoNDD] in
   def NAME : UnaryOpR<0xFE, f, mnemonic, info,
                       [(set info.RegClass:$dst, EFLAGS,
                        (node info.RegClass:$src1, 1))]>;
-let Constraints = "$src1 = $dst", CodeSize = 2 in
+let Constraints = "$src1 = $dst", Predicates = [In64BitMode] in
   def _EVEX : UnaryOpR_EVEX<0xFE, f, mnemonic, info, []>, EmitVEXOrEVEXPrefix;
-let Predicates = [HasNDD], CodeSize = 2 in
+let Predicates = [HasNDD, In64BitMode] in
   def _ND : UnaryOpR_NDD<0xFE, f, mnemonic, info,
                          [(set info.RegClass:$dst, EFLAGS,
                           (node info.RegClass:$src1, 1))]>, EVEX_B4V;
 }
-let Constraints = "$src1 = $dst", CodeSize = 2 in
+let Constraints = "$src1 = $dst", Predicates = [In64BitMode] in
   def _NF : UnaryOpR_EVEX<0xFE, f, mnemonic, info, []>, EVEX_NF;
-let CodeSize = 2 in
+let Predicates = [HasNDD, In64BitMode] in
   def _ND_NF : UnaryOpR_NDD<0xFE, f, mnemonic, info, []>,
                EVEX_B4V, EVEX_NF;
 }
@@ -884,25 +909,26 @@ let CodeSize = 2 in
 
 //  INCDECM - Instructions like "inc [mem]".
 multiclass INCDECM<Format f, string mnemonic, X86TypeInfo info, int num>{
+let CodeSize = 2 in {
 let Defs = [EFLAGS] in{
-let CodeSize = 2, Predicates = !if(info.HasREX_W,
-                                   [UseIncDec, In64BitMode], [UseIncDec]) in
+let Predicates = !if(info.HasREX_W, [UseIncDec, In64BitMode], [UseIncDec]) in
   def NAME : UnaryOpM<0xFE, f, mnemonic, info,
                       [(store (add (info.LoadNode addr:$dst), num), addr:$dst),
                        (implicit EFLAGS)]>;
-let CodeSize = 2 in
+let Predicates = [UseIncDec, In64BitMode] in
   def _EVEX : UnaryOpM_EVEX<0xFE, f, mnemonic, info, []>, EmitVEXOrEVEXPrefix;
-let mayLoad = 1, Predicates = [UseIncDec, HasNDD], CodeSize = 2 in
+let Predicates = [UseIncDec, HasNDD, In64BitMode] in
   def _ND : UnaryOpM_NDD<0xFE, f, mnemonic, info,
                          [(set info.RegClass:$dst,
                           (add (info.LoadNode addr:$src1), num)),
                           (implicit EFLAGS)]>, EVEX_B4V;
 }
-let CodeSize = 2 in
+let Predicates = [UseIncDec, In64BitMode] in
   def _NF : UnaryOpM_EVEX<0xFE, f, mnemonic, info, []>, EVEX_NF;
-let mayLoad = 1, CodeSize = 2 in
+let Predicates = [UseIncDec, HasNDD, In64BitMode] in
   def _ND_NF : UnaryOpM_NDD<0xFE, f, mnemonic, info, []>,
                EVEX_B4V, EVEX_NF;
+}
 }
 #else // INTEL_FEATURE_ISA_APX_F
 //  INCDECR - Instructions like "inc reg".
@@ -939,11 +965,12 @@ let Defs = !if(!eq(info.InstrSuffix, "b"), [reg1, EFLAGS, reg2],
   def NAME : ITy<opcode, f, info, (outs), (ins info.RegClass:$src), mnemonic,
                  "$src", pattern>,
              Sched<[sched]>;
+let Predicates = [In64BitMode] in
   def _EVEX : ITy_EVEX<opcode, f, info, (outs), (ins info.RegClass:$src),
                        mnemonic, "$src", []>,
               Sched<[sched]>, EmitVEXOrEVEXPrefix;
 }
-let Defs = [reg1, reg2], Uses = [reg1] in
+let Defs = [reg1, reg2], Uses = [reg1], Predicates = [In64BitMode] in
   def _NF : ITy_EVEX<opcode, f, info, (outs), (ins info.RegClass:$src),
                      mnemonic, "$src", []>,
             Sched<[sched]>, EVEX_NF;
@@ -960,11 +987,12 @@ let Predicates = !if(info.HasREX_W, [In64BitMode], [TruePredicate]) in
   def NAME : ITy<opcode, f, info, (outs), (ins info.MemOperand:$src), mnemonic,
                  "$src", pattern>,
              SchedLoadReg<sched>;
+let Predicates = [In64BitMode] in
   def _EVEX : ITy_EVEX<opcode, f, info, (outs), (ins info.MemOperand:$src),
                        mnemonic, "$src", []>,
               SchedLoadReg<sched>, EmitVEXOrEVEXPrefix;
 }
-let Defs = [reg1, reg2], Uses = [reg1] in
+let Defs = [reg1, reg2], Uses = [reg1], Predicates = [In64BitMode] in
   def _NF : ITy_EVEX<opcode, f, info, (outs), (ins info.MemOperand:$src),
                      mnemonic, "$src", []>,
             SchedLoadReg<sched>, EVEX_NF;
@@ -978,11 +1006,12 @@ let Defs = [reg1, reg2, EFLAGS], Uses = uses in {
   def NAME : ITy<opcode, f, info, (outs), (ins info.RegClass:$src), mnemonic,
                  "$src", pattern>,
              Sched<[sched]>;
+let Predicates = [In64BitMode] in
   def _EVEX : ITy_EVEX<opcode, f, info, (outs), (ins info.RegClass:$src),
                        mnemonic, "$src", []>,
               Sched<[sched]>, EmitVEXOrEVEXPrefix;
 }
-let Defs = [reg1, reg2], Uses = uses in
+let Defs = [reg1, reg2], Uses = uses, Predicates = [In64BitMode] in
   def _NF : ITy_EVEX<opcode, f, info, (outs), (ins info.RegClass:$src),
                      mnemonic, "$src", []>,
             Sched<[sched]>, EVEX_NF;
@@ -997,11 +1026,12 @@ let Predicates = !if(info.HasREX_W, [In64BitMode], [TruePredicate]) in
   def NAME : ITy<opcode, f, info, (outs), (ins info.MemOperand:$src), mnemonic,
                  "$src", pattern>,
              SchedLoadReg<sched>;
+let Predicates = [In64BitMode] in
   def _EVEX : ITy_EVEX<opcode, f, info, (outs), (ins info.MemOperand:$src),
                        mnemonic, "$src", []>,
               SchedLoadReg<sched>, EmitVEXOrEVEXPrefix;
 }
-let Defs = [reg1, reg2], Uses = uses in
+let Defs = [reg1, reg2], Uses = uses, Predicates = [In64BitMode] in
   def _NF : ITy_EVEX<opcode, f, info, (outs), (ins info.MemOperand:$src),
                      mnemonic, "$src", []>,
             SchedLoadReg<sched>, EVEX_NF;
@@ -1009,79 +1039,87 @@ let Defs = [reg1, reg2], Uses = uses in
 
 //  NegOpR - Instructions like "neg reg".
 multiclass NegOpR<bits<8> opcode, string mnemonic, X86TypeInfo info>{
+let CodeSize = 2 in {
 let Defs = [EFLAGS] in {
-let CodeSize = 2, Constraints = "$src1 = $dst", Predicates = [NoNDD] in
+let Constraints = "$src1 = $dst", Predicates = [NoNDD] in
   def NAME : UnaryOpR<opcode, MRM3r, mnemonic, info,
                       [(set info.RegClass:$dst, (ineg info.RegClass:$src1)),
                        (implicit EFLAGS)]>;
-let Constraints = "$src1 = $dst", CodeSize = 2 in
+let Constraints = "$src1 = $dst", Predicates = [In64BitMode] in
   def _EVEX : UnaryOpR_EVEX<opcode, MRM3r, mnemonic, info, []>,
               EmitVEXOrEVEXPrefix;
-let Predicates = [HasNDD], CodeSize = 2 in
+let Predicates = [HasNDD, In64BitMode] in
   def _ND : UnaryOpR_NDD<opcode, MRM3r, mnemonic, info,
                               [(set info.RegClass:$dst,
                                (ineg info.RegClass:$src1)), (implicit EFLAGS)]>,
             EVEX_B4V;
 }
-let Constraints = "$src1 = $dst", CodeSize = 2 in
+let Constraints = "$src1 = $dst", Predicates = [In64BitMode] in
   def _NF : UnaryOpR_EVEX<opcode, MRM3r, mnemonic, info, []>,
             EVEX_NF;
-let CodeSize = 2 in
+let Predicates = [HasNDD, In64BitMode] in
   def _ND_NF : UnaryOpR_NDD<opcode, MRM3r, mnemonic, info, []>,
                EVEX_B4V, EVEX_NF;
+}
 }
 
 //  NotOpR - Instructions like "not reg".
 multiclass NotOpR<bits<8> opcode, string mnemonic, X86TypeInfo info>{
-let CodeSize = 2, Constraints = "$src1 = $dst", Predicates = [NoNDD] in
+let CodeSize = 2 in {
+let Constraints = "$src1 = $dst", Predicates = [NoNDD] in
   def NAME : UnaryOpR<opcode, MRM2r, mnemonic, info,
                       [(set info.RegClass:$dst, (not info.RegClass:$src1))]>;
-let Constraints = "$src1 = $dst", CodeSize = 2 in
+let Constraints = "$src1 = $dst", Predicates = [In64BitMode] in
   def _EVEX : UnaryOpR_EVEX<opcode, MRM2r, mnemonic, info, []>,
               EmitVEXOrEVEXPrefix;
-let Predicates = [HasNDD], CodeSize = 2 in
+let Predicates = [HasNDD, In64BitMode] in
   def _ND : UnaryOpR_NDD<opcode, MRM2r, mnemonic, info,
-                              [(set info.RegClass:$dst,
-                               (not info.RegClass:$src1))]>, EVEX_B4V;
+                          [(set info.RegClass:$dst,
+                           (not info.RegClass:$src1))]>,
+            EVEX_B4V;
+}
 }
 
 //  NegOpM - Instructions like "neg [mem]".
 multiclass NegOpM<bits<8> opcode, string mnemonic, X86TypeInfo info>{
+let CodeSize = 2 in {
 let Defs = [EFLAGS] in {
-let CodeSize = 2, Predicates = !if(info.HasREX_W,
-                                   [NoNDD, In64BitMode], [NoNDD]) in
+let Predicates = !if(info.HasREX_W, [NoNDD, In64BitMode], [NoNDD]) in
   def NAME : UnaryOpM<opcode, MRM3m, mnemonic, info,
                       [(store (ineg (info.LoadNode addr:$dst)), addr:$dst),
                        (implicit EFLAGS)]>;
-let CodeSize = 2 in
+let Predicates = [In64BitMode] in
   def _EVEX : UnaryOpM_EVEX<opcode, MRM3m, mnemonic, info, []>,
               EmitVEXOrEVEXPrefix;
-let Predicates = [HasNDD], CodeSize = 2 in
+let Predicates = [HasNDD, In64BitMode] in
   def _ND : UnaryOpM_NDD<opcode, MRM3m, mnemonic, info,
-                              [(set info.RegClass:$dst,
-                               (ineg (info.LoadNode addr:$src1))),
-                               (implicit EFLAGS)]>, EVEX_B4V;
+                         [(set info.RegClass:$dst,
+                          (ineg (info.LoadNode addr:$src1))),
+                                (implicit EFLAGS)]>,
+            EVEX_B4V;
 }
-let CodeSize = 2 in
+let Predicates = [In64BitMode] in
   def _NF : UnaryOpM_EVEX<opcode, MRM3m, mnemonic, info, []>, EVEX_NF;
-let CodeSize = 2 in
+let Predicates = [HasNDD, In64BitMode] in
   def _ND_NF : UnaryOpM_NDD<opcode, MRM3m, mnemonic, info, []>,
                EVEX_B4V, EVEX_NF;
+}
 }
 
 //  NotOpM - Instructions like "not [mem]".
 multiclass NotOpM<bits<8> opcode, string mnemonic, X86TypeInfo info>{
-let CodeSize = 2, Predicates = !if(info.HasREX_W,
-                                   [NoNDD, In64BitMode], [NoNDD]) in
+let CodeSize = 2 in {
+let Predicates = !if(info.HasREX_W, [NoNDD, In64BitMode], [NoNDD]) in
   def NAME : UnaryOpM<opcode, MRM2m, mnemonic, info,
                       [(store (not (info.LoadNode addr:$dst)), addr:$dst)]>;
-let CodeSize = 2 in
+let Predicates = [In64BitMode] in
   def _EVEX : UnaryOpM_EVEX<opcode, MRM2m, mnemonic, info, []>,
               EmitVEXOrEVEXPrefix;
-let Predicates = [HasNDD], CodeSize = 2 in
+let Predicates = [HasNDD, In64BitMode] in
   def _ND : UnaryOpM_NDD<opcode, MRM2m, mnemonic, info,
                          [(set info.RegClass:$dst,
                           (not (info.LoadNode addr:$src1)))]>, EVEX_B4V;
+}
 }
 #else // INTEL_FEATURE_ISA_APX_F
 //  MulOpR - Instructions like "mul reg".
@@ -1172,30 +1210,31 @@ class BinOpRM_NDD<bits<8> opcode, Format f, string mnemonic, X86TypeInfo info,
 
 multiclass IMulOpRR<bits<8> opcode, string mnemonic, X86TypeInfo info,
                     X86FoldableSchedWrite sched>{
-let Defs = [EFLAGS] in{
-  let Constraints = "$src1 = $dst", isCommutable = 1,
-      Predicates = [NoNDD] in
+let isCommutable = 1 in {
+let Defs = [EFLAGS] in {
+  let Constraints = "$src1 = $dst", Predicates = [NoNDD] in
   def NAME : BinOpRR_C<opcode, MRMSrcReg, mnemonic, info,
                        [(set info.RegClass:$dst, EFLAGS,
                         (X86smul_flag info.RegClass:$src1,
                         info.RegClass:$src2))]>,
              Sched<[sched]>, TB;
-  let Constraints = "$src1 = $dst", isCommutable = 1 in
+  let Constraints = "$src1 = $dst", Predicates = [In64BitMode] in
   def _EVEX : BinOpRR_EVEX<opcode, MRMSrcReg, mnemonic, info, []>,
               Sched<[sched]>, EmitVEXOrEVEXPrefix;
-  let Predicates = [HasNDD], isCommutable = 1 in
+  let Predicates = [HasNDD, In64BitMode] in
   def _ND : BinOpRR_NDD<opcode, MRMSrcReg, mnemonic, info,
                         [(set info.RegClass:$dst, EFLAGS,
                          (X86smul_flag info.RegClass:$src1,
                           info.RegClass:$src2))]>,
             Sched<[sched]>, EVEX_B4V;
 }
-  let Constraints = "$src1 = $dst", isCommutable = 1 in
+  let Constraints = "$src1 = $dst", Predicates = [In64BitMode] in
   def _NF : BinOpRR_EVEX<opcode, MRMSrcReg, mnemonic, info, []>,
             Sched<[sched]>, EVEX_NF;
-  let isCommutable = 1 in
+  let Predicates = [HasNDD, In64BitMode] in
   def _ND_NF : BinOpRR_NDD<opcode, MRMSrcReg, mnemonic, info, []>,
                Sched<[sched]>, EVEX_B4V, EVEX_NF;
+}
 }
 
 // IMulOpRM - Instructions like "imul reg, reg, [mem]".
@@ -1208,20 +1247,21 @@ let Defs = [EFLAGS] in{
                         (X86smul_flag info.RegClass:$src1,
                         (info.LoadNode addr:$src2)))]>,
              Sched<[sched.Folded, sched.ReadAfterFold]>, TB;
-  let Constraints = "$src1 = $dst" in
+  let Constraints = "$src1 = $dst", Predicates = [In64BitMode] in
   def _EVEX : BinOpRM_EVEX<opcode, MRMSrcMem, mnemonic, info, []>,
-                   Sched<[sched.Folded, sched.ReadAfterFold]>,
-                   EmitVEXOrEVEXPrefix;
-  let Predicates = [HasNDD] in
+              Sched<[sched.Folded, sched.ReadAfterFold]>,
+              EmitVEXOrEVEXPrefix;
+  let Predicates = [HasNDD, In64BitMode] in
   def _ND : BinOpRM_NDD<opcode, MRMSrcMem, mnemonic, info,
                         [(set info.RegClass:$dst, EFLAGS,
                          (X86smul_flag info.RegClass:$src1,
                          (info.LoadNode addr:$src2)))]>,
             Sched<[sched.Folded, sched.ReadAfterFold]>, EVEX_B4V;
 }
-  let Constraints = "$src1 = $dst" in
+  let Constraints = "$src1 = $dst", Predicates = [In64BitMode] in
   def _NF : BinOpRM_EVEX<opcode, MRMSrcMem, mnemonic, info, []>,
             Sched<[sched.Folded, sched.ReadAfterFold]>, EVEX_NF;
+  let Predicates = [HasNDD, In64BitMode] in
   def _ND_NF : BinOpRM_NDD<opcode, MRMSrcMem, mnemonic, info, []>,
                Sched<[sched.Folded, sched.ReadAfterFold]>, EVEX_B4V, EVEX_NF;
 }
@@ -1239,12 +1279,14 @@ let Defs = [EFLAGS] in {
                   (X86smul_flag info.RegClass:$src1,
                    info.Imm8NoSuOperator:$src2))]>,
              Sched<[sched]>;
+let Predicates = [In64BitMode] in
   def _EVEX : ITy_EVEX<opcode, MRMSrcReg, info, (outs info.RegClass:$dst),
                        (ins info.RegClass:$src1,
                        info.Imm8Operand:$src2), mnemonic,
                        "{$src2, $src1, $dst|$dst, $src1, $src2}", []>,
               Sched<[sched]>, EmitVEXOrEVEXPrefix;
 }
+let Predicates = [In64BitMode] in
   def _NF : ITy_EVEX<opcode, MRMSrcReg, info, (outs info.RegClass:$dst),
                      (ins info.RegClass:$src1,
                       info.Imm8Operand:$src2), mnemonic,
@@ -1266,12 +1308,14 @@ let Defs = [EFLAGS] in {
                   (X86smul_flag info.RegClass:$src1,
                     info.ImmNoSuOperator:$src2))]>,
              Sched<[sched]>;
+let Predicates = [In64BitMode] in
   def _EVEX : ITy_EVEX<opcode, MRMSrcReg, info, (outs info.RegClass:$dst),
                        (ins info.RegClass:$src1,
                         info.ImmOperand:$src2), mnemonic,
                        "{$src2, $src1, $dst|$dst, $src1, $src2}", []>,
               Sched<[sched]>, EmitVEXOrEVEXPrefix;
 }
+let Predicates = [In64BitMode] in
   def _NF : ITy_EVEX<opcode, MRMSrcReg, info, (outs info.RegClass:$dst),
                      (ins info.RegClass:$src1,
                       info.ImmOperand:$src2), mnemonic,
@@ -1293,17 +1337,19 @@ let Defs = [EFLAGS] in {
                   (X86smul_flag (info.LoadNode addr:$src1),
                    info.Imm8NoSuOperator:$src2))]>,
              Sched<[sched.Folded]>;
+let Predicates = [In64BitMode] in
   def _EVEX : ITy_EVEX<opcode, MRMSrcMem, info, (outs info.RegClass:$dst),
                        (ins info.MemOperand:$src1,
                        info.Imm8Operand:$src2), mnemonic,
                        "{$src2, $src1, $dst|$dst, $src1, $src2}", []>,
               Sched<[sched.Folded]>, EmitVEXOrEVEXPrefix;
 }
+let Predicates = [In64BitMode] in
   def _NF : ITy_EVEX<opcode, MRMSrcMem, info, (outs info.RegClass:$dst),
                      (ins info.MemOperand:$src1,
                       info.Imm8Operand:$src2), mnemonic,
                      "{$src2, $src1, $dst|$dst, $src1, $src2}", []>,
-                 Sched<[sched.Folded]>, EVEX_NF;
+            Sched<[sched.Folded]>, EVEX_NF;
 }
 }
 
@@ -1319,13 +1365,15 @@ let Defs = [EFLAGS] in {
                  [(set info.RegClass:$dst, EFLAGS,
                   (X86smul_flag (info.LoadNode addr:$src1),
                   info.ImmNoSuOperator:$src2))]>,
-                 Sched<[sched.Folded]>;
+             Sched<[sched.Folded]>;
+let Predicates = [In64BitMode] in
   def _EVEX : ITy_EVEX<opcode, MRMSrcMem, info, (outs info.RegClass:$dst),
                        (ins info.MemOperand:$src1,
                         info.ImmOperand:$src2), mnemonic,
                        "{$src2, $src1, $dst|$dst, $src1, $src2}", []>,
               Sched<[sched.Folded]>, EmitVEXOrEVEXPrefix;
 }
+let Predicates = [In64BitMode] in
   def _NF : ITy_EVEX<opcode, MRMSrcMem, info, (outs info.RegClass:$dst),
                      (ins info.MemOperand:$src1,
                       info.ImmOperand:$src2), mnemonic,
@@ -2125,10 +2173,11 @@ multiclass BinOpRR_RFF_common<bits<8> opcode, string mnemonic,
 let Constraints = "$src1 = $dst" in {
   let Predicates = [NoNDD] in
   def NAME : BinOpRR_RFF<opcode, mnemonic, typeinfo, node>;
+  let Predicates = [In64BitMode] in
   def _EVEX : BinOpRR_RFF_EVEX<opcode, mnemonic, typeinfo>,
               EmitVEXOrEVEXPrefix;
 }
-  let Predicates = [HasNDD] in
+  let Predicates = [HasNDD, In64BitMode] in
   def _ND : BinOpRR_RFF_ND<opcode, mnemonic, typeinfo, node>, EVEX_B4V;
 }
 
@@ -2139,10 +2188,11 @@ multiclass BinOpRR_RFF_Rev_common<bits<8> opcode, string mnemonic,
 let Constraints = "$src1 = $dst" in {
   let Predicates = [NoNDD] in
   def _REV : BinOpRR_RFF_Rev<opcode, mnemonic, typeinfo>;
+  let Predicates = [In64BitMode] in
   def _EVEX_REV : BinOpRR_Rev_EVEX<opcode, mnemonic, typeinfo, WriteADC>,
                   EmitVEXOrEVEXPrefix;
 }
-  let Predicates = [HasNDD] in
+  let Predicates = [HasNDD, In64BitMode] in
   def _ND_REV : BinOpRR_Rev_ND<opcode, mnemonic, typeinfo, WriteADC>,
                 EVEX_B4V;
 }
@@ -2186,10 +2236,11 @@ multiclass BinOpRM_RFF_Common<bits<8> opcode, string mnemonic,
 let Constraints = "$src1 = $dst" in {
   let Predicates = [NoNDD] in
   def NAME : BinOpRM_RFF<opcode, mnemonic, typeinfo, opnode>;
+  let Predicates = [In64BitMode] in
   def _EVEX : BinOpRM_RFF_EVEX<opcode, mnemonic, typeinfo>,
               EmitVEXOrEVEXPrefix;
 }
-  let Predicates = [HasNDD] in
+  let Predicates = [HasNDD, In64BitMode] in
   def _ND : BinOpRM_RFF_ND<opcode, mnemonic, typeinfo, opnode>, EVEX_B4V;
 }
 
@@ -2217,10 +2268,11 @@ multiclass BinOpRI_RFF_Common<bits<8> opcode, string mnemonic,
 let Constraints = "$src1 = $dst" in {
   let Predicates = [NoNDD] in
   def NAME : BinOpRI_RFF<opcode, mnemonic, typeinfo, opnode, f>;
+  let Predicates = [In64BitMode] in
   def _EVEX : BinOpRI_RFF_EVEX<opcode, mnemonic, typeinfo, f>,
               EmitVEXOrEVEXPrefix;
 }
-  let Predicates = [HasNDD] in
+  let Predicates = [HasNDD, In64BitMode] in
   def _ND : BinOpRI_RFF_ND<opcode, mnemonic, typeinfo, opnode, f>, EVEX_B4V;
 }
 
@@ -2249,10 +2301,11 @@ multiclass BinOpRI8_RFF_Common<bits<8> opcode, string mnemonic,
 let Constraints = "$src1 = $dst" in {
   let Predicates = [NoNDD] in
   def NAME : BinOpRI8_RFF<opcode, mnemonic, typeinfo, opnode, f>;
+  let Predicates = [In64BitMode] in
   def _EVEX : BinOpRI8_RFF_EVEX<opcode, mnemonic, typeinfo, f>,
               EmitVEXOrEVEXPrefix;
 }
-  let Predicates = [HasNDD] in
+  let Predicates = [HasNDD, In64BitMode] in
   def _ND : BinOpRI8_RFF_ND<opcode, mnemonic, typeinfo, opnode, f>, EVEX_B4V;
 }
 
@@ -2297,9 +2350,10 @@ multiclass BinOpMR_RMW_FF_Common<bits<8> opcode, string mnemonic,
                                  X86TypeInfo typeinfo, SDNode opnode>{
 let Predicates = [NoNDD] in
   def NAME : BinOpMR_RMW_FF<opcode, mnemonic, typeinfo, opnode>;
+let Predicates = [In64BitMode] in
   def _EVEX : BinOpMR_RMW_FF_EVEX<opcode, mnemonic, typeinfo>,
               EmitVEXOrEVEXPrefix;
-let Predicates = [HasNDD] in
+let Predicates = [HasNDD, In64BitMode] in
   def _ND : BinOpMR_FF_ND<opcode, mnemonic, typeinfo, opnode>, EVEX_B4V;
 }
 
@@ -2329,9 +2383,10 @@ multiclass BinOpMI8_RMW_FF_Common<string mnemonic, X86TypeInfo typeinfo,
                                   Predicate pred = TruePredicate>{
 let Predicates = [NoNDD, pred] in
   def NAME : BinOpMI8_RMW_FF<mnemonic, typeinfo, opnode, f>;
+let Predicates = [In64BitMode] in
   def _EVEX : BinOpMI8_RMW_FF_EVEX<mnemonic, typeinfo, f>,
               EmitVEXOrEVEXPrefix;
-let Predicates = [HasNDD] in
+let Predicates = [HasNDD, In64BitMode] in
   def _ND : BinOpMI8_FF_ND<mnemonic, typeinfo, opnode, f>, EVEX_B4V;
 }
 
@@ -2362,9 +2417,10 @@ multiclass BinOpMI_RMW_FF_Common<bits<8> opcode, string mnemonic,
                                  Format f, Predicate pred = TruePredicate>{
 let Predicates = [NoNDD, pred] in
   def NAME : BinOpMI_RMW_FF<opcode, mnemonic, typeinfo, opnode, f>;
+let Predicates = [In64BitMode] in
   def _EVEX : BinOpMI_RMW_FF_EVEX<opcode, mnemonic, typeinfo, f>,
               EmitVEXOrEVEXPrefix;
-let Predicates = [HasNDD] in
+let Predicates = [HasNDD, In64BitMode] in
   def _ND : BinOpMI_FF_ND<opcode, mnemonic, typeinfo, opnode, f>, EVEX_B4V;
 }
 
@@ -2726,7 +2782,7 @@ let Predicates = [NoNDD] in {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
 }
-let Predicates = [HasNDD] in {
+let Predicates = [HasNDD, In64BitMode] in {
   def : Pat<(OpNodeFlag GR8:$src1, relocImm8_su:$src2),
             (!cast<Instruction>(NAME#"8ri_ND") GR8:$src1, relocImm8_su:$src2)>;
   def : Pat<(OpNodeFlag GR16:$src1, i16relocImmSExt8_su:$src2),
@@ -2799,7 +2855,7 @@ let Predicates = [NoNDD] in {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
 }
-let Predicates = [HasNDD] in {
+let Predicates = [HasNDD, In64BitMode] in {
   def : Pat<(OpNodeFlag GR8:$src1, relocImm8_su:$src2, EFLAGS),
             (!cast<Instruction>(NAME#"8ri_ND") GR8:$src1, relocImm8_su:$src2)>;
   def : Pat<(OpNodeFlag GR16:$src1, i16relocImmSExt8_su:$src2, EFLAGS),
@@ -3018,7 +3074,7 @@ let Predicates = [HasBMI], AddedComplexity = -6 in {
 multiclass bmi_mulx<string mnemonic, RegisterClass RC, X86MemOperand x86memop,
                     X86FoldableSchedWrite sched> {
 let hasSideEffects = 0 in {
-let Predicates = [HasBMI2] in {
+let Predicates = [HasBMI2, NoEGPR] in {
   def rr : I<0xF6, MRMSrcReg, (outs RC:$dst1, RC:$dst2), (ins RC:$src),
              !strconcat(mnemonic, "\t{$src, $dst2, $dst1|$dst1, $dst2, $src}"),
              []>, T8XD, VEX_4V, Sched<[WriteIMulH, sched]>;
@@ -3042,14 +3098,14 @@ let Predicates = [HasBMI2] in {
   def Hrm : PseudoI<(outs RC:$dst), (ins x86memop:$src),
                     []>, Sched<[sched.Folded]>;
 }
+let Predicates = [HasBMI2, HasEGPR, In64BitMode] in
   def rr#_EVEX : I<0xF6, MRMSrcReg, (outs RC:$dst1, RC:$dst2), (ins RC:$src),
                    !strconcat(mnemonic, "\t{$src, $dst2, $dst1|$dst1, $dst2, $src}"),
-                   []>, EVEX, XD, T_MAP4, VEX_4V, Sched<[WriteIMulH, sched]>;
-
-  let mayLoad = 1 in
+                   []>, T8XD, EVEX_4V, EmitVEXOrEVEXPrefix, Sched<[WriteIMulH, sched]>;
+let Predicates = [HasBMI2, HasEGPR, In64BitMode], mayLoad = 1 in
   def rm#_EVEX : I<0xF6, MRMSrcMem, (outs RC:$dst1, RC:$dst2), (ins x86memop:$src),
                    !strconcat(mnemonic, "\t{$src, $dst2, $dst1|$dst1, $dst2, $src}"),
-                   []>, EVEX, XD, T_MAP4, VEX_4V,
+                   []>, T8XD, EVEX_4V, EmitVEXOrEVEXPrefix,
                  Sched<[WriteIMulHLd, sched.Folded,
                         // Memory operand.
                         ReadDefault, ReadDefault, ReadDefault, ReadDefault, ReadDefault,
@@ -3149,7 +3205,7 @@ let Constraints = "$src1 = $dst", isCommutable = 1,
   def NAME : ADCOXOpRR<opcode, mnemonic, info>;
 let Constraints = "$src1 = $dst", isCommutable = 1 in
   def _EVEX : ADCOXOpRR_EVEX<opcode, mnemonic, info>, EmitVEXOrEVEXPrefix;
-let Predicates=[HasNDD, HasADX] in
+let Predicates=[HasNDD, In64BitMode, HasADX] in
   def _ND : ADCOXOpRR_NDD<opcode, mnemonic, info>, EVEX_B4V;
 }
 
@@ -3158,7 +3214,7 @@ let Constraints = "$src1 = $dst", Predicates = [NoNDD, HasADX] in
   def NAME : ADCOXOpRM<opcode, mnemonic, info>;
 let Constraints = "$src1 = $dst" in
   def _EVEX : ADCOXOpRM_EVEX<opcode, mnemonic, info>, EmitVEXOrEVEXPrefix;
-let Predicates = [HasNDD, HasADX] in
+let Predicates = [HasNDD, In64BitMode, HasADX] in
   def _ND : ADCOXOpRM_NDD<opcode, mnemonic, info>, EVEX_B4V;
 }
 

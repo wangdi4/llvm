@@ -78,10 +78,12 @@ multiclass CMPCCXADD_Aliases<string Cond, int CC> {
 #if INTEL_FEATURE_ISA_APX_F
 // CCMP Instructions Alias
 multiclass CCMP_Aliases<string Cond, int CC> {
+let Predicates = [In64BitMode] in {
 def : InstAlias<"ccmp"#Cond#"{l} $dcf\t{$src2, $src1|$src1, $src2}",
                 (CCMP32rr GR32:$src1, GR32:$src2, cflags:$dcf, CC), 0>;
 def : InstAlias<"ccmp"#Cond#"{q} $dcf\t{$src2, $src1|$src1, $src2}",
                 (CCMP64rr GR64:$src1, GR64:$src2, cflags:$dcf, CC), 0>;
+}
 }
 defm : CCMP_Aliases<"o" ,  0>;
 defm : CCMP_Aliases<"no",  1>;

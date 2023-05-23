@@ -1,6 +1,9 @@
 # REQUIRES: intel_feature_isa_apx_f
 # RUN: llvm-mc -triple x86_64 -show-encoding %s | FileCheck %s
+# RUN: not llvm-mc -triple i386 -show-encoding %s 2>&1 | FileCheck %s --check-prefix=ERROR
 
+# ERROR-COUNT-104: error:
+# ERROR-NOT: error:
 # CHECK: {evex}	andb	$123, %bl
 # CHECK: encoding: [0x62,0xf4,0x7c,0x08,0x80,0xe3,0x7b]
          {evex}	andb	$123, %bl

@@ -3581,7 +3581,7 @@ let Predicates = [HasDQI] in
                VEX, PD;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-let Predicates = [HasAVX256P_Or_HasDQI_NoVL, HasEGPR] in
+let Predicates = [HasAVX256P_Or_HasDQI_NoVL, HasEGPR, In64BitMode] in
   defm KMOVB : avx512_mask_mov<0x90, 0x90, 0x91, "kmovb", VK8, v8i1, i8mem, "_EVEX">,
                avx512_mask_mov_gpr<0x92, 0x93, "kmovb", VK8, GR32, "_EVEX">,
                EVEX, PD;
@@ -3601,7 +3601,7 @@ let Predicates = [HasAVX512] in
                VEX, PS;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-let Predicates = [HasAVX3, HasEGPR] in
+let Predicates = [HasAVX3, HasEGPR, In64BitMode] in
   defm KMOVW : avx512_mask_mov<0x90, 0x90, 0x91, "kmovw", VK16, v16i1, i16mem, "_EVEX">,
                avx512_mask_mov_gpr<0x92, 0x93, "kmovw", VK16, GR32, "_EVEX">,
                EVEX, PS;
@@ -3632,7 +3632,7 @@ let Predicates = [HasBWI] in {
 }
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-let Predicates = [HasBWI, HasEGPR] in {
+let Predicates = [HasBWI, HasEGPR, In64BitMode] in {
   defm KMOVD : avx512_mask_mov<0x90, 0x90, 0x91, "kmovd", VK32, v32i1,i32mem, "_EVEX">,
                EVEX, PD, REX_W;
   defm KMOVD : avx512_mask_mov_gpr<0x92, 0x93, "kmovd", VK32, GR32, "_EVEX">,
