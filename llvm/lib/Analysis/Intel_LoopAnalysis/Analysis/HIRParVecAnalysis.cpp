@@ -64,6 +64,14 @@ static cl::opt<bool> DisableNonMonotonicIndexes(
     "disable-nonlinear-mmindex", cl::init(false), cl::Hidden,
     cl::desc("Disable min/max+index idiom recognition for non-linear indexes"));
 
+// Enable VPlan vectorization of generic early exit loops. This flag enables the
+// experimental feature that vectorizes early exit loops by explicitly
+// representing them in VPlan IR.
+cl::opt<bool> VPlanEnableEarlyExitLoops(
+    "vplan-enable-early-exit-loops", cl::init(false), cl::Hidden,
+    cl::desc("Enable vectorization of early-exit loops. NOTE: This is an "
+             "experimental feature under development."));
+
 namespace {
 
 /// \brief Visitor class to determine parallelizabilty/vectorizability of loops
@@ -714,6 +722,135 @@ static bool loopInSIMD(HLLoop *Loop) {
   return false;
 }
 
+namespace {
+class EarlyExitLoopSafetyCheck final : public HLNodeVisitorBase {
+private:
+  bool IsSafe;
+  // Track if a HLGoto was already encountered in the loop.
+  bool GotoSeen;
+  // Candidate early exit loop.
+  HLLoop *Loop;
+
+public:
+  EarlyExitLoopSafetyCheck(HLLoop *Loop)
+      : IsSafe(true), GotoSeen(false), Loop(Loop) {}
+
+  void visit(HLGoto *Goto) {
+    if (GotoSeen) {
+      LLVM_DEBUG(
+          dbgs()
+          << "EarlyExitVecSafety: Multiple gotos in loop is not safe.\n");
+      IsSafe = false;
+      return;
+    }
+
+    // Ignore any non-early-exit gotos. Downstream vectorizer will figure out if
+    // it can deal with internal gotos.
+    if (!Goto->isEarlyExit(Loop)) {
+      return;
+    }
+
+    GotoSeen = true;
+
+    bool HasUniqueExit = false;
+    if (Goto->isExternal()) {
+      // When goto is external, check that the loop is last child of the region
+      // and target of goto is the region's successor block.
+      auto *LoopParent = Loop->getParentRegion();
+      HasUniqueExit = (LoopParent->getLastChild() == Loop) &&
+                      (Goto->getTargetBBlock() == LoopParent->getSuccBBlock());
+    } else {
+      // When goto is not external check that target label immediately succeeds
+      // the loop.
+      HasUniqueExit = Goto->getTargetLabel() == Loop->getNextNode();
+    }
+    if (!HasUniqueExit) {
+      LLVM_DEBUG(
+          dbgs()
+          << "EarlyExitVecSafety: Non-unique exit blocks are not supported.\n");
+      IsSafe = false;
+      return;
+    }
+
+    auto *EarlyExitCond = dyn_cast<HLIf>(Goto->getParent());
+    if (!EarlyExitCond) {
+      LLVM_DEBUG(
+          dbgs() << "EarlyExitVecSafety: Early exit condition not found.\n");
+      IsSafe = false;
+      return;
+    }
+
+    // TODO: Inner early-exit loops can be supported if the loop nest structure
+    // is conducive/safe. Account for this when VPlan support for inner
+    // early-exit loops is implemented.
+    // TODO: Initial implementation of early exit loop vectorization feature
+    // does not support nested early exit conditions as well. This will be
+    // relaxed in a future implementation.
+    if (EarlyExitCond->getParent() != Loop) {
+      LLVM_DEBUG(
+          dbgs() << "EarlyExitVecSafety: Early exit condition is nested.\n");
+      IsSafe = false;
+      return;
+    }
+
+    if (EarlyExitCond->isThenChild(Goto)) {
+      if (EarlyExitCond->hasElseChildren()) {
+        LLVM_DEBUG(dbgs() << "EarlyExitVecSafety: Else branch of early exit "
+                             "condition is not empty.\n");
+        IsSafe = false;
+        return;
+      }
+    } else if (EarlyExitCond->hasThenChildren()) {
+      LLVM_DEBUG(dbgs() << "EarlyExitVecSafety: Then branch of early exit "
+                           "condition is not empty.\n");
+      IsSafe = false;
+      return;
+    }
+  }
+
+  void visit(HLInst *Inst) {
+    const Instruction *I = Inst->getLLVMInstruction();
+    if (I && I->mayHaveSideEffects()) {
+      LLVM_DEBUG(dbgs() << "EarlyExitVecSafety: Instruction with side-effects "
+                           "is not safe.\n");
+      IsSafe = false;
+      return;
+    }
+  }
+
+  // Methods needed for HLNodeUtils::visitRange.
+  void visit(HLNode *Node) {}     // Empty catch-all
+  void postVisit(HLNode *Node) {} // Empty catch-all
+  // Traversal is done if any of the safety checks fail.
+  bool isDone() { return !IsSafe; }
+
+  bool isSafe() { return IsSafe; }
+};
+} // end anonymous namespace
+
+static bool isVectorizableEarlyExitLoop(HLLoop *Loop) {
+  assert(Loop->isDoMultiExit() && "Only DO MULTI_EXIT loops expected here.");
+
+  // Loops with only one early exit is currently supported.
+  if (Loop->getNumExits() > 2) {
+    LLVM_DEBUG(
+        dbgs()
+        << "EarlyExitVecSafety: Multiple early exits is not supported.\n");
+    return false;
+  }
+
+  // We need to traverse the nodes of the loop for further safety checks.
+  EarlyExitLoopSafetyCheck SafetyChecker(Loop);
+  HLNodeUtils::visitRange(SafetyChecker, Loop->child_begin(),
+                          Loop->child_end());
+
+  if (!SafetyChecker.isSafe())
+    return false;
+
+  // All checks passed.
+  return true;
+}
+
 void ParVecInfo::analyze(HLLoop *Loop, const TargetTransformInfo *TTI,
                          TargetLibraryInfo *TLI, HIRDDAnalysis *DDA,
                          HIRSafeReductionAnalysis *SRA) {
@@ -749,6 +886,16 @@ void ParVecInfo::analyze(HLLoop *Loop, const TargetTransformInfo *TTI,
     setVecType(NON_DO_LOOP);
     emitDiag();
     return;
+  }
+
+  // Safety/legality analysis for auto-vectorizing early exit loops through
+  // explicit VPlan representation.
+  if (VPlanEnableEarlyExitLoops && Loop->isDoMultiExit()) {
+    if (!isVectorizableEarlyExitLoop(Loop)) {
+      setVecType(UNSAFE_MULTI_EXIT_LOOP);
+      emitDiag();
+      return;
+    }
   }
 
   if (!Loop->isNormalized()) {
