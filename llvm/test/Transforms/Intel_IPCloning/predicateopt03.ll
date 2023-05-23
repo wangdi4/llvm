@@ -1,9 +1,21 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced,asserts
-; RUN: opt -passes='module(ip-cloning),cgscc(inline)' -ip-manyreccalls-predicateopt -inline-report=0xe807 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='module(ip-cloning),cgscc(inline)' -ip-manyreccalls-predicateopt -inline-report=0xe807 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
+; RUN: opt -passes='inlinereportsetup,module(ip-cloning),cgscc(inline),inlinereportemitter' -ip-manyreccalls-predicateopt -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
 
 ; Test that the desired inlining and inhibition of inlining occurs after
 ; IP cloning predicate optimization.
+
+; Check the metadata inlining report
+; CHECK-MD: COMPILE FUNC: MeanShiftImage
+; CHECK-MD: INLINE: MeanShiftImage.bb123 {{.*}}Callee is always inline
+; CHECK-MD: INLINE: GetOneCacheViewVirtualPixel {{.*}}Callee has single callsite and local linkage
+; CHECK-MD: GetVirtualPixelsFromNexus {{.*}}Inlining is not profitable
+; CHECK-MD: INLINE: MeanShiftImage.bb123.1 {{.*}}Callee is always inline
+; CHECK-MD: INLINE: GetOneCacheViewVirtualPixel.2 {{.*}}Callee has single callsite and local linkage
+; CHECK-MD: INLINE: GetVirtualPixelsFromNexus.3 {{.*}}Callee has single callsite and local linkage
+; CHECK-MD: EXTERN: ReadPixelCachePixels
+; CHECK-MD: GetVirtualPixelsFromNexus.3.bb206 {{.*}}Callee has noinline attribute
 
 ; Check the IR
 ; CHECK: define {{.*}} ptr @MeanShiftImage(
@@ -16,16 +28,16 @@
 ; CHECK: call fastcc i32 @ReadPixelCachePixels(
 ; CHECK: call void @GetVirtualPixelsFromNexus.3.bb206(
 
-; Check the inlining report
-; CHECK: COMPILE FUNC: MeanShiftImage
-; CHECK: INLINE: MeanShiftImage.bb123 {{.*}}Callee is always inline
-; CHECK: INLINE: GetOneCacheViewVirtualPixel {{.*}}Callee has single callsite and local linkage
-; CHECK: GetVirtualPixelsFromNexus {{.*}}Inlining is not profitable
-; CHECK: INLINE: MeanShiftImage.bb123.1 {{.*}}Callee is always inline
-; CHECK: INLINE: GetOneCacheViewVirtualPixel.2 {{.*}}Callee has single callsite and local linkage
-; CHECK: INLINE: GetVirtualPixelsFromNexus.3 {{.*}}Callee has single callsite and local linkage
-; CHECK: EXTERN: ReadPixelCachePixels
-; CHECK: GetVirtualPixelsFromNexus.3.bb206 {{.*}}Callee has noinline attribute
+; Check the classic inlining report
+; CHECK-CL: COMPILE FUNC: MeanShiftImage
+; CHECK-CL: INLINE: MeanShiftImage.bb123 {{.*}}Callee is always inline
+; CHECK-CL: INLINE: GetOneCacheViewVirtualPixel {{.*}}Callee has single callsite and local linkage
+; CHECK-CL: GetVirtualPixelsFromNexus {{.*}}Inlining is not profitable
+; CHECK-CL: INLINE: MeanShiftImage.bb123.1 {{.*}}Callee is always inline
+; CHECK-CL: INLINE: GetOneCacheViewVirtualPixel.2 {{.*}}Callee has single callsite and local linkage
+; CHECK-CL: INLINE: GetVirtualPixelsFromNexus.3 {{.*}}Callee has single callsite and local linkage
+; CHECK-CL: EXTERN: ReadPixelCachePixels
+; CHECK-CL: GetVirtualPixelsFromNexus.3.bb206 {{.*}}Callee has noinline attribute
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
