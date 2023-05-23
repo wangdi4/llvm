@@ -1124,6 +1124,43 @@ void llvm::buildVectorVariantLogicalSignature(
                                      LogicalRetType);
 }
 
+void llvm::updateVectorVariantAttributes(Function &VectorF,
+                                         const Function &OrigF,
+                                         const VFInfo &Variant,
+                                         ArrayRef<Type *> ArgTys) {
+  LLVMContext &C = OrigF.getContext();
+  AttributeList Src = OrigF.getAttributes();
+
+  SmallVector<AttributeSet, 4> NewArgAttrs;
+  for (const auto &[ArgIdx, T] : enumerate(ArgTys)) {
+    // Remove incompatible argument attributes (applied to the scalar argument,
+    // does not apply to its vector counterpart).
+    AttributeSet SrcAttrs = Src.getParamAttrs(ArgIdx).removeAttributes(
+        C, AttributeFuncs::typeIncompatible(T));
+    NewArgAttrs.push_back(SrcAttrs);
+  }
+
+  AttributeSet RetAttrs = Src.getRetAttrs().removeAttributes(
+      C, AttributeFuncs::typeIncompatible(VectorF.getReturnType()));
+
+  AttributeList NewAttrs =
+      AttributeList::get(C, Src.getFnAttrs(), RetAttrs, NewArgAttrs);
+
+  VectorF.copyAttributesFrom(&OrigF);
+
+  // Alias analysis models the high-level memory effects of functions
+  // using FunctionModRefBehavior.
+  // Explicitly set ModRef flag to force AA to behave conservatively
+  // and prevent any illegal code motion/elimination.
+  VectorF.setAttributes(NewAttrs.addFnAttribute(
+      C, Attribute::getWithMemoryEffects(C, MemoryEffects::unknown())));
+
+  if (VFInfo::isIntelVFABIMangling(Variant.VectorName))
+    VectorF.setCallingConv(CallingConv::X86_RegCall);
+
+  VectorF.setVisibility(OrigF.getVisibility());
+}
+
 Function *llvm::getOrInsertVectorVariantFunction(Function &OrigF,
                                                  const VFInfo &Variant,
                                                  ArrayRef<Type *> ArgTys,
@@ -1138,19 +1175,7 @@ Function *llvm::getOrInsertVectorVariantFunction(Function &OrigF,
 
   FunctionType *FTy = FunctionType::get(RetTy, ArgTys, false);
   VectorF = Function::Create(FTy, OrigF.getLinkage(), VFnName, M);
-  VectorF->copyAttributesFrom(&OrigF);
-  // Alias analysis models the high-level memory effects of functions
-  // using FunctionModRefBehavior.
-  // Explicitly set ModRef flag to force AA to behave conservatively
-  // and prevent any illegal code motion/elimination.
-  VectorF->setAttributes(VectorF->getAttributes().addFnAttribute(
-      VectorF->getContext(),
-      Attribute::getWithMemoryEffects(VectorF->getContext(),
-                                      MemoryEffects::unknown())));
-  if (VFInfo::isIntelVFABIMangling(VFnName))
-    VectorF->setCallingConv(CallingConv::X86_RegCall);
-
-  VectorF->setVisibility(OrigF.getVisibility());
+  updateVectorVariantAttributes(*VectorF, OrigF, Variant, ArgTys);
 
   return VectorF;
 }
