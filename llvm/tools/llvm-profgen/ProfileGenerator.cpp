@@ -120,6 +120,10 @@ cl::opt<bool> InferMissingFrames(
         "Infer missing call frames due to compiler tail call elimination."),
     llvm::cl::Optional);
 
+#if INTEL_CUSTOMIZATION
+extern cl::opt<bool> LeadingIPOnly;
+#endif // INTEL_CUSTOMIZATION
+
 using namespace llvm;
 using namespace sampleprof;
 
@@ -397,6 +401,9 @@ void ProfileGeneratorBase::updateBodySamplesforFunctionProfile(
   Count *= getDuplicationFactor(LeafLoc.Location.Discriminator);
 
   ErrorOr<uint64_t> R =
+#if INTEL_CUSTOMIZATION
+      LeadingIPOnly ? std::error_code() :
+#endif // INTEL_CUSTOMIZATION
       FunctionProfile.findSamplesAt(LeafLoc.Location.LineOffset, Discriminator);
 
   uint64_t PreviousCount = R ? R.get() : 0;
