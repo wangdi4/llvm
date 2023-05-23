@@ -125,14 +125,18 @@ private:
 
   // VisitStack - Used to maintain the ordering.  Top = current block
   // First element is basic block pointer, second is the 'next child' to visit
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // TODO: Revert this back to SmallVector after VPlan code is fixed.
   std::vector<std::tuple<NodeRef, ChildItTy, ChildItTy>> VisitStack;
 #endif // INTEL_CUSTOMIZATION
+=======
+  SmallVector<std::pair<NodeRef, ChildItTy>, 8> VisitStack;
+>>>>>>> ca2666548085b3f4e61b1722272c4fa0eadd2d4e
 
   po_iterator(NodeRef BB) {
     this->insertEdge(std::optional<NodeRef>(), BB);
-    VisitStack.emplace_back(BB, GT::child_begin(BB), GT::child_end(BB));
+    VisitStack.push_back(std::make_pair(BB, GT::child_begin(BB)));
     traverseChild();
   }
 
@@ -141,7 +145,7 @@ private:
   po_iterator(NodeRef BB, SetType &S)
       : po_iterator_storage<SetType, ExtStorage>(S) {
     if (this->insertEdge(std::optional<NodeRef>(), BB)) {
-      VisitStack.emplace_back(BB, GT::child_begin(BB), GT::child_end(BB));
+      VisitStack.push_back(std::make_pair(BB, GT::child_begin(BB)));
       traverseChild();
     }
   }
@@ -151,14 +155,12 @@ private:
   } // End is when stack is empty.
 
   void traverseChild() {
-    while (true) {
-      auto &[ParentBB, It, End] = VisitStack.back();
-      if (It == End)
-        break;
-      NodeRef BB = *It++;
-      if (this->insertEdge(std::optional<NodeRef>(ParentBB), BB)) {
+    while (VisitStack.back().second != GT::child_end(VisitStack.back().first)) {
+      NodeRef BB = *VisitStack.back().second++;
+      if (this->insertEdge(std::optional<NodeRef>(VisitStack.back().first),
+                           BB)) {
         // If the block is not visited...
-        VisitStack.emplace_back(BB, GT::child_begin(BB), GT::child_end(BB));
+        VisitStack.push_back(std::make_pair(BB, GT::child_begin(BB)));
       }
     }
   }
@@ -180,7 +182,7 @@ public:
   }
   bool operator!=(const po_iterator &x) const { return !(*this == x); }
 
-  const NodeRef &operator*() const { return std::get<0>(VisitStack.back()); }
+  const NodeRef &operator*() const { return VisitStack.back().first; }
 
   // This is a nonstandard operator-> that dereferences the pointer an extra
   // time... so that you can actually call methods ON the BasicBlock, because
@@ -189,7 +191,7 @@ public:
   NodeRef operator->() const { return **this; }
 
   po_iterator &operator++() { // Preincrement
-    this->finishPostorder(std::get<0>(VisitStack.back()));
+    this->finishPostorder(VisitStack.back().first);
     VisitStack.pop_back();
     if (!VisitStack.empty())
       traverseChild();
