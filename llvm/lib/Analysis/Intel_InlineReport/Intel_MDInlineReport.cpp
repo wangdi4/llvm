@@ -916,6 +916,74 @@ void InlineReportBuilder::cloneFunction(Function *OldFunction,
   NewFunctionMDTuple->replaceOperandWith(FMDIR_CSs, NewCSs);
 }
 
+void InlineReportBuilder::doOutlining(Function *OldF, Function *OutF,
+                                      CallBase *OutCB) {
+  if (!isMDIREnabled())
+    return;
+  Metadata *OldFMD = OldF->getMetadata(FunctionTag);
+  assert(OldFMD && "Expecting OldF metadata");
+  auto *OldFMDTuple = dyn_cast<MDTuple>(OldFMD);
+  assert(OldFMDTuple && "Expecting OldF metadata tuple");
+  LLVMContext &Ctx = OutF->getParent()->getContext();
+  Metadata *OutFMD = copyMD(Ctx, OldFMD);
+  auto *OutFMDTuple = cast<MDTuple>(OutFMD);
+  // Update the function name to correspond to 'OutF'
+  std::string FuncName = std::string(OutF->getName());
+  FuncName.insert(0, "name: ");
+  auto FuncNameMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, FuncName));
+  OutFMDTuple->replaceOperandWith(FMDIR_FuncName, FuncNameMD);
+  // Update the linkage string to correspond to 'OutF'.
+  std::string LinkageStr = "linkage: ";
+  LinkageStr.append(llvm::getLinkageStr(OutF));
+  auto LinkageMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, LinkageStr));
+  OutFMDTuple->replaceOperandWith(FMDIR_LinkageStr, LinkageMD);
+  OutF->setMetadata(FunctionTag, OutFMDTuple);
+  // Add 'OutF' to the list of functions.
+  Module *M = OldF->getParent();
+  NamedMDNode *ModuleInlineReport = M->getNamedMetadata(ModuleTag);
+  ModuleInlineReport->addOperand(OutFMDTuple);
+  addCallback(OutF);
+  // Update the list of callsites for 'OldF'.
+  SmallVector<Metadata *, 100> OldOps;
+  OldOps.push_back(llvm::MDString::get(Ctx, CallSitesTag));
+  for (auto &I : instructions(OldF))
+    if (auto CB = dyn_cast<CallBase>(&I))
+      if (Metadata *CBMD = CB->getMetadata(MDInliningReport::CallSiteTag))
+        OldOps.push_back(cast<MDTuple>(CBMD));
+  // Be sure to include 'OutCB' in the callsites for 'OldF'.
+  CallSiteInliningReport CSIR(OutCB, nullptr, NinlrPreferPartialInline);
+  OutCB->setMetadata(CallSiteTag, CSIR.get());
+  setMDReasonNotInlined(OutCB, NinlrPreferPartialInline);
+  setCalledFunction(OutCB, OutF);
+  Metadata *OutCBMD = OutCB->getMetadata(MDInliningReport::CallSiteTag);
+  OldOps.push_back(cast<MDTuple>(OutCBMD));
+  MDNode *OldCSs = MDTuple::getDistinct(Ctx, OldOps);
+  OldFMDTuple->replaceOperandWith(FMDIR_CSs, OldCSs);
+  addCallback(OutCB);
+  // Update the list of callsites for 'OutF'.
+  SmallVector<Metadata *, 100> OutOps;
+  OutOps.push_back(llvm::MDString::get(Ctx, CallSitesTag));
+  for (auto &I : instructions(OutF))
+    if (auto CB = dyn_cast<CallBase>(&I))
+      if (Metadata *CBMD = CB->getMetadata(MDInliningReport::CallSiteTag))
+        OutOps.push_back(cast<MDTuple>(CBMD));
+  MDNode *OutCSs = MDTuple::getDistinct(Ctx, OutOps);
+  OutFMDTuple->replaceOperandWith(FMDIR_CSs, OutCSs);
+}
+
+void InlineReportBuilder::replaceAllUsesWith(Function *OldFunction,
+                                             Function *NewFunction) {
+  //
+  // NOTE: This should be called before replaceAllUsesWith() in Value.cpp,
+  // because it uses the 'users' list to find the users of 'OldFunction'.
+  //
+  if (!isMDIREnabled())
+    return;
+  for (auto U : OldFunction->users())
+    if (auto CB = dyn_cast<CallBase>(U))
+      setCalledFunction(CB, NewFunction);
+}
+
 void InlineReportBuilder::removeCallBasesInBasicBlocks(
     SmallSetVector<BasicBlock *, 8> &BlocksToRemove) {
   if (!isMDIREnabled())

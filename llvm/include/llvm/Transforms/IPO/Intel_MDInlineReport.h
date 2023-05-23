@@ -1,7 +1,7 @@
 //===--- Intel_MDInlineReport.h ----------------------------------*- C++
 //-*-===//
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -228,6 +228,12 @@ public:
   // Replace 'OldFunction' with 'NewFunction'.
   void cloneFunction(Function *OldFunction, Function *NewFunction,
                      ValueToValueMapTy &VMap);
+
+  // Outline 'OutF' from 'OldF', calling it with 'OutCB'.
+  void doOutlining(Function *OldF, Function *OutF, CallBase *OutCB);
+
+  // Replace uses of 'OldFunction' with 'NewFunction'.
+  void replaceAllUsesWith(Function *OldFunction, Function *NewFunction);
 
   // Replace 'OldCall' with 'NewCall'. If 'UpdateReason', update
   // the inlining reason based on the callee of 'NewCall'.

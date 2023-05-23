@@ -6313,9 +6313,14 @@ void PredicateOpt::cloneNoOptBB(BasicBlock *BBIn, Function *OptF,
       Instruction *II = I.clone();
       VMap[&I] = II;
       II->insertBefore(BIOpt);
-      if (auto CB = dyn_cast<CallBase>(&I))
-        if (CB->getCalledFunction() == NoOptF)
-          setCalledFunction(cast<CallBase>(II), OptF);
+      if (auto CB = dyn_cast<CallBase>(&I)) {
+        auto CBNew = cast<CallBase>(II);
+        if (CB->getCalledFunction() == NoOptF) {
+          CBNew->setCalledFunction(OptF);
+          getInlineReport()->addMultiversionedCallSite(CBNew);
+          getMDInlineReport()->addMultiversionedCallSite(CBNew);
+        }
+      }
     }
   }
   // Patch up PHINodes coming into 'BBOut'.
@@ -7497,6 +7502,7 @@ bool PredicateOpt::doPredicateOpt() {
   NoOptF->addFnAttr(Attribute::AlwaysInline);
   CallBase *NoOptCB = cast<CallBase>(NoOptF->user_back());
   getInlineReport()->doOutlining(BigLoopF, NoOptF, NoOptCB);
+  getMDInlineReport()->doOutlining(BigLoopF, NoOptF, NoOptCB);
   ValueToValueMapTy VMap;
   OptF = IPCloneFunction(NoOptF, VMap);
   OptF->addFnAttr(Attribute::AlwaysInline);
@@ -7527,6 +7533,7 @@ bool PredicateOpt::doPredicateOpt() {
   CallBase *OptColdCB = findUniqueCB(OptBaseF, OptColdF);
   assert(OptBaseCB && "Expecting OptBaseCB");
   getInlineReport()->doOutlining(OptBaseF, OptColdF, OptColdCB);
+  getMDInlineReport()->doOutlining(OptBaseF, OptColdF, OptColdCB);
   LLVM_DEBUG(dbgs() << "MRC Predicate: ColdF : " << OptColdF->getName()
                     << "\n");
   unsigned RVCount0 = simplifyCacheInfoBranches(LIRestrict);
