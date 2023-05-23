@@ -1,6 +1,9 @@
 # REQUIRES: intel_feature_isa_apx_f
 # RUN: llvm-mc -triple x86_64 -show-encoding %s | FileCheck %s
+# RUN: not llvm-mc -triple i386 -show-encoding %s 2>&1 | FileCheck %s --check-prefix=ERROR
 
+# ERROR-COUNT-10: error:
+# ERROR-NOT: error:
 # CHECK: push2	$1, %rax, %rcx, $3
 # CHECK: encoding: [0x62,0xf4,0x7c,0x1f,0xff,0xf1]
          push2	$1, %rax, %rcx, $3
