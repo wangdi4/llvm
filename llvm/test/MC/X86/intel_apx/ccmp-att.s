@@ -1,6 +1,9 @@
 # REQUIRES: intel_feature_isa_apx_f
 # RUN: llvm-mc -triple x86_64 -show-encoding %s | FileCheck %s
+# RUN: not llvm-mc -triple i386 -show-encoding %s 2>&1 | FileCheck %s --check-prefix=ERROR
 
+# ERROR-COUNT-27: error:
+# ERROR-NOT: error:
 ## Condition flags
 
 # CHECK: ccmpoq {}	%rax, %rbx

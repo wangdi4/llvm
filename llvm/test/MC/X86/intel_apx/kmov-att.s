@@ -1,6 +1,9 @@
 # REQUIRES: intel_feature_isa_apx_f
 # RUN: llvm-mc -triple x86_64 -show-encoding %s | FileCheck %s
+# RUN: not llvm-mc -triple i386 -show-encoding %s 2>&1 | FileCheck %s --check-prefix=ERROR
 
+# ERROR-COUNT-20: error:
+# ERROR-NOT: error:
 # CHECK: kmovb	%r16d, %k1
 # CHECK: encoding: [0x62,0xf9,0x7d,0x08,0x92,0xc8]
          kmovb	%r16d, %k1

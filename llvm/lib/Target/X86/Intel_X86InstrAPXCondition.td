@@ -36,6 +36,8 @@ class ITy_EVEX_C<bits<8> opcode, Format f, X86TypeInfo typeinfo, DAGOperand op1,
   let hasTwoConditionalOps = 1;
 }
 
+let Predicates = [In64BitMode] in {
 def CCMP32rr: ITy_EVEX_C<0x38, MRMDestReg, Xi32, GR32, GR32, "ccmp">;
 def CCMP64rr: ITy_EVEX_C<0x38, MRMDestReg, Xi64, GR64, GR64, "ccmp">;
+}
 #endif // INTEL_FEATURE_ISA_APX_F
