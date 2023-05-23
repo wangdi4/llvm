@@ -6525,7 +6525,7 @@ MachineInstr *X86InstrInfo::foldMemoryBroadcast(
     unsigned Size, Align Alignment, bool AllowCommute) const {
 
   const X86MemoryFoldTableEntry *I =
-      lookupBroadcastFoldTable(MI.getOpcode(), OpNum);
+      lookupBroadcastFoldTableByOpNum(MI.getOpcode(), OpNum);
   if (I != nullptr) {
     unsigned Opcode = I->DstOp;
     unsigned BCastType = I->Flags & TB_BCAST_MASK;
