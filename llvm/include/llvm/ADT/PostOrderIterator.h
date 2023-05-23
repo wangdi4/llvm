@@ -125,14 +125,10 @@ private:
 
   // VisitStack - Used to maintain the ordering.  Top = current block
   // First element is basic block pointer, second is the 'next child' to visit
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // TODO: Revert this back to SmallVector after VPlan code is fixed.
-  std::vector<std::tuple<NodeRef, ChildItTy, ChildItTy>> VisitStack;
+  std::vector<std::pair<NodeRef, ChildItTy>> VisitStack;
 #endif // INTEL_CUSTOMIZATION
-=======
-  SmallVector<std::pair<NodeRef, ChildItTy>, 8> VisitStack;
->>>>>>> ca2666548085b3f4e61b1722272c4fa0eadd2d4e
 
   po_iterator(NodeRef BB) {
     this->insertEdge(std::optional<NodeRef>(), BB);
