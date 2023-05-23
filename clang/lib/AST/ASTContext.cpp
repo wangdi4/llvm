@@ -1175,7 +1175,7 @@ ArrayRef<Decl *> ASTContext::getModuleInitializers(Module *M) {
 void ASTContext::setCurrentNamedModule(Module *M) {
   assert(M->isModulePurview());
   assert(!CurrentCXXNamedModule &&
-        "We should set named module for ASTContext for only once");
+         "We should set named module for ASTContext for only once");
   CurrentCXXNamedModule = M;
 }
 
@@ -12099,9 +12099,7 @@ bool ASTContext::DeclMustBeEmitted(const Decl *D) {
     return false;
 
   // Variables in other module units shouldn't be forced to be emitted.
-  auto *VM = VD->getOwningModule();
-  if (VM && VM->getTopLevelModule()->isModulePurview() &&
-      VM->getTopLevelModule() != getCurrentNamedModule())
+  if (VD->isInAnotherModuleUnit())
     return false;
 
   // Variables that can be needed in other TUs are required.
