@@ -528,7 +528,6 @@ static const X86MemoryFoldTableEntry BroadcastFoldTable3[] = {
 #endif // INTEL_CUSTOMIZATION
 };
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static const X86MemoryFoldTableEntry BroadcastFoldTable4[] = {
   { X86::VADDPDZ128rrk,        X86::VADDPDZ128rmbk,        TB_BCAST_SD },
@@ -863,7 +862,6 @@ static const X86MemoryFoldTableEntry BroadcastFoldTable4[] = {
   { X86::VSUBPSZrrk,           X86::VSUBPSZrmbk,           TB_BCAST_SS },
 };
 #endif
-=======
 // Table to map instructions safe to broadcast using a different width from the
 // element width.
 static const X86MemoryFoldTableEntry BroadcastSizeFoldTable2[] = {
@@ -925,7 +923,6 @@ static const X86MemoryFoldTableEntry BroadcastSizeFoldTable3[] = {
   { X86::VPTERNLOGQZ256rri,    X86::VPTERNLOGDZ256rmbi,   TB_BCAST_D },
   { X86::VPTERNLOGQZrri,       X86::VPTERNLOGDZrmbi,      TB_BCAST_D },
 };
->>>>>>> 0b91de5ea32d40a25c609bf155426fea12c1e2fb
 
 static const X86MemoryFoldTableEntry *
 lookupFoldTableImpl(ArrayRef<X86MemoryFoldTableEntry> Table, unsigned RegOp) {
@@ -973,7 +970,6 @@ lookupFoldTableImpl(ArrayRef<X86MemoryFoldTableEntry> Table, unsigned RegOp) {
                               std::end(BroadcastFoldTable3)) ==
                std::end(BroadcastFoldTable3) &&
            "BroadcastFoldTable3 is not sorted and unique!");
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     assert(std::is_sorted(std::begin(BroadcastFoldTable4),
                           std::end(BroadcastFoldTable4)) &&
@@ -982,7 +978,6 @@ lookupFoldTableImpl(ArrayRef<X86MemoryFoldTableEntry> Table, unsigned RegOp) {
            std::end(BroadcastFoldTable4) &&
            "BroadcastFoldTable4 is not sorted and unique!");
 #endif // INTEL_CUSTOMIZATION
-=======
     assert(llvm::is_sorted(BroadcastSizeFoldTable2) &&
            std::adjacent_find(std::begin(BroadcastSizeFoldTable2),
                               std::end(BroadcastSizeFoldTable2)) ==
@@ -993,7 +988,6 @@ lookupFoldTableImpl(ArrayRef<X86MemoryFoldTableEntry> Table, unsigned RegOp) {
                               std::end(BroadcastSizeFoldTable3)) ==
                std::end(BroadcastSizeFoldTable3) &&
            "BroadcastSizeFoldTable3 is not sorted and unique!");
->>>>>>> 0b91de5ea32d40a25c609bf155426fea12c1e2fb
     FoldTablesChecked.store(true, std::memory_order_relaxed);
   }
 #endif
@@ -1030,7 +1024,7 @@ llvm::lookupFoldTable(unsigned RegOp, unsigned OpNum) {
 }
 
 #if INTEL_CUSTOMIZATION
-const X86MemoryFoldTableEntry *llvm::lookupBroadcastFoldTable(unsigned RegOp,
+const X86MemoryFoldTableEntry *llvm::lookupBroadcastFoldTableByOpNum(unsigned RegOp,
                                                               unsigned OpNum) {
   ArrayRef<X86MemoryFoldTableEntry> FoldTable;
   if (OpNum == 2)

@@ -64,7 +64,7 @@ const X86MemoryFoldTableEntry *lookupFoldTable(unsigned RegOp, unsigned OpNum);
 #if INTEL_CUSTOMIZATION
 // Look up the broadcast folding table entry for folding a broadcast with
 // operand OpNum.
-const X86MemoryFoldTableEntry *lookupBroadcastFoldTable(unsigned RegOp,
+const X86MemoryFoldTableEntry *lookupBroadcastFoldTableByOpNum(unsigned RegOp,
                                                         unsigned OpNum);
 #endif
 
