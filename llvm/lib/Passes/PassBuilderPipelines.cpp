@@ -187,6 +187,9 @@
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_PartialInline.h"
 #include "llvm/Transforms/IPO/Intel_QsortRecognizer.h"
+#endif // INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Transforms/IPO/Intel_RecursiveFunctionMemoize.h"
+#if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_TileMVInlMarker.h"
 #endif // INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_UnpredictableProfileLoader.h"
@@ -1713,6 +1716,11 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
     MPM.addPass(LowerTypeTestsPass(nullptr, nullptr, true));
 
   invokePipelineEarlySimplificationEPCallbacks(MPM, Level);
+
+#if INTEL_CUSTOMIZATION
+  if (Level == OptimizationLevel::O3)
+    MPM.addPass(RecursiveFunctionMemoizePass());
+#endif // INTEL_CUSTOMIZATION
 
   // Interprocedural constant propagation now that basic cleanup has occurred
   // and prior to optimizing globals.

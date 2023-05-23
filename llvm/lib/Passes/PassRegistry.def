@@ -416,6 +416,7 @@ MODULE_PASS("transform-fpga-reg", TransformFPGARegPass()) // INTEL
 MODULE_PASS("intel-ipoprefetch", IntelIPOPrefetchPass())
 MODULE_PASS("ippredopt", IPPredOptPass())
 #endif // INTEL_FEATURE_SW_ADVANCED
+MODULE_PASS("recursive-function-memoize", RecursiveFunctionMemoizePass())
 #endif // INTEL_CUSTOMIZATION
 MODULE_PASS("vtable-fixup", IntelVTableFixupPass()) // INTEL
 #if INTEL_COLLAB
