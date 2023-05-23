@@ -617,13 +617,6 @@ BUILTIN(__builtin_assume_aligned, "v*vC*z.", "nctE")
 BUILTIN(__builtin_bcmp, "ivC*vC*z", "FnE")
 BUILTIN(__builtin_bcopy, "vv*v*z", "n")
 BUILTIN(__builtin_bzero, "vv*z", "nF")
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-// CQ#370451. Due to icc compatibility 'FILE *' -> 'void *'
-BUILTIN(__builtin_fprintf, "iv*cC*.", "Fp:1:")
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> baeb85b5a99778956117d647b78b55be4f51a129
 BUILTIN(__builtin_free, "vv*", "nF")
 BUILTIN(__builtin_malloc, "v*z", "nF")
 BUILTIN(__builtin_memchr, "v*vC*iz", "nFE")
@@ -670,38 +663,26 @@ BUILTIN(__builtin_setjmp, "iv**", "j")
 BUILTIN(__builtin_longjmp, "vv**i", "r")
 BUILTIN(__builtin_unwind_init, "v", "")
 BUILTIN(__builtin_eh_return_data_regno, "iIi", "ncE")
-<<<<<<< HEAD
-BUILTIN(__builtin_snprintf, "ic*zcC*.", "nFp:2:")
-BUILTIN(__builtin_sprintf, "ic*cC*.", "nFP:1:")
-BUILTIN(__builtin_vsnprintf, "ic*zcC*a", "nFP:2:")
+#if INTEL_CUSTOMIZATION
+// CQ#370451. Due to icc compatibility 'FILE *' -> 'void *'
+BUILTIN(__builtin_fprintf, "iv*RcC*R.", "nFp:1:")
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
 // CQ#370451. Prinf/scanf builtin functions.
-BUILTIN(__builtin_vprintf,  "icC*a", "FP:0:")
-BUILTIN(__builtin_vfprintf, "iv*cC*a", "FP:1:")
-BUILTIN(__builtin_scanf,   "icC*.",       "Fs:0:")
-BUILTIN(__builtin_fscanf,  "iv*cC*.",   "Fs:1:")
-BUILTIN(__builtin_sscanf,  "icC*cC*.",  "Fs:1:")
-BUILTIN(__builtin_vscanf,  "icC*a",      "FS:0:")
-BUILTIN(__builtin_vfscanf, "iv*cC*a",  "FS:1:")
-BUILTIN(__builtin_vsscanf, "icC*cC*a", "FS:1:")
+BUILTIN(__builtin_vfprintf, "iv*RcC*Ra", "nFP:1:")
+BUILTIN(__builtin_fscanf,  "iv*RcC*R.",   "Fs:1:")
+BUILTIN(__builtin_vfscanf, "iv*RcC*Ra",  "FS:1:")
 #endif // INTEL_CUSTOMIZATION
-BUILTIN(__builtin_vsprintf, "ic*cC*a", "nFP:1:")
-=======
-BUILTIN(__builtin_fprintf, "iP*RcC*R.", "nFp:1:")
 BUILTIN(__builtin_printf, "icC*R.", "nFp:0:")
 BUILTIN(__builtin_sprintf, "ic*RcC*R.", "nFp:1:")
 BUILTIN(__builtin_snprintf, "ic*RzcC*R.", "nFp:2:")
 BUILTIN(__builtin_vprintf, "icC*Ra", "nFP:0:")
-BUILTIN(__builtin_vfprintf, "iP*RcC*Ra", "nFP:1:")
 BUILTIN(__builtin_vsprintf, "ic*RcC*Ra", "nFP:1:")
 BUILTIN(__builtin_vsnprintf, "ic*RzcC*Ra", "nFP:2:")
-BUILTIN(__builtin_fscanf, "iP*RcC*R.", "Fs:1:")
 BUILTIN(__builtin_scanf, "icC*R.", "Fs:0:")
 BUILTIN(__builtin_sscanf, "icC*RcC*R.", "Fs:1:")
-BUILTIN(__builtin_vfscanf, "iP*RcC*Ra", "FS:1:")
 BUILTIN(__builtin_vscanf, "icC*Ra", "FS:0:")
 BUILTIN(__builtin_vsscanf, "icC*RcC*Ra", "FS:1:")
->>>>>>> baeb85b5a99778956117d647b78b55be4f51a129
 BUILTIN(__builtin_thread_pointer, "v*", "nc")
 BUILTIN(__builtin_launder, "v*v*", "ntE")
 LANGBUILTIN(__builtin_is_constant_evaluated, "b", "nE", CXX_LANG)
