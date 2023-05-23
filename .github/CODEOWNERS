@@ -171,6 +171,7 @@ invoke_simd @intel-restricted/dpcpp-esimd-reviewers
 /llvm/lib/Passes/ @andykaylor @pankaj-chawla
 /llvm/include/llvm/Passes/ @andykaylor @pankaj-chawla
 /llvm/test/Transforms/PhaseOrdering/ @andykaylor @pankaj-chawla
+/llvm/test/Other/new-pm-* @intel-restricted/xmain-gatekeeper @andykaylor @pankaj-chawla
 /llvm/test/Other/Intel_new-pm-O0-paropt-vecopt.ll @andykaylor @pankaj-chawla @sguggill @skozhukh @intel-restricted/cmplrllvm-llvm-paropt
 /llvm/test/Other/Intel_new-pm-O2-paropt.ll @andykaylor @pankaj-chawla @intel-restricted/cmplrllvm-llvm-paropt
 /llvm/test/Other/Intel_new-pm-O3-paropt.ll @andykaylor @pankaj-chawla @intel-restricted/cmplrllvm-llvm-paropt
@@ -242,6 +243,7 @@ invoke_simd @intel-restricted/dpcpp-esimd-reviewers
 /llvm/include/llvm/Transforms/IPO/Intel_AutoCPUClone.h @abuyukku
 # Temporarily removed @romanovvlad
 /llvm/include/llvm/Transforms/IPO.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/Scalar/Intel_AggressiveSpeculation.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer @tcreech-intel @williamweixiao
 /llvm/include/llvm/Transforms/Scalar/Intel_ForcedCMOVGeneration.h @asudarsa
 /llvm/include/llvm/Transforms/Scalar/Intel_FunctionRecognizer.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Scalar/Intel_IndirectCallConv.h @robertcox-github @pvbattin
@@ -293,7 +295,9 @@ invoke_simd @intel-restricted/dpcpp-esimd-reviewers
 /llvm/lib/LTO/ @robertcox-github @pvbattin
 /llvm/lib/Transforms/IPO/ @robertcox-github @pvbattin
 /llvm/lib/Transforms/IPO/Intel_AutoCPUClone.cpp @abuyukku
+/llvm/lib/Transforms/IPO/Intel_UnpredictableProfileLoader.cpp @robertcox-github @pvbattin @tcreech-intel @williamweixiao
 # Temporarily removed @romanovvlad
+/llvm/lib/Transforms/Scalar/Intel_AggressiveSpeculation.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer @tcreech-intel @williamweixiao
 /llvm/lib/Transforms/Scalar/Intel_ForcedCMOVGeneration.cpp @asudarsa
 /llvm/lib/Transforms/Scalar/Intel_FunctionRecognizer.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Scalar/Intel_IndirectCallConv.cpp @robertcox-github @pvbattin
@@ -341,6 +345,7 @@ invoke_simd @intel-restricted/dpcpp-esimd-reviewers
 /llvm/test/Transforms/InferFunctionAttrs/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Inline/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_AdvancedFastCall/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Intel_AggressiveSpeculation/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer @tcreech-intel @williamweixiao
 /llvm/test/Transforms/Intel_ArgumentAlignment/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_AutoCPUClone/ @abuyukku
 # Temporarily removed @romanovvlad
@@ -360,6 +365,7 @@ invoke_simd @intel-restricted/dpcpp-esimd-reviewers
 /llvm/test/Transforms/Intel_MathLibrariesDeclaration/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_MultiVersioning/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_QsortRecognition/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Intel_UnpredictableProfileLoader/ @robertcox-github @pvbattin @tcreech-intel @williamweixiao
 /llvm/test/Transforms/Internalize/ @robertcox-github @pvbattin
 /llvm/test/Transforms/OpenMP/ @intel-restricted/cmplrllvm-llvm-paropt
 /llvm/test/Transforms/PartialInlining/ @robertcox-github @pvbattin
@@ -381,6 +387,7 @@ invoke_simd @intel-restricted/dpcpp-esimd-reviewers
 /llvm/include/llvm/Transforms/IPO/HotColdSplitting.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/IPO/SampleProfile.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/IPO/SampleProfileProbe.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/IPO/Intel_UnpredictableProfileLoader.h @robertcox-github @pvbattin @tcreech-intel @williamweixiao
 /llvm/lib/Analysis/BlockFrequencyInfo.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/BlockFrequencyInfoImpl.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/ProfileSummaryInfo.cpp @robertcox-github @pvbattin

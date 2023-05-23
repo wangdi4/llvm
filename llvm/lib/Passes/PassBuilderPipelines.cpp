@@ -189,6 +189,7 @@
 #include "llvm/Transforms/IPO/Intel_QsortRecognizer.h"
 #include "llvm/Transforms/IPO/Intel_TileMVInlMarker.h"
 #endif // INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Transforms/IPO/Intel_UnpredictableProfileLoader.h"
 #include "llvm/Transforms/IPO/Intel_VTableFixup.h"
 #include "llvm/Transforms/IPO/Internalize.h"
 #include "llvm/Transforms/Scalar/Intel_IVSplit.h"
@@ -211,6 +212,7 @@
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
 #include "llvm/Transforms/Scalar/Intel_AddSubReassociate.h"
+#include "llvm/Transforms/Scalar/Intel_AggressiveSpeculation.h"
 #include "llvm/Transforms/Scalar/Intel_DopeVectorHoist.h"
 #include "llvm/Transforms/Scalar/Intel_ForcedCMOVGeneration.h"
 #include "llvm/Transforms/Scalar/Intel_HandlePragmaVectorAligned.h"
@@ -1619,6 +1621,15 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(EarlyFPM),
                                                 PTO.EagerlyInvalidateAnalyses));
+
+#if INTEL_CUSTOMIZATION
+  // This should run before AggressiveSpeculation so that the expected IR
+  // annotations are present.
+  MPM.addPass(UnpredictableProfileLoaderPass());
+  // This may be able to merge call sites, so do it before any inlining which
+  // may happen in SampleProfileLoader.
+  MPM.addPass(createModuleToFunctionPassAdaptor(AggressiveSpeculationPass()));
+#endif // INTEL_CUSTOMIZATION
 
   if (LoadSampleProfile) {
     // Annotate sample profile right after early FPM to ensure freshness of

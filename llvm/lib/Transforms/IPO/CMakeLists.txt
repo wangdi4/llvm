@@ -33,6 +33,7 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
   Intel_IPODeadArgElimination.cpp
   Intel_MathLibrariesDeclaration.cpp
   Intel_OptimizeDynamicCasts.cpp
+  Intel_UnpredictableProfileLoader.cpp
   Intel_VTableFixup.cpp
   Utils/Intel_IPOUtils.cpp
   )

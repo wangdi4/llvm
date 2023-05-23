@@ -67,6 +67,8 @@
 ; CHECK-O-NEXT: Running pass: EarlyCSEPass
 ; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-O3-NEXT: Running pass: CallSiteSplittingPass
+; CHECK-O-NEXT: Running pass: UnpredictableProfileLoaderPass ;INTEL
+; CHECK-O-NEXT: Running pass: AggressiveSpeculationPass ;INTEL
 ; CHECK-O-NEXT: Running pass: OpenMPOptPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: LowerTypeTestsPass
 ; CHECK-O-NEXT: Running pass: IPSCCPPass
