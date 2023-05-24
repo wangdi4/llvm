@@ -2349,8 +2349,8 @@ define i1 @issubnormal_or_inf_nnan_logical_select(half %x) {
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[FABS:%.*]] = call nnan half @llvm.fabs.f16(half [[X:%.*]])
 ; CHECK-NEXT:    [[CMPINF:%.*]] = fcmp nnan oeq half [[FABS]], 0xH7C00
-; CHECK-NEXT:    [[CMP_SMALLEST_NORMAL:%.*]] = fcmp nnan olt half [[FABS]], 0xH0400
-; CHECK-NEXT:    [[CLASS:%.*]] = select i1 [[CMPINF]], i1 true, i1 [[CMP_SMALLEST_NORMAL]]
+; CHECK-NEXT:    [[CMP_SMALLEST_NORMAL:%.*]] = fcmp olt half [[FABS]], 0xH0400
+; CHECK-NEXT:    [[CLASS:%.*]] = or i1 [[CMPINF]], [[CMP_SMALLEST_NORMAL]]
 ; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    ret i1 [[CLASS]]
 ;
@@ -2366,8 +2366,8 @@ define i1 @issubnormal_and_ninf_nnan_logical_select(half %x) {
 ; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[FABS:%.*]] = call nnan half @llvm.fabs.f16(half [[X:%.*]])
 ; CHECK-NEXT:    [[CMPINF:%.*]] = fcmp nnan one half [[FABS]], 0xH7C00
-; CHECK-NEXT:    [[CMP_SMALLEST_NORMAL:%.*]] = fcmp nnan olt half [[FABS]], 0xH0400
-; CHECK-NEXT:    [[CLASS:%.*]] = select i1 [[CMPINF]], i1 [[CMP_SMALLEST_NORMAL]], i1 false
+; CHECK-NEXT:    [[CMP_SMALLEST_NORMAL:%.*]] = fcmp olt half [[FABS]], 0xH0400
+; CHECK-NEXT:    [[CLASS:%.*]] = and i1 [[CMPINF]], [[CMP_SMALLEST_NORMAL]]
 ; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    ret i1 [[CLASS]]
 ;
