@@ -66,9 +66,15 @@ if(INTEL_CUSTOMIZATION)
 endif(INTEL_CUSTOMIZATION)
 
 # Download opencl-clang
-set(OPENCL_CLANG_TAG 304eaa0769d7170e4a3e9d8c30f98ac77258dabb)
+set(OPENCL_CLANG_TAG e047ae6bb9cef488781e0b06c5ae9018bacb24c4)
 # PCH_EXTENSION can override PCH extension map in opencl-clang/options_compile.cpp
 set(PCH_EXTENSION "cl_khr_3d_image_writes,cl_khr_depth_images,cl_khr_global_int32_base_atomics,cl_khr_global_int32_extended_atomics,cl_khr_int64_base_atomics,cl_khr_int64_extended_atomics,cl_khr_local_int32_base_atomics,cl_khr_local_int32_extended_atomics,cl_intel_subgroups,cl_intel_subgroups_short" CACHE STRING "")
+# INTEL_CUSTOMIZATION
+if(WIN32)
+  # Don't link LLVMSupport_dyn which will propogate /MD flag to opencl-clang.
+  set(EXCLUDE_LIBS_FROM_ALL "LLVMSupport_dyn" CACHE STRING "")
+endif()
+# end INTEL_CUSTOMIZATION
 
 message(STATUS "Will fetch opencl-clang from ${OPENCL_CLANG_REPO}")
 FetchContent_Declare(
