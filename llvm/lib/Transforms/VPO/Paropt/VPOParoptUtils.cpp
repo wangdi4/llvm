@@ -58,6 +58,7 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
+#include "llvm/Analysis/DomTreeUpdater.h"
 #include <string>
 
 #if INTEL_CUSTOMIZATION
@@ -5336,11 +5337,12 @@ bool VPOParoptUtils::genCriticalLoopForSPIRHelper(Instruction *BeginInst,
   // LoopExitBB:
   //   call spir_func void @__kmpc_end_critical
   Instruction *SplitPt = &*HeaderBuilder.GetInsertPoint();
+  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
   Instruction *ThenTerm =
       SplitBlockAndInsertIfThen(ExitPred, SplitPt,
                                 /*Unreachable=*/false,
                                 /*BranchWeights=*/nullptr,
-                                DT, LI);
+                                &DTU, LI);
   BasicBlock *JumpToExitBB = ThenTerm->getParent();
   ThenTerm->setSuccessor(0, LoopExitBB);
   if (DT)
@@ -5391,7 +5393,7 @@ bool VPOParoptUtils::genCriticalLoopForSPIRHelper(Instruction *BeginInst,
   ThenTerm = SplitBlockAndInsertIfThen(SkipPred, LoopBodyInsertPt,
                                        /*Unreachable=*/false,
                                        /*BranchWeights=*/nullptr,
-                                       DT, LI);
+                                       &DTU, LI);
   ThenTerm->setSuccessor(0, LoopIncBB);
   if (DT)
     DT->changeImmediateDominator(LoopIncBB, LoopBodyBB);

@@ -31,6 +31,7 @@
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
+#include "llvm/Analysis/DomTreeUpdater.h"
 
 #define DEBUG_TYPE "vpo-paropt-utils"
 
@@ -150,9 +151,10 @@ void VPOParoptUtils::genF90DVInitCode(
     BranchPt = &*Builder.GetInsertPoint();
     I->setF90DVDataAllocationPoint(BranchPt);
 
+    DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
     Instruction *ThenTerm = SplitBlockAndInsertIfThen(
         IsOrigAllocated, BranchPt, false,
-        MDBuilder(Builder.getContext()).createBranchWeights(4, 1), DT, LI);
+        MDBuilder(Builder.getContext()).createBranchWeights(4, 1), &DTU, LI);
     BasicBlock *ThenBB = ThenTerm->getParent();
     ThenBB->setName("allocated.then");
     AllocBuilderInsertPt = ThenTerm;
