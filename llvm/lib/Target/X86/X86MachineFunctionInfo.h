@@ -261,6 +261,25 @@ public:
   bool hasVirtualTileReg() const { return HasVirtualTileReg; }
   void setHasVirtualTileReg(bool v) { HasVirtualTileReg = v; }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  bool padForPush2Pop2() const { return PadForPush2Pop2; }
+  void setPadForPush2Pop2(bool V) { PadForPush2Pop2 = V; }
+
+  unsigned getOffsetForPush2Pop2() const { return OffsetForPush2Pop2; }
+  void setOffsetForPush2Pop2(unsigned V) { OffsetForPush2Pop2 = V; }
+
+  bool isCandidateForPush2Pop2(Register Reg) const {
+    return CandidatesForPush2Pop2.find(Reg) != CandidatesForPush2Pop2.end();
+  }
+  void addCandidateForPush2Pop2(Register Reg) {
+    CandidatesForPush2Pop2.insert(Reg);
+  }
+  size_t getNumCandidatesForPush2Pop2() const {
+    return CandidatesForPush2Pop2.size();
+  }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   bool hasCFIAdjustCfa() const { return HasCFIAdjustCfa; }
   void setHasCFIAdjustCfa(bool v) { HasCFIAdjustCfa = v; }
 
