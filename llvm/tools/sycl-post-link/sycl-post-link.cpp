@@ -1067,7 +1067,10 @@ processInputModule(std::unique_ptr<Module> M) {
     Passes.add(createGenXSPIRVWriterAdaptorPass());
     Passes.run(*M);
   }
-
+  bool DoOmpOffload = (DoLinkOmpOffloadEntries || DoMakeOmpGlobalsStatic);
+  // Find all global variables that need to be moved to a separate module.
+  if (DoOmpOffload)
+    module_split::findGlobalsToBeMoved(*M);
   if (DoLinkOmpOffloadEntries || DoMakeOmpGlobalsStatic)
     processOmpOffloadEntries(*M, DoLinkOmpOffloadEntries,
                              DoSortOmpOffloadEntries, DoMakeOmpGlobalsStatic);
@@ -1083,7 +1086,6 @@ processInputModule(std::unique_ptr<Module> M) {
     (void)RunVTableFixup.run(*M, MAM);
   }
 #endif // INTEL_CUSTOMIZATION
-  bool DoOmpOffload = (DoLinkOmpOffloadEntries || DoMakeOmpGlobalsStatic);
 #endif // INTEL_COLLAB
 
   // -ir-output-only assumes single module output thus no code splitting.
