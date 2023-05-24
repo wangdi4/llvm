@@ -53,30 +53,30 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ;   %struct.__pipe_t = type { i32, i32, [56 x i8], i32, [60 x i8], i32, [60 x i8], %struct.__pipe_internal_buf, [52 x i8], %struct.__pipe_internal_buf, [52 x i8] }
 ;   %struct.__pipe_internal_buf = type { i32, i32, i32 }
 ;
-; so, sizeof(__pipe_t) == 320 bytes
+; so, sizeof(__pipe_t) == 448 bytes
 ;
 ; __get_pipe_max_packets(depth, mode) by default (ignore-depth mode):
 ;   max(depth, MAX_VL_SUPPORTED_BY_PIPES) + 1 + PIPE_WRITE_BUF_PREFERRED_LIMIT - 1 = max(depth, 16) + 256
 ;
 ; for all channels in this test packet_size is 4 bytes
 ;
-; bar: 320 + 4 * (max(0, 16) + 256) = 320 + 4 * 272 = 320 + 1088 = 1408
-; far: 320 + 4 * (max(24, 16) + 256) = 320 + 4 * 280 = 320 + 1120 = 1440
-; star: 320 + 4 * (max(0, 16) + 256) = 320 + 4 * 272 = 320 + 1088 = 1408
+; bar: 448 + 4 * (max(0, 16) + 256) = 448 + 4 * 272 = 448 + 1088 = 1536
+; far: 448 + 4 * (max(24, 16) + 256) = 448 + 4 * 280 = 448 + 1120 = 1568
+; star: 448 + 4 * (max(0, 16) + 256) = 448 + 4 * 272 = 448 + 1088 = 1536
 ;
-; IGNOREDEPTH-DAG: @[[PIPE_BAR]].bs = addrspace(1) global [1408 x i8]
-; IGNOREDEPTH-DAG: @[[PIPE_FAR]].bs = addrspace(1) global [1440 x i8]
-; IGNOREDEPTH-DAG: @[[PIPE_STAR]].bs = addrspace(1) global [1408 x i8]
+; IGNOREDEPTH-DAG: @[[PIPE_BAR]].bs = addrspace(1) global [1536 x i8]
+; IGNOREDEPTH-DAG: @[[PIPE_FAR]].bs = addrspace(1) global [1568 x i8]
+; IGNOREDEPTH-DAG: @[[PIPE_STAR]].bs = addrspace(1) global [1536 x i8]
 ;
 ; for arrays bs size = bs size of one pipe * num of pipes
 ;
-; bar_arr: 1408 * 5 = 7040
-; far_arr: 1440 * 5 * 4 = 28800
-; star_arr: 1408 * 5 * 4 * 3 = 84480
+; bar_arr: 1536 * 5 = 7680
+; far_arr: 1568 * 5 * 4 = 31360
+; star_arr: 1536 * 5 * 4 * 3 = 92160
 ;
-; IGNOREDEPTH-DAG: @[[PIPE_BAR_ARR]].bs = addrspace(1) global [7040 x i8]
-; IGNOREDEPTH-DAG: @[[PIPE_FAR_ARR]].bs = addrspace(1) global [28800 x i8]
-; IGNOREDEPTH-DAG: @[[PIPE_STAR_ARR]].bs = addrspace(1) global [84480 x i8]
+; IGNOREDEPTH-DAG: @[[PIPE_BAR_ARR]].bs = addrspace(1) global [7680 x i8]
+; IGNOREDEPTH-DAG: @[[PIPE_FAR_ARR]].bs = addrspace(1) global [31360 x i8]
+; IGNOREDEPTH-DAG: @[[PIPE_STAR_ARR]].bs = addrspace(1) global [92160 x i8]
 ;
 ;
 ; for default mode:  __get_pipe_max_packets(depth, mode):
@@ -85,23 +85,23 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ;   else:
 ;     depth + 1
 ;
-; bar: 320 + 4 * (max(0, 16) + 256) = 320 + 4 * 272 = 320 + 1088 = 1408
-; far: 320 + 4 * (24 + 1) = 320 + 4 * 25 = 320 + 100 = 420
-; star: 320 + 4 * (max(0, 16) + 256) = 320 + 4 * 272 = 320 + 1088 = 1408
+; bar: 448 + 4 * (max(0, 16) + 256) = 448 + 4 * 272 = 448 + 1088 = 1536
+; far: 448 + 4 * (24 + 1) = 448 + 4 * 25 = 448 + 100 = 548
+; star: 448 + 4 * (max(0, 16) + 256) = 448 + 4 * 272 = 448 + 1088 = 1536
 ;
-; DEFAULT-DAG: @[[PIPE_BAR]].bs = addrspace(1) global [1408 x i8]
-; DEFAULT-DAG: @[[PIPE_FAR]].bs = addrspace(1) global [420 x i8]
-; DEFAULT-DAG: @[[PIPE_STAR]].bs = addrspace(1) global [1408 x i8]
+; DEFAULT-DAG: @[[PIPE_BAR]].bs = addrspace(1) global [1536 x i8]
+; DEFAULT-DAG: @[[PIPE_FAR]].bs = addrspace(1) global [548 x i8]
+; DEFAULT-DAG: @[[PIPE_STAR]].bs = addrspace(1) global [1536 x i8]
 ;
 ; for arrays bs size = bs size of one pipe * num of pipes
 ;
-; bar_arr: 1408 * 5 = 7040
-; far_arr: 420 * 5 * 4 = 8400
-; star_arr: 1408 * 5 * 4 * 3 = 84480
+; bar_arr: 1536 * 5 = 7680
+; far_arr: 548 * 5 * 4 = 10960
+; star_arr: 1536 * 5 * 4 * 3 = 92160
 ;
-; DEFAULT-DAG: @[[PIPE_BAR_ARR]].bs = addrspace(1) global [7040 x i8]
-; DEFAULT-DAG: @[[PIPE_FAR_ARR]].bs = addrspace(1) global [8400 x i8]
-; DEFAULT-DAG: @[[PIPE_STAR_ARR]].bs = addrspace(1) global [84480 x i8]
+; DEFAULT-DAG: @[[PIPE_BAR_ARR]].bs = addrspace(1) global [7680 x i8]
+; DEFAULT-DAG: @[[PIPE_FAR_ARR]].bs = addrspace(1) global [10960 x i8]
+; DEFAULT-DAG: @[[PIPE_STAR_ARR]].bs = addrspace(1) global [92160 x i8]
 ;
 ;
 ; for strict mode:  __get_pipe_max_packets(depth, mode):
@@ -110,23 +110,23 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ;
 ;   max_packets = depth + 1
 ;
-; bar: 320 + 4 * 2 = 320 + 4 * 2 = 320 + 8 = 328
-; far: 320 + 4 * (24 + 1) = 320 + 4 * 25 = 320 + 100 = 420
-; star: 320 + 4 * 2 = 320 + 4 * 2 = 320 + 8 = 328
+; bar: 448 + 4 * 2 = 448 + 4 * 2 = 448 + 8 = 456
+; far: 448 + 4 * (24 + 1) = 448 + 4 * 25 = 448 + 100 = 548
+; star: 448 + 4 * 2 = 448 + 4 * 2 = 448 + 8 = 456
 ;
-; STRICT-DAG: @[[PIPE_BAR]].bs = addrspace(1) global [328 x i8]
-; STRICT-DAG: @[[PIPE_FAR]].bs = addrspace(1) global [420 x i8]
-; STRICT-DAG: @[[PIPE_STAR]].bs = addrspace(1) global [328 x i8]
+; STRICT-DAG: @[[PIPE_BAR]].bs = addrspace(1) global [456 x i8]
+; STRICT-DAG: @[[PIPE_FAR]].bs = addrspace(1) global [548 x i8]
+; STRICT-DAG: @[[PIPE_STAR]].bs = addrspace(1) global [456 x i8]
 ;
 ; for arrays bs size = bs size of one pipe * num of pipes
 ;
-; bar_arr: 328 * 5 = 1640
-; far_arr: 420 * 5 * 4 = 8400
-; star_arr: 328 * 5 * 4 * 3 = 19680
+; bar_arr: 456 * 5 = 2280
+; far_arr: 548 * 5 * 4 = 10960
+; star_arr: 456 * 5 * 4 * 3 = 27360
 ;
-; STRICT-DAG: @[[PIPE_BAR_ARR]].bs = addrspace(1) global [1640 x i8]
-; STRICT-DAG: @[[PIPE_FAR_ARR]].bs = addrspace(1) global [8400 x i8]
-; STRICT-DAG: @[[PIPE_STAR_ARR]].bs = addrspace(1) global [19680 x i8]
+; STRICT-DAG: @[[PIPE_BAR_ARR]].bs = addrspace(1) global [2280 x i8]
+; STRICT-DAG: @[[PIPE_FAR_ARR]].bs = addrspace(1) global [10960 x i8]
+; STRICT-DAG: @[[PIPE_STAR_ARR]].bs = addrspace(1) global [27360 x i8]
 
 ; Function Attrs: convergent nounwind
 define spir_kernel void @foo() #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !5 !kernel_arg_type !5 !kernel_arg_base_type !5 !kernel_arg_type_qual !5 !kernel_arg_host_accessible !5 !kernel_arg_pipe_depth !5 !kernel_arg_pipe_io !5 !kernel_arg_buffer_location !5 {

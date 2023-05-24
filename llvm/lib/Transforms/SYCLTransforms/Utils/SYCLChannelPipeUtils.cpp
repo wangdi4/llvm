@@ -58,6 +58,11 @@ constexpr static int PipeWriteBufPreferredLimit = 256;
 /// The real meaning of each field doesn't matter.
 namespace {
 
+typedef struct __hostpipe_packet {
+  void *data;
+  struct __hostpipe_packet *next;
+} __hostpipe_packet;
+
 struct __pipe_internal_buf {
   int end;
   int size;
@@ -80,6 +85,11 @@ struct __pipe_t {
   alignas(64) struct __pipe_internal_buf read_buf;
   alignas(64) struct __pipe_internal_buf write_buf;
   FILE *io;
+  // Access mode protocol
+  int protocol;
+  // Two access pointers for host pipe.
+  alignas(64) struct __hostpipe_packet *hp_read_ptr;
+  alignas(64) struct __hostpipe_packet *hp_write_ptr;
 };
 
 } // namespace
@@ -304,7 +314,11 @@ void initializeGlobalPipeScalar(GlobalVariable *PipeGV, const ChannelPipeMD &MD,
   IRBuilder<> Builder(GlobalCtor->getEntryBlock().getTerminator());
 
   Value *PacketSize = Builder.getInt32(MD.PacketSize);
-  Value *Depth = Builder.getInt32(MD.Depth);
+  int depth = MD.Depth;
+  if (PipeGV->getName().starts_with(
+          "_ZN4sycl3_V13ext5intel12experimental4pipe")) // Hostpipe
+    depth = -1;
+  Value *Depth = Builder.getInt32(depth);
   Value *Mode = Builder.getInt32(SYCLChannelDepthEmulationMode);
 
   SmallVector<Value *, 5> CallArgs = {

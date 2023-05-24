@@ -4,8 +4,8 @@
 ; CHECK: warning: Large channel may lead to memory allocation failure:
 ; CHECK-NEXT: Channel name: _ZN2cl4sycl4pipeI8s2m_pipeiLi20EE9m_StorageE
 ; CHECK-NEXT: Packet size: 256
-; 262720 == sizeof(struct __pipe_t) + packet_size * (depth + 1) == 320 + 256 * 1025
-; CHECK-NEXT: Total channel size: 262720
+; 262848 == sizeof(struct __pipe_t) + packet_size * (depth + 1) == 448 + 256 * 1025
+; CHECK-NEXT: Total channel size: 262848
 
 ; Compiled from:
 ; --------------
