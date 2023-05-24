@@ -732,6 +732,8 @@ public:
                             SelectPatternFlavor SPF2, Value *C);
   Instruction *foldSelectInstWithICmp(SelectInst &SI, ICmpInst *ICI);
   Instruction *foldSelectValueEquivalence(SelectInst &SI, ICmpInst &ICI);
+  bool replaceInInstruction(Value *V, Value *Old, Value *New,
+                            unsigned Depth = 0);
 
   Value *insertRangeTest(Value *V, const APInt &Lo, const APInt &Hi,
                          bool isSigned, bool Inside);
@@ -775,6 +777,8 @@ public:
   bool createComplexMathInstruction(Value *Real, Value *Imag);
 #endif // INTEL_CUSTOMIZATION
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
+
+  bool tryToSinkInstruction(Instruction *I, BasicBlock *DestBlock);
 };
 
 class Negator final {
