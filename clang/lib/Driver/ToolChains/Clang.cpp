@@ -10948,10 +10948,12 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
     const toolchains::SYCLToolChain &TC =
         static_cast<const toolchains::SYCLToolChain &>(getToolChain());
 
+#if INTEL_CUSTOMIZATION
     // Handle -Xspirv-translator
-    TC.TranslateTargetOpt(
+    TC.TranslateTargetOpt(JA.getOffloadingDeviceKind(),
         TCArgs, TranslatorArgs, options::OPT_Xspirv_translator,
         options::OPT_Xspirv_translator_EQ, JA.getOffloadingArch());
+#endif // INTEL_CUSTOMIZATION
   }
 
   for (auto I : Inputs) {
