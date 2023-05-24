@@ -735,6 +735,9 @@ inline pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
     ReturnHelper ReturnValue(ParamValueSize, ParamValue, ParamValueSizeRet);
     return ReturnValue("");
   }
+  case PI_DEVICE_INFO_IMAGE_SRGB:
+    InfoType = (ur_device_info_t)UR_DEVICE_INFO_IMAGE_SRGB;
+    break;
   default:
     return PI_ERROR_UNKNOWN;
   };

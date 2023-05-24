@@ -1922,6 +1922,11 @@ pi_result hip_piDeviceGetInfo(pi_device device, pi_device_info param_name,
 #endif
     return PI_ERROR_INVALID_VALUE;
   }
+  case PI_DEVICE_INFO_IMAGE_SRGB: {
+    // The sRGB images are not supported on HIP device.
+    return getInfo<pi_bool>(param_value_size, param_value, param_value_size_ret,
+                            false);
+  }
 
   // TODO: Investigate if this information is available on HIP.
   case PI_DEVICE_INFO_PCI_ADDRESS:

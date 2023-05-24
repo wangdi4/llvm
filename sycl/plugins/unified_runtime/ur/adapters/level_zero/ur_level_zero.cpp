@@ -1221,6 +1221,8 @@ UR_APIEXPORT ur_result_t UR_APICALL urDeviceGetInfo(
         UR_MEMORY_ORDER_CAPABILITY_FLAG_SEQ_CST;
     return ReturnValue(capabilities);
   }
+  case UR_DEVICE_INFO_IMAGE_SRGB:
+    return ReturnValue(pi_bool{false});
 
   // TODO: Implement.
   default:
