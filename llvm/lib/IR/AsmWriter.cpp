@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -104,6 +104,7 @@
 #include <vector>
 
 #if INTEL_CUSTOMIZATION
+#include "llvm/IR/ProfDataUtils.h"
 #include "llvm/Support/CommandLine.h"
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
@@ -124,6 +125,10 @@ static cl::opt<bool> PrettyPrintDirectives(
 static cl::opt<bool> PrintDbgLoc(
     "print-debug-loc", cl::init(false), cl::Hidden,
     cl::desc("Print DebugLoc of instructions besides them as comments"));
+static cl::opt<bool> PrintProfCounts(
+    "print-prof-counts", cl::init(false), cl::Hidden,
+    cl::desc(
+        "Print profile branch count data beside instructions as comments"));
 #endif
 
 #if INTEL_PRODUCT_RELEASE
@@ -4654,6 +4659,15 @@ void AssemblyWriter::printInstruction(const Instruction &I) {
       Out << Scope->getFilename() << ":" << Loc.getLine() << ':'
           << Loc.getCol();
     }
+  }
+
+  if (PrintProfCounts && hasBranchWeightMD(I)) {
+    SmallVector<uint32_t, 4> Weights;
+    extractBranchWeights(getBranchWeightMDNode(I), Weights);
+    Out << " ; Weights = ";
+    ListSeparator LS(", ");
+    for (auto W : Weights)
+      Out << LS << W;
   }
 #endif // INTEL_CUSTOMIZATION
 }
