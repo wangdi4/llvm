@@ -98,9 +98,9 @@ bool CPUDeviceConfig::IsSpirSupported() const { return true; }
 
 bool CPUDeviceConfig::IsHalfSupported() const {
   std::string Env;
-  return Intel::OpenCL::Utils::getEnvVar(Env,
-                                         "CL_CONFIG_CPU_EXPERIMENTAL_FP16") ||
-         FPGA_EMU_DEVICE == GetDeviceMode();
+  return FPGA_EMU_DEVICE != GetDeviceMode() &&
+         Intel::OpenCL::Utils::getEnvVar(Env,
+                                         "CL_CONFIG_CPU_EXPERIMENTAL_FP16");
 }
 
 bool CPUDeviceConfig::IsDoubleSupported() const {
