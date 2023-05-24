@@ -23,4 +23,5 @@ clang_target_link_libraries(SerializationTests
   clangSema
   clangSerialization
   clangTooling
+  clangASTMatchers
   )
