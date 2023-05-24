@@ -27,7 +27,6 @@
 #include "llvm/Transforms/SYCLTransforms/Utils/NameMangleAPI.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/ParameterType.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/TypeAlignment.h"
-#include <iostream>
 #include <regex>
 
 using namespace llvm;
@@ -2295,11 +2294,22 @@ widenParameters(const reflection::TypeVector ScalarParams, unsigned int VF) {
   return VectorParams;
 }
 
-static void pushSGBlockBuiltinDivergentVectInfo(
-    const Twine &BaseName, unsigned int len, unsigned int VF,
-    reflection::TypeVector ScalarParams,
-    std::vector<std::tuple<std::string, std::string, std::string>>
-        &ExtendedVectInfos) {
+using VectInfoList =
+    std::vector<std::tuple<std::string, std::string, std::string>>;
+
+// Container storing all the vector info entries.
+// Each entry would be a tuple of three strings:
+// 1. scalar variant name
+// 2. "kernel-call-once" | ""
+// 3. mangled vector variant name
+static VectInfoList ExtendedVectInfos;
+
+VectInfoList &getExtendedVectInfos() { return ExtendedVectInfos; }
+
+static void
+pushSGBlockBuiltinDivergentVectInfo(const Twine &BaseName, unsigned int len,
+                                    unsigned int VF,
+                                    reflection::TypeVector ScalarParams) {
   // Get mangled name of scalar variant
   reflection::FunctionDescriptor ScalarFunc{
       (BaseName + (len == 1 ? "" : Twine(len))).str(), ScalarParams,
@@ -2331,9 +2341,7 @@ static void pushSGBlockBuiltinDivergentVectInfo(
 
 static void pushSGBlockBuiltinDivergentVectInfo(
     StringRef TySuffix, reflection::TypePrimitiveEnum Ty,
-    std::vector<unsigned int> Lens, std::vector<unsigned int> VFs,
-    std::vector<std::tuple<std::string, std::string, std::string>>
-        &ExtendedVectInfos) {
+    std::vector<unsigned int> Lens, std::vector<unsigned int> VFs) {
   const Twine SG_BLOCK_READ_PREFIX("intel_sub_group_block_read");
   const Twine SG_BLOCK_WRITE_PREFIX("intel_sub_group_block_write");
 
@@ -2341,63 +2349,53 @@ static void pushSGBlockBuiltinDivergentVectInfo(
     for (unsigned int VF : VFs) {
       // sub_group_block_read(const __global T*)
       pushSGBlockBuiltinDivergentVectInfo(SG_BLOCK_READ_PREFIX + TySuffix, Len,
-                                          VF, {CONST_GLOBAL_PTR(Ty)},
-                                          ExtendedVectInfos);
+                                          VF, {CONST_GLOBAL_PTR(Ty)});
       // sub_group_block_read(readonly image2d_t, int2)
       pushSGBlockBuiltinDivergentVectInfo(
           SG_BLOCK_READ_PREFIX + TySuffix, Len, VF,
-          {PRIM_TYPE(reflection::PRIMITIVE_IMAGE_2D_RO_T), INT2_TYPE},
-          ExtendedVectInfos);
+          {PRIM_TYPE(reflection::PRIMITIVE_IMAGE_2D_RO_T), INT2_TYPE});
       // sub_group_block_read(readwrite image2d_t, int2)
       pushSGBlockBuiltinDivergentVectInfo(
           SG_BLOCK_READ_PREFIX + TySuffix, Len, VF,
-          {PRIM_TYPE(reflection::PRIMITIVE_IMAGE_2D_RW_T), INT2_TYPE},
-          ExtendedVectInfos);
+          {PRIM_TYPE(reflection::PRIMITIVE_IMAGE_2D_RW_T), INT2_TYPE});
 
       if (Len == 1) {
         // sub_group_block_write(__global T*, T)
-        pushSGBlockBuiltinDivergentVectInfo(
-            SG_BLOCK_WRITE_PREFIX + TySuffix, Len, VF,
-            {GLOBAL_PTR(Ty), PRIM_TYPE(Ty)}, ExtendedVectInfos);
+        pushSGBlockBuiltinDivergentVectInfo(SG_BLOCK_WRITE_PREFIX + TySuffix,
+                                            Len, VF,
+                                            {GLOBAL_PTR(Ty), PRIM_TYPE(Ty)});
         // sub_group_block_write(writeonly image2d_t, int2, T)
         pushSGBlockBuiltinDivergentVectInfo(
             SG_BLOCK_WRITE_PREFIX + TySuffix, Len, VF,
             {PRIM_TYPE(reflection::PRIMITIVE_IMAGE_2D_WO_T), INT2_TYPE,
-             PRIM_TYPE(Ty)},
-            ExtendedVectInfos);
+             PRIM_TYPE(Ty)});
         // sub_group_block_write(readwrite image2d_t, int2, T)
         pushSGBlockBuiltinDivergentVectInfo(
             SG_BLOCK_WRITE_PREFIX + TySuffix, Len, VF,
             {PRIM_TYPE(reflection::PRIMITIVE_IMAGE_2D_RW_T), INT2_TYPE,
-             PRIM_TYPE(Ty)},
-            ExtendedVectInfos);
+             PRIM_TYPE(Ty)});
       } else {
         // sub_group_block_write(__global T*, T<Len>)
         pushSGBlockBuiltinDivergentVectInfo(
             SG_BLOCK_WRITE_PREFIX + TySuffix, Len, VF,
-            {GLOBAL_PTR(Ty), VECTOR_TYPE(PRIM_TYPE(Ty), Len)},
-            ExtendedVectInfos);
+            {GLOBAL_PTR(Ty), VECTOR_TYPE(PRIM_TYPE(Ty), Len)});
         // sub_group_block_write(writeonly image2d_t, int2, T<Len>)
         pushSGBlockBuiltinDivergentVectInfo(
             SG_BLOCK_WRITE_PREFIX + TySuffix, Len, VF,
             {PRIM_TYPE(reflection::PRIMITIVE_IMAGE_2D_WO_T), INT2_TYPE,
-             VECTOR_TYPE(PRIM_TYPE(Ty), Len)},
-            ExtendedVectInfos);
+             VECTOR_TYPE(PRIM_TYPE(Ty), Len)});
         // sub_group_block_write(readwrite image2d_t, int2, T<Len>)
         pushSGBlockBuiltinDivergentVectInfo(
             SG_BLOCK_WRITE_PREFIX + TySuffix, Len, VF,
             {PRIM_TYPE(reflection::PRIMITIVE_IMAGE_2D_RW_T), INT2_TYPE,
-             VECTOR_TYPE(PRIM_TYPE(Ty), Len)},
-            ExtendedVectInfos);
+             VECTOR_TYPE(PRIM_TYPE(Ty), Len)});
       }
     }
   }
 }
 
 #if INTEL_CUSTOMIZATION
-static void pushSGRowSliceBuiltinVectInfo(
-    std::vector<std::tuple<std::string, std::string, std::string>>
-        &ExtendedVectInfos) {
+static void pushSGRowSliceBuiltinVectInfo() {
   const static SmallVector<StringRef, 4> DataTypes = {"i8", "i16", "i32",
                                                       "bf16", "f32"};
   const static SmallVector<unsigned, 5> VFs = {4, 8, 16, 32, 64};
@@ -2444,41 +2442,18 @@ reflection::TypePrimitiveEnum getPrimitiveTypeOfString(StringRef T) {
       .Default(reflection::PRIMITIVE_NONE);
 }
 
-using VectInfoList =
-    std::vector<std::tuple<std::string, std::string, std::string>>;
-
-static void pushWGSortBuiltinVectInfo(reflection::TypeVector KeyValueParams,
-                                      reflection::TypeVector OtherParams,
-                                      StringRef BuiltinName,
-                                      VectInfoList &ExtendedVectInfos,
-                                      bool NeddMangled) {
+static void
+pushWGSortBuiltinVectInfo(const reflection::TypeVector &KeyValueParams,
+                          const reflection::TypeVector &OtherParams,
+                          const SmallVector<llvm::VFParamKind, 4> &ParamKinds,
+                          StringRef BuiltinName, StringRef BuiltinMangledName) {
   const static SmallVector<unsigned, 5> VFs = {4, 8, 16, 32, 64};
-
-  // Get mangled name of scalar builtin
-  reflection::TypeVector ScalarParams;
-  std::vector<llvm::VFParamKind> ParamKinds;
-  for (auto &Param : KeyValueParams) {
-    ParamKinds.push_back(llvm::VFParamKind::Vector);
-    ScalarParams.push_back(Param);
-  }
-  for (auto &Param : OtherParams) {
-    ParamKinds.push_back(llvm::VFParamKind::OMP_Uniform);
-    ScalarParams.push_back(Param);
-  }
-  std::string ScalarName;
-  if (NeddMangled) {
-    reflection::FunctionDescriptor ScalarFD{BuiltinName.data(), ScalarParams,
-                                            reflection::width::SCALAR};
-    ScalarName = NameMangleAPI::mangle(ScalarFD);
-  } else {
-    ScalarName = BuiltinName;
-  }
-
   for (unsigned VF : VFs) {
+    // Get params type of vector builtin
     reflection::TypeVector VectorParams = widenParameters(KeyValueParams, VF);
     VectorParams.insert(VectorParams.end(), OtherParams.begin(),
                         OtherParams.end());
-    // Add mask param
+    // Add mask param type
     auto *Mask = VECTOR_TYPE(PRIM_TYPE(reflection::PRIMITIVE_UINT), VF);
     VectorParams.push_back(Mask);
 
@@ -2487,70 +2462,59 @@ static void pushWGSortBuiltinVectInfo(reflection::TypeVector KeyValueParams,
                                               reflection::width::NONE};
     std::string VectorName = NameMangleAPI::mangle(VectorFunc);
     auto Variant = VFInfo::get(llvm::VFISAKind::SSE, true, VF, ParamKinds,
-                               ScalarName, VectorName);
-
-    ExtendedVectInfos.push_back({ScalarName,
+                               BuiltinMangledName, VectorName);
+    ExtendedVectInfos.push_back({BuiltinMangledName.data(),
                                  std::string(KernelAttribute::CallOnce),
                                  std::move(Variant.FullName)});
   }
 }
 
-static void pushWGSortBuiltinVectorInfo(VectInfoList &ExtendedVectInfos) {
-  // Get size and scratch args type
-  reflection::RefParamType SizeType = PRIM_TYPE(reflection::PRIMITIVE_UINT);
-  reflection::RefParamType ScratchType = new reflection::PointerType(
-      PRIM_TYPE(reflection::PRIMITIVE_CHAR), {reflection::ATTR_GENERIC});
+// Container storing all the sort builtin's name, whose vector info has been
+// added to ExtendedVectInfos
+static std::set<std::string> AddedSortVectInfos;
 
-  const SmallVector<StringRef, 6> AllWorkGroupSortBuiltinBasicNames = {
-      NAME_WORK_GROUP_JOINT_SORT_ASCEND,
-      NAME_WORK_GROUP_JOINT_SORT_DESCEND,
-      NAME_WORK_GROUP_PRIVATE_CLOSE_SORT_ASCEND,
-      NAME_WORK_GROUP_PRIVATE_CLOSE_SORT_DESCEND,
-      NAME_WORK_GROUP_PRIVATE_SPREAD_SORT_ASCEND,
-      NAME_WORK_GROUP_PRIVATE_SPREAD_SORT_DESCEND};
-  const SmallVector<std::string, 11> BasicTypeStr = {"i8",  "i16", "i32", "i64",
-                                                     "u8",  "u16", "u32", "u64",
-                                                     "f16", "f32", "f64"};
+static void pushWGSortBuiltinVectorInfo(const Module &M) {
+  SmallVector<StringRef, 6> AllWorkGroupSortBuiltinBasicNames;
+  for (auto &F : M) {
+    if (!F.isDeclaration())
+      continue;
+    StringRef FnName = F.getName();
+    reflection::FunctionDescriptor SortFD = demangle(FnName);
+    reflection::TypeVector DataScalarParams, OtherScalarParams;
+    SmallVector<llvm::VFParamKind, 4> ParamKinds;
+    if (isWorkGroupSort(FnName)) {
+      if (AddedSortVectInfos.find(FnName.data()) != AddedSortVectInfos.end())
+        continue;
+      AddedSortVectInfos.insert(FnName.data());
 
-  for (StringRef BuiltinName : AllWorkGroupSortBuiltinBasicNames) {
-    for (StringRef KeyBasicTypeStr : BasicTypeStr) {
-      std::string KeyOnlyBuiltinBasicName =
-          (BuiltinName + "p1" + KeyBasicTypeStr + "_u32_p1i8").str();
-      // Get key data type
-      reflection::RefParamType KeyType = new reflection::PointerType(
-          PRIM_TYPE(getPrimitiveTypeOfString(KeyBasicTypeStr)),
-          {reflection::ATTR_GENERIC});
-
-      reflection::TypeVector KeyScalarParams = {KeyType};
-      reflection::TypeVector OtherScalarParams = {SizeType, ScratchType};
-      pushWGSortBuiltinVectInfo(KeyScalarParams, OtherScalarParams,
-                                KeyOnlyBuiltinBasicName, ExtendedVectInfos,
-                                true);
-
-      for (StringRef ValueBasicTypeStr : BasicTypeStr) {
-        std::string KeyValueBuiltinBasicName =
-            (BuiltinName + "p1" + KeyBasicTypeStr + "_p1" + ValueBasicTypeStr +
-             "_u32_p1i8")
-                .str();
-        // Get value data type
-        reflection::RefParamType ValueType = new reflection::PointerType(
-            PRIM_TYPE(getPrimitiveTypeOfString(ValueBasicTypeStr)),
-            {reflection::ATTR_GENERIC});
-
-        reflection::TypeVector KeyScalarParams = {KeyType, ValueType};
-        reflection::TypeVector OtherScalarParams = {SizeType, ScratchType};
-        pushWGSortBuiltinVectInfo(KeyScalarParams, OtherScalarParams,
-                                  KeyValueBuiltinBasicName, ExtendedVectInfos,
-                                  true);
+      // e.g.
+      // key-only sort : void
+      // __devicelib_default_work_group_joint_sort_ascending_p1i32_u32_p3i8(int*
+      // key, uint n, byte* scratch);
+      // The first arg needs to be widen.
+      // key-value sort : void
+      // __devicelib_default_work_group_joint_sort_ascending_p3u32_p3u32_u32_p1i8(uint*
+      // key, uint* value, uint n, byte* scratch);
+      // The first and second args need to be widen.
+      unsigned int DataArgNum = isWorkGroupKeyOnlySort(FnName) ? 1 : 2;
+      assert(DataArgNum == SortFD.Parameters.size() - 2 &&
+             "Unknown work group sort builtin");
+      for (unsigned int Idx = 0; Idx < DataArgNum; ++Idx) {
+        DataScalarParams.push_back(SortFD.Parameters[Idx]);
+        ParamKinds.push_back(llvm::VFParamKind::Vector);
       }
+      for (unsigned int Idx = DataArgNum; Idx < SortFD.Parameters.size();
+           ++Idx) {
+        ParamKinds.push_back(llvm::VFParamKind::OMP_Uniform);
+        OtherScalarParams.push_back(SortFD.Parameters[Idx]);
+      }
+      pushWGSortBuiltinVectInfo(DataScalarParams, OtherScalarParams, ParamKinds,
+                                SortFD.Name, FnName);
     }
   }
 }
 
-void initializeVectInfoOnce(
-    ArrayRef<VectItem> VectInfos,
-    std::vector<std::tuple<std::string, std::string, std::string>>
-        &ExtendedVectInfos) {
+static void initializeVectInfoOnce(ArrayRef<VectItem> VectInfos) {
   // Load Table-Gen'erated VectInfo.gen
   if (!VectInfos.empty()) {
     ExtendedVectInfos.insert(ExtendedVectInfos.end(), std::begin(VectInfos),
@@ -2603,16 +2567,26 @@ void initializeVectInfoOnce(
       };
   for (auto &Entry : Entries) {
     pushSGBlockBuiltinDivergentVectInfo(std::get<0>(Entry), std::get<1>(Entry),
-                                        std::get<2>(Entry), std::get<3>(Entry),
-                                        ExtendedVectInfos);
+                                        std::get<2>(Entry), std::get<3>(Entry));
   }
 #if INTEL_CUSTOMIZATION
   // Add extra vector info for 'sub_group_rowslice_extractelement.*' and
   // 'sub_group_rowslice_insertelement.*'
-  pushSGRowSliceBuiltinVectInfo(ExtendedVectInfos);
+  pushSGRowSliceBuiltinVectInfo();
 #endif // INTEL_CUSTOMIZATION
+}
 
-  pushWGSortBuiltinVectorInfo(ExtendedVectInfos);
+static llvm::once_flag InitializeVectInfoFlag;
+
+void initializeVectInfo(ArrayRef<VectItem> VectInfos, const Module &M) {
+  // Load all vector info into ExtendedVectInfos, at most once.
+  llvm::call_once(InitializeVectInfoFlag,
+                  [&]() { initializeVectInfoOnce(VectInfos); });
+
+  // Add extra vector info for work group sort builtin that is used in the
+  // module. It can't be initialized just once, because there could be multiple
+  // modules in the application.
+  pushWGSortBuiltinVectorInfo(M);
 }
 
 static std::string getFormatStr(Value *V) {

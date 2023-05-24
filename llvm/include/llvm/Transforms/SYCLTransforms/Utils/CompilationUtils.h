@@ -753,10 +753,10 @@ void mapFunctionCallInCGNodeIf(CallGraphNode *Node,
                                function_ref<bool(const Function *)> Condition,
                                function_ref<void(Function *)> MapFunc);
 
-void initializeVectInfoOnce(
-    ArrayRef<VectItem> VectInfos,
-    std::vector<std::tuple<std::string, std::string, std::string>>
-        &ExtendedVectInfos);
+void initializeVectInfo(ArrayRef<VectItem> VectInfos, const Module &M);
+
+std::vector<std::tuple<std::string, std::string, std::string>> &
+getExtendedVectInfos();
 
 /// Insert printf in the kernel for debug purpose.
 void insertPrintf(const Twine &Prefix, Instruction *IP,

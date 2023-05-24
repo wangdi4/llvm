@@ -44,6 +44,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Transforms/SYCLTransforms/Intel_SYCLPrepareKernelForVecClone.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/NameMangleAPI.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/VectorizerUtils.h"
 
@@ -72,14 +73,6 @@ extern bool SYCLEnableDirectFunctionCallVectorization;
 extern bool SYCLEnableSubgroupDirectCallVectorization;
 
 extern cl::opt<VFISAKind> IsaEncodingOverride;
-
-// Static container storing all the vector info entries.
-// Each entry would be a tuple of three strings:
-// 1. scalar variant name
-// 2. "kernel-call-once" | ""
-// 3. mangled vector variant name
-static std::vector<std::tuple<std::string, std::string, std::string>>
-    ExtendedVectInfos;
 
 using DefUseTreeChildSet = SmallPtrSet<Instruction *, 8>;
 using DefUseTree = SmallDenseMap<Instruction *, DefUseTreeChildSet>;
@@ -594,12 +587,6 @@ void SYCLKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
   else
     Clone->addFnAttr("widened-size", std::to_string(VF));
 
-  // Load all vector info into ExtendedVectInfos, at most once.
-  static llvm::once_flag InitializeVectInfoFlag;
-  llvm::call_once(InitializeVectInfoFlag, [&]() {
-    initializeVectInfoOnce(VectInfos, ExtendedVectInfos);
-  });
-
   for (auto &Inst : instructions(Clone)) {
     auto *Call = dyn_cast<CallInst>(&Inst);
     if (!Call)
@@ -613,6 +600,7 @@ void SYCLKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
 
     // May be more than one entry, e.g. mask/unmasked (although currently that's
     // not the case).
+    const auto &ExtendedVectInfos = CompilationUtils::getExtendedVectInfos();
     auto MatchingVariants = make_filter_range(
         ExtendedVectInfos,
         [FnName,
@@ -807,4 +795,7 @@ void SYCLKernelVecCloneImpl::languageSpecificInitializations(Module &M) {
     if (KIMD.RecommendedVL.get() > 1)
       PK.run(*F);
   }
+
+  // Load all vector info into ExtendedVectInfos.
+  CompilationUtils::initializeVectInfo(VectInfos, M);
 }

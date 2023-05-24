@@ -25,14 +25,6 @@
 using namespace llvm;
 using namespace SYCLKernelMetadataAPI;
 
-// Static container storing all the vector info entries.
-// Each entry would be a tuple of three strings:
-// 1. scalar variant name
-// 2. "kernel-call-once" | ""
-// 3. mangled vector variant name
-static std::vector<std::tuple<std::string, std::string, std::string>>
-    ExtendedVectInfos;
-
 SGBuiltinPass::SGBuiltinPass(ArrayRef<VectItem> VectInfos)
     : VectInfos(VectInfos) {}
 
@@ -44,12 +36,6 @@ PreservedAnalyses SGBuiltinPass::run(Module &M, ModuleAnalysisManager &AM) {
 }
 
 bool SGBuiltinPass::runImpl(Module &M, const SGSizeInfo *SSI) {
-  // Load all vector info into ExtendedVectInfo, at most once.
-  static llvm::once_flag InitializeVectInfoFlag;
-  llvm::call_once(InitializeVectInfoFlag, [&]() {
-    CompilationUtils::initializeVectInfoOnce(VectInfos, ExtendedVectInfos);
-  });
-
   Helper.initialize(M);
 
   bool Changed = false;
@@ -74,7 +60,11 @@ bool SGBuiltinPass::insertSGBarrierForSGCalls(Module &M,
     if (!F.isDeclaration() || !FnName.contains("sub_group"))
       continue;
 
+    // If kernel have SG builtin, load all vector info into ExtendedVectInfo
+    CompilationUtils::initializeVectInfo(VectInfos, M);
+
     // Find all vectorization infos for this function.
+    auto &ExtendedVectInfos = CompilationUtils::getExtendedVectInfos();
     auto CandidateVariants = make_filter_range(
         ExtendedVectInfos,
         [FnName](
