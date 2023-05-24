@@ -10944,6 +10944,16 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
       ExtArg += ",+SPV_KHR_non_semantic_info";
 
     TranslatorArgs.push_back(TCArgs.MakeArgString(ExtArg));
+
+    const toolchains::SYCLToolChain &TC =
+        static_cast<const toolchains::SYCLToolChain &>(getToolChain());
+
+#if INTEL_CUSTOMIZATION
+    // Handle -Xspirv-translator
+    TC.TranslateTargetOpt(JA.getOffloadingDeviceKind(),
+        TCArgs, TranslatorArgs, options::OPT_Xspirv_translator,
+        options::OPT_Xspirv_translator_EQ, JA.getOffloadingArch());
+#endif // INTEL_CUSTOMIZATION
   }
 
   for (auto I : Inputs) {

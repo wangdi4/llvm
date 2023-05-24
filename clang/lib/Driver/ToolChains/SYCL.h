@@ -205,6 +205,12 @@ public:
                                  const llvm::Triple &Triple,
                                  const llvm::opt::ArgList &Args,
                                  llvm::opt::ArgStringList &CmdArgs) const;
+  void TranslateTargetOpt(Action::OffloadKind DeviceOffloadKind,
+                          const llvm::opt::ArgList &Args,
+                          llvm::opt::ArgStringList &CmdArgs,
+                          llvm::opt::OptSpecifier Opt,
+                          llvm::opt::OptSpecifier Opt_EQ,
+                          StringRef Device) const;
 #endif // INTEL_CUSTOMIZATION
 
   bool useIntegratedAs() const override { return true; }
@@ -237,14 +243,6 @@ protected:
   Tool *buildLinker() const override;
 
 private:
-#if INTEL_CUSTOMIZATION
-  void TranslateTargetOpt(Action::OffloadKind DeviceOffloadKind,
-                          const llvm::opt::ArgList &Args,
-                          llvm::opt::ArgStringList &CmdArgs,
-                          llvm::opt::OptSpecifier Opt,
-                          llvm::opt::OptSpecifier Opt_EQ,
-                          StringRef Device) const;
-#endif // INTEL_CUSTOMIZATION
   void TranslateGPUTargetOpt(const llvm::opt::ArgList &Args,
                              llvm::opt::ArgStringList &CmdArgs,
                              llvm::opt::OptSpecifier Opt_EQ) const;
