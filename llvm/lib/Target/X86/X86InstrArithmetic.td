@@ -707,9 +707,9 @@ multiclass BinOpMI8_RMW_Common<string mnemonic, X86TypeInfo typeinfo,
                                SDNode opnode, Format f,
                                Predicate pred = TruePredicate>{
 let Defs = [EFLAGS] in {
-  let Predicates = [pred, NoNDD] in
+  let Predicates = [pred, NoNDD], mayStore = 1 in
     def NAME : BinOpMI8_RMW<mnemonic, typeinfo, f>;
-  let Predicates = [In64BitMode] in
+  let Predicates = [In64BitMode], mayStore = 1 in
     def _EVEX : BinOpMI8_RMW_EVEX<mnemonic, typeinfo, f>,
                 EmitVEXOrEVEXPrefix;
   let Predicates = [HasNDD, In64BitMode] in {
@@ -720,7 +720,7 @@ let Defs = [EFLAGS] in {
               EVEX_B4V;
   }
 }
-  let Predicates = [In64BitMode] in
+  let Predicates = [In64BitMode], mayStore = 1 in
     def _NF : BinOpMI8_RMW_EVEX<mnemonic, typeinfo, f>, EVEX_NF;
   let Predicates = [HasNDD, In64BitMode] in
     def _ND_NF : BinOpMI8_ND<mnemonic, typeinfo, f, []>, EVEX_B4V, EVEX_NF;
@@ -757,10 +757,10 @@ multiclass BinOpMI_Common<bits<8> opcode, string mnemonic,
                           Predicate pred = TruePredicate>{
   // Instructions like "add [mem], imm".
   let Defs = [EFLAGS] in {
-  let Predicates = [pred, NoNDD] in {
+  let Predicates = [pred, NoNDD], mayStore = 1 in {
     def NAME: BinOpMI_RMW<opcode, mnemonic, typeinfo, opnode, f>;
   }
-  let Predicates = [In64BitMode] in
+  let Predicates = [In64BitMode], mayStore = 1 in
     def _EVEX : BinOpMI_RMW_EVEX<opcode, mnemonic, typeinfo, f>,
                 EmitVEXOrEVEXPrefix;
   // Instructions like "add reg, [mem], imm".
@@ -772,7 +772,7 @@ multiclass BinOpMI_Common<bits<8> opcode, string mnemonic,
               EVEX_B4V;
   }
   }
-  let Predicates = [In64BitMode] in
+  let Predicates = [In64BitMode], mayStore = 1 in
   // Instructions like "{nf} add [mem], imm".
     def _NF: BinOpMI_RMW_EVEX<opcode, mnemonic, typeinfo, f>, EVEX_NF;
   let Predicates = [HasNDD, In64BitMode] in
@@ -1966,7 +1966,7 @@ multiclass ArithBinOp_RF<bits<8> BaseOpc, bits<8> BaseOpc2, bits<8> BaseOpc4,
 
   // NOTE: These are order specific, we want the ri8 forms to be listed
   // first so that they are slightly preferred to the ri forms.
-  let isConvertibleToThreeAddress = ConvertibleToThreeAddress in {
+  let isConvertibleToThreeAddress = ConvertibleToThreeAddress, hasSideEffects= 0 in {
     defm NAME#16ri8 : BinOpRI8_RF_Common<0x82, mnemonic, Xi16, opnodeflag,
                                          RegMRM>;
     defm NAME#32ri8 : BinOpRI8_RF_Common<0x82, mnemonic, Xi32, opnodeflag,
@@ -1992,6 +1992,7 @@ multiclass ArithBinOp_RF<bits<8> BaseOpc, bits<8> BaseOpc2, bits<8> BaseOpc4,
 
   // NOTE: These are order specific, we want the mi8 forms to be listed
   // first so that they are slightly preferred to the mi forms.
+let mayLoad = 1, hasSideEffects = 0 in {
   defm NAME#16mi8  : BinOpMI8_RMW_Common<mnemonic, Xi16, opnode, MemMRM>;
   defm NAME#32mi8  : BinOpMI8_RMW_Common<mnemonic, Xi32, opnode, MemMRM>;
   defm NAME#64mi8  : BinOpMI8_RMW_Common<mnemonic, Xi64, opnode, MemMRM,
@@ -2002,16 +2003,16 @@ multiclass ArithBinOp_RF<bits<8> BaseOpc, bits<8> BaseOpc2, bits<8> BaseOpc4,
   defm NAME#32mi   : BinOpMI_Common<0x80, mnemonic, Xi32, opnode, MemMRM>;
   defm NAME#64mi32 : BinOpMI_Common<0x80, mnemonic, Xi64, opnode, MemMRM,
                                     In64BitMode>;
-
   // These are for the disassembler since 0x82 opcode behaves like 0x80, but
   // not in 64-bit mode.
-  let Predicates = [Not64BitMode], isCodeGenOnly = 1, ForceDisassemble = 1,
-      hasSideEffects = 0, Defs = [EFLAGS] in {
+  let mayStore = 1, Predicates = [Not64BitMode], isCodeGenOnly = 1,
+      ForceDisassemble = 1, Defs = [EFLAGS] in {
     let Constraints = "$src1 = $dst" in
       def NAME#8ri8 : BinOpRI8_RF<0x82, mnemonic, Xi8, RegMRM>;
     let mayLoad = 1, mayStore = 1 in
       def NAME#8mi8 : BinOpMI8_RMW<mnemonic, Xi8, MemMRM>;
   }
+}
 
   def NAME#8i8   : BinOpAI<BaseOpc4, mnemonic, Xi8 , AL,
                            "{$src, %al|al, $src}">;
@@ -2345,9 +2346,9 @@ class BinOpMI8_FF_ND<string mnemonic, X86TypeInfo typeinfo,
 multiclass BinOpMI8_RMW_FF_Common<string mnemonic, X86TypeInfo typeinfo,
                                   SDPatternOperator opnode, Format f,
                                   Predicate pred = TruePredicate>{
-let Predicates = [NoNDD, pred] in
+let Predicates = [NoNDD, pred], mayStore = 1 in
   def NAME : BinOpMI8_RMW_FF<mnemonic, typeinfo, f>;
-let Predicates = [In64BitMode] in
+let Predicates = [In64BitMode], mayStore = 1 in
   def _EVEX : BinOpMI8_RMW_FF_EVEX<mnemonic, typeinfo, f>,
               EmitVEXOrEVEXPrefix;
 let Predicates = [HasNDD, In64BitMode] in
@@ -2379,9 +2380,9 @@ class BinOpMI_FF_ND<bits<8> opcode, string mnemonic, X86TypeInfo typeinfo,
 multiclass BinOpMI_RMW_FF_Common<bits<8> opcode, string mnemonic,
                                  X86TypeInfo typeinfo, SDNode opnode,
                                  Format f, Predicate pred = TruePredicate>{
-let Predicates = [NoNDD, pred] in
+let Predicates = [NoNDD, pred], mayStore = 1 in
   def NAME : BinOpMI_RMW_FF<opcode, mnemonic, typeinfo, opnode, f>;
-let Predicates = [In64BitMode] in
+let Predicates = [In64BitMode], mayStore = 1 in
   def _EVEX : BinOpMI_RMW_FF_EVEX<opcode, mnemonic, typeinfo, f>,
               EmitVEXOrEVEXPrefix;
 let Predicates = [HasNDD, In64BitMode] in
@@ -2423,7 +2424,7 @@ multiclass ArithBinOp_RFF<bits<8> BaseOpc, bits<8> BaseOpc2, bits<8> BaseOpc4,
       defm NAME#8ri   : BinOpRI_RFF_Common<0x80, mnemonic, Xi8 , opnode,
                                            RegMRM>;
 
-      let isConvertibleToThreeAddress = ConvertibleToThreeAddress in {
+      let isConvertibleToThreeAddress = ConvertibleToThreeAddress, hasSideEffects = 0 in {
         // NOTE: These are order specific, we want the ri8 forms to be listed
         // first so that they are slightly preferred to the ri forms.
         defm NAME#16ri8 : BinOpRI8_RFF_Common<0x82, mnemonic, Xi16, opnode,
@@ -2445,7 +2446,7 @@ multiclass ArithBinOp_RFF<bits<8> BaseOpc, bits<8> BaseOpc2, bits<8> BaseOpc4,
     defm NAME#16mr   : BinOpMR_RMW_FF_Common<BaseOpc, mnemonic, Xi16, opnode>;
     defm NAME#32mr   : BinOpMR_RMW_FF_Common<BaseOpc, mnemonic, Xi32, opnode>;
     defm NAME#64mr   : BinOpMR_RMW_FF_Common<BaseOpc, mnemonic, Xi64, opnode>;
-
+    let mayLoad = 1, hasSideEffects = 0 in {
     // NOTE: These are order specific, we want the mi8 forms to be listed
     // first so that they are slightly preferred to the mi forms.
     defm NAME#16mi8  : BinOpMI8_RMW_FF_Common<mnemonic, Xi16, opnode, MemMRM>;
@@ -2461,6 +2462,7 @@ multiclass ArithBinOp_RFF<bits<8> BaseOpc, bits<8> BaseOpc2, bits<8> BaseOpc4,
                                              MemMRM>;
     defm NAME#64mi32 : BinOpMI_RMW_FF_Common<0x80, mnemonic, Xi64, opnode,
                                              MemMRM, In64BitMode>;
+    }
 
     // These are for the disassembler since 0x82 opcode behaves like 0x80, but
     // not in 64-bit mode.
