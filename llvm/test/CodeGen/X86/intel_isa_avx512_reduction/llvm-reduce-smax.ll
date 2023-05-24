@@ -523,7 +523,7 @@ define i16 @reduce_smaxw_32xi16(<32 x i16> %vec) {
 ; AVX512F-NEXT:    vpmaxsw %ymm1, %ymm0, %ymm0
 ; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
 ; AVX512F-NEXT:    vpmaxsw %xmm1, %xmm0, %xmm0
-; AVX512F-NEXT:    vpxor {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
+; AVX512F-NEXT:    vpxord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %xmm0, %xmm0
 ; AVX512F-NEXT:    vphminposuw %xmm0, %xmm0
 ; AVX512F-NEXT:    vmovd %xmm0, %eax
 ; AVX512F-NEXT:    xorl $32767, %eax # imm = 0x7FFF
@@ -602,7 +602,7 @@ define i16 @reduce_smaxw_16xi16(<16 x i16> %vec) {
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
 ; AVX512F-NEXT:    vpmaxsw %xmm1, %xmm0, %xmm0
-; AVX512F-NEXT:    vpxor {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
+; AVX512F-NEXT:    vpxord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %xmm0, %xmm0
 ; AVX512F-NEXT:    vphminposuw %xmm0, %xmm0
 ; AVX512F-NEXT:    vmovd %xmm0, %eax
 ; AVX512F-NEXT:    xorl $32767, %eax # imm = 0x7FFF
@@ -671,7 +671,7 @@ define i16 @reduce_smaxw_8xi16(<8 x i16> %vec) {
 ;
 ; AVX512F-LABEL: reduce_smaxw_8xi16:
 ; AVX512F:       # %bb.0:
-; AVX512F-NEXT:    vpxor {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
+; AVX512F-NEXT:    vpxord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %xmm0, %xmm0
 ; AVX512F-NEXT:    vphminposuw %xmm0, %xmm0
 ; AVX512F-NEXT:    vmovd %xmm0, %eax
 ; AVX512F-NEXT:    xorl $32767, %eax # imm = 0x7FFF
@@ -945,7 +945,7 @@ define i8 @reduce_smaxb_64xi8(<64 x i8> %vec) {
 ; AVX512F-NEXT:    vpmaxsb %ymm1, %ymm0, %ymm0
 ; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
 ; AVX512F-NEXT:    vpmaxsb %xmm1, %xmm0, %xmm0
-; AVX512F-NEXT:    vpxor {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
+; AVX512F-NEXT:    vpxord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %xmm0, %xmm0
 ; AVX512F-NEXT:    vpsrlw $8, %xmm0, %xmm1
 ; AVX512F-NEXT:    vpminub %xmm1, %xmm0, %xmm0
 ; AVX512F-NEXT:    vphminposuw %xmm0, %xmm0
@@ -1114,7 +1114,7 @@ define i8 @reduce_smaxb_32xi8(<32 x i8> %vec) {
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
 ; AVX512F-NEXT:    vpmaxsb %xmm1, %xmm0, %xmm0
-; AVX512F-NEXT:    vpxor {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
+; AVX512F-NEXT:    vpxord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %xmm0, %xmm0
 ; AVX512F-NEXT:    vpsrlw $8, %xmm0, %xmm1
 ; AVX512F-NEXT:    vpminub %xmm1, %xmm0, %xmm0
 ; AVX512F-NEXT:    vphminposuw %xmm0, %xmm0
@@ -1238,7 +1238,7 @@ define i8 @reduce_smaxb_16xi8(<16 x i8> %vec) {
 ;
 ; AVX512F-LABEL: reduce_smaxb_16xi8:
 ; AVX512F:       # %bb.0:
-; AVX512F-NEXT:    vpxor {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
+; AVX512F-NEXT:    vpxord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %xmm0, %xmm0
 ; AVX512F-NEXT:    vpsrlw $8, %xmm0, %xmm1
 ; AVX512F-NEXT:    vpminub %xmm1, %xmm0, %xmm0
 ; AVX512F-NEXT:    vphminposuw %xmm0, %xmm0

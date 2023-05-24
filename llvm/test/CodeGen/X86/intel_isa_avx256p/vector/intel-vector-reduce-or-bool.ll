@@ -126,8 +126,8 @@ define i1 @trunc_v8i16_v8i1(<8 x i8>) {
 ;
 ; AVX512-LABEL: trunc_v8i16_v8i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpand {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0 # EVEX TO VEX Compression encoding: [0xc5,0xf9,0xdb,0x05,A,A,A,A]
-; AVX512-NEXT:    # fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; AVX512-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %xmm0, %xmm0 # encoding: [0x62,0xf1,0x7d,0x18,0xdb,0x05,A,A,A,A]
+; AVX512-NEXT:    # fixup A - offset: 6, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; AVX512-NEXT:    vmovq %xmm0, %rax # EVEX TO VEX Compression encoding: [0xc4,0xe1,0xf9,0x7e,0xc0]
 ; AVX512-NEXT:    testq %rax, %rax # encoding: [0x48,0x85,0xc0]
 ; AVX512-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]

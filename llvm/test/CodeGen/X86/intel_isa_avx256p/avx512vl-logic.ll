@@ -1023,7 +1023,7 @@ define <4 x i32> @ternlog_xor_andn(<4 x i32> %x, <4 x i32> %y, <4 x i32> %z) {
 define <4 x i32> @ternlog_or_and_mask(<4 x i32> %x, <4 x i32> %y) {
 ; CHECK-LABEL: ternlog_or_and_mask:
 ; CHECK:       ## %bb.0:
-; CHECK-NEXT:    vpternlogd $236, {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm1, %xmm0 ## encoding: [0x62,0xf3,0x75,0x08,0x25,0x05,A,A,A,A,0xec]
+; CHECK-NEXT:    vpternlogd $236, {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %xmm1, %xmm0 ## encoding: [0x62,0xf3,0x75,0x18,0x25,0x05,A,A,A,A,0xec]
 ; CHECK-NEXT:    ## fixup A - offset: 6, value: {{\.?LCPI[0-9]+_[0-9]+}}-5, kind: reloc_riprel_4byte
 ; CHECK-NEXT:    retq ## encoding: [0xc3]
   %a = and <4 x i32> %x, <i32 255, i32 255, i32 255, i32 255>
@@ -1034,7 +1034,7 @@ define <4 x i32> @ternlog_or_and_mask(<4 x i32> %x, <4 x i32> %y) {
 define <8 x i32> @ternlog_or_and_mask_ymm(<8 x i32> %x, <8 x i32> %y) {
 ; CHECK-LABEL: ternlog_or_and_mask_ymm:
 ; CHECK:       ## %bb.0:
-; CHECK-NEXT:    vpternlogd $236, {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm1, %ymm0 ## encoding: [0x62,0xf3,0x75,0x28,0x25,0x05,A,A,A,A,0xec]
+; CHECK-NEXT:    vpternlogd $236, {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm0 ## encoding: [0x62,0xf3,0x75,0x38,0x25,0x05,A,A,A,A,0xec]
 ; CHECK-NEXT:    ## fixup A - offset: 6, value: {{\.?LCPI[0-9]+_[0-9]+}}-5, kind: reloc_riprel_4byte
 ; CHECK-NEXT:    retq ## encoding: [0xc3]
   %a = and <8 x i32> %x, <i32 -16777216, i32 -16777216, i32 -16777216, i32 -16777216, i32 -16777216, i32 -16777216, i32 -16777216, i32 -16777216>
@@ -1045,7 +1045,7 @@ define <8 x i32> @ternlog_or_and_mask_ymm(<8 x i32> %x, <8 x i32> %y) {
 define <2 x i64> @ternlog_xor_and_mask(<2 x i64> %x, <2 x i64> %y) {
 ; CHECK-LABEL: ternlog_xor_and_mask:
 ; CHECK:       ## %bb.0:
-; CHECK-NEXT:    vpternlogq $108, {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm1, %xmm0 ## encoding: [0x62,0xf3,0xf5,0x08,0x25,0x05,A,A,A,A,0x6c]
+; CHECK-NEXT:    vpternlogq $108, {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to2}, %xmm1, %xmm0 ## encoding: [0x62,0xf3,0xf5,0x18,0x25,0x05,A,A,A,A,0x6c]
 ; CHECK-NEXT:    ## fixup A - offset: 6, value: {{\.?LCPI[0-9]+_[0-9]+}}-5, kind: reloc_riprel_4byte
 ; CHECK-NEXT:    retq ## encoding: [0xc3]
   %a = and <2 x i64> %x, <i64 1099511627775, i64 1099511627775>
@@ -1056,7 +1056,7 @@ define <2 x i64> @ternlog_xor_and_mask(<2 x i64> %x, <2 x i64> %y) {
 define <4 x i64> @ternlog_xor_and_mask_ymm(<4 x i64> %x, <4 x i64> %y) {
 ; CHECK-LABEL: ternlog_xor_and_mask_ymm:
 ; CHECK:       ## %bb.0:
-; CHECK-NEXT:    vpternlogq $108, {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm1, %ymm0 ## encoding: [0x62,0xf3,0xf5,0x28,0x25,0x05,A,A,A,A,0x6c]
+; CHECK-NEXT:    vpternlogq $108, {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %ymm1, %ymm0 ## encoding: [0x62,0xf3,0xf5,0x38,0x25,0x05,A,A,A,A,0x6c]
 ; CHECK-NEXT:    ## fixup A - offset: 6, value: {{\.?LCPI[0-9]+_[0-9]+}}-5, kind: reloc_riprel_4byte
 ; CHECK-NEXT:    retq ## encoding: [0xc3]
   %a = and <4 x i64> %x, <i64 72057594037927935, i64 72057594037927935, i64 72057594037927935, i64 72057594037927935>
@@ -1067,8 +1067,8 @@ define <4 x i64> @ternlog_xor_and_mask_ymm(<4 x i64> %x, <4 x i64> %y) {
 define <4 x i32> @ternlog_maskz_or_and_mask(<4 x i32> %x, <4 x i32> %y, <4 x i32> %z, <4 x i32> %mask) {
 ; CHECK-LABEL: ternlog_maskz_or_and_mask:
 ; CHECK:       ## %bb.0:
-; CHECK-NEXT:    vpand {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm2 ## EVEX TO VEX Compression encoding: [0xc5,0xf9,0xdb,0x15,A,A,A,A]
-; CHECK-NEXT:    ## fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; CHECK-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %xmm0, %xmm2 ## encoding: [0x62,0xf1,0x7d,0x18,0xdb,0x15,A,A,A,A]
+; CHECK-NEXT:    ## fixup A - offset: 6, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; CHECK-NEXT:    vpsrad $31, %xmm3, %xmm0 ## EVEX TO VEX Compression encoding: [0xc5,0xf9,0x72,0xe3,0x1f]
 ; CHECK-NEXT:    vpternlogd $224, %xmm1, %xmm2, %xmm0 ## encoding: [0x62,0xf3,0x6d,0x08,0x25,0xc1,0xe0]
 ; CHECK-NEXT:    retq ## encoding: [0xc3]
@@ -1082,8 +1082,8 @@ define <4 x i32> @ternlog_maskz_or_and_mask(<4 x i32> %x, <4 x i32> %y, <4 x i32
 define <8 x i32> @ternlog_maskz_or_and_mask_ymm(<8 x i32> %x, <8 x i32> %y, <8 x i32> %mask) {
 ; CHECK-LABEL: ternlog_maskz_or_and_mask_ymm:
 ; CHECK:       ## %bb.0:
-; CHECK-NEXT:    vpand {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0, %ymm3 ## EVEX TO VEX Compression encoding: [0xc5,0xfd,0xdb,0x1d,A,A,A,A]
-; CHECK-NEXT:    ## fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; CHECK-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm0, %ymm3 ## encoding: [0x62,0xf1,0x7d,0x38,0xdb,0x1d,A,A,A,A]
+; CHECK-NEXT:    ## fixup A - offset: 6, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; CHECK-NEXT:    vpsrad $31, %ymm2, %ymm0 ## EVEX TO VEX Compression encoding: [0xc5,0xfd,0x72,0xe2,0x1f]
 ; CHECK-NEXT:    vpternlogd $224, %ymm1, %ymm3, %ymm0 ## encoding: [0x62,0xf3,0x65,0x28,0x25,0xc1,0xe0]
 ; CHECK-NEXT:    retq ## encoding: [0xc3]
@@ -1097,8 +1097,8 @@ define <8 x i32> @ternlog_maskz_or_and_mask_ymm(<8 x i32> %x, <8 x i32> %y, <8 x
 define <2 x i64> @ternlog_maskz_xor_and_mask(<2 x i64> %x, <2 x i64> %y, <2 x i64> %mask) {
 ; CHECK-LABEL: ternlog_maskz_xor_and_mask:
 ; CHECK:       ## %bb.0:
-; CHECK-NEXT:    vpand {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm3 ## EVEX TO VEX Compression encoding: [0xc5,0xf9,0xdb,0x1d,A,A,A,A]
-; CHECK-NEXT:    ## fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; CHECK-NEXT:    vpandq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to2}, %xmm0, %xmm3 ## encoding: [0x62,0xf1,0xfd,0x18,0xdb,0x1d,A,A,A,A]
+; CHECK-NEXT:    ## fixup A - offset: 6, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; CHECK-NEXT:    vpsraq $63, %xmm2, %xmm0 ## encoding: [0x62,0xf1,0xfd,0x08,0x72,0xe2,0x3f]
 ; CHECK-NEXT:    vpternlogq $96, %xmm1, %xmm3, %xmm0 ## encoding: [0x62,0xf3,0xe5,0x08,0x25,0xc1,0x60]
 ; CHECK-NEXT:    retq ## encoding: [0xc3]
@@ -1112,8 +1112,8 @@ define <2 x i64> @ternlog_maskz_xor_and_mask(<2 x i64> %x, <2 x i64> %y, <2 x i6
 define <4 x i64> @ternlog_maskz_xor_and_mask_ymm(<4 x i64> %x, <4 x i64> %y, <4 x i64> %mask) {
 ; CHECK-LABEL: ternlog_maskz_xor_and_mask_ymm:
 ; CHECK:       ## %bb.0:
-; CHECK-NEXT:    vpand {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0, %ymm3 ## EVEX TO VEX Compression encoding: [0xc5,0xfd,0xdb,0x1d,A,A,A,A]
-; CHECK-NEXT:    ## fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; CHECK-NEXT:    vpandq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %ymm0, %ymm3 ## encoding: [0x62,0xf1,0xfd,0x38,0xdb,0x1d,A,A,A,A]
+; CHECK-NEXT:    ## fixup A - offset: 6, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; CHECK-NEXT:    vpsraq $63, %ymm2, %ymm0 ## encoding: [0x62,0xf1,0xfd,0x28,0x72,0xe2,0x3f]
 ; CHECK-NEXT:    vpternlogq $96, %ymm1, %ymm3, %ymm0 ## encoding: [0x62,0xf3,0xe5,0x28,0x25,0xc1,0x60]
 ; CHECK-NEXT:    retq ## encoding: [0xc3]
@@ -1128,8 +1128,8 @@ define <4 x i32> @ternlog_maskx_or_and_mask(<4 x i32> %x, <4 x i32> %y, <4 x i32
 ; CHECK-LABEL: ternlog_maskx_or_and_mask:
 ; CHECK:       ## %bb.0:
 ; CHECK-NEXT:    vpmovd2m %xmm3, %k1 ## encoding: [0x62,0xf2,0x7e,0x08,0x39,0xcb]
-; CHECK-NEXT:    vandps {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm2 ## EVEX TO VEX Compression encoding: [0xc5,0xf8,0x54,0x15,A,A,A,A]
-; CHECK-NEXT:    ## fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; CHECK-NEXT:    vandps {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %xmm0, %xmm2 ## encoding: [0x62,0xf1,0x7c,0x18,0x54,0x15,A,A,A,A]
+; CHECK-NEXT:    ## fixup A - offset: 6, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; CHECK-NEXT:    vorps %xmm1, %xmm2, %xmm0 {%k1} ## encoding: [0x62,0xf1,0x6c,0x09,0x56,0xc1]
 ; CHECK-NEXT:    retq ## encoding: [0xc3]
 ; SKX-LABEL: ternlog_maskx_or_and_mask:
@@ -1149,8 +1149,8 @@ define <8 x i32> @ternlog_maskx_or_and_mask_ymm(<8 x i32> %x, <8 x i32> %y, <8 x
 ; CHECK-LABEL: ternlog_maskx_or_and_mask_ymm:
 ; CHECK:       ## %bb.0:
 ; CHECK-NEXT:    vpmovd2m %ymm2, %k1 ## encoding: [0x62,0xf2,0x7e,0x28,0x39,0xca]
-; CHECK-NEXT:    vandps {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0, %ymm2 ## EVEX TO VEX Compression encoding: [0xc5,0xfc,0x54,0x15,A,A,A,A]
-; CHECK-NEXT:    ## fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; CHECK-NEXT:    vandps {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm0, %ymm2 ## encoding: [0x62,0xf1,0x7c,0x38,0x54,0x15,A,A,A,A]
+; CHECK-NEXT:    ## fixup A - offset: 6, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; CHECK-NEXT:    vorps %ymm1, %ymm2, %ymm0 {%k1} ## encoding: [0x62,0xf1,0x6c,0x29,0x56,0xc1]
 ; CHECK-NEXT:    retq ## encoding: [0xc3]
 ; SKX-LABEL: ternlog_maskx_or_and_mask_ymm:
@@ -1170,8 +1170,8 @@ define <2 x i64> @ternlog_maskx_xor_and_mask(<2 x i64> %x, <2 x i64> %y, <2 x i6
 ; CHECK-LABEL: ternlog_maskx_xor_and_mask:
 ; CHECK:       ## %bb.0:
 ; CHECK-NEXT:    vpmovq2m %xmm2, %k1 ## encoding: [0x62,0xf2,0xfe,0x08,0x39,0xca]
-; CHECK-NEXT:    vandpd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm2 ## EVEX TO VEX Compression encoding: [0xc5,0xf9,0x54,0x15,A,A,A,A]
-; CHECK-NEXT:    ## fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; CHECK-NEXT:    vandpd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to2}, %xmm0, %xmm2 ## encoding: [0x62,0xf1,0xfd,0x18,0x54,0x15,A,A,A,A]
+; CHECK-NEXT:    ## fixup A - offset: 6, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; CHECK-NEXT:    vxorpd %xmm1, %xmm2, %xmm0 {%k1} ## encoding: [0x62,0xf1,0xed,0x09,0x57,0xc1]
 ; CHECK-NEXT:    retq ## encoding: [0xc3]
 ; SKX-LABEL: ternlog_maskx_xor_and_mask:
@@ -1191,8 +1191,8 @@ define <4 x i64> @ternlog_maskx_xor_and_mask_ymm(<4 x i64> %x, <4 x i64> %y, <4 
 ; CHECK-LABEL: ternlog_maskx_xor_and_mask_ymm:
 ; CHECK:       ## %bb.0:
 ; CHECK-NEXT:    vpmovq2m %ymm2, %k1 ## encoding: [0x62,0xf2,0xfe,0x28,0x39,0xca]
-; CHECK-NEXT:    vandpd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0, %ymm2 ## EVEX TO VEX Compression encoding: [0xc5,0xfd,0x54,0x15,A,A,A,A]
-; CHECK-NEXT:    ## fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; CHECK-NEXT:    vandpd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %ymm0, %ymm2 ## encoding: [0x62,0xf1,0xfd,0x38,0x54,0x15,A,A,A,A]
+; CHECK-NEXT:    ## fixup A - offset: 6, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; CHECK-NEXT:    vxorpd %ymm1, %ymm2, %ymm0 {%k1} ## encoding: [0x62,0xf1,0xed,0x29,0x57,0xc1]
 ; CHECK-NEXT:    retq ## encoding: [0xc3]
 ; SKX-LABEL: ternlog_maskx_xor_and_mask_ymm:
@@ -1212,8 +1212,8 @@ define <4 x i32> @ternlog_masky_or_and_mask(<4 x i32> %x, <4 x i32> %y, <4 x i32
 ; CHECK-LABEL: ternlog_masky_or_and_mask:
 ; CHECK:       ## %bb.0:
 ; CHECK-NEXT:    vpmovd2m %xmm3, %k1 ## encoding: [0x62,0xf2,0x7e,0x08,0x39,0xcb]
-; CHECK-NEXT:    vandps {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0 ## EVEX TO VEX Compression encoding: [0xc5,0xf8,0x54,0x05,A,A,A,A]
-; CHECK-NEXT:    ## fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; CHECK-NEXT:    vandps {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %xmm0, %xmm0 ## encoding: [0x62,0xf1,0x7c,0x18,0x54,0x05,A,A,A,A]
+; CHECK-NEXT:    ## fixup A - offset: 6, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; CHECK-NEXT:    vorps %xmm1, %xmm0, %xmm1 {%k1} ## encoding: [0x62,0xf1,0x7c,0x09,0x56,0xc9]
 ; CHECK-NEXT:    vmovaps %xmm1, %xmm0 ## EVEX TO VEX Compression encoding: [0xc5,0xf8,0x28,0xc1]
 ; CHECK-NEXT:    retq ## encoding: [0xc3]
@@ -1235,8 +1235,8 @@ define <8 x i32> @ternlog_masky_or_and_mask_ymm(<8 x i32> %x, <8 x i32> %y, <8 x
 ; CHECK-LABEL: ternlog_masky_or_and_mask_ymm:
 ; CHECK:       ## %bb.0:
 ; CHECK-NEXT:    vpmovd2m %ymm2, %k1 ## encoding: [0x62,0xf2,0x7e,0x28,0x39,0xca]
-; CHECK-NEXT:    vandps {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0, %ymm2 ## EVEX TO VEX Compression encoding: [0xc5,0xfc,0x54,0x15,A,A,A,A]
-; CHECK-NEXT:    ## fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; CHECK-NEXT:    vandps {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm0, %ymm2 ## encoding: [0x62,0xf1,0x7c,0x38,0x54,0x15,A,A,A,A]
+; CHECK-NEXT:    ## fixup A - offset: 6, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; CHECK-NEXT:    vorps %ymm1, %ymm2, %ymm0 {%k1} ## encoding: [0x62,0xf1,0x6c,0x29,0x56,0xc1]
 ; CHECK-NEXT:    retq ## encoding: [0xc3]
 ; SKX-LABEL: ternlog_masky_or_and_mask_ymm:
@@ -1256,8 +1256,8 @@ define <2 x i64> @ternlog_masky_xor_and_mask(<2 x i64> %x, <2 x i64> %y, <2 x i6
 ; CHECK-LABEL: ternlog_masky_xor_and_mask:
 ; CHECK:       ## %bb.0:
 ; CHECK-NEXT:    vpmovq2m %xmm2, %k1 ## encoding: [0x62,0xf2,0xfe,0x08,0x39,0xca]
-; CHECK-NEXT:    vandpd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0 ## EVEX TO VEX Compression encoding: [0xc5,0xf9,0x54,0x05,A,A,A,A]
-; CHECK-NEXT:    ## fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; CHECK-NEXT:    vandpd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to2}, %xmm0, %xmm0 ## encoding: [0x62,0xf1,0xfd,0x18,0x54,0x05,A,A,A,A]
+; CHECK-NEXT:    ## fixup A - offset: 6, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; CHECK-NEXT:    vxorpd %xmm1, %xmm0, %xmm1 {%k1} ## encoding: [0x62,0xf1,0xfd,0x09,0x57,0xc9]
 ; CHECK-NEXT:    vmovapd %xmm1, %xmm0 ## EVEX TO VEX Compression encoding: [0xc5,0xf9,0x28,0xc1]
 ; CHECK-NEXT:    retq ## encoding: [0xc3]
@@ -1279,8 +1279,8 @@ define <4 x i64> @ternlog_masky_xor_and_mask_ymm(<4 x i64> %x, <4 x i64> %y, <4 
 ; CHECK-LABEL: ternlog_masky_xor_and_mask_ymm:
 ; CHECK:       ## %bb.0:
 ; CHECK-NEXT:    vpmovq2m %ymm2, %k1 ## encoding: [0x62,0xf2,0xfe,0x28,0x39,0xca]
-; CHECK-NEXT:    vandpd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0, %ymm0 ## EVEX TO VEX Compression encoding: [0xc5,0xfd,0x54,0x05,A,A,A,A]
-; CHECK-NEXT:    ## fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; CHECK-NEXT:    vandpd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %ymm0, %ymm0 ## encoding: [0x62,0xf1,0xfd,0x38,0x54,0x05,A,A,A,A]
+; CHECK-NEXT:    ## fixup A - offset: 6, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; CHECK-NEXT:    vxorpd %ymm1, %ymm0, %ymm1 {%k1} ## encoding: [0x62,0xf1,0xfd,0x29,0x57,0xc9]
 ; CHECK-NEXT:    vmovapd %ymm1, %ymm0 ## EVEX TO VEX Compression encoding: [0xc5,0xfd,0x28,0xc1]
 ; CHECK-NEXT:    retq ## encoding: [0xc3]
