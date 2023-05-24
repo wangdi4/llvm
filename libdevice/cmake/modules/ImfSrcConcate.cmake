@@ -37,6 +37,7 @@ set(imf_fp32_fallback_src_list imf_utils/integer_misc.cpp
                                imf_utils/half_convert.cpp
                                imf_utils/float_convert.cpp
                                imf_utils/simd_emulate.cpp
+<<<<<<< HEAD
                                # INTEL_CUSTOMIZATION
                                ${imf_fp32_omp_lib_funcs_list}
                                imf/intel/cos_h_la.cpp
@@ -109,6 +110,10 @@ set(imf_fp32_fallback_src_list imf_utils/integer_misc.cpp
                                imf/intel/pown_s_ep.cpp
                                # end INTEL_CUSTOMIZATION
                                imf/imf_inline_fp32.cpp)
+=======
+                               imf/imf_inline_fp32.cpp
+                               imf/imf_fp32_dl.cpp)
+>>>>>>> e4f074a6aabed1e18893e4adec17df9c34af1959
 
 # INTEL_CUSTOMIZATION
 set(imf_fp64_omp_lib_funcs_list imf/intel/cos_d_ha.cpp
