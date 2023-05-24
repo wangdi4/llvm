@@ -17,6 +17,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/Support/Error.h"
 
+#include <map>
 #include <memory>
 #include <vector>
 
@@ -249,6 +250,10 @@ getDeviceCodeSplitter(ModuleDesc &&MD, IRSplitMode Mode, bool IROutputOnly,
 
 std::unique_ptr<ModuleSplitterBase>
 getSplitterByKernelType(ModuleDesc &&MD, bool EmitOnlyKernelsAsEntryPoints);
+
+#if INTEL_COLLAB
+void findGlobalsToBeMoved(const Module &M);
+#endif // INTEL_COLLAB
 
 #ifndef NDEBUG
 void dumpEntryPoints(const EntryPointSet &C, const char *msg = "", int Tab = 0);
