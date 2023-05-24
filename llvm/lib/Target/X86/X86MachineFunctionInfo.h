@@ -134,6 +134,7 @@ class X86MachineFunctionInfo : public MachineFunctionInfo {
   /// determine if we should insert tilerelease in frame lowering.
   bool HasVirtualTileReg = false;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
   /// Ajust stack for push2/pop2
@@ -146,6 +147,13 @@ class X86MachineFunctionInfo : public MachineFunctionInfo {
   std::set<Register> CandidatesForPush2Pop2;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
+=======
+  /// True if this function has CFI directives that adjust the CFA.
+  /// This is used to determine if we should direct the debugger to use
+  /// the CFA instead of the stack pointer.
+  bool HasCFIAdjustCfa = false;
+
+>>>>>>> 3be667ae5a10e276acf7d1bb7e8c29ba07578032
   MachineInstr *StackPtrSaveMI = nullptr;
 
   std::optional<int> SwiftAsyncContextFrameIdx;
@@ -256,6 +264,7 @@ public:
   bool hasVirtualTileReg() const { return HasVirtualTileReg; }
   void setHasVirtualTileReg(bool v) { HasVirtualTileReg = v; }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
   bool padForPush2Pop2() const { return PadForPush2Pop2; }
@@ -275,6 +284,11 @@ public:
   }
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
+=======
+  bool hasCFIAdjustCfa() const { return HasCFIAdjustCfa; }
+  void setHasCFIAdjustCfa(bool v) { HasCFIAdjustCfa = v; }
+
+>>>>>>> 3be667ae5a10e276acf7d1bb7e8c29ba07578032
   void setStackPtrSaveMI(MachineInstr *MI) { StackPtrSaveMI = MI; }
   MachineInstr *getStackPtrSaveMI() const { return StackPtrSaveMI; }
 
