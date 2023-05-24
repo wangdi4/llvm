@@ -19326,7 +19326,7 @@ defm VFNMSUB231NE : avx512_fp_binopne_pbf16_fma<0xBE, "vfnmsub231ne", SchedWrite
 
 #endif // INTEL_FEATURE_ISA_AVX512_BF16_NE
 
-#if INTEL_FEATURE_ISA_AVX512_VPMM
+#if INTEL_FEATURE_ISA_AVX512_VPMM_FUTURE
 // RefineMe: Choose a better Sched when these instrucitons has more available details.
 // And try directly map from intrinsic by design a type.
 //   [(set ZMMPairX:$dst,
@@ -19347,13 +19347,6 @@ let Predicates = [HasAVX512VPMM, In64BitMode] in {
                         [(set VR512:$dst,
                             (int_x86_vpmm_vmmif16ps_512 VR512:$src1, VR512:$src2, VR512:$src3, timm:$src4))]>,
                         EVEX_4V, EVEX_V512, TAXS;
-
-      def VMMF16PS512rr : I<0x6f, MRMSrcReg, (outs VR512:$dst),
-                        (ins VR512:$src1, VR512:$src2, VR512:$src3),
-                        "vmmf16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
-                        [(set VR512:$dst,
-                            (int_x86_vpmm_vmmf16ps_512 VR512:$src1, VR512:$src2, VR512:$src3))]>,
-                        EVEX_4V, EVEX_V512, T_MAP6XS;
     }
   }
 }
@@ -19385,23 +19378,78 @@ let Predicates = [HasAVX512VPMM, In64BitMode] in {
                         [(set VR256X:$dst,
                             (int_x86_vpmm_vmmif16ps_256 VR256X:$src1, VR256X:$src2, VR256X:$src3, timm:$src4))]>,
                         EVEX_4V, EVEX_V256, TAXS;
-
-      def VMMF16PS128rr : I<0x6f, MRMSrcReg, (outs VR128X:$dst),
-                        (ins VR128X:$src1, VR128X:$src2, VR128X:$src3),
-                        "vmmf16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
-                        [(set VR128X:$dst,
-                            (int_x86_vpmm_vmmf16ps_128 VR128X:$src1, VR128X:$src2, VR128X:$src3))]>,
-                        EVEX_4V, EVEX_V128, T_MAP6XS;
-
-      def VMMF16PS256rr : I<0x6f, MRMSrcReg, (outs VR256X:$dst),
-                        (ins VR256X:$src1, VR256X:$src2, VR256X:$src3),
-                        "vmmf16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
-                        [(set VR256X:$dst,
-                            (int_x86_vpmm_vmmf16ps_256 VR256X:$src1, VR256X:$src2, VR256X:$src3))]>,
-                        EVEX_4V, EVEX_V256, T_MAP6XS;
     }
   }
 }
+#endif // INTEL_FEATURE_ISA_AVX512_VPMM_FUTURE
+
+#if INTEL_FEATURE_ISA_AVX512_VPMM
+multiclass avx512_vpmm_packed<bits<8> opc, string OpcodeStr,
+             X86VectorVTInfo _Src, X86VectorVTInfo _Dst, string vl> {
+  let Constraints = "$src1 = $dst" in {
+  def rr : AVX512<opc, MRMSrcReg, (outs _Dst.RC:$dst),
+                  (ins _Dst.RC:$src1, _Src.RC:$src2, _Src.RC:$src3),
+                  OpcodeStr#"\t{$src3, $src2, $dst|$dst, $src2, $src3}",
+                  [(set _Dst.RC:$dst,
+                   (_Dst.VT (!cast<Intrinsic>("int_x86_vpmm_"#OpcodeStr#"_"#vl)
+                                     (_Dst.VT _Src.RC:$src1),
+                                     (_Src.VT _Src.RC:$src2),
+                                     (_Src.VT _Src.RC:$src3))))]>, EVEX_4V;
+  }
+}
+
+multiclass avx512_vpmm<bits<8> opc, string OpcodeStr,
+                             AVX512VLVectorVTInfo _SrcVTInfo,
+                             AVX512VLVectorVTInfo _DstVTInfo> {
+  let Predicates = [HasAVX512VPMM, In64BitMode] in
+  defm Z : avx512_vpmm_packed<opc, OpcodeStr,
+                              _SrcVTInfo.info512, _DstVTInfo.info512, "512">,
+                              EVEX_V512;
+  let Predicates = [HasVLX, HasAVX512VPMM, In64BitMode] in {
+  defm Z256 : avx512_vpmm_packed<opc, OpcodeStr,
+                                _SrcVTInfo.info256, _DstVTInfo.info256, "256">,
+                                EVEX_V256;
+  defm Z128 : avx512_vpmm_packed<opc, OpcodeStr,
+                                _SrcVTInfo.info128, _DstVTInfo.info128, "128">,
+                                EVEX_V128;
+  }
+}
+
+defm VMMF16PS : avx512_vpmm<0x6f, "vmmf16ps",
+                             avx512vl_f16_info, avx512vl_f32_info>,
+                             T_MAP6XS;
+defm VMMBF16PS : avx512_vpmm<0x6f, "vmmbf16ps",
+                             avx512vl_bf16_info, avx512vl_f32_info>,
+                             T_MAP6XD;
+defm VMMTF32PS : avx512_vpmm<0x6f, "vmmtf32ps",
+                             avx512vl_i32_info, avx512vl_f32_info>,
+                             T_MAP6PD;
+
+defm VMMBF8PS : avx512_vpmm<0x6d, "vmmbf8ps",
+                            avx512vl_i8_info, avx512vl_f32_info>,
+                            T_MAP6PS;
+defm VMMHF8PS : avx512_vpmm<0x6d, "vmmhf8ps",
+                            avx512vl_i8_info, avx512vl_f32_info>,
+                            T_MAP6PD;
+defm VMMBHF8PS : avx512_vpmm<0x6d, "vmmbhf8ps",
+                             avx512vl_i8_info, avx512vl_f32_info>,
+                             T_MAP6XD;
+defm VMMHBF8PS : avx512_vpmm<0x6d, "vmmhbf8ps",
+                             avx512vl_i8_info, avx512vl_f32_info>,
+                             T_MAP6XS;
+
+defm VPMMSSBD : avx512_vpmm<0x6c, "vpmmssbd",
+                            avx512vl_i8_info, avx512vl_i32_info>,
+                            T_MAP6XD;
+defm VPMMSUBD : avx512_vpmm<0x6c, "vpmmsubd",
+                            avx512vl_i8_info, avx512vl_i32_info>,
+                            T_MAP6XS;
+defm VPMMUSBD : avx512_vpmm<0x6c, "vpmmusbd",
+                            avx512vl_i8_info, avx512vl_i32_info>,
+                            T_MAP6PD;
+defm VPMMUUBD : avx512_vpmm<0x6c, "vpmmuubd",
+                            avx512vl_i8_info, avx512vl_i32_info>,
+                            T_MAP6PS;
 #endif // INTEL_FEATURE_ISA_AVX512_VPMM
 
 #if INTEL_FEATURE_XISA_COMMON

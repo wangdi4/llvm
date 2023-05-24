@@ -15,10 +15,8 @@
 ;  |   + END LOOP
 ;  + END LOOP
 
-; CHECK:        getMinMaxValueImpl() called for i1 + -1
-; CHECK:        getMinMaxValueImpl() called for %n + -1
-; CHECK:        in getMaxMinBlobValue: input args 11 1 -1
-; CHECK:        getMinMaxValueImpl() returned 2147483645
+; CHECK:       getMaxValue() called for i1 + -1
+; CHECK:                 returned 2147483645
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

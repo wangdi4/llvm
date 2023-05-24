@@ -3675,10 +3675,11 @@ static bool getMinMaxBlobVal(unsigned BlobIdx, int64_t Coeff,
 bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
                                      const HLNode *ParentNode, bool IsMin,
                                      bool IsExact, int64_t &Val) {
-
-  LLVM_DEBUG(dbgs() << "\tgetMinMaxValueImpl() called for "; CE->dump();
-             dbgs() << "\n";);
   assert(CE && "CE is null!");
+
+  LLVM_DEBUG(dbgs() << "\n\tget" << (IsMin ? "Min" : "Max")
+                    << "Value() called for ";
+             CE->dump(););
 
   if (!ParentNode) {
     return CE->isIntConstant(&Val);
@@ -3699,7 +3700,8 @@ bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
   auto *ParentLoop = isa<HLLoop>(ParentNode) ? cast<HLLoop>(ParentNode)
                                              : ParentNode->getParentLoop();
 
-  APInt MinOrMax(64, 0);
+  unsigned Bitsize = 64;
+  APInt MinOrMax(Bitsize, 0);
 
   for (auto Blob = CE->blob_begin(), E = CE->blob_end(); Blob != E; ++Blob) {
     unsigned Index = CE->getBlobIndex(Blob);
@@ -3725,8 +3727,8 @@ bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
 
     // Calculate MinOrMax += (Coeff * BlobVal) checking for overflow.
     bool Overflow = false;
-    APInt Coeff(64, CoeffVal);
-    APInt BlobInt(64, BlobVal);
+    APInt Coeff(Bitsize, CoeffVal);
+    APInt BlobInt(Bitsize, BlobVal);
     BlobInt = BlobInt.smul_ov(Coeff, Overflow);
     if (Overflow)
       return false;
@@ -3799,12 +3801,12 @@ bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
       // Calculate MinOrMax += (CoeffVal * BlobVal * BoundVal) checking for
       // overflow.
       bool Overflow = false;
-      APInt Coeff(64, CoeffVal);
-      APInt BlobInt(64, BlobVal);
+      APInt Coeff(Bitsize, CoeffVal);
+      APInt BlobInt(Bitsize, BlobVal);
       BlobInt = BlobInt.smul_ov(Coeff, Overflow);
       if (Overflow)
         return false;
-      APInt Bound(64, BoundVal);
+      APInt Bound(Bitsize, BoundVal);
       BlobInt = BlobInt.smul_ov(Bound, Overflow);
       if (Overflow)
         return false;
@@ -3815,7 +3817,7 @@ bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
   }
 
   bool Overflow = false;
-  APInt Const(64, CE->getConstant());
+  APInt Const(Bitsize, CE->getConstant());
   MinOrMax = MinOrMax.sadd_ov(Const, Overflow);
   if (Overflow)
     return false;
@@ -3826,15 +3828,23 @@ bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
       return false;
     }
 
-    APInt Denom(64, DenomVal);
+    APInt Denom(Bitsize, DenomVal);
     MinOrMax = MinOrMax.sdiv_ov(Denom, Overflow);
     if (Overflow)
       return false;
   }
 
+  unsigned SrcTypeWidth = CE->getSrcType()->getPrimitiveSizeInBits();
+  unsigned DestTypeWidth = CE->getDestType()->getPrimitiveSizeInBits();
+  unsigned MinWidth =
+      (SrcTypeWidth < DestTypeWidth) ? SrcTypeWidth : DestTypeWidth;
+
+  if (MinOrMax.getSignificantBits() > MinWidth)
+    return false;
+
   Val = MinOrMax.getSExtValue();
 
-  LLVM_DEBUG(dbgs() << "\tgetMinMaxValueImpl() returned " << Val << "\n";);
+  LLVM_DEBUG(dbgs() << "\t\t returned " << Val << "\n";);
 
   return true;
 }

@@ -1457,11 +1457,29 @@ defined(__UMSR__) || defined(__M_INTRINSIC_PROMOTE__)
 /* INTEL_FEATURE_ISA_AVX512_VPMM */
 #if defined(__AMX512VPMM_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX512VPMM__)
+    defined(__AVX512VPMM__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512vpmm/avx512vpmmintrin.h>
+#endif
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    (defined(__AVX512VPMM__) && defined(__AVX512VL__)) ||                      \
+    defined(__M_INTRINSIC_PROMOTE__)
+#include <avx512vpmm/avx512vlvpmmintrin.h>
 #endif
 #endif
 /* end INTEL_FEATURE_ISA_AVX512_VPMM */
+/* INTEL_FEATURE_ISA_AVX512_VPMM_FUTURE */
+#if defined(__AMX512VPMM_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512VPMM__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <avx512vpmmfuture/avx512vpmmfutureintrin.h>
+#endif
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    (defined(__AVX512VPMM__) && defined(__AVX512VL__)) ||                      \
+    defined(__M_INTRINSIC_PROMOTE__)
+#include <avx512vpmmfuture/avx512vlvpmmfutureintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AVX512_VPMM_FUTURE */
 /* end INTEL_CUSTOMIZATION */
 
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \

@@ -5,8 +5,8 @@
 #include <immintrin.h>
 #include <stddef.h>
 
-__m128 test_mm128_vmmif16_ps(__m128h Src1, __m128h Src2, __m128 SrcDst) {
-  return _mm128_vmmif16_ps(Src1, Src2, SrcDst, 1); // expected-error {{argument value 1 is outside the valid range [0, 0]}}
+__m128 test_mm_vmmif16_ps(__m128h Src1, __m128h Src2, __m128 SrcDst) {
+  return _mm_vmmif16_ps(Src1, Src2, SrcDst, 1); // expected-error {{argument value 1 is outside the valid range [0, 0]}}
 }
 
 __m256 test_mm256_vmmif16_ps(__m256h Src1, __m256h Src2, __m256 SrcDst) {
