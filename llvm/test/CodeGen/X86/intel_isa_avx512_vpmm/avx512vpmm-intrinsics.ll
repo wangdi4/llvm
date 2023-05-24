@@ -2,79 +2,6 @@
 ; REQUIRES: intel_feature_isa_avx512_vpmm
 ; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mattr=+avx512vpmm --show-mc-encoding | FileCheck %s
 
-define <16 x float> @test_mm512_dpph_ps(<16 x float> %__W1, <16 x float> %__W2, <32 x half> %__A, <32 x half> %__B) {
-; CHECK-LABEL: test_mm512_dpph_ps:
-; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    # kill: def $zmm1 killed $zmm1 killed $zmm0_zmm1 def $zmm0_zmm1
-; CHECK-NEXT:    # kill: def $zmm0 killed $zmm0 killed $zmm0_zmm1 def $zmm0_zmm1
-; CHECK-NEXT:    vmmxf16ps %zmm3, %zmm2, %zmm0 # encoding: [0x62,0xf6,0x6e,0x48,0x7f,0xc3]
-; CHECK-NEXT:    # kill: def $zmm0 killed $zmm0 killed $zmm0_zmm1
-; CHECK-NEXT:    retq # encoding: [0xc3]
-entry:
-  %r = tail call {<16 x float>, <16 x float>} @llvm.x86.vpmm.vmmxf16ps.512(<16 x float> %__W1, <16 x float> %__W2, <32 x half> %__A, <32 x half> %__B)
-  %r0 = extractvalue {<16 x float>, <16 x float>} %r, 0
-  ret <16 x float> %r0
-}
-
-define <8 x float> @test_mm256_dpph_ps(<8 x float> %__W1, <8 x float> %__W2, <16 x half> %__A, <16 x half> %__B) {
-; CHECK-LABEL: test_mm256_dpph_ps:
-; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    # kill: def $ymm1 killed $ymm1 killed $ymm0_ymm1 def $ymm0_ymm1
-; CHECK-NEXT:    # kill: def $ymm0 killed $ymm0 killed $ymm0_ymm1 def $ymm0_ymm1
-; CHECK-NEXT:    vmmxf16ps %ymm3, %ymm2, %ymm0 # encoding: [0x62,0xf6,0x6e,0x28,0x7f,0xc3]
-; CHECK-NEXT:    # kill: def $ymm0 killed $ymm0 killed $ymm0_ymm1
-; CHECK-NEXT:    retq # encoding: [0xc3]
-entry:
-  %r = tail call {<8 x float>, <8 x float>} @llvm.x86.vpmm.vmmxf16ps.256(<8 x float> %__W1, <8 x float> %__W2, <16 x half> %__A, <16 x half> %__B)
-  %r0 = extractvalue {<8 x float>, <8 x float>} %r, 0
-  ret <8 x float> %r0
-}
-
-
-define <4 x float> @test_mm128_dpph_ps(<4 x float> %__W1, <4 x float> %__W2, <8 x half> %__A, <8 x half> %__B) {
-; CHECK-LABEL: test_mm128_dpph_ps:
-; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    # kill: def $xmm1 killed $xmm1 killed $xmm0_xmm1 def $xmm0_xmm1
-; CHECK-NEXT:    # kill: def $xmm0 killed $xmm0 killed $xmm0_xmm1 def $xmm0_xmm1
-; CHECK-NEXT:    vmmxf16ps %xmm3, %xmm2, %xmm0 # encoding: [0x62,0xf6,0x6e,0x08,0x7f,0xc3]
-; CHECK-NEXT:    # kill: def $xmm0 killed $xmm0 killed $xmm0_xmm1
-; CHECK-NEXT:    retq # encoding: [0xc3]
-entry:
-  %r = tail call {<4 x float>, <4 x float>} @llvm.x86.vpmm.vmmxf16ps.128(<4 x float> %__W1, <4 x float> %__W2, <8 x half> %__A, <8 x half> %__B)
-  %r0 = extractvalue {<4 x float>, <4 x float>} %r, 0
-  ret <4 x float> %r0
-}
-
-define <4 x float> @test_mm128_vpmm_ps(<4 x float> %__W1, <8 x half> %__A, <8 x half> %__B) {
-; CHECK-LABEL: test_mm128_vpmm_ps:
-; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vmmf16ps %xmm2, %xmm1, %xmm0 # encoding: [0x62,0xf6,0x76,0x08,0x6f,0xc2]
-; CHECK-NEXT:    retq # encoding: [0xc3]
-entry:
-  %r = tail call <4 x float> @llvm.x86.vpmm.vmmf16ps.128(<4 x float> %__W1, <8 x half> %__A, <8 x half> %__B)
-  ret <4 x float> %r
-}
-
-define <4 x float> @test_mm128_vpmmi_ps(<4 x float> %__W1, <8 x half> %__A, <8 x half> %__B) {
-; CHECK-LABEL: test_mm128_vpmmi_ps:
-; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vmmif16ps $0, %xmm2, %xmm1, %xmm0 # encoding: [0x62,0xf3,0x76,0x08,0x6f,0xc2,0x00]
-; CHECK-NEXT:    retq # encoding: [0xc3]
-entry:
-  %r = tail call <4 x float> @llvm.x86.vpmm.vmmif16ps.128(<4 x float> %__W1, <8 x half> %__A, <8 x half> %__B, i32 0)
-  ret <4 x float> %r
-}
-
-define <8 x float> @test_mm256_vpmm_ps(<8 x float> %__W1, <16 x half> %__A, <16 x half> %__B) {
-; CHECK-LABEL: test_mm256_vpmm_ps:
-; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vmmf16ps %ymm2, %ymm1, %ymm0 # encoding: [0x62,0xf6,0x76,0x28,0x6f,0xc2]
-; CHECK-NEXT:    retq # encoding: [0xc3]
-entry:
-  %r = tail call <8 x float> @llvm.x86.vpmm.vmmf16ps.256(<8 x float> %__W1, <16 x half> %__A, <16 x half> %__B)
-  ret <8 x float> %r
-}
-
 define <16 x float> @test_mm512_vpmm_ps(<16 x float> %__W1, <32 x half> %__A, <32 x half> %__B) {
 ; CHECK-LABEL: test_mm512_vpmm_ps:
 ; CHECK:       # %bb.0: # %entry
@@ -85,32 +12,114 @@ entry:
   ret <16 x float> %r
 }
 
-define <8 x float> @test_mm256_vpmmi_ps(<8 x float> %__W1, <16 x half> %__A, <16 x half> %__B) {
-; CHECK-LABEL: test_mm256_vpmmi_ps:
-; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vmmif16ps $0, %ymm2, %ymm1, %ymm0 # encoding: [0x62,0xf3,0x76,0x28,0x6f,0xc2,0x00]
-; CHECK-NEXT:    retq # encoding: [0xc3]
-entry:
-  %r = tail call <8 x float> @llvm.x86.vpmm.vmmif16ps.256(<8 x float> %__W1, <16 x half> %__A, <16 x half> %__B, i32 0)
-  ret <8 x float> %r
-}
-
-define <16 x float> @test_mm512_vpmmi_ps(<16 x float> %__W1, <32 x half> %__A, <32 x half> %__B) {
-; CHECK-LABEL: test_mm512_vpmmi_ps:
-; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vmmif16ps $0, %zmm2, %zmm1, %zmm0 # encoding: [0x62,0xf3,0x76,0x48,0x6f,0xc2,0x00]
-; CHECK-NEXT:    retq # encoding: [0xc3]
-entry:
-  %r = tail call <16 x float> @llvm.x86.vpmm.vmmif16ps.512(<16 x float> %__W1, <32 x half> %__A, <32 x half> %__B, i32 0)
-  ret <16 x float> %r
-}
-
-declare {<4 x float>, <4 x float>} @llvm.x86.vpmm.vmmxf16ps.128(<4 x float>, <4 x float>, <8 x half>, <8 x half>)
-declare {<8 x float>, <8 x float>} @llvm.x86.vpmm.vmmxf16ps.256(<8 x float>, <8 x float>, <16 x half>, <16 x half>)
-declare {<16 x float>, <16 x float>} @llvm.x86.vpmm.vmmxf16ps.512(<16 x float>, <16 x float>, <32 x half>, <32 x half>)
-declare <4 x float> @llvm.x86.vpmm.vmmf16ps.128(<4 x float>, <8 x half>, <8 x half>)
-declare <8 x float> @llvm.x86.vpmm.vmmf16ps.256(<8 x float>, <16 x half>, <16 x half>)
 declare <16 x float> @llvm.x86.vpmm.vmmf16ps.512(<16 x float>, <32 x half>, <32 x half>)
-declare <4 x float> @llvm.x86.vpmm.vmmif16ps.128(<4 x float>, <8 x half>, <8 x half>, i32)
-declare <8 x float> @llvm.x86.vpmm.vmmif16ps.256(<8 x float>, <16 x half>, <16 x half>, i32)
-declare <16 x float> @llvm.x86.vpmm.vmmif16ps.512(<16 x float>, <32 x half>, <32 x half>, i32)
+
+define <16 x float> @test_int_x86_vpmm_vmmbf16ps_512(<16 x float> %A, <32 x bfloat> %B, <32 x bfloat> %C) nounwind {
+; CHECK-LABEL: test_int_x86_vpmm_vmmbf16ps_512:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmmbf16ps %zmm2, %zmm1, %zmm0 # encoding: [0x62,0xf6,0x77,0x48,0x6f,0xc2]
+; CHECK-NEXT:    retq # encoding: [0xc3]
+  %ret = call <16 x float> @llvm.x86.vpmm.vmmbf16ps.512(<16 x float> %A, <32 x bfloat> %B, <32 x bfloat> %C)
+  ret <16 x float> %ret
+}
+
+declare <16 x float> @llvm.x86.vpmm.vmmbf16ps.512(<16 x float> %A, <32 x bfloat> %B, <32 x bfloat> %C)
+
+define <16 x float> @test_int_x86_vpmm_vmmbf8ps_512(<16 x float> %A, <64 x i8> %B, <64 x i8> %C) nounwind {
+; CHECK-LABEL: test_int_x86_vpmm_vmmbf8ps_512:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmmbf8ps %zmm2, %zmm1, %zmm0 # encoding: [0x62,0xf6,0x74,0x48,0x6d,0xc2]
+; CHECK-NEXT:    retq # encoding: [0xc3]
+  %ret = call <16 x float> @llvm.x86.vpmm.vmmbf8ps.512(<16 x float> %A, <64 x i8> %B, <64 x i8> %C)
+  ret <16 x float> %ret
+}
+
+declare <16 x float> @llvm.x86.vpmm.vmmbf8ps.512(<16 x float> %A, <64 x i8> %B, <64 x i8> %C)
+
+define <16 x float> @test_int_x86_vpmm_vmmbhf8ps_512(<16 x float> %A, <64 x i8> %B, <64 x i8> %C) nounwind {
+; CHECK-LABEL: test_int_x86_vpmm_vmmbhf8ps_512:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmmbhf8ps %zmm2, %zmm1, %zmm0 # encoding: [0x62,0xf6,0x77,0x48,0x6d,0xc2]
+; CHECK-NEXT:    retq # encoding: [0xc3]
+  %ret = call <16 x float> @llvm.x86.vpmm.vmmbhf8ps.512(<16 x float> %A, <64 x i8> %B, <64 x i8> %C)
+  ret <16 x float> %ret
+}
+
+declare <16 x float> @llvm.x86.vpmm.vmmbhf8ps.512(<16 x float> %A, <64 x i8> %B, <64 x i8> %C)
+
+define <16 x float> @test_int_x86_vpmm_vmmhbf8ps_512(<16 x float> %A, <64 x i8> %B, <64 x i8> %C) nounwind {
+; CHECK-LABEL: test_int_x86_vpmm_vmmhbf8ps_512:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmmhbf8ps %zmm2, %zmm1, %zmm0 # encoding: [0x62,0xf6,0x76,0x48,0x6d,0xc2]
+; CHECK-NEXT:    retq # encoding: [0xc3]
+  %ret = call <16 x float> @llvm.x86.vpmm.vmmhbf8ps.512(<16 x float> %A, <64 x i8> %B, <64 x i8> %C)
+  ret <16 x float> %ret
+}
+
+declare <16 x float> @llvm.x86.vpmm.vmmhbf8ps.512(<16 x float> %A, <64 x i8> %B, <64 x i8> %C)
+
+define <16 x float> @test_int_x86_vpmm_vmmhf8ps_512(<16 x float> %A, <64 x i8> %B, <64 x i8> %C) nounwind {
+; CHECK-LABEL: test_int_x86_vpmm_vmmhf8ps_512:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmmhf8ps %zmm2, %zmm1, %zmm0 # encoding: [0x62,0xf6,0x75,0x48,0x6d,0xc2]
+; CHECK-NEXT:    retq # encoding: [0xc3]
+  %ret = call <16 x float> @llvm.x86.vpmm.vmmhf8ps.512(<16 x float> %A, <64 x i8> %B, <64 x i8> %C)
+  ret <16 x float> %ret
+}
+
+declare <16 x float> @llvm.x86.vpmm.vmmhf8ps.512(<16 x float> %A, <64 x i8> %B, <64 x i8> %C)
+
+define <16 x float> @test_int_x86_vpmm_vmmtf32ps_512(<16 x float> %A, <16 x i32> %B, <16 x i32> %C) nounwind {
+; CHECK-LABEL: test_int_x86_vpmm_vmmtf32ps_512:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vmmtf32ps %zmm2, %zmm1, %zmm0 # encoding: [0x62,0xf6,0x75,0x48,0x6f,0xc2]
+; CHECK-NEXT:    retq # encoding: [0xc3]
+  %ret = call <16 x float> @llvm.x86.vpmm.vmmtf32ps.512(<16 x float> %A, <16 x i32> %B, <16 x i32> %C)
+  ret <16 x float> %ret
+}
+
+declare <16 x float> @llvm.x86.vpmm.vmmtf32ps.512(<16 x float> %A, <16 x i32> %B, <16 x i32> %C)
+
+define <16 x i32> @test_int_x86_vpmm_vpmmssbd_512(<16 x i32> %A, <64 x i8> %B, <64 x i8> %C) nounwind {
+; CHECK-LABEL: test_int_x86_vpmm_vpmmssbd_512:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpmmssbd %zmm2, %zmm1, %zmm0 # encoding: [0x62,0xf6,0x77,0x48,0x6c,0xc2]
+; CHECK-NEXT:    retq # encoding: [0xc3]
+  %ret = call <16 x i32> @llvm.x86.vpmm.vpmmssbd.512(<16 x i32> %A, <64 x i8> %B, <64 x i8> %C)
+  ret <16 x i32> %ret
+}
+
+declare <16 x i32> @llvm.x86.vpmm.vpmmssbd.512(<16 x i32> %A, <64 x i8> %B, <64 x i8> %C)
+
+define <16 x i32> @test_int_x86_vpmm_vpmmsubd_512(<16 x i32> %A, <64 x i8> %B, <64 x i8> %C) nounwind {
+; CHECK-LABEL: test_int_x86_vpmm_vpmmsubd_512:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpmmsubd %zmm2, %zmm1, %zmm0 # encoding: [0x62,0xf6,0x76,0x48,0x6c,0xc2]
+; CHECK-NEXT:    retq # encoding: [0xc3]
+  %ret = call <16 x i32> @llvm.x86.vpmm.vpmmsubd.512(<16 x i32> %A, <64 x i8> %B, <64 x i8> %C)
+  ret <16 x i32> %ret
+}
+
+declare <16 x i32> @llvm.x86.vpmm.vpmmsubd.512(<16 x i32> %A, <64 x i8> %B, <64 x i8> %C)
+
+define <16 x i32> @test_int_x86_vpmm_vpmmusbd_512(<16 x i32> %A, <64 x i8> %B, <64 x i8> %C) nounwind {
+; CHECK-LABEL: test_int_x86_vpmm_vpmmusbd_512:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpmmusbd %zmm2, %zmm1, %zmm0 # encoding: [0x62,0xf6,0x75,0x48,0x6c,0xc2]
+; CHECK-NEXT:    retq # encoding: [0xc3]
+  %ret = call <16 x i32> @llvm.x86.vpmm.vpmmusbd.512(<16 x i32> %A, <64 x i8> %B, <64 x i8> %C)
+  ret <16 x i32> %ret
+}
+
+declare <16 x i32> @llvm.x86.vpmm.vpmmusbd.512(<16 x i32> %A, <64 x i8> %B, <64 x i8> %C)
+
+define <16 x i32> @test_int_x86_vpmm_vpmmuubd_512(<16 x i32> %A, <64 x i8> %B, <64 x i8> %C) nounwind {
+; CHECK-LABEL: test_int_x86_vpmm_vpmmuubd_512:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpmmuubd %zmm2, %zmm1, %zmm0 # encoding: [0x62,0xf6,0x74,0x48,0x6c,0xc2]
+; CHECK-NEXT:    retq # encoding: [0xc3]
+  %ret = call <16 x i32> @llvm.x86.vpmm.vpmmuubd.512(<16 x i32> %A, <64 x i8> %B, <64 x i8> %C)
+  ret <16 x i32> %ret
+}
+
+declare <16 x i32> @llvm.x86.vpmm.vpmmuubd.512(<16 x i32> %A, <64 x i8> %B, <64 x i8> %C)

@@ -3,30 +3,6 @@
 # RUN: llvm-mc --disassemble %s -triple=x86_64 | FileCheck -check-prefix=ATT %s
 # RUN: llvm-mc --disassemble %s -triple=x86_64 -x86-asm-syntax=intel --output-asm-variant=1 | FileCheck -check-prefix=INTEL %s
 
-# ATT:   vmmxf16ps       %xmm4, %xmm3, %xmm0
-# INTEL: vmmxf16ps       xmm0, xmm3, xmm4
-0x62,0xf6,0x66,0x08,0x7f,0xc4
-
-# ATT:   vmmxf16ps       %ymm4, %ymm3, %ymm0
-# INTEL: vmmxf16ps       ymm0, ymm3, ymm4
-0x62,0xf6,0x66,0x28,0x7f,0xc4
-
-# ATT:   vmmxf16ps       %zmm4, %zmm3, %zmm0
-# INTEL: vmmxf16ps       zmm0, zmm3, zmm4
-0x62,0xf6,0x66,0x48,0x7f,0xc4
-
-# ATT:   vmmif16ps       $0, %xmm4, %xmm3, %xmm0
-# INTEL: vmmif16ps xmm0, xmm3, xmm4, 0
-0x62,0xf3,0x66,0x08,0x6f,0xc4,0x00
-
-# ATT:   vmmif16ps       $0, %ymm4, %ymm3, %ymm0
-# INTEL: vmmif16ps       ymm0, ymm3, ymm4, 0
-0x62,0xf3,0x66,0x28,0x6f,0xc4,0x00
-
-# ATT:   vmmif16ps       $0, %zmm4, %zmm3, %zmm0
-# INTEL: vmmif16ps       zmm0, zmm3, zmm4, 0
-0x62,0xf3,0x66,0x48,0x6f,0xc4,0x00
-
 # ATT:   vmmf16ps        %xmm4, %xmm3, %xmm0
 # INTEL: vmmf16ps xmm0, xmm3, xmm4
 0x62,0xf6,0x66,0x08,0x6f,0xc4
@@ -38,3 +14,123 @@
 # ATT:   vmmf16ps        %zmm4, %zmm3, %zmm0
 # INTEL: vmmf16ps        zmm0, zmm3, zmm4
 0x62,0xf6,0x66,0x48,0x6f,0xc4
+
+# ATT:   vmmbf16ps %zmm24, %zmm23, %zmm22
+# INTEL: vmmbf16ps zmm22, zmm23, zmm24
+0x62,0x86,0x47,0x40,0x6f,0xf0
+
+# ATT:   vmmbf8ps %zmm24, %zmm23, %zmm22
+# INTEL: vmmbf8ps zmm22, zmm23, zmm24
+0x62,0x86,0x44,0x40,0x6d,0xf0
+
+# ATT:   vmmbhf8ps %zmm24, %zmm23, %zmm22
+# INTEL: vmmbhf8ps zmm22, zmm23, zmm24
+0x62,0x86,0x47,0x40,0x6d,0xf0
+
+# ATT:   vmmhbf8ps %zmm24, %zmm23, %zmm22
+# INTEL: vmmhbf8ps zmm22, zmm23, zmm24
+0x62,0x86,0x46,0x40,0x6d,0xf0
+
+# ATT:   vmmhf8ps %zmm24, %zmm23, %zmm22
+# INTEL: vmmhf8ps zmm22, zmm23, zmm24
+0x62,0x86,0x45,0x40,0x6d,0xf0
+
+# ATT:   vmmtf32ps %zmm24, %zmm23, %zmm22
+# INTEL: vmmtf32ps zmm22, zmm23, zmm24
+0x62,0x86,0x45,0x40,0x6f,0xf0
+
+# ATT:   vpmmssbd %zmm24, %zmm23, %zmm22
+# INTEL: vpmmssbd zmm22, zmm23, zmm24
+0x62,0x86,0x47,0x40,0x6c,0xf0
+
+# ATT:   vpmmsubd %zmm24, %zmm23, %zmm22
+# INTEL: vpmmsubd zmm22, zmm23, zmm24
+0x62,0x86,0x46,0x40,0x6c,0xf0
+
+# ATT:   vpmmusbd %zmm24, %zmm23, %zmm22
+# INTEL: vpmmusbd zmm22, zmm23, zmm24
+0x62,0x86,0x45,0x40,0x6c,0xf0
+
+# ATT:   vpmmuubd %zmm24, %zmm23, %zmm22
+# INTEL: vpmmuubd zmm22, zmm23, zmm24
+0x62,0x86,0x44,0x40,0x6c,0xf0
+
+# ATT:   vmmbf16ps %ymm24, %ymm23, %ymm22
+# INTEL: vmmbf16ps ymm22, ymm23, ymm24
+0x62,0x86,0x47,0x20,0x6f,0xf0
+
+# ATT:   vmmbf16ps %xmm24, %xmm23, %xmm22
+# INTEL: vmmbf16ps xmm22, xmm23, xmm24
+0x62,0x86,0x47,0x00,0x6f,0xf0
+
+# ATT:   vmmbf8ps %ymm24, %ymm23, %ymm22
+# INTEL: vmmbf8ps ymm22, ymm23, ymm24
+0x62,0x86,0x44,0x20,0x6d,0xf0
+
+# ATT:   vmmbf8ps %xmm24, %xmm23, %xmm22
+# INTEL: vmmbf8ps xmm22, xmm23, xmm24
+0x62,0x86,0x44,0x00,0x6d,0xf0
+
+# ATT:   vmmbhf8ps %ymm24, %ymm23, %ymm22
+# INTEL: vmmbhf8ps ymm22, ymm23, ymm24
+0x62,0x86,0x47,0x20,0x6d,0xf0
+
+# ATT:   vmmbhf8ps %xmm24, %xmm23, %xmm22
+# INTEL: vmmbhf8ps xmm22, xmm23, xmm24
+0x62,0x86,0x47,0x00,0x6d,0xf0
+
+# ATT:   vmmhbf8ps %ymm24, %ymm23, %ymm22
+# INTEL: vmmhbf8ps ymm22, ymm23, ymm24
+0x62,0x86,0x46,0x20,0x6d,0xf0
+
+# ATT:   vmmhbf8ps %xmm24, %xmm23, %xmm22
+# INTEL: vmmhbf8ps xmm22, xmm23, xmm24
+0x62,0x86,0x46,0x00,0x6d,0xf0
+
+# ATT:   vmmhf8ps %ymm24, %ymm23, %ymm22
+# INTEL: vmmhf8ps ymm22, ymm23, ymm24
+0x62,0x86,0x45,0x20,0x6d,0xf0
+
+# ATT:   vmmhf8ps %xmm24, %xmm23, %xmm22
+# INTEL: vmmhf8ps xmm22, xmm23, xmm24
+0x62,0x86,0x45,0x00,0x6d,0xf0
+
+# ATT:   vmmtf32ps %ymm24, %ymm23, %ymm22
+# INTEL: vmmtf32ps ymm22, ymm23, ymm24
+0x62,0x86,0x45,0x20,0x6f,0xf0
+
+# ATT:   vmmtf32ps %xmm24, %xmm23, %xmm22
+# INTEL: vmmtf32ps xmm22, xmm23, xmm24
+0x62,0x86,0x45,0x00,0x6f,0xf0
+
+# ATT:   vpmmssbd %ymm24, %ymm23, %ymm22
+# INTEL: vpmmssbd ymm22, ymm23, ymm24
+0x62,0x86,0x47,0x20,0x6c,0xf0
+
+# ATT:   vpmmssbd %xmm24, %xmm23, %xmm22
+# INTEL: vpmmssbd xmm22, xmm23, xmm24
+0x62,0x86,0x47,0x00,0x6c,0xf0
+
+# ATT:   vpmmsubd %ymm24, %ymm23, %ymm22
+# INTEL: vpmmsubd ymm22, ymm23, ymm24
+0x62,0x86,0x46,0x20,0x6c,0xf0
+
+# ATT:   vpmmsubd %xmm24, %xmm23, %xmm22
+# INTEL: vpmmsubd xmm22, xmm23, xmm24
+0x62,0x86,0x46,0x00,0x6c,0xf0
+
+# ATT:   vpmmusbd %ymm24, %ymm23, %ymm22
+# INTEL: vpmmusbd ymm22, ymm23, ymm24
+0x62,0x86,0x45,0x20,0x6c,0xf0
+
+# ATT:   vpmmusbd %xmm24, %xmm23, %xmm22
+# INTEL: vpmmusbd xmm22, xmm23, xmm24
+0x62,0x86,0x45,0x00,0x6c,0xf0
+
+# ATT:   vpmmuubd %ymm24, %ymm23, %ymm22
+# INTEL: vpmmuubd ymm22, ymm23, ymm24
+0x62,0x86,0x44,0x20,0x6c,0xf0
+
+# ATT:   vpmmuubd %xmm24, %xmm23, %xmm22
+# INTEL: vpmmuubd xmm22, xmm23, xmm24
+0x62,0x86,0x44,0x00,0x6c,0xf0
