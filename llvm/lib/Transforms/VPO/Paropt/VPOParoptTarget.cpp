@@ -36,6 +36,7 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/CaptureTracking.h"
 #endif // INTEL_CUSTOMIZATION
+#include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/PhiValues.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
@@ -654,8 +655,9 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
           Builder.CreateLoad(OffloadError->getAllocatedType(), OffloadError);
       ConstantInt *ValueZero = ConstantInt::getSigned(Type::getInt32Ty(C), 0);
       Value *ErrorCompare = Builder.CreateICmpNE(LastLoad, ValueZero);
+      DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
       Instruction *Term = SplitBlockAndInsertIfThen(ErrorCompare, NewCall,
-                                                    false, nullptr, DT, LI);
+                                                    false, nullptr, &DTU, LI);
       Term->getParent()->setName("omp_offload.failed");
       LastLoad->getParent()->getTerminator()->getSuccessor(1)->setName(
           "omp_offload.cont");

@@ -33,6 +33,7 @@
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
+#include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #include <numeric>
 #include <tuple>
@@ -2608,12 +2609,13 @@ void VPOCodeGen::predicateInstructions() {
   //  %20 = phi <2 x i32> [ %14, %pred.sdiv.continue ], [ %19, %pred.sdiv.if54 ]
   //  %predphi = select <2 x i1> %8, <2 x i32> %20, <2 x i32> %5
 
+  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager); 
   for (const auto &KV : PredicatedInstructions) {
     BasicBlock::iterator I(KV.first);
     BasicBlock *Head = I->getParent();
     auto *BB = SplitBlock(Head, &*std::next(I), DT, LI);
     auto *T = SplitBlockAndInsertIfThen(KV.second, &*I, /*Unreachable=*/false,
-                                        /*BranchWeights=*/nullptr, DT, LI);
+                                        /*BranchWeights=*/nullptr, &DTU, LI);
     I->moveBefore(T);
     // sinkScalarOperands(&*I);
 
