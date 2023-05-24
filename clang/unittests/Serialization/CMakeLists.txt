@@ -14,6 +14,9 @@ add_clang_unittest(SerializationTests
 clang_target_link_libraries(SerializationTests
   PRIVATE
   clangAST
+# INTEL_CUSTOMIZATION
+  clangASTMatchers
+# end INTEL_CUSTOMIZATION
   clangBasic
   clangFrontend
   clangLex
