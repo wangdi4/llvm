@@ -205,7 +205,15 @@ public:
                                  const llvm::Triple &Triple,
                                  const llvm::opt::ArgList &Args,
                                  llvm::opt::ArgStringList &CmdArgs) const;
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
+=======
+  void TranslateTargetOpt(const llvm::opt::ArgList &Args,
+                          llvm::opt::ArgStringList &CmdArgs,
+                          llvm::opt::OptSpecifier Opt,
+                          llvm::opt::OptSpecifier Opt_EQ,
+                          StringRef Device) const;
+>>>>>>> bcf6885cbb9bbb0a56cd861db2c02329744690bc
 
   bool useIntegratedAs() const override { return true; }
   bool isPICDefault() const override { return false; }
@@ -237,6 +245,7 @@ protected:
   Tool *buildLinker() const override;
 
 private:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   void TranslateTargetOpt(Action::OffloadKind DeviceOffloadKind,
                           const llvm::opt::ArgList &Args,
@@ -245,6 +254,8 @@ private:
                           llvm::opt::OptSpecifier Opt_EQ,
                           StringRef Device) const;
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> bcf6885cbb9bbb0a56cd861db2c02329744690bc
   void TranslateGPUTargetOpt(const llvm::opt::ArgList &Args,
                              llvm::opt::ArgStringList &CmdArgs,
                              llvm::opt::OptSpecifier Opt_EQ) const;
