@@ -120,11 +120,16 @@ static cl::opt<std::string> DotCfgDir(
     cl::desc("Generate dot files into specified directory for changed IRs"),
     cl::Hidden, cl::init("./"));
 
-// An option to print the IR that was being processed when a pass crashes.
-static cl::opt<bool>
-    PrintCrashIR("print-on-crash",
-                 cl::desc("Print the last form of the IR before crash"),
-                 cl::Hidden);
+// Options to print the IR that was being processed when a pass crashes.
+static cl::opt<std::string> PrintOnCrashPath(
+    "print-on-crash-path",
+    cl::desc("Print the last form of the IR before crash to a file"),
+    cl::Hidden);
+
+static cl::opt<bool> PrintOnCrash(
+    "print-on-crash",
+    cl::desc("Print the last form of the IR before crash (use -print-on-crash-path to dump to a file)"),
+    cl::Hidden);
 
 static cl::opt<std::string> OptBisectPrintIRPath(
     "opt-bisect-print-ir-path",
@@ -2381,7 +2386,17 @@ StandardInstrumentations::StandardInstrumentations(
 PrintCrashIRInstrumentation *PrintCrashIRInstrumentation::CrashReporter =
     nullptr;
 
-void PrintCrashIRInstrumentation::reportCrashIR() { dbgs() << SavedIR; }
+void PrintCrashIRInstrumentation::reportCrashIR() {
+  if (!PrintOnCrashPath.empty()) {
+    std::error_code EC;
+    raw_fd_ostream Out(PrintOnCrashPath, EC);
+    if (EC)
+      report_fatal_error(errorCodeToError(EC));
+    Out << SavedIR;
+  } else {
+    dbgs() << SavedIR;
+  }
+}
 
 void PrintCrashIRInstrumentation::SignalHandler(void *) {
   // Called by signal handlers so do not lock here
@@ -2389,7 +2404,8 @@ void PrintCrashIRInstrumentation::SignalHandler(void *) {
   if (!CrashReporter)
     return;
 
-  assert(PrintCrashIR && "Did not expect to get here without option set.");
+  assert((PrintOnCrash || !PrintOnCrashPath.empty()) &&
+         "Did not expect to get here without option set.");
   CrashReporter->reportCrashIR();
 }
 
@@ -2397,31 +2413,32 @@ PrintCrashIRInstrumentation::~PrintCrashIRInstrumentation() {
   if (!CrashReporter)
     return;
 
-  assert(PrintCrashIR && "Did not expect to get here without option set.");
+  assert((PrintOnCrash || !PrintOnCrashPath.empty()) &&
+         "Did not expect to get here without option set.");
   CrashReporter = nullptr;
 }
 
 void PrintCrashIRInstrumentation::registerCallbacks(
     PassInstrumentationCallbacks &PIC) {
-  if (!PrintCrashIR || CrashReporter)
+  if ((!PrintOnCrash && PrintOnCrashPath.empty()) || CrashReporter)
     return;
 
   sys::AddSignalHandler(SignalHandler, nullptr);
   CrashReporter = this;
 
-  PIC.registerBeforeNonSkippedPassCallback([&PIC, this](StringRef PassID,
-                                                        Any IR) {
-    SavedIR.clear();
-    raw_string_ostream OS(SavedIR);
-    OS << formatv("*** Dump of {0}IR Before Last Pass {1}",
-                  llvm::forcePrintModuleIR() ? "Module " : "", PassID);
-    if (!isInteresting(IR, PassID, PIC.getPassNameForClassName(PassID))) {
-      OS << " Filtered Out ***\n";
-      return;
-    }
-    OS << " Started ***\n";
-    unwrapAndPrint(OS, IR);
-  });
+  PIC.registerBeforeNonSkippedPassCallback(
+      [&PIC, this](StringRef PassID, Any IR) {
+        SavedIR.clear();
+        raw_string_ostream OS(SavedIR);
+        OS << formatv("*** Dump of {0}IR Before Last Pass {1}",
+                      llvm::forcePrintModuleIR() ? "Module " : "", PassID);
+        if (!isInteresting(IR, PassID, PIC.getPassNameForClassName(PassID))) {
+          OS << " Filtered Out ***\n";
+          return;
+        }
+        OS << " Started ***\n";
+        unwrapAndPrint(OS, IR);
+      });
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
