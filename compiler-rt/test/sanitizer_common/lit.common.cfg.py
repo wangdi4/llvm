@@ -95,22 +95,17 @@ if config.host_os not in ["Linux", "Darwin", "NetBSD", "FreeBSD", "SunOS"]:
 if not config.parallelism_group:
     config.parallelism_group = "shadow-memory"
 
-<<<<<<< HEAD
-if config.host_os == 'NetBSD':
-  config.substitutions.insert(0, ('%run', config.netbsd_noaslr_prefix))
+if config.host_os == "NetBSD":
+    config.substitutions.insert(0, ("%run", config.netbsd_noaslr_prefix))
 
 # INTEL_CUSTOMIZATION
 # JIRA: CMPLRLLVM-47137, CMPLRLLVM-47138
 # Add detection for 5-level paging, some testes may fail with that.
 # LA57 is the control register flag name for 5-level paging.
 import subprocess
-cmd = subprocess.Popen('lscpu | grep la57', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+cmd = subprocess.Popen("lscpu | grep la57", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 cmd_stdout, _ = cmd.communicate()
 have_la57 = cmd_stdout.strip()
 if len(have_la57) > 0:
-  config.available_features.add('la57')
+    config.available_features.add("la57")
 # end INTEL_CUSTOMIZATION
-=======
-if config.host_os == "NetBSD":
-    config.substitutions.insert(0, ("%run", config.netbsd_noaslr_prefix))
->>>>>>> bb0c00316d408b5d9e7551829e9d42d966242fee

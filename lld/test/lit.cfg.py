@@ -27,15 +27,11 @@ config.suffixes = [".ll", ".s", ".test", ".yaml", ".objtxt"]
 # excludes: A list of directories to exclude from the testsuite. The 'Inputs'
 # subdirectories contain auxiliary inputs for various tests in their parent
 # directories.
-<<<<<<< HEAD
-config.excludes = ['Inputs']
+config.excludes = ["Inputs"]
 # INTEL_CUSTOMIZATION
 # Exclude tests for disabled functionality.
-config.excludes.extend(['darwin', 'mach-o', 'MachO', 'MinGW'])
+config.excludes.extend(["darwin", "mach-o", "MachO", "MinGW"])
 # end INTEL_CUSTOMIZATION
-=======
-config.excludes = ["Inputs"]
->>>>>>> bb0c00316d408b5d9e7551829e9d42d966242fee
 
 # test_source_root: The root path where tests are located.
 config.test_source_root = os.path.dirname(__file__)
@@ -46,18 +42,6 @@ llvm_config.use_default_substitutions()
 llvm_config.use_lld()
 
 tool_patterns = [
-<<<<<<< HEAD
-    'llc', 'llvm-as', 'llvm-mc', 'llvm-nm', 'llvm-objdump', 'llvm-otool', 'llvm-pdbutil',
-    'llvm-dwarfdump', 'llvm-readelf', 'llvm-readobj', 'obj2yaml', 'yaml2obj',
-    'opt', 'llvm-dis']
-# INTEL_CUSTOMIZATION
-tool_patterns.append('clang-cl')
-# Note: 'clang' was added in the tools instead of 'clang++' because there is
-# an issue parsing special symbols. The parsing process converts 'clang++'
-# as 'clang+++++++'. This issue produces a missing command failure.
-tool_patterns.append('clang')
-# end INTEL_CUSTOMIZATION
-=======
     "llc",
     "llvm-as",
     "llvm-mc",
@@ -73,7 +57,13 @@ tool_patterns.append('clang')
     "opt",
     "llvm-dis",
 ]
->>>>>>> bb0c00316d408b5d9e7551829e9d42d966242fee
+# INTEL_CUSTOMIZATION
+tool_patterns.append("clang-cl")
+# Note: 'clang' was added in the tools instead of 'clang++' because there is
+# an issue parsing special symbols. The parsing process converts 'clang++'
+# as 'clang+++++++'. This issue produces a missing command failure.
+tool_patterns.append("clang")
+# end INTEL_CUSTOMIZATION
 
 llvm_config.add_tool_substitutions(tool_patterns)
 

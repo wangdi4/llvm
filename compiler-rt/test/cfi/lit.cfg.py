@@ -22,28 +22,19 @@ if "darwin" in config.available_features:
 elif config.lto_supported:
     clang_cfi = clang + "-fsanitize=cfi "
 
-<<<<<<< HEAD
-  if config.cfi_lit_test_mode == "Devirt":
-    config.available_features.add('devirt')
-    clang_cfi += '-fwhole-program-vtables '
-    # INTEL_CUSTOMIZATION
-    # INTEL_FEATURE_SW_DTRANS
-    clang_cfi += '-Wl,--plugin-opt=-wholeprogramdevirt-multiversion=false '
-    # end INTEL_FEATURE_SW_DTRANS
-    # end INTEL_CUSTOMIZATION
-    config.substitutions.append((r"%expect_crash_unless_devirt ", ""))
-  else:
-    config.substitutions.append((r"%expect_crash_unless_devirt ", config.expect_crash))
-=======
     if config.cfi_lit_test_mode == "Devirt":
         config.available_features.add("devirt")
         clang_cfi += "-fwhole-program-vtables "
+        # INTEL_CUSTOMIZATION
+        # INTEL_FEATURE_SW_DTRANS
+        clang_cfi += "-Wl,--plugin-opt=-wholeprogramdevirt-multiversion=false "
+        # end INTEL_FEATURE_SW_DTRANS
+        # end INTEL_CUSTOMIZATION
         config.substitutions.append((r"%expect_crash_unless_devirt ", ""))
     else:
         config.substitutions.append(
             (r"%expect_crash_unless_devirt ", config.expect_crash)
         )
->>>>>>> bb0c00316d408b5d9e7551829e9d42d966242fee
 
     cxx = " ".join(config.cxx_mode_flags) + " "
     diag = "-fno-sanitize-trap=cfi -fsanitize-recover=cfi "
