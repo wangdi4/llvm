@@ -2815,14 +2815,8 @@ static bool hoistAddSub(Instruction &I, Loop &L, ICFLoopSafetyInfo &SafetyInfo,
 
 static bool hoistArithmetics(Instruction &I, Loop &L,
                              ICFLoopSafetyInfo &SafetyInfo,
-<<<<<<< HEAD
                              MemorySSAUpdater &MSSAU, AssumptionCache *AC,
-                             DominatorTree *DT, bool LoopOptFull) { // INTEL
-=======
-                             MemorySSAUpdater &MSSAU,
-                             AssumptionCache *AC, DominatorTree *DT,
-                             bool DisableGEPHoist) { // INTEL
->>>>>>> 65377ff83c0f410d86ca5dd00b7a017a8658a4e2
+                             DominatorTree *DT, bool DisableGEPHoist) { // INTEL
   // Optimize complex patterns, such as (x < INV1 && x < INV2), turning them
   // into (x < min(INV1, INV2)), and hoisting the invariant part of this
   // expression out of the loop.
