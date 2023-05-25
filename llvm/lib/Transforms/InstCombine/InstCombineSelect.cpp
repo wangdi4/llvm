@@ -3179,12 +3179,25 @@ Instruction *InstCombinerImpl::foldSelectOfBools(SelectInst &SI) {
   // checks whether folding it does not convert a well-defined value into
   // poison.
   if (match(TrueVal, m_One())) {
+
+#if INTEL_CUSTOMIZATION
+    // This is a partial revert of 754f3ae6. The existing select->or
+    // heuristics were working OK, don't change them.
+    // Specifically, the !INTEL section below will drop important
+    // flags such as nuw/nsw/nnan, just to make this conversion which may
+    // have low optimization value.
+    if (impliesPoison(FalseVal, CondVal)) {
+      // Change: A = select B, true, C --> A = or B, C
+      return BinaryOperator::CreateOr(CondVal, FalseVal);
+    }
+#endif // INTEL_CUSTOMIZATION
     if (auto *LHS = dyn_cast<FCmpInst>(CondVal))
       if (auto *RHS = dyn_cast<FCmpInst>(FalseVal))
         if (Value *V = foldLogicOfFCmps(LHS, RHS, /*IsAnd*/ false,
                                         /*IsSelectLogical*/ true))
           return replaceInstUsesWith(SI, V);
 
+#if !INTEL_CUSTOMIZATION
     // Some patterns can be matched by both of the above and following
     // combinations. Because we need to drop poison generating
     // flags and metadatas for the following combination, it has less priority
@@ -3195,6 +3208,7 @@ Instruction *InstCombinerImpl::foldSelectOfBools(SelectInst &SI) {
       // Change: A = select B, true, C --> A = or B, C
       return BinaryOperator::CreateOr(CondVal, FalseVal);
     }
+#endif // !INTEL_CUSTOMIZATION
 
     // (A && B) || (C && B) --> (A || C) && B
     if (match(CondVal, m_LogicalAnd(m_Value(A), m_Value(B))) &&
@@ -3226,12 +3240,21 @@ Instruction *InstCombinerImpl::foldSelectOfBools(SelectInst &SI) {
   }
 
   if (match(FalseVal, m_Zero())) {
+#if INTEL_CUSTOMIZATION
+    // See comment about 754f3ae6 above.
+    if (impliesPoison(TrueVal, CondVal)) {
+      // Change: A = select B, C, false --> A = and B, C
+      return BinaryOperator::CreateAnd(CondVal, TrueVal);
+    }
+#endif // INTEL_CUSTOMIZATION
+
     if (auto *LHS = dyn_cast<FCmpInst>(CondVal))
       if (auto *RHS = dyn_cast<FCmpInst>(TrueVal))
         if (Value *V = foldLogicOfFCmps(LHS, RHS, /*IsAnd*/ true,
                                         /*IsSelectLogical*/ true))
           return replaceInstUsesWith(SI, V);
 
+#if !INTEL_CUSTOMIZATION
     // Some patterns can be matched by both of the above and following
     // combinations. Because we need to drop poison generating
     // flags and metadatas for the following combination, it has less priority
@@ -3242,6 +3265,7 @@ Instruction *InstCombinerImpl::foldSelectOfBools(SelectInst &SI) {
       // Change: A = select B, C, false --> A = and B, C
       return BinaryOperator::CreateAnd(CondVal, TrueVal);
     }
+#endif // !INTEL_CUSTOMIZATION
 
     // (A || B) && (C || B) --> (A && C) || B
     if (match(CondVal, m_LogicalOr(m_Value(A), m_Value(B))) &&
