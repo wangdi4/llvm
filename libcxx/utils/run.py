@@ -47,18 +47,14 @@ def main():
             )
 
     # Extract environment variables into a dictionary
-<<<<<<< HEAD
     # INTEL_CUSTOMIZATION
     # If no extra env args are passed in, the default empty value
     # will clear all env variable and cause the lit test to run fail.
     # So we set env to 'None' if no extra env args.
     env = None
     if args.env:
-        env = {k : v  for (k, v) in map(lambda s: s.split('=', 1), args.env)}
+        env = {k: v for (k, v) in map(lambda s: s.split("=", 1), args.env)}
     # end INTEL_CUSTOMIZATION
-=======
-    env = {k: v for (k, v) in map(lambda s: s.split("=", 1), args.env)}
->>>>>>> 7bfaa0f09d0564f315ea778023b34b8a113ec740
 
     # Set environment variables where we prepend the given value to the
     # existing environment variable.
