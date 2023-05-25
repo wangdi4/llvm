@@ -7,7 +7,7 @@
 ; Function Attrs: nofree norecurse nosync nounwind readonly uwtable
 define dso_local double @foo(double* noalias nocapture readonly %dst, double* noalias nocapture readonly %luval, i32** nocapture readonly %rowstart, i32* nocapture readnone %first_after_diagonal, i32 %N) local_unnamed_addr {
 ; X64-CORE-AVX2-LABEL: foo:
-; X64-CORE-AVX2:       # %bb.0: # %entry
+; X64-CORE-AVX2:       # %bb.0:
 ; X64-CORE-AVX2-NEXT:    pushq %r15
 ; X64-CORE-AVX2-NEXT:    .cfi_def_cfa_offset 16
 ; X64-CORE-AVX2-NEXT:    pushq %r14
@@ -344,61 +344,61 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-ADL-NEXT:  .LBB0_6: # %loop.48.clone
 ; X64-ADL-NEXT:    # Parent Loop BB0_5 Depth=1
 ; X64-ADL-NEXT:    # => This Inner Loop Header: Depth=2
+; X64-ADL-NEXT:    vpmovzxdq {{.*#+}} ymm7 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero
 ; X64-ADL-NEXT:    vpmovzxdq {{.*#+}} ymm9 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero
 ; X64-ADL-NEXT:    vpmovzxdq {{.*#+}} ymm8 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero
-; X64-ADL-NEXT:    vpmovzxdq {{.*#+}} ymm7 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero
 ; X64-ADL-NEXT:    vpmovzxdq {{.*#+}} ymm6 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero
 ; X64-ADL-NEXT:    vpsllq $3, %ymm6, %ymm6
-; X64-ADL-NEXT:    vpsllq $3, %ymm7, %ymm7
+; X64-ADL-NEXT:    vpaddq %ymm6, %ymm1, %ymm6
 ; X64-ADL-NEXT:    vpsllq $3, %ymm8, %ymm8
 ; X64-ADL-NEXT:    vpaddq %ymm1, %ymm8, %ymm8
 ; X64-ADL-NEXT:    vpsllq $3, %ymm9, %ymm9
 ; X64-ADL-NEXT:    vpaddq %ymm1, %ymm9, %ymm9
-; X64-ADL-NEXT:    vextracti128 $1, %ymm9, %xmm10
-; X64-ADL-NEXT:    vmovq %xmm10, %rsi
-; X64-ADL-NEXT:    vmovsd {{.*#+}} xmm11 = mem[0],zero
-; X64-ADL-NEXT:    vpextrq $1, %xmm10, %rsi
-; X64-ADL-NEXT:    vmovhpd {{.*#+}} xmm10 = xmm11[0],mem[0]
-; X64-ADL-NEXT:    vmovq %xmm9, %rsi
-; X64-ADL-NEXT:    vmovsd {{.*#+}} xmm11 = mem[0],zero
-; X64-ADL-NEXT:    vpextrq $1, %xmm9, %rsi
-; X64-ADL-NEXT:    vextracti128 $1, %ymm8, %xmm9
-; X64-ADL-NEXT:    vmovhpd {{.*#+}} xmm11 = xmm11[0],mem[0]
-; X64-ADL-NEXT:    vmovq %xmm9, %rsi
-; X64-ADL-NEXT:    vmovsd {{.*#+}} xmm12 = mem[0],zero
-; X64-ADL-NEXT:    vpextrq $1, %xmm9, %rsi
-; X64-ADL-NEXT:    vmovhpd {{.*#+}} xmm9 = xmm12[0],mem[0]
+; X64-ADL-NEXT:    vpsllq $3, %ymm7, %ymm7
 ; X64-ADL-NEXT:    vpaddq %ymm7, %ymm1, %ymm7
-; X64-ADL-NEXT:    vmovq %xmm8, %rsi
+; X64-ADL-NEXT:    vextracti128 $1, %ymm7, %xmm10
+; X64-ADL-NEXT:    vmovq %xmm10, %rsi
+; X64-ADL-NEXT:    vpextrq $1, %xmm10, %rdi
+; X64-ADL-NEXT:    vmovsd {{.*#+}} xmm10 = mem[0],zero
+; X64-ADL-NEXT:    vmovq %xmm9, %rsi
+; X64-ADL-NEXT:    vextracti128 $1, %ymm9, %xmm11
+; X64-ADL-NEXT:    vmovhpd {{.*#+}} xmm10 = xmm10[0],mem[0]
+; X64-ADL-NEXT:    vmovq %xmm11, %rdi
 ; X64-ADL-NEXT:    vmovsd {{.*#+}} xmm12 = mem[0],zero
-; X64-ADL-NEXT:    vpextrq $1, %xmm8, %rsi
-; X64-ADL-NEXT:    vextracti128 $1, %ymm7, %xmm8
+; X64-ADL-NEXT:    vpextrq $1, %xmm11, %rdi
+; X64-ADL-NEXT:    vmovhpd {{.*#+}} xmm11 = xmm12[0],mem[0]
+; X64-ADL-NEXT:    vpextrq $1, %xmm9, %rdi
+; X64-ADL-NEXT:    vextracti128 $1, %ymm8, %xmm9
+; X64-ADL-NEXT:    vmovsd {{.*#+}} xmm12 = mem[0],zero
+; X64-ADL-NEXT:    vmovq %xmm9, %rsi
 ; X64-ADL-NEXT:    vmovhpd {{.*#+}} xmm12 = xmm12[0],mem[0]
+; X64-ADL-NEXT:    vpextrq $1, %xmm9, %rdi
+; X64-ADL-NEXT:    vmovsd {{.*#+}} xmm9 = mem[0],zero
 ; X64-ADL-NEXT:    vmovq %xmm8, %rsi
+; X64-ADL-NEXT:    vmovhpd {{.*#+}} xmm9 = xmm9[0],mem[0]
+; X64-ADL-NEXT:    vpextrq $1, %xmm8, %rdi
+; X64-ADL-NEXT:    vextracti128 $1, %ymm6, %xmm8
 ; X64-ADL-NEXT:    vmovsd {{.*#+}} xmm13 = mem[0],zero
-; X64-ADL-NEXT:    vpextrq $1, %xmm8, %rsi
-; X64-ADL-NEXT:    vmovhpd {{.*#+}} xmm8 = xmm13[0],mem[0]
-; X64-ADL-NEXT:    vmovq %xmm7, %rsi
-; X64-ADL-NEXT:    vmovsd {{.*#+}} xmm13 = mem[0],zero
-; X64-ADL-NEXT:    vpextrq $1, %xmm7, %rsi
-; X64-ADL-NEXT:    vpaddq %ymm6, %ymm1, %ymm6
-; X64-ADL-NEXT:    vextracti128 $1, %ymm6, %xmm7
+; X64-ADL-NEXT:    vmovq %xmm8, %rsi
 ; X64-ADL-NEXT:    vmovhpd {{.*#+}} xmm13 = xmm13[0],mem[0]
-; X64-ADL-NEXT:    vmovq %xmm7, %rsi
-; X64-ADL-NEXT:    vmovsd {{.*#+}} xmm14 = mem[0],zero
-; X64-ADL-NEXT:    vpextrq $1, %xmm7, %rsi
-; X64-ADL-NEXT:    vmovhpd {{.*#+}} xmm7 = xmm14[0],mem[0]
+; X64-ADL-NEXT:    vpextrq $1, %xmm8, %rdi
+; X64-ADL-NEXT:    vmovsd {{.*#+}} xmm8 = mem[0],zero
 ; X64-ADL-NEXT:    vmovq %xmm6, %rsi
-; X64-ADL-NEXT:    vmovsd {{.*#+}} xmm14 = mem[0],zero
-; X64-ADL-NEXT:    vpextrq $1, %xmm6, %rsi
-; X64-ADL-NEXT:    vinsertf128 $1, %xmm10, %ymm11, %ymm6
-; X64-ADL-NEXT:    vinsertf128 $1, %xmm9, %ymm12, %ymm9
-; X64-ADL-NEXT:    vmovhpd {{.*#+}} xmm10 = xmm14[0],mem[0]
-; X64-ADL-NEXT:    vinsertf128 $1, %xmm8, %ymm13, %ymm8
-; X64-ADL-NEXT:    vinsertf128 $1, %xmm7, %ymm10, %ymm7
-; X64-ADL-NEXT:    vfmadd231pd {{.*#+}} ymm5 = (ymm7 * mem) + ymm5
-; X64-ADL-NEXT:    vfmadd231pd {{.*#+}} ymm4 = (ymm8 * mem) + ymm4
-; X64-ADL-NEXT:    vfmadd231pd {{.*#+}} ymm3 = (ymm9 * mem) + ymm3
+; X64-ADL-NEXT:    vmovhpd {{.*#+}} xmm8 = xmm8[0],mem[0]
+; X64-ADL-NEXT:    vpextrq $1, %xmm6, %rdi
+; X64-ADL-NEXT:    vmovsd {{.*#+}} xmm6 = mem[0],zero
+; X64-ADL-NEXT:    vmovq %xmm7, %rsi
+; X64-ADL-NEXT:    vmovhpd {{.*#+}} xmm6 = xmm6[0],mem[0]
+; X64-ADL-NEXT:    vpextrq $1, %xmm7, %rdi
+; X64-ADL-NEXT:    vmovsd {{.*#+}} xmm7 = mem[0],zero
+; X64-ADL-NEXT:    vinsertf128 $1, %xmm11, %ymm12, %ymm11
+; X64-ADL-NEXT:    vinsertf128 $1, %xmm9, %ymm13, %ymm9
+; X64-ADL-NEXT:    vinsertf128 $1, %xmm8, %ymm6, %ymm6
+; X64-ADL-NEXT:    vmovhpd {{.*#+}} xmm7 = xmm7[0],mem[0]
+; X64-ADL-NEXT:    vfmadd231pd {{.*#+}} ymm5 = (ymm6 * mem) + ymm5
+; X64-ADL-NEXT:    vfmadd231pd {{.*#+}} ymm4 = (ymm9 * mem) + ymm4
+; X64-ADL-NEXT:    vfmadd231pd {{.*#+}} ymm3 = (ymm11 * mem) + ymm3
+; X64-ADL-NEXT:    vinsertf128 $1, %xmm10, %ymm7, %ymm6
 ; X64-ADL-NEXT:    vfmadd231pd {{.*#+}} ymm2 = (ymm6 * mem) + ymm2
 ; X64-ADL-NEXT:    addq $16, %rdx
 ; X64-ADL-NEXT:    leal -16(%rdx), %esi

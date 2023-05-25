@@ -6770,16 +6770,12 @@ static bool unfoldLoad(const MachineInstr &MI) {
   case X86::TEST8ri:
   case X86::TEST8rr:
   case X86::CMP16ri:
-  case X86::CMP16ri8:
   case X86::CMP16rr:
   case X86::CMP32ri:
-  case X86::CMP32ri8:
   case X86::CMP32rr:
   case X86::CMP64ri32:
-  case X86::CMP64ri8:
   case X86::CMP64rr:
   case X86::CMP8ri:
-  case X86::CMP8ri8:
   case X86::CMP8rr:
 
   // Sign extending loads
