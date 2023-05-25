@@ -1,4 +1,8 @@
+// TODO - create/modify this test for use within the unified directory
+// structure.
 // INTEL UNSUPPORTED: intel_opencl && i686-pc-windows
+// UNSUPPORTED: intel_unified_layout
+
 /// Covers the Intel performance library options for IPP, MKL, TBB, DAAL
 
 // IPP tests

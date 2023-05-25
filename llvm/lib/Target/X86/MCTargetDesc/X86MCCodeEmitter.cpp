@@ -1974,6 +1974,20 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI,
 
   uint64_t StartByte = CB.size();
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  if (X86II::isUnImplementedForEGPR(Opcode)) {
+    for (unsigned I = CurOp; I != NumOps; ++I) {
+      const MCOperand &MO = MI.getOperand(I);
+      if (MO.isReg() && X86II::isApxExtendedReg(MO.getReg()))
+        report_fatal_error(Twine("Instruction with opcode ") +
+                           std::to_string(Opcode) +
+                           " is not supported for EGPR in SDE yet");
+    }
+  }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+
   PrefixKind Kind = emitPrefixImpl(CurOp, MI, STI, CB);
 
   // It uses the VEX.VVVV field?

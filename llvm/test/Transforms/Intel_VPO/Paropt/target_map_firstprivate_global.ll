@@ -1,9 +1,11 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 ;
 ; Check whether the compiler generates the correct code for firstprivate global.
-;
+; 
+; #pragma omp declare target
 ; int pvtPtr;
+; #pragma omp end declare target
 ; int main() {
 ;   scanf("%d", &pvtPtr);
 ;   int out;
@@ -15,63 +17,57 @@
 ;   printf("%d\n", out);
 ; }
 
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+; CHECK: %pvtPtr.fpriv = alloca i32
+
 target triple = "x86_64-unknown-linux-gnu"
 target device_triples = "x86_64-unknown-linux-gnu"
 
+@pvtPtr = dso_local target_declare global i32 0, align 4
 @.str = private unnamed_addr constant [3 x i8] c"%d\00", align 1
-@pvtPtr = common dso_local global i32 0, align 4
 @.str.1 = private unnamed_addr constant [4 x i8] c"%d\0A\00", align 1
+@llvm.global_ctors = appending global [1 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 0, ptr @.omp_offloading.requires_reg, ptr null }]
 
-; Function Attrs: nounwind uwtable
-define dso_local i32 @main() #0 {
+define dso_local noundef i32 @main() {
 entry:
   %out = alloca i32, align 4
-  %call = call i32 (i8*, ...) @__isoc99_scanf(i8* getelementptr inbounds ([3 x i8], [3 x i8]* @.str, i32 0, i32 0), i32* @pvtPtr)
-  %0 = bitcast i32* %out to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* %0) #3
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.FIRSTPRIVATE"(i32* @pvtPtr), "QUAL.OMP.MAP.FROM"(i32* %out, i32* %out, i64 4, i64 34, i8* null, i8* null) ]
-  %2 = load i32, i32* @pvtPtr, align 4, !tbaa !3
-  %add = add nsw i32 %2, 1
-  store i32 %add, i32* %out, align 4, !tbaa !3
-  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TARGET"() ]
-  %3 = load i32, i32* %out, align 4, !tbaa !3
-  %call1 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str.1, i32 0, i32 0), i32 %3)
-  %4 = bitcast i32* %out to i8*
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* %4) #3
+  %call = call i32 (ptr, ...) @__isoc99_scanf(ptr noundef @.str, ptr noundef @pvtPtr)
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1),
+    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr @pvtPtr, i32 0, i32 1),
+    "QUAL.OMP.MAP.FROM"(ptr %out, ptr %out, i64 4, i64 34, ptr null, ptr null) ] ; MAP type: 34 = 0x22 = TARGET_PARAM (0x20) | FROM (0x2)
+
+  %1 = load i32, ptr @pvtPtr, align 4
+  %add = add nsw i32 %1, 1
+  store i32 %add, ptr %out, align 4
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
+
+  %2 = load i32, ptr %out, align 4
+  %call1 = call i32 (ptr, ...) @printf(ptr noundef @.str.1, i32 noundef %2)
   ret i32 0
 }
 
-declare dso_local i32 @__isoc99_scanf(i8*, ...) #1
+declare dso_local i32 @__isoc99_scanf(ptr noundef, ...)
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #2
+declare token @llvm.directive.region.entry()
 
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #3
+declare void @llvm.directive.region.exit(token)
 
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #3
+declare dso_local i32 @printf(ptr noundef, ...)
 
-declare dso_local i32 @printf(i8*, ...) #1
+define internal void @.omp_offloading.requires_reg() #3 section ".text.startup" {
+entry:
+  call void @__tgt_register_requires(i64 1)
+  ret void
+}
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #2
+declare void @__tgt_register_requires(i64)
 
-attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #2 = { argmemonly nounwind }
-attributes #3 = { nounwind }
+!omp_offload.info = !{!0, !1}
+!llvm.module.flags = !{!2, !3, !4, !5}
 
-!omp_offload.info = !{!0}
-!llvm.module.flags = !{!1}
-!llvm.ident = !{!2}
-
-!0 = !{i32 0, i32 59, i32 -1945271149, !"main", i32 8, i32 0, i32 0}
-!1 = !{i32 1, !"wchar_size", i32 4}
-!2 = !{!"clang version 8.0.0"}
-!3 = !{!4, !4, i64 0}
-!4 = !{!"int", !5, i64 0}
-!5 = !{!"omnipotent char", !6, i64 0}
-!6 = !{!"Simple C/C++ TBAA"}
-; CHECK: %pvtPtr.fpriv = alloca i32
+!0 = !{i32 0, i32 64773, i32 3828821, !"_Z4main", i32 10, i32 0, i32 1, i32 0}
+!1 = !{i32 1, !"_Z6pvtPtr", i32 0, i32 0, ptr @pvtPtr}
+!2 = !{i32 1, !"wchar_size", i32 4}
+!3 = !{i32 7, !"openmp", i32 51}
+!4 = !{i32 7, !"uwtable", i32 2}
+!5 = !{i32 7, !"frame-pointer", i32 2}

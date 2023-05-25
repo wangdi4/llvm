@@ -43,10 +43,9 @@ private:
   /// variables
   void parseLocalBuffers(Function *F, Value *LocalMem);
 
-  /// @brief Copies DebugInfo of `GV` to Local Memory Buffer `LocalMem`,
-  ///        with corresponding `offset`.
-  void attachDebugInfoToLocalMem(GlobalVariable *GV, Value *LocalMem,
-                                 unsigned offset);
+  /// @brief Copies DebugInfo of `GV` to Local Memory Buffer address
+  /// `LocalAddr`.
+  void attachDebugInfoToLocalAddr(GlobalVariable *GV, Value *LocalAddr);
 
   /// @brief At the end of this pass, the GlobalVariables (__local) DebugInfo
   ///        should be removed from DICompileUnit's "globals" field, so that

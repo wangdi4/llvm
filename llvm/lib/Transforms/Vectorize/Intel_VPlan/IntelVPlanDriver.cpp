@@ -1091,30 +1091,32 @@ void VPlanDriverImpl::addOptReportRemarks(WRNVecLoopNode *WRLp,
       TTI::AdvancedOptLevel::AO_TargetHasIntelAVX512))
     // 15569 remark is "Compiler has chosen to target XMM/YMM vector."
     // "Try using -mprefer-vector-width=512 to override."
-    VPORBuilder.addRemark(VCodeGen->getMainLoop(),
-                          OptReportVerbosity::High, 15569);
+    VPORBuilder.addRemark(VCodeGen->getMainLoop(), OptReportVerbosity::High,
+                          ShortVectorRemarkID);
   // The new vectorized loop is stored in MainLoop
   Loop *MainLoop = VCodeGen->getMainLoop();
   if (WRLp && WRLp->isOmpSIMDLoop())
     // Adds remark SIMD LOOP WAS VECTORIZED
-    VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low, 15301);
+    VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low,
+                          SimdLoopSuccessRemarkID);
   else
     // Adds remark LOOP WAS VECTORIZED
-    VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low, 15300);
+    VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low,
+                          LoopSuccessRemarkID);
 
   // Next print the loop number.
   if (ReportLoopNumber)
     VPORBuilder.addRemark(
-        MainLoop, OptReportVerbosity::Low, 15506,
+        MainLoop, OptReportVerbosity::Low, LoopNumberRemarkID,
         Twine(LoopVectorizationPlanner::getVPlanOrderNumber()).str());
 
   // Add remark about VF
-  VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low, 15305,
+  VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low, VectorLengthRemarkID,
                         Twine(VCodeGen->getVF()).str());
   // Add remark about UF
   if (VCodeGen->getUF() > 1)
-    VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low, 15399,
-                          Twine(VCodeGen->getUF()).str());
+    VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low,
+                          UnrollFactorRemarkID, Twine(VCodeGen->getUF()).str());
 
   // VPLoop corresponding to MainLoop should be the outer most loop in CFG.
   auto *Plan = cast<VPlanVector>(VCodeGen->getPlan());
@@ -1127,7 +1129,8 @@ void VPlanDriverImpl::addOptReportRemarks(WRNVecLoopNode *WRLp,
   // not vectorized
   if (VCodeGen->getNeedRemainderLoop()) {
     Loop *RemLoop = VCodeGen->getRemainderLoop();
-    VPORBuilder.addRemark(RemLoop, OptReportVerbosity::Medium, 15441, "");
+    VPORBuilder.addRemark(RemLoop, OptReportVerbosity::Medium,
+                          RemainderNotVecRemarkID, "");
   }
 }
 
@@ -1150,27 +1153,32 @@ void VPlanDriverImpl::addOptReportRemarksForMainPlan(
           TTI::AdvancedOptLevel::AO_TargetHasIntelAVX512)) {
     // 15569 remark is "Compiler has chosen to target XMM/YMM vector."
     // "Try using -mprefer-vector-width=512 to override."
-    OptRptStats.GeneralRemarks.emplace_back(15569u, OptReportVerbosity::High);
+    OptRptStats.GeneralRemarks.emplace_back(ShortVectorRemarkID,
+                                            OptReportVerbosity::High);
   }
 
   if (WRLp && WRLp->isOmpSIMDLoop())
     // Adds remark SIMD LOOP WAS VECTORIZED
-    OptRptStats.GeneralRemarks.emplace_back(15301u, OptReportVerbosity::Low);
+    OptRptStats.GeneralRemarks.emplace_back(SimdLoopSuccessRemarkID,
+                                            OptReportVerbosity::Low);
   else
     // Adds remark LOOP WAS VECTORIZED
-    OptRptStats.GeneralRemarks.emplace_back(15300u, OptReportVerbosity::Low);
+    OptRptStats.GeneralRemarks.emplace_back(LoopSuccessRemarkID,
+                                            OptReportVerbosity::Low);
 
   // Next print the loop number.
   if (ReportLoopNumber)
     OptRptStats.GeneralRemarks.emplace_back(
-        15506, OptReportVerbosity::Low,
+        LoopNumberRemarkID, OptReportVerbosity::Low,
         Twine(LoopVectorizationPlanner::getVPlanOrderNumber()).str());
 
   // Add remark about VF
-  OptRptStats.GeneralRemarks.emplace_back(15305u, OptReportVerbosity::Low,
+  OptRptStats.GeneralRemarks.emplace_back(VectorLengthRemarkID,
+                                          OptReportVerbosity::Low,
                                           Twine(MainPlanDescr.getVF()).str());
   if (MainPlanDescr.getUF() > 1)
-    OptRptStats.GeneralRemarks.emplace_back(15399, OptReportVerbosity::Low,
+    OptRptStats.GeneralRemarks.emplace_back(UnrollFactorRemarkID,
+                                            OptReportVerbosity::Low,
                                             Twine(MainPlanDescr.getUF()).str());
 }
 
