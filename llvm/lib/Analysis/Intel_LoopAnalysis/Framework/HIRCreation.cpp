@@ -161,12 +161,6 @@ HLNode *HIRCreation::populateInstSequence(BasicBlock *BB,
 
   for (auto I = BB->getFirstInsertionPt(), E = std::prev(BB->end()); I != E;
        ++I) {
-    // This is a hack to ignore the experimental noalias scope intrinsic as they
-    // are currently unused.
-    // TODO: process them when they start getting used by alias analysis.
-    if (isa<NoAliasScopeDeclInst>(I)) {
-      continue;
-    }
     auto Inst = HNU.createHLInst(&*I);
     if (const SelectInst *SI = dyn_cast<SelectInst>(&*I)) {
       MDNode *Prof = SI->getMetadata(LLVMContext::MD_prof);
