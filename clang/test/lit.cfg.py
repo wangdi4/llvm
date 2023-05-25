@@ -310,6 +310,9 @@ if ics_wsvariant and ics_wsvariant.startswith('xmainocl'):
 if config.intel_llvm_has_libompdevice:
     config.available_features.add("intel_libompdevice")
 
+if config.intel_deploy_unified_layout == 'ON':
+    config.available_features.add("intel_unified_layout")
+
 llvm_config.add_intel_features()
 
 import lit.llvm.util
