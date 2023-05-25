@@ -1,5 +1,4 @@
-; RUN: opt -opaque-pointers=0 -passes='sycl-kernel-add-implicit-args,sycl-kernel-local-buffers' -S < %s | FileCheck %s -check-prefixes=CHECK,NONOPAQUE
-; RUN: opt -opaque-pointers -passes='sycl-kernel-add-implicit-args,sycl-kernel-local-buffers' -S < %s | FileCheck %s -check-prefixes=CHECK,OPAQUE
+; RUN: opt -passes='sycl-kernel-add-implicit-args,sycl-kernel-local-buffers' -S < %s | FileCheck %s
 
 ; transfer debug info from global variables to pLocalMemBase
 
@@ -16,27 +15,22 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 @a.clone.__local = internal addrspace(3) global [4 x i32] undef, align 4, !dbg !0
 @b.clone.__local = internal addrspace(3) global [4 x i64] undef, align 8, !dbg !17
 
-; NONOPAQUE-LABEL: define void @main_kernel
-; OPAQUE-LABEL: define void @main_kernel
+; CHECK-LABEL: define void @main_kernel
 define void @main_kernel() !dbg !2 {
 entry:
 ; DebugInfo of @a.__local is transferred to pLocalMemBase, with offset 0 (omitted)
-; NONOPAQUE: call void @llvm.dbg.value(metadata i8 addrspace(3)* %pLocalMemBase,
-; NONOPAQUE-SAME: metadata ![[#A_LOCAL:]],
-; NONOPAQUE-SAME: metadata !DIExpression(DW_OP_deref)
-; OPAQUE: call void @llvm.dbg.value(metadata ptr addrspace(3) %pLocalMemBase,
-; OPAQUE-SAME: metadata ![[#A_LOCAL:]],
-; OPAQUE-SAME: metadata !DIExpression(DW_OP_deref)
-  store i32 0, i32 addrspace(3)* getelementptr inbounds ([4 x i32], [4 x i32] addrspace(3)* @a.__local, i64 0, i64 0), align 4, !dbg !37
+; CHECK: [[GEP0:%[0-9]+]] = getelementptr i8, ptr addrspace(3) %pLocalMemBase, i32 0, !dbg
+; CHECK-NEXT: call void @llvm.dbg.value(metadata ptr addrspace(3) [[GEP0]],
+; CHECK-SAME: metadata ![[#A_LOCAL:]],
+; CHECK-SAME: metadata !DIExpression(DW_OP_deref)
+  store i32 0, ptr addrspace(3) @a.__local, align 4, !dbg !37
 
 ; DebugInfo of @b.__local is transferred to pLocalMemBase, with offset 16 (size of [4 x i32])
-; NONOPAQUE: call void @llvm.dbg.value(metadata i8 addrspace(3)* %pLocalMemBase,
-; NONOPAQUE-SAME: metadata ![[#B_LOCAL:]],
-; NONOPAQUE-SAME: metadata !DIExpression(DW_OP_deref, DW_OP_plus_uconst, 16)
-; OPAQUE: call void @llvm.dbg.value(metadata ptr addrspace(3) %pLocalMemBase,
-; OPAQUE-SAME: metadata ![[#B_LOCAL:]],
-; OPAQUE-SAME: metadata !DIExpression(DW_OP_deref, DW_OP_plus_uconst, 16)
-  store i64 0, i64 addrspace(3)* getelementptr inbounds ([4 x i64], [4 x i64] addrspace(3)* @b.__local, i64 0, i64 0), align 8, !dbg !40
+; CHECK: [[GEP16:%[0-9]+]] = getelementptr i8, ptr addrspace(3) %pLocalMemBase, i32 16, !dbg
+; CHECK-NEXT: call void @llvm.dbg.value(metadata ptr addrspace(3) [[GEP16]],
+; CHECK-SAME: metadata ![[#B_LOCAL:]],
+; CHECK-SAME: metadata !DIExpression(DW_OP_deref)
+  store i64 0, ptr addrspace(3) @b.__local, align 8, !dbg !40
   ret void
 }
 
@@ -44,8 +38,8 @@ entry:
 define void @cloned.main_kernel() !dbg !41 {
 entry:
 ; Test that the optimizer doesn't crash if multiple functions use the same __local GV.
-  store i32 0, i32 addrspace(3)* getelementptr inbounds ([4 x i32], [4 x i32] addrspace(3)* @a.clone.__local, i64 0, i64 0), align 4
-  store i64 0, i64 addrspace(3)* getelementptr inbounds ([4 x i64], [4 x i64] addrspace(3)* @b.clone.__local, i64 0, i64 0), align 8
+  store i32 0, ptr addrspace(3) @a.clone.__local, align 4
+  store i64 0, ptr addrspace(3) @b.clone.__local, align 8
   ret void
 }
 
@@ -111,7 +105,7 @@ entry:
 !32 = !{!"2021.12.5.0"}
 !33 = !{!"debugger_test_type"}
 !34 = !{!"debugger_test_type1"}
-!35 = !{void ()* @main_kernel}
+!35 = !{ptr @main_kernel}
 !36 = !{!"Code is vectorizable"}
 !37 = !DILocation(line: 28, column: 18, scope: !38)
 !38 = distinct !DILexicalBlock(scope: !39, file: !3, line: 27, column: 29)
