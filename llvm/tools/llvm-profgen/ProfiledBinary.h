@@ -333,13 +333,8 @@ class ProfiledBinary {
                           std::map<SectionRef, SectionSymbolsTy> &AllSymbols);
 
   // Set up disassembler and related components.
-<<<<<<< HEAD
   void setUpDisassembler(const ObjectFile *Obj); // INTEL
-  void setupSymbolizer();
-=======
-  void setUpDisassembler(const ELFObjectFileBase *Obj);
   symbolize::LLVMSymbolizer::Options getSymbolizerOpts() const;
->>>>>>> 27c37327da67020f938aabf0f6405f57d688441e
 
   // Load debug info of subprograms from DWARF section.
   void loadSymbolsFromDWARF(ObjectFile &Obj);
