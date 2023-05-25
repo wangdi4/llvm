@@ -801,7 +801,10 @@ BitVector X86RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
   // Reserve the extended general purpose registers.
-  if (!MF.getSubtarget<X86Subtarget>().hasEGPR()) {
+  // NOTE: `Is64Bit` is added here to allow passsing EGPR flags to 32-bit tests
+  // (for convenience)
+  // TODO: Remove it when upstreaming
+  if (!Is64Bit || !MF.getSubtarget<X86Subtarget>().hasEGPR()) {
     for (unsigned n = 0; n != 16; ++n) {
       for (MCRegAliasIterator AI(X86::R16 + n, this, true); AI.isValid(); ++AI)
         Reserved.set(*AI);

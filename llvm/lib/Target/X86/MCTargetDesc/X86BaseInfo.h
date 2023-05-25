@@ -1382,6 +1382,17 @@ namespace X86II {
     return !Encoding && (OpMap == X86II::OB || OpMap == X86II::TB) &&
            !IsSpecial;
   }
+
+  inline bool isUnImplementedForEGPR(unsigned Opcode) {
+    switch (Opcode) {
+    default:
+      return false;
+#define BLACK_INSN(NAME)                                                     \
+    case X86::NAME:                                                            \
+      return true;
+#include "Intel_EGPR_Workaround_For_SDE.def"
+    }
+  }
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
