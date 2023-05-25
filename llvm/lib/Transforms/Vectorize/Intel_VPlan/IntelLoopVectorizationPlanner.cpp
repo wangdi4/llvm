@@ -1663,29 +1663,32 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     if (BestCostSummary.ScalarIterationCost.isValid()) {
       // Add remark: scalar cost
       OptRptStats.CostModelRemarks.emplace_back(
-          15476,
+          VPlanDriverImpl::ScalarCostRemarkID,
           std::to_string(BestCostSummary.ScalarIterationCost.getFloatValue()));
     }
     if (BestCostSummary.VectorIterationCost.isValid()) {
       // Add remark: vector cost
       OptRptStats.CostModelRemarks.emplace_back(
-          15477,
+          VPlanDriverImpl::VectorCostRemarkID,
           std::to_string(BestCostSummary.VectorIterationCost.getFloatValue()));
     }
     if (BestCostSummary.Speedup.isValid()) {
       // Add remark: estimated potential speedup
       OptRptStats.CostModelRemarks.emplace_back(
-          15478, std::to_string(BestCostSummary.Speedup.getFloatValue()));
+          VPlanDriverImpl::EstSpeedupRemarkID,
+          std::to_string(BestCostSummary.Speedup.getFloatValue()));
     }
     if (BestCostSummary.LoopOverhead.isValid()) {
       // Add remark: vectorization support: normalized vectorization overhead
       OptRptStats.CostModelRemarks.emplace_back(
-          15309, std::to_string(BestCostSummary.LoopOverhead.getFloatValue()));
+          VPlanDriverImpl::NormVecOverheadRemarkID,
+          std::to_string(BestCostSummary.LoopOverhead.getFloatValue()));
     }
     if (!IsTripCountEstimated) {
       // Add remark: using (estimated) scalar loop trip count
-      OptRptStats.CostModelRemarks.emplace_back(15570,
-                                                std::to_string(OrigTripCount));
+      OptRptStats.CostModelRemarks.emplace_back(
+          VPlanDriverImpl::ScalarTripCountRemarkID,
+          std::to_string(OrigTripCount));
     }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     if (VPlanDriverImpl::EmitDebugOptRemarks) {
@@ -1980,10 +1983,12 @@ void LoopVectorizationPlanner::emitVPEntityInstrs(VPlanVector *Plan) {
   if (LE->hasReduction()) {
     if (WRLp && WRLp->isOmpSIMDLoop())
       // Add remark Loop has SIMD reduction
-      OptRptStats.ReductionInstRemarks.emplace_back(25588, "");
+      OptRptStats.ReductionInstRemarks.emplace_back(
+          VPlanDriverImpl::HasSimdReductionRemarkID, "");
     else
       // Add remark Loop has reduction
-      OptRptStats.ReductionInstRemarks.emplace_back(25587, "");
+      OptRptStats.ReductionInstRemarks.emplace_back(
+          VPlanDriverImpl::HasReductionRemarkID, "");
   }
 
   VPLAN_DUMP(VPEntityInstructionsDumpControl, Plan);

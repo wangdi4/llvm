@@ -2059,7 +2059,8 @@ private:
     // vectorize the unmasked call (using all-true mask).
     unsigned UseMaskedForUnmasked : 1;
     // NOTE: the order of remarks in this enum is strictly tied to the order of
-    // remarks in Diag.cpp (15558-155562)
+    // remarks in Diag.cpp (15558-15562)
+    // TODO: What about remarks 15563-15566?
     enum class SerializationReason {
       UNDEFINED = 0,
       // Remark #15558: Call to function '%s' was serialized due to no suitable

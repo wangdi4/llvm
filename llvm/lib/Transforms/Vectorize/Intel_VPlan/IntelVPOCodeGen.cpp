@@ -1165,7 +1165,8 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
         serializeWithPredication(VPInst);
         // Remark: division was scalarized due to fp-model requirements
         OptRptStats.SerializedInstRemarks.emplace_back(
-            15566, Instruction::getOpcodeName(VPInst->getOpcode()));
+            VPlanDriverImpl::DivFpModelScalarRemarkID,
+            Instruction::getOpcodeName(VPInst->getOpcode()));
         return;
       }
     }
@@ -1405,10 +1406,14 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
                "Serialization reason is undefined");
         if (Func == nullptr)
           OptRptStats.SerializedInstRemarks.emplace_back(
-              15557 + VPCall->getSerialReasonNum(), "");
+              VPlanDriverImpl::FirstSerializeRemarkID - 1 +
+                  VPCall->getSerialReasonNum(),
+              "");
         else
           OptRptStats.SerializedInstRemarks.emplace_back(
-              15557 + VPCall->getSerialReasonNum(), (Func->getName()).str());
+              VPlanDriverImpl::FirstSerializeRemarkID - 1 +
+                  VPCall->getSerialReasonNum(),
+              (Func->getName()).str());
       }
       return;
     }
@@ -3106,7 +3111,8 @@ void VPOCodeGen::vectorizeLoadInstruction(VPLoadStoreInst *VPLoad,
   // Loads that are non-vectorizable should be serialized.
   if (!isVectorizableLoadStore(VPLoad)) {
     // Remark: serilalized due to operating on non-vectorizable types
-    getOptReportStats(VPLoad).SerializedInstRemarks.emplace_back(15563, "");
+    getOptReportStats(VPLoad).SerializedInstRemarks.emplace_back(
+        VPlanDriverImpl::LdStSerialRemarkID, "");
     return serializeWithPredication(VPLoad);
   }
 
@@ -3225,8 +3231,9 @@ void VPOCodeGen::vectorizeStoreInstruction(VPLoadStoreInst *VPStore,
 
   // Stores that are non-vectorizable should be serialized.
   if (!isVectorizableLoadStore(VPStore)) {
-    // Remark: serilalized due to operating on non-vectorizable types
-    getOptReportStats(VPStore).SerializedInstRemarks.emplace_back(15563, "");
+    // Remark: serialized due to operating on non-vectorizable types
+    getOptReportStats(VPStore).SerializedInstRemarks.emplace_back(
+        VPlanDriverImpl::LdStSerialRemarkID, "");
     return serializeWithPredication(VPStore);
   }
 
@@ -4076,7 +4083,8 @@ void VPOCodeGen::vectorizeExtractElement(VPInstruction *VPInst) {
     if (MaskValue) {
       serializeWithPredication(VPInst);
       // Remark: masked instruction can't be vectorized
-      getOptReportStats(VPInst).SerializedInstRemarks.emplace_back(15565, "");
+      getOptReportStats(VPInst).SerializedInstRemarks.emplace_back(
+          VPlanDriverImpl::MaskedExtInsSerialRemarkID, "");
       return;
     }
 
@@ -4093,7 +4101,8 @@ void VPOCodeGen::vectorizeExtractElement(VPInstruction *VPInst) {
     }
     VPWidenMap[VPInst] = WideExtract;
     // Remark: instruction was serialized due to non-const index
-    getOptReportStats(VPInst).SerializedInstRemarks.emplace_back(15564, "");
+    getOptReportStats(VPInst).SerializedInstRemarks.emplace_back(
+        VPlanDriverImpl::ExtInsNonConstSerialRemarkID, "");
     return;
   }
 
@@ -4128,7 +4137,8 @@ void VPOCodeGen::vectorizeInsertElement(VPInstruction *VPInst) {
     if (MaskValue) {
       serializeWithPredication(VPInst);
       // Remark: masked instruction can't be vectorized
-      getOptReportStats(VPInst).SerializedInstRemarks.emplace_back(15565, "");
+      getOptReportStats(VPInst).SerializedInstRemarks.emplace_back(
+          VPlanDriverImpl::MaskedExtInsSerialRemarkID, "");
       return;
     }
     Value *WideInsert = InsertTo;
@@ -4146,7 +4156,8 @@ void VPOCodeGen::vectorizeInsertElement(VPInstruction *VPInst) {
     }
     VPWidenMap[VPInst] = WideInsert;
     // Remark: instruction was serialized due to non-const index
-    getOptReportStats(VPInst).SerializedInstRemarks.emplace_back(15564, "");
+    getOptReportStats(VPInst).SerializedInstRemarks.emplace_back(
+        VPlanDriverImpl::ExtInsNonConstSerialRemarkID, "");
     return;
   }
 

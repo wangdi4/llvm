@@ -178,8 +178,17 @@ public:
 
   // Remark IDs are defined in lib/Analysis/Intel_OptReport/Diag.cpp:
 
+  /// 15300: LOOP WAS VECTORIZED
+  static constexpr unsigned LoopSuccessRemarkID = 15300;
+
+  /// 15301: SIMD LOOP WAS VECTORIZED
+  static constexpr unsigned SimdLoopSuccessRemarkID = 15301;
+
   /// 15305: vectorization support: vector length %s
   static constexpr unsigned VectorLengthRemarkID = 15305;
+
+  /// 15309: vectorization support: normalized vectorization overhead %s
+  static constexpr unsigned NormVecOverheadRemarkID = 15309;
 
   /// 15313: %s was not vectorized: unsupported data type
   static constexpr unsigned BadTypeRemarkID = 15313;
@@ -203,6 +212,9 @@ public:
   ///        optimization(s)
   static constexpr unsigned BadSimdRemarkID = 15353;
 
+  /// 15399: vectorization support: unroll factor %s
+  static constexpr unsigned UnrollFactorRemarkID = 15399;
+
   /// 15407: vectorization support: type complex float is not supported for
   ///        operation %s
   static constexpr unsigned CmplxFltRemarkID = 15407;
@@ -223,6 +235,21 @@ public:
   /// 15440: remainder loop was vectorized (masked)
   static constexpr unsigned RemainderLoopVectorizedMaskedRemarkID = 15440;
 
+  /// 15441: remainder loop was not vectorized: %s
+  static constexpr unsigned RemainderNotVecRemarkID = 15441;
+
+  /// 15476: scalar cost: %s
+  static constexpr unsigned ScalarCostRemarkID = 15476;
+
+  /// 15477: vector cost: %s
+  static constexpr unsigned VectorCostRemarkID = 15477;
+
+  /// 15478: estimated potential speedup: %s
+  static constexpr unsigned EstSpeedupRemarkID = 15478;
+
+  /// 15506: vplan loop number: %s
+  static constexpr unsigned LoopNumberRemarkID = 15506;
+
   /// 15520: %s was not vectorized: loop with multiple exits cannot be
   ///        vectorized unless it meets search loop idiom criteria
   static constexpr unsigned BadSearchRemarkID = 15520;
@@ -240,8 +267,34 @@ public:
   ///        using if-else statement.
   static constexpr unsigned SwitchRemarkID = 15535;
 
+  /// 15558: Call to function '%s' was serialized due to no suitable vector
+  ///        variants were found.
+  static constexpr unsigned NoVecVariantsRemarkID = 15558;
+  static constexpr unsigned FirstSerializeRemarkID = 15558;
+
   /// 15560: Indirect call cannot be vectorized
   static constexpr unsigned IndCallRemarkID = 15560;
+
+  /// 15563: Load/store instruction was serialized due to operating on
+  ///        non-vectorizable types.
+  static constexpr unsigned LdStSerialRemarkID = 15563;
+
+  /// 15564: Extract/Insert element instruction was serialized due to
+  ///        non-const index.
+  static constexpr unsigned ExtInsNonConstSerialRemarkID = 15564;
+
+  /// 15565: Masked Extract/Insert element instruction is serialized.
+  static constexpr unsigned MaskedExtInsSerialRemarkID = 15565;
+
+  /// 15566: '%s': division was scalarized due to fp-model requirements.
+  static constexpr unsigned DivFpModelScalarRemarkID = 15566;
+
+  /// 15569: Compiler has chosen to target XMM/YMM vector. Try using
+  ///        -mprefer-vector-width=512 to override.
+  static constexpr unsigned ShortVectorRemarkID = 15569;
+
+  /// 15570: using scalar loop trip count: %s
+  static constexpr unsigned ScalarTripCountRemarkID = 15570;
 
   /// 15571: %s was not vectorized: loop contains a recurrent computation that
   ///        could not be identified as an induction or reduction.  Try using
@@ -278,6 +331,12 @@ public:
 
   /// 25519: Remainder loop for vectorization
   static constexpr unsigned RemainderLoopForVectorizationRemarkID = 25519;
+
+  /// 25587: Loop has reduction
+  static constexpr unsigned HasReductionRemarkID = 25587;
+
+  /// 25588: Loop has SIMD reduction
+  static constexpr unsigned HasSimdReductionRemarkID = 25588;
 
   /// Utility functions for adding/constructing debug remarks.
   template <typename RemarkRecordT, typename... ArgsT>
