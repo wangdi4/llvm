@@ -3,7 +3,7 @@
 ..
   INTEL CONFIDENTIAL
  
-  Modifications, Copyright (C) 2022 Intel Corporation
+  Modifications, Copyright (C) 2022-2023 Intel Corporation
  
   This software and the related documents are Intel copyrighted materials, and
   your use of them is governed by the express license under which they were
@@ -217,7 +217,7 @@ in the kernel should decrease.
 **Default**: 0.1
 
 ``LIBOMPTARGET_NDRANGE_IGNORE_TRIPCOUNT=<Bool>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code-block:: rst
 
   <Enable> := 1 | T | t
