@@ -227,7 +227,7 @@ static bool hoistArithmetics(Instruction &I, Loop &L,
                              ICFLoopSafetyInfo &SafetyInfo,
                              MemorySSAUpdater &MSSAU, AssumptionCache *AC,
                              DominatorTree *DT,
-                             bool LoopOptFull); // INTEL
+                             bool DisableGEPHoist); // INTEL
 static Instruction *cloneInstructionInExitBlock(
     Instruction &I, BasicBlock &ExitBlock, PHINode &PN, const LoopInfo *LI,
     const LoopSafetyInfo *SafetyInfo, MemorySSAUpdater &MSSAU);
@@ -934,7 +934,9 @@ bool llvm::hoistRegion(DomTreeNode *N, AAResults *AA, LoopInfo *LI,
   auto *F = N->getBlock()->getParent();
   Attribute TFAttr = F->getFnAttribute("loopopt-pipeline");
   StringRef TFStr = TFAttr.isValid() ? TFAttr.getValueAsString() : "";
-  bool LoopOptFull = TFStr.contains("full");
+  bool DisableGEPHoist =
+      TFStr.contains("full") ||
+      F->getParent()->getNamedMetadata("intel.dtrans.types") != nullptr;
 #endif // INTEL_CUSTOMIZATION
 
   ControlFlowHoister CFH(LI, DT, CurLoop, MSSAU);
@@ -1040,7 +1042,7 @@ bool llvm::hoistRegion(DomTreeNode *N, AAResults *AA, LoopInfo *LI,
       // done out of loop.
 #if INTEL_CUSTOMIZATION
       if (hoistArithmetics(I, *CurLoop, *SafetyInfo, MSSAU, AC, DT,
-                           LoopOptFull)) {
+                           DisableGEPHoist)) {
 #endif // INTEL_CUSTOMIZATION
         Changed = true;
         continue;
@@ -2813,8 +2815,14 @@ static bool hoistAddSub(Instruction &I, Loop &L, ICFLoopSafetyInfo &SafetyInfo,
 
 static bool hoistArithmetics(Instruction &I, Loop &L,
                              ICFLoopSafetyInfo &SafetyInfo,
+<<<<<<< HEAD
                              MemorySSAUpdater &MSSAU, AssumptionCache *AC,
                              DominatorTree *DT, bool LoopOptFull) { // INTEL
+=======
+                             MemorySSAUpdater &MSSAU,
+                             AssumptionCache *AC, DominatorTree *DT,
+                             bool DisableGEPHoist) { // INTEL
+>>>>>>> 65377ff83c0f410d86ca5dd00b7a017a8658a4e2
   // Optimize complex patterns, such as (x < INV1 && x < INV2), turning them
   // into (x < min(INV1, INV2)), and hoisting the invariant part of this
   // expression out of the loop.
@@ -2827,7 +2835,7 @@ static bool hoistArithmetics(Instruction &I, Loop &L,
 #if INTEL_CUSTOMIZATION
   // Try to hoist GEPs by reassociation.
   // This may disturb patterns in loop and LTO transformations.
-  if (!LoopOptFull && hoistGEP(I, L, SafetyInfo, MSSAU, AC, DT)) {
+  if (!DisableGEPHoist && hoistGEP(I, L, SafetyInfo, MSSAU, AC, DT)) {
 #endif // INTEL_CUSTOMIZATION
     ++NumHoisted;
     ++NumGEPsHoisted;
