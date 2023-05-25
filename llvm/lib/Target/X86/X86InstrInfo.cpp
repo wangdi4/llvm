@@ -157,13 +157,8 @@ X86InstrInfo::getRegClass(const MCInstrDesc &MCID, unsigned OpNum,
   if (!RC || !Subtarget.hasEGPR())
     return RC;
 
-  const std::set<unsigned> Blacklist = {
-#define BLACK_INSN(NAME) X86::NAME,
-#include "Intel_EGPR_Workaround_For_SDE.def"
-  };
-
   if (X86II::canUseApxExtendedReg(MCID) &&
-      Blacklist.find(MCID.Opcode) == Blacklist.end())
+      !X86II::isUnImplementedForEGPR(MCID.Opcode))
     return RC;
 
   switch (RC->getID()) {
