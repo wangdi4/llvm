@@ -139,7 +139,8 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
       ForcedVectorWidth(HLLoopObj.ForcedVectorWidth),
       ForcedVectorUnrollFactor(HLLoopObj.ForcedVectorUnrollFactor),
       VecTag(HLLoopObj.VecTag),
-      PrefetchingInfoVec(HLLoopObj.PrefetchingInfoVec) {
+      PrefetchingInfoVec(HLLoopObj.PrefetchingInfoVec),
+      NoAliasScopeLists(HLLoopObj.NoAliasScopeLists) {
 
   initialize();
 
@@ -378,7 +379,22 @@ void HLLoop::printDetails(formatted_raw_ostream &OS, unsigned Depth,
     }
   }
 
+  if (!NoAliasScopeLists.empty()) {
+    OS << "\n";
+    indent(OS, Depth);
+    OS << "+ NoAlias scope lists: ";
+
+    ListSeparator LS(", ");
+    auto *Module = &getHLNodeUtils().getModule();
+
+    for (auto *ScopeList : NoAliasScopeLists) {
+      OS << LS;
+      ScopeList->printAsOperand(OS, Module);
+    }
+  }
+
   OS << "\n";
+
 #endif // INTEL_PRODUCT_RELEASE
 }
 
