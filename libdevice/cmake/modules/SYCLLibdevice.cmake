@@ -181,7 +181,6 @@ set(imf_fallback_fp32_deps device.h device_imf.hpp imf_half.hpp
                            imf_utils/float_convert.cpp
                            imf_utils/half_convert.cpp
                            imf_utils/simd_emulate.cpp
-<<<<<<< HEAD
                            # INTEL_CUSTOMIZATION
                            imf/_imf_include_fp32.hpp
                            imf/intel/cos_h_la.cpp
@@ -266,11 +265,8 @@ set(imf_fallback_fp32_deps device.h device_imf.hpp imf_half.hpp
                            imf/intel/y1_s_ep.cpp
                            imf/intel/pown_s_ep.cpp
                            # end INTEL_CUSTOMIZATION
-                           imf/imf_inline_fp32.cpp)
-=======
                            imf/imf_inline_fp32.cpp
                            imf/imf_fp32_dl.cpp)
->>>>>>> e4f074a6aabed1e18893e4adec17df9c34af1959
 set(imf_fallback_fp64_deps device.h device_imf.hpp imf_half.hpp
                            imf_utils/double_convert.cpp
                            # INTEL_CUSTOMIZATION
