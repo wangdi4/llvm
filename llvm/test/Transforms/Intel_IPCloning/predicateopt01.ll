@@ -136,7 +136,7 @@
 
 ; This is the non-predicate optimized version.
 ; CHECK-LABEL: define internal {{.*}} @GetVirtualPixelsFromNexus(
-; CHECK: load ptr, ptr {{.*}} !predicate-opt-restrict ![[P0:[0-9]+]]
+; CHECK: load ptr, ptr {{.*}} !predicate-opt-restrict ![[MD119:[0-9]+]]
 ; CHECK: tail call ptr @AcquirePixelCacheNexus
 
 ; This is the non-predicate optimized version.
@@ -214,12 +214,22 @@
 ; CHECK: call void @GetVirtualPixelsFromNexus.3.bb206
 
 ; This is the cold code extracted out of the predicate optimized version.
-; CHECK-LABEL: define internal void @GetVirtualPixelsFromNexus.3.bb206(
+; Check that it is annotated appropriately with DTrans metadata.
+; CHECK: define internal void @GetVirtualPixelsFromNexus.3.bb206(i32 %arg1, ptr "intel_dtrans_func_index"="1" %i8, ptr "intel_dtrans_func_index"="2" %i, i64 %arg5, i64 %arg4, ptr "intel_dtrans_func_index"="3" %i10, ptr "intel_dtrans_func_index"="4" %i160, ptr "intel_dtrans_func_index"="5" %i164, i64 %arg3, i64 %arg2, ptr "intel_dtrans_func_index"="6" %i165, ptr "intel_dtrans_func_index"="7" %i166, ptr "intel_dtrans_func_index"="8" %arg, ptr "intel_dtrans_func_index"="9" %arg7) #10 !intel.dtrans.func.type ![[MD231:[0-9]+]] {
+
 ; CHECK: tail call ptr @AcquirePixelCacheNexus(
 
+; These are DTrans types which define the arguments for the extracted function @GetVirtualPixelsFromNexus.3.bb206
+; CHECK: ![[MD11:[0-9]+]] = !{%struct._ZTS12_PixelPacket._PixelPacket zeroinitializer, i32 1}
+; CHECK: ![[MD12:[0-9]+]] = !{i16 0, i32 1}
+; CHECK: ![[MD23:[0-9]+]] = !{%struct._ZTS6_Image._Image zeroinitializer, i32 1}
 ; This is the terminator for the restrict metadata
-; CHECK: ![[P0]] = !{}
-
+; CHECK: ![[MD119]] = !{}
+; These are also DTrans types which define the arguments for the extracted function @GetVirtualPixelsFromNexus.3.bb206
+; CHECK: ![[MD231]] = distinct !{![[MD11]], ![[MD12]], ![[MD232:[0-9]+]], ![[MD233:[0-9]+]], ![[MD233]], ![[MD234:[0-9]+]], ![[MD234]], ![[MD23]], ![[MD233]]}
+; CHECK: ![[MD232]] = !{%struct._ZTS10_CacheInfo._CacheInfo zeroinitializer, i32 1}
+; CHECK: ![[MD233]] = !{i1 false, i32 1}
+; CHECK: ![[MD234]] = !{i64 0, i32 1}
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 

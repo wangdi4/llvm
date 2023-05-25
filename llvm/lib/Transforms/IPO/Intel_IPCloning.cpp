@@ -44,6 +44,11 @@
 #include "llvm/Transforms/Utils/Intel_RegionSplitter.h"
 #include <sstream>
 #include <string>
+
+#include "Intel_DTrans/Analysis/DTransTypeMetadataBuilder.h"
+#include "Intel_DTrans/Analysis/DTransTypes.h"
+#include "Intel_DTrans/Analysis/TypeMetadataReader.h"
+
 using namespace llvm;
 using namespace PatternMatch;
 using namespace llvm::llvm_cloning_analysis;
@@ -4907,6 +4912,9 @@ private:
                    BasicBlock *OptBlock, BasicBlock *NoOptBlock);
   // Return Function with cold code extracted from 'OptBaseF'.
   Function *extractColdCode(Function *OptBaseF);
+  // Build metadata for 'OptColdF' which was extracted and replaced by
+  // the call 'OptColdCB'.
+  bool buildColdCodeMetadata(CallBase *OptColdCB, Function *OptColdF);
   // Return the number of branches simplified, using the values of
   // cache_info fields that are specialized in the optimized version.
   unsigned simplifyCacheInfoBranches(LoadInst *LIRestrict);
@@ -7457,6 +7465,65 @@ bool PredicateOpt::doPDSEinWrapperFArg3(CallBase *BigLoopCB,
   return true;
 }
 
+bool PredicateOpt::buildColdCodeMetadata(CallBase *OptColdCB,
+                                         Function *OptColdF) {
+
+  // Return the DTransType corresponding 'Ty'.
+  // NOTE: Only several important types which are needed here
+  // are supported. This function can be extended if that is
+  // found to be useful.
+  auto GetDTransType = [&](dtransOP::DTransTypeManager &TM,
+                           dtransOP::DTransTypeBuilder &TB,
+                           Type *Ty) -> dtransOP::DTransType * {
+    if (auto STy = dyn_cast<StructType>(Ty))
+      return TM.getStructType(STy->getName());
+    if (auto ITy = dyn_cast<IntegerType>(Ty))
+      return TM.getOrCreateAtomicType(ITy);
+    if (Ty->isVoidTy())
+      return TB.getVoidTy();
+    return nullptr;
+  };
+
+  Module *M = OptColdF->getParent();
+  if (!dtransOP::TypeMetadataReader::getDTransTypesMetadata(*M))
+    return true;
+  dtransOP::DTransTypeManager TM(M->getContext());
+  dtransOP::TypeMetadataReader TR(TM);
+  TR.initialize(*M);
+  dtransOP::DTransTypeBuilder TB(TM);
+  Type *RetTy = OptColdF->getReturnType();
+  dtransOP::DTransType *RetDTy = GetDTransType(TM, TB, RetTy);
+  if (!RetDTy)
+    return false;
+  SmallVector<dtransOP::DTransType *, 15> ArgTypes;
+  for (unsigned I = 0, E = OptColdCB->arg_size(); I < E; ++I) {
+    Value *V = OptColdCB->getArgOperand(I);
+    Type *VTy = V->getType();
+    if (VTy->isPointerTy()) {
+      dtransOP::DTransType *DETy = nullptr;
+      dtransOP::DTransPointerType *DPTy = nullptr;
+      if (Type *PETy = inferPtrElementType(*V)) {
+        DETy = GetDTransType(TM, TB, PETy);
+        if (!DETy)
+          DETy = TB.getIntNTy(1);
+      } else {
+        DETy = TB.getIntNTy(1);
+      }
+      DPTy = TM.getOrCreatePointerType(DETy);
+      ArgTypes.push_back(DPTy);
+    } else {
+      dtransOP::DTransType *DTy = GetDTransType(TM, TB, VTy);
+      if (!DTy)
+        return false;
+      ArgTypes.push_back(DTy);
+    }
+  }
+  dtransOP::DTransFunctionType *DFTy =
+      TB.getFunctionType(RetDTy, ArgTypes, /*IsVarArg=*/false);
+  dtransOP::DTransTypeMetadataBuilder::setDTransFuncMetadata(OptColdF, DFTy);
+  return true;
+}
+
 //
 // Attempt to perform the predicate opt. Return 'true' if it was possible.
 // NOTE: Right now we simply emit a trace indicating the key elements
@@ -7532,6 +7599,8 @@ bool PredicateOpt::doPredicateOpt() {
     return false;
   CallBase *OptColdCB = findUniqueCB(OptBaseF, OptColdF);
   assert(OptBaseCB && "Expecting OptBaseCB");
+  if (!buildColdCodeMetadata(OptColdCB, OptColdF))
+    return false;
   getInlineReport()->doOutlining(OptBaseF, OptColdF, OptColdCB);
   getMDInlineReport()->doOutlining(OptBaseF, OptColdF, OptColdCB);
   LLVM_DEBUG(dbgs() << "MRC Predicate: ColdF : " << OptColdF->getName()
