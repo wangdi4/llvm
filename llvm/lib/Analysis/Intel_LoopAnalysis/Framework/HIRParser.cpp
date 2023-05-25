@@ -4700,6 +4700,21 @@ bool HIRParser::processedRemovableIntrinsic(HLInst *HInst) {
     return true;
   }
 
+  if (auto *NoAliasScopeInst = dyn_cast<NoAliasScopeDeclInst>(Intrin)) {
+    auto *ParLoop = HInst->getParentLoop();
+
+    // We should keep these intrinsics in HIR if they are outside any loops as
+    // they are unlikely to affect loop optimizations.
+    if (!ParLoop) {
+      return false;
+    }
+
+    ParLoop->addNoAliasScopeList(NoAliasScopeInst->getScopeList());
+
+    HLNodeUtils::erase(HInst);
+    return true;
+  }
+
   bool IsBegin = false;
 
   if (isBlockLoopEndDirective(Intrin) || isPrefetchLoopEndDirective(Intrin)) {
