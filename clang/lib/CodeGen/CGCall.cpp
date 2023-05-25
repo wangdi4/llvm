@@ -1905,10 +1905,18 @@ static void handleDTransStructInfo(CodeGenTypes &CGT, CodeGenModule &CGM,
       return;
     }
 
-    // A 'merged' into an int type, just materialize the type.
+    // A 'merged' into an int type, just materialize the type. The type isn't
+    // important as it'll just be dumped as metadata directly (back as the iN
+    // type), so try to get a 'real' integer type if possible, else fall back to
+    // BitInt.
     if (LLVMTypes[0]->isIntegerTy()) {
       ClangTypes[0] = CGT.getContext().getIntTypeForBitwidth(
           LLVMTypes[0]->getIntegerBitWidth(), /*Signed*/ 0);
+
+      if (ClangTypes[0].isNull())
+        ClangTypes[0] = CGT.getContext().getBitIntType(
+            /*Unsigned=*/true, LLVMTypes[0]->getIntegerBitWidth());
+
       return;
     }
 
