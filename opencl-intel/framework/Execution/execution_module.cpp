@@ -4113,6 +4113,17 @@ cl_err_code ExecutionModule::EnqueueReadGlobalVariable(
   if (CL_FAILED(err))
     return err;
 
+  SharedPtr<Program> pProgram = m_pContextModule->GetProgram(program);
+  if (queue->GetContext()->IsFPGAEmulator() &&
+      m_pActiveProgram != pProgram.GetPtr()) {
+    m_pActiveProgram = pProgram.GetPtr();
+    err = pProgram->ResetDeviceImageScopeGlobalVariable(
+        queue->GetQueueDeviceHandle());
+
+    if (CL_FAILED(err))
+      return err;
+  }
+
   cl_prog_gv gv;
   err = m_pContextModule->GetDeviceGlobalVariablePointer(
       queue->GetDefaultDevice()->GetHandle(), program, name, nullptr, nullptr,
@@ -4175,6 +4186,17 @@ cl_err_code ExecutionModule::EnqueueWriteGlobalVariable(
       CheckEventList(queue, num_events_in_wait_list, event_wait_list);
   if (CL_FAILED(err))
     return err;
+
+  SharedPtr<Program> pProgram = m_pContextModule->GetProgram(program);
+  if (queue->GetContext()->IsFPGAEmulator() &&
+      m_pActiveProgram != pProgram.GetPtr()) {
+    m_pActiveProgram = pProgram.GetPtr();
+    err = pProgram->ResetDeviceImageScopeGlobalVariable(
+        queue->GetQueueDeviceHandle());
+
+    if (CL_FAILED(err))
+      return err;
+  }
 
   cl_prog_gv gv;
   err = m_pContextModule->GetDeviceGlobalVariablePointer(

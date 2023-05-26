@@ -2800,6 +2800,11 @@ SharedPtr<Kernel> ContextModule::GetKernel(cl_kernel clKernel) {
       .DynamicCast<Kernel>();
 }
 
+SharedPtr<Program> ContextModule::GetProgram(const cl_program clProgram) {
+  return m_mapPrograms.GetOCLObject((_cl_program_int *)clProgram)
+      .DynamicCast<Program>();
+}
+
 SharedPtr<MemoryObject>
 ContextModule::GetMemoryObject(const cl_mem clMemObjId) {
   return m_mapMemObjects.GetOCLObject((_cl_mem_int *)clMemObjId)

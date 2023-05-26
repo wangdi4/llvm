@@ -95,6 +95,15 @@ public:
   SharedPtr<Kernel> GetKernel(cl_kernel clKernel);
 
   /*****************************************************************************
+   * Function:     GetProgram
+   * Description: Gets a pointer to a program object accourding to its
+   *              cl_program value
+   * Arguments: clProgram [in] - a valid program handle
+   * Return value: Returns the program object if valid, else returns NULL.
+   ****************************************************************************/
+  SharedPtr<Program> GetProgram(const cl_program clProgram);
+
+  /*****************************************************************************
    * Function:     GetMemoryObject
    * Description: Gets a pointer to a memory object according to its cl_mem
    *              value
