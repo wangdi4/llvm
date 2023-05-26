@@ -149,7 +149,9 @@ INLINE void __kmp_acquire_lock(int *lock) {
     int expected;
     bool acquired = false;
     uint backoff_cnt = 1;
-    size_t len_max = __kmp_get_num_groups();
+    // Use a fixed number for max delay since small values may incur stability
+    // issues.
+    size_t len_max = (1 << 14);
     do {
       expected = 0;
       if (!atomic_load((volatile atomic_int *)lock)) {
@@ -157,11 +159,8 @@ INLINE void __kmp_acquire_lock(int *lock) {
             (volatile atomic_int *)lock, &expected, 1, memory_order_acq_rel,
             memory_order_relaxed);
       }
-      if (!acquired) {
-        // Decide backoff delay based on the degree of contention
-        size_t len = OP_MIN(len_max, 1 << backoff_cnt++, 0 /* Unused */);
-        delay(len, lock);
-      }
+      if (!acquired)
+        delay(OP_MIN(len_max, 1 << backoff_cnt++, 0 /* Unused */), lock);
     } while (!acquired);
   }
 }
