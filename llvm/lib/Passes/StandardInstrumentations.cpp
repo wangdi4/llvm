@@ -845,15 +845,13 @@ bool PrintIRInstrumentation::shouldPrintAfterPass(StringRef PassID) {
   if (shouldPrintAfterAll())
     return true;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (shouldHIRPrintAfterAll() && isHIRPass(PassID))
     return true;
 #endif // INTEL_CUSTOMIZATION
-=======
+
   if (shouldPrintAtPassNumber() && CurrentPassNumber == PrintAtPassNumber)
     return true;
->>>>>>> f97ea77506aaee42af856bfde4d4fb3cc4311c12
 
   StringRef PassName = PIC->getPassNameForClassName(PassID);
   return is_contained(printAfterPasses(), PassName);
