@@ -1559,6 +1559,10 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
                                                ThinOrFullLTOPhase Phase) {
   assert(Level != OptimizationLevel::O0 &&
          "Should not be used for O0 pipeline");
+
+  assert(Phase != ThinOrFullLTOPhase::FullLTOPostLink &&
+         "FullLTOPostLink shouldn't call buildModuleSimplificationPipeline!");
+
   ModulePassManager MPM;
 
   // Place pseudo probe instrumentation as the first pass of the pipeline to
@@ -1601,73 +1605,77 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   if (Phase == ThinOrFullLTOPhase::ThinLTOPostLink && !LoadSampleProfile)
     MPM.addPass(PGOIndirectCallPromotion(true /* InLTO */, HasSampleProfile));
 
-  // Do basic inference of function attributes from known properties of system
-  // libraries and other oracles.
-  MPM.addPass(InferFunctionAttrsPass());
-#if INTEL_CUSTOMIZATION
-  if (RunVPOOpt && RunVPOParopt)
-    MPM.addPass(RequireAnalysisPass<VPOParoptConfigAnalysis, Module>());
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
-  // Parse -[no]inline-list option and set corresponding attributes.
-  MPM.addPass(InlineReportSetupPass());
-  MPM.addPass(InlineListsPass());
-  if (RunVPOParopt && EnableVPOParoptTargetInline)
-    MPM.addPass(VPOParoptTargetInlinePass());
-#endif // INTEL_CUSTOMIZATION
-  MPM.addPass(CoroEarlyPass());
-
   // Create an early function pass manager to cleanup the output of the
-  // frontend.
-  FunctionPassManager EarlyFPM;
+  // frontend. Not necessary with LTO post link pipelines since the pre link
+  // pipeline already cleaned up the frontend output.
+  if (Phase != ThinOrFullLTOPhase::ThinLTOPostLink) {
+    // Do basic inference of function attributes from known properties of system
+    // libraries and other oracles.
+    MPM.addPass(InferFunctionAttrsPass());
+#if INTEL_CUSTOMIZATION
+    if (RunVPOOpt && RunVPOParopt)
+      MPM.addPass(RequireAnalysisPass<VPOParoptConfigAnalysis, Module>());
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+    // Parse -[no]inline-list option and set corresponding attributes.
+    MPM.addPass(InlineReportSetupPass());
+    MPM.addPass(InlineListsPass());
+    if (RunVPOParopt && EnableVPOParoptTargetInline)
+      MPM.addPass(VPOParoptTargetInlinePass());
+#endif // INTEL_CUSTOMIZATION
+    MPM.addPass(CoroEarlyPass());
+
+    // Create an early function pass manager to cleanup the output of the
+    // frontend.
+    FunctionPassManager EarlyFPM;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_MARKERCOUNT
-  // Marker count intrinsic should be emitted before any inline or loop opt pass
-  // b/c we may have different decisions base on ISA set and optimization level.
-  if (TM && (TM->Options.MarkerCountKind & MarkerCount::ME ||
-             !TM->Options.OverrideMarkerCountFile.empty()))
-    EarlyFPM.addPass(MarkerCountIntrinsicInserterPass(
-        TM->Options.MarkerCountKind, TM->Options.OverrideMarkerCountFile));
+    // Marker count intrinsic should be emitted before any inline or loop opt pass
+    // b/c we may have different decisions base on ISA set and optimization level.
+    if (TM && (TM->Options.MarkerCountKind & MarkerCount::ME ||
+               !TM->Options.OverrideMarkerCountFile.empty()))
+      EarlyFPM.addPass(MarkerCountIntrinsicInserterPass(
+          TM->Options.MarkerCountKind, TM->Options.OverrideMarkerCountFile));
 #endif // INTEL_FEATURE_MARKERCOUNT
-  if (isLoopOptEnabled(Level))
-    EarlyFPM.addPass(LoopOptMarkerPass());
-  else
-    EarlyFPM.addPass(LowerSubscriptIntrinsicPass());
+    if (isLoopOptEnabled(Level))
+      EarlyFPM.addPass(LoopOptMarkerPass());
+    else
+      EarlyFPM.addPass(LowerSubscriptIntrinsicPass());
 
-  EarlyFPM.addPass(DopeVectorConstPropPass());
+    EarlyFPM.addPass(DopeVectorConstPropPass());
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
-  if (RunVPOOpt && RunVPOParopt)
-    addVPOPreparePasses(EarlyFPM);
+    if (RunVPOOpt && RunVPOParopt)
+      addVPOPreparePasses(EarlyFPM);
 #endif //INTEL_COLLAB
-  // Lower llvm.expect to metadata before attempting transforms.
-  // Compare/branch metadata may alter the behavior of passes like SimplifyCFG.
-  EarlyFPM.addPass(LowerExpectIntrinsicPass());
-  EarlyFPM.addPass(SimplifyCFGPass());
-  EarlyFPM.addPass(SROAPass(SROAOptions::ModifyCFG));
+    // Lower llvm.expect to metadata before attempting transforms.
+    // Compare/branch metadata may alter the behavior of passes like SimplifyCFG.
+    EarlyFPM.addPass(LowerExpectIntrinsicPass());
+    EarlyFPM.addPass(SimplifyCFGPass());
+    EarlyFPM.addPass(SROAPass(SROAOptions::ModifyCFG));
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
-  if (DTransEnabled && PrepareForLTO)
-    EarlyFPM.addPass(FunctionRecognizerPass());
+    if (DTransEnabled && PrepareForLTO)
+      EarlyFPM.addPass(FunctionRecognizerPass());
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
-  EarlyFPM.addPass(EarlyCSEPass());
+    EarlyFPM.addPass(EarlyCSEPass());
 #if INTEL_COLLAB
 
-  // Process OpenMP directives at -O1 and above
-  if (RunVPOParopt && RunVPOOpt == InvokeParoptBeforeInliner) {
-    // CallSiteSplitting and InstCombine are run after the pre-inliner Paropt
-    // in the legacy pass manager. For now we can stick to the same with NPM as
-    // well, even though that would break the FPM pipeline here.
-    addVPOPasses(MPM, EarlyFPM, Level, /*RunVec=*/false);
-  }
+    // Process OpenMP directives at -O1 and above
+    if (RunVPOParopt && RunVPOOpt == InvokeParoptBeforeInliner) {
+      // CallSiteSplitting and InstCombine are run after the pre-inliner Paropt
+      // in the legacy pass manager. For now we can stick to the same with NPM as
+      // well, even though that would break the FPM pipeline here.
+      addVPOPasses(MPM, EarlyFPM, Level, /*RunVec=*/false);
+    }
 #endif // INTEL_COLLAB
-  if (Level == OptimizationLevel::O3)
-    EarlyFPM.addPass(CallSiteSplittingPass());
-
-  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(EarlyFPM),
-                                                PTO.EagerlyInvalidateAnalyses));
+    if (Level == OptimizationLevel::O3)
+      EarlyFPM.addPass(CallSiteSplittingPass());
+    MPM.addPass(createModuleToFunctionPassAdaptor(
+        std::move(EarlyFPM), PTO.EagerlyInvalidateAnalyses));
+  }
 
 #if INTEL_CUSTOMIZATION
   // This should run before AggressiveSpeculation so that the expected IR
