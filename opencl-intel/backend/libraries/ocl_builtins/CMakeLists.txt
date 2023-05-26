@@ -100,7 +100,8 @@ set(CLANG_CL_COMMON_COMPILER_FLAGS
     float_atomics_enable
     -Werror
     -Wall
-    -Wno-psabi)
+    -Wno-psabi
+    -Wno-builtin-macro-redefined)
 
 set(CLANG_C_COMPILER_PARAMS
     -cc1
