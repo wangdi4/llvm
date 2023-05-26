@@ -3170,11 +3170,14 @@ Instruction *InstCombinerImpl::foldSelectOfBools(SelectInst &SI) {
   auto *Zero = ConstantInt::getFalse(SelType);
   Value *A, *B, *C, *D;
 
+#if !INTEL_CUSTOMIZATION
   auto dropPoisonGeneratingFlagsAndMetadata =
       [](ArrayRef<Instruction *> Insts) {
         for (auto *I : Insts)
           I->dropPoisonGeneratingFlagsAndMetadata();
       };
+#endif
+
   // Folding select to and/or i1 isn't poison safe in general. impliesPoison
   // checks whether folding it does not convert a well-defined value into
   // poison.
