@@ -6965,11 +6965,14 @@ int32_t __tgt_rtl_synchronize(int32_t DeviceId, __tgt_async_info *AsyncInfo) {
       // it is the last event to wait for since all wait events of the kernel
       // are signaled before the kernel is invoked.
       bool WaitDone = false;
+      auto KE = AsyncQueue.KernelEvent;
+      bool HasKernelAndCopyFrom = KE && KE != WaitEvents.back();
       for (auto Itr = WaitEvents.rbegin(); Itr != WaitEvents.rend(); Itr++) {
         if (!WaitDone) {
-          CALL_ZE_RET_FAIL(zeEventHostSynchronize, *Itr, UINT64_MAX);
-          if (*Itr == AsyncQueue.KernelEvent)
+          if (*Itr == KE)
             WaitDone = true;
+          if (!WaitDone || !HasKernelAndCopyFrom)
+            CALL_ZE_RET_FAIL(zeEventHostSynchronize, *Itr, UINT64_MAX);
         }
         if (Prof)
           AsyncQueue.updateProf(Prof, *Itr);
