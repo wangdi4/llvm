@@ -573,6 +573,9 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
         Report->setReasonNotInlined(CB, NinlrRecursive);  // INTEL
         llvm::setMDReasonNotInlined(CB, NinlrRecursive);  // INTEL
         setInlineRemark(*CB, "recursive");
+        // Set noinline so that we don't forget this decision across CGSCC
+        // iterations.
+        CB->setIsNoInline();
         continue;
       }
 
