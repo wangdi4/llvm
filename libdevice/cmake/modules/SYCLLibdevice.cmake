@@ -266,11 +266,7 @@ set(imf_fallback_fp32_deps device.h device_imf.hpp imf_half.hpp
                            imf/intel/pown_s_ep.cpp
                            # end INTEL_CUSTOMIZATION
                            imf/imf_inline_fp32.cpp
-<<<<<<< HEAD
                            imf/imf_fp32_dl.cpp)
-=======
-			   imf/imf_fp32_dl.cpp)
->>>>>>> a2f86a54168a1aa959767a9a75c5338e9797f43a
 set(imf_fallback_fp64_deps device.h device_imf.hpp imf_half.hpp
                            imf_utils/double_convert.cpp
                            # INTEL_CUSTOMIZATION
