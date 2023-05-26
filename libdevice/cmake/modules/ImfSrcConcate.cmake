@@ -109,7 +109,11 @@ set(imf_fp32_fallback_src_list imf_utils/integer_misc.cpp
                                imf/intel/pown_s_ep.cpp
                                # end INTEL_CUSTOMIZATION
                                imf/imf_inline_fp32.cpp
+<<<<<<< HEAD
                                imf/imf_fp32_dl.cpp)
+=======
+			       imf/imf_fp32_dl.cpp)
+>>>>>>> a2f86a54168a1aa959767a9a75c5338e9797f43a
 
 # INTEL_CUSTOMIZATION
 set(imf_fp64_omp_lib_funcs_list imf/intel/cos_d_ha.cpp
