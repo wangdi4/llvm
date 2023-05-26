@@ -120,13 +120,22 @@ struct HIRSinkingForPerfectLoopnest::SinkingVisitor final
 
     SkipNode = Loop;
 
-    if (!isProfitable(Loop, InnermostLoop)) {
+    if (!isProfitableLoopNest(Loop, InnermostLoop)) {
+      LLVM_DEBUG(dbgs() << Loop->getNumber() << "- Not Profitable Loopnest\n");
       return;
     }
 
-    DDGraph DDG = DDA.getGraph(Loop);
-    InterchangeIgnorableSymbasesTy IgnorableSymbases;
+    bool ProfitableForInterchange =
+        HLNodeUtils::hasNonUnitStrideRefs(InnermostLoop);
 
+    DDGraph DDG = DDA.getGraph(Loop);
+    if (!ProfitableForInterchange &&
+        !containsProfitableEdge(Loop, InnermostLoop, DDG)) {
+      LLVM_DEBUG(dbgs() << Loop->getNumber() << "- No Profitable Ref/Edge\n");
+      return;
+    }
+
+    InterchangeIgnorableSymbasesTy IgnorableSymbases;
     if (DDUtils::enablePerfectLoopNest(const_cast<HLLoop *>(InnermostLoop), DDG,
                                        IgnorableSymbases, true)) {
       Modified = true;
@@ -135,7 +144,43 @@ struct HIRSinkingForPerfectLoopnest::SinkingVisitor final
     }
   }
 
-  bool isProfitable(HLLoop *OuterLoop, const HLLoop *Loop) {
+  // Assume incoming loopnest is near-perfect. Return true if a dependency
+  // exists that crosses the innermost loop, in which case we will sink. E.g:
+  //   DO i2
+  //      %add = 0;
+  //     DO i3
+  //            %add = %add  +  %mul; <--- add has dep to outside the innerloop
+  //     END i3
+  //     (%c)[i1][i2] = %add;
+  bool containsProfitableEdge(const HLLoop *OuterLoop, const HLLoop *InnerLoop,
+                              DDGraph &DDG) const {
+    const HLLoop *ParLoop = InnerLoop->getParentLoop();
+    for (const HLNode &Node :
+         make_range(ParLoop->child_begin(), ParLoop->child_end())) {
+      auto *Inst = dyn_cast<HLInst>(&Node);
+      if (!Inst) {
+        continue;
+      }
+
+      for (const RegDDRef *Ref :
+           make_range(Inst->op_ddref_begin(), Inst->op_ddref_end())) {
+        if (Ref->isLval() && Ref->isSelfBlob() &&
+            InnerLoop->isLiveIn(Ref->getSymbase())) {
+          return true;
+        }
+
+        for (const auto *Edge : DDG.outgoing(Ref)) {
+          if (Edge->getSink()->getParentLoop() == InnerLoop) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
+  bool isProfitableLoopNest(const HLLoop *OuterLoop, const HLLoop *Loop) const {
     unsigned OuterLpLevel = OuterLoop->getNestingLevel();
     unsigned Level = Loop->getNestingLevel();
 
