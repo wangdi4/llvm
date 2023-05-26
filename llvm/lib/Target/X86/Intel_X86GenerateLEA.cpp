@@ -127,11 +127,8 @@ static bool isVirtualOrNoReg(const MachineOperand *MO) {
 /// this instruction has immediate operand.
 static int getSrcImmIndex(int Opc) {
   switch (Opc) {
-  case X86::ADD32mi8:
   case X86::ADD32mi:
-  case X86::SUB32mi8:
   case X86::SUB32mi:
-  case X86::CMP32mi8:
   case X86::CMP32mi:
   case X86::MOV32mi:
     return 5;

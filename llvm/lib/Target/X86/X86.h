@@ -99,9 +99,12 @@ FunctionPass *createX86ConditionalCompares();
 /// instructions, in order to eliminate execution delays in some processors.
 FunctionPass *createX86FixupLEAs();
 
-/// Return as pass that replaces equivilent slower instructions with faster
+/// Return a pass that replaces equivalent slower instructions with faster
 /// ones.
 FunctionPass *createX86FixupInstTuning();
+
+/// Return a pass that reduces the size of vector constant pool loads.
+FunctionPass *createX86FixupVectorConstants();
 
 /// Return a pass that removes redundant LEA instructions and redundant address
 /// recalculations.
@@ -245,6 +248,7 @@ void initializeFixupBWInstPassPass(PassRegistry &);
 void initializeFixupLEAPassPass(PassRegistry &);
 void initializeX86ArgumentStackSlotPassPass(PassRegistry &);
 void initializeX86FixupInstTuningPassPass(PassRegistry &);
+void initializeX86FixupVectorConstantsPassPass(PassRegistry &);
 void initializeWinEHStatePassPass(PassRegistry &);
 void initializeX86AvoidSFBPassPass(PassRegistry &);
 void initializeX86AvoidTrailingCallPassPass(PassRegistry &);

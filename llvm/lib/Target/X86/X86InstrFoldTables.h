@@ -64,12 +64,17 @@ const X86MemoryFoldTableEntry *lookupFoldTable(unsigned RegOp, unsigned OpNum);
 #if INTEL_CUSTOMIZATION
 // Look up the broadcast folding table entry for folding a broadcast with
 // operand OpNum.
-const X86MemoryFoldTableEntry *lookupBroadcastFoldTable(unsigned RegOp,
+const X86MemoryFoldTableEntry *lookupBroadcastFoldTableByOpNum(unsigned RegOp,
                                                         unsigned OpNum);
 #endif
 
 // Look up the memory unfolding table entry for this instruction.
 const X86MemoryFoldTableEntry *lookupUnfoldTable(unsigned MemOp);
+
+// Look up the broadcast memory folding table entry for this instruction from
+// the regular memory instruction.
+const X86MemoryFoldTableEntry *lookupBroadcastFoldTable(unsigned MemOp,
+                                                        unsigned BroadcastBits);
 
 } // namespace llvm
 

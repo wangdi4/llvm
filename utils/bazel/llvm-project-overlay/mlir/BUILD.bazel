@@ -745,7 +745,6 @@ MLIR_PYTHON_BINDINGS_SOURCES = [
     "lib/Bindings/Python/IRModule.cpp",
     "lib/Bindings/Python/IRTypes.cpp",
     "lib/Bindings/Python/Pass.cpp",
-    "lib/Bindings/Python/PybindUtils.cpp",
 ]
 
 cc_library(
@@ -2403,6 +2402,7 @@ cc_library(
     srcs = ["lib/Dialect/SparseTensor/IR/SparseTensorDialect.cpp"],
     hdrs = [
         "include/mlir/Dialect/SparseTensor/IR/SparseTensor.h",
+        "include/mlir/Dialect/SparseTensor/IR/SparseTensorStorageLayout.h",
         "include/mlir/Dialect/SparseTensor/IR/SparseTensorType.h",
     ],
     includes = ["include"],
@@ -6163,6 +6163,14 @@ gentbl_cc_library(
             ["-gen-op-interface-defs"],
             "include/mlir/Interfaces/MemorySlotOpInterfaces.cpp.inc",
         ),
+        (
+            ["-gen-type-interface-decls"],
+            "include/mlir/Interfaces/MemorySlotTypeInterfaces.h.inc",
+        ),
+        (
+            ["-gen-type-interface-defs"],
+            "include/mlir/Interfaces/MemorySlotTypeInterfaces.cpp.inc",
+        ),
     ],
     tblgen = ":mlir-tblgen",
     td_file = "include/mlir/Interfaces/MemorySlotInterfaces.td",
@@ -8273,6 +8281,7 @@ cc_library(
     ],
     deps = [
         ":ControlFlowInterfaces",
+        ":FuncDialect",
         ":IR",
         ":LLVMDialect",
         ":OpenMPInterfacesIncGen",
@@ -10523,11 +10532,11 @@ td_library(
     ],
     includes = ["include"],
     deps = [
-        ":MemorySlotInterfacesTdFiles",
         ":ArithOpsTdFiles",
         ":CastInterfacesTdFiles",
         ":ControlFlowInterfacesTdFiles",
         ":CopyOpInterfaceTdFiles",
+        ":MemorySlotInterfacesTdFiles",
         ":OpBaseTdFiles",
         ":ShapedOpInterfacesTdFiles",
         ":SideEffectInterfacesTdFiles",
@@ -10603,9 +10612,9 @@ cc_library(
         ":DialectUtils",
         ":IR",
         ":InferTypeOpInterface",
-        ":MemorySlotInterfaces",
         ":MemRefBaseIncGen",
         ":MemRefOpsIncGen",
+        ":MemorySlotInterfaces",
         ":ShapedOpInterfaces",
         ":ValueBoundsOpInterface",
         ":ViewLikeInterface",

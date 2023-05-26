@@ -72,7 +72,6 @@
 ; CHECK-O23SZ-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
 ; CHECK-O23SZ-NEXT: Running pass: IPSCCPPass
 ; COM: CHECK-O23SZ-NEXT: Running analysis: AssumptionAnalysis on foo ;INTEL
-; COM: CHECK-O23-NEXT: Running analysis: LoopAnalysis on foo ; INTEL
 ; CHECK-O23SZ-NEXT: Running pass: CalledValuePropagationPass
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}SCC
 ; CHECK-O-NEXT: Running analysis: LazyCallGraphAnalysis
@@ -201,7 +200,6 @@
 ; CHECK-O23SZ-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running analysis: AssumptionAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running analysis: TargetIRAnalysis on foo
-; CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis on foo
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: OpenMPOptPass
 ; CHECK-O23SZ-NEXT: Running pass: GlobalDCEPass
@@ -231,6 +229,7 @@
 ; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running analysis: PostDominatorTreeAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running pass: HandlePragmaVectorAlignedPass on foo
+; CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: SROAPass on foo
@@ -260,7 +259,7 @@
 ; CHECK-O23SZ-NEXT: Running pass: IntelIPODeadArgEliminationPass on [module]
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass on foo
-; COM: CHECK-OSZ-NEXT: Running analysis: LoopAnalysis on foo ;INTEL
+; COM: CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis on foo ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: LCSSAPass on foo
 ; CHECK-O23SZ-NEXT: Running analysis: MemorySSAAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running analysis: AAManager on foo

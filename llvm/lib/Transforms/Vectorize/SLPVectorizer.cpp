@@ -1112,9 +1112,9 @@ static void addMask(SmallVectorImpl<int> &Mask, ArrayRef<int> SubMask,
   SmallVector<int> NewMask(SubMask.size(), PoisonMaskElem);
   int TermValue = std::min(Mask.size(), SubMask.size());
   for (int I = 0, E = SubMask.size(); I < E; ++I) {
-    if ((!ExtendingManyInputs &&
-         (SubMask[I] >= TermValue || Mask[SubMask[I]] >= TermValue)) ||
-        SubMask[I] == PoisonMaskElem)
+    if (SubMask[I] == PoisonMaskElem ||
+        (!ExtendingManyInputs &&
+         (SubMask[I] >= TermValue || Mask[SubMask[I]] >= TermValue)))
       continue;
     NewMask[I] = Mask[SubMask[I]];
   }
@@ -9361,7 +9361,8 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
       // stay in vectorized code due to uses outside of these scalar
       // loads/stores.
       ScalarCost = TTI->getPointersChainCost(
-          Ptrs, BasePtr, TTI::PointersChainInfo::getUnitStride(), CostKind);
+          Ptrs, BasePtr, TTI::PointersChainInfo::getUnitStride(), ScalarTy,
+          CostKind);
 
       SmallVector<const Value *> PtrsRetainedInVecCode;
       for (Value *V : Ptrs) {
@@ -9387,7 +9388,7 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
       }
       VecCost = TTI->getPointersChainCost(
           PtrsRetainedInVecCode, BasePtr,
-          TTI::PointersChainInfo::getKnownStride(), CostKind);
+          TTI::PointersChainInfo::getKnownStride(), VecTy, CostKind);
     } else {
       // Case 1: Ptrs are the arguments of loads that we are going to transform
       // into masked gather load intrinsic.
@@ -9403,7 +9404,8 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
               ? TTI::PointersChainInfo::getUnknownStride()
               : TTI::PointersChainInfo::getKnownStride();
 
-      ScalarCost = TTI->getPointersChainCost(Ptrs, BasePtr, PtrsInfo, CostKind);
+      ScalarCost = TTI->getPointersChainCost(Ptrs, BasePtr, PtrsInfo, ScalarTy,
+                                             CostKind);
 
       // Remark: it not quite correct to use scalar GEP cost for a vector GEP,
       // but it's not clear how to do that without having vector GEP arguments
@@ -14877,15 +14879,6 @@ void SLPVectorizerPass::collectSeedInstructions(BasicBlock *BB) {
   }
 }
 
-bool SLPVectorizerPass::tryToVectorizePair(Value *A, Value *B, BoUpSLP &R) {
-  if (!A || !B)
-    return false;
-  if (isa<InsertElementInst>(A) || isa<InsertElementInst>(B))
-    return false;
-  Value *VL[] = {A, B};
-  return tryToVectorizeList(VL, R);
-}
-
 #ifdef INTEL_CUSTOMIZATION
 static bool isHighRegPressureFMALoop(BasicBlock *BB, LoopInfo *LI,
                                      ArrayRef<Value *> &VL) {
@@ -15153,14 +15146,14 @@ bool SLPVectorizerPass::tryToVectorize(Instruction *I, BoUpSLP &R) {
   }
 
   if (Candidates.size() == 1)
-    return tryToVectorizePair(Op0, Op1, R);
+    return tryToVectorizeList({Op0, Op1}, R);
 
   // We have multiple options. Try to pick the single best.
   std::optional<int> BestCandidate = R.findBestRootPair(Candidates);
   if (!BestCandidate)
     return false;
-  return tryToVectorizePair(Candidates[*BestCandidate].first,
-                            Candidates[*BestCandidate].second, R);
+  return tryToVectorizeList(
+      {Candidates[*BestCandidate].first, Candidates[*BestCandidate].second}, R);
 }
 
 namespace {
@@ -17247,7 +17240,6 @@ bool SLPVectorizerPass::vectorizeChainsInBlock(BasicBlock *BB, BoUpSLP &R) {
 
   InstSetVector PostProcessInserts;
   SmallSetVector<CmpInst *, 8> PostProcessCmps;
-  SmallDenseSet<Instruction *, 4> KeyNodes;
   // Vectorizes Inserts in `PostProcessInserts` and if `VecctorizeCmps` is true
   // also vectorizes `PostProcessCmps`.
   auto VectorizeInsertsAndCmps = [&](bool VectorizeCmps) {
@@ -17266,6 +17258,13 @@ bool SLPVectorizerPass::vectorizeChainsInBlock(BasicBlock *BB, BoUpSLP &R) {
     return isa<InsertElementInst, InsertValueInst>(I) &&
            PostProcessInserts.contains(I);
   };
+  // Returns true if `I` is an instruction without users, like terminator, or
+  // function call with ignored return value, store. Ignore unused instructions
+  // (basing on instruction type, except for CallInst and InvokeInst).
+  auto HasNoUsers = [](Instruction *I) {
+    return I->use_empty() &&
+           (I->getType()->isVoidTy() || isa<CallInst, InvokeInst>(I));
+  };
   for (BasicBlock::iterator it = BB->begin(), e = BB->end(); it != e; ++it) {
     // Skip instructions with scalable type. The num of elements is unknown at
     // compile-time for scalable type.
@@ -17277,7 +17276,7 @@ bool SLPVectorizerPass::vectorizeChainsInBlock(BasicBlock *BB, BoUpSLP &R) {
       continue;
     // We may go through BB multiple times so skip the one we have checked.
     if (!VisitedInstrs.insert(&*it).second) {
-      if (it->use_empty() && KeyNodes.contains(&*it) &&
+      if (HasNoUsers(&*it) &&
           VectorizeInsertsAndCmps(/*VectorizeCmps=*/it->isTerminator())) {
         // We would like to start over since some instructions are deleted
         // and the iterator may become invalid value.
@@ -17325,12 +17324,7 @@ bool SLPVectorizerPass::vectorizeChainsInBlock(BasicBlock *BB, BoUpSLP &R) {
       continue;
     }
 
-    // Ran into an instruction without users, like terminator, or function call
-    // with ignored return value, store. Ignore unused instructions (basing on
-    // instruction type, except for CallInst and InvokeInst).
-    if (it->use_empty() &&
-        (it->getType()->isVoidTy() || isa<CallInst, InvokeInst>(it))) {
-      KeyNodes.insert(&*it);
+    if (HasNoUsers(&*it)) {
       bool OpsChanged = false;
       auto *SI = dyn_cast<StoreInst>(it);
       bool TryToVectorizeRoot = ShouldStartVectorizeHorAtStore || !SI;

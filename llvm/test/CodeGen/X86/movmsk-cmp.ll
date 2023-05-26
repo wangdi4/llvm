@@ -1293,7 +1293,7 @@ define i1 @allzeros_v64i8_and1(<64 x i8> %arg) {
 ;
 ; AVX512-LABEL: allzeros_v64i8_and1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %k0
+; AVX512-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to16}, %zmm0, %k0
 ; AVX512-NEXT:    kortestw %k0, %k0
 ; AVX512-NEXT:    sete %al
 ; AVX512-NEXT:    vzeroupper
@@ -1550,7 +1550,7 @@ define i1 @allzeros_v32i16_and1(<32 x i16> %arg) {
 ;
 ; AVX512-LABEL: allzeros_v32i16_and1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %k0
+; AVX512-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to16}, %zmm0, %k0
 ; AVX512-NEXT:    kortestw %k0, %k0
 ; AVX512-NEXT:    sete %al
 ; AVX512-NEXT:    vzeroupper
@@ -2420,7 +2420,7 @@ define i1 @allzeros_v64i8_and4(<64 x i8> %arg) {
 ;
 ; AVX512-LABEL: allzeros_v64i8_and4:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %k0
+; AVX512-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to16}, %zmm0, %k0
 ; AVX512-NEXT:    kortestw %k0, %k0
 ; AVX512-NEXT:    sete %al
 ; AVX512-NEXT:    vzeroupper
@@ -2677,7 +2677,7 @@ define i1 @allzeros_v32i16_and4(<32 x i16> %arg) {
 ;
 ; AVX512-LABEL: allzeros_v32i16_and4:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %k0
+; AVX512-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to16}, %zmm0, %k0
 ; AVX512-NEXT:    kortestw %k0, %k0
 ; AVX512-NEXT:    sete %al
 ; AVX512-NEXT:    vzeroupper

@@ -4615,6 +4615,13 @@ static bool isValidShapeCast(ArrayRef<int64_t> a, ArrayRef<int64_t> b) {
   unsigned rankB = b.size();
   assert(rankA < rankB);
 
+  auto isOne = [](int64_t v) { return v == 1; };
+
+  // Special-case for n-D to 0-d shape cast. 'b' must be all ones to be shape
+  // casted to a 0-d vector.
+  if (rankA == 0 && llvm::all_of(b, isOne))
+    return true;
+
   unsigned i = 0;
   unsigned j = 0;
   while (i < rankA && j < rankB) {
@@ -4628,7 +4635,6 @@ static bool isValidShapeCast(ArrayRef<int64_t> a, ArrayRef<int64_t> b) {
 
     // Handle the case when trailing dimensions are of size 1.
     // Include them into the contiguous sequence.
-    auto isOne = [](int64_t v) { return v == 1; };
     if (i < rankA && llvm::all_of(a.slice(i), isOne))
       i = rankA;
     if (j < rankB && llvm::all_of(b.slice(j), isOne))
@@ -5448,6 +5454,25 @@ LogicalResult MaskOp::verify() {
   return success();
 }
 
+/// Folds vector.mask ops with an all-true mask.
+LogicalResult MaskOp::fold(FoldAdaptor adaptor,
+                           SmallVectorImpl<OpFoldResult> &results) {
+  MaskFormat maskFormat = getMaskFormat(getMask());
+  if (isEmpty())
+    return failure();
+
+  if (maskFormat != MaskFormat::AllTrue)
+    return failure();
+
+  // Move maskable operation outside of the `vector.mask` region.
+  Operation *maskableOp = getMaskableOp();
+  maskableOp->dropAllUses();
+  maskableOp->moveBefore(getOperation());
+
+  results.push_back(maskableOp->getResult(0));
+  return success();
+}
+
 // Elides empty vector.mask operations with or without return values. Propagates
 // the yielded values by the vector.yield terminator, if any, or erases the op,
 // otherwise.
@@ -5460,10 +5485,10 @@ class ElideEmptyMaskOp : public OpRewritePattern<MaskOp> {
     if (maskingOp.getMaskableOp())
       return failure();
 
-    Block *block = maskOp.getMaskBlock();
-    if (block->getOperations().size() > 1)
+    if (!maskOp.isEmpty())
       return failure();
 
+    Block *block = maskOp.getMaskBlock();
     auto terminator = cast<vector::YieldOp>(block->front());
     if (terminator.getNumOperands() == 0)
       rewriter.eraseOp(maskOp);

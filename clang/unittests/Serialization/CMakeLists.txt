@@ -8,14 +8,19 @@ add_clang_unittest(SerializationTests
   InMemoryModuleCacheTest.cpp
   ModuleCacheTest.cpp
   SourceLocationEncodingTest.cpp
+  VarDeclConstantInitTest.cpp
   )
 
 clang_target_link_libraries(SerializationTests
   PRIVATE
   clangAST
+# INTEL_CUSTOMIZATION
+  clangASTMatchers
+# end INTEL_CUSTOMIZATION
   clangBasic
   clangFrontend
   clangLex
   clangSema
   clangSerialization
+  clangTooling
   )

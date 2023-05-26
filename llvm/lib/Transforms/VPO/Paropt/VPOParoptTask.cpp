@@ -50,6 +50,7 @@
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionNode.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionUtils.h"
+#include "llvm/Analysis/DomTreeUpdater.h"
 
 #include "llvm/Transforms/Utils/GeneralUtils.h"
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
@@ -633,9 +634,10 @@ void VPOParoptTransform::linkPrivateItemToBufferAtEndOfThunkIfApplicable(
 
   Instruction *BranchPt = &*Builder.GetInsertPoint();
 
+  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
   Instruction *ThenTerm = SplitBlockAndInsertIfThen(
       IsSizeNonZero, BranchPt, false,
-      MDBuilder(Builder.getContext()).createBranchWeights(4, 1), DT, LI);
+      MDBuilder(Builder.getContext()).createBranchWeights(4, 1), &DTU, LI);
   BasicBlock *ThenBB = ThenTerm->getParent();
   ThenBB->setName("size.is.non.zero.then");
 

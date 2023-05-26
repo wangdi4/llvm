@@ -117,7 +117,7 @@ public:
   using value_type = typename GT::NodeRef;
   using difference_type = std::ptrdiff_t;
   using pointer = value_type *;
-  using reference = value_type &;
+  using reference = const value_type &;
 
 private:
   using NodeRef = typename GT::NodeRef;
@@ -127,12 +127,12 @@ private:
   // First element is basic block pointer, second is the 'next child' to visit
 #if INTEL_CUSTOMIZATION
   // TODO: Revert this back to SmallVector after VPlan code is fixed.
-  std::vector<std::pair<NodeRef, ChildItTy>> VisitStack;
+  std::vector<std::tuple<NodeRef, ChildItTy, ChildItTy>> VisitStack;
 #endif // INTEL_CUSTOMIZATION
 
   po_iterator(NodeRef BB) {
     this->insertEdge(std::optional<NodeRef>(), BB);
-    VisitStack.push_back(std::make_pair(BB, GT::child_begin(BB)));
+    VisitStack.emplace_back(BB, GT::child_begin(BB), GT::child_end(BB));
     traverseChild();
   }
 
@@ -141,7 +141,7 @@ private:
   po_iterator(NodeRef BB, SetType &S)
       : po_iterator_storage<SetType, ExtStorage>(S) {
     if (this->insertEdge(std::optional<NodeRef>(), BB)) {
-      VisitStack.push_back(std::make_pair(BB, GT::child_begin(BB)));
+      VisitStack.emplace_back(BB, GT::child_begin(BB), GT::child_end(BB));
       traverseChild();
     }
   }
@@ -151,12 +151,14 @@ private:
   } // End is when stack is empty.
 
   void traverseChild() {
-    while (VisitStack.back().second != GT::child_end(VisitStack.back().first)) {
-      NodeRef BB = *VisitStack.back().second++;
-      if (this->insertEdge(std::optional<NodeRef>(VisitStack.back().first),
-                           BB)) {
+    while (true) {
+      auto &Entry = VisitStack.back();
+      if (std::get<1>(Entry) == std::get<2>(Entry))
+        break;
+      NodeRef BB = *std::get<1>(Entry)++;
+      if (this->insertEdge(std::optional<NodeRef>(std::get<0>(Entry)), BB)) {
         // If the block is not visited...
-        VisitStack.push_back(std::make_pair(BB, GT::child_begin(BB)));
+        VisitStack.emplace_back(BB, GT::child_begin(BB), GT::child_end(BB));
       }
     }
   }
@@ -178,7 +180,7 @@ public:
   }
   bool operator!=(const po_iterator &x) const { return !(*this == x); }
 
-  const NodeRef &operator*() const { return VisitStack.back().first; }
+  reference operator*() const { return std::get<0>(VisitStack.back()); }
 
   // This is a nonstandard operator-> that dereferences the pointer an extra
   // time... so that you can actually call methods ON the BasicBlock, because
@@ -187,7 +189,7 @@ public:
   NodeRef operator->() const { return **this; }
 
   po_iterator &operator++() { // Preincrement
-    this->finishPostorder(VisitStack.back().first);
+    this->finishPostorder(std::get<0>(VisitStack.back()));
     VisitStack.pop_back();
     if (!VisitStack.empty())
       traverseChild();
@@ -325,7 +327,8 @@ template <class GraphT, class GT = GraphTraits<GraphT>,
 class ReversePostOrderTraversal {
   using NodeRef = typename GT::NodeRef;
 
-  std::vector<NodeRef> Blocks; // Block list in normal PO order
+  using VecTy = SmallVector<NodeRef, 8>;
+  VecTy Blocks; // Block list in normal PO order
 
 #if INTEL_CUSTOMIZATION
   // INTEL: Handle non-default combination of GraphT/GT and/or
@@ -337,16 +340,16 @@ class ReversePostOrderTraversal {
   }
 
 public:
-  using rpo_iterator = typename std::vector<NodeRef>::reverse_iterator;
-  using const_rpo_iterator = typename std::vector<NodeRef>::const_reverse_iterator;
+  using rpo_iterator = typename VecTy::reverse_iterator;
+  using const_rpo_iterator = typename VecTy::const_reverse_iterator;
 
   ReversePostOrderTraversal(const GraphT &G) { Initialize(G); }
 
   // Because we want a reverse post order, use reverse iterators from the vector
   rpo_iterator begin() { return Blocks.rbegin(); }
-  const_rpo_iterator begin() const { return Blocks.crbegin(); }
+  const_rpo_iterator begin() const { return Blocks.rbegin(); }
   rpo_iterator end() { return Blocks.rend(); }
-  const_rpo_iterator end() const { return Blocks.crend(); }
+  const_rpo_iterator end() const { return Blocks.rend(); }
 };
 
 } // end namespace llvm

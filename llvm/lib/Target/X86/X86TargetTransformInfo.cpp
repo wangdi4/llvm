@@ -5303,9 +5303,11 @@ X86TTIImpl::getSerializationCost(Type *EltTy, unsigned NumElts,
 }
 #endif // INTEL_CUSTOMIZATION
 
-InstructionCost X86TTIImpl::getPointersChainCost(
-    ArrayRef<const Value *> Ptrs, const Value *Base,
-    const TTI::PointersChainInfo &Info, TTI::TargetCostKind CostKind) {
+InstructionCost
+X86TTIImpl::getPointersChainCost(ArrayRef<const Value *> Ptrs,
+                                 const Value *Base,
+                                 const TTI::PointersChainInfo &Info,
+                                 Type *AccessTy, TTI::TargetCostKind CostKind) {
   if (Info.isSameBase() && Info.isKnownStride()) {
     // If all the pointers have known stride all the differences are translated
     // into constants. X86 memory addressing allows encoding it into
@@ -5317,7 +5319,7 @@ InstructionCost X86TTIImpl::getPointersChainCost(
     }
     return TTI::TCC_Free;
   }
-  return BaseT::getPointersChainCost(Ptrs, Base, Info, CostKind);
+  return BaseT::getPointersChainCost(Ptrs, Base, Info, AccessTy, CostKind);
 }
 
 InstructionCost X86TTIImpl::getAddressComputationCost(Type *Ty,

@@ -39,6 +39,9 @@ static cl::opt<unsigned> SVEGatherOverhead("sve-gather-overhead", cl::init(10),
 static cl::opt<unsigned> SVEScatterOverhead("sve-scatter-overhead",
                                             cl::init(10), cl::Hidden);
 
+static cl::opt<unsigned> SVETailFoldInsnThreshold("sve-tail-folding-insn-threshold",
+                                                  cl::init(15), cl::Hidden);
+
 namespace {
 class TailFoldingOption {
   // These bitfields will only ever be set to something non-zero in operator=,
@@ -208,7 +211,8 @@ bool AArch64TTIImpl::areInlineCompatible(const Function *Caller,
 bool AArch64TTIImpl::shouldMaximizeVectorBandwidth(
     TargetTransformInfo::RegisterKind K) const {
   assert(K != TargetTransformInfo::RGK_Scalar);
-  return K == TargetTransformInfo::RGK_FixedWidthVector;
+  return (K == TargetTransformInfo::RGK_FixedWidthVector &&
+          !ST->forceStreamingCompatibleSVE());
 }
 
 /// Calculate the cost of materializing a 64-bit value. This helper
@@ -733,6 +737,11 @@ instCombineConvertFromSVBool(InstCombiner &IC, IntrinsicInst &II) {
 
   if (auto BinOpCombine = tryCombineFromSVBoolBinOp(IC, II))
     return BinOpCombine;
+
+  // Ignore converts to/from svcount_t.
+  if (isa<TargetExtType>(II.getArgOperand(0)->getType()) ||
+      isa<TargetExtType>(II.getType()))
+    return std::nullopt;
 
   SmallVector<Instruction *, 32> CandidatesForRemoval;
   Value *Cursor = II.getOperand(0), *EarliestReplacement = nullptr;
@@ -3558,8 +3567,19 @@ bool AArch64TTIImpl::preferPredicateOverEpilogue(TailFoldingInfo *TFI) {
   if (Required == TailFoldingOpts::Disabled)
     Required |= TailFoldingOpts::Simple;
 
-  return TailFoldingOptionLoc.satisfies(ST->getSVETailFoldingDefaultOpts(),
-                                        Required);
+  if (!TailFoldingOptionLoc.satisfies(ST->getSVETailFoldingDefaultOpts(),
+                                      Required))
+    return false;
+
+  // Don't tail-fold for tight loops where we would be better off interleaving
+  // with an unpredicated loop.
+  unsigned NumInsns = 0;
+  for (BasicBlock *BB : TFI->LVL->getLoop()->blocks()) {
+    NumInsns += BB->sizeWithoutDebug();
+  }
+
+  // We expect 4 of these to be a IV PHI, IV add, IV compare and branch.
+  return NumInsns >= SVETailFoldInsnThreshold;
 }
 
 InstructionCost

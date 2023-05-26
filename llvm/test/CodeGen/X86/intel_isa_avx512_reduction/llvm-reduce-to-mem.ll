@@ -365,7 +365,7 @@ define void @reduce_smaxw_16xi16_mem(<16 x i16> %in, ptr %out) {
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
 ; AVX512F-NEXT:    vpmaxsw %xmm1, %xmm0, %xmm0
-; AVX512F-NEXT:    vpxor {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
+; AVX512F-NEXT:    vpxord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %xmm0, %xmm0
 ; AVX512F-NEXT:    vphminposuw %xmm0, %xmm0
 ; AVX512F-NEXT:    vmovd %xmm0, %eax
 ; AVX512F-NEXT:    xorl $32767, %eax # imm = 0x7FFF
@@ -439,7 +439,7 @@ define void @reduce_sminw_16xi16_mem(<16 x i16> %in, ptr %out) {
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
 ; AVX512F-NEXT:    vpminsw %xmm1, %xmm0, %xmm0
-; AVX512F-NEXT:    vpxor {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
+; AVX512F-NEXT:    vpxord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %xmm0, %xmm0
 ; AVX512F-NEXT:    vphminposuw %xmm0, %xmm0
 ; AVX512F-NEXT:    vmovd %xmm0, %eax
 ; AVX512F-NEXT:    xorl $32768, %eax # imm = 0x8000

@@ -579,7 +579,7 @@ InferAddressSpacesImpl::collectFlatAddressExpressions(Function &F) const {
       if (Cmp->getOperand(0)->getType()->isPtrOrPtrVectorTy()) {
 #else
       // FIXME: Handle vectors of pointers
-      if (Cmp->getOperand(0)->getType()->isPointerTy()) {      
+      if (Cmp->getOperand(0)->getType()->isPointerTy()) {
 #endif
         PushPtrOperand(Cmp->getOperand(0));
         PushPtrOperand(Cmp->getOperand(1));

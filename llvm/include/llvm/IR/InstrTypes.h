@@ -1998,7 +1998,7 @@ public:
     return Attrs.hasAttrSomewhere(Attribute::ByVal);
   }
 
-  ///@{
+  ///@}
   // End of attribute API.
 
   /// \name Operand Bundle API

@@ -902,10 +902,6 @@ static void addPGOAndCoverageFlags(const ToolChain &TC, Compilation &C,
                                    options::OPT_fno_test_coverage, false) ||
                       Args.hasArg(options::OPT_coverage);
   bool EmitCovData = TC.needsGCovInstrumentation(Args);
-  if (EmitCovNotes)
-    CmdArgs.push_back("-ftest-coverage");
-  if (EmitCovData)
-    CmdArgs.push_back("-fprofile-arcs");
 
   if (Args.hasFlag(options::OPT_fcoverage_mapping,
                    options::OPT_fno_coverage_mapping, false)) {
@@ -1015,6 +1011,8 @@ static void addPGOAndCoverageFlags(const ToolChain &TC, Compilation &C,
     } else {
       CoverageFilename = llvm::sys::path::filename(Output.getBaseInput());
     }
+    if (llvm::sys::path::is_relative(CoverageFilename))
+      (void)D.getVFS().makeAbsolute(CoverageFilename);
     llvm::sys::path::replace_extension(CoverageFilename, "gcno");
     if (EmitCovNotes) {
       CmdArgs.push_back("-coverage-notes-file");
@@ -4043,10 +4041,13 @@ static bool RenderModulesOptions(Compilation &C, const Driver &D,
   // modules support by default.
   bool HaveStdCXXModules =
       IsCXX && Std &&
-      (Std->containsValue("c++2a") || Std->containsValue("c++20") ||
-       Std->containsValue("c++2b") || Std->containsValue("c++23") ||
-       Std->containsValue("c++2c") || Std->containsValue("c++26") ||
-       Std->containsValue("c++latest"));
+      (Std->containsValue("c++2a") || Std->containsValue("gnu++2a") ||
+       Std->containsValue("c++20") || Std->containsValue("gnu++20") ||
+       Std->containsValue("c++2b") || Std->containsValue("gnu++2b") ||
+       Std->containsValue("c++23") || Std->containsValue("gnu++23") ||
+       Std->containsValue("c++2c") || Std->containsValue("gnu++2c") ||
+       Std->containsValue("c++26") || Std->containsValue("gnu++26") ||
+       Std->containsValue("c++latest") || Std->containsValue("gnu++latest"));
   bool HaveModules = HaveStdCXXModules;
 
   // -fmodules enables the use of precompiled modules (off by default).
@@ -4116,12 +4117,6 @@ static bool RenderModulesOptions(Compilation &C, const Driver &D,
   }
 
   if (HaveModules) {
-    // -fprebuilt-module-path specifies where to load the prebuilt module files.
-    for (const Arg *A : Args.filtered(options::OPT_fprebuilt_module_path)) {
-      CmdArgs.push_back(Args.MakeArgString(
-          std::string("-fprebuilt-module-path=") + A->getValue()));
-      A->claim();
-    }
     if (Args.hasFlag(options::OPT_fprebuilt_implicit_modules,
                      options::OPT_fno_prebuilt_implicit_modules, false))
       CmdArgs.push_back("-fprebuilt-implicit-modules");
@@ -4154,9 +4149,16 @@ static bool RenderModulesOptions(Compilation &C, const Driver &D,
   // names to precompiled module files (the module is loaded only if used).
   // The -fmodule-file=<file> form can be used to unconditionally load
   // precompiled module files (whether used or not).
-  if (HaveModules)
+  if (HaveModules || Input.getType() == clang::driver::types::TY_ModuleFile) {
     Args.AddAllArgs(CmdArgs, options::OPT_fmodule_file);
-  else
+
+    // -fprebuilt-module-path specifies where to load the prebuilt module files.
+    for (const Arg *A : Args.filtered(options::OPT_fprebuilt_module_path)) {
+      CmdArgs.push_back(Args.MakeArgString(
+          std::string("-fprebuilt-module-path=") + A->getValue()));
+      A->claim();
+    }
+  } else
     Args.ClaimAllArgs(options::OPT_fmodule_file);
 
   // When building modules and generating crashdumps, we need to dump a module
@@ -8705,6 +8707,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     A->claim();
   }
 
+  Args.addOptInFlag(CmdArgs, options::OPT_fsafe_buffer_usage_suggestions,
+                    options::OPT_fno_safe_buffer_usage_suggestions);
+
   // Setup statistics file output.
   SmallString<128> StatsFile = getStatsFileName(Args, Output, Input, D);
   if (!StatsFile.empty()) {
@@ -9739,7 +9744,7 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
   if (Args.hasArg(options::OPT__SLASH_kernel))
     CmdArgs.push_back("-fms-kernel");
 
-  if (Arg *A = Args.getLastArg(options::OPT__SLASH_guard)) {
+  for (const Arg *A : Args.filtered(options::OPT__SLASH_guard)) {
     StringRef GuardArgs = A->getValue();
     // The only valid options are "cf", "cf,nochecks", "cf-", "ehcont" and
     // "ehcont-".
@@ -9758,6 +9763,7 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
     } else {
       D.Diag(diag::err_drv_invalid_value) << A->getSpelling() << GuardArgs;
     }
+    A->claim();
   }
 }
 
@@ -11368,8 +11374,13 @@ void SpirvToIrWrapper::ConstructJob(Compilation &C, const JobAction &JA,
     addArgs(CmdArgs, TCArgs, {"-skip-unknown-input"});
 #endif // INTEL_CUSTOMIZATION
   // Make sure we preserve any auxiliary data which may be present in the
-  // SPIR-V object, which we need for SPIR-V-based fat objects.
-  addArgs(CmdArgs, TCArgs, {"-llvm-spirv-opts", "--spirv-preserve-auxdata"});
+  // SPIR-V object, use SPIR-V style IR as opposed to OpenCL, and represent
+  // SPIR-V globals as global variables instead of functions, all of which we
+  // need for SPIR-V-based fat objects.
+  addArgs(CmdArgs, TCArgs,
+          {"-llvm-spirv-opts",
+           "--spirv-preserve-auxdata --spirv-target-env=SPV-IR "
+           "--spirv-builtin-format=global"});
 
   auto Cmd = std::make_unique<Command>(
       JA, *this, ResponseFileSupport::None(),

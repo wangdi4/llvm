@@ -264,25 +264,19 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
     setLibcallName(RTLIB::MULO_I64, nullptr);
   }
 
-  if (!Subtarget.hasStdExtM() && !Subtarget.hasStdExtZmmul()) {
+  if (!Subtarget.hasStdExtM() && !Subtarget.hasStdExtZmmul())
     setOperationAction({ISD::MUL, ISD::MULHS, ISD::MULHU}, XLenVT, Expand);
-  } else {
-    if (Subtarget.is64Bit()) {
-      setOperationAction(ISD::MUL, {MVT::i32, MVT::i128}, Custom);
-    } else {
-      setOperationAction(ISD::MUL, MVT::i64, Custom);
-    }
-  }
+  else if (Subtarget.is64Bit())
+    setOperationAction(ISD::MUL, {MVT::i32, MVT::i128}, Custom);
+  else
+    setOperationAction(ISD::MUL, MVT::i64, Custom);
 
-  if (!Subtarget.hasStdExtM()) {
+  if (!Subtarget.hasStdExtM())
     setOperationAction({ISD::SDIV, ISD::UDIV, ISD::SREM, ISD::UREM},
                        XLenVT, Expand);
-  } else {
-    if (Subtarget.is64Bit()) {
-      setOperationAction({ISD::SDIV, ISD::UDIV, ISD::UREM},
-                          {MVT::i8, MVT::i16, MVT::i32}, Custom);
-    }
-  }
+  else if (Subtarget.is64Bit())
+    setOperationAction({ISD::SDIV, ISD::UDIV, ISD::UREM},
+                       {MVT::i8, MVT::i16, MVT::i32}, Custom);
 
   setOperationAction(
       {ISD::SDIVREM, ISD::UDIVREM, ISD::SMUL_LOHI, ISD::UMUL_LOHI}, XLenVT,
@@ -291,10 +285,13 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
   setOperationAction({ISD::SHL_PARTS, ISD::SRL_PARTS, ISD::SRA_PARTS}, XLenVT,
                      Custom);
 
-  if (Subtarget.hasStdExtZbb() || Subtarget.hasStdExtZbkb() ||
-      Subtarget.hasVendorXTHeadBb()) {
+  if (Subtarget.hasStdExtZbb() || Subtarget.hasStdExtZbkb()) {
     if (Subtarget.is64Bit())
       setOperationAction({ISD::ROTL, ISD::ROTR}, MVT::i32, Custom);
+  } else if (Subtarget.hasVendorXTHeadBb()) {
+    if (Subtarget.is64Bit())
+      setOperationAction({ISD::ROTL, ISD::ROTR}, MVT::i32, Custom);
+    setOperationAction({ISD::ROTL, ISD::ROTR}, XLenVT, Custom);
   } else {
     setOperationAction({ISD::ROTL, ISD::ROTR}, XLenVT, Expand);
   }
@@ -4424,6 +4421,15 @@ SDValue RISCVTargetLowering::LowerOperation(SDValue Op,
     return lowerShiftRightParts(Op, DAG, true);
   case ISD::SRL_PARTS:
     return lowerShiftRightParts(Op, DAG, false);
+  case ISD::ROTL:
+  case ISD::ROTR:
+    assert(Subtarget.hasVendorXTHeadBb() &&
+           !(Subtarget.hasStdExtZbb() || Subtarget.hasStdExtZbkb()) &&
+           "Unexpected custom legalization");
+    // XTHeadBb only supports rotate by constant.
+    if (!isa<ConstantSDNode>(Op.getOperand(1)))
+      return SDValue();
+    return Op;
   case ISD::BITCAST: {
     SDLoc DL(Op);
     EVT VT = Op.getValueType();
@@ -9038,6 +9044,12 @@ void RISCVTargetLowering::ReplaceNodeResults(SDNode *N,
   case ISD::ROTR:
     assert(N->getValueType(0) == MVT::i32 && Subtarget.is64Bit() &&
            "Unexpected custom legalisation");
+    assert((Subtarget.hasStdExtZbb() || Subtarget.hasStdExtZbkb() ||
+            Subtarget.hasVendorXTHeadBb()) &&
+           "Unexpected custom legalization");
+    if (!isa<ConstantSDNode>(N->getOperand(1)) &&
+        !(Subtarget.hasStdExtZbb() || Subtarget.hasStdExtZbkb()))
+      return;
     Results.push_back(customLegalizeToWOp(N, DAG));
     break;
   case ISD::CTTZ:
@@ -13728,7 +13740,7 @@ static unsigned allocateRVVReg(MVT ValVT, unsigned ValNo,
 }
 
 // Implements the RISC-V calling convention. Returns true upon failure.
-static bool CC_RISCV(const DataLayout &DL, RISCVABI::ABI ABI, unsigned ValNo,
+bool RISCV::CC_RISCV(const DataLayout &DL, RISCVABI::ABI ABI, unsigned ValNo,
                      MVT ValVT, MVT LocVT, CCValAssign::LocInfo LocInfo,
                      ISD::ArgFlagsTy ArgFlags, CCState &State, bool IsFixed,
                      bool IsRet, Type *OrigTy, const RISCVTargetLowering &TLI,
@@ -14181,7 +14193,7 @@ static SDValue unpackF64OnRV32DSoftABI(SelectionDAG &DAG, SDValue Chain,
 
 // FastCC has less than 1% performance improvement for some particular
 // benchmark. But theoretically, it may has benenfit for some cases.
-static bool CC_RISCV_FastCC(const DataLayout &DL, RISCVABI::ABI ABI,
+bool RISCV::CC_RISCV_FastCC(const DataLayout &DL, RISCVABI::ABI ABI,
                             unsigned ValNo, MVT ValVT, MVT LocVT,
                             CCValAssign::LocInfo LocInfo,
                             ISD::ArgFlagsTy ArgFlags, CCState &State,
@@ -14283,7 +14295,7 @@ static bool CC_RISCV_FastCC(const DataLayout &DL, RISCVABI::ABI ABI,
   return true; // CC didn't match.
 }
 
-static bool CC_RISCV_GHC(unsigned ValNo, MVT ValVT, MVT LocVT,
+bool RISCV::CC_RISCV_GHC(unsigned ValNo, MVT ValVT, MVT LocVT,
                          CCValAssign::LocInfo LocInfo,
                          ISD::ArgFlagsTy ArgFlags, CCState &State) {
 
@@ -14377,11 +14389,11 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
   CCState CCInfo(CallConv, IsVarArg, MF, ArgLocs, *DAG.getContext());
 
   if (CallConv == CallingConv::GHC)
-    CCInfo.AnalyzeFormalArguments(Ins, CC_RISCV_GHC);
+    CCInfo.AnalyzeFormalArguments(Ins, RISCV::CC_RISCV_GHC);
   else
     analyzeInputArgs(MF, CCInfo, Ins, /*IsRet=*/false,
-                     CallConv == CallingConv::Fast ? CC_RISCV_FastCC
-                                                   : CC_RISCV);
+                     CallConv == CallingConv::Fast ? RISCV::CC_RISCV_FastCC
+                                                   : RISCV::CC_RISCV);
 
   for (unsigned i = 0, e = ArgLocs.size(); i != e; ++i) {
     CCValAssign &VA = ArgLocs[i];
@@ -14582,11 +14594,11 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
   CCState ArgCCInfo(CallConv, IsVarArg, MF, ArgLocs, *DAG.getContext());
 
   if (CallConv == CallingConv::GHC)
-    ArgCCInfo.AnalyzeCallOperands(Outs, CC_RISCV_GHC);
+    ArgCCInfo.AnalyzeCallOperands(Outs, RISCV::CC_RISCV_GHC);
   else
     analyzeOutputArgs(MF, ArgCCInfo, Outs, /*IsRet=*/false, &CLI,
-                      CallConv == CallingConv::Fast ? CC_RISCV_FastCC
-                                                    : CC_RISCV);
+                      CallConv == CallingConv::Fast ? RISCV::CC_RISCV_FastCC
+                                                    : RISCV::CC_RISCV);
 
   // Check if it's really possible to do a tail call.
   if (IsTailCall)
@@ -14830,7 +14842,7 @@ SDValue RISCVTargetLowering::LowerCall(CallLoweringInfo &CLI,
   // Assign locations to each value returned by this call.
   SmallVector<CCValAssign, 16> RVLocs;
   CCState RetCCInfo(CallConv, IsVarArg, MF, RVLocs, *DAG.getContext());
-  analyzeInputArgs(MF, RetCCInfo, Ins, /*IsRet=*/true, CC_RISCV);
+  analyzeInputArgs(MF, RetCCInfo, Ins, /*IsRet=*/true, RISCV::CC_RISCV);
 
   // Copy all of the result registers out of their specified physreg.
   for (auto &VA : RVLocs) {
@@ -14873,7 +14885,7 @@ bool RISCVTargetLowering::CanLowerReturn(
     MVT VT = Outs[i].VT;
     ISD::ArgFlagsTy ArgFlags = Outs[i].Flags;
     RISCVABI::ABI ABI = MF.getSubtarget<RISCVSubtarget>().getTargetABI();
-    if (CC_RISCV(MF.getDataLayout(), ABI, i, VT, VT, CCValAssign::Full,
+    if (RISCV::CC_RISCV(MF.getDataLayout(), ABI, i, VT, VT, CCValAssign::Full,
                  ArgFlags, CCInfo, /*IsFixed=*/true, /*IsRet=*/true, nullptr,
                  *this, FirstMaskArgument))
       return false;
@@ -14898,7 +14910,7 @@ RISCVTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
                  *DAG.getContext());
 
   analyzeOutputArgs(DAG.getMachineFunction(), CCInfo, Outs, /*IsRet=*/true,
-                    nullptr, CC_RISCV);
+                    nullptr, RISCV::CC_RISCV);
 
   if (CallConv == CallingConv::GHC && !RVLocs.empty())
     report_fatal_error("GHC functions return void only");
@@ -15891,31 +15903,35 @@ bool RISCVTargetLowering::decomposeMulByConstant(LLVMContext &Context, EVT VT,
   // Check integral scalar types.
   const bool HasExtMOrZmmul =
       Subtarget.hasStdExtM() || Subtarget.hasStdExtZmmul();
-  if (VT.isScalarInteger()) {
-    // Omit the optimization if the sub target has the M extension and the data
-    // size exceeds XLen.
-    if (HasExtMOrZmmul && VT.getSizeInBits() > Subtarget.getXLen())
-      return false;
-    if (auto *ConstNode = dyn_cast<ConstantSDNode>(C.getNode())) {
-      // Break the MUL to a SLLI and an ADD/SUB.
-      const APInt &Imm = ConstNode->getAPIntValue();
-      if ((Imm + 1).isPowerOf2() || (Imm - 1).isPowerOf2() ||
-          (1 - Imm).isPowerOf2() || (-1 - Imm).isPowerOf2())
+  if (!VT.isScalarInteger())
+    return false;
+
+  // Omit the optimization if the sub target has the M extension and the data
+  // size exceeds XLen.
+  if (HasExtMOrZmmul && VT.getSizeInBits() > Subtarget.getXLen())
+    return false;
+
+  if (auto *ConstNode = dyn_cast<ConstantSDNode>(C.getNode())) {
+    // Break the MUL to a SLLI and an ADD/SUB.
+    const APInt &Imm = ConstNode->getAPIntValue();
+    if ((Imm + 1).isPowerOf2() || (Imm - 1).isPowerOf2() ||
+        (1 - Imm).isPowerOf2() || (-1 - Imm).isPowerOf2())
+      return true;
+
+    // Optimize the MUL to (SH*ADD x, (SLLI x, bits)) if Imm is not simm12.
+    if (Subtarget.hasStdExtZba() && !Imm.isSignedIntN(12) &&
+        ((Imm - 2).isPowerOf2() || (Imm - 4).isPowerOf2() ||
+         (Imm - 8).isPowerOf2()))
+      return true;
+
+    // Break the MUL to two SLLI instructions and an ADD/SUB, if Imm needs
+    // a pair of LUI/ADDI.
+    if (!Imm.isSignedIntN(12) && Imm.countr_zero() < 12 &&
+        ConstNode->hasOneUse()) {
+      APInt ImmS = Imm.ashr(Imm.countr_zero());
+      if ((ImmS + 1).isPowerOf2() || (ImmS - 1).isPowerOf2() ||
+          (1 - ImmS).isPowerOf2())
         return true;
-      // Optimize the MUL to (SH*ADD x, (SLLI x, bits)) if Imm is not simm12.
-      if (Subtarget.hasStdExtZba() && !Imm.isSignedIntN(12) &&
-          ((Imm - 2).isPowerOf2() || (Imm - 4).isPowerOf2() ||
-           (Imm - 8).isPowerOf2()))
-        return true;
-      // Break the MUL to two SLLI instructions and an ADD/SUB, if Imm needs
-      // a pair of LUI/ADDI.
-      if (!Imm.isSignedIntN(12) && Imm.countr_zero() < 12 &&
-          ConstNode->hasOneUse()) {
-        APInt ImmS = Imm.ashr(Imm.countr_zero());
-        if ((ImmS + 1).isPowerOf2() || (ImmS - 1).isPowerOf2() ||
-            (1 - ImmS).isPowerOf2())
-          return true;
-      }
     }
   }
 

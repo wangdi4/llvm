@@ -10211,6 +10211,8 @@ bool RecordExprEvaluator::VisitCXXStdInitializerListExpr(
   if (!EvaluateLValue(E->getSubExpr(), Array, Info))
     return false;
 
+  assert(ArrayType && "unexpected type for array initializer");
+
   // Get a pointer to the first element of the array.
   Array.addArray(Info, E, ArrayType);
 
@@ -11771,6 +11773,18 @@ static bool convertUnsignedAPIntToCharUnits(const llvm::APInt &Int,
   return true;
 }
 
+/// If we're evaluating the object size of an instance of a struct that
+/// contains a flexible array member, add the size of the initializer.
+static void addFlexibleArrayMemberInitSize(EvalInfo &Info, const QualType &T,
+                                           const LValue &LV, CharUnits &Size) {
+  if (!T.isNull() && T->isStructureType() &&
+      T->getAsStructureType()->getDecl()->hasFlexibleArrayMember())
+    if (const auto *V = LV.getLValueBase().dyn_cast<const ValueDecl *>())
+      if (const auto *VD = dyn_cast<VarDecl>(V))
+        if (VD->hasInit())
+          Size += VD->getFlexibleArrayInitChars(Info.Ctx);
+}
+
 /// Helper for tryEvaluateBuiltinObjectSize -- Given an LValue, this will
 /// determine how many bytes exist from the beginning of the object to either
 /// the end of the current subobject, or the end of the object itself, depending
@@ -11805,7 +11819,9 @@ static bool determineEndOffset(EvalInfo &Info, SourceLocation ExprLoc,
       return false;
 
     QualType BaseTy = getObjectType(LVal.getLValueBase());
-    return CheckedHandleSizeof(BaseTy, EndOffset);
+    const bool Ret = CheckedHandleSizeof(BaseTy, EndOffset);
+    addFlexibleArrayMemberInitSize(Info, BaseTy, LVal, EndOffset);
+    return Ret;
   }
 
   // We want to evaluate the size of a subobject.

@@ -99,9 +99,6 @@ private:
   void adjustForFMAs(InstructionCost &Cost, ArrayRef<Value *> &VL);
 #endif // INTEL_COLLAB
 
-  /// Try to vectorize a chain that starts at two arithmetic instrs.
-  bool tryToVectorizePair(Value *A, Value *B, slpvectorizer::BoUpSLP &R);
-
   /// Try to vectorize a list of operands.
   /// \param MaxVFOnly Vectorize only using maximal allowed register size.
   /// \returns true if a value was vectorized.

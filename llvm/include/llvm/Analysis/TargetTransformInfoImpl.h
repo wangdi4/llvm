@@ -1162,6 +1162,7 @@ public:
   InstructionCost getPointersChainCost(ArrayRef<const Value *> Ptrs,
                                        const Value *Base,
                                        const TTI::PointersChainInfo &Info,
+                                       Type *AccessTy,
                                        TTI::TargetCostKind CostKind) {
     InstructionCost Cost = TTI::TCC_Free;
     // In the basic model we take into account GEP instructions only

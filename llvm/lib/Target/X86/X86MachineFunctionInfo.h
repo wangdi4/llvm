@@ -146,6 +146,11 @@ class X86MachineFunctionInfo : public MachineFunctionInfo {
   std::set<Register> CandidatesForPush2Pop2;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
+  /// True if this function has CFI directives that adjust the CFA.
+  /// This is used to determine if we should direct the debugger to use
+  /// the CFA instead of the stack pointer.
+  bool HasCFIAdjustCfa = false;
+
   MachineInstr *StackPtrSaveMI = nullptr;
 
   std::optional<int> SwiftAsyncContextFrameIdx;
@@ -275,6 +280,9 @@ public:
   }
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
+  bool hasCFIAdjustCfa() const { return HasCFIAdjustCfa; }
+  void setHasCFIAdjustCfa(bool v) { HasCFIAdjustCfa = v; }
+
   void setStackPtrSaveMI(MachineInstr *MI) { StackPtrSaveMI = MI; }
   MachineInstr *getStackPtrSaveMI() const { return StackPtrSaveMI; }
 

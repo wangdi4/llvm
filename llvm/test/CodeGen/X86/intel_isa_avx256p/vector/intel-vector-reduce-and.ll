@@ -14,8 +14,8 @@ define i32 @test_truncated_v32i32(<32 x i32> %0) {
 ; CHECK-NEXT:    vpunpcklqdq %xmm1, %xmm0, %xmm0 # EVEX TO VEX Compression encoding: [0xc5,0xf9,0x6c,0xc1]
 ; CHECK-NEXT:    # xmm0 = xmm0[0],xmm1[0]
 ; CHECK-NEXT:    vinserti128 $1, %xmm2, %ymm0, %ymm0 # EVEX TO VEX Compression encoding: [0xc4,0xe3,0x7d,0x38,0xc2,0x01]
-; CHECK-NEXT:    vpand {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfd,0xdb,0x05,A,A,A,A]
-; CHECK-NEXT:    # fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; CHECK-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm0, %ymm0 # encoding: [0x62,0xf1,0x7d,0x38,0xdb,0x05,A,A,A,A]
+; CHECK-NEXT:    # fixup A - offset: 6, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; CHECK-NEXT:    vpxor %xmm1, %xmm1, %xmm1 # EVEX TO VEX Compression encoding: [0xc5,0xf1,0xef,0xc9]
 ; CHECK-NEXT:    vpsadbw %ymm1, %ymm0, %ymm0 # EVEX TO VEX Compression encoding: [0xc5,0xfd,0xf6,0xc1]
 ; CHECK-NEXT:    vextracti128 $1, %ymm0, %xmm1 # EVEX TO VEX Compression encoding: [0xc4,0xe3,0x7d,0x39,0xc1,0x01]
