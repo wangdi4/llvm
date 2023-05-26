@@ -43,11 +43,8 @@ int main() {
   static_assert(std::is_same<constCTAD, constMPtr>::value);
   static_assert(std::is_same<localCTAD, localMPtr>::value);
   static_assert(std::is_same<localCTADDep, localMPtr>::value);
-<<<<<<< HEAD
 
   globlMPtr non_const_multi_ptr;
   auto constTypeMultiPtr = constTypeMPtr(non_const_multi_ptr);
   implicit_conversion(non_const_multi_ptr);
-=======
->>>>>>> db386206b1a26504781365ad2d046a16a9251ac8
 }
