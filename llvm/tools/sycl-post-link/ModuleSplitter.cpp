@@ -30,11 +30,22 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #include <algorithm>
-#include <map>
 #include <utility>
+
+#define SYCL_GLOBAL_AS 1
 
 using namespace llvm;
 using namespace llvm::module_split;
+
+#if INTEL_COLLAB
+namespace llvm {
+namespace module_split {
+// Map used to check if a global var can be moved to a separate module.
+static std::map<const GlobalVariable *, bool> CanBeMovedToGlobalModule;
+
+} // namespace module_split
+} // namespace llvm
+#endif // INTEL_COLLAB
 
 namespace {
 
@@ -421,7 +432,8 @@ void externalizeGlobalVars(Module &M) {
 void addOMPRemainingGlobals(SetVector<const GlobalValue *> &GVs,
                             const Module &M) {
   for (const auto &G : M.globals())
-    if (G.hasPrivateLinkage())
+    if (module_split::CanBeMovedToGlobalModule.count(&G) &&
+        !module_split::CanBeMovedToGlobalModule[&G])
       GVs.insert(&G);
 }
 
@@ -436,7 +448,8 @@ void collectOMPGlobalVarsToExtract(SetVector<const GlobalValue *> &GVs,
   // 'device_image_scope' property from multiple modules and the splitter must
   // not add such usages after the check.
   for (const auto &G : M.globals())
-    if (!G.hasPrivateLinkage())
+    if (!module_split::CanBeMovedToGlobalModule.count(&G) ||
+        module_split::CanBeMovedToGlobalModule[&G])
       GVs.insert(&G);
 }
 
@@ -507,6 +520,43 @@ public:
 
 namespace llvm {
 namespace module_split {
+#if INTEL_COLLAB
+// This helper function is used to find if a global variable can be moved to a
+// separate module. A map (CanBeMovedToGlobalModule) is used to keep track of
+// this finding and use it at a later stage.
+// Following are scenarios under which globals is moved to separate module.
+// 1. Global has NO internal/private linkage or has target_declare attribute.
+// 2. Global is used in a initializer struct of another global which is already
+// marked for moving to a separate module.
+void findGlobalsToBeMoved(const Module &M) {
+  for (const auto &G : M.globals())
+    CanBeMovedToGlobalModule[&G] =
+        !(G.hasInternalLinkage() || G.hasPrivateLinkage()) ||
+        G.isTargetDeclare();
+  bool Changed = true;
+  while (Changed) {
+    Changed = false;
+    // TODO: Move to using use-chain graph
+    for (const auto &G : M.globals()) {
+      bool &CanBeMoved = CanBeMovedToGlobalModule[&G];
+      if (!CanBeMoved || !G.hasInitializer())
+        continue;
+      const ConstantStruct *CS = dyn_cast<ConstantStruct>(G.getInitializer());
+      if (!CS)
+        continue;
+      for (const Value *Ops : CS->operands()) {
+        Ops = Ops->stripPointerCasts();
+        // TODO: Nested structs not handled here.
+        const GlobalVariable *OpG = dyn_cast<const GlobalVariable>(Ops);
+        if (OpG && !CanBeMovedToGlobalModule[OpG]) {
+          Changed = true;
+          CanBeMovedToGlobalModule[OpG] = true;
+        }
+      }
+    }
+  }
+}
+#endif // INTEL_COLLAB
 
 std::unique_ptr<ModuleSplitterBase>
 getSplitterByKernelType(ModuleDesc &&MD, bool EmitOnlyKernelsAsEntryPoints) {
