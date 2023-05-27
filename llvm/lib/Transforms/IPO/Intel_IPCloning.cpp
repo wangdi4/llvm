@@ -4887,8 +4887,8 @@ private:
   // entry block of 'BaseF'.
   LoadInst *findUniqueRestrictLoadInst(Function *BaseF);
   // Recursive version of findHoistableFields() with 'Depth".
-  bool findHoistableFieldsX(Function *F, Value *V, unsigned Depth,
-                            std::set<unsigned> &HoistYes,
+  bool findHoistableFieldsX(Function *F, Value *V, StructType *STy,
+                            unsigned Depth, std::set<unsigned> &HoistYes,
                             std::set<unsigned> &HoistNo);
   // Return 'true' if the local restrict variable 'LIRestrict' in the entry
   // block of 'BaseF' can be hoisted past the entry of the wrapper function.
@@ -4899,9 +4899,10 @@ private:
   // of the wrapper function. If we return 'true' set 'GEPI6F1' to the
   // unique GetElementPtrInst * that references field 1.
   bool isBaseFArg6Field1Hoistable(Function *BaseF, GetElementPtrInst *&GEPI6F1);
-  // Find the fields referenced by 'V'in 'F' that are hoistable and put their
-  // indices in 'HoistYes' and 'HoistNo'.
-  bool findHoistableFields(Function *F, Value *V, std::set<unsigned> &HoistYes,
+  // Find the fields referenced by 'V' of type 'STy' in 'F' that are hoistable
+  // and put their indices in 'HoistYes' and 'HoistNo'.
+  bool findHoistableFields(Function *F, Value *V, StructType *STy,
+                           std::set<unsigned> &HoistYes,
                            std::set<unsigned> &HoistNo);
   // Return a pointer to a newly created hoisted restrict variable that
   // can be used in the condition testing for the optimized code.
@@ -5205,7 +5206,8 @@ LoadInst *PredicateOpt::findUniqueRestrictLoadInst(Function *BaseF) {
 // Similar to findHoistableFields, but descent depth is limited to
 // 'Depth' to ensure termination and save compile time.
 //
-bool PredicateOpt::findHoistableFieldsX(Function *F, Value *V, unsigned Depth,
+bool PredicateOpt::findHoistableFieldsX(Function *F, Value *V, StructType *STy,
+                                        unsigned Depth,
                                         std::set<unsigned> &HoistYes,
                                         std::set<unsigned> &HoistNo) {
 
@@ -5221,21 +5223,37 @@ bool PredicateOpt::findHoistableFieldsX(Function *F, Value *V, unsigned Depth,
     return false;
   };
 
-  // Return 'true' if 'GEPI' has the form 'GEPI(V,0,FldNo)' and set '*FldNo'.
-  auto IsValidGEPI = [](GetElementPtrInst *GEPI, Value *V,
+  // Return 'true' if 'GEPI' has the form 'GEPI(V,0,FldNo)' or the form
+  // 'GEPI(V,Offset)' where 'Offset' is the beginning of a field 'FldNo' in
+  // 'STy', and set '*FldNo'.
+  auto IsValidGEPI = [](GetElementPtrInst *GEPI, Value *V, StructType *STy,
                         unsigned *FldNo) -> bool {
     if (GEPI->getPointerOperand() != V)
       return false;
-    if (GEPI->getNumOperands() != 3)
+    if (GEPI->getNumOperands() == 2) {
+      auto CI1 = dyn_cast<ConstantInt>(GEPI->getOperand(1));
+      if (!CI1)
+        return false;
+      unsigned CI1V = CI1->getZExtValue();
+      Module *M = GEPI->getModule();
+      const StructLayout *SL = M->getDataLayout().getStructLayout(STy);
+      unsigned Index = SL->getElementContainingOffset(CI1V);
+      if (SL->getElementOffset(Index) != CI1V)
+        return false;
+      *FldNo = Index;
+      return true;
+    } else if (GEPI->getNumOperands() == 3) {
+      auto CI1 = dyn_cast<ConstantInt>(GEPI->getOperand(1));
+      if (!CI1 || !CI1->isZero())
+        return false;
+      auto CI2 = dyn_cast<ConstantInt>(GEPI->getOperand(2));
+      if (!CI2)
+        return false;
+      *FldNo = CI2->getZExtValue();
+      return true;
+    } else {
       return false;
-    auto CI1 = dyn_cast<ConstantInt>(GEPI->getOperand(1));
-    if (!CI1 || !CI1->isZero())
-      return false;
-    auto CI2 = dyn_cast<ConstantInt>(GEPI->getOperand(2));
-    if (!CI2)
-      return false;
-    *FldNo = CI2->getZExtValue();
-    return true;
+    }
   };
 
   // If 'Arg' is a unique actual argument of 'CB', return its index.
@@ -5284,7 +5302,6 @@ bool PredicateOpt::findHoistableFieldsX(Function *F, Value *V, unsigned Depth,
   };
 
   // Main code for findHoistableFieldsX().
-
   // Test if we have hit the limit for the call chain depth.
   if (Depth == 0)
     return false;
@@ -5293,7 +5310,7 @@ bool PredicateOpt::findHoistableFieldsX(Function *F, Value *V, unsigned Depth,
     if (auto GEPI = dyn_cast<GetElementPtrInst>(U)) {
       bool Done = false;
       unsigned FldNo = 0;
-      if (!IsValidGEPI(GEPI, V, &FldNo))
+      if (!IsValidGEPI(GEPI, V, STy, &FldNo))
         return false;
       for (User *U0 : GEPI->users()) {
         if (!CheckUser(GEPI, U0, FldNo, HoistYes, HoistNo, &Done))
@@ -5310,13 +5327,12 @@ bool PredicateOpt::findHoistableFieldsX(Function *F, Value *V, unsigned Depth,
       }
     } else if (auto CB = dyn_cast<CallBase>(U)) {
       Function *Callee = CB->getCalledFunction();
-      if (!Callee) {
+      if (!Callee)
         return false;
-      }
       unsigned AArgNo = ArgNoFromCallBase(CB, V);
       if (AArgNo < Callee->arg_size()) {
-        if (!findHoistableFieldsX(Callee, Callee->getArg(AArgNo), Depth - 1,
-                                  HoistYes, HoistNo))
+        if (!findHoistableFieldsX(Callee, Callee->getArg(AArgNo), STy,
+                                  Depth - 1, HoistYes, HoistNo))
           return false;
       } else {
         return false;
@@ -5329,18 +5345,18 @@ bool PredicateOpt::findHoistableFieldsX(Function *F, Value *V, unsigned Depth,
 }
 
 //
-// Return 'true' if 'V' used in 'F' has dereferenced values through GEPs
-// the can be determined to be hoistable. In this case, set 'HoistYes'
-// to the indicies of the fields whose values can be hoisted and set
-// 'HoistNo' to the indicies of the fields whose values cannot be hoisted.
+// Return 'true' if 'V' of type 'STy' used in 'F' has dereferenced values
+// through GEPs the can be determined to be hoistable. In this case, set
+// 'HoistYes' to the indicies of the fields whose values can be hoisted and
+// set 'HoistNo' to the indicies of the fields whose values cannot be hoisted.
 // Indicies which do not appear in 'HoistYes' or 'HoistNo' are not
 // encountered in a depth-first search of the call chain starting with 'F'.
 //
-bool PredicateOpt::findHoistableFields(Function *F, Value *V,
+bool PredicateOpt::findHoistableFields(Function *F, Value *V, StructType *STy,
                                        std::set<unsigned> &HoistYes,
                                        std::set<unsigned> &HoistNo) {
   // Find which fields can and cannot be hoisted.
-  if (!findHoistableFieldsX(F, V, PredicateOptMaxDepth, HoistYes, HoistNo))
+  if (!findHoistableFieldsX(F, V, STy, PredicateOptMaxDepth, HoistYes, HoistNo))
     return false;
   // Exclude non-hoistable fields from the list of hoistable fields.
   for (auto &Int : HoistNo)
@@ -5843,7 +5859,9 @@ bool PredicateOpt::isBaseFArg6Field1Hoistable(Function *BaseF,
           LibFunc TheLibFunc;
           const TargetLibraryInfo &TLI = (*GetTLI)(*Callee);
           if (!TLI.getLibFunc(CBF->getName(), TheLibFunc) ||
-              !TLI.has(TheLibFunc) || TheLibFunc != LibFunc_errno_location)
+              !TLI.has(TheLibFunc) ||
+              (TheLibFunc != LibFunc_errno_location &&
+               TheLibFunc != LibFunc_under_errno))
             return false;
           CBErrnoLocation = CB1;
         }
@@ -6156,7 +6174,7 @@ bool PredicateOpt::shouldAttemptPredicateOpt() {
                     << "LIRestrict: " << (LIRestrict ? "T" : "F") << "\n");
   if (!LIRestrict)
     return false;
-  Type *Ty = inferPtrElementType(*LIRestrict);
+  Type *Ty = inferPtrElementType(*LIRestrict, /*FunctionOnly=*/true);
   LIRestrictType = dyn_cast_or_null<StructType>(Ty);
   LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
                     << "LIRestrictType: " << (LIRestrictType ? "T" : "F")
@@ -6176,7 +6194,8 @@ bool PredicateOpt::shouldAttemptPredicateOpt() {
   if (!IsBaseFArg6Field1Hoistable)
     return false;
   std::set<unsigned> HoistYes, HoistNo;
-  bool IsHoistable = findHoistableFields(BaseF, LIRestrict, HoistYes, HoistNo);
+  bool IsHoistable =
+      findHoistableFields(BaseF, LIRestrict, LIRestrictType, HoistYes, HoistNo);
   LLVM_DEBUG(dbgs() << "MRC Predicate Opt: "
                     << "Hoistable: " << (IsHoistable ? "T" : "F") << "\n");
   if (!IsHoistable)
