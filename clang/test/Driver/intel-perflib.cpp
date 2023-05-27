@@ -333,3 +333,21 @@
 // CHECK-MKL-WIN-OMP-OFFLOAD: llvm-link{{.*}} "@[[LISTWINTXT]]"
 // CHECK-MKL-LIN-OMP-OFFLOAD: llvm-link{{.*}} "@[[LISTTXT]]"
 // CHECK-MKL-LIN-OMP-OFFLOAD-DEFAULT: "--start-group" "-lmkl_sycl" "-lmkl_intel_lp64" "-lmkl_intel_thread" "-lmkl_core" "--end-group"
+
+/// -qmkl -static-intel just verifies that the MKL libs are statically linked
+// RUN: env MKLROOT=%t_dir/mkl \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -qmkl -static-intel -### %s 2>&1 \
+// RUN: | FileCheck -check-prefix=CHECK-MKL-LIN-STATIC %s
+// CHECK-MKL-LIN-STATIC: "-Bstatic" "--start-group" "-lmkl_intel_lp64" "-lmkl_intel_thread" "-lmkl_core" "--end-group" "-Bdynamic"
+
+// -qdaal -static-intel test
+// RUN: env DAALROOT=%t_dir/dal \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -qdaal -static-intel -### %s 2>&1 \
+// RUN: | FileCheck -check-prefix=CHECK-DAAL-LIN-STATIC %s
+// CHECK-DAAL-LIN-STATIC: "-Bstatic" "--start-group" "-lonedal_core" "-lonedal_thread" "--end-group" "-Bdynamic" "-ltbb"
+
+// -qactypes -static-intel test
+// RUN: env INTELFPGAOCLSDKROOT=/dummy/actypes \
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -qactypes -static-intel -### %s 2>&1 \
+// RUN: | FileCheck -check-prefix=CHECK-ACTYPES-LIN-STATIC %s
+// CHECK-ACTYPES-LIN-STATIC: ld{{.*}} "-L{{.*}}actypes{{/|\\\\}}host{{/|\\\\}}linux64{{/|\\\\}}lib" {{.*}} "-Bstatic" "-ldspba_mpir" "-ldspba_mpfr" "-lac_types_fixed_point_math_x86" "-lac_types_vpfp_library" "-Bdynamic"
