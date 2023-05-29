@@ -139,6 +139,10 @@
 # CHECK: encoding: [0xd5,0x70,0x89,0x14,0x08]
          movl	%r18d, (%r16,%r17)
 
+# CHECK: movb    %bpl, (%r16,%r14)
+# CHECK: encoding: [0xd5,0x12,0x88,0x2c,0x30]
+         movb    %bpl, (%r16,%r14)
+
 ## MRMXmCC
 
 # CHECK: sete	(%rax,%r16)

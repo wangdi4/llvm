@@ -139,6 +139,10 @@
 # CHECK: encoding: [0xd5,0x70,0x89,0x14,0x08]
          mov	dword ptr [r16 + r17], r18d
 
+# CHECK: mov    byte ptr [r16 + r14], bpl
+# CHECK: encoding: [0xd5,0x12,0x88,0x2c,0x30]
+         mov    byte ptr [r16 + r14], bpl
+
 ## MRMXmCC
 
 # CHECK: sete	byte ptr [rax + r16]

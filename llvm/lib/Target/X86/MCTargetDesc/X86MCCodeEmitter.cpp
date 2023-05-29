@@ -379,10 +379,14 @@ public:
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
       break;
-    case REX:
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
+    case REX:
+      Kind = (EVEX_R2 | EVEX_P10 | B2) ? REX2 : REX;
+      break;
     case REX2:
+#else // INTEL_FEATURE_ISA_APX_F
+    case REX:
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
     case XOP:
