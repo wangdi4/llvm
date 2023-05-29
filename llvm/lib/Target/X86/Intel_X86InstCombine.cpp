@@ -15,10 +15,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 #include "X86.h"
-#include "X86TargetMachine.h"
 #include "X86Subtarget.h"
+#include "X86TargetMachine.h"
+#include "llvm/Analysis/ValueTracking.h"
+#include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
@@ -30,9 +31,8 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Transforms/Utils/Intel_IMLUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
-#include "llvm/Analysis/ValueTracking.h"
-#include "llvm/CodeGen/TargetPassConfig.h"
 
 using namespace llvm;
 using namespace llvm::PatternMatch;
@@ -70,6 +70,8 @@ public:
 private:
   bool replaceOrToAdd(Instruction &I);
   bool replaceX86IntrinsicToIR(Instruction &I);
+  bool replaceLibmToSVML(Instruction &I);
+  bool replaceCall(Instruction &I);
 
   X86TargetMachine *TM = nullptr;
   const X86Subtarget *ST = nullptr;
@@ -278,6 +280,39 @@ static Value* replaceX86GatherToGather(IntrinsicInst* II) {
   return NewGather;
 }
 
+bool X86InstCombine::replaceCall(Instruction &I) {
+  bool Changed = false;
+  Changed |= replaceLibmToSVML(I);
+  Changed |= replaceX86IntrinsicToIR(I);
+  return Changed;
+}
+
+// SVML's performance is better than libm for some math functions.
+// Try to use SVML version if possible.
+bool X86InstCombine::replaceLibmToSVML(Instruction &I) {
+  auto *II = dyn_cast<IntrinsicInst>(&I);
+  if (!II)
+    return false;
+
+  switch (II->getIntrinsicID()) {
+  case Intrinsic::log:
+  case Intrinsic::log2:
+  case Intrinsic::log10:
+  case Intrinsic::exp:
+  case Intrinsic::exp2:
+    break;
+  default:
+    return false;
+  }
+
+  if (!II->isFast())
+    return false;
+
+  II->addFnAttr(Attribute::get(I.getContext(), "imf-use-svml", "true"));
+
+  return true;
+}
+
 bool X86InstCombine::replaceX86IntrinsicToIR(Instruction &I) {
   auto II = dyn_cast<IntrinsicInst>(&I);
   if (!II)
@@ -314,7 +349,7 @@ bool X86InstCombine::runOnFunction(Function &F) {
         MadeChange |= replaceOrToAdd(I);
         break;
       case Instruction::Call:
-        MadeChange |= replaceX86IntrinsicToIR(I);
+        MadeChange |= replaceCall(I);
         break;
     }
   }
