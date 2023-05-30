@@ -37,8 +37,8 @@ define void @test_multi_uses(i32* %in1, i32* %in2, i64 %in) {
 define void @test_scale_neg(i32* %src, i64 %in) {
 ; CHECK-LABEL: @test_scale_neg
 ; INTEL_CUSTOMIZATION
-; CHECK-NEXT: %index = sub i64 0, %in
-; CHECK-NEXT: getelementptr i32, i32* %src, i64 %index
+; CHECK-NEXT: %index = sub nsw i64 0, %in
+; CHECK-NEXT: getelementptr inbounds i32, i32* %src, i64 %index
 ; end INTEL_CUSTOMIZATION
 ; CHECK-NOT: bitcast
   %shift = shl nuw nsw i64 %in, 2
@@ -54,7 +54,7 @@ define void @test_scale_neg(i32* %src, i64 %in) {
 ; Support descaling sums
 define void @test_descale_add(i32* %src, i64 %in) {
 ; CHECK-LABEL: @test_descale_add
-; CHECK-NEXT: %index1 = add nsw i64 %in, 2
+; CHECK-NEXT: %index1 = add nuw nsw i64 %in, 2
 ; CHECK-NEXT: getelementptr i32, i32* %src, i64 %index1
 ; CHECK-NOT: bitcast
   %shift = shl nuw nsw i64 %in, 2
@@ -138,7 +138,7 @@ define i64 @test_descale_add2(i32* %src, i64 %in, i64 %cantdescale) {
 define void @test_dont_descale_wrapping_add(i32* %src, i64 %in) {
 ; CHECK-LABEL: @test_dont_descale_wrapping_add
 ; CHECK-NEXT: %shift = shl nuw nsw i64 %in, 2
-; CHECK-NEXT: %index = add i64 %shift, 8
+; CHECK-NEXT: %index = add nuw i64 %shift, 8
 ; CHECK-NEXT: %bc = bitcast i32* %src to i8*
 ; CHECK-NEXT: getelementptr inbounds i8, i8* %bc, i64 %index
 ; CHECK-NEXT: bitcast i8*
