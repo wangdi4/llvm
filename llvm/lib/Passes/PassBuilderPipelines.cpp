@@ -502,9 +502,6 @@ static cl::opt<bool>
                             cl::Hidden,
                             cl::desc("Enable inline deferral during PGO"));
 
-static cl::opt<bool> EnableMemProfiler("enable-mem-prof", cl::Hidden,
-                                       cl::desc("Enable memory profiler"));
-
 static cl::opt<bool> EnableModuleInliner("enable-module-inliner",
                                          cl::init(false), cl::Hidden,
                                          cl::desc("Enable module inliner"));
@@ -1835,6 +1832,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   MPM.addPass(GlobalOptPass());
   MPM.addPass(GlobalDCEPass());
 
+<<<<<<< HEAD
   if (EnableMemProfiler && Phase != ThinOrFullLTOPhase::ThinLTOPreLink) {
     MPM.addPass(createModuleToFunctionPassAdaptor(MemProfilerPass()));
     MPM.addPass(ModuleMemProfilerPass());
@@ -1844,6 +1842,8 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   MPM.addPass(Intel_DebugPass(TM));
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> ed050d9ee0b393bd650cce289dc384d11147633a
   return MPM;
 }
 
