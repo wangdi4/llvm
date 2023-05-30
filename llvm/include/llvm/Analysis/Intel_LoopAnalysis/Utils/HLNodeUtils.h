@@ -1676,6 +1676,20 @@ public:
   // instructions
   static bool areEqualConditions(const HLInst *Select, const HLIf *If);
 
+  // Return true if the conditions of the input IFs match at the specified
+  // predicate position. For example, assume the following two If conditions:
+  //
+  //   IfA -> if (i1 != 0 & %t > 1)
+  //   IfB -> if (%t > 1 & i2 != 2)
+  //
+  // Also, assume that PosPredA is 1 and PosPredB is 0. This function will
+  // collect predicate 1 from IfA (%t > 1), predicate 0 from IfB (%t > 1),
+  // and compares them. If they are the same, then return true.
+  //
+  // The predicate's position starts at 0.
+  static bool areEqualConditionsAtPos(const HLIf *IfA, unsigned PosPredA,
+                                      const HLIf *IfB, unsigned PosPredB);
+
   // Replaces \p If with its *then* or *else* body.
   // Returns iterator range [FirstBodyChild, LastBodyChild) in the destination
   // container.

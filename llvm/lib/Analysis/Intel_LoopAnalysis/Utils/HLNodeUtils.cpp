@@ -4883,6 +4883,42 @@ bool HLNodeUtils::areEqualConditions(const HLInst *Select, const HLIf *If) {
   return areEqualConditions(If, Select);
 }
 
+// Collect the LHS ref, RHS ref and predicate, at position PredPos if the
+// predicate position is available.
+// NOTE: Perhaps this helper function can be added as a member of HLIf.
+static void getIfPredicateOperandsAtPos(const HLIf *If, unsigned PredPos,
+                                        RegDDRef **LHS, RegDDRef **RHS,
+                                        HLPredicate &Pred) {
+
+  assert(PredPos < If->getNumPredicates() &&
+         "Trying to access a predicate outside of the range");
+
+  // Collect the predicate that will be partially unswitched
+  auto PredIt = If->pred_begin() + PredPos;
+  *LHS = If->getLHSPredicateOperandDDRef(PredIt);
+  *RHS = If->getRHSPredicateOperandDDRef(PredIt);
+  Pred = *PredIt;
+}
+
+bool HLNodeUtils::areEqualConditionsAtPos(const HLIf *IfA, unsigned PosPredA,
+                                          const HLIf *IfB, unsigned PosPredB) {
+
+  RegDDRef *LHSRefA = nullptr, *RHSRefA = nullptr;
+  HLPredicate PredA;
+
+  RegDDRef *LHSRefB = nullptr, *RHSRefB = nullptr;
+  HLPredicate PredB;
+
+  getIfPredicateOperandsAtPos(IfA, PosPredA, &LHSRefA, &RHSRefA, PredA);
+  getIfPredicateOperandsAtPos(IfB, PosPredB, &LHSRefB, &RHSRefB, PredB);
+
+  assert(LHSRefA && RHSRefA && "Predicate for IfA collected incorrectly");
+  assert(LHSRefB && RHSRefB && "Predicate for IfB collected incorrectly");
+
+  return PredA == PredB && DDRefUtils::areEqual(LHSRefA, LHSRefB) &&
+         DDRefUtils::areEqual(RHSRefA, RHSRefB);
+}
+
 HLNodeRangeTy HLNodeUtils::replaceNodeWithBody(HLIf *If, bool ThenBody) {
 
   auto NodeRange = ThenBody ? std::make_pair(If->then_begin(), If->then_end())

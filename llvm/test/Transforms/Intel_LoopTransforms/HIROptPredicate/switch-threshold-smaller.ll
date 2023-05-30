@@ -32,7 +32,7 @@
 ; CHECK: Opt Predicate for Function: foo
 ; CHECK: Region: 0:
 ; CHECK-NOT: Disabling opportunity for
-; CHECK: Opportunity: <2>          switch(%x) --> Level 0, Candidate: 1
+; CHECK: Opportunity: <2>          switch(%x) --> Level 0, Candidate: Yes
 ; CHECK: Candidates, count: 1
 ; CHECK: {<2>          switch(%x), L: 0, PU: [ F/F ]}
 ; CHECK: Unswitching loop <43>:

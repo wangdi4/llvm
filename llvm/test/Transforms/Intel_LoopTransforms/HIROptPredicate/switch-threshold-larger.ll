@@ -32,7 +32,7 @@
 ; CHECK: Disabling opportunity for <2>          switch(%x) because the number of cases is larger than max allowed(3)
 
 ; Check that the number of candidates for the switch statement is 0
-; CHECK: Opportunity: <2>          switch(%x) --> Level 0, Candidate: 0
+; CHECK: Opportunity: <2>          switch(%x) --> Level 0, Candidate: No
 ; CHECK: Candidates, count: 0
 ; CHECK: Function: foo
 
