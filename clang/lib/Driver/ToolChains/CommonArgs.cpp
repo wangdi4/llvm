@@ -324,21 +324,13 @@ void tools::AddLinkerInputs(const ToolChain &TC, const InputInfoList &Inputs,
       TC.AddCXXStdlibLibArgs(Args, CmdArgs);
     else if (A.getOption().matches(options::OPT_Z_reserved_lib_cckext))
       TC.AddCCKextLibArgs(Args, CmdArgs);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     else if (A.getOption().matches(options::OPT_Z_reserved_lib_imf)) {
       if (!TC.CheckAddIntelLib("libimf", Args))
         continue;
       TC.AddIntelLibimfLibArgs(Args, CmdArgs);
-    } else if (A.getOption().matches(options::OPT_z)) {
+    } else
 #endif // INTEL_CUSTOMIZATION
-      // Pass -z prefix for gcc linker compatibility.
-      A.claim();
-      A.render(Args, CmdArgs);
-    } else {
-=======
-    else
->>>>>>> 0286b47ae03356853736986f91f85c67115611ae
       A.renderAsInput(Args, CmdArgs);
   }
 }
