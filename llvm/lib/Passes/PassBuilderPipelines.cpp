@@ -1832,18 +1832,10 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   MPM.addPass(GlobalOptPass());
   MPM.addPass(GlobalDCEPass());
 
-<<<<<<< HEAD
-  if (EnableMemProfiler && Phase != ThinOrFullLTOPhase::ThinLTOPreLink) {
-    MPM.addPass(createModuleToFunctionPassAdaptor(MemProfilerPass()));
-    MPM.addPass(ModuleMemProfilerPass());
-  }
-
 #if INTEL_CUSTOMIZATION
   MPM.addPass(Intel_DebugPass(TM));
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> ed050d9ee0b393bd650cce289dc384d11147633a
   return MPM;
 }
 
