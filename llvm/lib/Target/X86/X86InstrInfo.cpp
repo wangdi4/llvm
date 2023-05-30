@@ -557,10 +557,20 @@ static bool isFrameLoadOpcode(int Opcode, unsigned &MemBytes) {
     return false;
   case X86::MOV8rm:
   case X86::KMOVBkm:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86::KMOVBkm_EVEX:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     MemBytes = 1;
     return true;
   case X86::MOV16rm:
   case X86::KMOVWkm:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86::KMOVWkm_EVEX:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86::VMOVSHZrm:
   case X86::VMOVSHZrm_alt:
     MemBytes = 2;
@@ -573,6 +583,11 @@ static bool isFrameLoadOpcode(int Opcode, unsigned &MemBytes) {
   case X86::VMOVSSZrm:
   case X86::VMOVSSZrm_alt:
   case X86::KMOVDkm:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86::KMOVDkm_EVEX:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     MemBytes = 4;
     return true;
   case X86::MOV64rm:
@@ -586,6 +601,11 @@ static bool isFrameLoadOpcode(int Opcode, unsigned &MemBytes) {
   case X86::MMX_MOVD64rm:
   case X86::MMX_MOVQ64rm:
   case X86::KMOVQkm:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86::KMOVQkm_EVEX:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     MemBytes = 8;
     return true;
   case X86::MOVAPSrm:
@@ -655,10 +675,20 @@ static bool isFrameStoreOpcode(int Opcode, unsigned &MemBytes) {
     return false;
   case X86::MOV8mr:
   case X86::KMOVBmk:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86::KMOVBmk_EVEX:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     MemBytes = 1;
     return true;
   case X86::MOV16mr:
   case X86::KMOVWmk:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86::KMOVWmk_EVEX:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86::VMOVSHZmr:
     MemBytes = 2;
     return true;
@@ -667,6 +697,11 @@ static bool isFrameStoreOpcode(int Opcode, unsigned &MemBytes) {
   case X86::VMOVSSmr:
   case X86::VMOVSSZmr:
   case X86::KMOVDmk:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86::KMOVDmk_EVEX:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     MemBytes = 4;
     return true;
   case X86::MOV64mr:
@@ -678,6 +713,11 @@ static bool isFrameStoreOpcode(int Opcode, unsigned &MemBytes) {
   case X86::MMX_MOVQ64mr:
   case X86::MMX_MOVNTQmr:
   case X86::KMOVQmk:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86::KMOVQmk_EVEX:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     MemBytes = 8;
     return true;
   case X86::MOVAPSmr:
@@ -3638,6 +3678,9 @@ static unsigned CopyToFromAsymmetricReg(unsigned DestReg, unsigned SrcReg,
 #if INTEL_FEATURE_ISA_AVX256P
   HasAVX512 = Subtarget.hasAVX3();
 #endif // INTEL_FEATURE_ISA_AVX256P
+#if INTEL_FEATURE_ISA_APX_F
+  bool HasEGPR = Subtarget.hasEGPR();
+#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
   // SrcReg(MaskReg) -> DestReg(GR64)
@@ -3647,13 +3690,20 @@ static unsigned CopyToFromAsymmetricReg(unsigned DestReg, unsigned SrcReg,
   if (X86::VK16RegClass.contains(SrcReg)) {
     if (X86::GR64RegClass.contains(DestReg)) {
       assert(Subtarget.hasBWI());
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+      return HasEGPR ? X86::KMOVQrk_EVEX : X86::KMOVQrk;
+#else // INTEL_FEATURE_ISA_APX_F
       return X86::KMOVQrk;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     }
     if (X86::GR32RegClass.contains(DestReg))
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-      return Subtarget.hasBWI() || Subtarget.hasAVX256P() ? X86::KMOVDrk
-                                                          : X86::KMOVWrk;
+      return Subtarget.hasBWI() || Subtarget.hasAVX256P()
+                 ? (HasEGPR ? X86::KMOVDrk_EVEX : X86::KMOVDrk)
+                 : (HasEGPR ? X86::KMOVWrk_EVEX : X86::KMOVWrk);
 #else  // INTEL_FEATURE_ISA_AVX256P
       return Subtarget.hasBWI() ? X86::KMOVDrk : X86::KMOVWrk;
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -3667,14 +3717,20 @@ static unsigned CopyToFromAsymmetricReg(unsigned DestReg, unsigned SrcReg,
   if (X86::VK16RegClass.contains(DestReg)) {
     if (X86::GR64RegClass.contains(SrcReg)) {
       assert(Subtarget.hasBWI());
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+      return HasEGPR ? X86::KMOVQkr_EVEX : X86::KMOVQkr;
+#else // INTEL_FEATURE_ISA_APX_F
       return X86::KMOVQkr;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     }
     if (X86::GR32RegClass.contains(SrcReg))
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
       return Subtarget.hasBWI() || Subtarget.hasAVX256P()
-                 ? (Subtarget.hasEGPR() ? X86::KMOVDkr_EVEX : X86::KMOVDkr)
-                 : (Subtarget.hasEGPR() ? X86::KMOVWkr_EVEX : X86::KMOVWkr);
+                 ? (HasEGPR ? X86::KMOVDkr_EVEX : X86::KMOVDkr)
+                 : (HasEGPR ? X86::KMOVWkr_EVEX : X86::KMOVWkr);
 #else  // INTEL_FEATURE_ISA_AVX256P
       return Subtarget.hasBWI() ? X86::KMOVDkr : X86::KMOVWkr;
 #endif // INTEL_FEATURE_ISA_AVX256P
@@ -3875,6 +3931,9 @@ static unsigned getLoadStoreRegOpcode(Register Reg,
 #else  // INTEL_FEATURE_ISA_AVX256P
   bool HasVLX = STI.hasVLX();
 #endif // INTEL_FEATURE_ISA_AVX256P
+#if INTEL_FEATURE_ISA_APX_F
+  bool HasEGPR = STI.hasEGPR();
+#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
   assert(RC != nullptr && "Invalid target register class");
@@ -3891,7 +3950,14 @@ static unsigned getLoadStoreRegOpcode(Register Reg,
     return Load ? X86::MOV8rm : X86::MOV8mr;
   case 2:
     if (X86::VK16RegClass.hasSubClassEq(RC))
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+      return Load ? (HasEGPR ? X86::KMOVWkm_EVEX : X86::KMOVWkm)
+                  : (HasEGPR ? X86::KMOVWmk_EVEX : X86::KMOVWmk);
+#else // INTEL_FEATURE_ISA_APX_F
       return Load ? X86::KMOVWkm : X86::KMOVWmk;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     assert(X86::GR16RegClass.hasSubClassEq(RC) && "Unknown 2-byte regclass");
     return Load ? X86::MOV16rm : X86::MOV16mr;
   case 4:
@@ -3928,7 +3994,14 @@ static unsigned getLoadStoreRegOpcode(Register Reg,
       assert(STI.hasBWI() && "KMOVD requires BWI");
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+      return Load ? (HasEGPR ? X86::KMOVDkm_EVEX : X86::KMOVDkm)
+                  : (HasEGPR ? X86::KMOVDmk_EVEX : X86::KMOVDmk);
+#else // INTEL_FEATURE_ISA_APX_F
       return Load ? X86::KMOVDkm : X86::KMOVDmk;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     }
     // All of these mask pair classes have the same spill size, the same kind
     // of kmov instructions can be used with all of them.
@@ -3979,7 +4052,14 @@ static unsigned getLoadStoreRegOpcode(Register Reg,
       return Load ? X86::LD_Fp64m : X86::ST_Fp64m;
     if (X86::VK64RegClass.hasSubClassEq(RC)) {
       assert(STI.hasBWI() && "KMOVQ requires BWI");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+      return Load ? (HasEGPR ? X86::KMOVQkm_EVEX : X86::KMOVQkm)
+                  : (HasEGPR ? X86::KMOVQmk_EVEX : X86::KMOVQmk);
+#else // INTEL_FEATURE_ISA_APX_F
       return Load ? X86::KMOVQkm : X86::KMOVQmk;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     }
     llvm_unreachable("Unknown 8-byte regclass");
   case 10:
@@ -8157,6 +8237,14 @@ X86InstrInfo::areLoadsFromSameBasePtr(SDNode *Load1, SDNode *Load2,
   case X86::KMOVWkm:
   case X86::KMOVDkm:
   case X86::KMOVQkm:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86::KMOVBkm_EVEX:
+  case X86::KMOVWkm_EVEX:
+  case X86::KMOVDkm_EVEX:
+  case X86::KMOVQkm_EVEX:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     break;
   }
   switch (Opc2) {
@@ -8240,6 +8328,14 @@ X86InstrInfo::areLoadsFromSameBasePtr(SDNode *Load1, SDNode *Load2,
   case X86::KMOVWkm:
   case X86::KMOVDkm:
   case X86::KMOVQkm:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86::KMOVBkm_EVEX:
+  case X86::KMOVWkm_EVEX:
+  case X86::KMOVDkm_EVEX:
+  case X86::KMOVQkm_EVEX:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     break;
   }
 

@@ -939,12 +939,6 @@ void TargetPassConfig::addIRPasses() {
   if (getOptLevel() != CodeGenOpt::None)
     addPass(createReplaceWithVeclibLegacyPass());
 
-#if INTEL_CUSTOMIZATION
-  // This pass translates vector math intrinsics to svml/libm calls.
-  if (!DisableMapIntrinToIml)
-    addPass(createMapIntrinToImlPass());
-#endif // INTEL_CUSTOMIZATION
-
   if (getOptLevel() != CodeGenOpt::None && !DisablePartialLibcallInlining)
     addPass(createPartiallyInlineLibCallsPass());
 
@@ -975,6 +969,12 @@ void TargetPassConfig::addIRPasses() {
   // Convert conditional moves to conditional jumps when profitable.
   if (getOptLevel() != CodeGenOpt::None && !DisableSelectOptimize)
     addPass(createSelectOptimizePass());
+
+#if INTEL_CUSTOMIZATION
+  // This pass translates vector math intrinsics to svml/libm calls.
+  if (!DisableMapIntrinToIml)
+    addPass(createMapIntrinToImlPass());
+#endif // INTEL_CUSTOMIZATION
 }
 
 /// Turn exception handling constructs into something the code generators can

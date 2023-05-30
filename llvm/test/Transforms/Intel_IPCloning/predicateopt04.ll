@@ -2,6 +2,11 @@
 ; REQUIRES: intel_feature_sw_advanced,asserts
 ; RUN: opt -passes='module(ip-cloning)' -ip-manyreccalls-predicateopt -debug-only=ipcloning -S < %s 2>&1 | FileCheck %s
 
+; This LIT test is similar to predicateopt01.ll, but has some variations
+; specific to the Windows version:
+; (1) Pointer to errno is recognized as @_errno().
+; (2) Arg 0 of @ReadPixelCacheIndexes has a user which is a byte-flattened GEP
+
 ; Check that predicate opt will be tested 
 
 ; CHECK: MRC Cloning: OK: GetVirtualPixelsFromNexus
@@ -226,12 +231,11 @@
 ; This is the terminator for the restrict metadata
 ; CHECK: ![[MD119]] = !{}
 ; These are also DTrans types which define the arguments for the extracted function @GetVirtualPixelsFromNexus.3.bb206
-; CHECK: ![[MD231]] = distinct !{![[MD11]], ![[MD12]], ![[MD232:[0-9]+]], ![[MD233:[0-9]+]], ![[MD233]], ![[MD234:[0-9]+]], ![[MD234]], ![[MD23]], ![[MD233]]}
-; CHECK: ![[MD232]] = !{%struct._ZTS10_CacheInfo._CacheInfo zeroinitializer, i32 1}
-; CHECK: ![[MD233]] = !{i1 false, i32 1}
-; CHECK: ![[MD234]] = !{i64 0, i32 1}
+; CHECK: ![[MD231]] = distinct !{![[MD11]], ![[MD12]], ![[MD232:[0-9]+]], ![[MD232]], ![[MD232]], ![[MD233:[0-9]+]], ![[MD233]], ![[MD23]], ![[MD232]]}
+; CHECK: ![[MD232]] = !{i1 false, i32 1}
+; CHECK: ![[MD233]] = !{i64 0, i32 1}
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
+target triple = "x86_64-pc-windows-msvc19.29.30146"
 
 %struct._ZTS18_MagickPixelPacket._MagickPixelPacket = type { i32, i32, i32, double, i64, float, float, float, float, float }
 %struct._ZTS12_PixelPacket._PixelPacket = type { i16, i16, i16, i16 }
@@ -300,7 +304,7 @@ declare i64 @ReadDistributePixelCacheIndexes(ptr nocapture noundef readnone %0, 
 declare { i64, i1 } @llvm.umul.with.overflow.i64(i64 %0, i64 %1)
 
 ; Function Attrs: mustprogress nofree nosync nounwind willreturn memory(none)
-declare dso_local ptr @__errno_location()
+declare ptr @_errno()
 
 ; Function Attrs: mustprogress nofree nounwind willreturn allockind("alloc,uninitialized") allocsize(0) memory(inaccessiblemem: readwrite)
 declare dso_local noalias noundef ptr @malloc(i64 noundef %0)
@@ -317,7 +321,7 @@ define internal ptr @AcquireAlignedMemory(i64 noundef %0, i64 noundef %1) {
   br i1 %7, label %8, label %10
 
 8:                                                ; preds = %6, %2
-  %9 = tail call ptr @__errno_location()
+  %9 = tail call ptr @_errno() #72
   store i32 12, ptr %9, align 4
   br label %28
 
@@ -471,7 +475,7 @@ define fastcc i32 @ReadPixelCacheIndexes(ptr noalias noundef "intel_dtrans_func_
   %51 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo, ptr %0, i64 0, i32 29
   %52 = load ptr, ptr %51, align 8
   tail call void @LockSemaphoreInfo(ptr noundef %52) #70
-  %53 = getelementptr %struct._ZTS10_CacheInfo._CacheInfo, ptr %0, i64 0, i32 17
+  %53 = getelementptr i8, ptr %0, i64 164
   %54 = load i32, ptr %53, align 4
   %55 = icmp eq i32 %54, -1
   br i1 %55, label %56, label %82
@@ -510,7 +514,7 @@ define fastcc i32 @ReadPixelCacheIndexes(ptr noalias noundef "intel_dtrans_func_
   br label %82
 
 75:                                               ; preds = %68
-  %76 = tail call ptr @__errno_location() #72
+  %76 = tail call ptr @_errno() #72
   %77 = load i32, ptr %76, align 4
   %78 = tail call ptr @GetExceptionMessage(i32 noundef %77) #70
   %79 = tail call i32 (ptr, ptr, ptr, i64, i32, ptr, ptr, ...) @ThrowMagickException(ptr noundef %2, ptr noundef nonnull @.str.137, ptr noundef nonnull @.str.1.138, i64 noundef 4270, i32 noundef 430, ptr noundef nonnull @.str.27.154, ptr noundef nonnull @.str.19.155, ptr noundef nonnull %58, ptr noundef %78) #70
@@ -564,7 +568,7 @@ define fastcc i32 @ReadPixelCacheIndexes(ptr noalias noundef "intel_dtrans_func_
   br i1 %117, label %118, label %122
 
 118:                                              ; preds = %110
-  %119 = tail call ptr @__errno_location() #72
+  %119 = tail call ptr @_errno() #72
   %120 = load i32, ptr %119, align 4
   %121 = icmp eq i32 %120, 4
   br i1 %121, label %122, label %133
@@ -690,7 +694,7 @@ define fastcc i32 @ReadPixelCacheIndexes(ptr noalias noundef "intel_dtrans_func_
   br i1 %200, label %201, label %209
 
 201:                                              ; preds = %197
-  %202 = tail call ptr @__errno_location() #72
+  %202 = tail call ptr @_errno() #72
   %203 = load i32, ptr %202, align 4
   %204 = call ptr @GetExceptionMessage(i32 noundef %203) #70
   %205 = getelementptr inbounds %struct._ZTS10_CacheInfo._CacheInfo, ptr %0, i64 0, i32 19

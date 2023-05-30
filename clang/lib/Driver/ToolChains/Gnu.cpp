@@ -464,7 +464,7 @@ static void addIPPLibs(ArgStringList &CmdArgs,
 static void addMKLLibs(ArgStringList &CmdArgs,
     const llvm::opt::ArgList &Args, const ToolChain &TC) {
   // default link type is dynamically link
-  bool linkStatic = Args.hasArg(options::OPT_static);
+  bool linkStatic = Args.hasArg(options::OPT_static, options::OPT_static_intel);
 
   // Additions of libraries are currently not smart enough at an individual
   // basis to only add the 'switch' before the library.  We must put the link
@@ -504,7 +504,7 @@ static void addTBBLibs(ArgStringList &CmdArgs,
 static void addDAALLibs(ArgStringList &CmdArgs,
     const llvm::opt::ArgList &Args, const ToolChain &TC) {
   // default link type is dynamically link
-  bool linkStatic = Args.hasArg(options::OPT_static);
+  bool linkStatic = Args.hasArg(options::OPT_static, options::OPT_static_intel);
 
   // Additions of libraries are currently not smart enough at an individual
   // basis to only add the 'switch' before the library.  We must put the link
@@ -527,7 +527,7 @@ static void addDAALLibs(ArgStringList &CmdArgs,
 static void addACTypesLibs(ArgStringList &CmdArgs,
     const llvm::opt::ArgList &Args, const ToolChain &TC) {
   // default link type is dynamically link
-  bool linkStatic = Args.hasArg(options::OPT_static);
+  bool linkStatic = Args.hasArg(options::OPT_static, options::OPT_static_intel);
 
   // Additions of libraries are currently not smart enough at an individual
   // basis to only add the 'switch' before the library.  We must put the link
