@@ -20,7 +20,6 @@
 # An important constraint of the build is that it only produces libraries
 # based on the ability of the host toolchain to target various platforms.
 
-<<<<<<< HEAD
 
 # INTEL_CUSTOMIZATION
 #
@@ -51,14 +50,11 @@
 #
 # end INTEL_CUSTOMIZATION
 
-cmake_minimum_required(VERSION 3.13.4)
-=======
 cmake_minimum_required(VERSION 3.20.0)
 
 set(LLVM_COMMON_CMAKE_UTILS "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
 include(${LLVM_COMMON_CMAKE_UTILS}/Modules/CMakePolicy.cmake
   NO_POLICY_SCOPE)
->>>>>>> cbaa3597aaf6273e66b3f445ed36a6458143fe6a
 
 # Check if compiler-rt is built as a standalone project.
 if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR OR COMPILER_RT_STANDALONE_BUILD)
