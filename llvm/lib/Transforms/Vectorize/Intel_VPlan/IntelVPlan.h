@@ -887,6 +887,11 @@ public:
 
     return OperatorFlags.getValueAsExactFlag(getOpcode());
   }
+  bool isOverflowingOperation() const {
+    if (OperatorFlags.hasValueAsOverflowingFlags(getOpcode()))
+      return true;
+    return false;
+  }
 
   // Setters for operator-specific attributes.
   void setFastMathFlags(FastMathFlags FMF) {
