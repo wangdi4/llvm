@@ -188,7 +188,17 @@ private:
   }
 
   void setR(unsigned Encoding) { R = Encoding >> 3 & 1; }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  void setR2(unsigned Encoding) {
+    EVEX_R2 = Encoding >> 4 & 1;
+    assert((!EVEX_R2 || (Kind <= REX2 || Kind == EVEX)) && "invalid setting");
+  }
+#else // INTEL_FEATURE_ISA_APX_F
   void setR2(unsigned Encoding) { EVEX_R2 = Encoding >> 4 & 1; }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
   void setX(unsigned Encoding) { X = Encoding >> 3 & 1; }
