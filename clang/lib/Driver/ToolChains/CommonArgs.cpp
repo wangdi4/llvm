@@ -329,14 +329,9 @@ void tools::AddLinkerInputs(const ToolChain &TC, const InputInfoList &Inputs,
       if (!TC.CheckAddIntelLib("libimf", Args))
         continue;
       TC.AddIntelLibimfLibArgs(Args, CmdArgs);
-    } else if (A.getOption().matches(options::OPT_z)) {
+    } else
 #endif // INTEL_CUSTOMIZATION
-      // Pass -z prefix for gcc linker compatibility.
-      A.claim();
-      A.render(Args, CmdArgs);
-    } else {
       A.renderAsInput(Args, CmdArgs);
-    }
   }
 }
 
