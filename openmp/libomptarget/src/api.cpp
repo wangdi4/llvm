@@ -324,8 +324,13 @@ static int libomp_helper_task_creation(TargetMemcpyArgsTy *Args,
 
   // Setup the hidden helper flags;
   kmp_int32 Flags = 0;
+#if INTEL_COLLAB
+// This flag is set by __kmpc_omp_target_task_alloc when helper task is
+// supported.
+#else  // INTEL_COLLAB
   kmp_tasking_flags_t *InputFlags = (kmp_tasking_flags_t *)&Flags;
   InputFlags->hidden_helper = 1;
+#endif // INTEL_COLLAB
 
   // Alloc helper task
   kmp_task_t *Ptr = __kmpc_omp_target_task_alloc(nullptr, Gtid, Flags,
