@@ -180,32 +180,41 @@ typedef struct kmp_depend_info {
 // functions that extract info from libomp; keep in sync
 #if INTEL_COLLAB
 #ifdef _WIN32
-// libomp has to be linked in to satisfy these dependencies.
-// FIXME: we should actually include omp.h instead of declaring
-//        omp_get_default_device() ourselves.
-int __cdecl omp_get_default_device(void);
-int32_t __cdecl __kmpc_global_thread_num(void *);
-int __cdecl __kmpc_get_target_offload(void);
-void __cdecl __kmpc_omp_wait_deps(ident_t *loc_ref, kmp_int32 gtid,
-                                  kmp_int32 ndeps, kmp_depend_info_t *dep_list,
-                                  kmp_int32 ndeps_noalias,
-                                  kmp_depend_info_t *noalias_dep_list);
-void __cdecl __kmpc_proxy_task_completed_ooo(void *);
-#else
-// We do not have to make these weak just to be able
-// to have undefined symbols in the shared library.
-// To make this work without weak, we have to make sure -Wl,-z,defs
-// is not passed to the linker, so just keep it as-is.
-int omp_get_default_device(void) __attribute__((weak));
-int32_t __kmpc_global_thread_num(void *) __attribute__((weak));
-int __kmpc_get_target_offload(void) __attribute__((weak));
-void __kmpc_omp_wait_deps(ident_t *loc_ref, kmp_int32 gtid, kmp_int32 ndeps,
-                          kmp_depend_info_t *dep_list, kmp_int32 ndeps_noalias,
-                          kmp_depend_info_t *noalias_dep_list)
+#define LIBOMP_DECL(RetType, FnDecl) RetType __cdecl FnDecl
+#else // _WIN32
+#define LIBOMP_DECL(RetType, FnDecl) RetType FnDecl __attribute__((weak))
+#endif // _WIN32
+LIBOMP_DECL(int, omp_get_default_device(void));
+LIBOMP_DECL(int32_t, __kmpc_global_thread_num(void *));
+LIBOMP_DECL(int, __kmpc_get_target_offload(void));
+LIBOMP_DECL(void,
+            __kmpc_omp_wait_deps(ident_t *loc_ref, kmp_int32 gtid,
+                                 kmp_int32 ndeps, kmp_depend_info_t *dep_list,
+                                 kmp_int32 ndeps_noalias,
+                                 kmp_depend_info_t *noalias_dep_list));
+LIBOMP_DECL(void, __kmpc_proxy_task_completed_ooo(void *));
+LIBOMP_DECL(void, kmp_set_defaults(const char *));
+// Not available yet
+void **__kmpc_omp_get_target_async_handle_ptr(kmp_int32 gtid)
     __attribute__((weak));
-void __kmpc_proxy_task_completed_ooo(void *);
-void kmp_set_defaults(const char *);
-#endif
+// Not available yet
+bool __kmpc_omp_has_task_team(kmp_int32 gtid) __attribute__((weak));
+LIBOMP_DECL(kmp_task_t *,
+            __kmpc_omp_task_alloc(ident_t *loc_ref, kmp_int32 gtid,
+                                  kmp_int32 flags, size_t sizeof_kmp_task_t,
+                                  size_t sizeof_shareds,
+                                  kmp_routine_entry_t task_entry));
+LIBOMP_DECL(kmp_task_t *,
+            __kmpc_omp_target_task_alloc(
+                ident_t *loc_ref, kmp_int32 gtid, kmp_int32 flags,
+                size_t sizeof_kmp_task_t, size_t sizeof_shareds,
+                kmp_routine_entry_t task_entry, kmp_int64 device_id));
+LIBOMP_DECL(kmp_int32,
+            __kmpc_omp_task_with_deps(ident_t *loc_ref, kmp_int32 gtid,
+                                      kmp_task_t *new_task, kmp_int32 ndeps,
+                                      kmp_depend_info_t *dep_list,
+                                      kmp_int32 ndeps_noalias,
+                                      kmp_depend_info_t *noalias_dep_list));
 #else  // INTEL_COLLAB
 int omp_get_default_device(void) __attribute__((weak));
 int32_t __kmpc_global_thread_num(void *) __attribute__((weak));
@@ -214,7 +223,6 @@ void __kmpc_omp_wait_deps(ident_t *loc_ref, kmp_int32 gtid, kmp_int32 ndeps,
                           kmp_depend_info_t *dep_list, kmp_int32 ndeps_noalias,
                           kmp_depend_info_t *noalias_dep_list)
     __attribute__((weak));
-#endif // INTEL_COLLAB
 void **__kmpc_omp_get_target_async_handle_ptr(kmp_int32 gtid)
     __attribute__((weak));
 bool __kmpc_omp_has_task_team(kmp_int32 gtid) __attribute__((weak));
@@ -236,6 +244,7 @@ kmp_int32 __kmpc_omp_task_with_deps(ident_t *loc_ref, kmp_int32 gtid,
                                     kmp_int32 ndeps_noalias,
                                     kmp_depend_info_t *noalias_dep_list)
     __attribute__((weak));
+#endif // INTEL_COLLAB
 
 /**
  * The argument set that is passed from asynchronous memory copy to block
