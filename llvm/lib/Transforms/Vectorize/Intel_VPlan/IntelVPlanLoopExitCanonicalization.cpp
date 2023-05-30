@@ -43,19 +43,33 @@ static void updateBlocksPhiNode(VPBasicBlock *PhiBlock,
   }
 }
 
+// If there's no incoming value from the basic block From in VPPhi, add an
+// incoming undef value.
+static void fillPhiValueIfMissing(VPPHINode &VPPhi, VPBasicBlock *From,
+                                  VPlan *Plan) {
+  if (VPPhi.getBlockIndex(From) == -1) {
+    Type *T = VPPhi.getType();
+    VPPhi.addIncoming(Plan->getVPConstant(UndefValue::get(T)), From);
+  }
+}
+
 // Move exit block's phi node to another block (new loop latch or intermediate
 // block or cascaded if block). This is needed because the predecessors of the
 // exit block change after disconnecting it from the exiting block. Thus, we
 // might need to move the phi node of the exit block to the new loop latch or
 // the intermediate block or the cascaded if block.
 static void moveExitBlocksPhiNode(VPBasicBlock *ExitBlock,
-                                  VPBasicBlock *NewBlock) {
+                                  VPBasicBlock *NewBlock, VPlan *Plan) {
   auto itNext = ExitBlock->begin();
   for (auto it = ExitBlock->begin(); it != ExitBlock->end(); it = itNext) {
     itNext = it;
     ++itNext;
     if (VPPHINode *ExitBlockVPPhi = dyn_cast<VPPHINode>(&*it)) {
       ExitBlock->removeInstruction(ExitBlockVPPhi);
+
+      for (VPBasicBlock *From : NewBlock->getPredecessors())
+        fillPhiValueIfMissing(*ExitBlockVPPhi, From, Plan);
+
       if (NewBlock->empty())
         NewBlock->addInstruction(ExitBlockVPPhi);
       else if (isa<VPPHINode>(&*NewBlock->begin()))
@@ -401,7 +415,7 @@ void mergeLoopExits(VPLoop *VPL) {
             removeBlockFromVPPhiNode(ExitingBlock, ExitBlock);
           } else {
             // Move the phi node of the exit block to the new loop latch.
-            moveExitBlocksPhiNode(ExitBlock, NewLoopLatch);
+            moveExitBlocksPhiNode(ExitBlock, NewLoopLatch, Plan);
             phiIsMovedToNewLoopLatch = true;
           }
         } else
@@ -431,7 +445,7 @@ void mergeLoopExits(VPLoop *VPL) {
 
       if (hasVPPhiNode(ExitBlock))
         if (allPredsInLoop(ExitBlock, VPL))
-          moveExitBlocksPhiNode(ExitBlock, IntermediateBB);
+          moveExitBlocksPhiNode(ExitBlock, IntermediateBB, Plan);
 
       // Add ExitID and update NewLoopLatch's phi node.
       ExitID++;
@@ -443,6 +457,9 @@ void mergeLoopExits(VPLoop *VPL) {
       ExitBlockIDPairs.push_back(std::make_pair(ExitBlock, ExitIDConst));
       ExitExitingBlocksMap[ExitBlock] = ExitingBlock;
       ExitBlockIntermediateBBMap[ExitBlock] = IntermediateBB;
+
+      for (auto &NewLoopLatchPhi : NewLoopLatch->getVPPhis())
+        fillPhiValueIfMissing(NewLoopLatchPhi, IntermediateBB, Plan);
     }
     VisitedBlocks.insert(ExitBlock);
   }
