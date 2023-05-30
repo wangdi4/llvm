@@ -498,6 +498,16 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
   assert(DecompDef && "CanonExpr has not been decomposed");
   if (IsIdiomCE)
     addVPValueForCEIdiom(CE, DecompDef);
+
+  // Set nsw nuw flags for VPInstructions where CanonExpr is linear.
+  if (auto *VPInst = dyn_cast<VPInstruction>(DecompDef)) {
+    if (VPInst->isOverflowingOperation() &&
+        CE->isLinearAtLevel(VecLoopLevel)) {
+      VPInst->setHasNoUnsignedWrap(true);
+      VPInst->setHasNoSignedWrap(true);
+    }
+  }
+
   return DecompDef;
 }
 
