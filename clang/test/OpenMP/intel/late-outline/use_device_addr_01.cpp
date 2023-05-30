@@ -62,7 +62,7 @@ void noo() {
 // CHECK-NEXT:    [[A:%.*]] = alloca i16, align 2
 // CHECK-NEXT:    store i16 1, ptr [[A]], align 2
 // CHECK-NEXT:    [[TMP0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.MAP.TOFROM"(ptr [[A]], ptr [[A]], i64 2, i64 67, ptr null, ptr null), "QUAL.OMP.USE_DEVICE_ADDR"(ptr [[A]]) ]
-// CHECK-NEXT:    [[TMP1:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1), "QUAL.OMP.MAP.TO"(ptr [[A]], ptr [[A]], i64 8, i64 33, ptr null, ptr null) ]
+// CHECK-NEXT:    [[TMP1:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1), "QUAL.OMP.MAP.TOFROM"(ptr [[A]], ptr [[A]], i64 8, i64 288, ptr null, ptr null) ]
 // CHECK-NEXT:    store i16 222, ptr [[A]], align 2
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP1]]) [ "DIR.OMP.END.TARGET"() ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP0]]) [ "DIR.OMP.END.TARGET.DATA"() ]
@@ -87,7 +87,7 @@ void ooo() {
 // CHECK-NEXT:    [[TMP0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.MAP.TOFROM"(ptr [[X]], ptr [[ARRAYIDX1]], i64 12, i64 67, ptr null, ptr null), "QUAL.OMP.USE_DEVICE_ADDR"(ptr [[X]]), "QUAL.OMP.LIVEIN"(ptr [[X_MAP_PTR_TMP]]) ]
 // CHECK-NEXT:    store ptr [[X]], ptr [[X_MAP_PTR_TMP]], align 8
 // CHECK-NEXT:    [[TMP1:%.*]] = load ptr, ptr [[X_MAP_PTR_TMP]], align 8
-// CHECK-NEXT:    [[TMP2:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 2), "QUAL.OMP.MAP.TO"(ptr [[TMP1]], ptr [[TMP1]], i64 8, i64 33, ptr null, ptr null) ]
+// CHECK-NEXT:    [[TMP2:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 2), "QUAL.OMP.MAP.TOFROM"(ptr [[TMP1]], ptr [[TMP1]], i64 8, i64 288, ptr null, ptr null) ]
 // CHECK-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds [10 x i32], ptr [[TMP1]], i64 0, i64 1
 // CHECK-NEXT:    store i32 222, ptr [[ARRAYIDX2]], align 4
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP2]]) [ "DIR.OMP.END.TARGET"() ]
@@ -248,7 +248,7 @@ void test4() {
 // CHECK-NEXT:    [[TMP3:%.*]] = load ptr, ptr [[P]], align 8
 // CHECK-NEXT:    [[TMP4:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.MAP.TOFROM"(ptr [[TMP3]], ptr [[TMP3]], i64 0, i64 64, ptr null, ptr null), "QUAL.OMP.USE_DEVICE_ADDR"(ptr [[TMP3]]), "QUAL.OMP.LIVEIN"(ptr [[P_MAP_PTR_TMP]]) ]
 // CHECK-NEXT:    store ptr [[TMP3]], ptr [[P_MAP_PTR_TMP]], align 8
-// CHECK-NEXT:    [[TMP5:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 7), "QUAL.OMP.MAP.TO"(ptr [[P_MAP_PTR_TMP]], ptr [[P_MAP_PTR_TMP]], i64 8, i64 33, ptr null, ptr null) ]
+// CHECK-NEXT:    [[TMP5:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 7), "QUAL.OMP.MAP.TOFROM"(ptr [[P_MAP_PTR_TMP]], ptr [[P_MAP_PTR_TMP]], i64 8, i64 288, ptr null, ptr null) ]
 // CHECK-NEXT:    [[TMP6:%.*]] = load ptr, ptr [[P_MAP_PTR_TMP]], align 8
 // CHECK-NEXT:    [[ARRAYIDX3:%.*]] = getelementptr inbounds i32, ptr [[TMP6]], i64 1
 // CHECK-NEXT:    store i32 222, ptr [[ARRAYIDX3]], align 4

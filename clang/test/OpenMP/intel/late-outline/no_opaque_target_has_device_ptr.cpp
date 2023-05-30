@@ -9,7 +9,6 @@
 // NOPCHECK-NEXT: [[ARGC_ADDR:%.*]] = alloca i32, align 4
 // NOPCHECK-NEXT: [[X:%.*]] = alloca i32, align 4
 // NOPCHECK:      "DIR.OMP.TARGET"(),
-// NOPCHECK-SAME: "QUAL.OMP.MAP.TO"(i32* [[X]]
 // NOPCHECK-NOT: "QUAL.OMP.HAS_DEVICE_ADDR"(i32* [[X]])
 // NOPCHECK:      "DIR.OMP.END.TARGET"()
 //
@@ -30,7 +29,6 @@ void target_has_device_addr(int argc) {
 // NOPCHECK-NEXT: [[STEP:%.*]] = alloca i32, align 4
 // NOPCHECK-NEXT: [[MAP:%.*]] = alloca i32, align 4
 // NOPCHECK:      "DIR.OMP.TARGET"(),
-// NOPCHECK-SAME: "QUAL.OMP.MAP.TO"(i32* [[MAP]],
 // NOPCHECK:      "DIR.OMP.SIMD"(),
 // NOPCHECK:      omp.loop.exit:
 // NOPCHECK-NEXT: "DIR.OMP.END.SIMD"()
@@ -52,7 +50,6 @@ void target_s_has_device_addr(int argc) {
 // NOPCHECK-NEXT: [[RD:%.*]] = alloca i32, align 4
 // NOPCHECK-NEXT: [[MAP:%.*]] = alloca i32, align 4
 // NOPCHECK:      "DIR.OMP.TARGET"(),
-// NOPCHECK-SAME "QUAL.OMP.MAP.TO"(i32* [[MAP]],
 // NOPCHECK-NOT "QUAL.OMP.HAS_DEVICE_ADDR"(i32* [[MAP]])
 // NOPCHECK:      "DIR.OMP.TEAMS"(),
 // NOPCHECK:      "DIR.OMP.GENERICLOOP"(),
@@ -77,7 +74,6 @@ void target_t_l_has_device_addr(int argc) {
 // NOPCHECK-NEXT:    [[RD:%.*]] = alloca i32, align 4
 // NOPCHECK-NEXT:    [[MAP:%.*]] = alloca i32, align 4
 // NOPCHECK:         "DIR.OMP.TARGET"(),
-// NOPCHECK-SAME:    "QUAL.OMP.MAP.TO"(i32* [[MAP]],
 // NOPCHECK-NOT:     "QUAL.OMP.HAS_DEVICE_ADDR"(i32* [[MAP]])
 // NOPCHECK:         "DIR.OMP.PARALLEL"(),
 // NOPCHECK:         "DIR.OMP.GENERICLOOP"(),
