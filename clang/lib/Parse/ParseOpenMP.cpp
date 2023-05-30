@@ -3677,6 +3677,21 @@ OMPClause *Parser::ParseOpenMPUsesAllocatorClause(OpenMPDirectiveKind DKind) {
                 StopBeforeMatch);
       break;
     }
+#if INTEL_COLLAB
+    if (getLangOpts().OpenMPLateOutline) {
+      if (auto DL = dyn_cast_or_null<DeclRefExpr>(
+                        Allocator.get()->IgnoreParenImpCasts())
+                        ->getDecl())
+        if (VarDecl *VD = dyn_cast_or_null<VarDecl>(DL)) {
+          Diag(Tok, diag::err_omp_unexpected_clause)
+              << getOpenMPClauseName(OMPC_uses_allocators)
+              << getOpenMPDirectiveName(DKind);
+          SkipUntil(tok::comma, tok::r_paren, tok::annot_pragma_openmp_end,
+                    StopBeforeMatch);
+          break;
+        }
+    }
+#endif // INTEL_COLLAB
     Sema::UsesAllocatorsData &D = Data.emplace_back();
     D.Allocator = Allocator.get();
     if (Tok.is(tok::l_paren)) {
