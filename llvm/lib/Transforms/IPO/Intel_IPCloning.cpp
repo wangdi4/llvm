@@ -169,14 +169,9 @@ static cl::opt<bool>
     EnablePreferFunctionRegion("ip-manyreccalls-preferfunctionlevelregion",
                                cl::init(false), cl::ReallyHidden);
 
-// Temporarily disabled for Windows while analyzing performance regression.
 static cl::opt<bool>
     EnableManyRecCallsPredicateOpt("ip-manyreccalls-predicateopt",
-#ifndef _WIN32
                                    cl::init(true), cl::ReallyHidden);
-#else
-                                   cl::init(false), cl::ReallyHidden);
-#endif // _WIN32
 
 // Minimum number of loops in kernel on which predicate opt is performed
 static cl::opt<unsigned>
