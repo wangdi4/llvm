@@ -18691,7 +18691,6 @@ Arguments:
 None.
 
 
-<<<<<<< HEAD
 .. INTEL_CUSTOMIZATION
 
 Complex Intrinsics
@@ -18731,10 +18730,6 @@ equivalent to ``fadd`` and ``fsub`` instructions, respectively.
 
 '``llvm.intel.complex.fmul.*``' Intrinsic
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-=======
-'``llvm.experimental.get.vector.length``' Intrinsic
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
->>>>>>> c5e6c886aabb36ab66b4ed835da243c2a3455ade
 
 Syntax:
 """""""
@@ -18742,44 +18737,25 @@ This is an overloaded intrinsic.
 
 ::
 
-<<<<<<< HEAD
       declare <2 x float> @llvm.intel.complex.fmul.v2f32(<2 x float> <op1>, <2 x float> <op2>)
       declare <2 x double> @llvm.intel.complex.fmul.v2f64(<2 x double> <op1>, <2 x double> <op2>)
       declare <4 x float> @llvm.intel.complex.fmul.v4f32(<4 x float> <op1>, <4 x float> <op2>)
-=======
-      declare i32 @llvm.experimental.get.vector.length.i32(i32 %cnt, i32 immarg %vf, i1 immarg %scalable)
-      declare i32 @llvm.experimental.get.vector.length.i64(i64 %cnt, i32 immarg %vf, i1 immarg %scalable)
->>>>>>> c5e6c886aabb36ab66b4ed835da243c2a3455ade
 
 Overview:
 """""""""
 
-<<<<<<< HEAD
 The '``llvm.intel.complex.fmul``' intrinsic returns the product of its two operands.
-=======
-The '``llvm.experimental.get.vector.length.*``' intrinsics take a number of
-elements to process and returns how many of the elements can be processed
-with the requested vectorization factor.
->>>>>>> c5e6c886aabb36ab66b4ed835da243c2a3455ade
 
 Arguments:
 """"""""""
 
-<<<<<<< HEAD
 The arguments to the '``llvm.intel.complex.fmul``' intrinsic must be a
 :ref:`vector <t_vector>` of :ref:`floating-point <t_floating>` types of length
 divisible by 2.
-=======
-The first argument is an unsigned value of any scalar integer type and specifies
-the total number of elements to be processed. The second argument is an i32
-immediate for the vectorization factor. The third argument indicates if the
-vectorization factor should be multiplied by vscale.
->>>>>>> c5e6c886aabb36ab66b4ed835da243c2a3455ade
 
 Semantics:
 """"""""""
 
-<<<<<<< HEAD
 The value produced is the complex product of the two inputs.
 
 If the ``complex-limited-range`` attribute is provided, or the ``noinf`` or
@@ -18875,7 +18851,38 @@ The ``complex-no-scale`` attribute (implied by ``complex-limited-range``) can be
 used to eliminate the necessary scaling requirements.
 
 .. END INTEL_CUSTOMIZATION
-=======
+
+
+'``llvm.experimental.get.vector.length``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic.
+
+::
+
+      declare i32 @llvm.experimental.get.vector.length.i32(i32 %cnt, i32 immarg %vf, i1 immarg %scalable)
+      declare i32 @llvm.experimental.get.vector.length.i64(i64 %cnt, i32 immarg %vf, i1 immarg %scalable)
+
+Overview:
+"""""""""
+
+The '``llvm.experimental.get.vector.length.*``' intrinsics take a number of
+elements to process and returns how many of the elements can be processed
+with the requested vectorization factor.
+
+Arguments:
+""""""""""
+
+The first argument is an unsigned value of any scalar integer type and specifies
+the total number of elements to be processed. The second argument is an i32
+immediate for the vectorization factor. The third argument indicates if the
+vectorization factor should be multiplied by vscale.
+
+Semantics:
+""""""""""
+
 Returns a positive i32 value (explicit vector length) that is unknown at compile
 time and depends on the hardware specification.
 If the result value does not fit in the result type, then the result is
@@ -18893,7 +18900,6 @@ will be on any later loop iteration.
 
 This intrinsic will only return 0 if the input count is also 0. A non-zero input
 count will produce a non-zero result.
->>>>>>> c5e6c886aabb36ab66b4ed835da243c2a3455ade
 
 Matrix Intrinsics
 -----------------
