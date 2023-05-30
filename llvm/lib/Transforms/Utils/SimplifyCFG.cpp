@@ -3078,7 +3078,13 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI,
       if (!isa<DbgAssignIntrinsic>(&I))
         I.setDebugLoc(DebugLoc());
     }
-    I.dropUBImplyingAttrsAndMetadata();
+#if INTEL_CUSTOMIZATION
+    // I believe TBAA metadata should not be considered UB implying as it
+    // describes the frontend language's semantics which shouldn't change with
+    // optimizations so a more appropriate fix might be inside this function but
+    // I am not too sure about this.
+    I.dropUBImplyingAttrsAndMetadata({LLVMContext::MD_tbaa});
+#endif
 
     // Drop ephemeral values.
     if (EphTracker.contains(&I)) {
