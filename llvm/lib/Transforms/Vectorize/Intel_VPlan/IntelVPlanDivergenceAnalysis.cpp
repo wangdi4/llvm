@@ -278,6 +278,12 @@ static bool hasDeterministicResult(const VPInstruction &I) {
   if (I.getType()->isVoidTy())
     return true;
 
+  // It is safe to mark the call to stacksave intrinsic as not having
+  // side-effects because it just returns the current stack pointer.
+  if (auto *Call = dyn_cast<VPCallInstruction>(&I))
+    if (Call->isIntrinsicFromList({Intrinsic::stacksave}))
+      return true;
+
   // Be conservative and assume any instruction with side effects can produce
   // non-deterministic value. An example of an instruction with side effects but
   // still producing deterministic value is a function like

@@ -40,7 +40,7 @@
 ; CHECK:      [DA: Uni] ptr [[VP2:%.*]] = bitcast ptr %"sum_$C1.priv"
 ; CHECK:      [DA: Div] ptr [[VP3]] = bitcast ptr [[VP1]]
 ; CHECK:      [DA: Div] i64 [[VP4]] = call ptr [[VP3]] ptr [[VP2:%.*]] ptr @_f90_dope_vector_init2 [Serial]
-; CHECK:      [DA: Div] ptr [[VP5]] = call ptr @llvm.stacksave
+; CHECK:      [DA: Uni] ptr [[VP5]] = call ptr @llvm.stacksave
 ; CHECK:      [DA: Div] i64 [[VP6:%.*]] = udiv i64 [[VP4]] i64 8
 ; CHECK:      [DA: Div] i1 [[VP7:%.*]] = icmp sgt i64 [[VP4]] i64 0
 ; CHECK:      [DA: Div] br i1 [[VP7]], [[BB20:BB[0-9]+]], [[BB21:BB[0-9]+]]
@@ -50,7 +50,7 @@
 ; CHECK:        [DA: Div] ptr [[VP9:%.*]] = getelementptr %"QNCA_a0$double*$rank1$", ptr [[VP1]] i32 0 i32 0
 ; CHECK:        [DA: Div] store ptr [[VP8]] ptr [[VP9]]
 ; CHECK:        [DA: Uni] br BB21
-; CHECK:      [DA: Div] call ptr [[VP5]] ptr @llvm.stackrestore
+; CHECK:      [DA: Uni] call ptr [[VP5]] ptr @llvm.stackrestore
 
 ; LLVMIR-LABEL: DIR.OMP.SIMD.2:
 ; LLVMIR-NEXT:   %"sum_$J.linear.iv" = alloca i32, align 4
