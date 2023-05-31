@@ -1179,6 +1179,69 @@ let Predicates = [HasRDSEED], Defs = [EFLAGS], SchedRW = [WriteSystem] in {
 //===----------------------------------------------------------------------===//
 // LZCNT Instruction
 //
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+class lzcntrr<bits<8> opcode, string mnemonic, SDNode node, X86TypeInfo info,
+              SchedWrite sched>
+  : ITy<opcode, MRMSrcReg, info, (outs info.RegClass:$dst),
+        (ins info.RegClass:$src), mnemonic, "{$src, $dst|$dst, $src}",
+        [(set info.RegClass:$dst, (node info.RegClass:$src)),
+                                  (implicit EFLAGS)]>,
+    Sched<[sched]> {
+  let Opcode = opcode;
+}
+
+class lzcntrm<bits<8> opcode, string mnemonic, SDNode node, X86TypeInfo info,
+              SchedWrite sched>
+  : ITy<opcode, MRMSrcMem, info, (outs info.RegClass:$dst),
+        (ins info.MemOperand:$src), mnemonic, "{$src, $dst|$dst, $src}",
+        [(set info.RegClass:$dst, (node (info.LoadNode addr:$src))),
+                                  (implicit EFLAGS)]>, 
+    Sched<[sched]> {
+  let Opcode = opcode;
+}
+
+class lzcntrr_EVEX<bits<8> opcode, string mnemonic, X86TypeInfo info,
+                   SchedWrite sched>
+  : ITy_EVEX<opcode, MRMSrcReg, info, (outs info.RegClass:$dst),
+             (ins info.RegClass:$src),
+             mnemonic, "{$src, $dst|$dst, $src}", []>,
+    Sched<[sched]> {
+  let Opcode = opcode;
+}
+
+class lzcntrm_EVEX<bits<8> opcode, string mnemonic, X86TypeInfo info,
+                   SchedWrite sched>
+  : ITy_EVEX<opcode, MRMSrcMem, info, (outs info.RegClass:$dst),
+             (ins info.MemOperand:$src), mnemonic,
+             "{$src, $dst|$dst, $src}", []>, 
+    Sched<[sched]> {
+  let Opcode = opcode;
+}
+
+multiclass lzcnt_base<bits<8> opcode, bits<8> opcode2, X86TypeInfo info> {
+let Predicates = [HasLZCNT], Defs = [EFLAGS] in {
+  def rr : lzcntrr<opcode, "lzcnt", ctlz, info, WriteLZCNT>, XS;
+  def rm : lzcntrm<opcode, "lzcnt", ctlz, info, WriteLZCNTLd>, XS;
+}
+let Predicates = [HasLZCNT, In64BitMode] in {
+let Defs = [EFLAGS] in {
+  def rr_EVEX : lzcntrr_EVEX<opcode2, "lzcnt", info, WriteLZCNT>,
+                EmitVEXOrEVEXPrefix;
+  def rm_EVEX : lzcntrm_EVEX<opcode2, "lzcnt", info, WriteLZCNTLd>,
+                EmitVEXOrEVEXPrefix;
+}
+  def rr_NF : lzcntrr_EVEX<opcode2, "lzcnt", info, WriteLZCNT>,
+              EVEX_NF;
+  def rm_NF : lzcntrm_EVEX<opcode2, "lzcnt", info, WriteLZCNTLd>,
+              EVEX_NF;
+}
+}
+
+defm LZCNT16 : lzcnt_base<0xBD, 0xF5, Xi16>;
+defm LZCNT32 : lzcnt_base<0xBD, 0xF5, Xi32>;
+defm LZCNT64 : lzcnt_base<0xBD, 0xF5, Xi64>;
+#else // INTEL_FEATURE_ISA_APX_F
 let Predicates = [HasLZCNT], Defs = [EFLAGS] in {
   def LZCNT16rr : I<0xBD, MRMSrcReg, (outs GR16:$dst), (ins GR16:$src),
                     "lzcnt{w}\t{$src, $dst|$dst, $src}",
@@ -1207,10 +1270,37 @@ let Predicates = [HasLZCNT], Defs = [EFLAGS] in {
                      [(set GR64:$dst, (ctlz (loadi64 addr:$src))),
                       (implicit EFLAGS)]>, XS, Sched<[WriteLZCNTLd]>;
 }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // BMI Instructions
 //
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+multiclass tzcnt_base<bits<8> opcode, bits<8> opcode2, X86TypeInfo info> {
+let Predicates = [HasBMI], Defs = [EFLAGS] in {
+  def rr : lzcntrr<opcode, "tzcnt", cttz, info, WriteTZCNT>, XS;
+  def rm : lzcntrm<opcode, "tzcnt", cttz, info, WriteTZCNTLd>, XS;
+}
+let Predicates = [HasBMI, In64BitMode] in {
+let Defs = [EFLAGS] in {
+  def rr_EVEX : lzcntrr_EVEX<opcode2, "tzcnt", info, WriteTZCNT>,
+                EmitVEXOrEVEXPrefix;
+  def rm_EVEX : lzcntrm_EVEX<opcode2, "tzcnt", info, WriteTZCNTLd>,
+                EmitVEXOrEVEXPrefix;
+}
+  def rr_NF : lzcntrr_EVEX<opcode2, "tzcnt", info, WriteTZCNT>,
+              EVEX_NF;
+  def rm_NF : lzcntrm_EVEX<opcode2, "tzcnt", info, WriteTZCNTLd>,
+              EVEX_NF;
+}
+}
+
+defm TZCNT16 : tzcnt_base<0xBC, 0xF4, Xi16>;
+defm TZCNT32 : tzcnt_base<0xBC, 0xF4, Xi32>;
+defm TZCNT64 : tzcnt_base<0xBC, 0xF4, Xi64>;
+#else // INTEL_FEATURE_ISA_APX_F
 let Predicates = [HasBMI], Defs = [EFLAGS] in {
   def TZCNT16rr : I<0xBC, MRMSrcReg, (outs GR16:$dst), (ins GR16:$src),
                     "tzcnt{w}\t{$src, $dst|$dst, $src}",
@@ -1239,6 +1329,8 @@ let Predicates = [HasBMI], Defs = [EFLAGS] in {
                      [(set GR64:$dst, (cttz (loadi64 addr:$src))),
                       (implicit EFLAGS)]>, XS, Sched<[WriteTZCNTLd]>;
 }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 multiclass bmi_bls<string mnemonic, Format RegMRM, Format MemMRM,
                   RegisterClass RC, X86MemOperand x86memop,
