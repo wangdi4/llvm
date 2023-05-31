@@ -1010,6 +1010,7 @@ def HasNDD : Predicate<"Subtarget->hasNDD()">;
 def NoNDD : Predicate<"!Subtarget->hasNDD()">;
 def HasEGPR : Predicate<"Subtarget->hasEGPR()">;
 def NoEGPR : Predicate<"!Subtarget->hasEGPR()">;
+def HasCF : Predicate<"Subtarget->hasCF()">;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
@@ -1862,6 +1863,21 @@ class ITy<bits<8> opcode, Format f, X86TypeInfo typeinfo, dag outs, dag ins,
   let hasREX_W  = typeinfo.HasREX_W;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+// EVEX version for ITy, OpSize prefix is encoded in EVEX.pp
+class ITy_EVEX<bits<8> opcode, Format f, X86TypeInfo typeinfo, dag outs, dag ins,
+          string mnemonic, string args, list<dag> pattern>
+  : ITy<opcode, f, typeinfo, outs, ins, mnemonic, args, pattern>, T_MAP4, EVEX {
+  // Infer instruction prefixes from type info.
+  let OpPrefix = !if (!eq (typeinfo.OpSize, OpSize16), PD, PS);
+  let OpSize = OpSizeFixed;
+  let CD8_Scale = {0, 0, 0, 0, 0, 0, 0};
+  let hasSideEffects = 0;
+}
+
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // Subsystems.
 //===----------------------------------------------------------------------===//

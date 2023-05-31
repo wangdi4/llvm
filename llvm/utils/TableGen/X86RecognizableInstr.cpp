@@ -809,8 +809,17 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPTIONAL(immediate)
     break;
   case X86Local::MRMSrcRegCC:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    assert(numPhysicalOperands >= 3 && numPhysicalOperands <= 4 &&
+           "Unexpected number of operands for MRMSrcRegCC");
+    if (IsND)
+      HANDLE_OPERAND(vvvvRegister)
+#else  // INTEL_FEATURE_ISA_APX_F
     assert(numPhysicalOperands == 3 &&
            "Unexpected number of operands for MRMSrcRegCC");
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     HANDLE_OPERAND(roRegister)
     HANDLE_OPERAND(rmRegister)
     HANDLE_OPERAND(opcodeModifier)
@@ -870,8 +879,17 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPTIONAL(immediate)
     break;
   case X86Local::MRMSrcMemCC:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    assert(numPhysicalOperands >= 3 && numPhysicalOperands <= 4 &&
+           "Unexpected number of operands for MRMSrcMemCC");
+    if (IsND)
+      HANDLE_OPERAND(vvvvRegister)
+#else  // INTEL_FEATURE_ISA_APX_F
     assert(numPhysicalOperands == 3 &&
            "Unexpected number of operands for MRMSrcMemCC");
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     HANDLE_OPERAND(roRegister)
     HANDLE_OPERAND(memory)
     HANDLE_OPERAND(opcodeModifier)

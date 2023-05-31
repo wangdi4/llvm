@@ -293,9 +293,9 @@ define i8 @addflag8rr(i8 noundef %a, i8 noundef %b) {
 ; CHECK-LABEL: addflag8rr:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    addb %sil, %dil, %al
-; CHECK-NEXT:    movzbl %al, %ecx
-; CHECK-NEXT:    movl $255, %eax
-; CHECK-NEXT:    cmovael %ecx, %eax
+; CHECK-NEXT:    movzbl %al, %eax
+; CHECK-NEXT:    movl $255, %ecx
+; CHECK-NEXT:    cmovbl %ecx, %eax, %eax
 ; CHECK-NEXT:    # kill: def $al killed $al killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -306,9 +306,9 @@ entry:
 define i16 @addflag16rr(i16 noundef %a, i16 noundef %b) {
 ; CHECK-LABEL: addflag16rr:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    addw %si, %di, %cx
-; CHECK-NEXT:    movl $65535, %eax # imm = 0xFFFF
-; CHECK-NEXT:    cmovael %ecx, %eax
+; CHECK-NEXT:    addw %si, %di, %ax
+; CHECK-NEXT:    movl $65535, %ecx # imm = 0xFFFF
+; CHECK-NEXT:    cmovbl %ecx, %eax, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -319,9 +319,9 @@ entry:
 define i32 @addflag32rr(i32 noundef %a, i32 noundef %b) {
 ; CHECK-LABEL: addflag32rr:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    addl %esi, %edi, %ecx
-; CHECK-NEXT:    movl $-1, %eax
-; CHECK-NEXT:    cmovael %ecx, %eax
+; CHECK-NEXT:    addl %esi, %edi, %eax
+; CHECK-NEXT:    movl $-1, %ecx
+; CHECK-NEXT:    cmovbl %ecx, %eax, %eax
 ; CHECK-NEXT:    retq
 entry:
     %add = call i32 @llvm.uadd.sat.i32(i32 %a, i32 %b)
@@ -331,9 +331,9 @@ entry:
 define i64 @addflag64rr(i64 noundef %a, i64 noundef %b) {
 ; CHECK-LABEL: addflag64rr:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    addq %rsi, %rdi, %rcx
-; CHECK-NEXT:    movq $-1, %rax
-; CHECK-NEXT:    cmovaeq %rcx, %rax
+; CHECK-NEXT:    addq %rsi, %rdi, %rax
+; CHECK-NEXT:    movq $-1, %rcx
+; CHECK-NEXT:    cmovbq %rcx, %rax, %rax
 ; CHECK-NEXT:    retq
 entry:
     %add = call i64 @llvm.uadd.sat.i64(i64 %a, i64 %b)
@@ -344,9 +344,9 @@ define i8 @addflag8rm(i8 noundef %a, ptr %b) {
 ; CHECK-LABEL: addflag8rm:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    addb (%rsi), %dil, %al
-; CHECK-NEXT:    movzbl %al, %ecx
-; CHECK-NEXT:    movl $255, %eax
-; CHECK-NEXT:    cmovael %ecx, %eax
+; CHECK-NEXT:    movzbl %al, %eax
+; CHECK-NEXT:    movl $255, %ecx
+; CHECK-NEXT:    cmovbl %ecx, %eax, %eax
 ; CHECK-NEXT:    # kill: def $al killed $al killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -358,9 +358,9 @@ entry:
 define i16 @addflag16rm(i16 noundef %a, ptr %b) {
 ; CHECK-LABEL: addflag16rm:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    addw (%rsi), %di, %cx
-; CHECK-NEXT:    movl $65535, %eax # imm = 0xFFFF
-; CHECK-NEXT:    cmovael %ecx, %eax
+; CHECK-NEXT:    addw (%rsi), %di, %ax
+; CHECK-NEXT:    movl $65535, %ecx # imm = 0xFFFF
+; CHECK-NEXT:    cmovbl %ecx, %eax, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -372,9 +372,9 @@ entry:
 define i32 @addflag32rm(i32 noundef %a, ptr %b) {
 ; CHECK-LABEL: addflag32rm:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    addl (%rsi), %edi, %ecx
-; CHECK-NEXT:    movl $-1, %eax
-; CHECK-NEXT:    cmovael %ecx, %eax
+; CHECK-NEXT:    addl (%rsi), %edi, %eax
+; CHECK-NEXT:    movl $-1, %ecx
+; CHECK-NEXT:    cmovbl %ecx, %eax, %eax
 ; CHECK-NEXT:    retq
 entry:
     %t = load i32, ptr %b
@@ -385,9 +385,9 @@ entry:
 define i64 @addflag64rm(i64 noundef %a, ptr %b) {
 ; CHECK-LABEL: addflag64rm:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    addq (%rsi), %rdi, %rcx
-; CHECK-NEXT:    movq $-1, %rax
-; CHECK-NEXT:    cmovaeq %rcx, %rax
+; CHECK-NEXT:    addq (%rsi), %rdi, %rax
+; CHECK-NEXT:    movq $-1, %rcx
+; CHECK-NEXT:    cmovbq %rcx, %rax, %rax
 ; CHECK-NEXT:    retq
 entry:
     %t = load i64, ptr %b
@@ -398,9 +398,9 @@ entry:
 define i16 @addflag16ri8(i16 noundef %a) {
 ; CHECK-LABEL: addflag16ri8:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    addw $123, %di, %cx
-; CHECK-NEXT:    movl $65535, %eax # imm = 0xFFFF
-; CHECK-NEXT:    cmovael %ecx, %eax
+; CHECK-NEXT:    addw $123, %di, %ax
+; CHECK-NEXT:    movl $65535, %ecx # imm = 0xFFFF
+; CHECK-NEXT:    cmovbl %ecx, %eax, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -411,9 +411,9 @@ entry:
 define i32 @addflag32ri8(i32 noundef %a) {
 ; CHECK-LABEL: addflag32ri8:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    addl $123, %edi, %ecx
-; CHECK-NEXT:    movl $-1, %eax
-; CHECK-NEXT:    cmovael %ecx, %eax
+; CHECK-NEXT:    addl $123, %edi, %eax
+; CHECK-NEXT:    movl $-1, %ecx
+; CHECK-NEXT:    cmovbl %ecx, %eax, %eax
 ; CHECK-NEXT:    retq
 entry:
     %add = call i32 @llvm.uadd.sat.i32(i32 %a, i32 123)
@@ -423,9 +423,9 @@ entry:
 define i64 @addflag64ri8(i64 noundef %a) {
 ; CHECK-LABEL: addflag64ri8:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    addq $123, %rdi, %rcx
-; CHECK-NEXT:    movq $-1, %rax
-; CHECK-NEXT:    cmovaeq %rcx, %rax
+; CHECK-NEXT:    addq $123, %rdi, %rax
+; CHECK-NEXT:    movq $-1, %rcx
+; CHECK-NEXT:    cmovbq %rcx, %rax, %rax
 ; CHECK-NEXT:    retq
 entry:
     %add = call i64 @llvm.uadd.sat.i64(i64 %a, i64 123)
@@ -436,9 +436,9 @@ define i8 @addflag8ri(i8 noundef %a) {
 ; CHECK-LABEL: addflag8ri:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    addb $123, %dil, %al
-; CHECK-NEXT:    movzbl %al, %ecx
-; CHECK-NEXT:    movl $255, %eax
-; CHECK-NEXT:    cmovael %ecx, %eax
+; CHECK-NEXT:    movzbl %al, %eax
+; CHECK-NEXT:    movl $255, %ecx
+; CHECK-NEXT:    cmovbl %ecx, %eax, %eax
 ; CHECK-NEXT:    # kill: def $al killed $al killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -449,9 +449,9 @@ entry:
 define i16 @addflag16ri(i16 noundef %a) {
 ; CHECK-LABEL: addflag16ri:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    addw $1234, %di, %cx # imm = 0x4D2
-; CHECK-NEXT:    movl $65535, %eax # imm = 0xFFFF
-; CHECK-NEXT:    cmovael %ecx, %eax
+; CHECK-NEXT:    addw $1234, %di, %ax # imm = 0x4D2
+; CHECK-NEXT:    movl $65535, %ecx # imm = 0xFFFF
+; CHECK-NEXT:    cmovbl %ecx, %eax, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
 ; CHECK-NEXT:    retq
 entry:
@@ -462,9 +462,9 @@ entry:
 define i32 @addflag32ri(i32 noundef %a) {
 ; CHECK-LABEL: addflag32ri:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    addl $123456, %edi, %ecx # imm = 0x1E240
-; CHECK-NEXT:    movl $-1, %eax
-; CHECK-NEXT:    cmovael %ecx, %eax
+; CHECK-NEXT:    addl $123456, %edi, %eax # imm = 0x1E240
+; CHECK-NEXT:    movl $-1, %ecx
+; CHECK-NEXT:    cmovbl %ecx, %eax, %eax
 ; CHECK-NEXT:    retq
 entry:
     %add = call i32 @llvm.uadd.sat.i32(i32 %a, i32 123456)
@@ -474,9 +474,9 @@ entry:
 define i64 @addflag64ri(i64 noundef %a) {
 ; CHECK-LABEL: addflag64ri:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    addq $123456, %rdi, %rcx # imm = 0x1E240
-; CHECK-NEXT:    movq $-1, %rax
-; CHECK-NEXT:    cmovaeq %rcx, %rax
+; CHECK-NEXT:    addq $123456, %rdi, %rax # imm = 0x1E240
+; CHECK-NEXT:    movq $-1, %rcx
+; CHECK-NEXT:    cmovbq %rcx, %rax, %rax
 ; CHECK-NEXT:    retq
 entry:
     %add = call i64 @llvm.uadd.sat.i64(i64 %a, i64 123456)
@@ -490,7 +490,7 @@ define i1 @add64ri_reloc(i16 %k) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    # kill: def $edi killed $edi def $rdi
 ; CHECK-NEXT:    movswq %di, %rax
-; CHECK-NEXT:    addq %rax, %rax
+; CHECK-NEXT:    addq %rax, %rax, %rax
 ; CHECK-NEXT:    addq $val, %rax, %rax
 ; CHECK-NEXT:    setne %al
 ; CHECK-NEXT:    retq
