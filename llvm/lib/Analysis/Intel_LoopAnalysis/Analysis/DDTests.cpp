@@ -4798,6 +4798,28 @@ DDTest::~DDTest() {
   WorkCE.clear();
 }
 
+void DDTest::removeLCALevelNoAliasScopes(AAMDNodes &AANodes,
+                                         unsigned OutermostLevel) {
+
+  SmallPtrSet<MDNode *, 8> LoopLevelNoAliasScopes;
+
+  unsigned Level = LCALoopLevel;
+
+  // Populate NoAlias scopes present in LCA and all its parent loops up to \p
+  // OutermostLevel.
+  for (auto *Lp = LCALoop; Level >= OutermostLevel;
+       --Level, Lp = Lp->getParentLoop()) {
+
+    for (auto *ScopeList : Lp->getNoAliasScopeLists()) {
+      assert(ScopeList->getNumOperands() == 1 && "Only one scope expected!");
+
+      LoopLevelNoAliasScopes.insert(cast<MDNode>(ScopeList->getOperand(0)));
+    }
+  }
+
+  DDRefUtils::removeNoAliasScopes(AANodes, LoopLevelNoAliasScopes);
+}
+
 bool DDTest::queryAAIndep(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef,
                           unsigned LoopLevel) {
   assert(SrcDDRef->isMemRef() && DstDDRef->isMemRef() &&
@@ -4814,6 +4836,9 @@ bool DDTest::queryAAIndep(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef,
   // base is invariant.
   MemoryLocation SrcLoc = SrcDDRef->getMemoryLocation();
   MemoryLocation DstLoc = DstDDRef->getMemoryLocation();
+
+  removeLCALevelNoAliasScopes(SrcLoc.AATags, LoopLevel);
+  removeLCALevelNoAliasScopes(DstLoc.AATags, LoopLevel);
 
   // Alias analysis only reasons about a pair of contemporary SSA values. In
   // order to use its results to break dependencies across a loop, (that is,

@@ -1068,6 +1068,10 @@ class DDTest {
   ///  Can extend it later for more cases
   static bool isDelinearizeCandidate(const RegDDRef *Ref);
 
+  /// Removes NoAlias scopes that belong to LCA loop and its parent loops upto
+  /// \p OutermostLevel.
+  void removeLCALevelNoAliasScopes(AAMDNodes &AANodes, unsigned OutermostLevel);
+
 public:
 }; // class DDtest
 
