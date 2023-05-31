@@ -568,6 +568,36 @@ entry:
   ret <32 x float> %1
 }
 
+; Check i1 mask is replicated when merging results for complex functions
+; CHECK-LABEL: @test_cexpf16_mask_split_to_avx2
+; CHECK: [[MASK:%.*]] = bitcast i16 %B to <16 x i1>
+; CHECK: [[MASK_CAST:%.*]] = select <16 x i1> [[MASK]], <16 x i64> <i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1, i64 -1>, <16 x i64> zeroinitializer
+; CHECK: [[SRC1:%.*]] = shufflevector <32 x float> %C, <32 x float> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+; CHECK: [[MASK1:%.*]] = shufflevector <16 x i64> [[MASK_CAST]], <16 x i64> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK: [[RESULT1:%.*]] = call fast svml_avx_cc <8 x float> @__svml_cexpf4_mask_e9(<8 x float> [[SRC1]], <4 x i64> [[MASK1]])
+; CHECK: [[SRC2:%.*]] = shufflevector <32 x float> %C, <32 x float> undef, <8 x i32> <i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+; CHECK: [[MASK2:%.*]] = shufflevector <16 x i64> [[MASK_CAST]], <16 x i64> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+; CHECK: [[RESULT2:%.*]] = call fast svml_avx_cc <8 x float> @__svml_cexpf4_mask_e9(<8 x float> [[SRC2]], <4 x i64> [[MASK2]])
+; CHECK: [[SRC3:%.*]] = shufflevector <32 x float> %C, <32 x float> undef, <8 x i32> <i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23>
+; CHECK: [[MASK3:%.*]] = shufflevector <16 x i64> [[MASK_CAST]], <16 x i64> undef, <4 x i32> <i32 8, i32 9, i32 10, i32 11>
+; CHECK: [[RESULT3:%.*]] = call fast svml_avx_cc <8 x float> @__svml_cexpf4_mask_e9(<8 x float> [[SRC3]], <4 x i64> [[MASK3]])
+; CHECK: [[SRC4:%.*]] = shufflevector <32 x float> %C, <32 x float> undef, <8 x i32> <i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31>
+; CHECK: [[MASK4:%.*]] = shufflevector <16 x i64> [[MASK_CAST]], <16 x i64> undef, <4 x i32> <i32 12, i32 13, i32 14, i32 15>
+; CHECK: [[RESULT4:%.*]] = call fast svml_avx_cc <8 x float> @__svml_cexpf4_mask_e9(<8 x float> [[SRC4]], <4 x i64> [[MASK4]])
+; CHECK: [[RESULT12:%.*]] = shufflevector <8 x float> [[RESULT1]], <8 x float> [[RESULT2]], <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+; CHECK: [[RESULT34:%.*]] = shufflevector <8 x float> [[RESULT3]], <8 x float> [[RESULT4]], <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+; CHECK: [[RESULT:%.*]] = shufflevector <16 x float> [[RESULT12]], <16 x float> [[RESULT34]], <32 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31>
+; CHECK: [[MASK_REPLICATE:%.*]] = shufflevector <16 x i1> [[MASK]], <16 x i1> undef, <32 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3, i32 4, i32 4, i32 5, i32 5, i32 6, i32 6, i32 7, i32 7, i32 8, i32 8, i32 9, i32 9, i32 10, i32 10, i32 11, i32 11, i32 12, i32 12, i32 13, i32 13, i32 14, i32 14, i32 15, i32 15>
+; CHECK: [[RESULT_COMBINED:%.*]] = select fast <32 x i1> [[MASK_REPLICATE]], <32 x float> [[RESULT]], <32 x float> %A
+; CHECK: ret <32 x float> %select.merge
+
+define <32 x float> @test_cexpf16_mask_split_to_avx2(<32 x float> %A, i16 zeroext %B, <32 x float> %C) #2 {
+entry:
+  %0 = bitcast i16 %B to <16 x i1>
+  %1 = tail call fast svml_cc <32 x float> @__svml_cexpf16_mask(<32 x float> %A, <16 x i1> %0, <32 x float> %C)
+  ret <32 x float> %1
+}
+
 declare svml_cc <8 x float> @__svml_sinf8(<8 x float>)
 
 declare svml_cc <16 x float> @__svml_sinf16(<16 x float>)
@@ -606,3 +636,4 @@ declare svml_cc <32 x float> @__svml_cexpf16_mask(<32 x float>, <16 x i1>, <32 x
 
 attributes #0 = { uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="512" "prefer-vector-width"="128" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+mpx,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="512" "prefer-vector-width"="512" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+mpx,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #2 = { uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="512" "prefer-vector-width"="256" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+mpx,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="false" "use-soft-float"="false" }

@@ -160,8 +160,10 @@ void HIRSpecifics::cloneFrom(const HIRSpecifics HIR) {
   }
 
   // Don't use getters/setters as Symbases might be invalid for LLVM IR path.
-  if (hasSymbase(Inst))
+  if (hasSymbase(Inst)) {
     HIRData().Symbase = HIR.HIRData().Symbase;
+    HIRData().NumCollapsedLevels = HIR.getNumCollapsedLevels();
+  }
   else
     HIRData().FoldIVConvert = HIR.HIRData().FoldIVConvert;
 
