@@ -3318,6 +3318,7 @@ bool FunctionDecl::isInlineBuiltinDeclaration() const {
     return false;
 
   const FunctionDecl *Definition;
+<<<<<<< HEAD
   return hasBody(Definition) && Definition->isInlineSpecified() &&
 #if INTEL_CUSTOMIZATION
          Definition->hasAttr<AlwaysInlineAttr>() &&
@@ -3325,6 +3326,25 @@ bool FunctionDecl::isInlineBuiltinDeclaration() const {
 #else
          Definition->hasAttr<AlwaysInlineAttr>();
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (!hasBody(Definition))
+    return false;
+
+  if (!Definition->isInlineSpecified() ||
+      !Definition->hasAttr<AlwaysInlineAttr>())
+    return false;
+
+  ASTContext &Context = getASTContext();
+  switch (Context.GetGVALinkageForFunction(this)) {
+  case GVA_Internal:
+  case GVA_DiscardableODR:
+  case GVA_StrongODR:
+    return false;
+  case GVA_AvailableExternally:
+  case GVA_StrongExternal:
+    return true;
+  }
+>>>>>>> e20931b2ccd10de2fd25d9a6fbe9c166e7430f23
 }
 
 bool FunctionDecl::isDestroyingOperatorDelete() const {
