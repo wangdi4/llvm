@@ -1875,15 +1875,9 @@ class ITy_EVEX<bits<8> opcode, Format f, X86TypeInfo typeinfo, dag outs, dag ins
   let CD8_Scale = {0, 0, 0, 0, 0, 0, 0};
   let hasSideEffects = 0;
 }
-<<<<<<< HEAD
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
-
-=======
 
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 63d3cc14e5fe20e403fde3015502a2108319cb9f
 //===----------------------------------------------------------------------===//
 // Subsystems.
 //===----------------------------------------------------------------------===//
