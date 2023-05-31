@@ -12,8 +12,8 @@ define spir_kernel void @a(i32 addrspace(1)* nocapture readonly %a, i32 addrspac
 entry:
 ; CHECK-LABEL: vector.body
 ; CHECK: [[VEC_IND:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, {{.*}} ], [ [[VEC_IND_NEXT:%.*]], {{.*}} ]
-; CHECK-NEXT: [[VEC_IND_I64:%.*]] = sext <4 x i32> [[VEC_IND]] to <4 x i64>
-; CHECK-NEXT: [[VGID:%.*]] = add nuw <4 x i64> [[VEC_IND_I64]], [[GID_BROADCAST:%.*]]
+; CHECK-NEXT: [[VGID:%.*]] = add nuw <4 x i32> [[GID_BROADCAST:%.*]], [[VEC_IND]]
+; CHECK-NEXT: [[VEC_IND_I64:%.*]] = sext <4 x i32> [[VGID]] to <4 x i64>
 ;
   %call = tail call spir_func i64 @_Z13get_global_idj(i32 0) #3
   %slid = tail call i32 @_Z22get_sub_group_local_idv() #3
@@ -153,7 +153,7 @@ slid.nonzero:
 ; CHECK:  %call13 = tail call spir_func i32 @_Z28sub_group_scan_inclusive_addi(i32 [[V54]]) [[AT26:#.*]]
 ; CHECK:  %call14 = tail call spir_func i16 @_Z34intel_sub_group_scan_inclusive_mins(i16 [[V55]]) [[AT27:#.*]]
 ; CHECK:  %call15 = tail call spir_func i8 @_Z34intel_sub_group_scan_inclusive_maxc(i8 [[V56]]) [[AT28:#.*]]
-; CHECK:  %call16 = tail call spir_func i64 @_Z28intel_sub_group_shuffle_downllj(i64 %add1, i64 42, i32 %slid.reverse) [[AT29:#.*]]
+; CHECK:  %call16 = tail call spir_func i64 @_Z28intel_sub_group_shuffle_downllj(i64 {{.*}}, i64 42, i32 %slid.reverse) [[AT29:#.*]]
 ; CHECK:  %call17 = tail call spir_func <4 x i32> @_Z28intel_sub_group_shuffle_downDv4_iS_j(<4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i32> <i32 41, i32 42, i32 43, i32 44>, i32 %slid.reverse) [[AT30:#.*]]
 ; CHECK:  %blk_read = call <2 x i32> @_Z27intel_sub_group_block_read2PU3AS1Kj(i32 addrspace(1)* %load.a) [[AT31:#.*]]
 ; CHECK: call void @_Z28intel_sub_group_block_write2PU3AS1jDv2_j(i32 addrspace(1)* %load.b, <2 x i32> %blk_read.x2) [[AT32:#.*]]
@@ -291,7 +291,6 @@ attributes #4 = { convergent nounwind }
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_a {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_a {{.*}} call
-; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_a {{.*}} add
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_a {{.*}} add
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_a {{.*}} icmp
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_a {{.*}} br

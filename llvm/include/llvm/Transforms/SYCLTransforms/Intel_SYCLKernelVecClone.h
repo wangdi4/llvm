@@ -27,8 +27,9 @@ namespace llvm {
 
 class SYCLKernelVecCloneImpl : public VecCloneImpl {
 public:
-  SYCLKernelVecCloneImpl(ArrayRef<VectItem> VectInfos,
-                          VFISAKind ISA, bool IsOCL);
+  SYCLKernelVecCloneImpl(ArrayRef<VectItem> VectInfos, VFISAKind ISA);
+
+  void setIsOCL(bool IsOCL) { this->IsOCL = IsOCL; }
 
   void setVectorizationDimensionMap(
       const VectorizationDimensionAnalysis::Result *VDMap) {
@@ -39,7 +40,7 @@ private:
   // Configuration options
   ArrayRef<VectItem> VectInfos;
   VFISAKind ISA;
-  bool IsOCL;
+  bool IsOCL = false;
 
   SYCLKernelMetadataAPI::KernelList::KernelVectorTy Kernels;
   const VectorizationDimensionAnalysis::Result *VDMap;
@@ -66,9 +67,8 @@ private:
   SYCLKernelVecCloneImpl Impl;
 
 public:
-  explicit SYCLKernelVecClonePass(
-      ArrayRef<VectItem> VectInfos = {},
-      VFISAKind ISA = VFISAKind::SSE, bool IsOCL = false);
+  explicit SYCLKernelVecClonePass(ArrayRef<VectItem> VectInfos = {},
+                                  VFISAKind ISA = VFISAKind::SSE);
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 

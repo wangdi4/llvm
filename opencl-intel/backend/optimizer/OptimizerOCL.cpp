@@ -483,8 +483,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     if (!m_IsSYCL)
       MPM.addPass(
           RequireAnalysisPass<VectorizationDimensionAnalysis, Module>());
-    MPM.addPass(SYCLKernelVecClonePass(Optimizer::getVectInfos(), ISA,
-                                        !m_IsSYCL && !m_IsOMP));
+    MPM.addPass(SYCLKernelVecClonePass(Optimizer::getVectInfos(), ISA));
 
     MPM.addPass(VectorVariantFillIn());
     MPM.addPass(UpdateCallAttrs());

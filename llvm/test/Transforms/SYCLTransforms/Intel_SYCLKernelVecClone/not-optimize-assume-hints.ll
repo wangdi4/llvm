@@ -37,6 +37,7 @@ attributes #3 = { nounwind readnone willreturn }
 !opencl.ocl.version = !{!1}
 !opencl.used.optional.core.features = !{!2}
 !sycl.kernels = !{!3}
+!spirv.Source = !{!8}
 
 !0 = !{i32 1, i32 2}
 !1 = !{i32 1, i32 0}
@@ -46,6 +47,7 @@ attributes #3 = { nounwind readnone willreturn }
 !5 = !{!6}
 !6 = distinct !{!6, !7}
 !7 = distinct !{!7}
+!8 = !{i32 4, i32 100000}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uu_test {{.*}} br
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uu_test {{.*}} call

@@ -93,14 +93,12 @@ attributes #3 = { convergent nounwind readnone willreturn }
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN32uu_test_v32 {{.*}} br
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN32uu_test_v32 {{.*}} call
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN32uu_test_v32 {{.*}} add
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN32uu_test_v32 {{.*}} add
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN32uu_test_v32 {{.*}} icmp
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN32uu_test_v32 {{.*}} br
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN32uu_test_v32 {{.*}} call
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN32uu_test_v32 {{.*}} br
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN64uu_test_v64 {{.*}} br
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN64uu_test_v64 {{.*}} call
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN64uu_test_v64 {{.*}} add
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN64uu_test_v64 {{.*}} add
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN64uu_test_v64 {{.*}} icmp
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN64uu_test_v64 {{.*}} br

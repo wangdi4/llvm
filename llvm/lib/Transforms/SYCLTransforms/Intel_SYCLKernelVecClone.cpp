@@ -92,12 +92,12 @@ enum class FnAction {
 } // namespace
 
 SYCLKernelVecClonePass::SYCLKernelVecClonePass(ArrayRef<VectItem> VectInfos,
-                                                 VFISAKind ISA,
-                                                 bool IsOCL)
-    : Impl(VectInfos, ISA, IsOCL) {}
+                                               VFISAKind ISA)
+    : Impl(VectInfos, ISA) {}
 
 PreservedAnalyses SYCLKernelVecClonePass::run(Module &M,
                                                ModuleAnalysisManager &AM) {
+  Impl.setIsOCL(!isGeneratedFromOCLCPP(M) && !isGeneratedFromOMP(M));
   Impl.setVectorizationDimensionMap(
       AM.getCachedResult<VectorizationDimensionAnalysis>(M));
   return Impl.runImpl(M) ? PreservedAnalyses::none() : PreservedAnalyses::all();
@@ -467,9 +467,8 @@ static bool isOptimizableSubgroupLocalId(const CallInst *CI) {
 }
 
 SYCLKernelVecCloneImpl::SYCLKernelVecCloneImpl(ArrayRef<VectItem> VectInfos,
-                                                 VFISAKind ISA, bool IsOCL)
-    : VecCloneImpl(), VectInfos(VectInfos), ISA(ISA), IsOCL(IsOCL),
-      VDMap(nullptr) {
+                                               VFISAKind ISA)
+    : VecCloneImpl(), VectInfos(VectInfos), ISA(ISA), VDMap(nullptr) {
   if (IsaEncodingOverride.getNumOccurrences())
     this->ISA = IsaEncodingOverride.getValue();
 }
