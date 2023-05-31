@@ -71,12 +71,8 @@
 ; CHECK-O23SZ-NEXT: Running analysis: ProfileSummaryAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
 ; CHECK-O23SZ-NEXT: Running pass: IPSCCPPass
-<<<<<<< HEAD
 ; COM: CHECK-O23SZ-NEXT: Running analysis: AssumptionAnalysis on foo ;INTEL
-=======
-; CHECK-O23SZ-NEXT: Running analysis: AssumptionAnalysis on foo
 ; CHECK-O23-NEXT: Running analysis: LoopAnalysis on foo
->>>>>>> 96a14f388b1a3507e5ae97b0a21b7b785d99a52b
 ; CHECK-O23SZ-NEXT: Running pass: CalledValuePropagationPass
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}SCC
 ; CHECK-O-NEXT: Running analysis: LazyCallGraphAnalysis
@@ -231,7 +227,6 @@
 ; CHECK-O23SZ-NEXT: Running pass: ConstraintEliminationPass
 ; CHECK-O23SZ-NEXT: Running pass: JumpThreadingPass
 ; CHECK-O23SZ-NEXT: Running analysis: LazyValueAnalysis
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running analysis: PostDominatorTreeAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running pass: HandlePragmaVectorAlignedPass on foo
@@ -266,19 +261,6 @@
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass on foo
 ; COM: CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis on foo ;INTEL
-=======
-; CHECK-O23SZ-NEXT: Running pass: SROAPass on foo
-; CHECK-O23SZ-NEXT: Running pass: TailCallElimPass on foo
-; CHECK-O23SZ-NEXT: Running pass: PostOrderFunctionAttrsPass on (foo)
-; CHECK-O23SZ-NEXT: Running pass: RequireAnalysisPass<{{.*}}GlobalsAA
-; CHECK-O23SZ-NEXT: Running analysis: GlobalsAA on [module]
-; CHECK-O23SZ-NEXT: Running analysis: CallGraphAnalysis on [module]
-; CHECK-O23SZ-NEXT: Running pass: InvalidateAnalysisPass<{{.*}}AAManager
-; CHECK-O23SZ-NEXT: Invalidating analysis: AAManager on foo
-; CHECK-O23SZ-NEXT: Running pass: OpenMPOptCGSCCPass on (foo)
-; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass on foo
-; CHECK-OSZ-NEXT: Running analysis: LoopAnalysis on foo
->>>>>>> 96a14f388b1a3507e5ae97b0a21b7b785d99a52b
 ; CHECK-O23SZ-NEXT: Running pass: LCSSAPass on foo
 ; CHECK-O23SZ-NEXT: Running analysis: MemorySSAAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running analysis: AAManager on foo
