@@ -182,9 +182,12 @@ ICallPromotionFunc::getPromotionCandidatesForCallSite(
     uint64_t TotalCount, uint32_t NumCandidates) {
   std::vector<PromotionCandidate> Ret;
 
-  LLVM_DEBUG(dbgs() << " \nWork on callsite #" << NumOfPGOICallsites << CB
+#if INTEL_CUSTOMIZATION
+  LLVM_DEBUG(dbgs() << " \nWork on callsite #" << NumOfPGOICallsites << "["
+                    << CB.getFunction()->getName() << "]" << CB
                     << " Num_targets: " << ValueDataRef.size()
                     << " Num_candidates: " << NumCandidates << "\n");
+#endif // INTEL_CUSTOMIZATION
   NumOfPGOICallsites++;
   if (ICPCSSkip != 0 && NumOfPGOICallsites <= ICPCSSkip) {
     LLVM_DEBUG(dbgs() << " Skip: User options.\n");
@@ -308,6 +311,9 @@ CallBase &llvm::pgo::promoteIndirectCall(CallBase &CB, Function *DirectCallee,
     CB.setMetadata(LLVMContext::MD_intel_profx,
         MDNode::get(M->getContext(), Vals));
   }
+  LLVM_DEBUG(dbgs() << "  Promoted call with count: " << Count
+                    << " out of total: " << TotalCount << "\n  " << NewInst
+                    << "\n");
 #endif // INTEL_CUSTOMIZATION
   using namespace ore;
 
