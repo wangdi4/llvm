@@ -10337,6 +10337,7 @@ void OffloadBundler::ConstructJobMultipleOutputs(
   for (auto TI = OpenMPTCRange.first, TE = OpenMPTCRange.second; TI != TE; ++TI)
     HasSPIRTarget |= TI->second->getTriple().isSPIR();
 #endif // INTEL_CUSTOMIZATION
+
   if (InputType == types::TY_Archive && HasSPIRTarget)
     TypeArg = "aoo";
 
