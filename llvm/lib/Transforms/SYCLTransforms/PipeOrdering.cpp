@@ -17,7 +17,6 @@
 #include "llvm/Transforms/SYCLTransforms/PipeOrdering.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/LoopInfo.h"
-#include "llvm/PassRegistry.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/BarrierUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"

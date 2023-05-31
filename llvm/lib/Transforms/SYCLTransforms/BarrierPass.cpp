@@ -17,6 +17,7 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/SYCLTransforms/Utils/BarrierRegionInfo.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
@@ -246,223 +247,6 @@ bool KernelBarrier::fixSynclessTIDUsers(Module &M,
   return true;
 }
 
-void KernelBarrier::findSyncBBSuccessors() {
-  BasicBlockToBasicBlockSetTy SyncBBSuccs;
-  for (Instruction *SyncI : *SyncInstructions) {
-    BasicBlock *BB = SyncI->getParent();
-    SyncPerBB[BB] = SyncI;
-
-    InstSet &SyncPreds = DPB->getBarrierPredecessors(SyncI).RelatedBarriers;
-    for (Instruction *Pred : SyncPreds) {
-      // Note Pred->getParent() may be different from Pred->getParent()
-      // in DataPerBarrierPass, because barrier basic block may change when
-      // splitting basic block, see FirstBB and CallBB in this pass.
-      BasicBlock *PredBB = Pred->getParent();
-      SyncBBSuccs[PredBB].insert(BB);
-    }
-  }
-
-  // Run DFS to find successors recursively.
-  for (auto &S : SyncBBSuccs) {
-    BasicBlock *BB = S.first;
-    SmallVector<BasicBlock *, 8> BBsToHandle;
-    for (BasicBlock *Succ : S.second) {
-      BBsToHandle.push_back(Succ);
-      SyncBBSuccessors[BB].insert(Succ);
-    }
-    while (!BBsToHandle.empty()) {
-      BasicBlock *V = BBsToHandle.pop_back_val();
-      if (!SyncBBSuccs.contains(V))
-        continue;
-      for (BasicBlock *Succ : SyncBBSuccs[V]) {
-        if (SyncBBSuccessors[BB].contains(Succ))
-          continue;
-        SyncBBSuccessors[BB].insert(Succ);
-        BBsToHandle.push_back(Succ);
-      }
-    }
-  }
-}
-
-BasicBlock *KernelBarrier::findNearestDominatorSyncBB(DominatorTree &DT,
-                                                      BasicBlock *BB) {
-  BasicBlock *Dominator = nullptr;
-  for (BasicBlock *SyncBB : BBToPredSyncBB[BB]) {
-    if (BB == SyncBB || !DT.dominates(SyncBB, BB))
-      continue;
-    if (Dominator) {
-      // Skip if Dominator is SyncBB's successor.
-      if (SyncBBSuccessors[SyncBB].contains(Dominator))
-        continue;
-      Dominator = SyncBB;
-      continue;
-    }
-    // Check that there isn't another barrier in any path from SyncBB to BB.
-    auto NoBarrierFromTo = [this](BasicBlock *SyncBB, BasicBlock *BB) -> bool {
-      for (BasicBlock *Succ : SyncBBSuccessors[SyncBB]) {
-        if (isPotentiallyReachable(Succ, BB))
-          return false;
-      }
-      return true;
-    };
-    if (NoBarrierFromTo(SyncBB, BB))
-      Dominator = SyncBB;
-  }
-  return Dominator;
-}
-
-// This function binds a value's user instruction to a basic block.
-// It also does optimization based on dominance information so that we load
-// address from new alloca only if necessary. For example, if both basick
-// block A and B contain value's users, A dominates B and there is no barrier
-// between A and B, we can bind users in B to A. Then we only need to load
-// address in A.
-// For the following IR, there is a barrier in for loop. There is no barrier
-// between while.cond and while.body, we only need to load from %i.addr in
-// while.cond and reuse it in while.body.
-//
-// for.body:
-// "Barrier BB":
-// while.cond:
-//   %1 = load i32, i32* %i, align 4, !dbg !46
-//   br i1 %cmp1, label %while.body, label %while.end, !dbg !45
-// while.body:
-//   store i32 1, i32* %i, align 4, !dbg !48
-// while.end:
-// for.inc:
-//
-// Output is:
-//
-// for.body:
-// "Barrier BB":
-// while.cond:
-//   %SBIndex22 = load i64, i64* %pCurrSBIndex, align 8, !dbg !46
-//   %SB_LocalId_Offset23 = add nuw i64 %SBIndex22, 40, !dbg !46
-//   %11 = getelementptr inbounds i8, i8* %pSB, i64 %SB_LocalId_Offset23,
-//       !dbg !46
-//   %pSB_LocalId24 = bitcast i8* %11 to i32*, !dbg !46
-//   store i32* %pSB_LocalId24, i32** %i.addr, align 8, !dbg !46
-//   %12 = load i32*, i32** %i.addr, align 8, !dbg !46
-//   call void @llvm.dbg.value(metadata i32* %12, metadata !43,
-//       metadata !DIExpression(DW_OP_deref)), !dbg !41
-//   %13 = load i32, i32* %12, align 4, !dbg !46
-//   br i1 %cmp1, label %while.body, label %while.end, !dbg !45
-// while.body:
-//   store i32 1, i32* %12, align 4, !dbg !48
-// while.end:
-// for.inc:
-void KernelBarrier::bindUsersToBasicBlock(
-    Function &F, Value *V, DbgVariableIntrinsic *DI,
-    BasicBlockToInstructionMapVectorTy &BBUsers) {
-  DominatorTree DT;
-  DT.recalculate(F);
-
-  SmallVector<Instruction *, 8> UIs;
-  for (User *U : V->users()) {
-    Instruction *UI = dyn_cast<Instruction>(U);
-    assert(UI && "uses of value is not an instruction!");
-    UIs.push_back(UI);
-  }
-
-  BasicBlock *DIBB = nullptr;
-  if (DI) {
-    UIs.push_back(DI);
-    DIBB = DI->getParent();
-  }
-
-  DenseMap<Instruction *, BasicBlock *> UIToInsertPointBB;
-  CompilationUtils::BBSet BBs;
-  for (Instruction *UI : UIs) {
-    auto *VI = dyn_cast<Instruction>(V);
-    Instruction *InsertBefore =
-        VI ? getInstructionToInsertBefore(VI, UI, false) : UI;
-    // If UI is PHINode, BB is PHINode's previous basic block, otherwise
-    // BB is UI's parent basic block.
-    BasicBlock *BB = InsertBefore->getParent();
-    UIToInsertPointBB[UI] = BB;
-    BBs.insert(BB);
-
-    if (SyncPerBB.contains(BB))
-      continue;
-
-    // Collect BB's predecessors that are SyncBB.
-    if (!BBToPredSyncBB.contains(BB) && DPB->hasPredecessors(BB)) {
-      CompilationUtils::BBSet &Preds = DPB->getPredecessors(BB);
-      for (BasicBlock *Pred : Preds) {
-        if (SyncPerBB.contains(Pred))
-          BBToPredSyncBB[BB].push_back(Pred);
-      }
-      for (auto &OldToNewSync : OldToNewSyncBBMap[&F]) {
-        BasicBlock *Pred = OldToNewSync.second;
-        if (Preds.contains(OldToNewSync.first) && SyncPerBB.contains(Pred))
-          BBToPredSyncBB[BB].push_back(Pred);
-      }
-    }
-
-    // Find the nearest SyncBB that dominates BB.
-    if (!BBToNearestDominatorSyncBB.contains(BB))
-      BBToNearestDominatorSyncBB[BB] = findNearestDominatorSyncBB(DT, BB);
-  }
-
-  // Map from user BB to its bound dominator that value loaded from AddrAI in
-  // the dominator will be reused in the user BB.
-  BasicBlockToBasicBlockTy BBBindToDominator;
-  // Basic blocks that are bound to their nearest dominator SyncBB.
-  SmallSet<BasicBlock *, 8> BBBindToNearestSyncDominator;
-
-  for (BasicBlock *BB : BBs)
-    BBBindToDominator[BB] = BB;
-
-  // Bind user basic blocks to SyncBB.
-  for (auto &BBToDominator : BBToNearestDominatorSyncBB) {
-    BasicBlock *BB = BBToDominator.first;
-    BasicBlock *Dominator = BBToDominator.second;
-    if (!Dominator)
-      continue;
-    // If Dominator is DIBB's predecessor, we shouldn't bind BB to Dominator
-    // so that AI's debug scope is within DIBB.
-    if (DIBB && isPotentiallyReachable(Dominator, DIBB))
-      continue;
-
-    BBBindToDominator[BB] = Dominator;
-    BBBindToNearestSyncDominator.insert(BB);
-  }
-
-  for (BasicBlock *BB : BBs) {
-    DenseMap<BasicBlock *, bool> &HasBarrierTo = HasBarrierFromTo[BB];
-
-    if (!BBToDominatedBBs.contains(BB))
-      DT.getDescendants(BB, BBToDominatedBBs[BB]);
-
-    for (auto *DominatedBB : BBToDominatedBBs[BB]) {
-      // Skip if DominatedBB is a SyncBB because binding to SyncBB is already
-      // handled above.
-      if (BB == DominatedBB || !BBs.contains(DominatedBB) ||
-          SyncPerBB.contains(DominatedBB))
-        continue;
-      // Skip if binding is already done.
-      if (BBBindToNearestSyncDominator.contains(DominatedBB))
-        continue;
-      // Skip if DominatedBB is already bound to either the basic block
-      // containing DbgVariableIntrinsic or a basic block that BB doesn't
-      // dominate.
-      if ((BB != DIBB) && (!DT.dominates(BB, BBBindToDominator[DominatedBB]) ||
-                           BBBindToDominator[DominatedBB] == DIBB))
-        continue;
-
-      if (!HasBarrierTo.contains(DominatedBB))
-        HasBarrierTo[DominatedBB] =
-            Utils.isCrossedByBarrier(*SyncInstructions, DominatedBB, BB);
-      if (!HasBarrierTo[DominatedBB])
-        BBBindToDominator[DominatedBB] = BB;
-    }
-  }
-  for (Instruction *UI : UIs) {
-    BasicBlock *BB = UIToInsertPointBB[UI];
-    BBUsers[BBBindToDominator[BB]].push_back(UI);
-  }
-}
-
 void KernelBarrier::fixAllocaAndDbg(Function &F) {
   DIBuilder DIB(*F.getParent(), /*AllowUnresolved*/ false);
   const DataLayout &DL = F.getParent()->getDataLayout();
@@ -474,17 +258,28 @@ void KernelBarrier::fixAllocaAndDbg(Function &F) {
     auto Scope = DIB.createLexicalBlockFile(SP, File, 0);
     DB = DILocation::get(SP->getContext(), 0, 0, Scope);
   }
-  // Reset containers for the current function.
-  SyncPerBB.clear();
-  SyncBBSuccessors.clear();
-  BBToDominatedBBs.clear();
-  BBToPredSyncBB.clear();
-  BBToNearestDominatorSyncBB.clear();
-  HasBarrierFromTo.clear();
 
-  // For the current function, find all successors of each basic block which
-  // contains a synchronization instruction.
-  findSyncBBSuccessors();
+  // This holds a map from basic block to its containing sync instruction.
+  DenseMap<BasicBlock *, Instruction *> SyncPerBB;
+  for (auto *I : *SyncInstructions)
+    if (I->getFunction() == &F)
+      SyncPerBB[I->getParent()] = I;
+
+  // Compute barrier region info. If a cross-barrier value is used in multiple
+  // basic blocks within a barrier region, it is only necessary to load the
+  // value from special buffer once in region header. The uses in the region
+  // will be replaced by the loaded value.
+  DominatorTree DT;
+  DT.recalculate(F);
+  DominanceFrontier DF;
+  std::unique_ptr<BarrierRegionInfo> BRI;
+  // BarrierRegionInfo isn't able to handle a rare case that a basic block is
+  // unreachable from entry block. For this case, we need to load from special
+  // buffer for every use of a cross-barrier value.
+  if (llvm::none_of(F, [&](BasicBlock &BB) { return !DT.getNode(&BB); })) {
+    DF.analyze(DT);
+    BRI.reset(new BarrierRegionInfo(&F, &DF, &DT));
+  }
 
   ValueVec WorkList(*AllocaValues);
   // Fix kernel argument which has debug info.
@@ -546,26 +341,26 @@ void KernelBarrier::fixAllocaAndDbg(Function &F) {
     // Get offset of alloca value in special buffer.
     unsigned int Offset = DPV->getOffset(V);
 
-    // Bind V's users to basic blocks that update AddrAI.
-    // MapVector is used so that access order is deterministic.
-    BasicBlockToInstructionMapVectorTy BBUsers;
-    bindUsersToBasicBlock(F, V, DI, BBUsers);
-
-    // Now each user is bound to a basic block, in which we insert instruction
-    // to load V's address in special buffer to AddrAI, and replace the user
-    // with result of the load instruction.
-
+    // Insert instruction in barrier region header to load V's address in
+    // special buffer to AddrAI.
     bool AllocaDebugLocFixed = false;
-    for (auto &BBUser : BBUsers) {
-      BasicBlock *BB = BBUser.first;
+    DenseMap<BasicBlock *, LoadInst *> HeaderToLoadInst;
+    for (auto *U : V->users()) {
+      BasicBlock *BB = cast<Instruction>(U)->getParent();
+      if (BRI)
+        BB = BRI->getRegionHeaderFor(BB);
+      if (HeaderToLoadInst.contains(BB))
+        continue;
       Instruction *InsertBefore;
-      if (SyncPerBB.contains(BB)) {
-        InsertBefore = SyncPerBB[BB]->getNextNode();
+      if (auto It = SyncPerBB.find(BB); It != SyncPerBB.end()) {
+        InsertBefore = It->second->getNextNode();
         assert(
             InsertBefore->getParent() == BB &&
             "sync instruction must not be the last instruction in the block");
       } else {
-        if (AI && AI->getParent() == BB) {
+        if (BB->isEntryBlock()) {
+          InsertBefore = BB->getTerminator();
+        } else if (AI && AI->getParent() == BB) {
           // The inserted instructions will get debug loc of current alloca.
           InsertBefore = AI;
           AllocaDebugLocFixed = true;
@@ -584,10 +379,19 @@ void KernelBarrier::fixAllocaAndDbg(Function &F) {
       if (isa<Argument>(V))
         LI =
             Builder.CreateLoad(cast<Argument>(V)->getType(), LI, "loadedValue");
-      for (Instruction *UI : BBUser.second) {
-        if (!isa<DbgVariableIntrinsic>(UI))
-          UI->replaceUsesOfWith(V, LI);
-      }
+      HeaderToLoadInst[BB] = LI;
+    }
+
+    // Replace a use with result of the load instruction if the use is in the
+    // same barrier region.
+    for (auto *U : make_early_inc_range(V->users())) {
+      auto *UI = cast<Instruction>(U);
+      BasicBlock *BB = UI->getParent();
+      if (BRI)
+        BB = BRI->getRegionHeaderFor(BB);
+      LoadInst *LI = HeaderToLoadInst[BB];
+      if (!isa<DbgVariableIntrinsic>(UI))
+        UI->replaceUsesOfWith(V, LI);
     }
 
     if (IsNativeDBG && AI && !AllocaDebugLocFixed) {

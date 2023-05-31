@@ -61,7 +61,7 @@ entry:
 ; CHECK: tail call spir_func i8  @_Z34intel_sub_group_scan_inclusive_maxc(i8 %trunc.i8) #[[INCL_SCAN_ATTR_3:[0-9]+]]
 
   %call16 = tail call spir_func i64 @_Z28intel_sub_group_shuffle_downllj(i64 %call, i64 42, i32 %slid.reverse)
-; CHECK: tail call spir_func i64 @_Z28intel_sub_group_shuffle_downllj(i64 %add1, i64 42, i32 %slid.reverse) #[[SHUFFLE_ATTR_5:[0-9]+]]
+; CHECK: tail call spir_func i64 @_Z28intel_sub_group_shuffle_downllj(i64 {{.*}}, i64 42, i32 %slid.reverse) #[[SHUFFLE_ATTR_5:[0-9]+]]
 
   %call17 = tail call spir_func <4 x i32> @_Z28intel_sub_group_shuffle_downDv4_iS_j(<4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i32> <i32 41, i32 42, i32 43, i32 44>, i32 %slid.reverse)
 ; CHECK: tail call spir_func <4 x i32> @_Z28intel_sub_group_shuffle_downDv4_iS_j(<4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i32> <i32 41, i32 42, i32 43, i32 44>, i32 %slid.reverse) #[[SHUFFLE_ATTR_6:[0-9]+]]
@@ -198,7 +198,6 @@ attributes #0 = { convergent nounwind }
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_a {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_a {{.*}} call
-; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_a {{.*}} add
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_a {{.*}} add
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_a {{.*}} icmp
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_a {{.*}} br

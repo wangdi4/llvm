@@ -347,8 +347,7 @@ void OptimizerLTO::registerOptimizerEarlyCallback(PassBuilder &PB) {
       MPM.addPass(
           RequireAnalysisPass<VectorizationDimensionAnalysis, Module>());
 
-    MPM.addPass(
-        SYCLKernelVecClonePass(getVectInfos(), ISA, !m_IsSYCL && !m_IsOMP));
+    MPM.addPass(SYCLKernelVecClonePass(getVectInfos(), ISA));
     MPM.addPass(VectorVariantFillIn());
     MPM.addPass(UpdateCallAttrs());
 #endif // INTEL_CUSTOMIZATION

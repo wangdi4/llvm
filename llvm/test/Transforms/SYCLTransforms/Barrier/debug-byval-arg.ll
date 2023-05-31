@@ -33,11 +33,13 @@ entry:
   call void @dummy_barrier.()
   br label %leader
 
-leader:                                           ; preds = %entry
-; CHECK-LABEL: leader:
+; CHECK-LABEL: SyncBB0:
 ; CHECK: store %"class.cl::sycl::group"** %pSB_LocalId{{.*}}, %"class.cl::sycl::group"*** %group_pid.addr, align 8
 ; CHECK-NEXT: [[LOAD1:%[0-9]+]] = load %"class.cl::sycl::group"**, %"class.cl::sycl::group"*** %group_pid.addr, align 8
 ; CHECK-NEXT: [[LOAD2:%loadedValue[0-9]*]] = load %"class.cl::sycl::group"*, %"class.cl::sycl::group"** [[LOAD1]], align 8
+
+leader:                                           ; preds = %entry
+; CHECK-LABEL: leader:
 ; CHECK-NEXT: bitcast %"class.cl::sycl::group"* [[LOAD2]] to i8*
 
   %0 = bitcast %"class.cl::sycl::group"* %group_pid to i8*
@@ -45,10 +47,7 @@ leader:                                           ; preds = %entry
 
 wg_leader:                                        ; preds = %leader
 ; CHECK-LABEL: wg_leader:
-; CHECK: store %"class.cl::sycl::group"** %pSB_LocalId{{.*}}, %"class.cl::sycl::group"*** %group_pid.addr, align 8
-; CHECK-NEXT: [[LOAD3:%[0-9]+]] = load %"class.cl::sycl::group"**, %"class.cl::sycl::group"*** %group_pid.addr, align 8
-; CHECK-NEXT: [[LOAD4:%loadedValue[0-9]*]] = load %"class.cl::sycl::group"*, %"class.cl::sycl::group"** [[LOAD3]], align 8
-; CHECK-NEXT: addrspacecast %"class.cl::sycl::group"* [[LOAD4]] to %"class.cl::sycl::group" addrspace(4)*
+; CHECK-NEXT: addrspacecast %"class.cl::sycl::group"* [[LOAD2]] to %"class.cl::sycl::group" addrspace(4)*
 
   %group_pid.ascast = addrspacecast %"class.cl::sycl::group"* %group_pid to %"class.cl::sycl::group" addrspace(4)*
   call void @llvm.dbg.declare(metadata %"class.cl::sycl::group" addrspace(4)* %group_pid.ascast, metadata !13, metadata !DIExpression()), !dbg !21

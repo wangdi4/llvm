@@ -9,7 +9,6 @@
 //===---------------------------------------------------------------------===//
 
 #include "llvm/Transforms/SYCLTransforms/SubgroupEmulation/SGBarrierPropagate.h"
-#include "llvm/PassRegistry.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 
 using namespace llvm;

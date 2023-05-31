@@ -27,15 +27,15 @@ entry:
   %ptridx = getelementptr inbounds double, double addrspace(1)* %a, i64 %idxprom
   %0 = load double, double addrspace(1)* %ptridx, align 8, !tbaa !6
   %cmp = fcmp ugt double %0, 1.000000e+00
-; CHECK: fcmp ugt <4 x double> %wide.masked.gather, <double 1.000000e+00, double 1.000000e+00, double 1.000000e+00, double 1.000000e+00>
+; CHECK: fcmp ugt <4 x double> %wide.{{.*}}, <double 1.000000e+00, double 1.000000e+00, double 1.000000e+00, double 1.000000e+00>
   %cmp4 = fcmp ult double %0, -1.000000e+00
-; CHECK: fcmp ult <4 x double> %wide.masked.gather, <double -1.000000e+00, double -1.000000e+00, double -1.000000e+00, double -1.000000e+00>
+; CHECK: fcmp ult <4 x double> %wide.{{.*}}, <double -1.000000e+00, double -1.000000e+00, double -1.000000e+00, double -1.000000e+00>
   %or.cond = or i1 %cmp, %cmp4
   br i1 %or.cond, label %if.end, label %if.then
 
 if.then:                                          ; preds = %entry
   %call8 = tail call double @_Z4acosd(double %0) #1
-; CHECK: call <4 x double> @_Z4acosDv4_dS_(<4 x double> %wide.masked.gather, <4 x double>
+; CHECK: call <4 x double> @_Z4acosDv4_dS_(<4 x double> %wide.{{.*}}, <4 x double>
   %ptridx10 = getelementptr inbounds double, double addrspace(1)* %c, i64 %idxprom
   store double %call8, double addrspace(1)* %ptridx10, align 8, !tbaa !6
   br label %if.end
@@ -75,7 +75,6 @@ attributes #1 = { convergent nounwind readnone }
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_acos_mask_d {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_acos_mask_d {{.*}} call
-; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_acos_mask_d {{.*}} add
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_acos_mask_d {{.*}} add
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_acos_mask_d {{.*}} icmp
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_acos_mask_d {{.*}} br

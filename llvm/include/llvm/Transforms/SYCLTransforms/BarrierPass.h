@@ -263,25 +263,6 @@ private:
   Value *resolveGetLocalIDCall(CallInst *Call);
   unsigned getNumDims() const { return CurrentBarrierKeyValues->NumDims; }
 
-  /// For each sync intruction in current function, find its parent
-  /// basic and successors that also contains sync instruction.
-  void findSyncBBSuccessors();
-
-  /// Find the nearest SyncBB that dominates basic block BB.
-  /// DT Dominator tree of current function.
-  /// BB The basic block to process.
-  /// Return The nearest SyncBB.
-  BasicBlock *findNearestDominatorSyncBB(DominatorTree &DT, BasicBlock *BB);
-
-  /// Bind a value's users to basic blocks so that a user will be replaced
-  /// by value loaded from value's new address alloca in its bound basic block.
-  /// \param F Function to process.
-  /// \param V Value to process.
-  /// \param DI DbgVariableIntrinsic of AI.
-  /// \param BBUsers Output binding map.
-  void bindUsersToBasicBlock(Function &F, Value *V, DbgVariableIntrinsic *DI,
-                             BasicBlockToInstructionMapVectorTy &BBUsers);
-
 private:
   void calculateDirectPrivateSize(
       Module &M, FuncSet &FnsWithSync,
@@ -388,30 +369,6 @@ private:
   /// This holds per-function map from sync basic block to newly splitted sync
   /// basic block.
   DenseMap<Function *, DenseMap<BasicBlock *, BasicBlock *>> OldToNewSyncBBMap;
-
-  /// This holds a map from basic block to its containing sync instruction.
-  DenseMap<BasicBlock *, Instruction *> SyncPerBB;
-
-  /// This holds a map from a sync basic block to its successors that are also
-  /// sync basic blocks.
-  BasicBlockToBasicBlockSetTy SyncBBSuccessors;
-
-  /// This holds a map from a basic block to all nodes dominated by the basic
-  /// block.
-  BasicBlockToBasicBlockVectorTy BBToDominatedBBs;
-
-  /// This holds a map from a basic block to its predecessor basic blocks that
-  /// contain a sync instruction.
-  BasicBlockToBasicBlockVectorTy BBToPredSyncBB;
-
-  /// This holds a map from a basic block to its nearest dominator that
-  /// contains a sync instruction.
-  BasicBlockToBasicBlockTy BBToNearestDominatorSyncBB;
-
-  /// This holds a map from a basic block to another basic blocks and to
-  /// whether there is a barrier in any path from the basic block to another
-  /// basic block.
-  DenseMap<BasicBlock *, DenseMap<BasicBlock *, bool>> HasBarrierFromTo;
 };
 
 } // namespace llvm

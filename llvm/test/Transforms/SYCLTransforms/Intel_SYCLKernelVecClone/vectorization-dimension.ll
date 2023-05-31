@@ -85,7 +85,7 @@ attributes #0 = { nounwind readnone }
 
 ; WithoutVecDimAnalysis-DAG: [[CUW]] = !{i1 false}
 
-; DEBUGIFY-COUNT-8: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uu_test_dim0
-; DEBUGIFY-COUNT-8: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uuu_test_dim1
-; DEBUGIFY-COUNT-8: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uuu_test_dim2
+; DEBUGIFY-COUNT-7: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uu_test_dim0
+; DEBUGIFY-COUNT-7: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uuu_test_dim1
+; DEBUGIFY-COUNT-7: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uuu_test_dim2
 ; DEBUGIFY-NOT: WARNING
