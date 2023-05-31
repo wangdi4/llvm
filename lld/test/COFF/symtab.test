@@ -8,10 +8,13 @@
 
 # RUN: lld-link /debug /out:%t.exe /entry:main %t.obj %p/Inputs/std64.lib
 # RUN: llvm-readobj --symbols %t.exe | FileCheck -check-prefix=NO %s
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # RUN: lld-link /debug /merge:.blank=.debug_info /profile /out:%t.exe /entry:main %t.obj %p/Inputs/std64.lib
 # END INTEL_CUSTOMIZATION
 # RUN: llvm-readobj --symbols %t.exe | FileCheck %s
+=======
+>>>>>>> c384fcd3ea1dad782eaaea89b32fc33c0c3528b8
 
 # CHECK:      Symbols [
 # CHECK-NEXT:   Symbol {
@@ -146,10 +149,6 @@ sections:
     Characteristics: [ IMAGE_SCN_CNT_INITIALIZED_DATA, IMAGE_SCN_MEM_READ, IMAGE_SCN_MEM_WRITE ]
     Alignment:       4
     SectionData:     48656C6C6F0048656C6C6F20576F726C6400
-  - Name:            .blank
-    Characteristics: [ IMAGE_SCN_CNT_INITIALIZED_DATA, IMAGE_SCN_MEM_DISCARDABLE, IMAGE_SCN_MEM_READ ]
-    Alignment:       1
-    SectionData:     0000
 symbols:
   - Name:            "@comp.id"
     Value:           10394907

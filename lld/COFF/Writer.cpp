@@ -1288,9 +1288,7 @@ void Writer::createSymbolAndStringTable() {
   // solution where discardable sections have long names preserved and
   // non-discardable sections have their names truncated, to ensure that any
   // section which is mapped at runtime also has its name mapped at runtime.
-  bool HasDwarfSection = false;
   for (OutputSection *sec : ctx.outputSections) {
-    HasDwarfSection |= sec->name.startswith(".debug_");
     if (sec->name.size() <= COFF::NameSize)
       continue;
     if ((sec->header.Characteristics & IMAGE_SCN_MEM_DISCARDABLE) == 0)
@@ -1303,8 +1301,12 @@ void Writer::createSymbolAndStringTable() {
     sec->setStringTableOff(addEntryToStringTable(sec->name));
   }
 
+<<<<<<< HEAD
   if (ctx.config.debugDwarf || ctx.config.debugSymtab || // INTEL
       (ctx.config.profile && HasDwarfSection)) {         // INTEL
+=======
+  if (ctx.config.debugDwarf || ctx.config.debugSymtab) {
+>>>>>>> c384fcd3ea1dad782eaaea89b32fc33c0c3528b8
     for (ObjFile *file : ctx.objFileInstances) {
       for (Symbol *b : file->getSymbols()) {
         auto *d = dyn_cast_or_null<Defined>(b);
