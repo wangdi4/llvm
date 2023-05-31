@@ -92,6 +92,7 @@ class CodeGenVTables {
                             bool vtableHasLocalLinkage,
                             bool isCompleteDtor) const;
 
+<<<<<<< HEAD
   /// Create a dso_local stub that will be used for a relative reference in the
   /// relative vtable layout. This stub will just be a tail call to the original
   /// function and propagate any function attributes from the original. If the
@@ -103,6 +104,8 @@ class CodeGenVTables {
                           bool isCompleteDtor) const;
 
 public: // INTEL
+=======
+>>>>>>> d0e4119d848bbb8df6a7fa303ad8302a770fbab8
   bool useRelativeLayout() const;
 private: // INTEL
 
