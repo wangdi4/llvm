@@ -1126,6 +1126,7 @@ static Value *foldSelectCttzCtlz(ICmpInst *ICI, Value *TrueVal, Value *FalseVal,
   return nullptr;
 }
 
+<<<<<<< HEAD
 /// Return true if we find and adjust an icmp+select pattern where the compare
 /// is with a constant that can be incremented or decremented to match the
 /// minimum or maximum idiom.
@@ -1264,6 +1265,8 @@ static Instruction *canonicalizeMinMaxWithConstant(SelectInst &Sel,
   return &Sel;
 }
 
+=======
+>>>>>>> 8378f1f4cdc8922e4f0409cabff25e0fef517bfa
 static Instruction *canonicalizeSPF(SelectInst &Sel, ICmpInst &Cmp,
                                     InstCombinerImpl &IC) {
   Value *LHS, *RHS;
@@ -1830,12 +1833,11 @@ Instruction *InstCombinerImpl::foldSelectInstWithICmp(SelectInst &SI,
           tryToReuseConstantFromSelectInComparison(SI, *ICI, *this))
     return NewSel;
 
-  bool Changed = adjustMinMax(SI, *ICI);
-
   if (Value *V = foldSelectICmpAnd(SI, ICI, Builder))
     return replaceInstUsesWith(SI, V);
 
   // NOTE: if we wanted to, this is where to detect integer MIN/MAX
+  bool Changed = false;
   Value *TrueVal = SI.getTrueValue();
   Value *FalseVal = SI.getFalseValue();
   ICmpInst::Predicate Pred = ICI->getPredicate();
