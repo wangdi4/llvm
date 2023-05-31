@@ -5,27 +5,17 @@
 ; RUN: llc < %s -mtriple=i386-unknown-unknown -intel-libirc-allowed -mcpu=alderlake -O3 | FileCheck %s --check-prefix=X86-ADL
 
 ; Function Attrs: nofree norecurse nosync nounwind readonly uwtable
-define dso_local double @foo(double* noalias nocapture readonly %dst, double* noalias nocapture readonly %luval, i32** nocapture readonly %rowstart, i32* nocapture readnone %first_after_diagonal, i32 %N) local_unnamed_addr {
+define dso_local double @foo(double* noalias nocapture readonly %dst, double* noalias nocapture readonly %luval, i32** nocapture readonly %rowstart, i32* nocapture readnone %first_after_diagonal, i32 %N) nounwind {
 ; X64-CORE-AVX2-LABEL: foo:
-; X64-CORE-AVX2:       # %bb.0:
-; X64-CORE-AVX2-NEXT:    pushq %r15
-; X64-CORE-AVX2-NEXT:    .cfi_def_cfa_offset 16
-; X64-CORE-AVX2-NEXT:    pushq %r14
-; X64-CORE-AVX2-NEXT:    .cfi_def_cfa_offset 24
-; X64-CORE-AVX2-NEXT:    pushq %r13
-; X64-CORE-AVX2-NEXT:    .cfi_def_cfa_offset 32
-; X64-CORE-AVX2-NEXT:    pushq %r12
-; X64-CORE-AVX2-NEXT:    .cfi_def_cfa_offset 40
-; X64-CORE-AVX2-NEXT:    pushq %rbx
-; X64-CORE-AVX2-NEXT:    .cfi_def_cfa_offset 48
-; X64-CORE-AVX2-NEXT:    .cfi_offset %rbx, -48
-; X64-CORE-AVX2-NEXT:    .cfi_offset %r12, -40
-; X64-CORE-AVX2-NEXT:    .cfi_offset %r13, -32
-; X64-CORE-AVX2-NEXT:    .cfi_offset %r14, -24
-; X64-CORE-AVX2-NEXT:    .cfi_offset %r15, -16
+; X64-CORE-AVX2:       # %bb.0: # %entry
 ; X64-CORE-AVX2-NEXT:    testl %r8d, %r8d
 ; X64-CORE-AVX2-NEXT:    jle .LBB0_1
-; X64-CORE-AVX2-NEXT:  # %bb.2: # %for.body.preheader
+; X64-CORE-AVX2-NEXT:  # %bb.3: # %for.body.preheader
+; X64-CORE-AVX2-NEXT:    pushq %r15
+; X64-CORE-AVX2-NEXT:    pushq %r14
+; X64-CORE-AVX2-NEXT:    pushq %r13
+; X64-CORE-AVX2-NEXT:    pushq %r12
+; X64-CORE-AVX2-NEXT:    pushq %rbx
 ; X64-CORE-AVX2-NEXT:    movl %r8d, %ebx
 ; X64-CORE-AVX2-NEXT:    movq %rdx, %r14
 ; X64-CORE-AVX2-NEXT:    movq %rsi, %r15
@@ -33,31 +23,31 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-CORE-AVX2-NEXT:    movl %r8d, %r13d
 ; X64-CORE-AVX2-NEXT:    movq __cpu_core_type@GOTPCREL(%rip), %rax
 ; X64-CORE-AVX2-NEXT:    cmpb $-1, 1024(%rax)
-; X64-CORE-AVX2-NEXT:    je .LBB0_4
-; X64-CORE-AVX2-NEXT:  # %bb.3:
+; X64-CORE-AVX2-NEXT:    je .LBB0_5
+; X64-CORE-AVX2-NEXT:  # %bb.4:
 ; X64-CORE-AVX2-NEXT:    xorl %eax, %eax
-; X64-CORE-AVX2-NEXT:    jmp .LBB0_5
+; X64-CORE-AVX2-NEXT:    jmp .LBB0_6
 ; X64-CORE-AVX2-NEXT:  .LBB0_1:
-; X64-CORE-AVX2-NEXT:    vxorpd %xmm0, %xmm0, %xmm0
-; X64-CORE-AVX2-NEXT:    jmp .LBB0_13
-; X64-CORE-AVX2-NEXT:  .LBB0_4:
+; X64-CORE-AVX2-NEXT:    vxorps %xmm0, %xmm0, %xmm0
+; X64-CORE-AVX2-NEXT:    retq
+; X64-CORE-AVX2-NEXT:  .LBB0_5:
 ; X64-CORE-AVX2-NEXT:    #APP
 ; X64-CORE-AVX2-NEXT:    rdpid %rcx
 ; X64-CORE-AVX2-NEXT:    #NO_APP
 ; X64-CORE-AVX2-NEXT:    andl $1023, %ecx # imm = 0x3FF
 ; X64-CORE-AVX2-NEXT:    movzbl (%rax,%rcx), %eax
 ; X64-CORE-AVX2-NEXT:    testb %al, %al
-; X64-CORE-AVX2-NEXT:    je .LBB0_14
-; X64-CORE-AVX2-NEXT:  .LBB0_5:
+; X64-CORE-AVX2-NEXT:    je .LBB0_15
+; X64-CORE-AVX2-NEXT:  .LBB0_6:
 ; X64-CORE-AVX2-NEXT:    decq %r13
 ; X64-CORE-AVX2-NEXT:    vxorpd %xmm0, %xmm0, %xmm0
 ; X64-CORE-AVX2-NEXT:    xorl %ecx, %ecx
 ; X64-CORE-AVX2-NEXT:    cmpb $32, %al
-; X64-CORE-AVX2-NEXT:    je .LBB0_6
+; X64-CORE-AVX2-NEXT:    je .LBB0_7
 ; X64-CORE-AVX2-NEXT:    .p2align 4, 0x90
-; X64-CORE-AVX2-NEXT:  .LBB0_10: # %loop.39
+; X64-CORE-AVX2-NEXT:  .LBB0_8:
 ; X64-CORE-AVX2-NEXT:    # =>This Loop Header: Depth=1
-; X64-CORE-AVX2-NEXT:    # Child Loop BB0_11 Depth 2
+; X64-CORE-AVX2-NEXT:    # Child Loop BB0_9 Depth 2
 ; X64-CORE-AVX2-NEXT:    movl %ecx, %eax
 ; X64-CORE-AVX2-NEXT:    notl %eax
 ; X64-CORE-AVX2-NEXT:    addl %ebx, %eax
@@ -68,8 +58,8 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-CORE-AVX2-NEXT:    vxorpd %xmm3, %xmm3, %xmm3
 ; X64-CORE-AVX2-NEXT:    vxorpd %xmm4, %xmm4, %xmm4
 ; X64-CORE-AVX2-NEXT:    .p2align 4, 0x90
-; X64-CORE-AVX2-NEXT:  .LBB0_11: # %loop.48
-; X64-CORE-AVX2-NEXT:    # Parent Loop BB0_10 Depth=1
+; X64-CORE-AVX2-NEXT:  .LBB0_9: # %loop.48
+; X64-CORE-AVX2-NEXT:    # Parent Loop BB0_8 Depth=1
 ; X64-CORE-AVX2-NEXT:    # => This Inner Loop Header: Depth=2
 ; X64-CORE-AVX2-NEXT:    vpmovzxdq {{.*#+}} ymm5 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero
 ; X64-CORE-AVX2-NEXT:    vpmovzxdq {{.*#+}} ymm6 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero
@@ -94,9 +84,9 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-CORE-AVX2-NEXT:    addq $16, %rdx
 ; X64-CORE-AVX2-NEXT:    leal -16(%rdx), %esi
 ; X64-CORE-AVX2-NEXT:    cmpl $4080, %esi # imm = 0xFF0
-; X64-CORE-AVX2-NEXT:    jb .LBB0_11
-; X64-CORE-AVX2-NEXT:  # %bb.12: # %afterloop.48
-; X64-CORE-AVX2-NEXT:    # in Loop: Header=BB0_10 Depth=1
+; X64-CORE-AVX2-NEXT:    jb .LBB0_9
+; X64-CORE-AVX2-NEXT:  # %bb.10: # %afterloop.48
+; X64-CORE-AVX2-NEXT:    # in Loop: Header=BB0_8 Depth=1
 ; X64-CORE-AVX2-NEXT:    vaddpd %ymm3, %ymm1, %ymm1
 ; X64-CORE-AVX2-NEXT:    vaddpd %ymm4, %ymm2, %ymm2
 ; X64-CORE-AVX2-NEXT:    vaddpd %ymm2, %ymm1, %ymm1
@@ -109,15 +99,15 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-CORE-AVX2-NEXT:    addq $32768, %r15 # imm = 0x8000
 ; X64-CORE-AVX2-NEXT:    cmpq %r13, %rcx
 ; X64-CORE-AVX2-NEXT:    movq %rax, %rcx
-; X64-CORE-AVX2-NEXT:    jne .LBB0_10
-; X64-CORE-AVX2-NEXT:    jmp .LBB0_13
-; X64-CORE-AVX2-NEXT:  .LBB0_6:
+; X64-CORE-AVX2-NEXT:    jne .LBB0_8
+; X64-CORE-AVX2-NEXT:    jmp .LBB0_11
+; X64-CORE-AVX2-NEXT:  .LBB0_7:
 ; X64-CORE-AVX2-NEXT:    vmovq %r12, %xmm1
 ; X64-CORE-AVX2-NEXT:    vpbroadcastq %xmm1, %ymm1
 ; X64-CORE-AVX2-NEXT:    .p2align 4, 0x90
-; X64-CORE-AVX2-NEXT:  .LBB0_7: # %loop.39.clone
+; X64-CORE-AVX2-NEXT:  .LBB0_14: # %loop.39.clone
 ; X64-CORE-AVX2-NEXT:    # =>This Loop Header: Depth=1
-; X64-CORE-AVX2-NEXT:    # Child Loop BB0_8 Depth 2
+; X64-CORE-AVX2-NEXT:    # Child Loop BB0_12 Depth 2
 ; X64-CORE-AVX2-NEXT:    movl %ecx, %eax
 ; X64-CORE-AVX2-NEXT:    notl %eax
 ; X64-CORE-AVX2-NEXT:    addl %ebx, %eax
@@ -128,8 +118,8 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-CORE-AVX2-NEXT:    vxorpd %xmm4, %xmm4, %xmm4
 ; X64-CORE-AVX2-NEXT:    vxorpd %xmm5, %xmm5, %xmm5
 ; X64-CORE-AVX2-NEXT:    .p2align 4, 0x90
-; X64-CORE-AVX2-NEXT:  .LBB0_8: # %loop.48.clone
-; X64-CORE-AVX2-NEXT:    # Parent Loop BB0_7 Depth=1
+; X64-CORE-AVX2-NEXT:  .LBB0_12: # %loop.48.clone
+; X64-CORE-AVX2-NEXT:    # Parent Loop BB0_14 Depth=1
 ; X64-CORE-AVX2-NEXT:    # => This Inner Loop Header: Depth=2
 ; X64-CORE-AVX2-NEXT:    vpmovzxdq {{.*#+}} ymm8 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero
 ; X64-CORE-AVX2-NEXT:    vpmovzxdq {{.*#+}} ymm9 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero
@@ -190,9 +180,9 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-CORE-AVX2-NEXT:    addq $16, %rdx
 ; X64-CORE-AVX2-NEXT:    leal -16(%rdx), %esi
 ; X64-CORE-AVX2-NEXT:    cmpl $4080, %esi # imm = 0xFF0
-; X64-CORE-AVX2-NEXT:    jb .LBB0_8
-; X64-CORE-AVX2-NEXT:  # %bb.9: # %afterloop.48.clone
-; X64-CORE-AVX2-NEXT:    # in Loop: Header=BB0_7 Depth=1
+; X64-CORE-AVX2-NEXT:    jb .LBB0_12
+; X64-CORE-AVX2-NEXT:  # %bb.13: # %afterloop.48.clone
+; X64-CORE-AVX2-NEXT:    # in Loop: Header=BB0_14 Depth=1
 ; X64-CORE-AVX2-NEXT:    vaddpd %ymm4, %ymm2, %ymm2
 ; X64-CORE-AVX2-NEXT:    vaddpd %ymm5, %ymm3, %ymm3
 ; X64-CORE-AVX2-NEXT:    vaddpd %ymm3, %ymm2, %ymm2
@@ -205,46 +195,30 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-CORE-AVX2-NEXT:    addq $32768, %r15 # imm = 0x8000
 ; X64-CORE-AVX2-NEXT:    cmpq %r13, %rcx
 ; X64-CORE-AVX2-NEXT:    movq %rax, %rcx
-; X64-CORE-AVX2-NEXT:    jne .LBB0_7
-; X64-CORE-AVX2-NEXT:  .LBB0_13: # %for.cond.cleanup
+; X64-CORE-AVX2-NEXT:    jne .LBB0_14
+; X64-CORE-AVX2-NEXT:  .LBB0_11:
 ; X64-CORE-AVX2-NEXT:    popq %rbx
-; X64-CORE-AVX2-NEXT:    .cfi_def_cfa_offset 40
 ; X64-CORE-AVX2-NEXT:    popq %r12
-; X64-CORE-AVX2-NEXT:    .cfi_def_cfa_offset 32
 ; X64-CORE-AVX2-NEXT:    popq %r13
-; X64-CORE-AVX2-NEXT:    .cfi_def_cfa_offset 24
 ; X64-CORE-AVX2-NEXT:    popq %r14
-; X64-CORE-AVX2-NEXT:    .cfi_def_cfa_offset 16
 ; X64-CORE-AVX2-NEXT:    popq %r15
-; X64-CORE-AVX2-NEXT:    .cfi_def_cfa_offset 8
 ; X64-CORE-AVX2-NEXT:    vzeroupper
 ; X64-CORE-AVX2-NEXT:    retq
-; X64-CORE-AVX2-NEXT:  .LBB0_14:
-; X64-CORE-AVX2-NEXT:    .cfi_def_cfa_offset 48
+; X64-CORE-AVX2-NEXT:  .LBB0_15:
 ; X64-CORE-AVX2-NEXT:    callq __detect_cpu_core_type@PLT
 ; X64-CORE-AVX2-NEXT:    # kill: def $al killed $al def $eax
-; X64-CORE-AVX2-NEXT:    jmp .LBB0_5
+; X64-CORE-AVX2-NEXT:    jmp .LBB0_6
 ;
 ; X64-ADL-LABEL: foo:
 ; X64-ADL:       # %bb.0: # %entry
-; X64-ADL-NEXT:    pushq %r15
-; X64-ADL-NEXT:    .cfi_def_cfa_offset 16
-; X64-ADL-NEXT:    pushq %r14
-; X64-ADL-NEXT:    .cfi_def_cfa_offset 24
-; X64-ADL-NEXT:    pushq %r13
-; X64-ADL-NEXT:    .cfi_def_cfa_offset 32
-; X64-ADL-NEXT:    pushq %r12
-; X64-ADL-NEXT:    .cfi_def_cfa_offset 40
-; X64-ADL-NEXT:    pushq %rbx
-; X64-ADL-NEXT:    .cfi_def_cfa_offset 48
-; X64-ADL-NEXT:    .cfi_offset %rbx, -48
-; X64-ADL-NEXT:    .cfi_offset %r12, -40
-; X64-ADL-NEXT:    .cfi_offset %r13, -32
-; X64-ADL-NEXT:    .cfi_offset %r14, -24
-; X64-ADL-NEXT:    .cfi_offset %r15, -16
 ; X64-ADL-NEXT:    testl %r8d, %r8d
 ; X64-ADL-NEXT:    jle .LBB0_1
-; X64-ADL-NEXT:  # %bb.2: # %for.body.preheader
+; X64-ADL-NEXT:  # %bb.3: # %for.body.preheader
+; X64-ADL-NEXT:    pushq %r15
+; X64-ADL-NEXT:    pushq %r14
+; X64-ADL-NEXT:    pushq %r13
+; X64-ADL-NEXT:    pushq %r12
+; X64-ADL-NEXT:    pushq %rbx
 ; X64-ADL-NEXT:    movl %r8d, %ebx
 ; X64-ADL-NEXT:    movq %rdx, %r14
 ; X64-ADL-NEXT:    movq %rsi, %r15
@@ -257,17 +231,17 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-ADL-NEXT:    movq __cpu_core_type@GOTPCREL(%rip), %rcx
 ; X64-ADL-NEXT:    movzbl (%rcx,%rax), %eax
 ; X64-ADL-NEXT:    testb %al, %al
-; X64-ADL-NEXT:    je .LBB0_12
-; X64-ADL-NEXT:  .LBB0_3:
+; X64-ADL-NEXT:    je .LBB0_13
+; X64-ADL-NEXT:  .LBB0_4:
 ; X64-ADL-NEXT:    decq %r13
 ; X64-ADL-NEXT:    vxorpd %xmm0, %xmm0, %xmm0
 ; X64-ADL-NEXT:    xorl %ecx, %ecx
 ; X64-ADL-NEXT:    cmpb $32, %al
-; X64-ADL-NEXT:    je .LBB0_4
+; X64-ADL-NEXT:    je .LBB0_5
 ; X64-ADL-NEXT:    .p2align 4, 0x90
-; X64-ADL-NEXT:  .LBB0_8: # %loop.39
+; X64-ADL-NEXT:  .LBB0_6: # %loop.39
 ; X64-ADL-NEXT:    # =>This Loop Header: Depth=1
-; X64-ADL-NEXT:    # Child Loop BB0_9 Depth 2
+; X64-ADL-NEXT:    # Child Loop BB0_7 Depth 2
 ; X64-ADL-NEXT:    movl %ecx, %eax
 ; X64-ADL-NEXT:    notl %eax
 ; X64-ADL-NEXT:    addl %ebx, %eax
@@ -278,8 +252,8 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-ADL-NEXT:    vxorpd %xmm3, %xmm3, %xmm3
 ; X64-ADL-NEXT:    vxorpd %xmm4, %xmm4, %xmm4
 ; X64-ADL-NEXT:    .p2align 4, 0x90
-; X64-ADL-NEXT:  .LBB0_9: # %loop.48
-; X64-ADL-NEXT:    # Parent Loop BB0_8 Depth=1
+; X64-ADL-NEXT:  .LBB0_7: # %loop.48
+; X64-ADL-NEXT:    # Parent Loop BB0_6 Depth=1
 ; X64-ADL-NEXT:    # => This Inner Loop Header: Depth=2
 ; X64-ADL-NEXT:    vpmovzxdq {{.*#+}} ymm5 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero
 ; X64-ADL-NEXT:    vpcmpeqd %ymm6, %ymm6, %ymm6
@@ -304,9 +278,9 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-ADL-NEXT:    addq $16, %rdx
 ; X64-ADL-NEXT:    leal -16(%rdx), %esi
 ; X64-ADL-NEXT:    cmpl $4080, %esi # imm = 0xFF0
-; X64-ADL-NEXT:    jb .LBB0_9
-; X64-ADL-NEXT:  # %bb.10: # %afterloop.48
-; X64-ADL-NEXT:    # in Loop: Header=BB0_8 Depth=1
+; X64-ADL-NEXT:    jb .LBB0_7
+; X64-ADL-NEXT:  # %bb.8: # %afterloop.48
+; X64-ADL-NEXT:    # in Loop: Header=BB0_6 Depth=1
 ; X64-ADL-NEXT:    vaddpd %ymm3, %ymm1, %ymm1
 ; X64-ADL-NEXT:    vaddpd %ymm4, %ymm2, %ymm2
 ; X64-ADL-NEXT:    vaddpd %ymm2, %ymm1, %ymm1
@@ -319,18 +293,18 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-ADL-NEXT:    addq $32768, %r15 # imm = 0x8000
 ; X64-ADL-NEXT:    cmpq %r13, %rcx
 ; X64-ADL-NEXT:    movq %rax, %rcx
-; X64-ADL-NEXT:    jne .LBB0_8
-; X64-ADL-NEXT:    jmp .LBB0_11
+; X64-ADL-NEXT:    jne .LBB0_6
+; X64-ADL-NEXT:    jmp .LBB0_9
 ; X64-ADL-NEXT:  .LBB0_1:
-; X64-ADL-NEXT:    vxorpd %xmm0, %xmm0, %xmm0
-; X64-ADL-NEXT:    jmp .LBB0_11
-; X64-ADL-NEXT:  .LBB0_4:
+; X64-ADL-NEXT:    vxorps %xmm0, %xmm0, %xmm0
+; X64-ADL-NEXT:    retq
+; X64-ADL-NEXT:  .LBB0_5:
 ; X64-ADL-NEXT:    vmovq %r12, %xmm1
 ; X64-ADL-NEXT:    vpbroadcastq %xmm1, %ymm1
 ; X64-ADL-NEXT:    .p2align 4, 0x90
-; X64-ADL-NEXT:  .LBB0_5: # %loop.39.clone
+; X64-ADL-NEXT:  .LBB0_12: # %loop.39.clone
 ; X64-ADL-NEXT:    # =>This Loop Header: Depth=1
-; X64-ADL-NEXT:    # Child Loop BB0_6 Depth 2
+; X64-ADL-NEXT:    # Child Loop BB0_10 Depth 2
 ; X64-ADL-NEXT:    movl %ecx, %eax
 ; X64-ADL-NEXT:    notl %eax
 ; X64-ADL-NEXT:    addl %ebx, %eax
@@ -341,8 +315,8 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-ADL-NEXT:    vxorpd %xmm4, %xmm4, %xmm4
 ; X64-ADL-NEXT:    vxorpd %xmm5, %xmm5, %xmm5
 ; X64-ADL-NEXT:    .p2align 4, 0x90
-; X64-ADL-NEXT:  .LBB0_6: # %loop.48.clone
-; X64-ADL-NEXT:    # Parent Loop BB0_5 Depth=1
+; X64-ADL-NEXT:  .LBB0_10: # %loop.48.clone
+; X64-ADL-NEXT:    # Parent Loop BB0_12 Depth=1
 ; X64-ADL-NEXT:    # => This Inner Loop Header: Depth=2
 ; X64-ADL-NEXT:    vpmovzxdq {{.*#+}} ymm7 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero
 ; X64-ADL-NEXT:    vpmovzxdq {{.*#+}} ymm9 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero
@@ -403,9 +377,9 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-ADL-NEXT:    addq $16, %rdx
 ; X64-ADL-NEXT:    leal -16(%rdx), %esi
 ; X64-ADL-NEXT:    cmpl $4080, %esi # imm = 0xFF0
-; X64-ADL-NEXT:    jb .LBB0_6
-; X64-ADL-NEXT:  # %bb.7: # %afterloop.48.clone
-; X64-ADL-NEXT:    # in Loop: Header=BB0_5 Depth=1
+; X64-ADL-NEXT:    jb .LBB0_10
+; X64-ADL-NEXT:  # %bb.11: # %afterloop.48.clone
+; X64-ADL-NEXT:    # in Loop: Header=BB0_12 Depth=1
 ; X64-ADL-NEXT:    vaddpd %ymm4, %ymm2, %ymm2
 ; X64-ADL-NEXT:    vaddpd %ymm5, %ymm3, %ymm3
 ; X64-ADL-NEXT:    vaddpd %ymm3, %ymm2, %ymm2
@@ -418,40 +392,28 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-ADL-NEXT:    addq $32768, %r15 # imm = 0x8000
 ; X64-ADL-NEXT:    cmpq %r13, %rcx
 ; X64-ADL-NEXT:    movq %rax, %rcx
-; X64-ADL-NEXT:    jne .LBB0_5
-; X64-ADL-NEXT:  .LBB0_11: # %for.cond.cleanup
+; X64-ADL-NEXT:    jne .LBB0_12
+; X64-ADL-NEXT:  .LBB0_9:
 ; X64-ADL-NEXT:    popq %rbx
-; X64-ADL-NEXT:    .cfi_def_cfa_offset 40
 ; X64-ADL-NEXT:    popq %r12
-; X64-ADL-NEXT:    .cfi_def_cfa_offset 32
 ; X64-ADL-NEXT:    popq %r13
-; X64-ADL-NEXT:    .cfi_def_cfa_offset 24
 ; X64-ADL-NEXT:    popq %r14
-; X64-ADL-NEXT:    .cfi_def_cfa_offset 16
 ; X64-ADL-NEXT:    popq %r15
-; X64-ADL-NEXT:    .cfi_def_cfa_offset 8
 ; X64-ADL-NEXT:    vzeroupper
 ; X64-ADL-NEXT:    retq
-; X64-ADL-NEXT:  .LBB0_12:
-; X64-ADL-NEXT:    .cfi_def_cfa_offset 48
+; X64-ADL-NEXT:  .LBB0_13:
 ; X64-ADL-NEXT:    callq __detect_cpu_core_type@PLT
-; X64-ADL-NEXT:    jmp .LBB0_3
+; X64-ADL-NEXT:    jmp .LBB0_4
 ;
 ; X86-CORE-AVX2-LABEL: foo:
 ; X86-CORE-AVX2:       # %bb.0: # %entry
 ; X86-CORE-AVX2-NEXT:    pushl %ebp
-; X86-CORE-AVX2-NEXT:    .cfi_def_cfa_offset 8
-; X86-CORE-AVX2-NEXT:    .cfi_offset %ebp, -8
 ; X86-CORE-AVX2-NEXT:    movl %esp, %ebp
-; X86-CORE-AVX2-NEXT:    .cfi_def_cfa_register %ebp
 ; X86-CORE-AVX2-NEXT:    pushl %ebx
 ; X86-CORE-AVX2-NEXT:    pushl %edi
 ; X86-CORE-AVX2-NEXT:    pushl %esi
 ; X86-CORE-AVX2-NEXT:    andl $-32, %esp
 ; X86-CORE-AVX2-NEXT:    subl $224, %esp
-; X86-CORE-AVX2-NEXT:    .cfi_offset %esi, -20
-; X86-CORE-AVX2-NEXT:    .cfi_offset %edi, -16
-; X86-CORE-AVX2-NEXT:    .cfi_offset %ebx, -12
 ; X86-CORE-AVX2-NEXT:    movl 24(%ebp), %esi
 ; X86-CORE-AVX2-NEXT:    testl %esi, %esi
 ; X86-CORE-AVX2-NEXT:    jle .LBB0_1
@@ -699,11 +661,9 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X86-CORE-AVX2-NEXT:    popl %edi
 ; X86-CORE-AVX2-NEXT:    popl %ebx
 ; X86-CORE-AVX2-NEXT:    popl %ebp
-; X86-CORE-AVX2-NEXT:    .cfi_def_cfa %esp, 4
 ; X86-CORE-AVX2-NEXT:    vzeroupper
 ; X86-CORE-AVX2-NEXT:    retl
 ; X86-CORE-AVX2-NEXT:  .LBB0_14:
-; X86-CORE-AVX2-NEXT:    .cfi_def_cfa %ebp, 8
 ; X86-CORE-AVX2-NEXT:    calll __detect_cpu_core_type@PLT
 ; X86-CORE-AVX2-NEXT:    # kill: def $al killed $al def $eax
 ; X86-CORE-AVX2-NEXT:    jmp .LBB0_4
@@ -711,18 +671,12 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X86-ADL-LABEL: foo:
 ; X86-ADL:       # %bb.0: # %entry
 ; X86-ADL-NEXT:    pushl %ebp
-; X86-ADL-NEXT:    .cfi_def_cfa_offset 8
-; X86-ADL-NEXT:    .cfi_offset %ebp, -8
 ; X86-ADL-NEXT:    movl %esp, %ebp
-; X86-ADL-NEXT:    .cfi_def_cfa_register %ebp
 ; X86-ADL-NEXT:    pushl %ebx
 ; X86-ADL-NEXT:    pushl %edi
 ; X86-ADL-NEXT:    pushl %esi
 ; X86-ADL-NEXT:    andl $-32, %esp
 ; X86-ADL-NEXT:    subl $192, %esp
-; X86-ADL-NEXT:    .cfi_offset %esi, -20
-; X86-ADL-NEXT:    .cfi_offset %edi, -16
-; X86-ADL-NEXT:    .cfi_offset %ebx, -12
 ; X86-ADL-NEXT:    movl 24(%ebp), %esi
 ; X86-ADL-NEXT:    testl %esi, %esi
 ; X86-ADL-NEXT:    jle .LBB0_1
@@ -960,11 +914,9 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X86-ADL-NEXT:    popl %edi
 ; X86-ADL-NEXT:    popl %ebx
 ; X86-ADL-NEXT:    popl %ebp
-; X86-ADL-NEXT:    .cfi_def_cfa %esp, 4
 ; X86-ADL-NEXT:    vzeroupper
 ; X86-ADL-NEXT:    retl
 ; X86-ADL-NEXT:  .LBB0_13:
-; X86-ADL-NEXT:    .cfi_def_cfa %ebp, 8
 ; X86-ADL-NEXT:    calll __detect_cpu_core_type@PLT
 ; X86-ADL-NEXT:    jmp .LBB0_3
 entry:
