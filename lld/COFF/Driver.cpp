@@ -1975,11 +1975,6 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
 
   config->noimplib = args.hasArg(OPT_noimplib);
 
-#if INTEL_CUSTOMIZATION
-  // Handle /profile
-  config->profile = args.hasArg(OPT_profile);
-#endif // INTEL_CUSTOMIZATION
-
   // Handle /opt.
   bool doGC = debug == DebugKind::None || args.hasArg(OPT_profile);
   std::optional<ICFLevel> icfLevel;
@@ -2171,7 +2166,10 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
     parseSwaprun(arg->getValue());
   config->terminalServerAware =
       !config->dll && args.hasFlag(OPT_tsaware, OPT_tsaware_no, true);
-  config->debugDwarf = debug == DebugKind::Dwarf;
+#if INTEL_CUSTOMIZATION
+  config->debugDwarf = debug == DebugKind::Dwarf ||
+                       (debug == DebugKind::Full && args.hasArg(OPT_profile));
+#endif // INTEL_CUSTOMIZATION
   config->debugGHashes = debug == DebugKind::GHash || debug == DebugKind::Full;
   config->debugSymtab = debug == DebugKind::Symtab;
   config->autoImport =

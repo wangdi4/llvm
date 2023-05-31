@@ -1301,14 +1301,7 @@ void Writer::createSymbolAndStringTable() {
     sec->setStringTableOff(addEntryToStringTable(sec->name));
   }
 
-#if 0
-  // If https://reviews.llvm.org/D151417 is relanded, then the following
-  // customization must be used. JIRA: CMPLRLLVM-47801
-  if (ctx.config.debugDwarf || ctx.config.debugSymtab || // INTEL
-      (ctx.config.profile && HasDwarfSection)) {         // INTEL
-#else
   if (ctx.config.debugDwarf || ctx.config.debugSymtab) {
-#endif
     for (ObjFile *file : ctx.objFileInstances) {
       for (Symbol *b : file->getSymbols()) {
         auto *d = dyn_cast_or_null<Defined>(b);

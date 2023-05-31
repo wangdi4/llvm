@@ -5,6 +5,10 @@
 # RUN: llvm-readobj --symbols %t.exe | FileCheck %s
 # RUN: lld-link /debug:symtab /opt:noref /out:%t.exe /entry:main %t.obj %p/Inputs/std64.lib
 # RUN: llvm-readobj --symbols %t.exe | FileCheck %s
+# INTEL_CUSTOMIZATION
+# RUN: lld-link /debug /profile /out:%t.exe /entry:main %t.obj %p/Inputs/std64.lib
+# RUN: llvm-readobj --symbols %t.exe | FileCheck %s
+# end INTEL_CUSTOMIZATION
 
 # RUN: lld-link /debug /out:%t.exe /entry:main %t.obj %p/Inputs/std64.lib
 # RUN: llvm-readobj --symbols %t.exe | FileCheck -check-prefix=NO %s
