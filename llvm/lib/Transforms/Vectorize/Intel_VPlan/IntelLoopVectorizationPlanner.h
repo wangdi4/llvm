@@ -122,6 +122,7 @@ public:
   bool hasPeel() const { return Peel.Kind != LKNone; }
   bool hasMaskedPeel() const { return Peel.Kind == LKMasked; }
   bool hasRemainder() const { return !Remainders.empty(); }
+  bool isMainMasked() const { return Main.Kind == LKMasked; }
 
   /// Simple main vector loop and scalar remainder scenario of a
   /// a constant trip count loop. The main vector and scalar remainder
@@ -497,6 +498,10 @@ public:
 
   bool hasVPlanForVF(const unsigned VF) const { return VPlans.count(VF) != 0; }
 
+  bool hasMaskedVPlanForVF(const unsigned VF) const {
+    return getMaskedVPlanForVF(VF) != nullptr;
+  }
+
   auto getAllVPlans() const {
     return make_range(VPlans.begin(), VPlans.end());
   }
@@ -638,11 +643,12 @@ protected:
   /// vector and unroll factors for main loop
   void updateVecScenario(VPlanPeelEvaluator const &PE,
                          VPlanRemainderEvaluator const &RE, unsigned VF,
-                         unsigned UF);
+                         unsigned UF, bool MainIsMasked);
 
   /// Select simplest vectorization scenario: no peel, non-masked main loop with
   /// specified vector and unroll factors, scalar remainder.
-  void selectSimplestVecScenario(unsigned VF, unsigned UF);
+  void selectSimplestVecScenario(unsigned VF, unsigned UF,
+                                 bool IsMainMasked = false);
 
   /// Fill in the map of top loops descriptors (see TopLoopDescrs and its type
   /// for details). The scalar loops are skipped due to we don't have VPLoops

@@ -927,16 +927,6 @@ bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
   if (UBRef->isIntConstant(&UBConst)) {
     auto ConstTripCount = UBConst + 1;
 
-    // Check that main vector loop will have at least one iteration
-    if (ConstTripCount < VF) {
-      bailoutWithDebug(OptReportVerbosity::Medium,
-                       VPlanDriverImpl::LowTripCountRemarkID,
-                       "Main loop does not execute even once.",
-                       Loop->isInSIMDRegion() ? std::string("simd loop")
-                                              : std::string("loop"));
-      return false;
-    }
-
     // Set constant trip count
     setTripCount((uint64_t)ConstTripCount);
   }
@@ -1067,7 +1057,10 @@ void VPOCodeGenHIR::setupHLLoop(const VPLoop *VPLp) {
 
     const VPlanLoopDescr *Descr = Iter->second;
     // If the loop is of one iteration, mark it for unrolling.
-    if (Descr->getLoopType() != VPlanLoopDescr::LoopType::LTMain &&
+    // The main loop, when non-masked, is unrolled by another
+    // utility.
+    if ((Descr->getLoopType() != VPlanLoopDescr::LoopType::LTMain ||
+         isa<VPlanMasked>(Plan)) &&
         Descr->getTC() == 1)
       StripCandidates.push_back(HLoop);
 
@@ -1572,8 +1565,9 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
   // needed. A generated peel loop will lead to a non-constant lower bound
   // leading to a crash in the complete unroller.
   bool KnownTripCount = getTripCount() > 0;
-  if (!NeedPeelLoop && KnownTripCount && TripCount <= SmallTripThreshold &&
-      OrigLoop->isInnermost() && !getTreeConflictsLowered()) {
+  if (!NeedPeelLoop && KnownTripCount && TripCount >= VF &&
+      TripCount <= SmallTripThreshold && OrigLoop->isInnermost() &&
+      !getTreeConflictsLowered()) {
     HLInstCounter InstCounter;
     HLNodeUtils::visitRange(InstCounter, OrigLoop->child_begin(),
                             OrigLoop->child_end());

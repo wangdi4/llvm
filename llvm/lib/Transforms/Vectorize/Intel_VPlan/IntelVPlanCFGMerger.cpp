@@ -623,8 +623,14 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
   auto TCInfo = cast<VPlanVector>(CurPlan)
                     ->getMainLoop(true /* StrictCheck */)
                     ->getTripCountInfo();
-  if (!TCInfo.IsEstimated)
-    PlanDescrs.front().setMaxTripCount(TCInfo.TripCount / PrevVFUF);
+  if (!TCInfo.IsEstimated) {
+    auto TC = TCInfo.TripCount / PrevVFUF;
+    if (TC == 0) {
+      assert(Scen.isMainMasked() && "Expected masked mode VPlan");
+      TC = 1;
+    }
+    PlanDescrs.front().setMaxTripCount(TC);
+  }
   dumpExistingVPlan(CurPlan);
 
   // The order of insertion of remainders in the list is important. We insert

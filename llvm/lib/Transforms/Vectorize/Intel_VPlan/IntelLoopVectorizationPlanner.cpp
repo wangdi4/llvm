@@ -156,6 +156,10 @@ static cl::opt<unsigned> NumVConflictThreshold(
   "vplan-num-vconflict-threshold", cl::init(3), cl::Hidden,
   cl::desc("Threshold of vconflict idioms used for disabling vectorization."));
 
+static cl::opt<bool> EnableMaskedMainLoop(
+    "vplan-enable-masked-main-loop", cl::init(false), cl::Hidden,
+    cl::desc("Enable masked mode for the main loop for short TCs"));
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::list<unsigned> VPlanCostModelPrintAnalysisForVF(
     "vplan-cost-model-print-analysis-for-vf", cl::Hidden, cl::CommaSeparated,
@@ -535,7 +539,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
     // If we are dealing with a single valid VF either due to a
     // forced vf or due to vector register size and representative
     // type, bail out if this VF exceeds known loop trip count.
-    if (!MainLoop->getTripCountInfo().IsEstimated &&
+    if (!EnableMaskedMainLoop && !MainLoop->getTripCountInfo().IsEstimated &&
         MainLoop->getTripCountInfo().TripCount < VFs[0]) {
       bailout(OptReportVerbosity::Medium, VPlanDriverImpl::BailoutRemarkID,
               std::string("Enforced or only valid vectorization factor exceeds "
@@ -987,11 +991,17 @@ bool LoopVectorizationPlanner::hasVFOneInMetadata() const {
 ArrayRef<unsigned> LoopVectorizationPlanner::getVectorFactors() { return VFs; }
 
 void LoopVectorizationPlanner::selectSimplestVecScenario(unsigned VF,
-                                                         unsigned UF) {
+                                                         unsigned UF,
+                                                         bool MainIsMasked) {
   VecScenario.resetPeel();
   VecScenario.resetRemainders();
-  VecScenario.addScalarRemainder();
-  VecScenario.setVectorMain(VF, UF);
+  if (!MainIsMasked) {
+    VecScenario.addScalarRemainder();
+    VecScenario.setVectorMain(VF, UF);
+  } else {
+    assert(UF == 1 && "unrolling not supported for masked mode of main loop");
+    VecScenario.setMaskedMain(VF);
+  }
 }
 
 std::optional<bool> LoopVectorizationPlanner::readVecRemainderEnabled() {
@@ -1122,7 +1132,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       std::min(OrigTripCount, (uint64_t)std::numeric_limits<unsigned>::max());
   bool IsUserForcedUF = false;
   unsigned ForcedUF = getLoopUnrollFactor(&IsUserForcedUF);
-  
+
   // TODO - search loop representation needs to be made explicit before we
   // can support unrolling such loops. Force unroll factor to 1 for search
   // loops.
@@ -1153,8 +1163,11 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
 
     // We can also consider forcing UF to 1 here. The following will attempt
     // to unroll as much as possible assuming that this would still be helpful.
-    if (VFUF > OrigTripCount)
+    if (VFUF > OrigTripCount) {
       ForcedUF = OrigTripCount / ForcedVF;
+      if (ForcedUF == 0)
+        ForcedUF = 1;
+    }
 
     IsUserForcedUF = true;
   }
@@ -1183,8 +1196,8 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     // Prune UFs which exceed the trip count for the forced VF.
     UFs.erase(std::remove_if(UFs.begin(), UFs.end(),
                              [TripCount, ForcedVF](unsigned UF) {
-                               return (uint64_t)ForcedVF * (uint64_t)UF >
-                                      TripCount;
+                               auto UFVF = (uint64_t)ForcedVF * (uint64_t)UF;
+                               return UFVF > TripCount && UF != 1;
                              }),
               UFs.end());
     if (UFs.empty()) {
@@ -1364,19 +1377,30 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   //    is selected.
   //    The lowest (first available) UF is used in either case.
   for (unsigned VF : getVectorFactors()) {
+    bool UseMasked = false;
     for (unsigned UF : UFs) {
       assert(hasVPlanForVF(VF) && "expected non-null VPlan");
-      if (TripCount < (uint64_t)VF * (uint64_t)UF)
-        continue; // FIXME: Consider masked low trip later.
+      if (TripCount < (uint64_t)VF * (uint64_t)UF &&
+          !(EnableMaskedMainLoop && UF == 1 && hasMaskedVPlanForVF(VF)))
+        continue; // Consider masked low trip when UF == 1.
 
-      VPlanVector *Plan = getVPlanForVF(VF);
+      UseMasked = TripCount < VF;
+      VPlanVector *Plan =
+          UseMasked ? getMaskedVPlanForVF(VF) : getVPlanForVF(VF);
       assert(Plan && "Unexpected null VPlan");
+
+      LLVM_DEBUG(dbgs() << "Using " << (UseMasked ? "" : "un")
+                        << "masked VPlan, VF=" << VF << " TC=" << TripCount
+                        << "\n";);
 
       // Calculate cost for one iteration of the main loop.
       auto MainLoopCM = IsVectorAlways || ForcedVF > 1
                             ? createNoSLPCostModel(Plan, VF, UF)
                             : createCostModel(Plan, VF, UF);
       VPlanPeelingVariant *PeelingVariant = Plan->getPreferredPeeling(VF);
+
+      if (UseMasked)
+        assert(!PeelingVariant && "Expected no peeling for masked variant");
 
       // Peeling is not supported for non-normalized loops.
       VPLoop *L = Plan->getMainLoop(true);
@@ -1400,7 +1424,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
           // If the VF is forced and loop cost for it is unknown/invalid select
           // the simplest configuration: non-masked main loop + scalar
           // remainder.
-          selectSimplestVecScenario(VF, UF);
+          selectSimplestVecScenario(VF, UF, UseMasked);
         } else
           LLVM_DEBUG(dbgs()
                      << "Cost for VF = " << VF << ", UF = " << UF << " is "
@@ -1435,9 +1459,13 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       // Calculate main loop's trip count. Currently, the unroll factor is set
       // to 1 because VPlan's loop unroller is called after selecting the best
       // VF.
-      const decltype(TripCount) MainLoopTripCount =
+      decltype(TripCount) MainLoopTripCount =
           (TripCount - PeelEvaluator.getTripCount()) / (VF * UF);
 
+      if (MainLoopTripCount == 0 && PeelEvaluator.getTripCount() == 0) {
+        assert(UseMasked && "Expected masked VPlan for VF > TC");
+        MainLoopTripCount = 1;
+      }
       // The total vector cost is calculated by adding the total cost of peel,
       // main and remainder loops.
       VPInstructionCost VectorCost = PeelEvaluator.getLoopCost() +
@@ -1467,8 +1495,13 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
           *this, ScalarIterationCost, TLI, TTI, DL, VLSA, OrigTripCount,
           IsTripCountEstimated, 0 /*Peel trip count */,
           false /*no dynamic peeling*/, VF, UF);
-      const decltype(TripCount) MainLoopTripCountWithoutPeel =
-          TripCount / (VF * UF);
+
+      decltype(TripCount) MainLoopTripCountWithoutPeel = TripCount / (VF * UF);
+      if (MainLoopTripCountWithoutPeel == 0) {
+        assert(UseMasked && "Expected masked VPlan for VF > TC");
+        MainLoopTripCountWithoutPeel = 1;
+      }
+
       VPInstructionCost VectorCostWithoutPeel =
           MainLoopIterationCostWithoutPeel * MainLoopTripCountWithoutPeel +
           MainLoopOverheadWithoutPeel +
@@ -1584,7 +1617,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
                           PeelingDecision.ShouldPeel
                               ? RemainderEvaluator
                               : RemainderEvaluatorWithoutPeel,
-                          VF, UF);
+                          VF, UF, isa<VPlanMasked>(Plan));
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
         if (PrintVecScenario) {
           dbgs() << "Updated scenario for VF: " << VF << ", UF: " << UF << "\n";
@@ -1593,12 +1626,32 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
       }
     }
+    if (UseMasked) {
+      // If we achieved the first VF greater than known TC we should not
+      // continue, i.e. it does not make sense to try VF=8 for TC=3 if VF=4 can
+      // be used.
+      break;
+    }
   }
   // Corner case: all available VPlans have Invalid cost.
   // With 'vector always' we have to vectorize with some VF, so select first
-  // available VF and UF.
-  if (VecScenario.getMainVF() == 1 && IsVectorAlways)
-    selectSimplestVecScenario(VFs[0], UFs[0]);
+  // available VF.
+  if (getBestVF() == 1 && IsVectorAlways) {
+    bool IsMasked = false;
+    if (TripCount < VFs[0]) {
+      if (EnableMaskedMainLoop && hasMaskedVPlanForVF(VFs[0])) {
+        IsMasked = true;
+      } else {
+        bailoutWithDebug(
+            OptReportVerbosity::Medium, VPlanDriverImpl::LowTripCountRemarkID,
+            WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
+                                          : std::string("loop"),
+            "The loop trip count is less than enforced vector factor.");
+        return std::make_pair(getBestVF(), getBestVPlan());
+      }
+    }
+    selectSimplestVecScenario(VFs[0], 1, IsMasked);
+  }
 
   // Workaround for using DefaultTripCount: in some cases we can have situation
   // when static peeling and current value of DefaultTripCount can lead to
@@ -1608,7 +1661,8 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   // The correct fix should be made in remainder evaluator, but that fix
   // requires the cost model tuning as with the current cost model we have
   // regressions.
-  if (IsTripCountEstimated && !VecScenario.hasRemainder())
+  if (IsTripCountEstimated && !VecScenario.hasRemainder() &&
+      !VecScenario.isMainMasked())
     VecScenario.addScalarRemainder();
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1650,13 +1704,21 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   }
   LLVM_DEBUG(dbgs() << "Selecting VPlan with VF=" << getBestVF() << '\n');
 
-  if (getBestVF() == 1 && !ForcedVF)
-    bailoutWithDebug(OptReportVerbosity::Medium,
-                     VPlanDriverImpl::NoProfitRemarkID,
-                     "Loop is unprofitable to vectorize.",
-                     WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
-                                                   : std::string("loop"));
-
+  if (getBestVF() == 1) {
+    if (TripCount < ForcedVF) {
+      bailoutWithDebug(
+          OptReportVerbosity::Medium, VPlanDriverImpl::LowTripCountRemarkID,
+          "The loop trip count is less than enforced vector factor.",
+          WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
+                                        : std::string("loop"));
+    } else {
+      bailoutWithDebug(OptReportVerbosity::Medium,
+                       VPlanDriverImpl::NoProfitRemarkID,
+                       "Loop is unprofitable to vectorize.",
+                       WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
+                                                     : std::string("loop"));
+    }
+  }
   if (BestCostSummarySet) {
     OptReportStatsTracker &OptRptStats =
         getVPlanForVF(getBestVF())->getOptRptStatsForLoop(OuterMostVPLoop);
@@ -1719,7 +1781,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
 
 void LoopVectorizationPlanner::updateVecScenario(
     VPlanPeelEvaluator const &PE, VPlanRemainderEvaluator const &RE,
-    unsigned VF, unsigned UF) {
+    unsigned VF, unsigned UF, bool MainIsMasked) {
   using PeelKind = VPlanPeelEvaluator::PeelLoopKind;
   using RemKind = VPlanRemainderEvaluator::RemainderLoopKind;
   switch (PE.getPeelLoopKind()) {
@@ -1750,8 +1812,12 @@ void LoopVectorizationPlanner::updateVecScenario(
     VecScenario.addMaskedRemainder(VF);
     break;
   }
-  // TODO: need update for cases when we select masked mode for main loop.
-  VecScenario.setVectorMain(VF, UF);
+  if (MainIsMasked) {
+    assert(UF == 1 && "Unexpected unroll for masked mode");
+    VecScenario.setMaskedMain(VF);
+  } else {
+    VecScenario.setVectorMain(VF, UF);
+  }
 }
 
 void LoopVectorizationPlanner::predicate() {
