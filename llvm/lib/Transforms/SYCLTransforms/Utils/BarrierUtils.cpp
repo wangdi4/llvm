@@ -617,6 +617,23 @@ bool BarrierUtils::isCrossedByBarrier(const InstSet &SyncInstructions,
   return false;
 }
 
+bool BarrierUtils::isBarrierOrDummyBarrierCall(Value *Val) {
+  static std::string Barriers[] = {
+      CompilationUtils::mangledBarrier(),
+      CompilationUtils::mangledWGBarrier(
+          CompilationUtils::BarrierType::NoScope),
+      CompilationUtils::mangledWGBarrier(
+          CompilationUtils::BarrierType::WithScope),
+      DUMMY_BARRIER_FUNC_NAME,
+  };
+  CallInst *CI;
+  Function *F;
+  if (!(CI = dyn_cast<CallInst>(Val)) || !(F = CI->getCalledFunction()))
+    return false;
+  StringRef FName = F->getName();
+  return llvm::any_of(Barriers, [&](std::string &B) { return FName == B; });
+}
+
 inst_range BarrierUtils::findDummyRegion(Function &F) {
   // Dummy region would only exist at the beginning of a function,
   // so we do greedy search from the First instruction.

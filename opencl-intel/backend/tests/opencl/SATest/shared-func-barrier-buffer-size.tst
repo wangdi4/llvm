@@ -1,8 +1,5 @@
 ; Checks that auto-memory is working as expected when the kernel requires a large barrier buffer.
 
-; Temporarily disable in debug build since it is too slow. TODO re-enable.
-; UNSUPPORTED: debug-build
-
 ; RUN: SATest --VAL --config=%s.cfg -noref -llvm-option='-debug-only=sycl-kernel-prepare-args,sycl-kernel-barrier' 2>&1 | FileCheck %s
 
 ; The local sizes for kernel execution are {1, 1, 1}

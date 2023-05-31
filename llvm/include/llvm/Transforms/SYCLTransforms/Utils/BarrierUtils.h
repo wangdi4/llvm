@@ -215,6 +215,9 @@ public:
   static bool isCrossedByBarrier(const InstSet &SyncInstructions,
                                  BasicBlock *ValUsageBB, BasicBlock *ValBB);
 
+  /// Return true if \p Val is barrier or dummy barrier call.
+  static bool isBarrierOrDummyBarrierCall(Value *Val);
+
   /// \brief Find dummybarrier - dummybarrier region.
   /// \param F Function.
   inst_range findDummyRegion(Function &F);

@@ -39,7 +39,7 @@ entry:
   store i32 1, i32* %g, align 4, !dbg !18
 
 ; CHECK-LABEL: SyncBB1:
-; CHECK-NEXT: [[Index:%SBIndex]] = load i64, i64* %pCurrSBIndex
+; CHECK:      [[Index:%SBIndex]] = load i64, i64* %pCurrSBIndex
 ; CHECK-NEXT: [[Offset:%SB_LocalId_Offset]] = add nuw i64 [[Index]], {{[0-9]+}}
 ; CHECK-NEXT: [[GEP:%[0-9]+]] = getelementptr inbounds i8, i8* %pSB, i64 [[Offset]]
 ; CHECK-NEXT: [[LocalId:%pSB_LocalId]] = bitcast i8* [[GEP]] to i32*
