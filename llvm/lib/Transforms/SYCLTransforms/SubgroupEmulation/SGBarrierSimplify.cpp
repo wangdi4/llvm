@@ -9,7 +9,6 @@
 //===---------------------------------------------------------------------===//
 
 #include "llvm/Transforms/SYCLTransforms/SubgroupEmulation/SGBarrierSimplify.h"
-#include "llvm/PassRegistry.h"
 #include "llvm/Transforms/SYCLTransforms/SubgroupEmulation/SGSizeAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 

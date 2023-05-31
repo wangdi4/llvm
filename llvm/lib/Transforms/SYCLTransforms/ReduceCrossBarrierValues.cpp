@@ -11,7 +11,6 @@
 #include "llvm/Transforms/SYCLTransforms/ReduceCrossBarrierValues.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/IR/Dominators.h"
-#include "llvm/PassRegistry.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/SYCLTransforms/BuiltinLibInfoAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/DataPerBarrierPass.h"

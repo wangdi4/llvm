@@ -16,7 +16,6 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
-#include "llvm/PassRegistry.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 

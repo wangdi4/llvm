@@ -10,7 +10,6 @@
 
 #include "llvm/Transforms/SYCLTransforms/SetVectorizationFactor.h"
 #include "llvm/Analysis/CallGraph.h"
-#include "llvm/PassRegistry.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 

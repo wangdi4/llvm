@@ -15,7 +15,6 @@
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/PassRegistry.h"
 #include "llvm/Transforms/SYCLTransforms/SubgroupEmulation/SGFunctionWiden.h"
 #include "llvm/Transforms/SYCLTransforms/SubgroupEmulation/SGSizeAnalysis.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
