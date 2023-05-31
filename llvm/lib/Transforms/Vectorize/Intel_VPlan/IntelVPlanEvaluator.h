@@ -155,10 +155,14 @@ public:
     // this is not true, and that is when we have dynamic peeling,
     // MainLoopVF = 2, and the remaining iterations are known to be even. That
     // optimization is not yet supported.
-    RemainderTC = PeelIsDynamic ?
-        MainLoopVF * MainLoopUF - 1 : // tc is unknown, but this is the max
-        ((OrigTC - PeelTC) % (MainLoopVF * MainLoopUF));
     TCIsUnknown = TCIsUnknownP || PeelIsDynamic;
+    if (OrigTC < MainLoopVF)
+      RemainderTC = 0;
+    else
+      RemainderTC = PeelIsDynamic ? MainLoopVF * MainLoopUF - 1
+                                  : // tc is unknown, but this is the max
+                        ((OrigTC - PeelTC) % (MainLoopVF * MainLoopUF));
+
     calculateBestVariant();
   }
 

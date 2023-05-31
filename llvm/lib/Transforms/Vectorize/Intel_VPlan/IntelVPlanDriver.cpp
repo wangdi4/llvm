@@ -1356,7 +1356,9 @@ void VPlanDriverImpl::generateMaskedModeVPlans(LoopVectorizationPlanner *LVP,
     if (!VLoop->getTripCountInfo().IsEstimated) {
       auto Max = *(std::max_element(LVP->getVectorFactors().begin(),
                                     LVP->getVectorFactors().end()));
-      if (isPowerOf2_64(TripCount) && TripCount <= Max) {
+      auto Min = *(std::min_element(LVP->getVectorFactors().begin(),
+                                    LVP->getVectorFactors().end()));
+      if (isPowerOf2_64(TripCount) && TripCount <= Max && TripCount > Min) {
         LLVM_DEBUG(dbgs() << "skipping masked_mode: trip count "
                           << Plan->getName() << "\n";);
         continue;
