@@ -1010,6 +1010,7 @@ def HasNDD : Predicate<"Subtarget->hasNDD()">;
 def NoNDD : Predicate<"!Subtarget->hasNDD()">;
 def HasEGPR : Predicate<"Subtarget->hasEGPR()">;
 def NoEGPR : Predicate<"!Subtarget->hasEGPR()">;
+def HasCF : Predicate<"Subtarget->hasCF()">;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 
@@ -1874,9 +1875,9 @@ class ITy_EVEX<bits<8> opcode, Format f, X86TypeInfo typeinfo, dag outs, dag ins
   let CD8_Scale = {0, 0, 0, 0, 0, 0, 0};
   let hasSideEffects = 0;
 }
+
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
-
 //===----------------------------------------------------------------------===//
 // Subsystems.
 //===----------------------------------------------------------------------===//

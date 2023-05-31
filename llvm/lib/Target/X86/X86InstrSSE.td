@@ -6304,6 +6304,57 @@ defm VTESTPDY : avx_bittest<0x0F, "vtestpd", VR256, f256mem, loadv4f64, v4f64,
 // SSE4.1 - Misc Instructions
 //===----------------------------------------------------------------------===//
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+multiclass popcntrr_base<bits<8> opcode, X86TypeInfo info> {
+let Defs = [EFLAGS], Predicates = [HasPOPCNT], Opcode = opcode in
+  def NAME : ITy<opcode, MRMSrcReg, info, (outs info.RegClass:$dst), 
+                 (ins info.RegClass:$src),
+                 "popcnt", "{$src, $dst|$dst, $src}",
+                 [(set info.RegClass:$dst, (ctpop info.RegClass:$src)),
+                                                  (implicit EFLAGS)]>,
+             Sched<[WritePOPCNT]>, XS;
+let Opcode = opcode, Predicates = [HasPOPCNT, In64BitMode] in {
+  let Defs = [EFLAGS] in
+  def _EVEX : ITy_EVEX<opcode, MRMSrcReg, info, (outs info.RegClass:$dst),
+                       (ins info.RegClass:$src),
+                       "popcnt", "{$src, $dst|$dst, $src}", []>,
+              Sched<[WritePOPCNT]>, EmitVEXOrEVEXPrefix;
+  def _NF : ITy_EVEX<opcode, MRMSrcReg, info, (outs info.RegClass:$dst),
+                     (ins info.RegClass:$src),
+                     "popcnt", "{$src, $dst|$dst, $src}", []>,
+            Sched<[WritePOPCNT]>, EVEX_NF;
+}
+}
+
+multiclass popcntrm_base<bits<8> opcode, X86TypeInfo info> {
+let Defs = [EFLAGS], Predicates = [HasPOPCNT], Opcode = opcode in
+  def NAME : ITy<opcode, MRMSrcMem, info, (outs info.RegClass:$dst),
+                 (ins info.MemOperand:$src),
+                 "popcnt", "{$src, $dst|$dst, $src}",
+                 [(set info.RegClass:$dst, (ctpop (info.LoadNode addr:$src))),
+                                                  (implicit EFLAGS)]>,
+             Sched<[WritePOPCNT.Folded]>, XS;
+let Opcode = opcode, Predicates = [HasPOPCNT, In64BitMode] in {
+  let Defs = [EFLAGS] in
+  def _EVEX : ITy_EVEX<opcode, MRMSrcMem, info, (outs info.RegClass:$dst),
+                       (ins info.MemOperand:$src),
+                       "popcnt", "{$src, $dst|$dst, $src}", []>,
+              Sched<[WritePOPCNT.Folded]>, EmitVEXOrEVEXPrefix;
+  def _NF : ITy_EVEX<opcode, MRMSrcMem, info, (outs info.RegClass:$dst),
+                     (ins info.MemOperand:$src),
+                     "popcnt", "{$src, $dst|$dst, $src}", []>,
+            Sched<[WritePOPCNT.Folded]>, EVEX_NF;
+}
+}
+
+defm POPCNT16rr : popcntrr_base<0xB8, Xi16>;
+defm POPCNT16rm : popcntrm_base<0xB8, Xi16>;
+defm POPCNT32rr : popcntrr_base<0xB8, Xi32>;
+defm POPCNT32rm : popcntrm_base<0xB8, Xi32>;
+defm POPCNT64rr : popcntrr_base<0xB8, Xi64>;
+defm POPCNT64rm : popcntrm_base<0xB8, Xi64>;
+#else // INTEL_FEATURE_ISA_APX_F
 let Defs = [EFLAGS], Predicates = [HasPOPCNT] in {
   def POPCNT16rr : I<0xB8, MRMSrcReg, (outs GR16:$dst), (ins GR16:$src),
                      "popcnt{w}\t{$src, $dst|$dst, $src}",
@@ -6336,6 +6387,8 @@ let Defs = [EFLAGS], Predicates = [HasPOPCNT] in {
                        (implicit EFLAGS)]>,
                        Sched<[WritePOPCNT.Folded]>, XS;
 }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 // SS41I_unop_rm_int_v16 - SSE 4.1 unary operator whose type is v8i16.
 multiclass SS41I_unop_rm_int_v16<bits<8> opc, string OpcodeStr,
