@@ -10332,10 +10332,6 @@ void OffloadBundler::ConstructJobMultipleOutputs(
         HasFPGATarget = true;
     }
   }
-<<<<<<< HEAD
-=======
-
->>>>>>> a72c9370d3dfb3174a8f3e67706dbf6f07329bc3
 #if INTEL_CUSTOMIZATION
   auto OpenMPTCRange = C.getOffloadToolChains<Action::OFK_OpenMP>();
   for (auto TI = OpenMPTCRange.first, TE = OpenMPTCRange.second; TI != TE; ++TI)

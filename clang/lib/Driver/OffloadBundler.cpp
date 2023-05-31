@@ -1292,11 +1292,7 @@ private:
         MemoryBuffer::getMemBuffer(Obj->getMemoryBufferRef(), false);
     ObjectFileHandler OFH(std::move(Obj), BundlerConfig);
     if (Error Err = OFH.ReadHeader(*Buf))
-<<<<<<< HEAD
       return {std::move(Err)};
-=======
-      return Err;
->>>>>>> a72c9370d3dfb3174a8f3e67706dbf6f07329bc3
     Expected<std::optional<StringRef>> NameOrErr = OFH.ReadBundleStart(*Buf);
     if (!NameOrErr)
       return NameOrErr.takeError();
