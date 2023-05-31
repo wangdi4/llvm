@@ -3170,6 +3170,7 @@ Instruction *InstCombinerImpl::foldSelectOfBools(SelectInst &SI) {
   auto *Zero = ConstantInt::getFalse(SelType);
   Value *A, *B, *C, *D;
 
+<<<<<<< HEAD
 #if !INTEL_CUSTOMIZATION
   auto dropPoisonGeneratingFlagsAndMetadata =
       [](ArrayRef<Instruction *> Insts) {
@@ -3178,10 +3179,13 @@ Instruction *InstCombinerImpl::foldSelectOfBools(SelectInst &SI) {
       };
 #endif
 
+=======
+>>>>>>> cd2fc73b49851540b06f91e89a42bdc5affa7e49
   // Folding select to and/or i1 isn't poison safe in general. impliesPoison
   // checks whether folding it does not convert a well-defined value into
   // poison.
   if (match(TrueVal, m_One())) {
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
     // This is a partial revert of 754f3ae6. The existing select->or
@@ -3189,17 +3193,24 @@ Instruction *InstCombinerImpl::foldSelectOfBools(SelectInst &SI) {
     // Specifically, the !INTEL section below will drop important
     // flags such as nuw/nsw/nnan, just to make this conversion which may
     // have low optimization value.
+=======
+>>>>>>> cd2fc73b49851540b06f91e89a42bdc5affa7e49
     if (impliesPoison(FalseVal, CondVal)) {
       // Change: A = select B, true, C --> A = or B, C
       return BinaryOperator::CreateOr(CondVal, FalseVal);
     }
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
+=======
+
+>>>>>>> cd2fc73b49851540b06f91e89a42bdc5affa7e49
     if (auto *LHS = dyn_cast<FCmpInst>(CondVal))
       if (auto *RHS = dyn_cast<FCmpInst>(FalseVal))
         if (Value *V = foldLogicOfFCmps(LHS, RHS, /*IsAnd*/ false,
                                         /*IsSelectLogical*/ true))
           return replaceInstUsesWith(SI, V);
 
+<<<<<<< HEAD
 #if !INTEL_CUSTOMIZATION
     // Some patterns can be matched by both of the above and following
     // combinations. Because we need to drop poison generating
@@ -3213,6 +3224,8 @@ Instruction *InstCombinerImpl::foldSelectOfBools(SelectInst &SI) {
     }
 #endif // !INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> cd2fc73b49851540b06f91e89a42bdc5affa7e49
     // (A && B) || (C && B) --> (A || C) && B
     if (match(CondVal, m_LogicalAnd(m_Value(A), m_Value(B))) &&
         match(FalseVal, m_LogicalAnd(m_Value(C), m_Value(D))) &&
@@ -3243,13 +3256,19 @@ Instruction *InstCombinerImpl::foldSelectOfBools(SelectInst &SI) {
   }
 
   if (match(FalseVal, m_Zero())) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // See comment about 754f3ae6 above.
+=======
+>>>>>>> cd2fc73b49851540b06f91e89a42bdc5affa7e49
     if (impliesPoison(TrueVal, CondVal)) {
       // Change: A = select B, C, false --> A = and B, C
       return BinaryOperator::CreateAnd(CondVal, TrueVal);
     }
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> cd2fc73b49851540b06f91e89a42bdc5affa7e49
 
     if (auto *LHS = dyn_cast<FCmpInst>(CondVal))
       if (auto *RHS = dyn_cast<FCmpInst>(TrueVal))
@@ -3257,6 +3276,7 @@ Instruction *InstCombinerImpl::foldSelectOfBools(SelectInst &SI) {
                                         /*IsSelectLogical*/ true))
           return replaceInstUsesWith(SI, V);
 
+<<<<<<< HEAD
 #if !INTEL_CUSTOMIZATION
     // Some patterns can be matched by both of the above and following
     // combinations. Because we need to drop poison generating
@@ -3270,6 +3290,8 @@ Instruction *InstCombinerImpl::foldSelectOfBools(SelectInst &SI) {
     }
 #endif // !INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> cd2fc73b49851540b06f91e89a42bdc5affa7e49
     // (A || B) && (C || B) --> (A && C) || B
     if (match(CondVal, m_LogicalOr(m_Value(A), m_Value(B))) &&
         match(TrueVal, m_LogicalOr(m_Value(C), m_Value(D))) &&
