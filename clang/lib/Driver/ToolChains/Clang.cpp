@@ -10324,15 +10324,6 @@ void OffloadBundler::ConstructJobMultipleOutputs(
   bool HasSPIRTarget = false;
   bool HasFPGATarget = false;
   auto SYCLTCRange = C.getOffloadToolChains<Action::OFK_SYCL>();
-<<<<<<< HEAD
-  for (auto TI = SYCLTCRange.first, TE = SYCLTCRange.second; TI != TE; ++TI)
-    HasSPIRTarget |= TI->second->getTriple().isSPIR();
-#if INTEL_CUSTOMIZATION
-  auto OpenMPTCRange = C.getOffloadToolChains<Action::OFK_OpenMP>();
-  for (auto TI = OpenMPTCRange.first, TE = OpenMPTCRange.second; TI != TE; ++TI)
-    HasSPIRTarget |= TI->second->getTriple().isSPIR();
-#endif // INTEL_CUSTOMIZATION
-=======
   for (auto TI = SYCLTCRange.first, TE = SYCLTCRange.second; TI != TE; ++TI) {
     llvm::Triple TT(TI->second->getTriple());
     if (TT.isSPIR()) {
@@ -10341,7 +10332,11 @@ void OffloadBundler::ConstructJobMultipleOutputs(
         HasFPGATarget = true;
     }
   }
->>>>>>> 4ed3676f64022f00e960fc95e3a7ff7bc58e1319
+#if INTEL_CUSTOMIZATION
+  auto OpenMPTCRange = C.getOffloadToolChains<Action::OFK_OpenMP>();
+  for (auto TI = OpenMPTCRange.first, TE = OpenMPTCRange.second; TI != TE; ++TI)
+    HasSPIRTarget |= TI->second->getTriple().isSPIR();
+#endif // INTEL_CUSTOMIZATION
   if (InputType == types::TY_Archive && HasSPIRTarget)
     TypeArg = "aoo";
 
