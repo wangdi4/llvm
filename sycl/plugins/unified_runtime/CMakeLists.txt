@@ -5,6 +5,7 @@ if (NOT DEFINED UNIFIED_RUNTIME_LIBRARY OR NOT DEFINED UNIFIED_RUNTIME_INCLUDE_D
 
   set(UNIFIED_RUNTIME_REPO "https://github.com/oneapi-src/unified-runtime.git")
   set(UNIFIED_RUNTIME_TAG 4a9e53b0d7b15d9b0239864d13999f32e6c73bac)
+<<<<<<< HEAD
 
   if(INTEL_CUSTOMIZATION)
     # 1Source policy is to use internal mirrors as much as possible.
@@ -13,6 +14,8 @@ if (NOT DEFINED UNIFIED_RUNTIME_LIBRARY OR NOT DEFINED UNIFIED_RUNTIME_INCLUDE_D
       set(UNIFIED_RUNTIME_REPO "${GITSERVER}/unified-runtime.git")
     endif()
   endif(INTEL_CUSTOMIZATION)
+=======
+>>>>>>> f40e48d2a4ef6dd548d944eaf951225de4b333d2
 
   message(STATUS "Will fetch Unified Runtime from ${UNIFIED_RUNTIME_REPO}")
   FetchContent_Declare(unified-runtime
