@@ -75,6 +75,7 @@ class SchedLoadReg<X86FoldableSchedWrite Sched> : Sched<[Sched.Folded,
   // Register reads (implicit or explicit).
   Sched.ReadAfterFold, Sched.ReadAfterFold]>;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
 // EVEX version for ITy, OpSize prefix is encoded in EVEX.pp
@@ -89,6 +90,8 @@ class ITy_EVEX<bits<8> opcode, Format f, X86TypeInfo typeinfo, dag outs, dag ins
 }
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> af55b0d79d25c3bc977cac687eb5e530e9891a59
 // BinOpRR - Binary instructions with inputs "reg, reg".
 class BinOpRR<bits<8> opcode, string mnemonic, X86TypeInfo typeinfo,
               dag outlist, X86FoldableSchedWrite sched, list<dag> pattern>
