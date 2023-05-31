@@ -492,7 +492,7 @@ define <4 x float> @v4f32_one_step_2_divs(<4 x float> %x) #1 {
 ; AVX-RECIP:       # %bb.0:
 ; AVX-RECIP-NEXT:    vrcpps %xmm0, %xmm1
 ; AVX-RECIP-NEXT:    vmulps %xmm1, %xmm0, %xmm0
-; AVX-RECIP-NEXT:    vmovaps {{.*#+}} xmm2 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0]
+; AVX-RECIP-NEXT:    vbroadcastss {{.*#+}} xmm2 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0]
 ; AVX-RECIP-NEXT:    vsubps %xmm0, %xmm2, %xmm0
 ; AVX-RECIP-NEXT:    vmulps %xmm0, %xmm1, %xmm0
 ; AVX-RECIP-NEXT:    vaddps %xmm0, %xmm1, %xmm0
@@ -520,7 +520,7 @@ define <4 x float> @v4f32_one_step_2_divs(<4 x float> %x) #1 {
 ;
 ; BTVER2-LABEL: v4f32_one_step_2_divs:
 ; BTVER2:       # %bb.0:
-; BTVER2-NEXT:    vmovaps {{.*#+}} xmm2 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0]
+; BTVER2-NEXT:    vbroadcastss {{.*#+}} xmm2 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0]
 ; BTVER2-NEXT:    vrcpps %xmm0, %xmm1
 ; BTVER2-NEXT:    vmulps %xmm1, %xmm0, %xmm0
 ; BTVER2-NEXT:    vsubps %xmm0, %xmm2, %xmm0
@@ -534,7 +534,7 @@ define <4 x float> @v4f32_one_step_2_divs(<4 x float> %x) #1 {
 ; SANDY:       # %bb.0:
 ; SANDY-NEXT:    vrcpps %xmm0, %xmm1
 ; SANDY-NEXT:    vmulps %xmm1, %xmm0, %xmm0
-; SANDY-NEXT:    vmovaps {{.*#+}} xmm2 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0]
+; SANDY-NEXT:    vbroadcastss {{.*#+}} xmm2 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0]
 ; SANDY-NEXT:    vsubps %xmm0, %xmm2, %xmm0
 ; SANDY-NEXT:    vmulps %xmm0, %xmm1, %xmm0
 ; SANDY-NEXT:    vaddps %xmm0, %xmm1, %xmm0
@@ -613,7 +613,7 @@ define <4 x float> @v4f32_two_step2(<4 x float> %x) #2 {
 ; AVX-RECIP:       # %bb.0:
 ; AVX-RECIP-NEXT:    vrcpps %xmm0, %xmm1
 ; AVX-RECIP-NEXT:    vmulps %xmm1, %xmm0, %xmm2
-; AVX-RECIP-NEXT:    vmovaps {{.*#+}} xmm3 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0]
+; AVX-RECIP-NEXT:    vbroadcastss {{.*#+}} xmm3 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0]
 ; AVX-RECIP-NEXT:    vsubps %xmm2, %xmm3, %xmm2
 ; AVX-RECIP-NEXT:    vmulps %xmm2, %xmm1, %xmm2
 ; AVX-RECIP-NEXT:    vaddps %xmm2, %xmm1, %xmm1
@@ -628,7 +628,7 @@ define <4 x float> @v4f32_two_step2(<4 x float> %x) #2 {
 ; FMA-RECIP-LABEL: v4f32_two_step2:
 ; FMA-RECIP:       # %bb.0:
 ; FMA-RECIP-NEXT:    vrcpps %xmm0, %xmm1
-; FMA-RECIP-NEXT:    vmovaps {{.*#+}} xmm2 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0]
+; FMA-RECIP-NEXT:    vbroadcastss {{.*#+}} xmm2 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0]
 ; FMA-RECIP-NEXT:    vfmsub231ps {{.*#+}} xmm2 = (xmm0 * xmm1) - xmm2
 ; FMA-RECIP-NEXT:    vfnmadd132ps {{.*#+}} xmm2 = -(xmm2 * xmm1) + xmm1
 ; FMA-RECIP-NEXT:    vmovaps {{.*#+}} xmm1 = [1.0E+0,2.0E+0,3.0E+0,4.0E+0]
@@ -650,7 +650,7 @@ define <4 x float> @v4f32_two_step2(<4 x float> %x) #2 {
 ;
 ; BTVER2-LABEL: v4f32_two_step2:
 ; BTVER2:       # %bb.0:
-; BTVER2-NEXT:    vmovaps {{.*#+}} xmm3 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0]
+; BTVER2-NEXT:    vbroadcastss {{.*#+}} xmm3 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0]
 ; BTVER2-NEXT:    vrcpps %xmm0, %xmm1
 ; BTVER2-NEXT:    vmovaps {{.*#+}} xmm4 = [1.0E+0,2.0E+0,3.0E+0,4.0E+0]
 ; BTVER2-NEXT:    vmulps %xmm1, %xmm0, %xmm2
@@ -668,7 +668,7 @@ define <4 x float> @v4f32_two_step2(<4 x float> %x) #2 {
 ; SANDY:       # %bb.0:
 ; SANDY-NEXT:    vrcpps %xmm0, %xmm1
 ; SANDY-NEXT:    vmulps %xmm1, %xmm0, %xmm2
-; SANDY-NEXT:    vmovaps {{.*#+}} xmm3 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0]
+; SANDY-NEXT:    vbroadcastss {{.*#+}} xmm3 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0]
 ; SANDY-NEXT:    vsubps %xmm2, %xmm3, %xmm2
 ; SANDY-NEXT:    vmulps %xmm2, %xmm1, %xmm2
 ; SANDY-NEXT:    vaddps %xmm2, %xmm1, %xmm1
@@ -881,7 +881,7 @@ define <8 x float> @v8f32_one_step_2_divs(<8 x float> %x) #1 {
 ; AVX-RECIP:       # %bb.0:
 ; AVX-RECIP-NEXT:    vrcpps %ymm0, %ymm1
 ; AVX-RECIP-NEXT:    vmulps %ymm1, %ymm0, %ymm0
-; AVX-RECIP-NEXT:    vmovaps {{.*#+}} ymm2 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
+; AVX-RECIP-NEXT:    vbroadcastss {{.*#+}} ymm2 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
 ; AVX-RECIP-NEXT:    vsubps %ymm0, %ymm2, %ymm0
 ; AVX-RECIP-NEXT:    vmulps %ymm0, %ymm1, %ymm0
 ; AVX-RECIP-NEXT:    vaddps %ymm0, %ymm1, %ymm0
@@ -909,7 +909,7 @@ define <8 x float> @v8f32_one_step_2_divs(<8 x float> %x) #1 {
 ;
 ; BTVER2-LABEL: v8f32_one_step_2_divs:
 ; BTVER2:       # %bb.0:
-; BTVER2-NEXT:    vmovaps {{.*#+}} ymm2 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
+; BTVER2-NEXT:    vbroadcastss {{.*#+}} ymm2 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
 ; BTVER2-NEXT:    vrcpps %ymm0, %ymm1
 ; BTVER2-NEXT:    vmulps %ymm1, %ymm0, %ymm0
 ; BTVER2-NEXT:    vsubps %ymm0, %ymm2, %ymm0
@@ -923,7 +923,7 @@ define <8 x float> @v8f32_one_step_2_divs(<8 x float> %x) #1 {
 ; SANDY:       # %bb.0:
 ; SANDY-NEXT:    vrcpps %ymm0, %ymm1
 ; SANDY-NEXT:    vmulps %ymm1, %ymm0, %ymm0
-; SANDY-NEXT:    vmovaps {{.*#+}} ymm2 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
+; SANDY-NEXT:    vbroadcastss {{.*#+}} ymm2 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
 ; SANDY-NEXT:    vsubps %ymm0, %ymm2, %ymm0
 ; SANDY-NEXT:    vmulps %ymm0, %ymm1, %ymm0
 ; SANDY-NEXT:    vaddps %ymm0, %ymm1, %ymm0
@@ -1017,7 +1017,7 @@ define <8 x float> @v8f32_two_step2(<8 x float> %x) #2 {
 ; AVX-RECIP:       # %bb.0:
 ; AVX-RECIP-NEXT:    vrcpps %ymm0, %ymm1
 ; AVX-RECIP-NEXT:    vmulps %ymm1, %ymm0, %ymm2
-; AVX-RECIP-NEXT:    vmovaps {{.*#+}} ymm3 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
+; AVX-RECIP-NEXT:    vbroadcastss {{.*#+}} ymm3 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
 ; AVX-RECIP-NEXT:    vsubps %ymm2, %ymm3, %ymm2
 ; AVX-RECIP-NEXT:    vmulps %ymm2, %ymm1, %ymm2
 ; AVX-RECIP-NEXT:    vaddps %ymm2, %ymm1, %ymm1
@@ -1032,7 +1032,7 @@ define <8 x float> @v8f32_two_step2(<8 x float> %x) #2 {
 ; FMA-RECIP-LABEL: v8f32_two_step2:
 ; FMA-RECIP:       # %bb.0:
 ; FMA-RECIP-NEXT:    vrcpps %ymm0, %ymm1
-; FMA-RECIP-NEXT:    vmovaps {{.*#+}} ymm2 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
+; FMA-RECIP-NEXT:    vbroadcastss {{.*#+}} ymm2 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
 ; FMA-RECIP-NEXT:    vfmsub231ps {{.*#+}} ymm2 = (ymm0 * ymm1) - ymm2
 ; FMA-RECIP-NEXT:    vfnmadd132ps {{.*#+}} ymm2 = -(ymm2 * ymm1) + ymm1
 ; FMA-RECIP-NEXT:    vmovaps {{.*#+}} ymm1 = [1.0E+0,2.0E+0,3.0E+0,4.0E+0,5.0E+0,6.0E+0,7.0E+0,8.0E+0]
@@ -1054,7 +1054,7 @@ define <8 x float> @v8f32_two_step2(<8 x float> %x) #2 {
 ;
 ; BTVER2-LABEL: v8f32_two_step2:
 ; BTVER2:       # %bb.0:
-; BTVER2-NEXT:    vmovaps {{.*#+}} ymm3 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
+; BTVER2-NEXT:    vbroadcastss {{.*#+}} ymm3 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
 ; BTVER2-NEXT:    vrcpps %ymm0, %ymm1
 ; BTVER2-NEXT:    vmovaps {{.*#+}} ymm4 = [1.0E+0,2.0E+0,3.0E+0,4.0E+0,5.0E+0,6.0E+0,7.0E+0,8.0E+0]
 ; BTVER2-NEXT:    vmulps %ymm1, %ymm0, %ymm2
@@ -1072,7 +1072,7 @@ define <8 x float> @v8f32_two_step2(<8 x float> %x) #2 {
 ; SANDY:       # %bb.0:
 ; SANDY-NEXT:    vrcpps %ymm0, %ymm1
 ; SANDY-NEXT:    vmulps %ymm1, %ymm0, %ymm2
-; SANDY-NEXT:    vmovaps {{.*#+}} ymm3 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
+; SANDY-NEXT:    vbroadcastss {{.*#+}} ymm3 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
 ; SANDY-NEXT:    vsubps %ymm2, %ymm3, %ymm2
 ; SANDY-NEXT:    vmulps %ymm2, %ymm1, %ymm2
 ; SANDY-NEXT:    vaddps %ymm2, %ymm1, %ymm1
@@ -1478,7 +1478,7 @@ define <16 x float> @v16f32_one_step_2_divs(<16 x float> %x) #1 {
 ; AVX-RECIP:       # %bb.0:
 ; AVX-RECIP-NEXT:    vrcpps %ymm0, %ymm2
 ; AVX-RECIP-NEXT:    vmulps %ymm2, %ymm0, %ymm0
-; AVX-RECIP-NEXT:    vmovaps {{.*#+}} ymm3 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
+; AVX-RECIP-NEXT:    vbroadcastss {{.*#+}} ymm3 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
 ; AVX-RECIP-NEXT:    vsubps %ymm0, %ymm3, %ymm0
 ; AVX-RECIP-NEXT:    vmulps %ymm0, %ymm2, %ymm0
 ; AVX-RECIP-NEXT:    vaddps %ymm0, %ymm2, %ymm0
@@ -1496,7 +1496,7 @@ define <16 x float> @v16f32_one_step_2_divs(<16 x float> %x) #1 {
 ; FMA-RECIP-LABEL: v16f32_one_step_2_divs:
 ; FMA-RECIP:       # %bb.0:
 ; FMA-RECIP-NEXT:    vrcpps %ymm0, %ymm2
-; FMA-RECIP-NEXT:    vmovaps {{.*#+}} ymm3 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
+; FMA-RECIP-NEXT:    vbroadcastss {{.*#+}} ymm3 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
 ; FMA-RECIP-NEXT:    vfmsub213ps {{.*#+}} ymm0 = (ymm2 * ymm0) - ymm3
 ; FMA-RECIP-NEXT:    vfnmadd132ps {{.*#+}} ymm0 = -(ymm0 * ymm2) + ymm2
 ; FMA-RECIP-NEXT:    vrcpps %ymm1, %ymm2
@@ -1511,7 +1511,7 @@ define <16 x float> @v16f32_one_step_2_divs(<16 x float> %x) #1 {
 ; BDVER2-LABEL: v16f32_one_step_2_divs:
 ; BDVER2:       # %bb.0:
 ; BDVER2-NEXT:    vrcpps %ymm0, %ymm2
-; BDVER2-NEXT:    vmovaps {{.*#+}} ymm3 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
+; BDVER2-NEXT:    vbroadcastss {{.*#+}} ymm3 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
 ; BDVER2-NEXT:    vfmsubps {{.*#+}} ymm0 = (ymm0 * ymm2) - ymm3
 ; BDVER2-NEXT:    vfnmaddps {{.*#+}} ymm0 = -(ymm2 * ymm0) + ymm2
 ; BDVER2-NEXT:    vrcpps %ymm1, %ymm2
@@ -1525,7 +1525,7 @@ define <16 x float> @v16f32_one_step_2_divs(<16 x float> %x) #1 {
 ;
 ; BTVER2-LABEL: v16f32_one_step_2_divs:
 ; BTVER2:       # %bb.0:
-; BTVER2-NEXT:    vmovaps {{.*#+}} ymm3 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
+; BTVER2-NEXT:    vbroadcastss {{.*#+}} ymm3 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
 ; BTVER2-NEXT:    vrcpps %ymm0, %ymm2
 ; BTVER2-NEXT:    vmulps %ymm2, %ymm0, %ymm0
 ; BTVER2-NEXT:    vsubps %ymm0, %ymm3, %ymm0
@@ -1546,7 +1546,7 @@ define <16 x float> @v16f32_one_step_2_divs(<16 x float> %x) #1 {
 ; SANDY:       # %bb.0:
 ; SANDY-NEXT:    vrcpps %ymm0, %ymm2
 ; SANDY-NEXT:    vmulps %ymm2, %ymm0, %ymm0
-; SANDY-NEXT:    vmovaps {{.*#+}} ymm3 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
+; SANDY-NEXT:    vbroadcastss {{.*#+}} ymm3 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
 ; SANDY-NEXT:    vsubps %ymm0, %ymm3, %ymm0
 ; SANDY-NEXT:    vmulps %ymm0, %ymm2, %ymm0
 ; SANDY-NEXT:    vaddps %ymm0, %ymm2, %ymm0
@@ -1677,7 +1677,7 @@ define <16 x float> @v16f32_two_step2(<16 x float> %x) #2 {
 ; AVX-RECIP:       # %bb.0:
 ; AVX-RECIP-NEXT:    vrcpps %ymm0, %ymm2
 ; AVX-RECIP-NEXT:    vmulps %ymm2, %ymm0, %ymm3
-; AVX-RECIP-NEXT:    vmovaps {{.*#+}} ymm4 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
+; AVX-RECIP-NEXT:    vbroadcastss {{.*#+}} ymm4 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
 ; AVX-RECIP-NEXT:    vsubps %ymm3, %ymm4, %ymm3
 ; AVX-RECIP-NEXT:    vmulps %ymm3, %ymm2, %ymm3
 ; AVX-RECIP-NEXT:    vaddps %ymm3, %ymm2, %ymm2
@@ -1703,7 +1703,7 @@ define <16 x float> @v16f32_two_step2(<16 x float> %x) #2 {
 ; FMA-RECIP-LABEL: v16f32_two_step2:
 ; FMA-RECIP:       # %bb.0:
 ; FMA-RECIP-NEXT:    vrcpps %ymm0, %ymm2
-; FMA-RECIP-NEXT:    vmovaps {{.*#+}} ymm3 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
+; FMA-RECIP-NEXT:    vbroadcastss {{.*#+}} ymm3 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
 ; FMA-RECIP-NEXT:    vmovaps %ymm2, %ymm4
 ; FMA-RECIP-NEXT:    vfmsub213ps {{.*#+}} ymm4 = (ymm0 * ymm4) - ymm3
 ; FMA-RECIP-NEXT:    vfnmadd132ps {{.*#+}} ymm4 = -(ymm4 * ymm2) + ymm2
@@ -1723,7 +1723,7 @@ define <16 x float> @v16f32_two_step2(<16 x float> %x) #2 {
 ; BDVER2-LABEL: v16f32_two_step2:
 ; BDVER2:       # %bb.0:
 ; BDVER2-NEXT:    vrcpps %ymm0, %ymm2
-; BDVER2-NEXT:    vmovaps {{.*#+}} ymm3 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
+; BDVER2-NEXT:    vbroadcastss {{.*#+}} ymm3 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
 ; BDVER2-NEXT:    vfmsubps {{.*#+}} ymm4 = (ymm0 * ymm2) - ymm3
 ; BDVER2-NEXT:    vfnmaddps {{.*#+}} ymm2 = -(ymm2 * ymm4) + ymm2
 ; BDVER2-NEXT:    vmovaps {{.*#+}} ymm4 = [1.0E+0,2.0E+0,3.0E+0,4.0E+0,5.0E+0,6.0E+0,7.0E+0,8.0E+0]
@@ -1741,7 +1741,7 @@ define <16 x float> @v16f32_two_step2(<16 x float> %x) #2 {
 ;
 ; BTVER2-LABEL: v16f32_two_step2:
 ; BTVER2:       # %bb.0:
-; BTVER2-NEXT:    vmovaps {{.*#+}} ymm4 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
+; BTVER2-NEXT:    vbroadcastss {{.*#+}} ymm4 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
 ; BTVER2-NEXT:    vrcpps %ymm0, %ymm2
 ; BTVER2-NEXT:    vmulps %ymm2, %ymm0, %ymm3
 ; BTVER2-NEXT:    vsubps %ymm3, %ymm4, %ymm3
@@ -1770,7 +1770,7 @@ define <16 x float> @v16f32_two_step2(<16 x float> %x) #2 {
 ; SANDY:       # %bb.0:
 ; SANDY-NEXT:    vrcpps %ymm0, %ymm2
 ; SANDY-NEXT:    vmulps %ymm2, %ymm0, %ymm3
-; SANDY-NEXT:    vmovaps {{.*#+}} ymm4 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
+; SANDY-NEXT:    vbroadcastss {{.*#+}} ymm4 = [1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0,1.0E+0]
 ; SANDY-NEXT:    vsubps %ymm3, %ymm4, %ymm3
 ; SANDY-NEXT:    vmulps %ymm3, %ymm2, %ymm3
 ; SANDY-NEXT:    vaddps %ymm3, %ymm2, %ymm2
