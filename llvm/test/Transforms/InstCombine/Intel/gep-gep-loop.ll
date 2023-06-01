@@ -11,7 +11,9 @@ target triple = "spir64-unknown-unknown-sycldevice"
 
 $_ZTSZZ9reduceStdRN2cl4sycl6bufferIKfLi1ENS0_6detail17aligned_allocatorIcEEvEERNS1_IfLi1ES5_vEEPffRmR4SYCLmmENKUlRNS0_7handlerEE_clESF_E11StandardDev = comdat any
 
-define dso_local spir_kernel void @_ZTSZZ9reduceStdRN2cl4sycl6bufferIKfLi1ENS0_6detail17aligned_allocatorIcEEvEERNS1_IfLi1ES5_vEEPffRmR4SYCLmmENKUlRNS0_7handlerEE_clESF_E11StandardDev(i64 %_arg_, float addrspace(1)* %_arg_3, float %_arg_8) local_unnamed_addr #0 comdat !kernel_arg_buffer_location !1 {
+@result = external dso_local local_unnamed_addr global float, align 8
+
+define dso_local spir_kernel void @_ZTSZZ9reduceStdRN2cl4sycl6bufferIKfLi1ENS0_6detail17aligned_allocatorIcEEvEERNS1_IfLi1ES5_vEEPffRmR4SYCLmmENKUlRNS0_7handlerEE_clESF_E11StandardDev(i64 %_arg_, float addrspace(1)* %_arg_3, float %_arg_8, i1 %cond) local_unnamed_addr #0 comdat !kernel_arg_buffer_location !1 {
 entry:
   %0 = load i64, i64 addrspace(4)* null, align 8
   %add.ptr.i53 = getelementptr inbounds float, float addrspace(1)* %_arg_3, i64 %0
@@ -20,15 +22,16 @@ entry:
   br label %for.cond.i
 
 for.cond.i:                                       ; preds = %for.body.i, %entry
-  %i.0.i = phi i32 [ undef, %entry ], [ %add11.i, %for.body.i ]
+  %i.0.i = phi i32 [ 11, %entry ], [ %add11.i, %for.body.i ]
   %sum2_local.0.i = phi float [ 0.000000e+00, %entry ], [ %add.i, %for.body.i ]
   %conv7.i = sext i32 %i.0.i to i64
-  br i1 undef, label %for.body.i, label %for.cond.i.i.i.preheader
+  br i1 %cond, label %for.body.i, label %for.cond.i.i.i.preheader
 
 for.cond.i.i.i.preheader:                         ; preds = %for.cond.i
   %cmp14.i = icmp ugt i64 1, 0
   %2 = select i1 %cmp14.i, float %sum2_local.0.i, float 0.000000e+00
-  store float %2, float addrspace(4)* undef, align 4
+  %rcast = addrspacecast float *@result to float addrspace(4)*
+  store float %2, float addrspace(4)* %rcast, align 4
   ret void
 
 for.body.i:                                       ; preds = %for.cond.i
