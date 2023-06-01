@@ -10,9 +10,11 @@
 // UNSUPPORTED: esimd_emulator
 // RUN: %clangxx -fsycl -fsycl-targets=intel_gpu_bdw %s -o %t.out
 // RUN: %t.out
-// TODO: remove XFAIL when the fix in GPU RT is pulled into CI
-// XFAIL: *
-// This is basic test to test hardware dispatch functionality with ESIMD.
+
+// TODO: Enable the test when GPU RT is updated.
+// XFAIL: windows
+
+// This is basic test for hardware dispatch functionality with ESIMD.
 
 #include <iostream>
 #include <sycl/ext/intel/esimd.hpp>
