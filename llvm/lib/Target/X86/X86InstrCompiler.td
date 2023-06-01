@@ -2195,12 +2195,6 @@ def : Pat<(add GR64:$src1, (loadi64 addr:$src2)),
 def : Pat<(add GR8 :$src1, imm:$src2), (ADD8ri_ND  GR8:$src1 , imm:$src2)>;
 def : Pat<(add GR16:$src1, imm:$src2), (ADD16ri_ND GR16:$src1, imm:$src2)>;
 def : Pat<(add GR32:$src1, imm:$src2), (ADD32ri_ND GR32:$src1, imm:$src2)>;
-def : Pat<(add GR16:$src1, i16immSExt8:$src2),
-          (ADD16ri8_ND GR16:$src1, i16immSExt8:$src2)>;
-def : Pat<(add GR32:$src1, i32immSExt8:$src2),
-          (ADD32ri8_ND GR32:$src1, i32immSExt8:$src2)>;
-def : Pat<(add GR64:$src1, i64immSExt8:$src2),
-          (ADD64ri8_ND GR64:$src1, i64immSExt8:$src2)>;
 def : Pat<(add GR64:$src1, i64immSExt32:$src2),
           (ADD64ri32_ND GR64:$src1, i64immSExt32:$src2)>;
 
@@ -2227,12 +2221,6 @@ def : Pat<(sub GR16:$src1, imm:$src2),
           (SUB16ri_ND GR16:$src1, imm:$src2)>;
 def : Pat<(sub GR32:$src1, imm:$src2),
           (SUB32ri_ND GR32:$src1, imm:$src2)>;
-def : Pat<(sub GR16:$src1, i16immSExt8:$src2),
-          (SUB16ri8 GR16:$src1, i16immSExt8:$src2)>;
-def : Pat<(sub GR32:$src1, i32immSExt8:$src2),
-          (SUB32ri8_ND GR32:$src1, i32immSExt8:$src2)>;
-def : Pat<(sub GR64:$src1, i64immSExt8:$src2),
-          (SUB64ri8_ND GR64:$src1, i64immSExt8:$src2)>;
 def : Pat<(sub GR64:$src1, i64immSExt32:$src2),
           (SUB64ri32_ND GR64:$src1, i64immSExt32:$src2)>;
 
@@ -2431,12 +2419,6 @@ def : Pat<(or GR64:$src1, (loadi64 addr:$src2)),
 def : Pat<(or GR8:$src1 , imm:$src2), (OR8ri_ND  GR8 :$src1, imm:$src2)>;
 def : Pat<(or GR16:$src1, imm:$src2), (OR16ri_ND GR16:$src1, imm:$src2)>;
 def : Pat<(or GR32:$src1, imm:$src2), (OR32ri_ND GR32:$src1, imm:$src2)>;
-def : Pat<(or GR16:$src1, i16immSExt8:$src2),
-          (OR16ri8_ND GR16:$src1, i16immSExt8:$src2)>;
-def : Pat<(or GR32:$src1, i32immSExt8:$src2),
-          (OR32ri8_ND GR32:$src1, i32immSExt8:$src2)>;
-def : Pat<(or GR64:$src1, i64immSExt8:$src2),
-          (OR64ri8_ND GR64:$src1, i64immSExt8:$src2)>;
 def : Pat<(or GR64:$src1, i64immSExt32:$src2),
           (OR64ri32_ND GR64:$src1, i64immSExt32:$src2)>;
 
@@ -2463,12 +2445,6 @@ def : Pat<(xor GR16:$src1, imm:$src2),
           (XOR16ri_ND GR16:$src1, imm:$src2)>;
 def : Pat<(xor GR32:$src1, imm:$src2),
           (XOR32ri_ND GR32:$src1, imm:$src2)>;
-def : Pat<(xor GR16:$src1, i16immSExt8:$src2),
-          (XOR16ri8_ND GR16:$src1, i16immSExt8:$src2)>;
-def : Pat<(xor GR32:$src1, i32immSExt8:$src2),
-          (XOR32ri8_ND GR32:$src1, i32immSExt8:$src2)>;
-def : Pat<(xor GR64:$src1, i64immSExt8:$src2),
-          (XOR64ri8_ND GR64:$src1, i64immSExt8:$src2)>;
 def : Pat<(xor GR64:$src1, i64immSExt32:$src2),
           (XOR64ri32_ND GR64:$src1, i64immSExt32:$src2)>;
 
@@ -2495,12 +2471,6 @@ def : Pat<(and GR16:$src1, imm:$src2),
           (AND16ri_ND GR16:$src1, imm:$src2)>;
 def : Pat<(and GR32:$src1, imm:$src2),
           (AND32ri_ND GR32:$src1, imm:$src2)>;
-def : Pat<(and GR16:$src1, i16immSExt8:$src2),
-          (AND16ri8_ND GR16:$src1, i16immSExt8:$src2)>;
-def : Pat<(and GR32:$src1, i32immSExt8:$src2),
-          (AND32ri8_ND GR32:$src1, i32immSExt8:$src2)>;
-def : Pat<(and GR64:$src1, i64immSExt8:$src2),
-          (AND64ri8_ND GR64:$src1, i64immSExt8:$src2)>;
 def : Pat<(and GR64:$src1, i64immSExt32:$src2),
           (AND64ri32_ND GR64:$src1, i64immSExt32:$src2)>;
 }
