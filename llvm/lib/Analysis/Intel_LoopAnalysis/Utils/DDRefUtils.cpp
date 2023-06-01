@@ -963,3 +963,38 @@ RegDDRef *DDRefUtils::simplifyConstArray(const RegDDRef *Ref) {
 
   return nullptr;
 }
+
+static MDNode *filterNoAliasScopes(MDNode *Scopes,
+                                   const SmallPtrSetImpl<MDNode *> &RemoveSet) {
+  SmallVector<Metadata *, 8> RemainingScopes;
+  bool OmmittedScope = false;
+
+  for (auto &Scope : Scopes->operands()) {
+    if (RemoveSet.count(cast<MDNode>(Scope))) {
+      OmmittedScope = true;
+    } else {
+      RemainingScopes.push_back(Scope);
+    }
+  }
+
+  if (OmmittedScope) {
+    return MDNode::get(Scopes->getContext(), RemainingScopes);
+  }
+
+  return Scopes;
+}
+
+void DDRefUtils::removeNoAliasScopes(
+    AAMDNodes &AANodes, const SmallPtrSetImpl<MDNode *> &RemoveSet) {
+  if (RemoveSet.empty()) {
+    return;
+  }
+
+  if (auto *Scopes = AANodes.Scope) {
+    AANodes.Scope = filterNoAliasScopes(Scopes, RemoveSet);
+  }
+
+  if (auto *Scopes = AANodes.NoAlias) {
+    AANodes.NoAlias = filterNoAliasScopes(Scopes, RemoveSet);
+  }
+}

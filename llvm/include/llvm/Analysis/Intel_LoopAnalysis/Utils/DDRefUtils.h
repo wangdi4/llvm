@@ -435,6 +435,12 @@ public:
 #else // INTEL_FEATURE_SW_DTRANS
   static RegDDRef *simplifyConstArray(const RegDDRef *Ref);
 #endif // INTEL_FEATURE_SW_DTRANS
+
+  /// Removes all the Noalias scopes mentioned in \p RemoveSet from
+  /// AANodes.Scope and AANodes.NoAlias. Helper function used by both symbase
+  /// assignment and HIRDDAnalysis.
+  static void removeNoAliasScopes(AAMDNodes &AANodes,
+                                  const SmallPtrSetImpl<MDNode *> &RemoveSet);
 };
 
 } // End namespace loopopt
