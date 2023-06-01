@@ -28,28 +28,47 @@
 
 ; HIR after transformation
 
-; TODO: We should be able to unswitch %m < 5 in the Else branches.
+; TODO: The conditions '%m < 5' should be removed.
 
 ; CHECK: BEGIN REGION { modified }
 ; CHECK:       if (%m > 5)
 ; CHECK:       {
-; CHECK:          + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
-; CHECK:          |   %temp1 = (%a)[i1];
-; CHECK:          |   %temp2 = (%b)[i1];
-; CHECK:          |   if (%temp1 == 3 & %temp2 == 5)
-; CHECK:          |   {
-; CHECK:          |      %temp1.1 = %temp1 + 1;
-; CHECK:          |   }
-; CHECK:          |   else
-; CHECK:          |   {
-; CHECK:          |      %temp1.1 = %temp1;
-; CHECK:          |      if (%temp1 == 3 & %temp2 == 5 & %m < 5)
-; CHECK:          |      {
-; CHECK:          |         %temp1.1 = %temp1 + 2;
-; CHECK:          |      }
-; CHECK:          |   }
-; CHECK:          |   (%a)[i1] = %temp1.1;
-; CHECK:          + END LOOP
+; CHECK:          if (%m < 5)
+; CHECK:          {
+; CHECK:             + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; CHECK:             |   %temp1 = (%a)[i1];
+; CHECK:             |   %temp2 = (%b)[i1];
+; CHECK:             |   if (%temp1 == 3 & %temp2 == 5)
+; CHECK:             |   {
+; CHECK:             |      %temp1.1 = %temp1 + 1;
+; CHECK:             |   }
+; CHECK:             |   else
+; CHECK:             |   {
+; CHECK:             |      %temp1.1 = %temp1;
+; CHECK:             |      if (%temp1 == 3 & %temp2 == 5)
+; CHECK:             |      {
+; CHECK:             |         %temp1.1 = %temp1 + 2;
+; CHECK:             |      }
+; CHECK:             |   }
+; CHECK:             |   (%a)[i1] = %temp1.1;
+; CHECK:             + END LOOP
+; CHECK:          }
+; CHECK:          else
+; CHECK:          {
+; CHECK:             + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; CHECK:             |   %temp1 = (%a)[i1];
+; CHECK:             |   %temp2 = (%b)[i1];
+; CHECK:             |   if (%temp1 == 3 & %temp2 == 5)
+; CHECK:             |   {
+; CHECK:             |      %temp1.1 = %temp1 + 1;
+; CHECK:             |   }
+; CHECK:             |   else
+; CHECK:             |   {
+; CHECK:             |      %temp1.1 = %temp1;
+; CHECK:             |   }
+; CHECK:             |   (%a)[i1] = %temp1.1;
+; CHECK:             + END LOOP
+; CHECK:          }
 ; CHECK:       }
 ; CHECK:       else
 ; CHECK:       {

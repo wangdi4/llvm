@@ -691,22 +691,6 @@ public:
   decltype(Candidates) &getNewCandidates() { return NewCandidates; }
 };
 
-template <typename VisitorTy>
-static void visitChildren(VisitorTy &Visitor, HLIf *If) {
-  HLNodeUtils::visitRange(Visitor, If->then_begin(), If->then_end());
-  HLNodeUtils::visitRange(Visitor, If->else_begin(), If->else_end());
-}
-
-template <typename VisitorTy>
-static void visitChildren(VisitorTy &Visitor, HLSwitch *Switch) {
-  for (int I = 1, E = Switch->getNumCases(); I <= E; ++I) {
-    HLNodeUtils::visitRange(Visitor, Switch->case_child_begin(I),
-                            Switch->case_child_end(I));
-  }
-  HLNodeUtils::visitRange(Visitor, Switch->default_case_child_begin(),
-                          Switch->default_case_child_end());
-}
-
 static bool isUnswitchDisabled(HLSwitch *) { return false; }
 static bool isUnswitchDisabled(HLIf *If) { return If->isUnswitchDisabled(); }
 
@@ -936,6 +920,9 @@ void HoistCandidate::generatePUCInvariantPredicateIf() {
   //
   // This means, if the condition %t > 1 is true, but i1 != 0 is false, then we
   // need to respect the Else branch.
+  //
+  // TODO: The clone sequence needs to use the LoopUnswitchNodeMapper to map
+  // any node that is a candidate and is inside the Else branch.
   HLContainerTy ElseClones;
   if (If->hasElseChildren())
     HLNodeUtils::cloneSequence(&ElseClones, If->getFirstElseChild(),
@@ -1424,12 +1411,6 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
 
   // Tell inner candidates that parent candidate will not be unswitched.
   // Do not unswitch inner candidates in case of partial unswitching.
-  //
-  // TODO:  We nay need to add extra analysis to enable unswitching for
-  // inner candidates when partial unswitch is enabled. If the node
-  // is an HLIf, then we need to consider that WillUnswitchParent will
-  // be true for the Then branch children, but false for the Else branch
-  // children.
   bool WillUnswitchParent = IsCandidate && !PUC.isSet();
 
   bool HoistingIncreaseCodeSize = true;
@@ -1457,11 +1438,37 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
   LLVM_DEBUG_DETAIL(dbgs() << "CostOfRegion: " << CostOfRegion << "\n");
 
   // Collect candidates within HLIf branches.
-  //
-  // TODO: We need to split this check in case we have partial unswitching.
-  CandidateLookup
-      Lookup(Pass, HLS, CurrLoop, WillUnswitchParent, Level, CostOfRegion);
-  visitChildren(Lookup, Node);
+  if (auto *If = dyn_cast<HLIf>(Node)) {
+    // If the current node is candidate for invariant predicate PUC, then
+    // we will check for more unswitching in the Else branch in the current
+    // loop.
+    CandidateLookup ThenLookup(Pass, HLS, CurrLoop, WillUnswitchParent, Level,
+                               CostOfRegion);
+    HLNodeUtils::visitRange(ThenLookup, If->then_begin(), If->then_end());
+
+    if (If->hasElseChildren()) {
+      // NOTE: We can still apply a similar logic for LoadPUC, but in this case
+      // we need to know which branch will be converted.
+      bool WillUnswitchParentElse =
+          IsCandidate && PUC.isInvariantPredPUC() ? true : WillUnswitchParent;
+      CandidateLookup ElseLookup(Pass, HLS, CurrLoop, WillUnswitchParentElse,
+                                 Level, CostOfRegion);
+      HLNodeUtils::visitRange(ElseLookup, If->else_begin(), If->else_end());
+    }
+
+  } else if (auto *Switch = dyn_cast<HLSwitch>(Node)) {
+    CandidateLookup SwitchLookup(Pass, HLS, CurrLoop, WillUnswitchParent, Level,
+                                 CostOfRegion);
+    for (int I = 1, E = Switch->getNumCases(); I <= E; ++I) {
+      HLNodeUtils::visitRange(SwitchLookup, Switch->case_child_begin(I),
+                              Switch->case_child_end(I));
+    }
+    HLNodeUtils::visitRange(SwitchLookup, Switch->default_case_child_begin(),
+                            Switch->default_case_child_end());
+  } else {
+    llvm_unreachable(
+        "Trying to analyze the children of a non If or Switch node");
+  }
 
   if (!IsCandidate) {
     return;
