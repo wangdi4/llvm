@@ -5451,16 +5451,12 @@ Decl *Sema::ParsedFreeStandingDeclSpec(Scope *S, AccessSpecifier AS,
         TypeSpecType == DeclSpec::TST_union ||
         TypeSpecType == DeclSpec::TST_enum) {
       for (const ParsedAttr &AL : DS.getAttributes())
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         if (getLangOpts().MicrosoftExt || !AL.isDeclspecAttribute())
 #endif // INTEL_CUSTOMIZATION
-        Diag(AL.getLoc(), diag::warn_declspec_attribute_ignored)
-=======
         Diag(AL.getLoc(), AL.isRegularKeywordAttribute()
                               ? diag::err_declspec_keyword_has_no_effect
                               : diag::warn_declspec_attribute_ignored)
->>>>>>> 6532d2ee8b347a4f1e3c4db29229822e2f2865be
             << AL << GetDiagnosticTypeSpecifierID(DS);
       for (const ParsedAttr &AL : DeclAttrs)
         Diag(AL.getLoc(), AL.isRegularKeywordAttribute()
