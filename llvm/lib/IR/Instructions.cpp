@@ -71,6 +71,8 @@
 using namespace llvm;
 
 #if INTEL_CUSTOMIZATION
+#define DEBUG_TYPE "ir"
+
 static cl::opt<bool>
     CallBaseLookupCallbackAttrs("callbase-lookup-callback-attrs",
                                 cl::init(true), cl::ReallyHidden);
@@ -5170,3 +5172,5 @@ UnreachableInst *UnreachableInst::cloneImpl() const {
 FreezeInst *FreezeInst::cloneImpl() const {
   return new FreezeInst(getOperand(0));
 }
+
+#undef DEBUG_TYPE // INTEL
