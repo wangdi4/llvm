@@ -67,11 +67,6 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
 
-static cl::opt<unsigned> MinTripCount(
-    "hir-sinking-for-perfect-loopnest-minimum-trip-count", cl::init(16),
-    cl::Hidden,
-    cl::desc("Minimum trip count for sinking for perfect loop nest"));
-
 namespace {
 
 class HIRSinkingForPerfectLoopnest {
@@ -119,11 +114,6 @@ struct HIRSinkingForPerfectLoopnest::SinkingVisitor final
     }
 
     SkipNode = Loop;
-
-    if (!isProfitableLoopNest(Loop, InnermostLoop)) {
-      LLVM_DEBUG(dbgs() << Loop->getNumber() << "- Not Profitable Loopnest\n");
-      return;
-    }
 
     bool ProfitableForInterchange =
         HLNodeUtils::hasNonUnitStrideRefs(InnermostLoop);
@@ -178,31 +168,6 @@ struct HIRSinkingForPerfectLoopnest::SinkingVisitor final
     }
 
     return false;
-  }
-
-  bool isProfitableLoopNest(const HLLoop *OuterLoop, const HLLoop *Loop) const {
-    unsigned OuterLpLevel = OuterLoop->getNestingLevel();
-    unsigned Level = Loop->getNestingLevel();
-
-    while (Level >= OuterLpLevel) {
-      uint64_t TripCount;
-
-      if (Loop->isConstTripLoop(&TripCount)) {
-        if (TripCount < MinTripCount) {
-          return false;
-        }
-      } else {
-        unsigned MaxTC = Loop->getMaxTripCountEstimate();
-        if (MaxTC && MaxTC < MinTripCount) {
-          return false;
-        }
-      }
-
-      Loop = Loop->getParentLoop();
-      Level--;
-    }
-
-    return true;
   }
 
   bool sinked() { return Modified; }
