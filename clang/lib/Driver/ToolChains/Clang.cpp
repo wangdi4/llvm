@@ -10316,7 +10316,7 @@ void OffloadBundler::ConstructJobMultipleOutputs(
   // the objects from the archive that do not have AOCO associated in that
   // specific object.  Only do this when in hardware mode.
   if (InputType == types::TY_Archive && HasFPGATarget && !IsFPGADepUnbundle &&
-      !IsFPGADepLibUnbundle && !C.getDriver().isFPGAEmulationMode()) {
+      !IsFPGADepLibUnbundle && C.getDriver().IsFPGAHWMode()) {
     llvm::Triple TT;
     TT.setArchName(types::getTypeName(types::TY_FPGA_AOCO));
     TT.setVendorName("intel");
@@ -10548,7 +10548,7 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
       auto *A = C.getInputArgs().getLastArg(options::OPT_fsycl_link_EQ);
       bool Early = (A->getValue() == StringRef("early"));
       FPGAArch += Early ? "aocr" : "aocx";
-      if (C.getDriver().isFPGAEmulationMode() && Early)
+      if (C.getDriver().IsFPGAEmulationMode() && Early)
         FPGAArch += "_emu";
       TT.setArchName(FPGAArch);
       TT.setVendorName("intel");
@@ -10924,9 +10924,7 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
     }
 #endif // INTEL_CUSTOMIZATION
     ExtArg = ExtArg + DefaultExtArg + INTELExtArg;
-#if INTEL_CUSTOMIZATION
-    if (!C.getDriver().isFPGAEmulationMode()) {
-#endif // INTEL_CUSTOMIZATION
+    if (C.getDriver().IsFPGAHWMode()) { // INTEL
       // Enable several extensions on FPGA H/W exclusively
       ExtArg += ",+SPV_INTEL_usm_storage_classes,+SPV_INTEL_runtime_aligned"
                 ",+SPV_INTEL_fpga_cluster_attributes,+SPV_INTEL_loop_fuse"
