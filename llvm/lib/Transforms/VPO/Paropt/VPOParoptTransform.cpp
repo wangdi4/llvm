@@ -3212,6 +3212,66 @@ VPOParoptTransform::ScalarPHIReductionCombiner::ScalarPHIReductionCombiner(
   ReductionVariableLoad->setName("init");
 }
 
+// Local atomic-free reduction base pointer is a GEP Result of the following
+// form:
+// 1) AtomicFreeReductionUseSLM == false:
+//    Result = red_local_buf + (GroupId * AtomicFreeRedLocalBufSize + ThreadId)
+//                             * NumElements,
+//    where red_local_buf is a global memory buffer passed as a kernel argument
+// 2) AtomicFreeReductionUseSLM == true:
+//    Result = red_local_buf + ThreadId * NumElements,
+//    where red_local_buf is a local memory buffer private to each WG
+Value *VPOParoptTransform::genLocalReductionBufferBase(ReductionItem *RedI,
+                                                       Type *ElemTy,
+                                                       Value *NumElements,
+                                                       Value *IdVal,
+                                                       IRBuilder<> &Builder) {
+  SmallVector<Value *, 2> Indices;
+  GlobalVariable *LocalBuf = nullptr;
+  Value *LocalBufOff = nullptr;
+  if (AtomicFreeReductionUseSLM) {
+    auto *BufTy = ArrayType::get(ElemTy, AtomicFreeRedLocalBufSize);
+    LocalBuf =
+        new GlobalVariable(*F->getParent(), BufTy, false,
+                           GlobalValue::LinkageTypes::InternalLinkage,
+                           Constant::getNullValue(BufTy), "red_local_buf",
+                           nullptr, GlobalValue::NotThreadLocal,
+                           isTargetSPIRV() ? vpo::ADDRESS_SPACE_LOCAL : 0);
+    LocalBufOff = IdVal;
+    if (NumElements) {
+      assert(isa<Constant>(NumElements) &&
+             "non-constant array sections are not supported by local "
+             "atomic-free reduction");
+      auto *NumElementsCast =
+          Builder.CreateZExtOrTrunc(NumElements, Builder.getInt64Ty());
+      LocalBufOff = Builder.CreateMul(LocalBufOff, NumElementsCast);
+    }
+  } else {
+    // For the global buffer approach it's necessary to
+    // get a pointer to the chunk corresponding to the right WI.
+    // It's basically buf_ptr + group_id * num_teams + thread_id
+    LocalBuf = AtomicFreeRedLocalBufs.lookup(RedI);
+    assert(LocalBuf && "No local reduction buffer found");
+    Value *GroupId =
+        VPOParoptUtils::genGroupIdCall(0, &*Builder.GetInsertPoint());
+    LocalBufOff =
+        Builder.CreateMul(GroupId, Builder.getInt64(AtomicFreeRedLocalBufSize));
+    LocalBufOff = Builder.CreateAdd(LocalBufOff, IdVal);
+    if (NumElements) {
+      assert(isa<Constant>(NumElements) &&
+             "non-constant array sections are not supported by local "
+             "atomic-free reduction");
+      auto *NumElementsCast =
+          Builder.CreateZExtOrTrunc(NumElements, Builder.getInt64Ty());
+      LocalBufOff = Builder.CreateMul(LocalBufOff, NumElementsCast);
+    }
+  }
+  if (LocalBuf->getValueType()->isArrayTy())
+    Indices.push_back(Builder.getInt32(0));
+  Indices.push_back(LocalBufOff);
+  return Builder.CreateInBoundsGEP(LocalBuf->getValueType(), LocalBuf, Indices);
+}
+
 // Generate local update loop for atomic-free reduction.
 // NOTE: Current compiler & RT implementation supports LWS with
 // only 1 dimension > 1 that's why we're only iterating over
@@ -3278,38 +3338,6 @@ void VPOParoptTransform::genAtomicFreeReductionLocalFini(
   // comment above the function definition). Depending on whether explicit SLM
   // usage is enabled it either uses a temporary chunk of SLM or the global
   // buffer passed as a kernel argument.
-  auto GenLocalBufGEP = [this, ElemTy, &Builder](ReductionItem *RedI,
-                                                 Value *LocalId) {
-    SmallVector<Value *, 2> Indices;
-    GlobalVariable *LocalBuf = nullptr;
-    if (AtomicFreeReductionUseSLM) {
-      auto *BufTy = ArrayType::get(ElemTy, AtomicFreeRedLocalBufSize);
-      LocalBuf = new GlobalVariable(
-          *F->getParent(), BufTy, false,
-          GlobalValue::LinkageTypes::InternalLinkage,
-          Constant::getNullValue(BufTy), "red_local_buf", nullptr,
-          GlobalValue::NotThreadLocal, isTargetSPIRV() ? 3 : 0);
-      Indices.push_back(Builder.getInt32(0));
-      Indices.push_back(LocalId);
-    } else {
-      // For the global buffer approach it's necessary to
-      // get a pointer to the chunk corresponding to the right WI.
-      // It's basically buf_ptr + group_id * num_teams + thread_id
-      LocalBuf = AtomicFreeRedLocalBufs.lookup(RedI);
-      assert(LocalBuf && "No local reduction buffer found");
-      Value *GroupId =
-          VPOParoptUtils::genGroupIdCall(0, &*Builder.GetInsertPoint());
-      GroupId = Builder.CreateTruncOrBitCast(GroupId, Builder.getInt32Ty());
-      auto *LocalBufOff = Builder.CreateMul(
-          GroupId, Builder.getInt32(AtomicFreeRedLocalBufSize));
-      Value *LocalIdTrunc =
-          Builder.CreateTruncOrBitCast(LocalId, Builder.getInt32Ty());
-      LocalBufOff = Builder.CreateAdd(LocalBufOff, LocalIdTrunc);
-      Indices.push_back(LocalBufOff);
-    }
-    return Builder.CreateInBoundsGEP(LocalBuf->getValueType(), LocalBuf,
-                                     {Indices});
-  };
 
   if (AtomicFreeRedLocalUpdateInfos.count(W) && !IsArrayOrArraySection &&
       !IsUDR) {
@@ -3318,15 +3346,17 @@ void VPOParoptTransform::genAtomicFreeReductionLocalFini(
              "No existing tree update barrier found");
       Builder.SetInsertPoint(
           AtomicFreeRedLocalUpdateInfos.lookup(W).EntryBarrier);
-      auto *LocalPtr =
-          GenLocalBufGEP(RedI, AtomicFreeRedLocalUpdateInfos.lookup(W).LocalId);
-      auto *PrivLoad = Builder.CreateLoad(ElemTy, Combiner->getLocalValueLoc());
+      Value *LocalPtr = genLocalReductionBufferBase(
+          RedI, ElemTy, NumElems,
+          AtomicFreeRedLocalUpdateInfos.lookup(W).LocalId, Builder);
+      Value *PrivLoad =
+          Builder.CreateLoad(ElemTy, Combiner->getLocalValueLoc());
       Builder.CreateStore(PrivLoad, LocalPtr);
 
       Builder.SetInsertPoint(
           AtomicFreeRedLocalUpdateInfos.lookup(W).UpdateBB,
           AtomicFreeRedLocalUpdateInfos.lookup(W).UpdateBB->begin());
-      auto *LocalPtrPlus = Builder.CreateInBoundsGEP(
+      Value *LocalPtrPlus = Builder.CreateInBoundsGEP(
           ElemTy, LocalPtr, AtomicFreeRedLocalUpdateInfos.lookup(W).IVPhi);
 
       Builder.SetInsertPoint(
@@ -3415,7 +3445,8 @@ void VPOParoptTransform::genAtomicFreeReductionLocalFini(
     };
     IVInit = cast<Instruction>(RoundToPow2(IVInit));
     if (!IsArrayOrArraySection) {
-      LocalPtr = GenLocalBufGEP(RedI, LocalId);
+      LocalPtr =
+          genLocalReductionBufferBase(RedI, ElemTy, NumElems, LocalId, Builder);
       auto *PrivLoad = Builder.CreateLoad(ElemTy, Combiner->getLocalValueLoc());
       Builder.CreateStore(PrivLoad, LocalPtr);
     } else {
@@ -5032,7 +5063,6 @@ ReductionCriticalSectionKind VPOParoptTransform::genRedAggregateInitOrFini(
     }
   };
 
-  GlobalVariable *BufPtr = nullptr;
   CallInst *IdVal = nullptr;
   bool MakeCopiesToFromLocalRedBuf =
       isTargetSPIRV() && !IsInit &&
@@ -5041,53 +5071,32 @@ ReductionCriticalSectionKind VPOParoptTransform::genRedAggregateInitOrFini(
       WRegionUtils::supportsLocalAtomicFreeReduction(W) &&
       VPOParoptUtils::supportsAtomicFreeReduction(RedI) && !IsUDR;
   // Using dedicated local array for local tree update in atomic-free reduction
-  if (MakeCopiesToFromLocalRedBuf) {
-    if (AtomicFreeRedLocalBufs.count(RedI)) {
-      BufPtr = AtomicFreeRedLocalBufs.lookup(RedI);
-    } else {
-      assert(isa<ConstantInt>(NumElements));
-      auto BufSize = AtomicFreeRedLocalBufSize *
-                     cast<ConstantInt>(NumElements)->getZExtValue();
-      auto *BufTy = ArrayType::get(DestElementTy, BufSize);
-
-      BufPtr =
-          new GlobalVariable(*F->getParent(), BufTy, false,
-                             GlobalValue::LinkageTypes::InternalLinkage,
-                             Constant::getNullValue(BufTy), "red_local_buf",
-                             nullptr, GlobalValue::NotThreadLocal,
-                             isTargetSPIRV() ? vpo::ADDRESS_SPACE_LOCAL : 0);
-      AtomicFreeRedLocalBufs[RedI] = BufPtr;
-    }
+  if (MakeCopiesToFromLocalRedBuf && !IsInit) {
     // (1) Filling the local array with private values
-    if (BufPtr && !IsInit) {
-      IdVal = VPOParoptUtils::genLocalIdCall(0, InsertPt);
-      auto *NumElementsCast =
-          Builder.CreateZExtOrTrunc(NumElements, GeneralUtils::getSizeTTy(F));
-      auto *MemPtrOff = Builder.CreateMul(IdVal, NumElementsCast);
-      auto *MemPtr = Builder.CreateGEP(BufPtr->getValueType(), BufPtr,
-                                       {Builder.getInt32(0), MemPtrOff});
+    IdVal = VPOParoptUtils::genLocalIdCall(0, InsertPt);
+    Value *MemPtr = genLocalReductionBufferBase(RedI, DestElementTy,
+                                                NumElements, IdVal, Builder);
 
-      auto PHIPair =
-          GenArrSecLoopBegin(Builder, MemPtr, SrcBegin, InsertPt, ".to.tree");
-      auto *DestElementPHI = PHIPair.first;
-      auto *SrcElementPHI = PHIPair.second;
+    auto PHIPair =
+        GenArrSecLoopBegin(Builder, MemPtr, SrcBegin, InsertPt, ".to.tree");
+    PHINode *DestElementPHI = PHIPair.first;
+    PHINode *SrcElementPHI = PHIPair.second;
 
-      auto *V = Builder.CreateLoad(DestElementTy, SrcElementPHI);
-      Builder.CreateStore(V, DestElementPHI);
+    auto *V = Builder.CreateLoad(DestElementTy, SrcElementPHI);
+    Builder.CreateStore(V, DestElementPHI);
 
-      GenArrSecLoopEnd(Builder, DestElementPHI, SrcElementPHI, EntryBB, BodyBB,
-                       DoneBB);
-      DoneBB = SplitBlock(DoneBB, DoneBB->getTerminator(), DT, LI);
-      EntryBB = DoneBB;
-      Builder.SetInsertPoint(InsertPt);
+    GenArrSecLoopEnd(Builder, DestElementPHI, SrcElementPHI, EntryBB, BodyBB,
+                     DoneBB);
+    DoneBB = SplitBlock(DoneBB, DoneBB->getTerminator(), DT, LI);
+    EntryBB = DoneBB;
+    Builder.SetInsertPoint(InsertPt);
 
-      DestBegin = MemPtr;
-      SrcBegin = MemPtr;
-    }
+    DestBegin = MemPtr;
+    SrcBegin = MemPtr;
   }
   auto PHIPair = GenArrSecLoopBegin(Builder, DestBegin, SrcBegin, InsertPt);
-  auto *DestElementPHI = PHIPair.first;
-  auto *SrcElementPHI = PHIPair.second;
+  PHINode *DestElementPHI = PHIPair.first;
+  PHINode *SrcElementPHI = PHIPair.second;
   ReductionCriticalSectionKind Result = ReductionCriticalSectionKind::NONE;
 
   if (IsInit) {
@@ -5118,7 +5127,7 @@ ReductionCriticalSectionKind VPOParoptTransform::genRedAggregateInitOrFini(
                    RedDoneBB);
 
   // (3) Writing back the atomic-free reduction local array
-  if (BufPtr) {
+  if (MakeCopiesToFromLocalRedBuf) {
     Builder.SetInsertPoint(DoneBB->getTerminator());
 
     auto PHIPair = GenArrSecLoopBegin(Builder, OrigDestBegin, DestBegin,
@@ -6699,8 +6708,6 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
                     }
                     ++BufIdx;
                   };
-              // NOTE: arrsec reduction doesn't support no-SLM local buffers
-              // yet.
               if (FillGlobalBuffers &&
                   MapPtr->hasAttribute(
                       VPOParoptAtomicFreeReduction::GlobalBufferAttr)) {
@@ -6709,7 +6716,6 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
               } else if (FillLocalBuffers &&
                          MapPtr->hasAttribute(
                              VPOParoptAtomicFreeReduction::LocalBufferAttr) &&
-                         !RedI->getIsArraySection() &&
                          RedI->getType() != ReductionItem::WRNReductionUdr) {
                 InsertBuffer(MItem, CurLocalBufIdx, ItemIndexLocal,
                              AtomicFreeRedLocalBufs);
@@ -6717,8 +6723,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
             }
           }
           ItemIndexGlobal++;
-          if (!RedI->getIsArraySection() &&
-              RedI->getType() != ReductionItem::WRNReductionUdr)
+          if (RedI->getType() != ReductionItem::WRNReductionUdr)
             ItemIndexLocal++;
         }
       }

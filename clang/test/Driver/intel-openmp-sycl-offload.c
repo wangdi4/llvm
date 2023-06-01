@@ -334,3 +334,11 @@
 // CHK_SVML_SYCL: clang{{.*}} "-fsycl-is-device"
 // CHK_SVML: "-fveclib=SVML"
 // CHK_SVML_OMP: clang{{.*}} "-fopenmp-is-device"
+
+/// -fveclib=SVML is permitted for all device targets we support
+// RUN: %clangxx -fveclib=SVML -target spir64 -c -### %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=CHK_SVML %s
+// RUN: %clangxx -fveclib=SVML -target nvptx64 -c -### %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=CHK_SVML %s
+// RUN: %clangxx -fveclib=SVML -target amdgcn -c -### %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=CHK_SVML %s
