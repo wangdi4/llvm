@@ -6444,9 +6444,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       if (Triple.getArch() != llvm::Triple::x86 &&
 #if INTEL_CUSTOMIZATION
           Triple.getArch() != llvm::Triple::x86_64 &&
-          !((JA.isDeviceOffloading(Action::OFK_SYCL) ||
-             JA.isDeviceOffloading(Action::OFK_OpenMP)) &&
-            (Triple.isSPIR() || Triple.isAMDGCN() || Triple.isNVPTX())))
+          !(Triple.isSPIR() || Triple.isAMDGCN() || Triple.isNVPTX()))
 #endif // INTEL_CUSTOMIZATION
         D.Diag(diag::err_drv_unsupported_opt_for_target)
             << Name << Triple.getArchName();
