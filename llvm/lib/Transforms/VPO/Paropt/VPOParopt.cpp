@@ -112,7 +112,6 @@ bool VPOParopt::runOnModule(Module &M) {
 #if INTEL_CUSTOMIZATION
   auto OptLevel =
       0; // Set to some value because legacy support is being removed.
-  LegacyAARGetter AARGetter(*this);
   auto &ParoptConfig = getAnalysis<VPOParoptConfigWrapper>().getResult();
 #endif // INTEL_CUSTOMIZATION
 
@@ -125,8 +124,6 @@ bool VPOParopt::runOnModule(Module &M) {
     WRI.setAssumptionCache(&MAC.getAssumptionCache(F));
     WRI.setTargetLibraryInfo(&MTLI.getTLI(F));
 #if INTEL_CUSTOMIZATION
-    WRI.setAliasAnlaysis(&AARGetter(F));
-    WRI.setupAAWithOptLevel(OptLevel);
     WRI.setVPOParoptConfig(&ParoptConfig);
 #endif // INTEL_CUSTOMIZATION
     return WRI;
