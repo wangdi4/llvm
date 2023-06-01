@@ -2444,17 +2444,3 @@ void BasicAAWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
   AU.addUsedIfAvailable<PhiValuesWrapperPass>(); // INTEL
 }
-<<<<<<< HEAD
-
-BasicAAResult llvm::createLegacyPMBasicAAResult(Pass &P, Function &F) {
-  return BasicAAResult(
-      F.getParent()->getDataLayout(), F,
-      P.getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
-#if INTEL_CUSTOMIZATION
-      P.getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F), nullptr,
-      0, // Placeholder because XmainOptLevelWrapperPass is removed.
-      nullptr);
-#endif // INTEL_CUSTOMIZATION
-}
-=======
->>>>>>> f9b523ebc367f1535bf61797383471e567b24b75

@@ -1093,41 +1093,6 @@ AAManager::Result AAManager::run(Function &F, FunctionAnalysisManager &AM) {
   return R;
 }
 
-<<<<<<< HEAD
-AAResults llvm::createLegacyPMAAResults(Pass &P, Function &F,
-                                        BasicAAResult &BAR) {
-  AAResults AAR(P.getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F));
-
-  // Add in our explicitly constructed BasicAA results.
-  if (!DisableBasicAA)
-    AAR.addAAResult(BAR);
-
-  // Populate the results with the other currently available AAs.
-  if (auto *WrapperPass =
-          P.getAnalysisIfAvailable<ScopedNoAliasAAWrapperPass>())
-    AAR.addAAResult(WrapperPass->getResult());
-#if INTEL_CUSTOMIZATION
-  if (auto *WrapperPass = P.getAnalysisIfAvailable<StdContainerAAWrapperPass>())
-    AAR.addAAResult(WrapperPass->getResult());
-#endif // INTEL_CUSTOMIZATION
-  if (auto *WrapperPass = P.getAnalysisIfAvailable<TypeBasedAAWrapperPass>())
-    AAR.addAAResult(WrapperPass->getResult());
-#if INTEL_CUSTOMIZATION
-  if (auto *WrapperPass =
-          P.getAnalysisIfAvailable<objcarc::ObjCARCAAWrapperPass>())
-    AAR.addAAResult(WrapperPass->getResult());
-#endif // INTEL_CUSTOMIZATION
-  if (auto *WrapperPass = P.getAnalysisIfAvailable<GlobalsAAWrapperPass>())
-    AAR.addAAResult(WrapperPass->getResult());
-  if (auto *WrapperPass = P.getAnalysisIfAvailable<ExternalAAWrapperPass>())
-    if (WrapperPass->CB)
-      WrapperPass->CB(P, F, AAR);
-
-  return AAR;
-}
-
-=======
->>>>>>> f9b523ebc367f1535bf61797383471e567b24b75
 bool llvm::isNoAliasCall(const Value *V) {
   if (const auto *Call = dyn_cast<CallBase>(V))
     return Call->hasRetAttr(Attribute::NoAlias);
