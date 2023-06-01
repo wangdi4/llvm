@@ -5296,8 +5296,17 @@ bool HIRParser::delinearizeRefs(ArrayRef<const loopopt::RegDDRef *> GepRefs,
 
     auto *BasePtrElemTy = Ref->getBasePtrElementType();
 
-    if (!BasePtrElemTy || BasePtrElemTy->isAggregateType() ||
-        Ref->getDimensionConstLower(1) != 0 ||
+    // Attempting delinearization when BasePtrElemTy is
+    // aggregate type as struct type. This helps passing ddtests
+    // with more memrefs specifically with refs from unroll and jam.
+    // Example)
+    //  A[2 * N * i1 + i2].0 and A[2 * N * i1 + i2 + N].0
+    //  With delinearization, A[2*i1][i2].0, A[2*i1 + 1][i2].0
+    //  Condition (N > 0) from delinearization will help later to resolve
+    //  dependences between A[2 * N * i1 + i2].0 and A[2 * N * i1 + i2 + N].0
+    // Notice the delinearization results are only used in runtime DD tests,
+    // actual refs are not converted to the delinearizd forms.
+    if (!BasePtrElemTy || Ref->getDimensionConstLower(1) != 0 ||
         Ref->getDimensionConstStride(1) == 0) {
       return false;
     }
