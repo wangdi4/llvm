@@ -5454,10 +5454,14 @@ Decl *Sema::ParsedFreeStandingDeclSpec(Scope *S, AccessSpecifier AS,
 #if INTEL_CUSTOMIZATION
         if (getLangOpts().MicrosoftExt || !AL.isDeclspecAttribute())
 #endif // INTEL_CUSTOMIZATION
-        Diag(AL.getLoc(), diag::warn_declspec_attribute_ignored)
+        Diag(AL.getLoc(), AL.isRegularKeywordAttribute()
+                              ? diag::err_declspec_keyword_has_no_effect
+                              : diag::warn_declspec_attribute_ignored)
             << AL << GetDiagnosticTypeSpecifierID(DS);
       for (const ParsedAttr &AL : DeclAttrs)
-        Diag(AL.getLoc(), diag::warn_declspec_attribute_ignored)
+        Diag(AL.getLoc(), AL.isRegularKeywordAttribute()
+                              ? diag::err_declspec_keyword_has_no_effect
+                              : diag::warn_declspec_attribute_ignored)
             << AL << GetDiagnosticTypeSpecifierID(DS);
     }
   }
