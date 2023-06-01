@@ -3695,6 +3695,15 @@ KnownBits SelectionDAG::computeKnownBits(SDValue Op, const APInt &DemandedElts,
     // All bits are zero except the low bit.
     Known.Zero.setBitsFrom(1);
     break;
+  case ISD::ADD:
+  case ISD::SUB: {
+    SDNodeFlags Flags = Op.getNode()->getFlags();
+    Known = computeKnownBits(Op.getOperand(0), DemandedElts, Depth + 1);
+    Known2 = computeKnownBits(Op.getOperand(1), DemandedElts, Depth + 1);
+    Known = KnownBits::computeForAddSub(Op.getOpcode() == ISD::ADD,
+                                        Flags.hasNoSignedWrap(), Known, Known2);
+    break;
+  }
   case ISD::USUBO:
   case ISD::SSUBO:
   case ISD::USUBO_CARRY:
@@ -3708,7 +3717,6 @@ KnownBits SelectionDAG::computeKnownBits(SDValue Op, const APInt &DemandedElts,
       break;
     }
     [[fallthrough]];
-  case ISD::SUB:
   case ISD::SUBC: {
     assert(Op.getResNo() == 0 &&
            "We only compute knownbits for the difference here.");
@@ -3736,7 +3744,6 @@ KnownBits SelectionDAG::computeKnownBits(SDValue Op, const APInt &DemandedElts,
       break;
     }
     [[fallthrough]];
-  case ISD::ADD:
   case ISD::ADDC:
   case ISD::ADDE: {
     assert(Op.getResNo() == 0 && "We only compute knownbits for the sum here.");
