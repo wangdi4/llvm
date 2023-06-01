@@ -8,7 +8,8 @@
 // REQUIRES: gpu
 // UNSUPPORTED: gpu-intel-gen9 && windows
 // UNSUPPORTED: cuda || hip
-// RUN: %clangxx -fsycl-device-code-split=per_kernel -fsycl -fno-fast-math %s -o %t.out
+// DEFINE: %{mathflags} = %if cl_options %{/clang:-fno-fast-math%} %else %{-fno-fast-math%}
+// RUN: %clangxx -fsycl-device-code-split=per_kernel -fsycl %{mathflags} %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
 // This test checks extended math operations. Combinations of

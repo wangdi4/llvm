@@ -8,7 +8,8 @@
 // REQUIRES: gpu
 // UNSUPPORTED: gpu-intel-gen9 && windows
 // UNSUPPORTED: cuda || hip
-// RUN: %clangxx -fsycl-device-code-split=per_kernel -fsycl -ffast-math -fno-slp-vectorize %s -o %t.out
+// DEFINE: %{slpflags} = %if cl_options %{/clang:-fno-slp-vectorize%} %else %{-fno-slp-vectorize%}
+// RUN: %clangxx -fsycl-device-code-split=per_kernel -fsycl -ffast-math %{slpflags} %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 
 // This test checks extended math operations. Combinations of
