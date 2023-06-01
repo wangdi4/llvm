@@ -73,7 +73,7 @@ cont:
 ; CHECK-IR0-NEXT: }
 
 ; CHECK-IR1: define weak_odr i32 @test2
-; CHECK-IR1-NEXT:   entry:
+; CHECK-IR1-NEXT:   [[ENTRY:.*]]:                   ; INTEL
 ; CHECK-IR1-NEXT:     tail call void @llvm.trap()
 ; CHECK-IR1-NEXT:     unreachable
 ; CHECK-IR1-NEXT:   }
