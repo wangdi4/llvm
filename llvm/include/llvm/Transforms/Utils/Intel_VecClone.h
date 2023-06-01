@@ -49,7 +49,7 @@ class VecCloneImpl {
     /// Type for each logical argument of a clone
     SmallVector<Type *, 4> LogicalArgTypes;
     /// The clone return type
-    Type *LogicalRetType;
+    Type *LogicalRetType = nullptr;
 
     /// Set of memory locations to mark as private for the SIMD loop
     SetVector<Value *> PrivateMemory;
