@@ -1093,6 +1093,7 @@ AAManager::Result AAManager::run(Function &F, FunctionAnalysisManager &AM) {
   return R;
 }
 
+<<<<<<< HEAD
 AAResults llvm::createLegacyPMAAResults(Pass &P, Function &F,
                                         BasicAAResult &BAR) {
   AAResults AAR(P.getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F));
@@ -1125,6 +1126,8 @@ AAResults llvm::createLegacyPMAAResults(Pass &P, Function &F,
   return AAR;
 }
 
+=======
+>>>>>>> f9b523ebc367f1535bf61797383471e567b24b75
 bool llvm::isNoAliasCall(const Value *V) {
   if (const auto *Call = dyn_cast<CallBase>(V))
     return Call->hasRetAttr(Attribute::NoAlias);

@@ -2444,6 +2444,7 @@ void BasicAAWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
   AU.addUsedIfAvailable<PhiValuesWrapperPass>(); // INTEL
 }
+<<<<<<< HEAD
 
 BasicAAResult llvm::createLegacyPMBasicAAResult(Pass &P, Function &F) {
   return BasicAAResult(
@@ -2455,3 +2456,5 @@ BasicAAResult llvm::createLegacyPMBasicAAResult(Pass &P, Function &F) {
       nullptr);
 #endif // INTEL_CUSTOMIZATION
 }
+=======
+>>>>>>> f9b523ebc367f1535bf61797383471e567b24b75
