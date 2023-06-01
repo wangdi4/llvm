@@ -9,7 +9,12 @@
 // REQUIRES: gpu
 // UNSUPPORTED: gpu-intel-gen9 && windows
 // UNSUPPORTED: cuda || hip || esimd_emulator
-// RUN: %clangxx -fsycl %s -I%S/.. -o %t.out
+// INTEL_CUSTOMIZATION
+// this is a temporary fix for CMPLRTST-21037
+// we pass -fno-inline-functions to sure it won't hang in host compile
+// we don't do the same thing in intel/llvm since it will lead to runfail
+// RUN: %clangxx -fsycl %s  -I%S/.. -O2 -fno-inline-functions -o %t.out
+// end INTEL_CUSTOMIZATION
 // RUN: %GPU_RUN_PLACEHOLDER %t.out 3 2 1
 //
 // This test checks the correctness of ESIMD program for batched LU
