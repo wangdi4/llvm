@@ -49,14 +49,18 @@
 ; CHECK-POSTLINK-O-NEXT: Running analysis: ProfileSummaryAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-POSTLINK-O-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
+; INTEL_CUSTOMIZATION
+; CHECK-O-NEXT: Running pass: UnpredictableProfileLoaderPass
+; CHECK-O-NEXT: Running pass: AggressiveSpeculationPass
+; CHECK-O-NEXT: Running analysis: DominatorTreeAnalysis
+; CHECK-O-NEXT: Running analysis: TargetIRAnalysis
 ; CHECK-O-NEXT: Running pass: OpenMPOptPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: LowerTypeTestsPass
-; CHECK-O3-NEXT: Running pass: RecursiveFunctionMemoizePass ;INTEL
+; CHECK-O3-NEXT: Running pass: RecursiveFunctionMemoizePass
 ; CHECK-O-NEXT: Running pass: IPSCCPPass
-; CHECK-O-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-O-NEXT: Running analysis: AssumptionAnalysis
-; CHECK-O-NEXT: Running analysis: TargetIRAnalysis
 ; CHECK-FUNC-SPEC-NEXT: Running analysis: LoopAnalysis
+; end INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: CalledValuePropagationPass
 ; CHECK-O-NEXT: Running pass: GlobalOptPass
 ; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
