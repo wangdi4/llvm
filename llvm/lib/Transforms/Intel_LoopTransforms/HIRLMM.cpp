@@ -835,7 +835,6 @@ HLInst *HIRLMM::canHoistLoadsUsingExistingTemp(
   }
 
   HLInst *SingleLoadInst = nullptr;
-
   for (auto *Ref : Group) {
 
     HLInst *LoadHInst = dyn_cast<HLInst>(Ref->getHLDDNode());
@@ -844,9 +843,12 @@ HLInst *HIRLMM::canHoistLoadsUsingExistingTemp(
       continue;
     }
 
-    if (!isa<LoadInst>(LoadHInst->getLLVMInstruction())) {
+    // Casts can only be hoisted if there is one load in the group. The lval
+    // of the hoisted temp will be used to replace other loads.
+    auto *LLVMInst = LoadHInst->getLLVMInstruction();
+    if (!isa<LoadInst>(LLVMInst) &&
+        (Group.size() != 1 || !isa<CastInst>(LLVMInst)))
       continue;
-    }
 
     if (SingleLoadInst) {
       return nullptr;
