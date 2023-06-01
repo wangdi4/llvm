@@ -1,4 +1,21 @@
 //===-- X86EncodingOptimization.cpp - X86 Encoding optimization -*- C++ -*-===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -167,6 +184,88 @@ bool X86::optimizeShiftRotateWithImmediateOne(MCInst &MI) {
     TO_IMM1(SHL32m)
     TO_IMM1(SHL64m)
 #undef TO_IMM1
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+#define TO_IMM1(FROM)                                                          \
+  case X86::FROM##i_EVEX:                                                      \
+    NewOpc = X86::FROM##1_EVEX;                                                \
+    break;                                                                     \
+  case X86::FROM##i_NF:                                                        \
+    NewOpc = X86::FROM##1_NF;                                                  \
+    break;                                                                     \
+  case X86::FROM##i_ND:                                                        \
+    NewOpc = X86::FROM##1_ND;                                                  \
+    break;                                                                     \
+  case X86::FROM##i_ND_NF:                                                     \
+    NewOpc = X86::FROM##1_ND_NF;                                               \
+    break;
+    TO_IMM1(ROR8r)
+    TO_IMM1(ROR16r)
+    TO_IMM1(ROR32r)
+    TO_IMM1(ROR64r)
+    TO_IMM1(ROL8r)
+    TO_IMM1(ROL16r)
+    TO_IMM1(ROL32r)
+    TO_IMM1(ROL64r)
+    TO_IMM1(SAR8r)
+    TO_IMM1(SAR16r)
+    TO_IMM1(SAR32r)
+    TO_IMM1(SAR64r)
+    TO_IMM1(SHR8r)
+    TO_IMM1(SHR16r)
+    TO_IMM1(SHR32r)
+    TO_IMM1(SHR64r)
+    TO_IMM1(SHL8r)
+    TO_IMM1(SHL16r)
+    TO_IMM1(SHL32r)
+    TO_IMM1(SHL64r)
+    TO_IMM1(ROR8m)
+    TO_IMM1(ROR16m)
+    TO_IMM1(ROR32m)
+    TO_IMM1(ROR64m)
+    TO_IMM1(ROL8m)
+    TO_IMM1(ROL16m)
+    TO_IMM1(ROL32m)
+    TO_IMM1(ROL64m)
+    TO_IMM1(SAR8m)
+    TO_IMM1(SAR16m)
+    TO_IMM1(SAR32m)
+    TO_IMM1(SAR64m)
+    TO_IMM1(SHR8m)
+    TO_IMM1(SHR16m)
+    TO_IMM1(SHR32m)
+    TO_IMM1(SHR64m)
+    TO_IMM1(SHL8m)
+    TO_IMM1(SHL16m)
+    TO_IMM1(SHL32m)
+    TO_IMM1(SHL64m)
+#undef TO_IMM1
+#define TO_IMM1(FROM)                                                          \
+  case X86::FROM##i_EVEX:                                                      \
+    NewOpc = X86::FROM##1_EVEX;                                                \
+    break;                                                                     \
+  case X86::FROM##i_ND:                                                        \
+    NewOpc = X86::FROM##1_ND;                                                  \
+    break;
+    TO_IMM1(RCR8r)
+    TO_IMM1(RCR16r)
+    TO_IMM1(RCR32r)
+    TO_IMM1(RCR64r)
+    TO_IMM1(RCL8r)
+    TO_IMM1(RCL16r)
+    TO_IMM1(RCL32r)
+    TO_IMM1(RCL64r)
+    TO_IMM1(RCR8m)
+    TO_IMM1(RCR16m)
+    TO_IMM1(RCR32m)
+    TO_IMM1(RCR64m)
+    TO_IMM1(RCL8m)
+    TO_IMM1(RCL16m)
+    TO_IMM1(RCL32m)
+    TO_IMM1(RCL64m)
+#undef TO_IMM1
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   }
   MCOperand &LastOp = MI.getOperand(MI.getNumOperands() - 1);
   if (!LastOp.isImm() || LastOp.getImm() != 1)

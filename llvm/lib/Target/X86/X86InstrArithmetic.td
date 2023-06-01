@@ -588,9 +588,7 @@ class BinOpRI8_RF_ND<bits<8> opcode, string mnemonic, X86TypeInfo typeinfo,
 // BinOpRI8_RF_Common - Instructions like "add reg, imm8", contains legacy
 // and APX version.
 multiclass BinOpRI8_RF_Common<bits<8> opcode, string mnemonic,
-                              X86TypeInfo typeinfo,
-                              SDPatternOperator opnodeflag,
-                              Format f>{
+                              X86TypeInfo typeinfo, Format f>{
   let Constraints = "$src1 = $dst" in {
     let Defs = [EFLAGS] in {
       let Predicates = [NoNDD] in
@@ -604,10 +602,7 @@ multiclass BinOpRI8_RF_Common<bits<8> opcode, string mnemonic,
                EVEX_NF;
   }
   let Defs = [EFLAGS], Predicates = [HasNDD, In64BitMode] in {
-    def _ND : BinOpRI8_RF_ND<opcode, mnemonic, typeinfo, f,
-                             [(set typeinfo.RegClass:$dst, EFLAGS,
-                              (opnodeflag typeinfo.RegClass:$src1,
-                                      typeinfo.Imm8Operator:$src2))]>,
+    def _ND : BinOpRI8_RF_ND<opcode, mnemonic, typeinfo, f, []>,
               EVEX_B4V;
   }
   let Predicates = [HasNDD, In64BitMode] in
@@ -670,8 +665,7 @@ class BinOpMI8_ND<string mnemonic, X86TypeInfo typeinfo, Format f,
 // BinOpMI8_RMW_Common - Binary instructions with inputs "[mem], imm8", where
 // the pattern implicitly use EFLAGS, contains legacy and APX version.
 multiclass BinOpMI8_RMW_Common<string mnemonic, X86TypeInfo typeinfo,
-                               SDNode opnode, Format f,
-                               Predicate pred = TruePredicate>{
+                               Format f, Predicate pred = TruePredicate> {
 let Defs = [EFLAGS] in {
   let Predicates = [pred, NoNDD], mayStore = 1 in
     def NAME : BinOpMI8_RMW<mnemonic, typeinfo, f>;
@@ -679,11 +673,7 @@ let Defs = [EFLAGS] in {
     def _EVEX : BinOpMI8_RMW_EVEX<mnemonic, typeinfo, f>,
                 EmitVEXOrEVEXPrefix;
   let Predicates = [HasNDD, In64BitMode] in {
-    def _ND : BinOpMI8_ND<mnemonic, typeinfo, f,
-                          [(set typeinfo.RegClass:$dst,
-                           (opnode (load addr:$src1),
-                            typeinfo.Imm8Operator:$src2)), (implicit EFLAGS)]>,
-              EVEX_B4V;
+    def _ND : BinOpMI8_ND<mnemonic, typeinfo, f, []>, EVEX_B4V;
   }
 }
   let Predicates = [In64BitMode], mayStore = 1 in
@@ -1206,15 +1196,12 @@ let Defs = [EFLAGS] in{
 // IMulOpRRI8 - Instructions like "imul reg, reg, i8".
 multiclass IMulOpRRI8<bits<8> opcode, string mnemonic, X86TypeInfo info,
                       X86FoldableSchedWrite sched>{
-let ImmT = Imm8 in {
+let hasSideEffects = 0, ImmT = Imm8 in {
 let Defs = [EFLAGS] in {
   def NAME : ITy<opcode, MRMSrcReg, info, (outs info.RegClass:$dst),
                  (ins info.RegClass:$src1,
                   info.Imm8Operand:$src2), mnemonic,
-                 "{$src2, $src1, $dst|$dst, $src1, $src2}",
-                 [(set info.RegClass:$dst, EFLAGS,
-                  (X86smul_flag info.RegClass:$src1,
-                   info.Imm8NoSuOperator:$src2))]>,
+                 "{$src2, $src1, $dst|$dst, $src1, $src2}", []>,
              Sched<[sched]>;
 let Predicates = [In64BitMode] in
   def _EVEX : ITy_EVEX<opcode, MRMSrcReg, info, (outs info.RegClass:$dst),
@@ -1243,7 +1230,7 @@ let Defs = [EFLAGS] in {
                  "{$src2, $src1, $dst|$dst, $src1, $src2}",
                  [(set info.RegClass:$dst, EFLAGS,
                   (X86smul_flag info.RegClass:$src1,
-                    info.ImmNoSuOperator:$src2))]>,
+                                info.ImmNoSuOperator:$src2))]>,
              Sched<[sched]>;
 let Predicates = [In64BitMode] in
   def _EVEX : ITy_EVEX<opcode, MRMSrcReg, info, (outs info.RegClass:$dst),
@@ -1264,15 +1251,12 @@ let Predicates = [In64BitMode] in
 // IMulOpRMI8 - Instructions like "imul reg, [mem], i8".
 multiclass IMulOpRMI8<bits<8> opcode, string mnemonic, X86TypeInfo info,
                       X86FoldableSchedWrite sched>{
-let ImmT = Imm8 in {
+let hasSideEffects = 0, mayLoad = 1, ImmT = Imm8 in {
 let Defs = [EFLAGS] in {
   def NAME : ITy<opcode, MRMSrcMem, info, (outs info.RegClass:$dst),
                  (ins info.MemOperand:$src1,
                   info.Imm8Operand:$src2), mnemonic,
-                 "{$src2, $src1, $dst|$dst, $src1, $src2}",
-                 [(set info.RegClass:$dst, EFLAGS,
-                  (X86smul_flag (info.LoadNode addr:$src1),
-                   info.Imm8NoSuOperator:$src2))]>,
+                 "{$src2, $src1, $dst|$dst, $src1, $src2}", []>,
              Sched<[sched.Folded]>;
 let Predicates = [In64BitMode], mayLoad = 1 in
   def _EVEX : ITy_EVEX<opcode, MRMSrcMem, info, (outs info.RegClass:$dst),
@@ -1934,12 +1918,9 @@ multiclass ArithBinOp_RF<bits<8> BaseOpc, bits<8> BaseOpc2, bits<8> BaseOpc4,
   // NOTE: These are order specific, we want the ri8 forms to be listed
   // first so that they are slightly preferred to the ri forms.
   let isConvertibleToThreeAddress = ConvertibleToThreeAddress, hasSideEffects= 0 in {
-    defm NAME#16ri8 : BinOpRI8_RF_Common<0x82, mnemonic, Xi16, opnodeflag,
-                                         RegMRM>;
-    defm NAME#32ri8 : BinOpRI8_RF_Common<0x82, mnemonic, Xi32, opnodeflag,
-                                         RegMRM>;
-    defm NAME#64ri8 : BinOpRI8_RF_Common<0x82, mnemonic, Xi64, opnodeflag,
-                                         RegMRM>;
+    defm NAME#16ri8 : BinOpRI8_RF_Common<0x82, mnemonic, Xi16, RegMRM>;
+    defm NAME#32ri8 : BinOpRI8_RF_Common<0x82, mnemonic, Xi32, RegMRM>;
+    defm NAME#64ri8 : BinOpRI8_RF_Common<0x82, mnemonic, Xi64, RegMRM>;
     defm NAME#8ri   : BinOpRI_RF_Common<0x80, mnemonic, Xi8 , opnodeflag,
                                         RegMRM>;
     defm NAME#16ri  : BinOpRI_RF_Common<0x80, mnemonic, Xi16, opnodeflag,
@@ -1960,9 +1941,9 @@ multiclass ArithBinOp_RF<bits<8> BaseOpc, bits<8> BaseOpc2, bits<8> BaseOpc4,
   // NOTE: These are order specific, we want the mi8 forms to be listed
   // first so that they are slightly preferred to the mi forms.
 let mayLoad = 1, hasSideEffects = 0 in {
-  defm NAME#16mi8  : BinOpMI8_RMW_Common<mnemonic, Xi16, opnode, MemMRM>;
-  defm NAME#32mi8  : BinOpMI8_RMW_Common<mnemonic, Xi32, opnode, MemMRM>;
-  defm NAME#64mi8  : BinOpMI8_RMW_Common<mnemonic, Xi64, opnode, MemMRM,
+  defm NAME#16mi8  : BinOpMI8_RMW_Common<mnemonic, Xi16, MemMRM>;
+  defm NAME#32mi8  : BinOpMI8_RMW_Common<mnemonic, Xi32, MemMRM>;
+  defm NAME#64mi8  : BinOpMI8_RMW_Common<mnemonic, Xi64, MemMRM,
                                          In64BitMode>;
 
   defm NAME#8mi    : BinOpMI_Common<0x80, mnemonic, Xi8 , opnode, MemMRM>;
@@ -2218,18 +2199,14 @@ class BinOpRI8_RFF_EVEX<bits<8> opcode, string mnemonic, X86TypeInfo typeinfo,
 // pattern has both a regclass and EFLAGS as a result, and has EFLAGS as input,
 // ndd version.
 class BinOpRI8_RFF_ND<bits<8> opcode, string mnemonic, X86TypeInfo typeinfo,
-                      SDPatternOperator opnode, Format f>
-  : BinOpRI8_RF_ND<opcode, mnemonic, typeinfo, f,
-                   [(set typeinfo.RegClass:$dst, EFLAGS,
-                    (opnode typeinfo.RegClass:$src1,
-                            typeinfo.Imm8Operator:$src2, EFLAGS))], WriteADC>;
+                      Format f>
+  : BinOpRI8_RF_ND<opcode, mnemonic, typeinfo, f, [], WriteADC>;
 
 // BinOpRI8_RFF_Common - Binary instructions with inputs "reg, imm8", where the
 // pattern has both a regclass and EFLAGS as a result, and has EFLAGS as input,
 // contains legacy and APX version.
 multiclass BinOpRI8_RFF_Common<bits<8> opcode, string mnemonic,
-                               X86TypeInfo typeinfo,
-                               SDPatternOperator opnode, Format f>{
+                               X86TypeInfo typeinfo, Format f>{
 let Constraints = "$src1 = $dst" in {
   let Predicates = [NoNDD] in
   def NAME : BinOpRI8_RFF<opcode, mnemonic, typeinfo, f>;
@@ -2238,7 +2215,7 @@ let Constraints = "$src1 = $dst" in {
               EmitVEXOrEVEXPrefix;
 }
   let Predicates = [HasNDD, In64BitMode] in
-  def _ND : BinOpRI8_RFF_ND<opcode, mnemonic, typeinfo, opnode, f>, EVEX_B4V;
+  def _ND : BinOpRI8_RFF_ND<opcode, mnemonic, typeinfo, f>, EVEX_B4V;
 }
 
 // BinOpMR_EVEX - Binary instructions with inputs "[mem], reg", evex encoding.
@@ -2298,28 +2275,23 @@ class BinOpMI8_RMW_FF_EVEX<string mnemonic, X86TypeInfo typeinfo, Format f>
 
 // BinOpMI8_FF_ND - Binary instructions with inputs "reg, [mem], imm8",
 // where the pattern sets EFLAGS and implicitly uses EFLAGS, ndd version.
-class BinOpMI8_FF_ND<string mnemonic, X86TypeInfo typeinfo,
-                     SDPatternOperator opnode, Format f>
+class BinOpMI8_FF_ND<string mnemonic, X86TypeInfo typeinfo, Format f>
   : BinOpMI8_EVEX<mnemonic, typeinfo, (outs typeinfo.RegClass:$dst),
-                  "{$src2, $src1, $dst|$dst, $src1, $src2}", f,
-                  [(set typeinfo.RegClass:$dst, (opnode (load addr:$src1),
-                        typeinfo.Imm8Operator:$src2, EFLAGS)),
-                                            (implicit EFLAGS)]>,
+                  "{$src2, $src1, $dst|$dst, $src1, $src2}", f, []>,
     Sched<[WriteADC]>;
 
 // BinOpMI8_RMW_FF_Common - Binary instructions with inputs "[mem], imm8",
 // where the pattern sets EFLAGS and implicitly uses EFLAGS, contains legacy
 // and APX version.
 multiclass BinOpMI8_RMW_FF_Common<string mnemonic, X86TypeInfo typeinfo,
-                                  SDPatternOperator opnode, Format f,
-                                  Predicate pred = TruePredicate>{
+                                  Format f, Predicate pred = TruePredicate> {
 let Predicates = [NoNDD, pred], mayStore = 1 in
   def NAME : BinOpMI8_RMW_FF<mnemonic, typeinfo, f>;
 let Predicates = [In64BitMode], mayStore = 1 in
   def _EVEX : BinOpMI8_RMW_FF_EVEX<mnemonic, typeinfo, f>,
               EmitVEXOrEVEXPrefix;
 let Predicates = [HasNDD, In64BitMode] in
-  def _ND : BinOpMI8_FF_ND<mnemonic, typeinfo, opnode, f>, EVEX_B4V;
+  def _ND : BinOpMI8_FF_ND<mnemonic, typeinfo, f>, EVEX_B4V;
 }
 
 // BinOpMI_RMW_FF_EVEX - Binary instructions with inputs "[mem], imm",
@@ -2394,12 +2366,9 @@ multiclass ArithBinOp_RFF<bits<8> BaseOpc, bits<8> BaseOpc2, bits<8> BaseOpc4,
       let isConvertibleToThreeAddress = ConvertibleToThreeAddress, hasSideEffects = 0 in {
         // NOTE: These are order specific, we want the ri8 forms to be listed
         // first so that they are slightly preferred to the ri forms.
-        defm NAME#16ri8 : BinOpRI8_RFF_Common<0x82, mnemonic, Xi16, opnode,
-                                              RegMRM>;
-        defm NAME#32ri8 : BinOpRI8_RFF_Common<0x82, mnemonic, Xi32, opnode,
-                                              RegMRM>;
-        defm NAME#64ri8 : BinOpRI8_RFF_Common<0x82, mnemonic, Xi64, opnode,
-                                              RegMRM>;
+        defm NAME#16ri8 : BinOpRI8_RFF_Common<0x82, mnemonic, Xi16, RegMRM>;
+        defm NAME#32ri8 : BinOpRI8_RFF_Common<0x82, mnemonic, Xi32, RegMRM>;
+        defm NAME#64ri8 : BinOpRI8_RFF_Common<0x82, mnemonic, Xi64, RegMRM>;
 
         defm NAME#16ri  : BinOpRI_RFF_Common<0x80, mnemonic, Xi16, opnode,
                                              RegMRM>;
@@ -2416,9 +2385,9 @@ multiclass ArithBinOp_RFF<bits<8> BaseOpc, bits<8> BaseOpc2, bits<8> BaseOpc4,
     let mayLoad = 1, hasSideEffects = 0 in {
     // NOTE: These are order specific, we want the mi8 forms to be listed
     // first so that they are slightly preferred to the mi forms.
-    defm NAME#16mi8  : BinOpMI8_RMW_FF_Common<mnemonic, Xi16, opnode, MemMRM>;
-    defm NAME#32mi8  : BinOpMI8_RMW_FF_Common<mnemonic, Xi32, opnode, MemMRM>;
-    defm NAME#64mi8  : BinOpMI8_RMW_FF_Common<mnemonic, Xi64, opnode, MemMRM,
+    defm NAME#16mi8  : BinOpMI8_RMW_FF_Common<mnemonic, Xi16, MemMRM>;
+    defm NAME#32mi8  : BinOpMI8_RMW_FF_Common<mnemonic, Xi32, MemMRM>;
+    defm NAME#64mi8  : BinOpMI8_RMW_FF_Common<mnemonic, Xi64, MemMRM,
                                               In64BitMode>;
 
     defm NAME#8mi    : BinOpMI_RMW_FF_Common<0x80, mnemonic, Xi8 , opnode,
