@@ -1655,10 +1655,16 @@ UR_APIEXPORT ur_result_t UR_APICALL urMemImageCreate(
 UR_APIEXPORT ur_result_t UR_APICALL urMemImageCreateWithNativeHandle(
     ur_native_handle_t NativeMem, ///< [in] the native handle to the memory.
     ur_context_handle_t Context,  ///< [in] handle of the context object.
+<<<<<<< HEAD
     [[maybe_unused]] const ur_image_format_t
         *ImageFormat, ///< [in] pointer to image format specification.
     [[maybe_unused]] const ur_image_desc_t
         *ImageDesc, ///< [in] pointer to image description.
+=======
+    const ur_image_format_t
+        *ImageFormat, ///< [in] pointer to image format specification.
+    const ur_image_desc_t *ImageDesc, ///< [in] pointer to image description.
+>>>>>>> bacf8ff38fd264518ce26873f24a4344844e714a
     const ur_mem_native_properties_t
         *Properties, ///< [in][optional] pointer to native memory creation
                      ///< properties.
