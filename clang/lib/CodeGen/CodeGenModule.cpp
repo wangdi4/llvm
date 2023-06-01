@@ -2061,7 +2061,7 @@ void CodeGenModule::SetLLVMFunctionAttributes(GlobalDecl GD,
   // For SVML functions, select a variant of SVML calling convention according
   // to function name and type.
   if (F->getCallingConv() == llvm::CallingConv::SVML_Unified) {
-    llvm::Optional<llvm::CallingConv::ID> CC =
+    std::optional<llvm::CallingConv::ID> CC =
         llvm::getSVMLCallingConvByNameAndType(F->getName(),
                                               F->getFunctionType());
     if (CC.has_value())
@@ -7022,7 +7022,7 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
   if (LangOpts.OpenMPLateOutline && LangOpts.OpenMP >= 51 &&
       OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(D)) {
     bool IsIndirect = false;
-    if (llvm::Optional<OMPDeclareTargetDeclAttr *> ActiveAttr =
+    if (std::optional<OMPDeclareTargetDeclAttr *> ActiveAttr =
             OMPDeclareTargetDeclAttr::getActiveAttr(D)) {
       IsIndirect = (*ActiveAttr)->getIndirect();
       if (!IsIndirect)

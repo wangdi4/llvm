@@ -14,8 +14,6 @@
 
 #include <llvm/Analysis/ScalarEvolution.h>
 
-#include <llvm/ADT/Optional.h>
-
 namespace llvm {
 namespace vpo {
 
