@@ -973,6 +973,11 @@ private:
                        StructType *FastRedStructTy, Value *FastRedVar,
                        BasicBlock *EntryBB, BasicBlock *EndBB);
 
+  /// Generate dedicated intra-WG atomic-free reduction buffer base pointer:
+  Value *genLocalReductionBufferBase(ReductionItem *RedI, Type *ElemTy,
+                                     Value *NumElements, Value *IdVal,
+                                     IRBuilder<> &Builder);
+
   /// Generate local update loop for atomic-free GPU reduction
   void
   genAtomicFreeReductionLocalFini(WRegionNode *W, ReductionItem *RedI,
