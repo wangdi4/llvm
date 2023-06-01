@@ -4407,6 +4407,7 @@ void ASTRecordWriter::AddAttr(const Attr *A) {
   Record.push_back(A->getParsedKind());
   Record.push_back(A->getSyntax());
   Record.push_back(A->getAttributeSpellingListIndexRaw());
+  Record.push_back(A->isRegularKeywordAttribute());
 
 #include "clang/Serialization/AttrPCHWrite.inc"
 }
