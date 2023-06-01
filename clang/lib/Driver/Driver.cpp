@@ -2348,13 +2348,10 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
 #if INTEL_CUSTOMIZATION
       FPGATC->TranslateBackendTargetArgs(Action::OFK_SYCL, FPGATC->getTriple(), *TranslatedArgs,
                                          TargetArgs);
-<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
-=======
       // By default, FPGAEmulationMode is true due to the fact that
       // an external option setting is required to target hardware.
       setOffloadCompileMode(FPGAEmulationMode);
->>>>>>> 399442d58e3030615e27d07e66b065101309bbbe
       for (StringRef ArgString : TargetArgs) {
         if (ArgString.equals("-hardware") || ArgString.equals("-simulation")) {
           setOffloadCompileMode(FPGAHWMode);

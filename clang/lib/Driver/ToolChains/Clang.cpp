@@ -10924,13 +10924,7 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
     }
 #endif // INTEL_CUSTOMIZATION
     ExtArg = ExtArg + DefaultExtArg + INTELExtArg;
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-    if (!C.getDriver().isFPGAEmulationMode()) {
-#endif // INTEL_CUSTOMIZATION
-=======
-    if (C.getDriver().IsFPGAHWMode())
->>>>>>> 399442d58e3030615e27d07e66b065101309bbbe
+    if (C.getDriver().IsFPGAHWMode()) { // INTEL
       // Enable several extensions on FPGA H/W exclusively
       ExtArg += ",+SPV_INTEL_usm_storage_classes,+SPV_INTEL_runtime_aligned"
                 ",+SPV_INTEL_fpga_cluster_attributes,+SPV_INTEL_loop_fuse"
