@@ -2167,12 +2167,8 @@ def FastCall : DeclOrTypeAttr {
 }
 
 def RegCall : DeclOrTypeAttr {
-<<<<<<< HEAD
   // INTEL_CUSTOMIZATION - "_regcall" alternate spelling
-  let Spellings = [GCC<"regcall">, Keyword<"__regcall">, Keyword<"_regcall">];
-=======
-  let Spellings = [GCC<"regcall">, CustomKeyword<"__regcall">];
->>>>>>> ac5c996d5aaab5f4508531e815e7ee408284e968
+  let Spellings = [GCC<"regcall">, CustomKeyword<"__regcall">, CustomKeyword<"_regcall">];
   let Documentation = [RegCallDocs];
 }
 
