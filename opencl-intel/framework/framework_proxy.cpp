@@ -574,7 +574,9 @@ bool FrameworkProxy::NeedToDisableAPIsAtShutdown() const {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void FrameworkProxy::Destroy() {
 #if !DISABLE_SHUTDOWN && !_WIN32
-  Instance()->Release(true);
+  // Only enter shutdown process if the instance has been created.
+  if (m_instance)
+    m_instance->Release(true);
 #endif
 }
 
