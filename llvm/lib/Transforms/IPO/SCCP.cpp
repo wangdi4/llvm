@@ -450,7 +450,11 @@ PreservedAnalyses IPSCCPPass::run(Module &M, ModuleAnalysisManager &AM) {
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
   PA.preserve<DominatorTreeAnalysis>();
-  PA.preserve<PostDominatorTreeAnalysis>();
+#if INTEL_CUSTOMIZATION
+  // PDT is not updated automatically when DT is updated. There is no reason
+  // to believe that the PDT will be correct after SCCP. (48147)
+  // PA.preserve<PostDominatorTreeAnalysis>();
+#endif // INTEL_CUSTOMIZATION
   PA.preserve<FunctionAnalysisManagerModuleProxy>();
   PA.preserve<WholeProgramAnalysis>();  // INTEL
   PA.preserve<GlobalsAA>();             // INTEL
