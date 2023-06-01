@@ -2713,7 +2713,7 @@ static LValue EmitGlobalVarDeclLValue(CodeGenFunction &CGF,
   // causes an offload failure at runtime.
   if (CGF.getLangOpts().OpenMPLateOutline && CGF.getLangOpts().OpenMPIsDevice &&
       CGF.CGM.inTargetRegion() && E->getExprLoc().isValid()) {
-    llvm::Optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
+    std::optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
         OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD);
     if (!Res) {
       if (!VD->isConstexpr() && !VD->hasAttr<OMPGroupPrivateDeclAttr>() &&

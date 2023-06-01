@@ -2299,7 +2299,7 @@ static llvm::Value *MayIUseCpuFeatureHelper(CodeGenFunction &CGF,
 }
 
 llvm::Value *CodeGenFunction::EmitX86MayIUseCpuFeature(const CallExpr *E) {
-  Optional<llvm::APSInt> CompareFeatures =
+  std::optional<llvm::APSInt> CompareFeatures =
       E->getArg(0)->getIntegerConstantExpr(getContext());
   assert(CompareFeatures.has_value() && "Constant arg isn't actually constant?");
 
@@ -2308,11 +2308,11 @@ llvm::Value *CodeGenFunction::EmitX86MayIUseCpuFeature(const CallExpr *E) {
 }
 
 llvm::Value *CodeGenFunction::EmitX86MayIUseCpuFeatureExt(const CallExpr *E) {
-  Optional<llvm::APSInt> CompareFeatures =
+  std::optional<llvm::APSInt> CompareFeatures =
       E->getArg(0)->getIntegerConstantExpr(getContext());
   assert(CompareFeatures.has_value() && "Constant arg isn't actually constant?");
 
-  Optional<llvm::APSInt> Page =
+  std::optional<llvm::APSInt> Page =
       E->getArg(1)->getIntegerConstantExpr(getContext());
   assert(Page.has_value() && "Constant arg isn't actually constant?");
 
@@ -24088,7 +24088,7 @@ RValue CodeGenFunction::EmitIntelFPGAMemBuiltin(const CallExpr *E) {
 
   auto AddArgValue = [&E, &Ctx, &Out](unsigned NumOfArg, StringRef StringToAdd,
                                       int DefaultValue = INT_MIN) {
-    Optional<llvm::APSInt> IntVal =
+    std::optional<llvm::APSInt> IntVal =
         (E->getNumArgs() > NumOfArg)
             ? E->getArg(NumOfArg)->getIntegerConstantExpr(Ctx)
             : APSInt::get(DefaultValue);

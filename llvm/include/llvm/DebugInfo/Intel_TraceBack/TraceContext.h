@@ -20,7 +20,6 @@
 #define LLVM_DEBUGINFO_TRACEBACK_TRACECONTEXT_H
 
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/BinaryFormat/Intel_Trace.h"
