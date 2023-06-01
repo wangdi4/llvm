@@ -359,7 +359,7 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Cost) {
   //   %ptr3: 4 -> 16 (cost -= 2)
   //   %ptr4: 4 ->  8 (cost -= 1)
   //   %ptr5: 4 -> 16 (cost -= 2)
-  Optional<std::pair<VPlanDynamicPeeling, VPInstructionCost>> P4 =
+  std::optional<std::pair<VPlanDynamicPeeling, VPInstructionCost>> P4 =
       VPPA->selectBestDynamicPeelingVariant(4, CM);
   EXPECT_EQ(P4->second, 5);
 
@@ -378,7 +378,7 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Cost) {
   //   %ptr3: 4 ->  4 (cost -= 0)
   //   %ptr4: 4 ->  4 (cost -= 0)
   //   %ptr5: 4 ->  4 (cost -= 0)
-  Optional<std::pair<VPlanDynamicPeeling, VPInstructionCost>> P16 =
+  std::optional<std::pair<VPlanDynamicPeeling, VPInstructionCost>> P16 =
       VPPA->selectBestDynamicPeelingVariant(16, CM);
   EXPECT_EQ(P16->second, 8);
 
