@@ -95,9 +95,9 @@ class HIRDeadStoreElimination {
   // Map of non-linear temp symbases to the loops they are defined in.
   DenseMap<unsigned, SmallVector<NonLinearTempInfo, 2>> NonLinearTempInfoMap;
 
-  // Map of base ptr value to a boolean indicating whether all dereferences of
-  // the base are in single region.
-  DenseMap<Value *, bool> AllDereferencesInSingleRegion;
+  // Map of base ptr value to the region where all the loads of the base ptr
+  // exist in the function.
+  DenseMap<Value *, HLRegion *> AllLoadsInSingleRegion;
 
   /// Checks the common parent loops of \p PostDominatingLoop and \p PrevLoop to
   /// make sure they have valid bounds for perfoming DSE. Returns a new node
@@ -126,9 +126,9 @@ class HIRDeadStoreElimination {
   /// to be safe for analysis.
   bool basePtrEscapesAnalysis(const RegDDRef *Ref) const;
 
-  /// Returns true if all dereferences of the base ptr of \p Ref are within \p
+  /// Returns true if all load of the base ptr of \p Ref are within \p
   /// Region.
-  bool hasAllDereferencesWithinRegion(HLRegion &Region, const RegDDRef *Ref);
+  bool hasAllLoadsWithinRegion(HLRegion &Region, const RegDDRef *Ref);
 
   /// Inserts applicable fake lifetime intrinsics to this ref group while
   /// maintaining the lexical order.
