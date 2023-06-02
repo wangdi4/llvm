@@ -1375,7 +1375,7 @@ void Transformer::dump() {
   for (auto &Entry : InnermostLoopToDimInfos) {
     dbgs() << "Lp :" << Entry.first->getNumber() << " ";
     dbgs() << "DimInfoSize: " << Entry.second.size() << ", ";
-    for (auto LevelOffset : Entry.second)
+    for (auto &LevelOffset : Entry.second)
       dbgs() << "LevelOffset:" << LevelOffset << " ";
     dbgs() << "\n";
   }
@@ -1399,7 +1399,6 @@ void Transformer::dump() {
   if (NodeOutsideByStrip)
     dbgs() << NodeOutsideByStrip->getNumber() << "\n";
 
-  dbgs() << "CloneDVLoads: " << CloneDVLoads << "\n";
 }
 #endif
 
@@ -1408,13 +1407,13 @@ Transformer::Transformer(ArrayRef<unsigned> StripmineSizes,
                          const LoopToConstRefTy &InnermostLoopToRepRef,
                          const InnermostLoopToShiftTy &InnermostLoopToShift,
                          HLNode *NodeOutsideByStrip, HIRDDAnalysis &DDA,
-                         StringRef Func, bool CloneDVLoads)
+                         StringRef Func)
     : DDA(DDA), StripmineSizes(StripmineSizes),
       InnermostLoopToDimInfos(InnermostLoopToDimInfos),
       InnermostLoopToRepRef(InnermostLoopToRepRef),
       InnermostLoopToShift(InnermostLoopToShift),
       NodeOutsideByStrip(NodeOutsideByStrip), NumByStripLoops(0), Func(Func),
-      CloneDVLoads(CloneDVLoads), HasNonDimMatchingLoop(false) {
+      HasNonDimMatchingLoop(false) {
 
   LLVM_DEBUG(dump());
 }
@@ -1457,7 +1456,7 @@ bool Transformer::checkDimsToLoops(
   return true;
 }
 
-bool Transformer::rewrite() {
+bool Transformer::rewrite(bool CloneDVLoads, bool AlignSpatialLoops) {
 
   if (!init())
     return false;
@@ -1514,8 +1513,8 @@ bool Transformer::rewrite() {
     }
   }
 
-  // Align original spatial loops
-  alignSpatialLoops(InnermostLoopToAdjustingRef);
+  if (AlignSpatialLoops)
+    alignSpatialLoops(InnermostLoopToAdjustingRef);
 
   assert(HasNonDimMatchingLoop ||
          isa<HLLoop>(AnchorNode) &&

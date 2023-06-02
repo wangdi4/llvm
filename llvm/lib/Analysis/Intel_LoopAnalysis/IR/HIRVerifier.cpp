@@ -391,8 +391,12 @@ void HIRVerifierImpl::checkLoopLiveinLiveout(unsigned UseSB,
     auto &BU = UseNode->getBlobUtils();
 
     if (BU.isInstBlob(BU.findTempBlobIndex(UseSB))) {
-      assert(UseNode->getParentRegion()->isLiveIn(UseSB) &&
-             "Temp expected to be livein to region.");
+      if (!UseNode->getParentRegion()->isLiveIn(UseSB)) {
+        LLVM_DEBUG(dbgs() << " UseSB: " << UseSB << " UseNode:\n";
+                   UseNode->dump(true));
+        LLVM_DEBUG(dbgs() << " UseLoop:\n"; UseLoop->dump());
+        llvm_unreachable("Temp expected to be livein to region.");
+      }
     }
   }
 
