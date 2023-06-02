@@ -12,7 +12,7 @@ define dso_local void @main() local_unnamed_addr {
 ; CHECK-NEXT:    sete %al
 ; CHECK-NEXT:    vmovd %eax, %xmm0
 ; CHECK-NEXT:    vpbroadcastb %xmm0, %xmm0
-; CHECK-NEXT:    vmovdqa {{.*#+}} xmm1 = <u,255,255,255,255,255,255,255,u,u,u,u,u,u,u,u>
+; CHECK-NEXT:    vpbroadcastb {{.*#+}} xmm1 = [255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255]
 ; CHECK-NEXT:    vpinsrb $0, c(%rip), %xmm1, %xmm1
 ; CHECK-NEXT:    vpand %xmm1, %xmm0, %xmm0
 ; CHECK-NEXT:    vpshufb {{.*#+}} xmm1 = xmm0[4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4]
