@@ -29,6 +29,11 @@ function(create_ocl_kernel_target CLANG_FLAGS INPUT_CL TMP_DIR OUTPUT_DIR
   set(OUTPUT_BC_FILE ${FILENAME}.bc)
 
   # generate frontend IR and run optimizer on it.
+if(SPIRV_ENABLE_OPAQUE_POINTERS)
+  set(OPAQUE "")
+else()
+  set(OPAQUE -opaque-pointers=0)
+endif()
   add_custom_command(
     OUTPUT ${OUTPUT_FILE}
     DEPENDS ${CLANG} ${OPT} ${INPUT_CL} process-intrin-headers
@@ -40,7 +45,7 @@ sycl-kernel-deduce-max-dim,sycl-kernel-wgloop-creator,loop-idiom,\
 loop-deletion,sycl-kernel-add-implicit-args,\
 sycl-kernel-resolve-wi-call,sycl-kernel-prepare-args,inline,dce,\
 globaldce,instcombine,sycl-kernel-cleanup-wrapped"
-      -opaque-pointers=0 -o ${OUTPUT_FILE}
+      ${OPAQUE} -o ${OUTPUT_FILE}
     COMMENT "Compiling ${RTL_FILE}")
 
   add_custom_target(

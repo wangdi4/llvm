@@ -117,10 +117,13 @@ set(CLANG_C_COMPILER_PARAMS
     ${CL_BUILTIN_SOURCE_DIR}
     ${CLANG_LLVM_INCLUDE_DIRS}
     -mstackrealign
-    -no-opaque-pointers
     # Pretend we use LTO as Intel's clang version doesn't allows emitting LLVM
     # bytecode for C/C++ files w/o LTO flag.
     -flto)
+
+if(NOT SPIRV_ENABLE_OPAQUE_POINTERS)
+  set(CLANG_C_COMPILER_PARAMS ${CLANG_C_COMPILER_PARAMS} -no-opaque-pointers)
+endif()
 
 # options for clang to compile OpenCL 2.0 image callbacks
 

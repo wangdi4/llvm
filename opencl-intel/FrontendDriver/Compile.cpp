@@ -228,7 +228,9 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
     optionsEx << " -include " << OPENCL_CTH_PRE_RELEASE_H_name;
   }
 
+#ifndef SPIRV_ENABLE_OPAQUE_POINTERS
   optionsEx << " -no-opaque-pointers";
+#endif
 
   IOCLFEBinaryResultPtr spBinaryResult;
 

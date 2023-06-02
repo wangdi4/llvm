@@ -617,8 +617,14 @@ llvm::LLVMContext &Compiler::getLLVMContext() {
   std::lock_guard<llvm::sys::Mutex> Locked(m_LLVMContextMutex);
   auto TID = std::this_thread::get_id();
   auto It = m_LLVMContexts.find(TID);
-  if (It == m_LLVMContexts.end())
+  if (It == m_LLVMContexts.end()) {
     It = m_LLVMContexts.emplace(TID, std::make_unique<LLVMContext>()).first;
+#ifdef SPIRV_ENABLE_OPAQUE_POINTERS
+    It->second->setOpaquePointers(true);
+#else
+    It->second->setOpaquePointers(false);
+#endif
+  }
   return *It->second;
 }
 

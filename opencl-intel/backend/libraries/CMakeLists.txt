@@ -170,8 +170,11 @@ set(CLANG_CL_COMMON_FLAGS
     -cl-std=CL2.0
     -D
     __OPENCL_C_VERSION__=200
-    -ffake-address-space-map
-    -no-opaque-pointers)
+    -ffake-address-space-map)
+
+if(NOT SPIRV_ENABLE_OPAQUE_POINTERS)
+  set(CLANG_CL_COMMON_FLAGS ${CLANG_CL_COMMON_FLAGS} -no-opaque-pointers)
+endif()
 
 # llvm-link parameters
 set(LLVM_LINK_PARAMS -suppress-warnings)
