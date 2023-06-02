@@ -540,11 +540,11 @@ public:
   /// instantiations of this template function.
   template <typename... Args>
   void setBailoutRemark(OptReportVerbosity::Level BailoutLevel,
-                        unsigned BailoutID, Args &&...BailoutArgs) const {
+                        OptRemarkID BailoutID, Args &&...BailoutArgs) const {
     BR.BailoutLevel = BailoutLevel;
-    BR.BailoutRemark =
-        OptRemark::get(*Context, BailoutID, OptReportDiag::getMsg(BailoutID),
-                       std::forward<Args>(BailoutArgs)...);
+    BR.BailoutRemark = OptRemark::get(
+        *Context, static_cast<unsigned>(BailoutID),
+        OptReportDiag::getMsg(BailoutID), std::forward<Args>(BailoutArgs)...);
   }
 
   /// Access the cached bailout remark.
@@ -658,13 +658,13 @@ protected:
   /// Reports a reason for vectorization bailout. Always returns false.
   /// \p Message will appear both in the debug dump and the opt report remark.
   template <typename... Args>
-  void bailout(OptReportVerbosity::Level Level, unsigned ID,
+  void bailout(OptReportVerbosity::Level Level, OptRemarkID ID,
                std::string Message, Args &&...BailoutArgs) const;
 
   /// Reports a reason for vectorization bailout. Always returns false.
   /// \p Debug will appear in the debug dump, but not in the opt report remark.
   template <typename... Args>
-  void bailoutWithDebug(OptReportVerbosity::Level Level, unsigned ID,
+  void bailoutWithDebug(OptReportVerbosity::Level Level, OptRemarkID ID,
                         std::string Debug, Args &&...BailoutArgs) const;
 
   /// Go through all VPlans and run \p ProcessPlan on each of them.

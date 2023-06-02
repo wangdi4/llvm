@@ -6020,15 +6020,15 @@ public:
   /// message is identified by \p MsgID.
   template <typename... Args>
   void addRemark(loopopt::HLLoop *Lp, OptReportVerbosity::Level Verbosity,
-                 unsigned MsgID, Args &&...args) {
+                 OptRemarkID MsgID, Args &&...args) {
     ORBuilder(*Lp).addRemark(Verbosity, MsgID, std::forward<Args>(args)...);
   }
 
   /// Add a vectorization related remark for the LLVM loop \p Lp. The remark
   /// message is identified by \p MsgID.
   template <typename... Args>
-  void addRemark(Loop *Lp, OptReportVerbosity::Level Verbosity, unsigned MsgID,
-                 Args &&...args) {
+  void addRemark(Loop *Lp, OptReportVerbosity::Level Verbosity,
+                 OptRemarkID MsgID, Args &&...args) {
     // For LLVM-IR Loop, LORB needs a valid LoopInfo object
     assert(LI && "LoopInfo for opt-report builder is null.");
     ORBuilder(*Lp, *LI).addRemark(Verbosity, MsgID,
@@ -6050,14 +6050,14 @@ public:
   /// Add a origin related remark for the HIR loop \p Lp. The remark
   /// message is identified by \p MsgID.
   template <typename... Args>
-  void addOrigin(loopopt::HLLoop *Lp, unsigned MsgID, Args &&...args) {
+  void addOrigin(loopopt::HLLoop *Lp, OptRemarkID MsgID, Args &&...args) {
     ORBuilder(*Lp).addOrigin(MsgID, std::forward<Args>(args)...);
   }
 
   /// Add a origin related remark for the LLVM loop \p Lp. The remark
   /// message is identified by \p MsgID.
   template <typename... Args>
-  void addOrigin(Loop *Lp, unsigned MsgID, Args &&...args) {
+  void addOrigin(Loop *Lp, OptRemarkID MsgID, Args &&...args) {
     // For LLVM-IR Loop, LORB needs a valid LoopInfo object
     assert(LI && "LoopInfo for opt-report builder is null.");
     ORBuilder(*Lp, *LI).addOrigin(MsgID, std::forward<Args>(args)...);

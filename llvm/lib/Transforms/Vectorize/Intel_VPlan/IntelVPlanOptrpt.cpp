@@ -26,8 +26,11 @@ void OptReportStatsTracker::emitRemarks(VPlanOptReportBuilder &Builder,
   int Gathers = MaskedGathers + UnmaskedGathers;
   int Scatters = MaskedScatters + UnmaskedScatters;
 #define VPLAN_OPTRPT_GS(Gathers, Scatters)                                     \
-  if (Gathers) Builder.addRemark(Lp, OptReportVerbosity::High, 15567);         \
-  if (Scatters) Builder.addRemark(Lp, OptReportVerbosity::High, 15568);
+  if (Gathers)                                                                 \
+    Builder.addRemark(Lp, OptReportVerbosity::High,                            \
+                      OptRemarkID::GatherReason);                              \
+  if (Scatters)                                                                \
+    Builder.addRemark(Lp, OptReportVerbosity::High, OptRemarkID::ScatterReason);
 #define VPLAN_OPTRPT_HANDLE_GROUP_BEGIN(ID)                                    \
   Builder.addRemark(Lp, OptReportVerbosity::High, ID);
 #define VPLAN_OPTRPT_HANDLE(ID, NAME)                                          \
@@ -60,9 +63,11 @@ void OptReportStatsTracker::emitRemarks(OptReportBuilder &Builder, VPLoop *Lp,
   int Scatters = MaskedScatters + UnmaskedScatters;
 #define VPLAN_OPTRPT_GS(Gathers, Scatters)                                     \
   if (Gathers)                                                                 \
-    Builder(*Lp, *VPLI).addRemark(OptReportVerbosity::High, 15567u);           \
+    Builder(*Lp, *VPLI)                                                        \
+        .addRemark(OptReportVerbosity::High, OptRemarkID::GatherReason);       \
   if (Scatters)                                                                \
-    Builder(*Lp, *VPLI).addRemark(OptReportVerbosity::High, 15568u);
+    Builder(*Lp, *VPLI)                                                        \
+        .addRemark(OptReportVerbosity::High, OptRemarkID::ScatterReason);
 #define VPLAN_OPTRPT_HANDLE_GROUP_BEGIN(ID)                                    \
   Builder(*Lp, *VPLI).addRemark(OptReportVerbosity::High, ID);
 #define VPLAN_OPTRPT_HANDLE(ID, NAME)                                          \
