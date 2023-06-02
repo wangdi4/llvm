@@ -4173,7 +4173,7 @@ static void GenerateAppertainsTo(const Record &Attr, raw_ostream &OS) {
       OS << "    if (S.getLangOpts().IntelCompat)\n";
       OS << "      S.Diag(Attr.getLoc(), "
             "diag::warn_attribute_wrong_decl_type_str)\n";
-      OS << "        << Attr << ";
+      OS << "          << Attr << Attr.isRegularKeywordAttribute() << ";
       OS << CalculateDiagnostic(*SubjectObj) << ";\n";
       OS << "    else\n";
     }
@@ -4218,7 +4218,7 @@ static void GenerateAppertainsTo(const Record &Attr, raw_ostream &OS) {
       OS << "    if (S.getLangOpts().IntelCompat)\n";
       OS << "      S.Diag(Attr.getLoc(), "
             "diag::warn_attribute_wrong_decl_type_str)\n";
-      OS << "        << Attr << ";
+      OS << "          << Attr << Attr.isRegularKeywordAttribute() << ";
       OS << CalculateDiagnostic(*SubjectObj) << ";\n";
       OS << "    else\n";
     }

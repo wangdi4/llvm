@@ -3486,7 +3486,8 @@ static void handleStallLatencyAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     if (AL.getSemanticSpelling() == SLA->getSemanticSpelling())
       S.Diag(AL.getLoc(), diag::warn_duplicate_attribute_exact) << SLA;
     else {
-      S.Diag(AL.getLoc(), diag::err_attributes_are_not_compatible) << AL << SLA;
+      S.Diag(AL.getLoc(), diag::err_attributes_are_not_compatible)
+          << AL << SLA << AL.isRegularKeywordAttribute();
       S.Diag(SLA->getLocation(), diag::note_conflicting_attribute);
     }
     return;
