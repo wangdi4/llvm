@@ -62,6 +62,8 @@
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
@@ -276,8 +278,15 @@ CallBase &llvm::pgo::promoteIndirectCall(CallBase &CB, Function *DirectCallee,
   MDNode *BranchWeights = MDB.createBranchWeights(
       scaleBranchCount(Count, Scale), scaleBranchCount(ElseCount, Scale));
 
+#if INTEL_CUSTOMIZATION
+  getInlineReport()->initFunctionClosure(CB.getFunction());
+#endif // INTEL_CUSTOMIZATION
   CallBase &NewInst =
       promoteCallWithIfThenElse(CB, DirectCallee, BranchWeights);
+#if INTEL_CUSTOMIZATION
+  getInlineReport()->addIndirectCallBaseTarget(InlICSPGO, &CB, &NewInst);
+  getMDInlineReport()->addIndirectCallBaseTarget(InlICSPGO, &CB, &NewInst);
+#endif // INTEL_CUSTOMIZATION
 
   if (AttachProfToDirectCall) {
     MDBuilder MDB(NewInst.getContext());

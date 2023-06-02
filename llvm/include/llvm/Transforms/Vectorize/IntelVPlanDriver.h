@@ -156,11 +156,11 @@ protected:
   // instantiations of this template function.
   template <typename... Args>
   void setBailoutRemark(OptReportVerbosity::Level BailoutLevel,
-                        unsigned BailoutID, Args &&...BailoutArgs) {
+                        OptRemarkID BailoutID, Args &&...BailoutArgs) {
     BR.BailoutLevel = BailoutLevel;
-    BR.BailoutRemark = OptRemark::get(ORBuilder.getContext(), BailoutID,
-                                      OptReportDiag::getMsg(BailoutID),
-                                      std::forward<Args>(BailoutArgs)...);
+    BR.BailoutRemark = OptRemark::get(
+        ORBuilder.getContext(), static_cast<unsigned>(BailoutID),
+        OptReportDiag::getMsg(BailoutID), std::forward<Args>(BailoutArgs)...);
   }
 
 public:
@@ -176,174 +176,12 @@ public:
   /// Whether to emit debug remarks into the opt report.
   static inline bool EmitDebugOptRemarks = false;
 
-  // Remark IDs are defined in lib/Analysis/Intel_OptReport/Diag.cpp:
-
-  /// 15300: LOOP WAS VECTORIZED
-  static constexpr unsigned LoopSuccessRemarkID = 15300;
-
-  /// 15301: SIMD LOOP WAS VECTORIZED
-  static constexpr unsigned SimdLoopSuccessRemarkID = 15301;
-
-  /// 15305: vectorization support: vector length %s
-  static constexpr unsigned VectorLengthRemarkID = 15305;
-
-  /// 15309: vectorization support: normalized vectorization overhead %s
-  static constexpr unsigned NormVecOverheadRemarkID = 15309;
-
-  /// 15313: %s was not vectorized: unsupported data type
-  static constexpr unsigned BadTypeRemarkID = 15313;
-
-  /// 15315: %s was not vectorized: low trip count
-  static constexpr unsigned LowTripCountRemarkID = 15315;
-
-  /// 15330: %s was not vectorized: the reduction operator is not supported yet
-  static constexpr unsigned BadRednRemarkID = 15330;
-
-  /// 15332: %s was not vectorized: loop is not within user-defined range
-  static constexpr unsigned OutOfRangeRemarkID = 15332;
-
-  /// 15335: %s was not vectorized: vectorization possible but seems
-  ///        inefficient. Use vector always directive or -vec-threshold0 to
-  ///        override
-  static constexpr unsigned NoProfitRemarkID = 15335;
-
-  /// 15353: loop was not vectorized: loop is not in canonical form from
-  ///        OpenMP specification, may be as a result of previous
-  ///        optimization(s)
-  static constexpr unsigned BadSimdRemarkID = 15353;
-
-  /// 15399: vectorization support: unroll factor %s
-  static constexpr unsigned UnrollFactorRemarkID = 15399;
-
-  /// 15407: vectorization support: type complex float is not supported for
-  ///        operation %s
-  static constexpr unsigned CmplxFltRemarkID = 15407;
-
-  /// 15408: vectorization support: type complex double is not supported for
-  ///        operation %s
-  static constexpr unsigned CmplxDblRemarkID = 15408;
-
-  /// 15436: loop was not vectorized: %s
-  static constexpr unsigned BailoutRemarkID = 15436;
-
-  /// 15437: peel loop was vectorized
-  static constexpr unsigned PeelLoopWasVectorizedRemarkID = 15437;
-
-  /// 15439: remainder loop was vectorized (unmasked)
-  static constexpr unsigned RemainderLoopVectorizedUnmaskedRemarkID = 15439;
-
-  /// 15440: remainder loop was vectorized (masked)
-  static constexpr unsigned RemainderLoopVectorizedMaskedRemarkID = 15440;
-
-  /// 15441: remainder loop was not vectorized: %s
-  static constexpr unsigned RemainderNotVecRemarkID = 15441;
-
-  /// 15476: scalar cost: %s
-  static constexpr unsigned ScalarCostRemarkID = 15476;
-
-  /// 15477: vector cost: %s
-  static constexpr unsigned VectorCostRemarkID = 15477;
-
-  /// 15478: estimated potential speedup: %s
-  static constexpr unsigned EstSpeedupRemarkID = 15478;
-
-  /// 15506: vplan loop number: %s
-  static constexpr unsigned LoopNumberRemarkID = 15506;
-
-  /// 15520: %s was not vectorized: loop with multiple exits cannot be
-  ///        vectorized unless it meets search loop idiom criteria
-  static constexpr unsigned BadSearchRemarkID = 15520;
-
-  /// 15521: %s was not vectorized: loop control variable was not identified.
-  ///        Explicitly compute the iteration count before executing the loop
-  ///        or try using canonical loop form from OpenMP specification%s
-  static constexpr unsigned LoopIVRemarkID = 15521;
-
-  /// 15522: %s was not vectorized: loop control flow is too complex. Try
-  ///        using canonical loop form from OpenMP specification%s
-  static constexpr unsigned ComplexFlowRemarkID = 15522;
-
-  /// 15535: %s was not vectorized: loop contains switch statement. Consider
-  ///        using if-else statement.
-  static constexpr unsigned SwitchRemarkID = 15535;
-
-  /// 15558: Call to function '%s' was serialized due to no suitable vector
-  ///        variants were found.
-  static constexpr unsigned NoVecVariantsRemarkID = 15558;
-  static constexpr unsigned FirstSerializeRemarkID = 15558;
-
-  /// 15560: Indirect call cannot be vectorized
-  static constexpr unsigned IndCallRemarkID = 15560;
-
-  /// 15563: Load/store instruction was serialized due to operating on
-  ///        non-vectorizable types.
-  static constexpr unsigned LdStSerialRemarkID = 15563;
-
-  /// 15564: Extract/Insert element instruction was serialized due to
-  ///        non-const index.
-  static constexpr unsigned ExtInsNonConstSerialRemarkID = 15564;
-
-  /// 15565: Masked Extract/Insert element instruction is serialized.
-  static constexpr unsigned MaskedExtInsSerialRemarkID = 15565;
-
-  /// 15566: '%s': division was scalarized due to fp-model requirements.
-  static constexpr unsigned DivFpModelScalarRemarkID = 15566;
-
-  /// 15569: Compiler has chosen to target XMM/YMM vector. Try using
-  ///        -mprefer-vector-width=512 to override.
-  static constexpr unsigned ShortVectorRemarkID = 15569;
-
-  /// 15570: using scalar loop trip count: %s
-  static constexpr unsigned ScalarTripCountRemarkID = 15570;
-
-  /// 15571: %s was not vectorized: loop contains a recurrent computation that
-  ///        could not be identified as an induction or reduction.  Try using
-  ///        #pragma omp simd reduction/linear/private to clarify recurrence.
-  static constexpr unsigned BadRecurPhiRemarkID = 15571;
-
-  /// 15572: %s was not vectorized: loop contains a live-out value that could
-  ///        not be identified as an induction or reduction.  Try using #pragma
-  ///        omp simd reduction/linear/private to clarify recurrence.
-  static constexpr unsigned BadLiveOutRemarkID = 15572;
-
-  /// 15573: %s was not vectorized: a reduction or induction of a vector type
-  ///        is not supported.
-  static constexpr unsigned VecTypeRednRemarkID = 15573;
-
-  /// 15574: %s was not vectorized: unsupported nested OpenMP (simd) loop or
-  ///        region.
-  static constexpr unsigned NestedSimdRemarkID = 15574;
-
-  /// 15575: peel loop is static
-  static constexpr unsigned PeelLoopIsStaticRemarkID = 15575;
-
-  /// 15576: peel loop is dynamic
-  static constexpr unsigned PeelLoopIsDynamicRemarkID = 15576;
-
-  /// 15577: estimated number of scalar loop iterations peeled: %s
-  static constexpr unsigned EstimatedPeelCountRemarkID = 15577;
-
-  /// 15578: DEBUG: %s
-  static constexpr unsigned DebugRemarkID = 15578;
-
-  /// 25518: Peel loop for vectorization
-  static constexpr unsigned PeelLoopForVectorizationRemarkID = 25518;
-
-  /// 25519: Remainder loop for vectorization
-  static constexpr unsigned RemainderLoopForVectorizationRemarkID = 25519;
-
-  /// 25587: Loop has reduction
-  static constexpr unsigned HasReductionRemarkID = 25587;
-
-  /// 25588: Loop has SIMD reduction
-  static constexpr unsigned HasSimdReductionRemarkID = 25588;
-
   /// Utility functions for adding/constructing debug remarks.
   template <typename RemarkRecordT, typename... ArgsT>
   static RemarkRecordT getDebugRemark(ArgsT &&...Args) {
     std::string Remark;
     ((llvm::raw_string_ostream{Remark} << std::forward<ArgsT>(Args)), ...);
-    return RemarkRecordT{VPlanDriverImpl::DebugRemarkID, std::move(Remark)};
+    return RemarkRecordT{OptRemarkID::GenericDebug, std::move(Remark)};
   }
 
   template <typename... ArgsT, typename RemarkRecordT>

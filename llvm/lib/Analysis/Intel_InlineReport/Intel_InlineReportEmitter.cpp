@@ -70,6 +70,9 @@ private:
   // Print the language character for the Function with name 'CalleeName'.
   void printFunctionLanguageChar(StringRef CalleeName);
 
+  // Print the indirect call specialization method.
+  void printICSMethod(InlICSType ICSMethod);
+
   // Print the name of the callee, module name, line, and column for the
   // callee. 'MD' is the metadata tuple with callee name, module name, line,
   // and column info.
@@ -80,6 +83,10 @@ private:
   // the number of spaces the message should be indented.
   void printSimpleMessage(const char *Message, bool IsInlined,
                           unsigned IndentCount);
+
+  // Print the cost and benefit info. 'MD' is a metadata tuple including
+  // the info. 'IsInlined' is 'true' if the callsite was inlined.
+  void printCostAndBenefit(MDTuple *MD, bool IsInlined);
 
   // Print the cost and threshold info. 'MD' is a metadata tuple including
   // the info. 'IsInlined' is 'true' if the callsite was inlined.
@@ -134,6 +141,24 @@ void IREmitterInfo::printFunctionLanguageChar(StringRef CalleeName) {
   OS << (IsFortran ? "F" : "C") << ' ';
 }
 
+void IREmitterInfo::printICSMethod(InlICSType ICSMethod) {
+  if (!(Level & InlineReportOptions::Indirects))
+    return;
+  switch (ICSMethod) {
+  case InlICSNone:
+    break;
+  case InlICSGPT:
+    OS << "(GPT) ";
+    break;
+  case InlICSSFA:
+    OS << "(SFA) ";
+    break;
+  case InlICSPGO:
+    OS << "(PGO) ";
+    break;
+  }
+}
+
 std::string IREmitterInfo::getFunctionLanguageChar(StringRef CalleeName) {
   if (Function *F = M.getFunction(CalleeName))
     return llvm::getLanguageStr(F);
@@ -146,6 +171,9 @@ std::string IREmitterInfo::getFunctionLanguageChar(StringRef CalleeName) {
 void IREmitterInfo::printCalleeNameModuleLineCol(MDTuple *MD) {
   CallSiteInliningReport CSIR(MD);
   StringRef CalleeName = CSIR.getName();
+  int64_t ICSMethod = 0;
+  getOpVal(MD->getOperand(CSMDIR_ICSMethod), "icsMethod: ", &ICSMethod);
+  printICSMethod(static_cast<InlICSType>(ICSMethod));
   printFunctionLinkageChar(CalleeName);
   printFunctionLanguageChar(CalleeName);
   if ((Level & InlineReportOptions::Demangle) &&
@@ -179,6 +207,23 @@ void IREmitterInfo::printSimpleMessage(const char *Message, bool IsInlined,
   }
 #endif // !INTEL_PRODUCT_RELEASE
   OS << "\n";
+}
+
+void IREmitterInfo::printCostAndBenefit(MDTuple *MD, bool IsInlined) {
+  if (!(Level & InlineReportOptions::EarlyExitCost))
+    return;
+  int64_t CBPairCost = -1;
+  getOpVal(MD->getOperand(CSMDIR_CBPairCost), "CBPairCost: ", &CBPairCost);
+  int64_t CBPairBenefit = -1;
+  getOpVal(MD->getOperand(CSMDIR_CBPairBenefit),
+           "CBPairBenefit: ", &CBPairBenefit);
+  OS << " (" << CBPairCost;
+  if (IsInlined)
+    OS << "<=";
+  else
+    OS << ">";
+  OS << CBPairBenefit;
+  OS << ")";
 }
 
 void IREmitterInfo::printCostAndThreshold(MDTuple *MD, bool IsInlined) {
@@ -249,7 +294,13 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
     OS << "-> INLINE: ";
     printCalleeNameModuleLineCol(CSIR);
     if (InlineReasonText[Reason].Type == InlPrtCost) {
-      printCostAndThreshold(CSIR, true);
+      int64_t IsCostBenefit = 0;
+      getOpVal(CSIR->getOperand(CSMDIR_IsCostBenefit),
+               "isCostBenefit: ", &IsCostBenefit);
+      if (IsCostBenefit)
+        printCostAndBenefit(CSIR, true);
+      else
+        printCostAndThreshold(CSIR, true);
     }
     printSimpleMessage(InlineReasonText[Reason].Message, true, IndentCount);
   } else {
@@ -266,7 +317,16 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
       case NinlrIndirect:
         if (Level & InlineReportOptions::Indirects) {
           printIndentCount(OS, IndentCount);
-          OS << "-> INDIRECT: ";
+          OS << "-> INDIRECT:";
+          printCalleeNameModuleLineCol(CSIR);
+          printSimpleMessage(InlineReasonText[Reason].Message, false,
+                             IndentCount);
+        }
+        break;
+      case NinlrDeletedIndCallConv:
+        if (Level & InlineReportOptions::Indirects) {
+          printIndentCount(OS, IndentCount);
+          OS << "-> INDIRECT: DELETE:";
           printCalleeNameModuleLineCol(CSIR);
           printSimpleMessage(InlineReasonText[Reason].Message, false,
                              IndentCount);
@@ -296,8 +356,15 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
       printIndentCount(OS, IndentCount);
       OS << "-> ";
       printCalleeNameModuleLineCol(CSIR);
-      if (InlineReasonText[Reason].Type == InlPrtCost)
-        printCostAndThreshold(CSIR, false);
+      if (InlineReasonText[Reason].Type == InlPrtCost) {
+        int64_t IsCostBenefit = 0;
+        getOpVal(CSIR->getOperand(CSMDIR_IsCostBenefit),
+                 "isCostBenefit: ", &IsCostBenefit);
+        if (IsCostBenefit)
+          printCostAndBenefit(CSIR, false);
+        else
+          printCostAndThreshold(CSIR, false);
+      }
       printSimpleMessage(InlineReasonText[Reason].Message, false, IndentCount);
     }
   }

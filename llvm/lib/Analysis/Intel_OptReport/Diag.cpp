@@ -20,34 +20,35 @@ using namespace llvm;
 
 /// NOTE:
 /// Vec-report ID starts at 15300. 15552 and below are vectorizer remarks from
-/// ICC, the rest is xmain-specific. Loop-report ID starts at 25045. Unless a
-/// different agreement is made w/ Vector Advisor team, all not vectorized
-/// messages need to stay within 8-bit offset from 15300.
-const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
-    {15300, "LOOP WAS VECTORIZED"},
-    {15301, "SIMD LOOP WAS VECTORIZED"},
+/// ICC, the rest is xmain-specific. Loop-report ID starts at 25045.
+const DenseMap<DiagTableKey, const char *> OptReportDiag::Diags = {
+    {OptRemarkID::LoopVectorized, "LOOP WAS VECTORIZED"},
+    {OptRemarkID::SimdLoopVectorized, "SIMD LOOP WAS VECTORIZED"},
     {15302, "routine skipped: vectorization disabled due to -mno-sse, "
             "-mno-sse2, -mia32, and/or -no-vec flag"},
     {15303,
      "routine skipped: asynchronous exception handling prevents vectorization"},
     {15304, "%s was not vectorized: non-vectorizable loop instance from "
             "multiversioning"},
-    {15305, "vectorization support: vector length %s"},
+    {OptRemarkID::VectorizationFactor,
+     "vectorization support: vector length %s"},
     {15306,
      "%s was not vectorized: inner loop was transformed to memset or memcpy"},
     {15307, "%s was not vectorized: top test could not be found"},
     {15308, "%s was not vectorized: explicitly compute the iteration count "
             "before executing the loop or try using canonical loop form from "
             "OpenMP specification%s"},
-    {15309, "vectorization support: normalized vectorization overhead %s"},
+    {OptRemarkID::NormalizedVecOverhead,
+     "vectorization support: normalized vectorization overhead %s"},
     {15310, "%s was not vectorized: operation cannot be vectorized"},
     {15311, "%s was not vectorized: mixed data types"},
     {15312, "%s was not vectorized: data type unsupported on given target "
             "architecture"},
-    {15313, "%s was not vectorized: unsupported data type"},
+    {OptRemarkID::VecFailBadType,
+     "%s was not vectorized: unsupported data type"},
     {15314, "%s was not vectorized: global scalar assignment in vector "
             "function is prohibited"},
-    {15315, "%s was not vectorized: low trip count"},
+    {OptRemarkID::VecFailLowTripCount, "%s was not vectorized: low trip count"},
     {15316, "%s was not vectorized: scalar assignment in simd loop is "
             "prohibited, consider private, lastprivate or reduction clauses"},
     {15317, "%s was not vectorized: subscript too complex"},
@@ -66,19 +67,20 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {15327, "%s was not vectorized: type conversion prohibits vectorization"},
     {15328, "%s was not vectorized: vector type could not be determined"},
     {15329, "%s was not vectorized: shift operation too complex"},
-    {15330,
+    {OptRemarkID::VecFailBadReduction,
      "%s was not vectorized: the reduction operator is not supported yet"},
     {15331, "%s was not vectorized: precise FP model implied by the command "
             "line or a directive prevents vectorization. Consider using fast "
             "FP model"},
-    {15332, "%s was not vectorized: loop is not within user-defined range"},
+    {OptRemarkID::VecFailUserExcluded,
+     "%s was not vectorized: loop is not within user-defined range"},
     {15333, "%s was not vectorized: exception handling for a call prevents "
             "vectorization"},
     {15334,
      "DO NOT USE. RETIRED MESSAGE. %s was not vectorized: PAROPT problem"},
-    {15335, "%s was not vectorized: vectorization possible but seems "
-            "inefficient. Use vector always directive or -vec-threshold0 to "
-            "override "},
+    {OptRemarkID::VecFailNotProfitable,
+     "%s was not vectorized: vectorization possible but seems inefficient. "
+     "Use vector always directive or -vec-threshold0 to override "},
     {15336, "%s was not vectorized: conditional assignment to a scalar"},
     {15337, "%s was not vectorized: rotation too complex"},
     {15338, "%s was not vectorized: no instance of vectorized math function "
@@ -107,9 +109,9 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
             "Knights Corner. Consider changing compiler flags and/or "
             "directives in the source to enable fast FP model and to mask FP "
             "exceptions"},
-    {15353, "loop was not vectorized: loop is not in canonical form from "
-            "OpenMP specification, may be as a result of previous "
-            "optimization(s)"},
+    {OptRemarkID::VecFailBadlyFormedSimdLoop,
+     "loop was not vectorized: loop is not in canonical form from OpenMP "
+     "specification, may be as a result of previous optimization(s)"},
     {15354, "function was not vectorized: operator unsuited for vectorization"},
     {15355, "function was not vectorized: subscript too complex"},
     {15356, "function was not vectorized: dereference too complex"},
@@ -173,7 +175,8 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
             "optimization options."},
     {15397, "Suitable vector variant of function '%s' was not found"},
     {15398, "%s was not vectorized: loop was transformed to memset or memcpy"},
-    {15399, "vectorization support: unroll factor %s"},
+    {OptRemarkID::VectorizerUnrollFactor,
+     "vectorization support: unroll factor %s"},
     {15400, "vectorization support: type long long is not supported as indices "
             "on given target architecture"},
     {15401,
@@ -188,10 +191,12 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
      "vectorization support: type float is not supported for operation %s"},
     {15406,
      "vectorization support: type double is not supported for operation %s"},
-    {15407, "vectorization support: type complex float is not supported for "
-            "operation %s"},
-    {15408, "vectorization support: type complex double is not supported for "
-            "operation %s"},
+    {OptRemarkID::VecFailBadComplexFloatOp,
+     "vectorization support: type complex float is not supported for "
+     "operation %s"},
+    {OptRemarkID::VecFailBadComplexDoubleOp,
+     "vectorization support: type complex double is not supported for "
+     "operation %s"},
     {15409, "vectorization support: unaligned %s will be scalarized"},
     {15410,
      "vectorization support: conversion from int to float will be emulated"},
@@ -232,34 +237,43 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {15433, "loop was vectorized (with peel/no remainder)"},
     {15434, "loop was vectorized (with peel/with remainder)"},
     {15435, "loop was vectorized with mask due to low trip count"},
-    {15436, "loop was not vectorized: %s "},
-    {15437, "peel loop was vectorized"},
+    {OptRemarkID::VecFailGenericBailout, "loop was not vectorized: %s "},
+    {OptRemarkID::VectorizedPeelLoop, "peel loop was vectorized"},
     {15438, "peel loop was not vectorized: %s "},
-    {15439, "remainder loop was vectorized (unmasked)"},
-    {15440, "remainder loop was vectorized (masked)"},
-    {15441, "remainder loop was not vectorized: %s "},
+    {OptRemarkID::VectorizedRemainderLoopUnmasked,
+     "remainder loop was vectorized (unmasked)"},
+    {OptRemarkID::VectorizedRemainderLoopMasked,
+     "remainder loop was vectorized (masked)"},
+    {OptRemarkID::UnvectorizedRemainderLoop,
+     "remainder loop was not vectorized: %s "},
     {15442, "entire loop may be executed in remainder"},
     {15443, "--- begin vector loop hierarchy summary ---"},
     {15444, "vectorized loop at nesting level: %s "},
     {15445, "loop inside vectorized loop at nesting level: %s "},
     {15446, "--- end vector loop hierarchy summary ---"},
-    {15447, "--- begin vector loop memory reference summary ---"},
+    {OptRemarkID::BeginVectorLoopMemRefSummary,
+     "--- begin vector loop memory reference summary ---"},
     {15448, "unmasked aligned unit stride loads: %s "},
     {15449, "unmasked aligned unit stride stores: %s "},
-    {15450, "unmasked unaligned unit stride loads: %s "},
-    {15451, "unmasked unaligned unit stride stores: %s "},
+    {OptRemarkID::UnmaskedUnalignedUnitStrideLoads,
+     "unmasked unaligned unit stride loads: %s "},
+    {OptRemarkID::UnmaskedUnalignedUnitStrideStores,
+     "unmasked unaligned unit stride stores: %s "},
     {15452, "unmasked strided loads: %s "},
     {15453, "unmasked strided stores: %s "},
     {15454, "masked aligned unit stride loads: %s "},
     {15455, "masked aligned unit stride stores: %s "},
-    {15456, "masked unaligned unit stride loads: %s "},
-    {15457, "masked unaligned unit stride stores: %s "},
-    {15458, "masked indexed (or gather) loads: %s "},
-    {15459, "masked indexed (or scatter) stores: %s "},
+    {OptRemarkID::MaskedUnalignedUnitStrideLoads,
+     "masked unaligned unit stride loads: %s "},
+    {OptRemarkID::MaskedUnalignedUnitStrideStores,
+     "masked unaligned unit stride stores: %s "},
+    {OptRemarkID::MaskedGathers, "masked indexed (or gather) loads: %s "},
+    {OptRemarkID::MaskedScatters, "masked indexed (or scatter) stores: %s "},
     {15460, "masked strided loads: %s "},
     {15461, "masked strided stores: %s "},
-    {15462, "unmasked indexed (or gather) loads: %s "},
-    {15463, "unmasked indexed (or scatter) stores: %s "},
+    {OptRemarkID::UnmaskedGathers, "unmasked indexed (or gather) loads: %s "},
+    {OptRemarkID::UnmaskedScatters,
+     "unmasked indexed (or scatter) stores: %s "},
     {15464, "unmasked broadcast loads: %s "},
     {15465, "masked broadcast loads: %s "},
     {15466, "unmasked aligned streaming loads: %s "},
@@ -270,21 +284,25 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {15471, "masked aligned streaming stores: %s "},
     {15472, "masked unaligned streaming loads: %s "},
     {15473, "masked unaligned streaming stores: %s "},
-    {15474, "--- end vector loop memory reference summary ---"},
-    {15475, "--- begin vector loop cost summary ---"},
-    {15476, "scalar cost: %s "},
-    {15477, "vector cost: %s "},
-    {15478, "estimated potential speedup: %s "},
+    {OptRemarkID::EndVectorLoopMemRefSummary,
+     "--- end vector loop memory reference summary ---"},
+    {OptRemarkID::BeginVectorLoopCostSummary,
+     "--- begin vector loop cost summary ---"},
+    {OptRemarkID::VectorizerScalarLoopCost, "scalar cost: %s "},
+    {OptRemarkID::VectorizerVectorLoopCost, "vector cost: %s "},
+    {OptRemarkID::VectorizerEstimatedSpeedup,
+     "estimated potential speedup: %s "},
     {15479, "lightweight vector operations: %s "},
     {15480, "medium-overhead vector operations: %s "},
     {15481, "heavy-overhead vector operations: %s "},
-    {15482, "vectorized math library calls: %s "},
+    {OptRemarkID::VectorizedMathLibCalls, "vectorized math library calls: %s "},
     {15483, "non-vectorized math library calls: %s "},
-    {15484, "vector function calls: %s "},
-    {15485, "serialized function calls: %s"},
+    {OptRemarkID::VectorFunctionCalls, "vector function calls: %s "},
+    {OptRemarkID::SerializedFunctionCalls, "serialized function calls: %s"},
     {15486, "divides: %s "},
     {15487, "type converts: %s "},
-    {15488, "--- end vector loop cost summary ---"},
+    {OptRemarkID::EndVectorLoopCostSummary,
+     "--- end vector loop cost summary ---"},
     {15489, "--- begin vector function matching report ---"},
     {15490, "Function call: %s with simdlen=%s, actual parameter types: (%s)"},
     {15491, "A suitable vector variant was found (out of %s) redefined by "
@@ -295,8 +313,8 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {15494, "--- begin vector idiom recognition report ---"},
     {15495, "minimum value and minimum value loop index: %s "},
     {15496, "maximum value and maximum value loop index: %s "},
-    {15497, "vector compress: %s "},
-    {15498, "vector expand: %s "},
+    {OptRemarkID::VectorCompressStores, "vector compress: %s "},
+    {OptRemarkID::VectorExpandLoads, "vector expand: %s "},
     {15499, "histogram: %s "},
     {15500, "saturating downconvert: %s "},
     {15501, "saturating add/subtract: %s "},
@@ -304,7 +322,7 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {15503, "--- end vector idiom recognition report ---"},
     {15504, "--- begin vectorizer fails report"},
     {15505, "--- end vectorizer fails report"},
-    {15506, "vplan loop number: %s"},
+    {OptRemarkID::VectorizerLoopNumber, "vplan loop number: %s"},
     {15507, "Incorrect parameter type of vector variant '%s' of function '%s' "
             "at position %d.\n The correct prototype is: '%s'."},
     {15508, "Incorrect return type of vector variant '%s' of function '%s' at "
@@ -331,13 +349,16 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {15518, "loops in this subroutine are not good vectorization candidates "
             "(try compiling with O3 and/or IPO)."},
     {15519, "A part of code was serialized due to operation on %s data"},
-    {15520, "%s was not vectorized: loop with multiple exits cannot be "
-            "vectorized unless it meets search loop idiom criteria"},
-    {15521, "%s was not vectorized: loop control variable was not identified. "
-            "Explicitly compute the iteration count before executing the loop "
-            "or try using canonical loop form from OpenMP specification%s"},
-    {15522, "%s was not vectorized: loop control flow is too complex. Try "
-            "using canonical loop form from OpenMP specification%s"},
+    {OptRemarkID::VecFailBadlyFormedMultiExitLoop,
+     "%s was not vectorized: loop with multiple exits cannot be "
+     "vectorized unless it meets search loop idiom criteria"},
+    {OptRemarkID::VecFailUnknownInductionVariable,
+     "%s was not vectorized: loop control variable was not identified. "
+     "Explicitly compute the iteration count before executing the loop "
+     "or try using canonical loop form from OpenMP specification%s"},
+    {OptRemarkID::VecFailComplexControlFlow,
+     "%s was not vectorized: loop control flow is too complex. Try "
+     "using canonical loop form from OpenMP specification%s"},
     {15523, "%s was not vectorized: loop control variable %s was found, but "
             "loop iteration count cannot be computed before executing the "
             "loop%s"},
@@ -358,8 +379,9 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
             "overriding limits (-override-limits) or using simd directive."},
     {15534, "%s was not vectorized: loop contains arithmetic if or computed "
             "goto. Consider using if-then-else statement. "},
-    {15535, "%s was not vectorized: loop contains switch statement. Consider "
-            "using if-else statement."},
+    {OptRemarkID::VecFailSwitchPresent,
+     "%s was not vectorized: loop contains switch statement. Consider "
+     "using if-else statement."},
     {15536, "%s was not vectorized: inner loop throttling prevents "
             "vectorization of this outer loop. Refer to inner loop message for "
             "more details."},
@@ -395,56 +417,74 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     // Four entries below semantically belong to "vector loop memory reference
     // summary". Be sure to update their mentiones under respective section
     // above.
-    {15554, "Unmasked VLS-optimized loads (each part of the group counted "
-            "separately): %s"},
-    {15555, "Masked VLS-optimized loads (each part of the group counted "
-            "separately): %s"},
-    {15556, "Unmasked VLS-optimized stores (each part of the group counted "
-            "separately): %s"},
-    {15557, "Masked VLS-optimized stores (each part of the group counted "
-            "separately): %s"},
+    {OptRemarkID::UnmaskedVLSLoads,
+     "Unmasked VLS-optimized loads (each part of the group counted "
+     "separately): %s"},
+    {OptRemarkID::MaskedVLSLoads,
+     "Masked VLS-optimized loads (each part of the group counted "
+     "separately): %s"},
+    {OptRemarkID::UnmaskedVLSStores,
+     "Unmasked VLS-optimized stores (each part of the group counted "
+     "separately): %s"},
+    {OptRemarkID::MaskedVLSStores,
+     "Masked VLS-optimized stores (each part of the group counted "
+     "separately): %s"},
     // Entries below semantically belong to  "vector loop cost summary".
     // Remarks for reasons of generated serialized code and scalar instructions.
-    {15558, "Call to function '%s' was serialized due to no suitable vector "
-            "variants were found."},
+    {OptRemarkID::CallSerializedNoVecVariants,
+     "Call to function '%s' was serialized due to no suitable vector "
+     "variants were found."},
     {15559, "Call to function '%s' was serialized due to no vector variants "
             "were found. Consider adding #pragma omp declare simd."},
-    {15560, "Indirect call cannot be vectorized."},
+    {OptRemarkID::CallSerializedIndirectCall,
+     "Indirect call cannot be vectorized."},
     {15561, "Call to function '%s' was serialized due to operating on scalar "
             "operand(s)."},
     {15562, "Call '%s' cannot be vectorized for current context."},
-    {15563, "Load/store instruction was serilalized due to operating on "
-            "non-vectorizable types."},
-    {15564, "Extract/Insert element instruction was serialized due to "
-            "non-const index."},
-    {15565, "Masked Extract/Insert element instruction is serialized."},
-    {15566, "'%s': division was scalarized due to fp-model requirements."},
+    {OptRemarkID::LoadStoreSerializedBadType,
+     "Load/store instruction was serilalized due to operating on "
+     "non-vectorizable types."},
+    {OptRemarkID::ExtractInsertSerialized,
+     "Extract/Insert element instruction was serialized due to "
+     "non-const index."},
+    {OptRemarkID::MaskedExtractInsertSerialized,
+     "Masked Extract/Insert element instruction is serialized."},
+    {OptRemarkID::DivisionSerializedFpModel,
+     "'%s': division was scalarized due to fp-model requirements."},
     // Entries below semantically belong to "vector loop memory reference
     // summary".
     // Remarks for reasons of generated gather/scatter instructions.
-    {15567, "Gathers are generated due to non-unit stride index of the "
-            "corresponding loads."},
-    {15568, "Scatters are generated due to non-unit stride index of the "
-            "corresponding stores."},
-    {15569, "Compiler has chosen to target XMM/YMM vector. Try using "
-            "-mprefer-vector-width=512 to override."},
-    {15570, "using scalar loop trip count: %s"},
+    {OptRemarkID::GatherReason,
+     "Gathers are generated due to non-unit stride index of the "
+     "corresponding loads."},
+    {OptRemarkID::ScatterReason,
+     "Scatters are generated due to non-unit stride index of the "
+     "corresponding stores."},
+    {OptRemarkID::VectorizerShortVector,
+     "Compiler has chosen to target XMM/YMM vector. Try using "
+     "-mprefer-vector-width=512 to override."},
+    {OptRemarkID::VectorizerScalarTripCount,
+     "using scalar loop trip count: %s"},
     // End "vector loop memory reference summary" entries.
-    {15571, "%s was not vectorized: loop contains a recurrent computation "
-            "that could not be identified as an induction or reduction.  "
-            "Try using #pragma omp simd reduction/linear/private to clarify "
-            "recurrence."},
-    {15572, "%s was not vectorized: loop contains a live-out value that could "
-            "not be identified as an induction or reduction.  Try using "
-            "#pragma omp simd reduction/linear/private to clarify recurrence."},
-    {15573, "%s was not vectorized: a reduction or induction of a vector "
-            "type is not supported."},
-    {15574, "%s was not vectorized: unsupported nested OpenMP (simd) loop or "
-            "region."},
-    {15575, "peel loop is static"},
-    {15576, "peel loop is dynamic"},
-    {15577, "estimated number of scalar loop iterations peeled: %s"},
-    {15578, "DEBUG: %s"},
+    {OptRemarkID::VecFailUnknownRecurrence,
+     "%s was not vectorized: loop contains a recurrent computation "
+     "that could not be identified as an induction or reduction.  "
+     "Try using #pragma omp simd reduction/linear/private to clarify "
+     "recurrence."},
+    {OptRemarkID::VecFailUnknownLiveOut,
+     "%s was not vectorized: loop contains a live-out value that could "
+     "not be identified as an induction or reduction.  Try using "
+     "#pragma omp simd reduction/linear/private to clarify recurrence."},
+    {OptRemarkID::VecFailReducingVectorType,
+     "%s was not vectorized: a reduction or induction of a vector "
+     "type is not supported."},
+    {OptRemarkID::VecFailNestedSimdRegion,
+     "%s was not vectorized: unsupported nested OpenMP (simd) loop or region."},
+    {OptRemarkID::VectorizerStaticPeeling, "peel loop is static"},
+    {OptRemarkID::VectorizerDynamicPeeling, "peel loop is dynamic"},
+    {OptRemarkID::VectorizerEstimatedPeelIters,
+     "estimated number of scalar loop iterations peeled: %s"},
+    {OptRemarkID::GenericDebug, "DEBUG: %s"},
     {15579,
      "Multi-exit loop is not safe to vectorize or has unsupported structure."},
 
@@ -524,8 +564,8 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {25515, "LOOP WAS PREFETCHED"},
     {25516, ", LINES = "},
     {25517, "LOOP WAS VECTORIZED"},
-    {25518, "Peeled loop for vectorization"},
-    {25519, "Remainder loop for vectorization"},
+    {OptRemarkID::VectorizerPeelLoop, "Peeled loop for vectorization"},
+    {OptRemarkID::VectorizerRemainderLoop, "Remainder loop for vectorization"},
     {25520, "SIMD LOOP"},
     {25521, "SIMD ENABLED VECTOR FUNCTION"},
     {25522, "CILK PLUS ARRAY NOTATION LOOP"},
@@ -552,8 +592,8 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {25584, "Inner loop sums optimized with sum window reuse"},
     {25585, "Loop converted to switch"},
     {25586, "Peeled loop for fusion"},
-    {25587, "Loop has reduction"},
-    {25588, "Loop has SIMD reduction"},
+    {OptRemarkID::LoopHasReduction, "Loop has reduction"},
+    {OptRemarkID::LoopHasSimdReduction, "Loop has SIMD reduction"},
     {25589, "%d loads hoisted out of If at line %d to make them unconditional "
             "in loop"},
     {25590, "%d stores sunk out of If at line %d to make them unconditional "
@@ -569,7 +609,7 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {25598, "CSA: OpenMP worksharing loop will be pipelined"},
 };
 
-const char *OptReportDiag::getMsg(unsigned Id) {
+const char *OptReportDiag::getMsg(DiagTableKey Id) {
   auto DiagMapIt = Diags.find(Id);
 
   // Sanity check

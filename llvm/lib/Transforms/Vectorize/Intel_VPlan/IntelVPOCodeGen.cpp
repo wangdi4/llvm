@@ -1166,7 +1166,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
         serializeWithPredication(VPInst);
         // Remark: division was scalarized due to fp-model requirements
         OptRptStats.SerializedInstRemarks.emplace_back(
-            VPlanDriverImpl::DivFpModelScalarRemarkID,
+            OptRemarkID::DivisionSerializedFpModel,
             Instruction::getOpcodeName(VPInst->getOpcode()));
         return;
       }
@@ -1407,13 +1407,15 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
                "Serialization reason is undefined");
         if (Func == nullptr)
           OptRptStats.SerializedInstRemarks.emplace_back(
-              VPlanDriverImpl::FirstSerializeRemarkID - 1 +
-                  VPCall->getSerialReasonNum(),
+              static_cast<OptRemarkID>(
+                  static_cast<unsigned>(OptRemarkID::FirstSerializationRemark) -
+                  1 + VPCall->getSerialReasonNum()),
               "");
         else
           OptRptStats.SerializedInstRemarks.emplace_back(
-              VPlanDriverImpl::FirstSerializeRemarkID - 1 +
-                  VPCall->getSerialReasonNum(),
+              static_cast<OptRemarkID>(
+                  static_cast<unsigned>(OptRemarkID::FirstSerializationRemark) -
+                  1 + VPCall->getSerialReasonNum()),
               (Func->getName()).str());
       }
       return;
@@ -3114,7 +3116,7 @@ void VPOCodeGen::vectorizeLoadInstruction(VPLoadStoreInst *VPLoad,
   if (!isVectorizableLoadStore(VPLoad)) {
     // Remark: serilalized due to operating on non-vectorizable types
     getOptReportStats(VPLoad).SerializedInstRemarks.emplace_back(
-        VPlanDriverImpl::LdStSerialRemarkID, "");
+        OptRemarkID::LoadStoreSerializedBadType, "");
     return serializeWithPredication(VPLoad);
   }
 
@@ -3235,7 +3237,7 @@ void VPOCodeGen::vectorizeStoreInstruction(VPLoadStoreInst *VPStore,
   if (!isVectorizableLoadStore(VPStore)) {
     // Remark: serialized due to operating on non-vectorizable types
     getOptReportStats(VPStore).SerializedInstRemarks.emplace_back(
-        VPlanDriverImpl::LdStSerialRemarkID, "");
+        OptRemarkID::LoadStoreSerializedBadType, "");
     return serializeWithPredication(VPStore);
   }
 
@@ -4086,7 +4088,7 @@ void VPOCodeGen::vectorizeExtractElement(VPInstruction *VPInst) {
       serializeWithPredication(VPInst);
       // Remark: masked instruction can't be vectorized
       getOptReportStats(VPInst).SerializedInstRemarks.emplace_back(
-          VPlanDriverImpl::MaskedExtInsSerialRemarkID, "");
+          OptRemarkID::MaskedExtractInsertSerialized, "");
       return;
     }
 
@@ -4104,7 +4106,7 @@ void VPOCodeGen::vectorizeExtractElement(VPInstruction *VPInst) {
     VPWidenMap[VPInst] = WideExtract;
     // Remark: instruction was serialized due to non-const index
     getOptReportStats(VPInst).SerializedInstRemarks.emplace_back(
-        VPlanDriverImpl::ExtInsNonConstSerialRemarkID, "");
+        OptRemarkID::ExtractInsertSerialized, "");
     return;
   }
 
@@ -4140,7 +4142,7 @@ void VPOCodeGen::vectorizeInsertElement(VPInstruction *VPInst) {
       serializeWithPredication(VPInst);
       // Remark: masked instruction can't be vectorized
       getOptReportStats(VPInst).SerializedInstRemarks.emplace_back(
-          VPlanDriverImpl::MaskedExtInsSerialRemarkID, "");
+          OptRemarkID::MaskedExtractInsertSerialized, "");
       return;
     }
     Value *WideInsert = InsertTo;
@@ -4159,7 +4161,7 @@ void VPOCodeGen::vectorizeInsertElement(VPInstruction *VPInst) {
     VPWidenMap[VPInst] = WideInsert;
     // Remark: instruction was serialized due to non-const index
     getOptReportStats(VPInst).SerializedInstRemarks.emplace_back(
-        VPlanDriverImpl::ExtInsNonConstSerialRemarkID, "");
+        OptRemarkID::ExtractInsertSerialized, "");
     return;
   }
 

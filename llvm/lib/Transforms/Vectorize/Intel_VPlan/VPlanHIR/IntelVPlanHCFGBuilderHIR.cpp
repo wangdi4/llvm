@@ -261,7 +261,7 @@ void HIRVectorizationLegality::recordPotentialSIMDDescrUpdate(
 
 template <typename... Args>
 bool HIRVectorizationLegality::bailout(OptReportVerbosity::Level Level,
-                                       unsigned ID, std::string Message,
+                                       OptRemarkID ID, std::string Message,
                                        Args &&...BailoutArgs) {
   DEBUG_WITH_TYPE("HIRLegality", dbgs() << Message << "\n");
   setBailoutRemark(Level, ID, Message, std::forward<Args>(BailoutArgs)...);
@@ -270,7 +270,8 @@ bool HIRVectorizationLegality::bailout(OptReportVerbosity::Level Level,
 
 template <typename... Args>
 bool HIRVectorizationLegality::bailoutWithDebug(OptReportVerbosity::Level Level,
-                                                unsigned ID, std::string Debug,
+                                                OptRemarkID ID,
+                                                std::string Debug,
                                                 Args &&...BailoutArgs) {
   DEBUG_WITH_TYPE("HIRLegality", dbgs() << Debug << "\n");
   setBailoutRemark(Level, ID, std::forward<Args>(BailoutArgs)...);

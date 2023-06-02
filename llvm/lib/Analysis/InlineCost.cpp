@@ -3487,9 +3487,14 @@ InlineCost llvm::getInlineCost(
   if (CA.wasDecidedByCostBenefit()) {
     if (ShouldInline.isSuccess())
       return InlineCost::getAlways("benefit over cost",
-                                   CA.getCostBenefitPair());
+#if INTEL_CUSTOMIZATION
+                                   CA.getCostBenefitPair(), InlrBeneficial);
+#endif // INTEL_CUSTOMIZATION
     else
-      return InlineCost::getNever("cost over benefit", CA.getCostBenefitPair());
+#if INTEL_CUSTOMIZATION
+      return InlineCost::getNever("cost over benefit", CA.getCostBenefitPair(),
+                                  NinlrNotBeneficial);
+#endif // INTEL_CUSTOMIZATION
   }
 
 #if INTEL_CUSTOMIZATION

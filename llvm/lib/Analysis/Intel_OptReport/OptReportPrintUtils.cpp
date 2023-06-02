@@ -41,7 +41,7 @@ static const unsigned IntentationStep = 4;
 //                 Add unit tests for this function.
 std::string formatRemarkMessage(OptRemark Remark, unsigned RemarkID) {
   std::string FormatString;
-  if (RemarkID == OptReportDiag::InvalidRemarkID) {
+  if (RemarkID == static_cast<unsigned>(OptRemarkID::InvalidRemarkID)) {
     // Valid remark ID was not provided, format string is obtained from metadata
     // operands (2nd operand).
     // TODO: Remove this code when all remarks have valid IDs i.e. legacy
@@ -145,7 +145,7 @@ void printRemark(formatted_raw_ostream &FOS, unsigned Depth, OptRemark Remark) {
   FOS.indent(IntentationStep * Depth);
   std::string RemarkPrefixStr;
   unsigned RemarkID = Remark.getRemarkID();
-  if (RemarkID == OptReportDiag::InvalidRemarkID)
+  if (RemarkID == static_cast<unsigned>(OptRemarkID::InvalidRemarkID))
     RemarkPrefixStr = "remark: ";
   else
     RemarkPrefixStr = "remark #" + std::to_string(RemarkID) + ": ";
