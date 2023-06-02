@@ -1,6 +1,6 @@
 //===- Intel_InlineReportCommon.h - Inlining report utils ------*- C++ -*-===//
 //
-// Copyright (C) 2019-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -89,6 +89,15 @@ typedef enum {
                  //   special cased code to handle it
 } InlPrtType;
 
+// Types of Indirect Call Specialization. The names are chosen be consistent
+// with those used in the classic compiler.
+typedef enum {
+  InlICSNone = 0,
+  InlICSGPT, // Global points to analysis (Andersen's analysis)
+  InlICSSFA, // Structure field analysis
+  InlICSPGO  // Profile guided optimization
+} InlICSType;
+
 typedef struct {
   InlPrtType Type;     // Classification of inlining reason
   const char *Message; // Text message for inlining reason (or nullptr)
@@ -163,6 +172,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtCost, "Exposes local arrays"},
     // InlrUnderTBBParallelFor
     {InlPrtCost, "Under TBB parallel for"},
+    // InlrBeneficial,
+    {InlPrtCost, "Inlining is beneficial"},
     // InlrProfitable,
     {InlPrtCost, "Inlining is profitable"},
     // InlrLast,
@@ -235,6 +246,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtSimple, "Callee is not always_inline"},
     // NinlrNewlyCreated,
     {InlPrtSimple, "Newly created callsite"},
+    // NinlrNotBeneficial,
+    {InlPrtCost, "Inlining is not beneficial"},
     // NinlrNotProfitable,
     {InlPrtCost, "Inlining is not profitable"},
     // NinlrOpBundles,
@@ -278,7 +291,7 @@ const static InlPrtRecord InlineReasonText[] = {
     // NinlrDeletedZeroLengthWrite
     {InlPrtDeleted, "Zero length write"},
     // NinlrDeletedIndCallConv
-    {InlPrtDeleted, "Indirect call conversion"},
+    {InlPrtSpecial, "Indirect call conversion"},
     // NinlrDeletedDeadCode
     {InlPrtDeleted, "Dead code"},
     // NinlrLast

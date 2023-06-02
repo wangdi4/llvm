@@ -137,6 +137,8 @@ InlineReportTreeNode::insertNewChild(Instruction *CallI, unsigned InsertAt,
       Reason = NinlrIntrinsic;
     else if (Callee && Callee->isDeclaration())
       Reason = NinlrExtern;
+    else if (!Callee)
+      Reason = NinlrIndirect;
     CSIR = new CallSiteInliningReport(CB, nullptr, Reason);
     CallI->setMetadata(CallSiteTag, CSIR->get());
     MDIR.addCallback(CallI);
@@ -484,15 +486,17 @@ MDNode *createFunctionInliningReport(Function *F, InlineReportBuilder &MDIR) {
       // never be inlined.
       if (!CB)
         continue;
+      Function *Callee = CB->getCalledFunction();
       InlineReason Reason = NinlrNoReason;
       if (auto *II = dyn_cast<IntrinsicInst>(&I)) {
         if (!(MDIR.getLevel() & DontSkipIntrin) &&
             shouldSkipIntrinsic(II))
           continue;
         Reason = NinlrIntrinsic;
-      } else if (Function *Callee = CB->getCalledFunction()) {
-        if (Callee->isDeclaration())
-          Reason = NinlrExtern;
+      } else if (Callee && Callee->isDeclaration()) {
+        Reason = NinlrExtern;
+      } else if (!Callee) {
+        Reason = NinlrIndirect;
       }
       CallSiteInliningReport CSIR(CB, nullptr, Reason);
       CB->setMetadata(CallSiteTag, CSIR.get());

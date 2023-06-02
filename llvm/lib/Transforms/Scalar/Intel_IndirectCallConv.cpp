@@ -94,7 +94,8 @@ struct IndirectCallConvImpl {
 #endif // INTEL_FEATURE_SW_DTRANS
   static bool isNotDirectCall(CallBase *Call);
   static CallBase *createDirectCallSite(CallBase *Call, Value *F,
-                                        BasicBlock *In_BB);
+                                        BasicBlock *In_BB,
+                                        InlICSType ICSMethod);
   bool convert(CallBase *CS);
   bool run(Function &F);
 
@@ -125,9 +126,11 @@ bool IndirectCallConvImpl::isNotDirectCall(CallBase *Call) {
 //
 CallBase *IndirectCallConvImpl::createDirectCallSite(CallBase *Call,
                                                      Value *FuncName,
-                                                     BasicBlock *Insert_BB) {
+                                                     BasicBlock *Insert_BB,
+                                                     InlICSType ICSMethod) {
   CallBase *NewCall;
 
+  getInlineReport()->initFunctionClosure(Call->getCaller());
   if (isa<CallInst>(Call)) {
     CallInst *NewCI;
     std::string NewName;
@@ -159,6 +162,8 @@ CallBase *IndirectCallConvImpl::createDirectCallSite(CallBase *Call,
   } else {
     llvm_unreachable("Expecting call/invoke instruction");
   }
+  getInlineReport()->addIndirectCallBaseTarget(ICSMethod, Call, NewCall);
+  getMDInlineReport()->addIndirectCallBaseTarget(ICSMethod, Call, NewCall);
   return NewCall;
 }
 
@@ -205,28 +210,35 @@ bool IndirectCallConvImpl::convert(CallBase *Call) {
   Value *call_fptr = Call->getCalledOperand()->stripPointerCasts();
   bool TraceOn = false;
   LLVM_DEBUG(TraceOn = true;);
+  InlICSType ICSMethod = InlICSNone;
 #if INTEL_FEATURE_SW_DTRANS
   // Try the legacy DTransAnalysis. This path will be removed after the compiler
   // is fully transitioned to opaque pointers. When opaque pointers are in use,
   // useDTransAnalysis will always return 'false.
   if (DTransInfo && DTransInfo->useDTransAnalysis()) {
     if (DTransInfo->GetFuncPointerPossibleTargets(call_fptr, PossibleTargets,
-                                                  Call, TraceOn))
+                                                  Call, TraceOn)) {
       IsComplete = AndersensAAResult::AndersenSetResult::Complete;
+      ICSMethod = InlICSSFA;
+    }
   }
   // Try the DTransSafetyAnalyzer. This path gets used when opaque pointers
   // are in use.
   if (IsComplete == AndersensAAResult::AndersenSetResult::Incomplete)
     if (DTransSI && DTransSI->useDTransSafetyAnalysis()) {
       if (DTransSI->GetFuncPointerPossibleTargets(call_fptr, PossibleTargets,
-                                                  Call, TraceOn))
+                                                  Call, TraceOn)) {
         IsComplete = AndersensAAResult::AndersenSetResult::Complete;
+        ICSMethod = InlICSSFA;
+      }
     }
 #endif // INTEL_FEATURE_SW_DTRANS
   if (IsComplete == AndersensAAResult::AndersenSetResult::Incomplete &&
-      AnderPointsTo)
+      AnderPointsTo) {
     IsComplete = AnderPointsTo->GetFuncPointerPossibleTargets(
         call_fptr, PossibleTargets, Call, TraceOn);
+    ICSMethod = InlICSGPT;
+  }
   if (IsComplete != AndersensAAResult::AndersenSetResult::Complete) {
     LLVM_DEBUG({
       if (IsComplete == AndersensAAResult::AndersenSetResult::Incomplete)
@@ -391,7 +403,7 @@ bool IndirectCallConvImpl::convert(CallBase *Call) {
                                              OrigBlock->getParent(), Tail_BB);
 
     // Create direct call and insert into Call_BB
-    NewCall = createDirectCallSite(Call, *F1, Call_BB);
+    NewCall = createDirectCallSite(Call, *F1, Call_BB, ICSMethod);
 
     // Add new call inst and call BasicBlock to NewDirectCalls and
     // NewDirectCallBBs to fix CFG later.
@@ -416,7 +428,8 @@ bool IndirectCallConvImpl::convert(CallBase *Call) {
     BasicBlock *Call_BB = BasicBlock::Create(call_fptr->getContext(), BB_Str,
                                              OrigBlock->getParent(), Tail_BB);
 
-    NewCall = createDirectCallSite(Call, Call->getCalledOperand(), Call_BB);
+    NewCall = createDirectCallSite(Call, Call->getCalledOperand(), Call_BB,
+                                   ICSMethod);
 #if INTEL_FEATURE_SW_DTRANS
     // Transfer any DTrans type metadata that was present on the original
     // indirect call to the new indirect call.

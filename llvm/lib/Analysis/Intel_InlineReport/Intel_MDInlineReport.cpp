@@ -138,7 +138,8 @@ MDTuple *CallSiteInliningReport::initCallSite(
     LLVMContext *C, std::string Name, std::vector<MDTuple *> *CSs,
     InlineReason Reason, bool IsInlined, bool IsSuppressPrint, int InlineCost,
     int OuterInlineCost, int InlineThreshold, int EarlyExitInlineCost,
-    int EarlyExitInlineThreshold, unsigned Line, unsigned Col,
+    int EarlyExitInlineThreshold, bool IsCostBenefit, int CBPairCost,
+    int CBPairBenefit, InlICSType ICSMethod, unsigned Line, unsigned Col,
     std::string ModuleName) {
   // Create a list of inlining reports for call sites that appear from inlining
   // of the current call site.
@@ -207,7 +208,6 @@ MDTuple *CallSiteInliningReport::initCallSite(
   ModuleName.insert(0, "moduleName: ");
   auto ModuleNameMD = MDNode::get(*C, llvm::MDString::get(*C, ModuleName));
   Ops.push_back(ModuleNameMD);
-
   // Op 12: isSuppressPrint
   std::string IsSuppressPrintStr = "isSuppressPrint: ";
   if (IsSuppressPrint) {
@@ -218,7 +218,28 @@ MDTuple *CallSiteInliningReport::initCallSite(
   auto IsSuppressPrintMD =
       MDNode::get(*C, llvm::MDString::get(*C, IsSuppressPrintStr));
   Ops.push_back(IsSuppressPrintMD);
-
+  // Op 13: has cost benefit?
+  std::string IsCostBenefitStr = "isCostBenefit: ";
+  IsCostBenefitStr.append(std::to_string(IsCostBenefit));
+  auto IsCostBenefitMD =
+      MDNode::get(*C, llvm::MDString::get(*C, IsCostBenefitStr));
+  Ops.push_back(IsCostBenefitMD);
+  // Op 14: CBPairCost
+  std::string CBPairCostStr = "CBPairCost: ";
+  CBPairCostStr.append(std::to_string(CBPairCost));
+  auto CBPairCostMD = MDNode::get(*C, llvm::MDString::get(*C, CBPairCostStr));
+  Ops.push_back(CBPairCostMD);
+  // Op 15: CBPairBenefit
+  std::string CBPairBenefitStr = "CBPairBenefit: ";
+  CBPairBenefitStr.append(std::to_string(CBPairBenefit));
+  auto CBPairBenefitMD =
+      MDNode::get(*C, llvm::MDString::get(*C, CBPairBenefitStr));
+  Ops.push_back(CBPairBenefitMD);
+  // Op 16: icsMethod
+  std::string ICSMethodStr = "icsMethod: ";
+  ICSMethodStr.append(std::to_string(ICSMethod));
+  auto ICSMethodMD = MDNode::get(*C, llvm::MDString::get(*C, ICSMethodStr));
+  Ops.push_back(ICSMethodMD);
   return MDTuple::getDistinct(*C, Ops);
 }
 
@@ -226,19 +247,22 @@ CallSiteInliningReport::CallSiteInliningReport(
     LLVMContext *C, std::string Name, std::vector<MDTuple *> *CSs,
     InlineReason Reason, bool IsInlined, bool IsSuppressPrint, int InlineCost,
     int OuterInlineCost, int InlineThreshold, int EarlyExitInlineCost,
-    int EarlyExitInlineThreshold, unsigned Line, unsigned Col,
+    int EarlyExitInlineThreshold, bool IsCostBenefit, int CBPairCost,
+    int CBPairBenefit, InlICSType ICSMethod, unsigned Line, unsigned Col,
     std::string ModuleName) {
   Report =
       initCallSite(C, Name, CSs, Reason, IsInlined, IsSuppressPrint, InlineCost,
                    OuterInlineCost, InlineThreshold, EarlyExitInlineCost,
-                   EarlyExitInlineThreshold, Line, Col, ModuleName);
+                   EarlyExitInlineThreshold, IsCostBenefit, CBPairCost,
+                   CBPairBenefit, ICSMethod, Line, Col, ModuleName);
 }
 
 CallSiteInliningReport::CallSiteInliningReport(
     CallBase *MainCB, std::vector<MDTuple *> *CSs, InlineReason Reason,
     bool IsInlined, bool IsSuppressPrint, int InlineCost, int OuterInlineCost,
-    int InlineThreshold, int EarlyExitInlineCost,
-    int EarlyExitInlineThreshold) {
+    int InlineThreshold, int EarlyExitInlineCost, int EarlyExitInlineThreshold,
+    bool IsCostBenefit, int CBPairCost, int CBPairBenefit,
+    InlICSType ICSMethod) {
   Function *Callee = MainCB->getCalledFunction();
   std::string Name =
       Callee ? std::string(Callee->hasName() ? Callee->getName() : "") : "";
@@ -250,7 +274,8 @@ CallSiteInliningReport::CallSiteInliningReport(
       IsInlined,
       MainCB->getMetadata(IPOUtils::getSuppressInlineReportStringRef()),
       InlineCost, OuterInlineCost, InlineThreshold, EarlyExitInlineCost,
-      EarlyExitInlineThreshold, (DL ? DL.getLine() : 0), (DL ? DL.getCol() : 0),
+      EarlyExitInlineThreshold, IsCostBenefit, CBPairCost, CBPairBenefit,
+      ICSMethod, (DL ? DL.getLine() : 0), (DL ? DL.getCol() : 0),
       ModuleName.str());
 }
 
@@ -282,7 +307,7 @@ void InlineReportBuilder::addMultiversionedCallSite(CallBase *CB) {
   LLVMContext &Ctx = CB->getFunction()->getParent()->getContext();
   auto FuncNameMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, FuncName));
   CSIR.get()->replaceOperandWith(CSMDIR_CalleeName, FuncNameMD);
-  // Recreate the call site list for the caller, makeing the new call site
+  // Recreate the call site list for the caller, making the new call site
   // the last call in the list.
   SmallVector<Metadata *, 100> Ops;
   Ops.push_back(llvm::MDString::get(Ctx, CallSitesTag));
@@ -322,18 +347,34 @@ void InlineReportBuilder::deleteFunctionBody(Function *F) {
 }
 
 void llvm::setMDReasonNotInlined(CallBase *Call, const InlineCost &IC) {
-  InlineReason Reason = IC.getInlineReason();
-  llvm::setMDReasonNotInlined(Call, Reason);
-  if (IC.isNever())
-    return;
   Metadata *CSMD = Call->getMetadata(CallSiteTag);
   if (!CSMD)
     return;
+  InlineReason Reason = IC.getInlineReason();
+  llvm::setMDReasonNotInlined(Call, Reason);
   assert(IsNotInlinedReason(Reason));
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
   assert((CSIR && CSIR->getNumOperands() == CallSiteMDSize) &&
          "Incorrect call site inline report metadata");
   LLVMContext &Ctx = Call->getContext();
+  if (IC.getCostBenefit()) {
+    CostBenefitPair CBP = *IC.getCostBenefit();
+    std::string CBPairCostStr = "CBPairCost: ";
+    CBPairCostStr.append(
+        std::to_string(CBP.getCost().getLimitedValue(INT64_MAX)));
+    auto CBPairCostMD =
+        MDNode::get(Ctx, llvm::MDString::get(Ctx, CBPairCostStr));
+    CSIR->replaceOperandWith(CSMDIR_CBPairCost, CBPairCostMD);
+    std::string CBPairBenefitStr = "CBPairBenefit: ";
+    CBPairBenefitStr.append(
+        std::to_string(CBP.getBenefit().getLimitedValue(INT64_MAX)));
+    auto CBPairBenefitMD =
+        MDNode::get(Ctx, llvm::MDString::get(Ctx, CBPairBenefitStr));
+    CSIR->replaceOperandWith(CSMDIR_CBPairBenefit, CBPairBenefitMD);
+    return;
+  }
+  if (IC.isNever())
+    return;
   std::string InlineCostStr = "inlineCost: ";
   InlineCostStr.append(std::to_string(IC.getCost()));
   auto InlineCostMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, InlineCostStr));
@@ -376,11 +417,11 @@ void llvm::setMDReasonNotInlined(CallBase *Call, InlineReason Reason) {
 
 void llvm::setMDReasonNotInlined(CallBase *Call, const InlineCost &IC,
                                  int TotalSecondaryCost) {
-  llvm::setMDReasonNotInlined(Call, IC);
   Metadata *CSMD = Call->getMetadata(CallSiteTag);
   if (!CSMD)
     return;
   assert(IC.getInlineReason() == NinlrOuterInlining);
+  llvm::setMDReasonNotInlined(Call, IC);
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
   assert((CSIR && CSIR->getNumOperands() == CallSiteMDSize) &&
          "Incorrect call site inline report metadata");
@@ -410,16 +451,35 @@ void llvm::setMDReasonIsInlined(CallBase *Call, InlineReason Reason) {
 
 // Set inlining reason
 void llvm::setMDReasonIsInlined(CallBase *Call, const InlineCost &IC) {
-  InlineReason Reason = IC.getInlineReason();
-  llvm::setMDReasonIsInlined(Call, Reason);
   Metadata *CSMD = Call->getMetadata(CallSiteTag);
   if (!CSMD)
     return;
+  InlineReason Reason = IC.getInlineReason();
   assert(IsInlinedReason(Reason));
+  llvm::setMDReasonIsInlined(Call, Reason);
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
   assert((CSIR && CSIR->getNumOperands() == CallSiteMDSize) &&
          "Incorrect call site inline report metadata");
   LLVMContext &Ctx = Call->getContext();
+  if (IC.getCostBenefit()) {
+    std::string IsCostBenefitStr = "isCostBenefit: ";
+    IsCostBenefitStr.append(std::to_string(true));
+    auto IsCostBenefitMD =
+        MDNode::get(Ctx, llvm::MDString::get(Ctx, IsCostBenefitStr));
+    CSIR->replaceOperandWith(CSMDIR_IsCostBenefit, IsCostBenefitMD);
+    CostBenefitPair CBP = *IC.getCostBenefit();
+    std::string CBPairCostStr = "CBPairCost: ";
+    CBPairCostStr.append(std::to_string(CBP.getCost().getLimitedValue()));
+    auto CBPairCostMD =
+        MDNode::get(Ctx, llvm::MDString::get(Ctx, CBPairCostStr));
+    CSIR->replaceOperandWith(CSMDIR_CBPairCost, CBPairCostMD);
+    std::string CBPairBenefitStr = "CBPairBenefit: ";
+    CBPairBenefitStr.append(std::to_string(CBP.getBenefit().getLimitedValue()));
+    auto CBPairBenefitMD =
+        MDNode::get(Ctx, llvm::MDString::get(Ctx, CBPairBenefitStr));
+    CSIR->replaceOperandWith(CSMDIR_CBPairBenefit, CBPairBenefitMD);
+    return;
+  }
   if (IC.isAlways())
     return;
   std::string InlineCostStr = "inlineCost: ";
@@ -551,8 +611,8 @@ static Metadata *cloneInliningReportHelper(
     OldRep.getLineAndCol(&LineNum, &ColNum);
     CallSiteInliningReport NewRep(
         &C, std::string(OldRep.getName()), nullptr, NinlrNoReason, false,
-        OldRep.getSuppressPrint(), -1, -1, -1, INT_MAX, INT_MAX, LineNum,
-        ColNum, std::string(OldRep.getModuleName()));
+        OldRep.getSuppressPrint(), -1, -1, -1, INT_MAX, INT_MAX, false, -1, -1,
+        InlICSNone, LineNum, ColNum, std::string(OldRep.getModuleName()));
     NewMD = NewRep.get();
   } else if (MDTuple *OldTupleMD = dyn_cast<MDTuple>(OldMD)) {
     SmallVector<Metadata *, 20> Ops;
@@ -969,6 +1029,43 @@ void InlineReportBuilder::doOutlining(Function *OldF, Function *OutF,
         OutOps.push_back(cast<MDTuple>(CBMD));
   MDNode *OutCSs = MDTuple::getDistinct(Ctx, OutOps);
   OutFMDTuple->replaceOperandWith(FMDIR_CSs, OutCSs);
+}
+
+void InlineReportBuilder::addIndirectCallBaseTarget(InlICSType ICSMethod,
+                                                    CallBase *CBIndirect,
+                                                    CallBase *CBDirect) {
+  if (!isMDIREnabled())
+    return;
+  CallSiteInliningReport CSIR(CBDirect, nullptr, NinlrNewlyCreated);
+  Function *Callee = CBDirect->getCalledFunction();
+  std::string FuncName = std::string(Callee ? Callee->getName() : "");
+  FuncName.insert(0, "name: ");
+  CBDirect->setMetadata(CallSiteTag, CSIR.get());
+  LLVMContext &Ctx = CBDirect->getModule()->getContext();
+  auto FuncNameMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, FuncName));
+  CSIR.get()->replaceOperandWith(CSMDIR_CalleeName, FuncNameMD);
+  std::string ICSMethodStr = "icsMethod: ";
+  ICSMethodStr.append(std::to_string(ICSMethod));
+  auto ICSMethodMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, ICSMethodStr));
+  Metadata *CBDirectMD = CBDirect->getMetadata(CallSiteTag);
+  auto *CBDirectMDTuple = cast<MDTuple>(CBDirectMD);
+  CBDirectMDTuple->replaceOperandWith(CSMDIR_ICSMethod, ICSMethodMD);
+  // Recreate the call site list for 'CBIndirect', making 'CBDirect'
+  // the last call in the list.
+  SmallVector<Metadata *, 100> Ops;
+  Ops.push_back(llvm::MDString::get(Ctx, CallSitesTag));
+  Metadata *CBIndirectMD = CBIndirect->getMetadata(CallSiteTag);
+  auto *CBIndirectMDTuple = cast<MDTuple>(CBIndirectMD);
+  if (Metadata *MDCSs = CBIndirectMDTuple->getOperand(CSMDIR_CSs).get()) {
+    auto CSs = cast<MDTuple>(MDCSs);
+    unsigned CSsNumOps = CSs->getNumOperands();
+    for (unsigned I = 1; I < CSsNumOps; ++I)
+      Ops.push_back(CSs->getOperand(I));
+  }
+  Ops.push_back(CSIR.get());
+  MDNode *NewCSs = MDTuple::getDistinct(Ctx, Ops);
+  CBIndirectMDTuple->replaceOperandWith(CSMDIR_CSs, NewCSs);
+  addCallback(CBDirect);
 }
 
 void InlineReportBuilder::replaceAllUsesWith(Function *OldFunction,

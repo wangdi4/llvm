@@ -52,7 +52,8 @@ public:
       : IRCallee(IRCallee), IRCaller(nullptr), IRParent(nullptr),
         IsInlined(IsInlined), Reason(Reason), InlineCost(-1),
         OuterInlineCost(-1), InlineThreshold(-1), EarlyExitInlineCost(INT_MAX),
-        EarlyExitInlineThreshold(INT_MAX), Call(CB), M(Module),
+        EarlyExitInlineThreshold(INT_MAX), CostBenefit(std::nullopt),
+        ICSMethod(InlICSNone), Call(CB), M(Module),
         SuppressPrint(SuppressPrint) {
     Line = DLoc && DLoc->get() ? DLoc->getLine() : 0;
     Col = DLoc && DLoc->get() ? DLoc->getCol() : 0;
@@ -98,6 +99,12 @@ public:
   int getInlineCost() const { return InlineCost; }
   void setInlineCost(int Cost) { InlineCost = Cost; }
 
+  /// Results from inlining cost/benefit analysis.
+  std::optional<CostBenefitPair> getCostBenefit() const { return CostBenefit; }
+  void setCostBenefit(const std::optional<CostBenefitPair> &TheCostBenefit) {
+    CostBenefit = TheCostBenefit;
+  }
+
   /// Stored "early exit" cost of inlining.
   int getEarlyExitInlineCost() const { return EarlyExitInlineCost; }
   void setEarlyExitInlineCost(int EECost) { EarlyExitInlineCost = EECost; }
@@ -117,6 +124,9 @@ public:
 
   bool getSuppressPrint(void) const { return SuppressPrint; }
   void setSuppressPrint(bool V) { SuppressPrint = V; }
+
+  InlICSType getICSMethod(void) const { return ICSMethod; }
+  void setICSMethod(InlICSType V) { ICSMethod = V; }
 
   /// Stored "early exit" threshold of inlining.
   int getEarlyExitInlineThreshold() const { return EarlyExitInlineThreshold; }
@@ -158,6 +168,9 @@ public:
                             SmallPtrSetImpl<InlineReportCallSite *> &OutFCBSet,
                             InlineReportCallSite *NewIRCS);
 
+  // Initialize the inlining reason based on characteristics of 'Callee'.
+  void initReason(Function *Callee);
+
 private:
   InlineReportFunction *IRCallee;
   InlineReportFunction *IRCaller;
@@ -169,6 +182,8 @@ private:
   int InlineThreshold;
   int EarlyExitInlineCost;
   int EarlyExitInlineThreshold;
+  std::optional<CostBenefitPair> CostBenefit;
+  InlICSType ICSMethod;
   InlineReportCallSiteVector Children;
   CallBase *Call;
   ///
@@ -181,7 +196,8 @@ private:
   unsigned Line;
   unsigned Col;
   bool SuppressPrint; // suppress inline-report print info
-
+  void printICSMethod(formatted_raw_ostream &OS, unsigned Level);
+  void printCostAndBenefit(formatted_raw_ostream &OS, unsigned Level);
   void printCostAndThreshold(formatted_raw_ostream &OS, unsigned Level);
   void printOuterCostAndThreshold(formatted_raw_ostream &OS, unsigned Level);
   void printCalleeNameModuleLineCol(formatted_raw_ostream &OS, unsigned Level);
@@ -521,6 +537,11 @@ public:
   /// Inliner::runOnSCC(). Return 'true' if 'F' is modified.
   bool makeCurrent(Function *F);
 
+  /// Indicate 'CBDirect' has been specialized as an direct call for the
+  /// indirect call 'CBIndirect' using the method 'ICSMethod'.
+  void addIndirectCallBaseTarget(InlICSType ICSMethod, CallBase *CBIndirect,
+                                 CallBase *CBDirect);
+
 private:
   /// The Level is specified by the option -inline-report=N.
   /// See llvm/lib/Transforms/IPO/Inliner.cpp for details on Level.
@@ -609,7 +630,7 @@ private:
   InlineReportFunction *getOrAddFunction(Function *F);
 
   // Create an InlineReportCallSite to represent Call
-  InlineReportCallSite *addCallSite(CallBase *Call);
+  InlineReportCallSite *addCallSite(CallBase *Call, bool AttachToCaller = true);
 
   // Get the existing or create an InlineReportCallSite to represent 'Call'
   InlineReportCallSite *getOrAddCallSite(CallBase *Call);

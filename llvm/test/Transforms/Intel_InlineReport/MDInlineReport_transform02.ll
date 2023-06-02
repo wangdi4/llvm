@@ -29,6 +29,10 @@
 ; CHECK-NEXT: {{.*}}earlyExitThreshold
 ; CHECK-NEXT: [[MODULE_NAME]] = !{!"moduleName:{{.*}}
 ; CHECK-NEXT: [[SUPPRESS_PRINT]] = !{!"isSuppressPrint: 0"}
+; CHECK-NEXT: [[ISCOSTBENEFIT:![0-9]+]] = !{!"isCostBenefit: 0"}
+; CHECK-NEXT: [[CBPAIRCOST:![0-9]+]] = !{!"CBPairCost: -1"}
+; CHECK-NEXT: [[CBPAIRBENEFIT:![0-9]+]] = !{!"CBPairBenefit: -1"}
+; CHECK-NEXT: [[ICSMETHOD:![0-9]+]] = !{!"icsMethod: 0"}
 ; CHECK-NEXT: [[IS_DEAD_0]] = !{!"isDead: 0"}
 ; CHECK-NEXT: [[IS_DECL_0]] = !{!"isDeclaration: 0"}
 ; CHECK-NEXT: [[LINK_A]] = !{!"linkage: A"}

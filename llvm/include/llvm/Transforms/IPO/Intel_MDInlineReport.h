@@ -58,6 +58,10 @@ enum CallSiteField {
   CSMDIR_LineAndColumn,
   CSMDIR_ModuleName,
   CSMDIR_SuppressPrintReport,
+  CSMDIR_IsCostBenefit,
+  CSMDIR_CBPairCost,
+  CSMDIR_CBPairBenefit,
+  CSMDIR_ICSMethod,
   CSMDIR_Last,
 };
 
@@ -220,6 +224,11 @@ public:
   unsigned getLevel() { return Level; }
   // The level of the inline report
   void setLevel(unsigned L) { Level = L; }
+
+  // Indicate 'CBDirect' has been specialized as an direct call for the
+  // indirect call 'CBIndirect'.
+  void addIndirectCallBaseTarget(InlICSType ICSMethod, CallBase *CBIndirect,
+                                 CallBase *CBDirect);
 
   // Replace 'OldFunction' with 'NewFunction'.
   void replaceFunctionWithFunction(Function *OldFunction,
@@ -393,14 +402,15 @@ public:
 
 // Class representing inlining report for call site
 class CallSiteInliningReport : public InliningReport {
-  MDTuple *
-  initCallSite(LLVMContext *C, std::string Name, std::vector<MDTuple *> *CSs,
-               InlineReason Reason = NinlrNoReason, bool IsInlined = false,
-               bool IsSuppressPrint = false, int InlineCost = -1,
-               int OuterInlineCost = -1, int InlineThreshold = -1,
-               int EarlyExitInlineCost = INT_MAX,
-               int EarlyExitInlineThreshold = INT_MAX, unsigned Line = 0,
-               unsigned Col = 0, std::string ModuleName = "");
+  MDTuple *initCallSite(
+      LLVMContext *C, std::string Name, std::vector<MDTuple *> *CSs,
+      InlineReason Reason = NinlrNoReason, bool IsInlined = false,
+      bool IsSuppressPrint = false, int InlineCost = -1,
+      int OuterInlineCost = -1, int InlineThreshold = -1,
+      int EarlyExitInlineCost = INT_MAX, int EarlyExitInlineThreshold = INT_MAX,
+      bool IsCostBenefit = false, int CBPairCost = -1, int CBPairBenefit = -1,
+      InlICSType ICSMethod = InlICSNone, unsigned Line = 0, unsigned Col = 0,
+      std::string ModuleName = "");
 
 public:
   CallSiteInliningReport(MDTuple *R = nullptr, bool SuppressPrint = false)
@@ -415,7 +425,9 @@ public:
       bool IsSuppressPrint = false, int InlineCost = -1,
       int OuterInlineCost = -1, int InlineThreshold = -1,
       int EarlyExitInlineCost = INT_MAX, int EarlyExitInlineThreshold = INT_MAX,
-      unsigned Line = 0, unsigned Col = 0, std::string ModuleName = "");
+      bool IsCostBenefit = false, int CBPairCost = -1, int CBPairBenefit = -1,
+      InlICSType ICSMethod = InlICSNone, unsigned Line = 0, unsigned Col = 0,
+      std::string ModuleName = "");
 
   CallSiteInliningReport(CallBase *MainCS, std::vector<MDTuple *> *CSs,
                          InlineReason Reason = NinlrNoReason,
@@ -423,7 +435,10 @@ public:
                          int InlineCost = -1, int OuterInlineCost = -1,
                          int InlineThreshold = -1,
                          int EarlyExitInlineCost = INT_MAX,
-                         int EarlyExitInlineThreshold = INT_MAX);
+                         int EarlyExitInlineThreshold = INT_MAX,
+                         bool IsCostBenefit = false, int CBPairCost = -1,
+                         int CBPairBenefit = -1,
+                         InlICSType ICSMethod = InlICSNone);
 
   static bool isCallSiteInliningReportMetadata(const Metadata *R);
 
