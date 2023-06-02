@@ -137,6 +137,13 @@ typedef SmallPtrSet<VPValue *, 8> UniformsTy;
 
 struct TripCountInfo;
 
+enum class NestedSimdStrategies : int {
+  BailOut,
+  Outermost,
+  Innermost,
+};
+extern NestedSimdStrategies NestedSimdStrategy;
+
 // This abstract class is used to create all the necessary analyses that are
 // needed for VPlan. They are implemented by the 2 derived classes :
 // VPAnalysesFactory and VPAnalysesFactoryHIR.
