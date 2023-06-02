@@ -1,6 +1,6 @@
 //===--- HIRFramework.h - public interface of HIR framework ---*-- C++ --*-===//
 //
-// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -180,6 +180,13 @@ public:
   const_iterator hir_begin() const { return Regions.begin(); }
   iterator hir_end() { return Regions.end(); }
   const_iterator hir_end() const { return Regions.end(); }
+
+  iterator_range<iterator> regions() {
+    return make_range(hir_begin(), hir_end());
+  }
+  iterator_range<const_iterator> regions() const {
+    return make_range(hir_begin(), hir_end());
+  }
 
   reverse_iterator hir_rbegin() { return Regions.rbegin(); }
   const_reverse_iterator hir_rbegin() const { return Regions.rbegin(); }
