@@ -14,7 +14,7 @@
 
 // Check current default for -fopenmp-target-malloc
 // RUN: %clang_cc1 -no-opaque-pointers -triple spir64 \
-// RUN:  -aux-triple x86_64-unknown-linux-gnu \
+// RUN:  -aux-triple x86_64-unknown-linux-gnu -Wno-builtin-macro-redefined \
 // RUN:  -fopenmp -fopenmp-targets=spir64 \
 // RUN:  -fopenmp-late-outline \
 // RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_spir.bc \
@@ -22,7 +22,7 @@
 
 // Check -fopenmp-target-malloc
 // RUN: %clang_cc1 -no-opaque-pointers -triple spir64 \
-// RUN:  -aux-triple x86_64-unknown-linux-gnu \
+// RUN:  -aux-triple x86_64-unknown-linux-gnu -Wno-builtin-macro-redefined \
 // RUN:  -fopenmp -fopenmp-targets=spir64 -fopenmp-late-outline \
 // RUN:  -fopenmp-target-malloc \
 // RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_spir.bc \
@@ -30,7 +30,7 @@
 
 // Check -fno-openmp-target-malloc
 // RUN: %clang_cc1 -no-opaque-pointers -triple spir64 \
-// RUN:  -aux-triple x86_64-unknown-linux-gnu \
+// RUN:  -aux-triple x86_64-unknown-linux-gnu -Wno-builtin-macro-redefined \
 // RUN:  -fopenmp -fopenmp-targets=spir64 -fopenmp-late-outline \
 // RUN:  -fno-openmp-target-malloc \
 // RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_spir.bc \
