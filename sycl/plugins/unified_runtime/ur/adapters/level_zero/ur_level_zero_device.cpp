@@ -131,13 +131,8 @@ UR_APIEXPORT ur_result_t UR_APICALL urDeviceGetInfo(
   }
   case UR_DEVICE_INFO_ATOMIC_64:
     return ReturnValue(
-<<<<<<< HEAD
-        static_cast<uint32_t>(Device->ZeDeviceModuleProperties->flags &
-                              ZE_DEVICE_MODULE_FLAG_INT64_ATOMICS));
-=======
         static_cast<ur_bool_t>(Device->ZeDeviceModuleProperties->flags &
                                ZE_DEVICE_MODULE_FLAG_INT64_ATOMICS));
->>>>>>> bacf8ff38fd264518ce26873f24a4344844e714a
   case UR_DEVICE_INFO_EXTENSIONS: {
     // Convention adopted from OpenCL:
     //     "Returns a space separated list of extension names (the extension
@@ -201,15 +196,9 @@ UR_APIEXPORT ur_result_t UR_APICALL urDeviceGetInfo(
   case UR_DEVICE_INFO_BUILD_ON_SUBDEVICE:
     return ReturnValue(uint32_t{0});
   case UR_DEVICE_INFO_COMPILER_AVAILABLE:
-<<<<<<< HEAD
-    return ReturnValue(static_cast<uint32_t>(true));
-  case UR_DEVICE_INFO_LINKER_AVAILABLE:
-    return ReturnValue(static_cast<uint32_t>(true));
-=======
     return ReturnValue(static_cast<ur_bool_t>(true));
   case UR_DEVICE_INFO_LINKER_AVAILABLE:
     return ReturnValue(static_cast<ur_bool_t>(true));
->>>>>>> bacf8ff38fd264518ce26873f24a4344844e714a
   case UR_DEVICE_INFO_MAX_COMPUTE_UNITS: {
     uint32_t MaxComputeUnits =
         Device->ZeDeviceProperties->numEUsPerSubslice *
@@ -266,16 +255,6 @@ UR_APIEXPORT ur_result_t UR_APICALL urDeviceGetInfo(
     return ReturnValue(
         uint64_t{Device->ZeDeviceComputeProperties->maxSharedLocalMemory});
   case UR_DEVICE_INFO_IMAGE_SUPPORTED:
-<<<<<<< HEAD
-    return ReturnValue(static_cast<uint32_t>(
-        Device->ZeDeviceImageProperties->maxImageDims1D > 0));
-  case UR_DEVICE_INFO_HOST_UNIFIED_MEMORY:
-    return ReturnValue(
-        static_cast<uint32_t>((Device->ZeDeviceProperties->flags &
-                               ZE_DEVICE_PROPERTY_FLAG_INTEGRATED) != 0));
-  case UR_DEVICE_INFO_AVAILABLE:
-    return ReturnValue(static_cast<uint32_t>(ZeDevice ? true : false));
-=======
     return ReturnValue(static_cast<ur_bool_t>(
         Device->ZeDeviceImageProperties->maxImageDims1D > 0));
   case UR_DEVICE_INFO_HOST_UNIFIED_MEMORY:
@@ -284,7 +263,6 @@ UR_APIEXPORT ur_result_t UR_APICALL urDeviceGetInfo(
                                 ZE_DEVICE_PROPERTY_FLAG_INTEGRATED) != 0));
   case UR_DEVICE_INFO_AVAILABLE:
     return ReturnValue(static_cast<ur_bool_t>(ZeDevice ? true : false));
->>>>>>> bacf8ff38fd264518ce26873f24a4344844e714a
   case UR_DEVICE_INFO_VENDOR:
     // TODO: Level-Zero does not return vendor's name at the moment
     // only the ID.
@@ -371,11 +349,7 @@ UR_APIEXPORT ur_result_t UR_APICALL urDeviceGetInfo(
   case UR_EXT_DEVICE_INFO_OPENCL_C_VERSION:
     return ReturnValue("");
   case UR_DEVICE_INFO_PREFERRED_INTEROP_USER_SYNC:
-<<<<<<< HEAD
-    return ReturnValue(static_cast<uint32_t>(true));
-=======
     return ReturnValue(static_cast<ur_bool_t>(true));
->>>>>>> bacf8ff38fd264518ce26873f24a4344844e714a
   case UR_DEVICE_INFO_PRINTF_BUFFER_SIZE:
     return ReturnValue(
         size_t{Device->ZeDeviceModuleProperties->printfBufferSize});
@@ -392,17 +366,10 @@ UR_APIEXPORT ur_result_t UR_APICALL urDeviceGetInfo(
     return ReturnValue(ur_device_exec_capability_flag_t{
         UR_DEVICE_EXEC_CAPABILITY_FLAG_NATIVE_KERNEL});
   case UR_DEVICE_INFO_ENDIAN_LITTLE:
-<<<<<<< HEAD
-    return ReturnValue(static_cast<uint32_t>(true));
-  case UR_DEVICE_INFO_ERROR_CORRECTION_SUPPORT:
-    return ReturnValue(static_cast<uint32_t>(Device->ZeDeviceProperties->flags &
-                                             ZE_DEVICE_PROPERTY_FLAG_ECC));
-=======
     return ReturnValue(static_cast<ur_bool_t>(true));
   case UR_DEVICE_INFO_ERROR_CORRECTION_SUPPORT:
     return ReturnValue(static_cast<ur_bool_t>(
         Device->ZeDeviceProperties->flags & ZE_DEVICE_PROPERTY_FLAG_ECC));
->>>>>>> bacf8ff38fd264518ce26873f24a4344844e714a
   case UR_DEVICE_INFO_PROFILING_TIMER_RESOLUTION:
     return ReturnValue(
         static_cast<size_t>(Device->ZeDeviceProperties->timerResolution));
@@ -574,11 +541,7 @@ UR_APIEXPORT ur_result_t UR_APICALL urDeviceGetInfo(
   }
   case UR_DEVICE_INFO_SUB_GROUP_INDEPENDENT_FORWARD_PROGRESS: {
     // TODO: Not supported yet. Needs to be updated after support is added.
-<<<<<<< HEAD
-    return ReturnValue(static_cast<uint32_t>(false));
-=======
     return ReturnValue(static_cast<ur_bool_t>(false));
->>>>>>> bacf8ff38fd264518ce26873f24a4344844e714a
   }
   case UR_DEVICE_INFO_SUB_GROUP_SIZES_INTEL: {
     // ze_device_compute_properties.subGroupSizes is in uint32_t whereas the
