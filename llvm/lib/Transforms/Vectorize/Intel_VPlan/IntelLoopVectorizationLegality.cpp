@@ -61,11 +61,22 @@ static cl::opt<bool, true> EnableF90DVSupportOpt(
     "vplan-enable-f90-dv", cl::location(EnableF90DVSupport), cl::Hidden,
     cl::desc("Enable OMP SIMD private support for Fortran Dope Vectors."));
 
+static cl::opt<NestedSimdStrategies, true> NestedSimdStrategyOpt(
+    "vplan-nested-simd-strategy", cl::location(NestedSimdStrategy), cl::Hidden,
+    cl::desc("How to vectorize nested SIMD loops"),
+    cl::values(clEnumValN(NestedSimdStrategies::BailOut, "bailout",
+                          "Don't vectorize"),
+               clEnumValN(NestedSimdStrategies::Outermost, "outermost",
+                          "Vectorize outermost loop only"),
+               clEnumValN(NestedSimdStrategies::Innermost, "innermost",
+                          "Vectorize innermost loop only")));
+
 namespace llvm {
 namespace vpo {
 bool ForceUDSReductionVec = true;
 bool EnableHIRPrivateArrays = false;
 bool EnableF90DVSupport = false;
+NestedSimdStrategies NestedSimdStrategy = NestedSimdStrategies::Outermost;
 } // namespace vpo
 } // namespace llvm
 
@@ -836,7 +847,7 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
             return bailout(
                 OptReportVerbosity::Medium, VPlanDriverImpl::BailoutRemarkID,
                 std::string("#pragma omp simd ordered is not yet supported."));
-          else
+          else if (NestedSimdStrategy == NestedSimdStrategies::BailOut)
             return bailoutWithDebug(
                 OptReportVerbosity::Medium, VPlanDriverImpl::NestedSimdRemarkID,
                 "Unsupported nested OpenMP (simd) loop or region.",
