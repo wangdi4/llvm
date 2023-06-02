@@ -24,6 +24,7 @@
 
 namespace llvm {
 
+enum GlobalWorkSizeLT2GState : uint8_t { GWS_FALSE, GWS_TRUE, GWS_AUTO };
 
 class SYCLKernelVecCloneImpl : public VecCloneImpl {
 public:

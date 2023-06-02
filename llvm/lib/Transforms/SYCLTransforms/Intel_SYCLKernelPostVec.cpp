@@ -17,6 +17,8 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/PatternMatch.h"
+#include "llvm/Transforms/SYCLTransforms/Intel_SYCLKernelVecClone.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/CompilationUtils.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
@@ -25,6 +27,8 @@
 
 using namespace llvm;
 using namespace SYCLKernelMetadataAPI;
+
+extern cl::opt<GlobalWorkSizeLT2GState> LT2GigGlobalWorkSize;
 
 // Cloned kernel isn't vectorized if it has openmp directives or
 // llvm.loop.vectorize.enable metadata.
@@ -96,10 +100,42 @@ static bool rebindVectorizedKernel(Function *F) {
   return Changed;
 }
 
+// If input IR is from OpenCL and %sext has only one use, %0's uses could be
+// replaced with %call.
+//
+//  %call = tail call i64 @_Z13get_global_idj(i32 noundef 0) #5
+//  %sext = shl i64 %call, 32
+//  %0 = ashr exact i64 %sext, 32
+//
+static bool optimizeGIDShlAshr(Function *F, Function *GetGID) {
+  if (!F)
+    return false;
+  using namespace PatternMatch;
+  for (User *U0 : GetGID->users()) {
+    auto *I = cast<CallInst>(U0);
+    if (I->getFunction() != F)
+      continue;
+    for (User *U1 : I->users()) {
+      if (match(U1, m_OneUse(m_Shl(m_Specific(I), m_SpecificInt(32))))) {
+        auto *SingleUser = *U1->user_begin();
+        if (match(SingleUser, m_AShr(m_Specific(U1), m_SpecificInt(32)))) {
+          SingleUser->replaceAllUsesWith(I);
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
 PreservedAnalyses SYCLKernelPostVecPass::run(Module &M,
                                              ModuleAnalysisManager &MAM) {
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   bool Changed = false;
+  bool IsOCL = !CompilationUtils::isGeneratedFromOCLCPP(M) &&
+               !CompilationUtils::isGeneratedFromOMP(M);
+  auto *GetGID = M.getFunction(CompilationUtils::mangledGetGID());
   auto Kernels = CompilationUtils::getKernels(M);
   for (Function *F : Kernels) {
     // Try to rebind vectorized kernel if missing.
@@ -125,12 +161,18 @@ PreservedAnalyses SYCLKernelPostVecPass::run(Module &M,
       Changed = true;
     };
     auto FMD = KernelInternalMetadataAPI(F);
-    if (FMD.VectorizedKernel.hasValue())
+    if (FMD.VectorizedKernel.hasValue()) {
       RemoveNotVectorizedClone(FMD.VectorizedKernel.get(),
                                FMD.VectorizedKernel.getID());
-    if (FMD.VectorizedMaskedKernel.hasValue())
+      if (GetGID && IsOCL && LT2GigGlobalWorkSize == GWS_AUTO)
+        Changed |= optimizeGIDShlAshr(FMD.VectorizedKernel.get(), GetGID);
+    }
+    if (FMD.VectorizedMaskedKernel.hasValue()) {
       RemoveNotVectorizedClone(FMD.VectorizedMaskedKernel.get(),
                                FMD.VectorizedMaskedKernel.getID());
+      if (GetGID && IsOCL && LT2GigGlobalWorkSize == GWS_AUTO)
+        Changed |= optimizeGIDShlAshr(FMD.VectorizedMaskedKernel.get(), GetGID);
+    }
   }
 
   return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
