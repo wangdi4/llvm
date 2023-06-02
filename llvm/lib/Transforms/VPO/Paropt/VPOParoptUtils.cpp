@@ -5337,7 +5337,7 @@ bool VPOParoptUtils::genCriticalLoopForSPIRHelper(Instruction *BeginInst,
   // LoopExitBB:
   //   call spir_func void @__kmpc_end_critical
   Instruction *SplitPt = &*HeaderBuilder.GetInsertPoint();
-  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
+  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
   Instruction *ThenTerm =
       SplitBlockAndInsertIfThen(ExitPred, SplitPt,
                                 /*Unreachable=*/false,

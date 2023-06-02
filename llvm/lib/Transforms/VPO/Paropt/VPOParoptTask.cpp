@@ -634,7 +634,7 @@ void VPOParoptTransform::linkPrivateItemToBufferAtEndOfThunkIfApplicable(
 
   Instruction *BranchPt = &*Builder.GetInsertPoint();
 
-  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
+  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
   Instruction *ThenTerm = SplitBlockAndInsertIfThen(
       IsSizeNonZero, BranchPt, false,
       MDBuilder(Builder.getContext()).createBranchWeights(4, 1), &DTU, LI);
