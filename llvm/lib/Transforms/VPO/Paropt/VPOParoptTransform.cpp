@@ -14392,15 +14392,15 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
     bool ShouldNotUseKnownNDRange = shouldNotUseKnownNDRange(W);
 
     if (CollapseAlways ||
-	// Check if fixupKnownNDRange() will eventually decide not to use
-	// known ND-range for the kernel. If it does so, the kernel
-	// will be invoked with 1D range. If we do not collapse the loop nest
-	// here, then the outer loops will run with GWS 1 and LWS 1, which means
-	// they will run serially. This should be avoided for performance sake.
-	ShouldNotUseKnownNDRange ||
-	// FIXME: this is a temporary limitation. We need to decide
-	//        which loops to collapse for SPIR target and leave
-	//        3 of them for 3D-range parallelization.
+        // Check if fixupKnownNDRange() will eventually decide not to use
+        // known ND-range for the kernel. If it does so, the kernel
+        // will be invoked with 1D range. If we do not collapse the loop nest
+        // here, then the outer loops will run with GWS 1 and LWS 1, which means
+        // they will run serially. This should be avoided for performance sake.
+        ShouldNotUseKnownNDRange ||
+        // FIXME: this is a temporary limitation. We need to decide
+        //        which loops to collapse for SPIR target and leave
+        //        3 of them for 3D-range parallelization.
         NumLoops > 3 ||
         // Always collapse "omp distribute" loop nests.
         // Ideally, on SPIR targets each iteration of the collapsed loop nest
@@ -14424,7 +14424,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
         WRegionUtils::isDistributeNode(W)) {
       if (CanHoistCombinedUBBeforeTarget &&
           VPOParoptUtils::getSPIRExecutionScheme() ==
-          spirv::ImplicitSIMDSPMDES) {
+              spirv::ImplicitSIMDSPMDES) {
         // Collapse the loop nest and use 1D range.
         HoistCombinedUBBeforeTarget = true;
         SetNDRange = true;
@@ -14432,19 +14432,18 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
       }
       // Otherwise, collapse the loop nest for all targets and the host
       // and do not use any ND-range.
-    }
-    else if (CanHoistCombinedUBBeforeTarget &&
-             VPOParoptUtils::getSPIRExecutionScheme() ==
-             spirv::ImplicitSIMDSPMDES) {
+    } else if (CanHoistCombinedUBBeforeTarget &&
+               VPOParoptUtils::getSPIRExecutionScheme() ==
+                   spirv::ImplicitSIMDSPMDES) {
       // Do not collapse the loop nest for SPIR target.
 
       if (isTargetSPIRV()) {
         if (W->getCollapse() == 0)
-          LLVM_DEBUG(dbgs() <<
-                     "ND-range parallelization will be applied for loop.\n");
+          LLVM_DEBUG(dbgs()
+                     << "ND-range parallelization will be applied for loop.\n");
         else
-          LLVM_DEBUG(dbgs() << "Loop nest left uncollapsed for SPIR target. " <<
-                     "ND-range parallelization will be applied.\n");
+          LLVM_DEBUG(dbgs() << "Loop nest left uncollapsed for SPIR target. "
+                            << "ND-range parallelization will be applied.\n");
         setNDRangeClause(WTarget, W, W->getWRNLoopInfo().getNormUBs(),
                          W->getWRNLoopInfo().getNormUBElemTys());
         return Exiter(true);
@@ -15203,6 +15202,18 @@ void VPOParoptTransform::assignParallelDimensions() const {
 // partitioning, e.g. it cannot use it or using it is unprofitable.
 bool VPOParoptTransform::shouldNotUseKnownNDRange(WRegionNode *W) const {
   if (!W->getIsOmpLoop())
+    return true;
+
+  auto TargetDevicesString = F->getParent()->getTargetDevices();
+
+  // Host-only compilation (ie, the -fopenmp-targets flag is not present)
+  // doesn't use specific ND-range.
+  if (TargetDevicesString.empty())
+    return true;
+
+  // If the target triple doesn't have "spir64" or "spir"
+  // (eg, -fopenmp-targets=x86_64) then it doesn't use specific ND-range.
+  if (TargetDevicesString.find("spir") == std::string::npos)
     return true;
 
   WRegionNode *WTarget =
