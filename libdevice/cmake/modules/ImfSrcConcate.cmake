@@ -198,6 +198,10 @@ set(imf_bf16_fallback_src_list imf_utils/bfloat16_convert.cpp
                                imf/imf_inline_bf16.cpp)
 
 # INTEL_CUSTOMIZATION
+set (imf_fp32_dl_src_list imf/imf_fp32_dl.cpp
+	                  imf/intel/pown_s_ep.cpp)
+set (imf_fp64_dl_src_list imf/intel/pown_d_la.cpp)
+
 if(OMP_LIBDEVICE STREQUAL 1)
   set(imf_fallback_src_list)
   list (APPEND imf_fallback_src_list ${imf_fp32_omp_lib_funcs_list})
@@ -214,6 +218,14 @@ elseif (IMF_TARGET STREQUAL "FP64")
 elseif (IMF_TARGET STREQUAL "BF16")
   set(imf_fallback_src_list ${imf_bf16_fallback_src_list})
   set(imf_fallback_dest ${DEST_DIR}/imf_bf16_fallback.cpp)
+# INTEL_CUSTOMIZATION
+elseif (IMF_TARGET STREQUAL "FP32_DL")
+  set(imf_fallback_src_list ${imf_fp32_dl_src_list})
+  set(imf_fallback_dest ${DEST_DIR}/imf_fp32_dl.cpp)
+elseif (IMF_TARGET STREQUAL "FP64_DL")
+  set(imf_fallback_src_list ${imf_fp64_dl_src_list})
+  set(imf_fallback_dest ${DEST_DIR}/imf_fp64_dl.cpp)
+#end INTEL_CUSTOMIZATION
 endif()
 
 set(flag 0)
