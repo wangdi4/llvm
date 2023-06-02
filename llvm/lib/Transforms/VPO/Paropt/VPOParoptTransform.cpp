@@ -3572,7 +3572,7 @@ void VPOParoptTransform::genAtomicFreeReductionLocalFini(
       Builder.SetInsertPoint(ExitBarrierCI->getNextNode());
       auto *MTC =
           Builder.CreateICmpNE(LocalId, ConstantInt::getNullValue(SizeTy));
-      DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
+      DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
       SplitBlockAndInsertIfThen(MTC, cast<Instruction>(MTC)->getNextNode(),
                                 false, nullptr, &DTU, LI, ExitBB2);
       Builder.SetInsertPoint(ExitBB2);
@@ -3754,7 +3754,7 @@ void VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       assert(CntrCheckBB && "CntrCheckBB is null.");
       assert(GroupCmp && "GroupCmp is null.");
 
-      DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
+      DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
       SplitBlockAndInsertIfThen(GroupCmp, StartPoint, false, nullptr, &DTU, LI,
                                 ExitBB);
 
@@ -3803,7 +3803,7 @@ void VPOParoptTransform::genAtomicFreeReductionGlobalFini(
       BasicBlock *MasterCheckBB = StartPoint->getParent();
       Preheader = MasterCheckBB;
 
-      DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
+      DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
       SplitBlockAndInsertIfThen(NotMasterCheckPredicate, StartPoint, false,
                                 nullptr, &DTU, LI, ExitBB);
     } else {
@@ -3906,7 +3906,7 @@ void VPOParoptTransform::genAtomicFreeReductionGlobalFini(
                                           ? IVIncInsertPt->getIterator()
                                           : LatchBB->end());
       BasicBlock *OuterLatchBB = nullptr;
-      DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
+      DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
       if (UseParallelReduction) {
         // loop (0) IV increment
         auto *IdxInc0 = Builder.CreateAdd(TeamsIdxPhi, CmpValue);
@@ -5142,7 +5142,7 @@ ReductionCriticalSectionKind VPOParoptTransform::genRedAggregateInitOrFini(
     // Can't split a block with a terminator only, need some dummy instruction
     auto *FakeBr = Builder.CreateBr(DoneBB);
     auto *ThruBB = SplitBlock(BodyBB, FakeBr, DT, LI);
-    DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy); 
+    DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager); 
     SplitBlockAndInsertIfThen(MTT, Combiner->getCopyoutInstr(), false, nullptr,
                               &DTU, LI, ThruBB);
     Builder.SetInsertPoint(FakeBr);
@@ -5570,7 +5570,7 @@ void VPOParoptTransform::genConditionalLPCode(
                                  ModifiedByCurrentChunk); //          (39)
   }
 
-  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
+  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
   // Generate code that is executed in the End of each chunk, if needed.
   if (BranchToNextChunk) {
     IRBuilder<> ChunkFiniBuilder(BranchToNextChunk);
@@ -12131,7 +12131,7 @@ void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
         // One example is as follows.
         //   %1 = icmp ne i64 %0, ptrtoint (i32* @a to i64)
         Value *PtrCompare = Builder.CreateICmpNE(TpvArg, OldTpv);
-        DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
+        DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
 	Term = SplitBlockAndInsertIfThen(PtrCompare,
                                          NFn->getEntryBlock().getTerminator(),
                                          false, nullptr, &DTU, LI);
@@ -12794,7 +12794,7 @@ bool VPOParoptTransform::genLastIterationCheck(
   Value *LastCompare =
       Builder.CreateICmpNE(IsLastPredicate, Builder.getInt32(0)); //         (2)
 
-  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
+  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
   Instruction *Term = SplitBlockAndInsertIfThen(LastCompare, InsertBefore,
                                                 false, nullptr, &DTU, LI);
   Term->getParent()->setName("last.then");
@@ -14880,7 +14880,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   // Split the block: the Then block will jump to the loop
   // body, the Else block is the loop exit, which will jump
   // to the loop post-exit (the current outermost loop's exit block).
-  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
+  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
   Instruction *ThenTerm =
       SplitBlockAndInsertIfThen(
           CmpI, LoopCondBB->getTerminator(), false,

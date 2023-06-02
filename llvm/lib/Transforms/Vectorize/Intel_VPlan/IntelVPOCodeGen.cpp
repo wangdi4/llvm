@@ -2614,7 +2614,7 @@ void VPOCodeGen::predicateInstructions() {
   //  %20 = phi <2 x i32> [ %14, %pred.sdiv.continue ], [ %19, %pred.sdiv.if54 ]
   //  %predphi = select <2 x i1> %8, <2 x i32> %20, <2 x i32> %5
 
-  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy); 
+  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager); 
   for (const auto &KV : PredicatedInstructions) {
     BasicBlock::iterator I(KV.first);
     BasicBlock *Head = I->getParent();
