@@ -166,16 +166,12 @@ enum TokKind {
 
   // Preprocessing tokens for internal usage by the lexer.
   // They are never returned as a result of Lex().
-<<<<<<< HEAD
-    IfPP, // INTE
-    Ifdef, Ifndef, Else, Endif, Define
-=======
+  IfPP, // INTEL
   Ifdef,
   Ifndef,
   Else,
   Endif,
   Define
->>>>>>> 26d7b7bb8ff982b6cdcd9bf7538405356135b724
 };
 }
 
