@@ -5446,7 +5446,7 @@ void Sema::AddSYCLIntelLoopFuseAttr(Decl *D, const AttributeCommonInfo &CI,
       if (DeclAttr->getAttributeSpellingListIndex() !=
           CI.getAttributeSpellingListIndex()) {
         Diag(CI.getLoc(), diag::err_attributes_are_not_compatible)
-            << CI << DeclAttr;
+            << CI << DeclAttr << CI.isRegularKeywordAttribute();
         Diag(DeclAttr->getLocation(), diag::note_conflicting_attribute);
         return;
       }
@@ -8921,7 +8921,8 @@ void Sema::addSYCLIntelPipeIOAttr(Decl *D, const AttributeCommonInfo &CI,
   // when it is ready.
   if (!Ty->isStructureType()) {
     Diag(CI.getLoc(), diag::err_attribute_wrong_decl_type_str)
-        << CI << "SYCL pipe storage declaration";
+        << CI << CI.isRegularKeywordAttribute()
+        << "SYCL pipe storage declaration";
     return;
   }
 
