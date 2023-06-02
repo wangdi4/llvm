@@ -59,8 +59,7 @@ static cl::opt<bool> LT2GigWorkGroupSize(
     "sycl-less-than-two-gig-max-work-group-size", cl::init(true), cl::Hidden,
     cl::desc("Max work group size is less than 2 Gig elements."));
 
-enum GlobalWorkSizeLT2GState : uint8_t { GWS_FALSE, GWS_TRUE, GWS_AUTO };
-static cl::opt<GlobalWorkSizeLT2GState> LT2GigGlobalWorkSize(
+cl::opt<GlobalWorkSizeLT2GState> LT2GigGlobalWorkSize(
     "sycl-less-than-two-gig-max-global-work-size", cl::init(GWS_AUTO),
     cl::Hidden,
     cl::desc("Max global work size (global_work_offset + total work items) is "
