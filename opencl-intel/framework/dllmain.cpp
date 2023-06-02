@@ -17,22 +17,23 @@
 #include "cl_shutdown.h"
 #include "framework_proxy.h"
 
-#include "llvm/Support/ManagedStatic.h"
-
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 using namespace llvm;
 
-static int dll_init(void) {
+#if !_WIN32
+__attribute__((constructor)) static void dll_init(void);
+// As far as possible let dll_fini be called last
+__attribute__((destructor(101))) static void dll_fini(void);
+#endif
+
+static void dll_init(void) {
 #if defined(_WIN32) && !defined(INTEL_PRODUCT_RELEASE) && !defined(_DEBUG)
   DisableSystemDialogsOnCrash();
 #endif
-  return 0;
 }
 
-static int InitOCL = dll_init();
-
-void dll_fini(void) {
+static void dll_fini(void) {
   UpdateShutdownMode(ExitStarted);
   MemoryObjectFactory::Destroy();
   // release the framework proxy object
@@ -42,3 +43,24 @@ void dll_fini(void) {
   // llvm_shutdown();
   UpdateShutdownMode(ExitDone);
 }
+
+#if _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call,
+                      LPVOID lpReserved) {
+  switch (ul_reason_for_call) {
+  case DLL_PROCESS_ATTACH:
+    dll_init();
+    break;
+  case DLL_THREAD_ATTACH:
+  case DLL_THREAD_DETACH:
+    break;
+  case DLL_PROCESS_DETACH:
+    dll_fini();
+    break;
+  }
+  return TRUE;
+}
+#endif
