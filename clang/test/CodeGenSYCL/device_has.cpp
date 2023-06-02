@@ -72,22 +72,6 @@ void foo() {
   });
 }
 
-<<<<<<< HEAD
-// CHECK: [[EMPTYASPECTS]] = !{}
-// CHECK: [[ASPECTS1]] = !{i32 1}
-// CHECK: [[SRCLOC1]] = !{i32 {{[0-9]+}}}
-// CHECK: [[SRCLOC2]] = !{i32 {{[0-9]+}}}
-// CHECK: [[ASPECTS2]] = !{i32 5, i32 2}
-// CHECK: [[SRCLOC3]] = !{i32 {{[0-9]+}}}
-// CHECK: [[SRCLOC4]] = !{i32 {{[0-9]+}}}
-// CHECK: [[ASPECTS3]] = !{i32 0}
-// CHECK: [[SRCLOC5]] = !{i32 {{[0-9]+}}}
-// CHECK: [[SRCLOC6]] = !{i32 {{[0-9]+}}}
-// CHECK: [[SRCLOC7]] = !{i32 {{[0-9]+}}}
-// CHECK: [[ASPECTS5]] = !{i32 1, i32 0}
-// CHECK: [[ASPECTS4]] = !{i32 2}
-// CHECK: [[SRCLOC8]] = !{i32 {{[0-9]+}}}
-=======
 // CHECK-DAG: [[ASPECTS1]] = !{i32 1}
 // CHECK-DAG: [[SRCLOC1]] = !{i32 {{[0-9]+}}}
 // CHECK-DAG: [[EMPTYASPECTS]] = !{}
@@ -103,4 +87,3 @@ void foo() {
 // CHECK-DAG: [[ASPECTS6]] = !{i32 5}
 // CHECK-DAG: [[ASPECTS4]] = !{i32 2}
 // CHECK-DAG: [[SRCLOC8]] = !{i32 {{[0-9]+}}}
->>>>>>> 1dce70f413e686bc6fe3af30f99f478c954ee35f
