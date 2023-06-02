@@ -79,7 +79,7 @@ private:
       if (Item->getIsF90DopeVector()) {
         // See CMPLRLLVM-10783.
         return bailout(
-            OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+            OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
             std::string("F90 dope vector privates are not supported."));
       }
       if (!visitLastPrivate(Item)) {
@@ -92,7 +92,7 @@ private:
       if (!EnableF90DVSupport && Item->getIsF90DopeVector())
         // See CMPLRLLVM-10783.
         return bailout(
-            OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+            OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
             std::string("F90 dope vector reductions are not supported."));
       if (!visitPrivate(Item)) {
         assert(BR.BailoutRemark && "visitPrivate didn't set bailout data!");
@@ -116,7 +116,7 @@ private:
       if (Item->getIsF90DopeVector())
         // See CMPLRLLVM-10783.
         return bailout(
-            OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+            OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
             std::string("F90 dope vector reductions are not supported."));
       switch (Item->getType()) {
       case ReductionItem::WRNReductionMin:
@@ -131,7 +131,7 @@ private:
         return true;
       default:
         return bailoutWithDebug(
-            OptReportVerbosity::Medium, VPlanDriverImpl::BadRednRemarkID,
+            OptReportVerbosity::Medium, OptRemarkID::VecFailBadReduction,
             "A reduction of this operation is not supported",
             WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
                                           : std::string("loop"));
@@ -216,7 +216,8 @@ private:
 
     PrivType = adjustTypeIfArray(PrivType, NumElements);
     if (!PrivType)
-      return bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+      return bailout(OptReportVerbosity::High,
+                     OptRemarkID::VecFailGenericBailout,
                      std::string("Cannot handle array privates yet."));
 
     ValueTy *Val = Item->getOrig<IR>();
@@ -230,7 +231,8 @@ private:
 
     if (!EnableHIRPrivateArrays && IR == IRKind::HIR &&
         isa<ArrayType>(PrivType))
-      return bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+      return bailout(OptReportVerbosity::High,
+                     OptRemarkID::VecFailGenericBailout,
                      std::string("Private array is not supported"));
 
     addLoopPrivate(Val, PrivType, PrivateKindTy::NonLast, F90DVElementType);
@@ -252,7 +254,8 @@ private:
 
     LPrivType = adjustTypeIfArray(LPrivType, NumElements);
     if (!LPrivType)
-      return bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+      return bailout(OptReportVerbosity::High,
+                     OptRemarkID::VecFailGenericBailout,
                      std::string("Cannot handle array privates yet."));
 
     ValueTy *Val = Item->getOrig<IR>();
@@ -266,12 +269,14 @@ private:
 
     if (!EnableHIRPrivateArrays && IR == IRKind::HIR &&
         isa<ArrayType>(LPrivType))
-      return bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+      return bailout(OptReportVerbosity::High,
+                     OptRemarkID::VecFailGenericBailout,
                      std::string("Private array is not supported"));
 
     // Until CG to extract vector by non-const index is implemented.
     if (Item->getIsConditional() && LPrivType->isVectorTy())
-      return bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+      return bailout(OptReportVerbosity::High,
+                     OptRemarkID::VecFailGenericBailout,
                      std::string("Conditional lastprivate of a vector type is "
                                  "not supported."));
 
@@ -321,7 +326,8 @@ private:
     // Bailout for unknown array size.
     if (!RedType)
       // CMPLRLLVM-20621.
-      return bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+      return bailout(OptReportVerbosity::High,
+                     OptRemarkID::VecFailGenericBailout,
                      std::string("Cannot handle array reductions."));
 
     // Other temporary bailouts for array reductions.
@@ -330,7 +336,7 @@ private:
       RedType = ArrTy->getElementType();
       if (!RedType->isSingleValueType())
         return bailout(OptReportVerbosity::High,
-                       VPlanDriverImpl::BailoutRemarkID,
+                       OptRemarkID::VecFailGenericBailout,
                        std::string("Cannot handle array reduction with "
                                    "non-single value type."));
 
@@ -345,11 +351,11 @@ private:
 
         if (!OrigIsAllocaInst)
           return bailout(
-              OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+              OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
               std::string("Non-alloca instruction in reduction clause."));
         if (Item->getIsArraySection())
           return bailout(
-              OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+              OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
               std::string("Array sections with offsets not supported."));
       }
 
@@ -358,7 +364,7 @@ private:
       auto *OrigAlloca = dyn_cast<AllocaInst>(Item->getOrig());
       if (OrigAlloca && OrigAlloca->isArrayAllocation())
         return bailout(OptReportVerbosity::High,
-                       VPlanDriverImpl::BailoutRemarkID,
+                       OptRemarkID::VecFailGenericBailout,
                        std::string("Array alloca detected."));
     }
 
@@ -367,7 +373,8 @@ private:
 
     if (!forceUDSReductionVec() && Kind == RecurKind::Udr &&
         Item->getIsInscan())
-      return bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+      return bailout(OptReportVerbosity::High,
+                     OptRemarkID::VecFailGenericBailout,
                      std::string("Scan reduction with user-defined operation "
                                  "is not supported."));
 
@@ -375,13 +382,13 @@ private:
     // Remove this bailout when complex intrinsics are enabled by default in FE
     // and VPlan CGs are updated to emit these intrinsics during finalization.
     if (Item->getIsComplex() && Kind == RecurKind::FMul)
-      // TODO: Better is to add a medium remark of type CmplxFltRemarkID
-      // or CmplxDblRemarkID, depending on the underlying type.  These
-      // remarks also require passing a string identifying the reduction
-      // kind.  There's some complexity in getting this information from
-      // "Item" for all possible cases.
+      // TODO: Better is to add a medium remark of type VecFailBadComplexFloatOp
+      // or VecFailBadComplexDoubleOp, depending on the underlying type.  These
+      // remarks also require passing a string identifying the reduction kind.
+      // There's some complexity in getting this information from "Item" for
+      // all possible cases.
       return bailout(
-          OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+          OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
           std::string("Complex mul/div type reductions are not supported."));
 
     if (Kind == RecurKind::Udr) {
@@ -415,14 +422,14 @@ private:
 
   // Set of thunks to a parent methods
   template <typename... Args>
-  bool bailout(OptReportVerbosity::Level Level, unsigned ID,
+  bool bailout(OptReportVerbosity::Level Level, OptRemarkID ID,
                std::string Message, Args &&...BailoutArgs) {
     return static_cast<LegalityTy *>(this)->bailout(
         Level, ID, Message, std::forward<Args>(BailoutArgs)...);
   }
 
   template <typename... Args>
-  bool bailoutWithDebug(OptReportVerbosity::Level Level, unsigned ID,
+  bool bailoutWithDebug(OptReportVerbosity::Level Level, OptRemarkID ID,
                         std::string Debug, Args &&...BailoutArgs) {
     return static_cast<LegalityTy *>(this)->bailoutWithDebug(
         Level, ID, Debug, std::forward<Args>(BailoutArgs)...);
@@ -713,13 +720,13 @@ private:
   /// Reports a reason for vectorization bailout. Always returns false.
   /// \p Message will appear both in the debug dump and the opt report remark.
   template <typename... Args>
-  bool bailout(OptReportVerbosity::Level Level, unsigned ID,
+  bool bailout(OptReportVerbosity::Level Level, OptRemarkID ID,
                std::string Message, Args &&...BailoutArgs);
 
   /// Reports a reason for vectorization bailout. Always returns false.
   /// \p Debug will appear in the debug dump, but not in the opt report remark.
   template <typename... Args>
-  bool bailoutWithDebug(OptReportVerbosity::Level Level, unsigned ID,
+  bool bailoutWithDebug(OptReportVerbosity::Level Level, OptRemarkID ID,
                         std::string Debug, Args &&...BailoutArgs);
 
   /// Initialize cached bailout remark data.
@@ -730,11 +737,11 @@ private:
   /// instantiations of this template function.
   template <typename... Args>
   void setBailoutRemark(OptReportVerbosity::Level BailoutLevel,
-                        unsigned BailoutID, Args &&...BailoutArgs) {
+                        OptRemarkID BailoutID, Args &&...BailoutArgs) {
     BR.BailoutLevel = BailoutLevel;
-    BR.BailoutRemark =
-        OptRemark::get(*Context, BailoutID, OptReportDiag::getMsg(BailoutID),
-                       std::forward<Args>(BailoutArgs)...);
+    BR.BailoutRemark = OptRemark::get(
+        *Context, static_cast<unsigned>(BailoutID),
+        OptReportDiag::getMsg(BailoutID), std::forward<Args>(BailoutArgs)...);
   }
 
   /// Add an in memory non-POD private to the vector of private values.

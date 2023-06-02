@@ -650,18 +650,18 @@ public:
   bool getTreeConflictsLowered();
 
   // Non-template version when no arguments are required.
-  bool bailout(OptReportVerbosity::Level Level, unsigned ID);
+  bool bailout(OptReportVerbosity::Level Level, OptRemarkID ID);
 
   // Reports a reason for vectorization bailout. Always returns false.
   // \p Message will appear both in the debug dump and the opt report remark.
   template <typename... Args>
-  bool bailout(OptReportVerbosity::Level Level, unsigned ID,
+  bool bailout(OptReportVerbosity::Level Level, OptRemarkID ID,
                std::string Message, Args &&...BailoutArgs);
 
   // Reports a reason for vectorization bailout. Always returns false.
   // \p Debug will appear in the debug dump, but not in the opt report remark.
   template <typename... Args>
-  bool bailoutWithDebug(OptReportVerbosity::Level Level, unsigned ID,
+  bool bailoutWithDebug(OptReportVerbosity::Level Level, OptRemarkID ID,
                         std::string Debug, Args &&...BailoutArgs);
 
   // Initialize cached bailout remark data.
@@ -672,11 +672,11 @@ public:
   // instantiations of this template function.
   template <typename... Args>
   void setBailoutRemark(OptReportVerbosity::Level BailoutLevel,
-                        unsigned BailoutID, Args &&...BailoutArgs) {
+                        OptRemarkID BailoutID, Args &&...BailoutArgs) {
     BR.BailoutLevel = BailoutLevel;
-    BR.BailoutRemark =
-        OptRemark::get(Context, BailoutID, OptReportDiag::getMsg(BailoutID),
-                       std::forward<Args>(BailoutArgs)...);
+    BR.BailoutRemark = OptRemark::get(Context, static_cast<unsigned>(BailoutID),
+                                      OptReportDiag::getMsg(BailoutID),
+                                      std::forward<Args>(BailoutArgs)...);
   }
 
   // Access reason for bailing out of vectorization.

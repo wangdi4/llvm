@@ -355,7 +355,7 @@ static unsigned getSafelen(const WRNVecLoopNode *WRLp) {
 
 template <typename... Args>
 void LoopVectorizationPlanner::bailout(OptReportVerbosity::Level Level,
-                                       unsigned ID, std::string Message,
+                                       OptRemarkID ID, std::string Message,
                                        Args &&...BailoutArgs) const {
   LLVM_DEBUG(dbgs() << Message << '\n');
   setBailoutRemark(Level, ID, Message, std::forward<Args>(BailoutArgs)...);
@@ -363,11 +363,12 @@ void LoopVectorizationPlanner::bailout(OptReportVerbosity::Level Level,
 
 // Instantiation required to support accesses from external module.
 template void LoopVectorizationPlanner::bailout(OptReportVerbosity::Level,
-                                                unsigned, std::string) const;
+                                                OptRemarkID, std::string) const;
 
 template <typename... Args>
 void LoopVectorizationPlanner::bailoutWithDebug(OptReportVerbosity::Level Level,
-                                                unsigned ID, std::string Debug,
+                                                OptRemarkID ID,
+                                                std::string Debug,
                                                 Args &&...BailoutArgs) const {
   LLVM_DEBUG(dbgs() << Debug << '\n');
   setBailoutRemark(Level, ID, std::forward<Args>(BailoutArgs)...);
@@ -377,7 +378,7 @@ void LoopVectorizationPlanner::setDefaultVectorFactors() {
   unsigned ForcedVF = getForcedVF(WRLp);
   if (ForcedVF && !isPowerOf2_64(ForcedVF)) {
     VFs.push_back(0);
-    bailout(OptReportVerbosity::Medium, VPlanDriverImpl::BailoutRemarkID,
+    bailout(OptReportVerbosity::Medium, OptRemarkID::VecFailGenericBailout,
             std::string("The forced vectorization factor is not a power "
                         "of two."));
     return;
@@ -391,7 +392,7 @@ void LoopVectorizationPlanner::setDefaultVectorFactors() {
   // Early return from vectorizer if forced VF or safelen is 1
   if (ForcedVF == 1 || Safelen == 1) {
     VFs.push_back(0);
-    bailout(OptReportVerbosity::Medium, VPlanDriverImpl::BailoutRemarkID,
+    bailout(OptReportVerbosity::Medium, OptRemarkID::VecFailGenericBailout,
             std::string("The forced vectorization factor or safelen "
                         "specified by the user is 1."));
     return;
@@ -401,7 +402,7 @@ void LoopVectorizationPlanner::setDefaultVectorFactors() {
     if (ForcedVF > Safelen) {
       // We are bailing out of vectorization if ForcedVF > safelen
       VFs.push_back(0);
-      bailout(OptReportVerbosity::Medium, VPlanDriverImpl::BailoutRemarkID,
+      bailout(OptReportVerbosity::Medium, OptRemarkID::VecFailGenericBailout,
               std::string("The forced vectorization factor exceeds "
                           "the safelen set via #pragma omp simd."));
       return;
@@ -418,7 +419,7 @@ void LoopVectorizationPlanner::setDefaultVectorFactors() {
   } else if (VectorlengthMD != nullptr) {
     extractVFsFromMetadata(Safelen);
     if (VFs.size() > 0 && VFs[0] == 0)
-      bailout(OptReportVerbosity::Medium, VPlanDriverImpl::BailoutRemarkID,
+      bailout(OptReportVerbosity::Medium, OptRemarkID::VecFailGenericBailout,
               std::string("User specified #pragma vector vectorlength(0)."));
   } else {
     unsigned MinWidthInBits, MaxWidthInBits, MinVF, MaxVF;
@@ -464,7 +465,7 @@ void LoopVectorizationPlanner::setDefaultVectorFactors() {
       std::stringstream SS;
       SS << "Calculated minimum vectorization factor " << MinVF
          << " exceeds calculated maximum vectorization factor " << MaxVF << ".";
-      bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+      bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
               SS.str());
       return;
     }
@@ -496,7 +497,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
     std::stringstream SS;
     SS << "The loop is out of vplan-vec-range (#" << VPlanOrderNumber << ")";
     bailoutWithDebug(OptReportVerbosity::Medium,
-                     VPlanDriverImpl::OutOfRangeRemarkID, SS.str(),
+                     OptRemarkID::VecFailUserExcluded, SS.str(),
                      std::string("loop"));
     DEBUG_WITH_TYPE("LoopVectorizationPlanner_vec_range",
                     for (const auto &R
@@ -530,7 +531,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
   }
 
   if (!IsLegalToVec) {
-    bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+    bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
             std::string("Loop previously found illegal to vectorize."));
     return 0;
   }
@@ -542,7 +543,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
     // type, bail out if this VF exceeds known loop trip count.
     if (!EnableMaskedMainLoop && !MainLoop->getTripCountInfo().IsEstimated &&
         MainLoop->getTripCountInfo().TripCount < VFs[0]) {
-      bailout(OptReportVerbosity::Medium, VPlanDriverImpl::BailoutRemarkID,
+      bailout(OptReportVerbosity::Medium, OptRemarkID::VecFailGenericBailout,
               std::string("Enforced or only valid vectorization factor exceeds "
                           "the known trip count for this loop."));
       return 0;
@@ -566,7 +567,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
   auto Error = LE->getImportingError();
   if (Error != VPLoopEntityList::ImportError::None) {
-    bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+    bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
             std::string(LE->getImportErrorStr(Error)));
     return 0;
   }
@@ -603,7 +604,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
                   }),
               VFs.end());
   if (VFs.empty()) {
-    bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+    bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
             std::string("The loop contains a compress/expand idiom that "
                         "cannot be vectorized with any suitable vectorization "
                         "factor."));
@@ -796,7 +797,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
   // When we force VF to have a special value, VFs vector has only one value.
   // Therefore, we have to check if we removed the only value that was in VFs.
   if (VFs.empty()) {
-    bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+    bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
             std::string("No vectorization factor was found that can "
                         "satisfy all VConflict idioms in the loop."));
     return 0;
@@ -1206,7 +1207,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       SS << "Bailing out to scalar VPlan because ForcedVF(" << ForcedVF
          << ") * U > TripCount(" << TripCount << ") for all unroll factors U";
       bailoutWithDebug(OptReportVerbosity::Medium,
-                       VPlanDriverImpl::BailoutRemarkID, SS.str(),
+                       OptRemarkID::VecFailGenericBailout, SS.str(),
                        std::string("The forced vectorization factor exceeds "
                                    "the unrolled trip count for every legal "
                                    "unroll factor."));
@@ -1220,7 +1221,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     LLVM_DEBUG(dbgs() << "There is only VPlan with VF=" << ForcedVF
                       << ", selecting it.\n");
     if (ForcedVF == 1)
-      bailout(OptReportVerbosity::Medium, VPlanDriverImpl::BailoutRemarkID,
+      bailout(OptReportVerbosity::Medium, OptRemarkID::VecFailGenericBailout,
               std::string("User forced vectorization factor of 1."));
   }
 
@@ -1271,11 +1272,12 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       // SearchLoopPreferredVF. That requires updating VecScenario structure
       // so getBestVF()/getBestVPlan() utilites can work properly.
       if (SearchLoopPreferredVF == 1) {
-        bailoutWithDebug(
-            OptReportVerbosity::Medium, VPlanDriverImpl::BadSearchRemarkID,
-            "Selecting VPlan with search loop preferred VF=1",
-            WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
-                                          : std::string("loop"));
+        bailoutWithDebug(OptReportVerbosity::Medium,
+                         OptRemarkID::VecFailBadlyFormedMultiExitLoop,
+                         "Selecting VPlan with search loop preferred VF=1",
+                         WRLp && WRLp->isOmpSIMDLoop()
+                             ? std::string("simd loop")
+                             : std::string("loop"));
         return std::make_pair(VecScenario.getMainVF(), getBestVPlan());
       }
 
@@ -1294,7 +1296,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
            << ") * U > TripCount(" << TripCount
            << ") for all unroll factors U\n";
         bailoutWithDebug(OptReportVerbosity::High,
-                         VPlanDriverImpl::BailoutRemarkID, SS.str(),
+                         OptRemarkID::VecFailGenericBailout, SS.str(),
                          std::string("Trip count too low for search loop."));
         // The scenario was reset just before the check.
         return std::make_pair(VecScenario.getMainVF(), getBestVPlan());
@@ -1644,7 +1646,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
         IsMasked = true;
       } else {
         bailoutWithDebug(
-            OptReportVerbosity::Medium, VPlanDriverImpl::LowTripCountRemarkID,
+            OptReportVerbosity::Medium, OptRemarkID::VecFailLowTripCount,
             WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
                                           : std::string("loop"),
             "The loop trip count is less than enforced vector factor.");
@@ -1708,13 +1710,13 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   if (getBestVF() == 1) {
     if (TripCount < ForcedVF) {
       bailoutWithDebug(
-          OptReportVerbosity::Medium, VPlanDriverImpl::LowTripCountRemarkID,
+          OptReportVerbosity::Medium, OptRemarkID::VecFailLowTripCount,
           "The loop trip count is less than enforced vector factor.",
           WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
                                         : std::string("loop"));
     } else {
       bailoutWithDebug(OptReportVerbosity::Medium,
-                       VPlanDriverImpl::NoProfitRemarkID,
+                       OptRemarkID::VecFailNotProfitable,
                        "Loop is unprofitable to vectorize.",
                        WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
                                                      : std::string("loop"));
@@ -1726,31 +1728,31 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     if (BestCostSummary.ScalarIterationCost.isValid()) {
       // Add remark: scalar cost
       OptRptStats.CostModelRemarks.emplace_back(
-          VPlanDriverImpl::ScalarCostRemarkID,
+          OptRemarkID::VectorizerScalarLoopCost,
           std::to_string(BestCostSummary.ScalarIterationCost.getFloatValue()));
     }
     if (BestCostSummary.VectorIterationCost.isValid()) {
       // Add remark: vector cost
       OptRptStats.CostModelRemarks.emplace_back(
-          VPlanDriverImpl::VectorCostRemarkID,
+          OptRemarkID::VectorizerVectorLoopCost,
           std::to_string(BestCostSummary.VectorIterationCost.getFloatValue()));
     }
     if (BestCostSummary.Speedup.isValid()) {
       // Add remark: estimated potential speedup
       OptRptStats.CostModelRemarks.emplace_back(
-          VPlanDriverImpl::EstSpeedupRemarkID,
+          OptRemarkID::VectorizerEstimatedSpeedup,
           std::to_string(BestCostSummary.Speedup.getFloatValue()));
     }
     if (BestCostSummary.LoopOverhead.isValid()) {
       // Add remark: vectorization support: normalized vectorization overhead
       OptRptStats.CostModelRemarks.emplace_back(
-          VPlanDriverImpl::NormVecOverheadRemarkID,
+          OptRemarkID::NormalizedVecOverhead,
           std::to_string(BestCostSummary.LoopOverhead.getFloatValue()));
     }
     if (!IsTripCountEstimated) {
       // Add remark: using (estimated) scalar loop trip count
       OptRptStats.CostModelRemarks.emplace_back(
-          VPlanDriverImpl::ScalarTripCountRemarkID,
+          OptRemarkID::VectorizerScalarTripCount,
           std::to_string(OrigTripCount));
     }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -2051,11 +2053,11 @@ void LoopVectorizationPlanner::emitVPEntityInstrs(VPlanVector *Plan) {
     if (WRLp && WRLp->isOmpSIMDLoop())
       // Add remark Loop has SIMD reduction
       OptRptStats.ReductionInstRemarks.emplace_back(
-          VPlanDriverImpl::HasSimdReductionRemarkID, "");
+          OptRemarkID::LoopHasSimdReduction, "");
     else
       // Add remark Loop has reduction
       OptRptStats.ReductionInstRemarks.emplace_back(
-          VPlanDriverImpl::HasReductionRemarkID, "");
+          OptRemarkID::LoopHasReduction, "");
   }
 
   VPLAN_DUMP(VPEntityInstructionsDumpControl, Plan);
@@ -2535,7 +2537,7 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
   VPBasicBlock *Header = VPLp->getHeader();
   const VPLoopEntityList *LE = Plan.getLoopEntities(VPLp);
   if (!LE) {
-    bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+    bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
             std::string("There are no loop entities (e.g., inductions or "
                         "reductions) for this loop."));
     return false;
@@ -2551,7 +2553,7 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
       // testing.
       if (!Red->getRecurrenceStartValue() ||
           LE->getMemoryDescriptor(Red) == nullptr || !Red->getIsMemOnly()) {
-        bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+        bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
                 std::string("A user-defined reduction or scan has been "
                             "registerized, and cannot be vectorized."));
         return false;
@@ -2559,7 +2561,7 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
 
       auto *UDS = dyn_cast<VPUserDefinedScanReduction>(Red);
       if (UDS && !UDS->getInitializer()) {
-        bailout(OptReportVerbosity::Medium, VPlanDriverImpl::BailoutRemarkID,
+        bailout(OptReportVerbosity::Medium, OptRemarkID::VecFailGenericBailout,
                 std::string("A user-defined reduction without an initializer "
                             "has been detected, and is not yet supported."));
         return false;
@@ -2589,7 +2591,7 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
       // into vector registers as mentioned above. Check if this is legal based
       // on type sizes.
       if (RecTySize != PackedVecTySize) {
-        bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+        bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
                 std::string("Complex struct type cannot be packed into "
                             "trivial vector type."));
         return false;
@@ -2600,7 +2602,7 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
       unsigned OrigAlignV =
           Plan.getDataLayout()->getPrefTypeAlign(RecTy).value();
       if (RecTySize.getFixedValue() % OrigAlignV != 0) {
-        bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+        bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
                 std::string("Complex struct type size is not divisible by "
                             "its alignment; i.e., it has padding."));
         return false;
@@ -2645,7 +2647,7 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
       NumLiveOutInsts++; // at the moment we make reduction exit as liveout.
 
     if (NumLiveOutInsts > 1) {
-      bailout(OptReportVerbosity::Medium, VPlanDriverImpl::BailoutRemarkID,
+      bailout(OptReportVerbosity::Medium, OptRemarkID::VecFailGenericBailout,
               std::string("A reduction with more than one live-out instruction "
                           "is not supported."));
       return false;
@@ -2660,7 +2662,7 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
       // working on plain CFG before any transforms.
       LLVM_DEBUG(dbgs() << "LVP: Unrecognized phi found.\n" << Phi << "\n");
       bailoutWithDebug(OptReportVerbosity::Medium,
-                       VPlanDriverImpl::BadRecurPhiRemarkID,
+                       OptRemarkID::VecFailUnknownRecurrence,
                        "Loop contains a recurrent computation that could not be"
                        "identified as an induction or reduction.",
                        std::string("loop"));
@@ -2684,7 +2686,7 @@ bool LoopVectorizationPlanner::canLowerVPlan(const VPlanVector &Plan,
       if (AllocaPriv->isSOASafe() && AllocaPriv->isSOAProfitable() &&
           !isSOACodegenSupported() &&
           AllocaPriv->getAllocatedType()->isArrayTy()) {
-        bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+        bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
                 std::string("SOA transformation for privates is not yet "
                             "supported on this path."));
         LLVM_DEBUG(dbgs() << VPI << "\n");
@@ -2714,7 +2716,7 @@ bool LoopVectorizationPlanner::canLowerVPlan(const VPlanVector &Plan,
                    cast<VPInstruction>(U)->getOpcode() ==
                        Instruction::ExtractValue;
           })) {
-        bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+        bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
                 "Argument repacking call has non-optimizable aggregate "
                 "operations.");
         LLVM_DEBUG(dbgs() << VPI << "\n");
@@ -2788,7 +2790,7 @@ bool LoopVectorizationPlanner::canProcessLoopBody(const VPlanVector &Plan,
   const VPLoopEntityList *LE = Plan.getLoopEntities(&Loop);
   assert(LE && "No loop entities for loop!");
   if (!LE) {
-    bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+    bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
             std::string("There are no loop entities (e.g., inductions or "
                         "reductions) for this loop."));
     return false;
@@ -2800,7 +2802,7 @@ bool LoopVectorizationPlanner::canProcessLoopBody(const VPlanVector &Plan,
           // inductions and reductions.
           if (isa<VectorType>(Inst.getType())) {
             bailoutWithDebug(OptReportVerbosity::Medium,
-                             VPlanDriverImpl::VecTypeRednRemarkID,
+                             OptRemarkID::VecFailReducingVectorType,
                              "A reduction or induction of a vector type is not "
                              "supported.",
                              std::string("loop"));
@@ -2811,7 +2813,7 @@ bool LoopVectorizationPlanner::canProcessLoopBody(const VPlanVector &Plan,
           // Some liveouts are left unrecognized due to unvectorizable use-def
           // chains.
           bailoutWithDebug(OptReportVerbosity::Medium,
-                           VPlanDriverImpl::BadLiveOutRemarkID,
+                           OptRemarkID::VecFailUnknownLiveOut,
                            "Loop contains a live-out value that could not be "
                            "identified as an induction or reduction.",
                            std::string("loop"));
@@ -2820,7 +2822,7 @@ bool LoopVectorizationPlanner::canProcessLoopBody(const VPlanVector &Plan,
         if (auto *VPCall = dyn_cast<VPCallInstruction>(&Inst)) {
           if (isInvalidOMPConstructInSIMD(VPCall)) {
             bailout(OptReportVerbosity::Medium,
-                    VPlanDriverImpl::BailoutRemarkID,
+                    OptRemarkID::VecFailGenericBailout,
                     std::string("An illegal OpenMP construct was found "
                                 "inside this SIMD loop."));
             return false;

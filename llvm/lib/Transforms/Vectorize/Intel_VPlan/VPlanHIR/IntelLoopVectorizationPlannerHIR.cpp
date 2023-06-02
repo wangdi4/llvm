@@ -113,7 +113,7 @@ std::shared_ptr<VPlanVector> LoopVectorizationPlannerHIR::buildInitialVPlan(
                                   AC);
   if (!HCFGBuilder.buildHierarchicalCFG()) {
     bailout(
-        OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+        OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
         std::string("Unable to construct control-flow graph for this loop."));
     return nullptr;
   }
@@ -140,7 +140,7 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
   const VPLoopEntityList *LE = Plan.getLoopEntities(&Loop);
   assert(LE && "No loop entities for loop!");
   if (!LE) {
-    bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+    bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
             std::string("There are no loop entities (e.g., inductions or "
                         "reductions) for this loop."));
     return false;
@@ -153,7 +153,7 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
       if (LE->getReduction(&Inst) || LE->getInduction(&Inst)) {
         if (isa<VectorType>(Inst.getType())) {
           bailoutWithDebug(OptReportVerbosity::Medium,
-                           VPlanDriverImpl::VecTypeRednRemarkID,
+                           OptRemarkID::VecFailReducingVectorType,
                            "A reduction or induction of a vector type is not "
                            "supported.",
                            std::string("loop"));
@@ -165,7 +165,7 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
         // Some liveouts are left unrecognized due to unvectorizable use-def
         // chains.
         bailoutWithDebug(OptReportVerbosity::Medium,
-                         VPlanDriverImpl::BadLiveOutRemarkID,
+                         OptRemarkID::VecFailUnknownLiveOut,
                          "Loop contains a live-out value that could not be "
                          "identified as an induction or reduction.",
                          std::string("loop"));
@@ -182,7 +182,7 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
         if (UnderlyingCall &&
             vpo::VPOAnalysisUtils::isBeginDirective(UnderlyingCall)) {
           bailoutWithDebug(OptReportVerbosity::Medium,
-                           VPlanDriverImpl::NestedSimdRemarkID,
+                           OptRemarkID::VecFailNestedSimdRegion,
                            "Unsupported nested OpenMP (simd) loop or region.",
                            std::string("simd loop"));
           LLVM_DEBUG(dbgs() << *UnderlyingCall << "\n");
@@ -195,7 +195,7 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
   for (auto Red : LE->vpreductions())
     if (Red->getRecurrenceKind() == RecurKind::SelectICmp ||
         Red->getRecurrenceKind() == RecurKind::SelectFCmp) {
-      bailout(OptReportVerbosity::High, VPlanDriverImpl::BailoutRemarkID,
+      bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
               std::string("Select-compare reductions are not expected on this "
                           "path."));
       return false;

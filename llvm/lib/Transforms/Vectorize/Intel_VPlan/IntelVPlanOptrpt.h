@@ -29,14 +29,14 @@ class VPLoopInfo;
 
 struct OptReportStatsTracker {
   struct RemarkRecord {
-    unsigned RemarkID;
+    OptRemarkID RemarkID;
     OptReportVerbosity::Level MessageVerbosity;
     std::string Arg;
 
     // High verbosity is assumed
-    RemarkRecord(unsigned ID, std::string Arg = "")
+    RemarkRecord(OptRemarkID ID, std::string Arg = "")
         : RemarkID(ID), MessageVerbosity(OptReportVerbosity::High), Arg(Arg){};
-    RemarkRecord(unsigned ID, OptReportVerbosity::Level Verbosity,
+    RemarkRecord(OptRemarkID ID, OptReportVerbosity::Level Verbosity,
                  std::string Arg = "")
         : RemarkID(ID), MessageVerbosity(Verbosity), Arg(Arg){};
   };

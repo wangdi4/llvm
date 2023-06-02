@@ -209,7 +209,8 @@ bool VPlanDriverImpl::hasDedicatedAndUniqueExits(Loop *Lp,
     LLVM_DEBUG(dbgs() << "VD: loop form "
                       << "(" << Lp->getName()
                       << ") is not supported: no dedicated exits.\n");
-    setBailoutRemark(OptReportVerbosity::Medium, BailoutRemarkID,
+    setBailoutRemark(OptReportVerbosity::Medium,
+                     OptRemarkID::VecFailGenericBailout,
                      std::string("Loop has no dedicated exits."));
     return false;
   }
@@ -218,7 +219,8 @@ bool VPlanDriverImpl::hasDedicatedAndUniqueExits(Loop *Lp,
     LLVM_DEBUG(dbgs() << "VD: loop form "
                       << "(" << Lp->getName()
                       << ") is not supported: multiple exit blocks.\n");
-    setBailoutRemark(OptReportVerbosity::Medium, BadSearchRemarkID,
+    setBailoutRemark(OptReportVerbosity::Medium,
+                     OptRemarkID::VecFailBadlyFormedMultiExitLoop,
                      WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
                                                    : std::string("loop"));
     return false;
@@ -576,7 +578,8 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
 
   // VPlan construction stress test ends here.
   if (VPlanConstrStressTest) {
-    setBailoutRemark(OptReportVerbosity::High, BailoutRemarkID,
+    setBailoutRemark(OptReportVerbosity::High,
+                     OptRemarkID::VecFailGenericBailout,
                      std::string("Stress testing only."));
     return bailout(VPORBuilder, Lp, WRLp, BR);
   }
@@ -696,7 +699,8 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   preprocessPrivateFinalCondInstructions(Plan);
 
   if (DisableCodeGen) {
-    setBailoutRemark(OptReportVerbosity::High, BailoutRemarkID,
+    setBailoutRemark(OptReportVerbosity::High,
+                     OptRemarkID::VecFailGenericBailout,
                      std::string("Code generation is disabled."));
     return bailout(VPORBuilder, Lp, WRLp, BR);
   }
@@ -789,10 +793,11 @@ bool VPlanDriverImpl::bailout(VPlanOptReportBuilder &VPORBuilder, Loop *Lp,
                               WRNVecLoopNode *WRLp,
                               VPlanBailoutRemark RemarkData) {
 
-  unsigned ID = RemarkData.BailoutRemark.getRemarkID();
+  OptRemarkID ID =
+      static_cast<OptRemarkID>(RemarkData.BailoutRemark.getRemarkID());
 
   if (RemarkData.BailoutLevel == OptReportVerbosity::High &&
-      ID == BailoutRemarkID) {
+      ID == OptRemarkID::VecFailGenericBailout) {
     VPORBuilder.addRemark(Lp, OptReportVerbosity::Medium, ID, std::string());
 #ifndef NDEBUG
     VPORBuilder.addRemark(Lp, RemarkData.BailoutLevel,
@@ -852,7 +857,8 @@ bool VPlanDriverImpl::isSupported<llvm::Loop>(Loop *Lp, WRNVecLoopNode *WRLp) {
     LLVM_DEBUG(dbgs() << "VD: loop nest "
                       << "(" << Lp->getName()
                       << ") is not supported: irreducible CFG.\n");
-    setBailoutRemark(OptReportVerbosity::Medium, ComplexFlowRemarkID,
+    setBailoutRemark(OptReportVerbosity::Medium,
+                     OptRemarkID::VecFailComplexControlFlow,
                      WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
                                                    : std::string("loop"));
     return false;
@@ -862,7 +868,8 @@ bool VPlanDriverImpl::isSupported<llvm::Loop>(Loop *Lp, WRNVecLoopNode *WRLp) {
     // We don't support switch statements inside loops.
     if (!isa<BranchInst>(BB->getTerminator())) {
       LLVM_DEBUG(dbgs() << "VD: loop nest contains a switch statement.\n");
-      setBailoutRemark(OptReportVerbosity::Medium, SwitchRemarkID,
+      setBailoutRemark(OptReportVerbosity::Medium,
+                       OptRemarkID::VecFailSwitchPresent,
                        WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
                                                      : std::string("loop"));
       return false;
@@ -1104,31 +1111,33 @@ void VPlanDriverImpl::addOptReportRemarks(WRNVecLoopNode *WRLp,
     // 15569 remark is "Compiler has chosen to target XMM/YMM vector."
     // "Try using -mprefer-vector-width=512 to override."
     VPORBuilder.addRemark(VCodeGen->getMainLoop(), OptReportVerbosity::High,
-                          ShortVectorRemarkID);
+                          OptRemarkID::VectorizerShortVector);
   // The new vectorized loop is stored in MainLoop
   Loop *MainLoop = VCodeGen->getMainLoop();
   if (WRLp && WRLp->isOmpSIMDLoop())
     // Adds remark SIMD LOOP WAS VECTORIZED
     VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low,
-                          SimdLoopSuccessRemarkID);
+                          OptRemarkID::SimdLoopVectorized);
   else
     // Adds remark LOOP WAS VECTORIZED
     VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low,
-                          LoopSuccessRemarkID);
+                          OptRemarkID::LoopVectorized);
 
   // Next print the loop number.
   if (ReportLoopNumber)
     VPORBuilder.addRemark(
-        MainLoop, OptReportVerbosity::Low, LoopNumberRemarkID,
+        MainLoop, OptReportVerbosity::Low, OptRemarkID::VectorizerLoopNumber,
         Twine(LoopVectorizationPlanner::getVPlanOrderNumber()).str());
 
   // Add remark about VF
-  VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low, VectorLengthRemarkID,
+  VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low,
+                        OptRemarkID::VectorizationFactor,
                         Twine(VCodeGen->getVF()).str());
   // Add remark about UF
   if (VCodeGen->getUF() > 1)
     VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low,
-                          UnrollFactorRemarkID, Twine(VCodeGen->getUF()).str());
+                          OptRemarkID::VectorizerUnrollFactor,
+                          Twine(VCodeGen->getUF()).str());
 
   // VPLoop corresponding to MainLoop should be the outer most loop in CFG.
   auto *Plan = cast<VPlanVector>(VCodeGen->getPlan());
@@ -1142,7 +1151,7 @@ void VPlanDriverImpl::addOptReportRemarks(WRNVecLoopNode *WRLp,
   if (VCodeGen->getNeedRemainderLoop()) {
     Loop *RemLoop = VCodeGen->getRemainderLoop();
     VPORBuilder.addRemark(RemLoop, OptReportVerbosity::Medium,
-                          RemainderNotVecRemarkID, "");
+                          OptRemarkID::UnvectorizedRemainderLoop, "");
   }
 }
 
@@ -1165,31 +1174,31 @@ void VPlanDriverImpl::addOptReportRemarksForMainPlan(
           TTI::AdvancedOptLevel::AO_TargetHasIntelAVX512)) {
     // 15569 remark is "Compiler has chosen to target XMM/YMM vector."
     // "Try using -mprefer-vector-width=512 to override."
-    OptRptStats.GeneralRemarks.emplace_back(ShortVectorRemarkID,
+    OptRptStats.GeneralRemarks.emplace_back(OptRemarkID::VectorizerShortVector,
                                             OptReportVerbosity::High);
   }
 
   if (WRLp && WRLp->isOmpSIMDLoop())
     // Adds remark SIMD LOOP WAS VECTORIZED
-    OptRptStats.GeneralRemarks.emplace_back(SimdLoopSuccessRemarkID,
+    OptRptStats.GeneralRemarks.emplace_back(OptRemarkID::SimdLoopVectorized,
                                             OptReportVerbosity::Low);
   else
     // Adds remark LOOP WAS VECTORIZED
-    OptRptStats.GeneralRemarks.emplace_back(LoopSuccessRemarkID,
+    OptRptStats.GeneralRemarks.emplace_back(OptRemarkID::LoopVectorized,
                                             OptReportVerbosity::Low);
 
   // Next print the loop number.
   if (ReportLoopNumber)
     OptRptStats.GeneralRemarks.emplace_back(
-        LoopNumberRemarkID, OptReportVerbosity::Low,
+        OptRemarkID::VectorizerLoopNumber, OptReportVerbosity::Low,
         Twine(LoopVectorizationPlanner::getVPlanOrderNumber()).str());
 
   // Add remark about VF
-  OptRptStats.GeneralRemarks.emplace_back(VectorLengthRemarkID,
+  OptRptStats.GeneralRemarks.emplace_back(OptRemarkID::VectorizationFactor,
                                           OptReportVerbosity::Low,
                                           Twine(MainPlanDescr.getVF()).str());
   if (MainPlanDescr.getUF() > 1)
-    OptRptStats.GeneralRemarks.emplace_back(UnrollFactorRemarkID,
+    OptRptStats.GeneralRemarks.emplace_back(OptRemarkID::VectorizerUnrollFactor,
                                             OptReportVerbosity::Low,
                                             Twine(MainPlanDescr.getUF()).str());
 }
@@ -1203,15 +1212,15 @@ void VPlanDriverImpl::addOptReportRemarksForVecRemainder(
   OptReportStatsTracker &OptRptStats =
       PlanDescr.getVPlan()->getOptRptStatsForLoop(OuterLp);
 
-  OptRptStats.OriginRemarks.emplace_back(RemainderLoopForVectorizationRemarkID);
+  OptRptStats.OriginRemarks.emplace_back(OptRemarkID::VectorizerRemainderLoop);
   if (PlanDescr.isNonMaskedVecRemainder())
     OptRptStats.GeneralRemarks.emplace_back(
-        RemainderLoopVectorizedUnmaskedRemarkID, OptReportVerbosity::Low);
+        OptRemarkID::VectorizedRemainderLoopUnmasked, OptReportVerbosity::Low);
   else
     OptRptStats.GeneralRemarks.emplace_back(
-        RemainderLoopVectorizedMaskedRemarkID, OptReportVerbosity::Low);
+        OptRemarkID::VectorizedRemainderLoopMasked, OptReportVerbosity::Low);
 
-  OptRptStats.GeneralRemarks.emplace_back(VectorLengthRemarkID,
+  OptRptStats.GeneralRemarks.emplace_back(OptRemarkID::VectorizationFactor,
                                           OptReportVerbosity::Low,
                                           Twine(PlanDescr.getVF()).str());
 }
@@ -1224,7 +1233,7 @@ void VPlanDriverImpl::addOptReportRemarksForScalRemainder(
       cast<VPlanScalar>(PlanDescr.getVPlan())->getScalarLoopInst();
   // TODO: Any other remarks for scalar peel/remainder loops? Should we report
   // that they were not vectorized?
-  ScalarLpI->addOriginRemark({RemainderLoopForVectorizationRemarkID});
+  ScalarLpI->addOriginRemark({OptRemarkID::VectorizerRemainderLoop});
 }
 
 static std::optional<RemarkRecord>
@@ -1273,22 +1282,22 @@ void VPlanDriverImpl::addOptReportRemarksForVecPeel(
   OptReportStatsTracker &OptRptStats =
       PlanDescr.getVPlan()->getOptRptStatsForLoop(OuterLp);
 
-  OptRptStats.OriginRemarks.emplace_back(PeelLoopForVectorizationRemarkID);
+  OptRptStats.OriginRemarks.emplace_back(OptRemarkID::VectorizerPeelLoop);
 
-  OptRptStats.GeneralRemarks.emplace_back(PeelLoopWasVectorizedRemarkID,
+  OptRptStats.GeneralRemarks.emplace_back(OptRemarkID::VectorizedPeelLoop,
                                           OptReportVerbosity::Low);
 
-  OptRptStats.GeneralRemarks.emplace_back(VectorLengthRemarkID,
+  OptRptStats.GeneralRemarks.emplace_back(OptRemarkID::VectorizationFactor,
                                           OptReportVerbosity::Low,
                                           Twine(PlanDescr.getVF()).str());
 
-  OptRptStats.GeneralRemarks.emplace_back(isa<VPlanStaticPeeling>(Variant)
-                                              ? PeelLoopIsStaticRemarkID
-                                              : PeelLoopIsDynamicRemarkID,
-                                          OptReportVerbosity::High);
+  OptRptStats.GeneralRemarks.emplace_back(
+      isa<VPlanStaticPeeling>(Variant) ? OptRemarkID::VectorizerStaticPeeling
+                                       : OptRemarkID::VectorizerDynamicPeeling,
+      OptReportVerbosity::High);
 
   OptRptStats.GeneralRemarks.emplace_back(
-      EstimatedPeelCountRemarkID, OptReportVerbosity::High,
+      OptRemarkID::VectorizerEstimatedPeelIters, OptReportVerbosity::High,
       std::to_string(Variant->maxPeelCount()));
 
   if (const auto PeeledMemrefRemark = getPeeledMemrefRemark(Variant))
@@ -1302,14 +1311,14 @@ void VPlanDriverImpl::addOptReportRemarksForScalPeel(
   assert(Variant && "No peeling variant with peel loop?");
   auto *ScalarLpI =
       cast<VPlanScalar>(PlanDescr.getVPlan())->getScalarLoopInst();
-  ScalarLpI->addOriginRemark({PeelLoopForVectorizationRemarkID});
+  ScalarLpI->addOriginRemark({OptRemarkID::VectorizerPeelLoop});
 
   ScalarLpI->addGeneralRemark({isa<VPlanStaticPeeling>(Variant)
-                                   ? PeelLoopIsStaticRemarkID
-                                   : PeelLoopIsDynamicRemarkID,
+                                   ? OptRemarkID::VectorizerStaticPeeling
+                                   : OptRemarkID::VectorizerDynamicPeeling,
                                OptReportVerbosity::High});
 
-  ScalarLpI->addGeneralRemark({EstimatedPeelCountRemarkID,
+  ScalarLpI->addGeneralRemark({OptRemarkID::VectorizerEstimatedPeelIters,
                                OptReportVerbosity::High,
                                std::to_string(Variant->maxPeelCount())});
 
@@ -1718,7 +1727,8 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   if (IsOmpSIMD && !WRLp->isValidHIRSIMDRegion()) {
     WithColor::warning() << "Loop was not vectorized. Invalid SIMD region "
                             "detected for given loop\n";
-    setBailoutRemark(OptReportVerbosity::Medium, BadSimdRemarkID);
+    setBailoutRemark(OptReportVerbosity::Medium,
+                     OptRemarkID::VecFailBadlyFormedSimdLoop);
     return bailout(VPORBuilder, Lp, WRLp, BR);
   }
 
@@ -1733,7 +1743,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
       LLVM_DEBUG(dbgs() << "VD: Not vectorizing: Cannot support multiple "
                            "multi-exit loops.\n");
       setBailoutRemark(
-          OptReportVerbosity::High, BailoutRemarkID,
+          OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
           std::string("Cannot support more than one multiple-exit loop."));
       return bailout(VPORBuilder, Lp, WRLp, BR);
     }
@@ -1783,7 +1793,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
                          "loopopt vplan-vec\n");
 #ifndef NDEBUG
     setBailoutRemark(
-        OptReportVerbosity::High, BailoutRemarkID,
+        OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
         std::string("Delegating peel and remainder vectorization to "
                     "post-loopopt vplan-vec"));
     return bailout(VPORBuilder, Lp, WRLp, BR);
@@ -1811,7 +1821,8 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   // VPlan construction stress test ends here.
   // TODO: Move after predication.
   if (VPlanConstrStressTest) {
-    setBailoutRemark(OptReportVerbosity::High, BailoutRemarkID,
+    setBailoutRemark(OptReportVerbosity::High,
+                     OptRemarkID::VecFailGenericBailout,
                      std::string("Stress testing only."));
     return bailout(VPORBuilder, Lp, WRLp, BR);
   }
@@ -1842,7 +1853,8 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     if (WRLp->getIsAutoVec())
       eraseLoopIntrins(Lp, WRLp);
     LLVM_DEBUG(dbgs() << "VConflict idiom is not supported.\n");
-    setBailoutRemark(OptReportVerbosity::High, BailoutRemarkID,
+    setBailoutRemark(OptReportVerbosity::High,
+                     OptRemarkID::VecFailGenericBailout,
                      std::string("Unsupported VConflict idiom."));
     return bailout(VPORBuilder, Lp, WRLp, BR);
   }
@@ -1948,7 +1960,8 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   preprocessPrivateFinalCondInstructions(Plan);
 
   if (DisableCodeGen) {
-    setBailoutRemark(OptReportVerbosity::High, BailoutRemarkID,
+    setBailoutRemark(OptReportVerbosity::High,
+                     OptRemarkID::VecFailGenericBailout,
                      std::string("Code generation is disabled."));
     return bailout(VPORBuilder, Lp, WRLp, BR);
   }
@@ -2045,7 +2058,8 @@ bool VPlanDriverHIRImpl::bailout(VPlanOptReportBuilder &VPORBuilder, HLLoop *Lp,
                                  WRNVecLoopNode *WRLp,
                                  VPlanBailoutRemark RemarkData) {
 
-  unsigned ID = RemarkData.BailoutRemark.getRemarkID();
+  OptRemarkID ID =
+      static_cast<OptRemarkID>(RemarkData.BailoutRemark.getRemarkID());
 
   if (WRLp && WRLp->isOmpSIMDLoop() && WillRunLLVMIRVPlan) {
 #if !INTEL_PRODUCT_RELEASE
@@ -2053,7 +2067,7 @@ bool VPlanDriverHIRImpl::bailout(VPlanOptReportBuilder &VPORBuilder, HLLoop *Lp,
                           prependHIR(RemarkData.BailoutRemark));
 #endif // !INTEL_PRODUCT_RELEASE
   } else if (RemarkData.BailoutLevel == OptReportVerbosity::High &&
-             ID == BailoutRemarkID) {
+             ID == OptRemarkID::VecFailGenericBailout) {
     VPORBuilder.addRemark(Lp, OptReportVerbosity::Medium, ID, std::string());
 #if !INTEL_PRODUCT_RELEASE
     VPORBuilder.addRemark(Lp, RemarkData.BailoutLevel,
@@ -2068,7 +2082,8 @@ bool VPlanDriverHIRImpl::bailout(VPlanOptReportBuilder &VPORBuilder, HLLoop *Lp,
 
 bool VPlanDriverHIRImpl::isSupported(HLLoop *Lp, WRNVecLoopNode *WRLp) {
   if (HIRLoopStats->getTotalLoopStatistics(Lp).hasSwitches()) {
-    setBailoutRemark(OptReportVerbosity::Medium, SwitchRemarkID,
+    setBailoutRemark(OptReportVerbosity::Medium,
+                     OptRemarkID::VecFailSwitchPresent,
                      WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
                                                    : std::string("loop"));
     return false;
@@ -2076,20 +2091,23 @@ bool VPlanDriverHIRImpl::isSupported(HLLoop *Lp, WRNVecLoopNode *WRLp) {
 
   // Bail out for outer loops if not enabled
   if (!EnableOuterLoopHIR && !Lp->isInnermost()) {
-    setBailoutRemark(OptReportVerbosity::Medium, BailoutRemarkID,
+    setBailoutRemark(OptReportVerbosity::Medium,
+                     OptRemarkID::VecFailGenericBailout,
                      std::string("Outer loop vectorization is not supported."));
     return false;
   }
 
   // Unsupported HLLoop types for vectorization
   if (!(Lp->isDo() || Lp->isDoMultiExit())) {
-    setBailoutRemark(OptReportVerbosity::Medium, LoopIVRemarkID,
+    setBailoutRemark(OptReportVerbosity::Medium,
+                     OptRemarkID::VecFailUnknownInductionVariable,
                      WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
                                                    : std::string("loop"));
     return false;
   }
   if (!Lp->isNormalized()) {
-    setBailoutRemark(OptReportVerbosity::Medium, BailoutRemarkID,
+    setBailoutRemark(OptReportVerbosity::Medium,
+                     OptRemarkID::VecFailGenericBailout,
                      std::string("Unnormalized loop is not supported."));
     return false;
   }
