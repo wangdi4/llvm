@@ -241,7 +241,7 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
       ArgumentPackSubstitutionIndex(-1), CurrentInstantiationScope(nullptr),
       DisableTypoCorrection(false), TyposCorrected(0), AnalysisWarnings(*this),
       ThreadSafetyDeclCache(nullptr), VarDataSharingAttributesStack(nullptr),
-      CurScope(nullptr), Ident_super(nullptr), Ident___float128(nullptr),
+      CurScope(nullptr), Ident_super(nullptr),
       SyclIntHeader(nullptr), SyclIntFooter(nullptr) {
   assert(pp.TUKind == TUKind);
   TUScope = nullptr;
@@ -2836,12 +2836,6 @@ IdentifierInfo *Sema::getSuperIdentifier() const {
   if (!Ident_super)
     Ident_super = &Context.Idents.get("super");
   return Ident_super;
-}
-
-IdentifierInfo *Sema::getFloat128Identifier() const {
-  if (!Ident___float128)
-    Ident___float128 = &Context.Idents.get("__float128");
-  return Ident___float128;
 }
 
 void Sema::PushCapturedRegionScope(Scope *S, CapturedDecl *CD, RecordDecl *RD,
