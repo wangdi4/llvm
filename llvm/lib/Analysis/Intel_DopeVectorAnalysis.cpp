@@ -13,13 +13,14 @@
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Analysis/Intel_LangRules.h"
 #endif // INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/Operator.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
@@ -4153,8 +4154,50 @@ void GlobalDopeVector::validateGlobalDopeVector(const DataLayout &DL) {
   AnalysisRes = GlobalDopeVector::AnalysisResult::AR_Pass;
 }
 
+// Find operand bundle by "USE" in a call.
+static std::optional<OperandBundleUse> getOperandBundleForUse(const CallBase *I,
+                                                              const Use *U) {
+  if (!I->isBundleOperand(U))
+    return {};
+
+  for (unsigned Idx = 0; Idx != I->getNumOperandBundles(); Idx++) {
+    auto OB = I->getOperandBundleAt(Idx);
+    for (auto &UU : OB.Inputs) {
+      if (&UU == U)
+        return {OB};
+    }
+  }
+
+  return {};
+}
+
+// Check if "call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), ...]"
+// is safe WRT of use of a DV.
+// Basically we expect that DV use will appear in OMP clauses encoded in call
+// operand bundles, so check that they are safe for DV constant propagation.
+static bool isSimdRegionEntryDirectiveSafeForUse(const IntrinsicInst *RED,
+                                                 const Use *U) {
+  using namespace vpo;
+  assert(U->getUser() == RED && "Incorrect use supplied.");
+  assert(VPOAnalysisUtils::getDirectiveID(RED) == DIR_OMP_SIMD &&
+         "OMP SIMD region is expected.");
+  if (RED->isBundleOperand(U)) {
+    if (auto OB = getOperandBundleForUse(RED, U)) {
+      // QUAL.OMP.LIVEIN:F90_DV is a noop in terms of actual argument use in
+      // a parallel region, so such a use is  safe in terms of DV constant
+      // propagation. Double check that the clause is in expected form with
+      // single argument specified.
+      if (VPOAnalysisUtils::getClauseID(OB->getTagName()) == QUAL_OMP_LIVEIN &&
+          OB->Inputs.size() == 1)
+        return true;
+    }
+  }
+  return false;
+}
+
 void GlobalDopeVector::collectAndValidate(const DataLayout &DL,
                                           bool ForDVCP) {
+  using namespace vpo;
 #if INTEL_FEATURE_SW_ADVANCED
   // Aggressive DVCP is turned on by default, collect the option from opt if
   // it is turned off.
@@ -4163,7 +4206,8 @@ void GlobalDopeVector::collectAndValidate(const DataLayout &DL,
 #endif // INTEL_FEATURE_SW_ADVANCED
 
   bool isOpaquePtr = !Glob->getParent()->getContext().supportsTypedPointers();
-  for (auto *U : Glob->users()) {
+  for (auto &Use : Glob->uses()) {
+    auto *U = Use.getUser();
     if (auto *BC = dyn_cast<BitCastOperator>(U)) {
       // The BitCast should only be used for data allocation and
       // should happen only once
@@ -4174,8 +4218,12 @@ void GlobalDopeVector::collectAndValidate(const DataLayout &DL,
       // a GEPOperator
       if (collectAndAnalyzeGlobalDopeVectorField(GEP))
         continue;
+    } else if (auto *I = dyn_cast<IntrinsicInst>(U)) {
+      if (VPOAnalysisUtils::getDirectiveID(I) == DIR_OMP_SIMD &&
+          isSimdRegionEntryDirectiveSafeForUse(I, &Use))
+        continue;
     } else if (auto *CB = dyn_cast<CallBase>(U)) {
-      // This is needed in the opaque pointer case because we cannot 
+      // This is needed in the opaque pointer case because we cannot
       // find the DV allocate function through bitcasts.
       if (isOpaquePtr) {
         if (isCallToAllocFunction(CB, GetTLI)) {

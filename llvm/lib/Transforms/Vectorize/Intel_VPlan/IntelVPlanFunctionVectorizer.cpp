@@ -110,7 +110,7 @@ public:
     for (auto *TopLoop : *VPLInfo)
       for (auto *VPL : post_order(TopLoop)) {
         singleExitWhileLoopCanonicalization(VPL);
-        mergeLoopExits(VPL);
+        mergeLoopExits(VPL, false /*NeedsOuterLpEarlyExitHandling*/);
       }
 
     VPLAN_DUMP(LoopExitsCanonicalizationDumpControl, *Plan);

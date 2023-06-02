@@ -190,6 +190,10 @@ VPlanCFGBuilderBase<CFGBuilder>::createVPInstruction(Instruction *Inst) {
     if (DirID == DIR_VPO_GUARD_MEM_MOTION ||
         DirID == DIR_VPO_END_GUARD_MEM_MOTION)
       return nullptr;
+
+    if (NestedSimdStrategy == NestedSimdStrategies::Outermost &&
+        (DirID == DIR_OMP_SIMD || DirID == DIR_OMP_END_SIMD))
+      return nullptr;
   }
 
   VPInstruction *NewVPInst{nullptr};

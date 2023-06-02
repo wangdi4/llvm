@@ -58,8 +58,10 @@ void build(const std::string &code, std::string fileName) {
           << ((sizeof(size_t) * 8 == 64) ? "spir64-unknown-unknown"
                                          : "spir-unknown-unknown")
           << " ";
+#ifndef SPIRV_ENABLE_OPAQUE_POINTERS
   // TODO: remove this option when opaque pointer is supported
   options << "-no-opaque-pointers";
+#endif
 
   llvm::SmallString<128> tmpfile;
   std::error_code ec;

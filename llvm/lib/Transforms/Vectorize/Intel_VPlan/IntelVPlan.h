@@ -137,6 +137,13 @@ typedef SmallPtrSet<VPValue *, 8> UniformsTy;
 
 struct TripCountInfo;
 
+enum class NestedSimdStrategies : int {
+  BailOut,
+  Outermost,
+  Innermost,
+};
+extern NestedSimdStrategies NestedSimdStrategy;
+
 // This abstract class is used to create all the necessary analyses that are
 // needed for VPlan. They are implemented by the 2 derived classes :
 // VPAnalysesFactory and VPAnalysesFactoryHIR.
@@ -719,6 +726,7 @@ public:
                                // when we know the aggregate is in SOA layout
     F90DVBufferInit, // Lowered into set of instructions required for F90_DV
                      // private initialization
+    EarlyExitCond,   // Capture CondBit that leads to early-exit from loop.
   };
 
 private:
@@ -1251,6 +1259,16 @@ public:
            "Setting CondBit for unconditional instruction is prohibited");
     assert(Cond && "Condition can't be nullptr");
     setOperand(getNumOperands() - 1, Cond);
+  }
+
+  // Swap the successors of a conditional branch.
+  void swapSuccessors() {
+    assert(isConditional() &&
+           "Cannot swap successors of an unconditional branch.");
+    auto *TrueSucc = getSuccessor(0);
+    auto *FalseSucc = getSuccessor(1);
+    setSuccessor(0, FalseSucc);
+    setSuccessor(1, TrueSucc);
   }
 
   /// Returns LoopID metadata node attached to this terminator instruction. This
@@ -5145,6 +5163,31 @@ public:
   VPCompressExpandIndexInc *cloneImpl() const override {
     return new VPCompressExpandIndexInc(ValueType, TotalStride, getOrigIndex(),
                                         getMask());
+  }
+};
+
+// Instruction to represent the condition that leads to an early exit from its
+// loop. Early exit is taken if condition is true.
+class VPEarlyExitCond final : public VPInstruction {
+public:
+  VPEarlyExitCond(VPValue *Cond)
+      : VPInstruction(VPInstruction::EarlyExitCond,
+                      Type::getInt1Ty(Cond->getType()->getContext()), {Cond}) {
+    assert(Cond->getType()->isIntegerTy(1 /*BitWidth*/) &&
+           "Condition-bit operand expected to be i1 type.");
+  }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::EarlyExitCond;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPEarlyExitCond *cloneImpl() const override {
+    return new VPEarlyExitCond(getOperand(0));
   }
 };
 

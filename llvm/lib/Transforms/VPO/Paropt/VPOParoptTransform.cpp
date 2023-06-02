@@ -3269,7 +3269,12 @@ Value *VPOParoptTransform::genLocalReductionBufferBase(ReductionItem *RedI,
   if (LocalBuf->getValueType()->isArrayTy())
     Indices.push_back(Builder.getInt32(0));
   Indices.push_back(LocalBufOff);
-  return Builder.CreateInBoundsGEP(LocalBuf->getValueType(), LocalBuf, Indices);
+  Value *ResultGep =
+      Builder.CreateInBoundsGEP(LocalBuf->getValueType(), LocalBuf, Indices);
+  if (RedI->getType() == ReductionItem::WRNReductionUdr)
+    ResultGep = VPOParoptUtils::genAddrSpaceCast(
+        ResultGep, &*Builder.GetInsertPoint(), vpo::ADDRESS_SPACE_GENERIC);
+  return ResultGep;
 }
 
 // Generate local update loop for atomic-free reduction.
@@ -3330,14 +3335,7 @@ void VPOParoptTransform::genAtomicFreeReductionLocalFini(
   // TODO: support tree update for UDR
   bool GenTreeUpdate =
       AtomicFreeRedLocalBufSize > 0 &&
-      (!IsArrayOrArraySection || isa_and_nonnull<ConstantInt>(NumElems)) &&
-      !IsUDR;
-
-  // Local reduction stage requires a temporary buffer when tree pattern is
-  // enabled in order to keep its temporary results there (see local_buf in the
-  // comment above the function definition). Depending on whether explicit SLM
-  // usage is enabled it either uses a temporary chunk of SLM or the global
-  // buffer passed as a kernel argument.
+      (!IsArrayOrArraySection || isa_and_nonnull<ConstantInt>(NumElems));
 
   if (AtomicFreeRedLocalUpdateInfos.count(W) && !IsArrayOrArraySection &&
       !IsUDR) {
@@ -3556,7 +3554,7 @@ void VPOParoptTransform::genAtomicFreeReductionLocalFini(
 
   // Final write-back for array section is done in genRedAggregateInitOrFini,
   // here we handle scalars only
-  if (!IsArrayOrArraySection && !IsUDR) {
+  if (!IsArrayOrArraySection) {
     AtomicFreeRedLocalUpdateInfos[W].IVPhi = IVPhi;
     AtomicFreeRedLocalUpdateInfos[W].LocalId = LocalId;
     AtomicFreeRedLocalUpdateInfos[W].ExitBB = ExitBB;
@@ -5069,7 +5067,7 @@ ReductionCriticalSectionKind VPOParoptTransform::genRedAggregateInitOrFini(
       VPOParoptUtils::isAtomicFreeReductionLocalEnabled() &&
       AtomicFreeRedLocalBufSize &&
       WRegionUtils::supportsLocalAtomicFreeReduction(W) &&
-      VPOParoptUtils::supportsAtomicFreeReduction(RedI) && !IsUDR;
+      VPOParoptUtils::supportsAtomicFreeReduction(RedI);
   // Using dedicated local array for local tree update in atomic-free reduction
   if (MakeCopiesToFromLocalRedBuf && !IsInit) {
     // (1) Filling the local array with private values
@@ -6715,16 +6713,14 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
                              AtomicFreeRedGlobalBufs);
               } else if (FillLocalBuffers &&
                          MapPtr->hasAttribute(
-                             VPOParoptAtomicFreeReduction::LocalBufferAttr) &&
-                         RedI->getType() != ReductionItem::WRNReductionUdr) {
+                             VPOParoptAtomicFreeReduction::LocalBufferAttr)) {
                 InsertBuffer(MItem, CurLocalBufIdx, ItemIndexLocal,
                              AtomicFreeRedLocalBufs);
               }
             }
           }
           ItemIndexGlobal++;
-          if (RedI->getType() != ReductionItem::WRNReductionUdr)
-            ItemIndexLocal++;
+          ItemIndexLocal++;
         }
       }
     }
@@ -14392,15 +14388,15 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
     bool ShouldNotUseKnownNDRange = shouldNotUseKnownNDRange(W);
 
     if (CollapseAlways ||
-	// Check if fixupKnownNDRange() will eventually decide not to use
-	// known ND-range for the kernel. If it does so, the kernel
-	// will be invoked with 1D range. If we do not collapse the loop nest
-	// here, then the outer loops will run with GWS 1 and LWS 1, which means
-	// they will run serially. This should be avoided for performance sake.
-	ShouldNotUseKnownNDRange ||
-	// FIXME: this is a temporary limitation. We need to decide
-	//        which loops to collapse for SPIR target and leave
-	//        3 of them for 3D-range parallelization.
+        // Check if fixupKnownNDRange() will eventually decide not to use
+        // known ND-range for the kernel. If it does so, the kernel
+        // will be invoked with 1D range. If we do not collapse the loop nest
+        // here, then the outer loops will run with GWS 1 and LWS 1, which means
+        // they will run serially. This should be avoided for performance sake.
+        ShouldNotUseKnownNDRange ||
+        // FIXME: this is a temporary limitation. We need to decide
+        //        which loops to collapse for SPIR target and leave
+        //        3 of them for 3D-range parallelization.
         NumLoops > 3 ||
         // Always collapse "omp distribute" loop nests.
         // Ideally, on SPIR targets each iteration of the collapsed loop nest
@@ -14424,7 +14420,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
         WRegionUtils::isDistributeNode(W)) {
       if (CanHoistCombinedUBBeforeTarget &&
           VPOParoptUtils::getSPIRExecutionScheme() ==
-          spirv::ImplicitSIMDSPMDES) {
+              spirv::ImplicitSIMDSPMDES) {
         // Collapse the loop nest and use 1D range.
         HoistCombinedUBBeforeTarget = true;
         SetNDRange = true;
@@ -14432,19 +14428,18 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
       }
       // Otherwise, collapse the loop nest for all targets and the host
       // and do not use any ND-range.
-    }
-    else if (CanHoistCombinedUBBeforeTarget &&
-             VPOParoptUtils::getSPIRExecutionScheme() ==
-             spirv::ImplicitSIMDSPMDES) {
+    } else if (CanHoistCombinedUBBeforeTarget &&
+               VPOParoptUtils::getSPIRExecutionScheme() ==
+                   spirv::ImplicitSIMDSPMDES) {
       // Do not collapse the loop nest for SPIR target.
 
       if (isTargetSPIRV()) {
         if (W->getCollapse() == 0)
-          LLVM_DEBUG(dbgs() <<
-                     "ND-range parallelization will be applied for loop.\n");
+          LLVM_DEBUG(dbgs()
+                     << "ND-range parallelization will be applied for loop.\n");
         else
-          LLVM_DEBUG(dbgs() << "Loop nest left uncollapsed for SPIR target. " <<
-                     "ND-range parallelization will be applied.\n");
+          LLVM_DEBUG(dbgs() << "Loop nest left uncollapsed for SPIR target. "
+                            << "ND-range parallelization will be applied.\n");
         setNDRangeClause(WTarget, W, W->getWRNLoopInfo().getNormUBs(),
                          W->getWRNLoopInfo().getNormUBElemTys());
         return Exiter(true);
@@ -15203,6 +15198,18 @@ void VPOParoptTransform::assignParallelDimensions() const {
 // partitioning, e.g. it cannot use it or using it is unprofitable.
 bool VPOParoptTransform::shouldNotUseKnownNDRange(WRegionNode *W) const {
   if (!W->getIsOmpLoop())
+    return true;
+
+  auto TargetDevicesString = F->getParent()->getTargetDevices();
+
+  // Host-only compilation (ie, the -fopenmp-targets flag is not present)
+  // doesn't use specific ND-range.
+  if (TargetDevicesString.empty())
+    return true;
+
+  // If the target triple doesn't have "spir64" or "spir"
+  // (eg, -fopenmp-targets=x86_64) then it doesn't use specific ND-range.
+  if (TargetDevicesString.find("spir") == std::string::npos)
     return true;
 
   WRegionNode *WTarget =

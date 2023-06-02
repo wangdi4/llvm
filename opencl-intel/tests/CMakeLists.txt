@@ -39,6 +39,9 @@ macro(compile_bitcode SOURCE OUTPUT)
   else()
     set(SPIR_OPTIONS -triple spir-unknown-unknown -D__i386__)
   endif()
+  if(NOT SPIRV_ENABLE_OPAQUE_POINTERS)
+    set(SPIR_OPTIONS ${SPIR_OPTIONS} -no-opaque-pointers)
+  endif()
   add_custom_command(
     OUTPUT ${OUTPUT}
     COMMAND
@@ -47,8 +50,8 @@ macro(compile_bitcode SOURCE OUTPUT)
       -disable-llvm-passes
       -disable-intel-proprietary-opts #INTEL
       -include opencl-c.h
-      ${ARG_EXTRA_CLANG_FLAGS} -no-opaque-pointers -o
-      ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT}
+      ${ARG_EXTRA_CLANG_FLAGS}
+      -o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT}
     MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}
     DEPENDS ${CLANG_OPENCL_HEADERS_DIR}/opencl-c.h ${CLANG}
     COMMENT "Generate LLVM bitcode file ${OUTPUT}"

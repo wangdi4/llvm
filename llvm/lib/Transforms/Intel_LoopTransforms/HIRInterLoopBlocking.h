@@ -168,8 +168,7 @@ public:
               const LoopToDimInfoTy &InnermostLoopToDimInfos,
               const LoopToConstRefTy &InnermostLoopToRepRef,
               const InnermostLoopToShiftTy &InnermostLoopToShift,
-              HLNode *NodeOutsideByStrip, HIRDDAnalysis &DDA, StringRef Func,
-              bool CloneDVLoads = true);
+              HLNode *NodeOutsideByStrip, HIRDDAnalysis &DDA, StringRef Func);
 
   static unsigned getNumByStripLoops(ArrayRef<unsigned> StripmineSizes) {
     return count_if(StripmineSizes, [](unsigned Size) { return Size; });
@@ -224,7 +223,14 @@ public:
   // Checks minimal assumptions when HasNonDimMatchingLoop is true.
   bool verifyAssumptionsWithNonDimMatchingLoop(const HLNode *AnchorNode) const;
 
-  bool rewrite();
+  // CloneDVLoads is related to Fortrans DVs.
+  // Variables used in the LB/UB of loops, which are loaded after
+  // the non-leading spatial loops, are cloned at the beginning of the body of
+  // the outermost loop in order to be used in the LB/UB of by-strip loops.
+  // If AlignLoops is true, candidate loops are aligned as described in
+  // alignSpatialLoops(). Note that if there is only one spatial loop,
+  // or all spatial loops have the same UB/LB, alignment is not needed.
+  bool rewrite(bool CloneDVLoads = true, bool AlignLoops = true);
 
 private:
   // Given a representative ref, RepRef, come up with a ref where IVs are
@@ -526,12 +532,6 @@ private:
   unsigned NumByStripLoops;
 
   StringRef Func;
-
-  // Related to Fortrans DVs.
-  // Variables used in the LB/UB of loops, which are loaded after
-  // the non-leading spatial loops, are cloned at the beginning of the body of
-  // the outermost loop in order to be used in the LB/UB of by-strip loops.
-  bool CloneDVLoads;
 
   // Represents there is a loop that won't be stripmined, but byStrip loops
   // of other loop will placed outside of this loop.

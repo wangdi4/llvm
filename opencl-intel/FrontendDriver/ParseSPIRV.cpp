@@ -330,8 +330,11 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
 
   // parse SPIR-V
   std::unique_ptr<llvm::LLVMContext> context(new llvm::LLVMContext());
-  // Unconditionally disable opaque pointers for now
+#ifdef SPIRV_ENABLE_OPAQUE_POINTERS
+  context->setOpaquePointers(true);
+#else
   context->setOpaquePointers(false);
+#endif
   llvm::Module *pModule = nullptr;
   std::stringstream inputStream(
       std::string(static_cast<const char *>(m_pProgDesc->pSPIRVContainer),
