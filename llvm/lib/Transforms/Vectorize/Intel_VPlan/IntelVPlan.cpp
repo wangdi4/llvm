@@ -230,7 +230,8 @@ bool VPInstruction::mayHaveSideEffects() const {
       Opcode == VPInstruction::InductionInit || Opcode == Instruction::Br ||
       Opcode == VPInstruction::HIRCopy || Opcode == VPInstruction::ActiveLane ||
       Opcode == VPInstruction::ActiveLaneExtract ||
-      Opcode == VPInstruction::ConstStepVector)
+      Opcode == VPInstruction::ConstStepVector ||
+      Opcode == VPInstruction::EarlyExitCond)
     return false;
 
   return true;
@@ -403,6 +404,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "soa-extract-value";
   case VPInstruction::F90DVBufferInit:
     return "f90-dv-buffer-init";
+  case VPInstruction::EarlyExitCond:
+    return "early-exit-cond";
   default:
     return Instruction::getOpcodeName(Opcode);
   }

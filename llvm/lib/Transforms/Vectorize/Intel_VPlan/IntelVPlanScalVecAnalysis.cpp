@@ -645,7 +645,8 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
   case VPInstruction::HIRCopy:
   case VPInstruction::ConstStepVector:
   case VPInstruction::Abs:
-  case VPInstruction::F90DVBufferInit: {
+  case VPInstruction::F90DVBufferInit:
+  case VPInstruction::EarlyExitCond: {
     // VPlan-specific instructions that don't need special processing in SVA.
     return false;
   }

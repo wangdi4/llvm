@@ -46,6 +46,7 @@
 using namespace llvm::PatternMatch;
 
 extern llvm::cl::opt<bool> VPlanConstrStressTest;
+extern llvm::cl::opt<bool> VPlanEnableEarlyExitLoops;
 
 static cl::opt<unsigned> VecThreshold(
     "vec-threshold",
@@ -2493,13 +2494,13 @@ void LoopVectorizationPlanner::doLoopMassaging(VPlanVector *Plan) {
     // TODO: Bail-out loop massaging for uniform inner loops.
     for (auto *VPL : post_order(TopLoop)) {
       if (VPL == TopLoop) {
-        // TODO: Uncomment after search loops are supported without hacks.
-        // assert(VPL->getLoopLatch() == VPL->getExitingBlock() &&
-        //        "Top level loop is expected to be in canonical form!");
-        continue;
+        // Loop massaging is needed for outer multi-exit loops, if explicit
+        // early-exit loop vectorization is enabled.
+        if (!(VPlanEnableEarlyExitLoops && VPL->getExitingBlock() == nullptr))
+          continue;
       }
       singleExitWhileLoopCanonicalization(VPL);
-      mergeLoopExits(VPL);
+      mergeLoopExits(VPL, true /*NeedsOuterLpEarlyExitHandling*/);
       // TODO: Verify loops here? It is done again after all initial transforms.
     }
     VPLAN_DUMP(LoopMassagingDumpControl, Plan);

@@ -23,7 +23,7 @@
 namespace llvm {
 namespace vpo {
 void singleExitWhileLoopCanonicalization(VPLoop *VPL);
-void mergeLoopExits(VPLoop *VPL);
+void mergeLoopExits(VPLoop *VPL, bool NeedsOuterLpEarlyExitHandling);
 } // namespace vpo
 } // namespace llvm
 

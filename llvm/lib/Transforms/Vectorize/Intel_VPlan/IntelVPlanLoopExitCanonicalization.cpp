@@ -27,6 +27,8 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
+extern cl::opt<bool> VPlanEnableEarlyExitLoops;
+
 // Replaces incoming block in all phi nodes of the PhiBlock.
 static void updateBlocksPhiNode(VPBasicBlock *PhiBlock,
                                 VPBasicBlock *PrevIncomingBlock,
@@ -263,7 +265,7 @@ namespace vpo {
 //                                 \    /
 //                                  BB6
 //
-void mergeLoopExits(VPLoop *VPL) {
+void mergeLoopExits(VPLoop *VPL, bool NeedsOuterLpEarlyExitHandling) {
   VPlanVector *Plan = cast<VPlanVector>(VPL->getHeader()->getParent());
   VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
 
@@ -279,6 +281,13 @@ void mergeLoopExits(VPLoop *VPL) {
 
   LLVM_DEBUG(dbgs() << "Before merge loop exits transformation.\n");
   LLVM_DEBUG(Plan->dump());
+
+  // Track if we're dealing with an outer early-exit loop that needs to be
+  // processed in VPlan.
+  bool IsOuterEarlyExitLp =
+      NeedsOuterLpEarlyExitHandling && VPL == *VPLInfo->begin();
+  assert((!IsOuterEarlyExitLp || VPlanEnableEarlyExitLoops) &&
+         "Unexpected outer loop in mergeLoopExits.");
 
   SmallVector<VPBasicBlock *, 2> ExitBlocks;
   VPL->getUniqueExitBlocks(ExitBlocks);
@@ -370,6 +379,30 @@ void mergeLoopExits(VPLoop *VPL) {
 
     if (ExitingBlock == OrigLoopLatch)
       continue;
+
+    // For early-exit loops we need to capture the CondBits that lead to the
+    // early-exit. This is obtained through the terminator instruction of the
+    // exiting block.
+    if (IsOuterEarlyExitLp) {
+      VPBuilder::InsertPointGuard Guard(VPBldr);
+      VPBldr.setInsertPoint(ExitingBlock);
+      auto *EEBranch = cast<VPBranchInst>(ExitingBlock->getTerminator());
+      assert(EEBranch->getNumSuccessors() == 2 &&
+             "Expected 2 successors for early-exit branch.");
+      // Condition that triggers early-exit.
+      VPValue *Cond = EEBranch->getCondition();
+
+      // If exit is taken on "false", then we emit a VPNot and swap successors
+      // as part of early-exit-cond canonicalization.
+      if (EEBranch->getSuccessor(0) != ExitBlock) {
+        Cond = VPBldr.createNot(Cond, "early.exit.cond.canon");
+        EEBranch->swapSuccessors();
+      }
+
+      auto *EECond = VPBldr.create<VPEarlyExitCond>("early.exit.cond", Cond);
+      // Update branch to use the newly generated early-exit-cond.
+      EEBranch->setCondition(EECond);
+    }
 
     // This check is for case 2. In this case, we create a new intermediate
     // basic block only if the exiting block is the loop header. This is needed
