@@ -3269,7 +3269,12 @@ Value *VPOParoptTransform::genLocalReductionBufferBase(ReductionItem *RedI,
   if (LocalBuf->getValueType()->isArrayTy())
     Indices.push_back(Builder.getInt32(0));
   Indices.push_back(LocalBufOff);
-  return Builder.CreateInBoundsGEP(LocalBuf->getValueType(), LocalBuf, Indices);
+  Value *ResultGep =
+      Builder.CreateInBoundsGEP(LocalBuf->getValueType(), LocalBuf, Indices);
+  if (RedI->getType() == ReductionItem::WRNReductionUdr)
+    ResultGep = VPOParoptUtils::genAddrSpaceCast(
+        ResultGep, &*Builder.GetInsertPoint(), vpo::ADDRESS_SPACE_GENERIC);
+  return ResultGep;
 }
 
 // Generate local update loop for atomic-free reduction.
@@ -3330,14 +3335,7 @@ void VPOParoptTransform::genAtomicFreeReductionLocalFini(
   // TODO: support tree update for UDR
   bool GenTreeUpdate =
       AtomicFreeRedLocalBufSize > 0 &&
-      (!IsArrayOrArraySection || isa_and_nonnull<ConstantInt>(NumElems)) &&
-      !IsUDR;
-
-  // Local reduction stage requires a temporary buffer when tree pattern is
-  // enabled in order to keep its temporary results there (see local_buf in the
-  // comment above the function definition). Depending on whether explicit SLM
-  // usage is enabled it either uses a temporary chunk of SLM or the global
-  // buffer passed as a kernel argument.
+      (!IsArrayOrArraySection || isa_and_nonnull<ConstantInt>(NumElems));
 
   if (AtomicFreeRedLocalUpdateInfos.count(W) && !IsArrayOrArraySection &&
       !IsUDR) {
@@ -3556,7 +3554,7 @@ void VPOParoptTransform::genAtomicFreeReductionLocalFini(
 
   // Final write-back for array section is done in genRedAggregateInitOrFini,
   // here we handle scalars only
-  if (!IsArrayOrArraySection && !IsUDR) {
+  if (!IsArrayOrArraySection) {
     AtomicFreeRedLocalUpdateInfos[W].IVPhi = IVPhi;
     AtomicFreeRedLocalUpdateInfos[W].LocalId = LocalId;
     AtomicFreeRedLocalUpdateInfos[W].ExitBB = ExitBB;
@@ -5069,7 +5067,7 @@ ReductionCriticalSectionKind VPOParoptTransform::genRedAggregateInitOrFini(
       VPOParoptUtils::isAtomicFreeReductionLocalEnabled() &&
       AtomicFreeRedLocalBufSize &&
       WRegionUtils::supportsLocalAtomicFreeReduction(W) &&
-      VPOParoptUtils::supportsAtomicFreeReduction(RedI) && !IsUDR;
+      VPOParoptUtils::supportsAtomicFreeReduction(RedI);
   // Using dedicated local array for local tree update in atomic-free reduction
   if (MakeCopiesToFromLocalRedBuf && !IsInit) {
     // (1) Filling the local array with private values
@@ -6715,16 +6713,14 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
                              AtomicFreeRedGlobalBufs);
               } else if (FillLocalBuffers &&
                          MapPtr->hasAttribute(
-                             VPOParoptAtomicFreeReduction::LocalBufferAttr) &&
-                         RedI->getType() != ReductionItem::WRNReductionUdr) {
+                             VPOParoptAtomicFreeReduction::LocalBufferAttr)) {
                 InsertBuffer(MItem, CurLocalBufIdx, ItemIndexLocal,
                              AtomicFreeRedLocalBufs);
               }
             }
           }
           ItemIndexGlobal++;
-          if (RedI->getType() != ReductionItem::WRNReductionUdr)
-            ItemIndexLocal++;
+          ItemIndexLocal++;
         }
       }
     }

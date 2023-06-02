@@ -1665,8 +1665,7 @@ bool VPOParoptTransform::createAtomicFreeReductionBuffers(WRegionNode *W) {
       addMapForValue(GlobalBuf, MapType, MapTypeVal, MapGlobalSize);
     }
 
-    bool IsUDR = RedI->getType() == ReductionItem::WRNReductionUdr;
-    if (NeedsLocalBuffer && !IsUDR) {
+    if (NeedsLocalBuffer) {
       Value *MapLocalSize = ConstantInt::get(
           Type::getInt64Ty(F->getContext()),
           Size * AtomicFreeRedLocalBufSize *

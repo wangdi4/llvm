@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-atomic-free-reduction-ctrl=3 -vpo-paropt-atomic-free-reduction-slm=true -vpo-paropt-atomic-free-red-local-buf-size=0 -vpo-paropt-atomic-free-red-use-fp-team-counter=false  -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=1 -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-atomic-free-reduction-ctrl=3 -vpo-paropt-atomic-free-reduction-slm=true -vpo-paropt-atomic-free-red-local-buf-size=0 -vpo-paropt-atomic-free-red-use-fp-team-counter=false  -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-atomic-free-reduction-ctrl=3 -vpo-paropt-atomic-free-reduction-slm=true -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-atomic-free-reduction-ctrl=3 -vpo-paropt-atomic-free-reduction-slm=true -S %s | FileCheck %s
 
 ; Test src:
 ;
@@ -19,31 +19,51 @@
 
 ; CHECK: define weak dso_local spir_kernel void @__omp_offloading{{.*}}main{{.*}}(ptr addrspace(1) noalias %[[RESULT_PTR:sum.*]], ptr addrspace(1) %[[RED_GLOBAL_BUF:red_buf.*]], ptr addrspace(1) %[[TEAMS_COUNTER_PTR:teams_counter.*]], i64 %.omp.lb
 
-; CHECK: %[[LOCAL_BUF_BASE:team.buf.baseptr[^,]*]] = getelementptr inbounds [1 x i32], ptr addrspace(1) %[[RED_GLOBAL_BUF]]
-; CHECK: %[[MINUS_OFFSET:[^,]+]] = getelementptr i32, ptr addrspace(1) %[[LOCAL_BUF_BASE]], i64 -[[CONST_OFFSET:[^,]+]]
+; CHECK-LABEL: omp.loop.exit:
+; CHECK: %[[LOCAL_OFFSET:[^,]+]] = mul i64 %[[LOCAL_ID:[^,]+]], 1
+; CHECK: %[[LOCAL_BUF_BASE:[^,]+]] = getelementptr inbounds [1024 x i32], ptr addrspace(3) @[[LOCAL_BUF:red_local_buf[^,]*]], i32 0, i64 %[[LOCAL_OFFSET]]
+; CHECK-LABEL: red.update.body.to.tree:
+; CHECK: %[[DST_PTR_TO:[^,]+]] = phi ptr addrspace(3) [ %[[LOCAL_BUF_BASE]]
+; CHECK: %[[SRC_PTR_TO:[^,]+]] = phi ptr
+; CHECK: %[[PRIV_VAL:[^,]+]] = load i32, ptr %[[SRC_PTR_TO]]
+; CHECK: store i32 %[[PRIV_VAL]], ptr addrspace(3) %[[DST_PTR_TO]]
+
+; CHECK-COUNT-7: lshr
+; CHECK: add
 
 ; CHECK-LABEL: atomic.free.red.local.update.update.header:
 ; CHECK: %[[IDX_PHI:[^,]+]] = phi i64
 ; CHECK-LABEL: atomic.free.red.local.update.update.idcheck:
-; CHECK: %[[DST_PTR_BASE:[^,]+]] = getelementptr i32, ptr addrspace(1) %[[MINUS_OFFSET]], i64 [[CONST_OFFSET]]
 ; CHECK-LABEL: atomic.free.red.local.update.update.body:
-; CHECK: %[[DST_PTR:red.cpy.dest.ptr[^,]+]] = phi ptr addrspace(1) [ %[[DST_PTR_BASE]]
-; CHECK: %[[SRC_PTR:red.cpy.src.ptr[^,]+]] = phi ptr
-; CHECK: %[[DST_PTR_ASCAST:[^,]+]] = addrspacecast ptr addrspace(1) %[[DST_PTR]] to ptr addrspace(4)
-; CHECK: %[[SRC_PTR_ASCAST:[^,]+]] = addrspacecast ptr %[[SRC_PTR]] to ptr addrspace(4)
+; CHECK: %[[DST_PTR:red.cpy.dest.ptr[^,]+]] = phi ptr addrspace(3) [ %[[LOCAL_BUF_BASE]]
+; CHECK: %[[SRC_PTR:red.cpy.src.ptr[^,]+]] = phi ptr addrspace(3) [ %[[LOCAL_BUF_BASE]]
+; CHECK: %[[DST_PTR_ASCAST:[^,]+]] = addrspacecast ptr addrspace(3) %[[DST_PTR]] to ptr addrspace(4)
+; CHECK: %[[SEC_SZ_OFF:[^,]+]] = mul i64 [[CONST_OFFSET:[^,]+]], %[[IDX_PHI]]
+; CHECK: %[[SRC_PTR_PLUS:[^,]+]] = getelementptr inbounds i32, ptr addrspace(3) %[[SRC_PTR]], i64 %[[SEC_SZ_OFF]]
+; CHECK: %[[SRC_PTR_ASCAST:[^,]+]] = addrspacecast ptr addrspace(3) %[[SRC_PTR_PLUS]] to ptr addrspace(4)
 ; CHECK: call spir_func void @.omp_combiner.(ptr addrspace(4) %[[DST_PTR_ASCAST]], ptr addrspace(4) %[[SRC_PTR_ASCAST]])
 ; CHECK: br i1 %{{[0-9a-z.]+}}, label %atomic.free.red.local.update.update.latch, label %atomic.free.red.local.update.update.body
 ; CHECK-LABEL: atomic.free.red.local.update.update.latch:
 ; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii
-; CHECK: add
+; CHECK: lshr
 ; CHECK: br label %atomic.free.red.local.update.update.header
+
+; CHECK-LABEL: red.update.body.from.tree:
+; CHECK: %[[DST_PTR_FROM:[^,]+]] = phi ptr addrspace(1)
+; CHECK: %[[SRC_PTR_FROM:[^,]+]] = phi ptr addrspace(3) [ %[[LOCAL_BUF_BASE]]
+; CHECK: %[[DST_PTR_FROM_ASCAST:[^,]+]] = addrspacecast ptr addrspace(1) %[[DST_PTR_FROM]] to ptr addrspace(4)
+; CHECK: %[[SRC_PTR_FROM_ASCAST:[^,]+]] = addrspacecast ptr addrspace(3) %[[SRC_PTR_FROM]] to ptr addrspace(4)
+; CHECK: br i1
+; CHECK: call spir_func void @.omp_combiner.(ptr addrspace(4) %[[DST_PTR_FROM_ASCAST]], ptr addrspace(4) %[[SRC_PTR_FROM_ASCAST]])
+; CHECK-NEXT: br label
+; CHECK-LABEL: red.update.done.from.tree:
 
 ; CHECK-LABEL: counter_check:
 ; CHECK-LABEL: atomic.free.red.global.update.header:
 ; CHECK: %[[IDX_PHI_GLOBAL:[^,]+]] = phi i64
-; CHECK: %[[NUM_TEAMS_0:.*]] = call spir_func i64 @_Z14get_num_groupsj(i32 0)
-; CHECK: %[[GLOBAL_UPDATE_DONE:.*]] = icmp uge i64 %{{.*}}, %[[NUM_TEAMS_0]]
-; CHECK: %[[GLOBAL_OFFSET:[^,]+]] = mul i64 %[[IDX_PHI_GLOBAL]], 1
+; CHECK: %[[NUM_TEAMS_0:[^,]+]] = call spir_func i64 @_Z14get_num_groupsj(i32 0)
+; CHECK: %[[GLOBAL_UPDATE_DONE:[^,]+]] = icmp uge i64 %{{.*}}, %[[NUM_TEAMS_0]]
+; CHECK: %[[GLOBAL_OFFSET:[^,]+]] = mul i64 %[[IDX_PHI_GLOBAL]], [[CONST_OFFSET]]
 ; CHECK: %[[GLOBAL_BUF_BASE:[^,]+]] = getelementptr [1 x i32], ptr addrspace(1) %[[RED_GLOBAL_BUF]], i64 %[[GLOBAL_OFFSET]]
 ; CHECK: br i1 %[[GLOBAL_UPDATE_DONE]], label %counter.reset, label %atomic.free.red.global.update.body
 ; CHECK-LABEL: counter.reset:
@@ -65,7 +85,7 @@ target triple = "spir64"
 target device_triples = "spir64"
 
 ; Function Attrs: convergent noinline nounwind
-define protected noundef i32 @main() #0 {
+define protected noundef i32 @main() {
 entry:
   %retval = alloca i32, align 4
   %i = alloca i32, align 4
@@ -155,16 +175,16 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.end
 }
 
 ; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)
-declare void @llvm.memset.p4.i64(ptr addrspace(4) nocapture writeonly, i8, i64, i1 immarg) #1
+declare void @llvm.memset.p4.i64(ptr addrspace(4) nocapture writeonly, i8, i64, i1 immarg)
 
 ; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #2
+declare token @llvm.directive.region.entry()
 
 ; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #2
+declare void @llvm.directive.region.exit(token)
 
 ; Function Attrs: convergent noinline nounwind
-define internal void @.omp_combiner.(ptr addrspace(4) noalias noundef %0, ptr addrspace(4) noalias noundef %1) #3 {
+define internal void @.omp_combiner.(ptr addrspace(4) noalias noundef %0, ptr addrspace(4) noalias noundef %1) {
 entry:
   %.addr = alloca ptr addrspace(4), align 8
   %.addr1 = alloca ptr addrspace(4), align 8
@@ -182,7 +202,7 @@ entry:
 }
 
 ; Function Attrs: convergent noinline nounwind
-define internal void @.omp_initializer.(ptr addrspace(4) noalias noundef %0, ptr addrspace(4) noalias noundef %1) #3 {
+define internal void @.omp_initializer.(ptr addrspace(4) noalias noundef %0, ptr addrspace(4) noalias noundef %1) {
 entry:
   %.addr = alloca ptr addrspace(4), align 8
   %.addr1 = alloca ptr addrspace(4), align 8
@@ -196,20 +216,7 @@ entry:
   ret void
 }
 
-attributes #0 = { convergent mustprogress noinline norecurse nounwind optnone "approx-func-fp-math"="true" "contains-openmp-target"="true" "frame-pointer"="all" "may-have-openmp-directive"="true" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "unsafe-fp-math"="true" }
-attributes #1 = { nocallback nofree nounwind willreturn memory(argmem: write) }
-attributes #2 = { nounwind }
-attributes #3 = { convergent noinline nounwind "approx-func-fp-math"="true" "frame-pointer"="all" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "openmp-target-declare"="true" "stack-protector-buffer-size"="8" "unsafe-fp-math"="true" }
-
 !omp_offload.info = !{!0}
-!llvm.module.flags = !{!1, !2, !3, !4, !5}
-!opencl.compiler.options = !{!6}
 
 !0 = !{i32 0, i32 2050, i32 60967242, !"_Z4main", i32 7, i32 0, i32 0, i32 0}
-!1 = !{i32 1, !"wchar_size", i32 4}
-!2 = !{i32 7, !"openmp", i32 50}
-!3 = !{i32 7, !"openmp-device", i32 50}
-!4 = !{i32 8, !"PIC Level", i32 2}
-!5 = !{i32 7, !"frame-pointer", i32 2}
-!6 = !{}
 
