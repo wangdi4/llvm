@@ -2702,8 +2702,8 @@ static bool areEquivalentCandidates(const HoistCandidate &CandA,
     return false;
 
   // Can not handle candidate if there is an equal parent node.
-  return !hasEqualParentNode(CandB.getNode(), TargetLoop, CheckPredPosOnly,
-                             PUCPredPos);
+  return !hasEqualParentNode(CandB.getNode(), TargetLoop, PUCPredPos,
+                             CheckPredPosOnly);
 }
 
 // transformLoop - Perform the OptPredicate transformation for the given loop.
