@@ -508,16 +508,6 @@ InlineReportCallSite *InlineReport::getOrAddCallSite(CallBase *Call) {
   return addCallSite(Call);
 }
 
-void InlineReport::beginSCC(CallGraphSCC &SCC, void *Inliner) {
-  if (!isClassicIREnabled())
-    return;
-  ActiveInliners.insert(Inliner);
-  M = &SCC.getCallGraph().getModule();
-  for (CallGraphNode *Node : SCC)
-    if (Function *F = Node->getFunction())
-      initFunction(F);
-}
-
 void InlineReport::beginSCC(LazyCallGraph::SCC &SCC, void *Inliner) {
   if (!isClassicIREnabled())
     return;

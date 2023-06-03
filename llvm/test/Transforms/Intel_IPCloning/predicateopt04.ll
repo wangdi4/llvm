@@ -141,7 +141,7 @@
 
 ; This is the non-predicate optimized version.
 ; CHECK-LABEL: define internal {{.*}} @GetVirtualPixelsFromNexus(
-; CHECK: load ptr, ptr {{.*}} !predicate-opt-restrict ![[MD119:[0-9]+]]
+; CHECK: load ptr, ptr {{.*}} !predicate-opt-restrict ![[MDPOR:[0-9]+]]
 ; CHECK: tail call ptr @AcquirePixelCacheNexus
 
 ; This is the non-predicate optimized version.
@@ -220,20 +220,20 @@
 
 ; This is the cold code extracted out of the predicate optimized version.
 ; Check that it is annotated appropriately with DTrans metadata.
-; CHECK: define internal void @GetVirtualPixelsFromNexus.3.bb206(i32 %arg1, ptr "intel_dtrans_func_index"="1" %i8, ptr "intel_dtrans_func_index"="2" %i, i64 %arg5, i64 %arg4, ptr "intel_dtrans_func_index"="3" %i10, ptr "intel_dtrans_func_index"="4" %i160, ptr "intel_dtrans_func_index"="5" %i164, i64 %arg3, i64 %arg2, ptr "intel_dtrans_func_index"="6" %i165, ptr "intel_dtrans_func_index"="7" %i166, ptr "intel_dtrans_func_index"="8" %arg, ptr "intel_dtrans_func_index"="9" %arg7) #10 !intel.dtrans.func.type ![[MD231:[0-9]+]] {
+; CHECK: define internal void @GetVirtualPixelsFromNexus.3.bb206(i32 %arg1, ptr "intel_dtrans_func_index"="1" %i8, ptr "intel_dtrans_func_index"="2" %i, i64 %arg5, i64 %arg4, ptr "intel_dtrans_func_index"="3" %i10, ptr "intel_dtrans_func_index"="4" %i160, ptr "intel_dtrans_func_index"="5" %i164, i64 %arg3, i64 %arg2, ptr "intel_dtrans_func_index"="6" %i165, ptr "intel_dtrans_func_index"="7" %i166, ptr "intel_dtrans_func_index"="8" %arg, ptr "intel_dtrans_func_index"="9" %arg7) #10 !intel.dtrans.func.type ![[MD229:[0-9]+]] {
 
 ; CHECK: tail call ptr @AcquirePixelCacheNexus(
 
 ; These are DTrans types which define the arguments for the extracted function @GetVirtualPixelsFromNexus.3.bb206
-; CHECK: ![[MD11:[0-9]+]] = !{%struct._ZTS12_PixelPacket._PixelPacket zeroinitializer, i32 1}
-; CHECK: ![[MD12:[0-9]+]] = !{i16 0, i32 1}
-; CHECK: ![[MD23:[0-9]+]] = !{%struct._ZTS6_Image._Image zeroinitializer, i32 1}
+; CHECK: ![[MD15:[0-9]+]] = !{%struct._ZTS12_PixelPacket._PixelPacket zeroinitializer, i32 1}
+; CHECK: ![[MD19:[0-9]+]] = !{%struct._ZTS6_Image._Image zeroinitializer, i32 1}
 ; This is the terminator for the restrict metadata
-; CHECK: ![[MD119]] = !{}
+; CHECK: ![[MDPOR]] = !{}
 ; These are also DTrans types which define the arguments for the extracted function @GetVirtualPixelsFromNexus.3.bb206
-; CHECK: ![[MD231]] = distinct !{![[MD11]], ![[MD12]], ![[MD232:[0-9]+]], ![[MD232]], ![[MD232]], ![[MD233:[0-9]+]], ![[MD233]], ![[MD23]], ![[MD232]]}
-; CHECK: ![[MD232]] = !{i1 false, i32 1}
-; CHECK: ![[MD233]] = !{i64 0, i32 1}
+; CHECK: ![[MD229]] = distinct !{![[MD15]], ![[MD230:[0-9]+]], ![[MD231:[0-9]+]], ![[MD231]], ![[MD231]], ![[MD232:[0-9]+]], ![[MD232]], ![[MD19]], ![[MD231]]}
+; CHECK: ![[MD230]] = !{i16 0, i32 1}
+; CHECK: ![[MD231]] = !{i1 false, i32 1}
+; CHECK: ![[MD232]] = !{i64 0, i32 1}
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-windows-msvc19.29.30146"
 
@@ -2142,7 +2142,7 @@ attributes #12 = { hot nounwind }
 attributes #13 = { nounwind allocsize(0,1) }
 attributes #14 = { hot }
 
-!intel.dtrans.types = !{!2, !6, !8, !19, !33, !34, !2}
+!intel.dtrans.types = !{!2, !6, !8, !19, !33, !34, !2, !231, !232, !233, !234}
 !llvm.ident = !{!35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35, !35}
 !llvm.module.flags = !{!36, !37, !38, !39, !40, !41}
 
@@ -2154,7 +2154,7 @@ attributes #14 = { hot }
 !5 = !{float 0.000000e+00, i32 0}
 !6 = !{!"S", %struct._ZTS12_PixelPacket._PixelPacket zeroinitializer, i32 4, !7, !7, !7, !7}
 !7 = !{i16 0, i32 0}
-!8 = !{!"S", %struct._ZTS10_CacheInfo._CacheInfo zeroinitializer, i32 32, !3, !3, !1, !3, !3, !3, !1, !1, !1, !1, !3, !9, !1, !10, !11, !12, !3, !3, !13, !13, !15, !16, !1, !17, !3, !3, !3, !1, !18, !18, !1, !1}
+!8 = !{!"S", %struct._ZTS10_CacheInfo._CacheInfo zeroinitializer, i32 32, !3, !3, !1, !3, !3, !3, !1, !1, !1, !1, !3, !9, !1, !17, !17, !17, !3, !3, !13, !13, !15, !17, !1, !17, !3, !3, !3, !1, !17, !17, !1, !1}
 !9 = !{%struct._ZTS18_MagickPixelPacket._MagickPixelPacket zeroinitializer, i32 0}
 !10 = !{%struct._ZTS10_NexusInfo._NexusInfo zeroinitializer, i32 2}
 !11 = !{%struct._ZTS12_PixelPacket._PixelPacket zeroinitializer, i32 1}
@@ -2165,7 +2165,7 @@ attributes #14 = { hot }
 !16 = !{%struct._ZTS11_RandomInfo._RandomInfo zeroinitializer, i32 1}
 !17 = !{i8 0, i32 1}
 !18 = !{%struct._ZTS13SemaphoreInfo.SemaphoreInfo zeroinitializer, i32 1}
-!19 = !{!"S", %struct._ZTS6_Image._Image zeroinitializer, i32 85, !3, !3, !3, !1, !3, !3, !3, !1, !1, !1, !1, !11, !20, !20, !20, !4, !21, !3, !17, !3, !17, !17, !17, !1, !4, !4, !22, !22, !22, !4, !4, !4, !3, !3, !3, !3, !3, !3, !23, !1, !1, !1, !1, !1, !1, !24, !25, !26, !17, !17, !17, !28, !29, !13, !13, !13, !1, !1, !30, !3, !1, !18, !31, !31, !32, !1, !1, !23, !23, !23, !3, !3, !20, !23, !22, !17, !17, !3, !3, !1, !3, !1, !1, !3, !1}
+!19 = !{!"S", %struct._ZTS6_Image._Image zeroinitializer, i32 85, !3, !3, !3, !1, !3, !3, !3, !1, !1, !1, !1, !11, !20, !20, !20, !4, !21, !3, !17, !3, !17, !17, !17, !1, !4, !4, !22, !22, !22, !4, !4, !4, !3, !3, !3, !3, !3, !3, !23, !1, !1, !1, !1, !1, !1, !24, !25, !26, !17, !17, !17, !17, !17, !13, !13, !13, !1, !1, !30, !3, !1, !18, !31, !31, !17, !1, !1, !23, !23, !23, !3, !3, !20, !23, !22, !17, !17, !3, !3, !1, !3, !1, !1, !3, !1}
 !20 = !{%struct._ZTS12_PixelPacket._PixelPacket zeroinitializer, i32 0}
 !21 = !{%struct._ZTS17_ChromaticityInfo._ChromaticityInfo zeroinitializer, i32 0}
 !22 = !{%struct._ZTS14_RectangleInfo._RectangleInfo zeroinitializer, i32 0}
@@ -2180,7 +2180,7 @@ attributes #14 = { hot }
 !31 = !{%struct._ZTS12_ProfileInfo._ProfileInfo zeroinitializer, i32 0}
 !32 = !{%struct._ZTS12_ProfileInfo._ProfileInfo zeroinitializer, i32 1}
 !33 = !{!"S", %struct._ZTS14_RectangleInfo._RectangleInfo zeroinitializer, i32 4, !1, !1, !1, !1}
-!34 = !{!"S", %struct._ZTS10_CacheView._CacheView zeroinitializer, i32 -1}
+!34 = !{!"S", %struct._ZTS10_CacheView._CacheView zeroinitializer, i32 6, !17, !3, !1, !17, !3, !1}
 !35 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2023.1.0 (2023.x.0.YYYYMMDD)"}
 !36 = !{i32 1, !"wchar_size", i32 4}
 !37 = !{i32 1, !"Virtual Function Elim", i32 0}
@@ -2377,4 +2377,9 @@ attributes #14 = { hot }
 !228 = distinct !{!228, !95}
 !229 = !{!154, !48, i64 80}
 !230 = !{}
+!231 = !{!"S", %struct._ZTS13_CacheMethods._CacheMethods zeroinitializer, i32 11, !17, !17, !17, !17, !17, !17, !17, !17, !17, !17, !17}
+!232 = !{!"S", %struct._ZTS12_ProfileInfo._ProfileInfo zeroinitializer, i32 4, !17, !1, !17, !1}
+!233 = !{!"S", %struct._ZTS14_ExceptionInfo._ExceptionInfo zeroinitializer, i32 8, !3, !3, !17, !17, !17, !3, !17, !1}
+!234 = !{!"S", %struct._ZTS10_NexusInfo._NexusInfo zeroinitializer, i32 8, !3, !22, !1, !17, !17, !3, !18, !1}
+!235 = !{!"S", %struct._ZTS13SemaphoreInfo.SemaphoreInfo zeroinitializer, i32 4, !1, !24, !3, !1}
 ; end INTEL_FEATURE_SW_ADVANCED

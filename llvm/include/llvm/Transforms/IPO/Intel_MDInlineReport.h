@@ -118,7 +118,6 @@ public:
   // Walk over inlining reports for functions in current SCC to add them to the
   // callback vector.
   void beginSCC(LazyCallGraph::SCC &SCC);
-  void beginSCC(CallGraphSCC &SCC);
 
   // Mark function as dead in its inlining report.
   void setDead(Function *F);
