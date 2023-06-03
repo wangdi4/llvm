@@ -1,16 +1,9 @@
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 if (NOT EXISTS ${LLVM_EXTERNAL_XPTI_SOURCE_DIR})
   message (FATAL_ERROR "Undefined LLVM_EXTERNAL_XPTI_SOURCE_DIR variable: Must be set for tests to work!")
 endif()
 include_directories(${LLVM_EXTERNAL_XPTI_SOURCE_DIR}/include)
 #end INTEL_CUSTOMIZATION
-=======
-if (NOT EXISTS ${XPTI_DIR})
-  message (FATAL_ERROR "Undefined XPTI_DIR variable: Must be set for tests to work!")
-endif()
-include_directories(${XPTI_DIR}/include)
->>>>>>> e33c2f666e3b5fc873c23e08963ca71c5fc39509
 
 # Only download Google Test outside of LLVM tree.
 if (NOT DEFINED LLVM_EXTERNAL_XPTIFW_SOURCE_DIR)
@@ -90,14 +83,6 @@ else()
 endif()
 # end INTEL_CUSTOMIZATION
 
-<<<<<<< HEAD
-target_link_libraries(XPTIFWUnitTests PRIVATE
-  # llvm_gtest INTEL_CUSTOMIZATION
-  # llvm_gtest_main INTEL_CUSTOMIZATION
-  xptifw
-  ${SUPPORT_LIB}
-)
-=======
 if (DEFINED LLVM_EXTERNAL_XPTIFW_SOURCE_DIR)
   # Use of SUPPORT_LIB: https://github.com/intel/llvm/pull/4652
   # LLVM's Google Test library requires LLVM Support. Typically it is
@@ -122,7 +107,6 @@ else()
     xptifw
   )
 endif()
->>>>>>> e33c2f666e3b5fc873c23e08963ca71c5fc39509
 
 if (EXTRA_FLAGS)
   target_compile_options(XPTIFWUnitTests PRIVATE ${EXTRA_FLAGS})
