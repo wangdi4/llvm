@@ -19,7 +19,7 @@ This file describes macros that have effect on SYCL compiler and run-time.
   the underlying pointer types return pointers without any additional qualifiers
   so it's disabled by default.
 
-- **DISABLE_SYCL_INSTRUMENTATION_METADATA**
+- **DISABLE_SYCL_INSTRUMENTATION_METADATA** (deprecated)
 
   This macro is used to disable passing of code location information to public
   methods.

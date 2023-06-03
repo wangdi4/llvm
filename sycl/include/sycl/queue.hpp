@@ -569,7 +569,7 @@ public:
   __SYCL2020_DEPRECATED("use 'ext_oneapi_submit_barrier' instead")
   event submit_barrier(_CODELOCONLYPARAM(&CodeLoc)) {
     _CODELOCARG(&CodeLoc);
-    return ext_oneapi_submit_barrier(CodeLoc);
+    return ext_oneapi_submit_barrier(_CODELOCONLYFW(CodeLoc));
   }
 
   /// Prevents any commands submitted afterward to this queue from executing
@@ -601,7 +601,7 @@ public:
   event
   submit_barrier(const std::vector<event> &WaitList _CODELOCPARAM(&CodeLoc)) {
     _CODELOCARG(&CodeLoc);
-    return ext_oneapi_submit_barrier(WaitList, CodeLoc);
+    return ext_oneapi_submit_barrier(WaitList _CODELOCFW(CodeLoc));
   }
 
   /// Performs a blocking wait for the completion of all enqueued tasks in the
@@ -892,7 +892,8 @@ public:
   event prefetch(const void *Ptr, size_t Count) {
     // TODO: to add code location as parameter when ABI break is permitted
     const detail::code_location CodeLoc("sycl/queue.hpp", "prefetch", 0, 0);
-    return submit([=](handler &CGH) { CGH.prefetch(Ptr, Count); }, CodeLoc);
+    return submit(
+        [=](handler &CGH) { CGH.prefetch(Ptr, Count); } _CODELOCFW(CodeLoc));
   }
 
   /// Provides hints to the runtime library that data should be made available

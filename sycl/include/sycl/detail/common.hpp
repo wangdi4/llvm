@@ -18,9 +18,7 @@
 #include <string>
 
 // Default signature enables the passing of user code location information to
-// public methods as a default argument. If the end-user wants to disable the
-// code location information, they must compile the code with
-// -DDISABLE_SYCL_INSTRUMENTATION_METADATA flag
+// public methods as a default argument.
 namespace sycl {
 __SYCL_INLINE_VER_NAMESPACE(_V1) {
 namespace detail {
@@ -111,12 +109,15 @@ private:
 
 #define _CODELOCARG(a)
 #define _CODELOCFW(a) , a
+#define _CODELOCONLYFW(a) a
 #else
+#warning "DISABLE_SYCL_INSTRUMENTATION_METADATA is deprecated."
 #define _CODELOCONLYPARAM(a)
 #define _CODELOCPARAM(a)
 
 #define _CODELOCARG(a) const detail::code_location a = {}
 #define _CODELOCFW(a)
+#define _CODELOCONLYFW(a)
 #endif
 
 /// @brief Data type that manages the code_location information in TLS

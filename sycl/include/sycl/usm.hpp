@@ -134,8 +134,8 @@ T *malloc_device(
     size_t Count, const device &Dev, const context &Ctxt,
     const property_list &PropList = {} _CODELOCPARAM(&CodeLoc)) {
   _CODELOCARG(&CodeLoc);
-  return static_cast<T *>(aligned_alloc_device(alignof(T), Count * sizeof(T),
-                                               Dev, Ctxt, PropList, CodeLoc));
+  return static_cast<T *>(aligned_alloc_device(
+      alignof(T), Count * sizeof(T), Dev, Ctxt, PropList _CODELOCFW(CodeLoc)));
 }
 
 template <typename T>
@@ -143,8 +143,8 @@ T *malloc_device(
     size_t Count, const queue &Q,
     const property_list &PropList = {} _CODELOCPARAM(&CodeLoc)) {
   _CODELOCARG(&CodeLoc);
-  return malloc_device<T>(Count, Q.get_device(), Q.get_context(), PropList,
-                          CodeLoc);
+  return malloc_device<T>(Count, Q.get_device(), Q.get_context(),
+                          PropList _CODELOCFW(CodeLoc));
 }
 
 template <typename T>
@@ -154,7 +154,7 @@ T *aligned_alloc_device(
   _CODELOCARG(&CodeLoc);
   return static_cast<T *>(aligned_alloc_device(max(Alignment, alignof(T)),
                                                Count * sizeof(T), Dev, Ctxt,
-                                               PropList, CodeLoc));
+                                               PropList _CODELOCFW(CodeLoc)));
 }
 
 template <typename T>
@@ -163,7 +163,7 @@ T *aligned_alloc_device(
     const property_list &PropList = {} _CODELOCPARAM(&CodeLoc)) {
   _CODELOCARG(&CodeLoc);
   return aligned_alloc_device<T>(Alignment, Count, Q.get_device(),
-                                 Q.get_context(), PropList, CodeLoc);
+                                 Q.get_context(), PropList _CODELOCFW(CodeLoc));
 }
 
 template <typename T>
@@ -171,8 +171,8 @@ T *malloc_host(
     size_t Count, const context &Ctxt,
     const property_list &PropList = {} _CODELOCPARAM(&CodeLoc)) {
   _CODELOCARG(&CodeLoc);
-  return static_cast<T *>(aligned_alloc_host(alignof(T), Count * sizeof(T),
-                                             Ctxt, PropList, CodeLoc));
+  return static_cast<T *>(aligned_alloc_host(
+      alignof(T), Count * sizeof(T), Ctxt, PropList _CODELOCFW(CodeLoc)));
 }
 
 template <typename T>
@@ -180,7 +180,7 @@ T *malloc_host(
     size_t Count, const queue &Q,
     const property_list &PropList = {} _CODELOCPARAM(&CodeLoc)) {
   _CODELOCARG(&CodeLoc);
-  return malloc_host<T>(Count, Q.get_context(), PropList, CodeLoc);
+  return malloc_host<T>(Count, Q.get_context(), PropList _CODELOCFW(CodeLoc));
 }
 
 template <typename T>
@@ -188,8 +188,8 @@ T *malloc_shared(
     size_t Count, const device &Dev, const context &Ctxt,
     const property_list &PropList = {} _CODELOCPARAM(&CodeLoc)) {
   _CODELOCARG(&CodeLoc);
-  return static_cast<T *>(aligned_alloc_shared(alignof(T), Count * sizeof(T),
-                                               Dev, Ctxt, PropList, CodeLoc));
+  return static_cast<T *>(aligned_alloc_shared(
+      alignof(T), Count * sizeof(T), Dev, Ctxt, PropList _CODELOCFW(CodeLoc)));
 }
 
 template <typename T>
@@ -197,8 +197,8 @@ T *malloc_shared(
     size_t Count, const queue &Q,
     const property_list &PropList = {} _CODELOCPARAM(&CodeLoc)) {
   _CODELOCARG(&CodeLoc);
-  return malloc_shared<T>(Count, Q.get_device(), Q.get_context(), PropList,
-                          CodeLoc);
+  return malloc_shared<T>(Count, Q.get_device(), Q.get_context(),
+                          PropList _CODELOCFW(CodeLoc));
 }
 
 template <typename T>
@@ -207,8 +207,8 @@ T *aligned_alloc_host(
     const property_list &PropList = {} _CODELOCPARAM(&CodeLoc)) {
   _CODELOCARG(&CodeLoc);
   return static_cast<T *>(aligned_alloc_host(std ::max(Alignment, alignof(T)),
-                                             Count * sizeof(T), Ctxt, PropList,
-                                             CodeLoc));
+                                             Count * sizeof(T), Ctxt,
+                                             PropList _CODELOCFW(CodeLoc)));
 }
 
 template <typename T>
@@ -216,8 +216,8 @@ T *aligned_alloc_host(
     size_t Alignment, size_t Count, const queue &Q,
     const property_list &PropList = {} _CODELOCPARAM(&CodeLoc)) {
   _CODELOCARG(&CodeLoc);
-  return aligned_alloc_host<T>(Alignment, Count, Q.get_context(), PropList,
-                               CodeLoc);
+  return aligned_alloc_host<T>(Alignment, Count, Q.get_context(),
+                               PropList _CODELOCFW(CodeLoc));
 }
 
 template <typename T>
@@ -227,7 +227,7 @@ T *aligned_alloc_shared(
   _CODELOCARG(&CodeLoc);
   return static_cast<T *>(aligned_alloc_shared(max(Alignment, alignof(T)),
                                                Count * sizeof(T), Dev, Ctxt,
-                                               PropList, CodeLoc));
+                                               PropList _CODELOCFW(CodeLoc)));
 }
 
 template <typename T>
@@ -236,7 +236,7 @@ T *aligned_alloc_shared(
     const property_list &PropList = {} _CODELOCPARAM(&CodeLoc)) {
   _CODELOCARG(&CodeLoc);
   return aligned_alloc_shared<T>(Alignment, Count, Q.get_device(),
-                                 Q.get_context(), PropList, CodeLoc);
+                                 Q.get_context(), PropList _CODELOCFW(CodeLoc));
 }
 
 template <typename T>
@@ -245,7 +245,8 @@ T *malloc(
     const property_list &PropList = {} _CODELOCPARAM(&CodeLoc)) {
   _CODELOCARG(&CodeLoc);
   return static_cast<T *>(aligned_alloc(alignof(T), Count * sizeof(T), Dev,
-                                        Ctxt, Kind, PropList, CodeLoc));
+                                        Ctxt, Kind,
+                                        PropList _CODELOCFW(CodeLoc)));
 }
 
 template <typename T>
@@ -253,8 +254,8 @@ T *malloc(
     size_t Count, const queue &Q, usm::alloc Kind,
     const property_list &PropList = {} _CODELOCPARAM(&CodeLoc)) {
   _CODELOCARG(&CodeLoc);
-  return malloc<T>(Count, Q.get_device(), Q.get_context(), Kind, PropList,
-                   CodeLoc);
+  return malloc<T>(Count, Q.get_device(), Q.get_context(), Kind,
+                   PropList _CODELOCFW(CodeLoc));
 }
 
 template <typename T>
@@ -265,7 +266,7 @@ T *aligned_alloc(
   _CODELOCARG(&CodeLoc);
   return static_cast<T *>(aligned_alloc(max(Alignment, alignof(T)),
                                         Count * sizeof(T), Dev, Ctxt, Kind,
-                                        PropList, CodeLoc));
+                                        PropList _CODELOCFW(CodeLoc)));
 }
 
 template <typename T>
@@ -274,7 +275,7 @@ T *aligned_alloc(
     const property_list &PropList = {} _CODELOCPARAM(&CodeLoc)) {
   _CODELOCARG(&CodeLoc);
   return aligned_alloc<T>(Alignment, Count, Q.get_device(), Q.get_context(),
-                          Kind, PropList, CodeLoc);
+                          Kind, PropList _CODELOCFW(CodeLoc));
 }
 
 } // __SYCL_INLINE_VER_NAMESPACE(_V1)
