@@ -7508,7 +7508,8 @@ bool PredicateOpt::buildColdCodeMetadata(CallBase *OptColdCB,
     return true;
   dtransOP::DTransTypeManager TM(M->getContext());
   dtransOP::TypeMetadataReader TR(TM);
-  TR.initialize(*M);
+  if (!TR.initialize(*M))
+    return false;
   dtransOP::DTransTypeBuilder TB(TM);
   Type *RetTy = OptColdF->getReturnType();
   dtransOP::DTransType *RetDTy = GetDTransType(TM, TB, RetTy);
