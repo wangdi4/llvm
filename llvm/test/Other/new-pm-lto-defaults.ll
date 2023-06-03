@@ -8,6 +8,7 @@
 ; RUN:     -passes='lto<O1>' -S %s -passes-ep-full-link-time-optimization-early=no-op-module \
 ; RUN:     -passes-ep-full-link-time-optimization-last=no-op-module 2>&1 \
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O1,CHECK-EP
+; INTEL_CUSTOMIZATION
 ; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='lto<O2>' -S  %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O2,CHECK-O23SZ
@@ -27,6 +28,7 @@
 ; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='lto<O3>' -S  %s -passes-ep-peephole='no-op-function' 2>&1 \
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O3,CHECK-O23SZ,CHECK-EP-Peephole
+; end INTEL_CUSTOMIZATION
 
 ; CHECK-EP: Running pass: NoOpModulePass
 ; CHECK-O: Running pass: CrossDSOCFIPass
@@ -71,8 +73,10 @@
 ; CHECK-O23SZ-NEXT: Running analysis: ProfileSummaryAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
 ; CHECK-O23SZ-NEXT: Running pass: IPSCCPPass
-; COM: CHECK-O23SZ-NEXT: Running analysis: AssumptionAnalysis on foo ;INTEL
+; INTEL_CUSTOMIZATION
+; COM: CHECK-O23SZ-NEXT: Running analysis: AssumptionAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running pass: CalledValuePropagationPass
+; end INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}SCC
 ; CHECK-O-NEXT: Running analysis: LazyCallGraphAnalysis
 ; CHECK-O1-NEXT: Running analysis: TargetLibraryAnalysis
@@ -257,9 +261,9 @@
 ; CHECK-O23SZ-NEXT: Running pass: InvalidateAnalysisPass<{{.*}}AAManager
 ; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: IntelIPODeadArgEliminationPass on [module]
-; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: LCSSAPass on foo
+; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running analysis: MemorySSAAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running analysis: AAManager on foo
 ; COM: CHECK-O23SZ-NEXT: Running analysis: ScalarEvolutionAnalysis on foo ;INTEL
