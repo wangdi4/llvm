@@ -10,7 +10,10 @@
 // UNSUPPORTED: cuda || hip
 // TODO: esimd_emulator fails due to unimplemented 'half' type
 // XFAIL: esimd_emulator
-// RUN: %clangxx -fsycl-device-code-split=per_kernel -fsycl %s -o %t.out
+// TODO: remove fno-fast-math option once the issue is investigated and the test
+// is fixed.
+// DEFINE: %{mathflags} = %if cl_options %{/clang:-fno-fast-math%} %else %{-fno-fast-math%}
+// RUN: %clangxx -fsycl-device-code-split=per_kernel -fsycl %{mathflags} %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 //
 // The test checks main functionality of esimd::saturate function.

@@ -9,7 +9,10 @@
 // REQUIRES: gpu
 // UNSUPPORTED: gpu-intel-gen9 && windows
 // UNSUPPORTED: cuda || hip || gpu-intel-pvc
-// RUN: %clangxx -fsycl %s -I%S/.. -o %t.out
+// TODO: remove fno-fast-math option once the issue is investigated and the test
+// is fixed.
+// DEFINE: %{mathflags} = %if cl_options %{/clang:-fno-fast-math%} %else %{-fno-fast-math%}
+// RUN: %clangxx -fsycl %{mathflags} %s -I%S/.. -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out %T/output.ppm %S/golden_hw.ppm
 
 #include "esimd_test_utils.hpp"

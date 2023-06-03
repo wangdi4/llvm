@@ -11,8 +11,11 @@
 // TODO gpu and level_zero in REQUIRES due to only this platforms supported yet.
 // The current "REQUIRES" should be replaced with "gpu" only as mentioned in
 // "XREQUIRES".
+// TODO: remove fno-fast-math option once the issue is investigated and the test
+// is fixed.
+// DEFINE: %{mathflags} = %if cl_options %{/clang:-fno-fast-math%} %else %{-fno-fast-math%}
 // UNSUPPORTED: cuda, hip
-// RUN: %clangxx -fsycl %s -fsycl-device-code-split=per_kernel -o %t.out
+// RUN: %clangxx -fsycl %s -fsycl-device-code-split=per_kernel %{mathflags} -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 //
 // Test for simd fill constructor for extra fp types.

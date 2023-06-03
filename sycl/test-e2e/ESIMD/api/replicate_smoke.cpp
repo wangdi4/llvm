@@ -7,7 +7,10 @@
 //===----------------------------------------------------------------------===//
 // REQUIRES: gpu && !gpu-intel-pvc
 // UNSUPPORTED: cuda || hip
-// RUN: %clangxx -fsycl -fsycl-device-code-split=per_kernel %s -o %t.out
+// TODO: remove fno-fast-math option once the issue is investigated and the test
+// is fixed.
+// DEFINE: %{mathflags} = %if cl_options %{/clang:-fno-fast-math%} %else %{-fno-fast-math%}
+// RUN: %clangxx -fsycl -fsycl-device-code-split=per_kernel %{mathflags} %s -o %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 //
 // The test checks main functionality of the esimd::replicate_vs_w_hs function.
