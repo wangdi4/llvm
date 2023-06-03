@@ -166,7 +166,7 @@ static cl::opt<unsigned> DeviceAggressiveAttributorThreshold(
     "openmp-opt-device-aggressive-attributor-threshold", cl::Hidden,
     cl::desc("Number of module instructions threshold for device compilation "
              "to run extensive attribute deduction"),
-    cl::init(1u << 15));
+    cl::init(1u << 14));
 
 #endif // INTEL_COLLAB
 STATISTIC(NumOpenMPRuntimeCallsDeduplicated,
