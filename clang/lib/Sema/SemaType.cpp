@@ -8565,7 +8565,7 @@ static void HandleRISCVRVVVectorBitsTypeAttr(QualType &CurType,
   unsigned VecSize = static_cast<unsigned>(RVVVectorSizeInBits.getZExtValue());
 
   ASTContext::BuiltinVectorTypeInfo Info =
-      S.Context.getBuiltinVectorTypeInfo(CurType->getAs<BuiltinType>());
+      S.Context.getBuiltinVectorTypeInfo(CurType->castAs<BuiltinType>());
   unsigned EltSize = S.Context.getTypeSize(Info.ElementType);
   unsigned MinElts = Info.EC.getKnownMinValue();
 
