@@ -141,8 +141,7 @@ int main() {
   //CHECK-SAME: "QUAL.OMP.LIVEIN"(ptr %arr)
   //CHECK-SAME: "QUAL.OMP.LIVEIN"(ptr %vla)
   //CHECK: "QUAL.OMP.MAP.TOFROM"(ptr [[L]]
-  //CHECK: "QUAL.OMP.MAP.TO"(ptr [[ARR]]
-  //CHECK: "QUAL.OMP.MAP.TO:VARLEN"(ptr [[VLA]]
+  //CHECK: "QUAL.OMP.MAP.TOFROM:VARLEN"(ptr [[VLA]]
   #pragma omp target \
                is_device_ptr(ptr, arr, vla)
   ++a, ++*ptr, ++ref, ++arr[0], ++vla[0];

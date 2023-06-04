@@ -4745,13 +4745,9 @@ void LoopVectorizationCostModel::collectLoopUniforms(ElementCount VF) {
   // I, I is known to not require scalarization, and the pointer is not also
   // stored.
   auto isVectorizedMemAccessUse = [&](Instruction *I, Value *Ptr) -> bool {
-    auto GetStoredValue = [I]() -> Value * {
-      if (!isa<StoreInst>(I))
-        return nullptr;
-      return I->getOperand(0);
-    };
-    return getLoadStorePointerOperand(I) == Ptr && isUniformDecision(I, VF) &&
-           GetStoredValue() != Ptr;
+    if (isa<StoreInst>(I) && I->getOperand(0) == Ptr)
+      return false;
+    return getLoadStorePointerOperand(I) == Ptr && isUniformDecision(I, VF);
   };
 
   // Holds a list of values which are known to have at least one uniform use.
@@ -7830,7 +7826,10 @@ SCEV2ValueTy LoopVectorizationPlanner::executePlan(
     LoopVectorizeHints Hints(L, true, *ORE);
     Hints.setAlreadyVectorized();
   }
-  AddRuntimeUnrollDisableMetaData(L);
+  TargetTransformInfo::UnrollingPreferences UP;
+  TTI.getUnrollingPreferences(L, *PSE.getSE(), UP, ORE);
+  if (!UP.UnrollVectorizedLoop || CanonicalIVStartValue)
+    AddRuntimeUnrollDisableMetaData(L);
 
   // 3. Fix the vectorized code: take care of header phi's, live-outs,
   //    predication, updating analyses.
@@ -8574,7 +8573,7 @@ VPRecipeBase *VPRecipeBuilder::tryToWiden(Instruction *I,
       Ops[1] = SafeRHS;
       return new VPWidenRecipe(*I, make_range(Ops.begin(), Ops.end()));
     }
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   }
   case Instruction::Add:
   case Instruction::And:

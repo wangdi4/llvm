@@ -17,9 +17,6 @@
 // end INTEL_CUSTOMIZATION
 // RUN: %{run} %t.out 3 2 1
 //
-// Failure is under investigation, tracked internally:
-// UNSUPPORTED: gpu-intel-pvc
-//
 // This test checks the correctness of ESIMD program for batched LU
 // decomposition without pivoting. The program contains multiple branches
 // corresponding to LU input sizes; all internal functions are inlined.

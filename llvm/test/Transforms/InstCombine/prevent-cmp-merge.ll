@@ -72,10 +72,10 @@ define zeroext i1 @test3(i32 %lhs, i32 %rhs) {
 
 define zeroext i1 @test3_logical(i32 %lhs, i32 %rhs) {
 ; CHECK-LABEL: @test3_logical(
-; CHECK-NEXT:    [[SUB:%.*]] = sub nsw i32 [[LHS:%.*]], [[RHS:%.*]] ;INTEL
+; CHECK-NEXT:    [[SUB:%.*]] = sub nsw i32 [[LHS:%.*]], [[RHS:%.*]]
 ; CHECK-NEXT:    [[CMP1:%.*]] = icmp eq i32 [[LHS]], [[RHS]]
 ; CHECK-NEXT:    [[CMP2:%.*]] = icmp eq i32 [[SUB]], 31
-; CHECK-NEXT:    [[SEL:%.*]] = select i1 [[CMP1]], i1 true, i1 [[CMP2]] ;INTEL
+; CHECK-NEXT:    [[SEL:%.*]] = select i1 [[CMP1]], i1 true, i1 [[CMP2]]
 ; CHECK-NEXT:    ret i1 [[SEL]]
 ;
 

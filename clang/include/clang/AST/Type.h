@@ -965,7 +965,6 @@ public:
   void removeLocalConst();
   void removeLocalVolatile();
   void removeLocalRestrict();
-  void removeLocalCVRQualifiers(unsigned Mask);
 
   void removeLocalFastQualifiers() { Value.setInt(0); }
   void removeLocalFastQualifiers(unsigned Mask) {
@@ -6710,7 +6709,7 @@ class alignas(8) TypeSourceInfo {
 
   QualType Ty;
 
-  TypeSourceInfo(QualType ty) : Ty(ty) {}
+  TypeSourceInfo(QualType ty, size_t DataSize); // implemented in TypeLoc.h
 
 public:
   /// Return the type wrapped by this type source info.
@@ -6849,15 +6848,6 @@ inline void QualType::removeLocalRestrict() {
 
 inline void QualType::removeLocalVolatile() {
   removeLocalFastQualifiers(Qualifiers::Volatile);
-}
-
-inline void QualType::removeLocalCVRQualifiers(unsigned Mask) {
-  assert(!(Mask & ~Qualifiers::CVRMask) && "mask has non-CVR bits");
-  static_assert((int)Qualifiers::CVRMask == (int)Qualifiers::FastMask,
-                "Fast bits differ from CVR bits!");
-
-  // Fast path: we don't need to touch the slow qualifiers.
-  removeLocalFastQualifiers(Mask);
 }
 
 /// Check if this type has any address space qualifier.

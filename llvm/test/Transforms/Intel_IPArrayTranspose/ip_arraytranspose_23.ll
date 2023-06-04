@@ -33,7 +33,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:  b1:
 ; CHECK:  [[I0:%[a-z0-9.]+]] = phi i64 [ [[I1:%[a-z0-9.]+]], %b2 ], [ 0, %b0 ]
 ; CHECK:  [[S0:%[0-9]+]] = shl nuw nsw i64 [[I0]], 2
-; CHECK:  [[A0:%[0-9]+]] = add i64 [[S0]], 203688000
+; CHECK:  [[A0:%[0-9]+]] = add nuw i64 [[S0]], 203688000
 ; CHECK:  [[G0:%[a-z0-9]+]] = getelementptr i8, ptr [[B0]], i64 [[A0]]
 ; CHECK:  %ld = load i32, ptr [[G0]], align 4
 ; CHECK:  b2:

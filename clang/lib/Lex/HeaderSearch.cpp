@@ -508,7 +508,8 @@ OptionalFileEntryRef DirectoryLookup::LookupFile(
 
   IsInHeaderMap = true;
 
-  auto FixupSearchPath = [&]() {
+  auto FixupSearchPathAndFindUsableModule =
+      [&](auto File) -> OptionalFileEntryRef {
     if (SearchPath) {
       StringRef SearchPathRef(getName());
       SearchPath->clear();
@@ -518,6 +519,12 @@ OptionalFileEntryRef DirectoryLookup::LookupFile(
       RelativePath->clear();
       RelativePath->append(Filename.begin(), Filename.end());
     }
+    if (!HS.findUsableModuleForHeader(
+            &File.getFileEntry(), File.getFileEntry().getDir(),
+            RequestingModule, SuggestedModule, isSystemHeaderDirectory())) {
+      return std::nullopt;
+    }
+    return File;
   };
 
   // Check if the headermap maps the filename to a framework include
@@ -530,8 +537,7 @@ OptionalFileEntryRef DirectoryLookup::LookupFile(
   }
 
   if (auto Res = HS.getFileMgr().getOptionalFileRef(Dest, OpenFile)) {
-    FixupSearchPath();
-    return *Res;
+    return FixupSearchPathAndFindUsableModule(*Res);
   }
 
   // Header maps need to be marked as used whenever the filename matches.

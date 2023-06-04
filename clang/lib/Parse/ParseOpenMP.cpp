@@ -3665,7 +3665,6 @@ OMPClause *Parser::ParseOpenMPUsesAllocatorClause(OpenMPDirectiveKind DKind) {
     return nullptr;
   SmallVector<Sema::UsesAllocatorsData, 4> Data;
   do {
-#if INTEL_COLLAB
     CXXScopeSpec SS;
     Token Replacement;
     ExprResult Allocator =
@@ -3673,10 +3672,6 @@ OMPClause *Parser::ParseOpenMPUsesAllocatorClause(OpenMPDirectiveKind DKind) {
             ? ParseCXXIdExpression()
             : tryParseCXXIdExpression(SS, /*isAddressOfOperand=*/false,
                                       Replacement);
-#else  // INTEL_COLLAB
-    ExprResult Allocator =
-        getLangOpts().CPlusPlus ? ParseCXXIdExpression() : ParseExpression();
-#endif // INTEL_COLLAB
     if (Allocator.isInvalid()) {
       SkipUntil(tok::comma, tok::r_paren, tok::annot_pragma_openmp_end,
                 StopBeforeMatch);

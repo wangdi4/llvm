@@ -1450,18 +1450,10 @@ static void computeKnownBitsFromOperator(const Operator *I,
     break;
   }
   case Instruction::Shl: {
+    bool NUW = Q.IIQ.hasNoUnsignedWrap(cast<OverflowingBinaryOperator>(I));
     bool NSW = Q.IIQ.hasNoSignedWrap(cast<OverflowingBinaryOperator>(I));
-    auto KF = [NSW](const KnownBits &KnownVal, const KnownBits &KnownAmt) {
-      KnownBits Result = KnownBits::shl(KnownVal, KnownAmt);
-      // If this shift has "nsw" keyword, then the result is either a poison
-      // value or has the same sign bit as the first operand.
-      if (NSW) {
-        if (KnownVal.Zero.isSignBitSet())
-          Result.Zero.setSignBit();
-        if (KnownVal.One.isSignBitSet())
-          Result.One.setSignBit();
-      }
-      return Result;
+    auto KF = [NUW, NSW](const KnownBits &KnownVal, const KnownBits &KnownAmt) {
+      return KnownBits::shl(KnownVal, KnownAmt, NUW, NSW);
     };
     computeKnownBitsFromShiftOperator(I, DemandedElts, Known, Known2, Depth, Q,
                                       KF);
@@ -4834,7 +4826,8 @@ void computeKnownFPClass(const Value *V, const APInt &DemandedElts,
           Known.knownNot(fcNegative);
         break;
       }
-      case Intrinsic::sqrt: {
+      case Intrinsic::sqrt:
+      case Intrinsic::experimental_constrained_sqrt: {
         KnownFPClass KnownSrc;
         FPClassTest InterestedSrcs = InterestedClasses;
         if (InterestedClasses & fcNan)
@@ -7008,9 +7001,8 @@ static bool directlyImpliesPoison(const Value *ValAssumedPoison,
   return false;
 }
 
-static bool
-impliesPoison(Value *ValAssumedPoison, const Value *V, unsigned Depth,
-              SmallVectorImpl<Instruction *> *IgnoredInsts = nullptr) {
+static bool impliesPoison(const Value *ValAssumedPoison, const Value *V,
+                          unsigned Depth) {
   if (isGuaranteedNotToBePoison(ValAssumedPoison))
     return true;
 
@@ -7021,30 +7013,17 @@ impliesPoison(Value *ValAssumedPoison, const Value *V, unsigned Depth,
   if (Depth >= MaxDepth)
     return false;
 
-  auto *I = dyn_cast<Instruction>(ValAssumedPoison);
-  if (!I || canCreatePoison(cast<Operator>(I),
-                            /*ConsiderFlagsAndMetadata*/ !IgnoredInsts))
-    return false;
-
-  for (Value *Op : I->operands())
-    if (!impliesPoison(Op, V, Depth + 1, IgnoredInsts))
-      return false;
-
-  if (IgnoredInsts && I->hasPoisonGeneratingFlagsOrMetadata())
-    IgnoredInsts->push_back(I);
-
-  return true;
+  const auto *I = dyn_cast<Instruction>(ValAssumedPoison);
+  if (I && !canCreatePoison(cast<Operator>(I))) {
+    return all_of(I->operands(), [=](const Value *Op) {
+      return impliesPoison(Op, V, Depth + 1);
+    });
+  }
+  return false;
 }
 
 bool llvm::impliesPoison(const Value *ValAssumedPoison, const Value *V) {
-  return ::impliesPoison(const_cast<Value *>(ValAssumedPoison), V,
-                         /* Depth */ 0);
-}
-
-bool llvm::impliesPoisonIgnoreFlagsOrMetadata(
-    Value *ValAssumedPoison, const Value *V,
-    SmallVectorImpl<Instruction *> &IgnoredInsts) {
-  return ::impliesPoison(ValAssumedPoison, V, /* Depth */ 0, &IgnoredInsts);
+  return ::impliesPoison(ValAssumedPoison, V, /* Depth */ 0);
 }
 
 static bool programUndefinedIfUndefOrPoison(const Value *V,

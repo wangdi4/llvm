@@ -151,7 +151,7 @@ void VPOParoptUtils::genF90DVInitCode(
     BranchPt = &*Builder.GetInsertPoint();
     I->setF90DVDataAllocationPoint(BranchPt);
 
-    DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Eager);
+    DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
     Instruction *ThenTerm = SplitBlockAndInsertIfThen(
         IsOrigAllocated, BranchPt, false,
         MDBuilder(Builder.getContext()).createBranchWeights(4, 1), &DTU, LI);

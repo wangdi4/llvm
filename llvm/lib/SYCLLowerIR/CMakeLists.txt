@@ -171,6 +171,7 @@ add_llvm_component_library(LLVMSYCLLowerIR
   Core
   TargetParser
   Support
+  ipo
   )
 
 target_include_directories(LLVMSYCLLowerIR

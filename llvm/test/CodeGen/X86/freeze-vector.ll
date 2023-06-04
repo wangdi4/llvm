@@ -288,7 +288,7 @@ define void @freeze_buildvector_single_maybe_poison_operand(ptr %origin, ptr %ds
 ;
 ; X64-LABEL: freeze_buildvector_single_maybe_poison_operand:
 ; X64:       # %bb.0:
-; X64-NEXT:    vmovdqa {{.*#+}} xmm0 = <u,42,42,42>
+; X64-NEXT:    vpbroadcastd {{.*#+}} xmm0 = [42,42,42,42]
 ; X64-NEXT:    vpinsrd $0, (%rdi), %xmm0, %xmm0
 ; X64-NEXT:    vpbroadcastd {{.*#+}} xmm1 = [7,7,7,7]
 ; X64-NEXT:    vpand %xmm1, %xmm0, %xmm0
@@ -322,7 +322,7 @@ define void @freeze_buildvector_single_repeated_maybe_poison_operand(ptr %origin
 ;
 ; X64-LABEL: freeze_buildvector_single_repeated_maybe_poison_operand:
 ; X64:       # %bb.0:
-; X64-NEXT:    vmovdqa {{.*#+}} xmm0 = <u,42,u,u>
+; X64-NEXT:    vpbroadcastd {{.*#+}} xmm0 = [42,42,42,42]
 ; X64-NEXT:    vpinsrd $0, (%rdi), %xmm0, %xmm0
 ; X64-NEXT:    vpbroadcastq %xmm0, %xmm0
 ; X64-NEXT:    vpbroadcastd {{.*#+}} xmm1 = [7,7,7,7]
@@ -447,7 +447,7 @@ define void @freeze_two_buildvectors_one_undef_elt(ptr %origin0, ptr %origin1, p
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %edx
 ; X86-NEXT:    movl (%edx), %edx
 ; X86-NEXT:    andl $15, %edx
-; X86-NEXT:    vmovddup {{.*#+}} xmm0 = [7,7]
+; X86-NEXT:    vmovddup {{.*#+}} xmm0 = [7,0,7,0]
 ; X86-NEXT:    # xmm0 = mem[0,0]
 ; X86-NEXT:    vmovd %edx, %xmm1
 ; X86-NEXT:    vpand %xmm0, %xmm1, %xmm2

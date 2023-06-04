@@ -927,6 +927,11 @@ def Xopenmp_target : Separate<["-"], "Xopenmp-target">, Group<CompileOnly_Group>
 def Xopenmp_target_EQ : JoinedAndSeparate<["-"], "Xopenmp-target=">, Group<CompileOnly_Group>,
   HelpText<"Pass <arg> to the target offloading toolchain identified by <triple>.">,
   MetaVarName<"<triple> <arg>">;
+def Xspirv_translator : Separate<["-"], "Xspirv-translator">,
+  HelpText<"Pass <arg> to the LLVM IR to SPIR-V translation backend.">, MetaVarName<"<arg>">, Flags<[CoreOption, HelpHidden]>;
+def Xspirv_translator_EQ : JoinedAndSeparate<["-"], "Xspirv-translator=">,
+  HelpText<"Pass <arg> to the LLVM IR to SPIR-V translation backend identified by <triple>.">,
+  MetaVarName<"<triple> <arg>">, Flags<[CoreOption, HelpHidden]>;
 #if INTEL_CUSTOMIZATION
 def Xopenmp_backend : Separate<["-"], "Xopenmp-target-backend">,
   HelpText<"Pass <arg> to the OpenMP based target backend.">,
@@ -1947,6 +1952,15 @@ def ffloat16_excess_precision_EQ : Joined<["-"], "ffloat16-excess-precision=">,
   Values<"standard,fast,none">, NormalizedValuesScope<"LangOptions">,
   NormalizedValues<["FPP_Standard", "FPP_Fast", "FPP_None"]>,
   MarshallingInfoEnum<LangOpts<"Float16ExcessPrecision">, "FPP_Standard">;
+def fbfloat16_excess_precision_EQ : Joined<["-"], "fbfloat16-excess-precision=">,
+  Group<f_Group>, Flags<[CC1Option, NoDriverOption]>,
+  HelpText<"Allows control over excess precision on targets where native "
+  "support for BFloat16 precision types is not available. By default, excess "
+  "precision is used to calculate intermediate results following the "
+  "rules specified in ISO C99.">,
+  Values<"standard,fast,none">, NormalizedValuesScope<"LangOptions">,
+  NormalizedValues<["FPP_Standard", "FPP_Fast", "FPP_None"]>,
+  MarshallingInfoEnum<LangOpts<"BFloat16ExcessPrecision">, "FPP_Standard">;
 def : Flag<["-"], "fexpensive-optimizations">, Group<clang_ignored_gcc_optimization_f_Group>;
 def : Flag<["-"], "fno-expensive-optimizations">, Group<clang_ignored_gcc_optimization_f_Group>;
 def fextdirs_EQ : Joined<["-"], "fextdirs=">, Group<f_Group>;
@@ -2120,6 +2134,10 @@ def fsanitize_address_outline_instrumentation : Flag<["-"], "fsanitize-address-o
 def fno_sanitize_address_outline_instrumentation : Flag<["-"], "fno-sanitize-address-outline-instrumentation">,
                                                    Group<f_clang_Group>,
                                                    HelpText<"Use default code inlining logic for the address sanitizer">;
+defm sanitize_stable_abi
+  : OptInCC1FFlag<"sanitize-stable-abi", "Stable  ", "Conventional ",
+    "ABI instrumentation for sanitizer runtime. Default: Conventional">;
+
 def fsanitize_memtag_mode_EQ : Joined<["-"], "fsanitize-memtag-mode=">,
                                         Group<f_clang_Group>,
                                         HelpText<"Set default MTE mode to 'sync' (default) or 'async'">;
