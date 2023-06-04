@@ -1137,8 +1137,8 @@ bool HIRDeadStoreElimination::basePtrEscapesAnalysis(
   return false;
 }
 
-bool HIRDeadStoreElimination::hasAllDereferencesWithinRegion(
-    HLRegion &Region, const RegDDRef *Ref) {
+bool HIRDeadStoreElimination::hasAllLoadsWithinRegion(HLRegion &Region,
+                                                      const RegDDRef *Ref) {
 
   auto *BaseVal = Ref->getTempBaseValue();
 
@@ -1167,25 +1167,28 @@ bool HIRDeadStoreElimination::hasAllDereferencesWithinRegion(
     return false;
   }
 
-  auto Iter = AllDereferencesInSingleRegion.find(Alloca);
+  auto Iter = AllLoadsInSingleRegion.find(Alloca);
 
-  if (Iter != AllDereferencesInSingleRegion.end()) {
-    return Iter->second;
+  if (Iter != AllLoadsInSingleRegion.end()) {
+    return (Iter->second == &Region);
   }
 
   if (!Region.containsAllDereferences(Alloca, true) ||
       basePtrEscapesAnalysis(Ref)) {
-    AllDereferencesInSingleRegion[Alloca] = false;
+    AllLoadsInSingleRegion[Alloca] = nullptr;
 
     LLVM_DEBUG(dbgs() << "Base ptr alloca of ref: "; Ref->dump();
                dbgs() << "either escapes or is not local to region.\n");
     return false;
   }
 
-  AllDereferencesInSingleRegion[Alloca] = true;
+  AllLoadsInSingleRegion[Alloca] = &Region;
 
   LLVM_DEBUG(dbgs() << "Alloca: "; Alloca->printAsOperand(dbgs());
-             dbgs() << " identified as region local alloca\n");
+             dbgs() << " identified as region local alloca in region:";
+             formatted_raw_ostream FOS(dbgs());
+             Region.printHeader(FOS, 0, false, false));
+
   return true;
 }
 
@@ -1328,7 +1331,7 @@ bool HIRDeadStoreElimination::run(HLRegion &Region) {
     // Add a null ref at the end which will act as a dummy post-dominating store
     // ref for the entire group. This approach fits nicely with the existing
     // setup below which analyzes the group.
-    if (hasAllDereferencesWithinRegion(Region, RefGroup.front())) {
+    if (hasAllLoadsWithinRegion(Region, RefGroup.front())) {
       RefGroup.push_back(nullptr);
     }
 

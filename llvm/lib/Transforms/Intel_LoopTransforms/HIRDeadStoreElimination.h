@@ -82,9 +82,9 @@ class HIRDeadStoreElimination {
   // based on the base ptr blob index as the key.
   BasePtrToLifetimeEndInfoMapTy FakeLifetimeEndRefs;
 
-  // Map of base ptr value to a boolean indicating whether all dereferences of
-  // the base are in single region.
-  DenseMap<Value *, bool> AllDereferencesInSingleRegion;
+  // Map of base ptr value to the region where all the loads of the base ptr
+  // exist in the function.
+  DenseMap<Value *, HLRegion *> AllLoadsInSingleRegion;
 
   bool isValidParentChain(const HLNode *PostDomNode, const HLNode *PrevNode,
                           const RegDDRef *PostDomRef);
@@ -104,9 +104,9 @@ class HIRDeadStoreElimination {
   /// to be safe for analysis.
   bool basePtrEscapesAnalysis(const RegDDRef *Ref) const;
 
-  /// Returns true if all dereferences of the base ptr of \p Ref are within \p
+  /// Returns true if all load of the base ptr of \p Ref are within \p
   /// Region.
-  bool hasAllDereferencesWithinRegion(HLRegion &Region, const RegDDRef *Ref);
+  bool hasAllLoadsWithinRegion(HLRegion &Region, const RegDDRef *Ref);
 
   /// Inserts applicable fake lifetime intrinsics to this ref group while
   /// maintaining the lexical order.
