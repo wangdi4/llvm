@@ -223,6 +223,7 @@ struct Configuration {
   // so use a vector instead of a map.
   std::vector<SectionAlign> sectionAlignments;
   std::vector<SegmentProtection> segmentProtections;
+  bool ltoDebugPassManager = false;
 
   bool callGraphProfileSort = false;
   llvm::StringRef printSymbolOrder;
