@@ -362,11 +362,7 @@ add_custom_target( sycl-toolchain
 )
 
 if (WIN32)
-  add_dependencies(sycl-toolchain win_proxy_loader)
-endif()
-
-if (WIN32)
-  add_dependencies(sycl-toolchain win_proxy_loader)
+  add_dependencies(sycl-toolchain pi_win_proxy_loader)
 endif()
 
 # Enable new IN_LIST operator.
@@ -410,7 +406,7 @@ add_subdirectory( plugins )
 add_subdirectory(tools)
 
 if (WIN32)
-  add_subdirectory(win_proxy_loader)
+  add_subdirectory(pi_win_proxy_loader)
 endif()
 
 if(SYCL_INCLUDE_TESTS)
@@ -476,7 +472,7 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
 # endif()
 # end INTEL_CUSTOMIZATION
 if (WIN32)
-  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS win_proxy_loader)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS pi_win_proxy_loader)
 endif()
 
 if(OpenCL_INSTALL_KHRONOS_ICD_LOADER AND TARGET OpenCL-ICD)
