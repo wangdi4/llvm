@@ -571,6 +571,8 @@ Function *WGLoopBoundariesImpl::createLoopBoundariesFunctionDecl() {
   auto *CondFunc =
       Function::Create(FTy, GlobalValue::ExternalLinkage, EEFuncName, &M);
   CondFunc->copyAttributesFrom(F);
+  // WG Loop Boundaries Function is always return
+  CondFunc->removeFnAttr(Attribute::NoReturn);
 
   for (const auto &[ArgNo, Arg] : llvm::enumerate(CondFunc->args()))
     Arg.setName(F->getArg(ArgNo)->getName());
