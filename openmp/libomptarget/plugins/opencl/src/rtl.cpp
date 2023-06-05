@@ -645,9 +645,6 @@ class OpenCLProgramTy {
 #if INTEL_CUSTOMIZATION
   /// Program data copied to device
   ProgramDataTy PGMData;
-
-  /// Cached address of the program data on device
-  void *PGMDataPtr = nullptr;
 #endif // INTEL_CUSTOMIZATION
 
   /// Final OpenCL program
@@ -695,18 +692,6 @@ public:
 
   int32_t linkPrograms(std::string &LinkingOptions);
 
-  /// Looks up an external global variable with the given \p Name
-  /// in the device environment for device \p DeviceId.
-  /// \p Size must not be null. If (*SizePtr) is not zero, then
-  /// the lookup verifies that the found variable's size matches
-  /// (*SizePtr), otherwise, the found variable's size is returned
-  /// via \p Size.
-  void *getVarDeviceAddr(const char *Name, size_t *SizePtr);
-
-  /// Looks up an external global variable with the given \p Name
-  /// and \p Size in the device environment for device \p DeviceId.
-  void *getVarDeviceAddr(const char *Name, size_t Size);
-
   /// Build kernels from all modules.
   int32_t buildKernels();
 
@@ -729,6 +714,15 @@ public:
 
   /// Returns the auxiliary kernel information for the specified kernel.
   const KernelInfoTy *getKernelInfo(cl_kernel Kernel) const;
+
+  /// Read data from the location in the device image which corresponds to the
+  /// specified global variable name.
+  int32_t readGlobalVariable(const char *Name, size_t Size, void *HostPtr);
+
+  /// Write data to the location in the device image which corresponds to the
+  /// specified global variable name.
+  int32_t writeGlobalVariable(const char *Name, size_t Size,
+                              const void *HostPtr);
 };
 
 /// RTL flags
@@ -3525,13 +3519,6 @@ void *OpenCLProgramTy::initDynamicMemPool() {
 }
 
 int32_t OpenCLProgramTy::initProgramData() {
-  // Look up program data location on device
-  PGMDataPtr = getVarDeviceAddr("__omp_spirv_program_data", sizeof(PGMData));
-  if (!PGMDataPtr) {
-    DP("Warning: cannot find program data location on device.\n");
-    return OFFLOAD_SUCCESS;
-  }
-
   // Prepare host data to copy
   auto &P = DeviceInfo->DeviceProperties[DeviceId];
   uint32_t TotalEUs =
@@ -3576,20 +3563,14 @@ int32_t OpenCLProgramTy::initProgramData() {
                          // Teams thread limit
   };
 
-  CALL_CL_EXT_RET_FAIL(DeviceId, clEnqueueMemcpyINTEL,
-                       DeviceInfo->Queues[DeviceId], CL_TRUE, PGMDataPtr,
-                       &PGMData, sizeof(PGMData), 0, nullptr, nullptr);
-  return OFFLOAD_SUCCESS;
+  // Initialize __omp_spirv_program_data.
+  return writeGlobalVariable("__omp_spirv_program_data", sizeof(PGMData),
+                             &PGMData);
 }
 
 int32_t OpenCLProgramTy::resetProgramData() {
-  if (!PGMDataPtr)
-    return OFFLOAD_SUCCESS;
-
-  CALL_CL_EXT_RET_FAIL(DeviceId, clEnqueueMemcpyINTEL,
-                       DeviceInfo->Queues[DeviceId], CL_TRUE, PGMDataPtr,
-                       &PGMData, sizeof(PGMData), 0, nullptr, nullptr);
-  return OFFLOAD_SUCCESS;
+  return writeGlobalVariable("__omp_spirv_program_data", sizeof(PGMData),
+                             &PGMData);
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -3599,59 +3580,52 @@ bool OpenCLProgramTy::readKernelInfo(const __tgt_offload_entry &KernelEntry) {
   const char *Name = KernelEntry.name;
   std::string InfoVarName(Name);
   InfoVarName += "_kernel_info";
-  size_t InfoVarSize = 0;
-  void *InfoVarAddr = getVarDeviceAddr(InfoVarName.c_str(), &InfoVarSize);
-  // If there is no kernel info variable, then the kernel might have been
-  // produced by older toolchain - this is acceptable, so return success.
-  if (!InfoVarAddr)
-    return true;
-  if (InfoVarSize == 0) {
-    DP("Error: kernel info variable cannot have 0 size.\n");
-    return false;
-  }
-  std::vector<char> InfoBuffer;
-  InfoBuffer.resize(InfoVarSize);
-  CALL_CL_EXT_RET(DeviceId, false, clEnqueueMemcpyINTEL,
-                  DeviceInfo->Queues[DeviceId],
-                  /*blocking=*/CL_TRUE, InfoBuffer.data(),
-                  InfoVarAddr, InfoVarSize,
-                  /*num_events_in_wait_list=*/0,
-                  /*event_wait_list=*/nullptr,
-                  /*event=*/nullptr);
-  // TODO: add support for big-endian devices, if needed.
-  //       Currently supported devices are little-endian.
-  char *ReadPtr = InfoBuffer.data();
-  uint32_t Version = llvm::support::endian::read32le(ReadPtr);
-  if (Version == 0) {
+
+  // Read info version and number of kernel arguments to decide size of the
+  // kernel info data structure.
+  struct InfoHeaderTy {
+    uint32_t Version;
+    uint32_t NumArgs;
+  } InfoHeader;
+  auto RC =
+      readGlobalVariable(InfoVarName.c_str(), sizeof(InfoHeader), &InfoHeader);
+  if (RC != OFFLOAD_SUCCESS)
+    return true; // Proceed without kernel information
+
+  // Decide the data structure size
+  size_t InfoVarSize = static_cast<size_t>(InfoHeader.NumArgs) * 8 + 8;
+  switch (InfoHeader.Version) {
+  case 5: // Not introduced new data member
+    [[fallthrough]];
+  case 4: // Introduced 8B WINum
+    InfoVarSize += 8;
+    [[fallthrough]];
+  case 3: // Introduced 8B WGNum
+    InfoVarSize += 8;
+    [[fallthrough]];
+  case 2: // Introduced 8B Attribute flags
+    InfoVarSize += 8;
+    [[fallthrough]];
+  case 1: // First version
+    break;
+  case 0:
     DP("Error: version 0 of kernel info structure is illegal.\n");
     return false;
-  }
-  if (Version > 5) {
+  default:
     DP("Error: unsupported version (%" PRIu32 ") of kernel info structure.\n",
-       Version);
+       InfoHeader.Version);
     DP("Error: please use newer OpenMP offload runtime.\n");
     return false;
   }
-  ReadPtr += 4;
-  uint32_t KernelArgsNum = llvm::support::endian::read32le(ReadPtr);
-  size_t ExpectedInfoVarSize = static_cast<size_t>(KernelArgsNum) * 8 + 8;
-  // Support Attributes1 since version 2.
-  if (Version > 1)
-    ExpectedInfoVarSize += 8;
-  // Support WGNum since version 3.
-  if (Version > 2)
-    ExpectedInfoVarSize += 8;
-  // Support WINum since version 4.
-  if (Version > 3)
-    ExpectedInfoVarSize += 8;
-  if (InfoVarSize != ExpectedInfoVarSize) {
-    DP("Error: expected kernel info variable size %zu - got %zu\n",
-       ExpectedInfoVarSize, InfoVarSize);
-    return false;
-  }
-  KernelInfoTy Info(Version);
-  ReadPtr += 4;
-  for (uint64_t I = 0; I < KernelArgsNum; ++I) {
+
+  std::vector<char> InfoBuffer(InfoVarSize);
+  RC = readGlobalVariable(InfoVarName.c_str(), InfoVarSize, InfoBuffer.data());
+  if (RC != OFFLOAD_SUCCESS)
+    return true; // Proceed without kernel information
+
+  KernelInfoTy Info(InfoHeader.Version);
+  char *ReadPtr = InfoBuffer.data() + 8;
+  for (uint32_t I = 0; I < InfoHeader.NumArgs; I++) {
     bool ArgIsLiteral = (llvm::support::endian::read32le(ReadPtr) != 0);
     ReadPtr += 4;
     uint32_t ArgSize = llvm::support::endian::read32le(ReadPtr);
@@ -3659,21 +3633,21 @@ bool OpenCLProgramTy::readKernelInfo(const __tgt_offload_entry &KernelEntry) {
     Info.addArgInfo(ArgIsLiteral, ArgSize);
   }
 
-  if (Version > 1) {
+  if (InfoHeader.Version > 1) {
     // Read 8-byte Attributes1 since version 2.
     uint64_t Attributes1 = llvm::support::endian::read64le(ReadPtr);
     Info.setAttributes1(Attributes1);
     ReadPtr += 8;
   }
 
-  if (Version > 2) {
+  if (InfoHeader.Version > 2) {
     // Read 8-byte WGNum since version 3.
     uint32_t WGNum = llvm::support::endian::read64le(ReadPtr);
     Info.setWGNum(WGNum);
     ReadPtr += 8;
   }
 
-  if (Version > 3) {
+  if (InfoHeader.Version > 3) {
     // Read 8-byte WGNum since version 3.
     uint32_t WINum = llvm::support::endian::read64le(ReadPtr);
     Info.setWINum(WINum);
@@ -3685,21 +3659,11 @@ bool OpenCLProgramTy::readKernelInfo(const __tgt_offload_entry &KernelEntry) {
 }
 
 bool OpenCLProgramTy::loadOffloadTable(size_t NumEntries) {
-  const char *OffloadTableSizeVarName = "__omp_offloading_entries_table_size";
-  void *OffloadTableSizeVarAddr =
-      getVarDeviceAddr(OffloadTableSizeVarName, sizeof(int64_t));
-
-  if (!OffloadTableSizeVarAddr) {
-    DP("Warning: cannot get device value for global variable '%s'.\n",
-       OffloadTableSizeVarName);
-    return false;
-  }
-
   int64_t TableSizeVal = 0;
-  CALL_CL_EXT_RET(DeviceId, false, clEnqueueMemcpyINTEL,
-                  DeviceInfo->Queues[DeviceId],
-                  CL_TRUE, &TableSizeVal, OffloadTableSizeVarAddr,
-                  sizeof(int64_t), 0, nullptr, nullptr);
+  auto RC = readGlobalVariable("__omp_offloading_entries_table_size",
+                               sizeof(TableSizeVal), &TableSizeVal);
+  if (RC != OFFLOAD_SUCCESS)
+    return false;
   size_t TableSize = (size_t)TableSizeVal;
 
   if ((TableSize % sizeof(DeviceOffloadEntryTy)) != 0) {
@@ -3715,19 +3679,11 @@ bool OpenCLProgramTy::loadOffloadTable(size_t NumEntries) {
        "offload tables mismatch (%zu != %zu).\n", NumEntries, DeviceNumEntries);
   }
 
-  const char *OffloadTableVarName = "__omp_offloading_entries_table";
-  void *OffloadTableVarAddr = getVarDeviceAddr(OffloadTableVarName, TableSize);
-  if (!OffloadTableVarAddr) {
-    DP("Warning: cannot get device value for global variable '%s'.\n",
-       OffloadTableVarName);
-    return false;
-  }
-
   OffloadEntries.resize(DeviceNumEntries);
-  CALL_CL_EXT_RET(DeviceId, false, clEnqueueMemcpyINTEL,
-                  DeviceInfo->Queues[DeviceId],
-                  CL_TRUE, OffloadEntries.data(), OffloadTableVarAddr,
-                  TableSize, 0, nullptr, nullptr);
+  RC = readGlobalVariable("__omp_offloading_entries_table", TableSize,
+                          OffloadEntries.data());
+  if (RC != OFFLOAD_SUCCESS)
+    return false;
 
   size_t I = 0;
   const char *PreviousName = "";
@@ -3818,62 +3774,11 @@ void *OpenCLProgramTy::getOffloadVarDeviceAddr(const char *Name, size_t Size) {
 
     DP("Warning: global variable '%s' was not found in the offload table.\n",
        Name);
-  } else
-    DP("Warning: offload table is not loaded for device %d.\n", DeviceId);
-
-  // Fallback to the lookup by name.
-  return getVarDeviceAddr(Name, Size);
-}
-
-void *OpenCLProgramTy::getVarDeviceAddr(const char *Name, size_t *SizePtr) {
-  size_t DeviceSize = 0;
-  void *TgtAddr = nullptr;
-  size_t Size = *SizePtr;
-  bool SizeIsKnown = (Size != 0);
-  if (SizeIsKnown) {
-    DP("Looking up device global variable '%s' of size %zu bytes "
-       "on device %d.\n", Name, Size, DeviceId);
   } else {
-    DP("Looking up device global variable '%s' of unknown size "
-       "on device %d.\n", Name, DeviceId);
+    DP("Warning: offload table is not loaded for device %d.\n", DeviceId);
   }
 
-  if (!DeviceInfo->isExtensionFunctionEnabled(
-          DeviceId, clGetDeviceGlobalVariablePointerINTELId))
-    return nullptr;
-
-  cl_int RC;
-  auto clGetDeviceGlobalVariablePointerINTELFn =
-      reinterpret_cast<clGetDeviceGlobalVariablePointerINTEL_fn>(
-          DeviceInfo->getExtensionFunctionPtr(
-              DeviceId, clGetDeviceGlobalVariablePointerINTELId));
-  RC = clGetDeviceGlobalVariablePointerINTELFn(
-      Device, FinalProgram, Name, &DeviceSize, &TgtAddr);
-
-  if (RC != CL_SUCCESS) {
-    DP("Warning: clGetDeviceGlobalVariablePointerINTEL API returned "
-       "nullptr for global variable '%s'.\n", Name);
-    DeviceSize = 0;
-  } else if (Size != DeviceSize && SizeIsKnown) {
-    DP("Warning: size mismatch for host (%zu) and device (%zu) versions "
-       "of global variable: %s\n.  Direct references "
-       "to this variable will not work properly.\n",
-       Size, DeviceSize, Name);
-    DeviceSize = 0;
-  }
-
-  if (DeviceSize == 0) {
-    DP("Warning: global variable lookup failed.\n");
-    return nullptr;
-  }
-
-  DP("Global variable lookup succeeded (size: %zu bytes).\n", DeviceSize);
-  *SizePtr = DeviceSize;
-  return TgtAddr;
-}
-
-void *OpenCLProgramTy::getVarDeviceAddr(const char *Name, size_t Size) {
-  return getVarDeviceAddr(Name, &Size);
+  return nullptr;
 }
 
 const KernelInfoTy *OpenCLProgramTy::getKernelInfo(
@@ -3883,6 +3788,38 @@ const KernelInfoTy *OpenCLProgramTy::getKernelInfo(
     return &(I->second);
   else
     return nullptr;
+}
+
+int32_t OpenCLProgramTy::readGlobalVariable(const char *Name, size_t Size,
+                                            void *HostPtr) {
+  size_t SizeDummy = 0;
+  void *DevicePtr = nullptr;
+  CALL_CL_EXT_RET_FAIL(DeviceId, clGetDeviceGlobalVariablePointerINTEL, Device,
+                       FinalProgram, Name, &SizeDummy, &DevicePtr);
+  if (!DevicePtr)
+    return OFFLOAD_FAIL;
+  auto CmdQueue = DeviceInfo->Queues[DeviceId];
+  CALL_CL_EXT_RET_FAIL(
+      DeviceId, clEnqueueMemcpyINTEL, CmdQueue, CL_TRUE /* Blocking */, HostPtr,
+      DevicePtr, Size, 0 /* Number of wait events */,
+      nullptr /* List of wait events */, nullptr /* Signal event */);
+  return OFFLOAD_SUCCESS;
+}
+
+int32_t OpenCLProgramTy::writeGlobalVariable(const char *Name, size_t Size,
+                                             const void *HostPtr) {
+  size_t SizeDummy = 0;
+  void *DevicePtr = nullptr;
+  CALL_CL_EXT_RET_FAIL(DeviceId, clGetDeviceGlobalVariablePointerINTEL, Device,
+                       FinalProgram, Name, &SizeDummy, &DevicePtr);
+  if (!DevicePtr)
+    return OFFLOAD_FAIL;
+  auto CmdQueue = DeviceInfo->Queues[DeviceId];
+  CALL_CL_EXT_RET_FAIL(
+      DeviceId, clEnqueueMemcpyINTEL, CmdQueue, CL_TRUE /* Blocking */,
+      DevicePtr, HostPtr, Size, 0 /* Number of wait events */,
+      nullptr /* List of wait events */, nullptr /* Signal event */);
+  return OFFLOAD_SUCCESS;
 }
 
 ///
@@ -4649,16 +4586,6 @@ int32_t __tgt_rtl_set_function_ptr_map(
 
   ProfileIntervalTy Timer("Function pointers init", DeviceId);
   auto &Program = DeviceInfo->Programs[DeviceId].back();
-  void *DeviceMapSizeVarAddr = Program.getVarDeviceAddr(
-      "__omp_offloading_fptr_map_size", sizeof(uint64_t));
-
-  // getVarDeviceAddr() will return the device pointer size
-  // in DeviceMapPtrVarSize.
-  size_t DeviceMapPtrVarSize = 0;
-  void *DeviceMapPtrVarAddr = Program.getVarDeviceAddr(
-      "__omp_offloading_fptr_map_p", &DeviceMapPtrVarSize);
-  if (!DeviceMapSizeVarAddr || !DeviceMapPtrVarAddr)
-    return OFFLOAD_FAIL;
 
   // Allocate memory for the function pointers map on the device,
   // and transfer the host map to the allocated memory.
@@ -4704,35 +4631,13 @@ int32_t __tgt_rtl_set_function_ptr_map(
                        /*num_events_in_wait_list*/nullptr,
                        /*event=*/nullptr);
 
-  // Initialize __omp_offloading_fptr_map_p global with the value of
-  // FnPtrMapMem.
-  if (DeviceMapPtrVarSize != sizeof(void *)) {
-    // Device pointer size is different from the host pointer size.
-    // This is worth to mention, but the address transfer below
-    // should be correct (given that __omp_offloading_fptr_map_p is
-    // nullptr initially).
-    DP("Warning: device pointer size is %zu, host pointer size is %zu.\n",
-       DeviceMapPtrVarSize, static_cast<size_t>(sizeof(void *)));
-  }
-  size_t PtrTransferSize =
-      std::min<size_t>(DeviceMapPtrVarSize, sizeof(void *));
-
-  CALL_CL_EXT_RET_FAIL(DeviceId, clEnqueueMemcpyINTEL,
-                       DeviceInfo->Queues[DeviceId],
-                       /*blocking=*/CL_TRUE,
-                       DeviceMapPtrVarAddr, &FnPtrMapMem, PtrTransferSize,
-                       /*num_events_in_wait_list=*/0,
-                       /*num_events_in_wait_list*/nullptr,
-                       /*event=*/nullptr);
+  // Initialize __omp_offloading_fptr_map_p
+  Program.writeGlobalVariable("__omp_offloading_fptr_map_p", sizeof(void *),
+                              &FnPtrMapMem);
 
   // Initialize __omp_offloading_fptr_map_size with the table size.
-  CALL_CL_EXT_RET_FAIL(DeviceId, clEnqueueMemcpyINTEL,
-                       DeviceInfo->Queues[DeviceId],
-                       /*blocking=*/CL_TRUE,
-                       DeviceMapSizeVarAddr, &Size, sizeof(uint64_t),
-                       /*num_events_in_wait_list=*/0,
-                       /*num_events_in_wait_list*/nullptr,
-                       /*event=*/nullptr);
+  Program.writeGlobalVariable("__omp_offloading_fptr_map_size",
+                              sizeof(uint64_t), &Size);
 
   return OFFLOAD_SUCCESS;
 }
