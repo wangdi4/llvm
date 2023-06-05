@@ -6624,7 +6624,7 @@ const SCEV *ScalarEvolution::createNodeForPHI(PHINode *PN) {
 #endif // INTEL_CUSTOMIZATION
 
   if (const SCEV *S = createNodeFromSelectLikePHI(PN))
-    return S; 
+    return S;
 
 #if INTEL_CUSTOMIZATION
   if (const SCEV *S = createNodeForIdenticalOperandsPHI(PN))
@@ -7365,36 +7365,37 @@ const ConstantRange &ScalarEvolution::getRangeRef(
 
     // TODO: non-affine addrec
     if (AddRec->isAffine()) {
-      const SCEV *MaxBECount =
+      const SCEV *MaxBEScev =
           getConstantMaxBackedgeTakenCount(AddRec->getLoop());
 #if INTEL_CUSTOMIZATION
       // Try to reason about widened IVs, too. If we can prove that truncating
-      // a wide MaxBECount preserves the count then we use it to compute a more
+      // a wide MaxBEScev preserves the count then we use it to compute a more
       // accurate range.
-      if (!isa<SCEVCouldNotCompute>(MaxBECount) &&
-              isa<SCEVConstant>(MaxBECount) &&
-              getTypeSizeInBits(MaxBECount->getType()) > BitWidth) {
-          unsigned WideBitWidth = getTypeSizeInBits(MaxBECount->getType());
-          ConstantRange SCR = getSignedRange(MaxBECount);
-          ConstantRange UCR = getUnsignedRange(MaxBECount);
+      if (!isa<SCEVCouldNotCompute>(MaxBEScev) &&
+              isa<SCEVConstant>(MaxBEScev) &&
+              getTypeSizeInBits(MaxBEScev->getType()) > BitWidth) {
+          unsigned WideBitWidth = getTypeSizeInBits(MaxBEScev->getType());
+          ConstantRange SCR = getSignedRange(MaxBEScev);
+          ConstantRange UCR = getUnsignedRange(MaxBEScev);
           if (SCR.truncate(BitWidth).signExtend(WideBitWidth) == SCR &&
               UCR.truncate(BitWidth).zeroExtend(WideBitWidth) == UCR)
-              MaxBECount = getTruncateExpr(MaxBECount, AddRec->getType());
+              MaxBEScev = getTruncateExpr(MaxBEScev, AddRec->getType());
       }
 #endif // INTEL_CUSTOMIZATION
-      if (!isa<SCEVCouldNotCompute>(MaxBECount) &&
-          getTypeSizeInBits(MaxBECount->getType()) <= BitWidth) {
-        auto RangeFromAffine = getRangeForAffineAR(
-            AddRec->getStart(), AddRec->getStepRecurrence(*this), MaxBECount,
-            BitWidth);
-        ConservativeResult =
-            ConservativeResult.intersectWith(RangeFromAffine, RangeType);
-
-        auto RangeFromFactoring = getRangeViaFactoring(
-            AddRec->getStart(), AddRec->getStepRecurrence(*this), MaxBECount,
-            BitWidth);
-        ConservativeResult =
-            ConservativeResult.intersectWith(RangeFromFactoring, RangeType);
+      if (!isa<SCEVCouldNotCompute>(MaxBEScev)) {
+        APInt MaxBECount = cast<SCEVConstant>(MaxBEScev)->getAPInt();
+        if (MaxBECount.getBitWidth() < BitWidth)
+          MaxBECount = MaxBECount.zext(BitWidth);
+        if (MaxBECount.getBitWidth() == BitWidth) {
+          auto RangeFromAffine = getRangeForAffineAR(
+              AddRec->getStart(), AddRec->getStepRecurrence(*this), MaxBECount);
+          ConservativeResult =
+              ConservativeResult.intersectWith(RangeFromAffine, RangeType);
+          auto RangeFromFactoring = getRangeViaFactoring(
+              AddRec->getStart(), AddRec->getStepRecurrence(*this), MaxBECount);
+          ConservativeResult =
+              ConservativeResult.intersectWith(RangeFromFactoring, RangeType);
+        }
       }
 
       // Now try symbolic BE count and more powerful methods.
@@ -7402,7 +7403,7 @@ const ConstantRange &ScalarEvolution::getRangeRef(
         const SCEV *SymbolicMaxBECount =
             getSymbolicMaxBackedgeTakenCount(AddRec->getLoop());
         if (!isa<SCEVCouldNotCompute>(SymbolicMaxBECount) &&
-            getTypeSizeInBits(MaxBECount->getType()) <= BitWidth &&
+            getTypeSizeInBits(MaxBEScev->getType()) <= BitWidth &&
             AddRec->hasNoSelfWrap()) {
           auto RangeFromAffineNew = getRangeForAffineNoSelfWrappingAR(
               AddRec, SymbolicMaxBECount, BitWidth, SignHint);
@@ -7457,7 +7458,7 @@ const ConstantRange &ScalarEvolution::getRangeRef(
 
 #if INTEL_CUSTOMIZATION
     if (auto *I = dyn_cast<Instruction>(U->getValue())) {
-      
+
       if (I->getType()->isIntOrIntVectorTy()) {
         // asserts for non-int types
         auto ComputedRange = computeConstantRange(I, false, true, &AC, I);
@@ -7614,7 +7615,10 @@ MDNode *ScalarEvolution::getHIRMetadata(const Instruction *Inst,
 static ConstantRange getRangeForAffineARHelper(APInt Step,
                                                const ConstantRange &StartRange,
                                                const APInt &MaxBECount,
-                                               unsigned BitWidth, bool Signed) {
+                                               bool Signed) {
+  unsigned BitWidth = Step.getBitWidth();
+  assert(BitWidth == StartRange.getBitWidth() &&
+         BitWidth == MaxBECount.getBitWidth() && "mismatched bit widths");
   // If either Step or MaxBECount is 0, then the expression won't change, and we
   // just need to return the initial range.
   if (Step == 0 || MaxBECount == 0)
@@ -7673,14 +7677,11 @@ static ConstantRange getRangeForAffineARHelper(APInt Step,
 
 ConstantRange ScalarEvolution::getRangeForAffineAR(const SCEV *Start,
                                                    const SCEV *Step,
-                                                   const SCEV *MaxBECount,
-                                                   unsigned BitWidth) {
-  assert(!isa<SCEVCouldNotCompute>(MaxBECount) &&
-         getTypeSizeInBits(MaxBECount->getType()) <= BitWidth &&
-         "Precondition!");
-
-  MaxBECount = getNoopOrZeroExtend(MaxBECount, Start->getType());
-  APInt MaxBECountValue = getUnsignedRangeMax(MaxBECount);
+                                                   const APInt &MaxBECount) {
+  assert(getTypeSizeInBits(Start->getType()) ==
+             getTypeSizeInBits(Step->getType()) &&
+         getTypeSizeInBits(Start->getType()) == MaxBECount.getBitWidth() &&
+         "mismatched bit widths");
 
   // First, consider step signed.
   ConstantRange StartSRange = getSignedRange(Start);
@@ -7688,17 +7689,16 @@ ConstantRange ScalarEvolution::getRangeForAffineAR(const SCEV *Start,
 
   // If Step can be both positive and negative, we need to find ranges for the
   // maximum absolute step values in both directions and union them.
-  ConstantRange SR =
-      getRangeForAffineARHelper(StepSRange.getSignedMin(), StartSRange,
-                                MaxBECountValue, BitWidth, /* Signed = */ true);
+  ConstantRange SR = getRangeForAffineARHelper(
+      StepSRange.getSignedMin(), StartSRange, MaxBECount, /* Signed = */ true);
   SR = SR.unionWith(getRangeForAffineARHelper(StepSRange.getSignedMax(),
-                                              StartSRange, MaxBECountValue,
-                                              BitWidth, /* Signed = */ true));
+                                              StartSRange, MaxBECount,
+                                              /* Signed = */ true));
 
   // Next, consider step unsigned.
   ConstantRange UR = getRangeForAffineARHelper(
-      getUnsignedRangeMax(Step), getUnsignedRange(Start),
-      MaxBECountValue, BitWidth, /* Signed = */ false);
+      getUnsignedRangeMax(Step), getUnsignedRange(Start), MaxBECount,
+      /* Signed = */ false);
 
   // Finally, intersect signed and unsigned ranges.
   return SR.intersectWith(UR, ConstantRange::Smallest);
@@ -7774,10 +7774,14 @@ ConstantRange ScalarEvolution::getRangeForAffineNoSelfWrappingAR(
 
 ConstantRange ScalarEvolution::getRangeViaFactoring(const SCEV *Start,
                                                     const SCEV *Step,
-                                                    const SCEV *MaxBECount,
-                                                    unsigned BitWidth) {
+                                                    const APInt &MaxBECount) {
   //    RangeOf({C?A:B,+,C?P:Q}) == RangeOf(C?{A,+,P}:{B,+,Q})
   // == RangeOf({A,+,P}) union RangeOf({B,+,Q})
+
+  unsigned BitWidth = MaxBECount.getBitWidth();
+  assert(getTypeSizeInBits(Start->getType()) == BitWidth &&
+         getTypeSizeInBits(Step->getType()) == BitWidth &&
+         "mismatched bit widths");
 
   struct SelectPattern {
     Value *Condition = nullptr;
@@ -7880,9 +7884,9 @@ ConstantRange ScalarEvolution::getRangeViaFactoring(const SCEV *Start,
   const SCEV *FalseStep = this->getConstant(StepPattern.FalseValue);
 
   ConstantRange TrueRange =
-      this->getRangeForAffineAR(TrueStart, TrueStep, MaxBECount, BitWidth);
+      this->getRangeForAffineAR(TrueStart, TrueStep, MaxBECount);
   ConstantRange FalseRange =
-      this->getRangeForAffineAR(FalseStart, FalseStep, MaxBECount, BitWidth);
+      this->getRangeForAffineAR(FalseStart, FalseStep, MaxBECount);
 
   return TrueRange.unionWith(FalseRange);
 }
@@ -7939,14 +7943,14 @@ ConstantRange ScalarEvolution::getRangeBoundedByLoop(const PHINode &HeaderPhi) {
   // maximum absolute step values in both directions and union them.
   ConstantRange SR =
       getRangeForAffineARHelper(IncSRange.getSignedMin(), StartSRange,
-                                MaxBECountValue, BitWidth, /* Signed = */ true);
+                                MaxBECountValue, /* Signed = */ true);
   SR = SR.unionWith(getRangeForAffineARHelper(IncSRange.getSignedMax(),
                                               StartSRange, MaxBECountValue,
-                                              BitWidth, /* Signed = */ true));
+                                              /* Signed = */ true));
 
   // Next, consider step unsigned.
   ConstantRange UR = getRangeForAffineARHelper(IncURange.getUnsignedMax(),
-      getUnsignedRange(Start), MaxBECountValue, BitWidth, /* Signed = */ false);
+      getUnsignedRange(Start), MaxBECountValue, /* Signed = */ false);
 
   // Finally, intersect signed and unsigned ranges.
   return SR.intersectWith(UR, ConstantRange::Smallest);
