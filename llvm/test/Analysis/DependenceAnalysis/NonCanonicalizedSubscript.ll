@@ -51,11 +51,8 @@ define void @coupled_miv_type_mismatch(i32 %n) #0 {
 ; DELIN-LABEL: 'Dependence Analysis' for function 'coupled_miv_type_mismatch'
 entry:
   br label %for.cond
-<<<<<<< HEAD
 ; INTEL - SCEV improvements yield stronger DA results here
-=======
 
->>>>>>> 6ed152aff4aab6307ecaab64a544d0524ea5f50e
 ; DELIN: da analyze - none!
 ; DELIN: da analyze - consistent anti [1 -2]!
 ; DELIN: da analyze - none!
