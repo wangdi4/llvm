@@ -8132,15 +8132,12 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
              Op == AtomicExpr::AO__atomic_store_n ||
              Op == AtomicExpr::AO__atomic_exchange_n ||
              Op == AtomicExpr::AO__atomic_compare_exchange_n;
-<<<<<<< HEAD
-  bool IsAddSub = false;
 #if INTEL_CUSTOMIZATION
   // Used for the Intel versions where we type-coerce the _N values to match
   // the function, rather than erroring on mismatch, so these are used to store
   // that we need to coerce, and what size to coerce to.
   unsigned IntelTypeCoerceSize = IntelTypeCoerceSizeCalc(Op);
 #endif // INTEL_CUSTOMIZATION
-=======
   // Bit mask for extra allowed value types other than integers for atomic
   // arithmetic operations. Add/sub allow pointer and floating point. Min/max
   // allow floating point.
@@ -8150,7 +8147,6 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
     AOEVT_FP = 2,
   };
   unsigned ArithAllows = AOEVT_None;
->>>>>>> 00448a548c4efc4bdcfd6be5f161eacc69b30021
 
   switch (Op) {
   case AtomicExpr::AO__c11_atomic_init:
@@ -8290,7 +8286,6 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
   case AtomicExpr::AO__atomic_fetch_sub_explicit:
   case AtomicExpr::AO__atomic_add_fetch_explicit:
   case AtomicExpr::AO__atomic_sub_fetch_explicit:
-    IsAddSub = true;
     Form = Arithmetic;
     break;
   case AtomicExpr::AO__atomic_fetch_and_explicit_1:
@@ -8455,17 +8450,7 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
         return false;
       return true;
     };
-<<<<<<< HEAD
-    if (IntelTypeCoerceSize == 0) // INTEL, intentionally bad indentation
-    if (IsAddSub && !IsAllowedValueType(ValType)) {
-      Diag(ExprRange.getBegin(), diag::err_atomic_op_needs_atomic_int_ptr_or_fp)
-          << IsC11 << Ptr->getType() << Ptr->getSourceRange();
-      return ExprError();
-    }
-    if (IntelTypeCoerceSize == 0) // INTEL, intentionally bad indentation
-    if (!IsAddSub && !ValType->isIntegerType()) {
-      Diag(ExprRange.getBegin(), diag::err_atomic_op_needs_atomic_int)
-=======
+    if (IntelTypeCoerceSize == 0) { // INTEL, intentionally bad indentation
     if (!IsAllowedValueType(ValType, ArithAllows)) {
       auto DID = ArithAllows & AOEVT_FP
                      ? (ArithAllows & AOEVT_Pointer
@@ -8473,10 +8458,10 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
                             : diag::err_atomic_op_needs_atomic_int_or_fp)
                      : diag::err_atomic_op_needs_atomic_int;
       Diag(ExprRange.getBegin(), DID)
->>>>>>> 00448a548c4efc4bdcfd6be5f161eacc69b30021
           << IsC11 << Ptr->getType() << Ptr->getSourceRange();
       return ExprError();
     }
+    } // INTEL
     if (IsC11 && ValType->isPointerType() &&
         RequireCompleteType(Ptr->getBeginLoc(), ValType->getPointeeType(),
                             diag::err_incomplete_type)) {
