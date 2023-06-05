@@ -918,6 +918,9 @@ public:
   /// Creates a new stackrestore intrinsic call.
   HLInst *createStackrestore(RegDDRef *AddrArg);
 
+  /// Creates a new llvm.experimental.noalias.scope.decl() intrinsic call.
+  HLInst *createNoAliasScopeDeclInst(RegDDRef *ScopeList);
+
   /// Creates a 'puts' debug call.
   HLInst *createDbgPuts(const TargetLibraryInfo &TLI, HLRegion *Region,
                         StringRef Message);
