@@ -329,8 +329,7 @@ void InlineReportBuilder::deleteFunctionBody(Function *F) {
   if (!isMDIREnabled())
     return;
   Module *M = F->getParent();
-  NamedMDNode *ModuleInlineReport =
-      M->getOrInsertNamedMetadata("intel.module.inlining.report");
+  NamedMDNode *ModuleInlineReport = M->getOrInsertNamedMetadata(ModuleTag);
   MDTuple *FIR = nullptr;
   for (unsigned I = 0, E = ModuleInlineReport->getNumOperands(); I < E; ++I) {
     MDNode *Node = ModuleInlineReport->getOperand(I);
@@ -530,30 +529,13 @@ void InlineReportBuilder::beginFunction(Function *F) {
         addCallback(CB);
 }
 
-// The main goal of beginSCC() and beginFunction() routines is to fill in the
-// list of callbacks which is stored in InlineReportBuilder object.
-void InlineReportBuilder::beginSCC(CallGraphSCC &SCC) {
-  if (!isMDIREnabled())
-    return;
-  Module *M = &SCC.getCallGraph().getModule();
-  NamedMDNode *ModuleInlineReport = M->getNamedMetadata(ModuleTag);
-  if (!ModuleInlineReport || ModuleInlineReport->getNumOperands() == 0)
-    return;
-  for (CallGraphNode *Node : SCC) {
-    Function *F = Node->getFunction();
-    if (!F)
-      continue;
-    beginFunction(F);
-  }
-}
-
 void InlineReportBuilder::beginSCC(LazyCallGraph::SCC &SCC) {
   if (!isMDIREnabled())
     return;
   LazyCallGraph::Node &LCGN = *(SCC.begin());
   Module *M = LCGN.getFunction().getParent();
-  NamedMDNode *ModuleInlineReport = M->getNamedMetadata(ModuleTag);
-  if (!ModuleInlineReport || ModuleInlineReport->getNumOperands() == 0)
+  NamedMDNode *ModuleInlineReport = M->getOrInsertNamedMetadata(ModuleTag);
+  if (ModuleInlineReport->getNumOperands() == 0)
     return;
   for (auto &Node : SCC) {
     Function *F = &Node.getFunction();
@@ -940,7 +922,7 @@ void InlineReportBuilder::cloneFunction(Function *OldFunction,
   addCallback(NewFunction);
   // Update the clone's list of callsites.
   Module *M = OldFunction->getParent();
-  NamedMDNode *ModuleInlineReport = M->getNamedMetadata(ModuleTag);
+  NamedMDNode *ModuleInlineReport = M->getOrInsertNamedMetadata(ModuleTag);
   ModuleInlineReport->addOperand(NewFunctionMDTuple);
   SmallVector<Metadata *, 100> Ops;
   SmallPtrSet<Metadata *, 32> CopiedMD;
@@ -1000,7 +982,7 @@ void InlineReportBuilder::doOutlining(Function *OldF, Function *OutF,
   OutF->setMetadata(FunctionTag, OutFMDTuple);
   // Add 'OutF' to the list of functions.
   Module *M = OldF->getParent();
-  NamedMDNode *ModuleInlineReport = M->getNamedMetadata(ModuleTag);
+  NamedMDNode *ModuleInlineReport = M->getOrInsertNamedMetadata(ModuleTag);
   ModuleInlineReport->addOperand(OutFMDTuple);
   addCallback(OutF);
   // Update the list of callsites for 'OldF'.

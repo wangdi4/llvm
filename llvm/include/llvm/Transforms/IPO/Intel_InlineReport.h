@@ -339,7 +339,6 @@ public:
 
   // Indicate that we have begun inlining functions in the current
   // SCC of the CG.
-  void beginSCC(CallGraphSCC &SCC, void *Inliner);
   void beginSCC(LazyCallGraph::SCC &SCC, void *Inliner);
 
   // Indicate that we are done inlining functions in the current SCC.

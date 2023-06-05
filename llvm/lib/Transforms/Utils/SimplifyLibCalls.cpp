@@ -2334,17 +2334,15 @@ Value *LibCallSimplifier::optimizePow(CallInst *Pow, IRBuilderBase &B) {
 #if INTEL_CUSTOMIZATION
   // powf(x, itofp(y)) -> powi(x, y)
   if (AllowApprox && (isa<SIToFPInst>(Expo) || isa<UIToFPInst>(Expo))) {
-    if (Value *ExpoI = getIntToFPVal(Expo, B, TLI->getIntSize())) {
-      // If powi vectorization is not supported, the potential loss of
-      // vectorization outweighs any (possibly zero) gain from transforming
-      // pow with an unknown exponent to powi.
-      if (!TLI->isFunctionVectorizable("powi")) {
-        auto *F = Pow->getFunction();
-        Attribute TFAttr = F->getFnAttribute("target-features");
-        StringRef TFStr = TFAttr.isValid() ? TFAttr.getValueAsString() : "";
-        if (!TFStr.contains("sse"))
-          return copyFlags(*Pow,
-                           createPowWithIntegerExponent(Base, ExpoI, M, B));
+    // If powi vectorization is not supported, the potential loss of
+    // vectorization outweighs any (possibly zero) gain from transforming
+    // pow with an unknown exponent to powi.
+    auto *F = Pow->getFunction();
+    Attribute TFAttr = F->getFnAttribute("target-features");
+    StringRef TFStr = TFAttr.isValid() ? TFAttr.getValueAsString() : "";
+    if (TLI->isFunctionVectorizable("powi") || !TFStr.contains("sse")) {
+      if (Value *ExpoI = getIntToFPVal(Expo, B, TLI->getIntSize())) {
+        return copyFlags(*Pow, createPowWithIntegerExponent(Base, ExpoI, M, B));
       }
     }
   }
