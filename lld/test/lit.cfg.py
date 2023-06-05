@@ -49,6 +49,7 @@ tool_patterns = [
     "llvm-objdump",
     "llvm-otool",
     "llvm-pdbutil",
+    "llvm-profdata",
     "llvm-dwarfdump",
     "llvm-readelf",
     "llvm-readobj",
