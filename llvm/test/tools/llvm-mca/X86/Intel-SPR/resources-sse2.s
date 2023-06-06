@@ -465,7 +465,7 @@ xorpd       (%rax), %xmm2
 # CHECK-NEXT:  1      14    1.00                        divsd	%xmm0, %xmm2
 # CHECK-NEXT:  2      20    1.00    *                   divsd	(%rax), %xmm2
 # CHECK-NEXT:  1      2     0.50    *      *      U     lfence
-# CHECK-NEXT:  10     10    1.00    *      *      U     maskmovdqu	%xmm0, %xmm1
+# CHECK-NEXT:  2      1     1.00    *      *      U     maskmovdqu	%xmm0, %xmm1
 # CHECK-NEXT:  1      4     0.50                        maxpd	%xmm0, %xmm2
 # CHECK-NEXT:  2      11    0.50    *                   maxpd	(%rax), %xmm2
 # CHECK-NEXT:  1      4     0.50                        maxsd	%xmm0, %xmm2
@@ -692,7 +692,7 @@ xorpd       (%rax), %xmm2
 
 # CHECK:      Resource pressure per iteration:
 # CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]
-# CHECK-NEXT: 109.20 99.70  39.67  39.67  8.50   73.20  1.70   8.50   8.50   8.50   0.20   39.67   -
+# CHECK-NEXT: 107.70 99.20  39.00  39.00  9.00   71.70  1.20   7.50   7.50   8.00   0.20   39.00   -
 
 # CHECK:      Resource pressure by instruction:
 # CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]   Instructions:
@@ -754,7 +754,7 @@ xorpd       (%rax), %xmm2
 # CHECK-NEXT: 1.00    -      -      -      -      -      -      -      -      -      -      -      -     divsd	%xmm0, %xmm2
 # CHECK-NEXT: 1.00    -     0.33   0.33    -      -      -      -      -      -      -     0.33    -     divsd	(%rax), %xmm2
 # CHECK-NEXT: 0.50    -      -      -      -      -     0.50    -      -      -      -      -      -     lfence
-# CHECK-NEXT: 1.50   0.50   0.67   0.67   1.00   1.50   0.50   1.00   1.00   1.00    -     0.67    -     maskmovdqu	%xmm0, %xmm1
+# CHECK-NEXT:  -      -      -      -     1.50    -      -      -      -     0.50    -      -      -     maskmovdqu	%xmm0, %xmm1
 # CHECK-NEXT: 0.50   0.50    -      -      -      -      -      -      -      -      -      -      -     maxpd	%xmm0, %xmm2
 # CHECK-NEXT: 0.50   0.50   0.33   0.33    -      -      -      -      -      -      -     0.33    -     maxpd	(%rax), %xmm2
 # CHECK-NEXT: 0.50   0.50    -      -      -      -      -      -      -      -      -      -      -     maxsd	%xmm0, %xmm2

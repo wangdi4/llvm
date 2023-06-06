@@ -12,7 +12,7 @@ clwb (%rax)
 # CHECK-NEXT: [6]: HasSideEffects (U)
 
 # CHECK:      [1]    [2]    [3]    [4]    [5]    [6]    Instructions:
-# CHECK-NEXT:  3      2     0.50    *      *      U     clwb	(%rax)
+# CHECK-NEXT:  3      5     0.50    *      *      U     clwb	(%rax)
 
 # CHECK:      Resources:
 # CHECK-NEXT: [0]   - SPRPort00

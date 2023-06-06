@@ -1219,7 +1219,7 @@ vzeroupper
 # CHECK-NEXT:  1      7     0.33    *                   vlddqu	(%rax), %xmm2
 # CHECK-NEXT:  1      8     0.33    *                   vlddqu	(%rax), %ymm2
 # CHECK-NEXT:  3      7     1.00    *      *      U     vldmxcsr	(%rax)
-# CHECK-NEXT:  10     10    1.00    *      *      U     vmaskmovdqu	%xmm0, %xmm1
+# CHECK-NEXT:  2      1     1.00    *      *      U     vmaskmovdqu	%xmm0, %xmm1
 # CHECK-NEXT:  2      8     0.33    *                   vmaskmovpd	(%rax), %xmm0, %xmm2
 # CHECK-NEXT:  2      9     0.33    *                   vmaskmovpd	(%rax), %ymm0, %ymm2
 # CHECK-NEXT:  3      14    1.00    *      *            vmaskmovpd	%xmm0, %xmm1, (%rax)
@@ -1739,7 +1739,7 @@ vzeroupper
 
 # CHECK:      Resource pressure per iteration:
 # CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]
-# CHECK-NEXT: 312.40 276.23 107.67 107.67 19.50  279.23 9.40   19.50  19.50  19.50  0.73   107.67  -
+# CHECK-NEXT: 310.90 275.73 107.00 107.00 20.00  277.73 8.90   18.50  18.50  19.00  0.73   107.00  -
 
 # CHECK:      Resource pressure by instruction:
 # CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]   Instructions:
@@ -1932,7 +1932,7 @@ vzeroupper
 # CHECK-NEXT:  -      -     0.33   0.33    -      -      -      -      -      -      -     0.33    -     vlddqu	(%rax), %xmm2
 # CHECK-NEXT:  -      -     0.33   0.33    -      -      -      -      -      -      -     0.33    -     vlddqu	(%rax), %ymm2
 # CHECK-NEXT: 1.50    -     0.33   0.33    -      -     0.50    -      -      -      -     0.33    -     vldmxcsr	(%rax)
-# CHECK-NEXT: 1.50   0.50   0.67   0.67   1.00   1.50   0.50   1.00   1.00   1.00    -     0.67    -     vmaskmovdqu	%xmm0, %xmm1
+# CHECK-NEXT:  -      -      -      -     1.50    -      -      -      -     0.50    -      -      -     vmaskmovdqu	%xmm0, %xmm1
 # CHECK-NEXT: 0.33   0.33   0.33   0.33    -     0.33    -      -      -      -      -     0.33    -     vmaskmovpd	(%rax), %xmm0, %xmm2
 # CHECK-NEXT: 0.33   0.33   0.33   0.33    -     0.33    -      -      -      -      -     0.33    -     vmaskmovpd	(%rax), %ymm0, %ymm2
 # CHECK-NEXT: 1.00    -      -      -     0.50    -      -     0.50   0.50   0.50    -      -      -     vmaskmovpd	%xmm0, %xmm1, (%rax)

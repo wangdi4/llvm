@@ -209,91 +209,6 @@ define <2 x i64> @foo_128(i32 %0, <2 x i64> %1, <2 x i64> %2, ptr %3) {
 }
 
 define void @bar_128(i32 %0, ptr %1, <2 x i64> %2, ptr %3) {
-<<<<<<< HEAD
-; ADL-LABEL: bar_128:
-; ADL:       # %bb.0:
-; ADL-NEXT:    testl %edi, %edi
-; ADL-NEXT:    jle .LBB2_5
-; ADL-NEXT:  # %bb.1:
-; ADL-NEXT:    movl %edi, %eax
-; ADL-NEXT:    cmpl $1, %edi
-; ADL-NEXT:    jne .LBB2_6
-; ADL-NEXT:  # %bb.2:
-; ADL-NEXT:    xorl %ecx, %ecx
-; ADL-NEXT:    jmp .LBB2_3
-; ADL-NEXT:  .LBB2_6:
-; ADL-NEXT:    movl %eax, %edi
-; ADL-NEXT:    andl $-2, %edi
-; ADL-NEXT:    movl $16, %r8d
-; ADL-NEXT:    xorl %ecx, %ecx
-; ADL-NEXT:    .p2align 4, 0x90
-; ADL-NEXT:  .LBB2_7: # =>This Inner Loop Header: Depth=1
-; ADL-NEXT:    vmovdqa (%rsi,%r8), %xmm1
-; ADL-NEXT:    vpmaddwd -16(%rdx,%r8), %xmm0, %xmm2
-; ADL-NEXT:    vpaddd -16(%rsi,%r8), %xmm2, %xmm2
-; ADL-NEXT:    vmovdqa %xmm2, -16(%rsi,%r8)
-; ADL-NEXT:    vpmaddwd (%rdx,%r8), %xmm0, %xmm2
-; ADL-NEXT:    vpaddd %xmm2, %xmm1, %xmm1
-; ADL-NEXT:    vmovdqa %xmm1, (%rsi,%r8)
-; ADL-NEXT:    addq $2, %rcx
-; ADL-NEXT:    addq $32, %r8
-; ADL-NEXT:    cmpq %rcx, %rdi
-; ADL-NEXT:    jne .LBB2_7
-; ADL-NEXT:  .LBB2_3:
-; ADL-NEXT:    testb $1, %al
-; ADL-NEXT:    je .LBB2_5
-; ADL-NEXT:  # %bb.4:
-; ADL-NEXT:    shlq $4, %rcx
-; ADL-NEXT:    vmovdqa (%rsi,%rcx), %xmm1
-; ADL-NEXT:    {vex} vpdpwssd (%rdx,%rcx), %xmm0, %xmm1
-; ADL-NEXT:    vmovdqa %xmm1, (%rsi,%rcx)
-; ADL-NEXT:  .LBB2_5:
-; ADL-NEXT:    retq
-;
-; SPR-LABEL: bar_128:
-; SPR:       # %bb.0:
-; SPR-NEXT:    testl %edi, %edi
-; SPR-NEXT:    jle .LBB2_5
-; SPR-NEXT:  # %bb.1:
-; SPR-NEXT:    movl %edi, %eax
-; SPR-NEXT:    cmpl $1, %edi
-; SPR-NEXT:    jne .LBB2_6
-; SPR-NEXT:  # %bb.2:
-; SPR-NEXT:    xorl %ecx, %ecx
-; SPR-NEXT:    jmp .LBB2_3
-; SPR-NEXT:  .LBB2_6:
-; SPR-NEXT:    movl %eax, %edi
-; SPR-NEXT:    andl $-2, %edi
-; SPR-NEXT:    movl $16, %r8d
-; SPR-NEXT:    xorl %ecx, %ecx
-; SPR-NEXT:    .p2align 4, 0x90
-; SPR-NEXT:  .LBB2_7: # =>This Inner Loop Header: Depth=1
-; if INTEL_CUSTOMIZATION
-; SPR-NEXT:    vmovdqa (%rsi,%r8), %xmm1
-; SPR-NEXT:    vpmaddwd -16(%rdx,%r8), %xmm0, %xmm2
-; SPR-NEXT:    vpaddd -16(%rsi,%r8), %xmm2, %xmm2
-; SPR-NEXT:    vmovdqa %xmm2, -16(%rsi,%r8)
-; SPR-NEXT:    vpmaddwd	(%rdx,%r8), %xmm0, %xmm2
-; SPR-NEXT:    vpaddd	%xmm2, %xmm1, %xmm
-; end INTEL_CUSTOMIZATION
-; SPR-NEXT:    vmovdqa %xmm1, (%rsi,%r8)
-; SPR-NEXT:    addq $2, %rcx
-; SPR-NEXT:    addq $32, %r8
-; SPR-NEXT:    cmpq %rcx, %rdi
-; SPR-NEXT:    jne .LBB2_7
-; SPR-NEXT:  .LBB2_3:
-; SPR-NEXT:    testb $1, %al
-; SPR-NEXT:    je .LBB2_5
-; SPR-NEXT:  # %bb.4:
-; SPR-NEXT:    shlq $4, %rcx
-; if INTEL_CUSTOMIZATION
-; SPR-NEXT:    vmovdqa (%rsi,%rcx), %xmm1
-; SPR-NEXT:    {vex} vpdpwssd (%rdx,%rcx), %xmm0, %xmm1
-; SPR-NEXT:    vmovdqa %xmm1, (%rsi,%rcx)
-; end INTEL_CUSTOMIZATION
-; SPR-NEXT:  .LBB2_5:
-; SPR-NEXT:    retq
-=======
 ; AVX-LABEL: bar_128:
 ; AVX:       # %bb.0:
 ; AVX-NEXT:    testl %edi, %edi
@@ -333,7 +248,6 @@ define void @bar_128(i32 %0, ptr %1, <2 x i64> %2, ptr %3) {
 ; AVX-NEXT:    vmovdqa %xmm1, (%rsi,%rcx)
 ; AVX-NEXT:  .LBB2_5:
 ; AVX-NEXT:    retq
->>>>>>> 8db674ad060a074ad0caa0cf1458d6b905d8b810
 ;
 ; AVX512-LABEL: bar_128:
 ; AVX512:       # %bb.0:
@@ -649,93 +563,6 @@ declare <8 x i32> @llvm.x86.avx2.pmadd.wd(<16 x i16>, <16 x i16>)
 ;     }
 ; }
 define void @bar_256(i32 %0, ptr %1, <4 x i64> %2, ptr %3) {
-<<<<<<< HEAD
-; ADL-LABEL: bar_256:
-; ADL:       # %bb.0:
-; ADL-NEXT:    testl %edi, %edi
-; ADL-NEXT:    jle .LBB5_5
-; ADL-NEXT:  # %bb.1:
-; ADL-NEXT:    movl %edi, %eax
-; ADL-NEXT:    cmpl $1, %edi
-; ADL-NEXT:    jne .LBB5_6
-; ADL-NEXT:  # %bb.2:
-; ADL-NEXT:    xorl %ecx, %ecx
-; ADL-NEXT:    jmp .LBB5_3
-; ADL-NEXT:  .LBB5_6:
-; ADL-NEXT:    movl %eax, %edi
-; ADL-NEXT:    andl $-2, %edi
-; ADL-NEXT:    movl $32, %r8d
-; ADL-NEXT:    xorl %ecx, %ecx
-; ADL-NEXT:    .p2align 4, 0x90
-; ADL-NEXT:  .LBB5_7: # =>This Inner Loop Header: Depth=1
-; ADL-NEXT:    vmovdqa (%rsi,%r8), %ymm1
-; ADL-NEXT:    vpmaddwd -32(%rdx,%r8), %ymm0, %ymm2
-; ADL-NEXT:    vpaddd -32(%rsi,%r8), %ymm2, %ymm2
-; ADL-NEXT:    vmovdqa %ymm2, -32(%rsi,%r8)
-; ADL-NEXT:    vpmaddwd (%rdx,%r8), %ymm0, %ymm2
-; ADL-NEXT:    vpaddd %ymm2, %ymm1, %ymm1
-; ADL-NEXT:    vmovdqa %ymm1, (%rsi,%r8)
-; ADL-NEXT:    addq $2, %rcx
-; ADL-NEXT:    addq $64, %r8
-; ADL-NEXT:    cmpq %rcx, %rdi
-; ADL-NEXT:    jne .LBB5_7
-; ADL-NEXT:  .LBB5_3:
-; ADL-NEXT:    testb $1, %al
-; ADL-NEXT:    je .LBB5_5
-; ADL-NEXT:  # %bb.4:
-; ADL-NEXT:    shlq $5, %rcx
-; ADL-NEXT:    vmovdqa (%rsi,%rcx), %ymm1
-; ADL-NEXT:    {vex} vpdpwssd (%rdx,%rcx), %ymm0, %ymm1
-; ADL-NEXT:    vmovdqa %ymm1, (%rsi,%rcx)
-; ADL-NEXT:  .LBB5_5:
-; ADL-NEXT:    vzeroupper
-; ADL-NEXT:    retq
-;
-; SPR-LABEL: bar_256:
-; SPR:       # %bb.0:
-; SPR-NEXT:    testl %edi, %edi
-; SPR-NEXT:    jle .LBB5_5
-; SPR-NEXT:  # %bb.1:
-; SPR-NEXT:    movl %edi, %eax
-; SPR-NEXT:    cmpl $1, %edi
-; SPR-NEXT:    jne .LBB5_6
-; SPR-NEXT:  # %bb.2:
-; SPR-NEXT:    xorl %ecx, %ecx
-; SPR-NEXT:    jmp .LBB5_3
-; SPR-NEXT:  .LBB5_6:
-; SPR-NEXT:    movl %eax, %edi
-; SPR-NEXT:    andl $-2, %edi
-; SPR-NEXT:    movl $32, %r8d
-; SPR-NEXT:    xorl %ecx, %ecx
-; SPR-NEXT:    .p2align 4, 0x90
-; SPR-NEXT:  .LBB5_7: # =>This Inner Loop Header: Depth=1
-; if INTEL_CUSTOMIZATION
-; SPR-NEXT:    vmovdqa (%rsi,%r8), %ymm1
-; SPR-NEXT:    vpmaddwd -32(%rdx,%r8), %ymm0, %ymm2
-; SPR-NEXT:    vpaddd -32(%rsi,%r8), %ymm2, %ymm2
-; SPR-NEXT:    vmovdqa %ymm2, -32(%rsi,%r8)
-; SPR-NEXT:    vpmaddwd	(%rdx,%r8), %ymm0, %ymm2
-; SPR-NEXT:    vpaddd	%ymm2, %ymm1, %ymm1
-; end INTEL_CUSTOMIZATION
-; SPR-NEXT:    vmovdqa %ymm1, (%rsi,%r8)
-; SPR-NEXT:    addq $2, %rcx
-; SPR-NEXT:    addq $64, %r8
-; SPR-NEXT:    cmpq %rcx, %rdi
-; SPR-NEXT:    jne .LBB5_7
-; SPR-NEXT:  .LBB5_3:
-; SPR-NEXT:    testb $1, %al
-; SPR-NEXT:    je .LBB5_5
-; SPR-NEXT:  # %bb.4:
-; SPR-NEXT:    shlq $5, %rcx
-; if INTEL_CUSTOMIZATION
-; SPR-NEXT:    vmovdqa (%rsi,%rcx), %ymm1
-; SPR-NEXT:    {vex} vpdpwssd (%rdx,%rcx), %ymm0, %ymm1
-; SPR-NEXT:    vmovdqa %ymm1, (%rsi,%rcx)
-; end INTEL_CUSTOMIZATION
-; SPR-NEXT:  .LBB5_5:
-; SPR-NEXT:    vzeroupper
-; SPR-NEXT:    retq
-=======
 ; AVX-LABEL: bar_256:
 ; AVX:       # %bb.0:
 ; AVX-NEXT:    testl %edi, %edi
@@ -776,7 +603,6 @@ define void @bar_256(i32 %0, ptr %1, <4 x i64> %2, ptr %3) {
 ; AVX-NEXT:  .LBB5_5:
 ; AVX-NEXT:    vzeroupper
 ; AVX-NEXT:    retq
->>>>>>> 8db674ad060a074ad0caa0cf1458d6b905d8b810
 ;
 ; AVX512-LABEL: bar_256:
 ; AVX512:       # %bb.0:
