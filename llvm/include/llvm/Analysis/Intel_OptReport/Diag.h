@@ -184,6 +184,8 @@ enum class OptRemarkID {
   OpenMPClauseCanBeChanged = 25596,
   OpenMPParLoopPipelined = 25597,
   OpenMPWorkShareLoopPipelined = 25598,
+  TightLoopFound = 25599,
+  TightLoopValue = 25600,
 };
 
 struct DiagTableKey {
