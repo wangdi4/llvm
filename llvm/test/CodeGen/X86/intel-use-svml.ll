@@ -4,10 +4,7 @@
 define float @log(float %a) nounwind {
 ; CHECK-LABEL: log:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    pushq %rax
-; CHECK-NEXT:    callq *__svml_logf1@GOTPCREL(%rip)
-; CHECK-NEXT:    popq %rax
-; CHECK-NEXT:    retq
+; CHECK-NEXT:    jmp logf@PLT # TAILCALL
 entry:
   %0 = tail call fast float @llvm.log.f32(float %a)
   ret float %0
@@ -40,10 +37,7 @@ entry:
 define float @exp(float %a) nounwind {
 ; CHECK-LABEL: exp:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    pushq %rax
-; CHECK-NEXT:    callq *__svml_expf1@GOTPCREL(%rip)
-; CHECK-NEXT:    popq %rax
-; CHECK-NEXT:    retq
+; CHECK-NEXT:    jmp expf@PLT # TAILCALL
 entry:
   %0 = tail call fast float @llvm.exp.f32(float %a)
   ret float %0
@@ -52,10 +46,7 @@ entry:
 define float @exp2(float %a) nounwind {
 ; CHECK-LABEL: exp2:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    pushq %rax
-; CHECK-NEXT:    callq *__svml_exp2f1@GOTPCREL(%rip)
-; CHECK-NEXT:    popq %rax
-; CHECK-NEXT:    retq
+; CHECK-NEXT:    jmp exp2f@PLT # TAILCALL
 entry:
   %0 = tail call fast float @llvm.exp2.f32(float %a)
   ret float %0
