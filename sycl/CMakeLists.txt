@@ -365,10 +365,6 @@ if (WIN32)
   add_dependencies(sycl-toolchain pi_win_proxy_loader)
 endif()
 
-if (WIN32)
-  add_dependencies(sycl-toolchain win_proxy_loader)
-endif()
-
 # Enable new IN_LIST operator.
 cmake_policy(SET CMP0057 NEW)
 
