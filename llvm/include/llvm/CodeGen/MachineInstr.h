@@ -97,47 +97,7 @@ public:
   };
 
   enum MIFlag {
-<<<<<<< HEAD
-    NoFlags      = 0,
-    FrameSetup   = 1 << 0,              // Instruction is used as a part of
-                                        // function frame setup code.
-    FrameDestroy = 1 << 1,              // Instruction is used as a part of
-                                        // function frame destruction code.
-    BundledPred  = 1 << 2,              // Instruction has bundled predecessors.
-    BundledSucc  = 1 << 3,              // Instruction has bundled successors.
-    FmNoNans     = 1 << 4,              // Instruction does not support Fast
-                                        // math nan values.
-    FmNoInfs     = 1 << 5,              // Instruction does not support Fast
-                                        // math infinity values.
-    FmNsz        = 1 << 6,              // Instruction is not required to retain
-                                        // signed zero values.
-    FmArcp       = 1 << 7,              // Instruction supports Fast math
-                                        // reciprocal approximations.
-    FmContract   = 1 << 8,              // Instruction supports Fast math
-                                        // contraction operations like fma.
-    FmAfn        = 1 << 9,              // Instruction may map to Fast math
-                                        // intrinsic approximation.
-    FmReassoc    = 1 << 10,             // Instruction supports Fast math
-                                        // reassociation of operand order.
-    NoUWrap      = 1 << 11,             // Instruction supports binary operator
-                                        // no unsigned wrap.
-    NoSWrap      = 1 << 12,             // Instruction supports binary operator
-                                        // no signed wrap.
-    IsExact      = 1 << 13,             // Instruction supports division is
-                                        // known to be exact.
-    NoFPExcept   = 1 << 14,             // Instruction does not raise
-                                        // floatint-point exceptions.
-    NoMerge      = 1 << 15,             // Passes that drop source location info
-                                        // (e.g. branch folding) should skip
-                                        // this instruction.
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-    NonSequential = 1 << 16,            // Instruction removed from sequence
-    RasReplayable = 1 << 17,            // Instruction can be replayed
-#endif // INTEL_FEATURE_CSA
-    BranchHint = 1 << 18,               // Hint for condition branch
-#endif // INTEL_CUSTOMIZATION
-=======
+    
     NoFlags = 0,
     FrameSetup = 1 << 0,     // Instruction is used as a part of
                              // function frame setup code.
@@ -170,8 +130,15 @@ public:
     NoMerge = 1 << 15,       // Passes that drop source location info
                              // (e.g. branch folding) should skip
                              // this instruction.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    NonSequential = 1 << 16,            // Instruction removed from sequence
+    RasReplayable = 1 << 17,            // Instruction can be replayed
+#endif // INTEL_FEATURE_CSA
+    BranchHint = 1 << 18,               // Hint for condition branch
+#endif // INTEL_CUSTOMIZATION
+
     Unpredictable = 1 << 16, // Instruction with unpredictable condition.
->>>>>>> 09515f2c20111628ce81ad5f40e12e5f6af5ed2f
   };
 
 private:
@@ -180,13 +147,8 @@ private:
 
   // Operands are allocated by an ArrayRecycler.
   MachineOperand *Operands = nullptr;   // Pointer to the first operand.
-<<<<<<< HEAD
-  uint16_t NumOperands = 0;             // Number of operands on instruction.
 
   uint32_t Flags : 24;                  // Various bits of additional // INTEL
-=======
-  uint32_t Flags = 0;                   // Various bits of additional
->>>>>>> 09515f2c20111628ce81ad5f40e12e5f6af5ed2f
                                         // information about machine
                                         // instruction.
   uint16_t NumOperands = 0;             // Number of operands on instruction.
@@ -441,11 +403,7 @@ public:
 
   /// Set a MI flag.
   void setFlag(MIFlag Flag) {
-<<<<<<< HEAD
     Flags |= ((uint32_t)Flag & 0xFFFFFF); // INTEL
-=======
-    Flags |= (uint32_t)Flag;
->>>>>>> 09515f2c20111628ce81ad5f40e12e5f6af5ed2f
   }
 
   void setFlags(unsigned flags) {
@@ -456,11 +414,7 @@ public:
 
   /// clearFlag - Clear a MI flag.
   void clearFlag(MIFlag Flag) {
-<<<<<<< HEAD
     Flags &= ~((uint32_t)Flag & 0xFFFFFF); // INTEL
-=======
-    Flags &= ~((uint32_t)Flag);
->>>>>>> 09515f2c20111628ce81ad5f40e12e5f6af5ed2f
   }
 
   /// Return true if MI is in a bundle (but not the first MI in a bundle).
