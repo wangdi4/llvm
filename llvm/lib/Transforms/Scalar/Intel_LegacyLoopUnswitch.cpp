@@ -1137,9 +1137,9 @@ void LoopUnswitch::unswitchTrivialCondition(Loop *L, Value *Cond, Constant *Val,
                     << " blocks] in Function "
                     << L->getHeader()->getParent()->getName()
                     << " on cond: " << *Val << " == " << *Cond << "\n");
-  ORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,         // INTEL
-                               25422u,                          // INTEL
-                               AtLine(getOptReportLine(Cond))); // INTEL
+  ORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,                // INTEL
+                               OptRemarkID::InvariantConditionHoisted, // INTEL
+                               AtLine(getOptReportLine(Cond)));        // INTEL
 
   // We are going to make essential changes to CFG. This may invalidate cached
   // information for L or one of its parent loops in SCEV.
@@ -1453,9 +1453,9 @@ void LoopUnswitch::unswitchNontrivialCondition(
     ParentLoop->addBasicBlockToLoop(NewBlocks[0], *LI);
   }
 
-  ORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,        // INTEL
-                               25422u,                         // INTEL
-                               AtLine(getOptReportLine(LIC))); // INTEL
+  ORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,                // INTEL
+                               OptRemarkID::InvariantConditionHoisted, // INTEL
+                               AtLine(getOptReportLine(LIC)));         // INTEL
 
   for (unsigned EBI = 0, EBE = ExitBlocks.size(); EBI != EBE; ++EBI) {
     BasicBlock *NewExit = cast<BasicBlock>(VMap[ExitBlocks[EBI]]);

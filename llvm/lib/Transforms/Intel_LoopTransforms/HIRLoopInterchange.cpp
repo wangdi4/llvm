@@ -1638,16 +1638,19 @@ void HIRLoopInterchange::reportLoopInterchangeNotDone(const HLLoop *Loop) {
   HLLoop *Lp = const_cast<HLLoop*>(Loop);
   if (ORBuilder.getVerbosity() < OptReportVerbosity::Medium)
     return;
-  ORBuilder(*Lp).addRemark(OptReportVerbosity::Medium, 25445u,
+  ORBuilder(*Lp).addRemark(OptReportVerbosity::Medium,
+                           OptRemarkID::LoopInterchangeFailReason,
                            "Data Dependencies");
-  ORBuilder(*Lp).addRemark(OptReportVerbosity::High, 25446u);
+  ORBuilder(*Lp).addRemark(OptReportVerbosity::High,
+                           OptRemarkID::DependenciesBetweenStmts);
   // Guard the extra information under verbosity high to avoid building
   // unnecessary strings
   if (ORBuilder.getVerbosity() < OptReportVerbosity::High)
     return;
   for (size_t I = 0;
        I < Edges.size() && I < LoopInterchangeOptReportDDEdgesLimit; I++) {
-    ORBuilder(*Lp).addRemark(OptReportVerbosity::High, 25447u,
+    ORBuilder(*Lp).addRemark(OptReportVerbosity::High,
+                             OptRemarkID::LoopInterchange,
                              Edges[I]->getOptReportStr());
   }
   // Print the message to suggest desirable loop interchange
@@ -1661,7 +1664,9 @@ void HIRLoopInterchange::reportLoopInterchangeNotDone(const HLLoop *Loop) {
     OS << I->getNestingLevel() << " ";
   }
   OS << ")";
-  ORBuilder(*Lp).addRemark(OptReportVerbosity::High, 25451u, OS.str().c_str());
+  ORBuilder(*Lp).addRemark(OptReportVerbosity::High,
+                           OptRemarkID::AdviseLoopInterchange,
+                           OS.str().c_str());
 }
 
 void HIRLoopInterchange::reportTransformation() {
@@ -1688,7 +1693,8 @@ void HIRLoopInterchange::reportTransformation() {
   }
   OS << ")";
   ORBuilder(*OutermostLp)
-      .addRemark(OptReportVerbosity::Low, 25444u, OS.str().c_str());
+      .addRemark(OptReportVerbosity::Low, OptRemarkID::LoopNestInterchanged,
+                 OS.str().c_str());
 
   // This is needed for lit-tests for now.
   LLVM_DEBUG(dbgs() << "Loopnest Interchanged: " << OS.str() << '\n');

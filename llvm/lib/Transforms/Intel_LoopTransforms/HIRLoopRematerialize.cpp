@@ -1300,7 +1300,9 @@ bool HIRLoopRematerialize::materializeALoop(
   OptReportBuilder &ORBuilder =
       NewLoop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
-  ORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low, 25397u, RerollFactor);
+  ORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low,
+                                OptRemarkID::MaterializedLoopTripCount,
+                                RerollFactor);
 
   return true;
 }

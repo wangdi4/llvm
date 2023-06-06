@@ -769,7 +769,8 @@ static bool doReroll(HLLoop *Lp, unsigned RerollFactor,
       Lp->getHLNodeUtils().getHIRFramework().getORBuilder();
 
   // remark: Loop rerolled by %d
-  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25264u, RerollFactor);
+  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                           OptRemarkID::LoopRerollFactor, RerollFactor);
 
   return true;
 }

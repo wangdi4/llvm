@@ -1183,7 +1183,8 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
 #if INTEL_INTERNAL_BUILD
   ORBuilder(*FirstIterLoop)
       .addOrigin("Window sum initialization loop for sum window reuse");
-  ORBuilder(*LoopSums.OuterLoop).addRemark(OptReportVerbosity::Low, 25584u);
+  ORBuilder(*LoopSums.OuterLoop)
+      .addRemark(OptReportVerbosity::Low, OptRemarkID::SumWindowReuseCount);
 #endif // INTEL_INTERNAL_BUILD
 }
 

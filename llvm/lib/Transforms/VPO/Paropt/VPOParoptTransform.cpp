@@ -1974,7 +1974,8 @@ bool VPOParoptTransform::paroptTransforms() {
               ORLoop = W->getWRNLoopInfo().getLoop();
               if (ORLoop != nullptr)
                 ORBuilder(*ORLoop, *ORLinfo)
-                    .addRemark(OptReportVerbosity::Low, 25597u);
+                    .addRemark(OptReportVerbosity::Low,
+                               OptRemarkID::OpenMPParLoopPipelined);
             }
 
             if (W->getIsParSections()) {
@@ -2034,14 +2035,16 @@ bool VPOParoptTransform::paroptTransforms() {
                ORLinfo = W->getWRNLoopInfo().getLoopInfo();
                ORLoop = W->getWRNLoopInfo().getLoop();
                if (ORLoop != nullptr) {
-                 ORBuilder(*ORLoop, *ORLinfo)
-                     .addRemark(OptReportVerbosity::Low, 25591u);
+                ORBuilder(*ORLoop, *ORLinfo)
+                    .addRemark(OptReportVerbosity::Low,
+                               OptRemarkID::OpenMPOutlinedParLoop);
 
-                 // Add remark to enclosing loop (if any).
-                 if (ORLoop->getParentLoop() != nullptr)
-                   // An enclosing loop is present.
-                   ORBuilder(*(ORLoop->getParentLoop()), *ORLinfo)
-                       .addRemark(OptReportVerbosity::Low, 25592u);
+                // Add remark to enclosing loop (if any).
+                if (ORLoop->getParentLoop() != nullptr)
+                  // An enclosing loop is present.
+                  ORBuilder(*(ORLoop->getParentLoop()), *ORLinfo)
+                      .addRemark(OptReportVerbosity::Low,
+                                 OptRemarkID::OpenMPOutlinedEnclosedParLoop);
                }
             }
 #endif  // INTEL_CUSTOMIZATION
@@ -2452,9 +2455,9 @@ bool VPOParoptTransform::paroptTransforms() {
                ORLinfo = W->getWRNLoopInfo().getLoopInfo();
                ORLoop = W->getWRNLoopInfo().getLoop();
                if (ORLoop != nullptr)
-                 ORBuilder(*ORLoop, *ORLinfo)
-                     .addRemark(
-                         OptReportVerbosity::Low, 25598u);
+                ORBuilder(*ORLoop, *ORLinfo)
+                    .addRemark(OptReportVerbosity::Low,
+                               OptRemarkID::OpenMPWorkShareLoopPipelined);
             }
 
             if (W->getIsSections()) {
@@ -2522,8 +2525,9 @@ bool VPOParoptTransform::paroptTransforms() {
                ORLinfo = W->getWRNLoopInfo().getLoopInfo();
                ORLoop = W->getWRNLoopInfo().getLoop();
                if (ORLoop != nullptr)
-                 ORBuilder(*ORLoop, *ORLinfo)
-                     .addRemark(OptReportVerbosity::Low, 25593u);
+                ORBuilder(*ORLoop, *ORLinfo)
+                    .addRemark(OptReportVerbosity::Low,
+                               OptRemarkID::OpenMPWorkSharingLoop);
             }
 #endif  // INTEL_CUSTOMIZATION
 

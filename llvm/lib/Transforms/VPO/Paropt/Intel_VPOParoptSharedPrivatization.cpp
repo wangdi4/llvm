@@ -574,16 +574,15 @@ static bool cleanupItem(
   // both host and device sides will be changed the same way.
   if (isa<WRNTargetNode>(W) || !CleanupRedundantClauses) {
     ORBuilder(*W, WRegionList)
-      .addRemark(OptReportVerbosity::Low, 25594u,
-                   ClauseName,
-                   V->getName());
+        .addRemark(OptReportVerbosity::Low, OptRemarkID::OpenMPRedundantClause,
+                   ClauseName, V->getName());
 
     return Changed;
   }
 
   ORBuilder(*W, WRegionList)
-      .addRemark(OptReportVerbosity::Low, 25595u,
-                 ClauseName,
+      .addRemark(OptReportVerbosity::Low,
+                 OptRemarkID::OpenMPClauseHasBeenChanged, ClauseName,
                  V->getName(),
                  VPOAnalysisUtils::getOmpClauseName(QUAL_OMP_PRIVATE));
 
@@ -809,8 +808,8 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
             << "' on '" << W->getName() << "' construct is redundant");
 
         ORBuilder(*W, WRegionList)
-            .addRemark(OptReportVerbosity::Low, 25594u,
-                       GetMapName(MI),
+            .addRemark(OptReportVerbosity::Low,
+                       OptRemarkID::OpenMPRedundantClause, GetMapName(MI),
                        AI->getName());
         continue;
       }
@@ -844,11 +843,10 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
              "overhead");
 
       ORBuilder(*W, WRegionList)
-          .addRemark(
-	      OptReportVerbosity::Low, 25596u,
-              GetMapName(MI),
-              AI->getName(),
-              VPOAnalysisUtils::getOmpClauseName(QUAL_OMP_FIRSTPRIVATE));
+          .addRemark(OptReportVerbosity::Low,
+                     OptRemarkID::OpenMPClauseCanBeChanged, GetMapName(MI),
+                     AI->getName(),
+                     VPOAnalysisUtils::getOmpClauseName(QUAL_OMP_FIRSTPRIVATE));
     }
   }
 

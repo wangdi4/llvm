@@ -514,7 +514,8 @@ void HIRMemoryReductionSinking::sinkInvariantReductions(HLLoop *Lp) {
     }
 
     // Load/Store of reduction at line %d sinked after loop
-    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25528u, StoreLineNum);
+    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                             OptRemarkID::MemoryReductionSinking, StoreLineNum);
 
     // Linear (invariant) memrefs can become non-linear in post-exit as they are
     // now in outer loop scope.

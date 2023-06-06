@@ -1092,7 +1092,8 @@ bool HIRLMM::hoistLoadsUsingExistingTemp(HLLoop *Lp, MemRefGroup &Group,
   LoadRef->updateDefLevel(LoopLevel - 1);
 
   // ID: 25563u, remark string: Load hoisted out of the loop
-  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25563u);
+  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                           OptRemarkID::LoadHoistedFromLoop);
 
   return true;
 }
@@ -1117,7 +1118,8 @@ bool HIRLMM::sinkStoresUsingExistingTemp(HLLoop *Lp, RegDDRef *StoreRef,
   TempRef->updateDefLevel(LoopLevel - 1);
 
   // ID: 25564u, remark string: Store sinked out of the loop
-  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25564u);
+  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                           OptRemarkID::LoadSunkFromLoop);
   return true;
 }
 
@@ -1185,7 +1187,8 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &Group,
     TmpDDRef = LoadInPrehdr->getLvalDDRef();
 
     // ID: 25563u, remark string: Load hoisted out of the loop
-    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25563u);
+    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                             OptRemarkID::LoadHoistedFromLoop);
   }
 
   // Create a TempDDRef if needed
@@ -1212,7 +1215,8 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &Group,
     createStoreInPostexit(Lp, FirstStore, TmpDDRef, NeedLoadInPrehdr);
 
     // ID: 25564u, remark string: Store sinked out of the loop
-    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25564u);
+    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                             OptRemarkID::LoadSunkFromLoop);
   }
 
   // LMM process each Ref in Group

@@ -1858,7 +1858,8 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
     MainLoop->dividePragmaBasedTripCount(UnrollFactor);
 
     // While loop unrolled by %d
-    ORBuilder(*MainLoop).addRemark(OptReportVerbosity::Low, 25478u,
+    ORBuilder(*MainLoop).addRemark(OptReportVerbosity::Low,
+                                   OptRemarkID::WhileLoopUnrollFactor,
                                    UnrollFactor);
 
   } else {

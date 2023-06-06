@@ -2236,11 +2236,11 @@ void HIRRuntimeDD::generateHLNodes(LoopContext &Context,
 
   // Remark: Loop multiversioned for Data Dependence
   ORBuilder(*NoAliasLoop)
-      .addOrigin(25474u, 1)
-      .addRemark(OptReportVerbosity::Low, 25228u);
+      .addOrigin(OptRemarkID::LoopMultiversioned, 1)
+      .addRemark(OptReportVerbosity::Low, OptRemarkID::LoopMultiversionedForDD);
 
   // Remark: Multiversioned Loop 2
-  ORBuilder(*ClonedLoop).addOrigin(25474u, 2);
+  ORBuilder(*ClonedLoop).addOrigin(OptRemarkID::LoopMultiversioned, 2);
 
   HLContainerTy Nodes;
   SmallVector<unsigned, 1> NewLiveinSymbases;

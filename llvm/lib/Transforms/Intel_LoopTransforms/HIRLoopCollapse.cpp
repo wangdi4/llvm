@@ -1126,7 +1126,8 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
 
   // ID: 25567u, remark string: "%d loops have been collapsed"
   ORBuilder(*ToCollapseLp)
-      .addRemark(OptReportVerbosity::Low, 25567u, NumCollapsableLoops);
+      .addRemark(OptReportVerbosity::Low, OptRemarkID::NumCollapsedLoops,
+                 NumCollapsableLoops);
 
   LLVM_DEBUG(dbgs() << "After Collapse:\n"; ToCollapseLp->dump();
              dbgs() << "\n";);

@@ -926,7 +926,7 @@ static void removeIllegalSets(SmallVectorImpl<HoistOrSinkSet> &Sets,
 //   25590u = remark for store sunk
 static void addOptReportRemark(HLIf *If, HLLoop *ParentLoop,
                                SmallVectorImpl<HoistOrSinkSet> &HoistSinkSets,
-                               unsigned RemarkID) {
+                               OptRemarkID RemarkID) {
 
   if (HoistSinkSets.empty())
     return;
@@ -1028,8 +1028,10 @@ static bool runOnIf(HLIf *If, SmallVectorImpl<HoistOrSinkSet> &HoistLoads,
   }
 
   // Add the opt-report remarks
-  addOptReportRemark(If, ParentLoop, HoistLoads, 25589u);
-  addOptReportRemark(If, ParentLoop, SinkStores, 25590u);
+  addOptReportRemark(If, ParentLoop, HoistLoads,
+                     OptRemarkID::HoistedConditionalLoads);
+  addOptReportRemark(If, ParentLoop, SinkStores,
+                     OptRemarkID::SunkConditionalStores);
 
   // Do the hoisting/sinking for eligible refs.
   for (HoistOrSinkSet &Loads : HoistLoads)

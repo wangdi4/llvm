@@ -1325,7 +1325,8 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
   }
 
 #if INTEL_INTERNAL_BUILD
-  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25581u);
+  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                           OptRemarkID::LoopRowWiseMultiversioned);
 #endif
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(SafeCheckLevelParent);
   if (SafeCheckIf)

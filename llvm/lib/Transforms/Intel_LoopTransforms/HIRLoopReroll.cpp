@@ -2125,7 +2125,8 @@ bool rerollStraightCodes(HLLoop *Loop, HIRDDAnalysis &DDA,
   OptReportBuilder &LORBuilder =
       Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
-  LORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25264u, RerollFactor);
+  LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
+                              OptRemarkID::LoopRerollFactor, RerollFactor);
 
   return true;
 }

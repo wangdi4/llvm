@@ -392,7 +392,9 @@ bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
     }
 
     // remark: Stmt at line %d sinked after loop using last value computation
-    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25530u, HInstLineNum);
+    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                             OptRemarkID::StmtSunkAfterLoopLastValue,
+                             HInstLineNum);
 
     HLNodeUtils::moveAsFirstPostexitNode(Lp, HInst);
   }

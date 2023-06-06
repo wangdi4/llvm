@@ -208,7 +208,7 @@ private:
                             BlobTy SplitPointBlob, bool IsSigned);
 
   void addVarPredicateRemark(const EqualCandidates &Candidates, HLLoop *Loop,
-                             OptReportBuilder &ORBuilder, unsigned RemarkID);
+                             OptReportBuilder &ORBuilder, OptRemarkID RemarkID);
 
   std::tuple<HLInst *, RegDDRef *, bool>
   convertOneSideToStandAloneBlob(const RegDDRef *LHS, const RegDDRef *RHS,
@@ -953,7 +953,7 @@ constructLineNumberString(SmallVector<unsigned, 8> LineNumbers) {
 
 void HIROptVarPredicate::addVarPredicateRemark(
     const EqualCandidates &Candidates, HLLoop *Loop,
-    OptReportBuilder &ORBuilder, unsigned RemarkID) {
+    OptReportBuilder &ORBuilder, OptRemarkID RemarkID) {
   if (!Loop) {
     return;
   }
@@ -1180,17 +1180,19 @@ void HIROptVarPredicate::splitLoop(
 
       if (FirstLoopNeeded) {
         // Predicate Optimized v%d
-        ORBuilder(*Loop).addOrigin(25476u, VNum++);
+        ORBuilder(*Loop).addOrigin(OptRemarkID::PredicateOptimized, VNum++);
       }
 
       if (SecondLoopNeededAndNotNull) {
         // Predicate Optimized v%d
-        ORBuilder(*SecondLoop).addOrigin(25476u, VNum++);
+        ORBuilder(*SecondLoop)
+            .addOrigin(OptRemarkID::PredicateOptimized, VNum++);
       }
 
       if (ThirdLoopNeeded) {
         // Predicate Optimized v%d
-        ORBuilder(*ThirdLoop).addOrigin(25476u, VNum++);
+        ORBuilder(*ThirdLoop)
+            .addOrigin(OptRemarkID::PredicateOptimized, VNum++);
       }
     }
 
@@ -1210,14 +1212,17 @@ void HIROptVarPredicate::splitLoop(
 
     if (IsLoopPeeled) {
       // Loop peeled using condition%s
-      addVarPredicateRemark(Candidates, OptReportLoop, ORBuilder, 25258u);
+      addVarPredicateRemark(Candidates, OptReportLoop, ORBuilder,
+                            OptRemarkID::LoopPeeledUsingCondition);
     } else if (IsLoopOptimizedAway) {
       // Loop optimized away using condition%s
-      addVarPredicateRemark(Candidates, OptReportLoop, ORBuilder, 25259u);
+      addVarPredicateRemark(Candidates, OptReportLoop, ORBuilder,
+                            OptRemarkID::LoopOptimizedAwayUsingCondition);
       ORBuilder(*OptReportLoop).preserveLostOptReport();
     } else {
       // Induction variable range split using condition%s
-      addVarPredicateRemark(Candidates, OptReportLoop, ORBuilder, 25580u);
+      addVarPredicateRemark(Candidates, OptReportLoop, ORBuilder,
+                            OptRemarkID::IVarRangeSplitUsingCondition);
     }
   }
 

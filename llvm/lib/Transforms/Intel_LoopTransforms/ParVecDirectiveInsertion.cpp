@@ -77,38 +77,49 @@ void ParVecDirectiveInsertion::Visitor::visit(HLLoop *HLoop) {
   if (ORBuilder.isOptReportOn())
     switch (Info->getVecType()) {
     case ParVecInfo::NOVECTOR_PRAGMA_LOOP:
-      ORBuilder(*HLoop).addRemark(OptReportVerbosity::Medium, 15319u, "Loop");
+      ORBuilder(*HLoop).addRemark(OptReportVerbosity::Medium,
+                                  OptRemarkID::VecFailNovectorDirective,
+                                  "Loop");
       break;
     case ParVecInfo::FE_DIAG_PAROPT_VEC_VECTOR_DEPENDENCE: {
-      ORBuilder(*HLoop).addRemark(OptReportVerbosity::Medium, 15344u, "Loop",
+      ORBuilder(*HLoop).addRemark(OptReportVerbosity::Medium,
+                                  OptRemarkID::VecFailVectorDependence, "Loop",
                                   "");
       auto &Edges = Info->getVecEdges();
       size_t Limit = ORBuilder.getVerbosity() >= OptReportVerbosity::Medium
                          ? OptReportDDEdgesLimit
                          : 1;
       for (size_t I = 0; I < Edges.size() && I < Limit; I++)
-        ORBuilder(*HLoop).addRemark(OptReportVerbosity::Medium, 15346u,
+        ORBuilder(*HLoop).addRemark(OptReportVerbosity::Medium,
+                                    OptRemarkID::VectorDependence,
                                     Edges[I]->getOptReportStr());
     } break;
     case ParVecInfo::FE_DIAG_VEC_FAIL_EMPTY_LOOP:
-      ORBuilder(*HLoop).addRemark(OptReportVerbosity::Medium, 15414u, "Loop");
+      ORBuilder(*HLoop).addRemark(OptReportVerbosity::Medium,
+                                  OptRemarkID::VecFailLoopEmptyAfterOpt,
+                                  "Loop");
       break;
     case ParVecInfo::SWITCH_STMT:
-      ORBuilder(*HLoop).addRemark(OptReportVerbosity::Medium, 15535u, "Loop");
+      ORBuilder(*HLoop).addRemark(OptReportVerbosity::Medium,
+                                  OptRemarkID::VecFailSwitchPresent, "Loop");
       break;
     case ParVecInfo::UNKNOWN_CALL:
-      ORBuilder(*HLoop).addRemark(OptReportVerbosity::Medium, 15527u, "Loop",
+      ORBuilder(*HLoop).addRemark(OptReportVerbosity::Medium,
+                                  OptRemarkID::VecFailFuncCallNoVec, "Loop",
                                   "");
       break;
     case ParVecInfo::NON_DO_LOOP:
-      ORBuilder(*HLoop).addRemark(OptReportVerbosity::Medium, 15521u, "Loop",
-                                  "");
+      ORBuilder(*HLoop).addRemark(OptReportVerbosity::Medium,
+                                  OptRemarkID::VecFailUnknownInductionVariable,
+                                  "Loop", "");
       break;
     case ParVecInfo::UNROLL_PRAGMA_LOOP:
-      ORBuilder(*HLoop).addRemark(OptReportVerbosity::Medium, 15427u);
+      ORBuilder(*HLoop).addRemark(OptReportVerbosity::Medium,
+                                  OptRemarkID::VecLoopCompletelyUnrolled);
       break;
     case ParVecInfo::FE_DIAG_VEC_NOT_INNERMOST:
-      ORBuilder(*HLoop).addRemark(OptReportVerbosity::Medium, 15553u);
+      ORBuilder(*HLoop).addRemark(OptReportVerbosity::Medium,
+                                  OptRemarkID::VecFailCannotAutoVecOuterLoop);
       break;
     default:
       // No specific diagnostics.

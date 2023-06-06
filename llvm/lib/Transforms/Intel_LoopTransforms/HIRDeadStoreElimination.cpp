@@ -1681,7 +1681,8 @@ bool HIRDeadStoreElimination::run(HLRegion &Region) {
 
   for (auto *Lp : OptimizedLoops) {
     // remark: Dead stores eliminated in loop
-    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25529u);
+    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                             OptRemarkID::DeadStoresEliminated);
 
     if (Lp->isAttached()) {
 
