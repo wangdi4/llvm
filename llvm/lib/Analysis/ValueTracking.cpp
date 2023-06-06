@@ -136,19 +136,13 @@ struct Query {
 #if INTEL_CUSTOMIZATION
   // INTEL: Add ScalarEvolution/LoopInfo optional parameters.
   Query(const DataLayout &DL, AssumptionCache *AC, const Instruction *CxtI,
-<<<<<<< HEAD
         const DominatorTree *DT, bool UseInstrInfo,
-        OptimizationRemarkEmitter *ORE = nullptr, ScalarEvolution *SE = nullptr,
-        LoopInfo *LI = nullptr)
-      : DL(DL), AC(AC), CxtI(CxtI), DT(DT), ORE(ORE), IIQ(UseInstrInfo),
+        ScalarEvolution *SE = nullptr, LoopInfo *LI = nullptr)
+      : DL(DL), AC(AC), CxtI(CxtI), DT(DT), IIQ(UseInstrInfo),
         SE(SE), LI(LI) {
     assert((!SE && !LI || SE && LI) && "SE/LI are expected to come in pair.");
   }
 #endif // INTEL_CUSTOMIZATION
-=======
-        const DominatorTree *DT, bool UseInstrInfo)
-      : DL(DL), AC(AC), CxtI(CxtI), DT(DT), IIQ(UseInstrInfo) {}
->>>>>>> 97b5cc214aee48e30391bfcd2cde4252163d7406
 };
 
 } // end anonymous namespace
@@ -430,7 +424,7 @@ unsigned llvm::ComputeNumSignBits(const Value *V, const DataLayout &DL,
                                   ScalarEvolution *SE, LoopInfo *LI) {
   return ::ComputeNumSignBits(
       V, Depth,
-      Query(DL, AC, safeCxtI(V, CxtI), DT, UseInstrInfo, nullptr, SE, LI));
+      Query(DL, AC, safeCxtI(V, CxtI), DT, UseInstrInfo, SE, LI));
 }
 #endif // INTEL_CUSTOMIZATION
 
