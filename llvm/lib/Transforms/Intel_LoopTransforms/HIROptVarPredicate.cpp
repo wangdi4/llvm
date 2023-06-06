@@ -62,8 +62,6 @@
 //  3) Support multiple ifs statements at once
 //  4) Replace known blobs with its max or min values
 //  5) Support multiple predicates within single HLIf
-//  6) Handle constant cases like (i + 1 < 10). In current setup IV CE should be
-//     a "self-IV".
 //
 //===----------------------------------------------------------------------===//
 #include "llvm/Transforms/Intel_LoopTransforms/HIROptVarPredicatePass.h"
@@ -189,9 +187,9 @@ public:
 
 private:
   static std::unique_ptr<CanonExpr>
-  findIVSolution(const HLLoop *Loop, const RegDDRef *LHSDDref, PredicateTy Pred,
-                 const RegDDRef *RHSDDRef, unsigned Level,
-                 bool &ShouldInvertCondition);
+  findIVSolution(const HLLoop *Loop, const RegDDRef *LHSDDRef, PredicateTy Pred,
+                 const RegDDRef *RHSDDRef, const RegDDRef *OrigDDRef,
+                 unsigned Level, bool &ShouldInvertCondition);
 
   void splitLoop(HLLoop *Loop, const EqualCandidates &Candidates,
                  const RegDDRef *LHS, PredicateTy Pred, const RegDDRef *RHS,
@@ -350,11 +348,20 @@ public:
         return;
       }
 
+      unsigned LHSIVLevel = LHSRef->getSingleCanonExpr()->getFirstIVLevel();
+      unsigned RHSIVLevel = RHSRef->getSingleCanonExpr()->getFirstIVLevel();
+
+      // If we consider i1 loop do not consider 'if (i1 + 1 != i2 + 1)' as a
+      // candidate.
+      if (LHSIV && (RHSIVLevel > Level) || RHSIV && (LHSIVLevel > Level)) {
+        return;
+      }
+
       // Exactly one of LHS or RHS has IV at Level.
       // See if the other side has IV at another Level.
-      if (LHSIV && RHSRef->getSingleCanonExpr()->getFirstIVLevel() &&
+      if (LHSIV && RHSIVLevel &&
               RHSRef->isStructurallyInvariantAtLevel(Level) ||
-          RHSIV && LHSRef->getSingleCanonExpr()->getFirstIVLevel() &&
+          RHSIV && LHSIVLevel &&
               LHSRef->isStructurallyInvariantAtLevel(Level)) {
         BothSidesIV = true;
       }
@@ -593,79 +600,120 @@ static bool mayIVOverflowCE(const CanonExpr *CE, const HLLoop *Loop) {
   return true;
 }
 
-// Returns false if addition in LHSCE doesn't overflow its type.
-// Condition to investigate is 'if ( i1 + c > ext(%m))'.
+// Returns false if addition in LHSCE and RHSCE do not overflow its types.
+// Condition to investigate is 'if ( i1 + c > RHS)'.
 // Additionally, check that const c would not overflow the LHSCE's type if
 // being added to/subtracted from an arbitrary value of the type RHSTy.
-// \pIsRHSSExt indicates that we look into signed or unsigned type RHSTy range.
-static bool mayCEOverflowType(const CanonExpr *LHSCE, bool IsRHSSExt,
-                              Type *RHSTy, const HLLoop *Loop) {
+static bool mayCEOverflowType(const CanonExpr *LHSCE, const CanonExpr *RHSCE,
+                              const CanonExpr *OrigRHSCE, const HLLoop *Loop) {
   if (SkipIVOverflowCheck)
     return false;
 
   auto *SrcType = LHSCE->getSrcType();
-  // No trunc or ext expected on IV side.
+  // No trunc or ext is expected on IV side.
   if (SrcType != LHSCE->getDestType())
     return true;
 
-  // i1 + c min value is c. max value is LEGAL_MAX_TC + c.
-  uint64_t LegalMaxTC = Loop->getLegalMaxTripCount();
-  if (!LegalMaxTC)
+  bool HasIVonRHS = OrigRHSCE->hasIV();
+  // OrigRHSCE is not the same as RHSCE if we blobified the RHS.
+  // No trunc or ext is expected in this case.
+  if (HasIVonRHS && (OrigRHSCE->getSrcType() != OrigRHSCE->getDestType()))
     return true;
 
-  int64_t CEConst = LHSCE->getConstant();
-  unsigned SrcBitSize = SrcType->getScalarSizeInBits();
-
-  // Check that i1 + c don't overflow its type. Since loop is normalized -
-  // i1 is in the range of [0; LegalMaxTC]. It means that LHS is in the range
-  // of [c; c + LegalMaxTC]. We use LegalMaxTC instead of LegalMaxTC - 1 to
-  // accomodate the fact that final split point could be possibly shifted by 1
-  // depending on predicate in the condition.
-  // c by itself could not overflow it's type, so we only check the upper
-  // bound.
-  bool Overflow = false;
-  APInt CEConstVal = APInt(SrcBitSize, CEConst);
-  APInt MaxCEVal = APInt(SrcBitSize, LegalMaxTC);
-  (void)MaxCEVal.sadd_ov(CEConstVal, Overflow);
-  if (Overflow)
+  // If we cannot calculate LHSCE Min and Max there is a possibility of
+  // an overflow.
+  // TODO: use HLNodeUtils::mayWrapround() functionality instead.
+  int64_t LHSMinVal = 0, LHSMaxVal = 0;
+  if (!HLNodeUtils::getMinValue(LHSCE, Loop, LHSMinVal) ||
+      !HLNodeUtils::getMaxValue(LHSCE, Loop, LHSMaxVal))
     return true;
 
   // Get Max value for CE type.
-  APInt MaxSrcTypeVal = APInt::getSignedMaxValue(SrcBitSize);
+  unsigned SrcBitSize = SrcType->getScalarSizeInBits();
+  APInt SrcTypeMin = APInt::getSignedMinValue(SrcBitSize);
+  APInt SrcTypeMax = APInt::getSignedMaxValue(SrcBitSize);
 
-  unsigned RHSBitSize = RHSTy->getScalarSizeInBits();
-  if (IsRHSSExt) {
-    // Suppose we had (i64 iv + c > sext.i32.i64(%m)) then we should check:
-    //   MinSInt64 < sext(m) - c  && sext(m) - c < MaxSInt64
-    // It transforms into
-    //   MinSInt64 < MinSInt32 - c && MaxSInt32 - c < MaxSInt64
-    // Thus we should compare |c| against (MaxSInt64 - MaxSInt32).
-    APInt MaxRHSTyVal = APInt::getSignedMaxValue(RHSBitSize);
-    if (std::abs(CEConstVal.getSExtValue()) <
-        (MaxSrcTypeVal.getSExtValue() - MaxRHSTyVal.getSExtValue()))
-      return false;
+  int64_t SrcTypeMinVal = SrcTypeMin.getSExtValue();
+  int64_t SrcTypeMaxVal = SrcTypeMax.getSExtValue();
+
+  if ((LHSMinVal < SrcTypeMinVal) || (LHSMaxVal > SrcTypeMaxVal))
+    return true;
+
+  if (HasIVonRHS) {
+    // IVs on both sides: i64 i1 + c1 > i2 + c2.
+    // Need to verify that i2 + c2 does not overflow and that i2 + c2 - c1
+    // does not overflow.
+    int64_t RHSMinVal = 0, RHSMaxVal = 0;
+    if (!HLNodeUtils::getMinValue(OrigRHSCE, Loop, RHSMinVal) ||
+        !HLNodeUtils::getMaxValue(OrigRHSCE, Loop, RHSMaxVal))
+      return true;
+
+    if ((RHSMinVal < SrcTypeMinVal) || (RHSMaxVal > SrcTypeMaxVal))
+      return true;
+
+    APInt UpdatedRHSMax = APInt(SrcBitSize, RHSMaxVal);
+    APInt UpdatedRHSMin = APInt(SrcBitSize, RHSMinVal);
+    int64_t CEConst = LHSCE->getConstant();
+    APInt CEConstVal = APInt(SrcBitSize, CEConst);
+
+    bool Overflow = false;
+    UpdatedRHSMax = UpdatedRHSMax.ssub_ov(CEConstVal, Overflow);
+    if (Overflow)
+      return true;
+
+    UpdatedRHSMin = UpdatedRHSMin.ssub_ov(CEConstVal, Overflow);
+    if (Overflow)
+      return true;
+
+    return false;
 
   } else {
-    // Suppose we had (i64 iv + c) > zext.i32.i64(%m)) then we should check:
-    //   MinSInt64 < zext(m) - c && zext(m) - c < MaxSInt64
-    // It transforms into
-    //   MinSInt64 < -c && MaxUInt32 - c < MaxSInt64
-    // c fits in 64 bytes by default thus we should compare -c against
-    // (MaxSInt64 - MaxUInt32) only.
-    APInt MaxRHSTyVal = APInt::getMaxValue(RHSBitSize);
-    CEConstVal.negate();
-    if (CEConstVal.isNonPositive() ||
-        (CEConstVal.getZExtValue() <
-         (MaxSrcTypeVal.getZExtValue() - MaxRHSTyVal.getZExtValue())))
-      return false;
+    // Blob on the RHS: i64 i1 + c1 > sext.i32.i64(%m)
+    // We only allow ext(blob) on the RHS to be able to check for overflow.
+    bool IsRHSSExt = RHSCE->isSExt();
+    if (!IsRHSSExt && !RHSCE->isZExt())
+      return true;
+
+    int64_t CEConst = LHSCE->getConstant();
+    APInt CEConstVal = APInt(SrcBitSize, CEConst);
+
+    Type *RHSTy = RHSCE->getSrcType();
+    unsigned RHSBitSize = RHSTy->getScalarSizeInBits();
+    if (IsRHSSExt) {
+      // Suppose we had (i64 iv + c > sext.i32.i64(%m)) then we should check:
+      //   MinSInt64 < sext(m) - c  && sext(m) - c < MaxSInt64
+      // It transforms into
+      //   MinSInt64 < MinSInt32 - c && MaxSInt32 - c < MaxSInt64
+      // Thus we should compare |c| against (MaxSInt64 - MaxSInt32).
+      APInt RHSTyMax = APInt::getSignedMaxValue(RHSBitSize);
+      if (std::abs(CEConstVal.getSExtValue()) <
+          (SrcTypeMax.getSExtValue() - RHSTyMax.getSExtValue()))
+        return false;
+
+    } else {
+      // Suppose we had (i64 iv + c) > zext.i32.i64(%m)) then we should check:
+      //   MinSInt64 < zext(m) - c && zext(m) - c < MaxSInt64
+      // It transforms into
+      //   MinSInt64 < -c && MaxUInt32 - c < MaxSInt64
+      // c fits in 64 bytes by default thus we should compare -c against
+      // (MaxSInt64 - MaxUInt32) only.
+      APInt RHSTyMax = APInt::getMaxValue(RHSBitSize);
+      CEConstVal.negate();
+      if (CEConstVal.isNonPositive() ||
+          (CEConstVal.getZExtValue() <
+           (SrcTypeMax.getZExtValue() - RHSTyMax.getZExtValue())))
+        return false;
+    }
   }
 
   return true;
 }
 
-std::unique_ptr<CanonExpr> HIROptVarPredicate::findIVSolution(
-    const HLLoop *Loop, const RegDDRef *LHSDDref, PredicateTy Pred,
-    const RegDDRef *RHSDDRef, unsigned Level, bool &ShouldInvertCondition) {
+std::unique_ptr<CanonExpr>
+HIROptVarPredicate::findIVSolution(const HLLoop *Loop, const RegDDRef *LHSDDref,
+                                   PredicateTy Pred, const RegDDRef *RHSDDRef,
+                                   const RegDDRef *OrigDDRef, unsigned Level,
+                                   bool &ShouldInvertCondition) {
 
   assert(LHSDDref->isTerminalRef() && RHSDDRef->isTerminalRef() &&
          "Candidate If should contain only terminal references");
@@ -696,29 +744,34 @@ std::unique_ptr<CanonExpr> HIROptVarPredicate::findIVSolution(
     Type *LHSType = LHS->getSrcType();
     Type *RHSType = RHS->getSrcType();
     if (!RHS->isIntConstant(&RHSConst)) {
-      // Consider following condition:
-      //     if (i1 + c1 > ext(%m + c2))
+      const CanonExpr *OrigCE = OrigDDRef->getSingleCanonExpr();
+      // Consider following conditions:
+      // 1)   if (i1 + c1 > i2 + c2)
+      // both sides have IVs and same types. If we could prove that RHS, LHS
+      // and (RHS - LHSconst) will not cause overflow, we create a split point
+      // by subtracting constant from RHS which already was turned to blob.
+      // OR
+      // 2)   if (i1 + c1 > ext(%m + c2))
       // where i1 + c1 has type i64 and %m + c2 has src type i32 and dst type
       // i64. Convert RHS into stand alone blob. If after that src types of
       // LHS and RHS match, then create a split point by subtracting a constant
-      // from RHS canon expr. Note: we do not expect IVs on the RHS.
+      // from RHS canon expr.
 
-      bool IsRHSSExt = RHS->isSExt();
       // Legality checks to avoid overflow issues:
-      // 1) Ext()in the RHS.
+      // 1) LHS canon expr should not overflow its type or Ext() in the RHS.
+      // OR
       // 2) LHS canon expr should not overflow its type and adding LHS constant
       //    to the RHS should also be in boundaries of LHS type.
-      if (!IsRHSSExt && !RHS->isZExt())
+
+      // Check that LHS and RHS do not overflow its types and that subtracting
+      // c1 from RHS does not cause an overflow.
+      if (mayCEOverflowType(LHS, RHS, OrigCE, Loop))
         return nullptr;
 
-      // Check that LSH do not overflow its type and if subtracting c1 from
-      // RHS could cause an overflow.
-      if (mayCEOverflowType(LHS, IsRHSSExt, RHSType, Loop))
-        return nullptr;
-
-      // Convert RHS into standalone blob.
-      if (!Result->convertToStandAloneBlobOrConstant())
-        return nullptr;
+      // Convert RHS into standalone blob if needed.
+      if (!OrigCE->hasIV())
+        if (!Result->convertToStandAloneBlobOrConstant())
+          return nullptr;
 
       // Subtract LHS constant from RHS.
       Result->addConstant(-LHSConst, true);
@@ -1318,8 +1371,19 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
 
     PredicateTy Pred = *PredI;
 
+    if (CmpInst::isUnsigned(Pred)) {
+      if (HLNodeUtils::isKnownNonNegative(LHS->getSingleCanonExpr(), Loop) &&
+          HLNodeUtils::isKnownNonNegative(RHS->getSingleCanonExpr(), Loop)) {
+        Pred = CmpInst::getSignedPredicate(Pred);
+      } else {
+        LLVM_DEBUG(dbgs() << "Unsigned predicate .\n");
+        continue;
+      }
+    }
+
     bool HaveBothSidesIV = Candidate.BothSidesIV;
     bool IsLHSConverted = false;
+    RegDDRef *OrigRef = RHS;
     HLInst *CopyInst = nullptr;
     RegDDRef *NewBlob = nullptr;
     if (HaveBothSidesIV) {
@@ -1331,17 +1395,19 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
       std::tie(CopyInst, NewBlob, IsLHSConverted) =
           convertOneSideToStandAloneBlob(LHS, RHS, Level);
 
-      if (IsLHSConverted)
+      if (IsLHSConverted) {
+        OrigRef = LHS;
         LHS = NewBlob;
-      else
+      } else {
         RHS = NewBlob;
+      }
     }
 
     // Normalize IV limitation to the form: i < SplitPoint, predicate could be:
     // <, ==, !=
     bool ShouldInvertCondition = false;
-    std::unique_ptr<CanonExpr> SplitPoint(
-        findIVSolution(Loop, LHS, Pred, RHS, Level, ShouldInvertCondition));
+    std::unique_ptr<CanonExpr> SplitPoint(findIVSolution(
+        Loop, LHS, Pred, RHS, OrigRef, Level, ShouldInvertCondition));
 
     // Can not handle this candidate
     if (!SplitPoint) {
@@ -1360,16 +1426,6 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
       LLVM_DEBUG(
           dbgs() << "Could not convert split point to a stand-alone blob\n");
       continue;
-    }
-
-    if (CmpInst::isUnsigned(Pred)) {
-      if (HLNodeUtils::isKnownNonNegative(LHS->getSingleCanonExpr(), Loop) &&
-          HLNodeUtils::isKnownNonNegative(RHS->getSingleCanonExpr(), Loop)) {
-        Pred = CmpInst::getSignedPredicate(Pred);
-      } else {
-        LLVM_DEBUG(dbgs() << "Unsigned predicate .\n");
-        continue;
-      }
     }
 
     if (HaveBothSidesIV) {
