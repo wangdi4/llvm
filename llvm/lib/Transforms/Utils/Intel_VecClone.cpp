@@ -1672,10 +1672,7 @@ bool VecCloneImpl::runImpl(Module &M, OptReportBuilder *ORBuilder,
         F.removeFnAttr(VectorDispatchAttrName);
       if (ORBuilder)
         (*ORBuilder)(F).addRemark(OptReportVerbosity::Medium,
-                                  "'omp declare' vector variants were "
-                                  "skipped due to presence of "
-                                  "unsupported variable-length array "
-                                  "allocations.");
+                                  OptRemarkID::VecCloneVLAPresence);
       continue;
     }
 
