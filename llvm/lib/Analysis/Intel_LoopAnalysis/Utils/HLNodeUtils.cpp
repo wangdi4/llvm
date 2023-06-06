@@ -1184,6 +1184,20 @@ HLInst *HLNodeUtils::createStackrestore(RegDDRef *AddrArg) {
   return HInst;
 }
 
+HLInst *HLNodeUtils::createNoAliasScopeDeclInst(RegDDRef *ScopeList) {
+  Function *NoAliasScopeDeclFunc = Intrinsic::getDeclaration(
+      &getModule(), Intrinsic::experimental_noalias_scope_decl);
+
+  SmallVector<RegDDRef *, 1> Ops = {ScopeList};
+  CallInst *Call;
+  HLInst *HInst;
+  std::tie(HInst, Call) = createCallImpl(NoAliasScopeDeclFunc, Ops);
+
+  Call->setDebugLoc(ScopeList->getDebugLoc());
+
+  return HInst;
+}
+
 HLInst *HLNodeUtils::createDbgPuts(const TargetLibraryInfo &TLI,
                                    HLRegion *Region, StringRef Message) {
   auto &Ctx = getContext();

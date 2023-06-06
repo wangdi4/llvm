@@ -317,6 +317,23 @@ cl_program TRACE_FN(clCreateProgramWithIL)(
   return clCreateProgramWithIL(context, il, length, errcode_ret);
 }
 
+cl_int TRACE_FN(clGetDeviceGlobalVariablePointerINTEL)(
+    clGetDeviceGlobalVariablePointerINTEL_fn funcptr,
+    cl_device_id device,
+    cl_program program,
+    const char *name,
+    size_t *size,
+    void **ptr) {
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(device);
+  TRACE_FN_ARG_PTR(program);
+  TRACE_FN_ARG_PTR(name);
+  TRACE_FN_ARG_PTR(size);
+  TRACE_FN_ARG_PTR(ptr);
+  TRACE_FN_ARG_END();
+  return funcptr(device, program, name, size, ptr);
+}
+
 cl_int TRACE_FN(clEnqueueBarrierWithWaitList)(
     cl_command_queue command_queue,
     cl_uint num_events_in_wait_list,
