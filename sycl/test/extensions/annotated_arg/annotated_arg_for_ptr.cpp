@@ -3,9 +3,6 @@
 
 #include "sycl/sycl.hpp"
 #include <sycl/ext/intel/fpga_extensions.hpp>
-#include <sycl/ext/oneapi/annotated_arg/annotated_arg.hpp>
-#include <sycl/ext/oneapi/annotated_arg/annotated_ptr.hpp>
-#include <sycl/ext/oneapi/annotated_arg/properties.hpp>
 
 #include <iostream>
 
