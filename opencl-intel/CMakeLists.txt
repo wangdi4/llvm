@@ -507,19 +507,13 @@ else(WIN32)
     set(TBB_LIB_DIR ${TBB_ROOT_DIR}/lib/${TBB_ARCH}/gcc4.8)
   endif(INTEL_DEPLOY_UNIFIED_LAYOUT)
   set(TBB_LIBRARY_DIR ${TBB_LIB_DIR})
-  # Import tbb/tbbmalloc library
+  # Import tbb library
   add_library(tbb SHARED IMPORTED)
   set_target_properties(tbb PROPERTIES
     IMPORTED_LOCATION_RELEASE
       ${TBB_LIB_DIR}/${IMPLIB_PREFIX}tbb${IMPLIB_SUFFIX}
     IMPORTED_LOCATION_DEBUG
       ${TBB_LIB_DIR}/${IMPLIB_PREFIX}tbb_debug${IMPLIB_SUFFIX})
-  add_library(tbbmalloc SHARED IMPORTED)
-  set_target_properties(tbbmalloc PROPERTIES
-    IMPORTED_LOCATION_RELEASE
-      ${TBB_LIB_DIR}/${IMPLIB_PREFIX}tbbmalloc${IMPLIB_SUFFIX}
-    IMPORTED_LOCATION_DEBUG
-      ${TBB_LIB_DIR}/${IMPLIB_PREFIX}tbbmalloc_debug${IMPLIB_SUFFIX})
 endif(WIN32)
 
 if((NOT TBB_LIB_DIR) OR (NOT EXISTS ${TBB_LIB_DIR}))
