@@ -295,11 +295,8 @@ bool X86InstCombine::replaceLibmToSVML(Instruction &I) {
     return false;
 
   switch (II->getIntrinsicID()) {
-  case Intrinsic::log:
   case Intrinsic::log2:
   case Intrinsic::log10:
-  case Intrinsic::exp:
-  case Intrinsic::exp2:
     break;
   default:
     return false;
