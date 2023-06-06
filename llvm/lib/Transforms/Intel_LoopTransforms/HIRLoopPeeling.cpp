@@ -534,7 +534,8 @@ void HIRLoopPeeling::run() {
 
     peelLoop(Lp, PeelInfo);
     // remark string: Loop peeled to eliminate data dependence
-    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25487u);
+    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                             OptRemarkID::LoopPeeledForDataDependence);
   }
 }
 

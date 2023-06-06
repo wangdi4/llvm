@@ -483,7 +483,6 @@ static void removeIntrinsicUsers(AllocaInst *AI) {
 #if INTEL_CUSTOMIZATION
         if (auto CB = dyn_cast<CallBase>(Inst)) {
           InlineReason Reason = NinlrDeletedDeadCode;
-          getInlineReport()->initFunctionClosure(CB->getFunction());
           getInlineReport()->removeCallBaseReference(*CB, Reason);
           getMDInlineReport()->removeCallBaseReference(*CB, Reason);
         }
@@ -494,7 +493,6 @@ static void removeIntrinsicUsers(AllocaInst *AI) {
 #if INTEL_CUSTOMIZATION
     if (auto CB = dyn_cast<CallBase>(I)) {
       InlineReason Reason = NinlrDeletedDeadCode;
-      getInlineReport()->initFunctionClosure(CB->getFunction());
       getInlineReport()->removeCallBaseReference(*CB, Reason);
       getMDInlineReport()->removeCallBaseReference(*CB, Reason);
     }

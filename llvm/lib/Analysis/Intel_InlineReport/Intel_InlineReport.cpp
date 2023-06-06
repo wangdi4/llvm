@@ -487,13 +487,12 @@ InlineReportCallSite *InlineReport::addCallSite(CallBase *Call,
   InlineReportCallSite *IRCS = new InlineReportCallSite(
       IRFC, false, NinlrNoReason, Call->getFunction()->getParent(), &DLoc, Call,
       SuppressInlRpt);
+  IRCS->initReason(Callee);
   IRCallBaseCallSiteMap.insert(std::make_pair(Call, IRCS));
   addCallback(Call);
   if (AttachToCaller) {
     Function *F = Call->getCaller();
-    auto MapIt = IRFunctionMap.find(F);
-    assert(MapIt != IRFunctionMap.end());
-    InlineReportFunction *IRF = MapIt->second;
+    InlineReportFunction *IRF = getOrAddFunction(F);
     IRF->addCallSite(IRCS);
   }
   return IRCS;
@@ -835,9 +834,7 @@ void InlineReport::addIndirectCallBaseTarget(InlICSType ICSMethod,
                                              CallBase *CBDirect) {
   if (!isClassicIREnabled())
     return;
-  auto MapItCS = IRCallBaseCallSiteMap.find(CBIndirect);
-  assert(MapItCS != IRCallBaseCallSiteMap.end() && "Expected CBIndirect");
-  InlineReportCallSite *IRCSIndirect = MapItCS->second;
+  InlineReportCallSite *IRCSIndirect = getOrAddCallSite(CBIndirect);
   InlineReportCallSite *IRCSDirect = addCallSite(CBDirect,
                                                  /*AttachToCaller=*/false);
   IRCSIndirect->addChild(IRCSDirect);
@@ -930,7 +927,7 @@ void InlineReport::replaceAllUsesWith(Function *OldFunction,
   InlineReportFunction *IRFNew = MapIt->second;
   for (auto U : OldFunction->users()) {
     if (auto CB = dyn_cast<CallBase>(U)) {
-      InlineReportCallSite *IRCS = getCallSite(CB);
+      InlineReportCallSite *IRCS = getOrAddCallSite(CB);
       IRCS->setIRCallee(IRFNew);
     }
   }
@@ -959,19 +956,13 @@ void InlineReport::replaceFunctionWithFunction(Function *OldFunction,
     return;
   if (OldFunction == NewFunction)
     return;
-  auto IrfIt = IRFunctionMap.find(OldFunction);
-  if (IrfIt == IRFunctionMap.end())
-    return;
-  InlineReportFunction *IRF = IrfIt->second;
-  int count = IRFunctionMap.erase(OldFunction);
-  (void)count;
-  assert(count == 1);
+  InlineReportFunction *IRF = getOrAddFunction(OldFunction);
   IRFunctionMap.insert(std::make_pair(NewFunction, IRF));
   replaceAllUsesWith(OldFunction, NewFunction);
   IRF->setLinkageChar(NewFunction);
   IRF->setLanguageChar(NewFunction);
   IRF->setName(std::string(NewFunction->getName()));
-  removeCallback(OldFunction);
+  removeFunctionReference(*OldFunction);
   addCallback(NewFunction);
 }
 
@@ -982,10 +973,7 @@ void InlineReport::replaceCallBaseWithCallBase(CallBase *CB0, CallBase *CB1,
   if (CB0 == CB1)
     return;
   assert(CB0->getCaller() == CB1->getCaller());
-  auto MapItCS = IRCallBaseCallSiteMap.find(CB0);
-  if (MapItCS == IRCallBaseCallSiteMap.end())
-    return;
-  InlineReportCallSite *IRCS = MapItCS->second;
+  InlineReportCallSite *IRCS = getOrAddCallSite(CB0);
   IRCS->setCall(CB1);
   if (Function *Callee = CB1->getCalledFunction()) {
     InlineReportFunction *IRFC = getOrAddFunction(Callee);
@@ -1005,7 +993,7 @@ void InlineReport::replaceCallBaseWithCallBase(CallBase *CB0, CallBase *CB1,
     if (UpdateReason)
       IRCS->setReason(NinlrIndirect);
   }
-  IRCallBaseCallSiteMap.erase(MapItCS);
+  IRCallBaseCallSiteMap.erase(CB0);
   IRCallBaseCallSiteMap.insert(std::make_pair(CB1, IRCS));
   removeCallback(CB0);
   addCallback(CB1);
@@ -1017,10 +1005,7 @@ void InlineReport::cloneCallBaseToCallBase(CallBase *CB0, CallBase *CB1) {
   if (CB0 == CB1)
     return;
   assert(CB0->getCaller() == CB1->getCaller());
-  auto MapItCS = IRCallBaseCallSiteMap.find(CB0);
-  if (MapItCS == IRCallBaseCallSiteMap.end())
-    return;
-  InlineReportCallSite *IRCS = MapItCS->second;
+  InlineReportCallSite *IRCS = getOrAddCallSite(CB0);
   InlineReportCallSite *NewIRCS = IRCS->copyBase(nullptr);
   NewIRCS->setCall(CB1);
   InlineReportFunction *IRCaller = IRCS->getIRCaller();

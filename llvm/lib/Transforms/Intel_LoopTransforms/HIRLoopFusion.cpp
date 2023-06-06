@@ -212,7 +212,7 @@ bool HIRLoopFusion::generatePreOrPostLoops(HLNode *AnchorNode,
     NewLoop->removeLoopMetadata("llvm.loop.intel.loopcount_average");
 
     // Peeled loop for fusion
-    ORBuilder(*NewLoop).addOrigin(25586u);
+    ORBuilder(*NewLoop).addOrigin(OptRemarkID::PeeledLoopForFusion);
     NewLoop->setLowerDDRef(LowerDDRef);
     NewLoop->setUpperDDRef(UpperDDRef);
 
@@ -773,7 +773,8 @@ void HIRLoopFusion::runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range) {
            LoopI != E; ++LoopI) {
 
         // Loop lost in Fusion
-        ORBuilder(**LoopI).addRemark(OptReportVerbosity::Low, 25046u);
+        ORBuilder(**LoopI).addRemark(OptReportVerbosity::Low,
+                                     OptRemarkID::LoopLostInFusion);
         ORBuilder(**LoopI).preserveLostOptReport();
       }
 
@@ -787,7 +788,8 @@ void HIRLoopFusion::runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range) {
       LoopsFused = true;
 
       // Loops have been fused %s
-      ORBuilder(*NextLoop).addRemark(OptReportVerbosity::Low, 25045u, FuseNums);
+      ORBuilder(*NextLoop).addRemark(OptReportVerbosity::Low,
+                                     OptRemarkID::FusedLoops, FuseNums);
     } else {
       NextLoop = FNode.pilotLoop();
     }

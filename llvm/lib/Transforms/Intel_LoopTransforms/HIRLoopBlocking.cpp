@@ -2001,7 +2001,8 @@ HLLoop *setupPragmaBlocking(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
       InnermostLoop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
   // Blocking using Pragma directives
-  ORBuilder(*OutermostPragmaLoop).addRemark(OptReportVerbosity::Low, 25565u);
+  ORBuilder(*OutermostPragmaLoop)
+      .addRemark(OptReportVerbosity::Low, OptRemarkID::BlockingUsingPragma);
 
   LLVM_DEBUG(dbgs() << "Final LoopMap: \n"; for (auto &P
                                                  : LoopMap) {
@@ -2214,7 +2215,8 @@ void HIRLoopBlocking::doTransformation(HLLoop *InnermostLoop,
         Lp, LoopPermutation, CurLoopNests.front()->getNestingLevel());
     if (isBlockedLoop(OrigLoop, LoopToBS)) {
       // blocked by %d
-      ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25566u,
+      ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                               OptRemarkID::LoopBlockingFactor,
                                LoopToBS[OrigLoop]);
     }
   }

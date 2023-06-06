@@ -3348,7 +3348,6 @@ Instruction *InstCombinerImpl::visitAllocSite(Instruction &MI) {
         // so it can not have any valid uses.
 #if INTEL_CUSTOMIZATION
         if (auto CB = dyn_cast<CallBase>(I)) {
-          getInlineReport()->initFunctionClosure(CB->getFunction());
           InlineReason Reason = NinlrDeletedDeadCode;
           getInlineReport()->removeCallBaseReference(*CB, Reason);
           getMDInlineReport()->removeCallBaseReference(*CB, Reason);

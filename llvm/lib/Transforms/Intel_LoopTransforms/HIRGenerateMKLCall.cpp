@@ -771,7 +771,8 @@ void HIRGenerateMKLCall::computeDopeVectorFieldsAndTransform(
   OptReportBuilder &ORBuilder = HIRF.getORBuilder();
 
   // Loopnest replaced by matmul intrinsic
-  ORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25459u);
+  ORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
+                             OptRemarkID::LoopNestReplacedByMatmul);
 
   ORBuilder(*Loop).preserveLostOptReport();
 

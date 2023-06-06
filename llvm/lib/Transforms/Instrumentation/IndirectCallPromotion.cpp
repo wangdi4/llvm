@@ -278,9 +278,6 @@ CallBase &llvm::pgo::promoteIndirectCall(CallBase &CB, Function *DirectCallee,
   MDNode *BranchWeights = MDB.createBranchWeights(
       scaleBranchCount(Count, Scale), scaleBranchCount(ElseCount, Scale));
 
-#if INTEL_CUSTOMIZATION
-  getInlineReport()->initFunctionClosure(CB.getFunction());
-#endif // INTEL_CUSTOMIZATION
   CallBase &NewInst =
       promoteCallWithIfThenElse(CB, DirectCallee, BranchWeights);
 #if INTEL_CUSTOMIZATION

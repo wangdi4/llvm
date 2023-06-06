@@ -1404,7 +1404,9 @@ void HIRScalarReplArray::doTransform(HLLoop *Lp) {
       Lp->getHLNodeUtils().getHIRFramework().getORBuilder();
 
   // Number of Array Refs Scalar Replaced In Loop: %d
-  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25583u, NumRefsPromoted);
+  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                           OptRemarkID::NumArrayRefsScalarReplaced,
+                           NumRefsPromoted);
 
   // Mark the loop has been changed, request CodeGen support
   // Note: ScalarReplArray won't change current HIRLoopStatistics

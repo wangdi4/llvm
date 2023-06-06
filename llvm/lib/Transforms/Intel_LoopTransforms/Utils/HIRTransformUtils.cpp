@@ -390,18 +390,21 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
 
     if (NeedRemainderLoop) {
       // Loop unrolled with remainder by %d
-      ORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low, 25439u,
+      ORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low,
+                                    OptRemarkID::LoopUnrollFactorWithRemainder,
                                     UnrollOrVecFactor);
     } else {
       // Loop unrolled without remainder by %d
-      ORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low, 25438u,
-                                    UnrollOrVecFactor);
+      ORBuilder(*NewLoop).addRemark(
+          OptReportVerbosity::Low,
+          OptRemarkID::LoopUnrollFactorWithoutRemainder, UnrollOrVecFactor);
     }
 
   } else if (OptTy == OptimizationType::UnrollAndJam) {
 
     // Loop has been unrolled and jammed by %d
-    ORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low, 25540u,
+    ORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low,
+                                  OptRemarkID::LoopUnrollAndJamFactor,
                                   UnrollOrVecFactor);
   } else {
     assert(OptTy == OptimizationType::Vectorizer &&
@@ -559,7 +562,7 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
       assert((OptTy == OptimizationType::Vectorizer) &&
              "OptimizationType should be Vectorizer");
       // Remark: Peeled loop for vectorization
-      ORBuilder(*PeelLp).addOrigin(25518u);
+      ORBuilder(*PeelLp).addOrigin(OptRemarkID::VectorizerPeelLoop);
     }
 
     // After peeling a new ZTT was created for the main loop, extract it and add
@@ -619,13 +622,13 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
     ORBuilder(*MainLoop).moveSiblingsTo(*OrigLoop);
     if (OptTy == OptimizationType::Vectorizer) {
       // Remark: Remainder loop for vectorization
-      ORBuilder(*OrigLoop).addOrigin(25519u);
+      ORBuilder(*OrigLoop).addOrigin(OptRemarkID::VectorizerRemainderLoop);
     } else {
       assert(((OptTy == OptimizationType::Unroll) ||
               (OptTy == OptimizationType::UnrollAndJam)) &&
              "Invalid optimization type!");
       // Remark: Remainder loop
-      ORBuilder(*OrigLoop).addOrigin(25491u);
+      ORBuilder(*OrigLoop).addOrigin(OptRemarkID::RemainderLoop);
     }
   } else
     assert((!RuntimeChecks || RuntimeChecks->empty()) &&

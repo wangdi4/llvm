@@ -3450,12 +3450,15 @@ void HIRCompleteUnroll::doUnroll(HLLoop *Loop) {
 
       if (Lp->isConstTripLoop(&TC)) {
         // Loop completely unrolled by %d
-        ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25436u, (unsigned)TC);
+        ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                                 OptRemarkID::CompleteUnrollFactor,
+                                 (unsigned)TC);
       } else {
         // This is some inner loop of triangular loopnest.
 
         // Loop completely unrolled
-        ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25508u);
+        ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                                 OptRemarkID::LoopCompletelyUnrolled);
       }
     }
   }

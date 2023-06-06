@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -1968,7 +1968,6 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
     if (Constant *NumBytes = dyn_cast<Constant>(MI->getLength())) {
 #if INTEL_CUSTOMIZATION
       if (NumBytes->isNullValue()) {
-        getInlineReport()->initFunctionClosure(CI.getFunction());
         InlineReason Reason = NinlrDeletedZeroLengthMemFunc;
         getInlineReport()->removeCallBaseReference(CI, Reason);
         getMDInlineReport()->removeCallBaseReference(CI, Reason);
@@ -4479,9 +4478,6 @@ bool InstCombinerImpl::transformConstExprCastCall(CallBase &Call) {
 
   AttributeSet FnAttrs = CallerPAL.getFnAttrs();
 
-#if INTEL_CUSTOMIZATION
-  getInlineReport()->initFunctionClosure(Caller->getFunction());
-#endif // INTEL_CUSTOMIZATION
   if (NewRetTy->isVoidTy())
     Caller->setName("");   // Void type should not have a name.
 

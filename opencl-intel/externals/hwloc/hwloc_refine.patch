@@ -1,0 +1,29 @@
+diff --git a/hwloc/topology-windows.c b/hwloc/topology-windows.c
+index 20b617a9b..594a64e55 100644
+--- a/hwloc/topology-windows.c
++++ b/hwloc/topology-windows.c
+@@ -220,7 +220,7 @@ static void hwloc_win_get_function_ptrs(void)
+ #pragma GCC diagnostic ignored "-Wcast-function-type"
+ #endif
+ 
+-    kernel32 = LoadLibrary("kernel32.dll");
++    kernel32 = LoadLibraryExA("kernel32.dll", NULL, LOAD_LIBRARY_SEARCH_SYSTEM32);
+     if (kernel32) {
+       GetActiveProcessorGroupCountProc =
+ 	(PFN_GETACTIVEPROCESSORGROUPCOUNT) GetProcAddress(kernel32, "GetActiveProcessorGroupCount");
+diff --git a/hwloc/topology-x86.c b/hwloc/topology-x86.c
+index a1558f077..ca87bbf94 100644
+--- a/hwloc/topology-x86.c
++++ b/hwloc/topology-x86.c
+@@ -1303,6 +1303,8 @@ look_procs(struct hwloc_backend *backend, struct procinfo *infos, unsigned long
+   hwloc_bitmap_t set = NULL;
+   unsigned i;
+ 
++  if(!get_cpubind||!set_cpubind)
++    return -1;
+   if (!data->src_cpuiddump_path) {
+     orig_cpuset = hwloc_bitmap_alloc();
+     if (get_cpubind(topology, orig_cpuset, HWLOC_CPUBIND_STRICT)) {
+-- 
+2.39.1
+

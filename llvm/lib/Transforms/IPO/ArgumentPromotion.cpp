@@ -269,7 +269,6 @@ static Function *doPromotion(
   NF->copyMetadata(F, 0);
 
 #if INTEL_CUSTOMIZATION
-  getInlineReport()->initFunctionClosure(F);
   getInlineReport()->replaceFunctionWithFunction(F, NF);
   getMDInlineReport()->replaceFunctionWithFunction(F, NF);
 #endif // INTEL_CUSTOMIZATION

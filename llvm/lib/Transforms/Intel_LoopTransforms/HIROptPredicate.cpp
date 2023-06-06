@@ -622,7 +622,7 @@ private:
   void addPredicateOptReportRemark(
       HLLoop *TargetLoop,
       const iterator_range<HoistCandidate *> &IfOrSwitchCandidates,
-      unsigned RemarkID);
+      OptRemarkID RemarkID);
 
   /// Return true if all candidates belong to outer loops. It will be used for
   /// disabling the GenCode flag since unswitching by itself may not be
@@ -2411,7 +2411,8 @@ void HIROptPredicate::transformSwitch(
     addPredicateOptReportOrigin(NewLoop);
     if (!IsRemarkAdded) {
       // Invariant Switch condition%s hoisted out of this loop
-      addPredicateOptReportRemark(NewLoop, SwitchCandidates, 25424u);
+      addPredicateOptReportRemark(NewLoop, SwitchCandidates,
+                                  OptRemarkID::InvariantSwitchConditionHoisted);
       IsRemarkAdded = true;
     }
 
@@ -2516,10 +2517,10 @@ void HIROptPredicate::transformIf(
 
   // If the If/Else was created from a select instruction then we use a
   // generic opt-report remark
-  unsigned OptReportRemark = 25423u;
+  OptRemarkID OptReportRemark = OptRemarkID::InvariantIfConditionHoisted;
   for (auto &Candidate : IfCandidates) {
     if (Candidate.createdFromSelect()) {
-      OptReportRemark = 25422u;
+      OptReportRemark = OptRemarkID::InvariantConditionHoisted;
       // Select instructions will always create Else branch
       ThresholdNeeded = true;
       break;
@@ -2917,7 +2918,7 @@ void HIROptPredicate::addPredicateOptReportOrigin(HLLoop *TargetLoop) {
 
   if (!OptReportVisitedSet.count(TargetLoop)) {
     // Predicate Optimized v%d
-    ORBuilder(*TargetLoop).addOrigin(25476u, VNum);
+    ORBuilder(*TargetLoop).addOrigin(OptRemarkID::PredicateOptimized, VNum);
     VNum++;
     OptReportVisitedSet.insert(TargetLoop);
   }
@@ -2926,7 +2927,7 @@ void HIROptPredicate::addPredicateOptReportOrigin(HLLoop *TargetLoop) {
 void HIROptPredicate::addPredicateOptReportRemark(
     HLLoop *TargetLoop,
     const iterator_range<HoistCandidate *> &IfOrSwitchCandidates,
-    unsigned RemarkID) {
+    OptRemarkID RemarkID) {
   OptReportBuilder &ORBuilder =
       TargetLoop->getHLNodeUtils().getHIRFramework().getORBuilder();
 

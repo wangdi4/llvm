@@ -393,7 +393,7 @@ void HIRGeneralUnroll::replaceBySwitch(HLLoop *RemainderLoop,
   OptReportBuilder &ORBuilder =
       RemainderLoop->getHLNodeUtils().getHIRFramework().getORBuilder();
   ORBuilder(*RemainderLoop)
-      .addRemark(OptReportVerbosity::Low, 25585u)
+      .addRemark(OptReportVerbosity::Low, OptRemarkID::LoopConvertedToSwitch)
       .preserveLostOptReport();
 
   HIRInvalidationUtils::invalidateBody(RemainderLoop);

@@ -35,25 +35,23 @@ if(WIN32)
     ${TARGET}
     PROPERTIES
       LINK_FLAGS_DEBUG
-      "${LINK_FLAGS_DEBUG} tbbmalloc_debug.lib tbb12_debug${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbb12_debug${TBB_BINARIES_POSTFIX}.dll"
+      "${LINK_FLAGS_DEBUG} tbb12_debug${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbb12_debug${TBB_BINARIES_POSTFIX}.dll"
   )
   set_target_properties(
     ${TARGET}
     PROPERTIES
       LINK_FLAGS_RELEASE
-      "${LINK_FLAGS_RELEASE} tbbmalloc.lib tbb12${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbb12${TBB_BINARIES_POSTFIX}.dll /DEBUG")
+      "${LINK_FLAGS_RELEASE} tbb12${TBB_BINARIES_POSTFIX}.lib /DELAYLOAD:tbb12${TBB_BINARIES_POSTFIX}.dll /DEBUG")
   list(APPEND LINK_LIBS delayimp.lib)
 else(WIN32)
   if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
     list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbb_debug${IMPLIB_SUFFIX})
-    list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbbmalloc_debug${IMPLIB_SUFFIX})
     set_property(
       TARGET ${TARGET}
       APPEND_STRING
       PROPERTY LINK_FLAGS " -pie")
   else()
     list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbb${IMPLIB_SUFFIX})
-    list(APPEND LINK_LIBS ${IMPLIB_PREFIX}tbbmalloc${IMPLIB_SUFFIX})
   endif(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
 endif(WIN32)
 

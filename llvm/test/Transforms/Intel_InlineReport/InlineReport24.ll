@@ -43,6 +43,6 @@ entry:
 ; CHECK-LABEL: DEAD STATIC FUNC: f
 ; CHECK-LABEL: DEAD STATIC FUNC: g
 ; CHECK-LABEL: COMPILE FUNC: main
-; CHECK: INLINE: f {{.*}}Callee has single callsite and local linkage{{.*}}
-; CHECK: INLINE: g {{.*}}Callee has single callsite and local linkage{{.*}}
+; CHECK-DAG: INLINE: f {{.*}}Callee has single callsite and local linkage{{.*}}
+; CHECK-DAG: INLINE: g {{.*}}Callee has single callsite and local linkage{{.*}}
 

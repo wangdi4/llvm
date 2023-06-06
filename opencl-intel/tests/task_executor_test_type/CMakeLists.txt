@@ -22,12 +22,10 @@ set(TARGET_LIBS
 if(NOT WIN32)
   if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
     list(APPEND TARGET_LIBS
-      ${IMPLIB_PREFIX}tbb_debug${IMPLIB_SUFFIX}
-      ${IMPLIB_PREFIX}tbbmalloc_debug${IMPLIB_SUFFIX})
+      ${IMPLIB_PREFIX}tbb_debug${IMPLIB_SUFFIX})
   else()
     list(APPEND TARGET_LIBS
-      ${IMPLIB_PREFIX}tbb${IMPLIB_SUFFIX}
-      ${IMPLIB_PREFIX}tbbmalloc${IMPLIB_SUFFIX})
+      ${IMPLIB_PREFIX}tbb${IMPLIB_SUFFIX})
   endif(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
 endif()
 

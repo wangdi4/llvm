@@ -237,7 +237,6 @@ bool DeadArgumentEliminationPass::deleteDeadVarargs(Function &F) {
   F.getParent()->getFunctionList().insert(F.getIterator(), NF);
   NF->takeName(&F);
 #if INTEL_CUSTOMIZATION
-  getInlineReport()->initFunctionClosure(&F);
   getInlineReport()->replaceFunctionWithFunction(&F, NF);
   getMDInlineReport()->replaceFunctionWithFunction(&F, NF);
 #endif // INTEL_CUSTOMIZATION
@@ -990,7 +989,6 @@ bool DeadArgumentEliminationPass::removeDeadStuffFromFunction(Function *F) {
   F->getParent()->getFunctionList().insert(F->getIterator(), NF);
   NF->takeName(F);
 #if INTEL_CUSTOMIZATION
-  getInlineReport()->initFunctionClosure(F);
   getInlineReport()->replaceFunctionWithFunction(F, NF);
   getMDInlineReport()->replaceFunctionWithFunction(F, NF);
 #endif // INTEL_CUSTOMIZATION
