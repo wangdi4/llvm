@@ -1064,7 +1064,7 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
 
   if (!isa<WRNParallelNode>(W) && !isa<WRNParallelLoopNode>(W) &&
       !isa<WRNParallelSectionsNode>(W) && !isa<WRNTargetNode>(W) &&
-      !isa<WRNDistributeParLoopNode>(W))
+      !isa<WRNDistributeParLoopNode>(W) && !isa<WRNTeamsNode>(W))
     // TODO: Remove this to enable the function for all outlined WRNs.
     //
     // While this condition is here it should match with one in
@@ -1084,7 +1084,7 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
   };
 
   auto collectIfNotAlreadyCollected = [&](Value *V) {
-    if (isa<WRNTargetNode>(W)) {
+    if (isa<WRNTargetNode>(W) || isa<WRNTeamsNode>(W)) {
       // For target constructs, we need to capture the values a
       // deterministic number of times to avoid mismatch between host
       // and device compilation. Even if that means capturing the same
