@@ -97,38 +97,39 @@ public:
   };
 
   enum MIFlag {
-    NoFlags      = 0,
-    FrameSetup   = 1 << 0,              // Instruction is used as a part of
-                                        // function frame setup code.
-    FrameDestroy = 1 << 1,              // Instruction is used as a part of
-                                        // function frame destruction code.
-    BundledPred  = 1 << 2,              // Instruction has bundled predecessors.
-    BundledSucc  = 1 << 3,              // Instruction has bundled successors.
-    FmNoNans     = 1 << 4,              // Instruction does not support Fast
-                                        // math nan values.
-    FmNoInfs     = 1 << 5,              // Instruction does not support Fast
-                                        // math infinity values.
-    FmNsz        = 1 << 6,              // Instruction is not required to retain
-                                        // signed zero values.
-    FmArcp       = 1 << 7,              // Instruction supports Fast math
-                                        // reciprocal approximations.
-    FmContract   = 1 << 8,              // Instruction supports Fast math
-                                        // contraction operations like fma.
-    FmAfn        = 1 << 9,              // Instruction may map to Fast math
-                                        // intrinsic approximation.
-    FmReassoc    = 1 << 10,             // Instruction supports Fast math
-                                        // reassociation of operand order.
-    NoUWrap      = 1 << 11,             // Instruction supports binary operator
-                                        // no unsigned wrap.
-    NoSWrap      = 1 << 12,             // Instruction supports binary operator
-                                        // no signed wrap.
-    IsExact      = 1 << 13,             // Instruction supports division is
-                                        // known to be exact.
-    NoFPExcept   = 1 << 14,             // Instruction does not raise
-                                        // floatint-point exceptions.
-    NoMerge      = 1 << 15,             // Passes that drop source location info
-                                        // (e.g. branch folding) should skip
-                                        // this instruction.
+    
+    NoFlags = 0,
+    FrameSetup = 1 << 0,     // Instruction is used as a part of
+                             // function frame setup code.
+    FrameDestroy = 1 << 1,   // Instruction is used as a part of
+                             // function frame destruction code.
+    BundledPred = 1 << 2,    // Instruction has bundled predecessors.
+    BundledSucc = 1 << 3,    // Instruction has bundled successors.
+    FmNoNans = 1 << 4,       // Instruction does not support Fast
+                             // math nan values.
+    FmNoInfs = 1 << 5,       // Instruction does not support Fast
+                             // math infinity values.
+    FmNsz = 1 << 6,          // Instruction is not required to retain
+                             // signed zero values.
+    FmArcp = 1 << 7,         // Instruction supports Fast math
+                             // reciprocal approximations.
+    FmContract = 1 << 8,     // Instruction supports Fast math
+                             // contraction operations like fma.
+    FmAfn = 1 << 9,          // Instruction may map to Fast math
+                             // intrinsic approximation.
+    FmReassoc = 1 << 10,     // Instruction supports Fast math
+                             // reassociation of operand order.
+    NoUWrap = 1 << 11,       // Instruction supports binary operator
+                             // no unsigned wrap.
+    NoSWrap = 1 << 12,       // Instruction supports binary operator
+                             // no signed wrap.
+    IsExact = 1 << 13,       // Instruction supports division is
+                             // known to be exact.
+    NoFPExcept = 1 << 14,    // Instruction does not raise
+                             // floatint-point exceptions.
+    NoMerge = 1 << 15,       // Passes that drop source location info
+                             // (e.g. branch folding) should skip
+                             // this instruction.
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
     NonSequential = 1 << 16,            // Instruction removed from sequence
@@ -136,6 +137,8 @@ public:
 #endif // INTEL_FEATURE_CSA
     BranchHint = 1 << 18,               // Hint for condition branch
 #endif // INTEL_CUSTOMIZATION
+
+    Unpredictable = 1 << 16, // Instruction with unpredictable condition.
   };
 
 private:
@@ -144,12 +147,11 @@ private:
 
   // Operands are allocated by an ArrayRecycler.
   MachineOperand *Operands = nullptr;   // Pointer to the first operand.
-  uint16_t NumOperands = 0;             // Number of operands on instruction.
 
   uint32_t Flags : 24;                  // Various bits of additional // INTEL
                                         // information about machine
                                         // instruction.
-
+  uint16_t NumOperands = 0;             // Number of operands on instruction.
   uint8_t AsmPrinterFlags = 0;          // Various bits of information used by
                                         // the AsmPrinter to emit helpful
                                         // comments.  This is *not* semantic
@@ -390,7 +392,7 @@ public:
 #endif // INTEL_CUSTOMIZATION
 
   /// Return the MI flags bitvector.
-  uint16_t getFlags() const {
+  uint32_t getFlags() const {
     return Flags;
   }
 
@@ -1928,9 +1930,9 @@ public:
   /// Return the MIFlags which represent both MachineInstrs. This
   /// should be used when merging two MachineInstrs into one. This routine does
   /// not modify the MIFlags of this MachineInstr.
-  uint16_t mergeFlagsWith(const MachineInstr& Other) const;
+  uint32_t mergeFlagsWith(const MachineInstr& Other) const;
 
-  static uint16_t copyFlagsFromInstruction(const Instruction &I);
+  static uint32_t copyFlagsFromInstruction(const Instruction &I);
 
   /// Copy all flags to MachineInst MIFlags
   void copyIRFlags(const Instruction &I);
