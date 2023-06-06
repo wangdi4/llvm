@@ -363,10 +363,13 @@ add_custom_target( sycl-toolchain
 
 if (WIN32)
   add_dependencies(sycl-toolchain pi_win_proxy_loader)
+<<<<<<< HEAD
 endif()
 
 if (WIN32)
   add_dependencies(sycl-toolchain win_proxy_loader)
+=======
+>>>>>>> 0feef084232e45620d9aaaa5abb021b1ebe6127d
 endif()
 
 # Enable new IN_LIST operator.
