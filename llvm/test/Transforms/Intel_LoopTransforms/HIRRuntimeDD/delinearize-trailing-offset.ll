@@ -1,97 +1,81 @@
-; RUN: opt -aa-pipeline="scoped-noalias-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-runtime-dd,hir-unroll-and-jam,hir-vec-dir-insert,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -aa-pipeline="scoped-noalias-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-runtime-dd,hir-unroll-and-jam,print<hir>,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that refs with trailing offsets are delinearized for runtime DD tests
 ; and vectorization is enabled after unroll and jam.
 ;
 ; In the following example, runtimeDD uses delinearized forms of ref
-; (%out)[zext.i32.i64(%0) * i1 + i2].0, which is
-; (%out)[zext.i32.i64(%1) + -1][sext.i32.i64(%0) + -2].0
+; (%out)[zext.i32.i64(%0) * i1 + i2].1, which is
+; (%out)[zext.i32.i64(%1) + -1][sext.i32.i64(%0) + -2].1
 ; This delinearilzation adds test, "zext.i32.i64(%0) > 1".
 ;
 ; After unroll and jam, output depences arise between the following two refs.
-;  (%out)[2 * zext.i32.i64(%0) * i1 + i2].0
-;  (%out)[2 * zext.i32.i64(%0) * i1 + i2 + zext.i32.i64(%0)].0
+;  (%out)[2 * zext.i32.i64(%0) * i1 + i2].1
+;  (%out)[2 * zext.i32.i64(%0) * i1 + i2 + zext.i32.i64(%0)].1
 ;
 ; The runtime test added from delinearization, "zext.i32.i64(%0) > 1",
 ; is used for calculating DV (< =) between the two refs.
 
 ; CHECK: Function: test_bad
 ;
-; CHECK:         BEGIN REGION { }
-; CHECK:               + DO i1 = 0, zext.i32.i64(%1) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647> <unroll and jam = 2>
-; CHECK:               |   + DO i2 = 0, sext.i32.i64(%0) + -2, 1   <DO_LOOP>  <MAX_TC_EST = 2147483646>  <LEGAL_MAX_TC = 2147483646>
-; CHECK:               |   |   %9 = (%3)[sext.i32.i64(%2) * i1 + i2 + -1 * sext.i32.i64(%2)];
-; CHECK:               |   |   %10 = (%3)[sext.i32.i64(%2) * i1 + i2];
-; CHECK:               |   |   (%out)[zext.i32.i64(%0) * i1 + i2].0 = zext.i8.i32(%9) + -1 * zext.i8.i32(%10);
-; CHECK:               |   + END LOOP
-; CHECK:               + END LOOP
-; CHECK:         END REGION
+; CHECK:         BEGIN REGION { modified }
+; CHECK:               %mv.upper.base = &((i8*)(%out)[zext.i32.i64(%1) + -1][sext.i32.i64(%0) + -2].1);
+; CHECK:               %mv.test = &((%3)[zext.i32.i64(%1) + -1][sext.i32.i64(%0) + -2]) >=u &((i8*)(%out)[0][0].1);
+; CHECK:               %mv.test2 = &((%mv.upper.base)[3]) >=u &((%3)[-1][0]);
+; CHECK:               %mv.and = %mv.test  &  %mv.test2;
+; CHECK:               if (sext.i32.i64(%2) > 1 & sext.i32.i64(%0) + -2 < sext.i32.i64(%2) & zext.i32.i64(%0) > 1 & sext.i32.i64(%0) + -2 < zext.i32.i64(%0) & %mv.and == 0)  <MVTag: 34>
+;                      {
+;                         %tgu = (zext.i32.i64(%1))/u2;
 ;
-; CHECK: Function: test_bad
-;
-; CHECK:        BEGIN REGION { modified }
-; CHECK:         %mv.upper.base = &((i8*)(%out)[zext.i32.i64(%1) + -1][sext.i32.i64(%0) + -2].0);
-; CHECK:         %mv.test = &((%3)[zext.i32.i64(%1) + -1][sext.i32.i64(%0) + -2]) >=u &((i8*)(%out)[0][0].0);
-; CHECK:         %mv.test2 = &((%mv.upper.base)[3]) >=u &((%3)[-1][0]);
-; CHECK:         %mv.and = %mv.test  &  %mv.test2;
-; CHECK:         if (sext.i32.i64(%2) > 1 & sext.i32.i64(%0) + -2 < sext.i32.i64(%2) & zext.i32.i64(%0) > 1 & sext.i32.i64(%0) + -2 < zext.i32.i64(%0) & %mv.and == 0)  <MVTag: 34>
-; CHECK:         {
-; CHECK:            %tgu = (zext.i32.i64(%1))/u2;
-;
-; CHECK:            + DO i1 = 0, %tgu + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1073741823>  <LEGAL_MAX_TC = 1073741823>  <MVTag: 34, Delinearized: %3, %out> <nounroll and jam>
-; CHECK:            |   %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
-;                   |
-; CHECK:            |   + DO i2 = 0, sext.i32.i64(%0) + -2, 1   <DO_LOOP>  <MAX_TC_EST = 2147483646>  <LEGAL_MAX_TC = 2147483646>  <MVTag: 35>
-;                   |   |   %9 = (%3)[2 * sext.i32.i64(%2) * i1 + i2 + -1 * sext.i32.i64(%2)];
-;                   |   |   %10 = (%3)[2 * sext.i32.i64(%2) * i1 + i2];
-; CHECK:            |   |   (%out)[2 * zext.i32.i64(%0) * i1 + i2].0 = zext.i8.i32(%9) + -1 * zext.i8.i32(%10);
-;                   |   |   %9 = (%3)[2 * sext.i32.i64(%2) * i1 + i2];
-;                   |   |   %10 = (%3)[2 * sext.i32.i64(%2) * i1 + i2 + sext.i32.i64(%2)];
-; CHECK:            |   |   (%out)[2 * zext.i32.i64(%0) * i1 + i2 + zext.i32.i64(%0)].0 = zext.i8.i32(%9) + -1 * zext.i8.i32(%10);
-; CHECK:            |   + END LOOP
-; CHECK:            |
-; CHECK:            |   @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
-; CHECK:            + END LOOP
+; CHECK:                  + DO i1 = 0, %tgu + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1073741823>  <LEGAL_MAX_TC = 1073741823>  <MVTag: 34, Delinearized: %3, %out> <nounroll and jam>
+; CHECK:                  |   + DO i2 = 0, sext.i32.i64(%0) + -2, 1   <DO_LOOP>  <MAX_TC_EST = 2147483646>  <LEGAL_MAX_TC = 2147483646>  <MVTag: 35>
+;                         |   |   %9 = (%3)[2 * sext.i32.i64(%2) * i1 + i2 + -1 * sext.i32.i64(%2)];
+;                         |   |   %10 = (%3)[2 * sext.i32.i64(%2) * i1 + i2];
+; CHECK:                  |   |   (%out)[2 * zext.i32.i64(%0) * i1 + i2].1 = zext.i8.i32(%9) + -1 * zext.i8.i32(%10);
+;                         |   |   %9 = (%3)[2 * sext.i32.i64(%2) * i1 + i2];
+;                         |   |   %10 = (%3)[2 * sext.i32.i64(%2) * i1 + i2 + sext.i32.i64(%2)];
+; CHECK:                  |   |   (%out)[2 * zext.i32.i64(%0) * i1 + i2 + zext.i32.i64(%0)].1 = zext.i8.i32(%9) + -1 * zext.i8.i32(%10);
+; CHECK:                  |   + END LOOP
+; CHECK:                  + END LOOP
 ;
 ;
-; CHECK:            + DO i1 = 2 * %tgu, zext.i32.i64(%1) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1>  <LEGAL_MAX_TC = 1>  <MVTag: 34, Delinearized: %3, %out> <nounroll> <nounroll and jam> <max_trip_count = 1>
-; CHECK:            |   %entry.region4 = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
-;                   |
-; CHECK:            |   + DO i2 = 0, sext.i32.i64(%0) + -2, 1   <DO_LOOP>  <MAX_TC_EST = 2147483646>  <LEGAL_MAX_TC = 2147483646>  <MVTag: 35>
-;                   |   |   %9 = (%3)[sext.i32.i64(%2) * i1 + i2 + -1 * sext.i32.i64(%2)];
-;                   |   |   %10 = (%3)[sext.i32.i64(%2) * i1 + i2];
-;                   |   |   (%out)[zext.i32.i64(%0) * i1 + i2].0 = zext.i8.i32(%9) + -1 * zext.i8.i32(%10);
-;                   |   + END LOOP
-;                   |
-; CHECK:            |   @llvm.directive.region.exit(%entry.region4); [ DIR.VPO.END.AUTO.VEC() ]
-;                   + END LOOP
-;                }
-;                else
-;                {
-;                   %tgu3 = (zext.i32.i64(%1))/u2;
+;                         + DO i1 = 2 * %tgu, zext.i32.i64(%1) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1>  <LEGAL_MAX_TC = 1>  <MVTag: 34, Delinearized: %3, %out> <nounroll> <nounroll and jam> <max_trip_count = 1>
+;                         |   + DO i2 = 0, sext.i32.i64(%0) + -2, 1   <DO_LOOP>  <MAX_TC_EST = 2147483646>  <LEGAL_MAX_TC = 2147483646>  <MVTag: 35>
+;                         |   |   %9 = (%3)[sext.i32.i64(%2) * i1 + i2 + -1 * sext.i32.i64(%2)];
+;                         |   |   %10 = (%3)[sext.i32.i64(%2) * i1 + i2];
+;                         |   |   (%out)[zext.i32.i64(%0) * i1 + i2].1 = zext.i8.i32(%9) + -1 * zext.i8.i32(%10);
+;                         |   + END LOOP
+;                         + END LOOP
+;                      }
+;                      else
+;                      {
+;                         %tgu3 = (zext.i32.i64(%1))/u2;
 ;
-;                   + DO i1 = 0, %tgu3 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1073741823>  <LEGAL_MAX_TC = 1073741823>  <MVTag: 34> <nounroll> <nounroll and jam> <novectorize>
-;                   |   + DO i2 = 0, sext.i32.i64(%0) + -2, 1   <DO_LOOP>  <MAX_TC_EST = 2147483646>  <LEGAL_MAX_TC = 2147483646>  <MVTag: 35> <nounroll> <novectorize>
-;                   |   |   %9 = (%3)[2 * sext.i32.i64(%2) * i1 + i2 + -1 * sext.i32.i64(%2)];
-;                   |   |   %10 = (%3)[2 * sext.i32.i64(%2) * i1 + i2];
-;                   |   |   (%out)[2 * zext.i32.i64(%0) * i1 + i2].0 = zext.i8.i32(%9) + -1 * zext.i8.i32(%10);
-;                   |   |   %9 = (%3)[2 * sext.i32.i64(%2) * i1 + i2];
-;                   |   |   %10 = (%3)[2 * sext.i32.i64(%2) * i1 + i2 + sext.i32.i64(%2)];
-;                   |   |   (%out)[2 * zext.i32.i64(%0) * i1 + i2 + zext.i32.i64(%0)].0 = zext.i8.i32(%9) + -1 * zext.i8.i32(%10);
-;                   |   + END LOOP
-;                   + END LOOP
+;                         + DO i1 = 0, %tgu3 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1073741823>  <LEGAL_MAX_TC = 1073741823>  <MVTag: 34> <nounroll> <nounroll and jam> <novectorize>
+;                         |   + DO i2 = 0, sext.i32.i64(%0) + -2, 1   <DO_LOOP>  <MAX_TC_EST = 2147483646>  <LEGAL_MAX_TC = 2147483646>  <MVTag: 35> <nounroll> <novectorize>
+;                         |   |   %9 = (%3)[2 * sext.i32.i64(%2) * i1 + i2 + -1 * sext.i32.i64(%2)];
+;                         |   |   %10 = (%3)[2 * sext.i32.i64(%2) * i1 + i2];
+;                         |   |   (%out)[2 * zext.i32.i64(%0) * i1 + i2].1 = zext.i8.i32(%9) + -1 * zext.i8.i32(%10);
+;                         |   |   %9 = (%3)[2 * sext.i32.i64(%2) * i1 + i2];
+;                         |   |   %10 = (%3)[2 * sext.i32.i64(%2) * i1 + i2 + sext.i32.i64(%2)];
+;                         |   |   (%out)[2 * zext.i32.i64(%0) * i1 + i2 + zext.i32.i64(%0)].1 = zext.i8.i32(%9) + -1 * zext.i8.i32(%10);
+;                         |   + END LOOP
+;                         + END LOOP
 ;
 ;
-;                   + DO i1 = 2 * %tgu3, zext.i32.i64(%1) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1>  <LEGAL_MAX_TC = 1>  <MVTag: 34> <nounroll> <nounroll and jam> <novectorize> <max_trip_count = 1>
-;                   |   + DO i2 = 0, sext.i32.i64(%0) + -2, 1   <DO_LOOP>  <MAX_TC_EST = 2147483646>  <LEGAL_MAX_TC = 2147483646>  <MVTag: 35> <nounroll> <novectorize>
-;                   |   |   %9 = (%3)[sext.i32.i64(%2) * i1 + i2 + -1 * sext.i32.i64(%2)];
-;                   |   |   %10 = (%3)[sext.i32.i64(%2) * i1 + i2];
-;                   |   |   (%out)[zext.i32.i64(%0) * i1 + i2].0 = zext.i8.i32(%9) + -1 * zext.i8.i32(%10);
-;                   |   + END LOOP
-;                   + END LOOP
-;                }
-;          END REGION
+;                         + DO i1 = 2 * %tgu3, zext.i32.i64(%1) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1>  <LEGAL_MAX_TC = 1>  <MVTag: 34> <nounroll> <nounroll and jam> <novectorize> <max_trip_count = 1>
+;                         |   + DO i2 = 0, sext.i32.i64(%0) + -2, 1   <DO_LOOP>  <MAX_TC_EST = 2147483646>  <LEGAL_MAX_TC = 2147483646>  <MVTag: 35> <nounroll> <novectorize>
+;                         |   |   %9 = (%3)[sext.i32.i64(%2) * i1 + i2 + -1 * sext.i32.i64(%2)];
+;                         |   |   %10 = (%3)[sext.i32.i64(%2) * i1 + i2];
+;                         |   |   (%out)[zext.i32.i64(%0) * i1 + i2].1 = zext.i8.i32(%9) + -1 * zext.i8.i32(%10);
+;                         |   + END LOOP
+;                         + END LOOP
+;                      }
+;                END REGION
 ;
+;
+; Verify DVs of the unroll and jammed instances of memrefs.
+;
+; CHECK: (%out)[2 * zext.i32.i64(%0) * i1 + i2].1 --> (%out)[2 * zext.i32.i64(%0) * i1 + i2 + zext.i32.i64(%0)].1 OUTPUT (< =) (0 0)
 
 ; ModuleID = 'test.c'
 source_filename = "test.c"
@@ -99,7 +83,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 %struct.input = type { i32, i32, i32, ptr }
-%struct.output = type { i32 }
+%struct.output = type { float, i32 }
 
 ; Function Attrs: nofree norecurse nosync nounwind memory(read, argmem: readwrite, inaccessiblemem: none) uwtable
 define dso_local void @test_bad(ptr nocapture noundef readonly %in, ptr nocapture noundef writeonly %out) local_unnamed_addr {
@@ -147,7 +131,7 @@ for.body7.us:                                     ; preds = %for.cond4.preheader
   %conv16.us = zext i8 %10 to i32
   %sub17.us = sub nsw i32 %conv.us, %conv16.us
   %11 = add nuw nsw i64 %indvars.iv, %7
-  %a.us = getelementptr inbounds %struct.output, ptr %out, i64 %11, i32 0
+  %a.us = getelementptr inbounds %struct.output, ptr %out, i64 %11, i32 1
   store i32 %sub17.us, ptr %a.us, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count
