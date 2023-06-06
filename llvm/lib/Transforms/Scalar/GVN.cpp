@@ -2988,7 +2988,6 @@ bool GVNPass::processBlock(BasicBlock *BB) {
 #if INTEL_CUSTOMIZATION
       if (auto CB = dyn_cast<CallBase>(I)) {
         InlineReason Reason = NinlrDeletedDeadCode;
-        getInlineReport()->initFunctionClosure(CB->getFunction());
         getInlineReport()->removeCallBaseReference(*CB, Reason);
         getMDInlineReport()->removeCallBaseReference(*CB, Reason);
       }

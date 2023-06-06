@@ -130,7 +130,6 @@ CallBase *IndirectCallConvImpl::createDirectCallSite(CallBase *Call,
                                                      InlICSType ICSMethod) {
   CallBase *NewCall;
 
-  getInlineReport()->initFunctionClosure(Call->getCaller());
   if (isa<CallInst>(Call)) {
     CallInst *NewCI;
     std::string NewName;
@@ -486,7 +485,6 @@ bool IndirectCallConvImpl::convert(CallBase *Call) {
 
   // Eliminate original indirect call
   if (auto CB = dyn_cast<CallBase>(SplitPt)) {
-    getInlineReport()->initFunctionClosure(CB->getFunction());
     InlineReason Reason = NinlrDeletedIndCallConv;
     getInlineReport()->removeCallBaseReference(*CB, Reason);
     getMDInlineReport()->removeCallBaseReference(*CB, Reason);

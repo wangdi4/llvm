@@ -3754,7 +3754,6 @@ private:
 #if INTEL_CUSTOMIZATION
     auto InlineReportCopyII = [](IntrinsicInst &II, Value &New) {
       CallBase *CB = cast<CallBase>(&New);
-      getInlineReport()->initFunctionClosure(II.getFunction());
       getInlineReport()->cloneCallBaseToCallBase(&II, CB);
       getMDInlineReport()->cloneCallBaseToCallBase(&II, CB);
     };
@@ -5508,7 +5507,6 @@ bool SROAPass::deleteDeadInstructions(
 #if INTEL_CUSTOMIZATION
     if (auto CB = dyn_cast<CallBase>(I)) {
       InlineReason Reason = NinlrDeletedDeadCode;
-      getInlineReport()->initFunctionClosure(CB->getFunction());
       getInlineReport()->removeCallBaseReference(*CB, Reason);
       getMDInlineReport()->removeCallBaseReference(*CB, Reason);
     }

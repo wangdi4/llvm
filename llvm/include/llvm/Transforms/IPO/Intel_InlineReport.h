@@ -481,9 +481,9 @@ public:
       return;
     if (ActiveInlineCallBase != &CB) {
       auto MapIt = IRCallBaseCallSiteMap.find(&CB);
-      if (MapIt != IRCallBaseCallSiteMap.end()) {
-        InlineReportCallSite *IRCS = MapIt->second;
-        IRCallBaseCallSiteMap.erase(MapIt);
+      if (MapIt != IRCallBaseCallSiteMap.end() || !FromCallback) {
+        InlineReportCallSite *IRCS = getOrAddCallSite(&CB);
+        IRCallBaseCallSiteMap.erase(&CB);
         IRCS->setCall(nullptr);
         IRCS->setReason(Reason);
       }
@@ -504,11 +504,11 @@ public:
     if (!isClassicIREnabled())
       return;
     auto MapIt = IRFunctionMap.find(&F);
-    if (MapIt != IRFunctionMap.end()) {
-      InlineReportFunction *IRF = MapIt->second;
+    if (MapIt != IRFunctionMap.end() || !FromCallback) {
+      InlineReportFunction *IRF = getOrAddFunction(&F);
       setDead(&F);
       IRF->setLinkageChar(&F);
-      IRFunctionMap.erase(MapIt);
+      IRFunctionMap.erase(&F);
       IRDeadFunctionSet.insert(IRF);
     }
     removeCallback(&F);
