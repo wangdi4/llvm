@@ -7367,12 +7367,12 @@ const ConstantRange &ScalarEvolution::getRangeRef(
     if (AddRec->isAffine()) {
       const SCEV *MaxBEScev =
           getConstantMaxBackedgeTakenCount(AddRec->getLoop());
-      if (!isa<SCEVCouldNotCompute>(MaxBEScev)) {
 #if INTEL_CUSTOMIZATION
-        // Try to reason about widened IVs, too. If we can prove that truncating
-        // a wide MaxBEScev preserves the count then we use it to compute a more
-        // accurate range.
-        if (isa<SCEVConstant>(MaxBEScev) &&
+      // Try to reason about widened IVs, too. If we can prove that truncating
+      // a wide MaxBEScev preserves the count then we use it to compute a more
+      // accurate range.
+      if (!isa<SCEVCouldNotCompute>(MaxBEScev) &&
+              isa<SCEVConstant>(MaxBEScev) &&
               getTypeSizeInBits(MaxBEScev->getType()) > BitWidth) {
           unsigned WideBitWidth = getTypeSizeInBits(MaxBEScev->getType());
           ConstantRange SCR = getSignedRange(MaxBEScev);
@@ -7380,10 +7380,11 @@ const ConstantRange &ScalarEvolution::getRangeRef(
           if (SCR.truncate(BitWidth).signExtend(WideBitWidth) == SCR &&
               UCR.truncate(BitWidth).zeroExtend(WideBitWidth) == UCR)
               MaxBEScev = getTruncateExpr(MaxBEScev, AddRec->getType());
-        }
+      }
+#endif // INTEL_CUSTOMIZATION
+      if (!isa<SCEVCouldNotCompute>(MaxBEScev)) {
         APInt MaxBECount = cast<SCEVConstant>(MaxBEScev)->getAPInt();
-#else
-        APInt MaxBECount = cast<SCEVConstant>(MaxBEScev)->getAPInt();
+
         // Adjust MaxBECount to the same bitwidth as AddRec. We can truncate if
         // MaxBECount's active bits are all <= AddRec's bit width.
         if (MaxBECount.getBitWidth() > BitWidth &&
@@ -7391,7 +7392,6 @@ const ConstantRange &ScalarEvolution::getRangeRef(
           MaxBECount = MaxBECount.trunc(BitWidth);
         else if (MaxBECount.getBitWidth() < BitWidth)
           MaxBECount = MaxBECount.zext(BitWidth);
-#endif // INTEL_CUSTOMIZATION
 
         if (MaxBECount.getBitWidth() == BitWidth) {
           auto RangeFromAffine = getRangeForAffineAR(
