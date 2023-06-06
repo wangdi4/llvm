@@ -106,9 +106,25 @@ void llvm::detachDeadBlocks(
       // value with.  Note that since this block is unreachable, and all values
       // contained within it must dominate their uses, that all uses will
       // eventually be removed (they are themselves dead).
+#if INTEL_COLLAB
+      // If the dead instruction is an OMP end directive, the corresponding
+      // begin must be deleted also.
+      Instruction *BeginDir = nullptr;
+      if (vpo::VPOAnalysisUtils::isEndDirective(&I))
+        BeginDir = dyn_cast<Instruction>(I.getOperand(0));
+#endif // INTEL_COLLAB
       if (!I.use_empty())
         I.replaceAllUsesWith(PoisonValue::get(I.getType()));
       BB->back().eraseFromParent();
+#if INTEL_COLLAB
+      if (BeginDir) {
+        // Delete the begin directive after the end-directive has been
+        // removed.
+        assert(vpo::VPOAnalysisUtils::isBeginDirective(BeginDir) &&
+               "Unexpected operand of end directive!");
+        BeginDir->eraseFromParent();
+      }
+#endif // INTEL_COLLAB
     }
     new UnreachableInst(BB->getContext(), BB);
     assert(BB->size() == 1 &&
