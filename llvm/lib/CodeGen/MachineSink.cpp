@@ -623,7 +623,6 @@ bool MachineSinking::isWorthBreakingCriticalEdge(MachineInstr &MI,
   // MI is cheap, we probably don't want to break the critical edge for it.
   // However, if this would allow some definitions of its source operands
   // to be sunk then it's probably worth it.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Only break critical edge if at least one non-copy instruction can be sunk.
   return isWorthBreakingCriticalEdgeForCopyChain(MI);
@@ -637,12 +636,7 @@ bool MachineSinking::isWorthBreakingCriticalEdge(MachineInstr &MI,
 // in the same copy chain.
 bool MachineSinking::isWorthBreakingCriticalEdgeForCopyChain(
     MachineInstr &MI) const {
-  for (const MachineOperand &MO : MI.operands()) {
-    if (!MO.isReg() || !MO.isUse())
-      continue;
-=======
   for (const MachineOperand &MO : MI.all_uses()) {
->>>>>>> 5022fc2ad31b5e3211e2458347c89412b8c5ec1b
     Register Reg = MO.getReg();
     if (Reg == 0)
       continue;
