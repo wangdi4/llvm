@@ -643,6 +643,7 @@ private:
   EXPR NumTeams = nullptr;
   Type *NumTeamsTy = nullptr;
   WRNDefaultKind Default = WRNDefaultAbsent;
+  SmallVector<Value *, 2> DirectlyUsedNonPointerValues;
 #if INTEL_CUSTOMIZATION
   bool IsDoConcurrent = false; // Used for Fortran Do Concurrent
 #endif // INTEL_CUSTOMIZATION
@@ -672,6 +673,13 @@ public:
   EXPR getNumTeams() const override  { return NumTeams; }
   Type *getNumTeamsType() const override { return NumTeamsTy; }
   WRNDefaultKind getDefault() const override { return Default; }
+  const SmallVectorImpl<Value *> &
+  getDirectlyUsedNonPointerValues() const override {
+    return DirectlyUsedNonPointerValues;
+  }
+  void addDirectlyUsedNonPointerValue(Value *V) override {
+    DirectlyUsedNonPointerValues.push_back(V);
+  }
 #if INTEL_CUSTOMIZATION
   bool getIsDoConcurrent() const override { return IsDoConcurrent; }
 #endif // INTEL_CUSTOMIZATION

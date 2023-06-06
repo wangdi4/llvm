@@ -83,7 +83,7 @@ protected:
       Legal.reset(
           new VPOVectorizationLegality(Loop, *PSE, &F, &F.getContext()));
     }
-    Externals.reset(new VPExternalValues(Ctx.get(), DL.get(), M.get()));
+    Externals.reset(new VPExternalValues(M.get()));
     UVPI.reset(new VPUnlinkedInstructions());
     LVP.reset(new LoopVectorizationPlanner(
         nullptr /* no WRLp */, Loop, LI.get(), TLI.get(), TTI.get(), DL.get(),

@@ -551,8 +551,8 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   LVP.readLoopMetadata();
   VPAnalysesFactory VPAF(SE, Lp, DT, DL);
-  if (!LVP.buildInitialVPlans(DL, Header->getModule(), VPlanName, *AC, VPAF,
-                              &SE, CanVectorize || DisableCodeGen)) {
+  if (!LVP.buildInitialVPlans(Header->getModule(), VPlanName, *AC, VPAF, &SE,
+                              CanVectorize || DisableCodeGen)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     auto &LVPBR = LVP.getBailoutRemark();
     assert(LVPBR.BailoutRemark &&
@@ -1803,8 +1803,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   }
   VPAnalysesFactoryHIR VPAF(Lp, getDT(), DL);
   HLNodeUtils &HNU = Lp->getHLNodeUtils();
-  if (!LVP.buildInitialVPlans(DL, &HNU.getModule(), VPlanName, *getAC(),
-                              VPAF)) {
+  if (!LVP.buildInitialVPlans(&HNU.getModule(), VPlanName, *getAC(), VPAF)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     // Erase intrinsics before and after the loop if this loop is an auto
     // vectorization candidate.

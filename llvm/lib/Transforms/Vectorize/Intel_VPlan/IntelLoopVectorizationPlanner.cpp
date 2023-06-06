@@ -484,7 +484,7 @@ void LoopVectorizationPlanner::setDefaultVectorFactors() {
 }
 
 unsigned LoopVectorizationPlanner::buildInitialVPlans(
-    const DataLayout *DL, Module *M, std::string VPlanName, AssumptionCache &AC,
+    Module *M, std::string VPlanName, AssumptionCache &AC,
     VPAnalysesFactoryBase &VPAF, ScalarEvolution *SE, bool IsLegalToVec) {
 
   ++VPlanOrderNumber;
@@ -518,7 +518,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
     return 0;
   }
 
-  Externals = std::make_unique<VPExternalValues>(Context, DL, M);
+  Externals = std::make_unique<VPExternalValues>(M);
   UnlinkedVPInsts = std::make_unique<VPUnlinkedInstructions>();
 
   // TODO: revisit when we build multiple VPlans.

@@ -1719,7 +1719,7 @@ public:
   void operator()(ReductionDescr &Descriptor,
                   const ExplicitReductionList::value_type &CurrValue) {
     // Get pointee type of descriptor ref
-    Type *RType = cast<RegDDRef>(CurrValue.getRef())->getBasePtrElementType();
+    Type *RType = CurrValue.getType();
     // Translate HIRLegality descriptor's UpdateInstructions to corresponding
     // VPInstructions
     for (auto *UpdateInst : CurrValue.getUpdateInstructions()) {

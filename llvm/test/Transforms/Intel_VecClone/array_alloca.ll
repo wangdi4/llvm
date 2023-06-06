@@ -16,7 +16,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; OPT-REPORT:        Global optimization report for : foo
 ; OPT-REPORT-EMPTY:
 ; OPT-REPORT-NEXT:   FUNCTION REPORT BEGIN
-; OPT-REPORT-NEXT:       remark: 'omp declare' vector variants were skipped due to presence of unsupported variable-length array allocations.
+; OPT-REPORT-NEXT:       remark #15580: 'omp declare' vector variants were skipped due to presence of unsupported variable-length array allocations.
 ; OPT-REPORT-NEXT:   FUNCTION REPORT END
 ; OPT-REPORT-NEXT:   =================================================================
 

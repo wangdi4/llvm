@@ -330,11 +330,12 @@ private:
                      OptRemarkID::VecFailGenericBailout,
                      std::string("Cannot handle array reductions."));
 
+    Type *ElemType = RedType;
     // Other temporary bailouts for array reductions.
     if (auto *ArrTy = dyn_cast<ArrayType>(RedType)) {
       // Prototype supported only for POD type arrays.
-      RedType = ArrTy->getElementType();
-      if (!RedType->isSingleValueType())
+      ElemType = ArrTy->getElementType();
+      if (!ElemType->isSingleValueType())
         return bailout(OptReportVerbosity::High,
                        OptRemarkID::VecFailGenericBailout,
                        std::string("Cannot handle array reduction with "
@@ -369,7 +370,7 @@ private:
     }
 
     ValueTy *Val = Item->getOrig<IR>();
-    RecurKind Kind = getReductionRecurKind(Item, RedType);
+    RecurKind Kind = getReductionRecurKind(Item, ElemType);
 
     if (!forceUDSReductionVec() && Kind == RecurKind::Udr &&
         Item->getIsInscan())
@@ -403,12 +404,12 @@ private:
                 : InscanReductionKind::Exclusive;
       }
       // Capture functions for init/finalization for UDRs.
-      addReduction(Val, Item->getCombiner(), Item->getInitializer(),
+      addReduction(Val, RedType, Item->getCombiner(), Item->getInitializer(),
                    Item->getConstructor(), Item->getDestructor(),
                    InscanRedKind);
     } else if (Item->getIsInscan()) {
       // Add an ordinary inscan reduction.
-      addReduction(Val, Kind,
+      addReduction(Val, RedType, Kind,
                    isa<InclusiveItem>(
                        WRegionUtils::getInclusiveExclusiveItemForReductionItem(
                            WRLp, Item))
@@ -416,7 +417,7 @@ private:
                        : InscanReductionKind::Exclusive,
                    Item->getIsComplex());
     } else
-      addReduction(Val, Kind, std::nullopt, Item->getIsComplex());
+      addReduction(Val, RedType, Kind, std::nullopt, Item->getIsComplex());
     return true;
   }
 
@@ -453,18 +454,18 @@ private:
                                                       Step, IsIV);
   }
 
-  void addReduction(ValueTy *V, RecurKind Kind,
+  void addReduction(ValueTy *V, Type *Ty, RecurKind Kind,
                     std::optional<InscanReductionKind> InscanRedKind,
                     bool IsComplex) {
-    return static_cast<LegalityTy *>(this)->addReduction(V, Kind, InscanRedKind,
-                                                         IsComplex);
+    return static_cast<LegalityTy *>(this)->addReduction(
+        V, Ty, Kind, InscanRedKind, IsComplex);
   }
 
-  void addReduction(ValueTy *V, Function *Combiner, Function *Initializer,
-                    Function *Constr, Function *Destr,
+  void addReduction(ValueTy *V, Type *Ty, Function *Combiner,
+                    Function *Initializer, Function *Constr, Function *Destr,
                     std::optional<InscanReductionKind> InscanRedKind) {
     return static_cast<LegalityTy *>(this)->addReduction(
-        V, Combiner, Initializer, Constr, Destr, InscanRedKind);
+        V, Ty, Combiner, Initializer, Constr, Destr, InscanRedKind);
   }
 };
 
@@ -481,7 +482,7 @@ public:
         WidestIndTy(nullptr) {}
 
   struct ExplicitReductionDescr {
-    RecurrenceDescriptor RD;
+    RecurrenceDescriptor RD; // Contains type info.
     Value *RedVarPtr;
     std::optional<InscanReductionKind> InscanRedKind;
   };
@@ -490,6 +491,7 @@ public:
     std::optional<InscanReductionKind> InscanRedKind;
     Instruction *UpdateInst;
     bool IsComplex;
+    Type *Ty;
   };
 
   /// Returns true if it is legal to vectorize this loop.
@@ -774,26 +776,27 @@ private:
 
   /// Add an explicit reduction variable \p V and the reduction recurrence kind.
   /// Additionally track if this is an inscan or complex type reduction.
-  void addReduction(Value *V, RecurKind Kind,
+  void addReduction(Value *V, Type *Ty, RecurKind Kind,
                     std::optional<InscanReductionKind> InscanRedKind,
                     bool IsComplex);
 
   /// Add a user-defined reduction variable \p V and functions that are needed
   /// for its initialization/finalization.
-  void addReduction(Value *V, Function *Combiner, Function *Initializer,
-                    Function *Constr, Function *Destr,
+  void addReduction(Value *V, Type *Ty, Function *Combiner,
+                    Function *Initializer, Function *Constr, Function *Destr,
                     std::optional<InscanReductionKind> InscanRedKind) {
     UserDefinedReductions.emplace_back(std::make_unique<UDRDescrTy>(
-        V, Combiner, Initializer, Constr, Destr, InscanRedKind));
+        V, Ty, Combiner, Initializer, Constr, Destr, InscanRedKind));
   }
 
   /// Parsing Min/Max reduction patterns.
   void parseMinMaxReduction(Value *V, RecurKind Kind,
-                            std::optional<InscanReductionKind> InscanRedKind);
+                            std::optional<InscanReductionKind> InscanRedKind,
+                            Type *Ty);
   /// Parsing arithmetic reduction patterns.
   void parseBinOpReduction(Value *V, RecurKind Kind,
                            std::optional<InscanReductionKind> InscanRedKind,
-                           bool IsComplex);
+                           bool IsComplex, Type *Ty);
 
   /// Return true if the explicit reduction uses Phi nodes.
   bool doesReductionUsePhiNodes(Value *RedVarPtr, PHINode *&LoopHeaderPhiNode,

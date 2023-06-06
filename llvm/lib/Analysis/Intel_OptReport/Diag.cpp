@@ -491,6 +491,9 @@ const DenseMap<DiagTableKey, const char *> OptReportDiag::Diags = {
     {OptRemarkID::GenericDebug, "DEBUG: %s"},
     {15579,
      "Multi-exit loop is not safe to vectorize or has unsupported structure."},
+    {OptRemarkID::VecCloneVLAPresence,
+     "'omp declare' vector variants were skipped due to presence of "
+     "unsupported variable-length array allocations."},
 
     {OptRemarkID::TotalLinesPrefetched, "Total number of lines prefetched=%d"},
     {OptRemarkID::NumSpatialPrefetches,

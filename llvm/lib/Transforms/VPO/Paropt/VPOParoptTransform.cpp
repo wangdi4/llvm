@@ -9924,7 +9924,7 @@ bool VPOParoptTransform::captureAndAddCollectedNonPointerValuesToSharedClause(
 
   if (!isa<WRNParallelNode>(W) && !isa<WRNParallelLoopNode>(W) &&
       !isa<WRNParallelSectionsNode>(W) && !isa<WRNTargetNode>(W) &&
-      !isa<WRNDistributeParLoopNode>(W))
+      !isa<WRNDistributeParLoopNode>(W) && !isa<WRNTeamsNode>(W))
     // TODO: Remove this to enable the function for all outlined WRNs.
     //
     // While this condition is here it should match with one in
