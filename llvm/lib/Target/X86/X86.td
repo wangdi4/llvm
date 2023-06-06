@@ -1161,7 +1161,6 @@ include "X86SchedSkylakeServer.td"
 include "X86SchedIceLake.td"
 include "X86SchedAlderlakeP.td"
 #if INTEL_CUSTOMIZATION
-include "Intel_X86ScheduleSPR.td"
 include "Intel_X86ScheduleGRT.td"
 #if INTEL_FEATURE_CPU_RYL
 include "Intel_X86ScheduleRYL.td"

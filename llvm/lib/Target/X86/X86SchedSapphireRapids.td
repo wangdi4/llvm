@@ -3748,7 +3748,7 @@ def : InstRW<[SPRWriteResGroup390, ReadAfterVecYLd], (instregex "^VF(C?)MULCPHZ2
                                                                 "^VRNDSCALEP(D|H|S)Z256rm(b?)i$",
                                                                 "^VRNDSCALEP(D|S)Z256rm(b?)ik(z?)$",
                                                                 "^VSCALEFPHZ256rm(b?)$")>;
-def : InstRW<[SPRWriteResGroup390, ReadAfterVecLd], (instrs VSCALEFSHZrm)>;
+def : InstRW<[SPRWriteResGroup390, ReadAfterVecLd], (instregex "^VSCALEFSHZrm_Int$")>; //INTEL
 
 def SPRWriteResGroup391 : SchedWriteRes<[SPRPort00_01, SPRPort02_03_11]> {
   let ResourceCycles = [2, 1];
@@ -4885,7 +4885,7 @@ def : InstRW<[SPRWriteResGroup534, ReadAfterVecXLd], (instregex "^VRNDSCALEPHZ12
 def : InstRW<[SPRWriteResGroup534, ReadAfterVecYLd], (instregex "^VRNDSCALEPHZ256rm(b?)ik(z?)$",
                                                                 "^VSCALEFPHZ256rm(bk|kz)$",
                                                                 "^VSCALEFPHZ256rm(k|bkz)$")>;
-def : InstRW<[SPRWriteResGroup534, ReadAfterVecLd], (instregex "^VSCALEFSHZrmk(z?)$")>;
+def : InstRW<[SPRWriteResGroup534, ReadAfterVecLd], (instregex "^VSCALEFSHZrm_Intk(z?)$")>; //INTEL
 
 def SPRWriteResGroup535 : SchedWriteRes<[SPRPort00_01]> {
   let ResourceCycles = [2];
@@ -4896,7 +4896,7 @@ def : InstRW<[SPRWriteResGroup535], (instregex "^VRNDSCALEPHZ(128|256)rrik(z?)$"
                                                "^VRNDSCALESHZr(b?)_Intk(z?)$",
                                                "^VSCALEFPHZ(128|256)rrk(z?)$",
                                                "^VSCALEFSHZrrb_Intk(z?)$",
-                                               "^VSCALEFSHZrrk(z?)$")>;
+                                               "^VSCALEFSHZrr_Intk(z?)$")>; //INTEL
 
 def SPRWriteResGroup536 : SchedWriteRes<[SPRPort00, SPRPort02_03_11]> {
   let ResourceCycles = [2, 1];
