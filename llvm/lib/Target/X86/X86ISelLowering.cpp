@@ -20361,31 +20361,11 @@ static SDValue lower256BitShuffle(const SDLoc &DL, ArrayRef<int> Mask, MVT VT,
     return DAG.getBitcast(VT, DAG.getVectorShuffle(FpVT, DL, V1, V2, Mask));
   }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16_BASE
-  if (VT == MVT::v16f16 || VT == MVT::v16bf16) {
-#else // INTEL_FEATURE_ISA_BF16_BASE
-  if (VT == MVT::v16f16) {
-#endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
-    V1 = DAG.getBitcast(MVT::v16i16, V1);
-    V2 = DAG.getBitcast(MVT::v16i16, V2);
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_BF16_BASE
-    return DAG.getBitcast(VT,
-#else // INTEL_FEATURE_ISA_BF16_BASE
-    return DAG.getBitcast(MVT::v16f16,
-#endif // INTEL_FEATURE_ISA_BF16_BASE
-#endif // INTEL_CUSTOMIZATION
-                          DAG.getVectorShuffle(MVT::v16i16, DL, V1, V2, Mask));
-=======
   if (VT == MVT::v16f16 || VT.getVectorElementType() == MVT::bf16) {
     MVT IVT = VT.changeVectorElementTypeToInteger();
     V1 = DAG.getBitcast(IVT, V1);
     V2 = DAG.getBitcast(IVT, V2);
     return DAG.getBitcast(VT, DAG.getVectorShuffle(IVT, DL, V1, V2, Mask));
->>>>>>> 801dd8870fe3634e81e35e88519477541d1b0119
   }
 
   switch (VT.SimpleTy) {
