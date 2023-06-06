@@ -2302,7 +2302,7 @@ def : ProcModel<"sapphirerapids", SapphireRapidsModel,
 def : ProcModel<"gracemont", GRTModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.GRTTuning>;
 #if INTEL_FEATURE_CPU_DMR
-def : ProcModel<"diamondrapids", SPRModel,
+def : ProcModel<"diamondrapids", SapphireRapidsModel,
                 ProcessorFeatures.DMRFeatures, ProcessorFeatures.DMRTuning>;
 #endif // INTEL_FEATURE_CPU_DMR
 #if INTEL_FEATURE_CPU_RYL
