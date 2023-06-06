@@ -90,8 +90,7 @@ public:
       : F(F), AC(AC), DT(DT) {}
 
   bool run() {
-    auto Externals = std::make_unique<VPExternalValues>(
-        &F.getContext(), &F.getParent()->getDataLayout(), F.getParent());
+    auto Externals = std::make_unique<VPExternalValues>(F.getParent());
     auto UnlinkedVPInsts = std::make_unique<VPUnlinkedInstructions>();
     auto Plan = std::make_unique<VPlanNonMasked>(*Externals, *UnlinkedVPInsts);
 
