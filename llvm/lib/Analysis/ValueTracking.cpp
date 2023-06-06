@@ -116,7 +116,7 @@ static unsigned getBitWidth(Type *Ty, const DataLayout &DL) {
   return DL.getPointerTypeSizeInBits(Ty);
 }
 
-<<<<<<< HEAD
+#if INTEL_CUSTOMIZATION
 namespace {
 
 // Simplifying using an assume can only be done in a particular control-flow
@@ -134,7 +134,6 @@ struct Query {
   ScalarEvolution *SE; // INTEL
   LoopInfo *LI;        // INTEL
 
-#if INTEL_CUSTOMIZATION
   // INTEL: Add ScalarEvolution/LoopInfo optional parameters.
   Query(const DataLayout &DL, AssumptionCache *AC, const Instruction *CxtI,
         const DominatorTree *DT, bool UseInstrInfo,
@@ -143,13 +142,11 @@ struct Query {
         SE(SE), LI(LI) {
     assert((!SE && !LI || SE && LI) && "SE/LI are expected to come in pair.");
   }
-#endif // INTEL_CUSTOMIZATION
 };
 
 } // end anonymous namespace
+#endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 371835e82c0a1521d4400e117065b3493b68a7bb
 // Given the provided Value and, potentially, a context instruction, return
 // the preferred context instruction (if any).
 static const Instruction *safeCxtI(const Value *V, const Instruction *CxtI) {
@@ -431,18 +428,11 @@ static unsigned ComputeNumSignBits(const Value *V, unsigned Depth,
 unsigned llvm::ComputeNumSignBits(const Value *V, const DataLayout &DL,
                                   unsigned Depth, AssumptionCache *AC,
                                   const Instruction *CxtI,
-<<<<<<< HEAD
                                   const DominatorTree *DT, bool UseInstrInfo,
                                   ScalarEvolution *SE, LoopInfo *LI) {
   return ::ComputeNumSignBits(
       V, Depth,
-      Query(DL, AC, safeCxtI(V, CxtI), DT, UseInstrInfo, SE, LI));
-=======
-                                  const DominatorTree *DT, bool UseInstrInfo) {
-  return ::ComputeNumSignBits(V, Depth,
-                              SimplifyQuery(DL, /*TLI*/ nullptr, DT, AC,
-                                            safeCxtI(V, CxtI), UseInstrInfo));
->>>>>>> 371835e82c0a1521d4400e117065b3493b68a7bb
+      SimplifyQuery(DL, AC, safeCxtI(V, CxtI), DT, UseInstrInfo, SE, LI));
 }
 #endif // INTEL_CUSTOMIZATION
 
