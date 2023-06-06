@@ -346,7 +346,7 @@ static void applyTargetCPUData(
     TargetMDs.push_back(MDString::get(Ctx, TargetCpu));
   }
   MDNode *AutoCPUMultiVersionMetadata = MDNode::get(Ctx, TargetMDs);
-  Clone->addMetadata("llvm.auto.cpu.dispatch", *AutoCPUMultiVersionMetadata);
+  Clone->addMetadata("llvm.vec.auto.cpu.dispatch", *AutoCPUMultiVersionMetadata);
 }
 
 VecClone::VecClone() : ModulePass(ID) {

@@ -23,7 +23,7 @@ define noundef i32 @_Z4funcPi(ptr nocapture noundef readonly %p) local_unnamed_a
 ; CHECK:  define x86_regcallcc noundef <16 x i32> @_ZGVZN16l4__Z4funcPi(ptr nocapture noundef readonly [[P0]]) local_unnamed_addr #[[AVX512]] {
 ; CHECK:  define x86_regcallcc noundef <4 x i32> @_ZGVxN4v__Z4funcPi(<4 x ptr> nocapture noundef readonly [[P0]]) local_unnamed_addr #[[COREI7]] {
 ; CHECK:  define x86_regcallcc noundef <8 x i32> @_ZGVYN8v__Z4funcPi(<8 x ptr> nocapture noundef readonly [[P0]]) local_unnamed_addr #[[HSW]] {
-; CHECK:  define x86_regcallcc noundef <16 x i32> @_ZGVZN16v__Z4funcPi(<16 x ptr> nocapture noundef readonly [[P0]]) local_unnamed_addr #[[DISP:.*]] !llvm.auto.cpu.dispatch ![[MD1:.*]] {
+; CHECK:  define x86_regcallcc noundef <16 x i32> @_ZGVZN16v__Z4funcPi(<16 x ptr> nocapture noundef readonly [[P0]]) local_unnamed_addr #[[DISP:.*]] !llvm.vec.auto.cpu.dispatch ![[MD1:.*]] {
 ;
 entry:
   %0 = load i32, ptr %p, align 4, !tbaa !0
