@@ -1160,6 +1160,7 @@ include "X86SchedSkylakeClient.td"
 include "X86SchedSkylakeServer.td"
 include "X86SchedIceLake.td"
 include "X86SchedAlderlakeP.td"
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 include "Intel_X86ScheduleSPR.td"
 include "Intel_X86ScheduleGRT.td"
@@ -1167,6 +1168,9 @@ include "Intel_X86ScheduleGRT.td"
 include "Intel_X86ScheduleRYL.td"
 #endif // INTEL_FEATURE_CPU_RYL
 #endif // INTEL_CUSTOMIZATION
+=======
+include "X86SchedSapphireRapids.td"
+>>>>>>> 8db674ad060a074ad0caa0cf1458d6b905d8b810
 
 //===----------------------------------------------------------------------===//
 // X86 Processor Feature Lists
@@ -2296,7 +2300,11 @@ def : ProcModel<"icelake-server", IceLakeModel,
                 ProcessorFeatures.ICXFeatures, ProcessorFeatures.ICXTuning>;
 def : ProcModel<"tigerlake", IceLakeModel,
                 ProcessorFeatures.TGLFeatures, ProcessorFeatures.TGLTuning>;
+<<<<<<< HEAD
 def : ProcModel<"sapphirerapids", SPRModel,  // INTEL
+=======
+def : ProcModel<"sapphirerapids", SapphireRapidsModel,
+>>>>>>> 8db674ad060a074ad0caa0cf1458d6b905d8b810
                 ProcessorFeatures.SPRFeatures, ProcessorFeatures.SPRTuning>;
 def : ProcModel<"alderlake", AlderlakePModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
@@ -2316,9 +2324,9 @@ def : ProcModel<"raptorlake", AlderlakePModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
 def : ProcModel<"meteorlake", AlderlakePModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
-def : ProcModel<"graniterapids", SkylakeServerModel,
+def : ProcModel<"graniterapids", SapphireRapidsModel,
                 ProcessorFeatures.GNRFeatures, ProcessorFeatures.SPRTuning>;
-def : ProcModel<"emeraldrapids", SkylakeServerModel,
+def : ProcModel<"emeraldrapids", SapphireRapidsModel,
                 ProcessorFeatures.SPRFeatures, ProcessorFeatures.SPRTuning>;
 
 // AMD CPUs.
