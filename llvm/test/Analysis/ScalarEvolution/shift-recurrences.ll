@@ -378,7 +378,7 @@ define void @test_shl7(i1 %c, i64 %shiftamt) {
 ; CHECK-NEXT:    %iv.next = add i64 %iv, 1
 ; CHECK-NEXT:    --> {1,+,1}<nuw><nsw><%loop> U: [1,6) S: [1,6) Exits: 5 LoopDispositions: { %loop: Computable }
 ; CHECK-NEXT:    %iv.shl.next = shl i64 %iv.shl, %shiftamt
-; CHECK-NEXT:    --> %iv.shl.next U: full-set S: full-set Exits: <<Unknown>> LoopDispositions: { %loop: Variant }
+; CHECK-NEXT:    --> %iv.shl.next U: [0,-3) S: [-9223372036854775808,9223372036854775805) Exits: <<Unknown>> LoopDispositions: { %loop: Variant }
 ; CHECK-NEXT:  Determining loop execution counts for: @test_shl7
 ; CHECK-NEXT:  Loop %loop: backedge-taken count is 4
 ; CHECK-NEXT:  Loop %loop: constant max backedge-taken count is 4
