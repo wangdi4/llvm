@@ -495,7 +495,7 @@ bool VPOVectorizationLegality::isAliasingSafe(DominatorTree &DT,
 
 void VPOVectorizationLegality::parseMinMaxReduction(
     Value *RedVarPtr, RecurKind Kind,
-    std::optional<InscanReductionKind> InscanRedKind) {
+    std::optional<InscanReductionKind> InscanRedKind, Type *Ty) {
 
   // Analyzing some possible scenarios:
   // (1)
@@ -569,13 +569,14 @@ void VPOVectorizationLegality::parseMinMaxReduction(
   } else if (isInMemoryReductionPattern(RedVarPtr, ReductionUse)) {
     // Min/max opcodes are not expected for complex type reductions.
     InMemoryReductions[RedVarPtr] = {Kind, InscanRedKind, ReductionUse,
-                                     false /*IsComplex*/};
+                                     false /*IsComplex*/, Ty};
   }
 }
 
 void VPOVectorizationLegality::parseBinOpReduction(
     Value *RedVarPtr, RecurKind Kind,
-    std::optional<InscanReductionKind> InscanRedKind, bool IsComplex) {
+    std::optional<InscanReductionKind> InscanRedKind, bool IsComplex,
+    Type *Ty) {
 
   // Analyzing 3 possible scenarios:
   // (1) -- Reduction Phi nodes, the new value is in reg
@@ -622,25 +623,25 @@ void VPOVectorizationLegality::parseBinOpReduction(
     ExplicitReductions[ReductionPhi] = {RD, RedVarPtr, InscanRedKind};
   } else if ((UseMemory = isInMemoryReductionPattern(RedVarPtr, ReductionUse)))
     InMemoryReductions[RedVarPtr] = {Kind, InscanRedKind, ReductionUse,
-                                     IsComplex};
+                                     IsComplex, Ty};
 
   if (!UsePhi && !UseMemory)
     LLVM_DEBUG(dbgs() << "LV: Explicit reduction pattern is not recognized ");
 }
 
 void VPOVectorizationLegality::addReduction(
-    Value *RedVarPtr, RecurKind Kind,
+    Value *RedVarPtr, Type *Ty, RecurKind Kind,
     std::optional<InscanReductionKind> InscanRedKind, bool IsComplex) {
   assert(isa<PointerType>(RedVarPtr->getType()) &&
          "Expected reduction variable to be a pointer type");
 
   // TODO: Support min/max scan reductions as well.
   if (RecurrenceDescriptorData::isMinMaxRecurrenceKind(Kind)) {
-    parseMinMaxReduction(RedVarPtr, Kind, InscanRedKind);
+    parseMinMaxReduction(RedVarPtr, Kind, InscanRedKind, Ty);
     return;
   }
 
-  parseBinOpReduction(RedVarPtr, Kind, InscanRedKind, IsComplex);
+  parseBinOpReduction(RedVarPtr, Kind, InscanRedKind, IsComplex, Ty);
 }
 
 bool VPOVectorizationLegality::isExplicitReductionPhi(PHINode *Phi) {

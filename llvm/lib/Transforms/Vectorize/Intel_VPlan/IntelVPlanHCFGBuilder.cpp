@@ -387,17 +387,16 @@ public:
     // section.
     if (auto *OrigVGEP = dyn_cast<GetElementPtrInst>(OrigV))
       OrigV = OrigVGEP->getPointerOperand();
-    assertIsSingleElementAlloca(OrigV);
     VPValue *OrigAlloca = Builder.getOrCreateVPOperand(OrigV);
     Descriptor.setStartPhi(nullptr);
     Descriptor.setStart(OrigAlloca);
     Descriptor.addUpdateVPInst(RednUpdate);
     Descriptor.setExit(nullptr);
     Descriptor.setKind(CurValue.second.Kind);
-    auto *AI = cast<AllocaInst>(OrigV);
     // Reductions can have memory alias.
-    collectMemoryAliases(Descriptor, AI);
-    Descriptor.setRecType(AI->getAllocatedType());
+    collectMemoryAliases(Descriptor, OrigV);
+    auto *AI = dyn_cast<AllocaInst>(OrigV);
+    Descriptor.setRecType(AI ? AI->getAllocatedType() : CurValue.second.Ty);
     Descriptor.setSigned(false);
     Descriptor.setAllocaInst(OrigAlloca); // Keep original value from clause.
     Descriptor.setLinkPhi(nullptr);

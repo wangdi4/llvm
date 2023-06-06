@@ -336,11 +336,12 @@ private:
   RecurKind Kind;
   bool IsSigned;
   bool IsComplex;
+  Type* RedType;
 
 public:
-  RedDescr(Value *RegV, RecurKind KindV, bool Signed, bool Complex)
+  RedDescr(Value *RegV, RecurKind KindV, bool Signed, bool Complex, Type *Ty)
       : DescrWithInitValue<Value>(RegV), Kind(KindV), IsSigned(Signed),
-        IsComplex(Complex) {}
+        IsComplex(Complex), RedType(Ty) {}
 
   // Move constructor
   RedDescr(RedDescr &&Other) = default;
@@ -353,6 +354,8 @@ public:
 
   void setIsComplex(bool V) { IsComplex = V; }
   bool isComplex() const { return IsComplex; }
+
+  Type *getType() const { return RedType; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, unsigned Indent = 0) const override {
@@ -379,11 +382,11 @@ private:
   std::optional<InscanReductionKind> InscanRedKind = std::nullopt;
 
 public:
-  RedDescrUDR(Value *RegV, Function *Combiner, Function *Initializer,
+  RedDescrUDR(Value *RegV, Type *Ty, Function *Combiner, Function *Initializer,
               Function *Ctor, Function *Dtor,
               std::optional<InscanReductionKind> InscanRedKind = std::nullopt)
       : RedDescr<Value>(RegV, RecurKind::Udr, false /*Signed*/,
-                        false /*Complex*/),
+                        false /*Complex*/, Ty),
         Combiner(Combiner), Initializer(Initializer), Ctor(Ctor), Dtor(Dtor),
         InscanRedKind(InscanRedKind) {}
 

@@ -223,7 +223,7 @@ private:
     LinearList.emplace_back(LinearVal, LinearTy, PointeeTy, Step);
   }
   /// Add an explicit reduction variable
-  void addReduction(RegDDRef *V, RecurKind Kind,
+  void addReduction(RegDDRef *V, Type *Ty, RecurKind Kind,
                     std::optional<InscanReductionKind> InscanDescr,
                     bool IsComplex) {
     assert(V->isAddressOf() && "Reduction ref is not an address-of type.");
@@ -231,15 +231,15 @@ private:
 
     // TODO: Consider removing IsSigned field from RedDescr struct since it is
     // unused and can basically be deducted from the recurrence kind.
-    ReductionList.emplace_back(V, Kind, false /*IsSigned*/, IsComplex);
+    ReductionList.emplace_back(V, Kind, false /*IsSigned*/, IsComplex, Ty);
   }
 
   /// Add an explicit user-defined reduction variable.
   void addReduction(
-      RegDDRef *V, Function *Combiner, Function *Initializer, Function *Constr,
-      Function *Destr,
+      RegDDRef *V, Type *Ty, Function *Combiner, Function *Initializer,
+      Function *Constr, Function *Destr,
       std::optional<InscanReductionKind> InscanRedKind = std::nullopt) {
-    UDRList.emplace_back(V, Combiner, Initializer, Constr, Destr,
+    UDRList.emplace_back(V, Ty, Combiner, Initializer, Constr, Destr,
                          InscanRedKind);
   }
 
