@@ -152,14 +152,10 @@ define void @test_ashr_wrong_op(i64 %start) {
 ; CHECK-NEXT:    %iv.ashr = phi i64 [ %start, %entry ], [ %iv.ashr.next, %loop ]
 ; CHECK-NEXT:    --> %iv.ashr U: full-set S: full-set Exits: <<Unknown>> LoopDispositions: { %loop: Variant }
 ; CHECK-NEXT:    %iv.ashr.next = ashr i64 1, %iv.ashr
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; Refined range: ashr of 1 must be 0 or 1.
 ; CHECK-NEXT:    --> %iv.ashr.next U: [0,2) S: [0,2) Exits: <<Unknown>> LoopDispositions: { %loop: Variant }
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    --> %iv.ashr.next U: [0,2) S: [0,2) Exits: <<Unknown>> LoopDispositions: { %loop: Variant }
->>>>>>> dfb369399d2a54c8dd8752c47ecbf7a8c3c11421
 ; CHECK-NEXT:  Determining loop execution counts for: @test_ashr_wrong_op
 ; CHECK-NEXT:  Loop %loop: Unpredictable backedge-taken count.
 ; CHECK-NEXT:  Loop %loop: Unpredictable constant max backedge-taken count.

@@ -64,14 +64,10 @@ define i32 @mask_c(i32 %val, i32 %numlowbits) nounwind {
 ; CHECK-NEXT:    %numhighbits = sub i32 32, %numlowbits
 ; CHECK-NEXT:    --> (32 + (-1 * %numlowbits)) U: full-set S: full-set
 ; CHECK-NEXT:    %mask = lshr i32 -1, %numhighbits
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; refined from "fullset": lshr result cannot overflow to 0
 ; CHECK-NEXT:    -->  %mask U: [1,0) S: [1,0)
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT:    --> %mask U: [1,0) S: [1,0)
->>>>>>> dfb369399d2a54c8dd8752c47ecbf7a8c3c11421
 ; CHECK-NEXT:    %masked = and i32 %mask, %val
 ; CHECK-NEXT:    --> %masked U: full-set S: full-set
 ; CHECK-NEXT:  Determining loop execution counts for: @mask_c
