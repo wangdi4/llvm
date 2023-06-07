@@ -2682,7 +2682,8 @@ OpenMPClauseKind Sema::isOpenMPPrivateDecl(ValueDecl *D, unsigned Level,
       }
     }
   }
-  if (isOpenMPLoopDirective(DSAStack->getCurrentDirective())) {
+  if (isOpenMPLoopDirective(DSAStack->getCurrentDirective()) &&
+      !isOpenMPLoopTransformationDirective(DSAStack->getCurrentDirective())) {
     if (DSAStack->getAssociatedLoops() > 0 && !DSAStack->isLoopStarted()) {
       DSAStack->resetPossibleLoopCounter(D);
       DSAStack->loopStart();
