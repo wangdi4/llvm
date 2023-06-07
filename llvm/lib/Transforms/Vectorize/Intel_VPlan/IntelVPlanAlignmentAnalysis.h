@@ -102,9 +102,9 @@ public:
   VPLoadStoreInst *memref() { return Memref; }
   const VPLoadStoreInst *memref() const { return Memref; }
   VPlanSCEV *invariantBase() { return InvariantBase; }
-  Align requiredAlignment() { return RequiredAlignment; }
-  Align targetAlignment() { return TargetAlignment; }
-  int multiplier() { return Multiplier; }
+  Align requiredAlignment() const { return RequiredAlignment; }
+  Align targetAlignment() const { return TargetAlignment; }
+  int multiplier() const { return Multiplier; }
 
   int maxPeelCount() const override {
     return TargetAlignment.value() / RequiredAlignment.value() - 1;
@@ -301,8 +301,9 @@ public:
   /// guaranteed). The returned alignment is computed using the memory address
   /// either in the first vector lane (if the stride is positive) or in the last
   /// lane (if the stride is negative).
-  Align getAlignmentUnitStride(const VPLoadStoreInst &UnitStrideMemref,
-                               VPlanPeelingVariant *GuaranteedPeeling) const;
+  Align
+  getAlignmentUnitStride(const VPLoadStoreInst &UnitStrideMemref,
+                         const VPlanPeelingVariant *GuaranteedPeeling) const;
 
   /// Compute conservative alignment of \p Memref. The returned alignment is
   /// valid for any vector lane and any peeling variant. This method should be
@@ -319,10 +320,10 @@ public:
 
 private:
   Align getAlignmentUnitStrideImpl(const VPLoadStoreInst &Memref,
-                                   VPlanStaticPeeling &SP) const;
+                                   const VPlanStaticPeeling &SP) const;
 
   Align getAlignmentUnitStrideImpl(const VPLoadStoreInst &Memref,
-                                   VPlanDynamicPeeling &DP) const;
+                                   const VPlanDynamicPeeling &DP) const;
 
 private:
   VPlanScalarEvolution *VPSE;
