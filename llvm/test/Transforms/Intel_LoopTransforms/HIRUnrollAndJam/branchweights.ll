@@ -43,25 +43,21 @@
 ;CHECK: br i1
 ;CHECK-SAME: !prof ![[PROF_OUTER_REMAINDER:[0-9]+]]
 ;CHECK: br i1
-;CHECK-SAME: !prof ![[PROF_INNER_REMAINDER:[0-9]+]]
+;CHECK-SAME: !prof ![[PROF_INNER_JAMMED]]
 ;CHECK: br i1
 ;CHECK-SAME: !prof ![[PROF_OUTER_REMAINDER]]
 
 ;CHECK-DAG: ![[PROF_OUTER_UROLLED]] = !{!"branch_weights", i32 4, i32 1}
-;CHECK-DAG: ![[PROF_INNER_JAMMED]] = !{!"branch_weights", i32 40, i32 4}
+;CHECK-DAG: ![[PROF_INNER_JAMMED]] = !{!"branch_weights", i32 81, i32 9}
 ;CHECK-DAG: ![[PROF_OUTER_REMAINDER]] = !{!"branch_weights", i32 1, i32 1}
-;CHECK-DAG: ![[PROF_INNER_REMAINDER]] = !{!"branch_weights", i32 9, i32 1}
 
-; Note - PROF_INNER_REMAINDER is calculated as follows:
-;   D = (Outer loop's original true weight) /
-;       { (Outer loop's original true weight) % (outer loop's unroll factor) }
-;     = 9 / (9 % 2) = 9
-; Please notice D is derived from the outer loop only, because the outer loop
-; is unrolled.
-;
-;   Rem loop's (true, false) := Rem loop's (true / D, false / D)
-;                             = (81 / 9, 9 / 9)
-;                             = (9, 1)
+; The branch weights of outer main and remainder loop were obtained,
+; respectively, by dividing and taking remainder of the original branch weights
+; using the unroll factor.
+
+; Note that the branch weights of inner loop were left the same. The trip
+; count of inner loops does not change with unroll & jam so this makes sense.
+
 
 ; ModuleID = 'branchweights-uandj.c'
 source_filename = "branchweights-uandj.c"

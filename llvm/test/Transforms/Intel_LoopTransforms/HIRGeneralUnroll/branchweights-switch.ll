@@ -107,14 +107,13 @@
 ;CHECK: switch i32 %{{.*}}, label %[[SWITCH_REMAINDER_LOOP:hir.sw.[0-9]+]].default [
 ;CHECK-NEXT: i32 0, label %[[SWITCH_REMAINDER_LOOP]].case.0
 ;CHECK-NEXT: i32 1, label %[[SWITCH_REMAINDER_LOOP]].case.1
-;CHECK-NEXT: ], !prof ![[PROF_SWITCH_REMAINDER:[0-9]+]]
+;CHECK-NEXT: ], !prof ![[PROF_SWITCH_UNROLLED]]
 ;CHECK: br i1
 ;CHECK-SAME: !prof ![[PROF_LOOP_REMAINDER]]
 
 ;CHECK-DAG: ![[PROF_LOOP_UNROLLED]] = !{!"branch_weights", i32 5, i32 1}
-;CHECK-DAG: ![[PROF_SWITCH_UNROLLED]] = !{!"branch_weights", i32 0, i32 2, i32 3}
+;CHECK-DAG: ![[PROF_SWITCH_UNROLLED]] = !{!"branch_weights", i32 0, i32 4, i32 7}
 ;CHECK-DAG: ![[PROF_LOOP_REMAINDER]] = !{!"branch_weights", i32 1, i32 1}
-;CHECK-DAG: ![[PROF_SWITCH_REMAINDER]] = !{!"branch_weights", i32 0, i32 1, i32 1}
 
 
 ; ModuleID = 'switch-pragma-unroll.c'
