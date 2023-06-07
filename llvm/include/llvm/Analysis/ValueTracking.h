@@ -57,6 +57,7 @@ struct KnownBits;
 class Loop;
 class LoopInfo;
 class MDNode;
+class SimplifyQuery;
 class StringRef;
 class TargetLibraryInfo;
 class Value;
@@ -137,6 +138,10 @@ void computeKnownBitsFromRangeMetadata(const MDNode &Ranges, KnownBits &Known);
                              const DominatorTree *DT = nullptr,
                              bool UseInstrInfo = true);
 #endif // INTEL_CUSTOMIZATION
+
+/// Merge bits known from assumes into Known.
+void computeKnownBitsFromAssume(const Value *V, KnownBits &Known,
+                                unsigned Depth, const SimplifyQuery &Q);
 
 /// Using KnownBits LHS/RHS produce the known bits for logic op (and/xor/or).
 KnownBits analyzeKnownBitsFromAndXorOr(
