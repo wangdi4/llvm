@@ -647,7 +647,6 @@ private:
   void visitCmpInst(CmpInst &I);
   void visitExtractValueInst(ExtractValueInst &EVI);
   void visitInsertValueInst(InsertValueInst &IVI);
-  void visitFreezeInst(FreezeInst &I);
 
   void visitCatchSwitchInst(CatchSwitchInst &CPI) {
     markOverdefined(&CPI);
@@ -1539,42 +1538,6 @@ void SCCPInstVisitor::visitCmpInst(CmpInst &I) {
     return;
 
   markOverdefined(&I);
-}
-
-// Propagate FreezeInst when the operand is a SelectInst or Phi of SelectInsts.
-void SCCPInstVisitor::visitFreezeInst(FreezeInst &I) {
-  if (ValueState[&I].isOverdefined())
-    return;
-
-  Value *Op = I.getOperand(0);
-  if (!(isa<SelectInst>(Op) || isa<PHINode>(Op)) ||
-      !I.getType()->isIntegerTy()) {
-    markOverdefined(&I);
-    return;
-  }
-
-  if (PHINode *phi = dyn_cast<PHINode>(Op)) {
-    for (unsigned i = 0, e = phi->getNumIncomingValues(); i != e; ++i) {
-      if (!isa<SelectInst>(phi->getIncomingValue(i))) {
-        markOverdefined(&I);
-        return;
-      }
-    }
-  }
-
-  ValueLatticeElement OpSt = getValueState(Op);
-  if (OpSt.isUnknownOrUndef())
-    return;
-  if (Constant *OpC = getConstant(OpSt)) {
-    markConstant(&I, OpC);
-  } else {
-    auto &LV = getValueState(&I);
-    ConstantRange OpRange =
-        OpSt.isConstantRange()
-            ? OpSt.getConstantRange()
-            : ConstantRange::getFull(Op->getType()->getScalarSizeInBits());
-    mergeInValue(LV, &I, ValueLatticeElement::getRange(OpRange));
-  }
 }
 
 #if INTEL_CUSTOMIZATION
