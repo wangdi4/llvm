@@ -1693,9 +1693,11 @@ void SYCLToolChain::AddImpliedTargetArgs(
             << A->getSpelling() << BufArg;
     }
   }
-  if (Args.getLastArg(options::OPT_O0) || IsMSVCOd)
+  if (Arg *A = Args.getLastArg(options::OPT_O_Group))
+    if (A->getOption().matches(options::OPT_O0 || IsMSVCOd))
 #endif // INTEL_CUSTOMIZATION
-    BeArgs.push_back("-cl-opt-disable");
+      BeArgs.push_back("-cl-opt-disable");
+
   if (IsGen) {
     // For GEN (spir64_gen) we have implied -device settings given usage
     // of intel_gpu_ as a target.  Handle those here, and also check that no
