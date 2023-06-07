@@ -935,8 +935,9 @@ bool HIRPrefetching::doPrefetching(
       int PragmaDist = PrefetchDist / Stride;
       // Using directive-based hint=%d, distance=%d for prefetching spatial
       // memory reference
-      ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25147u, PragmaHint,
-                               PragmaDist);
+      ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                               OptRemarkID::DirectivePrefetchSpatialMemRef,
+                               PragmaHint, PragmaDist);
     }
   }
 
