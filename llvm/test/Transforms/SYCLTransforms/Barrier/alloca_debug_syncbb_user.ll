@@ -18,7 +18,6 @@ define void @test() #0 !dbg !9 !kernel_arg_addr_space !2 !kernel_arg_access_qual
 entry:
 ; CHECK-LABEL: entry:
 ; CHECK: %g.addr = alloca i32*
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i32** %g.addr, metadata !{{[0-9]+}}, metadata !DIExpression(DW_OP_deref)), !dbg !{{[0-9]+}}
 ; CHECK-NOT: %g = alloca i32
 
   call void @dummy_barrier.()
@@ -39,7 +38,8 @@ entry:
   store i32 1, i32* %g, align 4, !dbg !18
 
 ; CHECK-LABEL: SyncBB1:
-; CHECK:      [[Index:%SBIndex]] = load i64, i64* %pCurrSBIndex
+; CHECK:      call void @llvm.dbg.declare(metadata i32** %g.addr, metadata !{{[0-9]+}}, metadata !DIExpression(DW_OP_deref)), !dbg
+; CHECK-NEXT: [[Index:%SBIndex]] = load i64, i64* %pCurrSBIndex
 ; CHECK-NEXT: [[Offset:%SB_LocalId_Offset]] = add nuw i64 [[Index]], {{[0-9]+}}
 ; CHECK-NEXT: [[GEP:%[0-9]+]] = getelementptr inbounds i8, i8* %pSB, i64 [[Offset]]
 ; CHECK-NEXT: [[LocalId:%pSB_LocalId]] = bitcast i8* [[GEP]] to i32*

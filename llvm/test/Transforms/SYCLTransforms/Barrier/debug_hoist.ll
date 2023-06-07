@@ -24,9 +24,7 @@ barrier:
 ; CHECK-SAME:   !dbg [[TEST:![0-9]+]]
 ; CHECK-SAME:   {
 ; CHECK:      entry:
-; CHECK:        call void @llvm.dbg.value(metadata i32 %a,
-; CHECK-SAME:                             metadata [[A:![0-9]+]]
-; CHECK-SAME:                             metadata !DIExpression()
+; CHECK:        call void @llvm.dbg.value(metadata i32 %a, metadata [[A:![0-9]+]], metadata !DIExpression()
 ; CHECK:        br label %FirstBB
 ;
 ; CHECK:      FirstBB:
@@ -34,9 +32,7 @@ barrier:
 ;
 ; CHECK:      SyncBB1:
 ; CHECK-NOT:    call void @llvm.dbg.value(metadata i32 %a,
-; CHECK:        call void @llvm.dbg.value(metadata i32* undef
-; CHECK:                                  metadata !21,
-; CHECK:                                  metadata !DIExpression(DW_OP_deref)
+; CHECK:        call void @llvm.dbg.value(metadata i32* undef, metadata !{{.*}}, metadata !DIExpression(DW_OP_deref)
 ; CHECK:        br label %barrier
 ; CHECK:      }
 
