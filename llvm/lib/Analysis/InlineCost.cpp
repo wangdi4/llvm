@@ -3401,20 +3401,14 @@ std::optional<InlineResult> llvm::getAttributeBasedInliningDecision(
 
   // Never inline functions with conflicting attributes (unless callee has
   // always-inline attribute).
-<<<<<<< HEAD
-  Function *Caller = Call.getCaller();
-  if (!functionsHaveCompatibleAttributes(Caller, Callee, CalleeTTI, GetTLI))
-    return InlineResult::failure("conflicting attributes") // INTEL
-        .setIntelInlReason(NinlrMismatchedAttributes);     // INTEL
-=======
   // FIXME: functionsHaveCompatibleAttributes below checks for compatibilities
   // of different kinds of function attributes -- sanitizer-related ones,
   // checkDenormMode, no-builtin-memcpy, etc.  It's unclear if we really want
   // the always-inline attribute to take precedence over these different types
   // of function attributes.
   if (!functionsHaveCompatibleAttributes(Caller, Callee, GetTLI))
-    return InlineResult::failure("conflicting attributes");
->>>>>>> d6f994acb3d545b80161e24ab742c9c69d4bbf33
+    return InlineResult::failure("conflicting attributes") // INTEL
+	.setIntelInlReason(NinlrMismatchedAttributes);     // INTEL
 
   // Don't inline this call if the caller has the optnone attribute.
   if (Caller->hasOptNone())
