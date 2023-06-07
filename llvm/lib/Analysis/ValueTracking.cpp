@@ -116,37 +116,6 @@ static unsigned getBitWidth(Type *Ty, const DataLayout &DL) {
   return DL.getPointerTypeSizeInBits(Ty);
 }
 
-#if INTEL_CUSTOMIZATION
-namespace {
-
-// Simplifying using an assume can only be done in a particular control-flow
-// context (the context instruction provides that context). If an assume and
-// the context instruction are not in the same block then the DT helps in
-// figuring out if we can use it.
-struct Query {
-  const DataLayout &DL;
-  AssumptionCache *AC;
-  const Instruction *CxtI;
-  const DominatorTree *DT;
-
-  /// If true, it is safe to use metadata during simplification.
-  InstrInfoQuery IIQ;
-  ScalarEvolution *SE; // INTEL
-  LoopInfo *LI;        // INTEL
-
-  // INTEL: Add ScalarEvolution/LoopInfo optional parameters.
-  Query(const DataLayout &DL, AssumptionCache *AC, const Instruction *CxtI,
-        const DominatorTree *DT, bool UseInstrInfo,
-        ScalarEvolution *SE = nullptr, LoopInfo *LI = nullptr)
-      : DL(DL), AC(AC), CxtI(CxtI), DT(DT), IIQ(UseInstrInfo),
-        SE(SE), LI(LI) {
-    assert((!SE && !LI || SE && LI) && "SE/LI are expected to come in pair.");
-  }
-};
-
-} // end anonymous namespace
-#endif // INTEL_CUSTOMIZATION
-
 // Given the provided Value and, potentially, a context instruction, return
 // the preferred context instruction (if any).
 static const Instruction *safeCxtI(const Value *V, const Instruction *CxtI) {
@@ -388,7 +357,7 @@ bool llvm::isKnownNonEqual(const Value *V1, const Value *V2,
 
 #if INTEL_CUSTOMIZATION
 static bool isKnownWithinIntRange(Value *V, unsigned BitRange, bool isSigned,
-                                  unsigned Depth, const Query &Q);
+                                  unsigned Depth, const SimplifyQuery &Q);
 
 bool llvm::isKnownWithinIntRange(Value *V, unsigned BitRange, bool isSigned,
                                  const DataLayout &DL, unsigned Depth,
@@ -396,7 +365,7 @@ bool llvm::isKnownWithinIntRange(Value *V, unsigned BitRange, bool isSigned,
                                  const DominatorTree *DT, bool UseInstrInfo) {
   return ::isKnownWithinIntRange(
       V, BitRange, isSigned, Depth,
-      Query(DL, AC, safeCxtI(V, CxtI), DT, UseInstrInfo));
+      SimplifyQuery(DL, /*TLI*/ nullptr, DT, AC, safeCxtI(V, CxtI), UseInstrInfo));
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -432,7 +401,8 @@ unsigned llvm::ComputeNumSignBits(const Value *V, const DataLayout &DL,
                                   ScalarEvolution *SE, LoopInfo *LI) {
   return ::ComputeNumSignBits(
       V, Depth,
-      SimplifyQuery(DL, AC, safeCxtI(V, CxtI), DT, UseInstrInfo, SE, LI));
+      SimplifyQuery(DL, /*TLI*/ nullptr, DT, AC,
+                                           safeCxtI(V, CxtI), UseInstrInfo));
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -3390,22 +3360,22 @@ bool llvm::isFPValueIntegral(const Value *V) {
   return ::isFPValueIntegral(V, ProcessedPHIs, 0);
 }
 
-/// Return true if the given integer value is within the given bit range, for 
+/// Return true if the given integer value is within the given bit range, for
 /// either signed or unsigned cases.
 bool isKnownWithinIntRange(Value *V, unsigned BitRange, bool isSigned,
-                           unsigned Depth, const Query &Q) {
+                           unsigned Depth, const SimplifyQuery &Q) {
   assert(V && "No Value?");
   assert(Depth <= MaxAnalysisRecursionDepth && "Limit Search Depth");
 
   // The given value should be an integer.
   if (!V->getType()->isIntegerTy())
     return false;
- 
+
   unsigned BitWidth = V->getType()->getIntegerBitWidth();
   // If the bitwidth of the given integer is less than or equal to the given
-  // bit range, then the integer is within the given range whether it's 
-  // treated as signed or unsigned. 
-  if (BitWidth <= BitRange) 
+  // bit range, then the integer is within the given range whether it's
+  // treated as signed or unsigned.
+  if (BitWidth <= BitRange)
     return true;
 
   KnownBits Known(BitWidth);
@@ -3425,14 +3395,14 @@ bool isKnownWithinIntRange(Value *V, unsigned BitRange, bool isSigned,
     return (isSigned && ZI->getSrcTy()->getIntegerBitWidth() < BitRange) ||
            (!isSigned && ZI->getSrcTy()->getIntegerBitWidth() <= BitRange);
 
-  // If the given value comes from an ashr, it could have either leading ones 
-  // or leading zeros depending on its original sign bit, so that 
+  // If the given value comes from an ashr, it could have either leading ones
+  // or leading zeros depending on its original sign bit, so that
   // computeKnownBits can not capture this case if the sign bit is unknown.
   if (BinaryOperator *BO = dyn_cast<BinaryOperator>(V)) {
-    ConstantInt *CstIntOp1 = dyn_cast<ConstantInt>(BO->getOperand(1)); 
-    if (BO->getOpcode() == Instruction::AShr && CstIntOp1) 
-      return isSigned && CstIntOp1->getValue().ult(BitWidth) && 
-                         CstIntOp1->getValue().uge(BitWidth - BitRange); 
+    ConstantInt *CstIntOp1 = dyn_cast<ConstantInt>(BO->getOperand(1));
+    if (BO->getOpcode() == Instruction::AShr && CstIntOp1)
+      return isSigned && CstIntOp1->getValue().ult(BitWidth) &&
+                         CstIntOp1->getValue().uge(BitWidth - BitRange);
   }
 
   return false;
