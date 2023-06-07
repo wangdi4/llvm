@@ -402,7 +402,7 @@ unsigned llvm::ComputeNumSignBits(const Value *V, const DataLayout &DL,
   return ::ComputeNumSignBits(
       V, Depth,
       SimplifyQuery(DL, /*TLI*/ nullptr, DT, AC,
-                                           safeCxtI(V, CxtI), UseInstrInfo));
+                    safeCxtI(V, CxtI), UseInstrInfo, true, /*TTI*/nullptr, SE, LI));
 }
 #endif // INTEL_CUSTOMIZATION
 
