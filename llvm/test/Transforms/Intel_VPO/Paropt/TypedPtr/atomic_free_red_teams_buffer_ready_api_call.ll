@@ -23,60 +23,54 @@
 ; the final teams reduction buffers.
 
 ; With LASTTEAMINLINED - we expect compiler generated last team will combine the teams partial results
+
+; LASTTEAMINLINED: master.thread.code{{.*}}:
+
 ; LASTTEAMINLINED: counter_check:
 ; LASTTEAMINLINED: %[[NUM_GROUPS:[^,]+]] = call spir_func i64 @_Z14get_num_groupsj(i32 0)
 ; LASTTEAMINLINED: %[[TEAMS_COUNTER:[^,]+]] = addrspacecast i32 addrspace(1)* %[[TEAMS_COUNTER_PTR:[^,]+]] to i32 addrspace(4)*
-
-; LASTTEAMINLINED: master.thread.code{{.*}}:
 ; LASTTEAMINLINED: %[[UPD_CNTR:[^,]+]] = call spir_func i32 @__kmpc_atomic_fixed4_add_cpt(i32 addrspace(4)* %[[TEAMS_COUNTER]], i32 1, i32 1)
-; LASTTEAMINLINED: store i32 %[[UPD_CNTR]], i32 addrspace(3)* @.broadcast.ptr.__local, align 4
-
-; LASTTEAMINLINED: master.thread.fallthru{{.*}}:
-; LASTTEAMINLINED: %.new = load i32, i32 addrspace(3)* @.broadcast.ptr.__local, align 4
 ; LASTTEAMINLINED: %[[NUM_GROUPS_TRUNC:[^,]+]] = trunc i64 %[[NUM_GROUPS]] to i32
-; LASTTEAMINLINED: %[[CNTR_CHECK:[^,]+]] = icmp ne i32 %.new, %[[NUM_GROUPS_TRUNC]]
+; LASTTEAMINLINED: %[[CNTR_CHECK:[^,]+]] = icmp ne i32 %[[UPD_CNTR]], %[[NUM_GROUPS_TRUNC]]
 ; LASTTEAMINLINED: br i1 %[[CNTR_CHECK]], label %{{.*}}, label %team.red.buffers.ready
 
+; LASTTEAMINLINED: master.thread.fallthru{{.*}}:
+
 ; With TEAMZERORTL - we expect a call to __kmpc_team_reduction_ready_teamzero(..)
+
+; TEAMZERORTL: call spir_func void @_Z{{.*}}__spirv_ControlBarrieriii(i32 {{.*}}, i32 {{.*}}, i32 {{.*}})
+; TEAMZERORTL: br i1 %is.master.thread{{.*}}, label %master.thread.code{{.*}}, label %master.thread.fallthru{{.*}}
+; TEAMZERORTL: master.thread.code{{[0-9]*}}:
 
 ; TEAMZERORTL: counter_check:
 ; TEAMZERORTL: %[[NUM_GROUPS:[^,]+]] = call spir_func i64 @_Z14get_num_groupsj(i32 0)
 ; TEAMZERORTL: %[[NUM_GROUPS_TRUNC:[^,]+]] = trunc i64 %[[NUM_GROUPS]] to i32
 ; TEAMZERORTL: %[[TEAMS_COUNTER:[^,]+]] = addrspacecast i32 addrspace(1)* %[[TEAMS_COUNTER_PTR:[^,]+]] to i32 addrspace(4)*
-; TEAMZERORTL: call spir_func void @_Z{{.*}}__spirv_ControlBarrieriii(i32 {{.*}}, i32 {{.*}}, i32 {{.*}})
-; TEAMZERORTL: br i1 %is.master.thread{{.*}}, label %master.thread.code{{.*}}, label %master.thread.fallthru{{.*}}
-
-; TEAMZERORTL: master.thread.code{{[0-9]+}}:
 ; TEAMZERORTL: %[[UPD_CNTR:[^,]+]] = call spir_func i1 @__kmpc_team_reduction_ready_teamzero(i32 addrspace(4)* %[[TEAMS_COUNTER]], i32 %[[NUM_GROUPS_TRUNC]])
-; TEAMZERORTL: store i1 %[[UPD_CNTR]], i1 addrspace(3)* @.broadcast.ptr.__local, align 1
-; TEAMZERORTL: br label %master.thread.fallthru{{.*}}
-
-; TEAMZERORTL: master.thread.fallthru{{[0-9]+}}:
-; TEAMZERORTL: call spir_func void @_Z{{.*}}__spirv_ControlBarrieriii(i32 {{.*}}, i32 {{.*}}, i32 {{.*}})
-; TEAMZERORTL: %.new = load i1, i1 addrspace(3)* @.broadcast.ptr.__local, align 1
-; TEAMZERORTL: %[[CNTR_CHECK:[^,]+]] = icmp ne i1 %.new, true
+; TEAMZERORTL: %[[CNTR_CHECK:[^,]+]] = icmp ne i1 %[[UPD_CNTR]], true
 ; TEAMZERORTL: br i1 %[[CNTR_CHECK]], label %{{.*}}, label %team.red.buffers.ready
 
+; TEAMZERORTL: br label %master.thread.fallthru{{.*}}
+; TEAMZERORTL: master.thread.fallthru{{[0-9]*}}:
+; TEAMZERORTL: call spir_func void @_Z{{.*}}__spirv_ControlBarrieriii(i32 {{.*}}, i32 {{.*}}, i32 {{.*}})
 
 ; With LASTTEAMRTL - we expect a call to __kmpc_team_reduction_ready(..)
+
+; LASTTEAMRTL: call spir_func void @_Z{{.*}}__spirv_ControlBarrieriii(i32 {{.*}}, i32 {{.*}}, i32 {{.*}})
+; LASTTEAMRTL: br i1 %is.master.thread{{.*}}, label %master.thread.code{{.*}}, label %master.thread.fallthru{{.*}}
+; LASTTEAMRTL: master.thread.code{{[0-9]*}}:
 
 ; LASTTEAMRTL: counter_check:
 ; LASTTEAMRTL: %[[NUM_GROUPS:[^,]+]] = call spir_func i64 @_Z14get_num_groupsj(i32 0)
 ; LASTTEAMRTL: %[[NUM_GROUPS_TRUNC:[^,]+]] = trunc i64 %[[NUM_GROUPS]] to i32
 ; LASTTEAMRTL: %[[TEAMS_COUNTER:[^,]+]] = addrspacecast i32 addrspace(1)* %[[TEAMS_COUNTER_PTR:[^,]+]] to i32 addrspace(4)*
-; LASTTEAMRTL: call spir_func void @_Z{{.*}}__spirv_ControlBarrieriii(i32 {{.*}}, i32 {{.*}}, i32 {{.*}})
-; LASTTEAMRTL: br i1 %is.master.thread{{.*}}, label %master.thread.code{{.*}}, label %master.thread.fallthru{{.*}}
-
-; LASTTEAMRTL: master.thread.code{{[0-9]+}}:
 ; LASTTEAMRTL: %[[UPD_CNTR:[^,]+]] = call spir_func i1 @__kmpc_team_reduction_ready(i32 addrspace(4)* %[[TEAMS_COUNTER]], i32 %[[NUM_GROUPS_TRUNC]])
-; LASTTEAMRTL: store i1 %[[UPD_CNTR]], i1 addrspace(3)* @.broadcast.ptr.__local, align 1
-; LASTTEAMRTL: br label %master.thread.fallthru{{.*}}
-
-; LASTTEAMRTL: master.thread.fallthru{{[0-9]+}}:
-; LASTTEAMRTL: call spir_func void @_Z{{.*}}__spirv_ControlBarrieriii(i32 {{.*}}, i32 {{.*}}, i32 {{.*}})
-; LASTTEAMRTL: %.new = load i1, i1 addrspace(3)* @.broadcast.ptr.__local, align 1
-; LASTTEAMRTL: %[[CNTR_CHECK:[^,]+]] = icmp ne i1 %.new, true
+; LASTTEAMRTL: %[[CNTR_CHECK:[^,]+]] = icmp ne i1 %[[UPD_CNTR]], true
 ; LASTTEAMRTL: br i1 %[[CNTR_CHECK]], label %{{.*}}, label %team.red.buffers.ready
+
+; LASTTEAMRTL: br label %master.thread.fallthru{{.*}}
+; LASTTEAMRTL: master.thread.fallthru{{[0-9]*}}:
+; LASTTEAMRTL: call spir_func void @_Z{{.*}}__spirv_ControlBarrieriii(i32 {{.*}}, i32 {{.*}}, i32 {{.*}})
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64"

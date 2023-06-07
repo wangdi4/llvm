@@ -891,6 +891,15 @@ public:
       BBlockSet.clear();
   }
 
+  /// Updates the basic blocks of this region and child regions to reflect
+  /// \p OrigBB being split into \p OrigBB and \p SplitBB.
+  ///
+  /// Depending on where the split happens relative to the regions' entry/exit
+  /// directives, this could involve updating the regions' entry/exit blocks.
+  /// Returns true if this region or any of its children have entry/exit
+  /// directives in either \p OrigBB or \p SplitBB.
+  bool updateBBsAfterSplit(BasicBlock *OrigBB, BasicBlock *SplitBB);
+
   /// Routines to set WRN primary attributes
   void setAttributes(unsigned A) { Attributes = A; }
   void setIsDistribute()         { Attributes |= WRNIsDistribute; }

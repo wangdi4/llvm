@@ -21,17 +21,23 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 
+#include <optional>
+
 namespace llvm {
 
+class AllocaInst;
 class BasicBlock;
 class CallInst;
 class DominatorTree;
 class DomTreeUpdater;
 class Instruction;
 class LoopInfo;
+class PostDominatorTree;
 class Value;
 
 namespace vpo {
+
+class WRegionNode;
 
 /// Returns true for instructions that must be guarded under master thread
 /// checks by VPOParoptTransform::guardSideEffectStatements().
@@ -61,15 +67,21 @@ CallInst *insertWorkGroupBarrier(Instruction *InsertPt, bool GlobalFence);
 /// that instruction from Start does not include End. To be a valid region for
 /// inserting master thread guards, these conditions must be met:
 ///
-/// * The region must be a single-entry/single-exit region, which is a connected
-///   series of instructions and (possibly-trivial) canonical regions.
+/// * The region must be a single-entry/single-exit region, so there should also
+///   not be any instructions not in the region where End is reachable through a
+///   path that doesn't include Start. This means that successors of all basic
+///   blocks in the region except for End's basic block must also be in the
+///   region and not be Start's basic block, and that the predecessors of all
+///   basic blocks in the region except for Start's basic block must also be in
+///   the region and not be End's basic block.
 /// * The region must be entirely within the target region.
 /// * The region must not contain any basic blocks inside a parallel region.
 /// * Uses of any instruction in the region must also be in the region.
 /// * If any instruction is a store to an alloca'd value, any loads of that
 ///   value must be in the region.
 /// * No other instructions with thread-local side-effects (which don't have
-///   non-thread-local side-effects) are allowed.
+///   non-thread-local side-effects) are allowed. Instructions like barriers
+///   that require convergent control flow are also not allowed.
 class MasterThreadRegion {
 
   /// The start of the region.
@@ -80,9 +92,9 @@ class MasterThreadRegion {
 
   /// The end of the region.
   ///
-  /// All instructions in the region should be post-dominated by this one. This
-  /// instruction is not contained in the region; its immediate predecessor (if
-  /// present) is the last instruction in the region.
+  /// All instructions in the region should be strictly post-dominated by this
+  /// one. This instruction is not contained in the region; its immediate
+  /// predecessor (if present) is the last instruction in the region.
   Instruction *End;
 
   /// Whether this region is in a critical section.
@@ -92,6 +104,9 @@ class MasterThreadRegion {
 
   /// All basic blocks fully enclosed by this region.
   SmallPtrSet<BasicBlock *, 4> EnclosedBBs;
+
+  /// Thread-local allocas that are referenced by stores in this region.
+  SmallPtrSet<const AllocaInst *, 2> StoredToAllocas;
 
   friend class MasterThreadRegionFinder;
 
@@ -107,6 +122,14 @@ public:
 
   /// Returns true if \p I is contained in the region.
   bool contains(const Instruction *I) const;
+
+  /// Attempts to add \p Alloca as a new stored-to alloca for this region.
+  ///
+  /// Returns false if \p Alloca already has stores in this region; in this case
+  /// it doesn't need to have all of its uses checked again.
+  bool newStoredToAlloca(const AllocaInst *Alloca) {
+    return StoredToAllocas.insert(Alloca).second;
+  }
 
   /// Inserts broadcasts of any thread-local values used outside of this region.
   ///
@@ -129,11 +152,15 @@ public:
   /// This inserts the conditional to ensure code in the region is only run on
   /// the master thread, and should be called after insertBroadcasts and
   /// insertBarriers. \p MasterCheckPredicate is the condition value to use for
-  /// the branch. \p DTU and \p LI are updated to incorporate the new CFG
+  /// the branch. \p DTU, \p LI, and \p W are updated to incorporate the new CFG
   /// changes.
   void insertGuard(Value *MasterCheckPredicate, DomTreeUpdater &DTU,
-                   LoopInfo &LI);
+                   LoopInfo &LI, WRegionNode *W);
 };
+
+/// Compares two master thread regions for equality, which is true if they have
+/// the same start and end instructions.
+bool operator==(const MasterThreadRegion &, const MasterThreadRegion &);
 
 /// Utility class to find optimal code regions to execute on the master thread.
 class MasterThreadRegionFinder {
@@ -144,14 +171,62 @@ class MasterThreadRegionFinder {
   const SmallPtrSetImpl<BasicBlock *> &ParBBSet;
 
   const DominatorTree &DT;
+  const PostDominatorTree &PDT;
 
   /// The current set of master thread regions to insert.
   SmallVector<MasterThreadRegion> Regions;
 
+#ifndef NDEBUG
+  /// Checks structural invariants of \p Region to make sure it's structurally
+  /// valid.
+  void assertStructuralInvariants(MasterThreadRegion &Region) const;
+#endif // NDEBUG
+
+  /// Expands \p Region until it is a structurally valid
+  /// single-entry/single-exit region where the start dominates \p NewStart and
+  /// the end post-dominates \p NewEnd.
+  ///
+  /// This does not verify that all instructions/uses/alloca loads in the new
+  /// region are valid. Returns false if the expansion fails because it is not
+  /// possible without including parallel region basic blocks. \p Region should
+  /// be a structurally valid subregion of the new region.
+  bool expandUntilStructurallyValid(MasterThreadRegion &Region,
+                                    Instruction *NewStart,
+                                    Instruction *NewEnd) const;
+
+  /// Expands \p Region until it is a structurally valid region containing
+  /// \p Inst.
+  ///
+  /// Like expandUntilStructurallyValid, this only checks structural
+  /// requirements and not included instructions. Returns false if expansion
+  /// fails.
+  bool expandStructurallyToContain(MasterThreadRegion &Region,
+                                   Instruction *Inst) const;
+
+  /// Expands \p Region to return a fully valid MasterThreadRegion.
+  ///
+  /// Unlike expandUntilStructurallyValid, this will also check instructions in
+  /// the region to make sure they can be included, their uses are in the
+  /// region, and loads of allocas they store to are in the region. If
+  /// specified, \p PrevRegion is assumed to be entirely contained by \p Region
+  /// and instructions in \p PrevRegion are assumed to have already been
+  /// checked. Returns nullopt if expansion fails.
+  std::optional<MasterThreadRegion>
+  expandUntilValid(MasterThreadRegion Region,
+                   std::optional<MasterThreadRegion> PrevRegion = {}) const;
+
+  /// Expands the start of \p Region as much as possible, and returns the
+  /// expanded region.
+  MasterThreadRegion expandStart(MasterThreadRegion Region) const;
+
+  /// Expands the end of \p Region as much as possible, and returns the expanded
+  /// region.
+  MasterThreadRegion expandEnd(MasterThreadRegion Region) const;
+
 public:
   MasterThreadRegionFinder(const SmallPtrSetImpl<BasicBlock *> &ParBBSet,
-                           const DominatorTree &DT)
-      : ParBBSet(ParBBSet), DT(DT) {}
+                           const DominatorTree &DT, PostDominatorTree &PDT)
+      : ParBBSet(ParBBSet), DT(DT), PDT(PDT) {}
 
   /// Returns the region end if a multi-basic block region ends in \p BB, or the
   /// first non-phi/debug/lifetime instruction if none end in \p BB, or the

@@ -387,6 +387,68 @@ bool WRegionNode::populateBBSet(bool Always) {
   return false;
 }
 
+bool WRegionNode::updateBBsAfterSplit(BasicBlock *OrigBB, BasicBlock *SplitBB) {
+
+  // Update BBlockSet to include the new split block if the original block is
+  // part of the region. If the original block is not part of the region, this
+  // region does not need to be updated. If BBlockSet is empty, it's been
+  // invalidated and should be kept empty.
+  if (!BBlockSet.empty()) {
+    const auto FoundOrigBB = find(BBlockSet, OrigBB);
+    if (FoundOrigBB == BBlockSet.end())
+      return false;
+    BBlockSet.insert(std::next(FoundOrigBB), SplitBB);
+  }
+
+  // If the entry directive exists and is in the new split block, update the
+  // entry block to the new block and remove the original block since it's no
+  // longer part of the region. Since we split basic blocks so that only one
+  // directive can appear per basic block, if either the original or split block
+  // have an entry directive we know they don't have exit directives and aren't
+  // part of any child regions.
+  if (getEntryDirective()) {
+    if (getEntryDirective()->getParent() == SplitBB) {
+      setEntryBBlock(SplitBB);
+      if (!BBlockSet.empty()) {
+        assert(BBlockSet.front() == OrigBB);
+        BBlockSet.erase(BBlockSet.begin());
+      }
+      return true;
+    }
+    if (getEntryDirective()->getParent() == OrigBB)
+      return true;
+  }
+
+  // If the exit directive exists and is in the new split block, the exit block
+  // needs to be updated but the original block will still be part of the
+  // region. If the exit directive is still part of the original block, the
+  // split block is not actually part of the region and should be removed from
+  // BBlockSet if it's set. If an exit directive appears in these blocks, they
+  // can't be included by any children.
+  if (getExitDirective()) {
+    if (getExitDirective()->getParent() == SplitBB) {
+      setExitBBlock(SplitBB);
+      return true;
+    }
+    if (getExitDirective()->getParent() == OrigBB) {
+      if (!BBlockSet.empty()) {
+        assert(BBlockSet.back() == SplitBB);
+        BBlockSet.pop_back();
+      }
+      return true;
+    }
+  }
+
+  // Update any child regions that need to be updated too. If the entry/exit
+  // directives of any of these child regions are in OrigBB or SplitBB, we don't
+  // need to update any of the rest because they can't contain those blocks.
+  for (WRegionNode *const Child : getChildren())
+    if (Child->updateBBsAfterSplit(OrigBB, SplitBB))
+      return true;
+
+  return false;
+}
+
 // After CFGRestructuring, the EntryBB should have a single predecessor
 BasicBlock *WRegionNode::getPredBBlock() const {
   auto PredI = pred_begin(EntryBBlock);

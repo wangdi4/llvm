@@ -63,7 +63,8 @@ arrayctor.cont:                                   ; preds = %arrayctor.loop
 ; CHECK-NEXT:  %priv.cpy.done = icmp eq %class.A* %priv.cpy.dest.inc, %[[CONSTR_END]]
 ; CHECK-NEXT:  br i1 %priv.cpy.done, label %priv.constr.done, label %priv.constr.body
 ; CHECK-LABEL: priv.constr.done:
-; CHECK-NEXT:  br label %{{.*}}
+; CHECK-NEXT:  call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
+; CHECK-NEXT:  br i1 %is.master.thread, label %master.thread.code{{[0-9]*}}, label %master.thread.fallthru{{[0-9]*}}
 
 for.cond:                                         ; preds = %for.inc, %arrayctor.cont
   %1 = load i32, i32 addrspace(4)* %d.ascast, align 4

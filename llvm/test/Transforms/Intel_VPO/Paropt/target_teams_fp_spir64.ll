@@ -21,11 +21,11 @@
 ; IGNOREFP: define{{.*}} spir_kernel void @__omp_offloading{{.*}}foo{{.*}}(i64 [[X_VAL:%[^ ]+]])
 ; IGNOREFP:   [[X_TGTFP:%.*.fpriv]] = alloca i32, align 4
 ; IGNOREFP:   [[X_CAST:%[^ ]+]] = addrspacecast i32* [[X_TGTFP]] to i32 addrspace(4)*
+; IGNOREFP:   br i1 %is.master.thread, label %master.thread.code, label %master.thread.fallthru
+; IGNOREFP: master.thread.code:
 ; IGNOREFP:   [[X_VAL_CAST:%[^ ]+]] = trunc i64 [[X_VAL]] to i32
 ; IGNOREFP:   store i32 [[X_VAL_CAST]], i32* [[X_TGTFP]], align 4
 ;
-; IGNOREFP:   br i1 %is.master.thread, label %master.thread.code, label %master.thread.fallthru
-; IGNOREFP: master.thread.code:
 ; IGNOREFP:   call {{.*}} @_Z18__spirv_ocl_printfPU3AS2cz({{.*}}, i32 addrspace(4)* [[X_CAST]])
 
 
@@ -35,18 +35,16 @@
 ; HANDLEFP: [[X_TEAMFP:@x.ascast.fpriv.__local]] = internal addrspace(3) global i32 0
 ; HANDLEFP: define{{.*}} spir_kernel void @__omp_offloading{{.*}}foo{{.*}}(i64 [[X_VAL:%[^ ]+]])
 ; HANDLEFP:   [[X_TGTFP:%.*.fpriv]] = alloca i32, align 4
+; HANDLEFP:   br i1 %is.master.thread, label %master.thread.code, label %master.thread.fallthru
+; HANDLEFP: master.thread.code:
 ; HANDLEFP:   [[X_VAL_CAST:%[^ ]+]] = trunc i64 [[X_VAL]] to i32
 ; HANDLEFP:   store i32 [[X_VAL_CAST]], i32* [[X_TGTFP]], align 4
 ; HANDLEFP:   [[X_TGTFP_VAL:%[^ ]+]] = load i32, i32* [[X_TGTFP]], align 4
 ; HANDLEFP:   [[X_TGTFP_VAL_CAST:%[^ ]+]] = zext i32 [[X_TGTFP_VAL]] to i64
 ; HANDLEFP:   [[X_TGTFP_VAL_CAST1:%[^ ]+]] = trunc i64 [[X_TGTFP_VAL_CAST]] to i32
 ;
-; HANDLEFP:   br i1 %is.master.thread, label %master.thread.code, label %master.thread.fallthru
-; HANDLEFP: master.thread.code:
 ; HANDLEFP:   store i32 [[X_TGTFP_VAL_CAST1]], i32 addrspace(3)* [[X_TEAMFP]], align 4
 ;
-; HANDLEFP:   br i1 %is.master.thread, label %master.thread.code1, label %master.thread.fallthru{{.*}}
-; HANDLEFP: master.thread.code1:
 ; HANDLEFP:   call {{.*}} @_Z18__spirv_ocl_printfPU3AS2cz({{.*}}, i32 addrspace(4)* addrspacecast (i32 addrspace(3)* [[X_TEAMFP]] to i32 addrspace(4)*))
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"

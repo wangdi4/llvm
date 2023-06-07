@@ -35,6 +35,7 @@
 #include "llvm/Analysis/AliasSetTracker.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/DomTreeUpdater.h"
+#include "llvm/Analysis/PostDominators.h"
 
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Transforms/Scalar/InferAddressSpaces.h"
@@ -940,7 +941,9 @@ void VPOParoptTransform::guardSideEffectStatements(WRegionNode *W,
   // Iterate over all instructions and form master thread regions to contain any
   // instructions that can't be safely run on all threads.
 
-  MasterThreadRegionFinder RegionFinder(ParBBSet, *DT);
+  DominatorTree DT(*KernelF);
+  PostDominatorTree PDT(*KernelF);
+  MasterThreadRegionFinder RegionFinder(ParBBSet, DT, PDT);
 
   for (BasicBlock *const BB : TargetBBSet) {
 
@@ -1018,7 +1021,7 @@ void VPOParoptTransform::guardSideEffectStatements(WRegionNode *W,
     for (MasterThreadRegion &Region : Regions) {
       Region.insertBroadcasts(TargetDirectiveBegin);
       Region.insertBarriers();
-      Region.insertGuard(MasterCheckPredicate, DTU, *LI);
+      Region.insertGuard(MasterCheckPredicate, DTU, *LI, W);
     }
   }
 

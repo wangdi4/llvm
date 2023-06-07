@@ -75,6 +75,10 @@ DIR.OMP.TARGET.3:                                 ; preds = %DIR.OMP.TARGET.312
   call void @llvm.memcpy.p4.p4.i64(ptr addrspace(4) noundef align 8 dereferenceable(256) %X.ascast, ptr addrspace(4) noundef align 8 dereferenceable(256) %1, i64 256, i1 false)
   call void @llvm.memmove.p4.p4.i64(ptr addrspace(4) noundef align 8 dereferenceable(256) %X.ascast, ptr addrspace(4) noundef align 8 dereferenceable(256) %1, i64 256, i1 false)
   call void @llvm.memset.p4.i64(ptr addrspace(4) noundef align 8 dereferenceable(256) %X.ascast, i8 0, i64 256, i1 false)
+
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"() ]
+  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.PARALLEL"() ]
+
   call void @llvm.memcpy.p4.p4.i64(ptr addrspace(4) noundef align 8 dereferenceable(256) %1, ptr addrspace(4) noundef align 8 dereferenceable(256) %X.ascast, i64 256, i1 false)
   call void @llvm.memmove.p4.p4.i64(ptr addrspace(4) noundef align 8 dereferenceable(256) %1, ptr addrspace(4) noundef align 8 dereferenceable(256) %X.ascast, i64 256, i1 false)
   call void @llvm.memset.p4.i64(ptr addrspace(4) noundef align 8 dereferenceable(256) %1, i8 0, i64 256, i1 false)

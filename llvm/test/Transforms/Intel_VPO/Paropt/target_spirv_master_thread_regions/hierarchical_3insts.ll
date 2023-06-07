@@ -49,26 +49,11 @@ entry:
 ; CHECK: br i1 %is.master.thread, label %[[IF_MASTER_1:[^ ,]+]]
 ; CHECK: [[IF_MASTER_1]]:
 ; CHECK: [[NT1:[^ ]+]] = call spir_func i32 @omp_get_num_teams()
-; CHECK: store i32 [[NT1]], i32 addrspace(3)* [[NT1_BROADCST_PTR:@[^ ]+]]
-; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
-; CHECK: [[NT1_NEW:[^ ]+]] = load i32, i32 addrspace(3)* [[NT1_BROADCST_PTR]]
 
-; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
-; CHECK: br i1 %is.master.thread, label %[[IF_MASTER_2:[^ ,]+]]
-; CHECK: [[IF_MASTER_2]]:
-; CHECK: store i32 [[NT1_NEW]], i32 addrspace(3)* @nt.ascast{{.*}}
-; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
-; CHECK: br i1 %is.master.thread, label %[[IF_MASTER_3:[^ ,]+]]
-; CHECK: [[IF_MASTER_3]]:
+; CHECK: store i32 [[NT1]], i32 addrspace(3)* @nt.ascast{{.*}}
 ; CHECK: [[NT2:[^ ]+]] = call spir_func i32 @omp_get_num_teams()
-; CHECK: store i32 [[NT2]], i32 addrspace(3)* [[NT2_BROADCST_PTR:@[^ ]+]]
-; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
-; CHECK: [[NT2_NEW:[^ ]+]] = load i32, i32 addrspace(3)* [[NT2_BROADCST_PTR]]
 
-; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
-; CHECK: br i1 %is.master.thread, label %[[IF_MASTER_4:[^ ,]+]]
-; CHECK: [[IF_MASTER_4]]:
-; CHECK: {{[^ ]+}} = call i32 (i8 addrspace(2)*, ...) @_Z18__spirv_ocl_printfPU3AS2cz(i8 addrspace(2)* getelementptr inbounds ([4 x i8], [4 x i8] addrspace(2)* @.str{{.*}}, i64 0, i64 0), i32 [[NT2_NEW]])
+; CHECK: {{[^ ]+}} = call i32 (i8 addrspace(2)*, ...) @_Z18__spirv_ocl_printfPU3AS2cz(i8 addrspace(2)* getelementptr inbounds ([4 x i8], [4 x i8] addrspace(2)* @.str{{.*}}, i64 0, i64 0), i32 [[NT2]])
 ; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
 
 

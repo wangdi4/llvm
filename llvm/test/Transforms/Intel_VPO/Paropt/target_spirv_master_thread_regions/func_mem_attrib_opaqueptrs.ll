@@ -21,10 +21,10 @@
 ; CHECK: br i1 %is.master.thread{{\d*}}, label %master.thread.code{{\d*}}, label %master.thread.fallthru{{\d*}}
 ; CHECK: master.thread.code{{\d*}}:
 ; CHECK: call spir_func double @dummy_modf(double 0.000000e+00, ptr addrspace(4) %A.ascast)
-; CHECK: call spir_func void @foo(ptr addrspace(4) %A.ascast, ptr addrspace(4) %A.ascast, ptr addrspace(4) %X.ascast.priv.gep.ascast, ptr addrspace(4) %X.ascast.priv.gep.ascast)
+; CHECK: call spir_func void @foo(ptr addrspace(4) %A.ascast, ptr addrspace(4) %A.ascast, ptr addrspace(4) %Y.ascast.priv.gep.ascast, ptr addrspace(4) %Y.ascast.priv.gep.ascast)
 ; CHECK: call spir_func void @bar()
 ; CHECK: call spir_func void @bar()
-; CHECK: call spir_func void @foo_maythrow(ptr addrspace(4) %X.ascast.priv.gep.ascast, ptr addrspace(4) %X.ascast.priv.gep.ascast, ptr addrspace(4) %X.ascast.priv.gep.ascast, ptr addrspace(4) %X.ascast.priv.gep.ascast)
+; CHECK: call spir_func void @foo_maythrow(ptr addrspace(4) %Y.ascast.priv.gep.ascast, ptr addrspace(4) %Y.ascast.priv.gep.ascast, ptr addrspace(4) %Y.ascast.priv.gep.ascast, ptr addrspace(4) %Y.ascast.priv.gep.ascast)
 ; CHECK: br label %master.thread.fallthru{{\d*}}
 ; CHECK: master.thread.fallthru{{\d*}}:
 ; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii
@@ -39,7 +39,9 @@ target device_triples = "spir64"
 define protected i32 @main() local_unnamed_addr {
 DIR.OMP.TARGET.310:
   %X = alloca [32 x double], align 8
+  %Y = alloca [32 x double], align 8
   %X.ascast = addrspacecast ptr %X to ptr addrspace(4)
+  %Y.ascast = addrspacecast ptr %Y to ptr addrspace(4)
   %end.dir.temp = alloca i1, align 1
   br label %DIR.OMP.TARGET.1
 
@@ -51,6 +53,7 @@ DIR.OMP.TARGET.2:                                 ; preds = %DIR.OMP.TARGET.1
     "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
     "QUAL.OMP.MAP.TOFROM"([32 x double] addrspace(1)* @A, [32 x double] addrspace(1)* @A, i64 256, i64 547, i8* null, i8* null), ; MAP type: 547 = 0x223 = IMPLICIT (0x200) | TARGET_PARAM (0x20) | FROM (0x2) | TO (0x1)
     "QUAL.OMP.PRIVATE:TYPED.WILOCAL"([32 x double] addrspace(4)* %X.ascast, double 0.000000e+00, i64 32),
+    "QUAL.OMP.PRIVATE:TYPED.WILOCAL"([32 x double] addrspace(4)* %Y.ascast, double 0.000000e+00, i64 32),
     "QUAL.OMP.JUMP.TO.END.IF"(i1* %end.dir.temp) ]
 
   br label %DIR.OMP.TARGET.312
@@ -67,11 +70,14 @@ DIR.OMP.TARGET.3:                                 ; preds = %DIR.OMP.TARGET.312
   call spir_func void @foo(ptr addrspace(4) %A.ascast, ptr addrspace(4) %A.ascast, ptr addrspace(4) %A.ascast, ptr addrspace(4) %A.ascast) memory(argmem:read)
   call spir_func void @bar() memory(read)
 
-  %2 = call spir_func double @dummy_modf(double 0.000000e+00, ptr addrspace(4) %A.ascast)
-  call spir_func void @foo(ptr addrspace(4) %A.ascast, ptr addrspace(4) %A.ascast, ptr addrspace(4) %X.ascast, ptr addrspace(4) %X.ascast)
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"() ]
+  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.PARALLEL"() ]
+
+  %3 = call spir_func double @dummy_modf(double 0.000000e+00, ptr addrspace(4) %A.ascast)
+  call spir_func void @foo(ptr addrspace(4) %A.ascast, ptr addrspace(4) %A.ascast, ptr addrspace(4) %Y.ascast, ptr addrspace(4) %Y.ascast)
   call spir_func void @bar()
   call spir_func void @bar() memory(inaccessiblemem:write)
-  call spir_func void @foo_maythrow(ptr addrspace(4) %X.ascast, ptr addrspace(4) %X.ascast, ptr addrspace(4) %X.ascast, ptr addrspace(4) %X.ascast)
+  call spir_func void @foo_maythrow(ptr addrspace(4) %Y.ascast, ptr addrspace(4) %Y.ascast, ptr addrspace(4) %Y.ascast, ptr addrspace(4) %Y.ascast)
 
   br label %DIR.OMP.END.TARGET.5
 

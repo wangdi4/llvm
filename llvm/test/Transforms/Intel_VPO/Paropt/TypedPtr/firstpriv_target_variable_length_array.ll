@@ -92,7 +92,8 @@ arrayctor.cont:                                   ; preds = %entry, %arrayctor.l
 ; CTORDTOR-NEXT:  %priv.cpy.done = icmp eq %class.A* %priv.cpy.dest.inc, %[[END]]
 ; CTORDTOR-NEXT:  br i1 %priv.cpy.done, label %priv.cpyctor.done, label %priv.cpyctor.body
 ; CTORDTOR-LABEL: priv.cpyctor.done:
-; CTORDTOR-NEXT:  br label %{{.*}}
+; CTORDTOR-NEXT:  call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
+; CTORDTOR-NEXT:  br i1 %is.master.thread, label %master.thread.code{{[0-9]*}}, label %master.thread.fallthru{{[0-9]*}}
 
 ; Make sure we don't call the ctor/dtor unless requested
 ; NOCTORDTOR-NOT: call {{.*}}@_ZTS1A.omp.copy_constr
