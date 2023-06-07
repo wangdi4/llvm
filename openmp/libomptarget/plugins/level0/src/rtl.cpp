@@ -3018,8 +3018,15 @@ struct RTLDeviceInfoTy {
   /// Return the internal device ID for the specified subdevice
   int32_t getSubDeviceId(int32_t DeviceId, uint32_t Level, uint32_t SubId);
 
-  /// Check if the device has access to copy engines (main or link)
-  bool hasCopyEngineAccess(int32_t DeviceId, bool IsMain);
+  /// Check if the device has main copy engine
+  bool hasMainCopyEngine(int32_t DeviceId) {
+    return CopyOrdinals[DeviceId].first != UINT32_MAX;
+  }
+
+  /// Check if the device has link copy engines
+  bool hasLinkCopyEngine(int32_t DeviceId) {
+    return LinkCopyOrdinals[DeviceId].second > 0;
+  }
 
   ze_command_list_handle_t getCmdList(int32_t DeviceId) {
     auto TLS = getTLS();
@@ -3059,108 +3066,87 @@ struct RTLDeviceInfoTy {
   }
 
   ze_command_list_handle_t getCopyCmdList(int32_t DeviceId) {
-    if (!hasCopyEngineAccess(DeviceId, true /* IsMain */)) {
-      // Return link copy engine if it is enabled, first subdevice's copy engine
-      // if available, compute engine otherwise.
-      if (hasCopyEngineAccess(DeviceId, false))
-        return getLinkCopyCmdList(DeviceId);
-      int32_t FirstSubId = getSubDeviceId(DeviceId, 0, 0);
-      if (FirstSubId >= 0 && hasCopyEngineAccess(FirstSubId, true))
-        return getCopyCmdList(FirstSubId);
-      else
-        return getCmdList(DeviceId);
+    // Use main copy engine if available
+    if (hasMainCopyEngine(DeviceId)) {
+      auto *TLS = getTLS();
+      auto CmdList = TLS->getCopyCmdList(DeviceId);
+      if (!CmdList) {
+        CmdList =
+            createCmdList(Context, Devices[DeviceId],
+                          CopyOrdinals[DeviceId].first, DeviceIdStr[DeviceId]);
+        TLS->setCopyCmdList(DeviceId, CmdList);
+      }
+      return CmdList;
     }
-
-    // Use copy engine
-    auto TLS = getTLS();
-    auto CmdList = TLS->getCopyCmdList(DeviceId);
-    if (!CmdList) {
-      CmdList = createCmdList(Context, Devices[DeviceId],
-          CopyOrdinals[DeviceId].first, DeviceIdStr[DeviceId]);
-      TLS->setCopyCmdList(DeviceId, CmdList);
-    }
-    return CmdList;
-  }
-
-  bool usingCopyCmdQueue(int32_t DeviceId) {
-    if (CopyOrdinals[DeviceId].first == UINT32_MAX &&
-        LinkCopyOrdinals[DeviceId].second == 0)
-       return  false;
-    return true;
+    // Use link copy engine if available
+    if (hasLinkCopyEngine(DeviceId))
+      return getLinkCopyCmdList(DeviceId);
+    // Use compute engine otherwise
+    return getCmdList(DeviceId);
   }
 
   ze_command_queue_handle_t getCopyCmdQueue(int32_t DeviceId) {
-    if (!hasCopyEngineAccess(DeviceId, true /* IsMain */)) {
-      // Return link copy engine if it is enabled, first subdevice's copy engine
-      // if available, compute engine otherwise.
-      if (hasCopyEngineAccess(DeviceId, false))
-        return getLinkCopyCmdQueue(DeviceId);
-      int32_t FirstSubId = getSubDeviceId(DeviceId, 0, 0);
-      if (FirstSubId >= 0 && hasCopyEngineAccess(FirstSubId, true))
-        return getCopyCmdQueue(FirstSubId);
-      else
-        return getCmdQueue(DeviceId);
+    // Use main copy engine if available
+    if (hasMainCopyEngine(DeviceId)) {
+      auto *TLS = getTLS();
+      auto CmdQueue = TLS->getCopyCmdQueue(DeviceId);
+      if (!CmdQueue) {
+        CmdQueue = createCmdQueue(Context, Devices[DeviceId],
+                                  CopyOrdinals[DeviceId].first, 0,
+                                  DeviceIdStr[DeviceId]);
+        TLS->setCopyCmdQueue(DeviceId, CmdQueue);
+      }
+      return CmdQueue;
     }
-
-    // Use copy engine
-    auto TLS = getTLS();
-    auto CmdQueue = TLS->getCopyCmdQueue(DeviceId);
-    if (!CmdQueue) {
-      CmdQueue = createCmdQueue(Context, Devices[DeviceId],
-          CopyOrdinals[DeviceId].first, 0, DeviceIdStr[DeviceId]);
-      TLS->setCopyCmdQueue(DeviceId, CmdQueue);
-    }
-    return CmdQueue;
+    // Use link copy engine if available
+    if (hasLinkCopyEngine(DeviceId))
+      return getLinkCopyCmdQueue(DeviceId);
+    // Use compute engine otherwise
+    return getCmdQueue(DeviceId);
   }
 
   ze_command_list_handle_t getLinkCopyCmdList(int32_t DeviceId) {
-    if (!hasCopyEngineAccess(DeviceId, false /* IsMain */)) {
-      // Return main copy engine if it is enabled, first subdevice's copy engine
-      // if available, compute engine otherwise
-      if (hasCopyEngineAccess(DeviceId, true))
-        return getCopyCmdList(DeviceId);
-      int32_t FirstSubId = getSubDeviceId(DeviceId, 0, 0);
-      if (FirstSubId >= 0 && hasCopyEngineAccess(FirstSubId, false))
-        return getLinkCopyCmdList(FirstSubId);
-      else
-        return getCmdList(DeviceId);
+    // Use link copy engine if available
+    if (hasLinkCopyEngine(DeviceId)) {
+      auto *TLS = getTLS();
+      auto CmdList = TLS->getLinkCopyCmdList(DeviceId);
+      if (!CmdList) {
+        auto &Ordinal = LinkCopyOrdinals[DeviceId];
+        CmdList = createCmdList(Context, Devices[DeviceId], Ordinal.first,
+                                ZE_COMMAND_LIST_FLAG_EXPLICIT_ONLY,
+                                DeviceIdStr[DeviceId]);
+        TLS->setLinkCopyCmdList(DeviceId, CmdList);
+      }
+      return CmdList;
     }
-
-    auto &Ordinal = LinkCopyOrdinals[DeviceId];
-    auto TLS = getTLS();
-    auto CmdList = TLS->getLinkCopyCmdList(DeviceId);
-    if (!CmdList) {
-      CmdList = createCmdList(Context, Devices[DeviceId], Ordinal.first,
-          ZE_COMMAND_LIST_FLAG_EXPLICIT_ONLY, DeviceIdStr[DeviceId]);
-      TLS->setLinkCopyCmdList(DeviceId, CmdList);
-    }
-    return CmdList;
+    // Use main copy engine if available
+    if (hasMainCopyEngine(DeviceId))
+      return getCopyCmdList(DeviceId);
+    // Use compute engine otherwise
+    return getCmdList(DeviceId);
   }
 
   ze_command_queue_handle_t getLinkCopyCmdQueue(int32_t DeviceId) {
-    if (!hasCopyEngineAccess(DeviceId, false /* IsMain */)) {
-      // Return main copy engine if it is enabled, first subdevice's copy engine
-      // if available, compute engine otherwise
-      if (hasCopyEngineAccess(DeviceId, true))
-        return getCopyCmdQueue(DeviceId);
-      int32_t FirstSubId = getSubDeviceId(DeviceId, 0, 0);
-      if (FirstSubId >= 0 && hasCopyEngineAccess(FirstSubId, false))
-        return getLinkCopyCmdQueue(FirstSubId);
-      else
-        return getCmdQueue(DeviceId);
+    // Use link copy engine if available
+    if (hasLinkCopyEngine(DeviceId)) {
+      auto *TLS = getTLS();
+      auto CmdQueue = TLS->getLinkCopyCmdQueue(DeviceId);
+      if (!CmdQueue) {
+        auto &Ordinal = LinkCopyOrdinals[DeviceId];
+        // Try to use different copy engines for multiple threads
+        uint32_t Index = __kmpc_global_thread_num(nullptr) % Ordinal.second;
+        CmdQueue = createCmdQueue(Context, Devices[DeviceId], Ordinal.first,
+                                  Index, ZE_COMMAND_QUEUE_FLAG_EXPLICIT_ONLY,
+                                  DeviceIdStr[DeviceId]);
+        TLS->setLinkCopyCmdQueue(DeviceId, CmdQueue);
+      }
+      return CmdQueue;
     }
-
-    auto &Ordinal = LinkCopyOrdinals[DeviceId];
-    auto TLS = getTLS();
-    auto CmdQueue = TLS->getLinkCopyCmdQueue(DeviceId);
-    if (!CmdQueue) {
-      // Try to use different copy engines for multiple threads
-      uint32_t Index = __kmpc_global_thread_num(nullptr) % Ordinal.second;
-      CmdQueue = createCmdQueue(Context, Devices[DeviceId], Ordinal.first,
-          Index, ZE_COMMAND_QUEUE_FLAG_EXPLICIT_ONLY, DeviceIdStr[DeviceId]);
-      TLS->setLinkCopyCmdQueue(DeviceId, CmdQueue);
-    }
-    return CmdQueue;
+    // Use main copy engine if available
+    if (hasMainCopyEngine(DeviceId))
+      return getCopyCmdQueue(DeviceId);
+    // Use compute engine otherwise
+    return getCmdQueue(DeviceId);
   }
 
   ze_command_list_handle_t getImmCmdList(int32_t DeviceId) {
@@ -5431,14 +5417,6 @@ int32_t RTLDeviceInfoTy::getSubDeviceId(int32_t DeviceId, uint32_t Level,
     return SubDeviceIds[DeviceId][Level][SubId];
   else
     return -1;
-}
-
-/// Check if the device has access to copy engines (either main or link engines)
-bool RTLDeviceInfoTy::hasCopyEngineAccess(int32_t DeviceId, bool IsMain) {
-  if (IsMain)
-    return (CopyOrdinals[DeviceId].first != UINT32_MAX);
-  else
-    return (LinkCopyOrdinals[DeviceId].second > 0);
 }
 
 int32_t RTLDeviceInfoTy::findDevices() {
