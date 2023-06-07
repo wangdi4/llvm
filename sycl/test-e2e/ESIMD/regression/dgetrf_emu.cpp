@@ -7,7 +7,9 @@
 //===----------------------------------------------------------------------===//
 
 // REQUIRES: esimd_emulator
-// RUN: %clangxx -fsycl %s -I%S/.. -fno-inline-functions -o %t.out
+// INTEL_CUSTOMIZATION
+// RUN: %clangxx -fsycl %s -I%S/.. -inline-level=0 -o %t.out
+// end INTEL_CUSTOMIZATION
 // RUN: %GPU_RUN_PLACEHOLDER %t.out 3 2 1
 //
 // This test checks the correctness of ESIMD program for batched LU

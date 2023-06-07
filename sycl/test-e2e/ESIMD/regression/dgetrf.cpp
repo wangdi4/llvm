@@ -15,7 +15,7 @@
 // this is a temporary fix for CMPLRTST-21037
 // we pass -fno-inline-functions to sure it won't hang in host compile
 // we don't do the same thing in intel/llvm since it will lead to runfail
-// RUN: %clangxx -fsycl %s  -I%S/.. -O2 -fno-inline-functions %{mathflags} -o %t.out
+// RUN: %clangxx -fsycl %s  -I%S/.. -O2 -inline-level=0 %{mathflags} -o %t.out
 // end INTEL_CUSTOMIZATION
 // RUN: %GPU_RUN_PLACEHOLDER %t.out 3 2 1
 //
