@@ -174,6 +174,9 @@ def err_duplicate_default_assoc : Error<
   "duplicate default generic association">;
 def note_previous_default_assoc : Note<
   "previous default generic association is here">;
+def ext_generic_with_type_arg : Extension<
+  "passing a type argument as the first operand to '_Generic' is a Clang "
+  "extension">, InGroup<DiagGroup<"generic-type-extension">>;
 
 def err_no_arith_type : Error <"expression must have an arithmetic type">; // INTEL
 
