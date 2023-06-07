@@ -2614,10 +2614,15 @@ void PassBuilder::addLoopOptAndAssociatedVPOPasses(ModulePassManager &MPM,
     if (!FPM.isEmpty())
       MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
     MPM.addPass(VecClonePass());
+
+    // Use AutoCPUClonePass to generate -vecabi=cmdtarget clones.
+    MPM.addPass(AutoCPUClonePass(/*GenerateVectorVariants=*/true));
+
     // VecClonePass can generate redundant geps/loads for vector parameters when
     // accessing elem[i] within the inserted simd loop. This makes DD testing
     // harder, so run CSE here to do some clean-up before HIR construction.
     FPM.addPass(EarlyCSEPass());
+
     // Propagate any alignment assumptions.
     FPM.addPass(AlignmentFromAssumptionsPass());
   }
@@ -3825,8 +3830,10 @@ ModulePassManager PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
 #if INTEL_COLLAB
   if (RunVPOOpt) {
 #if INTEL_CUSTOMIZATION
-    if (RunVecClone && RunVPOVecopt)
+    if (RunVecClone && RunVPOVecopt) {
       MPM.addPass(VecClonePass());
+      MPM.addPass(AutoCPUClonePass(/*GenerateVectorVariants=*/true));
+    }
 #endif // INTEL_CUSTOMIZATION
     // Add VPO transform and vec passes.
     FunctionPassManager FPM;

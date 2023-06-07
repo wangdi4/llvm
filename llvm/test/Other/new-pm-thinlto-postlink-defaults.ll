@@ -209,15 +209,19 @@
 ; CHECK-POSTLINK-O-NEXT: Invalidating analysis: CallGraphAnalysis
 ; CHECK-POSTLINK-O-NEXT: Invalidating analysis: LazyCallGraphAnalysis
 ; CHECK-POSTLINK-O-NEXT: Invalidating analysis: InnerAnalysisManagerProxy
+; CHECK-POSTLINK-O-NEXT: Running pass: AutoCPUClonePass on [module]
 ; CHECK-POSTLINK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
+; CHECK-POSTLINK-O-NEXT: Running analysis: BlockFrequencyAnalysis on foo
+; CHECK-POSTLINK-O-NEXT: Running analysis: BranchProbabilityAnalysis on foo
+; CHECK-POSTLINK-O-NEXT: Running analysis: LoopAnalysis on foo
+; CHECK-POSTLINK-O-NEXT: Running analysis: DominatorTreeAnalysis on foo
+; CHECK-POSTLINK-O-NEXT: Running analysis: TargetLibraryAnalysis on foo
+; CHECK-POSTLINK-O-NEXT: Running analysis: PostDominatorTreeAnalysis on foo
+; CHECK-POSTLINK-O-NEXT: Running analysis: TargetIRAnalysis on foo
 ; CHECK-POSTLINK-O-NEXT: Running pass: EarlyCSEPass
-; CHECK-POSTLINK-O-NEXT: Running analysis: TargetLibraryAnalysis
-; CHECK-POSTLINK-O-NEXT: Running analysis: TargetIRAnalysis
-; CHECK-POSTLINK-O-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running analysis: AssumptionAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running pass: AlignmentFromAssumptionsPass
 ; CHECK-POSTLINK-O-NEXT: Running analysis: ScalarEvolutionAnalysis
-; CHECK-POSTLINK-O-NEXT: Running analysis: LoopAnalysis
 ; CHECK-POSTLINK-O-NEXT: Running pass: VPORestoreOperandsPass
 ; CHECK-POSTLINK-O-NEXT: Running pass: VPOCFGRestructuringPass on foo
 ; CHECK-POSTLINK-O-NEXT: Running pass: VPlanPragmaOmpSimdIfPass on foo

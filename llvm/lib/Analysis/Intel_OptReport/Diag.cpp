@@ -648,6 +648,8 @@ const DenseMap<DiagTableKey, const char *> OptReportDiag::Diags = {
      "CSA: OpenMP parallel loop will be pipelined"},
     {OptRemarkID::OpenMPWorkShareLoopPipelined,
      "CSA: OpenMP worksharing loop will be pipelined"},
+    {OptRemarkID::TightLoopFound, "Tight cycle found for Loop %s"},
+    {OptRemarkID::TightLoopValue, "%s"},
 };
 
 const char *OptReportDiag::getMsg(DiagTableKey Id) {

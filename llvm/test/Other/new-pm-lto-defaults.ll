@@ -106,15 +106,20 @@
 ; CHECK-O1-NEXT: Invalidating analysis: InnerAnalysisManagerProxy
 ; CHECK-O1-NEXT: Invalidating analysis: LazyCallGraphAnalysis
 ; CHECK-O1-NEXT: Invalidating analysis: InnerAnalysisManagerProxy
+; CHECK-O1-NEXT: Running pass: AutoCPUClonePass
 ; CHECK-O1-NEXT: Running analysis: InnerAnalysisManagerProxy
-; CHECK-O1-NEXT: Running pass: EarlyCSEPass
-; CHECK-O1-NEXT: Running analysis: TargetLibraryAnalysis
-; CHECK-O1-NEXT: Running analysis: TargetIRAnalysis
+; CHECK-O1-NEXT: Running analysis: ProfileSummaryAnalysis
+; CHECK-O1-NEXT: Running analysis: BlockFrequencyAnalysis
+; CHECK-O1-NEXT: Running analysis: BranchProbabilityAnalysis
+; CHECK-O1-NEXT: Running analysis: LoopAnalysis
 ; CHECK-O1-NEXT: Running analysis: DominatorTreeAnalysis
+; CHECK-O1-NEXT: Running analysis: TargetLibraryAnalysis
+; CHECK-O1-NEXT: Running analysis: PostDominatorTreeAnalysis
+; CHECK-O1-NEXT: Running analysis: TargetIRAnalysis
+; CHECK-O1-NEXT: Running pass: EarlyCSEPass
 ; CHECK-O1-NEXT: Running analysis: AssumptionAnalysis
 ; CHECK-O1-NEXT: Running pass: AlignmentFromAssumptionsPass
 ; CHECK-O1-NEXT: Running analysis: ScalarEvolutionAnalysis
-; CHECK-O1-NEXT: Running analysis: LoopAnalysis
 ; CHECK-O1-NEXT: Running pass: VPORestoreOperandsPass
 ; CHECK-O1-NEXT: Running pass: VPOCFGRestructuringPass
 ; CHECK-O1-NEXT: Running pass: VPlanPragmaOmpSimdIfPass
@@ -166,7 +171,6 @@
 ; CHECK-O1-NEXT: Running analysis: LoopAccessAnalysis
 ; CHECK-O1-NEXT: Running pass: MathLibraryFunctionsReplacementPass
 ; CHECK-O1-NEXT: Running pass: AlwaysInlinerPass
-; CHECK-O1-NEXT: Running analysis: ProfileSummaryAnalysis on [module]
 ; CHECK-O1-NEXT: Running pass: VPOCFGRestructuringPass
 ; CHECK-O1-NEXT: Running pass: VPODirectiveCleanupPass
 ; END INTEL_CUSTOMIZATION
@@ -291,15 +295,19 @@
 ; CHECK-O23SZ-NEXT: Invalidating analysis: LazyCallGraphAnalysis
 ; CHECK-O23SZ-NEXT: Invalidating analysis: InnerAnalysisManagerProxy
 ; CHECK-O23SZ-NEXT: Invalidating analysis: CallGraphAnalysis
-; CHECK-O23SZ-NEXT: Running analysis: InnerAnalysisManagerProxy
-; CHECK-O23SZ-NEXT: Running pass: EarlyCSEPass
-; CHECK-O23SZ-NEXT: Running analysis: TargetLibraryAnalysis
-; CHECK-O23SZ-NEXT: Running analysis: TargetIRAnalysis
+; CHECK-O23SZ-NEXT: Running pass: AutoCPUClonePass
+; CHECK-O23SZ-NEXT: InnerAnalysisManagerProxy
+; CHECK-O23SZ-NEXT: Running analysis: BlockFrequencyAnalysis
+; CHECK-O23SZ-NEXT: Running analysis: BranchProbabilityAnalysis
+; CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: DominatorTreeAnalysis
+; CHECK-O23SZ-NEXT: Running analysis: TargetLibraryAnalysis
+; CHECK-O23SZ-NEXT: Running analysis: PostDominatorTreeAnalysis
+; CHECK-O23SZ-NEXT: Running analysis: TargetIRAnalysis
+; CHECK-O23SZ-NEXT: Running pass: EarlyCSEPass
 ; CHECK-O23SZ-NEXT: Running analysis: AssumptionAnalysis
 ; CHECK-O23SZ-NEXT: Running pass: AlignmentFromAssumptionsPass
 ; CHECK-O23SZ-NEXT: Running analysis: ScalarEvolutionAnalysis
-; CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis
 ; CHECK-O23SZ-NEXT: Running pass: VPORestoreOperandsPass
 ; CHECK-O23SZ-NEXT: Running pass: VPOCFGRestructuringPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: VPlanPragmaOmpSimdIfPass on foo

@@ -152,7 +152,6 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
   // Add current directory
   optionsEx << " -I" << GetCurrentDir();
   optionsEx << " -mstackrealign";
-  optionsEx << " -D__ENDIAN_LITTLE__=1";
   optionsEx << getCPUSignatureMacro();
 
   // Triple spir assumes that all extensions should be supported.
@@ -197,9 +196,6 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
 #endif
     optionsEx << " -cl-ext=+cl_khr_fp16";
   }
-
-  if (m_sDeviceInfo.bImageSupport)
-    optionsEx << " -D__IMAGE_SUPPORT__=1";
 
 #ifndef INTEL_PRODUCT_RELEASE
   std::string IntermediateType;

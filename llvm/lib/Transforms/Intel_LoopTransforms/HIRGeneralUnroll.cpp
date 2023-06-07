@@ -570,12 +570,15 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(
     }
   }
 
+  unsigned AvgTripCount = 0;
   if (HasEnablingPragma) {
     // Use factor of 2 for small trip count loops.
     if (IsConstTripLoop && (TripCount < MaxUnrollFactor)) {
       return 2;
     }
   } else if ((IsConstTripLoop ||
+              (HLoop->getPragmaBasedAverageTripCount(AvgTripCount) &&
+               (TripCount = AvgTripCount)) ||
               (TripCount = HLoop->getMaxTripCountEstimate())) &&
              (TripCount < MinTripCountThreshold)) {
 

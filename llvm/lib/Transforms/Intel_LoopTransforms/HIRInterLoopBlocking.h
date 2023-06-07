@@ -593,6 +593,14 @@ public:
                                  BasePtrIndexSetTy &ReadOnlyBasePtr,
                                  DDGraph DDG, const HLLoop *LCA = nullptr);
 
+  // Given a RegDDRef, get the information of the ref's dimensions
+  // into DimInfoVec. DimInfoVec is a vector of dimension info of each
+  // dimension of the ref. OutermostLevel and InnermostLevel are
+  // used to compute the dimension info.
+  static bool collectDimInfo(const RegDDRef *Ref, unsigned OutermostLevel,
+                             unsigned InnermostLevel,
+                             DimInfoVecImplTy &DimInfoVec);
+
 private:
   bool areMostlyStructuallyStencilRefs(RefGroupVecTy &Groups) const;
 
@@ -704,7 +712,8 @@ private:
   // - Single IV + <optional constant> + <optional blob>
   // - Constant
   // - blob-only + <optional constant>
-  bool isValidDim(const CanonExpr *CE, DimInfoTy &DimInfo) const;
+  static bool isValidDim(const CanonExpr *CE, unsigned OutermostLevel,
+                         unsigned InnermostLevel, DimInfoTy &DimInfo);
 
   static bool DimInfoCompPred(const DimInfoTy &DI1, const DimInfoTy &DI2);
   static bool DimInfoCompPredRelaxed(const DimInfoTy &DI1,

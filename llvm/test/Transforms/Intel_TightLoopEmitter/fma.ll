@@ -53,42 +53,42 @@
 ; OPTRPT:     LOOP BEGIN at fma.cpp (9, 5)
 ;
 ; OPTRPT:         LOOP BEGIN at fma.cpp (14, 7)
-; OPTRPT:             remark: Tight cycle found for Loop for.body16.us.us.us
-; OPTRPT-NEXT:        remark:   %vla100.sroa.24.0 = phi <4 x double> [ %vla100.sroa.24.0.copyload, %for.cond5.preheader.us.us.us ], [ %35, %for.body16.us.us.us ]
-; OPTRPT-NEXT:        remark:   %35 = tail call <4 x double> @llvm.fma.v4f64(<4 x double> %arrayidx32.val.us.us.us.11, <4 x double> %vecinit3.i.i.us.us.us, <4 x double> %vla100.sroa.24.0)
-; OPTRPT:             remark: Tight cycle found for Loop for.body16.us.us.us
-; OPTRPT-NEXT:        remark:   %vla100.sroa.22.0 = phi <4 x double> [ %vla100.sroa.22.0.copyload, %for.cond5.preheader.us.us.us ], [ %33, %for.body16.us.us.us ]
-; OPTRPT-NEXT:        remark:   %33 = tail call <4 x double> @llvm.fma.v4f64(<4 x double> %arrayidx32.val.us.us.us.10, <4 x double> %vecinit3.i.i.us.us.us, <4 x double> %vla100.sroa.22.0)
-; OPTRPT:             remark: Tight cycle found for Loop for.body16.us.us.us
-; OPTRPT-NEXT:        remark:   %vla100.sroa.20.0 = phi <4 x double> [ %vla100.sroa.20.0.copyload, %for.cond5.preheader.us.us.us ], [ %31, %for.body16.us.us.us ]
-; OPTRPT-NEXT:        remark:   %31 = tail call <4 x double> @llvm.fma.v4f64(<4 x double> %arrayidx32.val.us.us.us.9, <4 x double> %vecinit3.i.i.us.us.us, <4 x double> %vla100.sroa.20.0)
-; OPTRPT:             remark: Tight cycle found for Loop for.body16.us.us.us
-; OPTRPT-NEXT:        remark:   %vla100.sroa.18.0 = phi <4 x double> [ %vla100.sroa.18.0.copyload, %for.cond5.preheader.us.us.us ], [ %29, %for.body16.us.us.us ]
-; OPTRPT-NEXT:        remark:   %29 = tail call <4 x double> @llvm.fma.v4f64(<4 x double> %arrayidx32.val.us.us.us.8, <4 x double> %vecinit3.i.i.us.us.us, <4 x double> %vla100.sroa.18.0)
-; OPTRPT:             remark: Tight cycle found for Loop for.body16.us.us.us
-; OPTRPT-NEXT:        remark:   %vla100.sroa.16.0 = phi <4 x double> [ %vla100.sroa.16.0.copyload, %for.cond5.preheader.us.us.us ], [ %27, %for.body16.us.us.us ]
-; OPTRPT-NEXT:        remark:   %27 = tail call <4 x double> @llvm.fma.v4f64(<4 x double> %arrayidx32.val.us.us.us.7, <4 x double> %vecinit3.i.i.us.us.us, <4 x double> %vla100.sroa.16.0)
-; OPTRPT:             remark: Tight cycle found for Loop for.body16.us.us.us
-; OPTRPT-NEXT:        remark:   %vla100.sroa.14.0 = phi <4 x double> [ %vla100.sroa.14.0.copyload, %for.cond5.preheader.us.us.us ], [ %25, %for.body16.us.us.us ]
-; OPTRPT-NEXT:        remark:   %25 = tail call <4 x double> @llvm.fma.v4f64(<4 x double> %arrayidx32.val.us.us.us.6, <4 x double> %vecinit3.i.i.us.us.us, <4 x double> %vla100.sroa.14.0)
-; OPTRPT:             remark: Tight cycle found for Loop for.body16.us.us.us
-; OPTRPT-NEXT:        remark:   %vla100.sroa.12.0 = phi <4 x double> [ %vla100.sroa.12.0.copyload, %for.cond5.preheader.us.us.us ], [ %23, %for.body16.us.us.us ]
-; OPTRPT-NEXT:        remark:   %23 = tail call <4 x double> @llvm.fma.v4f64(<4 x double> %arrayidx32.val.us.us.us.5, <4 x double> %vecinit3.i.i.us.us.us, <4 x double> %vla100.sroa.12.0)
-; OPTRPT:             remark: Tight cycle found for Loop for.body16.us.us.us
-; OPTRPT-NEXT:        remark:   %vla100.sroa.10.0 = phi <4 x double> [ %vla100.sroa.10.0.copyload, %for.cond5.preheader.us.us.us ], [ %21, %for.body16.us.us.us ]
-; OPTRPT-NEXT:        remark:   %21 = tail call <4 x double> @llvm.fma.v4f64(<4 x double> %arrayidx32.val.us.us.us.4, <4 x double> %vecinit3.i.i.us.us.us, <4 x double> %vla100.sroa.10.0)
-; OPTRPT:             remark: Tight cycle found for Loop for.body16.us.us.us
-; OPTRPT-NEXT:        remark:   %vla100.sroa.8.0 = phi <4 x double> [ %vla100.sroa.8.0.copyload, %for.cond5.preheader.us.us.us ], [ %19, %for.body16.us.us.us ]
-; OPTRPT-NEXT:        remark:   %19 = tail call <4 x double> @llvm.fma.v4f64(<4 x double> %arrayidx32.val.us.us.us.3, <4 x double> %vecinit3.i.i.us.us.us, <4 x double> %vla100.sroa.8.0)
-; OPTRPT:             remark: Tight cycle found for Loop for.body16.us.us.us
-; OPTRPT-NEXT:        remark:   %vla100.sroa.6.0 = phi <4 x double> [ %vla100.sroa.6.0.copyload, %for.cond5.preheader.us.us.us ], [ %17, %for.body16.us.us.us ]
-; OPTRPT-NEXT:        remark:   %17 = tail call <4 x double> @llvm.fma.v4f64(<4 x double> %arrayidx32.val.us.us.us.2, <4 x double> %vecinit3.i.i.us.us.us, <4 x double> %vla100.sroa.6.0)
-; OPTRPT:             remark: Tight cycle found for Loop for.body16.us.us.us
-; OPTRPT-NEXT:        remark:   %vla100.sroa.4.0 = phi <4 x double> [ %vla100.sroa.4.0.copyload, %for.cond5.preheader.us.us.us ], [ %15, %for.body16.us.us.us ]
-; OPTRPT-NEXT:        remark:   %15 = tail call <4 x double> @llvm.fma.v4f64(<4 x double> %arrayidx32.val.us.us.us.1, <4 x double> %vecinit3.i.i.us.us.us, <4 x double> %vla100.sroa.4.0)
-; OPTRPT:             remark: Tight cycle found for Loop for.body16.us.us.us
-; OPTRPT-NEXT:        remark:   %vla100.sroa.0.0 = phi <4 x double> [ %vla100.sroa.0.0.copyload, %for.cond5.preheader.us.us.us ], [ %13, %for.body16.us.us.us ]
-; OPTRPT-NEXT:        remark:   %13 = tail call <4 x double> @llvm.fma.v4f64(<4 x double> %arrayidx32.val.us.us.us, <4 x double> %vecinit3.i.i.us.us.us, <4 x double> %vla100.sroa.0.0)
+; OPTRPT:             #25599: Tight cycle found for Loop for.body16.us.us.us
+; OPTRPT-NEXT:        #25600:   %vla100.sroa.24.0 = phi <4 x double> [ %vla100.sroa.24.0.copyload, %for.cond5.preheader.us.us.us ], [ %35, %for.body16.us.us.us ]
+; OPTRPT-NEXT:        #25600:   %35 = tail call <4 x double> @llvm.fma.v4f64(<4 x double> %arrayidx32.val.us.us.us.11, <4 x double> %vecinit3.i.i.us.us.us, <4 x double> %vla100.sroa.24.0)
+; OPTRPT:             #25599: Tight cycle found for Loop for.body16.us.us.us
+; OPTRPT-NEXT:        #25600:   %vla100.sroa.22.0 = phi <4 x double> [ %vla100.sroa.22.0.copyload, %for.cond5.preheader.us.us.us ], [ %33, %for.body16.us.us.us ]
+; OPTRPT-NEXT:        #25600:   %33 = tail call <4 x double> @llvm.fma.v4f64(<4 x double> %arrayidx32.val.us.us.us.10, <4 x double> %vecinit3.i.i.us.us.us, <4 x double> %vla100.sroa.22.0)
+; OPTRPT:             #25599: Tight cycle found for Loop for.body16.us.us.us
+; OPTRPT-NEXT:        #25600:   %vla100.sroa.20.0 = phi <4 x double> [ %vla100.sroa.20.0.copyload, %for.cond5.preheader.us.us.us ], [ %31, %for.body16.us.us.us ]
+; OPTRPT-NEXT:        #25600:   %31 = tail call <4 x double> @llvm.fma.v4f64(<4 x double> %arrayidx32.val.us.us.us.9, <4 x double> %vecinit3.i.i.us.us.us, <4 x double> %vla100.sroa.20.0)
+; OPTRPT:             #25599: Tight cycle found for Loop for.body16.us.us.us
+; OPTRPT-NEXT:        #25600:   %vla100.sroa.18.0 = phi <4 x double> [ %vla100.sroa.18.0.copyload, %for.cond5.preheader.us.us.us ], [ %29, %for.body16.us.us.us ]
+; OPTRPT-NEXT:        #25600:   %29 = tail call <4 x double> @llvm.fma.v4f64(<4 x double> %arrayidx32.val.us.us.us.8, <4 x double> %vecinit3.i.i.us.us.us, <4 x double> %vla100.sroa.18.0)
+; OPTRPT:             #25599: Tight cycle found for Loop for.body16.us.us.us
+; OPTRPT-NEXT:        #25600:   %vla100.sroa.16.0 = phi <4 x double> [ %vla100.sroa.16.0.copyload, %for.cond5.preheader.us.us.us ], [ %27, %for.body16.us.us.us ]
+; OPTRPT-NEXT:        #25600:   %27 = tail call <4 x double> @llvm.fma.v4f64(<4 x double> %arrayidx32.val.us.us.us.7, <4 x double> %vecinit3.i.i.us.us.us, <4 x double> %vla100.sroa.16.0)
+; OPTRPT:             #25599: Tight cycle found for Loop for.body16.us.us.us
+; OPTRPT-NEXT:        #25600:   %vla100.sroa.14.0 = phi <4 x double> [ %vla100.sroa.14.0.copyload, %for.cond5.preheader.us.us.us ], [ %25, %for.body16.us.us.us ]
+; OPTRPT-NEXT:        #25600:   %25 = tail call <4 x double> @llvm.fma.v4f64(<4 x double> %arrayidx32.val.us.us.us.6, <4 x double> %vecinit3.i.i.us.us.us, <4 x double> %vla100.sroa.14.0)
+; OPTRPT:             #25599: Tight cycle found for Loop for.body16.us.us.us
+; OPTRPT-NEXT:        #25600:   %vla100.sroa.12.0 = phi <4 x double> [ %vla100.sroa.12.0.copyload, %for.cond5.preheader.us.us.us ], [ %23, %for.body16.us.us.us ]
+; OPTRPT-NEXT:        #25600:   %23 = tail call <4 x double> @llvm.fma.v4f64(<4 x double> %arrayidx32.val.us.us.us.5, <4 x double> %vecinit3.i.i.us.us.us, <4 x double> %vla100.sroa.12.0)
+; OPTRPT:             #25599: Tight cycle found for Loop for.body16.us.us.us
+; OPTRPT-NEXT:        #25600:   %vla100.sroa.10.0 = phi <4 x double> [ %vla100.sroa.10.0.copyload, %for.cond5.preheader.us.us.us ], [ %21, %for.body16.us.us.us ]
+; OPTRPT-NEXT:        #25600:   %21 = tail call <4 x double> @llvm.fma.v4f64(<4 x double> %arrayidx32.val.us.us.us.4, <4 x double> %vecinit3.i.i.us.us.us, <4 x double> %vla100.sroa.10.0)
+; OPTRPT:             #25599: Tight cycle found for Loop for.body16.us.us.us
+; OPTRPT-NEXT:        #25600:   %vla100.sroa.8.0 = phi <4 x double> [ %vla100.sroa.8.0.copyload, %for.cond5.preheader.us.us.us ], [ %19, %for.body16.us.us.us ]
+; OPTRPT-NEXT:        #25600:   %19 = tail call <4 x double> @llvm.fma.v4f64(<4 x double> %arrayidx32.val.us.us.us.3, <4 x double> %vecinit3.i.i.us.us.us, <4 x double> %vla100.sroa.8.0)
+; OPTRPT:             #25599: Tight cycle found for Loop for.body16.us.us.us
+; OPTRPT-NEXT:        #25600:   %vla100.sroa.6.0 = phi <4 x double> [ %vla100.sroa.6.0.copyload, %for.cond5.preheader.us.us.us ], [ %17, %for.body16.us.us.us ]
+; OPTRPT-NEXT:        #25600:   %17 = tail call <4 x double> @llvm.fma.v4f64(<4 x double> %arrayidx32.val.us.us.us.2, <4 x double> %vecinit3.i.i.us.us.us, <4 x double> %vla100.sroa.6.0)
+; OPTRPT:             #25599: Tight cycle found for Loop for.body16.us.us.us
+; OPTRPT-NEXT:        #25600:   %vla100.sroa.4.0 = phi <4 x double> [ %vla100.sroa.4.0.copyload, %for.cond5.preheader.us.us.us ], [ %15, %for.body16.us.us.us ]
+; OPTRPT-NEXT:        #25600:   %15 = tail call <4 x double> @llvm.fma.v4f64(<4 x double> %arrayidx32.val.us.us.us.1, <4 x double> %vecinit3.i.i.us.us.us, <4 x double> %vla100.sroa.4.0)
+; OPTRPT:             #25599: Tight cycle found for Loop for.body16.us.us.us
+; OPTRPT-NEXT:        #25600:   %vla100.sroa.0.0 = phi <4 x double> [ %vla100.sroa.0.0.copyload, %for.cond5.preheader.us.us.us ], [ %13, %for.body16.us.us.us ]
+; OPTRPT-NEXT:        #25600:   %13 = tail call <4 x double> @llvm.fma.v4f64(<4 x double> %arrayidx32.val.us.us.us, <4 x double> %vecinit3.i.i.us.us.us, <4 x double> %vla100.sroa.0.0)
 ;
 ; OPTRPT:             LOOP BEGIN at fma.cpp (16, 9)
 ; OPTRPT:                 remark: LLorg: Loop has been completely unrolled

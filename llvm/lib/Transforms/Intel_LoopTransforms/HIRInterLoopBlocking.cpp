@@ -1290,15 +1290,10 @@ bool InnermostLoopAnalyzer::canCalcDimInfo(
 bool InnermostLoopAnalyzer::analyzeDims(const RegDDRef *Ref,
                                         DimInfoVecImplTy &DimInfoVec) const {
 
-  for (auto DimNum : make_range(Ref->dim_num_begin(), Ref->dim_num_end())) {
-    const CanonExpr *CE = Ref->getDimensionIndex(DimNum);
-    DimInfoTy DimInfo;
-    // Per-dimension check
-    if (!isValidDim(CE, DimInfo))
-      return false;
-
-    DimInfoVec.push_back(DimInfo);
-  }
+  if (!InnermostLoopAnalyzer::collectDimInfo(Ref, OutermostLoopLevel,
+                                             InnermostLoop->getNestingLevel(),
+                                             DimInfoVec))
+    return false;
 
   // Inter-dimensional check:
   // Now check if all IV levels strictly increases dimnum decreases.
@@ -1317,8 +1312,28 @@ bool InnermostLoopAnalyzer::analyzeDims(const RegDDRef *Ref,
   return true;
 }
 
+bool InnermostLoopAnalyzer::collectDimInfo(const RegDDRef *Ref,
+                                           unsigned OutermostLevel,
+                                           unsigned InnermostLevel,
+                                           DimInfoVecImplTy &DimInfoVec) {
+
+  for (auto DimNum : make_range(Ref->dim_num_begin(), Ref->dim_num_end())) {
+    const CanonExpr *CE = Ref->getDimensionIndex(DimNum);
+    DimInfoTy DimInfo;
+    // Per-dimension check
+    if (!isValidDim(CE, OutermostLevel, InnermostLevel, DimInfo))
+      return false;
+
+    DimInfoVec.push_back(DimInfo);
+  }
+
+  return true;
+}
+
 bool InnermostLoopAnalyzer::isValidDim(const CanonExpr *CE,
-                                       DimInfoTy &DimInfo) const {
+                                       unsigned OutermostLevel,
+                                       unsigned InnermostLevel,
+                                       DimInfoTy &DimInfo) {
   int64_t Val;
   if (CE->isIntConstant(&Val)) {
     DimInfo = DimInfoTy::KONST;
@@ -1354,10 +1369,10 @@ bool InnermostLoopAnalyzer::isValidDim(const CanonExpr *CE,
     IVFoundLevel = Level;
   }
 
-  if (!IVFoundLevel || IVFoundLevel == OutermostLoopLevel)
+  if (!IVFoundLevel || IVFoundLevel == OutermostLevel)
     return false;
 
-  DimInfo = ((InnermostLoop->getNestingLevel()) - IVFoundLevel);
+  DimInfo = InnermostLevel - IVFoundLevel;
 
   return true;
 }
@@ -1398,7 +1413,6 @@ void Transformer::dump() {
   dbgs() << "NodeOutsideByStrip: ";
   if (NodeOutsideByStrip)
     dbgs() << NodeOutsideByStrip->getNumber() << "\n";
-
 }
 #endif
 

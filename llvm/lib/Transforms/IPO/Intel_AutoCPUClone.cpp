@@ -188,7 +188,8 @@ shouldMultiVersion(Module& M, Function& Fn,
 
   // Skip functions that are not intended to be auto multi-versioned.
   if (!Fn.hasMetadata("llvm.auto.arch") &&
-      !Fn.hasMetadata("llvm.auto.cpu.dispatch"))
+      !Fn.hasMetadata("llvm.auto.cpu.dispatch") &&
+      !Fn.hasMetadata("llvm.vec.auto.cpu.dispatch"))
     return false;
 
   // Skip available externally functions as they will be removed anyway.
@@ -315,7 +316,7 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
                function_ref<TargetLibraryInfo &(Function &)> GetTLI,
                function_ref<TargetTransformInfo &(Function &)> GetTTI,
                function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
-               ProfileSummaryInfo &PSI) {
+               ProfileSummaryInfo &PSI, bool GenerateVectorVariants) {
 
   // Candidates for multi-versioning.
   SetVector<Function *> MVCandidates;
@@ -371,14 +372,22 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     if (UseWrapperBasedResolver && Fn->isVarArg())
       continue;
 
-    MDNode *TargetsMD = Fn->getMetadata("llvm.auto.cpu.dispatch");
-    bool EnableAdvancedOpts = TargetsMD != nullptr;
-    if (!TargetsMD) {
-      TargetsMD = Fn->getMetadata("llvm.auto.arch");
+    MDNode *TargetsMD = nullptr;
+    bool EnableAdvancedOpts = false;
+
+    if (GenerateVectorVariants) {
+      TargetsMD = Fn->getMetadata("llvm.vec.auto.cpu.dispatch");
+    } else {
+      TargetsMD = Fn->getMetadata("llvm.auto.cpu.dispatch");
+      EnableAdvancedOpts = TargetsMD != nullptr;
+      if (!TargetsMD) {
+        TargetsMD = Fn->getMetadata("llvm.auto.arch");
+      }
     }
 
     // Erase metadata here, to prevent cloning it unnecessarily
     // during multi-versioning as well as dispatcher code generation.
+    Fn->eraseMetadata(Ctx.getMDKindID("llvm.vec.auto.cpu.dispatch"));
     Fn->eraseMetadata(Ctx.getMDKindID("llvm.auto.cpu.dispatch"));
     Fn->eraseMetadata(Ctx.getMDKindID("llvm.auto.arch"));
 
@@ -678,6 +687,7 @@ clearMetadataAndSetAttributes(
     // Remove all metadata storing multi-versioning targets from all functions
     Fn.eraseMetadata(Ctx.getMDKindID("llvm.auto.arch"));
     Fn.eraseMetadata(Ctx.getMDKindID("llvm.auto.cpu.dispatch"));
+    Fn.eraseMetadata(Ctx.getMDKindID("llvm.vec.auto.cpu.dispatch"));
     // Add "advanced-optim" attribute on functions that are skipped
     // and not multi-versioned.
     if (SetAdvancedOptim && !Fn.hasFnAttribute("advanced-optim"))
@@ -703,7 +713,8 @@ PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &AM) {
   };
   ProfileSummaryInfo &PSI = AM.getResult<ProfileSummaryAnalysis>(M);
 
-  bool Success = cloneFunctions(M, GetLoopInfo, GetTLI, GetTTI, GetBFI, PSI);
+  bool Success = cloneFunctions(M, GetLoopInfo, GetTLI, GetTTI, GetBFI, PSI,
+                                GenerateVectorVariants);
 
   clearMetadataAndSetAttributes(M, GetTTI, Success);
 
