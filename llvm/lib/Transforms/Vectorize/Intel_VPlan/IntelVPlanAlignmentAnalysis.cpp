@@ -440,7 +440,7 @@ void VPlanPeelingAnalysis::dump() {
 }
 
 Align VPlanAlignmentAnalysis::getAlignmentUnitStride(
-    const VPLoadStoreInst &Memref, VPlanPeelingVariant *Peeling) const {
+    const VPLoadStoreInst &Memref, const VPlanPeelingVariant *Peeling) const {
   if (!Peeling || VF == 1)
     return Memref.getAlignment();
   if (auto *SP = dyn_cast<VPlanStaticPeeling>(Peeling))
@@ -467,7 +467,7 @@ VPlanAlignmentAnalysis::tryGetKnownAlignment(const VPValue *Val,
 }
 
 Align VPlanAlignmentAnalysis::getAlignmentUnitStrideImpl(
-    const VPLoadStoreInst &Memref, VPlanStaticPeeling &SP) const {
+    const VPLoadStoreInst &Memref, const VPlanStaticPeeling &SP) const {
   Align AlignFromIR = Memref.getAlignment();
 
   auto Ind = VPSE->asConstStepInduction(Memref.getAddressSCEV());
@@ -497,7 +497,7 @@ Align VPlanAlignmentAnalysis::getAlignmentUnitStrideImpl(
 }
 
 Align VPlanAlignmentAnalysis::getAlignmentUnitStrideImpl(
-    const VPLoadStoreInst &Memref, VPlanDynamicPeeling &DP) const {
+    const VPLoadStoreInst &Memref, const VPlanDynamicPeeling &DP) const {
   Align AlignFromIR = Memref.getAlignment();
 
   VPlanSCEV *DstScev = Memref.getAddressSCEV();

@@ -4632,14 +4632,15 @@ int32_t __tgt_rtl_set_function_ptr_map(
                        /*event=*/nullptr);
 
   // Initialize __omp_offloading_fptr_map_p
-  Program.writeGlobalVariable("__omp_offloading_fptr_map_p", sizeof(void *),
-                              &FnPtrMapMem);
+  RC = Program.writeGlobalVariable("__omp_offloading_fptr_map_p",
+                                   sizeof(void *), &FnPtrMapMem);
+  if (RC != OFFLOAD_SUCCESS)
+    return OFFLOAD_FAIL;
 
   // Initialize __omp_offloading_fptr_map_size with the table size.
-  Program.writeGlobalVariable("__omp_offloading_fptr_map_size",
-                              sizeof(uint64_t), &Size);
-
-  return OFFLOAD_SUCCESS;
+  RC = Program.writeGlobalVariable("__omp_offloading_fptr_map_size",
+                                   sizeof(uint64_t), &Size);
+  return RC;
 }
 #endif // INTEL_CUSTOMIZATION
 

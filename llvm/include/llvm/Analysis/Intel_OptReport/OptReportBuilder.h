@@ -175,14 +175,6 @@ public:
     return addOrigin(OptRemarkID::InvalidRemarkID, std::forward<Args>(args)...);
   }
 
-  // Interface to add origin remarks using given remark ID.  Remove this
-  // version after all RemarkIDs are converted to OptRemarkID.
-  template <typename... Args>
-  OptReportThunk<T> &addOrigin(unsigned RemarkID, Args &&...args) {
-    return addOrigin(static_cast<OptRemarkID>(RemarkID),
-                     std::forward<Args>(args)...);
-  }
-
   // Interface to add origin remarks using given remark ID.
   template <typename... Args>
   OptReportThunk<T> &addOrigin(OptRemarkID RemarkID, Args &&...args) {
@@ -213,15 +205,6 @@ public:
   OptReportThunk<T> &addRemark(OptReportVerbosity::Level MessageVerbosity,
                                Args &&...args) {
     return addRemark(MessageVerbosity, OptRemarkID::InvalidRemarkID,
-                     std::forward<Args>(args)...);
-  }
-
-  // Interface to add opt-report remarks using given remark ID.  Remove this
-  // version after all RemarkIDs are converted to OptRemarkID.
-  template <typename... Args>
-  OptReportThunk<T> &addRemark(OptReportVerbosity::Level MessageVerbosity,
-                               unsigned RemarkID, Args &&...args) {
-    return addRemark(MessageVerbosity, static_cast<OptRemarkID>(RemarkID),
                      std::forward<Args>(args)...);
   }
 

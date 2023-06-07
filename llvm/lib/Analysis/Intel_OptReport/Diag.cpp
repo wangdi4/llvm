@@ -21,6 +21,11 @@ using namespace llvm;
 /// NOTE:
 /// Vec-report ID starts at 15300. 15552 and below are vectorizer remarks from
 /// ICC, the rest is xmain-specific. Loop-report ID starts at 25045.
+
+/// Remarks whose keys are raw constants (such as 15302) are not currently
+/// emitted anywhere in the compiler.  If you add code to emit such a remark,
+/// please add an entry for it to the OptRemarkID enum class in Diag.h and
+/// replace the constant in this table with the OptRemarkID identifier.
 const DenseMap<DiagTableKey, const char *> OptReportDiag::Diags = {
     {OptRemarkID::LoopVectorized, "LOOP WAS VECTORIZED"},
     {OptRemarkID::SimdLoopVectorized, "SIMD LOOP WAS VECTORIZED"},
@@ -502,8 +507,9 @@ const DenseMap<DiagTableKey, const char *> OptReportDiag::Diags = {
      "Number of indirect prefetches=%d, default dist=%d"},
     {OptRemarkID::FusedLoops, "Fused Loops: %s"},
     {OptRemarkID::LoopLostInFusion, "Loop lost in Fusion"},
-    {25147, "Using directive-based hint=%d, distance=%d for prefetching "
-            "spatial memory reference"},
+    {OptRemarkID::DirectivePrefetchSpatialMemRef,
+     "Using directive-based hint=%d, distance=%d for prefetching "
+     "spatial memory reference"},
     {OptRemarkID::DirectivePrefetchIndirectMemRef,
      "Using directive-based hint=%d, distance=%d for indirect memory "
      "reference"},
