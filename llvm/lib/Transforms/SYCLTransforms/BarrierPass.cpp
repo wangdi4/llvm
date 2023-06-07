@@ -265,27 +265,29 @@ void KernelBarrier::fixAllocaAndDbg(Function &F) {
     if (I->getFunction() == &F)
       SyncPerBB[I->getParent()] = I;
 
-  // Compute barrier region info. If a cross-barrier value is used in multiple
-  // basic blocks within a barrier region, it is only necessary to load the
-  // value from special buffer once in region header. The uses in the region
-  // will be replaced by the loaded value.
-  DominatorTree DT;
-  DT.recalculate(F);
-  DominanceFrontier DF;
-  std::unique_ptr<BarrierRegionInfo> BRI;
-  // BarrierRegionInfo isn't able to handle a rare case that a basic block is
-  // unreachable from entry block. For this case, we need to load from special
-  // buffer for every use of a cross-barrier value.
-  if (llvm::none_of(F, [&](BasicBlock &BB) { return !DT.getNode(&BB); })) {
-    DF.analyze(DT);
-    BRI.reset(new BarrierRegionInfo(&F, &DF, &DT));
-  }
-
   ValueVec WorkList(*AllocaValues);
   // Fix kernel argument which has debug info.
   for (auto &Arg : F.args())
     if (!Arg.use_empty() && DPV->hasOffset(&Arg))
       WorkList.push_back(&Arg);
+
+  // Compute barrier region info. If a cross-barrier value is used in multiple
+  // basic blocks within a barrier region, it is only necessary to load the
+  // value from special buffer once in region header. The uses in the region
+  // will be replaced by the loaded value.
+  DominatorTree DT;
+  DominanceFrontier DF;
+  std::unique_ptr<BarrierRegionInfo> BRI;
+  // BarrierRegionInfo isn't able to handle a rare case that a basic block is
+  // unreachable from entry block. For this case, we need to load from special
+  // buffer for every use of a cross-barrier value.
+  if (!WorkList.empty()) {
+    DT.recalculate(F);
+    if (llvm::none_of(F, [&](BasicBlock &BB) { return !DT.getNode(&BB); })) {
+      DF.analyze(DT);
+      BRI.reset(new BarrierRegionInfo(&F, &DF, &DT));
+    }
+  }
 
   for (Value *V : WorkList) {
     auto *AI = dyn_cast<AllocaInst>(V);
