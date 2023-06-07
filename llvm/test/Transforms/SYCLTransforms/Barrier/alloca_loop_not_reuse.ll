@@ -41,14 +41,21 @@ for.cond:                                         ; preds = %for.inc6, %entry
 ; CHECK-NEXT: [[Offset:%SB_LocalId_Offset[0-9]*]] = add nuw i64 [[Index]], {{[0-9]+}}
 ; CHECK-NEXT: [[GEP:%[0-9]+]] = getelementptr inbounds i8, i8* %pSB, i64 [[Offset]]
 ; CHECK-NEXT: [[LocalId:%pSB_LocalId[0-9]*]] = bitcast i8* [[GEP]] to i32*
-; CHECK-NEXT: store i32* [[LocalId]], i32** %j.addr
-; CHECK-NEXT: [[J:%[0-9]+]] = load i32*, i32** %j.addr
+; CHECK-NEXT: store i32* [[LocalId]], i32** %i.addr
+; CHECK-NEXT: load i32*, i32** %i.addr
+
   %0 = load i32, i32* %i, align 4
   %cmp = icmp slt i32 %0, 10
   br i1 %cmp, label %for.body, label %for.end8
 
 for.body:                                         ; preds = %for.cond
 ; CHECK-LABEL: for.body:
+; CHECK: [[Index1:%SBIndex[0-9]*]] = load i64, i64* %pCurrSBIndex
+; CHECK-NEXT: [[Offset1:%SB_LocalId_Offset[0-9]*]] = add nuw i64 [[Index1]], {{[0-9]+}}
+; CHECK-NEXT: [[GEP1:%[0-9]+]] = getelementptr inbounds i8, i8* %pSB, i64 [[Offset1]]
+; CHECK-NEXT: [[LocalId1:%pSB_LocalId[0-9]*]] = bitcast i8* [[GEP1]] to i32*
+; CHECK-NEXT: store i32* [[LocalId1]], i32** %j.addr, align 8
+; CHECK-NEXT: [[J:%[0-9]+]] = load i32*, i32** %j.addr, align 8
 ; CHECK: store i32 0, i32* [[J]], align 4
   store i32 0, i32* %j, align 4
   br label %for.cond1

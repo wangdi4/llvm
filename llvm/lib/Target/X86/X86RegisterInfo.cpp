@@ -1328,6 +1328,15 @@ bool X86RegisterInfo::getRegAllocationHints(Register VirtReg,
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+  const X86Subtarget &Subtarget = MF.getSubtarget<X86Subtarget>();
+  if ((ID == X86::VK64RegClassID || ID == X86::VK64WMRegClassID) &&
+      !Subtarget.hasAVX512F())
+    report_fatal_error("64-bit mask registers are not supported under AVX-256");
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
   if (RC.getID() != X86::TILERegClassID
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE
       && RC.getID() != X86::TILEPAIRRegClassID
