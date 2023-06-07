@@ -6973,11 +6973,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (D.IsCLMode())
 #if INTEL_CUSTOMIZATION
     AddClangCLArgs(Args, InputType, CmdArgs, &DebugInfoKind, &EmitCodeView, JA);
-  // for OpenMP with /Qiopenmp /Qopenmp-targets=spir64, /LD is not supported.
-  Arg *LDArg = Args.getLastArgNoClaim(options::OPT__SLASH_LD);
-  if (D.IsCLMode() && LDArg && IsOpenMPDevice && Triple.isSPIR())
-    D.Diag(diag::err_drv_openmp_targets_spir64_unsupported_opt)
-        << LDArg->getAsString(Args);
 #endif // INTEL_CUSTOMIZATION
 
   // Add the sycld debug library when --dependent-lib=msvcrtd is used from

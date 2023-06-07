@@ -132,11 +132,6 @@
 // CHK-UBJOBS: clang{{(.exe)?}}{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" "-emit-obj" {{.*}} "-o" "[[WRAPPEROBJ:.+\.o]]" "-x" "ir" "[[WRAPPERBC]]"
 // CHK-UBJOBS: link{{(.exe)?}}{{.*}} "-out:{{.+}}"{{.*}} "-defaultlib:libiomp5md.lib" "-defaultlib:omptarget.lib"{{.*}} "[[HOSTOBJ]]" "[[WRAPPEROBJ]]"
 
-/// Use of /LD not supported
-// RUN: %clang_cl -### /LD /Qiopenmp /Qopenmp-targets=spir64 -c %s 2>&1 \
-// RUN:  FileCheck -check-prefix=LD_ERROR %s
-// LD_ERROR: error: The use of '/LD' is not supported with '/Qiopenmp /Qopenmp-targets=spir64'.
-
 /// test llvm-link behavior for fopenmp offload
 // RUN: %clang -fiopenmp -target x86_64-pc-windows-msvc -fopenmp-targets=spir64 %s -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=OPENMP_LLVM_LINK_DEVICE_LIB
