@@ -1694,7 +1694,7 @@ void SYCLToolChain::AddImpliedTargetArgs(
     }
   }
   if (Arg *A = Args.getLastArg(options::OPT_O_Group))
-    if (A->getOption().matches(options::OPT_O0 || IsMSVCOd))
+    if (A->getOption().matches(options::OPT_O0) || IsMSVCOd )
 #endif // INTEL_CUSTOMIZATION
       BeArgs.push_back("-cl-opt-disable");
 
