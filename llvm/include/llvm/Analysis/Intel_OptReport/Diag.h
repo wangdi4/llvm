@@ -118,6 +118,7 @@ enum class OptRemarkID {
   /// also used by the vectorizer.
   FusedLoops = 25045,
   LoopLostInFusion = 25046,
+  DirectivePrefetchSpatialMemRef = 25147,
   DirectivePrefetchIndirectMemRef = 25150,
   LoopMultiversionedForDD = 25228,
   LoopPeeledUsingCondition = 25258,

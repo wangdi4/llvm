@@ -422,7 +422,8 @@ bool HIRLoopReversal::run() {
     ++HIRLoopReversalTriggered;
 
     // ID: 25579u, remark string: Loop was reversed
-    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25579u);
+    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                             OptRemarkID::LoopReversed);
   }
 
   CandidateLoops.clear();
