@@ -113,7 +113,11 @@ public:
       : m_Pointer(ptr) {}
   multi_ptr(std::nullptr_t) : m_Pointer(nullptr) {}
 
+<<<<<<< HEAD
   // Implicit conversion from multi_ptr<T> to multi_ptr<const T>
+=======
+  // Explicit conversion from multi_ptr<T> to multi_ptr<const T>
+>>>>>>> 10d2f5b613f3f7e383a8140d38cabc35551b68ea
   template <typename NonConstElementType = std::remove_const_t<ElementType>,
             typename = typename std::enable_if_t<
                 std::is_const_v<ElementType> &&
