@@ -33,14 +33,11 @@
 
 ; MODULE: [[X_FPRIV:@.*.fpriv.__global]] = internal addrspace(1) global i32 0
 ; MODULE: define{{.*}} spir_kernel void @__omp_offloading{{.*}}foo{{.*}}(i64 [[X_VAL:%[^ ]+]])
-; MODULE:   [[X_VAL_CAST:%[^ ]+]] = trunc i64 [[X_VAL]] to i32
 ;
 ; MODULE:   br i1 %is.master.thread, label %master.thread.code, label %master.thread.fallthru
 ; MODULE; master.thread.code:
+; MODULE:   [[X_VAL_CAST:%[^ ]+]] = trunc i64 [[X_VAL]] to i32
 ; MODULE:   store i32 [[X_VAL_CAST]], ptr addrspace(1) [[X_FPRIV]], align 4
-;
-; MODULE:   br i1 %is.master.thread, label %master.thread.code1, label %master.thread.fallthru{{.*}}
-; MODULE: master.thread.code1:
 ; MODULE:   call {{.*}} @_Z18__spirv_ocl_printfPU3AS2cz({{.*}}, ptr addrspace(4) addrspacecast (ptr addrspace(1) [[X_FPRIV]] to ptr addrspace(4)))
 
 ; With "wilocal" allocation mode, the firstprivate clause is handled as if the
@@ -49,11 +46,11 @@
 ; LOCAL:  define{{.*}} spir_kernel void @__omp_offloading{{.*}}foo{{.*}}(i64 [[X_VAL:%[^ ]+]])
 ; LOCAL:    [[X_FPRIV:%.*.fpriv]] = alloca i32, align 4
 ; LOCAL:    [[X_CAST:%[^ ]+]] = addrspacecast ptr [[X_FPRIV]] to ptr addrspace(4)
-; LOCAL:    [[X_VAL_CAST:%[^ ]+]] = trunc i64 [[X_VAL]] to i32
-; LOCAL:    store i32 [[X_VAL_CAST]], ptr [[X_FPRIV]], align 4
 ;
 ; LOCAL:    br i1 %is.master.thread, label %master.thread.code, label %master.thread.fallthru
 ; LOCAL:  master.thread.code:
+; LOCAL:    [[X_VAL_CAST:%[^ ]+]] = trunc i64 [[X_VAL]] to i32
+; LOCAL:    store i32 [[X_VAL_CAST]], ptr [[X_FPRIV]], align 4
 ; LOCAL:    call {{.*}} @_Z18__spirv_ocl_printfPU3AS2cz({{.*}}, ptr addrspace(4) [[X_CAST]])
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
