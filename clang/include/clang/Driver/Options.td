@@ -4130,15 +4130,11 @@ def headerpad__max__install__names : Joined<["-"], "headerpad_max_install_names"
 def help : Flag<["-", "--"], "help">, Flags<[CC1Option,CC1AsOption, FC1Option,
     FlangOption]>, HelpText<"Display available options">,
     MarshallingInfoFlag<FrontendOpts<"ShowHelp">>;
-<<<<<<< HEAD
 //if INTEL_CUSTOMIZATION
 def fhelp : Flag<["-"], "fhelp">, Flags<[NoXarchOption]>, Alias<help>,
   HelpText<"Display available options">;
 //endif INTEL_CUSTOMIZATION
-def ibuiltininc : Flag<["-"], "ibuiltininc">,
-=======
 def ibuiltininc : Flag<["-"], "ibuiltininc">, Group<clang_i_Group>,
->>>>>>> 5b77e752dcd073846b89559d6c0e1a7699e58615
   HelpText<"Enable builtin #include directories even when -nostdinc is used "
            "before or after -ibuiltininc. "
            "Using -nobuiltininc after the option disables it">;
