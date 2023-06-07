@@ -123,15 +123,6 @@ public:
       multi_ptr<NonConstElementType, Space, DecorateAddress> MPtr)
       : m_Pointer(MPtr.get_decorated()) {}
 
-  template <typename NonConstElementType = std::remove_const_t<ElementType>,
-            typename = typename std::enable_if_t<
-                std::is_const_v<ElementType> &&
-                std::is_same_v<NonConstElementType,
-                               std::remove_const_t<ElementType>>>>
-  explicit multi_ptr(
-      multi_ptr<NonConstElementType, Space, DecorateAddress> MPtr)
-      : m_Pointer(MPtr.get_decorated()) {}
-
   // Only if Space is in
   // {global_space, ext_intel_global_device_space, generic_space}
   template <
