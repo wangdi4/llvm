@@ -1131,6 +1131,9 @@ let IntrProperties = [IntrNoMem, IntrSpeculatable, IntrWillReturn] in {
 let IntrProperties = [IntrInaccessibleMemOnly, IntrWillReturn] in {
   def int_get_rounding  : DefaultAttrsIntrinsic<[llvm_i32_ty], []>;
   def int_set_rounding  : DefaultAttrsIntrinsic<[], [llvm_i32_ty]>;
+  def int_get_fpenv     : DefaultAttrsIntrinsic<[llvm_anyint_ty], []>;
+  def int_set_fpenv     : DefaultAttrsIntrinsic<[], [llvm_anyint_ty]>;
+  def int_reset_fpenv   : DefaultAttrsIntrinsic<[], []>;
 }
 
 //===--------------- Floating Point Properties ----------------------------===//
