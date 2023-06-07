@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2022 Intel Corporation
+// Modifications, Copyright (C) 2022-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -93,7 +93,7 @@ TEST_F(TargetLibraryInfoTest, InvalidProto) {
 TEST_F(TargetLibraryInfoTest, ValidProto) {
 #if INTEL_CUSTOMIZATION
   // The string containing test asm, was split in 2 parts since the length
-  // of the string constant exceeded C++ limitation [See Line ~750].
+  // of the string constant exceeded C++ limitation.
   // TODO: It looks reasonable to move all INTEL_CUSTOMIZATION related functions
   // to a single chunk, which would improve the maintainability. 
   std::string TestAsm = ""
@@ -955,6 +955,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @__kmpc_dispatch_next_4u(i8*, i32, i8*, i8*, i8*, i8*)\n"
       "declare i32 @__kmpc_dispatch_next_8(i8*, i32, i8*, i8*, i8*, i8*)\n"
       "declare i32 @__kmpc_dispatch_next_8u(i8*, i32, i8*, i8*, i8*, i8*)\n"
+      "declare void @__kmpc_dist_for_static_init_4(i8*, i32, i32, i32*, i32*, i32*, i32*, i32*, i32, i32)\n"
       "declare void @__kmpc_end_critical(i8*, i32, i8*)\n"
       "declare void @__kmpc_end_reduce(i8*, i32, i8*)\n"
       "declare void @__kmpc_end_reduce_nowait(i8*, i32, i8*)\n"
@@ -966,6 +967,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare void @__kmpc_for_static_init_8(%struct*, i32, i32, i32*, i64*, i64*, i64*, i64, i64)\n"
       "declare void @__kmpc_for_static_init_8u(%struct*, i32, i32, i32*, i64*, i64*, i64*, i64, i64)\n"
       "declare void @__kmpc_fork_call(i8*, i32, i8*)\n"
+      "declare void @__kmpc_fork_teams(i8*, i32, i8*)\n"
       "declare i32 @__kmpc_global_thread_num(i8*)\n"
       "declare i32 @__kmpc_ok_to_fork(i8*)\n"
       "declare i32 @__kmpc_omp_task(i8*, i32, i8*)\n"

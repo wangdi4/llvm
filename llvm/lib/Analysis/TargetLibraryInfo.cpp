@@ -3226,6 +3226,19 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
             FTy.getParamType(4)->isPointerTy() &&
             FTy.getParamType(5)->isPointerTy());
 
+  case LibFunc_kmpc_dist_for_static_init_4:
+    return (NumParams == 10 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isIntegerTy() &&
+            FTy.getParamType(3)->isPointerTy() &&
+            FTy.getParamType(4)->isPointerTy() &&
+            FTy.getParamType(5)->isPointerTy() &&
+            FTy.getParamType(6)->isPointerTy() &&
+            FTy.getParamType(7)->isPointerTy() &&
+            FTy.getParamType(8)->isIntegerTy() &&
+            FTy.getParamType(9)->isIntegerTy());
+
   case LibFunc_kmpc_end_critical:
     if (NumParams == 1)
       return (NumParams == FTy.getReturnType()->isVoidTy() &&
@@ -3286,6 +3299,12 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
             FTy.getParamType(8)->isIntegerTy());
 
   case LibFunc_kmpc_fork_call:
+    return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isPointerTy());
+
+  case LibFunc_kmpc_fork_teams:
     return (NumParams == 3 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isIntegerTy() &&
@@ -6137,6 +6156,7 @@ bool TargetLibraryInfoImpl::isOMPLibFunc(LibFunc F) const {
     case LibFunc_kmpc_dispatch_next_4u:
     case LibFunc_kmpc_dispatch_next_8:
     case LibFunc_kmpc_dispatch_next_8u:
+    case LibFunc_kmpc_dist_for_static_init_4:
     case LibFunc_kmpc_end_critical:
     case LibFunc_kmpc_end_reduce:
     case LibFunc_kmpc_end_reduce_nowait:
@@ -6148,6 +6168,7 @@ bool TargetLibraryInfoImpl::isOMPLibFunc(LibFunc F) const {
     case LibFunc_kmpc_for_static_init_8:
     case LibFunc_kmpc_for_static_init_8u:
     case LibFunc_kmpc_fork_call:
+    case LibFunc_kmpc_fork_teams:
     case LibFunc_kmpc_global_thread_num:
     case LibFunc_kmpc_ok_to_fork:
     case LibFunc_kmpc_omp_task:

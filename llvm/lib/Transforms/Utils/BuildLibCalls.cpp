@@ -1510,12 +1510,18 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   case LibFunc_kmpc_dispatch_init_8u:
     Changed |= setDoesNotThrow(F);
     break;
+
   case LibFunc_kmpc_dispatch_next_4:
   case LibFunc_kmpc_dispatch_next_4u:
   case LibFunc_kmpc_dispatch_next_8:
   case LibFunc_kmpc_dispatch_next_8u:
     Changed |= setDoesNotThrow(F);
     break;
+
+  case LibFunc_kmpc_dist_for_static_init_4:
+    Changed |= setDoesNotThrow(F);
+    break;
+
   case LibFunc_kmpc_end_critical:
     break;
   case LibFunc_kmpc_end_reduce_nowait:
@@ -1534,6 +1540,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   case LibFunc_kmpc_for_static_init_8u:
     break;
   case LibFunc_kmpc_fork_call:
+  case LibFunc_kmpc_fork_teams:
     break;
   case LibFunc_kmpc_global_thread_num:
     break;
