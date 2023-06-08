@@ -50,6 +50,11 @@ class VecCloneImpl {
     SmallVector<Type *, 4> LogicalArgTypes;
     /// The clone return type
     Type *LogicalRetType = nullptr;
+    /// Stores type legalization information for each logical argument of the
+    /// Clone and its return type. That is basically the number of parts
+    /// required to pass each logical argument and/or return value.
+    SmallVector<int, 4> ArgChunks;
+    int RetChunks = 1;
 
     /// Set of memory locations to mark as private for the SIMD loop
     SetVector<Value *> PrivateMemory;
@@ -97,9 +102,9 @@ class VecCloneImpl {
     PHINode *createPhiAndBackedgeForLoop();
 
     /// Updates users of vector arguments with gep/load of lane element.
-    void updateVectorArgumentUses(Argument *Arg, Type *ElemType,
-                                  Instruction *VecArg, MaybeAlign Align,
-                                  PHINode *Phi);
+    void updateVectorArgumentUses(Argument *Arg, Argument *OrigArg,
+                                  Type *ElemType, Instruction *VecArg,
+                                  MaybeAlign Align, PHINode *Phi);
 
     /// Widen the function arguments and non-void return value of the function
     /// to a vector type. We process the function arguments from left to right.

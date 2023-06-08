@@ -589,6 +589,22 @@ std::optional<VFInfo> tryDemangleForVFABI(StringRef MangledName,
 VFInfo demangleForVFABI(StringRef MangledName);
 std::optional<VFInfo> tryDemangleForVFABI(StringRef MangledName,
                                           const Module *M = nullptr);
+
+/// Tells whether parameters and/or return value legalization supported
+/// for the vector variant function described by \p Variant.
+/// \p ArgTys and \p RetTy describe type of function arguments and return
+/// value respectively.
+bool supportedVectorVariantLegalization(const VFInfo &Variant,
+                                        ArrayRef<Type *> ArgTys, Type *RetTy);
+
+/// Fixup \p ArgChunks and \p RetChunks with the actual number of parts
+/// required to pass each logical parameter and return value of a vector
+/// variant function described by \p Variant. Logical types of the variant
+/// return value and parametes described by \p RetTy and \p ArgTys respectively.
+void calcVectorVariantParamChunks(MutableArrayRef<int> ArgChunks,
+                                  int &RetChunks, ArrayRef<Type *> ArgTys,
+                                  Type *RetTy, const VFInfo &Variant,
+                                  bool PtrSize64);
 #endif // INTEL_CUSTOMIZATION
 
 /// This routine mangles the given VectorName according to the LangRef
@@ -1031,21 +1047,26 @@ void buildVectorVariantLogicalSignature(
     SmallVectorImpl<Type *> &LogicalArgTypes, Type *&LogicalRetType);
 
 /// Build new AttributeList (Fn, return and Parameters) for a vector variant
-/// and update the attributes of the \p VectorF. The attributes derived from
-/// original function \p OrigF.
+/// taking into account type legalization information and update the attributes
+/// of the \p VectorF. The attributes derived from original function \p OrigF.
 void updateVectorVariantAttributes(Function &VectorF, const Function &OrigF,
                                    const VFInfo &Variant,
-                                   ArrayRef<Type *> ArgTys);
+                                   ArrayRef<Type *> ArgTys,
+                                   ArrayRef<int> ArgNumParts);
 
 /// This function will insert functions for simd declared functions.
 /// If does not exist already the function creates a vector function
 /// variant type using information from \p ArgTys and \p RetTy for their logical
 /// types respectively. The original function \p OrigF and variant information
 /// \p Variant is used to set proper vector variant attributes.
-Function *getOrInsertVectorVariantFunction(Function &OrigF,
-                                           const VFInfo &Variant,
-                                           ArrayRef<Type *> ArgTys,
-                                           Type *RetTy);
+/// Note that actual signature of the vector variant function will be different
+/// than logical one if any of the arguments or return value would require target
+/// ISA class legalization (in order to be VFABI compliant), i.e. these arguments
+/// are passed/returned as chunks (subvectors). This information is provided via
+/// \p ArgChunks and \p RetChunks.
+Function *getOrInsertVectorVariantFunction(
+    Function &OrigF, const VFInfo &Variant, ArrayRef<Type *> ArgTys,
+    Type *RetTy, ArrayRef<int> ArgChunks = std::nullopt, int RetChunks = 1);
 
 /// \brief Widens the call to function \p OrigF  using a vector length of \p VL
 /// and inserts the appropriate function declaration if not already created.
