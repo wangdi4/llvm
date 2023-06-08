@@ -14,14 +14,14 @@ target triple = "spir64-unknown-unknown"
 %struct.ST = type { i32 }
 
 ; Function Attrs: convergent norecurse nounwind
-define dso_local spir_kernel void @test(i32 addrspace(1)* %dst) #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_name !5 !kernel_arg_host_accessible !6 !kernel_arg_pipe_depth !7 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 {
+define dso_local spir_kernel void @test(ptr addrspace(1) %dst) #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_name !5 !kernel_arg_host_accessible !6 !kernel_arg_pipe_depth !7 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !arg_type_null_val !14 {
 entry:
-  %dst.addr = alloca i32 addrspace(1)*, align 8
-  store i32 addrspace(1)* %dst, i32 addrspace(1)** %dst.addr, align 8, !tbaa !8
-  %0 = load i32 addrspace(1)*, i32 addrspace(1)** %dst.addr, align 8, !tbaa !8
+  %dst.addr = alloca ptr addrspace(1), align 8
+  store ptr addrspace(1) %dst, ptr %dst.addr, align 8, !tbaa !8
+  %0 = load ptr addrspace(1), ptr %dst.addr, align 8, !tbaa !8
   %call = call spir_func i64 @_Z13get_global_idj(i32 0) #2
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %0, i64 %call
-  store i32 0, i32 addrspace(1)* %arrayidx, align 4, !tbaa !12
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %0, i64 %call
+  store i32 0, ptr addrspace(1) %arrayidx, align 4, !tbaa !12
   ret void
 }
 
@@ -56,3 +56,4 @@ attributes #2 = { convergent nounwind readnone willreturn }
 !11 = !{!"Simple C/C++ TBAA"}
 !12 = !{!13, !13, i64 0}
 !13 = !{!"int", !10, i64 0}
+!14 = !{i32 addrspace(1)* null}

@@ -58,4 +58,4 @@ declare i64 @_Z12get_local_idj(i64)
 declare void @dummy_barrier.()
 
 !sycl.kernels = !{!0}
-!0 = !{void (i64)* @main}
+!0 = !{ptr @main}

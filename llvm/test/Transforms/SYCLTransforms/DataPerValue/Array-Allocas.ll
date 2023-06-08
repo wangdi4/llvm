@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -disable-output 2>&1 -passes='print<sycl-kernel-data-per-value-analysis>' -S < %s | FileCheck %s
+; RUN: opt -disable-output 2>&1 -passes='print<sycl-kernel-data-per-value-analysis>' -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the DataPerValue pass
@@ -18,12 +18,12 @@ target triple = "i686-pc-win32"
 ; CHECK: @main
 define void @main(i32 %x) nounwind {
 L0:
-  %p = alloca i8 addrspace(1)*, i32 3, align 8
-  %p1 = alloca i8 addrspace(1)*, align 8
+  %p = alloca ptr addrspace(1), i32 3, align 8
+  %p1 = alloca ptr addrspace(1), align 8
   ret void
 ; CHECK: L0:
-; CHECK: %p = alloca i8 addrspace(1)*, i32 3, align 8
-; CHECK: %p1 = alloca i8 addrspace(1)*, align 8
+; CHECK: %p = alloca ptr addrspace(1), i32 3, align 8
+; CHECK: %p1 = alloca ptr addrspace(1), align 8
 ; CHECK: ret void
 }
 
@@ -39,4 +39,4 @@ L0:
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32)* @main}
+!0 = !{ptr @main}

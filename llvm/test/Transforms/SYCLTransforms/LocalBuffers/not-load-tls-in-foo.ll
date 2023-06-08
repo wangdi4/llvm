@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -sycl-kernel-enable-tls-globals -passes=sycl-kernel-local-buffers -S %s | FileCheck %s
+; RUN: opt -sycl-kernel-enable-tls-globals -passes=sycl-kernel-local-buffers -S %s | FileCheck %s
 
 ; Check that there is no load from pLocalMemBase in function foo which doesn't
 ; use local variable.
@@ -8,12 +8,12 @@ target triple = "x86_64-pc-linux"
 
 @test.i = external addrspace(3) global i32, !dbg !0
 @LocalIds = linkonce_odr thread_local global [3 x i64] undef, align 16
-@pLocalMemBase = linkonce_odr thread_local global i8 addrspace(3)* undef, align 8
-@pWorkDim = linkonce_odr thread_local global { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}*, [3 x i64], [2 x [3 x i64]], [3 x i64] }* undef, align 8
-@pWGId = linkonce_odr thread_local global i64* undef, align 8
+@pLocalMemBase = linkonce_odr thread_local global ptr addrspace(3) undef, align 8
+@pWorkDim = linkonce_odr thread_local global ptr undef, align 8
+@pWGId = linkonce_odr thread_local global ptr undef, align 8
 @BaseGlbId = linkonce_odr thread_local global [4 x i64] undef, align 16
-@pSpecialBuf = linkonce_odr thread_local global i8* undef, align 8
-@RuntimeHandle = linkonce_odr thread_local global {}* undef, align 8
+@pSpecialBuf = linkonce_odr thread_local global ptr undef, align 8
+@RuntimeHandle = linkonce_odr thread_local global ptr undef, align 8
 
 ; Function Attrs: convergent
 define dso_local void @foo() #0 !dbg !13 {
@@ -26,10 +26,10 @@ entry:
 
 define dso_local void @test() !dbg !2 {
 ; CHECK-LABEL: define dso_local void @test()
-; CHECK: %LocalMemBase = load i8 addrspace(3)*, i8 addrspace(3)** @pLocalMemBase, align 8, !dbg
+; CHECK: %LocalMemBase = load ptr addrspace(3), ptr @pLocalMemBase, align 8, !dbg
 ;
 entry:
-  store i32 0, i32 addrspace(3)* @test.i, align 4, !dbg !16
+  store i32 0, ptr addrspace(3) @test.i, align 4, !dbg !16
   ret void
 }
 
@@ -55,7 +55,7 @@ attributes #1 = { nocallback nofree nosync nounwind readnone speculatable willre
 !9 = !DIBasicType(name: "int", size: 32, encoding: DW_ATE_signed)
 !10 = !{i32 7, !"Dwarf Version", i32 4}
 !11 = !{i32 2, !"Debug Info Version", i32 3}
-!12 = !{void ()* @test}
+!12 = !{ptr @test}
 !13 = distinct !DISubprogram(name: "foo", scope: !3, file: !3, line: 1, type: !14, scopeLine: 1, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !6, retainedNodes: !8)
 !14 = !DISubroutineType(cc: DW_CC_LLVM_SpirFunction, types: !5)
 !15 = !DILocation(line: 2, column: 1, scope: !13)

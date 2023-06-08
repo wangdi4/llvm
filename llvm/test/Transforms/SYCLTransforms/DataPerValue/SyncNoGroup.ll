@@ -57,4 +57,4 @@ declare void @dummy_barrier.()
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32)* @main}
+!0 = !{ptr @main}

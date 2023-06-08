@@ -94,4 +94,4 @@ declare i32 @_Z12get_local_idj(i32)
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32)* @main}
+!0 = !{ptr @main}

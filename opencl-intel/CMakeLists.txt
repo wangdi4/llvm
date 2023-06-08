@@ -438,6 +438,12 @@ llvm_map_components_to_libnames(
   )
 
 # Prepare common_clang dynamic library
+if(UNIX)
+  set_target_properties(${COMMON_CLANG}
+    PROPERTIES
+    SOVERSION ${VERSIONSTRING}
+    VERSION ${VERSIONSTRING})
+endif()
 if(OPENCL_INTREE_BUILD)
   set(COMMON_CLANG_LIB ${COMMON_CLANG})
 else()
@@ -445,7 +451,7 @@ else()
     set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIRS}/${COMMON_CLANG}.lib)
   else(WIN32)
     set(COMMON_CLANG_LIB
-        ${LLVM_LIBRARY_DIR}/lib${COMMON_CLANG}.so.${CCLANG_LIBRARY_VERSION})
+        ${LLVM_LIBRARY_DIR}/lib${COMMON_CLANG}.so.${VERSIONSTRING})
     set(COMMON_CLANG_SYMLINK ${LLVM_LIBRARY_DIR}/lib${COMMON_CLANG}.so)
   endif(WIN32)
 endif()
