@@ -1799,6 +1799,11 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
     config->incremental = true;
   }
 
+#if INTEL_CUSTOMIZATION
+  if (args.hasArg(OPT_profile_sample_generate))
+    config->debug = true;
+#endif // INTEL_CUSTOMIZATION
+
   // Handle /demangle
   config->demangle = args.hasFlag(OPT_demangle, OPT_demangle_no, true);
 
@@ -2038,6 +2043,15 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  if (args.hasArg(OPT_profile_sample_generate)) {
+    if (icfLevel && *icfLevel != ICFLevel::None)
+      warn("ignoring icf level other than '/opt:noicf' because "
+           "/profile-sample-generate specification");
+    icfLevel = ICFLevel::None;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (!icfLevel)
     icfLevel = doGC ? ICFLevel::All : ICFLevel::None;
   config->doGC = doGC;
@@ -2167,8 +2181,8 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
   config->terminalServerAware =
       !config->dll && args.hasFlag(OPT_tsaware, OPT_tsaware_no, true);
 #if INTEL_CUSTOMIZATION
-  config->debugDwarf = debug == DebugKind::Dwarf ||
-                       (debug == DebugKind::Full && args.hasArg(OPT_profile));
+  config->debugDwarf =
+      debug == DebugKind::Dwarf || args.hasArg(OPT_profile_sample_generate);
 #endif // INTEL_CUSTOMIZATION
   config->debugGHashes = debug == DebugKind::GHash || debug == DebugKind::Full;
   config->debugSymtab = debug == DebugKind::Symtab;
@@ -2189,6 +2203,14 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
   // when -debug:dwarf is requested.
   if (config->mingw || config->debugDwarf)
     config->warnLongSectionNames = false;
+
+#if INTEL_CUSTOMIZATION
+  if (config->incremental && args.hasArg(OPT_profile_sample_generate)) {
+    warn("ignoring '/incremental' due to '/profile-sample-generate' "
+         "specification");
+    config->incremental = false;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (config->incremental && args.hasArg(OPT_profile)) {
     warn("ignoring '/incremental' due to '/profile' specification");

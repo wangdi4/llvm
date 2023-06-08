@@ -371,8 +371,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     }
   }
 #if INTEL_CUSTOMIZATION
-  if (Args.hasArg(options::OPT_traceback,
-                  options::OPT_fprofile_sample_generate))
+  if (Args.hasArg(options::OPT_traceback))
     CmdArgs.push_back(Args.MakeArgString("-incremental:no"));
 
   // PGO cannot work with incremental linking on Windows
@@ -382,6 +381,9 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
                                  options::OPT_fno_profile_instr_generate))
       if (!A->getOption().matches(options::OPT_fno_profile_instr_generate))
         CmdArgs.push_back(Args.MakeArgString("-incremental:no"));
+
+  if (Args.hasArg(options::OPT_fprofile_sample_generate))
+    CmdArgs.push_back(Args.MakeArgString("-profile-sample-generate"));
 #endif // INTEL_CUSTOMIZATION
 
   Args.AddAllArgValues(CmdArgs, options::OPT__SLASH_link);
@@ -564,19 +566,12 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     for (StringRef AV : Args.getAllArgValues(options::OPT_mllvm))
       CmdArgs.push_back(Args.MakeArgString(Twine("-mllvm:") + AV));
   }
+#endif // INTEL_CUSTOMIZATION
 
-  if (Linker == "lld-link") {
+  if (Linker == "lld-link")
     for (Arg *A : Args.filtered(options::OPT_vfsoverlay))
       CmdArgs.push_back(
           Args.MakeArgString(std::string("/vfsoverlay:") + A->getValue()));
-
-    if (Args.hasArg(options::OPT_fprofile_sample_generate)) {
-      if (!Args.hasArg(options::OPT__SLASH_Z7, options::OPT_g_Group))
-        CmdArgs.push_back("-debug:dwarf");
-      CmdArgs.push_back("-profile");
-    }
-  }
-#endif // INTEL_CUSTOMIZATION
 
   if (Linker.equals_insensitive("link")) {
     // If we're using the MSVC linker, it's not sufficient to just use link
