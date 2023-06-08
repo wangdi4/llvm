@@ -317,6 +317,32 @@ static bool isGoodStructMemcpy(AnyMemTransferInst *MI, uint64_t Size,
   return true;
 }
 
+// memcpy of arrays has this MD (xmain only):
+// !11 = !{!"array@_ZTSA4_s", !12, i64 0}
+// !12 = !{!"short", !5, i64 0}
+// When we lower the memcpy, it is safer to use the element type instead
+// of the array type, even though the array type does correctly alias the
+// element type. ("array of short" will alias "short").
+// Mistaken user code may cast arrays over structures; using the element type
+// makes the compiler less sensitive to this kind of code. The memcpy would
+// then alias any structure field of "short" type, as well as "short".
+// See 47225.
+// This function returns "!12" in the above case, if it is given !11.
+// Otherwise, it returns the same MDNode.
+// The caller must wrap the result in a 3-element TBAA tuple.
+static MDNode *unwrapArrayMD(MDNode *MD) {
+  if (MD->getNumOperands() != 3)
+    return MD;
+  MDNode *Op0 = dyn_cast<MDNode>(MD->getOperand(0));
+  if (!Op0 || Op0->getNumOperands() != 3)
+    return MD;
+  auto *Op0Name = dyn_cast<MDString>(Op0->getOperand(0));
+  if (!Op0Name || !Op0Name->getString().contains("array@"))
+    return MD;
+  MDNode *ArrayElType = dyn_cast<MDNode>(Op0->getOperand(1));
+  return ArrayElType ? ArrayElType : MD;
+}
+
 //
 // Recursive version of GenStructFieldsCopyFromMemcpy below that extends
 // the original code to handle nested structures. 'Index' is used to index
@@ -360,6 +386,9 @@ unsigned int InstCombinerImpl::GenFieldsForStruct(AnyMemTransferInst *MI,
     if (M) {
       CopyMD = cast<MDNode>(M->getOperand(2 + Index * 3));
       Index++;
+      // If the MD is "array@eltype", use "eltype" as the type. More details
+      // above.
+      CopyMD = unwrapArrayMD(CopyMD);
       // The references to tbaa metadata here may not be directly a struct-path
       // tbaa form. If not, convert CopyMD into such a form. The check is taken
       // from isStructPathTBAA, which is a static function in
