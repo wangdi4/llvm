@@ -865,7 +865,11 @@ unsigned HIRUnrollAndJam::Analyzer::computeUnrollFactorUsingCost(
     return 1;
   }
 
-  if ((IsConstTC || (TC = Lp->getMaxTripCountEstimate())) &&
+  unsigned AvgTripCount = 0;
+  if ((IsConstTC ||
+       (Lp->getPragmaBasedAverageTripCount(AvgTripCount) &&
+        (TC = AvgTripCount)) ||
+       (TC = Lp->getMaxTripCountEstimate())) &&
       (TC < MinTripCountThreshold)) {
     if (HasEnablingPragma) {
       return 2;
