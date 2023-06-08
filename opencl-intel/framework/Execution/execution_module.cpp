@@ -2143,8 +2143,7 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
   // launch a kernel from an inactive device program.
   if (isFPGAEmulator && m_pActiveProgram != program.GetPtr()) {
     m_pActiveProgram = program.GetPtr();
-    errVal = program->ResetDeviceImageScopeGlobalVariable(
-        pCommandQueue->GetQueueDeviceHandle());
+    errVal = program->ResetDeviceImageScopeGlobalVariable();
 
     if (CL_FAILED(errVal))
       return errVal;
@@ -4117,8 +4116,7 @@ cl_err_code ExecutionModule::EnqueueReadGlobalVariable(
   if (queue->GetContext()->IsFPGAEmulator() &&
       m_pActiveProgram != pProgram.GetPtr()) {
     m_pActiveProgram = pProgram.GetPtr();
-    err = pProgram->ResetDeviceImageScopeGlobalVariable(
-        queue->GetQueueDeviceHandle());
+    err = pProgram->ResetDeviceImageScopeGlobalVariable();
 
     if (CL_FAILED(err))
       return err;
@@ -4191,8 +4189,7 @@ cl_err_code ExecutionModule::EnqueueWriteGlobalVariable(
   if (queue->GetContext()->IsFPGAEmulator() &&
       m_pActiveProgram != pProgram.GetPtr()) {
     m_pActiveProgram = pProgram.GetPtr();
-    err = pProgram->ResetDeviceImageScopeGlobalVariable(
-        queue->GetQueueDeviceHandle());
+    err = pProgram->ResetDeviceImageScopeGlobalVariable();
 
     if (CL_FAILED(err))
       return err;

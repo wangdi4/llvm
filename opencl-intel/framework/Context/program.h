@@ -187,7 +187,7 @@ public:
 
   // Reset global variables with device_image_scope property, this function is
   // usually used when the device mode is fpga emulator
-  cl_err_code ResetDeviceImageScopeGlobalVariable(cl_device_id device);
+  cl_err_code ResetDeviceImageScopeGlobalVariable();
 
   // Free USM wrappers for global variable pointers
   void FreeUSMForGVPointers();

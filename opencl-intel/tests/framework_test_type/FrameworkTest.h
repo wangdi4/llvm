@@ -171,4 +171,5 @@ void clFuncIdenticalLayoutStructOnLinkageTest();
 void cl_DumpIRBeforeAndAfterPasses();
 #endif
 void LinearSampleOOBCoord();
+void ReadWriteImageHalfTest();
 // #define CUDA_DEVICE

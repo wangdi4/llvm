@@ -177,17 +177,6 @@ bool clCheckVectorizingDim1And2AndUniteWG(int progIndex, bool hasLocalWGSize) {
         throw exception();
       }
     }
-
-    // release buffers
-    if (srcBuf1) {
-      clReleaseMemObject(srcBuf1);
-    }
-    if (srcBuf2) {
-      clReleaseMemObject(srcBuf2);
-    }
-    if (dstBuf) {
-      clReleaseMemObject(dstBuf);
-    }
   } catch (const std::exception &exe) {
     cerr << exe.what() << endl;
     bResult = false;

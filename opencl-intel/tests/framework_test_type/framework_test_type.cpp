@@ -479,6 +479,10 @@ TEST(FrameworkTestType, Test_clKernelLocalMemSizeQueryTest) {
 
 TEST(FrameworkTestType, Test_LinearSampleOOBCoord) { LinearSampleOOBCoord(); }
 
+TEST(FrameworkTestType, Test_ReadWriteImageHalfTest) {
+  ReadWriteImageHalfTest();
+}
+
 CommandLineOption<std::string> deviceOption("--device_type");
 
 // To run individual tests, use the --gtest_filter=<pattern> command-line
