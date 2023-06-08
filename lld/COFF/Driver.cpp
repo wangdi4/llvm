@@ -1227,7 +1227,7 @@ void LinkerDriver::invokeMSVC(opt::InputArgList &args) {
         rsp += toString(*arg) + " ";
       break;
     case OPT_INPUT: {
-      if (std::optional<StringRef> path = doFindFile(arg->getValue())) {
+      if (std::optional<StringRef> path = findFile(arg->getValue())) {
         if (std::optional<std::string> s = filterBitcodeFiles(*path, temps))
           rsp += quote(*s) + "\n";
         continue;
