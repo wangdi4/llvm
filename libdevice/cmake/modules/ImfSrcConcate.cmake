@@ -18,9 +18,9 @@
 
 # INTEL_CUSTOMIZATION
 set(imf_fp32_omp_lib_funcs_list imf/intel/cos_s_la.cpp
-                                imf/intel/cospi_s_ha.cpp
+                                imf/intel/cospi_s_la.cpp
                                 imf/intel/sin_s_la.cpp
-                                imf/intel/sinpi_s_ha.cpp
+                                imf/intel/sinpi_s_la.cpp
                                 imf/intel/exp_s_la.cpp
                                 imf/intel/exp2_s_la.cpp
                                 imf/intel/exp10_s_la.cpp

@@ -19,7 +19,6 @@
 #ifdef __LIBDEVICE_IMF_ENABLED__
 namespace __imf_impl_log2_s_ha {
 namespace {
-/* file: _vslog2_cout_ats.i */
 static const union {
   uint32_t w;
   float f;
@@ -60,12 +59,8 @@ static const union {
   uint32_t w;
   float f;
 } __slog2_ha_c2h = {0xbf38aa3bu};
-static const union {
-  uint64_t w;
-  uint32_t w32[2];
-  int32_t s32[2];
-  double f;
-} __slog2_ha_dc1 = {0x3ff715476395bd86UL};
+static const float __slog2_ha_c1h = 0x1.715476p+0;
+static const float __slog2_ha_c1l = 0x1.4ae0cp-26;
 inline int __devicelib_imf_internal_slog2(const float *a, float *r) {
   float xin = *a;
   union {
@@ -74,8 +69,7 @@ inline int __devicelib_imf_internal_slog2(const float *a, float *r) {
   } x, mant, res;
   int32_t iexpon;
   uint32_t xa;
-  float R, poly;
-  double dR, dpoly, expon;
+  float R, poly, polyh, polyl, expon;
   int nRet = 0;
   x.f = xin;
   // normalize mantissa to [0.75, 1.5)
@@ -91,7 +85,6 @@ inline int __devicelib_imf_internal_slog2(const float *a, float *r) {
 LOG2F_MAIN:
   // reduced argument
   R = mant.f - 1.0f;
-  expon = (double)iexpon;
   // polynomial
   poly = __fma(__slog2_ha_c10.f, R, __slog2_ha_c9.f);
   poly = __fma(poly, R, __slog2_ha_c8.f);
@@ -101,11 +94,33 @@ LOG2F_MAIN:
   poly = __fma(poly, R, __slog2_ha_c4.f);
   poly = __fma(poly, R, __slog2_ha_c3.f);
   poly = __fma(poly, R, __slog2_ha_c2h.f);
-  dR = (double)R;
-  dpoly = (double)poly;
-  dpoly = __fma(dpoly, dR, __slog2_ha_dc1.f);
-  dpoly = __fma(dpoly, dR, expon);
-  poly = (float)dpoly;
+  expon = (float)iexpon;
+  polyh = __fma(poly, R, 0.0f);
+  polyl = __fma(poly, R, -polyh);
+  {
+    float __ph, __ahl, __ahh;
+    __ph = __fma(polyh, 1.0f, __slog2_ha_c1h);
+    __ahh = __fma(__ph, 1.0f, -__slog2_ha_c1h);
+    __ahl = __fma(polyh, 1.0f, -__ahh);
+    polyl = (polyl + __slog2_ha_c1l) + __ahl;
+    polyh = __ph;
+  };
+  {
+    float __ph, __phl;
+    __ph = __fma(polyh, R, 0.0f);
+    __phl = __fma(polyh, R, -__ph);
+    polyl = __fma(polyl, R, __phl);
+    polyh = __ph;
+  };
+  {
+    float __ph, __ahl, __ahh;
+    __ph = __fma(polyh, 1.0f, expon);
+    __ahh = __fma(__ph, 1.0f, -expon);
+    __ahl = __fma(polyh, 1.0f, -__ahh);
+    polyl = polyl + __ahl;
+    polyh = __ph;
+  };
+  poly = polyh + polyl;
   *r = poly;
   return nRet;
 LOG2F_SPECIAL:
@@ -146,11 +161,10 @@ LOG2F_SPECIAL:
 }
 } /* namespace */
 } /* namespace __imf_impl_log2_s_ha */
-
-DEVICE_EXTERN_C_INLINE float __devicelib_imf_log2f(float a) {
+DEVICE_EXTERN_C_INLINE float __devicelib_imf_log2f(float x) {
   using namespace __imf_impl_log2_s_ha;
   float r;
-  __devicelib_imf_internal_slog2(&a, &r);
+  __devicelib_imf_internal_slog2(&x, &r);
   return r;
 }
 #endif /*__LIBDEVICE_IMF_ENABLED__*/
