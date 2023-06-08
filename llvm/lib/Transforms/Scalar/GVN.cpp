@@ -1383,52 +1383,6 @@ void GVNPass::AnalyzeLoadAvailability(LoadInst *Load, LoadDepVect &Deps,
          "post condition violation");
 }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-// We don't call into LTO here because ScalarOpt must build as a standalone
-// library with -slibs.
-static bool PaddedMallocGenerated(Module &M) {
-  return M.getFunction("__Intel_PaddedMallocInterface");
-}
-
-// This identifies the following pattern in the code when the Malloc Padding
-// is active to facilitate the Load PRE for xz:
-//
-//     %PHI = phi i32 ... [ 3 or 4 preds, 2 have same value ]
-//     %0 = zext i32 %phi to i64 ; optional
-//     %1 = getelementptr inbounds i8, i8* %a, i64 %0
-//     %2 = load i8, i8* %1, align 1, !tbaa !19
-//
-// It returns the PHI node if such Load is found,
-// otherwise nullptr.
-PHINode *PREProfitableWithPaddedMalloc(LoadInst *Load) {
-  if (!PaddedMallocGenerated(*(Load->getModule())))
-    return nullptr;
-
-  GEPOperator *GEP = dyn_cast<GEPOperator>(Load->getPointerOperand());
-  if (!GEP)
-    return nullptr;
-
-  // Aggressive PRE may cause live range extension outside of loops, hard
-  // for HIR to deal with.
-  if (Load->getParent()->getParent()->isPreLoopOpt())
-    return nullptr;
-
-  if (GEP->getNumIndices() == 1) {
-    auto *GEPIdx = GEP->getOperand(1);
-    // skip 1 cast
-    if (auto *CI = dyn_cast<CastInst>(GEPIdx))
-      GEPIdx = CI->getOperand(0);
-    if (auto *PN = dyn_cast<PHINode>(GEPIdx)) {
-      unsigned NumPreds = PN->getNumIncomingValues();
-      // 3 or 4 preds, (0,1) or (1,2) have the same incoming value.
-      if (((NumPreds == 3) || (NumPreds == 4)) &&
-          PN->getParent() == Load->getParent() &&
-          (PN->getIncomingValue(1) == PN->getIncomingValue(0) ||
-           PN->getIncomingValue(1) == PN->getIncomingValue(2)))
-        return PN;
-    }
-=======
 /// Given the following code, v1 is partially available on some edges, but not
 /// available on the edge from PredBB. This function tries to find if there is
 /// another identical load in the other successor of PredBB.
@@ -1481,13 +1435,60 @@ LoadInst *GVNPass::findLoadToHoistIntoPred(BasicBlock *Pred, BasicBlock *LoadBB,
     // Otherwise there is something in the same BB clobbers the memory, we can't
     // move this and later load to PredBB.
     return nullptr;
->>>>>>> 84bcfa0e1b34938d1d11a44e9e17c6e222dd2f42
   }
 
   return nullptr;
 }
 
-<<<<<<< HEAD
+#if INTEL_CUSTOMIZATION
+// We don't call into LTO here because ScalarOpt must build as a standalone
+// library with -slibs.
+static bool PaddedMallocGenerated(Module &M) {
+  return M.getFunction("__Intel_PaddedMallocInterface");
+}
+
+// This identifies the following pattern in the code when the Malloc Padding
+// is active to facilitate the Load PRE for xz:
+//
+//     %PHI = phi i32 ... [ 3 or 4 preds, 2 have same value ]
+//     %0 = zext i32 %phi to i64 ; optional
+//     %1 = getelementptr inbounds i8, i8* %a, i64 %0
+//     %2 = load i8, i8* %1, align 1, !tbaa !19
+//
+// It returns the PHI node if such Load is found,
+// otherwise nullptr.
+PHINode *PREProfitableWithPaddedMalloc(LoadInst *Load) {
+  if (!PaddedMallocGenerated(*(Load->getModule())))
+    return nullptr;
+
+  GEPOperator *GEP = dyn_cast<GEPOperator>(Load->getPointerOperand());
+  if (!GEP)
+    return nullptr;
+
+  // Aggressive PRE may cause live range extension outside of loops, hard
+  // for HIR to deal with.
+  if (Load->getParent()->getParent()->isPreLoopOpt())
+    return nullptr;
+
+  if (GEP->getNumIndices() == 1) {
+    auto *GEPIdx = GEP->getOperand(1);
+    // skip 1 cast
+    if (auto *CI = dyn_cast<CastInst>(GEPIdx))
+      GEPIdx = CI->getOperand(0);
+    if (auto *PN = dyn_cast<PHINode>(GEPIdx)) {
+      unsigned NumPreds = PN->getNumIncomingValues();
+      // 3 or 4 preds, (0,1) or (1,2) have the same incoming value.
+      if (((NumPreds == 3) || (NumPreds == 4)) &&
+          PN->getParent() == Load->getParent() &&
+          (PN->getIncomingValue(1) == PN->getIncomingValue(0) ||
+           PN->getIncomingValue(1) == PN->getIncomingValue(2)))
+        return PN;
+    }
+  }
+
+  return nullptr;
+}
+
 bool isInSimdRegion(LoadInst *LoadI, const LoopInfo &LoopI) {
   if (Loop *L = LoopI.getLoopFor(LoadI->getParent()))
     if (auto *PH = L->getLoopPredecessor())
@@ -1599,8 +1600,7 @@ static bool isLoadPREProfitable(LoadInst *Load, DominatorTree *DT,
 }
 
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 84bcfa0e1b34938d1d11a44e9e17c6e222dd2f42
+
 void GVNPass::eliminatePartiallyRedundantLoad(
     LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
     MapVector<BasicBlock *, Value *> &AvailableLoads,
@@ -1836,7 +1836,6 @@ bool GVNPass::PerformLoadPRE(LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
          "Fully available value should already be eliminated!");
   (void)NumUnavailablePreds;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Check for xz load pattern (described above).
   PHINode *PH = PREProfitableWithPaddedMalloc(Load);
@@ -1850,12 +1849,12 @@ bool GVNPass::PerformLoadPRE(LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
   // reload.
   if (PH) {
     if ((NumUnavailablePreds == 2 || NumUnavailablePreds == 3) &&
-      !CriticalEdgePred.empty() && CriticalEdgePred.size() <= 2) {
+      !CriticalEdgePredSplit.empty() && CriticalEdgePredSplit.size() <= 2) {
       // Make a vector containing the head blocks of the incoming critical
       // edges, and the blocks where the load is unavailable (PredLoads).
       // Duplication is OK.
       SmallVector<BasicBlock *, 2> BlocksToSplit;
-      BlocksToSplit.append(CriticalEdgePred);
+      BlocksToSplit.append(CriticalEdgePredSplit);
       for (auto &PredLoad : PredLoads)
         BlocksToSplit.push_back(PredLoad.first);
       // Insert a single empty block into all these edges.
@@ -1869,7 +1868,7 @@ bool GVNPass::PerformLoadPRE(LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
         // (the new block). Update the lists.
         // The PRE algorithm below is now free to move the loads into this
         // block.
-        CriticalEdgePred.clear();
+        CriticalEdgePredSplit.clear();
         PredLoads.clear();
         PredLoads[NewBB] = nullptr;
         NumUnavailablePreds = 1;
@@ -1881,9 +1880,7 @@ bool GVNPass::PerformLoadPRE(LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
   }
 #endif // INTEL_CUSTOMIZATION
 
-=======
   // If we need to insert new load in multiple predecessors, reject it.
->>>>>>> 84bcfa0e1b34938d1d11a44e9e17c6e222dd2f42
   // FIXME: If we could restructure the CFG, we could make a common pred with
   // all the preds that don't have an available Load and insert a new load into
   // that one block.
@@ -3098,12 +3095,6 @@ bool GVNPass::processBlock(BasicBlock *BB) {
       LLVM_DEBUG(dbgs() << "GVN removed: " << *I << '\n');
       salvageKnowledge(I, AC);
       salvageDebugInfo(*I);
-<<<<<<< HEAD
-      if (MD) MD->removeInstruction(I);
-      if (MSSAU)
-        MSSAU->removeMemoryAccess(I);
-      LLVM_DEBUG(verifyRemoved(I));
-      ICF->removeInstruction(I);
 #if INTEL_CUSTOMIZATION
       if (auto CB = dyn_cast<CallBase>(I)) {
         InlineReason Reason = NinlrDeletedDeadCode;
@@ -3111,10 +3102,8 @@ bool GVNPass::processBlock(BasicBlock *BB) {
         getMDInlineReport()->removeCallBaseReference(*CB, Reason);
       }
 #endif // INTEL_CUSTOMIZATION
-      I->eraseFromParent();
-=======
+
       removeInstruction(I);
->>>>>>> 84bcfa0e1b34938d1d11a44e9e17c6e222dd2f42
     }
     InstrsToErase.clear();
 
