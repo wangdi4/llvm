@@ -2221,30 +2221,40 @@ Instruction *InstCombinerImpl::foldICmpShlConstant(ICmpInst &Cmp,
     return foldICmpShlConstConst(Cmp, Shl->getOperand(1), C, *ShiftVal);
 
   ICmpInst::Predicate Pred = Cmp.getPredicate();
-  // (icmp pred (shl nuw&nsw X, Y), Csle0)
-  //      -> (icmp pred X, Csle0)
-  //
-  // The idea is the nuw/nsw essentially freeze the sign bit for the shift op
-  // so X's must be what is used.
-  if (C.sle(0) && Shl->hasNoUnsignedWrap() && Shl->hasNoSignedWrap())
-    return new ICmpInst(Pred, Shl->getOperand(0), Cmp.getOperand(1));
 
-  // (icmp eq/ne (shl nuw|nsw X, Y), 0)
-  //      -> (icmp eq/ne X, 0)
-  if (ICmpInst::isEquality(Pred) && C.isZero() &&
-      (Shl->hasNoUnsignedWrap() || Shl->hasNoSignedWrap()))
-    return new ICmpInst(Pred, Shl->getOperand(0), Cmp.getOperand(1));
-
-  // (icmp slt (shl nsw X, Y), 0/1)
-  //      -> (icmp slt X, 0/1)
-  // (icmp sgt (shl nsw X, Y), 0/-1)
-  //      -> (icmp sgt X, 0/-1)
-  //
-  // NB: sge/sle with a constant will canonicalize to sgt/slt.
-  if (Shl->hasNoSignedWrap() &&
-      (Pred == ICmpInst::ICMP_SGT || Pred == ICmpInst::ICMP_SLT))
-    if (C.isZero() || (Pred == ICmpInst::ICMP_SGT ? C.isAllOnes() : C.isOne()))
+#if INTEL_CUSTOMIZATION
+  // Disabling this particular optimization before loopopt as it interferes
+  // with ztt recognition.
+  if (!Cmp.getParent()->getParent()->isPreLoopOpt()) {
+#endif // INTEL_CUSTOMIZATION
+    // (icmp pred (shl nuw&nsw X, Y), Csle0)
+    //      -> (icmp pred X, Csle0)
+    //
+    // The idea is the nuw/nsw essentially freeze the sign bit for the shift op
+    // so X's must be what is used.
+    if (C.sle(0) && Shl->hasNoUnsignedWrap() && Shl->hasNoSignedWrap())
       return new ICmpInst(Pred, Shl->getOperand(0), Cmp.getOperand(1));
+
+    // (icmp eq/ne (shl nuw|nsw X, Y), 0)
+    //      -> (icmp eq/ne X, 0)
+    if (ICmpInst::isEquality(Pred) && C.isZero() &&
+        (Shl->hasNoUnsignedWrap() || Shl->hasNoSignedWrap()))
+      return new ICmpInst(Pred, Shl->getOperand(0), Cmp.getOperand(1));
+
+    // (icmp slt (shl nsw X, Y), 0/1)
+    //      -> (icmp slt X, 0/1)
+    // (icmp sgt (shl nsw X, Y), 0/-1)
+    //      -> (icmp sgt X, 0/-1)
+    //
+    // NB: sge/sle with a constant will canonicalize to sgt/slt.
+    if (Shl->hasNoSignedWrap() &&
+        (Pred == ICmpInst::ICMP_SGT || Pred == ICmpInst::ICMP_SLT))
+      if (C.isZero() ||
+          (Pred == ICmpInst::ICMP_SGT ? C.isAllOnes() : C.isOne()))
+        return new ICmpInst(Pred, Shl->getOperand(0), Cmp.getOperand(1));
+#if INTEL_CUSTOMIZATION
+  }    // !Cmp.getParent()->getParent()->isPreLoopOpt()
+#endif // INTEL_CUSTOMIZATION
 
   const APInt *ShiftAmt;
   if (!match(Shl->getOperand(1), m_APInt(ShiftAmt)))
