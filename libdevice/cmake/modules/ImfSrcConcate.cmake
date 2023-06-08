@@ -192,7 +192,8 @@ set(imf_fp64_fallback_src_list imf_utils/double_convert.cpp
                                imf/intel/y1_d_ep.cpp
                                imf/intel/pown_d_la.cpp
                                # end INTEL_CUSTOMIZATION
-                               imf/imf_inline_fp64.cpp)
+                               imf/imf_inline_fp64.cpp
+                               imf/imf_fp64_dl.cpp)
 
 set(imf_bf16_fallback_src_list imf_utils/bfloat16_convert.cpp
                                imf/imf_inline_bf16.cpp)
