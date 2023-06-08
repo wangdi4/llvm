@@ -28,6 +28,19 @@
 # RUN:   /include:bar /verbose %t.obj > %t.log 2>&1
 # RUN: FileCheck -check-prefix=NOICF %s < %t.log
 
+# INTEL_CUSTOMIZATION
+# /profile-sample-generate disables ICF.
+# RUN: lld-link /profile-sample-generate /opt:icf /entry:foo /out:%t.exe \
+# RUN:   /subsystem:console /include:bar /verbose %t.obj > %t.log 2>&1
+# RUN: FileCheck -check-prefixes=WARN-ICF,NOICF %s < %t.log
+# WARN-ICF: ignoring icf level other than '/opt:noicf' because /profile-sample-generate specification
+#
+# RUN: lld-link /profile-sample-generate /opt:noicf /entry:foo /out:%t.exe \
+# RUN:   /subsystem:console /include:bar /verbose %t.obj > %t.log 2>&1
+# RUN: FileCheck -check-prefixes=NOWARN-ICF,NOICF %s < %t.log
+# NOWARN-ICF-NOT: ignoring icf level other than '/opt:noicf' because /profile-sample-generate specification
+# end INTEL_CUSTOMIZATION
+
 # /opt:noref disables ICF.
 # RUN: lld-link /opt:noref /entry:foo /out:%t.exe /subsystem:console \
 # RUN:   /include:bar /verbose %t.obj > %t.log 2>&1
