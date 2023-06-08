@@ -20,11 +20,6 @@
 use_eh(TRUE)
 use_rtti(FALSE)
 
-# align with the definition in ocl-clang.
-math(EXPR CCLANG_MAJOR_VERSION "${LLVM_VERSION_MAJOR} - 1")
-set(CCLANG_LIBRARY_VERSION
-    "${PRODUCTVER_MAJOR}.${CCLANG_MAJOR_VERSION}.${PRODUCTVER_MINOR}")
-
 # set that name of the main output file as a target name
 set(TARGET_NAME clang_compiler)
 
