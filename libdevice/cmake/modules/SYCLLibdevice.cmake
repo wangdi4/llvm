@@ -269,7 +269,6 @@ set(imf_fallback_fp32_deps device.h device_imf.hpp imf_half.hpp
                            imf/imf_fp32_dl.cpp)
 set(imf_fallback_fp64_deps device.h device_imf.hpp imf_half.hpp
                            imf_utils/double_convert.cpp
-<<<<<<< HEAD
                            # INTEL_CUSTOMIZATION
                            imf/_imf_include_fp64.hpp
                            imf/intel/erfinv_d_la.cpp
@@ -346,11 +345,8 @@ set(imf_fallback_fp64_deps device.h device_imf.hpp imf_half.hpp
                            imf/intel/y1_d_ep.cpp
                            imf/intel/pown_d_la.cpp
                            # end INTEL_CUSTOMIZATION
-                           imf/imf_inline_fp64.cpp)
-=======
                            imf/imf_inline_fp64.cpp
                            imf/imf_fp64_dl.cpp)
->>>>>>> 3c19581f828c54ff1037a420b4614c01628bcc56
 set(imf_fallback_bf16_deps device.h device_imf.hpp imf_bf16.hpp
                            imf_utils/bfloat16_convert.cpp
                            imf/imf_inline_bf16.cpp)
