@@ -6776,6 +6776,12 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
                              getValue(I.getArgOperand(0)),
                              getValue(I.getArgOperand(1)), Flags));
     return;
+  case Intrinsic::ldexp:
+    setValue(&I, DAG.getNode(ISD::FLDEXP, sdl,
+                             getValue(I.getArgOperand(0)).getValueType(),
+                             getValue(I.getArgOperand(0)),
+                             getValue(I.getArgOperand(1)), Flags));
+    return;
   case Intrinsic::arithmetic_fence: {
     setValue(&I, DAG.getNode(ISD::ARITH_FENCE, sdl,
                              getValue(I.getArgOperand(0)).getValueType(),
@@ -9030,6 +9036,7 @@ void SelectionDAGBuilder::visitCall(const CallInst &I) {
         if (visitUnaryFloatCall(I, ISD::FEXP2))
           return;
         break;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       case LibFunc_log:
       case LibFunc_logf:
@@ -9062,6 +9069,14 @@ void SelectionDAGBuilder::visitCall(const CallInst &I) {
           return;
         break;
 #endif  // INTEL_CUSTOMIZATION
+=======
+      case LibFunc_ldexp:
+      case LibFunc_ldexpf:
+      case LibFunc_ldexpl:
+        if (visitBinaryFloatCall(I, ISD::FLDEXP))
+          return;
+        break;
+>>>>>>> eece6ba283bd763e6d7109ae9e155e81cfee0651
       case LibFunc_memcmp:
         if (visitMemCmpBCmpCall(I))
           return;

@@ -226,6 +226,13 @@ void TargetLoweringBase::InitLibcalls(const Triple &TT) {
   if (TT.isOSOpenBSD()) {
     setLibcallName(RTLIB::STACKPROTECTOR_CHECK_FAIL, nullptr);
   }
+
+  if (TT.isOSWindows() && !TT.isOSCygMing()) {
+    setLibcallName(RTLIB::LDEXP_F32, nullptr);
+    setLibcallName(RTLIB::LDEXP_F80, nullptr);
+    setLibcallName(RTLIB::LDEXP_F128, nullptr);
+    setLibcallName(RTLIB::LDEXP_PPCF128, nullptr);
+  }
 }
 
 /// GetFPLibCall - Helper to return the right libcall for the given floating
@@ -513,6 +520,11 @@ RTLIB::Libcall RTLIB::getUINTTOFP(EVT OpVT, EVT RetVT) {
 RTLIB::Libcall RTLIB::getPOWI(EVT RetVT) {
   return getFPLibCall(RetVT, POWI_F32, POWI_F64, POWI_F80, POWI_F128,
                       POWI_PPCF128);
+}
+
+RTLIB::Libcall RTLIB::getLDEXP(EVT RetVT) {
+  return getFPLibCall(RetVT, LDEXP_F32, LDEXP_F64, LDEXP_F80, LDEXP_F128,
+                      LDEXP_PPCF128);
 }
 
 RTLIB::Libcall RTLIB::getOUTLINE_ATOMIC(unsigned Opc, AtomicOrdering Order,
@@ -862,6 +874,7 @@ void TargetLoweringBase::initActions() {
     setOperationAction({ISD::BITREVERSE, ISD::PARITY}, VT, Expand);
 
     // These library functions default to expand.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     setOperationAction(ISD::FTAN, VT, Expand);
     setOperationAction(ISD::FATAN, VT, Expand);
@@ -869,6 +882,10 @@ void TargetLoweringBase::initActions() {
     setOperationAction(ISD::LDEXP, VT, Expand);
 #endif  // INTEL_CUSTOMIZATION
     setOperationAction({ISD::FROUND, ISD::FROUNDEVEN, ISD::FPOWI}, VT, Expand);
+=======
+    setOperationAction({ISD::FROUND, ISD::FROUNDEVEN, ISD::FPOWI, ISD::FLDEXP},
+                       VT, Expand);
+>>>>>>> eece6ba283bd763e6d7109ae9e155e81cfee0651
 
     // These operations default to expand for vector types.
     if (VT.isVector())
