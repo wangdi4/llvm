@@ -195,9 +195,9 @@ declare i64 @llvm.vector.reduce.umin.v1i64(<1 x i64>)
 define i32 @reduce_umind_17xi32(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_umind_17xi32:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vpbroadcastd {{.*#+}} xmm0 = 
+; AVX512REDUCTION-NEXT:    vmovdqa {{.*#+}} xmm0 = <u,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295>
 ; AVX512REDUCTION-NEXT:    vpinsrd $0, 64(%rdi), %xmm0, %xmm0
-; AVX512REDUCTION-NEXT:    vpbroadcastd {{.*#+}} zmm1 = 
+; AVX512REDUCTION-NEXT:    vmovdqa64 {{.*#+}} zmm1 = <u,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295>
 ; AVX512REDUCTION-NEXT:    vinserti32x4 $0, %xmm0, %zmm1, %zmm0
 ; AVX512REDUCTION-NEXT:    vpminud (%rdi), %zmm0, %zmm0
 ; AVX512REDUCTION-NEXT:    vphrmind %zmm0, %xmm0
@@ -207,9 +207,9 @@ define i32 @reduce_umind_17xi32(ptr %p) {
 ;
 ; AVX512F-LABEL: reduce_umind_17xi32:
 ; AVX512F:       # %bb.0:
-; AVX512F-NEXT:    vpbroadcastd {{.*#+}} xmm0 = 
+; AVX512F-NEXT:    vmovdqa {{.*#+}} xmm0 = <u,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295>
 ; AVX512F-NEXT:    vpinsrd $0, 64(%rdi), %xmm0, %xmm0
-; AVX512F-NEXT:    vpbroadcastd {{.*#+}} zmm1 = 
+; AVX512F-NEXT:    vmovdqa64 {{.*#+}} zmm1 = <u,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295,4294967295>
 ; AVX512F-NEXT:    vinserti32x4 $0, %xmm0, %zmm1, %zmm0
 ; AVX512F-NEXT:    vpminud (%rdi), %zmm0, %zmm0
 ; AVX512F-NEXT:    vextracti64x4 $1, %zmm0, %ymm1
@@ -451,7 +451,7 @@ declare i32 @llvm.vector.reduce.umin.v1i32(<1 x i32>)
 define i16 @reduce_uminw_33xi16(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_uminw_33xi16:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vpbroadcastd {{.*#+}} xmm0 = 
+; AVX512REDUCTION-NEXT:    vmovdqa {{.*#+}} xmm0 = <u,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535>
 ; AVX512REDUCTION-NEXT:    vpinsrw $0, 64(%rdi), %xmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vpblendd {{.*#+}} ymm0 = ymm0[0,1,2,3],mem[4,5,6,7]
 ; AVX512REDUCTION-NEXT:    vpminuw (%rdi), %ymm0, %ymm0
@@ -464,7 +464,7 @@ define i16 @reduce_uminw_33xi16(ptr %p) {
 ;
 ; AVX512F-LABEL: reduce_uminw_33xi16:
 ; AVX512F:       # %bb.0:
-; AVX512F-NEXT:    vpbroadcastd {{.*#+}} xmm0 = 
+; AVX512F-NEXT:    vmovdqa {{.*#+}} xmm0 = <u,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535>
 ; AVX512F-NEXT:    vpinsrw $0, 64(%rdi), %xmm0, %xmm0
 ; AVX512F-NEXT:    vpblendd {{.*#+}} ymm0 = ymm0[0,1,2,3],mem[4,5,6,7]
 ; AVX512F-NEXT:    vpminuw (%rdi), %ymm0, %ymm0
@@ -809,7 +809,7 @@ declare i16 @llvm.vector.reduce.umin.v1i16(<1 x i16>)
 define i8 @reduce_uminb_65xi8(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_uminb_65xi8:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vpbroadcastd {{.*#+}} xmm0 = 
+; AVX512REDUCTION-NEXT:    vmovdqa {{.*#+}} xmm0 = <u,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255>
 ; AVX512REDUCTION-NEXT:    vpinsrb $0, 64(%rdi), %xmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vpblendd {{.*#+}} ymm0 = ymm0[0,1,2,3],mem[4,5,6,7]
 ; AVX512REDUCTION-NEXT:    vpminub (%rdi), %ymm0, %ymm0
@@ -822,7 +822,7 @@ define i8 @reduce_uminb_65xi8(ptr %p) {
 ;
 ; AVX512F-LABEL: reduce_uminb_65xi8:
 ; AVX512F:       # %bb.0:
-; AVX512F-NEXT:    vpbroadcastd {{.*#+}} xmm0 = 
+; AVX512F-NEXT:    vmovdqa {{.*#+}} xmm0 = <u,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255>
 ; AVX512F-NEXT:    vpinsrb $0, 64(%rdi), %xmm0, %xmm0
 ; AVX512F-NEXT:    vpblendd {{.*#+}} ymm0 = ymm0[0,1,2,3],mem[4,5,6,7]
 ; AVX512F-NEXT:    vpminub (%rdi), %ymm0, %ymm0
