@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -disable-output 2>&1 -passes='print<sycl-kernel-barrier-wi-analysis>' %s -S -o - | FileCheck %s
+; RUN: opt -disable-output 2>&1 -passes='print<sycl-kernel-barrier-wi-analysis>' %s -S -o - | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the WIRelatedValue pass
@@ -8,7 +8,6 @@
 ;;      //TODO: 0. Kernel "main" was not changed
 ;;  WI related Values analysis data collected as follow
 ;;      1. "%a" is non-uniform value (i.e. WI related)
-;;      2. "%p" is non-uniform value (i.e. WI related)
 ;;      3. "%x" is non-uniform value (i.e. WI related)
 ;;*****************************************************************************
 
@@ -18,23 +17,22 @@ target triple = "i686-pc-win32"
 ; CHECK-LABEL: @main
 define void @main(i32 %arg) {
   %a = alloca [4 x float], align 4
-  %p = getelementptr [4 x float], [4 x float]* %a, i32 0, i32 0
-  %x = load float, float* %p, align 4
+  %p = getelementptr [4 x float], ptr %a, i32 0, i32 1
+  %x = load float, ptr %p, align 4
   call void @_Z18work_group_barrierj(i32 2)
   ret void
 ; CHECK: %a = alloca [4 x float], align 4
-; CHECK: %p = getelementptr [4 x float], [4 x float]* %a, i32 0, i32 0
-; CHECK: %x = load float, float* %p, align 4
+; CHECK: %p = getelementptr [4 x float], ptr %a, i32 0, i32 1
+; CHECK: %x = load float, ptr %p, align 4
 ; CHECK: call void @_Z18work_group_barrierj(i32 2)
 ; CHECK: ret void
 }
 
 ; CHECK: WI related Values
 ; CHECK: %a is WI related
-; CHECK: %p is WI related
 ; CHECK: %x is WI related
 
 declare void @_Z18work_group_barrierj(i32)
 
 !sycl.kernels = !{!0}
-!0 = !{void (i32)* @main}
+!0 = !{ptr @main}

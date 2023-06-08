@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -disable-output 2>&1 -passes='print<sycl-kernel-data-per-value-analysis>' -S < %s | FileCheck %s
+; RUN: opt -disable-output 2>&1 -passes='print<sycl-kernel-data-per-value-analysis>' -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the DataPerInternalFunction pass
@@ -30,8 +30,8 @@ L0:
   br label %L1
 L1:
   call void @_Z18work_group_barrierj(i32 1)
-  store i32 %y, i32* %p, align 4
-  call void @foo(i32* %p)
+  store i32 %y, ptr %p, align 4
+  call void @foo(ptr %p)
   br label %L2
 L2:
   call void @dummy_barrier.()
@@ -43,8 +43,8 @@ L2:
 ; CHECK: br label %L1
 ; CHECK: L1:
 ; CHECK: call void @_Z18work_group_barrierj(i32 1)
-; CHECK: store i32 %y, i32* %p, align 4
-; CHECK: call void @foo(i32* %p)
+; CHECK: store i32 %y, ptr %p, align 4
+; CHECK: call void @foo(ptr %p)
 ; CHECK: br label %L2
 ; CHECK: L2:
 ; CHECK: call void @dummy_barrier.()
@@ -52,16 +52,16 @@ L2:
 }
 
 ; CHECK: @foo
-define void @foo(i32* %x) nounwind {
+define void @foo(ptr %x) nounwind !kernel_arg_base_type !1 !arg_type_null_val !2 {
 L3:
-  %z = load i32, i32* %x, align 4
+  %z = load i32, ptr %x, align 4
   %y = xor i32 %z, %z
   br label %L4
 L4:
   call void @_Z18work_group_barrierj(i32 1)
   ret void
 ; CHECK: L3:
-; CHECK: %z = load i32, i32* %x, align 4
+; CHECK: %z = load i32, ptr %x, align 4
 ; CHECK: %y = xor i32 %z, %z
 ; CHECK: br label %L4
 ; CHECK: L4:
@@ -107,4 +107,6 @@ declare i32 @_Z12get_local_idj(i32)
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32)* @main}
+!0 = !{ptr @main}
+!1 = !{!"int*"}
+!2 = !{i32* null}
