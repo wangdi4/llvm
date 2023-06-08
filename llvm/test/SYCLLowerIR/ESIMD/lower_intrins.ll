@@ -9,11 +9,6 @@
 ; not practical in this case.
 ;
 ; All new test cases should be added to intrins_trans.cpp
-<<<<<<< HEAD
-; Disable test until GenXIntrinsics is updated to reflect recent community
-; changes;
-=======
->>>>>>> 8990c5503d47e397c837d991bf6bc5a0feda9b8a
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64-unknown-unknown"
@@ -59,11 +54,7 @@ define dso_local spir_func <16 x float>  @FUNC_11() {
 
 define dso_local spir_func <16 x i32>  @FUNC_23() {
   %ret_val = call spir_func <16 x i32> @_Z13__esimd_vloadIiLi16EEN2cm3gen13__vector_typeIT_XT0_EE4typeEPKS5_(<16 x i32> addrspace(4)* addrspacecast (<16 x i32>* getelementptr inbounds (%"cm::gen::simd<int, 16>", %"cm::gen::simd<int, 16>"* @vg, i32 0, i32 0) to <16 x i32> addrspace(4)*))
-<<<<<<< HEAD
-; CHECK: %ret_val1 = load <16 x i32>, <16 x i32> addrspace(4)* addrspacecast (<16 x i32>* getelementptr inbounds (%"cm::gen::simd<int, 16>", %"cm::gen::simd<int, 16>"* bitcast (<16 x i32>* @vg to %"cm::gen::simd<int, 16>"*), i32 0, i32 0) to <16 x i32> addrspace(4)*), align 64 ;INTEL
-=======
 ; CHECK: %{{[0-9a-zA-Z_.]+}} = load <16 x i32>, <16 x i32> addrspace(4)* addrspacecast (<16 x i32>* getelementptr inbounds (%"cm::gen::simd<int, 16>", %"cm::gen::simd<int, 16>"* bitcast (<16 x i32>* @vg to %"cm::gen::simd<int, 16>"*), i32 0, i32 0) to <16 x i32> addrspace(4)*), align 64
->>>>>>> 8990c5503d47e397c837d991bf6bc5a0feda9b8a
 ; TODO: testcase to generate this:
 ; CxHECK: %{{[0-9a-zA-Z_.]+}} = call <16 x i32> @llvm.genx.vload.v16i32.p4v16i32(<16 x i32> addrspace(4)* {{.*}})
   ret <16 x i32>  %ret_val
