@@ -202,7 +202,7 @@ set(imf_fallback_fp32_deps device.h device_imf.hpp imf_half.hpp
                            imf/intel/acos_s_ha.cpp
                            imf/intel/acosh_s_la.cpp
                            imf/intel/erf_s_ha.cpp
-                           imf/intel/cospi_s_ha.cpp
+                           imf/intel/cospi_s_la.cpp
                            imf/intel/cosh_s_la.cpp
                            imf/intel/frexp_s_xa.cpp
                            imf/intel/fmod_s_xa.cpp
@@ -228,7 +228,7 @@ set(imf_fallback_fp32_deps device.h device_imf.hpp imf_half.hpp
                            imf/intel/ilogb_s_xa.cpp
                            imf/intel/tan_s_la.cpp
                            imf/intel/sin_s_la.cpp
-                           imf/intel/sinpi_s_ha.cpp
+                           imf/intel/sinpi_s_la.cpp
                            imf/intel/sinh_s_la.cpp
                            imf/intel/sincos_s_la.cpp
                            imf/intel/sincospi_s_la.cpp

@@ -33,16 +33,18 @@ static const __devicelib_imf_internal_sremquo_data_t
         0x80000000u, /* _sSignMask */
         0x3F000000u, /* _sHalf */
         0xBu,        /* _iMaxQExp = 11*/
-/*
-//         
-//             To prevent YLow to be denormal it should be checked
-//             that Exp(Y) <= -127+23 (worst case when only last bit is non zero)
-//             Exp(Y) < -103 -> Y < 0x0C000000
-//             That value is used to construct SubConst by setting up first bit
-//            to 1. CmpConst is get from max acceptable value 0x797fffff:
-//             0x797fffff - 0x8C000000 = 0x(1)ED7FFFFF
-//         
-*/
+                     /*
+                     //
+                     //         To prevent YLow to be denormal it should be checked
+                     //         that Exp(Y) <= -127+23 (worst case when only last bit is non
+                     zero)
+                     //         Exp(Y) < -103 -> Y < 0x0C000000
+                     //         That value is used to construct SubConst by setting up first
+                     bit to 1.
+                     //         CmpConst is get from max acceptable value 0x797fffff:
+                     //         0x797fffff - 0x8C000000 = 0x(1)ED7FFFFF
+                     //
+                     */
         0x8C000000u, /* _iSubConst */
         0xED7FFFFFu, /* _iCmpConst */
         0x00000001u, /* _iOne */
@@ -82,10 +84,10 @@ inline int __devicelib_imf_internal_sremquo(const float *a, const float *b,
     (*q) = 0;
     // x is NaN
     if ((signif_x != (0x00000000L)) && (exp_x == (0x00000080L)))
-      result = x * 1.7;
+      result = x * 1.7f;
     // y is NaN
     else if ((signif_y != (0x00000000L)) && (exp_y == (0x00000080L)))
-      result = y * 1.7;
+      result = y * 1.7f;
     // y is zero
     else if (abs_y == zero) {
       result = zero / zero;
@@ -110,9 +112,9 @@ inline int __devicelib_imf_internal_sremquo(const float *a, const float *b,
       (*r) = (zero * x);
       return nRet;
     }
-    // Is x too big to scale up by 2.0?
+    // Is x too big to scale up by 2.0f?
     if (exp_x != 127) {
-      if ((2.0 * abs_x) <= abs_y) {
+      if ((2.0f * abs_x) <= abs_y) {
         (*q) = 0;
         (*r) = x;
         return nRet;
@@ -191,8 +193,8 @@ inline int __devicelib_imf_internal_sremquo(const float *a, const float *b,
   rem_bit = (((VUINT32)(j)) << 23) | rem_bit;
   // Create float result and adjust if >= .5 * divisor
   result = *(float *)&rem_bit;
-  if ((2.0 * result) >= abs_y) {
-    if ((2.0 * result) == abs_y) {
+  if ((2.0f * result) >= abs_y) {
+    if ((2.0f * result) == abs_y) {
       if (quo_bit & 0x01) {
         result = -result;
         quo_bit++;
@@ -211,18 +213,17 @@ inline int __devicelib_imf_internal_sremquo(const float *a, const float *b,
 }
 } /* namespace */
 } /* namespace __imf_impl_remquo_s_xa */
-
-DEVICE_EXTERN_C_INLINE float __devicelib_imf_remquof(float a, float b,
-                                                     int32_t *c) {
+DEVICE_EXTERN_C_INLINE float __devicelib_imf_remquof(float x, float y,
+                                                     int32_t *z) {
   using namespace __imf_impl_remquo_s_xa;
+  float r;
   VUINT32 vm;
   float va1;
   float va2;
   float vr1;
   VUINT32 vr2;
-  float r;
-  va1 = a;
-  va2 = b;
+  va1 = x;
+  va2 = y;
   {
     float sZero;
     float sZeroRes;
@@ -336,7 +337,7 @@ DEVICE_EXTERN_C_INLINE float __devicelib_imf_remquof(float a, float b,
     vr2 = ((const VUINT32 *)&__cout_r2)[0];
   }
   r = vr1;
-  ((VUINT32 *)c)[0] = vr2;
+  ((VUINT32 *)z)[0] = vr2;
   return r;
 }
 #endif /*__LIBDEVICE_IMF_ENABLED__*/
