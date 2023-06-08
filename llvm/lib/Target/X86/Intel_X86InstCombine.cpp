@@ -69,6 +69,7 @@ public:
 
 private:
   bool replaceOrToAdd(Instruction &I);
+  bool replaceFRem(Instruction &I);
   bool replaceX86IntrinsicToIR(Instruction &I);
   bool replaceLibmToSVML(Instruction &I);
   bool replaceCall(Instruction &I);
@@ -137,6 +138,51 @@ bool X86InstCombine::replaceOrToAdd(Instruction &I) {
   auto Add = Builder.CreateAdd(LHS, RHS);
   replaceValue(I, *Add);
 
+  return true;
+}
+
+// Transform frem to "a - trunc(a / b) * b",
+// This transformation may have different results when a or b is INF,
+// but it's OK when we use fast math flags with O3 optimization level.
+bool X86InstCombine::replaceFRem(Instruction &I) {
+  if (!I.isFast())
+    return false;
+
+  Value *LHS = I.getOperand(0);
+  Value *RHS = I.getOperand(1);
+
+  bool IsVectorTy = LHS->getType()->isVectorTy();
+  Type *Ty = LHS->getType();
+  Type *ScalarTy = LHS->getType()->getScalarType();
+
+  if (!ScalarTy->isFloatTy() && !ScalarTy->isDoubleTy())
+    return false;
+
+  // Extend to double type?
+  bool NeedExtTy = ScalarTy->isFloatTy() ? true : false;
+
+  IRBuilder<> Builder(&I);
+  if (NeedExtTy) {
+    Type *ExtTy = Type::getDoubleTy(I.getContext());
+
+    if (IsVectorTy)
+      ExtTy = VectorType::get(
+          ExtTy, cast<VectorType>(LHS->getType())->getElementCount());
+
+    LHS = Builder.CreateFPExt(LHS, ExtTy);
+    RHS = Builder.CreateFPExt(RHS, ExtTy);
+  }
+
+  Value *ADivB = Builder.CreateFDiv(LHS, RHS);
+  Value *Trunc = Builder.CreateUnaryIntrinsic(Intrinsic::trunc, ADivB, &I);
+  Value *FMul = Builder.CreateFMul(Trunc, RHS);
+  Value *Result = Builder.CreateFSub(LHS, FMul);
+
+  // Back to float type.
+  if (NeedExtTy)
+    Result = Builder.CreateFPCast(Result, Ty);
+
+  replaceValue(I, *Result);
   return true;
 }
 
@@ -344,6 +390,9 @@ bool X86InstCombine::runOnFunction(Function &F) {
     switch (I.getOpcode()) {
       case Instruction::Or:
         MadeChange |= replaceOrToAdd(I);
+        break;
+      case Instruction::FRem:
+        MadeChange |= replaceFRem(I);
         break;
       case Instruction::Call:
         MadeChange |= replaceCall(I);
