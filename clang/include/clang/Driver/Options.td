@@ -3681,15 +3681,6 @@ def fsyntax_only : Flag<["-"], "fsyntax-only">,
   Flags<[NoXarchOption,CoreOption,CC1Option,FC1Option,FlangOption]>, Group<Action_Group>,
   HelpText<"Run the preprocessor, parser and semantic analysis stages">;
 def ftabstop_EQ : Joined<["-"], "ftabstop=">, Group<f_Group>;
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-def ftemplate_depth_EQ : Joined<["-"], "ftemplate-depth=">, Group<f_Group>,
-  HelpText<"Control the depth in which recursive templates are expanded.">;
-#endif // INTEL_CUSTOMIZATION
-def ftemplate_depth_ : Joined<["-"], "ftemplate-depth-">, Group<f_Group>;
-def ftemplate_backtrace_limit_EQ : Joined<["-"], "ftemplate-backtrace-limit=">,
-                                   Group<f_Group>;
-=======
 def ftemplate_depth_EQ : Joined<["-"], "ftemplate-depth=">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Set the maximum depth of recursive template instantiation">,
   MarshallingInfoInt<LangOpts<"InstantiationDepth">, "1024">;
@@ -3697,7 +3688,6 @@ def : Joined<["-"], "ftemplate-depth-">, Group<f_Group>, Alias<ftemplate_depth_E
 def ftemplate_backtrace_limit_EQ : Joined<["-"], "ftemplate-backtrace-limit=">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Set the maximum number of entries to print in a template instantiation backtrace (0 = no limit)">,
   MarshallingInfoInt<DiagnosticOpts<"TemplateBacktraceLimit">, "DiagnosticOptions::DefaultTemplateBacktraceLimit">;
->>>>>>> 0aa4af711e567c8683cee95ffbb14812df03cecc
 def foperator_arrow_depth_EQ : Joined<["-"], "foperator-arrow-depth=">,
                                Group<f_Group>;
 
