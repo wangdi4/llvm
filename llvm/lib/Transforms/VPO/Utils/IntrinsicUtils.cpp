@@ -775,6 +775,8 @@ static CallInst *CreateEndDirectiveCall(CallInst *BeginDirective,
 }
 
 /// Obtain the first basic block of the loop body (LoopBodyBB).
+/// There may be two patterns, rotated and non-rotated loops.
+/// The non-rotated loop starts from the block like below
 /// - \code
 ///
 ///   LoopHeaderBB:
@@ -784,10 +786,15 @@ static CallInst *CreateEndDirectiveCall(CallInst *BeginDirective,
 ///    br i1 %cmp4, %LoopBodyBB, %LoopEnd
 ///
 /// \endcode
+/// The rotated loops usually don't have the compare instruciton and the
+/// branch is unconditional.
+//
 static BasicBlock *getFirstBodyBBForLoop(Loop *L) {
   auto *LpHeader = L->getHeader();
   BranchInst *BI = dyn_cast<BranchInst>(LpHeader->getTerminator());
-  assert(BI && !BI->isUnconditional() && "Expect Conditional BranchInst!");
+
+  if (BI->isUnconditional())
+    return LpHeader;
 
   auto *LoopBodyBB = BI->getSuccessor(0);
   auto *ExitBB = BI->getSuccessor(1);
