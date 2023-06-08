@@ -1,7 +1,5 @@
-; RUN: opt -opaque-pointers=0 -passes='sycl-kernel-local-buffers' -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers -passes='sycl-kernel-local-buffers' -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes='sycl-kernel-local-buffers' -S %s | FileCheck %s -check-prefixes=CHECK,NONOPAQUE
-; RUN: opt -opaque-pointers -passes='sycl-kernel-local-buffers' -S %s | FileCheck %s -check-prefixes=CHECK,OPAQUE
+; RUN: opt -passes='sycl-kernel-local-buffers' -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes='sycl-kernel-local-buffers' -S %s | FileCheck %s
 
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32-S32"
 
@@ -11,40 +9,37 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 @foo.localInt = internal addrspace(1) global i32 0, align 4
 @bar.localLong16 = internal addrspace(1) global <16 x i64> zeroinitializer, align 128
 
-define void @foo(i32 addrspace(1)* %pInt, i8 addrspace(1)* %pChar, float addrspace(1)* %pFloat, i8 addrspace(3)* %pLocalMem, { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32] }* %pWorkDim, i32* %pWGId, <{ [4 x i32] }>* %pBaseGlbId, <{ [4 x i32] }>* %pLocalIds, i32* %contextpointer, i32 %iterCount, i8* %pSpecialBuf, i32* %pCurrWI, i32* %extExecContextPointer) {
+define void @foo(ptr addrspace(1) %pInt, ptr addrspace(1) %pChar, ptr addrspace(1) %pFloat, ptr addrspace(3) %pLocalMem, ptr %pWorkDim, ptr %pWGId, ptr %pBaseGlbId, ptr %pLocalIds, ptr %contextpointer, i32 %iterCount, ptr %pSpecialBuf, ptr %pCurrWI, ptr %extExecContextPointer) !kernel_arg_base_type !0 !arg_type_null_val !1 {
 entry:
-  %dummyInt = load i32, i32 addrspace(1)* @foo.localInt, align 4
-  store i32 %dummyInt, i32 addrspace(1)* %pInt
+  %dummyInt = load i32, ptr addrspace(1) @foo.localInt, align 4
+  store i32 %dummyInt, ptr addrspace(1) %pInt
 
   ret void
 }
 
-define void @bar(<4 x i32> addrspace(1)* %pInt4, <16 x i64> addrspace(1)* %pLong16, i8 addrspace(3)* %pLocalMem, { i32, [3 x i32], [3 x i32], [3 x i32], [3 x i32] }* %pWorkDim, i32* %pWGId, <{ [4 x i32] }>* %pBaseGlbId, <{ [4 x i32] }>* %pLocalIds, i32* %contextpointer, i32 %iterCount, i8* %pSpecialBuf, i32* %pCurrWI, i32* %extExecContextPointer) {
+define void @bar(ptr addrspace(1) %pInt4, ptr addrspace(1) %pLong16, ptr addrspace(3) %pLocalMem, ptr %pWorkDim, ptr %pWGId, ptr %pBaseGlbId, ptr %pLocalIds, ptr %contextpointer, i32 %iterCount, ptr %pSpecialBuf, ptr %pCurrWI, ptr %extExecContextPointer) !kernel_arg_base_type !2 !arg_type_null_val !3 {
 entry:
-  %dummyLong16 = load <16 x i64>, <16 x i64> addrspace(1)* @bar.localLong16, align 128
-  store <16 x i64> %dummyLong16, <16 x i64> addrspace(1)* %pLong16
+  %dummyLong16 = load <16 x i64>, ptr addrspace(1) @bar.localLong16, align 128
+  store <16 x i64> %dummyLong16, ptr addrspace(1) %pLong16
 
   ret void
 }
 
+!0 = !{!"int*", !"char*", !"float*"}
+!1 = !{i32 addrspace(1)* null, i8 addrspace(1)* null, float addrspace(1)* null}
+!2 = !{!"int4*", !"long16*"}
+!3 = !{<4 x i32> addrspace(1)* null, <16 x i64> addrspace(1)* null}
 
-
-; NONOPAQUE:        define void @foo(i32 addrspace(1)* %pInt, i8 addrspace(1)* %pChar, float addrspace(1)* %pFloat,
-; OPAQUE:           define void @foo(ptr addrspace(1) %pInt, ptr addrspace(1) %pChar, ptr addrspace(1) %pFloat,
+; CHECK:           define void @foo(ptr addrspace(1) %pInt, ptr addrspace(1) %pChar, ptr addrspace(1) %pFloat,
 ; CEHCK:   entry:
-; NONOPAQUE:   %dummyInt = load i32, i32 addrspace(1)* @foo.localInt, align 4
-; NONOPAQUE-NEXT:   store i32 %dummyInt, i32 addrspace(1)* %pInt
-; OPAQUE:   %dummyInt = load i32, ptr addrspace(1) @foo.localInt, align 4
-; OPAQUE-NEXT:   store i32 %dummyInt, ptr addrspace(1) %pInt
+; CHECK:   %dummyInt = load i32, ptr addrspace(1) @foo.localInt, align 4
+; CHECK-NEXT:   store i32 %dummyInt, ptr addrspace(1) %pInt
 ; CHECK-NEXT:   ret void
 
-; NONOPAQUE:        define void @bar(<4 x i32> addrspace(1)* %pInt4, <16 x i64> addrspace(1)* %pLong16,
-; OPAQUE:           define void @bar(ptr addrspace(1) %pInt4, ptr addrspace(1) %pLong16,
+; CHECK:           define void @bar(ptr addrspace(1) %pInt4, ptr addrspace(1) %pLong16,
 ; CHECK-NEXT:   entry:
-; NONOPAQUE-NEXT:   %dummyLong16 = load <16 x i64>, <16 x i64> addrspace(1)* @bar.localLong16, align 128
-; NONOPAQUE-NEXT:   store <16 x i64> %dummyLong16, <16 x i64> addrspace(1)* %pLong16
-; OPAQUE-NEXT:   %dummyLong16 = load <16 x i64>, ptr addrspace(1) @bar.localLong16, align 128
-; OPAQUE-NEXT:   store <16 x i64> %dummyLong16, ptr addrspace(1) %pLong16
+; CHECK-NEXT:   %dummyLong16 = load <16 x i64>, ptr addrspace(1) @bar.localLong16, align 128
+; CHECK-NEXT:   store <16 x i64> %dummyLong16, ptr addrspace(1) %pLong16
 ; CHECK-NEXT:   ret void
 
 ; DEBUGIFY-NOT: WARNING

@@ -164,6 +164,11 @@ def nodefaultlib_all : F<"nodefaultlib">,
 def noentry : F<"noentry">,
     HelpText<"Don't add reference to DllMainCRTStartup; only valid with /dll">;
 def profile : F<"profile">;
+#if INTEL_CUSTOMIZATION
+def profile_sample_generate : F<"profile-sample-generate">,
+    HelpText<"Enable generating information for Sample-based Profile Guided "
+             "Optimizations (SPGO). (experimental)">;
+#endif // INTEL_CUSTOMIZATION
 def repro : F<"Brepro">,
     HelpText<"Use a hash of the executable as the PE header timestamp">;
 def reproduce : Joined<["/", "-", "/?", "-?"], "reproduce:">,

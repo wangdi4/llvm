@@ -3,6 +3,10 @@
 # RUN: llvm-readobj --sections %t.exe | FileCheck %s
 # RUN: lld-link /debug:dwarf /out:%t.exe /entry:main %t.obj
 # RUN: llvm-readobj --sections %t.exe | FileCheck %s
+# INTEL_CUSTOMIZATION
+# RUN: lld-link /profile-sample-generate -debug:none /out:%t.exe /entry:main %t.obj
+# RUN: llvm-readobj --sections %t.exe | FileCheck %s
+# end INTEL_CUSTOMIZATION
 # RUN: lld-link /out:%t.exe /entry:main %t.obj
 # RUN: llvm-readobj --sections %t.exe | FileCheck -check-prefix=NODEBUG %s
 # RUN: lld-link /debug:symtab /out:%t.exe /entry:main %t.obj

@@ -33,7 +33,7 @@ entry:
   ret i1 false
 }
 
-define dso_local void @test(ptr addrspace(1) %results) local_unnamed_addr {
+define dso_local void @test(ptr addrspace(1) %results) local_unnamed_addr !kernel_arg_base_type !1 !arg_type_null_val !2 {
 ; CHECK-LABEL: define dso_local void @test(
 ; CHECK: store i32 {{.*}}, ptr addrspace(3) @test.i,
 ; CHECK: store i32 {{.*}}, ptr addrspace(3) @test.j,
@@ -75,7 +75,7 @@ entry:
   ret void
 }
 
-define dso_local void @test2(ptr addrspace(1) %results) local_unnamed_addr {
+define dso_local void @test2(ptr addrspace(1) %results) local_unnamed_addr !kernel_arg_base_type !1 !arg_type_null_val !2 {
 ; CHECK-LABEL: define dso_local void @test2(
 ; CHECK: call fastcc void @xyz(
 ;
@@ -95,7 +95,7 @@ entry:
   ret i1 false
 }
 
-define dso_local void @test3(ptr addrspace(1) %results) local_unnamed_addr {
+define dso_local void @test3(ptr addrspace(1) %results) local_unnamed_addr !kernel_arg_base_type !1 !arg_type_null_val !2 {
 ; CHECK-LABEL: define dso_local void @test3(
 ; CHECK: store double {{.*}}, ptr addrspace(3) @test3.s,
 ; CHECK: store double {{.*}}, ptr addrspace(3) @test3.t,
@@ -141,5 +141,7 @@ entry:
 !sycl.kernels = !{!0}
 
 !0 = !{ptr @test, ptr @test2, ptr @test3}
+!1 = !{!"int*"}
+!2 = !{i32 addrspace(1)* null}
 
 ; DEBUGIFY-NOT: WARNING

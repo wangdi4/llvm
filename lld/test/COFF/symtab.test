@@ -6,7 +6,7 @@
 # RUN: lld-link /debug:symtab /opt:noref /out:%t.exe /entry:main %t.obj %p/Inputs/std64.lib
 # RUN: llvm-readobj --symbols %t.exe | FileCheck %s
 # INTEL_CUSTOMIZATION
-# RUN: lld-link /debug /profile /out:%t.exe /entry:main %t.obj %p/Inputs/std64.lib
+# RUN: lld-link /profile-sample-generate /out:%t.exe /entry:main %t.obj %p/Inputs/std64.lib
 # RUN: llvm-readobj --symbols %t.exe | FileCheck %s
 # end INTEL_CUSTOMIZATION
 
