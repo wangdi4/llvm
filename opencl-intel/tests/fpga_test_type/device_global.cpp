@@ -47,7 +47,8 @@ protected:
 
   void TearDown() override { parent_t::TearDown(); }
 
-  void BuildProgram(const char *BinaryFile, cl_program &program) {
+  void BuildProgram(const char *BinaryFile, cl_context context,
+                    cl_device_id device, cl_program *program) {
     cl_int Err;
     std::vector<unsigned char> Binary;
     ASSERT_NO_FATAL_FAILURE(
@@ -56,11 +57,11 @@ protected:
     size_t Length = Binary.size();
     const unsigned char *ImageData =
         reinterpret_cast<const unsigned char *>(Binary.data());
-    program = clCreateProgramWithBinary(m_context, 1, &m_device, &Length,
-                                        &ImageData, nullptr, &Err);
+    *program = clCreateProgramWithBinary(context, 1, &device, &Length,
+                                         &ImageData, nullptr, &Err);
     ASSERT_OCL_SUCCESS(Err, "clCreateProgramWithBinary");
 
-    Err = clBuildProgram(program, 1, &m_device, "", nullptr, nullptr);
+    Err = clBuildProgram(*program, 1, &device, "", nullptr, nullptr);
     ASSERT_OCL_SUCCESS(Err, "clBuildProgram");
   }
 
@@ -74,16 +75,18 @@ protected:
 
 TEST_F(DeviceGlobalTest, resetGlobalWithinImageScope) {
   cl_int Err;
-  cl_program Program1;
-  ASSERT_NO_FATAL_FAILURE(BuildProgram(BinaryFile1, Program1));
+  clProgramWrapper Program1;
+  ASSERT_NO_FATAL_FAILURE(
+      BuildProgram(BinaryFile1, m_context, m_device, &Program1));
 
-  cl_program Program2;
-  ASSERT_NO_FATAL_FAILURE(BuildProgram(BinaryFile2, Program2));
+  clProgramWrapper Program2;
+  ASSERT_NO_FATAL_FAILURE(
+      BuildProgram(BinaryFile2, m_context, m_device, &Program2));
 
-  cl_kernel Kernel1 = clCreateKernel(Program1, "add_counter1", &Err);
+  clKernelWrapper Kernel1 = clCreateKernel(Program1, "add_counter1", &Err);
   ASSERT_OCL_SUCCESS(Err, "clCreateKernel");
 
-  cl_kernel Kernel2 = clCreateKernel(Program2, "add_counter2", &Err);
+  clKernelWrapper Kernel2 = clCreateKernel(Program2, "add_counter2", &Err);
   ASSERT_OCL_SUCCESS(Err, "clCreateKernel");
 
   size_t One = 1;
@@ -143,13 +146,59 @@ TEST_F(DeviceGlobalTest, resetGlobalWithinImageScope) {
 
   Err = clFinish(m_queue);
   ASSERT_OCL_SUCCESS(Err, "clFinish");
+}
 
-  Err = clReleaseKernel(Kernel1);
-  ASSERT_OCL_SUCCESS(Err, "clReleaseKernel");
-  Err = clReleaseKernel(Kernel2);
-  ASSERT_OCL_SUCCESS(Err, "clReleaseKernel");
-  Err = clReleaseProgram(Program1);
-  ASSERT_OCL_SUCCESS(Err, "clReleaseProgram");
-  Err = clReleaseProgram(Program2);
-  ASSERT_OCL_SUCCESS(Err, "clReleaseProgram");
+TEST_F(DeviceGlobalTest, resetGlobalInParentDeivceCreatedProgram) {
+  cl_int Err;
+  cl_uint MaxComputeUnits;
+  const int NumSubdevices = 2;
+  Err = clGetDeviceInfo(m_device, CL_DEVICE_MAX_COMPUTE_UNITS,
+                        sizeof(MaxComputeUnits), &MaxComputeUnits, nullptr);
+  ASSERT_OCL_SUCCESS(Err, "clGetDeviceInfo");
+
+  // create room for 1 more device_id, so that we can put the parent device in
+  // there.
+  cl_device_id Devices[NumSubdevices + 1];
+  cl_device_partition_property PartitionProps[] = {
+      CL_DEVICE_PARTITION_EQUALLY, MaxComputeUnits / NumSubdevices, 0};
+  Err = clCreateSubDevices(m_device, PartitionProps, NumSubdevices, Devices,
+                           nullptr);
+  ASSERT_OCL_SUCCESS(Err, "clCreateSubDevices");
+
+  Devices[NumSubdevices] = m_device;
+  clContextWrapper Context = clCreateContext(nullptr, NumSubdevices + 1,
+                                             Devices, nullptr, nullptr, &Err);
+  ASSERT_OCL_SUCCESS(Err, "clCreateContext");
+
+  // create and build program by using parent device
+  clProgramWrapper Program;
+  ASSERT_NO_FATAL_FAILURE(
+      BuildProgram(BinaryFile1, Context, m_device, &Program));
+
+  clKernelWrapper Kernel = clCreateKernel(Program, "add_counter1", &Err);
+  ASSERT_OCL_SUCCESS(Err, "clCreateKernel");
+
+  clCommandQueueWrapper Queues[NumSubdevices];
+  for (int i = 0; i < NumSubdevices; i++) {
+    Queues[i] =
+        clCreateCommandQueueWithProperties(Context, Devices[i], nullptr, &Err);
+    ASSERT_OCL_SUCCESS(Err, "clCreateCommandQueueWithProperties");
+  }
+
+  size_t One = 1;
+  for (int i = 0; i < NumSubdevices; i++) {
+    Err = clEnqueueNDRangeKernel(Queues[i], Kernel, 1, nullptr, &One, &One, 0,
+                                 nullptr, nullptr);
+    ASSERT_OCL_SUCCESS(Err, "clEnqueueNDRangeKernel");
+
+    Err = clFinish(Queues[i]);
+    ASSERT_OCL_SUCCESS(Err, "clFinish");
+  }
+
+  int Val = 0;
+  Err = m_clEnqueueReadGlobalVariableINTEL(m_queue, Program, "counter1",
+                                           CL_TRUE, sizeof(Val), 0, &Val, 0,
+                                           nullptr, nullptr);
+  ASSERT_OCL_SUCCESS(Err, "clEnqueueReadGlobalVariableINTEL");
+  ASSERT_EQ(Val, 2);
 }

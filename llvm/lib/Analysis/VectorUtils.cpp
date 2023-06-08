@@ -1123,11 +1123,51 @@ void llvm::buildVectorVariantLogicalSignature(
                                      Variant, MaskEltType, LogicalArgTypes,
                                      LogicalRetType);
 }
+/// Having a function logical signature, argument types of which are described
+/// by \p ArgTys and \p ArgNumParts (which tells how many chunks of data need
+/// to transfer corresponding argument), likewise, return number of chunks
+/// \p RetChunks and logical type \p VecRetTy. Legalized return type (if
+/// changed) then returned back via VecRetTy and \p LegalizedArgs array
+/// populated with legalized types of the function arguments.
+static void buildTargetISALegalizedSignature(
+    ArrayRef<Type *> ArgTys, ArrayRef<int> ArgNumParts, int RetChunks,
+    SmallVectorImpl<Type *> &LegalizedArgs, Type *&VecRetTy) {
+  assert(ArgTys.size() == ArgNumParts.size() &&
+         "Inconsistent arguments information");
+
+  auto GetChunkType = [](Type *T, unsigned NumParts) -> Type * {
+    if (NumParts == 1)
+      return T;
+    auto *VT = cast<FixedVectorType>(T);
+    unsigned ChunkVF = VT->getNumElements() / NumParts;
+    return FixedVectorType::get(VT->getElementType(), ChunkVF);
+  };
+
+  LegalizedArgs.clear();
+  for (const auto &[I, T] : enumerate(ArgTys)) {
+    int NumChunks = ArgNumParts[I];
+    assert(NumChunks != 0 && "An argument must have at least one part");
+    Type *ChunkTy = GetChunkType(T, NumChunks);
+    while (--NumChunks >= 0)
+      LegalizedArgs.push_back(ChunkTy);
+  }
+
+  Type *RetTy = VecRetTy;
+  if (RetTy->isVoidTy() || RetChunks == 1)
+    return;
+
+  // legalize the return type: return it as a structure of chunks.
+  Type *RetChunkTy = GetChunkType(RetTy, RetChunks);
+  SmallVector<Type *> RetParts(RetChunks, RetChunkTy);
+
+  VecRetTy = StructType::get(RetTy->getContext(), RetParts);
+}
 
 void llvm::updateVectorVariantAttributes(Function &VectorF,
                                          const Function &OrigF,
                                          const VFInfo &Variant,
-                                         ArrayRef<Type *> ArgTys) {
+                                         ArrayRef<Type *> ArgTys,
+                                         ArrayRef<int> ArgNumParts) {
   LLVMContext &C = OrigF.getContext();
   AttributeList Src = OrigF.getAttributes();
 
@@ -1137,7 +1177,9 @@ void llvm::updateVectorVariantAttributes(Function &VectorF,
     // does not apply to its vector counterpart).
     AttributeSet SrcAttrs = Src.getParamAttrs(ArgIdx).removeAttributes(
         C, AttributeFuncs::typeIncompatible(T));
-    NewArgAttrs.push_back(SrcAttrs);
+    int NumChunks = ArgNumParts.empty() ? 1 : ArgNumParts[ArgIdx];
+    while (--NumChunks >= 0)
+      NewArgAttrs.push_back(SrcAttrs);
   }
 
   AttributeSet RetAttrs = Src.getRetAttrs().removeAttributes(
@@ -1157,14 +1199,14 @@ void llvm::updateVectorVariantAttributes(Function &VectorF,
 
   if (VFInfo::isIntelVFABIMangling(Variant.VectorName))
     VectorF.setCallingConv(CallingConv::X86_RegCall);
-
   VectorF.setVisibility(OrigF.getVisibility());
 }
 
-Function *llvm::getOrInsertVectorVariantFunction(Function &OrigF,
-                                                 const VFInfo &Variant,
-                                                 ArrayRef<Type *> ArgTys,
-                                                 Type *RetTy) {
+Function *
+llvm::getOrInsertVectorVariantFunction(Function &OrigF, const VFInfo &Variant,
+                                       ArrayRef<Type *> ArgTys, Type *RetTy,
+                                       ArrayRef<int> ArgChunks, int RetChunks) {
+
   // OrigF is the original scalar function being called.
   StringRef VFnName = Variant.VectorName;
   LLVM_DEBUG(dbgs() << "Getting or inserting " << VFnName << '\n');
@@ -1173,10 +1215,15 @@ Function *llvm::getOrInsertVectorVariantFunction(Function &OrigF,
   if (VectorF)
     return VectorF;
 
-  FunctionType *FTy = FunctionType::get(RetTy, ArgTys, false);
-  VectorF = Function::Create(FTy, OrigF.getLinkage(), VFnName, M);
-  updateVectorVariantAttributes(*VectorF, OrigF, Variant, ArgTys);
+  Type *VecRetTy = RetTy;
+  SmallVector<Type *> LegalizedArgTys(ArgTys);
+  if (RetChunks > 1 || any_of(ArgChunks, [](int N) { return N > 1; }))
+    buildTargetISALegalizedSignature(ArgTys, ArgChunks, RetChunks,
+                                     LegalizedArgTys, VecRetTy);
+  FunctionType *FTy = FunctionType::get(VecRetTy, LegalizedArgTys, false);
 
+  VectorF = Function::Create(FTy, OrigF.getLinkage(), VFnName, M);
+  updateVectorVariantAttributes(*VectorF, OrigF, Variant, ArgTys, ArgChunks);
   return VectorF;
 }
 
@@ -2174,6 +2221,160 @@ void InterleaveGroup<Instruction>::addMetadata(Instruction *NewInst) const {
   propagateMetadata(NewInst, VL);
 }
 }
+
+#if INTEL_CUSTOMIZATION
+bool VFABI::supportedVectorVariantLegalization(const VFInfo &Variant,
+                                               ArrayRef<Type *> ArgTys,
+                                               Type *RetTy) {
+  // TODO: this function does exist because of current implementation
+  // limitation. Specifically return value legalization relies on the fact that
+  // all chunks can be passed via hardware registers. If we have less registers
+  // than required we cannot legalize. For given VLEN (128 for AVX512 and 32 for
+  // the rest ISA classes) we are guaranteed that return value can be legalized.
+  // Similar check is done for types.
+
+  auto ElementTypeSupported = [](Type *Ty) {
+    return Ty->isIntegerTy(8) || Ty->isIntegerTy(16) || Ty->isIntegerTy(32) ||
+           Ty->isIntegerTy(64) || Ty->isPointerTy() || Ty->isFloatTy() ||
+           Ty->isDoubleTy();
+  };
+
+  unsigned MaxVF = 32;
+  switch (Variant.getISA()) {
+  case VFISAKind::SSE:
+  case VFISAKind::AVX:
+  case VFISAKind::AVX2:
+    break;
+  case VFISAKind::AVX512:
+    MaxVF = 128;
+    break;
+  default:
+    return false;
+  }
+
+  for (const auto &[I, P] : enumerate(Variant.getParameters())) {
+    if (!P.isMask() && !P.isVector() && !P.isLinearVal())
+      continue;
+
+    auto *VT = cast<FixedVectorType>(ArgTys[I]);
+    if (!ElementTypeSupported(VT->getElementType()))
+      return false;
+
+    if (VT->getNumElements() > MaxVF)
+      return false;
+  }
+
+  if (!RetTy->isVoidTy()) {
+    auto *VT = dyn_cast<FixedVectorType>(RetTy);
+    if (!VT || !ElementTypeSupported(VT->getElementType()) ||
+        VT->getNumElements() > MaxVF)
+      return false;
+  }
+  return true;
+}
+
+void VFABI::calcVectorVariantParamChunks(MutableArrayRef<int> ArgChunks,
+                                         int &RetChunks,
+                                         ArrayRef<Type *> ArgTys, Type *RetTy,
+                                         const VFInfo &Variant,
+                                         bool PtrSize64) {
+  // clang-format-off
+  static const unsigned SSE_chunks[6][7] = {
+  //   2  4  8 16  32 64 128
+      {1, 1, 1, 1, 2,  0, 0}, // i8
+      {1, 1, 1, 2, 4,  0, 0}, // i16
+      {1, 1, 2, 4, 8,  0, 0}, // i32 / ptr (32 bits)
+      {1, 2, 4, 8, 16, 0, 0}, // i64 / ptr (64 bits)
+      {1, 1, 2, 4, 8,  0, 0}, // float
+      {1, 2, 4, 8, 16, 0, 0}  // double
+  };
+  static const unsigned AVX_chunks[6][7] = {
+  //   2  4  8 16  32 64 128
+      {1, 1, 1, 1, 2,  0, 0}, // i8
+      {1, 1, 1, 2, 4,  0, 0}, // i16
+      {1, 1, 2, 4, 8,  0, 0}, // i32 / ptr (32 bits)
+      {1, 2, 4, 8, 16, 0, 0}, // i64 / ptr (64 bits)
+      {1, 1, 1, 2, 4,  0, 0}, // float
+      {1, 1, 2, 4, 8,  0, 0}  // double
+  };
+  static const unsigned AVX2_chunks[6][7] = {
+  //   2  4  8 16 32 64 128
+      {1, 1, 1, 1, 1, 0, 0}, // i8
+      {1, 1, 1, 1, 2, 0, 0}, // i16
+      {1, 1, 1, 2, 4, 0, 0}, // i32 / ptr (32 bits)
+      {1, 1, 2, 4, 8, 0, 0}, // i64 / ptr (64 bits)
+      {1, 1, 1, 2, 4, 0, 0}, // float
+      {1, 1, 2, 4, 8, 0, 0}  // double
+  };
+  static const unsigned AVX512_chunks[6][7] = {
+  //   2  4  8 16 32 64 128
+      {1, 1, 1, 1, 1, 1, 2},  // i8
+      {1, 1, 1, 1, 1, 2, 4},  // i16
+      {1, 1, 1, 1, 2, 4, 8},  // i32 / ptr (32 bits)
+      {1, 1, 1, 2, 4, 8, 16}, // i64 / ptr (64 bits)
+      {1, 1, 1, 1, 2, 4, 8},  // float
+      {1, 1, 1, 2, 4, 8, 16}  // double
+  };
+  // clang-format-on
+
+  assert(VFABI::supportedVectorVariantLegalization(Variant, ArgTys, RetTy) &&
+         "Trying to legalize vector variant which is unsupported");
+
+  auto LookupTable = [Variant, PtrSize64](Type *ArgTy) {
+    auto *VT = cast<FixedVectorType>(ArgTy);
+    Type *Ty = VT->getElementType();
+    unsigned VF = Log2_32(VT->getNumElements());
+    unsigned TypeIdx;
+    if (Ty->isIntegerTy(8))
+      TypeIdx = 0;
+    else if (Ty->isIntegerTy(16))
+      TypeIdx = 1;
+    else if (Ty->isIntegerTy(32))
+      TypeIdx = 2;
+    else if (Ty->isIntegerTy(64))
+      TypeIdx = 3;
+    else if (Ty->isPointerTy())
+      TypeIdx = PtrSize64 ? 3 : 2;
+    else if (Ty->isFloatTy())
+      TypeIdx = 4;
+    else if (Ty->isDoubleTy())
+      TypeIdx = 5;
+    else
+      llvm_unreachable("Type mapping not supported yet");
+
+    switch (Variant.getISA()) {
+    case VFISAKind::SSE:
+      return SSE_chunks[TypeIdx][VF - 1];
+    case VFISAKind::AVX:
+      return AVX_chunks[TypeIdx][VF - 1];
+    case VFISAKind::AVX2:
+      return AVX2_chunks[TypeIdx][VF - 1];
+    case VFISAKind::AVX512:
+      return AVX512_chunks[TypeIdx][VF - 1];
+    default:
+      llvm_unreachable("ISA class not supported!");
+    }
+  };
+
+  assert(ArgChunks.size() == ArgTys.size() &&
+         "Chunks is not in sync with arguments");
+
+  ArrayRef<VFParameter> Params = Variant.getParameters();
+  for (const auto &[I, P] : enumerate(Params)) {
+    if (!P.isMask() && !P.isVector() && !P.isLinearVal()) {
+      ArgChunks[I] = 1;
+      continue;
+    }
+
+    unsigned NumChunks = LookupTable(ArgTys[I]);
+    assert(NumChunks > 0 && "Expected at least one data chunk");
+    ArgChunks[I] = NumChunks;
+  }
+
+  RetChunks = RetTy->isVoidTy() ? 1 : LookupTable(RetTy);
+  assert(RetChunks > 0 && "Unsupported VLEN for given ISA and return type");
+}
+#endif // INTEL_CUSTOMIZATION
 
 std::string VFABI::mangleTLIVectorName(StringRef VectorName,
                                        StringRef ScalarName, unsigned numArgs,

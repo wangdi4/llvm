@@ -144,24 +144,28 @@ cl_err_code Program::GetDeviceGlobalVariablePointer(cl_device_id device,
   return CL_SUCCESS;
 }
 
-cl_err_code Program::ResetDeviceImageScopeGlobalVariable(cl_device_id device) {
-  DeviceProgram *deviceProgram = InternalGetDeviceProgram(device);
-  if (!deviceProgram)
-    return CL_INVALID_DEVICE;
-
-  // Program already built?
-  if (CL_BUILD_SUCCESS != deviceProgram->GetBuildStatus())
-    return CL_INVALID_PROGRAM_EXECUTABLE;
-
+cl_err_code Program::ResetDeviceImageScopeGlobalVariable() {
   if (!Finalize())
     return CL_INVALID_PROGRAM_EXECUTABLE;
 
-  const std::map<std::string, cl_prog_gv> &gvs =
-      deviceProgram->GetGlobalVariablePointers();
+  // FPGA will only have one device instance and one program at a time. So when
+  // a program is reloaded, we need to reset all deivce programs. Actually, this
+  // is not a good behavior just according to OpenCL spec, but at least it's
+  // safe on FPGA device.
+  // Besides this, if there is a subdeivce trying to use a program which is
+  // created for its parent device, we only try to reset subdeivce's program
+  // will also cause some problems.
+  for (const auto &deviceProgram : m_ppDevicePrograms) {
+    if (CL_BUILD_SUCCESS != deviceProgram->GetBuildStatus())
+      continue;
 
-  for (const auto &gv : gvs)
-    if (gv.second.device_image_scope)
-      (void)memset(gv.second.pointer, 0, gv.second.size);
+    const std::map<std::string, cl_prog_gv> &gvs =
+        deviceProgram->GetGlobalVariablePointers();
+
+    for (const auto &gv : gvs)
+      if (gv.second.device_image_scope)
+        (void)memset(gv.second.pointer, 0, gv.second.size);
+  }
 
   return CL_SUCCESS;
 }
