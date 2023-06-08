@@ -165,17 +165,11 @@ linked fat binary, and store them in separate files.
       uintptr_t Size;
     };
 
-<<<<<<< HEAD
-    auto ImgInfo = ArrayRef<ImgInfoTy>(
-        reinterpret_cast<const ImgInfoTy *>(DataOrErr->data()),
-        DataOrErr->size() / sizeof(ImgInfoTy));
-=======
     // Store the metadata for all target images in an array of target
     // image information descriptors
     auto ImgInfo =
         ArrayRef(reinterpret_cast<const ImgInfoType *>(DataOrErr->data()),
                  DataOrErr->size() / sizeof(ImgInfoType));
->>>>>>> f44d0133d4b0077298f034697a1f3818ff1d6134
 
     //  Loop over the image information descriptors to extract each
     // target image.
