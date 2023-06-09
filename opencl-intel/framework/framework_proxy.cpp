@@ -622,6 +622,7 @@ void FrameworkProxy::Release(bool bTerminate) {
     delete m_pConfig;
     m_pConfig = nullptr;
   }
+  RELEASE_LOGGER_CLIENT;
   cl_monitor_summary;
 }
 
