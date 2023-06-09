@@ -106,6 +106,10 @@ std::shared_ptr<VPlanVector> LoopVectorizationPlannerHIR::buildInitialVPlan(
   if (EnableSOAAnalysisHIR)
     Plan->enableSOAAnalysis();
 
+  // Set early-exit loop property.
+  if (VPlanEnableEarlyExitLoops && TheLoop->isDoMultiExit())
+    Plan->setIsEarlyExitLoop(true);
+
   // Build hierarchical CFG
   const DDGraph &DDG = DDA->getGraph(TheLoop);
 
@@ -312,8 +316,8 @@ void LoopVectorizationPlannerHIR::emitVecSpecifics(VPlanVector *Plan) {
   assert(ExactUB && "Exact UB expected for decomposed HLLoops.");
   CandidateLoop->setHasNormalizedInductionFlag(HasNormalizedInd, ExactUB);
 
-  // The multi-exit loops are processed in a special way
-  if (!CandidateLoop->getUniqueExitBlock())
+  // Implicit multi-exit loops are processed in a special way
+  if (!VPlanEnableEarlyExitLoops && !CandidateLoop->getUniqueExitBlock())
     return;
 
   // TODO: All loops in HIR path are expected to be normalized. Move this

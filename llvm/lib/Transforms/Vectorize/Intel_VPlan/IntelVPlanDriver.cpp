@@ -1347,6 +1347,9 @@ void VPlanDriverImpl::generateMaskedModeVPlans(LoopVectorizationPlanner *LVP,
     if (Pair.second.MaskedModeLoop)
       // Already have it.
       continue;
+    // Masked mode is not supported for early-exit loops.
+    if (Plan->isEarlyExitLoop())
+      continue;
 
     auto It = OrigClonedVPlans.find(Plan.get());
     if (It != OrigClonedVPlans.end()) {

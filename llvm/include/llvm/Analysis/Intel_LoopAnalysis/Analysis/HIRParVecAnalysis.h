@@ -33,6 +33,10 @@
 namespace llvm {
 class TargetLibraryInfo;
 
+namespace vpo {
+extern bool VPlanEnableEarlyExitLoops;
+} // namespace vpo
+
 namespace loopopt {
 
 class HIRFramework;

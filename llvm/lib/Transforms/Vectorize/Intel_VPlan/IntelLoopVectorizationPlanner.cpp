@@ -46,7 +46,6 @@
 using namespace llvm::PatternMatch;
 
 extern llvm::cl::opt<bool> VPlanConstrStressTest;
-extern llvm::cl::opt<bool> VPlanEnableEarlyExitLoops;
 
 static cl::opt<unsigned> VecThreshold(
     "vec-threshold",
@@ -2143,6 +2142,10 @@ std::shared_ptr<VPlanVector> LoopVectorizationPlanner::buildInitialVPlan(
   if (EnableSOAAnalysis)
     // Enable SOA-analysis.
     Plan->enableSOAAnalysis();
+
+  // Set early-exit loop property.
+  if (VPlanEnableEarlyExitLoops && TheLoop->getExitingBlock() != nullptr)
+    Plan->setIsEarlyExitLoop(true);
 
   // Build hierarchical CFG
   VPlanHCFGBuilder HCFGBuilder(TheLoop, LI, *DL, WRLp, Plan, Legal, AC, *DT, SE,

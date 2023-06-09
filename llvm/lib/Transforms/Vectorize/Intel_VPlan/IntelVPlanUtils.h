@@ -24,6 +24,8 @@
 namespace llvm {
 namespace vpo {
 
+extern bool VPlanEnableEarlyExitLoops;
+
 /// \returns true if \p I is a memory instruction.
 // NOTE: This is copied from GVNSink.cpp
 inline bool isMemoryInst(const Instruction *I) {
