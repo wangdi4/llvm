@@ -428,6 +428,7 @@ enum NodeType {
   STRICT_FSQRT,
   STRICT_FPOW,
   STRICT_FPOWI,
+  STRICT_FLDEXP,
   STRICT_FSIN,
   STRICT_FCOS,
   STRICT_FEXP,
@@ -941,7 +942,6 @@ enum NodeType {
   FTAN,
   FATAN,
   FATAN2,
-  LDEXP,
 #endif // INTEL_CUSTOMIZATION
   FNEG,
   FABS,
@@ -949,8 +949,10 @@ enum NodeType {
   FCBRT,
   FSIN,
   FCOS,
-  FPOWI,
   FPOW,
+  FPOWI,
+  /// FLDEXP - ldexp, inspired by libm (op0 * 2**op1).
+  FLDEXP,
   FLOG,
   FLOG2,
   FLOG10,
