@@ -19753,6 +19753,19 @@ Sema::ActOnOpenMPInitClause(Expr *InteropVar, OMPInteropInfo &InteropInfo,
     if (E->isIntegerConstantExpr(Context))
       continue;
     if (isa<StringLiteral>(E))
+#if INTEL_COLLAB
+      if (LangOpts.OpenMPLateOutline) {
+        auto IsPerferType =
+            llvm::StringSwitch<bool>(cast<StringLiteral>(E)->getString().data())
+                .Cases("cuda", "cuda_driver", true)
+                .Cases("level_zero", "level_one", true)
+                .Cases("hip", "sycl", "opencl", true)
+                .Default(false);
+        if (!IsPerferType)
+          Diag(E->getExprLoc(), diag::warn_omp_interop_prefer_type);
+        continue;
+      } else
+#endif // INTEL_COLLAB
       continue;
     Diag(E->getExprLoc(), diag::err_omp_interop_prefer_type);
     return nullptr;
