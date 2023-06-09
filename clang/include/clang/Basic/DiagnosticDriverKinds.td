@@ -279,6 +279,9 @@ def err_drv_arg_requires_bitcode_input: Error<
 #if INTEL_CUSTOMIZATION
 def err_drv_not_supported_spgo_opt
   : Error<"option '%0' not supported for SPGO%select{|, use '%2' instead}1">;
+def err_drv_spgo_without_lld
+  : Error<"SPGO requires lld linker and will use it by default on Windows. "
+          "Do not specify -fuse-ld= or use -fuse-ld=lld instead">;
 #endif // INTEL_CUSTOMIZATION
 
 def err_target_unsupported_arch
