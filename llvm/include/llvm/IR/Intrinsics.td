@@ -1066,17 +1066,9 @@ let IntrProperties = [IntrNoMem, IntrSpeculatable, IntrWillReturn] in {
   def int_llround : DefaultAttrsIntrinsic<[llvm_anyint_ty], [llvm_anyfloat_ty]>;
   def int_lrint : DefaultAttrsIntrinsic<[llvm_anyint_ty], [llvm_anyfloat_ty]>;
   def int_llrint : DefaultAttrsIntrinsic<[llvm_anyint_ty], [llvm_anyfloat_ty]>;
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  def int_ldexp  : DefaultAttrsIntrinsic<[llvm_anyfloat_ty],
-                             [LLVMMatchType<0>, llvm_i32_ty]>;
-#endif // INTEL_CUSTOMIZATION
-=======
-
   // TODO: int operand should be constrained to same number of elements as the result.
   def int_ldexp : DefaultAttrsIntrinsic<[llvm_anyfloat_ty], [LLVMMatchType<0>,
                                                              llvm_anyint_ty]>;
->>>>>>> eece6ba283bd763e6d7109ae9e155e81cfee0651
 }
 
 def int_minnum : DefaultAttrsIntrinsic<[llvm_anyfloat_ty],

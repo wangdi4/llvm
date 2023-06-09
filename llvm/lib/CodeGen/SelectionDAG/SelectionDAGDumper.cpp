@@ -226,7 +226,6 @@ std::string SDNode::getOperationName(const SelectionDAG *G) const {
   case ISD::FTAN:                       return "ftan";
   case ISD::FATAN:                      return "fatan";
   case ISD::FATAN2:                     return "fatan2";
-  case ISD::LDEXP:                      return "ldexp";
 #endif
   case ISD::FTRUNC:                     return "ftrunc";
   case ISD::STRICT_FTRUNC:              return "strict_ftrunc";

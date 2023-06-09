@@ -812,14 +812,7 @@ private:
   SDValue ScalarizeVecRes_BUILD_VECTOR(SDNode *N);
   SDValue ScalarizeVecRes_EXTRACT_SUBVECTOR(SDNode *N);
   SDValue ScalarizeVecRes_FP_ROUND(SDNode *N);
-<<<<<<< HEAD
-  SDValue ScalarizeVecRes_FPOWI(SDNode *N);
-#if INTEL_CUSTOMIZATION
-  SDValue ScalarizeVecRes_LDEXP(SDNode *N);
-#endif // INTEL_CUSTOMIZATION
-=======
   SDValue ScalarizeVecRes_ExpOp(SDNode *N);
->>>>>>> eece6ba283bd763e6d7109ae9e155e81cfee0651
   SDValue ScalarizeVecRes_INSERT_VECTOR_ELT(SDNode *N);
   SDValue ScalarizeVecRes_LOAD(LoadSDNode *N);
   SDValue ScalarizeVecRes_SCALAR_TO_VECTOR(SDNode *N);
@@ -895,15 +888,7 @@ private:
   void SplitVecRes_CONCAT_VECTORS(SDNode *N, SDValue &Lo, SDValue &Hi);
   void SplitVecRes_EXTRACT_SUBVECTOR(SDNode *N, SDValue &Lo, SDValue &Hi);
   void SplitVecRes_INSERT_SUBVECTOR(SDNode *N, SDValue &Lo, SDValue &Hi);
-<<<<<<< HEAD
-  void SplitVecRes_FPOWI(SDNode *N, SDValue &Lo, SDValue &Hi);
-#if INTEL_CUSTOMIZATION
-  void SplitVecRes_LDEXP(SDNode *N, SDValue &Lo, SDValue &Hi);
-#endif // INTEL_CUSTOMIZATION
-  void SplitVecRes_FCOPYSIGN(SDNode *N, SDValue &Lo, SDValue &Hi);
-=======
   void SplitVecRes_FPOp_MultiType(SDNode *N, SDValue &Lo, SDValue &Hi);
->>>>>>> eece6ba283bd763e6d7109ae9e155e81cfee0651
   void SplitVecRes_IS_FPCLASS(SDNode *N, SDValue &Lo, SDValue &Hi);
   void SplitVecRes_INSERT_VECTOR_ELT(SDNode *N, SDValue &Lo, SDValue &Hi);
   void SplitVecRes_LOAD(LoadSDNode *LD, SDValue &Lo, SDValue &Hi);

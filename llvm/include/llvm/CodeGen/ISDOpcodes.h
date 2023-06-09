@@ -942,7 +942,6 @@ enum NodeType {
   FTAN,
   FATAN,
   FATAN2,
-  LDEXP,
 #endif // INTEL_CUSTOMIZATION
   FNEG,
   FABS,

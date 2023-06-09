@@ -2976,15 +2976,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
           *this, E, Intrinsic::llrint,
           Intrinsic::experimental_constrained_llrint));
 
-#if INTEL_CUSTOMIZATION
-    case Builtin::BIldexp:
-    case Builtin::BIldexpf:
-    case Builtin::BIldexpl: {
-      if (!getLangOpts().isIntelCompat(LangOptions::LdexpCall))
-        break;
-      return RValue::get(emitBinaryBuiltin(*this, E, Intrinsic::ldexp));
-    }
-#endif // INTEL_CUSTOMIZATION
     default:
       break;
     }

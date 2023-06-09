@@ -4229,13 +4229,6 @@ void SelectionDAGLegalize::ConvertNodeToLibcall(SDNode *Node) {
                     RTLIB::ATAN2_F80, RTLIB::ATAN2_F128,
                     RTLIB::ATAN2_PPCF128, Results);
     break;
-  case ISD::LDEXP: {
-    ExpandFPLibCall(Node, RTLIB::LDEXP_F32, RTLIB::LDEXP_F64,
-                    RTLIB::LDEXP_F80, RTLIB::LDEXP_F128,
-                    RTLIB::LDEXP_PPCF128, Results);
-    break;
-  }
-
 #endif  // INTEL_CUSTOMIZATION
   case ISD::FSINCOS:
     // Expand into sincos libcall.
