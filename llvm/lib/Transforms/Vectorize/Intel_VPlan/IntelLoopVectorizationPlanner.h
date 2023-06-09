@@ -805,6 +805,10 @@ private:
   /// transform.
   void emitVPEntityInstrs(VPlanVector *Plan);
 
+  /// Produce optimization report remarks for VPReductions.
+  void reportReductions(VPlanVector *Plan, VPLoop *MainLoop,
+                        VPLoopEntityList *LE);
+
   /// Clear NSW/NUW flags from reduction instructions if necessary.
   void clearWrapFlagsForReductions(VPlanVector *Plan);
 

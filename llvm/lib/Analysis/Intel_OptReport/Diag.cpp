@@ -502,6 +502,7 @@ const DenseMap<DiagTableKey, const char *> OptReportDiag::Diags = {
     {OptRemarkID::VecCloneVariantLegalization,
      "'omp declare' vector variants were skipped due to limited "
      "support for vector length and/or argument and/or return type: %s."},
+    {OptRemarkID::VectorizerReductionInfo, "vectorization support: %s"},
 
     {OptRemarkID::TotalLinesPrefetched, "Total number of lines prefetched=%d"},
     {OptRemarkID::NumSpatialPrefetches,
