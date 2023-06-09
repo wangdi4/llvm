@@ -7,9 +7,9 @@
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -1304,7 +1304,8 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @for_inquire(i8*, i32, i64, i8*, i8*, ...)\n"
       "declare i64 @for_len_trim(i8*, i64)\n"
       "declare i32 @for_open(i8*, i32, i64, i8*, i8*, ...)\n"
-      "declare i64 @for_random_number()\n"
+      "declare double @for_random_number()\n"
+      "declare float @for_random_number_single()\n"
       "declare i64 @for_random_seed_bit_size()\n"
       "declare i64 @for_random_seed_put(i32*)\n"
       "declare i32 @for_read_int_fmt(i8*, i64, i8*, i8*, i8*, ...)\n"

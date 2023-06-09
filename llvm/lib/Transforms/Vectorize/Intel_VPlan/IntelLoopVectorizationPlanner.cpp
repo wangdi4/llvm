@@ -2165,23 +2165,105 @@ void LoopVectorizationPlanner::runInitialVecSpecificTransforms(
 
 void LoopVectorizationPlanner::emitVPEntityInstrs(VPlanVector *Plan) {
   VPLoop *MainLoop = *(Plan->getVPLoopInfo()->begin());
-  OptReportStatsTracker &OptRptStats = Plan->getOptRptStatsForLoop(MainLoop);
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
   VPBuilder VPIRBuilder;
   LE->insertVPInstructions(VPIRBuilder);
 
-  if (LE->hasReduction()) {
-    if (WRLp && WRLp->isOmpSIMDLoop())
-      // Add remark Loop has SIMD reduction
-      OptRptStats.ReductionInstRemarks.emplace_back(
-          OptRemarkID::LoopHasSimdReduction, "");
-    else
-      // Add remark Loop has reduction
-      OptRptStats.ReductionInstRemarks.emplace_back(
-          OptRemarkID::LoopHasReduction, "");
-  }
+  if (LE->hasReduction())
+    reportReductions(Plan, MainLoop, LE);
 
   VPLAN_DUMP(VPEntityInstructionsDumpControl, Plan);
+}
+
+void LoopVectorizationPlanner::reportReductions(VPlanVector *Plan,
+                                                VPLoop *MainLoop,
+                                                VPLoopEntityList *LE) {
+
+  OptReportStatsTracker &OptRptStats = Plan->getOptRptStatsForLoop(MainLoop);
+
+  if (WRLp && WRLp->isOmpSIMDLoop())
+    // Add remark: Loop has SIMD reduction
+    OptRptStats.ReductionInstRemarks.emplace_back(
+        OptRemarkID::LoopHasSimdReduction, "");
+  else
+    // Add remark: Loop has reduction
+    OptRptStats.ReductionInstRemarks.emplace_back(OptRemarkID::LoopHasReduction,
+                                                  "");
+
+  // Generate specific remarks for each reduction in the loop.
+  for (auto Red : LE->vpreductions()) {
+    std::string S;
+    raw_string_ostream SS(S);
+
+    if (isa<VPInscanReduction>(Red) || isa<VPUserDefinedScanReduction>(Red))
+      SS << "inscan ";
+
+    switch (Red->getRecurrenceKind()) {
+    case RecurKind::Add:
+    case RecurKind::FAdd:
+      SS << "add ";
+      break;
+    case RecurKind::Mul:
+    case RecurKind::FMul:
+      SS << "multiply ";
+      break;
+    case RecurKind::Or:
+      SS << "OR ";
+      break;
+    case RecurKind::And:
+      SS << "AND ";
+      break;
+    case RecurKind::Xor:
+      SS << "XOR ";
+      break;
+    case RecurKind::SMin:
+      SS << "signed minimum ";
+      break;
+    case RecurKind::SMax:
+      SS << "signed maximum ";
+      break;
+    case RecurKind::UMin:
+      SS << "unsigned minimum ";
+      break;
+    case RecurKind::UMax:
+      SS << "unsigned maximum ";
+      break;
+    case RecurKind::FMin:
+      SS << "minimum ";
+      break;
+    case RecurKind::FMax:
+      SS << "maximum ";
+      break;
+    case RecurKind::FMulAdd:
+      SS << "multiply-add ";
+      break;
+    case RecurKind::Udr:
+      SS << "user-defined ";
+      break;
+    case RecurKind::SelectICmp:
+    case RecurKind::SelectFCmp:
+      SS << "select-compare ";
+      break;
+    default:
+      break;
+    }
+
+    if (Red->getRecurrenceType()->isArrayTy())
+      SS << "array or array-section ";
+
+    SS << "reduction of value type ";
+    Red->getRecurrenceType()->print(SS);
+
+    auto Exit = Red->getLoopExitInstr();
+    if (Exit && Exit->getDebugLocation()) {
+      SS << " [";
+      Exit->getDebugLocation().print(SS);
+      SS << "]";
+    }
+
+    OptRptStats.ReductionInstRemarks.emplace_back(
+        OptRemarkID::VectorizerReductionInfo, S);
+  }
 }
 
 void LoopVectorizationPlanner::clearWrapFlagsForReductions(VPlanVector *Plan) {

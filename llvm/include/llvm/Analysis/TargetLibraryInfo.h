@@ -59,7 +59,8 @@ enum class VecDescAttrs {
   IsOCLFn = 0,
   // Vector function needs argument repacking feature.
   NeedsArgRepacking = 1,
-  LastAttr = NeedsArgRepacking
+  IsFortranOnly = 2,
+  LastAttr = IsFortranOnly
 };
 
 /// Bitset to represent and track status of each attribute for a VecDesc.
@@ -290,6 +291,10 @@ public:
   /// VPTransformLibraryCalls::transformCallsWithArgRepacking to learn more
   /// about argument repacking feature.
   bool doesVectorFuncNeedArgRepacking(StringRef F) const;
+
+  /// True if the provided function \p F is a Fortran specific library function
+  /// that can be vectorized using its vector library equivalent.
+  bool isFortranOnlyVectorFunction(StringRef F) const;
 
   // True if the provided LibFunc \p F identifies an OpenMP library function,
   // i.e. the LibFunc_kmpc_* LibFuncs.
@@ -552,6 +557,12 @@ public:
   /// about argument repacking feature.
   bool doesVectorFuncNeedArgRepacking(StringRef F) const {
     return Impl->doesVectorFuncNeedArgRepacking(F);
+  }
+
+  /// True if the provided function \p F is a Fortran specific library function
+  /// that can be vectorized using its vector library equivalent.
+  bool isFortranOnlyVectorFunction(StringRef F) const {
+    return Impl->isFortranOnlyVectorFunction(F);
   }
 
   // True if the provided LibFunc \p F identifies an OpenMP library function,
