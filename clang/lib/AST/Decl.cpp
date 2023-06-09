@@ -3322,16 +3322,11 @@ bool FunctionDecl::isInlineBuiltinDeclaration() const {
     return false;
 
   if (!Definition->isInlineSpecified() ||
-#if INTEL_CUSTOMIZATION
-      !Definition->hasAttr<AlwaysInlineAttr>() ||
-      !Definition->hasAttr<GNUInlineAttr>())
-#else
       !Definition->hasAttr<AlwaysInlineAttr>())
-#endif // INTEL_CUSTOMIZATION
     return false;
 
   ASTContext &Context = getASTContext();
-  switch (Context.GetGVALinkageForFunction(this)) {
+  switch (Context.GetGVALinkageForFunction(Definition)) {
   case GVA_Internal:
   case GVA_DiscardableODR:
   case GVA_StrongODR:
