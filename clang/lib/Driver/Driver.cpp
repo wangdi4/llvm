@@ -824,8 +824,12 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
         // This option will be expanded to debug options later.
         DAL->AddFlagArg(A,
                         Opts.getOption(options::OPT_fprofile_sample_generate));
-        if (IsCLMode())
+        if (IsCLMode()) {
+          if (!Args.getLastArgValue(options::OPT_fuse_ld_EQ, "lld")
+                   .equals_insensitive("lld"))
+            Diag(clang::diag::err_drv_spgo_without_lld);
           DAL->AddJoinedArg(A, Opts.getOption(options::OPT_fuse_ld_EQ), "lld");
+        }
       }
 
       if (A->getOption().matches(options::OPT_fprofile_sample_use_EQ))
