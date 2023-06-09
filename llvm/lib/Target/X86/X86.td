@@ -1765,19 +1765,14 @@ def ProcessorFeatures {
                                                   FeatureMOVDIRI,
                                                   FeatureMOVDIR64B,
                                                   FeatureWAITPKG];
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   list<SubtargetFeature> ADLAdditionalTuning = [Tuning4KDSB,
                                                 TuningPERMFalseDeps,
                                                 TuningMRN,
-                                                TuningFastCoreType];
+                                                TuningFastCoreType,
+                                                TuningPreferMovmskOverVTest];
   list<SubtargetFeature> ADLTuning = !listconcat(TGLTuning, ADLAdditionalTuning);
 #endif // INTEL_CUSTOMIZATION
-=======
-  list<SubtargetFeature> ADLAdditionalTuning = [TuningPERMFalseDeps,
-                                                TuningPreferMovmskOverVTest];
-  list<SubtargetFeature> ADLTuning = !listconcat(SKLTuning, ADLAdditionalTuning);
->>>>>>> b0bea80ab479e9bb016fcdb62d7d0eceec2b28e3
   list<SubtargetFeature> ADLFeatures =
     !listconcat(TRMFeatures, ADLAdditionalFeatures);
 
