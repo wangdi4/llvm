@@ -19,11 +19,7 @@
 // Only version 2021.1.0 was encoded using format YYYYMP or 202110
 // TODO: Auto-populate __INTEL_LLVM_COMPILER and __INTEL_CLANG_COMPILER
 //       macros using build settings and remove XMAIN_VERSION_NUMBER
-#if INTEL_DEPLOY_UNIFIED_LAYOUT
 #define XMAIN_VERSION_NUMBER "20240000"
-#else
-#define XMAIN_VERSION_NUMBER "20230200"
-#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
 
 // XMAIN_VERSION_STRING is updated to the proper update string when the
 // release branch is taken.  This allows us to differentiate via version
