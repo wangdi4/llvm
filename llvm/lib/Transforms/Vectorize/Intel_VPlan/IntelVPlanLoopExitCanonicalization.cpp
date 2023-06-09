@@ -21,13 +21,12 @@
 #include "IntelVPlanBuilder.h"
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanLoopInfo.h"
+#include "IntelVPlanUtils.h"
 
 #define DEBUG_TYPE "vplan-loop-canonicalization"
 
 using namespace llvm;
 using namespace llvm::vpo;
-
-extern cl::opt<bool> VPlanEnableEarlyExitLoops;
 
 // Replaces incoming block in all phi nodes of the PhiBlock.
 static void updateBlocksPhiNode(VPBasicBlock *PhiBlock,

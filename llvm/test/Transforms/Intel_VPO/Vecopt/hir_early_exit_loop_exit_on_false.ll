@@ -20,7 +20,7 @@
 ;        @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ;  END REGION
 
-; RUN: opt %s -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-loop-massaging -vplan-enable-early-exit-loops -disable-output 2>&1 | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-loop-massaging -vplan-enable-early-exit-loops -disable-vplan-predicator -disable-output 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -32,18 +32,21 @@ define dso_local i32 @_Z3fooiPKaPaa(i32 %n, ptr nocapture readonly %a, i8 signex
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%ext.cond}
 ; CHECK-DAG:     [[VP1:%.*]] = {%a}
-; CHECK-DAG:     [[VP2:%.*]] = {sext.i32.i64(%n) + -1}
-; CHECK-DAG:     [[VP3:%.*]] = {%val}
+; CHECK-DAG:     [[VP2:%.*]] = {%val}
+; CHECK-DAG:     [[VP3:%.*]] = {sext.i32.i64(%n) + -1}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     i64 [[VP4:%.*]] = add i64 [[VP2]] i64 1
+; CHECK-NEXT:     i64 [[VP4:%.*]] = add i64 [[VP3]] i64 1
+; CHECK-NEXT:     i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP4]], UF = 1
+; CHECK-NEXT:     i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]]
-; CHECK-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP__SSA_PHI:%.*]], [[NEW_LOOP_LATCH0]] ]
+; CHECK-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP__SSA_PHI:%.*]], [[NEW_LOOP_LATCH0]] ]
 ; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP5]]
 ; CHECK-NEXT:     i8 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i1 [[VP6:%.*]] = icmp eq i8 [[VP_LOAD]] i8 [[VAL0:%.*]]
@@ -57,8 +60,8 @@ define dso_local i32 @_Z3fooiPKaPaa(i32 %n, ptr nocapture readonly %a, i8 signex
 ; CHECK-NEXT:       br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB3]]
-; CHECK-NEXT:       i64 [[VP9:%.*]] = add i64 [[VP5]] i64 1
-; CHECK-NEXT:       i1 [[VP10:%.*]] = icmp slt i64 [[VP9]] i64 [[VP4]]
+; CHECK-NEXT:       i64 [[VP9:%.*]] = add i64 [[VP5]] i64 [[VP__IND_INIT_STEP]]
+; CHECK-NEXT:       i1 [[VP10:%.*]] = icmp slt i64 [[VP9]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:       br [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[INTERMEDIATE_BB0]]: # preds: [[BB2]]
@@ -75,6 +78,7 @@ define dso_local i32 @_Z3fooiPKaPaa(i32 %n, ptr nocapture readonly %a, i8 signex
 ; CHECK-NEXT:     br i1 [[VP11]], [[BB5:BB[0-9]+]], [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]: # preds: [[CASCADED_IF_BLOCK0]]
+; CHECK-NEXT:       i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:       br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: [[CASCADED_IF_BLOCK0]]

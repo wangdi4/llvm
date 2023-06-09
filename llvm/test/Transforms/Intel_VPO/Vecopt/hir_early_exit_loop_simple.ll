@@ -1,7 +1,7 @@
 ; Test to verify that HIRParVecAnalysis and VPlan HIR vectorizer can handle
 ; simple early exit loops.
 
-; RUN: opt %s -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -print-before=hir-vplan-vec -vplan-print-after-loop-massaging -vplan-enable-early-exit-loops -disable-output 2>&1 | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -print-before=hir-vplan-vec -vplan-print-after-loop-massaging -vplan-enable-early-exit-loops -disable-vplan-predicator -disable-output 2>&1 | FileCheck %s
 
 ; CHECK:  BEGIN REGION { }
 ; CHECK:        %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
@@ -27,10 +27,13 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     i64 [[VP3:%.*]] = add i64 [[VP0]] i64 1
+; CHECK-NEXT:     i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP3]], UF = 1
+; CHECK-NEXT:     i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]]
-; CHECK-NEXT:     i64 [[VP4:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP__SSA_PHI:%.*]], [[NEW_LOOP_LATCH0]] ]
+; CHECK-NEXT:     i64 [[VP4:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP__SSA_PHI:%.*]], [[NEW_LOOP_LATCH0]] ]
 ; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP4]]
 ; CHECK-NEXT:     i8 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i1 [[VP5:%.*]] = icmp eq i8 [[VP_LOAD]] i8 [[VAL0:%.*]]
@@ -38,8 +41,8 @@
 ; CHECK-NEXT:     br i1 [[VP_EARLY_EXIT_COND]], [[INTERMEDIATE_BB0:intermediate.bb[0-9]+]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:       i64 [[VP6:%.*]] = add i64 [[VP4]] i64 1
-; CHECK-NEXT:       i1 [[VP7:%.*]] = icmp slt i64 [[VP6]] i64 [[VP3]]
+; CHECK-NEXT:       i64 [[VP6:%.*]] = add i64 [[VP4]] i64 [[VP__IND_INIT_STEP]]
+; CHECK-NEXT:       i1 [[VP7:%.*]] = icmp slt i64 [[VP6]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:       br [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[INTERMEDIATE_BB0]]: # preds: [[BB2]]
@@ -56,6 +59,7 @@
 ; CHECK-NEXT:     br i1 [[VP8]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: [[CASCADED_IF_BLOCK0]]
+; CHECK-NEXT:       i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:       br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[CASCADED_IF_BLOCK0]]

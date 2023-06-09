@@ -32,7 +32,8 @@
   do {                                                                         \
     if (!(Check)) {                                                            \
       dbgs() << "VPlan verifier check failed for value:\n";                    \
-      if (V) (V)->dump();                                                      \
+      if (V)                                                                   \
+        (V)->dump();                                                           \
       assert((Check) && (Msg));                                                \
     }                                                                          \
   } while (0)
@@ -40,7 +41,8 @@
   do {                                                                         \
     if (!(Check)) {                                                            \
       dbgs() << "VPlan verifier check failed for VPBasicBlock:\n";             \
-      if (BB) dbgs() << (BB)->getName();                                       \
+      if (BB)                                                                  \
+        dbgs() << (BB)->getName();                                             \
       assert((Check) && (Msg));                                                \
     }                                                                          \
   } while (0)
@@ -67,6 +69,36 @@ template <class LoopT> static unsigned countLoopsInLoop(const LoopT *Lp) {
   return NumLoops;
 }
 
+// Check the block's instructions to make sure that all phis and blends are at
+// the beginning of the block, and not mixed in with regular instructions
+void VPlanVerifier::verifyPhiBlendPlacement(const VPBasicBlock *Block) const {
+  auto It = Block->begin();
+  while (It != Block->end() && (isa<VPPHINode>(It) || isa<VPBlendInst>(It)))
+    It++;
+
+  while (It != Block->end()) {
+    ASSERT_VPVALUE(!isa<VPPHINode>(It) && !isa<VPBlendInst>(It), &(*It),
+                   "Phi/Blend instruction not at the beginning of the block");
+    It++;
+  }
+}
+
+// Verify that an instruction dominates all of its uses
+void VPlanVerifier::verifySSA(const VPInstruction *VPI,
+                              const VPDominatorTree *DT) const {
+  if (!DT)
+    return;
+
+  for (VPUser *User : VPI->users()) {
+    if (const VPInstruction *VPU = dyn_cast<VPInstruction>(User)) {
+      if (!isa<VPPHINode>(VPU) && !isa<VPPHINode>(VPI) && VPI != VPU) {
+        ASSERT_VPVALUE(DT->dominates(VPI, VPU), VPI,
+                       "Instruction does not dominate all uses");
+      }
+    }
+  }
+}
+
 // Verify that Plan contains the same number of loops (VPLoopRegion) as
 // VPLoopInfo and LoopInfo.
 void VPlanVerifier::verifyNumLoops(void) const {
@@ -88,12 +120,9 @@ void VPlanVerifier::verifyCFGExternals(const VPlan *Plan) {
 }
 
 // Public interface to verify the loop and its loop info.
-// TODO: The last argument should eventually be a list of verifications to
-//       skip (or run), but there isn't an immediate need for it to cover
-//       more than just the loopinfo checks.
 void VPlanVerifier::verifyVPlan(const VPlanVector *Plan,
                                 const VPDominatorTree &VPDomTree,
-                                VPLoopInfo *VPLI, const bool VerifyLoopInfo) {
+                                VPLoopInfo *VPLI, unsigned int Flags) {
 
   VPLInfo = VPLI;
 
@@ -102,7 +131,8 @@ void VPlanVerifier::verifyVPlan(const VPlanVector *Plan,
 
   LLVM_DEBUG(dbgs() << "Verifying loop nest.\n");
 
-  verifyCFGExternals(Plan);
+  if (!shouldSkipExternals(Flags))
+    verifyCFGExternals(Plan);
 
   unsigned BBNum = 0;
   (void)BBNum;
@@ -113,18 +143,35 @@ void VPlanVerifier::verifyVPlan(const VPlanVector *Plan,
 
   assert(Plan->size() == BBNum && "Plan has wrong size!");
 
-  if (!VPLInfo || !VerifyLoopInfo)
+#ifndef NDEBUG
+  // Verify dom/postdom tree
+  if (Plan->getDT())
+    Plan->getDT()->verify();
+  if (Plan->getPDT())
+    Plan->getPDT()->verify();
+#endif
+
+  if (!VPLInfo || shouldSkipLoopInfo(Flags))
     return;
 
-  // TODO: Verify domination and postdomination trees.
-  VPLInfo->verify(VPDomTree);
   VPLoop *TopLoop = *VPLInfo->begin();
   for (auto *CurVPLoop : post_order(TopLoop)) {
     CurVPLoop->verifyLoop();
   }
 
-  if (TheLoop)
+  if (TheLoop) {
     verifyNumLoops();
+
+    if (!shouldSkipInnerMultiExit(Flags)) {
+      // Check that every inner loop has only one exit block
+      for (const Loop *SL : TheLoop->getSubLoops()) {
+        // getExitingBlock is null if there are multiple exit blocks
+        ASSERT_VPVALUE(SL->getExitingBlock(), SL,
+                       "Inner loop has multiple exits");
+        (void)SL;
+      }
+    }
+  }
 }
 
 unsigned VPlanVerifier::countLoopsInUnderlyingIR() const {
@@ -612,14 +659,14 @@ void VPlanVerifier::verifyUsers(const VPValue *Def) {
 // is found in the predecessor list of \p Phi node's parent VPBB.
 void VPlanVerifier::verifyPHINode(const VPPHINode *Phi) const {
   assert(Phi->getOpcode() == Instruction::PHI);
-  assert(Phi->getNumIncomingValues() ==
-             Phi->getParent()->getNumPredecessors() &&
-         "Number of incoming values doesn't match with number of preds");
+  ASSERT_VPVALUE(
+      Phi->getNumIncomingValues() == Phi->getParent()->getNumPredecessors(),
+      Phi, "Number of incoming values doesn't match with number of preds");
 
   const auto &PBlocks = Phi->blocks();
   for (auto *Block : Phi->getParent()->getPredecessors()) {
-    assert(llvm::find(PBlocks, Block) != PBlocks.end() &&
-           "A predecessor is not incoming VPBB for VPPHINode");
+    ASSERT_VPVALUE(llvm::find(PBlocks, Block) != PBlocks.end(), Phi,
+                   "A predecessor is not incoming VPBB for VPPHINode");
     (void)Block;
   }
   (void)PBlocks;
@@ -720,6 +767,8 @@ void VPlanVerifier::verifyInstruction(const VPInstruction *Inst,
   verifyOperands(Inst);
   verifyUsers(Inst);
   verifySpecificInstruction(Inst);
+  if (auto *Plan = dyn_cast<VPlanVector>(Block->getParent()))
+    verifySSA(Inst, Plan->getDT());
 }
 
 // Verify if the block is correctly connected with other basic blocks in the
@@ -728,6 +777,9 @@ void VPlanVerifier::verifyBlock(const VPBasicBlock *VPBB) const {
 
   for (const auto &Inst : *VPBB)
     verifyInstruction(&Inst, VPBB);
+
+  // Check that all phis/blends are at the beginning of the block
+  verifyPhiBlendPlacement(VPBB);
 
   // Check block's ConditionBit
   if (VPBB->getNumSuccessors() > 1)

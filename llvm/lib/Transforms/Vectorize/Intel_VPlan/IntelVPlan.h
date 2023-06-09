@@ -5724,6 +5724,12 @@ public:
   /// Enable SOA-analysis.
   void enableSOAAnalysis() { EnableSOAAnalysis = true; }
 
+  /// Setter for early-exit loop property.
+  void setIsEarlyExitLoop(bool V) { IsEarlyExitLoop = V; }
+
+  /// Check if this VPlan represents an early-exit loop.
+  bool isEarlyExitLoop() const { return IsEarlyExitLoop; }
+
   /// Getters for Dominator Tree
   VPDominatorTree *getDT() { return PlanDT.get(); }
   const VPDominatorTree *getDT() const { return PlanDT.get(); }
@@ -5837,6 +5843,8 @@ private:
 
   /// Enable SOA-analysis flag.
   bool EnableSOAAnalysis = false;
+
+  bool IsEarlyExitLoop = false;
 
   std::unique_ptr<VPLoopInfo> VPLInfo;
   std::unique_ptr<VPlanScalarEvolution> VPSE;
