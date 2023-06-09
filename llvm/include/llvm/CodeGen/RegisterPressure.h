@@ -218,6 +218,8 @@ class PressureDiffs {
 
 public:
   PressureDiffs() = default;
+  PressureDiffs &operator=(const PressureDiffs &other) = delete;
+  PressureDiffs(const PressureDiffs &other) = delete;
   ~PressureDiffs() { free(PDiffArray); }
 
   void clear() { Size = 0; }

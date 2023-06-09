@@ -152,6 +152,8 @@ struct MachineSchedContext {
   RegisterClassInfo *RegClassInfo;
 
   MachineSchedContext();
+  MachineSchedContext &operator=(const MachineSchedContext &other) = delete;
+  MachineSchedContext(const MachineSchedContext &other) = delete;
   virtual ~MachineSchedContext();
 };
 
