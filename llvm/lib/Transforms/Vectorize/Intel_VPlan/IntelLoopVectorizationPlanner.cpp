@@ -117,6 +117,27 @@ static cl::opt<bool, true> EnableIntDivRemBlendWithSafeValueOpt(
     cl::location(EnableIntDivRemBlendWithSafeValue),
         cl::desc("Enable blend with safe value for integer div/rem."));
 
+static cl::opt<bool> CalcMinProfitableDynPeelTC(
+    "vplan-calc-min-profitable-dyn-peel-tc", cl::Hidden, cl::init(false),
+    cl::desc(
+        "Whether to calculate and emit a minimum trip count check when dynamic "
+        "peeling. At runtime, if the real TC is less than the value computed "
+        "for that particular loop, peeling will be skipped."));
+
+static cl::opt<uint64_t> SkipDynamicPeelTC(
+    "vplan-skip-dynamic-peel-tc", cl::init(0), cl::Hidden,
+    cl::desc("When dynamic peeling, VPlan emits a trip count check to see if "
+             "peeling should be skipped. This flag controls the maximum trip "
+             "count value (overriding any computed value.)"));
+
+static cl::opt<uint64_t> MaxProfitableDynPeelMultiplier(
+    "vplan-max-profitable-dyn-peel-multiplier", cl::init(150), cl::Hidden,
+    cl::desc(
+        "When dynamic peeling, VPlan emits a trip count check to see if "
+        "peeling should be skipped. This switch acts as a maximum threshold "
+        "for the profitable trip count calculation. If the computed value is "
+        "more than this value * VF * UF, the value is truncated."));
+
 static LoopVPlanDumpControl LCSSADumpControl("lcssa", "LCSSA transformation");
 static LoopVPlanDumpControl LoopCFUDumpControl("loop-cfu",
                                                "LoopCFU transformation");
@@ -336,6 +357,89 @@ bool EnableIntDivRemBlendWithSafeValue = true;
 int LoopVectorizationPlanner::VPlanOrderNumber = 0;
 } // namespace vpo
 } // namespace llvm
+
+/// Calculate the minimum trip count value at which peel does not give a
+/// benefit. The goal is to solve for a scalar trip count such that:
+///
+///    [total-cost-if-peel-is-skipped] < [total-cost-if-peel-is-executed]
+///
+/// Breaking the two expressions into their constituent costs, we obtain an
+/// inequality in terms of the vector trip-count, i.e:
+///
+///    [unaligned-main-cost] * [unaligned-vector-tc] + [unaligned-overhead]
+///       <
+///    [peel-overhead] + [aligned-main-cost] * [aligned-vector-tc] +
+///    [aligned-overhead]
+///
+/// where [unaligned-main-cost] = cost of one vector iteration without peeling,
+///       [aligned-main-cost]   = cost of one vector iteration with peeling,
+///       [unaligned-overhead]  = cost of alignment checks + remainder w/o peel,
+///       [aligned-overhead]    = cost of alignment checks + remainder,
+///       [peel-overhead]       = total estimated cost of the peel loop.
+///
+/// By noting that [*-vector-tc] can be expressed as a function of the scalar
+/// trip count and peel count, i.e:
+///
+///    [aligned-vector-tc]   = ([scalar-tc] - [peel-tc]) / (VF * UF)
+///    [unaligned-vector-tc] = [scalar-tc] / (VF * UF)  (since [peel-tc] == 0)
+///
+/// And then solving for [scalar-tc], we obtain the following inequality:
+///
+///                 VF * UF * [overhead-diff] - [aligned-main-cost] * [peel-tc]
+///  [scalar-tc] <  ----------------------------------------------------------
+///                        [unaligned-main-cost] - [aligned-main-cost]
+///
+/// where [overhead-diff] = [peel-overhead] + [aligned-overhead]
+///                       - [unaligned-overhead].
+///
+/// By estimating [peel-tc], and noting that the other quantities are known
+/// constants, we can calculate a value for the right-hand side of the
+/// inequality and obtain our threshold value.
+///
+static uint64_t calcMinProfitablePeelTC(VPInstructionCost PeelOverhead,
+                                        VPInstructionCost AlignedMainCost,
+                                        VPInstructionCost UnalignedMainCost,
+                                        VPInstructionCost AlignedOverhead,
+                                        VPInstructionCost UnalignedOverhead,
+                                        unsigned MaxPeelTC, unsigned VF,
+                                        unsigned UF) {
+  const auto VFUF = VF * UF;
+  const float OverheadDiff = PeelOverhead.getFloatValue() +
+                             AlignedOverhead.getFloatValue() -
+                             UnalignedOverhead.getFloatValue();
+
+  const float Numerator = (float)VFUF * OverheadDiff +
+                          AlignedMainCost.getFloatValue() * (float)MaxPeelTC;
+  const float Denominator =
+      UnalignedMainCost.getFloatValue() - AlignedMainCost.getFloatValue();
+  assert(Denominator > 0 && "Unaligned loop costs less than aligned loop?");
+  assert(Numerator / Denominator > 0 && "Computed TC is somehow negative?");
+  if (Denominator <= 0 || Numerator / Denominator <= 0)
+    return 0;
+
+  const auto ProfitableTC = (uint64_t)(Numerator / Denominator);
+  DEBUG_WITH_TYPE("LoopVectorizationPlanner_peel_tc",
+                  dbgs() << "(VF = " << VF << ", UF = " << UF
+                         << ") min profitable peel tc = " << ProfitableTC
+                         << "\n");
+
+  // If our profitable TC is less than or equal to VF*UF, emit no check, as in
+  // this case we would skip the peel loop anyways.
+  if (ProfitableTC <= (uint64_t)VFUF)
+    return 0;
+
+  // Arbitrarily truncate values to some maximum factor of VF*UF, to avoid
+  // values becoming too large.
+  const auto MaxProfitableTC = MaxProfitableDynPeelMultiplier * (uint64_t)VFUF;
+  if (ProfitableTC > MaxProfitableTC) {
+    DEBUG_WITH_TYPE("LoopVectorizationPlanner_peel_tc",
+                    dbgs() << "Truncating min profitable peel tc to "
+                           << MaxProfitableTC << "\n");
+    return MaxProfitableTC;
+  }
+
+  return ProfitableTC;
+}
 
 unsigned getForcedVF(const WRNVecLoopNode *WRLp) {
   auto ForcedLoopVFIter = llvm::find_if(ForceLoopVF, [](const ForceVFTy &Pair) {
@@ -1621,6 +1725,20 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
                               ? RemainderEvaluator
                               : RemainderEvaluatorWithoutPeel,
                           VF, UF, isa<VPlanMasked>(Plan));
+        if (CalcMinProfitableDynPeelTC) {
+          if (VecScenario.hasPeel() && PeelingDecision.PeelIsDynamic)
+            VecScenario.setMinimumProfitablePeelTC(calcMinProfitablePeelTC(
+                /*PeelOverhead=*/PeelEvaluator.getLoopCost(),
+                /*AlignedMainCost=*/MainLoopIterationCost,
+                /*UnalignedMainCost=*/MainLoopIterationCostWithoutPeel,
+                /*AlignedOverhead=*/MainLoopOverhead +
+                    RemainderEvaluator.getLoopCost(),
+                /*UnalignedOverhead=*/MainLoopOverheadWithoutPeel +
+                    RemainderEvaluatorWithoutPeel.getLoopCost(),
+                /*MaxPeelTC=*/PeelEvaluator.getTripCount(), VF, UF));
+          else
+            VecScenario.setMinimumProfitablePeelTC(0);
+        }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
         if (PrintVecScenario) {
           dbgs() << "Updated scenario for VF: " << VF << ", UF: " << UF << "\n";
@@ -1692,6 +1810,9 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
           (StaticPeelingVariant && !StaticPeelingVariant->peelCount()))
         MPlan->setPreferredPeeling(VF, std::make_unique<VPlanStaticPeeling>(1));
     }
+  }
+  if (VecScenario.hasPeel() && SkipDynamicPeelTC != 0) {
+    VecScenario.setMinimumProfitablePeelTC(SkipDynamicPeelTC);
   }
   if (PrintVecScenario || !VecScenarioStr.empty()) {
     VecScenario.dump();

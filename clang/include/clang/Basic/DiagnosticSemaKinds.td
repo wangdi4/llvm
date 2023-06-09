@@ -11363,6 +11363,9 @@ def err_omp_dispatch_statement_call
     : Error<"statement after '#pragma omp dispatch' must be a direct call"
             " to a target function or an assignment to one">;
 #if INTEL_COLLAB
+def warn_omp_interop_prefer_type : Warning<
+  "Expected 'cuda', 'cuda_driver', 'opencl', 'sycl', 'hip', 'level_zero' "
+  "or 'level_one' expression">, InGroup<SourceUsesOpenMP>;
 def err_omp_target_variant_dispatch_statement_call
     : Error<"statement after '#pragma omp target variant dispatch' must be a" 
             " direct call to a target function or an assignment to one">;

@@ -13,6 +13,7 @@
 
 #include "Intel_VPlan/IntelVPlan.h"
 #include "Intel_VPlan/IntelVPlanValue.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include <optional>
 
 #define DEBUG_TYPE "vplan-scalar-evolution"
@@ -157,6 +158,13 @@ VPlanScalarEvolutionHIR::computeAddressSCEVImpl(const VPLoadStoreInst &LSI) {
   if (!ElementSize)
     return nullptr;
 
+  // TODO: Rework the following adjusted base computation to work properly for
+  // multidimensional arrays. The main issue is that upper dimensions (dim > 1)
+  // are not accounted for when computing the adjusted base. This leads to
+  // incorrect results when computing the difference of two address SCEVs whose
+  // the upper dimensions are not identical. For now this is worked around in
+  // getMinusExprImpl. See that method and CMPLRLLVM-48366 for details.
+
   // HIR Base is not the same as the base for AddRecExpr. HIR base is not the
   // address of the first access. For instance, access like ptr[i + x] would
   // have Base = ptr, while the address of the first access is (ptr + x).
@@ -202,9 +210,40 @@ VPlanAddRecHIR *VPlanScalarEvolutionHIR::getMinusExprImpl(VPlanAddRecHIR *LHS,
   if (!LHS || !RHS)
     return nullptr;
 
+  // Until we can properly support multidimensional array references, limit
+  // comparisons to SCEVs whose upper dimensions (> 1) are equal.
+  //
+  // To verify this, first check that the refs both have the same shape and
+  // (trailing struct) offsets. We intentionally ignore the base, as it is
+  // possible to compute a meaningful difference between two refs with
+  // different bases (if both are suitably aligned).
+  if (!DDRefUtils::haveEqualBaseAndShapeAndOffsets(
+          LHS->Ref, RHS->Ref,
+          /*RelaxedMode=*/false, /*NumIgnorableDims=*/0, /*IgnoreBaseCE=*/true))
+    return nullptr;
+
+  // Next, check that the upper (> 1) dimension indices are equal. If not, the
+  // computed difference will be incorrect.
+  for (unsigned Dim = LHS->Ref->getNumDimensions(); Dim > 1; --Dim)
+    if (!CanonExprUtils::areEqual(LHS->Ref->getDimensionIndex(Dim),
+                                  RHS->Ref->getDimensionIndex(Dim)))
+      return nullptr;
+
+  // If we've ensured it is safe to do so, compute the base difference of the
+  // two SCEVs by subtracting their base refs.
   CanonExpr *Diff = CanonExprUtils::cloneAndSubtract(LHS->Base, RHS->Base);
   if (!Diff)
     return nullptr;
+
+  // If computing the difference of two pointer SCEVs, the result should not be
+  // a pointer, but an integer of the appropriate width. Setting the type here
+  // is both semantically correct, and necessary to avoid an assert failure
+  // when trying to print certain diff CEs (i.e. trying to print a constant
+  // non-null CE of pointer type.)
+  if (Diff->getDestType()->isPointerTy())
+    Diff->setSrcAndDestType(
+        Diff->getCanonExprUtils().getDataLayout().getIndexType(
+            Diff->getDestType()));
 
   return makeVPlanAddRecHIR(Diff, LHS->Stride - RHS->Stride);
 }

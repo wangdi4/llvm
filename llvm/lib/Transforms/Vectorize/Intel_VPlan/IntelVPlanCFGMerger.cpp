@@ -37,12 +37,6 @@ static cl::opt<bool> NeedPeelForSafety(
     "vplan-peel-for-safety", cl::Hidden,
     cl::desc("flag to emit peel for safety (e.g. in search loops)"));
 
-static cl::opt<uint64_t> SkipDynamicPeelTC(
-    "vplan-skip-dynamic-peel-tc", cl::init(0), cl::Hidden,
-    cl::desc("When dynamic peeling, VPlan emits a trip count check to see if "
-             "peeling should be skipped. This flag controls the maximum trip "
-             "count value."));
-
 namespace llvm {
 namespace vpo {
 bool EmitPushPopVF = false;
@@ -761,6 +755,7 @@ void VPlanCFGMerger::createMergedCFG(SingleLoopVecScenario &Scen,
 
   MainVF = Scen.getMainVF();
   MainUF = Scen.getMainUF();
+  MinimumProfitablePeelTC = Scen.getMinimumProfitablePeelTC();
   emitSkeleton(Plans, OrigLoop);
   mergeVPlans(Plans, LoopDescrs);
   VPLAN_DUMP(CfgMergeDumpControl, Plan);
@@ -1130,10 +1125,10 @@ void VPlanCFGMerger::insertPeelCntAndChecks(PlanDescr &P,
     // Update merge block incoming values
     updateMergeBlockIncomings(Plan, P.PrevMerge, TestBB, true /* UseLiveIn */);
 
-    // If specified via switch, emit a trip count check to skip the peel loop
-    // if less than the given threshold, as long as we don't need the peel loop
-    // to safely execute the main loop.
-    if (SkipDynamicPeelTC != 0 && !needPeelForSafety()) {
+    // If specified, emit a trip count check to skip the peel loop if less than
+    // the given threshold, as long as we don't need the peel loop to safely
+    // execute the main loop.
+    if (MinimumProfitablePeelTC != 0 && !needPeelForSafety()) {
       VPBasicBlock *CheckTripBB = new VPBasicBlock(
           VPlanUtils::createUniqueName("peel.check.tc"), &Plan);
       VPBlockUtils::insertBlockBefore(CheckTripBB, FirstBB);
@@ -1141,8 +1136,8 @@ void VPlanCFGMerger::insertPeelCntAndChecks(PlanDescr &P,
       Builder.setInsertPoint(CheckTripBB);
       VPCmpInst *TripCntCmp = Builder.createCmpInst(
           CmpInst::ICMP_ULT, OrigUB,
-          Plan.getVPConstant(ConstantInt::get(OrigUB->getType(),
-                                              SkipDynamicPeelTC.getValue())));
+          Plan.getVPConstant(
+              ConstantInt::get(OrigUB->getType(), MinimumProfitablePeelTC)));
 
       Plan.getVPlanDA()->markUniform(*TripCntCmp);
       CheckTripBB->setTerminator(P.PrevMerge, FirstBB, TripCntCmp);
