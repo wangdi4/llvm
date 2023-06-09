@@ -666,6 +666,12 @@ struct X86Operand final : public MCParsedAsmOperand {
       X86MCRegisterClasses[X86::TILERegClassID].contains(getReg());
   }
 
+  bool isTILEPairX() const {
+    return Kind == Register &&
+           X86MCRegisterClasses[X86::TILEXRegClassID].contains(getReg()) &&
+           !X86MCRegisterClasses[X86::TILERegClassID].contains(getReg());
+  }
+
   void addTILEPairOperands(MCInst &Inst, unsigned N) const {
     assert(N == 1 && "Invalid number of operands!");
     unsigned Reg = getReg();

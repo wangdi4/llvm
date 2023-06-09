@@ -905,6 +905,7 @@ def VK16Pair : RegisterOperand<VK16PAIR, "printVKPair"> {
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE
 let RenderMethod = "addTILEPairOperands" in {
   def TILEPairAsmOperand : AsmOperandClass { let Name = "TILEPair"; }
+  def TILEPairXAsmOperand : AsmOperandClass { let Name = "TILEPairX"; }
 }
 
 def TILEPair : RegisterOperand<TILEPAIR, "printTILEPair"> {
@@ -948,7 +949,7 @@ def ZMMPairX : RegisterOperand<ZMMPAIRX, "printZMMPair"> {
 
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 def TILEPairX : RegisterOperand<TILEPAIRX, "printTILEPair"> {
-  let ParserMatchClass = TILEPairAsmOperand;
+  let ParserMatchClass = TILEPairXAsmOperand;
 }
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
 
