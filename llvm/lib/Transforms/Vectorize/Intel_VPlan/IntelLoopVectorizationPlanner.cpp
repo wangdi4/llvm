@@ -2726,7 +2726,8 @@ void LoopVectorizationPlanner::printAndVerifyAfterInitialTransforms(
     LLVM_DEBUG(VPlanVec->printVectorVPlanData());
 #ifndef NDEBUG
     Verifier->verifyVPlan(VPlanVec, *VPlanVec->getDT(),
-                          VPlanVec->getVPLoopInfo(), false);
+                          VPlanVec->getVPLoopInfo(),
+                          VPlanVerifier::SkipLoopInfo);
 #endif
     (void)VPlanVec;
     (void)Verifier;

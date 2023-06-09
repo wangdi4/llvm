@@ -722,18 +722,18 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   VCodeGen.getVLS()->getOVLSMemrefs(Plan, VF);
   applyVLSTransform(*Plan, VLSA, VF);
 
+#ifndef NDEBUG
+  // Run verifier before code gen
+  Verifier->verifyVPlan(Plan, *Plan->getDT(), Plan->getVPLoopInfo(),
+                        VPlanVerifier::SkipLoopInfo);
+#endif
+
   LVP.executeBestPlan(VCodeGen);
 
   // Strip the directives once the loop is vectorized. In stress testing,
   // WRLp is null and no directives need deletion.
   if (WRLp)
     VPOUtils::stripDirectives(WRLp);
-
-#ifndef NDEBUG
-  // Run verifier before code gen
-  Verifier->verifyVPlan(Plan, *Plan->getDT(), Plan->getVPLoopInfo(),
-                        false /*VerifyLoopInfo*/);
-#endif
 
   CandLoopsVectorized++;
 

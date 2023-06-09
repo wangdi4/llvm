@@ -413,16 +413,17 @@ public:
   /// Go through all VPlans and run the VPlan verifier on them
   // TODO: VerifyLoopInfo should change to be flags for skipping/running
   //       checks once verifyVPlan uses that
-  void verifyAllVPlans(VPlanVerifier *V, const bool VerifyLoopInfo = false) {
+  void verifyAllVPlans(VPlanVerifier *V,
+                       unsigned int Flags = VPlanVerifier::SkipLoopInfo) {
     SmallPtrSet<VPlan *, 2> Visited;
 
     for (auto &Pair : VPlans) {
       VPlanVector *P = Pair.second.MainPlan.get();
       if (Visited.insert(P).second)
-        V->verifyVPlan(P, *P->getDT(), P->getVPLoopInfo(), VerifyLoopInfo);
+        V->verifyVPlan(P, *P->getDT(), P->getVPLoopInfo(), Flags);
       P = Pair.second.MaskedModeLoop.get();
       if (P && Visited.insert(P).second)
-        V->verifyVPlan(P, *P->getDT(), P->getVPLoopInfo(), VerifyLoopInfo);
+        V->verifyVPlan(P, *P->getDT(), P->getVPLoopInfo(), Flags);
     }
   }
 #endif
