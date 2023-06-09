@@ -868,8 +868,9 @@ FUNCTION_PASS("hir-arrayscalarization-test-launcher", loopopt::HIRArrayScalariza
 FUNCTION_PASS("vpo-paropt-shared-privatization", VPOParoptSharedPrivatizationPass())
 FUNCTION_PASS("vpo-paropt-apply-config", VPOParoptApplyConfigPass())
 #if INTEL_FEATURE_SW_ADVANCED
-FUNCTION_PASS("hir-inter-loop-blocking", loopopt::HIRInterLoopBlockingPass())
 FUNCTION_PASS("hir-cross-loop-array-contraction", loopopt::HIRCrossLoopArrayContractionPass())
+FUNCTION_PASS("hir-inter-loop-blocking", loopopt::HIRInterLoopBlockingPass())
+FUNCTION_PASS("hir-non-perfect-nest-loop-blocking", loopopt::HIRNonPerfectNestLoopBlockingPass())
 #endif // INTEL_FEATURE_SW_ADVANCED
 FUNCTION_PASS("handle-pragma-vector-aligned", HandlePragmaVectorAlignedPass())
 #endif // INTEL_CUSTOMIZATION
