@@ -831,6 +831,9 @@ def FeaturePreferNoScatter
 //===----------------------------------------------------------------------===//
 // X86 Subtarget Tuning features
 //===----------------------------------------------------------------------===//
+def TuningPreferMovmskOverVTest : SubtargetFeature<"prefer-movmsk-over-vtest",
+                                       "PreferMovmskOverVTest", "true",
+                                       "Prefer movmsk over vtest instruction">;
 
 def TuningSlowSHLD : SubtargetFeature<"slow-shld", "IsSHLDSlow", "true",
                                        "SHLD instruction is slow">;
@@ -1766,7 +1769,8 @@ def ProcessorFeatures {
   list<SubtargetFeature> ADLAdditionalTuning = [Tuning4KDSB,
                                                 TuningPERMFalseDeps,
                                                 TuningMRN,
-                                                TuningFastCoreType];
+                                                TuningFastCoreType,
+                                                TuningPreferMovmskOverVTest];
   list<SubtargetFeature> ADLTuning = !listconcat(TGLTuning, ADLAdditionalTuning);
 #endif // INTEL_CUSTOMIZATION
   list<SubtargetFeature> ADLFeatures =
