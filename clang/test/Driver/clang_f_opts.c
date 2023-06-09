@@ -73,6 +73,9 @@
 // RUN: %clang -### -target x86_64-unknown-linux -S -fprofile-sample-generate -fno-unique-internal-linkage-names %s 2>&1 | FileCheck --check-prefix=CHECK-PROFILE-SAMPLE-GENERATE-ERROR3 %s
 // CHECK-PROFILE-SAMPLE-GENERATE-ERROR3: error: option '-fno-unique-internal-linkage-names' not supported for SPGO
 
+// RUN: %clang_cl -### -target x86_64-unknown-windows-msvc -S /fprofile-sample-generate -fuse-ld=link %s 2>&1 | FileCheck --check-prefix=CHECK-PROFILE-SAMPLE-GENERATE-ERROR4 %s
+// CHECK-PROFILE-SAMPLE-GENERATE-ERROR4: error: SPGO requires lld linker and will use it by default on Windows. Do not specify -fuse-ld= or use -fuse-ld=lld instead
+
 // RUN: %clang -### -target x86_64-unknown-linux -S -fprofile-sample-use=%S/Inputs/file.prof %s 2>&1 | FileCheck -check-prefix=CHECK-PROFILE-SAMPLE-USE %s
 // CHECK-PROFILE-SAMPLE-USE: "-fdebug-info-for-profiling" "-debugger-tuning=gdb" "-funique-internal-linkage-names" {{.*}} "-fprofile-sample-use={{.*}}/file.prof"
 
