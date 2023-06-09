@@ -1097,7 +1097,9 @@ CodeGenAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
   if (BA != Backend_EmitNothing && !OS)
     return nullptr;
 
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   VMContext->setOpaquePointers(CI.getCodeGenOpts().OpaquePointers);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   // Load bitcode modules to link with, if we need to.
   if (LinkModules.empty())
@@ -1156,7 +1158,9 @@ CodeGenAction::loadModule(MemoryBufferRef MBRef) {
   CompilerInstance &CI = getCompilerInstance();
   SourceManager &SM = CI.getSourceManager();
 
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   VMContext->setOpaquePointers(CI.getCodeGenOpts().OpaquePointers);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   // For ThinLTO backend invocations, ensure that the context
   // merges types based on ODR identifiers. We also need to read
