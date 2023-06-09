@@ -3361,12 +3361,7 @@ bool FunctionDecl::isInlineBuiltinDeclaration() const {
     return false;
 
   if (!Definition->isInlineSpecified() ||
-#if INTEL_CUSTOMIZATION
-      !Definition->hasAttr<AlwaysInlineAttr>() ||
-      !Definition->hasAttr<GNUInlineAttr>())
-#else
       !Definition->hasAttr<AlwaysInlineAttr>())
-#endif // INTEL_CUSTOMIZATION
     return false;
 
   ASTContext &Context = getASTContext();
