@@ -337,10 +337,6 @@ static bool lowerIntelDirectiveElementsize(Function &F) {
 static bool lowerIntrinsics(Module &M) {
   bool Changed = false;
   for (Function &F : M) {
-    if (F.getName().startswith("llvm.load.relative.")) {
-      Changed |= lowerLoadRelative(F);
-      continue;
-    }
 
 #if INTEL_CUSTOMIZATION
     // TODO: These checks could be placed under the switch case once they are
@@ -373,6 +369,9 @@ static bool lowerIntrinsics(Module &M) {
 
     switch (F.getIntrinsicID()) {
     default:
+      break;
+    case Intrinsic::load_relative:
+      Changed |= lowerLoadRelative(F);
       break;
     case Intrinsic::objc_autorelease:
       Changed |= lowerObjCCall(F, "objc_autorelease");
