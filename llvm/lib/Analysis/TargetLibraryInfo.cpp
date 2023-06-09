@@ -163,6 +163,13 @@ bool TargetLibraryInfo::isValidCallForVectorization(const CallBase &CB) const {
   LibFunc LibF;
   Function *F = CB.getCalledFunction();
   StringRef CalledFnName = F->getName();
+
+  // If we have a Fortran specific library function, check if the caller is
+  // marked with an attribute to indicate that we're compiling Fortran input
+  // language.
+  if (isFortranOnlyVectorFunction(CalledFnName) && !CB.getCaller()->isFortran())
+    return false;
+
   // Call is valid for vector library-based vectorization if it represents a
   // known library function, is an LLVM intrinsic or an OCL vector function.
   bool IsValidMathLibFunc = getLibFunc(*F, LibF) || F->isIntrinsic() ||
@@ -5025,7 +5032,10 @@ case LibFunc_under_commit:
             FTy.getParamType(4)->isPointerTy());
 
   case LibFunc_for_random_number:
-    return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
+    return (NumParams == 0 && FTy.getReturnType()->isDoubleTy());
+
+  case LibFunc_for_random_number_single:
+    return (NumParams == 0 && FTy.getReturnType()->isFloatTy());
 
   case LibFunc_for_random_seed_bit_size:
     return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
@@ -6139,6 +6149,20 @@ bool TargetLibraryInfoImpl::doesVectorFuncNeedArgRepacking(
   if (I != VectorDescs.end() && StringRef(I->ScalarFnName) == FuncName) {
     return I->AttrBits.test(
         static_cast<unsigned>(VecDescAttrs::NeedsArgRepacking));
+  }
+  return false;
+}
+
+bool TargetLibraryInfoImpl::isFortranOnlyVectorFunction(
+    StringRef FuncName) const {
+  FuncName = sanitizeFunctionName(FuncName);
+  if (FuncName.empty())
+    return false;
+
+  std::vector<VecDesc>::const_iterator I =
+      llvm::lower_bound(VectorDescs, FuncName, compareWithScalarFnName);
+  if (I != VectorDescs.end() && StringRef(I->ScalarFnName) == FuncName) {
+    return I->AttrBits.test(static_cast<unsigned>(VecDescAttrs::IsFortranOnly));
   }
   return false;
 }

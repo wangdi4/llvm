@@ -48,20 +48,21 @@ def NoIntrin : IntrinFormat<0>;
 def Intrin   : IntrinFormat<1>;
 
 // Extra attributes (represented via bits) for every SVML table entry. Default is NoAttrs.
-class ExtraAttrs<bits<2> attrs> {
-  bits<2> extraAttrs = attrs;
+class ExtraAttrs<bits<3> attrs> {
+  bits<3> extraAttrs = attrs;
 }
 
-def NoAttrs     : ExtraAttrs<0>;
-def IsOCLFn     : ExtraAttrs<1>;
-def IsComplexFn : ExtraAttrs<2>;
+def NoAttrs       : ExtraAttrs<0>;
+def IsOCLFn       : ExtraAttrs<1>;
+def IsComplexFn   : ExtraAttrs<2>;
+def IsFortranOnly : ExtraAttrs<4>;
 
 class VariantType<Type Ty, Variant V, IntrinFormat IF, ExtraAttrs Attrs = NoAttrs> {
   bit isMasked  = V.isMasked;
   bit hasSingle = Ty.Type{0};
   bit hasDouble = Ty.Type{1};
   bit hasIntrinsic = IF.hasIntrinsic;
-  bits<2> extraAttrs = Attrs.extraAttrs;
+  bits<3> extraAttrs = Attrs.extraAttrs;
 }
 
 class SvmlVariants<list<VariantType> Variants> {
