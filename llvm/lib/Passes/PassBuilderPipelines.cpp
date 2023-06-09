@@ -324,6 +324,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/Intel_LoopTransforms/HIRCrossLoopArrayContraction.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRInterLoopBlockingPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRNonPerfectNestLoopBlockingPass.h"
 #endif // INTEL_FEATURE_SW_ADVANCED
 
 #if INTEL_FEATURE_SW_DTRANS
@@ -762,7 +763,6 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
   // Disable clang-format in following block to avoid conflicts.
   // clang-format off
 if (!SYCLOptimizationMode) {
-  
  // FIXME: re-association increases variables liveness and therefore register
  // pressure.
 #if INTEL_COLLAB
@@ -2500,6 +2500,13 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
     FPM.addPass(HIRMultiExitLoopRerollPass());
     FPM.addPass(HIRLoopCollapsePass());
     FPM.addPass(HIRLoopFusionPass());
+#if 0
+// TODO: uncomment it as functionality added to the pass.
+#if INTEL_FEATURE_SW_ADVANCED
+    if (Level.getSpeedupLevel() > 2 && IsLTO)
+      FPM.addPass(HIRNonPerfectNestLoopBlockingPass());
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif
     FPM.addPass(HIRDeadStoreEliminationPass());
     FPM.addPass(HIRLoopIndependentScalarReplPass());
     FPM.addPass(HIRIdiomRecognitionPass());
