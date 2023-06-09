@@ -337,11 +337,6 @@ static bool lowerIntelDirectiveElementsize(Function &F) {
 static bool lowerIntrinsics(Module &M) {
   bool Changed = false;
   for (Function &F : M) {
-<<<<<<< HEAD
-    if (F.getName().startswith("llvm.load.relative.")) {
-      Changed |= lowerLoadRelative(F);
-      continue;
-    }
 
 #if INTEL_CUSTOMIZATION
     // TODO: These checks could be placed under the switch case once they are
@@ -372,8 +367,6 @@ static bool lowerIntrinsics(Module &M) {
       Changed |= lowerIntelDirectiveElementsize(F);
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 405faef2cdff118cf899d974f0370ac419d94166
     switch (F.getIntrinsicID()) {
     default:
       break;
