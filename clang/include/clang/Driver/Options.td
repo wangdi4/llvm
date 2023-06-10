@@ -4346,14 +4346,11 @@ def mno_inline_all_stringops : Flag<["-"], "mno-inline-all-stringops">, Group<cl
 def malign_double : Flag<["-"], "malign-double">, Group<m_Group>, Flags<[CC1Option]>,
   HelpText<"Align doubles to two words in structs (x86 only)">,
   MarshallingInfoFlag<LangOpts<"AlignDouble">>;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 def align : Flag<["-"], "align">, Alias<malign_double>,
   HelpText<"Align doubles to two words in structs (x86 only)">;
 #endif // INTEL_CUSTOMIZATION
-=======
 let Flags = [TargetSpecific] in {
->>>>>>> 5548843d692a92a7840f14002debc3cebcb3cdc3
 def mfloat_abi_EQ : Joined<["-"], "mfloat-abi=">, Group<m_Group>, Values<"soft,softfp,hard">;
 def mfpmath_EQ : Joined<["-"], "mfpmath=">, Group<m_Group>;
 } // let Flags = [TargetSpecific]
@@ -6122,11 +6119,8 @@ def mno_vpinsr_vpextr : Flag<["-"], "mno-vpinsr-vpextr">, Group<m_x86_Features_G
 #endif // INTEL_CUSTOMIZATION
 def mvzeroupper : Flag<["-"], "mvzeroupper">, Group<m_x86_Features_Group>;
 def mno_vzeroupper : Flag<["-"], "mno-vzeroupper">, Group<m_x86_Features_Group>;
-<<<<<<< HEAD
-=======
 } // let Flags = [TargetSpecific]
 
->>>>>>> 5548843d692a92a7840f14002debc3cebcb3cdc3
 // These are legacy user-facing driver-level option spellings. They are always
 // aliases for options that are spelled using the more common Unix / GNU flag
 // style of double-dash and equals-joined flags.
