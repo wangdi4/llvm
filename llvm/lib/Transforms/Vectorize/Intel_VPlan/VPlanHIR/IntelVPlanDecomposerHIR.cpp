@@ -2312,7 +2312,9 @@ VPDecomposerHIR::createVPInstructionsForNode(HLNode *Node,
     if (auto *CallI = HInst->getCallInst()) {
       int DirID = vpo::VPOAnalysisUtils::getDirectiveID(CallI);
       if (DirID == DIR_VPO_GUARD_MEM_MOTION ||
-          DirID == DIR_VPO_END_GUARD_MEM_MOTION)
+          DirID == DIR_VPO_END_GUARD_MEM_MOTION ||
+          NestedSimdStrategy == NestedSimdStrategies::Outermost &&
+              (DirID == DIR_OMP_SIMD || DirID == DIR_OMP_END_SIMD))
         return nullptr;
     }
   }

@@ -896,6 +896,42 @@ bool VPlanDriverImpl::isSupported<vpo::HLLoop>(vpo::HLLoop *Lp,
 template <typename Loop>
 bool VPlanDriverImpl::runStandardMode(Function &Fn) {
 
+  SmallVector<std::pair<Loop *, WRNVecLoopNode *>, 8> LoopsToVectorize;
+  auto AddLoopToVectorize = [&](WRegionNode *WRNode,
+                                auto &&AddLoopToVectorize) {
+    if (WRNVecLoopNode *WRLp = dyn_cast<WRNVecLoopNode>(WRNode)) {
+      Loop *Lp = WRLp->getTheLoop<Loop>();
+      clearBailoutRemark();
+      //      simplifyLoop(Lp, DT, LI, SE, AC, false /* PreserveLCSSA */);
+      //      formLCSSARecursively(*Lp, *DT, LI, SE);
+
+      if (!Lp) {
+        LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop was optimized out.\n");
+        // No bail-out remark, since Lp is nullptr.
+        return;
+      }
+
+      if (NestedSimdStrategy == NestedSimdStrategies::Innermost &&
+          WRLp->hasChildren())
+        for (auto *WRN :
+             make_range(WRLp->wrn_child_begin(), WRLp->wrn_child_end()))
+          AddLoopToVectorize(WRN, AddLoopToVectorize);
+
+      if (!VPlanForceBuild && !isSupported(Lp, WRLp)) {
+        LLVM_DEBUG(dbgs() << "Bailing out: Loop is not supported!\n");
+        assert(BR.BailoutRemark &&
+               "isSupported() failed to provide bailout data!\n");
+        VPlanOptReportBuilder VPORB(ORBuilder, LI);
+        (void)bailout(VPORB, Lp, WRLp, BR);
+        return;
+      }
+
+      if (NestedSimdStrategy != NestedSimdStrategies::Innermost ||
+          !WRLp->hasChildren())
+        LoopsToVectorize.emplace_back(Lp, WRLp);
+    }
+  };
+
   LLVM_DEBUG(dbgs() << "VD: Standard Vectorization mode\n");
 
   isEmitKernelOptRemarks = true;
@@ -907,36 +943,15 @@ bool VPlanDriverImpl::runStandardMode(Function &Fn) {
   WRContainerImpl *WRGraph = WR->getWRGraph();
 
   LLVM_DEBUG(dbgs() << "WD: WRGraph #nodes= " << WRGraph->size() << "\n");
+  for (auto WRNode : *WRGraph)
+    AddLoopToVectorize(WRNode, AddLoopToVectorize);
 
   bool ModifiedFunc = false;
-  for (auto WRNode : *WRGraph) {
+  for (const auto &It : LoopsToVectorize) {
+    LLVM_DEBUG(dbgs() << "VD: Starting VPlan for \n");
+    LLVM_DEBUG(It.second->dump());
 
-    if (WRNVecLoopNode *WRLp = dyn_cast<WRNVecLoopNode>(WRNode)) {
-      Loop *Lp = WRLp->getTheLoop<Loop>();
-      clearBailoutRemark();
-      //      simplifyLoop(Lp, DT, LI, SE, AC, false /* PreserveLCSSA */);
-      //      formLCSSARecursively(*Lp, *DT, LI, SE);
-
-      if (!Lp) {
-        LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop was optimized out.\n");
-        // No bail-out remark, since Lp is nullptr.
-        continue;
-      }
-
-      if (!VPlanForceBuild && !isSupported(Lp, WRLp)) {
-        LLVM_DEBUG(dbgs() << "Bailing out: Loop is not supported!\n");
-        assert(BR.BailoutRemark &&
-               "isSupported() failed to provide bailout data!\n");
-        VPlanOptReportBuilder VPORB(ORBuilder, LI);
-        (void)bailout(VPORB, Lp, WRLp, BR);
-        continue;
-      }
-
-      LLVM_DEBUG(dbgs() << "VD: Starting VPlan for \n");
-      LLVM_DEBUG(WRNode->dump());
-
-      ModifiedFunc |= processLoop(Lp, Fn, WRLp);
-    }
+    ModifiedFunc |= processLoop(It.first, Fn, It.second);
   }
 
   return ModifiedFunc;
