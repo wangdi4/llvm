@@ -155,8 +155,11 @@ private:
 
 class Parser {
 public:
-  explicit Parser(StringRef S, MachineTypes M, bool B)
-      : Lex(S), Machine(M), MingwDef(B) {}
+  explicit Parser(StringRef S, MachineTypes M, bool B, bool AU)
+      : Lex(S), Machine(M), MingwDef(B), AddUnderscores(AU) {
+    if (Machine != IMAGE_FILE_MACHINE_I386)
+      AddUnderscores = false;
+  }
 
   Expected<COFFModuleDefinition> parse() {
     do {
@@ -251,7 +254,7 @@ private:
       unget();
     }
 
-    if (Machine == IMAGE_FILE_MACHINE_I386) {
+    if (AddUnderscores) {
       if (!isDecorated(E.Name, MingwDef))
         E.Name = (std::string("_").append(E.Name));
       if (!E.ExtName.empty() && !isDecorated(E.ExtName, MingwDef))
@@ -296,7 +299,7 @@ private:
       if (Tok.K == EqualEqual) {
         read();
         E.AliasTarget = std::string(Tok.Value);
-        if (Machine == IMAGE_FILE_MACHINE_I386 && !isDecorated(E.AliasTarget, MingwDef))
+        if (AddUnderscores && !isDecorated(E.AliasTarget, MingwDef))
           E.AliasTarget = std::string("_").append(E.AliasTarget);
         continue;
       }
@@ -366,10 +369,12 @@ private:
   MachineTypes Machine;
   COFFModuleDefinition Info;
   bool MingwDef;
+  bool AddUnderscores;
 };
 
 Expected<COFFModuleDefinition> parseCOFFModuleDefinition(MemoryBufferRef MB,
                                                          MachineTypes Machine,
+<<<<<<< HEAD
                                                          bool MingwDef) {
 #if INTEL_CUSTOMIZATION
   // This enumerator represents which type of UTF byte order mark is being used
@@ -472,6 +477,11 @@ Expected<COFFModuleDefinition> parseCOFFModuleDefinition(MemoryBufferRef MB,
   return Parser(Buf, Machine, MingwDef).parse();
   // return Parser(MB.getBuffer(), Machine, MingwDef).parse();
 #endif // INTEL_CUSTOMIZATION
+=======
+                                                         bool MingwDef,
+                                                         bool AddUnderscores) {
+  return Parser(MB.getBuffer(), Machine, MingwDef, AddUnderscores).parse();
+>>>>>>> fb19fa2f3dfdd60d42c12ef28467d6f8f5149d6a
 }
 
 } // namespace object
