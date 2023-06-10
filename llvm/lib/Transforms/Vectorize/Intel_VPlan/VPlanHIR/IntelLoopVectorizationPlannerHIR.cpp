@@ -184,7 +184,8 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
 
         auto *UnderlyingCall = VPCall->getUnderlyingCallInst();
         if (UnderlyingCall &&
-            vpo::VPOAnalysisUtils::isBeginDirective(UnderlyingCall)) {
+            vpo::VPOAnalysisUtils::isBeginDirective(UnderlyingCall) &&
+            NestedSimdStrategy != NestedSimdStrategies::Outermost) {
           bailoutWithDebug(OptReportVerbosity::Medium,
                            OptRemarkID::VecFailNestedSimdRegion,
                            "Unsupported nested OpenMP (simd) loop or region.",
