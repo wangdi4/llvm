@@ -21,6 +21,7 @@
 ?Plugin@?1???$getPlugin@$00@pi@detail@_V1@sycl@@YAAEBV?$shared_ptr@Vplugin@detail@_V1@sycl@@@std@@XZ@4PEAV56@EA
 ?Plugin@?1???$getPlugin@$02@pi@detail@_V1@sycl@@YAAEBV?$shared_ptr@Vplugin@detail@_V1@sycl@@@std@@XZ@4PEAV56@EA
 ?Plugin@?1???$getPlugin@$04@pi@detail@_V1@sycl@@YAAEBV?$shared_ptr@Vplugin@detail@_V1@sycl@@@std@@XZ@4PEAV56@EA
+??$getPlugin@$05@pi@detail@_V1@sycl@@YAAEBV?$shared_ptr@Vplugin@detail@_V1@sycl@@@std@@XZ
 ??$getPluginOpaqueData@$04@detail@_V1@sycl@@YAPEAXPEAX@Z
 ??$get_info@U?$max_work_groups@$00@device@info@experimental@oneapi@ext@_V1@sycl@@@device@_V1@sycl@@QEBA?AV?$id@$00@12@XZ
 ??$get_info@U?$max_work_groups@$00@device@info@experimental@oneapi@ext@_V1@sycl@@@device_impl@detail@_V1@sycl@@QEBA?AV?$id@$00@23@XZ
