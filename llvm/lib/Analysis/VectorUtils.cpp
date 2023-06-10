@@ -1108,11 +1108,13 @@ void llvm::setRequiredAttributes(AttributeList Attrs, CallInst *VecCall) {
 
 void llvm::setRequiredAttributes(AttributeList Attrs, CallInst *VecCall,
                                  ArrayRef<AttributeSet> ArgAttrs) {
+  LLVMContext &C = VecCall->getContext();
   AttributeSet FnAttrs = Attrs.getFnAttrs().removeAttribute(
-      VecCall->getContext(), VectorUtils::VectorVariantsAttrName);
+      C, VectorUtils::VectorVariantsAttrName);
+  AttributeSet RetAttrs = Attrs.getRetAttrs().removeAttributes(
+      C, AttributeFuncs::typeIncompatible(VecCall->getType()));
 
-  VecCall->setAttributes(AttributeList::get(VecCall->getContext(), FnAttrs,
-                                            Attrs.getRetAttrs(), ArgAttrs));
+  VecCall->setAttributes(AttributeList::get(C, FnAttrs, RetAttrs, ArgAttrs));
 }
 
 void llvm::buildVectorVariantLogicalSignature(

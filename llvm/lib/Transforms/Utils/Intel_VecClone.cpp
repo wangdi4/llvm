@@ -172,15 +172,17 @@ using namespace llvm;
 
 extern bool Usei1MaskForSimdFunctions;
 
+bool VFABILegalizationEnabled = false;
+static cl::opt<bool, true> LegalizationEnabled(
+    "vec-clone-legalize-enabled", cl::Hidden,
+    cl::location(VFABILegalizationEnabled),
+    cl::desc("Enable arguments and return value legalization for "
+             "-vecabi=cmdtarget vector variants."));
+
 // Support for future opaque pointers. Will become the only option in future.
 static cl::opt<bool>
     EmitTypedOMP("vec-clone-typed-omp", cl::init(true), cl::Hidden,
                  cl::desc("Emit 'TYPED' version of OMP clauses."));
-
-static cl::opt<bool> LegalizationEnabled(
-    "vec-clone-legalize-enabled", cl::init(false), cl::Hidden,
-    cl::desc("Enable arguments and return value legalization for "
-             "-vecabi=cmdtarget vector variants."));
 
 static constexpr const char *VectorDispatchAttrName = "vector-dispatch";
 
@@ -489,7 +491,7 @@ void VecCloneImpl::Factory::cloneFunction() {
 
   ArgChunks.assign(LogicalArgTypes.size(), 1);
 
-  if (LegalizationEnabled && VFInfo::isIntelVFABIMangling(V.VectorName)) {
+  if (VFABILegalizationEnabled && VFInfo::isIntelVFABIMangling(V.VectorName)) {
     if (!VFABI::supportedVectorVariantLegalization(V, LogicalArgTypes,
                                                    LogicalRetType)) {
       LLVM_DEBUG(dbgs() << "Unable to legalize " << FName
