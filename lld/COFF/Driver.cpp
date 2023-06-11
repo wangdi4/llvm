@@ -504,8 +504,15 @@ StringRef LinkerDriver::doFindFile(StringRef filename) {
   };
 
   bool hasPathSep = (filename.find_first_of("/\\") != StringRef::npos);
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-48406: libraries specified by /DEFAULTLIB in the .drectve
+  // section can either be an absolute filepath or a relative filepath.
+  // Relative filepaths need to be searched for in the searchPaths
+  // directories.
   if (hasPathSep)
-    return getFilename(filename);
+    if (sys::fs::exists(filename))
+      return getFilename(filename);
+#endif // INTEL_CUSTOMIZATION
   bool hasExt = filename.contains('.');
   for (StringRef dir : searchPaths) {
     SmallString<128> path = dir;
@@ -520,6 +527,10 @@ StringRef LinkerDriver::doFindFile(StringRef filename) {
         return saver().save(path.str());
     }
   }
+#if INTEL_CUSTOMIZATION
+  if (hasPathSep)
+    return getFilename(filename);
+#endif // INTEL_CUSTOMIZATION
   return filename;
 }
 
