@@ -374,8 +374,8 @@ private:
 
 Expected<COFFModuleDefinition> parseCOFFModuleDefinition(MemoryBufferRef MB,
                                                          MachineTypes Machine,
-<<<<<<< HEAD
-                                                         bool MingwDef) {
+                                                         bool MingwDef,
+                                                         bool AddUnderscores) {
 #if INTEL_CUSTOMIZATION
   // This enumerator represents which type of UTF byte order mark is being used
   enum UTFBOMType {
@@ -474,14 +474,9 @@ Expected<COFFModuleDefinition> parseCOFFModuleDefinition(MemoryBufferRef MB,
   // UTF-32 nor do most of the text editors support it, but CL, clang and
   // MS-LINK support it.
 
-  return Parser(Buf, Machine, MingwDef).parse();
+  return Parser(Buf, Machine, MingwDef, AddUnderscores).parse();
   // return Parser(MB.getBuffer(), Machine, MingwDef).parse();
 #endif // INTEL_CUSTOMIZATION
-=======
-                                                         bool MingwDef,
-                                                         bool AddUnderscores) {
-  return Parser(MB.getBuffer(), Machine, MingwDef, AddUnderscores).parse();
->>>>>>> fb19fa2f3dfdd60d42c12ef28467d6f8f5149d6a
 }
 
 } // namespace object
