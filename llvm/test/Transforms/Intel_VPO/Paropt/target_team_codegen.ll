@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-use-mapper-api=false -S %s | FileCheck %s
 ;
 ; It checks whether the construt omp target team is supported in the OMP
 ; codegen.
@@ -11,62 +11,60 @@
 ;     bar();
 ;   }
 ; }
+; CHECK:  call i32 @__tgt_target_teams({{.*}})
+
 target triple = "x86_64-unknown-linux-gnu"
-target device_triples = "x86_64-mic"
+target device_triples = "spir64"
 
-@"@tid.addr" = external global i32
-
-; Function Attrs: nounwind uwtable
-define dso_local void @_Z3barv() #0 {
-entry:
-  ret void
-}
-
-; Function Attrs: nounwind uwtable
-define dso_local void @_Z3fooi(i32 %n) #1 {
+define dso_local void @foo(i32 noundef %n) {
 entry:
   %n.addr = alloca i32, align 4
-  store i32 %n, i32* %n.addr, align 4, !tbaa !2
+  store i32 %n, ptr %n.addr, align 4
   br label %DIR.OMP.TARGET.1
 
 DIR.OMP.TARGET.1:                                 ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %n.addr), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
-  br label %DIR.OMP.TEAMS.3
+  br label %DIR.OMP.TARGET.2
 
-DIR.OMP.TEAMS.3:                                  ; preds = %DIR.OMP.TARGET.1
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.NUM_TEAMS"(i32* %n.addr) ]
-  call void @_Z3barv()
-  br label %DIR.OMP.END.TEAMS.5
+DIR.OMP.TARGET.2:                                 ; preds = %DIR.OMP.TARGET.1
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %n.addr, i32 0, i32 1) ]
 
-DIR.OMP.END.TEAMS.5:                              ; preds = %DIR.OMP.TEAMS.3
-  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TEAMS"() ]
+  br label %DIR.OMP.TARGET.3
+
+DIR.OMP.TARGET.3:                                 ; preds = %DIR.OMP.TARGET.2
+  br label %DIR.OMP.TEAMS.4
+
+DIR.OMP.TEAMS.4:                                  ; preds = %DIR.OMP.TARGET.3
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(),
+    "QUAL.OMP.NUM_TEAMS:TYPED"(ptr %n.addr, i32 0) ]
+
+  br label %DIR.OMP.TEAMS.5
+
+DIR.OMP.TEAMS.5:                                  ; preds = %DIR.OMP.TEAMS.4
+  call void (...) @bar() #1
   br label %DIR.OMP.END.TEAMS.6
 
-DIR.OMP.END.TEAMS.6:                              ; preds = %DIR.OMP.END.TEAMS.5
+DIR.OMP.END.TEAMS.6:                              ; preds = %DIR.OMP.TEAMS.5
+  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TEAMS"() ]
+
+  br label %DIR.OMP.END.TEAMS.7
+
+DIR.OMP.END.TEAMS.7:                              ; preds = %DIR.OMP.END.TEAMS.6
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
+
+  br label %DIR.OMP.END.TARGET.8
+
+DIR.OMP.END.TARGET.8:                             ; preds = %DIR.OMP.END.TEAMS.7
   ret void
 }
 
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #2
+declare token @llvm.directive.region.entry()
 
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #2
+declare void @llvm.directive.region.exit(token)
 
-attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #2 = { nounwind }
+declare dso_local void @bar(...) 
 
-!omp_offload.info = !{!6}
-!llvm.module.flags = !{!0}
-!llvm.ident = !{!1}
+!omp_offload.info = !{!0}
 
-!0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 8.0.0"}
-!2 = !{!3, !3, i64 0}
-!3 = !{!"int", !4, i64 0}
-!4 = !{!"omnipotent char", !5, i64 0}
-!5 = !{!"Simple C++ TBAA"}
-!6 = !{i32 0, i32 54, i32 -698850821, !"_Z3fooi", i32 33, i32 0, i32 0}
-
-; CHECK:  call i32 @__tgt_target_teams({{.*}})
+!0 = !{i32 0, i32 64773, i32 3825464, !"_Z3foo", i32 3, i32 0, i32 0, i32 0}
