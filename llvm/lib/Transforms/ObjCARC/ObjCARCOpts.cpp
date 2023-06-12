@@ -646,23 +646,6 @@ private:
 #endif // INTEL_CUSTOMIZATION
 } // end anonymous namespace
 
-#if INTEL_CUSTOMIZATION
-char ObjCARCOptLegacyPass::ID = 0;
-
-INITIALIZE_PASS_BEGIN(ObjCARCOptLegacyPass, "objc-arc", "ObjC ARC optimization",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(ObjCARCAAWrapperPass)
-INITIALIZE_PASS_END(ObjCARCOptLegacyPass, "objc-arc", "ObjC ARC optimization",
-                    false, false)
-
-Pass *llvm::createObjCARCOptPass() { return new ObjCARCOptLegacyPass(); }
-
-void ObjCARCOptLegacyPass::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<ObjCARCAAWrapperPass>();
-  AU.addRequired<AAResultsWrapperPass>();
-}
-#endif // INTEL_CUSTOMIZATION
-
 /// Turn objc_retainAutoreleasedReturnValue into objc_retain if the operand is
 /// not a return value.
 bool
