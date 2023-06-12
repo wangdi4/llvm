@@ -20,6 +20,12 @@
 # CHECK: encoding: [0x67,0x62,0xec,0x7c,0x08,0xa5,0x41,0x7f]
          {evex} shld	dword ptr [r17d + 127], r16d, cl
 
+## MRMDestMemCC
+
+# CHECK: cfcmovb	qword ptr [r8 + 4*rax + 123], r9
+# CHECK: encoding: [0x62,0x54,0xfc,0x0c,0x42,0x4c,0x80,0x7b]
+         cfcmovb	qword ptr [r8 + 4*rax + 123], r9
+
 ## MRMSrcMem
 
 # CHECK: vbroadcasti32x4	zmm0, xmmword ptr [r16 + r17]
@@ -37,6 +43,16 @@
 # CHECK: {evex} add	r17, qword ptr [r16 + 127]
 # CHECK: encoding: [0x62,0xec,0xfc,0x08,0x03,0x48,0x7f]
          {evex} add	r17, qword ptr [r16 + 127]
+
+## MRMSrcMemCC
+
+# CHECK: cfcmovb	r9, qword ptr [r8 + 4*rax + 123]
+# CHECK: encoding: [0x62,0x54,0xfc,0x08,0x42,0x4c,0x80,0x7b]
+         cfcmovb	r9, qword ptr [r8 + 4*rax + 123]
+
+# CHECK: cfcmovbe	r15, r9, qword ptr [r8 + 4*rax + 123]
+# CHECK: encoding: [0x62,0x54,0x84,0x1c,0x46,0x4c,0x80,0x7b]
+         cfcmovbe	r15, r9, qword ptr [r8 + 4*rax + 123]
 
 ## MRM0m
 
@@ -193,12 +209,22 @@
 ## MRMSrcReg
 
 # CHECK: imul r18, r17, r16
-# CHECK: encoding: [0x62,0xec,0xf4,0x10,0xaf,0xd0]
+# CHECK: encoding: [0x62,0xec,0xec,0x10,0xaf,0xc8]
          imul r18, r17, r16
 
 # CHECK: {evex} imul r17, r16
 # CHECK: encoding: [0x62,0xec,0xfc,0x08,0xaf,0xc8]
          {evex} imul r17, r16
+
+## MRMSrcRegCC
+
+# CHECK: cfcmovb	r15, r9
+# CHECK: encoding: [0x62,0x54,0xfc,0x08,0x42,0xf9]
+         cfcmovb	r15, r9
+
+# CHECK: cfcmovbe	r11, r15, r9
+# CHECK: encoding: [0x62,0x54,0xa4,0x1c,0x46,0xf9]
+         cfcmovbe	r11, r15, r9
 
 ## MRMDestReg
 

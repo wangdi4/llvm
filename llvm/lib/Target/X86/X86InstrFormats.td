@@ -47,6 +47,8 @@ def AddCCFrm      : Format<9>;
 def PrefixByte    : Format<10>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
+def MRMDestRegCC     : Format<11>;
+def MRMDestMemCC     : Format<12>;
 def MRM0rImmAAA      : Format<13>;
 def MRM6rImmAAA      : Format<14>;
 #endif // INTEL_FEATURE_ISA_APX_F

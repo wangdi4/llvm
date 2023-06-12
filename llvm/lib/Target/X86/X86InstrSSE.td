@@ -6306,7 +6306,7 @@ defm VTESTPDY : avx_bittest<0x0F, "vtestpd", VR256, f256mem, loadv4f64, v4f64,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-multiclass popcntrr_base<bits<8> opcode, X86TypeInfo info> {
+multiclass popcntrr_base<bits<8> opcode, bits<8> opcode2, X86TypeInfo info> {
 let Defs = [EFLAGS], Predicates = [HasPOPCNT], Opcode = opcode in
   def NAME : ITy<opcode, MRMSrcReg, info, (outs info.RegClass:$dst), 
                  (ins info.RegClass:$src),
@@ -6314,7 +6314,7 @@ let Defs = [EFLAGS], Predicates = [HasPOPCNT], Opcode = opcode in
                  [(set info.RegClass:$dst, (ctpop info.RegClass:$src)),
                                                   (implicit EFLAGS)]>,
              Sched<[WritePOPCNT]>, XS;
-let Opcode = opcode, Predicates = [HasPOPCNT, In64BitMode] in {
+let Opcode = opcode2, Predicates = [HasPOPCNT, In64BitMode] in {
   let Defs = [EFLAGS] in
   def _EVEX : ITy_EVEX<opcode, MRMSrcReg, info, (outs info.RegClass:$dst),
                        (ins info.RegClass:$src),
@@ -6327,7 +6327,7 @@ let Opcode = opcode, Predicates = [HasPOPCNT, In64BitMode] in {
 }
 }
 
-multiclass popcntrm_base<bits<8> opcode, X86TypeInfo info> {
+multiclass popcntrm_base<bits<8> opcode, bits<8> opcode2, X86TypeInfo info> {
 let Defs = [EFLAGS], Predicates = [HasPOPCNT], Opcode = opcode in
   def NAME : ITy<opcode, MRMSrcMem, info, (outs info.RegClass:$dst),
                  (ins info.MemOperand:$src),
@@ -6335,7 +6335,7 @@ let Defs = [EFLAGS], Predicates = [HasPOPCNT], Opcode = opcode in
                  [(set info.RegClass:$dst, (ctpop (info.LoadNode addr:$src))),
                                                   (implicit EFLAGS)]>,
              Sched<[WritePOPCNT.Folded]>, XS;
-let Opcode = opcode, Predicates = [HasPOPCNT, In64BitMode] in {
+let Opcode = opcode2, Predicates = [HasPOPCNT, In64BitMode], mayLoad = 1 in {
   let Defs = [EFLAGS] in
   def _EVEX : ITy_EVEX<opcode, MRMSrcMem, info, (outs info.RegClass:$dst),
                        (ins info.MemOperand:$src),
@@ -6348,12 +6348,12 @@ let Opcode = opcode, Predicates = [HasPOPCNT, In64BitMode] in {
 }
 }
 
-defm POPCNT16rr : popcntrr_base<0xB8, Xi16>;
-defm POPCNT16rm : popcntrm_base<0xB8, Xi16>;
-defm POPCNT32rr : popcntrr_base<0xB8, Xi32>;
-defm POPCNT32rm : popcntrm_base<0xB8, Xi32>;
-defm POPCNT64rr : popcntrr_base<0xB8, Xi64>;
-defm POPCNT64rm : popcntrm_base<0xB8, Xi64>;
+defm POPCNT16rr : popcntrr_base<0xB8, 0x88, Xi16>;
+defm POPCNT16rm : popcntrm_base<0xB8, 0x88, Xi16>;
+defm POPCNT32rr : popcntrr_base<0xB8, 0x88, Xi32>;
+defm POPCNT32rm : popcntrm_base<0xB8, 0x88, Xi32>;
+defm POPCNT64rr : popcntrr_base<0xB8, 0x88, Xi64>;
+defm POPCNT64rm : popcntrm_base<0xB8, 0x88, Xi64>;
 #else // INTEL_FEATURE_ISA_APX_F
 let Defs = [EFLAGS], Predicates = [HasPOPCNT] in {
   def POPCNT16rr : I<0xB8, MRMSrcReg, (outs GR16:$dst), (ins GR16:$src),

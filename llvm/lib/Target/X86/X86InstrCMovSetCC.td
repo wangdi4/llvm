@@ -103,7 +103,7 @@ class cfcmovcc_rr<bits<8> opcode, X86TypeInfo info>
 }
 
 class cfcmovcc_rr_REV<bits<8> opcode, X86TypeInfo info>
-  : ITy_EVEX<opcode, MRMSrcRegCC, info, (outs info.RegClass:$dst),
+  : ITy_EVEX<opcode, MRMDestRegCC, info, (outs info.RegClass:$dst),
              (ins info.RegClass:$src1, ccode:$cond),
              "cfcmov${cond}", "{$src1, $dst|$dst, $src1}", []> {
   let Opcode = opcode;
@@ -119,12 +119,12 @@ class cfcmovcc_rr_ND<bits<8> opcode, X86TypeInfo info>
 class cfcmovcc_rm<bits<8> opcode, X86TypeInfo info>
   : ITy_EVEX<opcode, MRMSrcMemCC, info, (outs info.RegClass:$dst),
              (ins info.MemOperand:$src1, ccode:$cond),
-             "cfccmov${cond}", "{$src1, $dst|$dst, $src1}", []> {
+             "cfcmov${cond}", "{$src1, $dst|$dst, $src1}", []> {
   let Opcode = opcode;
 }
 
 class cfcmovcc_mr<bits<8> opcode, X86TypeInfo info>
-  : ITy_EVEX<opcode, MRMSrcMemCC, info, (outs info.MemOperand:$dst),
+  : ITy_EVEX<opcode, MRMDestMemCC, info, (outs info.MemOperand:$dst),
              (ins info.RegClass:$src1, ccode:$cond),
              "cfcmov${cond}", "{$src1, $dst|$dst, $src1}", []> {
   let Opcode = opcode;
@@ -149,15 +149,17 @@ let Predicates = [HasCMOV, HasCF, HasNDD, In64BitMode] in
 
 let SchedRW = [WriteCMOV.Folded, WriteCMOV.ReadAfterFold] in {
 let Predicates = [HasCMOV, HasCF, In64BitMode] in {
+  let mayLoad = 1 in
   def rm : cfcmovcc_rm<opcode, info>;
+  let mayStore = 1 in
   def mr : cfcmovcc_mr<opcode, info>, EVEX_NF;
 }
-let Predicates = [HasCMOV, HasCF, HasNDD, In64BitMode] in
+let Predicates = [HasCMOV, HasCF, HasNDD, In64BitMode], mayLoad = 1 in
   def rm_ND : cfcmovcc_rm_ND<opcode, info>, EVEX_B4V, EVEX_NF;
 }
 }
 
-let Uses = [EFLAGS], isCodeGenOnly = 1 in {
+let Uses = [EFLAGS], isCodeGenOnly = 1, ForceDisassemble = 1 in {
   defm CFCMOV16 : cfcmovcc_base<0x40, Xi16>;
   defm CFCMOV32 : cfcmovcc_base<0x40, Xi32>;
   defm CFCMOV64 : cfcmovcc_base<0x40, Xi64>;

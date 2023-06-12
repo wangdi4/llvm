@@ -649,6 +649,17 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPERAND(relocation)
     HANDLE_OPERAND(opcodeModifier)
     break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86Local::MRMDestRegCC:
+    assert(numPhysicalOperands == 3 &&
+           "Unexpected number of operands for MRMDestRegCC");
+    HANDLE_OPERAND(rmRegister)
+    HANDLE_OPERAND(roRegister)
+    HANDLE_OPERAND(opcodeModifier)
+    break;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86Local::MRMDestReg:
     // Operand 1 is a register operand in the R/M field.
     // - In AVX512 there may be a mask operand here -
@@ -731,6 +742,17 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPERAND(vvvvRegister)
     HANDLE_OPERAND(opcodeModifier)
     break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86Local::MRMDestMemCC:
+    assert(numPhysicalOperands == 3 &&
+           "Unexpected number of operands for MRMDestMemCC");
+    HANDLE_OPERAND(memory)
+    HANDLE_OPERAND(roRegister)
+    HANDLE_OPERAND(opcodeModifier)
+    break;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86Local::MRMDestMem:
   case X86Local::MRMDestMemFSIB:
     // Operand 1 is a memory operand (possibly SIB-extended)
@@ -777,12 +799,24 @@ void RecognizableInstr::emitInstructionSpecifier() {
            numPhysicalOperands <= 4 + additionalOperands &&
            "Unexpected number of operands for MRMSrcRegFrm");
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (IsND)
+      HANDLE_OPERAND(vvvvRegister)
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     HANDLE_OPERAND(roRegister)
 
     if (HasEVEX_K)
       HANDLE_OPERAND(writemaskRegister)
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (!IsND && HasVEX_4V)
+#else  // INTEL_FEATURE_ISA_APX_F
     if (HasVEX_4V)
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
       // FIXME: In AVX, the register below becomes the one encoded
       // in ModRMVEX and the one above the one in the VEX.VVVV field
       HANDLE_OPERAND(vvvvRegister)
@@ -1048,6 +1082,11 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
     filter = std::make_unique<DumbFilter>();
     break;
   case X86Local::MRMDestReg:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86Local::MRMDestRegCC:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86Local::MRMDestReg4VOp3:  // INTEL
   case X86Local::MRMSrcReg:
   case X86Local::MRMSrcReg4VOp3:
@@ -1058,6 +1097,11 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
     filter = std::make_unique<ModFilter>(true);
     break;
   case X86Local::MRMDestMem4VOp2FSIB: // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86Local::MRMDestMemCC:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86Local::MRMDestMem:
   case X86Local::MRMDestMem4VOp3: // INTEL
   case X86Local::MRMDestMem4VOp3CC:
@@ -1123,7 +1167,14 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
   if (Form == X86Local::AddRegFrm || Form == X86Local::MRMSrcRegCC ||
       Form == X86Local::MRMSrcMemCC || Form == X86Local::MRMXrCC ||
       Form == X86Local::MRMXmCC || Form == X86Local::AddCCFrm ||
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+      Form == X86Local::MRMDestMem4VOp3CC || Form == X86Local::MRMDestRegCC ||
+      Form == X86Local::MRMDestMemCC) {
+#else  // INTEL_FEATURE_ISA_APX_F
       Form == X86Local::MRMDestMem4VOp3CC) {
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     uint8_t Count = Form == X86Local::AddRegFrm ? 8 : 16;
     assert(((opcodeToSet % Count) == 0) && "ADDREG_FRM opcode not aligned");
 

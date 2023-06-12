@@ -429,7 +429,7 @@ void X86InstPrinterCommon::printInstFlags(const MCInst *MI, raw_ostream &O,
     O << "\trep\t";
 
 #if INTEL_FEATURE_ISA_APX_F
-  if (TSFlags & X86II::EVEX_NF)
+  if (TSFlags & X86II::EVEX_NF && !X86::isCFCMOVCC(MI->getOpcode()))
     O << "\t{nf}";
 #endif // INTEL_FEATURE_ISA_APX_F
 
