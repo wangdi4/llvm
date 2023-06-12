@@ -677,6 +677,16 @@ namespace X86II {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
+    /// MRMDestRegCC - This form is used for the cfcmov instructions, which use
+    /// the Mod/RM byte to specify the operands reg(r/m) and reg(reg) and also
+    /// encodes a condition code.
+    MRMDestRegCC = 11,
+
+    /// MRMDestMemCC - This form is used for the cfcmov instructions, which use
+    /// the Mod/RM byte to specify the operands mem(r/m) and reg(reg) and also
+    /// encodes a condition code.
+    MRMDestMemCC = 12,
+
     /// MRM0rImmAAA - This is used for the pop2 instruction, which has two
     /// immediates encoded in aaa of EVEX.
     MRM0rImmAAA = 13,
@@ -1223,6 +1233,7 @@ namespace X86II {
     case X86II::MRMDestMem:
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
+    case X86II::MRMDestMemCC:
       return (TSFlags & X86II::OpMapMask) == X86II::T_MAP4 &&
                      (TSFlags & X86II::EVEX_B)
                  ? 1
@@ -1253,11 +1264,21 @@ namespace X86II {
       // Skip registers encoded in reg, VEX_VVVV, and I8IMM.
       return 3;
     case X86II::MRMSrcMemCC:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+      return 1 + HasVEX_4V; // CMOV has NDD version.
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     case X86II::MRMDestMem4VOp3CC:
       // Start from 1, skip any registers encoded in VEX_VVVV or I8IMM, or a
       // mask register.
       return 1;
     case X86II::MRMDestReg:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    case X86II::MRMDestRegCC:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     case X86II::MRMSrcReg:
     case X86II::MRMSrcReg4VOp3:
     case X86II::MRMSrcRegOp4:

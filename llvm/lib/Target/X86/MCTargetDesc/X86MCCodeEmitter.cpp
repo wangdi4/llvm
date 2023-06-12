@@ -1309,6 +1309,11 @@ PrefixKind X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand,
   case X86II::MRM_C0:
   case X86II::RawFrm:
     break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86II::MRMDestMemCC:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86II::MRMDestMemFSIB:
   case X86II::MRMDestMem: {
     // MRMDestMem instructions forms:
@@ -1352,6 +1357,11 @@ PrefixKind X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand,
     Prefix.setRR2(MI, CurOp++);
     break;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86II::MRMSrcMemCC:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86II::MRMSrcMemFSIB:
   case X86II::MRMSrcMem: {
     // MRMSrcMem instructions forms:
@@ -1465,6 +1475,11 @@ PrefixKind X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand,
 
     break;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86II::MRMSrcRegCC:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86II::MRMSrcReg: {
     // MRMSrcReg instructions forms:
     //  dst(ModR/M), src1(VEX_4V), src2(ModR/M), src3(Imm[7:4])
@@ -1473,18 +1488,24 @@ PrefixKind X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand,
     //
     //  FMA4:
     //  dst(ModR/M.reg), src1(VEX_4V), src2(Imm[7:4]), src3(ModR/M),
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (IsND)
+      Prefix.set4VV2(MI, CurOp++, true);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     Prefix.setRR2(MI, CurOp++);
 
     if (HasEVEX_K)
       Prefix.setAAA(MI, CurOp++);
 
-    if (HasVEX_4V)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-      Prefix.set4VV2(MI, CurOp++, IsND);
+    if (HasVEX_4V && !IsND)
 #else  // INTEL_FEATURE_ISA_APX_F
-      Prefix.set4VV2(MI, CurOp++);
+    if (HasVEX_4V)
 #endif // INTEL_FEATURE_ISA_APX_F
+      Prefix.set4VV2(MI, CurOp++);
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
@@ -1555,6 +1576,11 @@ PrefixKind X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand,
     ++CurOp;
     break;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86II::MRMDestRegCC:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86II::MRMDestReg: {
     // MRMDestReg instructions forms:
     //  dst(ModR/M), src(ModR/M)
@@ -2117,6 +2143,17 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI,
     break;
   }
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86II::MRMDestRegCC: {
+    unsigned FirstOp = CurOp++;
+    unsigned SecondOp = CurOp++;
+    unsigned CC = MI.getOperand(CurOp++).getImm();
+    emitByte(BaseOpcode + CC, CB);
+    emitRegModRMByte(MI.getOperand(FirstOp),
+                     getX86RegNum(MI.getOperand(SecondOp)), CB);
+    break;
+  }
+#endif // INTEL_FEATURE_ISA_APX_F
   case X86II::MRMDestReg4VOp3: {
     emitByte(BaseOpcode, CB);
     unsigned SrcRegNum = CurOp + 1;
@@ -2175,6 +2212,20 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI,
     CurOp = SrcRegNum + 1;
     break;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86II::MRMDestMemCC: {
+    unsigned MemOp = CurOp;
+    CurOp = MemOp + X86::AddrNumOperands;
+    unsigned RegOp = CurOp++;
+    unsigned CC = MI.getOperand(CurOp++).getImm();
+    emitByte(BaseOpcode + CC, CB);
+    emitMemModRMByte(MI, MemOp, getX86RegNum(MI.getOperand(RegOp)),
+                     TSFlags, Kind, StartByte, CB, Fixups, STI);
+    break;
+  }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86II::MRMSrcReg: {
     emitByte(BaseOpcode, CB);
     unsigned SrcRegNum = CurOp + 1;
@@ -2185,6 +2236,12 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI,
     if (HasVEX_4V) // Skip 1st src (which is encoded in VEX_VVVV)
       ++SrcRegNum;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (IsND)
+      ++CurOp;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     emitRegModRMByte(MI.getOperand(SrcRegNum),
                      getX86RegNum(MI.getOperand(CurOp)), CB);
     CurOp = SrcRegNum + 1;
@@ -2222,6 +2279,12 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI,
     break;
   }
   case X86II::MRMSrcRegCC: {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (IsND)
+      ++CurOp;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     unsigned FirstOp = CurOp++;
     unsigned SecondOp = CurOp++;
 
@@ -2290,6 +2353,12 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI,
     break;
   }
   case X86II::MRMSrcMemCC: {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (IsND)
+      ++CurOp;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     unsigned RegOp = CurOp++;
     unsigned FirstMemOp = CurOp;
     CurOp = FirstMemOp + X86::AddrNumOperands;

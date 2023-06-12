@@ -1217,6 +1217,7 @@ class lzcntrm_EVEX<bits<8> opcode, string mnemonic, X86TypeInfo info,
              "{$src, $dst|$dst, $src}", []>, 
     Sched<[sched]> {
   let Opcode = opcode;
+  let mayLoad = 1;
 }
 
 multiclass lzcnt_base<bits<8> opcode, bits<8> opcode2, X86TypeInfo info> {
