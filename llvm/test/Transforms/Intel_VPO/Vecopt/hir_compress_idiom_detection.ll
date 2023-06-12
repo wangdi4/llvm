@@ -110,8 +110,10 @@
 ; CM8: Cost 4 for i32 [[VP9:%.*]] = compress-expand-index-inc {stride: 1} i32 [[VP3:%.*]]
 ; CM8: Cost Unknown for i32 [[VP11:%.*]] = compress-expand-index-final i32 [[VP9]]
 
+; OPTREPORT: remark #15447: --- begin vector loop memory reference summary ---
 ; OPTREPORT: remark #15497: vector compress: 1
-; OPTREPORT: remark #15498: vector expand: 0
+; OPTREPORT-NOT: remark #15498: vector expand
+; OPTREPORT: remark #15474: --- end vector loop memory reference summary ---
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
