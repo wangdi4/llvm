@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-disable-offload -vpo-paropt-prepare-disable-offload -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-disable-offload -vpo-paropt-prepare-disable-offload -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-disable-offload -vpo-paropt-prepare-disable-offload -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-disable-offload -vpo-paropt-prepare-disable-offload -S %s | FileCheck %s
 
 ; Test that the flags -vpo-paropt-disable-offload
 ;   and               -vpo-paropt-prepare-disable-offload
@@ -26,42 +26,40 @@
 ; Verify that other OMP code unrelated to offloading was emitted
 ; CHECK: call void {{.*}} @__kmpc_fork_call({{.*}})
 
-; ModuleID = 'target_no_offload.c'
-source_filename = "target_no_offload.c"
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+; ModuleID = 'target_no_offload_using_option.c'
+source_filename = "target_no_offload_using_option.c"
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 target device_triples = "spir64"
 
-
 ; Function Attrs: noinline nounwind optnone uwtable
-define dso_local i32 @main() #0 {
+define dso_local i32 @main() {
 entry:
   %retval = alloca i32, align 4
   %x = alloca i32, align 4
-  store i32 0, i32* %retval, align 4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM"(i32* %x) ]
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED"(i32* %x) ]
-  store i32 123, i32* %x, align 4
+  store i32 0, ptr %retval, align 4
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    "QUAL.OMP.MAP.TOFROM"(ptr %x, ptr %x, i64 4, i64 35, ptr null, ptr null) ] ; MAP type: 35 = 0x23 = TARGET_PARAM (0x20) | FROM (0x2) | TO (0x1)
+
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
+    "QUAL.OMP.SHARED:TYPED"(ptr %x, i32 0, i32 1) ]
+
+  store i32 123, ptr %x, align 4
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.PARALLEL"() ]
+
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
-  %2 = load i32, i32* %x, align 4
+
+  %2 = load i32, ptr %x, align 4
   ret i32 %2
 }
 
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #1
+declare token @llvm.directive.region.entry() 
 
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #1
+declare void @llvm.directive.region.exit(token) 
 
-attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-
-attributes #1 = { nounwind }
+declare void @__tgt_register_requires(i64) 
 
 !omp_offload.info = !{!0}
-!llvm.module.flags = !{!1}
-!llvm.ident = !{!2}
 
-!0 = !{i32 0, i32 58, i32 -700835614, !"main", i32 4, i32 0, i32 0}
-!1 = !{i32 1, !"wchar_size", i32 4}
-!2 = !{!"clang version 9.0.0"}
+!0 = !{i32 0, i32 64773, i32 3825470, !"_Z4main", i32 4, i32 0, i32 0, i32 0}
