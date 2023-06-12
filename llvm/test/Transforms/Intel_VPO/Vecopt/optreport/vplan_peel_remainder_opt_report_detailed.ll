@@ -14,7 +14,6 @@
 ; VEC-REM-NEXT:     remark #15309: vectorization support: normalized vectorization overhead 0.000000
 ; VEC-REM-NEXT:     remark #15570: using scalar loop trip count: 300
 ; VEC-REM-NEXT:     remark #15482: vectorized math library calls: 1
-; VEC-REM-NEXT:     remark #15484: vector function calls: 0
 ; VEC-REM-NEXT:     remark #15485: serialized function calls: 1
 ; VEC-REM-IR-NEXT:        remark #15558: Call to function 'serial_call' was serialized due to no suitable vector variants were found.
 ; VEC-REM-NEXT:     remark #15488: --- end vector loop cost summary ---
@@ -26,7 +25,6 @@
 ; VEC-REM-NEXT:     remark #15305: vectorization support: vector length 2
 ; VEC-REM-NEXT:     remark #15475: --- begin vector loop cost summary ---
 ; VEC-REM-NEXT:     remark #15482: vectorized math library calls: 1
-; VEC-REM-NEXT:     remark #15484: vector function calls: 0
 ; VEC-REM-NEXT:     remark #15485: serialized function calls: 1
 ; VEC-REM-IR-NEXT:        remark #15558: Call to function 'serial_call' was serialized due to no suitable vector variants were found.
 ; VEC-REM-NEXT:     remark #15488: --- end vector loop cost summary ---
@@ -65,7 +63,6 @@
 ; VEC-PEEL-DYNAMIC-NEXT:     remark #15577: estimated number of scalar loop iterations peeled: 3
 ; VEC-PEEL-NEXT:     remark #15475: --- begin vector loop cost summary ---
 ; VEC-PEEL-NEXT:     remark #15482: vectorized math library calls: 1
-; VEC-PEEL-NEXT:     remark #15484: vector function calls: 0
 ; VEC-PEEL-NEXT:     remark #15485: serialized function calls: 1
 ; VEC-PEEL-IR-NEXT:     remark #15558: Call to function 'serial_call' was serialized due to no suitable vector variants were found.
 ; VEC-PEEL-NEXT:     remark #15488: --- end vector loop cost summary ---
