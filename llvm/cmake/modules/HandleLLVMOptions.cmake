@@ -29,6 +29,7 @@ include(HandleLLVMStdlib)
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
 include(CheckSymbolExists)
+include(CheckCSourceCompiles)
 include(CMakeDependentOption)
 include(LLVMProcessSources)
 
