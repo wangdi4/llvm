@@ -1304,6 +1304,17 @@ defm cuda_prec_sqrt : BoolFOption<"cuda-prec-sqrt",
   PosFlag<SetTrue, [CC1Option], "Specify">,
   NegFlag<SetFalse, [], "Don't specify">,
   BothFlags<[], " that sqrt is correctly rounded (for CUDA devices)">>;
+def mprintf_kind_EQ : Joined<["-"], "mprintf-kind=">, Group<m_Group>,
+  HelpText<"Specify the printf lowering scheme (AMDGPU only), allowed values are "
+  "\"hostcall\"(printing happens during kernel execution, this scheme "
+  "relies on hostcalls which require system to support pcie atomics) "
+  "and \"buffered\"(printing happens after all kernel threads exit, "
+  "this uses a printf buffer and does not rely on pcie atomic support)">,
+  Flags<[CC1Option]>,
+  Values<"hostcall,buffered">,
+  NormalizedValuesScope<"TargetOptions::AMDGPUPrintfKind">,
+  NormalizedValues<["Hostcall", "Buffered"]>,
+  MarshallingInfoEnum<TargetOpts<"AMDGPUPrintfKindVal">, "Hostcall">;
 def fgpu_default_stream_EQ : Joined<["-"], "fgpu-default-stream=">,
   HelpText<"Specify default stream. The default value is 'legacy'. (HIP only)">,
   Flags<[CC1Option]>,
