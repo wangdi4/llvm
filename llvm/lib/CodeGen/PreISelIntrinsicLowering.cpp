@@ -23,14 +23,9 @@
 //
 //===----------------------------------------------------------------------===//
 //
-<<<<<<< HEAD
-// This pass implements IR lowering for the llvm.load.relative and llvm.objc.*
-// intrinsics.
-// Also llvm.intel.subscript is lowered here. // INTEL
-=======
 // This pass implements IR lowering for the llvm.memcpy, llvm.memmove,
 // llvm.memset, llvm.load.relative and llvm.objc.* intrinsics.
->>>>>>> 3c848194f28decca41b7362f9dd35d4939797724
+// Also llvm.intel.subscript is lowered here. // INTEL
 //
 //===----------------------------------------------------------------------===//
 
@@ -197,7 +192,89 @@ static bool lowerObjCCall(Function &F, const char *NewFn,
   return true;
 }
 
-<<<<<<< HEAD
+// TODO: Should refine based on estimated number of accesses (e.g. does it
+// require splitting based on alignment)
+bool PreISelIntrinsicLowering::shouldExpandMemIntrinsicWithSize(
+    Value *Size, const TargetTransformInfo &TTI) {
+  ConstantInt *CI = dyn_cast<ConstantInt>(Size);
+  if (!CI)
+    return true;
+  uint64_t Threshold = MemIntrinsicExpandSizeThresholdOpt.getNumOccurrences()
+                           ? MemIntrinsicExpandSizeThresholdOpt
+                           : TTI.getMaxMemIntrinsicInlineSizeThreshold();
+  uint64_t SizeVal = CI->getZExtValue();
+
+  // Treat a threshold of 0 as a special case to force expansion of all
+  // intrinsics, including size 0.
+  return SizeVal > Threshold || Threshold == 0;
+}
+
+// TODO: Handle atomic memcpy and memcpy.inline
+// TODO: Pass ScalarEvolution
+bool PreISelIntrinsicLowering::expandMemIntrinsicUses(Function &F) const {
+  Intrinsic::ID ID = F.getIntrinsicID();
+  bool Changed = false;
+
+  for (User *U : llvm::make_early_inc_range(F.users())) {
+    Instruction *Inst = cast<Instruction>(U);
+
+    switch (ID) {
+    case Intrinsic::memcpy: {
+      auto *Memcpy = cast<MemCpyInst>(Inst);
+      Function *ParentFunc = Memcpy->getFunction();
+      const TargetTransformInfo &TTI = LookupTTI(*ParentFunc);
+      if (shouldExpandMemIntrinsicWithSize(Memcpy->getLength(), TTI)) {
+        if (UseMemIntrinsicLibFunc &&
+            LookupLibInfo(*ParentFunc).has(LibFunc_memcpy))
+          break;
+
+        expandMemCpyAsLoop(Memcpy, TTI);
+        Changed = true;
+        Memcpy->eraseFromParent();
+      }
+
+      break;
+    }
+    case Intrinsic::memmove: {
+      auto *Memmove = cast<MemMoveInst>(Inst);
+      Function *ParentFunc = Memmove->getFunction();
+      const TargetTransformInfo &TTI = LookupTTI(*ParentFunc);
+      if (shouldExpandMemIntrinsicWithSize(Memmove->getLength(), TTI)) {
+        if (UseMemIntrinsicLibFunc &&
+            LookupLibInfo(*ParentFunc).has(LibFunc_memmove))
+          break;
+
+        expandMemMoveAsLoop(Memmove);
+        Changed = true;
+        Memmove->eraseFromParent();
+      }
+
+      break;
+    }
+    case Intrinsic::memset: {
+      auto *Memset = cast<MemSetInst>(Inst);
+      Function *ParentFunc = Memset->getFunction();
+      const TargetTransformInfo &TTI = LookupTTI(*ParentFunc);
+      if (shouldExpandMemIntrinsicWithSize(Memset->getLength(), TTI)) {
+        if (UseMemIntrinsicLibFunc &&
+            LookupLibInfo(*Memset->getFunction()).has(LibFunc_memset))
+          break;
+
+        expandMemSetAsLoop(Memset);
+        Changed = true;
+        Memset->eraseFromParent();
+      }
+
+      break;
+    }
+    default:
+      llvm_unreachable("unhandled intrinsic");
+    }
+  }
+
+  return Changed;
+}
+
 #if INTEL_CUSTOMIZATION
 // Reference code is in Intel_LowerSubscriptIntrinsic.cpp:lowerIntrinsics().
 // Duplicated to avoid build dependencies on Scalar library.
@@ -352,92 +429,11 @@ static bool lowerDirectiveRegionEntryExit(Function &F) {
       Intrin->replaceAllUsesWith(UndefValue::get(Intrin->getType()));
       Intrin->eraseFromParent();
       Changed = true;
-=======
-// TODO: Should refine based on estimated number of accesses (e.g. does it
-// require splitting based on alignment)
-bool PreISelIntrinsicLowering::shouldExpandMemIntrinsicWithSize(
-    Value *Size, const TargetTransformInfo &TTI) {
-  ConstantInt *CI = dyn_cast<ConstantInt>(Size);
-  if (!CI)
-    return true;
-  uint64_t Threshold = MemIntrinsicExpandSizeThresholdOpt.getNumOccurrences()
-                           ? MemIntrinsicExpandSizeThresholdOpt
-                           : TTI.getMaxMemIntrinsicInlineSizeThreshold();
-  uint64_t SizeVal = CI->getZExtValue();
-
-  // Treat a threshold of 0 as a special case to force expansion of all
-  // intrinsics, including size 0.
-  return SizeVal > Threshold || Threshold == 0;
-}
-
-// TODO: Handle atomic memcpy and memcpy.inline
-// TODO: Pass ScalarEvolution
-bool PreISelIntrinsicLowering::expandMemIntrinsicUses(Function &F) const {
-  Intrinsic::ID ID = F.getIntrinsicID();
-  bool Changed = false;
-
-  for (User *U : llvm::make_early_inc_range(F.users())) {
-    Instruction *Inst = cast<Instruction>(U);
-
-    switch (ID) {
-    case Intrinsic::memcpy: {
-      auto *Memcpy = cast<MemCpyInst>(Inst);
-      Function *ParentFunc = Memcpy->getFunction();
-      const TargetTransformInfo &TTI = LookupTTI(*ParentFunc);
-      if (shouldExpandMemIntrinsicWithSize(Memcpy->getLength(), TTI)) {
-        if (UseMemIntrinsicLibFunc &&
-            LookupLibInfo(*ParentFunc).has(LibFunc_memcpy))
-          break;
-
-        expandMemCpyAsLoop(Memcpy, TTI);
-        Changed = true;
-        Memcpy->eraseFromParent();
-      }
-
-      break;
-    }
-    case Intrinsic::memmove: {
-      auto *Memmove = cast<MemMoveInst>(Inst);
-      Function *ParentFunc = Memmove->getFunction();
-      const TargetTransformInfo &TTI = LookupTTI(*ParentFunc);
-      if (shouldExpandMemIntrinsicWithSize(Memmove->getLength(), TTI)) {
-        if (UseMemIntrinsicLibFunc &&
-            LookupLibInfo(*ParentFunc).has(LibFunc_memmove))
-          break;
-
-        expandMemMoveAsLoop(Memmove);
-        Changed = true;
-        Memmove->eraseFromParent();
-      }
-
-      break;
-    }
-    case Intrinsic::memset: {
-      auto *Memset = cast<MemSetInst>(Inst);
-      Function *ParentFunc = Memset->getFunction();
-      const TargetTransformInfo &TTI = LookupTTI(*ParentFunc);
-      if (shouldExpandMemIntrinsicWithSize(Memset->getLength(), TTI)) {
-        if (UseMemIntrinsicLibFunc &&
-            LookupLibInfo(*Memset->getFunction()).has(LibFunc_memset))
-          break;
-
-        expandMemSetAsLoop(Memset);
-        Changed = true;
-        Memset->eraseFromParent();
-      }
-
-      break;
-    }
-    default:
-      llvm_unreachable("unhandled intrinsic");
->>>>>>> 3c848194f28decca41b7362f9dd35d4939797724
     }
   }
-
   return Changed;
 }
 
-<<<<<<< HEAD
 static bool lowerIntelDirectiveElementsize(Function &F) {
   if (F.use_empty())
     return false;
@@ -457,10 +453,7 @@ static bool lowerIntelDirectiveElementsize(Function &F) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-static bool lowerIntrinsics(Module &M) {
-=======
 bool PreISelIntrinsicLowering::lowerIntrinsics(Module &M) const {
->>>>>>> 3c848194f28decca41b7362f9dd35d4939797724
   bool Changed = false;
   for (Function &F : M) {
 
