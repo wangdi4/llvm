@@ -5560,13 +5560,38 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     }
     CmdArgs.push_back("-aux-triple");
     CmdArgs.push_back(Args.MakeArgString(NormalizedTriple));
+
+    if (JA.isDeviceOffloading(Action::OFK_HIP) &&
+        getToolChain().getTriple().isAMDGPU()) {
+      // Device side compilation printf
+      if (Args.getLastArg(options::OPT_mprintf_kind_EQ)) {
+        CmdArgs.push_back(Args.MakeArgString(
+            "-mprintf-kind=" +
+            Args.getLastArgValue(options::OPT_mprintf_kind_EQ)));
+        // Force compiler error on invalid conversion specifiers
+        CmdArgs.push_back(
+            Args.MakeArgString("-Werror=format-invalid-specifier"));
+      }
+    }
   }
 
+<<<<<<< HEAD
   Arg *SYCLStdArg = Args.getLastArg(options::OPT_sycl_std_EQ);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   bool enableFuncPointers =
       Args.hasArg(options::OPT_fsycl_enable_function_pointers);
 #endif // INTEL_CUSTOMIZATION
+=======
+=======
+  // Unconditionally claim the printf option now to avoid unused diagnostic.
+  if (const Arg *PF = Args.getLastArg(options::OPT_mprintf_kind_EQ))
+    PF->claim();
+
+  if (Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false)) {
+    CmdArgs.push_back("-fsycl-is-device");
+>>>>>>> 631c965483e03355cdc1dba578e787b259c4d79d
+>>>>>>> 81d2fce4fb09604ad904b2a76ea71046bf62fba6
 
   if (IsSYCLOffloadDevice) {
     if (Triple.isNVPTX()) {
