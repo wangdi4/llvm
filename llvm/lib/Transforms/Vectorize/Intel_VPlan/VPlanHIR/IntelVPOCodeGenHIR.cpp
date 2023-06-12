@@ -22,7 +22,6 @@
 #include "IntelVPlanHCFGBuilderHIR.h"
 #include "IntelVPlanVLSClientHIR.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/TargetParser/Triple.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
@@ -39,6 +38,7 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/TypeSize.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/Transforms/Utils/GeneralUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
@@ -3786,22 +3786,24 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
   // Attach PreferredAlignmentMetadata if VPLdSt is a dynamic peeling candidate.
   if (NeedPeelLoop) {
     VPlanPeelingVariant *PreferredPeeling = Plan->getPreferredPeeling(VF);
-    if (auto *DynPeeling =
+    if (const auto *DynPeeling =
             dyn_cast_or_null<VPlanDynamicPeeling>(PreferredPeeling)) {
       if (VPLdSt == DynPeeling->memref()) {
-        LLVMContext &Context = *Plan->getLLVMContext();
         auto *CI = ConstantInt::get(Type::getInt32Ty(Context),
                                     DynPeeling->targetAlignment().value());
-        SmallVector<Metadata *, 1> Ops{ConstantAsMetadata::get(CI)};
-        MemRef->setMetadata("intel.preferred_alignment",
-                            MDTuple::get(Context, Ops));
-        auto DL = MemRef->getDDRefUtils().getDataLayout();
-        auto LdStValAlignment = DL.getABITypeAlign(VPLdSt->getValueType());
+        MemRef->setMetadata(
+            "intel.preferred_alignment",
+            MDTuple::get(Context, {ConstantAsMetadata::get(CI)}));
 
-        // If memory ref is properly aligned on element boundary, we can set
-        // its alignment to the target alignment from dynamic peeling.
-        if (Alignment == LdStValAlignment)
-          MemRef->setAlignment(DynPeeling->targetAlignment().value());
+        if (EmitAlignedLoadForPeeledMemref) {
+          // Check to see if the memory ref is properly aligned on element
+          // boundary. In this case, we can set its alignment to the target
+          // alignment from dynamic peeling.
+          if (Alignment ==
+              MemRef->getDDRefUtils().getDataLayout().getABITypeAlign(
+                  VPLdSt->getValueType()))
+            MemRef->setAlignment(DynPeeling->targetAlignment().value());
+        }
       }
     }
   }
