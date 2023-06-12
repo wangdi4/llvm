@@ -5575,11 +5575,14 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     }
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   bool enableFuncPointers =
       Args.hasArg(options::OPT_fsycl_enable_function_pointers);
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> d45d1e4c5f11716837bb857f64df5e8f4e5261b8
   // Unconditionally claim the printf option now to avoid unused diagnostic.
   if (const Arg *PF = Args.getLastArg(options::OPT_mprintf_kind_EQ))
     PF->claim();
