@@ -127,6 +127,8 @@ namespace X86Local {
     PrefixByte    = 10,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
+    MRMDestRegCC = 11,
+    MRMDestMemCC = 12,
     MRM0rImmAAA = 13,
     MRM6rImmAAA = 14,
 #endif // INTEL_FEATURE_ISA_APX_F

@@ -41,6 +41,11 @@ class VPlanCFGMerger {
   unsigned MainVF;
   unsigned MainUF;
 
+  /// When dynamic peeling, if this value is non-zero, emit a trip-count check
+  /// to see if the real TC is less than this value. If so, we skip to the main
+  /// loop and proceed unaligned.
+  uint64_t MinimumProfitablePeelTC = 0;
+
   // Instruction that contain PeelCount. It's assigned during VPlan CG for peel
   // count calculation and used in the follow up VPlan CG for various checks.
   VPValue *PeelCount = nullptr;

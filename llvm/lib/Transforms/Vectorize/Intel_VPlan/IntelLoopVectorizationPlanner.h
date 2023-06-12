@@ -124,6 +124,10 @@ public:
   bool hasRemainder() const { return !Remainders.empty(); }
   bool isMainMasked() const { return Main.Kind == LKMasked; }
 
+  uint64_t getMinimumProfitablePeelTC() const {
+    return MinimumProfitablePeelTC;
+  }
+
   /// Simple main vector loop and scalar remainder scenario of a
   /// a constant trip count loop. The main vector and scalar remainder
   /// loops can be added for such scenarios without any checks to see
@@ -194,7 +198,10 @@ private:
   void addRemainder(const AuxLoopDescr RD) { Remainders.emplace_back(RD); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-  void resetPeel() { Peel = {LKNone, 0}; }
+  void resetPeel() {
+    Peel = {LKNone, 0};
+    MinimumProfitablePeelTC = 0;
+  }
   void resetMain() {
     Main = {LKScalar, 1};
     MainUF = 1;
@@ -219,7 +226,7 @@ private:
     Main = {LKMasked, VF};
     MainUF = 1;
   }
-
+  void setMinimumProfitablePeelTC(uint64_t N) { MinimumProfitablePeelTC = N; }
 
   AuxLoopDescr Main;
   AuxLoopDescr Peel;
@@ -228,6 +235,10 @@ private:
 
   // Is the loop we are dealing with a constant trip loop?
   bool IsConstTC = false;
+
+  // For dynamic peeling: what is the minimum trip count for peeling to become
+  // profitable?
+  uint64_t MinimumProfitablePeelTC = 0;
 };
 
 inline raw_ostream &operator<<(raw_ostream &OS,
@@ -402,16 +413,17 @@ public:
   /// Go through all VPlans and run the VPlan verifier on them
   // TODO: VerifyLoopInfo should change to be flags for skipping/running
   //       checks once verifyVPlan uses that
-  void verifyAllVPlans(VPlanVerifier *V, const bool VerifyLoopInfo = false) {
+  void verifyAllVPlans(VPlanVerifier *V,
+                       unsigned int Flags = VPlanVerifier::SkipLoopInfo) {
     SmallPtrSet<VPlan *, 2> Visited;
 
     for (auto &Pair : VPlans) {
       VPlanVector *P = Pair.second.MainPlan.get();
       if (Visited.insert(P).second)
-        V->verifyVPlan(P, *P->getDT(), P->getVPLoopInfo(), VerifyLoopInfo);
+        V->verifyVPlan(P, *P->getDT(), P->getVPLoopInfo(), Flags);
       P = Pair.second.MaskedModeLoop.get();
       if (P && Visited.insert(P).second)
-        V->verifyVPlan(P, *P->getDT(), P->getVPLoopInfo(), VerifyLoopInfo);
+        V->verifyVPlan(P, *P->getDT(), P->getVPLoopInfo(), Flags);
     }
   }
 #endif
@@ -793,6 +805,10 @@ private:
   /// representation. The analysis results can be invalidated/stale after this
   /// transform.
   void emitVPEntityInstrs(VPlanVector *Plan);
+
+  /// Produce optimization report remarks for VPReductions.
+  void reportReductions(VPlanVector *Plan, VPLoop *MainLoop,
+                        VPLoopEntityList *LE);
 
   /// Clear NSW/NUW flags from reduction instructions if necessary.
   void clearWrapFlagsForReductions(VPlanVector *Plan);

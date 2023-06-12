@@ -67,10 +67,17 @@ static cl::opt<bool> DisableNonMonotonicIndexes(
 // Enable VPlan vectorization of generic early exit loops. This flag enables the
 // experimental feature that vectorizes early exit loops by explicitly
 // representing them in VPlan IR.
-cl::opt<bool> VPlanEnableEarlyExitLoops(
-    "vplan-enable-early-exit-loops", cl::init(false), cl::Hidden,
+static cl::opt<bool, true> VPlanEnableEarlyExitLoopsOpt(
+    "vplan-enable-early-exit-loops",
+    cl::location(vpo::VPlanEnableEarlyExitLoops), cl::Hidden,
     cl::desc("Enable vectorization of early-exit loops. NOTE: This is an "
              "experimental feature under development."));
+
+namespace llvm {
+namespace vpo {
+bool VPlanEnableEarlyExitLoops = false;
+} // namespace vpo
+} // namespace llvm
 
 namespace {
 
@@ -890,7 +897,7 @@ void ParVecInfo::analyze(HLLoop *Loop, const TargetTransformInfo *TTI,
 
   // Safety/legality analysis for auto-vectorizing early exit loops through
   // explicit VPlan representation.
-  if (VPlanEnableEarlyExitLoops && Loop->isDoMultiExit()) {
+  if (vpo::VPlanEnableEarlyExitLoops && Loop->isDoMultiExit()) {
     if (!isVectorizableEarlyExitLoop(Loop)) {
       setVecType(UNSAFE_MULTI_EXIT_LOOP);
       emitDiag();

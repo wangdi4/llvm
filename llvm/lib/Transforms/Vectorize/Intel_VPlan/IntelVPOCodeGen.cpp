@@ -44,11 +44,7 @@ using namespace llvm::vpo;
 #define DEBUG_TYPE "vpo-ir-loop-vectorize"
 
 extern bool Usei1MaskForSimdFunctions;
-
-static cl::opt<bool> PredicateSafeValueDivision(
-    "vplan-predicate-safe-value-div", cl::init(false), cl::Hidden,
-    cl::desc("Always serialize masked integer division, even if divisor is "
-             "known to be safe for speculation."));
+extern bool VFABILegalizationEnabled;
 
 static void addBlockToParentLoop(Loop *L, BasicBlock *BB, LoopInfo &LI) {
   if (auto *ParentLoop = L->getParentLoop())
@@ -2944,6 +2940,7 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
   Value *Mask = createVectorMaskArg(VPCall, *VecVariant, MaskToUse);
   VecArgs.push_back(Mask);
   VecArgTys.push_back(Mask->getType());
+  VecArgAttrs.emplace_back();
 }
 
 Value *VPOCodeGen::createVectorMaskArg(VPCallInstruction *VPCall,
@@ -3526,33 +3523,79 @@ void VPOCodeGen::generateVectorCalls(VPCallInstruction *VPCall,
     vectorizeCallArgs(VPCall, MatchedVariant, VectorIntrinID, PumpPart,
                       PumpFactor, VecArgs, VecArgTys, VecArgAttrs);
 
+    SmallVector<int, 4> ArgChunks(VecArgTys.size(), 1);
+    int RetChunks = 1;
+    Type *VecRetTy = nullptr;
     Function *VectorF = nullptr;
     if (MatchedVariant) {
-      Type *VecRetTy =
+      VecRetTy =
           getWidenedReturnType(VPCall->getType(), MatchedVariant->getVF());
 
       assert(VF / PumpFactor == MatchedVariant->getVF() &&
              "VLEN mismatch for vector variant.");
+
+      if (VFABILegalizationEnabled &&
+          VFInfo::isIntelVFABIMangling(MatchedVariant->VectorName))
+        VFABI::calcVectorVariantParamChunks(
+            ArgChunks, RetChunks, VecArgTys, VecRetTy, *MatchedVariant,
+            Plan->getDataLayout()->getPointerSizeInBits() == 64);
+
       VectorF = getOrInsertVectorVariantFunction(*CalledFunc, *MatchedVariant,
-                                                 VecArgTys, VecRetTy);
+                                                 VecArgTys, VecRetTy, ArgChunks,
+                                                 RetChunks);
     } else {
       VectorF =
           getOrInsertVectorLibFunction(CalledFunc, VF / PumpFactor, VecArgTys,
                                        TLI, VectorIntrinID, IsMasked);
     }
+    SmallVector<AttributeSet, 2> LegalizedVecArgAttrs;
+    SmallVector<Value *, 2> LegalizedVecArgs;
+    for (unsigned ArgIdx = 0; ArgIdx < VecArgs.size(); ++ArgIdx) {
+      Value *LogicalArg = VecArgs[ArgIdx];
+      AttributeSet Attrs = VecArgAttrs[ArgIdx];
+      int NumChunks = ArgChunks[ArgIdx];
+      assert(NumChunks > 0 && "Expected at least one data chunk.");
+      bool Fragmented = NumChunks != 1;
+      for (int Chunk = 0; Chunk < NumChunks; ++Chunk) {
+        Value *ChunkV = Fragmented ? generateExtractSubVector(
+                                         LogicalArg, Chunk, NumChunks, Builder)
+                                   : LogicalArg;
+        LegalizedVecArgs.push_back(ChunkV);
+        LegalizedVecArgAttrs.push_back(Attrs);
+      }
+    }
+
     assert(VectorF && "Can't create vector function.");
-    CallInst *VecCall = Builder.CreateCall(VectorF, VecArgs);
+    CallInst *VecCall = Builder.CreateCall(VectorF, LegalizedVecArgs);
     VecCall->setCallingConv(VectorF->getCallingConv());
+
+    Value *CallResult = VecCall;
+    if (RetChunks > 1) {
+      assert(isa<StructType>(VecCall->getType()) &&
+             "Expected struct return for multiple chunks.");
+
+      SmallVector<Value *> RetParts;
+      for (int Chunk = 0; Chunk < RetChunks; ++Chunk)
+        RetParts.push_back(Builder.CreateExtractValue(VecCall, Chunk));
+      CallResult = getCombinedCallResults(RetParts);
+      assert(CallResult->getType() == VecRetTy &&
+             "Combined result type does not match logical return type.");
+    } else {
+      assert(RetChunks == 1 && "Expected single data chunk for return.");
+    }
+
     if (VPCall->getType()->isIntegerTy(1)) {
       // Trunc the result back to i1 after it has been promoted to i8,
       // in order not to conflict with ret type users.
       Value *Trunc = Builder.CreateTrunc(
-        VecCall,
-        getWidenedType(Type::getInt1Ty(Builder.getContext()), VF / PumpFactor),
-        VecCall->getName() + ".trunc");
+          CallResult,
+          getWidenedType(Type::getInt1Ty(Builder.getContext()),
+                         VF / PumpFactor),
+          VecCall->getName() + ".trunc");
       CallResults.push_back(Trunc);
-    } else
-      CallResults.push_back(VecCall);
+    } else {
+      CallResults.push_back(CallResult);
+    }
 
     // Copy fast math flags represented in VPInstruction.
     // TODO: investigate why attempting to copy fast math flags for __read_pipe
@@ -3561,11 +3604,11 @@ void VPOCodeGen::generateVectorCalls(VPCallInstruction *VPCall,
         !isOpenCLReadChannel(CalledFunc->getName())) {
       VPCall->copyOperatorFlagsTo(VecCall);
     }
-
     // Make sure we don't lose attributes at the call site. E.g., IMF
     // attributes are taken from call sites in MapIntrinToIml to refine
     // SVML calls for precision.
-    setRequiredAttributes(VPCall->getOrigCallAttrs(), VecCall, VecArgAttrs);
+    setRequiredAttributes(VPCall->getOrigCallAttrs(), VecCall,
+                          LegalizedVecArgAttrs);
 
     // No blending is required here for masked simd function calls as of now for
     // two reasons:

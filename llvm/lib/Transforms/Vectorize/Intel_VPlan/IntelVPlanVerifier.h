@@ -1,6 +1,6 @@
 //===-- IntelVPlanVerifier.h ------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016-2023 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -92,7 +92,36 @@ private:
 
   /// Verify the CFG of the loop.
   static void verifyCFGExternals(const VPlan *Plan);
+
+  // Verify that all of the Phi and Blend statements are at the start
+  // of the block.
+  void verifyPhiBlendPlacement(const VPBasicBlock *Block) const;
+
+  // Verify that an instruction dominates all of its uses
+  void verifySSA(const VPInstruction *I, const VPDominatorTree *DT) const;
+
+  // Helper functions to hide the underlying enum check
+  bool shouldSkipLoopInfo(unsigned int Flags) const {
+    return Flags & SkipLoopInfo;
+  }
+
+  bool shouldSkipExternals(unsigned int Flags) const {
+    return Flags & SkipExternals;
+  }
+
+  bool shouldSkipInnerMultiExit(unsigned int Flags) const {
+    return Flags & SkipInnerMultiExit;
+  }
+
 public:
+  // Enum for holding the flags to be given to verifyVPlan to skip
+  // parts of the verification.
+  enum {
+    SkipLoopInfo = 1 << 0,
+    SkipExternals = 1 << 1,
+    SkipInnerMultiExit = 1 << 2
+  };
+
   VPlanVerifier(const Loop *Lp, const DataLayout &DLObj)
       : TheLoop(Lp), DL(DLObj) {}
 
@@ -106,7 +135,7 @@ public:
 
   /// Verify CFG externals, VPLoopInfo, VPLoop and number of loops in loop nest
   void verifyVPlan(const VPlanVector *Plan, const VPDominatorTree &VPDomTree,
-                   VPLoopInfo *VPLInfo, const bool VerifyLoopInfo = false);
+                   VPLoopInfo *VPLInfo, unsigned int Flags = 0);
 };
 } // namespace vpo
 } // namespace llvm

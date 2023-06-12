@@ -30,10 +30,10 @@ endif()
 if (NOT TARGET LLVMGenXIntrinsics)
   if (NOT DEFINED LLVMGenXIntrinsics_SOURCE_DIR)
     set(LLVMGenXIntrinsics_GIT_REPO https://github.com/intel/vc-intrinsics.git)
-    # Author: "Victor Mustya" <victor.mustya@intel.com>
-    # Date: Mon, 15 May 2023 23:44:14 +0000
-    # Mark new lsc_load_merge intrinsics as LSC ones
-    set(LLVMGenXIntrinsics_GIT_TAG fe92a377338258b725cfbd0a1bd49a9cf5e2864c)
+    # Author: Gorban, Igor <igor.gorban@intel.com>
+    # Date:   Tue Jun 6 23:56:43 2023 +0000
+    # Mark llvm15 tests failures
+    set(LLVMGenXIntrinsics_GIT_TAG 910db4801d4a029834606e3e42a8d60358e74fdf)
 
     if (INTEL_CUSTOMIZATION)
       # for xmain builds the LLVMGenXIntrinsics_GIT_REPO is constructed from
@@ -44,10 +44,10 @@ if (NOT TARGET LLVMGenXIntrinsics)
       # default repo path for public xmain builds, not using ICS
       set(LLVMGenXIntrinsics_GIT_REPO_PATH https://github.com/intel)
       set(LLVMGenXIntrinsics_GIT_REPO_NAME vc-intrinsics.git)
-      # Author: "Victor Mustya" <victor.mustya@intel.com>
-      # Date: Mon, 15 May 2023 23:44:14 +0000
-      # Mark new lsc_load_merge intrinsics as LSC ones
-      set(LLVMGenXIntrinsics_GIT_TAG fe92a377338258b725cfbd0a1bd49a9cf5e2864c)
+      # Author: Gorban, Igor <igor.gorban@intel.com>
+      # Date:   Tue Jun 6 23:56:43 2023 +0000
+      # Mark llvm15 tests failures
+      set(LLVMGenXIntrinsics_GIT_TAG 910db4801d4a029834606e3e42a8d60358e74fdf)
 
       # Determine if the build is embargo and provide specific settings.
       set(IS_INTERNAL_ESIMD_BUILD FALSE)
@@ -57,10 +57,10 @@ if (NOT TARGET LLVMGenXIntrinsics)
       if (IS_INTERNAL_ESIMD_BUILD)
         # override git repo name and tag for the internal ESIMD EMBARGO build
         set(LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git)
-        # Author: "Victor Mustya" <victor.mustya@intel.com>
-        # Date: Mon, 15 May 2023 16:51:13 -0700
-        # [BugFix] Mark new lsc_load_merge intrinsics as LSC ones
-        set(LLVMGenXIntrinsics_GIT_TAG 0fa8556cc23ae1d6c0493ee9c6f4b14971b6dc7f)
+        # Author: Gorban, Igor <igor.gorban@intel.com>
+        # Date:   Tue Jun 6 23:56:43 2023 +0000
+        # Mark llvm15 tests failures
+        set(LLVMGenXIntrinsics_GIT_TAG ea08174555b58685d93d5a072f897fcc81b374c8)
 
         add_compile_definitions(__INTEL_EMBARGO__)
         # LLVM_CMAKE_DIR is required by the internal vc-intrinsics repo, but is

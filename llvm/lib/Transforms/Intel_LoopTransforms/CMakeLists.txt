@@ -90,8 +90,9 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         HIRNormalizeCasts.cpp
         HIRSpecialOptPredicate.cpp
 # INTEL_FEATURE_SW_ADVANCED
-        HIRInterLoopBlocking.cpp
         HIRCrossLoopArrayContraction.cpp
+        HIRInterLoopBlocking.cpp
+        HIRNonPerfectNestLoopBlocking.cpp
 # end INTEL_FEATURE_SW_ADVANCED
 
         ADDITIONAL_HEADER_DIRS

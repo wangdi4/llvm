@@ -14,6 +14,8 @@
 ; ModuleID = 't1.c'
 ;RUN: opt -passes='hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg,mem2reg' -vplan-force-vf=8 -S %s 2>&1 | FileCheck %s
 ;
+;RUN: opt -passes=hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-optreport-emitter -vplan-force-vf=8 -disable-output -intel-opt-report=high %s 2>&1 | FileCheck %s --check-prefix=OPTRPT
+;
 ; CHECK:           BEGIN REGION { modified }
 ; CHECK:           %red.init = 0;
 ; CHECK:           %red.init.insert = insertelement %red.init,  %sum.07,  0;
@@ -33,6 +35,10 @@
 ; CHECK: afterloop
 ; CHECK: call i32 @llvm.vector.reduce.add.v8i32(<8 x i32> [[WIDE_ADD]])
 ; CHECK-NOT: add i32
+
+; OPTRPT: remark #25587: Loop has reduction
+; OPTRPT-NEXT: remark #15590: vectorization support: add reduction of value type i32
+
 source_filename = "t1.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

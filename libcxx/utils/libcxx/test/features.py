@@ -420,6 +420,7 @@ DEFAULT_FEATURES += [
           """,
         ),
         actions=[AddCompileFlag("-DTEST_WINDOWS_DLL")],
+    ),
     # INTEL_CUSTOMIZATION
     # Disable fast float point in libcxx lit testing since Werror
     # "comparison with NaN always evaluates to false in fast floating point

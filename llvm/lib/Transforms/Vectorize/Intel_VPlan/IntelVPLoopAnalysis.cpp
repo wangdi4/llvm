@@ -3038,27 +3038,36 @@ void VPLoopEntityList::analyzeImplicitLastPrivates() {
 // Insert VPInstructions corresponding to the VPLoopEntities like
 // VPInductions, VPReductions and VPPrivates.
 void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
-  // If the loop is multi-exit then the code gen for it is done using
-  // underlying IR and we don't need to emit anything here.
-  if (!Loop.getUniqueExitBlock())
+  // If the loop is an implicit multi-exit then the code gen for it is done
+  // using underlying IR and we don't need to emit anything here.
+  if (!VPlanEnableEarlyExitLoops && !Loop.getUniqueExitBlock())
     return;
 
   preprocess();
 
-  VPBasicBlock *PostExit = Loop.getUniqueExitBlock();
+  // Collect all exits from the loop and obtain the main exit (from latch). We
+  // will emit entity finalization in the main exit block.
+  SmallVector<VPBasicBlock *, 2> PostExits;
+  Loop.getExitBlocks(PostExits);
+  VPBasicBlock *MainExit = nullptr;
+  for (auto *Exit : PostExits)
+    if (Exit->getSinglePredecessor() == Loop.getLoopLatch())
+      MainExit = Exit;
+  assert(MainExit && "Could not find main exit of loop.");
+
   VPBasicBlock *Preheader = Loop.getLoopPreheader();
 
   // Insert VPInstructions related to VPReductions.
-  insertReductionVPInstructions(Builder, Preheader, PostExit);
+  insertReductionVPInstructions(Builder, Preheader, MainExit);
 
   // Insert VPInstructions related to VPInductions.
-  insertInductionVPInstructions(Builder, Preheader, PostExit);
+  insertInductionVPInstructions(Builder, Preheader, MainExit);
 
   // Insert VPInstructions related to VPPrivates.
-  insertPrivateVPInstructions(Builder, Preheader, PostExit);
+  insertPrivateVPInstructions(Builder, Preheader, MainExit);
 
   // Insert VPInstructions related to VPCompressExpandIdioms.
-  insertCompressExpandVPInstructions(Builder, Preheader, PostExit);
+  insertCompressExpandVPInstructions(Builder, Preheader, MainExit);
 }
 
 // Create close-form calculation for induction.

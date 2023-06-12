@@ -4,6 +4,11 @@
 ; RUN: opt %s -disable-output -passes=vplan-vec -vplan-print-after-vpentity-instrs -vplan-nested-simd-strategy=innermost -vplan-force-vf=4 | FileCheck %s --check-prefix=INNER
 ; RUN: opt %s -disable-output -passes=vplan-vec -vplan-print-after-vpentity-instrs -vplan-force-vf=4 | FileCheck %s --check-prefix=OUTER
 
+; RUN: opt %s -disable-output -passes=hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec -debug-only=LoopVectorizationPlanner -vplan-nested-simd-strategy=bailout 2>&1 | FileCheck %s --check-prefix=BAILOUT
+; RUN: opt %s -disable-output -passes=hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec -vplan-print-after-vpentity-instrs -vplan-nested-simd-strategy=outermost -vplan-force-vf=4 | FileCheck %s --check-prefix=HIR-OUTER
+; RUN: opt %s -disable-output -passes=hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec -vplan-print-after-vpentity-instrs -vplan-nested-simd-strategy=innermost -vplan-force-vf=4 | FileCheck %s --check-prefix=HIR-INNER
+; RUN: opt %s -disable-output -passes=hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec -vplan-print-after-vpentity-instrs -vplan-force-vf=4 | FileCheck %s --check-prefix=HIR-OUTER
+
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -67,6 +72,77 @@ define internal void @foo(ptr nocapture readonly %a.addr.0.val, ptr noalias noca
 ; INNER-EMPTY:
 ; INNER-NEXT:  External Uses:
 ; INNER-NEXT:  Id: 0     [[ADD22_LCSSA0:%.*]] = phi i32 [ [[ADD220:%.*]], [[OMP_INNER_FOR_BODY170:%.*]] ] i32 [[VP_ADD222RED_FINAL]] -> i32 [[ADD220]]
+;
+; HIR-OUTER-LABEL:  VPlan after insertion of VPEntities instructions:
+; HIR-OUTER-NEXT:  VPlan IR for: foo:HIR.#{{[0-9]+}}
+;
+; HIR-OUTER:         [[BB2:BB[0-9]+]]: # preds: [[BB1:BB[0-9]+]], [[BB3:BB[0-9]+]]
+; HIR-OUTER-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 [[VP__IND_INIT:%.*]], [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB3]] ]
+; HIR-OUTER-NEXT:     i32 [[VP7:%.*]] = phi  [ i32 [[VP_I_PRIV_IND_INIT:%.*]], [[BB1]] ],  [ i32 [[VP8:%.*]], [[BB3]] ]
+; HIR-OUTER-NEXT:     store i32 [[VP7]] ptr [[VP_I_PRIV:%.*]]
+; HIR-OUTER-NEXT:     i32 [[VP9:%.*]] = trunc i64 [[VP5]] to i32
+; HIR-OUTER-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[VP_I_PRIV]]
+; HIR-OUTER-NEXT:     store i32 [[VP9]] ptr [[VP_SUBSCRIPT]]
+; HIR-OUTER-NEXT:     ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[A_ADDR_0_VAL0:%.*]] i64 [[VP5]]
+; HIR-OUTER-NEXT:     ptr [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_2]]
+; HIR-OUTER-NEXT:     ptr [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds ptr [[SUM0:%.*]]
+; HIR-OUTER-NEXT:     i32 [[VP_LOAD_2:%.*]] = load ptr [[VP_SUBSCRIPT_3]]
+; HIR-OUTER-NEXT:     br [[BB4:BB[0-9]+]]
+;
+; HIR-OUTER:         [[BB5:BB[0-9]+]]: # preds: [[BB4]], [[BB5]]
+; HIR-OUTER-NEXT:     i32 [[VP10:%.*]] = phi  [ i32 [[VP_LOAD_2]], [[BB4]] ],  [ i32 [[VP11:%.*]], [[BB5]] ]
+; HIR-OUTER-NEXT:     i64 [[VP12:%.*]] = phi  [ i64 0, [[BB4]] ],  [ i64 [[VP13:%.*]], [[BB5]] ]
+; HIR-OUTER-NEXT:     ptr [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds ptr [[VP_LOAD_1]] i64 [[VP12]]
+; HIR-OUTER-NEXT:     i32 [[VP_LOAD_3:%.*]] = load ptr [[VP_SUBSCRIPT_4]]
+; HIR-OUTER-NEXT:     i32 [[VP11]] = add i32 [[VP10]] i32 [[VP_LOAD_3]]
+; HIR-OUTER-NEXT:     i64 [[VP13]] = add i64 [[VP12]] i64 1
+; HIR-OUTER-NEXT:     i1 [[VP14:%.*]] = icmp slt i64 [[VP13]] i64 1024
+; HIR-OUTER-NEXT:     br i1 [[VP14]], [[BB5]], [[BB3]]
+; HIR-OUTER-EMPTY:
+; HIR-OUTER-NEXT:    [[BB3]]: # preds: [[BB5]]
+; HIR-OUTER-NEXT:     ptr [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds ptr [[SUM0]]
+; HIR-OUTER-NEXT:     store i32 [[VP11]] ptr [[VP_SUBSCRIPT_5]]
+; HIR-OUTER-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 [[VP__IND_INIT_STEP:%.*]]
+; HIR-OUTER-NEXT:     i32 [[VP8]] = add i32 [[VP7]] i32 [[VP_I_PRIV_IND_INIT_STEP:%.*]]
+; HIR-OUTER-NEXT:     i1 [[VP15:%.*]] = icmp slt i64 [[VP6]] i64 1024
+; HIR-OUTER-NEXT:     br i1 [[VP15]], [[BB2]], [[BB6:BB[0-9]+]]
+;
+; HIR-INNER-LABEL:  VPlan after insertion of VPEntities instructions:
+; HIR-INNER-NEXT:  VPlan IR for: foo:HIR.#{{[0-9]+}}
+; HIR-INNER-NEXT:  External Defs Start:
+; HIR-INNER-DAG:     [[VP0:%.*]] = {%add222}
+; HIR-INNER-DAG:     [[VP1:%.*]] = {%j.linear.iv}
+; HIR-INNER-DAG:     [[VP2:%.*]] = {%i7}
+; HIR-INNER-NEXT:  External Defs End:
+; HIR-INNER-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; HIR-INNER-NEXT:     br [[BB1:BB[0-9]+]]
+; HIR-INNER-EMPTY:
+; HIR-INNER-NEXT:    [[BB1]]: # preds: [[BB0]]
+; HIR-INNER-NEXT:     i32 [[VP_RED_INIT:%.*]] = reduction-init i32 0 i32 [[ADD2220:%.*]]
+; HIR-INNER-NEXT:     i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
+; HIR-INNER-NEXT:     i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
+; HIR-INNER-NEXT:     br [[BB2:BB[0-9]+]]
+; HIR-INNER-EMPTY:
+; HIR-INNER-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
+; HIR-INNER-NEXT:     i32 [[VP3:%.*]] = phi  [ i32 [[VP_RED_INIT]], [[BB1]] ],  [ i32 [[VP4:%.*]], [[BB2]] ]
+; HIR-INNER-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
+; HIR-INNER-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[I70:%.*]] i64 [[VP5]]
+; HIR-INNER-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
+; HIR-INNER-NEXT:     i32 [[VP4]] = add i32 [[VP3]] i32 [[VP_LOAD]]
+; HIR-INNER-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 [[VP__IND_INIT_STEP]]
+; HIR-INNER-NEXT:     i1 [[VP7:%.*]] = icmp slt i64 [[VP6]] i64 1024
+; HIR-INNER-NEXT:     br i1 [[VP7]], [[BB2]], [[BB3:BB[0-9]+]]
+; HIR-INNER-EMPTY:
+; HIR-INNER-NEXT:    [[BB3]]: # preds: [[BB2]]
+; HIR-INNER-NEXT:     i32 [[VP_RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP4]]
+; HIR-INNER-NEXT:     i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; HIR-INNER-NEXT:     br [[BB4:BB[0-9]+]]
+; HIR-INNER-EMPTY:
+; HIR-INNER-NEXT:    [[BB4]]: # preds: [[BB3]]
+; HIR-INNER-NEXT:     br <External Block>
+; HIR-INNER-EMPTY:
+; HIR-INNER-NEXT:  External Uses:
+; HIR-INNER-NEXT:  Id: 0   i32 [[VP_RED_FINAL]] -> [[VP8:%.*]] = {%add222}
 ;
 DIR.OMP.SIMD.4:
   %i.priv = alloca i32, align 4

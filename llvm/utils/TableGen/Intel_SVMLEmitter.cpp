@@ -1,5 +1,5 @@
 //
-//      Copyright (c) 2016-2017 Intel Corporation.
+//      Copyright (c) 2016-2023 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION
@@ -158,6 +158,7 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
 
   // TODO: Should we use VecDescAttrs::IsOCLFn to set this?
   unsigned IsOCLFnAttr = 1;
+  unsigned IsFortranOnlyAttr = 4;
   OS << "{\"_Z5floorf\", \"_Z5floorDv4_f\", FIXED(4), false, " << IsOCLFnAttr << "},\n";
   OS << "{\"_Z5floorf\", \"_Z5floorDv8_f\", FIXED(8), false, " << IsOCLFnAttr << "},\n";
   OS << "{\"_Z5floorf\", \"_Z5floorDv16_f\", FIXED(16), false, " << IsOCLFnAttr << "},\n";
@@ -409,6 +410,16 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
   OS << "{\"_Z4iremii\", \"_Z4iremDv16_iS_\", FIXED(16), true, " << IsOCLFnAttr << "},\n";
   OS << "{\"_Z4iremii\", \"_Z4iremDv32_iS_\", FIXED(32), true, " << IsOCLFnAttr << "},\n";
   OS << "{\"_Z4iremii\", \"_Z4iremDv64_iS_\", FIXED(64), true, " << IsOCLFnAttr << "},\n";
+
+  OS << "{\"for_random_number\", \"for_simd_random_number\", FIXED(2), false, " << IsFortranOnlyAttr << "},\n";
+  OS << "{\"for_random_number\", \"for_simd_random_number_mask\", FIXED(2), true, " << IsFortranOnlyAttr << "},\n";
+  OS << "{\"for_random_number\", \"for_simd_random_number_avx\", FIXED(4), false, " << IsFortranOnlyAttr << "},\n";
+  OS << "{\"for_random_number\", \"for_simd_random_number_avx_mask\", FIXED(4), true, " << IsFortranOnlyAttr << "},\n";
+
+  OS << "{\"for_random_number_single\", \"for_simd_random_number_single\", FIXED(4), false, " << IsFortranOnlyAttr << "},\n";
+  OS << "{\"for_random_number_single\", \"for_simd_random_number_single_mask\", FIXED(4), true, " << IsFortranOnlyAttr << "},\n";
+  OS << "{\"for_random_number_single\", \"for_simd_random_number_single_avx\", FIXED(8), false, " << IsFortranOnlyAttr << "},\n";
+  OS << "{\"for_random_number_single\", \"for_simd_random_number_single_avx_mask\", FIXED(8), true, " << IsFortranOnlyAttr << "},\n";
 
   OS << "#endif // GET_SVML_VARIANTS\n\n";
 }
