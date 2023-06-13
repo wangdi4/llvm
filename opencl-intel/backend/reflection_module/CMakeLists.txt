@@ -28,7 +28,7 @@ add_custom_command(
     ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins
     ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/source/misc_main.td -o
     ${BUILT_IN_LIST_INC}
-  DEPENDS ocl-tblgen ${OCL_ALL_TD_FILES}
+  DEPENDS ocl-tblgen clang ${OCL_ALL_TD_FILES}
   COMMENT "Generating demangled headers..."
   VERBATIM)
 add_custom_target(builtin_list_target DEPENDS ${BUILT_IN_LIST_INC})

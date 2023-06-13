@@ -683,5 +683,5 @@ add_custom_command(
 
 add_custom_target(
   VectorizationInfoGen ALL
-  DEPENDS ${VECTORIZATION_INFO_GEN} ${OCL_TBLGEN}
+  DEPENDS ${VECTORIZATION_INFO_GEN} ${CLANG} ${OCL_TBLGEN}
   VERBATIM)
