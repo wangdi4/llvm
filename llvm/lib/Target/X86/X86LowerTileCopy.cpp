@@ -38,6 +38,7 @@
 #include "X86InstrInfo.h"
 #include "X86Subtarget.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
+#include "llvm/CodeGen/MachineDominators.h" // INTEL
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
@@ -57,6 +58,8 @@ using namespace llvm;
 namespace {
 
 class X86LowerTileCopy : public MachineFunctionPass {
+  MachineDominatorTree *MDT = nullptr; // INTEL
+
 public:
   static char ID;
 
@@ -83,10 +86,12 @@ char X86LowerTileCopy::ID = 0;
 
 INITIALIZE_PASS_BEGIN(X86LowerTileCopy, "lowertilecopy", "Tile Copy Lowering",
                       false, false)
+INITIALIZE_PASS_DEPENDENCY(MachineDominatorTree) // INTEL
 INITIALIZE_PASS_END(X86LowerTileCopy, "lowertilecopy", "Tile Copy Lowering",
                     false, false)
 
 void X86LowerTileCopy::getAnalysisUsage(AnalysisUsage &AU) const {
+  AU.addRequired<MachineDominatorTree>(); // INTEL
   AU.setPreservesAll();
   MachineFunctionPass::getAnalysisUsage(AU);
 }
@@ -151,6 +156,40 @@ bool X86LowerTileCopy::coalesceTileCopy(MachineFunction &MF) {
   return Changed;
 }
 
+static bool isDefinedOnceByTileZero(const MachineOperand &Operand,
+                                    const MachineFunction &MF,
+                                    MachineDominatorTree *MDT,
+                                    const MachineInstr &TC) {
+  // Not a register operand, so it cannot be defined by TileZero.
+  if (!Operand.isReg())
+    return false;
+  unsigned int RegisterNumber = Operand.getReg();
+  bool HasConfig = false;
+  bool HasTileZero = false;
+
+  // FIXME: Should Traverse all the path from root to TC.getParent(),
+  // check the nearest definition is TILEZERO.
+  // For now, we only search for A's only definition dominate "B = tilecopy A"
+  const MachineRegisterInfo *MRI = &MF.getRegInfo();
+  if (std::distance(MRI->def_instr_begin(RegisterNumber),
+                    MRI->def_instr_end()) != 2)
+    return false;
+  for (MachineInstr &DefMI : MRI->def_instructions(RegisterNumber)) {
+    if (DefMI.getOpcode() == X86::PLDTILECFGV) {
+#ifdef EXPENSIVE_CHECKS
+      assert(MDT->dominates(&DefMI, &TC) &&
+             "PLDTILECFGV must dominate B = tilecopy A!");
+#endif
+      HasConfig = true;
+      continue;
+    }
+    // Check if the register is defined by TileZero in this instruction
+    if (DefMI.getOpcode() == X86::PTILEZEROV && MDT->dominates(&DefMI, &TC))
+      HasTileZero = true;
+  }
+  return HasConfig && HasTileZero;
+}
+
 bool X86LowerTileCopy::transformTileCopy(MachineFunction &MF) {
   const X86Subtarget &ST = MF.getSubtarget<X86Subtarget>();
   const X86InstrInfo *TII = ST.getInstrInfo();
@@ -167,6 +206,18 @@ bool X86LowerTileCopy::transformTileCopy(MachineFunction &MF) {
       if (!X86::TILERegClass.contains(DstReg, SrcReg))
         continue;
 
+      // directly transform B = tilecopy A into tilezero if A is defined once:
+      // bb1:
+      //  A = tilezero
+      // bb2:
+      //  B = tilecopy A
+      const DebugLoc &DL = MI.getDebugLoc();
+      if (isDefinedOnceByTileZero(SrcMO, MF, MDT, MI)) {
+        BuildMI(MBB, MI, DL, TII->get(X86::TILEZERO), DstReg);
+        MI.eraseFromParent();
+        Changed = true;
+        continue;
+      }
       const TargetRegisterInfo *TRI = ST.getRegisterInfo();
       // Allocate stack slot for tile register
       unsigned Size = TRI->getSpillSize(X86::TILERegClass);
@@ -181,7 +232,6 @@ bool X86LowerTileCopy::transformTileCopy(MachineFunction &MF) {
       // to get live interval in this stage.
       Register GR64Cand = X86::RAX;
 
-      const DebugLoc &DL = MI.getDebugLoc();
       // mov %rax (%sp)
       BuildMI(MBB, MI, DL, TII->get(X86::IMPLICIT_DEF), GR64Cand);
       addFrameReference(BuildMI(MBB, MI, DL, TII->get(X86::MOV64mr)), StrideSS)
@@ -212,6 +262,7 @@ bool X86LowerTileCopy::transformTileCopy(MachineFunction &MF) {
 }
 
 bool X86LowerTileCopy::runOnMachineFunction(MachineFunction &MF) {
+  MDT = &getAnalysis<MachineDominatorTree>();
   if (MF.getTarget().getOptLevel() == CodeGenOpt::None)
     return coalesceTileCopy(MF);
   else
