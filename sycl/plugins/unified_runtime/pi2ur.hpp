@@ -3889,13 +3889,6 @@ inline pi_result piSamplerGetInfo(pi_sampler Sampler, pi_sampler_info ParamName,
 
   size_t UrParamValueSizeRet;
   auto hSampler = reinterpret_cast<ur_sampler_handle_t>(Sampler);
-<<<<<<< HEAD
-  HANDLE_ERRORS(urSamplerGetInfo(hSampler, InfoType, SizeInOut, ParamValue,
-                                 ParamValueSizeRet));
-  ur2piSamplerInfoValue(InfoType, ParamValueSize, &ParamValueSize, ParamValue);
-  fixupInfoValueTypes(SizeInOut, ParamValueSizeRet, ParamValue);
-
-=======
   HANDLE_ERRORS(urSamplerGetInfo(hSampler, InfoType, ParamValueSize, ParamValue,
                                  &UrParamValueSizeRet));
   if (ParamValueSizeRet) {
@@ -3904,7 +3897,6 @@ inline pi_result piSamplerGetInfo(pi_sampler Sampler, pi_sampler_info ParamName,
   ur2piSamplerInfoValue(InfoType, ParamValueSize, &ParamValueSize, ParamValue);
   fixupInfoValueTypes(UrParamValueSizeRet, ParamValueSizeRet, ParamValueSize,
                       ParamValue);
->>>>>>> dfe440a7d03784e15e317fe99e03e623aed80327
   return PI_SUCCESS;
 }
 
