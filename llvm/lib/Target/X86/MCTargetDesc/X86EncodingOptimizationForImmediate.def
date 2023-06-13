@@ -88,7 +88,7 @@ ENTRY(PUSH32i, PUSH32i8)
 ENTRY(PUSH64i32, PUSH64i8)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-#define ENTRIES(LONG, SHORT)                                              \
+#define ENTRIES(LONG, SHORT)                                                   \
   ENTRY(LONG##_EVEX, SHORT##_EVEX)                                             \
   ENTRY(LONG##_NF, SHORT##_NF)                                                 \
   ENTRY(LONG##_ND, SHORT##_ND)                                                 \
@@ -124,7 +124,7 @@ ENTRIES(XOR32ri, XOR32ri8)
 ENTRIES(XOR64mi32, XOR64mi8)
 ENTRIES(XOR64ri32, XOR64ri8)
 #undef ENTRIES
-#define ENTRIES(LONG, SHORT)                                         \
+#define ENTRIES(LONG, SHORT)                                                   \
   ENTRY(LONG##_EVEX, SHORT##_EVEX)                                             \
   ENTRY(LONG##_ND, SHORT##_ND)
 ENTRIES(ADC16mi, ADC16mi8)
@@ -140,7 +140,7 @@ ENTRIES(SBB32ri, SBB32ri8)
 ENTRIES(SBB64mi32, SBB64mi8)
 ENTRIES(SBB64ri32, SBB64ri8)
 #undef ENTRIES
-#define ENTRIES(LONG, SHORT)                                         \
+#define ENTRIES(LONG, SHORT)                                                   \
   ENTRY(LONG##_EVEX, SHORT##_EVEX)                                             \
   ENTRY(LONG##_NF, SHORT##_NF)
 ENTRIES(IMUL16rmi, IMUL16rmi8)
