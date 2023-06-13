@@ -556,6 +556,7 @@ static bool doCallSiteSplitting(Function &F, TargetLibraryInfo &TLI,
   return Changed;
 }
 
+<<<<<<< HEAD
 namespace {
 struct CallSiteSplittingLegacyPass : public FunctionPass {
   static char ID;
@@ -596,6 +597,8 @@ FunctionPass *llvm::createCallSiteSplittingPass() {
   return new CallSiteSplittingLegacyPass();
 }
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 76294935d3164176b25d14d2cfc777567c0153c2
 PreservedAnalyses CallSiteSplittingPass::run(Function &F,
                                              FunctionAnalysisManager &AM) {
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
