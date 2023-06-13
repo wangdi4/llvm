@@ -26,11 +26,7 @@
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O23SZ ;INTEL
 ; RUN: opt -disable-verify -verify-analysis-invalidation=0 -eagerly-invalidate-analyses=0 -debug-pass-manager \
 ; RUN:     -passes='lto<O3>' -S  %s -passes-ep-peephole='no-op-function' 2>&1 \
-<<<<<<< HEAD
-; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O3,CHECK-O23SZ,CHECK-EP-Peephole
-=======
 ; RUN:     | FileCheck %s --check-prefixes=CHECK-O,CHECK-O3,CHECK-O23SZ,CHECK-EP-Peephole ;INTEL
->>>>>>> cffa20de00f5fc6149bafe12f68b3a67ecacb0cc
 
 ; CHECK-EP: Running pass: NoOpModulePass
 ; CHECK-O: Running pass: CrossDSOCFIPass
@@ -75,11 +71,7 @@
 ; CHECK-O23SZ-NEXT: Running analysis: ProfileSummaryAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
 ; CHECK-O23SZ-NEXT: Running pass: IPSCCPPass
-<<<<<<< HEAD
-; CHECK-O23SZ-NEXT: Running analysis: AssumptionAnalysis on foo
-=======
 ; COM: CHECK-O23SZ-NEXT: Running analysis: AssumptionAnalysis on foo ;INTEL
->>>>>>> cffa20de00f5fc6149bafe12f68b3a67ecacb0cc
 ; CHECK-O23SZ-NEXT: Running pass: CalledValuePropagationPass
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}SCC
 ; CHECK-O-NEXT: Running analysis: LazyCallGraphAnalysis
