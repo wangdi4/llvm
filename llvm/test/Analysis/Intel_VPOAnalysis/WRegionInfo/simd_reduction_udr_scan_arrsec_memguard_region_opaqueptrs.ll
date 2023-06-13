@@ -37,7 +37,7 @@
 ; CHECK: BEGIN SIMD ID=1 {
 ; ...
 ; CHECK:   REDUCTION-INSCAN maps: (1: INCLUSIVE) (2: INCLUSIVE)
-; CHECK:   REDUCTION clause (size=2): (UDR: BYREF(ptr %x.addr), TYPED (TYPE: %class.C = type { i32 }, NUM_ELEMENTS: i64 %sec.number_of_elements, OFFSET: i64 %sec.offset_in_elements) INSCAN<1> ) (ADD: ptr @y, TYPED (TYPE: i32, NUM_ELEMENTS: i32 1) INSCAN<2>)
+; CHECK:   REDUCTION clause (size=2): (INSCAN<1>, UDR: BYREF(ptr %x.addr), TYPED (TYPE: %class.C = type { i32 }, NUM_ELEMENTS: i64 %sec.number_of_elements, OFFSET: i64 %sec.offset_in_elements) ) (INSCAN<2>, ADD: ptr @y, TYPED (TYPE: i32, NUM_ELEMENTS: i32 1))
 ; CHECK:   LINEAR clause (size=1): IV(ptr %i, TYPED (TYPE: i32, NUM_ELEMENTS: i32 1), i32 1)
 ; ...
 ; CHECK:   BEGIN GUARD.MEM.MOTION ID=2 {

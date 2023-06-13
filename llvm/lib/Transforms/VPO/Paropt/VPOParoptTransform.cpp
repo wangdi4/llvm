@@ -6536,6 +6536,15 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genReductionCode\n");
 
   ReductionClause &RedClause = W->getRed();
+
+  for (ReductionItem *RedI : RedClause.items()) {
+    if (RedI->getIsTask()) {
+      std::string ErrorMsg = "Task reduction-modifier on a reduction clause is "
+                             "currently not supported\n";
+      F->getContext().diagnose(DiagnosticInfoUnsupported(*F, ErrorMsg));
+    }
+  }
+
   if (!RedClause.empty()) {
     // Check if fast reduction is enabled and which mode should be used:
     // tree-like reduction only and tree-like + atomic reduction.

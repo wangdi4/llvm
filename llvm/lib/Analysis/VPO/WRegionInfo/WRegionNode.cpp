@@ -1549,9 +1549,9 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
   };
 
   if (ClauseInfo.getIsTask()) {
-    emitError("task reduction-modifier on a reduction clause is currently not "
-              "supported");
-    return;
+    if (!canHaveReductionTask())
+      emitError("reduction(task) is not supported on the " + getName() +
+                " construct.");
   }
 
   uint64_t InscanIdx = 0;
@@ -1591,6 +1591,7 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
         WRegionUtils::supportsRegDDRefs(C.getClauseID()))
       RI->setHOrig(CurrentBundleDDRefs[0]);
 #endif // INTEL_CUSTOMIZATION
+    RI->setIsTask(ClauseInfo.getIsTask());
     if (InscanIdx) {
       RI->setIsInscan(true);
       RI->setInscanIdx(InscanIdx);
@@ -1686,6 +1687,7 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
         (void)ExpectedNumArgs;
       }
 
+      RI->setIsTask(ClauseInfo.getIsTask());
       RI->setType((ReductionItem::WRNReductionKind)ReductionKind);
       RI->setIsUnsigned(IsUnsigned);
       RI->setIsComplex(IsComplex);
@@ -2538,6 +2540,22 @@ bool WRegionNode::canHaveReductionInscan() const {
 #endif
   case WRNVecLoop:
   case WRNGenericLoop:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::canHaveReductionTask() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNParallel:
+  case WRNParallelLoop:
+  case WRNParallelSections:
+  case WRNDistributeParLoop:
+  case WRNScope:
+  case WRNSections:
+  case WRNWksLoop:
+  case WRNParallelWorkshare:
     return true;
   }
   return false;
