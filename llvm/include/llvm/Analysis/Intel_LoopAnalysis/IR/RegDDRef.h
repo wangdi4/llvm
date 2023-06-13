@@ -37,6 +37,8 @@ namespace loopopt {
 
 class HLDDNode;
 
+typedef DenseMap<MDNode *, MDNode *> NoAliasScopeMapTy;
+
 /// Regular DDRef representing Values
 ///
 /// Objects of this class represent temps and load/stores. Information to
@@ -1392,6 +1394,10 @@ public:
 
   /// Verifies RegDDRef integrity.
   virtual void verify() const override;
+
+  /// Replaces the noalias and alias.scope metadata for this memref with its
+  /// mapped version as specified in \p NoAliasScopeMap.
+  void replaceNoAliasScopeInfo(NoAliasScopeMapTy &NoAliasScopeMap);
 };
 
 } // End namespace loopopt

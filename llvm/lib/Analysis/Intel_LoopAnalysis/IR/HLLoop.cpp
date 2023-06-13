@@ -2556,3 +2556,28 @@ bool HLLoop::hasLikelySmallTripCount(unsigned SmallTCThreshold) const {
 
   return false;
 }
+
+void HLLoop::addMappedNoAliasScopes(ArrayRef<MDNode *> NoAliasScopeLists,
+                                    NoAliasScopeMapTy &NoAliasScopeMap) {
+
+  assert((NoAliasScopeLists.empty() || !NoAliasScopeMap.empty()) &&
+         "NoAliasScopeMap is not expected to be empty when there are scopes to "
+         "be mapped!");
+
+  auto &Context = getHLNodeUtils().getContext();
+
+  for (auto *OrigScopeList : NoAliasScopeLists) {
+    auto *OrigScope = cast<MDNode>(OrigScopeList->getOperand(0));
+    auto *NewScope = NoAliasScopeMap[OrigScope];
+
+    // The reason we sometimes fail to find the mapped scope is because for
+    // unknown loop unrolling, the caller passes extra scopes which were mapped
+    // for previous unroll iteration.
+    if (!NewScope)
+      continue;
+
+    auto *NewScopeList = MDNode::get(Context, {NewScope});
+
+    addNoAliasScopeList(NewScopeList);
+  }
+}

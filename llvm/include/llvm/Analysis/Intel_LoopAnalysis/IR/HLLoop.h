@@ -1493,6 +1493,14 @@ public:
 
   /// Returns all the NoAlias scope lists associated with this loop.
   ArrayRef<MDNode *> getNoAliasScopeLists() const { return NoAliasScopeLists; }
+
+  /// Removes all NoAlias scope lists associated with this loop.
+  void clearNoAliasScopeLists() { NoAliasScopeLists.clear(); }
+
+  /// Creates a new scoped list for each scope in \p NoAliasScopeLists which is
+  /// mapped to a different scope in \p NoAliasScopeMap and adds it to loop.
+  void addMappedNoAliasScopes(ArrayRef<MDNode *> NoAliasScopeLists,
+                              NoAliasScopeMapTy &NoAliasScopeMap);
 };
 
 /// Loop information related to its parallel characteristics, such as
