@@ -60,6 +60,14 @@ cl::opt<bool> ShowDetailedWarning("show-detailed-warning",
 cl::opt<bool>
     LeadingIPOnly("leading-ip-only",
                   cl::desc("Form a profile based only on sample IPs"));
+
+static cl::list<std::string> PerfEventFilter(
+    "perf-event",
+    cl::desc("Ignore samples not matching the given event names"));
+static cl::alias
+    PerfEventFilterPlural("perf-events", cl::CommaSeparated,
+                          cl::desc("Comma-delimited version of -perf-event"),
+                          cl::aliasopt(PerfEventFilter));
 #endif // INTEL_CUSTOMIZATION
 
 extern cl::opt<std::string> PerfTraceFilename;
@@ -418,10 +426,17 @@ PerfScriptReader::convertPerfDataToTrace(ProfiledBinary *Binary,
     exitWithError("No relevant mmap event is found in perf data.");
   }
 
+#if INTEL_CUSTOMIZATION
+  // If filtering by events was requested, additionally request the "event"
+  // field.
+  const std::string FieldList =
+      PerfEventFilter.empty() ? "ip,brstack" : "event,ip,brstack";
+#endif // INTEL_CUSTOMIZATION
+
   // Run perf script again to retrieve events for PIDs collected above
-  StringRef ScriptSampleArgs[] = {PerfPath, "script",     "--show-mmap-events",
-                                  "-F",     "ip,brstack", "--pid",
-                                  PIDs,     "-i",         PerfData};
+  StringRef ScriptSampleArgs[] = {PerfPath, "script",  "--show-mmap-events",
+                                  "-F",     FieldList, "--pid", // INTEL
+                                  PIDs,     "-i",      PerfData};
   sys::ExecuteAndWait(PerfPath, ScriptSampleArgs, std::nullopt, Redirects);
 
   return {PerfTraceFile, PerfFormat::PerfScript, PerfContent::UnknownContent};
@@ -578,18 +593,47 @@ bool PerfScriptReader::extractLBRStack(TraceStream &TraceIt,
 
   // Skip the leading instruction pointer.
   size_t Index = 0;
+
+#if INTEL_CUSTOMIZATION
+  StringRef EventName;
+  // Skip a perf event name. This may or may not exist.
+  if (Records.size() > Index && Records[Index].endswith(":")) {
+    EventName = Records[Index].ltrim().rtrim(':');
+    Index++;
+
+    if (PerfEventFilter.empty()) {
+      WithColor::warning() << "No --perf-event filter was specified, but an "
+                              "\"event\" field was found in line "
+                           << TraceIt.getLineNumber() << ": "
+                           << TraceIt.getCurrentLine() << "\n";
+    } else if (std::find(PerfEventFilter.begin(), PerfEventFilter.end(),
+                         EventName) == PerfEventFilter.end()) {
+      TraceIt.advance();
+      return false;
+    }
+
+  } else if (!PerfEventFilter.empty()) {
+    WithColor::warning() << "A --perf-event filter was specified, but no "
+                            "\"event\" field found in line "
+                         << TraceIt.getLineNumber() << ": "
+                         << TraceIt.getCurrentLine() << "\n";
+  }
+#endif // INTEL_CUSTOMIZATION
+
   uint64_t LeadingAddr;
-  if (!Records.empty() && !Records[0].contains('/')) {
-    if (Records[0].getAsInteger(16, LeadingAddr)) {
+  if (Records.size() > Index && !Records[Index].contains('/')) { // INTEL
+    if (Records[Index].getAsInteger(16, LeadingAddr)) {          // INTEL
       WarnInvalidLBR(TraceIt);
       TraceIt.advance();
       return false;
     }
-    Index = 1;
+    Index++; // INTEL
   }
 
 #if INTEL_CUSTOMIZATION
-  if (LeadingIPOnly && Index == 1) {
+  // We assume that if we saw an event name we also saw a leading addr.
+  // In other words, LeadingAddr is set if Index is 1 or 2.
+  if (LeadingIPOnly && Index > 0) {
     // Form a profile only from the sample IP. Do not assume an LBR stack
     // follows, and ignore it if it does.
     uint64_t SampleIP = Binary->canonicalizeVirtualAddress(LeadingAddr);
@@ -1091,6 +1135,20 @@ bool PerfScriptReader::isLBRSample(StringRef Line) {
   Line.trim().split(Records, " ", 2, false);
   if (Records.size() < 2)
     return false;
+#if INTEL_CUSTOMIZATION
+  // Check if there is an event name before the leading IP.
+  // If there is, it will be in Records[0]. To skip it, we'll re-split on
+  // Records[1], which should contain the rest of the line.
+  if (Records[0].contains(":")) {
+    // If so, consume the event name and continue processing the rest of the
+    // line.
+    StringRef IPAndLBR = Records[1].ltrim();
+    Records.clear();
+    IPAndLBR.split(Records, " ", 2, false);
+    if (Records.size() < 2)
+      return false;
+  }
+#endif // INTEL_CUSTOMIZATION
   if (Records[1].startswith("0x") && Records[1].contains('/'))
     return true;
   return false;

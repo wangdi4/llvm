@@ -280,6 +280,7 @@ public:
   bool canHaveLastprivate() const;
   bool canHaveInReduction() const;
   bool canHaveReduction() const;
+  bool canHaveReductionTask() const;
   bool canHaveReductionInscan() const;
   bool canHaveCopyin() const;
   bool canHaveCopyprivate() const;

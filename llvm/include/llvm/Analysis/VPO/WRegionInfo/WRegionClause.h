@@ -1112,11 +1112,14 @@ public:
     // Don't use the default print() from the base class "Item", because
     // we need to print the Reduction operation too.
     void print(formatted_raw_ostream &OS, bool PrintType = true) const override {
-      OS << "(" << getOpName() << ": ";
+      OS << "(";
+      if (getIsTask())
+        OS << "TASK, ";
+      if (getIsInscan())
+        OS << "INSCAN<" << InscanIdx << ">, ";
+      OS << getOpName() << ": ";
       printOrig(OS, PrintType);
       printIfTyped(OS, PrintType);
-      if (getIsInscan())
-        OS << " INSCAN<" << InscanIdx << ">";
       if (getIsArraySection()) {
         OS << " ";
         ArrSecInfo.print(OS, PrintType);

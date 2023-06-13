@@ -39,7 +39,8 @@
 ; CHECK: BEGIN SIMD ID=1 {
 ; ...
 ; CHECK:   REDUCTION-INSCAN maps: (1: INCLUSIVE) (2: INCLUSIVE)
-; CHECK:   REDUCTION clause (size=2): (UDR: BYREF([10 x %class.C]** %x.addr) INSCAN<1> ARRAY SECTION INFO: ( Dims: ( i64 2, i64 5, i64 1 ))) (ADD: i32* @y INSCAN<2>)
+; CHECK:   REDUCTION clause (size=2): (INSCAN<1>, UDR: BYREF([10 x %class.C]** %x.addr) ARRAY SECTION INFO: ( Dims: ( i64 2, i64 5, i64 1 )))
+; CHECK-SAME:                         (INSCAN<2>, ADD: i32* @y)
 ; CHECK:   LINEAR clause (size=1): IV(i32* %i, i32 1)
 ; ...
 ; CHECK:   BEGIN SCAN ID=2 {
