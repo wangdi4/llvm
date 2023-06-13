@@ -56,6 +56,7 @@ using namespace llvm::vpo;
 STATISTIC(LoopsVectorized, "Number of HIR loops vectorized");
 
 extern bool Usei1MaskForSimdFunctions;
+extern bool VFABILegalizationEnabled;
 
 static cl::opt<bool>
     DisableStressTest("disable-vplan-stress-test", cl::init(false), cl::Hidden,
@@ -3149,6 +3150,27 @@ HLInst *VPOCodeGenHIR::getCombinedCallResultsForStructTy(
   return cast<HLInst>(Combined->getHLDDNode());
 }
 
+HLInst *VPOCodeGenHIR::getCombinedCallResultForStructTy(HLInst *Call) {
+  // Combine the legalized call results: for each vector element of
+  // struct, extract the result from the return value a calls and combine
+  // them to get single wide vector:
+  //
+  // ; extract and combine two fields of the return values
+  // %subv0 = extractvalue { <2 x float>, <2 x float> } %call, 0
+  // %subv1 = extractvalue { <2 x float>, <2 x float> } %call, 1
+  // %combined = shufflevector <2 x float> %subv0, <2 x float> %subv1,
+  //                               <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  StructType *ReturnTy = cast<StructType>(Call->getLvalDDRef()->getDestType());
+  SmallVector<HLInst *, 2> Parts;
+  for (unsigned I = 0; I < ReturnTy->getNumElements(); I++) {
+    HLInst *ExtractVal = HLNodeUtilities.createExtractValueInst(
+        Call->getLvalDDRef()->clone(), I, "extract.result");
+    addInstUnmasked(ExtractVal);
+    Parts.push_back(ExtractVal);
+  }
+  return getCombinedCallResults(Parts, nullptr /*Mask*/);
+}
+
 void VPOCodeGenHIR::generateWideCalls(const VPCallInstruction *VPCall,
                                       unsigned PumpFactor, RegDDRef *Mask,
                                       const VFInfo *MatchedVariant,
@@ -3170,26 +3192,58 @@ void VPOCodeGenHIR::generateWideCalls(const VPCallInstruction *VPCall,
     widenCallArgs(VPCall, Mask, VectorIntrinID, MatchedVariant, PumpPart,
                   PumpFactor, CallArgs, ArgTys, ArgAttrs);
 
+    SmallVector<int, 4> ArgChunks(ArgTys.size(), 1);
+    int RetChunks = 1;
+    Type *VecRetTy = nullptr;
     Function *VectorF = nullptr;
     if (MatchedVariant) {
-      Type *VecRetTy =
+      VecRetTy =
           getWidenedReturnType(Fn->getReturnType(), MatchedVariant->getVF());
 
       assert(VF / PumpFactor == MatchedVariant->getVF() &&
              "VLEN mismatch for vector variant.");
-      VectorF = getOrInsertVectorVariantFunction(*Fn, *MatchedVariant, ArgTys,
-                                                 VecRetTy);
+      if (VFABILegalizationEnabled &&
+          VFInfo::isIntelVFABIMangling(MatchedVariant->VectorName))
+        VFABI::calcVectorVariantParamChunks(
+            ArgChunks, RetChunks, ArgTys, VecRetTy, *MatchedVariant,
+            Plan->getDataLayout()->getPointerSizeInBits() == 64);
+
+      VectorF = getOrInsertVectorVariantFunction(
+          *Fn, *MatchedVariant, ArgTys, VecRetTy, ArgChunks, RetChunks);
     } else {
       VectorF = getOrInsertVectorLibFunction(Fn, VF / PumpFactor, ArgTys, TLI,
                                              VectorIntrinID, Mask != nullptr);
     }
     assert(VectorF && "Can't create vector function.");
 
-    FastMathFlags FMF = VPCall->hasFastMathFlags() ? VPCall->getFastMathFlags()
-                                                   : FastMathFlags();
-    auto *WideInst = HLNodeUtilities.createCall(
-        VectorF, CallArgs, VectorF->getName(), nullptr /*Lval*/, {} /*Bundle*/,
-        {} /*BundleOps*/, FMF);
+    SmallVector<AttributeSet, 2> LegalizedArgAttrs;
+    SmallVector<RegDDRef *, 4> LegalizedCallArgs;
+    for (unsigned ArgIdx = 0; ArgIdx < CallArgs.size(); ++ArgIdx) {
+      RegDDRef *LogicalArg = CallArgs[ArgIdx];
+      AttributeSet Attrs = ArgAttrs[ArgIdx];
+      int NumChunks = ArgChunks[ArgIdx];
+      assert(NumChunks > 0 && "Expected at least one data chunk.");
+      bool Fragmented = NumChunks != 1;
+      for (int Chunk = 0; Chunk < NumChunks; ++Chunk) {
+        if (Fragmented) {
+          HLInst *SubV = extractSubVector(LogicalArg, Chunk, NumChunks);
+          addInstUnmasked(SubV);
+          LegalizedCallArgs.push_back(SubV->getLvalDDRef()->clone());
+        } else {
+          LegalizedCallArgs.push_back(LogicalArg);
+        }
+        LegalizedArgAttrs.push_back(Attrs);
+      }
+    }
+    // Multiple return chunks passed via struct return type,such call will not
+    // be FPMathOperator even if the original call was.
+    FastMathFlags FMF = RetChunks == 1 && VPCall->hasFastMathFlags()
+                            ? VPCall->getFastMathFlags()
+                            : FastMathFlags();
+
+    HLInst *WideInst = HLNodeUtilities.createCall(
+        VectorF, LegalizedCallArgs, VectorF->getName(), nullptr /*Lval*/,
+        {} /*Bundle*/, {} /*BundleOps*/, FMF);
     CallInst *VecCall = const_cast<CallInst *>(WideInst->getCallInst());
     assert(VecCall && "Call instruction is expected to be exist");
     VecCall->setCallingConv(VectorF->getCallingConv());
@@ -3197,12 +3251,22 @@ void VPOCodeGenHIR::generateWideCalls(const VPCallInstruction *VPCall,
     // Make sure we don't lose attributes at the call site. E.g., IMF
     // attributes are taken from call sites in MapIntrinToIml to refine
     // SVML calls for precision.
-    setRequiredAttributes(VPCall->getOrigCallAttrs(), VecCall, ArgAttrs);
+    setRequiredAttributes(VPCall->getOrigCallAttrs(), VecCall,
+                          LegalizedArgAttrs);
 
     // Attach generated vector call. Mask is ignored here since they are
     // explicitly passed as operand to call.
     addInstUnmasked(WideInst);
-    CallResults.push_back(WideInst);
+    HLInst *CallResult = WideInst;
+    if (RetChunks > 1) {
+      CallResult = getCombinedCallResultForStructTy(WideInst);
+      assert(CallResult->getLvalDDRef()->getDestType() == VecRetTy &&
+             "Combined result type does not match logical return type.");
+    } else {
+      assert(RetChunks == 1 && "Expected single data chunk for return.");
+    }
+
+    CallResults.push_back(CallResult);
   }
 }
 
