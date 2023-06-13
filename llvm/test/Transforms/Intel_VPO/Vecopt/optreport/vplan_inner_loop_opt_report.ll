@@ -16,8 +16,6 @@
 ; HIR-NEXT:       remark #15477: vector cost: 6.000000
 ; HIR-NEXT:       remark #15478: estimated potential speedup: 1.328125
 ; HIR-NEXT:       remark #15309: vectorization support: normalized vectorization overhead 0.328125
-; CHECK-NEXT:     remark #15482: vectorized math library calls: 0
-; CHECK-NEXT:     remark #15484: vector function calls: 0
 ; CHECK-NEXT:     remark #15485: serialized function calls: 1
 ; IR-NEXT:        remark #15558: Call to function 'serial_call_1' was serialized due to no suitable vector variants were found.
 ; CHECK-NEXT:     remark #15488: --- end vector loop cost summary ---
@@ -25,8 +23,6 @@
 ; CHECK:          LOOP BEGIN
 ; CHECK-NEXT:         remark #15475: --- begin vector loop cost summary ---
 ; CHECK-NEXT:         remark #15482: vectorized math library calls: 1
-; CHECK-NEXT:         remark #15484: vector function calls: 0
-; CHECK-NEXT:         remark #15485: serialized function calls: 0
 ; CHECK-NEXT:         remark #15488: --- end vector loop cost summary ---
 ; CHECK:          LOOP END
 ; CHECK-NEXT: LOOP END

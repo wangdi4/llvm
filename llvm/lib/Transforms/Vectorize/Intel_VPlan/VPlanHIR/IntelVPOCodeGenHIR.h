@@ -170,6 +170,13 @@ public:
   void setForceMixedCG(bool MixedCG) { ForceMixedCG = MixedCG; }
   bool getForceMixedCG() const { return ForceMixedCG; }
 
+  void setEmitAlignedLoadForPeeledMemref(bool V) {
+    EmitAlignedLoadForPeeledMemref = V;
+  }
+  bool getEmitAlignedLoadForPeeledMemref() const {
+    return EmitAlignedLoadForPeeledMemref;
+  }
+
   // Return true if Ref is a reduction
   bool isReductionRef(const RegDDRef *Ref, unsigned &Opcode);
 
@@ -737,6 +744,11 @@ private:
   // Force mixed code generation - used when we see cases such as search loops,
   // live out privates, and Fortran subscript arrays
   bool ForceMixedCG = false;
+
+  // Whether to emit an aligned load/store for memrefs which were peeled.
+  // May be set to false if the peel loop may be skipped at run-time, as in this
+  // case, we cannot guarantee the loaded address is aligned.
+  bool EmitAlignedLoadForPeeledMemref = true;
 
   // Loop trip count if constant. Set to zero for non-constant trip count loops.
   uint64_t TripCount;

@@ -60,6 +60,14 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG,
   // Set hoist loop for reductions.
   CG->setRednHoistPtForVectorLoop();
 
+  if (VecScenario.getMinimumProfitablePeelTC() > 0) {
+    // If we have computed or assigned a minimum profitable peel trip-count, we
+    // will emit a check at run-time to skip the peel loop if the actual
+    // trip-count is lower than that threshold. In this case, it is unsafe to
+    // emit an aligned load for the peeled memref.
+    CG->setEmitAlignedLoadForPeeledMemref(false);
+  }
+
   bool VecLoopsInit = CG->initializeVectorLoop(BestVF, UF);
   if (!VecLoopsInit)
     return false;

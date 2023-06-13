@@ -34,7 +34,8 @@ void OptReportStatsTracker::emitRemarks(VPlanOptReportBuilder &Builder,
 #define VPLAN_OPTRPT_HANDLE_GROUP_BEGIN(ID)                                    \
   Builder.addRemark(Lp, OptReportVerbosity::High, ID);
 #define VPLAN_OPTRPT_HANDLE(ID, NAME)                                          \
-  Builder.addRemark(Lp, OptReportVerbosity::High, ID, Twine(NAME).str());
+  if (NAME != 0)                                                               \
+    Builder.addRemark(Lp, OptReportVerbosity::High, ID, Twine(NAME).str());
 #define VPLAN_OPTRPT_HANDLE_GROUP_END(ID)                                      \
   Builder.addRemark(Lp, OptReportVerbosity::High, ID);
 #define VPLAN_OPTRPT_VEC_HANDLE(VEC)                                           \
@@ -71,8 +72,9 @@ void OptReportStatsTracker::emitRemarks(OptReportBuilder &Builder, VPLoop *Lp,
 #define VPLAN_OPTRPT_HANDLE_GROUP_BEGIN(ID)                                    \
   Builder(*Lp, *VPLI).addRemark(OptReportVerbosity::High, ID);
 #define VPLAN_OPTRPT_HANDLE(ID, NAME)                                          \
-  Builder(*Lp, *VPLI)                                                          \
-      .addRemark(OptReportVerbosity::High, ID, Twine(NAME).str());
+  if (NAME != 0)                                                               \
+    Builder(*Lp, *VPLI)                                                        \
+        .addRemark(OptReportVerbosity::High, ID, Twine(NAME).str());
 #define VPLAN_OPTRPT_HANDLE_GROUP_END(ID)                                      \
   Builder(*Lp, *VPLI).addRemark(OptReportVerbosity::High, ID);
 #define VPLAN_OPTRPT_VEC_HANDLE(VEC)                                           \
