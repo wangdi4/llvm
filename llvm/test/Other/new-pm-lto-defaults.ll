@@ -206,7 +206,6 @@
 ; CHECK-O23SZ-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running analysis: AssumptionAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running analysis: TargetIRAnalysis on foo
-; CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis on foo
 ; end INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: OpenMPOptPass
 ; CHECK-O23SZ-NEXT: Running pass: GlobalDCEPass
@@ -235,6 +234,7 @@
 ; CHECK-O23SZ-NEXT: Running analysis: LazyValueAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: PostDominatorTreeAnalysis on foo ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: HandlePragmaVectorAlignedPass on foo ;INTEL
+; CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis on foo ;INTEL
 ; CHECK-O23SZ-NEXT: Running analysis: ScalarEvolutionAnalysis on foo ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: SROAPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: CorrelatedValuePropagationPass on foo ;INTEL
@@ -259,7 +259,6 @@
 ; CHECK-O23SZ-NEXT: Running pass: InvalidateAnalysisPass<{{.*}}AAManager
 ; CHECK-O23SZ-NEXT: Running pass: IntelIPODeadArgEliminationPass on [module] ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass on foo
-; CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running pass: LCSSAPass on foo
 ; CHECK-O23SZ-NEXT: Running analysis: MemorySSAAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running analysis: AAManager on foo
