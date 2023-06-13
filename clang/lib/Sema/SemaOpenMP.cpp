@@ -19757,7 +19757,7 @@ Sema::ActOnOpenMPInitClause(Expr *InteropVar, OMPInteropInfo &InteropInfo,
 #if INTEL_COLLAB
       if (LangOpts.OpenMPLateOutline) {
         auto IsPerferType =
-            llvm::StringSwitch<bool>(cast<StringLiteral>(E)->getString().data())
+            llvm::StringSwitch<bool>(cast<StringLiteral>(E)->getString())
                 .Cases("cuda", "cuda_driver", true)
                 .Cases("level_zero", "level_one", true)
                 .Cases("hip", "sycl", "opencl", true)
