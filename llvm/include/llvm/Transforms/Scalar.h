@@ -58,12 +58,6 @@ Pass *createRedundantDbgInstEliminationPass();
 FunctionPass *createDeadCodeEliminationPass();
 
 
-//===----------------------------------------------------------------------===//
-//
-// CallSiteSplitting - This pass split call-site based on its known argument
-// values.
-FunctionPass *createCallSiteSplittingPass();
-
 FunctionPass *createUnskippableAggressiveDCEPass(); // INTEL
 
 // GuardWidening - An optimization over the @llvm.experimental.guard intrinsic
