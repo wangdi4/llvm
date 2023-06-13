@@ -104,7 +104,12 @@ Pass *createLICMPass();
 Pass *createLICMPass(unsigned LicmMssaOptCap,
                      unsigned LicmMssaNoAccForPromotionCap,
                      bool AllowSpeculation);
-
+#if INTEL_CUSTOMIZATION
+// Create an unrolling pass for full unrolling that uses exact trip count only
+// and also does peeling.
+Pass *createSimpleLoopUnrollPass(int OptLevel = 2, bool OnlyWhenForced = false,
+                                 bool ForgetAllSCEV = false);
+#endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 //
 // LoopSink - This pass sinks invariants from preheader to loop body where
@@ -148,10 +153,6 @@ Pass *createLoopUnrollPass(int OptLevel = 2, bool OnlyWhenForced = false,
                            int Count = -1, int AllowPartial = -1,
                            int Runtime = -1, int UpperBound = -1,
                            int AllowPeeling = -1);
-// Create an unrolling pass for full unrolling that uses exact trip count only
-// and also does peeling.
-Pass *createSimpleLoopUnrollPass(int OptLevel = 2, bool OnlyWhenForced = false,
-                                 bool ForgetAllSCEV = false);
 
 //===----------------------------------------------------------------------===//
 //

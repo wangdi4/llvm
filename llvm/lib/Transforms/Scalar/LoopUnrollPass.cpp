@@ -1513,11 +1513,13 @@ Pass *llvm::createLoopUnrollPass(int OptLevel, bool OnlyWhenForced,
       AllowPeeling == -1 ? std::nullopt : std::optional<bool>(AllowPeeling));
 }
 
+#if INTEL_CUSTOMIZATION
 Pass *llvm::createSimpleLoopUnrollPass(int OptLevel, bool OnlyWhenForced,
                                        bool ForgetAllSCEV) {
   return createLoopUnrollPass(OptLevel, OnlyWhenForced, ForgetAllSCEV, -1, -1,
                               0, 0, 0, 1);
 }
+#endif  // INTEL_CUSTOMIZATION
 
 PreservedAnalyses LoopFullUnrollPass::run(Loop &L, LoopAnalysisManager &AM,
                                           LoopStandardAnalysisResults &AR,
