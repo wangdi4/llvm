@@ -1832,6 +1832,13 @@ bool VPOParoptTransform::paroptTransforms() {
         << " construct is unreachable from function entry";
       ORE.emit(R);
       RemoveDirectives = true;
+    } else if ((W->getIsOmpLoopTransform() ||
+                W->getIsOmpLoop() && !W->getIsSections()) &&
+               W->getWRNLoopInfo().getLoop() == nullptr) {
+      // The WRN is a loop-type construct, but the loop is missing, most likely
+      // because it has been optimized away. We skip the code transforms for
+      // this WRN, and simply remove its directives.
+      RemoveDirectives = true;
     } else if (hasOffloadCompilation() && !isa<WRNTargetNode>(W) &&
                !WRegionUtils::hasParentTarget(W)) {
       // In target compilation, ignore WRN if it is not TARGET, not lexically
@@ -1841,8 +1848,8 @@ bool VPOParoptTransform::paroptTransforms() {
                         << ") is ignored in target compilation.\n");
       RemoveDirectives = true;
     } else {
-      if (isModeOmpNoFECollapse() && W->canHaveCollapse() &&
-          !isLoopOptimizedAway(W)) {
+      if (isModeOmpNoFECollapse() &&
+          W->canHaveCollapse()) {
         Changed |= collapseOmpLoops(W);
         RemoveDirectives = false;
       }
@@ -1938,7 +1945,6 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           if (isLoopOptimizedAway(W)) {
-            Changed |= genBarrierForEmptyLoop(W, isTargetSPIRV());
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
             if (isTargetCSA() && !W->getIsParSections() && W->getIsParLoop())
@@ -2430,8 +2436,7 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= propagateKnownNDRange(W);
           Changed |= clearCancellationPointAllocasFromIR(W);
           Changed |= regularizeOMPLoop(W, false);
-          if (!isa<WRNDistributeNode>(W) && isLoopOptimizedAway(W)) {
-            Changed |= genBarrierForEmptyLoop(W, isTargetSPIRV());
+          if (isLoopOptimizedAway(W)) {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
             if (isTargetCSA() && !W->getIsSections() && W->getIsOmpLoop())
@@ -9821,22 +9826,6 @@ bool VPOParoptTransform::regularizeOMPLoopImpl(WRegionNode *W, unsigned Index) {
   // for a Loop.
   W->getWRNLoopInfo().setZTTBB(ZTTBB, Index);
   return true;
-}
-
-// Insert kmpc_barrier for loops that are optimized away.
-bool VPOParoptTransform::genBarrierForEmptyLoop(WRegionNode *W,
-                                                bool IsTargetSPIRV) {
-  if (isa<WRNDistributeNode>(W)) {
-    LLVM_DEBUG(dbgs() << "Implicit barrier is not emitted for optimized away "
-                         "Distribute loop.\n");
-    return false;
-  }
-
-  BasicBlock *EntryBB = W->getEntryBBlock();
-  Instruction *InsertPt = EntryBB->getFirstNonPHI();
-  return VPOParoptUtils::genKmpcBarrier(W, TidPtrHolder, InsertPt, IdentTy,
-                                        /*IsExplicit*/ false,
-                                        IsTargetSPIRV) != nullptr;
 }
 
 // Check if loop is optimized away and print remark.

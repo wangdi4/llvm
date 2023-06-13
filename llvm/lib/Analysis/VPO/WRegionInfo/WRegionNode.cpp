@@ -288,13 +288,11 @@ void WRegionNode::finalize(Instruction *ExitDir, DominatorTree *DT) {
     // before Paropt may have optimized away the loop.
     getWRNLoopInfo().setLoop(Lp);
 
-    if (Lp) {
+    if (Lp)
       LLVM_DEBUG(dbgs() << "\n=== finalize WRN: found loop : " << *Lp << "\n");
-    } else {
-      getWRNLoopInfo().setLoopOptimizedAway();
+    else
       LLVM_DEBUG(
-          dbgs() << "\n=== finalize WRN: loop not found. Optimized away\n");
-    }
+          dbgs() << "\n=== finalize WRN: loop not found. Optimized away?\n");
 
     // For taskloop, the runtime has a parameter for either Grainsize or
     // NumTasks, which is chosen by the parameter SchedCode:
