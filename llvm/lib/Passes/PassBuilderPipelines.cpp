@@ -2501,7 +2501,6 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
     FPM.addPass(HIRLoopCollapsePass());
     FPM.addPass(HIRLoopFusionPass());
 #if 0
-// TODO: uncomment it as functionality added to the pass.
 #if INTEL_FEATURE_SW_ADVANCED
     if (Level.getSpeedupLevel() > 2 && IsLTO)
       FPM.addPass(HIRNonPerfectNestLoopBlockingPass());
