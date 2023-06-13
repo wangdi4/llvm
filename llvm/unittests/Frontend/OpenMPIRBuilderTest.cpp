@@ -6113,11 +6113,7 @@ TEST_F(OpenMPIRBuilderTest, registerTargetGlobalVariable) {
     ASSERT_EQ(Kind, Kind);
   };
 
-#if INTEL_COLLAB
-    OMPBuilder.createOffloadEntriesAndInfoMetadata(false /* IsLateOutline */, ErrorReportfn);
-#else
-    OMPBuilder.createOffloadEntriesAndInfoMetadata(ErrorReportfn);
-#endif
+  OMPBuilder.createOffloadEntriesAndInfoMetadata(ErrorReportfn);
 
   // Clauses for data_int_0 with To + Any clauses for the host
   std::vector<GlobalVariable *> OffloadEntries;
