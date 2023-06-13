@@ -83,10 +83,18 @@ VPLAN_OPTRPT_VEC_HANDLE(SerializedInstRemarks)
 VPLAN_OPTRPT_HANDLE_FUNC_GROUP_END(OptRemarkID::EndVectorLoopCostSummary)
 
 VPLAN_OPTRPT_HANDLE_MEM_GROUP_BEGIN(OptRemarkID::BeginVectorLoopMemRefSummary)
+VPLAN_OPTRPT_HANDLE_MEM(OptRemarkID::UnmaskedAlignedUnitStrideLoads,
+                        UnmaskedAlignedUnitStrideLoads)
+VPLAN_OPTRPT_HANDLE_MEM(OptRemarkID::UnmaskedAlignedUnitStrideStores,
+                        UnmaskedAlignedUnitStrideStores)
 VPLAN_OPTRPT_HANDLE_MEM(OptRemarkID::UnmaskedUnalignedUnitStrideLoads,
                         UnmaskedUnalignedUnitStrideLoads)
 VPLAN_OPTRPT_HANDLE_MEM(OptRemarkID::UnmaskedUnalignedUnitStrideStores,
                         UnmaskedUnalignedUnitStrideStores)
+VPLAN_OPTRPT_HANDLE_MEM(OptRemarkID::MaskedAlignedUnitStrideLoads,
+                        MaskedAlignedUnitStrideLoads)
+VPLAN_OPTRPT_HANDLE_MEM(OptRemarkID::MaskedAlignedUnitStrideStores,
+                        MaskedAlignedUnitStrideStores)
 VPLAN_OPTRPT_HANDLE_MEM(OptRemarkID::MaskedUnalignedUnitStrideLoads,
                         MaskedUnalignedUnitStrideLoads)
 VPLAN_OPTRPT_HANDLE_MEM(OptRemarkID::MaskedUnalignedUnitStrideStores,
