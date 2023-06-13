@@ -192,7 +192,8 @@ set(imf_fp64_fallback_src_list imf_utils/double_convert.cpp
                                imf/intel/y1_d_ep.cpp
                                imf/intel/pown_d_la.cpp
                                # end INTEL_CUSTOMIZATION
-                               imf/imf_inline_fp64.cpp)
+                               imf/imf_inline_fp64.cpp
+                               imf/imf_fp64_dl.cpp)
 
 set(imf_bf16_fallback_src_list imf_utils/bfloat16_convert.cpp
                                imf/imf_inline_bf16.cpp)
@@ -200,7 +201,8 @@ set(imf_bf16_fallback_src_list imf_utils/bfloat16_convert.cpp
 # INTEL_CUSTOMIZATION
 set (imf_fp32_dl_src_list imf/imf_fp32_dl.cpp
 	                  imf/intel/pown_s_ep.cpp)
-set (imf_fp64_dl_src_list imf/intel/pown_d_la.cpp)
+set (imf_fp64_dl_src_list imf/imf_fp64_dl.cpp
+	                  imf/intel/pown_d_la.cpp)
 
 if(OMP_LIBDEVICE STREQUAL 1)
   set(imf_fallback_src_list)

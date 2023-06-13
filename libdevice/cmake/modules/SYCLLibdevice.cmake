@@ -345,7 +345,8 @@ set(imf_fallback_fp64_deps device.h device_imf.hpp imf_half.hpp
                            imf/intel/y1_d_ep.cpp
                            imf/intel/pown_d_la.cpp
                            # end INTEL_CUSTOMIZATION
-                           imf/imf_inline_fp64.cpp)
+                           imf/imf_inline_fp64.cpp
+                           imf/imf_fp64_dl.cpp)
 set(imf_fallback_bf16_deps device.h device_imf.hpp imf_bf16.hpp
                            imf_utils/bfloat16_convert.cpp
                            imf/imf_inline_bf16.cpp)
