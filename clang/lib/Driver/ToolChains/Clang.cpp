@@ -798,12 +798,7 @@ static void addPGOAndCoverageFlags(const ToolChain &TC, Compilation &C,
       PGOGenerateArg->getOption().matches(options::OPT_fno_profile_generate))
     PGOGenerateArg = nullptr;
 
-  auto *CSPGOGenerateArg = Args.getLastArg(options::OPT_fcs_profile_generate,
-                                           options::OPT_fcs_profile_generate_EQ,
-                                           options::OPT_fno_profile_generate);
-  if (CSPGOGenerateArg &&
-      CSPGOGenerateArg->getOption().matches(options::OPT_fno_profile_generate))
-    CSPGOGenerateArg = nullptr;
+  auto *CSPGOGenerateArg = getLastCSProfileGenerateArg(Args);
 
   auto *ProfileGenerateArg = Args.getLastArg(
       options::OPT_fprofile_instr_generate,
@@ -4468,6 +4463,9 @@ static void RenderDiagnosticsOptions(const Driver &D, const ArgList &Args,
   Args.addOptOutFlag(CmdArgs, options::OPT_fshow_source_location,
                      options::OPT_fno_show_source_location);
 
+  Args.addOptOutFlag(CmdArgs, options::OPT_fdiagnostics_show_line_numbers,
+                     options::OPT_fno_diagnostics_show_line_numbers);
+
   if (Args.hasArg(options::OPT_fdiagnostics_absolute_paths))
     CmdArgs.push_back("-fdiagnostics-absolute-paths");
 
@@ -6542,19 +6540,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
           << A->getSpelling() << RawTriple.str();
   }
 
-  if (Args.hasArg(options::OPT_mxcoff_roptr) ||
-      Args.hasArg(options::OPT_mno_xcoff_roptr)) {
-    bool HasRoptr = Args.hasFlag(options::OPT_mxcoff_roptr,
-                                 options::OPT_mno_xcoff_roptr, false);
-    StringRef OptStr = HasRoptr ? "-mxcoff-roptr" : "-mno-xcoff-roptr";
-    if (!Triple.isOSAIX())
-      D.Diag(diag::err_drv_unsupported_opt_for_target)
-          << OptStr << RawTriple.str();
-
-    if (HasRoptr)
-      CmdArgs.push_back("-mxcoff-roptr");
-  }
-
   if (Arg *A = Args.getLastArg(options::OPT_Wframe_larger_than_EQ)) {
     StringRef V = A->getValue(), V1 = V;
     unsigned Size;
@@ -7651,23 +7636,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                         options::OPT_fvisibility_externs_nodllstorageclass_EQ);
       }
     }
-  }
-
-  if (const Arg *A = Args.getLastArg(options::OPT_mignore_xcoff_visibility)) {
-    if (Triple.isOSAIX())
-      CmdArgs.push_back("-mignore-xcoff-visibility");
-    else
-      D.Diag(diag::err_drv_unsupported_opt_for_target)
-          << A->getAsString(Args) << TripleStr;
-  }
-
-  if (const Arg *A =
-          Args.getLastArg(options::OPT_mdefault_visibility_export_mapping_EQ)) {
-    if (Triple.isOSAIX())
-      A->render(Args, CmdArgs);
-    else
-      D.Diag(diag::err_drv_unsupported_opt_for_target)
-          << A->getAsString(Args) << TripleStr;
   }
 
   if (Args.hasFlag(options::OPT_fvisibility_inlines_hidden,
@@ -10341,7 +10309,7 @@ void OffloadBundler::ConstructJobMultipleOutputs(
   // the objects from the archive that do not have AOCO associated in that
   // specific object.  Only do this when in hardware mode.
   if (InputType == types::TY_Archive && HasFPGATarget && !IsFPGADepUnbundle &&
-      !IsFPGADepLibUnbundle && !C.getDriver().isFPGAEmulationMode()) {
+      !IsFPGADepLibUnbundle && C.getDriver().IsFPGAHWMode()) {
     llvm::Triple TT;
     TT.setArchName(types::getTypeName(types::TY_FPGA_AOCO));
     TT.setVendorName("intel");
@@ -10573,7 +10541,7 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
       auto *A = C.getInputArgs().getLastArg(options::OPT_fsycl_link_EQ);
       bool Early = (A->getValue() == StringRef("early"));
       FPGAArch += Early ? "aocr" : "aocx";
-      if (C.getDriver().isFPGAEmulationMode() && Early)
+      if (C.getDriver().IsFPGAEmulationMode() && Early)
         FPGAArch += "_emu";
       TT.setArchName(FPGAArch);
       TT.setVendorName("intel");
@@ -10949,9 +10917,7 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
     }
 #endif // INTEL_CUSTOMIZATION
     ExtArg = ExtArg + DefaultExtArg + INTELExtArg;
-#if INTEL_CUSTOMIZATION
-    if (!C.getDriver().isFPGAEmulationMode()) {
-#endif // INTEL_CUSTOMIZATION
+    if (C.getDriver().IsFPGAHWMode()) { // INTEL
       // Enable several extensions on FPGA H/W exclusively
       ExtArg += ",+SPV_INTEL_usm_storage_classes,+SPV_INTEL_runtime_aligned"
                 ",+SPV_INTEL_fpga_cluster_attributes,+SPV_INTEL_loop_fuse"

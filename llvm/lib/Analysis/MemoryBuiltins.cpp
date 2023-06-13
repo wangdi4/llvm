@@ -1184,6 +1184,8 @@ SizeOffsetType ObjectSizeOffsetVisitor::combineSizeOffset(SizeOffsetType LHS,
 }
 
 SizeOffsetType ObjectSizeOffsetVisitor::visitPHINode(PHINode &PN) {
+  if (PN.getNumIncomingValues() == 0)
+    return unknown();
   auto IncomingValues = PN.incoming_values();
   return std::accumulate(IncomingValues.begin() + 1, IncomingValues.end(),
                          compute(*IncomingValues.begin()),

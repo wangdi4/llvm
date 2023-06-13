@@ -3853,9 +3853,18 @@ bool Sema::DeduceFunctionTypeFromReturnExpr(FunctionDecl *FD,
   {
     //  Otherwise, [...] deduce a value for U using the rules of template
     //  argument deduction.
-    TemplateDeductionInfo Info(RetExpr->getExprLoc());
-    TemplateDeductionResult Res =
-        DeduceAutoType(OrigResultType, RetExpr, Deduced, Info);
+    auto RetExprLoc = RetExpr->getExprLoc();
+    TemplateDeductionInfo Info(RetExprLoc);
+    SourceLocation TemplateSpecLoc;
+    if (RetExpr->getType() == Context.OverloadTy) {
+      auto FindResult = OverloadExpr::find(RetExpr);
+      if (FindResult.Expression)
+        TemplateSpecLoc = FindResult.Expression->getNameLoc();
+    }
+    TemplateSpecCandidateSet FailedTSC(TemplateSpecLoc);
+    TemplateDeductionResult Res = DeduceAutoType(
+        OrigResultType, RetExpr, Deduced, Info, /*DependentDeduction=*/false,
+        /*IgnoreConstraints=*/false, &FailedTSC);
     if (Res != TDK_Success && FD->isInvalidDecl())
       return true;
     switch (Res) {
@@ -3881,6 +3890,7 @@ bool Sema::DeduceFunctionTypeFromReturnExpr(FunctionDecl *FD,
     default:
       Diag(RetExpr->getExprLoc(), diag::err_auto_fn_deduction_failure)
           << OrigResultType.getType() << RetExpr->getType();
+      FailedTSC.NoteCandidates(*this, RetExprLoc);
       return true;
     }
   }

@@ -2061,7 +2061,7 @@ void CodeGenModule::SetLLVMFunctionAttributes(GlobalDecl GD,
   // For SVML functions, select a variant of SVML calling convention according
   // to function name and type.
   if (F->getCallingConv() == llvm::CallingConv::SVML_Unified) {
-    llvm::Optional<llvm::CallingConv::ID> CC =
+    std::optional<llvm::CallingConv::ID> CC =
         llvm::getSVMLCallingConvByNameAndType(F->getName(),
                                               F->getFunctionType());
     if (CC.has_value())
@@ -5223,8 +5223,20 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
   }
 
   assert(F->getName() == MangledName && "name was uniqued!");
-  if (D)
+  if (D) {
     SetFunctionAttributes(GD, F, IsIncompleteFunction, IsThunk);
+    if (const auto *A = D->getAttr<SYCLDeviceHasAttr>()) {
+      SmallVector<llvm::Metadata *, 4> AspectsMD;
+      for (auto *Aspect : A->aspects()) {
+        llvm::APSInt AspectInt = Aspect->EvaluateKnownConstInt(getContext());
+        auto *T = llvm::Type::getInt32Ty(getLLVMContext());
+        auto *C = llvm::Constant::getIntegerValue(T, AspectInt);
+        AspectsMD.push_back(llvm::ConstantAsMetadata::get(C));
+      }
+      F->setMetadata("sycl_declared_aspects",
+                     llvm::MDNode::get(getLLVMContext(), AspectsMD));
+    }
+  }
   if (ExtraAttrs.hasFnAttrs()) {
     llvm::AttrBuilder B(F->getContext(), ExtraAttrs.getFnAttrs());
     F->addFnAttrs(B);
@@ -7022,7 +7034,7 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
   if (LangOpts.OpenMPLateOutline && LangOpts.OpenMP >= 51 &&
       OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(D)) {
     bool IsIndirect = false;
-    if (llvm::Optional<OMPDeclareTargetDeclAttr *> ActiveAttr =
+    if (std::optional<OMPDeclareTargetDeclAttr *> ActiveAttr =
             OMPDeclareTargetDeclAttr::getActiveAttr(D)) {
       IsIndirect = (*ActiveAttr)->getIndirect();
       if (!IsIndirect)

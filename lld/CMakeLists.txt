@@ -116,10 +116,6 @@ if(LLD_BUILT_STANDALONE)
       set(LLVM_INCLUDE_TESTS OFF)
     endif()
   endif()
-
-  if(LLVM_HAVE_LIBXAR)
-    set(XAR_LIB xar)
-  endif()
 endif() # standalone
 
 # INTEL_CUSTOMIZATION

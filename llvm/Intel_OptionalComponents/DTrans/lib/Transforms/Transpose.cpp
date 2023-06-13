@@ -15,7 +15,6 @@
 #include "Intel_DTrans/Transforms/Transpose.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/Intel_DopeVectorAnalysis.h"
 #include "llvm/Analysis/LoopInfo.h"

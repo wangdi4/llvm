@@ -3,16 +3,14 @@
 ; HIR-
 ; + DO i1 = 0, 4294967293, 1   <DO_LOOP>
 ; |   + DO i2 = 0, 38, 1   <DO_LOOP>
-; |   |   + DO i3 = 0, zext.i32.i64((trunc.i64.i32(%indvars.iv) + umax(-2, (-1 * trunc.i64.i32(%indvars.iv))))), 1   <DO_LOOP>
+; |   |   + DO i3 = 0, i1, 1   <DO_LOOP>
 ; |   |   |   %1 = (%s)[0][i1 + -1 * i3 + 3][i1 + -1 * i3 + 2];
 ; |   |   |   (%h5)[0][i1 + -1 * i3 + 2] = %1;
 ; |   |   + END LOOP
 ; |   |   %mul66 = %1  *  %1;
 ; |   + END LOOP
-; |   %indvars.iv = i1 + 3;
 ; + END LOOP
 
-; Note: the i1 loop's range is large such that it may need to be truncated to be used as the i3 loop's upper bound.
 ; Check livein/liveout of the loopnest verifying that %1 is marked live out of i3 loop and %mul66 is marked live out of i2 loop.
 
 ; Collect region liveout symbases.
@@ -21,17 +19,17 @@
 
 ; CHECK-NOT: DO i
 ; Collect i1 loop liveins.
-; CHECK: LiveIn symbases: [[I1LIVEIN1:[0-9]+]], [[I1LIVEIN2:[0-9]+]], [[I1LIVEIN3:[0-9]+]]
+; CHECK: LiveIn symbases: [[I1LIVEIN1:[0-9]+]], [[I1LIVEIN2:[0-9]+]]
 
 ; Check that i1 loop's liveouts are the same as region liveouts.
 ; CHECK: LiveOut symbases: [[LIVEOUT]]
 
 ; Check that i2 loop liveins/liveouts are the same as i1 loop liveins/liveouts.
-; CHECK: LiveIn symbases: [[I1LIVEIN1]], [[I1LIVEIN2]], [[I1LIVEIN3]]
+; CHECK: LiveIn symbases: [[I1LIVEIN1]], [[I1LIVEIN2]]
 ; CHECK: LiveOut symbases: [[LIVEOUT]]
 
 ; Check that i3 loop liveins are the same as i1 loop liveins.
-; CHECK: LiveIn symbases: [[I1LIVEIN1]], [[I1LIVEIN2]], [[I1LIVEIN3]]
+; CHECK: LiveIn symbases: [[I1LIVEIN1]], [[I1LIVEIN2]]
 
 ; Collect i3 loop liveout.
 ; CHECK: LiveOut symbases: [[I3LIVEOUT:[0-9]+]]

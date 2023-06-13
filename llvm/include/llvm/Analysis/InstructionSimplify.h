@@ -36,12 +36,8 @@
 // values. This will prevent other code from seeing the same undef uses and
 // resolving them to different values.
 //
-// These routines are designed to tolerate moderately incomplete IR, such as
-// instructions that are not connected to basic blocks yet. However, they do
-// require that all the IR that they encounter be valid. In particular, they
-// require that all non-constant values be defined in the same function, and the
-// same call context of that function (and not split between caller and callee
-// contexts of a directly recursive call, for example).
+// They require that all the IR that they encounter be valid and inserted into a
+// parent function.
 //
 // Additionally, these routines can't simplify to the instructions that are not
 // def-reachable, meaning we can't just scan the basic block for instructions
@@ -118,6 +114,8 @@ struct SimplifyQuery {
   // keywords like nsw, which provides conservative results if those cannot
   // be safely used.
   const InstrInfoQuery IIQ;
+  ScalarEvolution *SE; // INTEL
+  LoopInfo *LI;        // INTEL
 
   /// Controls whether simplifications are allowed to constrain the range of
   /// possible values for uses of undef. If it is false, simplifications are not
@@ -134,9 +132,11 @@ struct SimplifyQuery {
 #if INTEL_CUSTOMIZATION
                 const Instruction *CXTI = nullptr, bool UseInstrInfo = true,
                 bool CanUseUndef = true,
-                const TargetTransformInfo *TTI = nullptr)
+                const TargetTransformInfo *TTI = nullptr,
+                ScalarEvolution *SE = nullptr, LoopInfo *LI = nullptr)
       : DL(DL), TLI(TLI), DT(DT), AC(AC), CxtI(CXTI), IIQ(UseInstrInfo),
-        CanUseUndef(CanUseUndef), TTI(TTI) {
+        SE(SE), LI(LI), CanUseUndef(CanUseUndef), TTI(TTI){
+    assert((!SE && !LI || SE && LI) && "SE/LI are expected to come in pair.");
   }
 #endif // INTEL_CUSTOMIZATION
   SimplifyQuery getWithInstruction(Instruction *I) const {

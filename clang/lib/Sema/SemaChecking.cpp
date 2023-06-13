@@ -8132,13 +8132,21 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
              Op == AtomicExpr::AO__atomic_store_n ||
              Op == AtomicExpr::AO__atomic_exchange_n ||
              Op == AtomicExpr::AO__atomic_compare_exchange_n;
-  bool IsAddSub = false;
 #if INTEL_CUSTOMIZATION
   // Used for the Intel versions where we type-coerce the _N values to match
   // the function, rather than erroring on mismatch, so these are used to store
   // that we need to coerce, and what size to coerce to.
   unsigned IntelTypeCoerceSize = IntelTypeCoerceSizeCalc(Op);
 #endif // INTEL_CUSTOMIZATION
+  // Bit mask for extra allowed value types other than integers for atomic
+  // arithmetic operations. Add/sub allow pointer and floating point. Min/max
+  // allow floating point.
+  enum ArithOpExtraValueType {
+    AOEVT_None = 0,
+    AOEVT_Pointer = 1,
+    AOEVT_FP = 2,
+  };
+  unsigned ArithAllows = AOEVT_None;
 
   switch (Op) {
   case AtomicExpr::AO__c11_atomic_init:
@@ -8164,18 +8172,30 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
   case AtomicExpr::AO__atomic_store_n:
     Form = Copy;
     break;
-  case AtomicExpr::AO__hip_atomic_fetch_add:
-  case AtomicExpr::AO__hip_atomic_fetch_min:
-  case AtomicExpr::AO__hip_atomic_fetch_max:
-  case AtomicExpr::AO__c11_atomic_fetch_add:
-  case AtomicExpr::AO__c11_atomic_fetch_sub:
-  case AtomicExpr::AO__opencl_atomic_fetch_add:
-  case AtomicExpr::AO__opencl_atomic_fetch_sub:
   case AtomicExpr::AO__atomic_fetch_add:
   case AtomicExpr::AO__atomic_fetch_sub:
   case AtomicExpr::AO__atomic_add_fetch:
   case AtomicExpr::AO__atomic_sub_fetch:
-    IsAddSub = true;
+  case AtomicExpr::AO__c11_atomic_fetch_add:
+  case AtomicExpr::AO__c11_atomic_fetch_sub:
+  case AtomicExpr::AO__opencl_atomic_fetch_add:
+  case AtomicExpr::AO__opencl_atomic_fetch_sub:
+  case AtomicExpr::AO__hip_atomic_fetch_add:
+  case AtomicExpr::AO__hip_atomic_fetch_sub:
+    ArithAllows = AOEVT_Pointer | AOEVT_FP;
+    Form = Arithmetic;
+    break;
+  case AtomicExpr::AO__atomic_fetch_max:
+  case AtomicExpr::AO__atomic_fetch_min:
+  case AtomicExpr::AO__atomic_max_fetch:
+  case AtomicExpr::AO__atomic_min_fetch:
+  case AtomicExpr::AO__c11_atomic_fetch_max:
+  case AtomicExpr::AO__c11_atomic_fetch_min:
+  case AtomicExpr::AO__opencl_atomic_fetch_max:
+  case AtomicExpr::AO__opencl_atomic_fetch_min:
+  case AtomicExpr::AO__hip_atomic_fetch_max:
+  case AtomicExpr::AO__hip_atomic_fetch_min:
+    ArithAllows = AOEVT_FP;
     Form = Arithmetic;
     break;
   case AtomicExpr::AO__c11_atomic_fetch_and:
@@ -8196,16 +8216,6 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
   case AtomicExpr::AO__atomic_or_fetch:
   case AtomicExpr::AO__atomic_xor_fetch:
   case AtomicExpr::AO__atomic_nand_fetch:
-    Form = Arithmetic;
-    break;
-  case AtomicExpr::AO__c11_atomic_fetch_min:
-  case AtomicExpr::AO__c11_atomic_fetch_max:
-  case AtomicExpr::AO__opencl_atomic_fetch_min:
-  case AtomicExpr::AO__opencl_atomic_fetch_max:
-  case AtomicExpr::AO__atomic_min_fetch:
-  case AtomicExpr::AO__atomic_max_fetch:
-  case AtomicExpr::AO__atomic_fetch_min:
-  case AtomicExpr::AO__atomic_fetch_max:
     Form = Arithmetic;
     break;
 
@@ -8276,7 +8286,6 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
   case AtomicExpr::AO__atomic_fetch_sub_explicit:
   case AtomicExpr::AO__atomic_add_fetch_explicit:
   case AtomicExpr::AO__atomic_sub_fetch_explicit:
-    IsAddSub = true;
     Form = Arithmetic;
     break;
   case AtomicExpr::AO__atomic_fetch_and_explicit_1:
@@ -8426,12 +8435,13 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
   if (Form == Arithmetic) {
     // GCC does not enforce these rules for GNU atomics, but we do to help catch
     // trivial type errors.
-    auto IsAllowedValueType = [&](QualType ValType) {
+    auto IsAllowedValueType = [&](QualType ValType,
+                                  unsigned AllowedType) -> bool {
       if (ValType->isIntegerType())
         return true;
       if (ValType->isPointerType())
-        return true;
-      if (!ValType->isFloatingType())
+        return AllowedType & AOEVT_Pointer;
+      if (!(ValType->isFloatingType() && (AllowedType & AOEVT_FP)))
         return false;
       // LLVM Parser does not allow atomicrmw with x86_fp80 type.
       if (ValType->isSpecificBuiltinType(BuiltinType::LongDouble) &&
@@ -8440,18 +8450,18 @@ ExprResult Sema::BuildAtomicExpr(SourceRange CallRange, SourceRange ExprRange,
         return false;
       return true;
     };
-    if (IntelTypeCoerceSize == 0) // INTEL, intentionally bad indentation
-    if (IsAddSub && !IsAllowedValueType(ValType)) {
-      Diag(ExprRange.getBegin(), diag::err_atomic_op_needs_atomic_int_ptr_or_fp)
+    if (IntelTypeCoerceSize == 0) { // INTEL, intentionally bad indentation
+    if (!IsAllowedValueType(ValType, ArithAllows)) {
+      auto DID = ArithAllows & AOEVT_FP
+                     ? (ArithAllows & AOEVT_Pointer
+                            ? diag::err_atomic_op_needs_atomic_int_ptr_or_fp
+                            : diag::err_atomic_op_needs_atomic_int_or_fp)
+                     : diag::err_atomic_op_needs_atomic_int;
+      Diag(ExprRange.getBegin(), DID)
           << IsC11 << Ptr->getType() << Ptr->getSourceRange();
       return ExprError();
     }
-    if (IntelTypeCoerceSize == 0) // INTEL, intentionally bad indentation
-    if (!IsAddSub && !ValType->isIntegerType()) {
-      Diag(ExprRange.getBegin(), diag::err_atomic_op_needs_atomic_int)
-          << IsC11 << Ptr->getType() << Ptr->getSourceRange();
-      return ExprError();
-    }
+    } // INTEL
     if (IsC11 && ValType->isPointerType() &&
         RequireCompleteType(Ptr->getBeginLoc(), ValType->getPointeeType(),
                             diag::err_incomplete_type)) {

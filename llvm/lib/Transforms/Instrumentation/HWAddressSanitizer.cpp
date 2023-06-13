@@ -360,8 +360,6 @@ private:
   Module &M;
   const StackSafetyGlobalInfo *SSI;
   Triple TargetTriple;
-  FunctionCallee HWAsanMemmove, HWAsanMemcpy, HWAsanMemset;
-  FunctionCallee HWAsanHandleVfork;
 
   /// This struct defines the shadow mapping using the rule:
   ///   shadow = (mem >> Scale) + Offset.
@@ -414,6 +412,9 @@ private:
 
   FunctionCallee HwasanMemoryAccessCallback[2][kNumberOfAccessSizes];
   FunctionCallee HwasanMemoryAccessCallbackSized[2];
+
+  FunctionCallee HwasanMemmove, HwasanMemcpy, HwasanMemset;
+  FunctionCallee HwasanHandleVfork;
 
   FunctionCallee HwasanTagMemoryFunc;
   FunctionCallee HwasanGenerateTagFunc;
@@ -648,25 +649,25 @@ void HWAddressSanitizer::initializeCallbacks(Module &M) {
   IRBuilder<> IRB(*C);
   const std::string MatchAllStr = UseMatchAllCallback ? "_match_all" : "";
   FunctionType *HwasanMemoryAccessCallbackSizedFnTy,
-      *HwasanMemoryAccessCallbackFnTy, *HWAsanMemTransferFnTy,
-      *HWAsanMemsetFnTy;
+      *HwasanMemoryAccessCallbackFnTy, *HwasanMemTransferFnTy,
+      *HwasanMemsetFnTy;
   if (UseMatchAllCallback) {
     HwasanMemoryAccessCallbackSizedFnTy =
         FunctionType::get(VoidTy, {IntptrTy, IntptrTy, Int8Ty}, false);
     HwasanMemoryAccessCallbackFnTy =
         FunctionType::get(VoidTy, {IntptrTy, Int8Ty}, false);
-    HWAsanMemTransferFnTy = FunctionType::get(
+    HwasanMemTransferFnTy = FunctionType::get(
         Int8PtrTy, {Int8PtrTy, Int8PtrTy, IntptrTy, Int8Ty}, false);
-    HWAsanMemsetFnTy = FunctionType::get(
+    HwasanMemsetFnTy = FunctionType::get(
         Int8PtrTy, {Int8PtrTy, Int32Ty, IntptrTy, Int8Ty}, false);
   } else {
     HwasanMemoryAccessCallbackSizedFnTy =
         FunctionType::get(VoidTy, {IntptrTy, IntptrTy}, false);
     HwasanMemoryAccessCallbackFnTy =
         FunctionType::get(VoidTy, {IntptrTy}, false);
-    HWAsanMemTransferFnTy =
+    HwasanMemTransferFnTy =
         FunctionType::get(Int8PtrTy, {Int8PtrTy, Int8PtrTy, IntptrTy}, false);
-    HWAsanMemsetFnTy =
+    HwasanMemsetFnTy =
         FunctionType::get(Int8PtrTy, {Int8PtrTy, Int32Ty, IntptrTy}, false);
   }
 
@@ -693,12 +694,12 @@ void HWAddressSanitizer::initializeCallbacks(Module &M) {
           ? std::string("")
           : ClMemoryAccessCallbackPrefix;
 
-  HWAsanMemmove = M.getOrInsertFunction(
-      MemIntrinCallbackPrefix + "memmove" + MatchAllStr, HWAsanMemTransferFnTy);
-  HWAsanMemcpy = M.getOrInsertFunction(
-      MemIntrinCallbackPrefix + "memcpy" + MatchAllStr, HWAsanMemTransferFnTy);
-  HWAsanMemset = M.getOrInsertFunction(
-      MemIntrinCallbackPrefix + "memset" + MatchAllStr, HWAsanMemsetFnTy);
+  HwasanMemmove = M.getOrInsertFunction(
+      MemIntrinCallbackPrefix + "memmove" + MatchAllStr, HwasanMemTransferFnTy);
+  HwasanMemcpy = M.getOrInsertFunction(
+      MemIntrinCallbackPrefix + "memcpy" + MatchAllStr, HwasanMemTransferFnTy);
+  HwasanMemset = M.getOrInsertFunction(
+      MemIntrinCallbackPrefix + "memset" + MatchAllStr, HwasanMemsetFnTy);
 
   HwasanTagMemoryFunc = M.getOrInsertFunction("__hwasan_tag_memory", VoidTy,
                                               Int8PtrTy, Int8Ty, IntptrTy);
@@ -711,7 +712,7 @@ void HWAddressSanitizer::initializeCallbacks(Module &M) {
   ShadowGlobal =
       M.getOrInsertGlobal("__hwasan_shadow", ArrayType::get(Int8Ty, 0));
 
-  HWAsanHandleVfork =
+  HwasanHandleVfork =
       M.getOrInsertFunction("__hwasan_handle_vfork", VoidTy, IntptrTy);
 }
 
@@ -982,14 +983,14 @@ void HWAddressSanitizer::instrumentMemIntrinsic(MemIntrinsic *MI) {
   if (isa<MemTransferInst>(MI)) {
     if (UseMatchAllCallback) {
       IRB.CreateCall(
-          isa<MemMoveInst>(MI) ? HWAsanMemmove : HWAsanMemcpy,
+          isa<MemMoveInst>(MI) ? HwasanMemmove : HwasanMemcpy,
           {IRB.CreatePointerCast(MI->getOperand(0), IRB.getInt8PtrTy()),
            IRB.CreatePointerCast(MI->getOperand(1), IRB.getInt8PtrTy()),
            IRB.CreateIntCast(MI->getOperand(2), IntptrTy, false),
            ConstantInt::get(Int8Ty, *MatchAllTag)});
     } else {
       IRB.CreateCall(
-          isa<MemMoveInst>(MI) ? HWAsanMemmove : HWAsanMemcpy,
+          isa<MemMoveInst>(MI) ? HwasanMemmove : HwasanMemcpy,
           {IRB.CreatePointerCast(MI->getOperand(0), IRB.getInt8PtrTy()),
            IRB.CreatePointerCast(MI->getOperand(1), IRB.getInt8PtrTy()),
            IRB.CreateIntCast(MI->getOperand(2), IntptrTy, false)});
@@ -997,14 +998,14 @@ void HWAddressSanitizer::instrumentMemIntrinsic(MemIntrinsic *MI) {
   } else if (isa<MemSetInst>(MI)) {
     if (UseMatchAllCallback) {
       IRB.CreateCall(
-          HWAsanMemset,
+          HwasanMemset,
           {IRB.CreatePointerCast(MI->getOperand(0), IRB.getInt8PtrTy()),
            IRB.CreateIntCast(MI->getOperand(1), IRB.getInt32Ty(), false),
            IRB.CreateIntCast(MI->getOperand(2), IntptrTy, false),
            ConstantInt::get(Int8Ty, *MatchAllTag)});
     } else {
       IRB.CreateCall(
-          HWAsanMemset,
+          HwasanMemset,
           {IRB.CreatePointerCast(MI->getOperand(0), IRB.getInt8PtrTy()),
            IRB.CreateIntCast(MI->getOperand(1), IRB.getInt32Ty(), false),
            IRB.CreateIntCast(MI->getOperand(2), IntptrTy, false)});
@@ -1349,7 +1350,7 @@ bool HWAddressSanitizer::instrumentLandingPads(
   for (auto *LP : LandingPadVec) {
     IRBuilder<> IRB(LP->getNextNode());
     IRB.CreateCall(
-        HWAsanHandleVfork,
+        HwasanHandleVfork,
         {readRegister(IRB, (TargetTriple.getArch() == Triple::x86_64) ? "rsp"
                                                                       : "sp")});
   }

@@ -10,7 +10,6 @@
 
 #include "llvm/Transforms/SYCLTransforms/DuplicateCalledKernelsPass.h"
 #include "llvm/ADT/DepthFirstIterator.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SCCIterator.h"
 #include "llvm/ADT/SetOperations.h"

@@ -248,11 +248,6 @@ define void @f4(i1 %c) {
 ; CHECK:       Loop %loop: Trip multiple is 128
 ;
 
-; @f4() demonstrates a case where SCEV is not able to compute a
-; precise range for %iv.trunc, though it should be able to, in theory.
-; This is because SCEV looks into affine add recurrences only when the
-; backedge taken count of the loop has the same bitwidth as the
-; induction variable.
 entry:
   %start = select i1 %c, i32 127, i32 0
   %step  = select i1 %c, i32 -1,  i32 1

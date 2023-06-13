@@ -3901,13 +3901,20 @@ class VPInvSCEVWrapper : public VPInstruction {
   // SCEV object.
   VPlanSCEV *Scev;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Is the opaque VPlanSCEV a LLVM SCEV?
+  // It appears that we use it only for printing at the moment.
   const bool IsSCEV;
+#endif
 
 public:
   VPInvSCEVWrapper(VPlanSCEV *S, Type *Ty, bool IsSCEV = true)
-      : VPInstruction(VPInstruction::InvSCEVWrapper, Ty, {}), Scev(S),
-        IsSCEV(IsSCEV) {}
+      : VPInstruction(VPInstruction::InvSCEVWrapper, Ty, {}), Scev(S)
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+        , IsSCEV(IsSCEV)
+#endif
+  {
+  }
 
   VPlanSCEV *getSCEV() const { return Scev; }
 

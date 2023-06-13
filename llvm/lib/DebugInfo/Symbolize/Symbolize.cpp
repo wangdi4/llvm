@@ -705,7 +705,7 @@ std::string
 LLVMSymbolizer::DemangleName(const std::string &Name,
                              const SymbolizableModule *DbiModuleDescriptor) {
   std::string Result;
-  if (nonMicrosoftDemangle(Name.c_str(), Result))
+  if (nonMicrosoftDemangle(Name, Result))
     return Result;
 
   if (!Name.empty() && Name.front() == '?') {
@@ -726,7 +726,7 @@ LLVMSymbolizer::DemangleName(const std::string &Name,
     std::string DemangledCName(demanglePE32ExternCFunc(Name));
     // On i386 Windows, the C name mangling for different calling conventions
     // may also be applied on top of the Itanium or Rust name mangling.
-    if (nonMicrosoftDemangle(DemangledCName.c_str(), Result))
+    if (nonMicrosoftDemangle(DemangledCName, Result))
       return Result;
     return DemangledCName;
   }
