@@ -1148,6 +1148,12 @@ private:
   // struct of vectors (for example, sincos function).
   HLInst *getCombinedCallResultsForStructTy(ArrayRef<HLInst *> CallResults);
 
+  // Helper utility for combining single call result when return type of
+  // the call is a struct of vectors.
+  // If, for example, call returns { <2 x float>, <2 x float> }, it combines
+  // the two parts into <4 x float> vector type.
+  HLInst *getCombinedCallResultForStructTy(HLInst *CallResult);
+
   // Helper utility to generate a scalar Call HLInst for given VPCall
   // instruction. Scalar values of the call arguments for given vector lane are
   // obtained in this utility.
