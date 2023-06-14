@@ -433,13 +433,6 @@ FunctionPass *createPlaceSafepointsPass();
 
 //===----------------------------------------------------------------------===//
 //
-// RewriteStatepointsForGC - Rewrite any gc.statepoints which do not yet have
-// explicit relocations to include explicit relocations.
-//
-ModulePass *createRewriteStatepointsForGCLegacyPass();
-
-//===----------------------------------------------------------------------===//
-//
 // NaryReassociate - Simplify n-ary operations by reassociation.
 //
 FunctionPass *createNaryReassociatePass();

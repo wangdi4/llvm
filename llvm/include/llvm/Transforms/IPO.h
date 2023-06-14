@@ -37,11 +37,8 @@
 
 namespace llvm {
 
-struct InlineParams;
 class ModulePass;
 class Pass;
-class BasicBlock;
-class GlobalValue;
 class raw_ostream;
 class InlineReportBuilder; // INTEL
 

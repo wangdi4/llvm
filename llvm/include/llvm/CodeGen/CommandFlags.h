@@ -176,7 +176,7 @@ std::optional<bool> getExplicitValueTrackingVariableLocations();
 
 bool getForceDwarfFrameSection();
 
-bool getXRayOmitFunctionIndex();
+bool getXRayFunctionIndex();
 
 bool getDebugStrictDwarf();
 
