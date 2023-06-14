@@ -200,9 +200,11 @@ set(imf_bf16_fallback_src_list imf_utils/bfloat16_convert.cpp
 
 # INTEL_CUSTOMIZATION
 set (imf_fp32_dl_src_list imf/imf_fp32_dl.cpp
-	                  imf/intel/pown_s_ep.cpp)
+	                  imf/intel/pown_s_ep.cpp
+                          imf/intel/lgamma_s_ep.cpp)
 set (imf_fp64_dl_src_list imf/imf_fp64_dl.cpp
-	                  imf/intel/pown_d_la.cpp)
+	                  imf/intel/pown_d_la.cpp
+                          imf/intel/lgamma_d_ep.cpp)
 
 if(OMP_LIBDEVICE STREQUAL 1)
   set(imf_fallback_src_list)
