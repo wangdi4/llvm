@@ -494,6 +494,8 @@ def vecreduce_fadd  : SDNode<"ISD::VECREDUCE_FADD", SDTFPVecReduce>;
   def vecreduce_or   : SDNode<"ISD::VECREDUCE_OR", SDTVecReduce>;
   def vecreduce_xor  : SDNode<"ISD::VECREDUCE_XOR", SDTVecReduce>;
 #endif // INTEL_CUSTOMIZATION
+def vecreduce_fmin  : SDNode<"ISD::VECREDUCE_FMIN", SDTFPVecReduce>;
+def vecreduce_fmax  : SDNode<"ISD::VECREDUCE_FMAX", SDTFPVecReduce>;
 
 def fadd       : SDNode<"ISD::FADD"       , SDTFPBinOp, [SDNPCommutative]>;
 def fsub       : SDNode<"ISD::FSUB"       , SDTFPBinOp>;
