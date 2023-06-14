@@ -1,5 +1,4 @@
-; REQUIRES : asserts
-; RUN: opt -intel-libirc-allowed --passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-non-perfect-nest-loop-blocking" -disable-hir-non-perfect-nest-loop-blocking=false -disable-output -debug-only=hir-non-perfect-nest-loop-blocking-profit 2>&1 < %s | FileCheck %s
+; RUN: opt -intel-libirc-allowed -hir-non-perfect-nest-loop-blocking-stripmine-size=2 --passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-non-perfect-nest-loop-blocking,print<hir>" -disable-hir-non-perfect-nest-loop-blocking=false -disable-output 2>&1 < %s | FileCheck %s
 
 ; Verify that HIRNonPerfectNestLoopBlocking is done.
 ; Backward depence between A[i2] doesn't matter.
@@ -37,8 +36,31 @@
 ; 28:28 (%A)[i2] --> (%A)[i2] OUTPUT (* =) (? 0)
 ; 8:11 %3 --> %3 FLOW (= =) (0 0)
 
-; CHECK: Candidate loopnest in function foo:
-; CHECK:   DO i1 = 0, %M + -1, 1   <DO_LOOP>
+; CHECK:  BEGIN REGION { modified }
+; CHECK:   + DO i1 = 0, (-1 + sext.i32.i64(%N)), 2   <DO_LOOP>
+; CHECK:   |   %tile_e_min = (i1 + 1 <= (-1 + sext.i32.i64(%N))) ? i1 + 1 : (-1 + sext.i32.i64(%N));
+;          |
+; CHECK:   |   + DO i2 = 0, %M + -1, 1   <DO_LOOP>
+; CHECK:   |   |   %lb_max = (0 <= i1) ? i1 : 0;
+; CHECK:   |   |   %ub_min = (sext.i32.i64(%N) + -1 <= %tile_e_min) ? sext.i32.i64(%N) + -1 : %tile_e_min;
+;          |   |
+; CHECK:   |   |   + DO i3 = 0, -1 * %lb_max + %ub_min, 1   <DO_LOOP>
+; CHECK:   |   |   |   %2 = (%A)[i3 + %lb_max];
+; CHECK:   |   |   |   %3 = (%B)[i3 + %lb_max];
+; CHECK:   |   |   |   (%C)[i3 + %lb_max] = %2 + %3;
+; CHECK:   |   |   + END LOOP
+;          |   |
+; CHECK:   |   |   %lb_max[[V3:.*]] = (0 <= i1) ? i1 : 0;
+; CHECK:   |   |   %ub_min[[V4:.*]] = (sext.i32.i64(%N) + -1 <= %tile_e_min) ? sext.i32.i64(%N) + -1 : %tile_e_min;
+;          |   |
+; CHECK:   |   |   + DO i3 = 0, -1 * %lb_max[[V3]] + %ub_min[[V4]], 1   <DO_LOOP>
+; CHECK:   |   |   |   %0 = (%A)[i3 + %lb_max[[V3]]];
+; CHECK:   |   |   |   %1 = (%B)[i3 + %lb_max[[V3]]];
+; CHECK:   |   |   |   (%A)[i3 + %lb_max[[V3]]] = 2 * %0 + %1;
+; CHECK:   |   |   + END LOOP
+; CHECK:   |   + END LOOP
+; CHECK:   + END LOOP
+; CHECK:  END REGION
 
 ;Module Before HIR
 ; ModuleID = 'test-backward-memref.c'

@@ -2,7 +2,7 @@
 ; RUN: opt -intel-libirc-allowed --passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-non-perfect-nest-loop-blocking,print<hir>" -disable-hir-non-perfect-nest-loop-blocking=false -disable-output -debug-only=hir-non-perfect-nest-loop-blocking 2>&1 < %s | FileCheck %s
 
 ; Verify that the loop is not a candidate for HIRNonPerfectNestLoopBlocking
-; because currently, the outermost level IV i1 in dimensions are now allowed.
+; because currently, the outermost level IV i1 in dimensions are not allowed.
 ;
 
 ; CHECK: Invalid Dimension info.

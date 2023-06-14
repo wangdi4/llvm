@@ -1,9 +1,6 @@
-; REQUIRES: asserts
-; RUN: opt -intel-libirc-allowed --passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-non-perfect-nest-loop-blocking" -disable-hir-non-perfect-nest-loop-blocking=false -disable-output -debug-only=hir-non-perfect-nest-loop-blocking-profit 2>&1 < %s | FileCheck %s
+; RUN: opt -intel-libirc-allowed -hir-non-perfect-nest-loop-blocking-stripmine-size=2 --passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-non-perfect-nest-loop-blocking,print<hir>" -disable-hir-non-perfect-nest-loop-blocking=false -disable-output 2>&1 < %s | FileCheck %s
 
-; Verify that the loop with switch and goto, where goto's target bb is unreachable can be
-; identified as a candidate.
-; TODO: update with legality/profitablity checks and rewrite
+; Verify that inter loop blocking works with switch and goto, where goto's target bb is unreachable.
 
 ; Before transformation
 
@@ -20,7 +17,7 @@
 ; CHECK:               |   case 0:
 ; CHECK:               |         %shl1145 = 1  <<  -1 * i1 + %zext1130;
 ; CHECK:               |         %shl1147 = 1  <<  -1 * i1 + trunc.i64.i32(%zext1130) + %arg2;
-; CHECK:               |      + DO i2 = 0, zext.i32.i64(%load963) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; CHECK:               |      + DO i2 = 0, zext.i32.i64(%load963) + -1, 1   <DO_LOOP>
 ; CHECK:               |      |   %load1151 = (%load1124)[i2].1;
 ; CHECK:               |      |   %and1152 = %load1151  &  %shl1145;
 ; CHECK:               |      |   if (%and1152 != 0)
@@ -34,7 +31,7 @@
 ; CHECK:               |         %shl1161 = 1  <<  -1 * i1 + trunc.i64.i32(%zext1130) + %arg2 + 1;
 ; CHECK:               |         %freeze1162 = freeze(%shl1147);
 ; CHECK:               |         %or1163 = %shl1145  |  %freeze1162;
-; CHECK:               |      + DO i2 = 0, zext.i32.i64(%load963) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; CHECK:               |      + DO i2 = 0, zext.i32.i64(%load963) + -1, 1   <DO_LOOP>
 ; CHECK:               |      |   %load1167 = (%load1124)[i2].1;
 ; CHECK:               |      |   %and1168 = %load1167  &  %or1163;
 ; CHECK:               |      |   if (%and1168 == %or1163)
@@ -47,7 +44,7 @@
 ; CHECK:               |   case 3:
 ; CHECK:               |         %shl1177 = 1  <<  -1 * i1 + %zext1130;
 ; CHECK:               |         %shl1179 = 1  <<  -1 * i1 + trunc.i64.i32(%zext1130) + %arg2;
-; CHECK:               |      + DO i2 = 0, zext.i32.i64(%load963) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; CHECK:               |      + DO i2 = 0, zext.i32.i64(%load963) + -1, 1   <DO_LOOP>
 ; CHECK:               |      |   %load1183 = (%load1124)[i2].1;
 ; CHECK:               |      |   %and1184 = %load1183  &  %shl1177;
 ; CHECK:               |      |   if (%and1184 != 0)
@@ -63,11 +60,77 @@
 ; CHECK:               + END LOOP
 ; CHECK:         END REGION
 
-; Identified the input as a candidate
-;
-; CHECK: Candidate loopnest in function ham:
-; CHECK: DO i1 = 0, %zext1130 + -1 * smin(0, %zext1130), 1   <DO_MULTI_EXIT_LOOP>
+; After transformation
 
+; CHECK: Function: ham
+;
+; CHECK: BEGIN REGION { modified }
+; CHECK:       + DO i1 = 0, (-1 + zext.i32.i64(%load963)), 2   <DO_LOOP>
+; CHECK:       |   %tile_e_min = (i1 + 1 <= (-1 + zext.i32.i64(%load963))) ? i1 + 1 : (-1 + zext.i32.i64(%load963));
+;              |
+; CHECK:       |   + DO i2 = 0, %zext1130 + -1 * smin(0, %zext1130), 1   <DO_MULTI_EXIT_LOOP>
+;              |   |   %shl1134 = 1  <<  -1 * i2 + %zext1130;
+;              |   |   %and1135 = %shl1134  &  %arg;
+;              |   |   %select1137 = (%and1135 == 0) ? 0 : 2;
+;              |   |   %lshr1138 = %arg1  >>  -1 * i2 + %zext1130;
+;              |   |   switch(zext.i1.i32(trunc.i32.i1(%lshr1138)) + %select1137)
+;              |   |   {
+;              |   |   case 0:
+; CHECK:       |   |      %lb_max = (0 <= i1) ? i1 : 0;
+; CHECK:       |   |      %ub_min = (zext.i32.i64(%load963) + -1 <= %tile_e_min) ? zext.i32.i64(%load963) + -1 : %tile_e_min;
+;              |   |
+;              |   |         %shl1145 = 1  <<  -1 * i2 + %zext1130;
+;              |   |         %shl1147 = 1  <<  -1 * i2 + trunc.i64.i32(%zext1130) + %arg2;
+; CHECK:       |   |      + DO i3 = 0, -1 * %lb_max + %ub_min, 1   <DO_LOOP>
+; CHECK:       |   |      |   %load1151 = (%load1124)[i3 + %lb_max].1;
+;              |   |      |   %and1152 = %load1151  &  %shl1145;
+;              |   |      |   if (%and1152 != 0)
+;              |   |      |   {
+;              |   |      |      %xor1155 = %load1151  ^  %shl1147;
+; CHECK:       |   |      |      (%load1124)[i3 + %lb_max].1 = %xor1155;
+;              |   |      |   }
+;              |   |      + END LOOP
+;              |   |
+; CHECK:       |   |      %lb_max[[V4:[0-9]*]] = (0 <= i1) ? i1 : 0;
+; CHECK:       |   |      %ub_min[[V5:[0-9]*]] = (zext.i32.i64(%load963) + -1 <= %tile_e_min) ? zext.i32.i64(%load963) + -1 : %tile_e_min;
+;              |   |
+;              |   |         %shl1161 = 1  <<  -1 * i2 + trunc.i64.i32(%zext1130) + %arg2 + 1;
+;              |   |         %freeze1162 = freeze(%shl1147);
+;              |   |         %or1163 = %shl1145  |  %freeze1162;
+;              |   |      + DO i3 = 0, -1 * %lb_max[[V4]] + %ub_min[[V5]], 1   <DO_LOOP>
+; CHECK:       |   |      |   %load1167 = (%load1124)[i3 + %lb_max[[V4]]].1;
+;              |   |      |   %and1168 = %load1167  &  %or1163;
+;              |   |      |   if (%and1168 == %or1163)
+;              |   |      |   {
+;              |   |      |      %xor1171 = %load1167  ^  %shl1161;
+; CHECK:       |   |      |      (%load1124)[i3 + %lb_max[[V4]]].1 = %xor1171;
+;              |   |      |   }
+;              |   |      + END LOOP
+;              |   |      break;
+;              |   |   case 3:
+; CHECK:       |   |      %lb_max[[V6:[0-9]*]] = (0 <= i1) ? i1 : 0;
+; CHECK:       |   |      %ub_min[[V7:[0-9]*]] = (zext.i32.i64(%load963) + -1 <= %tile_e_min) ? zext.i32.i64(%load963) + -1 : %tile_e_min;
+;              |   |
+;              |   |         %shl1177 = 1  <<  -1 * i2 + %zext1130;
+;              |   |         %shl1179 = 1  <<  -1 * i2 + trunc.i64.i32(%zext1130) + %arg2;
+; CHECK:       |   |      + DO i3 = 0, -1 * %lb_max[[V6]] + %ub_min[[V7]], 1   <DO_LOOP>
+; CHECK:       |   |      |   %load1183 = (%load1124)[i3 + %lb_max[[V6]]].1;
+;              |   |      |   %and1184 = %load1183  &  %shl1177;
+;              |   |      |   if (%and1184 != 0)
+;              |   |      |   {
+;              |   |      |      %xor1187 = %load1183  ^  %shl1179;
+; CHECK:       |   |      |      (%load1124)[i3 + %lb_max[[V6]]].1 = %xor1187;
+;              |   |      |   }
+;              |   |      + END LOOP
+;              |   |      break;
+;              |   |   default:
+;              |   |      goto bb1432;
+;              |   |   }
+;              |   + END LOOP
+;              + END LOOP
+;        END REGION
+
+;
 ;
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
