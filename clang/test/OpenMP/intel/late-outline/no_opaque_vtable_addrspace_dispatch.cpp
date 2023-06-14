@@ -53,20 +53,20 @@ struct B : virtual A , public C
 B::B() {}
 // CHECK: define{{.*}}spir_func void @_ZN1BC2Ev
 // CHECK: [[THIS_ADDR:%[^)]*]] = alloca %struct.B addrspace(4)*
-// CHECK: [[VTT_ADDR:%[^)]*]] = alloca i8 addrspace(4)* addrspace(4)*
+// CHECK: [[VTT_ADDR:%[^)]*]] = alloca i8 addrspace(4)* addrspace(1)*
 // CHECK: [[THIS_ADDR_ASCAST:%[^)]*]] = addrspacecast %struct.B addrspace(4)** [[THIS_ADDR]] to %struct.B addrspace(4)* addrspace(4)*
-// CHECK: [[VTT_ADDR_ASCAST:%[^)]*]] =  addrspacecast i8 addrspace(4)* addrspace(4)** [[VTT_ADDR]] to i8 addrspace(4)* addrspace(4)* addrspace(4)*
+// CHECK: [[VTT_ADDR_ASCAST:%[^)]*]] =  addrspacecast i8 addrspace(4)* addrspace(1)** [[VTT_ADDR]] to i8 addrspace(4)* addrspace(1)* addrspace(4)*
 // CHECK: store %struct.B addrspace(4)* %this, %struct.B addrspace(4)* addrspace(4)* [[THIS_ADDR_ASCAST]]
-// CHECK: store i8 addrspace(4)* addrspace(4)* %vtt, i8 addrspace(4)* addrspace(4)* addrspace(4)* [[VTT_ADDR_ASCAST]]
+// CHECK: store i8 addrspace(4)* addrspace(1)* %vtt, i8 addrspace(4)* addrspace(1)* addrspace(4)* [[VTT_ADDR_ASCAST]]
 // CHECK: [[THIS1:%.*]] = load %struct.B addrspace(4)*, %struct.B addrspace(4)* addrspace(4)* [[THIS_ADDR_ASCAST]]
-// CHECK: [[VTT2:%vtt2]] =  load i8 addrspace(4)* addrspace(4)*, i8 addrspace(4)* addrspace(4)* addrspace(4)* [[VTT_ADDR_ASCAST]]
+// CHECK: [[VTT2:%vtt2]] =  load i8 addrspace(4)* addrspace(1)*, i8 addrspace(4)* addrspace(1)* addrspace(4)* [[VTT_ADDR_ASCAST]]
 // CHECK: [[L:%[^)]*]] = bitcast %struct.B addrspace(4)* [[THIS1]] to %struct.C addrspace(4)*
-// CHECK: [[L1:%[^)]*]] = load i8 addrspace(4)*, i8 addrspace(4)* addrspace(4)* [[VTT2]]
+// CHECK: [[L1:%[^)]*]] = load i8 addrspace(4)*, i8 addrspace(4)* addrspace(1)* [[VTT2]]
 // CHECK-NEXT: [[L2:%.*]] = bitcast %struct.B addrspace(4)* [[THIS1]] to i32 (...)* addrspace(4)* addrspace(4)*
 // CHECK-NEXT: [[L3:%[^)]*]] = bitcast i8 addrspace(4)* [[L1]] to i32 (...)* addrspace(4)*
 // CHECK: store i32 (...)* addrspace(4)* [[L3]], i32 (...)* addrspace(4)* addrspace(4)* [[L2]], align 8
-// CHECK: [[L4:%[^)]*]] = getelementptr inbounds i8 addrspace(4)*, i8 addrspace(4)* addrspace(4)* [[VTT2]], i64 1
-// CHECK: [[L5:%[^)]*]] = load i8 addrspace(4)*, i8 addrspace(4)* addrspace(4)*
+// CHECK: [[L4:%[^)]*]] = getelementptr inbounds i8 addrspace(4)*, i8 addrspace(4)* addrspace(1)* [[VTT2]], i64 1
+// CHECK: [[L5:%[^)]*]] = load i8 addrspace(4)*, i8 addrspace(4)* addrspace(1)*
 // CHECK: [[L6:%[^)]*]] = bitcast %struct.B addrspace(4)* [[THIS1]] to i8 addrspace(4)* addrspace(4)*
 // CHECK: [[VTABLE:%vtable]] = load i8 addrspace(4)*, i8 addrspace(4)* addrspace(4)*  [[L6]]
 // CHECK: [[VBASE_OFFSET_PTR:%vbase.offset.ptr]] = getelementptr i8, i8 addrspace(4)* [[VTABLE]]
