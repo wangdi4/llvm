@@ -11,7 +11,7 @@
 ; CHECK: Set metadata for kernel k1: BarrierBufferSize=[[#BUFFER_SIZE_PER_WI:]]
 
 ; Dump the allocated barrier buffer size when running the kernel.
-; CHECK: PRINT SPECIAL BUFFER SIZE:{{.*}} [[#mul(BUFFER_SIZE_PER_WI, 64)]]
+; CHECK: PRINT SPECIAL BUFFER: [ADDR]{{.*}}[SIZE]{{.*}} [[#mul(BUFFER_SIZE_PER_WI, 64)]]
 
 ; Auto-memory should opt-in because of the large stack usage,
 ; checks that kernel execution doesn't fail with a stack overflow (segfault).

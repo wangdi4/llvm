@@ -759,12 +759,17 @@ std::vector<std::tuple<std::string, std::string, std::string>> &
 getExtendedVectInfos();
 
 /// Insert printf in the kernel for debug purpose.
+/// \param InputPrefixes The prefix that would be printed before each input
+/// value.
 void insertPrintf(const Twine &Prefix, Instruction *IP,
-                  ArrayRef<Value *> Inputs = std::nullopt);
+                  ArrayRef<Value *> Inputs = std::nullopt,
+                  ArrayRef<StringRef> InputPrefixes = std::nullopt);
 void insertPrintf(const Twine &Prefix, BasicBlock *BB,
-                  ArrayRef<Value *> Inputs = std::nullopt);
+                  ArrayRef<Value *> Inputs = std::nullopt,
+                  ArrayRef<StringRef> InputPrefixes = std::nullopt);
 void insertPrintf(const Twine &Prefix, IRBuilder<> &Builder,
-                  ArrayRef<Value *> Inputs = std::nullopt);
+                  ArrayRef<Value *> Inputs = std::nullopt,
+                  ArrayRef<StringRef> InputPrefixes = std::nullopt);
 
 #if INTEL_CUSTOMIZATION
 /// Check whether the given FixedVectorType represents a valid SYCL matrix.

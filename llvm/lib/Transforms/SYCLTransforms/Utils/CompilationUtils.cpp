@@ -2607,7 +2607,7 @@ static std::string getFormatStr(Value *V) {
 }
 
 void insertPrintf(const Twine &Prefix, IRBuilder<> &Builder,
-                  ArrayRef<Value *> Inputs) {
+                  ArrayRef<Value *> Inputs, ArrayRef<StringRef> InputPrefixes) {
   auto *BB = Builder.GetInsertBlock();
   auto &Context = BB->getContext();
   unsigned StrAddrSpace = 2;
@@ -2621,6 +2621,11 @@ void insertPrintf(const Twine &Prefix, IRBuilder<> &Builder,
   auto *PrintFunc = cast<Function>(PrintFuncConst.getCallee());
 
   SmallVector<Value *, 16> TempInputs;
+  SmallVector<std::string, 16> TempInputPrefixes;
+  auto FetchInputPrefix = [&]() {
+    return InputPrefixes.empty() ? ""
+                                 : ("[" + InputPrefixes.front().str() + "]");
+  };
   for (auto *I : Inputs) {
     if (auto *T = dyn_cast<FixedVectorType>(I->getType())) {
       unsigned Len = T->getNumElements();
@@ -2629,20 +2634,30 @@ void insertPrintf(const Twine &Prefix, IRBuilder<> &Builder,
         auto *Ele =
             Builder.CreateExtractElement(I, Idx, Name + "." + Twine(Idx));
         TempInputs.push_back(Ele);
+        // Add "[prefix][idx]" for each vector element
+        TempInputPrefixes.push_back(FetchInputPrefix() + "[" +
+                                    Twine(Idx).str() + "]");
       }
     } else {
       TempInputs.push_back(I);
+      TempInputPrefixes.push_back(FetchInputPrefix());
     }
+    // Drop used input prefix
+    if (!InputPrefixes.empty())
+      InputPrefixes = InputPrefixes.drop_front();
   }
+  assert(TempInputs.size() == TempInputPrefixes.size() &&
+         "Number of prefixes for input doesn't match!");
 
   std::string FormatStr = "PRINT " + Prefix.str() + " ";
   SmallVector<Value *, 16> TempInputsCast;
-  for (auto *V : TempInputs) {
+  for (auto [I, V] : enumerate(TempInputs)) {
     Type *T = V->getType();
     if (T->isIntegerTy())
       if (!T->isIntegerTy(32))
         V = Builder.CreateIntCast(V, Builder.getInt32Ty(), false,
                                   V->getName() + "cast.");
+    FormatStr += TempInputPrefixes[I];
     FormatStr += getFormatStr(V);
     if (T->is16bitFPTy())
       V = Builder.CreateBitCast(V, Builder.getInt16Ty(),
@@ -2667,15 +2682,15 @@ void insertPrintf(const Twine &Prefix, IRBuilder<> &Builder,
 }
 
 void insertPrintf(const Twine &Prefix, Instruction *IP,
-                  ArrayRef<Value *> Inputs) {
+                  ArrayRef<Value *> Inputs, ArrayRef<StringRef> InputPrefixes) {
   IRBuilder<> Builder(IP);
-  insertPrintf(Prefix, Builder, Inputs);
+  insertPrintf(Prefix, Builder, Inputs, InputPrefixes);
 }
 
-void insertPrintf(const Twine &Prefix, BasicBlock *BB,
-                  ArrayRef<Value *> Inputs) {
+void insertPrintf(const Twine &Prefix, BasicBlock *BB, ArrayRef<Value *> Inputs,
+                  ArrayRef<StringRef> InputPrefixes) {
   IRBuilder<> Builder(BB);
-  insertPrintf(Prefix, Builder, Inputs);
+  insertPrintf(Prefix, Builder, Inputs, InputPrefixes);
 }
 
 bool isValidMatrixType(FixedVectorType *MatrixType) {
