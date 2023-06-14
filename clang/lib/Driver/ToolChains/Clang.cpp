@@ -10862,10 +10862,18 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
        getToolChain().getTriple().isSPIR())) {
     TranslatorArgs.push_back("-spirv-max-version=1.4");
 #endif // INTEL_CUSTOMIZATION
-    TranslatorArgs.push_back("-spirv-debug-info-version=ocl-100");
-    // Prevent crash in the translator if input IR contains DIExpression
-    // operations which don't have mapping to OpenCL.DebugInfo.100 spec.
-    TranslatorArgs.push_back("-spirv-allow-extra-diexpressions");
+#if INTEL_CUSTOMIZATION
+    // TODO: remove it before release
+    if (!TCArgs.hasArg(options::OPT_fsycl_nonsemantic_debuginfo)) {
+      TranslatorArgs.push_back("-spirv-debug-info-version=ocl-100");
+      // Prevent crash in the translator if input IR contains DIExpression
+      // operations which don't have mapping to OpenCL.DebugInfo.100 spec.
+      TranslatorArgs.push_back("-spirv-allow-extra-diexpressions");
+    } else {
+      TranslatorArgs.push_back(
+          "-spirv-debug-info-version=nonsemantic-shader-200");
+    }
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
     if (JA.isDeviceOffloading(Action::OFK_OpenMP))
       TranslatorArgs.push_back("-spirv-allow-unknown-intrinsics");
