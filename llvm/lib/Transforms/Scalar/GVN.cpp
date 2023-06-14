@@ -2229,7 +2229,7 @@ static bool impliesEquivalanceIfTrue(CmpInst* Cmp) {
       if (isa<ConstantFP>(LHS) && !cast<ConstantFP>(LHS)->isZero())
         return true;
       if (isa<ConstantFP>(RHS) && !cast<ConstantFP>(RHS)->isZero())
-        return true;;
+        return true;
       // TODO: Handle vector floating point constants
   }
   return false;
@@ -2255,7 +2255,7 @@ static bool impliesEquivalanceIfFalse(CmpInst* Cmp) {
       if (isa<ConstantFP>(LHS) && !cast<ConstantFP>(LHS)->isZero())
         return true;
       if (isa<ConstantFP>(RHS) && !cast<ConstantFP>(RHS)->isZero())
-        return true;;
+        return true;
       // TODO: Handle vector floating point constants
   }
   return false;
