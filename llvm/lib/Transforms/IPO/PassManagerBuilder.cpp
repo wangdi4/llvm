@@ -742,9 +742,6 @@ void PassManagerBuilder::populateModulePassManager(
   }
 #endif  // INTEL_CUSTOMIZATION
 
-  if (OptLevel > 2)
-    MPM.add(createCallSiteSplittingPass());
-
   // Promote any localized global vars.
   MPM.add(createPromoteMemoryToRegisterPass());
 
@@ -877,8 +874,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   addInitialAliasAnalysisPasses(PM);
 
   if (OptLevel > 1) {
-    // Split call-site with more constrained arguments.
-    PM.add(createCallSiteSplittingPass());
 #if INTEL_CUSTOMIZATION
     // Compute the loop attributes
     PM.add(createIntelLoopAttrsWrapperPass(DTransEnabled));
