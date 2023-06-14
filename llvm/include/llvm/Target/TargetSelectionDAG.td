@@ -489,11 +489,16 @@ def vecreduce_umax  : SDNode<"ISD::VECREDUCE_UMAX", SDTVecReduce>;
 def vecreduce_smin  : SDNode<"ISD::VECREDUCE_SMIN", SDTVecReduce>;
 def vecreduce_umin  : SDNode<"ISD::VECREDUCE_UMIN", SDTVecReduce>;
 def vecreduce_fadd  : SDNode<"ISD::VECREDUCE_FADD", SDTFPVecReduce>;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   def vecreduce_and  : SDNode<"ISD::VECREDUCE_AND", SDTVecReduce>;
   def vecreduce_or   : SDNode<"ISD::VECREDUCE_OR", SDTVecReduce>;
   def vecreduce_xor  : SDNode<"ISD::VECREDUCE_XOR", SDTVecReduce>;
 #endif // INTEL_CUSTOMIZATION
+=======
+def vecreduce_fmin  : SDNode<"ISD::VECREDUCE_FMIN", SDTFPVecReduce>;
+def vecreduce_fmax  : SDNode<"ISD::VECREDUCE_FMAX", SDTFPVecReduce>;
+>>>>>>> e86f4e606b7c4f96df88de2816b2a4a025a2e04b
 
 def fadd       : SDNode<"ISD::FADD"       , SDTFPBinOp, [SDNPCommutative]>;
 def fsub       : SDNode<"ISD::FSUB"       , SDTFPBinOp>;
