@@ -4111,8 +4111,8 @@ getLinkerArgs(Compilation &C, DerivedArgList &Args, bool IncludeObj = false) {
       for (const std::string &Value : A->getValues()) {
         // Add any libpath values.
         StringRef OptCheck(Value);
-        if (OptCheck.startswith_insensitive("-libpath:") ||
-            OptCheck.startswith_insensitive("/libpath:"))
+        if (OptCheck.starts_with_insensitive("-libpath:") || // INTEL
+            OptCheck.starts_with_insensitive("/libpath:"))   // INTEL
           LibPaths.emplace_back(Value.substr(std::string("-libpath:").size()));
         if (addLibArg(Value))
           continue;
