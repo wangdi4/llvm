@@ -2088,16 +2088,13 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       if (Addr->getAddressSpace() != 0)
 #if INTEL_COLLAB
         AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(
-            Addr,
-            llvm::PointerType::getWithSamePointeeType(
-                cast<llvm::PointerType>(Addr->getType()),
+	    Addr, llvm::PointerType::get(CGM.getLLVMContext(),
                 CGM.getLangOpts().OpenMPLateOutline
                     ? CGM.getTypes().getTargetAddressSpace(VD->getType())
                     : 0));
 #else // INTEL_COLLAB
         AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(
-            Addr, llvm::PointerType::getWithSamePointeeType(
-                      cast<llvm::PointerType>(Addr->getType()), 0));
+	    Addr, llvm::PointerType::get(CGM.getLLVMContext(), 0));
 #endif // INTEL_COLLAB
       DtorCGF.emitDestroy(Address(AddrInAS0, Addr->getValueType(),
                                   CGM.getContext().getDeclAlign(VD)),

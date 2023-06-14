@@ -5875,8 +5875,8 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
           I->copyInto(*this, AI);
         } else {
           // Skip the extra memcpy call.
-          auto *T = llvm::PointerType::getWithSamePointeeType(
-              cast<llvm::PointerType>(V->getType()),
+          auto *T = llvm::PointerType::get(
+              CGM.getLLVMContext(),
 #if INTEL_COLLAB
               CGM.getEffectiveAllocaAddrSpace());
 #else // INTEL_COLLAB
