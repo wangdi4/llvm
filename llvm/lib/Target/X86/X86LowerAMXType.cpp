@@ -907,7 +907,7 @@ public:
   X86LowerAMXCast(Function &F, ShapeCalculator *ShapeC)
     : Func(F), SC(ShapeC), DT(nullptr) {}
 #endif // INTEL_CUSTOMIZATION
-  void combineCastStore(IntrinsicInst *Cast, StoreInst *ST);
+  bool combineCastStore(IntrinsicInst *Cast, StoreInst *ST); // INTEL
   bool combineLoadCast(IntrinsicInst *Cast, LoadInst *LD);
   bool combineLdSt(SmallVectorImpl<Instruction *> &Casts);
   bool combineAMXcast(TargetLibraryInfo *TLI);
@@ -1136,14 +1136,14 @@ static Value *getShapeFromAMXIntrinsic(Value *Inst, unsigned ShapeIdx,
 // -->
 // call void @llvm.x86.tilestored64.internal(i16 %row, i16 %col, i8* %p,
 //                                           i64 64, x86_amx %42)
-void X86LowerAMXCast::combineCastStore(IntrinsicInst *Cast, StoreInst *ST) {
+bool X86LowerAMXCast::combineCastStore(IntrinsicInst *Cast, StoreInst *ST) {
   Value *Tile = Cast->getOperand(0);
 
   assert(Tile->getType()->isX86_AMXTy() && "Not Tile Operand!");
 
   // TODO: Specially handle the mult-use case.
   if (Tile->getNumUses() != 1)
-    return;
+    return false;
 
   // We don't fetch shape from tilestore, we only get shape from tiledef,
   // so we can set the max tile shape to tilestore for special cases.
@@ -1189,6 +1189,7 @@ void X86LowerAMXCast::combineCastStore(IntrinsicInst *Cast, StoreInst *ST) {
   std::array<Value *, 5> Args = {Row, Col, I8Ptr, Stride, Tile};
   Builder.CreateIntrinsic(Intrinsic::x86_tilestored64_internal, std::nullopt,
                           Args);
+  return true; // INTEL
 }
 
 // %65 = load <256 x i32>, <256 x i32>* %p, align 64
@@ -1253,9 +1254,12 @@ bool X86LowerAMXCast::combineLdSt(SmallVectorImpl<Instruction *> &Casts) {
         StoreInst *Store = dyn_cast<StoreInst>(U);
         if (!Store)
           continue;
-        combineCastStore(cast<IntrinsicInst>(Cast), Store);
-        DeadStores.push_back(Store);
-        Change = true;
+#if INTEL_CUSTOMIZATION
+        if (combineCastStore(cast<IntrinsicInst>(Cast), Store)) {
+          DeadStores.push_back(Store);
+          Change = true;
+        }
+#endif // INTEL_CUSTOMIZATION
       }
       for (auto *Store : DeadStores)
         Store->eraseFromParent();
