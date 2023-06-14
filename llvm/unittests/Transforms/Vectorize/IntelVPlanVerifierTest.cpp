@@ -56,9 +56,7 @@ TEST_F(VPlanVerifierTestBase, VerifySSATest) {
   Plan->computeDT();
   ASSERT_TRUE(Plan->getDT());
 
-  EXPECT_DEATH(
-      Verifier->verifyVPlan(Plan.get(), *Plan->getDT(), Plan->getVPLoopInfo()),
-      "does not dominate all uses");
+  EXPECT_DEATH(Verifier->verifyVPlan(Plan.get()), "does not dominate all uses");
 }
 
 } // namespace

@@ -121,17 +121,17 @@ void VPlanVerifier::verifyCFGExternals(const VPlan *Plan) {
 
 // Public interface to verify the loop and its loop info.
 void VPlanVerifier::verifyVPlan(const VPlanVector *Plan,
-                                const VPDominatorTree &VPDomTree,
-                                VPLoopInfo *VPLI, unsigned int Flags) {
+                                unsigned int CheckFlags) {
 
-  VPLInfo = VPLI;
+  VPLInfo = Plan->getVPLoopInfo();
+  Flags = CheckFlags;
 
   if (DisableVerification)
     return;
 
   LLVM_DEBUG(dbgs() << "Verifying loop nest.\n");
 
-  if (!shouldSkipExternals(Flags))
+  if (!shouldSkipExternals())
     verifyCFGExternals(Plan);
 
   unsigned BBNum = 0;
@@ -151,7 +151,7 @@ void VPlanVerifier::verifyVPlan(const VPlanVector *Plan,
     Plan->getPDT()->verify();
 #endif
 
-  if (!VPLInfo || shouldSkipLoopInfo(Flags))
+  if (!VPLInfo || shouldSkipLoopInfo())
     return;
 
   VPLoop *TopLoop = *VPLInfo->begin();
@@ -162,7 +162,7 @@ void VPlanVerifier::verifyVPlan(const VPlanVector *Plan,
   if (TheLoop) {
     verifyNumLoops();
 
-    if (!shouldSkipInnerMultiExit(Flags)) {
+    if (!shouldSkipInnerMultiExit()) {
       // Check that every inner loop has only one exit block
       for (const Loop *SL : TheLoop->getSubLoops()) {
         // getExitingBlock is null if there are multiple exit blocks
