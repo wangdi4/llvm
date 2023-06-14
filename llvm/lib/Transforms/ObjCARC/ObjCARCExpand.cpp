@@ -109,19 +109,6 @@ static bool runImpl(Function &F) {
   return Changed;
 }
 
-#if INTEL_CUSTOMIZATION
-/// Early ARC transformations.
-class ObjCARCExpand : public FunctionPass {
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-  bool runOnFunction(Function &F) override;
-
-public:
-  static char ID;
-  ObjCARCExpand() : FunctionPass(ID) {
-    initializeObjCARCExpandPass(*PassRegistry::getPassRegistry());
-  }
-};
-#endif // INTEL_CUSTOMIZATION
 } // namespace
 
 PreservedAnalyses ObjCARCExpandPass::run(Function &F,

@@ -623,27 +623,6 @@ class ObjCARCOpt {
     bool hasCFGChanged() const { return CFGChanged; }
 };
 
-#if INTEL_CUSTOMIZATION
-/// The main ARC optimization pass.
-class ObjCARCOptLegacyPass : public FunctionPass {
-public:
-  ObjCARCOptLegacyPass() : FunctionPass(ID) {
-    initializeObjCARCOptLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-  bool doInitialization(Module &M) override {
-    return false;
-  }
-  bool runOnFunction(Function &F) override {
-    OCAO.init(F);
-    return OCAO.run(F, getAnalysis<AAResultsWrapperPass>().getAAResults());
-  }
-  static char ID;
-
-private:
-  ObjCARCOpt OCAO;
-};
-#endif // INTEL_CUSTOMIZATION
 } // end anonymous namespace
 
 /// Turn objc_retainAutoreleasedReturnValue into objc_retain if the operand is

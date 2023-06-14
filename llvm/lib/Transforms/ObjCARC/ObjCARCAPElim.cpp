@@ -167,20 +167,6 @@ bool runImpl(Module &M) {
   return Changed;
 }
 
-#if INTEL_CUSTOMIZATION
-/// Autorelease pool elimination.
-class ObjCARCAPElim : public ModulePass {
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-  bool runOnModule(Module &M) override;
-
-public:
-  static char ID;
-  ObjCARCAPElim() : ModulePass(ID) {
-    initializeObjCARCAPElimPass(*PassRegistry::getPassRegistry());
-  }
-};
-#endif // INTEL_CUSTOMIZATION
-
 } // namespace
 
 PreservedAnalyses ObjCARCAPElimPass::run(Module &M, ModuleAnalysisManager &AM) {
