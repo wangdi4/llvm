@@ -509,8 +509,6 @@ void PassManagerBuilder::addInstructionCombiningPass(
     PM.add(createVPOCFGRestructuringPass());
   }
 
-  PM.add(createInstructionCombiningPass(
-      PreserveForDTrans, false, EnableFcmpMinMaxCombine, EnableUpCasting));
 }
 
 bool PassManagerBuilder::isLoopOptStaticallyDisabled() const {
@@ -607,7 +605,6 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
 
   if (IsFullLTO) {
     addInstructionCombiningPass(PM, true /* EnableUpCasting */); // INTEL
-    PM.add(createInstructionCombiningPass()); // Clean up again
   }
 
 #if INTEL_CUSTOMIZATION

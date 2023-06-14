@@ -5324,7 +5324,7 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
 
   return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, // INTEL
                                          DT, ORE, BFI, PSI,             // INTEL
-                                         MaxIterations,                 // INTEL
+                                         InstCombineDefaultMaxIterations,  // INTEL
                                          PreserveForDTrans,             // INTEL
                                          EnableFcmpMinMaxCombine,       // INTEL
                                          PreserveAddrCompute,           // INTEL
@@ -5344,9 +5344,8 @@ InstructionCombiningPass::InstructionCombiningPass(bool PreserveForDTrans,
       PreserveAddrCompute(PreserveAddrCompute),
       EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),
       EnableUpCasting(EnableUpCasting),
-      EnableCanonicalizeSwap(EnableCanonicalizeSwap),
+      EnableCanonicalizeSwap(EnableCanonicalizeSwap){
 #endif // INTEL_CUSTOMIZATION
-          MaxIterations(InstCombineDefaultMaxIterations) {
   initializeInstructionCombiningPassPass(*PassRegistry::getPassRegistry());
 }
 
@@ -5361,9 +5360,8 @@ InstructionCombiningPass::InstructionCombiningPass(bool PreserveForDTrans,
       PreserveAddrCompute(PreserveAddrCompute),
       EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),
       EnableUpCasting(EnableUpCasting),
-      EnableCanonicalizeSwap(EnableCanonicalizeSwap),
+      EnableCanonicalizeSwap(EnableCanonicalizeSwap){
 #endif // INTEL_CUSTOMIZATION
-          MaxIterations(MaxIterations) {
   initializeInstructionCombiningPassPass(*PassRegistry::getPassRegistry());
 }
 
@@ -5394,14 +5392,5 @@ FunctionPass *llvm::createInstructionCombiningPass(
   return new InstructionCombiningPass(PreserveForDTrans, PreserveAddrCompute,
                                       EnableFcmpMinMaxCombine, EnableUpCasting,
                                       EnableCanonicalizeSwap);
-}
-
-FunctionPass *llvm::createInstructionCombiningPass(
-    bool PreserveForDTrans, bool PreserveAddrCompute, unsigned MaxIterations,
-    bool EnableFcmpMinMaxCombine, bool EnableUpCasting,
-    bool EnableCanonicalizeSwap) {
-  return new InstructionCombiningPass(PreserveForDTrans, PreserveAddrCompute,
-                                      MaxIterations, EnableFcmpMinMaxCombine,
-                                      EnableUpCasting, EnableCanonicalizeSwap);
 }
 #endif // INTEL_CUSTOMIZATION

@@ -119,7 +119,6 @@ class InstructionCombiningPass : public FunctionPass {
   const bool EnableFcmpMinMaxCombine; // INTEL
   const bool EnableUpCasting; // INTEL
   const bool EnableCanonicalizeSwap; // INTEL
-  const unsigned MaxIterations;
 
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -135,6 +134,7 @@ public:
                            bool EnableFcmpMinMaxCombine, bool EnableUpCasting,
                            bool EnableCanonicalizeSwap);
 #endif // INTEL_CUSTOMIZATION
+  explicit InstructionCombiningPass();
 
   void getAnalysisUsage(AnalysisUsage &AU) const override;
   bool runOnFunction(Function &F) override;
