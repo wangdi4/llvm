@@ -2021,13 +2021,9 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
                     : 0));
 #else // INTEL_COLLAB
         AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(
-<<<<<<< HEAD
             Addr, llvm::PointerType::getWithSamePointeeType(
                       cast<llvm::PointerType>(Addr->getType()), 0));
 #endif // INTEL_COLLAB
-=======
-            Addr, llvm::PointerType::get(CGM.getLLVMContext(), 0));
->>>>>>> d97b6772f50679ecf81aeeb7484bc02a840b2175
       CtorCGF.EmitAnyExprToMem(Init,
                                Address(AddrInAS0, Addr->getValueType(),
                                        CGM.getContext().getDeclAlign(VD)),
@@ -2092,21 +2088,14 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       if (Addr->getAddressSpace() != 0)
 #if INTEL_COLLAB
         AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(
-            Addr,
-            llvm::PointerType::getWithSamePointeeType(
-                cast<llvm::PointerType>(Addr->getType()),
+	    Addr, llvm::PointerType::get(CGM.getLLVMContext(),
                 CGM.getLangOpts().OpenMPLateOutline
                     ? CGM.getTypes().getTargetAddressSpace(VD->getType())
                     : 0));
 #else // INTEL_COLLAB
         AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(
-<<<<<<< HEAD
-            Addr, llvm::PointerType::getWithSamePointeeType(
-                      cast<llvm::PointerType>(Addr->getType()), 0));
+	    Addr, llvm::PointerType::get(CGM.getLLVMContext(), 0));
 #endif // INTEL_COLLAB
-=======
-            Addr, llvm::PointerType::get(CGM.getLLVMContext(), 0));
->>>>>>> d97b6772f50679ecf81aeeb7484bc02a840b2175
       DtorCGF.emitDestroy(Address(AddrInAS0, Addr->getValueType(),
                                   CGM.getContext().getDeclAlign(VD)),
                           ASTTy, DtorCGF.getDestroyer(ASTTy.isDestructedType()),
