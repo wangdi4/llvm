@@ -2500,12 +2500,10 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
     FPM.addPass(HIRMultiExitLoopRerollPass());
     FPM.addPass(HIRLoopCollapsePass());
     FPM.addPass(HIRLoopFusionPass());
-#if 0
 #if INTEL_FEATURE_SW_ADVANCED
     if (Level.getSpeedupLevel() > 2 && IsLTO)
       FPM.addPass(HIRNonPerfectNestLoopBlockingPass());
 #endif // INTEL_FEATURE_SW_ADVANCED
-#endif
     FPM.addPass(HIRDeadStoreEliminationPass());
     FPM.addPass(HIRLoopIndependentScalarReplPass());
     FPM.addPass(HIRIdiomRecognitionPass());

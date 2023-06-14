@@ -156,10 +156,14 @@ private:
                           Module *M) const;
 
   /// Returns true if Inst is a livein copy for IV update: i = i + 1.
-  bool isIVUpdateLiveInCopy(Instruction *Inst) const;
+  /// \p PhiUnderAnalysis is the phi for which we are adding the livein phi and
+  /// checking whether \p Inst can be considered an IV update inst and the
+  /// livein copy of phi can be added before this inst.
+  bool isIVUpdateLiveInCopy(Instruction *Inst, PHINode *PhiUnderAnalysis) const;
 
-  /// Inserts livein copy of Val at the end of BB.
-  void insertLiveInCopy(Value *Val, BasicBlock *BB, StringRef Name);
+  /// Inserts livein copy of \p Val which is operand of \p Phi at the end of BB.
+  void insertLiveInCopy(PHINode *Phi, Value *Val, BasicBlock *BB,
+                        StringRef Name);
 
   /// Inserts liveout copy of Inst at the first insertion point of BB if
   /// Inst is a phi or immediately after Inst.
@@ -386,7 +390,8 @@ Instruction *HIRSSADeconstruction::createCopy(Value *Val, StringRef Name,
   return CInst;
 }
 
-bool HIRSSADeconstruction::isIVUpdateLiveInCopy(Instruction *Inst) const {
+bool HIRSSADeconstruction::isIVUpdateLiveInCopy(
+    Instruction *Inst, PHINode *PhiUnderAnalysis) const {
 
   if (!isa<CallInst>(Inst) || !ScopedSE->isSCEVable(Inst->getType())) {
     return false;
@@ -412,11 +417,25 @@ bool HIRSSADeconstruction::isIVUpdateLiveInCopy(Instruction *Inst) const {
     return false;
   }
 
-  return SCCF->isConsideredLinear(Inst);
+  if (!SCCF->isConsideredLinear(Inst)) {
+    return false;
+  }
+
+  const SCEV *PhiSCEV = ScopedSE->getUnknown(PhiUnderAnalysis);
+
+  auto SC = ScopedSE->getSCEV(Inst);
+
+  // If Inst uses Phi in its SCEV form, reordering the livein copies is
+  // incorrect.
+  if (ScopedSE->hasOperand(SC, PhiSCEV)) {
+    return false;
+  }
+
+  return true;
 }
 
-void HIRSSADeconstruction::insertLiveInCopy(Value *Val, BasicBlock *BB,
-                                            StringRef Name) {
+void HIRSSADeconstruction::insertLiveInCopy(PHINode *Phi, Value *Val,
+                                            BasicBlock *BB, StringRef Name) {
   auto TermInst = BB->getTerminator();
   auto CopyInst =
       createCopy(Val, Name, CopyType::Livein, TermInst->getModule());
@@ -426,16 +445,19 @@ void HIRSSADeconstruction::insertLiveInCopy(Value *Val, BasicBlock *BB,
   // We need to keep IV update copies last in the bblock or we may encounter a
   // live-range issue when IV is parsed as a blob in one of the non-linear
   // values.
-  // The following loop moves the insertion point to point to first IV update
-  // copy.
-  for (auto FirstInst = BB->begin(); InsertionPoint != FirstInst;) {
-    auto PrevInst = std::prev(InsertionPoint);
+  // If Phi is not a SCEVAble type, it cannot cause live-range issues with IV.
+  if (ScopedSE->isSCEVable(Phi->getType())) {
+    // The following loop moves the insertion point to point to first IV update
+    // copy.
+    for (auto FirstInst = BB->begin(); InsertionPoint != FirstInst;) {
+      auto PrevInst = std::prev(InsertionPoint);
 
-    if (!isIVUpdateLiveInCopy(&*PrevInst)) {
-      break;
+      if (!isIVUpdateLiveInCopy(&*PrevInst, Phi)) {
+        break;
+      }
+
+      InsertionPoint = PrevInst;
     }
-
-    InsertionPoint = PrevInst;
   }
 
   CopyInst->insertBefore(&*InsertionPoint);
@@ -1021,7 +1043,7 @@ bool HIRSSADeconstruction::processPhiLiveins(PHINode *Phi,
     }
 
     // Insert copy.
-    insertLiveInCopy(PhiOp, PredBB, Name);
+    insertLiveInCopy(Phi, PhiOp, PredBB, Name);
     Ret = true;
   }
 

@@ -46,8 +46,7 @@
 //
 // Current limitations
 // - It works only 2-level loop nests.
-// - No profitability check yet.
-// - No transformation yet.
+// - Only a simple profitability check.
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRNonPerfectNestLoopBlockingPass.h"
 
@@ -80,6 +79,15 @@ using namespace llvm::loopopt::interloopblocking;
 static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden, cl::desc("Disable " OPT_DESC "."));
 
+static cl::opt<int>
+    DefaultStripmineSize(OPT_SWITCH "-stripmine-size", cl::init(2048),
+                         cl::ReallyHidden,
+                         cl::desc("Preset stripmine size for " OPT_DESC));
+
+static cl::opt<bool> DisableTransform("disable-rewrite-" OPT_SWITCH,
+                                      cl::init(false), cl::Hidden,
+                                      cl::desc("Only check " OPT_DESC "."));
+
 static cl::opt<std::string>
     FilterFunc(OPT_SWITCH "-filter-func", cl::ReallyHidden,
                cl::desc("Run " OPT_DESC " only on the specified function."));
@@ -87,6 +95,38 @@ static cl::opt<std::string>
 static cl::opt<unsigned> MinProfitableConstTC(
     OPT_SWITCH "-min-const-tc", cl::ReallyHidden, cl::init(400),
     cl::desc("Minimum constant trip counts for " OPT_DESC "."));
+
+static bool
+doTransForNonDimMatchingLoops(const LoopToDimInfoTy &InnermostLoopToDimInfos,
+                              const LoopToConstRefTy &InnermostLoopToRepRef,
+                              HLLoop *OutermostLoop, HIRDDAnalysis &DDA) {
+
+  if (DisableTransform) {
+    LLVM_DEBUG(dbgs() << "Transformation is disabled.\n");
+
+    return false;
+  }
+
+  // It is known that OutermostLoop is a NonDimMatching Loop
+  HLNode *NodeOutsideByStrip = OutermostLoop->getParent();
+
+  StringRef FuncName = (OutermostLoop->getHLNodeUtils())
+                           .getHIRFramework()
+                           .getFunction()
+                           .getName();
+
+  // Dummy input as Shift amount is not needed.
+  InnermostLoopToShiftTy InnermostLoopToShiftVec(0);
+  unsigned Size = InnermostLoopToDimInfos.begin()->second.size();
+
+  // Currently, just default stripmine size.
+  SmallVector<unsigned, 4> PreSetStripmineSizes(Size, DefaultStripmineSize);
+
+  return Transformer(PreSetStripmineSizes, InnermostLoopToDimInfos,
+                     InnermostLoopToRepRef, InnermostLoopToShiftVec,
+                     NodeOutsideByStrip, DDA, FuncName)
+      .rewrite(false /* ClongDVLoads */, false /* AlignLoops */);
+}
 
 namespace {
 // This checker only works on the following structure.
@@ -733,6 +773,21 @@ void CandidateVisitor::visit(HLLoop *Loop) {
   LLVM_DEBUG_PROFIT_REPORT(if (Func.hasName()) dbgs()
                                << Func.getName() << ":\n";);
   LLVM_DEBUG_PROFIT_REPORT(Loop->dump());
+
+  // Rewrite.
+  bool Result = doTransForNonDimMatchingLoops(InnermostLoopToDimInfo,
+                                              InnermostLoopToRepRef, Loop, DDA);
+
+  LLVM_DEBUG(dbgs() << "Transformation was " << (Result ? "done" : "not done")
+                    << "\n");
+  (void)Result;
+  if (Result) {
+    LLVM_DEBUG_PROFIT_REPORT(
+        dbgs() << "In Function - ";
+        if (Func.hasName()) dbgs() << Func.getName() << ", ";
+        dbgs() << "NonPerfectNestLoopBlocking was done:\n");
+    LLVM_DEBUG_PROFIT_REPORT(Loop->getParentRegion()->dump());
+  }
 }
 
 void driver(HIRFramework &HIRF, HIRDDAnalysis &DDA, TargetTransformInfo &TTI,

@@ -1,70 +1,152 @@
-; REQUIRES : asserts
-; RUN: opt -intel-libirc-allowed --passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-non-perfect-nest-loop-blocking" -disable-hir-non-perfect-nest-loop-blocking=false -disable-output -debug-only=hir-non-perfect-nest-loop-blocking-profit 2>&1 < %s | FileCheck %s
+; RUN: opt -intel-libirc-allowed -hir-non-perfect-nest-loop-blocking-stripmine-size=2 --passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-non-perfect-nest-loop-blocking,print<hir>" -disable-hir-non-perfect-nest-loop-blocking=false -disable-output 2>&1 < %s | FileCheck %s
 
-; Verify that the loop is captured as a candidate for HIRNonPerfectNestLoopBlocking.
+; Verify that i2-loops are stripmined by 2 and their byStripLoops are placed
+; outside of i1-loop.
 ;
-; TODO: update the results with legality/rewritten results.
-
+; This is a type of inter loop blocking with the existence of
+; i2-level sibling loop. Notice that i2-loop matches with the dimension [i2] of
+; memrefs (%1)[i2].1 whereas i2-loop's indunction variable doesn't appear in any
+; dimension. That makes i2-loop a non-dimension-matcing loop.
+;
+; For the loads/stores of memrefs in (%1)[i2].1, loop blocking of i2-loop doesn't violate
+; dependence. For the ease of understanding, ignore temps for now.
+; For a given i2 value, (%1)[i2].1 reads or writes are not dependent on other
+; iteration value of i2 because the index of array is i2's val.
+; Intra-iteration dependence among reads/writes on (%1)[i2].1 within i2-loop is
+; preserved by loop blocking of i2-loop.
+; Inter-iteration dependence over i1-loop's iterations among reads/writes on (%1)[i2].1
+; is preserved. For a given i2-value, i1 iteration values order doesn't change.
+; Example:
+; Direction of flow dependence of (%1)[i2].1 before loop blocking of i2.
+;    i1 iters  i2 iters
+;    1         1 --> to (2, 1) // (i1, i2)
+;              2 --> to (2, 2)
+;              3 --> to (2, 3)
+;              4 --> to (2, 4)
+;
+;    2         1
+;              2
+;              3
+;              4
+;
+; Direction of flow dependence of (%1)[i2].1 before loop blocking of i2 by 2.
+;    i1 iters  i2 iters
+;    1         1 --> to (2, 1) // (i1, i2)
+;              2 --> to (2, 2)
+;    2         1
+;              2
+;    1         3 --> to (2, 3)
+;              4 --> to (2, 4)
+;    2         3
+;              4
 
 ; Before transformation
 
-;CHECK: Function: test_sum.for.body85
-;          BEGIN REGION { }
-;CHECK:          + DO i1 = 0, %0 + -1 * smin(1, %0), 1   <DO_LOOP>
-;                |   %shl86 = 1  <<  -1 * i1 + %0;
-;                |   %and87 = %shl86  &  %compare;
-;                |   if (%and87 == 0)
-;                |   {
-;                |      if (%cmp93785 != 0)
-;                |      {
-;                |         %shl173 = 1  <<  -1 * i1 + trunc.i64.i32(%0) + %width;
-;                |         %shl185 = 2  <<  -1 * i1 + %0;
-;                |         %5 = freeze(%shl173);
-;                |         %6 = %5  |  %shl185;
-;                |         %shl200 = 1  <<  -1 * i1 + %0;
-;                |
-;CHECK:          |         + DO i2 = 0, %wide.trip.count821 + -1, 1   <DO_LOOP>
-;                |         |   %xor178 = (%1)[i2].1  ^  %5;
-;                |         |   %8 = %xor178  &  %6;
-;                |         |   %xor205 = (%8 == %6) ? %shl200 : 0;
-;                |         |   %9 = %xor178  ^  %xor205;
-;                |         |   (%1)[i2].1 = %9;
-;                |         + END LOOP
-;                |      }
-;                |   }
-;                |   else
-;                |   {
-;                |      if (%cmp93785 != 0)
-;                |      {
-;                |         %shl102 = 2  <<  -1 * i1 + %0;
-;                |         %shl127 = 1  <<  -1 * i1 + trunc.i64.i32(%0) + %width;
-;                |         %3 = freeze(%shl127);
-;                |
-; CHECK:         |         + DO i2 = 0, %wide.trip.count821 + -1, 1   <DO_LOOP>
-;                |         |   %xor132 = (%1)[i2].1  ^  %3;
-;                |         |   %and140 = %xor132  &  %shl102;
-;                |         |   %tobool141.not = %and140 != 0;
-;                |         |   %and150 = %xor132  &  %3;
-;                |         |   %tobool151.not = %and150 != 0;
-;                |         |   %or.cond.not = %tobool141.not  &  %tobool151.not;
-;                |         |   %spec.select774 = %xor132  ^  %or.cond.not;
-;                |         |   (%1)[i2].1 = %spec.select774;
-;                |         + END LOOP
-;                |      }
-;                |   }
-;                + END LOOP
-;          END REGION
+; CHECK: Function: test_sum.for.body85
+;           BEGIN REGION { }
+; CHECK:          + DO i1 = 0, %0 + -1 * smin(1, %0), 1   <DO_LOOP>
+;                 |   %shl86 = 1  <<  -1 * i1 + %0;
+;                 |   %and87 = %shl86  &  %compare;
+;                 |   if (%and87 == 0)
+;                 |   {
+;                 |      if (%cmp93785 != 0)
+;                 |      {
+;                 |         %shl173 = 1  <<  -1 * i1 + trunc.i64.i32(%0) + %width;
+;                 |         %shl185 = 2  <<  -1 * i1 + %0;
+;                 |         %5 = freeze(%shl173);
+;                 |         %6 = %5  |  %shl185;
+;                 |         %shl200 = 1  <<  -1 * i1 + %0;
+;                 |
+; CHECK:          |         + DO i2 = 0, %wide.trip.count821 + -1, 1   <DO_LOOP>
+;                 |         |   %xor178 = (%1)[i2].1  ^  %5;
+;                 |         |   %8 = %xor178  &  %6;
+;                 |         |   %xor205 = (%8 == %6) ? %shl200 : 0;
+;                 |         |   %9 = %xor178  ^  %xor205;
+;                 |         |   (%1)[i2].1 = %9;
+;                 |         + END LOOP
+;                 |      }
+;                 |   }
+;                 |   else
+;                 |   {
+;                 |      if (%cmp93785 != 0)
+;                 |      {
+;                 |         %shl102 = 2  <<  -1 * i1 + %0;
+;                 |         %shl127 = 1  <<  -1 * i1 + trunc.i64.i32(%0) + %width;
+;                 |         %3 = freeze(%shl127);
+;                 |
+;  CHECK:         |         + DO i2 = 0, %wide.trip.count821 + -1, 1   <DO_LOOP>
+;                 |         |   %xor132 = (%1)[i2].1  ^  %3;
+;                 |         |   %and140 = %xor132  &  %shl102;
+;                 |         |   %tobool141.not = %and140 != 0;
+;                 |         |   %and150 = %xor132  &  %3;
+;                 |         |   %tobool151.not = %and150 != 0;
+;                 |         |   %or.cond.not = %tobool141.not  &  %tobool151.not;
+;                 |         |   %spec.select774 = %xor132  ^  %or.cond.not;
+;                 |         |   (%1)[i2].1 = %spec.select774;
+;                 |         + END LOOP
+;                 |      }
+;                 |   }
+;                 + END LOOP
+;           END REGION
 
-; The loopnest is identified as a possible candidate.
+; After transformation
+
+; CHECK: Function: test_sum.for.body85
+
+;        BEGIN REGION { modified }
+; CHECK:       + DO i1 = 0, (-1 + %wide.trip.count821), 2   <DO_LOOP>
+; CHECK:       |   %tile_e_min = (i1 + 1 <= (-1 + %wide.trip.count821)) ? i1 + 1 : (-1 + %wide.trip.count821);
+;              |
+; CHECK:       |   + DO i2 = 0, %0 + -1 * smin(1, %0), 1   <DO_LOOP>
+;              |   |   %shl86 = 1  <<  -1 * i2 + %0;
+;              |   |   %and87 = %shl86  &  %compare;
+;              |   |   if (%and87 == 0)
+;              |   |   {
+;              |   |      if (%cmp93785 != 0)
+;              |   |      {
+;              |   |         %shl173 = 1  <<  -1 * i2 + trunc.i64.i32(%0) + %width;
+;              |   |         %shl185 = 2  <<  -1 * i2 + %0;
+;              |   |         %5 = freeze(%shl173);
+;              |   |         %6 = %5  |  %shl185;
+;              |   |         %shl200 = 1  <<  -1 * i2 + %0;
+; CHECK:       |   |         %lb_max = (0 <= i1) ? i1 : 0;
+; CHECK:       |   |         %ub_min = (%wide.trip.count821 + -1 <= %tile_e_min) ? %wide.trip.count821 + -1 : %tile_e_min;
+;              |   |
+; CHECK:       |   |         + DO i3 = 0, -1 * %lb_max + %ub_min, 1   <DO_LOOP>
+;              |   |         |   %xor178 = (%1)[i3 + %lb_max].1  ^  %5;
+;              |   |         |   %8 = %xor178  &  %6;
+;              |   |         |   %xor205 = (%8 == %6) ? %shl200 : 0;
+;              |   |         |   %9 = %xor178  ^  %xor205;
+;              |   |         |   (%1)[i3 + %lb_max].1 = %9;
+;              |   |         + END LOOP
+;              |   |      }
+;              |   |   }
+;              |   |   else
+;              |   |   {
+;              |   |      if (%cmp93785 != 0)
+;              |   |      {
+;              |   |         %shl102 = 2  <<  -1 * i2 + %0;
+;              |   |         %shl127 = 1  <<  -1 * i2 + trunc.i64.i32(%0) + %width;
+;              |   |         %3 = freeze(%shl127);
+; CHECK:       |   |         %lb_max[[V3:[0-9]*]] = (0 <= i1) ? i1 : 0;
+; CHECK:       |   |         %ub_min[[V4:[0-9]*]] = (%wide.trip.count821 + -1 <= %tile_e_min) ? %wide.trip.count821 + -1 : %tile_e_min;
+;              |   |
+; CHECK:       |   |         + DO i3 = 0, -1 * %lb_max[[V3]] + %ub_min[[V4]], 1   <DO_LOOP>
+;              |   |         |   %xor132 = (%1)[i3 + %lb_max[[V3]]].1  ^  %3;
+;              |   |         |   %and140 = %xor132  &  %shl102;
+;              |   |         |   %tobool141.not = %and140 != 0;
+;              |   |         |   %and150 = %xor132  &  %3;
+;              |   |         |   %tobool151.not = %and150 != 0;
+;              |   |         |   %or.cond.not = %tobool141.not  &  %tobool151.not;
+;              |   |         |   %spec.select774 = %xor132  ^  %or.cond.not;
+;              |   |         |   (%1)[i3 + %lb_max[[V3]]].1 = %spec.select774;
+;              |   |         + END LOOP
+;              |   |      }
+;              |   |   }
+;              |   + END LOOP
+;              + END LOOP
+;        END REGION
 ;
-; CHECK: Candidate loopnest in function test_sum.for.body85:
-;
-; CHECK: DO i1 = 0, %0 + -1 * smin(1, %0), 1   <DO_LOOP>
-; CHECK: DO i2 = 0, %wide.trip.count821 + -1, 1   <DO_LOOP>
-; CHECK: END LOOP
-; CHECK: DO i2 = 0, %wide.trip.count821 + -1, 1   <DO_LOOP>
-; CHECK: END LOOP
-; CHECK: END LOOP
 
 ; ModuleID = 'test_sum_fused.ll'
 source_filename = "oaddn-1.c"

@@ -2,7 +2,7 @@
 ; RUN: opt -intel-libirc-allowed --passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-non-perfect-nest-loop-blocking,print<hir>" -disable-hir-non-perfect-nest-loop-blocking=false -disable-output  -debug-only=hir-non-perfect-nest-loop-blocking 2>&1 < %s | FileCheck %s
 
 ; Although it is correct to do i2-loop blocking out of i1-loop in this example,
-; in general, it is not simple to prove legaltiy with backward dependences on temps.
+; in general, it is not simple to prove legality with backward dependences on temps.
 ; We bailout in this case.
 
 ; <0>          BEGIN REGION { }
