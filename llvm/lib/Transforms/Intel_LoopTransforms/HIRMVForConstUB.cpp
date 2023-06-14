@@ -1,6 +1,6 @@
 //===- HIRMVForConstUB.cpp - Multiversioning for constant UB -================//
 //
-// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -157,6 +157,7 @@ void HIRMVForConstUB::transformLoop(HLLoop *Loop,
   }
 
   Loop->extractZtt();
+  Loop->extractPreheader();
 
   unsigned Level = Loop->getNestingLevel();
   RegDDRef *OrigUpperRef = Loop->getUpperDDRef();
@@ -205,6 +206,9 @@ void HIRMVForConstUB::transformLoop(HLLoop *Loop,
 
 void HIRMVForConstUB::transformLoop(HLLoop *Loop, unsigned TempIndex,
                                     int64_t Constant) {
+  Loop->extractZtt();
+  Loop->extractPreheader();
+
   unsigned Level = Loop->getNestingLevel();
 
   RegDDRef *LHS = DRU.createSelfBlobRef(TempIndex, 0);
@@ -256,6 +260,10 @@ void HIRMVForConstUB::transformLoop(HLLoop *Loop, unsigned TempIndex,
   //      ENDDO
 bool HIRMVForConstUB::transformLoopNest(HLLoop *OuterLoop, unsigned BlobIndex,
                                         int64_t NewValue) {
+
+  OuterLoop->extractZtt();
+  OuterLoop->extractPreheader();
+
   // Create multiversioning condition.
   RegDDRef *LHS = DRU.createSelfBlobRef(BlobIndex, OuterLoop->getNestingLevel() - 1);
   RegDDRef *RHS = DRU.createConstDDRef(LHS->getDestType(), NewValue);
