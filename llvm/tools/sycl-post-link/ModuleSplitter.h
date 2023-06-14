@@ -239,6 +239,9 @@ public:
   bool hasMoreSplits() const { return remainingSplits() > 0; }
 };
 
+SmallVector<ModuleDesc, 2> splitByESIMD(ModuleDesc &&MD,
+                                        bool EmitOnlyKernelsAsEntryPoints);
+
 std::unique_ptr<ModuleSplitterBase>
 getDeviceCodeSplitter(ModuleDesc &&MD, IRSplitMode Mode, bool IROutputOnly,
 #if INTEL_COLLAB
@@ -248,6 +251,7 @@ getDeviceCodeSplitter(ModuleDesc &&MD, IRSplitMode Mode, bool IROutputOnly,
                       bool EmitOnlyKernelsAsEntryPoints);
 #endif // INTEL_COLLAB
 
+<<<<<<< HEAD
 std::unique_ptr<ModuleSplitterBase>
 getSplitterByKernelType(ModuleDesc &&MD, bool EmitOnlyKernelsAsEntryPoints);
 
@@ -255,6 +259,8 @@ getSplitterByKernelType(ModuleDesc &&MD, bool EmitOnlyKernelsAsEntryPoints);
 void findGlobalsToBeMoved(const Module &M);
 #endif // INTEL_COLLAB
 
+=======
+>>>>>>> 7516eb8d7162c5e6d22f94771f1ad1189d5a4ed8
 #ifndef NDEBUG
 void dumpEntryPoints(const EntryPointSet &C, const char *msg = "", int Tab = 0);
 void dumpEntryPoints(const Module &M, bool OnlyKernelsAreEntryPoints = false,
