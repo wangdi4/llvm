@@ -134,7 +134,6 @@ public:
                            bool EnableFcmpMinMaxCombine, bool EnableUpCasting,
                            bool EnableCanonicalizeSwap);
 #endif // INTEL_CUSTOMIZATION
-  explicit InstructionCombiningPass();
 
   void getAnalysisUsage(AnalysisUsage &AU) const override;
   bool runOnFunction(Function &F) override;
