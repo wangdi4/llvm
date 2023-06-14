@@ -429,25 +429,8 @@ if (EnableSimpleLoopUnswitch) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-  // Try to remove as much code from the loop header as possible,
-  // to reduce amount of IR that will have to be duplicated. However,
-  // do not perform speculative hoisting the first time as LICM
-  // will destroy metadata that may not need to be destroyed if run
-  // after loop rotation.
-  // TODO: Investigate promotion cap for O1.
-#if INTEL_CUSTOMIZATION
-    // 27770/28531: This extra pass causes high spill rates in some
-    // benchmarks.
-    if (!DTransEnabled)
-      MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
-                             /*AllowSpeculation=*/false));
-#endif // INTEL_CUSTOMIZATION
-
   // Rotate Loop - disable header duplication at -Oz
   MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, false));
-  // TODO: Investigate promotion cap for O1.
-  MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
-                         /*AllowSpeculation=*/true));
 #if INTEL_CUSTOMIZATION
   if (EnableSimpleLoopUnswitch)
     MPM.add(createSimpleLoopUnswitchLegacyPass());
@@ -489,12 +472,6 @@ if (EnableSimpleLoopUnswitch) {
   // Run instcombine after redundancy elimination to exploit opportunities
   // opened up by them.
   addInstructionCombiningPass(MPM, !DTransEnabled);  // INTEL
-
-  // TODO: Investigate if this is too expensive at O1.
-  if (OptLevel > 1) {
-    MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
-                           /*AllowSpeculation=*/true));
-  }
 
   // Merge & remove BBs and sink & hoist common instructions.
   MPM.add(createCFGSimplificationPass(
@@ -673,13 +650,6 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
 #endif // INTEL_FEATURE_SW_ADVANCED
       // LoopUnroll may generate some redundency to cleanup.
       addInstructionCombiningPass(PM, !DTransEnabled);
-
-      // Runtime unrolling will introduce runtime check in loop prologue. If the
-      // unrolled loop is a inner loop, then the prologue will be inside the
-      // outer loop. LICM pass can help to promote the runtime check out if the
-      // checked value is loop invariant.
-      PM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
-                            /*AllowSpeculation=*/true));
       INTEL_LIMIT_END // INTEL
     }
 #endif // INTEL_CUSTOMIZATION
@@ -933,8 +903,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // Run a few AA driven optimizations here and now, to cleanup the code.
   PM.add(createGlobalsAAWrapperPass()); // IP alias analysis.
 
-  PM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap,
-                        /*AllowSpeculation=*/true));
   PM.add(createGVNPass(DisableGVNLoadPRE)); // Remove redundancies.
 
   // Nuke dead stores.
