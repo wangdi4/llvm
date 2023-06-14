@@ -168,8 +168,6 @@ set(CLANG_CL_COMMON_FLAGS
     -include
     opencl-c.h
     -cl-std=CL2.0
-    -D
-    __OPENCL_C_VERSION__=200
     -ffake-address-space-map)
 
 if(NOT SPIRV_ENABLE_OPAQUE_POINTERS)

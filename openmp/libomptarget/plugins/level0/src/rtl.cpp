@@ -3363,8 +3363,8 @@ struct RTLDeviceInfoTy {
   }
 
   /// Post-process memory allocated from L0.
-  void postMemAlloc(void *Mem, size_t Size, int32_t Kind,
-                    ze_device_handle_t Device) {
+  int32_t postMemAlloc(void *Mem, size_t Size, int32_t Kind,
+                       ze_device_handle_t Device) {
     int32_t MakeResident = 0;
     switch (Kind) {
     case TARGET_ALLOC_HOST:
@@ -3377,11 +3377,11 @@ struct RTLDeviceInfoTy {
       MakeResident = Option.MakeResident & 0xF;
       break;
     default:
-      return;
+      return OFFLOAD_SUCCESS;
     }
     // Force the requested memory residency
     if (MakeResident != 1 && MakeResident != 2)
-      return;
+      return OFFLOAD_SUCCESS;
     std::list<ze_device_handle_t> ResDevices{Device};
     if (MakeResident == 2 || Kind == TARGET_ALLOC_HOST) {
       // Check if other devices can access allocation
@@ -3394,13 +3394,14 @@ struct RTLDeviceInfoTy {
           continue;
         }
         ze_bool_t CanAccess;
-        CALL_ZE_RET_VOID(zeDeviceCanAccessPeer, PeerDevice, Device, &CanAccess);
+        CALL_ZE_RET_FAIL(zeDeviceCanAccessPeer, PeerDevice, Device, &CanAccess);
         if (CanAccess)
           ResDevices.push_back(PeerDevice);
       }
     }
     for (auto &D : ResDevices)
-      CALL_ZE_RET_VOID(zeContextMakeMemoryResident, Context, D, Mem, Size);
+      CALL_ZE_RET_FAIL(zeContextMakeMemoryResident, Context, D, Mem, Size);
+    return OFFLOAD_SUCCESS;
   }
 };
 
@@ -4939,7 +4940,9 @@ void *MemAllocatorTy::allocL0(size_t Size, size_t Align, int32_t Kind) {
 
   log(Size, Size, Kind);
 
-  DeviceInfo->postMemAlloc(Mem, Size, Kind, Device);
+  auto RC = DeviceInfo->postMemAlloc(Mem, Size, Kind, Device);
+  if (RC != OFFLOAD_SUCCESS)
+    Mem = nullptr;
 
   return Mem;
 }

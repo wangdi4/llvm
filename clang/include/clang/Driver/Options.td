@@ -3686,6 +3686,9 @@ def fsycl_max_parallel_jobs_EQ : Joined<["-"], "fsycl-max-parallel-link-jobs=">,
   HelpText<"Experimental feature: Controls the maximum parallelism of actions performed "
   "on SYCL device code post-link, i.e. the generation of SPIR-V device images "
   "or AOT compilation of each device image.">;
+// TODO: remove this option before release
+def fsycl_nonsemantic_debuginfo : Flag<["-"], "fsycl-nonsemantic-debuginfo">, Flags<[HelpHidden, CoreOption, DpcppOption]>,
+  HelpText<"Compile SYCL code with new SPIR-V debug info">;
 #endif // INTEL_CUSTOMIZATION
 def ftarget_compile_fast : Flag<["-"], "ftarget-compile-fast">,
   Flags<[CoreOption]>, HelpText<"Experimental feature: Reduce target "

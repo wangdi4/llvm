@@ -382,10 +382,9 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
                          Align(TypeAlignment::MAX_ALIGNMENT));
       Builder.Insert(BarrierBuffer);
       Arg = BarrierBuffer;
-      LLVM_DEBUG(CompilationUtils::insertPrintf("SPECIAL BUFFER: ", Builder,
-                                                BarrierBuffer));
       LLVM_DEBUG(CompilationUtils::insertPrintf(
-          "SPECIAL BUFFER SIZE: ", Builder, BarrierBufferSize));
+          "SPECIAL BUFFER: ", Builder, {BarrierBuffer, BarrierBufferSize},
+          {"ADDR", "SIZE"}));
     } break;
     case ImplicitArgsUtils::IA_WORK_GROUP_INFO: {
       // These values are pointers that just need to be loaded from the

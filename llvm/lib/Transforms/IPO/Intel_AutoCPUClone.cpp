@@ -180,16 +180,19 @@ emitIFuncBasedResolver(Function &Fn, std::string OrigName,
 }
 
 static bool
-shouldMultiVersion(Module& M, Function& Fn,
+shouldMultiVersion(Module& M, Function& Fn, bool GenerateVectorVariants,
                    function_ref<TargetLibraryInfo &(Function &)> GetTLI) {
 
   if (Fn.isDeclaration())
     return false;
 
   // Skip functions that are not intended to be auto multi-versioned.
-  if (!Fn.hasMetadata("llvm.auto.arch") &&
-      !Fn.hasMetadata("llvm.auto.cpu.dispatch") &&
-      !Fn.hasMetadata("llvm.vec.auto.cpu.dispatch"))
+  if (GenerateVectorVariants && !Fn.hasMetadata("llvm.vec.auto.cpu.dispatch"))
+    return false;
+
+  if (!GenerateVectorVariants &&
+      !Fn.hasMetadata("llvm.auto.arch") &&
+      !Fn.hasMetadata("llvm.auto.cpu.dispatch"))
     return false;
 
   // Skip available externally functions as they will be removed anyway.
@@ -357,7 +360,7 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
   for (Function *Fn : MVCandidates) {
 
     assert(Fn && "Pointer must point to a valid Function");
-    if (!shouldMultiVersion(M, *Fn, GetTLI))
+    if (!shouldMultiVersion(M, *Fn, GenerateVectorVariants, GetTLI))
       continue;
 
     // Use wrapper based resolvers when:
@@ -375,27 +378,25 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     MDNode *TargetsMD = nullptr;
     bool EnableAdvancedOpts = false;
 
+    // Erase metadata after reading it, to prevent cloning it unnecessarily
+    // during multi-versioning as well as dispatcher code generation.
     if (GenerateVectorVariants) {
       TargetsMD = Fn->getMetadata("llvm.vec.auto.cpu.dispatch");
+      Fn->eraseMetadata(Ctx.getMDKindID("llvm.vec.auto.cpu.dispatch"));
     } else {
       TargetsMD = Fn->getMetadata("llvm.auto.cpu.dispatch");
       EnableAdvancedOpts = TargetsMD != nullptr;
       if (!TargetsMD) {
         TargetsMD = Fn->getMetadata("llvm.auto.arch");
       }
+      Fn->eraseMetadata(Ctx.getMDKindID("llvm.auto.cpu.dispatch"));
+      Fn->eraseMetadata(Ctx.getMDKindID("llvm.auto.arch"));
     }
 
-    // Erase metadata here, to prevent cloning it unnecessarily
-    // during multi-versioning as well as dispatcher code generation.
-    Fn->eraseMetadata(Ctx.getMDKindID("llvm.vec.auto.cpu.dispatch"));
-    Fn->eraseMetadata(Ctx.getMDKindID("llvm.auto.cpu.dispatch"));
-    Fn->eraseMetadata(Ctx.getMDKindID("llvm.auto.arch"));
-
-    if (TargetsMD)
-      LLVM_DEBUG(dbgs() << Fn->getName() << ": " << *TargetsMD << "\n");
+    assert(TargetsMD && "TargetsMD should not be null!");
+    LLVM_DEBUG(dbgs() << Fn->getName() << ": " << *TargetsMD << "\n");
 
     SmallVector<MultiVersionResolverOption> MVOptions;
-
     std::map<std::string, GlobalValue *> Clones;
 
     for (const MDOperand &TargetInfoIt : TargetsMD->operands()) {
@@ -676,18 +677,20 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
 
 static void
 clearMetadataAndSetAttributes(
-    Module &M,
-    function_ref<TargetTransformInfo &(Function &)> GetTTI,
-    bool SetAdvancedOptim) {
+    Module &M, function_ref<TargetTransformInfo &(Function &)> GetTTI,
+    bool SetAdvancedOptim, bool GenerateVectorVariants) {
 
   LLVMContext &Ctx = M.getContext();
   for (Function &Fn : M) {
     if (Fn.isDeclaration())
       continue;
-    // Remove all metadata storing multi-versioning targets from all functions
-    Fn.eraseMetadata(Ctx.getMDKindID("llvm.auto.arch"));
-    Fn.eraseMetadata(Ctx.getMDKindID("llvm.auto.cpu.dispatch"));
-    Fn.eraseMetadata(Ctx.getMDKindID("llvm.vec.auto.cpu.dispatch"));
+    // Remove metadata, storing multi-versioning targets, from all functions
+    if (GenerateVectorVariants) {
+      Fn.eraseMetadata(Ctx.getMDKindID("llvm.vec.auto.cpu.dispatch"));
+    } else {
+      Fn.eraseMetadata(Ctx.getMDKindID("llvm.auto.arch"));
+      Fn.eraseMetadata(Ctx.getMDKindID("llvm.auto.cpu.dispatch"));
+    }
     // Add "advanced-optim" attribute on functions that are skipped
     // and not multi-versioned.
     if (SetAdvancedOptim && !Fn.hasFnAttribute("advanced-optim"))
@@ -716,7 +719,7 @@ PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &AM) {
   bool Success = cloneFunctions(M, GetLoopInfo, GetTLI, GetTTI, GetBFI, PSI,
                                 GenerateVectorVariants);
 
-  clearMetadataAndSetAttributes(M, GetTTI, Success);
+  clearMetadataAndSetAttributes(M, GetTTI, Success, GenerateVectorVariants);
 
   return Success ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
