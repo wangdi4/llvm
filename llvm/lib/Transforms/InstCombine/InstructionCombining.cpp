@@ -5322,6 +5322,7 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
       &getAnalysis<LazyBlockFrequencyInfoPass>().getBFI() :
       nullptr;
 
+<<<<<<< HEAD
   return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, // INTEL
                                          DT, ORE, BFI, PSI,             // INTEL
                                          MaxIterations,                 // INTEL
@@ -5330,10 +5331,16 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
                                          PreserveAddrCompute,           // INTEL
                                          EnableUpCasting,               // INTEL
                                          EnableCanonicalizeSwap, LI);   // INTEL
+=======
+  return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, DT, ORE,
+                                         BFI, PSI,
+                                         InstCombineDefaultMaxIterations, LI);
+>>>>>>> ef09abfcf4a0253ea2d7cbd4ecd6535a89c747ab
 }
 
 char InstructionCombiningPass::ID = 0;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 InstructionCombiningPass::InstructionCombiningPass(bool PreserveForDTrans,
                                                    bool PreserveAddrCompute,
@@ -5364,6 +5371,9 @@ InstructionCombiningPass::InstructionCombiningPass(bool PreserveForDTrans,
       EnableCanonicalizeSwap(EnableCanonicalizeSwap),
 #endif // INTEL_CUSTOMIZATION
           MaxIterations(MaxIterations) {
+=======
+InstructionCombiningPass::InstructionCombiningPass() : FunctionPass(ID) {
+>>>>>>> ef09abfcf4a0253ea2d7cbd4ecd6535a89c747ab
   initializeInstructionCombiningPassPass(*PassRegistry::getPassRegistry());
 }
 
@@ -5395,6 +5405,7 @@ FunctionPass *llvm::createInstructionCombiningPass(
                                       EnableFcmpMinMaxCombine, EnableUpCasting,
                                       EnableCanonicalizeSwap);
 }
+<<<<<<< HEAD
 
 FunctionPass *llvm::createInstructionCombiningPass(
     bool PreserveForDTrans, bool PreserveAddrCompute, unsigned MaxIterations,
@@ -5405,3 +5416,5 @@ FunctionPass *llvm::createInstructionCombiningPass(
                                       EnableUpCasting, EnableCanonicalizeSwap);
 }
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> ef09abfcf4a0253ea2d7cbd4ecd6535a89c747ab

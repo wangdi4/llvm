@@ -114,16 +114,20 @@ public:
 /// will try to combine all instructions in the function.
 class InstructionCombiningPass : public FunctionPass {
   InstructionWorklist Worklist;
+<<<<<<< HEAD
   const bool PreserveForDTrans; // INTEL
   const bool PreserveAddrCompute; // INTEL
   const bool EnableFcmpMinMaxCombine; // INTEL
   const bool EnableUpCasting; // INTEL
   const bool EnableCanonicalizeSwap; // INTEL
   const unsigned MaxIterations;
+=======
+>>>>>>> ef09abfcf4a0253ea2d7cbd4ecd6535a89c747ab
 
 public:
   static char ID; // Pass identification, replacement for typeid
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   InstructionCombiningPass(bool PreserveForDTrans = false,
                            bool PreserveAddrCompute = false,
@@ -135,6 +139,9 @@ public:
                            bool EnableFcmpMinMaxCombine, bool EnableUpCasting,
                            bool EnableCanonicalizeSwap);
 #endif // INTEL_CUSTOMIZATION
+=======
+  explicit InstructionCombiningPass();
+>>>>>>> ef09abfcf4a0253ea2d7cbd4ecd6535a89c747ab
 
   void getAnalysisUsage(AnalysisUsage &AU) const override;
   bool runOnFunction(Function &F) override;
@@ -152,6 +159,7 @@ public:
 // into:
 //    %Z = add int 2, %X
 //
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 FunctionPass *createInstructionCombiningPass(
     bool PreserveForDTrans = false, bool PreserveAddrCompute = false,
@@ -164,6 +172,9 @@ FunctionPass *createInstructionCombiningPass(bool PreserveForDTrans,
                                              bool EnableUpCasting,
                                              bool EnableCanonicalizeSwap);
 #endif // INTEL_CUSTOMIZATION
+=======
+FunctionPass *createInstructionCombiningPass();
+>>>>>>> ef09abfcf4a0253ea2d7cbd4ecd6535a89c747ab
 }
 
 #undef DEBUG_TYPE
