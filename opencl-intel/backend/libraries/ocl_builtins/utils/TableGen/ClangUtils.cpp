@@ -60,9 +60,8 @@ void build(const std::string &code, std::string fileName) {
 #ifndef SPIRV_ENABLE_OPAQUE_POINTERS
   options << " -no-opaque-pointers";
 #endif
-  options
-      << " "
-      << "-opencl-builtins -fblocks -cl-std=CL2.0 -D__OPENCL_C_VERSION__=200";
+  options << " "
+          << "-opencl-builtins -fblocks -cl-std=CL2.0";
   options << " "
           << "-triple"
           << " "
