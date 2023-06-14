@@ -275,8 +275,6 @@ HIRCompleteUnroll::HIRCompleteUnroll(HIRFramework &HIRF, DominatorTree &DT,
   }
 }
 
-typedef DenseMap<MDNode *, MDNode *> NoAliasScopeMapTy;
-
 /// Visitor to update the CanonExpr.
 struct HIRCompleteUnroll::CanonExprUpdater final : public HLNodeVisitorBase {
   const unsigned TopLoopLevel;
@@ -755,26 +753,6 @@ unsigned HIRCompleteUnroll::CanonExprUpdater::getNewBlobDefLevel(
   return NewLevel;
 }
 
-static MDNode *cloneScopeList(MDNode *ScopeList,
-                              NoAliasScopeMapTy &NoAliasScopeMap) {
-  SmallVector<Metadata *, 8> NewScopeList;
-
-  bool ReplacedMD = false;
-
-  for (const auto &MDOp : ScopeList->operands()) {
-    MDNode *MD = cast<MDNode>(MDOp);
-    if (auto *NewMD = NoAliasScopeMap[MD]) {
-      ReplacedMD = true;
-      NewScopeList.push_back(NewMD);
-    } else {
-      NewScopeList.push_back(MD);
-    }
-  }
-
-  return ReplacedMD ? MDNode::get(ScopeList->getContext(), NewScopeList)
-                    : ScopeList;
-}
-
 void HIRCompleteUnroll::CanonExprUpdater::processRegDDRef(RegDDRef *RegDD) {
 
   // Process CanonExprs inside the RegDDRefs
@@ -833,21 +811,7 @@ void HIRCompleteUnroll::CanonExprUpdater::processRegDDRef(RegDDRef *RegDD) {
     RegDD->makeConsistent({}, TopLoopLevel - 1 + NonUnrollableLevels);
   }
 
-  if (!RegDD->isMemRef()) {
-    return;
-  }
-
-  if (!NoAliasScopeMap.empty()) {
-    if (auto *MD = RegDD->getMetadata(LLVMContext::MD_noalias)) {
-      RegDD->setMetadata(LLVMContext::MD_noalias,
-                         cloneScopeList(MD, NoAliasScopeMap));
-    }
-
-    if (auto *MD = RegDD->getMetadata(LLVMContext::MD_alias_scope)) {
-      RegDD->setMetadata(LLVMContext::MD_alias_scope,
-                         cloneScopeList(MD, NoAliasScopeMap));
-    }
-  }
+  RegDD->replaceNoAliasScopeInfo(NoAliasScopeMap);
 }
 
 void HIRCompleteUnroll::CanonExprUpdater::processCanonExpr(CanonExpr *CExpr) {
@@ -3572,12 +3536,7 @@ static void addClonedScopesInfo(ArrayRef<MDNode *> CurNoAliasScopeLists,
                                 HLLoop *Loop, HLNode *InsertPos,
                                 LLVMContext &Context) {
   if (Loop) {
-    for (auto *OrigScopeList : CurNoAliasScopeLists) {
-      auto *OrigScope = cast<MDNode>(OrigScopeList->getOperand(0));
-      auto *NewScopeList = MDNode::get(Context, {NoAliasScopeMap[OrigScope]});
-
-      Loop->addNoAliasScopeList(NewScopeList);
-    }
+    Loop->addMappedNoAliasScopes(CurNoAliasScopeLists, NoAliasScopeMap);
 
   } else {
 

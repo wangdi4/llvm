@@ -63,6 +63,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDTests.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
@@ -1303,6 +1304,8 @@ class UnrollHelper {
 
   TempRenamingMapTy TempRenamingMap;
 
+  NoAliasScopeMapTy NoAliasScopeMap;
+
   bool isLastUnrollIteration() const {
     return UnrollIteration == (UnrollFactor - 1);
   }
@@ -1323,6 +1326,8 @@ public:
         UnrollFactor(UnrollFactor), UnrollIteration(-1),
         NeedRemainderLoop(NeedRemainderLoop) {}
 
+  HLLoop *getOrigTopLevelLoop() { return OrigTopLevelLoop; }
+
   void setUnrollIteration(unsigned Count) { UnrollIteration = Count; }
   unsigned getUnrollFactor() const { return UnrollFactor; }
 
@@ -1333,6 +1338,11 @@ public:
 
   bool isUnrollJamMode() const { return LoopMap != nullptr; }
   bool isUnknownLoopUnroll() const { return UnknownLoopExitLabel != nullptr; }
+
+  // Map of original noalias scopes to the corresponding cloned scopes for the
+  // current unroll iteration at all loop levels involved in unroll/unroll &
+  // jam.
+  NoAliasScopeMapTy &getNoAliasScopeMap() { return NoAliasScopeMap; }
 
   void patchIntermediateBottomTestForUnknownLoop(HLNode *BottomTest) const;
 
@@ -1567,6 +1577,8 @@ void UnrollHelper::CanonExprUpdater::processRegDDRef(RegDDRef *Ref) {
        ++Iter) {
     processCanonExpr(*Iter);
   }
+
+  Ref->replaceNoAliasScopeInfo(UHelper.getNoAliasScopeMap());
 }
 
 /// Processes CanonExpr to modify IV to:
@@ -1581,13 +1593,66 @@ void UnrollHelper::CanonExprUpdater::processCanonExpr(CanonExpr *CExpr) {
   // CExpr->simplify(true);
 }
 
+// Populates the scopes for all loop levels involved in unroll & jam. Since we
+// are effectively unrolling the TopLevelLoop, the scopes at all inner levels
+// have to be updated.
+static void populateNoAliasScopeListsForLoopnest(
+    HLLoop *OrigParentLoop, HLLoop *OrigTopLevelLoop,
+    SmallVectorImpl<MDNode *> &NoAliasScopeLists) {
+
+  for (auto Lp = OrigParentLoop, EndLp = OrigTopLevelLoop->getParentLoop();
+       Lp != EndLp; Lp = Lp->getParentLoop()) {
+    auto OrigNoAliasScopeLists = Lp->getNoAliasScopeLists();
+    NoAliasScopeLists.append(OrigNoAliasScopeLists.begin(),
+                             OrigNoAliasScopeLists.end());
+  }
+}
+
+// Add cloned scopes for each orig parent loop to the corresponding new loop.
+static void addClonedScopes(HLLoop *OrigParentLoop, HLLoop *NewParentLoop,
+                            HLLoop *OrigTopLevelLoop,
+                            NoAliasScopeMapTy &NoAliasScopeMap) {
+
+  // Special casing for unknown loop unrolling. We need to copy the scope list
+  // into a temporary vector to pass to addMappedNoAliasScopes() as both orig
+  // and new loops are the same.
+  if (OrigParentLoop == NewParentLoop) {
+    auto OrigNoAliasScopeLists = OrigParentLoop->getNoAliasScopeLists();
+    SmallVector<MDNode *, 4> OrigNoAliasScopeListsVec(
+        OrigNoAliasScopeLists.begin(), OrigNoAliasScopeLists.end());
+
+    NewParentLoop->addMappedNoAliasScopes(OrigNoAliasScopeListsVec,
+                                          NoAliasScopeMap);
+    return;
+  }
+
+  for (auto *EndLp = OrigTopLevelLoop->getParentLoop(); OrigParentLoop != EndLp;
+       OrigParentLoop = OrigParentLoop->getParentLoop(),
+            NewParentLoop = NewParentLoop->getParentLoop()) {
+    NewParentLoop->addMappedNoAliasScopes(
+        OrigParentLoop->getNoAliasScopeLists(), NoAliasScopeMap);
+  }
+}
+
+// \p OrigParentLoop and \p NewParentLoop are the lexical parent loops of the
+// node range used to update NoAlias scope info.
 static void createUnrolledNodeRange(HLNode *FirstNode, HLNode *LastNode,
                                     HLContainerTy &NodeRange,
-                                    UnrollHelper &UHelper) {
+                                    UnrollHelper &UHelper,
+                                    HLLoop *OrigParentLoop,
+                                    HLLoop *NewParentLoop) {
   assert(NodeRange.empty() && "Empty node range expected!");
 
   HLNode *CurFirstChild = nullptr;
   HLNode *CurLastChild = nullptr;
+  SmallVector<MDNode *, 8> NoAliasScopeLists;
+
+  auto &Context = OrigParentLoop->getHLNodeUtils().getContext();
+  auto &NoAliasScopeMap = UHelper.getNoAliasScopeMap();
+  auto *OrigTopLevelLoop = UHelper.getOrigTopLevelLoop();
+
+  populateNoAliasScopeListsForLoopnest(OrigParentLoop, OrigTopLevelLoop,
+                                       NoAliasScopeLists);
 
   unsigned UnrollFactor = UHelper.getUnrollFactor();
   unsigned UnrollTrip =
@@ -1597,6 +1662,12 @@ static void createUnrolledNodeRange(HLNode *FirstNode, HLNode *LastNode,
   // like t = 0.
 
   for (unsigned UnrollIter = 0; UnrollIter < UnrollTrip; ++UnrollIter) {
+    cloneNoAliasScopes(NoAliasScopeLists, NoAliasScopeMap,
+                       UHelper.isUnrollJamMode() ? "uj" : "gu", Context);
+
+    addClonedScopes(OrigParentLoop, NewParentLoop, OrigTopLevelLoop,
+                    NoAliasScopeMap);
+
     HLNodeUtils::cloneSequence(&NodeRange, FirstNode, LastNode);
 
     CurFirstChild = (UnrollIter == 0)
@@ -1608,10 +1679,23 @@ static void createUnrolledNodeRange(HLNode *FirstNode, HLNode *LastNode,
     UHelper.updateNodeRange(CurFirstChild, CurLastChild);
 
     UHelper.patchIntermediateBottomTestForUnknownLoop(CurLastChild);
+
+    // We clear scope mapping for the next iteration. This is currently a little
+    // conservative as we do not preserve outer level scopes across inner
+    // sibling loops. To update the information more precisely we will have to
+    // store the mapping: {unroll iteration -> scopes} which is much more
+    // complicated.
+    NoAliasScopeMap.clear();
   }
 
   // Reuse original nodes for the last unrolled iteration.
   if (!UHelper.needRemainderLoop()) {
+    cloneNoAliasScopes(NoAliasScopeLists, NoAliasScopeMap,
+                       UHelper.isUnrollJamMode() ? "uj" : "gu", Context);
+
+    addClonedScopes(OrigParentLoop, NewParentLoop, OrigTopLevelLoop,
+                    NoAliasScopeMap);
+
     UHelper.setUnrollIteration(UnrollTrip);
     UHelper.updateNodeRange(FirstNode, LastNode);
 
@@ -1695,7 +1779,17 @@ static void createAndInsertUnrolledLoopChildren(HLLoop *OrigLoop,
         NodeRange.push_front(*CurFirstNode->clone());
 
       } else {
-        createUnrolledNodeRange(CurFirstNode, CurLastNode, NodeRange, UHelper);
+        // Pass lexical orig and new parent loops to createUnrolledNodeRange()
+        // so it can process NoAlias scopes.
+        auto *OrigParentLoop = (ChildrenTy == LoopChildrenType::Body)
+                                   ? OrigLoop
+                                   : OrigLoop->getParentLoop();
+        auto *NewParentLoop = (ChildrenTy == LoopChildrenType::Body)
+                                  ? NewLoop
+                                  : NewLoop->getParentLoop();
+
+        createUnrolledNodeRange(CurFirstNode, CurLastNode, NodeRange, UHelper,
+                                OrigParentLoop, NewParentLoop);
       }
 
       switch (ChildrenTy) {
@@ -1719,6 +1813,15 @@ static void createAndInsertUnrolledLoopChildren(HLLoop *OrigLoop,
 
 static void unrollLoopRecursive(HLLoop *OrigLoop, HLLoop *NewLoop,
                                 UnrollHelper &UHelper, bool IsTopLoop) {
+  // Clear NewLoop's NoAlias scope lists which were obtained from cloning
+  // OrigLoop. New scope lists will be added when doing the actual unrolling
+  // below. If we are unrolling unknown loop, both OrigLoop and NewLoop are the
+  // same. We cannot erase the scope lists in this case as the original ones are
+  // needs for cloning. It is okay to have extra scope lists in the NewLoop even
+  // if they don't have uses.
+  if (OrigLoop != NewLoop) {
+    NewLoop->clearNoAliasScopeLists();
+  }
 
   if (!IsTopLoop) {
     UHelper.setCurOrigLoop(OrigLoop->getParentLoop());

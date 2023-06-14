@@ -2303,3 +2303,41 @@ void RegDDRef::clear(bool AssumeLvalIfDetached) {
     setSymbase(ConstantSymbase);
   }
 }
+
+// Returns a new scope list by replacing original scopes in \p ScopeList by
+// the cloned scopes as specified in \p NoAliasScopeMap. Returns \p ScopeList
+// back if no scopes were replaced.
+static MDNode *cloneScopeList(MDNode *ScopeList,
+                              NoAliasScopeMapTy &NoAliasScopeMap) {
+  SmallVector<Metadata *, 8> NewScopeList;
+
+  bool ReplacedMD = false;
+
+  for (const auto &MDOp : ScopeList->operands()) {
+    MDNode *MD = cast<MDNode>(MDOp);
+    if (auto *NewMD = NoAliasScopeMap[MD]) {
+      ReplacedMD = true;
+      NewScopeList.push_back(NewMD);
+    } else {
+      NewScopeList.push_back(MD);
+    }
+  }
+
+  return ReplacedMD ? MDNode::get(ScopeList->getContext(), NewScopeList)
+                    : ScopeList;
+}
+
+void RegDDRef::replaceNoAliasScopeInfo(NoAliasScopeMapTy &NoAliasScopeMap) {
+  if (!isMemRef() || NoAliasScopeMap.empty()) {
+    return;
+  }
+
+  if (auto *MD = getMetadata(LLVMContext::MD_noalias)) {
+    setMetadata(LLVMContext::MD_noalias, cloneScopeList(MD, NoAliasScopeMap));
+  }
+
+  if (auto *MD = getMetadata(LLVMContext::MD_alias_scope)) {
+    setMetadata(LLVMContext::MD_alias_scope,
+                cloneScopeList(MD, NoAliasScopeMap));
+  }
+}
