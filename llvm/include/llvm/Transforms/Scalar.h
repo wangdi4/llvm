@@ -101,6 +101,7 @@ Pass *createSROALegacyCGSCCAdaptorPass();
 // LICM - This pass is a loop invariant code motion and memory promotion pass.
 //
 Pass *createLICMPass();
+<<<<<<< HEAD
 Pass *createLICMPass(unsigned LicmMssaOptCap,
                      unsigned LicmMssaNoAccForPromotionCap,
                      bool AllowSpeculation);
@@ -110,6 +111,9 @@ Pass *createLICMPass(unsigned LicmMssaOptCap,
 Pass *createSimpleLoopUnrollPass(int OptLevel = 2, bool OnlyWhenForced = false,
                                  bool ForgetAllSCEV = false);
 #endif // INTEL_CUSTOMIZATION
+=======
+
+>>>>>>> c7cf942de30db65a11d3ad664a63ce2e520985fd
 //===----------------------------------------------------------------------===//
 //
 // LoopSink - This pass sinks invariants from preheader to loop body where
