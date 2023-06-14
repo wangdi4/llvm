@@ -268,9 +268,10 @@ using namespace Intel::OpenCL::Utils;
 
 #endif
 
-ExtensionFunctionAddressResolveMap g_extFuncResolveMap;
+static llvm::ManagedStatic<ExtensionFunctionAddressResolveMap>
+    g_extFuncResolveMap;
 void *RegisterExtensionFunctionAddress(const char *pFuncName, void *pFuncPtr) {
-  g_extFuncResolveMap.insert(
+  g_extFuncResolveMap->insert(
       std::pair<std::string, void *>(pFuncName, pFuncPtr));
   return pFuncPtr;
 }
@@ -282,8 +283,8 @@ static void *GetExtensionFunctionAddress(const char *funcname) {
     return nullptr;
   }
   ExtensionFunctionAddressResolveMap::const_iterator ptr =
-      g_extFuncResolveMap.find(funcname);
-  if (g_extFuncResolveMap.end() == ptr) {
+      g_extFuncResolveMap->find(funcname);
+  if (g_extFuncResolveMap->end() == ptr) {
     return nullptr;
   }
   return ptr->second;
