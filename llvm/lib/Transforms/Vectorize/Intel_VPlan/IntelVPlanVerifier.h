@@ -35,6 +35,9 @@ private:
   // VPLoopInfo analysis information.
   const VPLoopInfo *VPLInfo = nullptr;
 
+  // Stored flags for checks to run or skip
+  unsigned int Flags = 0;
+
   // Verify VPPHINode instruction.
   void verifyPHINode(const VPPHINode *Phi) const;
 
@@ -101,17 +104,11 @@ private:
   void verifySSA(const VPInstruction *I, const VPDominatorTree *DT) const;
 
   // Helper functions to hide the underlying enum check
-  bool shouldSkipLoopInfo(unsigned int Flags) const {
-    return Flags & SkipLoopInfo;
-  }
+  bool shouldSkipLoopInfo() const { return Flags & SkipLoopInfo; }
 
-  bool shouldSkipExternals(unsigned int Flags) const {
-    return Flags & SkipExternals;
-  }
+  bool shouldSkipExternals() const { return Flags & SkipExternals; }
 
-  bool shouldSkipInnerMultiExit(unsigned int Flags) const {
-    return Flags & SkipInnerMultiExit;
-  }
+  bool shouldSkipInnerMultiExit() const { return Flags & SkipInnerMultiExit; }
 
 public:
   // Enum for holding the flags to be given to verifyVPlan to skip
@@ -134,8 +131,7 @@ public:
   void setVPLoopInfo(const VPLoopInfo *VPLI) { VPLInfo = VPLI; }
 
   /// Verify CFG externals, VPLoopInfo, VPLoop and number of loops in loop nest
-  void verifyVPlan(const VPlanVector *Plan, const VPDominatorTree &VPDomTree,
-                   VPLoopInfo *VPLInfo, unsigned int Flags = 0);
+  void verifyVPlan(const VPlanVector *Plan, unsigned int CheckFlags = 0);
 };
 } // namespace vpo
 } // namespace llvm

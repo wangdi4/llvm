@@ -358,9 +358,12 @@ set(imf_bf16_fallback_src ${imf_fallback_src_dir}/imf_bf16_fallback.cpp)
 # INTEL_CUSTOMIZATION
 set(imf_fp32_dl_deps device.h device_imf.hpp
                               imf/imf_fp32_dl.cpp
-                              imf/intel/pown_s_ep.cpp)
+                              imf/intel/pown_s_ep.cpp
+                              imf/intel/lgamma_s_ep.cpp)
 set(imf_fp64_dl_deps device.h device_imf.hpp
-                              imf/intel/pown_d_la.cpp)
+	                      imf/imf_fp64_dl.cpp
+                              imf/intel/pown_d_la.cpp
+                              imf/intel/lgamma_d_ep.cpp)
 set(imf_fp32_dl_src ${imf_fallback_src_dir}/imf_fp32_dl.cpp)
 set(imf_fp64_dl_src ${imf_fallback_src_dir}/imf_fp64_dl.cpp)
 # end INTEL_CUSTOMIZATION

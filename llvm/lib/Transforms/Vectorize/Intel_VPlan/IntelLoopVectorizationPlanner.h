@@ -420,10 +420,10 @@ public:
     for (auto &Pair : VPlans) {
       VPlanVector *P = Pair.second.MainPlan.get();
       if (Visited.insert(P).second)
-        V->verifyVPlan(P, *P->getDT(), P->getVPLoopInfo(), Flags);
+        V->verifyVPlan(P, Flags);
       P = Pair.second.MaskedModeLoop.get();
       if (P && Visited.insert(P).second)
-        V->verifyVPlan(P, *P->getDT(), P->getVPLoopInfo(), Flags);
+        V->verifyVPlan(P, Flags);
     }
   }
 #endif

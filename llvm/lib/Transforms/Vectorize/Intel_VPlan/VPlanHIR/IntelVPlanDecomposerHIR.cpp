@@ -293,7 +293,19 @@ VPValue *VPDecomposerHIR::decomposeIV(RegDDRef *RDDR, CanonExpr *CE,
       cast<VPInstruction>(VPIndVar)->HIR().setFoldIVConvert(true);
   }
 
+  bool CanSetNoWrap = false;
+  if (DecompIV && isa<VPConstant>(DecompIV) && IVConstCoeff == -1 &&
+      OutermostHLp->hasSignedIV())
+    // We have expr of form: -1 * iv, which is treated as signed. Thus, there
+    // will be no wrap in either signed/unsigned ranges for the resulting mul.
+    CanSetNoWrap = true;
   DecompIV = combineDecompDefs(DecompIV, VPIndVar, Ty, Instruction::Mul);
+  if (auto *DecompIVInst = dyn_cast<VPInstruction>(DecompIV)) {
+    if (CanSetNoWrap) {
+      DecompIVInst->setHasNoSignedWrap(true);
+      DecompIVInst->setHasNoUnsignedWrap(true);
+    }
+  }
   return DecompIV;
 }
 
@@ -499,12 +511,25 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
   if (IsIdiomCE)
     addVPValueForCEIdiom(CE, DecompDef);
 
-  // Set nsw nuw flags for VPInstructions where CanonExpr is linear.
+  // Add nowrap flags to the final instruction decomposed from the CE. Note:
+  // Generally, this should only be done for the entire CanonExpr because
+  // each subexpression (blob) could wrap, but not the overall CE (or
+  // vice-versa). We could create a CanonExpr for each subexpression to
+  // determine if it wraps, but this would be expensive. E.g., (i1 + i2 - 5),
+  // the 'i1 + i2' subexpression may wrap, but the complete expression may not.
+  // This is why the nowraps flags are set on the final decomposed instruction
+  // here. Note: this is a relatively benign change w.r.t DA because any Random
+  // operands feeding this instruction won't override that Random behavior and
+  // shape propagation will remain conservative.
   if (auto *VPInst = dyn_cast<VPInstruction>(DecompDef)) {
-    if (VPInst->isOverflowingOperation() &&
-        CE->isLinearAtLevel(VecLoopLevel)) {
-      VPInst->setHasNoUnsignedWrap(true);
-      VPInst->setHasNoSignedWrap(true);
+    if (VPInst->isOverflowingOperation()) {
+      bool FitsIn32Bits = CE->getSrcType()->getScalarSizeInBits() == 32;
+      if (CE->isLinearAtLevel(VecLoopLevel) &&
+          !HLNodeUtils::mayWraparound(CE, VecLoopLevel, RDDR->getHLDDNode(),
+                                      FitsIn32Bits)) {
+        VPInst->setHasNoSignedWrap(true);
+        VPInst->setHasNoUnsignedWrap(true);
+      }
     }
   }
 
