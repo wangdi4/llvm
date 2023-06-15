@@ -2322,7 +2322,7 @@ void VFABI::calcVectorVariantParamChunks(MutableArrayRef<int> ArgChunks,
   assert(VFABI::supportedVectorVariantLegalization(Variant, ArgTys, RetTy) &&
          "Trying to legalize vector variant which is unsupported");
 
-  auto LookupTable = [Variant, PtrSize64](Type *ArgTy) {
+  auto LookupTable = [&Variant, PtrSize64](Type *ArgTy) {
     auto *VT = cast<FixedVectorType>(ArgTy);
     Type *Ty = VT->getElementType();
     unsigned VF = Log2_32(VT->getNumElements());
