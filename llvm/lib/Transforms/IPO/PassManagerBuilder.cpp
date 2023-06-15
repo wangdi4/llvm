@@ -494,8 +494,6 @@ if (EnableSimpleLoopUnswitch) {
 void PassManagerBuilder::addInstructionCombiningPass(
     legacy::PassManagerBase &PM, bool EnableUpCasting) const {
   // Enable it when SLP Vectorizer is off or after SLP Vectorizer pass.
-  bool EnableFcmpMinMaxCombine = (!SLPVectorize) || AfterSLPVectorizer;
-  bool PreserveForDTrans = false;
   if (RunVPOParopt) {
     // CMPLRLLVM-25424: temporary workaround for cases, where
     // the instructions combining pass inserts value definitions
