@@ -9591,10 +9591,8 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
     if (types::isCXX(InputType))
       CmdArgs.push_back("-fcxx-exceptions");
     CmdArgs.push_back("-fexceptions");
-#if !INTEL_CUSTOMIZATION
     if (EH.Asynch)
       CmdArgs.push_back("-fasync-exceptions");
-#endif // !INTEL_CUSTOMIZATION
   }
   if (types::isCXX(InputType) && EH.Synch && EH.NoUnwindC)
     CmdArgs.push_back("-fexternc-nounwind");
