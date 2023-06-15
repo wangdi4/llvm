@@ -3,13 +3,18 @@
 ; Verify that complete unroll is able to successfully handle negative trip
 ;  counts and gives up if loops with negative trip count don't have NSW flag.
 
+; Note that the MAX_TC_EST of i2 loop is too big. This is being set by replacing
+; i1 with 2 and assuming -6 as a positive value. The loop is actually dead as
+; the ZTT is never true.
+
 ; CHECK: + DO i64 i1 = 0, 2, 1   <DO_LOOP>
 
-; CHECK:     + HasSignedIV: No
-; CHECK: |   + DO i64 i2 = 0, i1 + -8, 1   <DO_LOOP>  <MAX_TC_EST = 4>
+; CHECK: |   + Ztt: if (i1 + 1 >=u 9)
+; CHECK: |   + HasSignedIV: No
+; CHECK: |   + DO i64 i2 = 0, i1 + -8, 1   <DO_LOOP>  <MAX_TC_EST = 18446744073709551611>
 
 ; CHECK:         + HasSignedIV: No
-; CHECK: |   |   + DO i64 i3 = 0, i2 + 9, 1   <DO_LOOP>  <MAX_TC_EST = 20>
+; CHECK: |   |   + DO i64 i3 = 0, i2 + 9, 1   <DO_LOOP>
 ; CHECK: |   |   |   if ((@t)[0][i3] == 0)
 ; CHECK: |   |   |   {
 ; CHECK: |   |   |      (@ym)[0][i2 + 15] = (@i)[0][i2 + 16];
