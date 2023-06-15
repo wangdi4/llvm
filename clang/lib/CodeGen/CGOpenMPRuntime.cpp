@@ -1437,9 +1437,14 @@ llvm::Value *CGOpenMPRuntime::emitUpdateLocation(CodeGenFunction &CGF,
   return llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
       OMPBuilder.getOrCreateIdent(SrcLocStr, SrcLocStrSize,
                                   llvm::omp::IdentFlag(Flags), Reserved2Flags),
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+            llvm::PointerType::get(CGM.getLLVMContext(),
+            CGM.getEffectiveAllocaAddrSpace()));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
       llvm::PointerType::getWithSamePointeeType(
           cast<llvm::PointerType>(getIdentTyPointerTy()),
           CGM.getEffectiveAllocaAddrSpace()));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 #else // INTEL_COLLAB
   return OMPBuilder.getOrCreateIdent(
       SrcLocStr, SrcLocStrSize, llvm::omp::IdentFlag(Flags), Reserved2Flags);
@@ -2014,15 +2019,23 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
 #if INTEL_COLLAB
         AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(
             Addr,
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+            llvm::PointerType::get(CGM.getLLVMContext(),
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
             llvm::PointerType::getWithSamePointeeType(
                 cast<llvm::PointerType>(Addr->getType()),
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
                 CGM.getLangOpts().OpenMPLateOutline
                     ? CGM.getTypes().getTargetAddressSpace(VD->getType())
                     : 0));
 #else // INTEL_COLLAB
         AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+            Addr, llvm::PointerType::get(CGM.getLLVMContext(), 0));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
             Addr, llvm::PointerType::getWithSamePointeeType(
                       cast<llvm::PointerType>(Addr->getType()), 0));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 #endif // INTEL_COLLAB
       CtorCGF.EmitAnyExprToMem(Init,
                                Address(AddrInAS0, Addr->getValueType(),

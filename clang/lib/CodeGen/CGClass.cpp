@@ -2154,8 +2154,13 @@ void CodeGenFunction::EmitCXXConstructorCall(const CXXConstructorDecl *D,
 
   if (SlotAS != ThisAS) {
     unsigned TargetThisAS = getContext().getTargetAddressSpace(ThisAS);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     llvm::Type *NewType =
         llvm::PointerType::get(getLLVMContext(), TargetThisAS);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+    llvm::Type *NewType = llvm::PointerType::getWithSamePointeeType(
+        This.getType(), TargetThisAS);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     ThisPtr = getTargetHooks().performAddrSpaceCast(*this, This.getPointer(),
                                                     ThisAS, SlotAS, NewType);
   }
@@ -2739,8 +2744,13 @@ llvm::Value *CodeGenFunction::GetVTablePtr(Address This,
                                            const CXXRecordDecl *RD) {
 #if INTEL_COLLAB
   unsigned AS = CGM.getContext().getTargetAddressSpace(LangAS::Default);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  VTableTy = llvm::PointerType::get(getLLVMContext(), AS);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   VTableTy = llvm::PointerType::getWithSamePointeeType(
-      llvm::cast<llvm::PointerType>(VTableTy), AS);
+    llvm::cast<llvm::PointerType>(VTableTy), AS);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+
 #endif  // INTEL_COLLAB
   Address VTablePtrSrc = Builder.CreateElementBitCast(This, VTableTy);
   llvm::Instruction *VTable = Builder.CreateLoad(VTablePtrSrc, "vtable");
