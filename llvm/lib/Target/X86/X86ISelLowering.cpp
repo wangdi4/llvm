@@ -220,6 +220,16 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       { RTLIB::MUL_I64, "_allmul", CallingConv::X86_StdCall },
     };
 
+#if INTEL_CUSTOMIZATION
+    if (TM.Options.IntelLibMAllowed) {
+      setLibcallName(RTLIB::SINCOS_F32, "sincosf");
+      setLibcallName(RTLIB::SINCOS_F64, "sincos");
+      setLibcallName(RTLIB::SINCOS_F80, "sincosl");
+      setLibcallName(RTLIB::SINCOS_F128, "sincosl");
+      setLibcallName(RTLIB::SINCOS_PPCF128, "sincosl");
+    }
+#endif // INTEL_CUSTOMIZATION
+
     for (const auto &LC : LibraryCalls) {
       setLibcallName(LC.Op, LC.Name);
       setLibcallCallingConv(LC.Op, LC.CC);

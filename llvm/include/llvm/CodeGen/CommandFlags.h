@@ -148,6 +148,8 @@ bool getEnableIntelAdvancedOpts();
 
 bool getIntelLibIRCAllowed();
 
+bool getIntelLibMAllowed();
+
 bool getEnableFtzDaz();
 
 int getX87Precision();

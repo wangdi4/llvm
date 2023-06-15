@@ -292,6 +292,8 @@ public:
     Options.IntelLibIRCAllowed = Value;
   }
 
+  void setIntelLibMAllowed(bool Value) { Options.IntelLibMAllowed = Value; }
+
   void setIntelABICompatible(bool Value) {
     Options.IntelABICompatible = Value;
   }
