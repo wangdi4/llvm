@@ -6,6 +6,9 @@
 // implementation. Enable testing when implementation is fixed.
 // RUNx: %ACC_RUN_PLACEHOLDER %t.out
 
+// Windows doesn't yet have full shutdown().
+// UNSUPPORTED: ze_debug && windows
+
 // This test performs basic checks of parallel_for(range<3>, reduction, func)
 // with reductions initialized with a one element buffer. Additionally, some
 // reducers will not be written to.
