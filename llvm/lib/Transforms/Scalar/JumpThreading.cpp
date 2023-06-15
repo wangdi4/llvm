@@ -1565,7 +1565,7 @@ bool JumpThreadingPass::processBranchOnOr(BasicBlock *BB) {
       return nullptr;
     if (!all_of(PN->operands(), [](Value *V) { return isa<ConstantInt>(V); }))
       return nullptr;
-   // Makes sure operands are not same.
+    // Makes sure operands are not same.
     if (PN->getOperand(0) == PN->getOperand(1))
       return nullptr;
     for (auto *Pred : predecessors(BB)) {
@@ -1658,8 +1658,9 @@ bool JumpThreadingPass::processBranchOnOr(BasicBlock *BB) {
         // No need to check Dominator information for constants and arguments.
         if (auto FI = dyn_cast<Instruction>(FVal)) {
           DominatorTree &DT = DTU->getDomTree();
-          BasicBlock *BB1 = FI->getParent();
-          if (!DT.dominates(BB1, FalseBB))
+          // We must use "FI" and not its block here. This handles the corner
+          // case where an invoke result doesn't dominate its unwind edge.
+          if (!DT.dominates(FI, FalseBB))
             return false;
         }
         PHIValuesWhenCondIsFalse[PN] = FVal;
