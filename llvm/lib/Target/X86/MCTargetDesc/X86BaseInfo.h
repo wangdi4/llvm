@@ -1235,7 +1235,8 @@ namespace X86II {
 #if INTEL_FEATURE_ISA_APX_F
     case X86II::MRMDestMemCC:
       return (TSFlags & X86II::OpMapMask) == X86II::T_MAP4 &&
-                     (TSFlags & X86II::EVEX_B)
+                     (TSFlags & X86II::EVEX_B) &&
+                     !(TSFlags & X86II::TwoConditionalOps)
                  ? 1
                  : 0;
 #else // INTEL_FEATURE_ISA_APX_F

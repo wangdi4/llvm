@@ -20,11 +20,15 @@
 # CHECK: encoding: [0x67,0x62,0xec,0x7c,0x08,0xa5,0x41,0x7f]
          {evex} shld	dword ptr [r17d + 127], r16d, cl
 
+# CHECK: ccmpb	{of}	qword ptr [r17 + 4*r18 + 123], r16
+# CHECK: encoding: [0x62,0xec,0xc0,0x12,0x39,0x44,0x91,0x7b]
+         ccmpb	{of}	qword ptr [r17 + 4*r18 + 123], r16
+
 ## MRMDestMemCC
 
-# CHECK: cfcmovb	qword ptr [r8 + 4*rax + 123], r9
-# CHECK: encoding: [0x62,0x54,0xfc,0x0c,0x42,0x4c,0x80,0x7b]
-         cfcmovb	qword ptr [r8 + 4*rax + 123], r9
+# CHECK: cfcmovb	qword ptr [r17 + 4*r18 + 123], r16
+# CHECK: encoding: [0x62,0xec,0xf8,0x0c,0x42,0x44,0x91,0x7b]
+         cfcmovb	qword ptr [r17 + 4*r18 + 123], r16
 
 ## MRMSrcMem
 
@@ -44,15 +48,19 @@
 # CHECK: encoding: [0x62,0xec,0xfc,0x08,0x03,0x48,0x7f]
          {evex} add	r17, qword ptr [r16 + 127]
 
+# CHECK: ccmpb	{of}	r18, qword ptr [r16 + 4*r17 + 123]
+# CHECK: encoding: [0x62,0xec,0xc0,0x12,0x3b,0x54,0x88,0x7b]
+         ccmpb	{of}	r18, qword ptr [r16 + 4*r17 + 123]
+
 ## MRMSrcMemCC
 
-# CHECK: cfcmovb	r9, qword ptr [r8 + 4*rax + 123]
-# CHECK: encoding: [0x62,0x54,0xfc,0x08,0x42,0x4c,0x80,0x7b]
-         cfcmovb	r9, qword ptr [r8 + 4*rax + 123]
+# CHECK: cfcmovb	r18, qword ptr [r16 + 4*r17 + 123]
+# CHECK: encoding: [0x62,0xec,0xf8,0x08,0x42,0x54,0x88,0x7b]
+         cfcmovb	r18, qword ptr [r16 + 4*r17 + 123]
 
-# CHECK: cfcmovbe	r15, r9, qword ptr [r8 + 4*rax + 123]
-# CHECK: encoding: [0x62,0x54,0x84,0x1c,0x46,0x4c,0x80,0x7b]
-         cfcmovbe	r15, r9, qword ptr [r8 + 4*rax + 123]
+# CHECK: cfcmovb	r19, r18, qword ptr [r16 + 4*r17 + 123]
+# CHECK: encoding: [0x62,0xec,0xe0,0x14,0x42,0x54,0x88,0x7b]
+         cfcmovb	r19, r18, qword ptr [r16 + 4*r17 + 123]
 
 ## MRM0m
 
@@ -71,6 +79,10 @@
 # CHECK: {evex} rol	dword ptr [r16d + 127], cl
 # CHECK: encoding: [0x67,0x62,0xfc,0x7c,0x08,0xd3,0x40,0x7f]
          {evex} rol	dword ptr [r16d + 127], cl
+
+# CHECK: cteste	{of}	qword ptr [r16 + 4*r17 + 123], 123456
+# CHECK: encoding: [0x62,0xfc,0xc0,0x14,0xf7,0x44,0x88,0x7b,0x40,0xe2,0x01,0x00]
+         cteste	{of}	qword ptr [r16 + 4*r17 + 123], 123456
 
 ## MRM1m
 
@@ -206,6 +218,10 @@
 # CHECK: encoding: [0x67,0x62,0xfc,0x7c,0x08,0xd3,0x78,0x7f]
          {evex} sar	dword ptr [r16d + 127], cl
 
+# CHECK: ccmpb	{of}	qword ptr [r16 + 4*r17 + 123], 123
+# CHECK: encoding: [0x62,0xfc,0xc0,0x12,0x83,0x7c,0x88,0x7b,0x7b]
+         ccmpb	{of}	qword ptr [r16 + 4*r17 + 123], 123
+
 ## MRMSrcReg
 
 # CHECK: imul r18, r17, r16
@@ -218,13 +234,13 @@
 
 ## MRMSrcRegCC
 
-# CHECK: cfcmovb	r15, r9
-# CHECK: encoding: [0x62,0x54,0xfc,0x08,0x42,0xf9]
-         cfcmovb	r15, r9
+# CHECK: cfcmovb	r17, r16
+# CHECK: encoding: [0x62,0xec,0xfc,0x08,0x42,0xc8]
+         cfcmovb	r17, r16
 
-# CHECK: cfcmovbe	r11, r15, r9
-# CHECK: encoding: [0x62,0x54,0xa4,0x1c,0x46,0xf9]
-         cfcmovbe	r11, r15, r9
+# CHECK: cfcmovbe	r18, r17, r16
+# CHECK: encoding: [0x62,0xec,0xec,0x14,0x46,0xc8]
+         cfcmovbe	r18, r17, r16
 
 ## MRMDestReg
 
@@ -236,11 +252,20 @@
 # CHECK: encoding: [0x62,0xec,0x6c,0x10,0xa5,0xc1]
          shld	r18d, r17d, r16d, cl
 
+# CHECK: ccmpb	{of}	r17, r16
+# CHECK: encoding: [0x62,0xec,0xc4,0x12,0x39,0xc1]
+         ccmpb	{of}	r17, r16
+
+
 ## MRM0r
 
 # CHECK: rol	r17d, r16d, cl
 # CHECK: encoding: [0x62,0xfc,0x74,0x10,0xd3,0xc0]
          rol	r17d, r16d, cl
+
+# CHECK: cteste	{of}	r16, 123456
+# CHECK: encoding: [0x62,0xfc,0xc4,0x14,0xf7,0xc0,0x40,0xe2,0x01,0x00]
+         cteste	{of}	r16, 123456
 
 ## MRM1r
 
@@ -283,3 +308,7 @@
 # CHECK: sar	r17d, r16d, cl
 # CHECK: encoding: [0x62,0xfc,0x74,0x10,0xd3,0xf8]
          sar	r17d, r16d, cl
+
+# CHECK: ccmpb	{of}	r16, 123456
+# CHECK: encoding: [0x62,0xfc,0xc4,0x12,0x81,0xf8,0x40,0xe2,0x01,0x00]
+         ccmpb	{of}	r16, 123456

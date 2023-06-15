@@ -1409,7 +1409,13 @@ static bool isPush2Pop2(InternalInstruction *insn) {
           (Opcode == 0x8f && regFromModRM(insn->modRM) == 0));
 }
 static bool isCCMPOrCTEST(InternalInstruction *insn) {
-  return (insn->opcodeType == MAP4) && ((insn->opcode & 0xfe) == 0x38);
+  return (insn->opcodeType == MAP4) &&
+         (((insn->opcode & 0xfe) == 0x38) || ((insn->opcode & 0xfe) == 0x3a) ||
+          (((insn->opcode & 0xfe) == 0x80 || insn->opcode == 0x83) &&
+           regFromModRM(insn->modRM) == 7) ||
+          (insn->opcode & 0xfe) == 0x84 ||
+          ((insn->opcode & 0xfe) == 0xf6 &&
+           regFromModRM(insn->modRM) == 0));
 }
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
