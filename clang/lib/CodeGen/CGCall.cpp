@@ -5887,7 +5887,11 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
 #else // INTEL_SYCL_OPAQUEPOINTER_READY
           auto *T = llvm::PointerType::getWithSamePointeeType(
               cast<llvm::PointerType>(V->getType()),
+#if INTEL_COLLAB
+              CGM.getEffectiveAllocaAddrSpace());
+#else // INTEL_COLLAB
               CGM.getDataLayout().getAllocaAddrSpace());
+#endif // INTEL_COLLAB
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
           llvm::Value *Val = getTargetHooks().performAddrSpaceCast(
               *this, V, LangAS::Default, CGM.getASTAllocaAddressSpace(), T,
