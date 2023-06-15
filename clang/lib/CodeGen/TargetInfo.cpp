@@ -9490,7 +9490,11 @@ private:
     // Single value types.
     auto *PtrTy = llvm::dyn_cast<llvm::PointerType>(Ty);
     if (PtrTy && PtrTy->getAddressSpace() == FromAS)
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       return llvm::PointerType::get(Ty->getContext(), ToAS);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+      return llvm::PointerType::getWithSamePointeeType(PtrTy, ToAS);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     return Ty;
   }
 
@@ -9904,8 +9908,12 @@ llvm::Constant *AMDGPUTargetCodeGenInfo::getNullPointer(
     return llvm::ConstantPointerNull::get(PT);
 
   auto &Ctx = CGM.getContext();
-  auto NPT = llvm::PointerType::get(
-      PT->getContext(), Ctx.getTargetAddressSpace(LangAS::opencl_generic));
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  auto NPT = llvm::PointerType::get(PT->getContext(),
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+  auto NPT = llvm::PointerType::getWithSamePointeeType(PT,
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+      Ctx.getTargetAddressSpace(LangAS::opencl_generic));
   return llvm::ConstantExpr::getAddrSpaceCast(
       llvm::ConstantPointerNull::get(NPT), PT);
 }
@@ -11021,7 +11029,11 @@ ABIArgInfo SPIRVABIInfo::classifyKernelArgumentType(QualType Ty) const {
     auto GlobalAS = getContext().getTargetAddressSpace(LangAS::cuda_device);
     auto *PtrTy = llvm::dyn_cast<llvm::PointerType>(LTy);
     if (PtrTy && PtrTy->getAddressSpace() == DefaultAS) {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       LTy = llvm::PointerType::get(PtrTy->getContext(), GlobalAS);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+      LTy = llvm::PointerType::getWithSamePointeeType(PtrTy, GlobalAS);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       return ABIArgInfo::getDirect(LTy, 0, nullptr, false);
     }
 
