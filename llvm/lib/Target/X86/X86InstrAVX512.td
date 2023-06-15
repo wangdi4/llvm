@@ -3632,11 +3632,13 @@ let Predicates = [HasBWI] in {
 }
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
-let Predicates = [HasBWI, HasEGPR, In64BitMode] in {
+let Predicates = [HasAVX256P_Or_HasBWI_NoVL, HasEGPR, In64BitMode] in {
   defm KMOVD : avx512_mask_mov<0x90, 0x90, 0x91, "kmovd", VK32, v32i1,i32mem, "_EVEX">,
                EVEX, PD, REX_W;
   defm KMOVD : avx512_mask_mov_gpr<0x92, 0x93, "kmovd", VK32, GR32, "_EVEX">,
                EVEX, XD;
+}
+let Predicates = [HasBWI, HasEGPR, In64BitMode] in {
   defm KMOVQ : avx512_mask_mov<0x90, 0x90, 0x91, "kmovq", VK64, v64i1, i64mem, "_EVEX">,
                EVEX, PS, REX_W;
   defm KMOVQ : avx512_mask_mov_gpr<0x92, 0x93, "kmovq", VK64, GR64, "_EVEX">,
