@@ -330,6 +330,7 @@ public:
   bool isIntelAdvancedOptimEnabled() const;
   bool isAdvancedOptEnabled(TTI::AdvancedOptLevel AO) const;
   bool isLibIRCAllowed() const;
+  bool isIntelLibMAllowed() const;
   unsigned getMaxScale() const;
   bool adjustCallArgs(CallInst* CI);
   bool isTargetSpecificShuffleMask(ArrayRef<uint32_t> Mask) const;

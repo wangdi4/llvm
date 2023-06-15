@@ -852,6 +852,8 @@ public:
 
   bool isLibIRCAllowed() const { return false; }
 
+  bool isIntelLibMAllowed() const { return false; }
+
   unsigned getMaxScale() const { return 1; }
 
   bool adjustCallArgs(CallInst *CI) { return false; }

@@ -759,9 +759,17 @@ void RecognizableInstr::emitInstructionSpecifier() {
     // Operand 2 is a register operand in the Reg/Opcode field.
     // - In AVX, there is a register operand in the VEX.vvvv field here -
     // Operand 3 (optional) is an immediate.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    assert(numPhysicalOperands >= 2 + additionalOperands &&
+           numPhysicalOperands <= 4 + additionalOperands &&
+           "Unexpected number of operands for MRMDestMemFrm with VEX_4V");
+#else  // INTEL_FEATURE_ISA_APX_F
     assert(numPhysicalOperands >= 2 + additionalOperands &&
            numPhysicalOperands <= 3 + additionalOperands &&
            "Unexpected number of operands for MRMDestMemFrm with VEX_4V");
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
@@ -787,6 +795,11 @@ void RecognizableInstr::emitInstructionSpecifier() {
 
     HANDLE_OPERAND(roRegister)
     HANDLE_OPTIONAL(immediate)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    HANDLE_OPTIONAL(immediate)
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     break;
   case X86Local::MRMSrcReg:
     // Operand 1 is a register operand in the Reg/Opcode field.
@@ -950,9 +963,17 @@ void RecognizableInstr::emitInstructionSpecifier() {
     // Operand 1 is a register operand in the R/M field.
     // Operand 2 (optional) is an immediate or relocation.
     // Operand 3 (optional) is an immediate.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    assert(numPhysicalOperands >= 0 + additionalOperands &&
+           numPhysicalOperands <= 4 + additionalOperands &&
+           "Unexpected number of operands for MRMnr");
+#else  // INTEL_FEATURE_ISA_APX_F
     assert(numPhysicalOperands >= 0 + additionalOperands &&
            numPhysicalOperands <= 3 + additionalOperands &&
            "Unexpected number of operands for MRMnr");
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
     if (HasVEX_4V)
       HANDLE_OPERAND(vvvvRegister)
@@ -962,6 +983,11 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPTIONAL(rmRegister)
     HANDLE_OPTIONAL(relocation)
     HANDLE_OPTIONAL(immediate)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    HANDLE_OPTIONAL(immediate)
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     break;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
@@ -993,9 +1019,17 @@ void RecognizableInstr::emitInstructionSpecifier() {
   case X86Local::MRM7m:
     // Operand 1 is a memory operand (possibly SIB-extended)
     // Operand 2 (optional) is an immediate or relocation.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    assert(numPhysicalOperands >= 1 + additionalOperands &&
+           numPhysicalOperands <= 4 + additionalOperands &&
+           "Unexpected number of operands for MRMnm");
+#else  // INTEL_FEATURE_ISA_APX_F
     assert(numPhysicalOperands >= 1 + additionalOperands &&
            numPhysicalOperands <= 2 + additionalOperands &&
            "Unexpected number of operands for MRMnm");
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
     if (HasVEX_4V)
       HANDLE_OPERAND(vvvvRegister)
@@ -1003,6 +1037,12 @@ void RecognizableInstr::emitInstructionSpecifier() {
       HANDLE_OPERAND(writemaskRegister)
     HANDLE_OPERAND(memory)
     HANDLE_OPTIONAL(relocation)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    HANDLE_OPTIONAL(immediate)
+    HANDLE_OPTIONAL(immediate)
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     break;
   case X86Local::RawFrmImm8:
     // operand 1 is a 16-bit immediate

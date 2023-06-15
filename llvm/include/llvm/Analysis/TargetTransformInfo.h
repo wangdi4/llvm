@@ -1568,6 +1568,8 @@ public:
 
   bool isLibIRCAllowed() const;
 
+  bool isIntelLibMAllowed() const;
+
   bool adjustCallArgs(CallInst *) const;
 
   unsigned getMaxScale() const;
@@ -2148,6 +2150,7 @@ public:
   virtual bool isIntelAdvancedOptimEnabled() const = 0;
   virtual bool isAdvancedOptEnabled(AdvancedOptLevel AO) const = 0;
   virtual bool isLibIRCAllowed() const = 0;
+  virtual bool isIntelLibMAllowed() const = 0;
   virtual bool adjustCallArgs(CallInst *) = 0;
   virtual unsigned getMaxScale() const = 0;
   virtual bool
@@ -2869,6 +2872,8 @@ public:
   bool isLibIRCAllowed() const override {
     return Impl.isLibIRCAllowed();
   }
+
+  bool isIntelLibMAllowed() const override { return Impl.isIntelLibMAllowed(); }
 
   bool adjustCallArgs(CallInst *CI) override {
     return Impl.adjustCallArgs(CI);

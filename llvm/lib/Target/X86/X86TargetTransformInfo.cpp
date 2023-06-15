@@ -6584,6 +6584,11 @@ bool X86TTIImpl::isLibIRCAllowed() const {
   return TM.Options.IntelLibIRCAllowed;
 }
 
+bool X86TTIImpl::isIntelLibMAllowed() const {
+  const TargetMachine &TM = getTLI()->getTargetMachine();
+  return TM.Options.IntelLibMAllowed;
+}
+
 unsigned X86TTIImpl::getMaxScale() const {
   return 8;
 }

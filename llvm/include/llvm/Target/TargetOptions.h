@@ -146,8 +146,9 @@ namespace llvm {
           ApproxFuncFPMath(false), EnableAIXExtendedAltivecABI(false),
           HonorSignDependentRoundingFPMathOption(false), NoZerosInBSS(false),
 #if INTEL_CUSTOMIZATION
-          IntelAdvancedOptim(false), IntelLibIRCAllowed(false), X87Precision(0),
-          DoFMAOpt(true), IntelSpillParms(false), IntelABICompatible(false),
+          IntelAdvancedOptim(false), IntelLibIRCAllowed(false),
+          IntelLibMAllowed(false), X87Precision(0), DoFMAOpt(true),
+          IntelSpillParms(false), IntelABICompatible(false),
 #if INTEL_FEATURE_MARKERCOUNT
           MarkerCountKind(0),
 #endif // INTEL_FEATURE_MARKERCOUNT
@@ -245,6 +246,11 @@ namespace llvm {
     /// available for the compiler to make calls to.  When false, the
     /// compiler cannot generate libirc calls.
     unsigned IntelLibIRCAllowed : 1;
+
+    /// IntelLibMAllowed - When true, this indicates that intel libm is
+    /// available for the compiler to make calls to.  When false, the
+    /// compiler cannot generate libm calls.
+    unsigned IntelLibMAllowed : 1;
 
     /// X87Precision - Indicate how to set the precision of X87 FPU
     /// The value can be 0, 32, 64 and 80.

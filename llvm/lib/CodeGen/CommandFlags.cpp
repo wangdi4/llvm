@@ -115,6 +115,7 @@ CGOPT(bool, EnableAddrsig)
 #if INTEL_CUSTOMIZATION
 CGOPT(bool, EnableIntelAdvancedOpts)
 CGOPT(bool, IntelLibIRCAllowed)
+CGOPT(bool, IntelLibMAllowed)
 CGOPT(int, X87Precision)
 CGOPT(bool, DoFMAOpt)
 CGOPT(bool, IntelSpillParms)
@@ -507,6 +508,12 @@ codegen::RegisterCodeGenFlags::RegisterCodeGenFlags() {
                                           cl::init(false), cl::Hidden);
   CGBINDOPT(IntelLibIRCAllowed);
 
+  /// This internal switch can be used to turn on intel libm usage.
+  static cl::opt<bool> IntelLibMAllowed("intel-libm-allowed",
+                                        cl::desc("Enable intel libm usage."),
+                                        cl::init(false), cl::Hidden);
+  CGBINDOPT(IntelLibMAllowed);
+
   static cl::opt<int> X87Precision(
       "x87-precision", cl::desc("Set X87 internal precision"),
       cl::init(0));
@@ -648,6 +655,7 @@ codegen::InitTargetOptionsFromCodeGenFlags(const Triple &TheTriple) {
 #if INTEL_CUSTOMIZATION
   Options.IntelAdvancedOptim = getEnableIntelAdvancedOpts();
   Options.IntelLibIRCAllowed = getIntelLibIRCAllowed();
+  Options.IntelLibMAllowed = getIntelLibMAllowed();
   Options.X87Precision = getX87Precision();
   Options.DoFMAOpt = getDoFMAOpt();
   Options.IntelSpillParms = getIntelSpillParms();

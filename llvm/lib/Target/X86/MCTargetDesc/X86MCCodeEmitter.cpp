@@ -1355,6 +1355,14 @@ PrefixKind X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand,
       Prefix.set4VV2(MI, CurOp++);
 
     Prefix.setRR2(MI, CurOp++);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (HasTwoConditionalOps) {
+      Prefix.set4V(MI, CurOp++, /*IsImm=*/true);
+      Prefix.setSC(MI, CurOp++);
+    }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     break;
   }
 #if INTEL_CUSTOMIZATION
@@ -1404,6 +1412,15 @@ PrefixKind X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand,
     if (!HasVEX_4V) // Only needed with VSIB which don't use VVVV.
       Prefix.setV2(MI, MemOperand + X86::AddrIndexReg);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    CurOp += X86::AddrNumOperands;
+    if (HasTwoConditionalOps) {
+      Prefix.set4V(MI, CurOp++, /*IsImm=*/true);
+      Prefix.setSC(MI, CurOp++);
+    }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     break;
   }
   case X86II::MRMSrcMem4VOp3FSIB: // INTEL
@@ -1473,6 +1490,15 @@ PrefixKind X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand,
     if (!HasVEX_4V) // Only needed with VSIB which don't use VVVV.
       Prefix.setV2(MI, MemOperand + X86::AddrIndexReg);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    CurOp += X86::AddrNumOperands + 1; // Skip first imm.
+    if (HasTwoConditionalOps) {
+      Prefix.set4V(MI, CurOp++, /*IsImm=*/true);
+      Prefix.setSC(MI, CurOp++);
+    }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     break;
   }
 #if INTEL_CUSTOMIZATION
@@ -1518,6 +1544,14 @@ PrefixKind X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand,
     Prefix.setX(MI, CurOp, 4);
     ++CurOp;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (HasTwoConditionalOps) {
+      Prefix.set4V(MI, CurOp++, /*IsImm=*/true);
+      Prefix.setSC(MI, CurOp++);
+    }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     if (TSFlags & X86II::EVEX_B) {
       if (HasEVEX_RC) {
         unsigned NumOps = Desc.getNumOperands();
@@ -1682,6 +1716,14 @@ PrefixKind X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand,
 #endif // INTEL_CUSTOMIZATION
     Prefix.setX(MI, CurOp, 4);
     ++CurOp;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    if (HasTwoConditionalOps) {
+      Prefix.set4V(MI, ++CurOp, /*IsImm=*/true);
+      Prefix.setSC(MI, ++CurOp);
+    }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     break;
   }
 #if INTEL_CUSTOMIZATION
@@ -2134,12 +2176,6 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI,
     emitRegModRMByte(MI.getOperand(CurOp),
                      getX86RegNum(MI.getOperand(SrcRegNum)), CB);
     CurOp = SrcRegNum + 1;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-    if (HasTwoConditionalOps) // Skip two conditional operands
-      CurOp += 2;
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
     break;
   }
 #if INTEL_CUSTOMIZATION
@@ -2545,10 +2581,25 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI,
     // If there is a remaining operand, it must be a trailing immediate. Emit it
     // according to the right size for the instruction. Some instructions
     // (SSE4a extrq and insertq) have two trailing immediates.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    // Skip two conditional operands
+    if (NumOps - CurOp == 2 && HasTwoConditionalOps)
+      CurOp += 2;
+    while (CurOp != NumOps && NumOps - CurOp <= 3) {
+#else  // INTEL_FEATURE_ISA_APX_F
     while (CurOp != NumOps && NumOps - CurOp <= 2) {
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
       emitImmediate(MI.getOperand(CurOp++), MI.getLoc(),
                     X86II::getSizeOfImm(TSFlags), getImmFixupKind(TSFlags),
                     StartByte, CB, Fixups);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+      if (HasTwoConditionalOps) // Skip two conditional operands
+        CurOp += 2;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     }
   }
 

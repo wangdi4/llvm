@@ -91,6 +91,8 @@ static cl::opt<bool>
 // bool: Whether BasicBlock is executed when the condition is True or False.
 using ControlCond = PointerIntPair<Value *, 1, bool>;
 
+class IPPredOptImpl;
+
 #ifndef NDEBUG
 // Dumper for ControlCond
 raw_ostream &operator<<(raw_ostream &OS, const ControlCond &C) {
@@ -127,7 +129,10 @@ public:
   bool checkPointerHasNonNullValue(Value *V);
   bool guaranteedToBeNonNullOnCondCallEntry(Value *V);
   void getValueConstant(ICmpInst *IC, Value **VPtr, Constant **CPtr);
+  bool checkCondCallSideEffects(IPPredOptImpl &);
+  bool processIndirectCalls(IPPredOptImpl &, SmallPtrSet<CallBase *, 2> &);
   bool applyHeuristics();
+  bool funcHasNoSideEffects(Function *F);
   void hoistConditions();
   void generateRuntimeChecksCloneCFG();
   void replaceOperandsWithClonedInst(
@@ -204,6 +209,8 @@ public:
         ACGetter(ACGetter){};
   ~IPPredOptImpl(){};
   bool run(void);
+  bool getVirtualPossibleTargets(CallBase &CB,
+                                 SetVector<Function *> &TargetFunctions);
 
 private:
   constexpr static int MaxNumCandidates = 1;
@@ -222,8 +229,6 @@ private:
   void gatherCandidates(Function &F);
   void applyTransformations();
   void buildTypeIdMap();
-  bool getVirtualPossibleTargets(CallBase &CB,
-                                 SetVector<Function *> &TargetFunctions);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dumpTargetFunctions(void);
@@ -719,6 +724,354 @@ bool PredCandidate::checkLegalityIssues() {
 
 bool PredCandidate::applyHeuristics() {
   // TODO:  Add more code here for heuristics.
+  return true;
+}
+
+// Returns true if F doesn't have any side-effects.
+bool PredCandidate::funcHasNoSideEffects(Function *F) {
+  for (Instruction &Inst : instructions(*F)) {
+    if (isa<DbgInfoIntrinsic>(Inst))
+      continue;
+    if (Inst.mayHaveSideEffects())
+      return false;
+  }
+  return true;
+}
+
+// For each indirect call, find all possible target functions and no action
+// is required if there are no side effects. If there are possible targets
+// with side effects, find most probable target, which will be used to generate
+// runtime check later, using base class heuristic.
+//
+bool PredCandidate::processIndirectCalls(
+    IPPredOptImpl &IPPredObj, SmallPtrSet<CallBase *, 2> &IndirectCalls) {
+
+  // GetCallFirstArgTyMD and GetFunctionFirstParamTyMD are implemented
+  // without using MDReader by just using DTrans's metadata that is
+  // attached to calls and functions without computing the DTrans's types.
+
+  // Returns DTrans's metadata of first argument of CB if it is found.
+  // Otherwise, returns nullptr.
+  auto GetCallFirstArgTyMD = [](CallBase *CB) -> MDNode * {
+    // Check if type of first argument is pointer.
+    if (CB->arg_size() < 1 || !CB->getArgOperand(0)->getType()->isPointerTy())
+      return nullptr;
+
+    MDNode *MD = CB->getMetadata("intel_dtrans_type");
+    if (!MD)
+      return nullptr;
+
+    auto *MDS = dyn_cast<MDString>(MD->getOperand(0));
+    if (!MDS)
+      return nullptr;
+    if (!MDS->getString().equals("F"))
+      return nullptr;
+
+    // Get metadata of first argument.
+    const unsigned NumArgsPos = 2;
+    const unsigned ArgTyStartPos = 4;
+    if (MD->getNumOperands() < ArgTyStartPos)
+      return nullptr;
+    auto *NumArgsMD = dyn_cast<ConstantAsMetadata>(MD->getOperand(NumArgsPos));
+    if (!NumArgsMD)
+      return nullptr;
+    unsigned ArgCount =
+        cast<ConstantInt>(NumArgsMD->getValue())->getZExtValue();
+    unsigned NumOps = MD->getNumOperands();
+    if (NumOps != ArgTyStartPos + ArgCount)
+      return nullptr;
+    auto *ArgTyMD = dyn_cast<MDNode>(MD->getOperand(ArgTyStartPos));
+    if (!ArgTyMD)
+      return nullptr;
+
+    return ArgTyMD;
+  };
+
+  // Returns DTrans's metadata of first argument of TF if it is found.
+  // Otherwise, returns nullptr.
+  auto GetFunctionFirstParamTyMD = [](Function *TF) -> MDNode * {
+    // Check if type of first argument is pointer.
+    if (TF->arg_size() < 1 || !TF->getArg(0)->getType()->isPointerTy())
+      return nullptr;
+
+    auto *MDTypeListNode = TF->getMetadata("intel.dtrans.func.type");
+    if (!MDTypeListNode)
+      return nullptr;
+    AttributeList Attrs = TF->getAttributes();
+    AttributeSet ParamAttrs = Attrs.getParamAttrs(0);
+    Attribute Attr = ParamAttrs.getAttribute("intel_dtrans_func_index");
+    if (!Attr.isValid())
+      return nullptr;
+    StringRef TagName = Attr.getValueAsString();
+    uint64_t Index;
+    if (TagName.getAsInteger(10, Index))
+      return nullptr;
+    auto *TypeNode = dyn_cast<MDNode>(MDTypeListNode->getOperand(Index - 1));
+    if (!TypeNode)
+      return nullptr;
+
+    return TypeNode;
+  };
+
+  // Returns object that is used for virtual indirect call.
+  //
+  // Ex: For given callsite i110, returns %i41.
+  //
+  //  %i105 = getelementptr %Validator, ptr %i41, i64 0, i32 0, i32 0
+  //  %i106 = load ptr, ptr %i105, align 8, !tbaa !1256
+  //  %i107 = tail call i1 @llvm.type.test(ptr %i106, metadata !"Validator")
+  //  tail call void @llvm.assume(i1 %i107)
+  //  %i108 = getelementptr inbounds ptr, ptr %i106, i64 10
+  //  %i109 = load ptr, ptr %i108, align 8
+  //  %i110 = tail call noundef i32 %i109(ptr %i41)
+  //
+  auto ProcessVirtualFunctionLoads = [](CallBase *CB) -> Value * {
+    Instruction *PrevI = CB->getPrevNonDebugInstruction();
+    auto *LI = dyn_cast_or_null<LoadInst>(PrevI);
+    if (!LI || PrevI != CB->getCalledOperand())
+      return nullptr;
+    auto *VGEP =
+        dyn_cast_or_null<GetElementPtrInst>(LI->getPrevNonDebugInstruction());
+    if (!VGEP)
+      return nullptr;
+    auto *AI =
+        dyn_cast_or_null<IntrinsicInst>(VGEP->getPrevNonDebugInstruction());
+    if (!AI || AI->getIntrinsicID() != Intrinsic::assume)
+      return nullptr;
+    auto *TI =
+        dyn_cast_or_null<IntrinsicInst>(AI->getPrevNonDebugInstruction());
+    if (!TI || TI->getIntrinsicID() != Intrinsic::type_test)
+      return nullptr;
+    auto *VTLI = dyn_cast<LoadInst>(VGEP->getPointerOperand());
+    if (!VTLI)
+      return nullptr;
+    auto *GEP = dyn_cast<GetElementPtrInst>(VTLI->getPointerOperand());
+    if (!GEP || !GEP->hasAllZeroIndices())
+      return nullptr;
+
+    return GEP->getPointerOperand();
+  };
+
+  // Returns true if FPtr is a direct call with "dtrans-vector-size-field=1"
+  // attribute.
+  //
+  // Ex: Let us assume @bar is marked with "dtrans-vector-size-field=1"
+  // attribute.
+  //
+  //  %i39 = call ptr @bar(ptr %i24, i32 %i38)
+  //
+  auto IsDTransVectorAccessElemCall = [](Value *FPtr) {
+    auto *VCall = dyn_cast<CallBase>(FPtr);
+    if (!VCall)
+      return false;
+    Function *VCallee = VCall->getCalledFunction();
+    if (!VCallee)
+      return false;
+    Attribute SizeFieldAttr =
+        VCallee->getFnAttribute("dtrans-vector-size-field");
+    if (!SizeFieldAttr.isValid())
+      return false;
+    if (VCallee->arg_size() != 2)
+      return false;
+    if (isa<Argument>(VCall->getArgOperand(0)))
+      return true;
+    return false;
+  };
+
+  // Try to find the object that is used to call virtual function for given
+  // indirect call "CB".
+  //
+  // Case 1 (bb104): This function detects %i41 is the object that is used
+  // for indirect call. Functionality of @bar is known as it is marked
+  // with "dtrans-vector-size-field". Returns %i41 as first param of the call
+  // is an argument (i.e %arg1) that can be hoisted to the beginning of the
+  // routine.
+  //
+  // Case 2 (bb96): This function detects %i39 is the object that is used
+  // for indirect call. Functionality of @bar is known as it is marked
+  // with "dtrans-vector-size-field" but first param of the call (i.e %i24)
+  // is not argument. Looking at the CFG, BB94 is executed only when %i39
+  // and %i41 are same. So, returns %i41 since %i41 (instead of %i39) can
+  // be used to generate runtime checks for %i101 call also.
+  //
+  // define i1 @foo(ptr %arg, ptr %arg1) {
+  //   ...
+  // bb1:
+  //   %i39 = call ptr @bar(ptr %i24, i32 %i38)
+  //   %i41 = call ptr @bar(ptr %arg1, i32 %i38)
+  //   ...
+  // bb94:                                             ; preds = %bb92
+  //   %i95 = icmp eq ptr %i39, %i41
+  //   br i1 %i95, label %bb96, label %bb104
+  //
+  // bb96:  ; preds = %bb94 ; Case 2
+  //   %i97 = getelementptr %Validator, ptr %i39, i64 0, i32 0, i32 0
+  //   %i98 = load ptr, ptr %i97, align 8, !tbaa !1256
+  //   %i100 = getelementptr ptr, ptr %i98, i64 10
+  //   %i101 = load ptr, ptr %i100, align 8
+  //   %i102 = call i32 %i101(ptr %i39)
+  //
+  // bb104:  ; preds = %bb94 ; Case 1
+  //  %i105 = getelementptr %Validator, ptr %i41, i64 0, i32 0, i32 0
+  //  %i106 = load ptr, ptr %i105, align 8, !tbaa !1256
+  //  %i108 = getelementptr inbounds ptr, ptr %i106, i64 10
+  //  %i109 = load ptr, ptr %i108, align 8
+  //  %i110 = call i32 %i109(ptr %i41)
+  //  ...
+  // }
+  auto GetValidIndirectCallObj =
+      [&IsDTransVectorAccessElemCall,
+       &ProcessVirtualFunctionLoads](CallBase *CB) -> Value * {
+    // Check for case 1.
+    Value *FPtr = ProcessVirtualFunctionLoads(CB);
+    if (!FPtr)
+      return nullptr;
+    if (IsDTransVectorAccessElemCall(FPtr))
+      return FPtr;
+
+    // Check for case 2.
+    BasicBlock *CurrBB = CB->getParent();
+    BasicBlock *PredBB = CurrBB->getSinglePredecessor();
+    if (!PredBB)
+      return nullptr;
+    auto *BBI = dyn_cast<BranchInst>(PredBB->getTerminator());
+    if (!BBI || !BBI->isConditional())
+      return nullptr;
+    ICmpInst *IC = dyn_cast<ICmpInst>(BBI->getCondition());
+    if (!IC || IC->getPredicate() != ICmpInst::ICMP_EQ ||
+        BBI->getSuccessor(0) != CurrBB)
+      return nullptr;
+    Value *NewFPtr = nullptr;
+    if (IC->getOperand(0) == FPtr)
+      NewFPtr = IC->getOperand(1);
+    else if (IC->getOperand(1) == FPtr)
+      NewFPtr = IC->getOperand(0);
+    if (!NewFPtr)
+      return nullptr;
+    if (IsDTransVectorAccessElemCall(NewFPtr))
+      return NewFPtr;
+    return nullptr;
+  };
+
+  // Finds virtual function call in base class from TargetFunctions.
+  // DTrans's metadata is used to check same types.
+  auto GetTargetFunctionInBaseType =
+      [&GetCallFirstArgTyMD, &GetFunctionFirstParamTyMD](
+          SetVector<Function *> &TargetFunctions, CallBase *CB) -> Function * {
+    // Get DTrans's metadata for 1st argument of call.
+    MDNode *ArgTyMD = GetCallFirstArgTyMD(CB);
+    if (!ArgTyMD)
+      return nullptr;
+
+    Function *FuncInBaseClass = nullptr;
+
+    for (auto *TF : TargetFunctions) {
+      // Get DTrans's metadata for 1st argument of TF.
+      MDNode *TypeNode = GetFunctionFirstParamTyMD(TF);
+      if (TypeNode != ArgTyMD)
+        continue;
+
+      if (FuncInBaseClass)
+        return nullptr;
+      FuncInBaseClass = TF;
+    }
+    return FuncInBaseClass;
+  };
+
+  SmallPtrSet<Function *, 2> MostProbableTarget;
+  SmallPtrSet<Value *, 2> IndirectFunctionPtr;
+
+  for (auto *CB : IndirectCalls) {
+    // Find all possible target functions.
+    SetVector<Function *> TargetFunctions;
+    if (!IPPredObj.getVirtualPossibleTargets(*CB, TargetFunctions))
+      return false;
+
+    bool NoSideEffects = true;
+    for (auto *F : TargetFunctions)
+      if (!funcHasNoSideEffects(F)) {
+        NoSideEffects = false;
+        break;
+      }
+
+    // No action is needed if there are no side effects.
+    if (NoSideEffects)
+      continue;
+
+    // Try to find most probable target function.
+    Function *TF = GetTargetFunctionInBaseType(TargetFunctions, CB);
+    if (!TF)
+      return false;
+
+    // Don't apply the transformation if most probable target has side effects.
+    if (!funcHasNoSideEffects(TF))
+      return false;
+
+    // Trying to collect all instructions that are needed to hoist
+    // and generate runtime check for computing function pointer.
+    Value *FPtr = GetValidIndirectCallObj(CB);
+    if (!FPtr)
+      return false;
+    Function *VCallee = cast<CallBase>(FPtr)->getCalledFunction();
+    Attribute SizeFieldAttr =
+        VCallee->getFnAttribute("dtrans-vector-size-field");
+    if (!SizeFieldAttr.isValid())
+      return false;
+    StringRef Val = SizeFieldAttr.getValueAsString();
+    unsigned SizeField = UINT32_MAX;
+    if (Val.getAsInteger(0, SizeField))
+      return false;
+
+    // TODO: More code will be added here.
+
+    MostProbableTarget.insert(TF);
+    IndirectFunctionPtr.insert(FPtr);
+  }
+  if (MostProbableTarget.size() == 0)
+    return true;
+
+  if (MostProbableTarget.size() > 1 ||
+      MostProbableTarget.size() != IndirectFunctionPtr.size())
+    return false;
+
+  LLVM_DEBUG(dbgs() << "      IndirectCallObj:"
+                    << *(*IndirectFunctionPtr.begin()) << "\n";);
+  LLVM_DEBUG(dbgs() << "      Most probable Target:"
+                    << (*MostProbableTarget.begin())->getName() << "\n");
+
+  return true;
+}
+
+// Checks if CondCall has any side effects. Returns true if CondCall
+// doesn't have any side effects or runtime checks can be used to avoid
+// side effects.
+bool PredCandidate::checkCondCallSideEffects(IPPredOptImpl &IPPredObj) {
+  assert(CondCall && "Expected valid CondCall");
+  Function *Callee = CondCall->getCalledFunction();
+  assert(Callee && "Expected direct call");
+
+  if (funcHasNoSideEffects(Callee))
+    return true;
+
+  SmallPtrSet<CallBase *, 4> DirectCalls;
+  SmallPtrSet<CallBase *, 2> IndirectCalls;
+  for (Instruction &Inst : instructions(*Callee)) {
+    if (!Inst.mayThrow() && !Inst.mayWriteToMemory())
+      continue;
+
+    auto *CB = dyn_cast<CallBase>(&Inst);
+    if (!CB)
+      return false;
+    Function *TargetF = CB->getCalledFunction();
+    if (TargetF)
+      DirectCalls.insert(CB);
+    else
+      IndirectCalls.insert(CB);
+  }
+
+  if (!processIndirectCalls(IPPredObj, IndirectCalls))
+    return false;
+
   return true;
 }
 
@@ -1284,6 +1637,11 @@ void IPPredOptImpl::gatherCandidates(Function &F) {
 
     if (!CandD->checkLegalityIssues())
       continue;
+
+    if (!CandD->checkCondCallSideEffects(*this)) {
+      LLVM_DEBUG(dbgs() << "    Skipped: SideEffects\n");
+      continue;
+    }
 
     if (!CandD->applyHeuristics()) {
       LLVM_DEBUG(dbgs() << "    Skipped: Heuristics\n");
