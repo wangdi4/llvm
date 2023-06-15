@@ -247,20 +247,14 @@ getDeviceCodeSplitter(ModuleDesc &&MD, IRSplitMode Mode, bool IROutputOnly,
 #if INTEL_COLLAB
                       bool EmitOnlyKernelsAsEntryPoints,
                       bool DoOmpOffload = false);
-#else // INTEL_COLLAB
+#else  // INTEL_COLLAB
                       bool EmitOnlyKernelsAsEntryPoints);
 #endif // INTEL_COLLAB
-
-<<<<<<< HEAD
-std::unique_ptr<ModuleSplitterBase>
-getSplitterByKernelType(ModuleDesc &&MD, bool EmitOnlyKernelsAsEntryPoints);
 
 #if INTEL_COLLAB
 void findGlobalsToBeMoved(const Module &M);
 #endif // INTEL_COLLAB
 
-=======
->>>>>>> 7516eb8d7162c5e6d22f94771f1ad1189d5a4ed8
 #ifndef NDEBUG
 void dumpEntryPoints(const EntryPointSet &C, const char *msg = "", int Tab = 0);
 void dumpEntryPoints(const Module &M, bool OnlyKernelsAreEntryPoints = false,

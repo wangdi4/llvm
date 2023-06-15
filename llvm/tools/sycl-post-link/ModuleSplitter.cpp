@@ -421,19 +421,47 @@ void collectOMPGlobalVarsToExtract(SetVector<const GlobalValue *> &GVs,
       GVs.insert(&G);
 }
 
+void collectFunctionsToExtract(
+    SetVector<const GlobalValue *> &GVs, const Module &M,
+    const EntryPointGroup &ModuleEntryPoints, const DependencyGraph &Deps,
+    const std::function<bool(const Function *)> &IncludeFunctionPredicate =
+        nullptr) {
+  // We start with module entry points
+  for (const auto *F : ModuleEntryPoints.Functions)
+    GVs.insert(F);
+
+  // GVs has SetVector type. This type inserts a value only if it is not yet
+  // present there. So, recursion is not expected here.
+  decltype(GVs.size()) Idx = 0;
+  while (Idx < GVs.size()) {
+    const auto *Obj = GVs[Idx++];
+
+    for (const GlobalValue *Dep : Deps.dependencies(Obj)) {
+      if (const auto *Func = dyn_cast<const Function>(Dep)) {
+        if (Func->isDeclaration())
+          continue;
+
+        // Functions can be additionally filtered
+        if (!IncludeFunctionPredicate || IncludeFunctionPredicate(Func))
+          GVs.insert(Func);
+      }
+    }
+  }
+}
+
 // The function produces a copy of input LLVM IR module M with only those entry
 // points that are specified in ModuleEntryPoints vector.
 // There is a special case for OpenMP offload compilation:
 // - first split module contains global variables which are externalized
 // - other split modules contain entry points with dependencies
 ModuleDesc extractOMPCallGraph(const ModuleDesc &MD,
-                               EntryPointGroup &&ModuleEntryPoints) {
+                               EntryPointGroup &&ModuleEntryPoints,
+                               const DependencyGraph &CG) {
   bool IsGlobalsModule = (ModuleEntryPoints.GroupId == OMP_GLOBAL_VARS_NAME);
   SetVector<const GlobalValue *> GVs;
 
   if (!IsGlobalsModule) {
-    collectFunctionsToExtract(GVs, ModuleEntryPoints,
-                              CallGraph{MD.getModule()});
+    collectFunctionsToExtract(GVs, MD.getModule(), ModuleEntryPoints, CG);
     addOMPRemainingGlobals(GVs, MD.getModule());
   } else {
     collectOMPGlobalVarsToExtract(GVs, MD.getModule());
@@ -472,21 +500,23 @@ public:
 private:
   DependencyGraph CG;
 };
-<<<<<<< HEAD
 
 #if INTEL_COLLAB
 class OMPModuleSplitter : public ModuleSplitterBase {
 public:
-  using ModuleSplitterBase::ModuleSplitterBase; // to inherit base constructors
+  OMPModuleSplitter(ModuleDesc &&MD, EntryPointGroupVec &&GroupVec)
+      : ModuleSplitterBase(std::move(MD), std::move(GroupVec)),
+        CG(Input.getModule()) {}
 
   ModuleDesc nextSplit() override {
-    return extractOMPCallGraph(Input, nextGroup());
+    return extractOMPCallGraph(Input, nextGroup(), CG);
   }
+
+private:
+  DependencyGraph CG;
 };
 #endif // INTEL_COLLAB
 
-=======
->>>>>>> 7516eb8d7162c5e6d22f94771f1ad1189d5a4ed8
 } // namespace
 namespace llvm {
 namespace module_split {
