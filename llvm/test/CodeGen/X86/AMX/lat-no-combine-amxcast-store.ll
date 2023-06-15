@@ -34,13 +34,12 @@ scalar_if:                                        ; preds = %wrapper_entry
 dim_1_pre_head.preheader:                         ; preds = %scalar_if
   %1 = call x86_amx @llvm.x86.tileloadd64.internal(i16 8, i16 32, i8* poison, i64 64)
   %2 = call <256 x i8> @llvm.x86.cast.tile.to.vector.v256i8(x86_amx %1)
-  %3 = call x86_amx @llvm.x86.cast.vector.to.tile.v256i8(<256 x i8> %2)
-  call void @llvm.x86.tilestored64.internal(i16 8, i16 32, i8* poison, i64 64, x86_amx %3)
+  call void @llvm.x86.tilestored64.internal(i16 8, i16 32, i8* poison, i64 64, x86_amx %1)
   store <256 x i8> %2, <256 x i8>* %0, align 256
-  %4 = bitcast <256 x i8>* %0 to i8*
-  %5 = getelementptr i8, i8* %4, i32 poison
-  %6 = bitcast i8* %5 to <1 x i8>*
-  %7 = load <1 x i8>, <1 x i8>* %6, align 1
+  %3 = bitcast <256 x i8>* %0 to i8*
+  %4 = getelementptr i8, i8* %3, i32 poison
+  %5 = bitcast i8* %4 to <1 x i8>*
+  %6 = load <1 x i8>, <1 x i8>* %5, align 1
   unreachable
 
 exit:                                             ; preds = %scalar_if
