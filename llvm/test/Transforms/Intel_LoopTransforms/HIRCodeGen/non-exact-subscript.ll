@@ -13,7 +13,7 @@
 ; CHECK: |   %cast = sitofp.i32.float(2 * i1 + 2);
 ; CHECK: |
 ; CHECK: |   + DO i2 = 0, 14, 1   <DO_LOOP>
-; CHECK: |   |   (getelementptr inbounds ([12 x %ext_type], [12 x %ext_type]* @D, i64 0, i64 0, i32 0))[0:i1:544(%base_type*:0)].0[0:i2:4([15 x float]:15)] = %cast;
+; CHECK: |   |   (getelementptr inbounds ([12 x %ext_type], [12 x %ext_type]* @D, i64 0, i64 0, i32 0))[0:i1:544(%base_type:0)].0[0:i2:4(float:15)] = %cast;
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
 

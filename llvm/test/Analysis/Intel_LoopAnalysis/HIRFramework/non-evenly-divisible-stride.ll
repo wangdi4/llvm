@@ -7,10 +7,10 @@
 
 ; CHECK: + DO i1 = 0, 3, 1   <DO_LOOP>
 ; CHECK: |   + DO i2 = 0, %n + -2, 1   <DO_LOOP>  <MAX_TC_EST = 3>
-; CHECK: |   |   %t29 = (getelementptr inbounds ([5 x [5 x %simple_type]], [5 x [5 x %simple_type]]* @B, i64 0, i64 0, i64 0))[0:i1:40(%simple_type*:0)][0:i2:16(%simple_type*:3)].0;
-; CHECK: |   |   (%ptr)[0:i1:24(%simple_type*:0)][0:i2:8(%simple_type*:3)].0 = %t29;
-; CHECK: |   |   %t32 = (getelementptr inbounds ([5 x [5 x %simple_type]], [5 x [5 x %simple_type]]* @B, i64 0, i64 0, i64 0))[0:i1:40(%simple_type*:0)][0:i2:16(%simple_type*:3)].1;
-; CHECK: |   |   (%ptr)[0:i1:24(%simple_type*:0)][0:i2:8(%simple_type*:3)].1 = %t32;
+; CHECK: |   |   %t29 = (getelementptr inbounds ([5 x [5 x %simple_type]], [5 x [5 x %simple_type]]* @B, i64 0, i64 0, i64 0))[0:i1:40(%simple_type:0)][0:i2:16(%simple_type:3)].0;
+; CHECK: |   |   (%ptr)[0:i1:24(%simple_type:0)][0:i2:8(%simple_type:3)].0 = %t29;
+; CHECK: |   |   %t32 = (getelementptr inbounds ([5 x [5 x %simple_type]], [5 x [5 x %simple_type]]* @B, i64 0, i64 0, i64 0))[0:i1:40(%simple_type:0)][0:i2:16(%simple_type:3)].1;
+; CHECK: |   |   (%ptr)[0:i1:24(%simple_type:0)][0:i2:8(%simple_type:3)].1 = %t32;
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
 

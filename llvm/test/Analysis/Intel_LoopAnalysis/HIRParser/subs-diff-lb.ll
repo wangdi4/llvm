@@ -4,8 +4,8 @@
 
 ; CHECK: BEGIN REGION { }
 ; CHECK:       + DO i1 = 0, 3, 1   <DO_LOOP>
-; CHECK:       |   %.unpack1415 = (i32*)(%"sub_$W")[0:i1:8(%complex_64bit*:0)].1;
-; CHECK:       |   (i32*)(%"sub_$A")[0:i1:4(float*:0)] = %.unpack1415;
+; CHECK:       |   %.unpack1415 = (i32*)(%"sub_$W")[0:i1:8(%complex_64bit:0)].1;
+; CHECK:       |   (i32*)(%"sub_$A")[0:i1:4(float:0)] = %.unpack1415;
 ; CHECK:       + END LOOP
 ; CHECK: END REGION
 

@@ -2,32 +2,32 @@
 
 ; Check that the dimsize for outermost dimension is available from the "ifx.array_extent" metadata.
 
-; The key values are for: [0:i1:8(double*:30)] in %tmp1953 and %tmp1946, as well as
+; The key values are for: [0:i1:8(double:30)] in %tmp1953 and %tmp1946, as well as
 ; [0:i3:1200(double*:33)] from %tmp1968
 
 ;         + DO i1 = 0, %tmp1876 + -2, 1   <DO_LOOP>
 ;         |   %tmp1944.out = %tmp1944;
 ;         |   %tmp1943.out = %tmp1943;
-; CHECK:  |   %tmp1946 = (bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.40, i64 0, i64 2523600) to i32*))[0:i1:4(i32*:30)];
+; CHECK:  |   %tmp1946 = (bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.40, i64 0, i64 2523600) to i32*))[0:i1:4(i32:30)];
 ;         |   %tmp1944 = %tmp1946 + %tmp1944.out  +  1;
 ;         |   if (%tmp1944 >= %tmp1943)
 ;         |   {
-; CHECK:  |      %tmp1953 = (bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.40, i64 0, i64 2523720) to double*))[0:i1:8(double*:30)];
+; CHECK:  |      %tmp1953 = (bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.40, i64 0, i64 2523720) to double*))[0:i1:8(double:30)];
 ;         |
 ;         |      + DO i2 = 0, zext.i32.i64((1 + (-1 * %tmp1943.out) + %tmp1946 + %tmp1944.out)), 1   <DO_LOOP>
 ;         |      |   %tmp1978 = 0.000000e+00;
 ;         |      |
 ;         |      |      %tmp1964 = 0.000000e+00;
 ;         |      |   + DO i3 = 0, sext.i32.i64(%tmp1946), 1   <DO_LOOP>
-; CHECK:  |      |   |   %tmp1968 = (bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.40, i64 0, i64 2484000) to double*))[0:i3:1200(double*:33)][0:i2 + sext.i32.i64(%tmp1943.out) + -1:8(double*:150)];
-;         |      |   |   %tmp1971 = (%tmp1940)[0:i3 + sext.i32.i64(%tmp1943.out) + -1:8(double*:0)];
+; CHECK:  |      |   |   %tmp1968 = (bitcast (i8* getelementptr inbounds ([2523968 x i8], [2523968 x i8]* @global.40, i64 0, i64 2484000) to double*))[0:i3:1200(double:33)][0:i2 + sext.i32.i64(%tmp1943.out) + -1:8(double:150)];
+;         |      |   |   %tmp1971 = (%tmp1940)[0:i3 + sext.i32.i64(%tmp1943.out) + -1:8(double:0)];
 ;         |      |   |   %tmp1972 = %tmp1971  *  %tmp1968;
 ;         |      |   |   %tmp1964 = %tmp1972  +  %tmp1964;
 ;         |      |   + END LOOP
 ;         |      |      %tmp1978 = %tmp1964;
 ;         |      |
 ;         |      |   %tmp1979 = %tmp1953  *  %tmp1978;
-;         |      |   (%tmp1939)[0:i2 + sext.i32.i64(%tmp1943.out) + -1:8(double*:0)] = %tmp1979;
+;         |      |   (%tmp1939)[0:i2 + sext.i32.i64(%tmp1943.out) + -1:8(double:0)] = %tmp1979;
 ;         |      + END LOOP
 ;         |
 ;         |   }

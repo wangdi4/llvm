@@ -5,14 +5,14 @@
 ; CHECK: Function: foo
 
 ; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>
-; CHECK: |   %ptr.load = (%ptr)[0:0:8(i64**:0)];
-; CHECK: |   @bar(&((%ptr.load)[0:0:%stride(i64*:0)]));
+; CHECK: |   %ptr.load = (%ptr)[0:0:8(i64*:0)];
+; CHECK: |   @bar(&((%ptr.load)[0:0:%stride(i64:0)]));
 ; CHECK: + END LOOP
 
 ; CHECK: Function: foo
 
 ; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>
-; CHECK: |   @bar((%ptr)[0:0:8(i64**:0)]);
+; CHECK: |   @bar((%ptr)[0:0:8(i64*:0)]);
 ; CHECK: + END LOOP
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

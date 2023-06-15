@@ -5,8 +5,8 @@
 ;           %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
 ;
 ;           + DO i1 = 0, 1023, 1   <DO_LOOP>
-;           |   %s = (%q)[0:0:8(i64*:0)];
-;           |   (%p)[0:i1:%s(float*:0)] = 5.000000e+02;
+;           |   %s = (%q)[0:0:8(i64:0)];
+;           |   (%p)[0:i1:%s(float:0)] = 5.000000e+02;
 ;           + END LOOP
 ;
 ;           @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
@@ -15,8 +15,8 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -hir-details-dims -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPVAL-CG
 
 ; VPVAL-CG:           + DO i1 = 0, 1023, 2   <DO_LOOP> <auto-vectorized> <novectorize>
-; VPVAL-CG-NEXT:      |   %.unifload = (%q)[0:0:8(i64*:0)];
-; VPVAL-CG-NEXT:      |   (<2 x float>*)(%p)[0:i1 + <i64 0, i64 1>:%.unifload(float*:0)] = 5.000000e+02;
+; VPVAL-CG-NEXT:      |   %.unifload = (%q)[0:0:8(i64:0)];
+; VPVAL-CG-NEXT:      |   (<2 x float>*)(%p)[0:i1 + <i64 0, i64 1>:%.unifload(float:0)] = 5.000000e+02;
 ; VPVAL-CG-NEXT:      + END LOOP
 
 

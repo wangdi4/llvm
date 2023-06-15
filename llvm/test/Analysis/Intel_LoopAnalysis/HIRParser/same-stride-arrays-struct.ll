@@ -4,8 +4,8 @@
 
 ; BEGIN REGION { }
 ;        + DO i1 = 0, smax(1, %n) + -1, 1   <DO_LOOP>
-; CHECK: |   %tmp260 = (%tmp239)[0:-1 * i1 + -1:8(%struct.wombat*:0)].0.0[0:0:8([1 x double]:1)];
-;        |   (%tmp260.out)[0:0:8(double*:0)] = %tmp260;
+; CHECK: |   %tmp260 = (%tmp239)[0:-1 * i1 + -1:8(%struct.wombat:0)].0.0[0:0:8(double:1)];
+;        |   (%tmp260.out)[0:0:8(double:0)] = %tmp260;
 ;        + END LOOP
 ; END REGION
 

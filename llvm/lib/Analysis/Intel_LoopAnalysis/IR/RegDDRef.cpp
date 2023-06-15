@@ -368,7 +368,11 @@ void RegDDRef::printImpl(formatted_raw_ostream &OS, bool Detailed,
       // Print Type and Number of elements in dimensions
       if (HasGEP && DimDetails) {
         OS << "(";
-        getDimensionType(DimNum)->print(OS, true, false);
+        if (auto *DimElemTy = getDimensionElementType(DimNum)) {
+          DimElemTy->print(OS, true, true);
+        } else {
+          OS << "null";
+        }
         OS << ":" << getNumDimensionElements(DimNum) << ")";
       }
 
