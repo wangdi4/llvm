@@ -353,6 +353,22 @@ void VPInduction::replaceBinOp(VPInstruction *NewBinOp) {
   InductionBinOp = NewBinOp;
 }
 
+const std::string VPLoopEntityList::getImportErrorStr(const ImportError IE) {
+  switch (IE) {
+  case ImportError::None:
+    return INTERNAL("Internal error: no import error!");
+  case ImportError::Reduction:
+    return INTERNAL("Reduction has different symbases for live-in and "
+                    "live-out values.");
+  case ImportError::Induction:
+    return INTERNAL("Importing induction failed for this loop.");
+  case ImportError::Private:
+    return INTERNAL("Importing private failed for this loop.");
+  case ImportError::CompressExpand:
+    return INTERNAL("Incomplete compress-expand idiom.");
+  }
+}
+
 VPInstruction *VPLoopEntityList::getInductionLoopExitInstr(
     const VPInduction *Induction) const {
   auto BinOp = Induction->getInductionBinOp();

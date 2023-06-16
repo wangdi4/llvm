@@ -580,7 +580,7 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   if (VPlanConstrStressTest) {
     setBailoutRemark(OptReportVerbosity::High,
                      OptRemarkID::VecFailGenericBailout,
-                     std::string("Stress testing only."));
+                     INTERNAL("Stress testing only."));
     return bailout(VPORBuilder, Lp, WRLp, BR);
   }
 
@@ -701,7 +701,7 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   if (DisableCodeGen) {
     setBailoutRemark(OptReportVerbosity::High,
                      OptRemarkID::VecFailGenericBailout,
-                     std::string("Code generation is disabled."));
+                     INTERNAL("Code generation is disabled."));
     return bailout(VPORBuilder, Lp, WRLp, BR);
   }
 
@@ -1809,10 +1809,10 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     LLVM_DEBUG(dbgs() << "Delegating peel and remainder vectorization to post "
                          "loopopt vplan-vec\n");
 #ifndef NDEBUG
-    setBailoutRemark(
-        OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
-        std::string("Delegating peel and remainder vectorization to "
-                    "post-loopopt vplan-vec"));
+    setBailoutRemark(OptReportVerbosity::High,
+                     OptRemarkID::VecFailGenericBailout,
+                     "Delegating peel and remainder vectorization to "
+                     "post-loopopt vplan-vec");
     return bailout(VPORBuilder, Lp, WRLp, BR);
 #else
     return false;
@@ -1839,7 +1839,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   if (VPlanConstrStressTest) {
     setBailoutRemark(OptReportVerbosity::High,
                      OptRemarkID::VecFailGenericBailout,
-                     std::string("Stress testing only."));
+                     INTERNAL("Stress testing only."));
     return bailout(VPORBuilder, Lp, WRLp, BR);
   }
 
@@ -1871,7 +1871,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     LLVM_DEBUG(dbgs() << "VConflict idiom is not supported.\n");
     setBailoutRemark(OptReportVerbosity::High,
                      OptRemarkID::VecFailGenericBailout,
-                     std::string("Unsupported VConflict idiom."));
+                     INTERNAL("Unsupported VConflict idiom."));
     return bailout(VPORBuilder, Lp, WRLp, BR);
   }
 
@@ -1978,7 +1978,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   if (DisableCodeGen) {
     setBailoutRemark(OptReportVerbosity::High,
                      OptRemarkID::VecFailGenericBailout,
-                     std::string("Code generation is disabled."));
+                     INTERNAL("Code generation is disabled."));
     return bailout(VPORBuilder, Lp, WRLp, BR);
   }
 

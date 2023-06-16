@@ -18,6 +18,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZERLEGALITY_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZERLEGALITY_H
 
+#include "IntelVPlan.h"
 #include "IntelVPlanLegalityDescr.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SetVector.h"
@@ -78,9 +79,9 @@ private:
     for (LastprivateItem *Item : WRLp->getLpriv().items()) {
       if (Item->getIsF90DopeVector()) {
         // See CMPLRLLVM-10783.
-        return bailout(
-            OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
-            std::string("F90 dope vector privates are not supported."));
+        return bailout(OptReportVerbosity::High,
+                       OptRemarkID::VecFailGenericBailout,
+                       INTERNAL("F90 dope vector privates are not supported."));
       }
       if (!visitLastPrivate(Item)) {
         assert(BR.BailoutRemark && "visitLastPrivate didn't set bailout data!");
@@ -93,7 +94,7 @@ private:
         // See CMPLRLLVM-10783.
         return bailout(
             OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
-            std::string("F90 dope vector reductions are not supported."));
+            INTERNAL("F90 dope vector reductions are not supported."));
       if (!visitPrivate(Item)) {
         assert(BR.BailoutRemark && "visitPrivate didn't set bailout data!");
         return false;
@@ -117,7 +118,7 @@ private:
         // See CMPLRLLVM-10783.
         return bailout(
             OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
-            std::string("F90 dope vector reductions are not supported."));
+            INTERNAL("F90 dope vector reductions are not supported."));
       switch (Item->getType()) {
       case ReductionItem::WRNReductionMin:
       case ReductionItem::WRNReductionMax:
@@ -132,7 +133,7 @@ private:
       default:
         return bailoutWithDebug(
             OptReportVerbosity::Medium, OptRemarkID::VecFailBadReduction,
-            "A reduction of this operation is not supported",
+            INTERNAL("A reduction of this operation is not supported"),
             WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
                                           : std::string("loop"));
       }
@@ -218,7 +219,7 @@ private:
     if (!PrivType)
       return bailout(OptReportVerbosity::High,
                      OptRemarkID::VecFailGenericBailout,
-                     std::string("Cannot handle array privates yet."));
+                     INTERNAL("Cannot handle array privates yet."));
 
     ValueTy *Val = Item->getOrig<IR>();
 
@@ -233,7 +234,7 @@ private:
         isa<ArrayType>(PrivType))
       return bailout(OptReportVerbosity::High,
                      OptRemarkID::VecFailGenericBailout,
-                     std::string("Private array is not supported"));
+                     INTERNAL("Private array is not supported"));
 
     addLoopPrivate(Val, PrivType, PrivateKindTy::NonLast, F90DVElementType);
     return true;
@@ -256,7 +257,7 @@ private:
     if (!LPrivType)
       return bailout(OptReportVerbosity::High,
                      OptRemarkID::VecFailGenericBailout,
-                     std::string("Cannot handle array privates yet."));
+                     INTERNAL("Cannot handle array privates yet."));
 
     ValueTy *Val = Item->getOrig<IR>();
 
@@ -271,14 +272,14 @@ private:
         isa<ArrayType>(LPrivType))
       return bailout(OptReportVerbosity::High,
                      OptRemarkID::VecFailGenericBailout,
-                     std::string("Private array is not supported"));
+                     INTERNAL("Private array is not supported"));
 
     // Until CG to extract vector by non-const index is implemented.
     if (Item->getIsConditional() && LPrivType->isVectorTy())
       return bailout(OptReportVerbosity::High,
                      OptRemarkID::VecFailGenericBailout,
-                     std::string("Conditional lastprivate of a vector type is "
-                                 "not supported."));
+                     INTERNAL("Conditional lastprivate of a vector type is "
+                              "not supported."));
 
     addLoopPrivate(Val, LPrivType,
                    Item->getIsConditional() ? PrivateKindTy::Conditional
@@ -328,7 +329,7 @@ private:
       // CMPLRLLVM-20621.
       return bailout(OptReportVerbosity::High,
                      OptRemarkID::VecFailGenericBailout,
-                     std::string("Cannot handle array reductions."));
+                     INTERNAL("Cannot handle array reductions."));
 
     Type *ElemType = RedType;
     // Other temporary bailouts for array reductions.
@@ -338,8 +339,8 @@ private:
       if (!ElemType->isSingleValueType())
         return bailout(OptReportVerbosity::High,
                        OptRemarkID::VecFailGenericBailout,
-                       std::string("Cannot handle array reduction with "
-                                   "non-single value type."));
+                       INTERNAL("Cannot handle array reduction with "
+                                "non-single value type."));
 
       // Bailouts from HIR path for cases where memory aliases concept is
       // needed. So far, these include -
@@ -353,11 +354,11 @@ private:
         if (!OrigIsAllocaInst)
           return bailout(
               OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
-              std::string("Non-alloca instruction in reduction clause."));
+              INTERNAL("Non-alloca instruction in reduction clause."));
         if (Item->getIsArraySection())
           return bailout(
               OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
-              std::string("Array sections with offsets not supported."));
+              INTERNAL("Array sections with offsets not supported."));
       }
 
       // VPEntities framework can only handle single-element allocas. This check
@@ -366,7 +367,7 @@ private:
       if (OrigAlloca && OrigAlloca->isArrayAllocation())
         return bailout(OptReportVerbosity::High,
                        OptRemarkID::VecFailGenericBailout,
-                       std::string("Array alloca detected."));
+                       INTERNAL("Array alloca detected."));
     }
 
     ValueTy *Val = Item->getOrig<IR>();
@@ -376,8 +377,8 @@ private:
         Item->getIsInscan())
       return bailout(OptReportVerbosity::High,
                      OptRemarkID::VecFailGenericBailout,
-                     std::string("Scan reduction with user-defined operation "
-                                 "is not supported."));
+                     INTERNAL("Scan reduction with user-defined operation "
+                              "is not supported."));
 
     // We currently don't support mul/div reduction of complex types. TODO:
     // Remove this bailout when complex intrinsics are enabled by default in FE
@@ -390,7 +391,7 @@ private:
       // all possible cases.
       return bailout(
           OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
-          std::string("Complex mul/div type reductions are not supported."));
+          INTERNAL("Complex mul/div type reductions are not supported."));
 
     if (Kind == RecurKind::Udr) {
       // Check for UDR and inscan flags, that would make this UDS.
