@@ -29,7 +29,6 @@ DEFINE_EXCEPTION(BadConfigException)
 
 class GlobalCompilerConfig : public IGlobalCompilerConfig {
 public:
-  void LoadDefaults();
   void LoadConfig();
   void SkipBuiltins();
   void ApplyRuntimeOptions(const ICLDevBackendOptions *pBackendOptions);
@@ -43,11 +42,11 @@ public:
   DeviceMode TargetDevice() const override { return m_targetDevice; }
 
 private:
-  bool m_enableTiming;
-  bool m_disableStackDump;
+  bool m_enableTiming = false;
+  bool m_disableStackDump = true;
   std::string m_infoOutputFile;
   llvm::SmallVector<std::string, 32> m_LLVMOptions;
-  DeviceMode m_targetDevice;
+  DeviceMode m_targetDevice = CPU_DEVICE;
 };
 
 //******************************************************************************
@@ -60,7 +59,6 @@ private:
 class CompilerConfig : public virtual ICompilerConfig {
 public:
   // CompilerConfiguration methods
-  void LoadDefaults();
   virtual void LoadConfig();
   void SkipBuiltins() { m_loadBuiltins = false; }
   void ApplyRuntimeOptions(const ICLDevBackendOptions *pBackendOptions);
@@ -99,23 +97,23 @@ public:
   }
 
 protected:
-  std::string m_cpuArch;
+  std::string m_cpuArch = "auto";
   std::string m_cpuFeatures;
-  size_t m_deviceMaxWGSize;
-  ETransposeSize m_transposeSize;
-  int m_rtLoopUnrollFactor;
-  bool m_useVTune;
-  bool m_serializeWorkGroups;
-  bool m_loadBuiltins;
-  bool m_dumpHeuristicIR;
+  size_t m_deviceMaxWGSize = CPU_MAX_WORK_GROUP_SIZE;
+  ETransposeSize m_transposeSize = TRANSPOSE_SIZE_NOT_SET;
+  int m_rtLoopUnrollFactor = 1;
+  bool m_useVTune = true;
+  bool m_serializeWorkGroups = false;
+  bool m_loadBuiltins = true;
+  bool m_dumpHeuristicIR = false;
   std::string m_dumpFilenamePrefix;
-  int m_forcedPrivateMemorySize;
-  bool m_useAutoMemory;
-  bool m_streamingAlways;
-  unsigned m_expensiveMemOpts;
-  DeviceMode m_targetDevice;
-  PassManagerType m_passManagerType;
-  int m_subGroupConstructionMode;
+  int m_forcedPrivateMemorySize = 0;
+  bool m_useAutoMemory = false;
+  bool m_streamingAlways = false;
+  unsigned m_expensiveMemOpts = 0;
+  DeviceMode m_targetDevice = CPU_DEVICE;
+  PassManagerType m_passManagerType = PM_NONE;
+  int m_subGroupConstructionMode = 0;
 };
 
 } // namespace DeviceBackend
