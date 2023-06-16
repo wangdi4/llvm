@@ -2280,6 +2280,8 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     setOperationAction(ISD::STRICT_FP_TO_UINT,  MVT::v8i32, Custom);
     setOperationAction(ISD::STRICT_FP_TO_UINT,  MVT::v4i32, Custom);
     setOperationAction(ISD::STRICT_FP_TO_UINT,  MVT::v2i32, Custom);
+    setOperationAction(ISD::FLDEXP, MVT::f64, Custom); // INTEL
+    setOperationAction(ISD::FLDEXP, MVT::f32, Custom); // INTEL
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
@@ -37052,6 +37054,7 @@ SDValue X86TargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
 #if INTEL_CUSTOMIZATION
   case ISD::COMPLEX_MUL:        return LowerComplexMUL(Op, DAG, Subtarget);
   case ISD::INLINEASM:          return LowerInlineAsm(Op, DAG);
+  case ISD::FLDEXP:             return lowerLdexp(Op, DAG);
 #endif // INTEL_CUSTOMIZATION
   case ISD::PREFETCH:           return LowerPREFETCH(Op, Subtarget, DAG);
   }
