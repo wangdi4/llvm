@@ -54,24 +54,18 @@ void BarrierUtils::clean() {
   NonInlinedCallsInitialized = false;
 }
 
-BasicBlock *BarrierUtils::findBasicBlockOfUsageInst(Value *Val,
-                                                    Instruction *UserInst) {
-  if (!isa<PHINode>(UserInst))
-    return UserInst->getParent();
-
+SmallVector<BasicBlock *>
+BarrierUtils::findBasicBlocksOfPhiNode(Value *Val, PHINode *PhiNode) {
   // Usage is a PHINode, find previous basic block according to Val
-  PHINode *PhiNode = cast<PHINode>(UserInst);
-  BasicBlock *PrevBB = nullptr;
+  SmallVector<BasicBlock *, 1> PrevBBs;
   for (BasicBlock *BB : predecessors(PhiNode->getParent())) {
     Value *PHINodeVal = PhiNode->getIncomingValueForBlock(BB);
     if (PHINodeVal == Val) {
-      // BB is the previous basic block
-      assert(!PrevBB && "PHINode is using Val twice!");
-      PrevBB = BB;
+      PrevBBs.push_back(BB);
     }
   }
-  assert(PrevBB && "Failed to find previous basic block!");
-  return PrevBB;
+  assert(PrevBBs.size() && "Failed to find previous basic block!");
+  return PrevBBs;
 }
 
 SyncType BarrierUtils::getSyncType(Instruction *Inst) {

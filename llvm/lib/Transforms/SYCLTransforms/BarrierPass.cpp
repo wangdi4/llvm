@@ -500,17 +500,9 @@ void KernelBarrier::fixSpecialValues() {
       }
       UserInsts.insert(UserInst);
     }
-    // Run over all saved user instructions and handle by adding
-    // load instruction before each value use.
-    for (Instruction *UserInst : UserInsts) {
-      Instruction *InsertBefore =
-          getInstructionToInsertBefore(Inst, UserInst, true);
-      if (!InsertBefore) {
-        // As no barrier in the middle, no need to load & replace the origin
-        // value.
-        continue;
-      }
-      const DebugLoc &DB = UserInst->getDebugLoc();
+
+    auto InsertLoadedValue = [&](Instruction *InsertBefore,
+                                 const DebugLoc &DB) {
       // Calculate the pointer of the current special in the special buffer.
       Value *AddrInSpecialBuffer =
           getAddressInSpecialBuffer(Offset, Ty, InsertBefore, &DB);
@@ -523,20 +515,34 @@ void KernelBarrier::fixSpecialValues() {
                                                "Trunc-i1Toi32", InsertBefore);
       LoadedValue->setDebugLoc(DB);
       RealValue->setDebugLoc(DB);
-      // Replace the use of old value with the new loaded value from special
-      // buffer.
-      UserInst->replaceUsesOfWith(Inst, RealValue);
+      return RealValue;
+    };
 
-      // If UserInst is a sync instruction, then it will not be the first
-      // instruction of basic block, which will break the assumption of
-      // BarrierUtils::isCrossedByBarrier, thus we split it to satisfy the
-      // assumption
-      if (SyncInstructions->contains(UserInst)) {
-        assert(UserInst == InsertBefore &&
-               "UserInst should be the insertion point");
-        const auto Name = UserInst->getParent()->getName() + ".BarrierFix";
-        UserInst->getParent()->splitBasicBlock(BasicBlock::iterator(UserInst),
-                                               Name);
+    // Run over all saved user instructions and handle by adding
+    // load instruction before each value use.
+    for (Instruction *UserInst : UserInsts) {
+      const DebugLoc &DB = UserInst->getDebugLoc();
+
+      if (auto *PhiNode = dyn_cast<PHINode>(UserInst)) {
+        auto InsertBefores = getInstructionsToInsertBefore(Inst, PhiNode);
+        for (auto *InsertBefore : InsertBefores) {
+          auto *RealValue = InsertLoadedValue(InsertBefore, DB);
+          PhiNode->setIncomingValueForBlock(InsertBefore->getParent(),
+                                            RealValue);
+        }
+      } else {
+        auto *RealValue = InsertLoadedValue(UserInst, DB);
+        UserInst->replaceUsesOfWith(Inst, RealValue);
+
+        // If UserInst is a sync instruction, then it will not be the first
+        // instruction of basic block, which will break the assumption of
+        // BarrierUtils::isCrossedByBarrier, thus we split it to satisfy the
+        // assumption
+        if (SyncInstructions->contains(UserInst)) {
+          const auto Name = UserInst->getParent()->getName() + ".BarrierFix";
+          UserInst->getParent()->splitBasicBlock(BasicBlock::iterator(UserInst),
+                                                 Name);
+        }
       }
     }
   }
@@ -577,35 +583,38 @@ void KernelBarrier::fixCrossBarrierValues(Instruction *InsertBefore) {
     // Run over all saved user instructions and handle by adding
     // load instruction before each value use.
     for (Instruction *UserInst : UserInsts) {
-      Instruction *InsertBefore =
-          getInstructionToInsertBefore(Inst, UserInst, true);
-      if (!InsertBefore) {
-        // As no barrier in the middle, no need to load & replace the origin
-        // value.
-        continue;
+      const DebugLoc &DB = UserInst->getDebugLoc();
+      if (auto *PhiNode = dyn_cast<PHINode>(UserInst)) {
+        auto InsertBefores = getInstructionsToInsertBefore(Inst, PhiNode);
+        for (auto *InsertBefore : InsertBefores) {
+          // Calculate the pointer of the current special in the special buffer.
+          Instruction *LoadedValue = new LoadInst(AI->getAllocatedType(), AI,
+                                                  "loadedValue", InsertBefore);
+          LoadedValue->setDebugLoc(DB);
+          PhiNode->setIncomingValueForBlock(InsertBefore->getParent(),
+                                            LoadedValue);
+        }
+      } else {
+        // Calculate the pointer of the current special in the special buffer.
+        Instruction *LoadedValue =
+            new LoadInst(AI->getAllocatedType(), AI, "loadedValue", UserInst);
+        LoadedValue->setDebugLoc(DB);
+        UserInst->replaceUsesOfWith(Inst, LoadedValue);
+        // FIXME: For the same reason as the end of fixSpecialValues, this also
+        // need to be done here. But:
+        //   1. Currently, BarrierUtils::isCrossedByBarrier is not called after
+        //      this function
+        //   2. It's complex to update the containers in fixAllocaAndDbg
+        // So, it's unnecessary and a little risky to do this fix now.
+        //
+        // if (SyncInstructions->contains(UserInst)) {
+        //   assert(UserInst == InsertBefore &&
+        //          "UserInst should be the insertion point");
+        //   const auto Name = UserInst->getParent()->getName() + ".BarrierFix";
+        //   UserInst->getParent()->splitBasicBlock(BasicBlock::iterator(UserInst),
+        //                                          Name);
+        // }
       }
-      // Calculate the pointer of the current special in the special buffer.
-      Instruction *LoadedValue =
-          new LoadInst(AI->getAllocatedType(), AI, "loadedValue", InsertBefore);
-      LoadedValue->setDebugLoc(UserInst->getDebugLoc());
-      // Replace the use of old value with the new loaded value from special
-      // buffer.
-      UserInst->replaceUsesOfWith(Inst, LoadedValue);
-
-      // FIXME: For the same reason as the end of fixSpecialValues, this also
-      // need to be done here. But:
-      //   1. Currently, BarrierUtils::isCrossedByBarrier is not called after
-      //      this function
-      //   2. It's complex to update the containers in fixAllocaAndDbg
-      // So, it's unnecessary and a little risky to do this fix now.
-      //
-      // if (SyncInstructions->contains(UserInst)) {
-      //   assert(UserInst == InsertBefore &&
-      //          "UserInst should be the insertion point");
-      //   const auto Name = UserInst->getParent()->getName() + ".BarrierFix";
-      //   UserInst->getParent()->splitBasicBlock(BasicBlock::iterator(UserInst),
-      //                                          Name);
-      // }
     }
   }
 }
@@ -819,22 +828,17 @@ void KernelBarrier::getBarrierKeyValues(Function *Func) {
   CurrentBarrierKeyValues = &BarrierKeyValuesPerFunction[Func];
 }
 
-Instruction *KernelBarrier::getInstructionToInsertBefore(Instruction *Inst,
-                                                         Instruction *UserInst,
-                                                         bool ExpectNULL) {
-  if (!isa<PHINode>(UserInst)) {
-    // UserInst is not a PHINode, we can insert instruction before it.
-    return UserInst;
+SmallVector<Instruction *>
+KernelBarrier::getInstructionsToInsertBefore(Instruction *Inst,
+                                             PHINode *PhiNode) {
+  auto PrevBBs = BarrierUtils::findBasicBlocksOfPhiNode(Inst, PhiNode);
+  SmallVector<Instruction *, 1> InsertBefores;
+  for (auto *BB : PrevBBs) {
+    if (BB != Inst->getParent()) {
+      InsertBefores.push_back(BB->getTerminator());
+    }
   }
-  // UserInst is a PHINode, find previous basic block.
-  BasicBlock *PrevBB = BarrierUtils::findBasicBlockOfUsageInst(Inst, UserInst);
-
-  if (ExpectNULL && PrevBB == Inst->getParent()) {
-    // In such case no need to load & replace the origin value
-    // as no barrier in the middle, return NULL to indecate that.
-    return nullptr;
-  }
-  return PrevBB->getTerminator();
+  return InsertBefores;
 }
 
 Value *KernelBarrier::getAddressInSpecialBuffer(unsigned int Offset,
@@ -1113,25 +1117,36 @@ void KernelBarrier::fixArgumentUsage(Value *OriginalArg) {
     Instruction *UserInst = dyn_cast<Instruction>(U);
     UserInsts.insert(UserInst);
   }
-  for (Instruction *UserInst : UserInsts) {
-    assert(UserInst &&
-           "Something other than Instruction is using function argument!");
-    Instruction *InsertBefore = UserInst;
-    if (isa<PHINode>(UserInst)) {
-      BasicBlock *PrevBB =
-          BarrierUtils::findBasicBlockOfUsageInst(OriginalArg, UserInst);
-      InsertBefore = PrevBB->getTerminator();
-    }
+
+  auto InsertLoadedValue = [&](Instruction *InsertBefore, const DebugLoc &DB) {
     // In this case we will always get a valid offset and need to load the
     // argument from the special buffer using the offset corresponding argument.
     PointerType *Ty =
         OriginalArg->getType()->getPointerTo(SPECIAL_BUFFER_ADDR_SPACE);
     Value *AddrInSpecialBuffer =
-        getAddressInSpecialBuffer(OffsetArg, Ty, InsertBefore, nullptr);
-    Value *LoadedValue =
+        getAddressInSpecialBuffer(OffsetArg, Ty, InsertBefore, &DB);
+    auto *LoadedValue =
         new LoadInst(OriginalArg->getType(), AddrInSpecialBuffer, "loadedValue",
                      InsertBefore);
-    UserInst->replaceUsesOfWith(OriginalArg, LoadedValue);
+    LoadedValue->setDebugLoc(DB);
+    return LoadedValue;
+  };
+
+  for (Instruction *UserInst : UserInsts) {
+    assert(UserInst &&
+           "Something other than Instruction is using function argument!");
+    const DebugLoc &DB = UserInst->getDebugLoc();
+    if (auto *PhiNode = dyn_cast<PHINode>(UserInst)) {
+      auto PrevBBs =
+          BarrierUtils::findBasicBlocksOfPhiNode(OriginalArg, PhiNode);
+      for (auto *PrevBB : PrevBBs) {
+        auto *LoadedValue = InsertLoadedValue(PrevBB->getTerminator(), DB);
+        PhiNode->setIncomingValueForBlock(PrevBB, LoadedValue);
+      }
+    } else {
+      auto *LoadedValue = InsertLoadedValue(UserInst, DB);
+      UserInst->replaceUsesOfWith(OriginalArg, LoadedValue);
+    }
   }
 }
 

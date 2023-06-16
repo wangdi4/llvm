@@ -116,17 +116,13 @@ private:
                                    Instruction *InsertBefore,
                                    const DebugLoc *DB);
 
-  /// Return instruction to insert new instruction before
-  /// if UserInst is not a PHINode then return UserInst. Otherwise,
-  /// return termenator of prevBB of UserInst with respect to Inst.
-  /// Inst value that UserInst is using,
-  /// UserInst instruction that is using Inst value,
-  /// ExpectNULL true if allow returning NULL when,
-  /// UserInst is a PHINode and BB(pInst) == PrevBB(pUserInst).
-  /// Returns best instruction to insert new instruction before.
-  Instruction *getInstructionToInsertBefore(Instruction *Inst,
-                                            Instruction *UserInst,
-                                            bool ExpectNULL);
+  /// Return instructions to insert new instruction before, which are
+  /// termenators of prevBBs of PhiNode with respect to Inst, and instructions
+  /// can be empty if prevBBs are equal to BB(Inst).
+  /// Inst - value that PhiNode is using,
+  /// PhiNode - instruction that is using Inst value
+  SmallVector<Instruction *> getInstructionsToInsertBefore(Instruction *Inst,
+                                                           PHINode *PhiNode);
 
   /// Fix get_local_id and get_global_id.
   /// M module to optimize.
