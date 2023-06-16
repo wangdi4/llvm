@@ -241,16 +241,16 @@ bool hasMatchingPredicate(const HLLoop *InnerLoop) {
 
   unsigned SumIndex = LvalRef->getSelfBlobIndex();
   const auto *If = dyn_cast<HLIf>(SumInst->getNextNode());
-  auto PredI = If->pred_begin();
-  if (!If || If->hasElseChildren() || If->getNumPredicates() != 1 ||
-      !ICmpInst::isLE(*PredI)) {
+  if (!If || If->hasElseChildren() || If->getNumPredicates() != 1) {
     return false;
   }
 
+  auto PredI = If->pred_begin();
   const RegDDRef *LHS = If->getLHSPredicateOperandDDRef(PredI);
   const RegDDRef *RHS = If->getRHSPredicateOperandDDRef(PredI);
 
-  if (!LHS->isSelfBlob() || LHS->getSelfBlobIndex() != SumIndex) {
+  if (!LHS->isSelfBlob() || LHS->getSelfBlobIndex() != SumIndex ||
+      !ICmpInst::isLE(*PredI)) {
     return false;
   }
 
