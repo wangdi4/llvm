@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -5348,6 +5348,12 @@ def : Joined<["-"], "vec-threshold">, Alias<vec_threshold_EQ>,
       HelpText<"Sets a threshold for the vectorization of loops based on the "
       "probability of profitable execution of the vectorized loop in "
       "parallel.">;
+def vecabi_EQ : Joined<["-"], "vecabi=">, Flags<[NoXarchOption]>,
+  Values<"gcc,cmdtarget">,
+  HelpText<"Determines which vector function ABI the compiler uses to create "
+           "or call vector functions. The 'gcc' (default) argument enforces "
+           "compatibility with gcc. The 'cmdtarget' argument uses an extended "
+           "set of vector functions.">;
 def Zp : Flag<["-"], "Zp">, Alias<fpack_struct_EQ>, AliasArgs<["1"]>;
 def Zp_EQ : Joined<["-"], "Zp">, Alias<fpack_struct_EQ>;
 #endif // INTEL_CUSTOMIZATION
@@ -9387,6 +9393,12 @@ def _SLASH_Qvec_peel_loops_ : CLFlag<"Qvec-peel-loops-">,
 def _SLASH_Qvec_remainder_loops_ : CLFlag<"Qvec-remainder-loops-">,
   Alias<fno_vec_remainder_loops>,
   HelpText<"Disable remainder loop vectorization.">;
+def _SLASH_Qvecabi_COL : CLJoined<"Qvecabi:">, Alias<vecabi_EQ>,
+  HelpText<"Determines which vector function ABI the compiler uses to create "
+           "or call vector functions. The 'gcc' (default) argument enforces "
+           "compatibility with gcc. The 'cmdtarget' argument uses an extended "
+           "set of vector functions.">;
+def _SLASH_Qvecabi_EQ : CLJoined<"Qvecabi=">, Alias<vecabi_EQ>;
 def _SLASH_Qopt_report_EQ : CLJoined<"Qopt-report=">, Alias<qopt_report_EQ>;
 def : CLJoined<"Qopt-report">, Alias<qopt_report_EQ>;
 def _SLASH_Qopt_report : CLFlag<"Qopt-report">, Alias<qopt_report_EQ>,
