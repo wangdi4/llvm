@@ -2468,6 +2468,24 @@ void Clang::AddSystemZTargetArgs(const ArgList &Args,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+static bool hasValidIntelArchOpt(const ArgList &Args,
+                                 const llvm::Triple &Triple) {
+  if (const Arg *A = clang::driver::getLastArchArg(Args, false))
+    if (A->getOption().matches(options::OPT_x))
+      if (x86::isValidIntelCPU(A->getValue(), Triple))
+        return true;
+
+  if (const Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
+                                            options::OPT__SLASH_Qx))
+    if (A->getOption().matches(options::OPT__SLASH_Qx))
+      if (x86::isValidIntelCPU(A->getValue(), Triple))
+        return true;
+
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 void Clang::AddX86TargetArgs(const ArgList &Args,
                              ArgStringList &CmdArgs) const {
   const Driver &D = getToolChain().getDriver();
@@ -2534,16 +2552,8 @@ void Clang::AddX86TargetArgs(const ArgList &Args,
     TuneCPU = "generic";
 #if INTEL_CUSTOMIZATION
   // Reset TuneCPU if a valid -x or /Qx is specified.
-  if (const Arg *A = clang::driver::getLastArchArg(Args, false))
-    if (A->getOption().matches(options::OPT_x))
-      if (x86::isValidIntelCPU(A->getValue(), getToolChain().getTriple()))
-        TuneCPU.clear();
-  if (const Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
-                                            options::OPT__SLASH_Qx)) {
-    if (A->getOption().matches(options::OPT__SLASH_Qx))
-      if (x86::isValidIntelCPU(A->getValue(), getToolChain().getTriple()))
-        TuneCPU.clear();
-  }
+  if (hasValidIntelArchOpt(Args, getToolChain().getTriple()))
+    TuneCPU.clear();
 
   addX86UnalignedVectorMoveArgs(getToolChain(), Args, CmdArgs, /*IsLTO=*/false,
                                 /*IsIntelMode=*/D.IsIntelMode());
@@ -8582,6 +8592,19 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasFlag(options::OPT_fno_intel_pragma_prefetch,
                    options::OPT_fintel_pragma_prefetch, false))
     CmdArgs.push_back("-fno-intel-pragma-prefetch");
+  // -vecabi support
+  if (hasValidIntelArchOpt(Args, Triple) || Args.hasArg(options::OPT_ax)) {
+    if (Arg *A = Args.getLastArg(options::OPT_vecabi_EQ)) {
+      StringRef Value = A->getValue();
+      if (Value == "cmdtarget")
+        CmdArgs.push_back("-fvecabi-cmdtarget");
+      else if (Value == "gcc")
+        ; // 'gcc' is the default
+      else
+        C.getDriver().Diag(clang::diag::err_drv_unsupported_option_argument)
+            << A->getSpelling() << Value;
+    }
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // Remarks can be enabled with any of the `-f.*optimization-record.*` flags.
@@ -9223,18 +9246,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                    options::OPT_qno_opt_assume_counted_loops, false))
     CmdArgs.push_back("-fassume-counted-loops");
 
-  auto addAdvancedOptimFlag = [&](const Arg &OptArg, OptSpecifier Opt) {
-    if (OptArg.getOption().matches(Opt) &&
-        x86::isValidIntelCPU(OptArg.getValue(), TC.getTriple()))
-      CmdArgs.push_back("-fintel-advanced-optim");
-  };
-  // Given -x, turn on advanced optimizations
-  if (Arg *A = clang::driver::getLastArchArg(Args, false))
-    addAdvancedOptimFlag(*A, options::OPT_x);
-  // Additional handling for /arch and /Qx
-  if (Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
-                                      options::OPT__SLASH_Qx))
-    addAdvancedOptimFlag(*A, options::OPT__SLASH_Qx);
+  // Given -x, and /Qx turn on advanced optimizations
+  if (hasValidIntelArchOpt(Args, TC.getTriple()))
+    CmdArgs.push_back("-fintel-advanced-optim");
+
   addIntelOptimizationArgs(TC, Args, CmdArgs, Input, false, JA);
 #endif // INTEL_CUSTOMIZATION
   // Add the output path to the object file for CodeView debug infos.
