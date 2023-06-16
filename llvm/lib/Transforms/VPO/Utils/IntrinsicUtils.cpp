@@ -792,6 +792,7 @@ static CallInst *CreateEndDirectiveCall(CallInst *BeginDirective,
 static BasicBlock *getFirstBodyBBForLoop(Loop *L) {
   auto *LpHeader = L->getHeader();
   BranchInst *BI = dyn_cast<BranchInst>(LpHeader->getTerminator());
+  assert(BI && "No Branch found for loop.");
 
   if (BI->isUnconditional())
     return LpHeader;
