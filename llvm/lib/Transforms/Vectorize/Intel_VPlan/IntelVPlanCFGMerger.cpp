@@ -620,7 +620,8 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
   if (!TCInfo.IsEstimated) {
     auto TC = TCInfo.TripCount / PrevVFUF;
     if (TC == 0) {
-      assert(Scen.isMainMasked() && "Expected masked mode VPlan");
+      // This can happen when vectorization is enforced w/o enabling
+      // masked mode or CM selects masked mode for the main loop.
       TC = 1;
     }
     PlanDescrs.front().setMaxTripCount(TC);

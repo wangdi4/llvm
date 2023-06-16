@@ -1757,19 +1757,8 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   // With 'vector always' we have to vectorize with some VF, so select first
   // available VF.
   if (getBestVF() == 1 && IsVectorAlways) {
-    bool IsMasked = false;
-    if (TripCount < VFs[0]) {
-      if (EnableMaskedMainLoop && hasMaskedVPlanForVF(VFs[0])) {
-        IsMasked = true;
-      } else {
-        bailoutWithDebug(
-            OptReportVerbosity::Medium, OptRemarkID::VecFailLowTripCount,
-            WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
-                                          : std::string("loop"),
-            "The loop trip count is less than enforced vector factor.");
-        return std::make_pair(getBestVF(), getBestVPlan());
-      }
-    }
+    bool IsMasked = !IsTripCountEstimated && TripCount < VFs[0] &&
+                    EnableMaskedMainLoop && hasMaskedVPlanForVF(VFs[0]);
     selectSimplestVecScenario(VFs[0], 1, IsMasked);
   }
 
