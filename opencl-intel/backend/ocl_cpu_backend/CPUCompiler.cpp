@@ -50,7 +50,7 @@ namespace DeviceBackend {
 /*
  *  Constants
  */
-extern const char *CPU_ARCH_AUTO;
+const char *CPU_ARCH_AUTO = "auto";
 
 TargetOptions ExternInitTargetOptionsFromCodeGenFlags();
 JITEventListener *getGDBRegistrationListenerInstance();

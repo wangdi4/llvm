@@ -14,7 +14,7 @@
 ; HIR After optimization:
 ; CHECK:     BEGIN REGION { }
 ; CHECK:           + DO i1 = 0, 2, 1   <DO_LOOP>
-; CHECK:           |   @llvm.memset.p0i8.i64(&((i8*)(%A)[0:0:8(i32*:0)]),  5,  12,  0);
+; CHECK:           |   @llvm.memset.p0i8.i64(&((i8*)(%A)[0:0:8(i32:0)]),  5,  12,  0);
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION
 

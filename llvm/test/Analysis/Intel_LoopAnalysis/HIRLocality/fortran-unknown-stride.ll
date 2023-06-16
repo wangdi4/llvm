@@ -10,9 +10,9 @@
 ; Locality analysis should use heuristics in the absence of such information.
 
 ; CHECK: Group 0 contains:
-; CHECK:        (%ptr)[0:i1:%stride(i32*:0)] {sb:13}
+; CHECK:        (%ptr)[0:i1:%stride(i32:0)] {sb:13}
 ; CHECK: Group 1 contains:
-; CHECK:        (%ptr)[0:i1 + 1:%stride(i32*:0)] {sb:13}
+; CHECK:        (%ptr)[0:i1 + 1:%stride(i32:0)] {sb:13}
 
 
 define void @func(i32* %ptr, i64 %stride, i64 %t) {

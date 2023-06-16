@@ -21,7 +21,7 @@
 ;              + DO i1 = 0, 29, 1   <DO_LOOP>
 ;              |   + DO i2 = 0, 19, 1   <DO_LOOP>
 ;              |   |   + DO i3 = 0, 9, 1   <DO_LOOP>
-;              |   |   |   (%"sub_$STRUCTURE")[0:0:48008(%"SUB$.btS1"*:0)].0[0:i1:1600([30 x [20 x [10 x double]]]:30)][0:i2:80([20 x [10 x double]]:20)][0:i3:8([10 x double]:10)] = 1.000000e+00;
+;              |   |   |   (%"sub_$STRUCTURE")[0:0:48008(%"SUB$.btS1":0)].0[0:i1:1600([20 x [10 x double]]:30)][0:i2:80([10 x double]:20)][0:i3:8(double:10)] = 1.000000e+00;
 ;              |   |   + END LOOP
 ;              |   + END LOOP
 ;              + END LOOP
@@ -31,7 +31,7 @@
 ;
 ; CHECK:        BEGIN REGION { modified }
 ; CHECK:           + DO i1 = 0, 5999, 1   <DO_LOOP>
-; CHECK:           |   (%"sub_$STRUCTURE")[0:0:48008(%"SUB$.btS1"*:0)].0[0:0:1600([30 x [20 x [10 x double]]]:30)][0:0:80([20 x [10 x double]]:20)][0:i1:8([10 x double]:10)] = 1.000000e+00;
+; CHECK:           |   (%"sub_$STRUCTURE")[0:0:48008(%"SUB$.btS1":0)].0[0:0:1600([20 x [10 x double]]:30)][0:0:80([10 x double]:20)][0:i1:8(double:10)] = 1.000000e+00;
 ; CHECK:           + END LOOP
 ; CHECK:        END REGION
 ;

@@ -8,15 +8,15 @@
 ; CHECK:       BEGIN REGION { }
 ; CHECK:                  + DO i1 = 0, 99, 1   <DO_LOOP>
 ; CHECK-NEXT:             |   + DO i2 = 0, 1299, 1   <DO_LOOP>
-; CHECK-NEXT:             |   |   (%tmp173)[0:i2:0(i32*:0)][0:i1:0(i32*:0)] = 0;
+; CHECK-NEXT:             |   |   (%tmp173)[0:i2:0(i32:0)][0:i1:0(i32:0)] = 0;
 ; CHECK:                  |   |
 ; CHECK:                  |   |      %tmp256 = 0;
 ; CHECK-NEXT:             |   |   + DO i3 = 0, sext.i32.i64(%tmp220) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2000>
-; CHECK-NEXT:             |   |   |   %tmp260 = (%tmp84)[0:i3:4000(i32*:0)][0:i1:4(i32*:1000)];
-; CHECK-NEXT:             |   |   |   %tmp262 = (%tmp97)[0:i2:8000(i32*:0)][0:i3:4(i32*:2000)];
+; CHECK-NEXT:             |   |   |   %tmp260 = (%tmp84)[0:i3:4000(i32:0)][0:i1:4(i32:1000)];
+; CHECK-NEXT:             |   |   |   %tmp262 = (%tmp97)[0:i2:8000(i32:0)][0:i3:4(i32:2000)];
 ; CHECK-NEXT:             |   |   |   %tmp256 = (%tmp262 * %tmp260)  +  %tmp256;
 ; CHECK-NEXT:             |   |   + END LOOP
-; CHECK-NEXT:             |   |      (%tmp173)[0:i2:0(i32*:0)][0:i1:0(i32*:0)] = %tmp256;
+; CHECK-NEXT:             |   |      (%tmp173)[0:i2:0(i32:0)][0:i1:0(i32:0)] = %tmp256;
 ; CHECK:             |   + END LOOP
 ; CHECK:             + END LOOP
 ; CHECK:       END REGION

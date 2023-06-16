@@ -10,8 +10,8 @@
 ;
 ; CHECK:                + DO i1 = 0, sext.i32.i64(%"myfunc_$M2_fetch") + -1 * sext.i32.i64(%"myfunc_$M1_fetch"), 1   <DO_LOOP> <simd>
 ; CHECK:                |   + DO i2 = 0, sext.i32.i64(%"myfunc_$M2_fetch") + -1 * sext.i32.i64(%"myfunc_$M1_fetch"), 1   <DO_LOOP>
-; CHECK:                |   |   %add114 = (%"myfunc_$ZETA_$field0$_fetch")[1:%"myfunc_$M1_fetch":%func_result38_fetch(double*:0)][%"myfunc_$L2_fetch":i1 + sext.i32.i64(%"myfunc_$M1_fetch"):%func_result30_fetch(double*:0)][%"myfunc_$L1_fetch":i2 + sext.i32.i64(%"myfunc_$M1_fetch"):%func_result22_fetch(double*:0)]  +  (%"myfunc_$H_$field0$_fetch")[%"myfunc_$L2_fetch":i1 + sext.i32.i64(%"myfunc_$M1_fetch"):%func_result82_fetch(double*:0)][%"myfunc_$L1_fetch":i2 + sext.i32.i64(%"myfunc_$M1_fetch"):%func_result72_fetch(double*:0)];
-; CHECK:                |   |   (%"myfunc_$DRHS")[%"myfunc_$L2_fetch":i1 + sext.i32.i64(%"myfunc_$M1_fetch"):8 * sext.i32.i64((1 + (-1 * %"myfunc_$L1_fetch") + %"myfunc_$U1_fetch"))(double*:0)][%"myfunc_$L1_fetch":i2 + sext.i32.i64(%"myfunc_$M1_fetch"):8(double*:0)] = %add114;
+; CHECK:                |   |   %add114 = (%"myfunc_$ZETA_$field0$_fetch")[1:%"myfunc_$M1_fetch":%func_result38_fetch(double:0)][%"myfunc_$L2_fetch":i1 + sext.i32.i64(%"myfunc_$M1_fetch"):%func_result30_fetch(double:0)][%"myfunc_$L1_fetch":i2 + sext.i32.i64(%"myfunc_$M1_fetch"):%func_result22_fetch(double:0)]  +  (%"myfunc_$H_$field0$_fetch")[%"myfunc_$L2_fetch":i1 + sext.i32.i64(%"myfunc_$M1_fetch"):%func_result82_fetch(double:0)][%"myfunc_$L1_fetch":i2 + sext.i32.i64(%"myfunc_$M1_fetch"):%func_result72_fetch(double:0)];
+; CHECK:                |   |   (%"myfunc_$DRHS")[%"myfunc_$L2_fetch":i1 + sext.i32.i64(%"myfunc_$M1_fetch"):8 * sext.i32.i64((1 + (-1 * %"myfunc_$L1_fetch") + %"myfunc_$U1_fetch"))(double:0)][%"myfunc_$L1_fetch":i2 + sext.i32.i64(%"myfunc_$M1_fetch"):8(double:0)] = %add114;
 ; CHECK:                |   + END LOOP
 ; CHECK:                + END LOOP
 ;
@@ -26,8 +26,8 @@
 ; CHECK:                     %t = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null) ]
 ; CHECK:                  + DO i1 = 0, sext.i32.i64(%"myfunc_$M2_fetch") + -1 * sext.i32.i64(%"myfunc_$M1_fetch"), 1   <DO_LOOP> <simd>
 ; CHECK:                  |   + DO i2 = 0, sext.i32.i64(%"myfunc_$M2_fetch") + -1 * sext.i32.i64(%"myfunc_$M1_fetch"), 1   <DO_LOOP>
-; CHECK:                  |   |   %add114 = (%"myfunc_$ZETA_$field0$_fetch")[1:%"myfunc_$M1_fetch":%func_result38_fetch(double*:0)][%"myfunc_$L2_fetch":i1 + sext.i32.i64(%"myfunc_$M1_fetch"):%func_result30_fetch(double*:0)][%"myfunc_$L1_fetch":i2 + sext.i32.i64(%"myfunc_$M1_fetch"):8(double*:0)]  +  (%"myfunc_$H_$field0$_fetch")[%"myfunc_$L2_fetch":i1 + sext.i32.i64(%"myfunc_$M1_fetch"):%func_result82_fetch(double*:0)][%"myfunc_$L1_fetch":i2 + sext.i32.i64(%"myfunc_$M1_fetch"):8(double*:0)];
-; CHECK:                  |   |   (%"myfunc_$DRHS")[%"myfunc_$L2_fetch":i1 + sext.i32.i64(%"myfunc_$M1_fetch"):8 * sext.i32.i64((1 + (-1 * %"myfunc_$L1_fetch") + %"myfunc_$U1_fetch"))(double*:0)][%"myfunc_$L1_fetch":i2 + sext.i32.i64(%"myfunc_$M1_fetch"):8(double*:0)] = %add114;
+; CHECK:                  |   |   %add114 = (%"myfunc_$ZETA_$field0$_fetch")[1:%"myfunc_$M1_fetch":%func_result38_fetch(double:0)][%"myfunc_$L2_fetch":i1 + sext.i32.i64(%"myfunc_$M1_fetch"):%func_result30_fetch(double:0)][%"myfunc_$L1_fetch":i2 + sext.i32.i64(%"myfunc_$M1_fetch"):8(double:0)]  +  (%"myfunc_$H_$field0$_fetch")[%"myfunc_$L2_fetch":i1 + sext.i32.i64(%"myfunc_$M1_fetch"):%func_result82_fetch(double:0)][%"myfunc_$L1_fetch":i2 + sext.i32.i64(%"myfunc_$M1_fetch"):8(double:0)];
+; CHECK:                  |   |   (%"myfunc_$DRHS")[%"myfunc_$L2_fetch":i1 + sext.i32.i64(%"myfunc_$M1_fetch"):8 * sext.i32.i64((1 + (-1 * %"myfunc_$L1_fetch") + %"myfunc_$U1_fetch"))(double:0)][%"myfunc_$L1_fetch":i2 + sext.i32.i64(%"myfunc_$M1_fetch"):8(double:0)] = %add114;
 ; CHECK:                  |   + END LOOP
 ; CHECK:                  + END LOOP
 ; CHECK:                     @llvm.directive.region.exit(%t); [ DIR.OMP.END.SIMD() ]
@@ -37,8 +37,8 @@
 ; CHECK:                     %t = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null) ]
 ; CHECK:                  + DO i1 = 0, sext.i32.i64(%"myfunc_$M2_fetch") + -1 * sext.i32.i64(%"myfunc_$M1_fetch"), 1   <DO_LOOP> <simd>
 ; CHECK:                  |   + DO i2 = 0, sext.i32.i64(%"myfunc_$M2_fetch") + -1 * sext.i32.i64(%"myfunc_$M1_fetch"), 1   <DO_LOOP>
-; CHECK:                  |   |   %add114 = (%"myfunc_$ZETA_$field0$_fetch")[1:%"myfunc_$M1_fetch":%func_result38_fetch(double*:0)][%"myfunc_$L2_fetch":i1 + sext.i32.i64(%"myfunc_$M1_fetch"):%func_result30_fetch(double*:0)][%"myfunc_$L1_fetch":i2 + sext.i32.i64(%"myfunc_$M1_fetch"):%func_result22_fetch(double*:0)]  +  (%"myfunc_$H_$field0$_fetch")[%"myfunc_$L2_fetch":i1 + sext.i32.i64(%"myfunc_$M1_fetch"):%func_result82_fetch(double*:0)][%"myfunc_$L1_fetch":i2 + sext.i32.i64(%"myfunc_$M1_fetch"):%func_result72_fetch(double*:0)];
-; CHECK:                  |   |   (%"myfunc_$DRHS")[%"myfunc_$L2_fetch":i1 + sext.i32.i64(%"myfunc_$M1_fetch"):8 * sext.i32.i64((1 + (-1 * %"myfunc_$L1_fetch") + %"myfunc_$U1_fetch"))(double*:0)][%"myfunc_$L1_fetch":i2 + sext.i32.i64(%"myfunc_$M1_fetch"):8(double*:0)] = %add114;
+; CHECK:                  |   |   %add114 = (%"myfunc_$ZETA_$field0$_fetch")[1:%"myfunc_$M1_fetch":%func_result38_fetch(double:0)][%"myfunc_$L2_fetch":i1 + sext.i32.i64(%"myfunc_$M1_fetch"):%func_result30_fetch(double:0)][%"myfunc_$L1_fetch":i2 + sext.i32.i64(%"myfunc_$M1_fetch"):%func_result22_fetch(double:0)]  +  (%"myfunc_$H_$field0$_fetch")[%"myfunc_$L2_fetch":i1 + sext.i32.i64(%"myfunc_$M1_fetch"):%func_result82_fetch(double:0)][%"myfunc_$L1_fetch":i2 + sext.i32.i64(%"myfunc_$M1_fetch"):%func_result72_fetch(double:0)];
+; CHECK:                  |   |   (%"myfunc_$DRHS")[%"myfunc_$L2_fetch":i1 + sext.i32.i64(%"myfunc_$M1_fetch"):8 * sext.i32.i64((1 + (-1 * %"myfunc_$L1_fetch") + %"myfunc_$U1_fetch"))(double:0)][%"myfunc_$L1_fetch":i2 + sext.i32.i64(%"myfunc_$M1_fetch"):8(double:0)] = %add114;
 ; CHECK:                  |   + END LOOP
 ; CHECK:                  + END LOOP
 ; CHECK:                     @llvm.directive.region.exit(%t); [ DIR.OMP.END.SIMD() ]
