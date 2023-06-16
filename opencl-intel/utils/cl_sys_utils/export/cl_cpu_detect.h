@@ -37,35 +37,37 @@ cl_err_code IsCPUSupported();
 // CPU Features enumeration
 enum ECPUFeatureSupport {
   CFS_NONE = 0x0000,
-  CFS_SSE2 = 1,
-  CFS_SSE3 = 1 << 1,
-  CFS_SSSE3 = 1 << 2,
-  CFS_SSE41 = 1 << 3,
-  CFS_SSE42 = 1 << 4,
-  CFS_AVX10 = 1 << 5,
-  CFS_AVX20 = 1 << 6,
-  CFS_FMA = 1 << 7,
-  CFS_BMI = 1 << 8,
-  CFS_BMI2 = 1 << 9,
-  CFS_AVX512F = 1 << 10,
-  CFS_AVX512CD = 1 << 11, // SKX
-  // CFS_AVX512ER = 1 << 12,    // KNL (deprecated)
-  // CFS_AVX512PF = 1 << 13,    // KNL (deprecated)
-  CFS_AVX512BW = 1 << 14,        // SKX
-  CFS_AVX512DQ = 1 << 15,        // SKX
-  CFS_AVX512VL = 1 << 16,        // SKX
-  CFS_AVX512VBMI = 1 << 17,      // CNL
-  CFS_AVX512IFMA = 1 << 18,      // CNL
-  CFS_AVX512BITALG = 1 << 19,    // ICL
-  CFS_AVX512VBMI2 = 1 << 20,     // ICL
-  CFS_AVX512VPOPCNTDQ = 1 << 21, // ICL
-  CFS_CLWB = 1 << 22,            // ICL
-  CFS_WBNOINVD = 1 << 23,        // ICX
-  CFS_AMXTILE = 1 << 26,         // AMX
-  CFS_AMXINT8 = 1 << 27,         // AMX
-  CFS_AMXBF16 = 1 << 28,         // AMX
-  CFS_F16C = 1 << 29
-
+  CFS_SSE2,
+  CFS_SSE3,
+  CFS_SSSE3,
+  CFS_SSE41,
+  CFS_SSE42,
+  CFS_AVX10,
+  CFS_AVX20,
+  CFS_FMA,
+  CFS_BMI,
+  CFS_BMI2,
+  CFS_AVX512F,  // SKX
+  CFS_AVX512CD, // SKX
+  CFS_AVX512BW, // SKX
+  CFS_AVX512DQ, // SKX
+  CFS_AVX512VL, // SKX
+  CFS_PKU,      // SKX
+  CFS_CLWB,
+  CFS_AVX512VNNI,      // CLX
+  CFS_AVX512VBMI,      // CNL
+  CFS_AVX512IFMA,      // CNL
+  CFS_AVX512BITALG,    // ICL
+  CFS_AVX512VBMI2,     // ICL
+  CFS_AVX512VPOPCNTDQ, // ICL
+  CFS_WBNOINVD,        // ICX
+  CFS_PCONFIG,         // ICX
+  CFS_AMXTILE,         // SPR
+  CFS_AMXINT8,         // SPR
+  CFS_AMXBF16,         // SPR
+  CFS_AVX512FP16,      // SPR
+  CFS_AVX512BF16,      // SPR
+  CFS_F16C
 };
 
 // Processor brand family
@@ -80,8 +82,8 @@ enum ECPUBrandFamily {
 
 #define CPU_ARCHS(modificator)                                                 \
   modificator(CPU_COREI7) modificator(CPU_SNB) modificator(CPU_HSW)            \
-      modificator(CPU_SKX) modificator(CPU_ICL) modificator(CPU_ICX)           \
-          modificator(CPU_SPR)
+      modificator(CPU_SKX) modificator(CPU_CLX) modificator(CPU_ICL)           \
+          modificator(CPU_ICX) modificator(CPU_SPR)
 
 enum ECPU : unsigned {
   CPU_UNKNOWN = 0,
@@ -159,6 +161,7 @@ public:
       case CPU_HSW:
         return GetCPUPrefixAVX2(m_is64BitOS);
       case CPU_SKX:
+      case CPU_CLX:
       case CPU_ICL:
       case CPU_ICX:
         return GetCPUPrefixAVX512(m_is64BitOS);
@@ -173,6 +176,7 @@ public:
         .Case("sapphirerapids", CPU_SPR)
         .Case("icelake-client", CPU_ICL)
         .Case("icelake-server", CPU_ICX)
+        .Case("cascadelake", CPU_CLX)
         .Case("skx", CPU_SKX)
         .Case("core-avx2", CPU_HSW)
         .Case("corei7-avx", CPU_SNB)
@@ -192,6 +196,8 @@ public:
       return "core-avx2";
     case CPU_SKX:
       return "skx";
+    case CPU_CLX:
+      return "cascadelake";
     case CPU_ICL:
       return "icelake-client";
     case CPU_ICX:
@@ -228,16 +234,8 @@ public:
     return is64BitOS ? "z1" : "x1";
   }
 
-  bool HasGatherScatter() const { return HasGatherScatter(m_CPUArch); }
-
-  static bool HasGatherScatter(ECPU CPU) {
-    return (CPU == CPU_SKX || CPU == CPU_ICL || CPU == CPU_ICX);
-  }
-
   bool HasAVX1() const { return IsFeatureSupported(CFS_AVX10); }
   bool HasAVX2() const { return IsFeatureSupported(CFS_AVX20); }
-  bool HasSSE2() const { return IsFeatureSupported(CFS_SSE2); }
-  bool HasSSE3() const { return IsFeatureSupported(CFS_SSE3); }
   bool HasSSE41() const { return IsFeatureSupported(CFS_SSE41); }
   bool HasSSE42() const { return IsFeatureSupported(CFS_SSE42); }
   bool HasAVX512Core() const { return IsFeatureSupported(CFS_AVX512F); }
@@ -245,10 +243,17 @@ public:
     return IsFeatureSupported(CFS_AVX512BW) &&
            IsFeatureSupported(CFS_AVX512DQ) && IsFeatureSupported(CFS_AVX512VL);
   }
+  bool HasAVX512CLX() const {
+    return HasAVX512SKX() && IsFeatureSupported(CFS_AVX512VNNI);
+  }
   bool HasAVX512ICL() const {
     return IsFeatureSupported(CFS_AVX512BITALG) &&
            IsFeatureSupported(CFS_AVX512VBMI2) &&
            IsFeatureSupported(CFS_AVX512VPOPCNTDQ);
+  }
+  bool HasAVX512ICX() const {
+    return HasAVX512ICL() && IsFeatureSupported(CFS_WBNOINVD) &&
+           IsFeatureSupported(CFS_CLWB) && IsFeatureSupported(CFS_PCONFIG);
   }
   bool HasAMX() const {
     return IsFeatureSupported(CFS_AMXTILE) && IsFeatureSupported(CFS_AMXINT8) &&
