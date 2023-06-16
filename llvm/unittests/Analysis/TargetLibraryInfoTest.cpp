@@ -1318,6 +1318,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @for_realloc_lhs(i8*, i8*, i32)\n"
       "declare i32 @for_rewind(i8*, i32, i64, ...)\n"
       "declare double @for_scale8_v(double, i32)\n"
+      "declare i32 @for_set_fpe_(i32)\n"
       "declare i32 @for_set_reentrancy(i32*)\n"
       "declare double @for_setexp8_v(double, i32)\n"
       "declare i32 @for_stop_core_quiet(i8*, i32, i32, i64, i32, i32, ...)\n"
