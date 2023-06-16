@@ -566,8 +566,9 @@ void LoopVectorizationPlanner::setDefaultVectorFactors() {
     if (MinVF > MaxVF) {
       VFs.push_back(0);
       std::stringstream SS;
-      SS << "Calculated minimum vectorization factor " << MinVF
-         << " exceeds calculated maximum vectorization factor " << MaxVF << ".";
+      SS << INTERNAL("Calculated minimum vectorization factor ") << MinVF
+         << INTERNAL(" exceeds calculated maximum vectorization factor ")
+         << MaxVF << ".";
       bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
               SS.str());
       return;
@@ -635,7 +636,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
 
   if (!IsLegalToVec) {
     bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
-            std::string("Loop previously found illegal to vectorize."));
+            INTERNAL("Loop previously found illegal to vectorize."));
     return 0;
   }
 
@@ -708,9 +709,9 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
               VFs.end());
   if (VFs.empty()) {
     bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
-            std::string("The loop contains a compress/expand idiom that "
-                        "cannot be vectorized with any suitable vectorization "
-                        "factor."));
+            INTERNAL("The loop contains a compress/expand idiom that "
+                     "cannot be vectorized with any suitable vectorization "
+                     "factor."));
     return 0;
   }
 
@@ -901,8 +902,8 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
   // Therefore, we have to check if we removed the only value that was in VFs.
   if (VFs.empty()) {
     bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
-            std::string("No vectorization factor was found that can "
-                        "satisfy all VConflict idioms in the loop."));
+            INTERNAL("No vectorization factor was found that can "
+                     "satisfy all VConflict idioms in the loop."));
     return 0;
   }
 
@@ -1377,7 +1378,8 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       if (SearchLoopPreferredVF == 1) {
         bailoutWithDebug(OptReportVerbosity::Medium,
                          OptRemarkID::VecFailBadlyFormedMultiExitLoop,
-                         "Selecting VPlan with search loop preferred VF=1",
+                         INTERNAL("Selecting VPlan with search loop preferred "
+                                  "VF=1"),
                          WRLp && WRLp->isOmpSIMDLoop()
                              ? std::string("simd loop")
                              : std::string("loop"));
@@ -1394,13 +1396,13 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
                 UFs.end());
       if (UFs.empty()) {
         std::stringstream SS;
-        SS << "Bailing out to scalar VPlan because "
-           << "SearchLoopPreferredVF(" << SearchLoopPreferredVF
-           << ") * U > TripCount(" << TripCount
-           << ") for all unroll factors U\n";
+        SS << INTERNAL("Bailing out to scalar VPlan because ")
+           << INTERNAL("SearchLoopPreferredVF(") << SearchLoopPreferredVF
+           << INTERNAL(") * U > TripCount(") << TripCount
+           << INTERNAL(") for all unroll factors U\n");
         bailoutWithDebug(OptReportVerbosity::High,
                          OptRemarkID::VecFailGenericBailout, SS.str(),
-                         std::string("Trip count too low for search loop."));
+                         INTERNAL("Trip count too low for search loop."));
         // The scenario was reset just before the check.
         return std::make_pair(VecScenario.getMainVF(), getBestVPlan());
       }
@@ -1820,13 +1822,13 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     if (TripCount < ForcedVF) {
       bailoutWithDebug(
           OptReportVerbosity::Medium, OptRemarkID::VecFailLowTripCount,
-          "The loop trip count is less than enforced vector factor.",
+          INTERNAL("The loop trip count is less than enforced vector factor."),
           WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
                                         : std::string("loop"));
     } else {
       bailoutWithDebug(OptReportVerbosity::Medium,
                        OptRemarkID::VecFailNotProfitable,
-                       "Loop is unprofitable to vectorize.",
+                       INTERNAL("Loop is unprofitable to vectorize."),
                        WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
                                                      : std::string("loop"));
     }
@@ -2732,8 +2734,8 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
   const VPLoopEntityList *LE = Plan.getLoopEntities(VPLp);
   if (!LE) {
     bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
-            std::string("There are no loop entities (e.g., inductions or "
-                        "reductions) for this loop."));
+            INTERNAL("There are no loop entities (e.g., inductions or "
+                     "reductions) for this loop."));
     return false;
   }
   // Check whether all reductions are supported.
@@ -2748,8 +2750,8 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
       if (!Red->getRecurrenceStartValue() ||
           LE->getMemoryDescriptor(Red) == nullptr || !Red->getIsMemOnly()) {
         bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
-                std::string("A user-defined reduction or scan has been "
-                            "registerized, and cannot be vectorized."));
+                INTERNAL("A user-defined reduction or scan has been "
+                         "registerized, and cannot be vectorized."));
         return false;
       }
 
@@ -2786,8 +2788,8 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
       // on type sizes.
       if (RecTySize != PackedVecTySize) {
         bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
-                std::string("Complex struct type cannot be packed into "
-                            "trivial vector type."));
+                INTERNAL("Complex struct type cannot be packed into "
+                         "trivial vector type."));
         return false;
       }
 
@@ -2797,8 +2799,8 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
           Plan.getDataLayout()->getPrefTypeAlign(RecTy).value();
       if (RecTySize.getFixedValue() % OrigAlignV != 0) {
         bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
-                std::string("Complex struct type size is not divisible by "
-                            "its alignment; i.e., it has padding."));
+                INTERNAL("Complex struct type size is not divisible by "
+                         "its alignment; i.e., it has padding."));
         return false;
       }
     }
@@ -2857,8 +2859,9 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlanVector &Plan) {
       LLVM_DEBUG(dbgs() << "LVP: Unrecognized phi found.\n" << Phi << "\n");
       bailoutWithDebug(OptReportVerbosity::Medium,
                        OptRemarkID::VecFailUnknownRecurrence,
-                       "Loop contains a recurrent computation that could not be"
-                       "identified as an induction or reduction.",
+                       INTERNAL("Loop contains a recurrent computation that "
+                                "could not be identified as an induction or "
+                                "reduction."),
                        std::string("loop"));
       return false;
     }
@@ -2881,8 +2884,8 @@ bool LoopVectorizationPlanner::canLowerVPlan(const VPlanVector &Plan,
           !isSOACodegenSupported() &&
           AllocaPriv->getAllocatedType()->isArrayTy()) {
         bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
-                std::string("SOA transformation for privates is not yet "
-                            "supported on this path."));
+                INTERNAL("SOA transformation for privates is not yet "
+                         "supported on this path."));
         LLVM_DEBUG(dbgs() << VPI << "\n");
         return false;
       }
@@ -2911,8 +2914,8 @@ bool LoopVectorizationPlanner::canLowerVPlan(const VPlanVector &Plan,
                        Instruction::ExtractValue;
           })) {
         bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
-                "Argument repacking call has non-optimizable aggregate "
-                "operations.");
+                INTERNAL("Argument repacking call has non-optimizable "
+                         "aggregate operations."));
         LLVM_DEBUG(dbgs() << VPI << "\n");
         return false;
       }
@@ -2985,8 +2988,8 @@ bool LoopVectorizationPlanner::canProcessLoopBody(const VPlanVector &Plan,
   assert(LE && "No loop entities for loop!");
   if (!LE) {
     bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
-            std::string("There are no loop entities (e.g., inductions or "
-                        "reductions) for this loop."));
+            INTERNAL("There are no loop entities (e.g., inductions or "
+                     "reductions) for this loop."));
     return false;
   }
   for (auto *BB : Loop.blocks())
@@ -2997,8 +3000,8 @@ bool LoopVectorizationPlanner::canProcessLoopBody(const VPlanVector &Plan,
           if (isa<VectorType>(Inst.getType())) {
             bailoutWithDebug(OptReportVerbosity::Medium,
                              OptRemarkID::VecFailReducingVectorType,
-                             "A reduction or induction of a vector type is not "
-                             "supported.",
+                             INTERNAL("A reduction or induction of a vector "
+                                      "type is not supported."),
                              std::string("loop"));
             LLVM_DEBUG(dbgs() << Inst << "\n");
             return false;
@@ -3008,8 +3011,9 @@ bool LoopVectorizationPlanner::canProcessLoopBody(const VPlanVector &Plan,
           // chains.
           bailoutWithDebug(OptReportVerbosity::Medium,
                            OptRemarkID::VecFailUnknownLiveOut,
-                           "Loop contains a live-out value that could not be "
-                           "identified as an induction or reduction.",
+                           INTERNAL("Loop contains a live-out value that could "
+                                    "not be identified as an induction or "
+                                    "reduction."),
                            std::string("loop"));
           return false;
         }

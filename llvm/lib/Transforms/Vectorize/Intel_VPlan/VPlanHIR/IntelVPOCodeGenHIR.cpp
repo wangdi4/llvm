@@ -556,7 +556,7 @@ public:
     if (!CG->isSearchLoop() && !CG->getPlan()->getCompressExpandUsed()) {
       IsHandled = false;
       CG->bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
-                  std::string("Unsupported HLNode."));
+                  INTERNAL("Unsupported HLNode."));
     }
   }
 
@@ -590,7 +590,7 @@ void HandledCheck::visit(HLDDNode *Node) {
   if (!isa<HLInst>(Node) && !isa<HLIf>(Node) && !isa<HLLoop>(Node)) {
     IsHandled = false;
     CG->bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
-                std::string("Unsupported high-level node detected."));
+                INTERNAL("Unsupported high-level node detected."));
     return;
   }
 
@@ -624,7 +624,7 @@ void HandledCheck::visit(HLDDNode *Node) {
       DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
       IsHandled = false;
       CG->bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
-                  std::string("Loop contains an alloca instruction."));
+                  INTERNAL("Loop contains an alloca instruction."));
       return;
     }
 
@@ -637,8 +637,8 @@ void HandledCheck::visit(HLDDNode *Node) {
       DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
       IsHandled = false;
       CG->bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
-                  std::string("Loop contains a live-out assignment to a "
-                              "conditional non-reduction scalar."));
+                  INTERNAL("Loop contains a live-out assignment to a "
+                           "conditional non-reduction scalar."));
       return;
     }
 
@@ -651,8 +651,8 @@ void HandledCheck::visit(HLDDNode *Node) {
         IsHandled = false;
         CG->bailout(OptReportVerbosity::High,
                     OptRemarkID::VecFailGenericBailout,
-                    std::string("Cannot vectorize function calls in mixed code"
-                                "generation mode."));
+                    INTERNAL("Cannot vectorize function calls in mixed code"
+                             "generation mode."));
         return;
       }
 
@@ -685,8 +685,8 @@ void HandledCheck::visit(HLDDNode *Node) {
         IsHandled = false;
         CG->bailout(OptReportVerbosity::High,
                     OptRemarkID::VecFailGenericBailout,
-                    std::string("Vectorizing a masked fabs intrinsic for "
-                                "the Alder Lake processor is not profitable."));
+                    INTERNAL("Vectorizing a masked fabs intrinsic for "
+                             "the Alder Lake processor is not profitable."));
         return;
       }
 
@@ -700,8 +700,8 @@ void HandledCheck::visit(HLDDNode *Node) {
         IsHandled = false;
         CG->bailout(OptReportVerbosity::High,
                     OptRemarkID::VecFailGenericBailout,
-                    std::string("Vectorization of calls to fabs or floor "
-                                "has been temporarily disabled."));
+                    INTERNAL("Vectorization of calls to fabs or floor "
+                             "has been temporarily disabled."));
         return;
       }
 
@@ -726,8 +726,8 @@ void HandledCheck::visit(HLDDNode *Node) {
         IsHandled = false;
         CG->bailout(OptReportVerbosity::High,
                     OptRemarkID::VecFailGenericBailout,
-                    std::string("Loop contains an element insertion or "
-                                "extraction with a variable index."));
+                    INTERNAL("Loop contains an element insertion or "
+                             "extraction with a variable index."));
         return;
       }
     }
@@ -769,7 +769,8 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
     IsHandled = false;
     CG->bailoutWithDebug(
         OptReportVerbosity::Medium, OptRemarkID::VecFailBadType,
-        "Loop contains a memory reference with an unvectorizable type.",
+        INTERNAL("Loop contains a memory reference with an unvectorizable "
+                 "type."),
         OrigLoop->isInSIMDRegion() ? std::string("simd loop")
                                    : std::string("loop"));
     return;
@@ -802,8 +803,8 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr, bool InMemRef,
   if (!EnableBlobCoeffVec && CExpr->hasIVBlobCoeff(LoopLevel)) {
     IsHandled = false;
     CG->bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
-                std::string("Loop contains an induction variable with a "
-                            "blob coefficient."));
+                INTERNAL("Loop contains an induction variable with a "
+                         "blob coefficient."));
     return;
   }
 
@@ -825,8 +826,8 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr, bool InMemRef,
           IsHandled = false;
           CG->bailout(OptReportVerbosity::High,
                       OptRemarkID::VecFailGenericBailout,
-                      std::string("Support for masked divides is not yet "
-                                  "implemented."));
+                      INTERNAL("Support for masked divides is not yet "
+                               "implemented."));
           return;
         }
       }
@@ -841,8 +842,8 @@ void HandledCheck::visitCanonExpr(CanonExpr *CExpr, bool InMemRef,
     if (BlobUtilities.isNestedBlob(TopBlob)) {
       IsHandled = false;
       CG->bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
-                  std::string("Loop contains a nested-blob canonical "
-                              "expression."));
+                  INTERNAL("Loop contains a nested-blob canonical "
+                           "expression."));
       return;
     }
   }
@@ -897,7 +898,8 @@ bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
         if (!isLoopSimplifyForm(VPLp)) {
           bailoutWithDebug(OptReportVerbosity::Medium,
                            OptRemarkID::VecFailComplexControlFlow,
-                           "Loop not handled: not in loopsimplify form.",
+                           INTERNAL("Loop not handled: not in loopsimplify "
+                                    "form."),
                            Loop->isInSIMDRegion() ? std::string("simd loop")
                                                   : std::string("loop"),
                            std::string(" 5.0"));
@@ -908,7 +910,8 @@ bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
         if (Latch->getNumSuccessors() != 2) {
           bailoutWithDebug(OptReportVerbosity::Medium,
                            OptRemarkID::VecFailComplexControlFlow,
-                           "Loop not handled: latch without two successors.",
+                           INTERNAL("Loop not handled: latch without two "
+                                    "successors."),
                            Loop->isInSIMDRegion() ? std::string("simd loop")
                                                   : std::string("loop"),
                            std::string(" 5.0"));
@@ -921,7 +924,7 @@ bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
   // Only handle normalized loops
   if (!Loop->isNormalized()) {
     bailout(OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
-            std::string("Loop is not in normalized form."));
+            INTERNAL("Loop is not in normalized form."));
     return false;
   }
 

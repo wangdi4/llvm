@@ -6298,6 +6298,15 @@ struct GraphTraits<vpo::VPlan *> : public GraphTraits<vpo::VPBasicBlock *> {
   static size_t size(vpo::VPlan *Plan) { return Plan->size(); }
 };
 
+// Macro for strings that are not needed by release compilers.
+// An INTERNAL string will not be leaked as part of a release binary,
+// and there is no need to provide translation support for it.
+#if INTEL_PRODUCT_RELEASE
+#define INTERNAL(STR) std::string("")
+#else
+#define INTERNAL(STR) std::string(STR)
+#endif
+
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLAN_H
