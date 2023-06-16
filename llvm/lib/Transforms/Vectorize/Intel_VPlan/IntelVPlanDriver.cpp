@@ -2016,6 +2016,22 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   eraseLoopIntrins(Lp, WRLp);
   CandLoopsVectorized++;
 
+  if (NestedSimdStrategy == NestedSimdStrategies::Innermost)
+    for (WRegionNode *Node = WRLp->getParent(); Node; Node = Node->getParent())
+      if (WRNVecLoopNode *LoopNode = dyn_cast<WRNVecLoopNode>(Node))
+        eraseLoopIntrins(LoopNode->getTheLoop<HLLoop>(), LoopNode);
+
+  if (NestedSimdStrategy == NestedSimdStrategies::Outermost) {
+    auto EraseIntrins = [&](WRNVecLoopNode *N, auto &&EraseIntrins) -> void {
+      for (auto *Child : make_range(N->wrn_child_begin(), N->wrn_child_end()))
+        if (WRNVecLoopNode *LoopNode = dyn_cast<WRNVecLoopNode>(Child)) {
+          eraseLoopIntrins(LoopNode->getTheLoop<HLLoop>(), LoopNode);
+          EraseIntrins(LoopNode, EraseIntrins);
+        }
+    };
+    EraseIntrins(WRLp, EraseIntrins);
+  }
+
   // When CFG merger is not enabled run unroller here.
   if (LVP.mergerVPlans().empty())
     LVP.unroll(*cast<VPlanNonMasked>(Plan));
