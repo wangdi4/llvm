@@ -180,8 +180,6 @@ attributes #17 = { convergent nounwind "call-params-num"="1" "kernel-call-once" 
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVbN4v_foo -- %LocalSize_0 = call i64 @_Z14get_local_sizej(i32 0)
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVbN4v_foo -- %LocalSize_1 = call i64 @_Z14get_local_sizej(i32 1)
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVbN4v_foo -- %LocalSize_2 = call i64 @_Z14get_local_sizej(i32 2)
-;; argument
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVbN4v_foo -- %loadedValue = load <4 x i32>, <4 x i32>* %pSB_LocalId, align 16
 ;; barrier key values
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVbN4u_test -- %pCurrBarrier = alloca i32, align 4
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVbN4u_test -- %pCurrSBIndex = alloca i64, align 8
