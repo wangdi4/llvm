@@ -1210,7 +1210,7 @@ void VPlanCFGMerger::insertPeelCntAndChecks(PlanDescr &P,
     // incoming peel count. From here we get the merge ID, and then obtain the
     // corresponding merge PHI from the outgoing merge block.
     const auto *PeelCountLiveIn =
-        Plan.getMainLoop(true)->getInduction()->getStartValueOperand();
+        Plan.getMainLoop(true)->getInductionInit()->getStartValueOperand();
     assert(isa<VPLiveInValue>(PeelCountLiveIn) &&
            "Loop IV start is not livein?");
     const auto MergeId = cast<VPLiveInValue>(PeelCountLiveIn)->getMergeId();
