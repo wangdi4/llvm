@@ -1141,9 +1141,9 @@ TEST_F(TUSchedulerTests, AsyncPreambleThread) {
   public:
     BlockPreambleThread(llvm::StringRef BlockVersion, Notification &N)
         : BlockVersion(BlockVersion), N(N) {}
-    void onPreambleAST(PathRef Path, llvm::StringRef Version,
-                       const CompilerInvocation &, ASTContext &Ctx,
-                       Preprocessor &, const CanonicalIncludes &) override {
+    void
+    onPreambleAST(PathRef Path, llvm::StringRef Version, CapturedASTCtx,
+                  const std::shared_ptr<const CanonicalIncludes>) override {
       if (Version == BlockVersion)
         N.wait();
     }
@@ -1220,9 +1220,9 @@ TEST_F(TUSchedulerTests, PublishWithStalePreamble) {
     BlockPreambleThread(Notification &UnblockPreamble, DiagsCB CB)
         : UnblockPreamble(UnblockPreamble), CB(std::move(CB)) {}
 
-    void onPreambleAST(PathRef Path, llvm::StringRef Version,
-                       const CompilerInvocation &, ASTContext &Ctx,
-                       Preprocessor &, const CanonicalIncludes &) override {
+    void
+    onPreambleAST(PathRef Path, llvm::StringRef Version, CapturedASTCtx,
+                  const std::shared_ptr<const CanonicalIncludes>) override {
       if (BuildBefore)
         ASSERT_TRUE(UnblockPreamble.wait(timeoutSeconds(5)))
             << "Expected notification";
@@ -1581,9 +1581,9 @@ TEST_F(TUSchedulerTests, PreambleThrottle) {
     std::vector<std::string> &Filenames;
     CaptureBuiltFilenames(std::vector<std::string> &Filenames)
         : Filenames(Filenames) {}
-    void onPreambleAST(PathRef Path, llvm::StringRef Version,
-                       const CompilerInvocation &CI, ASTContext &Ctx,
-                       Preprocessor &PP, const CanonicalIncludes &) override {
+    void
+    onPreambleAST(PathRef Path, llvm::StringRef Version, CapturedASTCtx,
+                  const std::shared_ptr<const CanonicalIncludes>) override {
       // Deliberately no synchronization.
       // The PreambleThrottler should serialize these calls, if not then tsan
       // will find a bug here.
