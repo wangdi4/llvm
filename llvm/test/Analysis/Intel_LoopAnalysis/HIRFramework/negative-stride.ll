@@ -5,7 +5,7 @@
 
 ; CHECK: + DO i1 = 0, 99, 1   <DO_LOOP>
 ; CHECK: |   + DO i2 = 0, 8, 1   <DO_LOOP>
-; CHECK: |   |   (%ptr)[0:i1:80(float*:0)][0:i2:-4(float*:20)] = 1.000000e+00;
+; CHECK: |   |   (%ptr)[0:i1:80(float:0)][0:i2:-4(float:20)] = 1.000000e+00;
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
 

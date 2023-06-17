@@ -116,8 +116,6 @@ declare void @dummy_barrier.()
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %LocalSize_0 = call i32 @_Z14get_local_sizej(i32 0)
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %LocalSize_1 = call i32 @_Z14get_local_sizej(i32 1)
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %LocalSize_2 = call i32 @_Z14get_local_sizej(i32 2)
-;; argument
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %loadedValue = load i32, i32* %pSB_LocalId, align 4
 
 
 ; DEBUGIFY-NOT: WARNING

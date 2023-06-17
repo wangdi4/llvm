@@ -88,6 +88,12 @@ ENTRY(PUSH32i, PUSH32i8)
 ENTRY(PUSH64i32, PUSH64i8)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_APX_F
+ENTRY(CCMP16ri, CCMP16ri8)
+ENTRY(CCMP32ri, CCMP32ri8)
+ENTRY(CCMP64ri32, CCMP64ri8)
+ENTRY(CCMP16mi, CCMP16mi8)
+ENTRY(CCMP32mi, CCMP32mi8)
+ENTRY(CCMP64mi32, CCMP64mi8)
 #define ENTRIES(LONG, SHORT)                                                   \
   ENTRY(LONG##_EVEX, SHORT##_EVEX)                                             \
   ENTRY(LONG##_NF, SHORT##_NF)                                                 \

@@ -33,6 +33,7 @@ class VPInstruction;
 class VPCmpInst;
 class VPlanDivergenceAnalysis;
 class VPLoop;
+class VPPHINode;
 
 struct TripCountInfo {
   using TripCountTy = uint64_t;
@@ -136,8 +137,11 @@ public:
   /// If not found, return nullptr.
   VPCmpInst *getLatchComparison() const;
 
-  /// Return the main induction used in the loop latch condition.
-  VPInductionInit *getInduction() const;
+  /// Return the main induction init used in the loop latch condition.
+  VPInductionInit *getInductionInit() const;
+
+  /// Return the main induction PHI used in the loop latch condition.
+  VPPHINode *getInductionPHI() const;
 
   /// Return the loop id metadata node for this VPLoop if present. This is
   /// obtained by checking loop latch's terminator instruction.

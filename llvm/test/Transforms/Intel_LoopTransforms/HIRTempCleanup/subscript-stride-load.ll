@@ -5,15 +5,15 @@
 ; CHECK: Function: foo
 
 ; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>
-; CHECK: |   %stride = (%stride_ptr)[0:0:8(i64*:0)];
-; CHECK: |   @bar(&((%ptr)[0:0:%stride(i64*:0)]));
+; CHECK: |   %stride = (%stride_ptr)[0:0:8(i64:0)];
+; CHECK: |   @bar(&((%ptr)[0:0:%stride(i64:0)]));
 ; CHECK: + END LOOP
 
 ; CHECK: Function: foo
 
 ; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>
-; CHECK: |   %stride = (%stride_ptr)[0:0:8(i64*:0)];
-; CHECK: |   @bar(&((%ptr)[0:0:%stride(i64*:0)]));
+; CHECK: |   %stride = (%stride_ptr)[0:0:8(i64:0)];
+; CHECK: |   @bar(&((%ptr)[0:0:%stride(i64:0)]));
 ; CHECK: + END LOOP
 
 

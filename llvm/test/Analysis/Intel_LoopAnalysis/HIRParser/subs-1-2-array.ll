@@ -11,7 +11,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK: BEGIN REGION { }
 ; CHECK:       + DO i1 = 0, 2, 1   <DO_LOOP>
-; CHECK:       |   (@"_unnamed_main$$_$A")[0:0:12([3 x [1 x i32]]*:0)][0:i1:4([3 x [1 x i32]]:3)][0:0:4([1 x i32]:1)] = 5;
+; CHECK:       |   (@"_unnamed_main$$_$A")[0:0:12([3 x [1 x i32]]:0)][0:i1:4([1 x i32]:3)][0:0:4(i32:1)] = 5;
 ; CHECK:       + END LOOP
 ; CHECK: END REGION
 

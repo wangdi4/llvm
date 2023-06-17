@@ -52,16 +52,6 @@ def CCMP8rr_REV : ITy_EVEX_C<0x3a, MRMSrcReg, Xi8,  GR8,  GR8,  "ccmp">;
 def CCMP16rr_REV: ITy_EVEX_C<0x3a, MRMSrcReg, Xi16, GR16, GR16, "ccmp">;
 def CCMP32rr_REV: ITy_EVEX_C<0x3a, MRMSrcReg, Xi32, GR32, GR32, "ccmp">;
 def CCMP64rr_REV: ITy_EVEX_C<0x3a, MRMSrcReg, Xi64, GR64, GR64, "ccmp">;
-def CCMP8ri : ITy_EVEX_C_Imm<0x80, MRM7r, Xi8,   GR8, i8imm,  "ccmp">;
-def CCMP16ri: ITy_EVEX_C_Imm<0x80, MRM7r, Xi16, GR16, i16imm, "ccmp">;
-def CCMP32ri: ITy_EVEX_C_Imm<0x80, MRM7r, Xi32, GR32, i32imm, "ccmp">;
-def CCMP64ri32: ITy_EVEX_C_Imm<0x80, MRM7r, Xi64, GR64, i64i32imm, "ccmp">;
-let mayLoad = 1 in {
-def CCMP8mi : ITy_EVEX_C_Imm<0x80, MRM7m, Xi8,   i8mem, i8imm,  "ccmp">;
-def CCMP16mi: ITy_EVEX_C_Imm<0x80, MRM7m, Xi16, i16mem, i16imm, "ccmp">;
-def CCMP32mi: ITy_EVEX_C_Imm<0x80, MRM7m, Xi32, i32mem, i32imm, "ccmp">;
-def CCMP64mi32: ITy_EVEX_C_Imm<0x80, MRM7m, Xi64, i64mem, i64i32imm, "ccmp">;
-} // mayLoad = 1
 let ImmT = Imm8 in {
 def CCMP16ri8: ITy_EVEX_C<0x83, MRM7r, Xi16, GR16, i16i8imm, "ccmp">;
 def CCMP32ri8: ITy_EVEX_C<0x83, MRM7r, Xi32, GR32, i32i8imm, "ccmp">;
@@ -72,6 +62,16 @@ def CCMP32mi8: ITy_EVEX_C<0x83, MRM7m, Xi32, i32mem, i32i8imm, "ccmp">;
 def CCMP64mi8: ITy_EVEX_C<0x83, MRM7m, Xi64, i64mem, i64i8imm, "ccmp">;
 } // mayLoad = 1
 }
+def CCMP8ri : ITy_EVEX_C_Imm<0x80, MRM7r, Xi8,   GR8, i8imm,  "ccmp">;
+def CCMP16ri: ITy_EVEX_C_Imm<0x80, MRM7r, Xi16, GR16, i16imm, "ccmp">;
+def CCMP32ri: ITy_EVEX_C_Imm<0x80, MRM7r, Xi32, GR32, i32imm, "ccmp">;
+def CCMP64ri32: ITy_EVEX_C_Imm<0x80, MRM7r, Xi64, GR64, i64i32imm, "ccmp">;
+let mayLoad = 1 in {
+def CCMP8mi : ITy_EVEX_C_Imm<0x80, MRM7m, Xi8,   i8mem, i8imm,  "ccmp">;
+def CCMP16mi: ITy_EVEX_C_Imm<0x80, MRM7m, Xi16, i16mem, i16imm, "ccmp">;
+def CCMP32mi: ITy_EVEX_C_Imm<0x80, MRM7m, Xi32, i32mem, i32imm, "ccmp">;
+def CCMP64mi32: ITy_EVEX_C_Imm<0x80, MRM7m, Xi64, i64mem, i64i32imm, "ccmp">;
+} // mayLoad = 1
 
 def CTEST8rr : ITy_EVEX_C<0x84, MRMDestReg, Xi8,  GR8,  GR8,  "ctest">;
 def CTEST16rr: ITy_EVEX_C<0x84, MRMDestReg, Xi16, GR16, GR16, "ctest">;

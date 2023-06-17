@@ -33,7 +33,6 @@ namespace Intel {
 namespace OpenCL {
 namespace DeviceBackend {
 
-const char *CPU_ARCH_AUTO = "auto";
 using Intel::OpenCL::Utils::ConfigFile;
 
 static ETransposeSize parseTransposeSize(int TSize) {
@@ -45,14 +44,6 @@ static ETransposeSize parseTransposeSize(int TSize) {
       std::end(ValidTSizes))
     return TRANSPOSE_SIZE_INVALID;
   return (ETransposeSize)TSize;
-}
-
-void GlobalCompilerConfig::LoadDefaults() {
-  m_enableTiming = false;
-  m_disableStackDump = true;
-  m_infoOutputFile = "";
-  m_LLVMOptions.clear();
-  m_targetDevice = CPU_DEVICE;
 }
 
 void GlobalCompilerConfig::LoadConfig() {
@@ -156,25 +147,6 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(
     std::vector<std::string> Options = SplitString(LLVMOption, ' ');
     m_LLVMOptions.append(Options.begin(), Options.end());
   }
-}
-
-void CompilerConfig::LoadDefaults() {
-  m_cpuArch = CPU_ARCH_AUTO;
-  m_deviceMaxWGSize = CPU_MAX_WORK_GROUP_SIZE;
-  m_transposeSize = TRANSPOSE_SIZE_NOT_SET;
-  m_rtLoopUnrollFactor = 1;
-  m_cpuFeatures = "";
-  m_useVTune = true;
-  m_serializeWorkGroups = false;
-  m_loadBuiltins = true;
-  m_dumpHeuristicIR = false;
-  m_streamingAlways = false;
-  m_expensiveMemOpts = 0;
-  m_targetDevice = CPU_DEVICE;
-  m_forcedPrivateMemorySize = 0;
-  m_useAutoMemory = false;
-  m_passManagerType = PM_NONE;
-  m_subGroupConstructionMode = 0;
 }
 
 void CompilerConfig::LoadConfig() {

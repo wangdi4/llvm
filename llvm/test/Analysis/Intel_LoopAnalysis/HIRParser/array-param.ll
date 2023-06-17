@@ -5,7 +5,7 @@
 ; Check parsing output for the loop verifying that the load of %A is parsed correctly as a 2 dimentional array.
 ; CHECK: DO i1 = 0, 63, 1
 ; CHECK-SAME: DO_LOOP
-; CHECK-NEXT: %[[TMP:.*]] = (%A)[0:i1:256([64 x i32]*:0)][0:i1:4([64 x i32]:64)]
+; CHECK-NEXT: %[[TMP:.*]] = (%A)[0:i1:256([64 x i32]:0)][0:i1:4(i32:64)]
 ; CHECK-NEXT: %sum.09 = %[[TMP]]  +  %sum.09
 ; CHECK-NEXT: END LOOP
 

@@ -4,8 +4,8 @@
 
 ; BEGIN REGION { }
 ;       + DO i1 = 0, 1, 1   <DO_LOOP>
-; CHECK:|   (%p)[%i:i1:8(double*:0)] = 1.000000e+00;
-; CHECK:|   (%q)[0:i1:%i(double*:0)] = 1.000000e+00;
+; CHECK:|   (%p)[%i:i1:8(double:0)] = 1.000000e+00;
+; CHECK:|   (%q)[0:i1:%i(double:0)] = 1.000000e+00;
 ; CHECK:|   %i = i1 + 1;
 ;       + END LOOP
 ; END REGION

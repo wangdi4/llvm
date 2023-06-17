@@ -12,6 +12,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Support/Intel_CPU_utils.h"
@@ -31,6 +32,13 @@ static cl::opt<bool>
     DisableSelectiveMultiVersioning("disable-selective-mv", cl::init(false),
                                     cl::ReallyHidden,
                                     cl::desc("Disable multi-versioning of select functions"));
+
+// Internal option to control whether to multi-version functions per the
+// targets specified in llvm.vec.auto.cpu.dispatch metadata. Added specifically
+// for enabling vector variant generation in lit tests.
+static cl::opt<bool>
+    ClGenerateVectorVariants("generate-vector-variants", cl::init(false),
+                             cl::ReallyHidden, cl::desc("Generate vector variants"));
 
 static std::string getTargetFeatures(StringRef TargetCpu) {
   SmallVector<StringRef, 16> CPUFeatures;
@@ -615,9 +623,21 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       ++It;
 
       // Resolver should operate on specific functions versions.
-      const auto *Inst = dyn_cast<Instruction>(IFUse.getUser());
-      if (Inst && Inst->getFunction() == Resolver)
+      auto *Inst = dyn_cast<Instruction>(IFUse.getUser());
+      if (Inst && Inst->getFunction() == Resolver) {
+        // When generating vector variants, there should be no references
+        // to the generic clone in the resolver function for correctness.
+        // Removing the references here will allow GlobalDCE to remove
+        // the generic, i.e. the .A clone, from the module later in the
+        // pass pipeline.
+        if (GenerateVectorVariants && VFInfo::isVectorVariant(Fn->getName())) {
+          if (isa<ReturnInst>(Inst))
+            IFUse.set(Constant::getNullValue(Fn->getType()->getPointerTo()));
+          else if (auto *Store = dyn_cast<StoreInst>(Inst))
+            Store->eraseFromParent();
+        }
         continue;
+      }
 
       auto *CInst = dyn_cast<CallBase>(IFUse.getUser());
       if (CInst && CInst->isCallee(&IFUse)) {
@@ -684,7 +704,7 @@ clearMetadataAndSetAttributes(
   for (Function &Fn : M) {
     if (Fn.isDeclaration())
       continue;
-    // Remove metadata, storing multi-versioning targets, from all functions
+    // Remove metadata, storing multi-versioning targets, from all functions.
     if (GenerateVectorVariants) {
       Fn.eraseMetadata(Ctx.getMDKindID("llvm.vec.auto.cpu.dispatch"));
     } else {
@@ -722,4 +742,11 @@ PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &AM) {
   clearMetadataAndSetAttributes(M, GetTTI, Success, GenerateVectorVariants);
 
   return Success ? PreservedAnalyses::none() : PreservedAnalyses::all();
+}
+
+AutoCPUClonePass::AutoCPUClonePass(bool GVV) : GenerateVectorVariants(GVV) {
+  // Setting ClGenerateVectorVariants on the command line overrides
+  // the value of GenerateVectorVariants member variable.
+  if (ClGenerateVectorVariants.getNumOccurrences() > 0)
+    GenerateVectorVariants = ClGenerateVectorVariants;
 }

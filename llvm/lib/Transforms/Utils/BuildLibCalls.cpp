@@ -2238,6 +2238,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   case LibFunc_for_realloc_lhs:
   case LibFunc_for_rewind:
   case LibFunc_for_scale8_v:
+  case LibFunc_for_set_fpe_:
   case LibFunc_for_set_reentrancy:
   case LibFunc_for_setexp8_v:
   case LibFunc_for_stop_core_quiet:

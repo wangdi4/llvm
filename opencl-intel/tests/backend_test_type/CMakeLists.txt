@@ -79,6 +79,7 @@ add_ocl_unittest(
   SOURCE_FILES
   BackendWrapper.cpp
   BWOptions.cpp
+  CPUDetectTest.cpp
   FactoryTest.cpp
   CompilationServiceTest.cpp
   PluginsTest.cpp

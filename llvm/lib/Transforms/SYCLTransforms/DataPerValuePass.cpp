@@ -108,17 +108,18 @@ void DataPerValue::runOnFunction(Function &F) {
   SyncInstructions =
       DPB->hasSyncInstruction(&F) ? &DPB->getSyncInstructions(&F) : nullptr;
 
+  // clang-format off
   // Run over all the values of the function and Cluster into 3 groups
-  // Group-A   : Alloca instructions
+  // Group-A   : Alloca instructions (AllocaValuesPerFuncMap)
   //   Important: we make exclusion for Alloca instructions which
   //              reside between 2 dummyBarrier calls:
-  //              a) one     - the 1st instruction which inserted by
-  //              BarrierInFunctionPass b) another - the instruction which marks
-  //              the bottom of Allocas
+  //              a) one     - the 1st instruction which inserted by BarrierInFunctionPass
+  //              b) another - the instruction which marks the bottom of Allocas
   //                           of WG function return value accumulators
   // Group-B.1 : Values crossed barriers and the value is
-  //             related to WI-Id or initialized inside a loop
-  // Group-B.2 : Value crossed barrier but does not suit Group-B.2
+  //             related to WI-Id or initialized inside a loop (SpecialValuesPerFuncMap)
+  // Group-B.2 : Value crossed barrier but does not suit Group-B.2 (CrossBarrierValuesPerFuncMap)
+  // clang-format on
 
   // At first - collect exclusions from Group-A (allocas for WG function
   // results)

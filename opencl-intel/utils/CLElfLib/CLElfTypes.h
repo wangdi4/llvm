@@ -92,7 +92,10 @@ enum E_EH_FLAGS {
   EH_FLAG_AVX1 = 1 << 1,
   EH_FLAG_AVX2 = 1 << 2,
   EH_FLAG_AVX512_SKX = 1 << 3,
-  EH_FLAG_AVX512_ICL = 1 << 4
+  EH_FLAG_AVX512_CLX = 1 << 4,
+  EH_FLAG_AVX512_ICL = 1 << 5,
+  EH_FLAG_AVX512_ICX = 1 << 6,
+  EH_FLAG_SPR = 1 << 7
 };
 
 // E_SH_TYPE - List of pre-defined section header types.

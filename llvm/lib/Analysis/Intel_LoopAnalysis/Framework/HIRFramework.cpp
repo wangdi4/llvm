@@ -679,8 +679,16 @@ void HIRFramework::MaxTripCountEstimator::visit(CanonExpr *CE,
     int64_t NonIVVal = 0, MinNonIVVal = 0, MaxNonIVVal = 0;
     uint64_t MaxTC = 0;
 
-    if (!Lp->isUnknown() && Lp->getUpperCanonExpr()->isIntConstant()) {
-      continue;
+    if (!Lp->isUnknown()) {
+      auto Upper = Lp->getUpperCanonExpr();
+
+      // If upper has a known exact max value, skip trying to refine it. It has
+      // already been set in visit(HLLoop*).
+      int64_t Val;
+      if (Upper->isIntConstant() ||
+          HLNodeUtils::getExactMaxValue(Upper, Lp, Val)) {
+        continue;
+      }
     }
 
     unsigned Level = Lp->getNestingLevel();

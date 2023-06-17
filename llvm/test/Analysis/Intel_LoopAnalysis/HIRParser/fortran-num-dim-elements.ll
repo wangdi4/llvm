@@ -7,11 +7,11 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Verify that the mumber of elements in the lower dimension of (%A)[i1][0] are computed as 10 based on stride information.
 
 ; CHECK: + DO i1 = 0, 2, 1   <DO_LOOP>
-; CHECK: |   (%A)[0:i1:40(i32*:0)][0:0:4(i32*:10)] = 5;
+; CHECK: |   (%A)[0:i1:40(i32:0)][0:0:4(i32:10)] = 5;
 ; CHECK: + END LOOP
 
 ; CHECK-OPAQUE: + DO i1 = 0, 2, 1   <DO_LOOP>
-; CHECK-OPAQUE: |   (%A)[0:i1:40(ptr:0)][0:0:4(ptr:10)] = 5;
+; CHECK-OPAQUE: |   (%A)[0:i1:40(i32:0)][0:0:4(i32:10)] = 5;
 ; CHECK-OPAQUE: + END LOOP
 
 
