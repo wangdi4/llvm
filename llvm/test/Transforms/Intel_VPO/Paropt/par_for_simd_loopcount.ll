@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ; It checks whether the paropt generates correct loop trip count for the simd  loop.
 ; void foo(int *arr)
@@ -10,72 +10,74 @@
 ;   { arr[i] = i; }
 ; }
 
+; CHECK: %{{.*}} = icmp sgt i32 %{{.*}}, %{{.*}}
+
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: nounwind uwtable
-define dso_local void @foo(i32* %arr) #0 {
+define dso_local void @foo(ptr noundef %arr) #0 {
 entry:
+  %arr.addr = alloca ptr, align 8
+  %i = alloca i32, align 4
+  %tmp = alloca i32, align 4
   %.omp.iv = alloca i32, align 4
   %.omp.ub = alloca i32, align 4
-  %0 = bitcast i32* %.omp.iv to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* %0) #2
-  %1 = bitcast i32* %.omp.ub to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* %1) #2
-  store volatile i32 1023, i32* %.omp.ub, align 4, !tbaa !2
-  br label %DIR.OMP.SIMD.1
+  store ptr %arr, ptr %arr.addr, align 8
+  store i32 1023, ptr %.omp.ub, align 4
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),
+    "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i, i32 0, i32 1, i32 1),
+    "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %.omp.iv, i32 0),
+    "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %.omp.ub, i32 0) ]
 
-DIR.OMP.SIMD.1:                                   ; preds = %entry
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub) ]
-  store volatile i32 0, i32* %.omp.iv, align 4, !tbaa !2
+  store i32 0, ptr %.omp.iv, align 4
   br label %omp.inner.for.cond
 
-omp.inner.for.cond:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
-  %3 = load volatile i32, i32* %.omp.iv, align 4, !tbaa !2
-  %4 = load volatile i32, i32* %.omp.ub, align 4, !tbaa !2
-  %cmp = icmp sle i32 %3, %4
-  br i1 %cmp, label %omp.inner.for.body, label %omp.loop.exit
+omp.inner.for.cond:                               ; preds = %omp.inner.for.inc, %entry
+  %1 = load i32, ptr %.omp.iv, align 4
+  %2 = load i32, ptr %.omp.ub, align 4
+  %cmp = icmp sle i32 %1, %2
+  br i1 %cmp, label %omp.inner.for.body, label %omp.inner.for.end
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.cond
-  %5 = load volatile i32, i32* %.omp.iv, align 4, !tbaa !2
-  %idxprom = sext i32 %5 to i64
-  %arrayidx = getelementptr inbounds i32, i32* %arr, i64 %idxprom
-  store i32 %5, i32* %arrayidx, align 4, !tbaa !2
-  %6 = load volatile i32, i32* %.omp.iv, align 4, !tbaa !2
-  %add1 = add nsw i32 %6, 1
-  store volatile i32 %add1, i32* %.omp.iv, align 4, !tbaa !2
+  %3 = load i32, ptr %.omp.iv, align 4
+  %mul = mul nsw i32 %3, 1
+  %add = add nsw i32 0, %mul
+  store i32 %add, ptr %i, align 4
+  %4 = load i32, ptr %i, align 4
+  %5 = load ptr, ptr %arr.addr, align 8
+  %6 = load i32, ptr %i, align 4
+  %idxprom = sext i32 %6 to i64
+  %arrayidx = getelementptr inbounds i32, ptr %5, i64 %idxprom
+  store i32 %4, ptr %arrayidx, align 4
+  br label %omp.body.continue
+
+omp.body.continue:                                ; preds = %omp.inner.for.body
+  br label %omp.inner.for.inc
+
+omp.inner.for.inc:                                ; preds = %omp.body.continue
+  %7 = load i32, ptr %.omp.iv, align 4
+  %add1 = add nsw i32 %7, 1
+  store i32 %add1, ptr %.omp.iv, align 4
+  %8 = load i32, ptr %i, align 4
+  %add2 = add nsw i32 %8, 1
+  store i32 %add2, ptr %i, align 4
   br label %omp.inner.for.cond
 
-omp.loop.exit:                                    ; preds = %omp.inner.for.cond
-  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.SIMD"() ]
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* %1) #2
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* %0) #2
+omp.inner.for.end:                                ; preds = %omp.inner.for.cond
+  br label %omp.loop.exit
+
+omp.loop.exit:                                    ; preds = %omp.inner.for.end
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
+
   ret void
 }
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
+declare token @llvm.directive.region.entry()
 
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #2
+declare void @llvm.directive.region.exit(token)
 
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #2
-
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
-
-attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { argmemonly nounwind }
-attributes #2 = { nounwind }
-
-!llvm.module.flags = !{!0}
-!llvm.ident = !{!1}
+!llvm.module.flags = !{!0, !1, !2, !3}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 8.0.0"}
-!2 = !{!3, !3, i64 0}
-!3 = !{!"int", !4, i64 0}
-!4 = !{!"omnipotent char", !5, i64 0}
-!5 = !{!"Simple C/C++ TBAA"}
-
-; CHECK: %{{.*}} = icmp sgt i32 %{{.*}}, %{{.*}}
+!1 = !{i32 7, !"openmp", i32 51}
+!2 = !{i32 7, !"uwtable", i32 2}
+!3 = !{i32 7, !"frame-pointer", i32 2}
