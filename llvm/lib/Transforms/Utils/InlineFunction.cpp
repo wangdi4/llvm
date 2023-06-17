@@ -1812,9 +1812,9 @@ static void UpdateIFIWithoutCG(CallBase &OrigCB, ValueToValueMapTy &VMap,
       case Intrinsic::vaargpack:
       case Intrinsic::vaargpacklen:
         if (IR && IR->isClassicIREnabled())
-          IR->addActiveCallSitePair(&I, nullptr);
+          IR->addActiveCallSitePair(II, nullptr);
         if (MDIR && MDIR->isMDIREnabled())
-          MDIR->addActiveCallSitePair(&I, nullptr);
+          MDIR->addActiveCallSitePair(II, nullptr);
         continue;
       default:
         break;
@@ -1827,9 +1827,9 @@ static void UpdateIFIWithoutCG(CallBase &OrigCB, ValueToValueMapTy &VMap,
       continue;
     auto *NewCallBase = dyn_cast<CallBase>(VMI->second);
     if (IR && IR->isClassicIREnabled())
-      IR->addActiveCallSitePair(&I, NewCallBase);
+      IR->addActiveCallSitePair(OldCB, NewCallBase);
     if (MDIR && MDIR->isMDIREnabled())
-      MDIR->addActiveCallSitePair(&I, NewCallBase);
+      MDIR->addActiveCallSitePair(OldCB, NewCallBase);
     if (!II)
       IFI.InlinedCalls.push_back(NewCall);
   }

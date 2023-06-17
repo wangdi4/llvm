@@ -130,12 +130,12 @@ public:
 
   // Add a pair of old and new call sites.  The 'NewCall' is a clone of
   // the 'OldCall' produced by InlineFunction().
-  void addActiveCallSitePair(Instruction *OldCall, Instruction *NewCall) {
+  void addActiveCallSitePair(CallBase *OldCall, CallBase *NewCall) {
     // If there were no metadata on the original instruction, we have nothing
     // to assign to the new instruction. Skip them.
     if (!OldCall->getMetadata(MDInliningReport::CallSiteTag))
       return;
-    if (!NewCall)
+    if (!NewCall || shouldSkipCallBase(NewCall))
       return;
     ActiveOriginalCalls.push_back(OldCall);
     ActiveInlinedCalls.push_back(NewCall);
@@ -164,6 +164,8 @@ public:
       LLVM_DEBUG(dbgs() << CB.getCaller()->getName() << " TO "
                         << CB.getCalledFunction()->getName());
     LLVM_DEBUG(dbgs() << "\n");
+    if (shouldSkipCallBase(&CB))
+      return;
     MDNode *MDIR = CB.getMetadata(MDInliningReport::CallSiteTag);
     if (MDIR && CurrentCallInstr != &CB)
       if (auto *CSIR = dyn_cast<MDTuple>(MDIR)) {
@@ -264,6 +266,9 @@ public:
   // Remove all of the CallBases in the 'BlocksToRemove' as dead code.
   void
   removeCallBasesInBasicBlocks(SmallSetVector<BasicBlock *, 8> &BlocksToRemove);
+
+  // Return 'true' if there should not be inline report metadata for 'CB'.
+  bool shouldSkipCallBase(CallBase *CB);
 
 private:
   /// The Level is specified by the option -inline-report=N.

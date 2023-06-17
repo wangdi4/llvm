@@ -402,14 +402,9 @@ static bool verifyFunctionInliningReport(Function *F,
   uint64_t NumCallSitesWithMDIR = 0;
   for (BasicBlock &BB : *F)
     for (Instruction &I : BB) {
-      if (auto *II = dyn_cast<IntrinsicInst>(&I))
-        if (!(MDIR.getLevel() & DontSkipIntrin) &&
-            shouldSkipIntrinsic(II))
-          continue;
       auto CB = dyn_cast<CallBase>(&I);
-      if (!CB)
+      if (!CB || MDIR.shouldSkipCallBase(CB))
         continue;
-
       if (CB->getMetadata(CallSiteTag))
         NumCallSitesWithMDIR++;
       FunctionCallSites.push_back(CB);
@@ -484,14 +479,11 @@ MDNode *createFunctionInliningReport(Function *F, InlineReportBuilder &MDIR) {
       auto CB = dyn_cast<CallBase>(&I);
       // If this isn't a call, or it is a call to an intrinsic, it can
       // never be inlined.
-      if (!CB)
+      if (!CB || MDIR.shouldSkipCallBase(CB))
         continue;
       Function *Callee = CB->getCalledFunction();
       InlineReason Reason = NinlrNoReason;
       if (auto *II = dyn_cast<IntrinsicInst>(&I)) {
-        if (!(MDIR.getLevel() & DontSkipIntrin) &&
-            shouldSkipIntrinsic(II))
-          continue;
         Reason = NinlrIntrinsic;
       } else if (Callee && Callee->isDeclaration()) {
         Reason = NinlrExtern;
