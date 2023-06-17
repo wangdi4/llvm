@@ -10,6 +10,10 @@
 // end INTEL_CUSTOMIZATION
 
 // verify the tools invocations
+<<<<<<< HEAD
+=======
+// FIXME: Need to resolve the conflict if the test is turned on
+>>>>>>> 17a41412b124d6b5206551f210daa844bd5a2d2e
 // CHECK: "-cc1" "-triple" "x86_64-unknown-linux-gnu"{{.*}}"-emit-llvm-bc"{{.*}}"-x" "c"
 // CHECK: "-cc1" "-triple" "amdgcn-amd-amdhsa" "-aux-triple" "x86_64-unknown-linux-gnu"{{.*}}"-target-cpu" "gfx906"{{.*}}"-fcuda-is-device"{{.*}}
 // CHECK: "-cc1" "-triple" "x86_64-unknown-linux-gnu"{{.*}}"-emit-obj"
