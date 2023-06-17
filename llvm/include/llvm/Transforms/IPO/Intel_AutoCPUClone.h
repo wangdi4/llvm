@@ -21,7 +21,7 @@ class Module;
 /// -vecabi=cmdtarget support.
 class AutoCPUClonePass : public PassInfoMixin<AutoCPUClonePass> {
 public:
-  AutoCPUClonePass(bool GVV = false) : GenerateVectorVariants(GVV) {}
+  AutoCPUClonePass(bool GVV = false);
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &);
 
 private:
