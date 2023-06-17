@@ -233,7 +233,7 @@ void VPOParoptTransform::genLprivFiniForTaskLoop(LastprivateItem *LprivI,
   IRBuilder<> Builder(InsertPt);
 
   if (LprivI->getIsVla()) {
-    MaybeAlign Align(DL.getABITypeAlignment(ItemTy));
+    MaybeAlign Align(DL.getABITypeAlign(ItemTy));
     Builder.CreateMemCpy(Dst, Align, Src, Align,
                          LprivI->getNewThunkBufferSize());
   } else if (!VPOUtils::canBeRegisterized(ItemTy, DL) ||
@@ -242,7 +242,7 @@ void VPOParoptTransform::genLprivFiniForTaskLoop(LastprivateItem *LprivI,
     assert((!NumElements || isa<ConstantInt>(NumElements)) &&
            "Lastprivate item should have been classified as VLA.");
     VPOUtils::genMemcpy(Dst, Src, Size, NumElements,
-                        DL.getABITypeAlignment(ItemTy), Builder);
+                        DL.getABITypeAlign(ItemTy).value(), Builder);
   } else {
     LoadInst *Load = Builder.CreateLoad(ItemTy, Src);
     Builder.CreateStore(Load, Dst);
@@ -1029,7 +1029,7 @@ void VPOParoptTransform::copySharedStructToTaskThunk(
       Size = Builder.getInt32(
           DL.getTypeAllocSize(Src->getAllocatedType()));
 
-    MaybeAlign Align(DL.getABITypeAlignment(Src->getAllocatedType()));
+    MaybeAlign Align(DL.getABITypeAlign(Src->getAllocatedType()));
     Builder.CreateMemCpy(LI, Align, SrcCast, Align, Size);
   }
 
@@ -1200,7 +1200,7 @@ void VPOParoptTransform::genFprivInitForTask(WRegionNode *W,
       std::tie(ItemTy, std::ignore, std::ignore) =
           VPOParoptUtils::getItemInfo(FprivI);
 
-      MaybeAlign Align(DL.getABITypeAlignment(ItemTy));
+      MaybeAlign Align(DL.getABITypeAlign(ItemTy));
 
       Builder.CreateMemCpy(NewData, Align, OrigCast, Align,
                            FprivI->getThunkBufferSize());
