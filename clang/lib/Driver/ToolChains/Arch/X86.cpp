@@ -425,9 +425,29 @@ void x86::getX86TargetFeatures(const Driver &D, const llvm::Triple &Triple,
     StringRef Name = A->getOption().getName();
     A->claim();
 
+#if INTEL_CUSTOMIZATION
     // Skip over "-m".
     assert(Name.startswith("m") && "Invalid feature name.");
     Name = Name.substr(1);
+    bool IsNegative = Name.startswith("no-");
+#if INTEL_FEATURE_ISA_APX_F
+    if (A->getOption().matches(options::OPT_mapx_features_EQ) ||
+        A->getOption().matches(options::OPT_mno_apx_features_EQ)) {
+
+      for (StringRef Value : A->getValues()) {
+        if (Value == "egpr" || Value == "push2pop2" || Value == "ndd" ||
+            Value == "ccmp" || Value == "cf") {
+          Features.push_back(
+              Args.MakeArgString((IsNegative ? "-" : "+") + Value));
+          continue;
+        }
+        D.Diag(clang::diag::err_drv_unsupported_option_argument)
+            << A->getSpelling() << Value;
+      }
+      continue;
+    }
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
     // Replace -mgeneral-regs-only with -x87, -mmx, -sse
     if (A->getOption().getID() == options::OPT_mgeneral_regs_only) {
@@ -435,7 +455,6 @@ void x86::getX86TargetFeatures(const Driver &D, const llvm::Triple &Triple,
       continue;
     }
 
-    bool IsNegative = Name.startswith("no-");
     if (IsNegative)
       Name = Name.substr(3);
     Features.push_back(Args.MakeArgString((IsNegative ? "-" : "+") + Name));
