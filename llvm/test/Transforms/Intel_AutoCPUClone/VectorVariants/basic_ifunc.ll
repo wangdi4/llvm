@@ -1,13 +1,13 @@
 ; RUN: opt -passes=auto-cpu-clone -generate-vector-variants < %s -S | FileCheck %s
 
 
-; CHECK: @__intel_cpu_feature_indicator_x = external global [2 x i64]
+; CHECK: @__intel_cpu_feature_indicator = external global [2 x i64]
 ; CHECK: @_ZGVZN16vv_func = dso_local ifunc <16 x i32> (<16 x i32>, <16 x ptr>), ptr @_ZGVZN16vv_func.resolver
 
 ; CHECK:      define dso_local ptr @_ZGVZN16vv_func.resolver() #4 {
 ; CHECK-NEXT: resolver_entry:
-; CHECK-NEXT:   call void @__intel_cpu_features_init_x()
-; CHECK-NEXT:   %cpu_feature_indicator = load i64, ptr @__intel_cpu_feature_indicator_x, align 8
+; CHECK-NEXT:   call void @__intel_cpu_features_init()
+; CHECK-NEXT:   %cpu_feature_indicator = load i64, ptr @__intel_cpu_feature_indicator, align 8
 ; CHECK-NEXT:   %cpu_feature_join = and i64 %cpu_feature_indicator, 4816840611962858
 ; CHECK-NEXT:   %cpu_feature_check = icmp eq i64 %cpu_feature_join, 4816840611962858
 ; CHECK-NEXT:   br i1 %cpu_feature_check, label %resolver_return, label %resolver_else
@@ -16,7 +16,7 @@
 ; CHECK-NEXT:   ret ptr @_ZGVZN16vv_func.l
 ; CHECK-EMPTY:
 ; CHECK-NEXT: resolver_else:                                    ; preds = %resolver_entry
-; CHECK-NEXT:   %cpu_feature_indicator1 = load i64, ptr @__intel_cpu_feature_indicator_x, align 8
+; CHECK-NEXT:   %cpu_feature_indicator1 = load i64, ptr @__intel_cpu_feature_indicator, align 8
 ; CHECK-NEXT:   %cpu_feature_join2 = and i64 %cpu_feature_indicator1, 429926490090
 ; CHECK-NEXT:   %cpu_feature_check3 = icmp eq i64 %cpu_feature_join2, 429926490090
 ; CHECK-NEXT:   br i1 %cpu_feature_check3, label %resolver_return4, label %resolver_else5

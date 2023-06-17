@@ -492,12 +492,13 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     Function* Resolver = nullptr;
     GlobalValue* Dispatcher = nullptr;
     GlobalVariable* DispatchPtr = nullptr;
+    bool PerformCPUBrandCheck = EnableAdvancedOpts || GenerateVectorVariants;
     if (UseWrapperBasedResolver)
       emitWrapperBasedResolver(*Fn, OrigName, MVOptions, Resolver, Dispatcher,
-                               DispatchPtr, EnableAdvancedOpts);
+                               DispatchPtr, PerformCPUBrandCheck);
     else
       emitIFuncBasedResolver(*Fn, OrigName, MVOptions, Resolver, Dispatcher,
-                             EnableAdvancedOpts);
+                             PerformCPUBrandCheck);
 
     Orig2MultiFuncs[Fn] = {Resolver, Dispatcher, DispatchPtr, std::move(Clones)};
     Dispatcher2BaselineGV[Dispatcher] = Fn;
@@ -663,7 +664,7 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
       llvm_unreachable("Unhandled case!");
     }
 
-    if (DispatchPtr)
+    if (DispatchPtr && !GenerateVectorVariants)
       DispatchPtr->setInitializer(Fn);
   }
 
