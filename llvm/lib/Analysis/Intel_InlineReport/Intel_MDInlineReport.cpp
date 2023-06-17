@@ -783,6 +783,10 @@ void InlineReportBuilder::replaceCallBaseWithCallBase(CallBase *OldCall,
   auto *OldCallMDIR = dyn_cast<MDTuple>(OldCallMD);
   if (!OldCallMDIR)
     return;
+  if (shouldSkipCallBase(NewCall)) {
+    removeCallback(OldCall);
+    return;
+  }
   assert(OldCall->getCaller() == NewCall->getCaller());
   // Steal the callsite metadata from OldCall, giving it to NewCall.
   NewCall->setMetadata(MDInliningReport::CallSiteTag, OldCallMDIR);
@@ -840,7 +844,7 @@ void InlineReportBuilder::cloneCallBaseToCallBase(CallBase *OldCall,
                                                   CallBase *NewCall) {
   if (!isMDIREnabled())
     return;
-  if (OldCall == NewCall)
+  if (OldCall == NewCall || shouldSkipCallBase(NewCall))
     return;
   Metadata *OldCallMD = OldCall->getMetadata(MDInliningReport::CallSiteTag);
   if (!OldCallMD)
@@ -1071,6 +1075,13 @@ void InlineReportBuilder::removeCallBasesInBasicBlocks(
     for (Instruction &I : *BB)
       if (auto CB = dyn_cast<CallBase>(&I))
         removeCallBaseReference(*CB, NinlrDeletedDeadCode);
+}
+
+bool InlineReportBuilder::shouldSkipCallBase(CallBase *CB) {
+  auto II = dyn_cast<IntrinsicInst>(CB);
+  if (!II)
+    return false;
+  return !(getLevel() & DontSkipIntrin) && shouldSkipIntrinsic(II);
 }
 
 extern cl::opt<unsigned> IntelInlineReportLevel;

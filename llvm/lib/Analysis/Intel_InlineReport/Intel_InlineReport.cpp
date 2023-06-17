@@ -857,10 +857,7 @@ bool InlineReport::makeCurrent(Function *F) {
   // Ensure that every CallBase in F is in the IRCallBaseCallSiteMap.
   for (auto &I : instructions(*F)) {
     CallBase *Call = dyn_cast<CallBase>(&I);
-    if (!Call)
-      continue;
-    if (isa<IntrinsicInst>(Call) && !(Level & DontSkipIntrin) &&
-        shouldSkipIntrinsic(cast<IntrinsicInst>(Call)))
+    if (!Call || shouldSkipCallBase(Call))
       continue;
     SeenCallBases.insert(Call);
     if (IRCallBaseCallSiteMap.count(Call))
@@ -970,10 +967,19 @@ void InlineReport::replaceCallBaseWithCallBase(CallBase *CB0, CallBase *CB1,
                                                bool UpdateReason) {
   if (!isClassicIREnabled())
     return;
-  if (CB0 == CB1)
+  if (CB0 == CB1 || shouldSkipCallBase(CB0) && shouldSkipCallBase(CB1))
     return;
+  if (shouldSkipCallBase(CB1)) {
+    IRCallBaseCallSiteMap.erase(CB0);
+    removeCallback(CB0);
+    return;
+  }
   assert(CB0->getCaller() == CB1->getCaller());
-  InlineReportCallSite *IRCS = getOrAddCallSite(CB0);
+  InlineReportCallSite *IRCS = nullptr;
+  if (shouldSkipCallBase(CB0))
+    IRCS = addCallSite(CB1);
+  else
+    IRCS = getOrAddCallSite(CB0);
   IRCS->setCall(CB1);
   if (Function *Callee = CB1->getCalledFunction()) {
     InlineReportFunction *IRFC = getOrAddFunction(Callee);
@@ -994,15 +1000,15 @@ void InlineReport::replaceCallBaseWithCallBase(CallBase *CB0, CallBase *CB1,
       IRCS->setReason(NinlrIndirect);
   }
   IRCallBaseCallSiteMap.erase(CB0);
-  IRCallBaseCallSiteMap.insert(std::make_pair(CB1, IRCS));
   removeCallback(CB0);
+  IRCallBaseCallSiteMap.insert(std::make_pair(CB1, IRCS));
   addCallback(CB1);
 }
 
 void InlineReport::cloneCallBaseToCallBase(CallBase *CB0, CallBase *CB1) {
   if (!isClassicIREnabled())
     return;
-  if (CB0 == CB1)
+  if (CB0 == CB1 || shouldSkipCallBase(CB1))
     return;
   assert(CB0->getCaller() == CB1->getCaller());
   InlineReportCallSite *IRCS = getOrAddCallSite(CB0);
@@ -1149,6 +1155,11 @@ void InlineReport::removeCallBasesInBasicBlocks(
     for (Instruction &I : *BB)
       if (auto CB = dyn_cast<CallBase>(&I))
         removeCallBaseReference(*CB, NinlrDeletedDeadCode);
+}
+
+bool InlineReport::shouldSkipCallBase(CallBase *CB) {
+  return isa<IntrinsicInst>(CB) && !(Level & DontSkipIntrin) &&
+         shouldSkipIntrinsic(cast<IntrinsicInst>(CB));
 }
 
 extern cl::opt<unsigned> IntelInlineReportLevel;
