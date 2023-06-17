@@ -319,7 +319,7 @@ def FeatureNDD : SubtargetFeature<"ndd", "HasNDD", "true",
 def FeatureCCMP : SubtargetFeature<"ccmp", "HasCCMP", "true",
                                    "Support conditional cmp & test instructions">;
 def FeatureCF : SubtargetFeature<"cf", "HasCF", "true",
-                                   "Support conditional faulting">;                                
+                                   "Support conditional faulting">;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 

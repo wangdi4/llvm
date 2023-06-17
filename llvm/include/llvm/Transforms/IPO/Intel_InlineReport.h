@@ -445,8 +445,8 @@ public:
 
   /// Add a pair of old and new call sites.  The 'NewCall' is a clone of
   /// the 'OldCall' produced by InlineFunction().
-  void addActiveCallSitePair(Value *OldCall, Value *NewCall) {
-    if (!isClassicIREnabled() || !NewCall)
+  void addActiveCallSitePair(CallBase *OldCall, CallBase *NewCall) {
+    if (!isClassicIREnabled() || !NewCall || shouldSkipCallBase(NewCall))
       return;
     ActiveOriginalCalls.push_back(OldCall);
     ActiveInlinedCalls.push_back(NewCall);
@@ -478,6 +478,8 @@ public:
                         << CB.getCalledFunction()->getName());
     LLVM_DEBUG(dbgs() << "\n");
     if (!isClassicIREnabled())
+      return;
+    if (shouldSkipCallBase(&CB))
       return;
     if (ActiveInlineCallBase != &CB) {
       auto MapIt = IRCallBaseCallSiteMap.find(&CB);
@@ -530,6 +532,10 @@ public:
   // Remove all of the CallBases in the 'BlocksToRemove' as dead code.
   void
   removeCallBasesInBasicBlocks(SmallSetVector<BasicBlock *, 8> &BlocksToRemove);
+
+  // Return 'true' if there should not be an InlineReportCallSite for 'CB'
+  // in the inline report.
+  bool shouldSkipCallBase(CallBase *CB);
 
   /// Ensure that the inline report for this routine reflects the
   /// changes that have been made to that routine since the last call to
