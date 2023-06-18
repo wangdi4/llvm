@@ -218,7 +218,13 @@ def inv_cond_XFORM : SDNodeXForm<imm, [{
 
 // Conditional moves with folded loads with operands swapped and conditions
 // inverted.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+let Predicates = [HasCMOV, NoNDD] in {
+#else // INTEL_FEATURE_ISA_APX_F
 let Predicates = [HasCMOV] in {
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   def : Pat<(X86cmov (loadi16 addr:$src1), GR16:$src2, timm:$cond, EFLAGS),
             (CMOV16rm GR16:$src2, addr:$src1, (inv_cond_XFORM timm:$cond))>;
   def : Pat<(X86cmov (loadi32 addr:$src1), GR32:$src2, timm:$cond, EFLAGS),
@@ -227,6 +233,26 @@ let Predicates = [HasCMOV] in {
             (CMOV64rm GR64:$src2, addr:$src1, (inv_cond_XFORM timm:$cond))>;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+let Predicates = [HasCMOV, HasNDD] in {
+  def : Pat<(X86cmov (loadi16 addr:$src1), GR16:$src2, timm:$cond, EFLAGS),
+            (CMOV16rm_ND GR16:$src2, addr:$src1, (inv_cond_XFORM timm:$cond))>;
+  def : Pat<(X86cmov (loadi32 addr:$src1), GR32:$src2, timm:$cond, EFLAGS),
+            (CMOV32rm_ND GR32:$src2, addr:$src1, (inv_cond_XFORM timm:$cond))>;
+  def : Pat<(X86cmov (loadi64 addr:$src1), GR64:$src2, timm:$cond, EFLAGS),
+            (CMOV64rm_ND GR64:$src2, addr:$src1, (inv_cond_XFORM timm:$cond))>;
+}
+let Predicates = [HasCMOV, HasCF] in {
+  def : Pat<(X86cmov GR16:$src1, 0, timm:$cond, EFLAGS),
+            (CFCMOV16rr GR16:$src1, (inv_cond_XFORM timm:$cond))>;
+  def : Pat<(X86cmov GR32:$src1, 0, timm:$cond, EFLAGS),
+            (CFCMOV32rr GR32:$src1, (inv_cond_XFORM timm:$cond))>;
+  def : Pat<(X86cmov GR64:$src1, 0, timm:$cond, EFLAGS),
+            (CFCMOV64rr GR64:$src1, (inv_cond_XFORM timm:$cond))>;
+}
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 // SetCC instructions.
 let Uses = [EFLAGS], isCodeGenOnly = 1, ForceDisassemble = 1 in {
   def SETCCr : I<0x90, MRMXrCC, (outs GR8:$dst), (ins ccode:$cond),
