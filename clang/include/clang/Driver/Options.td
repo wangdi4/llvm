@@ -4353,14 +4353,10 @@ def mno_inline_all_stringops : Flag<["-"], "mno-inline-all-stringops">, Group<cl
 def malign_double : Flag<["-"], "malign-double">, Group<m_Group>, Flags<[CC1Option]>,
   HelpText<"Align doubles to two words in structs (x86 only)">,
   MarshallingInfoFlag<LangOpts<"AlignDouble">>;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 def align : Flag<["-"], "align">, Alias<malign_double>,
   HelpText<"Align doubles to two words in structs (x86 only)">;
 #endif // INTEL_CUSTOMIZATION
-let Flags = [TargetSpecific] in {
-=======
->>>>>>> b18ca7296ef16700fadac98abe7fac8c8b44b4da
 def mfloat_abi_EQ : Joined<["-"], "mfloat-abi=">, Group<m_Group>, Values<"soft,softfp,hard">;
 def mfpmath_EQ : Joined<["-"], "mfpmath=">, Group<m_Group>;
 def mfpu_EQ : Joined<["-"], "mfpu=">, Group<m_Group>;
