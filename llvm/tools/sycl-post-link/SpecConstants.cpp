@@ -773,11 +773,7 @@ PreservedAnalyses SpecConstantsPass::run(Module &M,
           unsigned CurrentOffset = Ins.first->second;
           if (IsNewSpecConstant) {
             unsigned Size = M.getDataLayout().getTypeStoreSize(SCTy);
-<<<<<<< HEAD
-            unsigned Align = M.getDataLayout().getABITypeAlign(SCTy).value();
-=======
             uint64_t Align = M.getDataLayout().getABITypeAlign(SCTy).value();
->>>>>>> 17a41412b124d6b5206551f210daa844bd5a2d2e
 
             // Ensure correct alignment
             if (CurrentOffset % Align != 0) {
