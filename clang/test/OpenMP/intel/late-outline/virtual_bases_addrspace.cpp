@@ -24,10 +24,10 @@ struct D : B, C  {
 // CHECK-LABEL: @_ZN6PR62511DC2Ev(
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[THIS_ADDR:%.*]] = alloca ptr addrspace(4), align 8
-// CHECK-NEXT: [[VTT_ADDR:%vtt.addr]] = alloca ptr addrspace(1)
+// CHECK-NEXT: [[VTT_ADDR:%vtt.addr]] = alloca ptr addrspace(4)
 // CHECK-NEXT:    [[THIS_ADDR_ASCAST:%.*]] = addrspacecast ptr [[THIS_ADDR]] to ptr addrspace(4)
 // CHECK-NEXT: [[VTT_ADDR_ASCAST:%vtt.addr.ascast]] = addrspacecast ptr [[VTT_ADDR]] to ptr addrspace(4)
-// CHECK: %vtt2 = load ptr addrspace(1), ptr addrspace(4) [[VTT_ADDR_ASCAST]], align 8
+// CHECK: %vtt2 = load ptr addrspace(4), ptr addrspace(4) [[VTT_ADDR_ASCAST]], align 8
 // CHECK:    ret void
   D();
 };
