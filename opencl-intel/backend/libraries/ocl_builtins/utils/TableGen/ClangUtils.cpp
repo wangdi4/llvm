@@ -61,7 +61,7 @@ void build(const std::string &code, std::string fileName) {
   options << " -no-opaque-pointers";
 #endif
   options << " "
-          << "-opencl-builtins -fblocks -cl-std=CL2.0";
+          << "-opencl-builtins -fblocks -cl-std=CL3.0";
   options << " "
           << "-triple"
           << " "
