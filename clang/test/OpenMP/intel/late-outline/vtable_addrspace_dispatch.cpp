@@ -77,17 +77,17 @@ struct B : virtual A , public C
 B::B() {}
 // CHECK: define{{.*}}spir_func void @_ZN1BC2Ev
 // CHECK: [[THIS_ADDR:%[^)]*]] = alloca ptr addrspace(4)
-// CHECK: [[VTT_ADDR:%[^)]*]] = alloca ptr addrspace(1)
+// CHECK: [[VTT_ADDR:%[^)]*]] = alloca ptr addrspace(4)
 // CHECK: [[THIS_ADDR_ASCAST:%[^)]*]] = addrspacecast ptr [[THIS_ADDR]] to ptr addrspace(4)
 // CHECK: [[VTT_ADDR_ASCAST:%[^)]*]] = addrspacecast ptr [[VTT_ADDR]] to ptr addrspace(4)
 // CHECK: store ptr addrspace(4) %this, ptr addrspace(4) [[THIS_ADDR_ASCAST]]
-// CHECK: store ptr addrspace(1) %vtt, ptr addrspace(4) [[VTT_ADDR_ASCAST]]
+// CHECK: store ptr addrspace(4) %vtt, ptr addrspace(4) [[VTT_ADDR_ASCAST]]
 // CHECK: [[THIS1:%.*]] = load ptr addrspace(4), ptr addrspace(4) [[THIS_ADDR_ASCAST]]
-// CHECK: [[VTT2:%vtt2]] = load ptr addrspace(1), ptr addrspace(4) [[VTT_ADDR_ASCAST]]
-// CHECK: [[L1:%[^)]*]] = load ptr addrspace(4), ptr addrspace(1) [[VTT2]]
+// CHECK: [[VTT2:%vtt2]] = load ptr addrspace(4), ptr addrspace(4) [[VTT_ADDR_ASCAST]]
+// CHECK: [[L1:%[^)]*]] = load ptr addrspace(4), ptr addrspace(4) [[VTT2]]
 // CHECK: store ptr addrspace(4) [[L1]], ptr addrspace(4) [[THIS1]], align 8
-// CHECK: [[L4:%[^)]*]] = getelementptr inbounds ptr addrspace(4), ptr addrspace(1) [[VTT2]], i64 1
-// CHECK: [[L5:%[^)]*]] = load ptr addrspace(4), ptr addrspace(1) [[L4]]
+// CHECK: [[L4:%[^)]*]] = getelementptr inbounds ptr addrspace(4), ptr addrspace(4) [[VTT2]], i64 1
+// CHECK: [[L5:%[^)]*]] = load ptr addrspace(4), ptr addrspace(4) [[L4]]
 // CHECK: [[VTABLE:%vtable]] = load ptr addrspace(4), ptr addrspace(4) [[THIS1]]
 // CHECK: [[VBASE_OFFSET_PTR:%vbase.offset.ptr]] = getelementptr i8, ptr addrspace(4) [[VTABLE]]
 // CHECK: [[VBASE_OFFSET:%vbase.offset]] = load i64, ptr addrspace(4) [[VBASE_OFFSET_PTR]]

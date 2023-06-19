@@ -1700,7 +1700,11 @@ ItaniumCXXABI::buildStructorSignature(GlobalDecl GD,
   if ((isa<CXXConstructorDecl>(GD.getDecl()) ? GD.getCtorType() == Ctor_Base
                                              : GD.getDtorType() == Dtor_Base) &&
       cast<CXXMethodDecl>(GD.getDecl())->getParent()->getNumVBases() != 0) {
+#if INTEL_COLLAB
+    LangAS AS = LangAS::Default;
+#else // INTEL_COLLAB
     LangAS AS = CGM.GetGlobalVarAddressSpace(nullptr);
+#endif // INTEL_COLLAB
     QualType Q = Context.getAddrSpaceQualType(Context.VoidPtrTy, AS);
     ArgTys.insert(ArgTys.begin() + 1,
                   Context.getPointerType(CanQualType::CreateUnsafe(Q)));
@@ -1736,7 +1740,11 @@ void ItaniumCXXABI::addImplicitStructorParams(CodeGenFunction &CGF,
     ASTContext &Context = getContext();
 
     // FIXME: avoid the fake decl
+#if INTEL_COLLAB
+    LangAS AS = LangAS::Default;
+#else // INTEL_COLLAB
     LangAS AS = CGM.GetGlobalVarAddressSpace(nullptr);
+#endif // INTEL_COLLAB
     QualType Q = Context.getAddrSpaceQualType(Context.VoidPtrTy, AS);
     QualType T = Context.getPointerType(Q);
     auto *VTTDecl = ImplicitParamDecl::Create(
@@ -1785,7 +1793,11 @@ CGCXXABI::AddedStructorArgs ItaniumCXXABI::getImplicitConstructorArgs(
   // some targets.
   llvm::Value *VTT =
       CGF.GetVTTParameter(GlobalDecl(D, Type), ForVirtualBase, Delegating);
+#if INTEL_COLLAB
+  LangAS AS = LangAS::Default;
+#else // INTEL_COLLAB
   LangAS AS = CGM.GetGlobalVarAddressSpace(nullptr);
+#endif // INTEL_COLLAB
   QualType Q = getContext().getAddrSpaceQualType(getContext().VoidPtrTy, AS);
   QualType VTTTy = getContext().getPointerType(Q);
   return AddedStructorArgs::prefix({{VTT, VTTTy}});
