@@ -150,7 +150,7 @@ else()
   set(CL_OPT_LEVEL -O3)
 endif()
 
-# options for clang to compile OpenCL 2.0 code
+# options for clang to compile OpenCL 3.0 code
 set(CLANG_CL_COMMON_FLAGS
     -cc1
     -triple
@@ -167,7 +167,9 @@ set(CLANG_CL_COMMON_FLAGS
     ${CLANG_LLVM_INCLUDE_DIRS}
     -include
     opencl-c.h
-    -cl-std=CL2.0
+    -cl-std=CL3.0
+    -D__opencl_c_atomic_scope_all_devices
+    -D__opencl_c_atomic_scope_device
     -ffake-address-space-map)
 
 if(NOT SPIRV_ENABLE_OPAQUE_POINTERS)
