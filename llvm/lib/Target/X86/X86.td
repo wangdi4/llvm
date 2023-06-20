@@ -1815,6 +1815,18 @@ def ProcessorFeatures {
   list<SubtargetFeature> GRRFeatures =
     !listconcat(SRFFeatures, GRRAdditionalFeatures);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_LNL
+  // Lunarlake
+  list<SubtargetFeature> LNLAdditionalFeatures = [FeatureSHA512,
+                                                  FeatureSM3,
+                                                  FeatureSM4,
+                                                  FeatureAVXVNNIINT16];
+  list<SubtargetFeature> LNLFeatures =
+    !listconcat(SRFFeatures, LNLAdditionalFeatures);
+#endif // INTEL_FEATURE_CPU_LNL
+#endif // INTEL_CUSTOMIZATION
+
   // Knights Landing
   list<SubtargetFeature> KNLFeatures = [FeatureX87,
                                         FeatureCX8,
@@ -2309,6 +2321,10 @@ def : ProcModel<"diamondrapids", SapphireRapidsModel,
 def : ProcModel<"royal", RYLModel,
                 ProcessorFeatures.RYLFeatures, ProcessorFeatures.RYLTuning>;
 #endif // INTEL_FEATURE_CPU_RYL
+#if INTEL_FEATURE_CPU_LNL
+def : ProcModel<"lunarlake", AlderlakePModel,
+                ProcessorFeatures.LNLFeatures, ProcessorFeatures.ADLTuning>;
+#endif // INTEL_FEATURE_CPU_LNL
 #endif // INTEL_CUSTOMIZATION
 def : ProcModel<"alderlake", AlderlakePModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;

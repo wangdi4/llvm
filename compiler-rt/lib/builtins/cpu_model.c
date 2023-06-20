@@ -143,6 +143,9 @@ enum ProcessorSubtypes {
 #if INTEL_FEATURE_CPU_RYL
   INTEL_RYL_ROYAL,
 #endif // INTEL_FEATURE_CPU_RYL
+#if INTEL_FEATURE_CPU_LNL
+  INTEL_COREI7_LUNARLAKE,
+#endif // INTEL_FEATURE_CPU_LNL
 #endif // INTEL_CUSTOMIZATION
   CPU_SUBTYPE_MAX
 };
@@ -488,6 +491,16 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       break;
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_LNL
+    // Lunarlake:
+    case 0xbc:
+    case 0xbd:
+      CPU = "lunarlake";
+      *Type = INTEL_COREI7;
+      *Subtype = INTEL_COREI7_LUNARLAKE;
+      break;
+#endif // INTEL_FEATURE_CPU_LNL
+
 #if INTEL_FEATURE_CPU_RYL
     // Royal:
     case 0x18:

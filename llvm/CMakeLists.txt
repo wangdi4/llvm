@@ -1207,6 +1207,10 @@ if(INTEL_CUSTOMIZATION)
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_CPU_RYL)
 # end INTEL_FEATURE_CPU_RYL
+# INTEL_FEATURE_CPU_LNL
+      list(APPEND features_enabled_by_default
+          ${LLVM_INTELFEATURE_PREFIX}_CPU_LNL)
+# end INTEL_FEATURE_CPU_LNL
 # INTEL_FEATURE_MARKERCOUNT
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_MARKERCOUNT)
