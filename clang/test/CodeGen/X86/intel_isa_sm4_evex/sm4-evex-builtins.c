@@ -1,4 +1,4 @@
-// REQUIRES: intel_feature_isa_sm4
+// REQUIRES: intel_feature_isa_sm4_evex
 // RUN: %clang_cc1 %s -ffreestanding -triple=x86_64-unknown-unknown -target-feature +sm4 \
 // RUN: -target-feature +avx512f -emit-llvm -o - -Wall -Werror -pedantic -Wno-gnu-statement-expression | FileCheck %s
 
