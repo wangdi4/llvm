@@ -531,7 +531,6 @@ static Value *EmitISOVolatileStore(CodeGenFunction &CGF, const CallExpr *E) {
   return Store;
 }
 
-#if INTEL_CUSTOMIZATION
 static llvm::CallInst *createFPBuiltinCallWithAttrs(CodeGenFunction &CGF,
                                                     llvm::Function *F,
                                                     ArrayRef<Value *> Args) {
@@ -544,7 +543,7 @@ static llvm::CallInst *createFPBuiltinCallWithAttrs(CodeGenFunction &CGF,
   CI->setAttributes(AttrList);
   return CI;
 }
-#endif // INTEL_CUSTOMIZATION
+
 static CallInst *CreateBuiltinCallWithAttr(CodeGenFunction &CGF, StringRef Name,
                                            llvm::Function *FPBuiltinF,
                                            ArrayRef<Value *> Args,
@@ -2715,7 +2714,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
                                                Result.Val.getFloat()));
   }
 
-  CurrentBuiltinIDRAII CB(*this, BuiltinID); // INTEL
+  CurrentBuiltinIDRAII CB(*this, BuiltinID);
 
   // If current long-double semantics is IEEE 128-bit, replace math builtins
   // of long-double with f128 equivalent.
