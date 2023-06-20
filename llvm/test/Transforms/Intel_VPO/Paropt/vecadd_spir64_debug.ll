@@ -51,7 +51,7 @@
 ; CHECK: [[UNIT:![0-9]+]] = {{.*}}!DICompileUnit({{.*}}file: [[FILE:![0-9]+]]
 ; CHECK: [[FILE]] = !DIFile(filename: "vecadd.cpp"{{.*}})
 ; CHECK: [[EMPTY:![0-9]+]] = !{}
-; CHECK: [[OFFLOAD]] = distinct !DISubprogram(name: "_Z6vecaddv.DIR.OMP.TARGET.{{[0-9]+}}.split.split.split", scope: [[FILE]], file: [[FILE]], line: 40, type: [[OFFLOAD_TYPE:![0-9]+]], scopeLine: 40, flags: DIFlagArtificial, spFlags: DISPFlagLocalToUnit | DISPFlagDefinition, unit: [[UNIT]], retainedNodes: [[EMPTY]])
+; CHECK: [[OFFLOAD]] = distinct !DISubprogram(name: "_Z6vecaddv.DIR.OMP.TARGET.{{[0-9]+}}.split.split.split", scope: [[FILE]], file: [[FILE]], line: 40, type: [[OFFLOAD_TYPE:![0-9]+]], scopeLine: 40, flags: DIFlagArtificial, spFlags: DISPFlagLocalToUnit | DISPFlagDefinition, unit: [[UNIT]])
 ; CHECK-DAG: [[OFFLOAD_TYPE]] = !DISubroutineType(types: [[EMPTY]])
 ; CHECK-DAG: [[V1_DIVAR]] = !DILocalVariable(name: "v1", scope: [[OFFLOAD]]
 ; CHECK-DAG: [[L36C17]] = !DILocation(line: 36, column: 17, scope: [[OFFLOAD]]
