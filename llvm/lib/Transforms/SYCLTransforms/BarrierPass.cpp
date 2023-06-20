@@ -10,6 +10,8 @@
 
 #include "llvm/Transforms/SYCLTransforms/BarrierPass.h"
 #include "llvm/Analysis/CFG.h"
+#include "llvm/Analysis/PostDominators.h"
+#include "llvm/Analysis/RegionInfo.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/DIBuilder.h"
@@ -277,6 +279,8 @@ void KernelBarrier::fixAllocaAndDbg(Function &F) {
   // will be replaced by the loaded value.
   DominatorTree DT;
   DominanceFrontier DF;
+  PostDominatorTree PDT;
+  RegionInfo RI;
   std::unique_ptr<BarrierRegionInfo> BRI;
   // BarrierRegionInfo isn't able to handle a rare case that a basic block is
   // unreachable from entry block. For this case, we need to load from special
@@ -286,6 +290,8 @@ void KernelBarrier::fixAllocaAndDbg(Function &F) {
     if (llvm::none_of(F, [&](BasicBlock &BB) { return !DT.getNode(&BB); })) {
       DF.analyze(DT);
       BRI.reset(new BarrierRegionInfo(&F, &DF, &DT));
+      PDT.recalculate(F);
+      RI.recalculate(F, &DT, &PDT, &DF);
     }
   }
 
@@ -337,35 +343,85 @@ void KernelBarrier::fixAllocaAndDbg(Function &F) {
       if (auto A = dyn_cast<Argument>(V); A && A->hasByValAttr())
         Expr = DIExpression::prepend(Expr, DIExpression::DerefBefore);
       DIB.insertDeclare(AddrAI, DI->getVariable(), Expr,
-                        DI->getDebugLoc().get(), AddrAI->getNextNode());
+                        DI->getDebugLoc().get(), DI);
     }
 
     // Get offset of alloca value in special buffer.
     unsigned int Offset = DPV->getOffset(V);
 
-    // Insert instruction in barrier region header to load V's address in
-    // special buffer to AddrAI.
-    bool AllocaDebugLocFixed = false;
-    DenseMap<BasicBlock *, LoadInst *> HeaderToLoadInst;
+    // Insert instruction to load V's address in special buffer to AddrAI.
+    // Barrier region header is a coarse estimate of insert point. Within the
+    // barrier region, RegionInfo is used to find the insert point basic block
+    // that dominators the parent basic blocks of V's users.
+    // E.g.
+    //   for.cond:
+    //     br i1 %cmp3, label %for.body, label %for.end
+    //   for.body:
+    //     br %master.thread.fallthru
+    //   master.thread.fallthru:
+    //     call void @_Z18work_group_barrierj12memory_scope(i32 3, i32 1)
+    //     br label %for.inc
+    //   for.inc:
+    //     br label %for.cond
+    //   for.end:
+    //     store i32 0, i32* %j, align 4
+    // for.end and for.cond are in the same barrier region, and %j has single
+    // user in for.end which is outside the loop. If we load %j's address in
+    // special buffer in region header, %j's debug info will change in the loop,
+    // which isn't desired.
+    MapVector<BasicBlock *, SmallVector<Instruction *, 8>> BBUsers;
     for (auto *U : V->users()) {
       BasicBlock *BB = cast<Instruction>(U)->getParent();
       if (BRI)
         BB = BRI->getRegionHeaderFor(BB);
-      if (HeaderToLoadInst.contains(BB))
-        continue;
-      Instruction *InsertBefore;
-      if (auto It = SyncPerBB.find(BB); It != SyncPerBB.end()) {
-        InsertBefore = It->second->getNextNode();
-        assert(
-            InsertBefore->getParent() == BB &&
-            "sync instruction must not be the last instruction in the block");
+      BBUsers[BB].push_back(cast<Instruction>(U));
+    }
+    for (auto &Pair : BBUsers) {
+      BasicBlock *BB = Pair.first;
+      Instruction *InsertBefore = nullptr;
+      if (BB->isEntryBlock()) {
+        InsertBefore = BB->getTerminator();
+      } else if (AI && AI->getParent() == BB) {
+        // The inserted instructions will get debug loc of current alloca.
+        InsertBefore = AI;
       } else {
-        if (BB->isEntryBlock()) {
-          InsertBefore = BB->getTerminator();
-        } else if (AI && AI->getParent() == BB) {
-          // The inserted instructions will get debug loc of current alloca.
-          InsertBefore = AI;
-          AllocaDebugLocFixed = true;
+        // Get top level region.
+        Region *R = nullptr;
+        for (auto *UI : Pair.second) {
+          auto *R1 = RI.getRegionFor(UI->getParent());
+          R = R ? RI.getCommonRegion(R, R1) : R1;
+        }
+
+        // Find dominator basic block.
+        BasicBlock *Dom = nullptr;
+        SmallPtrSet<Region *, 4> Visited;
+        for (auto *UI : Pair.second) {
+          auto *BB1 = UI->getParent();
+          auto *R1 = RI.getRegionFor(BB1);
+          if (R1 == R) {
+            Dom = Dom ? DT.findNearestCommonDominator(Dom, BB1) : BB1;
+          } else if (Visited.insert(R1).second) {
+            auto *Entry = R1->getEntry();
+            Dom = Dom ? DT.findNearestCommonDominator(Dom, Entry) : Entry;
+          }
+        }
+
+        bool NonPHI = llvm::none_of(Pair.second, [&](auto *I) {
+          return I->getParent() == Dom && isa<PHINode>(I);
+        });
+        if (NonPHI && BRI->getRegionHeaderFor(Dom) == BB) {
+          if (auto It = SyncPerBB.find(Dom); It != SyncPerBB.end())
+            InsertBefore = It->second->getNextNode();
+          else
+            InsertBefore = Dom->getFirstNonPHI();
+        }
+      }
+      if (!InsertBefore) {
+        if (auto It = SyncPerBB.find(BB); It != SyncPerBB.end()) {
+          InsertBefore = It->second->getNextNode();
+          assert(
+              InsertBefore->getParent() == BB &&
+              "sync instruction must not be the last instruction in the block");
         } else {
           InsertBefore = BB->getFirstNonPHI();
         }
@@ -381,29 +437,12 @@ void KernelBarrier::fixAllocaAndDbg(Function &F) {
       if (isa<Argument>(V))
         LI =
             Builder.CreateLoad(cast<Argument>(V)->getType(), LI, "loadedValue");
-      HeaderToLoadInst[BB] = LI;
+
+      for (auto *I : Pair.second)
+        if (!isa<DbgVariableIntrinsic>(I))
+          I->replaceUsesOfWith(V, LI);
     }
 
-    // Replace a use with result of the load instruction if the use is in the
-    // same barrier region.
-    for (auto *U : make_early_inc_range(V->users())) {
-      auto *UI = cast<Instruction>(U);
-      BasicBlock *BB = UI->getParent();
-      if (BRI)
-        BB = BRI->getRegionHeaderFor(BB);
-      LoadInst *LI = HeaderToLoadInst[BB];
-      if (!isa<DbgVariableIntrinsic>(UI))
-        UI->replaceUsesOfWith(V, LI);
-    }
-
-    if (IsNativeDBG && AI && !AllocaDebugLocFixed) {
-      // Store the new addr in special buffer into AddrAI to preserve debug
-      // info.
-      Value *AddrInSpecialBuffer =
-          getAddressInSpecialBuffer(Offset, AllocatedTy, AI, &DB);
-      auto *SI = new StoreInst(AddrInSpecialBuffer, AddrAI, AI);
-      SI->setDebugLoc(DB);
-    }
     if (AI)
       InstructionsToRemove.push_back(AI);
 

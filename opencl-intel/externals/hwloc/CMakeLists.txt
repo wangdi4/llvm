@@ -29,7 +29,7 @@ endif(INTEL_CUSTOMIZATION)
 
 #set hwloc version
 set(HWLOC_TAG hwloc-2.9.0)
-set(hwloc_patch git apply ${CMAKE_CURRENT_SOURCE_DIR}/hwloc_refine.patch)
+set(hwloc_patch git checkout -- . && git apply ${CMAKE_CURRENT_SOURCE_DIR}/hwloc_refine.patch)
 
 message(STATUS "Fetch HWLOC project from ${HWLOC_REPO}")
 

@@ -430,7 +430,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
   MPM.addPass(DuplicateCalledKernelsPass());
 
   MPM.addPass(SYCLKernelAnalysisPass(
-      Intel::OpenCL::Utils::CPUDetect::GetInstance()->HasAMX()));
+      Intel::OpenCL::Utils::CPUDetect::GetInstance()->HasSPR()));
   if (Level != OptimizationLevel::O0) {
     MPM.addPass(createModuleToFunctionPassAdaptor(SimplifyCFGPass()));
     MPM.addPass(WGLoopBoundariesPass());

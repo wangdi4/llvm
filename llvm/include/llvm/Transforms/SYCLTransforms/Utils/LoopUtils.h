@@ -88,13 +88,6 @@ void getAllCallInFunc(StringRef FuncName, Function *FuncToSearch,
 /// M - current module.
 Type *getIndTy(Module *M);
 
-/// Collect the get_***_id() in F.
-/// TIDName - name of the tid generator get_global_id\ get_local_id.
-/// TidCalls - array of get_***_id call to fill.
-/// F - kernel to collect information for.
-void collectTIDCallInst(StringRef TIDName,
-                        CompilationUtils::InstVecVec &TidCalls, Function *F);
-
 /// Fill atomic builtin user functions.
 void fillAtomicBuiltinUsers(Module &M, RuntimeService &RTS,
                             CompilationUtils::FuncSet &UserFunc);

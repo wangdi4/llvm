@@ -373,6 +373,10 @@ constexpr FeatureBitset FeaturesSierraforest =
     FeatureAVXNECONVERT | FeatureAVXVNNIINT8;
 constexpr FeatureBitset FeaturesGrandridge =
     FeaturesSierraforest | FeatureRAOINT;
+#if INTEL_FEATURE_CPU_LNL
+constexpr FeatureBitset FeaturesLunarlake = FeaturesSierraforest |
+    FeatureSHA512 | FeatureSM3 | FeatureSM4 | FeatureAVXVNNIINT16;
+#endif // INTEL_FEATURE_CPU_LNL
 
 // Geode Processor.
 constexpr FeatureBitset FeaturesGeode =
@@ -570,6 +574,12 @@ constexpr ProcInfo Processors[] = {
   { {"graniterapids"}, CK_Graniterapids, FEATURE_AVX512BF16, FeaturesGraniteRapids },
   // Emerald Rapids microarchitecture based processors.
   { {"emeraldrapids"}, CK_Emeraldrapids, FEATURE_AVX512BF16, FeaturesSapphireRapids },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_LNL
+  // Lunarlake microarchitecture based processors.
+  { {"lunarlake"}, CK_Lunarlake, FEATURE_AVX2, FeaturesLunarlake },
+#endif // INTEL_FEATURE_CPU_LNL
+#endif // INTEL_CUSTOMIZATION
 #if !INTEL_CUSTOMIZATION
   // Knights Landing processor.
   { {"knl"}, CK_KNL, FEATURE_AVX512F, FeaturesKNL },

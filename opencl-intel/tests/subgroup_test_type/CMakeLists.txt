@@ -3,8 +3,6 @@ use_rtti(FALSE)
 include_directories(${OCL_SOURCE_DIR}/tests/framework_test_type
                     ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export)
 
-link_directories(${TBB_LIB_DIR})
-
 set(TARGET_LIBS
   LLVMSupport
   LLVMTargetParser
