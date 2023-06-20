@@ -1626,9 +1626,9 @@ define void @splat2_v4f64_load_store(ptr %s, ptr %d) nounwind {
 ; AVX1-LABEL: splat2_v4f64_load_store:
 ; AVX1:       # %bb.0:
 ; AVX1-NEXT:    vperm2f128 $51, (%rdi), %ymm0, %ymm0 # ymm0 = mem[2,3,2,3]
-; AVX1-NEXT:    vshufpd {{.*#+}} ymm0 = ymm0[0,0,3,3] ;INTEL
+; AVX1-NEXT:    vshufpd {{.*#+}} ymm0 = ymm0[0,0,3,3]
 ; AVX1-NEXT:    vbroadcastf128 (%rdi), %ymm1 # ymm1 = mem[0,1,0,1]
-; AVX1-NEXT:    vshufpd {{.*#+}} ymm1 = ymm1[0,0,3,3] ;INTEL
+; AVX1-NEXT:    vshufpd {{.*#+}} ymm1 = ymm1[0,0,3,3]
 ; AVX1-NEXT:    vmovupd %ymm0, 32(%rsi)
 ; AVX1-NEXT:    vmovupd %ymm1, (%rsi)
 ; AVX1-NEXT:    vzeroupper
@@ -1663,9 +1663,9 @@ define void @splat2_v4i64_load_store(ptr %s, ptr %d) nounwind {
 ; AVX1-LABEL: splat2_v4i64_load_store:
 ; AVX1:       # %bb.0:
 ; AVX1-NEXT:    vperm2f128 $51, (%rdi), %ymm0, %ymm0 # ymm0 = mem[2,3,2,3]
-; AVX1-NEXT:    vshufpd {{.*#+}} ymm0 = ymm0[0,0,3,3] ;INTEL
+; AVX1-NEXT:    vshufpd {{.*#+}} ymm0 = ymm0[0,0,3,3]
 ; AVX1-NEXT:    vbroadcastf128 (%rdi), %ymm1 # ymm1 = mem[0,1,0,1]
-; AVX1-NEXT:    vshufpd {{.*#+}} ymm1 = ymm1[0,0,3,3] ;INTEL
+; AVX1-NEXT:    vshufpd {{.*#+}} ymm1 = ymm1[0,0,3,3]
 ; AVX1-NEXT:    vmovupd %ymm0, 32(%rsi)
 ; AVX1-NEXT:    vmovupd %ymm1, (%rsi)
 ; AVX1-NEXT:    vzeroupper
@@ -1746,17 +1746,17 @@ define void @splat4_v8f32_load_store(ptr %s, ptr %d) nounwind {
 ; AVX512:       # %bb.0:
 ; INTEL_CUSTOMIZATION
 ; AVX512-NEXT:    vmovupd (%rdi), %ymm0
-; AVX512-NEXT:    vshufps {{.*#+}} ymm1 = ymm0[0,0,1,1,4,4,5,5]
-; AVX512-NEXT:    vbroadcastss (%rdi), %ymm2
-; AVX512-NEXT:    vshufpd {{.*#+}} xmm3 = xmm1[1,1]
+; AVX512-NEXT:    vbroadcastss (%rdi), %ymm1
+; AVX512-NEXT:    vshufps {{.*#+}} ymm2 = ymm0[0,0,1,1,4,4,5,5]
+; AVX512-NEXT:    vshufpd {{.*#+}} xmm3 = xmm2[1,1]
 ; AVX512-NEXT:    vshufps {{.*#+}} ymm0 = ymm0[2,2,3,3,6,6,7,7]
 ; AVX512-NEXT:    vmovddup {{.*#+}} xmm4 = xmm0[0,0]
 ; AVX512-NEXT:    vshufpd {{.*#+}} xmm5 = xmm0[1,1]
 ; AVX512-NEXT:    vinsertf128 $1, %xmm5, %ymm4, %ymm4
-; AVX512-NEXT:    vinsertf128 $1, %xmm3, %ymm2, %ymm2
-; AVX512-NEXT:    vinsertf64x4 $1, %ymm4, %zmm2, %zmm2
-; AVX512-NEXT:    vmovupd %zmm2, (%rsi)
-; AVX512-NEXT:    vinsertf64x4 $1, %ymm0, %zmm1, %zmm0
+; AVX512-NEXT:    vinsertf128 $1, %xmm3, %ymm1, %ymm1
+; AVX512-NEXT:    vinsertf64x4 $1, %ymm4, %zmm1, %zmm1
+; AVX512-NEXT:    vmovupd %zmm1, (%rsi)
+; AVX512-NEXT:    vinsertf64x4 $1, %ymm0, %zmm2, %zmm0
 ; AVX512-NEXT:    vpermpd {{.*#+}} zmm0 = zmm0[2,2,3,3,6,6,7,7]
 ; AVX512-NEXT:    vmovupd %zmm0, 64(%rsi)
 ; end INTEL_CUSTOMIZATION
