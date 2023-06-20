@@ -9909,20 +9909,11 @@ llvm::Constant *AMDGPUTargetCodeGenInfo::getNullPointer(
 
   auto &Ctx = CGM.getContext();
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-<<<<<<< HEAD
   auto NPT = llvm::PointerType::get(PT->getContext(),
 #else // INTEL_SYCL_OPAQUEPOINTER_READY
   auto NPT = llvm::PointerType::getWithSamePointeeType(PT,
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
       Ctx.getTargetAddressSpace(LangAS::opencl_generic));
-=======
-  auto NPT = llvm::PointerType::get(
-      PT->getContext(), Ctx.getTargetAddressSpace(LangAS::opencl_generic));
-#else // INTEL_SYCL_OPAQUEPOINTER_READY
-  auto NPT = llvm::PointerType::getWithSamePointeeType(
-      PT, Ctx.getTargetAddressSpace(LangAS::opencl_generic));
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
->>>>>>> a32bace27eab786c75a3cf4db7215110b35f9d26
   return llvm::ConstantExpr::getAddrSpaceCast(
       llvm::ConstantPointerNull::get(NPT), PT);
 }

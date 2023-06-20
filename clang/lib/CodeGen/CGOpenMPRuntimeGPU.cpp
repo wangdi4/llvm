@@ -3103,30 +3103,20 @@ CGOpenMPRuntimeGPU::getParameterAddress(CodeGenFunction &CGF,
       LocalAddr, /*Volatile=*/false, TargetTy, SourceLocation());
   // First cast to generic.
   TargetAddr = CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       TargetAddr,
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       llvm::PointerType::get(CGF.getLLVMContext(), /*AddrSpace=*/0));
 #else // INTEL_SYCL_OPAQUEPOINTER_READY
-<<<<<<< HEAD
       llvm::PointerType::getWithSamePointeeType(
-=======
-      TargetAddr, llvm::PointerType::getWithSamePointeeType(
->>>>>>> a32bace27eab786c75a3cf4db7215110b35f9d26
           cast<llvm::PointerType>(TargetAddr->getType()), /*AddrSpace=*/0));
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
   // Cast from generic to native address space.
   TargetAddr = CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       TargetAddr,
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       llvm::PointerType::get(CGF.getLLVMContext(), NativePointeeAddrSpace));
 #else // INTEL_SYCL_OPAQUEPOINTER_READY
-<<<<<<< HEAD
       llvm::PointerType::getWithSamePointeeType(
-=======
-      TargetAddr, llvm::PointerType::getWithSamePointeeType(
->>>>>>> a32bace27eab786c75a3cf4db7215110b35f9d26
           cast<llvm::PointerType>(TargetAddr->getType()),
                                   NativePointeeAddrSpace));
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
@@ -3154,16 +3144,11 @@ void CGOpenMPRuntimeGPU::emitOutlinedFunctionCall(
       continue;
     }
     llvm::Value *TargetArg = CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         NativeArg,
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         llvm::PointerType::get(CGF.getLLVMContext(), /*AddrSpace*/ 0));
 #else // INTEL_SYCL_OPAQUEPOINTER_READY
-<<<<<<< HEAD
         llvm::PointerType::getWithSamePointeeType(
-=======
-        NativeArg, llvm::PointerType::getWithSamePointeeType(
->>>>>>> a32bace27eab786c75a3cf4db7215110b35f9d26
             cast<llvm::PointerType>(NativeArg->getType()), /*AddrSpace*/ 0));
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
     TargetArgs.emplace_back(
