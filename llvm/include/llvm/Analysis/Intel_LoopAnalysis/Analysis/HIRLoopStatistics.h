@@ -1,6 +1,6 @@
 //===------- HIRLoopStatistics.h - Provides Loop Statistics ------*- C++-*-===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -34,6 +34,7 @@ class TargetLibraryInfo;
 
 namespace loopopt {
 
+class HLNode;
 struct LoopStatistics {
 private:
   unsigned NumIfs = 0;
@@ -53,7 +54,7 @@ public:
   LoopStatistics() {}
 
   // Visitor to compute statistics.
-  struct LoopStatisticsVisitor;
+  struct LoopOrRegionStatisticsVisitor;
 
   unsigned getNumIfs() const { return NumIfs; }
   bool hasIfs() const { return getNumIfs() > 0; }
@@ -143,20 +144,24 @@ public:
   }
 
   /// Prints the loop statistics.
-  void print(formatted_raw_ostream &OS, const HLLoop *Lp) const;
+  void print(formatted_raw_ostream &OS, const HLNode *Node) const;
 };
 
 class HIRLoopStatistics : public HIRAnalysis {
 private:
-  /// Maintains self statistics information for loops.
-  DenseMap<const HLLoop *, LoopStatistics> SelfStatisticsMap;
+  /// Maintains self statistics information.
+  DenseMap<const HLNode *, LoopStatistics> SelfStatisticsMap;
 
-  /// Maintains total statistics information for loops.
-  DenseMap<const HLLoop *, LoopStatistics> TotalStatisticsMap;
+  /// Maintains total statistics information.
+  DenseMap<const HLNode *, LoopStatistics> TotalStatisticsMap;
 
 protected:
   /// Prints analyis results for loop.
-  virtual void print(formatted_raw_ostream &OS, const HLLoop *Lp) override;
+  virtual void print(formatted_raw_ostream &OS, const HLLoop *Loop) override;
+
+  /// Prints analyis results for Region.
+  virtual void print(formatted_raw_ostream &OS,
+                     const HLRegion *Region) override;
 
 public:
   TargetLibraryInfo &TLI;
@@ -169,22 +174,23 @@ public:
         TotalStatisticsMap(std::move(Arg.TotalStatisticsMap)), TLI(Arg.TLI) {}
   HIRLoopStatistics(const HIRLoopStatistics &Arg) = delete;
 
-  /// This method will mark the loop and all its parent loops as modified. If
-  /// loop changes, statistics of the loop and all its parents loops needs to be
-  /// recomputed.
+  /// Invalidate Region statistics to force recomputation for next call.
+  void markNonLoopRegionModified(const HLRegion *Region) override;
+
+  /// This method will mark the loop and all parent loops and region as
+  /// modified. Future calls to get the statistics for these parents will
+  /// require recomputation.
   void markLoopBodyModified(const HLLoop *Loop) override;
 
-  /// Returns the loop statistics of the specified loop. This excludes loop
-  /// statistics of children loops.
-  const LoopStatistics &getSelfLoopStatistics(const HLLoop *Loop);
+  /// Returns the statistics of the specified Node. This excludes
+  /// statistics of nested children loops.
+  const LoopStatistics &getSelfLoopStatistics(const HLNode *Node);
 
-  /// Returns the loop statistics of the specified loop including children
+  /// Returns the statistics of the specified Node including children
   /// loops.
   /// NOTE: Children loop's statistics is added assuming a trip count of one. No
   /// multiplier is involved.
-  const LoopStatistics &getTotalLoopStatistics(const HLLoop *Loop);
-
-  // TODO: provide an update interface.
+  const LoopStatistics &getTotalLoopStatistics(const HLNode *Node);
 };
 
 class HIRLoopStatisticsWrapperPass : public FunctionPass {
