@@ -2016,7 +2016,6 @@ def ffp_exception_behavior_EQ : Joined<["-"], "ffp-exception-behavior=">, Group<
   Values<"ignore,maytrap,strict">, NormalizedValuesScope<"LangOptions">,
   NormalizedValues<["FPE_Ignore", "FPE_MayTrap", "FPE_Strict"]>,
   MarshallingInfoEnum<LangOpts<"FPExceptionMode">, "FPE_Default">;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 def fp_model_EQ : Joined<["-"], "fp-model=">, Alias<ffp_model_EQ>,
   HelpText<"Controls the semantics of floating-point calculations.">;
@@ -2041,7 +2040,6 @@ def fno_use_unaligned_vector_move : Flag<["-"], "fno-use-unaligned-vector-move">
     HelpText<"Disable transforming aligned vector move instruction to "
              "unaligned vector move.">;
 #endif // INTEL_CUSTOMIZATION
-=======
 def ffp_accuracy_EQ : Joined<["-"], "ffp-accuracy=">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Specifies the required accuracy for floating-point operations and library calls.">,
   Values<"default,high,medium,low,sycl,cuda">, NormalizedValuesScope<"LangOptions">,
@@ -2049,7 +2047,6 @@ def ffp_accuracy_EQ : Joined<["-"], "ffp-accuracy=">, Group<f_Group>, Flags<[CC1
   MarshallingInfoEnum<LangOpts<"FPAccuracy">, "FPA_Default">;
 def ffp_builtin_accuracy_EQ : Joined<["-"], "ffp-builtin-accuracy=">, Group<f_Group>, Flags<[CC1Option]>;
 
->>>>>>> 405778ab831b86cc536f0ef7730545b1a73920f1
 defm fast_math : BoolFOption<"fast-math",
   LangOpts<"FastMath">, DefaultFalse,
   PosFlag<SetTrue, [CC1Option, CoreOption, FC1Option, FlangOption], "Allow aggressive, lossy floating-point optimizations",

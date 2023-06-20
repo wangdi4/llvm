@@ -6351,7 +6351,6 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   }
 #endif  // INTEL_COLLAB
   if (!InvokeDest) {
-<<<<<<< HEAD
 #if INTEL_COLLAB
     auto IsIndirectCall = [&CalleePtr]()->bool {
       assert(CalleePtr && "No function to call");
@@ -6378,7 +6377,6 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
         CGM.getTriple().isSPIR() && IsIndirectCall)
       return EmitOMPIndirectCall(IRFuncTy, IRCallArgs, CalleePtr);
 #endif  // INTEL_COLLAB
-=======
     if (CGM.getCodeGenOpts().FPAccuracy) {
       const auto *FD = dyn_cast_if_present<FunctionDecl>(TargetDecl);
       assert(FD && "expecting a function");
@@ -6386,7 +6384,6 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
       if (CI)
         return RValue::get(CI);
     }
->>>>>>> 405778ab831b86cc536f0ef7730545b1a73920f1
     CI = Builder.CreateCall(IRFuncTy, CalleePtr, IRCallArgs, BundleList);
   } else {
     llvm::BasicBlock *Cont = createBasicBlock("invoke.cont");

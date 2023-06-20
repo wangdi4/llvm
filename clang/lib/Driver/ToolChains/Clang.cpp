@@ -6749,7 +6749,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
           << A->getAsString(Args) << TripleStr;
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (Args.hasFlag(options::OPT__SLASH_Qlong_double,
                    options::OPT__SLASH_Qlong_double_, false)) {
@@ -6810,7 +6809,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (!imfAttr.empty())
     CmdArgs.push_back(Args.MakeArgString(imfAttr));
 #endif // INTEL_CUSTOMIZATION
-=======
   std::string FpAccuracyAttr;
   auto RenderFPAccuracyOptions = [&FpAccuracyAttr](const Twine &OptStr) {
     // In case the value is 'default' don't add the -ffp-builtin-accuracy
@@ -6827,7 +6825,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     RenderFPAccuracyOptions(A);
   if (!FpAccuracyAttr.empty())
     CmdArgs.push_back(Args.MakeArgString(FpAccuracyAttr));
->>>>>>> 405778ab831b86cc536f0ef7730545b1a73920f1
 
   // Decide whether to use verbose asm. Verbose assembly is the default on
   // toolchains which have the integrated assembler on by default.

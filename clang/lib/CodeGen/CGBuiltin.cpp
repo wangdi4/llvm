@@ -531,7 +531,6 @@ static Value *EmitISOVolatileStore(CodeGenFunction &CGF, const CallExpr *E) {
   return Store;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static llvm::CallInst *createFPBuiltinCallWithAttrs(CodeGenFunction &CGF,
                                                     llvm::Function *F,
@@ -546,7 +545,6 @@ static llvm::CallInst *createFPBuiltinCallWithAttrs(CodeGenFunction &CGF,
   return CI;
 }
 #endif // INTEL_CUSTOMIZATION
-=======
 static CallInst *CreateBuiltinCallWithAttr(CodeGenFunction &CGF, StringRef Name,
                                            llvm::Function *FPBuiltinF,
                                            ArrayRef<Value *> Args,
@@ -578,7 +576,6 @@ static bool hasAccuracyRequirement(CodeGenFunction &CGF, StringRef Name) {
   auto FuncMapIt = CGF.getLangOpts().FPAccuracyFuncMap.find(Name.str());
   return FuncMapIt != CGF.getLangOpts().FPAccuracyFuncMap.end();
 }
->>>>>>> 405778ab831b86cc536f0ef7730545b1a73920f1
 
 // Emit a simple mangled intrinsic that has 1 argument and a return type
 // matching the argument type. Depending on mode, this may be a constrained
@@ -2718,12 +2715,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
                                                Result.Val.getFloat()));
   }
 
-<<<<<<< HEAD
-
   CurrentBuiltinIDRAII CB(*this, BuiltinID); // INTEL
-=======
-  CurrentBuiltinIDRAII CB(*this, BuiltinID);
->>>>>>> 405778ab831b86cc536f0ef7730545b1a73920f1
 
   // If current long-double semantics is IEEE 128-bit, replace math builtins
   // of long-double with f128 equivalent.
@@ -24307,7 +24299,6 @@ RValue CodeGenFunction::EmitIntelFPGAMemBuiltin(const CallExpr *E) {
   return RValue::get(Ann);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Generate a Vector ABI mangled name for a function.  If VLen and
 /// FuncName are known (when name is created from a real function and not a
@@ -24548,7 +24539,6 @@ RValue CodeGenFunction::EmitOpenMPDeviceSpirPrintfCallExpr(const CallExpr *E) {
   return RValue::get(CI);
 }
 #endif // INTEL_COLLAB
-=======
 llvm::CallInst *CodeGenFunction::EmitFPBuiltinIndirectCall(
     llvm::FunctionType *IRFuncTy, const SmallVectorImpl<llvm::Value *> &IRArgs,
     llvm::Value *FnPtr, const FunctionDecl *FD) {
@@ -24657,7 +24647,6 @@ llvm::CallInst *CodeGenFunction::EmitFPBuiltinIndirectCall(
   return CreateBuiltinCallWithAttr(*this, Name, Func, ArrayRef(IRArgs),
                                    FPAccuracyIntrinsicID);
 }
->>>>>>> 405778ab831b86cc536f0ef7730545b1a73920f1
 
 Value *CodeGenFunction::EmitRISCVBuiltinExpr(unsigned BuiltinID,
                                              const CallExpr *E,
