@@ -1094,6 +1094,11 @@ static std::optional<std::string> getOclocLocation(Compilation &C) {
         ValidLoc &= llvm::sys::fs::exists(Loc);
       if (ValidLoc)
         return std::string(Path.str());
+      // Non-split case, finding 'ocloc.exe' is valid.
+      SmallString<128> LibDir(Path.trim());
+      llvm::sys::path::append(LibDir, "ocloc.exe");
+      if (llvm::sys::fs::exists(LibDir))
+        return std::string(Path.str());
     }
   }
   SmallString<128> OclocDir(C.getDriver().Dir);
@@ -1237,7 +1242,17 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
       return;
     }
   }
-  // Splitting environment not available, do a regular run
+  // Find ocloc via OCLOCROOT/OCLOCVER or LIB
+  if (auto OclocLoc = getOclocLocation(C)) {
+    SmallString<128> OD(*OclocLoc);
+    llvm::sys::path::append(OD, "ocloc.exe");
+    if (llvm::sys::fs::exists(OD)) {
+      constructOclocCommand(C, JA, Output, Inputs, CmdArgs, OD);
+      return;
+    }
+  }
+  // Splitting environment not available and not found with OCLOCROOT/OCLOCVER
+  // or LIB so do a regular run.
   auto OclocBin = llvm::sys::findProgramByName("ocloc");
   if (OclocBin.getError())
     C.getDriver().Diag(diag::warn_drv_aot_tool_not_found)
