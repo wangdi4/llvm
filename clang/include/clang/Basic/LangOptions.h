@@ -340,6 +340,15 @@ public:
 
   enum ExcessPrecisionKind { FPP_Standard, FPP_Fast, FPP_None };
 
+  enum FPAccuracyKind {
+    FPA_Default,
+    FPA_High,
+    FPA_Medium,
+    FPA_Low,
+    FPA_Sycl,
+    FPA_Cuda,
+  };
+
   /// Possible exception handling behavior.
   enum class ExceptionHandlingKind { None, SjLj, WinEH, DwarfCFI, Wasm };
 
@@ -562,6 +571,10 @@ public:
   /// The name of the file to which the backend should save YAML optimization
   /// records.
   std::string OptRecordFile;
+
+  std::string FPAccuracyVal;
+  using FPAccuracyFuncMapTy = std::map<std::string, std::string>;
+  FPAccuracyFuncMapTy FPAccuracyFuncMap;
 
   LangOptions();
 
