@@ -2396,8 +2396,8 @@ static void pushSGBlockBuiltinDivergentVectInfo(
 
 #if INTEL_CUSTOMIZATION
 static void pushSGRowSliceBuiltinVectInfo() {
-  const static SmallVector<StringRef, 4> DataTypes = {"i8", "i16", "i32",
-                                                      "bf16", "f32"};
+  const static SmallVector<StringRef, 6> DataTypes = {"i8",   "i16", "i32",
+                                                      "bf16", "f32", "f16"};
   const static SmallVector<unsigned, 5> VFs = {4, 8, 16, 32, 64};
   for (StringRef DataType : DataTypes) {
     for (unsigned VF : VFs) {
@@ -2707,6 +2707,7 @@ bool isValidMatrixType(FixedVectorType *MatrixType) {
     }
   case Type::FloatTyID:
   case Type::BFloatTyID:
+  case Type::HalfTyID:
     return true;
   default:
     return false;

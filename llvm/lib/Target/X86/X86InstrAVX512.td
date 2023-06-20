@@ -17626,7 +17626,7 @@ defm VDPHBF8PS : avx512_vdpfp8_common<0x50, "vdphbf8ps", X86vdphbf8ps, avx512vl_
 defm VDPHF8PS  : avx512_vdpfp8_common<0x50, "vdphf8ps",  X86vdphf8ps,  avx512vl_f32_info>, T_MAP5PD;
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP8
 
-#if INTEL_FEATURE_ISA_SM4
+#if INTEL_FEATURE_ISA_SM4_EVEX
 multiclass avx512_sm4_base<string OpStr> {
   // SM4_Base is in X86InstrSSE.td.
   let Predicates = [HasAVX256P_Or_HasSM4] in {
@@ -17645,7 +17645,7 @@ multiclass avx512_sm4_base<string OpStr> {
 
 defm VSM4KEY4 : avx512_sm4_base<"vsm4key4">, T8XS, EVEX_4V;
 defm VSM4RNDS4 : avx512_sm4_base<"vsm4rnds4">, T8XD, EVEX_4V;
-#endif // INTEL_FEATURE_ISA_SM4
+#endif // INTEL_FEATURE_ISA_SM4_EVEX
 
 #if INTEL_FEATURE_ISA_AVX512_VNNI_INT16
 let Constraints = "$src1 = $dst" in

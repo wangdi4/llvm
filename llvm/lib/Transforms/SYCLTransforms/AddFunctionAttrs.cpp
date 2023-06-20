@@ -35,10 +35,16 @@ static bool addAMXMatrixIntrinsicAttributes(Module &M) {
   for (auto &F : M) {
     if (!isAMXMatrixIntrinsicFunction(F))
       continue;
-    F.addFnAttr(Attribute::Convergent);
-    F.addFnAttr(KernelAttribute::CallOnce);
-    F.addFnAttr(KernelAttribute::UniformCall);
-    F.addFnAttr(KernelAttribute::OCLVecUniformReturn);
+    // Adding attributes to the intrinsic function has no effect,
+    // so we have to attach these attributes to the call sites.
+    for (auto *U : F.users()) {
+      if (auto *CI = dyn_cast<CallInst>(U)) {
+        CI->addFnAttr(Attribute::Convergent);
+        CI->addFnAttr(KernelAttribute::CallOnce);
+        CI->addFnAttr(KernelAttribute::UniformCall);
+        CI->addFnAttr(KernelAttribute::OCLVecUniformReturn);
+      }
+    }
     Changed = true;
   }
   return Changed;
