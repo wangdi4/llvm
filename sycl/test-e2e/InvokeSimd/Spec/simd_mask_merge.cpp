@@ -17,13 +17,7 @@ constexpr int VL = 16;
 [[intel::device_indirectly_callable]] simd<float, VL>
 SIMD_CALLEE(simd<float, VL> va, simd_mask<float, VL> mask) SYCL_ESIMD_FUNCTION {
   esimd::simd<float, VL> ret(0);
-<<<<<<< HEAD
-  esimd::simd_mask<VL> emask;
-  for (int i = 0; i < VL; i++)
-    emask[i] = static_cast<bool>(mask[i]);
-=======
   esimd::simd_mask<VL> emask = mask;
->>>>>>> de5b479a2de9395c6243066a8dcf3472537c77dd
   ret.merge(va, !emask);
   return ret;
 }
