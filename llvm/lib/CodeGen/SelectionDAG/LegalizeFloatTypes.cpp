@@ -169,6 +169,8 @@ void DAGTypeLegalizer::SoftenFloatResult(SDNode *N, unsigned ResNo) {
     case ISD::VECREDUCE_FMUL:
     case ISD::VECREDUCE_FMIN:
     case ISD::VECREDUCE_FMAX:
+    case ISD::VECREDUCE_FMAXIMUM:
+    case ISD::VECREDUCE_FMINIMUM:
       R = SoftenFloatRes_VECREDUCE(N);
       break;
     case ISD::VECREDUCE_SEQ_FADD:
@@ -2452,6 +2454,8 @@ void DAGTypeLegalizer::PromoteFloatResult(SDNode *N, unsigned ResNo) {
     case ISD::VECREDUCE_FMUL:
     case ISD::VECREDUCE_FMIN:
     case ISD::VECREDUCE_FMAX:
+    case ISD::VECREDUCE_FMAXIMUM:
+    case ISD::VECREDUCE_FMINIMUM:
       R = PromoteFloatRes_VECREDUCE(N);
       break;
     case ISD::VECREDUCE_SEQ_FADD:
@@ -2817,6 +2821,8 @@ void DAGTypeLegalizer::SoftPromoteHalfResult(SDNode *N, unsigned ResNo) {
   case ISD::VECREDUCE_FMUL:
   case ISD::VECREDUCE_FMIN:
   case ISD::VECREDUCE_FMAX:
+  case ISD::VECREDUCE_FMAXIMUM:
+  case ISD::VECREDUCE_FMINIMUM:
     R = SoftPromoteHalfRes_VECREDUCE(N);
     break;
   case ISD::VECREDUCE_SEQ_FADD:
