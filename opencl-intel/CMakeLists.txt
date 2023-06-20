@@ -496,47 +496,33 @@ set(TBB_ROOT_DIR $ENV{TBBROOT}/$ENV{TBBVER})
 message(STATUS "Environment TBBROOT: $ENV{TBBROOT}")
 message(STATUS "Environment TBBVER: $ENV{TBBVER}")
 
-if(BUILD_X64)
-  set(TBB_ARCH "intel64")
-else()
-  set(TBB_ARCH "ia32")
-endif()
-
 # TBB_LIBRARY_DIR - Used for LIT environment
+set(TBB_DIR "${TBB_ROOT_DIR}/lib/cmake/tbb")
+find_package(TBB REQUIRED tbb)
+get_target_property(TBB_LOC TBB::tbb LOCATION_RELEASE)
+get_target_property(TBB_INC_DIR TBB::tbb INTERFACE_INCLUDE_DIRECTORIES)
+get_filename_component(TBB_LIBRARY_DIR ${TBB_LOC} DIRECTORY)
+
+# INTEL_CUSTOMIZATION
+# On windows, we are building xmain in the u4win environment. And msvc utils
+# just like link.exe cannot recognize rdrive path. So we need to copy tbb imp
+# libs to local directory.
 if(WIN32)
-  if(INTEL_DEPLOY_UNIFIED_LAYOUT)
-    if(BUILD_X64)
-      set(TBB_LIB_DIR ${TBB_ROOT_DIR}/lib)
-      set(TBB_LIBRARY_DIR ${TBB_ROOT_DIR}/bin)
-    else(BUILD_X64)
-      set(TBB_LIB_DIR ${TBB_ROOT_DIR}/lib32)
-      set(TBB_LIBRARY_DIR ${TBB_ROOT_DIR}/bin32)
-    endif(BUILD_X64)
-  else(INTEL_DEPLOY_UNIFIED_LAYOUT)
-    set(TBB_LIB_DIR ${TBB_ROOT_DIR}/lib/${TBB_ARCH}/vc14)
-    set(TBB_LIBRARY_DIR ${TBB_ROOT_DIR}/redist/${TBB_ARCH}/vc14)
-  endif(INTEL_DEPLOY_UNIFIED_LAYOUT)
-else(WIN32)
-  if(INTEL_DEPLOY_UNIFIED_LAYOUT)
-    set(TBB_LIB_DIR ${TBB_ROOT_DIR}/lib)
-  else(INTEL_DEPLOY_UNIFIED_LAYOUT)
-    set(TBB_LIB_DIR ${TBB_ROOT_DIR}/lib/${TBB_ARCH}/gcc4.8)
-  endif(INTEL_DEPLOY_UNIFIED_LAYOUT)
-  set(TBB_LIBRARY_DIR ${TBB_LIB_DIR})
-  # Import tbb library
-  add_library(tbb SHARED IMPORTED)
-  set_target_properties(tbb PROPERTIES
-    IMPORTED_LOCATION_RELEASE
-      ${TBB_LIB_DIR}/${IMPLIB_PREFIX}tbb${IMPLIB_SUFFIX}
-    IMPORTED_LOCATION_DEBUG
-      ${TBB_LIB_DIR}/${IMPLIB_PREFIX}tbb_debug${IMPLIB_SUFFIX})
+  get_target_property(TBB_IMPLIB_RELEASE TBB::tbb IMPORTED_IMPLIB_RELEASE)
+  get_target_property(TBB_IMPLIB_DEBUG TBB::tbb IMPORTED_IMPLIB_DEBUG)
+  execute_process(COMMAND ${CMAKE_COMMAND} -E make_directory
+                    ${OCL_BINARY_DIR}/lib/${OUTPUT_ARCH_SUFF})
+  execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    ${TBB_IMPLIB_RELEASE} ${OCL_BINARY_DIR}/lib/${OUTPUT_ARCH_SUFF}
+                  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    ${TBB_IMPLIB_DEBUG} ${OCL_BINARY_DIR}/lib/${OUTPUT_ARCH_SUFF})
+  link_directories(${OCL_BINARY_DIR}/lib/${OUTPUT_ARCH_SUFF})
 endif(WIN32)
+# end INTEL_CUSTOMIZATION
 
-if((NOT TBB_LIB_DIR) OR (NOT EXISTS ${TBB_LIB_DIR}))
-  message(FATAL_ERROR "TBB library path is not found: ${TBB_LIB_DIR}")
+if((NOT TBB_LIBRARY_DIR) OR (NOT EXISTS ${TBB_LIBRARY_DIR}))
+  message(FATAL_ERROR "TBB library path is not found: ${TBB_LIBRARY_DIR}")
 endif()
-
-set(TBB_INC_DIR ${TBB_ROOT_DIR}/include)
 
 if((NOT TBB_INC_DIR) OR (NOT EXISTS ${TBB_INC_DIR}))
   message(FATAL_ERROR "TBB include path is not found: ${TBB_INC_DIR}")

@@ -44,8 +44,6 @@ set(LLVM_OPTIONAL_SOURCES
 find_sources()
 calculate_target_sources()
 
-link_directories(${TBB_LIB_DIR})
-
 set(TARGET_LIBS
   LLVMDebugInfoTraceBack
   LLVMMC

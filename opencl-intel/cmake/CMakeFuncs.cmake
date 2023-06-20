@@ -531,6 +531,6 @@ function(link_target_with_tbb_library target)
       " /NODEFAULTLIB:MSVCRT tbb12_debug${TBB_BINARIES_POSTFIX}.lib \
       /DELAYLOAD:tbb12_debug${TBB_BINARIES_POSTFIX}.dll ")
   else()
-    target_link_libraries(${target} PRIVATE tbb)
+    target_link_libraries(${target} PRIVATE TBB::tbb)
   endif()
 endfunction()
