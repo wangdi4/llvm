@@ -2832,7 +2832,7 @@ struct StructuredFlowChecker final : public HLNodeVisitorBase {
   bool IsDone;
 
   StructuredFlowChecker(bool PDom, const HLNode *TNode,
-                        bool TargetEndsTraversal, const HLLoop *ParentLoop,
+                        bool TargetEndsTraversal, const HLNode *FirstNode,
                         HIRLoopStatistics *HLS);
 
   // Returns true if visitor is done.
@@ -2850,14 +2850,18 @@ struct StructuredFlowChecker final : public HLNodeVisitorBase {
 
 StructuredFlowChecker::StructuredFlowChecker(bool PDom, const HLNode *TNode,
                                              bool TargetEndsTraversal,
-                                             const HLLoop *ParentLoop,
+                                             const HLNode *FirstNode,
                                              HIRLoopStatistics *HLS)
     : IsPDom(PDom), TargetNode(TNode), TargetEndsTraversal(TargetEndsTraversal),
       IsStructured(true), IsDone(false) {
   // Query HIRLoopStatistics for a possible faster response.
-  if (HLS && ParentLoop) {
+  HLNode *Parent = FirstNode->getParentLoop();
+  if (!Parent)
+    Parent = FirstNode->getParentRegion();
+
+  if (HLS) {
     if (IsPDom) {
-      auto &TLS = HLS->getTotalLoopStatistics(ParentLoop);
+      auto &TLS = HLS->getTotalLoopStatistics(Parent);
 
       // Should we store statistics for multi-exit children loops to only
       // require self statistics?
@@ -2865,7 +2869,7 @@ StructuredFlowChecker::StructuredFlowChecker(bool PDom, const HLNode *TNode,
         IsDone = true;
       }
     } else {
-      auto &SLS = HLS->getSelfLoopStatistics(ParentLoop);
+      auto &SLS = HLS->getSelfLoopStatistics(Parent);
 
       if (!SLS.hasLabels()) {
         IsDone = true;
@@ -2987,7 +2991,7 @@ bool HLNodeUtils::hasStructuredFlow(const HLNode *Parent, const HLNode *Node,
   bool TargetEndsTraversal = (!UpwardTraversal || (TargetNode != LastNode));
 
   StructuredFlowChecker SFC(PostDomination, TargetNode, TargetEndsTraversal,
-                            FirstNode->getParentLoop(), HLS);
+                            FirstNode, HLS);
 
   // Don't need to recurse into loops.
   // TODO: We probably need to enhance it to recurse into multi-exit loops.
