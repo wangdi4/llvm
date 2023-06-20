@@ -5,8 +5,6 @@ include_directories(AFTER ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export)
 find_sources(${IGNORE_FILES})
 calculate_target_sources()
 
-link_directories(${TBB_LIB_DIR})
-
 set(CPU_DEVICE_TEST_TYPE_LINK_LIBS
   ${LLVM_MODULE_LIBS}
   BuiltinLibInfo

@@ -52,9 +52,6 @@ if(WIN32)
   ADD_CUSTOM_TARGET(
     Generate_proto 
     DEPENDS protoc "debugservermessages.pb.cc" "debugservermessages.pb.h" )
-  
-  # Add additional lib direcories
-  link_directories(${TBB_LIB_DIR})
 
   set(SOCKETLIB ws2_32)
 
