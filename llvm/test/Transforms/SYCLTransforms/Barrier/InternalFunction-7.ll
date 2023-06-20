@@ -35,14 +35,14 @@ L3:
 ; CHECK-NOT: @_Z18work_group_barrierj
 ;;;; TODO: add regular expression for the below values.
 ; CHECK-LABEL: SyncBB{{[0-9]*}}:
-; CHECK:   [[GEP0:%[a-zA-Z0-9]+]] = load i32*, i32** %x.addr
+; CHECK: [[LOAD:%[0-9]+]] = load i32*, i32** %x.addr
 ; CHECK:   br label %L2
 ; CHECK: L2:
 ; CHECK:   %SBIndex = load i32, i32* %pCurrSBIndex
 ; CHECK:   %SB_LocalId_Offset = add nuw i32 %SBIndex, 4
-; CHECK:   [[GEP1:%[a-zA-Z0-9]+]] = getelementptr inbounds i8, i8* %pSB, i32 %SB_LocalId_Offset
-; CHECK:   %pSB_LocalId = bitcast i8* [[GEP1]] to i32**
-; CHECK:   store i32* [[GEP0]], i32** %pSB_LocalId
+; CHECK:   [[GEP:%[a-zA-Z0-9]+]] = getelementptr inbounds i8, i8* %pSB, i32 %SB_LocalId_Offset
+; CHECK:   %pSB_LocalId = bitcast i8* [[GEP]] to i32**
+; CHECK:   store i32* [[LOAD]], i32** %pSB_LocalId
 ; CHECK:   br label %CallBB
 ;; TODO_END ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; CHECK: call void @foo

@@ -18,7 +18,6 @@ define void @test() #0 !dbg !9 !kernel_arg_addr_space !2 !kernel_arg_access_qual
 entry:
 ; CHECK-LABEL: entry:
 ; CHECK: %g.addr = alloca i32*
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i32** %g.addr, metadata !{{[0-9]+}}, metadata !DIExpression(DW_OP_deref)), !dbg !{{[0-9]+}}
 ; CHECK-NOT: %g = alloca i32
 
   call void @dummy_barrier.()
@@ -45,7 +44,8 @@ entry:
 ; CHECK-NEXT: [[LocalId:%pSB_LocalId]] = bitcast i8* [[GEP]] to i32*
 ; CHECK-NEXT: store i32* [[LocalId]], i32** %g.addr
 ; CHECK-NEXT: [[G:%[0-9]+]] = load i32*, i32** %g.addr
-; CHECK: store i32 1, i32* [[G]], align 4, !dbg !{{[0-9]+}}
+; CHECK:      call void @llvm.dbg.declare(metadata i32** %g.addr, metadata !{{[0-9]+}}, metadata !DIExpression(DW_OP_deref)), !dbg
+; CHECK-NEXT: store i32 1, i32* [[G]], align 4, !dbg
 
   br label %"Barrier BB"
 

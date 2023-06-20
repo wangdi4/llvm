@@ -58,13 +58,6 @@ private:
   using InstVec = CompilationUtils::InstVec;
   using ValueVec = CompilationUtils::ValueVec;
 
-  using BasicBlockToBasicBlockTy = DenseMap<BasicBlock *, BasicBlock *>;
-  using BasicBlockToBasicBlockSetTy = DenseMap<BasicBlock *, BBSet>;
-  using BasicBlockToBasicBlockVectorTy =
-      DenseMap<BasicBlock *, SmallVector<BasicBlock *, 8>>;
-  using BasicBlockToInstructionMapVectorTy =
-      MapVector<BasicBlock *, SmallVector<Instruction *, 8>>;
-
   /// Execute pass on given function.
   /// F function to optimize.
   /// Returns True if function was modified.

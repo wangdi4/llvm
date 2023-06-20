@@ -45,8 +45,10 @@ entry:
   br label %"Barrier BB1"
 
 ; CHECK-LABEL: SyncBB2:
+; CHECK: load i64, i64* %pCurrSBIndex
+; CHECK: load i64, i64* %pCurrSBIndex
 ; CHECK: [[SBIndex0:%SBIndex[0-9]+]] = load i64, i64* %pCurrSBIndex
-; CHECK-NEXT: [[Offset0:%SB_LocalId_Offset[0-9]+]] = add nuw i64 [[SBIndex0]], {{[0-9]+}}
+; CHECK-NEXT: [[Offset0:%SB_LocalId_Offset[0-9]+]] = add nuw i64 [[SBIndex0]], 16
 ; CHECK-NEXT: [[GEP0:%[a-zA-Z0-9]+]] = getelementptr inbounds i8, i8* %pSB, i64 [[Offset0]]
 ; CHECK-NEXT: [[LocalId0:%pSB_LocalId[0-9]+]] = bitcast i8* [[GEP0]] to i32**
 ; CHECK-NEXT: store i32** [[LocalId0]], i32*** %lid.addr.addr

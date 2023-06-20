@@ -28,18 +28,15 @@ define linkonce_odr void @_ZZZN29hierarchical_private_memory__9check_dimILi1EEEv
 entry:
 ; CHECK-LABEL: @_ZZZN29hierarchical_private_memory__9check_dimILi1EEEvRN8sycl_cts4util6loggerEENKUlRN2cl4sycl7handlerEE_clES8_ENKUlNS6_5groupILi1EEEE_clESB_
 ; CHECK: %group_pid.addr = alloca %"class.cl::sycl::group"**, align 8
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata %"class.cl::sycl::group"*** %group_pid.addr, metadata !{{.*}}, metadata !DIExpression(DW_OP_deref, DW_OP_deref)), !dbg
 
   call void @dummy_barrier.()
   br label %leader
 
-; CHECK-LABEL: SyncBB0:
+leader:                                           ; preds = %entry
+; CHECK-LABEL: leader:
 ; CHECK: store %"class.cl::sycl::group"** %pSB_LocalId{{.*}}, %"class.cl::sycl::group"*** %group_pid.addr, align 8
 ; CHECK-NEXT: [[LOAD1:%[0-9]+]] = load %"class.cl::sycl::group"**, %"class.cl::sycl::group"*** %group_pid.addr, align 8
 ; CHECK-NEXT: [[LOAD2:%loadedValue[0-9]*]] = load %"class.cl::sycl::group"*, %"class.cl::sycl::group"** [[LOAD1]], align 8
-
-leader:                                           ; preds = %entry
-; CHECK-LABEL: leader:
 ; CHECK-NEXT: bitcast %"class.cl::sycl::group"* [[LOAD2]] to i8*
 
   %0 = bitcast %"class.cl::sycl::group"* %group_pid to i8*
@@ -48,6 +45,7 @@ leader:                                           ; preds = %entry
 wg_leader:                                        ; preds = %leader
 ; CHECK-LABEL: wg_leader:
 ; CHECK-NEXT: addrspacecast %"class.cl::sycl::group"* [[LOAD2]] to %"class.cl::sycl::group" addrspace(4)*
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata %"class.cl::sycl::group"*** %group_pid.addr, metadata !{{.*}}, metadata !DIExpression(DW_OP_deref, DW_OP_deref)), !dbg
 
   %group_pid.ascast = addrspacecast %"class.cl::sycl::group"* %group_pid to %"class.cl::sycl::group" addrspace(4)*
   call void @llvm.dbg.declare(metadata %"class.cl::sycl::group" addrspace(4)* %group_pid.ascast, metadata !13, metadata !DIExpression()), !dbg !21
