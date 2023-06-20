@@ -150,6 +150,14 @@ public:
   /// memory representation is usually i8 or i32, depending on the target.
   llvm::Type *ConvertTypeForMem(QualType T, bool ForBitField = false);
 
+  /// ConvertSYCLJointMatrixINTELType - Convert SYCL joint_matrix type
+  /// which is represented as a pointer to a structure to LLVM extension type
+  /// with the parameters that follow SPIR-V JointMatrixINTEL type.
+  /// The expected representation is:
+  /// target("spirv.JointMatrixINTEL", %element_type, %rows%, %cols%, %scope%,
+  ///        %use%, (optional) %element_type_interpretation%)
+  llvm::Type *ConvertSYCLJointMatrixINTELType(RecordDecl *RD);
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
   // A type to hold the type-information for a function type, specifically for
