@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/BalancedPartitioning.h"
+#include "llvm/Support/ThreadPool.h" // INTEL
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Format.h"
@@ -80,10 +81,11 @@ void BalancedPartitioning::run(std::vector<BPFunctionNode> &Nodes) const {
       dbgs() << format(
           "Partitioning %d nodes using depth %d and %d iterations per split\n",
           Nodes.size(), Config.SplitDepth, Config.IterationsPerSplit));
+  ThreadPool TheThreadPool; // INTEL
   std::optional<BPThreadPool> TP;
 #if LLVM_ENABLE_THREADS
   if (Config.TaskSplitDepth > 1)
-    TP.emplace();
+    TP.emplace(TheThreadPool); // INTEL
 #endif
 
   // Record the input order
