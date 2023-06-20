@@ -53,7 +53,7 @@ _ZZZ17matrix_verify_addItLm16ELm16EEvN2cl4sycl5queueER10big_matrixIT_XT0_EXT1_EE
   %div.i = and i64 %sub5.i, -8
   %add.ptr.i.i = getelementptr inbounds i16, i16 addrspace(1)* %add.ptr.i51.i, i64 %div.i
   %call.ascast.i.i = addrspacecast i16 addrspace(1)* %add.ptr.i.i to i16 addrspace(4)*
-  tail call void @llvm.experimental.matrix.store.v128i16.p4i16(<128 x i16> %sub_a.sroa.0.0.i, i16 addrspace(4)* %call.ascast.i.i, i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
+  tail call void @llvm.experimental.matrix.store.v128i16.p4i16(<128 x i16> %sub_a.sroa.0.0.i, i16 addrspace(4)* %call.ascast.i.i, i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary") #7
   ret void
 }
 
@@ -89,9 +89,10 @@ attributes #0 = { nounwind "prefer-vector-width"="512" }
 attributes #1 = { inaccessiblememonly mustprogress nofree nosync nounwind willreturn }
 attributes #2 = { mustprogress nofree nosync nounwind readnone willreturn }
 attributes #3 = { mustprogress nofree nosync nounwind willreturn }
-attributes #4 = { convergent mustprogress nofree nosync nounwind willreturn "kernel-call-once" "kernel-uniform-call" "opencl-vec-uniform-return" }
+attributes #4 = { mustprogress nofree nosync nounwind willreturn }
 attributes #5 = { mustprogress nofree nosync nounwind readnone willreturn "prefer-vector-width"="512" }
 attributes #6 = { nounwind readnone willreturn }
+attributes #7 = { convergent "kernel-call-once" "kernel-uniform-call" "opencl-vec-uniform-return" }
 
 !spirv.MemoryModel = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
@@ -314,13 +315,6 @@ attributes #6 = { nounwind readnone willreturn }
 ; CHECK-NEXT:    [[TMP36:%.*]] = and i64 [[TMP33]], -8
 ; CHECK-NEXT:    [[SCALAR_GEP34:%.*]] = getelementptr inbounds i16, i16 addrspace(1)* [[SCALAR_GEP]], i64 [[TMP36]]
 ; CHECK-NEXT:    [[TMP37:%.*]] = addrspacecast i16 addrspace(1)* [[SCALAR_GEP34]] to i16 addrspace(4)*
-; CHECK-NEXT:    tail call void @llvm.experimental.matrix.store.v128i16.p4i16(<128 x i16> [[UNI_PHI31]], i16 addrspace(4)* [[TMP37]], i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
-; CHECK-NEXT:    tail call void @llvm.experimental.matrix.store.v128i16.p4i16(<128 x i16> [[UNI_PHI31]], i16 addrspace(4)* [[TMP37]], i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
-; CHECK-NEXT:    tail call void @llvm.experimental.matrix.store.v128i16.p4i16(<128 x i16> [[UNI_PHI31]], i16 addrspace(4)* [[TMP37]], i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
-; CHECK-NEXT:    tail call void @llvm.experimental.matrix.store.v128i16.p4i16(<128 x i16> [[UNI_PHI31]], i16 addrspace(4)* [[TMP37]], i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
-; CHECK-NEXT:    tail call void @llvm.experimental.matrix.store.v128i16.p4i16(<128 x i16> [[UNI_PHI31]], i16 addrspace(4)* [[TMP37]], i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
-; CHECK-NEXT:    tail call void @llvm.experimental.matrix.store.v128i16.p4i16(<128 x i16> [[UNI_PHI31]], i16 addrspace(4)* [[TMP37]], i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
-; CHECK-NEXT:    tail call void @llvm.experimental.matrix.store.v128i16.p4i16(<128 x i16> [[UNI_PHI31]], i16 addrspace(4)* [[TMP37]], i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
 ; CHECK-NEXT:    tail call void @llvm.experimental.matrix.store.v128i16.p4i16(<128 x i16> [[UNI_PHI31]], i16 addrspace(4)* [[TMP37]], i64 16, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
 ; CHECK-NEXT:    br label [[VPLANNEDBB35]]
 ; CHECK:       VPlannedBB35:
