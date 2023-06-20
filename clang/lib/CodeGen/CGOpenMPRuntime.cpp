@@ -2019,6 +2019,7 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       if (Addr->getAddressSpace() != 0)
 #if INTEL_COLLAB
         AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(
+<<<<<<< HEAD
             Addr,
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
             llvm::PointerType::get(CGM.getLLVMContext(),
@@ -2031,13 +2032,18 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
                     : 0));
 #else // INTEL_COLLAB
         AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(
+=======
+>>>>>>> a32bace27eab786c75a3cf4db7215110b35f9d26
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
             Addr, llvm::PointerType::get(CGM.getLLVMContext(), 0));
 #else // INTEL_SYCL_OPAQUEPOINTER_READY
             Addr, llvm::PointerType::getWithSamePointeeType(
                       cast<llvm::PointerType>(Addr->getType()), 0));
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
+<<<<<<< HEAD
 #endif // INTEL_COLLAB
+=======
+>>>>>>> a32bace27eab786c75a3cf4db7215110b35f9d26
       CtorCGF.EmitAnyExprToMem(Init,
                                Address(AddrInAS0, Addr->getValueType(),
                                        CGM.getContext().getDeclAlign(VD)),
@@ -2101,6 +2107,7 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       llvm::Constant *AddrInAS0 = Addr;
       if (Addr->getAddressSpace() != 0)
         AddrInAS0 = llvm::ConstantExpr::getAddrSpaceCast(
+<<<<<<< HEAD
             Addr,
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
             llvm::PointerType::get(
@@ -2115,6 +2122,14 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
                     :
 #endif // INTEL_COLLAB
                     0));
+=======
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+            Addr, llvm::PointerType::get(CGM.getLLVMContext(), 0));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+            Addr, llvm::PointerType::getWithSamePointeeType(
+                      cast<llvm::PointerType>(Addr->getType()), 0));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+>>>>>>> a32bace27eab786c75a3cf4db7215110b35f9d26
       DtorCGF.emitDestroy(Address(AddrInAS0, Addr->getValueType(),
                                   CGM.getContext().getDeclAlign(VD)),
                           ASTTy, DtorCGF.getDestroyer(ASTTy.isDestructedType()),

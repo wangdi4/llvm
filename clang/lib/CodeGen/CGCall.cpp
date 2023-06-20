@@ -5877,6 +5877,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
           // Skip the extra memcpy call.
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
           auto *T = llvm::PointerType::get(
+<<<<<<< HEAD
               CGM.getLLVMContext(),
               CGM.getLLVMContext(),
 #if INTEL_COLLAB
@@ -5892,6 +5893,13 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
 #else // INTEL_COLLAB
               CGM.getDataLayout().getAllocaAddrSpace());
 #endif // INTEL_COLLAB
+=======
+              CGM.getLLVMContext(), CGM.getDataLayout().getAllocaAddrSpace());
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+          auto *T = llvm::PointerType::getWithSamePointeeType(
+              cast<llvm::PointerType>(V->getType()),
+              CGM.getDataLayout().getAllocaAddrSpace());
+>>>>>>> a32bace27eab786c75a3cf4db7215110b35f9d26
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
           llvm::Value *Val = getTargetHooks().performAddrSpaceCast(
               *this, V, LangAS::Default, CGM.getASTAllocaAddressSpace(), T,
