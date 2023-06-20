@@ -9238,6 +9238,16 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back("-fintel-libirc-allowed");
   }
 
+  // -mno-gather, -mno-scatter support
+  if (Args.hasArg(options::OPT_mno_gather)) {
+    CmdArgs.push_back("-target-feature");
+    CmdArgs.push_back("+prefer-no-gather");
+  }
+  if (Args.hasArg(options::OPT_mno_scatter)) {
+    CmdArgs.push_back("-target-feature");
+    CmdArgs.push_back("+prefer-no-scatter");
+  }
+
   if (Args.hasFlag(options::OPT_intel_mintrinsic_promote,
                    options::OPT_intel_mno_intrinsic_promote, false))
     CmdArgs.push_back("-mintrinsic-promote");

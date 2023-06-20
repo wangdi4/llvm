@@ -1057,6 +1057,10 @@ def intel_mintrinsic_promote : Flag<["-"], "mintrinsic-promote">,
   "promote their architectures and make the intrinsic headers included by default">,
   MarshallingInfoFlag<LangOpts<"IntrinsicAutoPromote">>;
 def intel_mno_intrinsic_promote : Flag<["-"], "mno-intrinsic-promote">, Flags<[NoXarchOption]>;
+def mno_gather : Flag<["-"], "mno-gather">, Flags<[NoXarchOption]>,
+  HelpText<"Disable generation of gather instructions in auto-vectorization">;
+def mno_scatter : Flag<["-"], "mno-scatter">, Flags<[NoXarchOption]>,
+  HelpText<"Disable generation of scatter instructions in auto-vectorization">;
 def qactypes : Flag<["-"], "qactypes">, HelpText<"Enable compile and link "
   "support for the Algorithmic C Data-types (AC types)">;
 def qipp_EQ : Joined<["-"], "qipp=">, Flags<[NoXarchOption]>,
@@ -9075,6 +9079,10 @@ def _SLASH_Qbranches_within_32B_boundaries : CLFlag<"Qbranches-within-32B-bounda
 def _SLASH_Qpad_max_prefix_size_EQ : CLJoined<"Qpad-max-prefix-size=">,
   Alias<mpad_max_prefix_size_EQ>;
 def : CLJoined<"Qpad-max-prefix-size:">, Alias<mpad_max_prefix_size_EQ>;
+def : CLFlag<"Qgather-">, Alias<mno_gather>,
+  HelpText<"Disable generation of gather instructions in auto-vectorization">;
+def : CLFlag<"Qscatter-">, Alias<mno_scatter>,
+  HelpText<"Disable generation of scatter instructions in auto-vectorization">;
 def _SLASH_Qbuiltin : CLFlag<"Qbuiltin">, Alias<fbuiltin>;
 def _SLASH_fp_EQ : CLJoined<"fp=">, Alias<ffp_model_EQ>,
   HelpText<"Controls the semantics of floating-point calculations.">;
