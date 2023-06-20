@@ -20,15 +20,16 @@ define dso_local void @test(<3 x double> addrspace(1)* %p) #0 !kernel_arg_addr_s
 entry:
 ; CHECK-LABEL: entry:
 ; CHECK: %data.addr = alloca <3 x double>*
+
 ; CHECK-LABEL: SyncBB1:
-; CHECK: [[Offset_i:%SB_LocalId_Offset[0-9]+]] = add nuw i64 %SBIndex{{[0-9]+}}, 64
-; CHECK-NEXT: [[Ptr_i:%[0-9]+]] = getelementptr inbounds i8, i8* %pSB, i64 [[Offset_i]]
-; CHECK-NEXT: [[LocalId_i:%pSB_LocalId[0-9]+]] = bitcast i8* [[Ptr_i]] to i64*
-; CHECK-NEXT: store i64* [[LocalId_i]], i64** %i.addr
 ; CHECK: [[Offset_data:%SB_LocalId_Offset[0-9]+]] = add nuw i64 %SBIndex{{[0-9]+}}, 32
 ; CHECK-NEXT: [[Ptr_data:%[0-9]+]] = getelementptr inbounds i8, i8* %pSB, i64 [[Offset_data]]
 ; CHECK-NEXT: [[LocalId_data:%pSB_LocalId[0-9]+]] = bitcast i8* [[Ptr_data]] to <3 x double>*
 ; CHECK-NEXT: store <3 x double>* [[LocalId_data]], <3 x double>** %data.addr
+; CHECK: [[Offset_i:%SB_LocalId_Offset[0-9]+]] = add nuw i64 %SBIndex{{[0-9]+}}, 64
+; CHECK-NEXT: [[Ptr_i:%[0-9]+]] = getelementptr inbounds i8, i8* %pSB, i64 [[Offset_i]]
+; CHECK-NEXT: [[LocalId_i:%pSB_LocalId[0-9]+]] = bitcast i8* [[Ptr_i]] to i64*
+; CHECK-NEXT: store i64* [[LocalId_i]], i64** %i.addr
 
   call void @dummy_barrier.()
   %p.addr = alloca <3 x double> addrspace(1)*, align 8
