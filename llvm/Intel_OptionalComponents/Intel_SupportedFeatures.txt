@@ -391,6 +391,9 @@
 # INTEL_FEATURE_CPU_RYL
 @CPU_RYL:SECRET@
 # end INTEL_FEATURE_CPU_RYL
+# INTEL_FEATURE_CPU_LNL
+@CPU_LNL:SECRET@
+# end INTEL_FEATURE_CPU_LNL
 # === New CPU section end ===
 
 # Special software features section currently consist of

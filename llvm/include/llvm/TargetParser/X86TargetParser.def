@@ -129,6 +129,9 @@ X86_CPU_SUBTYPE(INTEL_COREI7_DIAMONDRAPIDS,  "diamondrapids")
 #if INTEL_FEATURE_CPU_RYL
 X86_CPU_SUBTYPE(INTEL_RYL_ROYAL,             "royal")
 #endif // INTEL_FEATURE_CPU_RYL
+#if INTEL_FEATURE_CPU_LNL
+X86_CPU_SUBTYPE(INTEL_COREI7_LUNARLAKE,      "lunarlake")
+#endif // INTEL_FEATURE_CPU_LNL
 #endif // INTEL_CUSTOMIZATION
 
 // Alternate names supported by __builtin_cpu_is and target multiversioning.
@@ -559,6 +562,9 @@ CPU_SPECIFIC_ALIAS("emeraldrapids", "emeraldrapids", "sapphirerapids")
 #if INTEL_FEATURE_CPU_DMR
 CPU_SPECIFIC_ALIAS("diamondrapids", "diamondrapids", "sapphirerapids")
 #endif // INTEL_FEATURE_CPU_DMR
+#if INTEL_FEATURE_CPU_LNL
+CPU_SPECIFIC_ALIAS("lunarlake", "lunarlake", "alderlake")
+#endif // INTEL_FEATURE_CPU_LNL
 
 CPU_SPECIFIC_ALIAS_ADDITIONAL("skylake-avx512", "skylake_avx512")
 CPU_SPECIFIC_ALIAS_ADDITIONAL("corei7-avx", "sandybridge")

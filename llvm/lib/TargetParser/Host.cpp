@@ -851,6 +851,15 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       break;
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_LNL
+    // Lunarlake:
+    case 0xbc:
+    case 0xbd:
+      CPU = "lunarlake";
+      *Type = X86::INTEL_COREI7;
+      *Subtype = X86::INTEL_COREI7_LUNARLAKE;
+      break;
+#endif // INTEL_FEATURE_CPU_LNL
 #if INTEL_FEATURE_CPU_RYL
     // Royal:
     case 0x18:
