@@ -7,13 +7,18 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ;CHECK: LOOP BEGIN
-;CHECK-NEXT:     remark #15301: SIMD LOOP WAS VECTORIZED
-;CHECK-NEXT:     remark #15305: vectorization support: vector length 4
-;CHECK-NEXT:     remark #15475: --- begin vector loop cost summary ---
-;CHECK-NEXT:     remark #15488: --- end vector loop cost summary ---
-;CHECK-NEXT:     remark #15447: --- begin vector loop memory reference summary ---
-;CHECK-NEXT:     remark #15457: masked unaligned unit stride stores: 1
-;CHECK-NEXT:     remark #15474: --- end vector loop memory reference summary ---
+;CHECK-NEXT:    remark #15301: SIMD LOOP WAS VECTORIZED
+;CHECK-NEXT:    remark #15305: vectorization support: vector length 4
+;CHECK-NEXT:    remark #15475: --- begin vector loop cost summary ---
+;CHECK-NEXT:    remark #15476: scalar cost:
+;CHECK-NEXT:    remark #15477: vector cost:
+;CHECK-NEXT:    remark #15478: estimated potential speedup:
+;CHECK-NEXT:    remark #15309: vectorization support: normalized vectorization overhead
+;CHECK-NEXT:    remark #15570: using scalar loop trip count: 3
+;CHECK-NEXT:    remark #15488: --- end vector loop cost summary ---
+;CHECK-NEXT:    remark #15447: --- begin vector loop memory reference summary ---
+;CHECK-NEXT:    remark #15457: masked unaligned unit stride stores: 1
+;CHECK-NEXT:    remark #15474: --- end vector loop memory reference summary ---
 ;CHECK-NEXT: LOOP END
 
 ; Function Attrs: noinline norecurse nounwind uwtable
