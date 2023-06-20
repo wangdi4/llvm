@@ -1819,6 +1819,7 @@ private:
   SourceLocation LastStopPoint;
 
 public:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// This class is used for instantiation of local variables, but restores
   /// LocalDeclMap state after instantiation. If Empty is true, the LocalDeclMap
@@ -1839,16 +1840,23 @@ public:
     }
     ~LocalVarsDeclGuard() { CGF.LocalDeclMap.swap(LocalDeclMap); }
   };
+=======
+>>>>>>> 405778ab831b86cc536f0ef7730545b1a73920f1
   /// Class to manage the BuiltinID for the current builtin expression during
   /// processing in EmitBuiltinExpr.
   class CurrentBuiltinIDRAII {
     CodeGenFunction &CGF;
     unsigned SavedBuiltinID;
+<<<<<<< HEAD
+=======
+
+>>>>>>> 405778ab831b86cc536f0ef7730545b1a73920f1
   public:
     CurrentBuiltinIDRAII(CodeGenFunction &CGF, unsigned BuiltinID)
         : CGF(CGF), SavedBuiltinID(CGF.CurrentBuiltinID) {
       CGF.CurrentBuiltinID = BuiltinID;
     }
+<<<<<<< HEAD
     ~CurrentBuiltinIDRAII() {
       CGF.CurrentBuiltinID = SavedBuiltinID;
     }
@@ -2004,6 +2012,19 @@ public:
   }
   bool hasBuiltinAtomic(uint64_t AtomicSizeInBits, uint64_t AlignmentInBits);
 #endif  // INTEL_COLLAB
+=======
+    ~CurrentBuiltinIDRAII() { CGF.CurrentBuiltinID = SavedBuiltinID; }
+  };
+
+private:
+  unsigned CurrentBuiltinID = /*NotBuiltin*/ 0;
+
+public:
+  unsigned getCurrentBuiltinID() const {
+    assert(CurrentBuiltinID != /*NotBuiltin*/ 0);
+    return CurrentBuiltinID;
+  }
+>>>>>>> 405778ab831b86cc536f0ef7730545b1a73920f1
   /// Source location information about the default argument or member
   /// initializer expression we're evaluating, if any.
   CurrentSourceLocExprScope CurSourceLocExprScope;
@@ -4888,6 +4909,11 @@ public:
                              const SmallVectorImpl<llvm::Value *> &IRArgs,
                              llvm::Value *FnPtr);
 #endif // INTEL_COLLAB
+
+  llvm::CallInst *
+  EmitFPBuiltinIndirectCall(llvm::FunctionType *IRFuncTy,
+                            const SmallVectorImpl<llvm::Value *> &IRArgs,
+                            llvm::Value *FnPtr, const FunctionDecl *FD);
 
   enum class MSVCIntrin;
   llvm::Value *EmitMSVCBuiltinExpr(MSVCIntrin BuiltinID, const CallExpr *E);
