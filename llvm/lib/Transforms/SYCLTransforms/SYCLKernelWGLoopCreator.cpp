@@ -134,6 +134,10 @@ private:
   /// Index i contains vector with vector kernel get_local_id(i) calls.
   InstVecVec LidCallsVec;
 
+  /// Map from a kernel function to get_global_id/get_local_id calls within it.
+  DenseMap<Function *, InstVecVec> FuncToGIDCalls;
+  DenseMap<Function *, InstVecVec> FuncToLIDCalls;
+
   /// Early exit call.
   CallInst *EECall = nullptr;
 
@@ -168,6 +172,9 @@ private:
 
   /// Process TID calls in  not-inlined functions.
   bool processTIDInNotInlinedFuncs();
+
+  /// Find all get_global_id and get_local_id calls in kernels.
+  void collectTIDCalls();
 
   /// Fix TID calls in patched functions.
   /// get_local_id is replaced with load instruction from either TLS local id or
@@ -299,6 +306,8 @@ bool WGLoopCreatorImpl::run() {
 
   Changed |= processTIDInNotInlinedFuncs();
 
+  collectTIDCalls();
+
   auto Kernels = getKernels(M);
   for (auto *F : Kernels) {
     KernelInternalMetadataAPI KIMD(F);
@@ -382,6 +391,30 @@ bool WGLoopCreatorImpl::processTIDInNotInlinedFuncs() {
   fixTIDCallInNotInlinedFuncs(TIDCallsToFix);
 
   return true;
+}
+
+void WGLoopCreatorImpl::collectTIDCalls() {
+  auto AllKernels = getAllKernels(M);
+  for (auto *F : AllKernels) {
+    FuncToGIDCalls[F] = InstVecVec{MAX_WORK_DIM, InstVec{}};
+    FuncToLIDCalls[F] = InstVecVec{MAX_WORK_DIM, InstVec{}};
+  }
+
+  auto GetCall = [&](StringRef TIDName, auto &TIDCalls) {
+    auto *F = M.getFunction(TIDName);
+    if (!F)
+      return;
+    for (User *U : F->users()) {
+      auto *CI = cast<CallInst>(U);
+      Function *UserF = CI->getFunction();
+      if (AllKernels.contains(UserF)) {
+        auto Idx = cast<ConstantInt>(CI->getArgOperand(0))->getZExtValue();
+        TIDCalls[UserF][Idx].push_back(CI);
+      }
+    }
+  };
+  GetCall(mangledGetGID(), FuncToGIDCalls);
+  GetCall(mangledGetLID(), FuncToLIDCalls);
 }
 
 InstVec
@@ -1309,10 +1342,8 @@ void WGLoopCreatorImpl::handleUniformEE(BasicBlock *RetBB) {
 
 ReturnInst *WGLoopCreatorImpl::getFunctionData(Function *F, InstVecVec &Gids,
                                                InstVecVec &Lids) {
-  std::string GID = mangledGetGID();
-  std::string LID = mangledGetLID();
-  LoopUtils::collectTIDCallInst(GID, Gids, F);
-  LoopUtils::collectTIDCallInst(LID, Lids, F);
+  Gids = FuncToGIDCalls[F];
+  Lids = FuncToLIDCalls[F];
 
   auto It = FuncReturn.find(F);
   if (It != FuncReturn.end())
