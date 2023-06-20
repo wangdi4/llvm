@@ -56,6 +56,8 @@ const std::map<int, std::string> FeatureMap = {
     {CFS_AVX512FP16, "avx512fp16"},
     {CFS_AVX512BF16, "avx512bf16"},
     {CFS_F16C, "f16c"},
+    {CFS_AMXFP16, "amx-fp16"},
+    {CFS_PREFETCHI, "prefetchi"},
 };
 
 const std::vector<std::string> CPUDetect::CPUArchStr = {
@@ -241,8 +243,11 @@ CPUDetect::CPUDetect(void) : m_is64BitOS(sizeof(void *) == 8) {
   if (HasAVX512ICX())
     m_CPUArch = CPU_ICX;
 
-  if (HasAMX())
+  if (HasSPR())
     m_CPUArch = CPU_SPR;
+
+  if (HasGNR())
+    m_CPUArch = CPU_GNR;
 
   if (m_CPUArch == CPU_UNKNOWN) {
     std::string errMessage = m_CPUString + ": Unsupported CPU!";

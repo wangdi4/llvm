@@ -37,7 +37,8 @@ void TestArch(const std::string &CPUArch) {
                          .Case("cascadelake", CPUId->HasAVX512CLX())
                          .Case("icelake-client", CPUId->HasAVX512ICL())
                          .Case("icelake-server", CPUId->HasAVX512ICX())
-                         .Case("sapphirerapids", CPUId->HasAMX())
+                         .Case("sapphirerapids", CPUId->HasSPR())
+                         .Case("graniterapids", CPUId->HasGNR())
                          .Default(false);
   ASSERT_TRUE(HasFeatures) << "Can not get expected CPU features";
 }
@@ -51,4 +52,5 @@ TEST_F(CPUDetectTest, ResetCPUTargetARCH) {
   TestArch("icelake-client");
   TestArch("icelake-server");
   TestArch("sapphirerapids");
+  TestArch("graniterapids");
 }
