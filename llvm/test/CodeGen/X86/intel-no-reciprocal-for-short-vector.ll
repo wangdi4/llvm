@@ -28,7 +28,8 @@ define void @v2f32_one_step2(<2 x float> %x, float* %ret1, float* %ret2) #0 {
 ;
 ; NO-RECIP-LABEL: v2f32_one_step2:
 ; NO-RECIP:       # %bb.0:
-; NO-RECIP-NEXT:    vmovaps {{.*#+}} xmm1 = <1.0E+0,2.0E+0,u,u>
+; NO-RECIP-NEXT:    vmovddup {{.*#+}} xmm1 = [1.0E+0,2.0E+0,1.0E+0,2.0E+0]
+; NO-RECIP-NEXT:    # xmm1 = mem[0,0]
 ; NO-RECIP-NEXT:    vdivps %xmm0, %xmm1, %xmm0
 ; NO-RECIP-NEXT:    vmovss %xmm0, (%rdi)
 ; NO-RECIP-NEXT:    vextractps $1, %xmm0, (%rsi)
