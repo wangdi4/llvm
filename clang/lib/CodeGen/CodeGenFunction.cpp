@@ -3152,7 +3152,6 @@ void CodeGenFunction::EmitVarAnnotations(const VarDecl *D, llvm::Value *V) {
                        Builder.CreateBitCast(V, I8PtrTy, V->getName()),
                        I->getAnnotation(), D->getLocation(), I);
 }
-
 Address CodeGenFunction::EmitFieldAnnotations(const FieldDecl *D,
                                               Address Addr) {
   assert(D->hasAttr<AnnotateAttr>() && "no annotate attribute");
