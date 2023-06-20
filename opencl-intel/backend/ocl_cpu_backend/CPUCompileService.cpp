@@ -189,8 +189,12 @@ cl_dev_err_code CPUCompileService::CheckProgramBinary(const void *pBinary,
   Intel::OpenCL::Utils::ECPU cpu = Intel::OpenCL::Utils::CPU_UNKNOWN;
 
   switch (headerFlag) {
+  case CLElfLib::EH_FLAG_GNR:
+    valid &= cpuId->HasGNR();
+    cpu = Intel::OpenCL::Utils::CPU_GNR;
+    break;
   case CLElfLib::EH_FLAG_SPR:
-    valid &= cpuId->HasAMX();
+    valid &= cpuId->HasSPR();
     cpu = Intel::OpenCL::Utils::CPU_SPR;
     break;
   case CLElfLib::EH_FLAG_AVX512_ICX:

@@ -67,6 +67,8 @@ enum ECPUFeatureSupport {
   CFS_AMXBF16,         // SPR
   CFS_AVX512FP16,      // SPR
   CFS_AVX512BF16,      // SPR
+  CFS_AMXFP16,         // GNR
+  CFS_PREFETCHI,       // GNR
   CFS_F16C
 };
 
@@ -83,7 +85,7 @@ enum ECPUBrandFamily {
 #define CPU_ARCHS(modificator)                                                 \
   modificator(CPU_COREI7) modificator(CPU_SNB) modificator(CPU_HSW)            \
       modificator(CPU_SKX) modificator(CPU_CLX) modificator(CPU_ICL)           \
-          modificator(CPU_ICX) modificator(CPU_SPR)
+          modificator(CPU_ICX) modificator(CPU_SPR) modificator(CPU_GNR)
 
 enum ECPU : unsigned {
   CPU_UNKNOWN = 0,
@@ -166,6 +168,7 @@ public:
       case CPU_ICX:
         return GetCPUPrefixAVX512(m_is64BitOS);
       case CPU_SPR:
+      case CPU_GNR:
         return GetCPUPrefixAMX(m_is64BitOS);
       }
     }
@@ -173,6 +176,7 @@ public:
 
   static ECPU GetCPUByName(const char *CPUName) {
     return llvm::StringSwitch<ECPU>(CPUName)
+        .Case("graniterapids", CPU_GNR)
         .Case("sapphirerapids", CPU_SPR)
         .Case("icelake-client", CPU_ICL)
         .Case("icelake-server", CPU_ICX)
@@ -204,6 +208,8 @@ public:
       return "icelake-server";
     case CPU_SPR:
       return "sapphirerapids";
+    case CPU_GNR:
+      return "graniterapids";
     }
     llvm_unreachable("Unknown CPU!");
   }
@@ -255,9 +261,13 @@ public:
     return HasAVX512ICL() && IsFeatureSupported(CFS_WBNOINVD) &&
            IsFeatureSupported(CFS_CLWB) && IsFeatureSupported(CFS_PCONFIG);
   }
-  bool HasAMX() const {
+  bool HasSPR() const {
     return IsFeatureSupported(CFS_AMXTILE) && IsFeatureSupported(CFS_AMXINT8) &&
            IsFeatureSupported(CFS_AMXBF16);
+  }
+  bool HasGNR() const {
+    return HasSPR() && IsFeatureSupported(CFS_AMXFP16) &&
+           IsFeatureSupported(CFS_PREFETCHI);
   }
 
   bool Is64BitOS() const { return m_is64BitOS; }

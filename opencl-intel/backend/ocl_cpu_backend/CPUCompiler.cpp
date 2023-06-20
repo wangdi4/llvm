@@ -205,13 +205,17 @@ void CPUCompiler::SelectCpu(const std::string &cpuName,
     m_forcedCpuFeatures.push_back("+clwb");
     m_forcedCpuFeatures.push_back("+pconfig");
   }
-  if (selectedCpuId == Intel::OpenCL::Utils::CPU_SPR) {
+  if (selectedCpuId >= Intel::OpenCL::Utils::CPU_SPR) {
     // SPR features
     m_forcedCpuFeatures.push_back("+amx-tile");
     m_forcedCpuFeatures.push_back("+amx-int8");
     m_forcedCpuFeatures.push_back("+amx-bf16");
     m_forcedCpuFeatures.push_back("+avx512fp16");
     m_forcedCpuFeatures.push_back("+avx512bf16");
+  }
+  if (selectedCpuId >= Intel::OpenCL::Utils::CPU_GNR) {
+    m_forcedCpuFeatures.push_back("+amx-fp16");
+    m_forcedCpuFeatures.push_back("+prefetchi");
   }
 
   // When CL_CONFIG_CPU_TARGET_ARCH env is set, we need to reset CPU according
