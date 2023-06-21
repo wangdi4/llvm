@@ -1380,14 +1380,14 @@ bool HIRRowWiseMV::run(HLLoop *Lp) {
   // forward gotos at all. Fancier checking for only the problematic gotos can
   // be added later if needed, and should probably be done by checking that each
   // child HLNode post-dominates the corresponding branch of its parent.
-  if (HLS.getTotalLoopStatistics(SafeCheckLevelParent).hasForwardGotos()) {
+  if (HLS.getTotalStatistics(SafeCheckLevelParent).hasForwardGotos()) {
     LLVM_DEBUG(dbgs() << "Avoiding this loop because there are forward gotos "
                          "in the loop nest\n");
     return false;
   }
 
   // Avoid loops containing HLIfs because they're less likely to be hot loops.
-  if (HLS.getSelfLoopStatistics(Lp).hasIfs()) {
+  if (HLS.getSelfStatistics(Lp).hasIfs()) {
     LLVM_DEBUG(dbgs() << "Avoiding this loop because there are internal ifs\n");
     return false;
   }

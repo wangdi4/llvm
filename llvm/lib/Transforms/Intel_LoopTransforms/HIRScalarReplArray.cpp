@@ -420,7 +420,7 @@ void MemRefGroup::computeMinStoreInfo(const RefGroupTy &Group) {
 bool MemRefGroup::createRefTuple(const RefGroupTy &Group) {
   bool IsUnknown = Lp->isUnknown();
   bool HasForwardGotos = (Lp->getNumExits() > 1) ||
-                         HSRA.HLS.getSelfLoopStatistics(Lp).hasForwardGotos();
+                         HSRA.HLS.getSelfStatistics(Lp).hasForwardGotos();
 
   bool HasUnconditionalStore = false;
   bool HasConditionalStore = false;
@@ -1202,7 +1202,7 @@ bool HIRScalarReplArray::doAnalysis(HLLoop *Lp) {
 }
 
 bool HIRScalarReplArray::doPreliminaryChecks(const HLLoop *Lp) {
-  const LoopStatistics &LS = HLS.getSelfLoopStatistics(Lp);
+  const LoopStatistics &LS = HLS.getSelfStatistics(Lp);
   // LLVM_DEBUG(LS.dump(););
   if (LS.hasCallsWithUnknownAliasing()) {
     return false;

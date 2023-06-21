@@ -22,13 +22,14 @@
 #include "llvm/ADT/DenseMap.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRAnalysisPass.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLRegion.h"
 
 namespace llvm {
 
 class formatted_raw_ostream;
 class TargetTransformInfo;
 class Instruction;
-class Loop;
 class LoopInfo;
 class TargetLibraryInfo;
 
@@ -39,16 +40,18 @@ struct LoopStatistics {
 private:
   unsigned NumIfs = 0;
   unsigned NumSwitches = 0;
-  unsigned NumForwardGotos = 0;
-  unsigned NumLabels = 0;
   unsigned NumUserCalls = 0;
   unsigned NumIndirectCalls = 0;
   unsigned NumIntrinsics = 0;
   unsigned NumProfitableVectorizableCalls = 0;
+
   bool HasCallsWithUnsafeSideEffects = false;
   bool HasNonSIMDCallsWithUnsafeSideEffects = false;
   bool HasCallsWithNoDuplicate = false;
   bool HasCallsWithUnknownAliasing = false;
+
+  SmallVector<const HLGoto *, 2> ForwardGotos;
+  SmallVector<const HLLabel *, 2> Labels;
 
 public:
   LoopStatistics() {}
@@ -62,12 +65,12 @@ public:
   unsigned getNumSwitches() const { return NumSwitches; }
   bool hasSwitches() const { return getNumSwitches() > 0; }
 
-  unsigned getNumForwardGotos() const { return NumForwardGotos; }
-  bool hasForwardGotos() const { return getNumForwardGotos() > 0; }
+  unsigned getNumForwardGotos() const { return ForwardGotos.size(); }
+  bool hasForwardGotos() const { return !ForwardGotos.empty(); }
 
   // Only counts forward goto targets.
-  unsigned getNumLabels() const { return NumLabels; }
-  bool hasLabels() const { return getNumLabels() > 0; }
+  unsigned getNumLabels() const { return Labels.size(); }
+  bool hasLabels() const { return !Labels.empty(); }
 
   unsigned getNumUserCalls() const { return NumUserCalls; }
   bool hasUserCalls() const { return getNumUserCalls() > 0; }
@@ -128,17 +131,19 @@ public:
   LoopStatistics &operator+=(const LoopStatistics &LS) {
     NumIfs += LS.NumIfs;
     NumSwitches += LS.NumSwitches;
-    NumForwardGotos += LS.NumForwardGotos;
-    NumLabels += LS.NumLabels;
     NumUserCalls += LS.NumUserCalls;
     NumIndirectCalls += LS.NumIndirectCalls;
     NumIntrinsics += LS.NumIntrinsics;
     NumProfitableVectorizableCalls += LS.NumProfitableVectorizableCalls;
+
     HasCallsWithUnsafeSideEffects |= LS.HasCallsWithUnsafeSideEffects;
     HasNonSIMDCallsWithUnsafeSideEffects |=
         LS.HasNonSIMDCallsWithUnsafeSideEffects;
     HasCallsWithNoDuplicate |= LS.HasCallsWithNoDuplicate;
     HasCallsWithUnknownAliasing |= LS.HasCallsWithUnknownAliasing;
+
+    ForwardGotos.append(LS.ForwardGotos);
+    Labels.append(LS.Labels);
 
     return *this;
   }
@@ -163,6 +168,12 @@ protected:
   virtual void print(formatted_raw_ostream &OS,
                      const HLRegion *Region) override;
 
+  /// Implements getSelfStatistics() for Loop and Region.
+  const LoopStatistics &getSelfStatisticsImpl(const HLNode *Node);
+
+  /// Implements getTotalStatistics() for Loop and Region.
+  const LoopStatistics &getTotalStatisticsImpl(const HLNode *Node);
+
 public:
   TargetLibraryInfo &TLI;
 
@@ -182,15 +193,31 @@ public:
   /// require recomputation.
   void markLoopBodyModified(const HLLoop *Loop) override;
 
-  /// Returns the statistics of the specified Node. This excludes
-  /// statistics of nested children loops.
-  const LoopStatistics &getSelfLoopStatistics(const HLNode *Node);
+  /// Returns the statistics of \p Lp. This excludes statistics of nested
+  /// children loops.
+  const LoopStatistics &getSelfStatistics(const HLLoop *Lp) {
+    return getSelfStatisticsImpl(Lp);
+  }
 
-  /// Returns the statistics of the specified Node including children
-  /// loops.
+  /// Returns the statistics of \p Reg. This excludes statistics of nested
+  /// children loops.
+  const LoopStatistics &getSelfStatistics(const HLRegion *Reg) {
+    return getSelfStatisticsImpl(Reg);
+  }
+
+  /// Returns the statistics of \p Lp including children loops.
   /// NOTE: Children loop's statistics is added assuming a trip count of one. No
   /// multiplier is involved.
-  const LoopStatistics &getTotalLoopStatistics(const HLNode *Node);
+  const LoopStatistics &getTotalStatistics(const HLLoop *Lp) {
+    return getTotalStatisticsImpl(Lp);
+  }
+
+  /// Returns the statistics of the \p Reg including children loops.
+  /// NOTE: Children loop's statistics is added assuming a trip count of one. No
+  /// multiplier is involved.
+  const LoopStatistics &getTotalStatistics(const HLRegion *Reg) {
+    return getTotalStatisticsImpl(Reg);
+  }
 };
 
 class HIRLoopStatisticsWrapperPass : public FunctionPass {

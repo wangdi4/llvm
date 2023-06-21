@@ -1116,7 +1116,7 @@ static bool runConditionalLoadStoreMotion(HIRFramework &HIRF,
   HIRF.getHLNodeUtils().gatherInnermostLoops(InnerLoops);
   bool Changed = false;
   for (HLLoop *const InnerLoop : InnerLoops) {
-    const LoopStatistics &LoopStats = HLS.getSelfLoopStatistics(InnerLoop);
+    const LoopStatistics &LoopStats = HLS.getSelfStatistics(InnerLoop);
     if (!LoopStats.hasIfs())
       continue;
     HoistSinkSetBuilder HoistSinkCandidates(InnerLoop);

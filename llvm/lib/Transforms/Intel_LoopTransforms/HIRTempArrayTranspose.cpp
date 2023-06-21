@@ -632,7 +632,7 @@ struct UnsafeCallsVisitor : HLNodeVisitorBase {
       return;
     }
 
-    auto LS = HLS.getTotalLoopStatistics(Loop);
+    auto LS = HLS.getTotalStatistics(Loop);
     if (LS.hasCallsWithUnsafeSideEffects()) {
       HasUnsafeCall = true;
       LLVM_DEBUG(dbgs() << "[UNSAFE] "; Loop->dump(););

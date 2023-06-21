@@ -469,7 +469,7 @@ struct HIRLoopInterchange::CollectCandidateLoops final
       return;
     }
 
-    if (LIP.HLS.getSelfLoopStatistics(InnermostLoop)
+    if (LIP.HLS.getSelfStatistics(InnermostLoop)
             .hasCallsWithUnsafeSideEffects()) {
       LLVM_DEBUG(
           dbgs() << "\nSkipping loop with calls that have side effects\n");
@@ -535,7 +535,7 @@ bool HIRLoopInterchange::CollectCandidateLoops::isJumpThreadingFriendly(
     const HLLoop *OutermostLoop, const HLLoop *InnermostLoop) {
 
   // Loop body has at least 2 ifs.
-  auto NumIfs = LIP.HLS.getSelfLoopStatistics(InnermostLoop).getNumIfs();
+  auto NumIfs = LIP.HLS.getSelfStatistics(InnermostLoop).getNumIfs();
   if (NumIfs < 2)
     return false;
 

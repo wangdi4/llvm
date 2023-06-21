@@ -694,7 +694,7 @@ void HIRUnrollAndJam::Analyzer::visit(HLLoop *Lp) {
     return;
   }
 
-  auto &LS = HUAJ.HLS.getSelfLoopStatistics(Lp);
+  auto &LS = HUAJ.HLS.getSelfStatistics(Lp);
 
   // Cannot unroll loop if it has calls with noduplicate attribute.
   if (LS.hasCallsWithNoDuplicate()) {

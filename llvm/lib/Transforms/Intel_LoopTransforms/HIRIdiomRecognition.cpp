@@ -698,7 +698,7 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
   }
 
   // Check for EH context
-  // HLS->getTotalLoopStatistics()
+  // HLS->getTotalStatistics()
 
   SmallVector<MemOpCandidate, 16> Candidates;
 

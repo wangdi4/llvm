@@ -2113,7 +2113,7 @@ bool VPlanDriverHIRImpl::bailout(VPlanOptReportBuilder &VPORBuilder, HLLoop *Lp,
 }
 
 bool VPlanDriverHIRImpl::isSupported(HLLoop *Lp, WRNVecLoopNode *WRLp) {
-  if (HIRLoopStats->getTotalLoopStatistics(Lp).hasSwitches()) {
+  if (HIRLoopStats->getTotalStatistics(Lp).hasSwitches()) {
     setBailoutRemark(OptReportVerbosity::Medium,
                      OptRemarkID::VecFailSwitchPresent,
                      WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")

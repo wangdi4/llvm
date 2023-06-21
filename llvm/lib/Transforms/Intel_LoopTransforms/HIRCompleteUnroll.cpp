@@ -1931,7 +1931,7 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::InvalidBasePtrRefFinder::visit(
     }
 
     if (IsCandidateLoop) {
-      if (!PA.HCU.IsPreVec || !((PA.HCU.HLS.getSelfLoopStatistics(ParLoop))
+      if (!PA.HCU.IsPreVec || !((PA.HCU.HLS.getSelfStatistics(ParLoop))
                                     .hasProfitableVectorizableCalls())) {
         FoundIdenticalUse = DDRefUtils::areEqual(CurStore, Ref);
       }
@@ -3106,7 +3106,7 @@ bool HIRCompleteUnroll::isApplicable(const HLLoop *Loop) const {
     return false;
   }
 
-  auto &LS = HLS.getSelfLoopStatistics(Loop);
+  auto &LS = HLS.getSelfStatistics(Loop);
 
   // Cannot unroll loop if it has calls with noduplicate attribute.
   if (LS.hasCallsWithNoDuplicate()) {
