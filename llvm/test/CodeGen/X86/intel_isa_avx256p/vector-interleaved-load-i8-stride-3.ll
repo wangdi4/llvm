@@ -751,9 +751,10 @@ define void @load_i8_stride3_vf32(ptr %in.vec, ptr %out.vec0, ptr %out.vec1, ptr
 ; AVX512-NEXT:    vinserti128 $1, 48(%rdi), %ymm0, %ymm0 # EVEX TO VEX Compression encoding: [0xc4,0xe3,0x7d,0x38,0x47,0x30,0x01]
 ; AVX512-NEXT:    vinserti128 $1, 64(%rdi), %ymm1, %ymm1 # EVEX TO VEX Compression encoding: [0xc4,0xe3,0x75,0x38,0x4f,0x40,0x01]
 ; AVX512-NEXT:    vinserti128 $1, 80(%rdi), %ymm2, %ymm2 # EVEX TO VEX Compression encoding: [0xc4,0xe3,0x6d,0x38,0x57,0x50,0x01]
-; AVX512-NEXT:    vmovdqa {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm3 # EVEX TO VEX Compression ymm3 = [0,3,6,9,12,15,2,5,8,11,14,1,4,7,10,13,0,3,6,9,12,15,2,5,8,11,14,1,4,7,10,13]
-; AVX512-NEXT:    # encoding: [0xc5,0xfd,0x6f,0x1d,A,A,A,A]
-; AVX512-NEXT:    # fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; AVX512-NEXT:    vbroadcasti128 {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm3 # EVEX TO VEX Compression ymm3 = [0,3,6,9,12,15,2,5,8,11,14,1,4,7,10,13,0,3,6,9,12,15,2,5,8,11,14,1,4,7,10,13]
+; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x7d,0x5a,0x1d,A,A,A,A]
+; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; AVX512-NEXT:    # ymm3 = mem[0,1,0,1]
 ; AVX512-NEXT:    vpshufb %ymm3, %ymm0, %ymm0 # EVEX TO VEX Compression encoding: [0xc4,0xe2,0x7d,0x00,0xc3]
 ; AVX512-NEXT:    vpshufb %ymm3, %ymm1, %ymm1 # EVEX TO VEX Compression encoding: [0xc4,0xe2,0x75,0x00,0xcb]
 ; AVX512-NEXT:    vpshufb %ymm3, %ymm2, %ymm2 # EVEX TO VEX Compression encoding: [0xc4,0xe2,0x6d,0x00,0xd3]
