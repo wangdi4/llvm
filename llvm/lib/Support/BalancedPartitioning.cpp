@@ -12,11 +12,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/BalancedPartitioning.h"
-#include "llvm/Support/ThreadPool.h" // INTEL
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/FormatVariadic.h"
+#include "llvm/Support/ThreadPool.h" // INTEL
 
 using namespace llvm;
 #define DEBUG_TYPE "balanced-partitioning"
