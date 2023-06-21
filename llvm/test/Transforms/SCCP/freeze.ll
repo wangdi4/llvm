@@ -187,3 +187,78 @@ else:
   %add.3 = add i32 %x.fr, 1
   ret i32 %add.3
 }
+; INTEL_CUSTOMIZATION
+
+declare void @foo1()
+
+declare void @foo2()
+
+define void @propagate_info_from_select_through_freeze(i32 %x) {
+; CHECK-LABEL: @propagate_info_from_select_through_freeze(
+; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i32 [[X:%.*]], 1
+; CHECK-NEXT:    [[SELECT:%.*]] = select i1 [[CMP:%.*]], i32 1, i32 2
+; CHECK-NEXT:    [[FREEZE:%.*]] = freeze i32 [[SELECT:%.*]]
+; CHECK-NEXT:    br label %false
+; CHECK:       false:
+; CHECK-NEXT:    call void @foo2()
+; CHECK-NEXT:    ret void
+;
+  %cmp = icmp eq i32 %x, 1
+  %select = select i1 %cmp, i32 1, i32 2
+  %freeze = freeze i32 %select
+  %cond = icmp eq i32 %freeze, 0
+  br i1 %cond, label %true, label %false
+
+true:
+  call void @foo1()
+  ret void
+
+false:
+  call void @foo2()
+  ret void
+}
+
+define void @propagate_info_from_phi_of_select_through_freeze(i32 %x, i32 %y) {
+; CHECK-LABEL: @propagate_info_from_phi_of_select_through_freeze(
+; CHECK:       entry:
+; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i32 [[X:%.*]], 1
+; CHECK-NEXT:    [[CMP_1:%.*]] = icmp eq i32 [[Y:%.*]], 1
+; CHECK-NEXT:    [[SELECT:%.*]] = select i1 [[CMP:%.*]], i32 1, i32 2
+; CHECK-NEXT:    br i1 [[CMP_1:%.*]], label %then, label %merge
+; CHECK:       then:
+; CHECK-NEXT:    [[SELECT_1:%.*]] = select i1 [[CMP:%.*]], i32 3, i32 4
+; CHECK-NEXT:    br label %merge
+; CHECK:       merge:
+; CHECK-NEXT:    [[P:%.*]] = phi i32 [ [[SELECT:%.*]], %entry ], [ [[SELECT_1:%.*]], %then ]
+; CHECK-NEXT:    [[FREEZE:%.*]] = freeze i32 [[P:%.*]]
+; CHECK-NEXT:    br label %false
+; CHECK:       false:
+; CHECK-NEXT:    call void @foo2()
+; CHECK-NEXT:    ret void
+;
+entry:
+  %cmp = icmp eq i32 %x, 1
+  %cmp.1 = icmp eq i32 %y, 1
+  %select = select i1 %cmp, i32 1, i32 2
+  br i1 %cmp.1, label %then, label %merge
+
+then:
+  %select.1 = select i1 %cmp, i32 3, i32 4
+  br label %merge
+
+merge:
+  %p = phi i32 [ %select, %entry ], [ %select.1, %then ]
+  %freeze = freeze i32 %p
+  %cond = icmp eq i32 %freeze, 0
+  br i1 %cond, label %true, label %false
+
+true:
+  call void @foo1()
+  ret void
+
+false:
+  call void @foo2()
+  ret void
+}
+
+; end INTEL_CUSTOMIZATION
