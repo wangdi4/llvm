@@ -1376,9 +1376,6 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
       Builder.defineMacro("__ENABLE_USM_ADDR_SPACE__");
       Builder.defineMacro("SYCL_DISABLE_FALLBACK_ASSERT");
     }
-
-    if (LangOpts.SYCLESIMDForceStatelessMem)
-      Builder.defineMacro("__ESIMD_FORCE_STATELESS_MEM");
   }
   if (LangOpts.SYCLUnnamedLambda)
     Builder.defineMacro("__SYCL_UNNAMED_LAMBDA__");
@@ -1389,6 +1386,9 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     Builder.defineMacro("HLS_EXTERNAL", "__attribute__((hls_device))");
   }
 #endif // INTEL_CUSTOMIZATION
+
+  if (LangOpts.SYCLESIMDForceStatelessMem)
+    Builder.defineMacro("__ESIMD_FORCE_STATELESS_MEM");
 
   // OpenCL definitions.
   if (LangOpts.OpenCL) {
