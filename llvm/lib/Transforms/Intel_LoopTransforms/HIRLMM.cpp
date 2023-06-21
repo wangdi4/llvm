@@ -474,7 +474,7 @@ bool HIRLMM::doLoopPreliminaryChecks(const HLLoop *Lp,
   if (Lp->hasDistributePoint()) {
     return false;
   }
-  const LoopStatistics &LS = HLS.getTotalLoopStatistics(Lp);
+  const LoopStatistics &LS = HLS.getTotalStatistics(Lp);
   if (!AllowUnknownAliasingCalls && LS.hasCallsWithUnknownAliasing()) {
     return false;
   }
@@ -1011,7 +1011,7 @@ HLLoop *HIRLMM::getOuterLoopCandidateForSingleLoad(HLLoop *Lp, RegDDRef *Ref,
       break;
     }
 
-    const LoopStatistics &LS = HLS.getSelfLoopStatistics(ParentLp);
+    const LoopStatistics &LS = HLS.getSelfStatistics(ParentLp);
 
     if (LS.hasCallsWithUnknownAliasing()) {
       break;

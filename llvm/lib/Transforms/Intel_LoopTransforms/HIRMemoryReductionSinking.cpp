@@ -537,7 +537,7 @@ bool HIRMemoryReductionSinking::run(HLLoop *Lp) {
     return false;
   }
 
-  const LoopStatistics &LS = HLS.getSelfLoopStatistics(Lp);
+  const LoopStatistics &LS = HLS.getSelfStatistics(Lp);
 
   if (LS.hasCallsWithUnsafeSideEffects()) {
     return false;

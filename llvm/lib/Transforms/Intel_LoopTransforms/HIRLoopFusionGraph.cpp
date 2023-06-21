@@ -352,7 +352,7 @@ static unsigned areLoopsFusibleWithCommonTC(const HLLoop *Loop1,
 
 static bool hasUnsafeSideEffects(HIRLoopStatistics &HLS, const HLLoop *Loop) {
   bool HasUnsafeSideEffects =
-      HLS.getTotalLoopStatistics(Loop).hasCallsWithUnsafeSideEffects();
+      HLS.getTotalStatistics(Loop).hasCallsWithUnsafeSideEffects();
   for (auto &Node : Loop->preheaderNodes()) {
     auto *Inst = cast<HLInst>(&Node);
     HasUnsafeSideEffects |= Inst->isUnsafeSideEffectsCallInst();

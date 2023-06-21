@@ -1947,7 +1947,7 @@ bool isRerollCandidate(const HLLoop *Loop, HIRLoopStatistics &HLS,
     return false;
   }
 
-  const LoopStatistics &LS = HLS.getTotalLoopStatistics(Loop);
+  const LoopStatistics &LS = HLS.getTotalStatistics(Loop);
   if (LS.hasIfs() || LS.hasSwitches() || LS.hasForwardGotos() ||
       LS.hasCalls()) {
     return false;

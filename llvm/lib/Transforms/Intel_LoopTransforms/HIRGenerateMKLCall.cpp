@@ -269,7 +269,7 @@ struct HIRGenerateMKLCall::CollectCandidateLoops final
       return;
     }
 
-    if (GMKLCall.HLS.getSelfLoopStatistics(InnermostLoop)
+    if (GMKLCall.HLS.getSelfStatistics(InnermostLoop)
             .hasCallsWithUnsafeSideEffects()) {
       LLVM_DEBUG(
           dbgs() << "\nSkipping loop with calls that have side effects\n");

@@ -499,7 +499,7 @@ bool HIRConditionalTempSinking::run(HLLoop *Lp) {
     return false;
   }
 
-  auto &LoopStats = HLS.getTotalLoopStatistics(Lp);
+  auto &LoopStats = HLS.getTotalStatistics(Lp);
 
   // Nothing to sink.
   if (!LoopStats.hasIfs()) {

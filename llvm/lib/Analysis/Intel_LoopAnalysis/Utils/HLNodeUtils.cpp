@@ -2855,13 +2855,13 @@ StructuredFlowChecker::StructuredFlowChecker(bool PDom, const HLNode *TNode,
     : IsPDom(PDom), TargetNode(TNode), TargetEndsTraversal(TargetEndsTraversal),
       IsStructured(true), IsDone(false) {
   // Query HIRLoopStatistics for a possible faster response.
-  HLNode *Parent = FirstNode->getParentLoop();
-  if (!Parent)
-    Parent = FirstNode->getParentRegion();
+  auto *ParentLp = FirstNode->getParentLoop();
 
   if (HLS) {
     if (IsPDom) {
-      auto &TLS = HLS->getTotalLoopStatistics(Parent);
+      auto &TLS = ParentLp
+                      ? HLS->getTotalStatistics(ParentLp)
+                      : HLS->getTotalStatistics(FirstNode->getParentRegion());
 
       // Should we store statistics for multi-exit children loops to only
       // require self statistics?
@@ -2869,7 +2869,9 @@ StructuredFlowChecker::StructuredFlowChecker(bool PDom, const HLNode *TNode,
         IsDone = true;
       }
     } else {
-      auto &SLS = HLS->getSelfLoopStatistics(Parent);
+      auto &SLS = ParentLp
+                      ? HLS->getSelfStatistics(ParentLp)
+                      : HLS->getSelfStatistics(FirstNode->getParentRegion());
 
       if (!SLS.hasLabels()) {
         IsDone = true;
@@ -4541,7 +4543,7 @@ void HLNodeUtils::findInner2DIdentityMatrix(
     return;
   }
 
-  auto &OuterLS = HLS->getTotalLoopStatistics(OuterLp);
+  auto &OuterLS = HLS->getTotalStatistics(OuterLp);
 
   if (OuterLS.hasSwitches() || OuterLS.hasIfs() || OuterLS.hasCalls() ||
       OuterLS.hasLabels()) {

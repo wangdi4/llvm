@@ -2269,8 +2269,7 @@ bool HIRLoopBlocking::run(bool ForPragma) {
       continue;
     }
 
-    if (HLS.getTotalLoopStatistics(InnermostLoop)
-            .hasCallsWithUnsafeSideEffects())
+    if (HLS.getTotalStatistics(InnermostLoop).hasCallsWithUnsafeSideEffects())
       continue;
 
     FuncName = HIRF.getFunction().getName();

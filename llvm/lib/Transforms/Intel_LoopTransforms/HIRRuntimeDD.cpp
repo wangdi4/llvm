@@ -816,7 +816,7 @@ bool HIRRuntimeDD::isProfitable(const HLLoop *Loop) {
     return true;
   }
 
-  const LoopStatistics &LS = HLS.getTotalLoopStatistics(Loop);
+  const LoopStatistics &LS = HLS.getTotalStatistics(Loop);
 
   return (!LS.hasCallsWithUnknownAliasing() && !LS.hasSwitches());
 }
