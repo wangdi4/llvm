@@ -37,7 +37,7 @@
 ; CHECK-NOT: add i32
 
 ; OPTRPT: remark #25587: Loop has reduction
-; OPTRPT-NEXT: remark #15590: vectorization support: add reduction of value type i32
+; OPTRPT-NEXT: remark #15590: vectorization support: add reduction with value type int32_t
 
 source_filename = "t1.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

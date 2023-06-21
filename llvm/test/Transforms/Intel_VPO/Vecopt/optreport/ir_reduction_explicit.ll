@@ -1,7 +1,7 @@
 ;RUN: opt -passes=vplan-vec,intel-ir-optreport-emitter -S -disable-output -intel-opt-report=high %s 2>&1 | FileCheck %s
 
 ; CHECK:    remark #25588: Loop has SIMD reduction
-; CHECK-NEXT:    remark #15590: vectorization support: add reduction of value type float
+; CHECK-NEXT:    remark #15590: vectorization support: add reduction with value type float
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

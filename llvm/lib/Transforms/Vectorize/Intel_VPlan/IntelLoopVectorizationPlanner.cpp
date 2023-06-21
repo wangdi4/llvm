@@ -2170,6 +2170,44 @@ void LoopVectorizationPlanner::emitVPEntityInstrs(VPlanVector *Plan) {
   VPLAN_DUMP(VPEntityInstructionsDumpControl, Plan);
 }
 
+// Simplified type-printing utility.  We use this instead of Type::print()
+// because the latter is disabled in Intel release compilers.
+static void printReductionType(raw_ostream &OS, Type *Ty) {
+
+  switch (Ty->getTypeID()) {
+
+  case Type::FloatTyID:
+    OS << "float";
+    return;
+
+  case Type::DoubleTyID:
+    OS << "double";
+    return;
+
+  case Type::IntegerTyID:
+    OS << "int" << cast<IntegerType>(Ty)->getBitWidth() << "_t";
+    return;
+
+  case Type::StructTyID: {
+    StructType *STy = cast<StructType>(Ty);
+    OS << "structure of " << STy->getNumElements() << " elements";
+    return;
+  }
+
+  case Type::ArrayTyID: {
+    ArrayType *ATy = cast<ArrayType>(Ty);
+    OS << "array of ";
+    printReductionType(OS, ATy->getElementType());
+    OS << " (" << ATy->getNumElements() << " elements)";
+    return;
+  }
+
+  default:
+    OS << "unknown";
+    return;
+  }
+}
+
 void LoopVectorizationPlanner::reportReductions(VPlanVector *Plan,
                                                 VPLoop *MainLoop,
                                                 VPLoopEntityList *LE) {
@@ -2243,11 +2281,13 @@ void LoopVectorizationPlanner::reportReductions(VPlanVector *Plan,
       break;
     }
 
-    if (Red->getRecurrenceType()->isArrayTy())
+    Type *Ty = Red->getRecurrenceType();
+
+    if (Ty->isArrayTy())
       SS << "array or array-section ";
 
-    SS << "reduction of value type ";
-    Red->getRecurrenceType()->print(SS);
+    SS << "reduction with value type ";
+    printReductionType(SS, Ty);
 
     auto Exit = Red->getLoopExitInstr();
     if (Exit && Exit->getDebugLocation()) {
