@@ -119,7 +119,6 @@ class InstructionCombiningPass : public FunctionPass {
   const bool EnableFcmpMinMaxCombine; // INTEL
   const bool EnableUpCasting; // INTEL
   const bool EnableCanonicalizeSwap; // INTEL
-  const unsigned MaxIterations;
 
 public:
   static char ID; // Pass identification, replacement for typeid

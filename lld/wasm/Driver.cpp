@@ -331,7 +331,7 @@ static std::optional<std::string> searchLibraryBaseName(StringRef name) {
 
 // This is for -l<namespec>.
 static std::optional<std::string> searchLibrary(StringRef name) {
-  if (name.startswith(":"))
+  if (name.starts_with(":"))
     return findFromSearchPaths(name.substr(1));
   return searchLibraryBaseName(name);
 }
@@ -426,7 +426,7 @@ getBuildId(opt::InputArgList &args) {
     return {BuildIdKind::Sha1, {}};
   if (s == "uuid")
     return {BuildIdKind::Uuid, {}};
-  if (s.startswith("0x"))
+  if (s.starts_with("0x"))
     return {BuildIdKind::Hexstring, parseHex(s.substr(2))};
 
   if (s != "none")
@@ -1104,7 +1104,7 @@ static void splitSections() {
 
 static bool isKnownZFlag(StringRef s) {
   // For now, we only support a very limited set of -z flags
-  return s.startswith("stack-size=");
+  return s.starts_with("stack-size=");
 }
 
 // Report a warning for an unknown -z option.

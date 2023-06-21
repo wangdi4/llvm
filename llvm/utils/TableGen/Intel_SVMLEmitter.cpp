@@ -156,6 +156,41 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
     }
   }
 
+  // Because ldexp has two arguments, the names of its intrinsics doesn't follow
+  // the same pattern as the other functions. Thus the logic for intrinsics
+  // above can't be reused. We just emit their mappings separately.
+  OS << "{\"llvm.ldexp.f32.i32\", \"__svml_ldexpf1\", FIXED(1), false},\n";
+  OS << "{\"llvm.ldexp.f32.i32\", \"__svml_ldexpf1_mask\", FIXED(1), true},\n";
+  OS << "{\"llvm.ldexp.f32.i32\", \"__svml_ldexpf2\", FIXED(2), false},\n";
+  OS << "{\"llvm.ldexp.f32.i32\", \"__svml_ldexpf2_mask\", FIXED(2), true},\n";
+  OS << "{\"llvm.ldexp.f32.i32\", \"__svml_ldexpf4\", FIXED(4), false},\n";
+  OS << "{\"llvm.ldexp.f32.i32\", \"__svml_ldexpf4_mask\", FIXED(4), true},\n";
+  OS << "{\"llvm.ldexp.f32.i32\", \"__svml_ldexpf8\", FIXED(8), false},\n";
+  OS << "{\"llvm.ldexp.f32.i32\", \"__svml_ldexpf8_mask\", FIXED(8), true},\n";
+  OS << "{\"llvm.ldexp.f32.i32\", \"__svml_ldexpf16\", FIXED(16), false},\n";
+  OS << "{\"llvm.ldexp.f32.i32\", \"__svml_ldexpf16_mask\", FIXED(16), "
+        "true},\n";
+  OS << "{\"llvm.ldexp.f32.i32\", \"__svml_ldexpf32\", FIXED(32), false},\n";
+  OS << "{\"llvm.ldexp.f32.i32\", \"__svml_ldexpf32_mask\", FIXED(32), "
+        "true},\n";
+  OS << "{\"llvm.ldexp.f32.i32\", \"__svml_ldexpf64\", FIXED(64), false},\n";
+  OS << "{\"llvm.ldexp.f32.i32\", \"__svml_ldexpf64_mask\", FIXED(64), "
+        "true},\n";
+  OS << "{\"llvm.ldexp.f64.i32\", \"__svml_ldexp1\", FIXED(1), false},\n";
+  OS << "{\"llvm.ldexp.f64.i32\", \"__svml_ldexp1_mask\", FIXED(1), true},\n";
+  OS << "{\"llvm.ldexp.f64.i32\", \"__svml_ldexp2\", FIXED(2), false},\n";
+  OS << "{\"llvm.ldexp.f64.i32\", \"__svml_ldexp2_mask\", FIXED(2), true},\n";
+  OS << "{\"llvm.ldexp.f64.i32\", \"__svml_ldexp4\", FIXED(4), false},\n";
+  OS << "{\"llvm.ldexp.f64.i32\", \"__svml_ldexp4_mask\", FIXED(4), true},\n";
+  OS << "{\"llvm.ldexp.f64.i32\", \"__svml_ldexp8\", FIXED(8), false},\n";
+  OS << "{\"llvm.ldexp.f64.i32\", \"__svml_ldexp8_mask\", FIXED(8), true},\n";
+  OS << "{\"llvm.ldexp.f64.i32\", \"__svml_ldexp16\", FIXED(16), false},\n";
+  OS << "{\"llvm.ldexp.f64.i32\", \"__svml_ldexp16_mask\", FIXED(16), true},\n";
+  OS << "{\"llvm.ldexp.f64.i32\", \"__svml_ldexp32\", FIXED(32), false},\n";
+  OS << "{\"llvm.ldexp.f64.i32\", \"__svml_ldexp32_mask\", FIXED(32), true},\n";
+  OS << "{\"llvm.ldexp.f64.i32\", \"__svml_ldexp64\", FIXED(64), false},\n";
+  OS << "{\"llvm.ldexp.f64.i32\", \"__svml_ldexp64_mask\", FIXED(64), true},\n";
+
   // TODO: Should we use VecDescAttrs::IsOCLFn to set this?
   unsigned IsOCLFnAttr = 1;
   unsigned IsFortranOnlyAttr = 4;

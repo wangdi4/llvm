@@ -78,14 +78,14 @@ struct PrintingPolicy {
         IntelCompat(LO.IntelCompat), // INTEL
         SuppressTagKeyword(LO.CPlusPlus), IncludeTagDefinition(false),
         SuppressScope(false), SuppressUnwrittenScope(false),
-        SuppressInlineNamespace(true), SuppressInitializers(false),
-        ConstantArraySizeAsWritten(false), AnonymousTagLocations(true),
-        SuppressStrongLifetime(false), SuppressLifetimeQualifiers(false),
+        SuppressInlineNamespace(true), SuppressElaboration(false),
+        SuppressInitializers(false), ConstantArraySizeAsWritten(false),
+        AnonymousTagLocations(true), SuppressStrongLifetime(false),
+        SuppressLifetimeQualifiers(false),
         SuppressTypedefs(false), SuppressTemplateArgsInCXXConstructors(false),
-        SuppressDefaultTemplateArgs(true), SuppressFinalSpecifier(false),
-        Bool(LO.Bool), Nullptr(LO.CPlusPlus11 || LO.C2x),
-        NullptrTypeInNamespace(LO.CPlusPlus), Restrict(LO.C99),
-        Alignof(LO.CPlusPlus11), UnderscoreAlignof(LO.C11),
+        SuppressDefaultTemplateArgs(true), SuppressFinalSpecifier(false), Bool(LO.Bool),
+        Nullptr(LO.CPlusPlus11 || LO.C2x), NullptrTypeInNamespace(LO.CPlusPlus),
+        Restrict(LO.C99), Alignof(LO.CPlusPlus11), UnderscoreAlignof(LO.C11),
         UseVoidForZeroParams(!LO.CPlusPlus),
         SplitTemplateClosers(!LO.CPlusPlus11), TerseOutput(false),
         PolishForDeclaration(false), Half(LO.Half),
@@ -173,6 +173,10 @@ struct PrintingPolicy {
   /// to inline namespaces, where the name is unambiguous with the specifier
   /// removed.
   unsigned SuppressInlineNamespace : 1;
+
+  /// Ignore qualifiers and tag keywords as specified by elaborated type sugar,
+  /// instead letting the underlying type print as normal.
+  unsigned SuppressElaboration : 1;
 
   /// Suppress printing of variable initializers.
   ///

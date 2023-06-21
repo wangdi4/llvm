@@ -123,7 +123,9 @@ def floor      : SvmlVariants<[FPBothMasked]>;
 def fmod       : SvmlVariants<[FPBothMasked]>;
 def hypot      : SvmlVariants<[FPBothMasked]>;
 def invsqrt    : SvmlVariants<[FPBothMasked]>;
-def ldexp      : SvmlVariants<[FPBothMaskedIntrin]>;
+// Due to the unique signature of ldexp function, llvm.ldexp intrinsic is
+// handled inside the emitter.
+def ldexp      : SvmlVariants<[FPBothMasked]>;
 def log10      : SvmlVariants<[FPBothMaskedIntrin]>;
 def log1p      : SvmlVariants<[FPBothMasked]>;
 def log2       : SvmlVariants<[FPBothMaskedIntrin]>;

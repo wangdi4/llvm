@@ -1513,11 +1513,13 @@ Pass *llvm::createLoopUnrollPass(int OptLevel, bool OnlyWhenForced,
       AllowPeeling == -1 ? std::nullopt : std::optional<bool>(AllowPeeling));
 }
 
+#if INTEL_CUSTOMIZATION
 Pass *llvm::createSimpleLoopUnrollPass(int OptLevel, bool OnlyWhenForced,
                                        bool ForgetAllSCEV) {
   return createLoopUnrollPass(OptLevel, OnlyWhenForced, ForgetAllSCEV, -1, -1,
                               0, 0, 0, 1);
 }
+#endif  // INTEL_CUSTOMIZATION
 
 PreservedAnalyses LoopFullUnrollPass::run(Loop &L, LoopAnalysisManager &AM,
                                           LoopStandardAnalysisResults &AR,
@@ -1654,7 +1656,7 @@ PreservedAnalyses LoopUnrollPass::run(Function &F,
   for (const auto &L : LI) {
     Changed |=
         simplifyLoop(L, &DT, &LI, &SE, &AC, nullptr, false /* PreserveLCSSA */);
-    Changed |= formLCSSARecursively(*L, DT, &LI);
+    Changed |= formLCSSARecursively(*L, DT, &LI, &SE);
   }
 
   // Add the loop nests in the reverse order of LoopInfo. See method

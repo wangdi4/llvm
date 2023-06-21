@@ -155,8 +155,11 @@ private:
 
 class Parser {
 public:
-  explicit Parser(StringRef S, MachineTypes M, bool B)
-      : Lex(S), Machine(M), MingwDef(B) {}
+  explicit Parser(StringRef S, MachineTypes M, bool B, bool AU)
+      : Lex(S), Machine(M), MingwDef(B), AddUnderscores(AU) {
+    if (Machine != IMAGE_FILE_MACHINE_I386)
+      AddUnderscores = false;
+  }
 
   Expected<COFFModuleDefinition> parse() {
     do {
@@ -251,7 +254,7 @@ private:
       unget();
     }
 
-    if (Machine == IMAGE_FILE_MACHINE_I386) {
+    if (AddUnderscores) {
       if (!isDecorated(E.Name, MingwDef))
         E.Name = (std::string("_").append(E.Name));
       if (!E.ExtName.empty() && !isDecorated(E.ExtName, MingwDef))
@@ -296,7 +299,7 @@ private:
       if (Tok.K == EqualEqual) {
         read();
         E.AliasTarget = std::string(Tok.Value);
-        if (Machine == IMAGE_FILE_MACHINE_I386 && !isDecorated(E.AliasTarget, MingwDef))
+        if (AddUnderscores && !isDecorated(E.AliasTarget, MingwDef))
           E.AliasTarget = std::string("_").append(E.AliasTarget);
         continue;
       }
@@ -366,11 +369,13 @@ private:
   MachineTypes Machine;
   COFFModuleDefinition Info;
   bool MingwDef;
+  bool AddUnderscores;
 };
 
 Expected<COFFModuleDefinition> parseCOFFModuleDefinition(MemoryBufferRef MB,
                                                          MachineTypes Machine,
-                                                         bool MingwDef) {
+                                                         bool MingwDef,
+                                                         bool AddUnderscores) {
 #if INTEL_CUSTOMIZATION
   // This enumerator represents which type of UTF byte order mark is being used
   enum UTFBOMType {
@@ -469,7 +474,7 @@ Expected<COFFModuleDefinition> parseCOFFModuleDefinition(MemoryBufferRef MB,
   // UTF-32 nor do most of the text editors support it, but CL, clang and
   // MS-LINK support it.
 
-  return Parser(Buf, Machine, MingwDef).parse();
+  return Parser(Buf, Machine, MingwDef, AddUnderscores).parse();
   // return Parser(MB.getBuffer(), Machine, MingwDef).parse();
 #endif // INTEL_CUSTOMIZATION
 }

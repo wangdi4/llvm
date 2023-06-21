@@ -37,23 +37,10 @@
 
 namespace llvm {
 
-struct InlineParams;
 class ModulePass;
 class Pass;
-class BasicBlock;
-class GlobalValue;
 class raw_ostream;
 class InlineReportBuilder; // INTEL
-
-//===----------------------------------------------------------------------===//
-/// createGVExtractionPass - If deleteFn is true, this pass deletes
-/// the specified global values. Otherwise, it deletes as much of the module as
-/// possible, except for the global values specified. If keepConstInit is true,
-/// the initializers of global constants are not deleted even if they are
-/// unused.
-///
-ModulePass *createGVExtractionPass(std::vector<GlobalValue*>& GVs, bool
-                                  deleteFn = false, bool keepConstInit = false);
 
 //===----------------------------------------------------------------------===//
 /// createDeadArgEliminationPass - This pass removes arguments from functions

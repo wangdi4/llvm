@@ -3247,6 +3247,7 @@ ExprResult Parser::ParseCXXMemberInitializer(Decl *D, bool IsFunction,
           ? Sema::ExpressionEvaluationContext::PotentiallyEvaluatedIfUsed
           : Sema::ExpressionEvaluationContext::PotentiallyEvaluated,
       D);
+  Actions.ExprEvalContexts.back().InImmediateEscalatingFunctionContext = true;
   if (TryConsumeToken(tok::equal, EqualLoc)) {
     if (Tok.is(tok::kw_delete)) {
       // In principle, an initializer of '= delete p;' is legal, but it will

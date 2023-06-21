@@ -44,7 +44,6 @@ using namespace llvm;
 /// initializeScalarOptsPasses - Initialize all passes linked into the
 /// ScalarOpts library.
 void llvm::initializeScalarOpts(PassRegistry &Registry) {
-  initializeCallSiteSplittingLegacyPassPass(Registry);
   initializeConstantHoistingLegacyPassPass(Registry);
   initializeConvertGEPToSubscriptIntrinsicLegacyPassPass(Registry); // INTEL
   initializeDCELegacyPassPass(Registry);
@@ -85,7 +84,6 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeReassociateLegacyPassPass(Registry);
   initializeRedundantDbgInstEliminationPass(Registry);
   initializeRegToMemLegacyPass(Registry);
-  initializeRewriteStatepointsForGCLegacyPassPass(Registry);
   initializeScalarizeMaskedMemIntrinLegacyPassPass(Registry);
   initializeSROALegacyPassPass(Registry);
   initializeSROALegacyCGSCCAdaptorPassPass(Registry); // INTEL

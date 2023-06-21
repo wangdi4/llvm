@@ -455,7 +455,7 @@
 // Behavior with Qtemplate-depth option
 // RUN: %clang_cl -### -c /Qtemplate-depth:5 %s 2>&1 | FileCheck -check-prefix CHECK-TEMPLATE-DEPTH %s
 // RUN: %clang_cl -### -c /Qtemplate-depth=5 %s 2>&1 | FileCheck -check-prefix CHECK-TEMPLATE-DEPTH %s
-// CHECK-TEMPLATE-DEPTH: "-ftemplate-depth" "5"
+// CHECK-TEMPLATE-DEPTH: "-ftemplate-depth=5"
 
 // Behavior with Qzero-initialized-in-bss and Qzero-initialized-in-bss- option
 // RUN: %clang_cl -### -c /Qzero-initialized-in-bss %s 2>&1 | FileCheck -check-prefix CHECK-ZERO %s
@@ -735,7 +735,7 @@
 /// /constexpr:steps alias
 // RUN: %clang_cl /c /constexpr:steps4 -###  %s 2>&1 | FileCheck -check-prefix CONSTEXPR_STEPS %s
 // RUN: %clang_cl /c /constexpr:steps 4 -###  %s 2>&1 | FileCheck -check-prefix CONSTEXPR_STEPS %s
-// CONSTEXPR_STEPS: "-fconstexpr-steps" "4"
+// CONSTEXPR_STEPS: "-fconstexpr-steps=4"
 
 /// -fmax-errors alias
 // RUN: %clang -### -fmax-errors=256 -c %s 2>&1 | FileCheck -check-prefix=CHECK-MAX-ERRORS %s

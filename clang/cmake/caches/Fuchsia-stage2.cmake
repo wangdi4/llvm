@@ -11,6 +11,7 @@ set(LLVM_ENABLE_RUNTIMES "compiler-rt;libcxx;libcxxabi;libunwind" CACHE STRING "
 
 set(LLVM_ENABLE_BACKTRACES OFF CACHE BOOL "")
 set(LLVM_ENABLE_DIA_SDK OFF CACHE BOOL "")
+set(LLVM_ENABLE_HTTPLIB ON CACHE BOOL "")
 set(LLVM_ENABLE_LIBCXX ON CACHE BOOL "")
 set(LLVM_ENABLE_LIBEDIT OFF CACHE BOOL "")
 set(LLVM_ENABLE_LLD ON CACHE BOOL "")
@@ -320,6 +321,7 @@ set(LLVM_TOOLCHAIN_TOOLS
   llvm-readelf
   llvm-readobj
   llvm-size
+  llvm-strings
   llvm-strip
   llvm-symbolizer
   llvm-undname

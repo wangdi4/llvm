@@ -2220,6 +2220,42 @@ Instruction *InstCombinerImpl::foldICmpShlConstant(ICmpInst &Cmp,
   if (Cmp.isEquality() && match(Shl->getOperand(0), m_APInt(ShiftVal)))
     return foldICmpShlConstConst(Cmp, Shl->getOperand(1), C, *ShiftVal);
 
+  ICmpInst::Predicate Pred = Cmp.getPredicate();
+
+#if INTEL_CUSTOMIZATION
+  // Disabling this particular optimization before loopopt as it interferes
+  // with ztt recognition.
+  if (!Cmp.getParent()->getParent()->isPreLoopOpt()) {
+#endif // INTEL_CUSTOMIZATION
+    // (icmp pred (shl nuw&nsw X, Y), Csle0)
+    //      -> (icmp pred X, Csle0)
+    //
+    // The idea is the nuw/nsw essentially freeze the sign bit for the shift op
+    // so X's must be what is used.
+    if (C.sle(0) && Shl->hasNoUnsignedWrap() && Shl->hasNoSignedWrap())
+      return new ICmpInst(Pred, Shl->getOperand(0), Cmp.getOperand(1));
+
+    // (icmp eq/ne (shl nuw|nsw X, Y), 0)
+    //      -> (icmp eq/ne X, 0)
+    if (ICmpInst::isEquality(Pred) && C.isZero() &&
+        (Shl->hasNoUnsignedWrap() || Shl->hasNoSignedWrap()))
+      return new ICmpInst(Pred, Shl->getOperand(0), Cmp.getOperand(1));
+
+    // (icmp slt (shl nsw X, Y), 0/1)
+    //      -> (icmp slt X, 0/1)
+    // (icmp sgt (shl nsw X, Y), 0/-1)
+    //      -> (icmp sgt X, 0/-1)
+    //
+    // NB: sge/sle with a constant will canonicalize to sgt/slt.
+    if (Shl->hasNoSignedWrap() &&
+        (Pred == ICmpInst::ICMP_SGT || Pred == ICmpInst::ICMP_SLT))
+      if (C.isZero() ||
+          (Pred == ICmpInst::ICMP_SGT ? C.isAllOnes() : C.isOne()))
+        return new ICmpInst(Pred, Shl->getOperand(0), Cmp.getOperand(1));
+#if INTEL_CUSTOMIZATION
+  }    // !Cmp.getParent()->getParent()->isPreLoopOpt()
+#endif // INTEL_CUSTOMIZATION
+
   const APInt *ShiftAmt;
   if (!match(Shl->getOperand(1), m_APInt(ShiftAmt)))
     return foldICmpShlOne(Cmp, Shl, C);
@@ -2230,7 +2266,6 @@ Instruction *InstCombinerImpl::foldICmpShlConstant(ICmpInst &Cmp,
   if (ShiftAmt->uge(TypeBits))
     return nullptr;
 
-  ICmpInst::Predicate Pred = Cmp.getPredicate();
   Value *X = Shl->getOperand(0);
   Type *ShType = Shl->getType();
 
@@ -2262,11 +2297,6 @@ Instruction *InstCombinerImpl::foldICmpShlConstant(ICmpInst &Cmp,
       APInt ShiftedC = (C - 1).ashr(*ShiftAmt) + 1;
       return new ICmpInst(Pred, X, ConstantInt::get(ShType, ShiftedC));
     }
-    // If this is a signed comparison to 0 and the shift is sign preserving,
-    // use the shift LHS operand instead; isSignTest may change 'Pred', so only
-    // do that if we're sure to not continue on in this function.
-    if (isSignTest(Pred, C))
-      return new ICmpInst(Pred, X, Constant::getNullValue(ShType));
   }
 #if INTEL_CUSTOMIZATION
   } // !Cmp.getParent()->getParent()->isPreLoopOpt()
@@ -3510,7 +3540,9 @@ Instruction *InstCombinerImpl::foldICmpEqIntrinsicWithConstant(
 }
 
 /// Fold an icmp with LLVM intrinsics
-static Instruction *foldICmpIntrinsicWithIntrinsic(ICmpInst &Cmp) {
+static Instruction *
+foldICmpIntrinsicWithIntrinsic(ICmpInst &Cmp,
+                               InstCombiner::BuilderTy &Builder) {
   assert(Cmp.isEquality());
 
   ICmpInst::Predicate Pred = Cmp.getPredicate();
@@ -3528,16 +3560,32 @@ static Instruction *foldICmpIntrinsicWithIntrinsic(ICmpInst &Cmp) {
     // original values.
     return new ICmpInst(Pred, IIOp0->getOperand(0), IIOp1->getOperand(0));
   case Intrinsic::fshl:
-  case Intrinsic::fshr:
+  case Intrinsic::fshr: {
     // If both operands are rotated by same amount, just compare the
     // original values.
     if (IIOp0->getOperand(0) != IIOp0->getOperand(1))
       break;
     if (IIOp1->getOperand(0) != IIOp1->getOperand(1))
       break;
-    if (IIOp0->getOperand(2) != IIOp1->getOperand(2))
-      break;
-    return new ICmpInst(Pred, IIOp0->getOperand(0), IIOp1->getOperand(0));
+    if (IIOp0->getOperand(2) == IIOp1->getOperand(2))
+      return new ICmpInst(Pred, IIOp0->getOperand(0), IIOp1->getOperand(0));
+
+    // rotate(X, AmtX) == rotate(Y, AmtY)
+    //  -> rotate(X, AmtX - AmtY) == Y
+    // Do this if either both rotates have one use or if only one has one use
+    // and AmtX/AmtY are constants.
+    unsigned OneUses = IIOp0->hasOneUse() + IIOp1->hasOneUse();
+    if (OneUses == 2 ||
+        (OneUses == 1 && match(IIOp0->getOperand(2), m_ImmConstant()) &&
+         match(IIOp1->getOperand(2), m_ImmConstant()))) {
+      Value *SubAmt =
+          Builder.CreateSub(IIOp0->getOperand(2), IIOp1->getOperand(2));
+      Value *CombinedRotate = Builder.CreateIntrinsic(
+          Op0->getType(), IIOp0->getIntrinsicID(),
+          {IIOp0->getOperand(0), IIOp0->getOperand(0), SubAmt});
+      return new ICmpInst(Pred, IIOp1->getOperand(0), CombinedRotate);
+    }
+  } break;
   default:
     break;
   }
@@ -5076,7 +5124,7 @@ Instruction *InstCombinerImpl::foldICmpEquality(ICmpInst &I) {
     }
   }
 
-  if (Instruction *ICmp = foldICmpIntrinsicWithIntrinsic(I))
+  if (Instruction *ICmp = foldICmpIntrinsicWithIntrinsic(I, Builder))
     return ICmp;
 
   // Canonicalize checking for a power-of-2-or-zero value:
@@ -5132,6 +5180,19 @@ Instruction *InstCombinerImpl::foldICmpEquality(ICmpInst &I) {
       isKnownToBeAPowerOfTwo(Op0, /* OrZero */ false, 0, &I))
     return new ICmpInst(CmpInst::getInversePredicate(Pred), Op1,
                         ConstantInt::getNullValue(Op1->getType()));
+
+  // Canonicalize:
+  // icmp eq/ne X, OneUse(rotate-right(X))
+  //    -> icmp eq/ne X, rotate-left(X)
+  // We generally try to convert rotate-right -> rotate-left, this just
+  // canonicalizes another case.
+  CmpInst::Predicate PredUnused = Pred;
+  if (match(&I, m_c_ICmp(PredUnused, m_Value(A),
+                         m_OneUse(m_Intrinsic<Intrinsic::fshr>(
+                             m_Deferred(A), m_Deferred(A), m_Value(B))))))
+    return new ICmpInst(
+        Pred, A,
+        Builder.CreateIntrinsic(Op0->getType(), Intrinsic::fshl, {A, A, B}));
 
   return nullptr;
 }

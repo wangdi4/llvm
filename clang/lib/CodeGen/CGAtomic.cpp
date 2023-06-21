@@ -1515,8 +1515,12 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
       if (AS == LangAS::opencl_generic)
         return V;
       auto DestAS = getContext().getTargetAddressSpace(LangAS::opencl_generic);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      auto *DestType = llvm::PointerType::get(getLLVMContext(), DestAS);
+#else
       auto T = llvm::cast<llvm::PointerType>(V->getType());
       auto *DestType = llvm::PointerType::getWithSamePointeeType(T, DestAS);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
       return getTargetHooks().performAddrSpaceCast(
           *this, V, AS, LangAS::opencl_generic, DestType, false);
@@ -1908,7 +1912,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
                  E->getOp() == AtomicExpr::AO__hip_atomic_store ||
                  E->getOp() == AtomicExpr::AO__atomic_store ||
 #if INTEL_CUSTOMIZATION
-                 E->getOp() ==  AtomicExpr::AO__atomic_store_explicit   || 
+                 E->getOp() ==  AtomicExpr::AO__atomic_store_explicit   ||
                  E->getOp() ==  AtomicExpr::AO__atomic_store_explicit_1 ||
                  E->getOp() ==  AtomicExpr::AO__atomic_store_explicit_2 ||
                  E->getOp() ==  AtomicExpr::AO__atomic_store_explicit_4 ||
@@ -1921,7 +1925,7 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
                 E->getOp() == AtomicExpr::AO__hip_atomic_load ||
                 E->getOp() == AtomicExpr::AO__atomic_load ||
 #if INTEL_CUSTOMIZATION
-                E->getOp() ==  AtomicExpr::AO__atomic_load_explicit   || 
+                E->getOp() ==  AtomicExpr::AO__atomic_load_explicit   ||
                 E->getOp() ==  AtomicExpr::AO__atomic_load_explicit_1 ||
                 E->getOp() ==  AtomicExpr::AO__atomic_load_explicit_2 ||
                 E->getOp() ==  AtomicExpr::AO__atomic_load_explicit_4 ||

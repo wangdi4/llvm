@@ -4111,8 +4111,8 @@ getLinkerArgs(Compilation &C, DerivedArgList &Args, bool IncludeObj = false) {
       for (const std::string &Value : A->getValues()) {
         // Add any libpath values.
         StringRef OptCheck(Value);
-        if (OptCheck.startswith_insensitive("-libpath:") ||
-            OptCheck.startswith_insensitive("/libpath:"))
+        if (OptCheck.starts_with_insensitive("-libpath:") || // INTEL
+            OptCheck.starts_with_insensitive("/libpath:"))   // INTEL
           LibPaths.emplace_back(Value.substr(std::string("-libpath:").size()));
         if (addLibArg(Value))
           continue;
@@ -8841,13 +8841,8 @@ void Driver::BuildJobs(Compilation &C) const {
   }
 
   const llvm::Triple &RawTriple = C.getDefaultToolChain().getTriple();
-  if (RawTriple.isOSAIX()) {
-    if (Arg *A = C.getArgs().getLastArg(options::OPT_G))
-      Diag(diag::err_drv_unsupported_opt_for_target)
-          << A->getSpelling() << RawTriple.str();
-    if (LTOMode == LTOK_Thin)
-      Diag(diag::err_drv_clang_unsupported) << "thinLTO on AIX";
-  }
+  if (RawTriple.isOSAIX() && LTOMode == LTOK_Thin)
+    Diag(diag::err_drv_clang_unsupported) << "thinLTO on AIX";
 
   // Collect the list of architectures.
   llvm::StringSet<> ArchNames;

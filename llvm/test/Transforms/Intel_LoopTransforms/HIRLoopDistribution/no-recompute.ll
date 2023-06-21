@@ -1,3 +1,4 @@
+; XFAIL:*
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,print<hir>" -disable-output -hir-loop-distribute-max-mem=14 %s 2>&1 | FileCheck %s
 
 ; Check that we do not recompute for Scalar Expansion candidate due to

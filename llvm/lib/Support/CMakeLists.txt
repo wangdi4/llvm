@@ -148,6 +148,7 @@ set (SUPPORT_SOURCES
   Allocator.cpp
   AutoConvert.cpp
   Base64.cpp
+  BalancedPartitioning.cpp
   BinaryStreamError.cpp
   BinaryStreamReader.cpp
   BinaryStreamRef.cpp

@@ -620,6 +620,7 @@ public:
     case LibFunc_log:          case LibFunc_logf:       case LibFunc_logl:
     case LibFunc_exp:          case LibFunc_expf:       case LibFunc_expl:
 #endif  // INTEL_CUSTOMIZATION
+    case LibFunc_ldexp:        case LibFunc_ldexpf:     case LibFunc_ldexpl:
     case LibFunc_memcpy:       case LibFunc_memset:     case LibFunc_memmove:
     case LibFunc_memcmp:       case LibFunc_bcmp:       case LibFunc_strcmp:
     case LibFunc_strcpy:       case LibFunc_stpcpy:     case LibFunc_strlen:

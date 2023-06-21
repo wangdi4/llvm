@@ -113,7 +113,7 @@ public:
       : m_Pointer(ptr) {}
   multi_ptr(std::nullptr_t) : m_Pointer(nullptr) {}
 
-  // Implicit conversion from multi_ptr<T> to multi_ptr<const T>
+  // Explicit conversion from multi_ptr<T> to multi_ptr<const T>
   template <typename NonConstElementType = std::remove_const_t<ElementType>,
             typename = typename std::enable_if_t<
                 std::is_const_v<ElementType> &&
@@ -1274,10 +1274,21 @@ private:
 };
 
 #ifdef __cpp_deduction_guides
-template <int dimensions, access::mode Mode, access::placeholder isPlaceholder,
+template <int dimensions, access::placeholder isPlaceholder,
           typename PropertyListT, class T>
-multi_ptr(accessor<T, dimensions, Mode, access::target::device, isPlaceholder,
-                   PropertyListT>)
+multi_ptr(accessor<T, dimensions, access::mode::read, access::target::device,
+                   isPlaceholder, PropertyListT>)
+    -> multi_ptr<const T, access::address_space::global_space,
+                 access::decorated::no>;
+template <int dimensions, access::placeholder isPlaceholder,
+          typename PropertyListT, class T>
+multi_ptr(accessor<T, dimensions, access::mode::write, access::target::device,
+                   isPlaceholder, PropertyListT>)
+    -> multi_ptr<T, access::address_space::global_space, access::decorated::no>;
+template <int dimensions, access::placeholder isPlaceholder,
+          typename PropertyListT, class T>
+multi_ptr(accessor<T, dimensions, access::mode::read_write,
+                   access::target::device, isPlaceholder, PropertyListT>)
     -> multi_ptr<T, access::address_space::global_space, access::decorated::no>;
 template <int dimensions, access::mode Mode, access::placeholder isPlaceholder,
           typename PropertyListT, class T>

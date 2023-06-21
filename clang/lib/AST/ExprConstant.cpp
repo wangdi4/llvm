@@ -2180,13 +2180,12 @@ static bool CheckLValueConstantExpression(EvalInfo &Info, SourceLocation Loc,
     }
   }
 
-  if (auto *FD = dyn_cast_or_null<FunctionDecl>(BaseVD)) {
-    if (FD->isConsteval()) {
-      Info.FFDiag(Loc, diag::note_consteval_address_accessible)
-          << !Type->isAnyPointerType();
-      Info.Note(FD->getLocation(), diag::note_declared_at);
-      return false;
-    }
+  if (auto *FD = dyn_cast_or_null<FunctionDecl>(BaseVD);
+      FD && FD->isImmediateFunction()) {
+    Info.FFDiag(Loc, diag::note_consteval_address_accessible)
+        << !Type->isAnyPointerType();
+    Info.Note(FD->getLocation(), diag::note_declared_at);
+    return false;
   }
 
   // Check that the object is a global. Note that the fake 'this' object we
@@ -2322,7 +2321,7 @@ static bool CheckMemberPointerConstantExpression(EvalInfo &Info,
   const auto *FD = dyn_cast_or_null<CXXMethodDecl>(Member);
   if (!FD)
     return true;
-  if (FD->isConsteval()) {
+  if (FD->isImmediateFunction()) {
     Info.FFDiag(Loc, diag::note_consteval_address_accessible) << /*pointer*/ 0;
     Info.Note(FD->getLocation(), diag::note_declared_at);
     return false;
@@ -15142,6 +15141,7 @@ static bool Evaluate(APValue &Result, EvalInfo &Info, const Expr *E) {
           E, Unqual, ScopeKind::FullExpression, LV);
       if (!EvaluateAtomic(E, &LV, Value, Info))
         return false;
+      Result = Value;
     } else {
       if (!EvaluateAtomic(E, nullptr, Result, Info))
         return false;
