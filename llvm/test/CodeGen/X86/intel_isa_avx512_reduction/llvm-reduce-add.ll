@@ -660,8 +660,8 @@ define i16 @reduce_addw_3xi16(ptr %p) {
 ; AVX512F-LABEL: reduce_addw_3xi16:
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    movq (%rdi), %rax
-; AVX512F-NEXT:    movq %rax, %rcx
-; AVX512F-NEXT:    shrq $16, %rcx
+; AVX512F-NEXT:    movl %eax, %ecx
+; AVX512F-NEXT:    shrl $16, %ecx
 ; AVX512F-NEXT:    addl %eax, %ecx
 ; AVX512F-NEXT:    shrq $32, %rax
 ; AVX512F-NEXT:    addl %ecx, %eax
@@ -1037,13 +1037,13 @@ define i8 @reduce_addb_7xi8(ptr %p) {
 ; AVX512F-LABEL: reduce_addb_7xi8:
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    movq (%rdi), %rax
-; AVX512F-NEXT:    movq %rax, %rcx
-; AVX512F-NEXT:    shrq $8, %rcx
+; AVX512F-NEXT:    movl %eax, %ecx
+; AVX512F-NEXT:    shrl $8, %ecx
 ; AVX512F-NEXT:    addb %al, %cl
-; AVX512F-NEXT:    movq %rax, %rdx
-; AVX512F-NEXT:    shrq $16, %rdx
-; AVX512F-NEXT:    movq %rax, %rsi
-; AVX512F-NEXT:    shrq $24, %rsi
+; AVX512F-NEXT:    movl %eax, %edx
+; AVX512F-NEXT:    shrl $16, %edx
+; AVX512F-NEXT:    movl %eax, %esi
+; AVX512F-NEXT:    shrl $24, %esi
 ; AVX512F-NEXT:    addb %dl, %sil
 ; AVX512F-NEXT:    addb %cl, %sil
 ; AVX512F-NEXT:    movq %rax, %rcx

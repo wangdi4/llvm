@@ -483,11 +483,11 @@ define i16 @reduce_andw_32xi16(<32 x i16> %vec) {
 ; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
 ; AVX512F-NEXT:    vpand %xmm1, %xmm0, %xmm0
 ; AVX512F-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[2,3,2,3]
-; AVX512F-NEXT:    vpand %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpand %xmm0, %xmm1, %xmm0
 ; AVX512F-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[1,1,1,1]
-; AVX512F-NEXT:    vpand %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpand %xmm0, %xmm1, %xmm0
 ; AVX512F-NEXT:    vpsrld $16, %xmm0, %xmm1
-; AVX512F-NEXT:    vpand %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpand %xmm0, %xmm1, %xmm0
 ; AVX512F-NEXT:    vmovd %xmm0, %eax
 ; AVX512F-NEXT:    # kill: def $ax killed $ax killed $eax
 ; AVX512F-NEXT:    vzeroupper
@@ -559,11 +559,11 @@ define i16 @reduce_andw_16xi16(<16 x i16> %vec) {
 ; AVX512F-NEXT:    vextracti128 $1, %ymm0, %xmm1
 ; AVX512F-NEXT:    vpand %xmm1, %xmm0, %xmm0
 ; AVX512F-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[2,3,2,3]
-; AVX512F-NEXT:    vpand %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpand %xmm0, %xmm1, %xmm0
 ; AVX512F-NEXT:    vpshufd {{.*#+}} xmm1 = xmm0[1,1,1,1]
-; AVX512F-NEXT:    vpand %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpand %xmm0, %xmm1, %xmm0
 ; AVX512F-NEXT:    vpsrld $16, %xmm0, %xmm1
-; AVX512F-NEXT:    vpand %xmm1, %xmm0, %xmm0
+; AVX512F-NEXT:    vpand %xmm0, %xmm1, %xmm0
 ; AVX512F-NEXT:    vmovd %xmm0, %eax
 ; AVX512F-NEXT:    # kill: def $ax killed $ax killed $eax
 ; AVX512F-NEXT:    vzeroupper
@@ -708,8 +708,8 @@ define i16 @reduce_andw_3xi16(ptr %p) {
 ; AVX512F-LABEL: reduce_andw_3xi16:
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    movq (%rdi), %rax
-; AVX512F-NEXT:    movq %rax, %rcx
-; AVX512F-NEXT:    shrq $16, %rcx
+; AVX512F-NEXT:    movl %eax, %ecx
+; AVX512F-NEXT:    shrl $16, %ecx
 ; AVX512F-NEXT:    andl %eax, %ecx
 ; AVX512F-NEXT:    shrq $32, %rax
 ; AVX512F-NEXT:    andl %ecx, %eax
@@ -1226,21 +1226,21 @@ define i8 @reduce_andb_7xi8(ptr %p) {
 ; AVX512F-NEXT:    movq (%rdi), %rax
 ; AVX512F-NEXT:    movl %eax, %ecx
 ; AVX512F-NEXT:    shrl $8, %ecx
-; AVX512F-NEXT:    andl %eax, %ecx
+; AVX512F-NEXT:    andb %al, %cl
 ; AVX512F-NEXT:    movl %eax, %edx
 ; AVX512F-NEXT:    shrl $16, %edx
 ; AVX512F-NEXT:    movl %eax, %esi
 ; AVX512F-NEXT:    shrl $24, %esi
-; AVX512F-NEXT:    andl %edx, %esi
-; AVX512F-NEXT:    andl %ecx, %esi
+; AVX512F-NEXT:    andb %dl, %sil
+; AVX512F-NEXT:    andb %cl, %sil
 ; AVX512F-NEXT:    movq %rax, %rcx
 ; AVX512F-NEXT:    shrq $32, %rcx
 ; AVX512F-NEXT:    movq %rax, %rdx
 ; AVX512F-NEXT:    shrq $40, %rdx
-; AVX512F-NEXT:    andl %ecx, %edx
+; AVX512F-NEXT:    andb %cl, %dl
 ; AVX512F-NEXT:    shrq $48, %rax
-; AVX512F-NEXT:    andl %edx, %eax
-; AVX512F-NEXT:    andl %esi, %eax
+; AVX512F-NEXT:    andb %dl, %al
+; AVX512F-NEXT:    andb %sil, %al
 ; AVX512F-NEXT:    # kill: def $al killed $al killed $rax
 ; AVX512F-NEXT:    retq
   %vec= load <7 x i8>, ptr %p
