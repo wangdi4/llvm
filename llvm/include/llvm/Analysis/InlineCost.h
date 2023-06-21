@@ -180,6 +180,8 @@ typedef enum {
   InlrHasSmallAppBudget,
   InlrExposesLocalArrays,
   InlrUnderTBBParallelFor,
+  InlrCSSampleBeneficial,
+  InlrSampleBeneficial,
   InlrBeneficial,
   InlrProfitable,
   InlrLast,   // Just a marker placed after the last inlining reason
@@ -217,6 +219,8 @@ typedef enum {
   NinlrNotPossible,
   NinlrNotAlwaysInline,
   NinlrNewlyCreated,
+  NinlrNotCSSampleBeneficial,
+  NinlrNotSampleBeneficial,
   NinlrNotBeneficial,
   NinlrNotProfitable,
   NinlrOpBundles,
