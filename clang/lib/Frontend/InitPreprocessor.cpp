@@ -1376,19 +1376,21 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
       Builder.defineMacro("__ENABLE_USM_ADDR_SPACE__");
       Builder.defineMacro("SYCL_DISABLE_FALLBACK_ASSERT");
     }
-
-    if (LangOpts.SYCLESIMDForceStatelessMem)
-      Builder.defineMacro("__ESIMD_FORCE_STATELESS_MEM");
   }
   if (LangOpts.SYCLUnnamedLambda)
     Builder.defineMacro("__SYCL_UNNAMED_LAMBDA__");
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Define a macro indicating that the HLS cpp source file is being compiled.
   if (LangOpts.HLS) {
     Builder.defineMacro("HLS_EXTERNAL", "__attribute__((hls_device))");
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (LangOpts.SYCLESIMDForceStatelessMem)
+    Builder.defineMacro("__ESIMD_FORCE_STATELESS_MEM");
+>>>>>>> 8b85b6400b8271cf3bcf8e91fe1cb81a2665e23a
 
   // OpenCL definitions.
   if (LangOpts.OpenCL) {
