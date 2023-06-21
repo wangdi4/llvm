@@ -13,6 +13,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 namespace lld {
+<<<<<<< HEAD
 enum Flavor {
   Invalid,
   Gnu,     // -flavor gnu
@@ -34,6 +35,10 @@ struct DriverDef {
 
 struct Result {
   int retCode;
+=======
+struct SafeReturn {
+  int ret;
+>>>>>>> aa495214b39d475bab24b468de7a7c676ce9e366
   bool canRunAgain;
 };
 
@@ -43,10 +48,36 @@ struct Result {
 // and re-entry would not be possible anymore. Use exitLld() in that case to
 // properly exit your application and avoid intermittent crashes on exit caused
 // by cleanup.
-Result lldMain(llvm::ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,
-               llvm::raw_ostream &stderrOS, llvm::ArrayRef<DriverDef> drivers);
+SafeReturn safeLldMain(int argc, const char **argv, llvm::raw_ostream &stdoutOS,
+                       llvm::raw_ostream &stderrOS);
+
+namespace coff {
+bool link(llvm::ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,
+          llvm::raw_ostream &stderrOS, bool exitEarly, bool disableOutput);
+}
+
+namespace mingw {
+bool link(llvm::ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,
+          llvm::raw_ostream &stderrOS, bool exitEarly, bool disableOutput);
+}
+
+namespace elf {
+bool link(llvm::ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,
+          llvm::raw_ostream &stderrOS, bool exitEarly, bool disableOutput);
+}
+
+namespace macho {
+bool link(llvm::ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,
+          llvm::raw_ostream &stderrOS, bool exitEarly, bool disableOutput);
+}
+
+namespace wasm {
+bool link(llvm::ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,
+          llvm::raw_ostream &stderrOS, bool exitEarly, bool disableOutput);
+}
 } // namespace lld
 
+<<<<<<< HEAD
 // With this macro, library users must specify which drivers they use, provide
 // that information to lldMain() in the `drivers` param, and link the
 // corresponding driver library in their executable.
@@ -77,4 +108,6 @@ Result lldMain(llvm::ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,
 
 
 #else
+=======
+>>>>>>> aa495214b39d475bab24b468de7a7c676ce9e366
 #endif
