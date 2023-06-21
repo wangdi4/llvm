@@ -1428,6 +1428,34 @@ void SCCPInstVisitor::visitFreezeInst(FreezeInst &I) {
 
   ValueLatticeElement V0State = getValueState(I.getOperand(0));
   ValueLatticeElement &IV = ValueState[&I];
+#if INTEL_CUSTOMIZATION
+  // Return true if Op is a SelectInst or Phi of SelectInsts.
+  auto IsSelectOrPHIOfSelectInst = [](Value *Op) {
+    if (!(isa<SelectInst>(Op) || isa<PHINode>(Op)) ||
+        !Op->getType()->isIntegerTy())
+      return false;
+
+    if (PHINode *PHI = dyn_cast<PHINode>(Op))
+      for (unsigned I = 0, E = PHI->getNumIncomingValues(); I != E; ++E)
+        if (!isa<SelectInst>(PHI->getIncomingValue(I)))
+          return false;
+
+    return true;
+  };
+
+  // Propagate range when the operand is a SelectInst or Phi of SelectInsts.
+  Value *Op = I.getOperand(0);
+
+  // Let the community code below handle constant V0State.
+  if (IsSelectOrPHIOfSelectInst(Op) && !getConstant(V0State)) {
+    ConstantRange OpRange =
+        V0State.isConstantRange()
+            ? V0State.getConstantRange()
+            : ConstantRange::getFull(Op->getType()->getScalarSizeInBits());
+    return (void)mergeInValue(IV, &I, ValueLatticeElement::getRange(OpRange));
+  }
+
+#endif // INTEL_CUSTOMIZATION
   // resolvedUndefsIn might mark I as overdefined. Bail out, even if we would
   // discover a concrete value later.
   if (SCCPSolver::isOverdefined(IV))
