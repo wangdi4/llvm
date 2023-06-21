@@ -427,12 +427,8 @@ void LinkerDriver::parseDirectives(InputFile *file) {
       exp.extName = saver().save(exp.extName);
       exp.forwardTo = saver().save(exp.forwardTo);
     }
-<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
-    exp.directives = true;
-=======
     exp.source = ExportSource::Directives;
->>>>>>> adcdc9cc3740adba3577b328fa3ba492cbccd3a5
     ctx.config.exports.push_back(exp);
   }
 
