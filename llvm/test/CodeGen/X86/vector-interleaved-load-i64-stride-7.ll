@@ -12207,17 +12207,17 @@ define void @load_i64_stride7_vf64(ptr %in.vec, ptr %out.vec0, ptr %out.vec1, pt
 ; AVX512BW-NEXT:    vpermi2q %zmm9, %zmm6, %zmm18
 ; AVX512BW-NEXT:    vmovdqa64 %zmm22, %zmm31
 ; AVX512BW-NEXT:    vpermt2q %zmm16, %zmm19, %zmm31
-; end INTEL_CUSTOMIZATION
 ; AVX512BW-NEXT:    vmovdqu64 {{[-0-9]+}}(%r{{[sb]}}p), %zmm3 # 64-byte Reload
-; AVX512BW-NEXT:    vpermt2q {{[-0-9]+}}(%r{{[sb]}}p), %zmm11, %zmm3 # 64-byte Folded Reload ;INTEL
-; AVX512BW-NEXT:    vmovdqu64 %zmm3, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill ;INTEL
+; AVX512BW-NEXT:    vpermt2q {{[-0-9]+}}(%r{{[sb]}}p), %zmm11, %zmm3 # 64-byte Folded Reload
+; AVX512BW-NEXT:    vmovdqu64 %zmm3, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
 ; AVX512BW-NEXT:    vmovdqu64 {{[-0-9]+}}(%r{{[sb]}}p), %zmm14 # 64-byte Reload
-; INTEL_CUSTOMIZATION
 ; AVX512BW-NEXT:    vmovdqa64 %zmm14, %zmm3
 ; AVX512BW-NEXT:    vmovdqu64 {{[-0-9]+}}(%r{{[sb]}}p), %zmm28 # 64-byte Reload
 ; AVX512BW-NEXT:    vpermt2q %zmm28, %zmm11, %zmm3
 ; AVX512BW-NEXT:    vmovdqu64 %zmm3, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
+; end INTEL_CUSTOMIZATION
 ; AVX512BW-NEXT:    vmovdqu64 {{[-0-9]+}}(%r{{[sb]}}p), %zmm15 # 64-byte Reload
+; INTEL_CUSTOMIZATION
 ; AVX512BW-NEXT:    vmovdqa64 %zmm15, %zmm3
 ; AVX512BW-NEXT:    vmovdqu64 {{[-0-9]+}}(%r{{[sb]}}p), %zmm20 # 64-byte Reload
 ; AVX512BW-NEXT:    vpermt2q %zmm20, %zmm11, %zmm3
@@ -12250,37 +12250,39 @@ define void @load_i64_stride7_vf64(ptr %in.vec, ptr %out.vec0, ptr %out.vec1, pt
 ; AVX512BW-NEXT:    vpermi2q %zmm9, %zmm6, %zmm11
 ; AVX512BW-NEXT:    vpermt2q %zmm9, %zmm0, %zmm5
 ; AVX512BW-NEXT:    vpermt2q %zmm2, %zmm0, %zmm7
+; end INTEL_CUSTOMIZATION
 ; AVX512BW-NEXT:    vbroadcasti64x4 {{.*#+}} zmm0 = [0,5,6,9,0,5,6,9]
 ; AVX512BW-NEXT:    # zmm0 = mem[0,1,2,3,0,1,2,3]
 ; AVX512BW-NEXT:    vmovdqu64 {{[-0-9]+}}(%r{{[sb]}}p), %zmm3 # 64-byte Reload
-; AVX512BW-NEXT:    vpermt2q %zmm3, %zmm0, %zmm8
-; AVX512BW-NEXT:    vmovdqu64 %zmm8, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
+; AVX512BW-NEXT:    vpermt2q %zmm3, %zmm0, %zmm8 ;INTEL
+; AVX512BW-NEXT:    vmovdqu64 %zmm8, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill ;INTEL
 ; AVX512BW-NEXT:    vmovdqu64 {{[-0-9]+}}(%r{{[sb]}}p), %zmm2 # 64-byte Reload
+; INTEL_CUSTOMIZATION
 ; AVX512BW-NEXT:    vpermt2q %zmm2, %zmm0, %zmm12
 ; AVX512BW-NEXT:    vmovdqu64 %zmm12, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
 ; AVX512BW-NEXT:    vmovdqu64 {{[-0-9]+}}(%r{{[sb]}}p), %zmm9 # 64-byte Reload
 ; AVX512BW-NEXT:    vpermt2q %zmm9, %zmm0, %zmm23
 ; AVX512BW-NEXT:    vmovdqu64 %zmm23, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
-; AVX512BW-NEXT:    vmovdqu64 {{[-0-9]+}}(%r{{[sb]}}p), %zmm6 # 64-byte Reload
 ; end INTEL_CUSTOMIZATION
+; AVX512BW-NEXT:    vmovdqu64 {{[-0-9]+}}(%r{{[sb]}}p), %zmm6 # 64-byte Reload
+; INTEL_CUSTOMIZATION
 ; AVX512BW-NEXT:    vmovdqu64 {{[-0-9]+}}(%r{{[sb]}}p), %zmm1 # 64-byte Reload
 ; AVX512BW-NEXT:    vpermt2q %zmm6, %zmm0, %zmm1
 ; AVX512BW-NEXT:    vmovdqu64 %zmm1, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
-; INTEL_CUSTOMIZATION
 ; AVX512BW-NEXT:    vmovdqu64 {{[-0-9]+}}(%r{{[sb]}}p), %zmm8 # 64-byte Reload
 ; AVX512BW-NEXT:    vpermt2q %zmm8, %zmm0, %zmm10
 ; AVX512BW-NEXT:    vmovdqu64 %zmm10, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
 ; AVX512BW-NEXT:    vmovdqu64 {{[-0-9]+}}(%r{{[sb]}}p), %zmm12 # 64-byte Reload
-; end INTEL_CUSTOMIZATION
 ; AVX512BW-NEXT:    vmovdqu64 {{[-0-9]+}}(%r{{[sb]}}p), %zmm1 # 64-byte Reload
-; AVX512BW-NEXT:    vpermt2q %zmm12, %zmm0, %zmm1 ;INTEL
+; AVX512BW-NEXT:    vpermt2q %zmm12, %zmm0, %zmm1
 ; AVX512BW-NEXT:    vmovdqu64 %zmm1, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
 ; AVX512BW-NEXT:    vmovdqu64 {{[-0-9]+}}(%r{{[sb]}}p), %zmm1 # 64-byte Reload
-; INTEL_CUSTOMIZATION
 ; AVX512BW-NEXT:    vpermt2q %zmm1, %zmm0, %zmm30
+; end INTEL_CUSTOMIZATION
 ; AVX512BW-NEXT:    vpermt2q %zmm29, %zmm0, %zmm18
 ; AVX512BW-NEXT:    vbroadcasti64x4 {{.*#+}} zmm0 = [0,5,6,10,0,5,6,10]
 ; AVX512BW-NEXT:    # zmm0 = mem[0,1,2,3,0,1,2,3]
+; INTEL_CUSTOMIZATION
 ; AVX512BW-NEXT:    vpermt2q %zmm1, %zmm0, %zmm31
 ; AVX512BW-NEXT:    vmovdqu64 {{[-0-9]+}}(%r{{[sb]}}p), %zmm23 # 64-byte Reload
 ; AVX512BW-NEXT:    vpermt2q %zmm2, %zmm0, %zmm23
@@ -12300,9 +12302,11 @@ define void @load_i64_stride7_vf64(ptr %in.vec, ptr %out.vec0, ptr %out.vec1, pt
 ; AVX512BW-NEXT:    vmovdqu64 {{[-0-9]+}}(%r{{[sb]}}p), %zmm23 # 64-byte Reload
 ; AVX512BW-NEXT:    vpermt2q %zmm8, %zmm0, %zmm23
 ; AVX512BW-NEXT:    vmovdqu64 %zmm23, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
+; end INTEL_CUSTOMIZATION
 ; AVX512BW-NEXT:    vpermt2q %zmm29, %zmm0, %zmm19
 ; AVX512BW-NEXT:    vbroadcasti64x4 {{.*#+}} zmm0 = [0,5,6,11,0,5,6,11]
 ; AVX512BW-NEXT:    # zmm0 = mem[0,1,2,3,0,1,2,3]
+; INTEL_CUSTOMIZATION
 ; AVX512BW-NEXT:    vpermt2q %zmm1, %zmm0, %zmm27
 ; AVX512BW-NEXT:    vmovdqu64 {{[-0-9]+}}(%r{{[sb]}}p), %zmm23 # 64-byte Reload
 ; AVX512BW-NEXT:    vpermt2q %zmm2, %zmm0, %zmm23
@@ -12323,14 +12327,16 @@ define void @load_i64_stride7_vf64(ptr %in.vec, ptr %out.vec0, ptr %out.vec1, pt
 ; AVX512BW-NEXT:    vpermt2q %zmm8, %zmm0, %zmm23
 ; AVX512BW-NEXT:    vmovdqu64 %zmm23, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
 ; AVX512BW-NEXT:    vpermt2q %zmm29, %zmm0, %zmm21
+; end INTEL_CUSTOMIZATION
 ; AVX512BW-NEXT:    vbroadcasti64x4 {{.*#+}} zmm0 = [0,5,6,12,0,5,6,12]
 ; AVX512BW-NEXT:    # zmm0 = mem[0,1,2,3,0,1,2,3]
-; AVX512BW-NEXT:    vpermt2q %zmm1, %zmm0, %zmm4
+; AVX512BW-NEXT:    vpermt2q %zmm1, %zmm0, %zmm4 ;INTEL
 ; AVX512BW-NEXT:    vmovdqu64 %zmm4, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
-; AVX512BW-NEXT:    vpermt2q %zmm2, %zmm0, %zmm13
-; AVX512BW-NEXT:    vmovdqu64 %zmm13, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
-; AVX512BW-NEXT:    vpermt2q %zmm3, %zmm0, %zmm25
+; AVX512BW-NEXT:    vpermt2q %zmm2, %zmm0, %zmm13 ;INTEL
+; AVX512BW-NEXT:    vmovdqu64 %zmm13, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill ;INTEL
+; AVX512BW-NEXT:    vpermt2q %zmm3, %zmm0, %zmm25 ;INTEL
 ; AVX512BW-NEXT:    vmovdqu64 %zmm25, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
+; INTEL_CUSTOMIZATION
 ; AVX512BW-NEXT:    vpermt2q %zmm6, %zmm0, %zmm26
 ; AVX512BW-NEXT:    vmovdqu64 %zmm26, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
 ; AVX512BW-NEXT:    vmovdqu64 {{[-0-9]+}}(%r{{[sb]}}p), %zmm13 # 64-byte Reload
@@ -12343,8 +12349,10 @@ define void @load_i64_stride7_vf64(ptr %in.vec, ptr %out.vec0, ptr %out.vec1, pt
 ; AVX512BW-NEXT:    vpermt2q %zmm8, %zmm0, %zmm13
 ; AVX512BW-NEXT:    vmovdqu64 %zmm13, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
 ; AVX512BW-NEXT:    vpermt2q %zmm29, %zmm0, %zmm11
+; end INTEL_CUSTOMIZATION
 ; AVX512BW-NEXT:    vbroadcasti64x4 {{.*#+}} zmm0 = [4,5,8,15,4,5,8,15]
 ; AVX512BW-NEXT:    # zmm0 = mem[0,1,2,3,0,1,2,3]
+; INTEL_CUSTOMIZATION
 ; AVX512BW-NEXT:    vmovdqu64 {{[-0-9]+}}(%r{{[sb]}}p), %zmm13 # 64-byte Reload
 ; AVX512BW-NEXT:    vpermt2q %zmm2, %zmm0, %zmm13
 ; AVX512BW-NEXT:    vmovdqu64 %zmm13, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
@@ -12377,19 +12385,11 @@ define void @load_i64_stride7_vf64(ptr %in.vec, ptr %out.vec0, ptr %out.vec1, pt
 ; AVX512BW-NEXT:    vshufi64x2 {{.*#+}} zmm26 {%k1} = zmm14[0,1,4,5],zmm28[4,5,0,1] ;INTEL
 ; AVX512BW-NEXT:    vbroadcasti64x4 {{.*#+}} zmm6 = [7,0,9,0,7,0,9,0]
 ; AVX512BW-NEXT:    # zmm6 = mem[0,1,2,3,0,1,2,3]
-<<<<<<< HEAD
 ; AVX512BW-NEXT:    vmovdqa64 %zmm28, %zmm1 ;INTEL
 ; AVX512BW-NEXT:    vpermt2q %zmm14, %zmm6, %zmm1 ;INTEL
-=======
-; AVX512BW-NEXT:    vmovdqa64 %zmm26, %zmm0
-; AVX512BW-NEXT:    vpermt2q %zmm8, %zmm6, %zmm0
-; AVX512BW-NEXT:    vmovdqu64 %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
+; AVX512BW-NEXT:    vmovdqu64 %zmm1, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill ;INTEL
 ; AVX512BW-NEXT:    vbroadcasti128 {{.*#+}} ymm2 = [4,11,4,11]
 ; AVX512BW-NEXT:    # ymm2 = mem[0,1,0,1]
-; AVX512BW-NEXT:    vpermt2q %zmm26, %zmm2, %zmm1
->>>>>>> f6ff2cc7e0ae4fd9b14583a998ddeada256a954f
-; AVX512BW-NEXT:    vmovdqu64 %zmm1, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill
-; AVX512BW-NEXT:    vmovdqa {{.*#+}} ymm2 = <u,u,4,11> ;INTEL
 ; AVX512BW-NEXT:    vpermt2q %zmm28, %zmm2, %zmm14 ;INTEL
 ; AVX512BW-NEXT:    vmovdqu64 %zmm14, {{[-0-9]+}}(%r{{[sb]}}p) # 64-byte Spill ;INTEL
 ; AVX512BW-NEXT:    vmovdqu64 {{[-0-9]+}}(%r{{[sb]}}p), %zmm29 # 64-byte Reload
