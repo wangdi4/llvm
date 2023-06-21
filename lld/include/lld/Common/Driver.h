@@ -13,32 +13,8 @@
 #include "llvm/Support/raw_ostream.h"
 
 namespace lld {
-<<<<<<< HEAD
-enum Flavor {
-  Invalid,
-  Gnu,     // -flavor gnu
-  MinGW,   // -flavor gnu MinGW
-  WinLink, // -flavor link
-#if !INTEL_CUSTOMIZATION
-  Darwin,  // -flavor darwin
-  Wasm,    // -flavor wasm
-#endif // !INTEL_CUSTOMIZATION
-};
-
-using Driver = bool (*)(llvm::ArrayRef<const char *>, llvm::raw_ostream &,
-                        llvm::raw_ostream &, bool, bool);
-
-struct DriverDef {
-  Flavor f;
-  Driver d;
-};
-
-struct Result {
-  int retCode;
-=======
 struct SafeReturn {
   int ret;
->>>>>>> aa495214b39d475bab24b468de7a7c676ce9e366
   bool canRunAgain;
 };
 
@@ -77,37 +53,4 @@ bool link(llvm::ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,
 }
 } // namespace lld
 
-<<<<<<< HEAD
-// With this macro, library users must specify which drivers they use, provide
-// that information to lldMain() in the `drivers` param, and link the
-// corresponding driver library in their executable.
-#define LLD_HAS_DRIVER(name)                                                   \
-  namespace lld {                                                              \
-  namespace name {                                                             \
-  bool link(llvm::ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,    \
-            llvm::raw_ostream &stderrOS, bool exitEarly, bool disableOutput);  \
-  }                                                                            \
-  }
-
-// An array which declares that all LLD drivers are linked in your executable.
-// Must be used along with LLD_HAS_DRIVERS. See examples in LLD unittests.
-#if !INTEL_CUSTOMIZATION
-#define LLD_ALL_DRIVERS                                                        \
-  {                                                                            \
-    {lld::WinLink, &lld::coff::link}, {lld::Gnu, &lld::elf::link},             \
-        {lld::MinGW, &lld::mingw::link}, {lld::Darwin, &lld::macho::link}, {   \
-      lld::Wasm, &lld::wasm::link                                              \
-    }                                                                          \
-  }
-#endif
-#define LLD_ALL_DRIVERS                                                        \
-  {                                                                            \
-    {lld::WinLink, &lld::coff::link}, {lld::Gnu, &lld::elf::link               \
-    }                                                                          \
-  }
-
-
-#else
-=======
->>>>>>> aa495214b39d475bab24b468de7a7c676ce9e366
 #endif

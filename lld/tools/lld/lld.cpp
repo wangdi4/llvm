@@ -70,8 +70,10 @@ enum Flavor {
   Invalid,
   Gnu,     // -flavor gnu
   WinLink, // -flavor link
+#if !INTEL_CUSTOMIZATION
   Darwin,  // -flavor darwin
   Wasm,    // -flavor wasm
+#endif // !INTEL_CUSTOMIZATION
 };
 
 [[noreturn]] static void die(const Twine &s) {
@@ -82,9 +84,13 @@ enum Flavor {
 static Flavor getFlavor(StringRef s) {
   return StringSwitch<Flavor>(s)
       .CasesLower("ld", "ld.lld", "gnu", Gnu)
+#if !INTEL_CUSTOMIZATION
       .CasesLower("wasm", "ld-wasm", Wasm)
+#endif // !INTEL_CUSTOMIZATION
       .CaseLower("link", WinLink)
+#if !INTEL_CUSTOMIZATION
       .CasesLower("ld64", "ld64.lld", "darwin", Darwin)
+#endif // !INTEL_CUSTOMIZATION
       .Default(Invalid);
 }
 
@@ -168,11 +174,20 @@ static int lldMain(int argc, const char **argv, llvm::raw_ostream &stdoutOS,
   auto link = [&args]() {
     Flavor f = parseFlavor(args);
     if (f == Gnu && isPETarget(args))
+#if INTEL_CUSTOMIZATION
+      die("Unsupported PE target");
+#else // INTEL_CUSTOMIZATION
       return mingw::link;
+#endif // INTEL_CUSTOMIZATION
     else if (f == Gnu)
       return elf::link;
     else if (f == WinLink)
       return coff::link;
+#if INTEL_CUSTOMIZATION
+    else
+      die("lld is a generic driver.\n"
+          "Invoke ld.lld (Unix), lld-link (Windows), instead");
+#else // INTEL_CUSTOMIZATION
     else if (f == Darwin)
       return macho::link;
     else if (f == Wasm)
@@ -181,6 +196,7 @@ static int lldMain(int argc, const char **argv, llvm::raw_ostream &stdoutOS,
       die("lld is a generic driver.\n"
           "Invoke ld.lld (Unix), ld64.lld (macOS), lld-link (Windows), wasm-ld"
           " (WebAssembly) instead");
+#endif // INTEL_CUSTOMIZATION
   }();
   // Run the driver. If an error occurs, false will be returned.
   bool r = link(args, stdoutOS, stderrOS, exitEarly, inTestOutputDisabled);
