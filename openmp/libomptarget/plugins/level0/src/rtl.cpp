@@ -3399,8 +3399,17 @@ struct RTLDeviceInfoTy {
           ResDevices.push_back(PeerDevice);
       }
     }
-    for (auto &D : ResDevices)
-      CALL_ZE_RET_FAIL(zeContextMakeMemoryResident, Context, D, Mem, Size);
+    ze_result_t RC;
+    for (auto &D : ResDevices) {
+      // TODO: check if L0 supports this call across devices. It fails across
+      // different physical devices now.
+      CALL_ZE(RC, zeContextMakeMemoryResident, Context, D, Mem, Size);
+      if (RC != ZE_RESULT_SUCCESS) {
+        DP("Could not make memory " DPxMOD
+           " resident on Level Zero device " DPxMOD ".\n",
+           DPxPTR(Mem), DPxPTR(D));
+      }
+    }
     return OFFLOAD_SUCCESS;
   }
 };
