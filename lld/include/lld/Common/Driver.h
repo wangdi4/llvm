@@ -18,8 +18,10 @@ enum Flavor {
   Gnu,     // -flavor gnu
   MinGW,   // -flavor gnu MinGW
   WinLink, // -flavor link
+#if !INTEL_CUSTOMIZATION
   Darwin,  // -flavor darwin
   Wasm,    // -flavor wasm
+#endif // !INTEL_CUSTOMIZATION
 };
 
 using Driver = bool (*)(llvm::ArrayRef<const char *>, llvm::raw_ostream &,
@@ -58,6 +60,7 @@ Result lldMain(llvm::ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,
 
 // An array which declares that all LLD drivers are linked in your executable.
 // Must be used along with LLD_HAS_DRIVERS. See examples in LLD unittests.
+#if !INTEL_CUSTOMIZATION
 #define LLD_ALL_DRIVERS                                                        \
   {                                                                            \
     {lld::WinLink, &lld::coff::link}, {lld::Gnu, &lld::elf::link},             \
@@ -65,5 +68,13 @@ Result lldMain(llvm::ArrayRef<const char *> args, llvm::raw_ostream &stdoutOS,
       lld::Wasm, &lld::wasm::link                                              \
     }                                                                          \
   }
+#endif
+#define LLD_ALL_DRIVERS                                                        \
+  {                                                                            \
+    {lld::WinLink, &lld::coff::link}, {lld::Gnu, &lld::elf::link               \
+    }                                                                          \
+  }
 
+
+#else
 #endif

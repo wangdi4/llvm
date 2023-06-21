@@ -6,6 +6,14 @@ add_lld_unittests(LLDAsLibAllTests
   AllDrivers.cpp
 )
 
+if(INTEL_CUSTOMIZATION)
+target_link_libraries(LLDAsLibAllTests
+  PRIVATE
+  lldCommon
+  lldCOFF
+  lldELF
+)
+else()
 target_link_libraries(LLDAsLibAllTests
   PRIVATE
   lldCommon
@@ -15,3 +23,5 @@ target_link_libraries(LLDAsLibAllTests
   lldMinGW
   lldWasm
 )
+endif(INTEL_CUSTOMIZATION)
+
