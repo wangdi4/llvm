@@ -724,7 +724,7 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
 
 #ifndef NDEBUG
   // Run verifier before code gen
-  Verifier->verifyVPlan(Plan, VPlanVerifier::SkipLoopInfo);
+  Verifier->verifyVPlan(Plan);
 #endif
 
   LVP.executeBestPlan(VCodeGen);

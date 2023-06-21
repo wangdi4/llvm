@@ -413,8 +413,7 @@ public:
   /// Go through all VPlans and run the VPlan verifier on them
   // TODO: VerifyLoopInfo should change to be flags for skipping/running
   //       checks once verifyVPlan uses that
-  void verifyAllVPlans(VPlanVerifier *V,
-                       unsigned int Flags = VPlanVerifier::SkipLoopInfo) {
+  void verifyAllVPlans(VPlanVerifier *V, unsigned int Flags = 0) {
     SmallPtrSet<VPlan *, 2> Visited;
 
     for (auto &Pair : VPlans) {

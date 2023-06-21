@@ -142,7 +142,6 @@ void VPlanVerifier::verifyVPlan(const VPlanVector *Plan,
   }
 
   assert(Plan->size() == BBNum && "Plan has wrong size!");
-
 #ifndef NDEBUG
   // Verify dom/postdom tree
   if (Plan->getDT())
@@ -151,6 +150,8 @@ void VPlanVerifier::verifyVPlan(const VPlanVector *Plan,
     Plan->getPDT()->verify();
 #endif
 
+  // Skipped in cases where the loop info isn't updated to reflect
+  // transformations that have been performed
   if (!VPLInfo || shouldSkipLoopInfo())
     return;
 
@@ -159,17 +160,20 @@ void VPlanVerifier::verifyVPlan(const VPlanVector *Plan,
     CurVPLoop->verifyLoop();
   }
 
-  if (TheLoop) {
+  // The number of subloops can change in the VPLoop as a result of VPEntity
+  // insertions, so we may not always want to check the number of loops
+  if (TheLoop && !shouldSkipNumLoops()) {
     verifyNumLoops();
+  }
 
-    if (!shouldSkipInnerMultiExit()) {
-      // Check that every inner loop has only one exit block
-      for (const Loop *SL : TheLoop->getSubLoops()) {
-        // getExitingBlock is null if there are multiple exit blocks
-        ASSERT_VPVALUE(SL->getExitingBlock(), SL,
-                       "Inner loop has multiple exits");
-        (void)SL;
-      }
+  // Check that every inner loop has only one exit block
+  // Not guaranteed until loop exit merging is done
+  if (!shouldSkipInnerMultiExit()) {
+    for (const VPLoop *SL : TopLoop->getSubLoops()) {
+      // getExitingBlock is null if there are multiple exit blocks
+      ASSERT_VPVALUE(SL->getExitingBlock(), SL,
+                     "Inner loop has multiple exits");
+      (void)SL;
     }
   }
 }

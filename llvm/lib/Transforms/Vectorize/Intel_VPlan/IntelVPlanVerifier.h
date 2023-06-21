@@ -110,13 +110,16 @@ private:
 
   bool shouldSkipInnerMultiExit() const { return Flags & SkipInnerMultiExit; }
 
+  bool shouldSkipNumLoops() const { return !(Flags & CheckNumLoops); }
+
 public:
   // Enum for holding the flags to be given to verifyVPlan to skip
   // parts of the verification.
   enum {
     SkipLoopInfo = 1 << 0,
     SkipExternals = 1 << 1,
-    SkipInnerMultiExit = 1 << 2
+    SkipInnerMultiExit = 1 << 2,
+    CheckNumLoops = 1 << 3
   };
 
   VPlanVerifier(const Loop *Lp, const DataLayout &DLObj)
