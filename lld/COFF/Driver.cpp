@@ -427,8 +427,12 @@ void LinkerDriver::parseDirectives(InputFile *file) {
       exp.extName = saver().save(exp.extName);
       exp.forwardTo = saver().save(exp.forwardTo);
     }
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
     exp.directives = true;
+=======
+    exp.source = ExportSource::Directives;
+>>>>>>> adcdc9cc3740adba3577b328fa3ba492cbccd3a5
     ctx.config.exports.push_back(exp);
   }
 
@@ -1112,6 +1116,7 @@ void LinkerDriver::parseModuleDefs(StringRef path) {
     e2.data = e1.Data;
     e2.isPrivate = e1.Private;
     e2.constant = e1.Constant;
+    e2.source = ExportSource::ModuleDefinition;
     ctx.config.exports.push_back(e2);
   }
 }
@@ -2559,7 +2564,7 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
       if (!e.forwardTo.empty())
         continue;
       e.sym = addUndefined(e.name);
-      if (!e.directives)
+      if (e.source != ExportSource::Directives)
         e.symbolName = mangleMaybe(e.sym);
     }
 
