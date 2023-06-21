@@ -772,6 +772,9 @@ private:
     HaswellFMAs = 0x1,
     BroadwellFMAs = 0x2,
     SkylakeFMAs = 0x4,
+#if INTEL_FEATURE_CPU_RYL
+    RoyalFMAs = 0x8,
+#endif // INTEL_FEATURE_CPU_RYL
     TargetFMAsMask = 0xFF,
     ForceFMAs = 0x100,
     TuneForLatency = 0x200,
@@ -1223,13 +1226,23 @@ bool X86GlobalFMA::runOnMachineFunction(MachineFunction &MFunc) {
   // have correct latency values for SKL-client and Broadwell without
   // using FMA internal switches. The latency must be already set/written
   // properly to the opcode information, just need to extract/use it properly.
+#if INTEL_FEATURE_CPU_RYL
+  // Royal (and perhaps more future AVX3) have faster adds.
+  if ((ST->getCPU() == "royal" &&
+       !checkAnyOfFMAFeatures(FMAControls::TargetFMAsMask)) ||
+      checkAllFMAFeatures(FMAControls::RoyalFMAs)) {
+    AddSubLatency = 2;
+    MulLatency = 4;
+    FMALatency = 4;
+  } else
+#endif // INTEL_FEATURE_CPU_RYL
 #if INTEL_FEATURE_ISA_AVX256P
   if ((ST->hasAVX3() &&
 #else // INTEL_FEATURE_ISA_AVX256P
   if ((ST->hasAVX512() &&
 #endif // INTEL_FEATURE_ISA_AVX256P
-       !checkAnyOfFMAFeatures(FMAControls::TargetFMAsMask)) ||
-      checkAllFMAFeatures(FMAControls::SkylakeFMAs)) {
+           !checkAnyOfFMAFeatures(FMAControls::TargetFMAsMask)) ||
+          checkAllFMAFeatures(FMAControls::SkylakeFMAs)) {
     AddSubLatency = 4;
     MulLatency = 4;
     FMALatency = 4;
