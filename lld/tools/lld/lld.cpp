@@ -42,7 +42,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "lld/Common/CommonLinkerContext.h"
 #include "lld/Common/Driver.h"
 #include "lld/Common/ErrorHandler.h"
 #include "lld/Common/Memory.h"
@@ -66,6 +65,7 @@ using namespace lld;
 using namespace llvm;
 using namespace llvm::sys;
 
+<<<<<<< HEAD
 enum Flavor {
   Invalid,
   Gnu,     // -flavor gnu
@@ -237,6 +237,17 @@ SafeReturn lld::safeLldMain(int argc, const char **argv,
   }
   return {r, /*canRunAgain=*/true};
 }
+=======
+namespace lld {
+extern bool inTestOutputDisabled;
+
+// Bypass the crash recovery handler, which is only meant to be used in
+// LLD-as-lib scenarios.
+int unsafeLldMain(llvm::ArrayRef<const char *> args,
+                  llvm::raw_ostream &stdoutOS, llvm::raw_ostream &stderrOS,
+                  llvm::ArrayRef<DriverDef> drivers, bool exitEarly);
+} // namespace lld
+>>>>>>> 2700da5fe28d8b17c66e5c960d2188276a6ced39
 
 // When in lit tests, tells how many times the LLD tool should re-execute the
 // main loop with the same inputs. When not in test, returns a value of 0 which
@@ -248,6 +259,12 @@ static unsigned inTestVerbosity() {
   return v;
 }
 
+LLD_HAS_DRIVER(coff)
+LLD_HAS_DRIVER(elf)
+LLD_HAS_DRIVER(mingw)
+LLD_HAS_DRIVER(macho)
+LLD_HAS_DRIVER(wasm)
+
 int lld_main(int argc, char **argv, const llvm::ToolContext &) {
   InitLLVM x(argc, argv);
   sys::Process::UseANSIEscapeCodes(true);
@@ -258,11 +275,16 @@ int lld_main(int argc, char **argv, const llvm::ToolContext &) {
     LLVM_BUILTIN_TRAP;
   }
 
+  ArrayRef<const char *> args(argv, argv + argc);
+
   // Not running in lit tests, just take the shortest codepath with global
   // exception handling and no memory cleanup on exit.
-  if (!inTestVerbosity())
-    return lldMain(argc, const_cast<const char **>(argv), llvm::outs(),
-                   llvm::errs());
+  if (!inTestVerbosity()) {
+    int r =
+        lld::unsafeLldMain(args, llvm::outs(), llvm::errs(), LLD_ALL_DRIVERS,
+                           /*exitEarly=*/true);
+    return r;
+  }
 
   std::optional<int> mainRet;
   CrashRecoveryContext::Enable();
@@ -272,16 +294,15 @@ int lld_main(int argc, char **argv, const llvm::ToolContext &) {
     inTestOutputDisabled = (i != 1);
 
     // Execute one iteration.
-    auto r = safeLldMain(argc, const_cast<const char **>(argv), llvm::outs(),
-                         llvm::errs());
+    auto r = lldMain(args, llvm::outs(), llvm::errs(), LLD_ALL_DRIVERS);
     if (!r.canRunAgain)
-      exitLld(r.ret); // Exit now, can't re-execute again.
+      exitLld(r.retCode); // Exit now, can't re-execute again.
 
     if (!mainRet) {
-      mainRet = r.ret;
-    } else if (r.ret != *mainRet) {
+      mainRet = r.retCode;
+    } else if (r.retCode != *mainRet) {
       // Exit now, to fail the tests if the result is different between runs.
-      return r.ret;
+      return r.retCode;
     }
   }
   return *mainRet;
