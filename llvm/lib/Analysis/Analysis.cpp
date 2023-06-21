@@ -75,9 +75,8 @@ void llvm::initializeAnalysis(PassRegistry &Registry) {
   initializeLazyValueInfoWrapperPassPass(Registry);
   initializeLazyValueInfoPrinterPass(Registry);
   initializeLoopInfoWrapperPassPass(Registry);
-  initializeMemDepPrinterPass(Registry);
-  initializeMemDerefPrinterPass(Registry);
   initializeMemoryDependenceWrapperPassPass(Registry);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   initializeSNodeAnalysisPass(Registry);
   initializeStdContainerAAWrapperPassPass(Registry);
@@ -87,6 +86,9 @@ void llvm::initializeAnalysis(PassRegistry &Registry) {
   initializeMustExecutePrinterPass(Registry);
   initializeMustBeExecutedContextPrinterPass(Registry);
   initializeObjCARCAAWrapperPassPass(Registry);
+=======
+  initializeModuleSummaryIndexWrapperPassPass(Registry);
+>>>>>>> eb3d21be37c0b51d8e105a8c563626dd2b7e547d
   initializeOptimizationRemarkEmitterWrapperPassPass(Registry);
   initializePhiValuesWrapperPassPass(Registry);
   initializePostDominatorTreeWrapperPassPass(Registry);
@@ -104,7 +106,6 @@ void llvm::initializeAnalysis(PassRegistry &Registry) {
   initializeScopedNoAliasAAWrapperPassPass(Registry);
   initializeLCSSAVerificationPassPass(Registry);
   initializeMemorySSAWrapperPassPass(Registry);
-  initializeMemorySSAPrinterLegacyPassPass(Registry);
 }
 
 LLVMBool LLVMVerifyModule(LLVMModuleRef M, LLVMVerifierFailureAction Action,

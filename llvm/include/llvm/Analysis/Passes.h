@@ -88,6 +88,7 @@ namespace llvm {
   // in a function and builds the region hierarchy.
   //
   FunctionPass *createRegionInfoPass();
+<<<<<<< HEAD
 
   // Print module-level debug info metadata in human-readable form.
   ModulePass *createModuleDebugInfoPrinterPass();
@@ -136,6 +137,8 @@ namespace llvm {
   //
   ModulePass *createMustBeExecutedContextPrinter();
 
+=======
+>>>>>>> eb3d21be37c0b51d8e105a8c563626dd2b7e547d
 }
 
 #endif

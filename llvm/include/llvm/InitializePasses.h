@@ -312,18 +312,12 @@ void initializeMachineTraceMetricsPass(PassRegistry&);
 void initializeMachineUniformityInfoPrinterPassPass(PassRegistry &);
 void initializeMachineUniformityAnalysisPassPass(PassRegistry &);
 void initializeMachineVerifierPassPass(PassRegistry&);
-void initializeMemDepPrinterPass(PassRegistry&);
-void initializeMemDerefPrinterPass(PassRegistry&);
 void initializeMemoryDependenceWrapperPassPass(PassRegistry&);
-void initializeMemorySSAPrinterLegacyPassPass(PassRegistry&);
 void initializeMemorySSAWrapperPassPass(PassRegistry&);
 void initializeMergeICmpsLegacyPassPass(PassRegistry &);
 void initializeMergedLoadStoreMotionLegacyPassPass(PassRegistry&);
-void initializeModuleDebugInfoLegacyPrinterPass(PassRegistry &);
 void initializeModuleSummaryIndexWrapperPassPass(PassRegistry&);
 void initializeModuloScheduleTestPass(PassRegistry&);
-void initializeMustExecutePrinterPass(PassRegistry&);
-void initializeMustBeExecutedContextPrinterPass(PassRegistry&);
 void initializeNaryReassociateLegacyPassPass(PassRegistry&);
 #if INTEL_CUSTOMIZATION
 void initializeObjCARCAAWrapperPassPass(PassRegistry&);
