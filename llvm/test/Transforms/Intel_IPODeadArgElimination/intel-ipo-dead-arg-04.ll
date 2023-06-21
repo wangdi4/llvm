@@ -61,7 +61,7 @@
 ; CHECK-IR-MD: !10 = distinct !{!"intel.callsites.inlining.report", !11}
 ; CHECK-IR-MD: !11 = distinct !{!"intel.callsite.inlining.report", !1, null, !12, !13, !14, !15, !16, !17, !18, !"line: 0 col: 0", !2, !7, !19, !20, !21, !22}
 ; CHECK-IR-MD: !12 = !{!"isInlined: 0"}
-; CHECK-IR-MD: !13 = !{!"reason: 42"}
+; CHECK-IR-MD: !13 = !{!"reason: 44"}
 ; CHECK-IR-MD: !14 = !{!"inlineCost: -1"}
 ; CHECK-IR-MD: !15 = !{!"outerInlineCost: -1"}
 ; CHECK-IR-MD: !16 = !{!"inlineThreshold: -1"}
@@ -78,7 +78,7 @@
 ; CHECK-IR-MD: !27 = distinct !{!"intel.callsite.inlining.report", !9, !28, !31, !32, !33, !15, !34, !17, !18, !"line: 0 col: 0", !2, !7, !19, !20, !21, !22}
 ; CHECK-IR-MD: !28 = distinct !{!"intel.callsites.inlining.report", !29}
 ; CHECK-IR-MD: !29 = distinct !{!"intel.callsite.inlining.report", !1, null, !12, !30, !14, !15, !16, !17, !18, !"line: 0 col: 0", !2, !7, !19, !20, !21, !22}
-; CHECK-IR-MD: !30 = !{!"reason: 61"}
+; CHECK-IR-MD: !30 = !{!"reason: 63"}
 ; CHECK-IR-MD: !31 = !{!"isInlined: 1"}
 ; CHECK-IR-MD: !32 = !{!"reason: 10"}
 ; CHECK-IR-MD: !33 = !{!"inlineCost: -15000"}

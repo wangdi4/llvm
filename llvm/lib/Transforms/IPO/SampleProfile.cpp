@@ -107,6 +107,11 @@
 #include <utility>
 #include <vector>
 
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
+#endif // INTEL_CUSTOMIZATION
+
 using namespace llvm;
 using namespace sampleprof;
 using namespace llvm::sampleprofutil;
@@ -1252,24 +1257,52 @@ bool SampleProfileLoader::tryInlineCandidate(
   BasicBlock *BB = CB.getParent();
 
   InlineCost Cost = shouldInlineCandidate(Candidate);
+#if INTEL_CUSTOMIZATION
+  getInlineReport()->beginUpdate(&CB);
+  getMDInlineReport()->beginUpdate(&CB);
+#endif // INTEL_CUSTOMIZATION
   if (Cost.isNever()) {
     ORE->emit(OptimizationRemarkAnalysis(getAnnotatedRemarkPassName(),
                                          "InlineFail", DLoc, BB)
               << "incompatible inlining");
+#if INTEL_CUSTOMIZATION
+    getInlineReport()->setReasonNotInlined(&CB, Cost);
+    getInlineReport()->endUpdate();
+    llvm::setMDReasonNotInlined(&CB, Cost);
+    getMDInlineReport()->endUpdate();
+#endif // INTEL_CUSTOMIZATION
     return false;
   }
-
-  if (!Cost)
+  if (!Cost) {
+#if INTEL_CUSTOMIZATION
+    getInlineReport()->setReasonNotInlined(&CB, Cost);
+    getInlineReport()->endUpdate();
+    llvm::setMDReasonNotInlined(&CB, Cost);
+    getMDInlineReport()->endUpdate();
     return false;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   InlineFunctionInfo IFI(GetAC);
   IFI.UpdateProfile = false;
 #if INTEL_CUSTOMIZATION
-  InlineResult IR = InlineFunction(CB, IFI, nullptr, nullptr,
-                                   /*MergeAttributes=*/true);
-#endif // INTEL_CUSTOMIZATION
-  if (!IR.isSuccess())
+  getInlineReport()->setReasonIsInlined(&CB, Cost);
+  llvm::setMDReasonIsInlined(&CB, Cost);
+  InlineResult IR =
+      InlineFunction(CB, IFI, getInlineReport(), getMDInlineReport(),
+                     /*MergeAttributes=*/true);
+  if (!IR.isSuccess()) {
+    getInlineReport()->setReasonNotInlined(&CB, Cost);
+    getInlineReport()->endUpdate();
+    llvm::setMDReasonNotInlined(&CB, Cost);
+    getMDInlineReport()->endUpdate();
     return false;
+  }
+  getInlineReport()->inlineCallSite();
+  getInlineReport()->endUpdate();
+  getMDInlineReport()->updateInliningReport();
+  getMDInlineReport()->endUpdate();
+#endif // INTEL_CUSTOMIZATION
 
   // The call to InlineFunction erases I, so we can't pass it here.
   emitInlinedIntoBasedOnCost(*ORE, DLoc, BB, *CalledFunction, *BB->getParent(),
@@ -1337,12 +1370,20 @@ SampleProfileLoader::getExternalInlineAdvisorCost(CallBase &CB) {
     Advice = ExternalInlineAdvisor->getAdvice(CB, nullptr, nullptr);
 #endif // INTEL_CUSTOMIZATION
     if (Advice) {
+#if INTEL_CUSTOMIZATION
+      InlineCost *IC = Advice->getInlineCost();
+#endif // INTEL_CUSTOMIZATION
       if (!Advice->isInliningRecommended()) {
         Advice->recordUnattemptedInlining();
-        return InlineCost::getNever("not previously inlined");
+#if INTEL_CUSTOMIZATION
+        return InlineCost::getNever("not previously inlined",
+                                    IC->getInlineReason());
+#endif // INTEL_CUSTOMIZATION
       }
       Advice->recordInlining();
-      return InlineCost::getAlways("previously inlined");
+#if INTEL_CUSTOMIZATION
+      return InlineCost::getAlways("previously inlined", IC->getInlineReason());
+#endif // INTEL_CUSTOMIZATION
     }
   }
 
@@ -1366,7 +1407,9 @@ SampleProfileLoader::shouldInlineCandidate(InlineCandidate &Candidate) {
     if (Candidate.CallsiteCount > PSI->getHotCountThreshold())
       SampleThreshold = SampleHotCallSiteThreshold;
     else if (!ProfileSizeInline)
-      return InlineCost::getNever("cold callsite");
+#if INTEL_CUSTOMIZATION
+      return InlineCost::getNever("cold callsite", NinlrNotSampleBeneficial);
+#endif // INTEL_CUSTOMIZATION
   }
 
   Function *Callee = Candidate.CallInstr->getCalledFunction();
@@ -1405,18 +1448,38 @@ SampleProfileLoader::shouldInlineCandidate(InlineCandidate &Candidate) {
     SampleContext &Context = Candidate.CalleeSamples->getContext();
     if (!Context.hasState(SyntheticContext) &&
         Context.hasAttribute(ContextShouldBeInlined))
-      return InlineCost::getAlways("preinliner");
+#if INTEL_CUSTOMIZATION
+      return InlineCost::getAlways("preinliner", InlrCSSampleBeneficial);
+#endif // INTEL_CUSTOMIZATION
   }
 
   // For old FDO inliner, we inline the call site as long as cost is not
   // "Never". The cost-benefit check is done earlier.
   if (!CallsitePrioritizedInline) {
-    return InlineCost::get(Cost.getCost(), INT_MAX);
+#if INTEL_CUSTOMIZATION
+    int ReportedCost = Cost.getCost();
+    int ReportedThreshold = INT_MAX;
+    bool ReportedResult = ReportedCost < ReportedThreshold;
+    InlineReason ReportedReason =
+        ReportedResult ? InlrSampleBeneficial : NinlrNotSampleBeneficial;
+    return InlineCost::get(ReportedCost, ReportedThreshold, nullptr,
+                           ReportedResult, ReportedReason, ReportedCost,
+                           ReportedThreshold);
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Otherwise only use the cost from call analyzer, but overwite threshold with
   // Sample PGO threshold.
-  return InlineCost::get(Cost.getCost(), SampleThreshold);
+#if INTEL_CUSTOMIZATION
+  int ReportedCost = Cost.getCost();
+  int ReportedThreshold = SampleThreshold;
+  bool ReportedResult = ReportedCost < ReportedThreshold;
+  InlineReason ReportedReason =
+      ReportedResult ? InlrSampleBeneficial : NinlrNotSampleBeneficial;
+  return InlineCost::get(ReportedCost, ReportedThreshold, nullptr,
+                         ReportedResult, ReportedReason, ReportedCost,
+                         ReportedThreshold);
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool SampleProfileLoader::inlineHotFunctionsWithPriority(
