@@ -496,6 +496,12 @@ set(TBB_ROOT_DIR $ENV{TBBROOT}/$ENV{TBBVER})
 message(STATUS "Environment TBBROOT: $ENV{TBBROOT}")
 message(STATUS "Environment TBBVER: $ENV{TBBVER}")
 
+# The new version of TBBConfig.cmake file has a bug when determining
+# whether it's a 32bit environment. This is a W/A to fix this issue.
+if(NOT BUILD_X64)
+  set(_tbb_arch_suffix 32)
+endif()
+
 # TBB_LIBRARY_DIR - Used for LIT environment
 set(TBB_DIR "${TBB_ROOT_DIR}/lib/cmake/tbb")
 find_package(TBB REQUIRED tbb)
