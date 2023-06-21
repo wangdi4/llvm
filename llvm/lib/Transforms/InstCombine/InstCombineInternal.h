@@ -489,7 +489,6 @@ public:
     SmallVector<Value *> Ops(I.operands());
     Worklist.remove(&I);
     I.eraseFromParent();
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     //
     // CMPLRLLVM-21632: If 'BCOS' has no uses and is a module level
@@ -508,10 +507,8 @@ public:
           if (auto *CE = dyn_cast<ConstantExpr>(BCOS))
             CE->destroyConstant();
 #endif // INTEL_CUSTOMIZATION
-=======
     for (Value *Op : Ops)
       Worklist.handleUseCountDecrement(Op);
->>>>>>> f7a977c7b3b4d8efebb92ed803585168df369831
     MadeIRChange = true;
     return nullptr; // Don't do anything with FI
   }
