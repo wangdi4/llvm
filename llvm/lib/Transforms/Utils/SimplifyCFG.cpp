@@ -1412,6 +1412,57 @@ bool SimplifyCFGOpt::PerformValueComparisonIntoPredecessorFolding(
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+static bool isIVComparison(Instruction *TerminatorInst) {
+  auto *BrInst = dyn_cast<BranchInst>(TerminatorInst);
+
+  if (!BrInst)
+    return false;
+
+  // We can assert on the structure of branch condition because the caller
+  // asserts on the result of isValueEqualityComparison() which checks the
+  // structure.
+  assert(BrInst->isConditional() &&
+         "Branch condition expected to be conditional!");
+
+  auto *Cmp = cast<ICmpInst>(BrInst->getCondition());
+
+  auto *Op0 = Cmp->getOperand(0);
+
+  auto *IVPhi = dyn_cast<PHINode>(Op0);
+
+  // Check the phi and add/sub def-use cycle with constant operands. This is the
+  // best check to recognize IV in the absence of LoopInfo and DT.
+  if (!IVPhi || IVPhi->getNumOperands() != 2)
+    return false;
+
+  auto *PhiOp0 = IVPhi->getIncomingValue(0);
+  auto *PhiOp1 = IVPhi->getIncomingValue(1);
+  Value *IVUpdate = nullptr;
+
+  if (isa<ConstantInt>(PhiOp0)) {
+    IVUpdate = PhiOp1;
+
+  } else if (isa<ConstantInt>(PhiOp1)) {
+    IVUpdate = PhiOp0;
+
+  } else {
+    return false;
+  }
+
+  auto *IVUpdateInst = dyn_cast<Instruction>(IVUpdate);
+
+  if (!IVUpdateInst ||
+      (IVUpdateInst->getOpcode() != Instruction::Add &&
+       IVUpdateInst->getOpcode() != Instruction::Sub) ||
+      !isa<ConstantInt>(IVUpdateInst->getOperand(1)) ||
+      IVUpdateInst->getOperand(0) != IVPhi)
+    return false;
+
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// The specified terminator is a value equality comparison instruction
 /// (either a switch or a branch on "X == c").
 /// See if any of the predecessors of the terminator block are value comparisons
@@ -1421,6 +1472,20 @@ bool SimplifyCFGOpt::FoldValueComparisonIntoPredecessors(Instruction *TI,
   BasicBlock *BB = TI->getParent();
   Value *CV = isValueEqualityComparison(TI); // CondVal
   assert(CV && "Not a comparison?");
+
+#if INTEL_CUSTOMIZATION
+  // Do not convert conditional branches into switches pre-loopopt if we are
+  // comparing IVs as it can adversely affect loop recognition. Ideally, we
+  // don't want any conversion to switch as it prevents vectorization but this
+  // conversion can result in further simplifications inside SimplifyCFG which
+  // makes it harder to distinguish profitable from non-profitable cases.
+  // Furthermore, it is non-trivial to restrict the conversion only inside loops
+  // as SimplifyCFG does not use LoopInfo or DominatorTree. We can think about
+  // extending the check once use of DominatorTree is enabled by default in the
+  // community.
+  if (BB->getParent()->isPreLoopOpt() && isIVComparison(TI))
+    return false;
+#endif // INTEL_CUSTOMIZATION
 
   bool Changed = false;
 
