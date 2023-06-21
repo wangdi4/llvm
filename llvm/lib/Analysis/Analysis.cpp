@@ -76,19 +76,11 @@ void llvm::initializeAnalysis(PassRegistry &Registry) {
   initializeLazyValueInfoPrinterPass(Registry);
   initializeLoopInfoWrapperPassPass(Registry);
   initializeMemoryDependenceWrapperPassPass(Registry);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   initializeSNodeAnalysisPass(Registry);
   initializeStdContainerAAWrapperPassPass(Registry);
 #endif // INTEL_CUSTOMIZATION
-  initializeModuleDebugInfoLegacyPrinterPass(Registry);
   initializeModuleSummaryIndexWrapperPassPass(Registry);
-  initializeMustExecutePrinterPass(Registry);
-  initializeMustBeExecutedContextPrinterPass(Registry);
-  initializeObjCARCAAWrapperPassPass(Registry);
-=======
-  initializeModuleSummaryIndexWrapperPassPass(Registry);
->>>>>>> eb3d21be37c0b51d8e105a8c563626dd2b7e547d
   initializeOptimizationRemarkEmitterWrapperPassPass(Registry);
   initializePhiValuesWrapperPassPass(Registry);
   initializePostDominatorTreeWrapperPassPass(Registry);
