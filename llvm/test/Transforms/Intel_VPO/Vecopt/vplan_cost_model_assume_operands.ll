@@ -156,7 +156,7 @@ define void @multiple_roots_not_fully_contained(i64 %N, i64 %N2) local_unnamed_a
 ; HIR: Cost 0 for i64 [[ADD1:%vp.*]] = add i64 %N i64 {{%vp.*}}
 ; HIR: Cost 0 for i1 [[CMP1:%vp.*]] = icmp ult i64 [[ADD1]] i64 256
 ; HIR: Cost 0 for call i1 [[CMP1]] void (i1)* @llvm.assume
-; HIR: Cost 16 for i64 [[MUL:%vp.*]] = mul i64 %N2 i64 {{%vp.*}}
+; HIR: Cost 14 for i64 [[MUL:%vp.*]] = mul i64 %N2 i64 {{%vp.*}}
 ; HIR: Cost 2 for i64 [[ADD2:%vp.*]] = add i64 {{%vp.*}} i64 [[MUL]]
 ; HIR: Cost 0 for i1 [[CMP2:%vp.*]] = icmp slt i64 [[ADD2]] i64 2048
 ; HIR: Cost 0 for call i1 [[CMP2]] void (i1)* @llvm.assume
@@ -174,7 +174,7 @@ for.body:
   ; IR: Cost 0 for call i1 [[CMP1]] void (i1)* @llvm.assume [Serial]
   call void @llvm.assume(i1 %offset.in.bounds)
 
-  ; IR: Cost 16 for i64 [[MUL:%vp.*]] = mul i64 %N2 i64 [[ADD]]
+  ; IR: Cost 14 for i64 [[MUL:%vp.*]] = mul i64 %N2 i64 [[ADD]]
   %offset.mul = mul i64 %N2, %offset
   ; IR: Cost 0 for i1 [[CMP2:%vp.*]] = icmp slt i64 [[MUL]] i64 2048
   %offset.mul.in.bounds = icmp slt i64 %offset.mul, 2048
