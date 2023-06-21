@@ -1834,8 +1834,9 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     }
   }
   if (BestCostSummarySet) {
+    VPlanVector *BestVPlan = getBestVPlan();
     OptReportStatsTracker &OptRptStats =
-        getVPlanForVF(getBestVF())->getOptRptStatsForLoop(OuterMostVPLoop);
+        BestVPlan->getOptRptStatsForLoop(BestVPlan->getMainLoop(true));
     if (BestCostSummary.ScalarIterationCost.isValid()) {
       // Add remark: scalar cost
       OptRptStats.CostModelRemarks.emplace_back(

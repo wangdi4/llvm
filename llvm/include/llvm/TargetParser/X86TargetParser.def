@@ -540,6 +540,7 @@ CPU_SPECIFIC("cannonlake", "cannonlake", 'e', "+cmov,+mmx,+sse,+sse2,+sse3,+ssse
 CPU_SPECIFIC("knm", "knm", 'j', "+cmov,+mmx,+sse,+sse2,+sse3,+ssse3,+sse4.1,+sse4.2,+movbe,+popcnt,+f16c,+avx,+fma,+bmi,+lzcnt,+avx2,+avx512f,+adx,+avx512er,+avx512pf,+avx512cd,+avx5124fmaps,+avx5124vnniw,+avx512vpopcntdq")
 
 #if INTEL_CUSTOMIZATION
+CPU_SPECIFIC("x86_64", "x86-64", '?', "+cmov,+mmx,+sse,+sse2")
 CPU_SPECIFIC_ALIAS("nocona", "nocona", "pentium_4_sse3")
 CPU_SPECIFIC_ALIAS("goldmont_plus", "goldmont-plus", "atom_sse4_2_movbe")
 CPU_SPECIFIC_ALIAS("tremont", "tremont", "atom_sse4_2_movbe")
@@ -566,6 +567,8 @@ CPU_SPECIFIC_ALIAS("diamondrapids", "diamondrapids", "sapphirerapids")
 CPU_SPECIFIC_ALIAS("lunarlake", "lunarlake", "alderlake")
 #endif // INTEL_FEATURE_CPU_LNL
 
+// Default processor is "x86-64" (with hyphen instead of underscore in name)
+CPU_SPECIFIC_ALIAS_ADDITIONAL("x86-64", "x86_64")
 CPU_SPECIFIC_ALIAS_ADDITIONAL("skylake-avx512", "skylake_avx512")
 CPU_SPECIFIC_ALIAS_ADDITIONAL("corei7-avx", "sandybridge")
 CPU_SPECIFIC_ALIAS_ADDITIONAL("corei7", "core_i7_sse4_2")
