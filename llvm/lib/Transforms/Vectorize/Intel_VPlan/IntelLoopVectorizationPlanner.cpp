@@ -53,6 +53,13 @@ static cl::opt<unsigned> VecThreshold(
              "of profitable execution of the vectorized loop in parallel."),
     cl::init(100));
 
+static cl::opt<unsigned> MaskedMainThreshold(
+    "vplan-masked-main-cost-threshold",
+    cl::desc("Minimum value of masked main loop gain, in percent of scalar "
+             "remainder cost. The bigger value the bigger gain required for "
+             "masked main loop to be choosen."),
+    cl::init(54));
+
 static cl::opt<unsigned> VPlanForceVF(
     "vplan-force-vf", cl::init(0),
     cl::desc("Force VPlan to use given VF, for experimental purposes only."));
@@ -178,7 +185,7 @@ static cl::opt<unsigned> NumVConflictThreshold(
   cl::desc("Threshold of vconflict idioms used for disabling vectorization."));
 
 static cl::opt<bool> EnableMaskedMainLoop(
-    "vplan-enable-masked-main-loop", cl::init(false), cl::Hidden,
+    "vplan-enable-masked-main-loop", cl::init(true), cl::Hidden,
     cl::desc("Enable masked mode for the main loop for short TCs"));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1712,6 +1719,19 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
         LLVM_DEBUG(dbgs() << "Peeling will not be performed.\n");
       } else {
         LLVM_DEBUG(dbgs() << "Peeling will be performed.\n");
+      }
+
+      if (UseMasked && MaskedMainThreshold !=0) {
+        // Restrict gain for masked main loop by a threshold.
+        VPInstructionCost MinReqGain =
+            (ScalarCost * VPInstructionCost(MaskedMainThreshold)) / 100.;
+        if (VectorGain < MinReqGain) {
+          LLVM_DEBUG(dbgs() << "Masked main loop gain (" << VectorGain
+                            << ") is less than threshold (" << ScalarCost << "*"
+                            << MaskedMainThreshold << ")/100=" << MinReqGain
+                            << ", skipping.\n");
+          VectorCost = VPInstructionCost::getInvalid();
+        }
       }
 
       // Current VF is invalid to vectorize with so skip it.
