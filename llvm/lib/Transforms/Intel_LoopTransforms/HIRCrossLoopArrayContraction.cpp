@@ -370,7 +370,7 @@ static bool areIdenticalInsts(const HLInst *HInst1, const HLInst *HInst2) {
 // Returns false if \p Lp has any control-flow or side effects.
 static bool hasControlFlowOrSideEffects(const HLLoop *Lp,
                                         HIRLoopStatistics &HLS) {
-  auto &LoopStats = HLS.getTotalLoopStatistics(Lp);
+  auto &LoopStats = HLS.getTotalStatistics(Lp);
 
   if (LoopStats.hasIfs() || LoopStats.hasSwitches() ||
       LoopStats.hasForwardGotos() || LoopStats.hasCalls()) {

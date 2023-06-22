@@ -320,7 +320,7 @@ public:
     }
 
     FoundUnsafeCall =
-        HLS.getTotalLoopStatistics(Loop).hasCallsWithUnknownAliasing();
+        HLS.getTotalStatistics(Loop).hasCallsWithUnknownAliasing();
   }
 
   void visit(const HLNode *Node) {}
@@ -828,7 +828,7 @@ bool HIRDeadStoreElimination::isValidParentChain(
 
     // Shortcut to avoid visitor below.
     if (CommonLoop &&
-        !HLS.getTotalLoopStatistics(CommonLoop).hasCallsWithUnknownAliasing()) {
+        !HLS.getTotalStatistics(CommonLoop).hasCallsWithUnknownAliasing()) {
       return true;
     }
 

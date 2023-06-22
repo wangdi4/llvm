@@ -231,7 +231,7 @@ bool HIRLoopPeeling::isPeelingCandidate(HLLoop *Lp, PeelingInfo &PeelInfo) {
     return false;
   }
 
-  const LoopStatistics &LS = HLS.getSelfLoopStatistics(Lp);
+  const LoopStatistics &LS = HLS.getSelfStatistics(Lp);
 
   // Vectorizer currently doesn't handle switch inst.
   // We disallow Ifs as well to make the node threshold check more precise but

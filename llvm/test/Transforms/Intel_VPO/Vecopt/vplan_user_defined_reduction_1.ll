@@ -167,8 +167,8 @@
 ; Check opt report reduction remarks
 ;
 ; OPTRPT: remark #25588: Loop has SIMD reduction
-; OPTRPT-NEXT: remark #15590: vectorization support: user-defined reduction of value type %struct.point = type { i32, i32 }
-; OPTRPT-NEXT: remark #15590: vectorization support: user-defined reduction of value type %struct.point = type { i32, i32 }
+; OPTRPT-NEXT: remark #15590: vectorization support: user-defined reduction with value type structure of 2 elements
+; OPTRPT-NEXT: remark #15590: vectorization support: user-defined reduction with value type structure of 2 elements
 ; ------------------------------------------------------------------------------
 
 

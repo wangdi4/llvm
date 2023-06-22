@@ -885,6 +885,9 @@ public:
   bool has4KDSB() const { return false; }
 
   bool displacementFoldable() const { return false; }
+
+  void
+  getVectorUnrollingPreferences(TTI::VectorUnrollingPreferences &UP) const {}
 #endif
   Type *
   getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,

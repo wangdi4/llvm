@@ -38,7 +38,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: <{{.*}}> END REGION
 
 ; OPTRPT: remark #25588: Loop has SIMD reduction
-; OPTRPT-NEXT: remark #15590: vectorization support: add reduction of value type double [redacted.hpp:255:28]
+; OPTRPT-NEXT: remark #15590: vectorization support: add reduction with value type double [redacted.hpp:255:28]
 
 define double @foo(double %K, i32 %size, double %w4, i64 %w39, ptr %w40, i64 %w45, ptr %w44) {
 entry:

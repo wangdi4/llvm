@@ -485,7 +485,7 @@ bool HIRLoopReversal::doLoopPreliminaryChecks(const HLLoop *Lp,
   // - No function call
   // - No label
   // - No goto
-  const LoopStatistics &LS = HLS.getSelfLoopStatistics(Lp);
+  const LoopStatistics &LS = HLS.getSelfStatistics(Lp);
 
   // LLVM_DEBUG(LS.dump(););
   if (LS.hasCallsWithUnsafeSideEffects() || LS.hasForwardGotos()) {

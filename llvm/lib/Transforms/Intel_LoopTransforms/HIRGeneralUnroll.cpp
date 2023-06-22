@@ -642,7 +642,7 @@ bool HIRGeneralUnroll::isApplicable(const HLLoop *Loop) const {
     return false;
   }
 
-  const LoopStatistics &LS = HLS.getSelfLoopStatistics(Loop);
+  const LoopStatistics &LS = HLS.getSelfStatistics(Loop);
 
   // Cannot unroll loop if it has calls with noduplicate attribute.
   if (LS.hasCallsWithNoDuplicate()) {
@@ -673,7 +673,7 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool HasEnablingPragma,
       return false;
     }
 
-    const LoopStatistics &LS = HLS.getSelfLoopStatistics(Loop);
+    const LoopStatistics &LS = HLS.getSelfStatistics(Loop);
 
     // TODO: remove this condition?
     if (LS.hasSwitches()) {

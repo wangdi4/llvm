@@ -4191,7 +4191,7 @@ bool testDriver::run() {
       if (!Lp->isInnermost())
         continue;
 
-      const LoopStatistics &LS = HLS.getSelfLoopStatistics(Lp);
+      const LoopStatistics &LS = HLS.getSelfStatistics(Lp);
 
       if (LS.hasCallsWithUnsafeSideEffects() || LS.hasForwardGotos()) {
         InnermostLoops.clear();

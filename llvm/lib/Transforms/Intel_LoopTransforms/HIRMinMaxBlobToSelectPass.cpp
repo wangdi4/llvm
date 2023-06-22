@@ -169,7 +169,7 @@ void HIRMinMaxBlobToSelect::collectMinMaxBlobCandidates(HLLoop *Loop,
   if (!Loop->isDo())
     return;
 
-  auto LoopStats = HLS.getTotalLoopStatistics(Loop);
+  auto LoopStats = HLS.getTotalStatistics(Loop);
   if (LoopStats.hasCallsWithUnsafeSideEffects() ||
       LoopStats.hasCallsWithUnknownAliasing()) {
     LLVM_DEBUG(dbgs() << "Loop has unsafe calls\n");

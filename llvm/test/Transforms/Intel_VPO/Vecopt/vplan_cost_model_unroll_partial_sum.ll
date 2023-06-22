@@ -6,6 +6,7 @@
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=8 \
 ; RUN:     -vplan-force-uf=4 -vplan-force-vf=8 \
 ; RUN:     -vplan-cm-unroll=true -vplan-cm-unroll-partial-sums-only=true \
+; RUN:     -vplan-cm-unroll-ilp-score=1 \
 ; RUN:     -vplan-enable-partial-sums=true \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-VF8-UF4
 
@@ -13,7 +14,8 @@
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=8 \
 ; RUN:     -vplan-force-uf=8 -vplan-force-vf=8 \
-; RUN:     -vplan-cm-unroll=true \
+; RUN:     -vplan-cm-unroll=true -vplan-cm-unroll-partial-sums-only=true \
+; RUN:     -vplan-cm-unroll-ilp-score=1 \
 ; RUN:     -vplan-enable-partial-sums=true \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-VF8-UF8
 

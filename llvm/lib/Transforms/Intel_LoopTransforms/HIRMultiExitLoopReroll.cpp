@@ -701,7 +701,7 @@ bool HIRMultiExitLoopReroll::isApplicable(const HLLoop *Lp) const {
     return false;
   }
 
-  auto &LS = HLS.getSelfLoopStatistics(Lp);
+  auto &LS = HLS.getSelfStatistics(Lp);
 
   if (LS.hasLabels() || LS.hasCalls() || LS.hasSwitches()) {
     return false;

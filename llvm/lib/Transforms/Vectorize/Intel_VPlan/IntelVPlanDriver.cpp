@@ -724,7 +724,7 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
 
 #ifndef NDEBUG
   // Run verifier before code gen
-  Verifier->verifyVPlan(Plan, VPlanVerifier::SkipLoopInfo);
+  Verifier->verifyVPlan(Plan);
 #endif
 
   LVP.executeBestPlan(VCodeGen);
@@ -2113,7 +2113,7 @@ bool VPlanDriverHIRImpl::bailout(VPlanOptReportBuilder &VPORBuilder, HLLoop *Lp,
 }
 
 bool VPlanDriverHIRImpl::isSupported(HLLoop *Lp, WRNVecLoopNode *WRLp) {
-  if (HIRLoopStats->getTotalLoopStatistics(Lp).hasSwitches()) {
+  if (HIRLoopStats->getTotalStatistics(Lp).hasSwitches()) {
     setBailoutRemark(OptReportVerbosity::Medium,
                      OptRemarkID::VecFailSwitchPresent,
                      WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")

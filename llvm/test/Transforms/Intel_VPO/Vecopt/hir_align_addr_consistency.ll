@@ -10,8 +10,8 @@
 
 ; CHECK:                    |   [[TMP1:%.*]] = (%lpp)[i1];
 
-; CHECK:                    |   %.vec = ptrtoint.<4 x i64*>.<4 x i64>(&((<4 x i64*>)([[TMP1]])[sext.i32.i64([[TMP0]])]));
-; CHECK-NEXT:               |   <LVAL-REG> NON-LINEAR <4 x i64> %.vec {sb:22}
+; CHECK:                    |   [[VEC:%.*]] = ptrtoint.<4 x i64*>.<4 x i64>(&((<4 x i64*>)([[TMP1]])[sext.i32.i64([[TMP0]])]));
+; CHECK-NEXT:               |   <LVAL-REG> NON-LINEAR <4 x i64> [[VEC]]
 ; CHECK-NEXT:               |   <RVAL-REG> &((<4 x i64*>)(NON-LINEAR <4 x i64*> [[TMP1]])[NON-LINEAR <4 x i64> sext.i32.i64([[TMP0]])]) inbounds
 ; CHECK-NEXT:               |      <BLOB> NON-LINEAR i32 [[TMP0]]
 ; CHECK-NEXT:               |      <BLOB> NON-LINEAR i64* [[TMP1]]

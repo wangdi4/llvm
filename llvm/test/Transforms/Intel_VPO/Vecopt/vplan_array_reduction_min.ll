@@ -121,7 +121,7 @@ define i32 @test(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; HIR:           END REGION
 ;
 ; OPTRPT: remark #25588: Loop has SIMD reduction
-; OPTRPT-NEXT: remark #15590: vectorization support: signed minimum array or array-section reduction of value type [9 x i32]
+; OPTRPT-NEXT: remark #15590: vectorization support: signed minimum array or array-section reduction with value type array of int32_t (9 elements)
 ;
 entry:
   %min = alloca [9 x i32], align 4

@@ -87,7 +87,7 @@ struct LoopStatistics::LoopOrRegionStatisticsVisitor final
   void compute() {
     // Do not directly recurse inside children loops. Children statistics is
     // recursively computed for children loops by the visitor using
-    // getTotalLoopStatistics().
+    // getTotalStatistics().
 
     if (auto *Region = dyn_cast<HLRegion>(Node)) {
       HLNodeUtils::visitRange<true, false>(*this, Region->child_begin(),
@@ -114,13 +114,13 @@ struct LoopStatistics::LoopOrRegionStatisticsVisitor final
 
   void visit(const HLGoto *Goto) {
     if (SelfStats && !Goto->isUnknownLoopBackEdge()) {
-      SelfStats->NumForwardGotos++;
+      SelfStats->ForwardGotos.push_back(Goto);
     }
   }
 
   void visit(const HLLabel *Label) {
     if (SelfStats && !Label->isUnknownLoopHeaderLabel()) {
-      SelfStats->NumLabels++;
+      SelfStats->Labels.push_back(Label);
     }
   }
 
@@ -174,7 +174,7 @@ struct LoopStatistics::LoopOrRegionStatisticsVisitor final
 
   void visit(const HLLoop *Lp) {
     if (ChildrenStats) {
-      *ChildrenStats += HLS.getTotalLoopStatistics(Lp);
+      *ChildrenStats += HLS.getTotalStatistics(Lp);
     }
   }
 
@@ -201,10 +201,10 @@ void LoopStatistics::print(formatted_raw_ostream &OS,
   OS << "Number of switches: " << NumSwitches << "\n";
 
   Node->indent(OS, Depth);
-  OS << "Number of forward gotos: " << NumForwardGotos << "\n";
+  OS << "Number of forward gotos: " << getNumForwardGotos() << "\n";
 
   Node->indent(OS, Depth);
-  OS << "Number of forward goto target labels: " << NumLabels << "\n";
+  OS << "Number of forward goto target labels: " << getNumLabels() << "\n";
 
   Node->indent(OS, Depth);
   OS << "Number of user calls: " << NumUserCalls << "\n";
@@ -237,7 +237,7 @@ void LoopStatistics::print(formatted_raw_ostream &OS,
 }
 
 const LoopStatistics &
-HIRLoopStatistics::getSelfLoopStatistics(const HLNode *Node) {
+HIRLoopStatistics::getSelfStatisticsImpl(const HLNode *Node) {
   assert(isa<HLLoop>(Node) ||
          isa<HLRegion>(Node) && " Invalid Node for Statistics.");
 
@@ -260,7 +260,7 @@ HIRLoopStatistics::getSelfLoopStatistics(const HLNode *Node) {
 }
 
 const LoopStatistics &
-HIRLoopStatistics::getTotalLoopStatistics(const HLNode *Node) {
+HIRLoopStatistics::getTotalStatisticsImpl(const HLNode *Node) {
   assert(isa<HLLoop>(Node) ||
          isa<HLRegion>(Node) && " Invalid Node for Statistics.");
 
@@ -268,7 +268,7 @@ HIRLoopStatistics::getTotalLoopStatistics(const HLNode *Node) {
 
   // Self and total Node statistics for innermost loops are the same.
   if (Lp && Lp->isInnermost()) {
-    return getSelfLoopStatistics(Node);
+    return getSelfStatisticsImpl(Node);
   }
 
   auto LSIt = TotalStatisticsMap.find(Node);
@@ -294,6 +294,7 @@ HIRLoopStatistics::getTotalLoopStatistics(const HLNode *Node) {
   // invoke it using empty SelfStats.
   auto SelfPair = SelfStatisticsMap.insert(std::make_pair(Node, SelfStats));
 
+  // TODO: sort gotos/labels in top-sort num order here, if necessary.
   TotalStats += SelfPair.first->second;
 
   auto TotalPair = TotalStatisticsMap.insert(std::make_pair(Node, TotalStats));
@@ -302,16 +303,16 @@ HIRLoopStatistics::getTotalLoopStatistics(const HLNode *Node) {
 }
 
 void HIRLoopStatistics::print(formatted_raw_ostream &OS, const HLLoop *Loop) {
-  const LoopStatistics &LS = PrintTotalStatistics ? getTotalLoopStatistics(Loop)
-                                                  : getSelfLoopStatistics(Loop);
+  const LoopStatistics &LS = PrintTotalStatistics ? getTotalStatisticsImpl(Loop)
+                                                  : getSelfStatisticsImpl(Loop);
   LS.print(OS, Loop);
 }
 
 void HIRLoopStatistics::print(formatted_raw_ostream &OS,
                               const HLRegion *Region) {
   const LoopStatistics &LS = PrintTotalStatistics
-                                 ? getTotalLoopStatistics(Region)
-                                 : getSelfLoopStatistics(Region);
+                                 ? getTotalStatisticsImpl(Region)
+                                 : getSelfStatisticsImpl(Region);
   LS.print(OS, Region);
 }
 

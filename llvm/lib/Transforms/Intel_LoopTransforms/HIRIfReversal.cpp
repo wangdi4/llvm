@@ -71,7 +71,7 @@ bool HIRIfReversal::findProfitableCandidates(const HLLoop *InnermostLoop,
   }
 
   // Do Structural checks
-  auto LS = HLS.getTotalLoopStatistics(InnermostLoop);
+  auto LS = HLS.getTotalStatistics(InnermostLoop);
   if (LS.hasSwitches() || LS.hasCallsWithUnsafeSideEffects() ||
       LS.hasLabels() || !LS.hasIfs()) {
     return false;

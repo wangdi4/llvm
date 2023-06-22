@@ -162,9 +162,6 @@ bool VPlanHCFGBuilder::buildHierarchicalCFG() {
   auto &VPDomTree = *Plan->getDT();
 
   LLVM_DEBUG(Plan->setName("HCFGBuilder: Plain CFG\n"); dbgs() << *Plan);
-#ifndef NDEBUG
-  Verifier->verifyVPlan(Plan, VPlanVerifier::SkipInnerMultiExit);
-#endif
 
   // Compute dom tree for the plain CFG for VPLInfo. We don't need post-dom tree
   // at this point.
@@ -193,6 +190,10 @@ bool VPlanHCFGBuilder::buildHierarchicalCFG() {
   LLVM_DEBUG(dbgs() << "PostDominator Tree After buildPlainCFG:\n";
              Plan->getPDT()->print(dbgs()));
 
+#ifndef NDEBUG
+  Verifier->verifyVPlan(Plan, VPlanVerifier::SkipInnerMultiExit |
+                                  VPlanVerifier::CheckNumLoops);
+#endif
   VPLAN_DUMP(PlainCFGDumpControl, Plan);
 
   return true;

@@ -1746,7 +1746,7 @@ void HIROptPredicate::CandidateLookup::visit(HLInst *Inst) {
     // when Switch instructions are in the same loopnest (CMPLRLLVM-39714).
 
     // Check if the current loop contains any switch
-    auto LoopStats = HLS.getTotalLoopStatistics(CurrLoop);
+    auto LoopStats = HLS.getTotalStatistics(CurrLoop);
     if (LoopStats.hasSwitches())
       return;
 
@@ -2194,7 +2194,7 @@ bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
     }
 
     HLRegion *ParentRegion = TargetLoop->getParentRegion();
-    auto LoopStats = HLS.getTotalLoopStatistics(TargetLoop);
+    auto LoopStats = HLS.getTotalStatistics(TargetLoop);
     bool SkipLoop = false;
     unsigned NumOfIfs = LoopStats.getNumIfs();
     if (!RegionThresholdSet.insert(ParentRegion) && Candidate.isIf() &&
