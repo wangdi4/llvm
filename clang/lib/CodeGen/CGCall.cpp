@@ -2233,8 +2233,7 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
     QualType Ret = FI.getReturnType();
     unsigned AddressSpace = CGM.getTypes().getTargetAddressSpace(Ret);
     ArgTypes[IRFunctionArgs.getSRetArgNo()] =
-<<<<<<< HEAD
-        llvm::PointerType::get(Ty, AddressSpace);
+        llvm::PointerType::get(getLLVMContext(), AddressSpace);
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
@@ -2243,27 +2242,20 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
                             IRFunctionArgs.getSRetArgNo());
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
-=======
-        llvm::PointerType::get(getLLVMContext(), AddressSpace);
->>>>>>> b92ccc355acb8a329918ceb2837df1b351675ece
   }
 
   // Add type for inalloca argument.
   if (IRFunctionArgs.hasInallocaArg()) {
     auto ArgStruct = FI.getArgStruct();
     assert(ArgStruct);
-<<<<<<< HEAD
-    ArgTypes[IRFunctionArgs.getInallocaArgNo()] = ArgStruct->getPointerTo();
+    ArgTypes[IRFunctionArgs.getInallocaArgNo()] =
+        llvm::PointerType::getUnqual(getLLVMContext());
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
     addInallocaToDTransFuncInfo(*this, CGM, DFI, ArgStruct,
                                 IRFunctionArgs.getInallocaArgNo(), FI);
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
-=======
-    ArgTypes[IRFunctionArgs.getInallocaArgNo()] =
-        llvm::PointerType::getUnqual(getLLVMContext());
->>>>>>> b92ccc355acb8a329918ceb2837df1b351675ece
   }
 
   // Add in all of the required arguments.
@@ -2290,9 +2282,8 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
     case ABIArgInfo::Indirect:
       assert(NumIRArgs == 1);
       // indirect arguments are always on the stack, which is alloca addr space.
-<<<<<<< HEAD
-      llvm::Type *LTy = ConvertTypeForMem(it->type);
-      ArgTypes[FirstIRArg] = LTy->getPointerTo(
+      ArgTypes[FirstIRArg] = llvm::PointerType::get(
+          getLLVMContext(),
 #if INTEL_COLLAB
           CGM.getEffectiveAllocaAddrSpace());
 #else // INTEL_COLLAB
@@ -2305,16 +2296,11 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
                           NumIRArgs);
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
-=======
-      ArgTypes[FirstIRArg] = llvm::PointerType::get(
-          getLLVMContext(), CGM.getDataLayout().getAllocaAddrSpace());
->>>>>>> b92ccc355acb8a329918ceb2837df1b351675ece
       break;
     case ABIArgInfo::IndirectAliased:
       assert(NumIRArgs == 1);
-<<<<<<< HEAD
-      llvm::Type *LTy = ConvertTypeForMem(it->type);
-      ArgTypes[FirstIRArg] = LTy->getPointerTo(ArgInfo.getIndirectAddrSpace());
+      ArgTypes[FirstIRArg] = llvm::PointerType::get(
+          getLLVMContext(), ArgInfo.getIndirectAddrSpace());
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
       addToDTransFuncInfo(*this, CGM, DFI, ArgInfo, it->type,
@@ -2322,10 +2308,6 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
                           NumIRArgs);
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
-=======
-      ArgTypes[FirstIRArg] = llvm::PointerType::get(
-          getLLVMContext(), ArgInfo.getIndirectAddrSpace());
->>>>>>> b92ccc355acb8a329918ceb2837df1b351675ece
       break;
     case ABIArgInfo::Extend:
     case ABIArgInfo::Direct: {
