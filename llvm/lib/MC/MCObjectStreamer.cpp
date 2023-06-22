@@ -85,6 +85,7 @@ void MCObjectStreamer::addPendingLabel(MCSymbol* S) {
 }
 
 void MCObjectStreamer::flushPendingLabels(MCFragment *F, uint64_t FOffset) {
+  assert(F);
   MCSection *CurSection = getCurrentSectionOnly();
   if (!CurSection) {
     assert(PendingLabels.empty());
@@ -97,12 +98,8 @@ void MCObjectStreamer::flushPendingLabels(MCFragment *F, uint64_t FOffset) {
     PendingLabels.clear();
   }
 
-  // Associate a fragment with this label, either the supplied fragment
-  // or an empty data fragment.
-  if (F)
-    CurSection->flushPendingLabels(F, FOffset, CurSubsectionIdx);
-  else
-    CurSection->flushPendingLabels(nullptr, 0, CurSubsectionIdx);
+  // Associate the labels with F.
+  CurSection->flushPendingLabels(F, FOffset, CurSubsectionIdx);
 }
 
 void MCObjectStreamer::flushPendingLabels() {

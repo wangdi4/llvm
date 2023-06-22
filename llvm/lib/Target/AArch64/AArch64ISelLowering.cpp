@@ -14655,7 +14655,6 @@ bool AArch64TargetLowering::optimizeExtendOrTruncateConversion(
         return false;
 
       DstTy = TruncDstType;
-      DstWidth = TruncDstType->getElementType()->getScalarSizeInBits();
     }
 
     return createTblShuffleForZExt(ZExt, DstTy, Subtarget->isLittleEndian());
@@ -15480,6 +15479,11 @@ bool AArch64TargetLowering::shouldFoldConstantShiftPairToMask(
   }
 
   return true;
+}
+
+bool AArch64TargetLowering::shouldFoldSelectWithIdentityConstant(
+    unsigned BinOpcode, EVT VT) const {
+  return VT.isScalableVector() && isTypeLegal(VT);
 }
 
 bool AArch64TargetLowering::shouldConvertConstantLoadToIntImm(const APInt &Imm,
