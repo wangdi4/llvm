@@ -2253,23 +2253,25 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
 
   // Add type for inalloca argument.
   if (IRFunctionArgs.hasInallocaArg())
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+  {
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
     ArgTypes[IRFunctionArgs.getInallocaArgNo()] =
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         llvm::PointerType::getUnqual(getLLVMContext());
-<<<<<<< HEAD
 #else // INTEL_SYCL_OPAQUEPOINTER_READY
         FI.getArgStruct()->getPointerTo();
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
-    addInallocaToDTransFuncInfo(*this, CGM, DFI, ArgStruct,
+    addInallocaToDTransFuncInfo(*this, CGM, DFI, FI.getArgStruct(),
                                 IRFunctionArgs.getInallocaArgNo(), FI);
+  }
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
-  }
-=======
->>>>>>> 0cbbfb8c2e03275e2f67e4f953693601785069a4
 
   // Add in all of the required arguments.
   unsigned ArgNo = 0;
