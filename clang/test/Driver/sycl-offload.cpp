@@ -169,3 +169,10 @@
 // RUN:          -target x86_64-unknown-linux-gnu -### 2>&1 \
 // RUN:  | FileCheck -check-prefix IGNORE_INPUT %s
 // IGNORE_INPUT: input unused
+<<<<<<< HEAD
+=======
+
+/// Check if the clang with fsycl adds C++ libraries to the link line
+//  RUN:  %clang -### -target x86_64-unknown-linux-gnu -fsycl %s 2>&1 | FileCheck -check-prefix=CHECK-FSYCL-WITH-CLANG %s
+// CHECK-FSYCL-WITH-CLANG: "-lstdc++"
+>>>>>>> da5e1b98f1c37fdcd51948fb6b70532ad9e49fcc

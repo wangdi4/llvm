@@ -2099,6 +2099,7 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
     }
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Temporary files will be created in the TMP location underneath an
   // additional directory.  Set that directory here.
@@ -2110,6 +2111,11 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
     Diag(diag::warn_drv_deprecated_driver_use_driver_opt)
         << (IsCLMode() ? "dpcpp-cl" : "dpcpp") << Name << "-fsycl";
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false) &&
+      CCCIsCC())
+    setDriverMode("g++");
+>>>>>>> da5e1b98f1c37fdcd51948fb6b70532ad9e49fcc
 
   // Check for working directory option before accessing any files
   if (Arg *WD = Args.getLastArg(options::OPT_working_directory))
