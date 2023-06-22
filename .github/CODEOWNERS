@@ -232,6 +232,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/include/llvm/Analysis/InlineAdvisor.h @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/InlineCost.h @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/InlineModelFeatureMaps.h @robertcox-github @pvbattin
+/llvm/include/llvm/Analysis/InlineOrder.h @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/InlineSizeEstimatorAnalysis.h @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/Intel_Andersens.h @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/Intel_ArrayUseAnalysis.h  @robertcox-github @pvbattin @intel-restricted/cmplrllvm-llvm-scalar-optimizer
@@ -285,6 +286,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/lib/Analysis/IndirectCallPromotionAnalysis.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/InlineAdvisor.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/InlineCost.cpp @robertcox-github @pvbattin
+/llvm/lib/Analysis/InlineOrder.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/InlineSizeEstimatorAnalysis.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/Intel_Andersens.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/Intel_ArrayUseAnalysis.cpp @robertcox-github @pvbattin @intel-restricted/cmplrllvm-llvm-scalar-optimizer
