@@ -2204,7 +2204,11 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
       // sret things on win32 aren't void, they return the sret pointer.
       QualType ret = FI.getReturnType();
       unsigned addressSpace = CGM.getTypes().getTargetAddressSpace(ret);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       resultType = llvm::PointerType::get(getLLVMContext(), addressSpace);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+      resultType = llvm::PointerType::get(ConvertType(ret), addressSpace);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     } else {
       resultType = llvm::Type::getVoidTy(getLLVMContext());
     }
@@ -2233,8 +2237,11 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
     QualType Ret = FI.getReturnType();
     unsigned AddressSpace = CGM.getTypes().getTargetAddressSpace(Ret);
     ArgTypes[IRFunctionArgs.getSRetArgNo()] =
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         llvm::PointerType::get(getLLVMContext(), AddressSpace);
-
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+        llvm::PointerType::get(ConvertType(Ret), AddressSpace);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
     addSRetToDTransFuncInfo(*this, DFI, Ret,
@@ -2249,7 +2256,12 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
     auto ArgStruct = FI.getArgStruct();
     assert(ArgStruct);
     ArgTypes[IRFunctionArgs.getInallocaArgNo()] =
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         llvm::PointerType::getUnqual(getLLVMContext());
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+        FI.getArgStruct()->getPointerTo();
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
     addInallocaToDTransFuncInfo(*this, CGM, DFI, ArgStruct,
@@ -2282,8 +2294,12 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
     case ABIArgInfo::Indirect:
       assert(NumIRArgs == 1);
       // indirect arguments are always on the stack, which is alloca addr space.
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       ArgTypes[FirstIRArg] = llvm::PointerType::get(
           getLLVMContext(),
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+      ArgTypes[FirstIRArg] = ConvertTypeForMem(it->type)->getPointerTo(
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 #if INTEL_COLLAB
           CGM.getEffectiveAllocaAddrSpace());
 #else // INTEL_COLLAB
@@ -2299,8 +2315,13 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
       break;
     case ABIArgInfo::IndirectAliased:
       assert(NumIRArgs == 1);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       ArgTypes[FirstIRArg] = llvm::PointerType::get(
           getLLVMContext(), ArgInfo.getIndirectAddrSpace());
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+      ArgTypes[FirstIRArg] = ConvertTypeForMem(it->type)->getPointerTo(ArgInfo.getIndirectAddrSpace());
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
       addToDTransFuncInfo(*this, CGM, DFI, ArgInfo, it->type,
@@ -4688,8 +4709,13 @@ static AggValueSlot createPlaceholderSlot(CodeGenFunction &CGF,
   // FIXME: Generate IR in one pass, rather than going back and fixing up these
   // placeholders.
   llvm::Type *IRTy = CGF.ConvertTypeForMem(Ty);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::Type *IRPtrTy = llvm::PointerType::getUnqual(CGF.getLLVMContext());
   llvm::Value *Placeholder = llvm::PoisonValue::get(IRPtrTy);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+  llvm::Type *IRPtrTy = IRTy->getPointerTo();
+  llvm::Value *Placeholder = llvm::PoisonValue::get(IRPtrTy->getPointerTo());
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   // FIXME: When we generate this IR in one pass, we shouldn't need
   // this win32-specific alignment hack.
