@@ -117,7 +117,7 @@ static cl::opt<bool, true> EnableIntDivRemBlendWithSafeValueOpt(
         cl::desc("Enable blend with safe value for integer div/rem."));
 
 static cl::opt<bool> CalcMinProfitableDynPeelTC(
-    "vplan-calc-min-profitable-dyn-peel-tc", cl::Hidden, cl::init(false),
+    "vplan-calc-min-profitable-dyn-peel-tc", cl::Hidden, cl::init(true),
     cl::desc(
         "Whether to calculate and emit a minimum trip count check when dynamic "
         "peeling. At runtime, if the real TC is less than the value computed "
@@ -1727,7 +1727,10 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
                               : RemainderEvaluatorWithoutPeel,
                           VF, UF, isa<VPlanMasked>(Plan));
         if (CalcMinProfitableDynPeelTC) {
-          if (VecScenario.hasPeel() && PeelingDecision.PeelIsDynamic)
+          // TODO: should we still calculate the min profitable peeling TC when
+          // trip count is known, and assert that it is less than the known TC?
+          if (IsTripCountEstimated && VecScenario.hasPeel() &&
+              PeelingDecision.PeelIsDynamic)
             VecScenario.setMinimumProfitablePeelTC(calcMinProfitablePeelTC(
                 /*PeelOverhead=*/PeelEvaluator.getLoopCost(),
                 /*AlignedMainCost=*/MainLoopIterationCost,
