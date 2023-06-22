@@ -1708,6 +1708,16 @@ bool X86TTIImpl::has4KDSB() const {
   return ST->has4KDSB();
 }
 
+void X86TTIImpl::getVectorUnrollingPreferences(
+    TTI::VectorUnrollingPreferences &UP) const {
+#if INTEL_FEATURE_CPU_RYL
+  // Currently only enabled for -xroyal.
+  if (ST->getCPU() == "royal") {
+    UP.PartialSumILPScore = 1.f;
+    UP.MaximumUFScale = 8;
+  }
+#endif // INTEL_FEATURE_CPU_RYL
+}
 #endif // INTEL_CUSTOMIZATION
 
 InstructionCost X86TTIImpl::getShuffleCost(TTI::ShuffleKind Kind,

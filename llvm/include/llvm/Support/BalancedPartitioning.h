@@ -40,13 +40,17 @@
 #define LLVM_SUPPORT_BALANCED_PARTITIONING_H
 
 #include "raw_ostream.h"
-#include "llvm/Support/ThreadPool.h"
+#include "llvm/ADT/ArrayRef.h" // INTEL
 
+#include <mutex> // INTEL
+#include <condition_variable> // INTEL
+#include <atomic> // INTEL
 #include <random>
 #include <vector>
 
 namespace llvm {
 
+class ThreadPool; // INTEL
 /// A function with a set of utility nodes where it is beneficial to order two
 /// functions close together if they have similar utility nodes
 class BPFunctionNode {
@@ -111,7 +115,7 @@ private:
   /// threads, so we need to track how many active threads that could spawn more
   /// threads.
   struct BPThreadPool {
-    ThreadPool TheThreadPool;
+    ThreadPool &TheThreadPool; // INTEL
     std::mutex mtx;
     std::condition_variable cv;
     /// The number of threads that could spawn more threads
@@ -124,6 +128,8 @@ private:
     /// acceptable for other threads to add more tasks while blocking on this
     /// call.
     void wait();
+
+    BPThreadPool(ThreadPool &TheThreadPool) : TheThreadPool(TheThreadPool) {} // INTEL
   };
 
   /// Run a recursive bisection of a given list of FunctionNodes

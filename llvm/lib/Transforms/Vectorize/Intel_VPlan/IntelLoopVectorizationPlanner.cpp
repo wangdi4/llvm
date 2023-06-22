@@ -53,6 +53,13 @@ static cl::opt<unsigned> VecThreshold(
              "of profitable execution of the vectorized loop in parallel."),
     cl::init(100));
 
+static cl::opt<unsigned> MaskedMainThreshold(
+    "vplan-masked-main-cost-threshold",
+    cl::desc("Minimum value of masked main loop gain, in percent of scalar "
+             "remainder cost. The bigger value the bigger gain required for "
+             "masked main loop to be choosen."),
+    cl::init(54));
+
 static cl::opt<unsigned> VPlanForceVF(
     "vplan-force-vf", cl::init(0),
     cl::desc("Force VPlan to use given VF, for experimental purposes only."));
@@ -91,8 +98,8 @@ static cl::opt<unsigned> VPlanForceUF("vplan-force-uf", cl::init(0),
                                       cl::desc("Force VPlan to use given UF"));
 
 static cl::opt<unsigned> VPlanMaximumUF(
-    "vplan-maximum-uf", cl::init(0), cl::Hidden,
-    cl::desc("Allow VPlan to select an UF up to the given limit"));
+    "vplan-maximum-uf", cl::init(1), cl::Hidden,
+    cl::desc("Set the maximum UF to be considered for unrolling"));
 
 static cl::opt<bool> EnableGeneralPeelingCostModel(
     "vplan-enable-general-peeling-cost-model", cl::init(true),
@@ -178,7 +185,7 @@ static cl::opt<unsigned> NumVConflictThreshold(
   cl::desc("Threshold of vconflict idioms used for disabling vectorization."));
 
 static cl::opt<bool> EnableMaskedMainLoop(
-    "vplan-enable-masked-main-loop", cl::init(false), cl::Hidden,
+    "vplan-enable-masked-main-loop", cl::init(true), cl::Hidden,
     cl::desc("Enable masked mode for the main loop for short TCs"));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1261,6 +1268,17 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   bool IsTripCountEstimated = OuterMostVPLoop->getTripCountInfo().IsEstimated;
   unsigned ForcedVF = getForcedVF(WRLp);
 
+  // Get the unrolling preferences to determine the maximum UF to attempt,
+  // and identify whether unrolling is enabled.
+  // TODO - refine the choice of the default maximum UF; the current value
+  // is ad-hoc.
+  unsigned MaximumUF = VPlanMaximumUF;
+  if (!IsUserForcedUF && !VPlanMaximumUF.getNumOccurrences()) {
+    TargetTransformInfo::VectorUnrollingPreferences UP;
+    TTI->getVectorUnrollingPreferences(UP);
+    MaximumUF *= UP.MaximumUFScale;
+  }
+
   // If we have a known trip count loop and ForcedVF * ForcedUF exceeds the
   // trip count, instead of bailing out of vectorization altogether give
   // precedence to ForcedVF.
@@ -1292,7 +1310,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     // Here ForcedUF may come from a hint, which we consider
     // as the minimum UF to try. We consider ForcedUF and
     // all powers-of-two that aren't less than MaxUF.
-    unsigned MaxUF = std::max(ForcedUF, (unsigned)VPlanMaximumUF);
+    unsigned MaxUF = std::max(ForcedUF, MaximumUF);
     UFs.push_back(ForcedUF);
     for (unsigned i = NextPowerOf2(ForcedUF); i > 0 && i <= MaxUF; i *= 2)
       UFs.push_back(i);
@@ -1701,6 +1719,19 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
         LLVM_DEBUG(dbgs() << "Peeling will not be performed.\n");
       } else {
         LLVM_DEBUG(dbgs() << "Peeling will be performed.\n");
+      }
+
+      if (UseMasked && MaskedMainThreshold !=0) {
+        // Restrict gain for masked main loop by a threshold.
+        VPInstructionCost MinReqGain =
+            (ScalarCost * VPInstructionCost(MaskedMainThreshold)) / 100.;
+        if (VectorGain < MinReqGain) {
+          LLVM_DEBUG(dbgs() << "Masked main loop gain (" << VectorGain
+                            << ") is less than threshold (" << ScalarCost << "*"
+                            << MaskedMainThreshold << ")/100=" << MinReqGain
+                            << ", skipping.\n");
+          VectorCost = VPInstructionCost::getInvalid();
+        }
       }
 
       // Current VF is invalid to vectorize with so skip it.

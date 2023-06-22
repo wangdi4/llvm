@@ -80,7 +80,7 @@ static cl::opt<bool> VPlanPhiPumping(
 
 // Control for all unrolling heuristics.
 static cl::opt<bool> CMUseUnrollHeuristics(
-    "vplan-cm-unroll", cl::init(false), cl::Hidden,
+    "vplan-cm-unroll", cl::init(true), cl::Hidden,
     cl::desc("Enable unrolling heuristic for VPlan cost model"));
 
 // Limit the unrolling heuristic to only apply in the presence
@@ -90,11 +90,10 @@ static cl::opt<bool> CMUnrollPartialSumsOnly(
     "vplan-cm-unroll-partial-sums-only", cl::init(true), cl::Hidden,
     cl::desc("Limit unroll heuristics to partial sum candidate loops only"));
 
-// Set the default ILPScore value for partial sum candidates.
+// Override the VectorUnrollingPreferences PartialSumILPScore value
 static cl::opt<float> CMUnrollILPScore(
     "vplan-cm-unroll-ilp-score", cl::init(1.f), cl::Hidden,
-    cl::desc(
-        "Set the default cost model ILP score for partial sum reductions"));
+    cl::desc("Override the target ILP score for partial sum reductions"));
 
 namespace llvm {
 
@@ -1347,6 +1346,8 @@ void HeuristicUnroll::apply(const VPInstructionCost &TTICost,
   assert(VF != 1 && "Expected VF > 1");
 
   auto &PSA = CM->getOrCreatePartialSumAnalysis();
+  if (CMUnrollPartialSumsOnly && PSA.getCandidates().empty())
+    return;
 
   // As we are usually reducing cost here, we collect the reduction
   // to be subtracted.
@@ -1360,11 +1361,18 @@ void HeuristicUnroll::apply(const VPInstructionCost &TTICost,
   //  == UF * RemCost + C
   VPInstructionCost DescaleForUF = (1. - 1. / (float)UF);
 
+  // Target-specific coefficient indicating the relative profitability
+  // of partial sums. This is set in the VPlan unroll preferences, but
+  // may be overridden by hidden option.
+  float BaseILPScore =
+      CMUnrollILPScore.getNumOccurrences()
+          ? (float)CMUnrollILPScore
+          : CM->getVectorUnrollingPreferences().PartialSumILPScore;
+  assert(BaseILPScore >= 0.f && "invalid ILP score");
+
   // Collect cost adjustments for all partial sum candidates.
-  unsigned NumPartialSums = 0;
   for (const auto &Iter : PSA.getCandidates()) {
     const auto &RI = Iter.second;
-    ++NumPartialSums;
 
     // Compute a scaling factor in [0,CMUnrollILPScore] indicating the
     // relative benefit of parallelizing this reduction for UF.
@@ -1372,7 +1380,7 @@ void HeuristicUnroll::apply(const VPInstructionCost &TTICost,
     // cost to the loop cost, with the expectation that the ILP
     // benefits are best when there is little other independent
     // work in the loop.
-    auto ILPScore = (float)CMUnrollILPScore * RI.Cost / Cost;
+    auto ILPScore = BaseILPScore * RI.Cost / Cost;
 
     // Assuming Cost = C' + R (where R = RI.RecCost), subtracting
     // R*(1-S) yields the following cost after scaling by UF:
@@ -1385,7 +1393,7 @@ void HeuristicUnroll::apply(const VPInstructionCost &TTICost,
     LLVM_DEBUG(dbgs() << "HeuristicUnroll: partial sum reduction seen\n";
                dbgs() << "  PHI node: "; Iter.first->dump();
                dbgs() << "  Reduction cost: " << RI.Cost << "\n"
-                      << "  ILPScore: " << ILPScore << " = " << CMUnrollILPScore
+                      << "  ILPScore: " << ILPScore << " = " << BaseILPScore
                       << " * (" << RI.Cost << " / " << Cost << ")\n");
   }
 
@@ -1413,22 +1421,17 @@ void HeuristicUnroll::apply(const VPInstructionCost &TTICost,
       }
   }
 
-  // Apply the cost benefit if this is a good candidate.
-  // Currently this only checks whether we are restricting to loops
-  // with partial sum candidates or not.
-  if (NumPartialSums || !CMUnrollPartialSumsOnly) {
-    Cost = Cost - CostReduction;
-
-    LLVM_DEBUG(dbgs() << "HeuristicUnoll: Cost reduction: " << CostReduction
-                      << "\n");
-  }
+  Cost = Cost - CostReduction;
+  LLVM_DEBUG(dbgs() << "HeuristicUnoll: Cost reduction: " << CostReduction
+                    << "\n");
 }
 
 void PartialSumAnalysis::analyze(VPlanTTICostModel *CM,
                                  const VPlanVector &Plan) {
-  // Bail out if already analyzed, or no consumer heuristics
+
+  // Bail out if already analyzed or no consumer heuristics
   // are enabled.
-  if (!CMUseUnrollHeuristics || AnalyzedPlan == &Plan)
+  if (AnalyzedPlan == &Plan || !CMUseUnrollHeuristics)
     return;
 
   // Used to collect TTI costs, replacing unknown/invalid costs with

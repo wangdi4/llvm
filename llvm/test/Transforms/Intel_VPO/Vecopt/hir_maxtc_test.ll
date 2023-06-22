@@ -3,7 +3,7 @@
 ; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=8 -vplan-force-uf=5 < %s 2>&1 | FileCheck %s --check-prefix=VF8UF5-CHECK
 ; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -vplan-force-uf=1 -vplan-enable-masked-main-loop=0 < %s 2>&1 | FileCheck %s --check-prefix=VF2UF1-CHECK
 ; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=8 -vplan-force-uf=1 -vplan-enable-masked-main-loop=0 < %s 2>&1 | FileCheck %s --check-prefix=VF8UF1-CHECK
-; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=8 -vplan-force-uf=1 -vplan-enable-masked-main-loop=1 < %s 2>&1 | FileCheck %s --check-prefix=VF8UF1e-CHECK
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=8 -vplan-force-uf=1 -vplan-enable-masked-main-loop=1 -vplan-masked-main-cost-threshold=0 < %s 2>&1 | FileCheck %s --check-prefix=VF8UF1e-CHECK
 ;
 ; LIT test to check that VPlan vectorizer honors MAX_TC_ESTIMATE from HIR when
 ; vectorizing with or without unroll. Loopopt passes rely on array indices being

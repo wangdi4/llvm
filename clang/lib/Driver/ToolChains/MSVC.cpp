@@ -433,9 +433,8 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
 #if INTEL_DEPLOY_UNIFIED_LAYOUT
     SmallString<128> LibPath(TC.getDriver().Dir);
-    LibPath.append(TC.getArch() == llvm::Triple::x86_64
-                       ? "/../../opt/compiler/lib"
-                       : "/../../opt/compiler/lib32");
+    LibPath.append(TC.getArch() == llvm::Triple::x86_64 ? "/../../lib"
+                                                        : "/../../lib32");
 #else
     SmallString<128> LibPath(TC.getDriver().Dir + "/../lib");
 #endif // INTEL_DEPLOY_UNIFIED_LAYOUT

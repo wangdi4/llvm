@@ -1332,6 +1332,10 @@ std::string ToolChain::GetIntelLibPath() const {
   LibDir = llvm::sys::path::parent_path(LibDir);
 #endif // INTEL_DEPLOY_UNIFIED_LAYOUT
   llvm::sys::path::append(LibDir, "lib");
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+  if (getTriple().getArch() == llvm::Triple::x86)
+    LibDir += "32";
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
   return std::string(LibDir.str());
 }
 

@@ -1615,6 +1615,21 @@ public:
   // Returns true if the target supports folding a constant displacement into
   // its load instruction.
   bool displacementFoldable() const;
+
+  /// Parameters that controll the VPlan unrolling transformation.
+  struct VectorUnrollingPreferences {
+    // Scale applied to the maximum UF chosen by the vectorizer. A zero
+    // value here effectively disables automatic unrolling by the planner.
+    unsigned MaximumUFScale = 0;
+    /// Scaling factor representing the ILP benefit for partial sums.
+    /// If zero, partial sums will be effectively considered as non-profitable.
+    float PartialSumILPScore = 0.f;
+  };
+
+  /// Get target-customized preferences for the VPlan loop unrolling
+  /// transformation. The caller will initialize UP with the current
+  /// target-independent defaults.
+  void getVectorUnrollingPreferences(VectorUnrollingPreferences &UP) const;
 #endif // INTEL_CUSTOMIZATION
 
   /// \returns The type to use in a loop expansion of a memcpy call.
@@ -2173,6 +2188,8 @@ public:
   virtual bool has2KDSB() const = 0;
   virtual bool has4KDSB() const = 0;
   virtual bool displacementFoldable() const = 0;
+  virtual void
+  getVectorUnrollingPreferences(VectorUnrollingPreferences &) const = 0;
 #endif // INTEL_CUSTOMIZATION
   virtual Type *getMemcpyLoopLoweringType(
       LLVMContext &Context, Value *Length, unsigned SrcAddrSpace,
@@ -2932,6 +2949,11 @@ public:
 
   bool displacementFoldable() const override {
     return Impl.displacementFoldable();
+  }
+
+  void
+  getVectorUnrollingPreferences(VectorUnrollingPreferences &UP) const override {
+    Impl.getVectorUnrollingPreferences(UP);
   }
 #endif // INTEL_CUSTOMIZATION
   Type *getMemcpyLoopLoweringType(
