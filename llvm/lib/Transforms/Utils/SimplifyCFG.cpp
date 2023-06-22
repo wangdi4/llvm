@@ -8704,7 +8704,8 @@ bool SimplifyCFGOpt::simplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder) {
       "Tautological conditional branch should have been eliminated already.");
 
   BasicBlock *BB = BI->getParent();
-  if (!Options.SimplifyCondBranch)
+  if (!Options.SimplifyCondBranch ||
+      BI->getFunction()->hasFnAttribute(Attribute::OptForFuzzing))
     return false;
 
   // Conditional branch
@@ -9017,9 +9018,18 @@ bool SimplifyCFGOpt::simplifyOnce(BasicBlock *BB) {
       return true;
     }
 
+<<<<<<< HEAD
   if (Options.FoldTwoEntryPHINode) {
     // If there is a PHI node in this basic block, and we can
     // eliminate some of its entries, do so now.
+=======
+  IRBuilder<> Builder(BB);
+
+  if (Options.FoldTwoEntryPHINode &&
+      !BB->getParent()->hasFnAttribute(Attribute::OptForFuzzing)) {
+    // If there is a trivial two-entry PHI node in this basic block, and we can
+    // eliminate it, do so now.
+>>>>>>> 405f91475b37d509e82ac712d3d2c8274af314cc
     if (auto *PN = dyn_cast<PHINode>(BB->begin()))
 #if INTEL_CUSTOMIZATION
       // FoldPHIEntries is an Intel customized generalized version of the LLVM
