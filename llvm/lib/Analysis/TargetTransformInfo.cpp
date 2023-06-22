@@ -1238,6 +1238,11 @@ bool TargetTransformInfo::has4KDSB() const {return TTIImpl->has4KDSB();}
 bool TargetTransformInfo::displacementFoldable() const {
   return TTIImpl->displacementFoldable();
 }
+
+void TargetTransformInfo::getVectorUnrollingPreferences(
+    VectorUnrollingPreferences &UP) const {
+  TTIImpl->getVectorUnrollingPreferences(UP);
+}
 #endif // INTEL_CUSTOMIZATION
 
 Type *TargetTransformInfo::getMemcpyLoopLoweringType(

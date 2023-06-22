@@ -91,8 +91,8 @@ static cl::opt<unsigned> VPlanForceUF("vplan-force-uf", cl::init(0),
                                       cl::desc("Force VPlan to use given UF"));
 
 static cl::opt<unsigned> VPlanMaximumUF(
-    "vplan-maximum-uf", cl::init(0), cl::Hidden,
-    cl::desc("Allow VPlan to select an UF up to the given limit"));
+    "vplan-maximum-uf", cl::init(1), cl::Hidden,
+    cl::desc("Set the maximum UF to be considered for unrolling"));
 
 static cl::opt<bool> EnableGeneralPeelingCostModel(
     "vplan-enable-general-peeling-cost-model", cl::init(true),
@@ -1261,6 +1261,17 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   bool IsTripCountEstimated = OuterMostVPLoop->getTripCountInfo().IsEstimated;
   unsigned ForcedVF = getForcedVF(WRLp);
 
+  // Get the unrolling preferences to determine the maximum UF to attempt,
+  // and identify whether unrolling is enabled.
+  // TODO - refine the choice of the default maximum UF; the current value
+  // is ad-hoc.
+  unsigned MaximumUF = VPlanMaximumUF;
+  if (!IsUserForcedUF && !VPlanMaximumUF.getNumOccurrences()) {
+    TargetTransformInfo::VectorUnrollingPreferences UP;
+    TTI->getVectorUnrollingPreferences(UP);
+    MaximumUF *= UP.MaximumUFScale;
+  }
+
   // If we have a known trip count loop and ForcedVF * ForcedUF exceeds the
   // trip count, instead of bailing out of vectorization altogether give
   // precedence to ForcedVF.
@@ -1292,7 +1303,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     // Here ForcedUF may come from a hint, which we consider
     // as the minimum UF to try. We consider ForcedUF and
     // all powers-of-two that aren't less than MaxUF.
-    unsigned MaxUF = std::max(ForcedUF, (unsigned)VPlanMaximumUF);
+    unsigned MaxUF = std::max(ForcedUF, MaximumUF);
     UFs.push_back(ForcedUF);
     for (unsigned i = NextPowerOf2(ForcedUF); i > 0 && i <= MaxUF; i *= 2)
       UFs.push_back(i);

@@ -147,6 +147,12 @@ public:
                                                  const unsigned VF);
 
 #if INTEL_FEATURE_SW_ADVANCED
+  /// \Returns the target unrolling preferences.
+  const TargetTransformInfo::VectorUnrollingPreferences &
+  getVectorUnrollingPreferences() const {
+    return UP;
+  }
+
   /// \Returns the PartialSumAnalysis, which will be populated if enabled and
   /// not already populated.
   const VPlanCostModelHeuristics::PartialSumAnalysis &
@@ -185,6 +191,10 @@ protected:
     // Groups when VLSA is available.
     if (VLSAin)
       VLSAin->getOVLSMemrefs(Plan, VF);
+
+#if INTEL_FEATURE_SW_ADVANCED
+    TTI.getVectorUnrollingPreferences(UP);
+#endif // INTEL_FEATURE_SW_ADVANCED
   }
 
   // We prefer protected dtor over virtual one as there is no plan to
@@ -201,6 +211,9 @@ private:
   // Analaysis of partial sum candidates. This is populated
   // on a call to getOrCreatePartialSumAnalysis().
   VPlanCostModelHeuristics::PartialSumAnalysis PSA;
+
+  // Target unroll preferences.
+  TargetTransformInfo::VectorUnrollingPreferences UP;
 #endif // INTEL_FEATURE_SW_ADVANCED
 
   // The utility checks whether the Cost Model can assume that 32-bit indexes
