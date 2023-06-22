@@ -231,6 +231,9 @@ public:
       SmallVectorImpl<std::unique_ptr<GCOVFunction>>::const_iterator>;
   iterator begin() const { return iterator(functions.begin()); }
   iterator end() const { return iterator(functions.end()); }
+
+private:
+  unsigned addNormalizedPathToMap(StringRef filename);
 };
 
 struct GCOVArc {
