@@ -1,3 +1,18 @@
+// INTEL_CUSTOMIZATION
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //===-- spirv.hpp - Helpers to generate SPIR-V instructions ----*- C++ -*--===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -818,8 +833,9 @@ template <typename T>
 EnableIfNativeShuffle<T> SubgroupShuffle(T x, id<1> local_id) {
 #ifndef __NVPTX__
   using OCLT = detail::ConvertToOpenCLType_t<T>;
-  return __spirv_SubgroupShuffleINTEL(OCLT(x),
-                                      static_cast<uint32_t>(local_id.get(0)));
+  return __spirv_SubgroupShuffle(              // INTEL
+      OCLT(x),                                 // INTEL
+      static_cast<uint32_t>(local_id.get(0))); // INTEL
 #else
   return __nvvm_shfl_sync_idx_i32(membermask(), x, local_id.get(0), 0x1f);
 #endif
@@ -829,8 +845,8 @@ template <typename T>
 EnableIfNativeShuffle<T> SubgroupShuffleXor(T x, id<1> local_id) {
 #ifndef __NVPTX__
   using OCLT = detail::ConvertToOpenCLType_t<T>;
-  return __spirv_SubgroupShuffleXorINTEL(
-      OCLT(x), static_cast<uint32_t>(local_id.get(0)));
+  return __spirv_SubgroupShuffleXor(                    // INTEL
+      OCLT(x), static_cast<uint32_t>(local_id.get(0))); // INTEL
 #else
   return __nvvm_shfl_sync_bfly_i32(membermask(), x, local_id.get(0), 0x1f);
 #endif
@@ -840,7 +856,8 @@ template <typename T>
 EnableIfNativeShuffle<T> SubgroupShuffleDown(T x, uint32_t delta) {
 #ifndef __NVPTX__
   using OCLT = detail::ConvertToOpenCLType_t<T>;
-  return __spirv_SubgroupShuffleDownINTEL(OCLT(x), OCLT(x), delta);
+  return __spirv_SubgroupShuffleDown(OCLT(x), OCLT(x), // INTEL
+                                     delta);           // INTEL
 #else
   return __nvvm_shfl_sync_down_i32(membermask(), x, delta, 0x1f);
 #endif
@@ -850,7 +867,8 @@ template <typename T>
 EnableIfNativeShuffle<T> SubgroupShuffleUp(T x, uint32_t delta) {
 #ifndef __NVPTX__
   using OCLT = detail::ConvertToOpenCLType_t<T>;
-  return __spirv_SubgroupShuffleUpINTEL(OCLT(x), OCLT(x), delta);
+  return __spirv_SubgroupShuffleUp(OCLT(x), OCLT(x), // INTEL
+                                   delta);           // INTEL
 #else
   return __nvvm_shfl_sync_up_i32(membermask(), x, delta, 0);
 #endif
@@ -900,8 +918,8 @@ EnableIfBitcastShuffle<T> SubgroupShuffle(T x, id<1> local_id) {
   using ShuffleT = ConvertToNativeShuffleType_t<T>;
   auto ShuffleX = sycl::bit_cast<ShuffleT>(x);
 #ifndef __NVPTX__
-  ShuffleT Result = __spirv_SubgroupShuffleINTEL(
-      ShuffleX, static_cast<uint32_t>(local_id.get(0)));
+  ShuffleT Result = __spirv_SubgroupShuffle(             // INTEL
+      ShuffleX, static_cast<uint32_t>(local_id.get(0))); // INTEL
 #else
   ShuffleT Result =
       __nvvm_shfl_sync_idx_i32(membermask(), ShuffleX, local_id.get(0), 0x1f);
@@ -914,8 +932,8 @@ EnableIfBitcastShuffle<T> SubgroupShuffleXor(T x, id<1> local_id) {
   using ShuffleT = ConvertToNativeShuffleType_t<T>;
   auto ShuffleX = sycl::bit_cast<ShuffleT>(x);
 #ifndef __NVPTX__
-  ShuffleT Result = __spirv_SubgroupShuffleXorINTEL(
-      ShuffleX, static_cast<uint32_t>(local_id.get(0)));
+  ShuffleT Result = __spirv_SubgroupShuffleXor(          // INTEL
+      ShuffleX, static_cast<uint32_t>(local_id.get(0))); // INTEL
 #else
   ShuffleT Result =
       __nvvm_shfl_sync_bfly_i32(membermask(), ShuffleX, local_id.get(0), 0x1f);
@@ -928,7 +946,8 @@ EnableIfBitcastShuffle<T> SubgroupShuffleDown(T x, uint32_t delta) {
   using ShuffleT = ConvertToNativeShuffleType_t<T>;
   auto ShuffleX = sycl::bit_cast<ShuffleT>(x);
 #ifndef __NVPTX__
-  ShuffleT Result = __spirv_SubgroupShuffleDownINTEL(ShuffleX, ShuffleX, delta);
+  ShuffleT Result = __spirv_SubgroupShuffleDown(ShuffleX, ShuffleX, // INTEL
+                                                delta);             // INTEL
 #else
   ShuffleT Result =
       __nvvm_shfl_sync_down_i32(membermask(), ShuffleX, delta, 0x1f);
@@ -941,7 +960,8 @@ EnableIfBitcastShuffle<T> SubgroupShuffleUp(T x, uint32_t delta) {
   using ShuffleT = ConvertToNativeShuffleType_t<T>;
   auto ShuffleX = sycl::bit_cast<ShuffleT>(x);
 #ifndef __NVPTX__
-  ShuffleT Result = __spirv_SubgroupShuffleUpINTEL(ShuffleX, ShuffleX, delta);
+  ShuffleT Result = __spirv_SubgroupShuffleUp(ShuffleX, ShuffleX, // INTEL
+                                              delta);             // INTEL
 #else
   ShuffleT Result = __nvvm_shfl_sync_up_i32(membermask(), ShuffleX, delta, 0);
 #endif
