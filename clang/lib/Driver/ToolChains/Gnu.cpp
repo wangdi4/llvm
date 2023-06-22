@@ -405,6 +405,10 @@ static void addIntelLibPaths(ArgStringList &CmdArgs,
   llvm::sys::path::append(ClangLib, "..");
 #endif // INTEL_DEPLOY_UNIFIED_LAYOUT
   llvm::sys::path::append(ClangLib, "lib");
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+  if (TC.getTriple().getArch() == llvm::Triple::x86)
+    ClangLib += "32";
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
   CmdArgs.push_back(Args.MakeArgString("-L" + ClangLib));
 }
 
