@@ -2111,6 +2111,10 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
         << (IsCLMode() ? "dpcpp-cl" : "dpcpp") << Name << "-fsycl";
 #endif // INTEL_CUSTOMIZATION
 
+  if (Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false) &&
+      CCCIsCC())
+    setDriverMode("g++");
+
   // Check for working directory option before accessing any files
   if (Arg *WD = Args.getLastArg(options::OPT_working_directory))
     if (VFS->setCurrentWorkingDirectory(WD->getValue()))
