@@ -411,6 +411,23 @@ bool HIRMVForConstUB::analyzeAndTransformLoop(HLLoop *Loop) {
 
   int64_t NewBlobValue = (TC - Const) / Coeff;
 
+  // Now check if we will end up with zero-TC parent loop at one of the levels
+  // after multiversioning.
+  for (auto *Parent = Loop->getParentLoop();
+       Parent && (Parent->getNestingLevel() > DefAtLvl);
+       Parent = Parent->getParentLoop()) {
+    auto *TCCanonExpr = Parent->getTripCountCanonExpr();
+    if (TCCanonExpr &&
+        TCCanonExpr->replaceTempBlobByConstant(BlobIndex, NewBlobValue)) {
+      TCCanonExpr->simplify(true, true);
+      // There is no point in multiversioning if one of the parent loops becomes
+      // zero-TC loop and will be removed.
+      int64_t TCConst;
+      if (TCCanonExpr->isIntConstant(&TCConst) && (TCConst <= 0))
+        return false;
+    }
+  }
+
   LLVM_DEBUG(dbgs() << "\t MAX_TC_EST candidate:  ";
              dbgs() << NewBlobValue << " = "; BU.getBlob(BlobIndex)->dump();
              ParentL->dump(););
