@@ -1,6 +1,9 @@
 // Test the that the driver produces reasonable linker invocations with
 // -fopenmp or -fopenmp|libgomp.
 //
+// INTEL_CUSTOMIZATION
+// UNSUPPORTED: intel_unified_layout
+// end INTEL_CUSTOMIZATION
 // FIXME: Replace DEFAULT_OPENMP_LIB below with the value chosen at configure time.
 //
 // RUN: %clang -no-canonical-prefixes %s -### -o %t.o 2>&1 \
