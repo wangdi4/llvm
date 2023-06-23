@@ -853,6 +853,9 @@ EXTERN void __tgt_target_sync ( ident_t *loc_ref, int gtid, void * current_task,
 EXTERN int __tgt_interop_use_async ( ident_t *loc_ref, int gtid, omp_interop_t interop, bool nowait, void *ptask ) {
    DP("Call to %s with interop " DPxMOD ", nowait %" PRId32 "\n", __func__, DPxPTR(interop), nowait);
 
+   if (isOffloadDisabled() || !interop)
+      return OFFLOAD_FAIL;
+
    __tgt_interop * iop = static_cast<__tgt_interop *>(interop);
    if ( iop->TargetSync ) {
      if ( nowait )
