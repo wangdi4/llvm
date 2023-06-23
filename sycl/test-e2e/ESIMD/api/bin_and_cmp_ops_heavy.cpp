@@ -254,7 +254,7 @@ using VEfa = verify_epsilon<T1, T2, C, true>;
 template <class T1, class T2, class C> using VNf = verify_n<T1, T2, C>;
 template <class T1, class T2, class C> using IDf = init_default<T1, T2, C>;
 template <class T1, class T2, class C> using ISf = init_for_shift<T1, T2, C>;
-
+#ifndef SKIP_MAIN
 int main(void) {
   queue q(esimd_test::ESIMDSelector, esimd_test::createExceptionHandler());
 
@@ -385,3 +385,4 @@ int main(void) {
   std::cout << (passed ? "Test PASSED\n" : "Test FAILED\n");
   return passed ? 0 : 1;
 }
+#endif

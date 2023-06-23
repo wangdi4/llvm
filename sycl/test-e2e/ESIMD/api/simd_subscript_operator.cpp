@@ -91,7 +91,7 @@ template <class T> bool test(queue &q) {
 
   return err_cnt == 0;
 }
-
+#ifndef SKIP_MAIN
 int main(int argc, char **argv) {
   queue q(esimd_test::ESIMDSelector, esimd_test::createExceptionHandler());
 
@@ -111,3 +111,4 @@ int main(int argc, char **argv) {
 
   return passed ? 0 : 1;
 }
+#endif
