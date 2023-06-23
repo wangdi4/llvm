@@ -1258,7 +1258,8 @@ void ItaniumCXXABI::emitVirtualObjectDelete(CodeGenFunction &CGF,
     // Track back to entry -2 and pull out the offset there.
     llvm::Value *OffsetPtr = CGF.Builder.CreateConstInBoundsGEP1_64(
         CGF.IntPtrTy, VTable, -2, "complete-offset.ptr");
-    llvm::Value *Offset = CGF.Builder.CreateAlignedLoad(CGF.IntPtrTy, OffsetPtr,                                                        CGF.getPointerAlign());
+    llvm::Value *Offset = CGF.Builder.CreateAlignedLoad(CGF.IntPtrTy, OffsetPtr,
+        CGF.getPointerAlign());
 
     // Apply the offset.
     llvm::Value *CompletePtr =
@@ -2656,7 +2657,12 @@ void ItaniumCXXABI::EmitGuardedInit(CodeGenFunction &CGF,
   ClangGuardTy = CGF.CGM.getContext().getPointerType(ClangGuardTy);
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  llvm::PointerType *guardPtrTy = llvm::PointerType::get(
+      CGF.CGM.getLLVMContext(),
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::PointerType *guardPtrTy = guardTy->getPointerTo(
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY  
       CGF.CGM.getDataLayout().getDefaultGlobalsAddressSpace());
 
   // Create the guard variable if we don't already have it (as we

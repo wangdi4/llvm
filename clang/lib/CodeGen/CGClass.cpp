@@ -2624,8 +2624,8 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
   // Finally, store the address point. Use the same LLVM types as the field to
   // support optimization.
   unsigned GlobalsAS = CGM.getDataLayout().getDefaultGlobalsAddressSpace();
-  unsigned ProgAS = CGM.getDataLayout().getProgramAddressSpace();
 #if INTEL_COLLAB
+  unsigned ProgAS = CGM.getDataLayout().getProgramAddressSpace();
   unsigned ThisAddrSpace =
       VTableField.getPointer()->getType()->getPointerAddressSpace();
   llvm::Type *VTablePtrTy =
@@ -2633,6 +2633,7 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
           ->getPointerTo(ProgAS)
           ->getPointerTo(GlobalsAS ? GlobalsAS : ThisAddrSpace);
 #else  // INTEL_COLLAB
+  unsigned ProgAS = CGM.getDataLayout().getProgramAddressSpace();
   llvm::Type *VTablePtrTy =
       llvm::FunctionType::get(CGM.Int32Ty, /*isVarArg=*/true)
           ->getPointerTo(ProgAS)
