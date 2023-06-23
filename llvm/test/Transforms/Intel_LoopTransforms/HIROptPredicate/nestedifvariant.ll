@@ -1,5 +1,7 @@
-; Test for OptPredicate with nested if and where the inner IF is linear. Such IF could not be hoisted
-; as the containing IF is already at the topmost level.
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -S < %s 2>&1 | FileCheck %s
+
+; This test checks that the innermost If condition was hoisted out of the loop
+; even if the outer If couldn't be hoisted.
 
 ; Source Code
 ; void sub3 (long int n, long int m) {
@@ -21,10 +23,76 @@
 ;        C[i][2] = i;
 ;    } }
 
-; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -S < %s 2>&1 | FileCheck %s
+; CHECK: BEGIN REGION { modified }
+; CHECK:       if (%m > 10)
+; CHECK:       {
+; CHECK:          + DO i1 = 0, 998, 1   <DO_LOOP>
+; CHECK:          |   %conv29 = sitofp.i64.float(2 * i1 + 2);
+; CHECK:          |   %.pre = (@B)[0][i1 + 1][1];
+; CHECK:          |   %0 = %.pre;
+; CHECK:          |   
+; CHECK:          |   + DO i2 = 0, 998, 1   <DO_LOOP>
+; CHECK:          |   |   %1 = (@C)[0][i2 + 1][i1 + 1];
+; CHECK:          |   |   %add = %0  +  %1;
+; CHECK:          |   |   %2 = (@B)[0][i1 + 2][i2 + 1];
+; CHECK:          |   |   %add10 = %add  +  %2;
+; CHECK:          |   |   %3 = (@B)[0][i1 + 1][i2 + 2];
+; CHECK:          |   |   %add14 = %add10  +  %3;
+; CHECK:          |   |   (@A)[0][i2 + 1][i1 + 1] = %add14;
+; CHECK:          |   |   if (i2 + 1 > 10)
+; CHECK:          |   |   {
+; CHECK:          |   |      (@B)[0][i1 + 2][i2 + 2] = %add14;
+; CHECK:          |   |      %conv = sitofp.i64.float(i1 + i2 + 2);
+; CHECK:          |   |      (@C)[0][i1 + 1][i2 + 1] = %conv;
+; CHECK:          |   |   }
+; CHECK:          |   |   else
+; CHECK:          |   |   {
+; CHECK:          |   |      %4 = (@C)[0][i1 + 1][i2 + 1];
+; CHECK:          |   |      %add37 = %add14  +  %4;
+; CHECK:          |   |      (@B)[0][i1 + 2][i2 + 1] = %add37;
+; CHECK:          |   |   }
+; CHECK:          |   |   %0 = %3;
+; CHECK:          |   + END LOOP
+; CHECK:          |   
+; CHECK:          |   %conv42 = sitofp.i64.float(i1 + 1);
+; CHECK:          |   (@C)[0][i1 + 1][2] = %conv42;
+; CHECK:          + END LOOP
+; CHECK:       }
+; CHECK:       else
+; CHECK:       {
+; CHECK:          + DO i1 = 0, 998, 1   <DO_LOOP>
+; CHECK:          |   %conv29 = sitofp.i64.float(2 * i1 + 2);
+; CHECK:          |   %.pre = (@B)[0][i1 + 1][1];
+; CHECK:          |   %0 = %.pre;
+; CHECK:          |   
+; CHECK:          |   + DO i2 = 0, 998, 1   <DO_LOOP>
+; CHECK:          |   |   %1 = (@C)[0][i2 + 1][i1 + 1];
+; CHECK:          |   |   %add = %0  +  %1;
+; CHECK:          |   |   %2 = (@B)[0][i1 + 2][i2 + 1];
+; CHECK:          |   |   %add10 = %add  +  %2;
+; CHECK:          |   |   %3 = (@B)[0][i1 + 1][i2 + 2];
+; CHECK:          |   |   %add14 = %add10  +  %3;
+; CHECK:          |   |   (@A)[0][i2 + 1][i1 + 1] = %add14;
+; CHECK:          |   |   if (i2 + 1 > 10)
+; CHECK:          |   |   {
+; CHECK:          |   |      (@B)[0][i1 + 2][i2 + 2] = %add14;
+; CHECK:          |   |      (@B)[0][i1 + 1][i2 + 1] = %conv29;
+; CHECK:          |   |   }
+; CHECK:          |   |   else
+; CHECK:          |   |   {
+; CHECK:          |   |      %4 = (@C)[0][i1 + 1][i2 + 1];
+; CHECK:          |   |      %add37 = %add14  +  %4;
+; CHECK:          |   |      (@B)[0][i1 + 2][i2 + 1] = %add37;
+; CHECK:          |   |   }
+; CHECK:          |   |   %0 = %3;
+; CHECK:          |   + END LOOP
+; CHECK:          |   
+; CHECK:          |   %conv42 = sitofp.i64.float(i1 + 1);
+; CHECK:          |   (@C)[0][i1 + 1][2] = %conv42;
+; CHECK:          + END LOOP
+; CHECK:       }
+; CHECK: END REGION
 
-; CHECK: Function
-; CHECK: REGION { }
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

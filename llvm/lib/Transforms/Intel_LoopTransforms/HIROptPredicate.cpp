@@ -695,12 +695,39 @@ static bool isUnswitchDisabled(HLSwitch *) { return false; }
 static bool isUnswitchDisabled(HLIf *If) { return If->isUnswitchDisabled(); }
 
 struct HIROptPredicate::CandidateLookup final : public HLNodeVisitorBase {
+
+  // Helper structure to handle the constraints that wouldn't allow a condition
+  // be a candidate.
+  struct CandidateConstraints {
+    unsigned MinLevel;       // Outermost level allowed to apply unswitching
+    bool CanTransformParent; // Parent loop is allowed to be transformed
+    bool PUCAllowed;         // Partial unswitching is allowed for the
+                             //   current candidate
+
+    // NOTE: This field could be improved by making it as MaxLevel, which
+    // represents the innermost loop that could be hoisted into. For now,
+    // we only check in some cases if the condition can be fully hoisted.
+    bool RequiresLoopnestUnswitch; // Candidates needs to be unswitched to the
+                                   //   outermost loop
+
+    CandidateConstraints(unsigned MinLevel, bool CanTransformParent,
+                         bool PUCAllowed, bool RequiresLoopnestUnswitch)
+        : MinLevel(MinLevel), CanTransformParent(CanTransformParent),
+          PUCAllowed(PUCAllowed),
+          RequiresLoopnestUnswitch(RequiresLoopnestUnswitch) {}
+
+    CandidateConstraints(CandidateConstraints &Constraints)
+        : MinLevel(Constraints.MinLevel),
+          CanTransformParent(Constraints.CanTransformParent),
+          PUCAllowed(Constraints.PUCAllowed),
+          RequiresLoopnestUnswitch(Constraints.RequiresLoopnestUnswitch) {}
+  };
+
   HLNode *SkipNode;
   HIROptPredicate &Pass;
   HIRLoopStatistics &HLS;
+  CandidateConstraints Constraints;
   HLLoop *CurrLoop;
-  unsigned MinLevel;
-  bool TransformLoop;
   unsigned CostOfRegion;
   // If we are analyzing a loop, then we are going to keep the first Select
   // instruction that we found. All other Select instructions will be
@@ -708,11 +735,20 @@ struct HIROptPredicate::CandidateLookup final : public HLNodeVisitorBase {
   HLInst *FirstSelectCandidate;
 
   CandidateLookup(HIROptPredicate &Pass, HIRLoopStatistics &HLS,
-      HLLoop *CurrLoop = nullptr, bool TransformLoop = true,
-      unsigned MinLevel = 0, unsigned CostOfRegion = 0) : SkipNode(nullptr),
-      Pass(Pass), HLS(HLS), CurrLoop(CurrLoop), MinLevel(MinLevel),
-      TransformLoop(TransformLoop), CostOfRegion(CostOfRegion),
-      FirstSelectCandidate(nullptr) {}
+                  HLLoop *CurrLoop = nullptr, bool CanTransformParent = true,
+                  unsigned MinLevel = 0, unsigned CostOfRegion = 0)
+      : SkipNode(nullptr), Pass(Pass), HLS(HLS),
+        Constraints(MinLevel, CanTransformParent, true /*PUCAllowed*/,
+                    false /*RequiresLoopnestUnswitch*/),
+        CurrLoop(CurrLoop), CostOfRegion(CostOfRegion),
+        FirstSelectCandidate(nullptr) {}
+
+  CandidateLookup(HIROptPredicate &Pass, HIRLoopStatistics &HLS,
+                  CandidateConstraints &NewConstraints,
+                  HLLoop *CurrLoop = nullptr, unsigned CostOfRegion = 0)
+      : SkipNode(nullptr), Pass(Pass), HLS(HLS), Constraints(NewConstraints),
+        CurrLoop(CurrLoop), CostOfRegion(CostOfRegion),
+        FirstSelectCandidate(nullptr) {}
 
   template <typename NodeTy> void visitIfOrSwitch(NodeTy *Node);
   void visit(HLIf *If);
@@ -727,6 +763,7 @@ struct HIROptPredicate::CandidateLookup final : public HLNodeVisitorBase {
 
 private:
   bool isProfitableOuterLoop(ArrayRef<const HLNode *> ChildNodes);
+  bool canUnswitchInnerIf(HLIf *If, HLLoop *Loop);
 };
 
 // Helper structure used to count the number of nested loops in a region.
@@ -1284,6 +1321,29 @@ void HIROptPredicate::CandidateLookup::visit(HLSwitch *Switch) {
   visitIfOrSwitch(Switch);
 }
 
+// Return true if the input If, which isn't a candidate for unswitching,
+// has an inner If that can be unswitched.
+bool HIROptPredicate::CandidateLookup::canUnswitchInnerIf(HLIf *If,
+                                                          HLLoop *Loop) {
+
+  // Only apply it if we are at the innermost loop and the loop is a DO loop.
+  //
+  // NOTE: For now, this type of unswitching is allowed if the candidate can
+  // be moved out of the loopnest. Therefore, the min-level should be 0. This
+  // is conservative because it may affect other transformation like loop
+  // collapsing and/or loop interchange.
+  if (!Loop->isInnermost() || !Loop->isDo() || Constraints.MinLevel != 0)
+    return false;
+
+  // Currently, we support for single nested If. The reason is that we don't
+  // want to hoist a condition that is deeply nested. It would increase the
+  // chance for taking the branch when previously wasn't taken.
+  if (If->getParent() != Loop)
+    return false;
+
+  return true;
+}
+
 template <typename NodeTy>
 void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
   if (!CurrLoop) {
@@ -1295,25 +1355,27 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
   // Partial unswitch context
   PUContext PUC;
 
-  bool IsCandidate = TransformLoop && !isUnswitchDisabled(Node);
+  bool IsCandidate =
+      Constraints.CanTransformParent && !isUnswitchDisabled(Node);
 
   // Skip candidates that are already at the outer most possible level.
   unsigned Level;
 
-  LLVM_DEBUG_DETAIL(dbgs() << "\n"; dbgs() << "TransformLoop: ";
-                    StringRef Answer = TransformLoop ? "yes" : "no";
+  LLVM_DEBUG_DETAIL(dbgs() << "\n"; dbgs() << "CanTransformParent: ";
+                    StringRef Answer =
+                        Constraints.CanTransformParent ? "yes" : "no";
                     dbgs() << Answer << "\n");
   LLVM_DEBUG_DETAIL(dbgs() << "IsCandidate: ";
                     StringRef Answer = IsCandidate ? "yes" : "no";
                     dbgs() << Answer << "\n");
-  LLVM_DEBUG_DETAIL(dbgs() << "MinLevel: " << MinLevel << "\n");
+  LLVM_DEBUG_DETAIL(dbgs() << "MinLevel: " << Constraints.MinLevel << "\n");
 
   if (IsCandidate) {
     // Determine target level to unswitch.
     if (auto *If = dyn_cast<HLIf>(Node))
-      Level = std::max(Pass.getPossibleDefLevel(If, PUC), MinLevel);
+      Level = std::max(Pass.getPossibleDefLevel(If, PUC), Constraints.MinLevel);
     else if (auto *Switch = dyn_cast<HLSwitch>(Node))
-      Level = std::max(Pass.getPossibleDefLevel(Switch), MinLevel);
+      Level = std::max(Pass.getPossibleDefLevel(Switch), Constraints.MinLevel);
     else
       llvm_unreachable("Trying to unswitch a Node that is not If or Switch");
 
@@ -1321,6 +1383,20 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
     IsCandidate = Level < CurrLoop->getNestingLevel();
   } else {
     Level = CurrLoop->getNestingLevel();
+  }
+
+  // Check if there is any restriction that we shouldn't do the transformation
+  if (IsCandidate) {
+    bool RestrictionFound = false;
+    if (PUC.isSet() && !Constraints.PUCAllowed)
+      RestrictionFound = true;
+    else if (Constraints.RequiresLoopnestUnswitch && Level != 0)
+      RestrictionFound = true;
+
+    if (RestrictionFound) {
+      IsCandidate = false;
+      Level = CurrLoop->getNestingLevel();
+    }
   }
 
   if (IsCandidate && Node->getParentLoopAtLevel(Level + 1)->isSIMD()) {
@@ -1437,37 +1513,64 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
   LLVM_DEBUG_DETAIL(dbgs() << "Node: " << Node->getNumber() << "\n");
   LLVM_DEBUG_DETAIL(dbgs() << "CostOfRegion: " << CostOfRegion << "\n");
 
-  // Collect candidates within HLIf branches.
-  if (auto *If = dyn_cast<HLIf>(Node)) {
-    // If the current node is candidate for invariant predicate PUC, then
-    // we will check for more unswitching in the Else branch in the current
-    // loop.
-    CandidateLookup ThenLookup(Pass, HLS, CurrLoop, WillUnswitchParent, Level,
-                               CostOfRegion);
-    HLNodeUtils::visitRange(ThenLookup, If->then_begin(), If->then_end());
+  // We use RequiresLoopnestUnswitch to identify if an If condition can be
+  // unswitched while its parent If condition is not a candidate for
+  // opt-predicate. If that is the case, the aren't going to allow any more
+  // unswitching for inner conditions.
+  if (!Constraints.RequiresLoopnestUnswitch) {
+    // Collect candidates within HLIf branches.
+    if (auto *If = dyn_cast<HLIf>(Node)) {
+      CandidateConstraints ThenConstraints(
+          Level, WillUnswitchParent, Constraints.PUCAllowed,
+          Constraints.RequiresLoopnestUnswitch);
 
-    if (If->hasElseChildren()) {
-      // NOTE: We can still apply a similar logic for LoadPUC, but in this case
-      // we need to know which branch will be converted.
-      bool WillUnswitchParentElse =
-          IsCandidate && PUC.isInvariantPredPUC() ? true : WillUnswitchParent;
-      CandidateLookup ElseLookup(Pass, HLS, CurrLoop, WillUnswitchParentElse,
-                                 Level, CostOfRegion);
-      HLNodeUtils::visitRange(ElseLookup, If->else_begin(), If->else_end());
-    }
+      // If the current If couldn't be hoisted, then check if there is an
+      // opportunity to hoist an inner If.
+      if (!IsCandidate && Constraints.CanTransformParent) {
+        if (canUnswitchInnerIf(If, CurrLoop)) {
+          ThenConstraints.MinLevel = Constraints.MinLevel;
+          ThenConstraints.CanTransformParent = Constraints.CanTransformParent;
+          ThenConstraints.PUCAllowed = false;
+          ThenConstraints.RequiresLoopnestUnswitch = true;
+        }
+      }
 
-  } else if (auto *Switch = dyn_cast<HLSwitch>(Node)) {
-    CandidateLookup SwitchLookup(Pass, HLS, CurrLoop, WillUnswitchParent, Level,
+      // If the current node is candidate for invariant predicate PUC, then
+      // we will check for more unswitching in the Else branch in the current
+      // loop.
+      CandidateLookup ThenLookup(Pass, HLS, ThenConstraints, CurrLoop,
                                  CostOfRegion);
-    for (int I = 1, E = Switch->getNumCases(); I <= E; ++I) {
-      HLNodeUtils::visitRange(SwitchLookup, Switch->case_child_begin(I),
-                              Switch->case_child_end(I));
+      HLNodeUtils::visitRange(ThenLookup, If->then_begin(), If->then_end());
+
+      if (If->hasElseChildren()) {
+        // NOTE: We can still apply a similar logic for LoadPUC, but in this
+        // case we need to know which branch will be converted.
+        bool WillUnswitchParentElse = IsCandidate && PUC.isInvariantPredPUC()
+                                          ? true
+                                          : ThenConstraints.CanTransformParent;
+
+        CandidateConstraints ElseConstraints(
+            ThenConstraints.MinLevel, WillUnswitchParentElse,
+            ThenConstraints.PUCAllowed,
+            ThenConstraints.RequiresLoopnestUnswitch);
+        CandidateLookup ElseLookup(Pass, HLS, ElseConstraints, CurrLoop,
+                                   CostOfRegion);
+        HLNodeUtils::visitRange(ElseLookup, If->else_begin(), If->else_end());
+      }
+
+    } else if (auto *Switch = dyn_cast<HLSwitch>(Node)) {
+      CandidateLookup SwitchLookup(Pass, HLS, CurrLoop, WillUnswitchParent,
+                                   Level, CostOfRegion);
+      for (int I = 1, E = Switch->getNumCases(); I <= E; ++I) {
+        HLNodeUtils::visitRange(SwitchLookup, Switch->case_child_begin(I),
+                                Switch->case_child_end(I));
+      }
+      HLNodeUtils::visitRange(SwitchLookup, Switch->default_case_child_begin(),
+                              Switch->default_case_child_end());
+    } else {
+      llvm_unreachable(
+          "Trying to analyze the children of a non If or Switch node");
     }
-    HLNodeUtils::visitRange(SwitchLookup, Switch->default_case_child_begin(),
-                            Switch->default_case_child_end());
-  } else {
-    llvm_unreachable(
-        "Trying to analyze the children of a non If or Switch node");
   }
 
   if (!IsCandidate) {
@@ -1629,8 +1732,8 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
     }
   }
 
-  CandidateLookup
-      Lookup(Pass, HLS, Loop, TransformCurrentLoop, MinLevel, CostOfRegion);
+  CandidateLookup Lookup(Pass, HLS, Loop, TransformCurrentLoop,
+                         Constraints.MinLevel, CostOfRegion);
   Loop->getHLNodeUtils().visitRange(Lookup, Loop->child_begin(),
                                     Loop->child_end());
 }
@@ -1640,7 +1743,7 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
 // instruction will be converted into an If/Else which will be unswitched.
 void HIROptPredicate::CandidateLookup::visit(HLInst *Inst) {
   if (!isa<SelectInst>(Inst->getLLVMInstruction()) || DisableUnswitchSelect ||
-      Pass.EarlyPredicateOpt || !TransformLoop)
+      Pass.EarlyPredicateOpt || !Constraints.CanTransformParent)
     return;
 
   // Current loop should be innermost and a Do loop
