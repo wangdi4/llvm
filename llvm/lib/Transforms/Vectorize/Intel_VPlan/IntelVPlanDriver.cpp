@@ -340,6 +340,20 @@ static void preprocessDopeVectorInstructions(VPlanVector *Plan) {
     DA->updateDivergence(*IsAllocated);
     VPBB->setTerminator(VPBBTrue, VPBBFalse, IsAllocated);
 
+    // Update dom information
+    assert(DT && "DT cannot be nullptr.");
+    assert(DT->getNode(VPBB) && "Expected node in dom tree!");
+    DT->changeImmediateDominator(VPBBTrue, VPBB);
+    DT->changeImmediateDominator(VPBBFalse, VPBB);
+
+    // Update postdom information
+    assert(PDT && "PDT cannot be nullptr.");
+    VPDomTreeNode *VPBBPDT = PDT->getNode(VPBB);
+    assert(VPBBPDT && "Expected node in post-dom tree!");
+    PDT->changeImmediateDominator(
+        VPBBPDT,
+        PDT->getNode(PDT->findNearestCommonDominator(VPBBTrue, VPBBFalse)));
+
     Builder.setInsertPoint(&*VPBBTrue->begin());
     auto *VPAllocaPriv = cast<VPAllocatePrivate>(PrivateMem);
     auto *DVTypePtr = PointerType::get(DVElementType, 0);
