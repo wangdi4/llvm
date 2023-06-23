@@ -36,13 +36,12 @@ attributes #0 = { mustprogress uwtable "approx-func-fp-math"="true" "denormal-fp
 !2 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2023.1.0 (2023.x.0.YYYYMMDD)"}
 
 ; CHECK [[STRUCT_CACHE:%.*]] = type { i32, i32, i1 }
-;
 ; CHECK-LABEL: define dso_local noundef i32 @_Z3fibi
 ; CHECK-SAME: (i32 noundef [[N:%.*]]) local_unnamed_addr #[[ATTR0:[0-9]+]] {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = alloca [[STRUCT_CACHE:%.*]], i32 37, align 8
 ; CHECK-NEXT:    call void @_Z3fibi.cache_init(ptr [[TMP0]])
-; CHECK-NEXT:    [[RES:%.*]] = call i32 @_Z3fibi.proxy(i32 [[N]], ptr [[TMP0]])
+; CHECK-NEXT:    [[RES:%.*]] = call i32 @_Z3fibi.cached(i32 [[N]], ptr [[TMP0]])
 ; CHECK-NEXT:    ret i32 [[RES]]
 ;
 ;
@@ -92,7 +91,7 @@ attributes #0 = { mustprogress uwtable "approx-func-fp-math"="true" "denormal-fp
 ; CHECK-NEXT:    br label [[LOOP_COND]]
 ;
 ;
-; CHECK-LABEL: define private noundef i32 @_Z3fibi.proxy
+; CHECK-LABEL: define private noundef i32 @_Z3fibi.cached
 ; CHECK-SAME: (i32 noundef [[N:%.*]], ptr [[CACHE:%.*]]) local_unnamed_addr #[[ATTR0]] {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ENTRY_PTR:%.*]] = call ptr @_Z3fibi.get_cache_entry_ptr(i32 [[N]], ptr [[CACHE]])
@@ -118,10 +117,10 @@ attributes #0 = { mustprogress uwtable "approx-func-fp-math"="true" "denormal-fp
 ; CHECK-NEXT:    br label [[RETURN:%.*]]
 ; CHECK:       if.end:
 ; CHECK-NEXT:    [[SUB:%.*]] = sub nuw nsw i32 [[N]], 1
-; CHECK-NEXT:    [[CALL_PROXY:%.*]] = call i32 @_Z3fibi.proxy(i32 [[SUB]], ptr [[CACHE]])
+; CHECK-NEXT:    [[CALL_CACHED:%.*]] = call i32 @_Z3fibi.cached(i32 [[SUB]], ptr [[CACHE]])
 ; CHECK-NEXT:    [[SUB1:%.*]] = sub nuw nsw i32 [[N]], 2
-; CHECK-NEXT:    [[CALL2_PROXY:%.*]] = call i32 @_Z3fibi.proxy(i32 [[SUB1]], ptr [[CACHE]])
-; CHECK-NEXT:    [[ADD:%.*]] = add nsw i32 [[CALL_PROXY]], [[CALL2_PROXY]]
+; CHECK-NEXT:    [[CALL2_CACHED:%.*]] = call i32 @_Z3fibi.cached(i32 [[SUB1]], ptr [[CACHE]])
+; CHECK-NEXT:    [[ADD:%.*]] = add nsw i32 [[CALL_CACHED]], [[CALL2_CACHED]]
 ; CHECK-NEXT:    br label [[RETURN]]
 ; CHECK:       return:
 ; CHECK-NEXT:    [[RETVAL_0:%.*]] = phi i32 [ [[N]], [[IF_THEN]] ], [ [[ADD]], [[IF_END]] ]
