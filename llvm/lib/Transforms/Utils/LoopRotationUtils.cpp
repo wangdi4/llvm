@@ -590,8 +590,6 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
 
       // Otherwise, create a duplicate of the instruction.
       Instruction *C = Inst->clone();
-      C->insertBefore(LoopEntryBranch);
-
       ++NumInstrsDuplicated;
 
       // Eagerly remap the operands of the instruction.
@@ -601,7 +599,7 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
       // Avoid inserting the same intrinsic twice.
       if (auto *DII = dyn_cast<DbgVariableIntrinsic>(C))
         if (DbgIntrinsics.count(makeHash(DII))) {
-          C->eraseFromParent();
+          C->deleteValue();
           continue;
         }
 
@@ -614,7 +612,7 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
         // in the map.
         InsertNewValueIntoMap(ValueMap, Inst, V);
         if (!C->mayHaveSideEffects()) {
-          C->eraseFromParent();
+          C->deleteValue();
           C = nullptr;
         }
       } else {
@@ -623,6 +621,7 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
       if (C) {
         // Otherwise, stick the new instruction into the new block!
         C->setName(Inst->getName());
+        C->insertBefore(LoopEntryBranch);
 
         if (auto *II = dyn_cast<AssumeInst>(C))
           AC->registerAssumption(II);
