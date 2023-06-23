@@ -30,29 +30,14 @@
 
 #include "TargetInfo.h"
 #include "ABIInfo.h"
-#include "CGBlocks.h"
-#include "CGCXXABI.h"
-#include "CGValue.h"
+#include "ABIInfoImpl.h"
 #include "CodeGenFunction.h"
-#include "clang/AST/Attr.h"
-#include "clang/AST/RecordLayout.h"
-#include "clang/Basic/Builtins.h"
 #include "clang/Basic/CodeGenOptions.h"
-#include "clang/Basic/DiagnosticFrontend.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
-#include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Twine.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/IntrinsicsNVPTX.h"
-#include "llvm/IR/IntrinsicsS390.h"
 #include "llvm/IR/Type.h"
-#include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/TargetParser/RISCVTargetParser.h"
-#include "llvm/TargetParser/Triple.h"
-#include <algorithm>
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Utils/Intel_IMLUtils.h"
@@ -61,6 +46,7 @@
 using namespace clang;
 using namespace CodeGen;
 
+<<<<<<< HEAD
 // Helper for coercing an aggregate argument or return value into an integer
 // array of the same size (including padding) and alignment.  This alternate
 // coercion happens only for the RenderScript ABI and can be removed after
@@ -416,6 +402,8 @@ bool ABIInfo::isZeroLengthBitfieldPermittedInHomogeneousAggregate() const {
   return getContext().getLangOpts().CPlusPlus;
 }
 
+=======
+>>>>>>> 20a6e58f44962177afc39c6de6ad99719872f0d4
 LLVM_DUMP_METHOD void ABIArgInfo::dump() const {
   raw_ostream &OS = llvm::errs();
   OS << "(ABIArgInfo Kind=";
@@ -455,169 +443,6 @@ LLVM_DUMP_METHOD void ABIArgInfo::dump() const {
     break;
   }
   OS << ")\n";
-}
-
-// Dynamically round a pointer up to a multiple of the given alignment.
-static llvm::Value *emitRoundPointerUpToAlignment(CodeGenFunction &CGF,
-                                                  llvm::Value *Ptr,
-                                                  CharUnits Align) {
-  // OverflowArgArea = (OverflowArgArea + Align - 1) & -Align;
-  llvm::Value *RoundUp = CGF.Builder.CreateConstInBoundsGEP1_32(
-      CGF.Builder.getInt8Ty(), Ptr, Align.getQuantity() - 1);
-  return CGF.Builder.CreateIntrinsic(
-      llvm::Intrinsic::ptrmask, {CGF.AllocaInt8PtrTy, CGF.IntPtrTy},
-      {RoundUp, llvm::ConstantInt::get(CGF.IntPtrTy, -Align.getQuantity())},
-      nullptr, Ptr->getName() + ".aligned");
-}
-
-/// Emit va_arg for a platform using the common void* representation,
-/// where arguments are simply emitted in an array of slots on the stack.
-///
-/// This version implements the core direct-value passing rules.
-///
-/// \param SlotSize - The size and alignment of a stack slot.
-///   Each argument will be allocated to a multiple of this number of
-///   slots, and all the slots will be aligned to this value.
-/// \param AllowHigherAlign - The slot alignment is not a cap;
-///   an argument type with an alignment greater than the slot size
-///   will be emitted on a higher-alignment address, potentially
-///   leaving one or more empty slots behind as padding.  If this
-///   is false, the returned address might be less-aligned than
-///   DirectAlign.
-/// \param ForceRightAdjust - Default is false. On big-endian platform and
-///   if the argument is smaller than a slot, set this flag will force
-///   right-adjust the argument in its slot irrespective of the type.
-static Address emitVoidPtrDirectVAArg(CodeGenFunction &CGF,
-                                      Address VAListAddr,
-                                      llvm::Type *DirectTy,
-                                      CharUnits DirectSize,
-                                      CharUnits DirectAlign,
-                                      CharUnits SlotSize,
-                                      bool AllowHigherAlign,
-                                      bool ForceRightAdjust = false) {
-  // Cast the element type to i8* if necessary.  Some platforms define
-  // va_list as a struct containing an i8* instead of just an i8*.
-  if (VAListAddr.getElementType() != CGF.Int8PtrTy)
-    VAListAddr = CGF.Builder.CreateElementBitCast(VAListAddr, CGF.Int8PtrTy);
-
-  llvm::Value *Ptr = CGF.Builder.CreateLoad(VAListAddr, "argp.cur");
-
-  // If the CC aligns values higher than the slot size, do so if needed.
-  Address Addr = Address::invalid();
-  if (AllowHigherAlign && DirectAlign > SlotSize) {
-    Addr = Address(emitRoundPointerUpToAlignment(CGF, Ptr, DirectAlign),
-                   CGF.Int8Ty, DirectAlign);
-  } else {
-    Addr = Address(Ptr, CGF.Int8Ty, SlotSize);
-  }
-
-  // Advance the pointer past the argument, then store that back.
-  CharUnits FullDirectSize = DirectSize.alignTo(SlotSize);
-  Address NextPtr =
-      CGF.Builder.CreateConstInBoundsByteGEP(Addr, FullDirectSize, "argp.next");
-  CGF.Builder.CreateStore(NextPtr.getPointer(), VAListAddr);
-
-  // If the argument is smaller than a slot, and this is a big-endian
-  // target, the argument will be right-adjusted in its slot.
-  if (DirectSize < SlotSize && CGF.CGM.getDataLayout().isBigEndian() &&
-      (!DirectTy->isStructTy() || ForceRightAdjust)) {
-    Addr = CGF.Builder.CreateConstInBoundsByteGEP(Addr, SlotSize - DirectSize);
-  }
-
-  Addr = CGF.Builder.CreateElementBitCast(Addr, DirectTy);
-  return Addr;
-}
-
-/// Emit va_arg for a platform using the common void* representation,
-/// where arguments are simply emitted in an array of slots on the stack.
-///
-/// \param IsIndirect - Values of this type are passed indirectly.
-/// \param ValueInfo - The size and alignment of this type, generally
-///   computed with getContext().getTypeInfoInChars(ValueTy).
-/// \param SlotSizeAndAlign - The size and alignment of a stack slot.
-///   Each argument will be allocated to a multiple of this number of
-///   slots, and all the slots will be aligned to this value.
-/// \param AllowHigherAlign - The slot alignment is not a cap;
-///   an argument type with an alignment greater than the slot size
-///   will be emitted on a higher-alignment address, potentially
-///   leaving one or more empty slots behind as padding.
-/// \param ForceRightAdjust - Default is false. On big-endian platform and
-///   if the argument is smaller than a slot, set this flag will force
-///   right-adjust the argument in its slot irrespective of the type.
-static Address emitVoidPtrVAArg(CodeGenFunction &CGF, Address VAListAddr,
-                                QualType ValueTy, bool IsIndirect,
-                                TypeInfoChars ValueInfo,
-                                CharUnits SlotSizeAndAlign,
-                                bool AllowHigherAlign,
-                                bool ForceRightAdjust = false) {
-  // The size and alignment of the value that was passed directly.
-  CharUnits DirectSize, DirectAlign;
-  if (IsIndirect) {
-    DirectSize = CGF.getPointerSize();
-    DirectAlign = CGF.getPointerAlign();
-  } else {
-    DirectSize = ValueInfo.Width;
-    DirectAlign = ValueInfo.Align;
-  }
-
-  // Cast the address we've calculated to the right type.
-  llvm::Type *DirectTy = CGF.ConvertTypeForMem(ValueTy), *ElementTy = DirectTy;
-  if (IsIndirect) {
-    unsigned AllocaAS = CGF.CGM.getDataLayout().getAllocaAddrSpace();
-    DirectTy = llvm::PointerType::get(CGF.getLLVMContext(), AllocaAS);
-  }
-
-  Address Addr = emitVoidPtrDirectVAArg(CGF, VAListAddr, DirectTy, DirectSize,
-                                        DirectAlign, SlotSizeAndAlign,
-                                        AllowHigherAlign, ForceRightAdjust);
-
-  if (IsIndirect) {
-    Addr = Address(CGF.Builder.CreateLoad(Addr), ElementTy, ValueInfo.Align);
-  }
-
-  return Addr;
-}
-
-static Address complexTempStructure(CodeGenFunction &CGF, Address VAListAddr,
-                                    QualType Ty, CharUnits SlotSize,
-                                    CharUnits EltSize, const ComplexType *CTy) {
-  Address Addr =
-      emitVoidPtrDirectVAArg(CGF, VAListAddr, CGF.Int8Ty, SlotSize * 2,
-                             SlotSize, SlotSize, /*AllowHigher*/ true);
-
-  Address RealAddr = Addr;
-  Address ImagAddr = RealAddr;
-  if (CGF.CGM.getDataLayout().isBigEndian()) {
-    RealAddr =
-        CGF.Builder.CreateConstInBoundsByteGEP(RealAddr, SlotSize - EltSize);
-    ImagAddr = CGF.Builder.CreateConstInBoundsByteGEP(ImagAddr,
-                                                      2 * SlotSize - EltSize);
-  } else {
-    ImagAddr = CGF.Builder.CreateConstInBoundsByteGEP(RealAddr, SlotSize);
-  }
-
-  llvm::Type *EltTy = CGF.ConvertTypeForMem(CTy->getElementType());
-  RealAddr = CGF.Builder.CreateElementBitCast(RealAddr, EltTy);
-  ImagAddr = CGF.Builder.CreateElementBitCast(ImagAddr, EltTy);
-  llvm::Value *Real = CGF.Builder.CreateLoad(RealAddr, ".vareal");
-  llvm::Value *Imag = CGF.Builder.CreateLoad(ImagAddr, ".vaimag");
-
-  Address Temp = CGF.CreateMemTemp(Ty, "vacplx");
-  CGF.EmitStoreOfComplex({Real, Imag}, CGF.MakeAddrLValue(Temp, Ty),
-                         /*init*/ true);
-  return Temp;
-}
-
-static Address emitMergePHI(CodeGenFunction &CGF,
-                            Address Addr1, llvm::BasicBlock *Block1,
-                            Address Addr2, llvm::BasicBlock *Block2,
-                            const llvm::Twine &Name = "") {
-  assert(Addr1.getType() == Addr2.getType());
-  llvm::PHINode *PHI = CGF.Builder.CreatePHI(Addr1.getType(), 2, Name);
-  PHI->addIncoming(Addr1.getPointer(), Block1);
-  PHI->addIncoming(Addr2.getPointer(), Block2);
-  CharUnits Align = std::min(Addr1.getAlignment(), Addr2.getAlignment());
-  return Address(PHI, Addr1.getElementType(), Align);
 }
 
 TargetCodeGenInfo::TargetCodeGenInfo(std::unique_ptr<ABIInfo> Info)
@@ -712,6 +537,7 @@ TargetCodeGenInfo::getLLVMSyncScopeID(const LangOptions &LangOpts,
   return Ctx.getOrInsertSyncScopeID(""); /* default sync scope */
 }
 
+<<<<<<< HEAD
 static bool isEmptyRecord(ASTContext &Context, QualType T, bool AllowArrays);
 
 /// isEmptyField - Return true iff a the field is "empty", that is it
@@ -2893,6 +2719,8 @@ public:
 };
 } // namespace
 
+=======
+>>>>>>> 20a6e58f44962177afc39c6de6ad99719872f0d4
 void TargetCodeGenInfo::addStackProbeTargetAttributes(
     const Decl *D, llvm::GlobalValue *GV, CodeGen::CodeGenModule &CGM) const {
   if (llvm::Function *Fn = dyn_cast_or_null<llvm::Function>(GV)) {
@@ -2904,6 +2732,7 @@ void TargetCodeGenInfo::addStackProbeTargetAttributes(
   }
 }
 
+<<<<<<< HEAD
 void WinX86_32TargetCodeGenInfo::setTargetAttributes(
     const Decl *D, llvm::GlobalValue *GV, CodeGen::CodeGenModule &CGM) const {
   X86_32TargetCodeGenInfo::setTargetAttributes(D, GV, CGM);
@@ -12965,6 +12794,8 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
   return *TheTargetCodeGenInfo;
 }
 
+=======
+>>>>>>> 20a6e58f44962177afc39c6de6ad99719872f0d4
 /// Create an OpenCL kernel for an enqueued block.
 ///
 /// The kernel has the same function type as the block invoke function. Its
@@ -13002,288 +12833,15 @@ llvm::Value *TargetCodeGenInfo::createEnqueuedBlockKernel(
   return F;
 }
 
-/// Create an OpenCL kernel for an enqueued block.
-///
-/// The type of the first argument (the block literal) is the struct type
-/// of the block literal instead of a pointer type. The first argument
-/// (block literal) is passed directly by value to the kernel. The kernel
-/// allocates the same type of struct on stack and stores the block literal
-/// to it and passes its pointer to the block invoke function. The kernel
-/// has "enqueued-block" function attribute and kernel argument metadata.
-llvm::Value *AMDGPUTargetCodeGenInfo::createEnqueuedBlockKernel(
-    CodeGenFunction &CGF, llvm::Function *Invoke, llvm::Type *BlockTy) const {
-  auto &Builder = CGF.Builder;
-  auto &C = CGF.getLLVMContext();
-
-  auto *InvokeFT = Invoke->getFunctionType();
-  llvm::SmallVector<llvm::Type *, 2> ArgTys;
-  llvm::SmallVector<llvm::Metadata *, 8> AddressQuals;
-  llvm::SmallVector<llvm::Metadata *, 8> AccessQuals;
-  llvm::SmallVector<llvm::Metadata *, 8> ArgTypeNames;
-  llvm::SmallVector<llvm::Metadata *, 8> ArgBaseTypeNames;
-  llvm::SmallVector<llvm::Metadata *, 8> ArgTypeQuals;
-  llvm::SmallVector<llvm::Metadata *, 8> ArgNames;
-
-  ArgTys.push_back(BlockTy);
-  ArgTypeNames.push_back(llvm::MDString::get(C, "__block_literal"));
-  AddressQuals.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(0)));
-  ArgBaseTypeNames.push_back(llvm::MDString::get(C, "__block_literal"));
-  ArgTypeQuals.push_back(llvm::MDString::get(C, ""));
-  AccessQuals.push_back(llvm::MDString::get(C, "none"));
-  ArgNames.push_back(llvm::MDString::get(C, "block_literal"));
-  for (unsigned I = 1, E = InvokeFT->getNumParams(); I < E; ++I) {
-    ArgTys.push_back(InvokeFT->getParamType(I));
-    ArgTypeNames.push_back(llvm::MDString::get(C, "void*"));
-    AddressQuals.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(3)));
-    AccessQuals.push_back(llvm::MDString::get(C, "none"));
-    ArgBaseTypeNames.push_back(llvm::MDString::get(C, "void*"));
-    ArgTypeQuals.push_back(llvm::MDString::get(C, ""));
-    ArgNames.push_back(
-        llvm::MDString::get(C, (Twine("local_arg") + Twine(I)).str()));
-  }
-  std::string Name = Invoke->getName().str() + "_kernel";
-  auto *FT = llvm::FunctionType::get(llvm::Type::getVoidTy(C), ArgTys, false);
-  auto *F = llvm::Function::Create(FT, llvm::GlobalValue::InternalLinkage, Name,
-                                   &CGF.CGM.getModule());
-  F->setCallingConv(llvm::CallingConv::AMDGPU_KERNEL);
-
-  llvm::AttrBuilder KernelAttrs(C);
-  // FIXME: The invoke isn't applying the right attributes either
-  // FIXME: This is missing setTargetAttributes
-  CGF.CGM.addDefaultFunctionDefinitionAttributes(KernelAttrs);
-  KernelAttrs.addAttribute("enqueued-block");
-  F->addFnAttrs(KernelAttrs);
-
-  auto IP = CGF.Builder.saveIP();
-  auto *BB = llvm::BasicBlock::Create(C, "entry", F);
-  Builder.SetInsertPoint(BB);
-  const auto BlockAlign = CGF.CGM.getDataLayout().getPrefTypeAlign(BlockTy);
-  auto *BlockPtr = Builder.CreateAlloca(BlockTy, nullptr);
-  BlockPtr->setAlignment(BlockAlign);
-  Builder.CreateAlignedStore(F->arg_begin(), BlockPtr, BlockAlign);
-  auto *Cast = Builder.CreatePointerCast(BlockPtr, InvokeFT->getParamType(0));
-  llvm::SmallVector<llvm::Value *, 2> Args;
-  Args.push_back(Cast);
-  for (llvm::Argument &A : llvm::drop_begin(F->args()))
-    Args.push_back(&A);
-  llvm::CallInst *call = Builder.CreateCall(Invoke, Args);
-  call->setCallingConv(Invoke->getCallingConv());
-  Builder.CreateRetVoid();
-  Builder.restoreIP(IP);
-
-  F->setMetadata("kernel_arg_addr_space", llvm::MDNode::get(C, AddressQuals));
-  F->setMetadata("kernel_arg_access_qual", llvm::MDNode::get(C, AccessQuals));
-  F->setMetadata("kernel_arg_type", llvm::MDNode::get(C, ArgTypeNames));
-  F->setMetadata("kernel_arg_base_type",
-                 llvm::MDNode::get(C, ArgBaseTypeNames));
-  F->setMetadata("kernel_arg_type_qual", llvm::MDNode::get(C, ArgTypeQuals));
-  if (CGF.CGM.getCodeGenOpts().EmitOpenCLArgMetadata)
-    F->setMetadata("kernel_arg_name", llvm::MDNode::get(C, ArgNames));
-
-  return F;
-}
+namespace {
+class DefaultTargetCodeGenInfo : public TargetCodeGenInfo {
+public:
+  DefaultTargetCodeGenInfo(CodeGen::CodeGenTypes &CGT)
+      : TargetCodeGenInfo(std::make_unique<DefaultABIInfo>(CGT)) {}
+};
+} // namespace
 
 std::unique_ptr<TargetCodeGenInfo>
 CodeGen::createDefaultTargetCodeGenInfo(CodeGenModule &CGM) {
   return std::make_unique<DefaultTargetCodeGenInfo>(CGM.getTypes());
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createAArch64TargetCodeGenInfo(CodeGenModule &CGM,
-                                        AArch64ABIKind Kind) {
-  return std::make_unique<AArch64TargetCodeGenInfo>(CGM.getTypes(), Kind);
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createWindowsAArch64TargetCodeGenInfo(CodeGenModule &CGM,
-                                               AArch64ABIKind K) {
-  return std::make_unique<WindowsAArch64TargetCodeGenInfo>(CGM.getTypes(), K);
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createAMDGPUTargetCodeGenInfo(CodeGenModule &CGM) {
-  return std::make_unique<AMDGPUTargetCodeGenInfo>(CGM.getTypes());
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createARCTargetCodeGenInfo(CodeGenModule &CGM) {
-  return std::make_unique<ARCTargetCodeGenInfo>(CGM.getTypes());
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createARMTargetCodeGenInfo(CodeGenModule &CGM, ARMABIKind Kind) {
-  return std::make_unique<ARMTargetCodeGenInfo>(CGM.getTypes(), Kind);
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createWindowsARMTargetCodeGenInfo(CodeGenModule &CGM, ARMABIKind K) {
-  return std::make_unique<WindowsARMTargetCodeGenInfo>(CGM.getTypes(), K);
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createAVRTargetCodeGenInfo(CodeGenModule &CGM, unsigned NPR,
-                                    unsigned NRR) {
-  return std::make_unique<AVRTargetCodeGenInfo>(CGM.getTypes(), NPR, NRR);
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createBPFTargetCodeGenInfo(CodeGenModule &CGM) {
-  return std::make_unique<BPFTargetCodeGenInfo>(CGM.getTypes());
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createCSKYTargetCodeGenInfo(CodeGenModule &CGM, unsigned FLen) {
-  return std::make_unique<CSKYTargetCodeGenInfo>(CGM.getTypes(), FLen);
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createHexagonTargetCodeGenInfo(CodeGenModule &CGM) {
-  return std::make_unique<HexagonTargetCodeGenInfo>(CGM.getTypes());
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createLanaiTargetCodeGenInfo(CodeGenModule &CGM) {
-  return std::make_unique<LanaiTargetCodeGenInfo>(CGM.getTypes());
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createLoongArchTargetCodeGenInfo(CodeGenModule &CGM, unsigned GRLen,
-                                          unsigned FLen) {
-  return std::make_unique<LoongArchTargetCodeGenInfo>(CGM.getTypes(), GRLen,
-                                                      FLen);
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createM68kTargetCodeGenInfo(CodeGenModule &CGM) {
-  return std::make_unique<M68kTargetCodeGenInfo>(CGM.getTypes());
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createMIPSTargetCodeGenInfo(CodeGenModule &CGM, bool IsOS32) {
-  return std::make_unique<MIPSTargetCodeGenInfo>(CGM.getTypes(), IsOS32);
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createMSP430TargetCodeGenInfo(CodeGenModule &CGM) {
-  return std::make_unique<MSP430TargetCodeGenInfo>(CGM.getTypes());
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createNVPTXTargetCodeGenInfo(CodeGenModule &CGM) {
-  return std::make_unique<NVPTXTargetCodeGenInfo>(CGM.getTypes());
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createPNaClTargetCodeGenInfo(CodeGenModule &CGM) {
-  return std::make_unique<PNaClTargetCodeGenInfo>(CGM.getTypes());
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createAIXTargetCodeGenInfo(CodeGenModule &CGM, bool Is64Bit) {
-  return std::make_unique<AIXTargetCodeGenInfo>(CGM.getTypes(), Is64Bit);
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createPPC32TargetCodeGenInfo(CodeGenModule &CGM, bool SoftFloatABI) {
-  bool RetSmallStructInRegABI = PPC32TargetCodeGenInfo::isStructReturnInRegABI(
-      CGM.getTriple(), CGM.getCodeGenOpts());
-  return std::make_unique<PPC32TargetCodeGenInfo>(CGM.getTypes(), SoftFloatABI,
-                                                  RetSmallStructInRegABI);
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createPPC64TargetCodeGenInfo(CodeGenModule &CGM) {
-  return std::make_unique<PPC64TargetCodeGenInfo>(CGM.getTypes());
-}
-
-std::unique_ptr<TargetCodeGenInfo> CodeGen::createPPC64_SVR4_TargetCodeGenInfo(
-    CodeGenModule &CGM, PPC64_SVR4_ABIKind Kind, bool SoftFloatABI) {
-  return std::make_unique<PPC64_SVR4_TargetCodeGenInfo>(CGM.getTypes(), Kind,
-                                                        SoftFloatABI);
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createRISCVTargetCodeGenInfo(CodeGenModule &CGM, unsigned XLen,
-                                      unsigned FLen) {
-  return std::make_unique<RISCVTargetCodeGenInfo>(CGM.getTypes(), XLen, FLen);
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createCommonSPIRTargetCodeGenInfo(CodeGenModule &CGM) {
-  return std::make_unique<CommonSPIRTargetCodeGenInfo>(CGM.getTypes());
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createSPIRVTargetCodeGenInfo(CodeGenModule &CGM) {
-  return std::make_unique<SPIRVTargetCodeGenInfo>(CGM.getTypes());
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createSparcV8TargetCodeGenInfo(CodeGenModule &CGM) {
-  return std::make_unique<SparcV8TargetCodeGenInfo>(CGM.getTypes());
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createSparcV9TargetCodeGenInfo(CodeGenModule &CGM) {
-  return std::make_unique<SparcV9TargetCodeGenInfo>(CGM.getTypes());
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createSystemZTargetCodeGenInfo(CodeGenModule &CGM, bool HasVector,
-                                        bool SoftFloatABI) {
-  return std::make_unique<SystemZTargetCodeGenInfo>(CGM.getTypes(), HasVector,
-                                                    SoftFloatABI);
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createTCETargetCodeGenInfo(CodeGenModule &CGM) {
-  return std::make_unique<TCETargetCodeGenInfo>(CGM.getTypes());
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createVETargetCodeGenInfo(CodeGenModule &CGM) {
-  return std::make_unique<VETargetCodeGenInfo>(CGM.getTypes());
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createWebAssemblyTargetCodeGenInfo(CodeGenModule &CGM,
-                                            WebAssemblyABIKind K) {
-  return std::make_unique<WebAssemblyTargetCodeGenInfo>(CGM.getTypes(), K);
-}
-
-std::unique_ptr<TargetCodeGenInfo> CodeGen::createX86_32TargetCodeGenInfo(
-    CodeGenModule &CGM, bool DarwinVectorABI, bool Win32StructABI,
-    unsigned NumRegisterParameters, bool SoftFloatABI) {
-  bool RetSmallStructInRegABI = X86_32TargetCodeGenInfo::isStructReturnInRegABI(
-      CGM.getTriple(), CGM.getCodeGenOpts());
-  return std::make_unique<X86_32TargetCodeGenInfo>(
-      CGM.getTypes(), DarwinVectorABI, RetSmallStructInRegABI, Win32StructABI,
-      NumRegisterParameters, SoftFloatABI);
-}
-
-std::unique_ptr<TargetCodeGenInfo> CodeGen::createWinX86_32TargetCodeGenInfo(
-    CodeGenModule &CGM, bool DarwinVectorABI, bool Win32StructABI,
-    unsigned NumRegisterParameters) {
-  bool RetSmallStructInRegABI = X86_32TargetCodeGenInfo::isStructReturnInRegABI(
-      CGM.getTriple(), CGM.getCodeGenOpts());
-  return std::make_unique<WinX86_32TargetCodeGenInfo>(
-      CGM.getTypes(), DarwinVectorABI, RetSmallStructInRegABI, Win32StructABI,
-      NumRegisterParameters);
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createX86_64TargetCodeGenInfo(CodeGenModule &CGM,
-                                       X86AVXABILevel AVXLevel) {
-  return std::make_unique<X86_64TargetCodeGenInfo>(CGM.getTypes(), AVXLevel);
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createWinX86_64TargetCodeGenInfo(CodeGenModule &CGM,
-                                          X86AVXABILevel AVXLevel) {
-  return std::make_unique<WinX86_64TargetCodeGenInfo>(CGM.getTypes(), AVXLevel);
-}
-
-std::unique_ptr<TargetCodeGenInfo>
-CodeGen::createXCoreTargetCodeGenInfo(CodeGenModule &CGM) {
-  return std::make_unique<XCoreTargetCodeGenInfo>(CGM.getTypes());
 }
