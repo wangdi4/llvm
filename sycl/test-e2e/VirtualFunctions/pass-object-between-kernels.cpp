@@ -1,11 +1,8 @@
-// Temporarily disabled until GSD-4494
-// UNSUPPORTED: gpu && linux
-
 // REQUIRES: cpu || gpu
 // UNSUPPORTED: cuda,hip
 //
 // RUN: %{build} -Xclang -fsycl-allow-virtual-functions -o %t.out
-// RUN: %{run} %t.out
+// RUN: env IGC_EnableZEBinary=1 %{run} %t.out
 //
 // Purpose of this test is to check that we can pass an object of class with
 // virtual functions between kernels and that those virtual functions will
