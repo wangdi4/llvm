@@ -40,6 +40,7 @@ struct LoopStatistics {
 private:
   unsigned NumIfs = 0;
   unsigned NumSwitches = 0;
+  unsigned NumLabels = 0;
   unsigned NumUserCalls = 0;
   unsigned NumIndirectCalls = 0;
   unsigned NumIntrinsics = 0;
@@ -51,7 +52,6 @@ private:
   bool HasCallsWithUnknownAliasing = false;
 
   SmallVector<const HLGoto *, 2> ForwardGotos;
-  SmallVector<const HLLabel *, 2> Labels;
 
 public:
   LoopStatistics() {}
@@ -69,8 +69,8 @@ public:
   bool hasForwardGotos() const { return !ForwardGotos.empty(); }
 
   // Only counts forward goto targets.
-  unsigned getNumLabels() const { return Labels.size(); }
-  bool hasLabels() const { return !Labels.empty(); }
+  unsigned getNumLabels() const { return NumLabels; }
+  bool hasLabels() const { return getNumLabels() > 0; }
 
   unsigned getNumUserCalls() const { return NumUserCalls; }
   bool hasUserCalls() const { return getNumUserCalls() > 0; }
@@ -127,10 +127,14 @@ public:
     return HasCallsWithUnknownAliasing;
   }
 
+  // Returns all collected forward gotos.
+  ArrayRef<const HLGoto *> getForwardGotos() const { return ForwardGotos; }
+
   /// Adds the loop statistics LS to this one.
   LoopStatistics &operator+=(const LoopStatistics &LS) {
     NumIfs += LS.NumIfs;
     NumSwitches += LS.NumSwitches;
+    NumLabels += LS.NumLabels;
     NumUserCalls += LS.NumUserCalls;
     NumIndirectCalls += LS.NumIndirectCalls;
     NumIntrinsics += LS.NumIntrinsics;
@@ -143,10 +147,13 @@ public:
     HasCallsWithUnknownAliasing |= LS.HasCallsWithUnknownAliasing;
 
     ForwardGotos.append(LS.ForwardGotos);
-    Labels.append(LS.Labels);
 
     return *this;
   }
+
+  /// Sorts gotos in lexical order. Needed when computing total stats in some
+  /// cases.
+  void sortGotos();
 
   /// Prints the loop statistics.
   void print(formatted_raw_ostream &OS, const HLNode *Node) const;

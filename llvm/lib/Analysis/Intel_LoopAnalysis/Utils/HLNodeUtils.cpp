@@ -2815,120 +2815,6 @@ HLNode *HLNodeUtils::getImmediateChildContainingNode(HLNode *ParentNode,
                                       static_cast<const HLNode *>(Node)));
 }
 
-// For domination we care about single entry i.e. absence of labels in the scope
-// of interest.
-// For post domination we care about single exit i.e. absence of jumps from
-// inside to outside the scope of interest.
-// TODO: handle intrinsics/calls/exception handling semantics.
-struct StructuredFlowChecker final : public HLNodeVisitorBase {
-  bool IsPDom;
-  const HLNode *TargetNode;
-  // Target node is being for 2 different purposes-
-  // 1) To signify end of traveral (early-exit from the visitor).
-  // 2) To check jumps across target in post-domination mode.
-  // This flag indicates whether it can be used for 1) or just 2).
-  bool TargetEndsTraversal;
-  bool IsStructured;
-  bool IsDone;
-
-  StructuredFlowChecker(bool PDom, const HLNode *TNode,
-                        bool TargetEndsTraversal, const HLNode *FirstNode,
-                        HIRLoopStatistics *HLS);
-
-  // Returns true if visitor is done.
-  bool visit(const HLNode *Node);
-
-  void visit(const HLLabel *Label);
-  void visit(const HLGoto *Goto);
-  void visit(const HLLoop *Lp);
-
-  void postVisit(const HLNode *) {}
-
-  bool isDone() const { return (IsDone || !isStructured()); }
-  bool isStructured() const { return IsStructured; }
-};
-
-StructuredFlowChecker::StructuredFlowChecker(bool PDom, const HLNode *TNode,
-                                             bool TargetEndsTraversal,
-                                             const HLNode *FirstNode,
-                                             HIRLoopStatistics *HLS)
-    : IsPDom(PDom), TargetNode(TNode), TargetEndsTraversal(TargetEndsTraversal),
-      IsStructured(true), IsDone(false) {
-  // Query HIRLoopStatistics for a possible faster response.
-  auto *ParentLp = FirstNode->getParentLoop();
-
-  if (HLS) {
-    if (IsPDom) {
-      auto &TLS = ParentLp
-                      ? HLS->getTotalStatistics(ParentLp)
-                      : HLS->getTotalStatistics(FirstNode->getParentRegion());
-
-      // Should we store statistics for multi-exit children loops to only
-      // require self statistics?
-      if (!TLS.hasForwardGotos()) {
-        IsDone = true;
-      }
-    } else {
-      auto &SLS = ParentLp
-                      ? HLS->getSelfStatistics(ParentLp)
-                      : HLS->getSelfStatistics(FirstNode->getParentRegion());
-
-      if (!SLS.hasLabels()) {
-        IsDone = true;
-      }
-    }
-  }
-}
-
-bool StructuredFlowChecker::visit(const HLNode *Node) {
-  if (TargetEndsTraversal && (Node == TargetNode)) {
-    IsDone = true;
-  }
-
-  return IsDone;
-}
-
-void StructuredFlowChecker::visit(const HLLabel *Label) {
-  if (visit(static_cast<const HLNode *>(Label)) || IsPDom) {
-    return;
-  }
-
-  // Ignore unknown loop header labels as they are still a part of structured
-  // control flow.
-  if (Label->isUnknownLoopHeaderLabel())
-    return;
-
-  IsStructured = false;
-}
-
-void StructuredFlowChecker::visit(const HLGoto *Goto) {
-  if (visit(static_cast<const HLNode *>(Goto)) || !IsPDom) {
-    return;
-  }
-
-  if (Goto->isExternal()) {
-    IsStructured = false;
-    return;
-  }
-
-  auto Label = Goto->getTargetLabel();
-
-  if (Label->getTopSortNum() > TargetNode->getTopSortNum()) {
-    IsStructured = false;
-  }
-}
-
-void StructuredFlowChecker::visit(const HLLoop *Lp) {
-  if (visit(static_cast<const HLNode *>(Lp)) || !IsPDom) {
-    return;
-  }
-
-  // Be conservative in the presence of multi-exit loops.
-  if (Lp->getNumExits() > 1) {
-    IsStructured = false;
-  }
-}
-
 /// Returns \p Node if it is an HLLoop or the parent loop of \p Node if it is
 /// not.
 static const HLLoop *getNearestLoop(const HLNode *Node) {
@@ -2939,95 +2825,12 @@ static const HLLoop *getNearestLoop(const HLNode *Node) {
   return Node->getParentLoop();
 }
 
-bool HLNodeUtils::hasStructuredFlow(const HLNode *Parent, const HLNode *Node,
-                                    const HLNode *TargetNode,
-                                    bool PostDomination, bool UpwardTraversal,
-                                    HIRLoopStatistics *HLS) {
-
-  // If TargetNode precedes a loop containing Parent (or Parent itself if it is
-  // a loop), this is enough to prove structured flow for dominance queries as
-  // all loops are single-entry.
-  if (!PostDomination && TargetNode)
-    if (const HLLoop *const NearestLoop = getNearestLoop(Parent))
-      if (TargetNode->getTopSortNum() < NearestLoop->getTopSortNum())
-        return true;
-
-  const HLNode *FirstNode = nullptr, *LastNode = nullptr;
-
-  // For parent loops we should retrieve the absolute first/last lexical child
-  // of the loop rather than returning the first/last preheader/postexit child.
-  // Consider a domination query for this case-
-  // + DO LOOP
-  // |  goto L:
-  // |  Node1
-  // |  L:
-  // + END DO
-  //   Node2
-  //
-  // Node2 lies in postexit so if we only check the postexit nodes of the loop
-  // while tracing Node2 to the common parent of Node1 and itself (do loop), the
-  // query will return true which would be wrong.
-  if (UpwardTraversal) {
-    FirstNode = isa<HLLoop>(Parent) ? getFirstLexicalChild(Parent)
-                                    : getFirstLexicalChild(Parent, Node);
-
-    LastNode = Node ? Node : getLastLexicalChild(Parent);
-
-  } else {
-    FirstNode = Node ? Node : getFirstLexicalChild(Parent);
-
-    LastNode = isa<HLLoop>(Parent) ? getLastLexicalChild(Parent)
-                                   : getLastLexicalChild(Parent, Node);
-  }
-
-  assert((FirstNode && LastNode) && "Could not find first/last lexical child!");
-
-  if (Node && (FirstNode == LastNode)) {
-    // Both are set to 'Node' which we don't need to check.
-    return true;
-  }
-
-  // 'Upward' traversal is backward traversal of HIR. If TargetNode is the
-  // LastNode of the range, StructuredFlowChecker will exit early using 'IsDone'
-  // mechanism and skip all the checks which is not the intention.
-  bool TargetEndsTraversal = (!UpwardTraversal || (TargetNode != LastNode));
-
-  StructuredFlowChecker SFC(PostDomination, TargetNode, TargetEndsTraversal,
-                            FirstNode, HLS);
-
-  // Don't need to recurse into loops.
-  // TODO: We probably need to enhance it to recurse into multi-exit loops.
-  if (UpwardTraversal) {
-    // We want to traverse the range [FirstNode, LastNode) in the backward
-    // direction. If Node is a parent node and same as LastNode we skip it so as
-    // so avoid traversing nodes outside range of interest.
-    auto EndIt = (Node == LastNode && Node->isParentNode())
-                     ? LastNode->getIterator()
-                     : ++(LastNode->getIterator());
-
-    visitRange<true, false, false>(SFC, FirstNode->getIterator(), EndIt);
-
-  } else {
-    // We want to traverse the range (FirstNode, LastNode] in the forward
-    // direction. If Node is a parent node and same as FirstNode we skip it so
-    // as so avoid traversing nodes outside range of interest.
-    auto BeginIt = (Node == FirstNode && Node->isParentNode())
-                       ? ++(FirstNode->getIterator())
-                       : FirstNode->getIterator();
-
-    visitRange<true, false, true>(SFC, BeginIt, ++(LastNode->getIterator()));
-  }
-
-  return SFC.isStructured();
-}
-
 const HLNode *HLNodeUtils::getOutermostSafeParent(
     const HLNode *Node1, const HLNode *Node2, bool PostDomination,
     HIRLoopStatistics *HLS, const HLNode **LastParent1,
     SmallVectorImpl<const HLLoop *> &Parent1LoopsWithZtt) {
   const HLNode *Parent = Node1->getParent();
   const HLNode *FirstNode = nullptr, *LastNode = nullptr;
-  const HLNode *TargetNode;
 
   *LastParent1 = Node1;
 
@@ -3036,7 +2839,7 @@ const HLNode *HLNodeUtils::getOutermostSafeParent(
 
     auto *Loop = dyn_cast<HLLoop>(Parent);
 
-    if (!Loop || Loop->isMultiExit()) {
+    if (!Loop) {
       break;
     }
 
@@ -3051,14 +2854,6 @@ const HLNode *HLNodeUtils::getOutermostSafeParent(
     // Node2 is in range, no need to move up the parent chain.
     if (isInTopSortNumMaxRange(Node2, FirstNode, LastNode)) {
       break;
-    }
-
-    TargetNode = PostDomination ? *LastParent1 : nullptr;
-    // Keep checking for structured flow for the nodes we come acoss while
-    // moving up the chain.
-    if (!hasStructuredFlow(Parent, *LastParent1, TargetNode, PostDomination,
-                           PostDomination, HLS)) {
-      return nullptr;
     }
 
     // We are crossing over a loop with Ztt. Add it to the vector which will
@@ -3111,13 +2906,6 @@ const HLNode *HLNodeUtils::getCommonDominatingParent(
   // Trace back Node2 to Parent1.
   while (CommonParent) {
 
-    // Keep checking for structured flow for the nodes we come acoss while
-    // moving up the chain.
-    if (!hasStructuredFlow(CommonParent, *LastParent2, LastParent1,
-                           PostDomination, !PostDomination, HLS)) {
-      return nullptr;
-    }
-
     if (CommonParent == Parent1) {
       break;
     }
@@ -3135,6 +2923,90 @@ const HLNode *HLNodeUtils::getCommonDominatingParent(
   // Check whether Node2 is under the same conditions we crossed over to get to
   // outermost parent of Node1.
   return Parent1LoopsWithZtt.empty() ? CommonParent : nullptr;
+}
+
+// Checks whether Labels/Gotos between Node1 and Node2 disprove
+// domination/post-domination.
+static bool hasStructuredControlFlow(const HLNode *Node1, const HLNode *Node2,
+                                     const HLNode *CommonParent,
+                                     bool PostDomination,
+                                     HIRLoopStatistics *HLS) {
+
+  auto *ParentLp = getNearestLoop(CommonParent);
+
+  auto &TLS = ParentLp ? HLS->getTotalStatistics(ParentLp)
+                       : HLS->getTotalStatistics(Node1->getParentRegion());
+
+  if (PostDomination) {
+    if (!TLS.hasForwardGotos()) {
+      return true;
+    }
+  } else if (!TLS.hasLabels()) {
+    return true;
+  }
+
+  unsigned TSNum1 = Node1->getTopSortNum();
+  unsigned TSNum2 = Node2->getTopSortNum();
+
+  if (PostDomination) {
+    // Check if there is a goto between Node2 and Node1 which jumps after Node1.
+    // Note that Node1 comes lexically after Node2.
+    //
+    // Example-
+    //
+    //  A[i] = // Node2
+    //  if () {
+    //    goto L;
+    //  }
+    //  A[i] = // Node1
+    //  L:
+    for (auto *Goto : TLS.getForwardGotos()) {
+      unsigned GotoTSNum = Goto->getTopSortNum();
+
+      if (GotoTSNum < TSNum2) {
+        continue;
+      }
+
+      if (GotoTSNum >= TSNum1) {
+        break;
+      }
+
+      if (Goto->isExternal() ||
+          Goto->getTargetLabel()->getTopSortNum() > TSNum1) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  // Check if there is a goto before Node1 which jumps between Node1 and Node2.
+  // Note that Node2 comes lexically after Node1.
+  // Example-
+  //
+  //  if () {
+  //    goto L;
+  //  }
+  //  A[i] = // Node1
+  //  L:
+  //  A[i] = // Node2
+  for (auto *Goto : TLS.getForwardGotos()) {
+    if (Goto->getTopSortNum() > TSNum1) {
+      break;
+    }
+
+    if (Goto->isExternal()) {
+      continue;
+    }
+
+    unsigned LabelTSNum = Goto->getTargetLabel()->getTopSortNum();
+
+    if (LabelTSNum > TSNum1 && LabelTSNum <= TSNum2) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 bool HLNodeUtils::dominatesImpl(const HLNode *Node1, const HLNode *Node2,
@@ -3168,6 +3040,8 @@ bool HLNodeUtils::dominatesImpl(const HLNode *Node1, const HLNode *Node2,
                   .getHIRAnalysisProvider()
                   .get<HIRLoopStatistics>();
 
+  assert(HLS && "Loop statistics is not available!");
+
   // We need to find out the common parent of Node1 and Node2 and their last
   // parents which tell us the path taken to reach the common parent.
   // The following example demonstrates the usage-
@@ -3186,25 +3060,28 @@ bool HLNodeUtils::dominatesImpl(const HLNode *Node1, const HLNode *Node2,
   const HLNode *Parent1 = getOutermostSafeParent(
       Node1, Node2, PostDomination, HLS, &LastParent1, Parent1LoopsWithZtt);
 
-  // Could't find an appropriate parent for Node1.
-  if (!Parent1) {
-    return false;
-  }
+  assert(Parent1 && "Could not find appropriate parent for Node1!");
 
   const HLNode *LastParent2 = nullptr;
   const HLNode *CommonParent =
       getCommonDominatingParent(Parent1, LastParent1, Node2, PostDomination,
                                 HLS, &LastParent2, Parent1LoopsWithZtt);
 
-  const HLIf *IfParent = dyn_cast_or_null<HLIf>(CommonParent);
-  const HLSwitch *SwitchParent = dyn_cast_or_null<HLSwitch>(CommonParent);
-
   // Couldn't find a common parent.
   if (!CommonParent) {
     return false;
   }
+
+  if (!hasStructuredControlFlow(Node1, Node2, CommonParent, PostDomination,
+                                HLS)) {
+    return false;
+  }
+
+  const HLIf *IfParent = dyn_cast<HLIf>(CommonParent);
+  const HLSwitch *SwitchParent = dyn_cast<HLSwitch>(CommonParent);
+
   // For region and loops parents we can deduce the result right away.
-  else if (!IfParent && !SwitchParent) {
+  if (!IfParent && !SwitchParent) {
     return true;
 
   } else if (IfParent) {
