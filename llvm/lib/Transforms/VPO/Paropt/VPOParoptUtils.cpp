@@ -6246,6 +6246,17 @@ bool VPOParoptUtils::mayCloneUBValueBeforeRegion(
   return true;
 }
 
+Instruction *VPOParoptUtils::getInsertionPtForImplicitBarrier(WRegionNode *W,
+                                                              DominatorTree *DT,
+                                                              LoopInfo *LI) {
+  assert(W && "Null WRegionNode.");
+
+  BasicBlock *ExitSucc = W->getExitBBlock()->getSingleSuccessor();
+  BasicBlock *ExitSuccSplit =
+      SplitBlock(ExitSucc, ExitSucc->getFirstNonPHI(), DT, LI);
+  return &ExitSuccSplit->front();
+}
+
 Instruction *VPOParoptUtils::getInsertionPtForAllocas(
     WRegionNode *W, Function *F, bool OutsideRegion) {
   assert(W && "Null WRegionNode.");

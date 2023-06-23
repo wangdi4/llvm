@@ -2553,8 +2553,12 @@ bool VPOParoptTransform::paroptTransforms() {
               Changed |= genCancellationBranchingCode(W);
             }
             Changed |= genDestructorCode(W);
-            if (!W->getIsDistribute() && !W->getNowait())
-              Changed |= genBarrier(W, false);
+            if (!W->getIsDistribute() && !W->getNowait()) {
+              Instruction *BarrierInsertPt =
+                  VPOParoptUtils::getInsertionPtForImplicitBarrier(W, DT, LI);
+              Changed |= genBarrier(W, false /*IsExplicit*/,
+                                    false /*IsTargetSPIRV*/, BarrierInsertPt);
+            }
             Changed |= insertStackSaveRestore(W);
           }
           Changed |= sinkSIMDDirectives(W);
