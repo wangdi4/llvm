@@ -12,7 +12,7 @@ define dso_local void @init(i32* nocapture noundef writeonly %a, i32 noundef %n,
 ; PEEL-LABEL: Function: init
 ; PEEL-EMPTY:
 ; PEEL-NEXT:  BEGIN REGION { modified }
-; PEEL-NEXT:        [[DOTVEC0:%.*]] = zext.i32.i64([[N0:%.*]]) <u 1200
+; PEEL-NEXT:        [[DOTVEC0:%.*]] = zext.i32.i64([[N0:%.*]]) <u 354
 ; PEEL-NEXT:        [[PHI_TEMP0:%.*]] = 0
 ; PEEL-NEXT:        [[EXTRACT_0_0:%.*]] = extractelement [[DOTVEC0]],  0
 ; PEEL-NEXT:        if ([[EXTRACT_0_0]] == 1)
