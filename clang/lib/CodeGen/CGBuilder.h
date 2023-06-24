@@ -176,11 +176,16 @@ public:
                             Addr.isKnownNonNull());
   }
 
+<<<<<<< HEAD
   /// Cast the element type of the given address to a different type,
   /// preserving information like the alignment and address space.
   Address CreateElementBitCast(Address Addr, llvm::Type *Ty,
                                const llvm::Twine &Name = "") {
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+=======
+  /// This method is to be deprecated. Use `Address::withElementType` instead.
+  Address CreateElementBitCast(Address Addr, llvm::Type *Ty) {
+>>>>>>> 44e63ffe2bf7e5c026b828054d67088239939e81
     return Address(Addr.getPointer(), Ty, Addr.getAlignment(),
                    Addr.isKnownNonNull());
 #else // INTEL_SYCL_OPAQUEPOINTER_READY
