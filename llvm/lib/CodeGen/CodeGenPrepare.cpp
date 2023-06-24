@@ -8448,7 +8448,9 @@ bool CodeGenPrepare::optimizeInst(Instruction *I, ModifyDT &ModifiedDT) {
                                         GEPI->getName(), GEPI);
       NC->setDebugLoc(GEPI->getDebugLoc());
       replaceAllUsesWith(GEPI, NC, FreshBBs, IsHugeFunc);
-      GEPI->eraseFromParent();
+      RecursivelyDeleteTriviallyDeadInstructions(
+          GEPI, TLInfo, nullptr,
+          [&](Value *V) { removeAllAssertingVHReferences(V); });
       ++NumGEPsElim;
       optimizeInst(NC, ModifiedDT);
       return true;
