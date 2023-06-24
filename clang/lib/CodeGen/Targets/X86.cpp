@@ -1947,7 +1947,7 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase, Class &Lo,
       Current = SSE;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
-    } else if (ET->isBFloat16Type()) {
+    } else if (k == BuiltinType::BFloat16) {
       Current = SSE;
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
