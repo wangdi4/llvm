@@ -476,6 +476,14 @@ ABIArgInfo X86_32ABIInfo::classifyReturnType(QualType RetTy,
 
   const Type *Base = nullptr;
   uint64_t NumElts = 0;
+
+#if INTEL_CUSTOMIZATION
+  if (State.CC == llvm::CallingConv::SVML_Unified &&
+      isSVMLStructure(getContext(), RetTy, Base, NumElts))
+    return classifySVMLStructure(Base, NumElts, State.FreeSSERegs,
+                                 /*IsReturn=*/true);
+#endif // INTEL_CUSTOMIZATION
+
   if ((State.CC == llvm::CallingConv::X86_VectorCall ||
        State.CC == llvm::CallingConv::X86_RegCall) &&
       isHomogeneousAggregate(RetTy, Base, NumElts)) {
@@ -744,6 +752,9 @@ ABIArgInfo X86_32ABIInfo::classifyArgumentType(QualType Ty,
   bool IsFastCall = State.CC == llvm::CallingConv::X86_FastCall;
   bool IsRegCall = State.CC == llvm::CallingConv::X86_RegCall;
   bool IsVectorCall = State.CC == llvm::CallingConv::X86_VectorCall;
+#if INTEL_CUSTOMIZATION
+  bool IsSVMLCall = State.CC == llvm::CallingConv::SVML_Unified;
+#endif // INTEL_CUSTOMIZATION
 
   Ty = useFirstFieldIfTransparentUnion(Ty);
   TypeInfo TI = getContext().getTypeInfo(Ty);
@@ -764,6 +775,12 @@ ABIArgInfo X86_32ABIInfo::classifyArgumentType(QualType Ty,
   // to other targets.
   const Type *Base = nullptr;
   uint64_t NumElts = 0;
+#if INTEL_CUSTOMIZATION
+  if (IsSVMLCall && isSVMLStructure(getContext(), Ty, Base, NumElts))
+    return classifySVMLStructure(Base, NumElts, State.FreeSSERegs,
+                                 /*IsReturn=*/false);
+#endif // INTEL_CUSTOMIZATION
+
   if ((IsRegCall || IsVectorCall) &&
       isHomogeneousAggregate(Ty, Base, NumElts)) {
     if (State.FreeSSERegs >= NumElts) {
@@ -838,6 +855,13 @@ ABIArgInfo X86_32ABIInfo::classifyArgumentType(QualType Ty,
   }
 
   if (const VectorType *VT = Ty->getAs<VectorType>()) {
+#if INTEL_CUSTOMIZATION
+    if (IsSVMLCall && State.FreeSSERegs > 0) {
+      --State.FreeSSERegs;
+      return ABIArgInfo::getDirect();
+    }
+#endif // INTEL_CUSTOMIZATION
+
     // On Windows, vectors are passed directly if registers are available, or
     // indirectly if not. This avoids the need to align argument memory. Pass
     // user-defined vector types larger than 512 bits indirectly for simplicity.
@@ -953,6 +977,12 @@ void X86_32ABIInfo::computeInfo(CGFunctionInfo &FI) const {
   } else
     State.FreeRegs = DefaultNumRegisterParameters;
 
+#if INTEL_CUSTOMIZATION
+  bool IsSVMLCall = State.CC == llvm::CallingConv::SVML_Unified;
+  if (IsSVMLCall)
+    State.FreeSSERegs = 8;
+#endif // INTEL_CUSTOMIZATION
+
   if (!::classifyReturnType(getCXXABI(), FI, *this)) {
     FI.getReturnInfo() = classifyReturnType(FI.getReturnType(), State);
   } else if (FI.getReturnInfo().isIndirect()) {
@@ -984,6 +1014,23 @@ void X86_32ABIInfo::computeInfo(CGFunctionInfo &FI) const {
     Args[I].info = classifyArgumentType(Args[I].type, State);
     UsedInAlloca |= (Args[I].info.getKind() == ABIArgInfo::InAlloca);
   }
+
+#if INTEL_CUSTOMIZATION
+    if (IsSVMLCall &&
+        isSVMLIntArgumentMask(getContext(), Args[I].type, FI.getReturnType())) {
+      // If the argument is an AVX512 mask in an SVML function, it should be
+      // casted to an i1 vector passed in k registers.
+      assert(getTarget().getTargetOpts().FeatureMap.lookup("avx512f") &&
+             "Integer argument can only be present on scalar functions or "
+             "AVX512 functions in SVML");
+      Args[I].info = ABIArgInfo::getDirect(llvm::VectorType::get(
+          llvm::Type::getInt1Ty(CGT.getLLVMContext()),
+          llvm::ElementCount::getFixed(Context.getIntWidth(Args[I].type))));
+    } else {
+      Args[I].info = classifyArgumentType(Args[I].type, State);
+    }
+#endif // INTEL_CUSTOMIZATION
+
 
   // If we needed to use inalloca for any argument, do a second pass and rewrite
   // all the memory arguments to use inalloca.
@@ -1418,7 +1465,11 @@ public:
 
 private:
   ABIArgInfo classify(QualType Ty, unsigned &FreeSSERegs, bool IsReturnType,
-                      bool IsVectorCall, bool IsRegCall) const;
+#if INTEL_CUSTOMIZATION
+                      bool IsVectorCall, bool IsRegCall, bool IsSVMLCall) const;
+#endif // INTEL_CUSTOMIZATION
+
+
   ABIArgInfo reclassifyHvaArgForVectorCall(QualType Ty, unsigned &FreeSSERegs,
                                            const ABIArgInfo &current) const;
 
@@ -1808,6 +1859,12 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase, Class &Lo,
     } else if (k == BuiltinType::Float || k == BuiltinType::Double ||
                k == BuiltinType::Float16 || k == BuiltinType::BFloat16) {
       Current = SSE;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+    } else if (ET->isBFloat16Type()) {
+      Current = SSE;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
     } else if (k == BuiltinType::LongDouble) {
       const llvm::fltSemantics *LDF = &getTarget().getLongDoubleFormat();
       if (LDF == &llvm::APFloat::IEEEquad()) {
@@ -1820,6 +1877,11 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase, Class &Lo,
         Current = SSE;
       } else
         llvm_unreachable("unexpected long double representation!");
+#if INTEL_CUSTOMIZATION
+    } else if (k == BuiltinType::Float128) {
+      Lo = SSE;
+      Hi = SSEUp;
+#endif  //INTEL_CUSTOMIZATION
     }
     // FIXME: _Decimal32 and _Decimal64 are SSE.
     // FIXME: _float128 and _Decimal128 are (SSE, SSEUp).
@@ -1940,6 +2002,12 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase, Class &Lo,
     } else if (ET->isFloat16Type() || ET == getContext().FloatTy ||
                ET->isBFloat16Type()) {
       Current = SSE;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_BF16_BASE
+    } else if (ET->isBFloat16Type()) {
+      Current = SSE;
+#endif // INTEL_FEATURE_ISA_BF16_BASE
+#endif // INTEL_CUSTOMIZATION
     } else if (ET == getContext().DoubleTy) {
       Lo = Hi = SSE;
     } else if (ET == getContext().LongDoubleTy) {
@@ -2903,6 +2971,11 @@ void X86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
   }
 
   bool IsRegCall = CallingConv == llvm::CallingConv::X86_RegCall;
+#if INTEL_CUSTOMIZATION
+  bool IsSVMLCall = CallingConv == llvm::CallingConv::SVML_Unified;
+  const Type *Base = nullptr;
+  uint64_t NumElts = 0;
+#endif // INTEL_CUSTOMIZATION
 
   // Keep track of the number of assigned registers.
   unsigned FreeIntRegs = IsRegCall ? 11 : 6;
@@ -2928,6 +3001,12 @@ void X86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
       // Complex Long Double Type is passed in Memory when Regcall
       // calling convention is used.
       FI.getReturnInfo() = getIndirectReturnResult(FI.getReturnType());
+#if INTEL_CUSTOMIZATION
+    else if (IsSVMLCall &&
+             isSVMLStructure(Context, FI.getReturnType(), Base, NumElts))
+      FI.getReturnInfo() =
+          classifySVMLStructure(Base, NumElts, FreeSSERegs, /*IsReturn=*/true);
+#endif // INTEL_CUSTOMIZATION
     else
       FI.getReturnInfo() = classifyReturnType(FI.getReturnType());
   }
@@ -2954,6 +3033,24 @@ void X86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
     if (IsRegCall && it->type->isStructureOrClassType())
       it->info = classifyRegCallStructType(it->type, NeededInt, NeededSSE,
                                            MaxVectorWidth);
+#if INTEL_CUSTOMIZATION
+    else if (IsSVMLCall &&
+             isSVMLIntArgumentMask(getContext(), it->type, FI.getReturnType())) {
+      // If the argument is an AVX512 mask in an SVML function, it should be
+      // casted to an i1 vector passed in k registers.
+      it->info = ABIArgInfo::getDirect(llvm::VectorType::get(
+          llvm::Type::getInt1Ty(CGT.getLLVMContext()),
+          llvm::ElementCount::getFixed(Context.getIntWidth(it->type))));
+      NeededInt = 0;
+      NeededSSE = 0;
+    } else if (IsSVMLCall &&
+               isSVMLStructure(Context, it->type, Base, NumElts)) {
+      it->info =
+          classifySVMLStructure(Base, NumElts, FreeSSERegs, /*IsReturn=*/false);
+      NeededInt = 0;
+      NeededSSE = 0;
+    }
+#endif // INTEL_CUSTOMIZATION
     else
       it->info = classifyArgumentType(it->type, FreeIntRegs, NeededInt,
                                       NeededSSE, IsNamedArg);
@@ -3228,7 +3325,9 @@ ABIArgInfo WinX86_64ABIInfo::reclassifyHvaArgForVectorCall(
 
 ABIArgInfo WinX86_64ABIInfo::classify(QualType Ty, unsigned &FreeSSERegs,
                                       bool IsReturnType, bool IsVectorCall,
-                                      bool IsRegCall) const {
+#if INTEL_CUSTOMIZATION
+                                      bool IsRegCall, bool IsSVMLCall) const {
+#endif // INTEL_CUSTOMIZATION
 
   if (Ty->isVoidType())
     return ABIArgInfo::getIgnore();
@@ -3254,6 +3353,12 @@ ABIArgInfo WinX86_64ABIInfo::classify(QualType Ty, unsigned &FreeSSERegs,
 
   const Type *Base = nullptr;
   uint64_t NumElts = 0;
+
+#if INTEL_CUSTOMIZATION
+  if (IsSVMLCall && isSVMLStructure(getContext(), Ty, Base, NumElts))
+    return classifySVMLStructure(Base, NumElts, FreeSSERegs, IsReturnType);
+#endif // INTEL_CUSTOMIZATION
+
   // vectorcall adds the concept of a homogenous vector aggregate, similar to
   // other targets.
   if ((IsVectorCall || IsRegCall) &&
@@ -3328,6 +3433,13 @@ ABIArgInfo WinX86_64ABIInfo::classify(QualType Ty, unsigned &FreeSSERegs,
       return ABIArgInfo::getDirect(llvm::FixedVectorType::get(
           llvm::Type::getInt64Ty(getVMContext()), 2));
 
+#if INTEL_CUSTOMIZATION
+    // Pass float128 return and arguments indirectly on x64 Windows to match
+    // icc.
+    case BuiltinType::Float128:
+      return ABIArgInfo::getIndirect(Align, /*ByVal=*/false);
+#endif
+
     default:
       break;
     }
@@ -3346,11 +3458,99 @@ ABIArgInfo WinX86_64ABIInfo::classify(QualType Ty, unsigned &FreeSSERegs,
 
   return ABIArgInfo::getDirect();
 }
+#if INTEL_CUSTOMIZATION
+// When an integer type appears in argument of an SVML function, it might be:
+//   a) An AVX512 mask (since the __mmask types are defined as aliases to
+//      integer types in headers), we need to convert it to <n x i1> type and
+//      pass in k registers.
+//   b) Part of input data (e.g. for div1), in this case we want to pass it
+//      directly in a GPR.
+// This function is used to distinguish the two cases for ArgType. Returns true
+// if it's a mask.
+static bool isSVMLIntArgumentMask(ASTContext &Context, QualType ArgType,
+                                  QualType ReturnType) {
+  // ArgType is a mask if ArgType is an unsigned integer and the function is a
+  // vector function, which can be checked by whether the return type is a
+  // scalar type.
+  const BuiltinType *BT = ArgType->getAs<BuiltinType>();
+  if (!BT || !BT->isUnsignedInteger())
+    return false;
+  if (ReturnType->isVectorType())
+    return true;
+  if (const RecordType *RT = ReturnType->getAs<RecordType>()) {
+    const RecordDecl *RD = RT->getDecl();
+    for (const FieldDecl *Field : RD->fields())
+      if (Field->getType()->isVectorType())
+        return true;
+  }
+  return false;
+}
+
+// This recursive function contains the actual implementation of
+// isSVMLStructure(), which wraps this function to initialize \p Base and
+// \p NumValues to default values. It should not be called by other users.
+static bool isSVMLStructureInner(const ASTContext &Context, QualType Ty,
+                                 const Type *&Base, uint64_t &NumValues) {
+  if (!Ty->isStructureOrClassType())
+    return false;
+  const RecordDecl *RD = Ty->getAs<RecordType>()->getDecl();
+  if (RD->field_empty())
+    return false;
+  for (const FieldDecl *Field : RD->fields()) {
+    QualType T = Field->getType();
+    if (T->isVectorType() || T->isRealFloatingType() || T->isIntegerType()) {
+      if (Base == nullptr)
+        Base = T.getTypePtr();
+      if (Base != T.getTypePtr())
+        return false;
+      ++NumValues;
+    } else if (!(T->isStructureType() &&
+                 isSVMLStructureInner(Context, T, Base, NumValues))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Determine whether a struct type appearing in function argument or return
+// value is a legit SVML struct (that is, can be passed in registers in the SVML
+// calling convention).
+// In such structs, all fields should have the same type, and it should be a
+// integer, floating-point or vector type. SVML structs can be nested but their
+// leaf fields must be of the same type. The type of the fields is returned in
+// Base, and the number of fields is returned in NumValues.
+// This differs from HVA in that we don't define different sets of eligible base
+// types for different ABIs, and integers are also eligible.
+static bool isSVMLStructure(const ASTContext &Context, QualType Ty,
+                            const Type *&Base, uint64_t &NumValues) {
+  Base = nullptr;
+  NumValues = 0;
+  return isSVMLStructureInner(Context, Ty, Base, NumValues);
+}
+
+// Handle classification of struct arguments/return value for an SVML function.
+// \p FreeSSERegs is modified accordingly. \p Base and \p NumElts should be
+// computed by isSVMLStructure() based on the type of the value to be
+// classified. \p IsReturn needs to be set to true for return values, and false
+// for arguments.
+static ABIArgInfo classifySVMLStructure(const Type *Base, uint64_t NumElts,
+                                        unsigned &FreeSSERegs, bool IsReturn) {
+  bool UseSSERegs = Base->isRealFloatingType() || Base->isVectorType();
+  assert((!UseSSERegs || FreeSSERegs >= NumElts) &&
+         "Too many fields in SVML structure");
+  if (UseSSERegs)
+    FreeSSERegs -= NumElts;
+  return IsReturn ? ABIArgInfo::getDirect() : ABIArgInfo::getExpand();
+}
+#endif // INTEL_CUSTOMIZATION
 
 void WinX86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
   const unsigned CC = FI.getCallingConvention();
   bool IsVectorCall = CC == llvm::CallingConv::X86_VectorCall;
   bool IsRegCall = CC == llvm::CallingConv::X86_RegCall;
+#if INTEL_CUSTOMIZATION
+  bool IsSVMLCall = CC == llvm::CallingConv::SVML_Unified;
+#endif // INTEL_CUSTOMIZATION
 
   // If __attribute__((sysv_abi)) is in use, use the SysV argument
   // classification rules.
@@ -3367,14 +3567,21 @@ void WinX86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
   } else if (IsRegCall) {
     // RegCall gives us 16 SSE registers.
     FreeSSERegs = 16;
+#if INTEL_CUSTOMIZATION
+  } else if (IsSVMLCall) {
+    // An SVML function can return up to 2 results in SSE registers.
+    FreeSSERegs = 2;
+#endif // INTEL_CUSTOMIZATION
   }
 
   if (!getCXXABI().classifyReturnType(FI))
     FI.getReturnInfo() = classify(FI.getReturnType(), FreeSSERegs, true,
-                                  IsVectorCall, IsRegCall);
+#if INTEL_CUSTOMIZATION
+                                  IsVectorCall, IsRegCall, IsSVMLCall);
 
-  if (IsVectorCall) {
-    // We can use up to 6 SSE register parameters with vectorcall.
+  if (IsVectorCall || IsSVMLCall) {
+    // We can use up to 6 SSE register parameters with vectorcall or SVML.
+#endif // INTEL_CUSTOMIZATION
     FreeSSERegs = 6;
   } else if (IsRegCall) {
     // RegCall gives us 16 SSE registers, we can reuse the return registers.
@@ -3389,8 +3596,18 @@ void WinX86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
     // registers are left.
     unsigned *MaybeFreeSSERegs =
         (IsVectorCall && ArgNum >= 6) ? &ZeroSSERegs : &FreeSSERegs;
-    I.info =
-        classify(I.type, *MaybeFreeSSERegs, false, IsVectorCall, IsRegCall);
+#if INTEL_CUSTOMIZATION
+    // If the argument is an AVX512 mask in an SVML function, it should be
+    // casted to an i1 vector passed in k registers.
+    if (IsSVMLCall &&
+        isSVMLIntArgumentMask(getContext(), I.type, FI.getReturnType()))
+      I.info = ABIArgInfo::getDirect(llvm::VectorType::get(
+          llvm::Type::getInt1Ty(CGT.getLLVMContext()),
+          llvm::ElementCount::getFixed(Context.getIntWidth(I.type))));
+    else
+      I.info = classify(I.type, *MaybeFreeSSERegs, false, IsVectorCall,
+                        IsRegCall, IsSVMLCall);
+#endif // INTEL_CUSTOMIZATION
     ++ArgNum;
   }
 

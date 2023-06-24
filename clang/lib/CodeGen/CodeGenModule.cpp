@@ -291,6 +291,11 @@ createTargetCodeGenInfo(CodeGenModule &CGM) {
         CodeGenOpts.NumRegisterParameters, CodeGenOpts.FloatABI == "soft");
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_XUCC
+  case llvm::Triple::x86_64_xucc:
+#endif // INTEL_FEATURE_XUCC
+#endif // INTEL_CUSTOMIZATION
   case llvm::Triple::x86_64: {
     StringRef ABI = Target.getABI();
     X86AVXABILevel AVXLevel = (ABI == "avx512" ? X86AVXABILevel::AVX512
@@ -6772,11 +6777,11 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
       // type.
       if (RD->hasAttr<SYCLAddIRAttributesGlobalVariableAttr>())
         AddGlobalSYCLIRAttributes(GV, RD);
-      // If VarDecl has a type decorated with SYCL device_global attribute 
+      // If VarDecl has a type decorated with SYCL device_global attribute
       // emit IR attribute 'sycl-unique-id'.
       if (RD->hasAttr<SYCLDeviceGlobalAttr>())
         addSYCLUniqueID(GV, D, Context);
-      // If VarDecl type is SYCLTypeAttr::host_pipe, emit the IR attribute 
+      // If VarDecl type is SYCLTypeAttr::host_pipe, emit the IR attribute
       // 'sycl-unique-id'.
       if (const auto *Attr = RD->getAttr<SYCLTypeAttr>())
         if (Attr->getType() == SYCLTypeAttr::SYCLType::host_pipe)

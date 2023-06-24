@@ -320,6 +320,10 @@ llvm::Type *CommonSPIRTargetCodeGenInfo::getOpenCLType(CodeGenModule &CGM,
   llvm::LLVMContext &Ctx = CGM.getLLVMContext();
   if (Ctx.supportsTypedPointers())
     return nullptr;
+#if INTEL_CUSTOMIZATION
+  if (isa<ChannelType>(Ty))
+    return llvm::TargetExtType::get(Ctx, "spirv.Channel");
+#endif
   if (auto *PipeTy = dyn_cast<PipeType>(Ty))
     return llvm::TargetExtType::get(Ctx, "spirv.Pipe", {},
                                     {!PipeTy->isReadOnly()});

@@ -725,7 +725,11 @@ bool ARMABIInfo::isHomogeneousAggregateBaseType(QualType Ty) const {
   if (const BuiltinType *BT = Ty->getAs<BuiltinType>()) {
     if (BT->getKind() == BuiltinType::Float ||
         BT->getKind() == BuiltinType::Double ||
-        BT->getKind() == BuiltinType::LongDouble)
+        BT->getKind() == BuiltinType::LongDouble
+#if INTEL_CUSTOMIZATION
+        || BT->getKind() == BuiltinType::Float128
+#endif  // INTEL_CUSTOMIZATION
+        )
       return true;
   } else if (const VectorType *VT = Ty->getAs<VectorType>()) {
     unsigned VecSize = getContext().getTypeSize(VT);
