@@ -2204,6 +2204,12 @@ public:
   /// to library function __kmpc_critical.
   static bool isOMPCritical(const Instruction *I, const TargetLibraryInfo &TLI);
 
+  /// Splits the single Succesor of the Exit block of W and returns the front
+  /// instruction of the new block.
+  static Instruction *getInsertionPtForImplicitBarrier(WRegionNode *W,
+                                                       DominatorTree *DT,
+                                                       LoopInfo *LI);
+
   /// Returns the Instruction which can be used as an insertion point for
   /// any alloca which needs to be inserted before the entry directive of \p W.
   /// If \p OutsideRegion is true, then the utility looks at parent

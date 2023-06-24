@@ -9252,6 +9252,9 @@ def _SLASH_Qfinite_math_only_ : CLFlag<"Qfinite-math-only-">, Alias<fno_finite_m
 def _SLASH_Qfp_speculation_EQ : CLJoined<"Qfp-speculation=">, Alias<ffp_exception_behavior_EQ>,
   HelpText<"Specifies the exception behavior of floating-point operations.">;
 def _SLASH_Qfp_speculation_COL : CLJoined<"Qfp-speculation:">, Alias<ffp_exception_behavior_EQ>;
+def _SLASH_Qfp_eval_method_EQ : CLJoined<"Qfp-eval-method=">, Alias<ffp_eval_method_EQ>;
+def _SLASH_Qfp_eval_method_COL : CLJoined<"Qfp-eval-method:">, Alias<ffp_eval_method_EQ>,
+  HelpText<"Specifies the evaluation method to use for floating-point arithmetic.">;
 def _SLASH_Qfnalign : CLFlag<"Qfnalign">, Alias<falign_functions>,
   HelpText<"align the start of functions to an optimal machine-dependent value.">;
 def _SLASH_Qfnalign_COL : CLJoined<"Qfnalign:">, Alias<falign_functions_EQ>,

@@ -1029,3 +1029,9 @@
 // RUN: %clang_cl -### /Qiopenmp /Qopenmp-targets:spir64_gen,spir64_x86_64 %s 2>&1 | FileCheck -check-prefix=CHECK-NO-OCLOC %s
 // CHECK-NO-OCLOC-NOT: warning: ocloc tool could not be found and is required for AOT compilation. See: https://www.intel.com/content/www/us/en/develop/documentation/oneapi-dpcpp-cpp-compiler-dev-guide-and-reference/top/compilation/ahead-of-time-compilation.html for more information. [-Waot-tool-not-found]
 
+//RUN: %clang_cl -### /Qfp-eval-method=extended %s 2>&1 | FileCheck -check-prefix=CHECK-QFP-EVAL-METHOD-EXTENDED %s
+// CHECK-QFP-EVAL-METHOD-EXTENDED: "-ffp-eval-method=extended"
+//RUN: %clang_cl -### /Qfp-eval-method=source %s 2>&1 | FileCheck -check-prefix=CHECK-QFP-EVAL-METHOD-SOURCE %s
+// CHECK-QFP-EVAL-METHOD-SOURCE: "-ffp-eval-method=source"
+//RUN: %clang_cl -### /Qfp-eval-method=double %s 2>&1 | FileCheck -check-prefix=CHECK-QFP-EVAL-METHOD-DOUBLE %s
+// CHECK-QFP-EVAL-METHOD-DOUBLE: "-ffp-eval-method=double"

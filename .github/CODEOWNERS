@@ -901,6 +901,7 @@ xptifw/ @intel-restricted/llvm-reviewers-runtime
 /compiler-rt/ @zhaomaosu @jinge90
 
 # JIRA: CMPLRLLVM->LLVM Profile Guided Optimization
+/compiler-rt/include/profile/ @robertcox-github @pvbattin
 /compiler-rt/lib/profile/ @robertcox-github @pvbattin
 /compiler-rt/test/profile/ @robertcox-github @pvbattin
 

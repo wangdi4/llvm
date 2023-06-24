@@ -414,14 +414,6 @@ private:
   // numbers.
   static bool isLexicalLastChildOfParent(const HLNode *Node);
 
-  /// Returns true if the lexical link have structured flow between Parent's
-  /// first/last child and Node. The direction is dictated by UpwardTraversal
-  /// flag. TargetNode is used for early termination of the traversal.
-  /// Structured flow checks are different for domination and post-domination.
-  static bool hasStructuredFlow(const HLNode *Parent, const HLNode *Node,
-                                const HLNode *TargetNode, bool PostDomination,
-                                bool UpwardTraversal, HIRLoopStatistics *HLS);
-
   /// Returns the outermost parent of Node1 which is safe to be used for
   /// checking domination. We move up through constant trip count loops. Last
   /// parent indicates the path used to reach to the parent.
@@ -1372,18 +1364,26 @@ public:
 
   /// Returns true if Node1 can be proven to dominate Node2, otherwise
   /// conservatively returns false.
+  /// NOTE: Implementation is dependent on HIRLoopStatistics so do not use in
+  /// the middle of the transformation or the results might be incorrect.
   static bool dominates(const HLNode *Node1, const HLNode *Node2);
 
   /// This is identical to dominates() except the case where Node1 == Node2, in
   /// which case it return false.
+  /// NOTE: Implementation is dependent on HIRLoopStatistics so do not use in
+  /// the middle of the transformation or the results might be incorrect.
   static bool strictlyDominates(const HLNode *Node1, const HLNode *Node2);
 
   /// Returns true if Node1 can be proven to post-dominate Node2, otherwise
   /// conservatively returns false.
+  /// NOTE: Implementation is dependent on HIRLoopStatistics so do not use in
+  /// the middle of the transformation or the results might be incorrect.
   static bool postDominates(const HLNode *Node1, const HLNode *Node2);
 
   /// This is identical to postDominates() except the case where Node1 == Node2,
   /// in which case it return false.
+  /// NOTE: Implementation is dependent on HIRLoopStatistics so do not use in
+  /// the middle of the transformation or the results might be incorrect.
   static bool strictlyPostDominates(const HLNode *Node1, const HLNode *Node2);
 
   /// Checks if \p Node1 and \p Node2 are "equivalent" in terms of CFG: namely

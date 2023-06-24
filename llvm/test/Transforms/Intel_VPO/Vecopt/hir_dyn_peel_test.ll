@@ -13,7 +13,7 @@ define void @foo(i64* %lp, i64 %n1) {
 ; CHECK-NEXT:    [[PEEL_CHECK_TC:peel.check.tc[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP2:%.*]] = add i64 [[VP1]] i64 1
 ; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
-; CHECK-NEXT:     [DA: Uni] i1 [[VP3:%.*]] = icmp ult i64 [[VP2]] i64 120
+; CHECK-NEXT:     [DA: Uni] i1 [[VP3:%.*]] = icmp ult i64 [[VP2]] i64 72
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP3]], [[MERGE_BLK0:merge.blk[0-9]+]], [[PEEL_CHECKZ0:peel.checkz[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[PEEL_CHECKZ0]]: # preds: [[PEEL_CHECK_TC]]
@@ -106,7 +106,7 @@ define void @foo(i64* %lp, i64 %n1) {
 ; CHECK-NEXT:  Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  BEGIN REGION { modified }
-; CHECK:             [[DOTVEC0:%.*]] = [[N10]] <u 120
+; CHECK:             [[DOTVEC0:%.*]] = [[N10]] <u 72
 ; CHECK:             [[PHI_TEMP0:%.*]] = 0
 ; CHECK:             [[EXTRACT_0_0:%.*]] = extractelement [[DOTVEC0]],  0
 ; CHECK:             if ([[EXTRACT_0_0]] == 1)

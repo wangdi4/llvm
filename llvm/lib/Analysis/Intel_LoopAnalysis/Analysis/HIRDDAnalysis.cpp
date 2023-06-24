@@ -115,7 +115,11 @@ HIRDDAnalysis HIRDDAnalysisPass::run(Function &F, FunctionAnalysisManager &AM) {
     AAR->addAAResult(*AAResult);
   }
 
-  return HIRDDAnalysis(AM.getResult<HIRFrameworkAnalysis>(F), AAR);
+  // Force instantiation of HIRLoopStatistics as it is needed by domination
+  // utility. This is a hack. Ideally, we should pass HLS to domination utility
+  // as an argument.
+  return HIRDDAnalysis(AM.getResult<HIRFrameworkAnalysis>(F),
+                       &AM.getResult<HIRLoopStatisticsAnalysis>(F), AAR);
 }
 
 char HIRDDAnalysisWrapperPass::ID = 0;
@@ -172,15 +176,17 @@ bool HIRDDAnalysisWrapperPass::runOnFunction(Function &F) {
     AAR->addAAResult(Pass->getResult());
   }
 
-  DDA.reset(
-      new HIRDDAnalysis(getAnalysis<HIRFrameworkWrapperPass>().getHIR(), AAR));
+  DDA.reset(new HIRDDAnalysis(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+                              nullptr, AAR));
 
   return false;
 }
 
 HIRDDAnalysis::HIRDDAnalysis(llvm::loopopt::HIRFramework &HIRF,
-                             llvm::AAResults *AAR)
-    : HIRAnalysis(HIRF), AAR(AAR) {}
+                             HIRLoopStatistics *HLS, llvm::AAResults *AAR)
+    : HIRAnalysis(HIRF), AAR(AAR) {
+  (void)HLS;
+}
 
 void HIRDDAnalysisWrapperPass::releaseMemory() { DDA.reset(); }
 

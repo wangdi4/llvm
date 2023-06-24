@@ -120,7 +120,7 @@ struct LoopStatistics::LoopOrRegionStatisticsVisitor final
 
   void visit(const HLLabel *Label) {
     if (SelfStats && !Label->isUnknownLoopHeaderLabel()) {
-      SelfStats->Labels.push_back(Label);
+      SelfStats->NumLabels++;
     }
   }
 
@@ -236,6 +236,15 @@ void LoopStatistics::print(formatted_raw_ostream &OS,
      << (HasCallsWithUnknownAliasing ? "yes\n" : "no\n");
 }
 
+void LoopStatistics::sortGotos() {
+  assert(getNumForwardGotos() > 1 && "More than 1 gotos expected!");
+
+  std::sort(ForwardGotos.begin(), ForwardGotos.end(),
+            [](const HLGoto *A, const HLGoto *B) -> bool {
+              return A->getTopSortNum() < B->getTopSortNum();
+            });
+}
+
 const LoopStatistics &
 HIRLoopStatistics::getSelfStatisticsImpl(const HLNode *Node) {
   assert(isa<HLLoop>(Node) ||
@@ -294,8 +303,17 @@ HIRLoopStatistics::getTotalStatisticsImpl(const HLNode *Node) {
   // invoke it using empty SelfStats.
   auto SelfPair = SelfStatisticsMap.insert(std::make_pair(Node, SelfStats));
 
-  // TODO: sort gotos/labels in top-sort num order here, if necessary.
-  TotalStats += SelfPair.first->second;
+  auto &UpdatedSelfStats = SelfPair.first->second;
+
+  // If both self and children stats (currently in TotalStats) have gotos, they
+  // will not be arranged in lexical order so we need sorting.
+  bool SortGotos =
+      TotalStats.hasForwardGotos() && UpdatedSelfStats.hasForwardGotos();
+  TotalStats += UpdatedSelfStats;
+
+  if (SortGotos) {
+    TotalStats.sortGotos();
+  }
 
   auto TotalPair = TotalStatisticsMap.insert(std::make_pair(Node, TotalStats));
 
