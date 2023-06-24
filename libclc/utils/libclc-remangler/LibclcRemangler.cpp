@@ -470,12 +470,7 @@ private:
     auto *FTD = FunctionTemplateDecl::Create(*AST, FD->getDeclContext(),
                                              SourceLocation(),
                                              DeclarationName(), TPL, FD);
-<<<<<<< HEAD
-    auto TAArr =
-        ArrayRef(TemplateArguments.begin(), TemplateArguments.size());
-=======
     auto TAArr = ArrayRef(TemplateArguments.begin(), TemplateArguments.size());
->>>>>>> d8f6a6ac3ddbb09e82ebb051f6ebdc9b81882f9b
     auto *TAL = TemplateArgumentList::CreateCopy(*AST, TAArr);
     FDSpecialization->setTemplateParameterListsInfo(*AST, TPL);
     FDSpecialization->setFunctionTemplateSpecialization(
