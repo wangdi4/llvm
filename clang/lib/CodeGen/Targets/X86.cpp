@@ -66,6 +66,92 @@ static bool isX86VectorTypeForVectorCall(ASTContext &Context, QualType Ty) {
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+// When an integer type appears in argument of an SVML function, it might be:
+//   a) An AVX512 mask (since the __mmask types are defined as aliases to
+//      integer types in headers), we need to convert it to <n x i1> type and
+//      pass in k registers.
+//   b) Part of input data (e.g. for div1), in this case we want to pass it
+//      directly in a GPR.
+// This function is used to distinguish the two cases for ArgType. Returns true
+// if it's a mask.
+static bool isSVMLIntArgumentMask(ASTContext &Context, QualType ArgType,
+                                  QualType ReturnType) {
+  // ArgType is a mask if ArgType is an unsigned integer and the function is a
+  // vector function, which can be checked by whether the return type is a
+  // scalar type.
+  const BuiltinType *BT = ArgType->getAs<BuiltinType>();
+  if (!BT || !BT->isUnsignedInteger())
+    return false;
+  if (ReturnType->isVectorType())
+    return true;
+  if (const RecordType *RT = ReturnType->getAs<RecordType>()) {
+    const RecordDecl *RD = RT->getDecl();
+    for (const FieldDecl *Field : RD->fields())
+      if (Field->getType()->isVectorType())
+        return true;
+  }
+  return false;
+}
+
+// This recursive function contains the actual implementation of
+// isSVMLStructure(), which wraps this function to initialize \p Base and
+// \p NumValues to default values. It should not be called by other users.
+static bool isSVMLStructureInner(const ASTContext &Context, QualType Ty,
+                                 const Type *&Base, uint64_t &NumValues) {
+  if (!Ty->isStructureOrClassType())
+    return false;
+  const RecordDecl *RD = Ty->getAs<RecordType>()->getDecl();
+  if (RD->field_empty())
+    return false;
+  for (const FieldDecl *Field : RD->fields()) {
+    QualType T = Field->getType();
+    if (T->isVectorType() || T->isRealFloatingType() || T->isIntegerType()) {
+      if (Base == nullptr)
+        Base = T.getTypePtr();
+      if (Base != T.getTypePtr())
+        return false;
+      ++NumValues;
+    } else if (!(T->isStructureType() &&
+                 isSVMLStructureInner(Context, T, Base, NumValues))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Determine whether a struct type appearing in function argument or return
+// value is a legit SVML struct (that is, can be passed in registers in the SVML
+// calling convention).
+// In such structs, all fields should have the same type, and it should be a
+// integer, floating-point or vector type. SVML structs can be nested but their
+// leaf fields must be of the same type. The type of the fields is returned in
+// Base, and the number of fields is returned in NumValues.
+// This differs from HVA in that we don't define different sets of eligible base
+// types for different ABIs, and integers are also eligible.
+static bool isSVMLStructure(const ASTContext &Context, QualType Ty,
+                            const Type *&Base, uint64_t &NumValues) {
+  Base = nullptr;
+  NumValues = 0;
+  return isSVMLStructureInner(Context, Ty, Base, NumValues);
+}
+
+// Handle classification of struct arguments/return value for an SVML function.
+// \p FreeSSERegs is modified accordingly. \p Base and \p NumElts should be
+// computed by isSVMLStructure() based on the type of the value to be
+// classified. \p IsReturn needs to be set to true for return values, and false
+// for arguments.
+static ABIArgInfo classifySVMLStructure(const Type *Base, uint64_t NumElts,
+                                        unsigned &FreeSSERegs, bool IsReturn) {
+  bool UseSSERegs = Base->isRealFloatingType() || Base->isVectorType();
+  assert((!UseSSERegs || FreeSSERegs >= NumElts) &&
+         "Too many fields in SVML structure");
+  if (UseSSERegs)
+    FreeSSERegs -= NumElts;
+  return IsReturn ? ABIArgInfo::getDirect() : ABIArgInfo::getExpand();
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Returns true if this aggregate is small enough to be passed in SSE registers
 /// in the X86_VectorCall calling convention. Shared between x86_32 and x86_64.
 static bool isX86VectorCallAggregateSmallEnough(uint64_t NumMembers) {
@@ -1012,8 +1098,6 @@ void X86_32ABIInfo::computeInfo(CGFunctionInfo &FI) const {
       continue;
 
     Args[I].info = classifyArgumentType(Args[I].type, State);
-    UsedInAlloca |= (Args[I].info.getKind() == ABIArgInfo::InAlloca);
-  }
 
 #if INTEL_CUSTOMIZATION
     if (IsSVMLCall &&
@@ -1031,6 +1115,8 @@ void X86_32ABIInfo::computeInfo(CGFunctionInfo &FI) const {
     }
 #endif // INTEL_CUSTOMIZATION
 
+    UsedInAlloca |= (Args[I].info.getKind() == ABIArgInfo::InAlloca);
+  }
 
   // If we needed to use inalloca for any argument, do a second pass and rewrite
   // all the memory arguments to use inalloca.
@@ -3458,93 +3544,12 @@ ABIArgInfo WinX86_64ABIInfo::classify(QualType Ty, unsigned &FreeSSERegs,
 
   return ABIArgInfo::getDirect();
 }
-#if INTEL_CUSTOMIZATION
-// When an integer type appears in argument of an SVML function, it might be:
-//   a) An AVX512 mask (since the __mmask types are defined as aliases to
-//      integer types in headers), we need to convert it to <n x i1> type and
-//      pass in k registers.
-//   b) Part of input data (e.g. for div1), in this case we want to pass it
-//      directly in a GPR.
-// This function is used to distinguish the two cases for ArgType. Returns true
-// if it's a mask.
-static bool isSVMLIntArgumentMask(ASTContext &Context, QualType ArgType,
-                                  QualType ReturnType) {
-  // ArgType is a mask if ArgType is an unsigned integer and the function is a
-  // vector function, which can be checked by whether the return type is a
-  // scalar type.
-  const BuiltinType *BT = ArgType->getAs<BuiltinType>();
-  if (!BT || !BT->isUnsignedInteger())
-    return false;
-  if (ReturnType->isVectorType())
-    return true;
-  if (const RecordType *RT = ReturnType->getAs<RecordType>()) {
-    const RecordDecl *RD = RT->getDecl();
-    for (const FieldDecl *Field : RD->fields())
-      if (Field->getType()->isVectorType())
-        return true;
-  }
-  return false;
-}
-
-// This recursive function contains the actual implementation of
-// isSVMLStructure(), which wraps this function to initialize \p Base and
-// \p NumValues to default values. It should not be called by other users.
-static bool isSVMLStructureInner(const ASTContext &Context, QualType Ty,
-                                 const Type *&Base, uint64_t &NumValues) {
-  if (!Ty->isStructureOrClassType())
-    return false;
-  const RecordDecl *RD = Ty->getAs<RecordType>()->getDecl();
-  if (RD->field_empty())
-    return false;
-  for (const FieldDecl *Field : RD->fields()) {
-    QualType T = Field->getType();
-    if (T->isVectorType() || T->isRealFloatingType() || T->isIntegerType()) {
-      if (Base == nullptr)
-        Base = T.getTypePtr();
-      if (Base != T.getTypePtr())
-        return false;
-      ++NumValues;
-    } else if (!(T->isStructureType() &&
-                 isSVMLStructureInner(Context, T, Base, NumValues))) {
-      return false;
-    }
-  }
-  return true;
-}
-
-// Determine whether a struct type appearing in function argument or return
-// value is a legit SVML struct (that is, can be passed in registers in the SVML
-// calling convention).
-// In such structs, all fields should have the same type, and it should be a
-// integer, floating-point or vector type. SVML structs can be nested but their
-// leaf fields must be of the same type. The type of the fields is returned in
-// Base, and the number of fields is returned in NumValues.
-// This differs from HVA in that we don't define different sets of eligible base
-// types for different ABIs, and integers are also eligible.
-static bool isSVMLStructure(const ASTContext &Context, QualType Ty,
-                            const Type *&Base, uint64_t &NumValues) {
-  Base = nullptr;
-  NumValues = 0;
-  return isSVMLStructureInner(Context, Ty, Base, NumValues);
-}
-
-// Handle classification of struct arguments/return value for an SVML function.
-// \p FreeSSERegs is modified accordingly. \p Base and \p NumElts should be
-// computed by isSVMLStructure() based on the type of the value to be
-// classified. \p IsReturn needs to be set to true for return values, and false
-// for arguments.
-static ABIArgInfo classifySVMLStructure(const Type *Base, uint64_t NumElts,
-                                        unsigned &FreeSSERegs, bool IsReturn) {
-  bool UseSSERegs = Base->isRealFloatingType() || Base->isVectorType();
-  assert((!UseSSERegs || FreeSSERegs >= NumElts) &&
-         "Too many fields in SVML structure");
-  if (UseSSERegs)
-    FreeSSERegs -= NumElts;
-  return IsReturn ? ABIArgInfo::getDirect() : ABIArgInfo::getExpand();
-}
-#endif // INTEL_CUSTOMIZATION
 
 void WinX86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
+  ASTContext &Context = getContext();
+  if (doOpenCLClassification(FI, Context))
+    return;
+
   const unsigned CC = FI.getCallingConvention();
   bool IsVectorCall = CC == llvm::CallingConv::X86_VectorCall;
   bool IsRegCall = CC == llvm::CallingConv::X86_RegCall;
