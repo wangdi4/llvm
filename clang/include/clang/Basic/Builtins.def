@@ -539,6 +539,7 @@ BUILTIN(__builtin_isinf,      "i.", "FnctE")
 BUILTIN(__builtin_isinf_sign, "i.", "FnctE")
 BUILTIN(__builtin_isnan,      "i.", "FnctE")
 BUILTIN(__builtin_isnormal,   "i.", "FnctE")
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 BUILTIN(__builtin_isnanf,      "if", "Fnc")
 BUILTIN(__builtin_isnanl,      "iLd", "Fnc")
@@ -548,6 +549,9 @@ BUILTIN(__builtin_finite,   "i.", "Fnct")
 BUILTIN(__builtin_finitef,   "if", "Fnc")
 BUILTIN(__builtin_finitel,   "iLd", "Fnc")
 #endif // INTEL_CUSTOMIZATION
+=======
+BUILTIN(__builtin_isfpclass,  "i.", "nctE")
+>>>>>>> 7dd387d2971d7759cadfffeb2082439f6c7ddd49
 
 // FP signbit builtins
 BUILTIN(__builtin_signbit, "i.", "Fnct")
