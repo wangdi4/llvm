@@ -2234,7 +2234,6 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     if (SemaBuiltinFPClassification(TheCall, 6))
       return ExprError();
     break;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_va_arg_pack_len:
   case Builtin::BI__builtin_va_arg_pack:
@@ -2282,12 +2281,10 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
   case Builtin::BI__builtin_finitef:
   case Builtin::BI__builtin_finitel:
 #endif  // INTEL_CUSTOMIZATION
-=======
   case Builtin::BI__builtin_isfpclass:
     if (SemaBuiltinFPClassification(TheCall, 2))
       return ExprError();
     break;
->>>>>>> 7dd387d2971d7759cadfffeb2082439f6c7ddd49
   case Builtin::BI__builtin_isfinite:
   case Builtin::BI__builtin_isinf:
   case Builtin::BI__builtin_isinf_sign:
