@@ -903,11 +903,16 @@ class X86LowerAMXCast {
   std::unique_ptr<DominatorTree> DT;
 
 public:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   X86LowerAMXCast(Function &F, ShapeCalculator *ShapeC)
     : Func(F), SC(ShapeC), DT(nullptr) {}
 #endif // INTEL_CUSTOMIZATION
   bool combineCastStore(IntrinsicInst *Cast, StoreInst *ST); // INTEL
+=======
+  X86LowerAMXCast(Function &F) : Func(F), DT(nullptr) {}
+  bool combineCastStore(IntrinsicInst *Cast, StoreInst *ST);
+>>>>>>> 7faed5c49ca1809e07601894435e243e91ea8808
   bool combineLoadCast(IntrinsicInst *Cast, LoadInst *LD);
   bool combineLdSt(SmallVectorImpl<Instruction *> &Casts);
   bool combineAMXcast(TargetLibraryInfo *TLI);
@@ -1138,6 +1143,7 @@ static Value *getShapeFromAMXIntrinsic(Value *Inst, unsigned ShapeIdx,
 //                                           i64 64, x86_amx %42)
 bool X86LowerAMXCast::combineCastStore(IntrinsicInst *Cast, StoreInst *ST) {
   Value *Tile = Cast->getOperand(0);
+<<<<<<< HEAD
 
   assert(Tile->getType()->isX86_AMXTy() && "Not Tile Operand!");
 
@@ -1147,6 +1153,17 @@ bool X86LowerAMXCast::combineCastStore(IntrinsicInst *Cast, StoreInst *ST) {
 
   // We don't fetch shape from tilestore, we only get shape from tiledef,
   // so we can set the max tile shape to tilestore for special cases.
+=======
+  // TODO: If it is cast intrinsic or phi node, we can propagate the
+  // shape information through def-use chain.
+  if (!isAMXIntrinsic(Tile))
+    return false;
+  auto *II = cast<IntrinsicInst>(Tile);
+  // Tile is output from AMX intrinsic. The first operand of the
+  // intrinsic is row, the second operand of the intrinsic is column.
+  Value *Row = II->getOperand(0);
+  Value *Col = II->getOperand(1);
+>>>>>>> 7faed5c49ca1809e07601894435e243e91ea8808
   IRBuilder<> Builder(ST);
   Value *Row = nullptr;
   Value *Col = nullptr;
@@ -1189,7 +1206,11 @@ bool X86LowerAMXCast::combineCastStore(IntrinsicInst *Cast, StoreInst *ST) {
   std::array<Value *, 5> Args = {Row, Col, I8Ptr, Stride, Tile};
   Builder.CreateIntrinsic(Intrinsic::x86_tilestored64_internal, std::nullopt,
                           Args);
+<<<<<<< HEAD
   return true; // INTEL
+=======
+  return true;
+>>>>>>> 7faed5c49ca1809e07601894435e243e91ea8808
 }
 
 // %65 = load <256 x i32>, <256 x i32>* %p, align 64
@@ -1254,12 +1275,18 @@ bool X86LowerAMXCast::combineLdSt(SmallVectorImpl<Instruction *> &Casts) {
         StoreInst *Store = dyn_cast<StoreInst>(U);
         if (!Store)
           continue;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
+=======
+>>>>>>> 7faed5c49ca1809e07601894435e243e91ea8808
         if (combineCastStore(cast<IntrinsicInst>(Cast), Store)) {
           DeadStores.push_back(Store);
           Change = true;
         }
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 7faed5c49ca1809e07601894435e243e91ea8808
       }
       for (auto *Store : DeadStores)
         Store->eraseFromParent();
