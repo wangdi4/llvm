@@ -1106,6 +1106,11 @@ llvm::MDNode *DTransInfoGenerator::CreateVectorTypeMD(QualType ClangType,
     assert(VTy->getNumElements() == VT->getNumElements() &&
            "Mismatched vector type sizes");
     EltTy = VTy->getElementType();
+  } else if (const auto *ATy =
+                 CGM.getContext().getAsConstantArrayType(ClangType)) {
+    assert(ATy->getSize() == VT->getNumElements() &&
+           "Mismatched array-to-vector size");
+    EltTy = ATy->getElementType();
   } else {
     const auto *CplxTy = ClangType->castAs<ComplexType>();
     assert(VT->getNumElements() == 2 && "Mismatched complex type size");

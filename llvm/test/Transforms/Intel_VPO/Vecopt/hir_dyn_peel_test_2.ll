@@ -12,7 +12,7 @@ define void @foo(i64* %lp, i64 %n1, i64* %lp1, i64* %lp2) {
 ; CHECK-LABEL:  Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  BEGIN REGION { modified }
-; CHECK-NEXT:        [[DOTVEC0:%.*]] = [[N10:%.*]] <u 160
+; CHECK-NEXT:        [[DOTVEC0:%.*]] = [[N10:%.*]] <u 96
 ; CHECK-NEXT:        [[PHI_TEMP0:%.*]] = 0
 ; CHECK-NEXT:        [[EXTRACT_0_0:%.*]] = extractelement [[DOTVEC0]],  0
 ; CHECK-NEXT:        if ([[EXTRACT_0_0]] == 1)

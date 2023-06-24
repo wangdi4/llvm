@@ -297,7 +297,8 @@ public:
     assert(GetCacheEntryPtrFunc && "GetCacheEntryPtrFunc should be defined.");
     assert(CacheUpdateFunc && "CacheUpdateFunc should be defined.");
 
-    Twine FName = Twine(OrigFn->getName()) + ".proxy";
+    auto CachedFnSuffix = ".cached";
+    Twine FName = Twine(OrigFn->getName()) + CachedFnSuffix;
     Type *ArgTy = OrigFn->getArg(0)->getType();
     Type *RetTy = OrigFn->getReturnType();
     FunctionType *FTy = FunctionType::get(RetTy, {ArgTy, getPtrTy()}, false);
@@ -329,7 +330,7 @@ public:
 
     SetInsertPoint(GetCacheValBB);
     auto CachedValPtr = CreateStructGEP(CacheTy, EntryPtr, 1, "val.ptr");
-    auto *CachedVal = CreateLoad(ArgTy, CachedValPtr, "cached.val");
+    auto *CachedVal = CreateLoad(RetTy, CachedValPtr, "cached.val");
     CreateRet(CachedVal);
 
     // Clone original function to calculate result value since
@@ -344,8 +345,8 @@ public:
     Function::iterator FirstNewBB = LastBB;
     ++FirstNewBB;
 
-    // Find recursive call sites of original function cloned into proxy function
-    // code.
+    // Find recursive call sites of original function cloned into cached
+    // function code.
     SmallVector<CallBase *, 8> InlinedRecursiveCallSites;
     for (auto BB = FirstNewBB, E = F->end(); BB != E; BB++) {
       for (auto &I : *BB) {
@@ -355,10 +356,11 @@ public:
       }
     }
 
-    // Replace calls of original function by calls to the proxy
+    // Replace calls of original function by calls to the cached function
     for (auto *CB : InlinedRecursiveCallSites) {
       SetInsertPoint(CB);
-      Twine NewName = CB->hasName() ? Twine{CB->getName()} + ".proxy" : "";
+      Twine NewName =
+          CB->hasName() ? Twine{CB->getName()} + CachedFnSuffix : "";
       SmallVector<Value *, 8> NewArgs{CB->args()};
       NewArgs.push_back(Cache);
       auto *NewCall = CreateCall(F, NewArgs, NewName);
@@ -366,7 +368,7 @@ public:
       CB->eraseFromParent();
     }
 
-    // Link cloned function with "proxy" function code
+    // Link cloned function with "cached" function code
     auto *ClonedEntryBB = cast<BasicBlock>(VMap[&OrigFn->getEntryBlock()]);
     ClonedEntryBB->setName(Twine("entry.") + OrigFn->getName());
     SetInsertPoint(CalcValBB);

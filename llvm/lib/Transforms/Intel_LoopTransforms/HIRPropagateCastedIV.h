@@ -30,7 +30,8 @@ class HIRPropagateCastedIV {
   HIRFramework &HIRF;
 
 public:
-  HIRPropagateCastedIV(HIRFramework &HIRF) : HIRF(HIRF) {}
+  HIRPropagateCastedIV(HIRFramework &HIRF, HIRLoopStatistics *HLS)
+      : HIRF(HIRF) {}
 
   bool run();
 

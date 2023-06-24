@@ -52,6 +52,9 @@
 ; CHECK:        [DA: Uni] br BB21
 ; CHECK:      [DA: Uni] call ptr [[VP5]] ptr @llvm.stackrestore
 
+; LLVMIR-NOT: DominatorTree is different than a freshly computed one!
+; LLVMIR-NOT: PostDominatorTree is different than a freshly computed one!
+
 ; LLVMIR-LABEL: DIR.OMP.SIMD.2:
 ; LLVMIR-NEXT:   %"sum_$J.linear.iv" = alloca i32, align 4
 ; LLVMIR-NEXT:   %"sum_$C1.priv" = alloca %"QNCA_a0$i32*$rank1$", align 8

@@ -13,7 +13,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; RUN:     -vplan-force-dyn-alignment -vplan-calc-min-profitable-dyn-peel-tc \
 ; RUN:     -vplan-print-after-cfg-merge \
 ; RUN:     -debug-only=LoopVectorizationPlanner,LoopVectorizationPlanner_peel_tc 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK,LLVM,SCA-PEEL
+; RUN:     | FileCheck %s --check-prefixes=CHECK,LLVM,SCA-PEEL -DTHRESHOLD=186
 
 ; RUN: opt < %s -disable-output -passes=hir-ssa-deconstruction,hir-vplan-vec \
 ; RUN:     -vplan-force-vf=8 -vplan-force-uf=1 -mattr=+avx512f \
@@ -21,7 +21,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; RUN:     -vplan-force-dyn-alignment -vplan-calc-min-profitable-dyn-peel-tc \
 ; RUN:     -vplan-print-after-cfg-merge \
 ; RUN:     -debug-only=LoopVectorizationPlanner,LoopVectorizationPlanner_peel_tc 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK,HIR,SCA-PEEL
+; RUN:     | FileCheck %s --check-prefixes=CHECK,HIR,SCA-PEEL -DTHRESHOLD=186
 
 ; RUN: opt < %s -disable-output -passes=vplan-vec \
 ; RUN:     -vplan-force-vf=8 -vplan-force-uf=1 -mattr=+avx512f \
@@ -29,7 +29,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; RUN:     -vplan-force-dyn-alignment -vplan-calc-min-profitable-dyn-peel-tc \
 ; RUN:     -vplan-print-after-cfg-merge \
 ; RUN:     -debug-only=LoopVectorizationPlanner,LoopVectorizationPlanner_peel_tc 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK,LLVM,VEC-PEEL
+; RUN:     | FileCheck %s --check-prefixes=CHECK,LLVM,VEC-PEEL -DTHRESHOLD=58
 
 ; RUN: opt < %s -disable-output -passes=hir-ssa-deconstruction,hir-vplan-vec \
 ; RUN:     -vplan-force-vf=8 -vplan-force-uf=1 -mattr=+avx512f \
@@ -37,7 +37,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; RUN:     -vplan-force-dyn-alignment -vplan-calc-min-profitable-dyn-peel-tc \
 ; RUN:     -vplan-print-after-cfg-merge \
 ; RUN:     -debug-only=LoopVectorizationPlanner,LoopVectorizationPlanner_peel_tc 2>&1 \
-; RUN:     | FileCheck %s --check-prefixes=CHECK,HIR,VEC-PEEL
+; RUN:     | FileCheck %s --check-prefixes=CHECK,HIR,VEC-PEEL -DTHRESHOLD=64
 
 define void @test(ptr %A, ptr %B, i64 %N) {
 ; LLVM-LABEL:  Selecting VF for VPlan test:for.body.#{{[0-9]+}}
@@ -46,14 +46,14 @@ define void @test(ptr %A, ptr %B, i64 %N) {
 ; SCA-PEEL:      Peel loop cost = {{[0-9]+}} (scalar peel loop)
 ; VEC-PEEL:      Peel loop cost = {{[0-9]+}} (masked vector peel loop)
 ; CHECK:         Peeling will be performed.
-; CHECK:         (VF = 8, UF = 1) min profitable peel tc = [[TC:[0-9]+]]
+; CHECK:         (VF = 8, UF = 1) min profitable peel tc = [[THRESHOLD]]
 ; CHECK:       Selecting VPlan with VF=8
 ; CHECK-LABEL: VPlan after CFG merge before CG:
 ; LLVM-NEXT:   VPlan IR for: test:for.body.#{{[0-9]+}}
 ; HIR-NEXT:    VPlan IR for: Initial VPlan for VF=8
 ; CHECK:         [[PEEL_CHECK_TC0:peel.check.tc[0-9]+]]: # preds:
 ; CHECK:           [DA: Uni] pushvf VF=8 UF=1
-; CHECK-NEXT:      [DA: Uni] i1 [[VP0:%.*]] = icmp ult i64 {{.*}} i64 [[TC]]
+; CHECK-NEXT:      [DA: Uni] i1 [[VP0:%.*]] = icmp ult i64 {{.*}} i64 [[THRESHOLD]]
 ; CHECK-NEXT:      [DA: Uni] br i1 [[VP0]], [[MERGE_BLK0:merge.blk[0-9]+]], [[PEEL_CHECKZ0:peel.checkz[0-9]+]]
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

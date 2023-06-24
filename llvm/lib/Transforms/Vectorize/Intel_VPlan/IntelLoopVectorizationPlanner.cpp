@@ -410,17 +410,49 @@ static uint64_t calcMinProfitablePeelTC(VPInstructionCost PeelOverhead,
                                         unsigned MaxPeelTC, unsigned VF,
                                         unsigned UF) {
   const auto VFUF = VF * UF;
+
+  // This quantity represents the cost of alignment without taking into account
+  // the effect of the trip-count. Since a higher trip count always favors
+  // peeling, if this quantity isn't positive, it means that *any* scalar trip
+  // count for this loop will result in a gain when aligned.
   const float OverheadDiff = PeelOverhead.getFloatValue() +
                              AlignedOverhead.getFloatValue() -
                              UnalignedOverhead.getFloatValue();
+  if (OverheadDiff <= 0) {
+    DEBUG_WITH_TYPE(
+        "LoopVectorizationPlanner_peel_tc",
+        dbgs() << "Unaligned overhead is higher than peel + aligned overhead ("
+               << UnalignedOverhead << " > " << PeelOverhead << " + "
+               << AlignedOverhead << "): peeling is always profitable.\n");
+    return 0;
+  }
 
-  const float Numerator = (float)VFUF * OverheadDiff +
+  // This quantity represents the cost of alignment, minus the expected gain
+  // from skipping an iteration of the main loop. If this value isn't positive,
+  // the result can't be positive either (since the denominator must be
+  // positive); same as above, peeling must be profitable regardless of TC.
+  const float Numerator = (float)VFUF * OverheadDiff -
                           AlignedMainCost.getFloatValue() * (float)MaxPeelTC;
+  if (Numerator <= 0) {
+    DEBUG_WITH_TYPE(
+        "LoopVectorizationPlanner_peel_tc",
+        dbgs() << "Numerator of computed peel threshold is not positive: "
+                  "peeling is always profitable.");
+    return 0;
+  }
+
+  // This quantity represents the expected gain from aligning the main loop.
+  // This should never be negative.
   const float Denominator =
       UnalignedMainCost.getFloatValue() - AlignedMainCost.getFloatValue();
   assert(Denominator > 0 && "Unaligned loop costs less than aligned loop?");
+  if (Denominator <= 0)
+    return 0;
+
+  // If the numerator and denominator are both positive, it should be impossible
+  // for their quotient (the computed threshold) to be negative.
   assert(Numerator / Denominator > 0 && "Computed TC is somehow negative?");
-  if (Denominator <= 0 || Numerator / Denominator <= 0)
+  if (Numerator / Denominator <= 0)
     return 0;
 
   const auto ProfitableTC = (uint64_t)(Numerator / Denominator);

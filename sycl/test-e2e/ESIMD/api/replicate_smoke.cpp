@@ -178,7 +178,7 @@ template <class T> bool test(queue q) {
       });
   return passed;
 }
-
+#ifndef SKIP_MAIN
 int main(int argc, char **argv) {
   queue q(esimd_test::ESIMDSelector, esimd_test::createExceptionHandler());
   auto dev = q.get_device();
@@ -204,3 +204,4 @@ int main(int argc, char **argv) {
   std::cout << (passed ? "Test passed\n" : "Test FAILED\n");
   return passed ? 0 : 1;
 }
+#endif
