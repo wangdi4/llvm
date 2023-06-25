@@ -617,10 +617,6 @@ void OptimizerLTO::addBarrierPasses(ModulePassManager &MPM,
       FPM.addPass(SimplifyCFGPass());
       FPM.addPass(PromotePass());
     }
-    FPM.addPass(PhiCanonicalization());
-    if (Level != OptimizationLevel::O0) {
-      FPM.addPass(RedundantPhiNode());
-    }
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
   }
 
