@@ -3056,7 +3056,7 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
 
   if (auto MainFile = SM.getFileEntryRefForID(SM.getMainFileID())) {
     ArgFileLine = "/I\"";
-    ArgFileLine += MainFile->getDir()->getName();
+    ArgFileLine += MainFile->getDir().getName();
     ArgFileLine += "\"";
     AddLineToTempFile(ArgFile, ArgFileLine, TFT_argument);
   }
