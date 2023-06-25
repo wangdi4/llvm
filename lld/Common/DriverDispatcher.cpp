@@ -32,9 +32,13 @@ static void err(const Twine &s) { llvm::errs() << s << "\n"; }
 static Flavor getFlavor(StringRef s) {
   return StringSwitch<Flavor>(s)
       .CasesLower("ld", "ld.lld", "gnu", Gnu)
+#if !INTEL_CUSTOMIZATION
       .CasesLower("wasm", "ld-wasm", Wasm)
+#endif // !INTEL_CUSTOMIZATION
       .CaseLower("link", WinLink)
+#if !INTEL_CUSTOMIZATION
       .CasesLower("ld64", "ld64.lld", "darwin", Darwin)
+#endif // !INTEL_CUSTOMIZATION
       .Default(Invalid);
 }
 
@@ -117,9 +121,14 @@ parseFlavorWithoutMinGW(llvm::SmallVectorImpl<const char *> &argsV) {
     arg0 = arg0.drop_back(4);
   Flavor f = parseProgname(arg0);
   if (f == Invalid) {
+#if INTEL_CUSTOMIZATION
+    err("lld is a generic driver.\n"
+        "Invoke ld.lld (Unix), lld-link (Windows), instead");
+#else
     err("lld is a generic driver.\n"
         "Invoke ld.lld (Unix), ld64.lld (macOS), lld-link (Windows), wasm-ld"
         " (WebAssembly) instead");
+#endif
     return Invalid;
   }
   return f;
@@ -132,7 +141,14 @@ static Flavor parseFlavor(llvm::SmallVectorImpl<const char *> &argsV) {
     if (!isPE)
       return Invalid;
     if (*isPE)
+#if INTEL_CUSTOMIZATION
+    {
+      err("Unsupported PE target");
+      return Invalid;
+    }
+#else // INTEL_CUSTOMIZATION
       return MinGW;
+#endif // INTEL_CUSTOMIZATION
   }
   return f;
 }

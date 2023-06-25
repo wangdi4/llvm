@@ -31,7 +31,9 @@ TEST(AsLib, SomeDrivers) {
   EXPECT_TRUE(lldInvoke("ld.lld")); // ELF
 #endif
   // These drivers are not linked in this unit test.
+#if !INTEL_CUSTOMIZATION
   EXPECT_FALSE(lldInvoke("ld64.lld")); // Mach-O
   EXPECT_FALSE(lldInvoke("lld-link")); // COFF
   EXPECT_FALSE(lldInvoke("wasm-ld"));  // Wasm
+#endif
 }
