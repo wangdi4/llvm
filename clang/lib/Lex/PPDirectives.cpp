@@ -3054,7 +3054,7 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
   SourceManager &SM = getSourceManager();
   SmallString<256> ArgFileLine;
 
-  if (const FileEntry *MainFile = SM.getFileEntryForID(SM.getMainFileID())) {
+  if (auto MainFile = SM.getFileEntryRefForID(SM.getMainFileID())) {
     ArgFileLine = "/I\"";
     ArgFileLine += MainFile->getDir()->getName();
     ArgFileLine += "\"";
