@@ -1148,7 +1148,6 @@ bool X86LowerAMXCast::combineCastStore(IntrinsicInst *Cast, StoreInst *ST) {
   // We don't fetch shape from tilestore, we only get shape from tiledef,
   // so we can set the max tile shape to tilestore for special cases.
   IRBuilder<> Builder(ST);
-<<<<<<< HEAD
   Value *Row = nullptr;
   Value *Col = nullptr;
 
@@ -1182,13 +1181,8 @@ bool X86LowerAMXCast::combineCastStore(IntrinsicInst *Cast, StoreInst *ST) {
   assert(Row && Col && "Shape got failed!");
 #endif // INTEL_CUSTOMIZATION
 
-  // Use the maximum column as stride. It must be the same with load
-  // stride.
-  Value *Stride = Builder.getInt64(64);
-=======
   // Stride should be equal to col(measured by bytes)
   Value *Stride = Builder.CreateSExt(Col, Builder.getInt64Ty());
->>>>>>> 516e32678d87fea013aa972444b987d95eaef8aa
   Value *I8Ptr =
       Builder.CreateBitCast(ST->getOperand(1), Builder.getInt8PtrTy());
   std::array<Value *, 5> Args = {Row, Col, I8Ptr, Stride, Tile};
