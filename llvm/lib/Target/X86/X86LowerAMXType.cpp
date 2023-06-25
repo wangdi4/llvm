@@ -907,7 +907,7 @@ public:
   X86LowerAMXCast(Function &F, ShapeCalculator *ShapeC)
     : Func(F), SC(ShapeC), DT(nullptr) {}
 #endif // INTEL_CUSTOMIZATION
-  bool combineCastStore(IntrinsicInst *Cast, StoreInst *ST); // INTEL
+  bool combineCastStore(IntrinsicInst *Cast, StoreInst *ST);
   bool combineLoadCast(IntrinsicInst *Cast, LoadInst *LD);
   bool combineLdSt(SmallVectorImpl<Instruction *> &Casts);
   bool combineAMXcast(TargetLibraryInfo *TLI);
@@ -1189,7 +1189,7 @@ bool X86LowerAMXCast::combineCastStore(IntrinsicInst *Cast, StoreInst *ST) {
   std::array<Value *, 5> Args = {Row, Col, I8Ptr, Stride, Tile};
   Builder.CreateIntrinsic(Intrinsic::x86_tilestored64_internal, std::nullopt,
                           Args);
-  return true; // INTEL
+  return true;
 }
 
 // %65 = load <256 x i32>, <256 x i32>* %p, align 64
@@ -1254,12 +1254,10 @@ bool X86LowerAMXCast::combineLdSt(SmallVectorImpl<Instruction *> &Casts) {
         StoreInst *Store = dyn_cast<StoreInst>(U);
         if (!Store)
           continue;
-#if INTEL_CUSTOMIZATION
         if (combineCastStore(cast<IntrinsicInst>(Cast), Store)) {
           DeadStores.push_back(Store);
           Change = true;
         }
-#endif // INTEL_CUSTOMIZATION
       }
       for (auto *Store : DeadStores)
         Store->eraseFromParent();
