@@ -1455,7 +1455,7 @@ void SCCPInstVisitor::visitFreezeInst(FreezeInst &I) {
   Value *Op = I.getOperand(0);
 
   // Let the community code below handle constant V0State.
-  if (IsSelectOrPHIOfSelectInst(Op) && !getConstant(V0State)) {
+  if (IsSelectOrPHIOfSelectInst(Op) && !getConstant(V0State,I.getType())) {
     ConstantRange OpRange =
         V0State.isConstantRange()
             ? V0State.getConstantRange()
