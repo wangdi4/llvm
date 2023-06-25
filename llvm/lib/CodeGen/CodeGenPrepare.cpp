@@ -444,14 +444,10 @@ private:
 
   void removeAllAssertingVHReferences(Value *V);
   bool eliminateAssumptions(Function &F);
-<<<<<<< HEAD
 #if INTEL_COLLAB
   bool hoistCatchPadAlloca(Function &F);
 #endif // INTEL_COLLAB
-  bool eliminateFallThrough(Function &F);
-=======
   bool eliminateFallThrough(Function &F, DominatorTree *DT = nullptr);
->>>>>>> be7c859b02306338d829a2f43ab72a6ee7e2faf9
   bool eliminateMostlyEmptyBlocks(Function &F);
   BasicBlock *findDestBlockOfMergeableEmptyBlock(BasicBlock *BB);
   bool canMergeBlocks(const BasicBlock *BB, const BasicBlock *DestBB) const;
