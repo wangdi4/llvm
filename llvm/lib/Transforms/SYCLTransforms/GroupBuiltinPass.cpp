@@ -582,7 +582,9 @@ bool GroupBuiltinPass::runImpl(Module &M, RuntimeService &RTS) {
     // Get the new function declaration out of built-in module list.
     Function *LibFunc = RTS.findFunctionInBuiltinModules(newFuncName);
     assert(LibFunc && "WG builtin is not supported in built-in module");
-    Function *NewFunc = importFunctionDecl(this->M, LibFunc);
+    auto FC = this->M->getOrInsertFunction(
+        newFuncName, LibFunc->getFunctionType(), LibFunc->getAttributes());
+    Function *NewFunc = cast<Function>(FC.getCallee());
     assert(NewFunc && "Non-function object with the same signature "
                       "identified in the module");
 
@@ -620,7 +622,10 @@ bool GroupBuiltinPass::runImpl(Module &M, RuntimeService &RTS) {
       // Get the new function declaration out of built-in modules list.
       Function *LibFunc = RTS.findFunctionInBuiltinModules(FinalizeFuncName);
       assert(LibFunc && "WG builtin is not supported in built-in module");
-      Function *FinalizeFunc = importFunctionDecl(this->M, LibFunc);
+      auto FC = this->M->getOrInsertFunction(FinalizeFuncName,
+                                             LibFunc->getFunctionType(),
+                                             LibFunc->getAttributes());
+      Function *FinalizeFunc = cast<Function>(FC.getCallee());
       assert(FinalizeFunc && "Non-function object with the same signature "
                              "identified in the module");
 
