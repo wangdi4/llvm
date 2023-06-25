@@ -5190,16 +5190,16 @@ void VPOParoptTransform::genCopyByAddr(Item *I, Value *To, Value *From,
   if (Cctor) {
     genPrivatizationInitOrFini(I, Cctor, FK_CopyCtor, To, From, InsertPt, DT);
   } else if (AI && AI->isArrayAllocation()) {
-    unsigned Alignment = DL.getABITypeAlignment(ObjType);
+    unsigned Alignment = DL.getABITypeAlign(ObjType).value();
     uint64_t Size = DL.getTypeAllocSize(ObjType);
     NumElements = AI->getArraySize();
     VPOUtils::genMemcpy(To, From, Size, NumElements, Alignment, Builder);
   } else if (NumElements) {
-    unsigned Alignment = DL.getABITypeAlignment(AllocaTy);
+    unsigned Alignment = DL.getABITypeAlign(AllocaTy).value();
     uint64_t Size = DL.getTypeAllocSize(AllocaTy);
     VPOUtils::genMemcpy(To, From, Size, NumElements, Alignment, Builder);
   } else if (!VPOUtils::canBeRegisterized(ObjType, DL)) {
-    unsigned Alignment = DL.getABITypeAlignment(ObjType);
+    unsigned Alignment = DL.getABITypeAlign(ObjType).value();
     uint64_t Size = DL.getTypeAllocSize(ObjType);
     NumElements = nullptr;
     VPOUtils::genMemcpy(To, From, Size, NumElements, Alignment, Builder);

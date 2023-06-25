@@ -2437,22 +2437,6 @@ CodeGenModule::getMostBaseClasses(const CXXRecordDecl *RD) {
   return MostBases.takeVector();
 }
 
-llvm::GlobalVariable *
-CodeGenModule::GetOrCreateRTTIProxyGlobalVariable(llvm::Constant *Addr) {
-  auto It = RTTIProxyMap.find(Addr);
-  if (It != RTTIProxyMap.end())
-    return It->second;
-
-  auto *FTRTTIProxy = new llvm::GlobalVariable(
-      TheModule, Addr->getType(),
-      /*isConstant=*/true, llvm::GlobalValue::PrivateLinkage, Addr,
-      "__llvm_rtti_proxy");
-  FTRTTIProxy->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
-
-  RTTIProxyMap[Addr] = FTRTTIProxy;
-  return FTRTTIProxy;
-}
-
 /// Function checks whether given DeclContext contains a topmost
 /// namespace with name "sycl"
 static bool checkIfDeclaredInSYCLNamespace(const Decl *D) {
@@ -2748,6 +2732,9 @@ bool CodeGenModule::GetCPUAndFeaturesAttributes(GlobalDecl GD,
     AddedAttr = true;
   }
   if (!Features.empty() && SetTargetFeatures) {
+    llvm::erase_if(Features, [&](const std::string& F) {
+       return getTarget().isReadOnlyFeature(F.substr(1));
+    });
     llvm::sort(Features);
     Attrs.addAttribute("target-features", llvm::join(Features, ","));
     AddedAttr = true;
@@ -8964,4 +8951,14 @@ void CodeGenModule::moveLazyEmissionStates(CodeGenModule *NewBuilder) {
   NewBuilder->EmittedDeferredDecls = std::move(EmittedDeferredDecls);
 
   NewBuilder->ABI->MangleCtx = std::move(ABI->MangleCtx);
+}
+
+void CodeGenModule::getFPAccuracyFuncAttributes(StringRef Name,
+                                                llvm::AttributeList &AttrList,
+                                                unsigned ID,
+                                                const llvm::Type *FuncType) {
+  llvm::AttrBuilder FuncAttrs(getLLVMContext());
+  getDefaultFunctionFPAccuracyAttributes(Name, FuncAttrs, ID, FuncType);
+  AttrList = llvm::AttributeList::get(
+      getLLVMContext(), llvm::AttributeList::FunctionIndex, FuncAttrs);
 }

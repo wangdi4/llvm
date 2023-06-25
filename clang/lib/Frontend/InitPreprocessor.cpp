@@ -607,8 +607,16 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
   if (LangOpts.HIP) {
     Builder.defineMacro("__HIP__");
     Builder.defineMacro("__HIPCC__");
-    if (LangOpts.CUDAIsDevice)
+    Builder.defineMacro("__HIP_MEMORY_SCOPE_SINGLETHREAD", "1");
+    Builder.defineMacro("__HIP_MEMORY_SCOPE_WAVEFRONT", "2");
+    Builder.defineMacro("__HIP_MEMORY_SCOPE_WORKGROUP", "3");
+    Builder.defineMacro("__HIP_MEMORY_SCOPE_AGENT", "4");
+    Builder.defineMacro("__HIP_MEMORY_SCOPE_SYSTEM", "5");
+    if (LangOpts.CUDAIsDevice) {
       Builder.defineMacro("__HIP_DEVICE_COMPILE__");
+      if (!TI.hasHIPImageSupport())
+        Builder.defineMacro("__HIP_NO_IMAGE_SUPPORT", "1");
+    }
     if (LangOpts.GPUDefaultStream ==
         LangOptions::GPUDefaultStreamKind::PerThread)
       Builder.defineMacro("HIP_API_PER_THREAD_DEFAULT_STREAM");
@@ -714,7 +722,7 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
     // Refer to the discussion of this at https://reviews.llvm.org/D128619.
     Builder.defineMacro("__cpp_concepts", "201907L");
     Builder.defineMacro("__cpp_conditional_explicit", "201806L");
-    // Builder.defineMacro("__cpp_consteval", "202211L");
+    Builder.defineMacro("__cpp_consteval", "202211L");
     Builder.defineMacro("__cpp_constexpr_dynamic_alloc", "201907L");
     Builder.defineMacro("__cpp_constinit", "201907L");
     Builder.defineMacro("__cpp_impl_coroutine", "201902L");
@@ -1316,16 +1324,15 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     case 45:
       Builder.defineMacro("_OPENMP", "201511");
       break;
-    case 51:
-      Builder.defineMacro("_OPENMP", "202011");
+    case 50:
+      Builder.defineMacro("_OPENMP", "201811");
       break;
     case 52:
       Builder.defineMacro("_OPENMP", "202111");
       break;
-    case 50:
-    default:
-      // Default version is OpenMP 5.0
-      Builder.defineMacro("_OPENMP", "201811");
+    default: // case 51:
+      // Default version is OpenMP 5.1
+      Builder.defineMacro("_OPENMP", "202011");
       break;
     }
   }
@@ -1368,9 +1375,6 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
       Builder.defineMacro("__ENABLE_USM_ADDR_SPACE__");
       Builder.defineMacro("SYCL_DISABLE_FALLBACK_ASSERT");
     }
-
-    if (LangOpts.SYCLESIMDForceStatelessMem)
-      Builder.defineMacro("__ESIMD_FORCE_STATELESS_MEM");
   }
   if (LangOpts.SYCLUnnamedLambda)
     Builder.defineMacro("__SYCL_UNNAMED_LAMBDA__");
@@ -1381,6 +1385,9 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     Builder.defineMacro("HLS_EXTERNAL", "__attribute__((hls_device))");
   }
 #endif // INTEL_CUSTOMIZATION
+
+  if (LangOpts.SYCLESIMDForceStatelessMem)
+    Builder.defineMacro("__ESIMD_FORCE_STATELESS_MEM");
 
   // OpenCL definitions.
   if (LangOpts.OpenCL) {

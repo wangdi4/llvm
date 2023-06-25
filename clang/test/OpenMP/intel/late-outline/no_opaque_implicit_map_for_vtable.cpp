@@ -1,14 +1,14 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -no-opaque-pointers -O0 -verify -triple x86_64-unknown-linux-gnu -fopenmp \
+// RUN: %clang_cc1 -no-opaque-pointers -O0 -verify -triple x86_64-unknown-linux-gnu -fopenmp -fopenmp-version=50\
 // RUN: -fintel-compatibility -fopenmp-late-outline \
 // RUN: -fopenmp-targets=spir64 -emit-llvm %s -o - \
 // RUN:  | FileCheck %s --check-prefix HOST
 //
-// RUN: %clang_cc1 -no-opaque-pointers -verify -triple x86_64-unknown-linux-gnu -fopenmp \
+// RUN: %clang_cc1 -no-opaque-pointers -verify -triple x86_64-unknown-linux-gnu -fopenmp -fopenmp-version=50\
 // RUN:  -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -fopenmp-targets=spir64 -emit-llvm-bc %s -o %t-host.bc
 //
-// RUN: %clang_cc1 -no-opaque-pointers -verify -triple spir64 -fopenmp \
+// RUN: %clang_cc1 -no-opaque-pointers -verify -triple spir64 -fopenmp -fopenmp-version=50\
 // RUN:  -fintel-compatibility -fopenmp-late-outline \
 // RUN:  -fopenmp-targets=spir64 -fopenmp-is-device \
 // RUN:  -fopenmp-host-ir-file-path %t-host.bc %s -emit-llvm -o - \

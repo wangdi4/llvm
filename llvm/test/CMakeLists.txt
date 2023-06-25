@@ -116,7 +116,6 @@ set(LLVM_TEST_DEPENDS
           llvm-modextract
           llvm-mt
           llvm-nm
-          llvm-no-spir-kernel
           llvm-objcopy
           llvm-objdump
           llvm-opt-fuzzer

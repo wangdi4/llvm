@@ -1,8 +1,8 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -verify -fopenmp -fopenmp-late-outline \
+// RUN: %clang_cc1 -verify -fopenmp -fopenmp-late-outline -fopenmp-version=50 \
 // RUN:  -fopenmp-declare-target-device-type-error-enable %s -verify
 
-// RUN: %clang_cc1 -verify -DNOWARNING \
+// RUN: %clang_cc1 -verify -DNOWARNING -fopenmp-version=50 \
 // RUN:   -fopenmp -fopenmp-late-outline %s -verify
 
 #ifdef NOWARNING

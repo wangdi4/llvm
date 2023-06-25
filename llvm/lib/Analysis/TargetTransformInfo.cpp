@@ -276,8 +276,8 @@ BranchProbability TargetTransformInfo::getPredictableBranchThreshold() const {
              : TTIImpl->getPredictableBranchThreshold();
 }
 
-bool TargetTransformInfo::hasBranchDivergence() const {
-  return TTIImpl->hasBranchDivergence();
+bool TargetTransformInfo::hasBranchDivergence(const Function *F) const {
+  return TTIImpl->hasBranchDivergence(F);
 }
 
 bool TargetTransformInfo::isSourceOfDivergence(const Value *V) const {
@@ -291,6 +291,11 @@ bool llvm::TargetTransformInfo::isAlwaysUniform(const Value *V) const {
 bool llvm::TargetTransformInfo::isValidAddrSpaceCast(unsigned FromAS,
                                                      unsigned ToAS) const {
   return TTIImpl->isValidAddrSpaceCast(FromAS, ToAS);
+}
+
+bool llvm::TargetTransformInfo::addrspacesMayAlias(unsigned FromAS,
+                                                   unsigned ToAS) const {
+  return TTIImpl->addrspacesMayAlias(FromAS, ToAS);
 }
 
 unsigned TargetTransformInfo::getFlatAddressSpace() const {

@@ -193,9 +193,9 @@ declare i64 @llvm.vector.reduce.smin.v1i64(<1 x i64>)
 define i32 @reduce_smind_17xi32(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_smind_17xi32:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vmovdqa {{.*#+}} xmm0 = <u,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647>
+; AVX512REDUCTION-NEXT:    vpbroadcastd {{.*#+}} xmm0 = [2147483647,2147483647,2147483647,2147483647]
 ; AVX512REDUCTION-NEXT:    vpinsrd $0, 64(%rdi), %xmm0, %xmm0
-; AVX512REDUCTION-NEXT:    vmovdqa64 {{.*#+}} zmm1 = <u,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647>
+; AVX512REDUCTION-NEXT:    vpbroadcastd {{.*#+}} zmm1 = [2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647]
 ; AVX512REDUCTION-NEXT:    vinserti32x4 $0, %xmm0, %zmm1, %zmm0
 ; AVX512REDUCTION-NEXT:    vpminsd (%rdi), %zmm0, %zmm0
 ; AVX512REDUCTION-NEXT:    vphrminsd %zmm0, %xmm0
@@ -205,9 +205,9 @@ define i32 @reduce_smind_17xi32(ptr %p) {
 ;
 ; AVX512F-LABEL: reduce_smind_17xi32:
 ; AVX512F:       # %bb.0:
-; AVX512F-NEXT:    vmovdqa {{.*#+}} xmm0 = <u,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647>
+; AVX512F-NEXT:    vpbroadcastd {{.*#+}} xmm0 = [2147483647,2147483647,2147483647,2147483647]
 ; AVX512F-NEXT:    vpinsrd $0, 64(%rdi), %xmm0, %xmm0
-; AVX512F-NEXT:    vmovdqa64 {{.*#+}} zmm1 = <u,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647>
+; AVX512F-NEXT:    vpbroadcastd {{.*#+}} zmm1 = [2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647,2147483647]
 ; AVX512F-NEXT:    vinserti32x4 $0, %xmm0, %zmm1, %zmm0
 ; AVX512F-NEXT:    vpminsd (%rdi), %zmm0, %zmm0
 ; AVX512F-NEXT:    vextracti64x4 $1, %zmm0, %ymm1
@@ -454,7 +454,7 @@ declare i32 @llvm.vector.reduce.smin.v1i32(<1 x i32>)
 define i16 @reduce_sminw_33xi16(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_sminw_33xi16:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vmovdqa {{.*#+}} xmm0 = <u,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767>
+; AVX512REDUCTION-NEXT:    vpbroadcastd {{.*#+}} xmm0 = [32767,32767,32767,32767,32767,32767,32767,32767]
 ; AVX512REDUCTION-NEXT:    vpinsrw $0, 64(%rdi), %xmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vpblendd {{.*#+}} ymm0 = ymm0[0,1,2,3],mem[4,5,6,7]
 ; AVX512REDUCTION-NEXT:    vpminsw (%rdi), %ymm0, %ymm0
@@ -469,7 +469,7 @@ define i16 @reduce_sminw_33xi16(ptr %p) {
 ;
 ; AVX512F-LABEL: reduce_sminw_33xi16:
 ; AVX512F:       # %bb.0:
-; AVX512F-NEXT:    vmovdqa {{.*#+}} xmm0 = <u,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767>
+; AVX512F-NEXT:    vpbroadcastd {{.*#+}} xmm0 = [32767,32767,32767,32767,32767,32767,32767,32767]
 ; AVX512F-NEXT:    vpinsrw $0, 64(%rdi), %xmm0, %xmm0
 ; AVX512F-NEXT:    vpblendd {{.*#+}} ymm0 = ymm0[0,1,2,3],mem[4,5,6,7]
 ; AVX512F-NEXT:    vpminsw (%rdi), %ymm0, %ymm0
@@ -769,10 +769,9 @@ define i16 @reduce_sminw_3xi16(ptr %p) {
 ; AVX512F-LABEL: reduce_sminw_3xi16:
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    movq (%rdi), %rcx
-; AVX512F-NEXT:    movq %rcx, %rax
-; AVX512F-NEXT:    shrq $16, %rax
-; AVX512F-NEXT:    movzwl %ax, %edx
-; AVX512F-NEXT:    cmpw %ax, %cx
+; AVX512F-NEXT:    movl %ecx, %edx
+; AVX512F-NEXT:    shrl $16, %edx
+; AVX512F-NEXT:    cmpw %dx, %cx
 ; AVX512F-NEXT:    cmovll %ecx, %edx
 ; AVX512F-NEXT:    shrq $32, %rcx
 ; AVX512F-NEXT:    movzwl %cx, %eax
@@ -852,7 +851,7 @@ declare i16 @llvm.vector.reduce.smin.v1i16(<1 x i16>)
 define i8 @reduce_sminb_65xi8(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_sminb_65xi8:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vmovdqa {{.*#+}} xmm0 = <u,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127>
+; AVX512REDUCTION-NEXT:    vpbroadcastd {{.*#+}} xmm0 = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
 ; AVX512REDUCTION-NEXT:    vpinsrb $0, 64(%rdi), %xmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vpblendd {{.*#+}} ymm0 = ymm0[0,1,2,3],mem[4,5,6,7]
 ; AVX512REDUCTION-NEXT:    vpminsb (%rdi), %ymm0, %ymm0
@@ -867,7 +866,7 @@ define i8 @reduce_sminb_65xi8(ptr %p) {
 ;
 ; AVX512F-LABEL: reduce_sminb_65xi8:
 ; AVX512F:       # %bb.0:
-; AVX512F-NEXT:    vmovdqa {{.*#+}} xmm0 = <u,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127>
+; AVX512F-NEXT:    vpbroadcastd {{.*#+}} xmm0 = [127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127]
 ; AVX512F-NEXT:    vpinsrb $0, 64(%rdi), %xmm0, %xmm0
 ; AVX512F-NEXT:    vpblendd {{.*#+}} ymm0 = ymm0[0,1,2,3],mem[4,5,6,7]
 ; AVX512F-NEXT:    vpminsb (%rdi), %ymm0, %ymm0
@@ -1371,21 +1370,20 @@ define i8 @reduce_sminb_7xi8(ptr %p) {
 ; AVX512F-LABEL: reduce_sminb_7xi8:
 ; AVX512F:       # %bb.0:
 ; AVX512F-NEXT:    movq (%rdi), %rcx
-; AVX512F-NEXT:    movq %rcx, %rax
-; AVX512F-NEXT:    shrq $8, %rax
-; AVX512F-NEXT:    movzbl %al, %edx
+; AVX512F-NEXT:    movl %ecx, %eax
+; AVX512F-NEXT:    shrl $8, %eax
+; AVX512F-NEXT:    movzbl %al, %eax
 ; AVX512F-NEXT:    cmpb %al, %cl
-; AVX512F-NEXT:    cmovll %ecx, %edx
-; AVX512F-NEXT:    movq %rcx, %rax
-; AVX512F-NEXT:    shrq $16, %rax
-; AVX512F-NEXT:    movzbl %al, %esi
-; AVX512F-NEXT:    cmpb %al, %dl
-; AVX512F-NEXT:    cmovll %edx, %esi
-; AVX512F-NEXT:    movq %rcx, %rax
-; AVX512F-NEXT:    shrq $24, %rax
-; AVX512F-NEXT:    movzbl %al, %edx
-; AVX512F-NEXT:    cmpb %al, %sil
-; AVX512F-NEXT:    cmovll %esi, %edx
+; AVX512F-NEXT:    cmovll %ecx, %eax
+; AVX512F-NEXT:    movl %ecx, %edx
+; AVX512F-NEXT:    shrl $16, %edx
+; AVX512F-NEXT:    movzbl %dl, %edx
+; AVX512F-NEXT:    cmpb %dl, %al
+; AVX512F-NEXT:    cmovgel %edx, %eax
+; AVX512F-NEXT:    movl %ecx, %edx
+; AVX512F-NEXT:    shrl $24, %edx
+; AVX512F-NEXT:    cmpb %dl, %al
+; AVX512F-NEXT:    cmovll %eax, %edx
 ; AVX512F-NEXT:    movq %rcx, %rax
 ; AVX512F-NEXT:    shrq $32, %rax
 ; AVX512F-NEXT:    movzbl %al, %esi

@@ -1128,11 +1128,7 @@ public:
   /// secondary entry point into the function, then return a global symbol
   /// that represents the secondary entry point. Otherwise return nullptr.
   MCSymbol *getSecondaryEntryPointSymbol(const MCSymbol *BBLabel) const {
-    auto I = SecondaryEntryPoints.find(BBLabel);
-    if (I == SecondaryEntryPoints.end())
-      return nullptr;
-
-    return I->second;
+    return SecondaryEntryPoints.lookup(BBLabel);
   }
 
   /// If the basic block serves as a secondary entry point to the function,
@@ -2050,9 +2046,11 @@ public:
   void handleAArch64IndirectCall(MCInst &Instruction, const uint64_t Offset);
 
   /// Scan function for references to other functions. In relocation mode,
-  /// add relocations for external references.
+  /// add relocations for external references. In non-relocation mode, detect
+  /// and mark new entry points.
   ///
-  /// Return true on success.
+  /// Return true on success. False if the disassembly failed or relocations
+  /// could not be created.
   bool scanExternalRefs();
 
   /// Return the size of a data object located at \p Offset in the function.

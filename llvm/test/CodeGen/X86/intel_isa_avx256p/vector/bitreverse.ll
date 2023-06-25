@@ -600,9 +600,9 @@ define <2 x i16> @fold_v2i16() {
 ;
 ; CHECK-LABEL: fold_v2i16:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vmovaps {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0 # EVEX TO VEX Compression xmm0 = <61440,240,u,u,u,u,u,u>
-; CHECK-NEXT:    # encoding: [0xc5,0xf8,0x28,0x05,A,A,A,A]
-; CHECK-NEXT:    # fixup A - offset: 4, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; CHECK-NEXT:    vbroadcastss {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0 # EVEX TO VEX Compression xmm0 = [61440,240,61440,240,61440,240,61440,240]
+; CHECK-NEXT:    # encoding: [0xc4,0xe2,0x79,0x18,0x05,A,A,A,A]
+; CHECK-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %b = call <2 x i16> @llvm.bitreverse.v2i16(<2 x i16> <i16 15, i16 3840>)
   ret <2 x i16> %b

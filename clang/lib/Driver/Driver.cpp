@@ -2111,6 +2111,10 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
         << (IsCLMode() ? "dpcpp-cl" : "dpcpp") << Name << "-fsycl";
 #endif // INTEL_CUSTOMIZATION
 
+  if (Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false) &&
+      CCCIsCC())
+    setDriverMode("g++");
+
   // Check for working directory option before accessing any files
   if (Arg *WD = Args.getLastArg(options::OPT_working_directory))
     if (VFS->setCurrentWorkingDirectory(WD->getValue()))
@@ -3230,14 +3234,26 @@ bool Driver::HandleImmediateArgs(const Compilation &C) {
     return false;
   }
 
+  if (C.getArgs().hasArg(options::OPT_print_multi_flags)) {
+    Multilib::flags_list ArgFlags = TC.getMultilibFlags(C.getArgs());
+    llvm::StringSet<> ExpandedFlags = TC.getMultilibs().expandFlags(ArgFlags);
+    std::set<llvm::StringRef> SortedFlags;
+    for (const auto &FlagEntry : ExpandedFlags)
+      SortedFlags.insert(FlagEntry.getKey());
+    for (auto Flag : SortedFlags)
+      llvm::outs() << Flag << '\n';
+    return false;
+  }
+
   if (C.getArgs().hasArg(options::OPT_print_multi_directory)) {
-    const Multilib &Multilib = TC.getMultilib();
-    if (Multilib.gccSuffix().empty())
-      llvm::outs() << ".\n";
-    else {
-      StringRef Suffix(Multilib.gccSuffix());
-      assert(Suffix.front() == '/');
-      llvm::outs() << Suffix.substr(1) << "\n";
+    for (const Multilib &Multilib : TC.getSelectedMultilibs()) {
+      if (Multilib.gccSuffix().empty())
+        llvm::outs() << ".\n";
+      else {
+        StringRef Suffix(Multilib.gccSuffix());
+        assert(Suffix.front() == '/');
+        llvm::outs() << Suffix.substr(1) << "\n";
+      }
     }
     return false;
   }
@@ -7988,7 +8004,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
            types::isSrcFile(I.first))) {
         // Unique ID is generated for source files and preprocessed files.
         SmallString<128> ResultID;
-        llvm::sys::fs::createUniquePath("%%%%%%%%%%%%%%%%", ResultID, false);
+        llvm::sys::fs::createUniquePath("uid%%%%%%%%%%%%%%%%", ResultID, false);
         addSYCLUniqueID(Args.MakeArgString(ResultID.str()), SrcFileName);
       }
       if (!types::isSrcFile(I.first))
@@ -8378,8 +8394,8 @@ static StringRef getCanonicalArchString(Compilation &C,
 /// incompatible pair if a conflict occurs.
 static std::optional<std::pair<llvm::StringRef, llvm::StringRef>>
 getConflictOffloadArchCombination(const llvm::DenseSet<StringRef> &Archs,
-                                  Action::OffloadKind Kind) {
-  if (Kind != Action::OFK_HIP)
+                                  llvm::Triple Triple) {
+  if (!Triple.isAMDGPU())
     return std::nullopt;
 
   std::set<StringRef> ArchSet;
@@ -8464,7 +8480,8 @@ Driver::getOffloadArchs(Compilation &C, const llvm::opt::DerivedArgList &Args,
     }
   }
 
-  if (auto ConflictingArchs = getConflictOffloadArchCombination(Archs, Kind)) {
+  if (auto ConflictingArchs =
+          getConflictOffloadArchCombination(Archs, TC->getTriple())) {
     C.getDriver().Diag(clang::diag::err_drv_bad_offload_arch_combo)
         << ConflictingArchs->first << ConflictingArchs->second;
     C.setContainsError();
@@ -8984,7 +9001,8 @@ void Driver::BuildJobs(Compilation &C) const {
       // In clang-cl, don't mention unknown arguments here since they have
       // already been warned about.
       if (!IsCLMode() || !A->getOption().matches(options::OPT_UNKNOWN)) {
-        if (A->getOption().hasFlag(options::TargetSpecific)) {
+        if (A->getOption().hasFlag(options::TargetSpecific) &&
+            !A->isIgnoredTargetSpecific()) {
           Diag(diag::err_drv_unsupported_opt_for_target)
               << A->getSpelling() << getTargetTriple();
         } else {
@@ -10301,6 +10319,11 @@ const char *Driver::GetNamedOutputPath(Compilation &C, const JobAction &JA,
     }
   }
 
+  // Emit an error if PCH(Pre-Compiled Header) file generation is forced in
+  // -fsycl mode.
+  if (C.getArgs().hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false) &&
+      JA.getType() == types::TY_PCH)
+    Diag(clang::diag::err_drv_fsycl_with_pch);
   // As an annoying special case, PCH generation doesn't strip the pathname.
   if (JA.getType() == types::TY_PCH && !IsCLMode()) {
     llvm::sys::path::remove_filename(BasePath);

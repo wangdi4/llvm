@@ -54,6 +54,7 @@
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/FPAccuracy.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
@@ -2202,9 +2203,12 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
     if (retAI.getInAllocaSRet()) {
       // sret things on win32 aren't void, they return the sret pointer.
       QualType ret = FI.getReturnType();
-      llvm::Type *ty = ConvertType(ret);
       unsigned addressSpace = CGM.getTypes().getTargetAddressSpace(ret);
-      resultType = llvm::PointerType::get(ty, addressSpace);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      resultType = llvm::PointerType::get(getLLVMContext(), addressSpace);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+      resultType = llvm::PointerType::get(ConvertType(ret), addressSpace);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     } else {
       resultType = llvm::Type::getVoidTy(getLLVMContext());
     }
@@ -2231,11 +2235,13 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
   // Add type for sret argument.
   if (IRFunctionArgs.hasSRetArg()) {
     QualType Ret = FI.getReturnType();
-    llvm::Type *Ty = ConvertType(Ret);
     unsigned AddressSpace = CGM.getTypes().getTargetAddressSpace(Ret);
     ArgTypes[IRFunctionArgs.getSRetArgNo()] =
-        llvm::PointerType::get(Ty, AddressSpace);
-
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+        llvm::PointerType::get(getLLVMContext(), AddressSpace);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+        llvm::PointerType::get(ConvertType(Ret), AddressSpace);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
     addSRetToDTransFuncInfo(*this, DFI, Ret,
@@ -2246,17 +2252,26 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
   }
 
   // Add type for inalloca argument.
-  if (IRFunctionArgs.hasInallocaArg()) {
-    auto ArgStruct = FI.getArgStruct();
-    assert(ArgStruct);
-    ArgTypes[IRFunctionArgs.getInallocaArgNo()] = ArgStruct->getPointerTo();
+  if (IRFunctionArgs.hasInallocaArg())
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
-    addInallocaToDTransFuncInfo(*this, CGM, DFI, ArgStruct,
-                                IRFunctionArgs.getInallocaArgNo(), FI);
+  {
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
+    ArgTypes[IRFunctionArgs.getInallocaArgNo()] =
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+        llvm::PointerType::getUnqual(getLLVMContext());
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+        FI.getArgStruct()->getPointerTo();
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
+    addInallocaToDTransFuncInfo(*this, CGM, DFI, FI.getArgStruct(),
+                                IRFunctionArgs.getInallocaArgNo(), FI);
   }
+#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   // Add in all of the required arguments.
   unsigned ArgNo = 0;
@@ -2279,11 +2294,15 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
       assert(NumIRArgs == 0);
       break;
 
-    case ABIArgInfo::Indirect: {
+    case ABIArgInfo::Indirect:
       assert(NumIRArgs == 1);
       // indirect arguments are always on the stack, which is alloca addr space.
-      llvm::Type *LTy = ConvertTypeForMem(it->type);
-      ArgTypes[FirstIRArg] = LTy->getPointerTo(
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      ArgTypes[FirstIRArg] = llvm::PointerType::get(
+          getLLVMContext(),
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+      ArgTypes[FirstIRArg] = ConvertTypeForMem(it->type)->getPointerTo(
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 #if INTEL_COLLAB
           CGM.getEffectiveAllocaAddrSpace());
 #else // INTEL_COLLAB
@@ -2297,11 +2316,15 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
       break;
-    }
-    case ABIArgInfo::IndirectAliased: {
+    case ABIArgInfo::IndirectAliased:
       assert(NumIRArgs == 1);
-      llvm::Type *LTy = ConvertTypeForMem(it->type);
-      ArgTypes[FirstIRArg] = LTy->getPointerTo(ArgInfo.getIndirectAddrSpace());
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      ArgTypes[FirstIRArg] = llvm::PointerType::get(
+          getLLVMContext(), ArgInfo.getIndirectAddrSpace());
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+      ArgTypes[FirstIRArg] = ConvertTypeForMem(it->type)->getPointerTo(ArgInfo.getIndirectAddrSpace());
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
       addToDTransFuncInfo(*this, CGM, DFI, ArgInfo, it->type,
@@ -2310,7 +2333,6 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
       break;
-    }
     case ABIArgInfo::Extend:
     case ABIArgInfo::Direct: {
       // Fast-isel and the optimizer generally like scalar values better than
@@ -2455,6 +2477,44 @@ static bool HasStrictReturn(const CodeGenModule &Module, QualType RetTy,
   return Module.getCodeGenOpts().StrictReturn ||
          !Module.MayDropFunctionReturn(Module.getContext(), RetTy) ||
          Module.getLangOpts().Sanitize.has(SanitizerKind::Return);
+}
+
+static llvm::fp::FPAccuracy convertFPAccuracy(StringRef FPAccuracyStr) {
+  return llvm::StringSwitch<llvm::fp::FPAccuracy>(FPAccuracyStr)
+      .Case("high", llvm::fp::FPAccuracy::High)
+      .Case("medium", llvm::fp::FPAccuracy::Medium)
+      .Case("low", llvm::fp::FPAccuracy::Low)
+      .Case("sycl", llvm::fp::FPAccuracy::SYCL)
+      .Case("cuda", llvm::fp::FPAccuracy::CUDA);
+}
+
+void CodeGenModule::getDefaultFunctionFPAccuracyAttributes(
+    StringRef Name, llvm::AttrBuilder &FuncAttrs, unsigned ID,
+    const llvm::Type *FuncType) {
+  // Priority is given to to the accuracy specific to the function.
+  // So, if the command line is something like this:
+  // 'clang -fp-accuracy = high -fp-accuracy = low:[sin]'.
+  // This means, all library functions will have the accuracy 'high'
+  // except 'sin', which should have an accuracy value of 'low'.
+  // To ensure that, first check if Name has a required accuracy by visiting
+  // the 'FPAccuracyFuncMap'; if no accuracy is mapped to Name (FuncAttrs
+  // is empty), then set its accuracy from the TU's accuracy value.
+  if (!getLangOpts().FPAccuracyFuncMap.empty()) {
+    auto FuncMapIt = getLangOpts().FPAccuracyFuncMap.find(Name.str());
+    if (FuncMapIt != getLangOpts().FPAccuracyFuncMap.end()) {
+      StringRef FPAccuracyVal = llvm::fp::getAccuracyForFPBuiltin(
+          ID, FuncType, convertFPAccuracy(FuncMapIt->second));
+      assert(!FPAccuracyVal.empty() && "A valid accuracy value is expected");
+      FuncAttrs.addAttribute("fpbuiltin-max-error=", FPAccuracyVal);
+    }
+  }
+  if (FuncAttrs.attrs().size() == 0)
+    if (!getLangOpts().FPAccuracyVal.empty()) {
+      StringRef FPAccuracyVal = llvm::fp::getAccuracyForFPBuiltin(
+          ID, FuncType, convertFPAccuracy(getLangOpts().FPAccuracyVal));
+      assert(!FPAccuracyVal.empty() && "A valid accuracy value is expected");
+      FuncAttrs.addAttribute("fpbuiltin-max-error=", FPAccuracyVal);
+    }
 }
 
 /// Add denormal-fp-math and denormal-fp-math-f32 as appropriate for the
@@ -3545,12 +3605,9 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
   // If we're using inalloca, all the memory arguments are GEPs off of the last
   // parameter, which is a pointer to the complete memory area.
   Address ArgStruct = Address::invalid();
-  if (IRFunctionArgs.hasInallocaArg()) {
+  if (IRFunctionArgs.hasInallocaArg())
     ArgStruct = Address(Fn->getArg(IRFunctionArgs.getInallocaArgNo()),
                         FI.getArgStruct(), FI.getArgStructAlignment());
-
-    assert(ArgStruct.getType() == FI.getArgStruct()->getPointerTo());
-  }
 
   // Name the struct return parameter.
   if (IRFunctionArgs.hasSRetArg()) {
@@ -4655,8 +4712,13 @@ static AggValueSlot createPlaceholderSlot(CodeGenFunction &CGF,
   // FIXME: Generate IR in one pass, rather than going back and fixing up these
   // placeholders.
   llvm::Type *IRTy = CGF.ConvertTypeForMem(Ty);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  llvm::Type *IRPtrTy = llvm::PointerType::getUnqual(CGF.getLLVMContext());
+  llvm::Value *Placeholder = llvm::PoisonValue::get(IRPtrTy);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::Type *IRPtrTy = IRTy->getPointerTo();
   llvm::Value *Placeholder = llvm::PoisonValue::get(IRPtrTy->getPointerTo());
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   // FIXME: When we generate this IR in one pass, we shouldn't need
   // this win32-specific alignment hack.
@@ -6097,35 +6159,6 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   // If we're using inalloca, set up that argument.
   if (ArgMemory.isValid()) {
     llvm::Value *Arg = ArgMemory.getPointer();
-    if (CallInfo.isVariadic()) {
-      // When passing non-POD arguments by value to variadic functions, we will
-      // end up with a variadic prototype and an inalloca call site.  In such
-      // cases, we can't do any parameter mismatch checks.  Give up and bitcast
-      // the callee.
-      unsigned CalleeAS = CalleePtr->getType()->getPointerAddressSpace();
-      CalleePtr =
-          Builder.CreateBitCast(CalleePtr, IRFuncTy->getPointerTo(CalleeAS));
-    } else {
-      llvm::Type *LastParamTy =
-          IRFuncTy->getParamType(IRFuncTy->getNumParams() - 1);
-      if (Arg->getType() != LastParamTy) {
-#ifndef NDEBUG
-        // Assert that these structs have equivalent element types.
-        llvm::StructType *FullTy = CallInfo.getArgStruct();
-        if (!LastParamTy->isOpaquePointerTy()) {
-          llvm::StructType *DeclaredTy = cast<llvm::StructType>(
-              LastParamTy->getNonOpaquePointerElementType());
-          assert(DeclaredTy->getNumElements() == FullTy->getNumElements());
-          for (auto DI = DeclaredTy->element_begin(),
-                    DE = DeclaredTy->element_end(),
-                    FI = FullTy->element_begin();
-               DI != DE; ++DI, ++FI)
-            assert(*DI == *FI);
-        }
-#endif
-        Arg = Builder.CreateBitCast(Arg, LastParamTy);
-      }
-    }
     assert(IRFunctionArgs.hasInallocaArg());
     IRCallArgs[IRFunctionArgs.getInallocaArgNo()] = Arg;
   }
@@ -6338,6 +6371,13 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
         CGM.getTriple().isSPIR() && IsIndirectCall)
       return EmitOMPIndirectCall(IRFuncTy, IRCallArgs, CalleePtr);
 #endif  // INTEL_COLLAB
+    if (CGM.getCodeGenOpts().FPAccuracy) {
+      const auto *FD = dyn_cast_if_present<FunctionDecl>(TargetDecl);
+      assert(FD && "expecting a function");
+      CI = EmitFPBuiltinIndirectCall(IRFuncTy, IRCallArgs, CalleePtr, FD);
+      if (CI)
+        return RValue::get(CI);
+    }
     CI = Builder.CreateCall(IRFuncTy, CalleePtr, IRCallArgs, BundleList);
   } else {
     llvm::BasicBlock *Cont = createBasicBlock("invoke.cont");

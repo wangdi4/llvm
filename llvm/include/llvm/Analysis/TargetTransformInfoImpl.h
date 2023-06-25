@@ -108,7 +108,7 @@ public:
     return BranchProbability(99, 100);
   }
 
-  bool hasBranchDivergence() const { return false; }
+  bool hasBranchDivergence(const Function *F = nullptr) const { return false; }
 
   bool isSourceOfDivergence(const Value *V) const { return false; }
 
@@ -116,6 +116,10 @@ public:
 
   bool isValidAddrSpaceCast(unsigned FromAS, unsigned ToAS) const {
     return false;
+  }
+
+  bool addrspacesMayAlias(unsigned AS0, unsigned AS1) const {
+    return true;
   }
 
   unsigned getFlatAddressSpace() const { return -1; }

@@ -3099,8 +3099,8 @@ CGOpenMPRuntimeGPU::getParameterAddress(CodeGenFunction &CGF,
   unsigned NativePointeeAddrSpace =
       CGF.getTypes().getTargetAddressSpace(NativePointeeTy);
   QualType TargetTy = TargetParam->getType();
-  llvm::Value *TargetAddr = CGF.EmitLoadOfScalar(LocalAddr, /*Volatile=*/false,
-                                                 TargetTy, SourceLocation());
+  llvm::Value *TargetAddr = CGF.EmitLoadOfScalar(
+      LocalAddr, /*Volatile=*/false, TargetTy, SourceLocation());
   // First cast to generic.
   TargetAddr = CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
       TargetAddr,

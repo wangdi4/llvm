@@ -51,8 +51,8 @@ define i1 @trunc_v4i32_v4i1(<4 x i32>) {
 ;
 ; AVX512-LABEL: trunc_v4i32_v4i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpbroadcastd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm1 # EVEX TO VEX Compression xmm1 = [1,1,1,1]
-; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x79,0x58,0x0d,A,A,A,A]
+; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm1 # EVEX TO VEX Compression xmm1 = [4294967297,4294967297]
+; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x79,0x59,0x0d,A,A,A,A]
 ; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; AVX512-NEXT:    vptest %xmm1, %xmm0 # encoding: [0xc4,0xe2,0x79,0x17,0xc1]
 ; AVX512-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
@@ -156,8 +156,10 @@ define i1 @trunc_v16i8_v16i1(<16 x i8>) {
 ;
 ; AVX512-LABEL: trunc_v16i8_v16i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vptest {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0 # encoding: [0xc4,0xe2,0x79,0x17,0x05,A,A,A,A]
+; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm1 # EVEX TO VEX Compression xmm1 = [72340172838076673,72340172838076673]
+; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x79,0x59,0x0d,A,A,A,A]
 ; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; AVX512-NEXT:    vptest %xmm1, %xmm0 # encoding: [0xc4,0xe2,0x79,0x17,0xc1]
 ; AVX512-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
 ; AVX512-NEXT:    retq # encoding: [0xc3]
   %a = trunc <16 x i8> %0 to <16 x i1>
@@ -222,8 +224,8 @@ define i1 @trunc_v8i32_v8i1(<8 x i32>) {
 ;
 ; AVX512-LABEL: trunc_v8i32_v8i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vpbroadcastd {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm1 # EVEX TO VEX Compression ymm1 = [1,1,1,1,1,1,1,1]
-; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x7d,0x58,0x0d,A,A,A,A]
+; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm1 # EVEX TO VEX Compression ymm1 = [4294967297,4294967297,4294967297,4294967297]
+; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x7d,0x59,0x0d,A,A,A,A]
 ; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; AVX512-NEXT:    vptest %ymm1, %ymm0 # encoding: [0xc4,0xe2,0x7d,0x17,0xc1]
 ; AVX512-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
@@ -261,8 +263,10 @@ define i1 @trunc_v16i16_v16i1(<16 x i16>) {
 ;
 ; AVX512-LABEL: trunc_v16i16_v16i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vptest {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0 # encoding: [0xc4,0xe2,0x7d,0x17,0x05,A,A,A,A]
+; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm1 # EVEX TO VEX Compression ymm1 = [281479271743489,281479271743489,281479271743489,281479271743489]
+; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x7d,0x59,0x0d,A,A,A,A]
 ; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; AVX512-NEXT:    vptest %ymm1, %ymm0 # encoding: [0xc4,0xe2,0x7d,0x17,0xc1]
 ; AVX512-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
 ; AVX512-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; AVX512-NEXT:    retq # encoding: [0xc3]
@@ -292,8 +296,10 @@ define i1 @trunc_v32i8_v32i1(<32 x i8>) {
 ;
 ; AVX512-LABEL: trunc_v32i8_v32i1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vptest {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0 # encoding: [0xc4,0xe2,0x7d,0x17,0x05,A,A,A,A]
+; AVX512-NEXT:    vpbroadcastq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm1 # EVEX TO VEX Compression ymm1 = [72340172838076673,72340172838076673,72340172838076673,72340172838076673]
+; AVX512-NEXT:    # encoding: [0xc4,0xe2,0x7d,0x59,0x0d,A,A,A,A]
 ; AVX512-NEXT:    # fixup A - offset: 5, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
+; AVX512-NEXT:    vptest %ymm1, %ymm0 # encoding: [0xc4,0xe2,0x7d,0x17,0xc1]
 ; AVX512-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
 ; AVX512-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
 ; AVX512-NEXT:    retq # encoding: [0xc3]

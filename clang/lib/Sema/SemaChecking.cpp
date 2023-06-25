@@ -12527,11 +12527,15 @@ CheckPrintfHandler::checkFormatExpr(const analyze_printf::PrintfSpecifier &FS,
       ImplicitMatch == ArgType::NoMatchTypeConfusion)
     Match = ImplicitMatch;
   assert(Match != ArgType::MatchPromotion);
-  // Look through enums to their underlying type.
+  // Look through unscoped enums to their underlying type.
   bool IsEnum = false;
   if (auto EnumTy = ExprTy->getAs<EnumType>()) {
-    ExprTy = EnumTy->getDecl()->getIntegerType();
-    IsEnum = true;
+    if (EnumTy->isUnscopedEnumerationType()) {
+      ExprTy = EnumTy->getDecl()->getIntegerType();
+      // This controls whether we're talking about the underlying type or not,
+      // which we only want to do when it's an unscoped enum.
+      IsEnum = true;
+    }
   }
 
   // %C in an Objective-C context prints a unichar, not a wchar_t.
@@ -16876,7 +16880,7 @@ void Sema::DiagnoseAlwaysNonNullPointer(Expr *E,
 
   bool IsAddressOf = false;
 
-  if (UnaryOperator *UO = dyn_cast<UnaryOperator>(E)) {
+  if (auto *UO = dyn_cast<UnaryOperator>(E->IgnoreParens())) {
     if (UO->getOpcode() != UO_AddrOf)
       return;
     IsAddressOf = true;
@@ -20568,6 +20572,10 @@ bool Sema::BuiltinWasmTableCopy(CallExpr *TheCall) {
 /// and enforce_tcb_leaf attributes.
 void Sema::CheckTCBEnforcement(const SourceLocation CallExprLoc,
                                const NamedDecl *Callee) {
+  // This warning does not make sense in code that has no runtime behavior.
+  if (isUnevaluatedContext())
+    return;
+
   const NamedDecl *Caller = getCurFunctionOrMethodDecl();
 
   if (!Caller || !Caller->hasAttr<EnforceTCBAttr>())

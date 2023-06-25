@@ -180,9 +180,14 @@ public:
   /// preserving information like the alignment and address space.
   Address CreateElementBitCast(Address Addr, llvm::Type *Ty,
                                const llvm::Twine &Name = "") {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    return Address(Addr.getPointer(), Ty, Addr.getAlignment(),
+                   Addr.isKnownNonNull());
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     auto *PtrTy = Ty->getPointerTo(Addr.getAddressSpace());
     return Address(CreateBitCast(Addr.getPointer(), PtrTy, Name), Ty,
                    Addr.getAlignment(), Addr.isKnownNonNull());
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   }
 
   using CGBuilderBaseTy::CreatePointerBitCastOrAddrSpaceCast;

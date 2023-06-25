@@ -52,6 +52,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/FPAccuracy.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicsAArch64.h"
@@ -245,7 +246,12 @@ static Value *MakeBinaryAtomicValue(
   llvm::IntegerType *IntType =
     llvm::IntegerType::get(CGF.getLLVMContext(),
                            CGF.getContext().getTypeSize(T));
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  llvm::Type *IntPtrType =
+      llvm::PointerType::get(CGF.getLLVMContext(), AddrSpace);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::Type *IntPtrType = IntType->getPointerTo(AddrSpace);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   llvm::Value *Args[2];
   Args[0] = CGF.Builder.CreateBitCast(DestPtr, IntPtrType);
@@ -302,18 +308,26 @@ static RValue EmitBinaryAtomicPost(CodeGenFunction &CGF,
   assert(CGF.getContext().hasSameUnqualifiedType(T, E->getArg(1)->getType()));
 
   llvm::Value *DestPtr = CheckAtomicAlignment(CGF, E);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  llvm::IntegerType *IntType = llvm::IntegerType::get(
+      CGF.getLLVMContext(), CGF.getContext().getTypeSize(T));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   unsigned AddrSpace = DestPtr->getType()->getPointerAddressSpace();
-
   llvm::IntegerType *IntType =
     llvm::IntegerType::get(CGF.getLLVMContext(),
                            CGF.getContext().getTypeSize(T));
   llvm::Type *IntPtrType = IntType->getPointerTo(AddrSpace);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   llvm::Value *Args[2];
   Args[1] = CGF.EmitScalarExpr(E->getArg(1));
   llvm::Type *ValueType = Args[1]->getType();
   Args[1] = EmitToInt(CGF, Args[1], T, IntType);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  Args[0] = DestPtr;
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   Args[0] = CGF.Builder.CreateBitCast(DestPtr, IntPtrType);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   llvm::Value *Result = CGF.Builder.CreateAtomicRMW(
       Kind, Args[0], Args[1], llvm::AtomicOrdering::SequentiallyConsistent);
@@ -344,14 +358,19 @@ static Value *MakeAtomicCmpXchgValue(CodeGenFunction &CGF, const CallExpr *E,
                                      bool ReturnBool) {
   QualType T = ReturnBool ? E->getArg(1)->getType() : E->getType();
   llvm::Value *DestPtr = CheckAtomicAlignment(CGF, E);
-  unsigned AddrSpace = DestPtr->getType()->getPointerAddressSpace();
 
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
+  unsigned AddrSpace = DestPtr->getType()->getPointerAddressSpace();
+#endif
   llvm::IntegerType *IntType = llvm::IntegerType::get(
       CGF.getLLVMContext(), CGF.getContext().getTypeSize(T));
-  llvm::Type *IntPtrType = IntType->getPointerTo(AddrSpace);
-
   Value *Args[3];
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  Args[0] = DestPtr;  Args[0] = DestPtr;
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+  llvm::Type *IntPtrType = IntType->getPointerTo(AddrSpace);
   Args[0] = CGF.Builder.CreateBitCast(DestPtr, IntPtrType);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   Args[1] = CGF.EmitScalarExpr(E->getArg(1));
   llvm::Type *ValueType = Args[1]->getType();
   Args[1] = EmitToInt(CGF, Args[1], T, IntType);
@@ -443,10 +462,15 @@ static Value *EmitAtomicCmpXchg128ForMSIntrin(CodeGenFunction &CGF,
 
   // Convert to i128 pointers and values.
   llvm::Type *Int128Ty = llvm::IntegerType::get(CGF.getLLVMContext(), 128);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  Address ComparandResult(ComparandPtr, Int128Ty,
+                        CGF.getContext().toCharUnitsFromBits(128));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::Type *Int128PtrTy = Int128Ty->getPointerTo();
   Destination = CGF.Builder.CreateBitCast(Destination, Int128PtrTy);
   Address ComparandResult(CGF.Builder.CreateBitCast(ComparandPtr, Int128PtrTy),
                           Int128Ty, CGF.getContext().toCharUnitsFromBits(128));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   // (((i128)hi) << 64) | ((i128)lo)
   ExchangeHigh = CGF.Builder.CreateZExt(ExchangeHigh, Int128Ty);
@@ -509,7 +533,9 @@ static Value *EmitISOVolatileLoad(CodeGenFunction &CGF, const CallExpr *E) {
   CharUnits LoadSize = CGF.getContext().getTypeSizeInChars(ElTy);
   llvm::Type *ITy =
       llvm::IntegerType::get(CGF.getLLVMContext(), LoadSize.getQuantity() * 8);
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   Ptr = CGF.Builder.CreateBitCast(Ptr, ITy->getPointerTo());
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::LoadInst *Load = CGF.Builder.CreateAlignedLoad(ITy, Ptr, LoadSize);
   Load->setVolatile(true);
   return Load;
@@ -521,16 +547,17 @@ static Value *EmitISOVolatileStore(CodeGenFunction &CGF, const CallExpr *E) {
   Value *Value = CGF.EmitScalarExpr(E->getArg(1));
   QualType ElTy = E->getArg(0)->getType()->getPointeeType();
   CharUnits StoreSize = CGF.getContext().getTypeSizeInChars(ElTy);
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::Type *ITy =
       llvm::IntegerType::get(CGF.getLLVMContext(), StoreSize.getQuantity() * 8);
   Ptr = CGF.Builder.CreateBitCast(Ptr, ITy->getPointerTo());
+#endif
   llvm::StoreInst *Store =
       CGF.Builder.CreateAlignedStore(Value, Ptr, StoreSize);
   Store->setVolatile(true);
   return Store;
 }
 
-#if INTEL_CUSTOMIZATION
 static llvm::CallInst *createFPBuiltinCallWithAttrs(CodeGenFunction &CGF,
                                                     llvm::Function *F,
                                                     ArrayRef<Value *> Args) {
@@ -543,20 +570,70 @@ static llvm::CallInst *createFPBuiltinCallWithAttrs(CodeGenFunction &CGF,
   CI->setAttributes(AttrList);
   return CI;
 }
-#endif // INTEL_CUSTOMIZATION
+
+static CallInst *CreateBuiltinCallWithAttr(CodeGenFunction &CGF, StringRef Name,
+                                           llvm::Function *FPBuiltinF,
+                                           ArrayRef<Value *> Args,
+                                           unsigned ID) {
+  llvm::CallInst *CI = CGF.Builder.CreateCall(FPBuiltinF, Args);
+  // TODO: Replace AttrList with a single attribute. The call can only have a
+  // single FPAccuracy attribute.
+  llvm::AttributeList AttrList;
+  // sincos() doesn't return a value, but it still has a type associated with
+  // it that corresponds to the operand type.
+  CGF.CGM.getFPAccuracyFuncAttributes(
+      Name, AttrList, ID,
+      Name == "sincos" ? Args[0]->getType() : FPBuiltinF->getReturnType());
+  CI->setAttributes(AttrList);
+  return CI;
+}
+
+static Function *getIntrinsic(CodeGenFunction &CGF, llvm::Value *Src0,
+                              unsigned FPIntrinsicID, unsigned IntrinsicID,
+                              bool HasAccuracyRequirement) {
+  return HasAccuracyRequirement
+             ? CGF.CGM.getIntrinsic(FPIntrinsicID, Src0->getType())
+             : CGF.CGM.getIntrinsic(IntrinsicID, Src0->getType());
+}
+
+static bool hasAccuracyRequirement(CodeGenFunction &CGF, StringRef Name) {
+  if (!CGF.getLangOpts().FPAccuracyVal.empty())
+    return true;
+  auto FuncMapIt = CGF.getLangOpts().FPAccuracyFuncMap.find(Name.str());
+  return FuncMapIt != CGF.getLangOpts().FPAccuracyFuncMap.end();
+}
 
 // Emit a simple mangled intrinsic that has 1 argument and a return type
 // matching the argument type. Depending on mode, this may be a constrained
-// floating-point intrinsic.
-static Value *emitUnaryMaybeConstrainedFPBuiltin(CodeGenFunction &CGF,
-                                const CallExpr *E, unsigned IntrinsicID,
-                                unsigned ConstrainedIntrinsicID) {
+// or an fpbuiltin floating-point intrinsic.
+static Value *emitUnaryMaybeConstrainedFPBuiltin(
+    CodeGenFunction &CGF, const CallExpr *E, unsigned IntrinsicID,
+    unsigned ConstrainedIntrinsicID,
+    unsigned FPAccuracyIntrinsicID = Intrinsic::not_intrinsic) {
   llvm::Value *Src0 = CGF.EmitScalarExpr(E->getArg(0));
-
+  if (FPAccuracyIntrinsicID != Intrinsic::not_intrinsic) {
+    if (CGF.CGM.getCodeGenOpts().FPAccuracy) {
+      if (CGF.getLangOpts().MathErrno) {
+        DiagnosticsEngine &Diags = CGF.CGM.getDiags();
+        Diags.Report(E->getBeginLoc(), diag::err_drv_incompatible_options)
+            << "-ffp-accuracy"
+            << "-fmath-errno";
+      } else {
+        StringRef Name =
+            CGF.CGM.getContext().BuiltinInfo.getName(CGF.getCurrentBuiltinID());
+        // Use fpbuiltin intrinsic only when needed.
+        Function *Func =
+            getIntrinsic(CGF, Src0, FPAccuracyIntrinsicID, IntrinsicID,
+                         hasAccuracyRequirement(CGF, Name));
+        return CreateBuiltinCallWithAttr(CGF, Name, Func, {Src0},
+                                         FPAccuracyIntrinsicID);
+      }
+    }
+  }
   if (CGF.Builder.getIsFPConstrained()) {
     CodeGenFunction::CGFPOptionsRAII FPOptsRAII(CGF, E);
     Function *F = CGF.CGM.getIntrinsic(ConstrainedIntrinsicID, Src0->getType());
-    return CGF.Builder.CreateConstrainedFPCall(F, { Src0 });
+    return CGF.Builder.CreateConstrainedFPCall(F, {Src0});
   } else {
     Function *F = CGF.CGM.getIntrinsic(IntrinsicID, Src0->getType());
     return createFPBuiltinCallWithAttrs(CGF, F, {Src0}); // INTEL
@@ -565,12 +642,21 @@ static Value *emitUnaryMaybeConstrainedFPBuiltin(CodeGenFunction &CGF,
 
 // Emit an intrinsic that has 2 operands of the same type as its result.
 // Depending on mode, this may be a constrained floating-point intrinsic.
-static Value *emitBinaryMaybeConstrainedFPBuiltin(CodeGenFunction &CGF,
-                                const CallExpr *E, unsigned IntrinsicID,
-                                unsigned ConstrainedIntrinsicID) {
+static Value *emitBinaryMaybeConstrainedFPBuiltin(
+    CodeGenFunction &CGF, const CallExpr *E, unsigned IntrinsicID,
+    unsigned ConstrainedIntrinsicID,
+    unsigned FPAccuracyIntrinsicID = Intrinsic::not_intrinsic) {
   llvm::Value *Src0 = CGF.EmitScalarExpr(E->getArg(0));
   llvm::Value *Src1 = CGF.EmitScalarExpr(E->getArg(1));
-
+  if (CGF.CGM.getCodeGenOpts().FPAccuracy) {
+    StringRef Name =
+        CGF.CGM.getContext().BuiltinInfo.getName(CGF.getCurrentBuiltinID());
+    // Use fpbuiltin intrinsic only when needed.
+    Function *Func = getIntrinsic(CGF, Src0, FPAccuracyIntrinsicID, IntrinsicID,
+                                  hasAccuracyRequirement(CGF, Name));
+    return CreateBuiltinCallWithAttr(CGF, Name, Func, {Src0, Src1},
+                                     FPAccuracyIntrinsicID);
+  }
   if (CGF.Builder.getIsFPConstrained()) {
     CodeGenFunction::CGFPOptionsRAII FPOptsRAII(CGF, E);
     Function *F = CGF.CGM.getIntrinsic(ConstrainedIntrinsicID, Src0->getType());
@@ -1031,9 +1117,15 @@ static llvm::Value *EmitX86BitTestIntrinsic(CodeGenFunction &CGF,
   llvm::IntegerType *IntType = llvm::IntegerType::get(
       CGF.getLLVMContext(),
       CGF.getContext().getTypeSize(E->getArg(1)->getType()));
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  llvm::Type *PtrType = llvm::PointerType::getUnqual(CGF.getLLVMContext());
+  llvm::FunctionType *FTy =
+      llvm::FunctionType::get(CGF.Int8Ty, {PtrType, IntType}, false);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::Type *IntPtrType = IntType->getPointerTo();
   llvm::FunctionType *FTy =
       llvm::FunctionType::get(CGF.Int8Ty, {IntPtrType, IntType}, false);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   llvm::InlineAsm *IA =
       llvm::InlineAsm::get(FTy, Asm, Constraints, /*hasSideEffects=*/true);
@@ -1172,9 +1264,14 @@ static llvm::Value *emitPPCLoadReserveIntrinsic(CodeGenFunction &CGF,
     Constraints += MachineClobbers;
   }
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  llvm::Type *PtrType = llvm::PointerType::getUnqual(CGF.getLLVMContext());
+  llvm::FunctionType *FTy = llvm::FunctionType::get(RetType, {PtrType}, false);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::Type *IntPtrType = RetType->getPointerTo();
   llvm::FunctionType *FTy =
       llvm::FunctionType::get(RetType, {IntPtrType}, false);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   llvm::InlineAsm *IA =
       llvm::InlineAsm::get(FTy, Asm, Constraints, /*hasSideEffects=*/true);
@@ -2655,8 +2752,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
                                                Result.Val.getFloat()));
   }
 
-
-  CurrentBuiltinIDRAII CB(*this, BuiltinID); // INTEL
+  CurrentBuiltinIDRAII CB(*this, BuiltinID);
 
   // If current long-double semantics is IEEE 128-bit, replace math builtins
   // of long-double with f128 equivalent.
@@ -2718,9 +2814,9 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     case Builtin::BI__builtin_cosf16:
     case Builtin::BI__builtin_cosl:
     case Builtin::BI__builtin_cosf128:
-      return RValue::get(emitUnaryMaybeConstrainedFPBuiltin(*this, E,
-                                   Intrinsic::cos,
-                                   Intrinsic::experimental_constrained_cos));
+      return RValue::get(emitUnaryMaybeConstrainedFPBuiltin(
+          *this, E, Intrinsic::cos, Intrinsic::experimental_constrained_cos,
+          Intrinsic::fpbuiltin_cos));
 
     case Builtin::BIexp:
     case Builtin::BIexpf:
@@ -2730,9 +2826,9 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     case Builtin::BI__builtin_expf16:
     case Builtin::BI__builtin_expl:
     case Builtin::BI__builtin_expf128:
-      return RValue::get(emitUnaryMaybeConstrainedFPBuiltin(*this, E,
-                                   Intrinsic::exp,
-                                   Intrinsic::experimental_constrained_exp));
+      return RValue::get(emitUnaryMaybeConstrainedFPBuiltin(
+          *this, E, Intrinsic::exp, Intrinsic::experimental_constrained_exp,
+          Intrinsic::fpbuiltin_exp));
 
     case Builtin::BIexp2:
     case Builtin::BIexp2f:
@@ -2742,9 +2838,9 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     case Builtin::BI__builtin_exp2f16:
     case Builtin::BI__builtin_exp2l:
     case Builtin::BI__builtin_exp2f128:
-      return RValue::get(emitUnaryMaybeConstrainedFPBuiltin(*this, E,
-                                   Intrinsic::exp2,
-                                   Intrinsic::experimental_constrained_exp2));
+      return RValue::get(emitUnaryMaybeConstrainedFPBuiltin(
+          *this, E, Intrinsic::exp2, Intrinsic::experimental_constrained_exp2,
+          Intrinsic::fpbuiltin_exp2));
 
     case Builtin::BIfabs:
     case Builtin::BIfabsf:
@@ -2828,9 +2924,9 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     case Builtin::BI__builtin_logf16:
     case Builtin::BI__builtin_logl:
     case Builtin::BI__builtin_logf128:
-      return RValue::get(emitUnaryMaybeConstrainedFPBuiltin(*this, E,
-                                   Intrinsic::log,
-                                   Intrinsic::experimental_constrained_log));
+      return RValue::get(emitUnaryMaybeConstrainedFPBuiltin(
+          *this, E, Intrinsic::log, Intrinsic::experimental_constrained_log,
+          Intrinsic::fpbuiltin_log));
 
     case Builtin::BIlog10:
     case Builtin::BIlog10f:
@@ -2840,9 +2936,9 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     case Builtin::BI__builtin_log10f16:
     case Builtin::BI__builtin_log10l:
     case Builtin::BI__builtin_log10f128:
-      return RValue::get(emitUnaryMaybeConstrainedFPBuiltin(*this, E,
-                                   Intrinsic::log10,
-                                   Intrinsic::experimental_constrained_log10));
+      return RValue::get(emitUnaryMaybeConstrainedFPBuiltin(
+          *this, E, Intrinsic::log10, Intrinsic::experimental_constrained_log10,
+          Intrinsic::fpbuiltin_log10));
 
     case Builtin::BIlog2:
     case Builtin::BIlog2f:
@@ -2852,9 +2948,9 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     case Builtin::BI__builtin_log2f16:
     case Builtin::BI__builtin_log2l:
     case Builtin::BI__builtin_log2f128:
-      return RValue::get(emitUnaryMaybeConstrainedFPBuiltin(*this, E,
-                                   Intrinsic::log2,
-                                   Intrinsic::experimental_constrained_log2));
+      return RValue::get(emitUnaryMaybeConstrainedFPBuiltin(
+          *this, E, Intrinsic::log2, Intrinsic::experimental_constrained_log2,
+          Intrinsic::fpbuiltin_log2));
 
     case Builtin::BInearbyint:
     case Builtin::BInearbyintf:
@@ -2875,9 +2971,9 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     case Builtin::BI__builtin_powf16:
     case Builtin::BI__builtin_powl:
     case Builtin::BI__builtin_powf128:
-      return RValue::get(emitBinaryMaybeConstrainedFPBuiltin(*this, E,
-                                   Intrinsic::pow,
-                                   Intrinsic::experimental_constrained_pow));
+      return RValue::get(emitBinaryMaybeConstrainedFPBuiltin(
+          *this, E, Intrinsic::pow, Intrinsic::experimental_constrained_pow,
+          Intrinsic::fpbuiltin_pow));
 
     case Builtin::BIrint:
     case Builtin::BIrintf:
@@ -2914,7 +3010,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
       return RValue::get(emitUnaryMaybeConstrainedFPBuiltin(*this, E,
                                    Intrinsic::roundeven,
                                    Intrinsic::experimental_constrained_roundeven));
-                                   
+
     case Builtin::BIsin:
     case Builtin::BIsinf:
     case Builtin::BIsinl:
@@ -2923,9 +3019,9 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     case Builtin::BI__builtin_sinf16:
     case Builtin::BI__builtin_sinl:
     case Builtin::BI__builtin_sinf128:
-      return RValue::get(emitUnaryMaybeConstrainedFPBuiltin(*this, E,
-                                   Intrinsic::sin,
-                                   Intrinsic::experimental_constrained_sin));
+      return RValue::get(emitUnaryMaybeConstrainedFPBuiltin(
+          *this, E, Intrinsic::sin, Intrinsic::experimental_constrained_sin,
+          Intrinsic::fpbuiltin_sin));
 
     case Builtin::BIsqrt:
     case Builtin::BIsqrtf:
@@ -2935,9 +3031,9 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     case Builtin::BI__builtin_sqrtf16:
     case Builtin::BI__builtin_sqrtl:
     case Builtin::BI__builtin_sqrtf128:
-      return RValue::get(emitUnaryMaybeConstrainedFPBuiltin(*this, E,
-                                   Intrinsic::sqrt,
-                                   Intrinsic::experimental_constrained_sqrt));
+      return RValue::get(emitUnaryMaybeConstrainedFPBuiltin(
+          *this, E, Intrinsic::sqrt, Intrinsic::experimental_constrained_sqrt,
+          Intrinsic::fpbuiltin_sqrt));
 
     case Builtin::BItrunc:
     case Builtin::BItruncf:
@@ -4645,9 +4741,14 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     Value *Ptr = CheckAtomicAlignment(*this, E);
     QualType ElTy = E->getArg(0)->getType()->getPointeeType();
     CharUnits StoreSize = getContext().getTypeSizeInChars(ElTy);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    llvm::Type *ITy =
+        llvm::IntegerType::get(getLLVMContext(), StoreSize.getQuantity() * 8);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     llvm::Type *ITy = llvm::IntegerType::get(getLLVMContext(),
                                              StoreSize.getQuantity() * 8);
     Ptr = Builder.CreateBitCast(Ptr, ITy->getPointerTo());
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     llvm::StoreInst *Store =
       Builder.CreateAlignedStore(llvm::Constant::getNullValue(ITy), Ptr,
                                  StoreSize);
@@ -4702,8 +4803,10 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
         PtrTy->castAs<PointerType>()->getPointeeType().isVolatileQualified();
 
     Value *Ptr = EmitScalarExpr(E->getArg(0));
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
     unsigned AddrSpace = Ptr->getType()->getPointerAddressSpace();
     Ptr = Builder.CreateBitCast(Ptr, Int8Ty->getPointerTo(AddrSpace));
+#endif
     Value *NewVal = Builder.getInt8(1);
     Value *Order = EmitScalarExpr(E->getArg(1));
     if (isa<llvm::ConstantInt>(Order)) {
@@ -5230,6 +5333,12 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   case Builtin::BI_InterlockedCompareExchangePointer:
   case Builtin::BI_InterlockedCompareExchangePointer_nf: {
     llvm::Type *RTy;
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    llvm::IntegerType *IntType = IntegerType::get(
+        getLLVMContext(), getContext().getTypeSize(E->getType()));
+
+    llvm::Value *Destination = EmitScalarExpr(E->getArg(0));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     llvm::IntegerType *IntType =
       IntegerType::get(getLLVMContext(),
                        getContext().getTypeSize(E->getType()));
@@ -5237,6 +5346,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
 
     llvm::Value *Destination =
       Builder.CreateBitCast(EmitScalarExpr(E->getArg(0)), IntPtrType);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
     llvm::Value *Exchange = EmitScalarExpr(E->getArg(1));
     RTy = Exchange->getType();
@@ -5710,8 +5820,13 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     }
     // Any calls now have event arguments passed.
     if (NumArgs >= 7) {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      llvm::PointerType *PtrTy = llvm::PointerType::get(
+          CGM.getLLVMContext(),
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
       llvm::Type *EventTy = ConvertType(getContext().OCLClkEventTy);
       llvm::PointerType *EventPtrTy = EventTy->getPointerTo(
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
           CGM.getContext().getTargetAddressSpace(LangAS::opencl_generic));
 
       llvm::Value *NumEvents =
@@ -5723,21 +5838,41 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
       llvm::Value *EventWaitList = nullptr;
       if (E->getArg(4)->isNullPointerConstant(
               getContext(), Expr::NPC_ValueDependentIsNotNull)) {
-        EventWaitList = llvm::ConstantPointerNull::get(EventPtrTy);
+        EventWaitList = llvm::ConstantPointerNull::get(
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+          PtrTy);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+          EventPtrTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       } else {
         EventWaitList = E->getArg(4)->getType()->isArrayType()
                         ? EmitArrayToPointerDecay(E->getArg(4)).getPointer()
                         : EmitScalarExpr(E->getArg(4));
         // Convert to generic address space.
-        EventWaitList = Builder.CreatePointerCast(EventWaitList, EventPtrTy);
+        EventWaitList = Builder.CreatePointerCast(EventWaitList,
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+          PtrTy);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+          EventPtrTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       }
       llvm::Value *EventRet = nullptr;
       if (E->getArg(5)->isNullPointerConstant(
               getContext(), Expr::NPC_ValueDependentIsNotNull)) {
-        EventRet = llvm::ConstantPointerNull::get(EventPtrTy);
+        EventRet = llvm::ConstantPointerNull::get(
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+          PtrTy);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+          EventPtrTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       } else {
         EventRet =
-            Builder.CreatePointerCast(EmitScalarExpr(E->getArg(5)), EventPtrTy);
+            Builder.CreatePointerCast(EmitScalarExpr(E->getArg(5)),
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+          PtrTy);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+          EventPtrTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       }
 
       auto Info =
@@ -5749,7 +5884,11 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
 
       std::vector<llvm::Type *> ArgTys = {
           QueueTy,    Int32Ty,    RangeTy,          Int32Ty,
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+          PtrTy, PtrTy, GenericVoidPtrTy, GenericVoidPtrTy};
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
           EventPtrTy, EventPtrTy, GenericVoidPtrTy, GenericVoidPtrTy};
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
       std::vector<llvm::Value *> Args = {Queue,     Flags,         Range,
                                          NumEvents, EventWaitList, EventRet,
@@ -6092,7 +6231,11 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
               ArgValue->getType()->getPointerAddressSpace()) {
             ArgValue = Builder.CreateAddrSpaceCast(
               ArgValue,
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+              llvm::PointerType::get(getLLVMContext(), PtrTy->getAddressSpace()));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
               ArgValue->getType()->getPointerTo(PtrTy->getAddressSpace()));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
           }
         }
 
@@ -6122,7 +6265,12 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
       if (auto *PtrTy = dyn_cast<llvm::PointerType>(RetTy)) {
         if (PtrTy->getAddressSpace() != V->getType()->getPointerAddressSpace()) {
           V = Builder.CreateAddrSpaceCast(
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+              V, llvm::PointerType::get(getLLVMContext(),
+                                        PtrTy->getAddressSpace()));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
             V, V->getType()->getPointerTo(PtrTy->getAddressSpace()));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
         }
       }
 
@@ -9497,8 +9645,12 @@ Value *CodeGenFunction::EmitARMBuiltinExpr(unsigned BuiltinID,
     llvm::Type *RealResTy = ConvertType(Ty);
     llvm::Type *IntTy =
         llvm::IntegerType::get(getLLVMContext(), getContext().getTypeSize(Ty));
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    llvm::Type *PtrTy = llvm::PointerType::getUnqual(getLLVMContext());
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     llvm::Type *PtrTy = IntTy->getPointerTo();
     LoadAddr = Builder.CreateBitCast(LoadAddr, PtrTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
     Function *F = CGM.getIntrinsic(
         BuiltinID == clang::ARM::BI__builtin_arm_ldaex ? Intrinsic::arm_ldaex
@@ -9546,9 +9698,15 @@ Value *CodeGenFunction::EmitARMBuiltinExpr(unsigned BuiltinID,
     Value *StoreAddr = EmitScalarExpr(E->getArg(1));
 
     QualType Ty = E->getArg(0)->getType();
+
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    llvm::Type *StoreTy =
+        llvm::IntegerType::get(getLLVMContext(), getContext().getTypeSize(Ty));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     llvm::Type *StoreTy = llvm::IntegerType::get(getLLVMContext(),
                                                  getContext().getTypeSize(Ty));
     StoreAddr = Builder.CreateBitCast(StoreAddr, StoreTy->getPointerTo());
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
     if (StoreVal->getType()->isPointerTy())
       StoreVal = Builder.CreatePtrToInt(StoreVal, Int32Ty);
@@ -10824,12 +10982,16 @@ Value *CodeGenFunction::EmitSVEPrefetchLoad(const SVETypeFlags &TypeFlags,
 
   // Implement the index operand if not omitted.
   if (Ops.size() > 3) {
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
     BasePtr = Builder.CreateBitCast(BasePtr, MemoryTy->getPointerTo());
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     BasePtr = Builder.CreateGEP(MemoryTy, BasePtr, Ops[2]);
   }
 
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   // Prefetch intriniscs always expect an i8*
   BasePtr = Builder.CreateBitCast(BasePtr, llvm::PointerType::getUnqual(Int8Ty));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   Value *PrfOp = Ops.back();
 
   Function *F = CGM.getIntrinsic(BuiltinID, Predicate->getType());
@@ -18096,7 +18258,11 @@ Value *CodeGenFunction::EmitPPCBuiltinExpr(unsigned BuiltinID,
           StVec = Builder.CreateShuffleVector(Op2, Op2, RevMask);
         }
         return Builder.CreateStore(
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+            StVec, Address(Op0, Op2->getType(), CharUnits::fromQuantity(1)));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
             StVec, Address(BC, Op2->getType(), CharUnits::fromQuantity(1)));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       }
       auto *ConvTy = Int64Ty;
       unsigned NumElts = 0;
@@ -18124,14 +18290,20 @@ Value *CodeGenFunction::EmitPPCBuiltinExpr(unsigned BuiltinID,
           Op2, llvm::FixedVectorType::get(ConvTy, NumElts));
       Value *Ptr =
           Builder.CreateGEP(Int8Ty, Op0, ConstantInt::get(Int64Ty, Offset));
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
       Value *PtrBC = Builder.CreateBitCast(Ptr, ConvTy->getPointerTo());
+#endif
       Value *Elt = Builder.CreateExtractElement(Vec, EltNo);
       if (IsLE && Width > 1) {
         Function *F = CGM.getIntrinsic(Intrinsic::bswap, ConvTy);
         Elt = Builder.CreateCall(F, Elt);
       }
       return Builder.CreateStore(
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+          Elt, Address(Ptr, ConvTy, CharUnits::fromQuantity(1)));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
           Elt, Address(PtrBC, ConvTy, CharUnits::fromQuantity(1)));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     };
     unsigned Stored = 0;
     unsigned RemainingBytes = NumBytes;
@@ -18779,7 +18951,11 @@ Value *CodeGenFunction::EmitPPCBuiltinExpr(unsigned BuiltinID,
       Value *Vec = Builder.CreateLoad(Addr);
       Value *Call = Builder.CreateCall(F, {Vec});
       llvm::Type *VTy = llvm::FixedVectorType::get(Int8Ty, 16);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      Value *Ptr = Ops[0];
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
       Value *Ptr = Builder.CreateBitCast(Ops[0], VTy->getPointerTo());
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       for (unsigned i=0; i<NumVecs; i++) {
         Value *Vec = Builder.CreateExtractValue(Call, i);
         llvm::ConstantInt* Index = llvm::ConstantInt::get(IntTy, i);
@@ -19072,11 +19248,16 @@ Value *EmitAMDGPUWorkGroupSize(CodeGenFunction &CGF, unsigned Index) {
   }
 
   auto *GEP = CGF.Builder.CreateGEP(CGF.Int8Ty, DP, Offset);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  auto *LD = CGF.Builder.CreateLoad(
+      Address(GEP, CGF.Int16Ty, CharUnits::fromQuantity(2)));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   auto *DstTy =
       CGF.Int16Ty->getPointerTo(GEP->getType()->getPointerAddressSpace());
   auto *Cast = CGF.Builder.CreateBitCast(GEP, DstTy);
   auto *LD = CGF.Builder.CreateLoad(
       Address(Cast, CGF.Int16Ty, CharUnits::fromQuantity(2)));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::MDBuilder MDHelper(CGF.getLLVMContext());
   llvm::MDNode *RNode = MDHelper.createRange(APInt(16, 1),
       APInt(16, CGF.getTarget().getMaxOpenCLWorkGroupSize() + 1));
@@ -19095,11 +19276,16 @@ Value *EmitAMDGPUGridSize(CodeGenFunction &CGF, unsigned Index) {
   // Indexing the HSA kernel_dispatch_packet struct.
   auto *Offset = llvm::ConstantInt::get(CGF.Int32Ty, XOffset + Index * 4);
   auto *GEP = CGF.Builder.CreateGEP(CGF.Int8Ty, DP, Offset);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  auto *LD = CGF.Builder.CreateLoad(
+      Address(GEP, CGF.Int32Ty, CharUnits::fromQuantity(4)));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   auto *DstTy =
       CGF.Int32Ty->getPointerTo(GEP->getType()->getPointerAddressSpace());
   auto *Cast = CGF.Builder.CreateBitCast(GEP, DstTy);
   auto *LD = CGF.Builder.CreateLoad(
       Address(Cast, CGF.Int32Ty, CharUnits::fromQuantity(4)));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   LD->setMetadata(llvm::LLVMContext::MD_invariant_load,
                   llvm::MDNode::get(CGF.getLLVMContext(), std::nullopt));
   return LD;
@@ -19232,6 +19418,10 @@ Value *CodeGenFunction::EmitAMDGPUBuiltinExpr(unsigned BuiltinID,
     return emitUnaryBuiltin(*this, E, Intrinsic::amdgcn_cos);
   case AMDGPU::BI__builtin_amdgcn_dispatch_ptr:
     return EmitAMDGPUDispatchPtr(*this, E);
+  case AMDGPU::BI__builtin_amdgcn_logf:
+    return emitUnaryBuiltin(*this, E, Intrinsic::amdgcn_log);
+  case AMDGPU::BI__builtin_amdgcn_exp2f:
+    return emitUnaryBuiltin(*this, E, Intrinsic::amdgcn_exp2);
   case AMDGPU::BI__builtin_amdgcn_log_clampf:
     return emitUnaryBuiltin(*this, E, Intrinsic::amdgcn_log_clamp);
   case AMDGPU::BI__builtin_amdgcn_ldexp:
@@ -19612,40 +19802,33 @@ Value *CodeGenFunction::EmitAMDGPUBuiltinExpr(unsigned BuiltinID,
   case AMDGPU::BI__builtin_amdgcn_atomic_inc64:
   case AMDGPU::BI__builtin_amdgcn_atomic_dec32:
   case AMDGPU::BI__builtin_amdgcn_atomic_dec64: {
-    unsigned BuiltinAtomicOp;
-    llvm::Type *ResultType = ConvertType(E->getType());
-
+    llvm::AtomicRMWInst::BinOp BinOp;
     switch (BuiltinID) {
     case AMDGPU::BI__builtin_amdgcn_atomic_inc32:
     case AMDGPU::BI__builtin_amdgcn_atomic_inc64:
-      BuiltinAtomicOp = Intrinsic::amdgcn_atomic_inc;
+      BinOp = llvm::AtomicRMWInst::UIncWrap;
       break;
     case AMDGPU::BI__builtin_amdgcn_atomic_dec32:
     case AMDGPU::BI__builtin_amdgcn_atomic_dec64:
-      BuiltinAtomicOp = Intrinsic::amdgcn_atomic_dec;
+      BinOp = llvm::AtomicRMWInst::UDecWrap;
       break;
     }
 
     Value *Ptr = EmitScalarExpr(E->getArg(0));
     Value *Val = EmitScalarExpr(E->getArg(1));
 
-    llvm::Function *F =
-        CGM.getIntrinsic(BuiltinAtomicOp, {ResultType, Ptr->getType()});
-
     ProcessOrderScopeAMDGCN(EmitScalarExpr(E->getArg(2)),
                             EmitScalarExpr(E->getArg(3)), AO, SSID);
 
-    // llvm.amdgcn.atomic.inc and llvm.amdgcn.atomic.dec expects ordering and
-    // scope as unsigned values
-    Value *MemOrder = Builder.getInt32(static_cast<int>(AO));
-    Value *MemScope = Builder.getInt32(static_cast<int>(SSID));
-
     QualType PtrTy = E->getArg(0)->IgnoreImpCasts()->getType();
     bool Volatile =
-      PtrTy->castAs<PointerType>()->getPointeeType().isVolatileQualified();
-    Value *IsVolatile = Builder.getInt1(static_cast<bool>(Volatile));
+        PtrTy->castAs<PointerType>()->getPointeeType().isVolatileQualified();
 
-    return Builder.CreateCall(F, {Ptr, Val, MemOrder, MemScope, IsVolatile});
+    llvm::AtomicRMWInst *RMW =
+        Builder.CreateAtomicRMW(BinOp, Ptr, Val, AO, SSID);
+    if (Volatile)
+      RMW->setVolatile(true);
+    return RMW;
   }
   case AMDGPU::BI__builtin_amdgcn_s_sendmsg_rtn:
   case AMDGPU::BI__builtin_amdgcn_s_sendmsg_rtnl: {
@@ -23997,8 +24180,12 @@ Value *CodeGenFunction::EmitHexagonBuiltinExpr(unsigned BuiltinID,
     // generate one (NewBase). The new base address needs to be stored.
     llvm::Value *NewBase = IsLoad ? Builder.CreateExtractValue(Result, 1)
                                   : Result;
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    llvm::Value *LV = EmitScalarExpr(E->getArg(0));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     llvm::Value *LV = Builder.CreateBitCast(
         EmitScalarExpr(E->getArg(0)), NewBase->getType()->getPointerTo());
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     Address Dest = EmitPointerWithAlignment(E->getArg(0));
     llvm::Value *RetVal =
         Builder.CreateAlignedStore(NewBase, LV, Dest.getAlignment());
@@ -24039,9 +24226,13 @@ Value *CodeGenFunction::EmitHexagonBuiltinExpr(unsigned BuiltinID,
     // to be handled with stores of respective destination type.
     DestVal = Builder.CreateTrunc(DestVal, DestTy);
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    Builder.CreateAlignedStore(DestVal, DestAddress, DestAddr.getAlignment());
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     llvm::Value *DestForStore =
         Builder.CreateBitCast(DestAddress, DestVal->getType()->getPointerTo());
     Builder.CreateAlignedStore(DestVal, DestForStore, DestAddr.getAlignment());
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     // The updated value of the base pointer is returned.
     return Builder.CreateExtractValue(Result, 1);
   };
@@ -24480,6 +24671,114 @@ RValue CodeGenFunction::EmitOpenMPDeviceSpirPrintfCallExpr(const CallExpr *E) {
   return RValue::get(CI);
 }
 #endif // INTEL_COLLAB
+llvm::CallInst *CodeGenFunction::EmitFPBuiltinIndirectCall(
+    llvm::FunctionType *IRFuncTy, const SmallVectorImpl<llvm::Value *> &IRArgs,
+    llvm::Value *FnPtr, const FunctionDecl *FD) {
+  llvm::Function *Func;
+  unsigned FPAccuracyIntrinsicID = 0;
+  StringRef Name;
+  if (CurrentBuiltinID == 0) {
+    // Even if the current function doesn't have a clang builtin, create
+    // an 'fpbuiltin-max-error' attribute for it; unless it's marked with
+    // an NoBuiltin attribute.
+    if (!FD->hasAttr<NoBuiltinAttr>()) {
+      Name = FD->getName();
+      FPAccuracyIntrinsicID =
+          llvm::StringSwitch<unsigned>(Name)
+              .Case("fadd", llvm::Intrinsic::fpbuiltin_fadd)
+              .Case("fdiv", llvm::Intrinsic::fpbuiltin_fdiv)
+              .Case("fmul", llvm::Intrinsic::fpbuiltin_fmul)
+              .Case("fsub", llvm::Intrinsic::fpbuiltin_fsub)
+              .Case("frem", llvm::Intrinsic::fpbuiltin_frem)
+              .Case("sincos", llvm::Intrinsic::fpbuiltin_sincos)
+              .Case("exp10", llvm::Intrinsic::fpbuiltin_exp10)
+              .Case("rsqrt", llvm::Intrinsic::fpbuiltin_rsqrt);
+    } else {
+      return nullptr;
+    }
+  } else {
+    // The function has a clang builtin. Create an attribute for it
+    // only if it has an fpbuiltin intrinsic.
+    unsigned BuiltinID = getCurrentBuiltinID();
+    Name = CGM.getContext().BuiltinInfo.getName(BuiltinID);
+    switch (BuiltinID) {
+    default:
+      // If the function has a clang builtin but doesn't have an
+      // fpbuiltin, it will be generated with no 'fpbuiltin-max-error'
+      // attribute.
+      return nullptr;
+    case Builtin::BItan:
+      FPAccuracyIntrinsicID = Intrinsic::fpbuiltin_tan;
+      break;
+    case Builtin::BItanh:
+      FPAccuracyIntrinsicID = Intrinsic::fpbuiltin_tanh;
+      break;
+    case Builtin::BIlog2:
+      FPAccuracyIntrinsicID = Intrinsic::fpbuiltin_log2;
+      break;
+    case Builtin::BIlog1p:
+      FPAccuracyIntrinsicID = Intrinsic::fpbuiltin_log1p;
+      break;
+    case Builtin::BIcos:
+      FPAccuracyIntrinsicID = Intrinsic::fpbuiltin_cos;
+      break;
+    case Builtin::BIcosh:
+      FPAccuracyIntrinsicID = Intrinsic::fpbuiltin_cosh;
+      break;
+    case Builtin::BIacos:
+      FPAccuracyIntrinsicID = Intrinsic::fpbuiltin_acos;
+      break;
+    case Builtin::BIacosh:
+      FPAccuracyIntrinsicID = Intrinsic::fpbuiltin_acosh;
+      break;
+    case Builtin::BIsin:
+      FPAccuracyIntrinsicID = Intrinsic::fpbuiltin_sin;
+      break;
+    case Builtin::BIsinh:
+      FPAccuracyIntrinsicID = Intrinsic::fpbuiltin_sinh;
+      break;
+    case Builtin::BIasin:
+      FPAccuracyIntrinsicID = Intrinsic::fpbuiltin_asin;
+      break;
+    case Builtin::BIasinh:
+      FPAccuracyIntrinsicID = Intrinsic::fpbuiltin_asinh;
+      break;
+    case Builtin::BIatan:
+      FPAccuracyIntrinsicID = Intrinsic::fpbuiltin_atan;
+      break;
+    case Builtin::BIatanh:
+      FPAccuracyIntrinsicID = Intrinsic::fpbuiltin_atanh;
+      break;
+    case Builtin::BIatan2:
+      FPAccuracyIntrinsicID = Intrinsic::fpbuiltin_atan2;
+      break;
+    case Builtin::BIerf:
+      FPAccuracyIntrinsicID = Intrinsic::fpbuiltin_erf;
+      break;
+    case Builtin::BIerfc:
+      FPAccuracyIntrinsicID = Intrinsic::fpbuiltin_erfc;
+      break;
+    case Builtin::BIexp:
+      FPAccuracyIntrinsicID = Intrinsic::fpbuiltin_exp;
+      break;
+    case Builtin::BIexp2:
+      FPAccuracyIntrinsicID = Intrinsic::fpbuiltin_exp2;
+      break;
+    case Builtin::BIexpm1:
+      FPAccuracyIntrinsicID = Intrinsic::fpbuiltin_expm1;
+      break;
+    case Builtin::BIhypot:
+      FPAccuracyIntrinsicID = Intrinsic::fpbuiltin_hypot;
+      break;
+    case Builtin::BIldexp:
+      FPAccuracyIntrinsicID = Intrinsic::fpbuiltin_ldexp;
+      break;
+    }
+  }
+  Func = CGM.getIntrinsic(FPAccuracyIntrinsicID, IRArgs[0]->getType());
+  return CreateBuiltinCallWithAttr(*this, Name, Func, ArrayRef(IRArgs),
+                                   FPAccuracyIntrinsicID);
+}
 
 Value *CodeGenFunction::EmitRISCVBuiltinExpr(unsigned BuiltinID,
                                              const CallExpr *E,

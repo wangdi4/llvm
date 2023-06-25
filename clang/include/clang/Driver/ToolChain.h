@@ -177,7 +177,6 @@ private:
   mutable std::unique_ptr<Tool> OffloadPackager;
   mutable std::unique_ptr<Tool> OffloadDeps;
   mutable std::unique_ptr<Tool> SPIRVTranslator;
-  mutable std::unique_ptr<Tool> SPIRCheck;
   mutable std::unique_ptr<Tool> SYCLPostLink;
   mutable std::unique_ptr<Tool> BackendCompiler;
   mutable std::unique_ptr<Tool> AppendFooter;
@@ -197,7 +196,6 @@ private:
   Tool *getOffloadPackager() const;
   Tool *getOffloadDeps() const;
   Tool *getSPIRVTranslator() const;
-  Tool *getSPIRCheck() const;
   Tool *getSYCLPostLink() const;
   Tool *getBackendCompiler() const;
   Tool *getAppendFooter() const;
@@ -222,7 +220,7 @@ private:
 
 protected:
   MultilibSet Multilibs;
-  Multilib SelectedMultilib;
+  llvm::SmallVector<Multilib> SelectedMultilibs;
 
   ToolChain(const Driver &D, const llvm::Triple &T,
             const llvm::opt::ArgList &Args);
@@ -319,7 +317,21 @@ public:
 
   const MultilibSet &getMultilibs() const { return Multilibs; }
 
-  const Multilib &getMultilib() const { return SelectedMultilib; }
+  const llvm::SmallVector<Multilib> &getSelectedMultilibs() const {
+    return SelectedMultilibs;
+  }
+
+  /// Get flags suitable for multilib selection, based on the provided clang
+  /// command line arguments. The command line arguments aren't suitable to be
+  /// used directly for multilib selection because they are not normalized and
+  /// normalization is a complex process. The result of this function is similar
+  /// to clang command line arguments except that the list of arguments is
+  /// incomplete. Only certain command line arguments are processed. If more
+  /// command line arguments are needed for multilib selection then this
+  /// function should be extended.
+  /// To allow users to find out what flags are returned, clang accepts a
+  /// -print-multi-flags-experimental argument.
+  Multilib::flags_list getMultilibFlags(const llvm::opt::ArgList &) const;
 
   SanitizerArgs getSanitizerArgs(const llvm::opt::ArgList &JobArgs) const;
 
