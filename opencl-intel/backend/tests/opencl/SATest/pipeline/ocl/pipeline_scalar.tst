@@ -186,16 +186,12 @@
 ; CHECK-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-NEXT: Running pass: PromotePass
 
-; CHECK:      Running pass: PhiCanonicalization
-; CHECK-NEXT: Running analysis: PostDominatorTreeAnalysis
-; CHECK-NEXT: Running pass: RedundantPhiNode
+; CHECK:      Running analysis: DominatorTreeAnalysis
 ; CHECK-NEXT: Running pass: DCEPass
 ; CHECK-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-NEXT: Running pass: PromotePass
 
-; CHECK:      Running pass: PhiCanonicalization
-; CHECK-NEXT: Running analysis: PostDominatorTreeAnalysis
-; CHECK-NEXT: Running pass: RedundantPhiNode
+; CHECK:      Running analysis: DominatorTreeAnalysis
 ; CHECK-NEXT: Running pass: GroupBuiltinPass
 ; CHECK-NEXT: Running pass: BarrierInFunction
 ; CHECK:      Running pass: RemoveDuplicatedBarrierPass

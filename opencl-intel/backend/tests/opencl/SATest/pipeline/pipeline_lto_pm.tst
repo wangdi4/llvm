@@ -119,8 +119,6 @@
 ; CHECK:      Running pass: SimplifyCFGPass
 ; CHECK:      Running pass: PromotePass
 
-; CHECK:      Running pass: PhiCanonicalization
-; CHECK:      Running pass: RedundantPhiNode
 ; CHECK:      Running pass: GroupBuiltinPass
 ; CHECK-NEXT: Running pass: BarrierInFunction
 ; CHECK:      Running pass: RemoveDuplicatedBarrierPass

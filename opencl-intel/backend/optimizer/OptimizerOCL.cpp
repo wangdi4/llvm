@@ -768,8 +768,6 @@ void OptimizerOCL::addBarrierPasses(ModulePassManager &MPM) const {
     FPM.addPass(DCEPass());
     FPM.addPass(SimplifyCFGPass());
     FPM.addPass(PromotePass());
-    FPM.addPass(PhiCanonicalization());
-    FPM.addPass(RedundantPhiNode());
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
   }
 
