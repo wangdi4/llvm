@@ -1852,6 +1852,7 @@ Instruction *llvm::SplitBlockAndInsertIfThen(Value *Cond,
 
   if (LI) {
     if (Loop *L = LI->getLoopFor(Head)) {
+<<<<<<< HEAD
 #if INTEL_COLLAB
       // we get an assertion when ThenBlock was already created
       // with SplitBlock* methods and was already added to the loop there
@@ -1860,6 +1861,11 @@ Instruction *llvm::SplitBlockAndInsertIfThen(Value *Cond,
 #else  // INTEL_COLLAB
       L->addBasicBlockToLoop(ThenBlock, *LI);
 #endif // INTEL_COLLAB
+=======
+      // unreachable-terminated blocks cannot belong to any loop.
+      if (!Unreachable)
+        L->addBasicBlockToLoop(ThenBlock, *LI);
+>>>>>>> d46d9689f7c3fe16010cd07761858a6392239b3f
       L->addBasicBlockToLoop(Tail, *LI);
     }
   }
