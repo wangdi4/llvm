@@ -95,6 +95,12 @@ void CPUProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache *pCache,
     maxSupportedVectorISA = CLElfLib::EH_FLAG_AVX2;
   else if (m_compiler.GetCpuId()->HasAVX1())
     maxSupportedVectorISA = CLElfLib::EH_FLAG_AVX1;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_DMR
+  if (m_compiler.GetCpuId()->HasDMR())
+    maxSupportedVectorISA = CLElfLib::EH_FLAG_DMR;
+#endif // INTEL_FEATURE_CPU_DMR
+#endif // INTEL_CUSTOMIZATION
 
   std::unique_ptr<CacheBinaryWriter> pWriter(
       new CacheBinaryWriter(bitOS, maxSupportedVectorISA));

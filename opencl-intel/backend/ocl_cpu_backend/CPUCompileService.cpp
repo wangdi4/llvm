@@ -189,6 +189,14 @@ cl_dev_err_code CPUCompileService::CheckProgramBinary(const void *pBinary,
   Intel::OpenCL::Utils::ECPU cpu = Intel::OpenCL::Utils::CPU_UNKNOWN;
 
   switch (headerFlag) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_DMR
+  case CLElfLib::EH_FLAG_DMR:
+    valid &= cpuId->HasDMR();
+    cpu = Intel::OpenCL::Utils::CPU_DMR;
+    break;
+#endif // INTEL_FEATURE_CPU_DMR
+#endif // INTEL_CUSTOMIZATION
   case CLElfLib::EH_FLAG_GNR:
     valid &= cpuId->HasGNR();
     cpu = Intel::OpenCL::Utils::CPU_GNR;
