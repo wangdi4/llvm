@@ -47,6 +47,20 @@ PreservedAnalyses PrepareKernelArgsPass::run(Module &M,
   return PreservedAnalyses::none();
 }
 
+static void
+collectEnqueueKernelAndQueryFuncs(Module &M,
+                                  SmallVectorImpl<Function *> &Funcs) {
+  for (Function &EEF : M) {
+    if (EEF.isDeclaration()) {
+      StringRef EEFName = EEF.getName();
+      if (EEFName.startswith("__ocl20_enqueue_kernel_") ||
+          EEFName.equals("__ocl20_get_kernel_wg_size") ||
+          EEFName.equals("__ocl20_get_kernel_preferred_wg_size_multiple"))
+        Funcs.push_back(&EEF);
+    }
+  }
+}
+
 bool PrepareKernelArgsPass::runImpl(
     Module &M, bool UseTLSGlobals,
     function_ref<AssumptionCache *(Function &F)> GetAC,
@@ -61,6 +75,8 @@ bool PrepareKernelArgsPass::runImpl(
 
   // Get all kernels (original scalar kernels and vectorized kernels).
   auto kernelsFuncSet = CompilationUtils::getAllKernels(*this->M);
+
+  collectEnqueueKernelAndQueryFuncs(*this->M, EnqueueKernelAndQueryFuncs);
 
   // Handle all kernels.
   for (auto *F : kernelsFuncSet)
@@ -451,25 +467,20 @@ CallInst *PrepareKernelArgsPass::createWrapperBody(Function *Wrapper,
 
 void PrepareKernelArgsPass::replaceFunctionPointers(Function *Wrapper,
                                                     Function *WrappedKernel) {
+  if (WrappedKernel->use_empty())
+    return;
+
   // BIs like enqueue_kernel and kernel query have a function pointer to a
   // block invoke kernel as an argument.
   // Replace these arguments by a pointer to the wrapper function.
   IRBuilder<> Builder(WrappedKernel->getContext());
-  for (auto &EEF : *M) {
-    if (!EEF.isDeclaration())
-      continue;
-
-    StringRef EEFName = EEF.getName();
-    if (!(EEFName.startswith("__ocl20_enqueue_kernel_") ||
-          EEFName.equals("__ocl20_get_kernel_wg_size") ||
-          EEFName.equals("__ocl20_get_kernel_preferred_wg_size_multiple")))
-      continue;
-
+  for (Function *EEF : EnqueueKernelAndQueryFuncs) {
+    StringRef EEFName = EEF->getName();
     unsigned BlockInvokeIdx = (EEFName.startswith("__ocl20_enqueue_kernel_"))
                                   ? (EEFName.contains("_events") ? 6 : 3)
                                   : 0;
 
-    for (auto *U : EEF.users()) {
+    for (auto *U : EEF->users()) {
       if (auto *EECall = dyn_cast<CallInst>(U)) {
         Value *BlockInvoke =
             EECall->getArgOperand(BlockInvokeIdx)->stripPointerCasts();
