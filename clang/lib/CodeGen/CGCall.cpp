@@ -2242,6 +2242,7 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
 #else // INTEL_SYCL_OPAQUEPOINTER_READY
         llvm::PointerType::get(ConvertType(Ret), AddressSpace);
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
     addSRetToDTransFuncInfo(*this, DFI, Ret,
@@ -2249,6 +2250,8 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
                             IRFunctionArgs.getSRetArgNo());
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> cf49e99ba49b5f75636f0d0af31ebd97e40dea46
   }
 
   // Add type for inalloca argument.
@@ -2265,6 +2268,7 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
         FI.getArgStruct()->getPointerTo();
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
     addInallocaToDTransFuncInfo(*this, CGM, DFI, FI.getArgStruct(),
@@ -2272,6 +2276,8 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
   }
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> cf49e99ba49b5f75636f0d0af31ebd97e40dea46
 
   // Add in all of the required arguments.
   unsigned ArgNo = 0;
@@ -2299,6 +2305,7 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
       // indirect arguments are always on the stack, which is alloca addr space.
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       ArgTypes[FirstIRArg] = llvm::PointerType::get(
+<<<<<<< HEAD
           getLLVMContext(),
 #else // INTEL_SYCL_OPAQUEPOINTER_READY
       ArgTypes[FirstIRArg] = ConvertTypeForMem(it->type)->getPointerTo(
@@ -2315,6 +2322,13 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
                           NumIRArgs);
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
+=======
+          getLLVMContext(), CGM.getDataLayout().getAllocaAddrSpace());
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+      ArgTypes[FirstIRArg] = ConvertTypeForMem(it->type)->getPointerTo(
+          CGM.getDataLayout().getAllocaAddrSpace());
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+>>>>>>> cf49e99ba49b5f75636f0d0af31ebd97e40dea46
       break;
     case ABIArgInfo::IndirectAliased:
       assert(NumIRArgs == 1);
@@ -2324,6 +2338,7 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
 #else // INTEL_SYCL_OPAQUEPOINTER_READY
       ArgTypes[FirstIRArg] = ConvertTypeForMem(it->type)->getPointerTo(ArgInfo.getIndirectAddrSpace());
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
@@ -2332,6 +2347,8 @@ llvm::FunctionType *CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
                           NumIRArgs);
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> cf49e99ba49b5f75636f0d0af31ebd97e40dea46
       break;
     case ABIArgInfo::Extend:
     case ABIArgInfo::Direct: {
