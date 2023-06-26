@@ -2545,15 +2545,15 @@ static void getTrivialDefaultFunctionAttributes(
     const LangOptions &LangOpts, bool AttrOnCallSite,
     llvm::AttrBuilder &FuncAttrs) {
 #if INTEL_CUSTOMIZATION
-  if (getLangOpts().isIntelCompat(LangOptions::IMFAttributes)) {
+  if (LangOpts.isIntelCompat(LangOptions::IMFAttributes)) {
     // Explicitly specify medium precision for sincos calls because they can't
     // carry fast math flags
-    if ((Name == "sincos" || Name == "sincosf") && getLangOpts().ApproxFunc)
+    if ((Name == "sincos" || Name == "sincosf") && LangOpts.ApproxFunc)
       FuncAttrs.addAttribute("imf-precision", "medium");
 
     llvm::StringSet<> FuncOwnAttrs;
-    auto FuncMapIt = getLangOpts().ImfAttrFuncMap.find(Name.str());
-    if (FuncMapIt != getLangOpts().ImfAttrFuncMap.end()) {
+    auto FuncMapIt = LangOpts.ImfAttrFuncMap.find(Name.str());
+    if (FuncMapIt != LangOpts.ImfAttrFuncMap.end()) {
       // The function has its own set of attributes.
       for (const std::pair<std::string, std::string> &AttrPair :
            FuncMapIt->second) {
@@ -2565,14 +2565,14 @@ static void getTrivialDefaultFunctionAttributes(
     // Add attributes not specific to any function, if that kind not explicitly
     // specified for this function.
     for (const std::pair<std::string, std::string> &AttrPair :
-         getLangOpts().ImfAttrMap) {
+         LangOpts.ImfAttrMap) {
       if (FuncOwnAttrs.find(AttrPair.first) == FuncOwnAttrs.end()) {
         FuncAttrs.addAttribute("imf-" + AttrPair.first,
                                AttrPair.second);
       }
     }
-    FuncMapIt = getLangOpts().ImfAttrFuncMap.find("sqrt");
-    if (FuncMapIt != getLangOpts().ImfAttrFuncMap.end()) {
+    FuncMapIt = LangOpts.ImfAttrFuncMap.find("sqrt");
+    if (FuncMapIt != LangOpts.ImfAttrFuncMap.end()) {
       for (const std::pair<std::string, std::string> &AttrPair :
            FuncMapIt->second) {
         FuncAttrs.addAttribute("imf-" + AttrPair.first + "-sqrt",
