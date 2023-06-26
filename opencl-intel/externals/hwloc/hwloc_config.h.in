@@ -85,11 +85,9 @@
 typedef DWORDLONG hwloc_uint64_t;
 
 #else
-#if HWLOC_HAVE_PTHREAD_MUTEX  /*HWLOC_HAVE_PTHREAD_MUTEX*/
 #define hwloc_pid_t pid_t
 #define hwloc_thread_t pthread_t
 #  include <pthread.h>
-#endif  /*HWLOC_HAVE_PTHREAD_MUTEX */
 
 /* Defined to 1 if you have the <stdint.h> header file. */
 #cmakedefine HAVE_UNISTD_H @HAVE_UNISTD_H@
@@ -105,9 +103,6 @@ typedef DWORDLONG hwloc_uint64_t;
 #  endif
 
 #endif /* HWLOC_HAVE_WINDOWS_H */
-
-/* Define to 1 if --enable-32bits-pci-domain is called. */
-/* #undef HWLOC_HAVE_32BITS_PCI_DOMAIN */
 
 /* Whether we need to re-define all the hwloc public symbols or not */
 #define HWLOC_SYM_TRANSFORM 0
