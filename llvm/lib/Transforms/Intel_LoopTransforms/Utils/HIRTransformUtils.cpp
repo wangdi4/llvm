@@ -1119,6 +1119,8 @@ static bool widenIVIfNeeded(HLLoop *Lp, unsigned Multiplier) {
                                   : HNU.createZExt(NewIVType, OldUpperRef);
 
     HLNodeUtils::insertAsLastPreheaderNode(Lp, UpperInst);
+    OldUpperRef->makeConsistent();
+
     auto *NewUpperRef = UpperInst->getLvalDDRef()->clone();
 
     NewUpperRef->getSingleCanonExpr()->setDefinedAtLevel(Lp->getNestingLevel() -
