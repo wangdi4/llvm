@@ -64,6 +64,8 @@ enum class RecurKind {
   FMul,       ///< Product of floats.
   FMin,       ///< FP min implemented in terms of select(cmp()).
   FMax,       ///< FP max implemented in terms of select(cmp()).
+  FMinimum,   ///< FP min with llvm.minimum semantics
+  FMaximum,   ///< FP max with llvm.maximum semantics
   FMulAdd,    ///< Fused multiply-add of floats (a * b + c).
   Udr,        ///< User-defined recurrence operation. // INTEL
   SelectICmp, ///< Integer select(icmp(),x,y) where one of (x,y) is loop
@@ -346,6 +348,42 @@ public:
   /// Returns 1st non-reassociative FP instruction in the PHI node's use-chain.
   Instruction *getExactFPMathInst() const { return ExactFPMathInst; }
 
+<<<<<<< HEAD
+=======
+  /// Returns true if the recurrence kind is an integer kind.
+  static bool isIntegerRecurrenceKind(RecurKind Kind);
+
+  /// Returns true if the recurrence kind is a floating point kind.
+  static bool isFloatingPointRecurrenceKind(RecurKind Kind);
+
+  /// Returns true if the recurrence kind is an integer min/max kind.
+  static bool isIntMinMaxRecurrenceKind(RecurKind Kind) {
+    return Kind == RecurKind::UMin || Kind == RecurKind::UMax ||
+           Kind == RecurKind::SMin || Kind == RecurKind::SMax;
+  }
+
+  /// Returns true if the recurrence kind is a floating-point min/max kind.
+  static bool isFPMinMaxRecurrenceKind(RecurKind Kind) {
+    return Kind == RecurKind::FMin || Kind == RecurKind::FMax ||
+           Kind == RecurKind::FMinimum || Kind == RecurKind::FMaximum;
+  }
+
+  /// Returns true if the recurrence kind is any min/max kind.
+  static bool isMinMaxRecurrenceKind(RecurKind Kind) {
+    return isIntMinMaxRecurrenceKind(Kind) || isFPMinMaxRecurrenceKind(Kind);
+  }
+
+  /// Returns true if the recurrence kind is of the form
+  ///   select(cmp(),x,y) where one of (x,y) is loop invariant.
+  static bool isSelectCmpRecurrenceKind(RecurKind Kind) {
+    return Kind == RecurKind::SelectICmp || Kind == RecurKind::SelectFCmp;
+  }
+
+  /// Returns the type of the recurrence. This type can be narrower than the
+  /// actual type of the Phi if the recurrence has been type-promoted.
+  Type *getRecurrenceType() const { return RecurrenceType; }
+
+>>>>>>> ec146cb7c0b4a162ee73463e6c7bb306b99e013b
   /// Returns a reference to the instructions used for type-promoting the
   /// recurrence.
   const SmallPtrSet<Instruction *, 8> &getCastInsts() const { return CastInsts; }
