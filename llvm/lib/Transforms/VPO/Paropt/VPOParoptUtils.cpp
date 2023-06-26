@@ -2722,19 +2722,18 @@ CallInst *VPOParoptUtils::genKmpcTaskAllocForAsyncObj(WRegionNode *W,
   return TaskAllocCall;
 }
 
-CallInst *VPOParoptUtils::genKmpcTaskAllocWithoutCallback(WRegionNode *W,
-                                                          StructType *IdentTy,
-                                                          Instruction *InsertPt) {
+CallInst *VPOParoptUtils::genKmpcTaskAllocWithoutCallback(
+    WRegionNode *W, StructType *IdentTy, Value *TidPtr, Instruction *InsertPt) {
   IRBuilder<> Builder(InsertPt);
   Type *Int32Ty = Builder.getInt32Ty();
   PointerType *Int8PtrTy = Builder.getInt8PtrTy();
 
   Value *ValueZero = ConstantInt::get(Int32Ty, 0);
+  Value *Tid = Builder.CreateLoad(Int32Ty, TidPtr);
   ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
 
-  CallInst *TaskAllocCall =
-      genKmpcTaskAllocImpl(W, IdentTy, ValueZero, ValueZero, ValueZero, 0,
-                           NullPtr, InsertPt, false);
+  CallInst *TaskAllocCall = genKmpcTaskAllocImpl(
+      W, IdentTy, Tid, ValueZero, ValueZero, 0, NullPtr, InsertPt, false);
   return TaskAllocCall;
 }
 

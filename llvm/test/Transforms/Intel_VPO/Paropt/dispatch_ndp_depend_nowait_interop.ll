@@ -31,7 +31,7 @@
 ; ;CHECK: [[UPDATEDVAL:%[a-zA-Z._0-9]+]] = load ptr, ptr [[GEP]], align 8
 ; ;
 ; ; ;;;; handle DEPEND
-; ; ;CHECK: call ptr @__kmpc_omp_task_alloc(ptr @{{.*}}, i32 0, i32 0, i64 0, i64 0, ptr null)
+; ; ;CHECK: call ptr @__kmpc_omp_task_alloc(ptr @{{.*}}, i32 %{{.*}}, i32 0, i64 0, i64 0, ptr null)
 ; ; ;CHECK: call void @__kmpc_omp_wait_deps(ptr @{{.*}}, i32 %{{.*}}, i32 2, ptr %0, i32 0, ptr null)
 ; ; ;CHECK: call void @__kmpc_omp_task_begin_if0(ptr @{{.*}}, i32 %{{.*}}, ptr %{{.*}})
 ; ; ;

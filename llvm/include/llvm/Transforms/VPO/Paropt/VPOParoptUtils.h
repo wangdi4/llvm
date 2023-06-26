@@ -1342,6 +1342,7 @@ public:
   /// Generate a call to `__kmpc_omp_task_alloc` without a callback
   static CallInst *genKmpcTaskAllocWithoutCallback(WRegionNode *W,
                                                    StructType *IdentTy,
+                                                   Value *TidPtr,
                                                    Instruction *InsertPt);
 
   /// Generate a call to `__kmpc_omp_task_alloc` to be used as an AsyncObj
