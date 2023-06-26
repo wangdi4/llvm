@@ -96,7 +96,12 @@ enum E_EH_FLAGS {
   EH_FLAG_AVX512_ICL = 6,
   EH_FLAG_AVX512_ICX = 7,
   EH_FLAG_SPR = 8,
-  EH_FLAG_GNR = 9
+  EH_FLAG_GNR = 9,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_DMR
+  EH_FLAG_DMR = 10
+#endif // INTEL_FEATURE_CPU_DMR
+#endif // INTEL_CUSTOMIZATION
 };
 
 // E_SH_TYPE - List of pre-defined section header types.
