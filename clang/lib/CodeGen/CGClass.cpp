@@ -2624,6 +2624,7 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
   // Finally, store the address point. Use the same LLVM types as the field to
   // support optimization.
   unsigned GlobalsAS = CGM.getDataLayout().getDefaultGlobalsAddressSpace();
+<<<<<<< HEAD
 #if INTEL_COLLAB
   unsigned ProgAS = CGM.getDataLayout().getProgramAddressSpace();
   unsigned ThisAddrSpace =
@@ -2633,11 +2634,14 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
           ->getPointerTo(ProgAS)
           ->getPointerTo(GlobalsAS ? GlobalsAS : ThisAddrSpace);
 #else  // INTEL_COLLAB
+=======
+>>>>>>> 8060cd36fe2060c23a397e059b88b1bac0559c42
   unsigned ProgAS = CGM.getDataLayout().getProgramAddressSpace();
   llvm::Type *VTablePtrTy =
       llvm::FunctionType::get(CGM.Int32Ty, /*isVarArg=*/true)
           ->getPointerTo(ProgAS)
           ->getPointerTo(GlobalsAS);
+<<<<<<< HEAD
 #endif // INTEL_COLLAB
   // vtable field is derived from `this` pointer, therefore it should be in
   // default address space.
@@ -2648,6 +2652,12 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
 #else  // INTEL_COLLAB
   VTableAddressPoint = Builder.CreateBitCast(VTableAddressPoint, VTablePtrTy);
 #endif // INTEL_COLLAB
+=======
+  // vtable field is derived from `this` pointer, therefore they should be in
+  // the same addr space. Note that this might not be LLVM address space 0.
+  VTableField = Builder.CreateElementBitCast(VTableField, VTablePtrTy);
+  VTableAddressPoint = Builder.CreateBitCast(VTableAddressPoint, VTablePtrTy);
+>>>>>>> 8060cd36fe2060c23a397e059b88b1bac0559c42
 
   llvm::StoreInst *Store = Builder.CreateStore(VTableAddressPoint, VTableField);
   TBAAAccessInfo TBAAInfo = CGM.getTBAAVTablePtrAccessInfo(VTablePtrTy);
