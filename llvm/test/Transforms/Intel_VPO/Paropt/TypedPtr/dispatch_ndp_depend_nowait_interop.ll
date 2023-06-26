@@ -30,7 +30,7 @@
 ; ;CHECK: [[UPDATEDVAL:%[a-zA-Z._0-9]+]] = load i32*, i32** [[CAST]], align 8
 ; ;
 ; ; ;;;; handle DEPEND
-; ; ;CHECK: call i8* @__kmpc_omp_task_alloc(%struct.ident_t* @{{.*}}, i32 0, i32 0, i64 0, i64 0, i8* null)
+; ; ;CHECK: call i8* @__kmpc_omp_task_alloc(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i32 0, i64 0, i64 0, i8* null)
 ; ; ;CHECK: call void @__kmpc_omp_wait_deps(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i32 2, i8* %{{.*}}, i32 0, i8* null)
 ; ; ;CHECK: call void @__kmpc_omp_task_begin_if0(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i8* %{{.*}})
 ; ; ;

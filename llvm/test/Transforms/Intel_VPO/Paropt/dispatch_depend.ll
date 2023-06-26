@@ -18,7 +18,7 @@
 ;   return 0;
 ; }
 ;
-; CHECK:  call i8* @__kmpc_omp_task_alloc(%struct.ident_t* @{{.*}}, i32 0, i32 0, i64 0, i64 0, i8* null)
+; CHECK:  call i8* @__kmpc_omp_task_alloc(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i32 0, i64 0, i64 0, i8* null)
 ; CHECK:  call void @__kmpc_omp_wait_deps(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i32 2, i8* %{{.*}}, i32 0, i8* null)
 ; CHECK:  call void @__kmpc_omp_task_begin_if0(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i8* %{{.*}})
 ; CHECK:  call void @_Z7foo_gpuiPi(i32 0, i32* %{{.*}})

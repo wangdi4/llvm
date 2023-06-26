@@ -25,7 +25,7 @@ entry:
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.INTEROP"() ]
 
 ; check for @__tgt_create_interop creation
-; CHECK:  %[[TASK1:[^ ]+]] = call ptr @__kmpc_omp_task_alloc(ptr @{{[^ ,]+}}, i32 0, i32 0, i64 0, i64 0, ptr null)
+; CHECK:  %[[TASK1:[^ ]+]] = call ptr @__kmpc_omp_task_alloc(ptr @{{[^ ,]+}}, i32 %{{.*}}, i32 0, i64 0, i64 0, ptr null)
 ; CHECK:  call void @__kmpc_omp_task_begin_if0(ptr @{{[^ ,]+}}, i32  %{{[^ ,]+}}, ptr %[[TASK1]])
 ; CHECK-NEXT:  %[[CREATE_INTEROP:[^ ]+]] = call ptr @__tgt_create_interop(i64  %{{[^ ,]+}}, i32 0, i32 0, ptr null)
 ; CHECK-NEXT:  store ptr %[[CREATE_INTEROP]], ptr %[[OBJ:[^ ]+]], align 8
@@ -37,7 +37,7 @@ entry:
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.INTEROP"() ]
 
 ; check for @__tgt_use_interop(ptr %objinterop.obj.val)
-; CHECK:  %[[TASK2:[^ ]+]] = call ptr @__kmpc_omp_task_alloc(ptr @{{[^ ,]+}}, i32 0, i32 0, i64 0, i64 0, ptr null)
+; CHECK:  %[[TASK2:[^ ]+]] = call ptr @__kmpc_omp_task_alloc(ptr @{{[^ ,]+}}, i32 %{{.*}}, i32 0, i64 0, i64 0, ptr null)
 ; CHECK:  call void @__kmpc_omp_task_begin_if0(ptr @{{[^ ,]+}}, i32 %{{[^ ,]+}}, ptr %[[TASK2]])
 ; CHECK-NEXT:  %[[INTEROP_VAL:[^ ]+]] = load ptr, ptr %[[OBJ]], align 8
 ; CHECK-NEXT:  %{{[^ ,]+}} = call i32 @__tgt_use_interop(ptr %[[INTEROP_VAL]])
@@ -48,7 +48,7 @@ entry:
   call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.INTEROP"() ]
 
 ; check for @__tgt_release_interop
-; CHECK:  %[[TASK3:[^ ]+]] = call ptr @__kmpc_omp_task_alloc(ptr @{{[^ ,]+}}, i32 0, i32 0, i64 0, i64 0, ptr null)
+; CHECK:  %[[TASK3:[^ ]+]] = call ptr @__kmpc_omp_task_alloc(ptr @{{[^ ,]+}}, i32 %{{.*}}, i32 0, i64 0, i64 0, ptr null)
 ; CHECK:  call void @__kmpc_omp_task_begin_if0(ptr @{{[^ ,]+}}, i32 %{{[^ ,]+}}, ptr %[[TASK3]])
 ; CHECK-NEXT: %[[INTEROP_VAL2:[^ ]+]] = load ptr, ptr %[[OBJ]], align 8
 ; CHECK-NEXT: %{{[^ ,]+}} = call i32 @__tgt_release_interop(ptr %[[INTEROP_VAL2]])

@@ -676,3 +676,68 @@ const char *OptReportDiag::getMsg(DiagTableKey Id) {
 
   return (*DiagMapIt).second;
 }
+
+const DenseMap<AuxDiagTableKey, const char *> OptReportAuxDiag::AuxDiags = {
+    {AuxRemarkID::InvalidAuxRemark, "Internal error: invalid auxiliary remark"},
+    {AuxRemarkID::Loop, "loop"},
+    {AuxRemarkID::SimdLoop, "simd loop"},
+    {AuxRemarkID::OmpSimdOrderedUnsupported,
+     "#pragma omp simd ordered is not yet supported."},
+    {AuxRemarkID::VFNotPowerOf2,
+     "The forced vectorization factor is not a power of two."},
+    {AuxRemarkID::ForcedVFIs1,
+     "The forced vectorization factor or safelen specified by the user is 1."},
+    {AuxRemarkID::ForcedVFExceedsSafeLen,
+     "The forced vectorization factor exceeds the safelen set via #pragma "
+     "omp simd."},
+    {AuxRemarkID::PragmaVectorLength0,
+     "User specified #pragma vector vectorlength(0)."},
+    {AuxRemarkID::OutOfVPlanVecRange, "The loop is out of vplan-vec-range"},
+    {AuxRemarkID::VFExceedsTC,
+     "Enforced or only valid vectorization factor exceeds the known trip "
+     "count for this loop."},
+    {AuxRemarkID::ForcedVFExceedsUnrolledTC,
+     "The forced vectorization factor exceeds the unrolled trip count for "
+     "every legal unroll factor."},
+    {AuxRemarkID::UserForcedVF1, "User forced vectorization factor of 1."},
+    {AuxRemarkID::UDRWithoutInitializer,
+     "A user-defined reduction without an initializer has been detected, "
+     "and is not yet supported."},
+    {AuxRemarkID::MultipleLiveOutReduction,
+     "A reduction with more than one live-out instruction is not supported."},
+    {AuxRemarkID::IllegalOpenMPInSIMD,
+     "An illegal OpenMP construct was found inside this SIMD loop."},
+    {AuxRemarkID::NoDedicatedExits, "Loop has no dedicated exits."},
+    {AuxRemarkID::MultipleMultiExitLoops,
+     "Cannot support more than one multiple-exit loop."},
+    {AuxRemarkID::OuterLoopVecUnsupported,
+     "Outer loop vectorization is not supported."},
+};
+
+const char *OptReportAuxDiag::getMsg(AuxRemarkID Id) {
+  auto DiagMapIt = AuxDiags.find(Id);
+
+  // Sanity check
+  assert(DiagMapIt != AuxDiags.end() && "Invalid auxiliary diagnostic ID.");
+  if (DiagMapIt == AuxDiags.end())
+    return nullptr;
+
+  return (*DiagMapIt).second;
+}
+
+void OptReportAuxDiag::verifyVectorizerMsgs() {
+#ifndef NDEBUG
+  for (unsigned ID =
+           static_cast<unsigned>(AuxRemarkID::VectorizerRemarksBegin) + 1;
+       ID < static_cast<unsigned>(AuxRemarkID::VectorizerRemarksEnd); ID++) {
+    auto DiagMapIt = AuxDiags.find(static_cast<AuxRemarkID>(ID));
+    assert(DiagMapIt != AuxDiags.end() &&
+           "Missing vectorizer message in auxiliary diagnostic table!");
+  }
+#endif
+}
+
+#ifndef NDEBUG
+// Instantiate the class to invoke the verifiers.
+OptReportAuxDiag TheAuxDiag;
+#endif

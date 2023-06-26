@@ -3728,8 +3728,8 @@ bool VPOParoptTransform::genInteropCode(WRegionNode* W) {
   DeviceNum = Builder.CreateZExtOrTrunc(DeviceNum, Int64Ty);
   assert(DeviceNum->getType()->isIntegerTy(64) && "DeviceID is not an i64.");
 
-  CallInst *TaskAllocCI =
-      VPOParoptUtils::genKmpcTaskAllocWithoutCallback(W, IdentTy, InsertPt);
+  CallInst *TaskAllocCI = VPOParoptUtils::genKmpcTaskAllocWithoutCallback(
+      W, IdentTy, TidPtrHolder, InsertPt);
 
   if (!DepClause.empty() || W->getDepArray()) {
     AllocaInst *DummyTaskTDependRec = genDependInitForTask(W, InsertPt);
@@ -4338,8 +4338,8 @@ void VPOParoptTransform::genDependForDispatch(WRegionNode *W,
 
   // Insert code before VariantCall;
   Instruction *InsertPt = VariantCall;
-  CallInst *TaskAllocCI =
-      VPOParoptUtils::genKmpcTaskAllocWithoutCallback(W, IdentTy, InsertPt);
+  CallInst *TaskAllocCI = VPOParoptUtils::genKmpcTaskAllocWithoutCallback(
+      W, IdentTy, TidPtrHolder, InsertPt);
 
   AllocaInst *DummyTaskTDependRec = genDependInitForTask(ParentTask, InsertPt);
   genTaskDeps(ParentTask, IdentTy, TidPtrHolder, /*TaskAlloc=*/nullptr,
