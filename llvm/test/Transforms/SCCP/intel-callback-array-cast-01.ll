@@ -3,7 +3,6 @@
 ; propagation passes when the beginning of an array is casted to a pointer
 ; and it is used inside a callback.
 
-; RUN: opt -opaque-pointers=0 -passes=ipsccp -S %s | FileCheck %s --check-prefix NOOPAQUE
 ; RUN: opt -opaque-pointers -passes=ipsccp -S %s | FileCheck %s --check-prefix OPAQUE
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -15,12 +14,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Check that @globArray was casted correctly and %Arr was replaced with
 ; %bc_const in the GEP %dummy
 define internal void @callback(i8* %ID, [1000 x %TestStruct]* %Arr) {
-; NOOPAQUE-LABEL: @callback(
-; NOOPAQUE-NEXT:  entry:
-; NOOPAQUE-NEXT:    [[BC_CONST:%.*]] = bitcast %TestStruct* getelementptr inbounds ([1000 x %TestStruct], [1000 x %TestStruct]* @globArray, i64 0, i64 0) to [1000 x %TestStruct]*
-; NOOPAQUE-NEXT:    [[DUMMY:%.*]] = getelementptr [1000 x %TestStruct], [1000 x %TestStruct]* [[BC_CONST]], i64 0, i64 0
-; NOOPAQUE-NEXT:    ret void
-;
 ; OPAQUE-LABEL: @callback(
 ; OPAQUE-NEXT:  entry:
 ; OPAQUE-NEXT:    ret void
@@ -33,11 +26,6 @@ entry:
 ; Check that the parameter in the call site for @callback was updated with the
 ; correct type
 define internal void @foo(%TestStruct* %Arr) {
-; NOOPAQUE-LABEL: @foo(
-; NOOPAQUE-NEXT:  entry:
-; NOOPAQUE-NEXT:    call void (i32, void (i8*, ...)*, ...) @broker(i32 3, void (i8*, ...)* bitcast (void (i8*, [1000 x %TestStruct]*)* @callback to void (i8*, ...)*), %TestStruct* getelementptr inbounds ([1000 x %TestStruct], [1000 x %TestStruct]* @globArray, i64 0, i64 0))
-; NOOPAQUE-NEXT:    ret void
-;
 ; OPAQUE-LABEL: @foo(
 ; OPAQUE-NEXT:  entry:
 ; OPAQUE-NEXT:    call void (i32, ptr, ...) @broker(i32 3, ptr @callback, ptr @globArray)
@@ -49,11 +37,6 @@ entry:
 }
 
 define void @bar() {
-; NOOPAQUE-LABEL: @bar(
-; NOOPAQUE-NEXT:  entry:
-; NOOPAQUE-NEXT:    call void @foo(%TestStruct* getelementptr inbounds ([1000 x %TestStruct], [1000 x %TestStruct]* @globArray, i64 0, i64 0))
-; NOOPAQUE-NEXT:    ret void
-;
 ; OPAQUE-LABEL: @bar(
 ; OPAQUE-NEXT:  entry:
 ; OPAQUE-NEXT:    call void @foo(ptr @globArray)
