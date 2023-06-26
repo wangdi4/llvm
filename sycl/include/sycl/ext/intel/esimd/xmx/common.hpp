@@ -46,8 +46,6 @@ enum class dpas_argument_type {
   s8 = 8,    // signed 8 bits
   bf16 = 9,  // bfloat 16
   fp16 = 10, // half float
-<<<<<<< HEAD
-  FP16 __SYCL_DEPRECATED("use fp16") = fp16,
   /* INTEL_CUSTOMIZATION */
   /* INTEL_FEATURE_ESIMD_EMBARGO */
   bf8 = 11, // bfloat 8
@@ -55,17 +53,12 @@ enum class dpas_argument_type {
   /* end INTEL_FEATURE_ESIMD_EMBARGO */
   /* end INTEL_CUSTOMIZATION */
   tf32 = 12, // tensorfloat 32
-  TF32 __SYCL_DEPRECATED("use tf32") = tf32
   /* INTEL_CUSTOMIZATION */
   /* INTEL_FEATURE_ESIMD_EMBARGO */
-  ,
   df = 13, // double float
   hf8 = 14 // 8-bit "half" float
   /* end INTEL_FEATURE_ESIMD_EMBARGO */
   /* end INTEL_CUSTOMIZATION */
-=======
-  tf32 = 12, // tensorfloat 32
->>>>>>> 91e8364164c6ef62a90ba62b3e11405d132270c4
 };
 
 } // namespace ext::intel::esimd::xmx
