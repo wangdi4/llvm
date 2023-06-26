@@ -1097,8 +1097,6 @@ void X86_32ABIInfo::computeInfo(CGFunctionInfo &FI) const {
     if (State.IsPreassigned.test(I))
       continue;
 
-    Args[I].info = classifyArgumentType(Args[I].type, State);
-
 #if INTEL_CUSTOMIZATION
     if (IsSVMLCall &&
         isSVMLIntArgumentMask(getContext(), Args[I].type, FI.getReturnType())) {
