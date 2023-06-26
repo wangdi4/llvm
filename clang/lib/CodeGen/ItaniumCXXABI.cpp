@@ -737,16 +737,12 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
             CGM.getIntrinsic(llvm::Intrinsic::load_relative,
                              {VTableOffset->getType()}),
             {VTable, VTableOffset});
-<<<<<<< HEAD
 #if INTEL_COLLAB
         VirtualFn =
             CGF.Builder.CreateBitCastFPT(VirtualFn, FTy->getPointerTo());
 #else // INTEL_COLLAB
         VirtualFn = CGF.Builder.CreateBitCast(VirtualFn, FTy->getPointerTo());
 #endif // INTEL_COLLAB
-=======
-        VirtualFn = CGF.Builder.CreateBitCast(VirtualFn, FTy->getPointerTo());
->>>>>>> 8060cd36fe2060c23a397e059b88b1bac0559c42
       } else {
         llvm::Value *VFPAddr =
             CGF.Builder.CreateGEP(CGF.Int8Ty, VTable, VTableOffset);
@@ -2101,15 +2097,11 @@ CGCallee ItaniumCXXABI::getVirtualFunctionPointer(CodeGenFunction &CGF,
       llvm::Value *Load = CGF.Builder.CreateCall(
           CGM.getIntrinsic(llvm::Intrinsic::load_relative, {CGM.Int32Ty}),
           {VTable, llvm::ConstantInt::get(CGM.Int32Ty, 4 * VTableIndex)});
-<<<<<<< HEAD
 #if INTEL_COLLAB
       VFuncLoad = CGF.Builder.CreateBitCastFPT(Load, TyPtr);
 #else // INTEL_COLLAB
       VFuncLoad = CGF.Builder.CreateBitCast(Load, TyPtr);
 #endif // INTEL_COLLAB
-=======
-      VFuncLoad = CGF.Builder.CreateBitCast(Load, TyPtr);
->>>>>>> 8060cd36fe2060c23a397e059b88b1bac0559c42
     } else {
       VTable =
           CGF.Builder.CreateBitCast(VTable, TyPtr->getPointerTo());
@@ -2660,7 +2652,6 @@ void ItaniumCXXABI::EmitGuardedInit(CodeGenFunction &CGF,
 #endif // INTEL_CUSTOMIZATION
     }
   }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
   ClangGuardTy = CGF.CGM.getContext().getPointerType(ClangGuardTy);
@@ -2672,9 +2663,6 @@ void ItaniumCXXABI::EmitGuardedInit(CodeGenFunction &CGF,
 #else // INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::PointerType *guardPtrTy = guardTy->getPointerTo(
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY  
-=======
-  llvm::PointerType *guardPtrTy = guardTy->getPointerTo(
->>>>>>> 8060cd36fe2060c23a397e059b88b1bac0559c42
       CGF.CGM.getDataLayout().getDefaultGlobalsAddressSpace());
 
   // Create the guard variable if we don't already have it (as we
