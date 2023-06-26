@@ -122,7 +122,8 @@ bool SGSizeCollectorIndirectPass::runImpl(Module &M, CallGraph &CG) {
       if (PtrsModified) {
         Fn.removeFnAttr(Attribute::VectorFunctionPtrsStrAttr);
         Fn.addFnAttr(Attribute::VectorFunctionPtrsStrAttr, join(Strs, ","));
-        Fn.addFnAttr("vector-variants", join(VectorVariants, ","));
+        Fn.addFnAttr(VectorUtils::VectorVariantsAttrName,
+                     join(VectorVariants, ","));
         Modified = true;
       }
     }
@@ -139,7 +140,7 @@ bool SGSizeCollectorIndirectPass::runImpl(Module &M, CallGraph &CG) {
         continue;
 
       AttributeList Attrs = Call.getAttributes();
-      if (Attrs.hasFnAttr("vector-variants"))
+      if (Attrs.hasFnAttr(VectorUtils::VectorVariantsAttrName))
         continue;
 
       // Add vector-variants attribute.
@@ -147,7 +148,7 @@ bool SGSizeCollectorIndirectPass::runImpl(Module &M, CallGraph &CG) {
       assert(ArgSize > 0 && "Expected at least one function argument");
       // Update attributes.
       Attrs = Attrs.addFnAttribute(
-          M.getContext(), "vector-variants",
+          M.getContext(), VectorUtils::VectorVariantsAttrName,
           GenerateVectorVariants("__intel_indirect_call_XXX", ArgSize - 1));
       Call.setAttributes(Attrs);
 

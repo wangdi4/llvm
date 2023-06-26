@@ -249,6 +249,13 @@ CPUDetect::CPUDetect(void) : m_is64BitOS(sizeof(void *) == 8) {
   if (HasGNR())
     m_CPUArch = CPU_GNR;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_DMR
+  if (HasDMR())
+    m_CPUArch = CPU_DMR;
+#endif // INTEL_FEATURE_CPU_DMR
+#endif // INTEL_CUSTOMIZATION
+
   if (m_CPUArch == CPU_UNKNOWN) {
     std::string errMessage = m_CPUString + ": Unsupported CPU!";
     llvm_unreachable(errMessage.data());

@@ -39,6 +39,11 @@ void TestArch(const std::string &CPUArch) {
                          .Case("icelake-server", CPUId->HasAVX512ICX())
                          .Case("sapphirerapids", CPUId->HasSPR())
                          .Case("graniterapids", CPUId->HasGNR())
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_DMR
+                         .Case("diamondrapids", CPUId->HasDMR())
+#endif // INTEL_FEATURE_CPU_DMR
+#endif // INTEL_CUSTOMIZATION
                          .Default(false);
   ASSERT_TRUE(HasFeatures) << "Can not get expected CPU features";
 }
@@ -53,4 +58,9 @@ TEST_F(CPUDetectTest, ResetCPUTargetARCH) {
   TestArch("icelake-server");
   TestArch("sapphirerapids");
   TestArch("graniterapids");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_DMR
+  TestArch("diamondrapids");
+#endif // INTEL_FEATURE_CPU_DMR
+#endif // INTEL_CUSTOMIZATION
 }

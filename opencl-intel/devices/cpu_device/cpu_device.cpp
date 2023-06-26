@@ -871,7 +871,6 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
   size_t internalRetunedValueSize = valSize;
   size_t *pinternalRetunedValueSize;
   unsigned int viCPUInfo[4] = {(unsigned int)-1};
-  const static cl_uint ThreadsPerCore = IsHyperThreadingEnabled() ? 2 : 1;
 
   // Do static initialize of the OpenCL Version
   static OPENCL_VERSION ver = OPENCL_VERSION_UNKNOWN;
@@ -2269,6 +2268,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
     if (paramVal && valSize < *pinternalRetunedValueSize)
       return CL_DEV_INVALID_VALUE;
     if (paramVal) {
+      const static cl_uint ThreadsPerCore = IsHyperThreadingEnabled() ? 2 : 1;
       const static cl_uint NumPhysicalCores =
           (cl_uint)GetNumberOfProcessors() / ThreadsPerCore;
       const static cl_uint PhysicalCoresPerNode =
@@ -2280,8 +2280,10 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
     *pinternalRetunedValueSize = sizeof(cl_uint);
     if (paramVal && valSize < *pinternalRetunedValueSize)
       return CL_DEV_INVALID_VALUE;
-    if (paramVal)
+    if (paramVal) {
+      const static cl_uint ThreadsPerCore = IsHyperThreadingEnabled() ? 2 : 1;
       *reinterpret_cast<cl_uint *>(paramVal) = ThreadsPerCore;
+    }
     return CL_DEV_SUCCESS;
   case CL_DEVICE_FEATURE_CAPABILITIES_INTEL:
     *pinternalRetunedValueSize = sizeof(cl_device_feature_capabilities_intel);

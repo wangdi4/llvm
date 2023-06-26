@@ -565,9 +565,6 @@
 /* Define to 1 if you have a library providing the termcap interface */
 #define HWLOC_HAVE_LIBTERMCAP 1
 
-/* Define to 1 if you have libudev. */
-#cmakedefine HWLOC_HAVE_LIBUDEV @HWLOC_HAVE_LIBUDEV@
-
 /* Define to 1 if you have the `libxml2' library. */
 /* #undef HWLOC_HAVE_LIBXML2 */
 
@@ -731,12 +728,6 @@
 /* Define to the version of this package. */
 #define PACKAGE_VERSION "2.9.0"
 
-/* The size of `unsigned int', as computed by sizeof. */
-#define SIZEOF_UNSIGNED_INT 4
-
-/* The size of `unsigned long', as computed by sizeof. */
-#cmakedefine SIZEOF_UNSIGNED_LONG @SIZEOF_UNSIGNED_LONG@
-
 /* The size of `void *', as computed by sizeof. */
 #cmakedefine SIZEOF_VOID_P @SIZEOF_VOID_P@
 
@@ -751,8 +742,6 @@
 #endif
 
 #cmakedefine HWLOC_HAVE_MSVC_CPUIDEX @HWLOC_HAVE_MSVC_CPUIDEX@
-
-#cmakedefine HAVE_PCIACCESS_H @HAVE_PCIACCESS_H@
 
 /* Enable extensions on AIX 3, Interix.  */
 #ifndef _ALL_SOURCE

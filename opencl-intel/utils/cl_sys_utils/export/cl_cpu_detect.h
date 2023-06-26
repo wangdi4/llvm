@@ -92,6 +92,11 @@ enum ECPU : unsigned {
 #define CREATE_ENUM(name) name,
   CPU_ARCHS(CREATE_ENUM)
 #undef CREATE_ENUM
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_DMR
+      CPU_DMR = 10
+#endif // INTEL_FEATURE_CPU_DMR
+#endif // INTEL_CUSTOMIZATION
 };
 
 enum TransposeSizeSupport { SUPPORTED, UNSUPPORTED, INVALID };
@@ -169,6 +174,11 @@ public:
         return GetCPUPrefixAVX512(m_is64BitOS);
       case CPU_SPR:
       case CPU_GNR:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_DMR
+      case CPU_DMR:
+#endif // INTEL_FEATURE_CPU_DMR
+#endif // INTEL_CUSTOMIZATION
         return GetCPUPrefixAMX(m_is64BitOS);
       }
     }
@@ -176,6 +186,11 @@ public:
 
   static ECPU GetCPUByName(const char *CPUName) {
     return llvm::StringSwitch<ECPU>(CPUName)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_DMR
+        .Case("diamondrapids", CPU_DMR)
+#endif // INTEL_FEATURE_CPU_DMR
+#endif // INTEL_CUSTOMIZATION
         .Case("graniterapids", CPU_GNR)
         .Case("sapphirerapids", CPU_SPR)
         .Case("icelake-client", CPU_ICL)
@@ -210,6 +225,12 @@ public:
       return "sapphirerapids";
     case CPU_GNR:
       return "graniterapids";
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_DMR
+    case CPU_DMR:
+      return "diamondrapids";
+#endif // INTEL_FEATURE_CPU_DMR
+#endif // INTEL_CUSTOMIZATION
     }
     llvm_unreachable("Unknown CPU!");
   }
@@ -269,6 +290,14 @@ public:
     return HasSPR() && IsFeatureSupported(CFS_AMXFP16) &&
            IsFeatureSupported(CFS_PREFETCHI);
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_DMR
+  bool HasDMR() const {
+    // FIXME: Add diamondrapids features check when they are disclosed
+    return HasGNR() && m_CPUString == "diamondrapids";
+  }
+#endif // INTEL_FEATURE_CPU_DMR
+#endif // INTEL_CUSTOMIZATION
 
   bool Is64BitOS() const { return m_is64BitOS; }
 

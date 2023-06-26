@@ -19,6 +19,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLDDNode.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -710,7 +711,7 @@ Value *RegDDRef::getLocationPtr(bool &IsPrecise) const {
 
   IsPrecise = false;
   if (!canCreateLocationGEP()) {
-    return getBaseValue();
+    return llvm::getUnderlyingObject(getBaseValue(), 0);
   }
 
   IsPrecise = true;

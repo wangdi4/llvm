@@ -10,6 +10,7 @@
 
 #include "llvm/Transforms/SYCLTransforms/Intel_VectorVariant/UpdateCallAttrs.h"
 
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
@@ -41,17 +42,18 @@ bool UpdateCallAttrs::runImpl(Module &M) {
 
       CallInst &Call = cast<CallInst>(Inst);
       AttributeList Attrs = Call.getAttributes();
-      if (Attrs.hasFnAttr("vector-variants"))
+      if (Attrs.hasFnAttr(VectorUtils::VectorVariantsAttrName))
         continue;
 
       Function *Fn = Call.getCalledFunction();
-      if (!Fn || !Fn->hasFnAttribute("vector-variants"))
+      if (!Fn || !Fn->hasFnAttribute(VectorUtils::VectorVariantsAttrName))
         continue;
 
       // Update attributes.
-      Attribute Attr = Fn->getFnAttribute("vector-variants");
+      Attribute Attr = Fn->getFnAttribute(VectorUtils::VectorVariantsAttrName);
       Attrs = Attrs.addFnAttribute(M.getContext(),
-                                   "vector-variants", Attr.getValueAsString());
+                                   VectorUtils::VectorVariantsAttrName,
+                                   Attr.getValueAsString());
       Call.setAttributes(Attrs);
 
       Modified = true;

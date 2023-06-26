@@ -52,6 +52,8 @@ extern unsigned int GetCpuId();
 extern const char *GetFullModuleNameForLoad(const char *moduleName);
 extern const char *GetModuleProductVersion();
 extern unsigned int GetThreadId();
+extern void InitHwloc();
+extern void DestroyHwloc();
 } // namespace Utils
 } // namespace OpenCL
 } // namespace Intel
