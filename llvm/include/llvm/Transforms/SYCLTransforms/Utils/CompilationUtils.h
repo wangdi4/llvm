@@ -106,7 +106,6 @@ extern const StringRef HasVPlanMask;
 extern const StringRef OCLVecUniformReturn;
 extern const StringRef RecursionWithBarrier;
 extern const StringRef UniformCall;
-extern const StringRef VectorVariants;
 extern const StringRef VectorVariantFailure;
 
 inline StringRef getAttributeAsString(const Function &F, StringRef Attr) {

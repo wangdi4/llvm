@@ -70,9 +70,9 @@ PreservedAnalyses SGValueWidenPass::run(Module &M, ModuleAnalysisManager &AM) {
     for (auto I = Sizes.begin(), E = Sizes.end(); I != E; I++) {
       Variants.push_back(encodeVectorVariant(Fn, *I));
     }
-    Fn->addFnAttr(KernelAttribute::VectorVariants, join(Variants, ","));
+    Fn->addFnAttr(VectorUtils::VectorVariantsAttrName, join(Variants, ","));
     LLVM_DEBUG(dbgs() << "  vector-variants: "
-                      << Fn->getFnAttribute(KernelAttribute::VectorVariants)
+                      << Fn->getFnAttribute(VectorUtils::VectorVariantsAttrName)
                              .getValueAsString()
                       << "\n");
   }
@@ -80,7 +80,7 @@ PreservedAnalyses SGValueWidenPass::run(Module &M, ModuleAnalysisManager &AM) {
   // Add sub-group functions to FunctionsToBeWidened.
   for (auto &Fn : M)
     if (Fn.isDeclaration() && Fn.getName().contains("sub_group") &&
-        Fn.hasFnAttribute(KernelAttribute::VectorVariants))
+        Fn.hasFnAttribute(VectorUtils::VectorVariantsAttrName))
       FunctionsToBeWidened.insert(&Fn);
 
   FunctionWidener FWImpl;
@@ -679,7 +679,7 @@ static std::pair<StringRef, unsigned> selectVariantAndEmuSize(CallInst *CI) {
   Function *ParentF = CI->getFunction();
   LLVM_DEBUG(dbgs() << "  Parent function name: " << ParentF->getName()
                     << "\n");
-  assert(ParentF->hasFnAttribute(KernelAttribute::VectorVariants) &&
+  assert(ParentF->hasFnAttribute(VectorUtils::VectorVariantsAttrName) &&
          "Parent function doesn't have vector-variants attribute");
   unsigned EmuSize = 0;
 #if !INTEL_CUSTOMIZATION
@@ -692,7 +692,7 @@ static std::pair<StringRef, unsigned> selectVariantAndEmuSize(CallInst *CI) {
     EmuSize = VectorizerUtils::getVFLength(Variant.value());
   } else {
     StringRef ParentVariantStringValue =
-        ParentF->getFnAttribute(KernelAttribute::VectorVariants)
+        ParentF->getFnAttribute(VectorUtils::VectorVariantsAttrName)
             .getValueAsString();
     assert(ParentVariantStringValue.find(',') == StringRef::npos &&
            "Unexpected multiple vector variant string here!");
@@ -709,7 +709,7 @@ static std::pair<StringRef, unsigned> selectVariantAndEmuSize(CallInst *CI) {
 
   // Get vector-variants attribute
   StringRef VecVariantStringValue =
-      getCallSiteOrFuncAttrSG(CI, KernelAttribute::VectorVariants)
+      getCallSiteOrFuncAttrSG(CI, VectorUtils::VectorVariantsAttrName)
           .getValueAsString();
   LLVM_DEBUG(dbgs() << "  Call instruction vector variant string: "
                     << VecVariantStringValue << "\n");
@@ -742,7 +742,7 @@ void SGValueWidenPass::widenCalls() {
   for (auto *I : WideCalls) {
     auto *CI = cast<CallInst>(I);
     LLVM_DEBUG(dbgs() << "Widening Call: " << *CI << "\n");
-    assert(CI->hasFnAttr(KernelAttribute::VectorVariants) &&
+    assert(CI->hasFnAttr(VectorUtils::VectorVariantsAttrName) &&
            "wide call doesn't have vector-variants attribute");
 
     unsigned Size = 0;
