@@ -1140,7 +1140,11 @@ removeDeadStore(HLDDNode *StoreNode,
     HLNodeUtils::remove(StoreNode);
   }
 
-  HLNodeUtils::removeRedundantNodes(StoreParent, true);
+  // Redundant nodes visitor is run on once after optimizing the entire region
+  // so we don't need to run it on the region here.
+  if (!isa<HLRegion>(StoreParent)) {
+    HLNodeUtils::removeRedundantNodes(StoreParent, true);
+  }
 
   ++NumHIRDeadStoreEliminated;
 }
