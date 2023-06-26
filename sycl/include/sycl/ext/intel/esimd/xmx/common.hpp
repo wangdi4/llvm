@@ -36,25 +36,17 @@ namespace ext::intel::esimd::xmx {
 /// it is deducible from the element types of input matrices.
 enum class dpas_argument_type {
   Invalid = 0,
-  u1 = 1, // unsigned 1 bit
-  U1 __SYCL_DEPRECATED("use u1") = u1,
-  s1 = 2, // signed 1 bit
-  S1 __SYCL_DEPRECATED("use s1") = s1,
-  u2 = 3, // unsigned 2 bits
-  U2 __SYCL_DEPRECATED("use u2") = u2,
-  s2 = 4, // signed 2 bits
-  S2 __SYCL_DEPRECATED("use s2") = s2,
-  u4 = 5, // unsigned 4 bits
-  U4 __SYCL_DEPRECATED("use u4") = u4,
-  s4 = 6, // signed 4 bits
-  S4 __SYCL_DEPRECATED("use s4") = s4,
-  u8 = 7, // unsigned 8 bits
-  U8 __SYCL_DEPRECATED("use u8") = u8,
-  s8 = 8, // signed 8 bits
-  S8 __SYCL_DEPRECATED("use s8") = s8,
-  bf16 = 9, // bfloat 16
-  BF16 __SYCL_DEPRECATED("use bf16") = bf16,
+  u1 = 1,    // unsigned 1 bit
+  s1 = 2,    // signed 1 bit
+  u2 = 3,    // unsigned 2 bits
+  s2 = 4,    // signed 2 bits
+  u4 = 5,    // unsigned 4 bits
+  s4 = 6,    // signed 4 bits
+  u8 = 7,    // unsigned 8 bits
+  s8 = 8,    // signed 8 bits
+  bf16 = 9,  // bfloat 16
   fp16 = 10, // half float
+<<<<<<< HEAD
   FP16 __SYCL_DEPRECATED("use fp16") = fp16,
   /* INTEL_CUSTOMIZATION */
   /* INTEL_FEATURE_ESIMD_EMBARGO */
@@ -71,6 +63,9 @@ enum class dpas_argument_type {
   hf8 = 14 // 8-bit "half" float
   /* end INTEL_FEATURE_ESIMD_EMBARGO */
   /* end INTEL_CUSTOMIZATION */
+=======
+  tf32 = 12, // tensorfloat 32
+>>>>>>> 91e8364164c6ef62a90ba62b3e11405d132270c4
 };
 
 } // namespace ext::intel::esimd::xmx
