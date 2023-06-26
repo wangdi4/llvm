@@ -113,7 +113,7 @@ bool SGBuiltinPass::insertSGBarrierForSGCalls(Module &M,
         VecVariantsStr.insert(std::get<2>(Info));
 
       // Add vector-variants attributes.
-      assert(!CI->hasFnAttr(KernelAttribute::VectorVariants) &&
+      assert(!CI->hasFnAttr(VectorUtils::VectorVariantsAttrName) &&
              "Unexpected vector-variants attribute for sub-group calls!");
 
       AttributeList AL = CI->getAttributes();
@@ -129,10 +129,10 @@ bool SGBuiltinPass::insertSGBarrierForSGCalls(Module &M,
 
     if (VecVariantsStr.empty())
       continue;
-    assert(!F.hasFnAttribute(KernelAttribute::VectorVariants) &&
+    assert(!F.hasFnAttribute(VectorUtils::VectorVariantsAttrName) &&
            "Unexpected vector-variants attribute for sub-group function!");
     auto VecVariants = join(VecVariantsStr.begin(), VecVariantsStr.end(), ",");
-    F.addFnAttr(KernelAttribute::VectorVariants, VecVariants);
+    F.addFnAttr(VectorUtils::VectorVariantsAttrName, VecVariants);
     Changed = true;
   }
   return Changed;

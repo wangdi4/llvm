@@ -15,6 +15,7 @@
 #include "GenericMemObj.h"
 #include "cl_disable_sys_dialog.h"
 #include "cl_shutdown.h"
+#include "cl_sys_info.h"
 #include "framework_proxy.h"
 
 using namespace Intel::OpenCL::Framework;
@@ -38,6 +39,7 @@ static void dll_fini(void) {
   MemoryObjectFactory::Destroy();
   // release the framework proxy object
   FrameworkProxy::Destroy();
+  DestroyHwloc();
   // FIXME: Call llvm_shutdown() here will cause some llvm global variables to
   // be released too early. Temporarily disable it, we'll fix it later.
   // llvm_shutdown();

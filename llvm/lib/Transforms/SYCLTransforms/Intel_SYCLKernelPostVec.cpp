@@ -74,7 +74,7 @@ static bool rebindVectorizedKernel(Function *F) {
   }
 
   // Get vectorized kernel name from ""vector-variants" attribute.
-  Attribute Attr = F->getFnAttribute("vector-variants");
+  Attribute Attr = F->getFnAttribute(VectorUtils::VectorVariantsAttrName);
   SmallVector<StringRef, 4> VecVariants;
   SplitString(Attr.getValueAsString(), VecVariants, ",");
   auto VL = FMD.RecommendedVL.get();

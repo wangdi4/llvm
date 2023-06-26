@@ -10,7 +10,6 @@
 # implied warranties, other than those that are expressly stated in the License.
 
 set(TARGET_NAME hwloc)
-include(CheckIncludeFile)
 
 include_directories(include hwloc)
 
@@ -18,13 +17,9 @@ set(HWLOC_SYS_FILE)
 if(WIN32)
   set(HWLOC_SYS_FILE hwloc/topology-windows.c)
 else(WIN32)
-  set(HWLOC_TEMP_FILE 
+  set(HWLOC_SYS_FILE 
     hwloc/topology-linux.c
     hwloc/topology-hardwired.c)
-    check_include_file("pciaccess.h" HAVE_PCIACCESS_H)
-    if(HAVE_PCIACCESS_H)
-      set(HWLOC_SYS_FILE ${HWLOC_TEMP_FILE} hwloc/topology-pci.c)
-    endif(HAVE_PCIACCESS_H)
 endif(WIN32)
 
 set(TARGET_SOURCE_FILES

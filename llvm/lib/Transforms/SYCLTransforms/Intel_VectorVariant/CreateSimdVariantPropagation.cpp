@@ -12,6 +12,7 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/CallGraph.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
@@ -56,8 +57,9 @@ bool CreateSimdVariantPropagation::runImpl(Module &M) {
       Value *Arg = Call->getArgOperand(0);
       Function *FPtr = cast<Function>(Arg);
 
-      assert(Call->hasFnAttr("vector-variants"));
-      Attribute Attr = Call->getCallSiteOrFuncAttr("vector-variants");
+      assert(Call->hasFnAttr(VectorUtils::VectorVariantsAttrName));
+      Attribute Attr =
+          Call->getCallSiteOrFuncAttr(VectorUtils::VectorVariantsAttrName);
       StringRef VarsStr = Attr.getValueAsString();
       VariantsToAdd[FPtr].insert(VarsStr.str());
     }
@@ -66,11 +68,11 @@ bool CreateSimdVariantPropagation::runImpl(Module &M) {
   for (const auto &It : VariantsToAdd) {
     Function *F = It.first;
     std::string Vars = join(It.second, ",");
-    if (F->hasFnAttribute("vector-variants")) {
-      Attribute Attr = F->getFnAttribute("vector-variants");
+    if (F->hasFnAttribute(VectorUtils::VectorVariantsAttrName)) {
+      Attribute Attr = F->getFnAttribute(VectorUtils::VectorVariantsAttrName);
       Vars = (Attr.getValueAsString() + "," + Vars).str();
     }
-    F->addFnAttr("vector-variants", Vars);
+    F->addFnAttr(VectorUtils::VectorVariantsAttrName, Vars);
     Modified = true;
   }
 
