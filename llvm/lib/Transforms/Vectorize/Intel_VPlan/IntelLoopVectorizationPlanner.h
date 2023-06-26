@@ -750,6 +750,11 @@ protected:
   // Bail-out reason data.
   mutable VPlanBailoutRemark BR;
 
+  /// Convenience function for optimization remark substitution strings.
+  std::string getAuxMsg(AuxRemarkID ID) const {
+    return OptReportAuxDiag::getMsg(ID);
+  }
+
   struct VPPeelSummary {
     std::string Scenario;
     std::string Formula;

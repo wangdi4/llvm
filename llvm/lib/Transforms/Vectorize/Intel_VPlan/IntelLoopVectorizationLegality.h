@@ -72,6 +72,9 @@ protected:
   /// Cached bailout reason data.
   VPlanBailoutRemark BR;
 
+  /// Convenience function for optimization remark substitution strings.
+  std::string getAuxMsg(AuxRemarkID ID) { return OptReportAuxDiag::getMsg(ID); }
+
 private:
   /// Imports any SIMD loop private amd listprivate information into Legality
   /// Return true on success.
@@ -134,8 +137,8 @@ private:
         return bailoutWithDebug(
             OptReportVerbosity::Medium, OptRemarkID::VecFailBadReduction,
             INTERNAL("A reduction of this operation is not supported"),
-            WRLp && WRLp->isOmpSIMDLoop() ? std::string("simd loop")
-                                          : std::string("loop"));
+            WRLp && WRLp->isOmpSIMDLoop() ? getAuxMsg(AuxRemarkID::SimdLoop)
+                                          : getAuxMsg(AuxRemarkID::Loop));
       }
     };
 

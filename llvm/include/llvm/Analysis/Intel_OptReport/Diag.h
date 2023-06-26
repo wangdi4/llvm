@@ -214,6 +214,69 @@ public:
   static const char *getMsg(DiagTableKey Id);
 };
 
+enum class AuxRemarkID {
+  InvalidAuxRemark,
+
+  // Remark numbers through 10000 are reserved for the vectorizer.
+  VectorizerRemarksBegin, // No associated message
+  Loop,
+  SimdLoop,
+  OmpSimdOrderedUnsupported,
+  VFNotPowerOf2,
+  ForcedVFIs1,
+  ForcedVFExceedsSafeLen,
+  PragmaVectorLength0,
+  OutOfVPlanVecRange,
+  VFExceedsTC,
+  ForcedVFExceedsUnrolledTC,
+  UserForcedVF1,
+  UDRWithoutInitializer,
+  MultipleLiveOutReduction,
+  IllegalOpenMPInSIMD,
+  NoDedicatedExits,
+  MultipleMultiExitLoops,
+  OuterLoopVecUnsupported,
+  VectorizerRemarksEnd, // No associated message
+
+  // Add remark numbers for other components here.  Please reserve
+  // remarks in blocks of 10000.
+};
+
+// We don't really need a key struct like this, but we use it in lieu of
+// creating DenseMapInfo<AuxDiagTableKey> from scratch.  We inherit from
+// DenseMapInfo<unsigned>, which requires the operator unsigned() and
+// unsigned constructor here.  It would be good if we had a DenseMapInfo<>
+// that worked for all enum classes.
+struct AuxDiagTableKey {
+  AuxRemarkID ID;
+  AuxDiagTableKey(AuxRemarkID ID) : ID(ID) {}
+  // This constructor is provided only for definition of DenseMapInfo,
+  // and should not be used directly.  All auxiliary messages should
+  // have an AuxRemarkID key.
+  AuxDiagTableKey(unsigned ID) : ID(static_cast<AuxRemarkID>(ID)) {}
+  operator unsigned() const { return static_cast<unsigned>(ID); }
+};
+
+// Use AuxDiagTableKey::operator unsigned() as a shortcut to define
+// DenseMapInfo for AuxDiagTableKey.
+template <> struct DenseMapInfo<AuxDiagTableKey> : DenseMapInfo<unsigned> {};
+
+class OptReportAuxDiag {
+  static const DenseMap<AuxDiagTableKey, const char *> AuxDiags;
+
+public:
+  /// Constructor for this singleton class that invokes all component
+  /// verifiers.
+  OptReportAuxDiag() { verifyVectorizerMsgs(); };
+
+  /// Retrieve auxiliary message string from the diagnostic ID.
+  static const char *getMsg(AuxRemarkID Id);
+
+  /// Verify that the auxiliary diagnostic table contains a message for
+  /// each vectorizer message.
+  static void verifyVectorizerMsgs();
+};
+
 } // namespace llvm
 
 #endif // LLVM_ANALYSIS_INTEL_OPTREPORT_DIAG_H
