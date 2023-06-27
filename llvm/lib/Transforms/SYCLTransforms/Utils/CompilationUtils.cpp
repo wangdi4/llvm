@@ -789,7 +789,7 @@ bool isWaitGroupEvents(StringRef S) {
 
 bool isWorkGroupAsyncOrPipeBuiltin(StringRef S, const Module &M) {
   return isAsyncWorkGroupCopy(S) || isAsyncWorkGroupStridedCopy(S) ||
-         (OclVersion::CL_VER_2_0 <= fetchCLVersionFromMetadata(M) &&
+         (hasOcl20Support(M) &&
           (isWorkGroupReserveReadPipe(S) || isWorkGroupCommitReadPipe(S) ||
            isWorkGroupReserveWritePipe(S) || isWorkGroupCommitWritePipe(S)));
 }
@@ -1738,11 +1738,6 @@ unsigned fetchCLVersionFromMetadata(const Module &M) {
   !6 = !{i32 2, i32 0}
   */
 
-  // TODO Remove the block once OpenCL CPU BE compiler is able to handle
-  // LLVM IR converted from SPIR-V correctly.
-  if (isGeneratedFromOCLCPP(M))
-    return OclVersion::CL_VER_2_0;
-
   NamedMDNode *Node = M.getNamedMetadata("opencl.ocl.version");
   if (Node && Node->getNumOperands()) {
     auto *Op = Node->getOperand(0);
@@ -1758,6 +1753,11 @@ unsigned fetchCLVersionFromMetadata(const Module &M) {
   // Always return an OpenCL version to avoid any issues
   // in manually written LIT tests.
   return OclVersion::CL_VER_DEFAULT;
+}
+
+bool hasOcl20Support(const Module &M) {
+  return isGeneratedFromOCLCPP(M) ||
+         fetchCLVersionFromMetadata(M) >= OclVersion::CL_VER_2_0;
 }
 
 void getImplicitArgs(Function *pFunc, Value **LocalMem, Value **WorkDim,

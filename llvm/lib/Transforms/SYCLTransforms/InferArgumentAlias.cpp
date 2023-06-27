@@ -27,7 +27,7 @@ using namespace LoopUtils;
 static bool isFunctionMayBeCalled(const Function &F) {
   // If there may be Clang Blocks present in the module, pessimistically
   // assume this function is a callee
-  if (fetchCLVersionFromMetadata(*F.getParent()) == OclVersion::CL_VER_2_0)
+  if (hasOcl20Support(*F.getParent()))
     return true;
   for (auto *UI : F.users())
     if (isa<CallInst>(*UI))

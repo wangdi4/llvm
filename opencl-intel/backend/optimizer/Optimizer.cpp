@@ -144,8 +144,7 @@ Optimizer::Optimizer(Module &M, SmallVectorImpl<Module *> &RtlModules,
   ISA = VectorizerUtils::getCPUIdISA(Config.GetCpuId());
   CPUPrefix = Config.GetCpuId()->GetCPUPrefix();
   SYCLForceOptnone = Config.GetDisableOpt();
-  m_IsOcl20 = CompilationUtils::fetchCLVersionFromMetadata(M) >=
-              CompilationUtils::OclVersion::CL_VER_2_0;
+  m_HasOcl20 = CompilationUtils::hasOcl20Support(M);
   m_debugType = getDebuggingServiceType(Config.GetDebugInfoFlag(), &M,
                                         Config.GetUseNativeDebuggerFlag());
   m_UseTLSGlobals = (m_debugType == intel::Native);

@@ -594,8 +594,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   pProps->SetDeviceMaxWGSize(m_config->GetDeviceMaxWGSize());
 
   // OpenCL 2.0 related properties
-  if (CompilationUtils::OclVersion::CL_VER_2_0 <=
-      CompilationUtils::fetchCLVersionFromMetadata(*pModule)) {
+  if (CompilationUtils::hasOcl20Support(*pModule)) {
     bool isNonUniformWGSizeSupported = !buildOptions.GetUniformWGSize();
     pProps->SetIsNonUniformWGSizeSupported(isNonUniformWGSizeSupported);
   }

@@ -55,7 +55,7 @@ bool ResolveWICallPass::runImpl(Module &M, bool IsUniformWG, bool UseTLSGlobals,
   // extended execution flags
   ExtExecDecls.clear();
 
-  OclVersion = CompilationUtils::fetchCLVersionFromMetadata(M);
+  SupportsOcl20 = CompilationUtils::hasOcl20Support(M);
   // Run on all defined function in the module
   for (Function &F : M) {
     if (F.isDeclaration()) {
@@ -609,7 +609,7 @@ TInternalCallType ResolveWICallPass::getCallFunctionType(StringRef FuncName) {
     return ICT_PREFETCH;
 
   // OpenCL 2.0/3.0 built-ins to resolve.
-  if (OclVersion >= CompilationUtils::OclVersion::CL_VER_2_0) {
+  if (SupportsOcl20) {
     if (CompilationUtils::isEnqueueKernelLocalMem(FuncName))
       return ICT_ENQUEUE_KERNEL_LOCALMEM;
     if (CompilationUtils::isEnqueueKernelEventsLocalMem(FuncName))

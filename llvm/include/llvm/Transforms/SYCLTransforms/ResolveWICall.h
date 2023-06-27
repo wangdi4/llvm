@@ -150,8 +150,8 @@ private:
   Value *RuntimeInterface = nullptr;
   Value *Block2KernelMapper = nullptr;
 
-  // Version of OpenCL C a processed module is compiled for.
-  unsigned OclVersion = CompilationUtils::OclVersion::CL_VER_DEFAULT;
+  // True if the module supports OpenCL 2.0.
+  bool SupportsOcl20 = false;
   // True if a module is compiled with uniform work-group size,
   // e.g. -cl-uniform-work-group-size.
   bool IsUniformWG;
