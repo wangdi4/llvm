@@ -6,7 +6,7 @@ namespace detail {
 
 NonCachedKernelLock::~NonCachedKernelLock() {}
 
-Locked<RT::PiKernel> NonCachedKernelLock::lockKernel(RT::PiKernel &K) {
+Locked<sycl::detail::pi::PiKernel> NonCachedKernelLock::lockKernel(sycl::detail::pi::PiKernel &K) {
   std::unique_lock<std::mutex> MapLock{MapMtx};
   std::mutex &Mtx = Map[K];
   MapLock.unlock();
