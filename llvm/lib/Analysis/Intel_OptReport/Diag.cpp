@@ -677,7 +677,7 @@ const char *OptReportDiag::getMsg(DiagTableKey Id) {
   return (*DiagMapIt).second;
 }
 
-const DenseMap<AuxDiagTableKey, const char *> OptReportAuxDiag::AuxDiags = {
+const DenseMap<AuxRemarkID, const char *> OptReportAuxDiag::AuxDiags = {
     {AuxRemarkID::InvalidAuxRemark, "Internal error: invalid auxiliary remark"},
     {AuxRemarkID::Loop, "loop"},
     {AuxRemarkID::SimdLoop, "simd loop"},

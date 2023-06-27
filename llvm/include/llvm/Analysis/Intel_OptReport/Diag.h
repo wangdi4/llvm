@@ -242,27 +242,23 @@ enum class AuxRemarkID {
   // remarks in blocks of 10000.
 };
 
-// We don't really need a key struct like this, but we use it in lieu of
-// creating DenseMapInfo<AuxDiagTableKey> from scratch.  We inherit from
-// DenseMapInfo<unsigned>, which requires the operator unsigned() and
-// unsigned constructor here.  It would be good if we had a DenseMapInfo<>
-// that worked for all enum classes.
-struct AuxDiagTableKey {
-  AuxRemarkID ID;
-  AuxDiagTableKey(AuxRemarkID ID) : ID(ID) {}
-  // This constructor is provided only for definition of DenseMapInfo,
-  // and should not be used directly.  All auxiliary messages should
-  // have an AuxRemarkID key.
-  AuxDiagTableKey(unsigned ID) : ID(static_cast<AuxRemarkID>(ID)) {}
-  operator unsigned() const { return static_cast<unsigned>(ID); }
+template <> struct DenseMapInfo<AuxRemarkID> {
+  static inline AuxRemarkID getEmptyKey() {
+    return static_cast<AuxRemarkID>(~0U);
+  }
+  static inline AuxRemarkID getTombstoneKey() {
+    return static_cast<AuxRemarkID>(~0U - 1);
+  }
+  static unsigned getHashValue(const AuxRemarkID &Val) {
+    return static_cast<unsigned>(Val) * 37U;
+  }
+  static bool isEqual(const AuxRemarkID &LHS, const AuxRemarkID &RHS) {
+    return LHS == RHS;
+  }
 };
 
-// Use AuxDiagTableKey::operator unsigned() as a shortcut to define
-// DenseMapInfo for AuxDiagTableKey.
-template <> struct DenseMapInfo<AuxDiagTableKey> : DenseMapInfo<unsigned> {};
-
 class OptReportAuxDiag {
-  static const DenseMap<AuxDiagTableKey, const char *> AuxDiags;
+  static const DenseMap<AuxRemarkID, const char *> AuxDiags;
 
 public:
   /// Constructor for this singleton class that invokes all component
