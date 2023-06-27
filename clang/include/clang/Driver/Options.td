@@ -7084,6 +7084,9 @@ def disable_dtrans_asserts
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
+def llvm_verify_each : Flag<["-"], "llvm-verify-each">,
+  HelpText<"Run the LLVM verifier after every LLVM pass">,
+  MarshallingInfoFlag<CodeGenOpts<"VerifyEach">>;
 def disable_llvm_verifier : Flag<["-"], "disable-llvm-verifier">,
   HelpText<"Don't run the LLVM IR verifier pass">,
   MarshallingInfoNegativeFlag<CodeGenOpts<"VerifyModule">>;
