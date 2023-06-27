@@ -343,7 +343,7 @@ void OptimizerOCL::populatePassesPreFailCheck(ModulePassManager &MPM) const {
   }
 
   // Flatten get_{local, global}_linear_id()
-  if (m_IsOcl20)
+  if (m_HasOcl20)
     MPM.addPass(LinearIdResolverPass());
   // Resolve variable argument of get_global_id, get_local_id and get_group_id.
   MPM.addPass(ResolveVarTIDCallPass());
@@ -361,7 +361,7 @@ void OptimizerOCL::populatePassesPreFailCheck(ModulePassManager &MPM) const {
   // OCL2.0 add Generic Address Resolution
   // LLVM IR converted from any version of SPIRV may have Generic
   // adress space pointers.
-  if ((m_IsOcl20 || m_IsSYCL) && Level != OptimizationLevel::O0) {
+  if (m_HasOcl20 && Level != OptimizationLevel::O0) {
     FunctionPassManager FPM;
     // Static resolution of generic address space pointers
     FPM.addPass(PromotePass());
@@ -391,7 +391,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
 
   MPM.addPass(RequireAnalysisPass<ImplicitArgsAnalysis, Module>());
 
-  if ((m_IsOcl20 || m_IsSYCL) && Level != OptimizationLevel::O0) {
+  if (m_HasOcl20 && Level != OptimizationLevel::O0) {
     FunctionPassManager FPM;
     // Repeat resolution of generic address space pointers after LLVM
     // IR was optimized
@@ -678,7 +678,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
     auto InlineParams = getInlineParams();
     InlineParams.DefaultThreshold = 4096;
     MPM.addPass(ModuleInlinerWrapperPass(InlineParams));
-  } else if (m_IsOcl20) {
+  } else if (m_HasOcl20) {
     // Ensure that the built-in functions to be processed by
     // PatchCallbackArgsPass are inlined.
     MPM.addPass(AlwaysInlinerPass());
@@ -686,7 +686,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
   // Some built-in functions contain calls to external functions which take
   // arguments that are retrieved from the function's implicit arguments.
   // Currently only applies to OpenCL 2.x
-  if (m_IsOcl20)
+  if (m_HasOcl20)
     MPM.addPass(PatchCallbackArgsPass(m_UseTLSGlobals));
 
   if (Level != OptimizationLevel::O0) {

@@ -27,6 +27,7 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
   Intel_ArgumentAlignment.cpp
   Intel_AutoCPUClone.cpp
   Intel_CallTreeCloning.cpp
+  Intel_DeadDopeVectorElimination.cpp
   Intel_DopeVectorConstProp.cpp
   Intel_InlineLists.cpp
   Intel_IPArrayTranspose.cpp

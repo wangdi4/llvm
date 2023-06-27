@@ -635,6 +635,9 @@ CallInst *addMoreArgsToIndirectCall(CallInst *OldC, ArrayRef<Value *> NewArgs);
 /// Obtain CL version from "!opencl.ocl.version" named metadata.
 unsigned fetchCLVersionFromMetadata(const Module &M);
 
+/// Return true if the module supports OpenCL 2.0.
+bool hasOcl20Support(const Module &M);
+
 /// Collect all CallInst users of a function in a module.
 InstVec getCallInstUsersOfFunc(const Module &M, StringRef FuncName);
 

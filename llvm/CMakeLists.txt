@@ -82,6 +82,11 @@ endif()
 set(LLVM_LIBDIR_SUFFIX "" CACHE STRING "Define suffix of library directory name (32/64)" )
 
 if (INTEL_CUSTOMIZATION)
+  # In the long-term, we should make the path where the 'INTEL_DEPLOY_UNIFIED_LAYOUT'
+  # is true the default choice and remove redundant code.
+  set(INTEL_DEPLOY_UNIFIED_LAYOUT ON CACHE BOOL
+      "Build with unified flat layout")
+
   set(DPCPP_VERSION_QUALITY " ")
   set(DPCPP_VERSION_MAJOR "2024")
   set(DPCPP_VERSION_MINOR "0")

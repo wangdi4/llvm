@@ -175,6 +175,7 @@
 
 ; end INTEL_CUSTOMIZATION
 ; CHECK-O1-NEXT: Running pass: LowerTypeTestsPass
+; CHECK-O23SZ-NEXT: Running pass: DeadDopeVectorEliminationPass ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: DopeVectorConstPropPass ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: ArgumentPromotionPass on (foo) ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: GlobalOptPass

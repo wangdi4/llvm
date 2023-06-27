@@ -271,6 +271,8 @@ public:
     return NotForDVCPFieldAddr.contains(Addr);
   }
 
+  LoadInstSet &getLoadsSet() { return Loads; }
+  StoreInstSet &getStoresSet() { return Stores; }
 
 private:
   bool IsBottom;
@@ -648,6 +650,7 @@ private:
   DopeVectorFieldUse CodimAddr;
   DopeVectorFieldUse FlagsAddr;
   DopeVectorFieldUse DimensionsAddr;
+  DopeVectorFieldUse ReservedAddr;
   SmallVector<DopeVectorFieldUse, 4> ExtentAddr;
   SmallVector<DopeVectorFieldUse, 4> StrideAddr;
   SmallVector<DopeVectorFieldUse, 4> LowerBoundAddr;
@@ -745,15 +748,20 @@ public:
   void addAllocSite(Value *AllocSite) {
     assert((isa<CallBase>(AllocSite) || isa<AllocaInst>(AllocSite)) &&
             "Storing alloc site that is not a call or an alloca instruction");
-    for (auto *AS : AllocSites)
-      if (AS == AllocSite)
-        return;
-    AllocSites.push_back(AllocSite);
+    AllocSites.insert(AllocSite);
+  }
+
+  void addDeAllocSite(Value *DeAllocSite) {
+    assert((isa<CallBase>(DeAllocSite)) &&
+           "Storing alloc site that is not a call");
+    DeAllocSites.insert(DeAllocSite);
   }
 
   // Return true if one or more allocation sites were found
   bool hasAllocSite() const { return AllocSites.size(); }
-
+  bool hasDeAllocSite() const { return DeAllocSites.size(); }
+  const SetVector<Value *> &getAllocSites() const { return AllocSites; }
+  const SetVector<Value *> &getDeAllocSites() const { return DeAllocSites; }
   // Return the unique AllcSite which is a CallBase, if there is one.
   CallBase *uniqueCallAllocSite() {
     CallBase *UCB = nullptr;
@@ -834,6 +842,7 @@ public:
     CodimAddr.merge(Other.CodimAddr);
     FlagsAddr.merge(Other.FlagsAddr);
     DimensionsAddr.merge(Other.DimensionsAddr);
+    ReservedAddr.merge(Other.ReservedAddr);
     assert(ExtentAddr.size() == Other.ExtentAddr.size());
     for (unsigned I = 0; I < ExtentAddr.size(); ++I)
       ExtentAddr[I].merge(Other.ExtentAddr[I]);
@@ -846,6 +855,9 @@ public:
     if (Other.hasAllocSite())
       for (Value *AllocSite : Other.AllocSites)
         addAllocSite(AllocSite);
+    if (Other.hasDeAllocSite())
+      for (Value *DeAllocSite : Other.DeAllocSites)
+        addDeAllocSite(DeAllocSite);
   }
 
   // Collect the information from a copy dope vector. A copy dope vector
@@ -920,13 +932,15 @@ protected:
   DopeVectorFieldUse CodimAddr;
   DopeVectorFieldUse FlagsAddr;
   DopeVectorFieldUse DimensionsAddr;
+  DopeVectorFieldUse ReservedAddr;
   SmallVector<DopeVectorFieldUse, 4> ExtentAddr;
   SmallVector<DopeVectorFieldUse, 4> StrideAddr;
   SmallVector<DopeVectorFieldUse, 4> LowerBoundAddr;
 
   // Store the instructions that will allocate the dope vector, this will be
   // used for the purpose of analysis
-  SmallVector<Value *, 4> AllocSites;
+  SetVector<Value *> AllocSites;
+  SetVector<Value *> DeAllocSites;
 
   // LLVM structure type of the current dope vector
   StructType *LLVMDVType;
@@ -1031,11 +1045,12 @@ public:
     AR_Pass
   };
 
-  GlobalDopeVector(GlobalVariable *Glob, Type *DVType,
-    std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) :
-      GlobalDVInfo(new DopeVectorInfo(Glob, DVType)), Glob(Glob),
-      GetTLI(GetTLI), NestedDVDataCollected(false),
-      AnalysisRes(GlobalDopeVector::AnalysisResult::AR_Top) {
+  GlobalDopeVector(
+      GlobalVariable *Glob, Type *DVType,
+      const std::function<const TargetLibraryInfo &(Function &F)> &GetTLI)
+      : GlobalDVInfo(new DopeVectorInfo(Glob, DVType)), Glob(Glob),
+        GetTLI(GetTLI), NestedDVDataCollected(false),
+        AnalysisRes(GlobalDopeVector::AnalysisResult::AR_Top) {
 #if INTEL_FEATURE_SW_ADVANCED
     EnableAggressiveDVCP = true;
 #endif // INTEL_FEATURE_SW_ADVANCED
@@ -1108,7 +1123,7 @@ private:
   GlobalVariable *Glob;
 
   // Target library analysis
-  std::function<const TargetLibraryInfo &(Function &F)> &GetTLI;
+  const std::function<const TargetLibraryInfo &(Function &F)> &GetTLI;
 
   // True if the nested dope vectors were collected correctly. Default
   // value is false.
@@ -1157,16 +1172,18 @@ private:
 // GEP or an Argument). If AllowCheckForAllocSite is true then allow to
 // trace the BitCast instructions as allocation sites, else any BitCast
 // found is treated as an illegal access and the function will return false.
-bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
-    Value *V, std::function<const TargetLibraryInfo &(Function &F)> &GetTLI,
-    SetVector<Value *> &ValueChecked, const DataLayout &DL, bool ForDVCP,
-    bool AllowCheckForAllocSite);
+  bool collectNestedDopeVectorFieldAddress(
+      NestedDopeVectorInfo *NestedDV, Value *V,
+      const std::function<const TargetLibraryInfo &(Function &F)> &GetTLI,
+      SetVector<Value *> &ValueChecked, const DataLayout &DL, bool ForDVCP,
+      bool AllowCheckForAllocSite);
 
-// Given a Value and the TargetLibraryInfo, check if it is a BitCast
-// and is only used for data allocation and deallocation. Return the
-// call to the data alloc function.
-CallBase *castingUsedForDataAllocation(Value *Val,
-    std::function<const TargetLibraryInfo &(Function &F)> &GetTLI);
+  // Given a Value and the TargetLibraryInfo, check if it is a BitCast
+  // and is only used for data allocation and deallocation. Return the
+  // call to the data alloc function.
+  CallBase *castingUsedForDataAllocation(
+      Value *Val,
+      const std::function<const TargetLibraryInfo &(Function &F)> &GetTLI);
 };
 
 // If 'Val' is a unique actual argument of 'CI', return its position,

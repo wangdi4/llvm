@@ -218,8 +218,9 @@ std::optional<unsigned int> getArgumentPosition(const CallBase &CI,
 
 // Return true if the input CallBase is a call to a function that allocates
 // memory (e.g. for_alloc_allocate_handle)
-static bool isCallToAllocFunction(const CallBase *Call,
-    std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) {
+static bool isCallToAllocFunction(
+    const CallBase *Call,
+    const std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) {
 
   if (!Call || !Call->getCalledFunction())
     return false;
@@ -246,8 +247,9 @@ static bool isCallToAllocFunction(const CallBase *Call,
 
 // Return true if the input CallBase is a call to a function that deallocates
 // memory (e.g. for_dealloc_allocatable_handle)
-static bool isCallToDeallocFunction(CallBase *Call,
-    std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) {
+static bool isCallToDeallocFunction(
+    CallBase *Call,
+    const std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) {
 
   if (!Call || !Call->getCalledFunction())
     return false;
@@ -296,8 +298,9 @@ static bool bitCastUsedForInit(BitCastInst *BI, Value *DVObject) {
 // Given a Value and the TargetLibraryInfo, check if it is a BitCast
 // and is only used for data allocation. Return the call to the data
 // alloc function.
-static CallBase *bitCastUsedForAllocationOnly(Value *Val,
-    std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) {
+static CallBase *bitCastUsedForAllocationOnly(
+    Value *Val,
+    const std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) {
 
   if (!Val)
     return nullptr;
@@ -320,8 +323,9 @@ static CallBase *bitCastUsedForAllocationOnly(Value *Val,
 // Given a Value and the TargetLibraryInfo, check if it is a BitCast
 // and is only used for data allocation and deallocation. Return the
 // call to the data alloc function.
-static CallBase *bitCastUsedForAllocation(Value *Val,
-    std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) {
+static CallBase *bitCastUsedForAllocation(
+    Value *Val,
+    const std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) {
 
   if (!Val)
     return nullptr;
@@ -1064,7 +1068,7 @@ void DopeVectorAnalyzer::analyze(bool ForCreation, bool IsLocalDV) {
         DimensionsAddr.addFieldAddr(GEP);
         break;
       case DV_Reserved:
-        // Ignore uses of reserved
+        ReservedAddr.addFieldAddr(GEP);
         break;
 
         // The following fields require additional forward looking analysis to
@@ -1262,6 +1266,7 @@ void DopeVectorAnalyzer::analyze(bool ForCreation, bool IsLocalDV) {
   ElementSizeAddr.analyzeUses();
   CodimAddr.analyzeUses();
   FlagsAddr.analyzeUses();
+  ReservedAddr.analyzeUses();
   DimensionsAddr.analyzeUses();
 
   // During dope vector creation, we expect to be see all the fields being set
@@ -1766,7 +1771,7 @@ DopeVectorFieldUse* DopeVectorInfo::getDopeVectorField(
     case DopeVectorFieldType::DV_Dimensions:
       return &DimensionsAddr;
     case DopeVectorFieldType::DV_Reserved:
-      return nullptr;
+      return &ReservedAddr;
     case DopeVectorFieldType::DV_PerDimensionArray:
       return &DimensionsAddr;
     case DopeVectorFieldType::DV_ExtentBase:
@@ -2024,7 +2029,7 @@ void DopeVectorInfo::validateSingleNonNullValue(DopeVectorFieldType DVFT) {
 // found is treated as an illegal access and the function will return false.
 bool GlobalDopeVector::collectNestedDopeVectorFieldAddress(
     NestedDopeVectorInfo *NestedDV, Value *V,
-    std::function<const TargetLibraryInfo &(Function &F)> &GetTLI,
+    const std::function<const TargetLibraryInfo &(Function &F)> &GetTLI,
     SetVector<Value *> &ValueChecked, const DataLayout &DL, bool ForDVCP,
     bool AllowCheckForAllocSite) {
 
@@ -2161,12 +2166,12 @@ bool GlobalDopeVector::collectNestedDopeVectorFieldAddress(
   // NOTE: AllowCheckForAllocSite will be false in this case since
   // a function should not allocate a dope vector that is passed as
   // pointer. This conservative, we may want to relax this in the future.
-  auto CollectAccessFromCall = [&HasBadSideCalls, this](
-      CallBase *Call, Value *Val,
-      std::function<const TargetLibraryInfo &(Function &F)> &GetTLI,
-      const DataLayout &DL, NestedDopeVectorInfo *NestedDV, bool ForDVCP,
-      SetVector<Value *> &ValueChecked) -> bool {
-
+  auto CollectAccessFromCall =
+      [&HasBadSideCalls, this](
+          CallBase *Call, Value *Val,
+          const std::function<const TargetLibraryInfo &(Function & F)> &GetTLI,
+          const DataLayout &DL, NestedDopeVectorInfo *NestedDV, bool ForDVCP,
+          SetVector<Value *> &ValueChecked) -> bool {
     // Indirect calls or declarations aren't allowed
     // NOTE: In case of declarations, we may be able to mark the
     // libfuncs with some attributes that won't stop the data
@@ -2221,10 +2226,11 @@ bool GlobalDopeVector::collectNestedDopeVectorFieldAddress(
 
   // Return true if the input GEP is used only by a BitCast for
   // data allocation
-  auto GetCallForAllocation = [this](GEPOperator *GEP,
-      std::function<const TargetLibraryInfo &(Function &F)> &GetTLI)
-      -> CallBase* {
-
+  auto GetCallForAllocation =
+      [this](
+          GEPOperator *GEP,
+          const std::function<const TargetLibraryInfo &(Function & F)> &GetTLI)
+      -> CallBase * {
     if (!GEP->hasOneUser())
       return nullptr;
 
@@ -2247,19 +2253,17 @@ bool GlobalDopeVector::collectNestedDopeVectorFieldAddress(
   //
   //   * DV_ExtentBase, DV_StrideBase or DV_LowerBoundBase: The GEP directly
   //         accesses the extent, stride or lower bound, collect the accesses
-  auto CollectAccessFromGEP = [NestedDV, AllowCheckForAllocSite,
-      &CollectAccessForPerDimensionArray, &CollectAccessForExtentStrideAndLB,
-      &GetCallForAllocation] (GEPOperator *GEP, uint64_t DopeVectorIndex,
-      std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) -> bool {
-
+  auto CollectAccessFromGEP =
+      [NestedDV, AllowCheckForAllocSite, &CollectAccessForPerDimensionArray,
+       &CollectAccessForExtentStrideAndLB, &GetCallForAllocation](
+          GEPOperator *GEP, uint64_t DopeVectorIndex,
+          const std::function<const TargetLibraryInfo &(Function & F)> &GetTLI)
+      -> bool {
     DopeVectorFieldType DVFieldType =
         DopeVectorAnalyzer::identifyDopeVectorField(*GEP, DopeVectorIndex);
 
     if (DVFieldType >= DopeVectorFieldType::DV_Invalid)
       return false;
-
-    if (DVFieldType == DopeVectorFieldType::DV_Reserved)
-      return true;
 
     // There is a chance that the field address 0 is used for allocating
     // the array
@@ -2278,7 +2282,7 @@ bool GlobalDopeVector::collectNestedDopeVectorFieldAddress(
       auto *DVField = NestedDV->getDopeVectorField(DVFieldType);
       if (DVField->getIsBottom())
         return false;
-     DVField->addFieldAddr(cast<Value>(GEP), NestedDV->getNotForDVCP());
+      DVField->addFieldAddr(cast<Value>(GEP), NestedDV->getNotForDVCP());
     } else if (DVFieldType == DopeVectorFieldType::DV_PerDimensionArray) {
       // Check the accesses through the per dimension array
       if(!CollectAccessForPerDimensionArray(GEP))
@@ -2553,7 +2557,7 @@ bool GlobalDopeVector::collectAndAnalyzeAllocSite(BitCastOperator *BC) {
 }
 
 // Return true if the input GEPOperator is accessing a dope vector field,
-// collect the uses and analyze that there is no ilegal use for it. Else
+// collect the uses and analyze that there is no illegal use for it. Else
 // return false.
 bool
 GlobalDopeVector::collectAndAnalyzeGlobalDopeVectorField(GEPOperator *GEP) {
@@ -2568,9 +2572,6 @@ GlobalDopeVector::collectAndAnalyzeGlobalDopeVectorField(GEPOperator *GEP) {
 
   if (DVFieldType >= DopeVectorFieldType::DV_Invalid)
     return false;
-
-  if (DVFieldType == DopeVectorFieldType::DV_Reserved)
-    return true;
 
   // If the field type is DV_PerDimensionArray or lower then check
   // the load and stores (analyzeUses).
@@ -2673,8 +2674,9 @@ extern Argument *isIPOPropagatable(const Value *V, const User *U) {
 // Given a Value and the TargetLibraryInfo, check if it is a BitCast
 // and is only used for data allocation and deallocation. Return the
 // call to the data alloc function.
-CallBase* GlobalDopeVector::castingUsedForDataAllocation(Value *Val,
-    std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) {
+CallBase *GlobalDopeVector::castingUsedForDataAllocation(
+    Value *Val,
+    const std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) {
 #if INTEL_FEATURE_SW_ADVANCED
     // If aggressive DVCP is disabled then collect the allocation sites only.
     if (!EnableAggressiveDVCP)
@@ -4244,6 +4246,14 @@ void GlobalDopeVector::collectAndValidate(const DataLayout &DL,
           DVField->addFieldAddr(Glob);
           bool isNotForDVCP = DVField->isAddrNotForDVCP(Glob);
           DVField->analyzeLoadOrStoreInstruction(U, Glob, isNotForDVCP);
+          if (isa<LoadInst>(U)) {
+            for (auto &UU : U->uses()) {
+              auto CB = dyn_cast<CallBase>(UU.getUser());
+              if (CB && isCallToDeallocFunction(CB, GetTLI) &&
+                  CB->getArgOperandNo(&UU) == 0)
+                GlobalDVInfo->addDeAllocSite(CB);
+            }
+          }
           if (!DVField->getIsBottom())
             continue;
         }

@@ -99,7 +99,7 @@ protected:
   llvm::StringRef CPUPrefix;
 
   /// True if OpenCL version is greater or equal to 2.0.
-  bool m_IsOcl20;
+  bool m_HasOcl20;
 
   // Indicates whether the module comes from SYCL.
   // The only noticeable difference between SYCL flow and OpenCL flow is the

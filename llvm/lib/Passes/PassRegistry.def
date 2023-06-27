@@ -324,6 +324,7 @@ MODULE_PASS("call-tree-clone", CallTreeCloningPass())
 #if INTEL_FEATURE_SW_ADVANCED
 MODULE_PASS("deadarrayopselimination", DeadArrayOpsEliminationPass())
 #endif // INTEL_FEATURE_SW_ADVANCED
+MODULE_PASS("deaddopevectorelimination", DeadDopeVectorEliminationPass())
 MODULE_PASS("dopevectorconstprop", DopeVectorConstPropPass())
 #if INTEL_FEATURE_SW_DTRANS
 MODULE_PASS("intel-fold-wp-intrinsic", IntelFoldWPIntrinsicPass())

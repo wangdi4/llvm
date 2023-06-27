@@ -207,7 +207,7 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
         }
 
         // Flatten get_{local, global}_linear_id()
-        if (m_IsOcl20)
+        if (m_HasOcl20)
           MPM.addPass(LinearIdResolverPass());
         // Resolve variable argument of get_global_id, get_local_id and
         // get_group_id.
@@ -225,7 +225,7 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
 
         FunctionPassManager FPM;
         // Static resolution of generic address space pointers
-        if (Level != OptimizationLevel::O0 && (m_IsOcl20 || m_IsSYCL)) {
+        if (Level != OptimizationLevel::O0 && m_HasOcl20) {
           FPM.addPass(PromotePass());
           FPM.addPass(
               InferAddressSpacesPass(CompilationUtils::ADDRESS_SPACE_GENERIC));
@@ -255,7 +255,7 @@ void OptimizerLTO::registerOptimizerEarlyCallback(PassBuilder &PB) {
     if (Level != OptimizationLevel::O0) {
       FunctionPassManager FPM;
       FPM.addPass(ReassociatePass());
-      if (m_IsOcl20 || m_IsSYCL) {
+      if (m_HasOcl20) {
         // Repeat resolution of generic address space pointers after LLVM
         // IR was optimized.
         FPM.addPass(
@@ -548,7 +548,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
       auto InlineParams = getInlineParams();
       InlineParams.DefaultThreshold = 4096;
       MPM.addPass(ModuleInlinerWrapperPass(InlineParams));
-    } else if (m_IsOcl20) {
+    } else if (m_HasOcl20) {
       // Ensure that the built-in functions to be processed by
       // PatchCallbackArgsPass are inlined.
       MPM.addPass(AlwaysInlinerPass());
@@ -556,7 +556,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
     // Some built-in functions contain calls to external functions which take
     // arguments that are retrieved from the function's implicit arguments.
     // Currently only applies to OpenCL 2.x
-    if (m_IsOcl20)
+    if (m_HasOcl20)
       MPM.addPass(PatchCallbackArgsPass(m_UseTLSGlobals));
 
     if (Level != OptimizationLevel::O0) {
