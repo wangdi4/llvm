@@ -2650,18 +2650,19 @@ void insertPrintf(const Twine &Prefix, IRBuilder<> &Builder,
 
   std::string FormatStr = "PRINT " + Prefix.str() + " ";
   SmallVector<Value *, 16> TempInputsCast;
-  for (auto [I, V] : enumerate(TempInputs)) {
+  for (const auto &[I, V] : enumerate(TempInputs)) {
     Type *T = V->getType();
+    Value *NewV = V;
     if (T->isIntegerTy())
       if (!T->isIntegerTy(32))
-        V = Builder.CreateIntCast(V, Builder.getInt32Ty(), false,
-                                  V->getName() + "cast.");
+        NewV = Builder.CreateIntCast(V, Builder.getInt32Ty(), false,
+                                     V->getName() + "cast.");
     FormatStr += TempInputPrefixes[I];
-    FormatStr += getFormatStr(V);
+    FormatStr += getFormatStr(NewV);
     if (T->is16bitFPTy())
-      V = Builder.CreateBitCast(V, Builder.getInt16Ty(),
-                                V->getName() + "cast.");
-    TempInputsCast.push_back(V);
+      NewV = Builder.CreateBitCast(NewV, Builder.getInt16Ty(),
+                                   NewV->getName() + "cast.");
+    TempInputsCast.push_back(NewV);
   }
   FormatStr += "\n";
 
