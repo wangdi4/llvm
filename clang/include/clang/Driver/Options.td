@@ -7063,7 +7063,6 @@ def as_secure_log_file : Separate<["-"], "as-secure-log-file">,
 
 let Flags = [CC1Option, NoDriverOption] in {
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 def disable_intel_proprietary_opts : Flag<["-"],
   "disable-intel-proprietary-opts">,
@@ -7085,11 +7084,9 @@ def disable_dtrans_asserts
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
-=======
 def llvm_verify_each : Flag<["-"], "llvm-verify-each">,
   HelpText<"Run the LLVM verifier after every LLVM pass">,
   MarshallingInfoFlag<CodeGenOpts<"VerifyEach">>;
->>>>>>> da7f212f4a7ac8d99c9368770b9af3b628fd4e9f
 def disable_llvm_verifier : Flag<["-"], "disable-llvm-verifier">,
   HelpText<"Don't run the LLVM IR verifier pass">,
   MarshallingInfoNegativeFlag<CodeGenOpts<"VerifyModule">>;
