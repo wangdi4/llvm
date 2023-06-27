@@ -99,7 +99,6 @@ define float @test_merge_anyof_v4sf(<4 x float> %t) {
 ; INTEL_CUSTOMIZATION
 ; CHECK-LABEL: @test_merge_anyof_v4sf(
 ; CHECK-NEXT:  entry:
-<<<<<<< HEAD
 ; CHECK-NEXT:    [[TMP0:%.*]] = extractelement <4 x float> [[T:%.*]], i64 3
 ; CHECK-NEXT:    [[TMP1:%.*]] = extractelement <4 x float> [[T]], i64 2
 ; CHECK-NEXT:    [[TMP2:%.*]] = extractelement <4 x float> [[T]], i64 1
@@ -124,19 +123,6 @@ define float @test_merge_anyof_v4sf(<4 x float> %t) {
 ; CHECK-NEXT:    br label [[RETURN]]
 ; CHECK:       return:
 ; CHECK-NEXT:    [[RETVAL_0:%.*]] = phi float [ [[TMP9]], [[LOR_LHS_FALSE31]] ], [ 0.000000e+00, [[LOR_LHS_FALSE11]] ], [ 0.000000e+00, [[ENTRY:%.*]] ]
-=======
-; CHECK-NEXT:    [[TMP0:%.*]] = shufflevector <4 x float> [[T:%.*]], <4 x float> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
-; CHECK-NEXT:    [[TMP1:%.*]] = fcmp ogt <8 x float> [[TMP0]], <float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00>
-; CHECK-NEXT:    [[TMP2:%.*]] = fcmp olt <8 x float> [[TMP0]], <float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00>
-; CHECK-NEXT:    [[TMP3:%.*]] = shufflevector <8 x i1> [[TMP1]], <8 x i1> [[TMP2]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 12, i32 13, i32 14, i32 15>
-; CHECK-NEXT:    [[TMP4:%.*]] = freeze <8 x i1> [[TMP3]]
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <8 x i1> [[TMP4]] to i8
-; CHECK-NEXT:    [[DOTNOT:%.*]] = icmp eq i8 [[TMP5]], 0
-; CHECK-NEXT:    [[SHIFT:%.*]] = shufflevector <4 x float> [[T]], <4 x float> poison, <4 x i32> <i32 1, i32 poison, i32 poison, i32 poison>
-; CHECK-NEXT:    [[TMP6:%.*]] = fadd <4 x float> [[SHIFT]], [[T]]
-; CHECK-NEXT:    [[ADD:%.*]] = extractelement <4 x float> [[TMP6]], i64 0
-; CHECK-NEXT:    [[RETVAL_0:%.*]] = select i1 [[DOTNOT]], float [[ADD]], float 0.000000e+00
->>>>>>> 7d6b8249faba3c761de5de66f3dafb96a3fd9047
 ; CHECK-NEXT:    ret float [[RETVAL_0]]
 ;
 ; end INTEL_CUSTOMIZATION
