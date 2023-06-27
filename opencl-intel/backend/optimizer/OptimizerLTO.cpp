@@ -24,6 +24,7 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/TargetParser/Triple.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
+#include "llvm/Transforms/IPO/ArgumentPromotion.h"
 #include "llvm/Transforms/IPO/DeadArgumentElimination.h"
 #include "llvm/Transforms/IPO/GlobalDCE.h"
 #include "llvm/Transforms/IPO/GlobalOpt.h"
@@ -565,6 +566,9 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
       MPM.addPass(GlobalDCEPass());
       // AddImplicitArgs pass may create dead implicit arguments.
       MPM.addPass(DeadArgumentEliminationPass());
+      // Scalarize argument, e.g. local.ids inserted by WGLoopCreator.
+      MPM.addPass(
+          createModuleToPostOrderCGSCCPassAdaptor(ArgumentPromotionPass()));
       FunctionPassManager FPM;
       FPM.addPass(SROAPass(SROAOptions::ModifyCFG));
       FPM.addPass(LoopSimplifyPass());

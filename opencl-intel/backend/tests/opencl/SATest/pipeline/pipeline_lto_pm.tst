@@ -165,6 +165,7 @@
 ; CHECK:      Running pass: PatchCallbackArgsPass
 ; CHECK:      Running pass: GlobalDCEPass
 ; CHECK:      Running pass: DeadArgumentEliminationPass
+; CHECK:      Running pass: ArgumentPromotionPass
 ; CHECK:      Running pass: SROAPass
 ; CHECK:      Running pass: LoopSimplifyPass
 ; CHECK:      Running pass: LICMPass
