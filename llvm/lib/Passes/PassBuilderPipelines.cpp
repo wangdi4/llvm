@@ -168,6 +168,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_DeadArrayOpsElimination.h"
 #endif // INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Transforms/IPO/Intel_DeadDopeVectorElimination.h"
 #include "llvm/Transforms/IPO/Intel_DopeVectorConstProp.h"
 #if INTEL_FEATURE_SW_DTRANS
 #include "llvm/Transforms/IPO/Intel_FoldWPIntrinsic.h"
@@ -3341,6 +3342,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   if (DTransEnabled)
     MPM.addPass(TileMVInlMarkerPass());
 #endif // INTEL_FEATURE_SW_ADVANCED
+  MPM.addPass(DeadDopeVectorEliminationPass());
   MPM.addPass(DopeVectorConstPropPass());
   MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(
               ArgumentPromotionPass()));
