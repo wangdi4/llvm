@@ -1783,12 +1783,17 @@ convert_from_bf8(__ESIMD_NS::simd<uint8_t, N> src0) {
 }
 
 // TODO: we need a more generic solution to derive storage types
-template <argument_type> struct SrndPrecisionTypeStorage;
+template <sycl::ext::intel::esimd::xmx::dpas_argument_type>
+struct SrndPrecisionTypeStorage;
 
-template <> struct SrndPrecisionTypeStorage<argument_type::BF8> {
+template <>
+struct SrndPrecisionTypeStorage<
+    sycl::ext::intel::esimd::xmx::dpas_argument_type::BF8> {
   using StorageT = uint8_t;
 };
-template <> struct SrndPrecisionTypeStorage<argument_type::FP16> {
+template <>
+struct SrndPrecisionTypeStorage<
+    sycl::ext::intel::esimd::xmx::dpas_argument_type::fp16> {
   using StorageT = sycl::detail::half_impl::StorageT;
 };
 
@@ -1802,19 +1807,23 @@ template <> struct SrndPrecisionTypeStorage<argument_type::FP16> {
 /// \param src0 the operand to be rounded
 /// \param src1 random number used for rounding
 /// \return the converted value
-template <argument_type DstPrecision, int N, typename SrcType>
+template <sycl::ext::intel::esimd::xmx::dpas_argument_type DstPrecision, int N,
+          typename SrcType>
 __ESIMD_API
     __ESIMD_NS::simd<typename SrndPrecisionTypeStorage<DstPrecision>::StorageT,
                      N>
     srnd(__ESIMD_NS::simd<SrcType, N> src0, __ESIMD_NS::simd<SrcType, N> src1) {
 
   using DstStorageT = typename SrndPrecisionTypeStorage<DstPrecision>::StorageT;
-  constexpr bool is_bf8_fp32 = (DstPrecision == argument_type::BF8) &&
-                               __ESIMD_DNS::is_fp_type<SrcType>::value;
-  constexpr bool is_hf16_fp32 = (DstPrecision == argument_type::FP16) &&
-                                __ESIMD_DNS::is_fp_type<SrcType>::value;
+  constexpr bool is_bf8_fp32 =
+      (DstPrecision == sycl::ext::intel::esimd::xmx::dpas_argument_type::BF8) &&
+      __ESIMD_DNS::is_fp_type<SrcType>::value;
+  constexpr bool is_hf16_fp32 =
+      (DstPrecision ==
+       sycl::ext::intel::esimd::xmx::dpas_argument_type::fp16) &&
+      __ESIMD_DNS::is_fp_type<SrcType>::value;
   constexpr bool is_bf8_hf16 =
-      (DstPrecision == argument_type::BF8) &&
+      (DstPrecision == sycl::ext::intel::esimd::xmx::dpas_argument_type::BF8) &&
       std::is_same_v<SrcType, __ESIMD_DNS::__raw_t<sycl::half>>;
 
   static_assert((is_bf8_fp32 || is_hf16_fp32 || is_bf8_hf16),
