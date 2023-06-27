@@ -1297,13 +1297,13 @@ template <typename ELFT> void elf::writeARMCmseImportLib() {
   // Write the section header table.
   auto *sHdrs = reinterpret_cast<typename ELFT::Shdr *>(buf + eHdr->e_shoff);
   for (auto &[osec, _] : osIsPairs)
-    osec->writeHeaderTo<ELFT>(++sHdrs);
+    osec->template writeHeaderTo<ELFT>(++sHdrs);
 
   // Write section contents to a mmap'ed file.
   {
     parallel::TaskGroup tg;
     for (auto &[osec, _] : osIsPairs)
-      osec->writeTo<ELFT>(buf + osec->offset, tg);
+      osec->template writeTo<ELFT>(buf + osec->offset, tg);
   }
 
   if (auto e = buffer->commit())
