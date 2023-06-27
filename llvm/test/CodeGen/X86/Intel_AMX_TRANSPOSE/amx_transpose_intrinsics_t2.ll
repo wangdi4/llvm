@@ -144,9 +144,9 @@ define dso_local void @test_tile_t2rpntlvwz0(i16 noundef signext %row, i16 nound
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r8
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r9
 ; CHECK-NEXT:    t2rpntlvwz0 (%r8,%r9), %tmm2
-; CHECK-NEXT:    movl $64, %r8d
+; CHECK-NEXT:    movswq %si, %r8
 ; CHECK-NEXT:    tilestored %tmm2, (%rdi,%r8)
-; CHECK-NEXT:    movl $64, %esi
+; CHECK-NEXT:    movswq %cx, %rsi
 ; CHECK-NEXT:    tilestored %tmm3, (%rdx,%rsi)
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
 ; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
@@ -161,7 +161,7 @@ define dso_local void @test_tile_t2rpntlvwz0(i16 noundef signext %row, i16 nound
 ; CHECK-NEXT:    tilezero %tmm0
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdx
 ; CHECK-NEXT:    addq $64, %rdx
-; CHECK-NEXT:    movl $64, %esi
+; CHECK-NEXT:    movswq %cx, %rsi
 ; CHECK-NEXT:    tilestored %tmm0, (%rdx,%rsi)
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
 ; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
@@ -548,19 +548,19 @@ define dso_local void @test_tile_t2rpntlvwz0(i16 noundef signext %row, i16 nound
 ; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    ldtilecfg {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movswq %cx, %r8
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    movl $64, %r8d
 ; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm0
+; CHECK-NEXT:    movswq %dx, %r8
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    movl $64, %r8d
 ; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm1
+; CHECK-NEXT:    movswq %cx, %r8
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    movl $64, %r8d
 ; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm2
 ; CHECK-NEXT:    tdpbssd %tmm2, %tmm1, %tmm0
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdx
 ; CHECK-NEXT:    addq $64, %rdx
-; CHECK-NEXT:    movl $64, %esi
+; CHECK-NEXT:    movswq %cx, %rsi
 ; CHECK-NEXT:    tilestored %tmm0, (%rdx,%rsi)
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
 ; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
@@ -691,8 +691,8 @@ define dso_local void @test_tile_t2rpntlvwz0(i16 noundef signext %row, i16 nound
 ; CHECK-NEXT:    ldtilecfg {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdx
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rsi
+; CHECK-NEXT:    movswq %cx, %r8
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    movl $64, %r8d
 ; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm0
 ; CHECK-NEXT:    tilestored %tmm0, (%rdx,%rsi)
 ; CHECK-NEXT:    movq %rbp, %rsp
@@ -1041,9 +1041,9 @@ define dso_local void @test_tile_t2rpntlvwz0t1(i16 noundef signext %row, i16 nou
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r8
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r9
 ; CHECK-NEXT:    t2rpntlvwz0t1 (%r8,%r9), %tmm2
-; CHECK-NEXT:    movl $64, %r8d
+; CHECK-NEXT:    movswq %si, %r8
 ; CHECK-NEXT:    tilestored %tmm2, (%rdi,%r8)
-; CHECK-NEXT:    movl $64, %esi
+; CHECK-NEXT:    movswq %cx, %rsi
 ; CHECK-NEXT:    tilestored %tmm3, (%rdx,%rsi)
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
 ; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
@@ -1058,7 +1058,7 @@ define dso_local void @test_tile_t2rpntlvwz0t1(i16 noundef signext %row, i16 nou
 ; CHECK-NEXT:    tilezero %tmm0
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdx
 ; CHECK-NEXT:    addq $64, %rdx
-; CHECK-NEXT:    movl $64, %esi
+; CHECK-NEXT:    movswq %cx, %rsi
 ; CHECK-NEXT:    tilestored %tmm0, (%rdx,%rsi)
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
 ; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
@@ -1445,19 +1445,19 @@ define dso_local void @test_tile_t2rpntlvwz0t1(i16 noundef signext %row, i16 nou
 ; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    ldtilecfg {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movswq %cx, %r8
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    movl $64, %r8d
 ; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm0
+; CHECK-NEXT:    movswq %dx, %r8
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    movl $64, %r8d
 ; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm1
+; CHECK-NEXT:    movswq %cx, %r8
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    movl $64, %r8d
 ; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm2
 ; CHECK-NEXT:    tdpbssd %tmm2, %tmm1, %tmm0
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdx
 ; CHECK-NEXT:    addq $64, %rdx
-; CHECK-NEXT:    movl $64, %esi
+; CHECK-NEXT:    movswq %cx, %rsi
 ; CHECK-NEXT:    tilestored %tmm0, (%rdx,%rsi)
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
 ; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
@@ -1588,8 +1588,8 @@ define dso_local void @test_tile_t2rpntlvwz0t1(i16 noundef signext %row, i16 nou
 ; CHECK-NEXT:    ldtilecfg {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdx
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rsi
+; CHECK-NEXT:    movswq %cx, %r8
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    movl $64, %r8d
 ; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm0
 ; CHECK-NEXT:    tilestored %tmm0, (%rdx,%rsi)
 ; CHECK-NEXT:    movq %rbp, %rsp
@@ -1935,9 +1935,9 @@ define dso_local void @test_tile_t2rpntlvwz1(i16 noundef signext %row, i16 nound
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r8
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r9
 ; CHECK-NEXT:    t2rpntlvwz1 (%r8,%r9), %tmm2
-; CHECK-NEXT:    movl $64, %r8d
+; CHECK-NEXT:    movswq %si, %r8
 ; CHECK-NEXT:    tilestored %tmm2, (%rdi,%r8)
-; CHECK-NEXT:    movl $64, %esi
+; CHECK-NEXT:    movswq %cx, %rsi
 ; CHECK-NEXT:    tilestored %tmm3, (%rdx,%rsi)
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
 ; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
@@ -1952,7 +1952,7 @@ define dso_local void @test_tile_t2rpntlvwz1(i16 noundef signext %row, i16 nound
 ; CHECK-NEXT:    tilezero %tmm0
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdx
 ; CHECK-NEXT:    addq $64, %rdx
-; CHECK-NEXT:    movl $64, %esi
+; CHECK-NEXT:    movswq %cx, %rsi
 ; CHECK-NEXT:    tilestored %tmm0, (%rdx,%rsi)
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
 ; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
@@ -2339,19 +2339,19 @@ define dso_local void @test_tile_t2rpntlvwz1(i16 noundef signext %row, i16 nound
 ; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    ldtilecfg {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movswq %cx, %r8
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    movl $64, %r8d
 ; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm0
+; CHECK-NEXT:    movswq %dx, %r8
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    movl $64, %r8d
 ; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm1
+; CHECK-NEXT:    movswq %cx, %r8
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    movl $64, %r8d
 ; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm2
 ; CHECK-NEXT:    tdpbssd %tmm2, %tmm1, %tmm0
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdx
 ; CHECK-NEXT:    addq $64, %rdx
-; CHECK-NEXT:    movl $64, %esi
+; CHECK-NEXT:    movswq %cx, %rsi
 ; CHECK-NEXT:    tilestored %tmm0, (%rdx,%rsi)
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
 ; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
@@ -2482,8 +2482,8 @@ define dso_local void @test_tile_t2rpntlvwz1(i16 noundef signext %row, i16 nound
 ; CHECK-NEXT:    ldtilecfg {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdx
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rsi
+; CHECK-NEXT:    movswq %cx, %r8
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    movl $64, %r8d
 ; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm0
 ; CHECK-NEXT:    tilestored %tmm0, (%rdx,%rsi)
 ; CHECK-NEXT:    movq %rbp, %rsp
@@ -2829,9 +2829,9 @@ define dso_local void @test_tile_t2rpntlvwz1t1(i16 noundef signext %row, i16 nou
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r8
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %r9
 ; CHECK-NEXT:    t2rpntlvwz1t1 (%r8,%r9), %tmm2
-; CHECK-NEXT:    movl $64, %r8d
+; CHECK-NEXT:    movswq %si, %r8
 ; CHECK-NEXT:    tilestored %tmm2, (%rdi,%r8)
-; CHECK-NEXT:    movl $64, %esi
+; CHECK-NEXT:    movswq %cx, %rsi
 ; CHECK-NEXT:    tilestored %tmm3, (%rdx,%rsi)
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
 ; CHECK-NEXT:    movq %rax, {{[0-9]+}}(%rsp)
@@ -2846,7 +2846,7 @@ define dso_local void @test_tile_t2rpntlvwz1t1(i16 noundef signext %row, i16 nou
 ; CHECK-NEXT:    tilezero %tmm0
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdx
 ; CHECK-NEXT:    addq $64, %rdx
-; CHECK-NEXT:    movl $64, %esi
+; CHECK-NEXT:    movswq %cx, %rsi
 ; CHECK-NEXT:    tilestored %tmm0, (%rdx,%rsi)
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
 ; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
@@ -3233,19 +3233,19 @@ define dso_local void @test_tile_t2rpntlvwz1t1(i16 noundef signext %row, i16 nou
 ; CHECK-NEXT:    movb %al, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movw %cx, {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    ldtilecfg {{[0-9]+}}(%rsp)
+; CHECK-NEXT:    movswq %cx, %r8
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    movl $64, %r8d
 ; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm0
+; CHECK-NEXT:    movswq %dx, %r8
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    movl $64, %r8d
 ; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm1
+; CHECK-NEXT:    movswq %cx, %r8
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    movl $64, %r8d
 ; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm2
 ; CHECK-NEXT:    tdpbssd %tmm2, %tmm1, %tmm0
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdx
 ; CHECK-NEXT:    addq $64, %rdx
-; CHECK-NEXT:    movl $64, %esi
+; CHECK-NEXT:    movswq %cx, %rsi
 ; CHECK-NEXT:    tilestored %tmm0, (%rdx,%rsi)
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rax
 ; CHECK-NEXT:    movq %rax, {{[-0-9]+}}(%r{{[sb]}}p) # 8-byte Spill
@@ -3376,8 +3376,8 @@ define dso_local void @test_tile_t2rpntlvwz1t1(i16 noundef signext %row, i16 nou
 ; CHECK-NEXT:    ldtilecfg {{[0-9]+}}(%rsp)
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rdx
 ; CHECK-NEXT:    movq {{[0-9]+}}(%rsp), %rsi
+; CHECK-NEXT:    movswq %cx, %r8
 ; CHECK-NEXT:    leaq {{[0-9]+}}(%rsp), %rdi
-; CHECK-NEXT:    movl $64, %r8d
 ; CHECK-NEXT:    tileloadd (%rdi,%r8), %tmm0
 ; CHECK-NEXT:    tilestored %tmm0, (%rdx,%rsi)
 ; CHECK-NEXT:    movq %rbp, %rsp
