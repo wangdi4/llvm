@@ -40923,19 +40923,8 @@ X86TargetLowering::emitEHSjLjLongJmp(MachineInstr &MI,
   assert((PVT == MVT::i64 || PVT == MVT::i32) &&
          "Invalid Pointer Size!");
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-  // JMP with EGPR is not supported in SDE yet
-  bool HasEGPR = Subtarget.hasEGPR();
-  const TargetRegisterClass *RC =
-      (PVT == MVT::i64)
-          ? &(HasEGPR ? X86::GR64_NOREX2RegClass : X86::GR64RegClass)
-          : &(HasEGPR ? X86::GR32_NOREX2RegClass : X86::GR32RegClass);
-#else // INTEL_FEATURE_ISA_APX_F
   const TargetRegisterClass *RC =
     (PVT == MVT::i64) ? &X86::GR64RegClass : &X86::GR32RegClass;
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
   Register Tmp = MRI.createVirtualRegister(RC);
   // Since FP is only updated here but NOT referenced, it's treated as GPR.
   const X86RegisterInfo *RegInfo = Subtarget.getRegisterInfo();
