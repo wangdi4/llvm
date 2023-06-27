@@ -2960,6 +2960,9 @@ static bool validateAndCostRequiredSelects(BasicBlock *BB, BasicBlock *ThenBB,
 /// \returns true if the conditional block is removed.
 bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI,
                                             BasicBlock *ThenBB) {
+  if (!Options.SpeculateBlocks)
+    return false;
+
   // Be conservative for now. FP select instruction can often be expensive.
   Value *BrCond = BI->getCondition();
   if (isa<FCmpInst>(BrCond))
@@ -9018,7 +9021,13 @@ bool SimplifyCFGOpt::simplifyOnce(BasicBlock *BB) {
       return true;
     }
 
+<<<<<<< HEAD
   if (Options.FoldTwoEntryPHINode &&
+=======
+  IRBuilder<> Builder(BB);
+
+  if (Options.SpeculateBlocks &&
+>>>>>>> d49984fa4f83d6fca83b2c594a2475956de170f1
       !BB->getParent()->hasFnAttribute(Attribute::OptForFuzzing)) {
     // If there is a trivial two-entry PHI node in this basic block, and we can
     // eliminate it, do so now.
