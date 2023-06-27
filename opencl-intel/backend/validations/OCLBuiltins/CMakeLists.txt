@@ -117,6 +117,6 @@ add_opencl_library(
 
 add_dependencies(OCLBuiltinsRef ${TARGET_NAME})
 
-set_linux_exports_file(${TARGET_NAME} OCLBuiltins_linux_exports.txt)
+set_linux_exports_file(OCLBuiltinsRef OCLBuiltins_linux_exports.txt)
 
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Backend")
