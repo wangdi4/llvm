@@ -36,11 +36,6 @@ namespace lld::elf {
 class InputFile;
 class SharedFile;
 
-struct ArmCmseEntryFunction {
-  Symbol *acleSeSym;
-  Symbol *sym;
-};
-
 // SymbolTable is a bucket of all known symbols, including defined,
 // undefined, or lazy symbols (the last one is symbols in archive
 // files whose archive members are not yet loaded).
@@ -82,6 +77,7 @@ public:
   // is used to uniquify them.
   llvm::DenseMap<llvm::CachedHashStringRef, const InputFile *> comdatGroups;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Maps the section name referred to ".gnu.linkonce." to a file
   llvm::DenseMap<llvm::CachedHashStringRef, const InputFile *> gnuLinkOnceGroups;
@@ -99,6 +95,8 @@ public:
   // output Arm CMSE import library.
   llvm::StringMap<bool> inCMSEOutImpLib;
 
+=======
+>>>>>>> cd116e046034aabe08c38c825497e6019bdb9f04
 private:
   SmallVector<Symbol *, 0> findByVersion(SymbolVersion ver);
   SmallVector<Symbol *, 0> findAllByVersion(SymbolVersion ver,
