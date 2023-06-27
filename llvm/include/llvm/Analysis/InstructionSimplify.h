@@ -101,6 +101,12 @@ struct InstrInfoQuery {
       return cast<PossiblyExactOperator>(Op)->isExact();
     return false;
   }
+
+  template <class InstT> bool hasNoSignedZeros(const InstT *Op) const {
+    if (UseInstrInfo)
+      return Op->hasNoSignedZeros();
+    return false;
+  }
 };
 
 struct SimplifyQuery {
