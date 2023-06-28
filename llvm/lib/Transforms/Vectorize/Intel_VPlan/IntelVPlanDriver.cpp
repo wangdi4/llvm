@@ -1192,6 +1192,7 @@ void VPlanDriverImpl::addOptReportRemarksForMainPlan(
   auto *MainVPLoop = *VPLpInfo->begin();
   OptReportStatsTracker &OptRptStats =
       MainPlanDescr.getVPlan()->getOptRptStatsForLoop(MainVPLoop);
+  LLVMContext &C = ORBuilder.getContext();
 
   // TODO: This remark should be added by CM, not this late after
   // CFGMerger.
@@ -1203,33 +1204,34 @@ void VPlanDriverImpl::addOptReportRemarksForMainPlan(
           TTI::AdvancedOptLevel::AO_TargetHasIntelAVX512)) {
     // 15569 remark is "Compiler has chosen to target XMM/YMM vector."
     // "Try using -mprefer-vector-width=512 to override."
-    OptRptStats.GeneralRemarks.emplace_back(OptRemarkID::VectorizerShortVector,
-                                            OptReportVerbosity::High);
+    OptRptStats.GeneralRemarks.emplace_back(RemarkRecord{
+        C, OptRemarkID::VectorizerShortVector, OptReportVerbosity::High});
   }
 
   if (WRLp && WRLp->isOmpSIMDLoop())
     // Adds remark SIMD LOOP WAS VECTORIZED
-    OptRptStats.GeneralRemarks.emplace_back(OptRemarkID::SimdLoopVectorized,
-                                            OptReportVerbosity::Low);
+    OptRptStats.GeneralRemarks.emplace_back(RemarkRecord{
+        C, OptRemarkID::SimdLoopVectorized, OptReportVerbosity::Low});
   else
     // Adds remark LOOP WAS VECTORIZED
-    OptRptStats.GeneralRemarks.emplace_back(OptRemarkID::LoopVectorized,
-                                            OptReportVerbosity::Low);
+    OptRptStats.GeneralRemarks.emplace_back(
+        RemarkRecord{C, OptRemarkID::LoopVectorized, OptReportVerbosity::Low});
 
   // Next print the loop number.
   if (ReportLoopNumber)
-    OptRptStats.GeneralRemarks.emplace_back(
-        OptRemarkID::VectorizerLoopNumber, OptReportVerbosity::Low,
-        Twine(LoopVectorizationPlanner::getVPlanOrderNumber()).str());
+    OptRptStats.GeneralRemarks.emplace_back(RemarkRecord{
+        C, OptRemarkID::VectorizerLoopNumber, OptReportVerbosity::Low,
+        Twine(LoopVectorizationPlanner::getVPlanOrderNumber()).str()});
 
   // Add remark about VF
-  OptRptStats.GeneralRemarks.emplace_back(OptRemarkID::VectorizationFactor,
-                                          OptReportVerbosity::Low,
-                                          Twine(MainPlanDescr.getVF()).str());
+  OptRptStats.GeneralRemarks.emplace_back(
+      RemarkRecord{C, OptRemarkID::VectorizationFactor, OptReportVerbosity::Low,
+                   Twine(MainPlanDescr.getVF()).str()});
+
   if (MainPlanDescr.getUF() > 1)
-    OptRptStats.GeneralRemarks.emplace_back(OptRemarkID::VectorizerUnrollFactor,
-                                            OptReportVerbosity::Low,
-                                            Twine(MainPlanDescr.getUF()).str());
+    OptRptStats.GeneralRemarks.emplace_back(RemarkRecord{
+        C, OptRemarkID::VectorizerUnrollFactor, OptReportVerbosity::Low,
+        Twine(MainPlanDescr.getUF()).str()});
 }
 
 void VPlanDriverImpl::addOptReportRemarksForVecRemainder(
@@ -1241,17 +1243,22 @@ void VPlanDriverImpl::addOptReportRemarksForVecRemainder(
   OptReportStatsTracker &OptRptStats =
       PlanDescr.getVPlan()->getOptRptStatsForLoop(OuterLp);
 
-  OptRptStats.OriginRemarks.emplace_back(OptRemarkID::VectorizerRemainderLoop);
+  LLVMContext &C = ORBuilder.getContext();
+  OptRptStats.OriginRemarks.emplace_back(
+      RemarkRecord{C, OptRemarkID::VectorizerRemainderLoop});
+
   if (PlanDescr.isNonMaskedVecRemainder())
     OptRptStats.GeneralRemarks.emplace_back(
-        OptRemarkID::VectorizedRemainderLoopUnmasked, OptReportVerbosity::Low);
+        RemarkRecord{C, OptRemarkID::VectorizedRemainderLoopUnmasked,
+                     OptReportVerbosity::Low});
   else
     OptRptStats.GeneralRemarks.emplace_back(
-        OptRemarkID::VectorizedRemainderLoopMasked, OptReportVerbosity::Low);
+        RemarkRecord{C, OptRemarkID::VectorizedRemainderLoopMasked,
+                     OptReportVerbosity::Low});
 
-  OptRptStats.GeneralRemarks.emplace_back(OptRemarkID::VectorizationFactor,
-                                          OptReportVerbosity::Low,
-                                          Twine(PlanDescr.getVF()).str());
+  OptRptStats.GeneralRemarks.emplace_back(
+      RemarkRecord{C, OptRemarkID::VectorizationFactor, OptReportVerbosity::Low,
+                   Twine(PlanDescr.getVF()).str()});
 }
 
 void VPlanDriverImpl::addOptReportRemarksForScalRemainder(
@@ -1262,11 +1269,12 @@ void VPlanDriverImpl::addOptReportRemarksForScalRemainder(
       cast<VPlanScalar>(PlanDescr.getVPlan())->getScalarLoopInst();
   // TODO: Any other remarks for scalar peel/remainder loops? Should we report
   // that they were not vectorized?
-  ScalarLpI->addOriginRemark({OptRemarkID::VectorizerRemainderLoop});
+  ScalarLpI->addOriginRemark(RemarkRecord{
+      ORBuilder.getContext(), OptRemarkID::VectorizerRemainderLoop});
 }
 
 static std::optional<RemarkRecord>
-getPeeledMemrefRemark(const VPlanPeelingVariant *V) {
+getPeeledMemrefRemark(LLVMContext &C, const VPlanPeelingVariant *V) {
   if (!VPlanDriverImpl::EmitDebugOptRemarks)
     return {};
 
@@ -1297,7 +1305,7 @@ getPeeledMemrefRemark(const VPlanPeelingVariant *V) {
   }
 
   return VPlanDriverImpl::getDebugRemark<RemarkRecord>(
-      "peeled by memref ", NameAndDbgLoc, "(",
+      C, "peeled by memref ", NameAndDbgLoc, "(",
       Memref->getOpcode() == Instruction::Load ? "load" : "store", ")");
 }
 
@@ -1311,25 +1319,28 @@ void VPlanDriverImpl::addOptReportRemarksForVecPeel(
   OptReportStatsTracker &OptRptStats =
       PlanDescr.getVPlan()->getOptRptStatsForLoop(OuterLp);
 
-  OptRptStats.OriginRemarks.emplace_back(OptRemarkID::VectorizerPeelLoop);
+  LLVMContext &C = ORBuilder.getContext();
+  OptRptStats.OriginRemarks.emplace_back(
+      RemarkRecord{C, OptRemarkID::VectorizerPeelLoop});
 
-  OptRptStats.GeneralRemarks.emplace_back(OptRemarkID::VectorizedPeelLoop,
-                                          OptReportVerbosity::Low);
-
-  OptRptStats.GeneralRemarks.emplace_back(OptRemarkID::VectorizationFactor,
-                                          OptReportVerbosity::Low,
-                                          Twine(PlanDescr.getVF()).str());
+  OptRptStats.GeneralRemarks.emplace_back(RemarkRecord{
+      C, OptRemarkID::VectorizedPeelLoop, OptReportVerbosity::Low});
 
   OptRptStats.GeneralRemarks.emplace_back(
+      RemarkRecord{C, OptRemarkID::VectorizationFactor, OptReportVerbosity::Low,
+                   Twine(PlanDescr.getVF()).str()});
+
+  OptRptStats.GeneralRemarks.emplace_back(RemarkRecord{
+      C,
       isa<VPlanStaticPeeling>(Variant) ? OptRemarkID::VectorizerStaticPeeling
                                        : OptRemarkID::VectorizerDynamicPeeling,
-      OptReportVerbosity::High);
+      OptReportVerbosity::High});
 
-  OptRptStats.GeneralRemarks.emplace_back(
-      OptRemarkID::VectorizerEstimatedPeelIters, OptReportVerbosity::High,
-      std::to_string(Variant->maxPeelCount()));
+  OptRptStats.GeneralRemarks.emplace_back(RemarkRecord{
+      C, OptRemarkID::VectorizerEstimatedPeelIters, OptReportVerbosity::High,
+      std::to_string(Variant->maxPeelCount())});
 
-  if (const auto PeeledMemrefRemark = getPeeledMemrefRemark(Variant))
+  if (const auto PeeledMemrefRemark = getPeeledMemrefRemark(C, Variant))
     OptRptStats.GeneralRemarks.push_back(*std::move(PeeledMemrefRemark));
 }
 
@@ -1340,18 +1351,20 @@ void VPlanDriverImpl::addOptReportRemarksForScalPeel(
   assert(Variant && "No peeling variant with peel loop?");
   auto *ScalarLpI =
       cast<VPlanScalar>(PlanDescr.getVPlan())->getScalarLoopInst();
-  ScalarLpI->addOriginRemark({OptRemarkID::VectorizerPeelLoop});
+  LLVMContext &C = ORBuilder.getContext();
+  ScalarLpI->addOriginRemark(RemarkRecord{C, OptRemarkID::VectorizerPeelLoop});
 
-  ScalarLpI->addGeneralRemark({isa<VPlanStaticPeeling>(Variant)
-                                   ? OptRemarkID::VectorizerStaticPeeling
-                                   : OptRemarkID::VectorizerDynamicPeeling,
-                               OptReportVerbosity::High});
+  ScalarLpI->addGeneralRemark(RemarkRecord{
+      C,
+      isa<VPlanStaticPeeling>(Variant) ? OptRemarkID::VectorizerStaticPeeling
+                                       : OptRemarkID::VectorizerDynamicPeeling,
+      OptReportVerbosity::High});
 
-  ScalarLpI->addGeneralRemark({OptRemarkID::VectorizerEstimatedPeelIters,
-                               OptReportVerbosity::High,
-                               std::to_string(Variant->maxPeelCount())});
+  ScalarLpI->addGeneralRemark(RemarkRecord{
+      C, OptRemarkID::VectorizerEstimatedPeelIters, OptReportVerbosity::High,
+      std::to_string(Variant->maxPeelCount())});
 
-  if (const auto PeeledMemrefRemark = getPeeledMemrefRemark(Variant))
+  if (const auto PeeledMemrefRemark = getPeeledMemrefRemark(C, Variant))
     ScalarLpI->addGeneralRemark(*std::move(PeeledMemrefRemark));
 }
 

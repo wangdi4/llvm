@@ -40,14 +40,11 @@ void OptReportStatsTracker::emitRemarks(VPlanOptReportBuilder &Builder,
   Builder.addRemark(Lp, OptReportVerbosity::High, ID);
 #define VPLAN_OPTRPT_VEC_HANDLE(VEC)                                           \
   for (auto &Itr : VEC) {                                                      \
-    if (Itr.Arg.empty())                                                       \
-      Builder.addRemark(Lp, Itr.MessageVerbosity, Itr.RemarkID);               \
-    else                                                                       \
-      Builder.addRemark(Lp, Itr.MessageVerbosity, Itr.RemarkID, Itr.Arg);      \
+    Builder.addRemark(Lp, Itr.MessageVerbosity, Itr.Remark);                   \
   } // end of definition
 #define VPLAN_OPTRPT_ORIGIN_VEC_HANDLE(VEC)                                    \
   for (auto &Itr : VEC) {                                                      \
-    Builder.addOrigin(Lp, Itr.RemarkID);                                       \
+    Builder.addOrigin(Lp, static_cast<OptRemarkID>(Itr.Remark.getRemarkID())); \
   } // end of definition
 #include "IntelVPlanOptrpt.inc"
 }
@@ -79,15 +76,12 @@ void OptReportStatsTracker::emitRemarks(OptReportBuilder &Builder, VPLoop *Lp,
   Builder(*Lp, *VPLI).addRemark(OptReportVerbosity::High, ID);
 #define VPLAN_OPTRPT_VEC_HANDLE(VEC)                                           \
   for (auto &Itr : VEC) {                                                      \
-    if (Itr.Arg.empty())                                                       \
-      Builder(*Lp, *VPLI).addRemark(Itr.MessageVerbosity, Itr.RemarkID);       \
-    else                                                                       \
-      Builder(*Lp, *VPLI)                                                      \
-          .addRemark(Itr.MessageVerbosity, Itr.RemarkID, Itr.Arg);             \
+    Builder(*Lp, *VPLI).addRemark(Itr.MessageVerbosity, Itr.Remark);           \
   } // end of definition
 #define VPLAN_OPTRPT_ORIGIN_VEC_HANDLE(VEC)                                    \
   for (auto &Itr : VEC) {                                                      \
-    Builder(*Lp, *VPLI).addOrigin(Itr.RemarkID);                               \
+    Builder(*Lp, *VPLI)                                                        \
+        .addOrigin(static_cast<OptRemarkID>(Itr.Remark.getRemarkID()));        \
   } // end of definition
 #include "IntelVPlanOptrpt.inc"
 }

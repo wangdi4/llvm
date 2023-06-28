@@ -52,6 +52,7 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 using namespace llvm::vpo;
+using RemarkRecord = OptReportStatsTracker::RemarkRecord;
 
 STATISTIC(LoopsVectorized, "Number of HIR loops vectorized");
 
@@ -6228,8 +6229,8 @@ bool VPOCodeGenHIR::serializeDivRem(const VPInstruction *VPInst, RegDDRef *Mask,
       serializeInstruction(VPInst, Mask);
       // Remark: division was scalarized due to fp-model requirements
       OptRptStats.SerializedInstRemarks.emplace_back(
-          OptRemarkID::DivisionSerializedFpModel,
-          Instruction::getOpcodeName(VPInst->getOpcode()));
+          RemarkRecord{Context, OptRemarkID::DivisionSerializedFpModel,
+                       Instruction::getOpcodeName(VPInst->getOpcode())});
       return true;
     }
   }
@@ -8724,13 +8725,11 @@ void VPOCodeGenHIR::emitRemarksForScalarLoops() {
     // Emit remarks collected for scalar loop instruction into outgoing scalar
     // loop's opt-report.
     for (const auto &R : ScalarLpVPI->getOriginRemarks())
-      ORBuilder(*ScalarHLp).addOrigin(R.RemarkID);
+      ORBuilder(*ScalarHLp)
+          .addOrigin(static_cast<OptRemarkID>(R.Remark.getRemarkID()));
 
     for (const auto &R : ScalarLpVPI->getGeneralRemarks())
-      if (R.Arg.empty())
-        ORBuilder(*ScalarHLp).addRemark(R.MessageVerbosity, R.RemarkID);
-      else
-        ORBuilder(*ScalarHLp).addRemark(R.MessageVerbosity, R.RemarkID, R.Arg);
+      ORBuilder(*ScalarHLp).addRemark(R.MessageVerbosity, R.Remark);
   }
 }
 
