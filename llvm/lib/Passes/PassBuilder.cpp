@@ -356,6 +356,7 @@
 #include "llvm/Transforms/Scalar/Intel_AggressiveSpeculation.h"
 #include "llvm/Transforms/Scalar/Intel_DopeVectorHoist.h"
 #include "llvm/Transforms/Scalar/Intel_ForcedCMOVGeneration.h"
+#include "llvm/Transforms/Scalar/Intel_GVBasedMultiVersioning.h"
 #include "llvm/Transforms/Scalar/Intel_HandlePragmaVectorAligned.h"
 #include "llvm/Transforms/Scalar/Intel_LoopCarriedCSE.h"
 #include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"

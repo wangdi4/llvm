@@ -639,6 +639,9 @@ FUNCTION_PASS("view-post-dom-only", PostDomOnlyViewer())
 FUNCTION_PASS("fix-irreducible", FixIrreduciblePass())
 FUNCTION_PASS("flattencfg", FlattenCFGPass())
 FUNCTION_PASS("make-guards-explicit", MakeGuardsExplicitPass())
+#if INTEL_CUSTOMIZATION
+FUNCTION_PASS("gvbased-multiversioning", GVBasedMultiVersioningPass())
+#endif // INTEL_CUSTOMIZATION
 FUNCTION_PASS("gvn-hoist", GVNHoistPass())
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
