@@ -190,6 +190,9 @@ public:
   /// math function implementations.
   enum AltMathLibrary {
     NoAltMathLibrary,  // Don't use any alternate math library
+#if INTEL_CUSTOMIZATION
+    SVMLAltMathLibrary,// INTEL SVML Library
+#endif // INTEL_CUSTOMIZATION
     TestAltMathLibrary // Use a fake alternate math library for testing
   };
 
