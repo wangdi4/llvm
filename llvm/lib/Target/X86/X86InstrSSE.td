@@ -6729,6 +6729,8 @@ let Predicates = [HasAVX, NoAVX256P_And_NoVLX_Or_NoMEDIAX] in {
                                         v8i16, VR128, load, i128mem, 0,
                                         SchedWriteMPSAD.XMM>, VEX_4V, WIG;
   }
+}
+let Predicates = [HasAVX] in {
 #else // INTEL_FEATURE_ISA_AVX512_MEDIAX
 let Predicates = [HasAVX] in {
   let isCommutable = 0 in {
