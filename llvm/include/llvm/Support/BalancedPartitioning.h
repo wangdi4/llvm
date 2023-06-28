@@ -39,8 +39,9 @@
 #ifndef LLVM_SUPPORT_BALANCED_PARTITIONING_H
 #define LLVM_SUPPORT_BALANCED_PARTITIONING_H
 
-#include "raw_ostream.h"
 #include "llvm/ADT/ArrayRef.h" // INTEL
+#include "raw_ostream.h"
+#include "llvm/Support/ThreadPool.h"
 
 #include <mutex> // INTEL
 #include <condition_variable> // INTEL
