@@ -210,8 +210,6 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
       continue;
 
     if (auto *SI = dyn_cast<StoreInst>(U)) {
-      assert(isa<AllocaInst>(SI->getPointerOperand()) &&
-             "Expected store of function pointer into an alloca");
       // This function was stored as a function pointer, but the type of
       // function was changed (implicit args were added) - to avoid changing
       // types let's just cast new function type into the old one before
