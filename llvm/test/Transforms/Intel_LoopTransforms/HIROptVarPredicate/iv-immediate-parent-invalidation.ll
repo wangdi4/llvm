@@ -1,4 +1,5 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-var-predicate,print<hir>" -aa-pipeline="basic-aa" -S -disable-output  < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-var-predicate,print<hir>" -aa-pipeline="basic-aa" -S -disable-output  < %s 2>&1 | FileCheck %s -check-prefix=NOOPT 
+; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-var-predicate,print<hir>" -hir-opt-var-predicate-tc-threshold=1 -aa-pipeline="basic-aa" -S -disable-output  < %s 2>&1 | FileCheck %s -check-prefix=OPT
 
 ; Check that the following loop transformed as expected and no asserts appeared during HIR invalidation.
 
@@ -19,18 +20,30 @@
 ;       + END LOOP
 ; END REGION
 
-; CHECK: BEGIN REGION { modified }
-; CHECK:       + DO i1 = 0, 2, 1   <DO_LOOP>
-; CHECK:       |   + DO i2 = 0, 9, 1   <DO_LOOP>
-; CHECK:       |   |   @_Z4copyj();
-; CHECK:       |   |
-; CHECK:       |   |   + DO i3 = 0, 2, 1   <DO_LOOP>
-; CHECK:       |   |   |   @_Z4copyj();
-; CHECK:       |   |   |   @_Z4copyj();
-; CHECK:       |   |   + END LOOP
-; CHECK:       |   + END LOOP
-; CHECK:       + END LOOP
-; CHECK: END REGION
+; If HIROptVarPredicate switch TCThreshold is set to 1, optimization happens.
+; OPT: BEGIN REGION { modified }
+; OPT:       + DO i1 = 0, 2, 1   <DO_LOOP>
+; OPT:       |   + DO i2 = 0, 9, 1   <DO_LOOP>
+; OPT:       |   |   @_Z4copyj();
+; OPT:       |   |
+; OPT:       |   |   + DO i3 = 0, 2, 1   <DO_LOOP>
+; OPT:       |   |   |   @_Z4copyj();
+; OPT:       |   |   |   @_Z4copyj();
+; OPT:       |   |   + END LOOP
+; OPT:       |   + END LOOP
+; OPT:       + END LOOP
+; OPT: END REGION
+
+; Default value for small loop TC is 5. No optimization happens.
+; NOOPT:  BEGIN REGION { }
+; NOOPT:  + DO i1 = 0, 3, 1   <DO_LOOP>
+; NOOPT:  |   + DO i2 = 0, 9, 1   <DO_LOOP>
+; NOOPT:  |   |   if (i1 != 0)
+; NOOPT:  |   |   {
+; NOOPT:  |   |      + DO i3 = 0, 3, 1   <DO_LOOP>
+; NOOPT:  |   |      |   if (i3 != 0)
+
+
 
 source_filename = "atg_CMPLRLLVM-24517_cpp.cpp"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
