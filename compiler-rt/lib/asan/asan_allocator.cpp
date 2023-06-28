@@ -16,6 +16,7 @@
 
 #include "asan_allocator.h"
 
+#include "asan_internal.h"
 #include "asan_mapping.h"
 #include "asan_poisoning.h"
 #include "asan_report.h"
@@ -24,6 +25,7 @@
 #include "lsan/lsan_common.h"
 #include "sanitizer_common/sanitizer_allocator_checks.h"
 #include "sanitizer_common/sanitizer_allocator_interface.h"
+#include "sanitizer_common/sanitizer_common.h"
 #include "sanitizer_common/sanitizer_errno.h"
 #include "sanitizer_common/sanitizer_flags.h"
 #include "sanitizer_common/sanitizer_internal_defs.h"
@@ -190,13 +192,34 @@ class LargeChunkHeader {
   }
 };
 
+static void FillChunk(AsanChunk *m) {
+  Flags &fl = *flags();
+
+  if (fl.max_free_fill_size > 0) {
+    // We have to skip the chunk header, it contains free_context_id.
+    uptr scribble_start = (uptr)m + kChunkHeaderSize + kChunkHeader2Size;
+    if (m->UsedSize() >= kChunkHeader2Size) {  // Skip Header2 in user area.
+      uptr size_to_fill = m->UsedSize() - kChunkHeader2Size;
+      size_to_fill = Min(size_to_fill, (uptr)fl.max_free_fill_size);
+      REAL(memset)((void *)scribble_start, fl.free_fill_byte, size_to_fill);
+    }
+  }
+}
+
 struct QuarantineCallback {
   QuarantineCallback(AllocatorCache *cache, BufferedStackTrace *stack)
       : cache_(cache),
         stack_(stack) {
   }
 
-  void Recycle(AsanChunk *m) {
+  void PreQuarantine(AsanChunk *m) const {
+    FillChunk(m);
+    // Poison the region.
+    PoisonShadow(m->Beg(), RoundUpTo(m->UsedSize(), ASAN_SHADOW_GRANULARITY),
+                 kAsanHeapFreeMagic);
+  }
+
+  void Recycle(AsanChunk *m) const {
     void *p = get_allocator().GetBlockBegin(m);
     if (p != m) {
       // Clear the magic value, as allocator internals may overwrite the
@@ -221,7 +244,13 @@ struct QuarantineCallback {
     get_allocator().Deallocate(cache_, p);
   }
 
-  void *Allocate(uptr size) {
+  void RecyclePassThrough(AsanChunk *m) const {
+    // TODO: We don't need all these here.
+    PreQuarantine(m);
+    Recycle(m);
+  }
+
+  void *Allocate(uptr size) const {
     void *res = get_allocator().Allocate(cache_, size, 1);
     // TODO(alekseys): Consider making quarantine OOM-friendly.
     if (UNLIKELY(!res))
@@ -229,9 +258,7 @@ struct QuarantineCallback {
     return res;
   }
 
-  void Deallocate(void *p) {
-    get_allocator().Deallocate(cache_, p);
-  }
+  void Deallocate(void *p) const { get_allocator().Deallocate(cache_, p); }
 
  private:
   AllocatorCache* const cache_;
@@ -638,21 +665,6 @@ struct Allocator {
              CHUNK_QUARANTINE);
     AsanThread *t = GetCurrentThread();
     m->SetFreeContext(t ? t->tid() : 0, StackDepotPut(*stack));
-
-    Flags &fl = *flags();
-    if (fl.max_free_fill_size > 0) {
-      // We have to skip the chunk header, it contains free_context_id.
-      uptr scribble_start = (uptr)m + kChunkHeaderSize + kChunkHeader2Size;
-      if (m->UsedSize() >= kChunkHeader2Size) {  // Skip Header2 in user area.
-        uptr size_to_fill = m->UsedSize() - kChunkHeader2Size;
-        size_to_fill = Min(size_to_fill, (uptr)fl.max_free_fill_size);
-        REAL(memset)((void *)scribble_start, fl.free_fill_byte, size_to_fill);
-      }
-    }
-
-    // Poison the region.
-    PoisonShadow(m->Beg(), RoundUpTo(m->UsedSize(), ASAN_SHADOW_GRANULARITY),
-                 kAsanHeapFreeMagic);
 
     // Push into quarantine.
     if (t) {
