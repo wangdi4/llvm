@@ -362,9 +362,23 @@ template <typename T> ChangeReporter<T>::~ChangeReporter() {
   assert(BeforeStack.empty() && "Problem with Change Printer stack.");
 }
 
+#if INTEL_CUSTOMIZATION
+// Returns true if this an HIR related pass.
+static bool isHIRPass(StringRef PassID) { return PassID.contains("HIR"); }
+// Returns true if we want to print HIR instead of LLVM IR.
+static bool isHIRPrintNeeded(StringRef PassID) {
+  return isHIRPass(PassID) && !PassID.contains("HIRSSADeconstruction") &&
+         !PassID.contains("HIRCodeGen");
+}
+#endif // INTEL_CUSTOMIZATION
 template <typename T>
 void ChangeReporter<T>::saveIRBeforePass(Any IR, StringRef PassID,
                                          StringRef PassName) {
+#if INTEL_CUSTOMIZATION
+  // HIR is printed using a different mechansim in HIRTRansformPass.h
+  if (isHIRPrintNeeded(PassID))
+    return;
+#endif // INTEL_CUSTOMIZATION
   // Is this the initial IR?
   if (InitialIR) {
     InitialIR = false;
@@ -389,7 +403,11 @@ template <typename T>
 void ChangeReporter<T>::handleIRAfterPass(Any IR, StringRef PassID,
                                           StringRef PassName) {
   assert(!BeforeStack.empty() && "Unexpected empty stack encountered.");
-
+#if INTEL_CUSTOMIZATION
+  // HIR is printed using a different mechansim in HIRTRansformPass.h
+  if (isHIRPrintNeeded(PassID))
+    return;
+#endif // INTEL_CUSTOMIZATION
   std::string Name = getIRName(IR);
 
   if (isIgnored(PassID)) {
@@ -805,17 +823,6 @@ void PrintIRInstrumentation::printAfterPassInvalidated(StringRef PassID) {
   printIR(dbgs(), M);
 }
 
-#if INTEL_CUSTOMIZATION
-// Returns true if this an HIR related pass.
-static bool isHIRPass(StringRef PassName) {
-  return PassName.contains("HIR");
-}
-// Returns true if we want to print HIR instead of LLVM IR.
-static bool isHIRPrintNeeded(StringRef PassName) {
-  return isHIRPass(PassName) && !PassName.contains("HIRSSADeconstruction") &&
-         !PassName.contains("HIRCodeGen");
-}
-#endif // INTEL_CUSTOMIZATION
 bool PrintIRInstrumentation::shouldPrintBeforePass(StringRef PassID) {
 #if INTEL_CUSTOMIZATION
   // HIR is printed using a different mechansim in HIRTRansformPass.h
