@@ -226,8 +226,7 @@ class X86_32ABIInfo : public ABIInfo {
 
   Class classify(QualType Ty) const;
   ABIArgInfo classifyReturnType(QualType RetTy, CCState &State) const;
-  ABIArgInfo classifyArgumentType(QualType RetTy, CCState &State,
-                                  bool isDelegateCall) const;
+  ABIArgInfo classifyArgumentType(QualType RetTy, CCState &State) const;
 
   /// Updates the number of available free registers, returns
   /// true if any registers were allocated.
@@ -833,8 +832,8 @@ void X86_32ABIInfo::runVectorCallFirstPass(CGFunctionInfo &FI, CCState &State) c
   }
 }
 
-ABIArgInfo X86_32ABIInfo::classifyArgumentType(QualType Ty, CCState &State,
-                                               bool isDelegateCall) const {
+ABIArgInfo X86_32ABIInfo::classifyArgumentType(QualType Ty,
+                                               CCState &State) const {
   // FIXME: Set alignment on indirect arguments.
   bool IsFastCall = State.CC == llvm::CallingConv::X86_FastCall;
   bool IsRegCall = State.CC == llvm::CallingConv::X86_RegCall;
@@ -850,7 +849,7 @@ ABIArgInfo X86_32ABIInfo::classifyArgumentType(QualType Ty, CCState &State,
   const RecordType *RT = Ty->getAs<RecordType>();
   if (RT) {
     CGCXXABI::RecordArgABI RAA = getRecordArgABI(RT, getCXXABI());
-    if (RAA == CGCXXABI::RAA_Indirect || isDelegateCall) {
+    if (RAA == CGCXXABI::RAA_Indirect) {
       return getIndirectResult(Ty, false, State);
     } else if (RAA == CGCXXABI::RAA_DirectInMemory) {
       // The field index doesn't matter, we'll fix it up later.
@@ -1098,6 +1097,7 @@ void X86_32ABIInfo::computeInfo(CGFunctionInfo &FI) const {
     if (State.IsPreassigned.test(I))
       continue;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (IsSVMLCall &&
         isSVMLIntArgumentMask(getContext(), Args[I].type, FI.getReturnType())) {
@@ -1114,6 +1114,9 @@ void X86_32ABIInfo::computeInfo(CGFunctionInfo &FI) const {
     }
 #endif // INTEL_CUSTOMIZATION
 
+=======
+    Args[I].info = classifyArgumentType(Args[I].type, State);
+>>>>>>> 8ed7aa59f489715d39d32e72a787b8e75cfda151
     UsedInAlloca |= (Args[I].info.getKind() == ABIArgInfo::InAlloca);
   }
 
