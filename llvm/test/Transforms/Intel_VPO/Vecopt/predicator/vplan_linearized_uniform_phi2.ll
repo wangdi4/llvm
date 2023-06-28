@@ -38,7 +38,7 @@ define void @test(i32 *%a, i32 %b) {
 ; CHECK-NEXT:      [[BLEND_BB0]]: # preds: [[BB5]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_UNI_PHI_BLEND_BB5:%.*]] = blend [ i32 1, i1 [[VP_BB1_VARYING_NOT]] ], [ i32 1, i1 [[VP_BB1_VARYING]] ]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_UNI_PHI2_BLEND_BB5:%.*]] = blend [ i32 1, i1 [[VP_BB1_VARYING_NOT]] ], [ i32 1, i1 [[VP_BB1_VARYING]] ]
-; CHECK-NEXT:       [DA: Div] br [[BB3]]
+; CHECK-NEXT:       [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB1]], [[BLEND_BB0]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_UNI_PHI:%.*]] = phi  [ i32 undef, [[BB1]] ],  [ i32 [[VP_UNI_PHI_BLEND_BB5]], [[BLEND_BB0]] ]
@@ -317,7 +317,7 @@ define void @active_lane_as_branch_cond2(i32 *%a, i32 %b) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BLEND_BB0]]: # preds: [[BB6]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_UNI_PHI_BLEND_BB5:%.*]] = blend [ i1 true, i1 [[VP_BB1_VARYING_NOT]] ], [ i1 true, i1 [[VP_BB1_VARYING]] ]
-; CHECK-NEXT:       [DA: Div] br [[BB3]]
+; CHECK-NEXT:       [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB1]], [[BLEND_BB0]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_BB5_BR_VP_VARYING_NOT_PHI_BB4:%.*]] = phi  [ i1 false, [[BB1]] ],  [ i1 [[VP_BB5_BR_VP_VARYING_NOT]], [[BLEND_BB0]] ]

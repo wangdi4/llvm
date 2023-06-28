@@ -99,7 +99,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:      [[BLEND_BB0]]: # preds: [[BB6]]
 ; CHECK-NEXT:       [DA: Div] float [[VP__BLEND_BB5:%.*]] = blend [ float [[VP12]], i1 [[VP__NOT]] ], [ float [[VP15]], i1 [[VP9]] ]
 ; CHECK-NEXT:       [DA: Div] float [[VP16:%.*]] = hir-copy float [[VP__BLEND_BB5]] , OriginPhiId: 1
-; CHECK-NEXT:       [DA: Div] br [[BB3]]
+; CHECK-NEXT:       [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]], [[BLEND_BB0]]
 ; CHECK-NEXT:     [DA: Div] float [[VP17:%.*]] = phi  [ float [[VP6]], [[BB2]] ],  [ float [[VP16]], [[BLEND_BB0]] ]

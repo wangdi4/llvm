@@ -349,6 +349,8 @@ static cl::list<VPlanVecRange, bool /* Use internal storage */,
 using namespace llvm;
 using namespace llvm::vpo;
 
+using RemarkRecord = OptReportStatsTracker::RemarkRecord;
+
 namespace llvm {
 namespace vpo {
 bool PrintSVAResults = false;
@@ -1899,54 +1901,53 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     OptReportStatsTracker &OptRptStats =
         BestVPlan->getOptRptStatsForLoop(BestVPlan->getMainLoop(true));
     if (BestCostSummary.ScalarIterationCost.isValid()) {
-      // Add remark: scalar cost
-      OptRptStats.CostModelRemarks.emplace_back(
-          OptRemarkID::VectorizerScalarLoopCost,
-          std::to_string(BestCostSummary.ScalarIterationCost.getFloatValue()));
+      OptRptStats.CostModelRemarks.emplace_back(RemarkRecord{
+          *Context, OptRemarkID::VectorizerScalarLoopCost,
+          std::to_string(BestCostSummary.ScalarIterationCost.getFloatValue())});
     }
     if (BestCostSummary.VectorIterationCost.isValid()) {
       // Add remark: vector cost
-      OptRptStats.CostModelRemarks.emplace_back(
-          OptRemarkID::VectorizerVectorLoopCost,
-          std::to_string(BestCostSummary.VectorIterationCost.getFloatValue()));
+      OptRptStats.CostModelRemarks.emplace_back(RemarkRecord{
+          *Context, OptRemarkID::VectorizerVectorLoopCost,
+          std::to_string(BestCostSummary.VectorIterationCost.getFloatValue())});
     }
     if (BestCostSummary.Speedup.isValid()) {
       // Add remark: estimated potential speedup
-      OptRptStats.CostModelRemarks.emplace_back(
-          OptRemarkID::VectorizerEstimatedSpeedup,
-          std::to_string(BestCostSummary.Speedup.getFloatValue()));
+      OptRptStats.CostModelRemarks.emplace_back(RemarkRecord{
+          *Context, OptRemarkID::VectorizerEstimatedSpeedup,
+          std::to_string(BestCostSummary.Speedup.getFloatValue())});
     }
     if (BestCostSummary.LoopOverhead.isValid()) {
       // Add remark: vectorization support: normalized vectorization overhead
-      OptRptStats.CostModelRemarks.emplace_back(
-          OptRemarkID::NormalizedVecOverhead,
-          std::to_string(BestCostSummary.LoopOverhead.getFloatValue()));
+      OptRptStats.CostModelRemarks.emplace_back(RemarkRecord{
+          *Context, OptRemarkID::NormalizedVecOverhead,
+          std::to_string(BestCostSummary.LoopOverhead.getFloatValue())});
     }
     if (!IsTripCountEstimated) {
       // Add remark: using (estimated) scalar loop trip count
       OptRptStats.CostModelRemarks.emplace_back(
-          OptRemarkID::VectorizerScalarTripCount,
-          std::to_string(OrigTripCount));
+          RemarkRecord{*Context, OptRemarkID::VectorizerScalarTripCount,
+                       std::to_string(OrigTripCount)});
     }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     if (VPlanDriverImpl::EmitDebugOptRemarks) {
       // Add detailed peel decision info to debug opt report.
       const auto &PeelSummary = BestCostSummary.PeelSummary;
-      VPlanDriverImpl::addDebugRemark(OptRptStats.CostModelRemarks,
+      VPlanDriverImpl::addDebugRemark(OptRptStats.CostModelRemarks, *Context,
                                       "peel scenario: ", PeelSummary.Scenario);
       VPlanDriverImpl::addDebugRemark(
-          OptRptStats.CostModelRemarks, "peel was performed: ",
+          OptRptStats.CostModelRemarks, *Context, "peel was performed: ",
           PeelSummary.PeelingWasPerformed ? "yes" : "no");
       VPlanDriverImpl::addDebugRemark(
-          OptRptStats.CostModelRemarks,
+          OptRptStats.CostModelRemarks, *Context,
           "estimated gain from peeling: ", PeelSummary.GainWithPeel);
       VPlanDriverImpl::addDebugRemark(
-          OptRptStats.CostModelRemarks,
+          OptRptStats.CostModelRemarks, *Context,
           "estimated gain from *not* peeling: ", PeelSummary.GainWithoutPeel);
-      VPlanDriverImpl::addDebugRemark(OptRptStats.CostModelRemarks,
+      VPlanDriverImpl::addDebugRemark(OptRptStats.CostModelRemarks, *Context,
                                       "peel kind: ", PeelSummary.PeelKind);
       if (!PeelSummary.Formula.empty())
-        VPlanDriverImpl::addDebugRemark(OptRptStats.CostModelRemarks,
+        VPlanDriverImpl::addDebugRemark(OptRptStats.CostModelRemarks, *Context,
                                         "peel formula: ", PeelSummary.Formula);
     }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -2278,65 +2279,65 @@ void LoopVectorizationPlanner::reportReductions(VPlanVector *Plan,
   if (WRLp && WRLp->isOmpSIMDLoop())
     // Add remark: Loop has SIMD reduction
     OptRptStats.ReductionInstRemarks.emplace_back(
-        OptRemarkID::LoopHasSimdReduction, "");
+        RemarkRecord{*Context, OptRemarkID::LoopHasSimdReduction});
   else
     // Add remark: Loop has reduction
-    OptRptStats.ReductionInstRemarks.emplace_back(OptRemarkID::LoopHasReduction,
-                                                  "");
+    OptRptStats.ReductionInstRemarks.emplace_back(
+        RemarkRecord{*Context, OptRemarkID::LoopHasReduction});
 
   // Generate specific remarks for each reduction in the loop.
   for (auto Red : LE->vpreductions()) {
-    std::string S;
-    raw_string_ostream SS(S);
+    std::string S1, S2;
+    raw_string_ostream SS1(S1), SS2(S2);
 
     if (isa<VPInscanReduction>(Red) || isa<VPUserDefinedScanReduction>(Red))
-      SS << "inscan ";
+      SS1 << "inscan ";
 
     switch (Red->getRecurrenceKind()) {
     case RecurKind::Add:
     case RecurKind::FAdd:
-      SS << "add ";
+      SS1 << "add";
       break;
     case RecurKind::Mul:
     case RecurKind::FMul:
-      SS << "multiply ";
+      SS1 << "multiply";
       break;
     case RecurKind::Or:
-      SS << "OR ";
+      SS1 << "OR";
       break;
     case RecurKind::And:
-      SS << "AND ";
+      SS1 << "AND";
       break;
     case RecurKind::Xor:
-      SS << "XOR ";
+      SS1 << "XOR";
       break;
     case RecurKind::SMin:
-      SS << "signed minimum ";
+      SS1 << "signed minimum";
       break;
     case RecurKind::SMax:
-      SS << "signed maximum ";
+      SS1 << "signed maximum";
       break;
     case RecurKind::UMin:
-      SS << "unsigned minimum ";
+      SS1 << "unsigned minimum";
       break;
     case RecurKind::UMax:
-      SS << "unsigned maximum ";
+      SS1 << "unsigned maximum";
       break;
     case RecurKind::FMin:
-      SS << "minimum ";
+      SS1 << "minimum";
       break;
     case RecurKind::FMax:
-      SS << "maximum ";
+      SS1 << "maximum";
       break;
     case RecurKind::FMulAdd:
-      SS << "multiply-add ";
+      SS1 << "multiply-add";
       break;
     case RecurKind::Udr:
-      SS << "user-defined ";
+      SS1 << "user-defined";
       break;
     case RecurKind::SelectICmp:
     case RecurKind::SelectFCmp:
-      SS << "select-compare ";
+      SS1 << "select-compare";
       break;
     default:
       break;
@@ -2345,20 +2346,19 @@ void LoopVectorizationPlanner::reportReductions(VPlanVector *Plan,
     Type *Ty = Red->getRecurrenceType();
 
     if (Ty->isArrayTy())
-      SS << "array or array-section ";
+      SS1 << " array or array-section";
 
-    SS << "reduction with value type ";
-    printReductionType(SS, Ty);
+    printReductionType(SS2, Ty);
 
     auto Exit = Red->getLoopExitInstr();
     if (Exit && Exit->getDebugLocation()) {
-      SS << " [";
-      Exit->getDebugLocation().print(SS);
-      SS << "]";
+      SS2 << " [";
+      Exit->getDebugLocation().print(SS2);
+      SS2 << "]";
     }
 
     OptRptStats.ReductionInstRemarks.emplace_back(
-        OptRemarkID::VectorizerReductionInfo, S);
+        RemarkRecord{*Context, OptRemarkID::VectorizerReductionInfo, S1, S2});
   }
 }
 

@@ -41,6 +41,8 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
+using RemarkRecord = OptReportStatsTracker::RemarkRecord;
+
 #define DEBUG_TYPE "vpo-ir-loop-vectorize"
 
 extern bool Usei1MaskForSimdFunctions;
@@ -1161,9 +1163,9 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
       } else if (!EnableIntDivRemBlendWithSafeValue) {
         serializeWithPredication(VPInst);
         // Remark: division was scalarized due to fp-model requirements
-        OptRptStats.SerializedInstRemarks.emplace_back(
-            OptRemarkID::DivisionSerializedFpModel,
-            Instruction::getOpcodeName(VPInst->getOpcode()));
+        OptRptStats.SerializedInstRemarks.emplace_back(RemarkRecord{
+            ORBuilder.getContext(), OptRemarkID::DivisionSerializedFpModel,
+            Instruction::getOpcodeName(VPInst->getOpcode())});
         return;
       }
     }
@@ -1401,18 +1403,15 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
         assert(VPCall->getSerialReason() !=
                    VPCallInstruction::SerializationReasonTy::UNDEFINED &&
                "Serialization reason is undefined");
+        OptRemarkID ID = static_cast<OptRemarkID>(
+            static_cast<unsigned>(OptRemarkID::FirstSerializationRemark) - 1 +
+            VPCall->getSerialReasonNum());
+        LLVMContext &C = ORBuilder.getContext();
         if (Func == nullptr)
-          OptRptStats.SerializedInstRemarks.emplace_back(
-              static_cast<OptRemarkID>(
-                  static_cast<unsigned>(OptRemarkID::FirstSerializationRemark) -
-                  1 + VPCall->getSerialReasonNum()),
-              "");
+          OptRptStats.SerializedInstRemarks.emplace_back(RemarkRecord{C, ID});
         else
           OptRptStats.SerializedInstRemarks.emplace_back(
-              static_cast<OptRemarkID>(
-                  static_cast<unsigned>(OptRemarkID::FirstSerializationRemark) -
-                  1 + VPCall->getSerialReasonNum()),
-              (Func->getName()).str());
+              RemarkRecord{C, ID, Func->getName().str()});
       }
       return;
     }
@@ -3111,9 +3110,9 @@ void VPOCodeGen::vectorizeLoadInstruction(VPLoadStoreInst *VPLoad,
 
   // Loads that are non-vectorizable should be serialized.
   if (!isVectorizableLoadStore(VPLoad)) {
-    // Remark: serilalized due to operating on non-vectorizable types
-    getOptReportStats(VPLoad).SerializedInstRemarks.emplace_back(
-        OptRemarkID::LoadStoreSerializedBadType, "");
+    // Remark: serialized due to operating on non-vectorizable types
+    getOptReportStats(VPLoad).SerializedInstRemarks.emplace_back(RemarkRecord{
+        ORBuilder.getContext(), OptRemarkID::LoadStoreSerializedBadType});
     return serializeWithPredication(VPLoad);
   }
 
@@ -3233,8 +3232,8 @@ void VPOCodeGen::vectorizeStoreInstruction(VPLoadStoreInst *VPStore,
   // Stores that are non-vectorizable should be serialized.
   if (!isVectorizableLoadStore(VPStore)) {
     // Remark: serialized due to operating on non-vectorizable types
-    getOptReportStats(VPStore).SerializedInstRemarks.emplace_back(
-        OptRemarkID::LoadStoreSerializedBadType, "");
+    getOptReportStats(VPStore).SerializedInstRemarks.emplace_back(RemarkRecord{
+        ORBuilder.getContext(), OptRemarkID::LoadStoreSerializedBadType});
     return serializeWithPredication(VPStore);
   }
 
@@ -4127,11 +4126,12 @@ void VPOCodeGen::vectorizeExtractElement(VPInstruction *VPInst) {
   if (!isa<VPConstant>(OrigIndexVal) ||
       !cast<VPConstant>(OrigIndexVal)->isConstantInt()) {
 
+    LLVMContext &C = ORBuilder.getContext();
     if (MaskValue) {
       serializeWithPredication(VPInst);
       // Remark: masked instruction can't be vectorized
       getOptReportStats(VPInst).SerializedInstRemarks.emplace_back(
-          OptRemarkID::MaskedExtractInsertSerialized, "");
+          RemarkRecord{C, OptRemarkID::MaskedExtractInsertSerialized});
       return;
     }
 
@@ -4149,7 +4149,7 @@ void VPOCodeGen::vectorizeExtractElement(VPInstruction *VPInst) {
     VPWidenMap[VPInst] = WideExtract;
     // Remark: instruction was serialized due to non-const index
     getOptReportStats(VPInst).SerializedInstRemarks.emplace_back(
-        OptRemarkID::ExtractInsertSerialized, "");
+        RemarkRecord{C, OptRemarkID::ExtractInsertSerialized});
     return;
   }
 
@@ -4181,11 +4181,12 @@ void VPOCodeGen::vectorizeInsertElement(VPInstruction *VPInst) {
 
   if (!isa<VPConstant>(OrigIndexVal) ||
       !cast<VPConstant>(OrigIndexVal)->isConstantInt()) {
+    LLVMContext &C = ORBuilder.getContext();
     if (MaskValue) {
       serializeWithPredication(VPInst);
       // Remark: masked instruction can't be vectorized
       getOptReportStats(VPInst).SerializedInstRemarks.emplace_back(
-          OptRemarkID::MaskedExtractInsertSerialized, "");
+          RemarkRecord{C, OptRemarkID::MaskedExtractInsertSerialized});
       return;
     }
     Value *WideInsert = InsertTo;
@@ -4204,7 +4205,7 @@ void VPOCodeGen::vectorizeInsertElement(VPInstruction *VPInst) {
     VPWidenMap[VPInst] = WideInsert;
     // Remark: instruction was serialized due to non-const index
     getOptReportStats(VPInst).SerializedInstRemarks.emplace_back(
-        OptRemarkID::ExtractInsertSerialized, "");
+        RemarkRecord{C, OptRemarkID::ExtractInsertSerialized});
     return;
   }
 
@@ -5560,14 +5561,11 @@ void VPOCodeGen::emitRemarksForScalarLoops() {
     // Emit remarks collected for scalar loop instruction into outgoing scalar
     // loop's opt-report.
     for (const auto &R : ScalarLpVPI->getOriginRemarks())
-      ORBuilder(*ScalarLp, *LI).addOrigin(R.RemarkID);
+      ORBuilder(*ScalarLp, *LI)
+          .addOrigin(static_cast<OptRemarkID>(R.Remark.getRemarkID()));
 
     for (const auto &R : ScalarLpVPI->getGeneralRemarks())
-      if (R.Arg.empty())
-        ORBuilder(*ScalarLp, *LI).addRemark(R.MessageVerbosity, R.RemarkID);
-      else
-        ORBuilder(*ScalarLp, *LI)
-            .addRemark(R.MessageVerbosity, R.RemarkID, R.Arg);
+      ORBuilder(*ScalarLp, *LI).addRemark(R.MessageVerbosity, R.Remark);
   }
 }
 

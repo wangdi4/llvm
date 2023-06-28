@@ -762,8 +762,9 @@ VPBasicBlock *VPBlockUtils::splitEdge(VPBasicBlock *From, VPBasicBlock *To,
   assert(is_contained(From->getSuccessors(), To) &&
          "From and To do not form an edge!");
   auto *NewBB = new VPBasicBlock(Name, From->getParent());
-  NewBB->setTerminator(To);
+  // Insert into VPlan first to ensure DA shape is set for terminator
   NewBB->insertAfter(From);
+  NewBB->setTerminator(To);
   From->replaceSuccessor(To, NewBB);
 
   for (VPPHINode &VPN : To->getVPPhis()) {

@@ -818,11 +818,12 @@ unsigned HIRGeneralUnroll::refineUnrollFactorUsingReuseAnalysis(
 
 PreservedAnalyses HIRGeneralUnrollPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  HIRGeneralUnroll(HIRF, AM.getResult<HIRLoopResourceAnalysis>(F),
-                   AM.getResult<HIRDDAnalysisPass>(F),
-                   AM.getResult<HIRSafeReductionAnalysisPass>(F),
-                   AM.getResult<HIRLoopStatisticsAnalysis>(F), PragmaOnlyUnroll)
-      .run();
+  ModifiedHIR = HIRGeneralUnroll(HIRF, AM.getResult<HIRLoopResourceAnalysis>(F),
+                                 AM.getResult<HIRDDAnalysisPass>(F),
+                                 AM.getResult<HIRSafeReductionAnalysisPass>(F),
+                                 AM.getResult<HIRLoopStatisticsAnalysis>(F),
+                                 PragmaOnlyUnroll)
+                    .run();
   return PreservedAnalyses::all();
 }
 

@@ -1,4 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-general-unroll,print<hir>,hir-cg" -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-general-unroll,hir-cg" -print-changed < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; Check that the loop is not unrolled due to small max trip count estimate.
 
@@ -13,6 +14,18 @@
 ; CHECK: !llvm.loop !0
 ; CHECK: !0 = distinct !{!0, !1}
 ; CHECK: !1 = !{!"llvm.loop.unroll.disable"}
+
+; Verify that we skip printing HIR afer general unroll with '-print-changed'
+; since it did not modify HIR. The IR is dumped after hir-ssa-deconstruction and
+; hir-cg as they are modify IR and are not considered HIR passes.
+
+; CHECK-CHANGED: Dump After HIRSSADeconstruction
+
+; Verify that HIR before HIRTempClenup is dumped as the reference HIR.
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+
+; CHECK-CHANGED-NOT: Dump After HIRGeneralUnroll
+; CHECK-CHANGED: Dump After HIRCodeGen
 
 target datalayout = "p:32:32"
 
