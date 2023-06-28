@@ -8321,6 +8321,11 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                    options::OPT_fno_delayed_template_parsing, IsWindowsMSVC))
     CmdArgs.push_back("-fdelayed-template-parsing");
 
+#if INTEL_CUSTOMIZATION
+  if (D.IsIntelMode() && IsWindowsMSVC)
+    CmdArgs.push_back("-fdiagnostics-absolute-paths");
+#endif // INTEL_CUSTOMIZATION
+
   // -fgnu-keywords default varies depending on language; only pass if
   // specified.
   Args.AddLastArg(CmdArgs, options::OPT_fgnu_keywords,

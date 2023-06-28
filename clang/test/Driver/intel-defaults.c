@@ -10,6 +10,7 @@
 // CHECK-INTEL-WIN: "-Wno-c++11-narrowing"
 // CHECK-INTEL-WIN: "-malign-double"
 // CHECK-INTEL-WIN: "-fuse-line-directives"
+// CHECK-INTEL-WIN: "-fdiagnostics-absolute-paths"
 // CHECK-INTEL-LIN: "-fheinous-gnu-extensions"
 // CHECK-INTEL: "-vectorize-loops"
 // CHECK-INTEL: "-fintel-compatibility"
