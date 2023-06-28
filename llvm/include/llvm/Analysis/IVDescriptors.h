@@ -132,7 +132,8 @@ public:
 
   /// Returns true if the recurrence kind is a floating-point min/max kind.
   static bool isFPMinMaxRecurrenceKind(RecurKind Kind) {
-    return Kind == RecurKind::FMin || Kind == RecurKind::FMax;
+    return Kind == RecurKind::FMin || Kind == RecurKind::FMax ||
+           Kind == RecurKind::FMinimum || Kind == RecurKind::FMaximum;
   }
 
   /// Returns true if the recurrence kind is any min/max kind.
