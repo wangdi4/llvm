@@ -693,6 +693,19 @@ bool HIRDDAnalysis::isRefinableDepAtLevel(const DDEdge *Edge,
 
   assert(DstDDRef->isMemRef() && "MemRef expected");
 
+  // Refine needed for backward dep
+  // leftmost DV is *
+  // and  #of nested levels not = number of Dims
+
+  if (Edge->isBackwardDep()) {
+    const HLLoop *ParentLoop = SrcDDRef->getParentLoop();
+    if (ParentLoop &&
+        ParentLoop->getNestingLevel() != SrcDDRef->getNumDimensions() &&
+        Edge->getDVAtLevel(1) == DVKind::ALL) {
+      return true;
+    }
+  }
+
   // There are very few cases that the first DD build, testing for all *,
   // do not produce a precise DV.  Restrict it to limited cases to save
   // compile time
@@ -757,6 +770,16 @@ RefinedDependence HIRDDAnalysis::refineDV(const DDEdge *Edge,
                            DstDDRef, InputDV, false, ForFusion);
 
   if (Result != nullptr) {
+
+    // Flow edge src->sink tested as (= >) is actually
+    // Anti sink->src (= <). Assume INDEP. Same for other dep types
+    if (!ForFusion && (StartNestingLevel == DeepestNestingLevel) &&
+        Edge->isBackwardDep() &&
+        Result->getDirection(DeepestNestingLevel) == DVKind::GT) {
+      Dep.setIndependent();
+      return Dep;
+    }
+
     Dep.setRefined();
 
     DirectionVector &RefinedDV = Dep.getDV();
@@ -768,6 +791,7 @@ RefinedDependence HIRDDAnalysis::refineDV(const DDEdge *Edge,
       RefinedDV[I - 1] = Result->getDirection(I);
       RefinedDistV[I - 1] = DT.mapDVToDist(RefinedDV[I - 1], I, *Result);
     }
+
   } else {
     Dep.setIndependent();
   }
