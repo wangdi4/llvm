@@ -1621,6 +1621,9 @@ def fprofile_sample_use_EQ : Joined<["-"], "fprofile-sample-use=">,
     HelpText<"Enable compiler and linker using information for Sample-based "
              "Profile Guided Optimizations (SPGO). (experimental)">,
     MarshallingInfoString<CodeGenOpts<"SampleProfileFile">>;
+def fprofile_ml_use : Flag<["-"], "fprofile-ml-use">, Flags<[NoXarchOption, CC1Option]>,
+    HelpText<"Use pre-trained machine learning model for profile guided "
+    "optimizations.">;
 #endif // INTEL_CUSTOMIZATION
 def fprofile_sample_accurate : Flag<["-"], "fprofile-sample-accurate">,
     Group<f_Group>, Flags<[NoXarchOption, CC1Option]>,
@@ -8574,6 +8577,9 @@ def _SLASH_fprofile_sample_use_EQ : CLJoined<"fprofile-sample-use=">,
   Alias<fprofile_sample_use_EQ>;
 def _SLASH_fno_profile_sample_use : CLFlag<"fno-profile-sample-use">,
   Alias<fno_profile_sample_use>;
+def _SLASH_fprofile_ml_use : CLFlag<"fprofile-ml-use">,
+  Alias<fprofile_ml_use>, HelpText<"Use pre-trained machine learning model "
+  "for profile guided optimizations.">;
 def _SLASH_fprofile_update_COL : CLJoined<"fprofile-update:">,
   Alias<fprofile_update_EQ>;
 def _SLASH_fprofile_update_EQ : CLJoined<"fprofile-update=">,
