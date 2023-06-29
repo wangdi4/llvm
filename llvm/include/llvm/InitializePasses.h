@@ -124,9 +124,12 @@ void initializeCheckDebugMachineModulePass(PassRegistry &);
 void initializeCodeGenPreparePass(PassRegistry&);
 void initializeComplexDeinterleavingLegacyPassPass(PassRegistry&);
 void initializeConstantHoistingLegacyPassPass(PassRegistry&);
+<<<<<<< HEAD
 void initializeConvertGEPToSubscriptIntrinsicLegacyPassPass(PassRegistry &); // INTEL
 void initializeGCOVProfilerLegacyPassPass(PassRegistry&); // INTEL
 void initializeCorrelatedValuePropagationPass(PassRegistry&);
+=======
+>>>>>>> 54dd2cbf0f9334c8bf1e2a7c9f8edfcc886a17f0
 void initializeCostModelAnalysisPass(PassRegistry&);
 void initializeCrossDSOCFIPass(PassRegistry&);
 void initializeCycleInfoWrapperPassPass(PassRegistry &);
@@ -220,8 +223,11 @@ void initializeInterleavedAccessPass(PassRegistry&);
 void initializeInterleavedLoadCombinePass(PassRegistry &);
 void initializeIntervalPartitionPass(PassRegistry&);
 void initializeJMCInstrumenterPass(PassRegistry&);
+<<<<<<< HEAD
 void initializeJumpThreadingPass(PassRegistry&);
 void initializeIVSplitLegacyPassPass(PassRegistry&); // INTEL
+=======
+>>>>>>> 54dd2cbf0f9334c8bf1e2a7c9f8edfcc886a17f0
 void initializeKCFIPass(PassRegistry &);
 void initializeLCSSAVerificationPassPass(PassRegistry&);
 void initializeLCSSAWrapperPassPass(PassRegistry&);
