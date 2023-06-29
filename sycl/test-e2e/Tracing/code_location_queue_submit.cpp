@@ -1,4 +1,4 @@
-// REQUIRES: cpu, TEMPORARY_DISABLED
+// REQUIRES: cpu
 // UNSUPPORTED: windows
 // RUN: %{build} -o %t.out
 // RUN: %{run} sycl-trace --sycl %t.out | FileCheck %s
