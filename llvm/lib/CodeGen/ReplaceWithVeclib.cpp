@@ -246,7 +246,6 @@ void ReplaceWithVeclibLegacy::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addPreserved<TargetLibraryInfoWrapperPass>();
   AU.addPreserved<ScalarEvolutionWrapperPass>();
   AU.addPreserved<AAResultsWrapperPass>();
-  AU.addPreserved<LoopAccessLegacyAnalysis>();
 #if INTEL_CUSTOMIZATION
   AU.addPreserved<DemandedBitsWrapperPass>();
 #endif // INTEL_CUSTOMIZATION
