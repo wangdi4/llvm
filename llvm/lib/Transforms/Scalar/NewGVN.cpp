@@ -3717,7 +3717,11 @@ void NewGVN::deleteInstructionsInBlock(BasicBlock *BB) {
   Type *Int8Ty = Type::getInt8Ty(BB->getContext());
   new StoreInst(
       PoisonValue::get(Int8Ty),
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY 
       Constant::getNullValue(PointerType::getUnqual(BB->getContext())),
+#else 
+      Constant::getNullValue(Int8Ty->getPointerTo()),
+#endif
       BB->getTerminator());
 }
 

@@ -1567,21 +1567,41 @@ static Value *optimizeMemCmpConstantSize(CallInst *CI, Value *LHS, Value *RHS,
 
     // First, see if we can fold either argument to a constant.
     Value *LHSV = nullptr;
-    if (auto *LHSC = dyn_cast<Constant>(LHS))
+    if (auto *LHSC = dyn_cast<Constant>(LHS)) {
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
+      LHSC = ConstantExpr::getBitCast(LHSC, IntType->getPointerTo());
+#endif
       LHSV = ConstantFoldLoadFromConstPtr(LHSC, IntType, DL);
-
+    }
     Value *RHSV = nullptr;
-    if (auto *RHSC = dyn_cast<Constant>(RHS))
+    if (auto *RHSC = dyn_cast<Constant>(RHS)) {
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
+      RHSC = ConstantExpr::getBitCast(RHSC, IntType->getPointerTo());
+#endif
       RHSV = ConstantFoldLoadFromConstPtr(RHSC, IntType, DL);
+    }
 
     // Don't generate unaligned loads. If either source is constant data,
     // alignment doesn't matter for that source because there is no load.
     if ((LHSV || getKnownAlignment(LHS, DL, CI) >= PrefAlignment) &&
         (RHSV || getKnownAlignment(RHS, DL, CI) >= PrefAlignment)) {
-      if (!LHSV)
+      if (!LHSV) {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
         LHSV = B.CreateLoad(IntType, LHS, "lhsv");
+      }
       if (!RHSV)
         RHSV = B.CreateLoad(IntType, RHS, "rhsv");
+#else
+        Type *LHSPtrTy =
+            IntType->getPointerTo(LHS->getType()->getPointerAddressSpace());
+        LHSV = B.CreateLoad(IntType, B.CreateBitCast(LHS, LHSPtrTy), "lhsv");
+      }
+      if (!RHSV) {
+        Type *RHSPtrTy =
+            IntType->getPointerTo(RHS->getType()->getPointerAddressSpace());
+        RHSV = B.CreateLoad(IntType, B.CreateBitCast(RHS, RHSPtrTy), "rhsv");
+      }
+#endif
       return B.CreateZExt(B.CreateICmpNE(LHSV, RHSV), CI->getType(), "memcmp");
     }
   }
