@@ -449,6 +449,20 @@ Align VPlanAlignmentAnalysis::getAlignmentUnitStride(
   llvm_unreachable("Unsupported peeling variant");
 }
 
+bool VPlanAlignmentAnalysis::isAlignedUnitStride(
+    const VPLoadStoreInst &Memref, const VPlanPeelingVariant *Peeling) const {
+  Align RequiredAlignment = Memref.getAlignment();
+
+  if (const auto Induction =
+          VPSE->asConstStepInduction(Memref.getAddressSCEV()))
+    if (Induction->Step > 0)
+      RequiredAlignment = Align{MinAlign(0, Induction->Step)};
+
+  const Align TargetAlignment = Align{RequiredAlignment * VF};
+  const Align PeeledAlignment = getAlignmentUnitStride(Memref, Peeling);
+  return PeeledAlignment >= TargetAlignment;
+}
+
 MaybeAlign
 VPlanAlignmentAnalysis::tryGetKnownAlignment(const VPValue *Val,
                                              const VPInstruction *CtxI) const {

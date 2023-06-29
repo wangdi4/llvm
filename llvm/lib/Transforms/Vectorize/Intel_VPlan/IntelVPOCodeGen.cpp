@@ -3063,6 +3063,13 @@ Value *VPOCodeGen::vectorizeUnitStrideLoad(VPLoadStoreInst *VPLoad,
       Ptr, VPLoad->getValueType(), IsNegOneStride);
   Type *WidenedType = getWidenedType(LoadType, VF);
 
+  // For the opt-report, check if this memref was aligned by peeling. We use
+  // preferred peeling instead of guaranteed, as otherwise when dynamically
+  // peeling, we would always report all accesses as unaligned.
+  const bool ReportAsAligned =
+      VPAA.isAlignedUnitStride(*VPLoad, Plan->getPreferredPeeling(VF));
+  auto &OptRptStats = getOptReportStats(VPLoad);
+
   // Masking not needed for privates.
   // TODO: This needs to be generalized for all "dereferenceable" pointers
   // identified in incoming LLVM-IR. Check CMPLRLLVM-10714.
@@ -3074,12 +3081,18 @@ Value *VPOCodeGen::vectorizeUnitStrideLoad(VPLoadStoreInst *VPLoad,
     if (IsNegOneStride)
       RepMaskValue = reverseVector(RepMaskValue, OriginalVL);
 
-    ++getOptReportStats(VPLoad).MaskedUnalignedUnitStrideLoads;
+    if (ReportAsAligned)
+      ++OptRptStats.MaskedAlignedUnitStrideLoads;
+    else
+      ++OptRptStats.MaskedUnalignedUnitStrideLoads;
     WideLoad =
         Builder.CreateMaskedLoad(WidenedType, VecPtr, Alignment, RepMaskValue,
                                  nullptr, "wide.masked.load");
   } else {
-    ++getOptReportStats(VPLoad).UnmaskedUnalignedUnitStrideLoads;
+    if (ReportAsAligned)
+      ++OptRptStats.UnmaskedAlignedUnitStrideLoads;
+    else
+      ++OptRptStats.UnmaskedUnalignedUnitStrideLoads;
     WideLoad =
         Builder.CreateAlignedLoad(WidenedType, VecPtr, Alignment, "wide.load");
   }
@@ -3181,6 +3194,13 @@ void VPOCodeGen::vectorizeUnitStrideStore(VPLoadStoreInst *VPStore,
   Align Alignment =
       VPAA.getAlignmentUnitStride(*VPStore, getGuaranteedPeeling());
 
+  // For the opt-report, check if this memref was aligned by peeling. We use
+  // preferred peeling instead of guaranteed, as otherwise when dynamically
+  // peeling, we would always report all accesses as unaligned.
+  const bool ReportAsAligned =
+      VPAA.isAlignedUnitStride(*VPStore, Plan->getPreferredPeeling(VF));
+  auto &OptRptStats = getOptReportStats(VPStore);
+
   if (IsNegOneStride) // Reverse
     // If we store to reverse consecutive memory locations, then we need
     // to reverse the order of elements in the stored value.
@@ -3195,11 +3215,18 @@ void VPOCodeGen::vectorizeUnitStrideStore(VPLoadStoreInst *VPStore,
     if (IsNegOneStride)
       RepMaskValue = reverseVector(RepMaskValue, OriginalVL);
 
-    ++getOptReportStats(VPStore).MaskedUnalignedUnitStrideStores;
+    if (ReportAsAligned)
+      ++OptRptStats.MaskedAlignedUnitStrideStores;
+    else
+      ++OptRptStats.MaskedUnalignedUnitStrideStores;
+
     Store =
         Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment, RepMaskValue);
   } else {
-    ++getOptReportStats(VPStore).UnmaskedUnalignedUnitStrideStores;
+    if (ReportAsAligned)
+      ++OptRptStats.UnmaskedAlignedUnitStrideStores;
+    else
+      ++OptRptStats.UnmaskedUnalignedUnitStrideStores;
     Store = Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
   }
 

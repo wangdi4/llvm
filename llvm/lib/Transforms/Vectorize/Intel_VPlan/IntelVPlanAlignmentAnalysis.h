@@ -311,6 +311,17 @@ public:
   /// peeling is unknown.
   Align getAlignment(VPLoadStoreInst &Memref);
 
+  /// Returns whether the given \p Memref is unit-stride aligned given the
+  /// provided \p Peeling variant. If the peeled alignment is greater than or
+  /// equal to the target alignment (required alignment * VF), this method
+  /// returns true.
+  ///
+  /// NOTE: If the peeled alignment is greater than the required alignment,
+  /// but less than the target alignment (possible with congruent memrefs) this
+  /// method still returns false.
+  bool isAlignedUnitStride(const VPLoadStoreInst &Memref,
+                           const VPlanPeelingVariant *Peeling) const;
+
   /// Try to compute an alignment for pointer \p Val, with an optional
   /// instruction context \val CtxI. If a known alignment can be extracted using
   /// value tracking, it is returned. Otherwise, no alignment is returned.
