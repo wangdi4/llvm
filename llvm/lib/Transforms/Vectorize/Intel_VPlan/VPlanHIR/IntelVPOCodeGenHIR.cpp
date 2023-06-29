@@ -16,6 +16,7 @@
 
 #include "IntelVPOCodeGenHIR.h"
 #include "../IntelLoopVectorizationPlanner.h"
+#include "../IntelVPlanAlignmentAnalysis.h"
 #include "../IntelVPlanCallVecDecisions.h"
 #include "../IntelVPlanUtils.h"
 #include "../IntelVPlanVLSAnalysis.h"
@@ -6057,12 +6058,21 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore,
     }
   }
 
+  // For the opt-report, check if this memref was aligned by peeling.
+  const bool ReportAsAligned =
+      VPlanAlignmentAnalysis(*Plan->getVPSE(), *Plan->getVPVT(), VF)
+          .isAlignedUnitStride(*VPLoadStore, Plan->getPreferredPeeling(VF));
   auto &OptRptStats = getOptReportStats(VPLoadStore);
 
   if (Opcode == Instruction::Load) {
     if (IsUnitStride)
-      ++(Mask ? OptRptStats.MaskedUnalignedUnitStrideLoads
-              : OptRptStats.UnmaskedUnalignedUnitStrideLoads);
+      if (ReportAsAligned)
+        ++(Mask ? OptRptStats.MaskedAlignedUnitStrideLoads
+                : OptRptStats.UnmaskedAlignedUnitStrideLoads);
+      else
+        ++(Mask ? OptRptStats.MaskedUnalignedUnitStrideLoads
+                : OptRptStats.UnmaskedUnalignedUnitStrideLoads);
+
     else
       ++(Mask ? OptRptStats.MaskedGathers : OptRptStats.UnmaskedGathers);
 
@@ -6074,8 +6084,12 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore,
     addVPValueWideRefMapping(VPLoadStore, WInst->getLvalDDRef());
   } else {
     if (IsUnitStride)
-      ++(Mask ? OptRptStats.MaskedUnalignedUnitStrideStores
-              : OptRptStats.UnmaskedUnalignedUnitStrideStores);
+      if (ReportAsAligned)
+        ++(Mask ? OptRptStats.MaskedAlignedUnitStrideStores
+                : OptRptStats.UnmaskedAlignedUnitStrideStores);
+      else
+        ++(Mask ? OptRptStats.MaskedUnalignedUnitStrideStores
+                : OptRptStats.UnmaskedUnalignedUnitStrideStores);
     else
       ++(Mask ? OptRptStats.MaskedScatters : OptRptStats.UnmaskedScatters);
 
