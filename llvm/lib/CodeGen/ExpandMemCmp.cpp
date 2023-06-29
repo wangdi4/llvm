@@ -288,11 +288,24 @@ MemCmpExpansion::LoadPair MemCmpExpansion::getLoadPair(Type *LoadSizeType,
   Align RhsAlign = RhsSource->getPointerAlignment(DL);
   if (OffsetBytes > 0) {
     auto *ByteType = Type::getInt8Ty(CI->getContext());
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     LhsSource = Builder.CreateConstGEP1_64(ByteType, LhsSource, OffsetBytes);
     RhsSource = Builder.CreateConstGEP1_64(ByteType, RhsSource, OffsetBytes);
+#else
+    LhsSource = Builder.CreateConstGEP1_64(
+        ByteType, Builder.CreateBitCast(LhsSource, ByteType->getPointerTo()),
+        OffsetBytes);
+    RhsSource = Builder.CreateConstGEP1_64(
+        ByteType, Builder.CreateBitCast(RhsSource, ByteType->getPointerTo()),
+        OffsetBytes);
     LhsAlign = commonAlignment(LhsAlign, OffsetBytes);
     RhsAlign = commonAlignment(RhsAlign, OffsetBytes);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   }
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
+  LhsSource = Builder.CreateBitCast(LhsSource, LoadSizeType->getPointerTo());
+  RhsSource = Builder.CreateBitCast(RhsSource, LoadSizeType->getPointerTo());
+#endif
 
   // Create a constant or a load from the source.
   Value *Lhs = nullptr;
