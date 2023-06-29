@@ -16,17 +16,21 @@
 
 class Base {
 public:
-  virtual int display() { return BASE; }
+  [[intel::device_indirectly_callable]] virtual int display() { return BASE; }
 };
 
 class Derived1 : public Base {
 public:
-  int display() { return DERIVED1; }
+  [[intel::device_indirectly_callable]] int display() override {
+    return DERIVED1;
+  }
 };
 
 class Derived2 : public Base {
 public:
-  int display() { return DERIVED2; }
+  [[intel::device_indirectly_callable]] int display() override {
+    return DERIVED2;
+  }
 };
 
 int main() {

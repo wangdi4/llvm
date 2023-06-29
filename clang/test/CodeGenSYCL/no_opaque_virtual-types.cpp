@@ -20,7 +20,9 @@ int main() {
 // Struct layout big enough for vtable.
 // CHECK: %struct.Struct = type { i32 (...)* addrspace(4)* }
 // VTable:
-// CHECK: @_ZTV6Struct = linkonce_odr unnamed_addr constant { [3 x i8 addrspace(4)*] } { [3 x i8 addrspace(4)*] [i8 addrspace(4)* null, i8 addrspace(4)* addrspacecast (i8* bitcast ({ i8 addrspace(4)*, i8 addrspace(4)* }* @_ZTI6Struct to i8*) to i8 addrspace(4)*), i8 addrspace(4)* addrspacecast (i8* bitcast (void (%struct.Struct addrspace(4)*)* @_ZN6Struct3fooEv to i8*) to i8 addrspace(4)*)] }, comdat, align 8
+// if INTEL_COLLAB
+// CHECK: @_ZTV6Struct = linkonce_odr unnamed_addr constant { [3 x i8 addrspace(4)*] } { [3 x i8 addrspace(4)*] [i8 addrspace(4)* null, i8 addrspace(4)* addrspacecast (i8* bitcast ({ i8 addrspace(4)*, i8 addrspace(4)* }* @_ZTI6Struct to i8*) to i8 addrspace(4)*), i8 addrspace(4)* null] }, comdat, align 8
+// end INTEL_COLLAB
 // CHECK: @[[TYPEINFO:.+]] = external addrspace(1) global i8 addrspace(4)*
 // TypeInfo Name:
 // CHECK: @_ZTS6Struct = linkonce_odr constant [8 x i8] c"6Struct\00", comdat, align 1
