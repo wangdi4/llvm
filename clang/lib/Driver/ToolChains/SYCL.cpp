@@ -1102,6 +1102,10 @@ static std::optional<std::string> getOclocLocation(Compilation &C) {
     }
   }
   SmallString<128> OclocDir(C.getDriver().Dir);
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+  // In the unified layout, the 'driver' is in bin/compiler
+  llvm::sys::path::append(OclocDir, "..");
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
   llvm::sys::path::append(OclocDir, "..", "lib", "ocloc");
   llvm::sys::path::remove_dots(OclocDir, /*remove_dot_dot=*/true);
   if (llvm::sys::fs::exists(OclocDir))
