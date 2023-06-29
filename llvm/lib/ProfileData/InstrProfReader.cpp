@@ -1,4 +1,21 @@
 //===- InstrProfReader.cpp - Instrumented profiling reader ----------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023-2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -37,6 +54,15 @@
 #include <vector>
 
 using namespace llvm;
+
+#if INTEL_CUSTOMIZATION
+// This option adds some debug print statements to help debug the reading of
+// the raw profile data file produced by the runtime library.
+static cl::opt<bool>
+    DebugRawReader("debug-rawinstrprof-reader", cl::init(false),
+                   cl::desc("Debug trace messages while reading raw profile."),
+                   cl::ReallyHidden);
+#endif // INTEL_CUSTOMIZATION
 
 // Extracts the variant information from the top 8 bits in the version and
 // returns an enum specifying the variants present.
@@ -557,6 +583,22 @@ Error RawInstrProfReader<IntPtrT>::readHeader(
   auto NamesSize = swap(Header.NamesSize);
   ValueKindLast = swap(Header.ValueKindLast);
 
+#if INTEL_CUSTOMIZATION
+  if (DebugRawReader) {
+    dbgs() << "Raw Header:\n";
+    dbgs() << "  Version                  :" << Version << "\n";
+    dbgs() << "  Binary id size           : " << BinaryIdsSize << "\n";
+    dbgs() << "  Num data records         : " << NumData << "\n";
+    dbgs() << "  Pad bytes before counters: " << PaddingBytesBeforeCounters
+           << "\n";
+    dbgs() << "  Num counters             : " << swap(Header.CountersSize)
+           << " Bytes for counters: " << CountersSize << "\n";
+    dbgs() << "  Pad bytes after counters : " << PaddingBytesAfterCounters
+           << "\n";
+    dbgs() << "  Names bytes              : " << NamesSize << "\n";
+    dbgs() << "  Num value profile types  : " << ValueKindLast << "\n";
+  }
+#endif // INTEL_CUSTOMIZATION
   auto DataSize = NumData * sizeof(RawInstrProf::ProfileData<IntPtrT>);
   auto PaddingSize = getNumPaddingBytes(NamesSize);
 
@@ -566,7 +608,16 @@ Error RawInstrProfReader<IntPtrT>::readHeader(
   ptrdiff_t NamesOffset =
       CountersOffset + CountersSize + PaddingBytesAfterCounters;
   ptrdiff_t ValueDataOffset = NamesOffset + NamesSize + PaddingSize;
-
+#if INTEL_CUSTOMIZATION
+  if (DebugRawReader) {
+    size_t DBS = DataBuffer->getBufferEnd() - DataBuffer->getBufferStart();
+    dbgs() << "Total data bytes: " << DBS << "\n";
+    dbgs() << "Computed offsets (relative to file start):\n";
+    dbgs() << "   Data record start       : " << DataOffset << "\n";
+    dbgs() << "   Counters start          : " << CountersOffset << "\n";
+    dbgs() << "   Value profile data start: " << ValueDataOffset << "\n";
+  }
+#endif // INTEL_CUSTOMIZATION
   auto *Start = reinterpret_cast<const char *>(&Header);
   if (Start + ValueDataOffset > DataBuffer->getBufferEnd())
     return error(instrprof_error::bad_header);
@@ -720,7 +771,13 @@ Error RawInstrProfReader<IntPtrT>::readNextRecord(NamedInstrProfRecord &Record) 
     // At this point, ValueDataStart field points to the next header.
     if (Error E = readNextHeader(getNextHeaderPos()))
       return error(std::move(E));
-
+#if INTEL_CUSTOMIZATION
+  if (DebugRawReader)
+    dbgs() << "Read raw record at offset: "
+           << reinterpret_cast<const char *>(Data) -
+                  DataBuffer->getBufferStart()
+           << "\n";
+#endif // INTEL_CUSTOMIZATION
   // Read name and set it in Record.
   if (Error E = readName(Record))
     return error(std::move(E));
@@ -730,6 +787,15 @@ Error RawInstrProfReader<IntPtrT>::readNextRecord(NamedInstrProfRecord &Record) 
     return error(std::move(E));
 
   // Read raw counts and set Record.
+#if INTEL_CUSTOMIZATION
+  if (DebugRawReader) {
+    dbgs() << "  Num counters: " << swap(Data->NumCounters) << "\n";
+    dbgs() << "  Counters offset: " << swap(Data->CounterPtr) - CountersDelta
+           << "\n";
+    dbgs() << "    = CounterPtr: " << swap(Data->CounterPtr)
+           << " - CountersDelta: " << CountersDelta << "\n";
+  }
+#endif // INTEL_CUSTOMIZATION
   if (Error E = readRawCounts(Record))
     return error(std::move(E));
 

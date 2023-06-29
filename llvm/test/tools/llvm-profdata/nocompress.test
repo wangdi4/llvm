@@ -8,7 +8,13 @@ $ CFE_TESTDIR=$CFE/test/Profile
 $ clang -o a.out -fprofile-instr-generate $CFE_TESTDIR/c-general.c
 $ LLVM_PROFILE_FILE=$TESTDIR/Inputs/compressed.profraw ./a.out
 
-RUN: not llvm-profdata show %p/Inputs/compressed.profraw -o %t 2>&1 | FileCheck %s
+; INTEL_CUSTOMIZATION
+; The binary file c-general.profraw has been regenerated with the xmain
+; compiler, and renamed to be intel-compressed.profraw to support the
+; addition of loop trip count value profiling types done by the xmain
+; compiler.
+RUN: not llvm-profdata show %p/Inputs/intel-compressed.profraw -o %t 2>&1 | FileCheck %s
+; end INTEL_CUSTOMIZATION
 
 REQUIRES: !zlib
 
