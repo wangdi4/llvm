@@ -280,7 +280,6 @@ MODULE_PASS("extract-blocks", BlockExtractorPass({}, false))
 MODULE_PASS("forceattrs", ForceFunctionAttrsPass())
 MODULE_PASS("function-import", FunctionImportPass())
 MODULE_PASS("function-splitting", FunctionSplittingPass()) // INTEL
-MODULE_PASS("globaldce", GlobalDCEPass())
 MODULE_PASS("globalopt", GlobalOptPass())
 MODULE_PASS("globalsplit", GlobalSplitPass())
 MODULE_PASS("hotcoldsplit", HotColdSplittingPass())
@@ -442,6 +441,13 @@ MODULE_PASS_WITH_PARAMS("loop-extract",
                         },
                         parseLoopExtractorPassOptions,
                         "single")
+MODULE_PASS_WITH_PARAMS("globaldce",
+                        "GlobalDCEPass",
+                        [](bool InLTOPostLink) {
+                          return GlobalDCEPass(InLTOPostLink);
+                        },
+                        parseGlobalDCEPassOptions,
+                        "in-lto-post-link")
 MODULE_PASS_WITH_PARAMS("hwasan",
                         "HWAddressSanitizerPass",
                         [](HWAddressSanitizerOptions Opts) {
