@@ -468,8 +468,8 @@ ModuleDesc extractOMPCallGraph(const ModuleDesc &MD,
   bool IsGlobalsModule = (ModuleEntryPoints.GroupId == OMP_GLOBAL_VARS_NAME);
   SetVector<const GlobalValue *> GVs;
 
+  collectFunctionsToExtract(GVs, MD.getModule(), ModuleEntryPoints, CG);
   if (!IsGlobalsModule) {
-    collectFunctionsToExtract(GVs, MD.getModule(), ModuleEntryPoints, CG);
     addOMPRemainingGlobals(GVs, MD.getModule());
   } else {
     collectOMPGlobalVarsToExtract(GVs, MD.getModule());
@@ -1096,8 +1096,15 @@ getDeviceCodeSplitter(ModuleDesc &&MD, IRSplitMode Mode, bool IROutputOnly,
     for (auto &[Key, EntryPoints] : EntryPointsMap)
       Groups.emplace_back(Key, std::move(EntryPoints), MDProps);
 #if INTEL_COLLAB
-    if (IsOMPOffload && Scope_PerKernel == Scope)
-      Groups.emplace_back(OMP_GLOBAL_VARS_NAME, EntryPointSet{});
+    if (IsOMPOffload && Scope_PerKernel == Scope) {
+      EntryPointSet IndirectFuncSet;
+      for (auto &F : MD.getModule().functions()) {
+        if (!F.hasFnAttribute("referenced-indirectly"))
+          continue;
+        IndirectFuncSet.insert(&F);
+      }
+      Groups.emplace_back(OMP_GLOBAL_VARS_NAME, std::move(IndirectFuncSet));
+    }
 #endif // INTEL_COLLAB
   }
 #if INTEL_COLLAB
