@@ -46,7 +46,7 @@ set(OUTPUT_FILE ${TARGET_NAME_SHARED}${OCL_OUTPUT_EXTENSION})
 set(PROC core2)
 # Compile all files and prepare a 'TMP_FILES' list of .rtl files
 foreach(FILE ${OCL_TABLEGEN_SOURCE})
-  compile("${CLANG_CL_COMMON_COMPILER_FLAGS}" TMP_RTL ${PROC} ${FILE}
+  compile("${CLANG_CL_BUILTIN_COMPILER_FLAGS}" TMP_RTL ${PROC} ${FILE}
           ${INTERMEDIATE_OUTPUT_DIR})
   list(APPEND TMP_FILES ${TMP_RTL})
 endforeach(FILE)

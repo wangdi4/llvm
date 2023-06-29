@@ -362,6 +362,8 @@ add_custom_target( sycl-toolchain
 
 if (WIN32)
   add_dependencies(sycl-toolchain pi_win_proxy_loader)
+elseif(SYCL_ENABLE_XPTI_TRACING)
+  add_dependencies(sycl-toolchain sycl-trace)
 endif()
 
 # Enable new IN_LIST operator.
@@ -465,12 +467,11 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
 # if (TARGET sycl-sanitize)
 #   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-sanitize)
 # endif()
-# if (TARGET sycl-trace)
-#   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-trace)
-# endif()
 # end INTEL_CUSTOMIZATION
 if (WIN32)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS pi_win_proxy_loader)
+elseif(SYCL_ENABLE_XPTI_TRACING)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-trace)
 endif()
 
 if(OpenCL_INSTALL_KHRONOS_ICD_LOADER AND TARGET OpenCL-ICD)
