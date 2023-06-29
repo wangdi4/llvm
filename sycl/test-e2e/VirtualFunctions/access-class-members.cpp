@@ -14,7 +14,9 @@ protected:
   int base_data = 42;
 
 public:
-  virtual int display() { return base_data; }
+  [[intel::device_indirectly_callable]] virtual int display() {
+    return base_data;
+  }
 };
 
 class Derived1 : public Base {
@@ -22,7 +24,9 @@ class Derived1 : public Base {
 
 public:
   Derived1(int _data) : data(_data) {}
-  int display() { return base_data + data; }
+  [[intel::device_indirectly_callable]] int display() override {
+    return base_data + data;
+  }
 };
 
 class Derived2 : public Base {
@@ -31,7 +35,9 @@ class Derived2 : public Base {
 
 public:
   Derived2(int _data1, int _data2) : data1(_data1), data2(_data2) {}
-  int display() { return base_data + data1 + 2 * data2; }
+  [[intel::device_indirectly_callable]] int display() override {
+    return base_data + data1 + 2 * data2;
+  }
 };
 
 int main() {

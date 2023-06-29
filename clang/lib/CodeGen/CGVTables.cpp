@@ -818,6 +818,17 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
       // Method is acceptable, continue processing as usual.
     }
 
+#if INTEL_COLLAB
+    if (CGM.getLangOpts().SYCLIsDevice) {
+      // Don't emit virtual functions which were not marked with device
+      // indirectly callable attribute.
+      const CXXMethodDecl *MD = cast<CXXMethodDecl>(GD.getDecl());
+      if (!MD->hasAttr<SYCLDeviceIndirectlyCallableAttr>())
+        return builder.add(
+            llvm::ConstantExpr::getNullValue(CGM.DefaultInt8PtrTy));
+    }
+#endif // INTEL_COLLAB
+
     auto getSpecialVirtualFn = [&](StringRef name) -> llvm::Constant * {
       // FIXME(PR43094): When merging comdat groups, lld can select a local
       // symbol as the signature symbol even though it cannot be accessed
