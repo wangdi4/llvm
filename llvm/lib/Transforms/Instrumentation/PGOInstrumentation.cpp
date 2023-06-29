@@ -161,6 +161,8 @@ using VPCandidateInfo = ValueProfileCollector::CandidateInfo;
 STATISTIC(NumOfPGOInstrument, "Number of edges instrumented.");
 STATISTIC(NumOfPGOSelectInsts, "Number of select instruction instrumented.");
 STATISTIC(NumOfPGOMemIntrinsics, "Number of mem intrinsics instrumented.");
+STATISTIC(NumOfLoopTripCounts,                         // INTEL
+          "Number of loop trip counts instrumented."); // INTEL
 STATISTIC(NumOfPGOEdge, "Number of edges.");
 STATISTIC(NumOfPGOBB, "Number of basic-blocks.");
 STATISTIC(NumOfPGOSplit, "Number of critical edge splits.");
@@ -231,6 +233,54 @@ static cl::opt<bool>
                    cl::desc("Use this option to turn on/off "
                             "warnings about missing profile data for "
                             "functions."));
+#if INTEL_CUSTOMIZATION
+// Debug trace messages for value profiling loop trip counts.
+#define DEBUG_VP_LOOPTC "pgo-vp-looptc"
+
+// Command line option that can turn off the value profiling instrumentation of
+// loop trip counts while leaving other types of value profiling enabled.
+static cl::opt<bool> DisableLoopTCValueProfiling(
+    "disable-looptc-vp", cl::init(false), cl::Hidden,
+    cl::desc("Turn off value profiling for loop trip counts"));
+
+// Command line option to control which loops get instrumented for value
+// profiling the loop trip count. There is a runtime cost to the instrumentation
+// phase for each loop that is instrumented. This option is used to limit the
+// loops that get instrumented to be the ones at deeper nesting levels, which
+// should give the greatest benefit to the loop optimizations from knowing the
+// trip counts.
+static cl::opt<unsigned>
+    LoopTCMinDepth("looptc-min-depth", cl::init(3), cl::Hidden,
+                   cl::desc("Minimum loop depth for a loop to instrumented for "
+                            "gathering trip count metrics"));
+
+// Enables updating "!llvm.loop" metadata annotations with an entry for
+// "llvm.loop.intel.loopcount" of common loop trip count values.
+static cl::opt<bool> PGOLoopTCAnnotate(
+    "pgo-looptc-annotate", cl::init(true), cl::Hidden,
+    cl::desc("Set loop count annotation from value profiling data"));
+
+// Loop bodies must execute with this minimum number of times to be considered
+// for the loop trip count value profiling feedback.
+static cl::opt<uint64_t> PGOLoopTCMinExecutions(
+    "pgo-looptc-min-executions", cl::init(100000),
+    cl::desc("Minimum number of executions for a loop body for loop trip count "
+             "value profile data to be applied"));
+
+// Maximum number of specific loop trip count values to mark on a loop.
+static cl::opt<uint32_t> PGOLoopTCMaxAnnotations(
+    "pgo-looptc-max-annotations", cl::init(3),
+    cl::desc("Maximum number of trip counts to place on a loop"));
+
+// The benefit of applying specific values for loop trip counts is seen when the
+// typical number of executions is small because it enables the loop
+// optimizations to create multi-versioned instances that can be fully unrolled.
+// This option controls the upper bound on values that will be applied.
+static cl::opt<uint32_t> PGOLoopTCMaxTripCount(
+    "pgo-looptc-max-trip-count", cl::init(16),
+    cl::desc(
+        "Maximum trip count value to apply for loop trip count annotations"));
+#endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
 // Command line option to enable/disable the warning about a hash mismatch in
@@ -612,14 +662,17 @@ public:
     // This should be done before CFG hash computation.
     SIVisitor.countSelects();
     ValueSites[IPVK_MemOPSize] = VPC.get(IPVK_MemOPSize);
+    ValueSites[IPVK_LoopTripCount] = VPC.get(IPVK_LoopTripCount); // INTEL
     if (!IsCS) {
       NumOfPGOSelectInsts += SIVisitor.getNumOfSelectInsts();
       NumOfPGOMemIntrinsics += ValueSites[IPVK_MemOPSize].size();
+      NumOfLoopTripCounts += ValueSites[IPVK_LoopTripCount].size(); // INTEL
       NumOfPGOBB += MST.BBInfos.size();
       ValueSites[IPVK_IndirectCallTarget] = VPC.get(IPVK_IndirectCallTarget);
     } else {
       NumOfCSPGOSelectInsts += SIVisitor.getNumOfSelectInsts();
       NumOfCSPGOMemIntrinsics += ValueSites[IPVK_MemOPSize].size();
+      NumOfLoopTripCounts += ValueSites[IPVK_LoopTripCount].size(); // INTEL
       NumOfCSPGOBB += MST.BBInfos.size();
     }
 
@@ -890,6 +943,224 @@ populateEHOperandBundle(VPCandidateInfo &Cand,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+// For loops that are going to be profiled for loop trip counts, we want to
+// insert a counter into them, and then capture that value with the value
+// profiling upon exiting the loop. The value profiling framework collects 3
+// pieces of information about each candidate that is being profiled.
+//   1. The Value that will be passed into the value profiling library routine.
+//   2. The Instruction that the library routine should get called before.
+//   3. The Instruction that the !prof "VP" metadata should be applied to.
+//
+// All 3 are used during the instrumentation phase.
+// Only number 3 is used during the feedback phase.
+//
+// Because this collection involves inserting new instructions into the IR, the
+// goal is to only do that during the instrumentation phase, however the value
+// profiling framework is unaware of whether it is running IR for the
+// instrumentation or feedback phase. This function will run before the value
+// profiling framework to insert the necessary instructions for the
+// instrumentation phase, and mark the instructions that are needed by the value
+// profiling framework with metadata. Then when the framework function is run,
+// it will just need to process the metadata.
+//
+// Insert instructions into the loop for value profiling the trip count
+// of the loop. We cannot use SCEV when this is run to get information
+// about the loops because the loops have not been converted into bottom
+// tested loops yet, which prevents SCEV from extracting the lower and upper
+// loop bounds which could be used to compute the trip count. Therefore, this
+// code will first insert a counter variable into the loop, and then value
+// profile the counter when the loop exits. For now, we will rely on downstream
+// optimizations to optimize the counter increment instructions out of the loop,
+// if possible.
+//
+// For example, given the IR:
+//   entry:
+//     br label %for.cond
+//   for.cond:
+//     %c.0 = phi i32 [ 0, %entry ], [ %inc, %for.body ]
+//     %cmp = icmp slt i32 %c.0, %channel
+//     br i1 %cmp, label %for.body, label %for.cond.cleanup
+//   for.body:
+//     ...
+//     br label %for.cond, !llvm.loop !9
+//  for.cond.cleanup:
+//     ...
+//
+// Update the IR to be, and record that the new variable ''%lc_exit' should be
+// value profiled: (Instructions are added only when InstrPhase = 'true')
+//   entry:
+//     br label %for.cond
+//   for.cond:
+//     %lc = phi i64 [ %lc, %for.body ], [ 0, %entry ]   ; <-- Added
+//     %lc_incr = add nuw nsw i64 %0, 1                  ; <-- Added
+//     %c.0 = phi i32 [ 0, %entry ], [ %inc, %for.body ]
+//     %cmp = icmp slt i32 %c.0, %channel
+//     br i1 %cmp, label %for.body, label %for.cond.cleanup
+//   for.body:
+//     ...
+//     br label %for.cond, !llvm.loop !9
+//  for.cond.cleanup:
+//     %lc_exit = phi i64 [ %lc, %for.cond               ; <-- Added
+//     ...
+static void prepareForLoopTripCountInstrumentation(
+    Function &F, bool InstrPhase,
+    SmallVectorImpl<Instruction *> &MarkedInstrs) {
+  if (DisableLoopTCValueProfiling)
+    return;
+
+  DEBUG_WITH_TYPE(DEBUG_VP_LOOPTC,
+                  dbgs() << "Processing Func: " << F.getName() << "\n");
+
+  DominatorTree DT(F);
+  LoopInfo LI(DT);
+  LLVMContext &Ctx = F.getContext();
+  auto Loops = LI.getLoopsInPreorder();
+  uint32_t NumCounters = 0;
+  for (auto *L : Loops) {
+    DEBUG_WITH_TYPE(DEBUG_VP_LOOPTC,
+                    dbgs() << "\nLooking at Loop: " << *L << "\n");
+    if (L->getLoopDepth() < LoopTCMinDepth) {
+      DEBUG_WITH_TYPE(
+          DEBUG_VP_LOOPTC,
+          dbgs() << "  Skipping loop: Does not meeting depth threshold\n");
+      continue;
+    }
+
+    // We use the loop predecessor block to determine whether the counter should
+    // use zero or the accumulated count in the inserted PHInode.
+    BasicBlock *LoopPred = L->getLoopPredecessor();
+    if (!LoopPred) {
+      DEBUG_WITH_TYPE(DEBUG_VP_LOOPTC,
+                      dbgs() << "  Skipping loop: No predecessor block\n");
+      continue;
+    }
+
+    // For now, only single exit block loops.
+    auto *Exit = L->getExitingBlock();
+    if (!Exit) {
+      DEBUG_WITH_TYPE(DEBUG_VP_LOOPTC,
+                      dbgs() << "  Skipping loop: Not single exit loop\n");
+      continue;
+    }
+
+    // Get the location where the trip count value will be profiled.
+    auto *PostLoop = L->getExitBlock();
+    if (!PostLoop) {
+      DEBUG_WITH_TYPE(DEBUG_VP_LOOPTC,
+                      dbgs() << "  Skipping loop: No post loop\n");
+      continue;
+    }
+
+    // Find the instruction which is marked with the !llvm.loop metadata.
+    // This is necessary because the way the loop count information will
+    // be reported to the optimizations is with this metadata, so if it is
+    // not present, then there's no reason to instrument the loop.
+    Instruction *LoopInstr = nullptr;
+    for (auto *Pred : predecessors(Exit)) {
+      Instruction *Term = Pred->getTerminator();
+      MDNode *LoopMD = Term->getMetadata(LLVMContext::MD_loop);
+      if (LoopMD)
+        if (LoopInstr) {
+          LoopInstr = nullptr;
+          break;
+        } else {
+          LoopInstr = Term;
+        }
+    }
+
+    if (!LoopInstr) {
+      DEBUG_WITH_TYPE(DEBUG_VP_LOOPTC,
+                      dbgs()
+                          << "  Skipping loop: No unique !llvm.loop found\n");
+      continue;
+    }
+
+    // TODO: Add some check to verify that that the loop is not an easily
+    // detectable compile time constant loop bound.
+
+    PHINode *CounterResult = nullptr;
+    if (InstrPhase) {
+      // Insert a counter variable into the loop.
+      //   "%0 = phi i64 [ %lc, %for.body ], [ 0, %entry ]"
+      BasicBlock *Header = L->getHeader();
+      uint32_t NumPredecessors = pred_size(Header);
+      IRBuilder<> LoopBuilder(Header);
+      Type *CounterTy = Type::getInt64Ty(Ctx);
+      LoopBuilder.SetInsertPoint(&(Header->front()));
+      PHINode *Counter =
+          LoopBuilder.CreatePHI(CounterTy, NumPredecessors, "lc");
+      LoopBuilder.SetInsertPoint(Header->getFirstNonPHIOrDbg());
+      auto *Inc = LoopBuilder.CreateAdd(Counter, ConstantInt::get(CounterTy, 1),
+                                        "lc_incr", true, true);
+      for (auto Pred : predecessors(Header))
+        if (Pred == LoopPred)
+          Counter->addIncoming(ConstantInt::get(CounterTy, 0U), LoopPred);
+        else
+          Counter->addIncoming(Inc, Pred);
+
+      // Insert a PHI node for the value to be profiled upon exiting the loop.
+      IRBuilder<> ExitBuilder(PostLoop);
+      ExitBuilder.SetInsertPoint(&(PostLoop->front()));
+      CounterResult = ExitBuilder.CreatePHI(CounterTy, 2, "lc_exit");
+      for (auto Pred : predecessors(PostLoop))
+        if (Pred == Header)
+          CounterResult->addIncoming(Counter, Pred);
+        else
+          CounterResult->addIncoming(ConstantInt::get(CounterTy, 0U), Pred);
+    }
+
+    // Mark the candidate for the value profiling:
+    //   1. The variable to profile. This value will be captured in the block
+    //   where it is set.
+    //   2. What instruction to add the !prof "VP" metadata on when feedback occurs.
+
+    // This lambda is use to add the metadata markers.
+    auto AddOrUpdateLoopTCMetadata = [&Ctx](Instruction *I, StringRef Name,
+                                            uint32_t LTCP_Type,
+                                            uint32_t Counter) {
+      auto *Int32Ty = Type::getInt32Ty(Ctx);
+      auto *MD = I->getMetadata(Name);
+      if (MD) {
+        SmallVector<Metadata *, 8> LoopMDNodes;
+        llvm::copy(MD->operands(), std::back_inserter(LoopMDNodes));
+        LoopMDNodes.push_back(
+            ConstantAsMetadata::get(ConstantInt::get(Int32Ty, Counter)));
+        I->setMetadata(Name, MDTuple::get(Ctx, LoopMDNodes));
+      } else {
+        I->setMetadata(
+            Name,
+            MDTuple::get(
+                Ctx,
+                {ConstantAsMetadata::get(ConstantInt::get(Int32Ty, LTCP_Type)),
+                 ConstantAsMetadata::get(ConstantInt::get(Int32Ty, Counter))}));
+      }
+    };
+
+    DEBUG_WITH_TYPE(DEBUG_VP_LOOPTC, dbgs() << "  Profiling loop count\n");
+    if (CounterResult) {
+      AddOrUpdateLoopTCMetadata(CounterResult, "intel.prof.looptc_vp",
+                                LTCP_CounterResult, NumCounters);
+      MarkedInstrs.push_back(CounterResult);
+    }
+
+    Instruction *AnnotatedInst = LoopInstr;
+    AddOrUpdateLoopTCMetadata(AnnotatedInst, "intel.prof.looptc_vp",
+                              LTCP_AnnotationResult, NumCounters);
+    MarkedInstrs.push_back(AnnotatedInst);
+    ++NumCounters;
+  }
+}
+
+// Clear the temporary metadata that was used to indicate the instructions
+// for the value profiling plugin
+static void cleanupLoopTripCountInstrumentation(
+    SmallVectorImpl<Instruction *> &MarkedInstrs) {
+  for (auto *I : MarkedInstrs)
+    I->setMetadata("intel.prof.looptc_vp", nullptr);
+}
+#endif // INTEL_CUSTOMIZATION
+
 // Visit all edge and instrument the edges not in MST, and do value profiling.
 // Critical edges will be split.
 static void instrumentOneFunc(
@@ -903,9 +1174,18 @@ static void instrumentOneFunc(
     SplitIndirectBrCriticalEdges(F, /*IgnoreBlocksWithoutPHI=*/false, BPI, BFI);
   }
 
+#if INTEL_CUSTOMIZATION
+  SmallVector<Instruction *, 16> MarkedInstrs;
+  prepareForLoopTripCountInstrumentation(F, /*InstrPhase=*/true, MarkedInstrs);
+#endif // INTEL_CUSTOMIZATION
+
   FuncPGOInstrumentation<PGOEdge, PGOBBInfo> FuncInfo(
       F, TLI, ComdatMembers, true, BPI, BFI, IsCS, PGOInstrumentEntry,
       PGOBlockCoverage);
+
+#if INTEL_CUSTOMIZATION
+  cleanupLoopTripCountInstrumentation(MarkedInstrs);
+#endif // INTEL_CUSTOMIZATION
 
   Type *I8PtrTy = Type::getInt8PtrTy(M->getContext());
   auto Name = ConstantExpr::getBitCast(FuncInfo.FuncNameVar, I8PtrTy);
@@ -1122,6 +1402,13 @@ public:
 
   // Annotate the irreducible loop header weights.
   void annotateIrrLoopHeaderWeights();
+
+#if INTEL_CUSTOMIZATION
+  // Convert the !"VP" profiling metadata annotations set by the value
+  // profiling infrastructure function annotationValueSites(), into
+  // "llvm.loop.intel.loopcount" metadata used by loop transformations.
+  void annotateLoopTripCountMetadata();
+#endif // INTEL_CUSTOMIZATION
 
   // The hotness of the function from the profile count.
   enum FuncFreqAttr { FFA_Normal, FFA_Cold, FFA_Hot };
@@ -1952,6 +2239,139 @@ void PGOUseFunc::annotateIrrLoopHeaderWeights() {
   }
 }
 
+#if INTEL_CUSTOMIZATION
+void PGOUseFunc::annotateLoopTripCountMetadata() {
+  if (!PGOLoopTCAnnotate)
+    return;
+
+  for (auto &BB : F) {
+    auto *BI = dyn_cast<BranchInst>(BB.getTerminator());
+    if (!BI)
+      continue;
+
+    MDNode *Existing = BI->getMetadata(LLVMContext::MD_loop);
+    if (!Existing)
+      continue;
+
+    auto ProfileData = BI->getMetadata(LLVMContext::MD_prof);
+    if (!ProfileData)
+      continue;
+    unsigned NumOperands = ProfileData->getNumOperands();
+    auto *ProfDataName = dyn_cast<MDString>(ProfileData->getOperand(0));
+    if (!ProfDataName->getString().equals("VP") || NumOperands <= 3)
+      continue;
+
+    uint64_t TotalExec =
+        mdconst::dyn_extract<ConstantInt>(ProfileData->getOperand(2))
+            ->getValue()
+            .getZExtValue();
+
+    DEBUG_WITH_TYPE(DEBUG_VP_LOOPTC, {
+      dbgs() << "Prof data for loop: " << *BI << "\n";
+      dbgs() << "  Total executions: " << TotalExec << "\n";
+    });
+    unsigned int NumValues = 0;
+    uint64_t MaxTC = 0;
+    for (unsigned i = 3; i < NumOperands; i += 2) {
+      uint64_t ExecCount =
+          mdconst::dyn_extract<ConstantInt>(ProfileData->getOperand(i + 1))
+              ->getValue()
+              .getZExtValue();
+      uint64_t TripCount =
+          mdconst::dyn_extract<ConstantInt>(ProfileData->getOperand(i))
+              ->getValue()
+              .getZExtValue();
+      dbgs() << "  Value: " << TripCount << "  ExecCount: " << ExecCount
+             << "\n";
+
+      if (TripCount > MaxTC)
+        MaxTC = TripCount;
+      ++NumValues;
+    }
+
+    if (TotalExec < PGOLoopTCMinExecutions) {
+      DEBUG_WITH_TYPE(DEBUG_VP_LOOPTC,
+                      dbgs()
+                          << "Skipping loop feedback, not enough iterations\n");
+      continue;
+    }
+
+    if (NumValues > PGOLoopTCMaxAnnotations) {
+      // TODO: this could be a candidate for setting intel.loopcount.average
+      // instead of ignoring.
+      DEBUG_WITH_TYPE(
+          DEBUG_VP_LOOPTC,
+          dbgs() << "Skipping loop feedback, too many different values\n");
+      continue;
+    }
+
+    if (MaxTC > PGOLoopTCMaxTripCount) {
+      DEBUG_WITH_TYPE(
+          DEBUG_VP_LOOPTC,
+          dbgs() << "Skipping loop feedback, trip count is not small\n");
+      continue;
+    }
+
+    // Skip loops that are already marked with llvm.loop.intel.loopcount
+    // metadata.
+    bool AlreadyHasLoopCount = false;
+    for (auto &Op : Existing->operands()) {
+      auto *MD = dyn_cast<MDNode>(Op);
+      if (!MD)
+        continue;
+
+      if (MD->getNumOperands() == 0)
+        continue;
+
+      MDString *StrMD = dyn_cast<MDString>(MD->getOperand(0));
+      if (!StrMD)
+        continue;
+
+      if (StrMD->getString() == "llvm.loop.intel.loopcount") {
+        AlreadyHasLoopCount = true;
+        break;
+      }
+    }
+
+    if (AlreadyHasLoopCount) {
+      DEBUG_WITH_TYPE(DEBUG_VP_LOOPTC,
+                      dbgs() << "Skipping loop feedback, already annotated\n");
+      continue;
+    }
+
+    // Convert the collected trip counts into "llvm.loop.intel.loopcount"
+    // annotations.
+    LLVMContext &Ctx = F.getContext();
+    llvm::SmallVector<uint64_t, 4> Vals;
+    for (unsigned i = 3; i < NumOperands; i += 2) {
+      uint64_t LoopTripCount =
+          mdconst::dyn_extract<ConstantInt>(ProfileData->getOperand(i))
+              ->getValue()
+              .getZExtValue();
+      Vals.push_back(LoopTripCount);
+    }
+
+    SmallVector<Metadata *, 8> LoopMDNodes;
+    llvm::copy(Existing->operands(), std::back_inserter(LoopMDNodes));
+    SmallVector<Metadata *, 4> CountMDNodes;
+    CountMDNodes.push_back(MDString::get(Ctx, "llvm.loop.intel.loopcount"));
+    for (auto LC : Vals)
+      CountMDNodes.push_back(ConstantAsMetadata::get(
+          ConstantInt::get(llvm::Type::getInt32Ty(Ctx), LC)));
+    LoopMDNodes.push_back(MDNode::get(Ctx, CountMDNodes));
+
+    // The form of the llvm.loop metadata requires the first metadata node be
+    // the metadata node itself, so after creating the metadata, update the
+    // first node to point to itself.
+    auto *FinalNode = MDTuple::getDistinct(Ctx, LoopMDNodes);
+    FinalNode->replaceOperandWith(0, FinalNode);
+    BI->setMetadata(LLVMContext::MD_loop, FinalNode);
+    DEBUG_WITH_TYPE(DEBUG_VP_LOOPTC, dbgs()
+                                         << "loop count to: " << *BI << "\n");
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 void SelectInstVisitor::instrumentOneSelectInst(SelectInst &SI) {
   Module *M = F.getParent();
   IRBuilder<> Builder(&SI);
@@ -2348,6 +2768,10 @@ static bool annotateAllFunctions(
       SplitIndirectBrCriticalEdges(F, /*IgnoreBlocksWithoutPHI=*/false, BPI,
                                    BFI);
     }
+#if INTEL_CUSTOMIZATION
+    SmallVector<Instruction *, 16> MarkedInstrs;
+    prepareForLoopTripCountInstrumentation(F, /*InstrPhase=*/false, MarkedInstrs);
+#endif // INTEL_CUSTOMIZATION
     PGOUseFunc Func(F, &M, TLI, ComdatMembers, BPI, BFI, PSI, IsCS,
                     InstrumentFuncEntry, HasSingleByteCoverage);
     // Read and match memprof first since we do this via debug info and can
@@ -2404,6 +2828,27 @@ static bool annotateAllFunctions(
     Func.setBranchWeights();
     Func.annotateValueSites();
     Func.annotateIrrLoopHeaderWeights();
+#if INTEL_CUSTOMIZATION
+    Func.annotateLoopTripCountMetadata();
+    cleanupLoopTripCountInstrumentation(MarkedInstrs);
+
+    // Clear the loop value profile data because HIR cannot handle it because it
+    // does not distinguish between "branch_weight" metadata and "VP" metadata
+    // in the !prof nodes. This code may be removed in the future, once HIR is updated
+    // to not have an issue with this value profile metadata.
+    for (auto& BB : F) {
+      auto* BI = dyn_cast<BranchInst>(BB.getTerminator());
+      if (!BI)
+        continue;
+      auto ProfileData = BI->getMetadata(LLVMContext::MD_prof);
+      if (!ProfileData)
+        continue;
+      auto* ProfDataName = dyn_cast<MDString>(ProfileData->getOperand(0));
+      if (!ProfDataName->getString().equals("VP"))
+        continue;
+      BI->setMetadata(LLVMContext::MD_prof, nullptr);
+    }
+#endif // INTEL_CUSTOMIZATION
     PGOUseFunc::FuncFreqAttr FreqAttr = Func.getFuncFreqAttr();
     if (FreqAttr == PGOUseFunc::FFA_Cold)
       ColdFunctions.push_back(&F);

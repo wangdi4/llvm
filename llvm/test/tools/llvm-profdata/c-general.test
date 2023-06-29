@@ -8,9 +8,15 @@ $ CFE_TESTDIR=$CFE/test/Profile
 $ clang -o a.out -fprofile-instr-generate $CFE_TESTDIR/c-general.c -mllvm -enable-name-compression=false
 $ LLVM_PROFILE_FILE=$TESTDIR/Inputs/c-general.profraw ./a.out
 
-RUN: llvm-profdata show %p/Inputs/c-general.profraw -o - | FileCheck %s
-RUN: llvm-profdata show %p/Inputs/c-general.profraw --topn=3 -o - | FileCheck %s --check-prefix=TOPN
-RUN: llvm-profdata show %p/Inputs/c-general.profraw -o - --function=switches | FileCheck %s -check-prefixes=SWITCHES,CHECK
+; INTEL_CUSTOMIZATION
+; The binary file c-general.profraw has been regenerated with the xmain
+; compiler, and renamed to be intel-c-general.profraw to support the
+; addition of loop trip count value profiling types done by the xmain
+; compiler.
+RUN: llvm-profdata show %p/Inputs/intel-c-general.profraw -o - | FileCheck %s
+RUN: llvm-profdata show %p/Inputs/intel-c-general.profraw --topn=3 -o - | FileCheck %s --check-prefix=TOPN
+RUN: llvm-profdata show %p/Inputs/intel-c-general.profraw -o - --function=switches | FileCheck %s -check-prefixes=SWITCHES,CHECK
+; end INTEL_CUSTOMIZATION
 
 SWITCHES-LABEL: Counters:
 SWITCHES-NEXT:   switches:
