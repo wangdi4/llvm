@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021 Intel Corporation
+# Modifications, Copyright (C) 2021-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -536,31 +536,38 @@ else()
   set(SANITIZER_USE_SYMBOLS FALSE)
 endif()
 
-# Build sanitizer runtimes with debug info.
-if(MSVC)
-  # Use /Z7 instead of /Zi for the asan runtime. This avoids the LNK4099
-  # warning from the MS linker complaining that it can't find the 'vc140.pdb'
-  # file used by our object library compilations.
-  list(APPEND SANITIZER_COMMON_CFLAGS /Z7)
-  foreach(var_to_update
-    CMAKE_CXX_FLAGS
-    CMAKE_CXX_FLAGS_DEBUG
-    CMAKE_CXX_FLAGS_RELWITHDEBINFO)
-    string(REGEX REPLACE "(^| )/Z[i7I]($| )" " /Z7 "
-           "${var_to_update}" "${${var_to_update}}")
-  endforeach()
-elseif(APPLE)
-  # On Apple platforms use full debug info (i.e. not `-gline-tables-only`)
-  # for all build types so that the runtime can be debugged.
-  if(NOT COMPILER_RT_HAS_G_FLAG)
-    message(FATAL_ERROR "-g is not supported by host compiler")
+# INTEL_CUSTOMIZATION
+# JIRA: CMPLRLLVM-42333
+# To avoid any possible IP leak from the debug info, we only enable the debug info
+# for debug build
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  # Build sanitizer runtimes with debug info.
+  if(MSVC)
+    # Use /Z7 instead of /Zi for the asan runtime. This avoids the LNK4099
+    # warning from the MS linker complaining that it can't find the 'vc140.pdb'
+    # file used by our object library compilations.
+    list(APPEND SANITIZER_COMMON_CFLAGS /Z7)
+    foreach(var_to_update
+      CMAKE_CXX_FLAGS
+      CMAKE_CXX_FLAGS_DEBUG
+      CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+      string(REGEX REPLACE "(^| )/Z[i7I]($| )" " /Z7 "
+            "${var_to_update}" "${${var_to_update}}")
+    endforeach()
+  elseif(APPLE)
+    # On Apple platforms use full debug info (i.e. not `-gline-tables-only`)
+    # for all build types so that the runtime can be debugged.
+    if(NOT COMPILER_RT_HAS_G_FLAG)
+      message(FATAL_ERROR "-g is not supported by host compiler")
+    endif()
+    list(APPEND SANITIZER_COMMON_CFLAGS -g)
+  elseif(COMPILER_RT_HAS_GLINE_TABLES_ONLY_FLAG AND NOT COMPILER_RT_DEBUG)
+    list(APPEND SANITIZER_COMMON_CFLAGS -gline-tables-only)
+  elseif(COMPILER_RT_HAS_G_FLAG)
+    list(APPEND SANITIZER_COMMON_CFLAGS -g)
   endif()
-  list(APPEND SANITIZER_COMMON_CFLAGS -g)
-elseif(COMPILER_RT_HAS_GLINE_TABLES_ONLY_FLAG AND NOT COMPILER_RT_DEBUG)
-  list(APPEND SANITIZER_COMMON_CFLAGS -gline-tables-only)
-elseif(COMPILER_RT_HAS_G_FLAG)
-  list(APPEND SANITIZER_COMMON_CFLAGS -g)
 endif()
+# end INTEL_CUSTOMIZATION
 
 if(LLVM_ENABLE_MODULES)
   # Sanitizers cannot be built with -fmodules. The interceptors intentionally
