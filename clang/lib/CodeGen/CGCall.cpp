@@ -6381,6 +6381,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   }
 #endif  // INTEL_COLLAB
   if (!InvokeDest) {
+<<<<<<< HEAD
 #if INTEL_COLLAB
     auto IsIndirectCall = [&CalleePtr]()->bool {
       assert(CalleePtr && "No function to call");
@@ -6408,6 +6409,10 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
       return EmitOMPIndirectCall(IRFuncTy, IRCallArgs, CalleePtr);
 #endif  // INTEL_COLLAB
     if (CGM.getCodeGenOpts().FPAccuracy) {
+=======
+    if (!getLangOpts().FPAccuracyFuncMap.empty() ||
+        !getLangOpts().FPAccuracyVal.empty()) {
+>>>>>>> 75a6d096fe51a76d58d23515ec506533c3ad83c2
       const auto *FD = dyn_cast_if_present<FunctionDecl>(TargetDecl);
       assert(FD && "expecting a function");
       CI = EmitFPBuiltinIndirectCall(IRFuncTy, IRCallArgs, CalleePtr, FD);
