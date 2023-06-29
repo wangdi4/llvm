@@ -1607,24 +1607,15 @@ bool HIRDeadStoreElimination::run(HLRegion &Region) {
             LLVM_DEBUG(dbgs() << " does not post dominate StoreRef: ";
                        PrevDDNode->dump());
 
-            ++I;
-            // Collected substitutable loads are only valid for the first
-            // candidate store we find. If that store cannot be eliminated, we
-            // need to invalidate the loads as well.
-            SubstitutableMemRefs.clear();
-            continue;
+            break;
           }
 
           if (!isValidParentChain(PostDomDDNode, PrevDDNode, PostDomRef)) {
             LLVM_DEBUG(dbgs() << "Invalid parent chain for StoreRef: ";
                        PrevDDNode->dump(); dbgs() << "and PostDomStoreRef: ");
             LLVM_DEBUG(dumpPostDomStoreNode(PostDomDDNode));
-            ++I;
-            // Collected substitutable loads are only valid for the first
-            // candidate store we find. If that store cannot be eliminated, we
-            // need to invalidate the loads as well.
-            SubstitutableMemRefs.clear();
-            continue;
+
+            break;
           }
         }
 
