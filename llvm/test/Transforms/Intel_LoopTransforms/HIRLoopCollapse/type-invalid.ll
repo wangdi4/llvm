@@ -1,4 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-collapse,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-collapse" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 ;
 ; *** Source Code ***
 ; int A[10][20];
@@ -37,10 +38,13 @@
 ; CHECK:             + END LOOP
 ; CHECK:        END REGION
 ;
-; === ---------------------------------------------------------------- ===
-; Following is the LLVM's input code!
-; === ---------------------------------------------------------------- ===
-;
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRLoopCollpase
+
+
 source_filename = "new.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

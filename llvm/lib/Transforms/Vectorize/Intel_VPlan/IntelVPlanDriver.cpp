@@ -1710,8 +1710,8 @@ PreservedAnalyses VPlanDriverHIRPass::runImpl(Function &F,
   auto AC = &AM.getResult<AssumptionAnalysis>(F);
   auto DT = &AM.getResult<DominatorTreeAnalysis>(F);
 
-  Impl.runImpl(F, &HIRF, HIRLoopStats, DDA, SafeRedAnalysis, Verbosity, WR, TTI,
-               TLI, AC, DT, nullptr);
+  ModifiedHIR = Impl.runImpl(F, &HIRF, HIRLoopStats, DDA, SafeRedAnalysis,
+                             Verbosity, WR, TTI, TLI, AC, DT, nullptr);
   return PreservedAnalyses::all();
 }
 

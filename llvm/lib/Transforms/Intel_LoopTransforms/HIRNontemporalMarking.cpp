@@ -380,6 +380,6 @@ PreservedAnalyses HIRNontemporalMarkingPass::runImpl(
   HIRNontemporalMarking NTM(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
                             AM.getResult<HIRLoopLocalityAnalysis>(F),
                             AM.getResult<TargetIRAnalysis>(F));
-  NTM.run();
+  ModifiedHIR = NTM.run();
   return PreservedAnalyses::all();
 }

@@ -1,5 +1,8 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-post-vec-complete-unroll,print<hir>" 2>&1 < %s | FileCheck %s
 
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll" -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED-PRE
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-post-vec-complete-unroll" -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED-POST
+
 ; Verify that this non-profitable loop is enabled due to presence of enabling metadata.
 
 ; HIR -
@@ -36,6 +39,13 @@
 ; CHECK: Function
 ; CHECK-NOT: DO i1
 
+; Verify that pass is dumped with print-changed when it triggers.
+
+; CHECK-CHANGED-PRE: Dump Before HIRTempCleanup
+; CHECK-CHANGED-PRE: Dump After HIRPreVecCompleteUnroll
+
+; CHECK-CHANGED-POST: Dump Before HIRTempCleanup
+; CHECK-CHANGED-POST: Dump After HIRPostVecCompleteUnroll
 
 ; Function Attrs: norecurse nounwind uwtable
 define void @jpeg_fdct_islow(i32* nocapture %data) #0 {

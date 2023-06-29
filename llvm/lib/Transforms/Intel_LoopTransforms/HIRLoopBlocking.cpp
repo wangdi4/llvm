@@ -2416,11 +2416,12 @@ PreservedAnalyses HIRLoopBlockingPass::runImpl(
 
   LLVM_DEBUG(dbgs() << OPT_DESC " for Function : " << F.getName() << "\n");
 
-  HIRLoopBlocking(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-                  AM.getResult<HIRSafeReductionAnalysisPass>(F),
-                  AM.getResult<HIRLoopStatisticsAnalysis>(F),
-                  AM.getResult<TargetIRAnalysis>(F), SinkForMultiCopy)
-      .run(false);
+  ModifiedHIR =
+      HIRLoopBlocking(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                      AM.getResult<HIRSafeReductionAnalysisPass>(F),
+                      AM.getResult<HIRLoopStatisticsAnalysis>(F),
+                      AM.getResult<TargetIRAnalysis>(F), SinkForMultiCopy)
+          .run(false);
 
   return PreservedAnalyses::all();
 }
@@ -2450,11 +2451,11 @@ PreservedAnalyses HIRPragmaLoopBlockingPass::runImpl(
   LLVM_DEBUG(dbgs() << OPT_DESC_PRAGMA " for Function : " << F.getName()
                     << "\n");
 
-  HIRLoopBlocking(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-                  AM.getResult<HIRSafeReductionAnalysisPass>(F),
-                  AM.getResult<HIRLoopStatisticsAnalysis>(F),
-                  AM.getResult<TargetIRAnalysis>(F), true)
-      .run(true);
+  ModifiedHIR = HIRLoopBlocking(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                                AM.getResult<HIRSafeReductionAnalysisPass>(F),
+                                AM.getResult<HIRLoopStatisticsAnalysis>(F),
+                                AM.getResult<TargetIRAnalysis>(F), true)
+                    .run(true);
 
   return PreservedAnalyses::all();
 }

@@ -2186,6 +2186,7 @@ bool HIRLoopRerollLegacyPass::runOnFunction(Function &F) {
 PreservedAnalyses HIRLoopRerollPass::runImpl(llvm::Function &F,
                                              llvm::FunctionAnalysisManager &AM,
                                              HIRFramework &HIRF) {
+  ModifiedHIR = false;
   if (DisablePass) {
     return PreservedAnalyses::all();
   }
@@ -2198,6 +2199,7 @@ PreservedAnalyses HIRLoopRerollPass::runImpl(llvm::Function &F,
                    AM.getResult<HIRSafeReductionAnalysisPass>(F));
   LoopsRerolled += NumRerolled;
   if (NumRerolled > 0) {
+    ModifiedHIR = true;
     LLVM_DEBUG(dbgs() << "Reroll happend\n");
   }
 

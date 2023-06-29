@@ -1,5 +1,7 @@
 ; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-dead-store-elimination,print<hir-framework>" 2>&1 < %s | FileCheck %s
 ;
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-dead-store-elimination" -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
+
 ;If the two refs in different loops have different loop bounds or strides, we cannot remove the dead store
 ;
 ; C Source Code:
@@ -48,6 +50,13 @@
 ; CHECK-NOT:   modified
 ; CHECK:       (@A)[0][i2]
 ; CHECK:       (@A)[0][i2]
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRDeadStoreElimination
+
 
 ;Module Before HIR
 ; ModuleID = 't.c'

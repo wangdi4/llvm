@@ -1,4 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-safe-reduction-analysis>,hir-loop-reversal" -aa-pipeline="basic-aa" -print-before=hir-loop-reversal -print-after=hir-loop-reversal %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-reversal" -print-changed -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 ;
 ; Verify that loop is not reversed because the safe reduction has unsafe algebra.
 ;
@@ -20,6 +21,13 @@
 ; CHECK: Dump After
 
 ; CHECK-NOT: modified
+
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRLoopReversal
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

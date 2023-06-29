@@ -1,10 +1,19 @@
 
 ;RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa"  -hir-cost-model-throttling=0 < %s 2>&1 | FileCheck %s
+;RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec" -print-changed -disable-output -hir-cost-model-throttling=0 < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
+
 ; We cannot reason about calls without mod-ref/sideeffects analysis
 
 ;CHECK-NOT: BEGIN REGION {{.*}} modified
 ;CHECK: DO i1 =
 ;CHECK-NOT: DO i1 =
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRLoopDistributionForMemRec
+
 ; ModuleID = 'hmm_bad.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

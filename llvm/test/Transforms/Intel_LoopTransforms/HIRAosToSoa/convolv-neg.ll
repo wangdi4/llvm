@@ -1,5 +1,7 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-aos-to-soa,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-aos-to-soa" -print-changed < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
+
 ; Aos-to-Soa doesn't kick in because subscripts do not have all IV, i2 throug i4 in
 ; <54>               |   |   |   |   %conv26 = uitofp.i16.double((%p)[(-1 + %1 + %0) * i3 + i4].0);
 ; TODO: Consider to make Aos-to-Soa this loop since i4, the iv of the innermost loop, is unit-strided.
@@ -52,6 +54,11 @@
 ;             |   + END LOOP
 ;             + END LOOP
 ;       END REGION
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRAosToSoa
 
 ;Module Before HIR
 ; ModuleID = 'convolv-two.c'

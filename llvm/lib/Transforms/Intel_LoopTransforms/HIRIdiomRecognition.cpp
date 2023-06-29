@@ -870,15 +870,16 @@ bool HIRIdiomRecognition::run() {
   }
 
   LLVM_DEBUG(dbgs() << "\n");
-  return false;
+  return !NodesToInvalidate.empty();
 }
 
 PreservedAnalyses HIRIdiomRecognitionPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  HIRIdiomRecognition(HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(F),
-                      AM.getResult<HIRDDAnalysisPass>(F),
-                      AM.getResult<TargetLibraryAnalysis>(F))
-      .run();
+  ModifiedHIR =
+      HIRIdiomRecognition(HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(F),
+                          AM.getResult<HIRDDAnalysisPass>(F),
+                          AM.getResult<TargetLibraryAnalysis>(F))
+          .run();
   return PreservedAnalyses::all();
 }
 

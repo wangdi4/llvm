@@ -1,4 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-opt-var-predicate,print<hir>" -aa-pipeline="basic-aa" -S -disable-output  < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-opt-var-predicate" -print-changed -disable-output  < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; Source code:
 ;
@@ -61,6 +62,12 @@
 ;OPTREPORT: LOOP BEGIN
 ;OPTREPORT: <Predicate Optimized v2>
 ;OPTREPORT: LOOP END
+
+; Verify that pass is dumped with print-changed when it triggers.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIROptVarPredicate
 
 ;Module Before HIR; ModuleID = 'iv-eq.c'
 source_filename = "iv-eq.c"

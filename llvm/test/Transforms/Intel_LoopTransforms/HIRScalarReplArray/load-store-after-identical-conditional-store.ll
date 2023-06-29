@@ -1,4 +1,6 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-scalarrepl-array" -print-before=hir-scalarrepl-array -print-after=hir-scalarrepl-array -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-scalarrepl-array" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-independent-scalar-repl" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; Verify that we give up on the loop-independant group which starts with a
 ; conditional store as it will result in undefined scalar-replaced temp
@@ -28,6 +30,12 @@
 ; CHECK: |   (@A)[0][i1] = %ld + 5;
 ; CHECK: + END LOOP
 
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRScalarReplArray
+; CHECK-CHANGED-NOT: Dump After HIRLoopIndependentScalarRepl
 
 @A = dso_local local_unnamed_addr global [100 x i32] zeroinitializer, align 16
 

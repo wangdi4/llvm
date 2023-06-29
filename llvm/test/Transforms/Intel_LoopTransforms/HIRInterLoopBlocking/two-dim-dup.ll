@@ -1,4 +1,5 @@
 ; RUN: opt -hir-inter-loop-blocking-force-test -disable-hir-inter-loop-blocking=false -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-inter-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -hir-inter-loop-blocking-stripmine-size=2 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-inter-loop-blocking-force-test -disable-hir-inter-loop-blocking=false -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-inter-loop-blocking" -print-changed -hir-inter-loop-blocking-stripmine-size=2 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; Notice that in input, i2-loop is a common ancestor of two i3-loops. Also, i2 & i3 loops are spatial loops. Verify that i3-loop is processed once and two-level by-strip loopnests are introduced.
 ; TODO: This test corrently testing the capability of the transformation only.
@@ -68,6 +69,12 @@
 ; CHECK:               DO i5 = 0, -1 * %lb_max + %ub_min, 1   <DO_LOOP>
 ; CHECK:               DO i5 = 0, -1 * %lb_max7 + %ub_min8, 1   <DO_LOOP>
 
+
+; Verify that pass is dumped with print-changed when it triggers.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRInterLoopBlocking
 
 
 ;Module Before HIR

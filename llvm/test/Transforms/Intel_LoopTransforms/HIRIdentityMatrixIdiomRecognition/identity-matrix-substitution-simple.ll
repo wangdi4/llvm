@@ -1,5 +1,7 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll,print<hir>,hir-identity-matrix-substitution,print<hir>" -hir-create-function-level-region -enable-identity-matrix-substitution -aa-pipeline="basic-aa" -disable-output %s 2>&1 | FileCheck %s
 
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-pre-vec-complete-unroll,hir-identity-matrix-substitution" -hir-create-function-level-region -enable-identity-matrix-substitution -print-changed -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
+
 ; Verify that we can find the identity matrix definition in first loop, and
 ; substitute the uses in the next loop with constant values.
 ; Source of bwaves example, without unrolling:
@@ -57,6 +59,10 @@
 ; CHECK-COUNT-1: %11 = 1.000000e+00;
 ; CHECK-NOT: %11 = (%ident)
 
+; Verify that pass is dumped with print-changed when it triggers.
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRIdentityMatrixSubstitution
 
 ;Module Before HIR
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

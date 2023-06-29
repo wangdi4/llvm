@@ -1,5 +1,8 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-cond-ldst-motion,print<hir>" -aa-pipeline="basic-aa"  < %s -disable-output 2>&1 | FileCheck %s
 
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-cond-ldst-motion" -print-changed < %s -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
+
+
 ; This test checks that HIRConditionalLoadStoreMotion will *not* hoist/sink
 ; simple possibly-aliased loads and stores from an HLIf.
 
@@ -42,6 +45,13 @@
 ; CHECK:       |   %sum = %sum  +  %retval;
 ; CHECK:       + END LOOP
 ; CHECK: END REGION
+
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRConditionalLoadStoreMotion
+
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

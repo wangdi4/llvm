@@ -998,11 +998,11 @@ bool HIRPrefetching::run() {
 PreservedAnalyses HIRPrefetchingPass::runImpl(llvm::Function &F,
                                               llvm::FunctionAnalysisManager &AM,
                                               HIRFramework &HIRF) {
-  HIRPrefetching(HIRF, AM.getResult<HIRLoopLocalityAnalysis>(F),
-                 AM.getResult<HIRDDAnalysisPass>(F),
-                 AM.getResult<HIRLoopResourceAnalysis>(F),
-                 AM.getResult<TargetIRAnalysis>(F))
-      .run();
+  ModifiedHIR = HIRPrefetching(HIRF, AM.getResult<HIRLoopLocalityAnalysis>(F),
+                               AM.getResult<HIRDDAnalysisPass>(F),
+                               AM.getResult<HIRLoopResourceAnalysis>(F),
+                               AM.getResult<TargetIRAnalysis>(F))
+                    .run();
   return PreservedAnalyses::all();
 }
 

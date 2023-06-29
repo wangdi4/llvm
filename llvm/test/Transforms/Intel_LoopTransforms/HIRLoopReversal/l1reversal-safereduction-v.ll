@@ -31,21 +31,12 @@
 ; return s;
 ;}
 ;
-; ===-----------------------------------===
-; *** Run0: BEFORE HIR Loop Reversal ***
-; ===-----------------------------------===
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-reversal" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=BEFORE
 ;
-;
-; ===-----------------------------------===
-; *** Run1: AFTER HIR Loop Reversal ***
-; ===-----------------------------------===
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=AFTER
 ;
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-reversal" -print-changed -disable-output 2>&1 < %s  | FileCheck %s -check-prefix=CHECK-CHANGED
 ;
-; === -------------------------------------- ===
-; *** Tests0: W/O HIR Loop Reversal Output ***
-; === -------------------------------------- ===
 ; Expected output before Loop Reversal
 ;
 ; BEFORE:  BEGIN REGION { }
@@ -56,9 +47,6 @@
 ; BEFORE   END REGION
 ;
 ;
-; === -------------------------------------- ===
-; *** Tests1: With HIR Loop Reversal Output ***
-; === -------------------------------------- ===
 ;
 ; Expected HIR output after Loop-Reversal is enabled:
 ;
@@ -69,11 +57,13 @@
 ; AFTER:         + END LOOP
 ; AFTER:   END REGION
 ;
-;
-; === ---------------------------------------------------------------- ===
-; Following is the LLVM's input code!
-; === ---------------------------------------------------------------- ===
-;
+
+; Verify that pass is dumped with print-changed when it triggers.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRLoopReversal
+
 source_filename = "t.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

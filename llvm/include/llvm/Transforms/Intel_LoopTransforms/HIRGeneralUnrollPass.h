@@ -23,9 +23,7 @@ class HIRGeneralUnrollPass : public HIRPassInfoMixin<HIRGeneralUnrollPass> {
 
 public:
   HIRGeneralUnrollPass(bool PragmaOnlyUnroll = false)
-      : PragmaOnlyUnroll(PragmaOnlyUnroll) {
-    ModifiedHIR = false;
-  }
+      : PragmaOnlyUnroll(PragmaOnlyUnroll) {}
 
   static constexpr auto PassName = "hir-general-unroll";
   PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,

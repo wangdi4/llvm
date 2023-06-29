@@ -1,4 +1,6 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-lower-small-memset-memcpy,print<hir>" -hir-create-function-level-region -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-lower-small-memset-memcpy" -hir-create-function-level-region -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
+
 
 ; The test checks that memcpy intrinsic got recognized by HIR Lower Small Memset/Memcpy pass.
 
@@ -15,6 +17,13 @@
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION
 
+; Verify that pass is dumped with print-changed when it triggers.
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRLowerSmallMemsetMemcpy
 
 %struct1 = type { %struct2 }
 %struct2 = type { [5 x i32] }

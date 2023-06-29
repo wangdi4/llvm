@@ -2,6 +2,7 @@
 
 ; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-aos-to-soa,print<hir>" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s
 
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-aos-to-soa" -print-changed < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; Check if array of structures are copied into temp arrays and later read from temp arrays.
 ; Temp arrays are allocated with alloca.
@@ -44,7 +45,10 @@
 ; CHECK: @llvm.stackrestore(&(([[ADDR]])[0]));
 ; CHECK: END LOOP
 
+; Verify that pass is dumped with print-changed when it triggers.
 
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRAosToSoa
 
 ; *** IR Dump Before HIR AOS to SOA ***
 ; Function: foo

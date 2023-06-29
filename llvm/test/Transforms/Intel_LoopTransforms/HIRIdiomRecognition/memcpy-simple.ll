@@ -2,6 +2,8 @@
 
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-idiom,print<hir>,hir-cg" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-idiom" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
+
 ; HIR:
 ;           BEGIN REGION { }
 ; <14>            + DO i1 = 0, %n + -1, 1   <DO_LOOP>
@@ -28,6 +30,12 @@
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT-NEXT: <Multiversioned v2>
 ; OPTREPORT-NEXT: LOOP END
+
+; Verify that pass is dumped with print-changed when it triggers.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRIdiomRecognition
 
 ;Module Before HIR; ModuleID = 'memcpy.c'
 source_filename = "memcpy.c"

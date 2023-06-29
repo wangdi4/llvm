@@ -1,4 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-reroll" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; Rerolls with IVs and Blobs in the right pattern
 
@@ -36,6 +37,12 @@
 ; NOREROLL:           |   (@B)[0][4 * i1 + 3] = 4 * i1 + ((2 + %n) * %n) + 3;
 ; NOREROLL:           + END LOOP
 ; NOREROLL:     END REGION
+
+; Verify that pass is dumped with print-changed when it triggers.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRLoopReroll
 
 ;Module Before HIR; ModuleID = 'blob-no-pattern.c'
 source_filename = "blob-no-pattern.c"

@@ -1,4 +1,6 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching" -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
+
 ;
 ; Source code
 ;void *  sub(float *A, float *B, float *C,  int N) {
@@ -44,7 +46,13 @@
 ;
 ; CHECK:           ret &((undef)[0]);
 ; CHECK:     END REGION
-;
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRPrefetching
+
 ;Module Before HIR
 ; ModuleID = 't1.c'
 source_filename = "t1.c"
