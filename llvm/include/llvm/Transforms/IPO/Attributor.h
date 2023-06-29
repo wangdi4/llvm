@@ -133,6 +133,7 @@
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/AbstractCallSite.h"
+#include "llvm/IR/Attributes.h"
 #include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/InstIterator.h"
@@ -145,6 +146,7 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/DOTGraphTraits.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/ModRef.h"
 #include "llvm/Support/TimeProfiler.h"
 #include "llvm/TargetParser/Triple.h"
 #include "llvm/Transforms/Utils/CallGraphUpdater.h"
@@ -1563,7 +1565,7 @@ struct Attributor {
   /// attribute is used for reasoning. To record the dependences explicitly use
   /// the `Attributor::recordDependence` method.
   template <typename AAType>
-  const AAType &getAAFor(const AbstractAttribute &QueryingAA,
+  const AAType *getAAFor(const AbstractAttribute &QueryingAA,
                          const IRPosition &IRP, DepClassTy DepClass) {
     return getOrCreateAAFor<AAType>(IRP, &QueryingAA, DepClass,
                                     /* ForceUpdate */ false);
@@ -1575,7 +1577,7 @@ struct Attributor {
   /// possible/useful that were not happening before as the abstract attribute
   /// was assumed dead.
   template <typename AAType>
-  const AAType &getAndUpdateAAFor(const AbstractAttribute &QueryingAA,
+  const AAType *getAndUpdateAAFor(const AbstractAttribute &QueryingAA,
                                   const IRPosition &IRP, DepClassTy DepClass) {
     return getOrCreateAAFor<AAType>(IRP, &QueryingAA, DepClass,
                                     /* ForceUpdate */ true);
@@ -1587,7 +1589,7 @@ struct Attributor {
   /// function.
   /// NOTE: ForceUpdate is ignored in any stage other than the update stage.
   template <typename AAType>
-  const AAType &getOrCreateAAFor(IRPosition IRP,
+  const AAType *getOrCreateAAFor(IRPosition IRP,
                                  const AbstractAttribute *QueryingAA,
                                  DepClassTy DepClass, bool ForceUpdate = false,
                                  bool UpdateAfterInit = true) {
@@ -1598,7 +1600,7 @@ struct Attributor {
                                             /* AllowInvalidState */ true)) {
       if (ForceUpdate && Phase == AttributorPhase::UPDATE)
         updateAA(*AAPtr);
-      return *AAPtr;
+      return AAPtr;
     }
 
     // No matching attribute found, create one.
@@ -1612,7 +1614,7 @@ struct Attributor {
     // If we are currenty seeding attributes, enforce seeding rules.
     if (Phase == AttributorPhase::SEEDING && !shouldSeedAttribute(AA)) {
       AA.getState().indicatePessimisticFixpoint();
-      return AA;
+      return &AA;
     }
 
     // For now we ignore naked and optnone functions.
@@ -1634,11 +1636,14 @@ struct Attributor {
     // Allowed we will not perform updates at all.
     if (Invalidate) {
       AA.getState().indicatePessimisticFixpoint();
-      return AA;
+      return &AA;
     }
 
     {
-      TimeTraceScope TimeScope(AA.getName() + "::initialize");
+      TimeTraceScope TimeScope("initialize", [&]() {
+        return AA.getName() +
+               std::to_string(AA.getIRPosition().getPositionKind());
+      });
       ++InitializationChainLength;
       AA.initialize(*this);
       --InitializationChainLength;
@@ -1649,7 +1654,7 @@ struct Attributor {
     if ((AnchorFn && !isRunOn(const_cast<Function *>(AnchorFn))) &&
         !isRunOn(IRP.getAssociatedFunction())) {
       AA.getState().indicatePessimisticFixpoint();
-      return AA;
+      return &AA;
     }
 
     // If this is queried in the manifest stage, we force the AA to indicate
@@ -1657,7 +1662,7 @@ struct Attributor {
     if (Phase == AttributorPhase::MANIFEST ||
         Phase == AttributorPhase::CLEANUP) {
       AA.getState().indicatePessimisticFixpoint();
-      return AA;
+      return &AA;
     }
 
     // Allow seeded attributes to declare dependencies.
@@ -1674,10 +1679,11 @@ struct Attributor {
     if (QueryingAA && AA.getState().isValidState())
       recordDependence(AA, const_cast<AbstractAttribute &>(*QueryingAA),
                        DepClass);
-    return AA;
+    return &AA;
   }
+
   template <typename AAType>
-  const AAType &getOrCreateAAFor(const IRPosition &IRP) {
+  const AAType *getOrCreateAAFor(const IRPosition &IRP) {
     return getOrCreateAAFor<AAType>(IRP, /* QueryingAA */ nullptr,
                                     DepClassTy::NONE);
   }
@@ -2661,12 +2667,12 @@ struct BitIntegerState
   BitIntegerState(base_t Assumed) : super(Assumed) {}
 
   /// Return true if the bits set in \p BitsEncoding are "known bits".
-  bool isKnown(base_t BitsEncoding) const {
+  bool isKnown(base_t BitsEncoding = BestState) const {
     return (this->Known & BitsEncoding) == BitsEncoding;
   }
 
   /// Return true if the bits set in \p BitsEncoding are "assumed bits".
-  bool isAssumed(base_t BitsEncoding) const {
+  bool isAssumed(base_t BitsEncoding = BestState) const {
     return (this->Assumed & BitsEncoding) == BitsEncoding;
   }
 
@@ -3107,12 +3113,18 @@ template <Attribute::AttrKind AK, typename BaseType>
 struct IRAttribute : public BaseType {
   IRAttribute(const IRPosition &IRP) : BaseType(IRP) {}
 
+  static bool isImpliedByIR(Attributor &A, const IRPosition &IRP,
+                            ArrayRef<Attribute::AttrKind> AttrKinds,
+                            bool IgnoreSubsumingPositions = false) {
+    if (isa<UndefValue>(IRP.getAssociatedValue()))
+      return true;
+    return IRP.hasAttr(AttrKinds, IgnoreSubsumingPositions, &A);
+  }
+
   /// See AbstractAttribute::initialize(...).
   void initialize(Attributor &A) override {
     const IRPosition &IRP = this->getIRPosition();
-    if (isa<UndefValue>(IRP.getAssociatedValue()) ||
-        this->hasAttr(getAttrKind(), /* IgnoreSubsumingPositions */ false,
-                      &A)) {
+    if (isImpliedByIR(A, IRP, getAttrKind())) {
       this->getState().indicateOptimisticFixpoint();
       return;
     }
@@ -3545,6 +3557,33 @@ struct AAWillReturn
     : public IRAttribute<Attribute::WillReturn,
                          StateWrapper<BooleanState, AbstractAttribute>> {
   AAWillReturn(const IRPosition &IRP, Attributor &A) : IRAttribute(IRP) {}
+
+  static bool isImpliedByIR(Attributor &A, const IRPosition &IRP,
+                            ArrayRef<Attribute::AttrKind> AttrKinds,
+                            bool IgnoreSubsumingPositions = false) {
+    if (IRAttribute::isImpliedByIR(A, IRP, AttrKinds, IgnoreSubsumingPositions))
+      return true;
+    return isImpliedByMustprogressAndReadonly(A, IRP, /* KnownOnly */ true);
+  }
+
+  /// Check for `mustprogress` and `readonly` as they imply `willreturn`.
+  static bool isImpliedByMustprogressAndReadonly(Attributor &A,
+                                                 const IRPosition &IRP,
+                                                 bool KnownOnly) {
+    // Check for `mustprogress` in the scope and the associated function which
+    // might be different if this is a call site.
+    if (!IRAttribute::isImpliedByIR(A, IRP, {Attribute::MustProgress}))
+      return false;
+
+    SmallVector<Attribute, 1> Attrs;
+    IRP.getAttrs({Attribute::Memory}, Attrs,
+                 /* IgnoreSubsumingPositions */ false);
+
+    MemoryEffects ME = MemoryEffects::unknown();
+    for (const Attribute &Attr : Attrs)
+      ME &= Attr.getMemoryEffects();
+    return ME.onlyReadsMemory();
+  }
 
   /// Return true if "willreturn" is assumed.
   bool isAssumedWillReturn() const { return getAssumed(); }
@@ -5766,6 +5805,38 @@ enum AttributorRunOption {
   CGSCC = 1 << 1,
   ALL = MODULE | CGSCC
 };
+
+namespace AA {
+/// Helper to avoid creating an AA for IR Attributes that might already be set.
+template <Attribute::AttrKind AK>
+bool hasAssumedIRAttr(Attributor &A, const AbstractAttribute &QueryingAA,
+                      const IRPosition &IRP, DepClassTy DepClass, bool &IsKnown,
+                      bool IgnoreSubsumingPositions = false) {
+  switch (AK) {
+#define CASE(ATTRNAME, AANAME)                                                 \
+  case Attribute::ATTRNAME: {                                                  \
+    if (AANAME::isImpliedByIR(A, IRP, {AK}, IgnoreSubsumingPositions))         \
+      return IsKnown = true;                                                   \
+    const auto *AA = A.getAAFor<AANAME>(QueryingAA, IRP, DepClass);            \
+    if (!AA || !AA->isAssumed())                                               \
+      return false;                                                            \
+    IsKnown = AA->isKnown();                                                   \
+    return true;                                                               \
+  }
+    CASE(NoUnwind, AANoUnwind);
+    CASE(WillReturn, AAWillReturn);
+    CASE(NoFree, AANoFree);
+    CASE(NoCapture, AANoCapture);
+    CASE(NoRecurse, AANoRecurse);
+    CASE(NoSync, AANoSync);
+    CASE(NoAlias, AANoAlias);
+    CASE(MustProgress, AAMustProgress);
+#undef CASE
+  default:
+    llvm_unreachable("hasAssumedIRAttr not available for this attribute kind");
+  };
+}
+} // namespace AA
 
 } // end namespace llvm
 
