@@ -54,7 +54,6 @@ class PHINode;
 class SelectInst;
 class SubscriptInst; // INTEL
 class TargetLibraryInfo;
-class PhiValues;
 class Value;
 
 /// This is the AA result object for the basic, local, and stateless alias
