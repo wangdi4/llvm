@@ -279,8 +279,11 @@ MODULE_PASS("elim-avail-extern", EliminateAvailableExternallyPass())
 MODULE_PASS("extract-blocks", BlockExtractorPass({}, false))
 MODULE_PASS("forceattrs", ForceFunctionAttrsPass())
 MODULE_PASS("function-import", FunctionImportPass())
+<<<<<<< HEAD
 MODULE_PASS("function-splitting", FunctionSplittingPass()) // INTEL
 MODULE_PASS("globaldce", GlobalDCEPass())
+=======
+>>>>>>> 200cc952a28a73687ba24d5334415df6332f2d5b
 MODULE_PASS("globalopt", GlobalOptPass())
 MODULE_PASS("globalsplit", GlobalSplitPass())
 MODULE_PASS("hotcoldsplit", HotColdSplittingPass())
@@ -442,6 +445,13 @@ MODULE_PASS_WITH_PARAMS("loop-extract",
                         },
                         parseLoopExtractorPassOptions,
                         "single")
+MODULE_PASS_WITH_PARAMS("globaldce",
+                        "GlobalDCEPass",
+                        [](bool InLTOPostLink) {
+                          return GlobalDCEPass(InLTOPostLink);
+                        },
+                        parseGlobalDCEPassOptions,
+                        "in-lto-post-link")
 MODULE_PASS_WITH_PARAMS("hwasan",
                         "HWAddressSanitizerPass",
                         [](HWAddressSanitizerOptions Opts) {
