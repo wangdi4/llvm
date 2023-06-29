@@ -236,9 +236,7 @@ void ProfiledBinary::load() {
   auto *Obj = cast<ObjectFile>(&ExeBinary);
 #endif // INTEL_CUSTOMIZATION
   TheTriple = Obj->makeTriple();
-  // Current only support X86
-  if (!TheTriple.isX86())
-    exitWithError("unsupported target", TheTriple.getTriple());
+
   LLVM_DEBUG(dbgs() << "Loading " << Path << "\n");
 
   // Find the preferred load address for text sections.
