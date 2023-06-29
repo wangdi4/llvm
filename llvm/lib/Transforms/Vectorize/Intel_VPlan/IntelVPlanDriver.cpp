@@ -1435,7 +1435,7 @@ INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DemandedBitsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(LoopAccessLegacyAnalysis)
+//INITIALIZE_PASS_DEPENDENCY(LoopAccessLegacyAnalysis)
 INITIALIZE_PASS_DEPENDENCY(OptimizationRemarkEmitterWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 
@@ -1475,7 +1475,7 @@ void VPlanDriver::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.addRequired<AAResultsWrapperPass>();
   AU.addRequired<DemandedBitsWrapperPass>();
-  AU.addRequired<LoopAccessLegacyAnalysis>();
+//  AU.addRequired<LoopAccessLegacyAnalysis>();
   AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
   AU.addRequired<OptReportOptionsPass>();
   AU.addRequired<BlockFrequencyInfoWrapperPass>();
@@ -1517,14 +1517,14 @@ bool VPlanDriver::runOnFunction(Function &Fn) {
   auto AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
   auto DB = &getAnalysis<DemandedBitsWrapperPass>().getDemandedBits();
   auto ORE = &getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
-  auto LAIs = &getAnalysis<LoopAccessLegacyAnalysis>().getLAIs();
+//  auto LAIs = &getAnalysis<LoopAccessLegacyAnalysis>().getLAIs();
   auto Verbosity = getAnalysis<OptReportOptionsPass>().getVerbosity();
   auto TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn);
   auto TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(Fn);
   auto WR = &getAnalysis<WRegionInfoWrapperPass>().getWRegionInfo();
   auto *BFI = &getAnalysis<BlockFrequencyInfoWrapperPass>().getBFI();
 
-  return Impl.runImpl(Fn, LI, SE, DT, AC, AA, DB, LAIs, ORE, Verbosity, WR,
+  return Impl.runImpl(Fn, LI, SE, DT, AC, AA, DB, nullptr, ORE, Verbosity, WR,
                       TTI, TLI, BFI, nullptr, FatalErrorHandler);
 }
 
@@ -2241,6 +2241,9 @@ template <>
 bool VPlanDriverImpl::isVPlanCandidate<llvm::Loop>(Function &Fn, Loop *Lp) {
   // Only consider inner loops
   if (!Lp->isInnermost())
+    return false;
+
+  if (!LAIs)
     return false;
 
   PredicatedScalarEvolution PSE(*SE, *Lp);
