@@ -1,4 +1,5 @@
 ; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-mv-variable-stride,print<hir>" -hir-details-dims <%s 2>&1 | FileCheck %s -check-prefix=ORIG
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-mv-variable-stride" -print-changed -disable-output <%s 2>&1 | FileCheck %s -check-prefix=CHECK-CHANGED
 
 ; Test checks that HIR Multiversioning for Variable Stride doesn't happen when there is a function call in the loop.
 
@@ -43,6 +44,11 @@
 ; OPT:                + END LOOP
 ; OPT:             }
 
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRMVForVariableStride
 
 ; Function Attrs: norecurse nounwind uwtable
 define dso_local void @foo(i8* nocapture %A, i8* nocapture readonly %B, i64 %k, i64 %l, i64 %m, i64 %n, i64 %x, i64 %y) local_unnamed_addr {

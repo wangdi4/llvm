@@ -1,4 +1,5 @@
 ; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-mv-variable-stride,print<hir>" -hir-details-dims -aa-pipeline="basic-aa" -hir-print-only=0 < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-mv-variable-stride" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; Check if loops with memrefs having variable strides are multiversioned.
 ; Also, it checks outermost loop possible is MVed.
@@ -37,6 +38,13 @@
 ; CHECK:              }
 ; CHECK:        END REGION
 
+; Verify that pass is dumped with print-changed when it triggers.
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRMVForVariableStride
 
 ;Module Before HIR
 ; ModuleID = 'step2d.f90'

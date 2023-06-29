@@ -406,6 +406,7 @@ bool HIRLoopReversal::run() {
   // Re-Build DDA on demand if needed
 
   OptReportBuilder &ORBuilder = HIRF.getORBuilder();
+  bool Modified = false;
 
   for (auto &Lp : CandidateLoops) {
 
@@ -424,10 +425,12 @@ bool HIRLoopReversal::run() {
     // ID: 25579u, remark string: Loop was reversed
     ORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
                              OptRemarkID::LoopReversed);
+
+    Modified = true;
   }
 
   CandidateLoops.clear();
-  return false;
+  return Modified;
 }
 
 /// \brief Do Quick Preliminary Checks on the given loop and decide whether
@@ -747,10 +750,10 @@ void HIRLoopReversal::clearWorkingSetMemory(void) { MCEAV.clear(); }
 
 PreservedAnalyses HIRLoopReversalPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  HIRLoopReversal(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-                  AM.getResult<HIRLoopStatisticsAnalysis>(F),
-                  AM.getResult<HIRSafeReductionAnalysisPass>(F))
-      .run();
+  ModifiedHIR = HIRLoopReversal(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                                AM.getResult<HIRLoopStatisticsAnalysis>(F),
+                                AM.getResult<HIRSafeReductionAnalysisPass>(F))
+                    .run();
 
   return PreservedAnalyses::all();
 }

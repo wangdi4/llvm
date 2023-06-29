@@ -2,6 +2,8 @@
 ; RUN: opt -hir-create-function-level-region -passes="hir-ssa-deconstruction,require<hir-loop-statistics>,hir-cross-loop-array-contraction,print<hir>,hir-cg" -force-hir-cg -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s --check-prefix=NOLIBIRC
 
 
+; RUN: opt -intel-libirc-allowed -hir-create-function-level-region -passes="hir-ssa-deconstruction,hir-temp-cleanup,require<hir-loop-statistics>,hir-cross-loop-array-contraction" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
+
 ; + DO i1 = 0, 99, 1   <DO_LOOP>
 ; |   + DO i2 = 0, 99, 1   <DO_LOOP>
 ; |   |   + DO i3 = 0, 99, 1   <DO_LOOP>
@@ -114,6 +116,11 @@
 ; Verify that transformation is not triggered without libIRC.
 
 ; NOLIBIRC-NOT: modified
+
+; Verify that pass is dumped with print-changed when it triggers.
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRCrossLoopArrayContraction
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

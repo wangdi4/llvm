@@ -1071,7 +1071,7 @@ void HIRArrayTranspose::performTranspose() {
 
 PreservedAnalyses HIRArrayTransposePass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  HIRArrayTranspose(HIRF).run();
+  ModifiedHIR = HIRArrayTranspose(HIRF).run();
   return PreservedAnalyses::all();
 }
 

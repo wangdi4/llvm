@@ -1,4 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-lmm,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-lmm" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 ;
 ; Suppress the case when the load is after goto.
 ; C Source Code:
@@ -32,7 +33,14 @@
 ;*** IR Dump After HIR Loop Memory Motion ***
 ;
 ; CHECK-NOT:  BEGIN REGION { modified }
-;
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRLMM
+
+
 ; ModuleID = 'new.ll'
 source_filename = "new.ll"
 

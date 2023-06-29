@@ -1,4 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-rematerialize,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-rematerialize" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ;void mul_transposed_m3_v3(float mat[3][3], float vec[3])
 ;{
@@ -121,6 +122,12 @@
 
 ; Rematerialization Inhibiting edge:
 ; 15:30 (%vec)[2] --> (%vec)[1] ANTI (=) (0)
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRLoopRematerialize
 
 ;Module Before HIR
 ; ModuleID = 'dependency.c'

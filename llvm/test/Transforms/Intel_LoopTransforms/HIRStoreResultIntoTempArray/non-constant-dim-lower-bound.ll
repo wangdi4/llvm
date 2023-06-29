@@ -2,6 +2,7 @@
 ; (%"jacobian_$Q")[i1+2][%mod][%mod27] has dim lower bound [%sext:%mod:40 * sext.i32.i64(%"jacobian_$NX_fetch")(double*:0)]
 ;
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array" -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
 ;
 ; *** IR Dump After HIR Store Result Into Temp Array ***
 ;Function: jacobian_
@@ -42,7 +43,13 @@
 ;<0>          END REGION
 ;
 ; CHECK-NOT:  modified
-;
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRStoreResultIntoTempArray
+
 ;Module Before HIR
 ; ModuleID = 'j.f90'
 source_filename = "j.f90"

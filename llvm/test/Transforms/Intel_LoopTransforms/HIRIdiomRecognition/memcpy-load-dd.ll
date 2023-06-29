@@ -1,6 +1,7 @@
 ; Check that DD in load prevents idiom hoisting
 
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-idiom,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-idiom" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; HIR:
 ; + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>
@@ -10,6 +11,12 @@
 
 ; CHECK: Function
 ; CHECK-NOT: memcpy
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRIdiomRecognition
 
 ;Module Before HIR; ModuleID = 'memcopy-load-dd.c'
 source_filename = "memcopy-load-dd.c"

@@ -2,6 +2,8 @@
 ;
 ; RUN: opt -opaque-pointers -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,print<hir-framework>,hir-dead-store-elimination,print<hir-framework>" 2>&1 < %s | FileCheck %s
 ;
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-dead-store-elimination" -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
+
 ; C Source Code:
 ;int A[50];
 ;int B[50];
@@ -60,6 +62,13 @@
 ; OPTREPORT:    LOOP END
 ; OPTREPORT:  LOOP END
 ;
+
+; Verify that pass is dumped with print-changed when it triggers.
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRDeadStoreElimination
+
+
 ;Module Before HIR; ModuleID = 'simple.c'
 source_filename = "simple.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

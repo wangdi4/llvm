@@ -166,6 +166,8 @@ bool HIRIfReversal::run() {
     return false;
   }
 
+  bool Modified = false;
+
   for (auto &Lp : InnermostLoops) {
     SmallSet<HLIf *, 2> IfSet;
     if (!findProfitableCandidates(Lp, IfSet)) {
@@ -179,20 +181,21 @@ bool HIRIfReversal::run() {
       If->invertPredAndReverse();
     }
 
+    Modified = true;
     // Preserve statistics and reduction analysis
     HIRInvalidationUtils::invalidateBody<HIRLoopStatistics,
                                          HIRSafeReductionAnalysis>(Lp);
   }
 
-  return false;
+  return Modified;
 }
 
 PreservedAnalyses HIRIfReversalPass::runImpl(llvm::Function &F,
                                              llvm::FunctionAnalysisManager &AM,
                                              HIRFramework &HIRF) {
-  HIRIfReversal(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-                AM.getResult<HIRLoopStatisticsAnalysis>(F))
-      .run();
+  ModifiedHIR = HIRIfReversal(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                              AM.getResult<HIRLoopStatisticsAnalysis>(F))
+                    .run();
 
   return PreservedAnalyses::all();
 }

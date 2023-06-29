@@ -1577,7 +1577,7 @@ LLVM_DUMP_METHOD void HIRLoopCollapse::printTCArry(void) const {
 PreservedAnalyses HIRLoopCollapsePass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
 
-  HIRLoopCollapse(HIRF, AM.getResult<HIRDDAnalysisPass>(F)).run();
+  ModifiedHIR = HIRLoopCollapse(HIRF, AM.getResult<HIRDDAnalysisPass>(F)).run();
   return PreservedAnalyses::all();
 }
 

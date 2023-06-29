@@ -2,6 +2,8 @@
 
 ; RUN: opt < %s -opaque-pointers -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-multi-exit-loop-reroll,print<hir>" -xmain-opt-level=3 2>&1 | FileCheck %s
 
+; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-multi-exit-loop-reroll" -xmain-opt-level=3 -print-changed -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
+
 ; Verify that multi-exit loop reroll pass triggers on this loop.
 
 ; HIR-
@@ -46,6 +48,10 @@
 ; OPTREPORT:    remark #25264: Loop rerolled by 4
 ; OPTREPORT: LOOP END
 
+; Verify that pass is dumped with print-changed when it triggers.
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRMultiExitLoopReroll
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

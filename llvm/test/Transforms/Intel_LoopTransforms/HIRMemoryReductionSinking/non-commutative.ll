@@ -1,4 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-memory-reduction-sinking,print<hir>" 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-memory-reduction-sinking" -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; This test checks that the memory reduction sinking wasn't applied since
 ; the operation is a subtraction, which is not commutative.
@@ -21,6 +22,12 @@
 ; CHECK: |   %add.7 = (%B)[i1 + 1]  -  (%A)[%m];
 ; CHECK: |   (%A)[%m] = %add.7;
 ; CHECK: + END LOOP
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRMemoryReductionSinking
 
 ;Module Before HIR
 ; ModuleID = 'special.f90'

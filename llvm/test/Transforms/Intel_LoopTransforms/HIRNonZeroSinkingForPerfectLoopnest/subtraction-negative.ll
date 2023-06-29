@@ -1,6 +1,8 @@
 ; The transformation cannot be trigger, because %mul cannot be the minuend.
 ;
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-non-zero-sinking-for-perfect-loopnest,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-non-zero-sinking-for-perfect-loopnest"  -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
+
 ;
 ;*** IR Dump Before HIR Non-Zero Sinking For Perfect Loopnest ***
 ;Function: dgemm_
@@ -40,6 +42,12 @@
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION
 ;
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRNonZeroSinkingForPerfectLoopnest
+
 ;Module Before HIR
 ; ModuleID = 'dgemm.f90'
 source_filename = "dgemm.f90"

@@ -1337,8 +1337,9 @@ bool HIRTempArrayTranspose::runOnRegion(HLRegion &Reg) {
 PreservedAnalyses
 HIRTempArrayTransposePass::runImpl(Function &F, FunctionAnalysisManager &AM,
                                    HIRFramework &HIRF) {
-  HIRTempArrayTranspose(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-                        AM.getResult<HIRLoopStatisticsAnalysis>(F))
-      .run();
+  ModifiedHIR =
+      HIRTempArrayTranspose(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                            AM.getResult<HIRLoopStatisticsAnalysis>(F))
+          .run();
   return PreservedAnalyses::all();
 }

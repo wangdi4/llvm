@@ -468,7 +468,7 @@ HIRSpecialOptPredicatePass::runImpl(Function &F, FunctionAnalysisManager &AM,
   }
 
   LLVM_DEBUG(dbgs() << OPT_DESC " for Function : " << F.getName() << "\n");
-  HIRSpecialOptPredicate(HIRF).run();
+  ModifiedHIR = HIRSpecialOptPredicate(HIRF).run();
 
   return PreservedAnalyses::all();
 }

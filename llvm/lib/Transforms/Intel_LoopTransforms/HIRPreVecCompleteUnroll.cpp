@@ -45,17 +45,18 @@ PreservedAnalyses HIRPreVecCompleteUnrollPass::runImpl(
 #if INTEL_FEATURE_SW_DTRANS
   auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
 #endif // INTEL_FEATURE_SW_DTRANS
-  HIRCompleteUnroll(
-      HIRF, AM.getResult<DominatorTreeAnalysis>(F),
-      AM.getResult<TargetIRAnalysis>(F),
-      AM.getResult<HIRLoopStatisticsAnalysis>(F),
-      AM.getResult<HIRDDAnalysisPass>(F),
-      AM.getResult<HIRSafeReductionAnalysisPass>(F),
+  ModifiedHIR =
+      HIRCompleteUnroll(
+          HIRF, AM.getResult<DominatorTreeAnalysis>(F),
+          AM.getResult<TargetIRAnalysis>(F),
+          AM.getResult<HIRLoopStatisticsAnalysis>(F),
+          AM.getResult<HIRDDAnalysisPass>(F),
+          AM.getResult<HIRSafeReductionAnalysisPass>(F),
 #if INTEL_FEATURE_SW_DTRANS
-      MAMProxy.getCachedResult<DTransImmutableAnalysis>(*F.getParent()),
+          MAMProxy.getCachedResult<DTransImmutableAnalysis>(*F.getParent()),
 #endif // INTEL_FEATURE_SW_DTRANS
-      OptLevel, true, PragmaOnlyUnroll)
-      .run();
+          OptLevel, true, PragmaOnlyUnroll)
+          .run();
 
   return PreservedAnalyses::all();
 }

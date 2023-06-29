@@ -24,6 +24,8 @@
 ;
 ; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" -hir-prefetching-skip-non-modified-regions="false" -hir-prefetching-skip-num-memory-streams-check="true" -hir-prefetching-skip-AVX2-check="true" 2>&1 < %s | FileCheck %s
 ;
+; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching" -hir-prefetching-skip-non-modified-regions="false" -hir-prefetching-skip-num-memory-streams-check="true" -hir-prefetching-skip-AVX2-check="true" 2>&1 -print-changed -disable-output < %s | FileCheck %s --check-prefix=CHECK-CHANGED
+
 ; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,hir-cg,simplifycfg,intel-ir-optreport-emitter" -hir-prefetching-skip-non-modified-regions="false" -hir-prefetching-skip-num-memory-streams-check="true" -hir-prefetching-skip-AVX2-check="true" -intel-opt-report=low -force-hir-cg 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT
 ;
 ;*** IR Dump Before HIR Prefetching ***
@@ -81,7 +83,14 @@
 ; OPTREPORT:     remark #25018: Total number of lines prefetched=6
 ; OPTREPORT:     remark #25019: Number of spatial prefetches=6, default dist=7
 ; OPTREPORT: LOOP END
-;
+
+
+; Verify that pass is dumped with print-changed when it triggers.
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRPrefetching
+
+
 ;Module Before HIR
 ; ModuleID = 't.c'
 source_filename = "t.c"

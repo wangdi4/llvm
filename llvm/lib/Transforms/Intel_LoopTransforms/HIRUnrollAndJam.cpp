@@ -1270,13 +1270,18 @@ bool HIRUnrollAndJam::run() {
 
   Analyzer AY(*this);
 
+  bool Modified = false;
+
   for (auto Loop : OutermostLoops) {
     AY.analyze(Loop);
     unrollCandidates(Loop);
+
+    Modified = Modified || HaveUnrollCandidates;
+
     clearCandidates();
   }
 
-  return false;
+  return Modified;
 }
 
 namespace {
@@ -1945,12 +1950,13 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
 
 PreservedAnalyses HIRUnrollAndJamPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  HIRUnrollAndJam(HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(F),
-                  AM.getResult<HIRLoopResourceAnalysis>(F),
-                  AM.getResult<HIRDDAnalysisPass>(F),
-                  AM.getResult<HIRSafeReductionAnalysisPass>(F),
-                  PragmaOnlyUnroll)
-      .run();
+  ModifiedHIR =
+      HIRUnrollAndJam(HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(F),
+                      AM.getResult<HIRLoopResourceAnalysis>(F),
+                      AM.getResult<HIRDDAnalysisPass>(F),
+                      AM.getResult<HIRSafeReductionAnalysisPass>(F),
+                      PragmaOnlyUnroll)
+          .run();
 
   return PreservedAnalyses::all();
 }

@@ -1429,7 +1429,8 @@ PreservedAnalyses HIRLoopRematerializePass::runImpl(
 
   LLVM_DEBUG(dbgs() << OPT_DESC " for Function : " << F.getName() << "\n");
 
-  HIRLoopRematerialize(HIRF, AM.getResult<HIRDDAnalysisPass>(F)).run();
+  ModifiedHIR =
+      HIRLoopRematerialize(HIRF, AM.getResult<HIRDDAnalysisPass>(F)).run();
 
   return PreservedAnalyses::all();
 }

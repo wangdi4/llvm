@@ -1,4 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-runtime-dd,hir-lmm,hir-min-max-blob-to-select,print<hir>" -aa-pipeline="scoped-noalias-aa" -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-runtime-dd,hir-lmm,hir-min-max-blob-to-select" -aa-pipeline="scoped-noalias-aa" -print-changed -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; This test case checks that smax was not converted into a Select instruction
 ; that represents a max. The reason is because *maxchar is rewriten after
@@ -107,6 +108,12 @@
 ; CHECK:       |   %limm = %1;
 ; CHECK:       + END LOOP
 ; CHECK:          (%maxchar)[0] = %limm;
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRMinMaxBlobToSelect
 
 @mapped = dso_local global [1000 x i32] zeroinitializer, align 16
 

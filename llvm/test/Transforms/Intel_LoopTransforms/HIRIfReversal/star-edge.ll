@@ -1,4 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-if-reversal" -print-after=hir-if-reversal -aa-pipeline="basic-aa" -disable-output 2>&1 < %s  | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-if-reversal" -print-changed -disable-output 2>&1 < %s  | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; Check we do not reverse the if for edges that are not LT (<)
 ; DDEdge Candidate: 17:13 (%"sub_$A")[%"sub_$N_fetch.1"] --> (%"sub_$A")[i1 + 2] ANTI (*) (?)
@@ -16,6 +17,12 @@
 ;            |   }
 ;            + END LOOP
 ;      END REGION
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRIfReversal
 
 define void @sub_(float* noalias nocapture dereferenceable(4) %"sub_$A", float* noalias nocapture dereferenceable(4) %"sub_$B", float* noalias nocapture readonly dereferenceable(4) %"sub_$C", i32* noalias nocapture readonly dereferenceable(4) %"sub_$N") local_unnamed_addr #0 {
 alloca_0:

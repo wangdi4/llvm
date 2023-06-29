@@ -449,7 +449,8 @@ bool HIRLastValueComputation::run() {
 
 PreservedAnalyses HIRLastValueComputationPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  HIRLastValueComputation(HIRF, AM.getResult<HIRDDAnalysisPass>(F)).run();
+  ModifiedHIR =
+      HIRLastValueComputation(HIRF, AM.getResult<HIRDDAnalysisPass>(F)).run();
   return PreservedAnalyses::all();
 }
 

@@ -208,7 +208,9 @@ FunctionPass *llvm::createHIRGenerateMKLCallPass() {
 PreservedAnalyses HIRGenerateMKLCallPass::runImpl(Function &Func,
                                                   FunctionAnalysisManager &AM,
                                                   HIRFramework &HIRF) {
-  HIRGenerateMKLCall(HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(Func)).run();
+  ModifiedHIR =
+      HIRGenerateMKLCall(HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(Func))
+          .run();
   return PreservedAnalyses::all();
 }
 

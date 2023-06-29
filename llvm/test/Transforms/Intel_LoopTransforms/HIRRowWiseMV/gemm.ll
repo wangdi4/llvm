@@ -2,6 +2,8 @@
 ;
 ; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-rowwise-mv,print<hir>" -hir-rowwise-mv-skip-dtrans -disable-output 2>&1 < %s | FileCheck %s
 ;
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-rowwise-mv" -hir-rowwise-mv-skip-dtrans -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
+
 ; This test checks that the row-wise multiversioning transformation generates
 ; the expected code for cases where the temp array is needed.
 
@@ -92,6 +94,14 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       |   + END LOOP
 ; CHECK:       + END LOOP
 ; CHECK: END REGION
+
+; Verify that pass is dumped with print-changed when it triggers.
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRRowWiseMV
 
 define double @gemm(double* %A, double* %B) #0 {
 entry:

@@ -1,4 +1,5 @@
 ; RUN: opt -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-special-opt-predicate' -disable-output -hir-cost-model-throttling=0 -print-after=hir-special-opt-predicate -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-special-opt-predicate' -disable-output -hir-cost-model-throttling=0 -print-changed < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; Check that we recognize the candidate for special opt predicate that looks like
 ;  for (v = (-height/2 to height/2)
@@ -48,6 +49,12 @@
 ; CHECK:     + Ztt: if (%optprd.lower != -1)
 ; CHECK: |   + DO i64 i5 = %optprd.lower, %optprd.upper, 1   <DO_LOOP>
 
+
+; Verify that pass is dumped with print-changed when it triggers.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRSpecialOptPredicate
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -1,4 +1,5 @@
 ; RUN: opt -opaque-pointers=0 -enable-intel-advanced-opts -intel-libirc-allowed -S -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-nontemporal-marking,print<hir>" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -enable-intel-advanced-opts -intel-libirc-allowed -S -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-nontemporal-marking"  -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Do not add an extra SFENCE if the stores were already nontemporal.
@@ -10,6 +11,12 @@ target triple = "x86_64-unknown-linux-gnu"
 ; <4>                |   <LVAL-REG> {al:8}(LINEAR i64* %dest)[LINEAR i64 i1] inbounds  !nontemporal !1 {sb:8}
 ; <10>               + END LOOP
 ; <0>          END REGION
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRNontemporalMarking
+
 
 define void @example(i64* %dest) "target-features"="+avx512f" {
 ; CHECK-LABEL: example

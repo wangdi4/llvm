@@ -1,4 +1,5 @@
 ; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-independent-scalar-repl" -print-before=hir-loop-independent-scalar-repl -print-after=hir-loop-independent-scalar-repl -disable-output 2>&1 | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-independent-scalar-repl" -print-changed -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; Check that we are able to trigger loop independant scalar replacement on the
 ; two groups (%A)[i1] refs and (%A)[i1 + 1] refs separately.
@@ -28,6 +29,11 @@
 ; CHECK: |   (%A)[i1 + 1] = 10;
 ; CHECK: |   %add2 = %1 + 1  +  5;
 ; CHECK: + END LOOP
+
+; Verify that pass is dumped with print-changed when it triggers.
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRLoopIndependentScalarRepl
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

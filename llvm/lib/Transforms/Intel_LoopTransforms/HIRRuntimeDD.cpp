@@ -2373,9 +2373,12 @@ bool HIRRuntimeDD::run() {
   MemoryAliasAnalyzer AliasAnalyzer(*this);
   HIRF.getHLNodeUtils().visitAll(AliasAnalyzer);
 
+  bool Modified = false;
+
   if (AliasAnalyzer.LoopContexts.size() != 0) {
     for (LoopContext &Candidate : AliasAnalyzer.LoopContexts) {
       generateHLNodes(Candidate, TLI);
+      Modified = true;
 
       // Statistics
       ++LoopsMultiversioned;
@@ -2385,18 +2388,18 @@ bool HIRRuntimeDD::run() {
     }
   }
 
-  return true;
+  return Modified;
 }
 
 PreservedAnalyses HIRRuntimeDDPass::runImpl(llvm::Function &F,
                                             llvm::FunctionAnalysisManager &AM,
                                             HIRFramework &HIRF) {
-  HIRRuntimeDD(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-               AM.getResult<HIRLoopStatisticsAnalysis>(F),
-               AM.getResult<TargetLibraryAnalysis>(F),
-               AM.getResult<TargetIRAnalysis>(F),
-               AM.getResult<HIRSafeReductionAnalysisPass>(F))
-      .run();
+  ModifiedHIR = HIRRuntimeDD(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                             AM.getResult<HIRLoopStatisticsAnalysis>(F),
+                             AM.getResult<TargetLibraryAnalysis>(F),
+                             AM.getResult<TargetIRAnalysis>(F),
+                             AM.getResult<HIRSafeReductionAnalysisPass>(F))
+                    .run();
 
   return PreservedAnalyses::all();
 }

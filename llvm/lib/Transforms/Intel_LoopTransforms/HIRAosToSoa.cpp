@@ -879,7 +879,7 @@ bool HIRAosToSoa::run() {
 PreservedAnalyses HIRAosToSoaPass::runImpl(llvm::Function &F,
                                            llvm::FunctionAnalysisManager &AM,
                                            HIRFramework &HIRF) {
-  HIRAosToSoa(HIRF, AM.getResult<HIRDDAnalysisPass>(F)).run();
+  ModifiedHIR = HIRAosToSoa(HIRF, AM.getResult<HIRDDAnalysisPass>(F)).run();
   return PreservedAnalyses::all();
 }
 

@@ -2931,7 +2931,7 @@ bool HIRCompleteUnroll::run() {
   // Process Loop Complete Unrolling
   processCompleteUnroll(OuterLoops);
 
-  return false;
+  return !CandidateLoops.empty();
 }
 
 /// processCompleteUnroll - Main routine to perform unrolling.

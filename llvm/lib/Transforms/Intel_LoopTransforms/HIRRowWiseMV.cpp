@@ -1503,7 +1503,7 @@ PreservedAnalyses HIRRowWiseMVPass::runImpl(Function &F,
   auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
 #endif // INTEL_FEATURE_SW_DTRANS
 
-  runRowWiseMV(
+  ModifiedHIR = runRowWiseMV(
       HIRF, AM.getResult<HIRDDAnalysisPass>(F),
 #if INTEL_FEATURE_SW_DTRANS
       MAMProxy.getCachedResult<DTransImmutableAnalysis>(*F.getParent()),

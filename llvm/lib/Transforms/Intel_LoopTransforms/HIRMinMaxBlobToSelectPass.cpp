@@ -401,8 +401,10 @@ PreservedAnalyses
 HIRMinMaxBlobToSelectPass::runImpl(Function &F, FunctionAnalysisManager &AM,
                                    HIRFramework &HIRF) {
 
-  HIRMinMaxBlobToSelect(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-                        AM.getResult<HIRLoopStatisticsAnalysis>(F)).run();
+  ModifiedHIR =
+      HIRMinMaxBlobToSelect(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                            AM.getResult<HIRLoopStatisticsAnalysis>(F))
+          .run();
 
   return PreservedAnalyses::all();
 }

@@ -1,6 +1,7 @@
 ; Check runtime dd multiversioning for a simple case with p[i] and q[i]
 
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-runtime-dd" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 ; RUN: opt -hir-dd-test-assume-no-loop-carried-dep=1 -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s -check-prefix=NO-RTDD
 
 ; Check HIR CG ability to emit !llvm.loop metadata
@@ -46,6 +47,12 @@
 ; CG-CHECK: ![[MD1]] = !{!"llvm.loop.vectorize.width", i32 1}
 ; CG-CHECK: ![[MD2]] = !{!"llvm.loop.interleave.count", i32 1}
 ; CG-CHECK: ![[MD3]] = !{!"llvm.loop.unroll.disable"}
+
+; Verify that pass is dumped with print-changed when it triggers.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRRuntimeDD
 
 ; ModuleID = 'ptrs.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

@@ -1,4 +1,5 @@
 ; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s --check-prefix=DEFAULT
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-blocking" -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; Verify that blocking does not happen for the following code.
 ; Because of linearized subscripts, it passes the test MaxDimension < LoopDepth.
@@ -44,6 +45,11 @@
 ;             + END LOOP
 ;       END REGION
 
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRLoopBlocking
 
 ;Module Before HIR
 ; ModuleID = 'matmul2.c'
