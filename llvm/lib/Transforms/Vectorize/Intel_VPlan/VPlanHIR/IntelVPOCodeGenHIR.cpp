@@ -53,7 +53,6 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 using namespace llvm::vpo;
-using RemarkRecord = OptReportStatsTracker::RemarkRecord;
 
 STATISTIC(LoopsVectorized, "Number of HIR loops vectorized");
 
@@ -6243,8 +6242,8 @@ bool VPOCodeGenHIR::serializeDivRem(const VPInstruction *VPInst, RegDDRef *Mask,
       serializeInstruction(VPInst, Mask);
       // Remark: division was scalarized due to fp-model requirements
       OptRptStats.SerializedInstRemarks.emplace_back(
-          RemarkRecord{Context, OptRemarkID::DivisionSerializedFpModel,
-                       Instruction::getOpcodeName(VPInst->getOpcode())});
+          Context, OptRemarkID::DivisionSerializedFpModel,
+          Instruction::getOpcodeName(VPInst->getOpcode()));
       return true;
     }
   }

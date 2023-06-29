@@ -349,8 +349,6 @@ static cl::list<VPlanVecRange, bool /* Use internal storage */,
 using namespace llvm;
 using namespace llvm::vpo;
 
-using RemarkRecord = OptReportStatsTracker::RemarkRecord;
-
 namespace llvm {
 namespace vpo {
 bool PrintSVAResults = false;
@@ -1901,33 +1899,33 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     OptReportStatsTracker &OptRptStats =
         BestVPlan->getOptRptStatsForLoop(BestVPlan->getMainLoop(true));
     if (BestCostSummary.ScalarIterationCost.isValid()) {
-      OptRptStats.CostModelRemarks.emplace_back(RemarkRecord{
+      OptRptStats.CostModelRemarks.emplace_back(
           *Context, OptRemarkID::VectorizerScalarLoopCost,
-          std::to_string(BestCostSummary.ScalarIterationCost.getFloatValue())});
+          std::to_string(BestCostSummary.ScalarIterationCost.getFloatValue()));
     }
     if (BestCostSummary.VectorIterationCost.isValid()) {
       // Add remark: vector cost
-      OptRptStats.CostModelRemarks.emplace_back(RemarkRecord{
+      OptRptStats.CostModelRemarks.emplace_back(
           *Context, OptRemarkID::VectorizerVectorLoopCost,
-          std::to_string(BestCostSummary.VectorIterationCost.getFloatValue())});
+          std::to_string(BestCostSummary.VectorIterationCost.getFloatValue()));
     }
     if (BestCostSummary.Speedup.isValid()) {
       // Add remark: estimated potential speedup
-      OptRptStats.CostModelRemarks.emplace_back(RemarkRecord{
+      OptRptStats.CostModelRemarks.emplace_back(
           *Context, OptRemarkID::VectorizerEstimatedSpeedup,
-          std::to_string(BestCostSummary.Speedup.getFloatValue())});
+          std::to_string(BestCostSummary.Speedup.getFloatValue()));
     }
     if (BestCostSummary.LoopOverhead.isValid()) {
       // Add remark: vectorization support: normalized vectorization overhead
-      OptRptStats.CostModelRemarks.emplace_back(RemarkRecord{
+      OptRptStats.CostModelRemarks.emplace_back(
           *Context, OptRemarkID::NormalizedVecOverhead,
-          std::to_string(BestCostSummary.LoopOverhead.getFloatValue())});
+          std::to_string(BestCostSummary.LoopOverhead.getFloatValue()));
     }
     if (!IsTripCountEstimated) {
       // Add remark: using (estimated) scalar loop trip count
       OptRptStats.CostModelRemarks.emplace_back(
-          RemarkRecord{*Context, OptRemarkID::VectorizerScalarTripCount,
-                       std::to_string(OrigTripCount)});
+          *Context, OptRemarkID::VectorizerScalarTripCount,
+          std::to_string(OrigTripCount));
     }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     if (VPlanDriverImpl::EmitDebugOptRemarks) {
@@ -2279,11 +2277,11 @@ void LoopVectorizationPlanner::reportReductions(VPlanVector *Plan,
   if (WRLp && WRLp->isOmpSIMDLoop())
     // Add remark: Loop has SIMD reduction
     OptRptStats.ReductionInstRemarks.emplace_back(
-        RemarkRecord{*Context, OptRemarkID::LoopHasSimdReduction});
+        *Context, OptRemarkID::LoopHasSimdReduction);
   else
     // Add remark: Loop has reduction
     OptRptStats.ReductionInstRemarks.emplace_back(
-        RemarkRecord{*Context, OptRemarkID::LoopHasReduction});
+        *Context, OptRemarkID::LoopHasReduction);
 
   // Generate specific remarks for each reduction in the loop.
   for (auto Red : LE->vpreductions()) {
@@ -2358,7 +2356,7 @@ void LoopVectorizationPlanner::reportReductions(VPlanVector *Plan,
     }
 
     OptRptStats.ReductionInstRemarks.emplace_back(
-        RemarkRecord{*Context, OptRemarkID::VectorizerReductionInfo, S1, S2});
+        *Context, OptRemarkID::VectorizerReductionInfo, S1, S2);
   }
 }
 
