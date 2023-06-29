@@ -5538,11 +5538,20 @@ PreservedAnalyses OpenMPOptPass::run(Module &M, ModuleAnalysisManager &AM) {
   // can consume a lot of compile time. To avoid that, we need to reduce the
   // number of fix point iterations in case of device compilation of a big
   // module.
-  unsigned MaxFixpointIterations =
-      (isOpenMPDevice(M) &&
-       M.getInstructionCount() < DeviceAggressiveAttributorThreshold)
-          ? SetFixpointIterations
-          : 32;
+
+  // If SetFixpointIterations set by an user, then use it unconditionally
+  unsigned MaxFixpointIterations = SetFixpointIterations;
+
+  // If SetFixpointIterations contains a default value then adjust
+  // MaxFixpointIterations according heuristics.
+  if (SetFixpointIterations.getNumOccurrences() == 0) {
+    unsigned DeviceIterations =
+        DeviceAggressiveAttributorThreshold / M.getInstructionCount();
+    MaxFixpointIterations = isOpenMPDevice(M) ? DeviceIterations : 32u;
+    MaxFixpointIterations = std::max(MaxFixpointIterations, 1u);
+    MaxFixpointIterations =
+        std::min(MaxFixpointIterations, SetFixpointIterations.getValue());
+  }
 
 #endif // INTEL_COLLAB
   AttributorConfig AC(CGUpdater);
@@ -5629,11 +5638,20 @@ PreservedAnalyses OpenMPOptCGSCCPass::run(LazyCallGraph::SCC &C,
   // can consume a lot of compile time. To avoid that, we need to reduce the
   // number of fix point iterations in case of device compilation of a big
   // module.
-  unsigned MaxFixpointIterations =
-      (isOpenMPDevice(M) &&
-       M.getInstructionCount() < DeviceAggressiveAttributorThreshold)
-          ? SetFixpointIterations
-          : 32;
+
+  // If SetFixpointIterations set by an user, then use it unconditionally
+
+  unsigned MaxFixpointIterations = SetFixpointIterations;
+  // If SetFixpointIterations contains a default value then adjust
+  // MaxFixpointIterations according heuristics.
+  if (SetFixpointIterations.getNumOccurrences() == 0) {
+    unsigned DeviceIterations =
+        DeviceAggressiveAttributorThreshold / M.getInstructionCount();
+    MaxFixpointIterations = isOpenMPDevice(M) ? DeviceIterations : 32u;
+    MaxFixpointIterations = std::max(MaxFixpointIterations, 1u);
+    MaxFixpointIterations =
+        std::min(MaxFixpointIterations, SetFixpointIterations.getValue());
+  }
 
 #endif // INTEL_COLLAB
   AttributorConfig AC(CGUpdater);
