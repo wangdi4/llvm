@@ -181,17 +181,17 @@ public:
 
   /// Utility functions for adding/constructing debug remarks.
   template <typename RemarkRecordT, typename... ArgsT>
-  static RemarkRecordT getDebugRemark(ArgsT &&...Args) {
+  static RemarkRecordT getDebugRemark(LLVMContext &C, ArgsT &&...Args) {
     std::string Remark;
     ((llvm::raw_string_ostream{Remark} << std::forward<ArgsT>(Args)), ...);
-    return RemarkRecordT{OptRemarkID::GenericDebug, std::move(Remark)};
+    return RemarkRecordT{C, OptRemarkID::GenericDebug, Remark};
   }
 
   template <typename... ArgsT, typename RemarkRecordT>
   static void addDebugRemark(SmallVectorImpl<RemarkRecordT> &Remarks,
-                             ArgsT &&...Args) {
+                             LLVMContext &C, ArgsT &&...Args) {
     Remarks.push_back(
-        getDebugRemark<RemarkRecordT>(std::forward<ArgsT>(Args)...));
+        getDebugRemark<RemarkRecordT>(C, std::forward<ArgsT>(Args)...));
   }
 };
 

@@ -881,6 +881,7 @@ if (LLVM_ENABLE_WARNINGS AND (LLVM_COMPILER_IS_GCC_COMPATIBLE OR CLANG_CL))
   add_flag_if_supported("-Wno-write-strings" NO_WRITE_STRINGS)
   add_flag_if_supported("-Wno-array-bounds" NO_ARRAY_BOUNDS)
   add_flag_if_supported("-Wno-pessimizing-move" NO_PESSIMIZING_MOVE)
+  add_flag_if_supported("-Wno-unused-command-line-argument" NO_UNUSED_COMMAND_LINE_ARGUMENT)
 #endif // INTEL_CUSTOMIZATION
 
   # Disable -Wclass-memaccess, a C++-only warning from GCC 8 that fires on

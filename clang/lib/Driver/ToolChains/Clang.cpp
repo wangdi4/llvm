@@ -8323,6 +8323,11 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                    options::OPT_fno_delayed_template_parsing, IsWindowsMSVC))
     CmdArgs.push_back("-fdelayed-template-parsing");
 
+#if INTEL_CUSTOMIZATION
+  if (D.IsIntelMode() && IsWindowsMSVC)
+    CmdArgs.push_back("-fdiagnostics-absolute-paths");
+#endif // INTEL_CUSTOMIZATION
+
   // -fgnu-keywords default varies depending on language; only pass if
   // specified.
   Args.AddLastArg(CmdArgs, options::OPT_fgnu_keywords,
@@ -9245,6 +9250,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
   if (Arg *A = Args.getLastArg(options::OPT_fstack_limit_register_EQ)) {
     A->render(Args, CmdArgs);
+  }
+  if (Args.hasArg(options::OPT_fprofile_ml_use)) {
+    CmdArgs.push_back("-fprofile-ml-use");
   }
   if (Args.hasArg(options::OPT_fargument_noalias)) {
     CmdArgs.push_back("-fargument-noalias");

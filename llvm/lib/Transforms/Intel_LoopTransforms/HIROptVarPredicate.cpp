@@ -117,6 +117,10 @@ static cl::opt<bool>
     SkipIVOverflowCheck(OPT_SWITCH "-relax-ov", cl::init(false), cl::Hidden,
                         cl::desc(OPT_DESC " relaxes IV overflow check"));
 
+static cl::opt<unsigned>
+    TCThreshold(OPT_SWITCH "-tc-threshold", cl::Hidden, cl::init(5),
+                cl::desc("Min value of loop TC to kick in " OPT_DESC));
+
 STATISTIC(LoopsSplit, "Loops split during optimization of predicates.");
 
 namespace {
@@ -1315,6 +1319,12 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
       LLVM_DEBUG(dbgs() << "Unhandleable SIMD Loop.\n");
       return false;
     }
+  }
+
+  uint64_t LoopTC;
+  if (Loop->isConstTripLoop(&LoopTC) && (LoopTC < TCThreshold)) {
+    LLVM_DEBUG(dbgs() << "Loop has small TC.\n");
+    return false;
   }
 
   SmallVector<EqualCandidates, 4> Candidates;

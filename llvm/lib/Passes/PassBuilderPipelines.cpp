@@ -219,6 +219,7 @@
 #include "llvm/Transforms/Scalar/Intel_AggressiveSpeculation.h"
 #include "llvm/Transforms/Scalar/Intel_DopeVectorHoist.h"
 #include "llvm/Transforms/Scalar/Intel_ForcedCMOVGeneration.h"
+#include "llvm/Transforms/Scalar/Intel_GVBasedMultiVersioning.h"
 #include "llvm/Transforms/Scalar/Intel_HandlePragmaVectorAligned.h"
 #include "llvm/Transforms/Scalar/Intel_LoopCarriedCSE.h"
 #include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
@@ -3498,7 +3499,13 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
   FunctionPassManager FPM;
   // The IPO Passes may leave cruft around. Clean up after them.
-  addInstCombinePass(FPM, !DTransEnabled, !DTransEnabled); // INTEL
+#if INTEL_CUSTOMIZATION
+  addInstCombinePass(FPM, !DTransEnabled, !DTransEnabled);
+
+  if (Level == OptimizationLevel::O3 && DTransEnabled)
+    FPM.addPass(GVBasedMultiVersioningPass());
+#endif
+
   invokePeepholeEPCallbacks(FPM, Level);
 
   if (EnableConstraintElimination)

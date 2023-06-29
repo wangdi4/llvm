@@ -3679,10 +3679,9 @@ OMPClause *Parser::ParseOpenMPUsesAllocatorClause(OpenMPDirectiveKind DKind) {
     }
 #if INTEL_COLLAB
     if (getLangOpts().OpenMPLateOutline) {
-      if (auto DL = dyn_cast_or_null<DeclRefExpr>(
-                        Allocator.get()->IgnoreParenImpCasts())
-                        ->getDecl())
-        if (VarDecl *VD = dyn_cast_or_null<VarDecl>(DL)) {
+      if (auto DRE = dyn_cast_if_present<DeclRefExpr>(
+              Allocator.get()->IgnoreParenImpCasts()))
+        if (VarDecl *VD = dyn_cast_if_present<VarDecl>(DRE->getDecl())) {
           Diag(Tok, diag::err_omp_unexpected_clause)
               << getOpenMPClauseName(OMPC_uses_allocators)
               << getOpenMPDirectiveName(DKind);

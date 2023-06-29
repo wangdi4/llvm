@@ -1035,3 +1035,10 @@
 // CHECK-QFP-EVAL-METHOD-SOURCE: "-ffp-eval-method=source"
 //RUN: %clang_cl -### /Qfp-eval-method=double %s 2>&1 | FileCheck -check-prefix=CHECK-QFP-EVAL-METHOD-DOUBLE %s
 // CHECK-QFP-EVAL-METHOD-DOUBLE: "-ffp-eval-method=double"
+
+/// Tests -fprofile-ml-use
+// RUN: %clang -c -fprofile-ml-use -### %s 2>&1 \
+// RUN: | FileCheck --check-prefix=FPROFILE_ML_USE %s
+// RUN: %clang_cl -c /fprofile-ml-use -### %s 2>&1 \
+// RUN: | FileCheck --check-prefix=FPROFILE_ML_USE %s
+// FPROFILE_ML_USE:  "-fprofile-ml-use"
