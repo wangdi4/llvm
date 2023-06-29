@@ -1,4 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-scalarrepl-array,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-scalarrepl-array" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 ;
 ; Scalar Replacement Sanity Test: loads only (2 continue loads)
 ;
@@ -51,11 +52,14 @@
 ;
 ; CHECK:  END REGION
 ;
-;
-; === ---------------------------------------------------------------- ===
-; Following is the LLVM's input code!
-; === ---------------------------------------------------------------- ===
-;
+
+; Verify that pass is dumped with print-changed when it triggers.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRScalarReplArray
+
+
 source_filename = "t.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

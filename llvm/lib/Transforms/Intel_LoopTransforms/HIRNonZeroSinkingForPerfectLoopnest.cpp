@@ -414,7 +414,7 @@ bool HIRNonZeroSinkingForPerfectLoopnest::run() {
 
 PreservedAnalyses HIRNonZeroSinkingForPerfectLoopnestPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  HIRNonZeroSinkingForPerfectLoopnest(HIRF).run();
+  ModifiedHIR = HIRNonZeroSinkingForPerfectLoopnest(HIRF).run();
   return PreservedAnalyses::all();
 }
 

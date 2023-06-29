@@ -1,4 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-runtime-dd,hir-lmm,hir-min-max-blob-to-select,print<hir>" -aa-pipeline="scoped-noalias-aa" -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-runtime-dd,hir-lmm,hir-min-max-blob-to-select" -aa-pipeline="scoped-noalias-aa" -print-changed -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; This test case checks that smax was converted into a Select instruction
 ; that represents a max. The test case was created from the following
@@ -98,6 +99,11 @@
 ; CHECK:   + END LOOP
 ; CHECK:      (%maxchar)[0] = %limm;
 
+; Verify that pass is dumped with print-changed when it triggers.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRMinMaxBlobToSelect
 
 @mapped = dso_local global [1000 x i32] zeroinitializer, align 16
 

@@ -1,4 +1,5 @@
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-multi-exit-loop-reroll,print<hir>" -xmain-opt-level=3 -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-multi-exit-loop-reroll" -xmain-opt-level=3 -print-changed -disable-output 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; Verify that multi-exit loop reroll pass does not trigger on this loop.
 ; The fast flags for fadd are not all the same
@@ -32,6 +33,12 @@
 ;             |   }
 ;             + END LOOP
 ;       END REGION
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRMultiExitLoopReroll
+
 
 ;Module Before HIR
 ; ModuleID = 't.c'

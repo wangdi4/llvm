@@ -3,6 +3,9 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,hir-generate-mkl-call,print<hir>" -aa-pipeline="basic-aa" -S < %s 2>&1 | FileCheck %s
 ;
 
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,hir-generate-mkl-call" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
+
+
 ; Before HIR Generate MKL Call-
 ; + DO i1 = 0, 1023, 1   <DO_LOOP>
 ; |   + DO i2 = 0, 1023, 1   <DO_LOOP>
@@ -55,6 +58,11 @@
 ; CHECK: 11 = 1;
 ; CHECK: @matmul_mkl_f32_
 ; CHECK: END REGION
+
+; Verify that pass is dumped with print-changed when it triggers.
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRGenerateMKL
 
 ;Module Before HIR
 ; ModuleID = 'float-matmul.cpp'

@@ -1443,7 +1443,8 @@ void HIRLoopConcatenation::createReductionLoop(
 
 PreservedAnalyses HIRLoopConcatenationPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  HIRLoopConcatenation(HIRF, AM.getResult<TargetIRAnalysis>(F)).run();
+  ModifiedHIR =
+      HIRLoopConcatenation(HIRF, AM.getResult<TargetIRAnalysis>(F)).run();
   return PreservedAnalyses::all();
 }
 

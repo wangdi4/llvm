@@ -41,8 +41,6 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-using RemarkRecord = OptReportStatsTracker::RemarkRecord;
-
 #define DEBUG_TYPE "vpo-ir-loop-vectorize"
 
 extern bool Usei1MaskForSimdFunctions;
@@ -1163,9 +1161,9 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
       } else if (!EnableIntDivRemBlendWithSafeValue) {
         serializeWithPredication(VPInst);
         // Remark: division was scalarized due to fp-model requirements
-        OptRptStats.SerializedInstRemarks.emplace_back(RemarkRecord{
+        OptRptStats.SerializedInstRemarks.emplace_back(
             ORBuilder.getContext(), OptRemarkID::DivisionSerializedFpModel,
-            Instruction::getOpcodeName(VPInst->getOpcode())});
+            Instruction::getOpcodeName(VPInst->getOpcode()));
         return;
       }
     }
@@ -1408,10 +1406,10 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
             VPCall->getSerialReasonNum());
         LLVMContext &C = ORBuilder.getContext();
         if (Func == nullptr)
-          OptRptStats.SerializedInstRemarks.emplace_back(RemarkRecord{C, ID});
+          OptRptStats.SerializedInstRemarks.emplace_back(C, ID);
         else
-          OptRptStats.SerializedInstRemarks.emplace_back(
-              RemarkRecord{C, ID, Func->getName().str()});
+          OptRptStats.SerializedInstRemarks.emplace_back(C, ID,
+                                                         Func->getName().str());
       }
       return;
     }
@@ -3124,8 +3122,8 @@ void VPOCodeGen::vectorizeLoadInstruction(VPLoadStoreInst *VPLoad,
   // Loads that are non-vectorizable should be serialized.
   if (!isVectorizableLoadStore(VPLoad)) {
     // Remark: serialized due to operating on non-vectorizable types
-    getOptReportStats(VPLoad).SerializedInstRemarks.emplace_back(RemarkRecord{
-        ORBuilder.getContext(), OptRemarkID::LoadStoreSerializedBadType});
+    getOptReportStats(VPLoad).SerializedInstRemarks.emplace_back(
+        ORBuilder.getContext(), OptRemarkID::LoadStoreSerializedBadType);
     return serializeWithPredication(VPLoad);
   }
 
@@ -3259,8 +3257,8 @@ void VPOCodeGen::vectorizeStoreInstruction(VPLoadStoreInst *VPStore,
   // Stores that are non-vectorizable should be serialized.
   if (!isVectorizableLoadStore(VPStore)) {
     // Remark: serialized due to operating on non-vectorizable types
-    getOptReportStats(VPStore).SerializedInstRemarks.emplace_back(RemarkRecord{
-        ORBuilder.getContext(), OptRemarkID::LoadStoreSerializedBadType});
+    getOptReportStats(VPStore).SerializedInstRemarks.emplace_back(
+        ORBuilder.getContext(), OptRemarkID::LoadStoreSerializedBadType);
     return serializeWithPredication(VPStore);
   }
 
@@ -4158,7 +4156,7 @@ void VPOCodeGen::vectorizeExtractElement(VPInstruction *VPInst) {
       serializeWithPredication(VPInst);
       // Remark: masked instruction can't be vectorized
       getOptReportStats(VPInst).SerializedInstRemarks.emplace_back(
-          RemarkRecord{C, OptRemarkID::MaskedExtractInsertSerialized});
+          C, OptRemarkID::MaskedExtractInsertSerialized);
       return;
     }
 
@@ -4176,7 +4174,7 @@ void VPOCodeGen::vectorizeExtractElement(VPInstruction *VPInst) {
     VPWidenMap[VPInst] = WideExtract;
     // Remark: instruction was serialized due to non-const index
     getOptReportStats(VPInst).SerializedInstRemarks.emplace_back(
-        RemarkRecord{C, OptRemarkID::ExtractInsertSerialized});
+        C, OptRemarkID::ExtractInsertSerialized);
     return;
   }
 
@@ -4213,7 +4211,7 @@ void VPOCodeGen::vectorizeInsertElement(VPInstruction *VPInst) {
       serializeWithPredication(VPInst);
       // Remark: masked instruction can't be vectorized
       getOptReportStats(VPInst).SerializedInstRemarks.emplace_back(
-          RemarkRecord{C, OptRemarkID::MaskedExtractInsertSerialized});
+          C, OptRemarkID::MaskedExtractInsertSerialized);
       return;
     }
     Value *WideInsert = InsertTo;
@@ -4232,7 +4230,7 @@ void VPOCodeGen::vectorizeInsertElement(VPInstruction *VPInst) {
     VPWidenMap[VPInst] = WideInsert;
     // Remark: instruction was serialized due to non-const index
     getOptReportStats(VPInst).SerializedInstRemarks.emplace_back(
-        RemarkRecord{C, OptRemarkID::ExtractInsertSerialized});
+        C, OptRemarkID::ExtractInsertSerialized);
     return;
   }
 

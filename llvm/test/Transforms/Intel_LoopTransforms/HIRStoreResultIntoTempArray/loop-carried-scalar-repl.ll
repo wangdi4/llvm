@@ -6,6 +6,7 @@
 ; We enlarge the upper bound of i1 in the extracted loop, because the distance between (%"jacobian_$Q")[i1 + 1][i2 + 1][i3 + 1][0] and (%"jacobian_$Q")[i1 + 2][%mod][%mod26][0] is 1 at this dimension.
 ;
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" -hir-create-function-level-region -hir-details 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array" -hir-create-function-level-region -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
 ;
 ; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" -hir-create-function-level-region -hir-details 2>&1 < %s | FileCheck %s
 ;
@@ -111,7 +112,13 @@
 ; CHECK:            @llvm.stackrestore(&((%call)[0]));
 ; CHECK:           ret ;
 ; CHECK:     END REGION
-;
+
+; Verify that pass is dumped with print-changed when it triggers.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRStoreResultIntoTempArray
+
 ;Module Before HIR
 ; ModuleID = 'j.f90'
 source_filename = "j.f90"

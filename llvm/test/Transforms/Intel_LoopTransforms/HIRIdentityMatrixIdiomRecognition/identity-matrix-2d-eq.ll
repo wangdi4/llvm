@@ -17,6 +17,8 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-identity-matrix-idiom-recognition,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
 ;
 ; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-identity-matrix-idiom-recognition,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
+
+; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-identity-matrix-idiom-recognition" -print-changed -disable-output  2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
 ;
 ;*** IR Dump Before HIR Identity Matrix Idiom Recognition ***
 ;Function: foo
@@ -45,7 +47,13 @@
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION
 ;
-;Module Before HIR
+
+; Verify that pass is dumped with print-changed when it triggers.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRIdentityMatrixIdiomRecognition
+
 ; ModuleID = 't.c'
 source_filename = "t.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

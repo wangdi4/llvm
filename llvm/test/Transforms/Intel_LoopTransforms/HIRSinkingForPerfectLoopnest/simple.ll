@@ -16,6 +16,7 @@
 ;}
 ;
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest"  -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
 ;
 ; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
 ;
@@ -53,6 +54,12 @@
 ; CHECK:           |   + END LOOP
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION
+
+; Verify that pass is dumped with print-changed when it triggers.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRSinkingForPerfectLoopnest
 
 ;Module Before HIR
 ; ModuleID = 't.c'

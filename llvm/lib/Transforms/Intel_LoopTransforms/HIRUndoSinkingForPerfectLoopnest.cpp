@@ -385,8 +385,9 @@ bool HIRUndoSinkingForPerfectLoopnest::run() {
 
 PreservedAnalyses HIRUndoSinkingForPerfectLoopnestPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  HIRUndoSinkingForPerfectLoopnest(HIRF, AM.getResult<HIRDDAnalysisPass>(F))
-      .run();
+  ModifiedHIR =
+      HIRUndoSinkingForPerfectLoopnest(HIRF, AM.getResult<HIRDDAnalysisPass>(F))
+          .run();
   return PreservedAnalyses::all();
 }
 

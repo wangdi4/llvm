@@ -675,7 +675,7 @@ bool HIRMVForVariableStride::run() {
 
 PreservedAnalyses HIRMVForVariableStridePass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  HIRMVForVariableStride(HIRF).run();
+  ModifiedHIR = HIRMVForVariableStride(HIRF).run();
   return PreservedAnalyses::all();
 }
 

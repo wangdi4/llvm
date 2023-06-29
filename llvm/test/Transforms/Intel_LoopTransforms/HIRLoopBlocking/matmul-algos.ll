@@ -7,6 +7,8 @@
 ; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa"  2>&1 < %s | FileCheck %s --check-prefix=DEFAULT
 ; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,print<hir>,hir-loop-blocking,print<hir>,print<hir-dd-analysis>" -aa-pipeline="basic-aa"  -hir-loop-blocking-algo=outer -hir-dd-analysis-verify=Region 2>&1 < %s | FileCheck %s --check-prefix=OUTER
 
+; RUN: opt -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-interchange,hir-loop-blocking" -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
+
 ;
 ; for(i=0; i<N; i++)
 ;   for(j=0; j<N; j++)
@@ -141,6 +143,11 @@
 ; DEFAULT:      + END LOOP
 ; DEFAULT: END REGION
 
+; Verify that pass is dumped with print-changed when it triggers.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRLoopBlocking
 
 ; ModuleID = 'matmul-algos.ll'
 source_filename = "matmul-algos.ll"

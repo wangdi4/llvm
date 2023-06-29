@@ -4346,9 +4346,10 @@ bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
 PreservedAnalyses HIRInterLoopBlockingPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
 
-  driver(HIRF, AM.getResult<HIRArraySectionAnalysisPass>(F),
-         AM.getResult<HIRDDAnalysisPass>(F), AM.getResult<TargetIRAnalysis>(F),
-         AM.getResult<HIRLoopStatisticsAnalysis>(F), F);
+  ModifiedHIR = driver(HIRF, AM.getResult<HIRArraySectionAnalysisPass>(F),
+                       AM.getResult<HIRDDAnalysisPass>(F),
+                       AM.getResult<TargetIRAnalysis>(F),
+                       AM.getResult<HIRLoopStatisticsAnalysis>(F), F);
 
   return PreservedAnalyses::all();
 }

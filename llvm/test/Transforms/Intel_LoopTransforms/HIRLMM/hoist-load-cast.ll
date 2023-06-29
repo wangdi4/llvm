@@ -1,4 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-lmm,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-lmm" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; This test case checks that the invariant bitcast instruction is hoisted
 ; out of the loop after applying LMM.
@@ -20,6 +21,11 @@
 ; CHECK:       |   (%0)[i1] = %conv;
 ; CHECK:       + END LOOP
 ; CHECK: END REGION
+
+; Verify that pass is dumped with print-changed when it triggers.
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRLMM
 
 ;Module Before HIR
 ; ModuleID = 'repo.cpp'

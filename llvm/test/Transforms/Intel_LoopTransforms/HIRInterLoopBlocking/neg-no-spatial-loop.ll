@@ -1,6 +1,8 @@
 ; RUN: opt -disable-hir-inter-loop-blocking=false -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-inter-loop-blocking" -aa-pipeline="basic-aa" -debug-only=hir-inter-loop-blocking-profit 2>&1 < %s | FileCheck %s
 ; REQUIRES: asserts
 
+; RUN: opt -disable-hir-inter-loop-blocking=false -intel-libirc-allowed -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-inter-loop-blocking" -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
+
 ; memrefs are all in the shape of array[0][i2+1]. All dimension 2s do not have IV. Thus, no spatial loop corresponds to the dimension 2. We bail out without transformation.
 
 ; Function: main
@@ -23,6 +25,12 @@
 ; CHECK:        END REGION
 
 ; CHECK: No transformation: Some dimensions have no matching loop level
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRInterLoopBlocking
 
 ;Module Before HIR
 ; ModuleID = 'atg_CMPLRLLVM-25162.c'

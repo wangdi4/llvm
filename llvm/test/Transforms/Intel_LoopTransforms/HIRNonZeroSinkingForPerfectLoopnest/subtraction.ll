@@ -1,4 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-non-zero-sinking-for-perfect-loopnest,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-non-zero-sinking-for-perfect-loopnest"  -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
 ;
 ;*** IR Dump Before HIR Non-Zero Sinking For Perfect Loopnest ***
 ;Function: dgemm_
@@ -33,7 +34,13 @@
 ; CHECK:           |   + END LOOP
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION
-;
+
+; Verify that pass is dumped with print-changed when it triggers.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRNonZeroSinkingForPerfectLoopnest
+
 ;Module Before HIR
 ; ModuleID = 'dgemm.f90'
 source_filename = "dgemm.f90"

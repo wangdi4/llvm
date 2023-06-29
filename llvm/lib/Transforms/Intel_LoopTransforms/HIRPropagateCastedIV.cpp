@@ -317,7 +317,9 @@ PreservedAnalyses HIRPropagateCastedIVPass::runImpl(
   // Force instantiation of HIRLoopStatistics as it is needed by domination
   // utility. This is a hack. Ideally, we should pass HLS to domination utility
   // as an argument.
-  HIRPropagateCastedIV(HIRF, &AM.getResult<HIRLoopStatisticsAnalysis>(F)).run();
+  ModifiedHIR =
+      HIRPropagateCastedIV(HIRF, &AM.getResult<HIRLoopStatisticsAnalysis>(F))
+          .run();
   return PreservedAnalyses::all();
 }
 

@@ -1,5 +1,7 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-rowwise-mv,print<hir>" -aa-pipeline="basic-aa" -hir-rowwise-mv-skip-dtrans -disable-output 2>&1 < %s | FileCheck %s
 
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-rowwise-mv" -hir-rowwise-mv-skip-dtrans -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
+
 ; This test checks that HIRLMM-specific assumptions don't lead to equal stores
 ; being ignored in HIRRowWiseMV invariance checks.
 
@@ -24,6 +26,12 @@
 ; CHECK-NEXT:       |   + END LOOP
 ; CHECK-NEXT:       + END LOOP
 ; CHECK-NEXT: END REGION
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRRowWiseMV
 
 define void @lmm-equal-ld-st(double* %A, double* %b) #0 {
 entry:

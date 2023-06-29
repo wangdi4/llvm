@@ -1,4 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-unroll-and-jam,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-unroll-and-jam" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; Verify that we do not unroll & jam i1 loop due to disabling metadata.
 
@@ -12,6 +13,12 @@
 
 
 ; CHECK: BEGIN REGION { }
+
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRUnrollAndJam
 
 
 ; ModuleID = 'simple-unroll-and-jam.ll'

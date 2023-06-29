@@ -1,4 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-rematerialize,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-rematerialize" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ;#if 0
 ;void bone_matrix_translate_y(float mat[4][4], float y)
@@ -58,6 +59,12 @@
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT:    remark #25397: Materialized a loop with a trip count of 3
 ; OPTREPORT: LOOP END
+
+; Verify that pass is dumped with print-changed when it triggers.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED: Dump After HIRLoopRematerialize
 
 ;Module Before HIR
 ; ModuleID = 'matrix.c'

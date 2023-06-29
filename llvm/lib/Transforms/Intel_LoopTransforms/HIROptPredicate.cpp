@@ -1994,6 +1994,7 @@ bool HIROptPredicate::run() {
   LLVM_DEBUG(dbgs() << "Opt Predicate for Function: "
                     << HIRF.getFunction().getName() << "\n");
 
+  bool Modified = false;
   for (HLNode &Node : make_range(HIRF.hir_begin(), HIRF.hir_end())) {
     HLRegion *Region = cast<HLRegion>(&Node);
 
@@ -2015,6 +2016,7 @@ bool HIROptPredicate::run() {
       if (HasMultiexitLoop) {
         HLNodeUtils::updateNumLoopExits(Region);
       }
+      Modified = true;
     }
 
     clearOptReportState();
@@ -2023,7 +2025,7 @@ bool HIROptPredicate::run() {
     OuterLoopIfs.clear();
   }
 
-  return false;
+  return Modified;
 }
 
 unsigned HIROptPredicate::getPossibleCEDefLevel(const CanonExpr *CE,
@@ -3054,10 +3056,10 @@ void HIROptPredicate::addPredicateOptReportRemark(
 
 PreservedAnalyses HIROptPredicatePass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  HIROptPredicate(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-                  AM.getResult<HIRLoopStatisticsAnalysis>(F),
-                  EnablePartialUnswitch, EarlyPredicateOpt)
-      .run();
+  ModifiedHIR = HIROptPredicate(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                                AM.getResult<HIRLoopStatisticsAnalysis>(F),
+                                EnablePartialUnswitch, EarlyPredicateOpt)
+                    .run();
 
   return PreservedAnalyses::all();
 }

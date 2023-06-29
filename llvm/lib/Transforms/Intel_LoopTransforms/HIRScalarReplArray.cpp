@@ -1163,6 +1163,7 @@ bool HIRScalarReplArray::run() {
     return false;
   }
 
+  bool Modified = false;
   for (auto &Lp : CandidateLoops) {
     clearWorkingSetMemory();
 
@@ -1171,11 +1172,12 @@ bool HIRScalarReplArray::run() {
       continue;
     }
 
+    Modified = true;
     doTransform(Lp);
   }
 
   CandidateLoops.clear();
-  return false;
+  return Modified;
 }
 
 bool HIRScalarReplArray::doAnalysis(HLLoop *Lp) {
@@ -1591,18 +1593,20 @@ void HIRScalarReplArray::printRefGroupTy(RefGroupTy &Group, bool PrintNewLine) {
 
 PreservedAnalyses HIRScalarReplArrayPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  HIRScalarReplArray(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-                     AM.getResult<HIRLoopStatisticsAnalysis>(F), false)
-      .run();
+  ModifiedHIR =
+      HIRScalarReplArray(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                         AM.getResult<HIRLoopStatisticsAnalysis>(F), false)
+          .run();
 
   return PreservedAnalyses::all();
 }
 
 PreservedAnalyses HIRLoopIndependentScalarReplPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  HIRScalarReplArray(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-                     AM.getResult<HIRLoopStatisticsAnalysis>(F), true)
-      .run();
+  ModifiedHIR =
+      HIRScalarReplArray(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                         AM.getResult<HIRLoopStatisticsAnalysis>(F), true)
+          .run();
 
   return PreservedAnalyses::all();
 }

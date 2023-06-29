@@ -879,9 +879,12 @@ bool HIROptVarPredicate::run() {
   LLVM_DEBUG(dbgs() << "Optimization of Variant Predicates Function: "
                     << HIRF.getFunction().getName() << "\n");
 
+  bool Modified = false;
+
   ForPostEach<HLLoop>::visitRange(
-      HIRF.hir_begin(), HIRF.hir_end(),
-      [this](HLLoop *Loop) { processLoop(Loop, true, nullptr); });
+      HIRF.hir_begin(), HIRF.hir_end(), [this, &Modified](HLLoop *Loop) {
+        Modified = processLoop(Loop, true, nullptr) || Modified;
+      });
 
   for (HLNode *Node : NodesToInvalidate) {
     if (HLLoop *Loop = dyn_cast<HLLoop>(Node)) {
@@ -898,7 +901,7 @@ bool HIROptVarPredicate::run() {
     // HLNodeUtils::updateNumLoopExits(Node);
   }
 
-  return false;
+  return Modified;
 }
 
 static void removeThenElseChildren(HLIf *If, HLContainerTy *ThenContainer,
@@ -1483,7 +1486,7 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop, bool SetRegionModified,
 
 PreservedAnalyses HIROptVarPredicatePass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  HIROptVarPredicate(HIRF).run();
+  ModifiedHIR = HIROptVarPredicate(HIRF).run();
   return PreservedAnalyses::all();
 }
 

@@ -1,4 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-var-predicate,print<hir>" -S -disable-output  < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-opt-var-predicate" -print-changed -disable-output  < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; Test checks that OptVarPredicate pass does not hoist out 'if'
 ; with unsigned predicate if LHS could have negative value.
@@ -15,6 +16,12 @@
 
 ; Check that no optimization happen.
 ; CHECK: BEGIN REGION { }
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIROptVarPredicate
+
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

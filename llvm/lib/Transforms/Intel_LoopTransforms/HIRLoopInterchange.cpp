@@ -1324,6 +1324,8 @@ bool HIRLoopInterchange::run(void) {
         getPermutation(OutermostLp, InnermostLoop)) {
       transformLoop(OutermostLp);
     } else {
+      // TODO: remove logic related to PerfectLoopsEnabled. It looks like dead
+      // code to me.
       if (std::find(PerfectLoopsEnabled.begin(), PerfectLoopsEnabled.end(),
                     OutermostLp) != PerfectLoopsEnabled.end()) {
         HIRInvalidationUtils::invalidateBody(OutermostLp);
@@ -1740,12 +1742,13 @@ bool HIRLoopInterchange::transformLoop(HLLoop *Loop) {
 
 PreservedAnalyses HIRLoopInterchangePass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
-  HIRLoopInterchange(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-                     AM.getResult<HIRLoopLocalityAnalysis>(F),
-                     AM.getResult<HIRSafeReductionAnalysisPass>(F),
-                     AM.getResult<HIRLoopStatisticsAnalysis>(F),
-                     AM.getResult<HIRLoopResourceAnalysis>(F))
-      .run();
+  ModifiedHIR =
+      HIRLoopInterchange(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                         AM.getResult<HIRLoopLocalityAnalysis>(F),
+                         AM.getResult<HIRSafeReductionAnalysisPass>(F),
+                         AM.getResult<HIRLoopStatisticsAnalysis>(F),
+                         AM.getResult<HIRLoopResourceAnalysis>(F))
+          .run();
 
   return PreservedAnalyses::all();
 }

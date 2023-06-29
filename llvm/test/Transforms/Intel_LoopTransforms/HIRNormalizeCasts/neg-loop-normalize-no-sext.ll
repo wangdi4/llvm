@@ -1,4 +1,6 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-normalize-casts,print<hir>" %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-normalize-casts" -print-changed -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
+
 
 ; This test case checks that the zext casting in the loop upperbound wasn't
 ; converted into sext since it couldn't find any sext use for the operand.
@@ -25,6 +27,12 @@
 ; HIR should not generate sext
 
 ; CHECK-NOT:       + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRNormalizeCasts
+
 
 ;Module Before HIR
 ; ModuleID = 'simple.cpp'

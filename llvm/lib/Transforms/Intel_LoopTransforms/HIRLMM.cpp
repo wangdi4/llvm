@@ -1492,13 +1492,14 @@ PreservedAnalyses HIRLMMPass::runImpl(llvm::Function &F,
   auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
 #endif // INTEL_FEATURE_SW_DTRANS
 
-  HIRLMM(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-         AM.getResult<HIRLoopStatisticsAnalysis>(F),
+  ModifiedHIR =
+      HIRLMM(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+             AM.getResult<HIRLoopStatisticsAnalysis>(F),
 #if INTEL_FEATURE_SW_DTRANS
-         MAMProxy.getCachedResult<DTransFieldModRefResult>(*F.getParent()),
+             MAMProxy.getCachedResult<DTransFieldModRefResult>(*F.getParent()),
 #endif // INTEL_FEATURE_SW_DTRANS
-         &AM.getResult<DominatorTreeAnalysis>(F),
-         (LoopNestHoistingOnly || ForceLoopNestHoisting))
-      .run();
+             &AM.getResult<DominatorTreeAnalysis>(F),
+             (LoopNestHoistingOnly || ForceLoopNestHoisting))
+          .run();
   return PreservedAnalyses::all();
 }

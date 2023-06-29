@@ -1,4 +1,5 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-loop-reroll,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-reroll" -print-changed -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; Out of the capability of current reroller. Without changing 1 and 2 into expressions with IV,
 ; reroll without % operation is not possible.
@@ -47,6 +48,12 @@
 ; CHECK:              |   (@B)[0][2 * i1 + 1] = %add9;
 ; CHECK:              + END LOOP
 ; CHECK:        END REGION
+
+; Verify that pass is not dumped with print-changed if it bails out.
+
+
+; CHECK-CHANGED: Dump Before HIRTempCleanup
+; CHECK-CHANGED-NOT: Dump After HIRLoopReroll
 
 ;Module Before HIR; ModuleID = 'new-2.c'
 source_filename = "new-2.c"

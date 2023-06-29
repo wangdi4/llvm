@@ -1204,34 +1204,34 @@ void VPlanDriverImpl::addOptReportRemarksForMainPlan(
           TTI::AdvancedOptLevel::AO_TargetHasIntelAVX512)) {
     // 15569 remark is "Compiler has chosen to target XMM/YMM vector."
     // "Try using -mprefer-vector-width=512 to override."
-    OptRptStats.GeneralRemarks.emplace_back(RemarkRecord{
-        C, OptRemarkID::VectorizerShortVector, OptReportVerbosity::High});
+    OptRptStats.GeneralRemarks.emplace_back(
+        C, OptRemarkID::VectorizerShortVector, OptReportVerbosity::High);
   }
 
   if (WRLp && WRLp->isOmpSIMDLoop())
     // Adds remark SIMD LOOP WAS VECTORIZED
-    OptRptStats.GeneralRemarks.emplace_back(RemarkRecord{
-        C, OptRemarkID::SimdLoopVectorized, OptReportVerbosity::Low});
+    OptRptStats.GeneralRemarks.emplace_back(C, OptRemarkID::SimdLoopVectorized,
+                                            OptReportVerbosity::Low);
   else
     // Adds remark LOOP WAS VECTORIZED
-    OptRptStats.GeneralRemarks.emplace_back(
-        RemarkRecord{C, OptRemarkID::LoopVectorized, OptReportVerbosity::Low});
+    OptRptStats.GeneralRemarks.emplace_back(C, OptRemarkID::LoopVectorized,
+                                            OptReportVerbosity::Low);
 
   // Next print the loop number.
   if (ReportLoopNumber)
-    OptRptStats.GeneralRemarks.emplace_back(RemarkRecord{
+    OptRptStats.GeneralRemarks.emplace_back(
         C, OptRemarkID::VectorizerLoopNumber, OptReportVerbosity::Low,
-        Twine(LoopVectorizationPlanner::getVPlanOrderNumber()).str()});
+        Twine(LoopVectorizationPlanner::getVPlanOrderNumber()).str());
 
   // Add remark about VF
-  OptRptStats.GeneralRemarks.emplace_back(
-      RemarkRecord{C, OptRemarkID::VectorizationFactor, OptReportVerbosity::Low,
-                   Twine(MainPlanDescr.getVF()).str()});
+  OptRptStats.GeneralRemarks.emplace_back(C, OptRemarkID::VectorizationFactor,
+                                          OptReportVerbosity::Low,
+                                          Twine(MainPlanDescr.getVF()).str());
 
   if (MainPlanDescr.getUF() > 1)
-    OptRptStats.GeneralRemarks.emplace_back(RemarkRecord{
+    OptRptStats.GeneralRemarks.emplace_back(
         C, OptRemarkID::VectorizerUnrollFactor, OptReportVerbosity::Low,
-        Twine(MainPlanDescr.getUF()).str()});
+        Twine(MainPlanDescr.getUF()).str());
 }
 
 void VPlanDriverImpl::addOptReportRemarksForVecRemainder(
@@ -1244,21 +1244,20 @@ void VPlanDriverImpl::addOptReportRemarksForVecRemainder(
       PlanDescr.getVPlan()->getOptRptStatsForLoop(OuterLp);
 
   LLVMContext &C = ORBuilder.getContext();
-  OptRptStats.OriginRemarks.emplace_back(
-      RemarkRecord{C, OptRemarkID::VectorizerRemainderLoop});
+  OptRptStats.OriginRemarks.emplace_back(C,
+                                         OptRemarkID::VectorizerRemainderLoop);
 
   if (PlanDescr.isNonMaskedVecRemainder())
     OptRptStats.GeneralRemarks.emplace_back(
-        RemarkRecord{C, OptRemarkID::VectorizedRemainderLoopUnmasked,
-                     OptReportVerbosity::Low});
+        C, OptRemarkID::VectorizedRemainderLoopUnmasked,
+        OptReportVerbosity::Low);
   else
     OptRptStats.GeneralRemarks.emplace_back(
-        RemarkRecord{C, OptRemarkID::VectorizedRemainderLoopMasked,
-                     OptReportVerbosity::Low});
+        C, OptRemarkID::VectorizedRemainderLoopMasked, OptReportVerbosity::Low);
 
-  OptRptStats.GeneralRemarks.emplace_back(
-      RemarkRecord{C, OptRemarkID::VectorizationFactor, OptReportVerbosity::Low,
-                   Twine(PlanDescr.getVF()).str()});
+  OptRptStats.GeneralRemarks.emplace_back(C, OptRemarkID::VectorizationFactor,
+                                          OptReportVerbosity::Low,
+                                          Twine(PlanDescr.getVF()).str());
 }
 
 void VPlanDriverImpl::addOptReportRemarksForScalRemainder(
@@ -1320,25 +1319,24 @@ void VPlanDriverImpl::addOptReportRemarksForVecPeel(
       PlanDescr.getVPlan()->getOptRptStatsForLoop(OuterLp);
 
   LLVMContext &C = ORBuilder.getContext();
-  OptRptStats.OriginRemarks.emplace_back(
-      RemarkRecord{C, OptRemarkID::VectorizerPeelLoop});
+  OptRptStats.OriginRemarks.emplace_back(C, OptRemarkID::VectorizerPeelLoop);
 
-  OptRptStats.GeneralRemarks.emplace_back(RemarkRecord{
-      C, OptRemarkID::VectorizedPeelLoop, OptReportVerbosity::Low});
+  OptRptStats.GeneralRemarks.emplace_back(C, OptRemarkID::VectorizedPeelLoop,
+                                          OptReportVerbosity::Low);
+
+  OptRptStats.GeneralRemarks.emplace_back(C, OptRemarkID::VectorizationFactor,
+                                          OptReportVerbosity::Low,
+                                          Twine(PlanDescr.getVF()).str());
 
   OptRptStats.GeneralRemarks.emplace_back(
-      RemarkRecord{C, OptRemarkID::VectorizationFactor, OptReportVerbosity::Low,
-                   Twine(PlanDescr.getVF()).str()});
-
-  OptRptStats.GeneralRemarks.emplace_back(RemarkRecord{
       C,
       isa<VPlanStaticPeeling>(Variant) ? OptRemarkID::VectorizerStaticPeeling
                                        : OptRemarkID::VectorizerDynamicPeeling,
-      OptReportVerbosity::High});
+      OptReportVerbosity::High);
 
-  OptRptStats.GeneralRemarks.emplace_back(RemarkRecord{
+  OptRptStats.GeneralRemarks.emplace_back(
       C, OptRemarkID::VectorizerEstimatedPeelIters, OptReportVerbosity::High,
-      std::to_string(Variant->maxPeelCount())});
+      std::to_string(Variant->maxPeelCount()));
 
   if (const auto PeeledMemrefRemark = getPeeledMemrefRemark(C, Variant))
     OptRptStats.GeneralRemarks.push_back(*std::move(PeeledMemrefRemark));
@@ -1712,8 +1710,8 @@ PreservedAnalyses VPlanDriverHIRPass::runImpl(Function &F,
   auto AC = &AM.getResult<AssumptionAnalysis>(F);
   auto DT = &AM.getResult<DominatorTreeAnalysis>(F);
 
-  Impl.runImpl(F, &HIRF, HIRLoopStats, DDA, SafeRedAnalysis, Verbosity, WR, TTI,
-               TLI, AC, DT, nullptr);
+  ModifiedHIR = Impl.runImpl(F, &HIRF, HIRLoopStats, DDA, SafeRedAnalysis,
+                             Verbosity, WR, TTI, TLI, AC, DT, nullptr);
   return PreservedAnalyses::all();
 }
 
