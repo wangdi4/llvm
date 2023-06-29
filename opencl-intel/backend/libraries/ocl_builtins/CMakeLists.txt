@@ -94,13 +94,17 @@ set(CLANG_CL_COMMON_COMPILER_FLAGS
     -faddress-space-map-mangling=yes
     -mstackrealign
     -ffp-contract=fast
-    -fdenormal-fp-math=dynamic
     -cl-ext=+cl_khr_fp16
     -D
     float_atomics_enable
     -Werror
     -Wall
     -Wno-psabi)
+
+set(CLANG_CL_BUILTIN_COMPILER_FLAGS
+    ${CLANG_CL_COMMON_COMPILER_FLAGS}
+    -fdenormal-fp-math=dynamic
+    )
 
 set(CLANG_C_COMPILER_PARAMS
     -cc1
@@ -450,7 +454,7 @@ function(create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
   # build .rtl file out of OCL code (by clang) and copy it to install directory
   add_ocl_library(
     OUTPUT_OCL_LIB
-    "${CLANG_CL_COMMON_COMPILER_FLAGS}"
+    "${CLANG_CL_BUILTIN_COMPILER_FLAGS}"
     ${TARGET_NAME}
     ${TARGET_DIR}
     ${ARCH}
