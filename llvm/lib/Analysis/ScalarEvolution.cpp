@@ -7444,9 +7444,10 @@ const ConstantRange &ScalarEvolution::getRangeRef(
   }
   case scUnknown: {
     const SCEVUnknown *U = cast<SCEVUnknown>(S);
+    Value *V = U->getValue();
 
     // Check if the IR explicitly contains !range metadata.
-    std::optional<ConstantRange> MDRange = GetRangeFromMetadata(U->getValue());
+    std::optional<ConstantRange> MDRange = GetRangeFromMetadata(V);
     if (MDRange)
       ConservativeResult =
           ConservativeResult.intersectWith(*MDRange, RangeType);
@@ -7471,13 +7472,13 @@ const ConstantRange &ScalarEvolution::getRangeRef(
 
     // See if ValueTracking can give us a useful range.
     const DataLayout &DL = getDataLayout();
-    KnownBits Known = computeKnownBits(U->getValue(), DL, 0, &AC, nullptr, &DT);
+    KnownBits Known = computeKnownBits(V, DL, 0, &AC, nullptr, &DT);
     if (Known.getBitWidth() != BitWidth)
       Known = Known.zextOrTrunc(BitWidth);
 
     // ValueTracking may be able to compute a tighter result for the number of
     // sign bits than for the value of those sign bits.
-    unsigned NS = ComputeNumSignBits(U->getValue(), DL, 0, &AC, nullptr, &DT);
+    unsigned NS = ComputeNumSignBits(V, DL, 0, &AC, nullptr, &DT);
     if (U->getType()->isPointerTy()) {
       // If the pointer size is larger than the index size type, this can cause
       // NS to be larger than BitWidth. So compensate for this.
@@ -7512,9 +7513,8 @@ const ConstantRange &ScalarEvolution::getRangeRef(
       Opts.RoundToAlign = false;
       Opts.NullIsUnknownSize = true;
       uint64_t ObjSize;
-      auto *GV = dyn_cast<GlobalVariable>(U->getValue());
-      if (GV && getObjectSize(U->getValue(), ObjSize, DL, &TLI, Opts) &&
-          ObjSize > 1) {
+      auto *GV = dyn_cast<GlobalVariable>(V);
+      if (GV && getObjectSize(V, ObjSize, DL, &TLI, Opts) && ObjSize > 1) {
         // The highest address the object can start is ObjSize bytes before the
         // end (unsigned max value). If this value is not a multiple of the
         // alignment, the last possible start value is the next lowest multiple
@@ -7531,6 +7531,7 @@ const ConstantRange &ScalarEvolution::getRangeRef(
     }
 
     // A range of Phi is a subset of union of all ranges of its input.
+<<<<<<< HEAD
     if (PHINode *Phi = dyn_cast<PHINode>(U->getValue())) {
 #if INTEL_CUSTOMIZATION
       // Recursion check before we call getSCEV recursively on each Op.
@@ -7538,6 +7539,9 @@ const ConstantRange &ScalarEvolution::getRangeRef(
       if (PendingPhiRanges.size() > MaxSCEVCompareDepth)
         return setRange(U, SignHint, std::move(ConservativeResult));
 #endif // INTEL_CUSTOMIZATION
+=======
+    if (PHINode *Phi = dyn_cast<PHINode>(V)) {
+>>>>>>> 6555b5dc99715aa0f27b1e75a8f08e3cc8d76406
       // Make sure that we do not run over cycled Phis.
       if (PendingPhiRanges.insert(Phi).second) {
         ConstantRange RangeFromOps(BitWidth, /*isFullSet=*/false);
@@ -7558,7 +7562,7 @@ const ConstantRange &ScalarEvolution::getRangeRef(
     }
 
     // vscale can't be equal to zero
-    if (const auto *II = dyn_cast<IntrinsicInst>(U->getValue()))
+    if (const auto *II = dyn_cast<IntrinsicInst>(V))
       if (II->getIntrinsicID() == Intrinsic::vscale) {
         ConstantRange Disallowed = APInt::getZero(BitWidth);
         ConservativeResult = ConservativeResult.difference(Disallowed);
