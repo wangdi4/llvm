@@ -1,0 +1,21 @@
+# IR level Instrumentation Flag
+:ir
+_Z8ConvolveiiPfS_Pii
+# Func Hash:
+567185240705392878
+# Num Counters:
+4
+# Counter Values:
+80000000000
+20000000000
+200000000
+2000000
+# Num Value Kinds:
+1
+# ValueKind = IPVK_LoopTripCount:
+2
+# NumValueSites:
+1
+1
+4:20000000000
+

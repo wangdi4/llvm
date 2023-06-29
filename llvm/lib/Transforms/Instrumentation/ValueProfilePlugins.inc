@@ -1,4 +1,21 @@
 //=== ValueProfilePlugins.inc - set of plugins used by ValueProfileCollector =//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023-2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -17,6 +34,11 @@
 #include "llvm/Analysis/IndirectCallVisitor.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/InstVisitor.h"
+
+#if INTEL_CUSTOMIZATION
+#include "llvm/ADT/MapVector.h"
+#include "llvm/IR/InstIterator.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 using CandidateInfo = ValueProfileCollector::CandidateInfo;
@@ -90,9 +112,70 @@ public:
   }
 };
 
+#if INTEL_CUSTOMIZATION
+///------------------------ LoopTripCountPlugin --------------------------------
+class LoopTripCountPlugin {
+  Function &F;
+
+public:
+  static constexpr InstrProfValueKind Kind = IPVK_LoopTripCount;
+
+  LoopTripCountPlugin(Function &Fn, TargetLibraryInfo &TLI) : F(Fn) {}
+
+  void run(std::vector<CandidateInfo> &Candidates) {
+    struct LocalCandidateInfo {
+      Instruction *V = nullptr;
+      Instruction *InsertPt = nullptr;
+      Instruction *AnnotatedInst = nullptr;
+    };
+    MapVector<uint32_t, struct LocalCandidateInfo> LocalCandidates;
+    for (auto &I : instructions(F)) {
+      auto *MD = I.getMetadata("intel.prof.looptc_vp");
+      if (!MD)
+        continue;
+
+      uint32_t NumOps = MD->getNumOperands();
+      auto *TypeCI = mdconst::dyn_extract<llvm::ConstantInt>(MD->getOperand(0));
+      uint32_t TypeNum = TypeCI->getZExtValue();
+      if (TypeNum == LTCP_CounterResult) {
+        for (uint32_t Idx = 1; Idx < NumOps; ++Idx) {
+          auto *IndexCI =
+              mdconst::dyn_extract<llvm::ConstantInt>(MD->getOperand(Idx));
+          assert(IndexCI && "invalid metadata");
+          auto &Cand = LocalCandidates[IndexCI->getZExtValue()];
+          Cand.V = &I;
+          assert(isa<PHINode>(Cand.V) && "Expect value to be a PHI node");
+          Cand.InsertPt = Cand.V->getParent()->getFirstNonPHIOrDbgOrLifetime();
+        }
+      } else if (TypeNum == LTCP_AnnotationResult) {
+        for (uint32_t Idx = 1; Idx < NumOps; ++Idx) {
+          auto *IndexCI =
+              mdconst::dyn_extract<llvm::ConstantInt>(MD->getOperand(Idx));
+          assert(IndexCI && "invalid metadata");
+          auto &Cand = LocalCandidates[IndexCI->getZExtValue()];
+          Cand.AnnotatedInst = &I;
+        }
+      } else {
+        llvm_unreachable("invalid metadata");
+      }
+    }
+
+    Candidates.resize(LocalCandidates.size());
+    for (auto &KV : LocalCandidates) {
+      assert(KV.second.AnnotatedInst && "AnnotatedInst must always exist");
+      Candidates[KV.first] = {KV.second.V, KV.second.InsertPt,
+                              KV.second.AnnotatedInst};
+    }
+  }
+};
+#endif // INTEL_CUSTOMIZATION
+
 ///----------------------- Registration of the plugins -------------------------
 /// For now, registering a plugin with the ValueProfileCollector is done by
 /// adding the plugin type to the VP_PLUGIN_LIST macro.
+#if INTEL_CUSTOMIZATION
 #define VP_PLUGIN_LIST           \
     MemIntrinsicPlugin,          \
-    IndirectCallPromotionPlugin
+    IndirectCallPromotionPlugin, \
+    LoopTripCountPlugin
+#endif // INTEL_CUSTOMIZATION

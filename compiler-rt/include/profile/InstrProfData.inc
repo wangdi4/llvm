@@ -5,6 +5,23 @@
 |* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 |*
 \*===----------------------------------------------------------------------===*/
+/* INTEL_CUSTOMIZATION */
+/*
+ * INTEL CONFIDENTIAL
+ *
+ * Modifications, Copyright (C) 2023-2023 Intel Corporation
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may
+ * not use, modify, copy, publish, distribute, disclose or transmit this
+ * software or the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ */
+ /* end INTEL_CUSTOMIZATION */
 /*
  * This is the main file that defines all the data structure, signature,
  * constant literals that are shared across profiling runtime library,
@@ -179,13 +196,14 @@ VALUE_PROF_FUNC_PARAM(uint32_t, CounterIndex, Type::getInt32Ty(Ctx))
 VALUE_PROF_KIND(IPVK_IndirectCallTarget, 0, "indirect call target")
 /* For memory intrinsic functions size profiling. */
 VALUE_PROF_KIND(IPVK_MemOPSize, 1, "memory intrinsic functions size")
+VALUE_PROF_KIND(IPVK_LoopTripCount, 2, "loop trip count") // INTEL
 /* These two kinds must be the last to be
  * declared. This is to make sure the string
  * array created with the template can be
  * indexed with the kind value.
  */
 VALUE_PROF_KIND(IPVK_First, IPVK_IndirectCallTarget, "first")
-VALUE_PROF_KIND(IPVK_Last, IPVK_MemOPSize, "last")
+VALUE_PROF_KIND(IPVK_Last, IPVK_LoopTripCount, "last") // INTEL
 
 #undef VALUE_PROF_KIND
 /* VALUE_PROF_KIND end */

@@ -1,4 +1,21 @@
 //===- llvm-profdata.cpp - LLVM profile data tool -------------------------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023-2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -2418,6 +2435,7 @@ static int showInstrProfile(
     bool ShowCS, uint64_t ValueCutoff, bool OnlyListBelow,
     const std::string &ShowFunction, bool TextFormat, bool ShowBinaryIds,
     bool ShowCovered, bool ShowProfileVersion, bool ShowTemporalProfTraces,
+    bool ShowLoopTripCounts, // INTEL
     ShowFormat SFormat, raw_fd_ostream &OS) {
   if (SFormat == ShowFormat::Json)
     exitWithError("JSON output is not supported for instr profiles");
@@ -2553,6 +2571,11 @@ static int showInstrProfile(
       if (ShowMemOPSizes && NumMemOPCalls > 0)
         OS << "    Number of Memory Intrinsics Calls: " << NumMemOPCalls
            << "\n";
+#if INTEL_CUSTOMIZATION
+      uint32_t NumLoopCounts = Func.getNumValueSites(IPVK_LoopTripCount);
+      if (NumLoopCounts > 0)
+        OS << "    Number of loop counts: " << NumLoopCounts << "\n";
+#endif // INTEL_CUSTOMIZATION
 
       if (ShowCounts) {
         OS << "    Block counts: [";
@@ -2575,6 +2598,14 @@ static int showInstrProfile(
         traverseAllValueSites(Func, IPVK_MemOPSize, VPStats[IPVK_MemOPSize], OS,
                               nullptr);
       }
+
+#if INTEL_CUSTOMIZATION
+      if (ShowLoopTripCounts && NumLoopCounts) {
+        OS << "    Loop trip counts:\n";
+        traverseAllValueSites(Func, IPVK_LoopTripCount,
+                              VPStats[IPVK_LoopTripCount], OS, nullptr);
+      }
+#endif // INTEL_CUSTOMIZATION
     }
   }
   if (Reader->hasError())
@@ -2936,6 +2967,12 @@ static int show_main(int argc, const char *argv[]) {
       "memop-sizes", cl::init(false),
       cl::desc("Show the profiled sizes of the memory intrinsic calls "
                "for shown functions"));
+#if INTEL_CUSTOMIZATION
+  cl::opt<bool> ShowLoopTripCounts(
+      "loop-trip-counts", cl::init(false),
+      cl::desc(
+          "Show the loop trip counts values collected for shown functions"));
+#endif // INTEL_CUSTOMIZATION
   cl::opt<bool> ShowDetailedSummary("detailed-summary", cl::init(false),
                                     cl::desc("Show detailed profile summary"));
   cl::list<uint32_t> DetailedSummaryCutoffs(
@@ -3031,7 +3068,7 @@ static int show_main(int argc, const char *argv[]) {
         ShowMemOPSizes, ShowDetailedSummary, DetailedSummaryCutoffs,
         ShowAllFunctions, ShowCS, ValueCutoff, OnlyListBelow, ShowFunction,
         TextFormat, ShowBinaryIds, ShowCovered, ShowProfileVersion,
-        ShowTemporalProfTraces, SFormat, OS);
+        ShowTemporalProfTraces, ShowLoopTripCounts, SFormat, OS); // INTEL
   if (ProfileKind == sample)
     return showSampleProfile(Filename, ShowCounts, TopNFunctions,
                              ShowAllFunctions, ShowDetailedSummary,
