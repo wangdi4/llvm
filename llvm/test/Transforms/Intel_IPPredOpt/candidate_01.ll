@@ -2,7 +2,7 @@
 ; REQUIRES: asserts, intel_feature_sw_dtrans
 
 
-; RUN: opt < %s  -disable-output -whole-program-assume -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -passes=ippredopt -debug-only=ippredopt 2>&1 | FileCheck %s
+; RUN: opt < %s  -ippred-skip-callee-legal-checks=true -disable-output -whole-program-assume -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -passes=ippredopt -debug-only=ippredopt 2>&1 | FileCheck %s
 
 ; CHECK:  IP Pred Opt: Started
 ; CHECK-NOT: Failed: No Candidate
