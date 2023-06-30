@@ -175,5 +175,15 @@ PreservedAnalyses SYCLKernelPostVecPass::run(Module &M,
     }
   }
 
+  /// Remove vector-variants attr from internal functions, so that
+  /// DeadArgumentEliminationPass won't skip them.
+  for (Function &F : M) {
+    if (F.getLinkage() == GlobalValue::InternalLinkage &&
+        F.hasFnAttribute(VectorUtils::VectorVariantsAttrName)) {
+      F.removeFnAttr(VectorUtils::VectorVariantsAttrName);
+      Changed = true;
+    }
+  }
+
   return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
