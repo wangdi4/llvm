@@ -73,14 +73,12 @@ define dso_local void @fail(i16 %a, <2 x i8> %b) {
 ; CHECK-X64-NEXT:    testb $1, %al
 ; CHECK-X64-NEXT:    jne .LBB1_3
 ; CHECK-X64-NEXT:  # %bb.2: # %no
-; INTEL_CUSTOMIZATION
 ; CHECK-X64-NEXT:    pushq %rax
 ; CHECK-X64-NEXT:    .cfi_def_cfa_offset 16
 ; CHECK-X64-NEXT:    callq bar@PLT
 ; CHECK-X64-NEXT:    popq %rax
 ; CHECK-X64-NEXT:    .cfi_def_cfa_offset 8
 ; CHECK-X64-NEXT:  .LBB1_3: # %yes
-; end INTEL_CUSTOMIZATION
 ; CHECK-X64-NEXT:    retq
   %1 = icmp eq <2 x i8> %b, <i8 40, i8 123>
   %2 = extractelement <2 x i1> %1, i32 1
