@@ -34,11 +34,7 @@ define dso_local i32 @main() nounwind {
 ; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    retq
 ; CHECK-NEXT:  .LBB0_2: # %if.then
-<<<<<<< HEAD
-; CHECK-NEXT:    pushq %rax ;INTEL
-=======
 ; CHECK-NEXT:    pushq %rax
->>>>>>> 02ba5b8c6b9f0c1ce6df421db5dd5eb307d7d27d
 ; CHECK-NEXT:    callq abort@PLT
 entry:
   store i16 1, ptr @e, align 2

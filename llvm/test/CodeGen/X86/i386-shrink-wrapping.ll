@@ -36,13 +36,8 @@ define i32 @eflagsLiveInPrologue() #0 {
 ; ENABLE-NEXT:    ## =>This Inner Loop Header: Depth=1
 ; ENABLE-NEXT:    jmp LBB0_3
 ; ENABLE-NEXT:  LBB0_4: ## %for.end
-<<<<<<< HEAD
-; ENABLE-NEXT:    pushl %esi ;INTEL
-; ENABLE-NEXT:    subl $8, %esp ;INTEL
-=======
 ; ENABLE-NEXT:    pushl %esi
 ; ENABLE-NEXT:    subl $8, %esp
->>>>>>> 02ba5b8c6b9f0c1ce6df421db5dd5eb307d7d27d
 ; ENABLE-NEXT:    xorl %edx, %edx
 ; ENABLE-NEXT:    cmpb $0, _d
 ; ENABLE-NEXT:    movl $6, %ecx

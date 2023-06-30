@@ -349,19 +349,10 @@ bool ShrinkWrap::useOrDefCSROrFI(const MachineInstr &MI, RegScavenger *RS,
       return PSV->isJumpTable();
     return false;
   };
-<<<<<<< HEAD
-  // This prevents premature stack popping when occurs a indirect stack
-  // access.  It is overly aggressive for the moment.
-  // TODO:
-  //       - Further, data dependency and alias analysis can validate
-  //         that load and stores never derive from the stack pointer.
-#if INTEL_CUSTOMIZATION
-  if (MI.mayLoadOrStore() &&
-=======
   // Load/store operations may access the stack indirectly when we previously
   // computed an address to a stack location.
+#if INTEL_CUSTOMIZATION
   if (StackAddressUsed && MI.mayLoadOrStore() &&
->>>>>>> 02ba5b8c6b9f0c1ce6df421db5dd5eb307d7d27d
       (MI.isCall() || MI.hasUnmodeledSideEffects() || MI.memoperands_empty() ||
        !all_of(MI.memoperands(), IsKnownNonStackPtr))) {
     // Give up on InlineAsm since we can't extract MachineMemOperand from it for
