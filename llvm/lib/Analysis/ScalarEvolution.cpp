@@ -1594,10 +1594,7 @@ ScalarEvolution::getZeroExtendExpr(const SCEV *Op, Type *Ty, unsigned Depth) {
   assert(!Op->getType()->isPointerTy() && "Can't extend pointer!");
   Ty = getEffectiveSCEVType(Ty);
 
-  FoldID ID;
-  ID.addInteger(scZeroExtend);
-  ID.addPointer(Op);
-  ID.addPointer(Ty);
+  FoldID ID(scZeroExtend, Op, Ty);
   auto Iter = FoldCache.find(ID);
   if (Iter != FoldCache.end())
     return Iter->second;
@@ -1933,10 +1930,7 @@ ScalarEvolution::getSignExtendExpr(const SCEV *Op, Type *Ty, unsigned Depth) {
   assert(!Op->getType()->isPointerTy() && "Can't extend pointer!");
   Ty = getEffectiveSCEVType(Ty);
 
-  FoldID ID;
-  ID.addInteger(scSignExtend);
-  ID.addPointer(Op);
-  ID.addPointer(Ty);
+  FoldID ID(scSignExtend, Op, Ty);
   auto Iter = FoldCache.find(ID);
   if (Iter != FoldCache.end())
     return Iter->second;
