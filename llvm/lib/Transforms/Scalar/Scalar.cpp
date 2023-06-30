@@ -94,7 +94,6 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeSpeculativeExecutionLegacyPassPass(Registry);
   initializeStraightLineStrengthReduceLegacyPassPass(Registry);
   initializePlaceBackedgeSafepointsLegacyPassPass(Registry);
-  initializePlaceSafepointsLegacyPassPass(Registry);
 #if INTEL_CUSTOMIZATION
   initializeNonLTOGlobalOptLegacyPassPass(Registry);
 #if INTEL_FEATURE_SW_ADVANCED
