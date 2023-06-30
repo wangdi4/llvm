@@ -878,6 +878,8 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
   HLNodeUtils *HNU = &(FirstLoop->getHLNodeUtils());
   unsigned Level = FirstLoop->getNestingLevel();
 
+  uint64_t OrigMaxTCEst = FirstLoop->getMaxTripCountEstimate();
+
   HLLoop *NewLoop = FirstLoop->cloneEmpty();
 
   HLNodeUtils::insertBefore(FirstLoop, NewLoop);
@@ -939,6 +941,7 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
   // stripmined loop will be the same as the factor.
   bool MinInstRequired = (!IsConstTrip || (TripCount % StripmineSize != 0));
   unsigned MinBlobSymbase = InvalidSymbase;
+  uint64_t NewMaxTCEst = StripmineSize;
 
   if (MinInstRequired) {
     // -StripmineSize *i1 + original UB
@@ -968,6 +971,12 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
     UBRefCE->setDefinedAtLevel(Level);
 
     InnerUBRef->addBlobDDRef(MinBlobIndex, Level);
+
+    // Use OrigMaxTCEst for the chunks if it is smaller than StripmineSize.
+    if (OrigMaxTCEst && OrigMaxTCEst < StripmineSize) {
+      NewMaxTCEst = OrigMaxTCEst;
+    }
+
   } else {
     InnerUBRef->getSingleCanonExpr()->setConstant(StripmineSize - 1);
   }
@@ -997,7 +1006,7 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
 
     if (MinInstRequired) {
       Lp->addLiveInTemp(MinBlobSymbase);
-      Lp->setMaxTripCountEstimate(StripmineSize, true);
+      Lp->setMaxTripCountEstimate(NewMaxTCEst, true);
       Lp->setLegalMaxTripCount(StripmineSize);
     }
 
