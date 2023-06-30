@@ -6,14 +6,6 @@
 ;; Avoid failures on big-endian systems that can't read the profile properly
 ; REQUIRES: x86_64-linux
 
-; INTEL_CUSTOMIZATION
-; This test needs to be updated to regenerate the binary and profile
-; data files to handle the extension to the PGO value profiling for
-; loop trip counts. However, currently the 'fif' tool produces a
-; false positive on the binary executable file produced.
-; XFAIL: *
-; end INTEL_CUSTOMIZATION
-
 ;; TODO: Use text profile inputs once that is available for memprof.
 ;; # To update the Inputs below, run Inputs/update_memprof_inputs.sh.
 ;; # To generate below LLVM IR for use in matching:
@@ -21,9 +13,14 @@
 ;;	-fno-optimize-sibling-calls memprof.cc -S -emit-llvm
 
 ;; Generate indexed profiles of all combinations:
-; RUN: llvm-profdata merge %S/Inputs/memprof.memprofraw --profiled-binary %S/Inputs/memprof.exe -o %t.memprofdata
-; RUN: llvm-profdata merge %S/Inputs/memprof_pgo.profraw %S/Inputs/memprof.memprofraw --profiled-binary %S/Inputs/memprof.exe -o %t.pgomemprofdata
-; RUN: llvm-profdata merge %S/Inputs/memprof_pgo.profraw -o %t.pgoprofdata
+; INTEL_CUSTOMIZATION
+; The binary profile data files have been regenerated, and with the xmain compiler, and renamed to
+; start with 'intel-' because the raw profiles from the xmain compiler have an additional value
+; profiling type for collecting information about some trip counts on loops.
+; RUN: llvm-profdata merge %S/Inputs/intel-memprof.memprofraw --profiled-binary %S/Inputs/intel-memprof.exe -o %t.memprofdata
+; RUN: llvm-profdata merge %S/Inputs/intel-memprof_pgo.profraw %S/Inputs/intel-memprof.memprofraw --profiled-binary %S/Inputs/intel-memprof.exe -o %t.pgomemprofdata
+; RUN: llvm-profdata merge %S/Inputs/intel-memprof_pgo.profraw -o %t.pgoprofdata
+; end INTEL_CUSTOMIZATION
 
 ;; In all below cases we should not get any messages about missing profile data
 ;; for any functions. Either we are not performing any matching for a particular
