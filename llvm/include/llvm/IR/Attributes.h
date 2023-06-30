@@ -35,17 +35,14 @@
 #include "llvm-c/Types.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/BitmaskEnum.h"
-#include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/Support/Alignment.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/PointerLikeTypeTraits.h"
-#include <bitset>
 #include <cassert>
 #include <cstdint>
 #include <optional>
-#include <set>
 #include <string>
 #include <utility>
 
@@ -1013,6 +1010,7 @@ template <> struct DenseMapInfo<AttributeList, void> {
 
 //===----------------------------------------------------------------------===//
 /// \class
+<<<<<<< HEAD
 /// This class stores enough information to efficiently remove some attributes
 /// from an existing AttrBuilder, AttributeSet or AttributeList.
 class AttributeMask {
@@ -1089,6 +1087,8 @@ public:
 
 //===----------------------------------------------------------------------===//
 /// \class
+=======
+>>>>>>> 82a5139cdd9c0226631180749a4af27cee6e77b4
 /// This class is used in conjunction with the Attribute::get method to
 /// create an Attribute object. The object itself is uniquified. The Builder's
 /// value, however, is not. So this can be used as a quick way to test for
