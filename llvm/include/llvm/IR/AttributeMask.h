@@ -79,6 +79,23 @@ public:
       return contains(A.getKindAsString());
     return contains(A.getKindAsEnum());
   }
+
+#if INTEL_CUSTOMIZATION
+  AttributeMask &merge(const AttributeMask &B) {
+      Attrs |= B.Attrs;
+
+    for (const auto &I : B.td_attrs())
+      TargetDepAttrs.insert(I);
+
+    return *this;
+  }
+
+  using td_const_iterator = decltype(TargetDepAttrs)::const_iterator;
+  using td_const_range = iterator_range<td_const_iterator>;
+  td_const_range td_attrs() const {
+      return {TargetDepAttrs.begin(), TargetDepAttrs.end()};
+  }
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // end namespace llvm
