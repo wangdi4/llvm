@@ -2642,7 +2642,7 @@ def int_experimental_matrix_insert_row_slice
                [ImmArg<ArgIndex<4>>, ImmArg<ArgIndex<5>>, ImmArg<ArgIndex<6>>]>;
 
 def int_experimental_matrix_wi_element_coordinate
-  : DefaultAttrsIntrinsic<[llvm_v2i64_ty], [llvm_anyvector_ty,
+  : DefaultAttrsIntrinsic<[llvm_anyvector_ty], [llvm_anyvector_ty,
                llvm_i32_ty, llvm_i32_ty, llvm_i64_ty,
                llvm_metadata_ty], [IntrNoMem]>;
 
