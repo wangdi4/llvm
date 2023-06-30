@@ -28,6 +28,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/AliasSetTracker.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/GuardUtils.h"
 #include "llvm/Analysis/MemoryLocation.h"

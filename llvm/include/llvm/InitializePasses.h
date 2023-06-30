@@ -375,7 +375,6 @@ void initializeRemoveRedundantDebugValuesPass(PassRegistry&);
 void initializeRenameIndependentSubregsPass(PassRegistry&);
 void initializeReplaceWithVeclibLegacyPass(PassRegistry &);
 void initializeResetMachineFunctionPass(PassRegistry&);
-void initializeRewriteSymbolsLegacyPassPass(PassRegistry&);
 void initializeSCEVAAWrapperPassPass(PassRegistry&);
 void initializeSROALegacyPassPass(PassRegistry&);
 void initializeSROALegacyCGSCCAdaptorPassPass(PassRegistry &); // INTEL
