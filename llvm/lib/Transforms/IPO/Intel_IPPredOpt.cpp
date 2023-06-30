@@ -51,6 +51,7 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/TypeMetadataUtils.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -90,6 +91,7 @@ static cl::opt<bool>
 // Value: Condition in the ICmp instruction.
 // bool: Whether BasicBlock is executed when the condition is True or False.
 using ControlCond = PointerIntPair<Value *, 1, bool>;
+using LoopInfoFuncType = std::function<LoopInfo &(Function &)>;
 
 class IPPredOptImpl;
 
@@ -107,9 +109,12 @@ raw_ostream &operator<<(raw_ostream &OS, const ControlCond &C) {
 class PredCandidate {
 public:
   PredCandidate(BasicBlock *ExitBB, BasicBlock *ThenBB, CallBase *CondCall,
-                DominatorTree &DT, PostDominatorTree &PDT, AssumptionCache &AC)
+                DominatorTree &DT, PostDominatorTree &PDT, AssumptionCache &AC,
+                LoopInfoFuncType &GetLI,
+                function_ref<DominatorTree &(Function &)> DTGetter,
+                function_ref<PostDominatorTree &(Function &)> PDTGetter)
       : ExitBB(ExitBB), ThenBB(ThenBB), CondCall(CondCall), DT(DT), PDT(PDT),
-        AC(AC) {}
+        AC(AC), GetLI(GetLI), DTGetter(DTGetter), PDTGetter(PDTGetter) {}
   ~PredCandidate() {}
 
   bool collectExecutedBlocks();
@@ -130,7 +135,17 @@ public:
   bool guaranteedToBeNonNullOnCondCallEntry(Value *V);
   void getValueConstant(ICmpInst *IC, Value **VPtr, Constant **CPtr);
   bool checkCondCallSideEffects(IPPredOptImpl &);
-  bool processIndirectCalls(IPPredOptImpl &, SmallPtrSet<CallBase *, 2> &);
+  bool checkSpecialNoSideEffectsCall(CallBase *CB, LoopInfo &LoopI);
+  Value *getTripCountCallBaseInLoop(CallBase *, LoopInfo &);
+  bool getNeededInstsToCompute(Value *V,
+                               SmallVectorImpl<Instruction *> &HoistingInst);
+  bool getBBControlConditions(BasicBlock *BB,
+                              SmallVectorImpl<ControlCond> &Conditions);
+  bool isDTransVectorAccessElemCall(CallBase *CB);
+  bool processIndirectCalls(IPPredOptImpl &, SmallPtrSet<CallBase *, 2> &,
+                            LoopInfo &);
+  bool processDirectCalls(IPPredOptImpl &, SmallPtrSet<CallBase *, 6> &,
+                          LoopInfo &);
   bool applyHeuristics();
   bool funcHasNoSideEffects(Function *F);
   void hoistConditions();
@@ -175,6 +190,12 @@ private:
 
   AssumptionCache &AC;
 
+  LoopInfoFuncType &GetLI;
+
+  function_ref<DominatorTree &(Function &)> DTGetter;
+
+  function_ref<PostDominatorTree &(Function &)> PDTGetter;
+
   // Basic blocks that are controlled under inside condition statements.
   SmallSetVector<BasicBlock *, 2> ExecutedBlocks;
 
@@ -195,6 +216,23 @@ private:
   // runtime checks to prove the same.
   SmallDenseMap<Value *, SmallVector<Instruction *, 2>, 2>
       SpecialNonNullCheckCondsMap;
+
+  // Most probable target of all indirect calls in callee.
+  Function *MostProbableTarget = nullptr;
+
+  // Instructions needed to compute trip count of a loop that has GetElem
+  // function call.
+  SmallVector<Instruction *, 8> ElemCallTripCHoistInst;
+
+  // Instructions needed to load virtual function pointer.
+  SmallVector<Instruction *, 8> IndirectFPtrHoistInst;
+
+  // Collection of control conditions that are required to load loop
+  // trip counter.
+  SmallVector<ControlCond, 2> CalleeControlConds;
+
+  // Instructions needed for all pointers that need nullptr checks.
+  SmallDenseMap<Value *, SmallVector<Instruction *, 5>, 2> CalleeNullChecks;
 };
 
 // Main class to implement the transformation.
@@ -204,9 +242,10 @@ public:
   IPPredOptImpl(Module &M, WholeProgramInfo &WPInfo,
                 function_ref<DominatorTree &(Function &)> DTGetter,
                 function_ref<PostDominatorTree &(Function &)> PDTGetter,
-                function_ref<AssumptionCache &(Function &)> ACGetter)
+                function_ref<AssumptionCache &(Function &)> ACGetter,
+                LoopInfoFuncType &GetLI)
       : M(M), WPInfo(WPInfo), DTGetter(DTGetter), PDTGetter(PDTGetter),
-        ACGetter(ACGetter){};
+        ACGetter(ACGetter), GetLI(GetLI){};
   ~IPPredOptImpl(){};
   bool run(void);
   bool getVirtualPossibleTargets(CallBase &CB,
@@ -220,6 +259,8 @@ private:
   function_ref<DominatorTree &(Function &)> DTGetter;
   function_ref<PostDominatorTree &(Function &)> PDTGetter;
   function_ref<AssumptionCache &(Function &)> ACGetter;
+  LoopInfoFuncType &GetLI;
+
   DenseMap<Metadata *, SmallSet<std::pair<GlobalVariable *, uint64_t>, 4>>
       TypeIdMap;
   SmallPtrSet<PredCandidate *, MaxNumCandidates> Candidates;
@@ -722,8 +763,28 @@ bool PredCandidate::checkLegalityIssues() {
   return true;
 }
 
+// Check Callee takes more time than the execution blocks controlled
+// under the CondCall.
 bool PredCandidate::applyHeuristics() {
-  // TODO:  Add more code here for heuristics.
+  Function *CondCallee = CondCall->getCalledFunction();
+  unsigned CalleeCount = CondCallee->getInstructionCount();
+
+  // Collect all basic blocks in the CFG from EntryBB to ExitBB.
+  SmallVector<BasicBlock *> CondBBSet;
+  GeneralUtils::collectBBSet(ThenBB, ExitBB, CondBBSet);
+  unsigned CondNumInstrs = 0;
+  for (auto *BB : CondBBSet)
+    CondNumInstrs += std::distance(BB->instructionsWithoutDebug().begin(),
+                                   BB->instructionsWithoutDebug().end());
+
+  // Makes sure Callee has many more instructions.
+  if (CalleeCount < 3 * CondNumInstrs)
+    return false;
+
+  // Makes sure Callee has loops.
+  LoopInfo &LoopI = (GetLI)(*CondCallee);
+  if (llvm::size(LoopI) < 2)
+    return false;
   return true;
 }
 
@@ -738,13 +799,398 @@ bool PredCandidate::funcHasNoSideEffects(Function *F) {
   return true;
 }
 
+// Check if "CB" is in a proper loop and loop index is passed as second
+// argument to CB. Return loop trip count if all checks are passed.
+//
+// Ex:
+//     for (%i = 0; i% < %size; %i++) {
+//       elementAt(%i23, %i)
+//     }
+Value *PredCandidate::getTripCountCallBaseInLoop(CallBase *CB,
+                                                 LoopInfo &LoopI) {
+  if (CB->arg_size() != 2)
+    return nullptr;
+  Loop *L = LoopI.getLoopFor(CB->getParent());
+  if (!L)
+    return nullptr;
+  BasicBlock *Latch = L->getLoopLatch();
+  if (!Latch)
+    return nullptr;
+  PHINode *PN = L->getCanonicalInductionVariable();
+  if (!PN)
+    return nullptr;
+  ICmpInst *Compare = L->getLatchCmpInst();
+  if (!Compare || Compare->getPredicate() != CmpInst::ICMP_EQ ||
+      !L->contains(Latch->getTerminator()->getSuccessor(1)) ||
+      Compare->hasNUsesOrMore(2))
+    return nullptr;
+  auto *Increment =
+      dyn_cast<BinaryOperator>(PN->getIncomingValueForBlock(Latch));
+  if (!Increment || Compare->getOperand(0) != Increment ||
+      !Increment->hasNUses(2))
+    return nullptr;
+  if (PN != CB->getArgOperand(1))
+    return nullptr;
+
+  Value *RHS = Compare->getOperand(1);
+  auto *PHI = dyn_cast<PHINode>(RHS);
+  Value *TripC = nullptr;
+  // Skip all incoming zero values and get actual non-zero trip count.
+  if (PHI) {
+    for (unsigned I = 0, E = PHI->getNumIncomingValues(); I != E; I++) {
+      Value *In = PHI->getIncomingValue(I);
+      auto *C = dyn_cast<Constant>(In);
+      if (C && C->isZeroValue())
+        continue;
+      if (TripC)
+        return nullptr;
+      TripC = In;
+    }
+  } else {
+    TripC = RHS;
+  }
+  return TripC;
+}
+
+// Check if "CB" doesn't have any side effects even though the callee has
+// EH code.
+//
+//  elementAt(ptr %arg, i32 %arg1) {
+//  bb0:
+//    %i = getelementptr BaseRefVectorOf, ptr %arg, i64 0, i32 2
+//    %i2 = load i32, ptr %i
+//    %i3 = icmp ugt i32 %i2, %arg1
+//    br i1 %i3, label %bb11, label %bb4
+//
+//  bb4:
+//    %i5 = tail call ptr @__cxa_allocate_exception(i64 48) #47
+//    invoke foo()
+//    to label %bb8 unwind label %bb9
+//
+//  bb8:
+//    unreachable
+//
+//  bb9:
+//    resume { ptr, i32 }
+//
+//  bb11:
+//    %i12 = getelementptr BaseRefVectorOf, ptr %arg, i64 0, i32 4
+//    %i13 = load ptr, ptr %i12
+//    ret ptr %i13
+//  }
+//
+//   contains(%arg) {
+//     %i = getelementptr ValueStore, ptr %arg, i64 0, i32 4
+//     %i13 = load ptr, ptr %i
+//     %i14 = getelementptr BaseRefVectorOf, ptr %i13, i64 0, i32 2
+//     %i23 = load ptr, ptr %i
+//     %isize = load i32, ptr %i14
+//     ...
+//     for (%i = 0; i% < %size; %i++) {
+//       elementAt(%i23, %i)
+//     }
+//   }
+//
+//   We can prove at compile-time that EH code in elementAt is never
+//   executed. "%i3" condition in elementAt is always true since upper
+//   limit of %arg1 is same as %i2 (which is same as loop trip count in
+//   the caller). So, only bb0 and bb11 are verified to prove that "CB"
+//   doesn't have any side-effects by skipping all EH code.
+//
+bool PredCandidate::checkSpecialNoSideEffectsCall(CallBase *CB,
+                                                  LoopInfo &LoopI) {
+  // Returns true if Terminator is EH related instructions.
+  auto IsNoSuccTerminator = [](Instruction *I) {
+    if (isa<UnreachableInst>(I) || isa<ResumeInst>(I))
+      return true;
+    return false;
+  };
+
+  // Returns RetInst if F has only single RetInst.
+  auto GetSingleRetInst = [](Function *F) -> ReturnInst * {
+    ReturnInst *RI = nullptr;
+    for (BasicBlock &BB : *F)
+      if (auto *Ret = dyn_cast<ReturnInst>(BB.getTerminator())) {
+        if (RI)
+          return nullptr;
+        else
+          RI = Ret;
+      }
+    return RI;
+  };
+
+  // Returns true if BB doesn't have any side effects.
+  auto BBHasNoSideEffects = [](BasicBlock *BB) {
+    for (auto &Inst : *BB) {
+      if (isa<DbgInfoIntrinsic>(Inst))
+        continue;
+      if (Inst.mayHaveSideEffects())
+        return false;
+    }
+    return true;
+  };
+
+  // If V is argument, returns corresponding operand of "CB" at callsite.
+  // Otherwise, just returns V.
+  auto GetSourceOperand = [](Value *V, CallBase *CB) -> Value * {
+    auto *A = dyn_cast<Argument>(V);
+    if (!A)
+      return V;
+    return CB->getArgOperand(A->getArgNo());
+  };
+
+  // This function is used to prove that operands of ICmp instruction in
+  // "elementAt" function (in the example) have same value.
+  // LHSVec: Sequence of instructions to compute first operand of ICmp.
+  // RHSVec: Sequence of instructions to compute upper limit of second
+  //         operand of ICmp.
+  //
+  // Walk though both vectors in reverse order to prove that they are same.
+  //
+  // LHSVec:
+  // %i = getelementptr ValueStore, ptr %arg, i64 0, i32 4
+  // %i23 = load ptr, ptr %i
+  // %i = getelementptr BaseRefVectorOf, ptr %arg, i64 0, i32 2
+  // %i2 = load i32, ptr %i
+  //
+  // RHSVec:
+  // %i = getelementptr ValueStore, ptr %arg, i64 0, i32 4
+  // %i13 = load ptr, ptr %i
+  // %i14 = getelementptr BaseRefVectorOf, ptr %i13, i64 0, i32 2
+  // %i15 = load i32, ptr %i14
+  auto ComputeSameResults =
+      [&GetSourceOperand](SmallVector<Instruction *, 4> &LHSVec,
+                          SmallVector<Instruction *, 4> &RHSVec, CallBase *CB) {
+        if (LHSVec.size() != RHSVec.size() || LHSVec.size() == 0)
+          return false;
+
+        Value *LHSPrev = nullptr;
+        Value *RHSPrev = nullptr;
+
+        for (int32_t I = (int32_t)LHSVec.size() - 1; I >= 0; I--) {
+          Value *LHSCurr = LHSVec[I];
+          Value *RHSCurr = RHSVec[I];
+          Value *LHSCurrOp = nullptr;
+          Value *RHSCurrOp = nullptr;
+
+          if (auto *LLI = dyn_cast<LoadInst>(LHSCurr)) {
+            auto *RLI = dyn_cast<LoadInst>(RHSCurr);
+            if (!RLI || RLI->getType() != LLI->getType())
+              return false;
+            LHSCurrOp = GetSourceOperand(LLI->getPointerOperand(), CB);
+            RHSCurrOp = GetSourceOperand(RLI->getPointerOperand(), CB);
+          } else if (auto *LGEP = dyn_cast<GetElementPtrInst>(LHSCurr)) {
+            auto *RGEP = dyn_cast<GetElementPtrInst>(RHSCurr);
+            if (!RGEP ||
+                RGEP->getSourceElementType() != LGEP->getSourceElementType())
+              return false;
+            if (!std::equal(LGEP->idx_begin(), LGEP->idx_end(),
+                            RGEP->idx_begin(), RGEP->idx_end()))
+              return false;
+            LHSCurrOp = GetSourceOperand(LGEP->getPointerOperand(), CB);
+            RHSCurrOp = GetSourceOperand(RGEP->getPointerOperand(), CB);
+          } else {
+            return false;
+          }
+          if (LHSPrev && RHSPrev) {
+            if (LHSPrev != LHSCurrOp || RHSPrev != RHSCurrOp)
+              return false;
+          } else {
+            if (LHSCurrOp != RHSCurrOp)
+              return false;
+          }
+          LHSPrev = LHSCurr;
+          RHSPrev = RHSCurr;
+        }
+        return true;
+      };
+
+  if (CB->arg_size() != 2)
+    return false;
+  Function *SpecialDirectCallee = CB->getCalledFunction();
+
+  ReturnInst *RI = GetSingleRetInst(SpecialDirectCallee);
+  if (!RI)
+    return false;
+  BasicBlock *RetBB = RI->getParent();
+  if (!BBHasNoSideEffects(RetBB))
+    return false;
+  BasicBlock *Pred = RetBB->getSinglePredecessor();
+  if (!Pred || Pred != &SpecialDirectCallee->getEntryBlock())
+    return false;
+
+  auto *BI = dyn_cast<BranchInst>(Pred->getTerminator());
+  if (!BI || !BI->isConditional())
+    return false;
+  Value *BrCond = BI->getCondition();
+  ICmpInst *IC = dyn_cast<ICmpInst>(BrCond);
+  if (!IC || BI->getSuccessor(0) != RetBB ||
+      IC->getPredicate() != ICmpInst::ICMP_UGT)
+    return false;
+  if (!BBHasNoSideEffects(Pred))
+    return false;
+
+  BasicBlock *FalseBB = BI->getSuccessor(1);
+  auto *II = dyn_cast<InvokeInst>(FalseBB->getTerminator());
+  if (!II)
+    return false;
+  auto *ND = II->getNormalDest();
+  auto *UD = II->getUnwindDest();
+  // Check no successors for ND and UD.
+  if (!IsNoSuccTerminator(ND->getTerminator()) ||
+      !IsNoSuccTerminator(UD->getTerminator()))
+    return false;
+
+  SmallVector<Instruction *, 4> CmpLHSInsts;
+  SmallVector<Instruction *, 4> CmpRHSInsts;
+
+  Value *LHS = IC->getOperand(0);
+  Value *RHS = IC->getOperand(1);
+  if (!isa<Argument>(RHS))
+    return false;
+  if (!isa<LoadInst>(LHS))
+    return false;
+  if (!getNeededInstsToCompute(LHS, CmpLHSInsts))
+    return false;
+  Instruction *FirstInst = *CmpLHSInsts.rbegin();
+  auto *GEP0 = dyn_cast<GetElementPtrInst>(FirstInst);
+  if (!GEP0)
+    return false;
+  auto *Arg0 = dyn_cast<Argument>(GEP0->getPointerOperand());
+  if (!Arg0)
+    return false;
+  Value *LHSArg = CB->getArgOperand(Arg0->getArgNo());
+  if (!getNeededInstsToCompute(LHSArg, CmpLHSInsts))
+    return false;
+
+  // Check Call is in a Loop and loop induction variable is passed
+  // as second argument to the call.
+  Value *RHSArgTripC = getTripCountCallBaseInLoop(CB, LoopI);
+  if (!RHSArgTripC)
+    return false;
+
+  // Get all instructions needed to compute loop trip count.
+  if (!getNeededInstsToCompute(RHSArgTripC, CmpRHSInsts))
+    return false;
+
+  // Prove that ICmp instruction always returns true.
+  if (!ComputeSameResults(CmpLHSInsts, CmpRHSInsts, CB))
+    return false;
+
+  return true;
+}
+
+// Collect all needed instructions to compute "V". Only GetElementPtrInst and
+// LoadInsts are allowed. Stops when it reaches Argument.
+//
+bool PredCandidate::getNeededInstsToCompute(
+    Value *V, SmallVectorImpl<Instruction *> &HoistingInsts) {
+  int NumInsts = 0;
+
+  if (isa<Argument>(V))
+    return true;
+
+  // Limit up to 5 instructions at most.
+  while (NumInsts < 6) {
+    if (auto *LI = dyn_cast<LoadInst>(V)) {
+      HoistingInsts.push_back(LI);
+      V = LI->getPointerOperand();
+    } else if (auto *GEP = dyn_cast<GetElementPtrInst>(V)) {
+      // Non-constant indexes are not allowed.
+      if (!GEP->hasAllConstantIndices())
+        return false;
+      HoistingInsts.push_back(GEP);
+      V = GEP->getPointerOperand();
+      if (isa<Argument>(V))
+        return true;
+    } else {
+      return false;
+    }
+    NumInsts++;
+  }
+  return (HoistingInsts.size() != 0 && NumInsts < 6);
+}
+
+bool PredCandidate::getBBControlConditions(
+    BasicBlock *BB, SmallVectorImpl<ControlCond> &Conditions) {
+
+  Function *F = BB->getParent();
+  DominatorTree &CalleeDT = DTGetter(*F);
+  PostDominatorTree &CalleePDT = PDTGetter(*F);
+
+  BasicBlock *EntryBB = &BB->getParent()->getEntryBlock();
+  BasicBlock *CurrBB = BB;
+  int NumConditions = 0;
+  while (CurrBB != EntryBB) {
+    if (!CalleeDT.getNode(CurrBB))
+      return false;
+    BasicBlock *CurrDom = CalleeDT.getNode(CurrBB)->getIDom()->getBlock();
+    if (!CurrDom)
+      return false;
+    const BranchInst *BI = dyn_cast<BranchInst>(CurrDom->getTerminator());
+
+    if (!BI || !BI->isConditional() || !isa<ICmpInst>(BI->getCondition()))
+      return false;
+
+    if (CalleePDT.dominates(CurrBB, BI->getSuccessor(0)))
+      Conditions.push_back(ControlCond(BI->getCondition(), true));
+    else if (CalleePDT.dominates(CurrBB, BI->getSuccessor(1)))
+      Conditions.push_back(ControlCond(BI->getCondition(), false));
+    else
+      return false;
+    if (++NumConditions > 2)
+      return false;
+    CurrBB = CurrDom;
+  }
+  return Conditions.size() != 0;
+}
+
+// Returns true if CB is marked with "dtrans-vector-size-field=1" attribute.
+bool PredCandidate::isDTransVectorAccessElemCall(CallBase *CB) {
+  Function *VCallee = CB->getCalledFunction();
+  if (!VCallee)
+    return false;
+  Attribute SizeFieldAttr = VCallee->getFnAttribute("dtrans-vector-size-field");
+  if (!SizeFieldAttr.isValid())
+    return false;
+  if (VCallee->arg_size() != 2)
+    return false;
+  return true;
+}
+
+// Makes sure direct calls have no side effects.
+bool PredCandidate::processDirectCalls(IPPredOptImpl &IPPredObj,
+                                       SmallPtrSet<CallBase *, 6> &DirectCalls,
+                                       LoopInfo &LoopI) {
+
+  for (auto *CB : DirectCalls) {
+    LLVM_DEBUG(dbgs() << "      Checking direct call for no side effects:"
+                      << *CB << "\n";);
+    if (isDTransVectorAccessElemCall(CB)) {
+      // TODO: Better to add more safety checks here at callsite also to be
+      // on the safe side.
+      continue;
+    }
+
+    Function *Callee = CB->getCalledFunction();
+    if (funcHasNoSideEffects(Callee))
+      continue;
+
+    // Check if CB is special case when callee has EH code.
+    if (!checkSpecialNoSideEffectsCall(CB, LoopI))
+      return false;
+  }
+  return true;
+}
+
 // For each indirect call, find all possible target functions and no action
 // is required if there are no side effects. If there are possible targets
 // with side effects, find most probable target, which will be used to generate
 // runtime check later, using base class heuristic.
 //
 bool PredCandidate::processIndirectCalls(
-    IPPredOptImpl &IPPredObj, SmallPtrSet<CallBase *, 2> &IndirectCalls) {
+    IPPredOptImpl &IPPredObj, SmallPtrSet<CallBase *, 2> &IndirectCalls,
+    LoopInfo &LoopI) {
 
   // GetCallFirstArgTyMD and GetFunctionFirstParamTyMD are implemented
   // without using MDReader by just using DTrans's metadata that is
@@ -825,15 +1271,21 @@ bool PredCandidate::processIndirectCalls(
   //  %i109 = load ptr, ptr %i108, align 8
   //  %i110 = tail call noundef i32 %i109(ptr %i41)
   //
-  auto ProcessVirtualFunctionLoads = [](CallBase *CB) -> Value * {
+  auto ProcessVirtualFunctionLoads =
+      [](CallBase *CB,
+         SmallVector<Instruction *, 8> &FPtrHoistInst) -> Value * {
     Instruction *PrevI = CB->getPrevNonDebugInstruction();
     auto *LI = dyn_cast_or_null<LoadInst>(PrevI);
     if (!LI || PrevI != CB->getCalledOperand())
       return nullptr;
+    FPtrHoistInst.push_back(LI);
     auto *VGEP =
         dyn_cast_or_null<GetElementPtrInst>(LI->getPrevNonDebugInstruction());
     if (!VGEP)
       return nullptr;
+    if (!VGEP->hasAllConstantIndices())
+      return nullptr;
+    FPtrHoistInst.push_back(VGEP);
     auto *AI =
         dyn_cast_or_null<IntrinsicInst>(VGEP->getPrevNonDebugInstruction());
     if (!AI || AI->getIntrinsicID() != Intrinsic::assume)
@@ -845,9 +1297,11 @@ bool PredCandidate::processIndirectCalls(
     auto *VTLI = dyn_cast<LoadInst>(VGEP->getPointerOperand());
     if (!VTLI)
       return nullptr;
+    FPtrHoistInst.push_back(VTLI);
     auto *GEP = dyn_cast<GetElementPtrInst>(VTLI->getPointerOperand());
     if (!GEP || !GEP->hasAllZeroIndices())
       return nullptr;
+    FPtrHoistInst.push_back(GEP);
 
     return GEP->getPointerOperand();
   };
@@ -860,18 +1314,11 @@ bool PredCandidate::processIndirectCalls(
   //
   //  %i39 = call ptr @bar(ptr %i24, i32 %i38)
   //
-  auto IsDTransVectorAccessElemCall = [](Value *FPtr) {
+  auto IsDTransVectorAccessElemCall = [this](Value *FPtr) {
     auto *VCall = dyn_cast<CallBase>(FPtr);
     if (!VCall)
       return false;
-    Function *VCallee = VCall->getCalledFunction();
-    if (!VCallee)
-      return false;
-    Attribute SizeFieldAttr =
-        VCallee->getFnAttribute("dtrans-vector-size-field");
-    if (!SizeFieldAttr.isValid())
-      return false;
-    if (VCallee->arg_size() != 2)
+    if (!isDTransVectorAccessElemCall(VCall))
       return false;
     if (isa<Argument>(VCall->getArgOperand(0)))
       return true;
@@ -920,14 +1367,17 @@ bool PredCandidate::processIndirectCalls(
   //  ...
   // }
   auto GetValidIndirectCallObj =
-      [&IsDTransVectorAccessElemCall,
-       &ProcessVirtualFunctionLoads](CallBase *CB) -> Value * {
+      [&IsDTransVectorAccessElemCall, &ProcessVirtualFunctionLoads](
+          CallBase *CB,
+          SmallVector<Instruction *, 8> &FPtrHoistInst) -> Value * {
     // Check for case 1.
-    Value *FPtr = ProcessVirtualFunctionLoads(CB);
+    Value *FPtr = ProcessVirtualFunctionLoads(CB, FPtrHoistInst);
     if (!FPtr)
       return nullptr;
-    if (IsDTransVectorAccessElemCall(FPtr))
+    if (IsDTransVectorAccessElemCall(FPtr)) {
+      FPtrHoistInst.push_back(cast<CallBase>(FPtr));
       return FPtr;
+    }
 
     // Check for case 2.
     BasicBlock *CurrBB = CB->getParent();
@@ -948,8 +1398,10 @@ bool PredCandidate::processIndirectCalls(
       NewFPtr = IC->getOperand(0);
     if (!NewFPtr)
       return nullptr;
-    if (IsDTransVectorAccessElemCall(NewFPtr))
-      return NewFPtr;
+    if (IsDTransVectorAccessElemCall(NewFPtr)) {
+      FPtrHoistInst.push_back(cast<CallBase>(NewFPtr));
+      return FPtr;
+    }
     return nullptr;
   };
 
@@ -978,10 +1430,11 @@ bool PredCandidate::processIndirectCalls(
     return FuncInBaseClass;
   };
 
-  SmallPtrSet<Function *, 2> MostProbableTarget;
-  SmallPtrSet<Value *, 2> IndirectFunctionPtr;
+  Value *IndirectFunctionPtr = nullptr;
 
   for (auto *CB : IndirectCalls) {
+    LLVM_DEBUG(dbgs() << "      Checking indirect call for no side effects:"
+                      << *CB << "\n";);
     // Find all possible target functions.
     SetVector<Function *> TargetFunctions;
     if (!IPPredObj.getVirtualPossibleTargets(*CB, TargetFunctions))
@@ -1009,7 +1462,8 @@ bool PredCandidate::processIndirectCalls(
 
     // Trying to collect all instructions that are needed to hoist
     // and generate runtime check for computing function pointer.
-    Value *FPtr = GetValidIndirectCallObj(CB);
+    SmallVector<Instruction *, 8> FPtrHoistInst;
+    Value *FPtr = GetValidIndirectCallObj(CB, FPtrHoistInst);
     if (!FPtr)
       return false;
     Function *VCallee = cast<CallBase>(FPtr)->getCalledFunction();
@@ -1022,22 +1476,84 @@ bool PredCandidate::processIndirectCalls(
     if (Val.getAsInteger(0, SizeField))
       return false;
 
-    // TODO: More code will be added here.
+    auto *GetElemCB = cast<CallBase>(FPtr);
+    if (GetElemCB->arg_size() != 2)
+      return false;
 
-    MostProbableTarget.insert(TF);
-    IndirectFunctionPtr.insert(FPtr);
+    if (!isa<Argument>(GetElemCB->getArgOperand(0)))
+      continue;
+
+    if (!MostProbableTarget && !IndirectFunctionPtr) {
+      MostProbableTarget = TF;
+      IndirectFunctionPtr = FPtr;
+      IndirectFPtrHoistInst = FPtrHoistInst;
+    } else if (MostProbableTarget != TF || IndirectFunctionPtr != FPtr)
+      return false;
   }
-  if (MostProbableTarget.size() == 0)
+  // For now, don't skip transformation if no possible target is found when
+  // IPPredSkipCalleeLegalChecks.
+  if (IPPredSkipCalleeLegalChecks && !MostProbableTarget)
     return true;
 
-  if (MostProbableTarget.size() > 1 ||
-      MostProbableTarget.size() != IndirectFunctionPtr.size())
+  LLVM_DEBUG(dbgs() << "      IndirectCallObj:" << *IndirectFunctionPtr
+                    << "\n";);
+  LLVM_DEBUG(dbgs() << "      Most probable Target:"
+                    << MostProbableTarget->getName() << "\n");
+
+  auto *GetElemCB = cast<CallBase>(IndirectFunctionPtr);
+
+  // Get Loop trip count if the call is in a loop and loop index is passed as
+  // second argument to the call.
+  Value *TripC = getTripCountCallBaseInLoop(GetElemCB, LoopI);
+  if (!TripC)
     return false;
 
-  LLVM_DEBUG(dbgs() << "      IndirectCallObj:"
-                    << *(*IndirectFunctionPtr.begin()) << "\n";);
-  LLVM_DEBUG(dbgs() << "      Most probable Target:"
-                    << (*MostProbableTarget.begin())->getName() << "\n");
+  auto *TripI = dyn_cast<Instruction>(TripC);
+  if (!TripI)
+    return false;
+
+  // The loop trip count is used to generate a runtime check.
+  // Get all conditions that control to compute loop trip count.
+  // These conditions will be generated as runtime checks later.
+  if (!getBBControlConditions(TripI->getParent(), CalleeControlConds))
+    return false;
+
+  // Get all needed instructions to compute loop trip count.
+  if (!getNeededInstsToCompute(TripC, ElemCallTripCHoistInst))
+    return false;
+
+  // Makes sure all control conditions are nullptr checks and then collects
+  // all needed instructions to hoist these conditions.
+  for (auto I = CalleeControlConds.rbegin(), E = CalleeControlConds.rend();
+       I != E; I++) {
+    ControlCond *C = &*I;
+    auto *IC = cast<ICmpInst>(C->getPointer());
+
+    Value *V = nullptr;
+    Constant *CompC = nullptr;
+    getValueConstant(IC, &V, &CompC);
+    assert(V && CompC && "Unexpected ICmpInst");
+    if (!CompC->isNullValue() || IC->getPredicate() != ICmpInst::ICMP_EQ)
+      return false;
+    if (CalleeNullChecks.find(V) != CalleeNullChecks.end())
+      return false;
+
+    // Collect needed instructions to compute "V".
+    SmallVector<Instruction *, 5> HoistNullCheckInsts;
+    if (!getNeededInstsToCompute(V, HoistNullCheckInsts))
+      return false;
+
+    // Skip transformation if there are no instructions are collected
+    // for nullptr checks.
+    if (HoistNullCheckInsts.size() == 0)
+      return false;
+    CalleeNullChecks[V] = HoistNullCheckInsts;
+  }
+
+  // Skip transformation if there are no instructions are collected
+  // for trip count.
+  if (ElemCallTripCHoistInst.size() == 0)
+    return false;
 
   return true;
 }
@@ -1053,8 +1569,10 @@ bool PredCandidate::checkCondCallSideEffects(IPPredOptImpl &IPPredObj) {
   if (funcHasNoSideEffects(Callee))
     return true;
 
-  SmallPtrSet<CallBase *, 4> DirectCalls;
+  SmallPtrSet<CallBase *, 6> DirectCalls;
   SmallPtrSet<CallBase *, 2> IndirectCalls;
+  LoopInfo &LoopI = (GetLI)(*Callee);
+
   for (Instruction &Inst : instructions(*Callee)) {
     if (!Inst.mayThrow() && !Inst.mayWriteToMemory())
       continue;
@@ -1069,8 +1587,15 @@ bool PredCandidate::checkCondCallSideEffects(IPPredOptImpl &IPPredObj) {
       IndirectCalls.insert(CB);
   }
 
-  if (!processIndirectCalls(IPPredObj, IndirectCalls))
+  if (!processIndirectCalls(IPPredObj, IndirectCalls, LoopI)) {
+    LLVM_DEBUG(dbgs() << "      Failed \n";);
     return false;
+  }
+
+  if (!processDirectCalls(IPPredObj, DirectCalls, LoopI)) {
+    LLVM_DEBUG(dbgs() << "      Failed \n";);
+    return false;
+  }
 
   return true;
 }
@@ -1206,9 +1731,6 @@ void PredCandidate::hoistConditions() {
     }
     return NewIC;
   };
-
-  if (!IPPredSkipCalleeLegalChecks)
-    return;
 
   // Create insertion pointer just before CondCall.
   IRBuilder<> B(CondCall);
@@ -1457,6 +1979,184 @@ void PredCandidate::generateRuntimeChecksCloneCFG() {
   SmallVector<Instruction *> LiveOut;
   FindDefsUsedOutside(BBSet, LiveOut);
   JoinWithPHINodes(VMap, BBSet, LiveOut);
+
+  // Generate runtime checks that are needed for Callee.
+  // These runtime checks are mainly to handle indirect calls.
+  //
+  //  Ex:
+  //   contains(arg1) {
+  //   bb:
+  //     %i = getelementptr ValueStore, ptr %arg, i64 0, i32 4
+  //     %i2 = load ptr, ptr %i
+  //     %i3 = icmp eq ptr %i2, null
+  //     br i1 %i3, label %bb130, label %bb4
+  //
+  //   bb4:
+  //     %i5 = getelementptr FieldValueMap, ptr %arg1, i64 0, i32 0
+  //     %i6 = load ptr, ptr %i5, align 8, !tbaa !892
+  //     %i7 = icmp eq ptr %i6, null
+  //     br i1 %i7, label %bb11, label %bb8
+  //
+  //   bb8:
+  //     %i9 = getelementptr inbounds %ValueVectorOf, ptr %i6, i64 0, i32 1
+  //     %li = load i32, ptr %i9
+  //     ...
+  //     for (%li = 0; %li < %VecSize; %li++) {
+  //       %i40 = getValidatorAt(%arg1, %li); // Marked with attribute
+  //                                          //  "dtrans-vector-size-field"
+  //       ...
+  //       %i104 = getelementptr %Validator, ptr %i39, i64 0, i32 0, i32 0
+  //       %i105 = load ptr, ptr %i104
+  //       %i107 = getelementptr inbounds ptr, ptr %i105, i64 10
+  //       %i108 = load ptr, ptr %i107, align 8
+  //       %i109 = tail call noundef i32 %i108(ptr)
+  //       ...
+  //     }
+  //   }
+  //
+  //   For indirect call %i108, let us assume there are many possible targets
+  //   and some of those possible targets have side effects. Using heuristics,
+  //   we will pick most probable target that doesn't have side effects. Then,
+  //   runtime checks are generated to execute IPPredOpt's transformations
+  //   only if %i108 is equal to the most probable target. Also need to
+  //   generate runtime checks for needed nullptr checks before accessing
+  //   object and vtables.
+  //   At callsite, runtime checks will be generated like
+  //
+  //    %4 = getelementptr inbounds %ValueStore, ptr %i28, i64 0, i32 4
+  //    %5 = load ptr, ptr %4
+  //    %callee.check = icmp ne ptr %5, null
+  //    br i1 %callee.check, label %6, label %UnOptBB
+  //
+  //  6:
+  //    %7 = getelementptr inbounds %FieldValueMap, ptr %i226, i64 0, i32 0
+  //    %8 = load ptr, ptr %7
+  //    %callee.check1 = icmp ne ptr %8, null
+  //    br i1 %callee.check1, label %9, label %UnOptBB
+  //
+  //  9:
+  //    %10 = getelementptr inbounds %ValueVectorOf, ptr %8, i64 0, i32 1
+  //    %11 = load i32, ptr %10
+  //    %callee.check2 = icmp eq i32 %11, 1
+  //    br i1 %callee.check2, label %12, label %UnOptBB
+  //
+  //  12:
+  //    %13 = tail call noundef ptr @getValidatorAt(%i226, 0)
+  //    %nunull = icmp ne ptr %13, null
+  //    br i1 %nunull, label %14, label %UnOptBB
+  //
+  //  14:
+  //    %15 = getelementptr %Validator, ptr %13, i64 0, i32 0, i32 0
+  //    %16 = load ptr, ptr %15
+  //    %17 = getelementptr inbounds ptr, ptr %16, i64 10
+  //    %18 = load ptr, ptr %17
+  //    %callee.check3 = icmp eq ptr %18, @Most_Probable_Func
+  //    br i1 %callee.check3, label %OptBB, label %UnOptBB
+
+  // Clone "Inst" in "B" and remap using "VMap".
+  auto GenerateClonedInst = [](Instruction *Inst, ValueToValueMapTy &VMap,
+                               IRBuilder<> &B) -> Value * {
+    Value *FinalVal = nullptr;
+    auto IT = VMap.find(Inst);
+    if (IT != VMap.end()) {
+      FinalVal = IT->second;
+    } else {
+      Instruction *CloneI = B.Insert(Inst->clone());
+      VMap[Inst] = CloneI;
+      RemapInstruction(CloneI, VMap);
+      FinalVal = CloneI;
+    }
+    return FinalVal;
+  };
+
+  // Clone all instructions "InstVec" in reverse order in "B" and
+  // remap using "VMap".
+  auto GenerateClonedInstructions =
+      [&GenerateClonedInst](SmallVectorImpl<Instruction *> &InstVec,
+                            ValueToValueMapTy &VMap,
+                            IRBuilder<> &B) -> Value * {
+    Value *FinalVal = nullptr;
+    for (auto II = InstVec.rbegin(), EE = InstVec.rend(); II != EE; II++)
+      FinalVal = GenerateClonedInst(*(&*II), VMap, B);
+    return FinalVal;
+  };
+
+  // Fix CFG by creating new BrInst using Cond at the end of NewEntryBB.
+  auto AdjustCFG = [](BasicBlock *NewBB, BasicBlock *ClonedEntryBB,
+                      BasicBlock *NewEntryBB, Value *Cond) {
+    BranchInst *NewBr = BranchInst::Create(NewBB, ClonedEntryBB, Cond);
+    ReplaceInstWithInst(NewEntryBB->getTerminator(), NewBr);
+  };
+
+  // Clone all instructions "InstVec" in reverse order in newly created BB
+  // just before FI->getParent() and create new BrInst using Cond at the
+  // end of NewBB.
+  auto CloneInstsInNewBBAdjustCFG =
+      [&GenerateClonedInstructions,
+       &AdjustCFG](Instruction *FI, SmallVectorImpl<Instruction *> &InstVec,
+                   ValueToValueMapTy &VMap, BasicBlock *ClonedEntryBB,
+                   Value *CmpRHS, CmpInst::Predicate Pred) {
+        BasicBlock *NewEntryBB = FI->getParent();
+        BasicBlock *NewBB = NewEntryBB->splitBasicBlock(FI->getIterator());
+        IRBuilder<> B(NewEntryBB, NewEntryBB->getFirstInsertionPt());
+
+        Value *FinalVal = GenerateClonedInstructions(InstVec, VMap, B);
+        auto *Cond = B.CreateICmp(Pred, FinalVal, CmpRHS, "callee.check");
+        AdjustCFG(NewBB, ClonedEntryBB, NewEntryBB, Cond);
+      };
+
+  if (!MostProbableTarget) {
+    return;
+  }
+
+  // Map actual arguments of CondCall and formals of callee.
+  ValueToValueMapTy CalleeVMap;
+  Function *CondCallee = CondCall->getCalledFunction();
+  int ArgI = 0;
+  for (Value *Arg : CondCall->args())
+    CalleeVMap[CondCallee->getArg(ArgI++)] = Arg;
+  Instruction *FI = NewEntryBB->getFirstNonPHIOrDbg();
+
+  // Generate all needed nullptr checks.
+  for (auto I = CalleeControlConds.rbegin(), E = CalleeControlConds.rend();
+       I != E; I++) {
+    ControlCond *C = &*I;
+    auto *IC = cast<ICmpInst>(C->getPointer());
+
+    Value *V = nullptr;
+    Constant *CompC = nullptr;
+    getValueConstant(IC, &V, &CompC);
+    CloneInstsInNewBBAdjustCFG(
+        FI, CalleeNullChecks[V], CalleeVMap, ClonedEntryBB,
+        Constant::getNullValue(V->getType()), CmpInst::Predicate::ICMP_NE);
+  }
+
+  // Check VecSize (i.e Loop trip count) is equal to 1.
+  Value *CmpLHS = ElemCallTripCHoistInst[0];
+  CloneInstsInNewBBAdjustCFG(
+      FI, ElemCallTripCHoistInst, CalleeVMap, ClonedEntryBB,
+      ConstantInt::get(CmpLHS->getType(), 1), CmpInst::Predicate::ICMP_EQ);
+
+  // Generate call to getValidatorAt and fix second argument to access
+  // 1st element as we know this is GetElemAccess function with attribute
+  // "dtrans-vector-size-field".
+  NewEntryBB = FI->getParent();
+  BasicBlock *NewBB = NewEntryBB->splitBasicBlock(FI->getIterator());
+  IRBuilder<> Bld(NewEntryBB, NewEntryBB->getFirstInsertionPt());
+  Instruction *FirstI = *IndirectFPtrHoistInst.rbegin();
+  auto *CallI = cast<CallBase>(FirstI);
+  Value *Arg2 = CallI->getArgOperand(1);
+  CalleeVMap[Arg2] = ConstantInt::get(Arg2->getType(), 0);
+  Value *FinalVal = GenerateClonedInst(CallI, CalleeVMap, Bld);
+  auto *Cond = Bld.CreateICmpNE(
+      FinalVal, Constant::getNullValue(FinalVal->getType()), "nunull");
+  AdjustCFG(NewBB, ClonedEntryBB, NewEntryBB, Cond);
+
+  // Generate runtime condition to check if indirect pointer is equal to
+  // the most probable target.
+  CloneInstsInNewBBAdjustCFG(FI, IndirectFPtrHoistInst, CalleeVMap,
+                             ClonedEntryBB, MostProbableTarget,
+                             CmpInst::Predicate::ICMP_EQ);
 }
 
 // Collect all executed blocks that are controlled by all conditions.
@@ -1625,8 +2325,8 @@ void IPPredOptImpl::gatherCandidates(Function &F) {
     if (!checkBBControlAllCode(ThenBB, ExitBB))
       continue;
 
-    std::unique_ptr<PredCandidate> CandD(
-        new PredCandidate(ExitBB, ThenBB, CI, DT, PDT, AC));
+    std::unique_ptr<PredCandidate> CandD(new PredCandidate(
+        ExitBB, ThenBB, CI, DT, PDT, AC, GetLI, DTGetter, PDTGetter));
 
     // Collect ExecutedBB if there are any.
     if (!CandD->collectExecutedBlocks())
@@ -1647,8 +2347,6 @@ void IPPredOptImpl::gatherCandidates(Function &F) {
       LLVM_DEBUG(dbgs() << "    Skipped: Heuristics\n");
       continue;
     }
-
-    // TODO: Add more checks here.
 
     Candidates.insert(CandD.release());
   }
@@ -1712,7 +2410,11 @@ PreservedAnalyses IPPredOptPass::run(Module &M, ModuleAnalysisManager &AM) {
     return FAM.getResult<AssumptionAnalysis>(F);
   };
 
-  IPPredOptImpl IPPredOptI(M, WPInfo, DTGetter, PDTGetter, ACGetter);
+  LoopInfoFuncType GetLI = [&FAM](Function &F) -> LoopInfo & {
+    return FAM.getResult<LoopAnalysis>(F);
+  };
+
+  IPPredOptImpl IPPredOptI(M, WPInfo, DTGetter, PDTGetter, ACGetter, GetLI);
   if (!IPPredOptI.run())
     return PreservedAnalyses::all();
   auto PA = PreservedAnalyses();
