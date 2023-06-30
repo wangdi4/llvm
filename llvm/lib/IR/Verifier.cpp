@@ -6029,6 +6029,20 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
     }
     break;
   }
+#if INTEL_CUSTOMIZATION
+  case Intrinsic::experimental_matrix_wi_element_coordinate: {
+    VectorType *ResultTy = cast<VectorType>(Call.getType());
+    Check(ResultTy->getElementCount().getFixedValue() == 2,
+          "experimental_matrix_wi_element_coordinate must return a two-element "
+          "integer vector",
+          &Call);
+    Check(ResultTy->getElementType()->isIntegerTy(),
+          "experimental_matrix_wi_element_coordinate must return a two-element "
+          "integer vector",
+          &Call);
+    break;
+  }
+#endif // INTEL_CUSTOMIZATION
   case Intrinsic::experimental_noalias_scope_decl: {
     NoAliasScopeDecls.push_back(cast<IntrinsicInst>(&Call));
     break;

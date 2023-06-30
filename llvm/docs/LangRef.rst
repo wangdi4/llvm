@@ -19529,10 +19529,10 @@ can be either !"scope.subgroup" ir !"scope.workgroup".
 
 Semantics:
 """"""""""
-This intrinsics returns the matrix's element coordinate. The element is specified
-by its zero-based linear index. Layout of the matrix in memory is defined by either
-``llvm.experimental.matrix.fill.*`` or ``llvm.experimental.matrix.load*`` matrix
-creation instructions.
+This intrinsics returns the matrix's element coordinate represented by 2-elements integer vector.
+The element is specified by its zero-based linear index. Layout of the matrix in
+memory is defined by either ``llvm.experimental.matrix.fill.*`` or ``llvm.experimental.matrix.load*``
+matrix creation instructions.
 
 Example:
 """"""""

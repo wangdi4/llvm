@@ -886,6 +886,17 @@ static bool UpgradeIntrinsicFunction1(Function *F, Function *&NewFn) {
     break;
   }
   case 'e': {
+#if INTEL_CUSTOMIZATION
+    if (Name.startswith("experimental.matrix.wi.element.coordinate.")) {
+      Type *Tys[] = {F->getReturnType(), F->arg_begin()->getType()};
+      auto ID = Intrinsic::experimental_matrix_wi_element_coordinate;
+      if (F->getName() != Intrinsic::getName(ID, Tys, F->getParent())) {
+        rename(F);
+        NewFn = Intrinsic::getDeclaration(F->getParent(), ID, Tys);
+        return true;
+      }
+    }
+#endif // INTEL_CUTOMIZATION
     if (Name.startswith("experimental.vector.extract.")) {
       rename(F);
       Type *Tys[] = {F->getReturnType(), F->arg_begin()->getType()};
