@@ -26,7 +26,7 @@ define void @main(i32 %x) nounwind !no_barrier_path !1 {
 !sycl.kernels = !{!0}
 !opencl.disabled.FP_CONTRACT = !{}
 
-!0 = !{void (i32)* @main}
+!0 = !{ptr @main}
 !1 = !{i1 true}
 
 ; DEBUGIFY-NOT: WARNING

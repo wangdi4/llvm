@@ -49,7 +49,7 @@ declare void @_Z18work_group_barrierj(i32)
 !sycl.kernels = !{!0}
 !opencl.disabled.FP_CONTRACT = !{}
 
-!0 = !{void (i32)* @main}
+!0 = !{ptr @main}
 !1 = !{i1 false}
 
 ; DEBUGIFY-COUNT-2: WARNING: Instruction with empty DebugLoc in function main -- call void @dummy_barrier.()

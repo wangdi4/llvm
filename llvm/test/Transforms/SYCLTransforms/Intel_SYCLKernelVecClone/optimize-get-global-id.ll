@@ -79,7 +79,7 @@ target triple = "x86_64-pc-linux"
 declare i64 @_Z13get_global_idj(i32 %0) local_unnamed_addr #1
 
 ; Function Attrs: nounwind
-define void @foo(i32 addrspace(1)* %a, float addrspace(1)* %b) local_unnamed_addr #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_type_qual !9 !kernel_arg_base_type !10 !no_barrier_path !11 !recommended_vector_length !12 {
+define void @foo(ptr addrspace(1) %a, ptr addrspace(1) %b) local_unnamed_addr #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_type_qual !9 !kernel_arg_base_type !10 !no_barrier_path !11 !recommended_vector_length !12 !arg_type_null_val !13 {
 entry:
    %gid_call = call i64 @_Z13get_global_idj(i32 0) #1
    %non.trunc.user = add i64 %gid_call, 42
@@ -127,7 +127,7 @@ attributes #1 = { nounwind readnone }
 !2 = !{i32 1, i32 0}
 !3 = !{}
 !4 = !{i16 6, i16 14}
-!5 = !{void (i32 addrspace(1)*, float addrspace(1)*)* @foo}
+!5 = !{ptr @foo}
 !6 = !{i32 1, i32 1}
 !7 = !{!"none", !"none"}
 !8 = !{!"int*", !"float*"}
@@ -135,6 +135,7 @@ attributes #1 = { nounwind readnone }
 !10 = !{!"int*", !"float*"}
 !11 = !{i1 true}
 !12 = !{i32 8}
+!13 = !{i32 addrspace(1)* null, float addrspace(1)* null}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uu_foo {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uu_foo {{.*}} call

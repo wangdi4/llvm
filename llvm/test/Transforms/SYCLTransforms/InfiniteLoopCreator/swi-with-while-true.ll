@@ -25,9 +25,7 @@
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64-unknown-unknown-intelfpga"
 
-%opencl.channel_t = type opaque
-
-@out = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
+@out = common addrspace(1) global target("spirv.Channel") zeroinitializer, align 4, !packet_size !0, !packet_align !0
 
 ; CHECK: define void @test_autorun_1
 ; CHECK: br label %infinite_loop_entry
@@ -44,7 +42,7 @@ define void @test_autorun_1() #0 !kernel_arg_addr_space !4 !kernel_arg_access_qu
   %early_exit_call = call [7 x i64] @WG.boundaries.test_autorun_1()
   %1 = extractvalue [7 x i64] %early_exit_call, 0
   %2 = trunc i64 %1 to i1
-  br i1 %2, label %WGLoopsEntry, label %12
+  br i1 %2, label %WGLoopsEntry, label %exit
 
 WGLoopsEntry:                                     ; preds = %0
   %3 = extractvalue [7 x i64] %early_exit_call, 1
@@ -68,20 +66,19 @@ dim_0_pre_head:                                   ; preds = %dim_0_exit, %dim_1_
 
 scalar_kernel_entry:                              ; preds = %return, %dim_0_pre_head
   %dim_0_ind_var = phi i64 [ 0, %dim_0_pre_head ], [ %dim_0_inc_ind_var, %return ]
-  %9 = bitcast i32* %a to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* %9) #3
-  store i32 10, i32* %a, align 4, !tbaa !9
+  call void @llvm.lifetime.start.p0(i64 4, ptr %a) #3
+  store i32 10, ptr %a, align 4, !tbaa !9
   br label %while.cond
 
 while.cond:                                       ; preds = %while.body, %scalar_kernel_entry
   br label %while.body
 
 while.body:                                       ; preds = %while.cond
-  %10 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @out, align 4, !tbaa !13
-  %11 = load i32, i32* %a, align 4, !tbaa !9
-  %inc = add nsw i32 %11, 1
-  store i32 %inc, i32* %a, align 4, !tbaa !9
-  call void @_Z19write_channel_intel11ocl_channelii(%opencl.channel_t addrspace(1)* %10, i32 %11) #4
+  %9 = load ptr addrspace(1), ptr addrspace(1) @out, align 4, !tbaa !13
+  %10 = load i32, ptr %a, align 4, !tbaa !9
+  %inc = add nsw i32 %10, 1
+  store i32 %inc, ptr %a, align 4, !tbaa !9
+  call void @_Z19write_channel_intel11ocl_channelii(ptr addrspace(1) %9, i32 %10) #4
   br label %while.cond
 
 return:                                           ; No predecessors!
@@ -100,17 +97,17 @@ dim_1_exit:                                       ; preds = %dim_0_exit
   br i1 %dim_2_cmp.to.max, label %dim_2_exit, label %dim_1_pre_head
 
 dim_2_exit:                                       ; preds = %dim_1_exit
-  br label %12
+  br label %exit
 
-; <label>:12:                                     ; preds = %0, %dim_2_exit
+exit:                                             ; preds = %0, %dim_2_exit
   ret void
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64, ptr nocapture) #1
 
 ; Function Attrs: convergent
-declare void @_Z19write_channel_intel11ocl_channelii(%opencl.channel_t addrspace(1)*, i32) #2
+declare void @_Z19write_channel_intel11ocl_channelii(ptr addrspace(1), i32) #2
 
 define [7 x i64] @WG.boundaries.test_autorun_1() {
 entry:
@@ -156,7 +153,7 @@ attributes #4 = { convergent }
 !3 = !{i32 1, i32 2}
 !4 = !{}
 !5 = !{!"clang version 7.0.0 "}
-!6 = !{void ()* @test_autorun_1}
+!6 = !{ptr @test_autorun_1}
 !7 = !{i32 0}
 !8 = !{i1 true}
 !9 = !{!10, !10, i64 0}

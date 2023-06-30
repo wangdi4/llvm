@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-implicit-gid -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-implicit-gid -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-implicit-gid -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-implicit-gid -S %s | FileCheck %s
 
 ; This test checks whether implicit GIDs work with subgroup emulation.
 
@@ -29,36 +29,36 @@ define i32 @foo(i32 %x) #0 !dbg !9 {
 ; CHECK-NEXT: call void @dummy_sg_barrier()
 
 ; CHECK-NEXT: %__ocl_dbg_gid0 = alloca i64
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid0
 ; CHECK-NEXT: %__ocl_dbg_gid1 = alloca i64
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid1
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid1
 ; CHECK-NEXT: %__ocl_dbg_gid2 = alloca i64
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid2
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid2
 
 ; CHECK-NEXT: [[GID0:%GlobalID.*]] = call i64 @_Z13get_global_idj(i32 0)
-; CHECK-NEXT: store volatile i64 [[GID0]], i64* %__ocl_dbg_gid0
+; CHECK-NEXT: store volatile i64 [[GID0]], ptr %__ocl_dbg_gid0
 ; CHECK-NEXT: [[GID1:%GlobalID.*]] = call i64 @_Z13get_global_idj(i32 1)
-; CHECK-NEXT: store volatile i64 [[GID1]], i64* %__ocl_dbg_gid1
+; CHECK-NEXT: store volatile i64 [[GID1]], ptr %__ocl_dbg_gid1
 ; CHECK-NEXT: [[GID2:%GlobalID.*]] = call i64 @_Z13get_global_idj(i32 2)
-; CHECK-NEXT: store volatile i64 [[GID2]], i64* %__ocl_dbg_gid2
+; CHECK-NEXT: store volatile i64 [[GID2]], ptr %__ocl_dbg_gid2
 
 ; CHECK-NEXT: %x.addr = alloca i32, align 4
 entry:
   call void @dummy_sg_barrier()
   %x.addr = alloca i32, align 4
-  store i32 %x, i32* %x.addr, align 4
-  call void @llvm.dbg.declare(metadata i32* %x.addr, metadata !14, metadata !DIExpression()), !dbg !15
-  %0 = load i32, i32* %x.addr, align 4, !dbg !16
+  store i32 %x, ptr %x.addr, align 4
+  call void @llvm.dbg.declare(metadata ptr %x.addr, metadata !14, metadata !DIExpression()), !dbg !15
+  %0 = load i32, ptr %x.addr, align 4, !dbg !16
   br label %sg.barrier.bb.
 
 ; CHECK: sg.barrier.bb.:
 ; CHECK-NEXT: call void @_Z17sub_group_barrierj(i32 1)
 ; CHECK-NEXT: [[GID0:%GlobalID.*]] = call i64 @_Z13get_global_idj(i32 0)
-; CHECK-NEXT: store volatile i64 [[GID0]], i64* %__ocl_dbg_gid0
+; CHECK-NEXT: store volatile i64 [[GID0]], ptr %__ocl_dbg_gid0
 ; CHECK-NEXT: [[GID1:%GlobalID.*]] = call i64 @_Z13get_global_idj(i32 1)
-; CHECK-NEXT: store volatile i64 [[GID1]], i64* %__ocl_dbg_gid1
+; CHECK-NEXT: store volatile i64 [[GID1]], ptr %__ocl_dbg_gid1
 ; CHECK-NEXT: [[GID2:%GlobalID.*]] = call i64 @_Z13get_global_idj(i32 2)
-; CHECK-NEXT: store volatile i64 [[GID2]], i64* %__ocl_dbg_gid2
+; CHECK-NEXT: store volatile i64 [[GID2]], ptr %__ocl_dbg_gid2
 ; CHECK-NEXT: call i32 @_Z28sub_group_scan_inclusive_addi
 sg.barrier.bb.:                                   ; preds = %entry
   call void @_Z17sub_group_barrierj(i32 1)
@@ -68,11 +68,11 @@ sg.barrier.bb.:                                   ; preds = %entry
 ; CHECK: sg.dummy.bb.:
 ; CHECK-NEXT: call void @dummy_sg_barrier()
 ; CHECK-NEXT: [[GID0:%GlobalID.*]] = call i64 @_Z13get_global_idj(i32 0)
-; CHECK-NEXT: store volatile i64 [[GID0]], i64* %__ocl_dbg_gid0
+; CHECK-NEXT: store volatile i64 [[GID0]], ptr %__ocl_dbg_gid0
 ; CHECK-NEXT: [[GID1:%GlobalID.*]] = call i64 @_Z13get_global_idj(i32 1)
-; CHECK-NEXT: store volatile i64 [[GID1]], i64* %__ocl_dbg_gid1
+; CHECK-NEXT: store volatile i64 [[GID1]], ptr %__ocl_dbg_gid1
 ; CHECK-NEXT: [[GID2:%GlobalID.*]] = call i64 @_Z13get_global_idj(i32 2)
-; CHECK-NEXT: store volatile i64 [[GID2]], i64* %__ocl_dbg_gid2
+; CHECK-NEXT: store volatile i64 [[GID2]], ptr %__ocl_dbg_gid2
 ; CHECK-NEXT: ret i32 %call
 sg.dummy.bb.:                                     ; preds = %sg.barrier.bb.
   call void @dummy_sg_barrier()
@@ -96,13 +96,13 @@ define void @main_kernel() #3 !dbg !19 !kernel_arg_addr_space !2 !kernel_arg_acc
 ; CHECK: entry:
 ; CHECK-NEXT: call void @dummybarrier.()
 ; CHECK-NEXT: %__ocl_dbg_gid0 = alloca i64
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid0
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid0
 ; CHECK-NEXT: %__ocl_dbg_gid1 = alloca i64
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid1
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid1
 ; CHECK-NEXT: %__ocl_dbg_gid2 = alloca i64
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i64* %__ocl_dbg_gid2
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid2
 ; No stores here, since it's dummybarrier - dummy_sg_barrier region
-; CHECK-NOT: store volatile i64 {{.*}}, i64* %__ocl_dbg_gid
+; CHECK-NOT: store volatile i64 {{.*}}, ptr %__ocl_dbg_gid
 ; CHECK-NEXT: br label %sg.dummy.bb.2
 entry:
   call void @dummybarrier.()
@@ -111,32 +111,32 @@ entry:
 ; CHECK: sg.dummy.bb.2:
 ; CHECK-NEXT: call void @dummy_sg_barrier()
 ; CHECK-NEXT: [[GID0:%GlobalID.*]] = call i64 @_Z13get_global_idj(i32 0)
-; CHECK-NEXT: store volatile i64 [[GID0]], i64* %__ocl_dbg_gid0
+; CHECK-NEXT: store volatile i64 [[GID0]], ptr %__ocl_dbg_gid0
 ; CHECK-NEXT: [[GID1:%GlobalID.*]] = call i64 @_Z13get_global_idj(i32 1)
-; CHECK-NEXT: store volatile i64 [[GID1]], i64* %__ocl_dbg_gid1
+; CHECK-NEXT: store volatile i64 [[GID1]], ptr %__ocl_dbg_gid1
 ; CHECK-NEXT: [[GID2:%GlobalID.*]] = call i64 @_Z13get_global_idj(i32 2)
-; CHECK-NEXT: store volatile i64 [[GID2]], i64* %__ocl_dbg_gid2
+; CHECK-NEXT: store volatile i64 [[GID2]], ptr %__ocl_dbg_gid2
 ; CHECK-NEXT: %lid = alloca i32, align 4
 sg.dummy.bb.2:                                    ; preds = %entry
   call void @dummy_sg_barrier()
   %lid = alloca i32, align 4
   %x = alloca i32, align 4
-  call void @llvm.dbg.declare(metadata i32* %lid, metadata !26, metadata !DIExpression()), !dbg !27
+  call void @llvm.dbg.declare(metadata ptr %lid, metadata !26, metadata !DIExpression()), !dbg !27
   %call = call i64 @_Z12get_local_idj(i32 0) #7, !dbg !28
   %conv = trunc i64 %call to i32, !dbg !28
-  store i32 %conv, i32* %lid, align 4, !dbg !27
-  call void @llvm.dbg.declare(metadata i32* %x, metadata !29, metadata !DIExpression()), !dbg !30
-  %0 = load i32, i32* %lid, align 4, !dbg !31
+  store i32 %conv, ptr %lid, align 4, !dbg !27
+  call void @llvm.dbg.declare(metadata ptr %x, metadata !29, metadata !DIExpression()), !dbg !30
+  %0 = load i32, ptr %lid, align 4, !dbg !31
   br label %sg.barrier.bb.
 
 ; CHECK: sg.barrier.bb.:
 ; CHECK-NEXT: call void @_Z17sub_group_barrierj(i32 1)
 ; CHECK-NEXT: [[GID0:%GlobalID.*]] = call i64 @_Z13get_global_idj(i32 0)
-; CHECK-NEXT: store volatile i64 [[GID0]], i64* %__ocl_dbg_gid0
+; CHECK-NEXT: store volatile i64 [[GID0]], ptr %__ocl_dbg_gid0
 ; CHECK-NEXT: [[GID1:%GlobalID.*]] = call i64 @_Z13get_global_idj(i32 1)
-; CHECK-NEXT: store volatile i64 [[GID1]], i64* %__ocl_dbg_gid1
+; CHECK-NEXT: store volatile i64 [[GID1]], ptr %__ocl_dbg_gid1
 ; CHECK-NEXT: [[GID2:%GlobalID.*]] = call i64 @_Z13get_global_idj(i32 2)
-; CHECK-NEXT: store volatile i64 [[GID2]], i64* %__ocl_dbg_gid2
+; CHECK-NEXT: store volatile i64 [[GID2]], ptr %__ocl_dbg_gid2
 ; CHECK-NEXT: call i32 @foo(i32 %0)
 sg.barrier.bb.:                                   ; preds = %sg.dummy.bb.2
   call void @_Z17sub_group_barrierj(i32 1)
@@ -146,27 +146,27 @@ sg.barrier.bb.:                                   ; preds = %sg.dummy.bb.2
 ; CHECK: sg.dummy.bb.:
 ; CHECK-NEXT: call void @dummy_sg_barrier()
 ; CHECK-NEXT: [[GID0:%GlobalID.*]] = call i64 @_Z13get_global_idj(i32 0)
-; CHECK-NEXT: store volatile i64 [[GID0]], i64* %__ocl_dbg_gid0
+; CHECK-NEXT: store volatile i64 [[GID0]], ptr %__ocl_dbg_gid0
 ; CHECK-NEXT: [[GID1:%GlobalID.*]] = call i64 @_Z13get_global_idj(i32 1)
-; CHECK-NEXT: store volatile i64 [[GID1]], i64* %__ocl_dbg_gid1
+; CHECK-NEXT: store volatile i64 [[GID1]], ptr %__ocl_dbg_gid1
 ; CHECK-NEXT: [[GID2:%GlobalID.*]] = call i64 @_Z13get_global_idj(i32 2)
-; CHECK-NEXT: store volatile i64 [[GID2]], i64* %__ocl_dbg_gid2
-; CHECK-NEXT: store i32 %call1, i32* %x, align 4
+; CHECK-NEXT: store volatile i64 [[GID2]], ptr %__ocl_dbg_gid2
+; CHECK-NEXT: store i32 %call1, ptr %x, align 4
 sg.dummy.bb.:                                     ; preds = %sg.barrier.bb.
   call void @dummy_sg_barrier()
-  store i32 %call1, i32* %x, align 4, !dbg !30
+  store i32 %call1, ptr %x, align 4, !dbg !30
   br label %sg.barrier.bb.1
 
 ; CHECK: sg.barrier.bb.1:
 ; CHECK-NEXT: call void @_Z17sub_group_barrierj(i32 1)
 ; CHECK-NEXT: [[GID0:%GlobalID.*]] = call i64 @_Z13get_global_idj(i32 0)
-; CHECK-NEXT: store volatile i64 [[GID0]], i64* %__ocl_dbg_gid0
+; CHECK-NEXT: store volatile i64 [[GID0]], ptr %__ocl_dbg_gid0
 ; CHECK-NEXT: [[GID1:%GlobalID.*]] = call i64 @_Z13get_global_idj(i32 1)
-; CHECK-NEXT: store volatile i64 [[GID1]], i64* %__ocl_dbg_gid1
+; CHECK-NEXT: store volatile i64 [[GID1]], ptr %__ocl_dbg_gid1
 ; CHECK-NEXT: [[GID2:%GlobalID.*]] = call i64 @_Z13get_global_idj(i32 2)
-; CHECK-NEXT: store volatile i64 [[GID2]], i64* %__ocl_dbg_gid2
+; CHECK-NEXT: store volatile i64 [[GID2]], ptr %__ocl_dbg_gid2
 ; CHECK-NEXT: call void @_Z7barrierj(i32 1)
-; CHECK-NOT: store volatile i64 {{.*}}, i64* %__ocl_dbg_gid
+; CHECK-NOT: store volatile i64 {{.*}}, ptr %__ocl_dbg_gid
 ; CHECK-NEXT: br label %sg.dummy.bb.3
 sg.barrier.bb.1:                                  ; preds = %sg.dummy.bb.
   call void @_Z17sub_group_barrierj(i32 1)
@@ -176,11 +176,11 @@ sg.barrier.bb.1:                                  ; preds = %sg.dummy.bb.
 ; CHECK: sg.dummy.bb.3:
 ; CHECK-NEXT: call void @dummy_sg_barrier()
 ; CHECK-NEXT: [[GID0:%GlobalID.*]] = call i64 @_Z13get_global_idj(i32 0)
-; CHECK-NEXT: store volatile i64 [[GID0]], i64* %__ocl_dbg_gid0
+; CHECK-NEXT: store volatile i64 [[GID0]], ptr %__ocl_dbg_gid0
 ; CHECK-NEXT: [[GID1:%GlobalID.*]] = call i64 @_Z13get_global_idj(i32 1)
-; CHECK-NEXT: store volatile i64 [[GID1]], i64* %__ocl_dbg_gid1
+; CHECK-NEXT: store volatile i64 [[GID1]], ptr %__ocl_dbg_gid1
 ; CHECK-NEXT: [[GID2:%GlobalID.*]] = call i64 @_Z13get_global_idj(i32 2)
-; CHECK-NEXT: store volatile i64 [[GID2]], i64* %__ocl_dbg_gid2
+; CHECK-NEXT: store volatile i64 [[GID2]], ptr %__ocl_dbg_gid2
 ; CHECK-NEXT: ret void
 sg.dummy.bb.3:                                    ; preds = %sg.barrier.bb.1
   call void @dummy_sg_barrier()
@@ -228,7 +228,7 @@ attributes #7 = { convergent nounwind readnone }
 !5 = !{i32 1, i32 2}
 !6 = !{!"-g", !"-cl-opt-disable"}
 !7 = !{!"Intel(R) oneAPI DPC++ Compiler 2021.2.0 (YYYY.x.0.MMDD)"}
-!8 = !{void ()* @main_kernel}
+!8 = !{ptr @main_kernel}
 !9 = distinct !DISubprogram(name: "foo", scope: !10, file: !10, line: 1, type: !11, scopeLine: 1, spFlags: DISPFlagDefinition, unit: !0, retainedNodes: !2)
 !10 = !DIFile(filename: "source.cl", directory: "/")
 !11 = !DISubroutineType(cc: DW_CC_LLVM_SpirFunction, types: !12)
