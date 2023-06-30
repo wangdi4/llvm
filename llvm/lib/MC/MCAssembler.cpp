@@ -1164,6 +1164,7 @@ bool MCAssembler::relaxDwarfCallFrameFragment(MCAsmLayout &Layout,
   if (!Abs) {
     getContext().reportError(DF.getAddrDelta().getLoc(),
                              "invalid CFI advance_loc expression");
+    DF.setAddrDelta(MCConstantExpr::create(0, Context));
     return false;
   }
 
