@@ -12,11 +12,11 @@ target triple = "x86_64-pc-linux"
 
 define void @test() local_unnamed_addr #0 !kernel_arg_addr_space !2 !kernel_arg_access_qual !2 !kernel_arg_type !2 !kernel_arg_base_type !2 !kernel_arg_type_qual !2 !kernel$arg_host_accessible !2 !kernel_arg_pipe_depth !2 !kernel_arg_pipe_io !2 !kernel_arg_buffer_location !2 !kernel_arg_name !2 !no_barrier_path !7 !kernel_execution_length !8 !$ernel_has_barrier !9 !kernel_has_global_sync !9 {
 entry:
-  %call = tail call i32 (i8 addrspace(2)*, ...) @printf(i8 addrspace(2)* getelementptr inbounds ([14 x i8], [14 x i8] addrspace(2)* @.str, i64 0, i64 0)) #2
+  %call = tail call i32 (ptr addrspace(2), ...) @printf(ptr addrspace(2) @.str) #2
   ret void
 }
 
-declare i32 @printf(i8 addrspace(2)* nocapture readonly, ...) local_unnamed_addr #1
+declare i32 @printf(ptr addrspace(2) nocapture readonly, ...) local_unnamed_addr #1
 
 define [7 x i64] @WG.boundaries.test() {
 entry:
@@ -66,7 +66,7 @@ attributes #2 = { convergent nounwind }
 !2 = !{}
 !3 = !{!"-cl-std=CL2.0"}
 !4 = !{!"clang version 8.0.0 "}
-!5 = !{void ()* @test}
+!5 = !{ptr @test}
 !6 = !{i32 0}
 !7 = !{i1 true}
 !8 = !{i32 2}

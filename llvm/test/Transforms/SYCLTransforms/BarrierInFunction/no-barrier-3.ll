@@ -34,8 +34,8 @@ define void @__Vectorized_.main(i32 %x) nounwind !no_barrier_path !2 {
 !sycl.kernels = !{!0}
 !opencl.disabled.FP_CONTRACT = !{}
 
-!0 = !{void (i32)* @main}
-!1 = !{void (i32)* @__Vectorized_.main}
+!0 = !{ptr @main}
+!1 = !{ptr @__Vectorized_.main}
 !2 = !{i1 true}
 
 ; DEBUGIFY-NOT: WARNING

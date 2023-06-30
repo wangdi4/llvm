@@ -10,26 +10,26 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent norecurse nounwind
-define dso_local void @test(i32 addrspace(1)* %src) local_unnamed_addr #0 !kernel_arg_addr_space !2 !kernel_arg_access_qual !3 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 !kernel_arg_name !6 !kernel_arg_host_accessible !7 !kernel_arg_pipe_depth !8 !kernel_arg_pipe_io !5 !kernel_arg_buffer_location !5 !no_barrier_path !9 !kernel_has_sub_groups !9 !vectorized_kernel !10 !vectorized_masked_kernel !11 !vectorized_width !2 !recommended_vector_length !12 !scalar_kernel !13 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !8 {
+define dso_local void @test(ptr addrspace(1) %src) local_unnamed_addr #0 !kernel_arg_addr_space !2 !kernel_arg_access_qual !3 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 !kernel_arg_name !6 !kernel_arg_host_accessible !7 !kernel_arg_pipe_depth !8 !kernel_arg_pipe_io !5 !kernel_arg_buffer_location !5 !no_barrier_path !9 !kernel_has_sub_groups !9 !vectorized_kernel !10 !vectorized_masked_kernel !11 !vectorized_width !2 !recommended_vector_length !12 !scalar_kernel !13 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !8 !arg_type_null_val !21 {
 entry:
   %call = tail call i32 @_Z18get_sub_group_sizev() #5
   %call1 = tail call i64 @_Z13get_global_idj(i32 0) #6
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %src, i64 %call1
-  store i32 %call, i32 addrspace(1)* %arrayidx, align 4, !tbaa !14
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %src, i64 %call1
+  store i32 %call, ptr addrspace(1) %arrayidx, align 4, !tbaa !14
   ret void
 }
 
 ; Function Attrs: convergent
 declare i32 @_Z18get_sub_group_sizev() local_unnamed_addr #1
 
-; Function Attrs: convergent mustprogress nofree nounwind readnone willreturn
+; Function Attrs: convergent mustprogress nofree nounwind willreturn memory(none)
 declare i64 @_Z13get_global_idj(i32) local_unnamed_addr #2
 
 ; Function Attrs: convergent norecurse nounwind
-define dso_local void @_ZGVeN16u_test(i32 addrspace(1)* %src) local_unnamed_addr #3 !kernel_arg_addr_space !2 !kernel_arg_access_qual !3 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 !kernel_arg_name !6 !kernel_arg_host_accessible !7 !kernel_arg_pipe_depth !8 !kernel_arg_pipe_io !5 !kernel_arg_buffer_location !5 !no_barrier_path !9 !kernel_has_sub_groups !9 !vectorized_kernel !13 !vectorized_width !12 !recommended_vector_length !12 !scalar_kernel !1 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !8 !vectorization_dimension !8 !can_unite_workgroups !7 {
+define dso_local void @_ZGVeN16u_test(ptr addrspace(1) %src) local_unnamed_addr #3 !kernel_arg_addr_space !2 !kernel_arg_access_qual !3 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 !kernel_arg_name !6 !kernel_arg_host_accessible !7 !kernel_arg_pipe_depth !8 !kernel_arg_pipe_io !5 !kernel_arg_buffer_location !5 !no_barrier_path !9 !kernel_has_sub_groups !9 !vectorized_kernel !13 !vectorized_width !12 !recommended_vector_length !12 !scalar_kernel !1 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !8 !vectorization_dimension !8 !can_unite_workgroups !7 !arg_type_null_val !21 {
 entry:
-  %alloca.src = alloca i32 addrspace(1)*, align 8
-  store i32 addrspace(1)* %src, i32 addrspace(1)** %alloca.src, align 8
+  %alloca.src = alloca ptr addrspace(1), align 8
+  store ptr addrspace(1) %src, ptr %alloca.src, align 8
   %call1 = tail call i64 @_Z13get_global_idj(i32 0) #6
   %0 = trunc i64 %call1 to i32
   %call = tail call i32 @_Z18get_sub_group_sizev() #5
@@ -39,7 +39,7 @@ simd.begin.region:                                ; preds = %entry
   br label %simd.loop.preheader
 
 simd.loop.preheader:                              ; preds = %simd.begin.region
-  %load.src = load i32 addrspace(1)*, i32 addrspace(1)** %alloca.src, align 8
+  %load.src = load ptr addrspace(1), ptr %alloca.src, align 8
   br label %VPlannedBB
 
 VPlannedBB:                                       ; preds = %simd.loop.preheader
@@ -58,9 +58,9 @@ vector.body:                                      ; preds = %VPlannedBB5, %VPlan
   %1 = add nuw <16 x i32> %broadcast.splat, %vec.phi
   %2 = sext <16 x i32> %1 to <16 x i64>
   %.extract.0. = extractelement <16 x i64> %2, i32 0
-  %scalar.gep = getelementptr inbounds i32, i32 addrspace(1)* %load.src, i64 %.extract.0.
-  %3 = bitcast i32 addrspace(1)* %scalar.gep to <16 x i32> addrspace(1)*
-  store <16 x i32> %broadcast.splat4, <16 x i32> addrspace(1)* %3, align 4
+  %scalar.gep = getelementptr inbounds i32, ptr addrspace(1) %load.src, i64 %.extract.0.
+  %3 = bitcast ptr addrspace(1) %scalar.gep to ptr addrspace(1)
+  store <16 x i32> %broadcast.splat4, ptr addrspace(1) %3, align 4
   br label %VPlannedBB5
 
 VPlannedBB5:                                      ; preds = %vector.body
@@ -83,8 +83,8 @@ simd.loop:                                        ; preds = %simd.loop.exit
   %index = phi i32 [ %indvar, %simd.loop.exit ]
   %add = add nuw i32 %0, %index
   %7 = sext i32 %add to i64
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %load.src, i64 %7
-  store i32 %call, i32 addrspace(1)* %arrayidx, align 4, !tbaa !14
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %load.src, i64 %7
+  store i32 %call, ptr addrspace(1) %arrayidx, align 4, !tbaa !14
   br label %simd.loop.exit
 
 simd.loop.exit:                                   ; preds = %simd.loop
@@ -100,13 +100,13 @@ return:                                           ; preds = %simd.end.region
 }
 
 ; Function Attrs: convergent norecurse nounwind
-define dso_local void @_ZGVeM16u_test(i32 addrspace(1)* %src, <16 x i32> %mask) local_unnamed_addr #3 !kernel_arg_addr_space !2 !kernel_arg_access_qual !3 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 !kernel_arg_name !6 !kernel_arg_host_accessible !7 !kernel_arg_pipe_depth !8 !kernel_arg_pipe_io !5 !kernel_arg_buffer_location !5 !no_barrier_path !9 !kernel_has_sub_groups !9 !vectorized_kernel !13 !vectorized_width !12 !recommended_vector_length !12 !scalar_kernel !1 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !8 !vectorization_dimension !8 !can_unite_workgroups !7 {
+define dso_local void @_ZGVeM16u_test(ptr addrspace(1) %src, <16 x i32> %mask) local_unnamed_addr #3 !kernel_arg_addr_space !2 !kernel_arg_access_qual !3 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 !kernel_arg_name !6 !kernel_arg_host_accessible !7 !kernel_arg_pipe_depth !8 !kernel_arg_pipe_io !5 !kernel_arg_buffer_location !5 !no_barrier_path !9 !kernel_has_sub_groups !9 !vectorized_kernel !13 !vectorized_width !12 !recommended_vector_length !12 !scalar_kernel !1 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !8 !vectorization_dimension !8 !can_unite_workgroups !7 !arg_type_null_val !21 {
 entry:
-  %alloca.src = alloca i32 addrspace(1)*, align 8
-  store i32 addrspace(1)* %src, i32 addrspace(1)** %alloca.src, align 8
+  %alloca.src = alloca ptr addrspace(1), align 8
+  store ptr addrspace(1) %src, ptr %alloca.src, align 8
   %vec.mask = alloca <16 x i32>, align 64
-  %mask.cast = bitcast <16 x i32>* %vec.mask to i32*
-  store <16 x i32> %mask, <16 x i32>* %vec.mask, align 64
+  %mask.cast = bitcast ptr %vec.mask to ptr
+  store <16 x i32> %mask, ptr %vec.mask, align 64
   %call1 = tail call i64 @_Z13get_global_idj(i32 0) #6
   %0 = trunc i64 %call1 to i32
   %call = tail call i32 @_Z18get_sub_group_sizev() #5
@@ -116,7 +116,7 @@ simd.begin.region:                                ; preds = %entry
   br label %simd.loop.preheader
 
 simd.loop.preheader:                              ; preds = %simd.begin.region
-  %load.src = load i32 addrspace(1)*, i32 addrspace(1)** %alloca.src, align 8
+  %load.src = load ptr addrspace(1), ptr %alloca.src, align 8
   br label %VPlannedBB
 
 VPlannedBB:                                       ; preds = %simd.loop.preheader
@@ -135,9 +135,9 @@ vector.body:                                      ; preds = %VPlannedBB8, %VPlan
   %1 = add nuw <16 x i32> %broadcast.splat, %vec.phi
   %2 = sext <16 x i32> %1 to <16 x i64>
   %.extract.0. = extractelement <16 x i64> %2, i32 0
-  %scalar.gep = getelementptr i32, i32* %mask.cast, i32 %uni.phi
-  %3 = bitcast i32* %scalar.gep to <16 x i32>*
-  %wide.load = load <16 x i32>, <16 x i32>* %3, align 64
+  %scalar.gep = getelementptr i32, ptr %mask.cast, i32 %uni.phi
+  %3 = bitcast ptr %scalar.gep to ptr
+  %wide.load = load <16 x i32>, ptr %3, align 64
   %4 = icmp ne <16 x i32> %wide.load, zeroinitializer
   %5 = xor <16 x i1> %4, <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>
   br label %VPlannedBB3
@@ -146,9 +146,9 @@ VPlannedBB3:                                      ; preds = %vector.body
   br label %VPlannedBB4
 
 VPlannedBB4:                                      ; preds = %VPlannedBB3
-  %scalar.gep5 = getelementptr inbounds i32, i32 addrspace(1)* %load.src, i64 %.extract.0.
-  %6 = bitcast i32 addrspace(1)* %scalar.gep5 to <16 x i32> addrspace(1)*
-  call void @llvm.masked.store.v16i32.p1v16i32(<16 x i32> %broadcast.splat7, <16 x i32> addrspace(1)* %6, i32 4, <16 x i1> %4)
+  %scalar.gep5 = getelementptr inbounds i32, ptr addrspace(1) %load.src, i64 %.extract.0.
+  %6 = bitcast ptr addrspace(1) %scalar.gep5 to ptr addrspace(1)
+  call void @llvm.masked.store.v16i32.p1(<16 x i32> %broadcast.splat7, ptr addrspace(1) %6, i32 4, <16 x i1> %4)
   br label %VPlannedBB8
 
 VPlannedBB8:                                      ; preds = %VPlannedBB4
@@ -171,14 +171,14 @@ simd.loop:                                        ; preds = %simd.loop.exit
   %index = phi i32 [ %indvar, %simd.loop.exit ]
   %add = add nuw i32 %0, %index
   %10 = sext i32 %add to i64
-  %mask.gep = getelementptr i32, i32* %mask.cast, i32 %index
-  %mask.parm = load i32, i32* %mask.gep, align 4
+  %mask.gep = getelementptr i32, ptr %mask.cast, i32 %index
+  %mask.parm = load i32, ptr %mask.gep, align 4
   %mask.cond = icmp ne i32 %mask.parm, 0
   br i1 %mask.cond, label %simd.loop.then, label %simd.loop.else
 
 simd.loop.then:                                   ; preds = %simd.loop
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %load.src, i64 %10
-  store i32 %call, i32 addrspace(1)* %arrayidx, align 4, !tbaa !14
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %load.src, i64 %10
+  store i32 %call, ptr addrspace(1) %arrayidx, align 4, !tbaa !14
   br label %simd.loop.exit
 
 simd.loop.else:                                   ; preds = %simd.loop
@@ -196,23 +196,23 @@ return:                                           ; preds = %simd.end.region
   ret void
 }
 
-; Function Attrs: argmemonly nofree nosync nounwind willreturn writeonly
-declare void @llvm.masked.store.v16i32.p1v16i32(<16 x i32>, <16 x i32> addrspace(1)*, i32 immarg, <16 x i1>) #4
+; Function Attrs: nocallback nofree nosync nounwind willreturn memory(argmem: write)
+declare void @llvm.masked.store.v16i32.p1(<16 x i32>, ptr addrspace(1) nocapture, i32 immarg, <16 x i1>) #4
 
 attributes #0 = { convergent norecurse nounwind "frame-pointer"="none" "has-sub-groups" "min-legal-vector-width"="0" "no-trapping-math"="true" "prefer-vector-width"="512" "stack-protector-buffer-size"="8" "stackrealign" "uniform-work-group-size"="false" "vector-variants"="_ZGVeN16u_test,_ZGVeM16u_test" }
 attributes #1 = { convergent "frame-pointer"="none" "no-trapping-math"="true" "prefer-vector-width"="512" "stack-protector-buffer-size"="8" "stackrealign" }
-attributes #2 = { convergent mustprogress nofree nounwind readnone willreturn "frame-pointer"="none" "no-trapping-math"="true" "prefer-vector-width"="512" "stack-protector-buffer-size"="8" "stackrealign" }
+attributes #2 = { convergent mustprogress nofree nounwind willreturn memory(none) "frame-pointer"="none" "no-trapping-math"="true" "prefer-vector-width"="512" "stack-protector-buffer-size"="8" "stackrealign" }
 attributes #3 = { convergent norecurse nounwind "frame-pointer"="none" "has-sub-groups" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-trapping-math"="true" "prefer-vector-width"="512" "stack-protector-buffer-size"="8" "stackrealign" "uniform-work-group-size"="false" "vector-variants"="_ZGVeN16u_test,_ZGVeM16u_test" }
-attributes #4 = { argmemonly nofree nosync nounwind willreturn writeonly }
+attributes #4 = { nocallback nofree nosync nounwind willreturn memory(argmem: write) }
 attributes #5 = { convergent nounwind }
-attributes #6 = { convergent nounwind readnone willreturn }
+attributes #6 = { convergent nounwind willreturn memory(none) }
 
 !opencl.ocl.version = !{!0}
 !opencl.spir.version = !{!0}
 !sycl.kernels = !{!1}
 
 !0 = !{i32 2, i32 0}
-!1 = !{void (i32 addrspace(1)*)* @test}
+!1 = !{ptr @test}
 !2 = !{i32 1}
 !3 = !{!"none"}
 !4 = !{!"int*"}
@@ -221,8 +221,8 @@ attributes #6 = { convergent nounwind readnone willreturn }
 !7 = !{i1 false}
 !8 = !{i32 0}
 !9 = !{i1 true}
-!10 = !{void (i32 addrspace(1)*)* @_ZGVeN16u_test}
-!11 = !{void (i32 addrspace(1)*, <16 x i32>)* @_ZGVeM16u_test}
+!10 = !{ptr @_ZGVeN16u_test}
+!11 = !{ptr @_ZGVeM16u_test}
 !12 = !{i32 16}
 !13 = !{null}
 !14 = !{!15, !15, i64 0}
@@ -232,5 +232,6 @@ attributes #6 = { convergent nounwind readnone willreturn }
 !18 = distinct !{!18, !19}
 !19 = !{!"llvm.loop.isvectorized", i32 1}
 !20 = distinct !{!20, !19}
+!21 = !{i32 addrspace(1)* null}
 
 ; DEBUGIFY-NOT: WARNING

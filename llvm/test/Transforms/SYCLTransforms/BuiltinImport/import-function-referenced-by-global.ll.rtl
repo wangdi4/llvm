@@ -3,61 +3,60 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-win32-gnu-elf"
 
-%opencl.image2d_ro_t = type opaque
+@coord_translate_i_callback = constant [2 x ptr] [ptr @_Z41trans_coord_int_CLAMPTOEDGE_FALSE_NEARESTPvDv4_i, ptr @_Z25trans_coord_int_UNDEFINEDPvDv4_i], align 16
 
-@coord_translate_i_callback = constant [2 x <4 x i32> (i8*, <4 x i32>)*] [<4 x i32> (i8*, <4 x i32>)* @_Z41trans_coord_int_CLAMPTOEDGE_FALSE_NEARESTPvDv4_i, <4 x i32> (i8*, <4 x i32>)* @_Z25trans_coord_int_UNDEFINEDPvDv4_i], align 16
-
-; Function Attrs: nounwind readnone
-declare <4 x i32> @llvm.x86.sse41.pminsd(<4 x i32>, <4 x i32>)
-
-; Function Attrs: norecurse nounwind readnone
 define <4 x i32> @_Z3minDv4_iS_(<4 x i32> %x, <4 x i32> %y) {
 entry:
-  %0 = tail call <4 x i32> @llvm.x86.sse41.pminsd(<4 x i32> %x, <4 x i32> %y)
+  %0 = call <4 x i32> @llvm.smin.v4i32(<4 x i32> %x, <4 x i32> %y)
   ret <4 x i32> %0
 }
 
-; Function Attrs: norecurse nounwind readnone
-define <4 x i32> @_Z3maxDv4_iS_(<4 x i32> %x, <4 x i32> %y) #0 {
+define <4 x i32> @_Z3maxDv4_iS_(<4 x i32> %x, <4 x i32> %y) {
 entry:
-  %0 = tail call <4 x i32> @llvm.x86.sse41.pmaxsd(<4 x i32> %x, <4 x i32> %y)
+  %0 = call <4 x i32> @llvm.smax.v4i32(<4 x i32> %x, <4 x i32> %y)
   ret <4 x i32> %0
 }
 
-; Function Attrs: nounwind readnone
-declare <4 x i32> @llvm.x86.sse41.pmaxsd(<4 x i32>, <4 x i32>)
-
-; Function Attrs: nounwind readonly
-define <4 x i32> @_Z41trans_coord_int_CLAMPTOEDGE_FALSE_NEARESTPvDv4_i(i8* nocapture readonly %image, <4 x i32> %coord) {
+define <4 x i32> @_Z41trans_coord_int_CLAMPTOEDGE_FALSE_NEARESTPvDv4_i(ptr nocapture readonly %image, <4 x i32> %coord) !kernel_arg_base_type !0 !arg_type_null_val !1 {
 entry:
-  %dimSub1.i = getelementptr inbounds i8, i8* %image, i64 2640
-  %0 = bitcast i8* %dimSub1.i to <4 x i32>*
-  %1 = addrspacecast <4 x i32>* %0 to <4 x i32> addrspace(4)*
-  %2 = load <4 x i32>, <4 x i32> addrspace(4)* %1, align 16
+  %dimSub1.i = getelementptr inbounds i8, ptr %image, i64 2640
+  %0 = bitcast ptr %dimSub1.i to ptr
+  %1 = addrspacecast ptr %0 to ptr addrspace(4)
+  %2 = load <4 x i32>, ptr addrspace(4) %1, align 16
   %call.i = tail call <4 x i32> @_Z3minDv4_iS_(<4 x i32> %coord, <4 x i32> %2)
   %call1.i = tail call <4 x i32> @_Z3maxDv4_iS_(<4 x i32> %call.i, <4 x i32> zeroinitializer)
   ret <4 x i32> %call1.i
 }
 
-; Function Attrs: norecurse nounwind readnone
-define <4 x i32> @_Z25trans_coord_int_UNDEFINEDPvDv4_i(i8* nocapture readnone %image, <4 x i32> %coord) {
+define <4 x i32> @_Z25trans_coord_int_UNDEFINEDPvDv4_i(ptr nocapture readnone %image, <4 x i32> %coord) !kernel_arg_base_type !0 !arg_type_null_val !1 {
 entry:
   ret <4 x i32> zeroinitializer
 }
 
-; Function Attrs: norecurse nounwind readnone
-define i8* @_Z11read_imagef14ocl_image2d_ro11ocl_samplerDv2_i(%opencl.image2d_ro_t addrspace(1)* %image, i32 %sampler, <2 x i32> %coord){
+define ptr @_Z11read_imagef14ocl_image2d_ro11ocl_samplerDv2_i(ptr addrspace(1) %image, i32 %sampler, <2 x i32> %coord) !kernel_arg_base_type !2 !arg_type_null_val !3 {
 entry:
-  %call.i = tail call i8* @call_coord_translate_i_callback(i32 %sampler)
-  ret i8* %call.i
+  %call.i = tail call ptr @call_coord_translate_i_callback(i32 %sampler)
+  ret ptr %call.i
 }
 
-; Function Attrs: norecurse nounwind readnone
-define i8* @call_coord_translate_i_callback(i32 %samplerIndex) {
+define ptr @call_coord_translate_i_callback(i32 %samplerIndex) {
 entry:
   %idxprom = sext i32 %samplerIndex to i64
-  %arrayidx = getelementptr [2 x <4 x i32> (i8*, <4 x i32>)*], [2 x <4 x i32> (i8*, <4 x i32>)*]* @coord_translate_i_callback, i64 0, i64 %idxprom
-  %0 = bitcast <4 x i32> (i8*, <4 x i32>)** %arrayidx to i8**
-  %1 = load i8*, i8** %0, align 8
-  ret i8* %1
+  %arrayidx = getelementptr [2 x ptr], ptr @coord_translate_i_callback, i64 0, i64 %idxprom
+  %0 = bitcast ptr %arrayidx to ptr
+  %1 = load ptr, ptr %0, align 8
+  ret ptr %1
 }
+
+; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
+declare <4 x i32> @llvm.smin.v4i32(<4 x i32>, <4 x i32>) #0
+
+; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
+declare <4 x i32> @llvm.smax.v4i32(<4 x i32>, <4 x i32>) #0
+
+attributes #0 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
+
+!0 = !{!"char*", !"int4"}
+!1 = !{i8* null, <4 x i32> <i32 0, i32 0, i32 0, i32 0>}
+!2 = !{!"image2d_t", !"int", !"int2"}
+!3 = !{target("spirv.Image", void, 1, 0, 0, 0, 0, 0, 0) zeroinitializer, i32 0, <2 x i32> <i32 0, i32 0>}

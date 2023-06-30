@@ -41,7 +41,7 @@ attributes #0 = { "kernel-uniform-call" "opencl-vec-uniform-return" }
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (<144 x i16>, i64)* @test}
+!0 = !{ptr @test}
 !1 = !{i32 16}
 
 ; DEBUGIFY-NOT: WARNING

@@ -5,8 +5,8 @@
 ; Check for default case i.e. max work group size < 2GB. Note that %trunc.user is removed from function,
 ; its uses replaced by %add. Similarly %shl.user and %ashr.inst are removed, with all uses of %ashr.inst
 ; replaced by %add.sext.
-; RUN: opt -opaque-pointers=0 -passes="sycl-kernel-set-vf,sycl-kernel-vec-clone" -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -opaque-pointers=0 -passes="sycl-kernel-set-vf,sycl-kernel-vec-clone" -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -o - | FileCheck %s -check-prefix=LT2GB
+; RUN: opt -passes="sycl-kernel-set-vf,sycl-kernel-vec-clone" -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes="sycl-kernel-set-vf,sycl-kernel-vec-clone" -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -o - | FileCheck %s -check-prefix=LT2GB
 
 ; LT2GB-LABEL: @_ZGVeN16uu_foo
 
@@ -37,8 +37,8 @@
 ; LT2GB-NEXT: br label %simd.loop.latch
 
 ; Check for non-default case i.e. max work group size > 2GB.
-; RUN: opt -opaque-pointers=0 -passes="sycl-kernel-set-vf,sycl-kernel-vec-clone" --sycl-less-than-two-gig-max-work-group-size=false -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefixes=DEBUGIFY,DEBUGIFY2
-; RUN: opt -opaque-pointers=0 -passes="sycl-kernel-set-vf,sycl-kernel-vec-clone" --sycl-less-than-two-gig-max-work-group-size=false -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -o - | FileCheck %s -check-prefix=GT2GB
+; RUN: opt -passes="sycl-kernel-set-vf,sycl-kernel-vec-clone" --sycl-less-than-two-gig-max-work-group-size=false -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefixes=DEBUGIFY,DEBUGIFY2
+; RUN: opt -passes="sycl-kernel-set-vf,sycl-kernel-vec-clone" --sycl-less-than-two-gig-max-work-group-size=false -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -o - | FileCheck %s -check-prefix=GT2GB
 ; GT2GB-LABEL: @_ZGVeN16uu_foo
 
 ; GT2GB-LABEL: entry:
@@ -75,7 +75,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline nounwind uwtable
-define dso_local void @foo(i32* nocapture readonly %in, i32* nocapture %out) {
+define dso_local void @foo(ptr nocapture readonly %in, ptr nocapture %out) !kernel_arg_base_type !1 !arg_type_null_val !2 {
 entry:
   %lid_call = tail call i64 @_Z12get_local_idj(i64 0) #2
   %non.trunc.user = add i64 %lid_call, 42
@@ -136,7 +136,9 @@ declare i64 @dummy(i64)
 declare dso_local i64 @_Z12get_local_idj(i64 %0)
 
 !sycl.kernels = !{!0}
-!0 = !{void (i32*, i32*)* @foo}
+!0 = !{ptr @foo}
+!1 = !{!"int*", !"int*"}
+!2 = !{i32* null, i32* null}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uu_foo {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uu_foo {{.*}} call

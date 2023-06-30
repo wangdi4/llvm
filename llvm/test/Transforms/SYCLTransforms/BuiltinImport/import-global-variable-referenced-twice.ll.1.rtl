@@ -7,6 +7,6 @@ target triple = "i686-pc-win32"
 
 define <4 x double> @module_2_function(<4 x double> %in) {
 entry:
-  %0 = load i32, i32 addrspace(2)* @float_const_expMask, align 4
+  %0 = load i32, ptr addrspace(2) @float_const_expMask, align 4
   ret <4 x double> %in
 }

@@ -23,10 +23,8 @@
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64-unknown-unknown-intelfpga"
 
-%opencl.channel_t = type opaque
-
-@out = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
-@in = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
+@out = common addrspace(1) global ptr addrspace(1) null, align 4, !packet_size !0, !packet_align !0
+@in = common addrspace(1) global ptr addrspace(1) null, align 4, !packet_size !0, !packet_align !0
 
 ; CHECK: define void @test_autorun_1
 ; CHECK: br label %infinite_loop_entry
@@ -41,31 +39,29 @@ target triple = "spir64-unknown-unknown-intelfpga"
 define void @test_autorun_1() #0 !kernel_arg_addr_space !4 !kernel_arg_access_qual !4 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !4 !kernel_arg_pipe_depth !4 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !max_global_work_dim !7 !autorun !8 {
 entry:
   %a = alloca i32, align 4
-  %0 = bitcast i32* %a to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* %0) #3
-  store i32 10, i32* %a, align 4, !tbaa !9
-  %1 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @out, align 4, !tbaa !13
-  %2 = load i32, i32* %a, align 4, !tbaa !9
-  call void @_Z19write_channel_intel11ocl_channelii(%opencl.channel_t addrspace(1)* %1, i32 %2) #4
-  %3 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @in, align 4, !tbaa !13
-  %call = call i32 @_Z18read_channel_intel11ocl_channeli(%opencl.channel_t addrspace(1)* %3) #4
-  store i32 %call, i32* %a, align 4, !tbaa !9
-  %4 = bitcast i32* %a to i8*
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* %4) #3
+  call void @llvm.lifetime.start.p0(i64 4, ptr %a) #3
+  store i32 10, ptr %a, align 4, !tbaa !9
+  %0 = load ptr addrspace(1), ptr addrspace(1) @out, align 4, !tbaa !13
+  %1 = load i32, ptr %a, align 4, !tbaa !9
+  call void @_Z19write_channel_intel11ocl_channelii(ptr addrspace(1) %0, i32 %1) #4
+  %2 = load ptr addrspace(1), ptr addrspace(1) @in, align 4, !tbaa !13
+  %call = call i32 @_Z18read_channel_intel11ocl_channeli(ptr addrspace(1) %2) #4
+  store i32 %call, ptr %a, align 4, !tbaa !9
+  call void @llvm.lifetime.end.p0(i64 4, ptr %a) #3
   ret void
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64, ptr nocapture) #1
 
 ; Function Attrs: convergent
-declare void @_Z19write_channel_intel11ocl_channelii(%opencl.channel_t addrspace(1)*, i32) #2
+declare void @_Z19write_channel_intel11ocl_channelii(ptr addrspace(1), i32) #2
 
 ; Function Attrs: convergent
-declare i32 @_Z18read_channel_intel11ocl_channeli(%opencl.channel_t addrspace(1)*) #2
+declare i32 @_Z18read_channel_intel11ocl_channeli(ptr addrspace(1)) #2
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0(i64, ptr nocapture) #1
 
 attributes #0 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "uniform-work-group-size"="true" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }
@@ -89,7 +85,7 @@ attributes #4 = { convergent }
 !3 = !{i32 1, i32 2}
 !4 = !{}
 !5 = !{!"clang version 7.0.0 "}
-!6 = !{void ()* @test_autorun_1}
+!6 = !{ptr @test_autorun_1}
 !7 = !{i32 0}
 !8 = !{i1 true}
 !9 = !{!10, !10, i64 0}

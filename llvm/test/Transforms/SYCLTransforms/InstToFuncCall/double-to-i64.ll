@@ -2,9 +2,9 @@
 ; RUN: opt -passes=sycl-kernel-inst-to-func-call -sycl-vector-variant-isa-encoding-override=AVX512Core -S %s | FileCheck %s
 
 ; CHECK: @sample_test
-define void @sample_test(double %x, i64* %y) nounwind {
+define void @sample_test(double %x, ptr %y) nounwind !kernel_arg_base_type !0 !arg_type_null_val !1 {
   %tmp = fptosi double %x to i64
-  store i64 %tmp, i64* %y
+  store i64 %tmp, ptr %y
   ret void
 }
 
@@ -13,3 +13,6 @@ define void @sample_test(double %x, i64* %y) nounwind {
 ; CHECK: [[ATTR]] = { nounwind willreturn memory(none) }
 
 ; DEBUGIFY-NOT: WARNING
+
+!0 = !{!"double", !"long*"}
+!1 = !{double 0.000000e+0, i64* null}

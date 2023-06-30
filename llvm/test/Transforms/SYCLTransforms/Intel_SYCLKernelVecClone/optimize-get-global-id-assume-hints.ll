@@ -1,8 +1,8 @@
 ; Test to check that function calls to get_global_id() are moved and uses replaced in an optimized
 ; manner if assumption hints about range of the ID value is provided.
 
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-vec-clone -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-vec-clone -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -o - | FileCheck %s
+; RUN: opt -passes=sycl-kernel-vec-clone -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-vec-clone -sycl-vector-variant-isa-encoding-override=AVX512Core %s -S -o - | FileCheck %s
 
 ; Check that %gid.trunc is removed from function and its uses replaced by %add1.
 ; CHECK-LABEL: @_ZGVeN8uuu_foo
@@ -19,10 +19,10 @@
 ; CHECK-NEXT:  tail call void @llvm.assume(i1 [[ASSUME_CMP]])
 ; CHECK-NEXT:  [[INT_ADD:%.*]] = add i32 [[ADD_IDX_GID]], [[LOAD_INTVAL:%.*]]
 ; CHECK-NEXT:  [[INT_ADD_SEXT:%.*]] = sext i32 [[INT_ADD]] to i64
-; CHECK-NEXT:  [[SRC_PTR:%.*]] = getelementptr inbounds float, float addrspace(1)* [[LOAD_A:%.*]], i64 [[INT_ADD_SEXT]]
-; CHECK-NEXT:  [[LOAD:%.*]] = load float, float addrspace(1)* [[SRC_PTR]], align 4
-; CHECK-NEXT:  [[DST_PTR:%.*]] = getelementptr inbounds float, float addrspace(1)* [[LOAD_B:%.*]], i64 [[INT_ADD_SEXT]]
-; CHECK-NEXT:  store float [[LOAD]], float addrspace(1)* [[DST_PTR]], align 4
+; CHECK-NEXT:  [[SRC_PTR:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[LOAD_A:%.*]], i64 [[INT_ADD_SEXT]]
+; CHECK-NEXT:  [[LOAD:%.*]] = load float, ptr addrspace(1) [[SRC_PTR]], align 4
+; CHECK-NEXT:  [[DST_PTR:%.*]] = getelementptr inbounds float, ptr addrspace(1) [[LOAD_B:%.*]], i64 [[INT_ADD_SEXT]]
+; CHECK-NEXT:  store float [[LOAD]], ptr addrspace(1) [[DST_PTR]], align 4
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -32,7 +32,7 @@ target triple = "x86_64-pc-linux"
 declare i64 @_Z13get_global_idj(i32 %0) local_unnamed_addr #1
 
 ; Function Attrs: nounwind
-define void @foo(float addrspace(1)* %a, float addrspace(1)* %b, i32 %intval) local_unnamed_addr #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_type_qual !9 !kernel_arg_base_type !10 !no_barrier_path !11 !recommended_vector_length !12 {
+define void @foo(ptr addrspace(1) %a, ptr addrspace(1) %b, i32 %intval) local_unnamed_addr #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_type_qual !9 !kernel_arg_base_type !10 !no_barrier_path !11 !recommended_vector_length !12 !arg_type_null_val !13 {
 entry:
   %gid = tail call i64 @_Z13get_global_idj(i32 0) #1
   %assume.cmp = icmp ult i64 %gid, 2147483648
@@ -40,10 +40,10 @@ entry:
   %gid.trunc = trunc i64 %gid to i32
   %add = add i32 %gid.trunc, %intval
   %add.sext = sext i32 %add to i64
-  %src.ptr = getelementptr inbounds float, float addrspace(1)* %a, i64 %add.sext
-  %load = load float, float addrspace(1)* %src.ptr, align 4
-  %dst.ptr = getelementptr inbounds float, float addrspace(1)* %b, i64 %add.sext
-  store float %load, float addrspace(1)* %dst.ptr, align 4
+  %src.ptr = getelementptr inbounds float, ptr addrspace(1) %a, i64 %add.sext
+  %load = load float, ptr addrspace(1) %src.ptr, align 4
+  %dst.ptr = getelementptr inbounds float, ptr addrspace(1) %b, i64 %add.sext
+  store float %load, ptr addrspace(1) %dst.ptr, align 4
   ret void
 }
 
@@ -67,14 +67,15 @@ attributes #1 = { nounwind readnone }
 !2 = !{i32 1, i32 0}
 !3 = !{}
 !4 = !{i16 6, i16 14}
-!5 = !{void (float addrspace(1)*, float addrspace(1)*, i32)* @foo}
+!5 = !{ptr @foo}
 !6 = !{i32 1, i32 1}
-!7 = !{!"none", !"none"}
-!8 = !{!"int*", !"float*"}
-!9 = !{!"", !""}
-!10 = !{!"int*", !"float*"}
+!7 = !{!"none", !"none", !"none"}
+!8 = !{!"float*", !"float", !"int"}
+!9 = !{!"", !"", !""}
+!10 = !{!"float*", !"float", !"int"}
 !11 = !{i1 true}
 !12 = !{i32 8}
+!13 = !{float addrspace(1)* null, float addrspace(1)* null, i32 0}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuu_foo {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuu_foo {{.*}} call
