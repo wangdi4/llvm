@@ -53,7 +53,7 @@ define noundef <4 x float> @ConvertVectors_ByVal(ptr noundef nonnull align 16 de
 ; SSE-NEXT:  entry:
 ; INTEL_CUSTOMIZATION
 ; SSE-NEXT:    [[TMP0:%.*]] = load <4 x float>, ptr [[V]], align 16
-; SSE-NEXT:    [[TMP1:%.*]] = getelementptr i64, ptr [[V]], i64 1
+; SSE-NEXT:    [[TMP1:%.*]] = getelementptr inbounds i64, ptr [[V]], i64 1
 ; SSE-NEXT:    [[V_VAL422:%.*]] = load i64, ptr [[TMP1]], align 8
 ; SSE-NEXT:    [[TMP2:%.*]] = trunc i64 [[V_VAL422]] to i32
 ; end INTEL_CUSTOMIZATION
@@ -67,7 +67,7 @@ define noundef <4 x float> @ConvertVectors_ByVal(ptr noundef nonnull align 16 de
 ; AVX-NEXT:  entry:
 ; INTEL_CUSTOMIZATION
 ; AVX-NEXT:    [[TMP0:%.*]] = load <4 x float>, ptr [[V]], align 16
-; AVX-NEXT:    [[TMP1:%.*]] = getelementptr i64, ptr [[V]], i64 1
+; AVX-NEXT:    [[TMP1:%.*]] = getelementptr inbounds i64, ptr [[V]], i64 1
 ; AVX-NEXT:    [[V_VAL422:%.*]] = load i64, ptr [[TMP1]], align 8
 ; AVX-NEXT:    [[TMP2:%.*]] = trunc i64 [[V_VAL422]] to i32
 ; end INTEL_CUSTOMIZATION
