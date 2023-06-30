@@ -607,9 +607,9 @@ double __imf_log2 (double x) { return __devicelib_imf_log2 (x); }
 DEVICE_EXTERN_C_INLINE
 double __imf_logb (double x) { return __devicelib_imf_logb (x); }
 DEVICE_EXTERN_C_INLINE
-int64_t __imf_lrint (double x) { return __devicelib_imf_lrint (x); }
+long int __imf_lrint (double x) { return static_cast<long int>(__devicelib_imf_lrint (x)); }
 DEVICE_EXTERN_C_INLINE
-int64_t __imf_lround (double x) { return __devicelib_imf_lround (x); }
+long int __imf_lround (double x) { return static_cast<long int>(__devicelib_imf_lround (x)); }
 DEVICE_EXTERN_C_INLINE
 double __imf_modf (double x, double* z) { return __devicelib_imf_modf (x, z); }
 DEVICE_EXTERN_C_INLINE

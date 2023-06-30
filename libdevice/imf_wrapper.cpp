@@ -851,9 +851,9 @@ long long int __devicelib_imf_llrintf (float x);
 DEVICE_EXTERN_C_INLINE
 long long int __devicelib_imf_llroundf (float x);
 DEVICE_EXTERN_C_INLINE
-long int __devicelib_imf_lrintf (float x);
+int64_t __devicelib_imf_lrintf (float x);
 DEVICE_EXTERN_C_INLINE
-long int __devicelib_imf_lroundf (float x);
+int64_t  __devicelib_imf_lroundf (float x);
 DEVICE_EXTERN_C_INLINE
 float __devicelib_imf_nanf (const char* x);
 DEVICE_EXTERN_C_INLINE
@@ -1031,9 +1031,9 @@ int64_t __imf_llrintf (float x) { return __devicelib_imf_llrintf (x); }
 DEVICE_EXTERN_C_INLINE
 int64_t __imf_llroundf (float x) { return __devicelib_imf_llroundf (x); }
 DEVICE_EXTERN_C_INLINE
-int64_t __imf_lrintf (float x) { return __devicelib_imf_lrintf (x); }
+long int __imf_lrintf (float x) { return static_cast<long int>(__devicelib_imf_lrintf(x)); }
 DEVICE_EXTERN_C_INLINE
-int64_t __imf_lroundf (float x) { return __devicelib_imf_lroundf (x); }
+long int __imf_lroundf (float x) { return static_cast<long int>(__devicelib_imf_lroundf(x)); }
 DEVICE_EXTERN_C_INLINE
 float __imf_nanf (const char* x) { return __devicelib_imf_nanf (x); }
 DEVICE_EXTERN_C_INLINE
