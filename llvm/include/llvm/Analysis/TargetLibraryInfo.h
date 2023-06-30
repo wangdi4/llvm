@@ -33,6 +33,7 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 #include "llvm/TargetParser/Triple.h"
+#include "llvm/IR/AttributeMask.h" // INTEL
 #include <optional>
 
 namespace llvm {

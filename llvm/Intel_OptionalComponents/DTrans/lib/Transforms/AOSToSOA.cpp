@@ -22,6 +22,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/IR/AttributeMask.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
