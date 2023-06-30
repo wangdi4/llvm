@@ -1130,7 +1130,11 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
     unsigned OperandNo = 0;
     for (auto CI = Call->data_operands_begin(), CE = Call->data_operands_end();
          CI != CE; ++CI, ++OperandNo) {
+<<<<<<< HEAD
      if (!(*CI)->getType()->getScalarType()->isPointerTy()) // INTEL
+=======
+      if (!(*CI)->getType()->isPointerTy())
+>>>>>>> c0de28b92e98acbeb739eae8a4d762aec77f2705
         continue;
 
       // Call doesn't access memory through this operand, so we don't care
