@@ -544,14 +544,10 @@ void amdgpu::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   AddLinkerInputs(getToolChain(), Inputs, Args, CmdArgs, JA);
   if (C.getDriver().isUsingLTO())
     addLTOOptions(getToolChain(), Args, CmdArgs, Output, Inputs[0],
-<<<<<<< HEAD
                   C.getDriver().getLTOMode() == LTOK_Thin, JA); // INTEL
-=======
-                  C.getDriver().getLTOMode() == LTOK_Thin);
   else if (Args.hasArg(options::OPT_mcpu_EQ))
     CmdArgs.push_back(Args.MakeArgString(
         "-plugin-opt=mcpu=" + Args.getLastArgValue(options::OPT_mcpu_EQ)));
->>>>>>> 765301183f58a28af65b112db44218dc224b9fec
   CmdArgs.push_back("--no-undefined");
   CmdArgs.push_back("-shared");
   CmdArgs.push_back("-o");
