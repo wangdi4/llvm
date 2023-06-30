@@ -55,7 +55,6 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/LinkAllIR.h"
 #include "llvm/LinkAllPasses.h"
-#include "llvm/MC/SubtargetFeature.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Remarks/HotnessThresholdParser.h"
@@ -74,6 +73,7 @@
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/TargetParser/Host.h"
+#include "llvm/TargetParser/SubtargetFeature.h"
 #include "llvm/TargetParser/Triple.h"
 #include "llvm/Transforms/IPO/WholeProgramDevirt.h"
 #include "llvm/Transforms/Utils/Cloning.h"

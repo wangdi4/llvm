@@ -42,7 +42,6 @@
 #include "llvm/MC/MCSection.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/MCSymbol.h"
-#include "llvm/MC/SubtargetFeature.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Object/IRObjectFile.h"
 #include "llvm/Object/MachO.h"
@@ -54,6 +53,7 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/TargetParser/Host.h"
+#include "llvm/TargetParser/SubtargetFeature.h"
 #include "llvm/TargetParser/Triple.h"
 #include "llvm/Transforms/Utils/GlobalStatus.h"
 #include <system_error>

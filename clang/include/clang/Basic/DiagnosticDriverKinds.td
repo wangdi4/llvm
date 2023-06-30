@@ -849,6 +849,9 @@ def warn_drv_cxx_input_with_cc: Warning<
   InGroup<DiagGroup<"incompatible-compiler">>;
 #endif // INTEL_CUSTOMIZATION
 
+def warn_drv_loongarch_conflicting_implied_val : Warning<
+  "ignoring '%0' as it conflicts with that implied by '%1' (%2)">,
+  InGroup<OptionIgnored>;
 def err_drv_loongarch_invalid_mfpu_EQ : Error<
   "invalid argument '%0' to -mfpu=; must be one of: 64, 32, none, 0 (alias for none)">;
 
