@@ -66,7 +66,7 @@ if(INTEL_CUSTOMIZATION)
 endif(INTEL_CUSTOMIZATION)
 
 # Download opencl-clang
-set(OPENCL_CLANG_TAG e047ae6bb9cef488781e0b06c5ae9018bacb24c4)
+set(OPENCL_CLANG_TAG 53843eee13cfb2357919ee02714a43bef1af0f86)
 # PCH_EXTENSION can override PCH extension map in opencl-clang/options_compile.cpp
 set(PCH_EXTENSION "cl_khr_3d_image_writes,cl_khr_depth_images,cl_khr_global_int32_base_atomics,cl_khr_global_int32_extended_atomics,cl_khr_int64_base_atomics,cl_khr_int64_extended_atomics,cl_khr_local_int32_base_atomics,cl_khr_local_int32_extended_atomics,cl_intel_subgroups,cl_intel_subgroups_short" CACHE STRING "")
 # INTEL_CUSTOMIZATION
