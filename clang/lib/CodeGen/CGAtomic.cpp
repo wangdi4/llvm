@@ -2056,7 +2056,11 @@ RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E) {
 Address AtomicInfo::castToAtomicIntPointer(Address addr) const {
   llvm::IntegerType *ty =
     llvm::IntegerType::get(CGF.getLLVMContext(), AtomicSizeInBits);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   return addr.withElementType(ty);
+#else
+  return CGF.Builder.CreateElementBitCast(addr, ty);
+#endif
 }
 
 Address AtomicInfo::convertToAtomicIntPointer(Address Addr) const {
@@ -2684,7 +2688,7 @@ std::pair<RValue, RValue> AtomicInfo::EmitAtomicCompareAndSwap(
                                              /*NumReservedValues=*/2);
   PHI->addIncoming(OldVal, CurBB);
   Address NewAtomicAddr = CreateTempAlloca();
-  Address NewAtomicIntAddr = emitCastToAtomicIntPointer(NewAtomicAddr);
+  Address NewAtomicIntAddr = castToAtomicIntPointer(NewAtomicAddr);
 
   if ((LVal.isBitField() && BFI.Size != ValueSizeInBits) ||
       requiresMemSetZero(getAtomicAddress().getElementType())) {
