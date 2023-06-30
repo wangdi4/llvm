@@ -1975,7 +1975,12 @@ void DevirtModule::applyVirtualConstProp(CallSiteInfo &CSInfo, StringRef FnName,
       Call.replaceAndErase("virtual-const-prop-1-bit", FnName, RemarksEnabled,
                            OREGetter, IsBitSet);
     } else {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       Value *Val = B.CreateLoad(RetType, Addr);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+      Value *ValAddr = B.CreateBitCast(Addr, RetType->getPointerTo());
+      Value *Val = B.CreateLoad(RetType, ValAddr);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       NumVirtConstProp++;
       Call.replaceAndErase("virtual-const-prop", FnName, RemarksEnabled,
                            OREGetter, Val);

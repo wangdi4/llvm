@@ -2156,8 +2156,14 @@ std::pair<Value *, Value *> DFSanFunction::loadShadowFast(
       ShadowSize == 4 ? Type::getInt32Ty(*DFS.Ctx) : Type::getInt64Ty(*DFS.Ctx);
 
   IRBuilder<> IRB(Pos);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Value *CombinedWideShadow =
       IRB.CreateAlignedLoad(WideShadowTy, ShadowAddr, ShadowAlign);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+  Value *WideAddr = IRB.CreateBitCast(ShadowAddr, WideShadowTy->getPointerTo());
+  Value *CombinedWideShadow =
+      IRB.CreateAlignedLoad(WideShadowTy, WideAddr, ShadowAlign);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   unsigned WideShadowBitWidth = WideShadowTy->getIntegerBitWidth();
   const uint64_t BytesPerWideShadow = WideShadowBitWidth / DFS.ShadowWidthBits;
@@ -2194,10 +2200,17 @@ std::pair<Value *, Value *> DFSanFunction::loadShadowFast(
   // shadow).
   for (uint64_t ByteOfs = BytesPerWideShadow; ByteOfs < Size;
        ByteOfs += BytesPerWideShadow) {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     ShadowAddr = IRB.CreateGEP(WideShadowTy, ShadowAddr,
                                ConstantInt::get(DFS.IntptrTy, 1));
     Value *NextWideShadow =
         IRB.CreateAlignedLoad(WideShadowTy, ShadowAddr, ShadowAlign);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+    WideAddr = IRB.CreateGEP(WideShadowTy, WideAddr,
+                             ConstantInt::get(DFS.IntptrTy, 1));
+    Value *NextWideShadow =
+        IRB.CreateAlignedLoad(WideShadowTy, WideAddr, ShadowAlign);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     CombinedWideShadow = IRB.CreateOr(CombinedWideShadow, NextWideShadow);
     if (ShouldTrackOrigins) {
       Value *NextOrigin = DFS.loadNextOrigin(Pos, OriginAlign, &OriginAddr);
