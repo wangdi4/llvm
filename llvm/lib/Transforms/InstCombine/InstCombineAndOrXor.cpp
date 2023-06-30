@@ -2674,14 +2674,11 @@ Instruction *InstCombinerImpl::visitAnd(BinaryOperator &I) {
   // Turning off the generation of this intrinsic here until support is added.
   if (Instruction *Folded = foldLogicOfIsFPClass(I, Op0, Op1))
     return Folded;
-<<<<<<< HEAD
 #endif // !INTEL_CUSTOMIZATION
-=======
 
   if (Instruction *Res = foldBinOpOfDisplacedShifts(I))
     return Res;
 
->>>>>>> b45a73f4d07424b37395f543974ef1ef6dec6332
   return nullptr;
 }
 
