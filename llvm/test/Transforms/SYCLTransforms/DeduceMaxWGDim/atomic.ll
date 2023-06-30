@@ -7,20 +7,20 @@ target triple = "x86_64-pc-linux"
 
 ; CHECK-NOT: max_wg_dimensions
 
-define void @A(i32 addrspace(1)* noalias %A, i32 %B) nounwind !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !5 !kernel_arg_type_qual !4 !kernel_arg_name !6 !kernel_execution_length !14 !kernel_has_barrier !16 !no_barrier_path !17 !vectorized_kernel !18 !vectorized_width !19 {
+define void @A(ptr addrspace(1) noalias %A, i32 %B) nounwind !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !5 !kernel_arg_type_qual !4 !kernel_arg_name !6 !kernel_execution_length !14 !kernel_has_barrier !16 !no_barrier_path !17 !vectorized_kernel !18 !vectorized_width !19 !arg_type_null_val !29 {
 entry:
-  %call = tail call i32 @_Z10atomic_addPU3AS1Vii(i32 addrspace(1)* %A, i32 %B) nounwind
+  %call = tail call i32 @_Z10atomic_addPU3AS1Vii(ptr addrspace(1) %A, i32 %B) nounwind
   ret void
 }
 
-declare i32 @_Z10atomic_addPU3AS1Vii(i32 addrspace(1)*, i32)
+declare i32 @_Z10atomic_addPU3AS1Vii(ptr addrspace(1), i32)
 
-define void @__Vectorized_.A(i32 addrspace(1)* noalias %A, i32 %B) nounwind !kernel_execution_length !24 !vectorized_width !27 !scalar_kernel !28 {
+define void @__Vectorized_.A(ptr addrspace(1) noalias %A, i32 %B) nounwind !kernel_execution_length !24 !vectorized_width !27 !scalar_kernel !28 {
 entry:
-  %0 = tail call i32 @_Z10atomic_addPU3AS1Vii(i32 addrspace(1)* %A, i32 %B) nounwind
-  %1 = tail call i32 @_Z10atomic_addPU3AS1Vii(i32 addrspace(1)* %A, i32 %B) nounwind
-  %2 = tail call i32 @_Z10atomic_addPU3AS1Vii(i32 addrspace(1)* %A, i32 %B) nounwind
-  %3 = tail call i32 @_Z10atomic_addPU3AS1Vii(i32 addrspace(1)* %A, i32 %B) nounwind
+  %0 = tail call i32 @_Z10atomic_addPU3AS1Vii(ptr addrspace(1) %A, i32 %B) nounwind
+  %1 = tail call i32 @_Z10atomic_addPU3AS1Vii(ptr addrspace(1) %A, i32 %B) nounwind
+  %2 = tail call i32 @_Z10atomic_addPU3AS1Vii(ptr addrspace(1) %A, i32 %B) nounwind
+  %3 = tail call i32 @_Z10atomic_addPU3AS1Vii(ptr addrspace(1) %A, i32 %B) nounwind
   ret void
 }
 
@@ -33,7 +33,7 @@ entry:
 !opencl.compiler.options = !{!9}
 !llvm.functions_info = !{}
 
-!0 = !{void (i32 addrspace(1)*, i32)* @A}
+!0 = !{ptr @A}
 !1 = !{i32 1, i32 0}
 !2 = !{!"none", !"none"}
 !3 = !{!"int*", !"int"}
@@ -46,10 +46,11 @@ entry:
 !14 = !{i32 2}
 !16 = !{i1 false}
 !17 = !{i1 true}
-!18 = !{void (i32 addrspace(1)*, i32)* @__Vectorized_.A}
+!18 = !{ptr @__Vectorized_.A}
 !19 = !{i32 1}
 !24 = !{i32 5}
 !27 = !{i32 4}
-!28 = !{void (i32 addrspace(1)*, i32)* @A}
+!28 = !{ptr @A}
+!29 = !{i32 addrspace(1)* null, i32 0}
 
 ; DEBUGIFY-NOT: WARNING
