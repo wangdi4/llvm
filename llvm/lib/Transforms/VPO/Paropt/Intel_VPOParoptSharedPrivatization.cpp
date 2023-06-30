@@ -448,7 +448,6 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
     Value *V = I->getOrig();
     if (!V)
       continue;
-
     if (auto *AI = dyn_cast<AllocaInst>(V)) {
       // Do not do privatization for a shared item if it is captured by a nested
       // task.
@@ -856,7 +855,7 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
   bool Changed = false;
   MapVector<Value *, std::optional<ElementTypeAndNumElements>> ToPrivatize;
 
-  auto CleanupRedundantItems = [this, W, &ToPrivatize](auto *Clause) {
+  auto CleanupItems = [this, W, &ToPrivatize](auto *Clause) {
     bool Changed = false;
     for (auto *Item : Clause->items()) {
       // Do not try to simplify nonPOD items.
@@ -873,6 +872,18 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
       if (!V || hasWRNUses(W, V))
         continue;
 
+      // Skip shared items as candidates for privatization if NumElements is
+      // zero
+      if (isa<SharedItem>(Item) && Item->getIsTyped()) {
+        auto *Size = dyn_cast<ConstantInt>(Item->getNumElements());
+        if (Size && Size->isZero()) {
+          LLVM_DEBUG(dbgs()
+                         << __FUNCTION__
+                         << ": WARNING: skipping shared item with zero size '";
+                     V->printAsOperand(dbgs()); dbgs() << "'.\n");
+          continue;
+        }
+      }
       // Special handling for the schedule chunk that is loaded from a shared
       // pointer that has no uses inside the region
       //
@@ -921,11 +932,11 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
   };
 
   if (auto *Clause = W->getFprivIfSupported())
-    Changed |= CleanupRedundantItems(Clause);
+    Changed |= CleanupItems(Clause);
   if (auto *Clause = W->getSharedIfSupported())
-    Changed |= CleanupRedundantItems(Clause);
+    Changed |= CleanupItems(Clause);
   if (auto *Clause = W->getLprivIfSupported())
-    Changed |= CleanupRedundantItems(Clause);
+    Changed |= CleanupItems(Clause);
 
   Changed |= addPrivateClausesToRegion(W, ToPrivatize.takeVector());
 
