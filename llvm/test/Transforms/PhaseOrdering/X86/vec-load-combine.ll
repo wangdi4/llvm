@@ -51,12 +51,19 @@ define noundef <4 x float> @ConvertVectors_ByVal(ptr noundef nonnull align 16 de
 ; SSE-LABEL: define noundef <4 x float> @ConvertVectors_ByVal ;INTEL
 ; SSE-SAME: (ptr nocapture noundef nonnull readonly align 16 dereferenceable(16) [[V:%.*]]) local_unnamed_addr #[[ATTR0]] { ;INTEL
 ; SSE-NEXT:  entry:
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; SSE-NEXT:    [[TMP0:%.*]] = load <4 x float>, ptr [[V]], align 16
 ; SSE-NEXT:    [[TMP1:%.*]] = getelementptr i64, ptr [[V]], i64 1
 ; SSE-NEXT:    [[V_VAL422:%.*]] = load i64, ptr [[TMP1]], align 8
 ; SSE-NEXT:    [[TMP2:%.*]] = trunc i64 [[V_VAL422]] to i32
 ; end INTEL_CUSTOMIZATION
+=======
+; SSE-NEXT:    [[TMP0:%.*]] = load <4 x float>, ptr [[V:%.*]], align 16
+; SSE-NEXT:    [[TMP1:%.*]] = getelementptr inbounds i8, ptr [[V]], i64 8
+; SSE-NEXT:    [[V_VAL421:%.*]] = load i64, ptr [[TMP1]], align 8
+; SSE-NEXT:    [[TMP2:%.*]] = trunc i64 [[V_VAL421]] to i32
+>>>>>>> 457dc72fdd2eefe364548e721619cc1951854372
 ; SSE-NEXT:    [[TMP3:%.*]] = bitcast i32 [[TMP2]] to float
 ; SSE-NEXT:    [[VECINIT11:%.*]] = insertelement <4 x float> [[TMP0]], float [[TMP3]], i64 2
 ; SSE-NEXT:    [[VECINIT16:%.*]] = insertelement <4 x float> [[VECINIT11]], float [[TMP3]], i64 3
@@ -65,12 +72,19 @@ define noundef <4 x float> @ConvertVectors_ByVal(ptr noundef nonnull align 16 de
 ; AVX-LABEL: define noundef <4 x float> @ConvertVectors_ByVal ;INTEL
 ; AVX-SAME: (ptr nocapture noundef nonnull readonly align 16 dereferenceable(16) [[V:%.*]]) local_unnamed_addr #[[ATTR0]] { ;INTEL
 ; AVX-NEXT:  entry:
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; AVX-NEXT:    [[TMP0:%.*]] = load <4 x float>, ptr [[V]], align 16
 ; AVX-NEXT:    [[TMP1:%.*]] = getelementptr i64, ptr [[V]], i64 1
 ; AVX-NEXT:    [[V_VAL422:%.*]] = load i64, ptr [[TMP1]], align 8
 ; AVX-NEXT:    [[TMP2:%.*]] = trunc i64 [[V_VAL422]] to i32
 ; end INTEL_CUSTOMIZATION
+=======
+; AVX-NEXT:    [[TMP0:%.*]] = load <4 x float>, ptr [[V:%.*]], align 16
+; AVX-NEXT:    [[TMP1:%.*]] = getelementptr inbounds i8, ptr [[V]], i64 8
+; AVX-NEXT:    [[V_VAL421:%.*]] = load i64, ptr [[TMP1]], align 8
+; AVX-NEXT:    [[TMP2:%.*]] = trunc i64 [[V_VAL421]] to i32
+>>>>>>> 457dc72fdd2eefe364548e721619cc1951854372
 ; AVX-NEXT:    [[TMP3:%.*]] = bitcast i32 [[TMP2]] to float
 ; AVX-NEXT:    [[VECINIT11:%.*]] = insertelement <4 x float> [[TMP0]], float [[TMP3]], i64 2
 ; AVX-NEXT:    [[VECINIT16:%.*]] = insertelement <4 x float> [[VECINIT11]], float [[TMP3]], i64 3
