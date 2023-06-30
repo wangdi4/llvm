@@ -16054,16 +16054,36 @@ static void PrintLoopInfo(raw_ostream &OS, ScalarEvolution *SE,
   }
 }
 
-static StringRef loopDispositionToStr(ScalarEvolution::LoopDisposition LD) {
+namespace llvm {
+raw_ostream &operator<<(raw_ostream &OS, ScalarEvolution::LoopDisposition LD) {
   switch (LD) {
   case ScalarEvolution::LoopVariant:
-    return "Variant";
+    OS << "Variant";
+    break;
   case ScalarEvolution::LoopInvariant:
-    return "Invariant";
+    OS << "Invariant";
+    break;
   case ScalarEvolution::LoopComputable:
-    return "Computable";
+    OS << "Computable";
+    break;
   }
-  llvm_unreachable("Unknown ScalarEvolution::LoopDisposition kind!");
+  return OS;
+}
+
+raw_ostream &operator<<(raw_ostream &OS, ScalarEvolution::BlockDisposition BD) {
+  switch (BD) {
+  case ScalarEvolution::DoesNotDominateBlock:
+    OS << "DoesNotDominate";
+    break;
+  case ScalarEvolution::DominatesBlock:
+    OS << "Dominates";
+    break;
+  case ScalarEvolution::ProperlyDominatesBlock:
+    OS << "ProperlyDominates";
+    break;
+  }
+  return OS;
+}
 }
 
 void ScalarEvolution::print(raw_ostream &OS) const {
@@ -16139,7 +16159,7 @@ void ScalarEvolution::print(raw_ostream &OS) const {
             }
 
             Iter->getHeader()->printAsOperand(OS, /*PrintType=*/false);
-            OS << ": " << loopDispositionToStr(SE.getLoopDisposition(SV, Iter));
+            OS << ": " << SE.getLoopDisposition(SV, Iter);
           }
 
           for (const auto *InnerL : depth_first(L)) {
@@ -16153,7 +16173,7 @@ void ScalarEvolution::print(raw_ostream &OS) const {
             }
 
             InnerL->getHeader()->printAsOperand(OS, /*PrintType=*/false);
-            OS << ": " << loopDispositionToStr(SE.getLoopDisposition(SV, InnerL));
+            OS << ": " << SE.getLoopDisposition(SV, InnerL);
           }
 
           OS << " }";
@@ -16751,9 +16771,8 @@ void ScalarEvolution::verify() const {
       const auto RecomputedDisposition = SE2.getLoopDisposition(S, Loop);
       if (CachedDisposition != RecomputedDisposition) {
         dbgs() << "Cached disposition of " << *S << " for loop " << *Loop
-               << " is incorrect: cached "
-               << loopDispositionToStr(CachedDisposition) << ", actual "
-               << loopDispositionToStr(RecomputedDisposition) << "\n";
+               << " is incorrect: cached " << CachedDisposition << ", actual "
+               << RecomputedDisposition << "\n";
         std::abort();
       }
     }
@@ -16765,7 +16784,8 @@ void ScalarEvolution::verify() const {
       const auto RecomputedDisposition = SE2.getBlockDisposition(S, BB);
       if (CachedDisposition != RecomputedDisposition) {
         dbgs() << "Cached disposition of " << *S << " for block %"
-               << BB->getName() << " is incorrect! \n";
+               << BB->getName() << " is incorrect: cached " << CachedDisposition
+               << ", actual " << RecomputedDisposition << "\n";
         std::abort();
       }
     }

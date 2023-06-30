@@ -28,7 +28,7 @@ include "clang/Basic/TypeNodes.td"
 
 let Class = ComplexType in {
   def : Property<"elementType", QualType> {
-    let Read = [{ node->getElementType() }];    
+    let Read = [{ node->getElementType() }];
   }
 
   def : Creator<[{ return ctx.getComplexType(elementType); }]>;
@@ -608,7 +608,7 @@ let Class = ParenType in {
 
   def : Creator<[{
     return ctx.getParenType(innerType);
-  }]>;  
+  }]>;
 }
 
 let Class = MacroQualifiedType in {
@@ -916,7 +916,7 @@ let Class = ObjCInterfaceType in {
 let Class = ObjCTypeParamType in {
   def : Property<"declaration", ObjCTypeParamDeclRef> {
     let Read = [{ node->getDecl() }];
-  }  
+  }
   def : Property<"qualifiers", Array<ObjCProtocolDeclRef>> {
     let Read = [{ node->getProtocols() }];
   }

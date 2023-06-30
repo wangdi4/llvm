@@ -2714,7 +2714,7 @@ bool QualType::isTriviallyEqualityComparableType(
     const ASTContext &Context) const {
   QualType CanonicalType = getCanonicalType();
   if (CanonicalType->isIncompleteType() || CanonicalType->isDependentType() ||
-      CanonicalType->isEnumeralType())
+      CanonicalType->isEnumeralType() || CanonicalType->isArrayType())
     return false;
 
   if (const auto *RD = CanonicalType->getAsCXXRecordDecl()) {
