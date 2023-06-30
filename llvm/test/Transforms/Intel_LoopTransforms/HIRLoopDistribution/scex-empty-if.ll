@@ -1,4 +1,4 @@
-; RUN: opt -xmain-opt-level=3 -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec,verify<hir>,print<hir>" < %s 2>&1 | FileCheck %s
+; RUN: opt -xmain-opt-level=3 -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-distribute-memrec" -print-before=hir-loop-distribute-memrec -print-after=hir-loop-distribute-memrec < %s 2>&1 | FileCheck %s
 
 ; The tests verifies that empty nodes be removed after scalar expansion.
 
@@ -12,7 +12,25 @@
 ;   <EMPTY>
 ; }
 
+; CHECK: Dump Before
+
+; CHECK: + DO i1
+; CHECK-SAME: <MAX_TC_EST = 1>
+
+; CHECK: Dump After
+
 ; CHECK: modified
+
+; Verify that the inner i2 loops acquire the MAX_TC_EST of the outer loop if it was less than stripmine size.
+
+; CHECK: + DO i1
+; CHECK-SAME: <MAX_TC_EST = 1>
+
+; CHECK: + DO i2
+; CHECK-SAME: <MAX_TC_EST = 1>
+
+; CHECK: + DO i2
+; CHECK-SAME: <MAX_TC_EST = 1>
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
