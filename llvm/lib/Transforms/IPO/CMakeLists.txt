@@ -77,6 +77,7 @@ add_llvm_component_library(LLVMipo
   CrossDSOCFI.cpp
   DeadArgumentElimination.cpp
   ElimAvailExtern.cpp
+  EmbedBitcodePass.cpp
   ExtractGV.cpp
   ForceFunctionAttrs.cpp
   FunctionAttrs.cpp

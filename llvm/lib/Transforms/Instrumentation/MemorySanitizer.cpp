@@ -461,6 +461,14 @@ static const MemoryMapParams Linux_AArch64_MemoryMapParams = {
     0x0200000000000, // OriginBase
 };
 
+// loongarch64 Linux
+static const MemoryMapParams Linux_LoongArch64_MemoryMapParams = {
+    0,              // AndMask (not used)
+    0x500000000000, // XorMask
+    0,              // ShadowBase (not used)
+    0x100000000000, // OriginBase
+};
+
 // aarch64 FreeBSD
 static const MemoryMapParams FreeBSD_AArch64_MemoryMapParams = {
     0x1800000000000, // AndMask
@@ -516,6 +524,11 @@ static const PlatformMemoryMapParams Linux_S390_MemoryMapParams = {
 static const PlatformMemoryMapParams Linux_ARM_MemoryMapParams = {
     nullptr,
     &Linux_AArch64_MemoryMapParams,
+};
+
+static const PlatformMemoryMapParams Linux_LoongArch_MemoryMapParams = {
+    nullptr,
+    &Linux_LoongArch64_MemoryMapParams,
 };
 
 static const PlatformMemoryMapParams FreeBSD_ARM_MemoryMapParams = {
@@ -1084,6 +1097,9 @@ void MemorySanitizer::initializeModule(Module &M) {
       case Triple::aarch64:
       case Triple::aarch64_be:
         MapParams = Linux_ARM_MemoryMapParams.bits64;
+        break;
+      case Triple::loongarch64:
+        MapParams = Linux_LoongArch_MemoryMapParams.bits64;
         break;
       default:
         report_fatal_error("unsupported architecture");
