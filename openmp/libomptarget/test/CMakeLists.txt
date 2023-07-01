@@ -52,24 +52,17 @@ else(INTEL_CUSTOMIZATION)
 endif(INTEL_CUSTOMIZATION)
 endforeach()
 
-<<<<<<< HEAD
-# INTEL_CUSTOMIZATION
-# Do not add omp as a dependency since Intel specific OpenMP runtime is being
-# used.
-=======
 if ("flang" IN_LIST LLVM_ENABLE_PROJECTS)
   SET(FORTRAN_TEST_DEPS flang-new)
 endif()
 
->>>>>>> 341c3cf78c6284d88ad76944125478c050aa0c3f
+# INTEL_CUSTOMIZATION
+# Do not add omp as a dependency since Intel specific OpenMP runtime is being
+# used.
 add_openmp_testsuite(check-libomptarget
   "Running libomptarget tests"
   ${LIBOMPTARGET_LIT_TESTSUITES}
   EXCLUDE_FROM_CHECK_ALL
-<<<<<<< HEAD
-  DEPENDS omptarget ${LIBOMPTARGET_TESTED_PLUGINS}
-=======
-  DEPENDS omptarget omp ${LIBOMPTARGET_TESTED_PLUGINS} ${FORTRAN_TEST_DEPS}
->>>>>>> 341c3cf78c6284d88ad76944125478c050aa0c3f
+  DEPENDS omptarget ${LIBOMPTARGET_TESTED_PLUGINS} ${FORTRAN_TEST_DEPS}
   ARGS ${LIBOMPTARGET_LIT_ARG_LIST})
 # end INTEL_CUSTOMIZATION
