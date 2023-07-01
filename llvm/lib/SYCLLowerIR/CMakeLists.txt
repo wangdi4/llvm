@@ -159,6 +159,7 @@ add_llvm_component_library(LLVMSYCLLowerIR
   LLVMGenXIntrinsics
   LLVMDemangle
   LLVMTransformUtils
+  DeviceConfigFile
 
   LINK_LIBS
   LLVMGenXIntrinsics
