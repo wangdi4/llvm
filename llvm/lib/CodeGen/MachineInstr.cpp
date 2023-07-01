@@ -113,7 +113,12 @@ void MachineInstr::addImplicitDefUseOperands(MachineFunction &MF) {
 /// the MCInstrDesc.
 MachineInstr::MachineInstr(MachineFunction &MF, const MCInstrDesc &TID,
                            DebugLoc DL, bool NoImp)
+<<<<<<< HEAD
     : MCID(&TID), Flags(0), DbgLoc(std::move(DL)), DebugInstrNum(0) { // INTEL
+=======
+    : MCID(&TID), NumOperands(0), Flags(0), AsmPrinterFlags(0),
+      DbgLoc(std::move(DL)), DebugInstrNum(0) {
+>>>>>>> 703c08362adcc7990fa5ddc444c41c5efdccbc2b
   assert(DbgLoc.hasTrivialDestructor() && "Expected trivial destructor");
 
   // Reserve space for the expected number of operands.
@@ -131,8 +136,13 @@ MachineInstr::MachineInstr(MachineFunction &MF, const MCInstrDesc &TID,
 /// Does not copy the number from debug instruction numbering, to preserve
 /// uniqueness.
 MachineInstr::MachineInstr(MachineFunction &MF, const MachineInstr &MI)
+<<<<<<< HEAD
     : MCID(&MI.getDesc()), Flags(0), Info(MI.Info), // INTEL
       DbgLoc(MI.getDebugLoc()), DebugInstrNum(0) {  // INTEL
+=======
+    : MCID(&MI.getDesc()), NumOperands(0), Flags(0), AsmPrinterFlags(0),
+      Info(MI.Info), DbgLoc(MI.getDebugLoc()), DebugInstrNum(0) {
+>>>>>>> 703c08362adcc7990fa5ddc444c41c5efdccbc2b
   assert(DbgLoc.hasTrivialDestructor() && "Expected trivial destructor");
 
   CapOperands = OperandCapacity::get(MI.getNumOperands());
@@ -209,7 +219,8 @@ static void moveOperands(MachineOperand *Dst, MachineOperand *Src,
 /// an explicit operand it is added at the end of the explicit operand list
 /// (before the first implicit operand).
 void MachineInstr::addOperand(MachineFunction &MF, const MachineOperand &Op) {
-  assert(NumOperands < USHRT_MAX && "Cannot add more operands.");
+  assert(isUInt<LLVM_MI_NUMOPERANDS_BITS>(NumOperands + 1) &&
+         "Cannot add more operands.");
   assert(MCID && "Cannot add operands before providing an instr descriptor");
 
   // Check if we're adding one of our existing operands.

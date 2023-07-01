@@ -46,6 +46,7 @@
 #include "llvm/MC/MCInstrDesc.h"
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/Support/ArrayRecycler.h"
+#include "llvm/Support/MathExtras.h"
 #include "llvm/Support/TrailingObjects.h"
 #include <algorithm>
 #include <cassert>
@@ -147,6 +148,7 @@ private:
 
   // Operands are allocated by an ArrayRecycler.
   MachineOperand *Operands = nullptr;   // Pointer to the first operand.
+<<<<<<< HEAD
 
   uint32_t Flags : 24;                  // Various bits of additional // INTEL
                                         // information about machine
@@ -158,11 +160,28 @@ private:
                                         // information.  Do not use this for
                                         // anything other than to convey comment
                                         // information to AsmPrinter.
+=======
+>>>>>>> 703c08362adcc7990fa5ddc444c41c5efdccbc2b
 
-  // OperandCapacity has uint8_t size, so it should be next to AsmPrinterFlags
+#define LLVM_MI_NUMOPERANDS_BITS 24
+#define LLVM_MI_FLAGS_BITS 24
+#define LLVM_MI_ASMPRINTERFLAGS_BITS 8
+
+  /// Number of operands on instruction.
+  uint32_t NumOperands : LLVM_MI_NUMOPERANDS_BITS;
+
+  // OperandCapacity has uint8_t size, so it should be next to NumOperands
   // to properly pack.
   using OperandCapacity = ArrayRecycler<MachineOperand>::Capacity;
   OperandCapacity CapOperands;          // Capacity of the Operands array.
+
+  /// Various bits of additional information about the machine instruction.
+  uint32_t Flags : LLVM_MI_FLAGS_BITS;
+
+  /// Various bits of information used by the AsmPrinter to emit helpful
+  /// comments.  This is *not* semantic information.  Do not use this for
+  /// anything other than to convey comment information to AsmPrinter.
+  uint8_t AsmPrinterFlags : LLVM_MI_ASMPRINTERFLAGS_BITS;
 
   /// Internal implementation detail class that provides out-of-line storage for
   /// extra info used by the machine instruction when this info cannot be stored
@@ -369,16 +388,22 @@ public:
 
   /// Return whether an AsmPrinter flag is set.
   bool getAsmPrinterFlag(CommentFlag Flag) const {
+    assert(isUInt<LLVM_MI_ASMPRINTERFLAGS_BITS>(unsigned(Flag)) &&
+           "Flag is out of range for the AsmPrinterFlags field");
     return AsmPrinterFlags & Flag;
   }
 
   /// Set a flag for the AsmPrinter.
   void setAsmPrinterFlag(uint8_t Flag) {
+    assert(isUInt<LLVM_MI_ASMPRINTERFLAGS_BITS>(unsigned(Flag)) &&
+           "Flag is out of range for the AsmPrinterFlags field");
     AsmPrinterFlags |= Flag;
   }
 
   /// Clear specific AsmPrinter flags.
   void clearAsmPrinterFlag(CommentFlag Flag) {
+    assert(isUInt<LLVM_MI_ASMPRINTERFLAGS_BITS>(unsigned(Flag)) &&
+           "Flag is out of range for the AsmPrinterFlags field");
     AsmPrinterFlags &= ~Flag;
   }
 
@@ -398,15 +423,25 @@ public:
 
   /// Return whether an MI flag is set.
   bool getFlag(MIFlag Flag) const {
+    assert(isUInt<LLVM_MI_FLAGS_BITS>(unsigned(Flag)) &&
+           "Flag is out of range for the Flags field");
     return Flags & Flag;
   }
 
   /// Set a MI flag.
   void setFlag(MIFlag Flag) {
+<<<<<<< HEAD
     Flags |= ((uint32_t)Flag & 0xFFFFFF); // INTEL
+=======
+    assert(isUInt<LLVM_MI_FLAGS_BITS>(unsigned(Flag)) &&
+           "Flag is out of range for the Flags field");
+    Flags |= (uint32_t)Flag;
+>>>>>>> 703c08362adcc7990fa5ddc444c41c5efdccbc2b
   }
 
   void setFlags(unsigned flags) {
+    assert(isUInt<LLVM_MI_FLAGS_BITS>(flags) &&
+           "flags to be set are out of range for the Flags field");
     // Filter out the automatically maintained flags.
     unsigned Mask = BundledPred | BundledSucc;
     Flags = (Flags & Mask) | (flags & ~Mask);
@@ -414,7 +449,13 @@ public:
 
   /// clearFlag - Clear a MI flag.
   void clearFlag(MIFlag Flag) {
+<<<<<<< HEAD
     Flags &= ~((uint32_t)Flag & 0xFFFFFF); // INTEL
+=======
+    assert(isUInt<LLVM_MI_FLAGS_BITS>(unsigned(Flag)) &&
+           "Flag to clear is out of range for the Flags field");
+    Flags &= ~((uint32_t)Flag);
+>>>>>>> 703c08362adcc7990fa5ddc444c41c5efdccbc2b
   }
 
   /// Return true if MI is in a bundle (but not the first MI in a bundle).
