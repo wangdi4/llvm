@@ -244,10 +244,14 @@ Driver::Driver(StringRef ClangExecutable, StringRef TargetTriple,
     : Diags(Diags), VFS(std::move(VFS)), Mode(GCCMode),
       SaveTemps(SaveTempsNone), BitcodeEmbed(EmbedNone),
       Offload(OffloadHostDevice), CXX20HeaderType(HeaderMode_None),
+<<<<<<< HEAD
       ModulesModeCXX20(false), LTOMode(LTOK_None),
 #if INTEL_CUSTOMIZATION
       IntelPrintOptions(false), IntelMode(false), DPCPPMode(false),
 #endif // INTEL_CUSTOMIZATION
+=======
+      ModulesModeCXX20(false), LTOMode(LTOK_None), OffloadLTOMode(LTOK_None),
+>>>>>>> e98280e710481216c83771d3eaae40961e7f87b7
       ClangExecutable(ClangExecutable), SysRoot(DEFAULT_SYSROOT),
       DriverTitle(Title), CCCPrintBindings(false), CCPrintOptions(false),
       CCLogDiagnostics(false), CCGenDiagnostics(false),
