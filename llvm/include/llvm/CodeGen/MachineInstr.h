@@ -148,20 +148,6 @@ private:
 
   // Operands are allocated by an ArrayRecycler.
   MachineOperand *Operands = nullptr;   // Pointer to the first operand.
-<<<<<<< HEAD
-
-  uint32_t Flags : 24;                  // Various bits of additional // INTEL
-                                        // information about machine
-                                        // instruction.
-  uint16_t NumOperands = 0;             // Number of operands on instruction.
-  uint8_t AsmPrinterFlags = 0;          // Various bits of information used by
-                                        // the AsmPrinter to emit helpful
-                                        // comments.  This is *not* semantic
-                                        // information.  Do not use this for
-                                        // anything other than to convey comment
-                                        // information to AsmPrinter.
-=======
->>>>>>> 703c08362adcc7990fa5ddc444c41c5efdccbc2b
 
 #define LLVM_MI_NUMOPERANDS_BITS 24
 #define LLVM_MI_FLAGS_BITS 24
@@ -430,13 +416,9 @@ public:
 
   /// Set a MI flag.
   void setFlag(MIFlag Flag) {
-<<<<<<< HEAD
-    Flags |= ((uint32_t)Flag & 0xFFFFFF); // INTEL
-=======
     assert(isUInt<LLVM_MI_FLAGS_BITS>(unsigned(Flag)) &&
            "Flag is out of range for the Flags field");
-    Flags |= (uint32_t)Flag;
->>>>>>> 703c08362adcc7990fa5ddc444c41c5efdccbc2b
+    Flags |= ((uint32_t)Flag & 0xFFFFFF); // INTEL
   }
 
   void setFlags(unsigned flags) {
@@ -449,13 +431,9 @@ public:
 
   /// clearFlag - Clear a MI flag.
   void clearFlag(MIFlag Flag) {
-<<<<<<< HEAD
-    Flags &= ~((uint32_t)Flag & 0xFFFFFF); // INTEL
-=======
     assert(isUInt<LLVM_MI_FLAGS_BITS>(unsigned(Flag)) &&
            "Flag to clear is out of range for the Flags field");
-    Flags &= ~((uint32_t)Flag);
->>>>>>> 703c08362adcc7990fa5ddc444c41c5efdccbc2b
+    Flags &= ~((uint32_t)Flag & 0xFFFFFF); // INTEL
   }
 
   /// Return true if MI is in a bundle (but not the first MI in a bundle).
