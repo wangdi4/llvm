@@ -335,10 +335,10 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/lib/Transforms/Utils/ModuleUtils.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Utils/SplitModule.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Utils/ValueMapper.cpp @robertcox-github @pvbattin
-/lld/COFF/ @robertcox-github @pvbattin
-/lld/ELF/ @robertcox-github @pvbattin
-/lld/test/COFF/ @robertcox-github @pvbattin
-/lld/test/ELF/ @robertcox-github @pvbattin
+/lld/COFF/ @robertcox-github @pvbattin @HaohaiWen @williamweixiao
+/lld/ELF/ @robertcox-github @pvbattin @HaohaiWen @williamweixiao
+/lld/test/COFF/ @robertcox-github @pvbattin @HaohaiWen @williamweixiao
+/lld/test/ELF/ @robertcox-github @pvbattin @HaohaiWen @williamweixiao
 /llvm/test/Analysis/CallGraph/ @robertcox-github @pvbattin
 /llvm/test/Analysis/CFLAliasAnalysis/Steensgaard/ @robertcox-github @pvbattin
 /llvm/test/Analysis/GlobalsModRef/ @robertcox-github @pvbattin
