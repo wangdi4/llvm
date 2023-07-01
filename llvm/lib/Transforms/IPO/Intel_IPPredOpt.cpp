@@ -217,8 +217,8 @@ private:
   SmallDenseMap<Value *, SmallVector<Instruction *, 2>, 2>
       SpecialNonNullCheckCondsMap;
 
-  // Most probable target of all indirect calls in callee.
-  Function *MostProbableTarget = nullptr;
+  // Most probable targets of all indirect calls in callee.
+  SetVector<Function *> MostProbableTargets;
 
   // Instructions needed to compute trip count of a loop that has GetElem
   // function call.
@@ -1405,29 +1405,42 @@ bool PredCandidate::processIndirectCalls(
     return nullptr;
   };
 
-  // Finds virtual function call in base class from TargetFunctions.
-  // DTrans's metadata is used to check same types.
-  auto GetTargetFunctionInBaseType =
-      [&GetCallFirstArgTyMD, &GetFunctionFirstParamTyMD](
-          SetVector<Function *> &TargetFunctions, CallBase *CB) -> Function * {
+  // Find most probable targets using heuristics.
+  //   1. No Side effects.
+  //   2. No base class virtual function
+  //   3. Target function has only one loop.
+  auto GetMostProbableTargetFunctions =
+      [this, &GetCallFirstArgTyMD, &GetFunctionFirstParamTyMD](
+          SetVector<Function *> &TargetFunctions, CallBase *CB) -> bool {
     // Get DTrans's metadata for 1st argument of call.
     MDNode *ArgTyMD = GetCallFirstArgTyMD(CB);
     if (!ArgTyMD)
-      return nullptr;
+      return false;
 
-    Function *FuncInBaseClass = nullptr;
-
+    bool FoundTarget = false;
     for (auto *TF : TargetFunctions) {
-      // Get DTrans's metadata for 1st argument of TF.
-      MDNode *TypeNode = GetFunctionFirstParamTyMD(TF);
-      if (TypeNode != ArgTyMD)
+      if (TF->isDeclaration())
         continue;
 
-      if (FuncInBaseClass)
-        return nullptr;
-      FuncInBaseClass = TF;
+      // Skip target that has side effects.
+      if (!funcHasNoSideEffects(TF))
+        continue;
+
+      // Get DTrans's metadata for 1st argument of TF.
+      MDNode *TypeNode = GetFunctionFirstParamTyMD(TF);
+      // Skip virtual function in base class
+      if (TypeNode == ArgTyMD)
+        continue;
+
+      // Check if target has one loop.
+      LoopInfo &LoopI = (GetLI)(*TF);
+      if (llvm::size(LoopI) != 1)
+        continue;
+
+      MostProbableTargets.insert(TF);
+      FoundTarget = true;
     }
-    return FuncInBaseClass;
+    return FoundTarget;
   };
 
   Value *IndirectFunctionPtr = nullptr;
@@ -1451,14 +1464,11 @@ bool PredCandidate::processIndirectCalls(
     if (NoSideEffects)
       continue;
 
-    // Try to find most probable target function.
-    Function *TF = GetTargetFunctionInBaseType(TargetFunctions, CB);
-    if (!TF)
+    // Try to find most probable target functions.
+    if (!GetMostProbableTargetFunctions(TargetFunctions, CB)) {
+      LLVM_DEBUG(dbgs() << "      No targets selected by heuristics");
       return false;
-
-    // Don't apply the transformation if most probable target has side effects.
-    if (!funcHasNoSideEffects(TF))
-      return false;
+    }
 
     // Trying to collect all instructions that are needed to hoist
     // and generate runtime check for computing function pointer.
@@ -1483,22 +1493,29 @@ bool PredCandidate::processIndirectCalls(
     if (!isa<Argument>(GetElemCB->getArgOperand(0)))
       continue;
 
-    if (!MostProbableTarget && !IndirectFunctionPtr) {
-      MostProbableTarget = TF;
+    if (!IndirectFunctionPtr) {
       IndirectFunctionPtr = FPtr;
       IndirectFPtrHoistInst = FPtrHoistInst;
-    } else if (MostProbableTarget != TF || IndirectFunctionPtr != FPtr)
+    } else if (IndirectFunctionPtr != FPtr)
       return false;
   }
   // For now, don't skip transformation if no possible target is found when
   // IPPredSkipCalleeLegalChecks.
-  if (IPPredSkipCalleeLegalChecks && !MostProbableTarget)
+  if (IPPredSkipCalleeLegalChecks && MostProbableTargets.size() == 0)
     return true;
+
+  if (!IndirectFunctionPtr)
+    return true;
+
+  if (MostProbableTargets.size() > 3)
+    return false;
 
   LLVM_DEBUG(dbgs() << "      IndirectCallObj:" << *IndirectFunctionPtr
                     << "\n";);
-  LLVM_DEBUG(dbgs() << "      Most probable Target:"
-                    << MostProbableTarget->getName() << "\n");
+  LLVM_DEBUG({
+    for (auto *MPF : MostProbableTargets)
+      dbgs() << "      Most probable Target:" << MPF->getName() << "\n";
+  });
 
   auto *GetElemCB = cast<CallBase>(IndirectFunctionPtr);
 
@@ -2105,9 +2122,42 @@ void PredCandidate::generateRuntimeChecksCloneCFG() {
         AdjustCFG(NewBB, ClonedEntryBB, NewEntryBB, Cond);
       };
 
-  if (!MostProbableTarget) {
+  // Generate runtime conditions to check indirect function pointer
+  // is equal to any of target functions in MostProbableTargets.
+  //
+  // Ex:
+  // %18 = load ptr, ptr %17, align 8
+  // %callee.check3 = icmp eq ptr %18, @foo
+  // %callee.check4 = icmp eq ptr %18, @bar
+  // %19 = select i1 %callee.check3, i1 true, i1 %callee.check4
+  // %callee.check5 = icmp eq ptr %18, @baz
+  // %20 = select i1 %19, i1 true, i1 %callee.check5
+  // br i1 %20, label %21, label %54
+  auto GenerateIndirectTargetsCheckInNewBBAdjustCFG =
+      [this, &GenerateClonedInstructions,
+       &AdjustCFG](Instruction *FI, SmallVectorImpl<Instruction *> &InstVec,
+                   ValueToValueMapTy &VMap, BasicBlock *ClonedEntryBB,
+                   CmpInst::Predicate Pred) {
+        BasicBlock *NewEntryBB = FI->getParent();
+        BasicBlock *NewBB = NewEntryBB->splitBasicBlock(FI->getIterator());
+        IRBuilder<> B(NewEntryBB, NewEntryBB->getFirstInsertionPt());
+
+        Value *FinalVal = GenerateClonedInstructions(InstVec, VMap, B);
+        bool FirstCond = true;
+        Value *FinalCond = nullptr;
+        for (auto *TF : MostProbableTargets) {
+          auto *Cond = B.CreateICmp(Pred, FinalVal, TF, "callee.check");
+          if (FirstCond)
+            FinalCond = Cond;
+          else
+            FinalCond = B.CreateLogicalOr(FinalCond, Cond);
+          FirstCond = false;
+        }
+        AdjustCFG(NewBB, ClonedEntryBB, NewEntryBB, FinalCond);
+      };
+
+  if (MostProbableTargets.size() == 0)
     return;
-  }
 
   // Map actual arguments of CondCall and formals of callee.
   ValueToValueMapTy CalleeVMap;
@@ -2154,9 +2204,9 @@ void PredCandidate::generateRuntimeChecksCloneCFG() {
 
   // Generate runtime condition to check if indirect pointer is equal to
   // the most probable target.
-  CloneInstsInNewBBAdjustCFG(FI, IndirectFPtrHoistInst, CalleeVMap,
-                             ClonedEntryBB, MostProbableTarget,
-                             CmpInst::Predicate::ICMP_EQ);
+  GenerateIndirectTargetsCheckInNewBBAdjustCFG(FI, IndirectFPtrHoistInst,
+                                               CalleeVMap, ClonedEntryBB,
+                                               CmpInst::Predicate::ICMP_EQ);
 }
 
 // Collect all executed blocks that are controlled by all conditions.
