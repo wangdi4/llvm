@@ -127,19 +127,23 @@ public:
   bool hasHugeWorkingSetSize() const;
   /// Returns true if the working set size of the code is considered large.
   bool hasLargeWorkingSetSize() const;
-<<<<<<< HEAD
-  /// Returns true if \p F has hot function entry.
-#if INTEL_CUSTOMIZATION
-  bool isFunctionEntryHot(const Function *F,
-                          bool IgnoreAttribute = false) const;
-#endif // INTEL_CUSTOMIZATION
-=======
   /// Returns true if \p F has hot function entry. If it returns false, it
   /// either means it is not hot or it is unknown whether it is hot or not (for
   /// example, no profile data is available).
-  template <typename FuncT> bool isFunctionEntryHot(const FuncT *F) const {
-    if (!F || !hasProfileSummary())
+#if INTEL_CUSTOMIZATION
+  template <typename FuncT>
+  bool isFunctionEntryHot(const FuncT *F, bool IgnoreAttribute = false) const {
+    // Make this consistent with ProfileSummaryInfo::isFunctionEntryCold
+    if (!F)
       return false;
+    // CMPLRLLVM-37160: Even though the attribute may be set by the user,
+    // it does not benefit all benchmarks.
+    if (!IgnoreAttribute && F->hasFnAttribute(Attribute::Hot))
+      return true;
+    if (!hasProfileSummary())
+      return false;
+#endif // INTEL_CUSTOMIZATION
+
     std::optional<Function::ProfileCount> FunctionCount = getEntryCount(F);
     // FIXME: The heuristic used below for determining hotness is based on
     // preliminary SPEC tuning for inliner. This will eventually be a
@@ -147,7 +151,6 @@ public:
     return FunctionCount && isHotCount(FunctionCount->getCount());
   }
 
->>>>>>> 80155cbf0be1744953edf68b9729c24bd0de79c4
   /// Returns true if \p F contains hot code.
   template <typename FuncT, typename BFIT>
   bool isFunctionHotInCallGraph(const FuncT *F, BFIT &BFI) const {
