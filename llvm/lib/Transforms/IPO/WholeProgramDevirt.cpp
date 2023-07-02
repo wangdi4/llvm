@@ -2709,16 +2709,14 @@ bool DevirtModule::run() {
   for (GlobalVariable &GV : M.globals())
     GV.eraseMetadata(LLVMContext::MD_vcall_visibility);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
   IntelDevirtMV.runDevirtVerifier(M);
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
-=======
+
   for (auto *CI : CallsWithPtrAuthBundleRemoved)
     CI->eraseFromParent();
->>>>>>> 200a1ccea0f2fad5d4afcbfab27e31e26740ad00
 
   return true;
 }
