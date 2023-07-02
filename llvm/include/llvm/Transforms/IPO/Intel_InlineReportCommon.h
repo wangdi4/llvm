@@ -51,7 +51,8 @@ typedef enum {
   DeadStatics = 0x2000, // Print dead static functions
   Externs = 0x4000,     // Print external function callsites
   Indirects = 0x8000,   // Print indirect function callsites
-  Demangle = 0x10000    // Demangle C++ names
+  Demangle = 0x10000,   // Demangle C++ names
+  Compact = 0x20000     // Use compact representation of nested inlines
 } InlineReportOptions;
 }
 
@@ -102,6 +103,9 @@ typedef struct {
   InlPrtType Type;     // Classification of inlining reason
   const char *Message; // Text message for inlining reason (or nullptr)
 } InlPrtRecord;
+
+extern cl::opt<unsigned> IntelInlineReportLevel;
+extern cl::opt<unsigned> IntelInlineReportCompactThreshold;
 
 ///
 /// \brief A table of entries, one for each possible (non-)inlining reason
