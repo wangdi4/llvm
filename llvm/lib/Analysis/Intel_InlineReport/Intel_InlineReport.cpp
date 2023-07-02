@@ -19,7 +19,9 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/Inliner.h"
+#include "llvm/Transforms/IPO/Intel_InlineReportCommon.h"
 #include "llvm/Transforms/IPO/Utils/Intel_IPOUtils.h"
+#include <iomanip>
 
 using namespace llvm;
 using namespace InlineReportTypes;
@@ -38,9 +40,12 @@ InlineReportCallSite::~InlineReportCallSite(void) {
   }
 }
 
-InlineReportCallSite *InlineReportCallSite::copyBase(CallBase *CB) {
+InlineReportCallSite *
+InlineReportCallSite::copyBase(CallBase *CB,
+                               InlineReportFunction *NewIRCallee) {
+  InlineReportFunction *NewIRF = NewIRCallee ? NewIRCallee : IRCallee;
   InlineReportCallSite *NewCS =
-      new InlineReportCallSite(IRCallee, IsInlined, Reason, M, nullptr, CB);
+      new InlineReportCallSite(NewIRF, IsInlined, Reason, M, nullptr, CB);
   NewCS->Reason = Reason;
   NewCS->InlineCost = InlineCost;
   NewCS->OuterInlineCost = OuterInlineCost;
@@ -52,14 +57,14 @@ InlineReportCallSite *InlineReportCallSite::copyBase(CallBase *CB) {
   return NewCS;
 }
 
-InlineReportCallSite *
-InlineReportCallSite::cloneBase(const ValueToValueMapTy &IIMap,
-                                CallBase *ActiveInlineCallBase) {
-  if (IsInlined) {
-    InlineReportCallSite *IRCSk = copyBase(nullptr);
+InlineReportCallSite *InlineReport::cloneBase(InlineReportCallSite *OldIRCS,
+                                              const ValueToValueMapTy &IIMap,
+                                              CallBase *ActiveInlineCallBase) {
+  if (OldIRCS->getIsInlined()) {
+    InlineReportCallSite *IRCSk = OldIRCS->copyBase(nullptr);
     return IRCSk;
   }
-  const Value *OldCall = this->getCall();
+  const Value *OldCall = OldIRCS->getCall();
   if (!OldCall)
     return nullptr;
   // If the OldCall was the ActiveInlineCallBase, we placed a nullptr
@@ -76,12 +81,17 @@ InlineReportCallSite::cloneBase(const ValueToValueMapTy &IIMap,
     // Start with a clean copy, as this is a newly created callsite produced
     // by recursive inlining.
     IRCSk =
-        new InlineReportCallSite(this->IRCallee, false, NinlrNoReason,
+        new InlineReportCallSite(OldIRCS->getIRCallee(), false, NinlrNoReason,
                                  CB->getFunction()->getParent(), nullptr, CB);
-    IRCSk->Line = this->Line;
-    IRCSk->Col = this->Col;
+    IRCSk->setLine(OldIRCS->getLine());
+    IRCSk->setCol(OldIRCS->getCol());
   } else {
-    IRCSk = copyBase(CB);
+    // The inliner can convert an indirect call into a direct call.
+    // If so, update the IRCallee appropriately.
+    InlineReportFunction *NewIRCallee = OldIRCS->getIRCallee();
+    if (!NewIRCallee && CB && CB->getCalledFunction())
+      NewIRCallee = getOrAddFunction(CB->getCalledFunction());
+    IRCSk = OldIRCS->copyBase(CB, NewIRCallee);
     if (!CB)
       IRCSk->setReason(NinlrDeleted);
   }
@@ -247,7 +257,10 @@ void InlineReportCallSite::print(formatted_raw_ostream &OS,
   assert(InlineReasonText[getReason()].Type != InlPrtNone);
   if (getIsInlined()) {
     printIndentCount(OS, IndentCount);
-    OS << "-> INLINE: ";
+    if (getIsCompact())
+      OS << "-> <C> INLINE: ";
+    else
+      OS << "-> INLINE: ";
     printCalleeNameModuleLineCol(OS, Level);
     if (InlineReasonText[getReason()].Type == InlPrtCost)
       if (getCostBenefit())
@@ -523,6 +536,37 @@ void InlineReport::endSCC(void) {
   makeAllNotCurrent();
 }
 
+void InlineReport::cloneChildrenCompact(InlineReportFunction *IRFCaller,
+                                        InlineReportFunction *IRFCallee,
+                                        InlineReportCallSite *NewCallSite,
+                                        ValueToValueMapTy &IIMap) {
+  assert(NewCallSite->getChildren().empty());
+  IRFCaller->inheritCompactCallBases(IRFCallee);
+  if (IRFCallee->getIsSummarized())
+    NewCallSite->setIsCompact(true);
+  for (const auto &Pair : IIMap)
+    if (auto OldCall = dyn_cast<const CallBase>(Pair.first))
+      if (auto IRCSj = getCallSite(const_cast<CallBase *>(OldCall))) {
+        //
+        // Copy the old InlineReportCallSite and add it to the children
+        // of the cloned InlineReportCallSite.
+        auto IRCSk = cloneBase(IRCSj, IIMap, ActiveInlineCallBase);
+        if (!IRCSk)
+          continue;
+        NewCallSite->addChild(IRCSk);
+        //
+        // We keep track of the new calls that are added added to the
+        // inline report in case they themselves will be inlined.
+        if (IRCSk->getCall()) {
+          auto NewPair = std::make_pair(IRCSk->getCall(), IRCSk);
+          IRCallBaseCallSiteMap.insert(NewPair);
+          addCallback(IRCSk->getCall());
+        }
+      }
+  if (IRFCaller->getIsCompact())
+    IRFCaller->addCompactInlinedCallBase(IRFCallee);
+}
+
 void InlineReport::cloneChildren(InlineReportCallSiteVector &OldCallSiteVector,
                                  InlineReportCallSite *NewCallSite,
                                  ValueToValueMapTy &IIMap) {
@@ -532,7 +576,7 @@ void InlineReport::cloneChildren(InlineReportCallSiteVector &OldCallSiteVector,
     //
     // Copy the old InlineReportCallSite and add it to the children of the
     // cloned InlineReportCallSite.
-    InlineReportCallSite *IRCSk = IRCSj->cloneBase(IIMap, ActiveInlineCallBase);
+    InlineReportCallSite *IRCSk = cloneBase(IRCSj, IIMap, ActiveInlineCallBase);
     if (!IRCSk)
       continue;
     NewCallSite->addChild(IRCSk);
@@ -557,7 +601,12 @@ void InlineReport::inlineCallSite() {
   // Get the inline report for the routine being inlined.  We are going
   // to make a clone of it and ensure that the report is up to date
   // since the last call to Inliner::runOnSCC
-  InlineReportFunction *INR = initFunction(ActiveCallee);
+  InlineReportFunction *IRFCaller = getOrAddFunction(ActiveCaller);
+  InlineReportFunction *IRFCallee = initFunction(ActiveCallee);
+  // 'IRCallee' in 'ActiveIRCS' may be nullptr because it was originally
+  // an indirect call that was converted to a direct call later. Update
+  // the value now, since we know it.
+  ActiveIRCS->setIRCallee(IRFCallee);
   //
   // Create InlineReportCallSites "new calls" which appear in the inlined
   // code.  Also, create a mapping from the "original calls" which appeared
@@ -569,7 +618,7 @@ void InlineReport::inlineCallSite() {
   for (unsigned I = 0, E = ActiveOriginalCalls.size(); I < E; ++I) {
     // In the case of a directly recursive call, avoid putting the
     // ActiveInlineCallBase into the IIMap, as it is an already
-    // deleted value. Putting it in the IIMAP could cause a ValueHandle
+    // deleted value. Putting it in the IIMap could cause a ValueHandle
     // to be associated with it, which should not happen because it is
     // deleted.
     Value *OC = ActiveOriginalCalls[I] == ActiveInlineCallBase
@@ -579,18 +628,27 @@ void InlineReport::inlineCallSite() {
     IIMap.insert(std::make_pair(OC, NC));
   }
   //
-  // Clone the inline report INR and attach it to the inlined call site IRCS.
-  // Use IIMap to map the original calls to the new calls in the cloned
-  // inline report.
-  cloneChildren(INR->getCallSites(), ActiveIRCS, IIMap);
+  // Clone the inline report IRFCallee and attach it to the inlined call
+  // site IRCS. Use IIMap to map the original calls to the new calls in the
+  // cloned inline report.
+  bool ForceCompact = Level & Compact;
+  if (IRFCallee->shouldCompactCallBase(IRFCallee, ForceCompact))
+    IRFCallee->compact();
+  if (IRFCallee->getIsCompact())
+    cloneChildrenCompact(IRFCaller, IRFCallee, ActiveIRCS, IIMap);
+  else
+    cloneChildren(IRFCallee->getCallSites(), ActiveIRCS, IIMap);
   // Indicate that the call has been inlined in the inline report
   ActiveIRCS->setIsInlined(true);
+
   //
   // Remove the inlined instruction from the IRCallBaseCallSiteMap
   auto MapIt = IRCallBaseCallSiteMap.find(ActiveInlineCallBase);
   assert(MapIt != IRCallBaseCallSiteMap.end());
   IRCallBaseCallSiteMap.erase(MapIt);
   ActiveIRCS->setCall(nullptr);
+  unsigned NewInlineCount = IRFCallee->getInlineCount() + 1;
+  IRFCaller->setInlineCount(IRFCaller->getInlineCount() + NewInlineCount);
 }
 
 void InlineReport::setReasonIsInlined(CallBase *Call, InlineReason Reason) {
@@ -698,6 +756,15 @@ void InlineReportFunction::print(formatted_raw_ostream &OS,
   if (!Level || (Level & BasedOnMetadata))
     return;
   printInlineReportCallSiteVector(OS, CallSites, 1, Level);
+  if (!Inlines.empty()) {
+    OS << "  SUMMARIZED INLINED CALL SITE COUNTS\n";
+    for (auto &Pair : Inlines) {
+      std::stringstream SS;
+      OS << "    ";
+      SS << std::setw(5) << " " << Pair.second << " ";
+      OS << SS.str() << Pair.first->getName() << "\n";
+    }
+  }
 }
 
 void InlineReport::print() const {
@@ -742,6 +809,63 @@ void InlineReport::print() const {
     }
   }
   OS << "---- End Inlining Report ------\n";
+}
+
+bool InlineReportFunction::shouldCompactCallBase(
+    InlineReportFunction *IRFCallee, bool ForceCompact) {
+  if (getIsCompact())
+    return false;
+  if (ForceCompact)
+    return true;
+  if (IRFCallee->getInlineCount() > IntelInlineReportCompactThreshold)
+    return true;
+  return false;
+}
+
+void InlineReportFunction::addCompactInlinedCallBase(
+    InlineReportFunction *IRFCallee, unsigned Count) {
+  auto MapIt = TotalInlines.find(IRFCallee);
+  if (MapIt != TotalInlines.end()) {
+    MapIt->second += Count;
+    return;
+  }
+  TotalInlines.insert({IRFCallee, Count});
+}
+
+void InlineReportFunction::addForCompactInlinedCallBase(
+    InlineReportFunction *IRFCallee, unsigned Count) {
+  auto MapIt = Inlines.find(IRFCallee);
+  if (MapIt != Inlines.end()) {
+    MapIt->second += Count;
+    return;
+  }
+  Inlines.insert({IRFCallee, Count});
+}
+
+void InlineReportFunction::compactChildren(InlineReportCallSite *IRCS) {
+  for (auto IRCS0 : IRCS->getChildren())
+    if (IRCS0->getIsInlined()) {
+      addCompactInlinedCallBase(IRCS0->getIRCallee());
+      compactChildren(IRCS0);
+    }
+}
+
+void InlineReportFunction::compact() {
+  for (auto IRCS : getCallSites())
+    if (IRCS->getIsInlined()) {
+      addCompactInlinedCallBase(IRCS->getIRCallee());
+      compactChildren(IRCS);
+    }
+  setIsCompact(true);
+}
+
+void InlineReportFunction::inheritCompactCallBases(
+    InlineReportFunction *IRFCallee) {
+  for (auto &InlinedPair : IRFCallee->TotalInlines) {
+    addForCompactInlinedCallBase(InlinedPair.first, InlinedPair.second);
+    if (getIsCompact())
+      addCompactInlinedCallBase(InlinedPair.first, InlinedPair.second);
+  }
 }
 
 void InlineReport::testAndPrint(void *Inliner) {
@@ -881,7 +1005,7 @@ bool InlineReport::makeCurrent(Function *F) {
     if (IRCS0->getIRCaller() == IRF)
       RemovableCallBases.push_back(CB);
   }
-  for (CallBase *CB : RemovableCallBases) {
+  for (auto CB : RemovableCallBases) {
     Changed = true;
     removeCallBaseReference(*CB);
   }
@@ -935,6 +1059,8 @@ InlineReportFunction *InlineReport::initFunction(Function *F) {
   assert(IRF);
   IRF->setCurrent(false);
   (void)makeCurrent(F);
+  if (Level & Compact)
+    IRF->setIsCompact(true);
   return IRF;
 }
 

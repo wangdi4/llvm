@@ -33,40 +33,7 @@
 using namespace llvm;
 using namespace MDInliningReport;
 
-/// \brief Inlining report level option
-///
-/// Specified with -inline-report=N
-///   N is a bit mask with the following interpretation of the bits
-///   0x0000: No inlining report
-///   0x0001: Simple inlining report
-///   0x0002: Add inlining reasons
-///   0x0004: Put the inlining reasons on the same line as the call sites
-///   0x0008: Print the line and column info for each call site if available
-///   0x0010: Print the file for each call site
-///   0x0020: Print linkage info for each function and call site
-///   0x0040: Print the early exit cost vs. threshold info, where applicable
-///   0x0080: Create metadata-based inline report
-///   0x0100: Create composite inline report for an -flto compilation.
-///   0x0200: Create the inlining report info for the special intrinsic call sites
-///   0x0400: Print the source language: 'C' for C/C++ and 'F' for Fortran
-///   0x0800: Print the inlining option values
-///   0x1000: Print both early exit and real inlining costs
-///   0x2000: Print dead static functions
-///   0x4000: Print external function callsites
-///   0x8000: Print indirect function callsites
-///
-///  The driver will be set to emit the following settings when -qopt-report=X
-///  is used:
-///    -qopt-report=1  0x0019
-///    -qopt-report=2  0x2819 (default)
-///    -qopt-report=3  0xf859
-///
-cl::opt<unsigned>
-IntelInlineReportLevel("inline-report", cl::Hidden, cl::init(0),
-  cl::Optional, cl::desc("Print inline report"));
-
 #define DEBUG_TYPE "inlinereportsetup"
-
 
 // Walking metadata nodes is not convenient. To make the procedure of inserting
 // new nodes easier I use auxiliary structure: InlineReportTree. It replicates
