@@ -2388,8 +2388,12 @@ static llvm::Value *emitListToGlobalReduceFunction(
     Address GlobAddr = GlobLVal.getAddress(CGF);
     llvm::Value *BufferPtr = Bld.CreateInBoundsGEP(
         GlobAddr.getElementType(), GlobAddr.getPointer(), Idxs);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    CGF.EmitStoreOfScalar(BufferPtr, Elem, /*Volatile=*/false, C.VoidPtrTy);
+#else
     llvm::Value *Ptr = CGF.EmitCastToVoidPtr(BufferPtr);
     CGF.EmitStoreOfScalar(Ptr, Elem, /*Volatile=*/false, C.VoidPtrTy);
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     if ((*IPriv)->getType()->isVariablyModifiedType()) {
       // Store array size.
       ++Idx;
@@ -2405,8 +2409,12 @@ static llvm::Value *emitListToGlobalReduceFunction(
   }
 
   // Call reduce_function(GlobalReduceList, ReduceList)
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  llvm::Value *GlobalReduceList = ReductionList.getPointer();
+#else
   llvm::Value *GlobalReduceList =
       CGF.EmitCastToVoidPtr(ReductionList.getPointer());
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   Address AddrReduceListArg = CGF.GetAddrOfLocalVar(&ReduceListArg);
   llvm::Value *ReducedPtr = CGF.EmitLoadOfScalar(
       AddrReduceListArg, /*Volatile=*/false, C.VoidPtrTy, Loc);
@@ -2598,8 +2606,12 @@ static llvm::Value *emitGlobalToListReduceFunction(
     Address GlobAddr = GlobLVal.getAddress(CGF);
     llvm::Value *BufferPtr = Bld.CreateInBoundsGEP(
         GlobAddr.getElementType(), GlobAddr.getPointer(), Idxs);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    CGF.EmitStoreOfScalar(BufferPtr, Elem, /*Volatile=*/false, C.VoidPtrTy);
+#else
     llvm::Value *Ptr = CGF.EmitCastToVoidPtr(BufferPtr);
     CGF.EmitStoreOfScalar(Ptr, Elem, /*Volatile=*/false, C.VoidPtrTy);
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
     if ((*IPriv)->getType()->isVariablyModifiedType()) {
       // Store array size.
       ++Idx;
@@ -2615,8 +2627,12 @@ static llvm::Value *emitGlobalToListReduceFunction(
   }
 
   // Call reduce_function(ReduceList, GlobalReduceList)
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  llvm::Value *GlobalReduceList = ReductionList.getPointer();
+#else
   llvm::Value *GlobalReduceList =
       CGF.EmitCastToVoidPtr(ReductionList.getPointer());
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
   Address AddrReduceListArg = CGF.GetAddrOfLocalVar(&ReduceListArg);
   llvm::Value *ReducedPtr = CGF.EmitLoadOfScalar(
       AddrReduceListArg, /*Volatile=*/false, C.VoidPtrTy, Loc);
