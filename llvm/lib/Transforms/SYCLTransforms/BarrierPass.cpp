@@ -384,7 +384,7 @@ void KernelBarrier::fixAllocaAndDbg(Function &F) {
       } else if (AI && AI->getParent() == BB) {
         // The inserted instructions will get debug loc of current alloca.
         InsertBefore = AI;
-      } else {
+      } else if (BRI) {
         // Get top level region.
         Region *R = nullptr;
         for (auto *UI : Pair.second) {
