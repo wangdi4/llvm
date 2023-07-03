@@ -5654,23 +5654,10 @@ static LoadsState canVectorizeLoads(
           auto *GEP = dyn_cast<GetElementPtrInst>(P);
           return (IsSorted && !GEP && doesNotNeedToBeScheduled(P)) ||
                  (GEP && GEP->getNumOperands() == 2);
-<<<<<<< HEAD
         });
     if (!CompatibilitySLPMode)
       CandidateForGatherLoad =
           CandidateForGatherLoad && VL.size() >= MinGatherLoadSize;
-=======
-        })) {
-      Align CommonAlignment = cast<LoadInst>(VL0)->getAlign();
-      for (Value *V : VL)
-        CommonAlignment =
-            std::min(CommonAlignment, cast<LoadInst>(V)->getAlign());
-      auto *VecTy = FixedVectorType::get(ScalarTy, VL.size());
-      if (TTI.isLegalMaskedGather(VecTy, CommonAlignment) &&
-          !TTI.forceScalarizeMaskedGather(VecTy, CommonAlignment))
-        return LoadsState::ScatterVectorize;
-    }
->>>>>>> a374fb2b5e72bb43009461a09332ea1b76200287
   }
 
   if (canVectorizeSplitLoads(ScalarTy, VL.size(), DL, SE, PointerOps, Order,
@@ -5685,7 +5672,7 @@ static LoadsState canVectorizeLoads(
     for (Value *V : VL)
       CommonAlignment =
             std::min(CommonAlignment, cast<LoadInst>(V)->getAlign());
-    FixedVectorType *VecTy = makeScalarTyToVectorTy(ScalarTy, VL.size());
+    auto *VecTy = FixedVectorType::get(ScalarTy, VL.size());
     if (TTI.isLegalMaskedGather(VecTy, CommonAlignment) &&
         !TTI.forceScalarizeMaskedGather(VecTy, CommonAlignment))
       return LoadsState::ScatterVectorize;
@@ -11421,14 +11408,9 @@ public:
       return nullptr;
     // Postpone gather emission, will be emitted after the end of the
     // process to keep correct order.
-<<<<<<< HEAD
-    FixedVectorType *VecTy = makeScalarTyToVectorTy(
-        E->Scalars.front()->getType(), E->getVectorFactor());
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-=======
     auto *VecTy = FixedVectorType::get(E->Scalars.front()->getType(),
                                        E->getVectorFactor());
->>>>>>> a374fb2b5e72bb43009461a09332ea1b76200287
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     return Builder.CreateAlignedLoad(
         VecTy, PoisonValue::get(PointerType::getUnqual(VecTy->getContext())),
         MaybeAlign());
@@ -12100,8 +12082,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
     ScalarTy = Store->getValueOperand()->getType();
   else if (auto *IE = dyn_cast<InsertElementInst>(VL0))
     ScalarTy = IE->getOperand(1)->getType();
-<<<<<<< HEAD
-  FixedVectorType *VecTy = makeScalarTyToVectorTy(ScalarTy, E->Scalars.size());
+  auto *VecTy = FixedVectorType::get(ScalarTy, E->Scalars.size());
 #if INTEL_CUSTOMIZATION
   // MultiNode reordering made reassociations that might have introduced
   // wraparounds that weren't originally present. Also, only supprted
@@ -12123,9 +12104,6 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
       MultiNode::getInverseOpcode(VL0->getOpcode()).has_value() &&
       HasVL0InTrunk(CurrMultiNode);
 #endif // INTEL_CUSTOMIZATION
-=======
-  auto *VecTy = FixedVectorType::get(ScalarTy, E->Scalars.size());
->>>>>>> a374fb2b5e72bb43009461a09332ea1b76200287
   switch (ShuffleOrOp) {
     case Instruction::PHI: {
       assert((E->ReorderIndices.empty() ||
