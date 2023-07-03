@@ -5463,6 +5463,8 @@ PreservedAnalyses OpenMPOptPass::run(Module &M, ModuleAnalysisManager &AM) {
     });
   };
 
+  bool Changed = false;
+
   // Create internal copies of each function if this is a kernel Module. This
   // allows iterprocedural passes to see every call edge.
   DenseMap<Function *, Function *> InternalizedMap;
@@ -5483,6 +5485,7 @@ PreservedAnalyses OpenMPOptPass::run(Module &M, ModuleAnalysisManager &AM) {
         }
       }
 
+<<<<<<< HEAD
     Attributor::internalizeFunctions(InternalizeFns, InternalizedMap);
 #if INTEL_CUSTOMIZATION
     // Attributor::internalizeFunctions call clones InternalizeFns functions
@@ -5505,6 +5508,10 @@ PreservedAnalyses OpenMPOptPass::run(Module &M, ModuleAnalysisManager &AM) {
       }
     }
 #endif // INTEL_CUSTOMIZATION
+=======
+    Changed |=
+        Attributor::internalizeFunctions(InternalizeFns, InternalizedMap);
+>>>>>>> e962fa771246262043d057b1f16f262cd7b74c59
   }
 
   // Look at every function in the Module unless it was internalized.
@@ -5517,7 +5524,7 @@ PreservedAnalyses OpenMPOptPass::run(Module &M, ModuleAnalysisManager &AM) {
     }
 
   if (SCC.empty())
-    return PreservedAnalyses::all();
+    return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 
   AnalysisGetter AG(FAM);
 
@@ -5572,7 +5579,7 @@ PreservedAnalyses OpenMPOptPass::run(Module &M, ModuleAnalysisManager &AM) {
   Attributor A(Functions, InfoCache, AC);
 
   OpenMPOpt OMPOpt(SCC, CGUpdater, OREGetter, InfoCache, A);
-  bool Changed = OMPOpt.run(true);
+  Changed |= OMPOpt.run(true);
 
   // Optionally inline device functions for potentially better performance.
   if (AlwaysInlineDeviceFunctions && isOpenMPDevice(M))
