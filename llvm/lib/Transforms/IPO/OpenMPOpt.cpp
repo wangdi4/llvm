@@ -5485,8 +5485,8 @@ PreservedAnalyses OpenMPOptPass::run(Module &M, ModuleAnalysisManager &AM) {
         }
       }
 
-<<<<<<< HEAD
-    Attributor::internalizeFunctions(InternalizeFns, InternalizedMap);
+    Changed |=
+        Attributor::internalizeFunctions(InternalizeFns, InternalizedMap);
 #if INTEL_CUSTOMIZATION
     // Attributor::internalizeFunctions call clones InternalizeFns functions
     // adding ".internalized" suffix to their names. If one of the functions
@@ -5508,10 +5508,6 @@ PreservedAnalyses OpenMPOptPass::run(Module &M, ModuleAnalysisManager &AM) {
       }
     }
 #endif // INTEL_CUSTOMIZATION
-=======
-    Changed |=
-        Attributor::internalizeFunctions(InternalizeFns, InternalizedMap);
->>>>>>> e962fa771246262043d057b1f16f262cd7b74c59
   }
 
   // Look at every function in the Module unless it was internalized.
