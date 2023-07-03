@@ -816,6 +816,9 @@ public:
     return getDirective(DIR_OMP_SIMD);
   }
 
+  // Return SIMD Exit intrinsic
+  const HLInst *getSIMDExitIntrinsic() const;
+
   /// Checks whether SIMD directive is attached to the loop or its parents.
   bool isInSIMDRegion() const {
     const HLLoop *OuterLp = this;
