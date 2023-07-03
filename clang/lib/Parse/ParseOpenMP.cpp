@@ -4004,7 +4004,6 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
   case OMPC_inclusive:
   case OMPC_exclusive:
   case OMPC_affinity:
-<<<<<<< HEAD
 #if INTEL_COLLAB
     if (CKind == OMPC_interop && !FirstClause) {
       Diag(Tok, diag::err_omp_more_one_clause)
@@ -4012,9 +4011,7 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
       ErrorFound = true;
     }
 #endif // INTEL_COLLAB
-=======
   case OMPC_doacross:
->>>>>>> 085845a2acbefd26d5c229338225dfd76e2c2df3
     Clause = ParseOpenMPVarListClause(DKind, CKind, WrongDirective);
     break;
   case OMPC_sizes:

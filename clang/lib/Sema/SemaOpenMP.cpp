@@ -12230,8 +12230,7 @@ StmtResult Sema::ActOnOpenMPOrderedDirective(ArrayRef<OMPClause *> Clauses,
   // within a worksharing-loop, simd, or worksharing-loop SIMD region, a thread
   // must not execute more than one ordered region corresponding to an ordered
   // construct without a depend clause.
-<<<<<<< HEAD
-  if (!DependFound) {
+  if (!DependFound && !DoacrossFound) {
 #if INTEL_COLLAB
     // More than one ordered regions can be enclosed in an SIMD region.
     // Therefore, the following error message should not be printed when we have
@@ -12246,9 +12245,6 @@ StmtResult Sema::ActOnOpenMPOrderedDirective(ArrayRef<OMPClause *> Clauses,
     // }
     if (!getLangOpts().OpenMPLateOutline || !SC)
 #endif // INTEL_COLLAB
-=======
-  if (!DependFound && !DoacrossFound) {
->>>>>>> 085845a2acbefd26d5c229338225dfd76e2c2df3
     if (DSAStack->doesParentHasOrderedDirective()) {
       Diag(StartLoc, diag::err_omp_several_directives_in_region) << "ordered";
       Diag(DSAStack->getParentOrderedDirectiveLoc(),
