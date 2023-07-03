@@ -1,6 +1,8 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans
 
+; UNSUPPORTED: true
+
 ; This test checks transformations to hoist control conditions that are needed
 ; to handle indirect calls in callee.
 

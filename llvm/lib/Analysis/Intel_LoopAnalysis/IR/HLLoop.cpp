@@ -1323,6 +1323,28 @@ const HLInst *HLLoop::getDirective(int DirectiveID) const {
   return nullptr;
 }
 
+const HLInst *HLLoop::getSIMDExitIntrinsic() const {
+  // PostExit
+  const HLNode *Node = getFirstPostexitNode();
+  while (Node) {
+    if (const HLInst *Inst = dyn_cast<HLInst>(Node))
+      if (Inst->isSIMDEndDirective())
+        return Inst;
+    Node = Node->getNextNode();
+  }
+
+  // PostLoop
+  Node = getNextNode();
+  while (Node) {
+    if (const HLInst *Inst = dyn_cast<HLInst>(Node))
+      if (Inst->isSIMDEndDirective())
+        return Inst;
+    Node = Node->getNextNode();
+  }
+
+  return nullptr;
+}
+
 bool HLLoop::hasVectorizeIVDepPragma() const {
   return hasVectorizeIVDepLoopPragma() || hasVectorizeIVDepBackPragma() ||
          (AssumeIVDEPInnermostLoop && isInnermost());

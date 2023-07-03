@@ -209,35 +209,13 @@ bool SIMDIntrinsicChecker::hasMatchingReductionRefs(const RegDDRef *Ref) {
   return false;
 }
 
-const HLInst *SIMDIntrinsicChecker::findSIMDExit(const HLLoop *Loop) {
-  // PostExit
-  const HLNode *Node = Loop->getFirstPostexitNode();
-  while (Node) {
-    if (const HLInst *Inst = dyn_cast<HLInst>(Node))
-      if (Inst->isSIMDEndDirective())
-        return Inst;
-    Node = Node->getNextNode();
-  }
-
-  // PostLoop
-  Node = Loop->getNextNode();
-  while (Node) {
-    if (const HLInst *Inst = dyn_cast<HLInst>(Node))
-      if (Inst->isSIMDEndDirective())
-        return Inst;
-    Node = Node->getNextNode();
-  }
-
-  return nullptr;
-}
-
 bool SIMDIntrinsicChecker::parseSIMDEntry() {
 
   // Parse OperandBundles of SIMDEntry
   if (!parseOperands())
     return false;
 
-  DirSIMDExit = findSIMDExit(Loop);
+  DirSIMDExit = Loop->getSIMDExitIntrinsic();
   if (!DirSIMDExit)
     return false;
 
