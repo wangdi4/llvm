@@ -1012,6 +1012,9 @@ void OMPClauseProfiler::VisitOMPXDynCGroupMemClause(
   if (Expr *Size = C->getSize())
     Profiler->VisitStmt(Size);
 }
+void OMPClauseProfiler::VisitOMPDoacrossClause(const OMPDoacrossClause *C) {
+  VisitOMPClauseList(C);
+}
 } // namespace
 
 void
