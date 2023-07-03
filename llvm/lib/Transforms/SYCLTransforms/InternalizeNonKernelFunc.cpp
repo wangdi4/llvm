@@ -22,7 +22,7 @@ bool InternalizeNonKernelFuncPass::runImpl(Module &M) {
   auto Kernels = KernelList(&M).getList();
 
   for (auto &Func : M) {
-    if (Func.hasOptNone() || Func.isDeclaration())
+    if (Func.isDeclaration())
       continue;
 
     if (Func.hasFnAttribute("referenced-indirectly"))
