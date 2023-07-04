@@ -1109,9 +1109,8 @@ static void redirectValuesFromPredecessorsToPhi(BasicBlock *BB,
   replaceUndefValuesInPhi(PN, IncomingValues);
 }
 
-bool llvm::TryToSimplifyUncondBranchFromEmptyBlock(
-    BasicBlock *BB, DomTreeUpdater *DTU,
-    const SmallPtrSetImpl<const Instruction *> *RemoveInsts) {
+bool llvm::TryToSimplifyUncondBranchFromEmptyBlock(BasicBlock *BB,
+                                                   DomTreeUpdater *DTU) {
   assert(BB != &BB->getParent()->getEntryBlock() &&
          "TryToSimplifyUncondBranchFromEmptyBlock called on entry block!");
 
@@ -1223,15 +1222,6 @@ bool llvm::TryToSimplifyUncondBranchFromEmptyBlock(
             return false;
 
   LLVM_DEBUG(dbgs() << "Killing Trivial BB: \n" << *BB);
-
-  if (RemoveInsts) {
-    for (Instruction &I : make_early_inc_range(*BB)) {
-      if (RemoveInsts->contains(&I)) {
-        I.replaceAllUsesWith(PoisonValue::get(I.getType()));
-        I.eraseFromParent();
-      }
-    }
-  }
 
   SmallVector<DominatorTree::UpdateType, 32> Updates;
   if (DTU) {

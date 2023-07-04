@@ -54,9 +54,7 @@ static cl::opt<bool> GlobalLoadsUnsafe("global-loads-unsafe",
 static bool isAligned(const Value *Base, const APInt &Offset, Align Alignment,
                       const DataLayout &DL) {
   Align BA = Base->getPointerAlignment(DL);
-  const APInt APAlign(Offset.getBitWidth(), Alignment.value());
-  assert(APAlign.isPowerOf2() && "must be a power of 2!");
-  return BA >= Alignment && !(Offset & (APAlign - 1));
+  return BA >= Alignment && Offset.isAligned(BA);
 }
 
 /// Test if V is always a pointer to allocated and suitably aligned memory for
