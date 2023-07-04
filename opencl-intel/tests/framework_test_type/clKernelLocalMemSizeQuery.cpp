@@ -67,8 +67,10 @@ void clKernelLocalMemSizeQueryTest() {
   prg = clCreateProgramWithSource(ctx, 1, &krnl_str, NULL, &status);
   ASSERT_EQ(CL_SUCCESS, status) << "clCreateProgramWithSource failed";
 
-  /* Build program. */
-  status = clBuildProgram(prg, 1, (const cl_device_id *)&dev, NULL, NULL, NULL);
+  // Build program. Disable optimization so that localVarTmp won't be optimized
+  // out.
+  status = clBuildProgram(prg, 1, (const cl_device_id *)&dev, "-cl-opt-disable",
+                          NULL, NULL);
   ASSERT_EQ(CL_SUCCESS, status) << "clBuildProgram failed";
 
   /* Create kernel. */
@@ -121,8 +123,14 @@ void clKernelLocalMemSizeQueryTest() {
   ASSERT_EQ(param_value_size_ret, sizeof(cl_ulong))
       << "Wrong buffer data size returned";
   ASSERT_EQ(304, kernelLocalMemSize) << "Wrong kernelLocalMemSize returned";
+
   /* Release stuff. */
-  clReleaseKernel(krnl);
-  clReleaseProgram(prg);
-  clReleaseContext(ctx);
+  status = clReleaseMemObject(buffer_a);
+  ASSERT_OCL_SUCCESS(status, "clReleaseMemObject");
+  status = clReleaseKernel(krnl);
+  ASSERT_OCL_SUCCESS(status, "clReleaseKernel");
+  status = clReleaseProgram(prg);
+  ASSERT_OCL_SUCCESS(status, "clReleaseProgram");
+  status = clReleaseContext(ctx);
+  ASSERT_OCL_SUCCESS(status, "clReleaseContext");
 }
