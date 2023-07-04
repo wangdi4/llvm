@@ -2230,7 +2230,6 @@ void CodeGenFunction::EmitAggregateCopy(LValue Dest, LValue Src, QualType Ty,
   // either the source or the destination is volatile.
 
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-<<<<<<< HEAD
   auto DestPtrI8 = DestPtr.withElementType(Int8Ty);
   auto SrcPtrI8 = SrcPtr.withElementType(Int8Ty);
 #else
@@ -2243,14 +2242,6 @@ void CodeGenFunction::EmitAggregateCopy(LValue Dest, LValue Src, QualType Ty,
 #endif // INTEL_CUSTOMIZATION
   SrcPtr = SrcPtrI8;
   DestPtr = DestPtrI8;
-=======
-  DestPtr = DestPtr.withElementType(Int8Ty);
-  SrcPtr = SrcPtr.withElementType(Int8Ty);
-#else
-  DestPtr = Builder.CreateElementBitCast(DestPtr, Int8Ty);
-  SrcPtr = Builder.CreateElementBitCast(SrcPtr, Int8Ty);
-#endif //INTEL_SYCL_OPAQUEPOINTER_READY
->>>>>>> 97b80ba3a9b4b9a401aa02f5f885069f434f5712
 
   // Don't do any of the memmove_collectable tests if GC isn't set.
   if (CGM.getLangOpts().getGC() == LangOptions::NonGC) {

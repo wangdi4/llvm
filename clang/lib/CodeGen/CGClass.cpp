@@ -2783,7 +2783,6 @@ void CodeGenFunction::InitializeVTablePointers(const CXXRecordDecl *RD) {
 llvm::Value *CodeGenFunction::GetVTablePtr(Address This,
                                            llvm::Type *VTableTy,
                                            const CXXRecordDecl *RD) {
-<<<<<<< HEAD
 #if INTEL_COLLAB
   unsigned AS = CGM.getContext().getTargetAddressSpace(LangAS::Default);
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
@@ -2794,17 +2793,11 @@ llvm::Value *CodeGenFunction::GetVTablePtr(Address This,
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
 #endif  // INTEL_COLLAB
-=======
->>>>>>> 97b80ba3a9b4b9a401aa02f5f885069f434f5712
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Address VTablePtrSrc = This.withElementType(VTableTy);
 #else
   Address VTablePtrSrc = Builder.CreateElementBitCast(This, VTableTy);
 #endif
-<<<<<<< HEAD
-
-=======
->>>>>>> 97b80ba3a9b4b9a401aa02f5f885069f434f5712
   llvm::Instruction *VTable = Builder.CreateLoad(VTablePtrSrc, "vtable");
   TBAAAccessInfo TBAAInfo = CGM.getTBAAVTablePtrAccessInfo(VTableTy);
   CGM.DecorateInstructionWithTBAA(VTable, TBAAInfo);
