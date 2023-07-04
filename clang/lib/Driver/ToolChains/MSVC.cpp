@@ -476,56 +476,6 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back(
           Args.MakeArgString(std::string("/vfsoverlay:") + A->getValue()));
 
-  // Add filenames, libraries, and other linker inputs.
-  for (const auto &Input : Inputs) {
-    if (Input.isFilename()) {
-      if (Input.getType() == types::TY_Tempfilelist) {
-        // Take the list file and pass it in with '@'.
-        std::string FileName(Input.getFilename());
-        const char *ArgFile = Args.MakeArgString("@" + FileName);
-        CmdArgs.push_back(ArgFile);
-        continue;
-      }
-      CmdArgs.push_back(Input.getFilename());
-      continue;
-    }
-
-    const Arg &A = Input.getInputArg();
-
-    // Render -l options differently for the MSVC linker.
-    if (A.getOption().matches(options::OPT_l)) {
-      StringRef Lib = A.getValue();
-      const char *LinkLibArg;
-      if (Lib.endswith(".lib"))
-        LinkLibArg = Args.MakeArgString(Lib);
-      else
-        LinkLibArg = Args.MakeArgString(Lib + ".lib");
-      CmdArgs.push_back(LinkLibArg);
-      continue;
-    }
-
-    // Otherwise, this is some other kind of linker input option like -Wl, -z,
-    // or -L. Render it, even if MSVC doesn't understand it.
-    A.renderAsInput(Args, CmdArgs);
-  }
-
-  addHIPRuntimeLibArgs(TC, Args, CmdArgs);
-
-  TC.addProfileRTLibs(Args, CmdArgs);
-
-  std::vector<const char *> Environment;
-
-  // We need to special case some linker paths. In the case of the regular msvc
-  // linker, we need to use a special search algorithm.
-  llvm::SmallString<128> linkPath;
-<<<<<<< HEAD
-  StringRef Linker
-    = Args.getLastArgValue(options::OPT_fuse_ld_EQ, CLANG_DEFAULT_LINKER);
-  if (Linker.empty())
-    Linker = "link";
-  if (Linker.equals_insensitive("lld"))
-    Linker = "lld-link";
-
 #if INTEL_CUSTOMIZATION
   // TODO: Create a more streamlined and centralized way to add the additional
   // llvm options that are set.  i.e. set once and use for both Linux and
@@ -580,13 +530,49 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   }
 #endif // INTEL_CUSTOMIZATION
 
-  if (Linker == "lld-link")
-    for (Arg *A : Args.filtered(options::OPT_vfsoverlay))
-      CmdArgs.push_back(
-          Args.MakeArgString(std::string("/vfsoverlay:") + A->getValue()));
+  // Add filenames, libraries, and other linker inputs.
+  for (const auto &Input : Inputs) {
+    if (Input.isFilename()) {
+      if (Input.getType() == types::TY_Tempfilelist) {
+        // Take the list file and pass it in with '@'.
+        std::string FileName(Input.getFilename());
+        const char *ArgFile = Args.MakeArgString("@" + FileName);
+        CmdArgs.push_back(ArgFile);
+        continue;
+      }
+      CmdArgs.push_back(Input.getFilename());
+      continue;
+    }
 
-=======
->>>>>>> 289828b1c0a6bc6eed8a634376a5152adae2283b
+    const Arg &A = Input.getInputArg();
+
+    // Render -l options differently for the MSVC linker.
+    if (A.getOption().matches(options::OPT_l)) {
+      StringRef Lib = A.getValue();
+      const char *LinkLibArg;
+      if (Lib.endswith(".lib"))
+        LinkLibArg = Args.MakeArgString(Lib);
+      else
+        LinkLibArg = Args.MakeArgString(Lib + ".lib");
+      CmdArgs.push_back(LinkLibArg);
+      continue;
+    }
+
+    // Otherwise, this is some other kind of linker input option like -Wl, -z,
+    // or -L. Render it, even if MSVC doesn't understand it.
+    A.renderAsInput(Args, CmdArgs);
+  }
+
+  addHIPRuntimeLibArgs(TC, Args, CmdArgs);
+
+  TC.addProfileRTLibs(Args, CmdArgs);
+
+  std::vector<const char *> Environment;
+
+  // We need to special case some linker paths. In the case of the regular msvc
+  // linker, we need to use a special search algorithm.
+  llvm::SmallString<128> linkPath;
+
   if (Linker.equals_insensitive("link")) {
     // If we're using the MSVC linker, it's not sufficient to just use link
     // from the program PATH, because other environments like GnuWin32 install
