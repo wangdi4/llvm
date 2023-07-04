@@ -156,8 +156,8 @@ public:
       // destination but can have a different type. Just do a bitcast in this
       // case to avoid incorrect GEPs.
       if (Result->getType() != StoreDest.getType())
-        StoreDest =
-            CGF.Builder.CreateElementBitCast(StoreDest, Result->getType());
+        StoreDest = StoreDest.withElementType(Result->getType());
+
       CGF.EmitAggregateStore(Result, StoreDest,
                              E->getType().isVolatileQualified());
       return;
@@ -773,8 +773,7 @@ void AggExprEmitter::VisitCastExpr(CastExpr *E) {
 
     // GCC union extension
     QualType Ty = E->getSubExpr()->getType();
-    Address CastPtr =
-      Builder.CreateElementBitCast(Dest.getAddress(), CGF.ConvertType(Ty));
+    Address CastPtr = Dest.getAddress().withElementType(CGF.ConvertType(Ty));
     EmitInitializationToLValue(E->getSubExpr(),
                                CGF.MakeAddrLValue(CastPtr, Ty));
     break;
@@ -789,9 +788,8 @@ void AggExprEmitter::VisitCastExpr(CastExpr *E) {
 
     LValue SourceLV = CGF.EmitLValue(E->getSubExpr());
     Address SourceAddress =
-        Builder.CreateElementBitCast(SourceLV.getAddress(CGF), CGF.Int8Ty);
-    Address DestAddress =
-        Builder.CreateElementBitCast(Dest.getAddress(), CGF.Int8Ty);
+        SourceLV.getAddress(CGF).withElementType(CGF.Int8Ty);
+    Address DestAddress = Dest.getAddress().withElementType(CGF.Int8Ty);
     llvm::Value *SizeVal = llvm::ConstantInt::get(
         CGF.SizeTy,
         CGF.getContext().getTypeSizeInChars(E->getType()).getQuantity());
@@ -2046,8 +2044,7 @@ static void CheckAggExprForMemSetUse(AggValueSlot &Slot, const Expr *E,
   // Okay, it seems like a good idea to use an initial memset, emit the call.
   llvm::Constant *SizeVal = CGF.Builder.getInt64(Size.getQuantity());
 
-  Address Loc = Slot.getAddress();
-  Loc = CGF.Builder.CreateElementBitCast(Loc, CGF.Int8Ty);
+  Address Loc = Slot.getAddress().withElementType(CGF.Int8Ty);
   CGF.Builder.CreateMemSet(Loc, CGF.Builder.getInt8(0), SizeVal, false);
 
   // Tell the AggExprEmitter that the slot is known zero.
@@ -2211,6 +2208,7 @@ void CodeGenFunction::EmitAggregateCopy(LValue Dest, LValue Src, QualType Ty,
   // we need to use a different call here.  We use isVolatile to indicate when
   // either the source or the destination is volatile.
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   auto DestPtrI8 = Builder.CreateElementBitCast(DestPtr, Int8Ty);
   auto SrcPtrI8 = Builder.CreateElementBitCast(SrcPtr, Int8Ty);
@@ -2219,6 +2217,10 @@ void CodeGenFunction::EmitAggregateCopy(LValue Dest, LValue Src, QualType Ty,
   SrcPtr = SrcPtrI8;
   DestPtr = DestPtrI8;
 #endif // INTEL_CUSTOMIZATION
+=======
+  DestPtr = DestPtr.withElementType(Int8Ty);
+  SrcPtr = SrcPtr.withElementType(Int8Ty);
+>>>>>>> 5184a0b9c27847c0b63c30061c0686795149598d
 
   // Don't do any of the memmove_collectable tests if GC isn't set.
   if (CGM.getLangOpts().getGC() == LangOptions::NonGC) {
