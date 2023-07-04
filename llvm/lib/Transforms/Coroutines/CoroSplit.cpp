@@ -1369,6 +1369,8 @@ static bool simplifyTerminatorLeadingToRet(Instruction *InitialInst) {
       I = GetFirstValidInstruction(BB->getFirstNonPHIOrDbgOrLifetime());
       continue;
     }
+
+    return false;
   }
 
   return false;
