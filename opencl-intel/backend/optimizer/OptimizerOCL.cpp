@@ -163,6 +163,7 @@ void OptimizerOCL::materializerPM(ModulePassManager &MPM) const {
 
   MPM.addPass(NameAnonGlobalPass());
   MPM.addPass(SYCLEqualizerPass());
+  MPM.addPass(ExternalizeGlobalVariablesPass());
   Triple TargetTriple(m_M.getTargetTriple());
   if (TargetTriple.isArch64Bit()) {
     if (TargetTriple.isOSLinux())
@@ -275,7 +276,8 @@ void OptimizerOCL::createStandardLLVMPasses(ModulePassManager &MPM) const {
       const unsigned threshold = thresholdBase * RTLoopUnrollFactor;
       // RTLoopUnrollFactor is to customize Count. However, LoopUnrollOptions
       // doesn't allow the customization.
-      UnrollOpts.setPartial(false).setRuntime(true).setThreshold(threshold); // INTEL
+      UnrollOpts.setPartial(false).setRuntime(true).setThreshold(
+          threshold); // INTEL
       FPM3.addPass(LoopUnrollPass(UnrollOpts));
     }
   }
@@ -534,7 +536,7 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
 
     MPM.addPass(HandleVPlanMask(&Optimizer::getVPlanMaskedFuncs()));
   } else {
-#else // INTEL_CUSTOMIZATION
+#else  // INTEL_CUSTOMIZATION
   {
 #endif // INTEL_CUSTOMIZATION
     // When forced VF equals 1 or in O0 case, check subgroup semantics AND
@@ -647,15 +649,6 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
 #ifdef _DEBUG
   MPM.addPass(VerifierPass());
 #endif
-
-  // Externalize globals if IR is generated from OpenMP offloading. Now we
-  // cannot get address of globals with internal/private linkage from LLJIT
-  // (by design), but it's necessary by OpenMP to pass address of declare
-  // target variables to the underlying OpenCL Runtime via
-  // clSetKernelExecInfo. So we have to externalize globals for IR generated
-  // from OpenMP.
-  if (m_IsOMP)
-    MPM.addPass(ExternalizeGlobalVariablesPass());
 
   if (!m_RtlModules.empty()) {
     // Inline BI function

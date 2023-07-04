@@ -172,6 +172,7 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
 #endif // #ifndef NDEBUG
 
         MPM.addPass(SYCLEqualizerPass());
+        MPM.addPass(ExternalizeGlobalVariablesPass());
 
         Triple TargetTriple(m_M.getTargetTriple());
         if (TargetTriple.isArch64Bit()) {
@@ -402,7 +403,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
 
       MPM.addPass(HandleVPlanMask(&getVPlanMaskedFuncs()));
     } else {
-#else // INTEL_CUSTOMIZATION
+#else  // INTEL_CUSTOMIZATION
     {
 #endif // INTEL_CUSTOMIZATION
       // When forced VF equals 1 or in O0 case, check subgroup semantics AND
@@ -454,7 +455,8 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
         const unsigned threshold = thresholdBase * RTLoopUnrollFactor;
         // RTLoopUnrollFactor is to customize Count. However, LoopUnrollOptions
         // doesn't allow the customization.
-        UnrollOpts.setPartial(false).setRuntime(true).setThreshold(threshold); // INTEL
+        UnrollOpts.setPartial(false).setRuntime(true).setThreshold(
+            threshold); // INTEL
         MPM.addPass(
             createModuleToFunctionPassAdaptor(LoopUnrollPass(UnrollOpts)));
       }
@@ -521,15 +523,6 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
 #ifdef _DEBUG
     MPM.addPass(VerifierPass());
 #endif
-
-    // Externalize globals if IR is generated from OpenMP offloading. Now we
-    // cannot get address of globals with internal/private linkage from LLJIT
-    // (by design), but it's necessary by OpenMP to pass address of declare
-    // target variables to the underlying OpenCL Runtime via
-    // clSetKernelExecInfo. So we have to externalize globals for IR generated
-    // from OpenMP.
-    if (m_IsOMP)
-      MPM.addPass(ExternalizeGlobalVariablesPass());
 
     MPM.addPass(BuiltinImportPass(CPUPrefix));
     if (Level != OptimizationLevel::O0) {
@@ -638,8 +631,8 @@ void OptimizerLTO::addBarrierPasses(ModulePassManager &MPM,
     MPM.addPass(SGBuiltinPass(getVectInfos()));
     MPM.addPass(SGBarrierPropagatePass());
     MPM.addPass(SGBarrierSimplifyPass());
-    // Insert ImplicitGIDPass in the middle of subgroup emulation to track GIDs in
-    // emulation loops
+    // Insert ImplicitGIDPass in the middle of subgroup emulation to track GIDs
+    // in emulation loops
     if (m_debugType == intel::Native)
       MPM.addPass(ImplicitGIDPass(/*HandleBarrier*/ true));
 
