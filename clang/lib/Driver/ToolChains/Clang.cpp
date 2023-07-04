@@ -4295,17 +4295,13 @@ static void RenderCharacterOptions(const ArgList &Args, const llvm::Triple &T,
       else
         CmdArgs.push_back("-fsigned-wchar");
     }
-<<<<<<< HEAD
-  }
+  } else if (T.isOSzOS())
+    CmdArgs.push_back("-fno-signed-wchar");
 #if INTEL_CUSTOMIZATION
   if (Args.hasFlag(options::OPT__SLASH_Zc_wchar_t_,
                    options::OPT__SLASH_Zc_wchar_t, false))
     CmdArgs.push_back("-fno-wchar");
 #endif // INTEL_CUSTOMIZATION
-=======
-  } else if (T.isOSzOS())
-    CmdArgs.push_back("-fno-signed-wchar");
->>>>>>> d32fb5e5f51dedba495301073b9250f84ac6d8a8
 }
 
 static void RenderObjCOptions(const ToolChain &TC, const Driver &D,
