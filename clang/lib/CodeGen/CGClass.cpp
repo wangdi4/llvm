@@ -2636,8 +2636,12 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
       llvm::FunctionType::get(CGM.Int32Ty, /*isVarArg=*/true)
           ->getPointerTo(ProgAS)
           ->getPointerTo(GlobalsAS);
-<<<<<<< HEAD
 #endif // INTEL_COLLAB
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  // vtable field is derived from `this` pointer, therefore they should be in
+  // the same addr space. Note that this might not be LLVM address space 0.
+  VTableField = VTableField.withElementType(VTablePtrTy);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   // vtable field is derived from `this` pointer, therefore it should be in
   // default address space.
   VTableField = Builder.CreateElementBitCast(VTableField, VTablePtrTy);
@@ -2647,11 +2651,7 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
 #else  // INTEL_COLLAB
   VTableAddressPoint = Builder.CreateBitCast(VTableAddressPoint, VTablePtrTy);
 #endif // INTEL_COLLAB
-=======
-  // vtable field is derived from `this` pointer, therefore they should be in
-  // the same addr space. Note that this might not be LLVM address space 0.
-  VTableField = VTableField.withElementType(VTablePtrTy);
->>>>>>> 5184a0b9c27847c0b63c30061c0686795149598d
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   llvm::StoreInst *Store = Builder.CreateStore(VTableAddressPoint, VTableField);
   TBAAAccessInfo TBAAInfo = CGM.getTBAAVTablePtrAccessInfo(VTablePtrTy);
@@ -2747,7 +2747,6 @@ void CodeGenFunction::InitializeVTablePointers(const CXXRecordDecl *RD) {
 llvm::Value *CodeGenFunction::GetVTablePtr(Address This,
                                            llvm::Type *VTableTy,
                                            const CXXRecordDecl *RD) {
-<<<<<<< HEAD
 #if INTEL_COLLAB
   unsigned AS = CGM.getContext().getTargetAddressSpace(LangAS::Default);
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
@@ -2758,10 +2757,12 @@ llvm::Value *CodeGenFunction::GetVTablePtr(Address This,
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
 #endif  // INTEL_COLLAB
-  Address VTablePtrSrc = Builder.CreateElementBitCast(This, VTableTy);
-=======
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Address VTablePtrSrc = This.withElementType(VTableTy);
->>>>>>> 5184a0b9c27847c0b63c30061c0686795149598d
+#else
+  Address VTablePtrSrc = Builder.CreateElementBitCast(This, VTableTy);
+#endif
+
   llvm::Instruction *VTable = Builder.CreateLoad(VTablePtrSrc, "vtable");
   TBAAAccessInfo TBAAInfo = CGM.getTBAAVTablePtrAccessInfo(VTableTy);
   CGM.DecorateInstructionWithTBAA(VTable, TBAAInfo);
