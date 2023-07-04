@@ -232,15 +232,12 @@ void MetaRename(Module &M,
 
     // Leave @main alone. The output of -metarenamer might be passed to
     // lli for execution and the latter needs a main entry point.
-<<<<<<< HEAD
+    StringRef Name = F.getName();
 #if INTEL_CUSTOMIZATION
     if (F.hasMetadata("llvm.acd.clone"))
       Name = Name.take_front(Name.find('.'));
 #endif // INTEL_CUSTOMIZATION
     if (Name != "main")
-=======
-    if (F.getName() != "main")
->>>>>>> 6f9e743b91ad6ac1f333ce6e3efae44e137b54bb
       F.setName(renamer.newName());
 
     MetaRename(F);
