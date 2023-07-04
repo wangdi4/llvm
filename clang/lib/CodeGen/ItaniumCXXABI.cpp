@@ -860,12 +860,9 @@ llvm::Value *ItaniumCXXABI::EmitMemberDataPointerAddress(
 
   CGBuilderTy &Builder = CGF.Builder;
 
-  // Cast to char*.
-  Base = Builder.CreateElementBitCast(Base, CGF.Int8Ty);
-
   // Apply the offset, which we assume is non-null.
   llvm::Value *Addr = Builder.CreateInBoundsGEP(
-      Base.getElementType(), Base.getPointer(), MemPtr, "memptr.offset");
+      CGF.Int8Ty, Base.getPointer(), MemPtr, "memptr.offset");
 
   // Cast the address to the appropriate pointer type, adopting the
   // address space of the base pointer.
@@ -2267,7 +2264,11 @@ static llvm::Value *performTypeAdjustment(CodeGenFunction &CGF,
   if (!NonVirtualAdjustment && !VirtualAdjustment)
     return InitialPtr.getPointer();
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  Address V = InitialPtr.withElementType(CGF.Int8Ty);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   Address V = CGF.Builder.CreateElementBitCast(InitialPtr, CGF.Int8Ty);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   // In a base-to-derived cast, the non-virtual adjustment is applied first.
   if (NonVirtualAdjustment && !IsReturnAdjustment) {
@@ -2278,12 +2279,20 @@ static llvm::Value *performTypeAdjustment(CodeGenFunction &CGF,
   // Perform the virtual adjustment if we have one.
   llvm::Value *ResultPtr;
   if (VirtualAdjustment) {
+<<<<<<< HEAD
 #if INTEL_COLLAB
     Address VTablePtrPtr =
         CGF.Builder.CreateElementBitCast(V, CGF.DefaultInt8PtrTy);
 #else // INTEL_COLLAB
     Address VTablePtrPtr = CGF.Builder.CreateElementBitCast(V, CGF.Int8PtrTy);
 #endif  // INTEL_COLLAB
+=======
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    Address VTablePtrPtr = V.withElementType(CGF.Int8PtrTy);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+    Address VTablePtrPtr = CGF.Builder.CreateElementBitCast(V, CGF.Int8PtrTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+>>>>>>> caf400fa1024040729f7f13de0b15f968a9a8c69
     llvm::Value *VTablePtr = CGF.Builder.CreateLoad(VTablePtrPtr);
 
     llvm::Value *Offset;
@@ -2385,8 +2394,12 @@ Address ItaniumCXXABI::InitializeArrayCookie(CodeGenFunction &CGF,
     CookiePtr = CGF.Builder.CreateConstInBoundsByteGEP(CookiePtr, CookieOffset);
 
   // Write the number of elements into the appropriate slot.
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  Address NumElementsPtr = CookiePtr.withElementType(CGF.SizeTy);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   Address NumElementsPtr =
       CGF.Builder.CreateElementBitCast(CookiePtr, CGF.SizeTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::Instruction *SI = CGF.Builder.CreateStore(NumElements, NumElementsPtr);
 
   // Handle the array cookie specially in ASan.
@@ -2418,7 +2431,11 @@ llvm::Value *ItaniumCXXABI::readArrayCookieImpl(CodeGenFunction &CGF,
       CGF.Builder.CreateConstInBoundsByteGEP(numElementsPtr, numElementsOffset);
 
   unsigned AS = allocPtr.getAddressSpace();
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  numElementsPtr = numElementsPtr.withElementType(CGF.SizeTy);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   numElementsPtr = CGF.Builder.CreateElementBitCast(numElementsPtr, CGF.SizeTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   if (!CGM.getLangOpts().Sanitize.has(SanitizerKind::Address) || AS != 0)
     return CGF.Builder.CreateLoad(numElementsPtr);
   // In asan mode emit a function call instead of a regular load and let the
@@ -2457,7 +2474,11 @@ Address ARMCXXABI::InitializeArrayCookie(CodeGenFunction &CGF,
   Address cookie = newPtr;
 
   // The first element is the element size.
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  cookie = cookie.withElementType(CGF.SizeTy);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   cookie = CGF.Builder.CreateElementBitCast(cookie, CGF.SizeTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::Value *elementSize = llvm::ConstantInt::get(CGF.SizeTy,
                  getContext().getTypeSizeInChars(elementType).getQuantity());
   CGF.Builder.CreateStore(elementSize, cookie);
@@ -2480,7 +2501,11 @@ llvm::Value *ARMCXXABI::readArrayCookieImpl(CodeGenFunction &CGF,
   Address numElementsPtr
     = CGF.Builder.CreateConstInBoundsByteGEP(allocPtr, CGF.getSizeSize());
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  numElementsPtr = numElementsPtr.withElementType(CGF.SizeTy);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   numElementsPtr = CGF.Builder.CreateElementBitCast(numElementsPtr, CGF.SizeTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   return CGF.Builder.CreateLoad(numElementsPtr);
 }
 
@@ -2767,8 +2792,13 @@ void ItaniumCXXABI::EmitGuardedInit(CodeGenFunction &CGF,
   llvm::BasicBlock *EndBlock = CGF.createBasicBlock("init.end");
   if (!threadsafe || MaxInlineWidthInBits) {
     // Load the first byte of the guard variable.
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    llvm::LoadInst *LI =
+        Builder.CreateLoad(guardAddr.withElementType(CGM.Int8Ty));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     llvm::LoadInst *LI =
         Builder.CreateLoad(Builder.CreateElementBitCast(guardAddr, CGM.Int8Ty));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
     // Itanium ABI:
     //   An implementation supporting thread-safety on multiprocessor
@@ -2861,8 +2891,13 @@ void ItaniumCXXABI::EmitGuardedInit(CodeGenFunction &CGF,
     // For non-local variables, store 1 into the first byte of the guard
     // variable before the object initialization begins so that references
     // to the variable during initialization don't restart initialization.
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    Builder.CreateStore(llvm::ConstantInt::get(CGM.Int8Ty, 1),
+                        guardAddr.withElementType(CGM.Int8Ty));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     Builder.CreateStore(llvm::ConstantInt::get(CGM.Int8Ty, 1),
                         Builder.CreateElementBitCast(guardAddr, CGM.Int8Ty));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   }
 
   // Emit the initializer and add a global destructor if appropriate.
@@ -2887,8 +2922,13 @@ void ItaniumCXXABI::EmitGuardedInit(CodeGenFunction &CGF,
     // For local variables, store 1 into the first byte of the guard variable
     // after the object initialization completes so that initialization is
     // retried if initialization is interrupted by an exception.
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    Builder.CreateStore(llvm::ConstantInt::get(CGM.Int8Ty, 1),
+                        guardAddr.withElementType(CGM.Int8Ty));
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     Builder.CreateStore(llvm::ConstantInt::get(CGM.Int8Ty, 1),
                         Builder.CreateElementBitCast(guardAddr, CGM.Int8Ty));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   }
 
   CGF.EmitBlock(EndBlock);
