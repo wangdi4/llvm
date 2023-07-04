@@ -184,10 +184,6 @@ public:
     auto *PtrTy = Ty->getPointerTo(Addr.getAddressSpace());
     return Address(CreateBitCast(Addr.getPointer(), PtrTy, Name), Ty,
                    Addr.getAlignment(), Addr.isKnownNonNull());
-<<<<<<< HEAD
-#endif // INTEL_SYCL_OPAQUEPOINTER_READY
-=======
->>>>>>> caf400fa1024040729f7f13de0b15f968a9a8c69
   }
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
 

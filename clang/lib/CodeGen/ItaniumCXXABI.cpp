@@ -2279,20 +2279,22 @@ static llvm::Value *performTypeAdjustment(CodeGenFunction &CGF,
   // Perform the virtual adjustment if we have one.
   llvm::Value *ResultPtr;
   if (VirtualAdjustment) {
-<<<<<<< HEAD
+
 #if INTEL_COLLAB
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    Address VTablePtrPtr = V.withElementType(CGF.DefaultInt8PtrTy);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     Address VTablePtrPtr =
         CGF.Builder.CreateElementBitCast(V, CGF.DefaultInt8PtrTy);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 #else // INTEL_COLLAB
-    Address VTablePtrPtr = CGF.Builder.CreateElementBitCast(V, CGF.Int8PtrTy);
-#endif  // INTEL_COLLAB
-=======
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Address VTablePtrPtr = V.withElementType(CGF.Int8PtrTy);
 #else // INTEL_SYCL_OPAQUEPOINTER_READY
     Address VTablePtrPtr = CGF.Builder.CreateElementBitCast(V, CGF.Int8PtrTy);
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
->>>>>>> caf400fa1024040729f7f13de0b15f968a9a8c69
+#endif  // INTEL_COLLAB
+
     llvm::Value *VTablePtr = CGF.Builder.CreateLoad(VTablePtrPtr);
 
     llvm::Value *Offset;
