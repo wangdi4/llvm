@@ -659,7 +659,6 @@ public:
   virtual ~CGOpenMPRuntime() {}
   virtual void clear();
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   struct LOMapInfo {
     llvm::Value *Base;
@@ -691,7 +690,7 @@ public:
   }
   bool getShouldMarkAsGlobal() const { return ShouldMarkAsGlobal; }
 #endif // INTEL_COLLAB
-=======
+
   /// Emits object of ident_t type with info for source location.
   /// \param Flags Flags for OpenMP location.
   /// \param EmitLoc emit source location with debug-info is off.
@@ -736,7 +735,6 @@ public:
       llvm::function_ref<llvm::Value *(CodeGenFunction &CGF,
                                        const OMPLoopDirective &D)>
           SizeEmitter);
->>>>>>> ac65cc1215132b4725ed64b726671867a028e275
 
   /// Returns true if the current target is a GPU.
   virtual bool isTargetCodegen() const { return false; }
