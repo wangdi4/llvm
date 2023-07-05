@@ -1883,7 +1883,8 @@ void VPlanDivergenceAnalysis::recomputeShapes(
     // Compute the shapes of the seed-instructions and push
     // their users to the Worklist.
     for (auto *Inst : Seeds) {
-      assertOperandsDefined(*Inst, this);
+      if (!isa<VPPHINode>(Inst))
+        assertOperandsDefined(*Inst, this);
       auto Shape = computeVectorShape(Inst);
       updateVectorShape(Inst, Shape);
       pushUsers(*Inst);
