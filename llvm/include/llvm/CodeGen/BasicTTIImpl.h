@@ -2446,19 +2446,6 @@ public:
     Type *ScalarTy = Ty->getElementType();
     unsigned NumVecElts = cast<FixedVectorType>(Ty)->getNumElements();
     unsigned NumReduxLevels = Log2_32(NumVecElts);
-<<<<<<< HEAD
-    unsigned CmpOpcode;
-    if (Ty->isFPOrFPVectorTy()) {
-      CmpOpcode = Instruction::FCmp;
-    } else {
-#if INTEL_CUSTOMIZATION
-      assert((Ty->isIntOrIntVectorTy() || Ty->isPtrOrPtrVectorTy()) &&
-             "expecting floating point or integer type for min/max reduction");
-#endif // INTEL_CUSTOMIZATION
-      CmpOpcode = Instruction::ICmp;
-    }
-=======
->>>>>>> 12025cef3ec84f9528613c6248df92341ab2c765
     InstructionCost MinMaxCost = 0;
     InstructionCost ShuffleCost = 0;
     std::pair<InstructionCost, MVT> LT = thisT()->getTypeLegalizationCost(Ty);

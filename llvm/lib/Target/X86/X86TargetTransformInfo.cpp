@@ -5642,24 +5642,8 @@ X86TTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *ValTy,
 
 InstructionCost X86TTIImpl::getMinMaxCost(Intrinsic::ID IID, Type *Ty,
                                           TTI::TargetCostKind CostKind,
-<<<<<<< HEAD
-                                          bool IsUnsigned, FastMathFlags FMF) {
-  Intrinsic::ID Id;
-#if INTEL_CUSTOMIZATION
-  if (Ty->isIntOrIntVectorTy() || Ty->isPtrOrPtrVectorTy()) {
-#endif // INTEL_CUSTOMIZATION
-    Id = IsUnsigned ? Intrinsic::umin : Intrinsic::smin;
-  } else {
-    assert(Ty->isFPOrFPVectorTy() &&
-           "Expected float point or integer vector type.");
-    Id = Intrinsic::minnum;
-  }
-
-  IntrinsicCostAttributes ICA(Id, Ty, {Ty, Ty}, FMF);
-=======
                                           FastMathFlags FMF) {
   IntrinsicCostAttributes ICA(IID, Ty, {Ty, Ty}, FMF);
->>>>>>> 12025cef3ec84f9528613c6248df92341ab2c765
   return getIntrinsicInstrCost(ICA, CostKind);
 }
 
@@ -5672,16 +5656,13 @@ X86TTIImpl::getMinMaxReductionCost(Intrinsic::ID IID, VectorType *ValTy,
   MVT MTy = LT.second;
 
   int ISD;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (ValTy->isIntOrIntVectorTy() || ValTy->isPtrOrPtrVectorTy()) {
-#endif // INTEL_CUSTOMIZATION
-    ISD = IsUnsigned ? ISD::UMIN : ISD::SMIN;
-=======
+#else // INTEL_CUSTOMIZATION
   if (ValTy->isIntOrIntVectorTy()) {
+#endif // INTEL_CUSTOMIZATION
     ISD = (IID == Intrinsic::umin || IID == Intrinsic::umax) ? ISD::UMIN
                                                              : ISD::SMIN;
->>>>>>> 12025cef3ec84f9528613c6248df92341ab2c765
   } else {
     assert(ValTy->isFPOrFPVectorTy() &&
            "Expected float point or integer vector type.");
