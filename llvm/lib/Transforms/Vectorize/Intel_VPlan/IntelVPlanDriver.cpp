@@ -996,7 +996,8 @@ bool VPlanDriverImpl::runStandardMode<llvm::Loop>(Function &Fn) {
         return;
       }
 
-      if (NestedSimdStrategy == NestedSimdStrategies::Innermost &&
+      if ((NestedSimdStrategy == NestedSimdStrategies::Innermost ||
+           NestedSimdStrategy == NestedSimdStrategies::FromInside) &&
           WRLp->hasChildren())
         for (auto *WRN :
              make_range(WRLp->wrn_child_begin(), WRLp->wrn_child_end()))
@@ -1034,6 +1035,29 @@ bool VPlanDriverImpl::runStandardMode<llvm::Loop>(Function &Fn) {
     Loop *Lp = LI->getLoopFor(It.first);
     LLVM_DEBUG(dbgs() << "VD: Starting VPlan for \n");
     LLVM_DEBUG(It.second->dump());
+
+    // Inner loop vectorization might cause LCSSA form breakage. For example:
+    //
+    //   vector.body:
+    //     %vec.phi3 = phi <4 x i32> ..., [ %0, %vector.body ]
+    //     ...
+    //     %wide.load = load <4 x i32>, ptr %scalar.gep, align 4
+    //     %0 = add <4 x i32> %vec.phi3, %wide.load
+    //     ...
+    //     br i1 %3, label %VPlannedBB4, label %vector.body
+    //
+    //   VPlannedBB4:
+    //     %4 = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> %0)
+    //
+    // formLCSSA call changes instruction form in the latter block; after that
+    // we can do vectorization of the outer loop.
+    //
+    //   VPlannedBB4:
+    //     %.lcssa = phi <4 x i32> [ %0, %vector.body ]
+    //     %4 = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> %.lcssa)
+    //
+    if (NestedSimdStrategy == NestedSimdStrategies::FromInside)
+      ModifiedFunc |= formLCSSA(*Lp, *DT, LI, SE);
 
     ModifiedFunc |= processLoop(Lp, Fn, It.second);
   }

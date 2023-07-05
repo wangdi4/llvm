@@ -64,12 +64,14 @@ static cl::opt<bool, true> EnableF90DVSupportOpt(
 static cl::opt<NestedSimdStrategies, true> NestedSimdStrategyOpt(
     "vplan-nested-simd-strategy", cl::location(NestedSimdStrategy), cl::Hidden,
     cl::desc("How to vectorize nested SIMD loops"),
-    cl::values(clEnumValN(NestedSimdStrategies::BailOut, "bailout",
-                          "Don't vectorize"),
-               clEnumValN(NestedSimdStrategies::Outermost, "outermost",
-                          "Vectorize outermost loop only"),
-               clEnumValN(NestedSimdStrategies::Innermost, "innermost",
-                          "Vectorize innermost loop only")));
+    cl::values(
+        clEnumValN(NestedSimdStrategies::BailOut, "bailout", "Don't vectorize"),
+        clEnumValN(NestedSimdStrategies::Outermost, "outermost",
+                   "Vectorize outermost loop only"),
+        clEnumValN(NestedSimdStrategies::Innermost, "innermost",
+                   "Vectorize innermost loop only"),
+        clEnumValN(NestedSimdStrategies::FromInside, "frominside",
+                   "Vectorize all loops starting from the innermost one")));
 
 namespace llvm {
 namespace vpo {
