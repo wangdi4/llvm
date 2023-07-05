@@ -141,6 +141,7 @@ enum class NestedSimdStrategies : int {
   BailOut,
   Outermost,
   Innermost,
+  FromInside
 };
 extern NestedSimdStrategies NestedSimdStrategy;
 
