@@ -17185,13 +17185,9 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_target:
     case OMPD_target_teams:
     case OMPD_target_teams_distribute:
-<<<<<<< HEAD
-    case OMPD_target_teams_loop:
 #if INTEL_COLLAB
     case OMPD_prefetch:
 #endif // INTEL_COLLAB
-=======
->>>>>>> eb61bde829bcd33346bc70c87fcfe321627bbc31
     case OMPD_distribute_parallel_for:
     case OMPD_task:
     case OMPD_taskloop:
