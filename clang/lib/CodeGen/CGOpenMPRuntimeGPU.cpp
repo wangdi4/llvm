@@ -661,6 +661,8 @@ static bool supportsSPMDExecutionMode(ASTContext &Ctx,
   case OMPD_target:
   case OMPD_target_teams:
     return hasNestedSPMDDirective(Ctx, D);
+  case OMPD_target_teams_loop:
+  case OMPD_target_parallel_loop:
   case OMPD_target_parallel:
   case OMPD_target_parallel_for:
   case OMPD_target_parallel_for_simd:
@@ -721,9 +723,9 @@ static bool supportsSPMDExecutionMode(ASTContext &Ctx,
   case OMPD_target_variant_dispatch:
   case OMPD_loop:
   case OMPD_teams_loop:
-  case OMPD_target_teams_loop:
+  // case OMPD_target_teams_loop:
   case OMPD_parallel_loop:
-  case OMPD_target_parallel_loop:
+  // case OMPD_target_parallel_loop:
 #endif // INTEL_COLLAB
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
