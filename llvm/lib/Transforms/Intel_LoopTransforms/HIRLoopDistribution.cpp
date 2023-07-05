@@ -64,7 +64,7 @@ cl::opt<bool> AlwaysStripmine(
 const std::string DistributeLoopnestEnable =
     "intel.loop.distribute.loopnest.enable";
 
-const OptRemarkID OptReportMsg[Last] = {
+const OptRemarkID OptReportMsg[PragmaReturnCode::Last] = {
     //"Distribute point pragma not processed",
     OptRemarkID::DistributePointPragmaNotProcessed,
     //"No Distribution as requested by pragma",
