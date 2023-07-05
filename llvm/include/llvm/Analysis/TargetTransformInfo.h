@@ -1480,8 +1480,7 @@ public:
       TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput) const;
 
   InstructionCost getMinMaxReductionCost(
-      VectorType *Ty, VectorType *CondTy, bool IsUnsigned,
-      FastMathFlags FMF = FastMathFlags(),
+      Intrinsic::ID IID, VectorType *Ty, FastMathFlags FMF = FastMathFlags(),
       TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput) const;
 
   /// Calculate the cost of an extended reduction pattern, similar to
@@ -2156,8 +2155,8 @@ public:
                              std::optional<FastMathFlags> FMF,
                              TTI::TargetCostKind CostKind) = 0;
   virtual InstructionCost
-  getMinMaxReductionCost(VectorType *Ty, VectorType *CondTy, bool IsUnsigned,
-                         FastMathFlags FMF, TTI::TargetCostKind CostKind) = 0;
+  getMinMaxReductionCost(Intrinsic::ID IID, VectorType *Ty, FastMathFlags FMF,
+                         TTI::TargetCostKind CostKind) = 0;
   virtual InstructionCost getExtendedReductionCost(
       unsigned Opcode, bool IsUnsigned, Type *ResTy, VectorType *Ty,
       FastMathFlags FMF,
@@ -2855,10 +2854,9 @@ public:
     return Impl.getArithmeticReductionCost(Opcode, Ty, FMF, CostKind);
   }
   InstructionCost
-  getMinMaxReductionCost(VectorType *Ty, VectorType *CondTy, bool IsUnsigned,
-                         FastMathFlags FMF,
+  getMinMaxReductionCost(Intrinsic::ID IID, VectorType *Ty, FastMathFlags FMF,
                          TTI::TargetCostKind CostKind) override {
-    return Impl.getMinMaxReductionCost(Ty, CondTy, IsUnsigned, FMF, CostKind);
+    return Impl.getMinMaxReductionCost(IID, Ty, FMF, CostKind);
   }
   InstructionCost
   getExtendedReductionCost(unsigned Opcode, bool IsUnsigned, Type *ResTy,
