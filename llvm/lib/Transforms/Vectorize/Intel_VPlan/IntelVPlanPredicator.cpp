@@ -740,7 +740,7 @@ class PhiToBlendUpdater {
   /// Store information about created merge PHIs in blocks identified by the
   /// IDF.
   SmallVector<
-      DenseMap<VPBasicBlock * /* MergeBB */, VPPHINode * /* MergePhi */>, 4>
+      MapVector<VPBasicBlock * /* MergeBB */, VPPHINode * /* MergePhi */>, 4>
       MergePhiMaps;
 
 public:
