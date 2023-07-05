@@ -252,6 +252,7 @@ protected:
 #endif  // INTEL_CUSTOMIZATION
   // GOFF specific sections.
   MCSection *PPA1Section = nullptr;
+  MCSection *ADASection = nullptr;
 
   // XCOFF specific sections
   MCSection *TOCBaseSection = nullptr;
@@ -458,6 +459,7 @@ public:
 
   // GOFF specific sections.
   MCSection *getPPA1Section() const { return PPA1Section; }
+  MCSection *getADASection() const { return ADASection; }
 
   // XCOFF specific sections
   MCSection *getTOCBaseSection() const { return TOCBaseSection; }
