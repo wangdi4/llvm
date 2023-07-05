@@ -393,6 +393,12 @@ bool RTLsTy::attemptLoadRTL(const std::string &RTLName, RTLInfoTy &RTL) {
     return false;
   }
 
+<<<<<<< HEAD
+=======
+#ifdef OMPTARGET_DEBUG
+  RTL.RTLName = Name;
+#endif
+>>>>>>> 18a6ccea3ae35a0de4bea7e9a603e9b83d48b084
 
   DP("Registering RTL %s supporting %d devices!\n", Name, RTL.NumberOfDevices);
 
