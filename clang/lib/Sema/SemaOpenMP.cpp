@@ -4455,7 +4455,6 @@ void Sema::ActOnOpenMPRegionStart(OpenMPDirectiveKind DKind, Scope *CurScope) {
   case OMPD_target_parallel:
   case OMPD_target_parallel_for:
   case OMPD_target_parallel_for_simd:
-  case OMPD_target_teams_loop:
   case OMPD_target_parallel_loop:
   case OMPD_target_teams_distribute:
   case OMPD_target_teams_distribute_simd: {
@@ -4708,6 +4707,7 @@ void Sema::ActOnOpenMPRegionStart(OpenMPDirectiveKind DKind, Scope *CurScope) {
                              Params);
     break;
   }
+  case OMPD_target_teams_loop:
   case OMPD_target_teams_distribute_parallel_for:
   case OMPD_target_teams_distribute_parallel_for_simd: {
     QualType KmpInt32Ty = Context.getIntTypeForBitwidth(32, 1).withConst();
@@ -4766,22 +4766,7 @@ void Sema::ActOnOpenMPRegionStart(OpenMPDirectiveKind DKind, Scope *CurScope) {
     break;
   }
 
-  case OMPD_teams_loop: {
-    QualType KmpInt32Ty = Context.getIntTypeForBitwidth(32, 1).withConst();
-    QualType KmpInt32PtrTy =
-        Context.getPointerType(KmpInt32Ty).withConst().withRestrict();
-
-    Sema::CapturedParamNameType ParamsTeams[] = {
-        std::make_pair(".global_tid.", KmpInt32PtrTy),
-        std::make_pair(".bound_tid.", KmpInt32PtrTy),
-        std::make_pair(StringRef(), QualType()) // __context with shared vars
-    };
-    // Start a captured region for 'teams'.
-    ActOnCapturedRegionStart(DSAStack->getConstructLoc(), CurScope, CR_OpenMP,
-                             ParamsTeams, /*OpenMPCaptureLevel=*/0);
-    break;
-  }
-
+  case OMPD_teams_loop:
   case OMPD_teams_distribute_parallel_for:
   case OMPD_teams_distribute_parallel_for_simd: {
     QualType KmpInt32Ty = Context.getIntTypeForBitwidth(32, 1).withConst();
@@ -17107,6 +17092,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
         break;
       }
       [[fallthrough]];
+    case OMPD_target_teams_loop:
     case OMPD_target_teams_distribute_parallel_for:
       // If this clause applies to the nested 'parallel' region, capture within
       // the 'teams' region, otherwise do not capture.
@@ -17199,10 +17185,13 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_target:
     case OMPD_target_teams:
     case OMPD_target_teams_distribute:
+<<<<<<< HEAD
     case OMPD_target_teams_loop:
 #if INTEL_COLLAB
     case OMPD_prefetch:
 #endif // INTEL_COLLAB
+=======
+>>>>>>> eb61bde829bcd33346bc70c87fcfe321627bbc31
     case OMPD_distribute_parallel_for:
     case OMPD_task:
     case OMPD_taskloop:
