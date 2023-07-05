@@ -98,7 +98,7 @@ private:
   /// Vector of uniform early exit descriptions.
   SmallVector<UniformDesc, 4> UniDescs;
   /// The dim's entry holds the get***id of dimension dim.
-  SmallVector<SmallVector<CallInst *, 4>, 4> TIDByDim;
+  InstVecVec TIDByDim;
   /// Holds instruction marked for removal.
   SmallPtrSet<Instruction *, 8> ToRemove;
   /// Users of atomic/pipe functions.
@@ -107,6 +107,10 @@ private:
   bool RightBoundInc = false;
   /// True if the pattern is (a - id) < b.
   bool ReverseLowerUpperBound = false;
+
+  /// Map from a kernel function to get_global_id/get_local_id calls within it.
+  DenseMap<Function *, InstVecVec> FuncToGIDCalls;
+  DenseMap<Function *, InstVecVec> FuncToLIDCalls;
 
   /// Statistics
   SYCLStatistic::ActiveStatsT KernelStats;
@@ -160,10 +164,8 @@ private:
   /// \param I instruction to check.
   bool isUniformByOps(Instruction *I);
 
-  /// Updates internal data structures with the get***id call.
-  /// \param CI get***id call to process.
-  /// \param IsGID true iff call is get_global_id.
-  void processTIDCall(CallInst *CI, bool IsGID);
+  /// Find all get_global_id and get_local_id calls in kernels.
+  void collectTIDCalls(SmallVectorImpl<Function *> &Kernels);
 
   /// Updates data structures with get***id data.
   void collectTIDData();
@@ -337,15 +339,21 @@ bool WGLoopBoundariesImpl::run() {
   collectWIUniqueFuncUsers();
 
   // Get the kernels using the barrier for work group loops.
+  SmallVector<Function *, 16> KernelWorkList;
   for (auto *Kernel : Kernels) {
     auto KIMD = SYCLKernelMetadataAPI::KernelInternalMetadataAPI(Kernel);
     // No need to check if NoBarrierPath value exists, it is guaranteed that
     // KernelAnalysisPass run before WGLoopBoundariesPass.
     if (KIMD.NoBarrierPath.get()) {
       // Kernel that should not be handled in Barrier pass.
-      Changed |= runOnFunction(*Kernel);
+      KernelWorkList.push_back(Kernel);
     }
   }
+
+  collectTIDCalls(KernelWorkList);
+
+  for (auto *Kernel : KernelWorkList)
+    Changed |= runOnFunction(*Kernel);
 
   return Changed;
 }
@@ -408,38 +416,31 @@ void WGLoopBoundariesImpl::collectBlockData(BasicBlock *BB) {
   }
 }
 
-void WGLoopBoundariesImpl::processTIDCall(CallInst *CI, bool IsGID) {
-  assert(CI->getType() == IndTy && "mismatch get***id type");
-  auto *DimC = dyn_cast<ConstantInt>(CI->getArgOperand(0));
-  assert(DimC && "unexpected variable TID");
-
-  unsigned Dim = static_cast<unsigned>(DimC->getValue().getZExtValue());
-  assert(Dim < MAX_WORK_DIM && "get***id with dim > (MAX_WORK_DIM-1)");
-  // All dimension above NumDim are uniform so we don't need to add them.
-  if (Dim < NumDim) {
-    TIDs[CI] = {Dim, IsGID};
-    TIDByDim[Dim].push_back(CI);
-  }
-}
-
 void WGLoopBoundariesImpl::collectTIDData() {
   // First clear the tids data structures.
   TIDs.clear();
   TIDByDim.clear();
   TIDByDim.resize(NumDim); // allocate vector for each dimension
 
-  auto ProcessTIDCalls = [this](bool IsGID) {
-    std::string TIDName = IsGID ? mangledGetGID() : mangledGetLID();
-    SmallVector<CallInst *, 4> TIDCalls;
-    LoopUtils::getAllCallInFunc(TIDName, F, TIDCalls);
-    for (auto *CI : TIDCalls) {
-      processTIDCall(CI, IsGID);
+  auto ProcessTIDCalls = [this](auto &TIDCalls, bool IsGID) {
+    for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim) {
+      for (auto *I : TIDCalls[Dim]) {
+        TIDs[I] = {Dim, IsGID};
+        TIDByDim[Dim].push_back(I);
+      }
     }
   };
   // Go over all get_global_id
-  ProcessTIDCalls(true);
+  ProcessTIDCalls(FuncToGIDCalls[F], true);
   // Go over all get_local_id
-  ProcessTIDCalls(false);
+  ProcessTIDCalls(FuncToLIDCalls[F], false);
+}
+
+void WGLoopBoundariesImpl::collectTIDCalls(
+    SmallVectorImpl<Function *> &Kernels) {
+  FuncSet Funcs{Kernels.begin(), Kernels.end()};
+  FuncToGIDCalls = std::move(getTIDCallsInFuncs(M, mangledGetGID(), Funcs));
+  FuncToLIDCalls = std::move(getTIDCallsInFuncs(M, mangledGetLID(), Funcs));
 }
 
 /// This is a relaxed version of llvm::isGuaranteedNotToBeUndefOrPoison.
@@ -780,12 +781,12 @@ bool WGLoopBoundariesImpl::findAndHandleTIDMinMaxBound() {
     // Should have exactly one tid generator for that dimension.
     if (TIDByDim[Dim].size() != 1)
       continue;
-    CallInst *CI = TIDByDim[Dim][0];
+    Instruction *I = TIDByDim[Dim][0];
 
     // Allow truncation for 64 bit systems.
-    Instruction *TidInst = CI;
-    if (CI->hasOneUse())
-      if (auto *TI = dyn_cast<TruncInst>(*(CI->user_begin())))
+    Instruction *TidInst = I;
+    if (I->hasOneUse())
+      if (auto *TI = dyn_cast<TruncInst>(*(I->user_begin())))
         TidInst = TI;
 
     // Check if it matches min/max patterns.
@@ -1230,14 +1231,8 @@ bool WGLoopBoundariesImpl::traceBackMinMaxCall(CallInst *CI, Value **Bound,
 void WGLoopBoundariesImpl::replaceTidWithBound(bool IsGID, unsigned Dim,
                                                Value *ToRep) {
   assert(ToRep->getType() == IndTy && "bad type");
-  SmallVector<CallInst *, 4> TidCalls;
-  LoopUtils::getAllCallInFunc(IsGID ? mangledGetGID() : mangledGetLID(), F,
-                              TidCalls);
-  for (auto *TidCall : TidCalls) {
-    auto *DimConst = cast<ConstantInt>(TidCall->getOperand(0));
-    unsigned DimArg = DimConst->getZExtValue();
-    if (Dim != DimArg)
-      continue;
+  auto &TidCalls = IsGID ? FuncToGIDCalls[F] : FuncToLIDCalls[F];
+  for (Instruction *TidCall : TidCalls[Dim]) {
     // If ToRep is an instruction, before replacing TidCall With ToRep, we
     // should recursively move all users of TidCall with the same basic block
     // after ToRep, so that ToRep will dominate all its users.

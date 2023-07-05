@@ -3252,5 +3252,23 @@ Type *getLLVMTypeFromReflectionType(LLVMContext &C,
   return Ty;
 }
 
+DenseMap<Function *, InstVecVec>
+getTIDCallsInFuncs(Module &M, StringRef TIDName, FuncSet &Funcs) {
+  DenseMap<Function *, InstVecVec> FuncToGIDCalls;
+  for (auto *F : Funcs)
+    FuncToGIDCalls[F] = InstVecVec{MAX_WORK_DIM, InstVec{}};
+  if (auto *F = M.getFunction(TIDName)) {
+    for (User *U : F->users()) {
+      auto *CI = cast<CallInst>(U);
+      Function *UserF = CI->getFunction();
+      if (Funcs.contains(UserF)) {
+        auto Idx = cast<ConstantInt>(CI->getArgOperand(0))->getZExtValue();
+        FuncToGIDCalls[UserF][Idx].push_back(CI);
+      }
+    }
+  }
+  return FuncToGIDCalls;
+}
+
 } // end namespace CompilationUtils
 } // end namespace llvm

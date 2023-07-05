@@ -87,20 +87,6 @@ Type *getIndTy(Module *M) {
   return IntegerType::get(M->getContext(), PointerSizeInBits);
 }
 
-void getAllCallInFunc(StringRef FuncName, Function *FuncToSearch,
-                      SmallVectorImpl<CallInst *> &Calls) {
-  Function *F = FuncToSearch->getParent()->getFunction(FuncName);
-  if (!F)
-    return;
-
-  for (auto *U : F->users()) {
-    CallInst *CI = cast<CallInst>(U);
-    Function *ParentFunc = CI->getFunction();
-    if (ParentFunc == FuncToSearch)
-      Calls.push_back(CI);
-  }
-}
-
 // transforms code as follows:
 // prehead:
 //     br head
