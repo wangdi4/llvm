@@ -449,7 +449,6 @@ static constexpr FeatureBitset FeaturesZNVER4 =
     FeatureAVX512VPOPCNTDQ | FeatureAVX512BF16 | FeatureGFNI |
     FeatureSHSTK;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_RYL
 #define ENABLE_CPU_RYL
@@ -466,7 +465,6 @@ constexpr FeatureBitset FeaturesRoyal =
 #endif // INTEL_FEATURE_CPU_RYL
 #endif // INTEL_CUSTOMIZATION
 
-=======
 // D151696 tranplanted Mangling and OnlyForCPUDispatchSpecific from
 // X86TargetParser.def to here. They are assigned by following ways:
 // 1. Copy the mangling from the original CPU_SPEICIFC MACROs. If no, assign
@@ -475,7 +473,6 @@ constexpr FeatureBitset FeaturesRoyal =
 // listed here before, which means it doesn't support -march, -mtune and so on.
 // FIXME: Remove OnlyForCPUDispatchSpecific after all CPUs here support both
 // cpu_dispatch/specific() feature and -march, -mtune, and so on.
->>>>>>> dd88d4dd302125c005f61f9716c3b847ff81c091
 constexpr ProcInfo Processors[] = {
  // Empty processor. Include X87 and CMPXCHG8 for backwards compatibility.
   { {""}, CK_None, ~0U, FeatureX87 | FeatureCMPXCHG8B, '\0', false },
@@ -519,18 +516,6 @@ constexpr ProcInfo Processors[] = {
   { {"penryn"}, CK_Penryn, ~0U, FeaturesPenryn, '\0', false },
   { {"core_2_duo_sse4_1"}, CK_Penryn, ~0U, FeaturesPenryn, 'N', true },
   // Atom processors
-<<<<<<< HEAD
-  { {"bonnell"}, CK_Bonnell, FEATURE_SSSE3, FeaturesBonnell },
-  { {"atom"}, CK_Bonnell, FEATURE_SSSE3, FeaturesBonnell },
-  { {"silvermont"}, CK_Silvermont, FEATURE_SSE4_2, FeaturesSilvermont },
-  { {"slm"}, CK_Silvermont, FEATURE_SSE4_2, FeaturesSilvermont },
-  { {"goldmont"}, CK_Goldmont, FEATURE_SSE4_2, FeaturesGoldmont },
-  { {"goldmont-plus"}, CK_GoldmontPlus, FEATURE_SSE4_2, FeaturesGoldmontPlus },
-  { {"tremont"}, CK_Tremont, FEATURE_SSE4_2, FeaturesTremont },
-#if INTEL_CUSTOMIZATION
-  { {"gracemont"}, CK_Gracemont, FEATURE_AVX2, FeaturesAlderlake },
-#endif // INTEL_CUSTOMIZATION
-=======
   { {"bonnell"}, CK_Bonnell, FEATURE_SSSE3, FeaturesBonnell, '\0', false },
   { {"atom"}, CK_Bonnell, FEATURE_SSSE3, FeaturesBonnell, 'O', false },
   { {"silvermont"}, CK_Silvermont, FEATURE_SSE4_2, FeaturesSilvermont, '\0', false },
@@ -541,7 +526,6 @@ constexpr ProcInfo Processors[] = {
   { {"goldmont-plus"}, CK_GoldmontPlus, FEATURE_SSE4_2, FeaturesGoldmontPlus, '\0', false },
   { {"goldmont_plus"}, CK_GoldmontPlus, FEATURE_SSE4_2, FeaturesGoldmontPlus, '\0', true },
   { {"tremont"}, CK_Tremont, FEATURE_SSE4_2, FeaturesTremont, '\0', false },
->>>>>>> dd88d4dd302125c005f61f9716c3b847ff81c091
   // Nehalem microarchitecture based processors.
   { {"nehalem"}, CK_Nehalem, FEATURE_SSE4_2, FeaturesNehalem, '\0', false },
   { {"core_i7_sse4_2"}, CK_Nehalem, FEATURE_SSE4_2, FeaturesNehalem, 'P', true },
@@ -563,21 +547,9 @@ constexpr ProcInfo Processors[] = {
   { {"core_4th_gen_avx"}, CK_Haswell, FEATURE_AVX2, FeaturesHaswell, 'V', true },
   { {"core_4th_gen_avx_tsx"}, CK_Haswell, FEATURE_AVX2, FeaturesHaswell, 'W', true },
   // Broadwell microarchitecture based processors.
-<<<<<<< HEAD
-  { {"broadwell"}, CK_Broadwell, FEATURE_AVX2, FeaturesBroadwell },
-#if INTEL_CUSTOMIZATION
-  // Intersection of SKX and KNL.
-  { {"common-avx512"}, CK_CommonAVX512, ~0U, FeaturesCommonAVX512 },
-#if INTEL_FEATURE_ISA_AVX256P
-  // Intersection of AVX256
-  { {"common-avx256"}, CK_CommonAVX256, ~0U, FeaturesCommonAVX256 },
-#endif // INTEL_FEATURE_ISA_AVX256P
-#endif // INTEL_CUSTOMIZATION
-=======
   { {"broadwell"}, CK_Broadwell, FEATURE_AVX2, FeaturesBroadwell, 'X', false },
   { {"core_5th_gen_avx"}, CK_Broadwell, FEATURE_AVX2, FeaturesBroadwell, 'X', true },
   { {"core_5th_gen_avx_tsx"}, CK_Broadwell, FEATURE_AVX2, FeaturesBroadwell, 'Y', true },
->>>>>>> dd88d4dd302125c005f61f9716c3b847ff81c091
   // Skylake client microarchitecture based processors.
   { {"skylake"}, CK_SkylakeClient, FEATURE_AVX2, FeaturesSkylakeClient, 'b', false },
   // Skylake server microarchitecture based processors.
@@ -601,21 +573,7 @@ constexpr ProcInfo Processors[] = {
   // Sapphire Rapids microarchitecture based processors.
   { {"sapphirerapids"}, CK_SapphireRapids, FEATURE_AVX512BF16, FeaturesSapphireRapids, '\0', false },
   // Alderlake microarchitecture based processors.
-<<<<<<< HEAD
-  { {"alderlake"}, CK_Alderlake, FEATURE_AVX2, FeaturesAlderlake },
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_DMR
-  // Diamondrapids microarchitecture based processors.
-  { {"diamondrapids"}, CK_Diamondrapids, FEATURE_AVX512VP2INTERSECT, FeaturesDiamondRapids },
-#endif // INTEL_FEATURE_CPU_DMR
-#if INTEL_FEATURE_CPU_RYL
-  // Royal microarchitecture based processors.
-  { {"royal"}, CK_Royal, FEATURE_AVX2, FeaturesRoyal },
-#endif // INTEL_FEATURE_CPU_RYL
-#endif // INTEL_CUSTOMIZATION
-=======
   { {"alderlake"}, CK_Alderlake, FEATURE_AVX2, FeaturesAlderlake, '\0', false },
->>>>>>> dd88d4dd302125c005f61f9716c3b847ff81c091
   // Raptorlake microarchitecture based processors.
   { {"raptorlake"}, CK_Raptorlake, FEATURE_AVX2, FeaturesAlderlake, '\0', false },
   // Meteorlake microarchitecture based processors.
@@ -627,28 +585,14 @@ constexpr ProcInfo Processors[] = {
   // Granite Rapids microarchitecture based processors.
   { {"graniterapids"}, CK_Graniterapids, FEATURE_AVX512BF16, FeaturesGraniteRapids, '\0', false },
   // Emerald Rapids microarchitecture based processors.
-<<<<<<< HEAD
-  { {"emeraldrapids"}, CK_Emeraldrapids, FEATURE_AVX512BF16, FeaturesSapphireRapids },
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_LNL
-  // Lunarlake microarchitecture based processors.
-  { {"lunarlake"}, CK_Lunarlake, FEATURE_AVX2, FeaturesLunarlake },
-#endif // INTEL_FEATURE_CPU_LNL
-#endif // INTEL_CUSTOMIZATION
-#if !INTEL_CUSTOMIZATION
-=======
   { {"emeraldrapids"}, CK_Emeraldrapids, FEATURE_AVX512BF16, FeaturesSapphireRapids, '\0', false },
->>>>>>> dd88d4dd302125c005f61f9716c3b847ff81c091
+#if !INTEL_CUSTOMIZATION
   // Knights Landing processor.
   { {"knl"}, CK_KNL, FEATURE_AVX512F, FeaturesKNL, 'Z', false },
   { {"mic_avx512"}, CK_KNL, FEATURE_AVX512F, FeaturesKNL, 'Z', true },
   // Knights Mill processor.
-<<<<<<< HEAD
-  { {"knm"}, CK_KNM, FEATURE_AVX5124FMAPS, FeaturesKNM },
-#endif // !INTEL_CUSTOMIZATION
-=======
   { {"knm"}, CK_KNM, FEATURE_AVX5124FMAPS, FeaturesKNM, 'j', false },
->>>>>>> dd88d4dd302125c005f61f9716c3b847ff81c091
+#endif // !INTEL_CUSTOMIZATION
   // Lakemont microarchitecture based processors.
   { {"lakemont"}, CK_Lakemont, ~0U, FeatureCMPXCHG8B, '\0', false },
   // K6 architecture processors.
@@ -689,6 +633,58 @@ constexpr ProcInfo Processors[] = {
   { {"x86-64-v2"}, CK_x86_64_v2, ~0U, FeaturesX86_64_V2, '\0', false },
   { {"x86-64-v3"}, CK_x86_64_v3, ~0U, FeaturesX86_64_V3, '\0', false },
   { {"x86-64-v4"}, CK_x86_64_v4, ~0U, FeaturesX86_64_V4, '\0', false },
+
+#if INTEL_CUSTOMIZATION
+  // Intersection of SKX and KNL.
+  { {"common-avx512"}, CK_CommonAVX512, ~0U, FeaturesCommonAVX512, 'q', false },
+#if INTEL_FEATURE_ISA_AVX256P
+  // Intersection of AVX256
+  { {"common-avx256"}, CK_CommonAVX256, ~0U, FeaturesCommonAVX256, '\0', false },
+#endif // INTEL_FEATURE_ISA_AVX256P
+#if INTEL_FEATURE_CPU_DMR
+  // Diamondrapids microarchitecture based processors.
+  { {"diamondrapids"}, CK_Diamondrapids, FEATURE_AVX512VP2INTERSECT, FeaturesDiamondRapids, '\0', false },
+#endif // INTEL_FEATURE_CPU_DMR
+  { {"gracemont"}, CK_Gracemont, FEATURE_AVX2, FeaturesAlderlake, '\0', false },
+#if INTEL_FEATURE_CPU_LNL
+  // Lunarlake microarchitecture based processors.
+  { {"lunarlake"}, CK_Lunarlake, FEATURE_AVX2, FeaturesLunarlake, '\0', false },
+#endif // INTEL_FEATURE_CPU_LNL
+
+#if INTEL_FEATURE_CPU_RYL
+  // Royal microarchitecture based processors.
+  { {"royal"}, CK_Royal, FEATURE_AVX2, FeaturesRoyal, '\0', false },
+#endif // INTEL_FEATURE_CPU_RYL
+
+  // Alias
+  { {"x86_64"}, CK_x86_64, ~0U, FeaturesX86_64, '?', true},
+  { {"nocona"}, CK_Prescott, ~0U, FeaturesPrescott, 'L', true},
+  { {"tremont"}, CK_Tremont, FEATURE_SSE4_2, FeaturesTremont, '\0', true},
+  { {"common-avx512"}, CK_CommonAVX512, ~0U, FeaturesCommonAVX512, 'q', true},
+  { {"cascadelake"}, CK_Cascadelake, FEATURE_AVX512VNNI, FeaturesCascadeLake, 'o', true},
+  { {"cooperlake"}, CK_Cascadelake, FEATURE_AVX512VNNI, FeaturesCascadeLake, 'o', true},
+  { {"icelake_client"}, CK_IcelakeClient, FEATURE_AVX512VBMI2, FeaturesICLClient, 'k', true},
+  { {"tigerlake"}, CK_Tigerlake, FEATURE_AVX512VP2INTERSECT, FeaturesTigerlake, 'l', true},
+  { {"icelake_server"}, CK_IcelakeServer, FEATURE_AVX512VBMI2, FeaturesICLServer, 'l', true},
+  { {"rocketlake"}, CK_IcelakeClient, FEATURE_AVX512VBMI2, FeaturesICLClient, 'k', true},
+  { {"alderlake"}, CK_Alderlake, FEATURE_AVX2, FeaturesAlderlake, 'p', true},
+  { {"gracemont"}, CK_Alderlake, FEATURE_AVX2, FeaturesAlderlake, 'p', true},
+  { {"raptorlake"}, CK_Alderlake, FEATURE_AVX2, FeaturesAlderlake, 'p', true},
+  { {"meteorlake"}, CK_Alderlake, FEATURE_AVX2, FeaturesAlderlake, 'p', true},
+  { {"sierraforest"}, CK_Alderlake, FEATURE_AVX2, FeaturesAlderlake, 'p', true},
+  { {"grandridge"}, CK_Alderlake, FEATURE_AVX2, FeaturesAlderlake, 'p', true},
+  { {"graniterapids"}, CK_SapphireRapids, FEATURE_AVX512BF16, FeaturesSapphireRapids, '\0', true},
+  { {"emeraldrapids"}, CK_SapphireRapids, FEATURE_AVX512BF16, FeaturesSapphireRapids, '\0', true},
+#if INTEL_FEATURE_CPU_DMR
+  // Diamondrapids microarchitecture based processors.
+  { {"diamondrapids"}, CK_Diamondrapids, FEATURE_AVX512VP2INTERSECT, FeaturesDiamondRapids, '\0', true},
+#endif // INTEL_FEATURE_CPU_DMR
+#if INTEL_FEATURE_CPU_LNL
+  // Lunarlake microarchitecture based processors.
+  { {"lunarlake"}, CK_Alderlake, FEATURE_AVX2, FeaturesAlderlake, 'p', true },
+#endif // INTEL_FEATURE_CPU_LNL
+#endif // INTEL_CUSTOMIZATION
+
   // Geode processors.
   { {"geode"}, CK_Geode, ~0U, FeaturesGeode, '\0', false },
 };
