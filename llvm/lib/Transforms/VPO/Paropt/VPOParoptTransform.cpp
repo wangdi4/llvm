@@ -6654,18 +6654,17 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
     // Filling the AtomicFreeRedGlobalBufs array to be used for
     // atomic-free reduction generation later
     if (isTargetSPIRV() && (FillGlobalBuffers || FillLocalBuffers)) {
-      int ItemIndexLocal = 0, ItemIndexGlobal = 0;
       for (ReductionItem *RedI : RedClause.items()) {
         if (!VPOParoptUtils::supportsAtomicFreeReduction(RedI))
           continue;
 
 #if INTEL_CUSTOMIZATION
-        // CMPLRLLVM-36083: Code path for atomic-free reduction of full array
-        // for teams global update is currently problematic. For this case we
-        // reparse full array as an array section. In the future We may consider
-        // doing this universally (maybe even from FE) so we don't have to
-        // maintain two separate code paths (array vs array section) that does
-        // essentially the same thing.
+          // CMPLRLLVM-36083: Code path for atomic-free reduction of full array
+          // for teams global update is currently problematic. For this case we
+          // reparse full array as an array section. In the future We may
+          // consider doing this universally (maybe even from FE) so we don't
+          // have to maintain two separate code paths (array vs array section)
+          // that does essentially the same thing.
 #endif // INTEL_CUSTOMIZATION
         auto Parse1DArrayAsArraySection = [&RedI](LLVMContext &C) {
           Type *RedElemType = nullptr;
@@ -6687,8 +6686,8 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
           }
 
           Type *Int64Ty = Type::getInt64Ty(C);
-          Value *LB     = ConstantInt::get(Int64Ty, 0);
-          Value *Size   = ConstantInt::get(Int64Ty, NumArrayElements);
+          Value *LB = ConstantInt::get(Int64Ty, 0);
+          Value *Size = ConstantInt::get(Int64Ty, NumArrayElements);
           Value *Stride = ConstantInt::get(Int64Ty, 1);
 
           std::tuple<Value *, Value *, Value *> Dim = {LB, Size, Stride};
@@ -6705,39 +6704,41 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
         Parse1DArrayAsArraySection(F->getContext());
 
-        if (auto *WTarget =
-                WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget)) {
-          auto &MapClause = WTarget->getMap();
+        auto *WTarget =
+            WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
+        if (!WTarget)
+          continue;
 
-          int CurGlobalBufIdx = 0, CurLocalBufIdx = 0;
+        auto &MapClause = WTarget->getMap();
+        bool GlobalFound = false, LocalFound = false;
 
-          for (auto &MItem : MapClause.items()) {
-            if (auto *MapPtr = dyn_cast<GlobalVariable>(MItem->getOrig())) {
-              auto InsertBuffer =
-                  [RedI](const MapItem *Item, int &BufIdx, int &ItemIdx,
-                         DenseMap<ReductionItem *, GlobalVariable *> &BufMap) {
-                    if (BufIdx == ItemIdx) {
-                      auto *GV = dyn_cast<GlobalVariable>(Item->getOrig());
-                      assert(GV);
-                      BufMap[RedI] = GV;
-                    }
-                    ++BufIdx;
-                  };
-              if (FillGlobalBuffers &&
-                  MapPtr->hasAttribute(
-                      VPOParoptAtomicFreeReduction::GlobalBufferAttr)) {
-                InsertBuffer(MItem, CurGlobalBufIdx, ItemIndexGlobal,
-                             AtomicFreeRedGlobalBufs);
-              } else if (FillLocalBuffers &&
-                         MapPtr->hasAttribute(
-                             VPOParoptAtomicFreeReduction::LocalBufferAttr)) {
-                InsertBuffer(MItem, CurLocalBufIdx, ItemIndexLocal,
-                             AtomicFreeRedLocalBufs);
-              }
-            }
+        // The code below relies on the stable traversal order of WRNs
+        // as we pick the first one available in the map clause,
+        // i.e. the one marked with GlobalBuffer/LocalBuffer attribute.
+        // Once assigned we remove the attribute to avoid reusing the buffer
+        // for different reduction item it is not intended to used for.
+        // TODO: replace with 2 calls of find(MapClause.items(),...)
+        for (auto &MItem : MapClause.items()) {
+          GlobalVariable *MapPtr = dyn_cast<GlobalVariable>(MItem->getOrig());
+          if (!MapPtr)
+            continue;
+          if (FillGlobalBuffers && !GlobalFound &&
+              MapPtr->hasAttribute(
+                  VPOParoptAtomicFreeReduction::GlobalBufferAttr)) {
+            AtomicFreeRedGlobalBufs[RedI] = MapPtr;
+            MapPtr->setAttributes(MapPtr->getAttributes().removeAttribute(
+                MapPtr->getContext(),
+                VPOParoptAtomicFreeReduction::GlobalBufferAttr));
+            GlobalFound = true;
+          } else if (FillLocalBuffers && !LocalFound &&
+                     MapPtr->hasAttribute(
+                         VPOParoptAtomicFreeReduction::LocalBufferAttr)) {
+            AtomicFreeRedLocalBufs[RedI] = MapPtr;
+            MapPtr->setAttributes(MapPtr->getAttributes().removeAttribute(
+                MapPtr->getContext(),
+                VPOParoptAtomicFreeReduction::LocalBufferAttr));
+            LocalFound = true;
           }
-          ItemIndexGlobal++;
-          ItemIndexLocal++;
         }
       }
     }
