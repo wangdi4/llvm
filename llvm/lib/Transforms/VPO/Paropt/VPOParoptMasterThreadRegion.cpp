@@ -132,7 +132,7 @@ getPossiblePrivatePointersStoredToBy(Instruction *I) {
     // TODO: It could also store to any thread-local memory too; we don't have a
     // good way of handling this properly yet.
     if (!CallI->getMemoryEffects()
-             .getWithoutLoc(MemoryEffects::ArgMem)
+             .getWithoutLoc(IRMemLocation::ArgMem)
              .onlyReadsMemory())
       return {{}, false};
 
@@ -290,7 +290,7 @@ static bool storeToAllocaAllowed(Value *AllocaVal,
     // they read from the alloca or if they might capture its pointer value.
     if (auto *const Call = dyn_cast<CallInst>(UserInst)) {
       const bool CanReadArgMem =
-          isRefSet(Call->getMemoryEffects().getModRef(MemoryEffects::ArgMem));
+          isRefSet(Call->getMemoryEffects().getModRef(IRMemLocation::ArgMem));
       for (const auto Arg : enumerate(Call->args()))
         if (Arg.value() == AllocaVal)
           if ((CanReadArgMem && !Call->onlyWritesMemory(Arg.index())) ||

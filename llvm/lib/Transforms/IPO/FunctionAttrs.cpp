@@ -183,7 +183,7 @@ static MemoryEffects checkFunctionMemoryAccess(Function &F, bool ThisBody,
     // If it's not an identified object, it might be an argument.
     if (!isIdentifiedObject(UO))
       ME |= MemoryEffects::argMemOnly(MR);
-    ME |= MemoryEffects(MemoryEffects::Other, MR);
+    ME |= MemoryEffects(IRMemLocation::Other, MR);
   };
   // Scan the function body for instructions that may read or write memory.
   for (Instruction &I : instructions(F)) {
@@ -210,17 +210,17 @@ static MemoryEffects checkFunctionMemoryAccess(Function &F, bool ThisBody,
       if (isa<PseudoProbeInst>(I))
         continue;
 
-      ME |= CallME.getWithoutLoc(MemoryEffects::ArgMem);
+      ME |= CallME.getWithoutLoc(IRMemLocation::ArgMem);
 
       // If the call accesses captured memory (currently part of "other") and
       // an argument is captured (currently not tracked), then it may also
       // access argument memory.
-      ModRefInfo OtherMR = CallME.getModRef(MemoryEffects::Other);
+      ModRefInfo OtherMR = CallME.getModRef(IRMemLocation::Other);
       ME |= MemoryEffects::argMemOnly(OtherMR);
 
       // Check whether all pointer arguments point to local memory, and
       // ignore calls that only access local memory.
-      ModRefInfo ArgMR = CallME.getModRef(MemoryEffects::ArgMem);
+      ModRefInfo ArgMR = CallME.getModRef(IRMemLocation::ArgMem);
       if (ArgMR != ModRefInfo::NoModRef) {
         for (const Use &U : Call->args()) {
           const Value *Arg = U;
