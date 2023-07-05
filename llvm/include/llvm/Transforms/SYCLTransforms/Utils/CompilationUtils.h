@@ -890,6 +890,10 @@ TinyPtrVector<DbgDeclareInst *> findDbgUses(Value *V);
 Type *getLLVMTypeFromReflectionType(LLVMContext &C,
                                     const reflection::RefParamType &PT);
 
+/// Find all get_global_id or get_local_id calls in \p Funcs.
+DenseMap<Function *, InstVecVec>
+getTIDCallsInFuncs(Module &M, StringRef TIDName, FuncSet &Funcs);
+
 } // namespace CompilationUtils
 } // namespace llvm
 

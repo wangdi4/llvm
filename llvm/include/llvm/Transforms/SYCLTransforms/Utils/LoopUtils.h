@@ -76,14 +76,6 @@ CallInst *getWICall(Module *M, StringRef FuncName, Type *RetTy, unsigned Dim,
 CallInst *getWICall(Module *M, StringRef FuncName, Type *RetTy, unsigned Dim,
                     IRBuilder<> &Builder, const Twine &CallName = "");
 
-/// Fills call vector with all calls to function named func name in
-///       funcToSearch
-/// FuncName - name of functions to obtain its calls.
-/// FuncToSearch - Function to look call instructions in.
-/// Calls - vector to fill.
-void getAllCallInFunc(StringRef FuncName, Function *FuncToSearch,
-                      SmallVectorImpl<CallInst *> &Calls);
-
 /// Returns size_t type.
 /// M - current module.
 Type *getIndTy(Module *M);
