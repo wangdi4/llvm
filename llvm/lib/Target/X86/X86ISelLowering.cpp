@@ -55659,15 +55659,13 @@ static SDValue combineAnd(SDNode *N, SelectionDAG &DAG,
   if (SDValue R = combineBitOpWithShift(N, DAG))
     return R;
 
-<<<<<<< HEAD
+  if (SDValue R = combineBitOpWithPACK(N, DAG))
+    return R;
+
 #if INTEL_CUSTOMIZATION
   if (SDValue R = combineBitwiseBitcastPair(N, DAG, Subtarget))
     return R;
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (SDValue R = combineBitOpWithPACK(N, DAG))
-    return R;
->>>>>>> a32d14fd4c0a43c154f251df1ccfe57e8b0a711a
 
   if (SDValue FPLogic = convertIntLogicToFPLogic(N, DAG, DCI, Subtarget))
     return FPLogic;
@@ -56429,15 +56427,13 @@ static SDValue combineOr(SDNode *N, SelectionDAG &DAG,
   if (SDValue R = combineBitOpWithShift(N, DAG))
     return R;
 
-<<<<<<< HEAD
+  if (SDValue R = combineBitOpWithPACK(N, DAG))
+    return R;
+
 #if INTEL_CUSTOMIZATION
   if (SDValue R = combineBitwiseBitcastPair(N, DAG, Subtarget))
     return R;
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (SDValue R = combineBitOpWithPACK(N, DAG))
-    return R;
->>>>>>> a32d14fd4c0a43c154f251df1ccfe57e8b0a711a
 
   if (SDValue FPLogic = convertIntLogicToFPLogic(N, DAG, DCI, Subtarget))
     return FPLogic;
@@ -59366,15 +59362,13 @@ static SDValue combineXor(SDNode *N, SelectionDAG &DAG,
   if (SDValue R = combineBitOpWithShift(N, DAG))
     return R;
 
-<<<<<<< HEAD
+  if (SDValue R = combineBitOpWithPACK(N, DAG))
+    return R;
+
 #if INTEL_CUSTOMIZATION
   if (SDValue R = combineBitwiseBitcastPair(N, DAG, Subtarget))
     return R;
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (SDValue R = combineBitOpWithPACK(N, DAG))
-    return R;
->>>>>>> a32d14fd4c0a43c154f251df1ccfe57e8b0a711a
 
   if (SDValue FPLogic = convertIntLogicToFPLogic(N, DAG, DCI, Subtarget))
     return FPLogic;
