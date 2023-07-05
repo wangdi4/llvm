@@ -795,17 +795,12 @@ int targetDataBegin(ident_t *Loc, DeviceTy &Device, int32_t ArgNum,
 #endif // INTEL_COLLAB
     // Note that HDTTMap will be released in getTargetPointer.
     auto TPR = Device.getTargetPointer(
-<<<<<<< HEAD
-        HDTTMap, HstPtrBegin, HstPtrBase, DataSize, HstPtrName, HasFlagTo,
-        HasFlagAlways, IsImplicit, UpdateRef, HasCloseModifier,
+        HDTTMap, HstPtrBegin, HstPtrBase, TgtPadding, DataSize, HstPtrName,
+        HasFlagTo, HasFlagAlways, IsImplicit, UpdateRef, HasCloseModifier,
 #if INTEL_COLLAB
         HasPresentModifier, HasHoldModifier, AsyncInfo, PointerTpr.getEntry(),
         /* ReleaseHDTTMap */ false, UseHostMem);
 #else  // INTEL_COLLAB
-=======
-        HDTTMap, HstPtrBegin, HstPtrBase, TgtPadding, DataSize, HstPtrName,
-        HasFlagTo, HasFlagAlways, IsImplicit, UpdateRef, HasCloseModifier,
->>>>>>> 6e127c6f29470012361811902829cf9798166f27
         HasPresentModifier, HasHoldModifier, AsyncInfo, PointerTpr.getEntry());
 #endif // INTEL_COLLAB
     void *TgtPtrBegin = TPR.TargetPointer;

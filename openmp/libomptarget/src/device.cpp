@@ -250,21 +250,15 @@ LookupResult DeviceTy::lookupMapping(HDTTMapAccessorTy &HDTTMap,
 
 TargetPointerResultTy DeviceTy::getTargetPointer(
     HDTTMapAccessorTy &HDTTMap, void *HstPtrBegin, void *HstPtrBase,
-<<<<<<< HEAD
-    int64_t Size, map_var_info_t HstPtrName, bool HasFlagTo, bool HasFlagAlways,
-    bool IsImplicit, bool UpdateRefCount, bool HasCloseModifier,
-    bool HasPresentModifier, bool HasHoldModifier, AsyncInfoTy &AsyncInfo,
+    int64_t TgtPadding, int64_t Size, map_var_info_t HstPtrName, bool HasFlagTo,
+    bool HasFlagAlways, bool IsImplicit, bool UpdateRefCount,
+    bool HasCloseModifier, bool HasPresentModifier, bool HasHoldModifier,
+    AsyncInfoTy &AsyncInfo,
 #if INTEL_COLLAB
     HostDataToTargetTy *OwnedTPR, bool ReleaseHDTTMap, bool UseHostMem) {
 #else  // INTEL_COLLAB
     HostDataToTargetTy *OwnedTPR, bool ReleaseHDTTMap) {
 #endif // INTEL_COLLAB
-=======
-    int64_t TgtPadding, int64_t Size, map_var_info_t HstPtrName, bool HasFlagTo,
-    bool HasFlagAlways, bool IsImplicit, bool UpdateRefCount,
-    bool HasCloseModifier, bool HasPresentModifier, bool HasHoldModifier,
-    AsyncInfoTy &AsyncInfo, HostDataToTargetTy *OwnedTPR, bool ReleaseHDTTMap) {
->>>>>>> 6e127c6f29470012361811902829cf9798166f27
 
   LookupResult LR = lookupMapping(HDTTMap, HstPtrBegin, Size, OwnedTPR);
   LR.TPR.Flags.IsPresent = true;
@@ -353,19 +347,17 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
   } else if (Size) {
     // If it is not contained and Size > 0, we should create a new entry for it.
     LR.TPR.Flags.IsNewEntry = true;
-<<<<<<< HEAD
-#if INTEL_COLLAB
-    int32_t AllocOpt = UseHostMem ? ALLOC_OPT_HOST_MEM : ALLOC_OPT_NONE;
-    uintptr_t Ptr = (uintptr_t)dataAllocBase(Size, HstPtrBegin, HstPtrBase,
-                                             AllocOpt);
-#else  // INTEL_COLLAB
-    uintptr_t Ptr = (uintptr_t)allocData(Size, HstPtrBegin);
-#endif // INTEL_COLLAB
-=======
+
     uintptr_t TgtAllocBegin =
         (uintptr_t)allocData(TgtPadding + Size, HstPtrBegin);
+#if INTEL_COLLAB
+    int32_t AllocOpt = UseHostMem ? ALLOC_OPT_HOST_MEM : ALLOC_OPT_NONE;
+    uintptr_t TgtPtrBegin = (uintptr_t)dataAllocBase(Size, HstPtrBegin, HstPtrBase,
+                                             AllocOpt);
+#else  // INTEL_COLLAB
     uintptr_t TgtPtrBegin = TgtAllocBegin + TgtPadding;
->>>>>>> 6e127c6f29470012361811902829cf9798166f27
+#endif // INTEL_COLLAB
+
     // Release the mapping table lock only after the entry is locked by
     // attaching it to TPR.
     LR.TPR.setEntry(HDTTMap
@@ -375,25 +367,19 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
                             TgtPtrBegin, HasHoldModifier, HstPtrName))
                         .first->HDTT);
 #if INTEL_CUSTOMIZATION
-    XPTIRegistry->traceMemAssociate((uintptr_t)HstPtrBegin, Ptr);
+    XPTIRegistry->traceMemAssociate((uintptr_t)HstPtrBegin, TgtPtrBegin);
 #endif // INTEL_CUSTOMIZATION
     INFO(OMP_INFOTYPE_MAPPING_CHANGED, DeviceID,
          "Creating new map entry with HstPtrBase=" DPxMOD
-<<<<<<< HEAD
+         ", HstPtrBegin=" DPxMOD ", TgtAllocBegin=" DPxMOD", TgtPtrBegin=" DPxMOD
 #if INTEL_COLLAB
-         ", HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", Size=%" PRId64 ", "
+         ", Size=%" PRId64 ", "
 #else  // INTEL_COLLAB
-         ", HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", Size=%ld, "
+         ", Size=%ld, "
 #endif // INTEL_COLLAB
          "DynRefCount=%s, HoldRefCount=%s, Name=%s\n",
-         DPxPTR(HstPtrBase), DPxPTR(HstPtrBegin), DPxPTR(Ptr), Size,
-=======
-         ", HstPtrBegin=" DPxMOD ", TgtAllocBegin=" DPxMOD
-         ", TgtPtrBegin=" DPxMOD
-         ", Size=%ld, DynRefCount=%s, HoldRefCount=%s, Name=%s\n",
          DPxPTR(HstPtrBase), DPxPTR(HstPtrBegin), DPxPTR(TgtAllocBegin),
          DPxPTR(TgtPtrBegin), Size,
->>>>>>> 6e127c6f29470012361811902829cf9798166f27
          LR.TPR.getEntry()->dynRefCountToStr().c_str(),
          LR.TPR.getEntry()->holdRefCountToStr().c_str(),
          (HstPtrName) ? getNameFromMapping(HstPtrName).c_str() : "unknown");
@@ -655,20 +641,15 @@ void *DeviceTy::allocData(int64_t Size, void *HstPtr, int32_t Kind) {
 #endif // INTEL_CUSTOMIZATION
 }
 
-<<<<<<< HEAD
-int32_t DeviceTy::deleteData(void *TgtPtrBegin, int32_t Kind) {
+int32_t DeviceTy::deleteData(void *TgtAllocBegin, int32_t Kind) {
 #if INTEL_CUSTOMIZATION
-  auto CorrID = XPTIRegistry->traceMemReleaseBegin((uintptr_t)TgtPtrBegin);
-  auto Rc = RTL->data_delete(RTLDeviceID, TgtPtrBegin, Kind);
-  XPTIRegistry->traceMemReleaseEnd((uintptr_t)TgtPtrBegin, CorrID);
+  auto CorrID = XPTIRegistry->traceMemReleaseBegin((uintptr_t)TgtAllocBegin);
+  auto Rc = RTL->data_delete(RTLDeviceID, TgtAllocBegin, Kind);
+  XPTIRegistry->traceMemReleaseEnd((uintptr_t)TgtAllocBegin, CorrID);
   return Rc;
 #else  // INTEL_CUSTOMIZATION
-  return RTL->data_delete(RTLDeviceID, TgtPtrBegin, Kind);
-#endif // INTEL_CUSTOMIZATION
-=======
-int32_t DeviceTy::deleteData(void *TgtAllocBegin, int32_t Kind) {
   return RTL->data_delete(RTLDeviceID, TgtAllocBegin, Kind);
->>>>>>> 6e127c6f29470012361811902829cf9798166f27
+#endif // INTEL_CUSTOMIZATION
 }
 
 static void printCopyInfo(int DeviceId, bool H2D, void *SrcPtrBegin,
