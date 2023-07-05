@@ -31,8 +31,8 @@
 ; CHECK-NEXT: resolver_entry:
 ; CHECK-NEXT:   call void @__intel_cpu_features_init()
 ; CHECK-NEXT:   %cpu_feature_indicator = load i64, ptr @__intel_cpu_feature_indicator, align 8
-; CHECK-NEXT:   %cpu_feature_join = and i64 %cpu_feature_indicator, 10330090
-; CHECK-NEXT:   %cpu_feature_check = icmp eq i64 %cpu_feature_join, 10330090
+; CHECK-NEXT:   %cpu_feature_join = and i64 %cpu_feature_indicator, 10330094
+; CHECK-NEXT:   %cpu_feature_check = icmp eq i64 %cpu_feature_join, 10330094
 ; CHECK-NEXT:   br i1 %cpu_feature_check, label %resolver_return, label %resolver_else
 ; CHECK-EMPTY:
 ; CHECK-NEXT: resolver_return:                                  ; preds = %resolver_entry
@@ -54,8 +54,8 @@
 ; CHECK-NEXT: resolver_entry:
 ; CHECK-NEXT:   call void @__intel_cpu_features_init()
 ; CHECK-NEXT:   %cpu_feature_indicator = load i64, ptr @__intel_cpu_feature_indicator, align 8
-; CHECK-NEXT:   %cpu_feature_join = and i64 %cpu_feature_indicator, 10330090
-; CHECK-NEXT:   %cpu_feature_check = icmp eq i64 %cpu_feature_join, 10330090
+; CHECK-NEXT:   %cpu_feature_join = and i64 %cpu_feature_indicator, 10330094
+; CHECK-NEXT:   %cpu_feature_check = icmp eq i64 %cpu_feature_join, 10330094
 ; CHECK-NEXT:   br i1 %cpu_feature_check, label %resolver_return, label %resolver_else
 ; CHECK-EMPTY:
 ; CHECK-NEXT: resolver_return:
@@ -66,7 +66,7 @@
 ; CHECK-NEXT: }
 ; CHECK-EMPTY:
 ; CHECK-NEXT: attributes #0 = { "advanced-optim"="false" }
-; CHECK-NEXT: attributes #1 = { "advanced-optim"="true" "loopopt-pipeline"="full" "target-cpu"="haswell" "target-features"="+avx,+avx2,+bmi,+bmi2,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "tune-cpu"="haswell" }
+; CHECK-NEXT: attributes #1 = { "advanced-optim"="true" "loopopt-pipeline"="full" "target-cpu"="haswell" "target-features"="+avx,+avx2,+bmi,+bmi2,+cmov,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "tune-cpu"="haswell" }
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
