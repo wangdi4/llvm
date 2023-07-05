@@ -488,6 +488,7 @@ X86_FEATURE       (LVI_CFI,                     "lvi-cfi")
 X86_FEATURE       (LVI_LOAD_HARDENING,          "lvi-load-hardening")
 #undef X86_FEATURE_COMPAT
 #undef X86_FEATURE
+<<<<<<< HEAD
 
 #ifndef CPU_SPECIFIC
 #define CPU_SPECIFIC(NAME, TUNE_NAME, MANGLING, FEATURES)
@@ -587,3 +588,5 @@ CPU_SPECIFIC_ALIAS_ADDITIONAL("pentium4", "pentium_4")
 
 #undef CPU_SPECIFIC_ALIAS
 #undef CPU_SPECIFIC
+=======
+>>>>>>> dd88d4dd302125c005f61f9716c3b847ff81c091
