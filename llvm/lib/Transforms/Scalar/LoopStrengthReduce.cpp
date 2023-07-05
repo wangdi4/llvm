@@ -3420,6 +3420,8 @@ void LSRInstance::CollectFixupsAndInitialFormulae() {
           // S is normalized, so normalize N before folding it into S
           // to keep the result normalized.
           N = normalizeForPostIncUse(N, TmpPostIncLoops, SE);
+          if (!N)
+            continue;
           Kind = LSRUse::ICmpZero;
           S = SE.getMinusSCEV(N, S);
         } else if (L->isLoopInvariant(NV) &&
@@ -3434,6 +3436,8 @@ void LSRInstance::CollectFixupsAndInitialFormulae() {
           // SCEV can't compute the difference of two unknown pointers.
           N = SE.getUnknown(NV);
           N = normalizeForPostIncUse(N, TmpPostIncLoops, SE);
+          if (!N)
+            continue;
           Kind = LSRUse::ICmpZero;
           S = SE.getMinusSCEV(N, S);
           assert(!isa<SCEVCouldNotCompute>(S));
@@ -4244,7 +4248,7 @@ getAnyExtendConsideringPostIncUses(ArrayRef<PostIncLoopSet> Loops,
     auto *DenormExpr = denormalizeForPostIncUse(Expr, L, SE);
     const SCEV *NewDenormExpr = SE.getAnyExtendExpr(DenormExpr, ToTy);
     const SCEV *New = normalizeForPostIncUse(NewDenormExpr, L, SE);
-    if (Result && New != Result)
+    if (!New || (Result && New != Result))
       return nullptr;
     Result = New;
   }
