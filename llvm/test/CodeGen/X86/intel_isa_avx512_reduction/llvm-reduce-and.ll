@@ -499,13 +499,13 @@ define i16 @reduce_andw_32xi16(<32 x i16> %vec) {
 define i16 @reduce_andw_17xi16(ptr %p) {
 ; AVX512REDUCTION-LABEL: reduce_andw_17xi16:
 ; AVX512REDUCTION:       # %bb.0:
-; AVX512REDUCTION-NEXT:    vmovdqa64 (%rdi), %zmm0
-; AVX512REDUCTION-NEXT:    vmovdqa64 {{.*#+}} zmm1 = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,65535,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-; AVX512REDUCTION-NEXT:    vpternlogq $248, {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %zmm1
-; AVX512REDUCTION-NEXT:    vpternlogd $255, %zmm0, %zmm0, %zmm0
-; AVX512REDUCTION-NEXT:    vmovdqa64 {{.*#+}} zmm2 = [0,1,2,3,4,5,6,7,8,25,26,27,28,29,30,31]
-; AVX512REDUCTION-NEXT:    vpermi2d %zmm0, %zmm1, %zmm2
-; AVX512REDUCTION-NEXT:    vphrandw %zmm2, %xmm0
+; AVX512REDUCTION-NEXT:    vmovdqa64 {{.*#+}} zmm0 = [65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,0,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535]
+; AVX512REDUCTION-NEXT:    vpandq (%rdi), %zmm0, %zmm1
+; AVX512REDUCTION-NEXT:    vpternlogd $255, %zmm2, %zmm2, %zmm2
+; AVX512REDUCTION-NEXT:    vpternlogq $246, %zmm2, %zmm0, %zmm1
+; AVX512REDUCTION-NEXT:    vmovdqa64 {{.*#+}} zmm0 = [0,1,2,3,4,5,6,7,8,25,26,27,28,29,30,31]
+; AVX512REDUCTION-NEXT:    vpermi2d %zmm2, %zmm1, %zmm0
+; AVX512REDUCTION-NEXT:    vphrandw %zmm0, %xmm0
 ; AVX512REDUCTION-NEXT:    vmovd %xmm0, %eax
 ; AVX512REDUCTION-NEXT:    # kill: def $ax killed $ax killed $eax
 ; AVX512REDUCTION-NEXT:    vzeroupper
@@ -513,14 +513,14 @@ define i16 @reduce_andw_17xi16(ptr %p) {
 ;
 ; AVX512F-LABEL: reduce_andw_17xi16:
 ; AVX512F:       # %bb.0:
-; AVX512F-NEXT:    vmovdqa64 (%rdi), %zmm0
-; AVX512F-NEXT:    vmovdqa64 {{.*#+}} zmm1 = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,65535,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-; AVX512F-NEXT:    vpternlogq $248, {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %zmm1
-; AVX512F-NEXT:    vpternlogd $255, %zmm0, %zmm0, %zmm0
-; AVX512F-NEXT:    vbroadcasti32x4 {{.*#+}} zmm2 = [8,25,26,27,8,25,26,27,8,25,26,27,8,25,26,27]
-; AVX512F-NEXT:    # zmm2 = mem[0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3]
-; AVX512F-NEXT:    vpermi2d %zmm0, %zmm1, %zmm2
-; AVX512F-NEXT:    vextracti32x4 $2, %zmm2, %xmm0
+; AVX512F-NEXT:    vmovdqa64 {{.*#+}} zmm0 = [65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,0,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535,65535]
+; AVX512F-NEXT:    vpandq (%rdi), %zmm0, %zmm1
+; AVX512F-NEXT:    vpternlogd $255, %zmm2, %zmm2, %zmm2
+; AVX512F-NEXT:    vpternlogq $246, %zmm2, %zmm0, %zmm1
+; AVX512F-NEXT:    vbroadcasti32x4 {{.*#+}} zmm0 = [8,25,26,27,8,25,26,27,8,25,26,27,8,25,26,27]
+; AVX512F-NEXT:    # zmm0 = mem[0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3]
+; AVX512F-NEXT:    vpermi2d %zmm2, %zmm1, %zmm0
+; AVX512F-NEXT:    vextracti32x4 $2, %zmm0, %xmm0
 ; AVX512F-NEXT:    vmovdqa (%rdi), %xmm1
 ; AVX512F-NEXT:    vpternlogq $128, 16(%rdi), %xmm0, %xmm1
 ; AVX512F-NEXT:    vpextrw $1, %xmm1, %eax
