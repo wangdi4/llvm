@@ -32,6 +32,7 @@
 #include "IntelVPlanLoopExitCanonicalization.h"
 #include "IntelVPlanPatternMatch.h"
 #include "IntelVPlanPredicator.h"
+#include "IntelVPlanTransformEarlyExitLoop.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVConflictTransformation.h"
 #include "Intel_VPlan/IntelVPTransformLibraryCalls.h"
@@ -143,6 +144,10 @@ static cl::opt<uint64_t> MaxProfitableDynPeelMultiplier(
         "peeling should be skipped. This switch acts as a maximum threshold "
         "for the profitable trip count calculation. If the computed value is "
         "more than this value * VF * UF, the value is truncated."));
+
+static cl::opt<bool> EnableDivergentBranchLoops(
+    "vplan-enable-divergent-branches", cl::init(true), cl::Hidden,
+    cl::desc("Enable vectorization of loops containing divergent branches."));
 
 static LoopVPlanDumpControl LCSSADumpControl("lcssa", "LCSSA transformation");
 static LoopVPlanDumpControl LoopCFUDumpControl("loop-cfu",
@@ -769,6 +774,13 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
 
   printAndVerifyAfterInitialTransforms(Plan.get());
 
+  // Transformation to massage early-exit loops and explicitly track execution
+  // mask and early-exit lane.
+  if (Plan->isEarlyExitLoop()) {
+    VPTransformEarlyExitLoop VPEETransform(*Plan.get());
+    VPEETransform.transform();
+  }
+
   // Populate initial VPlan analyses (e.g. VPlanValueTracking) to ensure
   // they are available when computing DA.
   VPAF.populateVPlanAnalyses(*Plan.get());
@@ -788,7 +800,20 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
 
   unsigned NumVConflictIdioms = 0;
   unsigned NumGathers = 0;
+  auto *DA = Plan->getVPlanDA();
+
   for (auto &VPInst : vpinstructions(Plan.get())) {
+
+    // Honor user request to disable vectorization of loops containing
+    // divergent branches.  The common use case is for the sampling pass
+    // of SPGO (sample-based profile-guided optimization).
+    if (auto *Branch = dyn_cast<VPBranchInst>(&VPInst))
+      if (!EnableDivergentBranchLoops && DA->isDivergent(*Branch)) {
+        bailout(OptReportVerbosity::Medium, OptRemarkID::VecFailGenericBailout,
+                getAuxMsg(AuxRemarkID::DivergentBranchDisabled));
+        return 0;
+      }
+
     // TODO: We're losing out on being able to vectorize vconflict idioms at
     // VF=16 for i32 types because the conflict index is always represented
     // as i64. Look into preserving the original VPValue for the index as

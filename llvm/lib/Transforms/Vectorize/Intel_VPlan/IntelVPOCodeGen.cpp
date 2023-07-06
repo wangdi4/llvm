@@ -847,29 +847,6 @@ Value *VPOCodeGen::getVLSLoadStoreMask(VectorType *WideValueType, int GroupSize,
   return Builder.CreateShuffleVector(MaskToUse, False, ShuffleMask);
 }
 
-VPlanPeelingVariant *VPOCodeGen::getGuaranteedPeeling() const {
-  VPlanPeelingVariant *PreferredPeeling = Plan->getPreferredPeeling(VF);
-
-  // Absence of any peeling information means there will be no peel loop, which
-  // is the same as VPlanStaticPeeling{0}.
-  if (!PreferredPeeling)
-    return &VPlanStaticPeeling::NoPeelLoop;
-
-  // As of now, dynamic peel loop can be skipped at run-time at least because of
-  // missed targetAlignment (i.e. when peeled pointer is not aligned on element
-  // boundary).
-  // With the new cfg merger, the static peeling is executed always except cases
-  // when it does not leave room for any vector iterations (i.e. when
-  // peel_tc + vf*uf > ub). In these cases we don't execute main loop but
-  // execute remainder.
-  // So we can guaranty that any static peeling will be executed before main
-  // vector looop but can't do the same for dynamic peeling.
-  if (isa<VPlanStaticPeeling>(PreferredPeeling))
-    return PreferredPeeling;
-
-  return nullptr;
-}
-
 Value *VPOCodeGen::codeGenVPInvSCEVWrapper(VPInvSCEVWrapper *SW) {
   VPlanSCEV *VPScev = SW->getSCEV();
   VPlanScalarEvolutionLLVM *VPSE =
@@ -3056,7 +3033,7 @@ Value *VPOCodeGen::vectorizeUnitStrideLoad(VPLoadStoreInst *VPLoad,
                             ? cast<FixedVectorType>(LoadType)->getNumElements()
                             : 1;
   Align Alignment =
-      VPAA.getAlignmentUnitStride(*VPLoad, getGuaranteedPeeling());
+      VPAA.getAlignmentUnitStride(*VPLoad, Plan->getGuaranteedPeeling(VF));
   Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(
       Ptr, VPLoad->getValueType(), IsNegOneStride);
   Type *WidenedType = getWidenedType(LoadType, VF);
@@ -3190,7 +3167,7 @@ void VPOCodeGen::vectorizeUnitStrideStore(VPLoadStoreInst *VPStore,
   Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(
       Ptr, VPStore->getValueType(), IsNegOneStride);
   Align Alignment =
-      VPAA.getAlignmentUnitStride(*VPStore, getGuaranteedPeeling());
+      VPAA.getAlignmentUnitStride(*VPStore, Plan->getGuaranteedPeeling(VF));
 
   // For the opt-report, check if this memref was aligned by peeling. We use
   // preferred peeling instead of guaranteed, as otherwise when dynamically

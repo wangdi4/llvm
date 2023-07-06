@@ -64,6 +64,10 @@ bool SGSizeCollectorIndirectPass::runImpl(Module &M, CallGraph &CG) {
     VecLengths.insert(VecLength);
   }
 
+  // Return early if there is no vector length info.
+  if (VecLengths.empty())
+    return false;
+
   auto GenerateVectorVariants = [&VecLengths, this](const std::string &FuncName,
                                                     int NumParams) {
     std::vector<VFParamKind> ParamKinds(NumParams, VFParamKind::Vector);

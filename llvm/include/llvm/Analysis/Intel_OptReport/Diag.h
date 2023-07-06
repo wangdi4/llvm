@@ -236,6 +236,7 @@ enum class AuxRemarkID {
   NoDedicatedExits,
   MultipleMultiExitLoops,
   OuterLoopVecUnsupported,
+  DivergentBranchDisabled,
   VectorizerRemarksEnd, // No associated message
 
   // Add remark numbers for other components here.  Please reserve

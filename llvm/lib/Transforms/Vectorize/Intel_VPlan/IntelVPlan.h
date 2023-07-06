@@ -725,9 +725,11 @@ public:
                                // signature. (e.g. sincos)
     SOAExtractValue,           // Like LLVM extract value, but specialized for
                                // when we know the aggregate is in SOA layout
-    F90DVBufferInit, // Lowered into set of instructions required for F90_DV
-                     // private initialization
-    EarlyExitCond,   // Capture CondBit that leads to early-exit from loop.
+    F90DVBufferInit,   // Lowered into set of instructions required for F90_DV
+                       // private initialization
+    EarlyExitCond,     // Capture CondBit that leads to early-exit from loop.
+    EarlyExitExecMask, // Represent mask to track executable lanes of early-exit
+                       // loop body.
   };
 
 private:
@@ -5199,6 +5201,32 @@ public:
   }
 };
 
+// Instruction to represent the mask that indicates which lanes are executed in
+// an early-exit loop's body. It identifies all the lanes before the first lane
+// in which the early-exit condition is true.
+class VPEarlyExitExecMask final : public VPInstruction {
+public:
+  VPEarlyExitExecMask(VPValue *Cond)
+      : VPInstruction(VPInstruction::EarlyExitExecMask,
+                      Type::getInt1Ty(Cond->getType()->getContext()), {Cond}) {
+    assert(Cond->getType()->isIntegerTy(1 /*BitWidth*/) &&
+           "Condition-bit operand expected to be i1 type.");
+  }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::EarlyExitExecMask;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPEarlyExitExecMask *cloneImpl() const override {
+    return new VPEarlyExitExecMask(getOperand(0));
+  }
+};
+
 /// VPlan models a candidate for vectorization, encoding various decisions take
 /// to produce efficient output IR, including which branches, basic-blocks and
 /// output IR instructions to generate, and their cost.
@@ -5794,12 +5822,23 @@ public:
     PreferredPeelingMap[VF] = std::move(Peeling);
   }
 
-  /// Returns preferred peeling or nullptr.
+  /// \Returns the preferred peeling for the given \p VF, or nullptr if none was
+  /// selected. The term 'preferred' here indicates that while the peeling was
+  /// selected, it is not guaranteed to execute before the main loop.
   VPlanPeelingVariant *getPreferredPeeling(unsigned VF) const {
     auto Iter = PreferredPeelingMap.find(VF);
     if (Iter == PreferredPeelingMap.end())
       return nullptr;
     return Iter->second.get();
+  }
+
+  /// \Returns the guaranteed peeling for the given \p VF, or nullptr if none
+  /// was selected or we cannot guarantee it will execute before the main loop.
+  VPlanPeelingVariant *getGuaranteedPeeling(unsigned VF) const {
+    auto *Peeling = getPreferredPeeling(VF);
+    if (!Peeling || !Peeling->isGuaranteedToExecuteBeforeMainLoop())
+      return nullptr;
+    return Peeling;
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

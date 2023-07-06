@@ -45,6 +45,11 @@ public:
   /// bound (see override below for details.)
   virtual int maxPeelCount() const = 0;
 
+  /// \Returns whether the specified peeling is guaranteed to execute before the
+  /// main loop. For static peel, this is always true, whereas in the dynamic
+  /// case, the peel may be skipped, and the main loop proceeds unaligned.
+  virtual bool isGuaranteedToExecuteBeforeMainLoop() const = 0;
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const { print(errs()); }
   virtual void print(raw_ostream &OS) const = 0;
@@ -64,6 +69,8 @@ public:
 
   int peelCount() const { return PeelCount; }
   int maxPeelCount() const override { return peelCount(); }
+
+  bool isGuaranteedToExecuteBeforeMainLoop() const override { return true; }
 
   // VPlanStaticPeeling{0}
   static VPlanStaticPeeling NoPeelLoop;
@@ -108,6 +115,11 @@ public:
 
   int maxPeelCount() const override {
     return TargetAlignment.value() / RequiredAlignment.value() - 1;
+  }
+
+  bool isGuaranteedToExecuteBeforeMainLoop() const override {
+    // TODO: check conditions to see if we will *not* skip the main loop.
+    return false;
   }
 
   static bool classof(const VPlanPeelingVariant *Peeling) {
