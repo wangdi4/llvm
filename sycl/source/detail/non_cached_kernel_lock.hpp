@@ -15,13 +15,13 @@ class NonCachedKernelLock {
 public:
   ~NonCachedKernelLock();
 
-  Locked<RT::PiKernel> lockKernel(RT::PiKernel &K);
+  Locked<sycl::detail::pi::PiKernel> lockKernel(sycl::detail::pi::PiKernel &K);
 
 private:
-  using KernelLockMapT = std::map<RT::PiKernel, std::mutex>;
+  using KernelLockMapT = std::map<sycl::detail::pi::PiKernel, std::mutex>;
 
   std::mutex MapMtx;
-  KernelLockMapT Map{std::less<RT::PiKernel>{}};
+  KernelLockMapT Map{std::less<sycl::detail::pi::PiKernel>{}};
 };
 
 } // namespace detail

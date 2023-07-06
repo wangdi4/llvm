@@ -2689,10 +2689,8 @@ defm xray_function_index : BoolFOption<"xray-function-index",
           " expense of single-function patching performance">>;
 
 def fxray_link_deps : Flag<["-"], "fxray-link-deps">, Group<f_Group>,
-  Flags<[CC1Option]>,
-  HelpText<"Tells clang to add the link dependencies for XRay.">;
-def fnoxray_link_deps : Flag<["-"], "fnoxray-link-deps">, Group<f_Group>,
-  Flags<[CC1Option]>;
+  HelpText<"Link XRay runtime library when -fxray-instrument is specified (default)">;
+def fno_xray_link_deps : Flag<["-"], "fno-xray-link-deps">, Group<f_Group>;
 
 def fxray_instrumentation_bundle :
   Joined<["-"], "fxray-instrumentation-bundle=">,
@@ -3678,12 +3676,18 @@ defm sycl_instrument_device_code
           BothFlags<[CC1Option, CoreOption], " Instrumentation and Tracing "
                     "Technology (ITT) instrumentation intrinsics calls "
                     "(experimental)">>;
-def fsycl_link_huge_device_code : Flag<["-"], "fsycl-link-huge-device-code">,
-  Group<sycl_Group>, HelpText<"Generate and use a custom linker script for huge"
+def flink_huge_device_code : Flag<["-"], "flink-huge-device-code">,
+  Group<Link_Group>, HelpText<"Generate and use a custom linker script for huge"
   " device code sections">;
-def fno_sycl_link_huge_device_code : Flag<["-"], "fno-sycl-link-huge-device-code">,
-  Group<sycl_Group>, HelpText<"Do not generate or use a custom linker script"
+def fno_link_huge_device_code : Flag<["-"], "fno-link-huge-device-code">,
+  Group<Link_Group>, HelpText<"Do not generate or use a custom linker script"
   " for huge device code sections (default)">;
+def fsycl_link_huge_device_code : Flag<["-"], "fsycl-link-huge-device-code">,
+  Group<sycl_Group>, Alias<flink_huge_device_code>, HelpText<"Generate and use a custom linker script for huge"
+  " device code sections (deprecated)">, Flags<[Deprecated]>;
+def fno_sycl_link_huge_device_code : Flag<["-"], "fno-sycl-link-huge-device-code">,
+  Group<sycl_Group>, Alias<fno_link_huge_device_code>, HelpText<"Do not generate or use a custom linker script"
+  " for huge device code sections (default) (deprecated)">, Flags<[Deprecated]>;
 defm sycl_id_queries_fit_in_int: BoolFOption<"sycl-id-queries-fit-in-int",
   LangOpts<"SYCLValueFitInMaxInt">, DefaultTrue,
   PosFlag<SetTrue, [], "Assume">, NegFlag<SetFalse, [], "Do not assume">,
@@ -6600,13 +6604,14 @@ def fno_sycl_device_lib_jit_link : Flag<["-"], "fno-sycl-device-lib-jit-link">,
 // FLangOption + NoXarchOption
 //===----------------------------------------------------------------------===//
 
-def flang_experimental_exec : Flag<["-"], "flang-experimental-exec">,
-  Flags<[FlangOption, FlangOnlyOption, NoXarchOption, HelpHidden]>,
-  HelpText<"Enable support for generating executables (experimental)">;
-
 def flang_experimental_hlfir : Flag<["-"], "flang-experimental-hlfir">,
   Flags<[FlangOption, FC1Option, FlangOnlyOption, NoXarchOption, HelpHidden]>,
   HelpText<"Use HLFIR lowering (experimental)">;
+
+def flang_experimental_polymorphism : Flag<["-"], "flang-experimental-polymorphism">,
+  Flags<[FlangOption, FC1Option, FlangOnlyOption, NoXarchOption, HelpHidden]>,
+  HelpText<"Enable Fortran 2003 polymorphism (experimental)">;
+  
 
 //===----------------------------------------------------------------------===//
 // FLangOption + CoreOption + NoXarchOption
@@ -7084,6 +7089,9 @@ def disable_dtrans_asserts
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
+def llvm_verify_each : Flag<["-"], "llvm-verify-each">,
+  HelpText<"Run the LLVM verifier after every LLVM pass">,
+  MarshallingInfoFlag<CodeGenOpts<"VerifyEach">>;
 def disable_llvm_verifier : Flag<["-"], "disable-llvm-verifier">,
   HelpText<"Don't run the LLVM IR verifier pass">,
   MarshallingInfoNegativeFlag<CodeGenOpts<"VerifyModule">>;

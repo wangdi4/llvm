@@ -5845,13 +5845,8 @@ static SDValue expandDivFix(unsigned Opcode, const SDLoc &DL,
         PromVT = EVT::getVectorVT(Ctx, PromVT, VT.getVectorElementCount());
       } else
         llvm_unreachable("Wrong VT for DIVFIX?");
-      if (Signed) {
-        LHS = DAG.getSExtOrTrunc(LHS, DL, PromVT);
-        RHS = DAG.getSExtOrTrunc(RHS, DL, PromVT);
-      } else {
-        LHS = DAG.getZExtOrTrunc(LHS, DL, PromVT);
-        RHS = DAG.getZExtOrTrunc(RHS, DL, PromVT);
-      }
+      LHS = DAG.getExtOrTrunc(Signed, LHS, DL, PromVT);
+      RHS = DAG.getExtOrTrunc(Signed, RHS, DL, PromVT);
       EVT ShiftTy = TLI.getShiftAmountTy(PromVT, DAG.getDataLayout());
       // For saturating operations, we need to shift up the LHS to get the
       // proper saturation width, and then shift down again afterwards.
@@ -8614,10 +8609,7 @@ void SelectionDAGBuilder::processIntegerCallValue(const Instruction &I,
                                                   bool IsSigned) {
   EVT VT = DAG.getTargetLoweringInfo().getValueType(DAG.getDataLayout(),
                                                     I.getType(), true);
-  if (IsSigned)
-    Value = DAG.getSExtOrTrunc(Value, getCurSDLoc(), VT);
-  else
-    Value = DAG.getZExtOrTrunc(Value, getCurSDLoc(), VT);
+  Value = DAG.getExtOrTrunc(IsSigned, Value, getCurSDLoc(), VT);
   setValue(&I, Value);
 }
 
@@ -11041,9 +11033,9 @@ static void tryToElideArgumentCopy(
     DenseMap<int, int> &ArgCopyElisionFrameIndexMap,
     SmallPtrSetImpl<const Instruction *> &ElidedArgCopyInstrs,
     ArgCopyElisionMapTy &ArgCopyElisionCandidates, const Argument &Arg,
-    SDValue ArgVal, bool &ArgHasUses) {
+    ArrayRef<SDValue> ArgVals, bool &ArgHasUses) {
   // Check if this is a load from a fixed stack object.
-  auto *LNode = dyn_cast<LoadSDNode>(ArgVal);
+  auto *LNode = dyn_cast<LoadSDNode>(ArgVals[0]);
   if (!LNode)
     return;
   auto *FINode = dyn_cast<FrameIndexSDNode>(LNode->getBasePtr().getNode());
@@ -11086,7 +11078,8 @@ static void tryToElideArgumentCopy(
   MFI.setIsImmutableObjectIndex(FixedIndex, false);
   AllocaIndex = FixedIndex;
   ArgCopyElisionFrameIndexMap.insert({OldIndex, FixedIndex});
-  Chains.push_back(ArgVal.getValue(1));
+  for (SDValue ArgVal : ArgVals)
+    Chains.push_back(ArgVal.getValue(1));
 
   // Avoid emitting code for the store implementing the copy.
   const StoreInst *SI = ArgCopyIter->second.second;
@@ -11347,9 +11340,14 @@ void SelectionDAGISel::LowerArguments(const Function &F) {
     // Elide the copying store if the target loaded this argument from a
     // suitable fixed stack object.
     if (Ins[i].Flags.isCopyElisionCandidate()) {
+      unsigned NumParts = 0;
+      for (EVT VT : ValueVTs)
+        NumParts += TLI->getNumRegistersForCallingConv(*CurDAG->getContext(),
+                                                       F.getCallingConv(), VT);
+
       tryToElideArgumentCopy(*FuncInfo, Chains, ArgCopyElisionFrameIndexMap,
                              ElidedArgCopyInstrs, ArgCopyElisionCandidates, Arg,
-                             InVals[i], ArgHasUses);
+                             ArrayRef(&InVals[i], NumParts), ArgHasUses);
     }
 
     // If this argument is unused then remember its value. It is used to generate

@@ -2,7 +2,6 @@
 ; propagation passes when a pointer is casted to an array and it is used inside
 ; a callback.
 
-; RUN: opt -opaque-pointers=0 -passes=ipsccp -S %s | FileCheck %s --check-prefix NOOPAQUE
 ; RUN: opt -opaque-pointers -passes=ipsccp -S %s | FileCheck %s --check-prefix OPAQUE
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -36,13 +35,9 @@ declare !callback !0 void @broker(i32, void (i8*, ...)*, ...)
 !1 = !{i64 1, i64 -1, i1 true}
 
 ; Check that casting was done correctly
-; NOOPAQUE: define internal void @callback(i8* %ID, [16 x double]* %Arr) {
-; NOOPAQUE: %bc_const = bitcast double* getelementptr inbounds (%TestStruct, %TestStruct* @globVar, i64 0, i32 1, i64 0) to [16 x double]*
-; NOOPAQUE: %dummy = getelementptr [16 x double], [16 x double]* %bc_const, i64 0, i64 0
 ; OPAQUE: define internal void @callback(ptr %ID, ptr %Arr) {
 ; OPAQUE-NOT: bitcast
 
 ; Check that the parameter in the call site for @callback was updated with the
 ; correct type
-; NOOPAQUE: call void (i32, void (i8*, ...)*, ...) @broker(i32 3, void (i8*, ...)* bitcast (void (i8*, [16 x double]*)* @callback to void (i8*, ...)*), double* getelementptr inbounds (%TestStruct, %TestStruct* @globVar, i64 0, i32 1, i64 0))
 ; OPAQUE: call void (i32, ptr, ...) @broker(i32 3, ptr @callback, ptr getelementptr inbounds (%TestStruct, ptr @globVar, i64 0, i32 1, i64 0))

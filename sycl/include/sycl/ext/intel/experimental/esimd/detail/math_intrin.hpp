@@ -590,13 +590,15 @@ __esimd_dpas_inner(const __ESIMD_DNS::vector_type_t<T0, SZ> *src0,
 
       /* INTEL_CUSTOMIZATION */
       /* INTEL_FEATURE_ESIMD_EMBARGO */
-      RLTDoubleType = src1_precision == __ESIMD_ENS::argument_type::df &&
-                      std::is_same_v<RT, double>,
-      RLTDestChecks = src1_precision == src2_precision &&
-                      ((SIMDSize == 8 && RLTDoubleType) ||
-                       (SIMDSize == 16 &&
-                        (src1_precision == __ESIMD_ENS::argument_type::bf8 ||
-                         src1_precision == __ESIMD_ENS::argument_type::hf8))),
+      RLTDoubleType =
+          src1_precision == __ESIMD_XMX_NS::dpas_argument_type::df &&
+          std::is_same_v<RT, double>,
+      RLTDestChecks =
+          src1_precision == src2_precision &&
+          ((SIMDSize == 8 && RLTDoubleType) ||
+           (SIMDSize == 16 &&
+            (src1_precision == __ESIMD_XMX_NS::dpas_argument_type::bf8 ||
+             src1_precision == __ESIMD_XMX_NS::dpas_argument_type::hf8))),
       /* end INTEL_FEATURE_ESIMD_EMBARGO */
       /* end INTEL_CUSTOMIZATION */
 

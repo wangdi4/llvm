@@ -251,7 +251,6 @@ set (SUPPORT_SOURCES
   TimeProfiler.cpp
   Timer.cpp
   ToolOutputFile.cpp
-  TrigramIndex.cpp
   Twine.cpp
   TypeSize.cpp
   Unicode.cpp

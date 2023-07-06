@@ -458,11 +458,11 @@ public:
   /// without having to rewrite the CFG from within InstCombine.
   void CreateNonTerminatorUnreachable(Instruction *InsertAt) {
     auto &Ctx = InsertAt->getContext();
-    new StoreInst(ConstantInt::getTrue(Ctx),
-                  PoisonValue::get(Type::getInt1PtrTy(Ctx)),
-                  InsertAt);
+    auto *SI = new StoreInst(ConstantInt::getTrue(Ctx),
+                             PoisonValue::get(Type::getInt1PtrTy(Ctx)),
+                             /*isVolatile*/ false, Align(1));
+    InsertNewInstBefore(SI, *InsertAt);
   }
-
 
   /// Combiner aware instruction erasure.
   ///
@@ -784,6 +784,10 @@ public:
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   bool tryToSinkInstruction(Instruction *I, BasicBlock *DestBlock);
+
+  bool removeInstructionsBeforeUnreachable(Instruction &I);
+  bool handleUnreachableFrom(Instruction *I);
+  bool handlePotentiallyDeadSuccessors(BasicBlock *BB, BasicBlock *LiveSucc);
 };
 
 class Negator final {

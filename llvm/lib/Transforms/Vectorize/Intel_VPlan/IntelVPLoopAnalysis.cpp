@@ -653,6 +653,8 @@ VPValue *VPLoopEntityList::getReductionIdentity(const VPReduction *Red) const {
     case RecurKind::Udr:
       return Red->getRecurrenceStartValue();
     case RecurKind::None:
+    case RecurKind::FMinimum:
+    case RecurKind::FMaximum:
       llvm_unreachable("Unknown recurrence kind");
     }
   }

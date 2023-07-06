@@ -21,7 +21,7 @@
 ; CHECK-GLOB: define{{.*}}spir_func void @_ZN1A4vfooEv{{.*}} #[[#Attr:]]
 ; CHECK-GLOB: attributes #[[#Attr]] = {{.*}} "openmp-target-declare"="true" "referenced-indirectly"
 
-; CHECK-KERN1: @vcall
+; CHECK-KERN1: @__omp_offloading_805_3c7604__Z4main_l24
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64_gen"
@@ -75,19 +75,6 @@ entry:
   %0 = load i32, i32 addrspace(1)* @count, align 4, !tbaa !10
   %inc = add nsw i32 %0, 1
   store i32 %inc, i32 addrspace(1)* @count, align 4, !tbaa !10
-  ret void
-}
-
-; Function Attrs: mustprogress nounwind
-define protected spir_func void @vcall(%struct.A addrspace(4)* noundef %a) local_unnamed_addr #1 {
-entry:
-  %0 = bitcast %struct.A addrspace(4)* %a to void (%struct.A addrspace(4)*)* addrspace(4)* addrspace(4)*
-  %vtable = load void (%struct.A addrspace(4)*)* addrspace(4)*, void (%struct.A addrspace(4)*)* addrspace(4)* addrspace(4)* %0, align 8, !tbaa !14
-  %1 = load void (%struct.A addrspace(4)*)*, void (%struct.A addrspace(4)*)* addrspace(4)* %vtable, align 8
-  %2 = ptrtoint void (%struct.A addrspace(4)*)* %1 to i64
-  %3 = tail call i8 addrspace(4)* @__kmpc_target_translate_fptr(i64 %2) #6
-  %4 = addrspacecast i8 addrspace(4)* %3 to void (%struct.A addrspace(4)*)*
-  tail call void %4(%struct.A addrspace(4)* %a) #6
   ret void
 }
 

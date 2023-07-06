@@ -548,6 +548,7 @@ BUILTIN(__builtin_finite,   "i.", "Fnct")
 BUILTIN(__builtin_finitef,   "if", "Fnc")
 BUILTIN(__builtin_finitel,   "iLd", "Fnc")
 #endif // INTEL_CUSTOMIZATION
+BUILTIN(__builtin_isfpclass,  "i.", "nctE")
 
 // FP signbit builtins
 BUILTIN(__builtin_signbit, "i.", "Fnct")
@@ -752,6 +753,7 @@ BUILTIN(__builtin_elementwise_log, "v.", "nct")
 BUILTIN(__builtin_elementwise_log2, "v.", "nct")
 BUILTIN(__builtin_elementwise_log10, "v.", "nct")
 BUILTIN(__builtin_elementwise_roundeven, "v.", "nct")
+BUILTIN(__builtin_elementwise_round, "v.", "nct")
 BUILTIN(__builtin_elementwise_sin, "v.", "nct")
 BUILTIN(__builtin_elementwise_trunc, "v.", "nct")
 BUILTIN(__builtin_elementwise_canonicalize, "v.", "nct")

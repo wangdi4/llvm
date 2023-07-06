@@ -36,6 +36,8 @@
 #include "llvm/CodeGen/TargetCallingConv.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/Support/Alignment.h"
+#include <variant>
+#include <vector>
 
 namespace llvm {
 

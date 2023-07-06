@@ -18,9 +18,9 @@ void ivdep1(IV_S* sp)
 
 //CHECK: FunctionDecl{{.*}}tivdep 'void (T *)'
 //CHECK: SYCLIntelIVDepAttr{{.*}}
-//CHECK-NEXT: NULL
 //CHECK-NEXT: MemberExpr{{.*}}arr1
 //CHECK: DeclRefExpr{{.*}}'tsp' 'T *'
+//CHECK-NEXT: NULL
 template <typename T>
 void tivdep(T* tsp)
 {
@@ -216,8 +216,8 @@ int do_stuff(int N) {
   int temp = 0;
   // CHECK: AttributedStmt
   // CHECK-NEXT: SYCLIntelIVDepAttr {{.*}}
-  // CHECK-NEXT: NULL
   // CHECK-NEXT: DeclRefExpr{{.*}}NonTypeTemplateParm{{.*}} 'LEN' 'int'
+  // CHECK-NEXT: NULL
   // CHECK: FunctionDecl{{.*}} do_stuff
   // CHECK-NEXT: TemplateArgument integral 5
   // CHECK: AttributedStmt

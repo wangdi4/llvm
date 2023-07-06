@@ -16439,6 +16439,8 @@ private:
     case RecurKind::UMin:
     case RecurKind::FMax:
     case RecurKind::FMin:
+    case RecurKind::FMaximum:
+    case RecurKind::FMinimum:
       // res = vv
       return VectorizedValue;
     case RecurKind::Mul:
@@ -16446,8 +16448,8 @@ private:
     case RecurKind::FMulAdd:
     case RecurKind::SelectICmp:
     case RecurKind::SelectFCmp:
-    case RecurKind::Udr: // INTEL
     case RecurKind::None:
+    case RecurKind::Udr: // INTEL
       llvm_unreachable("Unexpected reduction kind for repeated scalar.");
     }
     return nullptr;
@@ -16487,6 +16489,8 @@ private:
     case RecurKind::UMin:
     case RecurKind::FMax:
     case RecurKind::FMin:
+    case RecurKind::FMaximum:
+    case RecurKind::FMinimum:
       // No need for multiple min/max(s) of the same value.
       LLVM_DEBUG(dbgs() << "SLP: Max/min of same " << VectorizedValue
                         << ". (HorRdx)\n");
@@ -16534,8 +16538,8 @@ private:
     case RecurKind::FMulAdd:
     case RecurKind::SelectICmp:
     case RecurKind::SelectFCmp:
-    case RecurKind::Udr: // INTEL
     case RecurKind::None:
+    case RecurKind::Udr: // INTEL
       llvm_unreachable("Unexpected reduction kind for reused scalars.");
     }
     return nullptr;

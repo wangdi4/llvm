@@ -286,7 +286,7 @@ The LLVM IR for this coroutine looks like this:
 .. INTEL_CUSTOMIZATION changed llvm to none to work around sphinx version error.
 .. code-block:: none
 
-  define i8* @f(i32 %n) {
+  define i8* @f(i32 %n) presplitcoroutine {
   entry:
     %id = call token @llvm.coro.id(i32 0, i8* null, i8* null, i8* null)
     %size = call i32 @llvm.coro.size.i32()
