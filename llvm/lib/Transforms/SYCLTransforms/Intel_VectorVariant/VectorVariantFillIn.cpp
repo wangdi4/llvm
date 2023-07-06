@@ -81,6 +81,12 @@ bool VectorVariantFillIn::runImpl(Module &M) {
         size_t PosEnd = Var.find(')');
         assert(PosBegin != StringRef::npos && PosEnd != StringRef::npos &&
                "Expecting brackets in vector_function_ptrs attribute");
+        // Skip empty vector variant string for vector_function_ptrs attribute,
+        // e.g., "vector_function_ptrs"="_Z1fi$SIMDTable()".
+        if (PosBegin + 1 == PosEnd) {
+          Var = Var.slice(PosEnd + 1, Var.size());
+          continue;
+        }
 
         StringRef VarName = Var.slice(0, PosBegin);
         StringRef VariantsStr = Var.slice(PosBegin + 1, PosEnd);
