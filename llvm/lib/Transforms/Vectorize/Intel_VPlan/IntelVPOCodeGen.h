@@ -776,10 +776,6 @@ private:
   /// vectorized loops. This ensures loop's LocRange info is not lost.
   void preserveLoopIDDbgMDs();
 
-  /// Return a guaranteed peeling variant. Null is returned if we are not sure
-  /// that the peel loop will be executed at run-time.
-  VPlanPeelingVariant *getGuaranteedPeeling() const;
-
   /// Erase VPO.GUARD.MEM.MOTION directives from outgoing scalar loops. These
   /// directives were inserted by Paropt for vectorizer, so we should not
   /// preserve them after VPlan codegen.
