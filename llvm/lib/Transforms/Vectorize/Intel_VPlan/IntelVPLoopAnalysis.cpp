@@ -1784,10 +1784,13 @@ void VPLoopEntityList::replaceUsesOfExtDefWithMemoryAliases(
   // Now do the replacement of aliases. We first replace all instances of
   // VPOperand with VPInst within the preheader, where all aliases have been
   // inserted. Then replace all instances of VPOperand with VPInst in the loop.
+  LLVM_DEBUG(dbgs() << "Aliases:\n");
   for (auto const &ValInstPair : Entity->aliases()) {
     auto *VPOperand = ValInstPair.first;
     const Instruction *Inst = ValInstPair.second.second;
     VPInstruction *VPInst = ValInstPair.second.first;
+    LLVM_DEBUG(VPOperand->dump(); Inst->dump(); VPInst->dump();
+               dbgs() << "\n";);
     if (AddedAliasInstrs.find(Inst) != AddedAliasInstrs.end()) {
       VPOperand->replaceAllUsesWithInBlock(VPInst, *Preheader);
       VPOperand->replaceAllUsesWithInLoop(VPInst, Loop);
@@ -2522,8 +2525,11 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
       LLVM_DEBUG(dbgs() << "Replacing all instances of {" << AI << "} with "
                         << *PrivateMem << "\n");
 
-    // Handle aliases in two passes.
-    insertEntityMemoryAliases(Private, Preheader, AddedAliasInstrs, Builder);
+    if (!isa<VPPrivateF90DV>(Private)) {
+      // Handle aliases in two passes. In case private is F90_DV we need to
+      // handle aliases after f90-dv-buffer-init is called.
+      insertEntityMemoryAliases(Private, Preheader, AddedAliasInstrs, Builder);
+    }
 
     if (PrivateMem) {
       // The uses of this allocate-private could also be instruction outside
@@ -2679,6 +2685,23 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
           ".priv_f90_init", Type::getVoidTy(*Plan.getLLVMContext()),
           ArrayRef<VPValue *>{VPInitF90Call, PrivateMem},
           PrivateF90DV->getF90DVElementType());
+      // Handle aliases in two passes. We need to call it after
+      // f90-dv-buffer-init is called, so we won't be reading from uninitialized
+      // memory.
+      insertEntityMemoryAliases(Private, Preheader, AddedAliasInstrs, Builder);
+
+      // We are populating PrivateMem while creating F90DVBufferInit call and
+      // now we need to re-reun replacing of the aliases.
+      auto ShouldReplace = [&Preheader, &i8AI](VPUser *User) {
+        if (VPInstruction *I = dyn_cast<VPInstruction>(User)) {
+          if (I == i8AI)
+            return false;
+          return I->getParent() == Preheader;
+        }
+        return false;
+      };
+      AI->replaceUsesWithIf(PrivateMem, ShouldReplace, true /* InvalidateIR */);
+      AI->replaceAllUsesWithInLoop(PrivateMem, Loop);
 
       // Emit StackRestore only single time
       if (!GeneratedSSForDV) {
