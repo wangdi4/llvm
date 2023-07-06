@@ -6,12 +6,9 @@
 #
 ##===----------------------------------------------------------------------===##
 #
-# Build a plugin for a x86_64 machine if available.
+# Common parts which can be used by all plugins
 #
 ##===----------------------------------------------------------------------===##
 
-if(CMAKE_SYSTEM_NAME MATCHES "Linux")
-  build_generic_elf64_nextgen("x86_64" "x86_64" "x86_64" "x86_64-pc-linux-gnu" "62")
-else()
- libomptarget_say("Not building x86_64 NextGen offloading plugin: machine not found in the system.")
-endif()
+add_subdirectory(elf_common)
+add_subdirectory(MemoryManager)
