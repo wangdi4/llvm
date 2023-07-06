@@ -936,13 +936,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
 #endif // INTEL_FEATURE_ISA_AVX256P
     break;
 #endif // INTEL_CUSTOMIZATION
-#if !INTEL_CUSTOMIZATION
   case CK_KNL:
     defineCPUMacros(Builder, "knl");
     break;
   case CK_KNM:
     break;
-#endif // !INTEL_CUSTOMIZATION
   case CK_Lakemont:
     defineCPUMacros(Builder, "i586", /*Tuning*/false);
     defineCPUMacros(Builder, "pentium", /*Tuning*/false);
@@ -2647,10 +2645,8 @@ std::optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
     case CK_Grandridge:
     case CK_Graniterapids:
     case CK_Emeraldrapids:
-#if !INTEL_CUSTOMIZATION
     case CK_KNL:
     case CK_KNM:
-#endif // !INTEL_CUSTOMIZATION
     // K7
     case CK_Athlon:
     case CK_AthlonXP:

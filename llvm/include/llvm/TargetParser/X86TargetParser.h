@@ -147,10 +147,8 @@ enum CPUKind {
   CK_Grandridge,
   CK_Graniterapids,
   CK_Emeraldrapids,
-#if !INTEL_CUSTOMIZATION
   CK_KNL,
   CK_KNM,
-#endif // !INTEL_CUSTOMIZATION
   CK_Lakemont,
   CK_K6,
   CK_K6_2,

@@ -65,20 +65,20 @@ class X86VecABITest : public testing::Test {};
 TEST_F(X86VecABITest, testX86VecABIInfo) {
   X86ABITestData Array[] = {
       {"core_i7_sse4_2", "core_i7_sse4_2", 'x', 'b', 16, 16},
-      {"corei7", "core_i7_sse4_2", 'x', 'b', 16, 16},
+      {"corei7", "corei7", 'x', 'b', 16, 16},
       {"ivybridge", "ivybridge", 'y', 'c', 16, 32},
-      {"core-avx-i", "ivybridge", 'y', 'c', 16, 32},
+      {"core-avx-i", "core-avx-i", 'y', 'c', 16, 32},
       {"sandybridge", "sandybridge", 'y', 'c', 16, 32},
-      {"core_2nd_gen_avx", "sandybridge", 'y', 'c', 16, 32},
+      {"core_2nd_gen_avx", "core_2nd_gen_avx", 'y', 'c', 16, 32},
       {"haswell", "haswell", 'Y', 'd', 32, 32},
-      {"core-avx2", "haswell", 'Y', 'd', 32, 32},
-      {"core_4th_gen_avx", "haswell", 'Y', 'd', 32, 32},
-      {"core_5th_gen_avx", "broadwell", 'Y', 'd', 32, 32},
+      {"core-avx2", "core-avx2", 'Y', 'd', 32, 32},
+      {"core_4th_gen_avx", "core_4th_gen_avx", 'Y', 'd', 32, 32},
+      {"core_5th_gen_avx", "core_5th_gen_avx", 'Y', 'd', 32, 32},
       {"common-avx512", "common-avx512", 'Z', 'e', 64, 64},
       {"skylake_avx512", "skylake_avx512", 'Z', 'e', 64, 64},
-      {"skylake-avx512", "skylake_avx512", 'Z', 'e', 64, 64},
+      {"skylake-avx512", "skylake-avx512", 'Z', 'e', 64, 64},
       {"sapphirerapids", "sapphirerapids", 'Z', 'e', 64, 64},
-      {"graniterapids", "sapphirerapids", 'Z', 'e', 64, 64}};
+      {"graniterapids", "graniterapids", 'Z', 'e', 64, 64}};
 
   for (auto &R : Array) {
     EXPECT_EQ(testVecABIInfo(R), true);
