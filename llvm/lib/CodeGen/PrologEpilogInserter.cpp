@@ -393,8 +393,8 @@ void PEI::calculateCallFrameInfo(MachineFunction &MF) {
       }
 
   assert(!MFI.isMaxCallFrameSizeComputed() ||
-         (MFI.getMaxCallFrameSize() == MaxCallFrameSize &&
-          MFI.adjustsStack() == AdjustsStack));
+         (MFI.getMaxCallFrameSize() >= MaxCallFrameSize &&
+          !(AdjustsStack && !MFI.adjustsStack())));
   MFI.setAdjustsStack(AdjustsStack);
   MFI.setMaxCallFrameSize(MaxCallFrameSize);
 

@@ -10725,7 +10725,8 @@ QualType Sema::DeduceTemplateSpecializationFromInitializer(
               ElementTypes[I] = Context.getRValueReferenceType(ElementTypes[I]);
             else if (isa<StringLiteral>(
                          ListInit->getInit(I)->IgnoreParenImpCasts()))
-              ElementTypes[I] = Context.getLValueReferenceType(ElementTypes[I]);
+              ElementTypes[I] =
+                  Context.getLValueReferenceType(ElementTypes[I].withConst());
           }
 
         llvm::FoldingSetNodeID ID;
