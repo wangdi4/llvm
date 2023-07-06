@@ -713,6 +713,9 @@ const DenseMap<AuxRemarkID, const char *> OptReportAuxDiag::AuxDiags = {
      "Cannot support more than one multiple-exit loop."},
     {AuxRemarkID::OuterLoopVecUnsupported,
      "Outer loop vectorization is not supported."},
+    {AuxRemarkID::DivergentBranchDisabled,
+     "The loop contains a divergent conditional branch, and the user has "
+     "suppressed vectorization of such loops."},
 };
 
 const char *OptReportAuxDiag::getMsg(AuxRemarkID Id) {
