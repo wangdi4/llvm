@@ -251,7 +251,8 @@ protected:
   PlainCFGBuilder &Builder;
 
   bool AliasesWithinLoopImpl(Instruction *Inst,
-                             SmallPtrSetImpl<Value *> &Visited) {
+                             SmallPtrSetImpl<Value *> &Visited,
+                             bool IsF90DV = false) {
     // Here we use \p Visited to avoid infinite loop on reference-cycles. E.g.,
     //    %0 = phi i1 [ %1, ... ], ...
     //    %1 = phi i1 [ %0, ... ], ...
@@ -260,22 +261,25 @@ protected:
 
     return llvm::any_of(Inst->users(), [&](Value *User) {
       Instruction *Inst = cast<Instruction>(User);
-      return Builder.contains(Inst) || (isTrivialPointerAliasingInst(Inst) &&
-                                        AliasesWithinLoopImpl(Inst, Visited));
+      return Builder.contains(Inst) ||
+             ((isTrivialPointerAliasingInst(Inst) ||
+               (IsF90DV && isa<LoadInst>(Inst))) &&
+              AliasesWithinLoopImpl(Inst, Visited, IsF90DV));
     });
   }
 
   // Helper to recursively evaluate if there is any user of an alias \p Inst or
   // any user of nested aliases *based on* this alias is inside the loop-region.
-  bool AliasesWithinLoop(Instruction *Inst) {
+  bool AliasesWithinLoop(Instruction *Inst, bool IsF90DV = false) {
     SmallPtrSet<Value *, 8> Visited;
-    return AliasesWithinLoopImpl(Inst, Visited);
+    return AliasesWithinLoopImpl(Inst, Visited, IsF90DV);
   }
 
   // This method collects aliases that lie outside the loop-region. We are not
   // concerned with aliases within the loop as they would be acquired
   // when required (e.g., escape analysis).
-  void collectMemoryAliases(VPEntityImportDescr &Descriptor, Value *Alloca) {
+  void collectMemoryAliases(VPEntityImportDescr &Descriptor, Value *Alloca,
+                            bool IsF90DV = false) {
     SetVector<Value *> WorkList;
     SmallPtrSet<const User *, 4> Visited;
 
@@ -300,8 +304,9 @@ protected:
         Visited.insert(Use);
         Instruction *Inst = cast<Instruction>(Use);
 
-        if ((isTrivialPointerAliasingInst(Inst) || isa<PtrToIntInst>(Inst)) &&
-            AliasesWithinLoop(Inst)) {
+        if ((isTrivialPointerAliasingInst(Inst) || isa<PtrToIntInst>(Inst) ||
+             (IsF90DV && isa<LoadInst>(Inst))) &&
+            AliasesWithinLoop(Inst, IsF90DV)) {
           auto *NewVPOperand = Builder.getOrCreateVPOperand(Inst);
           assert((isa<VPExternalDef>(NewVPOperand) ||
                   isa<VPInstruction>(NewVPOperand)) &&
@@ -602,7 +607,8 @@ public:
     // TODO: This is a temporary solution. Aliases to the private descriptor
     // should be collected earlier with new descriptor representation in
     // VPOLegality.
-    collectMemoryAliases(Descriptor, RefVal);
+    collectMemoryAliases(Descriptor, RefVal,
+                         !CurValue->isNonPOD() && CurValue->isF90());
 
     Descriptor.setAllocaInst(VPAllocaVal);
     Descriptor.setIsConditional(CurValue->isCond());
