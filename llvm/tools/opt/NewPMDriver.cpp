@@ -344,7 +344,6 @@ static void registerEPCallbacks(PassBuilder &PB) {
   llvm::PassPluginLibraryInfo get##Ext##PluginInfo();
 #include "llvm/Support/Extension.def"
 
-<<<<<<< HEAD
 bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
                            TargetLibraryInfoImpl *TLII, ToolOutputFile *Out,
                            ToolOutputFile *ThinLTOLinkOut,
@@ -355,18 +354,8 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
                            bool ShouldPreserveAssemblyUseListOrder,
                            bool ShouldPreserveBitcodeUseListOrder,
                            bool EmitSummaryIndex, bool EmitModuleHash,
-                           bool EnableDebugify, bool VerifyDIPreserve) {
-=======
-bool llvm::runPassPipeline(
-    StringRef Arg0, Module &M, TargetMachine *TM, TargetLibraryInfoImpl *TLII,
-    ToolOutputFile *Out, ToolOutputFile *ThinLTOLinkOut,
-    ToolOutputFile *OptRemarkFile, StringRef PassPipeline,
-    ArrayRef<PassPlugin> PassPlugins, OutputKind OK, VerifierKind VK,
-    bool ShouldPreserveAssemblyUseListOrder,
-    bool ShouldPreserveBitcodeUseListOrder, bool EmitSummaryIndex,
-    bool EmitModuleHash, bool EnableDebugify, bool VerifyDIPreserve,
-    bool UnifiedLTO) {
->>>>>>> a1ca3af31eeec61cfb9d619f55b655b0eb0b9494
+                           bool EnableDebugify, bool VerifyDIPreserve,
+                           bool UnifiedLTO) {
   bool VerifyEachPass = VK == VK_VerifyEachPass;
 
   auto FS = vfs::getRealFileSystem();
@@ -451,13 +440,13 @@ bool llvm::runPassPipeline(
   // to false above so we shouldn't necessarily need to check whether or not the
   // option has been enabled.
   PTO.LoopUnrolling = !DisableLoopUnrolling;
-<<<<<<< HEAD
+
 #if INTEL_CUSTOMIZATION
   PTO.DisableIntelProprietaryOpts = DisableIntelProprietaryOpts;
 #endif // INTEL_CUSTOMIZATION
-=======
+
   PTO.UnifiedLTO = UnifiedLTO;
->>>>>>> a1ca3af31eeec61cfb9d619f55b655b0eb0b9494
+
   PassBuilder PB(TM, PTO, P, &PIC);
   registerEPCallbacks(PB);
 
