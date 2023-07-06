@@ -67,13 +67,19 @@ void printPasses(raw_ostream &OS);
 bool runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
                      TargetLibraryInfoImpl *TLII, ToolOutputFile *Out,
                      ToolOutputFile *ThinLinkOut, ToolOutputFile *OptRemarkFile,
+<<<<<<< HEAD
                      StringRef PassPipeline, ArrayRef<StringRef> PassInfos, // INTEL
                      ArrayRef<PassPlugin> PassPlugins, opt_tool::OutputKind OK,
                      opt_tool::VerifierKind VK,
+=======
+                     StringRef PassPipeline, ArrayRef<PassPlugin> PassPlugins,
+                     opt_tool::OutputKind OK, opt_tool::VerifierKind VK,
+>>>>>>> a1ca3af31eeec61cfb9d619f55b655b0eb0b9494
                      bool ShouldPreserveAssemblyUseListOrder,
                      bool ShouldPreserveBitcodeUseListOrder,
                      bool EmitSummaryIndex, bool EmitModuleHash,
-                     bool EnableDebugify, bool VerifyDIPreserve);
+                     bool EnableDebugify, bool VerifyDIPreserve,
+                     bool UnifiedLTO = false);
 } // namespace llvm
 
 #endif

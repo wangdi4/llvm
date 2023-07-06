@@ -637,8 +637,12 @@ PipelineTuningOptions::PipelineTuningOptions() {
   LicmMssaOptCap = SetLicmMssaOptCap;
   LicmMssaNoAccForPromotionCap = SetLicmMssaNoAccForPromotionCap;
   CallGraphProfile = true;
+<<<<<<< HEAD
   DisableIntelProprietaryOpts = false; // INTEL
   EnableAutoCPUDispatch = EnableAX;    // INTEL
+=======
+  UnifiedLTO = false;
+>>>>>>> a1ca3af31eeec61cfb9d619f55b655b0eb0b9494
   MergeFunctions = EnableMergeFunctions;
   InlinerThreshold = -1;
   EagerlyInvalidateAnalyses = EnableEagerlyInvalidateAnalyses;
