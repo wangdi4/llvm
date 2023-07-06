@@ -246,6 +246,15 @@ void Compiler::InitGlobalState(const IGlobalCompilerConfig &config) {
 
   Optimizer::initOptimizerOptions();
 
+  // Disable unrolling with runtime trip count. It is harmful for
+  // sycl_benchmarks/dnnbench-pooling.
+  // TODO optimizer enables runtime unroll when RTLoopUnrollFactor > 1.
+  Args.push_back("-unroll-runtime=false");
+
+  // inline threshold is not exposed by standard new pass manager
+  // pipeline, so we have to set threshold globally here.
+  Args.push_back("-inline-threshold=16384");
+
   // Handle CL_CONFIG_LLVM_OPTIONS at the end so that it can pass an option to
   // overturn a previously added option.
   std::vector<std::string> LastOptions;
@@ -268,8 +277,7 @@ void Compiler::InitGlobalState(const IGlobalCompilerConfig &config) {
 /// Commandline setting should be eventually moved into
 /// Compiler::InitGlobalState once we switch to LTO pipeline.
 static void
-applyBuildProgramLLVMOptions(PassManagerType PMType,
-                             const Intel::OpenCL::Utils::CPUDetect *CPUId) {
+applyBuildProgramLLVMOptions(const Intel::OpenCL::Utils::CPUDetect *CPUId) {
   SmallVector<const char *, 8> Args;
   Args.push_back("Compiler");
 
@@ -281,16 +289,6 @@ applyBuildProgramLLVMOptions(PassManagerType PMType,
          : CPUId->HasAVX1()     ? "AVX1"
                                 : "SSE42";
   Args.push_back(ISA.c_str());
-
-  if (PMType == PM_LTO) {
-    // Disable unrolling with runtime trip count. It is harmful for
-    // sycl_benchmarks/dnnbench-pooling.
-    Args.push_back("-unroll-runtime=false");
-
-    // inline threshold is not exposed by standard new pass manager
-    // pipeline, so we have to set threshold globally here.
-    Args.push_back("-inline-threshold=16384");
-  }
 
   Args.push_back(nullptr);
   cl::ParseCommandLineOptions(Args.size() - 1, Args.data());
@@ -385,7 +383,7 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
   m_disableOptimization = buildOptions.GetDisableOpt();
   m_useNativeDebugger = buildOptions.GetUseNativeDebuggerFlag();
 
-  applyBuildProgramLLVMOptions(m_passManagerType, m_CpuId);
+  applyBuildProgramLLVMOptions(m_CpuId);
 
   materializeSpirTriple(pModule);
 
