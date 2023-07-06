@@ -128,10 +128,7 @@ TEST_F(CodeCoverageTest, GCOVTestJIT) {
       << "gcod data should not be empty\n";
 }
 
-// FIXME: The test random failed recently, temporarily disable it to unlock
-// pre-ci.
-// JIRA: CMPLRLLVM-48835
-TEST_F(CodeCoverageTest, DISABLED_GCOVTestAOT) {
+TEST_F(CodeCoverageTest, GCOVTestAOT) {
   cl_int err;
 
   std::vector<unsigned char> binary;
