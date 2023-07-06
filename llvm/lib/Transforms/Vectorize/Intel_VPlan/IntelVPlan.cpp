@@ -406,6 +406,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "f90-dv-buffer-init";
   case VPInstruction::EarlyExitCond:
     return "early-exit-cond";
+  case VPInstruction::EarlyExitExecMask:
+    return "early-exit-exec-mask";
   default:
     return Instruction::getOpcodeName(Opcode);
   }

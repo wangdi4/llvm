@@ -646,7 +646,8 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
   case VPInstruction::ConstStepVector:
   case VPInstruction::Abs:
   case VPInstruction::F90DVBufferInit:
-  case VPInstruction::EarlyExitCond: {
+  case VPInstruction::EarlyExitCond:
+  case VPInstruction::EarlyExitExecMask: {
     // VPlan-specific instructions that don't need special processing in SVA.
     return false;
   }

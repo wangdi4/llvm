@@ -725,9 +725,11 @@ public:
                                // signature. (e.g. sincos)
     SOAExtractValue,           // Like LLVM extract value, but specialized for
                                // when we know the aggregate is in SOA layout
-    F90DVBufferInit, // Lowered into set of instructions required for F90_DV
-                     // private initialization
-    EarlyExitCond,   // Capture CondBit that leads to early-exit from loop.
+    F90DVBufferInit,   // Lowered into set of instructions required for F90_DV
+                       // private initialization
+    EarlyExitCond,     // Capture CondBit that leads to early-exit from loop.
+    EarlyExitExecMask, // Represent mask to track executable lanes of early-exit
+                       // loop body.
   };
 
 private:
@@ -5196,6 +5198,32 @@ public:
 
   VPEarlyExitCond *cloneImpl() const override {
     return new VPEarlyExitCond(getOperand(0));
+  }
+};
+
+// Instruction to represent the mask that indicates which lanes are executed in
+// an early-exit loop's body. It identifies all the lanes before the first lane
+// in which the early-exit condition is true.
+class VPEarlyExitExecMask final : public VPInstruction {
+public:
+  VPEarlyExitExecMask(VPValue *Cond)
+      : VPInstruction(VPInstruction::EarlyExitExecMask,
+                      Type::getInt1Ty(Cond->getType()->getContext()), {Cond}) {
+    assert(Cond->getType()->isIntegerTy(1 /*BitWidth*/) &&
+           "Condition-bit operand expected to be i1 type.");
+  }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::EarlyExitExecMask;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPEarlyExitExecMask *cloneImpl() const override {
+    return new VPEarlyExitExecMask(getOperand(0));
   }
 };
 
