@@ -1,5 +1,5 @@
 diff --git a/hwloc/topology-linux.c b/hwloc/topology-linux.c
-index b3e5d3534..2f8ff23c8 100644
+index b3e5d3534..7bd67f1fa 100644
 --- a/hwloc/topology-linux.c
 +++ b/hwloc/topology-linux.c
 @@ -4838,6 +4838,7 @@ look_sysfscpu(struct hwloc_topology *topology,
@@ -19,6 +19,18 @@ index b3e5d3534..2f8ff23c8 100644
    } hwloc_bitmap_foreach_end();
  
    hwloc_bitmap_free(cpuset);
+@@ -6889,7 +6890,10 @@ hwloc_linuxfs_pci_look_pcidevices(struct hwloc_backend *backend)
+     memset(config_space_cache, 0xff, CONFIG_SPACE_CACHESIZE);
+     err = snprintf(path, sizeof(path), "/sys/bus/pci/devices/%s/config", dirent->d_name);
+     if ((size_t) err < sizeof(path)) {
+-      hwloc_read_path_by_length(path, (char *) config_space_cache, sizeof(config_space_cache), root_fd);
++      if(hwloc_read_path_by_length(path, (char *) config_space_cache, sizeof(config_space_cache), root_fd) <= 0){
++        errno = ENOSYS;
++        return 0;
++      }
+       /* we have CONFIG_SPACE_CACHESIZE bytes + the ending \0 */
+     }
+ 
 diff --git a/hwloc/topology-windows.c b/hwloc/topology-windows.c
 index 20b617a9b..594a64e55 100644
 --- a/hwloc/topology-windows.c
