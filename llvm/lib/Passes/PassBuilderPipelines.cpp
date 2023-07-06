@@ -639,6 +639,7 @@ PipelineTuningOptions::PipelineTuningOptions() {
   CallGraphProfile = true;
   DisableIntelProprietaryOpts = false; // INTEL
   EnableAutoCPUDispatch = EnableAX;    // INTEL
+  UnifiedLTO = false;
   MergeFunctions = EnableMergeFunctions;
   InlinerThreshold = -1;
   EagerlyInvalidateAnalyses = EnableEagerlyInvalidateAnalyses;
