@@ -5822,12 +5822,23 @@ public:
     PreferredPeelingMap[VF] = std::move(Peeling);
   }
 
-  /// Returns preferred peeling or nullptr.
+  /// \Returns the preferred peeling for the given \p VF, or nullptr if none was
+  /// selected. The term 'preferred' here indicates that while the peeling was
+  /// selected, it is not guaranteed to execute before the main loop.
   VPlanPeelingVariant *getPreferredPeeling(unsigned VF) const {
     auto Iter = PreferredPeelingMap.find(VF);
     if (Iter == PreferredPeelingMap.end())
       return nullptr;
     return Iter->second.get();
+  }
+
+  /// \Returns the guaranteed peeling for the given \p VF, or nullptr if none
+  /// was selected or we cannot guarantee it will execute before the main loop.
+  VPlanPeelingVariant *getGuaranteedPeeling(unsigned VF) const {
+    auto *Peeling = getPreferredPeeling(VF);
+    if (!Peeling || !Peeling->isGuaranteedToExecuteBeforeMainLoop())
+      return nullptr;
+    return Peeling;
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
