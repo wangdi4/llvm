@@ -32,6 +32,7 @@
 #include "IntelVPlanLoopExitCanonicalization.h"
 #include "IntelVPlanPatternMatch.h"
 #include "IntelVPlanPredicator.h"
+#include "IntelVPlanTransformEarlyExitLoop.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVConflictTransformation.h"
 #include "Intel_VPlan/IntelVPTransformLibraryCalls.h"
@@ -772,6 +773,13 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(
   exchangeExclusiveScanLoopInputScanPhases(Plan.get());
 
   printAndVerifyAfterInitialTransforms(Plan.get());
+
+  // Transformation to massage early-exit loops and explicitly track execution
+  // mask and early-exit lane.
+  if (Plan->isEarlyExitLoop()) {
+    VPTransformEarlyExitLoop VPEETransform(*Plan.get());
+    VPEETransform.transform();
+  }
 
   // Populate initial VPlan analyses (e.g. VPlanValueTracking) to ensure
   // they are available when computing DA.

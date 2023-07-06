@@ -1738,6 +1738,8 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getRandomVectorShape();
   else if (Opcode == VPInstruction::EarlyExitCond)
     NewShape = getObservedShape(ParentBB, *(I->getOperand(0)));
+  else if (Opcode == VPInstruction::EarlyExitExecMask)
+    NewShape = getObservedShape(ParentBB, *(I->getOperand(0)));
   else {
     LLVM_DEBUG(dbgs() << "Instruction not supported: " << *I);
     NewShape = getRandomVectorShape();
