@@ -129,8 +129,6 @@ add_subdirectory(cuda)
 add_subdirectory(ppc64)
 add_subdirectory(ppc64le)
 add_subdirectory(x86_64)
-<<<<<<< HEAD
-add_subdirectory(remote)
 endif(INTEL_CUSTOMIZATION)
 
 if(INTEL_CUSTOMIZATION)
@@ -151,8 +149,6 @@ if(LIBOMPTARGET_UNIFIED_RUNTIME_BUILD)
 endif()
 # end INTEL_CUSTOMIZATION
 endif(INTEL_COLLAB)
-=======
->>>>>>> 70c08dbcfb8eacb1a8901fd6fdbd6d3192749d0a
 
 # Make sure the parent scope can see the plugins that will be created.
 set(LIBOMPTARGET_SYSTEM_TARGETS "${LIBOMPTARGET_SYSTEM_TARGETS}" PARENT_SCOPE)

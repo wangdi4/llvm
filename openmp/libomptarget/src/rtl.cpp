@@ -92,11 +92,7 @@ static const char *RTLNames[] = {
     /* CUDA target          */ "libomptarget.rtl.cuda",
     /* AArch64 target       */ "libomptarget.rtl.aarch64",
     /* AMDGPU target        */ "libomptarget.rtl.amdgpu",
-<<<<<<< HEAD
-    /* Remote target        */ "libomptarget.rtl.rpc",
 #endif  // INTEL_COLLAB
-=======
->>>>>>> 70c08dbcfb8eacb1a8901fd6fdbd6d3192749d0a
 };
 
 PluginManager *PM;
