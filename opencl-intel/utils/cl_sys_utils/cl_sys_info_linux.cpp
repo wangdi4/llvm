@@ -189,8 +189,7 @@ void Intel::OpenCL::Utils::GetModuleDirectoryImp(const void *addr,
 std::string Intel::OpenCL::Utils::GetClangRuntimePath() {
   char ModuleName[MAX_PATH];
   GetModuleDirectory(ModuleName, MAX_PATH);
-  std::string BaseLibDir =
-      std::string(path::parent_path(path::parent_path(ModuleName)));
+  std::string BaseLibDir = std::string(path::parent_path(ModuleName));
 
   SmallString<128> P(BaseLibDir);
 
@@ -368,8 +367,8 @@ std::map<int, int> Intel::OpenCL::Utils::GetProcessorToSocketMap() {
     Expected<fs::file_t> FD = fs::openNativeFileForRead(PhysicalIdFile);
     if (!FD)
       assert(false && toString(FD.takeError()).c_str());
-    if (Expected<size_t> BytesRead = fs::readNativeFile(
-            *FD, MutableArrayRef(&*Buf.begin(), Buf.size())))
+    if (Expected<size_t> BytesRead =
+            fs::readNativeFile(*FD, MutableArrayRef(&*Buf.begin(), Buf.size())))
       Buf = Buf.substr(0, *BytesRead);
     else
       assert(false && toString(BytesRead.takeError()).c_str());
