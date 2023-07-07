@@ -82,12 +82,11 @@ public:
   // is used to uniquify them.
   llvm::DenseMap<llvm::CachedHashStringRef, const InputFile *> comdatGroups;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Maps the section name referred to ".gnu.linkonce." to a file
   llvm::DenseMap<llvm::CachedHashStringRef, const InputFile *> gnuLinkOnceGroups;
 #endif // INTEL_CUSTOMIZATION
-=======
+
   // The Map of __acle_se_<sym>, <sym> pairs found in the input objects.
   // Key is the <sym> name.
   llvm::SmallMapVector<StringRef, ArmCmseEntryFunction, 1> cmseSymMap;
@@ -99,7 +98,6 @@ public:
   // True if <sym> from the input Arm CMSE import library is written to the
   // output Arm CMSE import library.
   llvm::StringMap<bool> inCMSEOutImpLib;
->>>>>>> 9acbab60e59183e04741060984cb684163a73460
 
 private:
   SmallVector<Symbol *, 0> findByVersion(SymbolVersion ver);
