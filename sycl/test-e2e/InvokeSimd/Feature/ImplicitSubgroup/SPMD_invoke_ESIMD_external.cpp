@@ -1,3 +1,5 @@
+// TODO: Temporarily disabled due to GPU hanging.
+// UNSUPPORTED: gpu
 // TODO: enable when Jira ticket resolved
 // XFAIL: gpu
 //
