@@ -2035,6 +2035,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   // user pragmas (like unroller & vectorizer) are triggered in LTO link phase.
   if (!PrepareForLTO)
     FPM.addPass(WarnMissedTransformationsPass());
+<<<<<<< HEAD
   // Now that we are done with loop unrolling, be it either by LoopVectorizer,
   // or LoopUnroll passes, some variable-offset GEP's into alloca's could have
   // become constant-offset, thus enabling SROA and alloca promotion. Do so.
@@ -2053,11 +2054,34 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
         LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
                  /*AllowSpeculation=*/true),
         /*UseMemorySSA=*/true, /*UseBlockFrequencyInfo=*/false));
+=======
+    // Now that we are done with loop unrolling, be it either by LoopVectorizer,
+    // or LoopUnroll passes, some variable-offset GEP's into alloca's could have
+    // become constant-offset, thus enabling SROA and alloca promotion. Do so.
+    // NOTE: we are very late in the pipeline, and we don't have any LICM
+    // or SimplifyCFG passes scheduled after us, that would cleanup
+    // the CFG mess this may created if allowed to modify CFG, so forbid that.
+    FPM.addPass(SROAPass(SROAOptions::PreserveCFG));
+>>>>>>> 905083f3c1a6c8dada42ad1c68553fa639f22859
   }
+
+  FPM.addPass(InstCombinePass());
+
+  // This is needed for two reasons:
+  //   1. It works around problems that instcombine introduces, such as sinking
+  //      expensive FP divides into loops containing multiplications using the
+  //      divide result.
+  //   2. It helps to clean up some loop-invariant code created by the loop
+  //      unroll pass when IsFullLTO=false.
+  FPM.addPass(createFunctionToLoopPassAdaptor(
+      LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
+               /*AllowSpeculation=*/true),
+      /*UseMemorySSA=*/true, /*UseBlockFrequencyInfo=*/false));
 
   // Now that we've vectorized and unrolled loops, we may have more refined
   // alignment information, try to re-derive it here.
   FPM.addPass(AlignmentFromAssumptionsPass());
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
   if (IsFullLTO) {
@@ -2071,6 +2095,8 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
                        true /* EnableCanonicalizeSwap */);
   }
 #endif // INTEL_CUSTOMIZATOIN
+=======
+>>>>>>> 905083f3c1a6c8dada42ad1c68553fa639f22859
 }
 
 #if INTEL_COLLAB
