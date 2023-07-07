@@ -347,17 +347,15 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
   } else if (Size) {
     // If it is not contained and Size > 0, we should create a new entry for it.
     LR.TPR.Flags.IsNewEntry = true;
-
-    uintptr_t TgtAllocBegin =
-        (uintptr_t)allocData(TgtPadding + Size, HstPtrBegin);
 #if INTEL_COLLAB
     int32_t AllocOpt = UseHostMem ? ALLOC_OPT_HOST_MEM : ALLOC_OPT_NONE;
-    uintptr_t TgtPtrBegin = (uintptr_t)dataAllocBase(Size, HstPtrBegin, HstPtrBase,
-                                             AllocOpt);
+    uintptr_t TgtAllocBegin = (uintptr_t)dataAllocBase(
+        TgtPadding + Size, HstPtrBegin, HstPtrBase, AllocOpt);
 #else  // INTEL_COLLAB
-    uintptr_t TgtPtrBegin = TgtAllocBegin + TgtPadding;
+    uintptr_t TgtAllocBegin =
+        (uintptr_t)allocData(TgtPadding + Size, HstPtrBegin);
 #endif // INTEL_COLLAB
-
+    uintptr_t TgtPtrBegin = TgtAllocBegin + TgtPadding;
     // Release the mapping table lock only after the entry is locked by
     // attaching it to TPR.
     LR.TPR.setEntry(HDTTMap
