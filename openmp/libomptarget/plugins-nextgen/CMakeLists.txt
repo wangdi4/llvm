@@ -73,8 +73,18 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
       ${LIBOMPTARGET_INCLUDE_DIR}
       ${LIBOMPTARGET_DEP_LIBFFI_INCLUDE_DIR})
 
+<<<<<<< HEAD
     list(APPEND LIBOMPTARGET_TESTED_PLUGINS
       "omptarget.rtl.${tmachine_libname}.nextgen")
+=======
+    list(APPEND LIBOMPTARGET_TESTED_PLUGINS "omptarget.rtl.${tmachine_libname}")
+    set(LIBOMPTARGET_TESTED_PLUGINS
+        "${LIBOMPTARGET_TESTED_PLUGINS}" PARENT_SCOPE)
+    set(LIBOMPTARGET_SYSTEM_TARGETS 
+        "${LIBOMPTARGET_SYSTEM_TARGETS} ${tmachine_triple} " PARENT_SCOPE)
+    set(LIBOMPTARGET_SYSTEM_TARGETS 
+        "${LIBOMPTARGET_SYSTEM_TARGETS} ${tmachine_triple}-LTO" PARENT_SCOPE)
+>>>>>>> 071c8a41ccbb10e88870345445db671c183a346e
 
   else(LIBOMPTARGET_DEP_LIBFFI_FOUND)
     libomptarget_say("Not building ${tmachine_name} NextGen offloading plugin: libffi dependency not found.")
