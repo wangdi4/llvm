@@ -81,6 +81,7 @@ CaptureTracker::~CaptureTracker() = default;
 bool CaptureTracker::shouldExplore(const Use *U) { return true; }
 
 bool CaptureTracker::isDereferenceableOrNull(Value *O, const DataLayout &DL) {
+<<<<<<< HEAD
   // An inbounds GEP can either be a valid pointer (pointing into
   // or to the end of an allocation), or be null in the default
   // address space. So for an inbounds GEP there is no way to let
@@ -100,6 +101,18 @@ bool CaptureTracker::isDereferenceableOrNull(Value *O, const DataLayout &DL) {
   if (isa<SubscriptInst>(O))
     return true;
 #endif // INTEL_CUSTOMIZATION
+=======
+  // We want comparisons to null pointers to not be considered capturing,
+  // but need to guard against cases like gep(p, -ptrtoint(p2)) == null,
+  // which are equivalent to p == p2 and would capture the pointer.
+  //
+  // A dereferenceable pointer is a case where this is known to be safe,
+  // because the pointer resulting from such a construction would not be
+  // dereferenceable.
+  //
+  // It is not sufficient to check for inbounds GEP here, because GEP with
+  // zero offset is always inbounds.
+>>>>>>> f3d0613d852a90563a1e8704930a6e79368f106a
   bool CanBeNull, CanBeFreed;
   return O->getPointerDereferenceableBytes(DL, CanBeNull, CanBeFreed);
 }
