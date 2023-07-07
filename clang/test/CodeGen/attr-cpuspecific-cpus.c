@@ -36,17 +36,13 @@ ATTR(cpu_specific(core_5th_gen_avx_tsx)) void CPU(void){}
 ATTR(cpu_specific(skylake)) void CPU(void){}
 ATTR(cpu_specific(skylake_avx512)) void CPU(void){}
 ATTR(cpu_specific(cannonlake)) void CPU(void){}
-<<<<<<< HEAD
 // ATTR(cpu_specific(knm)) void CPU(void){} ;INTEL
-=======
-ATTR(cpu_specific(knm)) void CPU(void){}
 ATTR(cpu_specific(cascadelake)) void CPU(void){}
 ATTR(cpu_specific(cooperlake)) void CPU(void){}
 ATTR(cpu_specific(icelake_client)) void CPU(void){}
 ATTR(cpu_specific(tigerlake)) void CPU(void){}
 ATTR(cpu_specific(alderlake)) void CPU(void){}
 ATTR(cpu_specific(sapphirerapids)) void CPU(void){}
->>>>>>> a10dccf2712fe4c9d90684626f510913bc6d1307
 
 // ALIAS CPUs
 ATTR(cpu_specific(pentium_iii_no_xmm_regs)) void CPU0(void){}
@@ -54,10 +50,7 @@ ATTR(cpu_specific(core_2nd_gen_avx)) void CPU1(void){}
 ATTR(cpu_specific(core_3rd_gen_avx)) void CPU2(void){}
 ATTR(cpu_specific(core_4th_gen_avx)) void CPU3(void){}
 ATTR(cpu_specific(core_5th_gen_avx)) void CPU4(void){}
-<<<<<<< HEAD
 // ATTR(cpu_specific(mic_avx512)) void CPU5(void){} ;INTEL
-=======
-ATTR(cpu_specific(mic_avx512)) void CPU5(void){}
 ATTR(cpu_specific(pentiumpro)) void CPU6(void){}
 ATTR(cpu_specific(pentium3)) void CPU7(void){}
 ATTR(cpu_specific(pentium3m)) void CPU8(void){}
@@ -86,4 +79,3 @@ ATTR(cpu_specific(sierraforest)) void CPU30(void){}
 ATTR(cpu_specific(grandridge)) void CPU31(void){}
 ATTR(cpu_specific(graniterapids)) void CPU32(void){}
 ATTR(cpu_specific(emeraldrapids)) void CPU33(void){}
->>>>>>> a10dccf2712fe4c9d90684626f510913bc6d1307
