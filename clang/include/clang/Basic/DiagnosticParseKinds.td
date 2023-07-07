@@ -1396,6 +1396,7 @@ def err_omp_expected_punc_after_iterator : Error<
   "expected ',' or ')' after iterator specifier">;
 def err_omp_decl_in_declare_simd_variant : Error<
   "function declaration is expected after 'declare %select{simd|variant}0' directive">;
+def err_omp_sink_and_source_iteration_not_allowd: Error<" '%0 %select{sink:|source:}1' must be with '%select{omp_cur_iteration - 1|omp_cur_iteration}1'">;
 #if INTEL_COLLAB
 def err_omp_decl_in_declare_target_function : Error<
   "single function declaration is expected after "
