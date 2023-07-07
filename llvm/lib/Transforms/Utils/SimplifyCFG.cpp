@@ -8956,14 +8956,10 @@ static bool removeUndefIntroducingPredecessor(BasicBlock *BB,
             if (BI->getSuccessor(0) == BB)
               Assumption = Builder.CreateAssumption(Builder.CreateNot(Cond));
             else
-<<<<<<< HEAD
-              Builder.CreateAssumption(Cond);
-#endif // !INTEL_CUSTOMIZATION
-=======
               Assumption = Builder.CreateAssumption(Cond);
             if (AC)
               AC->registerAssumption(cast<AssumeInst>(Assumption));
->>>>>>> 1614805eeb15204874e2c85ae351369ca0baf944
+#endif // !INTEL_CUSTOMIZATION
             Builder.CreateBr(BI->getSuccessor(0) == BB ? BI->getSuccessor(1)
                                                        : BI->getSuccessor(0));
           }
