@@ -147,6 +147,8 @@ public:
 /// of divergence to all users. It requires reducible CFGs. All assignments
 /// should be in SSA form.
 class VPlanDivergenceAnalysis final : public VPlanDivergenceAnalysisBase {
+  friend class VPlanVerifier;
+
 public:
   VPlanDivergenceAnalysis() : VPlanDivergenceAnalysisBase(DAKind::Vector) {}
 

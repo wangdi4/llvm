@@ -119,6 +119,32 @@ void VPlanVerifier::verifyCFGExternals(const VPlan *Plan) {
   Plan->getExternals().verifyVPMetadataAsValues();
 }
 
+void VPlanVerifier::verifyDA(const VPlan *Plan) const {
+  if (auto *DABase = Plan->getVPlanDA()) {
+    if (auto *DA = dyn_cast<VPlanDivergenceAnalysis>(DABase)) {
+      DA->verifyVectorShapes();
+    }
+  }
+}
+
+void VPlanVerifier::verifyDAShape(const VPInstruction *Inst) const {
+  auto *Block = Inst->getParent();
+  if (Block->getParent()) {
+    if (auto *DAB = Block->getParent()->getVPlanDA()) {
+      if (auto *DA = dyn_cast<VPlanDivergenceAnalysis>(DAB)) {
+        if (Inst->getOpcode() <= Instruction::OtherOpsEnd) {
+          auto OldShape = DA->getVectorShape(*Inst);
+          auto NewShape = DA->computeVectorShape(Inst);
+          ASSERT_VPVALUE(!DA->shapesAreDifferent(NewShape, OldShape), Inst,
+                         "Recalculated shape for DA is different");
+          (void)NewShape;
+          (void)OldShape;
+        }
+      }
+    }
+  }
+}
+
 // Public interface to verify the loop and its loop info.
 void VPlanVerifier::verifyVPlan(const VPlanVector *Plan,
                                 unsigned int CheckFlags) {
@@ -149,6 +175,10 @@ void VPlanVerifier::verifyVPlan(const VPlanVector *Plan,
   if (Plan->getPDT())
     Plan->getPDT()->verify();
 #endif
+
+  if (!shouldSkipDA()) {
+    verifyDA(Plan);
+  }
 
   // Skipped in cases where the loop info isn't updated to reflect
   // transformations that have been performed
@@ -773,6 +803,10 @@ void VPlanVerifier::verifyInstruction(const VPInstruction *Inst,
   verifySpecificInstruction(Inst);
   if (auto *Plan = dyn_cast<VPlanVector>(Block->getParent()))
     verifySSA(Inst, Plan->getDT());
+
+  if (!shouldSkipDAShapes() && !shouldSkipDA()) {
+    verifyDAShape(Inst);
+  }
 }
 
 // Verify if the block is correctly connected with other basic blocks in the

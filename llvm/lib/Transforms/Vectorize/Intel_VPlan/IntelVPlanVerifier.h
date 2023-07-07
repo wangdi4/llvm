@@ -103,6 +103,14 @@ private:
   // Verify that an instruction dominates all of its uses
   void verifySSA(const VPInstruction *I, const VPDominatorTree *DT) const;
 
+  // Verify using the DA verify function
+  void verifyDA(const VPlan *Plan) const;
+
+  // Recalculate DA shapes of Inst and compare with the stored shape
+  // Only valid before predicator, after which the shapes can't reliably
+  // be recomputed.
+  void verifyDAShape(const VPInstruction *VPI) const;
+
   // Helper functions to hide the underlying enum check
   bool shouldSkipLoopInfo() const { return Flags & SkipLoopInfo; }
 
@@ -112,6 +120,10 @@ private:
 
   bool shouldSkipNumLoops() const { return !(Flags & CheckNumLoops); }
 
+  bool shouldSkipDA() const { return Flags & SkipDA; }
+
+  bool shouldSkipDAShapes() const { return !(Flags & CheckDAShapes); }
+
 public:
   // Enum for holding the flags to be given to verifyVPlan to skip
   // parts of the verification.
@@ -119,7 +131,9 @@ public:
     SkipLoopInfo = 1 << 0,
     SkipExternals = 1 << 1,
     SkipInnerMultiExit = 1 << 2,
-    CheckNumLoops = 1 << 3
+    CheckNumLoops = 1 << 3,
+    SkipDA = 1 << 4,
+    CheckDAShapes = 1 << 5
   };
 
   VPlanVerifier(const Loop *Lp, const DataLayout &DLObj)
