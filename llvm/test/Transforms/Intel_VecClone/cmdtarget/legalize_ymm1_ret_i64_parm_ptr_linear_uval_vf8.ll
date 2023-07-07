@@ -15,7 +15,8 @@ define dso_local noundef i64 @_Z3fooRl(ptr nocapture noundef nonnull readonly al
 ; CHECK-NEXT:    [[ALLOCA_X:%.*]] = alloca ptr, align 8
 ; CHECK-NEXT:    store ptr [[X]], ptr [[ALLOCA_X]], align 8
 ; CHECK-NEXT:    [[VEC_RETVAL:%.*]] = alloca <8 x i64>, align 64
-; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION:%.*]]
+;    ...skip...
+; CHECK:         br label [[SIMD_BEGIN_REGION:%.*]]
 ;    ...skip...
 ; CHECK:       return:
 ; CHECK-NEXT:    [[VEC_RETVAL_GEP_0:%.*]] = getelementptr inbounds <2 x i64>, ptr [[VEC_RETVAL]], i32 0

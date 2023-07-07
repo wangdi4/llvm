@@ -144,6 +144,7 @@
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/VectorUtils.h"
+#include "llvm/Analysis/Intel_OPAnalysisUtils.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DIBuilder.h"
@@ -1321,6 +1322,53 @@ void VecCloneImpl::Factory::processLinearArgs(PHINode *Phi) {
         getOrCreateArgMemory(*Arg, EntryBlock, LoopPreHeader, Parm.Alignment,
                              ArgVal, ArgMemory);
         ScalarArg = ArgVal; // the load from the new arg memory
+
+        // The linear(uval()) parameter is a uniform scalar pointer. It points
+        // to a linear value, actually an initial scalar value. The vector value
+        // for it is calculated by formula: *p + step * {0,1, 2, ...VF-1}. The
+        // vector store to this pointer should not be executed. We need to
+        // re-direct that store to a fake memory. The openmp standard explicitly
+        // says that "the program must not depend on the value of the list item
+        // upon return from the procedure" and "the program must not depend on
+        // the storage of the argument in the procedure".
+        assert(Arg->getType()->isPointerTy() &&
+               "Pointer VecClone processLinearArgs Arg type is expected.");
+        // We can't use PointeeTypeSize here due to the stores can be of
+        // different types, we need a real type of the store. If there is no
+        // type detected we don't create anything.
+        // TODO: check the case when the values of different types are stored
+        // using that pointer
+        Type *ArgPtrElemType = inferPtrElementType(*ArgVal);
+        if (ArgPtrElemType) {
+          IRBuilder<> Builder(EntryBlock->getTerminator());
+          const unsigned VF = V.getVF();
+          auto *ArgPtrElemVectorType =
+              VectorType::get(ArgPtrElemType, VF, false);
+          // This generates fake vector memory for storing updated value
+          AllocaInst *ArgFakeAlloca = Builder.CreateAlloca(
+              ArgPtrElemVectorType, ArgVal->getType()->getPointerAddressSpace(),
+              nullptr, "alloca.fake." + Arg->getName());
+          Value *ScalarLoad = Builder.CreateLoad(
+              ArgPtrElemType,
+              Builder.CreateLoad(
+                  cast<AllocaInst>(ArgMemory)->getAllocatedType(), ArgMemory,
+                  "load." + Arg->getName()),
+              "load.elem." + Arg->getName());
+          Value *VectorValue = Builder.CreateVectorSplat(VF, ScalarLoad);
+          Builder.CreateStore(VectorValue, ArgFakeAlloca);
+
+          Builder.SetInsertPoint(LoopHeader->getFirstNonPHI());
+          Value *VecGep = Builder.CreateGEP(
+              ArgPtrElemType,
+              Builder.CreatePointerCast(ArgFakeAlloca,
+                                        ArgPtrElemType->getPointerTo()),
+              Phi, ArgFakeAlloca->getName() + ".gep");
+          // Replace all direct uses to fake vector memory
+          ArgVal->replaceAllUsesWith(VecGep);
+          // Update ScalarArg to point fake vector memory so that we will add
+          // stride for it
+          ScalarArg = VecGep;
+        }
       }
 
       // For both uval/val modifiers, ScalarArg is now the pointer argument
