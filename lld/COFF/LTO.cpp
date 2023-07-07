@@ -109,6 +109,7 @@ lto::Config BitcodeCompiler::createConfig() {
   c.DisableVerify = true;
 #endif
   c.DiagHandler = diagnosticHandler;
+  c.DwoDir = ctx.config.dwoDir.str();
   c.OptLevel = ctx.config.ltoo;
   c.CPU = getCPUStr();
   c.MAttrs = getMAttrs();
