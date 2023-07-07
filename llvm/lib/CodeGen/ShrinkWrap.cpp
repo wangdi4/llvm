@@ -1,21 +1,4 @@
 //===- ShrinkWrap.cpp - Compute safe point for prolog/epilog insertion ----===//
-// INTEL_CUSTOMIZATION
-//
-// INTEL CONFIDENTIAL
-//
-// Modifications, Copyright (C) 2021 Intel Corporation
-//
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
-//
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
-//
-// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -103,10 +86,6 @@
 #include <cstdint>
 #include <memory>
 
-#if INTEL_CUSTOMIZATION
-#include "llvm/Analysis/AliasAnalysis.h"
-#endif // INTEL_CUSTOMIZATION
-
 using namespace llvm;
 
 #define DEBUG_TYPE "shrink-wrap"
@@ -158,11 +137,6 @@ class ShrinkWrap : public MachineFunctionPass {
 
   // Emit remarks.
   MachineOptimizationRemarkEmitter *ORE = nullptr;
-
-#if INTEL_CUSTOMIZATION
-  /// Alias analysis used to determine whether a load/store is on the frame.
-  AAResults *AA = nullptr;
-#endif // INTEL_CUSTOMIZATION
 
   /// Frequency of the Entry block.
   uint64_t EntryFreq = 0;
@@ -256,9 +230,6 @@ class ShrinkWrap : public MachineFunctionPass {
     MBFI = &getAnalysis<MachineBlockFrequencyInfo>();
     MLI = &getAnalysis<MachineLoopInfo>();
     ORE = &getAnalysis<MachineOptimizationRemarkEmitterPass>().getORE();
-#if INTEL_CUSTOMIZATION
-    AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
-#endif // INTEL_CUSTOMIZATION
     EntryFreq = MBFI->getEntryFreq();
     const TargetSubtargetInfo &Subtarget = MF.getSubtarget();
     const TargetInstrInfo &TII = *Subtarget.getInstrInfo();
@@ -293,9 +264,6 @@ public:
     AU.addRequired<MachinePostDominatorTree>();
     AU.addRequired<MachineLoopInfo>();
     AU.addRequired<MachineOptimizationRemarkEmitterPass>();
-#if INTEL_CUSTOMIZATION
-    AU.addRequired<AAResultsWrapperPass>();
-#endif // INTEL_CUSTOMIZATION
     MachineFunctionPass::getAnalysisUsage(AU);
   }
 
@@ -323,9 +291,6 @@ INITIALIZE_PASS_DEPENDENCY(MachineDominatorTree)
 INITIALIZE_PASS_DEPENDENCY(MachinePostDominatorTree)
 INITIALIZE_PASS_DEPENDENCY(MachineLoopInfo)
 INITIALIZE_PASS_DEPENDENCY(MachineOptimizationRemarkEmitterPass)
-#if INTEL_CUSTOMIZATION
-INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
-#endif // INTEL_CUSTOMIZATION
 INITIALIZE_PASS_END(ShrinkWrap, DEBUG_TYPE, "Shrink Wrap Pass", false, false)
 
 bool ShrinkWrap::useOrDefCSROrFI(const MachineInstr &MI, RegScavenger *RS,
@@ -351,27 +316,10 @@ bool ShrinkWrap::useOrDefCSROrFI(const MachineInstr &MI, RegScavenger *RS,
   };
   // Load/store operations may access the stack indirectly when we previously
   // computed an address to a stack location.
-#if INTEL_CUSTOMIZATION
   if (StackAddressUsed && MI.mayLoadOrStore() &&
       (MI.isCall() || MI.hasUnmodeledSideEffects() || MI.memoperands_empty() ||
-       !all_of(MI.memoperands(), IsKnownNonStackPtr))) {
-    // Give up on InlineAsm since we can't extract MachineMemOperand from it for
-    // analysis,
-    if (MI.isInlineAsm())
-      return true;
-    // We can be sure that access to constant memory doesn't touch the stack.
-    for (MachineMemOperand *MMO : MI.memoperands()) {
-      if (const PseudoSourceValue *PSV = MMO->getPseudoValue())
-        if (PSV->isGOT() || PSV->isConstantPool() || PSV->isJumpTable())
-          continue;
-      if (const Value *V = MMO->getValue())
-        if (AA->pointsToConstantMemory(
-                MemoryLocation(V, MMO->getSize(), MMO->getAAInfo())))
-          continue;
-      return true;
-    }
-  }
-#endif // INTEL_CUSTOMIZATION
+       !all_of(MI.memoperands(), IsKnownNonStackPtr)))
+    return true;
 
   if (MI.getOpcode() == FrameSetupOpcode ||
       MI.getOpcode() == FrameDestroyOpcode) {
