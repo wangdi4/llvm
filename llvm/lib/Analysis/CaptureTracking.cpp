@@ -81,27 +81,6 @@ CaptureTracker::~CaptureTracker() = default;
 bool CaptureTracker::shouldExplore(const Use *U) { return true; }
 
 bool CaptureTracker::isDereferenceableOrNull(Value *O, const DataLayout &DL) {
-<<<<<<< HEAD
-  // An inbounds GEP can either be a valid pointer (pointing into
-  // or to the end of an allocation), or be null in the default
-  // address space. So for an inbounds GEP there is no way to let
-  // the pointer escape using clever GEP hacking because doing so
-  // would make the pointer point outside of the allocated object
-  // and thus make the GEP result a poison value. Similarly, other
-  // dereferenceable pointers cannot be manipulated without producing
-  // poison.
-  if (auto *GEP = dyn_cast<GetElementPtrInst>(O))
-    if (GEP->isInBounds())
-      return true;
-#if INTEL_CUSTOMIZATION
-  // The same works for llvm.intel.subscript.
-  // FIXME: GEPs that are not inbounds and are subjects to be
-  // converted into llvm.intel.subscript should be conservative and
-  // refrain from returning NotCaptured.
-  if (isa<SubscriptInst>(O))
-    return true;
-#endif // INTEL_CUSTOMIZATION
-=======
   // We want comparisons to null pointers to not be considered capturing,
   // but need to guard against cases like gep(p, -ptrtoint(p2)) == null,
   // which are equivalent to p == p2 and would capture the pointer.
@@ -112,7 +91,16 @@ bool CaptureTracker::isDereferenceableOrNull(Value *O, const DataLayout &DL) {
   //
   // It is not sufficient to check for inbounds GEP here, because GEP with
   // zero offset is always inbounds.
->>>>>>> f3d0613d852a90563a1e8704930a6e79368f106a
+
+#if INTEL_CUSTOMIZATION
+  // The same works for llvm.intel.subscript.
+  // FIXME: GEPs that are not inbounds and are subjects to be
+  // converted into llvm.intel.subscript should be conservative and
+  // refrain from returning NotCaptured.
+  if (isa<SubscriptInst>(O))
+    return true;
+#endif // INTEL_CUSTOMIZATION
+
   bool CanBeNull, CanBeFreed;
   return O->getPointerDereferenceableBytes(DL, CanBeNull, CanBeFreed);
 }
