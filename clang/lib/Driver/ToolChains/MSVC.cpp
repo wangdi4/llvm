@@ -476,7 +476,13 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back(
           Args.MakeArgString(std::string("/vfsoverlay:") + A->getValue()));
 
-<<<<<<< HEAD
+    if (C.getDriver().isUsingLTO() &&
+        Args.hasFlag(options::OPT_gsplit_dwarf, options::OPT_gno_split_dwarf,
+                     false))
+      CmdArgs.push_back(Args.MakeArgString(Twine("/dwodir:") +
+                                           Output.getFilename() + "_dwo"));
+  }
+
 #if INTEL_CUSTOMIZATION
   // TODO: Create a more streamlined and centralized way to add the additional
   // llvm options that are set.  i.e. set once and use for both Linux and
@@ -530,14 +536,6 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back(Args.MakeArgString(Twine("-mllvm:") + AV));
   }
 #endif // INTEL_CUSTOMIZATION
-=======
-    if (C.getDriver().isUsingLTO() &&
-        Args.hasFlag(options::OPT_gsplit_dwarf, options::OPT_gno_split_dwarf,
-                     false))
-      CmdArgs.push_back(Args.MakeArgString(Twine("/dwodir:") +
-                                           Output.getFilename() + "_dwo"));
-  }
->>>>>>> f97b61ed27aa6b0cef21e86e71d683feab32ce34
 
   // Add filenames, libraries, and other linker inputs.
   for (const auto &Input : Inputs) {
