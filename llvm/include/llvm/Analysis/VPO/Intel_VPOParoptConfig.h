@@ -36,6 +36,7 @@ struct KernelConfig {
   uint64_t NumTeams{0};
   int64_t InnermostLoopUnrollCount{-1};
   RegisterAllocationMode RegisterAllocMode;
+  int8_t UseNDRangeHeuristic{-1};
 };
 
 struct Config {
@@ -74,6 +75,7 @@ public:
   uint64_t getKernelNumTeams(StringRef Name) const;
   int64_t getKernelInnermostLoopUnrollCount(StringRef Name) const;
   vpo::RegisterAllocationMode getRegisterAllocMode(StringRef Name) const;
+  int8_t getKernelUseNDRangeHeuristic(StringRef Name) const;
 };
 
 class VPOParoptConfigAnalysis :

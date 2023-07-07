@@ -7800,5 +7800,4 @@ Value *VPOParoptUtils::genZeroOffsetArrsecReductionItemCastIfNeeded(
   }
   return ReductionVar;
 }
-
 #endif // INTEL_COLLAB

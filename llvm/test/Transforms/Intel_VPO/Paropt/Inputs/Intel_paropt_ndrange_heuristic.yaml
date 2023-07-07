@@ -1,0 +1,6 @@
+--- !ParoptConfig
+Kernels:
+  - Name: main_l4
+    UseNDRangeHeuristic: 1
+  - Name: main_l8
+    UseNDRangeHeuristic: 0

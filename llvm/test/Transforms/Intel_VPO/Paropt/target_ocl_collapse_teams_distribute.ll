@@ -156,3 +156,7 @@ omp.uncollapsed.loop.end13:                       ; preds = %omp.uncollapsed.loo
 
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
+
+!omp_offload.info = !{!0}
+
+!0 = !{i32 0, i32 2050, i32 49102707, !"_Z3foo", i32 2, i32 0, i32 0, i32 0}
