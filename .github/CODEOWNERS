@@ -514,6 +514,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVLSClient.h @skozhukh @sguggill @karthik-senthil
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVLSTransform.cpp @skozhukh @sguggill @karthik-senthil
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanVLSTransform.h @skozhukh @sguggill @karthik-senthil
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPOLoopAdapters.h @intel-restricted/cmplrllvm-llvm-vectorizer
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPTransformLibraryCalls.cpp @tylanphear @karthik-senthil @sguggill @skozhukh @mamasten @offsake
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPTransformLibraryCalls.h @tylanphear @karthik-senthil @sguggill @skozhukh @mamasten @offsake
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelLoopVectorizationPlannerHIR.cpp @sguggill @skozhukh @mamasten @offsake @wjschmidt
