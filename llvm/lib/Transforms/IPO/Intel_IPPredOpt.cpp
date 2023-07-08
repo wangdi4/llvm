@@ -2075,8 +2075,8 @@ void PredCandidate::generateRuntimeChecksCloneCFG() {
   //    br i1 %callee.check3, label %OptBB, label %UnOptBB
 
   // Clone "Inst" in "B" and remap using "VMap".
-  auto GenerateClonedInst = [](Instruction *Inst, ValueToValueMapTy &VMap,
-                               IRBuilder<> &B) -> Value * {
+  auto GenerateClonedInst = [this](Instruction *Inst, ValueToValueMapTy &VMap,
+                                   IRBuilder<> &B) -> Value * {
     Value *FinalVal = nullptr;
     auto IT = VMap.find(Inst);
     if (IT != VMap.end()) {
@@ -2085,6 +2085,10 @@ void PredCandidate::generateRuntimeChecksCloneCFG() {
       Instruction *CloneI = B.Insert(Inst->clone());
       VMap[Inst] = CloneI;
       RemapInstruction(CloneI, VMap);
+      // For instructions hoisted from callee, use debug info of CondCall
+      // if exists.
+      if (CondCall->getDebugLoc())
+        CloneI->setDebugLoc(CondCall->getDebugLoc());
       FinalVal = CloneI;
     }
     return FinalVal;
@@ -2103,9 +2107,11 @@ void PredCandidate::generateRuntimeChecksCloneCFG() {
   };
 
   // Fix CFG by creating new BrInst using Cond at the end of NewEntryBB.
-  auto AdjustCFG = [](BasicBlock *NewBB, BasicBlock *ClonedEntryBB,
-                      BasicBlock *NewEntryBB, Value *Cond) {
+  auto AdjustCFG = [this](BasicBlock *NewBB, BasicBlock *ClonedEntryBB,
+                          BasicBlock *NewEntryBB, Value *Cond) {
     BranchInst *NewBr = BranchInst::Create(NewBB, ClonedEntryBB, Cond);
+    if (CondCall->getDebugLoc())
+      NewBr->setDebugLoc(CondCall->getDebugLoc());
     ReplaceInstWithInst(NewEntryBB->getTerminator(), NewBr);
   };
 
@@ -2113,7 +2119,7 @@ void PredCandidate::generateRuntimeChecksCloneCFG() {
   // just before FI->getParent() and create new BrInst using Cond at the
   // end of NewBB.
   auto CloneInstsInNewBBAdjustCFG =
-      [&GenerateClonedInstructions,
+      [this, &GenerateClonedInstructions,
        &AdjustCFG](Instruction *FI, SmallVectorImpl<Instruction *> &InstVec,
                    ValueToValueMapTy &VMap, BasicBlock *ClonedEntryBB,
                    Value *CmpRHS, CmpInst::Predicate Pred) {
@@ -2123,6 +2129,8 @@ void PredCandidate::generateRuntimeChecksCloneCFG() {
 
         Value *FinalVal = GenerateClonedInstructions(InstVec, VMap, B);
         auto *Cond = B.CreateICmp(Pred, FinalVal, CmpRHS, "callee.check");
+        if (CondCall->getDebugLoc())
+          cast<Instruction>(Cond)->setDebugLoc(CondCall->getDebugLoc());
         AdjustCFG(NewBB, ClonedEntryBB, NewEntryBB, Cond);
       };
 
@@ -2155,6 +2163,8 @@ void PredCandidate::generateRuntimeChecksCloneCFG() {
             FinalCond = Cond;
           else
             FinalCond = B.CreateLogicalOr(FinalCond, Cond);
+          if (CondCall->getDebugLoc())
+            cast<Instruction>(FinalCond)->setDebugLoc(CondCall->getDebugLoc());
           FirstCond = false;
         }
         AdjustCFG(NewBB, ClonedEntryBB, NewEntryBB, FinalCond);
