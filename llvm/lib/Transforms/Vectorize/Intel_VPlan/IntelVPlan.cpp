@@ -1608,10 +1608,12 @@ void VPlan::cloneLiveOutValues(const VPlan &OrigPlan, VPValueMapper &Mapper) {
 // Common functionality to do a deep-copy when cloning VPlans.
 void VPlanVector::copyData(VPAnalysesFactoryBase &VPAF, UpdateDA UDA,
                            VPlanVector *TargetPlan) {
-  // Clone the basic blocks from the current VPlan to the new one
   VPCloneUtils::Value2ValueMapTy OrigClonedValuesMap;
-  VPCloneUtils::cloneBlocksRange(&front(), &back(), OrigClonedValuesMap,
-                                 nullptr, "", TargetPlan);
+
+  // Clone the basic blocks from the current VPlan to the new one
+  for (VPBasicBlock &OrigVPBB : *this)
+    VPCloneUtils::cloneBasicBlock(&OrigVPBB, "", OrigClonedValuesMap,
+                                  TargetPlan->end(), nullptr, TargetPlan);
 
   // Clone live in and live out values.
   VPValueMapper Mapper(OrigClonedValuesMap);
