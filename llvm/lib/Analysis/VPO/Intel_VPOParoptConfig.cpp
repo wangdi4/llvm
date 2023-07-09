@@ -171,6 +171,14 @@ VPOParoptConfig::getRegisterAllocMode(StringRef Name) const {
   return KC->RegisterAllocMode;
 }
 
+int8_t VPOParoptConfig::getKernelUseNDRangeHeuristic(StringRef Name) const {
+  auto KC = getKernelConfig(Name);
+  if (!KC)
+    return -1;
+
+  return KC->UseNDRangeHeuristic;
+}
+
 namespace llvm {
 namespace yaml {
 
@@ -196,6 +204,7 @@ void MappingTraits<vpo::KernelConfig>::mapping(
                  KernelConfig.InnermostLoopUnrollCount, -1);
   IO.mapOptional("RegisterAllocMode", KernelConfig.RegisterAllocMode,
                  vpo::RegisterAllocationMode::DEFAULT);
+  IO.mapOptional("UseNDRangeHeuristic", KernelConfig.UseNDRangeHeuristic, -1);
 }
 
 void MappingTraits<vpo::Config>::mapping(

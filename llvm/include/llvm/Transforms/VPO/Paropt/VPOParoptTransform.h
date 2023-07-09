@@ -273,6 +273,9 @@ private:
   /// Contain all parallel/sync/offload constructs to be transformed
   WRegionListTy WRegionList;
 
+  /// Offload entries.
+  SmallVector<OffloadEntry *, 8> OffloadEntries;
+
   /// Hold the LOC structure type which is need for KMP library
   StructType *IdentTy;
 
@@ -2507,16 +2510,31 @@ private:
   /// width for the outlined target region.
   void propagateSPIRVSIMDWidth() const;
 
+  /// Check if region \p W should be using loop tripcount at
+  /// kernel launch to adjust the NDRange and prevent teams
+  /// oversubscription. It is currently based on some nested loops
+  /// heuristic, with \p CompletelyCollapsed being a part of it
+  /// indicating if the loop nest containing \p W as the outer loop
+  /// is collapsed completely.
+  /// NOTE: \p CompletelyCollapsed is passed as a separate argument
+  /// because it's checked differently at different callsites due to
+  /// some are pre loop-collapse and some are post, and this heuristic
+  /// only concerns the original pre-collapse loop hierarchy.
+  bool isDefaultNDRangeLoopTripcountNeeded(WRegionNode *W,
+                                           bool CompletelyCollapsed) const;
+
   /// The given loop region \p WL is enclosed into "omp target" region \p WT.
   /// \p NDRangeDims specifies "known" tripcount(s) for the loop(s)
   /// associated with \p WL (NDRangeDims[0] - tripcount for the outermost loop).
   /// The tripcounts are known in the sense that they may be computed
   /// before the "omp target" region. The method sets QUAL_OMP_OFFLOAD_NDRANGE
   /// clause for \p WT listing the known tripcount(s), and also sets
-  /// QUAL_OMP_OFFLOAD_KNOWN_NDRANGE for \p WL.
-  void setNDRangeClause(
-      WRegionNode *WT, WRegionNode *WL, ArrayRef<Value *> NDRangeDims,
-      ArrayRef<Type *> NDRangeTypes) const;
+  /// QUAL_OMP_OFFLOAD_KNOWN_NDRANGE for \p WL using \p CollapsedCompletely
+  /// as the clause argument it's supposed to have.
+  void setNDRangeClause(WRegionNode *WT, WRegionNode *WL,
+                        ArrayRef<Value *> NDRangeDims,
+                        ArrayRef<Type *> NDRangeTypes,
+                        bool CollapsedCompletely) const;
 
   /// Checks if the given OpenMP loop region should use SPIR partitioning
   /// with known loop(s) bounds and if it is profitable.

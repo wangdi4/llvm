@@ -249,7 +249,7 @@ public:
   ~IPPredOptImpl(){};
   bool run(void);
   bool getVirtualPossibleTargets(CallBase &CB,
-                                 SetVector<Function *> &TargetFunctions);
+                                 SmallVectorImpl<Function *> &TargetFunctions);
 
 private:
   constexpr static int MaxNumCandidates = 1;
@@ -300,7 +300,7 @@ void IPPredOptImpl::buildTypeIdMap() {
 
 // Get possible target functions using type identification map.
 bool IPPredOptImpl::getVirtualPossibleTargets(
-    CallBase &CB, SetVector<Function *> &TargetFunctions) {
+    CallBase &CB, SmallVectorImpl<Function *> &TargetFunctions) {
   assert(!CB.getCalledFunction() && "Expected indirect call");
 
   LLVM_DEBUG(dbgs() << "Collecting possible targets for: " << CB << "\n");
@@ -370,10 +370,14 @@ bool IPPredOptImpl::getVirtualPossibleTargets(
       return false;
     }
 
-    TargetFunctions.insert(TargetFunc);
+    TargetFunctions.push_back(TargetFunc);
     LLVM_DEBUG(dbgs() << "    Adding target function: " << TargetFunc->getName()
                       << "\n");
   }
+
+  llvm::stable_sort(TargetFunctions, [=](auto *A, auto *B) {
+    return A->getName() < B->getName();
+  });
 
   return true;
 }
@@ -389,7 +393,7 @@ void IPPredOptImpl::dumpTargetFunctions(void) {
         continue;
 
       dbgs() << F.getName() << "  --  " << *CB << "\n";
-      SetVector<Function *> TargetFunctions;
+      SmallVector<Function *, 16> TargetFunctions;
       if (!getVirtualPossibleTargets(*CB, TargetFunctions) ||
           TargetFunctions.empty()) {
         dbgs() << " Can't find possible targets \n";
@@ -1411,7 +1415,7 @@ bool PredCandidate::processIndirectCalls(
   //   3. Target function has only one loop.
   auto GetMostProbableTargetFunctions =
       [this, &GetCallFirstArgTyMD, &GetFunctionFirstParamTyMD](
-          SetVector<Function *> &TargetFunctions, CallBase *CB) -> bool {
+          SmallVectorImpl<Function *> &TargetFunctions, CallBase *CB) -> bool {
     // Get DTrans's metadata for 1st argument of call.
     MDNode *ArgTyMD = GetCallFirstArgTyMD(CB);
     if (!ArgTyMD)
@@ -1449,7 +1453,7 @@ bool PredCandidate::processIndirectCalls(
     LLVM_DEBUG(dbgs() << "      Checking indirect call for no side effects:"
                       << *CB << "\n";);
     // Find all possible target functions.
-    SetVector<Function *> TargetFunctions;
+    SmallVector<Function *, 16> TargetFunctions;
     if (!IPPredObj.getVirtualPossibleTargets(*CB, TargetFunctions))
       return false;
 

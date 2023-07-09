@@ -2,7 +2,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -466,6 +466,8 @@ def warn_invalid_num_qopt : Warning<"Invalid number(%0) of arguments for the -Qo
   InGroup<UnusedCommandLineArgument>;
 def warn_invalid_tool : Warning<"Invalid tool(%0) for the -Qoption, option ignored">,
   InGroup<UnusedCommandLineArgument>;
+def warn_drv_recommend_opt : Warning<
+  "Use of '%0' recommended over '%1'">, InGroup<RecommendedOpt>;
 #endif //INTEL_CUSTOMIZATION
 def warn_drv_unsupported_opt_for_target : Warning<
   "optimization flag '%0' is not supported for target '%1'">,

@@ -1,8 +1,6 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans
 
-; UNSUPPORTED: true
-
 ; This test checks transformations to hoist control conditions that are needed
 ; to handle indirect calls in callee.
 
@@ -35,10 +33,10 @@
 ; CHECK:  %16 = load ptr, ptr %15
 ; CHECK:  %17 = getelementptr inbounds ptr, ptr %16, i64 10
 ; CHECK:  %18 = load ptr, ptr %17, align 8
-; CHECK:  %callee.check3 = icmp eq ptr %18, @_ZN11xercesc_2_723ENTITYDatatypeValidator7compareEPKtS2_PNS_13MemoryManagerE
-; CHECK:  %callee.check4 = icmp eq ptr %18, @_ZN11xercesc_2_723NCNameDatatypeValidator7compareEPKtS2_PNS_13MemoryManagerE
+; CHECK:  %callee.check3 = icmp eq ptr %18, @_ZN11xercesc_2_721NameDatatypeValidator7compareEPKtS2_PNS_13MemoryManagerE
+; CHECK:  %callee.check4 = icmp eq ptr %18, @_ZN11xercesc_2_723ENTITYDatatypeValidator7compareEPKtS2_PNS_13MemoryManagerE
 ; CHECK:  %19 = select i1 %callee.check3, i1 true, i1 %callee.check4
-; CHECK:  %callee.check5 = icmp eq ptr %18, @_ZN11xercesc_2_721NameDatatypeValidator7compareEPKtS2_PNS_13MemoryManagerE
+; CHECK:  %callee.check5 = icmp eq ptr %18, @_ZN11xercesc_2_723NCNameDatatypeValidator7compareEPKtS2_PNS_13MemoryManagerE
 ; CHECK:  %20 = select i1 %19, i1 true, i1 %callee.check5
 ; CHECK:  br i1 %20, label %21, label %54
 

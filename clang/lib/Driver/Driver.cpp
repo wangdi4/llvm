@@ -402,6 +402,13 @@ InputArgList Driver::ParseArgStrings(ArrayRef<const char *> ArgStrings,
                            diag::warn_drv_empty_joined_argument,
                            SourceLocation()) > DiagnosticsEngine::Warning;
     }
+
+#if INTEL_CUSTOMIZATION
+    // Recommend -qopenmp over -fopenmp
+    if (IsIntelMode() && A->getOption().matches(options::OPT_fopenmp))
+      Diag(diag::warn_drv_recommend_opt)
+          << (IsCLMode() ? "/Qiopenmp" : "-qopenmp") << A->getAsString(Args);
+#endif // INTEL_CUSTOMIZATION
   }
 
   for (const Arg *A : Args.filtered(options::OPT_UNKNOWN)) {

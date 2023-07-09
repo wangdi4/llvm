@@ -2256,9 +2256,12 @@ void PGOUseFunc::annotateLoopTripCountMetadata() {
     auto ProfileData = BI->getMetadata(LLVMContext::MD_prof);
     if (!ProfileData)
       continue;
+
     unsigned NumOperands = ProfileData->getNumOperands();
+    if (NumOperands <= 3)
+      continue;
     auto *ProfDataName = dyn_cast<MDString>(ProfileData->getOperand(0));
-    if (!ProfDataName->getString().equals("VP") || NumOperands <= 3)
+    if (!ProfDataName || !ProfDataName->getString().equals("VP"))
       continue;
 
     uint64_t TotalExec =
