@@ -471,11 +471,16 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   else if (Linker.equals_insensitive("lld"))
     Linker = "lld-link";
 
+<<<<<<< HEAD
   if (Linker == "lld-link") {
+=======
+  if (Linker == "lld-link")
+>>>>>>> 4189b38b52b05543ae2107cb1bdb9693384f42c8
     for (Arg *A : Args.filtered(options::OPT_vfsoverlay))
       CmdArgs.push_back(
           Args.MakeArgString(std::string("/vfsoverlay:") + A->getValue()));
 
+<<<<<<< HEAD
     if (C.getDriver().isUsingLTO() &&
         Args.hasFlag(options::OPT_gsplit_dwarf, options::OPT_gno_split_dwarf,
                      false))
@@ -483,6 +488,8 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
                                            Output.getFilename() + "_dwo"));
   }
 
+=======
+>>>>>>> 4189b38b52b05543ae2107cb1bdb9693384f42c8
 #if INTEL_CUSTOMIZATION
   // TODO: Create a more streamlined and centralized way to add the additional
   // llvm options that are set.  i.e. set once and use for both Linux and
@@ -550,6 +557,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back(Input.getFilename());
       continue;
     }
+<<<<<<< HEAD
 
     const Arg &A = Input.getInputArg();
 
@@ -579,7 +587,37 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   // We need to special case some linker paths. In the case of the regular msvc
   // linker, we need to use a special search algorithm.
   llvm::SmallString<128> linkPath;
+=======
+>>>>>>> 4189b38b52b05543ae2107cb1bdb9693384f42c8
 
+    const Arg &A = Input.getInputArg();
+
+    // Render -l options differently for the MSVC linker.
+    if (A.getOption().matches(options::OPT_l)) {
+      StringRef Lib = A.getValue();
+      const char *LinkLibArg;
+      if (Lib.endswith(".lib"))
+        LinkLibArg = Args.MakeArgString(Lib);
+      else
+        LinkLibArg = Args.MakeArgString(Lib + ".lib");
+      CmdArgs.push_back(LinkLibArg);
+      continue;
+    }
+
+    // Otherwise, this is some other kind of linker input option like -Wl, -z,
+    // or -L. Render it, even if MSVC doesn't understand it.
+    A.renderAsInput(Args, CmdArgs);
+  }
+
+  addHIPRuntimeLibArgs(TC, Args, CmdArgs);
+
+  TC.addProfileRTLibs(Args, CmdArgs);
+
+  std::vector<const char *> Environment;
+
+  // We need to special case some linker paths. In the case of the regular msvc
+  // linker, we need to use a special search algorithm.
+  llvm::SmallString<128> linkPath;
   if (Linker.equals_insensitive("link")) {
     // If we're using the MSVC linker, it's not sufficient to just use link
     // from the program PATH, because other environments like GnuWin32 install
