@@ -797,6 +797,27 @@ VPBasicBlock *VPBlockUtils::splitEdge(VPBasicBlock *From, VPBasicBlock *To,
   return NewBB;
 }
 
+void VPBlockUtils::updateDomTrees(VPBasicBlock *VPBBTrue,
+                                  VPBasicBlock *VPBBFalse, VPBasicBlock *VPBB) {
+  VPlanVector *Plan = cast<VPlanVector>(VPBB->getParent());
+  VPDominatorTree *DT = Plan->getDT();
+  VPPostDominatorTree *PDT = Plan->getPDT();
+
+  // Update dom information
+  assert(DT && "DT cannot be nullptr.");
+  assert(DT->getNode(VPBB) && "Expected node in dom tree!");
+  DT->changeImmediateDominator(VPBBTrue, VPBB);
+  DT->changeImmediateDominator(VPBBFalse, VPBB);
+
+  // Update postdom information
+  assert(PDT && "PDT cannot be nullptr.");
+  VPDomTreeNode *VPBBPDT = PDT->getNode(VPBB);
+  assert(VPBBPDT && "Expected node in post-dom tree!");
+  PDT->changeImmediateDominator(
+      VPBBPDT,
+      PDT->getNode(PDT->findNearestCommonDominator(VPBBTrue, VPBBFalse)));
+}
+
 VPBasicBlock::iterator VPBasicBlock::terminator() {
   assert(!empty() && "At least one VPBranchInst block is expected.");
   iterator It = std::prev(end());

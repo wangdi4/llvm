@@ -340,20 +340,7 @@ static void preprocessDopeVectorInstructions(VPlanVector *Plan) {
                                               DVTypeZero, "is.allocated");
     DA->updateDivergence(*IsAllocated);
     VPBB->setTerminator(VPBBTrue, VPBBFalse, IsAllocated);
-
-    // Update dom information
-    assert(DT && "DT cannot be nullptr.");
-    assert(DT->getNode(VPBB) && "Expected node in dom tree!");
-    DT->changeImmediateDominator(VPBBTrue, VPBB);
-    DT->changeImmediateDominator(VPBBFalse, VPBB);
-
-    // Update postdom information
-    assert(PDT && "PDT cannot be nullptr.");
-    VPDomTreeNode *VPBBPDT = PDT->getNode(VPBB);
-    assert(VPBBPDT && "Expected node in post-dom tree!");
-    PDT->changeImmediateDominator(
-        VPBBPDT,
-        PDT->getNode(PDT->findNearestCommonDominator(VPBBTrue, VPBBFalse)));
+    VPBlockUtils::updateDomTrees(VPBBTrue, VPBBFalse, VPBB);
 
     Builder.setInsertPoint(&*VPBBTrue->begin());
     auto *VPAllocaPriv = cast<VPAllocatePrivate>(PrivateMem);
@@ -503,6 +490,7 @@ static void preprocessPrivateFinalCondInstructions(VPlanVector *Plan) {
     VPValue *AllZeroCheck = Builder.createAllZeroCheck(CmpInst);
     DA->updateDivergence(*AllZeroCheck);
     VPBB->setTerminator(VPBBFalse, VPBBTrue, AllZeroCheck);
+    VPBlockUtils::updateDomTrees(VPBBTrue, VPBBFalse, VPBB);
   }
 
   if (!FinalVPInst.empty())
@@ -744,7 +732,6 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   // Once those are patched, the SkipDA flag should be removed.
   Verifier->verifyVPlan(Plan, VPlanVerifier::SkipDA);
 #endif
-
   LVP.executeBestPlan(VCodeGen);
 
   // Strip the directives once the loop is vectorized. In stress testing,

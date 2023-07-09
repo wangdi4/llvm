@@ -321,4 +321,35 @@ TEST_F(CloneVPlan, TestCloneVPLiveInOut) {
   CompareGraphsAndCreateClonedOrigVPBBsMap(ClonedVPlan.get(), OrigVPlan.get(),
                                            VPlanVector::UpdateDA::CloneDA);
 }
+
+TEST_F(CloneVPlan, TestCloneExitNotAtBack) {
+  const char *ModuleString = R"(
+define void @f() {
+entry:
+  br label %for.body
+
+for.body:
+  %iv = phi i64 [ 0, %entry ], [ %iv.next, %for.body ]
+  %iv.next = add i64 %iv, 1
+  %exitcond = icmp eq i64 %iv.next, 1024
+  br i1 %exitcond, label %exit, label %for.body
+
+exit:
+  ret void
+}
+  )";
+
+  Module &M = parseModule(ModuleString);
+  Function *F = M.getFunction("f");
+  BasicBlock *LoopHeader = F->getEntryBlock().getSingleSuccessor();
+  std::unique_ptr<VPlanNonMasked> OrigVPlan = buildHCFG(LoopHeader);
+
+  OrigVPlan->insertAtBack(new VPBasicBlock("new.back", OrigVPlan.get()));
+
+  ScalarEvolution SE(*F, *TLI.get(), *AC.get(), *DT.get(), *LI.get());
+  VPAnalysesFactory VPAF(SE, *(LI.get())->begin(), DT.get(), DL.get());
+  std::unique_ptr<VPlanVector> ClonedVPlan(
+      OrigVPlan->clone(VPAF, VPlanVector::UpdateDA::DoNotUpdateDA));
+  EXPECT_EQ(OrigVPlan->size(), ClonedVPlan->size());
+}
 } // namespace

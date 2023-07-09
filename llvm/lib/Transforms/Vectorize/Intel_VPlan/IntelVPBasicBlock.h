@@ -469,6 +469,10 @@ public:
                                  const Twine &Name, VPLoopInfo *VPLInfo,
                                  VPDominatorTree *DomTree = nullptr,
                                  VPPostDominatorTree *PostDomTree = nullptr);
+
+  // Utility function to update the dominator tree.
+  static void updateDomTrees(VPBasicBlock *VPBBTrue, VPBasicBlock *VPBBFalse,
+                             VPBasicBlock *VPBB);
 };
 } // namespace vpo
 //===----------------------------------------------------------------------===//

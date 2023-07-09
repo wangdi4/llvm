@@ -171,9 +171,10 @@ void VPlanVerifier::verifyVPlan(const VPlanVector *Plan,
 #ifndef NDEBUG
   // Verify dom/postdom tree
   if (Plan->getDT())
-    Plan->getDT()->verify();
+    assert(Plan->getDT()->verify() && "VPlan Dominator Tree failed to verify");
   if (Plan->getPDT())
-    Plan->getPDT()->verify();
+    assert(Plan->getPDT()->verify() &&
+           "VPlan Post-Dominator Tree failed to verify");
 #endif
 
   if (!shouldSkipDA()) {
@@ -207,7 +208,6 @@ void VPlanVerifier::verifyVPlan(const VPlanVector *Plan,
     }
   }
 }
-
 unsigned VPlanVerifier::countLoopsInUnderlyingIR() const {
   assert(TheLoop && "TheLoop can't be null.");
   return countLoopsInLoop<Loop>(TheLoop);
