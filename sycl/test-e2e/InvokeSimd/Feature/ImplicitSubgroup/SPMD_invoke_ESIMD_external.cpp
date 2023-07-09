@@ -1,11 +1,8 @@
-<<<<<<< HEAD
-=======
 // TODO: Temporarily disabled due to GPU hanging.
 // UNSUPPORTED: gpu
 // TODO: enable when Jira ticket resolved
 // XFAIL: gpu
 //
->>>>>>> d4c3c2c4f25c4450236f68129ce18c06ef45c4fa
 // RUN: %clangxx -DIMPL_SUBGROUP -fsycl -fno-sycl-device-code-split-esimd -Xclang -fsycl-allow-func-ptr %S/../SPMD_invoke_ESIMD_external.cpp -o %t.out
 // RUN: env IGC_VCSaveStackCallLinkage=1 IGC_VCDirectCallsOnly=1 %{run} %t.out
 //
