@@ -2045,15 +2045,25 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   // the CFG mess this may created if allowed to modify CFG, so forbid that.
   FPM.addPass(SROAPass(SROAPass(SROAOptions::ModifyCFG)));
 #endif // !INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
+  }
+
+#if INTEL_CUSTOMIZATION
   // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1
   // if IP ArrayTranspose is enabled.
   addInstCombinePass(FPM, !DTransEnabled, true /* EnableCanonicalizeSwap */);
 #endif // INTEL_CUSTOMIZATION
-    FPM.addPass(createFunctionToLoopPassAdaptor(
-        LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
-                 /*AllowSpeculation=*/true),
-        /*UseMemorySSA=*/true, /*UseBlockFrequencyInfo=*/false));
-  }
+
+  // This is needed for two reasons:
+  //   1. It works around problems that instcombine introduces, such as sinking
+  //      expensive FP divides into loops containing multiplications using the
+  //      divide result.
+  //   2. It helps to clean up some loop-invariant code created by the loop
+  //      unroll pass when IsFullLTO=false.
+  FPM.addPass(createFunctionToLoopPassAdaptor(
+      LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
+               /*AllowSpeculation=*/true),
+      /*UseMemorySSA=*/true, /*UseBlockFrequencyInfo=*/false));
 
   // Now that we've vectorized and unrolled loops, we may have more refined
   // alignment information, try to re-derive it here.
@@ -2067,8 +2077,6 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
     if (isLoopOptEnabled(Level))
       FPM.addPass(NontemporalStorePass());
 #endif // INTEL_FEATURE_SW_ADVANCED
-    addInstCombinePass(FPM, true /* EnableUpCasting */,
-                       true /* EnableCanonicalizeSwap */);
   }
 #endif // INTEL_CUSTOMIZATOIN
 }
