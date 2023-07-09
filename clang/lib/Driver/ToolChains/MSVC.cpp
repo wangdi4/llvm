@@ -579,7 +579,6 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   // We need to special case some linker paths. In the case of the regular msvc
   // linker, we need to use a special search algorithm.
   llvm::SmallString<128> linkPath;
-
   if (Linker.equals_insensitive("link")) {
     // If we're using the MSVC linker, it's not sufficient to just use link
     // from the program PATH, because other environments like GnuWin32 install
