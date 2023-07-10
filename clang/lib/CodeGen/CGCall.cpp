@@ -6441,7 +6441,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
     if (getContext().getLangOpts().SYCLIsDevice &&
         getContext().getLangOpts().EnableVariantFunctionPointers)
       if (IsIndirectCall || CGM.isSIMDTable(CalleePtr->stripPointerCasts()))
-        return EmitBuiltinIndirectCall(IRFuncTy, IRCallArgs, CalleePtr);
+        return EmitBuiltinIndirectCall(IRFuncTy, IRCallArgs, CalleePtr, Attrs);
 #endif  // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
     if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice &&

@@ -1605,11 +1605,16 @@ void Clang::AddPreprocessingOptions(Compilation &C, const JobAction &JA,
     getToolChain().AddIAMCUIncludeArgs(Args, CmdArgs);
   }
 #if INTEL_CUSTOMIZATION
-  if (D.IsIntelMode() && getToolChain().getTriple().isWindowsMSVCEnvironment()) {
+  if (D.IsIntelMode() &&
+      getToolChain().getTriple().isWindowsMSVCEnvironment()) {
     SmallString<128> IntelDir(llvm::sys::path::parent_path(D.Dir));
     if (!IntelDir.empty()) {
+      SmallString<128> IntelBaseDir(IntelDir);
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+      IntelBaseDir = llvm::sys::path::parent_path(IntelDir);
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
       CmdArgs.push_back("-header-base-path");
-      CmdArgs.push_back(Args.MakeArgString(IntelDir));
+      CmdArgs.push_back(Args.MakeArgString(IntelBaseDir));
     }
   }
 #endif // INTEL_CUSTOMIZATION

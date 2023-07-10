@@ -4895,10 +4895,9 @@ public:
                                  ReturnValueSlot ReturnValue);
   RValue EmitIntelFPGAMemBuiltin(const CallExpr *E);
 #if INTEL_CUSTOMIZATION
-  RValue
-  EmitBuiltinIndirectCall(llvm::FunctionType *IRFuncTy,
-                          const SmallVectorImpl<llvm::Value *> &IRArgs,
-                          llvm::Value *FnPtr);
+  RValue EmitBuiltinIndirectCall(llvm::FunctionType *IRFuncTy,
+                                 const SmallVectorImpl<llvm::Value *> &IRArgs,
+                                 llvm::Value *FnPtr, llvm::AttributeList Attrs);
 
   RValue EmitBuiltinGenerateSIMDVariant(const CallExpr *E);
   RValue EmitBuiltinCallSIMDVariant(const CallExpr *E);
