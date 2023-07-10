@@ -1103,6 +1103,13 @@ LoopVectorizationPlanner::createNoSLPCostModel(const VPlanVector *Plan,
 
 unsigned LoopVectorizationPlanner::getLoopUnrollFactor(bool *Forced) {
   if (VPlanForceUF == 0) {
+
+    if (UnrollCount) {
+      if (Forced)
+        *Forced = true;
+      return *UnrollCount;
+    }
+
     if (Forced)
       *Forced = false;
     return 1;
@@ -2094,6 +2101,8 @@ bool LoopVectorizationPlanner::unroll(VPlanVector &Plan) {
   if (UF > 1) {
     VPlanLoopUnroller Unroller(Plan, UF);
     Unroller.run();
+    if (TheLoop)
+      TheLoop->setLoopAlreadyUnrolled();
     return true;
   }
   return false;
