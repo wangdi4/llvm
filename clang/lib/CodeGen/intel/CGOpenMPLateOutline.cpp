@@ -3125,6 +3125,7 @@ void OpenMPLateOutliner::emitOMPUseDeviceAddrClause(
     const OMPUseDeviceAddrClause *Cl) {
   assert(false && "clauses handled in emitOMPAllMapClauses");
 }
+void OpenMPLateOutliner::emitOMPDoacrossClause(const OMPDoacrossClause *) {}
 void OpenMPLateOutliner::emitOMPReadClause(const OMPReadClause *) {}
 void OpenMPLateOutliner::emitOMPWriteClause(const OMPWriteClause *) {}
 void OpenMPLateOutliner::emitOMPFromClause(const OMPFromClause *) {assert(false);}
