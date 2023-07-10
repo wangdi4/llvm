@@ -474,7 +474,7 @@ constexpr FeatureBitset FeaturesRoyal =
 constexpr ProcInfo Processors[] = {
  // Empty processor. Include X87 and CMPXCHG8 for backwards compatibility.
   { {""}, CK_None, ~0U, FeatureX87 | FeatureCMPXCHG8B, '\0', false },
-  { {"generic"}, CK_None, ~0U, FeatureX87 & ~FeatureX87, 'A', true }, // intel
+  { {"generic"}, CK_None, ~0U, FeatureX87 & ~FeatureX87, 'A', true }, // INTEL
   // i386-generation processors.
   { {"i386"}, CK_i386, ~0U, FeatureX87, '\0', false },
   // i486-generation processors.
@@ -541,7 +541,7 @@ constexpr ProcInfo Processors[] = {
   { {"core-avx-i"}, CK_IvyBridge, FEATURE_AVX, FeaturesIvyBridge, '\0', false },
   // Haswell microarchitecture based processors.
   { {"haswell"}, CK_Haswell, FEATURE_AVX2, FeaturesHaswell, 'V', false },
-  { {"core-avx2"}, CK_Haswell, FEATURE_AVX2, FeaturesHaswell, 'V', false }, // intel
+  { {"core-avx2"}, CK_Haswell, FEATURE_AVX2, FeaturesHaswell, 'V', false }, // INTEL
   { {"core_4th_gen_avx"}, CK_Haswell, FEATURE_AVX2, FeaturesHaswell, 'V', true },
   { {"core_4th_gen_avx_tsx"}, CK_Haswell, FEATURE_AVX2, FeaturesHaswell, 'W', true },
   // Broadwell microarchitecture based processors.
@@ -551,7 +551,7 @@ constexpr ProcInfo Processors[] = {
   // Skylake client microarchitecture based processors.
   { {"skylake"}, CK_SkylakeClient, FEATURE_AVX2, FeaturesSkylakeClient, 'b', false },
   // Skylake server microarchitecture based processors.
-  { {"skylake-avx512"}, CK_SkylakeServer, FEATURE_AVX512F, FeaturesSkylakeServer, 'a', false }, // intel
+  { {"skylake-avx512"}, CK_SkylakeServer, FEATURE_AVX512F, FeaturesSkylakeServer, 'a', false }, // INTEL
   { {"skx"}, CK_SkylakeServer, FEATURE_AVX512F, FeaturesSkylakeServer, 'a', false },
   { {"skylake_avx512"}, CK_SkylakeServer, FEATURE_AVX512F, FeaturesSkylakeServer, 'a', true },
   // Cascadelake Server microarchitecture based processors.
@@ -561,12 +561,12 @@ constexpr ProcInfo Processors[] = {
   // Cannonlake client microarchitecture based processors.
   { {"cannonlake"}, CK_Cannonlake, FEATURE_AVX512VBMI, FeaturesCannonlake, 'e', false },
   // Icelake client microarchitecture based processors.
-  { {"icelake-client"}, CK_IcelakeClient, FEATURE_AVX512VBMI2, FeaturesICLClient, 'k', false }, // intel
+  { {"icelake-client"}, CK_IcelakeClient, FEATURE_AVX512VBMI2, FeaturesICLClient, 'k', false }, // INTEL
   { {"icelake_client"}, CK_IcelakeClient, FEATURE_AVX512VBMI2, FeaturesICLClient, 'k', true },
   // Rocketlake microarchitecture based processors.
   { {"rocketlake"}, CK_Rocketlake, FEATURE_AVX512VBMI2, FeaturesRocketlake, 'k', false },
   // Icelake server microarchitecture based processors.
-  { {"icelake-server"}, CK_IcelakeServer, FEATURE_AVX512VBMI2, FeaturesICLServer, 'k', false }, // intel
+  { {"icelake-server"}, CK_IcelakeServer, FEATURE_AVX512VBMI2, FeaturesICLServer, 'k', false }, // INTEL
   { {"icelake_server"}, CK_IcelakeServer, FEATURE_AVX512VBMI2, FeaturesICLServer, 'k', true },
   // Tigerlake microarchitecture based processors.
   { {"tigerlake"}, CK_Tigerlake, FEATURE_AVX512VP2INTERSECT, FeaturesTigerlake, 'l', false },
@@ -587,10 +587,10 @@ constexpr ProcInfo Processors[] = {
   // Emerald Rapids microarchitecture based processors.
   { {"emeraldrapids"}, CK_Emeraldrapids, FEATURE_AVX512BF16, FeaturesSapphireRapids, 'n', false },
   // Knights Landing processor.
-  { {"knl"}, CK_KNL, FEATURE_AVX512F, FeaturesKNL, 'Z', true }, // intel
+  { {"knl"}, CK_KNL, FEATURE_AVX512F, FeaturesKNL, 'Z', true }, // INTEL
   { {"mic_avx512"}, CK_KNL, FEATURE_AVX512F, FeaturesKNL, 'Z', true },
   // Knights Mill processor.
-  { {"knm"}, CK_KNM, FEATURE_AVX5124FMAPS, FeaturesKNM, 'j', true }, //intel
+  { {"knm"}, CK_KNM, FEATURE_AVX5124FMAPS, FeaturesKNM, 'j', true }, // INTEL
   // Lakemont microarchitecture based processors.
   { {"lakemont"}, CK_Lakemont, ~0U, FeatureCMPXCHG8B, '\0', false },
   // K6 architecture processors.
