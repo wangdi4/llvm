@@ -181,36 +181,20 @@ kernel void device_side_enqueue(global float *a, global float *b, int i) {
 // STRICTFP: attributes #[[ATTR4]] = { convergent nounwind "stack-protector-buffer-size"="8" }
 // STRICTFP: attributes #[[ATTR5]] = { strictfp }
 //.
-<<<<<<< HEAD
 // if INTEL_CUSTOMIZATION
 // wchar_size is not added to llvm.module.flags
-// SPIR32: !0 = !{i32 2, i32 0}
-// endif INTEL_CUSTOMIZATION
-// SPIR32: !2 = !{i32 1, i32 1, i32 0}
-// SPIR32: !3 = !{!"none", !"none", !"none"}
-// SPIR32: !4 = !{!"float*", !"float*", !"int"}
-// SPIR32: !5 = !{!"", !"", !""}
-//.
-// if INTEL_CUSTOMIZATION
-// STRICTFP: !0 = !{i32 2, i32 0}
-// endif INTEL_CUSTOMIZATION
-// STRICTFP: !2 = !{i32 1, i32 1, i32 0}
-// STRICTFP: !3 = !{!"none", !"none", !"none"}
-// STRICTFP: !4 = !{!"float*", !"float*", !"int"}
-// STRICTFP: !5 = !{!"", !"", !""}
-=======
-// SPIR32: [[META0:![0-9]+]] = !{i32 1, !"wchar_size", i32 4}
 // SPIR32: [[META1:![0-9]+]] = !{i32 2, i32 0}
+// endif INTEL_CUSTOMIZATION
 // SPIR32: [[META2:![0-9]+]] = !{i32 1, i32 1, i32 0}
 // SPIR32: [[META3:![0-9]+]] = !{!"none", !"none", !"none"}
 // SPIR32: [[META4:![0-9]+]] = !{!"float*", !"float*", !"int"}
 // SPIR32: [[META5:![0-9]+]] = !{!"", !"", !""}
 //.
-// STRICTFP: [[META0:![0-9]+]] = !{i32 1, !"wchar_size", i32 4}
+// if INTEL_CUSTOMIZATION
 // STRICTFP: [[META1:![0-9]+]] = !{i32 2, i32 0}
+// endif INTEL_CUSTOMIZATION
 // STRICTFP: [[META2:![0-9]+]] = !{i32 1, i32 1, i32 0}
 // STRICTFP: [[META3:![0-9]+]] = !{!"none", !"none", !"none"}
 // STRICTFP: [[META4:![0-9]+]] = !{!"float*", !"float*", !"int"}
 // STRICTFP: [[META5:![0-9]+]] = !{!"", !"", !""}
->>>>>>> 75b79019013b0891fe5afcd19097ad3c5958d34d
 //.
