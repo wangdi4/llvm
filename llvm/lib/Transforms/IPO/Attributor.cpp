@@ -225,9 +225,10 @@ bool AA::isNoSyncInst(Attributor &A, const Instruction &I,
     if (AANoSync::isNoSyncIntrinsic(&I))
       return true;
 
-    const auto *NoSyncAA = A.getAAFor<AANoSync>(
-        QueryingAA, IRPosition::callsite_function(*CB), DepClassTy::OPTIONAL);
-    return NoSyncAA && NoSyncAA->isAssumedNoSync();
+    bool IsKnownNoSync;
+    return AA::hasAssumedIRAttr<Attribute::NoSync>(
+        A, &QueryingAA, IRPosition::callsite_function(*CB),
+        DepClassTy::OPTIONAL, IsKnownNoSync);
   }
 
   if (!I.mayReadOrWriteMemory())
@@ -829,14 +830,15 @@ bool AA::isAssumedThreadLocalObject(Attributor &A, Value &Obj,
                  << "' is thread local; stack objects are thread local.\n");
       return true;
     }
-    const auto *NoCaptureAA = A.getAAFor<AANoCapture>(
-        QueryingAA, IRPosition::value(Obj), DepClassTy::OPTIONAL);
+    bool IsKnownNoCapture;
+    bool IsAssumedNoCapture = AA::hasAssumedIRAttr<Attribute::NoCapture>(
+        A, &QueryingAA, IRPosition::value(Obj), DepClassTy::OPTIONAL,
+        IsKnownNoCapture);
     LLVM_DEBUG(dbgs() << "[AA] Object '" << Obj << "' is "
-                      << (NoCaptureAA->isAssumedNoCapture() ? "" : "not")
-                      << " thread local; "
-                      << (NoCaptureAA->isAssumedNoCapture() ? "non-" : "")
+                      << (IsAssumedNoCapture ? "" : "not") << " thread local; "
+                      << (IsAssumedNoCapture ? "non-" : "")
                       << "captured stack object.\n");
-    return NoCaptureAA && NoCaptureAA->isAssumedNoCapture();
+    return IsAssumedNoCapture;
   }
   if (auto *GV = dyn_cast<GlobalVariable>(&Obj)) {
     if (GV->isConstant()) {
@@ -3263,6 +3265,16 @@ void Attributor::rememberDependences() {
   }
 }
 
+template <Attribute::AttrKind AK, typename AAType>
+void Attributor::checkAndQueryIRAttr(const IRPosition &IRP,
+                                     AttributeSet Attrs) {
+  bool IsKnown;
+  if (!Attrs.hasAttribute(AK))
+    if (!AA::hasAssumedIRAttr<AK>(*this, nullptr, IRP, DepClassTy::NONE,
+                                  IsKnown))
+      getOrCreateAAFor<AAType>(IRP);
+}
+
 void Attributor::identifyDefaultAbstractAttributes(Function &F) {
   if (!VisitedFunctions.insert(&F).second)
     return;
@@ -3283,6 +3295,8 @@ void Attributor::identifyDefaultAbstractAttributes(Function &F) {
   IRPosition FPos = IRPosition::function(F);
   bool IsIPOAmendable = isFunctionIPOAmendable(F);
   auto Attrs = F.getAttributes();
+  auto FnAttrs = Attrs.getFnAttrs();
+
   // Check for dead BasicBlocks in every function.
   // We need dead instruction detection because we do not want to deal with
   // broken IR in which SSA rules do not apply.
@@ -3302,32 +3316,25 @@ void Attributor::identifyDefaultAbstractAttributes(Function &F) {
   if (IsIPOAmendable) {
 
     // Every function might be "will-return".
-    if (!Attrs.hasFnAttr(Attribute::WillReturn))
-      getOrCreateAAFor<AAWillReturn>(FPos);
+    checkAndQueryIRAttr<Attribute::WillReturn, AAWillReturn>(FPos, FnAttrs);
 
     // Every function might be "must-progress".
-    if (!Attrs.hasFnAttr(Attribute::MustProgress))
-      getOrCreateAAFor<AAMustProgress>(FPos);
+    checkAndQueryIRAttr<Attribute::MustProgress, AAMustProgress>(FPos, FnAttrs);
 
     // Every function can be nounwind.
-    if (!Attrs.hasFnAttr(Attribute::NoUnwind))
-      getOrCreateAAFor<AANoUnwind>(FPos);
+    checkAndQueryIRAttr<Attribute::NoUnwind, AANoUnwind>(FPos, FnAttrs);
 
     // Every function might be marked "nosync"
-    if (!Attrs.hasFnAttr(Attribute::NoSync))
-      getOrCreateAAFor<AANoSync>(FPos);
+    checkAndQueryIRAttr<Attribute::NoSync, AANoSync>(FPos, FnAttrs);
 
     // Every function might be "no-free".
-    if (!Attrs.hasFnAttr(Attribute::NoFree))
-      getOrCreateAAFor<AANoFree>(FPos);
+    checkAndQueryIRAttr<Attribute::NoFree, AANoFree>(FPos, FnAttrs);
 
     // Every function might be "no-return".
-    if (!Attrs.hasFnAttr(Attribute::NoReturn))
-      getOrCreateAAFor<AANoReturn>(FPos);
+    checkAndQueryIRAttr<Attribute::NoReturn, AANoReturn>(FPos, FnAttrs);
 
     // Every function might be "no-recurse".
-    if (!Attrs.hasFnAttr(Attribute::NoRecurse))
-      getOrCreateAAFor<AANoRecurse>(FPos);
+    checkAndQueryIRAttr<Attribute::NoRecurse, AANoRecurse>(FPos, FnAttrs);
 
     // Every function can be "non-convergent".
     if (Attrs.hasFnAttr(Attribute::Convergent))
@@ -3350,6 +3357,7 @@ void Attributor::identifyDefaultAbstractAttributes(Function &F) {
       getOrCreateAAFor<AAReturnedValues>(FPos);
 
       IRPosition RetPos = IRPosition::returned(F);
+      AttributeSet RetAttrs = Attrs.getRetAttrs();
 
       // Every returned value might be dead.
       getOrCreateAAFor<AAIsDead>(RetPos);
@@ -3360,8 +3368,7 @@ void Attributor::identifyDefaultAbstractAttributes(Function &F) {
                            AA::Intraprocedural);
 
       // Every returned value might be marked noundef.
-      if (!Attrs.hasRetAttr(Attribute::NoUndef))
-        getOrCreateAAFor<AANoUndef>(RetPos);
+      checkAndQueryIRAttr<Attribute::NoUndef, AANoUndef>(RetPos, RetAttrs);
 
       if (ReturnType->isPointerTy()) {
 
@@ -3369,12 +3376,10 @@ void Attributor::identifyDefaultAbstractAttributes(Function &F) {
         getOrCreateAAFor<AAAlign>(RetPos);
 
         // Every function with pointer return type might be marked nonnull.
-        if (!Attrs.hasRetAttr(Attribute::NonNull))
-          getOrCreateAAFor<AANonNull>(RetPos);
+        checkAndQueryIRAttr<Attribute::NonNull, AANonNull>(RetPos, RetAttrs);
 
         // Every function with pointer return type might be marked noalias.
-        if (!Attrs.hasRetAttr(Attribute::NoAlias))
-          getOrCreateAAFor<AANoAlias>(RetPos);
+        checkAndQueryIRAttr<Attribute::NoAlias, AANoAlias>(RetPos, RetAttrs);
 
         // Every function with pointer return type might be marked
         // dereferenceable.
@@ -3387,6 +3392,7 @@ void Attributor::identifyDefaultAbstractAttributes(Function &F) {
     for (Argument &Arg : F.args()) {
       IRPosition ArgPos = IRPosition::argument(Arg);
       auto ArgNo = Arg.getArgNo();
+      AttributeSet ArgAttrs = Attrs.getParamAttrs(ArgNo);
 
       // Every argument might be simplified. We have to go through the
       // Attributor interface though as outside AAs can register custom
@@ -3399,17 +3405,14 @@ void Attributor::identifyDefaultAbstractAttributes(Function &F) {
       getOrCreateAAFor<AAIsDead>(ArgPos);
 
       // Every argument might be marked noundef.
-      if (!Attrs.hasParamAttr(ArgNo, Attribute::NoUndef))
-        getOrCreateAAFor<AANoUndef>(ArgPos);
+      checkAndQueryIRAttr<Attribute::NoUndef, AANoUndef>(ArgPos, ArgAttrs);
 
       if (Arg.getType()->isPointerTy()) {
         // Every argument with pointer type might be marked nonnull.
-        if (!Attrs.hasParamAttr(ArgNo, Attribute::NonNull))
-          getOrCreateAAFor<AANonNull>(ArgPos);
+        checkAndQueryIRAttr<Attribute::NonNull, AANonNull>(ArgPos, ArgAttrs);
 
         // Every argument with pointer type might be marked noalias.
-        if (!Attrs.hasParamAttr(ArgNo, Attribute::NoAlias))
-          getOrCreateAAFor<AANoAlias>(ArgPos);
+        checkAndQueryIRAttr<Attribute::NoAlias, AANoAlias>(ArgPos, ArgAttrs);
 
         // Every argument with pointer type might be marked dereferenceable.
         getOrCreateAAFor<AADereferenceable>(ArgPos);
@@ -3418,16 +3421,15 @@ void Attributor::identifyDefaultAbstractAttributes(Function &F) {
         getOrCreateAAFor<AAAlign>(ArgPos);
 
         // Every argument with pointer type might be marked nocapture.
-        if (!Attrs.hasParamAttr(ArgNo, Attribute::NoCapture))
-          getOrCreateAAFor<AANoCapture>(ArgPos);
+        checkAndQueryIRAttr<Attribute::NoCapture, AANoCapture>(ArgPos,
+                                                               ArgAttrs);
 
         // Every argument with pointer type might be marked
         // "readnone/readonly/writeonly/..."
         getOrCreateAAFor<AAMemoryBehavior>(ArgPos);
 
         // Every argument with pointer type might be marked nofree.
-        if (!Attrs.hasParamAttr(ArgNo, Attribute::NoFree))
-          getOrCreateAAFor<AANoFree>(ArgPos);
+        checkAndQueryIRAttr<Attribute::NoFree, AANoFree>(ArgPos, ArgAttrs);
 
         // Every argument with pointer type might be privatizable (or
         // promotable)
@@ -3472,10 +3474,11 @@ void Attributor::identifyDefaultAbstractAttributes(Function &F) {
         getOrCreateAAFor<AANoFPClass>(CBInstPos);
     }
 
-    const AttributeList &CBAttrList = CBFnPos.getAttrList();
+    const AttributeList &CBAttrs = CBFnPos.getAttrList();
     for (int I = 0, E = CB.arg_size(); I < E; ++I) {
 
       IRPosition CBArgPos = IRPosition::callsite_argument(CB, I);
+      AttributeSet CBArgAttrs = CBAttrs.getParamAttrs(I);
 
       // Every call site argument might be dead.
       getOrCreateAAFor<AAIsDead>(CBArgPos);
@@ -3488,8 +3491,7 @@ void Attributor::identifyDefaultAbstractAttributes(Function &F) {
                            AA::Intraprocedural);
 
       // Every call site argument might be marked "noundef".
-      if (!CBAttrList.hasParamAttr(I, Attribute::NoUndef))
-        getOrCreateAAFor<AANoUndef>(CBArgPos);
+      checkAndQueryIRAttr<Attribute::NoUndef, AANoUndef>(CBArgPos, CBArgAttrs);
 
       Type *ArgTy = CB.getArgOperand(I)->getType();
 
@@ -3501,16 +3503,14 @@ void Attributor::identifyDefaultAbstractAttributes(Function &F) {
       }
 
       // Call site argument attribute "non-null".
-      if (!CBAttrList.hasParamAttr(I, Attribute::NonNull))
-        getOrCreateAAFor<AANonNull>(CBArgPos);
+      checkAndQueryIRAttr<Attribute::NonNull, AANonNull>(CBArgPos, CBArgAttrs);
 
       // Call site argument attribute "nocapture".
-      if (!CBAttrList.hasParamAttr(I, Attribute::NoCapture))
-        getOrCreateAAFor<AANoCapture>(CBArgPos);
+      checkAndQueryIRAttr<Attribute::NoCapture, AANoCapture>(CBArgPos,
+                                                             CBArgAttrs);
 
       // Call site argument attribute "no-alias".
-      if (!CBAttrList.hasParamAttr(I, Attribute::NoAlias))
-        getOrCreateAAFor<AANoAlias>(CBArgPos);
+      checkAndQueryIRAttr<Attribute::NoAlias, AANoAlias>(CBArgPos, CBArgAttrs);
 
       // Call site argument attribute "dereferenceable".
       getOrCreateAAFor<AADereferenceable>(CBArgPos);
@@ -3520,12 +3520,11 @@ void Attributor::identifyDefaultAbstractAttributes(Function &F) {
 
       // Call site argument attribute
       // "readnone/readonly/writeonly/..."
-      if (!CBAttrList.hasParamAttr(I, Attribute::ReadNone))
+      if (!CBAttrs.hasParamAttr(I, Attribute::ReadNone))
         getOrCreateAAFor<AAMemoryBehavior>(CBArgPos);
 
       // Call site argument attribute "nofree".
-      if (!CBAttrList.hasParamAttr(I, Attribute::NoFree))
-        getOrCreateAAFor<AANoFree>(CBArgPos);
+      checkAndQueryIRAttr<Attribute::NoFree, AANoFree>(CBArgPos, CBArgAttrs);
     }
     return true;
   };
@@ -3659,7 +3658,7 @@ raw_ostream &llvm::operator<<(raw_ostream &OS,
   return OS;
 }
 
-void AbstractAttribute::print(raw_ostream &OS) const {
+void AbstractAttribute::print(Attributor *A, raw_ostream &OS) const {
   OS << "[";
   OS << getName();
   OS << "] for CtxI ";
@@ -3671,7 +3670,7 @@ void AbstractAttribute::print(raw_ostream &OS) const {
   } else
     OS << "<<null inst>>";
 
-  OS << " at position " << getIRPosition() << " with state " << getAsStr()
+  OS << " at position " << getIRPosition() << " with state " << getAsStr(A)
      << '\n';
 }
 

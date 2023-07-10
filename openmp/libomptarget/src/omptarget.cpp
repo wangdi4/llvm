@@ -36,6 +36,7 @@
 #include "Utilities.h"
 #endif // INTEL_COLLAB
 
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/bit.h"
 
 #include <cassert>
