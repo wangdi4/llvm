@@ -3465,7 +3465,6 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
                                                CalleeIdx, PayloadIndices,
                                                /* VarArgsArePassed */ false)}));
   }
-<<<<<<< HEAD
 #ifdef INTEL_CUSTOMIZATION
   // Skip declaration, functions that are mamually marked for multiversioning
   // and those which are tuned by a user using attribute "target".
@@ -3478,7 +3477,6 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
       F->addMetadata("llvm.auto.arch", *TargetsMD);
   }
 #endif //INTEL_CUSTOMIZATION
-=======
 
   // Apply SYCL specific attributes/metadata.
   if (const auto *A = FD->getAttr<SYCLDeviceHasAttr>())
@@ -3488,7 +3486,6 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
   if (const auto *A = FD->getAttr<SYCLUsesAspectsAttr>())
     applySYCLAspectsMD(A, getContext(), getLLVMContext(), F,
                        "sycl_used_aspects");
->>>>>>> 5d928976f9e221a5a31ebdf805dc7bfd5e4a633b
 }
 
 void CodeGenModule::addUsedGlobal(llvm::GlobalValue *GV) {
