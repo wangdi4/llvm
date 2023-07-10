@@ -11079,7 +11079,13 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
                 ",+SPV_KHR_uniform_group_instructions"
                 ",+SPV_INTEL_masked_gather_scatter"
                 ",+SPV_INTEL_tensor_float32_conversion";
+#if INTEL_CUSTOMIZATION
+    // TODO: remove it before release
+    if (CreatingSyclSPIRVFatObj ||
+        TCArgs.hasArg(options::OPT_fsycl_nonsemantic_debuginfo))
+#else
     if (CreatingSyclSPIRVFatObj)
+#endif // INTEL_CUSTOMIZATION
       ExtArg += ",+SPV_KHR_non_semantic_info";
 
     TranslatorArgs.push_back(TCArgs.MakeArgString(ExtArg));
