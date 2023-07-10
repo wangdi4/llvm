@@ -36,7 +36,9 @@ import lit.llvm
 lit.llvm.initialize(lit_config, config)
 # end INTEL_CUSTOMIZATION
 config.llvm_enabled_projects = "@LLVM_ENABLE_PROJECTS@".split(";")
-config.libomptarget_has_libc = @LIBOMPTARGET_GPU_LIBC_SUPPORT@
+# INTEL_CUSTOMIZATION
+config.libomptarget_has_libc = lit.util.pythonize_bool("@LIBOMPTARGET_GPU_LIBC_SUPPORT@")
+# end INTEL_CUSTOMIZATION
 
 import lit.llvm
 lit.llvm.initialize(lit_config, config)
