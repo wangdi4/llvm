@@ -38,7 +38,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/xxhash.h"
 
-<<<<<<< HEAD
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
 #include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
@@ -46,8 +46,6 @@
 #include "llvm/Transforms/Utils/GlobalStatus.h"
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 39d8e6e22cd192db6ace37a4c842265058dcddb8
 using namespace llvm;
 
 #define DEBUG_TYPE "moduleutils"
