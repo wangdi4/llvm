@@ -1,12 +1,6 @@
-<<<<<<< HEAD
 // RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu -emit-llvm -fsanitize=kcfi -o - %s | FileCheck %s
-// RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu -emit-llvm -fsanitize=kcfi -x c++ -o - %s | FileCheck %s
+// RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu -emit-llvm -fsanitize=kcfi -x c++ -o - %s | FileCheck %s --check-prefixes=CHECK,MEMBER
 // RUN: %clang_cc1 -opaque-pointers -triple x86_64-unknown-linux-gnu -emit-llvm -fsanitize=kcfi -fpatchable-function-entry-offset=3 -o - %s | FileCheck %s --check-prefixes=CHECK,OFFSET
-=======
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-llvm -fsanitize=kcfi -o - %s | FileCheck %s
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-llvm -fsanitize=kcfi -x c++ -o - %s | FileCheck %s --check-prefixes=CHECK,MEMBER
-// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -emit-llvm -fsanitize=kcfi -fpatchable-function-entry-offset=3 -o - %s | FileCheck %s --check-prefixes=CHECK,OFFSET
->>>>>>> 930635271f810316f48bd1aa78935acf36a08f8f
 #if !__has_feature(kcfi)
 #error Missing kcfi?
 #endif
