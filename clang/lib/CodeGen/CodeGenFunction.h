@@ -2355,7 +2355,7 @@ private:
     return RootNoAliasScope;
   }
 
-  void EmitRestrictMetadata(const VarDecl *D, llvm::Value *AllocaInst);
+  void EmitRestrictMetadata(const VarDecl *D, Address AllocaAddr);
 #endif // INTEL_CUSTOMIZATION
 
   /// The current lexical scope.
