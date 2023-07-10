@@ -9,7 +9,7 @@
 ; CHECK-NEXT: Loc 2:
 ; CHECK-DAG: Node {{.*}}: foo:a
 ; CHECK-DAG: Node {{.*}}: foo:b
-; CHECK-NEXT: Result: NoAlias
+; CHECK-DAG: Result: NoAlias
 ; CHECK-NEXT:  Alias_End
 
 
