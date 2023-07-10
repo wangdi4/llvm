@@ -3287,9 +3287,6 @@ std::string CodeGenModule::getUniqueItaniumABIMangledName(GlobalDecl GD) {
 }
 #endif // INTEL_COLLAB
 void CodeGenModule::setKCFIType(const FunctionDecl *FD, llvm::Function *F) {
-  if (isa<CXXMethodDecl>(FD) && !cast<CXXMethodDecl>(FD)->isStatic())
-    return;
-
   llvm::LLVMContext &Ctx = F->getContext();
   llvm::MDBuilder MDB(Ctx);
   F->setMetadata(llvm::LLVMContext::MD_kcfi_type,
