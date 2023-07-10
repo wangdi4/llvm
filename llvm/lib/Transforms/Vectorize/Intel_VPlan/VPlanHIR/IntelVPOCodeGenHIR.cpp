@@ -1,6 +1,6 @@
 //===----- IntelVPOCodeGenHIR.cpp -----------------------------------------===//
 //
-//   Copyright (C) 2017-2022 Intel Corporation. All rights reserved.
+//   Copyright (C) 2017-2023 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -1664,6 +1664,13 @@ void VPOCodeGenHIR::replaceLibCallsInScalarLoop(HLInst *HInst) {
     // Skip calls transformed via argument repacking feature.
     // TODO: Extend this utility to support arg repacked calls.
     if (TLI->doesVectorFuncNeedArgRepacking(FnName))
+      return;
+
+    // Fortran random number generators should not be replaced with SIMD
+    // versions in scalar remainder loops.
+    LibFunc ForRNGLibFunc;
+    if (TLI->getLibFunc(*F, ForRNGLibFunc) &&
+        TLI->isFortranRNGLibFunc(ForRNGLibFunc))
       return;
 
     assert(TLI->isFunctionVectorizable(FnName, ElementCount::getFixed(MaxVF)) &&

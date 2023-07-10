@@ -6245,6 +6245,16 @@ bool TargetLibraryInfoImpl::isComplexFloatLibFunc(LibFunc F) const {
       return false;
   }
 }
+
+bool TargetLibraryInfoImpl::isFortranRNGLibFunc(LibFunc F) const {
+  switch (F) {
+  case LibFunc_for_random_number:
+  case LibFunc_for_random_number_single:
+      return true;
+  default:
+      return false;
+  }
+}
 #endif // INTEL_CUSTOMIZATION
 
 bool TargetLibraryInfoImpl::isFunctionVectorizable(StringRef funcName,
