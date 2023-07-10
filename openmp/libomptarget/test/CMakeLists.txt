@@ -26,6 +26,7 @@ list(FILTER SYSTEM_TARGETS EXCLUDE REGEX "LTO")
 # end INTEL_CUSTOMIZATION
 foreach(CURRENT_TARGET IN LISTS SYSTEM_TARGETS)
   string(STRIP "${CURRENT_TARGET}" CURRENT_TARGET)
+
 # INTEL_CUSTOMIZATION
 # Do not add omp as a dependency since Intel specific OpenMP runtime is being
 # used.
