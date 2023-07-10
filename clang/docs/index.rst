@@ -64,6 +64,7 @@ Using Clang as a Compiler
    ThinLTO
    APINotes
    DebuggingCoroutines
+   AMDGPUSupport
    CommandGuide/index
    FAQ
 
