@@ -168,7 +168,7 @@ EXTERN int32_t __tgt_sycl_flush_queue_wrapper(omp_interop_t interop) {
   sycl::event evt = Q->ext_oneapi_submit_barrier();
 
 // getting a native handle ensures that the SYCL queue has been flushed
-  get_native<backend::level_zero>(evt);
+  get_native<backend::ext_oneapi_level_zero>(evt);
   return OFFLOAD_SUCCESS;
 }
 
