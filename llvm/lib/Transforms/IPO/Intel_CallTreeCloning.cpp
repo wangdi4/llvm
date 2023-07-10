@@ -4206,6 +4206,9 @@ bool MultiVersionImpl::run(void) {
 
 PreservedAnalyses CallTreeCloningPass::run(Module &M,
                                            ModuleAnalysisManager &MAM) {
+  if (DisableCallTreeCloning)
+    return PreservedAnalyses::all();
+
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   Analyses Anls([&](Function &F) -> LoopInfo & {
     return FAM.getResult<LoopAnalysis>(F);

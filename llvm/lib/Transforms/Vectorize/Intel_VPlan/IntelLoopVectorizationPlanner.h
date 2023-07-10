@@ -446,6 +446,8 @@ public:
         findOptionMDForLoop(TheLoop, "llvm.loop.intel.vector.vectorlength");
     IsVecRemainder = readVecRemainderEnabled();
     IsDynAlign = readDynAlignEnabled();
+    UnrollCount =
+        getOptionalIntLoopAttribute(TheLoop, "llvm.loop.unroll.count");
   }
 
   void disableVecRemainder() { IsVecRemainder = false; }
@@ -615,6 +617,9 @@ protected:
   /// Contains true or false value from "llvm.loop.vectorize.dynamic_align"
   /// metadata
   bool IsDynAlign = true;
+
+  /// Contains unroll factor value from "llvm.loop.unroll.count" metadata.
+  std::optional<int> UnrollCount;
 
   /// Returns true/false value if "llvm.loop.intel.vector.vecremainder"/
   /// "llvm.loop.intel.vector.novecremainder" metadata is specified. If there is
