@@ -2,7 +2,7 @@
 // Early jump threading has a major effect on the -O2 output.
 // RUN: %clang_cc1 -triple x86_64-apple-darwin10 -fobjc-runtime=macosx-fragile-10.5 -emit-llvm -fobjc-exceptions -mllvm -simplifycfg-sink-common=false -mllvm -early-jump-threading=false -O2 -o - %s | FileCheck %s
 //
-// <rdar://problem/7471679> [irgen] [eh] Exception code built with clang (x86_64) crashes
+// [irgen] [eh] Exception code built with clang (x86_64) crashes
 
 // Just check that we don't emit any dead blocks.
 @interface NSArray @end
@@ -39,7 +39,7 @@ void f1(void) {
 }
 
 // Test that modifications to local variables are respected under
-// optimization.  rdar://problem/8160285
+// optimization.
 
 // CHECK-LABEL: define{{.*}} i32 @f2()
 int f2(void) {
@@ -75,7 +75,7 @@ int f2(void) {
 }
 
 // Test that the cleanup destination is saved when entering a finally
-// block.  rdar://problem/8293901
+// block.
 // CHECK-LABEL: define{{.*}} void @f3()
 void f3(void) {
   extern void f3_helper(int, int*);
@@ -127,7 +127,6 @@ void f3(void) {
   f3_helper(4, &x);
 }
 
-// rdar://problem/8440970
 void f4(void) {
   extern void f4_help(int);
 
