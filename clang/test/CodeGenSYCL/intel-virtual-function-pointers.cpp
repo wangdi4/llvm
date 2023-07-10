@@ -96,5 +96,5 @@ int main() {
 // CHECK: define dso_local spir_func void {{.+}}test_2{{.+}}
 // CHECK: [[L10:%.*]] = phi void (%struct.C addrspace(4)*)* [ %memptr.virtualfn, %memptr.virtual ], [ %memptr.nonvirtualfn, %memptr.nonvirtual ]
 // CHECK: [[L11:%.*]] = addrspacecast void (%struct.C addrspace(4)*)* [[L10]] to void (%struct.C addrspace(4)*)* addrspace(4)*
-// CHECk: call void @__intel_indirect_call_1({{.+}}[[L11]], %struct.C addrspace(4)* %this.adjusted)
+// CHECK: call void @__intel_indirect_call_1({{.+}}[[L11]], %struct.C addrspace(4)* %this.adjusted)
 // CHECK: ret void

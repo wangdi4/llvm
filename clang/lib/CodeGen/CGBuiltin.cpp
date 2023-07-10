@@ -24603,8 +24603,8 @@ RValue CodeGenFunction::EmitBuiltinCallSIMDVariant(const CallExpr *E) {
 }
 
 RValue CodeGenFunction::EmitBuiltinIndirectCall(
-    llvm::FunctionType *IRFuncTy,
-    const SmallVectorImpl<llvm::Value *> &IRArgs, llvm::Value *FnPtr) {
+    llvm::FunctionType *IRFuncTy, const SmallVectorImpl<llvm::Value *> &IRArgs,
+    llvm::Value *FnPtr, llvm::AttributeList Attrs) {
   SmallVector<llvm::Type *, 8> Types;
   SmallVector<Value*, 16> Args;
   if (auto *CV = dyn_cast<llvm::LoadInst>(FnPtr->stripPointerCasts())) {
@@ -24636,6 +24636,14 @@ RValue CodeGenFunction::EmitBuiltinIndirectCall(
                                                     Types, /*isVarArg=*/false);
   llvm::FunctionCallee Fn =
       CGM.CreateRuntimeFunction(FTy, CGM.GetIntelIndirectFnName(FTy));
+  if (auto *F = dyn_cast<llvm::Function>(Fn.getCallee())) {
+    for (unsigned int I = 1; I < IRArgs.size() + 1; I++) {
+      AttrBuilder ArgAttrs(getLLVMContext(), Attrs.getParamAttrs(I - 1));
+      F->addParamAttrs(I, ArgAttrs);
+    }
+    AttrBuilder RetAttrs(getLLVMContext(), Attrs.getRetAttrs());
+    F->addRetAttrs(RetAttrs);
+  }
   llvm::Value *CI = Builder.CreateCall(Fn, Args);
   return RValue::get(CI);
 }
