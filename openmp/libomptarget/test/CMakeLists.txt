@@ -26,9 +26,13 @@ list(FILTER SYSTEM_TARGETS EXCLUDE REGEX "LTO")
 # end INTEL_CUSTOMIZATION
 foreach(CURRENT_TARGET IN LISTS SYSTEM_TARGETS)
   string(STRIP "${CURRENT_TARGET}" CURRENT_TARGET)
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # Do not add omp as a dependency since Intel specific OpenMP runtime is being
 # used.
+=======
+
+>>>>>>> 691dc2d10d4bc5a8e6cea266f201693aee46b40d
   add_openmp_testsuite(check-libomptarget-${CURRENT_TARGET}
     "Running libomptarget tests"
     ${CMAKE_CURRENT_BINARY_DIR}/${CURRENT_TARGET}
