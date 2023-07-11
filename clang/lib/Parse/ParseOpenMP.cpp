@@ -4004,6 +4004,7 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
   case OMPC_inclusive:
   case OMPC_exclusive:
   case OMPC_affinity:
+  case OMPC_doacross:
 #if INTEL_COLLAB
     if (CKind == OMPC_interop && !FirstClause) {
       Diag(Tok, diag::err_omp_more_one_clause)
@@ -4011,7 +4012,6 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
       ErrorFound = true;
     }
 #endif // INTEL_COLLAB
-  case OMPC_doacross:
     if (getLangOpts().OpenMP >= 52 && DKind == OMPD_ordered &&
         CKind == OMPC_depend)
       Diag(Tok, diag::warn_omp_depend_in_ordered_deprecated);

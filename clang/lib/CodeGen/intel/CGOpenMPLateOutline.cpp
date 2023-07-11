@@ -3125,6 +3125,7 @@ void OpenMPLateOutliner::emitOMPUseDeviceAddrClause(
     const OMPUseDeviceAddrClause *Cl) {
   assert(false && "clauses handled in emitOMPAllMapClauses");
 }
+void OpenMPLateOutliner::emitOMPDoacrossClause(const OMPDoacrossClause *) {}
 void OpenMPLateOutliner::emitOMPReadClause(const OMPReadClause *) {}
 void OpenMPLateOutliner::emitOMPWriteClause(const OMPWriteClause *) {}
 void OpenMPLateOutliner::emitOMPFromClause(const OMPFromClause *) {assert(false);}
@@ -3184,8 +3185,6 @@ void OpenMPLateOutliner::emitOMPFullClause(const OMPFullClause *Cl) {}
 void OpenMPLateOutliner::emitOMPPartialClause(const OMPPartialClause *Cl) {}
 void OpenMPLateOutliner::emitOMPXDynCGroupMemClause(
     const OMPXDynCGroupMemClause *) {}
-void OpenMPLateOutliner::emitOMPDoacrossClause(
-    const OMPDoacrossClause *) {}
 
 void OpenMPLateOutliner::emitOMPInitClause(const OMPInitClause *Cl) {
   // Gather any valid preferences first.

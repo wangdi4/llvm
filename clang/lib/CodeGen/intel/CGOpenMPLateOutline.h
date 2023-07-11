@@ -400,6 +400,7 @@ class OpenMPLateOutliner {
   void emitOMPExclusiveClause(const OMPExclusiveClause *);
   void emitOMPUsesAllocatorsClause(const OMPUsesAllocatorsClause *);
   void emitOMPAffinityClause(const OMPAffinityClause *);
+  void emitOMPDoacrossClause(const OMPDoacrossClause *);
   void emitOMPSizesClause(const OMPSizesClause *);
   void emitOMPUseDeviceAddrClause(const OMPUseDeviceAddrClause *);
   void emitOMPHasDeviceAddrClause(const OMPHasDeviceAddrClause *);
@@ -408,7 +409,6 @@ class OpenMPLateOutliner {
   void emitOMPNovariantsClause(const OMPNovariantsClause *);
   void emitOMPNocontextClause(const OMPNocontextClause *);
   void emitOMPXDynCGroupMemClause(const OMPXDynCGroupMemClause *);
-  void emitOMPDoacrossClause(const OMPDoacrossClause *);
 #if INTEL_CUSTOMIZATION
   void emitOMPOmpxAssertClause(const OMPOmpxAssertClause *);
 #if INTEL_FEATURE_CSA
