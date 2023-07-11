@@ -18,6 +18,10 @@
 
 // expected-no-diagnostics
 
+#pragma omp begin declare target
+char *glob_str =  (char*)"TESTING";
+#pragma omp end declare target
+
 int c1;
 #pragma omp declare target local(c1)
 
@@ -40,8 +44,12 @@ int main() {
 }
 //HOST: @c1 = global i32 0, align 4
 //HOST: @y = global i32 0, align 4
+//HOST: @glob_str = target_declare global ptr @.str, align 8
+//HOST: @.str = private target_declare unnamed_addr constant [8 x i8] c"TESTING\00", align 1
 //TARG: @c1 = target_declare addrspace(1) global i32 0, align 4
 //TARG: @y = target_declare addrspace(1) global i32 0, align 4
+//TARG: @glob_str = target_declare addrspace(1) global ptr addrspace(4) addrspacecast (ptr addrspace(1) @.str to ptr addrspace(4)), align 8
+//TARG: @.str = private target_declare unnamed_addr addrspace(1) constant [8 x i8] c"TESTING\00", align 1
 //TARG-NOT: {i32 1, !"_Z1y", i32 0, i32 0, ptr addrspace(3) @y}
 
 // end INTEL_COLLAB

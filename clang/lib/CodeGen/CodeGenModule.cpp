@@ -6663,6 +6663,13 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
         Init = llvm::UndefValue::get(getTypes().ConvertType(T));
       }
     } else {
+#if INTEL_COLLAB
+      if (getLangOpts().OpenMPLateOutline)
+        if (auto GV = dyn_cast_if_present<llvm::GlobalVariable>(
+                Initializer->stripPointerCasts()))
+          if (InitDecl->hasAttr<OMPDeclareTargetDeclAttr>())
+            GV->setTargetDeclare(true);
+#endif // INTEL_COLLAB
       Init = Initializer;
       // We don't need an initializer, so remove the entry for the delayed
       // initializer position (just in case this entry was delayed) if we
