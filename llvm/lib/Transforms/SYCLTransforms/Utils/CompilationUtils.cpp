@@ -1642,15 +1642,6 @@ Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
     // Replace the users to the new version.
     I->replaceAllUsesWith(&*NI);
   }
-  // Replace F by NewF in KernelList module Metadata (if any)
-  using namespace SYCLKernelMetadataAPI;
-  llvm::Module *M = F->getParent();
-  assert(M && "Module is NULL");
-  auto Kernels = KernelList(M).getList();
-  std::replace_if(
-      std::begin(Kernels), std::end(Kernels),
-      [F](llvm::Function *Func) { return F == Func; }, NewF);
-  KernelList(M).set(Kernels);
 
   // Since the name of F function is added with suffix, we have to replace it
   // with original name of F function (now it's name of NewF function) with NewF
