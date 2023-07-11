@@ -125,6 +125,32 @@ public:
     llvm::Value *Imag = Builder.CreateExtractElement(Val, uint64_t(1));
     return ComplexPairTy(Real, Imag);
   }
+
+  ComplexPairTy EmitComplexDiv(llvm::Value *LHSr, llvm::Value *RHSr,
+                               llvm::Value *RHSi, llvm::Value *LHSi) {
+    llvm::Value *DSTr, *DSTi;
+    if (RHSi) {
+      if (!LHSi)
+        LHSi = llvm::Constant::getNullValue(RHSi->getType());
+
+      // (a+ib) / (c+id) = ((ac+bd)/(cc+dd)) + i((bc-ad)/(cc+dd))
+      llvm::Value *AC = Builder.CreateFMul(LHSr, RHSr); // a*c
+      llvm::Value *BD = Builder.CreateFMul(LHSi, RHSi); // b*d
+      llvm::Value *ACpBD = Builder.CreateFAdd(AC, BD);  // ac+bd
+
+      llvm::Value *CC = Builder.CreateFMul(RHSr, RHSr); // c*c
+      llvm::Value *DD = Builder.CreateFMul(RHSi, RHSi); // d*d
+      llvm::Value *CCpDD = Builder.CreateFAdd(CC, DD);  // cc+dd
+
+      llvm::Value *BC = Builder.CreateFMul(LHSi, RHSr); // b*c
+      llvm::Value *AD = Builder.CreateFMul(LHSr, RHSi); // a*d
+      llvm::Value *BCmAD = Builder.CreateFSub(BC, AD);  // bc-ad
+
+      DSTr = Builder.CreateFDiv(ACpBD, CCpDD);
+      DSTi = Builder.CreateFDiv(BCmAD, CCpDD);
+    }
+    return ComplexPairTy(DSTr, DSTi);
+  }
 #endif // INTEL_CUSTOMIZATION
 
   //===--------------------------------------------------------------------===//
@@ -914,7 +940,8 @@ ComplexPairTy ComplexExprEmitter::EmitBinMul(const BinOpInfo &Op) {
       ResI = Builder.CreateFAdd(AD, BC, "mul_i");
 
 #if INTEL_CUSTOMIZATION
-      if (!CGF.getLangOpts().FastMath && CGF.getLangOpts().HonorNaNCompares)
+      if (!CGF.getLangOpts().FastMath && CGF.getLangOpts().IntelCompat &&
+          !CGF.getLangOpts().NoHonorNaNs)
         return ComplexPairTy(ResR, ResI);
 #endif // INTEL_CUSTOMIZATION
 
@@ -1012,9 +1039,13 @@ ComplexPairTy ComplexExprEmitter::EmitBinDiv(const BinOpInfo &Op) {
     // FIXME: We would be able to avoid the libcall in many places if we
     // supported imaginary types in addition to complex types.
     CodeGenFunction::CGFPOptionsRAII FPOptsRAII(CGF, Op.FPFeatures);
+    if (RHSi && !CGF.getLangOpts().FastMath) {
 #if INTEL_CUSTOMIZATION
-    if (RHSi && !CGF.getLangOpts().FastMath &&
-        !CGF.getLangOpts().HonorNaNCompares) {
+      if (CGF.getLangOpts().IntelCompat && (CGF.getLangOpts().Freestanding &&
+                                            !CGF.getLangOpts().NoHonorNaNs) ||
+          (CGF.CGM.getTriple().isWindowsMSVCEnvironment() &&
+           !CGF.getLangOpts().NoHonorNaNs))
+        return EmitComplexDiv(LHSr, RHSr, RHSi, LHSi);
 #endif // INTEL_CUSTOMIZATION
       BinOpInfo LibCallOp = Op;
       // If LHS was a real, supply a null imaginary part.
