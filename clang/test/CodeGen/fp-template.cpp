@@ -61,7 +61,7 @@ namespace PR63542 {
 }
 
 // CHECK-LABEL: define {{.*}} float @_ZN7PR6354211stable_sortIiEEffT_(
-// CHECK:         fadd float
+// CHECK:         llvm.experimental.constrained.fadd.f32
 
 // Must be at the end of translation unit.
 #pragma STDC FENV_ACCESS ON
