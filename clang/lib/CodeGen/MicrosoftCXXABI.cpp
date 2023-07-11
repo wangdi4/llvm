@@ -1096,7 +1096,11 @@ void MicrosoftCXXABI::emitBeginCatch(CodeGenFunction &CGF,
 std::tuple<Address, llvm::Value *, const CXXRecordDecl *>
 MicrosoftCXXABI::performBaseAdjustment(CodeGenFunction &CGF, Address Value,
                                        QualType SrcRecordTy) {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Value = Value.withElementType(CGF.Int8Ty);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+  Value = CGF.Builder.CreateElementBitCast(Value, CGF.Int8Ty);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   const CXXRecordDecl *SrcDecl = SrcRecordTy->getAsCXXRecordDecl();
   const ASTContext &Context = getContext();
 
@@ -3401,10 +3405,22 @@ MicrosoftCXXABI::GetVBaseOffsetFromVBPtr(CodeGenFunction &CGF,
                                          llvm::Value **VBPtrOut) {
   CGBuilderTy &Builder = CGF.Builder;
   // Load the vbtable pointer from the vbptr in the instance.
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   llvm::Value *VBPtr = Builder.CreateInBoundsGEP(CGM.Int8Ty, This.getPointer(),
                                                  VBPtrOffset, "vbptr");
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+  This = Builder.CreateElementBitCast(This, CGM.Int8Ty);
+  llvm::Value *VBPtr = Builder.CreateInBoundsGEP(
+      This.getElementType(), This.getPointer(), VBPtrOffset, "vbptr");
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   if (VBPtrOut)
     *VBPtrOut = VBPtr;
+
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
+  VBPtr = Builder.CreateBitCast(
+      VBPtr,
+      CGM.Int32Ty->getPointerTo(0)->getPointerTo(This.getAddressSpace()));
+#endif // !INTEL_SYCL_OPAQUEPOINTER_READY
 
   CharUnits VBPtrAlign;
   if (auto CI = dyn_cast<llvm::ConstantInt>(VBPtrOffset)) {
@@ -3425,6 +3441,9 @@ MicrosoftCXXABI::GetVBaseOffsetFromVBPtr(CodeGenFunction &CGF,
   // Load an i32 offset from the vb-table.
   llvm::Value *VBaseOffs =
       Builder.CreateInBoundsGEP(CGM.Int32Ty, VBTable, VBTableIndex);
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
+  VBaseOffs = Builder.CreateBitCast(VBaseOffs, CGM.Int32Ty->getPointerTo(0));
+#endif // !INTEL_SYCL_OPAQUEPOINTER_READY
   return Builder.CreateAlignedLoad(CGM.Int32Ty, VBaseOffs,
                                    CharUnits::fromQuantity(4), "vbase_offs");
 }
