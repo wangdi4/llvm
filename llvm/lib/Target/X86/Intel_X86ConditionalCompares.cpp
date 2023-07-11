@@ -279,14 +279,35 @@ MachineInstr *SSACCmpConv::findConvertibleCompare(MachineBasicBlock *MBB) {
     switch (I->getOpcode()) {
     // This pass run before peephole optimization, so the SUB has not been
     // optimized to CMP yet.
-    case X86::CMP32rr:
-    case X86::CMP64rr:
+    case X86::SUB8rr:
+    case X86::SUB16rr:
     case X86::SUB32rr:
-    case X86::SUB64rr: {
+    case X86::SUB64rr:
+    case X86::SUB8ri:
+    case X86::SUB16ri:
+    case X86::SUB32ri:
+    case X86::SUB64ri32: {
       if (!isDeadDef(I->getOperand(0).getReg()))
         return nullptr;
       return STI->hasCCMP() ? &*I : nullptr;
     }
+    case X86::CMP8rr:
+    case X86::CMP16rr:
+    case X86::CMP32rr:
+    case X86::CMP64rr:
+    case X86::CMP8ri:
+    case X86::CMP16ri:
+    case X86::CMP32ri:
+    case X86::CMP64ri32:
+    case X86::TEST8rr:
+    case X86::TEST16rr:
+    case X86::TEST32rr:
+    case X86::TEST64rr:
+    case X86::TEST8ri:
+    case X86::TEST16ri:
+    case X86::TEST32ri:
+    case X86::TEST64ri32:
+      return STI->hasCCMP() ? &*I : nullptr;
     default:
       break;
     }
@@ -652,10 +673,54 @@ void SSACCmpConv::convert(SmallVectorImpl<MachineBasicBlock *> &RemovedBlocks) {
     switch (CmpMI->getOpcode()) {
     default:
       llvm_unreachable("Unknown compare opcode");
+    case X86::SUB8rr:
+      return X86::CCMP8rr;
+    case X86::SUB16rr:
+      return X86::CCMP16rr;
     case X86::SUB32rr:
       return X86::CCMP32rr;
     case X86::SUB64rr:
       return X86::CCMP64rr;
+    case X86::SUB8ri:
+      return X86::CCMP8ri;
+    case X86::SUB16ri:
+      return X86::CCMP16ri;
+    case X86::SUB32ri:
+      return X86::CCMP32ri;
+    case X86::SUB64ri32:
+      return X86::CCMP64ri32;
+    case X86::CMP8rr:
+      return X86::CCMP8rr;
+    case X86::CMP16rr:
+      return X86::CCMP16rr;
+    case X86::CMP32rr:
+      return X86::CCMP32rr;
+    case X86::CMP64rr:
+      return X86::CCMP64rr;
+    case X86::CMP8ri:
+      return X86::CCMP8ri;
+    case X86::CMP16ri:
+      return X86::CCMP16ri;
+    case X86::CMP32ri:
+      return X86::CCMP32ri;
+    case X86::CMP64ri32:
+      return X86::CCMP64ri32;
+    case X86::TEST8rr:
+      return X86::CTEST8rr;
+    case X86::TEST16rr:
+      return X86::CTEST16rr;
+    case X86::TEST32rr:
+      return X86::CTEST32rr;
+    case X86::TEST64rr:
+      return X86::CTEST64rr;
+    case X86::TEST8ri:
+      return X86::CTEST8ri;
+    case X86::TEST16ri:
+      return X86::CTEST16ri;
+    case X86::TEST32ri:
+      return X86::CTEST32ri;
+    case X86::TEST64ri32:
+      return X86::CTEST64ri32;
     }
   }();
   const MCInstrDesc &MCID = TII->get(Opc);

@@ -397,7 +397,6 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     if (!isARM)
       TLI.setUnavailable(LibFunc_fabsf);
     TLI.setUnavailable(LibFunc_frexpf);
-    TLI.setUnavailable(LibFunc_ldexpf);
 
     // Win32 does not support long double C89 math functions.
     TLI.setUnavailable(LibFunc_acosl);

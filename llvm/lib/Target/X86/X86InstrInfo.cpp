@@ -10902,6 +10902,157 @@ bool X86InstrInfo::isVecSpillInst(const MachineInstr &MI) const {
   }
   return false;
 }
+#if INTEL_FEATURE_ISA_APX_F
+// Try to merge code like:
+//    %4:gr32 = AND* ...
+//    CTEST*rr ...
+// to
+//    CTEST* ...
+MachineInstr *X86InstrInfo::optimizeCCMPInstr(MachineRegisterInfo &MRI,
+                                              MachineInstr &MI) const {
+  switch (MI.getOpcode()) {
+  default:
+    return nullptr;
+  case X86::CTEST8rr:
+  case X86::CTEST16rr:
+  case X86::CTEST32rr:
+  case X86::CTEST64rr:
+    break;
+  }
+  MachineInstr *CopySubRegMI = nullptr;
+  MachineInstr *SrcRegDef = MRI.getVRegDef(MI.getOperand(0).getReg());
+  MachineInstr *AndMI = SrcRegDef;
+  assert(SrcRegDef && "SrcRegDef and AndMI couldn't be nullptr");
+  // Handle the special cases like
+  //    %5:gr32 = AND32ri %4:gr32(tied-def 0), 123456, implicit-def dead $eflags
+  //    %3:gr64 = SUBREG_TO_REG 0, killed %5:gr32, %subreg.sub_32bit
+  //    CTEST64rr %3:gr64, %3:gr64, 0, 5, implicit-def $eflags, implicit $eflags
+  // To
+  //    CTEST32ri %4:gr32, 123456, 0, 5, implicit-def $eflags, implicit $eflags
+  if (SrcRegDef->getOpcode() == X86::SUBREG_TO_REG &&
+      MI.getOpcode() == X86::CTEST64rr) {
+    if (SrcRegDef->getOperand(3).getImm() != X86::sub_32bit)
+      return nullptr;
+    MachineInstr *VregDefInstr =
+        MRI.getVRegDef(SrcRegDef->getOperand(2).getReg());
+    if (VregDefInstr->getParent() != SrcRegDef->getParent())
+      return nullptr;
+    if (VregDefInstr->getOpcode() == X86::AND32ri) {
+      AndMI = VregDefInstr;
+      CopySubRegMI = SrcRegDef;
+    }
+  }
+  // Handle the special cases like
+  //    %5:gr32 = AND32ri %1:gr32(tied-def 0), 1234, implicit-def dead $eflags
+  //    %4:gr16 = COPY %5.sub_16bit:gr32
+  //    CTEST16rr %4:gr16, %4:gr16, 0, 5, implicit-def $eflags, implicit $eflags
+  // To
+  //    CTEST32ri %1:gr32, 1234, 0, 5, implicit-def $eflags, implicit $eflags
+  else if (SrcRegDef->getOpcode() == X86::COPY &&
+           MI.getOpcode() == X86::CTEST16rr) {
+    MachineInstr *VregDefInstr =
+        MRI.getVRegDef(SrcRegDef->getOperand(1).getReg());
+    if (!VregDefInstr)
+      return nullptr;
+    if (VregDefInstr->getParent() != SrcRegDef->getParent())
+      return nullptr;
+    if ((VregDefInstr->getOpcode() == X86::AND32ri ||
+         VregDefInstr->getOpcode() == X86::AND64ri32) &&
+        isUInt<16>(VregDefInstr->getOperand(2).getImm())) {
+      AndMI = VregDefInstr;
+      CopySubRegMI = SrcRegDef;
+    }
+  }
+  if (!MRI.hasOneNonDBGUser(AndMI->getOperand(0).getReg()) ||
+      !AndMI->registerDefIsDead(X86::EFLAGS, &getRegisterInfo()))
+    return nullptr;
+  if (CopySubRegMI &&
+      !MRI.hasOneNonDBGUser(CopySubRegMI->getOperand(0).getReg()))
+    return nullptr;
+  unsigned Opc = 0;
+  bool NeedMemOp = false;
+  switch (AndMI->getOpcode()) {
+  default:
+    return nullptr;
+  case X86::AND8ri:
+    Opc = X86::CTEST8ri;
+    break;
+  case X86::AND16ri:
+    Opc = X86::CTEST16ri;
+    break;
+  case X86::AND32ri:
+    Opc = X86::CTEST32ri;
+    break;
+  case X86::AND64ri32:
+    Opc = X86::CTEST64ri32;
+    break;
+  case X86::AND8rm:
+    Opc = X86::CTEST8mr;
+    NeedMemOp = true;
+    break;
+  case X86::AND16rm:
+    Opc = X86::CTEST16mr;
+    NeedMemOp = true;
+    break;
+  case X86::AND32rm:
+    Opc = X86::CTEST32mr;
+    NeedMemOp = true;
+    break;
+  case X86::AND64rm:
+    Opc = X86::CTEST64mr;
+    NeedMemOp = true;
+    break;
+  case X86::AND8rr:
+    Opc = X86::CTEST8rr;
+    break;
+  case X86::AND16rr:
+    Opc = X86::CTEST16rr;
+    break;
+  case X86::AND32rr:
+    Opc = X86::CTEST32rr;
+    break;
+  case X86::AND64rr:
+    Opc = X86::CTEST64rr;
+    break;
+  }
+  MachineBasicBlock *UseMBB = AndMI->getParent();
+  DebugLoc DL = MI.getDebugLoc();
+  MachineInstr *NewMI = nullptr;
+  if (NeedMemOp) {
+    // Check if mem changed between and and ctestrr
+    assert(AndMI->hasOneMemOperand());
+    MachineMemOperand *SrcMMO = &(*AndMI->memoperands_begin())[0];
+    for (MachineBasicBlock::const_iterator I = AndMI, E = &MI; I != E; ++I) {
+      for (const MachineMemOperand *MMO : (*I).memoperands()) {
+        if (MMO->isStore() && MMO->getValue() == SrcMMO->getValue()) {
+          return nullptr;
+        }
+      }
+    }
+    NewMI = BuildMI(*UseMBB, &MI, DL, get(Opc))
+                .add(AndMI->getOperand(2))
+                .add(AndMI->getOperand(3))
+                .add(AndMI->getOperand(4))
+                .add(AndMI->getOperand(5))
+                .add(AndMI->getOperand(6))
+                .add(AndMI->getOperand(1))
+                .add(MI.getOperand(2))
+                .add(MI.getOperand(3))
+                .addMemOperand(SrcMMO);
+  } else {
+    NewMI = BuildMI(*UseMBB, &MI, DL, get(Opc))
+                .add(AndMI->getOperand(1))
+                .add(AndMI->getOperand(2))
+                .add(MI.getOperand(2))
+                .add(MI.getOperand(3));
+  }
+  AndMI->eraseFromParent();
+  if (CopySubRegMI)
+    CopySubRegMI->eraseFromParent();
+  MI.eraseFromParent();
+  return NewMI;
+}
+#endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
 #define GET_INSTRINFO_HELPERS
 #include "X86GenInstrInfo.inc"

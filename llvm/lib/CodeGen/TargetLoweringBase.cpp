@@ -228,7 +228,6 @@ void TargetLoweringBase::InitLibcalls(const Triple &TT) {
   }
 
   if (TT.isOSWindows() && !TT.isOSCygMing()) {
-    setLibcallName(RTLIB::LDEXP_F32, nullptr);
     setLibcallName(RTLIB::LDEXP_F80, nullptr);
     setLibcallName(RTLIB::LDEXP_F128, nullptr);
     setLibcallName(RTLIB::LDEXP_PPCF128, nullptr);

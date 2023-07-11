@@ -557,7 +557,14 @@ static bool optimizeToShortImmediateForm(MCInst &MI) {
     return false;
 #include "X86EncodingOptimizationForImmediate.def"
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  unsigned SkipOperands = X86::isCCMPCC(MI.getOpcode()) ? 2 : 0;
+  MCOperand &LastOp = MI.getOperand(MI.getNumOperands() - SkipOperands - 1);
+#else  // INTEL_FEATURE_ISA_APX_F
   MCOperand &LastOp = MI.getOperand(MI.getNumOperands() - 1);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   if (LastOp.isExpr()) {
     const MCSymbolRefExpr *SRE = dyn_cast<MCSymbolRefExpr>(LastOp.getExpr());
     if (!SRE || SRE->getKind() != MCSymbolRefExpr::VK_X86_ABS8)
