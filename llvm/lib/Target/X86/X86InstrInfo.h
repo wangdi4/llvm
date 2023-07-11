@@ -627,6 +627,12 @@ public:
                      outliner::Candidate &C) const override;
 
   bool isVecSpillInst(const MachineInstr &MI) const; // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  MachineInstr *optimizeCCMPInstr(MachineRegisterInfo &MRI,
+                                  MachineInstr &MI) const override;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   bool verifyInstruction(const MachineInstr &MI,
                          StringRef &ErrInfo) const override;
 #define GET_INSTRINFO_HELPER_DECLS

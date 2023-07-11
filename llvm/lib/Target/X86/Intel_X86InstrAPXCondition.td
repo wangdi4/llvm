@@ -73,10 +73,12 @@ def CCMP32mi: ITy_EVEX_C_Imm<0x80, MRM7m, Xi32, i32mem, i32imm, "ccmp">;
 def CCMP64mi32: ITy_EVEX_C_Imm<0x80, MRM7m, Xi64, i64mem, i64i32imm, "ccmp">;
 } // mayLoad = 1
 
+let isCommutable = 1 in {
 def CTEST8rr : ITy_EVEX_C<0x84, MRMDestReg, Xi8,  GR8,  GR8,  "ctest">;
 def CTEST16rr: ITy_EVEX_C<0x84, MRMDestReg, Xi16, GR16, GR16, "ctest">;
 def CTEST32rr: ITy_EVEX_C<0x84, MRMDestReg, Xi32, GR32, GR32, "ctest">;
 def CTEST64rr: ITy_EVEX_C<0x84, MRMDestReg, Xi64, GR64, GR64, "ctest">;
+}
 def CTEST8ri : ITy_EVEX_C_Imm<0xF6, MRM0r, Xi8,   GR8, i8imm,  "ctest">;
 def CTEST16ri: ITy_EVEX_C_Imm<0xF6, MRM0r, Xi16, GR16, i16imm, "ctest">;
 def CTEST32ri: ITy_EVEX_C_Imm<0xF6, MRM0r, Xi32, GR32, i32imm, "ctest">;
