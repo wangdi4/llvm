@@ -273,8 +273,8 @@ set(LIBOMPTARGET_LLVM_LIBRARY_DIR "${LLVM_LIBRARY_DIR}" CACHE STRING
   "Path to folder containing llvm library libomptarget.so")
 
 # Build offloading plugins and device RTLs if they are available.
-add_subdirectory(plugins)
 if(INTEL_CUSTOMIZATION)
+add_subdirectory(plugins)
 add_subdirectory(deviceRTLs)
 else(INTEL_CUSTOMIZATION)
 add_subdirectory(plugins-nextgen)

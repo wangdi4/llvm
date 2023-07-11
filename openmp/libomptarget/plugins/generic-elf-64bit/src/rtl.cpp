@@ -1,8 +1,8 @@
-// INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2022 Intel Corporation
+// Modifications, Copyright (C) 2022-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,7 +14,6 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 //
-// end INTEL_CUSTOMIZATION
 //===-RTLs/generic-64bit/src/rtl.cpp - Target RTLs Implementation - C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -27,24 +26,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if !INTEL_CUSTOMIZATION
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Support/DynamicLibrary.h"
-#endif // !INTEL_CUSTOMIZATION
-
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <ffi.h>
-#if INTEL_CUSTOMIZATION
 #include <gelf.h>
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_COLLAB
 #include <limits>
 #include <unordered_set>
 #include <mutex>
-#endif // INTEL_COLLAB
 #include <link.h>
 #include <list>
 #include <string>
@@ -52,11 +42,6 @@
 
 #include "Debug.h"
 #include "omptargetplugin.h"
-
-#if !INTEL_CUSTOMIZATION
-using namespace llvm;
-using namespace llvm::sys;
-#endif // !INTEL_CUSTOMIZATION
 
 #ifndef TARGET_NAME
 #define TARGET_NAME Generic ELF - 64bit
@@ -75,19 +60,12 @@ using namespace llvm::sys;
 /// Array of Dynamic libraries loaded for this target.
 struct DynLibTy {
   std::string FileName;
-#if INTEL_CUSTOMIZATION
   void* Handle;
-#else // INTEL_CUSTOMIZATION
-  std::unique_ptr<DynamicLibrary> DynLib;
-#endif // INTEL_CUSTOMIZATION
 };
 
 /// Keep entries table per device.
 struct FuncOrGblEntryTy {
   __tgt_target_table Table;
-#if !INTEL_CUSTOMIZATION
-  SmallVector<__tgt_offload_entry> Entries;
-#endif // !INTEL_CUSTOMIZATION
 };
 
 /// Class containing all the device information.
@@ -96,32 +74,19 @@ class RTLDeviceInfoTy {
 
 public:
   std::list<DynLibTy> DynLibs;
-#if INTEL_COLLAB
   std::unordered_set<void *> DevicePtrs;
   std::mutex Mtx;
-#endif // INTEL_COLLAB
 
   // Record entry point associated with device.
-#if INTEL_CUSTOMIZATION
   void createOffloadTable(int32_t DeviceId, __tgt_offload_entry *Begin,
                           __tgt_offload_entry *End) {
-#else // INTEL_CUSTOMIZATION
-  void createOffloadTable(int32_t DeviceId,
-                          SmallVector<__tgt_offload_entry> &&Entries) {
-#endif // INTEL_CUSTOMIZATION
     assert(DeviceId < (int32_t)FuncGblEntries.size() &&
            "Unexpected device id!");
     FuncGblEntries[DeviceId].emplace_back();
     FuncOrGblEntryTy &E = FuncGblEntries[DeviceId].back();
 
-#if INTEL_CUSTOMIZATION
     E.Table.EntriesBegin = Begin;
     E.Table.EntriesEnd = End;
-#else // INTEL_CUSTOMIZATION
-    E.Entries = Entries;
-    E.Table.EntriesBegin = E.Entries.begin();
-    E.Table.EntriesEnd = E.Entries.end();
-#endif // INTEL_CUSTOMIZATION
   }
 
   // Return true if the entry is associated with device.
@@ -154,15 +119,10 @@ public:
   ~RTLDeviceInfoTy() {
     // Close dynamic libraries
     for (auto &Lib : DynLibs) {
-#if INTEL_CUSTOMIZATION
       if (Lib.Handle) {
         (void)dlclose(Lib.Handle);
         (void)remove(Lib.FileName.c_str());
       }
-#else // INTEL_CUSTOMIZATION
-      if (Lib.DynLib->isValid())
-        remove(Lib.FileName.c_str());
-#endif // INTEL_CUSTOMIZATION
     }
   }
 };
@@ -173,9 +133,7 @@ static RTLDeviceInfoTy DeviceInfo(NUMBER_OF_DEVICES);
 extern "C" {
 #endif
 
-#if INTEL_COLLAB
 EXTERN
-#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *Image) {
 // If we don't have a valid ELF ID we can just fail.
 #if TARGET_ELF_ID < 1
@@ -185,19 +143,13 @@ int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *Image) {
 #endif
 }
 
-#if INTEL_COLLAB
 EXTERN
-#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_number_of_devices() { return NUMBER_OF_DEVICES; }
 
-#if INTEL_COLLAB
 EXTERN
-#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_init_device(int32_t DeviceId) { return OFFLOAD_SUCCESS; }
 
-#if INTEL_COLLAB
 EXTERN
-#endif  // INTEL_COLLAB
 __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
                                           __tgt_device_image *Image) {
 
@@ -207,7 +159,6 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   assert(DeviceId >= 0 && DeviceId < NUMBER_OF_DEVICES && "bad dev id");
 
   size_t ImageSize = (size_t)Image->ImageEnd - (size_t)Image->ImageStart;
-#if INTEL_CUSTOMIZATION
   size_t NumEntries = (size_t)(Image->EntriesEnd - Image->EntriesBegin);
   DP("Expecting to have %zd entries defined.\n", NumEntries);
 
@@ -259,7 +210,6 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   }
 
   DP("Offset of entries section is (" DPxMOD ").\n", DPxPTR(EntriesOffset));
-#endif // INTEL_CUSTOMIZATION
 
   // load dynamic library and get the entry points. We use the dl library
   // to do the loading of the library, but we could do it directly to avoid the
@@ -270,7 +220,6 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   char TmpName[] = "/tmp/tmpfile_XXXXXX";
   int TmpFd = mkstemp(TmpName);
 
-#if INTEL_CUSTOMIZATION
   if (TmpFd == -1) {
     elf_end(E);
     return NULL;
@@ -322,51 +271,6 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   DeviceInfo.createOffloadTable(DeviceId, EntriesBegin, EntriesEnd);
 
   elf_end(E);
-#else // INTEL_CUSTOMIZATION
-  if (TmpFd == -1)
-    return nullptr;
-
-  FILE *Ftmp = fdopen(TmpFd, "wb");
-
-  if (!Ftmp)
-    return nullptr;
-
-  fwrite(Image->ImageStart, ImageSize, 1, Ftmp);
-  fclose(Ftmp);
-
-  std::string ErrMsg;
-  auto DynLib = std::make_unique<sys::DynamicLibrary>(
-      sys::DynamicLibrary::getPermanentLibrary(TmpName, &ErrMsg));
-  DynLibTy Lib = {TmpName, std::move(DynLib)};
-
-  if (!Lib.DynLib->isValid()) {
-    DP("Target library loading error: %s\n", ErrMsg.c_str());
-    return NULL;
-  }
-
-  __tgt_offload_entry *HostBegin = Image->EntriesBegin;
-  __tgt_offload_entry *HostEnd = Image->EntriesEnd;
-
-  // Create a new offloading entry list using the device symbol address.
-  SmallVector<__tgt_offload_entry> Entries;
-  for (__tgt_offload_entry *E = HostBegin; E != HostEnd; ++E) {
-    if (!E->addr)
-      return nullptr;
-
-    __tgt_offload_entry Entry = *E;
-
-    void *DevAddr = Lib.DynLib->getAddressOfSymbol(E->name);
-    Entry.addr = DevAddr;
-
-    DP("Entry point " DPxMOD " maps to global %s (" DPxMOD ")\n",
-       DPxPTR(E - HostBegin), E->name, DPxPTR(DevAddr));
-
-    Entries.emplace_back(Entry);
-  }
-
-  DeviceInfo.createOffloadTable(DeviceId, std::move(Entries));
-  DeviceInfo.DynLibs.emplace_back(std::move(Lib));
-#endif // INTEL_CUSTOMIZATION
 
   return DeviceInfo.getOffloadEntriesTable(DeviceId);
 }
@@ -375,9 +279,7 @@ void __tgt_rtl_print_device_info(int32_t DeviceId) {
   printf("    This is a generic-elf-64bit device\n");
 }
 
-#if INTEL_COLLAB
 EXTERN
-#endif  // INTEL_COLLAB
 // Sample implementation of explicit memory allocator. For this plugin all kinds
 // are equivalent to each other.
 void *__tgt_rtl_data_alloc(int32_t DeviceId, int64_t Size, void *HstPtr,
@@ -394,44 +296,34 @@ void *__tgt_rtl_data_alloc(int32_t DeviceId, int64_t Size, void *HstPtr,
   default:
     REPORT("Invalid target data allocation kind");
   }
-#if INTEL_COLLAB
   if (Ptr) {
     std::lock_guard<std::mutex> Lock(DeviceInfo.Mtx);
     DeviceInfo.DevicePtrs.insert(Ptr);
   }
-#endif // INTEL_COLLAB
 
   return Ptr;
 }
 
-#if INTEL_COLLAB
 EXTERN
-#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_data_submit(int32_t DeviceId, void *TgtPtr, void *HstPtr,
                               int64_t Size) {
   memcpy(TgtPtr, HstPtr, Size);
   return OFFLOAD_SUCCESS;
 }
 
-#if INTEL_COLLAB
 EXTERN
-#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_data_retrieve(int32_t DeviceId, void *HstPtr, void *TgtPtr,
                                 int64_t Size) {
   memcpy(HstPtr, TgtPtr, Size);
   return OFFLOAD_SUCCESS;
 }
 
-#if INTEL_COLLAB
 EXTERN
-#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr, int32_t) {
   free(TgtPtr);
 
-#if INTEL_COLLAB
   std::lock_guard<std::mutex> Lock(DeviceInfo.Mtx);
   DeviceInfo.DevicePtrs.erase(TgtPtr);
-#endif // INTEL_COLLAB
 
   return OFFLOAD_SUCCESS;
 }
@@ -454,7 +346,6 @@ int32_t __tgt_rtl_launch_kernel(int32_t DeviceId, void *TgtEntryPtr,
   std::vector<void *> Ptrs(KernelArgs->NumArgs);
 
   for (uint32_t I = 0; I < KernelArgs->NumArgs; ++I) {
-#if INTEL_COLLAB
     ptrdiff_t offset = TgtOffsets[I];
     // Offset equal to MAX(ptrdiff_t) means that the argument
     // must be passed as literal, and the offset should be ignored.
@@ -462,19 +353,11 @@ int32_t __tgt_rtl_launch_kernel(int32_t DeviceId, void *TgtEntryPtr,
       Ptrs[I] = TgtArgs[I];
     else
       Ptrs[I] = (void *)((intptr_t)TgtArgs[I] + offset);
-#else // INTEL_COLLAB
-    Ptrs[I] = (void *)((intptr_t)TgtArgs[I] + TgtOffsets[I]);
-#endif // INTEL_COLLAB
     Args[I] = &Ptrs[I];
   }
 
-#if INTEL_COLLAB
   ffi_status Status = ffi_prep_cif(&Cif, FFI_DEFAULT_ABI, KernelArgs->NumArgs,
                                    &ffi_type_void, ArgsTypes.data());
-#else // INTEL_COLLAB
-  ffi_status Status = ffi_prep_cif(&Cif, FFI_DEFAULT_ABI, KernelArgs->NumArgs,
-                                   &ffi_type_void, &ArgsTypes[0]);
-#endif // INTEL_COLLAB
 
   assert(Status == FFI_OK && "Unable to prepare target launch!");
 
@@ -486,16 +369,11 @@ int32_t __tgt_rtl_launch_kernel(int32_t DeviceId, void *TgtEntryPtr,
   void (*Entry)(void);
   *((void **)&Entry) = TgtEntryPtr;
 
-#if INTEL_COLLAB
   ffi_call(&Cif, Entry, NULL, Args.data());
-#else // INTEL_COLLAB
-  ffi_call(&Cif, Entry, NULL, &Args[0]);
-#endif // INTEL_COLLAB
 
   return OFFLOAD_SUCCESS;
 }
 
-#if INTEL_COLLAB
 int32_t __tgt_rtl_requires_mapping(int32_t DeviceId, void *Ptr, int64_t Size) {
   int32_t Ret;
   std::lock_guard<std::mutex> Lock(DeviceInfo.Mtx);
@@ -521,7 +399,7 @@ void *__tgt_rtl_data_alloc_base(int32_t ID, int64_t Size, void *HstPtr,
     (void)memset(TgtPtr, 0, Size);
   return TgtPtr;
 }
-#endif // INTEL_COLLAB
 #ifdef __cplusplus
 }
 #endif
+#endif // INTEL_CUSTOMIZATION

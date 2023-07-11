@@ -293,9 +293,6 @@ void RTLsTy::loadRTLs() {
 
     if (!attemptLoadRTL(BaseRTLName, RTL))
 #else // INTEL_COLLAB
-
-  BoolEnvar NextGenPlugins("LIBOMPTARGET_NEXTGEN_PLUGINS", true);
-
   // Attempt to open all the plugins and, if they exist, check if the interface
   // is correct and if they are supporting any devices.
   for (const char *Name : RTLNames) {
@@ -304,13 +301,6 @@ void RTLsTy::loadRTLs() {
     RTLInfoTy &RTL = AllRTLs.back();
 
     const std::string BaseRTLName(Name);
-    if (NextGenPlugins) {
-      if (attemptLoadRTL(BaseRTLName + ".nextgen.so", RTL))
-        continue;
-
-      DP("Falling back to original plugin...\n");
-    }
-
     if (!attemptLoadRTL(BaseRTLName + ".so", RTL))
 #endif // INTEL_COLLAB
       AllRTLs.pop_back();
