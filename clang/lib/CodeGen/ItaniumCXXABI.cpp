@@ -4784,7 +4784,7 @@ static void emitConstructorDestructorAlias(CodeGenModule &CGM,
 #if INTEL_COLLAB
   // An alias was defined. When generating device code the aliasee must also
   // be defined.
-  if (CGM.getLangOpts().OpenMPLateOutline && CGM.getLangOpts().OpenMPIsDevice) {
+  if (CGM.getLangOpts().OpenMPLateOutline && CGM.getLangOpts().OpenMPIsTargetDevice) {
     if (auto *AliaseeFn = dyn_cast<llvm::Function>(Aliasee)) {
       AliaseeFn->addFnAttr("openmp-target-declare", "true");
       CGM.addDeferredTargetDecl(TargetDecl);
@@ -5183,7 +5183,7 @@ static llvm::FunctionCallee getClangCallTerminateFn(CodeGenModule &CGM) {
 
 #if INTEL_COLLAB
     // If encountered in OpenMP device codegen mark it for the target.
-    if (CGM.getLangOpts().OpenMPLateOutline && CGM.getLangOpts().OpenMPIsDevice)
+    if (CGM.getLangOpts().OpenMPLateOutline && CGM.getLangOpts().OpenMPIsTargetDevice)
       fn->addFnAttr("openmp-target-declare", "true");
 #endif // INTEL_COLLAB
 

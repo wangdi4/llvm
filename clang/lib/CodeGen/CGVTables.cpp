@@ -482,7 +482,7 @@ void CodeGenFunction::generateThunk(llvm::Function *Fn,
 
 #if INTEL_COLLAB
   // If encountered in OpenMP device codegen mark it for the target.
-  if (CGM.getLangOpts().OpenMPLateOutline && CGM.getLangOpts().OpenMPIsDevice)
+  if (CGM.getLangOpts().OpenMPLateOutline && CGM.getLangOpts().OpenMPIsTargetDevice)
     Fn->addFnAttr("openmp-target-declare", "true");
 #endif  // INTEL_COLLAB
 

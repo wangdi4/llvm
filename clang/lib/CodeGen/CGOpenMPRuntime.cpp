@@ -1759,7 +1759,7 @@ Address CGOpenMPRuntime::getAddrOfDeclareTargetVar(const VarDecl *VD) {
   unsigned AS =
       CGM.getContext().getTargetAddressSpace(CGM.GetGlobalVarAddressSpace(VD));
   if (CGM.getLangOpts().OpenMPLateOutline &&
-      !CGM.getLangOpts().OpenMPIsDevice) {
+      !CGM.getLangOpts().OpenMPIsTargetDevice) {
     llvm::GlobalVariable *OGV =
         cast<llvm::GlobalVariable>(CGM.GetAddrOfGlobal(VD));
     OGV->setTargetDeclare(false);
@@ -11078,7 +11078,7 @@ bool CGOpenMPRuntime::emitTargetGlobalVariable(GlobalDecl GD) {
   // Also need for static constant data member which has LinkOnceODRLinkage.
   const auto *VD = cast<VarDecl>(GD.getDecl());
   if (CGM.getLangOpts().OpenMPLateOutline && VD->isConstexpr() &&
-      (CGM.getLangOpts().OpenMPIsDevice && VD->isStaticDataMember() ||
+      (CGM.getLangOpts().OpenMPIsTargetDevice && VD->isStaticDataMember() ||
        CGM.getLLVMLinkageVarDefinition(VD, /*IsConstant=*/true) ==
            llvm::GlobalValue::InternalLinkage))
     return false;
@@ -11109,7 +11109,7 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
   if (CGM.getLangOpts().OpenMPLateOutline &&
       VD->hasAttr<OMPDeclareTargetDeclAttr>())
     // Skip set target_declare attribute for local variable on host.
-    if (!(!CGM.getLangOpts().OpenMPIsDevice && Res &&
+    if (!(!CGM.getLangOpts().OpenMPIsTargetDevice && Res &&
           *Res == OMPDeclareTargetDeclAttr::MT_Local))
       cast<llvm::GlobalVariable>(Addr)->setTargetDeclare(true);
 
@@ -11168,7 +11168,7 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
       VarSize = 0;
     }
   } else if (CGM.getLangOpts().OpenMPLateOutline) {
-    if (CGM.getLangOpts().OpenMPIsDevice) {
+    if (CGM.getLangOpts().OpenMPIsTargetDevice) {
       VarName = Addr->getName();
     } else {
       VarName = VD->getName();
@@ -11213,16 +11213,16 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
 void CGOpenMPRuntime::registerTargetIndirectFn(StringRef FnName,
                                                llvm::Constant *Addr) {
   if (CGM.getLangOpts().OMPTargetTriples.empty() &&
-      !CGM.getLangOpts().OpenMPIsDevice)
+      !CGM.getLangOpts().OpenMPIsTargetDevice)
     return;
   OMPBuilder.OffloadInfoManager.registerDeviceIndirectFnEntryInfo(
-      FnName, Addr, CGM.getLangOpts().OpenMPIsDevice);
+      FnName, Addr, CGM.getLangOpts().OpenMPIsTargetDevice);
 }
 
 void CGOpenMPRuntime::registerTargetVtableGlobalVar(StringRef VarName,
                                                     llvm::Constant *Addr) {
   if (CGM.getLangOpts().OMPTargetTriples.empty() &&
-      !CGM.getLangOpts().OpenMPIsDevice)
+      !CGM.getLangOpts().OpenMPIsTargetDevice)
     return;
   OMPBuilder.OffloadInfoManager.registerDeviceGlobalVarEntryInfo(
       VarName, Addr, CGM.getPointerSize().getQuantity(),
@@ -12852,7 +12852,7 @@ Address CGOpenMPRuntime::getAddressOfLocalVariable(CodeGenFunction &CGF,
 #if INTEL_COLLAB
         // Ensure pointer to alloc'd memory is expected type.
         if (CGF.CGM.getLangOpts().OpenMPLateOutline &&
-            CGF.CGM.getLangOpts().OpenMPIsDevice &&
+            CGF.CGM.getLangOpts().OpenMPIsTargetDevice &&
             CGF.CGM.getTriple().getArch() == llvm::Triple::spir64) {
           Args[1] = CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
               Addr.getPointer(),

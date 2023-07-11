@@ -2834,7 +2834,7 @@ QualType Sema::BuildVectorType(QualType CurType, Expr *SizeExpr,
 
   if (!TypeSize || VectorSizeBits % TypeSize) {
 #if INTEL_CUSTOMIZATION
-    if (!(CurType->isBFloat16Type() && getLangOpts().OpenMPIsDevice)) {
+    if (!(CurType->isBFloat16Type() && getLangOpts().OpenMPIsTargetDevice)) {
       Diag(AttrLoc, diag::err_attribute_invalid_size)
           << SizeExpr->getSourceRange();
     }

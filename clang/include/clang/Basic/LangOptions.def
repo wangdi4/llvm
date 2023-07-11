@@ -301,7 +301,6 @@ LANGOPT(OpenMP            , 32, 0, "OpenMP support and version of OpenMP (31, 40
 LANGOPT(OpenMPExtensions  , 1, 1, "Enable all Clang extensions for OpenMP directives and clauses")
 LANGOPT(OpenMPSimd        , 1, 0, "Use SIMD only OpenMP support.")
 LANGOPT(OpenMPUseTLS      , 1, 0, "Use TLS for threadprivates or runtime calls")
-<<<<<<< HEAD
 #if INTEL_COLLAB
 LANGOPT(OpenMPLateOutline , 1, 0, "Outline OpenMP constructs in the back end")
 LANGOPT(OpenMPUseSingleElemArrayFuncs , 1, 1,
@@ -325,10 +324,7 @@ LANGOPT(OpenMPStableFileID, 1, 0,
     "Compute file ids for OpenMP mangling using relative file path "
     "instead of using file system's file id.")
 #endif // INTEL_CUSTOMIZATION
-LANGOPT(OpenMPIsDevice    , 1, 0, "Generate code only for OpenMP target device")
-=======
 LANGOPT(OpenMPIsTargetDevice    , 1, 0, "Generate code only for OpenMP target device")
->>>>>>> 5d376713cd67ee598cd9df065235c2110c56851d
 LANGOPT(OpenMPCUDAMode    , 1, 0, "Generate code for OpenMP pragmas in SIMT/SPMD mode")
 LANGOPT(OpenMPIRBuilder   , 1, 0, "Use the experimental OpenMP-IR-Builder codegen path.")
 LANGOPT(OpenMPCUDANumSMs  , 32, 0, "Number of SMs for CUDA devices.")

@@ -221,7 +221,7 @@ Address CodeGenFunction::CreateMemTempPossiblyCasted(QualType Ty,
                                                      const Twine &Name) {
   llvm::Type *LTy = ConvertTypeForMem(Ty);
   // Casted address may be needed for OpenMP clauses.
-  if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice)
+  if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsTargetDevice)
     return CreateTempAlloca(LTy, Align, Name, /*ArraySize=*/nullptr,
                             /*AllocaAddr=*/nullptr);
   else
@@ -2743,7 +2743,7 @@ static LValue EmitGlobalVarDeclLValue(CodeGenFunction &CGF,
 #if INTEL_COLLAB
   // Diagnose uses of globals that are not marked for target. This typically
   // causes an offload failure at runtime.
-  if (CGF.getLangOpts().OpenMPLateOutline && CGF.getLangOpts().OpenMPIsDevice &&
+  if (CGF.getLangOpts().OpenMPLateOutline && CGF.getLangOpts().OpenMPIsTargetDevice &&
       CGF.CGM.inTargetRegion() && E->getExprLoc().isValid()) {
     std::optional<OMPDeclareTargetDeclAttr::MapTypeTy> Res =
         OMPDeclareTargetDeclAttr::isDeclareTargetDeclaration(VD);
@@ -2974,7 +2974,7 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
 #if INTEL_COLLAB
       // Temporarily set target_declare attribute for global constexpr
       // variable which used in the target region.
-      if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice &&
+      if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsTargetDevice &&
           CGM.inTargetRegion() && VD->isConstexpr())
         if (auto *GV = dyn_cast<llvm::GlobalValue>(
                 Addr.getPointer()->stripPointerCasts()))
@@ -5638,7 +5638,7 @@ static CGCallee EmitDirectCallee(CodeGenFunction &CGF, GlobalDecl GD) {
   }
 
 #if INTEL_COLLAB
-  if (CGF.getLangOpts().OpenMPIsDevice && CGF.CapturedStmtInfo &&
+  if (CGF.getLangOpts().OpenMPIsTargetDevice && CGF.CapturedStmtInfo &&
       CGF.CapturedStmtInfo->inDispatchRegion()) {
     for (const auto *DVA : FD->specific_attrs<OMPDeclareVariantAttr>()) {
       // Force target emission of variants as they are conditionally called

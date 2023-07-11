@@ -1698,17 +1698,13 @@ const llvm::fltSemantics &ASTContext::getFloatTypeSemantics(QualType T) const {
   case BuiltinType::Ibm128:
     return Target->getIbm128Format();
   case BuiltinType::LongDouble:
-<<<<<<< HEAD
 #if INTEL_COLLAB
     // The upstream code tries to use the host long double format for some
     // unknown reason. Use the code Target info instead.
     if (getLangOpts().OpenMPLateOutline)
       return Target->getLongDoubleFormat();
 #endif // INTEL_COLLAB
-    if (getLangOpts().OpenMP && getLangOpts().OpenMPIsDevice)
-=======
     if (getLangOpts().OpenMP && getLangOpts().OpenMPIsTargetDevice)
->>>>>>> 5d376713cd67ee598cd9df065235c2110c56851d
       return AuxTarget->getLongDoubleFormat();
     return Target->getLongDoubleFormat();
   case BuiltinType::Float128:

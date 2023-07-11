@@ -5850,16 +5850,12 @@ Constant *OpenMPIRBuilder::getAddrOfDeclareTargetVar(
       auto *GV = cast<GlobalVariable>(Ptr);
       GV->setLinkage(GlobalValue::WeakAnyLinkage);
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
       if (IsOpenMPLateOutline)
         GV->setTargetDeclare(true);
 #endif // INTEL_COLLAB
 
-      if (!Config.isEmbedded()) {
-=======
       if (!Config.isTargetDevice()) {
->>>>>>> 5d376713cd67ee598cd9df065235c2110c56851d
         if (GlobalInitializer)
           GV->setInitializer(GlobalInitializer());
         else

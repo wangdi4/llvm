@@ -6444,7 +6444,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
         return EmitBuiltinIndirectCall(IRFuncTy, IRCallArgs, CalleePtr, Attrs);
 #endif  // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
-    if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice &&
+    if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsTargetDevice &&
         getLangOpts().OpenMP >= 51 && CGM.inTargetRegion() &&
         CGM.getTriple().isSPIR() && IsIndirectCall)
       return EmitOMPIndirectCall(IRFuncTy, IRCallArgs, CalleePtr);

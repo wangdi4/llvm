@@ -1351,7 +1351,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   }
 #if INTEL_COLLAB
   if (LangOpts.OpenMPLateOutline) {
-    if (LangOpts.OpenMPIsDevice)
+    if (LangOpts.OpenMPIsTargetDevice)
       Builder.defineMacro("__INTEL_TARGET_OPENMP");
     else
       Builder.defineMacro("__INTEL_HOST_OPENMP");

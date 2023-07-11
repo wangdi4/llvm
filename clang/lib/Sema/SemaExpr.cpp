@@ -494,7 +494,7 @@ bool Sema::DiagnoseUseOfDecl(NamedDecl *D, ArrayRef<SourceLocation> Locs,
         }
       }
       llvm::Triple T = getASTContext().getTargetInfo().getTriple();
-      if (GDevTy && (!getLangOpts().OpenMPIsDevice ||
+      if (GDevTy && (!getLangOpts().OpenMPIsTargetDevice ||
                      T.getArch() != llvm::Triple::spir64)) {
         Diag(Loc, diag::warn_groupprivate_reference_ignore) << VD;
         Diag(*(OMPGroupPrivateDeclAttr::getLocation(VD)),

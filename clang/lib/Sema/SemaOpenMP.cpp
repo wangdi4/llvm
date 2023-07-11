@@ -3651,7 +3651,7 @@ Sema::ActOnOpenMPAllocateDirective(SourceLocation Loc, ArrayRef<Expr *> VarList,
         Diag(DE->getLocation(),
              diag:: warn_omp_static_duration_allocate_directive) <<
              Allocator;
-      } else if (getLangOpts().OpenMPIsDevice &&
+      } else if (getLangOpts().OpenMPIsTargetDevice &&
                  Context.getTargetInfo().getTriple().isSPIR() &&
                  DSAStack->getCurrentDirective() != OMPD_unknown &&
                  !getLangOpts().OpenMPTargetMalloc)
