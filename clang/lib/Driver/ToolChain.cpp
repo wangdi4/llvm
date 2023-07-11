@@ -819,6 +819,17 @@ ToolChain::path_list ToolChain::getStdlibPaths() const {
   llvm::sys::path::append(P, "..", "lib", getTripleString());
   Paths.push_back(std::string(P.str()));
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_DEPLOY_UNIFIED_LAYOUT
+  // JIRA: CMPLRLLVM-49229
+  // Adding libc++ path for unified layout v2
+  SmallString<128> PLibcxx(D.Dir);
+  llvm::sys::path::append(PLibcxx, "..", "..", "opt");
+  llvm::sys::path::append(PLibcxx, "compiler", "lib", getTripleString());
+  Paths.push_back(std::string(PLibcxx.str()));
+#endif // #if INTEL_DEPLOY_UNIFIED_LAYOUT
+#endif // #if INTEL_CUSTOMIZATION
+
   return Paths;
 }
 
