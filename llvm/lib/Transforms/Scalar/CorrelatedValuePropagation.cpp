@@ -124,7 +124,6 @@ static bool processSelect(SelectInst *S, LazyValueInfo *LVI) {
   if (S->getType()->isVectorTy() || isa<Constant>(S->getCondition()))
     return false;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Special case a local icmp with a phi input. LVI might be able to give an
   // answer for this.
@@ -152,9 +151,6 @@ static bool processSelect(SelectInst *S, LazyValueInfo *LVI) {
   }
 #endif // INTEL_CUSTOMIZATION
 
-  Constant *C = LVI->getConstant(S->getCondition(), S);
-  if (!C) return false;
-=======
   bool Changed = false;
   for (Use &U : make_early_inc_range(S->uses())) {
     auto *I = cast<Instruction>(U.getUser());
@@ -164,7 +160,6 @@ static bool processSelect(SelectInst *S, LazyValueInfo *LVI) {
                                  I->getParent(), I);
     else
       C = LVI->getConstant(S->getCondition(), I);
->>>>>>> 103f1ac406d835a3c758a82f4d83072dff9bd473
 
     auto *CI = dyn_cast_or_null<ConstantInt>(C);
     if (!CI)
