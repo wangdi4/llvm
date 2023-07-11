@@ -16,8 +16,8 @@
 
 ; CHECK: BEGIN SCOPE ID=1
 ; CHECK: NOWAIT: true
-; CHECK: PRIVATE clause (size=1): (ptr %x) , TYPED (TYPE: i32, NUM_ELEMENTS: i32 1)
-; CHECK: REDUCTION clause (size=1): (ADD: ptr %l, TYPED (TYPE: i32, NUM_ELEMENTS: i32 1))
+; CHECK: PRIVATE clause (size=1): TYPED(ptr %x, TYPE: i32, NUM_ELEMENTS: i32 1)
+; CHECK: REDUCTION clause (size=1): (ADD: TYPED(ptr %l, TYPE: i32, NUM_ELEMENTS: i32 1))
 ; CHECK: END SCOPE ID=1
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

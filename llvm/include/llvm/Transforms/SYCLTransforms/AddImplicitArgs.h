@@ -36,8 +36,7 @@ protected:
   /// funciton and need to add implicit arguments to its original arguments,
   /// i.e. calls to functions define in module.
   /// \param F the function to create a copy of.
-  /// \returns the new function that receives the implicit arguemnts.
-  Function *runOnFunction(Function *F);
+  void runOnFunction(Function *F);
 
   /// Helper function to replace call instruction with call instruction that
   /// receives implicit arguments. Replace indirect call if NewF is nullptr.

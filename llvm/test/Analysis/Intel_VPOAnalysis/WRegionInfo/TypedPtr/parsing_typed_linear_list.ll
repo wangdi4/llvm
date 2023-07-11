@@ -22,7 +22,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; CHECK: LINEAR clause (size=4): {{.*}}, TYPED (TYPE: i32, NUM_ELEMENTS: i32 1), i32 3) (i32* @z, TYPED (TYPE: i32, NUM_ELEMENTS: i32 1), i32 3) (i32* %m, TYPED (TYPE: i32, NUM_ELEMENTS: i32 1), i32 3) (i32** %p, TYPED (TYPE: i32, NUM_ELEMENTS: i32 4), {{.*}}
+; CHECK: LINEAR clause (size=4): (TYPED({{.*}}, TYPE: i32, NUM_ELEMENTS: i32 1), i32 3) (TYPED(i32* @z, TYPE: i32, NUM_ELEMENTS: i32 1), i32 3) (TYPED(i32* %m, TYPE: i32, NUM_ELEMENTS: i32 1), i32 3) (TYPED(i32** %p, TYPE: i32, NUM_ELEMENTS: i32 4), {{.*}}
 
 @x = dso_local global [10 x i32] zeroinitializer, align 16
 @y = dso_local global i32 1, align 4

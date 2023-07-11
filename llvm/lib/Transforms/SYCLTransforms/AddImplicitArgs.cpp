@@ -101,10 +101,10 @@ bool AddImplicitArgsPass::runImpl(Module &M, ImplicitArgsInfo *IAInfo,
     delete[] CallArgs;
   }
 
-  return true;
+  return !WorkList.empty();
 }
 
-Function *AddImplicitArgsPass::runOnFunction(Function *F) {
+void AddImplicitArgsPass::runOnFunction(Function *F) {
   SmallVector<Type *, 16> NewTypes;
   SmallVector<const char *, 16> NewNames;
   SmallVector<AttributeSet, 16> NewAttrs;
@@ -269,8 +269,6 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
     else
       llvm_unreachable("unhandled kernel user");
   }
-
-  return NewF;
 }
 
 void AddImplicitArgsPass::replaceCallInst(CallInst *CI,

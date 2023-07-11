@@ -13,7 +13,7 @@
 ;     printf("%p\n", x);
 ; }
 
-; CHECK: FIRSTPRIVATE clause (size=1): VARLEN(ptr %vla) , TYPED (TYPE: i32, NUM_ELEMENTS: i64 2)
+; CHECK: FIRSTPRIVATE clause (size=1): VARLEN,TYPED(ptr %vla, TYPE: i32, NUM_ELEMENTS: i64 2)
 ; CHECK: MAP clause (size=1): CHAIN,VARLEN(<ptr %vla, ptr %vla, i64 %map.size, 161 (0x00000000000000A1), null, null> )
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
