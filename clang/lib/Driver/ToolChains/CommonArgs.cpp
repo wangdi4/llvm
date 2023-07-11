@@ -946,9 +946,6 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
                                       options::OPT__SLASH_Qx))
     addAdvancedOptimFlag(*A, options::OPT__SLASH_Qx);
   addIntelOptimizationArgs(ToolChain, Args, CmdArgs, Input, true, JA);
-  // All -mllvm flags as provided by the user will be passed through.
-  for (StringRef AV : Args.getAllArgValues(options::OPT_mllvm))
-    CmdArgs.push_back(Args.MakeArgString(Twine("-plugin-opt=") + AV));
   addX86UnalignedVectorMoveArgs(ToolChain, Args, CmdArgs, /*IsLTO=*/true,
                                 /*IsIntelMode=*/D.IsIntelMode());
 #endif // INTEL_CUSTOMIZATION
