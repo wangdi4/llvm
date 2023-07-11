@@ -307,6 +307,10 @@ public:
   // True if the provided LibFunc \p F identifies a complex float type math
   // library function.
   bool isComplexFloatLibFunc(LibFunc F) const;
+
+  // True if the provided LibFunc \p F identifies a Fortran random number
+  // generator library function.
+  bool isFortranRNGLibFunc(LibFunc F) const;
 #endif
 
   /// Return true if the function F has a vector equivalent with any
@@ -579,6 +583,12 @@ public:
   // library function.
   bool isComplexFloatLibFunc(LibFunc F) const {
     return Impl->isComplexFloatLibFunc(F);
+  }
+
+  // True if the provided LibFunc \p F identifies a Fortran random number
+  // generator library function.
+  bool isFortranRNGLibFunc(LibFunc F) const {
+    return Impl->isFortranRNGLibFunc(F);
   }
 #endif // INTEL_CUSTOMIZATION
 
