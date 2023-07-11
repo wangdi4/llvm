@@ -2018,7 +2018,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
-  if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice) {
+  if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsTargetDevice) {
     // In some cases the complete constructor/destructor is marked for the
     // target but the not base due to aliasing. Mark these.
     bool MarkCtorDtor = false;

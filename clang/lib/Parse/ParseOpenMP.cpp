@@ -2771,7 +2771,7 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
 /// supported directive.
 void Parser::skipUnsupportedTargetDirectives() {
   assert(Tok.is(tok::annot_pragma_openmp_end));
-  if (!getLangOpts().OpenMPIsDevice || getLangOpts().OMPTargetTriples.empty())
+  if (!getLangOpts().OpenMPIsTargetDevice || getLangOpts().OMPTargetTriples.empty())
     return;
 
   llvm::Triple T = getTargetInfo().getTriple();
@@ -2845,7 +2845,7 @@ bool Parser::isIgnoredOpenMPDirective() {
                         SourceLocation());
     }
     Skipped = true;
-  } else if (getLangOpts().OpenMPIsDevice &&
+  } else if (getLangOpts().OpenMPIsTargetDevice &&
              !getLangOpts().OMPTargetTriples.empty()) {
     llvm::Triple T = getTargetInfo().getTriple();
     if (T.getArch() == llvm::Triple::spir64 ||

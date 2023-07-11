@@ -1552,7 +1552,7 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   // defines not needed for CSA
   // TODO (vzakhari 11/14/2018): I do not understand why we call X86 target
   //       configuration on CSA.  This needs to be debugged.
-  if (!Opts.OpenMPIsDevice) {
+  if (!Opts.OpenMPIsTargetDevice) {
 #endif  // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
   if (HasAMXFP16)

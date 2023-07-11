@@ -3052,7 +3052,7 @@ TargetOMPContext::TargetOMPContext(
     ASTContext &ASTCtx, std::function<void(StringRef)> &&DiagUnknownTrait,
     const FunctionDecl *CurrentFunctionDecl,
     ArrayRef<llvm::omp::TraitProperty> ConstructTraits)
-    : OMPContext(ASTCtx.getLangOpts().OpenMPIsDevice,
+    : OMPContext(ASTCtx.getLangOpts().OpenMPIsTargetDevice,
 #if INTEL_CUSTOMIZATION
                  ASTCtx.getTargetInfo().getTriple(),
                  ASTCtx.getLangOpts().OpenMPLateOutline),

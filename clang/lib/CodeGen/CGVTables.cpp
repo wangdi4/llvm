@@ -482,7 +482,7 @@ void CodeGenFunction::generateThunk(llvm::Function *Fn,
 
 #if INTEL_COLLAB
   // If encountered in OpenMP device codegen mark it for the target.
-  if (CGM.getLangOpts().OpenMPLateOutline && CGM.getLangOpts().OpenMPIsDevice)
+  if (CGM.getLangOpts().OpenMPLateOutline && CGM.getLangOpts().OpenMPIsTargetDevice)
     Fn->addFnAttr("openmp-target-declare", "true");
 #endif  // INTEL_COLLAB
 
@@ -842,7 +842,7 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
 
       // For NVPTX devices in OpenMP emit special functon as null pointers,
       // otherwise linking ends up with unresolved references.
-      if (CGM.getLangOpts().OpenMP && CGM.getLangOpts().OpenMPIsDevice &&
+      if (CGM.getLangOpts().OpenMP && CGM.getLangOpts().OpenMPIsTargetDevice &&
           CGM.getTriple().isNVPTX())
         return llvm::ConstantPointerNull::get(CGM.Int8PtrTy);
       llvm::FunctionType *fnTy =

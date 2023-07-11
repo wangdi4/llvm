@@ -1301,7 +1301,7 @@ public:
 
   bool isUnsupportedTargetFunction(const FunctionDecl *FD) {
     // Variadic functions are not supported in SPIR-V.
-    if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice &&
+    if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsTargetDevice &&
         getTriple().isSPIR())
       if (auto *FnTy = FD->getType()->getAs<FunctionProtoType>())
         if (FnTy->isVariadic())
@@ -1312,7 +1312,7 @@ public:
   unsigned getEffectiveAllocaAddrSpace() {
     // This matches the code in CreateTempAlloca so the addrspace of
     // the possibly casted alloca can be determined.
-    if (getLangOpts().OpenMPIsDevice &&
+    if (getLangOpts().OpenMPIsTargetDevice &&
         getASTAllocaAddressSpace() != LangAS::Default)
       return Context.getTargetAddressSpace(LangAS::Default);
     return getDataLayout().getAllocaAddrSpace();

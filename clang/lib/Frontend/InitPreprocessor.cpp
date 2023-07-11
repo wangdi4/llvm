@@ -1351,7 +1351,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   }
 #if INTEL_COLLAB
   if (LangOpts.OpenMPLateOutline) {
-    if (LangOpts.OpenMPIsDevice)
+    if (LangOpts.OpenMPIsTargetDevice)
       Builder.defineMacro("__INTEL_TARGET_OPENMP");
     else
       Builder.defineMacro("__INTEL_HOST_OPENMP");
@@ -1450,7 +1450,8 @@ void clang::InitializePreprocessor(
   if (InitOpts.UsePredefines) {
     // FIXME: This will create multiple definitions for most of the predefined
     // macros. This is not the right way to handle this.
-    if ((LangOpts.CUDA || LangOpts.OpenMPIsDevice || LangOpts.SYCLIsDevice) &&
+    if ((LangOpts.CUDA || LangOpts.OpenMPIsTargetDevice ||
+         LangOpts.SYCLIsDevice) &&
         PP.getAuxTargetInfo())
       InitializePredefinedMacros(*PP.getAuxTargetInfo(), LangOpts, FEOpts,
                                  PP.getPreprocessorOpts(), Builder);

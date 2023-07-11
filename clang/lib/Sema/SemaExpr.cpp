@@ -455,7 +455,8 @@ bool Sema::DiagnoseUseOfDecl(NamedDecl *D, ArrayRef<SourceLocation> Locs,
   if (auto *VD = dyn_cast<ValueDecl>(D))
     checkTypeSupport(VD->getType(), Loc, VD);
 
-  if (LangOpts.SYCLIsDevice || (LangOpts.OpenMP && LangOpts.OpenMPIsDevice)) {
+  if (LangOpts.SYCLIsDevice ||
+      (LangOpts.OpenMP && LangOpts.OpenMPIsTargetDevice)) {
     if (!Context.getTargetInfo().isTLSSupported())
       if (const auto *VD = dyn_cast<VarDecl>(D))
         if (VD->getTLSKind() != VarDecl::TLS_None)
@@ -493,7 +494,7 @@ bool Sema::DiagnoseUseOfDecl(NamedDecl *D, ArrayRef<SourceLocation> Locs,
         }
       }
       llvm::Triple T = getASTContext().getTargetInfo().getTriple();
-      if (GDevTy && (!getLangOpts().OpenMPIsDevice ||
+      if (GDevTy && (!getLangOpts().OpenMPIsTargetDevice ||
                      T.getArch() != llvm::Triple::spir64)) {
         Diag(Loc, diag::warn_groupprivate_reference_ignore) << VD;
         Diag(*(OMPGroupPrivateDeclAttr::getLocation(VD)),
@@ -17531,7 +17532,7 @@ ExprResult Sema::BuildVAArgExpr(SourceLocation BuiltinLoc,
   }
 
   // NVPTX does not support va_arg expression.
-  if (getLangOpts().OpenMP && getLangOpts().OpenMPIsDevice &&
+  if (getLangOpts().OpenMP && getLangOpts().OpenMPIsTargetDevice &&
       Context.getTargetInfo().getTriple().isNVPTX())
     targetDiag(E->getBeginLoc(), diag::err_va_arg_in_device);
 
