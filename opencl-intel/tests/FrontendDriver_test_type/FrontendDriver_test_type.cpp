@@ -41,6 +41,62 @@ using namespace Intel::OpenCL::ClangFE;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::FECompilerAPI;
 
+TEST_F(ClangCompilerTestType, Test_LinkFail) {
+  const char program1[] = R"(
+    int foo1() {
+        return 10;
+    }
+  )";
+  const char program2[] = R"(
+    int foo1() {
+        return 20;
+    }
+  )";
+  FECompileProgramDescriptor desc1;
+  desc1.pProgramSource = program1;
+  desc1.uiNumInputHeaders = 0;
+  desc1.pInputHeaders = nullptr;
+  desc1.pszInputHeadersNames = nullptr;
+  desc1.pszOptions = "";
+  desc1.bFpgaEmulator = false;
+
+  FECompileProgramDescriptor desc2;
+  desc2.pProgramSource = program2;
+  desc2.uiNumInputHeaders = 0;
+  desc2.pInputHeaders = nullptr;
+  desc2.pszInputHeadersNames = nullptr;
+  desc2.pszOptions = "";
+  desc2.bFpgaEmulator = false;
+
+  IOCLFEBinaryResult *binary_result1;
+  int err = GetFECompiler()->CompileProgram(&desc1, &binary_result1);
+  ASSERT_EQ(CL_SUCCESS, err) << "Failed to compiler program1.\n";
+
+  IOCLFEBinaryResult *binary_result2;
+  err = GetFECompiler()->CompileProgram(&desc2, &binary_result2);
+  ASSERT_EQ(CL_SUCCESS, err) << "Failed to compiler program2.\n";
+
+  const void *binary_container[] = {binary_result1->GetIR(),
+                                    binary_result2->GetIR()};
+  const size_t binary_size[] = {binary_result1->GetIRSize(),
+                                binary_result2->GetIRSize()};
+  FELinkProgramsDescriptor link_desc;
+  link_desc.pBinaryContainers = binary_container;
+  link_desc.uiNumBinaries = 2;
+  link_desc.puiBinariesSizes = binary_size;
+  link_desc.pszOptions = "";
+  link_desc.pKernelNames = nullptr;
+
+  IOCLFEBinaryResult *binary_result3;
+  err = GetFECompiler()->LinkPrograms(&link_desc, &binary_result3);
+  ASSERT_EQ(CL_LINK_PROGRAM_FAILURE, err)
+      << "The program should fail to link.\n";
+
+  std::string log(binary_result3->GetErrorLog());
+  ASSERT_NE(log.find("symbol multiply defined"), std::string::npos)
+      << "link error is not expected.\n";
+}
+
 TEST_F(ClangCompilerTestType, Test_PassingHeaders) {
   FECompileProgramDescriptor desc;
 

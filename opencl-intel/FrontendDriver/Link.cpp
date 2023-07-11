@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2018 Intel Corporation.
+// Copyright 2018-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -21,6 +21,8 @@
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DiagnosticInfo.h"
+#include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
@@ -85,6 +87,24 @@ static constexpr opt::OptTable::Info ClangOptionsInfoTable[] = {
 #undef OPTION
 #undef PREFIX
 };
+
+namespace {
+class ClangFEDiagnosticHandler : public DiagnosticHandler {
+public:
+  bool handleDiagnostics(const DiagnosticInfo &DI) override {
+    unsigned Severity = DI.getSeverity();
+    if (Severity == DS_Error) {
+      std::string Err;
+      raw_string_ostream OS(Err);
+      DiagnosticPrinterRawOStream DP(OS);
+      DI.print(DP);
+      OS << "\n";
+      throw Err;
+    }
+    return true;
+  }
+};
+} // namespace
 
 OpenCLLinkOptTable::OpenCLLinkOptTable()
     : opt::GenericOptTable(ClangOptionsInfoTable) {}
@@ -289,11 +309,11 @@ static void saveKernelNames(Module *M, std::string *KernelsName) {
   KernelsName->append(";");
 }
 
-OCLFEBinaryResult *LinkInternal(const void **pInputBinaries,
-                                unsigned int uiNumBinaries,
-                                const size_t *puiBinariesSizes,
-                                const char *pszOptions,
-                                std::string *pKernelsName) {
+static OCLFEBinaryResult *LinkInternal(const void **pInputBinaries,
+                                       unsigned int uiNumBinaries,
+                                       const size_t *puiBinariesSizes,
+                                       const char *pszOptions,
+                                       std::string *pKernelsName) {
 
   std::unique_ptr<OCLFEBinaryResult> pResult;
 
@@ -306,6 +326,7 @@ OCLFEBinaryResult *LinkInternal(const void **pInputBinaries,
 
     // Prepare the LLVM Context
     std::unique_ptr<LLVMContext> context(new LLVMContext());
+    context->setDiagnosticHandler(std::make_unique<ClangFEDiagnosticHandler>());
 
     // Initialize the module with the first binary
     StringRef InputBinary(static_cast<const char *>(pInputBinaries[0]),
