@@ -1,3 +1,21 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2023 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
+
 # See www/CMake.html for instructions on how to build libcxxabi with CMake.
 
 #===============================================================================
@@ -208,6 +226,21 @@ else()
   set(LIBCXXABI_INSTALL_LIBRARY_DIR lib${LIBCXXABI_LIBDIR_SUFFIX} CACHE PATH
       "Path where built libc++abi libraries should be installed.")
 endif()
+
+# INTEL_CUSTOMIZATION
+# JIRA: CMPLRLLVM-49229
+# Install the libcxx and libcxxabi to the correct unified layout path
+if(INTEL_DEPLOY_UNIFIED_LAYOUT)
+  foreach(variable 
+    LIBCXXABI_INSTALL_RUNTIME_DIR
+    LIBCXXABI_INSTALL_LIBRARY_DIR
+    LIBCXXABI_INSTALL_INCLUDE_DIR)
+    if(DEFINED ${variable})
+      string(PREPEND ${variable} "opt/compiler/")
+    endif()
+  endforeach()
+endif()
+# end INTEL_CUSTOMIZATION
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${LIBCXXABI_LIBRARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${LIBCXXABI_LIBRARY_DIR})
