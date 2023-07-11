@@ -4004,6 +4004,7 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
   case OMPC_inclusive:
   case OMPC_exclusive:
   case OMPC_affinity:
+  case OMPC_doacross:
 #if INTEL_COLLAB
     if (CKind == OMPC_interop && !FirstClause) {
       Diag(Tok, diag::err_omp_more_one_clause)
@@ -5185,6 +5186,7 @@ bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
                                       : diag::warn_pragma_expected_colon)
           << (Kind == OMPC_depend ? "dependency type" : "dependence-type");
     }
+<<<<<<< HEAD
     if (Kind == OMPC_doacross) {
       if (Tok.is(tok::identifier) &&
           Tok.getIdentifierInfo()->isStr("omp_cur_iteration")) {
@@ -5229,6 +5231,13 @@ bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
         T.consumeClose();
         return false;
       }
+=======
+    // Special processing for doacross(source) clause.
+    if (Kind == OMPC_doacross && Data.ExtraModifier == OMPC_DOACROSS_source) {
+      // Parse ')'.
+      T.consumeClose();
+      return false;
+>>>>>>> a058aad56074961d0bd153e25ece1494a02ead40
     }
   } else if (Kind == OMPC_linear) {
     // Try to parse modifier if any.

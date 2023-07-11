@@ -159,10 +159,13 @@ T foo() {
 #pragma omp ordered doacross(sink : // omp52-error {{expected ')'}} omp52-note {{to match this '('}} omp52-error {{expected expression}} omp52-error {{expected 'i' loop iteration variable}}
 #pragma omp ordered doacross(sink : i // omp52-error {{expected ')'}} omp52-note {{to match this '('}} omp52-error {{expected 'j' loop iteration variable}}
 #pragma omp ordered doacross(sink : i) // omp52-error {{expected 'j' loop iteration variable}}
+<<<<<<< HEAD
 #pragma omp ordered doacross(sink:omp_cur_iteration + 1) // omp52-error {{'doacross sink:' must be with 'omp_cur_iteration - 1'}}
 #pragma omp ordered doacross(sink:omp_cur_iteration - 2) // omp52-error {{'doacross sink:' must be with 'omp_cur_iteration - 1'}}
 #pragma omp ordered doacross(sink:omp_cur_iteration) // omp52-error {{'doacross sink:' must be with 'omp_cur_iteration - 1'}}
 #pragma omp ordered doacross(source:omp_cur_iteration - 1) // omp52-error {{'doacross source:' must be with 'omp_cur_iteration'}}
+=======
+>>>>>>> a058aad56074961d0bd153e25ece1494a02ead40
 #pragma omp ordered doacross(source:)
                            if (i == j)
 #pragma omp ordered doacross(source:) // omp52-error {{'#pragma omp ordered' with 'doacross' clause cannot be an immediate substatement}}
@@ -402,7 +405,10 @@ int k;
   for (int i = 0; i < 10; ++i) { // expected-error {{expected 2 for loops after '#pragma omp for', but found only 1}}
 #if _OPENMP >= 202111
 #pragma omp ordered doacross(sink : i)
+<<<<<<< HEAD
 #pragma omp ordered depend(source) // expected-warning {{'depend' clause for 'ordered' is deprecated; use 'doacross' instead}}
+=======
+>>>>>>> a058aad56074961d0bd153e25ece1494a02ead40
     int j;
 #pragma omp ordered doacross(sink : i, j) // omp52-error {{expected loop iteration variable}}
 #else
