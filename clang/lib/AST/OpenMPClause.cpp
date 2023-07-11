@@ -2853,7 +2853,6 @@ void OMPClausePrinter::VisitOMPXDynCGroupMemClause(
 void OMPClausePrinter::VisitOMPDoacrossClause(OMPDoacrossClause *Node) {
   OS << "doacross(";
   OpenMPDoacrossClauseModifier DepType = Node->getDependenceType();
-<<<<<<< HEAD
 
   switch (DepType) {
   case OMPC_DOACROSS_source:
@@ -2871,9 +2870,6 @@ void OMPClausePrinter::VisitOMPDoacrossClause(OMPDoacrossClause *Node) {
   default:
     llvm_unreachable("unknown docaross modifier");
   }
-=======
-  OS << (DepType == OMPC_DOACROSS_source ? "source:" : "sink:");
->>>>>>> a058aad56074961d0bd153e25ece1494a02ead40
   VisitOMPClauseList(Node, ' ');
   OS << ")";
 }

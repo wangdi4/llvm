@@ -55,11 +55,8 @@ T tmain (T argc) {
 #if _OPENMP >= 202111
   #pragma omp ordered doacross(source:)
   #pragma omp ordered doacross(sink:i+N)
-<<<<<<< HEAD
   #pragma omp ordered doacross(sink: omp_cur_iteration - 1)
   #pragma omp ordered doacross(source: omp_cur_iteration)
-=======
->>>>>>> a058aad56074961d0bd153e25ece1494a02ead40
 #else
   #pragma omp ordered depend(source)
   #pragma omp ordered depend(sink:i+N)
@@ -105,11 +102,8 @@ T tmain (T argc) {
 #if _OPENMP >= 202111
 // OMP52: #pragma omp ordered doacross(source:)
 // OMP52-NEXT: #pragma omp ordered doacross(sink: i + N)
-<<<<<<< HEAD
 // OMP52-NEXT: #pragma omp ordered doacross(sink: omp_cur_iteration - 1)
 // OMP52-NEXT: #pragma omp ordered doacross(source: omp_cur_iteration)
-=======
->>>>>>> a058aad56074961d0bd153e25ece1494a02ead40
 #else
 // OMP51: #pragma omp ordered depend(source)
 // OMP51-NEXT: #pragma omp ordered depend(sink : i + N)
@@ -152,11 +146,8 @@ T tmain (T argc) {
 #if _OPENMP >= 202111
 // OMP52: #pragma omp ordered doacross(source:)
 // OMP52-NEXT: #pragma omp ordered doacross(sink: i + 3)
-<<<<<<< HEAD
 // OMP52-NEXT: #pragma omp ordered doacross(sink: omp_cur_iteration - 1)
 // OMP52-NEXT: #pragma omp ordered doacross(source: omp_cur_iteration)
-=======
->>>>>>> a058aad56074961d0bd153e25ece1494a02ead40
 #else
 // OMP51: #pragma omp ordered depend(source)
 // OMP51-NEXT: #pragma omp ordered depend(sink : i + 3)
@@ -204,11 +195,8 @@ int main (int argc, char **argv) {
 #if _OPENMP >= 202111
   #pragma omp ordered doacross(source:)
   #pragma omp ordered doacross(sink: i - 5)
-<<<<<<< HEAD
   #pragma omp ordered doacross(sink: omp_cur_iteration - 1)
   #pragma omp ordered doacross(source: omp_cur_iteration)
-=======
->>>>>>> a058aad56074961d0bd153e25ece1494a02ead40
 #else
   #pragma omp ordered depend(source)
   #pragma omp ordered depend(sink: i - 5)
@@ -250,11 +238,8 @@ int main (int argc, char **argv) {
 #if _OPENMP >= 202111
 // OMP52: #pragma omp ordered doacross(source:)
 // OMP52-NEXT: #pragma omp ordered doacross(sink: i - 5)
-<<<<<<< HEAD
 // OMP52-NEXT: #pragma omp ordered doacross(sink: omp_cur_iteration - 1)
 // OMP52-NEXT: #pragma omp ordered doacross(source: omp_cur_iteration)
-=======
->>>>>>> a058aad56074961d0bd153e25ece1494a02ead40
 #else
 // OMP51: #pragma omp ordered depend(source)
 // OMP51-NEXT: #pragma omp ordered depend(sink : i - 5)

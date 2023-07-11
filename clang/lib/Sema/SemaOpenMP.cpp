@@ -9882,12 +9882,8 @@ static bool checkOpenMPIterationSpace(
         DependC->setLoopData(CurrentNestedLoopCount, nullptr);
         continue;
       }
-<<<<<<< HEAD
       OMPDoacrossKind ODK;
       if (DoacrossC && ODK.isSink(DoacrossC) &&
-=======
-      if (DoacrossC && DoacrossC->getDependenceType() == OMPC_DOACROSS_sink &&
->>>>>>> a058aad56074961d0bd153e25ece1494a02ead40
           Pair.second.size() <= CurrentNestedLoopCount) {
         // Erroneous case - clause has some problems.
         DoacrossC->setLoopData(CurrentNestedLoopCount, nullptr);
@@ -9897,16 +9893,11 @@ static bool checkOpenMPIterationSpace(
       SourceLocation DepLoc =
           DependC ? DependC->getDependencyLoc() : DoacrossC->getDependenceLoc();
       if ((DependC && DependC->getDependencyKind() == OMPC_DEPEND_source) ||
-<<<<<<< HEAD
           (DoacrossC && ODK.isSource(DoacrossC)))
-=======
-          (DoacrossC && DoacrossC->getDependenceType() == OMPC_DOACROSS_source))
->>>>>>> a058aad56074961d0bd153e25ece1494a02ead40
         CntValue = ISC.buildOrderedLoopData(
             DSA.getCurScope(),
             ResultIterSpaces[CurrentNestedLoopCount].CounterVar, Captures,
             DepLoc);
-<<<<<<< HEAD
       else if (DoacrossC && ODK.isSinkIter(DoacrossC)) {
         Expr *Cnt = SemaRef
                         .DefaultLvalueConversion(
@@ -9926,12 +9917,6 @@ static bool checkOpenMPIterationSpace(
         CntValue = ISC.buildOrderedLoopData(
             DSA.getCurScope(),
             ResultIterSpaces[CurrentNestedLoopCount].CounterVar, Captures,
-=======
-      else
-        CntValue = ISC.buildOrderedLoopData(
-            DSA.getCurScope(),
-            ResultIterSpaces[CurrentNestedLoopCount].CounterVar, Captures,
->>>>>>> a058aad56074961d0bd153e25ece1494a02ead40
             DepLoc, Pair.second[CurrentNestedLoopCount].first,
             Pair.second[CurrentNestedLoopCount].second);
       if (DependC)
@@ -12187,14 +12172,9 @@ StmtResult Sema::ActOnOpenMPOrderedDirective(ArrayRef<OMPClause *> Clauses,
     if (DC || DOC) {
       DependFound = DC ? C : nullptr;
       DoacrossFound = DOC ? C : nullptr;
-<<<<<<< HEAD
       OMPDoacrossKind ODK;
       if ((DC && DC->getDependencyKind() == OMPC_DEPEND_source) ||
           (DOC && (ODK.isSource(DOC)))) {
-=======
-      if ((DC && DC->getDependencyKind() == OMPC_DEPEND_source) ||
-          (DOC && DOC->getDependenceType() == OMPC_DOACROSS_source)) {
->>>>>>> a058aad56074961d0bd153e25ece1494a02ead40
         if ((DC && DependSourceClause) || (DOC && DoacrossSourceClause)) {
           Diag(C->getBeginLoc(), diag::err_omp_more_one_clause)
               << getOpenMPDirectiveName(OMPD_ordered)
@@ -12212,11 +12192,7 @@ StmtResult Sema::ActOnOpenMPOrderedDirective(ArrayRef<OMPClause *> Clauses,
           ErrorFound = true;
         }
       } else if ((DC && DC->getDependencyKind() == OMPC_DEPEND_sink) ||
-<<<<<<< HEAD
                  (DOC && (ODK.isSink(DOC) || ODK.isSinkIter(DOC)))) {
-=======
-                 (DOC && DOC->getDependenceType() == OMPC_DOACROSS_sink)) {
->>>>>>> a058aad56074961d0bd153e25ece1494a02ead40
         if (DependSourceClause || DoacrossSourceClause) {
           Diag(C->getBeginLoc(), diag::err_omp_sink_and_source_not_allowed)
               << (DC ? "depend" : "doacross") << 1;
@@ -26705,14 +26681,10 @@ OMPClause *Sema::ActOnOpenMPDoacrossClause(
     SourceLocation LParenLoc, SourceLocation EndLoc) {
 
   if (DSAStack->getCurrentDirective() == OMPD_ordered &&
-<<<<<<< HEAD
       DepType != OMPC_DOACROSS_source && DepType != OMPC_DOACROSS_sink &&
       DepType != OMPC_DOACROSS_sink_omp_cur_iteration &&
       DepType != OMPC_DOACROSS_source_omp_cur_iteration &&
       DepType != OMPC_DOACROSS_source) {
-=======
-      DepType != OMPC_DOACROSS_source && DepType != OMPC_DOACROSS_sink) {
->>>>>>> a058aad56074961d0bd153e25ece1494a02ead40
     Diag(DepLoc, diag::err_omp_unexpected_clause_value)
         << "'source' or 'sink'" << getOpenMPClauseName(OMPC_doacross);
     return nullptr;
@@ -26722,15 +26694,11 @@ OMPClause *Sema::ActOnOpenMPDoacrossClause(
   DSAStackTy::OperatorOffsetTy OpsOffs;
   llvm::APSInt TotalDepCount(/*BitWidth=*/32);
   DoacrossDataInfoTy VarOffset = ProcessOpenMPDoacrossClauseCommon(
-<<<<<<< HEAD
       *this,
       DepType == OMPC_DOACROSS_source ||
           DepType == OMPC_DOACROSS_source_omp_cur_iteration ||
           DepType == OMPC_DOACROSS_sink_omp_cur_iteration,
       VarList, DSAStack, EndLoc);
-=======
-      *this, DepType == OMPC_DOACROSS_source, VarList, DSAStack, EndLoc);
->>>>>>> a058aad56074961d0bd153e25ece1494a02ead40
   Vars = VarOffset.Vars;
   OpsOffs = VarOffset.OpsOffs;
   TotalDepCount = VarOffset.TotalDepCount;
