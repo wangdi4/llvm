@@ -34,6 +34,10 @@ class FunctionSamples;
 
 } // end namespace sampleprof
 
+#ifdef INTEL_CUSTOMIZATION
+inline const char *getUnlikelySectionPrefix() { return "unlikely"; }
+#endif // INTEL_CUSTOMIZATION
+
 class ProfileSummaryBuilder {
 private:
   /// We keep track of the number of times a count (block count or samples)
