@@ -13,7 +13,7 @@
 
 ; The test was hand-modified to use a typed use_device_ptr clause.
 
-; CHECK: USE_DEVICE_PTR clause (size=1): PTR_TO_PTR(ptr @array_device) , TYPED (TYPE: ptr, POINTEE_TYPE: i32, NUM_ELEMENTS: i64 1)
+; CHECK: USE_DEVICE_PTR clause (size=1): TYPED,PTR_TO_PTR(ptr @array_device, TYPE: ptr, POINTEE_TYPE: i32, NUM_ELEMENTS: i64 1)
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -5,7 +5,7 @@
 ; This code tests TYPED clause
 ; The test is passed if UNIFORM:TYPED clause is parsed correctly
 
-; CHECK: UNIFORM clause (size=1): ({{.*}}, TYPED (TYPE: <2 x i64>, NUM_ELEMENTS: i32 1))
+; CHECK: UNIFORM clause (size=1): (TYPED({{.*}}, TYPE: <2 x i64>, NUM_ELEMENTS: i32 1))
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()

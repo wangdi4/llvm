@@ -3,7 +3,7 @@
 ; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-wrncollection -analyze -S %s 2>&1 | FileCheck %s
 ; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,print<vpo-wrncollection>)' -S %s 2>&1 | FileCheck %s
 
-; CHECK: REDUCTION clause (size=1): (ADD: F90_DV(ptr %"foo_$A"), TYPED (TYPE: %"QNCA_a0$i16*$rank3$" = type { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, POINTEE_TYPE: i16, NUM_ELEMENTS: i32 1))
+; CHECK: REDUCTION clause (size=1): (ADD: F90_DV(TYPED(ptr %"foo_$A", TYPE: %"QNCA_a0$i16*$rank3$" = type { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, POINTEE_TYPE: i16, NUM_ELEMENTS: i32 1)))
 
 ; This file is a simplified version of the IR emitted by ifx FE.
 ; Test src:
