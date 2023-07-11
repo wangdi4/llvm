@@ -3052,11 +3052,16 @@ TargetOMPContext::TargetOMPContext(
     ASTContext &ASTCtx, std::function<void(StringRef)> &&DiagUnknownTrait,
     const FunctionDecl *CurrentFunctionDecl,
     ArrayRef<llvm::omp::TraitProperty> ConstructTraits)
+<<<<<<< HEAD
     : OMPContext(ASTCtx.getLangOpts().OpenMPIsDevice,
 #if INTEL_CUSTOMIZATION
                  ASTCtx.getTargetInfo().getTriple(),
                  ASTCtx.getLangOpts().OpenMPLateOutline),
 #endif // INTEL_CUSTOMIZATION
+=======
+    : OMPContext(ASTCtx.getLangOpts().OpenMPIsTargetDevice,
+                 ASTCtx.getTargetInfo().getTriple()),
+>>>>>>> 5d376713cd67ee598cd9df065235c2110c56851d
       FeatureValidityCheck([&](StringRef FeatureName) {
         return ASTCtx.getTargetInfo().isValidFeatureName(FeatureName);
       }),
