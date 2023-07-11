@@ -51,4 +51,19 @@ float func_03(float x, float y) {
 #pragma STDC FENV_ROUND FE_TOWARDZERO
 
 
+namespace PR63542 {
+  template <class Compare> float stable_sort(float x, Compare) {
+    float result = x + x;
+    stable_sort(x, int());
+    return result;
+  }
+  float linkage_wrap() { return stable_sort(0.0, 1); }
+}
+
+// CHECK-LABEL: define {{.*}} float @_ZN7PR6354211stable_sortIiEEffT_(
+// CHECK:         fadd float
+
+// Must be at the end of translation unit.
+#pragma STDC FENV_ACCESS ON
+
 // CHECK: attributes #[[ATTR01]] = { {{.*}}strictfp
