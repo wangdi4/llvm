@@ -6,17 +6,17 @@
 ; Checks that we do not hit a label from the WRN region.
 ; CHECK-NOT: {{^[._a-zA-Z0-9]*}}:
 ; Checks tha the work-item built-ins are moved at the entry block.
-; CHECK: [[call_gid1:%call[0-9]+]] = tail call i64 @_Z13get_global_idj(i32 1)
-; CHECK-NEXT: [[call_gid0:%call[0-9]+]] = tail call i64 @_Z13get_global_idj(i32 0)
+; CHECK: [[call_gid0:%call[0-9]+]] = tail call i64 @_Z13get_global_idj(i32 0)
 ; CHECK-NEXT: trunc i64 [[call_gid0]] to i32
+; CHECK-NEXT: [[call_gid1:%call[0-9]+]] = tail call i64 @_Z13get_global_idj(i32 1)
 ; CHECK-NEXT: [[call_lid0:%call[0-9]+]] = tail call i64 @_Z12get_local_idj(i32 0)
 ; CHECK-NEXT: [[lid0_trunc:%.*]] = trunc i64 [[call_lid0]] to i32
-; CHECK-NEXT: [[call_lid1:%call[0-9]+]] = tail call i64 @_Z15get_global_sizej(i32 1)
-; CHECK-NEXT: [[call_global_size:%call[0-9]+]] = tail call i64 @_Z15get_global_sizej(i32 0)
-; CHECK-NEXT: [[call_group_id1:%call[0-9]+]] = tail call i64 @_Z12get_group_idj(i32 1)
+; CHECK-NEXT: [[call_global_size0:%call[0-9]+]] = tail call i64 @_Z15get_global_sizej(i32 0)
+; CHECK-NEXT: [[call_global_size1:%call[0-9]+]] = tail call i64 @_Z15get_global_sizej(i32 1)
 ; CHECK-NEXT: [[call_group_id0:%call[0-9]+]] = tail call i64 @_Z12get_group_idj(i32 0)
-; CHECK-NEXT: [[call_local_size1:%call[0-9]+]] = tail call i64 @_Z14get_local_sizej(i32 1)
+; CHECK-NEXT: [[call_group_id1:%call[0-9]+]] = tail call i64 @_Z12get_group_idj(i32 1)
 ; CHECK-NEXT: [[call_local_size0:%call]] = tail call i64 @_Z14get_local_sizej(i32 0)
+; CHECK-NEXT: [[call_local_size1:%call[0-9]+]] = tail call i64 @_Z14get_local_sizej(i32 1)
 
 ; CHECK-LABEL: simd.loop.header:
 

@@ -700,6 +700,15 @@ clearMetadataAndSetAttributes(
 
 PreservedAnalyses AutoCPUClonePass::run(Module &M, ModuleAnalysisManager &AM) {
 
+  Triple TargetTriple(M.getTargetTriple());
+
+  // Do not run auto CPU clone pass on offload modules.
+  if (TargetTriple.getArch() == Triple::spir ||
+      TargetTriple.getArch() == Triple::spir64 ||
+      TargetTriple.getArch() == Triple::spirv32 ||
+      TargetTriple.getArch() == Triple::spirv64)
+    return PreservedAnalyses::all();
+
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   auto GetLoopInfo = [&FAM](Function &F) -> LoopInfo & {
     return FAM.getResult<LoopAnalysis>(F);

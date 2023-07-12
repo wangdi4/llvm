@@ -35,7 +35,7 @@ entry:
 
 ; CHECK-LABEL: simd.loop.header:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i32
-; CHECK-NEXT:    [[LID_LINEAR:%.*]] = add nuw i32 [[TRUNC]], [[INDEX]]
+; CHECK:         [[LID_LINEAR:%.*]] = add nuw i32 [[TRUNC]], [[INDEX]]
 ; CHECK-NEXT:    [[INDEX_I64:%.*]] = sext i32 [[LID_LINEAR]] to i64
 ; CHECK:         [[GEP:%.*]] = getelementptr inbounds {{.*}} [[INDEX_I64]]
 ; CHECK:         store {{.*}} [[GEP]]
