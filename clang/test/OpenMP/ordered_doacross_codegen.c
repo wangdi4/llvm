@@ -2,23 +2,6 @@
 // RUN: %clang_cc1 -fopenmp -triple x86_64-unknown-unknown -emit-pch -o %t %s
 // RUN: %clang_cc1 -fopenmp -triple x86_64-unknown-unknown -include-pch %t -verify %s -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECK-NORMAL
 
-<<<<<<< HEAD
-// RUN: %clang_cc1 -verify -fopenmp -triple x86_64-unknown-unknown -emit-llvm %s -o - -fopenmp-version=52 -DOMP52 | FileCheck %s --check-prefixes=CHECK,CHECK-NORMAL
-// RUN: %clang_cc1 -verify -fopenmp -fopenmp-enable-irbuilder -triple x86_64-unknown-unknown -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,CHECK-IRBUILDER
-// RUN: %clang_cc1 -verify -fopenmp -fopenmp-enable-irbuilder -triple x86_64-unknown-unknown -fopenmp-version=52 -DOMP52 -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,CHECK-IRBUILDER
-// RUN: %clang_cc1 -fopenmp -fopenmp-enable-irbuilder -triple x86_64-unknown-unknown -emit-pch -o %t %s
-// RUN: %clang_cc1 -fopenmp -fopenmp-enable-irbuilder -triple x86_64-unknown-unknown -include-pch %t -verify %s -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECK-IRBUILDER
-
-// RUN: %clang_cc1 -fopenmp -fopenmp-version=52 -DOMP52 -fopenmp-enable-irbuilder -triple x86_64-unknown-unknown -emit-pch -o %t %s
-// RUN: %clang_cc1 -fopenmp -fopenmp-version=52 -DOMP52 -fopenmp-enable-irbuilder -triple x86_64-unknown-unknown -include-pch %t -verify %s -emit-llvm -o - | FileCheck %s --check-prefixes=CHECK,CHECK-IRBUILDER
-
-// RUN: %clang_cc1 -verify -fopenmp-simd -triple x86_64-unknown-unknown -emit-llvm %s -o - | FileCheck --check-prefix SIMD-ONLY0 %s
-// RUN: %clang_cc1 -verify -fopenmp-simd -fopenmp-version=52 -DOMP52 -triple x86_64-unknown-unknown -emit-llvm %s -o - | FileCheck --check-prefix SIMD-ONLY0 %s
-// RUN: %clang_cc1 -fopenmp-simd -triple x86_64-unknown-unknown -emit-pch -o %t %s
-// RUN: %clang_cc1 -fopenmp-simd -triple x86_64-unknown-unknown -include-pch %t -verify %s -emit-llvm -o - | FileCheck --check-prefix SIMD-ONLY0 %s
-// RUN: %clang_cc1 -fopenmp-simd -fopenmp-version=52 -DOMP52 -triple x86_64-unknown-unknown -emit-pch -o %t %s
-// RUN: %clang_cc1 -fopenmp-simd -fopenmp-version=52 -DOMP52 -triple x86_64-unknown-unknown -include-pch %t -verify %s -emit-llvm -o - | FileCheck --check-prefix SIMD-ONLY0 %s
-=======
 // RUN: %clang_cc1 -verify -fopenmp -triple x86_64-unknown-unknown -emit-llvm %s -o - -fopenmp-version=52 | FileCheck %s --check-prefixes=CHECK,CHECK-NORMAL
 // RUN: %clang_cc1 -verify -fopenmp -fopenmp-enable-irbuilder -triple x86_64-unknown-unknown -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,CHECK-IRBUILDER
 // RUN: %clang_cc1 -verify -fopenmp -fopenmp-enable-irbuilder -triple x86_64-unknown-unknown -fopenmp-version=52 -emit-llvm %s -o - | FileCheck %s --check-prefixes=CHECK,CHECK-IRBUILDER
@@ -34,7 +17,6 @@
 // RUN: %clang_cc1 -fopenmp-simd -triple x86_64-unknown-unknown -include-pch %t -verify %s -emit-llvm -o - | FileCheck --check-prefix SIMD-ONLY0 %s
 // RUN: %clang_cc1 -fopenmp-simd -fopenmp-version=52 -triple x86_64-unknown-unknown -emit-pch -o %t %s
 // RUN: %clang_cc1 -fopenmp-simd -fopenmp-version=52 -triple x86_64-unknown-unknown -include-pch %t -verify %s -emit-llvm -o - | FileCheck --check-prefix SIMD-ONLY0 %s
->>>>>>> 74c29c5ec45b42804255bcaead33f4eef2a5b971
 // SIMD-ONLY0-NOT: {{__kmpc|__tgt}}
 // expected-no-diagnostics
 
