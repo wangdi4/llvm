@@ -209,21 +209,6 @@ public:
     }
 };
 
-class VPlanDriver : public FunctionPass {
-  VPlanDriverImpl Impl;
-  FatalErrorHandlerTy FatalErrorHandler;
-
-protected:
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-
-public:
-  static char ID; // Pass identification, replacement for typeid
-  VPlanDriver(FatalErrorHandlerTy FatalErrorHandler = nullptr);
-
-  bool runOnFunction(Function &Fn) override;
-  bool skipFunction(const Function &F) const override;
-};
-
 class VPlanDriverHIRImpl : public VPlanDriverImpl {
   friend VPlanDriverImpl;
 
@@ -271,26 +256,6 @@ public:
                             loopopt::HIRFramework &);
   VPlanDriverHIRPass(bool LightWeightMode, bool WillRunLLVMIRVPlan)
       : Impl(LightWeightMode, WillRunLLVMIRVPlan){};
-};
-
-class VPlanDriverHIR : public FunctionPass {
-  VPlanDriverHIRImpl Impl;
-
-public:
-  static char ID; // Pass identification, replacement for typeid
-
-  VPlanDriverHIR(bool LightWeightMode = false, bool WillRunLLVMIRVPlan = true);
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  /// \brief Overrides FunctionPass's printer pass to return one which prints
-  /// HIR instead of LLVM IR.
-  FunctionPass *createPrinterPass(raw_ostream &OS,
-                                  const std::string &Banner) const override;
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
-  bool runOnFunction(Function &Fn) override;
 };
 
 } // namespace vpo
