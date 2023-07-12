@@ -293,7 +293,7 @@ private:
   //   a[i][j] = b[i][j - 1] + 3;
   void alignSpatialLoops(const LoopToRefTy &InnermostLoopToAdjustingRef);
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DEBUG)
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   static void printDDEdges(const HLInst *LoadInst, DDGraph DDG);
 #endif
 
