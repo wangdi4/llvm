@@ -709,7 +709,8 @@ void BasicAAResult::DecomposeSubscript(const SubscriptInst *Subs,
     }
 
     if (!!Scale) {
-      VariableGEPIndex Entry = {LE.Val, Scale, {}, LE.IsNSW};
+      VariableGEPIndex Entry = {
+          LE.Val, Scale, {}, LE.IsNSW, /* IsNegated */ false};
       Entry.CxtI = Subs;
       Decomposed.VarIndices.push_back(Entry);
     }
