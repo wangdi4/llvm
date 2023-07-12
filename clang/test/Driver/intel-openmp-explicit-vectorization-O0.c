@@ -39,8 +39,8 @@
 // RUN: %clang_cl --target=x86_64-pc-windows-msvc -flto -fuse-ld=lld --intel -O2 -Qiopenmp -Qno-iopenmp-vec-at-O0 %s -### 2>&1 | FileCheck %s --check-prefixes=CHECK-NOVEC,CHECK-NOVEC-LTO
 // RUN: %clang_cl --target=x86_64-pc-windows-msvc -flto -fuse-ld=lld --intel -O2 -Qiopenmp-simd -Qno-iopenmp-vec-at-O0 %s -### 2>&1 | FileCheck %s --check-prefixes=CHECK-NOVEC,CHECK-NOVEC-LTO
 
-// CHECK-VEC: "-mllvm" "-vecopt=true" "-mllvm" "-enable-vec-clone=true"
-// CHECK-NOVEC-NOT: {{-vecopt=|-enable-vec-clone}}
-// CHECK-NOVEC-LTO-NOT: ld{{.*}}{{-vecopt=|-enable-vec-clone}}
-// CHECK-VEC-LTO-LIN: ld{{.*}} "-plugin-opt=-vecopt=true" "-plugin-opt=-enable-vec-clone=true"
-// CHECK-VEC-LTO-WIN: lld-link{{.*}} "-mllvm:-vecopt=true" "-mllvm:-enable-vec-clone=true"
+// CHECK-VEC: "-mllvm" "-vecopt=true" "-mllvm" "-enable-vec-clone=true" "-mllvm" "-enable-o0-vectorization=true"
+// CHECK-NOVEC-NOT: {{-vecopt=|-enable-vec-clone|-enable-o0-vectorization}}
+// CHECK-NOVEC-LTO-NOT: ld{{.*}}{{-vecopt=|-enable-vec-clone|-enable-o0-vectorization}}
+// CHECK-VEC-LTO-LIN: ld{{.*}} "-plugin-opt=-vecopt=true" "-plugin-opt=-enable-vec-clone=true" "-plugin-opt=-enable-o0-vectorization=true"
+// CHECK-VEC-LTO-WIN: lld-link{{.*}} "-mllvm:-vecopt=true" "-mllvm:-enable-vec-clone=true" "-mllvm:-enable-o0-vectorization=true"

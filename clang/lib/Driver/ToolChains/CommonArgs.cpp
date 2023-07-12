@@ -1351,6 +1351,7 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
        Args.hasFlag(options::OPT_fiopenmp, options::OPT_fno_iopenmp, false))) {
     addllvmOption("-vecopt=true");
     addllvmOption("-enable-vec-clone=true");
+    addllvmOption("-enable-o0-vectorization=true");
   }
 
   // -fno-vectorize
