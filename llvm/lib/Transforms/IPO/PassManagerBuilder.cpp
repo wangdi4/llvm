@@ -1049,8 +1049,6 @@ void PassManagerBuilder::addVPlanVectorizer(legacy::PassManagerBase &PM) const {
   // assumes that the directives are in single-entry single-exit basic blocks.
   PM.add(createVPOCFGRestructuringPass());
 
-  PM.add(createVPlanDriverPass());
-
   // The region that is outlined by #pragma omp simd ordered was extracted by
   // VPlanPragmaOmpOrderedSimdExtarct pass. Now, we need to run the inliner in
   // order to put this region back at the code.
@@ -1243,13 +1241,6 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
       PM.add(createHIROptPredicatePass(OptLevel == 3, false));
       if (RunVPOOpt) {
         PM.add(createHIRVecDirInsertPass(OptLevel == 3));
-        if (EnableVPlanDriverHIR) {
-          // Enable VPlan HIR Vectorizer
-          limitFullLoopOptOnly(PM).add(
-              createVPlanDriverHIRPass(false /* Use Lite CM */));
-          limitLightLoopOptOnly(PM).add(
-              createVPlanDriverHIRPass(true /* Use Lite CM */));
-        }
       }
       PM.add(createHIRGeneralUnrollPass(DisableUnrollLoops));
     }
