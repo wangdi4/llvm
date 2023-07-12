@@ -1,4 +1,4 @@
-; RUN: opt -S -passes=wholeprogramdevirt,verify -whole-program-visibility -pass-remarks=wholeprogramdevirt %s 2>&1 | FileCheck %s
+; RUN: opt -S -passes=wholeprogramdevirt,verify -whole-program-visibility -pass-remarks=wholeprogramdevirt -wholeprogramdevirt-multiversion=false %s 2>&1 | FileCheck %s ;INTEL
 
 target datalayout = "e-p:64:64"
 target triple = "x86_64-unknown-linux-gnu"
