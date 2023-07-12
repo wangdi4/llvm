@@ -167,7 +167,8 @@ protected:
   /// the for-loop is created.
   virtual void handleLanguageSpecifics(Function &F, PHINode *Phi,
                                        Function *Clone, BasicBlock *EntryBlock,
-                                       const VFInfo &Variant);
+                                       const VFInfo &Variant,
+                                       const ValueToValueMapTy &VMap);
   /// Languages like OpenCL override this method to perform some
   /// pre-processing for enabling VecClone pass.
   virtual void languageSpecificInitializations(Module &M);

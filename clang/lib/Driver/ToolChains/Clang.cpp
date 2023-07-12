@@ -4597,7 +4597,10 @@ renderDebugOptions(const ToolChain &TC, const Driver &D, const llvm::Triple &T,
   // Normally -gsplit-dwarf is only useful with -gN. For IR input, Clang does
   // object file generation and no IR generation, -gN should not be needed. So
   // allow -gsplit-dwarf with either -gN or IR input.
-  if (IRInput || Args.hasArg(options::OPT_g_Group)) {
+#if INTEL_CUSTOMIZATION
+  if (IRInput || Args.hasArg(options::OPT_g_Group,
+                             options::OPT_fprofile_sample_generate)) {
+#endif // INTEL_CUSTOMIZATION
     Arg *SplitDWARFArg;
     DwarfFission = getDebugFissionKind(D, Args, SplitDWARFArg);
     if (DwarfFission != DwarfFissionKind::None &&
@@ -4607,26 +4610,36 @@ renderDebugOptions(const ToolChain &TC, const Driver &D, const llvm::Triple &T,
     }
   }
 #if INTEL_CUSTOMIZATION
+  bool CheckDwarfFission = false;
   if (const Arg *A =
           Args.getLastArg(options::OPT_g_Group, options::OPT__SLASH_Z7)) {
-#endif // INTEL_CUSTOMIZATION
     DebugInfoKind = llvm::codegenoptions::DebugInfoConstructor;
 
     // If the last option explicitly specified a debug-info level, use it.
     if (checkDebugInfoOption(A, Args, D, TC) &&
         A->getOption().matches(options::OPT_gN_Group)) {
       DebugInfoKind = debugLevelToInfoKind(*A);
-      // For -g0 or -gline-tables-only, drop -gsplit-dwarf. This gets a bit more
-      // complicated if you've disabled inline info in the skeleton CUs
-      // (SplitDWARFInlining) - then there's value in composing split-dwarf and
-      // line-tables-only, so let those compose naturally in that case.
-      if (DebugInfoKind == llvm::codegenoptions::NoDebugInfo ||
-          DebugInfoKind == llvm::codegenoptions::DebugDirectivesOnly ||
-          (DebugInfoKind == llvm::codegenoptions::DebugLineTablesOnly &&
-           SplitDWARFInlining))
-        DwarfFission = DwarfFissionKind::None;
+      CheckDwarfFission = true;
     }
   }
+
+  if (Args.getLastArg(options::OPT_fprofile_sample_generate) &&
+      (DebugInfoKind < llvm::codegenoptions::DebugLineTablesOnly)) {
+    DebugInfoKind = llvm::codegenoptions::DebugLineTablesOnly;
+    CheckDwarfFission = true;
+  }
+
+  if (CheckDwarfFission)
+    // For -g0 or -gline-tables-only, drop -gsplit-dwarf. This gets a bit more
+    // complicated if you've disabled inline info in the skeleton CUs
+    // (SplitDWARFInlining) - then there's value in composing split-dwarf and
+    // line-tables-only, so let those compose naturally in that case.
+    if (DebugInfoKind == llvm::codegenoptions::NoDebugInfo ||
+        DebugInfoKind == llvm::codegenoptions::DebugDirectivesOnly ||
+        (DebugInfoKind == llvm::codegenoptions::DebugLineTablesOnly &&
+         SplitDWARFInlining))
+      DwarfFission = DwarfFissionKind::None;
+#endif // INTEL_CUSTOMIZATION
 
   // If a debugger tuning argument appeared, remember it.
   bool HasDebuggerTuning = false;
@@ -4654,17 +4667,8 @@ renderDebugOptions(const ToolChain &TC, const Driver &D, const llvm::Triple &T,
     EmitCodeView = checkDebugInfoOption(A, Args, D, TC);
 
 #if INTEL_CUSTOMIZATION
-  if (Args.getLastArg(options::OPT_fprofile_sample_generate)) {
-    if (DebugInfoKind < llvm::codegenoptions::DebugLineTablesOnly)
-      DebugInfoKind = llvm::codegenoptions::DebugLineTablesOnly;
+  if (Args.getLastArg(options::OPT_fprofile_sample_generate))
     EmitDwarf = true;
-#ifndef NDEBUG
-    Option GDwarfOpt = D.getOpts().getOption(options::OPT_gdwarf);
-    Arg TmpGDwarf = Arg(GDwarfOpt, GDwarfOpt.getName(), Args.size());
-    assert(checkDebugInfoOption(&TmpGDwarf, Args, D, TC) &&
-           "Target doesn't support -gdwarf");
-#endif
-  }
 #endif // INTEL_CUSTOMIZATION
 
   // If the user asked for debug info but did not explicitly specify -gcodeview
