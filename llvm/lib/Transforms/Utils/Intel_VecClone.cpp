@@ -385,7 +385,8 @@ bool VecCloneImpl::vlaAllocasExist(Function &F) {
 void VecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
                                            Function *Clone,
                                            BasicBlock *EntryBlock,
-                                           const VFInfo &Variant) {}
+                                           const VFInfo &Variant,
+                                           const ValueToValueMapTy &VMap) {}
 
 void VecCloneImpl::languageSpecificInitializations(Module &M) {}
 
@@ -456,7 +457,7 @@ Function *VecCloneImpl::Factory::run() {
   if (V.isMasked())
     insertSplitForMaskedVariant(Mask, Phi);
   // Language specific hook.
-  Parent->handleLanguageSpecifics(F, Phi, Clone, EntryBlock, V);
+  Parent->handleLanguageSpecifics(F, Phi, Clone, EntryBlock, V, VMap);
 
   // Insert the basic blocks that mark the beginning/end of the SIMD loop.
   insertDirectiveIntrinsics();

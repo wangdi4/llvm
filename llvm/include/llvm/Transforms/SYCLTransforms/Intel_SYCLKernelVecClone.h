@@ -45,6 +45,7 @@ private:
 
   SYCLKernelMetadataAPI::KernelList::KernelVectorTy Kernels;
   const VectorizationDimensionAnalysis::Result *VDMap;
+  DenseMap<Function *, SmallVector<CallInst *, 8>> FuncToTIDBuiltinCalls;
 
   // Kernel-related code transformation: 1. updates all the uses of TID calls
   // OpenCL example:
@@ -56,8 +57,8 @@ private:
   // calls outside of the for-loop might create additional load/stores for some
   // kernels with barriers.
   void handleLanguageSpecifics(Function &F, PHINode *Phi, Function *Clone,
-                               BasicBlock *EntryBlock,
-                               const VFInfo &Variant) override;
+                               BasicBlock *EntryBlock, const VFInfo &Variant,
+                               const ValueToValueMapTy &VMap) override;
 
   // Prepare OpenCL kernel for VecClone (emits vector-variant attributes).
   void languageSpecificInitializations(Module &M) override;

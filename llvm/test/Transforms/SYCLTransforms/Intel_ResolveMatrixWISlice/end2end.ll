@@ -192,11 +192,11 @@ attributes #7 = { convergent "kernel-call-once" "kernel-uniform-call" "opencl-ve
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ALLOCA__ARG_:%.*]] = alloca i16 addrspace(1)*, align 8
 ; CHECK-NEXT:    store i16 addrspace(1)* [[_ARG_:%.*]], i16 addrspace(1)** [[ALLOCA__ARG_]], align 8
-; CHECK-NEXT:    [[TMP0:%.*]] = tail call i64 @_Z13get_global_idj(i32 1)
-; CHECK-NEXT:    [[TMP1:%.*]] = tail call i64 @_Z13get_global_idj(i32 0)
-; CHECK-NEXT:    [[TMP2:%.*]] = tail call i64 @_Z12get_local_idj(i32 1)
-; CHECK-NEXT:    [[TMP3:%.*]] = tail call i64 @_Z12get_local_idj(i32 0)
-; CHECK-NEXT:    [[TMP4:%.*]] = trunc i64 [[TMP3]] to i32
+; CHECK-NEXT:    [[TMP0:%.*]] = tail call i64 @_Z13get_global_idj(i32 0)
+; CHECK-NEXT:    [[TMP1:%.*]] = tail call i64 @_Z13get_global_idj(i32 1)
+; CHECK-NEXT:    [[TMP2:%.*]] = tail call i64 @_Z12get_local_idj(i32 0)
+; CHECK-NEXT:    [[TMP3:%.*]] = trunc i64 [[TMP2]] to i32
+; CHECK-NEXT:    [[TMP4:%.*]] = tail call i64 @_Z12get_local_idj(i32 1)
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION:%.*]]
 ; CHECK:       simd.begin.region:
 ; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER:%.*]]
@@ -204,9 +204,9 @@ attributes #7 = { convergent "kernel-call-once" "kernel-uniform-call" "opencl-ve
 ; CHECK-NEXT:    [[LOAD__ARG_:%.*]] = load i16 addrspace(1)*, i16 addrspace(1)** [[ALLOCA__ARG_]], align 8
 ; CHECK-NEXT:    br label [[VPLANNEDBB:%.*]]
 ; CHECK:       VPlannedBB:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <8 x i32> poison, i32 [[TMP4]], i64 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <8 x i32> poison, i32 [[TMP3]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <8 x i32> [[BROADCAST_SPLATINSERT]], <8 x i32> poison, <8 x i32> zeroinitializer
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT4:%.*]] = insertelement <8 x i64> poison, i64 [[TMP1]], i64 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT4:%.*]] = insertelement <8 x i64> poison, i64 [[TMP0]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT5:%.*]] = shufflevector <8 x i64> [[BROADCAST_SPLATINSERT4]], <8 x i64> poison, <8 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB2:%.*]]
 ; CHECK:       VPlannedBB2:
@@ -220,7 +220,7 @@ attributes #7 = { convergent "kernel-call-once" "kernel-uniform-call" "opencl-ve
 ; CHECK-NEXT:    [[TMP7:%.*]] = sext <8 x i32> [[VEC_PHI]] to <8 x i64>
 ; CHECK-NEXT:    [[TMP8:%.*]] = add nuw <8 x i64> [[TMP7]], [[BROADCAST_SPLAT5]]
 ; CHECK-NEXT:    [[DOTEXTRACT_0_32:%.*]] = extractelement <8 x i64> [[TMP8]], i32 0
-; CHECK-NEXT:    [[TMP9:%.*]] = icmp ult i64 [[TMP0]], 2147483648
+; CHECK-NEXT:    [[TMP9:%.*]] = icmp ult i64 [[TMP1]], 2147483648
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[TMP9]])
 ; CHECK-NEXT:    [[TMP10:%.*]] = icmp ult <8 x i64> [[TMP8]], <i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648>
 ; CHECK-NEXT:    [[DOTEXTRACT_7_:%.*]] = extractelement <8 x i1> [[TMP10]], i32 7
@@ -239,7 +239,7 @@ attributes #7 = { convergent "kernel-call-once" "kernel-uniform-call" "opencl-ve
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[DOTEXTRACT_5_]])
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[DOTEXTRACT_6_]])
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[DOTEXTRACT_7_]])
-; CHECK-NEXT:    [[TMP11:%.*]] = icmp ult i64 [[TMP2]], 2147483648
+; CHECK-NEXT:    [[TMP11:%.*]] = icmp ult i64 [[TMP4]], 2147483648
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[TMP11]])
 ; CHECK-NEXT:    [[TMP12:%.*]] = icmp ult <8 x i64> [[TMP6]], <i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648, i64 2147483648>
 ; CHECK-NEXT:    [[DOTEXTRACT_7_13:%.*]] = extractelement <8 x i1> [[TMP12]], i32 7
@@ -309,7 +309,7 @@ attributes #7 = { convergent "kernel-call-once" "kernel-uniform-call" "opencl-ve
 ; CHECK:       VPlannedBB30:
 ; CHECK-NEXT:    [[UNI_PHI31:%.*]] = phi <128 x i16> [ [[UNI_PHI25]], [[NEW_LOOP_LATCH16]] ]
 ; CHECK-NEXT:    [[TMP33:%.*]] = sub i64 [[DOTEXTRACT_0_32]], [[DOTEXTRACT_0_33]]
-; CHECK-NEXT:    [[TMP34:%.*]] = sub i64 [[TMP0]], [[TMP2]]
+; CHECK-NEXT:    [[TMP34:%.*]] = sub i64 [[TMP1]], [[TMP4]]
 ; CHECK-NEXT:    [[TMP35:%.*]] = shl i64 [[TMP34]], 7
 ; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i16, i16 addrspace(1)* [[LOAD__ARG_]], i64 [[TMP35]]
 ; CHECK-NEXT:    [[TMP36:%.*]] = and i64 [[TMP33]], -8
@@ -331,15 +331,15 @@ attributes #7 = { convergent "kernel-call-once" "kernel-uniform-call" "opencl-ve
 ; CHECK-NEXT:    br label [[SIMD_END_REGION:%.*]]
 ; CHECK:       simd.loop.header:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i32 [ [[INDVAR:%.*]], [[SIMD_LOOP_LATCH:%.*]] ]
-; CHECK-NEXT:    [[ADD1:%.*]] = add nuw i32 [[TMP4]], [[INDEX]]
+; CHECK-NEXT:    [[ADD1:%.*]] = add nuw i32 [[TMP3]], [[INDEX]]
 ; CHECK-NEXT:    [[TMP41:%.*]] = sext i32 [[ADD1]] to i64
 ; CHECK-NEXT:    [[TMP42:%.*]] = sext i32 [[INDEX]] to i64
-; CHECK-NEXT:    [[ADD:%.*]] = add nuw i64 [[TMP42]], [[TMP1]]
-; CHECK-NEXT:    [[CMP_I_I:%.*]] = icmp ult i64 [[TMP0]], 2147483648
+; CHECK-NEXT:    [[ADD:%.*]] = add nuw i64 [[TMP42]], [[TMP0]]
+; CHECK-NEXT:    [[CMP_I_I:%.*]] = icmp ult i64 [[TMP1]], 2147483648
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[CMP_I_I]])
 ; CHECK-NEXT:    [[CMP_I33_I:%.*]] = icmp ult i64 [[ADD]], 2147483648
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[CMP_I33_I]])
-; CHECK-NEXT:    [[CMP_I40_I:%.*]] = icmp ult i64 [[TMP2]], 2147483648
+; CHECK-NEXT:    [[CMP_I40_I:%.*]] = icmp ult i64 [[TMP4]], 2147483648
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[CMP_I40_I]])
 ; CHECK-NEXT:    [[CMP_I48_I:%.*]] = icmp ult i64 [[TMP41]], 2147483648
 ; CHECK-NEXT:    tail call void @llvm.assume(i1 [[CMP_I48_I]])
@@ -384,7 +384,7 @@ attributes #7 = { convergent "kernel-call-once" "kernel-uniform-call" "opencl-ve
 ; CHECK:       _ZZZ17matrix_verify_addItLm16ELm16EEvN2cl4sycl5queueER10big_matrixIT_XT0_EXT1_EERNS1_8nd_rangeILi2EEEfENKUlRNS1_7handlerEE_clESB_ENKUlNS1_7nd_itemILi2EEEE_clESE_.exit:
 ; CHECK-NEXT:    [[SUB_A_SROA_0_0_I_LCSSA:%.*]] = phi <128 x i16> [ [[SUB_A_SROA_0_0_I]], [[FOR_COND_I]] ]
 ; CHECK-NEXT:    [[SUB5_I:%.*]] = sub nsw i64 [[ADD]], [[TMP41]]
-; CHECK-NEXT:    [[SUB_I:%.*]] = sub nsw i64 [[TMP0]], [[TMP2]]
+; CHECK-NEXT:    [[SUB_I:%.*]] = sub nsw i64 [[TMP1]], [[TMP4]]
 ; CHECK-NEXT:    [[MUL21_I:%.*]] = shl nsw i64 [[SUB_I]], 7
 ; CHECK-NEXT:    [[ADD_PTR_I51_I:%.*]] = getelementptr inbounds i16, i16 addrspace(1)* [[LOAD__ARG_]], i64 [[MUL21_I]]
 ; CHECK-NEXT:    [[DIV_I:%.*]] = and i64 [[SUB5_I]], -8
