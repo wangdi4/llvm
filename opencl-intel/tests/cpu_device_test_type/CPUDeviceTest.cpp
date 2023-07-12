@@ -3,6 +3,7 @@
 ///////////////////////////////////////////////////////////
 
 #include "cl_config.h"
+#include "cl_cpu_detect.h"
 #include "cl_device_api.h"
 #include "cl_sys_info.h"
 #include "cl_utils.h"
@@ -452,6 +453,9 @@ bool clGetDeviceInfo_DeviceAttributeQueries() {
   EXPECT_EQ(Res, CL_DEV_SUCCESS)
       << "clDevGetDeviceInfo failed for CL_DEVICE_IP_VERSION_INTEL: "
       << clDevErr2Txt((cl_dev_err_code)Res);
+  // For CL_DEVICE_IP_VERSION_INTEL, we can only check whether it's supported
+  // ECPU value.
+  EXPECT_TRUE(DeviceIPVer < Intel::OpenCL::Utils::CPU_LAST_ARCH);
   printf("Device IP version: 0x%x\n", DeviceIPVer);
 
   cl_uint DeviceID;

@@ -94,9 +94,10 @@ enum ECPU : unsigned {
 #undef CREATE_ENUM
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_DMR
-      CPU_DMR = 10
+  CPU_DMR = 10,
 #endif // INTEL_FEATURE_CPU_DMR
 #endif // INTEL_CUSTOMIZATION
+  CPU_LAST_ARCH
 };
 
 enum TransposeSizeSupport { SUPPORTED, UNSUPPORTED, INVALID };
