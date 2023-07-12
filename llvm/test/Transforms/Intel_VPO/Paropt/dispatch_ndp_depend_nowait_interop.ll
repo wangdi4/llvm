@@ -1,5 +1,7 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-dispatch-codegen-version=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s -check-prefix=OCG -check-prefix=ALL
+; RUN: opt -opaque-pointers=1 -vpo-paropt-dispatch-codegen-version=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s -check-prefix=OCG -check-prefix=ALL
+; RUN: opt -opaque-pointers=1 -vpo-paropt-dispatch-codegen-version=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck %s -check-prefix=NCG -check-prefix=ALL
+; RUN: opt -opaque-pointers=1 -vpo-paropt-dispatch-codegen-version=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck %s -check-prefix=NCG -check-prefix=ALL
 
 ; // Test src:
 
@@ -22,25 +24,26 @@
 
 
 ; ;;; create interop obj for async NOWAIT
-; CHECK: [[ASYNCOBJ:%[a-zA-Z._0-9]+]] = call ptr @__kmpc_omp_task_alloc(ptr {{.*}}, i32 0, i32 16, i64 24, i64 0, ptr null)
-; CHECK: [[INTEROPASYNC:%[a-zA-Z._0-9]+]] = call ptr @__tgt_create_interop_obj(i64 0, i8 1, ptr [[ASYNCOBJ]])
+; OCG: [[ASYNCOBJ:%[a-zA-Z._0-9]+]] = call ptr @__kmpc_omp_task_alloc(ptr {{.*}}, i32 0, i32 16, i64 24, i64 0, ptr null)
+; OCG: [[INTEROPASYNC:%[a-zA-Z._0-9]+]] = call ptr @__tgt_create_interop_obj(i64 0, i8 1, ptr [[ASYNCOBJ]])
+; NCG: [[INTEROPASYNC:%[^ ]+]] = call ptr @__tgt_get_interop_obj(ptr @{{.*}}, i32 1, i32 0, ptr null, i64 0, i32 %my.tid, ptr %current.task)
 ;
 ; ;;; handle NEED_DEVICE_PTR
-; ;CHECK: [[GEP:%.+]] = getelementptr inbounds [1 x ptr], ptr %.offload_baseptrs, i32 0, i32 0
-; ;CHECK: call void @__tgt_target_data_begin_mapper
-; ;CHECK: [[UPDATEDVAL:%[a-zA-Z._0-9]+]] = load ptr, ptr [[GEP]], align 8
+; ;ALL: [[GEP:%.+]] = getelementptr inbounds [1 x ptr], ptr %.offload_baseptrs, i32 0, i32 0
+; ;ALL: call void @__tgt_target_data_begin_mapper
+; ;ALL: [[UPDATEDVAL:%[a-zA-Z._0-9]+]] = load ptr, ptr [[GEP]], align 8
 ; ;
 ; ; ;;;; handle DEPEND
-; ; ;CHECK: call ptr @__kmpc_omp_task_alloc(ptr @{{.*}}, i32 %{{.*}}, i32 0, i64 0, i64 0, ptr null)
-; ; ;CHECK: call void @__kmpc_omp_wait_deps(ptr @{{.*}}, i32 %{{.*}}, i32 2, ptr %0, i32 0, ptr null)
-; ; ;CHECK: call void @__kmpc_omp_task_begin_if0(ptr @{{.*}}, i32 %{{.*}}, ptr %{{.*}})
+; ; ;OCG: call ptr @__kmpc_omp_task_alloc(ptr @{{.*}}, i32 %{{.*}}, i32 0, i64 0, i64 0, ptr null)
+; ; ;ALL: call void @__kmpc_omp_wait_deps(ptr @{{.*}}, i32 %{{.*}}, i32 2, ptr %0, i32 0, ptr null)
+; ; ;OCG: call void @__kmpc_omp_task_begin_if0(ptr @{{.*}}, i32 %{{.*}}, ptr %{{.*}})
 ; ; ;
 ; ; ;   ;;; variant call foo_gpu(0, ptr, interop)
-; ; ;   CHECK: call void @_Z7foo_gpuiPiPv(i32 0, ptr [[UPDATEDVAL]], ptr [[INTEROPASYNC]])
+; ; ;   ALL: call void @_Z7foo_gpuiPiPv(i32 0, ptr [[UPDATEDVAL]], ptr [[INTEROPASYNC]])
 ; ; ;
-; ; ;CHECK: call void @__kmpc_omp_task_complete_if0(ptr @{{.*}}, i32 %{{.*}}, ptr %{{.*}})
+; ; ;OCG: call void @__kmpc_omp_task_complete_if0(ptr @{{.*}}, i32 %{{.*}}, ptr %{{.*}})
 ; ;
-; ;CHECK: call void @__tgt_target_data_end_mapper
+; ;ALL: call void @__tgt_target_data_end_mapper
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

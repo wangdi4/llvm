@@ -1,5 +1,7 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt-prepare -S <%s | FileCheck %s
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-paropt-prepare)' -S <%s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-dispatch-codegen-version=0 -bugpoint-enable-legacy-pm -vpo-paropt-prepare -S <%s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-dispatch-codegen-version=0 -passes='function(vpo-paropt-prepare)' -S <%s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-dispatch-codegen-version=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-dispatch-codegen-version=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck %s
 
 ; // C source
 ; #include <omp.h>
@@ -52,7 +54,7 @@ DIR.OMP.DISPATCH.2:                               ; preds = %DIR.OMP.DISPATCH.1
   %1 = load ptr, ptr %ccc.addr, align 8
   call void (ptr, ptr, ...) @_Z3barRPfS0_z(ptr noundef nonnull align 8 dereferenceable(8) %aaa.addr, ptr noundef nonnull align 8 dereferenceable(8) %bbb.addr, ptr noundef %1, i32 noundef 4) #1 [ "QUAL.OMP.DISPATCH.CALL"() ]
 
-; CHECK:  call void (ptr, ptr, ptr, ...) @_Z11bar_variantRPfS0_Pvz(ptr %aaa.addr.new, ptr %bbb.addr.new, ptr %interop.obj.sync, ptr {{.*}}.updated.val, i32 4)
+; CHECK:  call void (ptr, ptr, ptr, ...) @_Z11bar_variantRPfS0_Pvz(ptr %aaa.addr.new, ptr %bbb.addr.new, ptr %interop.obj{{.*}}, ptr {{.*}}.updated.val, i32 4)
 ; aaa and bbb are PTR_TO_PTR (hence the .addr.new suffix);
 ; the interop obj is the third argument and is not translated (no addr.new or updated.val suffix);
 ; ccc's updated val is immediately after the interop obj.
