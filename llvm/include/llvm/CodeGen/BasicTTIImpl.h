@@ -2015,7 +2015,7 @@ public:
     case Intrinsic::umax:
     case Intrinsic::umin: {
       // minmax(X,Y) = select(icmp(X,Y),X,Y)
-      Type *CondTy = RetTy->getWithNewBitWidth(1);
+      Type *CondTy = CmpInst::makeCmpResultType(RetTy); // INTEL
       bool IsUnsigned = IID == Intrinsic::umax || IID == Intrinsic::umin;
       CmpInst::Predicate Pred =
           IsUnsigned ? CmpInst::ICMP_UGT : CmpInst::ICMP_SGT;
