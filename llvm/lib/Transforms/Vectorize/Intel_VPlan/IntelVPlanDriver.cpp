@@ -1451,6 +1451,7 @@ void VPlanDriverImpl::generateMaskedModeVPlans(LoopVectorizationPlanner *LVP,
   }
 }
 
+<<<<<<< HEAD
 INITIALIZE_PASS_BEGIN(VPlanDriver, "vplan-vec", "VPlan Vectorizer",
                       false, false)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
@@ -1508,10 +1509,13 @@ void VPlanDriver::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addPreserved<GlobalsAAWrapperPass>();
 }
 
+=======
+>>>>>>> e95a0b2631658283ed39cdca0dbb1376f2bb14e6
 static std::string getDescription(const Function &F) {
   return "function (" + F.getName().str() + ")";
 }
 
+<<<<<<< HEAD
 bool VPlanDriver::skipFunction(const Function &F) const {
   OptPassGate &Gate = F.getContext().getOptPassGate();
   if (Gate.isEnabled() &&
@@ -1553,6 +1557,8 @@ bool VPlanDriver::runOnFunction(Function &Fn) {
                       TTI, TLI, BFI, nullptr, FatalErrorHandler);
 }
 
+=======
+>>>>>>> e95a0b2631658283ed39cdca0dbb1376f2bb14e6
 PreservedAnalyses VPlanDriverPass::run(Function &F,
                                        FunctionAnalysisManager &AM) {
 
@@ -1640,76 +1646,6 @@ void VPlanDriverImpl::collectAllLoops<vpo::HLLoop>(
 }
 } // namespace vpo
 } // namespace llvm
-
-INITIALIZE_PASS_BEGIN(VPlanDriverHIR, "hir-vplan-vec",
-                      "VPlan HIR Vectorizer", false, false)
-INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-// INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-// INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
-INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_END(VPlanDriverHIR, "hir-vplan-vec",
-                    "VPlan HIR Vectorizer", false, false)
-
-char VPlanDriverHIR::ID = 0;
-
-VPlanDriverHIR::VPlanDriverHIR(bool LightWeightMode, bool WillRunLLVMIRVPlan)
-    : FunctionPass(ID), Impl(LightWeightMode, WillRunLLVMIRVPlan) {
-  initializeVPlanDriverHIRPass(*PassRegistry::getPassRegistry());
-}
-
-Pass *llvm::createVPlanDriverHIRPass(bool LightWeightMode) {
-  return new VPlanDriverHIR(LightWeightMode);
-}
-
-void VPlanDriverHIR::getAnalysisUsage(AnalysisUsage &AU) const {
-
-  AU.addRequired<WRegionInfoWrapperPass>();
-  AU.addRequired<TargetTransformInfoWrapperPass>();
-  AU.addRequired<TargetLibraryInfoWrapperPass>();
-
-  // HIR path does not work without setPreservesAll
-  AU.setPreservesAll(); // TODO: ?
-
-  //  AU.addRequired<LoopInfoWrapperPass>();
-  //  AU.addRequired<ScalarEvolutionWrapperPass>();
-
-  AU.addRequired<HIRFrameworkWrapperPass>();
-  AU.addRequired<HIRLoopStatisticsWrapperPass>();
-  //  AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
-  AU.addRequired<HIRDDAnalysisWrapperPass>();
-  AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
-  AU.addRequired<OptReportOptionsPass>();
-  AU.addRequired<AssumptionCacheTracker>();
-  AU.addRequired<DominatorTreeWrapperPass>();
-}
-
-bool VPlanDriverHIR::runOnFunction(Function &Fn) {
-  if (skipFunction(Fn))
-    return false;
-
-  auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
-  auto HIRLoopStats = &getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
-  auto DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
-  auto Verbosity = getAnalysis<OptReportOptionsPass>().getVerbosity();
-  auto SafeRedAnalysis =
-      &getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
-  auto TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn);
-  auto TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(Fn);
-  auto WR = &getAnalysis<WRegionInfoWrapperPass>().getWRegionInfo();
-  auto AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(Fn);
-  auto DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-
-  return Impl.runImpl(Fn, HIRF, HIRLoopStats, DDA, SafeRedAnalysis, Verbosity,
-                      WR, TTI, TLI, AC, DT, nullptr);
-}
 
 PreservedAnalyses VPlanDriverHIRPass::runImpl(Function &F,
                                               FunctionAnalysisManager &AM,
@@ -2244,16 +2180,6 @@ void VPlanDriverHIRImpl::eraseLoopIntrins(HLLoop *Lp,
 
   (void)IsValidDirectiveNode;
 }
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-/// Overrides FunctionPass's printer pass to return one which prints
-/// HIR instead of LLVM IR.
-FunctionPass *
-VPlanDriverHIR::createPrinterPass(raw_ostream &OS,
-                                  const std::string &Banner) const {
-  return createHIRPrinterPass(OS, Banner);
-  }
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // IMPORTANT -- keep this function at the end of the file until VPO and
 // LoopVectorization legality can be merged.
