@@ -1,6 +1,7 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s
-;
+; RUN: opt -opaque-pointers=1 -vpo-paropt-dispatch-codegen-version=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s -check-prefix=OCG -check-prefix=ALL
+; RUN: opt -opaque-pointers=1 -vpo-paropt-dispatch-codegen-version=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s -check-prefix=OCG -check-prefix=ALL
+; RUN: opt -opaque-pointers=1 -vpo-paropt-dispatch-codegen-version=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck %s -check-prefix=NCG -check-prefix=ALL
+; RUN: opt -opaque-pointers=1 -vpo-paropt-dispatch-codegen-version=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck %s -check-prefix=NCG -check-prefix=ALL
 ; Test src:
 
 ; #include <stdio.h>
@@ -24,19 +25,21 @@
 ;   foo(y);
 ; }
 
-; CHECK: call void @__tgt_target_data_begin_mapper({{.*}})
-; CHECK: call void @bar.foo_gpu.wrapper(ptr %y.addr.new, i64 %{{.*}})
-; CHECK: call void @__tgt_target_data_end_mapper({{.*}})
+; ALL: call void @__tgt_target_data_begin_mapper({{.*}})
+; ALL: call void @bar.foo_gpu.wrapper(ptr %y.addr.new, i64 %{{.*}})
+; ALL: call void @__tgt_target_data_end_mapper({{.*}})
 
-; CHECK: %interop.obj.sync = call ptr @__tgt_create_interop_obj({{.*}})
-; CHECK: call void @__tgt_target_data_begin_mapper({{.*}})
-; CHECK: call void @foo_gpu(ptr %y.val1.updated.val, ptr %interop.obj.sync)
-; CHECK: call void @__tgt_target_data_end_mapper({{.*}})
+; OCG: %[[INTEROPOBJ:[^ ]+]] = call ptr @__tgt_create_interop_obj({{.*}})
+; NCG: %[[INTEROPOBJ:[^ ]+]] = call ptr @__tgt_get_interop_obj({{.*}})
+; ALL: call void @__tgt_target_data_begin_mapper({{.*}})
+; ALL: call void @foo_gpu(ptr %y.val1.updated.val, ptr %[[INTEROPOBJ]])
+; ALL: call void @__tgt_target_data_end_mapper({{.*}})
 
-; CHECK: define internal void @bar.foo_gpu.wrapper(ptr [[YADDR:%[^ ,]+]], i64 %{{.*}})
-; CHECK: [[YVAL:%[^ ]+]] = load ptr, ptr [[YADDR]], align 8
-; CHECK: %interop.obj.sync = call ptr @__tgt_create_interop_obj({{.*}})
-; CHECK: call void @foo_gpu(ptr [[YVAL]], ptr %interop.obj.sync)
+; ALL: define internal void @bar.foo_gpu.wrapper(ptr [[YADDR:%[^ ,]+]], i64 %{{.*}})
+; ALL: [[YVAL:%[^ ]+]] = load ptr, ptr [[YADDR]], align 8
+; ALL: [[INTEROPOBJ2:%[^ ]+]] = call ptr @__tgt_create_interop_obj({{.*}})
+; ALL: call void @foo_gpu(ptr [[YVAL]], ptr [[INTEROPOBJ2]])
+
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

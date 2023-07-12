@@ -1,5 +1,7 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -vpo-paropt-dispatch-codegen-version=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s -check-prefix=OCG -check-prefix=ALL
+; RUN: opt -opaque-pointers=0 -vpo-paropt-dispatch-codegen-version=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s -check-prefix=OCG -check-prefix=ALL
+; RUN: opt -opaque-pointers=0 -vpo-paropt-dispatch-codegen-version=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck %s -check-prefix=NCG -check-prefix=ALL
+; RUN: opt -opaque-pointers=0 -vpo-paropt-dispatch-codegen-version=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck %s -check-prefix=NCG -check-prefix=ALL
 
 ; // Test the interop_position attribute used for cases where the
 ; // interop obj is not the last parameter of the variant function.
@@ -24,8 +26,9 @@
 
 ; Check that we call foo_gpu with interop_obj as the second argument instead of the last.
 ;
-; CHECK: [[INTEROPOBJ:%[^ ]+]] = call i8* @__tgt_create_interop_obj(i64 0, i8 0, i8* null)
-; CHECK: call void @_Z7foo_gpuiPiPv(i32 0, i8* [[INTEROPOBJ]], i32* %0)
+; OCG: [[INTEROPOBJ:%[^ ]+]] = call i8* @__tgt_create_interop_obj(i64 0, i8 0, i8* null)
+; NCG: [[INTEROPOBJ:%[^ ]+]] = call i8* @__tgt_get_interop_obj(%struct.ident_t* @{{.*}}, i32 1, i32 0, i8* null, i64 0, i32 %my.tid, i8* %current.task)
+; ALL: call void @_Z7foo_gpuiPiPv(i32 0, i8* [[INTEROPOBJ]], i32* %0)
 
 ; ModuleID = 'dispatch_interop_position.cpp'
 source_filename = "dispatch_interop_position.cpp"
