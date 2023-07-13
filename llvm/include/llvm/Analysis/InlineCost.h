@@ -229,6 +229,7 @@ typedef enum {
   NinlrPreferCloning,
   NinlrNullPtrMismatch,
   NinlrPreferMultiversioning,
+  NinlrPreferIPPredOpt,
   NinlrPreferSOAToAOS,
   NinlrStackComputations,
   NinlrSwitchComputations,
