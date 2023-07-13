@@ -2240,7 +2240,8 @@ def OMP_scope : Directive<"scope"> {
   let allowedClauses = [
     VersionedClause<OMPC_Private>,
     VersionedClause<OMPC_FirstPrivate, 52>,
-    VersionedClause<OMPC_Reduction>
+    VersionedClause<OMPC_Reduction>,
+    VersionedClause<OMPC_Allocate, 52>
   ];
   let allowedOnceClauses = [
     VersionedClause<OMPC_NoWait>
