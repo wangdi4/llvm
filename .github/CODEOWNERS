@@ -260,10 +260,11 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/include/llvm/Transforms/Scalar/Intel_FunctionRecognizer.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Scalar/Intel_IndirectCallConv.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Scalar/Intel_MultiVersioning.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/Scalar/MemCpyOptimizer.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/include/llvm/Transforms/Utils/CallGraphUpdater.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Utils/CallPromotionUtils.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Utils/Cloning.h @robertcox-github @pvbattin
-/llvm/include/llvm/Transforms/Utils/CodeExtractor.h @robertcox-github @pvbattin
+/llvm/include/llvm/Transforms/Utils/CodeExtractor.h @robertcox-github @pvbattin @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/include/llvm/Transforms/Utils/CodeMoverUtils.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Utils/CtorUtils.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Utils/FunctionComparator.h @robertcox-github @pvbattin
@@ -314,12 +315,13 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/lib/Transforms/Scalar/Intel_ForcedCMOVGeneration.cpp @asudarsa
 /llvm/lib/Transforms/Scalar/Intel_FunctionRecognizer.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Scalar/Intel_IndirectCallConv.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Scalar/MemCpyOptimizer.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Transforms/Utils/BuildLibCalls.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Utils/CallGraphUpdater.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Utils/CallPromotionUtils.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Utils/CloneModule.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Utils/CloneFunction.cpp @robertcox-github @pvbattin
-/llvm/lib/Transforms/Utils/CodeExtractor.cpp @robertcox-github @pvbattin
+/llvm/lib/Transforms/Utils/CodeExtractor.cpp @robertcox-github @pvbattin @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/lib/Transforms/Utils/CodeMoverUtils.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Utils/CtorUtils.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Utils/FunctionComparator.cpp @robertcox-github @pvbattin
