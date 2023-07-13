@@ -71,7 +71,6 @@ include(builtin-config-ix)
 include(CMakeDependentOption)
 include(CMakePushCheckState)
 
-<<<<<<< HEAD
 if(INTEL_CUSTOMIZATION)
   # Need to override the -Werror setting when building this library with the GNU
   # compiler because this is building components that have the same name as
@@ -83,12 +82,6 @@ if(INTEL_CUSTOMIZATION)
   endif()
 endif()
 
-if(${CMAKE_SYSTEM_NAME} MATCHES "AIX")
-  include(CompilerRTAIXUtils)
-endif()
-
-=======
->>>>>>> dae9d1b52469daca88a968e7b99a26420aef657c
 option(COMPILER_RT_BUILTINS_HIDE_SYMBOLS
   "Do not export any symbols from the static library." ON)
 
