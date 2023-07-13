@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -62,18 +62,6 @@ Pass *createLoadCoalescingPass();
 //
 Pass *createMathLibraryFunctionsReplacementPass(); // remove in OCL commit
 Pass *createMathLibraryFunctionsReplacementPass(bool isOCL);
-
-//===----------------------------------------------------------------------===//
-//
-// VPlan LLVM-IR Vectorizer - Create a VPlan Driver pass for LLVM-IR.
-//
-Pass *createVPlanDriverPass(FatalErrorHandlerTy FatalErrorHandler = nullptr);
-
-//===----------------------------------------------------------------------===//
-//
-// VPlan HIR Vectorizer - Create a VPlan Driver pass for HIR.
-//
-Pass *createVPlanDriverHIRPass(bool LightWeightMode);
 
 Pass *createVPlanFunctionVectorizerPass();
 

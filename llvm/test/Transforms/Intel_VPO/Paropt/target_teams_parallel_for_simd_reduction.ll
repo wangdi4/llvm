@@ -1,4 +1,3 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-paropt-enable-device-simd-codegen -vpo-paropt-emit-spirv-builtins -vpo-paropt-gpu-execution-scheme=0 -enable-device-simd -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vplan-vec -S %s | FileCheck %s
 ; RUN: opt -opaque-pointers=0 -switch-to-offload -vpo-paropt-enable-device-simd-codegen -vpo-paropt-emit-spirv-builtins -vpo-paropt-gpu-execution-scheme=0 -enable-device-simd -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,vplan-vec' -S %s | FileCheck %s
 
 ; #include <stdio.h>
