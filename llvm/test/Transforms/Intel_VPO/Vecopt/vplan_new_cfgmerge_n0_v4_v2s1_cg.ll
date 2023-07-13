@@ -29,7 +29,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = sext <4 x i32> [[BROADCAST_SPLAT]] to <4 x i64>
 ; CHECK-NEXT:    [[TMP1:%.*]] = add <4 x i64> [[TMP0]], [[VEC_PHI]]
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i64* [[SCALAR_GEP]] to <4 x i64>*
-; CHECK-NEXT:    store <4 x i64> [[TMP1]], <4 x i64>* [[TMP2]], align 8, !intel.preferred_alignment !0
+; CHECK-NEXT:    store <4 x i64> [[TMP1]], <4 x i64>* [[TMP2]], align 8
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP4]] = add nuw nsw i64 [[UNI_PHI]], 4
 ; CHECK-NEXT:    [[TMP5:%.*]] = icmp ult i64 [[TMP4]], 1024
