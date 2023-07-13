@@ -18,10 +18,17 @@
 // CHECK-NEXT:    [[I:%.*]] = alloca i32, align 4
 // CHECK-NEXT:    [[AAA:%.*]] = alloca float, align 4
 // CHECK-NEXT:    [[CCC:%.*]] = alloca i32, align 4
+// CHECK-NEXT:    [[V1:%.*]] = alloca i8, align 1
+// CHECK-NEXT:    [[V2:%.*]] = alloca i16, align 2
+// CHECK-NEXT:    [[V3:%.*]] = alloca i32, align 4
 // CHECK-NEXT:    [[X:%.*]] = alloca i32, align 4
 // CHECK-NEXT:    [[Y:%.*]] = alloca i32, align 4
 // CHECK-NEXT:    [[Z:%.*]] = alloca i32, align 4
+// CHECK-NEXT:    [[MYALLOC:%.*]] = alloca i64, align 8
 // CHECK-NEXT:    store i32 1, ptr [[I]], align 4
+// CHECK-NEXT:    store i8 0, ptr [[V1]], align 1
+// CHECK-NEXT:    store i16 10, ptr [[V2]], align 2
+// CHECK-NEXT:    store i32 20, ptr [[V3]], align 4
 // CHECK-NEXT:    [[TMP0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SCOPE"() ]
 // CHECK-NEXT:    [[TMP1:%.*]] = load i32, ptr [[I]], align 4
 // CHECK-NEXT:    [[ADD:%.*]] = add nsw i32 [[TMP1]], 1
@@ -67,15 +74,41 @@
 // CHECK-NEXT:    store i32 [[INC5]], ptr [[Y]], align 4
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP16]]) [ "DIR.OMP.END.TASK"() ]
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP8]]) [ "DIR.OMP.END.SCOPE"() ]
-// CHECK-NEXT:    [[TMP18:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SCOPE"(), "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[I]], i32 0, i32 1) ]
+// CHECK-NEXT:    [[TMP18:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SCOPE"(), "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr [[I]], i32 0, i32 1), "QUAL.OMP.ALLOCATE"(i64 4, ptr [[I]]) ]
 // CHECK-NEXT:    store i32 3, ptr [[I]], align 4
 // CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP18]]) [ "DIR.OMP.END.SCOPE"() ]
+// CHECK-NEXT: store i64 2, ptr [[MYALLOC]]
+// CHECK-NEXT:[[L1:%[0-9]+]] = load i64, ptr [[MYALLOC]]
+// CHECK-NEXT: DIR.OMP.SCOPE
+// CHECK-SAME: "QUAL.OMP.ALLOCATE"(i64 1, ptr %v1, i64 [[L1]])
+// CHECK-SAME: "QUAL.OMP.ALLOCATE"(i64 2, ptr %v2, i64 [[L1]])
+// CHECK-SAME: "QUAL.OMP.ALLOCATE"(i64 4, ptr %v3, i64 [[L1]])
+// CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[V1]]
+// CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[V2]]
+// CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr [[V3]]
+// CHECK: DIR.OMP.END.SCOPE
 // CHECK-NEXT:    ret i32 0
-//
+
+typedef enum omp_allocator_handle_t {
+  omp_null_allocator = 0,
+  omp_default_mem_alloc = 1,
+  omp_large_cap_mem_alloc = 2,
+  omp_const_mem_alloc = 3,
+  omp_high_bw_mem_alloc = 4,
+  omp_low_lat_mem_alloc = 5,
+  omp_cgroup_mem_alloc = 6,
+  omp_pteam_mem_alloc = 7,
+  omp_thread_mem_alloc = 8,
+  KMP_ALLOCATOR_MAX_HANDLE = __UINTPTR_MAX__
+} omp_allocator_handle_t;
+
 int main() {
   int i = 1;
   float aaa;
   int ccc;
+  char v1 = 0;
+  short v2 = 10;
+  int v3 = 20;
 
   #pragma omp scope
   ccc = i + 1;
@@ -102,8 +135,11 @@ int main() {
     #pragma omp task
     y++;
   }
-  #pragma omp scope firstprivate(i)
+  #pragma omp scope firstprivate(i) allocate(i)
   i = 3;
+  omp_allocator_handle_t MyAlloc = omp_large_cap_mem_alloc;
+  #pragma omp scope allocate(MyAlloc: v1, v2, v3) private(v1, v2, v3)
+  { v1 -= (v2 + v3); }
 }
 #endif
 // end INTEL_COLLAB
