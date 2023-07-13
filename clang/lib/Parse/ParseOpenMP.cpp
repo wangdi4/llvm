@@ -4012,6 +4012,9 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
       ErrorFound = true;
     }
 #endif // INTEL_COLLAB
+    if (getLangOpts().OpenMP >= 52 && DKind == OMPD_ordered &&
+        CKind == OMPC_depend)
+      Diag(Tok, diag::warn_omp_depend_in_ordered_deprecated);
     Clause = ParseOpenMPVarListClause(DKind, CKind, WrongDirective);
     break;
   case OMPC_sizes:
