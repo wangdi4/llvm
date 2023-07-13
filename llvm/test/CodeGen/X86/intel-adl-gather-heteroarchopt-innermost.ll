@@ -5,7 +5,7 @@
 ; Function Attrs: nofree norecurse nosync nounwind readonly uwtable
 define dso_local double @foo(double* noalias nocapture readonly %dst, double* noalias nocapture readonly %luval, i32** nocapture readonly %rowstart, double*** noalias nocapture readonly %src1, double*** noalias nocapture readonly %src2, i32* nocapture readnone %first_after_diagonal, i32 %N) local_unnamed_addr #0 {
 ; X64-LABEL: foo:
-; X64:       # %bb.0:
+; X64:       # %bb.0: # %entry
 ; X64-NEXT:    pushq %rbp
 ; X64-NEXT:    .cfi_def_cfa_offset 16
 ; X64-NEXT:    pushq %r15
@@ -304,7 +304,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-NEXT:    jmp .LBB0_3
 ;
 ; X86-LABEL: foo:
-; X86:       # %bb.0:
+; X86:       # %bb.0: # %entry
 ; X86-NEXT:    pushl %ebp
 ; X86-NEXT:    .cfi_def_cfa_offset 8
 ; X86-NEXT:    .cfi_offset %ebp, -8
@@ -390,8 +390,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X86-NEXT:    vmovapd {{[-0-9]+}}(%e{{[sb]}}p), %ymm2 # 32-byte Reload
 ; X86-NEXT:    movl %edx, %ecx
 ; X86-NEXT:    shll $12, %ecx
-; X86-NEXT:    addl %ebx, %ecx
-; X86-NEXT:    addl $17, %ecx
+; X86-NEXT:    leal 17(%ecx,%ebx), %ecx
 ; X86-NEXT:    vfmadd231pd {{.*#+}} ymm3 = (ymm6 * mem) + ymm3
 ; X86-NEXT:    vfmadd231pd {{.*#+}} ymm2 = (ymm1 * mem) + ymm2
 ; X86-NEXT:    vmovapd {{[-0-9]+}}(%e{{[sb]}}p), %ymm1 # 32-byte Reload
@@ -578,8 +577,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X86-NEXT:    vmovdqa {{[-0-9]+}}(%e{{[sb]}}p), %ymm6 # 32-byte Reload
 ; X86-NEXT:    movl {{[-0-9]+}}(%e{{[sb]}}p), %eax # 4-byte Reload
 ; X86-NEXT:    shll $12, %eax
-; X86-NEXT:    addl %edi, %eax
-; X86-NEXT:    addl $17, %eax
+; X86-NEXT:    leal 17(%eax,%edi), %eax
 ; X86-NEXT:    movl 12(%ebp), %ecx
 ; X86-NEXT:    vfmadd231pd {{.*#+}} ymm5 = (ymm2 * mem) + ymm5
 ; X86-NEXT:    vfmadd231pd {{.*#+}} ymm4 = (ymm1 * mem) + ymm4
