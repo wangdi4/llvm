@@ -1,41 +1,85 @@
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -hir-cost-model-throttling=0 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-hir-opt-predicate-region-simd=false -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-opt-predicate,print<hir>" -aa-pipeline="basic-aa" -hir-cost-model-throttling=0 -disable-output < %s 2>&1 | FileCheck %s
 
-; Make sure the if-stmt in the body of innermost loop is hoisted outside the innermost loop.
-; SIMD pragmas attached to the outermost loop should not inhibit such predicate optimization.
+; This test case checks that the inner the If conditions <25> and <43>
+; are hoisted outside of the loopnest and the SIMD instructions are
+; inside the conditions. The reason we can hoist is because the conditions
+; are region invariant, the inner loops aren't SIMD, and the SIMD directives
+; are at region level.
 
-;         BEGIN REGION { }
-;               %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.NORMALIZED.IV:TYPED(null, 0),  QUAL.OMP.NORMALIZED.UB:TYPED(null, 0),  QUAL.OMP.LINEAR:IV.TYPED(&((%
-;near.iv)[0]), 0, 1, 1) ]
-;
-;               + DO i1 = 0, zext.i32.i64(%n) + -1, 1
-;               |   %1 = trunc.i64.i32(i1);
-;               |   %2 = (%b)[i1];
-;               |
-;               |   + DO i2 = 0, zext.i32.i64(%m) + -1, 1
-;               |   |   if (%t == 12)
-;               |   |   {
-;               |   |      (%a)[zext.i32.i64(%1) * i2] = i1 + i2 + %2;
-;               |   |
-;               |   |      + DO i3 = 0, zext.i32.i64(%p1) + -1, 1
-;               |   |      |   if (%p == 8)
-;               |   |      |   {
-;               |   |      |      (%a)[zext.i32.i64(%1) * i2 + i3] = i1 + %2;
-;               |   |      |   }
-;               |   |      + END LOOP
-;               |   |   }
-;               |   + END LOOP
-;               + END LOOP
-;
-;               @llvm.directive.region.exit(%0); [ DIR.OMP.END.SIMD() ]
-;         END REGION
+; HIR before transformation
 
+; <0>          BEGIN REGION { }
+; <2>                %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.NORMALIZED.IV:TYPED(null, 0),  QUAL.OMP.NORMALIZED.UB:TYPED(null, 0),  QUAL.OMP.LINEAR:IV.TYPED(&((%i.linear.iv)[0]), 0, 1, 1) ]
+; <81>
+; <81>               + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647> <simd>
+; <13>               |   %1 = trunc.i64.i32(i1);
+; <15>               |   %2 = (%b)[i1];
+; <82>               |
+; <82>               |   + DO i2 = 0, zext.i32.i64(%m) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; <25>               |   |   if (%t == 12)
+; <25>               |   |   {
+; <33>               |   |      (%a)[zext.i32.i64(%1) * i2] = i1 + i2 + %2;
+; <83>               |   |
+; <83>               |   |      + DO i3 = 0, zext.i32.i64(%p1) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; <43>               |   |      |   if (%p == 8)
+; <43>               |   |      |   {
+; <49>               |   |      |      (%a)[zext.i32.i64(%1) * i2 + i3] = i1 + %2;
+; <43>               |   |      |   }
+; <83>               |   |      + END LOOP
+; <25>               |   |   }
+; <82>               |   + END LOOP
+; <81>               + END LOOP
+; <81>
+; <79>               @llvm.directive.region.exit(%0); [ DIR.OMP.END.SIMD() ]
+; <0>          END REGION
 
-; CHECK:  BEGIN REGION { modified }
-; CHECK:      DO i2 = 0
-; CHECK-NEXT: if (%t == 12)
+; HIR after transformation
+
+; TODO: the extra Else branch with the SIMD directives can be removed to
+; improve compile time. For now, instructions simplification pass should
+; be able to revome them after loopopt.
+
+; CHECK: BEGIN REGION { modified }
+; CHECK:       if (%t == 12)
+; CHECK:       {
 ; CHECK:          if (%p == 8)
-; CHECK-NEXT:     {
-; CHECK-NEXT:      DO i3 = 0
+; CHECK:          {
+; CHECK:             %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.NORMALIZED.IV:TYPED(null, 0),  QUAL.OMP.NORMALIZED.UB:TYPED(null, 0),  QUAL.OMP.LINEAR:IV.TYPED(&((%i.linear.iv)[0]), 0, 1, 1) ]
+; CHECK:             + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647> <simd>
+; CHECK:             |   %1 = trunc.i64.i32(i1);
+; CHECK:             |   %2 = (%b)[i1];
+; CHECK:             |
+; CHECK:             |   + DO i2 = 0, zext.i32.i64(%m) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; CHECK:             |   |   (%a)[zext.i32.i64(%1) * i2] = i1 + i2 + %2;
+; CHECK:             |   |
+; CHECK:             |   |   + DO i3 = 0, zext.i32.i64(%p1) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; CHECK:             |   |   |   (%a)[zext.i32.i64(%1) * i2 + i3] = i1 + %2;
+; CHECK:             |   |   + END LOOP
+; CHECK:             |   + END LOOP
+; CHECK:             + END LOOP
+; CHECK:             @llvm.directive.region.exit(%0); [ DIR.OMP.END.SIMD() ]
+; CHECK:          }
+; CHECK:          else
+; CHECK:          {
+; CHECK:             %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.NORMALIZED.IV:TYPED(null, 0),  QUAL.OMP.NORMALIZED.UB:TYPED(null, 0),  QUAL.OMP.LINEAR:IV.TYPED(&((%i.linear.iv)[0]), 0, 1, 1) ]
+; CHECK:             + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647> <simd>
+; CHECK:             |   %1 = trunc.i64.i32(i1);
+; CHECK:             |   %2 = (%b)[i1];
+; CHECK:             |
+; CHECK:             |   + DO i2 = 0, zext.i32.i64(%m) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
+; CHECK:             |   |   (%a)[zext.i32.i64(%1) * i2] = i1 + i2 + %2;
+; CHECK:             |   + END LOOP
+; CHECK:             + END LOOP
+; CHECK:             @llvm.directive.region.exit(%0); [ DIR.OMP.END.SIMD() ]
+; CHECK:          }
+; CHECK:       }
+; CHECK:       else
+; CHECK:       {
+; CHECK-NEXT:          %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.NORMALIZED.IV:TYPED(null, 0),  QUAL.OMP.NORMALIZED.UB:TYPED(null, 0),  QUAL.OMP.LINEAR:IV.TYPED(&((%i.linear.iv)[0]), 0, 1, 1) ]
+; CHECK-NEXT:          @llvm.directive.region.exit(%0); [ DIR.OMP.END.SIMD() ]
+; CHECK-NEXT:       }
+; CHECK: END REGION
+
 
 ;Module Before HIR
 ; ModuleID = 'test.c'
