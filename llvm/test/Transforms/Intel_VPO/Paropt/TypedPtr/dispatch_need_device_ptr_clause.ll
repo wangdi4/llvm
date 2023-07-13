@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-paropt-prepare -S <%s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-paropt-prepare)' -S <%s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -vpo-paropt-dispatch-codegen-version=0 -bugpoint-enable-legacy-pm -vpo-paropt-prepare -S <%s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -vpo-paropt-dispatch-codegen-version=0 -passes='function(vpo-paropt-prepare)' -S <%s | FileCheck %s
 
 ; // C source
 ; #include <omp.h>

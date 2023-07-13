@@ -1737,7 +1737,19 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
   // The IP version for the device. The meaning of this version is
   // implementation-defined, but newer devices should have a higher
   // version than older devices.
-  case CL_DEVICE_IP_VERSION_INTEL:
+  case CL_DEVICE_IP_VERSION_INTEL: {
+    ECPU curCPUEnum = CPUDetect::GetInstance()->GetCPU();
+
+    *pinternalRetunedValueSize = sizeof(curCPUEnum);
+    if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+      return CL_DEV_INVALID_VALUE;
+    }
+    // if OUT paramVal is NULL it should be ignored
+    if (nullptr != paramVal) {
+      MEMCPY_S(paramVal, valSize, &curCPUEnum, *pinternalRetunedValueSize);
+    }
+    return CL_DEV_SUCCESS;
+  }
   case CL_DEVICE_NUMERIC_VERSION: {
     cl_version openclVerNum = 0;
     switch (ver) {

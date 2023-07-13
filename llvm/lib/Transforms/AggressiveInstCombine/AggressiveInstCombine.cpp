@@ -965,6 +965,229 @@ static bool foldPatternedLoads(Instruction &I, const DataLayout &DL) {
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+// Compute a specific formula (described in mathPowTable()) into
+// a static table.
+
+static const char *PowTableName = "_PowTable";
+static const int TableRowSize = 256;
+static const int TableNumRows = 2;
+
+// Return true, if the given Table has been generated for the given set of
+// parameters.
+static bool verifyPowTable(Value *Table, ConstantFP *Scale0, ConstantFP *Scale1,
+                           ConstantFP *Multiplier, ConstantFP *Offset,
+                           ConstantFP *Exp) {
+  // The table must be internal linkage and have an initializer of the
+  // correct size.
+  auto *GV = dyn_cast_or_null<GlobalVariable>(Table);
+  if (!GV || GV->getLinkage() != GlobalVariable::InternalLinkage)
+    return false;
+  auto *TableInit = GV->getInitializer();
+  if (!TableInit)
+    return false;
+  auto *TableTy = dyn_cast<ArrayType>(TableInit->getType());
+  // 2 rows + 5 elements for verification
+  if (TableTy->getNumElements() != TableRowSize * TableNumRows + 5)
+    return false;
+
+  // Read the last 5 elements in the table. These are the input parameters,
+  // and they must match the current parameter set.
+  SmallVector<ConstantFP *, 5> MyParms = {Scale0, Scale1, Multiplier, Offset,
+                                          Exp};
+  const unsigned StartOfParms = TableRowSize * TableNumRows;
+  for (unsigned i = 0; i < 5; i++) {
+    auto *Elt = dyn_cast_or_null<ConstantFP>(
+        TableInit->getAggregateElement(StartOfParms + i));
+    if (!Elt || (Elt->getValue() != MyParms[i]->getValue()))
+      return false;
+  }
+  return true;
+}
+
+// Parameters must be finite normal numbers, magnitude < 20 (try to prevent
+// overflow)
+static bool checkTableParmsRange(SmallVector<ConstantFP *, 5> &Parms) {
+  for (auto *Parm : Parms) {
+    const APFloat &APF = Parm->getValue();
+    if (APF.isDenormal() || !APF.isFinite() ||
+        fabs(APF.convertToDouble()) >= 20.0)
+      return false;
+  }
+  return true;
+}
+
+// Create a table with the given parameters, and this formula:
+//
+// powf(Byte * (Flag ? Scale0 : Scale1) * Multiplier + Offset, Exp)
+//
+// Byte and Flag are variables, all others are constant.
+// Byte is range [0,255], Flag is [0,1].
+//
+// 256 elements are generated with Flag == 0. Next 256 elements are generated
+// with Flag == 1.
+// If the table already exists with the given parameters, return the existing
+// one. There is support only for a single table. Attempts to create a table
+// with different parameters will return nullptr.
+static Value *genPowTable(ConstantFP *Scale0, ConstantFP *Scale1,
+                          ConstantFP *Multiplier, ConstantFP *Offset,
+                          ConstantFP *Exp, IRBuilder<> &Builder) {
+  // If there is already a table, verify it against the parameters. If it
+  // has the same parameters, use the existing table. Otherwise nullptr.
+  Module *M = Builder.GetInsertBlock()->getModule();
+  if (auto *Existing = M->getNamedValue(PowTableName)) {
+    if (!verifyPowTable(Existing, Scale0, Scale1, Multiplier, Offset, Exp)) {
+      LLVM_DEBUG(dbgs() << "Existing table doesn't match parms.");
+      return nullptr;
+    }
+    LLVM_DEBUG(dbgs() << "Existing table found.");
+    return Existing;
+  }
+
+  // Check the ranges on the parameters. Prevent non-finite values.
+  SmallVector<ConstantFP *, 5> Parms = {Scale0, Scale1, Multiplier, Offset,
+                                        Exp};
+  if (!checkTableParmsRange(Parms)) {
+    LLVM_DEBUG(dbgs() << "Parms out of range.");
+    return nullptr;
+  }
+
+  // Extract float values from parameters, so we can compute the table faster.
+  float Scale0Val, Scale1Val, MultiplierVal, OffsetVal, ExpVal;
+  Scale0Val = Scale0->getValue().convertToFloat();
+  Scale1Val = Scale1->getValue().convertToFloat();
+  MultiplierVal = Multiplier->getValue().convertToFloat();
+  OffsetVal = Offset->getValue().convertToFloat();
+  ExpVal = Exp->getValue().convertToFloat();
+
+  // The table will be computed into a plain array, and then copied into a
+  // vector of Constants.
+  float ValueArray[TableRowSize * TableNumRows];
+  std::vector<Constant *> Values;
+  // 5 extra elements are reserved for verification.
+  Values.reserve(TableRowSize * TableNumRows + 5);
+
+  // Table is indexed as [Flag*TableRowSize+Byte]
+  // 1st row will have Flag=false, using "Scale1".
+  for (int Byte = 0; Byte < TableRowSize; Byte++)
+    ValueArray[Byte] =
+        powf(Byte * Scale1Val * MultiplierVal + OffsetVal, ExpVal);
+
+  // next row uses Flag=true, using "Scale0".
+  for (int Byte = 0; Byte < TableRowSize; Byte++)
+    ValueArray[TableRowSize + Byte] =
+        powf(Byte * Scale0Val * MultiplierVal + OffsetVal, ExpVal);
+
+  auto *FloatType = Builder.getFloatTy();
+  for (int i = 0; i < TableRowSize * TableNumRows; i++) {
+    float result = ValueArray[i];
+    // this may not work depending on compiler flags, we try to avoid OV
+    // by limiting the values of the constants.
+    if (!std::isfinite(result))
+      return nullptr;
+    Values.push_back(ConstantFP::get(FloatType, result));
+  }
+
+  // Last 5 entries are the parameters themselves, for verification.
+  Values.push_back(Scale0);
+  Values.push_back(Scale1);
+  Values.push_back(Multiplier);
+  Values.push_back(Offset);
+  Values.push_back(Exp);
+
+  ArrayType *ValueArrayTy = ArrayType::get(FloatType, TableRowSize * 2 + 5);
+  GlobalVariable *lookupTable = new GlobalVariable(
+      *M, ValueArrayTy, true, GlobalVariable::InternalLinkage,
+      ConstantArray::get(ValueArrayTy, Values), PowTableName);
+
+  return lookupTable;
+}
+
+// Given this formula:
+// powf(Byte * (Flag ? Scale0 : Scale1) * Multiplier + Offset, Exp)
+//
+// With this IR:
+//
+// %scale = select i1 %Flag, float %Scale0, float %Scale1
+// %Byte = uitofp i8 %anyvalue to float
+// %mul = fmul float %scale, %Byte
+// %mul2 = fmul float %mul, %Multiplier
+// %add = fadd float %mul, %Offset
+// %result = call fast float @llvm.pow.f32(%add, %Exp)
+//
+// Scale0, Scale1, Multiplier, Offset, Exp are all constants.
+// Flag is range [0,1], Byte is range [0,255].
+//
+// Create a lookup table indexed by Byte and Flag.
+// The "pow" call can be replaced with a simple load from the lookup table.
+//
+// "I" arg is the llvm.pow call.
+static bool matchPowTable(Instruction &I) {
+  // Check the pow() args first. Float type, fast math, constant exponent.
+  auto *II = dyn_cast<IntrinsicInst>(&I);
+  if (!II || II->getIntrinsicID() != Intrinsic::pow || !II->isFast())
+    return false;
+  auto *BaseOp = II->getOperand(0);
+  if (!BaseOp->getType()->isFloatTy())
+    return false;
+  ConstantFP *Exp = dyn_cast<ConstantFP>(II->getOperand(1));
+  if (!Exp || !Exp->getType()->isFloatTy())
+    return false;
+
+  // Match the pattern above, except for Byte.
+  Value *Flag;
+  Instruction *ByteCast;
+  ConstantFP *Scale0, *Scale1, *Multiplier, *Offset;
+  if (match(BaseOp,
+            m_FAdd(m_FMul(m_FMul(m_Select(m_Value(Flag), m_ConstantFP(Scale0),
+                                          m_ConstantFP(Scale1)),
+                                 m_Instruction(ByteCast)),
+                          m_ConstantFP(Multiplier)),
+                   m_ConstantFP(Offset)))) {
+    // Check that ByteCast is an 8-bit uitofp.
+    if (!isa<UIToFPInst>(ByteCast))
+      return false;
+    auto *Byte = ByteCast->getOperand(0);
+    if (!Byte->getType()->isIntegerTy(8))
+      return false;
+    // We have a match. Generate the table from the parameters.
+    LLVM_DEBUG(dbgs() << I << " is candidate for precomputed table.");
+    IRBuilder<> Builder(&I);
+    Value *PowTable =
+        genPowTable(Scale0, Scale1, Multiplier, Offset, Exp, Builder);
+    // The table may not have generated, because the parameters are not
+    // valid, or there is an existing table with different parameters.
+    if (!PowTable) {
+      LLVM_DEBUG(dbgs() << "Could not precompute table.");
+      return false;
+    }
+
+    // Generate this IR to load the value from the table.
+    // %flagval = zext i1 %flag to i32
+    // %byte32 = zext i8 %byte to i32
+    // %rowsel = mul nsw nuw i32 %flag, RowSize
+    // %colsel = add nsw nuw i32 %rowsel, %byte32
+    // %gep = getelementptr ptr @_PowTable, i32 %colsel
+    // %result = load float, ptr %gep, align 4
+    auto *IdxTy = Type::getInt32Ty(I.getContext());
+    auto *FlagVal = Builder.CreateZExt(Flag, IdxTy);
+    auto *Byte32 = Builder.CreateZExt(Byte, IdxTy);
+    // bool values are the no-wrap flags
+    auto *RowSel = Builder.CreateMul(
+        FlagVal, Constant::getIntegerValue(IdxTy, APInt(32, TableRowSize)), "",
+        true, true);
+    auto *ColSel = Builder.CreateAdd(RowSel, Byte32, "", true, true);
+    SmallVector<Value *, 1> GEPIdx = {ColSel};
+    auto *GEP = Builder.CreateInBoundsGEP(I.getType(), PowTable, GEPIdx);
+    auto *LoadInst = Builder.CreateAlignedLoad(I.getType(), GEP, Align(4));
+    LLVM_DEBUG(dbgs() << "Converted to precomputed table.");
+    I.replaceAllUsesWith(LoadInst);
+    return true;
+  }
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// This is the entry point for folds that could be implemented in regular
 /// InstCombine, but they are separated because they are not expected to
 /// occur frequently and/or have more than a constant-length pattern match.
@@ -992,6 +1215,9 @@ static bool foldUnusualPatterns(Function &F, DominatorTree &DT,
       MadeChange |= tryToRecognizeTableBasedCttz(I);
       MadeChange |= foldConsecutiveLoads(I, DL, TTI, AA, DT);
       MadeChange |= foldPatternedLoads(I, DL);
+#if INTEL_CUSTOMIZATION
+      MadeChange |= matchPowTable(I);
+#endif // INTEL_CUSTOMIZATION
       // NOTE: This function introduces erasing of the instruction `I`, so it
       // needs to be called at the end of this sequence, otherwise we may make
       // bugs.

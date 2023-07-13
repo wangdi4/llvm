@@ -83,18 +83,18 @@ static cl::opt<bool>
 // This flag controls various codegen versions for the dispatch construct.
 // Keeping the old codegen is useful for debugging. This is important as
 // the work is in progress and we expect future change(s) to dispatch codegen.
-//   Version 0 (default): original implementation.
+//   Version 0: original implementation.
 //               Calls __tgt_create_interop_obj() to create interop objs;
 //                 this API does not support prefer_type in append_args.
 //               Calls __tgt_use_interop() for #pragma omp interop use.
-//   Version 1:
+//   Version 1(default):
 //               Calls __tgt_get_interop_obj() to create interop objs;
 //                 this API supports prefer_type in append_args.
 //               Calls __tgt_interop_use_async() for #pragma omp interop use.
-// TODO: When runtime supporting Version1 is in xmain, enable it by default.
-static cl::opt<uint32_t> DispatchCodegenVersion(
-    "vpo-paropt-dispatch-codegen-version", cl::Hidden, cl::init(0),
-    cl::desc("Codegen version for dispatch construct."));
+static cl::opt<uint32_t>
+    DispatchCodegenVersion("vpo-paropt-dispatch-codegen-version", cl::Hidden,
+                           cl::init(1),
+                           cl::desc("Codegen version for dispatch construct."));
 
 static cl::opt<bool> SimulateGetNumThreadsInTarget(
     "vpo-paropt-simulate-get-num-threads-in-target", cl::Hidden, cl::init(true),
