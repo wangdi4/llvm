@@ -82,6 +82,14 @@
 
 ; VEC-PEEL-IR-NEXT:  remark #15558: Call to function 'serial_call' was serialized due to no suitable vector variants were found.
 ; VEC-PEEL-NEXT:     remark #15488: --- end vector loop cost summary ---
+; VEC-PEEL-NEXT:     remark #15447: --- begin vector loop memory reference summary ---
+
+; VEC-PEEL-NEXT:     remark #15454: masked aligned unit stride loads: 1
+; VEC-PEEL-NEXT:     remark #15456: masked unaligned unit stride loads: 1
+; FIXME: should both be unaligned, since this is the peel loop -- only the main
+;        loop should have aligned loads.
+
+; VEC-PEEL-NEXT:     remark #15474: --- end vector loop memory reference summary ---
 ; PEEL:          LOOP END
 
 ; PEEL:          LOOP BEGIN
