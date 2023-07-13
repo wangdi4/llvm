@@ -4313,12 +4313,13 @@ void VPOParoptTransform::processNeedDevicePtrClause(WRegionNode *W,
 
 // Handle the depend clause of the dispatch construct by emitting these calls
 // around the VariantCall:
-//   @__kmpc_omp_wait_deps(loc, tid, ...)                                  (1)
-//   @__kmpc_omp_task_begin_if0(loc, tid, dummytaskthunk)                  (2)
+//   dummytaskthunk = @__kmpc_omp_task_alloc(loc, tid, ... )               (1)
+//   @__kmpc_omp_wait_deps(loc, tid, ...)                                  (2)
+//   @__kmpc_omp_task_begin_if0(loc, tid, dummytaskthunk)                  (3)
 //   VariantCall(...)
-//   @__kmpc_omp_task_complete_if0(loc, tid, dummytaskthunk)               (3)
+//   @__kmpc_omp_task_complete_if0(loc, tid, dummytaskthunk)               (4)
 //
-// The calls to (2) and (3) are for OMPT tracing only;
+// The calls to (1), (3) and (4) are for OMPT tracing only;
 // do not emit them if SupportOMPTTracing==false
 void VPOParoptTransform::genDependForDispatch(WRegionNode *W,
                                               CallInst *VariantCall,
@@ -4338,21 +4339,24 @@ void VPOParoptTransform::genDependForDispatch(WRegionNode *W,
 
   // Insert code before VariantCall;
   Instruction *InsertPt = VariantCall;
-  CallInst *TaskAllocCI = VPOParoptUtils::genKmpcTaskAllocWithoutCallback(
-      W, IdentTy, TidPtrHolder, InsertPt);
+  CallInst *TaskAllocCI = nullptr;
+
+  if (SupportOMPTTracing)
+    TaskAllocCI = VPOParoptUtils::genKmpcTaskAllocWithoutCallback(
+        W, IdentTy, TidPtrHolder, InsertPt); //                            (1)
 
   AllocaInst *DummyTaskTDependRec = genDependInitForTask(ParentTask, InsertPt);
   genTaskDeps(ParentTask, IdentTy, TidPtrHolder, /*TaskAlloc=*/nullptr,
-              DummyTaskTDependRec, InsertPt, true); //                     (1)
+              DummyTaskTDependRec, InsertPt, true); //                     (2)
 
   if (SupportOMPTTracing) {
     VPOParoptUtils::genKmpcTaskBeginIf0(W, IdentTy, TidPtrHolder, TaskAllocCI,
-                                        InsertPt); //                      (2)
+                                        InsertPt); //                      (3)
 
     // Insert code after VariantCall
     VPOParoptUtils::genKmpcTaskCompleteIf0(
         W, IdentTy, TidPtrHolder, TaskAllocCI,
-        InsertPt->getNextNonDebugInstruction()); //                        (3)
+        InsertPt->getNextNonDebugInstruction()); //                        (4)
   }
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genDependForDispatch\n");
