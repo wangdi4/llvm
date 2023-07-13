@@ -1076,6 +1076,10 @@ static Function *promoteArguments(Function *F, FunctionAnalysisManager &FAM,
             (CB->getFunctionType() != F->getFunctionType()))
       return nullptr;
 
+    // Skip promotion if any call is important for IPPredOpt.
+    if (CB && CB->hasFnAttr("ippredopt-callsite"))
+      return nullptr;
+
     if (CS.isDirectCall()) {
       // Can't change signature of musttail callee
       if (CS.getInstruction()->isMustTailCall())

@@ -694,6 +694,46 @@ private:
       // Set "dtrans-vector-size-field=size_field_index" attribute.
       Func.addFnAttr("dtrans-vector-size-field",
                      llvm::itostr(CI->getSizeField()));
+
+      // Identify candidate callsites related to IPPredOpt transformation using
+      // some heuristics and mark them with "ippredopt-callsite" attribute.
+      // Later, this attribute is used to avoid inlining and Argument promotion.
+      SmallPtrSet<Function *, 4> IPPredOptFunctions;
+      Function *SingleCaller = nullptr;
+      for (auto *U : Func.users()) {
+        auto *CB = dyn_cast<CallBase>(U);
+        if (!CB)
+          continue;
+        Value *FirstArg = CB->getArgOperand(0);
+        auto *ArgCB = dyn_cast<CallBase>(FirstArg);
+        if (!isa<Argument>(FirstArg) && !ArgCB)
+          continue;
+        if (ArgCB) {
+          Function *ArgFunc = ArgCB->getCalledFunction();
+          if (!ArgFunc || ArgFunc->isDeclaration())
+            continue;
+          IPPredOptFunctions.insert(ArgFunc);
+        }
+        IPPredOptFunctions.insert(&Func);
+        if (!SingleCaller) {
+          SingleCaller = CB->getFunction();
+        } else if (SingleCaller != CB->getFunction()) {
+          SingleCaller = nullptr;
+          break;
+        }
+      }
+      if (!SingleCaller)
+        return;
+      for (auto &I : instructions(SingleCaller)) {
+        auto *CallI = dyn_cast<CallBase>(&I);
+        if (!CallI)
+          continue;
+        Function *CallF = CallI->getCalledFunction();
+        if (!CallF || CallF->isDeclaration())
+          continue;
+        if (IPPredOptFunctions.count(CallF))
+          CallI->addFnAttr("ippredopt-callsite");
+      }
     }
 
     void postprocessFunction(SOAToAOSOPTransformImpl &Impl, Function &OrigFunc,

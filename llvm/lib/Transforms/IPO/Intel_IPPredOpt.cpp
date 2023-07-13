@@ -1035,15 +1035,18 @@ bool PredCandidate::checkSpecialNoSideEffectsCall(CallBase *CB,
     return false;
 
   BasicBlock *FalseBB = BI->getSuccessor(1);
-  auto *II = dyn_cast<InvokeInst>(FalseBB->getTerminator());
-  if (!II)
-    return false;
-  auto *ND = II->getNormalDest();
-  auto *UD = II->getUnwindDest();
-  // Check no successors for ND and UD.
-  if (!IsNoSuccTerminator(ND->getTerminator()) ||
-      !IsNoSuccTerminator(UD->getTerminator()))
-    return false;
+  if (auto *II = dyn_cast<InvokeInst>(FalseBB->getTerminator())) {
+    auto *ND = II->getNormalDest();
+    auto *UD = II->getUnwindDest();
+    // Check no successors for ND and UD.
+    if (!IsNoSuccTerminator(ND->getTerminator()) ||
+        !IsNoSuccTerminator(UD->getTerminator()))
+      return false;
+  } else {
+    // Handle Windows's EH case here.
+    if (!isa<UnreachableInst>(FalseBB->getTerminator()))
+      return false;
+  }
 
   SmallVector<Instruction *, 4> CmpLHSInsts;
   SmallVector<Instruction *, 4> CmpRHSInsts;

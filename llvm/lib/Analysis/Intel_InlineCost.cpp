@@ -1373,6 +1373,13 @@ static bool preferMultiversioningToInlining(
   return true;
 }
 
+// Return 'true' if 'CB' is preferred for not inlining because it is
+// marked with "ippredopt-callsite".
+//
+static bool preferNotToInlineForIPPredOpt(CallBase &CB) {
+  return CB.hasFnAttr("ippredopt-callsite");
+}
+
 //
 //
 // Return 'true' if 'CB' should not be inlined, because it would be better
@@ -2192,6 +2199,9 @@ extern std::optional<InlineResult> intelWorthNotInlining(
                                       PrepareForLTO))
     return InlineResult::failure("not profitable")
         .setIntelInlReason(NinlrPreferMultiversioning);
+  if (preferNotToInlineForIPPredOpt(CandidateCall))
+    return InlineResult::failure("not profitable")
+        .setIntelInlReason(NinlrPreferIPPredOpt);
   if (preferDTransToInlining(CandidateCall, PrepareForLTO, IsLibIRCAllowed))
     return InlineResult::failure("not profitable")
         .setIntelInlReason(NinlrPreferSOAToAOS);

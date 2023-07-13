@@ -1,6 +1,6 @@
 //==StructOfArraysOPInfoImpl.h - common for SOAToAOSOP and MemInitTrimDownOP==//
 //
-// Copyright (C) 2021-2022 Intel Corporation. All rights reserved.
+// Copyright (C) 2021-2023 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -548,6 +548,36 @@ void SOACandidateInfo::collectFuncs(Module &M,
         SOAFuncs->insert(Callee);
       }
     }
+
+  for (auto *F : struct_functions()) {
+    // Select member function with GetElement function prototype.
+    // Ex: ptr foo(ThisObj, int)
+    if (F->arg_size() != 2)
+      continue;
+    if (!F->getReturnType()->isPointerTy() ||
+        !F->getArg(1)->getType()->isIntegerTy(32))
+      continue;
+
+    // Find relevent functions of GetElement function.
+    // Ex: Find bar in the example.
+    //   cb1 = bar();
+    //   p = foo(cb1, some_int);
+    for (auto *U : F->users()) {
+      auto *CB = dyn_cast<CallBase>(U);
+      if (!CB)
+        continue;
+
+      auto *ArgCB = dyn_cast<CallBase>(CB->getArgOperand(0));
+      if (!ArgCB)
+        continue;
+      //  Find function if return value of the function is passed
+      //  as first argument of GetElement call.
+      Function *ArgFunc = ArgCB->getCalledFunction();
+      if (!ArgFunc || ArgFunc->isDeclaration())
+        continue;
+      SOAFuncs->insert(ArgFunc);
+    }
+  }
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
