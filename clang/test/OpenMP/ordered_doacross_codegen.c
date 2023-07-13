@@ -59,11 +59,7 @@ int main(void) {
 // CHECK-NORMAL-NEXT: call void @__kmpc_doacross_post(ptr [[IDENT]], i32 [[GTID]], ptr [[TMP]])
 // CHECK-IRBUILDER-NEXT: [[GTID1:%.+]] = call i32 @__kmpc_global_thread_num(ptr [[IDENT:@.+]])
 // CHECK-IRBUILDER-NEXT: call void @__kmpc_doacross_post(ptr [[IDENT]], i32 [[GTID1]], ptr [[TMP]])
-<<<<<<< HEAD
 #ifdef OMP52
-=======
-#if _OPENMP >= 202111
->>>>>>> 74c29c5ec45b42804255bcaead33f4eef2a5b971
 #pragma omp ordered doacross(source:)
 #else
 #pragma omp ordered depend(source)
@@ -82,11 +78,7 @@ int main(void) {
 // CHECK-NORMAL-NEXT: call void @__kmpc_doacross_wait(ptr [[IDENT]], i32 [[GTID]], ptr [[TMP]])
 // CHECK-IRBUILDER-NEXT: [[GTID2:%.+]] = call i32 @__kmpc_global_thread_num(ptr [[IDENT:@.+]])
 // CHECK-IRBUILDER-NEXT: call void @__kmpc_doacross_wait(ptr [[IDENT]], i32 [[GTID2]], ptr [[TMP]])
-<<<<<<< HEAD
 #ifdef OMP52
-=======
-#if _OPENMP >= 202111
->>>>>>> 74c29c5ec45b42804255bcaead33f4eef2a5b971
 #pragma omp ordered doacross(sink : i - 2)
 #else
 #pragma omp ordered depend(sink : i - 2)
@@ -123,11 +115,7 @@ int main(void) {
 // CHECK-NORMAL-NEXT: call void @__kmpc_doacross_post(ptr [[IDENT]], i32 [[GTID]], ptr [[TMP]])
 // CHECK-IRBUILDER-NEXT: [[GTID1:%.+]] = call i32 @__kmpc_global_thread_num(ptr [[IDENT:@.+]])
 // CHECK-IRBUILDER-NEXT: call void @__kmpc_doacross_post(ptr [[IDENT]], i32 [[GTID1]], ptr [[TMP]])
-<<<<<<< HEAD
 #ifdef OMP52
-=======
-#if OMP52
->>>>>>> b1e4f6532e9c7cf0e56fa63660d62cc3172f851f
 #pragma omp ordered doacross(source:omp_cur_iteration)
 #else
 #pragma omp ordered depend(source)
