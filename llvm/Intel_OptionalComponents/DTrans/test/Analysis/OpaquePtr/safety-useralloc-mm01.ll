@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt  < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-print-callinfo -passes='require<dtrans-safetyanalyzer>' -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -intel-libirc-allowed -dtrans-print-callinfo -passes='require<dtrans-safetyanalyzer>' -disable-output 2>&1 | FileCheck %s
 
 ; Test call info collection for special kinds of user allocation and free functions.
 ;

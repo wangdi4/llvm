@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers -S -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' %s 2>&1 | FileCheck %s
+; RUN: opt -S -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' %s 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 

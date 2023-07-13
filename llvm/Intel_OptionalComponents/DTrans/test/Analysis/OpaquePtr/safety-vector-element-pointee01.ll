@@ -6,10 +6,10 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 %struct.test01 = type { float, float }
-%struct.test02 = type { i8, <2 x %struct.test01*>, i32 }
+%struct.test02 = type { i8, <2 x ptr>, i32 }
 
 
 define float @test1(%struct.test02* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !7 {

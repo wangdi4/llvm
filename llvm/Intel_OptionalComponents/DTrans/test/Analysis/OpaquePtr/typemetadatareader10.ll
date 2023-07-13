@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: not --crash opt -opaque-pointers -passes=dtrans-typemetadatareader -disable-output < %s 2>&1 | FileCheck %s
+; RUN: not --crash opt -passes=dtrans-typemetadatareader -disable-output < %s 2>&1 | FileCheck %s
 
 ; Test that invalid DTrans type metadata is caught by the metadata reader.
 ; In the assertion enabled builds, this should trigger an error message.
