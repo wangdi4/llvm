@@ -1,4 +1,4 @@
-; RUN: llvm-link  -opaque-pointers -S %s %S/Inputs/link-ctors-metadata-02a.ll | FileCheck %s
+; RUN: llvm-link  -S %s %S/Inputs/link-ctors-metadata-02a.ll | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 

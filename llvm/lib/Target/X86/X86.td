@@ -1779,8 +1779,9 @@ def ProcessorFeatures {
                                                 TuningFastCoreType,
                                                 TuningPreferMovmskOverVTest,
 						TuningFastImmVectorShift];
+  list<SubtargetFeature> ADLTuning = !listconcat(TGLTuning, ADLAdditionalTuning);
 #endif // INTEL_CUSTOMIZATION
-  list<SubtargetFeature> ADLTuning = !listconcat(SKLTuning, ADLAdditionalTuning);
+
   list<SubtargetFeature> ADLFeatures =
     !listconcat(TRMFeatures, ADLAdditionalFeatures);
 

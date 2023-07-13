@@ -7,7 +7,7 @@
 ; Function Attrs: nofree norecurse nosync nounwind readonly uwtable
 define dso_local double @foo(double* noalias nocapture readonly %dst, double* noalias nocapture readonly %luval, i32** nocapture readonly %rowstart, i32* nocapture readnone %first_after_diagonal, i32 %N) nounwind {
 ; X64-CORE-AVX2-LABEL: foo:
-; X64-CORE-AVX2:       # %bb.0:
+; X64-CORE-AVX2:       # %bb.0: # %entry
 ; X64-CORE-AVX2-NEXT:    testl %r8d, %r8d
 ; X64-CORE-AVX2-NEXT:    jle .LBB0_1
 ; X64-CORE-AVX2-NEXT:  # %bb.3: # %for.body.preheader
@@ -210,7 +210,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-CORE-AVX2-NEXT:    jmp .LBB0_6
 ;
 ; X64-ADL-LABEL: foo:
-; X64-ADL:       # %bb.0:
+; X64-ADL:       # %bb.0: # %entry
 ; X64-ADL-NEXT:    testl %r8d, %r8d
 ; X64-ADL-NEXT:    jle .LBB0_1
 ; X64-ADL-NEXT:  # %bb.3: # %for.body.preheader
@@ -406,7 +406,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X64-ADL-NEXT:    jmp .LBB0_4
 ;
 ; X86-CORE-AVX2-LABEL: foo:
-; X86-CORE-AVX2:       # %bb.0:
+; X86-CORE-AVX2:       # %bb.0: # %entry
 ; X86-CORE-AVX2-NEXT:    pushl %ebp
 ; X86-CORE-AVX2-NEXT:    movl %esp, %ebp
 ; X86-CORE-AVX2-NEXT:    pushl %ebx
@@ -669,7 +669,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X86-CORE-AVX2-NEXT:    jmp .LBB0_4
 ;
 ; X86-ADL-LABEL: foo:
-; X86-ADL:       # %bb.0:
+; X86-ADL:       # %bb.0: # %entry
 ; X86-ADL-NEXT:    pushl %ebp
 ; X86-ADL-NEXT:    movl %esp, %ebp
 ; X86-ADL-NEXT:    pushl %ebx
@@ -748,8 +748,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X86-ADL-NEXT:    vmovapd {{[-0-9]+}}(%e{{[sb]}}p), %ymm1 # 32-byte Reload
 ; X86-ADL-NEXT:    movl %esi, %edx
 ; X86-ADL-NEXT:    shll $12, %edx
-; X86-ADL-NEXT:    addl %edi, %edx
-; X86-ADL-NEXT:    addl $16, %edx
+; X86-ADL-NEXT:    leal 16(%edx,%edi), %edx
 ; X86-ADL-NEXT:    vfmadd231pd {{.*#+}} ymm4 = (ymm6 * mem) + ymm4
 ; X86-ADL-NEXT:    vfmadd231pd {{.*#+}} ymm1 = (ymm7 * mem) + ymm1
 ; X86-ADL-NEXT:    vfmadd231pd {{.*#+}} ymm3 = (ymm0 * mem) + ymm3
@@ -872,8 +871,7 @@ define dso_local double @foo(double* noalias nocapture readonly %dst, double* no
 ; X86-ADL-NEXT:    vinsertf128 $1, %xmm6, %ymm3, %ymm3
 ; X86-ADL-NEXT:    movl {{[-0-9]+}}(%e{{[sb]}}p), %eax # 4-byte Reload
 ; X86-ADL-NEXT:    shll $12, %eax
-; X86-ADL-NEXT:    addl %ebx, %eax
-; X86-ADL-NEXT:    addl $16, %eax
+; X86-ADL-NEXT:    leal 16(%eax,%ebx), %eax
 ; X86-ADL-NEXT:    vfmadd231pd {{.*#+}} ymm5 = (ymm3 * mem) + ymm5
 ; X86-ADL-NEXT:    vmovdqa {{[-0-9]+}}(%e{{[sb]}}p), %ymm3 # 32-byte Reload
 ; X86-ADL-NEXT:    vfmadd231pd {{.*#+}} ymm4 = (ymm2 * mem) + ymm4

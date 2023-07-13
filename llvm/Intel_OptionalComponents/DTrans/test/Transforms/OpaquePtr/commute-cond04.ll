@@ -2,7 +2,7 @@
 ; this test when -dtrans-commute-cond-ignore-heuristic is passed.
 ; Verify that the Condition and TrueValue operands of %sel1 are swapped.
 
-;  RUN: opt < %s -opaque-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -passes=dtrans-commutecondop -dtrans-commute-cond-ignore-heuristic  -S 2>&1 | FileCheck %s
+;  RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -passes=dtrans-commutecondop -dtrans-commute-cond-ignore-heuristic  -S 2>&1 | FileCheck %s
 
 ; CHECK: %sel1 = select i1 %cmp2, i1 %cmp1, i1 false
 ; CHECK-NOT: %sel1 = select i1 %cmp1, i1 %cmp2, i1 false

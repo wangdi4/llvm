@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 
-; RUN: opt -opaque-pointers -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -dtrans-usecrulecompat -disable-output -debug-only=dtrans-safetyanalyzer < %s 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -dtrans-usecrulecompat -disable-output -debug-only=dtrans-safetyanalyzer < %s 2>&1 | FileCheck %s
 
 ; Check that the DTransSafetyAnalyzer did not run because LibIRC was not allowed everywhere
 

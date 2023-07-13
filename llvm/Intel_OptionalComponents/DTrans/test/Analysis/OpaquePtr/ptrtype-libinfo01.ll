@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
 
-; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s
 
 ; Check that the DTrans PtrTypeAnalyzer does not set UNHANDLED on pointers used
 ; for library functions that are declared without DTrans metadata attached to

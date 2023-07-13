@@ -36,7 +36,8 @@
 int foo1() {
   int a;
   int i = 1, j=2;
-  #pragma omp scope private(a) firstprivate(j) reduction(+:i) nowait
+  char v1 = 0;
+  #pragma omp scope private(a) firstprivate(j, v1) reduction(+:i) allocate(v1) nowait
   { 
     a = 123; 
     ++i; 
@@ -51,21 +52,26 @@ int foo1() {
 //DUMP: DeclRefExpr {{.*}}'int' lvalue Var{{.*}}'a' 'int'
 //DUMP: OMPFirstprivateClause
 //DUMP: DeclRefExpr {{.*}}'int' lvalue Var{{.*}}'j' 'int'
+//DUMP: DeclRefExpr {{.*}}'char' lvalue Var {{.*}}'v1' 'char'
 //DUMP: OMPReductionClause
 //DUMP: DeclRefExpr {{.*}}'int' lvalue Var{{.*}}'i' 'int'
+//DUMP: OMPAllocateClause
+//DUMP: DeclRefExpr {{.*}}'char' lvalue Var {{.*}}'v1' 'char'
 //DUMP: OMPNowaitClause
-//PRINT: #pragma omp scope private(a) firstprivate(j) reduction(+: i) nowait
+//PRINT: #pragma omp scope private(a) firstprivate(j,v1) reduction(+: i) allocate(v1) nowait
 
 template <typename T>
 T run() {
   T a;
   T b;
   T c;
+  T v1;
 
-  #pragma omp scope private(a) firstprivate(c) reduction(*:b)
+  #pragma omp scope private(a) firstprivate(c, v1) allocate(v1) reduction(*:b)
   { 
     b *= a; 
     c = a;
+    v1 = a;
   }
   return b;
 }
@@ -84,6 +90,9 @@ int template_test() {
 //DUMP: DeclRefExpr {{.*}}'T' lvalue Var {{.*}} 'a' 'T'
 //DUMP: OMPFirstprivateClause
 //DUMP: DeclRefExpr {{.*}}'T' lvalue Var {{.*}} 'c' 'T'
+//DUMP: DeclRefExpr {{.*}}'T' lvalue Var {{.*}}'v1' 'T'
+//DUMP: OMPAllocateClause
+//DUMP: DeclRefExpr {{.*}}'T' lvalue Var {{.*}}'v1' 'T'
 //DUMP: OMPReductionClause
 //DUMP: DeclRefExpr {{.*}}'T' lvalue Var {{.*}} 'b' 'T'
 //DUMP: FunctionDecl {{.*}}used run 'double ()'
@@ -94,8 +103,11 @@ int template_test() {
 //DUMP: DeclRefExpr {{.*}}'double':'double' lvalue Var {{.*}} 'a' 'double':'double'
 //DUMP: OMPFirstprivateClause
 //DUMP: DeclRefExpr {{.*}}'double':'double' lvalue Var {{.*}} 'c' 'double':'double'
+//DUMP: DeclRefExpr {{.*}}'double':'double' lvalue Var {{.*}}'v1' 'double':'double'
+//DUMP: OMPAllocateClause
+//DUMP: DeclRefExpr {{.*}}'double':'double' lvalue Var {{.*}}'v1' 'double':'double'
 //DUMP: OMPReductionClause
 //DUMP: DeclRefExpr {{.*}}'double':'double' lvalue Var {{.*}} 'b' 'double':'double'
-//PRINT: #pragma omp scope private(a) firstprivate(c) reduction(*: b)
+//PRINT: #pragma omp scope private(a) firstprivate(c,v1) allocate(v1) reduction(*: b)
 #endif // HEADER
 // end INTEL_COLLAB

@@ -1,8 +1,8 @@
-; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -disable-output \
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -disable-output \
 ; RUN:      -debug-only=dtrans-soatoaosop-deps \
 ; RUN:      -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>' \
 ; RUN:      2>&1 | FileCheck  --check-prefix=CHECK %s
-; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -disable-output \
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -disable-output \
 ; RUN:      -debug-only=dtrans-soatoaosop-deps \
 ; RUN:      -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>' \
 ; RUN:      2>&1 | FileCheck --check-prefix=CHECK-WF %s

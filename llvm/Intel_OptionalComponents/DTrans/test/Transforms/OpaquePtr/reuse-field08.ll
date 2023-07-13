@@ -1,7 +1,7 @@
 ; This test verifies that reuse field transformation applied to 4-th field of struct.test
 ; and replace it to 0-th field in both cal_0 and cal_1.
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed < %s -passes=dtrans-reusefieldop -debug-only=dtrans-reusefieldop -disable-output 2>&1 | FileCheck %s
+; RUN: opt -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed < %s -passes=dtrans-reusefieldop -debug-only=dtrans-reusefieldop -disable-output 2>&1 | FileCheck %s
 
 ; CHECK:Reused structure: %struct.test
 ; CHECK-NEXT:    Field mapping are (From:To): { 0:0 4:0 }
@@ -24,7 +24,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %struct.test = type { i64, i64, i64, i64, i64 }
 
-define void @foo_0(%struct.test* "intel_dtrans_func_index"="1" %tp) !intel.dtrans.func.type !6 {
+define void @foo_0(ptr "intel_dtrans_func_index"="1" %tp) !intel.dtrans.func.type !6 {
 entry:
   %i = getelementptr inbounds %struct.test, ptr %tp, i64 0, i32 3
   %0 = load i64, ptr %i, align 8
@@ -42,7 +42,7 @@ entry:
   ret void
 }
 
-define i64 @cal_0(%struct.test* "intel_dtrans_func_index"="1" %tp) !intel.dtrans.func.type !6 {
+define i64 @cal_0(ptr "intel_dtrans_func_index"="1" %tp) !intel.dtrans.func.type !6 {
 entry:
   %f = getelementptr inbounds i8, ptr %tp, i32 0
   %a = load i64, ptr %f, align 8
@@ -63,7 +63,7 @@ entry:
   ret void
 }
 
-define i64 @cal_1(%struct.test* "intel_dtrans_func_index"="1" %tp) !intel.dtrans.func.type !6 {
+define i64 @cal_1(ptr "intel_dtrans_func_index"="1" %tp) !intel.dtrans.func.type !6 {
 entry:
   %f = getelementptr inbounds i8, ptr %tp, i32 0
   %a = load i64, ptr %f, align 8
@@ -75,7 +75,7 @@ entry:
 
 define i64 @main() {
 entry:
-  %call = tail call noalias i8* @calloc(i64 10, i64 40)
+  %call = tail call noalias ptr @calloc(i64 10, i64 40)
   %i = getelementptr %struct.test, ptr %call, i64 0, i32 3
   store i64 10, ptr %i, align 8
   tail call void @foo_0(ptr %call)
@@ -87,7 +87,7 @@ entry:
 }
 
 ; Function Attrs: nounwind
-declare !intel.dtrans.func.type !9 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64) #0
+declare !intel.dtrans.func.type !9 "intel_dtrans_func_index"="1" ptr @calloc(i64, i64) #0
 attributes #0 = { allockind("alloc,zeroed") allocsize(0,1) "alloc-family"="malloc" }
 
 !1 = !{i32 0, i32 0}  ; i32

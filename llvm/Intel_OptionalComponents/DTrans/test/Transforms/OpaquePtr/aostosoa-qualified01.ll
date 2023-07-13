@@ -1,4 +1,4 @@
-; RUN: opt -S -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-aostosoaop %s 2>&1 | FileCheck %s --check-prefix=CHECK
+; RUN: opt -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-aostosoaop %s 2>&1 | FileCheck %s --check-prefix=CHECK
 
 target triple = "x86_64-unknown-linux-gnu"
 

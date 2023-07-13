@@ -1,10 +1,10 @@
-; RUN: opt < %S/soatoaosop06-exe.ll -S -opaque-pointers -whole-program-assume\
+; RUN: opt < %S/soatoaosop06-exe.ll -S -whole-program-assume\
 ; RUN:          -passes=dtrans-soatoaosop -disable-output  \
 ; RUN:          -dtrans-soatoaosop-size-heuristic=false                       \
 ; RUN:          -enable-intel-advanced-opts -intel-libirc-allowed -mtriple=i686-- -mattr=+avx2                            \
 ; RUN:          -debug-only=dtrans-soatoaosop,dtrans-soatoaosop-arrays,dtrans-soatoaosop-struct           \
 ; RUN:  2>&1 | FileCheck --check-prefix=CHECK %s
-; RUN: opt < %S/soatoaosop06-exe.ll -S -opaque-pointers -whole-program-assume \
+; RUN: opt < %S/soatoaosop06-exe.ll -S -whole-program-assume \
 ; RUN:          -passes=dtrans-soatoaosop -disable-output  \
 ; RUN:          -dtrans-soatoaosop-size-heuristic=false                       \
 ; RUN:          -enable-intel-advanced-opts -intel-libirc-allowed -mtriple=i686-- -mattr=+avx2                            \

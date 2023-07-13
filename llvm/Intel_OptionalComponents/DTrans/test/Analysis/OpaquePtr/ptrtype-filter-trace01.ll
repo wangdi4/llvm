@@ -5,7 +5,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Test the ability to filter verbose messages based on the function
 ; name list specified by -dtrans-pta-filter-funcs
 
-; RUN: opt -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta-verbose -dtrans-pta-filter-print-funcs=test01,test03 < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta-verbose -dtrans-pta-filter-print-funcs=test01,test03 < %s 2>&1 | FileCheck %s
 
 
 

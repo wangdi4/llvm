@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -opaque-pointers < %s -S -passes=dtrans-transpose -dtrans-transpose-override=test_var01,0,1 2>&1 | FileCheck %s
+; RUN: opt < %s -S -passes=dtrans-transpose -dtrans-transpose-override=test_var01,0,1 2>&1 | FileCheck %s
 
 %uplevel_type = type { ptr }
 

@@ -1,8 +1,8 @@
-; RUN: opt < %s -S -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-soatoaosop                                \
+; RUN: opt < %s -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-soatoaosop                                \
 ; RUN:          -enable-intel-advanced-opts  -mattr=+avx2                                       \
 ; RUN:          -dtrans-soatoaosop-size-heuristic=false                   \
 ; RUN:       | FileCheck %s
-; RUN: opt < %s -S -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-soatoaosop                                \
+; RUN: opt < %s -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-soatoaosop                                \
 ; RUN:          -enable-intel-advanced-opts  -mattr=+avx2                                       \
 ; RUN:          -dtrans-soatoaos-size-heuristic=false                   \
 ; RUN:       | %lli
