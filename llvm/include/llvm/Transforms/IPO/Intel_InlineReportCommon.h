@@ -274,6 +274,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtSimple, "Caller/callee null pointer mismatch"},
     // NinlrPreferMultiversioning,
     {InlPrtSimple, "Callsite preferred for multiversioning"},
+    // NinlrPreferIPPredOpt,
+    {InlPrtSimple, "Callsite preferred for IPPredOpt"},
     // NinlrPreferSOAToAOS,
     {InlPrtSimple, "Callsite preferred for SOA-to-AOS"},
     // NinlrStackComputations
