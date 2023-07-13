@@ -24581,21 +24581,9 @@ SDValue X86TargetLowering::LowerTRUNCATE(SDValue Op, SelectionDAG &DAG) const {
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
   if (!TLI.isTypeLegal(InVT)) {
     if ((InVT == MVT::v8i64 || InVT == MVT::v16i32 || InVT == MVT::v16i64) &&
-<<<<<<< HEAD
-        VT.is128BitVector()) {
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256P
-      assert((InVT == MVT::v16i64 || Subtarget.hasVLX() ||
-              Subtarget.hasAVX256P()) &&
-             "Unexpected subtarget!");
-#else  // INTEL_FEATURE_ISA_AVX256P
-=======
         VT.is128BitVector() && Subtarget.hasAVX512()) {
->>>>>>> 842a6728d95057b5b048453f75139be6c7c18f93
       assert((InVT == MVT::v16i64 || Subtarget.hasVLX()) &&
              "Unexpected subtarget!");
-#endif // INTEL_FEATURE_ISA_AVX256P
-#endif // INTEL_CUSTOMIZATION
       // The default behavior is to truncate one step, concatenate, and then
       // truncate the remainder. We'd rather produce two 64-bit results and
       // concatenate those.
