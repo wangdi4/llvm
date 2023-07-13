@@ -162,6 +162,14 @@ static cl::opt<bool> DisableUnswitchSIMD("disable-" OPT_SWITCH "-simd",
                                                   " when the loop is "
                                                   "inside SIMD directives"));
 
+// Disable the optimization for SIMD at region level
+static cl::opt<bool>
+    DisableUnswitchRegionSIMD("disable-" OPT_SWITCH "-region-simd",
+                              cl::init(true), cl::Hidden,
+                              cl::desc("Disable " OPT_DESC " when the loop is "
+                                       "inside SIMD directives at region "
+                                       "level"));
+
 namespace {
 
 // Structure to handle the information if the condition can be partially
@@ -1375,11 +1383,29 @@ bool HIROptPredicate::CandidateLookup::isRestrictedByConstraints(
     HLNode *Node, unsigned Level, PUContext &PUC,
     CandidateConstraints &Constraints) {
 
+  // Check if partial unswitching is set and allowed
   if (PUC.isSet() && !Constraints.PUCAllowed)
     return true;
 
+  // Condition needs to be fully hoisted
   if (Constraints.RequiresLoopnestUnswitch && Level != 0)
     return true;
+
+  // Memrefs in the condition needs to be region invariant
+  if (Constraints.RequiresRegionInvariant) {
+    if (Level != 0)
+      return true;
+
+    // This is only supported for If conditions at the moment
+    HLIf *If = dyn_cast<HLIf>(Node);
+    if (!If)
+      return true;
+
+    for (auto *PredOP : make_range(If->op_ddref_begin(), If->op_ddref_end())) {
+      if (!PredOP->isStructurallyRegionInvariant())
+        return true;
+    }
+  }
 
   return false;
 }
@@ -1431,7 +1457,9 @@ void HIROptPredicate::CandidateLookup::visitIfOrSwitch(NodeTy *Node) {
     Level = CurrLoop->getNestingLevel();
   }
 
-  if (IsCandidate && Node->getParentLoopAtLevel(Level + 1)->isSIMD()) {
+  bool IsValidLevel = DisableUnswitchRegionSIMD ? Level >= 0 : Level > 0;
+  if (IsCandidate && IsValidLevel &&
+      Node->getParentLoopAtLevel(Level + 1)->isSIMD()) {
     // We don't support hoisting outside non-innermost loop
     // with SIMD pragma as it can inhibit the outer-loop vectorization
     // of that outer loop. We update the level to CurrLoop's level
@@ -1758,8 +1786,13 @@ static SIMDType getSupportedSIMDType(const HLLoop *Loop) {
   }
 
   if (isa<HLRegion>(SIMDBegin->getParent()) &&
-      isa<HLRegion>(SIMDEnd->getParent()))
+      isa<HLRegion>(SIMDEnd->getParent())) {
+
+    if (DisableUnswitchRegionSIMD)
+      return SIMDType::NotSupported;
+
     return SIMDType::Region;
+  }
 
   // TODO: Add support to a SIMD block, for example:
   //
@@ -1816,14 +1849,11 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
       NewLoopConstraints.CanTransformParent = false;
   }
 
-  // We will only process SIMD loops if the SIMD intrinsics are the only
-  // instructions in the pre-header and post-exit nodes of the loop. The
-  // reason is because they get cloned automatically without handling any
-  // special transformation.
-  SIMDType SIMDSupport = getSupportedSIMDType(Loop);
-  if (SIMDSupport != SIMDType::PreAndPostLoop &&
-      SIMDSupport != SIMDType::None) {
-    NewLoopConstraints.CanTransformParent = false;
+  // Check for SIMD support if the current loop can be transformed
+  if (NewLoopConstraints.CanTransformParent) {
+    auto SIMDTy = getSupportedSIMDType(Loop);
+    NewLoopConstraints.CanTransformParent = SIMDTy != SIMDType::NotSupported;
+    NewLoopConstraints.RequiresRegionInvariant = SIMDTy == SIMDType::Region;
   }
 
   CandidateLookup Lookup(Pass, HLS, NewLoopConstraints, Loop, CostOfRegion);
@@ -1837,6 +1867,12 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
 void HIROptPredicate::CandidateLookup::visit(HLInst *Inst) {
   if (!isa<SelectInst>(Inst->getLLVMInstruction()) || DisableUnswitchSelect ||
       Pass.EarlyPredicateOpt || !Constraints.CanTransformParent)
+    return;
+
+  // TODO: If the loop was marked in the constraints as region level, then
+  // we need to make sure that the memrefs in the predicate are region
+  // invariant.
+  if (Constraints.RequiresRegionInvariant)
     return;
 
   // Current loop should be innermost and a Do loop
@@ -2678,11 +2714,50 @@ void HIROptPredicate::transformSwitch(
                   OuterSwitch->child_end());
 }
 
+// Return true if the input loop has SIMD directives in the pre-header or
+// post-exit.
+static bool IsPreAndPostSIMDLoop(HLLoop *Loop) {
+  if (!Loop->isSIMD())
+    return false;
+
+  if (Loop->hasPreheader()) {
+    auto *CurrPre = Loop->getFirstPreheaderNode();
+    while (CurrPre) {
+      HLInst *Inst = dyn_cast<HLInst>(CurrPre);
+      if (Inst && Inst->isSIMDDirective())
+        return true;
+      CurrPre = CurrPre->getNextNode();
+    }
+  }
+
+  if (Loop->hasPostexit()) {
+    auto *CurrPost = Loop->getFirstPostexitNode();
+    while (CurrPost) {
+      HLInst *Inst = dyn_cast<HLInst>(CurrPost);
+      if (Inst && Inst->isSIMDEndDirective())
+        return true;
+      CurrPost = CurrPost->getNextNode();
+    }
+  }
+
+  return false;
+}
+
 void HIROptPredicate::transformIf(
     HLLoop *TargetLoop, iterator_range<HoistCandidate *> IfCandidates,
     CaseNodeContainerMapTy &CaseContainers,
     SmallPtrSet<HLNode *, 32> TrackClonedNodes,
     SmallVectorImpl<HoistCandidate> &NewCandidates) {
+
+  // Collect the SIMD clauses that aren't pre-header and post-exit if they are
+  // available before transforming the loop. SIMD directives in pre and post
+  // loop are handled differently.
+  const HLInst *SIMDBegin = nullptr;
+  const HLInst *SIMDEnd = nullptr;
+  if (!DisableUnswitchRegionSIMD && !IsPreAndPostSIMDLoop(TargetLoop)) {
+    SIMDBegin = TargetLoop->getSIMDEntryIntrinsic();
+    SIMDEnd = TargetLoop->getSIMDExitIntrinsic();
+  }
 
   // Create the else loop by cloning the main loop.
   LoopUnswitchNodeMapper CloneMapper(TrackClonedNodes, Candidates);
@@ -2840,6 +2915,44 @@ void HIROptPredicate::transformIf(
     addPredicateOptReportOrigin(NewElseLoop);
   } else {
     HLNodeUtils::remove(NewElseLoop);
+  }
+
+  // If the PivotIf is inside a SIMD block, then we need to move everything
+  // inside the Then and Else branches. The target loop's SIMD directives will
+  // be enclosing the PivotIf at this point.
+  if (SIMDBegin && SIMDEnd) {
+    // If the Else branch was created then clone the nodes before and after the
+    // condition, and insert them before and after the loop in the else part.
+    if (PivotIf->hasElseChildren()) {
+      HLContainerTy ElseClonesBeforeLoop;
+      HLContainerTy ElseClonesAfterLoop;
+      HLNodeUtils::cloneSequence(&ElseClonesBeforeLoop, SIMDBegin,
+                                 PivotIf->getPrevNode());
+      HLNodeUtils::cloneSequence(&ElseClonesAfterLoop, PivotIf->getNextNode(),
+                                 SIMDEnd);
+
+      HLNodeUtils::insertAsFirstElseChildren(PivotIf, &ElseClonesBeforeLoop);
+      HLNodeUtils::insertAsLastElseChildren(PivotIf, &ElseClonesAfterLoop);
+    }
+
+    auto *SIMDStart = const_cast<HLInst *>(SIMDBegin);
+    auto *SIMDExit = const_cast<HLInst *>(SIMDEnd);
+
+    auto SIMDItStart = SIMDStart->getIterator();
+    auto PivotIfIt = PivotIf->getIterator();
+    auto AfterIfIt = PivotIf->getNextNode()->getIterator();
+    auto SIMDItEnd = SIMDExit->getIterator();
+
+    // Move [SIMD begin - pivot If) inside the then branch, before the target
+    // loop.
+    HLNodeUtils::moveAsFirstThenChildren(PivotIf, SIMDItStart, PivotIfIt);
+
+    // Move [after the pivot If - SIMD end) inside the then branch, after the
+    // target loop.
+    HLNodeUtils::moveAsLastThenChildren(PivotIf, AfterIfIt, SIMDItEnd);
+
+    // Move the SIMD end
+    HLNodeUtils::moveAsLastThenChild(PivotIf, SIMDExit);
   }
 
   NewCandidates.append(CloneMapper.getNewCandidates().begin(),
