@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-deletefieldop-typelist=struct.other -passes=dtrans-deletefieldop -debug-only=dtrans-deletefieldop -dtrans-outofboundsok=false -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -dtrans-deletefieldop-max-struct=1 -passes=dtrans-deletefieldop -debug-only=dtrans-deletefieldop -dtrans-outofboundsok=false -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -dtrans-deletefieldop-typelist=struct.other -passes=dtrans-deletefieldop -debug-only=dtrans-deletefieldop -dtrans-outofboundsok=false -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -dtrans-deletefieldop-max-struct=1 -passes=dtrans-deletefieldop -debug-only=dtrans-deletefieldop -dtrans-outofboundsok=false -disable-output 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 

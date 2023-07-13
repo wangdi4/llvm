@@ -7,7 +7,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -disable-verify -enable-npm-dtrans -opaque-pointers  -debug-pass-manager -whole-program-assume -intel-libirc-allowed -passes='lto<O2>' -internalize-public-api-list main -S  %s 2>&1 | FileCheck %s
+; RUN: opt -disable-verify -enable-npm-dtrans  -debug-pass-manager -whole-program-assume -intel-libirc-allowed -passes='lto<O2>' -internalize-public-api-list main -S  %s 2>&1 | FileCheck %s
 
 ; CHECK: Running pass: dtransOP::CommuteCondOPPass on [module]
 ; CHECK: Running analysis: dtransOP::DTransSafetyAnalyzer on [module]

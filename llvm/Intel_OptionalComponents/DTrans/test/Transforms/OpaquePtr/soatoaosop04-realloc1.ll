@@ -1,4 +1,4 @@
-; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -disable-output                 \
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -disable-output                 \
 ; RUN: -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-array-methods>' \
 ; RUN:        -dtrans-soatoaosop-base-ptr-off=3 -dtrans-soatoaosop-mem-off=4                                 \
 ; RUN:        -debug-only=dtrans-soatoaosop,dtrans-soatoaosop-arrays                                         \

@@ -1,7 +1,7 @@
 ; This test verifies that intel_dtrans_type metadata is propagated
 ; to global variables that are created by GlobalSplit.
 ;
-; RUN: opt < %s -opaque-pointers -S -passes=globalsplit 2>&1 | FileCheck %s
+; RUN: opt < %s -S -passes=globalsplit 2>&1 | FileCheck %s
 
 ; CHECK: @_ZN11xercesc_2_7L12fgBlockNamesE.0 = private constant <{ [12 x i16], [81 x i16] }> <{ [12 x i16] [i16 73, i16 115, i16 66, i16 97, i16 115, i16 105, i16 99, i16 76, i16 97, i16 116, i16 105, i16 110], [81 x i16] zeroinitializer }>, !intel_dtrans_type ![[DT0:[0-9]+]]
 ; CHECK: @_ZN11xercesc_2_7L12fgBlockNamesE.1 = private constant <{ [19 x i16], [74 x i16] }> <{ [19 x i16] [i16 73, i16 115, i16 76, i16 97, i16 116, i16 105, i16 110, i16 45, i16 49, i16 83, i16 117, i16 112, i16 112, i16 108, i16 101, i16 109, i16 101, i16 110, i16 116], [74 x i16] zeroinitializer }>, !intel_dtrans_type ![[DT5:[0-9]+]]

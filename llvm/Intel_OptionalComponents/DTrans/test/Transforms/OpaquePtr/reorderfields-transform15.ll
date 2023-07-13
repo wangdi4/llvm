@@ -1,7 +1,7 @@
 ; This test verifies that the field reordering transformation
 ; is not applied to struct.test because %struct.test is not used.
 
-;  RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -S -passes=dtrans-reorderfieldsop | FileCheck %s
+;  RUN: opt < %s -whole-program-assume -intel-libirc-allowed -S -passes=dtrans-reorderfieldsop | FileCheck %s
 
 ; CHECK-NOT: %__DFR_struct.test = type { i64, i64, i64, i32, i32, i32, i16 }
 ; CHECK: %struct.test = type { i32, i64, i32, i32, i16, i64, i64 }

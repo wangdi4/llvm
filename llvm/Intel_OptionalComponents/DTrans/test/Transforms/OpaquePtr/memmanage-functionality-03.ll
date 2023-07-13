@@ -17,7 +17,7 @@
 ; 2. bb91 block has only two PHI nodes. Zext of %i93 is used as operand
 ;    in icmp instruction.
 
-; RUN: opt < %s -opaque-pointers -passes=dtrans-memmanagetransop -dtrans-memmanageop-ignore-soa-heur -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-memmanagetransop -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes=dtrans-memmanagetransop -dtrans-memmanageop-ignore-soa-heur -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-memmanagetransop -disable-output 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
 

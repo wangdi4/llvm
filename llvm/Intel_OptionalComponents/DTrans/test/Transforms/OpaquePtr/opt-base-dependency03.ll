@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -opaque-pointers -disable-output -passes=dtransop-optbasetest -debug-only=dtransop-optbase < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes=dtransop-optbasetest -debug-only=dtransop-optbase < %s 2>&1 | FileCheck %s
 
 ; Test for DTrans base class identification of type dependency mappings that map
 ; the set of types that need to be changed when DTrans is changing a type.

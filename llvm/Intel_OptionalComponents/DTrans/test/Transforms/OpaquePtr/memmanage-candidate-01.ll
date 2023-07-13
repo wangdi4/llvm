@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -opaque-pointers -disable-output -passes='module(dtrans-force-inline-op)' -pre-lto-inline-cost -debug-only=dtrans-memmanageinfoop 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -passes='module(dtrans-force-inline-op)' -pre-lto-inline-cost -debug-only=dtrans-memmanageinfoop 2>&1 | FileCheck %s
 
 ; This test verifies that %"XStringCachedAllocator" is considered as a
 ; candidate for MemManageTrans.

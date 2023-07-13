@@ -1,14 +1,14 @@
 ; CMPLRLLVM-36359: This test is same as soatoaosop04-realloc.ll except
 ; llvm.umax.i32 is used instead of SelectInst.
 ;
-; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -disable-output                 \
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -disable-output                 \
 ; RUN: -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-array-methods>' \
 ; RUN:        -dtrans-soatoaosop-base-ptr-off=3 -dtrans-soatoaosop-mem-off=4                                 \
 ; RUN:        -debug-only=dtrans-soatoaosop,dtrans-soatoaosop-arrays                                         \
 ; RUN:        -dtrans-soatoaosop-ignore-funcs=_ZN10MemManager8allocateEl                                     \
 ; RUN:        -dtrans-soatoaosop-ignore-funcs=_ZN10MemManager10deallocateEPv                                 \
 ; RUN:        2>&1 | FileCheck %s
-; RUN: opt -S < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed                              \
+; RUN: opt -S < %s -whole-program-assume -intel-libirc-allowed                              \
 ; RUN:        -passes=soatoaosop-arrays-methods-transform                                                    \
 ; RUN:        -dtrans-soatoaosop-base-ptr-off=3 -dtrans-soatoaosop-mem-off=4                                 \
 ; RUN:        -dtrans-soatoaosop-ignore-funcs=_ZN10MemManager8allocateEl                                     \

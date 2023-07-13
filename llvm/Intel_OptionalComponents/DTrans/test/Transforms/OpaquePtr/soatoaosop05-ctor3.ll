@@ -6,7 +6,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -disable-output                                                    \
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -disable-output                                                    \
 ; RUN:          -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-struct-methods>'    \
 ; RUN:          -dtrans-soatoaosop-array-type=struct.Arr                                                                  \
 ; RUN:          -dtrans-soatoaosop-array-type=struct.Arr.0                                                                \

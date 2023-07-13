@@ -2,7 +2,7 @@
 ; This test verifies that "init" routine is qualified as InitRoutine
 ; for DynClone transformation.
 
-;  RUN: opt < %s -opaque-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -passes=dtrans-dyncloneop -debug-only=dtrans-dynclone -disable-output 2>&1 | FileCheck %s
+;  RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed -passes=dtrans-dyncloneop -debug-only=dtrans-dynclone -disable-output 2>&1 | FileCheck %s
 
 ; CHECK-LABEL:    Init Routine: init
 ; CHECK:   Verified InitRoutine ...

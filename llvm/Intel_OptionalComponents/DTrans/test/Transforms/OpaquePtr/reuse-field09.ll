@@ -1,7 +1,7 @@
 ; This test try to find the ptr and ptrofptr's global variables and validate isValidPtr function.
 ; This test also verify the global variable is OK as the printf/fopen/strcpy/memset declaration's argument in isValidPtr function.
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed < %s -passes=dtrans-reusefieldop -debug-only=dtrans-reusefieldop -disable-output 2>&1 | FileCheck %s
+; RUN: opt -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -whole-program-assume -intel-libirc-allowed < %s -passes=dtrans-reusefieldop -debug-only=dtrans-reusefieldop -disable-output 2>&1 | FileCheck %s
 
 ; CHECK:Reused structure: %struct.test
 ; CHECK-NEXT:    Field mapping are (From:To): { 3:3 4:3 }
@@ -26,7 +26,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @.str.0 = private unnamed_addr constant [31 x i8] c"network %s: not enough memory\0A\00", align 1
 @.str.1 = internal unnamed_addr constant [2 x i8] c"r\00", align 1
 
-define void @foo(%struct.test* "intel_dtrans_func_index"="1" %tp) !intel.dtrans.func.type !6 {
+define void @foo(ptr "intel_dtrans_func_index"="1" %tp) !intel.dtrans.func.type !6 {
 entry:
   %i = getelementptr inbounds %struct.test, ptr %tp, i64 0, i32 0
   %0 = load i32, ptr %i, align 8
@@ -39,14 +39,14 @@ entry:
   ret void
 }
 
-define void @init_net_and_node(%struct.ptr* "intel_dtrans_func_index"="1" %net0, i64 %idx) !intel.dtrans.func.type !15 {
+define void @init_net_and_node(ptr "intel_dtrans_func_index"="1" %net0, i64 %idx) !intel.dtrans.func.type !15 {
 entry:
-  %ptr = load %struct.test*, ptr getelementptr inbounds  (%struct.ptr, ptr @net, i64 0, i32 4), align 8
+  %ptr = load ptr, ptr getelementptr inbounds  (%struct.ptr, ptr @net, i64 0, i32 4), align 8
   %ptridx = getelementptr inbounds %struct.test, ptr %ptr, i64 %idx
-  %basic = getelementptr %struct.ptr2ptr, %struct.ptr2ptr* @node, i64 0, i32 1
-  %ptrofptr = load %struct.test**, ptr %basic, align 8
-  %ptrofptridx = getelementptr %struct.test*, ptr %ptrofptr, i64 %idx
-  store %struct.test* %ptridx, ptr %ptrofptridx, align 8
+  %basic = getelementptr %struct.ptr2ptr, ptr @node, i64 0, i32 1
+  %ptrofptr = load ptr, ptr %basic, align 8
+  %ptrofptridx = getelementptr ptr, ptr %ptrofptr, i64 %idx
+  store ptr %ptridx, ptr %ptrofptridx, align 8
   %f = getelementptr inbounds %struct.test, ptr %ptridx, i64 0, i32 3
   store i64 %idx, ptr %f, align 8
   %print = tail call i32 (ptr, ...) @printf(ptr noundef nonnull @.str.0, ptr noundef @net)
@@ -55,7 +55,7 @@ entry:
   ret void
 }
 
-define i64 @cal_0(%struct.test* "intel_dtrans_func_index"="1" %tp) !intel.dtrans.func.type !6 {
+define i64 @cal_0(ptr "intel_dtrans_func_index"="1" %tp) !intel.dtrans.func.type !6 {
 entry:
   %f = getelementptr inbounds %struct.test, ptr %tp, i64 0, i32 1
   %a = load i64, ptr %f, align 8
@@ -65,7 +65,7 @@ entry:
   ret i64 %c
 }
 
-define i64 @cal_1(%struct.test* "intel_dtrans_func_index"="1" %tp) !intel.dtrans.func.type !6 {
+define i64 @cal_1(ptr "intel_dtrans_func_index"="1" %tp) !intel.dtrans.func.type !6 {
 entry:
   %f = getelementptr inbounds %struct.test, ptr %tp, i64 0, i32 1
   %a = load i64, ptr %f, align 8
@@ -78,10 +78,10 @@ entry:
 define i64 @main() {
 entry:
   tail call void @llvm.memset.p0.i64(ptr noundef nonnull align 8 dereferenceable(240) @net, i8 0, i64 240, i1 false)
-  %call = tail call noalias i8* @calloc(i64 10, i64 40)
+  %call = tail call noalias ptr @calloc(i64 10, i64 40)
   store i32 10, ptr %call, align 8
   tail call void @foo(ptr %call)
-  tail call void @init_net_and_node(%struct.ptr* @net, i64 101)
+  tail call void @init_net_and_node(ptr @net, i64 101)
   %res0 = tail call i64 @cal_0(ptr %call)
   %res1 = tail call i64 @cal_1(ptr %call)
   %res = add i64 %res0, %res1
@@ -95,7 +95,7 @@ declare ptr @llvm.ptr.annotation.p0(ptr %0, ptr %1, ptr %2, i32 %3, ptr %4)
 declare !intel.dtrans.func.type !9 dso_local void @free(ptr "intel_dtrans_func_index"="1") #1
 
 ; Function Attrs: nounwind
-declare !intel.dtrans.func.type !9 "intel_dtrans_func_index"="1" i8* @calloc(i64, i64) #0
+declare !intel.dtrans.func.type !9 "intel_dtrans_func_index"="1" ptr @calloc(i64, i64) #0
 
 ; Function Attrs: nofree nounwind
 declare !intel.dtrans.func.type !9 dso_local noundef i32 @printf(ptr nocapture noundef readonly "intel_dtrans_func_index"="1" %0, ...) local_unnamed_addr

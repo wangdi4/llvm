@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers -disable-output -passes=dtransop-optbasetest -debug-only=dtransop-optbase -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes=dtransop-optbasetest -debug-only=dtransop-optbase -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 

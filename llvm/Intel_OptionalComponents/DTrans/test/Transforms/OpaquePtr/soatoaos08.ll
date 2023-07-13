@@ -3,7 +3,7 @@
 ; This test also verifies that metadata is generated for newly created
 ; element type (i.e %__SOADT_EL_class.F).
 
-; RUN: opt < %s -opaque-pointers -S -whole-program-assume -intel-libirc-allowed            \
+; RUN: opt < %s -S -whole-program-assume -intel-libirc-allowed            \
 ; RUN:          -passes=dtrans-soatoaosop -dtrans-soatoaosop-size-heuristic=false          \
 ; RUN:          -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2                   \
 ; RUN:  2>&1 | FileCheck %s

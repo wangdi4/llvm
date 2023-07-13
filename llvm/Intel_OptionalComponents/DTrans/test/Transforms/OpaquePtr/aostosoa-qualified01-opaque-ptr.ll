@@ -1,11 +1,6 @@
-; TODO: The -opaque-pointers option should not be necessary for this test
-; because it is written with fully opaque pointers, but is required because the
-; global variables are not recognized as opaque pointer types by the verifier
-; yet.
-
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -S -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-aostosoaop -dtrans-aostosoaop-index32=false %s 2>&1 | FileCheck %s
+; RUN: opt -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-aostosoaop -dtrans-aostosoaop-index32=false %s 2>&1 | FileCheck %s
 
 ; Test AOS-to-SOA conversion when the type is selected based
 ; on the safety and heuristic qualifications.

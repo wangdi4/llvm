@@ -1,8 +1,8 @@
-; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed                        \
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed                        \
 ; RUN:          -disable-output -debug-only=dtrans-soatoaosop-deps                                  \
 ; RUN:          -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>'                 \
 ; RUN:       2>&1 | FileCheck --check-prefix=CHECK-DEP %s
-; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -disable-output        \
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -disable-output        \
 ; RUN:          -debug-only=dtrans-soatoaosop,dtrans-soatoaosop-struct                              \
 ; RUN:          -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-struct-methods>' \
 ; RUN:          -dtrans-soatoaosop-mem-off=3                                                        \
@@ -14,7 +14,7 @@
 ; RUN:          -dtrans-soatoaosop-array-dtor="ValueVectorOf<IC_Field*>::~ValueVectorOf()"          \
 ; RUN:          -dtrans-soatoaosop-array-dtor="ValueVectorOf<DatatypeValidator*>::~ValueVectorOf()" \
 ; RUN:       2>&1 | FileCheck --check-prefix=CHECK-TRANS %s
-; RUN: opt -S < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed                     \
+; RUN: opt -S < %s -whole-program-assume -intel-libirc-allowed                     \
 ; RUN:          -passes=soatoaosop-struct-methods-transform                                         \
 ; RUN:          -dtrans-soatoaosop-mem-off=3                                                        \
 ; RUN:          -dtransop-optbase-process-function-declaration                                      \

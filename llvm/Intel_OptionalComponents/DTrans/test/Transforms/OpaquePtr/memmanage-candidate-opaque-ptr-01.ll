@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -opaque-pointers -disable-output -passes='module(dtrans-force-inline-op)' -pre-lto-inline-cost -debug-only=dtrans-memmanageinfoop 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -passes='module(dtrans-force-inline-op)' -pre-lto-inline-cost -debug-only=dtrans-memmanageinfoop 2>&1 | FileCheck %s
 
 ; This test verifies that
 ; %"class._ZTSN11xalanc_1_1022XStringCachedAllocatorE.xalanc_1_10::XStringCachedAllocator"

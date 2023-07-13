@@ -12,7 +12,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; RUN: opt -disable-verify -debug-pass-manager -whole-program-assume -intel-libirc-allowed    \
 ; RUN:     -passes='lto<O2>' -internalize-public-api-list main          \
-; RUN:     -S  %s -enable-npm-dtrans -opaque-pointers                   \
+; RUN:     -S  %s -enable-npm-dtrans                   \
 ; RUN:     2>&1                                                         \
 ; RUN:     | FileCheck %s
 

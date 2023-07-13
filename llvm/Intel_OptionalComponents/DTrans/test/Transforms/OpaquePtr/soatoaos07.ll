@@ -1,7 +1,7 @@
 ; This test verifies that SOAToAOS is triggered when IR has specific things
 ; like EH etc.
 
-; RUN: opt < %s -S -opaque-pointers -whole-program-assume -intel-libirc-allowed                    \
+; RUN: opt < %s -S -whole-program-assume -intel-libirc-allowed                    \
 ; RUN:          -passes=dtrans-soatoaosop                                    \
 ; RUN:          -enable-intel-advanced-opts -mattr=+avx2                     \
 ; RUN:          -dtrans-soatoaosop-size-heuristic=false                      \

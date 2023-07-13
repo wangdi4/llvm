@@ -11,7 +11,7 @@
 ; stale references, and updates the metadata, which can the allow the type to
 ; be completely removed from the IR.
 
-; RUN: opt -opaque-pointers -S -passes=remove-dead-dtranstypemetadata %s | FileCheck %s
+; RUN: opt -S -passes=remove-dead-dtranstypemetadata %s | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 

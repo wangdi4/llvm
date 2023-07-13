@@ -4,7 +4,7 @@
 ; except "call void @_ZN4Arr1IPfEC2Ev(ptr %call)" in "main"
 ; routine.
 
-; RUN: opt < %s -opaque-pointers -passes=dtrans-meminittrimdownop -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdownop -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes=dtrans-meminittrimdownop -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-meminittrimdownop -disable-output 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
 

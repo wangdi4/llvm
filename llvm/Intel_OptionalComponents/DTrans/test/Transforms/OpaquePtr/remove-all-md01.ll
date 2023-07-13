@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers -S -passes=remove-all-dtranstypemetadata %s | FileCheck %s
+; RUN: opt -S -passes=remove-all-dtranstypemetadata %s | FileCheck %s
 
 target triple = "x86_64-unknown-linux-gnu"
 

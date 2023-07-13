@@ -6,7 +6,7 @@
 ; bail out, before marking functions for inlining, because it cannot be sure
 ; of the member functions.
 
-; RUN: opt < %s -opaque-pointers -disable-output -passes='module(dtrans-force-inline-op)' -pre-lto-inline-cost -debug-only=dtrans-memmanageinfoop 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -passes='module(dtrans-force-inline-op)' -pre-lto-inline-cost -debug-only=dtrans-memmanageinfoop 2>&1 | FileCheck %s
 
 ; CHECK: MemManageTrans considering candidate: %XStringCachedAllocator
 ; CHECK: Failed: member functions collections.
