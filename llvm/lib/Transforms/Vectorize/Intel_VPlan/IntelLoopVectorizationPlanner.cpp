@@ -1878,20 +1878,28 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       VPlan *P = getVPlanForVF(VF);
       assert(P && "The VPlan for VF from string does not exist");
     }
-    // just in case, to not face assert on null VPlan
+
     unsigned VF = VecScenario.getMainVF();
+    VPlanVector *MPlan = getVPlanForVF(VF);
     if (VecScenario.hasPeel()) {
-      VPlanVector *MPlan = getVPlanForVF(VF);
       VPLoop *L = *(MPlan->getVPLoopInfo())->begin();
       if (VecScenario.hasMaskedPeel() && !L->hasNormalizedInduction()) {
         // replace by scalar loop if there is no normalized induction
         VecScenario.setScalarPeel();
       }
-      auto *StaticPeelingVariant =
-          dyn_cast_or_null<VPlanStaticPeeling>(MPlan->getPreferredPeeling(VF));
-      if (!MPlan->getPreferredPeeling(VF) ||
-          (StaticPeelingVariant && !StaticPeelingVariant->peelCount()))
+
+      // If peel was forced, ensure we have a valid peel variant selected
+      const auto *Peel = MPlan->getPreferredPeeling(VF);
+      auto *StaticPeel = dyn_cast_or_null<VPlanStaticPeeling>(Peel);
+      if (!Peel || (StaticPeel && StaticPeel->peelCount() == 0)) {
         MPlan->setPreferredPeeling(VF, std::make_unique<VPlanStaticPeeling>(1));
+      }
+    } else {
+      // Peel was disabled: ensure peeling is unselected for all VFs.
+      for (auto VF : UsedVFs) {
+        MPlan->setPreferredPeeling(VF, std::make_unique<VPlanStaticPeeling>(
+                                           VPlanStaticPeeling::NoPeelLoop));
+      }
     }
   }
   if (VecScenario.hasPeel() && SkipDynamicPeelTC != 0) {

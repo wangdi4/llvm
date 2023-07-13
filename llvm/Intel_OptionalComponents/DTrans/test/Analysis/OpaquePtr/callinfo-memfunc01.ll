@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-callinfo -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-callinfo -disable-output %s 2>&1 | FileCheck %s
 
 ; This test verifies memory function call info collection is done for
 ; types that are safe uses of the memfunc calls.

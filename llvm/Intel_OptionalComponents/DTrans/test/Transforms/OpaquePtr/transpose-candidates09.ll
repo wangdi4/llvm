@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers < %s -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
 
 ; Check that neither physpropmod_mp_physprop_ field 0 nor field 2 is marked
 ; as a transpose candidate, because there is a mismatch between the bounds

@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-outofboundsok=true -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-outofboundsok=true -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test that returning a pointer which is the address of a field results in the
 ; "Field address taken return" safety flag.

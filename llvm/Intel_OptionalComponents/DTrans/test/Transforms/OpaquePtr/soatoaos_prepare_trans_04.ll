@@ -4,7 +4,7 @@
 ; memset in the _ZN7BaseArrIPsE6resizeEi function is computed using
 ; different pattern, which is usually generated with 32-bit compiler.
 
-; RUN: opt < %s -opaque-pointers -passes=dtrans-soatoaosop-prepare  -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes=dtrans-soatoaosop-prepare  -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 
 ; Here is C++ version of the testcase. "F" will be detected as candidate
 ; struct. "f1" and "f2" fields in "F" will be considered as candidate vector

@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers < %s -disable-output -passes=dtrans-transpose -debug-only=dopevector-analysis 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -passes=dtrans-transpose -debug-only=dopevector-analysis 2>&1 | FileCheck %s
 
 ; Check the higher level behavior of the trace of merging nested dope vectors
 

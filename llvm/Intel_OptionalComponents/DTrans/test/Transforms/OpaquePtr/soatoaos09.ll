@@ -1,7 +1,7 @@
 ; CMPLRLLVM-23920: This test verifies that SOAToAOS is triggered without
 ; compfail.
 
-; RUN: opt < %s -S -opaque-pointers -whole-program-assume -intel-libirc-allowed \
+; RUN: opt < %s -S -whole-program-assume -intel-libirc-allowed \
 ; RUN:          -passes=dtrans-soatoaosop -enable-intel-advanced-opts     \
 ; RUN:          -mtriple=i686-- -mattr=+avx2                              \
 ; RUN:          2>&1 | FileCheck %s

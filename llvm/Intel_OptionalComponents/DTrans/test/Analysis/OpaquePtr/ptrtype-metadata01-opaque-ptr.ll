@@ -2,10 +2,10 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; TODO: Remove the -opaque-pointers option. It is currently needed
+; TODO: Remove the option. It is currently needed
 ; because global variables are not recognized as being opaque pointers yet.
 
-; RUN: opt < %s -opaque-pointers -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -whole-program-assume -intel-libirc-allowed -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results 2>&1 | FileCheck %s
 
 ; This test verifies that a getelementptr instruction tagged with
 ; the dtrans-type metadata extracts the type from the metadata when

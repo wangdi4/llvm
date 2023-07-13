@@ -2,7 +2,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test that types passed to file IO routines are marked as "System object"
 

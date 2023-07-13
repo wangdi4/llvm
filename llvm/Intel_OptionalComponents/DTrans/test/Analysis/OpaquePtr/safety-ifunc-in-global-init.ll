@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -disable-output %s 2>&1
+; RUN: opt -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>' -disable-output %s 2>&1
 ;
 ; This test is a reduced test case of compiler crash on 523.xalancbmk after auto CPU dispatch enabled.
 ; The dispatch is implemented by ifuncs which were not supported in DTrans safety analysis

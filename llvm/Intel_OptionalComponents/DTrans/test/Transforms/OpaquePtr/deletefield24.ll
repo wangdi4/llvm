@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='dtrans-deletefieldop' -S -o - %s | FileCheck %s --check-prefix=CHECK
+; RUN: opt -whole-program-assume -intel-libirc-allowed -passes='dtrans-deletefieldop' -S -o - %s | FileCheck %s --check-prefix=CHECK
 
 target triple = "x86_64-unknown-linux-gnu"
 

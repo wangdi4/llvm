@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes='dtrans-deletefieldop' -S -o - %s | FileCheck %s
+; RUN: opt -whole-program-assume -intel-libirc-allowed -passes='dtrans-deletefieldop' -S -o - %s | FileCheck %s
 
 ; This test checks that the DTrans delete field pass updates the align value on
 ; the load/store instructions when the structure changes because after fields

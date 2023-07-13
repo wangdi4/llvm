@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -opaque-pointers -whole-program-assume -intel-libirc-allowed -passes=dtrans-elim-ro-field-access-op -debug-only=elim-ro-field-access -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -passes=dtrans-elim-ro-field-access-op -debug-only=elim-ro-field-access -disable-output 2>&1 | FileCheck %s
 
 ; This test verifies the DTrans eliminate read-only field access pass.
 ; lzma_allocator type has safety check violations due to not having read-only

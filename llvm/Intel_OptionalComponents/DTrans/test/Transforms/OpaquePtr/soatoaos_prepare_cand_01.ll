@@ -6,7 +6,7 @@
 ; This is same as soatoaos_prepare_cand_03.ll except none of the
 ; bitcasts are removed.
 
-; RUN: opt < %s -opaque-pointers -passes=dtrans-soatoaosop-prepare  -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-soatoaosop-prepare -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes=dtrans-soatoaosop-prepare  -whole-program-assume -intel-libirc-allowed -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-soatoaosop-prepare -disable-output 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; Here is C++ version of the testcase. "F" will be detected as candidate

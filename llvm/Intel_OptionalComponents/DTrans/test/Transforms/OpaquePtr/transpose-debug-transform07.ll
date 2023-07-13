@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers < %s -disable-output -passes=dtrans-transpose -debug-only=dtrans-transpose-transform 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -passes=dtrans-transpose -debug-only=dtrans-transpose-transform 2>&1 | FileCheck %s
 
 ; Check that the array represented by the dope vector in
 ; physpropmod_mp_physprop_ field 2 is transposed even though the allocate
