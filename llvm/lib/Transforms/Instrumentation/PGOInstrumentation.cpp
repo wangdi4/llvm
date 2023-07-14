@@ -79,8 +79,6 @@
 #include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Analysis/MemoryBuiltins.h"
-#include "llvm/Analysis/MemoryProfileInfo.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -114,7 +112,6 @@
 #include "llvm/IR/Value.h"
 #include "llvm/ProfileData/InstrProf.h"
 #include "llvm/ProfileData/InstrProfReader.h"
-#include "llvm/Support/BLAKE3.h"
 #include "llvm/Support/BranchProbability.h"
 #include "llvm/Support/CRC.h"
 #include "llvm/Support/Casting.h"
@@ -124,24 +121,22 @@
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/GraphWriter.h"
-#include "llvm/Support/HashBuilder.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/TargetParser/Triple.h"
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Instrumentation/BlockCoverageInference.h"
 #include "llvm/Transforms/Instrumentation/CFGMST.h"
+#include "llvm/Transforms/Instrumentation/MemProfiler.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/MisExpect.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
-#include <map>
 #include <memory>
 #include <numeric>
 #include <optional>
-#include <set>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -152,7 +147,6 @@
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
-using namespace llvm::memprof;
 using ProfileCount = Function::ProfileCount;
 using VPCandidateInfo = ValueProfileCollector::CandidateInfo;
 
@@ -169,7 +163,6 @@ STATISTIC(NumOfPGOSplit, "Number of critical edge splits.");
 STATISTIC(NumOfPGOFunc, "Number of functions having valid profile counts.");
 STATISTIC(NumOfPGOMismatch, "Number of functions having mismatch profile.");
 STATISTIC(NumOfPGOMissing, "Number of functions without profile.");
-STATISTIC(NumOfMemProfMissing, "Number of functions without memory profile.");
 STATISTIC(NumOfPGOICall, "Number of indirect call value instrumentations.");
 STATISTIC(NumOfCSPGOInstrument, "Number of edges instrumented in CSPGO.");
 STATISTIC(NumOfCSPGOSelectInsts,
@@ -226,14 +219,16 @@ static cl::opt<bool> DoComdatRenaming(
     cl::desc("Append function hash to the name of COMDAT function to avoid "
              "function hash mismatch due to the preinliner"));
 
+namespace llvm {
 // Command line option to enable/disable the warning about missing profile
 // information.
-static cl::opt<bool>
-    PGOWarnMissing("pgo-warn-missing-function", cl::init(false), cl::Hidden,
-                   cl::desc("Use this option to turn on/off "
-                            "warnings about missing profile data for "
-                            "functions."));
+cl::opt<bool> PGOWarnMissing("pgo-warn-missing-function", cl::init(false),
+                             cl::Hidden,
+                             cl::desc("Use this option to turn on/off "
+                                      "warnings about missing profile data for "
+                                      "functions."));
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Debug trace messages for value profiling loop trip counts.
 #define DEBUG_VP_LOOPTC "pgo-vp-looptc"
@@ -284,22 +279,24 @@ static cl::opt<uint32_t> PGOLoopTCMaxTripCount(
 #endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
+=======
+>>>>>>> 95014050dac528f53ab704d62a16a44ed0df032b
 // Command line option to enable/disable the warning about a hash mismatch in
 // the profile data.
 cl::opt<bool>
     NoPGOWarnMismatch("no-pgo-warn-mismatch", cl::init(false), cl::Hidden,
                       cl::desc("Use this option to turn off/on "
                                "warnings about profile cfg mismatch."));
-} // namespace llvm
 
 // Command line option to enable/disable the warning about a hash mismatch in
 // the profile data for Comdat functions, which often turns out to be false
 // positive due to the pre-instrumentation inline.
-static cl::opt<bool> NoPGOWarnMismatchComdatWeak(
+cl::opt<bool> NoPGOWarnMismatchComdatWeak(
     "no-pgo-warn-mismatch-comdat-weak", cl::init(true), cl::Hidden,
     cl::desc("The option is used to turn on/off "
              "warnings about hash mismatch for comdat "
              "or weak functions."));
+} // namespace llvm
 
 // Command line option to enable/disable select instruction instrumentation.
 static cl::opt<bool>
@@ -392,10 +389,6 @@ static cl::opt<std::string> PGOTraceFuncHash(
 static cl::opt<unsigned> PGOFunctionSizeThreshold(
     "pgo-function-size-threshold", cl::Hidden,
     cl::desc("Do not instrument functions smaller than this threshold."));
-
-static cl::opt<bool> MatchMemProf(
-    "pgo-match-memprof", cl::init(true), cl::Hidden,
-    cl::desc("Perform matching and annotation of memprof profiles."));
 
 static cl::opt<unsigned> PGOFunctionCriticalEdgeThreshold(
     "pgo-critical-edge-threshold", cl::init(20000), cl::Hidden,
@@ -1383,9 +1376,6 @@ public:
   bool readCounters(IndexedInstrProfReader *PGOReader, bool &AllZeros,
                     InstrProfRecord::CountPseudoKind &PseudoKind);
 
-  // Read memprof data for the instrumented function from profile.
-  bool readMemprof(IndexedInstrProfReader *PGOReader);
-
   // Populate the counts for all BBs.
   void populateCounters();
 
@@ -1612,6 +1602,7 @@ static void annotateFunctionWithHashMismatch(Function &F, LLVMContext &ctx) {
   F.setMetadata(LLVMContext::MD_annotation, MD);
 }
 
+<<<<<<< HEAD
 static void addCallsiteMetadata(Instruction &I,
                                 std::vector<uint64_t> &InlinedCallStack,
                                 LLVMContext &Ctx) {
@@ -1863,6 +1854,8 @@ bool PGOUseFunc::readMemprof(IndexedInstrProfReader *PGOReader) {
   return true;
 }
 
+=======
+>>>>>>> 95014050dac528f53ab704d62a16a44ed0df032b
 void PGOUseFunc::handleInstrProfError(Error Err, uint64_t MismatchedFuncSum) {
   handleAllErrors(std::move(Err), [&](const InstrProfError &IPE) {
     auto &Ctx = M->getContext();
@@ -2781,7 +2774,7 @@ static bool annotateAllFunctions(
     // Read and match memprof first since we do this via debug info and can
     // match even if there is an IR mismatch detected for regular PGO below.
     if (PGOReader->hasMemoryProfile())
-      Func.readMemprof(PGOReader.get());
+      readMemprof(M, F, PGOReader.get(), TLI);
 
     if (!PGOReader->isIRLevelProfile())
       continue;
