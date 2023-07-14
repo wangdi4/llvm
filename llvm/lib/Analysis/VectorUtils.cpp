@@ -1339,15 +1339,21 @@ Function *llvm::getOrInsertVectorLibFunction(
     FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
     VectorF = Function::Create(FTy, OrigF->getLinkage(), VFnName, M);
 
+    LLVMContext &C = VectorF->getContext();
     if (IsSinCos) {
-      LLVMContext &C = VectorF->getContext();
       AttributeSet NoUndefAttr =
           AttributeSet::get(C, {Attribute::get(C, Attribute::NoUndef)});
       AttributeList Attrs = AttributeList::get(
           C, VectorF->getAttributes().getFnAttrs(), NoUndefAttr, {NoUndefAttr});
       VectorF->setAttributes(Attrs);
-    } else
-      VectorF->copyAttributesFrom(OrigF);
+    } else {
+      AttributeList OrigFnAttrs = OrigF->getAttributes();
+      // ArgAttrs is purposely omitted because arguments of the vector function
+      // may be different from those of the scalar one.
+      AttributeList VecFnAttrs = AttributeList::get(
+          C, OrigFnAttrs.getFnAttrs(), OrigFnAttrs.getRetAttrs(), {});
+      VectorF->setAttributes(VecFnAttrs);
+    }
   }
   return VectorF;
 }
