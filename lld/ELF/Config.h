@@ -31,6 +31,7 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/BinaryFormat/ELF.h"
@@ -40,6 +41,7 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Compression.h"
 #include "llvm/Support/Endian.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/GlobPattern.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include <atomic>
@@ -499,6 +501,7 @@ struct Ctx {
   llvm::DenseMap<const Symbol *,
                  std::pair<const InputFile *, const InputFile *>>
       backwardReferences;
+  llvm::SmallSet<llvm::StringRef, 0> auxiliaryFiles;
   // True if SHT_LLVM_SYMPART is used.
   std::atomic<bool> hasSympart{false};
   // True if there are TLS IE relocations. Set DF_STATIC_TLS if -shared.
@@ -507,6 +510,8 @@ struct Ctx {
   std::atomic<bool> needsTlsLd{false};
 
   void reset();
+
+  llvm::raw_fd_ostream openAuxiliaryFile(llvm::StringRef, std::error_code &);
 };
 
 LLVM_LIBRARY_VISIBILITY extern Ctx ctx;

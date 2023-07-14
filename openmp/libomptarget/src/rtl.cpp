@@ -29,6 +29,7 @@
 
 #include "llvm/Object/OffloadBinary.h"
 
+#include "OmptCallback.h"
 #include "device.h"
 #include "private.h"
 #if INTEL_CUSTOMIZATION
@@ -114,7 +115,7 @@ static char *ProfileTraceFile = nullptr;
 #endif
 
 #ifdef OMPT_SUPPORT
-extern void InitOmptLibomp();
+extern void ompt::connectLibrary();
 #endif
 
 __ATTRIBUTE__(constructor(101)) void init() { // INTEL
@@ -146,10 +147,10 @@ __ATTRIBUTE__(constructor(101)) void init() { // INTEL
     timeTraceProfilerInitialize(500 /* us */, "libomptarget");
 #endif
 
-  #ifdef OMPT_SUPPORT
-    // Initialize OMPT first
-    InitOmptLibomp();
-  #endif
+#ifdef OMPT_SUPPORT
+  // Initialize OMPT first
+  ompt::connectLibrary();
+#endif
 
 #if !INTEL_CUSTOMIZATION
   PM->RTLs.loadRTLs();
