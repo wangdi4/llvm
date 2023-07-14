@@ -2260,6 +2260,19 @@ public:
     return false;
   }
 
+  // Getter for original call/function's attributes. Invokes CallInst's
+  // hasFnAttr, which first checks the callsite for the attribute Kind,
+  // then the called function's attributes if not found on the call
+  bool hasFnAttr(StringRef Kind) const {
+    if (const CallInst *Call = getUnderlyingCallInst())
+      return Call->hasFnAttr(Kind);
+
+    if (auto *F = getCalledFunction())
+      return F->hasFnAttribute(Kind);
+
+    return false;
+  }
+
   // Getter for original call's callsite attributes. If underlying call is
   // absent, then return empty AttributesList.
   AttributeList getOrigCallAttrs() const {
@@ -2268,16 +2281,12 @@ public:
     return {};
   }
 
-  // Some helpful getters based on underlying call's attributes.
-  bool isKernelCallOnce() const {
-    return getOrigCallAttrs().hasFnAttr("kernel-call-once");
-  }
+  // Some helpful getters based on underlying call/functions's attributes.
+  bool isKernelCallOnce() const { return hasFnAttr("kernel-call-once"); }
   bool isOCLVecUniformReturn() const {
-    return getOrigCallAttrs().hasFnAttr("opencl-vec-uniform-return");
+    return hasFnAttr("opencl-vec-uniform-return");
   }
-  bool isKernelUniformCall() const {
-    return getOrigCallAttrs().hasFnAttr("kernel-uniform-call");
-  }
+  bool isKernelUniformCall() const { return hasFnAttr("kernel-uniform-call"); }
 
   /// Return \p true if this call is a lifetime_start/end intrinsic call.
   bool isLifetimeStartOrEndIntrinsic() const {
