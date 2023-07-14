@@ -1444,7 +1444,7 @@ void SCCPInstVisitor::visitFreezeInst(FreezeInst &I) {
       return false;
 
     if (PHINode *PHI = dyn_cast<PHINode>(Op))
-      for (unsigned I = 0, E = PHI->getNumIncomingValues(); I != E; ++E)
+      for (unsigned I = 0, E = PHI->getNumIncomingValues(); I != E; ++I)
         if (!isa<SelectInst>(PHI->getIncomingValue(I)))
           return false;
 
