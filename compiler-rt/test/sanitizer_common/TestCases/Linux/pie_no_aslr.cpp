@@ -4,7 +4,7 @@
 // INTEL_CUSTOMIZATION
 // JIRA: CMPLRLLVM-47138
 // Tsan not support 5-level paging
-// XFAIL: tsan && la57
+// UNSUPPORTED: tsan && la57
 // end INTEL_CUSTOMIZATION
 
 int main() { return 0; }
