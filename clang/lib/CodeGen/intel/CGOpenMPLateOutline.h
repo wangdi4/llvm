@@ -299,6 +299,7 @@ class OpenMPLateOutliner {
   void addTypedArg(const Expr *E, bool IsRef = false,
                    bool NeedsTypedElements = true);
 
+  template <typename T> void emitDoacrossClause(const T *C, bool IsSource);
   void addFenceCalls(bool IsBegin);
   bool isAllowedClauseForDirectiveFull(OpenMPDirectiveKind DKind,
                                        OpenMPClauseKind CK,

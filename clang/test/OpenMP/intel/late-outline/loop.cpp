@@ -6,6 +6,10 @@
 // RUN:  -fopenmp-new-depend-ir -triple x86_64-unknown-linux-gnu %s \
 // RUN:  | FileCheck %s
 
+// RUN: %clang_cc1 -opaque-pointers -emit-llvm -o - -std=c++14 -fopenmp -fopenmp-late-outline -fopenmp-typed-clauses \
+// RUN:  -fopenmp-new-depend-ir -triple x86_64-unknown-linux-gnu %s \
+// RUN:  -fopenmp-version=52 | FileCheck -check-prefixes CHECK,OMP52 %s
+
 // Checking on "regular" loops
 //
 int first1() noexcept;
@@ -229,6 +233,33 @@ void doacross_test(int (*v_ptr)[5][4])
     }
   }
   // CHECK: region.exit{{.*}}OMP.END.PARALLEL.LOOP
+#if _OPENMP >= 202111
+  // OMP52: region.entry{{.*}}OMP.PARALLEL.LOOP
+  // OMP52-SAME: "QUAL.OMP.ORDERED"(i32 2, i32 9, i32 8)
+  #pragma omp parallel for ordered (2) private (j)
+  for (i = 1; i < 10; i++) {
+    for (j = 2; j < 10; j++) {
+  // OMP52: region.entry{{.*}}DIR.OMP.ORDERED
+  // OMP52-SAME: "QUAL.OMP.DOACROSS.SINK"(i32 %div{{.*}}, i32 %div{{.*}})
+    #pragma omp ordered doacross(sink: omp_cur_iteration - 1)
+  // OMP52: region.exit{{.*}}DIR.OMP.END.ORDERE
+    }
+  }
+  // OMP52: region.exit{{.*}}DIR.OMP.END.PARALLEL.LOOP
+
+  // OMP52: region.entry{{.*}}OMP.PARALLEL.LOOP
+  // OMP52-SAME: "QUAL.OMP.ORDERED"(i32 2, i32 9, i32 8)
+  #pragma omp parallel for ordered (2) private (j)
+  for (i = 1; i < 10; i++) {
+    for (j = 2; j < 10; j++) {
+  // OMP52: region.entry{{.*}}DIR.OMP.ORDERED
+  // OMP52-SAME: "QUAL.OMP.DOACROSS.SOURCE"(i32 %div{{.*}}, i32 %div{{.*}})
+    #pragma omp ordered doacross(source: omp_cur_iteration)
+    }
+  // OMP52: region.exit{{.*}}DIR.OMP.END.ORDERE
+  }
+  // OMP52: region.exit{{.*}}DIR.OMP.END.PARALLEL.LOOP
+#endif  //  _OPENMP >= 202111
 }
 
 // CHECK: doacross_test_two
