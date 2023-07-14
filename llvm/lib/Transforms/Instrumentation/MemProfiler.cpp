@@ -18,12 +18,9 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Analysis/MemoryBuiltins.h"
-#include "llvm/Analysis/MemoryProfileInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/DataLayout.h"
-#include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/IRBuilder.h"
@@ -33,27 +30,15 @@
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
 #include "llvm/ProfileData/InstrProf.h"
-#include "llvm/ProfileData/InstrProfReader.h"
-#include "llvm/Support/BLAKE3.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/HashBuilder.h"
 #include "llvm/TargetParser/Triple.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
-#include <map>
-#include <set>
 
 using namespace llvm;
-using namespace llvm::memprof;
 
 #define DEBUG_TYPE "memprof"
-
-namespace llvm {
-extern cl::opt<bool> PGOWarnMissing;
-extern cl::opt<bool> NoPGOWarnMismatch;
-extern cl::opt<bool> NoPGOWarnMismatchComdatWeak;
-} // namespace llvm
 
 constexpr int LLVM_MEM_PROFILER_VERSION = 1;
 
@@ -143,7 +128,6 @@ STATISTIC(NumInstrumentedReads, "Number of instrumented reads");
 STATISTIC(NumInstrumentedWrites, "Number of instrumented writes");
 STATISTIC(NumSkippedStackReads, "Number of non-instrumented stack reads");
 STATISTIC(NumSkippedStackWrites, "Number of non-instrumented stack writes");
-STATISTIC(NumOfMemProfMissing, "Number of functions without memory profile.");
 
 namespace {
 
@@ -617,6 +601,7 @@ bool MemProfiler::instrumentFunction(Function &F) {
 
   return FunctionModified;
 }
+<<<<<<< HEAD
 
 static void addCallsiteMetadata(Instruction &I,
                                 std::vector<uint64_t> &InlinedCallStack,
@@ -865,3 +850,5 @@ void llvm::readMemprof(Module &M, Function &F,
     }
   }
 }
+=======
+>>>>>>> 3498cf52ba1c23cbf8acdf99d649d2fa25291eef
