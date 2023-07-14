@@ -1953,10 +1953,13 @@ bool Driver::loadDefaultConfigFiles(llvm::cl::ExpansionContext &ExpCtx) {
       // driver name used:  dpcpp.cfg, icx.cfg, icpx.cfg, icx-cl.cfg
       SmallString<128> CfgFileBase(Name + ".cfg");
       llvm::SmallString<128> CfgFilePath;
-      // Add an alternate search directory for the default cfg file.  This is
-      // ../bin from the location of the driver, which could be in 'bin-llvm'
       SmallString<128> AltDir(Dir);
-      llvm::sys::path::append(AltDir, "..", "bin");
+      // Add an alternate search directory for the default cfg file.
+      llvm::sys::path::append(AltDir, "..");
+#if !INTEL_DEPLOY_UNIFIED_LAYOUT
+      // ../bin from the location of the driver, which could be in 'bin-llvm'
+      llvm::sys::path::append(AltDir, "bin");
+#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
       if (searchForFile(CfgFilePath, {Dir, AltDir}, CfgFileBase, getVFS())) {
         if (!readConfigFile(CfgFilePath, ExpCtx)) {
           // The default .cfg file can be empty, allow for more config
