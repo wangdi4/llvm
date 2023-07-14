@@ -185,8 +185,7 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
         if (m_IsFpgaEmulator)
           MPM.addPass(RemoveAtExitPass());
 
-        MPM.addPass(SetPreferVectorWidthPass(
-            VectorizerUtils::getCPUIdISA(Config.GetCpuId())));
+        MPM.addPass(SetPreferVectorWidthPass(ISA));
 
         if (m_IsSYCL && Config.GetRelaxedMath())
           MPM.addPass(createModuleToFunctionPassAdaptor(AddFastMathPass()));
