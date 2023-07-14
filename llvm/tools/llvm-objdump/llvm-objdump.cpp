@@ -2199,7 +2199,6 @@ static void disassembleObject(ObjectFile *Obj, bool InlineRelocs) {
                     SecondarySTI.get(), PIP, SP, InlineRelocs);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// \returns the mapping from the offset in .trace section to its value string
 /// of relocations for object file \p Obj.
@@ -2244,13 +2243,8 @@ getRelocationMapForTraceBack(const ObjectFile *Obj) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-void objdump::printRelocations(const ObjectFile *Obj) {
-  StringRef Fmt = Obj->getBytesInAddress() > 4 ? "%016" PRIx64 :
-                                                 "%08" PRIx64;
-=======
 void Dumper::printRelocations() {
   StringRef Fmt = O.getBytesInAddress() > 4 ? "%016" PRIx64 : "%08" PRIx64;
->>>>>>> 3edef604cfbcdf9a658213de1340e4b6b63eb9d3
 
   // Build a mapping from relocation target to a vector of relocation
   // sections. Usually, there is an only one relocation section for
