@@ -3704,14 +3704,10 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     // ZExt bool to int type.
     return RValue::get(Builder.CreateZExt(LHS, ConvertType(E->getType())));
   }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_isnanf:
   case Builtin::BI__builtin_isnanl:
 #endif  // INTEL_CUSTOMIZATION
-=======
-
->>>>>>> 7d6c2e18114de9900d1b012cf9c219803b183f63
   case Builtin::BI__builtin_isnan: {
     CodeGenFunction::CGFPOptionsRAII FPOptsRAII(*this, E);
     Value *V = EmitScalarExpr(E->getArg(0));
@@ -3731,7 +3727,13 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
         Builder.CreateZExt(Builder.createIsFPClass(V, FPClassTest::fcInf),
                            ConvertType(E->getType())));
   }
-
+#if INTEL_CUSTOMIZATION
+  case Builtin::BI__builtin_isinff:
+  case Builtin::BI__builtin_isinfl:
+  case Builtin::BI__builtin_finite:
+  case Builtin::BI__builtin_finitef:
+  case Builtin::BI__builtin_finitel:
+#endif  // INTEL_CUSTOMIZATION
   case Builtin::BIfinite:
   case Builtin::BI__finite:
   case Builtin::BIfinitef:
@@ -3988,65 +3990,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
         Stride, IsVolatile, MatrixTy->getNumRows(), MatrixTy->getNumColumns());
     return RValue::get(Result);
   }
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  case Builtin::BI__builtin_isinff:
-  case Builtin::BI__builtin_isinfl:
-  case Builtin::BI__builtin_finite:
-  case Builtin::BI__builtin_finitef:
-  case Builtin::BI__builtin_finitel:
-#endif  // INTEL_CUSTOMIZATION
-  case Builtin::BIfinite:
-  case Builtin::BI__finite:
-  case Builtin::BIfinitef:
-  case Builtin::BI__finitef:
-  case Builtin::BIfinitel:
-  case Builtin::BI__finitel:
-  case Builtin::BI__builtin_isinf:
-  case Builtin::BI__builtin_isfinite: {
-    // isinf(x)    --> fabs(x) == infinity
-    // isfinite(x) --> fabs(x) != infinity
-    // x != NaN via the ordered compare in either case.
-    CodeGenFunction::CGFPOptionsRAII FPOptsRAII(*this, E);
-
-    // FIXME: for strictfp/IEEE-754 we need to not trap on SNaN here.
-    Value *V = EmitScalarExpr(E->getArg(0));
-    llvm::Type *Ty = V->getType();
-    if (!Builder.getIsFPConstrained() ||
-        Builder.getDefaultConstrainedExcept() == fp::ebIgnore ||
-        !Ty->isIEEE()) {
-      Value *Fabs = EmitFAbs(*this, V);
-      Constant *Infinity = ConstantFP::getInfinity(V->getType());
-      CmpInst::Predicate Pred = (BuiltinID == Builtin::BI__builtin_isinf ||
-                                BuiltinID == Builtin::BI__builtin_isinff ||
-                                BuiltinID == Builtin::BI__builtin_isinfl)
-                                    ? CmpInst::FCMP_OEQ
-                                    : CmpInst::FCMP_ONE;
-      Value *FCmp = Builder.CreateFCmp(Pred, Fabs, Infinity, "cmpinf");
-      return RValue::get(Builder.CreateZExt(FCmp, ConvertType(E->getType())));
-    }
-
-    if (Value *Result = getTargetHooks().testFPKind(V, BuiltinID, Builder, CGM))
-      return RValue::get(Result);
-
-    // Inf values have all exp bits set and a zero significand. Therefore:
-    // isinf(V) == ((V << 1) == ((exp mask) << 1))
-    // isfinite(V) == ((V << 1) < ((exp mask) << 1)) using unsigned comparison
-    unsigned bitsize = Ty->getScalarSizeInBits();
-    llvm::IntegerType *IntTy = Builder.getIntNTy(bitsize);
-    Value *IntV = Builder.CreateBitCast(V, IntTy);
-    Value *Shl1 = Builder.CreateShl(IntV, 1);
-    const llvm::fltSemantics &Semantics = Ty->getFltSemantics();
-    APInt ExpMask = APFloat::getInf(Semantics).bitcastToAPInt();
-    Value *ExpMaskShl1 = llvm::ConstantInt::get(IntTy, ExpMask.shl(1));
-    if (BuiltinID == Builtin::BI__builtin_isinf)
-      V = Builder.CreateICmpEQ(Shl1, ExpMaskShl1);
-    else
-      V = Builder.CreateICmpULT(Shl1, ExpMaskShl1);
-    return RValue::get(Builder.CreateZExt(V, ConvertType(E->getType())));
-  }
-=======
->>>>>>> 7d6c2e18114de9900d1b012cf9c219803b183f63
 
   case Builtin::BI__builtin_isinf_sign: {
     // isinf_sign(x) -> fabs(x) == infinity ? (signbit(x) ? -1 : 1) : 0
