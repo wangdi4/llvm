@@ -25,11 +25,7 @@
 // release branch is taken.  This allows us to differentiate via version
 // output if the compiler is from the developent or release branch.  For
 // example, the 2021.3.0 update will have "3.0" as the string.
-#if INTEL_DEPLOY_UNIFIED_LAYOUT
-#define XMAIN_VERSION_STRING "0.0"
-#else
 #define XMAIN_VERSION_STRING "x.0"
-#endif // INTEL_DEPLOY_UNIFIED_LAYOUT
 
 #ifndef BUILD_DATE_STAMP
 #define BUILD_DATE_STAMP        YYYYMMDD
