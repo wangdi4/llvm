@@ -234,7 +234,6 @@ static cl::opt<bool>
                             "warnings about missing profile data for "
                             "functions."));
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Debug trace messages for value profiling loop trip counts.
 #define DEBUG_VP_LOOPTC "pgo-vp-looptc"
@@ -284,9 +283,7 @@ static cl::opt<uint32_t> PGOLoopTCMaxTripCount(
         "Maximum trip count value to apply for loop trip count annotations"));
 #endif // INTEL_CUSTOMIZATION
 
-=======
 namespace llvm {
->>>>>>> 3498cf52ba1c23cbf8acdf99d649d2fa25291eef
 // Command line option to enable/disable the warning about a hash mismatch in
 // the profile data.
 cl::opt<bool>
@@ -1809,7 +1806,7 @@ bool PGOUseFunc::readMemprof(IndexedInstrProfReader *PGOReader) {
       if (AllocInfoIter != LocHashToAllocInfo.end()) {
         // Only consider allocations via new, to reduce unnecessary metadata,
         // since those are the only allocations that will be targeted initially.
-        if (!isNewLikeFn(CI, &FuncInfo.TLI))
+        if (!IntelMemoryBuiltins::isNewLikeFn(CI, &FuncInfo.TLI))
           continue;
         // We may match this instruction's location list to multiple MIB
         // contexts. Add them to a Trie specialized for trimming the contexts to
