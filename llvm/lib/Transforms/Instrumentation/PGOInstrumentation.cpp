@@ -127,7 +127,6 @@
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Instrumentation/BlockCoverageInference.h"
 #include "llvm/Transforms/Instrumentation/CFGMST.h"
-#include "llvm/Transforms/Instrumentation/MemProfiler.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/MisExpect.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
@@ -2463,7 +2462,7 @@ static bool annotateAllFunctions(
     return false;
 
   // TODO: might need to change the warning once the clang option is finalized.
-  if (!PGOReader->isIRLevelProfile() && !PGOReader->hasMemoryProfile()) {
+  if (!PGOReader->isIRLevelProfile()) {
     Ctx.diagnose(DiagnosticInfoPGOProfile(
         ProfileFileName.data(), "Not an IR level instrumentation profile"));
     return false;
@@ -2512,14 +2511,6 @@ static bool annotateAllFunctions(
 #endif // INTEL_CUSTOMIZATION
     PGOUseFunc Func(F, &M, TLI, ComdatMembers, BPI, BFI, PSI, IsCS,
                     InstrumentFuncEntry, HasSingleByteCoverage);
-    // Read and match memprof first since we do this via debug info and can
-    // match even if there is an IR mismatch detected for regular PGO below.
-    if (PGOReader->hasMemoryProfile())
-      readMemprof(M, F, PGOReader.get(), TLI);
-
-    if (!PGOReader->isIRLevelProfile())
-      continue;
-
     if (HasSingleByteCoverage) {
       Func.populateCoverage(PGOReader.get());
       continue;
