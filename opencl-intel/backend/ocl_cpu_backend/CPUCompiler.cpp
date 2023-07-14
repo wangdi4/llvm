@@ -19,6 +19,7 @@
 #include "BuiltinModules.h"
 #include "LLDJITBuilder.h"
 #include "ObjectCodeCache.h"
+#include "VectorizerUtils.h"
 #include "cl_cpu_detect.h"
 #include "cl_types.h"
 #include "cpu_dev_limits.h"
@@ -82,6 +83,31 @@ Intel::OpenCL::Utils::ECPU GetOrDetectCpuId(const std::string &cpuArch) {
   return cpuId;
 }
 
+// Temporary solution for WeightedInstCountAnalysis pass to obtain correct ISA.
+static void applyCpuIdLLVMOptions(const CPUDetect *CPUId) {
+  SmallVector<const char *, 3> Args;
+  Args.push_back("CPUCompiler");
+
+  std::string ISA = "-sycl-vector-variant-isa-encoding-override=";
+  switch (VectorizerUtils::getCPUIdISA(CPUId)) {
+  case VFISAKind::AVX512:
+    ISA += "AVX512Core";
+    break;
+  case VFISAKind::AVX2:
+    ISA += "AVX2";
+    break;
+  case VFISAKind::AVX:
+    ISA += "AVX1";
+    break;
+  default:
+    ISA += "SSE42";
+  }
+  Args.push_back(ISA.c_str());
+
+  Args.push_back(nullptr);
+  cl::ParseCommandLineOptions(Args.size() - 1, Args.data());
+}
+
 /**
  * Splits the given string using the supplied delimiter
  * populates the given vector of strings
@@ -121,10 +147,13 @@ void CPUCompiler::SetBuiltinModules(const std::string &cpuName,
                                     const std::string &cpuFeatures = "") {
   // config.GetLoadBuiltins should be true
   SelectCpu(cpuName, cpuFeatures);
+  Utils::applyCpuIdLLVMOptions(m_CpuId);
 }
 
 CPUCompiler::CPUCompiler(const ICompilerConfig &config) : Compiler(config) {
   SelectCpu(config.GetCpuArch(), config.GetCpuFeatures());
+  Utils::applyCpuIdLLVMOptions(m_CpuId);
+
   // Initialize the BuiltinModules
   if (config.GetLoadBuiltins()) {
     std::lock_guard<sys::Mutex> Locked(m_builtinModuleMutex);

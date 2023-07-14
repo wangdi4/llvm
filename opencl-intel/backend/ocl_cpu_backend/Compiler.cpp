@@ -248,7 +248,6 @@ void Compiler::InitGlobalState(const IGlobalCompilerConfig &config) {
 
   // Disable unrolling with runtime trip count. It is harmful for
   // sycl_benchmarks/dnnbench-pooling.
-  // TODO optimizer enables runtime unroll when RTLoopUnrollFactor > 1.
   Args.push_back("-unroll-runtime=false");
 
   // inline threshold is not exposed by standard new pass manager
@@ -272,26 +271,6 @@ void Compiler::InitGlobalState(const IGlobalCompilerConfig &config) {
     llvm::EnablePrettyStackTrace();
 
   s_globalStateInitialized = true;
-}
-
-/// Commandline setting should be eventually moved into
-/// Compiler::InitGlobalState once we switch to LTO pipeline.
-static void
-applyBuildProgramLLVMOptions(const Intel::OpenCL::Utils::CPUDetect *CPUId) {
-  SmallVector<const char *, 8> Args;
-  Args.push_back("Compiler");
-
-  // FIXME This is a temporary solution for WeightedInstCountAnalysis pass to
-  // obtain correct ISA.
-  std::string ISA = "-sycl-vector-variant-isa-encoding-override=";
-  ISA += CPUId->HasAVX512Core() ? "AVX512Core"
-         : CPUId->HasAVX2()     ? "AVX2"
-         : CPUId->HasAVX1()     ? "AVX1"
-                                : "SSE42";
-  Args.push_back(ISA.c_str());
-
-  Args.push_back(nullptr);
-  cl::ParseCommandLineOptions(Args.size() - 1, Args.data());
 }
 
 Compiler::Compiler(const ICompilerConfig &config)
@@ -382,8 +361,6 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
   m_debug = buildOptions.GetDebugInfoFlag();
   m_disableOptimization = buildOptions.GetDisableOpt();
   m_useNativeDebugger = buildOptions.GetUseNativeDebuggerFlag();
-
-  applyBuildProgramLLVMOptions(m_CpuId);
 
   materializeSpirTriple(pModule);
 
