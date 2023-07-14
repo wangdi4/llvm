@@ -114,7 +114,6 @@ if(COMPILER_RT_CAN_EXECUTE_TESTS)
   if(COMPILER_RT_BUILD_MEMPROF)
     compiler_rt_test_runtime(memprof)
   endif()
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
   # We disable XRAY test suite because it fails with Linux self-build on Alloy.
   # Further investigation is needed. Note that XRAY is not part of our release.
@@ -130,7 +129,6 @@ if(COMPILER_RT_CAN_EXECUTE_TESTS)
   #   compiler_rt_Test_runtime(orc)
   # endif()
 # end INTEL_CUSTOMIZATION
-=======
   if(COMPILER_RT_BUILD_XRAY)
     compiler_rt_test_runtime(xray)
   endif()
@@ -140,7 +138,6 @@ if(COMPILER_RT_CAN_EXECUTE_TESTS)
   if(COMPILER_RT_BUILD_CRT)
     add_subdirectory(crt)
   endif()
->>>>>>> 7c4dbff05d363d262a4a246b9a9726401652f268
   # ShadowCallStack does not yet provide a runtime with compiler-rt, the tests
   # include their own minimal runtime
   add_subdirectory(shadowcallstack)

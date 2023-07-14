@@ -70,7 +70,6 @@ endif()
 include(builtin-config-ix)
 include(CMakePushCheckState)
 
-<<<<<<< HEAD
 if(INTEL_CUSTOMIZATION)
   # Need to override the -Werror setting when building this library with the GNU
   # compiler because this is building components that have the same name as
@@ -80,10 +79,10 @@ if(INTEL_CUSTOMIZATION)
   if ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
     append_if(LLVM_ENABLE_WERROR -Wno-error CMAKE_C_FLAGS)
   endif()
-=======
+endif()
+
 if(${CMAKE_SYSTEM_NAME} MATCHES "AIX")
   include(CompilerRTAIXUtils)
->>>>>>> 7c4dbff05d363d262a4a246b9a9726401652f268
 endif()
 
 option(COMPILER_RT_BUILTINS_HIDE_SYMBOLS
