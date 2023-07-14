@@ -3668,7 +3668,10 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
     // At this point, all IfBlocks are empty, so our if
     // statement has been flattened.  Change CondBlock to jump directly to BB
     // to avoid other simplifycfg's kicking in on the diamond.
-    Builder.CreateBr(BB);
+    // Ensure that important metadata is transferred to the new block.
+    auto NB = Builder.CreateBr(BB);
+    NB->copyMetadata(*DomBI, {LLVMContext::MD_loop, LLVMContext::MD_dbg,
+                              LLVMContext::MD_annotation});
 
     SmallVector<DominatorTree::UpdateType, 3> Updates;
     if (DTU) {
