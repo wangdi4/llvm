@@ -401,6 +401,8 @@ PerfScriptReader::convertPerfDataToTrace(ProfiledBinary *Binary,
   std::optional<StringRef> Redirects[] = {std::nullopt,             // Stdin
                                           StringRef(PerfTraceFile), // Stdout
                                           StringRef(ErrorFile)};    // Stderr
+  sys::fs::remove(StringRef(PerfTraceFile));                        // INTEL
+  sys::fs::remove(StringRef(ErrorFile));                            // INTEL
   sys::ExecuteAndWait(PerfPath, ScriptMMapArgs, std::nullopt, Redirects);
 
   // Collect the PIDs
@@ -437,6 +439,8 @@ PerfScriptReader::convertPerfDataToTrace(ProfiledBinary *Binary,
   StringRef ScriptSampleArgs[] = {PerfPath, "script",  "--show-mmap-events",
                                   "-F",     FieldList, "--pid", // INTEL
                                   PIDs,     "-i",      PerfData};
+  sys::fs::remove(StringRef(PerfTraceFile)); // INTEL
+  sys::fs::remove(StringRef(ErrorFile));     // INTEL
   sys::ExecuteAndWait(PerfPath, ScriptSampleArgs, std::nullopt, Redirects);
 
   return {PerfTraceFile, PerfFormat::PerfScript, PerfContent::UnknownContent};
