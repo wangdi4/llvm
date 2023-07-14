@@ -2030,22 +2030,28 @@ void OpenMPLateOutliner::emitOMPUntiedClause(const OMPUntiedClause *) {
   addArg("QUAL.OMP.UNTIED");
 }
 
+template <typename T>
+void OpenMPLateOutliner::emitDoacrossClause(const T *C, bool IsSource) {
+
+  OpenMPClauseKind Kind = C->getClauseKind();
+  SmallString<32> Arg("QUAL.OMP.");
+  Arg += (Kind == OMPC_depend) ? "DEPEND" : "DOACROSS";
+  Arg += IsSource ? ".SOURCE" : ".SINK";
+
+  ClauseEmissionHelper CEH(*this, Kind);
+  addArg(Arg);
+  for (unsigned I = 0, E = C->getNumLoops(); I < E; ++I)
+    addArg(CGF.EmitScalarExpr(C->getLoopData(I)));
+}
+
 void OpenMPLateOutliner::emitOMPDependClause(const OMPDependClause *Cl) {
   // This function is needed until old IR for depend clause is no longer
   // necessary and flag has been removed.
   if (CGF.getLangOpts().OpenMPNewDependIR)
     return;
   auto DepKind = Cl->getDependencyKind();
-  if (DepKind == OMPC_DEPEND_source || DepKind == OMPC_DEPEND_sink) {
-    ClauseEmissionHelper CEH(*this, OMPC_depend);
-    if (DepKind == OMPC_DEPEND_source)
-      addArg("QUAL.OMP.DEPEND.SOURCE");
-    else
-      addArg("QUAL.OMP.DEPEND.SINK");
-    for (unsigned I = 0, E = Cl->getNumLoops(); I < E; ++I)
-      addArg(CGF.EmitScalarExpr(Cl->getLoopData(I)));
-    return;
-  }
+  if (DepKind == OMPC_DEPEND_source || DepKind == OMPC_DEPEND_sink)
+    return emitDoacrossClause(Cl, DepKind == OMPC_DEPEND_source);
 
   for (auto *E : Cl->varlists()) {
     ClauseEmissionHelper CEH(*this, OMPC_depend);
@@ -2069,6 +2075,13 @@ void OpenMPLateOutliner::emitOMPDependClause(const OMPDependClause *Cl) {
     addArg(CSB.getString());
     addArg(E);
   }
+}
+
+void OpenMPLateOutliner::emitOMPDoacrossClause(const OMPDoacrossClause *Cl) {
+  auto Kind = Cl->getDependenceType();
+  bool IsSource = Kind == OMPC_DOACROSS_source ||
+                  Kind == OMPC_DOACROSS_source_omp_cur_iteration;
+  emitDoacrossClause(Cl, IsSource);
 }
 
 void OpenMPLateOutliner::emitOMPDeviceClause(const OMPDeviceClause *Cl) {
@@ -2544,13 +2557,7 @@ void OpenMPLateOutliner::emitOMPAllDependClauses() {
   for (const auto *C : Directive.getClausesOfKind<OMPDependClause>()) {
     auto DepKind = C->getDependencyKind();
     if (DepKind == OMPC_DEPEND_source || DepKind == OMPC_DEPEND_sink) {
-      ClauseEmissionHelper CEH(*this, OMPC_depend);
-      if (DepKind == OMPC_DEPEND_source)
-        addArg("QUAL.OMP.DEPEND.SOURCE");
-      else
-        addArg("QUAL.OMP.DEPEND.SINK");
-      for (unsigned I = 0, E = C->getNumLoops(); I < E; ++I)
-        addArg(CGF.EmitScalarExpr(C->getLoopData(I)));
+      emitDoacrossClause(C, DepKind == OMPC_DEPEND_source);
       continue;
     }
     OMPTaskDataTy::DependData &DD =
@@ -3125,7 +3132,6 @@ void OpenMPLateOutliner::emitOMPUseDeviceAddrClause(
     const OMPUseDeviceAddrClause *Cl) {
   assert(false && "clauses handled in emitOMPAllMapClauses");
 }
-void OpenMPLateOutliner::emitOMPDoacrossClause(const OMPDoacrossClause *) {}
 void OpenMPLateOutliner::emitOMPReadClause(const OMPReadClause *) {}
 void OpenMPLateOutliner::emitOMPWriteClause(const OMPWriteClause *) {}
 void OpenMPLateOutliner::emitOMPFromClause(const OMPFromClause *) {assert(false);}
