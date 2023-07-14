@@ -248,7 +248,9 @@ FPClassTest llvm::invertFPClassTestIfSimpler(FPClassTest Test) {
   case fcFinite:
   case fcPosFinite:
   case fcNegFinite:
+  case fcZero | fcNan:
   case fcSubnormal | fcZero:
+  case fcSubnormal | fcZero | fcNan:
     return InvertedTest;
   default:
     return fcNone;
