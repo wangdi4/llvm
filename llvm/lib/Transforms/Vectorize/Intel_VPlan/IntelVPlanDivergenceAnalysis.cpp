@@ -607,25 +607,12 @@ bool VPlanDivergenceAnalysis::isAlwaysUniform(const VPValue &V) const {
   // because the added instructions by OCL VecClone to calculate stride will
   // cause DA to propagate the correct stride as is.
 
-  auto *VPInst = dyn_cast<VPInstruction>(&V);
+  auto *VPCall = dyn_cast<VPCallInstruction>(&V);
 
-  if (!VPInst || VPInst->getOpcode() != Instruction::Call)
+  if (!VPCall)
     return false;
 
-  auto *CalledFunc =
-      dyn_cast<VPConstant>(VPInst->getOperand(VPInst->getNumOperands() - 1));
-
-  if (!CalledFunc)
-    return false;
-
-  auto *Func = dyn_cast<Function>(CalledFunc->VPValue::getUnderlyingValue());
-  if (!Func)
-    return false;
-
-  if (Func->hasFnAttribute("opencl-vec-uniform-return"))
-    return true;
-
-  return false;
+  return VPCall->isOCLVecUniformReturn();
 }
 
 bool VPlanDivergenceAnalysis::isDivergent(const VPValue &V) const {
