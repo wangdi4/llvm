@@ -2671,9 +2671,16 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
           "_f90_dope_vector_init2", NewFnTy);
       Function *InitFn = dyn_cast_or_null<Function>(FnC.getCallee());
       assert(InitFn && "InitFn cannot be nullptr.");
-      VPValue *i8AI = Builder.createNaryOp(Instruction::BitCast, ptrI8, {AI});
-      VPValue *i8PrivateMem =
-          Builder.createNaryOp(Instruction::BitCast, ptrI8, {PrivateMem});
+      Type *AITy = AI->getType();
+      VPValue *i8AI = AI;
+      VPValue *i8PrivateMem = PrivateMem;
+      // If AI is not opaque pointer and it's not i8* we need to convert it to
+      // this type.
+      if (!AITy->isOpaquePointerTy() && AITy != ptrI8) {
+        i8AI = Builder.createNaryOp(Instruction::BitCast, ptrI8, {AI});
+        i8PrivateMem =
+            Builder.createNaryOp(Instruction::BitCast, ptrI8, {PrivateMem});
+      }
       auto *VPInitF90Call = Builder.createCall(InitFn, {i8PrivateMem, i8AI});
 
       // Emit StackSave only single time
@@ -2694,9 +2701,9 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
 
       // We are populating PrivateMem while creating F90DVBufferInit call and
       // now we need to re-reun replacing of the aliases.
-      auto ShouldReplace = [&Preheader, &i8AI](VPUser *User) {
+      auto ShouldReplace = [&Preheader, &i8AI, &VPInitF90Call](VPUser *User) {
         if (VPInstruction *I = dyn_cast<VPInstruction>(User)) {
-          if (I == i8AI)
+          if (I == i8AI || I == VPInitF90Call)
             return false;
           return I->getParent() == Preheader;
         }

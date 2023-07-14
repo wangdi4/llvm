@@ -21,9 +21,7 @@
 ; CHECK:  [[BB1:BB[0-9]+]]
 ; CHECK:    ptr [[VP1]] = allocate-priv %"QNCA_a0$i32*$rank1$" = type { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, OrigAlign = 8
 ; C_HECK:    call i64 72 ptr [[VP1]] ptr @llvm.lifetime.start.p0
-; CHECK:    ptr [[VP2:%.*]] = bitcast ptr %"sum_$C1.priv"
-; CHECK:    ptr [[VP3:%.*]] = bitcast ptr [[VP1]]
-; CHECK:    i64 [[VP4:%.*]] = call ptr [[VP3]] ptr [[VP2:%.*]] ptr @_f90_dope_vector_init2
+; CHECK:    i64 [[VP4:%.*]] = call ptr [[VP3:%.*]] ptr [[VP2:%.*]] ptr @_f90_dope_vector_init2
 ; CHECK:    ptr [[VP5:%.*]] = call ptr @llvm.stacksave
 ; CHECK:    f90-dv-buffer-init i64 [[VP4]] ptr [[VP1]]
 ; CHECK:    call ptr [[VP5]] ptr @llvm.stackrestore
@@ -37,8 +35,6 @@
 ; CHECK:  [[BB1]]
 ; CHECK:      [DA: Div] ptr [[VP1]] = allocate-priv %"QNCA_a0$i32*$rank1$" = type { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, OrigAlign = 8
 ; C_HECK:      [DA: Div] call i64 72 ptr [[VP1]] ptr @llvm.lifetime.start.p0 [Serial]
-; CHECK:      [DA: Uni] ptr [[VP2:%.*]] = bitcast ptr %"sum_$C1.priv"
-; CHECK:      [DA: Div] ptr [[VP3]] = bitcast ptr [[VP1]]
 ; CHECK:      [DA: Div] i64 [[VP4]] = call ptr [[VP3]] ptr [[VP2:%.*]] ptr @_f90_dope_vector_init2 [Serial]
 ; CHECK:      [DA: Uni] ptr [[VP5]] = call ptr @llvm.stacksave
 ; CHECK:      [DA: Div] i64 [[VP6:%.*]] = udiv i64 [[VP4]] i64 4
@@ -64,31 +60,30 @@
 ; LLVMIR-NEXT:   %"sum_$C1.priv.vec" = alloca [2 x %"QNCA_a0$i32*$rank1$"], align 8
 ; LLVMIR-NEXT:   %"sum_$C1.priv.vec.base.addr" = getelementptr %"QNCA_a0$i32*$rank1$", ptr %"sum_$C1.priv.vec", <2 x i32> <i32 0, i32 1>
 ; LLVMIR-NEXT:   %"sum_$C1.priv.vec.base.addr.extract.1." = extractelement <2 x ptr> %"sum_$C1.priv.vec.base.addr", i32 1
-; LLVMIR-NEXT:   %"sum_$C1.priv.vec.base.addr.extract.0.3" = extractelement <2 x ptr> %"sum_$C1.priv.vec.base.addr", i32 0
 ; LLVMIR-NEXT:   %"sum_$C1.priv.vec.base.addr.extract.0." = extractelement <2 x ptr> %"sum_$C1.priv.vec.base.addr", i32 0
 ; LLVMIR-NEXT:   br i1 %is.allocated, label %allocated.then, label %DIR.OMP.SIMD.1
  
 ; LLVMIR:      VPlannedBB2:                                      ; preds = %VPlannedBB1
 ; LLVMIR-NEXT:   call void @llvm.lifetime.start.p0(i64 144, ptr %"sum_$C1.priv.vec.base.addr.extract.0.")
-; LLVMIR-NEXT:   %2 = call i64 @_f90_dope_vector_init2(ptr %"sum_$C1.priv.vec.base.addr.extract.0.3", ptr %"sum_$C1.priv")
+; LLVMIR-NEXT:   %2 = call i64 @_f90_dope_vector_init2(ptr %"sum_$C1.priv.vec.base.addr.extract.0.", ptr %"sum_$C1.priv")
 ; LLVMIR-NEXT:   %3 = insertelement <2 x i64> undef, i64 %2, i32 0
 ; LLVMIR-NEXT:   %4 = call i64 @_f90_dope_vector_init2(ptr %"sum_$C1.priv.vec.base.addr.extract.1.", ptr %"sum_$C1.priv")
 ; LLVMIR-NEXT:   %5 = insertelement <2 x i64> %3, i64 %4, i32 1
 ; LLVMIR-NEXT:   %6 = call ptr @llvm.stacksave()
 ; LLVMIR-NEXT:   %7 = udiv <2 x i64> %5, <i64 4, i64 4>
-; LLVMIR-NEXT:   %.extract.0.6 = extractelement <2 x i64> %7, i32 0
+; LLVMIR-NEXT:   %.extract.0.5 = extractelement <2 x i64> %7, i32 0
 ; LLVMIR-NEXT:   %8 = icmp sgt <2 x i64> %5, zeroinitializer
 ; LLVMIR-NEXT:   %.extract.0. = extractelement <2 x i1> %8, i32 0
-; LLVMIR-NEXT:   br i1 %.extract.0., label %VPlannedBB4, label %VPlannedBB5
+; LLVMIR-NEXT:   br i1 %.extract.0., label %VPlannedBB3, label %VPlannedBB4
 
-; LLVMIR:      VPlannedBB4:                                      ; preds = %VPlannedBB2
-; LLVMIR-NEXT:   %.array.buffer.lane.0 = alloca i32, i64 %.extract.0.6, align 4
+; LLVMIR:      VPlannedBB3:                                      ; preds = %VPlannedBB2
+; LLVMIR-NEXT:   %.array.buffer.lane.0 = alloca i32, i64 %.extract.0.5, align 4
 ; LLVMIR-NEXT:   %.array.buffer.insert.0 = insertelement <2 x ptr> undef, ptr %.array.buffer.lane.0, i64 0
-; LLVMIR-NEXT:   %.array.buffer.lane.1 = alloca i32, i64 %.extract.0.6, align 4
+; LLVMIR-NEXT:   %.array.buffer.lane.1 = alloca i32, i64 %.extract.0.5, align 4
 ; LLVMIR-NEXT:   %.array.buffer.insert.1 = insertelement <2 x ptr> %.array.buffer.insert.0, ptr %.array.buffer.lane.1, i64 1
 ; LLVMIR-NEXT:   %mm_vectorGEP = getelementptr %"QNCA_a0$i32*$rank1$", <2 x ptr> %"sum_$C1.priv.vec.base.addr", <2 x i32> zeroinitializer, <2 x i32> zeroinitializer
 ; LLVMIR-NEXT:   call void @llvm.masked.scatter.v2p0.v2p0(<2 x ptr> %.array.buffer.insert.1, <2 x ptr> %mm_vectorGEP, i32 1, <2 x i1> <i1 true, i1 true>)
-; LLVMIR-NEXT:   br label %VPlannedBB5
+; LLVMIR-NEXT:   br label %VPlannedBB4
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

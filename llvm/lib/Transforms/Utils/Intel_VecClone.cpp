@@ -173,7 +173,7 @@ using namespace llvm;
 
 extern bool Usei1MaskForSimdFunctions;
 
-bool VFABILegalizationEnabled = false;
+bool VFABILegalizationEnabled = true;
 static cl::opt<bool, true> LegalizationEnabled(
     "vec-clone-legalize-enabled", cl::Hidden,
     cl::location(VFABILegalizationEnabled),
