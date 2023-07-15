@@ -575,8 +575,7 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
 
 #ifndef NDEBUG
   // Run verifier after predicator
-  std::unique_ptr<VPlanVerifier> Verifier(new VPlanVerifier(Lp, *DL));
-  LVP.verifyAllVPlans(Verifier.get());
+  LVP.verifyAllVPlans(Lp);
 #endif
 
   // VPlan construction stress test ends here.
@@ -730,7 +729,7 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   // TODO: DA checks are temporarily disabled here since there are some
   // existing issues with DA not assigning shapes to all instructions
   // Once those are patched, the SkipDA flag should be removed.
-  Verifier->verifyVPlan(Plan, VPlanVerifier::SkipDA);
+  VPlanVerifier::verify(Plan, Lp, VPlanVerifier::SkipDA);
 #endif
   LVP.executeBestPlan(VCodeGen);
 
