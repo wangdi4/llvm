@@ -119,6 +119,16 @@ void VPlanVerifier::verifyCFGExternals(const VPlan *Plan) {
   Plan->getExternals().verifyVPMetadataAsValues();
 }
 
+// Static interface to verify a VPlan
+// Calls into verifyVPlan after constructing a verifier object
+void VPlanVerifier::verify(const VPlanVector *Plan, const Loop *Lp,
+                           unsigned int CheckFlags) {
+  assert(Plan && "Plan must be defined");
+  assert(Plan->getDataLayout() && "Plan data layout must be defined");
+  VPlanVerifier Verifier(Lp, *Plan->getDataLayout());
+  Verifier.verifyVPlan(Plan, CheckFlags);
+}
+
 void VPlanVerifier::verifyDA(const VPlan *Plan) const {
   if (auto *DABase = Plan->getVPlanDA()) {
     if (auto *DA = dyn_cast<VPlanDivergenceAnalysis>(DABase)) {
