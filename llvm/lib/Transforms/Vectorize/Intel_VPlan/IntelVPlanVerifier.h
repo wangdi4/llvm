@@ -149,6 +149,11 @@ public:
 
   /// Verify CFG externals, VPLoopInfo, VPLoop and number of loops in loop nest
   void verifyVPlan(const VPlanVector *Plan, unsigned int CheckFlags = 0);
+
+  // Interface for calling the verifier more easily
+  // Constructs a VPlanVerifier instance, then calls verifyVPlan on it
+  static void verify(const VPlanVector *Plan, const Loop *Lp = nullptr,
+                     unsigned int CheckFlags = 0);
 };
 } // namespace vpo
 } // namespace llvm

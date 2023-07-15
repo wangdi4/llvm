@@ -2852,19 +2852,16 @@ void LoopVectorizationPlanner::doLoopMassaging(VPlanVector *Plan) {
 
 void LoopVectorizationPlanner::printAndVerifyAfterInitialTransforms(
     VPlan *Plan) {
-  // Run verifier after initial transforms in debug build.
-  std::unique_ptr<VPlanVerifier> Verifier(new VPlanVerifier(TheLoop, *DL));
-
   LLVM_DEBUG(dbgs() << *Plan);
 
   if (auto *VPlanVec = dyn_cast<VPlanVector>(Plan)) {
 
     LLVM_DEBUG(VPlanVec->printVectorVPlanData());
 #ifndef NDEBUG
-    Verifier->verifyVPlan(VPlanVec, VPlanVerifier::SkipLoopInfo);
+    // Run verifier after initial transforms in debug build.
+    VPlanVerifier::verify(VPlanVec, TheLoop, VPlanVerifier::SkipLoopInfo);
 #endif
     (void)VPlanVec;
-    (void)Verifier;
   }
 
   VPLAN_DUMP(InitialTransformsDumpControl, Plan);
