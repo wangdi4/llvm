@@ -4369,10 +4369,11 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     // including the hoist loop starting from MainLoop's parent loop. The
     // liveout information for MainLoop will be added by setupLiveInLiveOut
     // call.
-    auto RvalSymbase = VecRef->getSymbase();
     HLLoop *ThisLoop = MainLoop->getParentLoop();
     while (ThisLoop != RednHoistLp->getParentLoop()) {
-      ThisLoop->addLiveOutTemp(RvalSymbase);
+      // VecRef can be the result of a folded operation and all blobs in this
+      // RegDDRef need to be marked as liveout.
+      ThisLoop->addLiveOutTemp(VecRef);
       ThisLoop = ThisLoop->getParentLoop();
     }
 
