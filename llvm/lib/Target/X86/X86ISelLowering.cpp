@@ -26766,6 +26766,60 @@ SDValue X86TargetLowering::getSqrtEstimate(SDValue Op,
     if (RefinementSteps != TargetLoweringBase::ReciprocalEstimate::Unspecified)
       return DAG.getNode(X86ISD::RSQRT14, SDLoc(Op), VT, Op);
   }
+
+  if (Reciprocal && Subtarget.hasAVX2() &&
+      (VT == MVT::f64 || VT == MVT::v2f64 || VT == MVT::v4f64)) {
+    auto GetF64Rsqrt11 = [&](SDValue Op, EVT InVT, SDLoc DL) {
+      EVT F32VT = MVT::f32;
+      bool Extend = false;
+
+      if (InVT.isVector()) {
+        unsigned NumElem = VT.getVectorNumElements();
+
+        F32VT = MVT::getVectorVT(MVT::f32, NumElem);
+        // We don't supprot v2f32 very well, extent it to v4f32 first.
+        if (NumElem == 2) {
+          Op = DAG.getNode(ISD::CONCAT_VECTORS, DL, MVT::v4f64, Op,
+                           DAG.getUNDEF(MVT::v2f64));
+          F32VT = MVT::v4f32;
+          Extend = true;
+        }
+      }
+
+      SDValue F32Op = DAG.getNode(ISD::FP_ROUND, DL, F32VT, Op,
+                                  DAG.getIntPtrConstant(0, DL, true));
+      SDValue RSQRT = DAG.getNode(X86ISD::FRSQRT, DL, F32VT, F32Op);
+
+      if (Extend) {
+        SDValue ZeroIdx = DAG.getVectorIdxConstant(0, DL);
+        RSQRT =
+            DAG.getNode(ISD::EXTRACT_SUBVECTOR, DL, MVT::v2f32, RSQRT, ZeroIdx);
+      }
+
+      return DAG.getNode(ISD::FP_EXTEND, DL, InVT, RSQRT);
+    };
+
+    if (RefinementSteps ==
+        TargetLoweringBase::ReciprocalEstimate::Unspecified) {
+      if (IABRValue <= 11) {
+        RefinementSteps = 0;
+        SDLoc DL(Op);
+        return GetF64Rsqrt11(Op, VT, DL);
+      } else if (IABRValue <= 22 && Subtarget.hasFMA()) {
+        RefinementSteps = 0;
+        SDLoc DL(Op);
+        SDValue Half = DAG.getConstantFP(0.5, DL, VT);
+        SDValue Est = GetF64Rsqrt11(Op, VT, DL);
+        SDValue Mul1 = DAG.getNode(ISD::FMUL, DL, VT, Op, Est);
+        SDValue Mul2 = DAG.getNode(ISD::FMUL, DL, VT, Est, Half);
+        SDValue FNMA = DAG.getNode(X86ISD::FNMADD, DL, VT, Mul1, Mul2, Half);
+        return DAG.getNode(ISD::FMA, DL, VT, Est, FNMA, Est);
+      }
+    } else {
+      SDLoc DL(Op);
+      return GetF64Rsqrt11(Op, VT, DL);
+    }
+  }
 #endif // INTEL_CUSTOMIZATION
 
   return SDValue();
