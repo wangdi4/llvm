@@ -54,7 +54,8 @@ std::string llvm::getLanguageStr(Function *F) {
 FunctionInliningReport::FunctionInliningReport(
     LLVMContext *C, std::string FuncName, std::vector<MDTuple *> *CSs,
     std::string ModuleName, bool IsDead, bool IsDeclaration,
-    bool isSuppressPrint, std::string LinkageStr, std::string LanguageStr) {
+    bool isSuppressPrint, bool IsCompact, std::string LinkageStr,
+    std::string LanguageStr) {
   // Create inlining report metadata list for call sites inside function.
   SmallVector<Metadata *, 100> Ops;
   if (CSs && CSs->size()) {
@@ -105,7 +106,15 @@ FunctionInliningReport::FunctionInliningReport(
   auto IsSuppressPrintMD =
       MDNode::get(*C, llvm::MDString::get(*C, IsSuppressPrintStr));
   Ops.push_back(IsSuppressPrintMD);
-
+  // Op 9: is compact?
+  std::string IsCompactStr = "isCompact: ";
+  IsCompactStr.append(std::to_string(IsCompact));
+  auto IsCompactMD = MDNode::get(*C, llvm::MDString::get(*C, IsCompactStr));
+  Ops.push_back(IsCompactMD);
+  // Op 10: List of compact inline indexes (starts out null)
+  Ops.push_back(nullptr);
+  // Op 11: List of compact inline counts (starts out null)
+  Ops.push_back(nullptr);
   Report = MDTuple::getDistinct(*C, Ops);
 }
 
@@ -139,8 +148,8 @@ MDTuple *CallSiteInliningReport::initCallSite(
     InlineReason Reason, bool IsInlined, bool IsSuppressPrint, int InlineCost,
     int OuterInlineCost, int InlineThreshold, int EarlyExitInlineCost,
     int EarlyExitInlineThreshold, bool IsCostBenefit, int CBPairCost,
-    int CBPairBenefit, InlICSType ICSMethod, unsigned Line, unsigned Col,
-    std::string ModuleName) {
+    int CBPairBenefit, InlICSType ICSMethod, bool IsCompact, unsigned Line,
+    unsigned Col, std::string ModuleName) {
   // Create a list of inlining reports for call sites that appear from inlining
   // of the current call site.
   SmallVector<Metadata *, 100> Ops;
@@ -240,6 +249,11 @@ MDTuple *CallSiteInliningReport::initCallSite(
   ICSMethodStr.append(std::to_string(ICSMethod));
   auto ICSMethodMD = MDNode::get(*C, llvm::MDString::get(*C, ICSMethodStr));
   Ops.push_back(ICSMethodMD);
+  // Op 17: isCompact
+  std::string IsCompactStr = "isCompact: ";
+  IsCompactStr.append(std::to_string(IsCompact));
+  auto IsCompactMD = MDNode::get(*C, llvm::MDString::get(*C, IsCompactStr));
+  Ops.push_back(IsCompactMD);
   return MDTuple::getDistinct(*C, Ops);
 }
 
@@ -248,13 +262,13 @@ CallSiteInliningReport::CallSiteInliningReport(
     InlineReason Reason, bool IsInlined, bool IsSuppressPrint, int InlineCost,
     int OuterInlineCost, int InlineThreshold, int EarlyExitInlineCost,
     int EarlyExitInlineThreshold, bool IsCostBenefit, int CBPairCost,
-    int CBPairBenefit, InlICSType ICSMethod, unsigned Line, unsigned Col,
-    std::string ModuleName) {
+    int CBPairBenefit, InlICSType ICSMethod, bool IsCompact, unsigned Line,
+    unsigned Col, std::string ModuleName) {
   Report =
       initCallSite(C, Name, CSs, Reason, IsInlined, IsSuppressPrint, InlineCost,
                    OuterInlineCost, InlineThreshold, EarlyExitInlineCost,
                    EarlyExitInlineThreshold, IsCostBenefit, CBPairCost,
-                   CBPairBenefit, ICSMethod, Line, Col, ModuleName);
+                   CBPairBenefit, ICSMethod, IsCompact, Line, Col, ModuleName);
 }
 
 CallSiteInliningReport::CallSiteInliningReport(
@@ -262,7 +276,7 @@ CallSiteInliningReport::CallSiteInliningReport(
     bool IsInlined, bool IsSuppressPrint, int InlineCost, int OuterInlineCost,
     int InlineThreshold, int EarlyExitInlineCost, int EarlyExitInlineThreshold,
     bool IsCostBenefit, int CBPairCost, int CBPairBenefit,
-    InlICSType ICSMethod) {
+    InlICSType ICSMethod, bool IsCompact) {
   Function *Callee = MainCB->getCalledFunction();
   std::string Name =
       Callee ? std::string(Callee->hasName() ? Callee->getName() : "") : "";
@@ -275,7 +289,7 @@ CallSiteInliningReport::CallSiteInliningReport(
       MainCB->getMetadata(IPOUtils::getSuppressInlineReportStringRef()),
       InlineCost, OuterInlineCost, InlineThreshold, EarlyExitInlineCost,
       EarlyExitInlineThreshold, IsCostBenefit, CBPairCost, CBPairBenefit,
-      ICSMethod, (DL ? DL.getLine() : 0), (DL ? DL.getCol() : 0),
+      ICSMethod, IsCompact, (DL ? DL.getLine() : 0), (DL ? DL.getCol() : 0),
       ModuleName.str());
 }
 
@@ -492,6 +506,119 @@ void llvm::setMDReasonIsInlined(CallBase *Call, const InlineCost &IC) {
   CSIR->replaceOperandWith(CSMDIR_InlineThreshold, InlineThresholdMD);
 }
 
+bool InlineReportBuilder::shouldCompactCallBase(Function *Caller,
+                                                Function *Callee,
+                                                bool ForceCompact) {
+  unsigned CalleeIndex = getFunctionIndex(Callee);
+  Module *M = Caller->getParent();
+  NamedMDNode *ModuleInlineReport = M->getOrInsertNamedMetadata(ModuleTag);
+  MDNode *Node = ModuleInlineReport->getOperand(CalleeIndex);
+  MDTuple *FuncReport = cast<MDTuple>(Node);
+  int64_t IsCompact = 0;
+  getOpVal(FuncReport->getOperand(FMDIR_IsCompact), "isCompact: ", &IsCompact);
+  if (IsCompact)
+    return false;
+  if (ForceCompact)
+    return true;
+  if (InlineCount[CalleeIndex] > IntelInlineReportCompactThreshold)
+    return true;
+  return false;
+}
+
+void InlineReportBuilder::addCompactInlinedCallBase(unsigned CallerIndex, 
+                                                    unsigned CalleeIndex,
+                                                    unsigned Count) {
+  auto MV = TotalInlines[CallerIndex];
+  auto MapIt = MV->find(CalleeIndex);
+  if (MapIt != MV->end()) {
+    MapIt->second += Count;
+    return;
+  }
+  MV->insert({CalleeIndex, Count});
+}
+
+void InlineReportBuilder::addForCompactInlinedCallBase(unsigned CallerIndex,
+                                                       unsigned CalleeIndex,
+                                                       unsigned Count) {
+  auto MV = Inlines[CallerIndex];
+  auto MapIt = MV->find(CalleeIndex);
+    if (MapIt != MV->end()) {
+    MapIt->second += Count;
+    return;
+  }
+  MV->insert({CalleeIndex, Count});
+}
+
+void InlineReportBuilder::compactChildren(Function *F,
+                                          MDTuple *MDTupleCS) {
+  Module *M = F->getParent();
+  unsigned CallerIndex = getFunctionIndex(F);
+  if (Metadata *MDCSs = MDTupleCS->getOperand(CSMDIR_CSs).get()) {
+    auto CSs = cast<MDTuple>(MDCSs);
+    for (unsigned I = 1, E = CSs->getNumOperands(); I < E; ++I) {
+      MDTuple *TMD = dyn_cast<MDTuple>(CSs->getOperand(I).get());
+      int64_t IsInlined = 0;
+      getOpVal(TMD->getOperand(CSMDIR_IsInlined), "isInlined: ", &IsInlined);
+      if (IsInlined) {
+        StringRef MDSR = getOpStr(TMD->getOperand(CSMDIR_CalleeName), "name: ");
+        unsigned CalleeIndex = getFunctionIndexByName(M, MDSR);
+        addCompactInlinedCallBase(CallerIndex, CalleeIndex);
+        compactChildren(F, TMD);
+      }
+    }
+  }
+}
+
+void InlineReportBuilder::inheritCompactCallBases(Function *Caller,
+                                                  Function *Callee) {
+  unsigned CallerIndex = getFunctionIndex(Caller);
+  auto MV = TotalInlines[getFunctionIndex(Callee)];
+  for (auto &InlinedPair : *MV) {
+    addForCompactInlinedCallBase(CallerIndex, InlinedPair.first, InlinedPair.second);
+    if (getIsCompact(Caller))
+      addCompactInlinedCallBase(CallerIndex, InlinedPair.first, InlinedPair.second);
+  }
+}
+
+void InlineReportBuilder::compact(Function *F) {
+  Module *M = F->getParent();
+  unsigned CallerIndex = getFunctionIndex(F);
+  Metadata *MDF = F->getMetadata(FunctionTag);
+  auto *MDTupleF = cast<MDTuple>(MDF);
+  if (Metadata *MDCSs = MDTupleF->getOperand(FMDIR_CSs).get()) {
+    auto CSs = cast<MDTuple>(MDCSs);
+    for (unsigned I = 1, E = CSs->getNumOperands(); I < E; ++I) {
+      MDTuple *TMD = dyn_cast<MDTuple>(CSs->getOperand(I).get());
+      int64_t IsInlined = 0;
+      getOpVal(TMD->getOperand(CSMDIR_IsInlined), "isInlined: ", &IsInlined);
+      if (IsInlined) {
+        StringRef MDSR = getOpStr(TMD->getOperand(CSMDIR_CalleeName), "name: ");
+        unsigned CalleeIndex = getFunctionIndexByName(M, MDSR);
+        addCompactInlinedCallBase(CallerIndex, CalleeIndex);
+        compactChildren(F, TMD);
+      }
+    }
+  }
+  setIsCompact(F, true);
+}
+
+bool InlineReportBuilder::getIsCompact(Function *F) {
+  int64_t IsCompact = 0;
+  auto FIR = cast<MDTuple>(F->getMetadata(FunctionTag));
+  getOpVal(FIR->getOperand(FMDIR_IsCompact), "isCompact: ", &IsCompact);
+  return IsCompact;
+}
+
+void InlineReportBuilder::setIsCompact(Function *F, bool Value) {
+  Module *M = F->getParent();
+  LLVMContext &Ctx = M->getContext();
+  std::string IsCompactStr = "isCompact: ";
+  IsCompactStr.append(std::to_string(Value));
+  auto IsCompactMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, IsCompactStr));
+  auto FIR = cast<MDTuple>(F->getMetadata(FunctionTag));
+  FIR->replaceOperandWith(FMDIR_IsCompact, IsCompactMD);
+}
+
 // In the beginning of the inlining process put all functions and call
 // instructions together with their inlining reports into callback list.
 void InlineReportBuilder::beginFunction(Function *F) {
@@ -558,6 +685,24 @@ void InlineReportBuilder::setDead(Function *F) {
   IsDeadStr.append(std::to_string(true));
   auto IsDeadMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, IsDeadStr));
   FIR->replaceOperandWith(FMDIR_IsDead, IsDeadMD);
+  FunctionIndexMap.erase(F);
+}
+
+bool InlineReportBuilder::getIsCompact(Metadata *CurrentCallInstReport) {
+  int64_t IsCompact = 0;
+  auto CSIR = cast<MDTuple>(CurrentCallInstReport);
+  getOpVal(CSIR->getOperand(CSMDIR_IsCompact), "isCompact: ", &IsCompact);
+  return IsCompact;
+}
+
+void InlineReportBuilder::setIsCompact(Metadata *CurrentCallInstReport,
+                                       bool Value) {
+  auto CSIR = cast<MDTuple>(CurrentCallInstReport);
+  LLVMContext &Ctx = CSIR->getContext();
+  std::string IsCompactStr = "isCompact: ";
+  IsCompactStr.append(std::to_string(Value));
+  auto IsCompactMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, IsCompactStr));
+  CSIR->replaceOperandWith(CSMDIR_IsCompact, IsCompactMD);
 }
 
 // This function copies simple metadata node and recursively calls itself to
@@ -574,7 +719,6 @@ enum MDDescentType {
   MDDT_CallSite,    // Represents a CallSite
   MDDT_CallSiteList // Represents a list of CallSites
 };
-
 static Metadata *cloneInliningReportHelper(
     LLVMContext &C, Metadata *OldMD, DenseMap<Metadata *, Metadata *> &MDMap,
     std::set<MDTuple *> &LeafMDIR, Metadata *CurrentCallInstReport,
@@ -594,7 +738,8 @@ static Metadata *cloneInliningReportHelper(
     CallSiteInliningReport NewRep(
         &C, std::string(OldRep.getName()), nullptr, NinlrNoReason, false,
         OldRep.getSuppressPrint(), -1, -1, -1, INT_MAX, INT_MAX, false, -1, -1,
-        InlICSNone, LineNum, ColNum, std::string(OldRep.getModuleName()));
+        InlICSNone, false, LineNum, ColNum,
+        std::string(OldRep.getModuleName()));
     NewMD = NewRep.get();
   } else if (MDTuple *OldTupleMD = dyn_cast<MDTuple>(OldMD)) {
     SmallVector<Metadata *, 20> Ops;
@@ -697,8 +842,93 @@ Metadata *InlineReportBuilder::cloneInliningReport(Function *F,
   return NewFuncMD;
 }
 
+Metadata *InlineReportBuilder::cloneCompactCS(LLVMContext &C,
+                                              ValueToValueMapTy &VMap) {
+  SmallVector<Metadata *, 20> Ops;
+  Ops.push_back(llvm::MDString::get(C, CallSitesTag));
+  const char *const CSKind = MDInliningReport::CallSiteTag;
+  for (const auto &Pair : VMap) {
+    auto CB0 = dyn_cast<CallBase>(Pair.first);
+    auto CB1 = dyn_cast<CallBase>(Pair.second);
+    if (!CB0 || !CB1)
+      continue;
+    auto CB0CIR = dyn_cast_or_null<MDTuple>(CB0->getMetadata(CSKind));
+    if (!CB0CIR)
+      continue;
+    CallSiteInliningReport OldRep(CB0CIR);
+    unsigned LineNum = 0, ColNum = 0;
+    OldRep.getLineAndCol(&LineNum, &ColNum);
+    CallSiteInliningReport NewRep(
+        &C, std::string(OldRep.getName()), nullptr, NinlrNoReason, false,
+        OldRep.getSuppressPrint(), -1, -1, -1, INT_MAX, INT_MAX, false, -1, -1,
+        InlICSNone, false, LineNum, ColNum,
+        std::string(OldRep.getModuleName()));
+    Ops.push_back(NewRep.get());
+    CB1->setMetadata(CSKind, NewRep.get());
+  }
+  return MDTuple::getDistinct(C, Ops);
+}
+
+Metadata *InlineReportBuilder::cloneInliningReportHelperCompact(
+    LLVMContext &C, Metadata *OldMD, ValueToValueMapTy &VMap, bool IsTerminal) {
+  Metadata *NewMD = nullptr;
+  if (MDString *OldStrMD = dyn_cast<MDString>(OldMD))
+    NewMD = llvm::MDString::get(C, OldStrMD->getString());
+  else if (MDTuple *OldTupleMD = dyn_cast<MDTuple>(OldMD)) {
+    SmallVector<Metadata *, 20> Ops;
+    for (unsigned I = 0, E = OldTupleMD->getNumOperands(); I < E; ++I) {
+      Metadata *MDT = nullptr;
+      if (!IsTerminal && I == FMDIR_CSs) {
+        Ops.push_back(cloneCompactCS(C, VMap));
+      } else if (IsTerminal ||
+                 (I != FMDIR_CompactIndexes && I != FMDIR_CompactCounts)) {
+        Metadata *MDNodeT = OldTupleMD->getOperand(I);
+        MDT = cloneInliningReportHelperCompact(C, MDNodeT, VMap, true);
+        Ops.push_back(MDT);
+      }
+    }
+    NewMD = OldTupleMD->isDistinct() ? MDTuple::getDistinct(C, Ops)
+                                     : MDTuple::get(C, Ops);
+  }
+  return NewMD;
+}
+
+Metadata *InlineReportBuilder::cloneInliningReportCompact(
+    Function *Caller, Function *Callee, ValueToValueMapTy &VMap) {
+  inheritCompactCallBases(Caller, Callee);
+  if (getIsSummarized(Callee))
+    setIsCompact(CurrentCallInstReport, true);
+  LLVMContext &C = Caller->getParent()->getContext();
+  addCompactInlinedCallBase(getFunctionIndex(Caller), getFunctionIndex(Callee));
+  Metadata *CallerMD = Caller->getMetadata(FunctionTag);
+  auto CallerMDTuple = cast<MDTuple>(CallerMD);
+  Metadata *OldCalleeMD = Callee->getMetadata(FunctionTag);
+  Metadata *NewCalleeMD =
+      cloneInliningReportHelperCompact(C, OldCalleeMD, VMap, false);
+  auto MV = Inlines[getFunctionIndex(Caller)];
+  if (MV->empty())
+    return NewCalleeMD;
+  SmallVector<Metadata *, 20> Ops0;
+  SmallVector<Metadata *, 20> Ops1;
+  for (const auto &Pair : *MV) {
+    std::string IsIndexStr = "Index: ";
+    IsIndexStr.append(std::to_string(Pair.first));
+    auto IsIndexMD = MDNode::get(C, llvm::MDString::get(C, IsIndexStr));
+    Ops0.push_back(IsIndexMD);
+    std::string IsCountStr = "Count: ";
+    IsCountStr.append(std::to_string(Pair.second));
+    auto IsCountMD = MDNode::get(C, llvm::MDString::get(C, IsCountStr));
+    Ops1.push_back(IsCountMD);
+  }
+  MDNode *NewCompactIndexes = MDTuple::getDistinct(C, Ops0);
+  MDNode *NewCompactCounts = MDTuple::getDistinct(C, Ops1);
+  CallerMDTuple->replaceOperandWith(FMDIR_CompactIndexes, NewCompactIndexes);
+  CallerMDTuple->replaceOperandWith(FMDIR_CompactCounts, NewCompactCounts);
+  return NewCalleeMD;
+}
+
 // Update inlining report of the inlined call site.
-void InlineReportBuilder::updateInliningReport() {
+void InlineReportBuilder::inlineCallSite() {
   if (!isMDIREnabled())
     return;
   if (!CurrentCallee)
@@ -718,19 +948,35 @@ void InlineReportBuilder::updateInliningReport() {
     Value *NewCall = ActiveInlinedCalls[I];
     VMap.insert(std::make_pair(OldCall, NewCall));
   }
-
-  Metadata *NewMD = cloneInliningReport(CurrentCallee, VMap);
+  // Update the name of the callee. This must be done in case an indirect
+  // call was converted to a direct call before inlining it.
+  MDTuple *OldCallSiteIR = cast<MDTuple>(CurrentCallInstReport);
+  StringRef CalleeName = CurrentCallee ? CurrentCallee->getName() : "";
+  std::string FuncName = std::string(CalleeName);
+  FuncName.insert(0, "name: ");
+  LLVMContext &Ctx = CurrentCaller->getContext();
+  auto FuncNameMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, FuncName));
+  OldCallSiteIR->replaceOperandWith(CSMDIR_CalleeName, FuncNameMD);
+  // Test if the callee should be compacted before inlining.
+  if (shouldCompactCallBase(CurrentCaller, CurrentCallee, Level & Compact))
+    compact(CurrentCallee);
+  Metadata *NewMD = nullptr;
+  if (getIsCompact(CurrentCallee))
+    NewMD = cloneInliningReportCompact(CurrentCaller, CurrentCallee, VMap);
+  else
+    NewMD = cloneInliningReport(CurrentCallee, VMap);
   if (!NewMD)
     return;
   MDTuple *NewCallSiteIR = cast<MDTuple>(NewMD);
-  MDTuple *OldCallSiteIR = cast<MDTuple>(CurrentCallInstReport);
   OldCallSiteIR->replaceOperandWith(CSMDIR_CSs,
                                     NewCallSiteIR->getOperand(CSMDIR_CSs));
-  LLVMContext &Ctx = CurrentCallee->getParent()->getContext();
   std::string IsInlinedStr = "isInlined: ";
   IsInlinedStr.append(std::to_string(true));
   auto IsInlinedMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, IsInlinedStr));
   OldCallSiteIR->replaceOperandWith(CSMDIR_IsInlined, IsInlinedMD);
+  unsigned CallerIndex = getFunctionIndex(CurrentCaller);
+  unsigned CalleeIndex = getFunctionIndex(CurrentCallee);
+  InlineCount[CallerIndex] += InlineCount[CalleeIndex] + 1;
 }
 
 void InlineReportBuilder::replaceFunctionWithFunction(Function *OldFunction,
@@ -745,7 +991,8 @@ void InlineReportBuilder::replaceFunctionWithFunction(Function *OldFunction,
   auto *OldFIR = dyn_cast<MDTuple>(OldFMD);
   if (!OldFIR)
     return;
-
+  FunctionIndexMap.insert({NewFunction, getFunctionIndex(OldFunction)});
+  FunctionIndexMap.erase(OldFunction);
   // Use the LLVMContext from the OldFunction, as the one for the NewFunction
   // may not be set yet.
   LLVMContext &Ctx = OldFunction->getParent()->getContext();
@@ -927,6 +1174,7 @@ void InlineReportBuilder::cloneFunction(Function *OldFunction,
   // Update the clone's list of callsites.
   Module *M = OldFunction->getParent();
   NamedMDNode *ModuleInlineReport = M->getOrInsertNamedMetadata(ModuleTag);
+  initFunctionTemps(NewFunction);
   ModuleInlineReport->addOperand(NewFunctionMDTuple);
   SmallVector<Metadata *, 100> Ops;
   SmallPtrSet<Metadata *, 32> CopiedMD;
@@ -987,6 +1235,7 @@ void InlineReportBuilder::doOutlining(Function *OldF, Function *OutF,
   // Add 'OutF' to the list of functions.
   Module *M = OldF->getParent();
   NamedMDNode *ModuleInlineReport = M->getOrInsertNamedMetadata(ModuleTag);
+  initFunctionTemps(OutF);
   ModuleInlineReport->addOperand(OutFMDTuple);
   addCallback(OutF);
   // Update the list of callsites for 'OldF'.

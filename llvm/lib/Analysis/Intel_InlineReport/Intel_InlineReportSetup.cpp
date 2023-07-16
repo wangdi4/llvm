@@ -463,7 +463,8 @@ MDNode *createFunctionInliningReport(Function *F, InlineReportBuilder &MDIR) {
       CSs.push_back(CSIR.get());
     }
   }
-  FunctionInliningReport NewFIR(F, &CSs, false /*isDead*/);
+  FunctionInliningReport NewFIR(F, &CSs, false /*isDead*/,
+                                MDIR.getLevel() & Compact);
   MDIR.addCallback(F);
   return NewFIR.get();
 }
@@ -499,6 +500,7 @@ findOrCreateFunctionInliningReport(Function *F, NamedMDNode *ModuleInlineReport,
         // We do not expect to actually get in here because on the link step we
         // expect every function we encounter to already have an inlining report
         // in the metadata.
+        MDIR.initFunctionTemps(F);
         ModuleInlineReport->addOperand(FIR);
         FuncIndex = ModuleInlineReport->getNumOperands() - 1;
       }
@@ -530,8 +532,10 @@ findOrCreateFunctionInliningReport(Function *F, NamedMDNode *ModuleInlineReport,
   // replace existing compile-step inline report with newly created.
   if (!(MDIR.getLevel() & CompositeReport) && IsInModule)
     ModuleInlineReport->setOperand(FuncIndex, FIR);
-  else
+  else {
+    MDIR.initFunctionTemps(F);
     ModuleInlineReport->addOperand(FIR);
+  }
   return FIR;
 }
 
@@ -543,8 +547,11 @@ findOrCreateFunctionInliningReport(Function *F, NamedMDNode *ModuleInlineReport,
 // inlining report for two declarations would be identical and would be merged
 // in one metadata node automatically.
 static void removeDuplicatedFunctionMDNodes(NamedMDNode *ModuleInlineReport,
+                                            InlineReportBuilder &MDIR,
                                             Module &M) {
   SmallVector<MDNode *, 100> Ops;
+  MDIR.deleteAllFunctionTemps();
+  unsigned J = 0;
   for (unsigned I = 0; I < ModuleInlineReport->getNumOperands(); ++I) {
     MDNode *Node = ModuleInlineReport->getOperand(I);
     InliningReport IR(cast<MDTuple>(Node));
@@ -558,15 +565,19 @@ static void removeDuplicatedFunctionMDNodes(NamedMDNode *ModuleInlineReport,
       getOpVal(FIR->getOperand(FMDIR_IsDeclaration),
                "isDeclaration: ", &IsDecl);
       if (IsDecl) {
-        if (F->isDeclaration() && F->getMetadata(FunctionTag) == FIR)
+        if (F->isDeclaration() && F->getMetadata(FunctionTag) == FIR) {
           Ops.push_back(Node);
-        else
+          MDIR.initFunctionTempsAtIndex(F, J++);
+        } else
           continue;
-      } else
+      } else {
         Ops.push_back(Node);
+        MDIR.initFunctionTempsAtIndex(F, J++);
+      }
     } else {
       // It is a dead function. Keep it as it is.
       Ops.push_back(Node);
+      J++;
     }
   }
   ModuleInlineReport->clearOperands();
@@ -580,7 +591,7 @@ bool setupInlineReport(Module &M, InlineReportBuilder &MDIR) {
     return false;
   LLVM_DEBUG(dbgs() << "\nMDIR setup: start\n");
   NamedMDNode *ModuleInlineReport = M.getOrInsertNamedMetadata(ModuleTag);
-  removeDuplicatedFunctionMDNodes(ModuleInlineReport, M);
+  removeDuplicatedFunctionMDNodes(ModuleInlineReport, MDIR, M);
   for (Function &F : M)
     findOrCreateFunctionInliningReport(&F, ModuleInlineReport, MDIR);
 
