@@ -28,6 +28,8 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
 #include "llvm/Transforms/IPO/Utils/Intel_IPOUtils.h"
 #include "llvm/Transforms/Utils/Intel_CloneUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -1428,7 +1430,13 @@ void TileMVInlMarker::cloneCallToRoot() {
   // Clone the 'Root' and 'SubRoot'
   ValueToValueMapTy VMap;
   NewMainRoot = CloneFunction(MainRoot, VMap);
+  getInlineReport()->initFunctionClosure(MainRoot);
+  getInlineReport()->cloneFunction(MainRoot, NewMainRoot, VMap);
+  getMDInlineReport()->cloneFunction(MainRoot, NewMainRoot, VMap);
   NewSubRoot = CloneFunction(SubRoot, VMap);
+  getInlineReport()->initFunctionClosure(SubRoot);
+  getInlineReport()->cloneFunction(SubRoot, NewSubRoot, VMap);
+  getMDInlineReport()->cloneFunction(SubRoot, NewSubRoot, VMap);
   // Split the BasicBlock containing the call to 'Root' into three, so that
   // the call is in its own BasicBlock.
   CallInst *CI = uniqueCallSite(*MainRoot);

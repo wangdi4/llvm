@@ -32,10 +32,10 @@
 ; CHECK-MD:      define internal float @bar(float %.0.val) #0 !intel.function.inlining.report !0 {
 ; CHECK-MD-NEXT:   ret float %.0.val
 
-; CHECK-MD:      define float @foo(i64 %0) #1 !intel.function.inlining.report !8 {
+; CHECK-MD:      define float @foo(i64 %0) #1 !intel.function.inlining.report !9 {
 ; CHECK-MD-NEXT:   %2 = alloca float, i64 %0, align 4
 ; CHECK-MD-NEXT:   %.val = load float, ptr %2, align 4
-; CHECK-MD-NEXT:   %3 = call float @bar(float %.val), !intel.callsite.inlining.report !11
+; CHECK-MD-NEXT:   %3 = call float @bar(float %.val), !intel.callsite.inlining.report !12
 
 
 target datalayout = "E-p:64:64:64-a0:0:8-f32:32:32-f64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-v64:64:64-v128:128:128"
