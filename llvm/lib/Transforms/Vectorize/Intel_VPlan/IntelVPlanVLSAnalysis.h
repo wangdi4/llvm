@@ -18,7 +18,6 @@
 #define LLVM_TRANSFORM_VECTORIZE_INTEL_VPLAN_INTELVPLANVLSANALYSIS_H
 
 #include "IntelVPlanVLSClient.h"
-#include "VPlanHIR/IntelVPlanVLSClientHIR.h"
 
 namespace llvm {
 

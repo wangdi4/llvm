@@ -373,6 +373,12 @@ public:
   /// Detects and returns the current type of planning.
   virtual PlannerType getPlannerType() const;
 
+  /// Interface to get DDGraph, which has non-empty implementation for HIR
+  /// pipeline only.
+  virtual const loopopt::DDGraph *getDDGraph() const {
+    return nullptr;
+  }
+
   /// Create and return Plan/VF/UF specific CostModel object based on global
   /// compilation settings such as presence of -x knob in command line.
   std::unique_ptr<VPlanCostModelInterface> createCostModel(

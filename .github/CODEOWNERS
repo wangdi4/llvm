@@ -500,6 +500,8 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/test/Transforms/Intel_VPO/Vecopt/predicator/ @mamasten @offsake
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanScalVecAnalysis.cpp @karthik-senthil @mamasten @skozhukh
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanScalVecAnalysis.h @karthik-senthil @mamasten @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanSLP.h @offsake @valerydmit @skozhukh
+/llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanSLP.cpp @offsake @valerydmit @skozhukh
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanSSADeconstruction.cpp @karthik-senthil @sguggill @skozhukh
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanSSADeconstruction.h @karthik-senthil @sguggill @skozhukh
 /llvm/lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanSyncDependenceAnalysis.cpp @mamasten @karthik-senthil @skozhukh

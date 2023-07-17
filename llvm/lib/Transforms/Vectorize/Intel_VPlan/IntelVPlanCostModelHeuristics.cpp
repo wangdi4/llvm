@@ -19,6 +19,8 @@
 #include "IntelVPlanIdioms.h"
 #include "IntelVPlanLoopUnroller.h"
 #include "IntelVPlanPatternMatch.h"
+#include "IntelVPlanSLP.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 
 #include <numeric>
 
@@ -94,6 +96,11 @@ static cl::opt<bool> CMUnrollPartialSumsOnly(
 static cl::opt<float> CMUnrollILPScore(
     "vplan-cm-unroll-ilp-score", cl::init(1.f), cl::Hidden,
     cl::desc("Override the target ILP score for partial sum reductions"));
+
+static cl::opt<bool> CMScalarSLPAnalysis(
+    "vplan-cm-scalar-slp-analysis", cl::init(true), cl::Hidden,
+    cl::desc(
+        "Enables SLP analysis over scalar VPlan IR"));
 
 namespace llvm {
 
@@ -281,8 +288,16 @@ void HeuristicSLP::apply(
   const VPInstructionCost &, VPInstructionCost &Cost,
   const VPlanVector *Plan, raw_ostream *OS) const {
 
-  if (VF == 1)
+  if (VF == 1 && CMScalarSLPAnalysis && CM->DDG) {
+    // Apply cost reduction once SLP pattern is discovered in scalar Plan.
+    // TODO: Eventually SLP cost modelling on scalar Plan should completely
+    // replace the code below and we should be able to delete it.
+    for (const VPBasicBlock *Block : depth_first(&Plan->getEntryBlock())) {
+      VPlanSlp SlpDetector(CM, Block);
+      Cost += SlpDetector.estimateSLPCostDifference();
+    }
     return;
+  }
 
   SmallVector<const RegDDRef*, VPlanSLPSearchWindowSize> HIRLoadMemrefs;
   SmallVector<const RegDDRef*, VPlanSLPSearchWindowSize> HIRStoreMemrefs;
