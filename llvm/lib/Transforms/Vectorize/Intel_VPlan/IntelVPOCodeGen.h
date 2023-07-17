@@ -772,9 +772,10 @@ private:
   // such loops.
   void emitRemarksForScalarLoops();
 
-  /// Preserve DbgLoc metatdata from incoming loop's LoopID in outgoing
-  /// vectorized loops. This ensures loop's LocRange info is not lost.
-  void preserveLoopIDDbgMDs();
+  /// Preserve metadata from incoming loop's LoopID in outgoing
+  /// vectorized loops. This ensures loop's LocRange info is not lost,
+  /// as well as maintaining directives such as disabling of unrolling.
+  void preserveLoopIDMDs();
 
   /// Erase VPO.GUARD.MEM.MOTION directives from outgoing scalar loops. These
   /// directives were inserted by Paropt for vectorizer, so we should not
