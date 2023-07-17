@@ -1527,9 +1527,19 @@ void X86DAGToDAGISel::PostprocessISelDAG() {
         N->getOperand(0).isMachineOpcode()) {
       SDValue And = N->getOperand(0);
       unsigned N0Opc = And.getMachineOpcode();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+      if ((N0Opc == X86::AND8rr || N0Opc == X86::AND16rr ||
+           N0Opc == X86::AND32rr || N0Opc == X86::AND64rr ||
+           N0Opc == X86::AND8rr_ND || N0Opc == X86::AND16rr_ND ||
+           N0Opc == X86::AND32rr_ND || N0Opc == X86::AND64rr_ND) &&
+          !And->hasAnyUseOfValue(1)) {
+#else  // INTEL_FEATURE_ISA_APX_F
       if ((N0Opc == X86::AND8rr || N0Opc == X86::AND16rr ||
            N0Opc == X86::AND32rr || N0Opc == X86::AND64rr) &&
           !And->hasAnyUseOfValue(1)) {
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
         MachineSDNode *Test = CurDAG->getMachineNode(Opc, SDLoc(N),
                                                      MVT::i32,
                                                      And.getOperand(0),
@@ -1538,15 +1548,33 @@ void X86DAGToDAGISel::PostprocessISelDAG() {
         MadeChange = true;
         continue;
       }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+      if ((N0Opc == X86::AND8rm || N0Opc == X86::AND16rm ||
+           N0Opc == X86::AND32rm || N0Opc == X86::AND64rm ||
+           N0Opc == X86::AND8rm_ND || N0Opc == X86::AND16rm_ND ||
+           N0Opc == X86::AND32rm_ND || N0Opc == X86::AND64rm_ND) &&
+          !And->hasAnyUseOfValue(1)) {
+#else  // INTEL_FEATURE_ISA_APX_F
       if ((N0Opc == X86::AND8rm || N0Opc == X86::AND16rm ||
            N0Opc == X86::AND32rm || N0Opc == X86::AND64rm) &&
           !And->hasAnyUseOfValue(1)) {
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
         unsigned NewOpc;
         switch (N0Opc) {
         case X86::AND8rm:  NewOpc = X86::TEST8mr; break;
         case X86::AND16rm: NewOpc = X86::TEST16mr; break;
         case X86::AND32rm: NewOpc = X86::TEST32mr; break;
         case X86::AND64rm: NewOpc = X86::TEST64mr; break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+        case X86::AND8rm_ND:  NewOpc = X86::TEST8mr; break;
+        case X86::AND16rm_ND: NewOpc = X86::TEST16mr; break;
+        case X86::AND32rm_ND: NewOpc = X86::TEST32mr; break;
+        case X86::AND64rm_ND: NewOpc = X86::TEST64mr; break;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
         }
 
         // Need to swap the memory and register operand.

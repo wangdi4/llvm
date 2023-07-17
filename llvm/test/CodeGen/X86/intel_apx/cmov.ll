@@ -5,7 +5,7 @@
 define i8 @cmov8rr(i8 %0) {
 ; CHECK-LABEL: cmov8rr:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    subb $1, %dil, %al
+; CHECK-NEXT:    cmpb $1, %dil
 ; CHECK-NEXT:    movl $1, %eax
 ; CHECK-NEXT:    cmovel %edi, %eax, %eax
 ; CHECK-NEXT:    # kill: def $al killed $al killed $eax
@@ -18,7 +18,7 @@ define i8 @cmov8rr(i8 %0) {
 define i16 @cmov16rr(i16 %0) {
 ; CHECK-LABEL: cmov16rr:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    subw $1, %di, %ax
+; CHECK-NEXT:    cmpw $1, %di
 ; CHECK-NEXT:    movl $1, %eax
 ; CHECK-NEXT:    cmovnel %edi, %eax, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
@@ -55,7 +55,7 @@ define i64 @cmov64rr(i64 %0) {
 define i8 @cmov8rm(i8 %a, i8 %b, i8 %x, ptr %y.ptr) {
 ; CHECK-LABEL: cmov8rm:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    subb %sil, %dil, %al
+; CHECK-NEXT:    cmpb %sil, %dil
 ; CHECK-NEXT:    cmoval %edi, %edx, %eax
 ; CHECK-NEXT:    movzbl (%rcx), %ecx
 ; CHECK-NEXT:    cmoval %ecx, %edx, %ecx
@@ -73,7 +73,7 @@ entry:
 define i16 @cmov16rm(i16 %a, i16 %b, i16 %x, ptr %y.ptr) {
 ; CHECK-LABEL: cmov16rm:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    subw %si, %di, %ax
+; CHECK-NEXT:    cmpw %si, %di
 ; CHECK-NEXT:    cmoval %edi, %edx, %eax
 ; CHECK-NEXT:    cmovaw (%rcx), %dx, %cx
 ; CHECK-NEXT:    addl %eax, %ecx, %eax
@@ -91,7 +91,7 @@ entry:
 define i32 @cmov32rm(i32 %a, i32 %b, i32 %x, ptr %y.ptr) {
 ; CHECK-LABEL: cmov32rm:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    subl %esi, %edi, %eax
+; CHECK-NEXT:    cmpl %esi, %edi
 ; CHECK-NEXT:    cmoval %edi, %edx, %eax
 ; CHECK-NEXT:    cmoval (%rcx), %edx, %ecx
 ; CHECK-NEXT:    addl %eax, %ecx, %eax
@@ -108,7 +108,7 @@ entry:
 define i64 @cmov64rm(i64 %a, i64 %b, i64 %x, ptr %y.ptr) {
 ; CHECK-LABEL: cmov64rm:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    subq %rsi, %rdi, %rax
+; CHECK-NEXT:    cmpq %rsi, %rdi
 ; CHECK-NEXT:    cmovaq %rdi, %rdx, %rax
 ; CHECK-NEXT:    cmovaq (%rcx), %rdx, %rcx
 ; CHECK-NEXT:    addq %rax, %rcx, %rax
