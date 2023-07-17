@@ -34,7 +34,7 @@ PlatformModule *Device::m_pPlatformModule = nullptr;
 
 Device::Device(_cl_platform_id_int *platform)
     : FissionableDevice(platform), m_bFrontEndCompilerDone(false),
-      m_iNextClientId(1), m_pDeviceRefCount(0), m_devId(0), m_pDevice(nullptr) {
+      m_iNextClientId(1), m_devId(0), m_pDevice(nullptr) {
   // initialize logger client
   INIT_LOGGER_CLIENT(TEXT("Device"), LL_DEBUG);
   m_mapDeviceLoggerClinets[0] = GET_LOGGER_CLIENT;

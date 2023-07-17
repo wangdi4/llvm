@@ -32,8 +32,7 @@ using namespace Intel::OpenCL::Utils;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 GenericMemObject::GenericMemObject(const SharedPtr<Context> &pContext,
                                    cl_mem_object_type clObjType)
-    : MemoryObject(pContext), m_active_groups_count(0), m_BS(nullptr),
-      m_hierarchicalMemoryMode(MEMORY_MODE_NORMAL) {
+    : MemoryObject(pContext), m_active_groups_count(0), m_BS(nullptr) {
   INIT_LOGGER_CLIENT(TEXT("GenericMemObject"), LL_DEBUG);
 
   m_clMemObjectType = clObjType;
@@ -1028,7 +1027,7 @@ GenericMemObjectBackingStore::GenericMemObjectBackingStore(
       m_used_by_DMA(used_by_DMA), m_alignment(alignment),
       m_preferred_alignment(preferred_alignment), m_raw_data_size(0),
       m_heap(heap), m_pRawMemoryAllocator(pRawMemoryAllocator),
-      m_parent(nullptr), m_refCount(1) {
+      m_parent(nullptr) {
   if (nullptr != pclImageFormat) {
     m_format = *pclImageFormat;
   } else {

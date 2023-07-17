@@ -54,7 +54,7 @@ typedef struct _cl_dev_internal_subdevice_id {
   cl_uint *legal_core_ids;
 
   // Task dispatcher for this sub-device
-  Intel::OpenCL::Utils::AtomicCounter ref_count;
+  std::atomic<long> ref_count{0};
   volatile bool is_acquired;
   SharedPtr<TaskExecutor::ITEDevice> pSubDevice;
 } cl_dev_internal_subdevice_id;
@@ -295,7 +295,7 @@ protected:
   std::atomic<unsigned> m_barrier;
   std::atomic<bool> m_failed;
 
-  Intel::OpenCL::Utils::AtomicCounter m_endBarrier;
+  std::atomic<long> m_endBarrier{0};
 
   AffinitizeThreads(unsigned int numThreads, cl_ulong timeOutInTicks);
 };

@@ -194,10 +194,7 @@ private:
 // ThreadTaskListOrderedImp - implementing the ITaskList interface
 class ThreadTaskListOrderedImpl : public ITaskList {
 public:
-  ThreadTaskListOrderedImpl() {
-    m_pSelectedWorkerThread = nullptr;
-    m_refCount = 1;
-  }
+  ThreadTaskListOrderedImpl() { m_pSelectedWorkerThread = nullptr; }
 
   // ITaskList interface
   unsigned int Enqueue(const SharedPtr<ITaskBase> &pTaskBase);
@@ -221,7 +218,7 @@ protected:
   virtual ~ThreadTaskListOrderedImpl(){};
 
   WorkerThread *m_pSelectedWorkerThread;
-  AtomicCounter m_refCount;
+  std::atomic<long> m_refCount{1};
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -230,8 +227,6 @@ class ThreadTaskListUnOrderedImpl : public ITaskList {
   friend class ThreadTaskExecutor;
 
 public:
-  ThreadTaskListUnOrderedImpl() { m_refCount = 1; }
-
   // ITaskList interface
   unsigned int Enqueue(const SharedPtr<ITaskBase> &pTaskBase);
   te_wait_result WaitForCompletion(const SharedPtr<ITaskBase> &pTaskToWait) {
@@ -252,7 +247,7 @@ public:
 
 protected:
   virtual ~ThreadTaskListUnOrderedImpl(){};
-  AtomicCounter m_refCount;
+  std::atomic<long> m_refCount{1};
 };
 
 /////////////////////////////////////////////////////////////////////////////

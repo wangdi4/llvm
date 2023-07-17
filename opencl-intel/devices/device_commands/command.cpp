@@ -32,7 +32,7 @@ bool DeviceCommand::AddWaitListDependencies(const clk_event_t *pEventWaitList,
   // this method is called once for a DeviceCommand right after it has been
   // created and before it is enqueued
   bool bAllEventsCompleted = true;
-  m_numDependencies.add(uiNumEventsInWaitList);
+  m_numDependencies.fetch_add(uiNumEventsInWaitList);
 
   m_commandsThisIsWaitingFor.resize(uiNumEventsInWaitList);
   for (cl_uint i = 0; i < uiNumEventsInWaitList; i++) {

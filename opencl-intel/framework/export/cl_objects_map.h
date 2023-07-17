@@ -23,6 +23,7 @@
 #include "cl_sys_defines.h"
 #include "cl_types.h"
 #include "ocl_object_base.h"
+#include <atomic>
 #include <map>
 #include <mutex>
 
@@ -52,7 +53,7 @@ protected:
 
   // object's map
   HandleTypeMap m_mapObjects;
-  static Intel::OpenCL::Utils::AtomicCounter m_iNextGenKey;
+  static std::atomic<long> m_iNextGenKey;
   mutable std::mutex m_muMapMutex;
   bool m_bDisableAdding;
   bool m_bPreserveUserHandles;

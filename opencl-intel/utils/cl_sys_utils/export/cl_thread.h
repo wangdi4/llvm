@@ -18,6 +18,7 @@
 #include "cl_synch_objects.h"
 #include "cl_sys_defines.h"
 
+#include <atomic>
 #include <string>
 
 #ifdef _WIN32
@@ -80,8 +81,8 @@ protected:
   void *m_threadHandle;
   unsigned int m_threadId;
   bool m_running;
-  AtomicCounter m_join;
-  AtomicCounter m_numWaiters;
+  std::atomic<long> m_join{0};
+  std::atomic<long> m_numWaiters{0};
   bool m_bAutoDelete;
   std::string m_Name;
 };

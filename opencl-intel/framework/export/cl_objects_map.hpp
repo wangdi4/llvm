@@ -13,8 +13,7 @@
 // License.
 
 template <class HandleType, class ParentHandleType>
-Intel::OpenCL::Utils::AtomicCounter
-    OCLObjectsMap<HandleType, ParentHandleType>::m_iNextGenKey(1);
+std::atomic<long> OCLObjectsMap<HandleType, ParentHandleType>::m_iNextGenKey(1);
 
 template <class HandleType, class ParentHandleType>
 OCLObjectsMap<HandleType, ParentHandleType>::~OCLObjectsMap() {

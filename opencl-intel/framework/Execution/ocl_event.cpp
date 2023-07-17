@@ -49,8 +49,7 @@ static const char UNUSED_ATTR *GetEventStateName(const cl_int state) {
 }
 
 OclEvent::OclEvent(_cl_context_int *context)
-    : OCLObject<_cl_event_int>(context, "OclEvent"), m_numOfDependencies(0),
-      m_returnCode(CL_SUCCESS),
+    : OCLObject<_cl_event_int>(context, "OclEvent"), m_returnCode(CL_SUCCESS),
 #if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
       m_pCurrentEvent(NULL),
 #else
@@ -121,7 +120,7 @@ void OclEvent::AddDependentOnMulti(unsigned int count,
   bool bLastWasNull = false;
   // set the counter first, to make sure we register/process all events even if
   // some instantaneously fire.
-  m_numOfDependencies.add(count);
+  m_numOfDependencies.fetch_add(count);
   SetEventState(EVENT_STATE_HAS_DEPENDENCIES);
 
   for (unsigned int i = 0; i < count; ++i) {
