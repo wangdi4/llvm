@@ -374,17 +374,19 @@ INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_END(EarlyMachineLICM, "early-machinelicm",
                     "Early Machine Loop Invariant Code Motion", false, false)
 
-/// Test if the given loop is the outer-most loop that has a unique predecessor.
-static bool LoopIsOuterMostWithPredecessor(MachineLoop *CurLoop) {
-  // Check whether this loop even has a unique predecessor.
-  if (!CurLoop->getLoopPredecessor())
-    return false;
-  // Ok, now check to see if any of its outer loops do.
-  for (MachineLoop *L = CurLoop->getParentLoop(); L; L = L->getParentLoop())
-    if (L->getLoopPredecessor())
-      return false;
-  // None of them did, so this is the outermost with a unique predecessor.
-  return true;
+static void addSubLoopsToWorkList(MachineLoop *Loop,
+                                  SmallVectorImpl<MachineLoop *> &Worklist,
+                                  bool PreRA) {
+  // Add loop to worklist
+  Worklist.push_back(Loop);
+
+  // If it is pre-ra LICM, add sub loops to worklist.
+  if (PreRA && !Loop->isInnermost()) {
+    MachineLoop::iterator MLI = Loop->begin();
+    MachineLoop::iterator MLE = Loop->end();
+    for (; MLI != MLE; ++MLI)
+      addSubLoopsToWorkList(*MLI, Worklist, PreRA);
+  }
 }
 
 #if INTEL_CUSTOMIZATION
@@ -464,12 +466,19 @@ bool MachineLICMBase::runOnMachineFunction(MachineFunction &MF) {
   IAOpt = MF.getTarget().Options.IntelAdvancedOptim && // INTEL
           MF.getTarget().getOptLevel() >= CodeGenOpt::Aggressive; // INTEL
 
-  SmallVector<MachineLoop *, 8> Worklist(MLI->begin(), MLI->end());
+  SmallVector<MachineLoop *, 8> Worklist;
+
+  MachineLoopInfo::iterator MLII = MLI->begin();
+  MachineLoopInfo::iterator MLIE = MLI->end();
+  for (; MLII != MLIE; ++MLII)
+    addSubLoopsToWorkList(*MLII, Worklist, PreRegAlloc);
+
   while (!Worklist.empty()) {
     CurLoop = Worklist.pop_back_val();
     CurPreheader = nullptr;
     ExitBlocks.clear();
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     Worklist.append(CurLoop->begin(), CurLoop->end());
     if (PreRegAlloc) {
@@ -480,6 +489,8 @@ bool MachineLICMBase::runOnMachineFunction(MachineFunction &MF) {
     }
 #endif
 
+=======
+>>>>>>> 33e60484d750291e99301e29e60fe72c8fa48ccd
     CurLoop->getExitBlocks(ExitBlocks);
 
     if (!PreRegAlloc)
