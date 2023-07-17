@@ -125,7 +125,7 @@
 // and a new basic-block is emitted after loop's latch:
 //
 // simd.loop.latch:                            ; preds = %simd.loop.header
-// %indvar = add nuw i32 %index, 1
+// %indvar = add nuw nsw i32 %index, 1
 // %vl.cond = icmp ult i32 %indvar, 4
 // br i1 %vl.cond, label %simd.loop.header, label %simd.end.region
 //
@@ -628,7 +628,9 @@ PHINode *VecCloneImpl::Factory::createPhiAndBackedgeForLoop() {
       ConstantInt::get(Type::getInt32Ty(Clone->getContext()), 0);
 
   Instruction *Induction =
-      BinaryOperator::CreateNUWAdd(Phi, Inc, "indvar", LoopLatch);
+      BinaryOperator::CreateAdd(Phi, Inc, "indvar", LoopLatch);
+  Induction->setHasNoUnsignedWrap(true);
+  Induction->setHasNoSignedWrap(true);
 
   Constant *VL =
       ConstantInt::get(Type::getInt32Ty(Clone->getContext()), VectorLength);
@@ -1777,7 +1779,7 @@ void VecCloneImpl::Factory::disableLoopUnrolling() {
   // done across different loops.
   //
   // simd.loop.latch:        ; preds = %simd.loop.header, %if.else, %if.then
-  //  %indvar = add nuw i32 %index, 1
+  //  %indvar = add nuw nsw i32 %index, 1
   //  %vl.cond = icmp ult i32 %indvar, 2
   //  br i1 %vl.cond, label %simd.loop.header, label %simd.end.region, !llvm.loop !16
   //

@@ -28,7 +28,7 @@ attributes #0 = { "vector-variants"="_ZGVbN4l4_foo" }
 ; CHECK-NEXT:    store ptr [[P_GEP]], ptr [[RET_CAST_GEP]], align 8
 ; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH]]
 ; CHECK:       simd.loop.latch:
-; CHECK-NEXT:    [[INDVAR]] = add nuw i32 [[INDEX]], 1
+; CHECK-NEXT:    [[INDVAR]] = add nuw nsw i32 [[INDEX]], 1
 ; CHECK-NEXT:    [[VL_COND:%.*]] = icmp ult i32 [[INDVAR]], 4
 ; CHECK-NEXT:    br i1 [[VL_COND]], label [[SIMD_LOOP_HEADER]], label [[SIMD_END_REGION:%.*]]
 ; CHECK:       simd.end.region:
