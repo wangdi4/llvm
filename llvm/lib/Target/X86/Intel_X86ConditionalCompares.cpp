@@ -286,7 +286,15 @@ MachineInstr *SSACCmpConv::findConvertibleCompare(MachineBasicBlock *MBB) {
     case X86::SUB8ri:
     case X86::SUB16ri:
     case X86::SUB32ri:
-    case X86::SUB64ri32: {
+    case X86::SUB64ri32:
+    case X86::SUB8rr_ND:
+    case X86::SUB16rr_ND:
+    case X86::SUB32rr_ND:
+    case X86::SUB64rr_ND:
+    case X86::SUB8ri_ND:
+    case X86::SUB16ri_ND:
+    case X86::SUB32ri_ND:
+    case X86::SUB64ri32_ND: {
       if (!isDeadDef(I->getOperand(0).getReg()))
         return nullptr;
       return STI->hasCCMP() ? &*I : nullptr;
@@ -674,20 +682,28 @@ void SSACCmpConv::convert(SmallVectorImpl<MachineBasicBlock *> &RemovedBlocks) {
     default:
       llvm_unreachable("Unknown compare opcode");
     case X86::SUB8rr:
+    case X86::SUB8rr_ND:
       return X86::CCMP8rr;
     case X86::SUB16rr:
+    case X86::SUB16rr_ND:
       return X86::CCMP16rr;
     case X86::SUB32rr:
+    case X86::SUB32rr_ND:
       return X86::CCMP32rr;
     case X86::SUB64rr:
+    case X86::SUB64rr_ND:
       return X86::CCMP64rr;
     case X86::SUB8ri:
+    case X86::SUB8ri_ND:
       return X86::CCMP8ri;
     case X86::SUB16ri:
+    case X86::SUB16ri_ND:
       return X86::CCMP16ri;
     case X86::SUB32ri:
+    case X86::SUB32ri_ND:
       return X86::CCMP32ri;
     case X86::SUB64ri32:
+    case X86::SUB64ri32_ND:
       return X86::CCMP64ri32;
     case X86::CMP8rr:
       return X86::CCMP8rr;
