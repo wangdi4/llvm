@@ -2319,8 +2319,6 @@ static pi_result SetKernelParamsAndLaunch(
 }
 
 // The function initialize accessors and calls lambda.
-// The function is used as argument to piEnqueueNativeKernel which requires
-// that the passed function takes one void* argument.
 void DispatchNativeKernel(void *Blob) {
   void **CastedBlob = (void **)Blob;
 
@@ -2595,6 +2593,7 @@ pi_int32 ExecCGCommand::enqueueImp() {
 
     return PI_SUCCESS;
   }
+<<<<<<< HEAD
   case CG::CGTYPE::RunOnHostIntel: {
     CGExecKernel *HostTask = (CGExecKernel *)MCommandGroup.get();
 
@@ -2682,6 +2681,8 @@ pi_int32 ExecCGCommand::enqueueImp() {
                                 detail::codeToString(Error));
     }
   }
+=======
+>>>>>>> 360ab1a85f0ceced5b00da25cd90dfd1fd12f8a3
   case CG::CGTYPE::Kernel: {
     CGExecKernel *ExecKernel = (CGExecKernel *)MCommandGroup.get();
 
