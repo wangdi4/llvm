@@ -10,4 +10,4 @@ define void @reqd_sg_size() "has-sub-groups" !kernel_has_sub_groups !{i1 true} !
 
 !sycl.kernels = !{!0}
 
-!0 = !{void ()* @reqd_sg_size}
+!0 = !{ptr @reqd_sg_size}

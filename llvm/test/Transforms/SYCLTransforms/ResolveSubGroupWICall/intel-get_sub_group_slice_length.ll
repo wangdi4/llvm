@@ -37,7 +37,7 @@ ed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-siz
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{i32 1, i32 2}
 !2 = !{}
-!3 = !{void ()* @testKernel}
+!3 = !{ptr @testKernel}
 !11 = !{i32 1}
 !12 = !{!"none"}
 !13 = !{!"uint*"}
@@ -45,7 +45,7 @@ ed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-siz
 !15 = !{i1 false}
 !16 = !{i32 0}
 !17 = !{!"sub_groups_sizes"}
-!18 = !{void ()* @__Vectorized_.testKernel}
+!18 = !{ptr @__Vectorized_.testKernel}
 !19 = !{i1 true}
 !20 = !{null}
 !21 = !{!22, !22, i64 0}

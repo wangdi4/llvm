@@ -15,4 +15,4 @@ define void @none() {
 
 !sycl.kernels = !{!0}
 
-!0 = !{void ()* @none}
+!0 = !{ptr @none}

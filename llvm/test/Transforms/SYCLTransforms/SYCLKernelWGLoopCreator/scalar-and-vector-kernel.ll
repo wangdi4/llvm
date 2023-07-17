@@ -8,7 +8,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm(ptr nocapture %out, ptr nocapture readnone %dummy1, ptr nocapture readnone %dummy2) #0 !no_barrier_path !{i1 1} !vectorized_kernel !{ptr @_ZGVbN16uuuuuu_30ParallelForNDRangeImplKernel1DPiS_S_mmm} !vectorized_width !{i32 1} {
+define dso_local void @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm(ptr nocapture %out, ptr nocapture readnone %dummy1, ptr nocapture readnone %dummy2) #0 !no_barrier_path !{i1 1} !vectorized_kernel !{ptr @_ZGVbN16uuuuuu_30ParallelForNDRangeImplKernel1DPiS_S_mmm} !vectorized_width !{i32 1} !kernel_arg_base_type !3 !arg_type_null_val !4 {
 ; CHECK-LABEL: @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm(
 ; CHECK:       entry:
 ; CHECK-NEXT:    [[BASE_GID_DIM0:%.*]] = call i64 @get_base_global_id.(i32 0)
@@ -128,6 +128,8 @@ attributes #1 = { noinline }
 !0 = !{ptr @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm}
 !1 = !{i32 0}
 !2 = !{i1 true}
+!3 = !{!"int*", !"int*", !"int*"}
+!4 = !{ptr null, ptr null, ptr null}
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY-COUNT-46: WARNING: Instruction with empty DebugLoc in function _Z30ParallelForNDRangeImplKernel1DPiS_S_mmm

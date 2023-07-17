@@ -9,10 +9,10 @@ target triple = "x86_64-pc-linux"
 
 ; CHECK-NOT: !intel_reqd_sub_group_size
 
-declare void @"foo"(i32 addrspace(1)*)
+declare void @"foo"(ptr addrspace(1))
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32 addrspace(1)*)* @"foo"}
+!0 = !{ptr @"foo"}
 
 ; DEBUGIFY-NOT: WARNING

@@ -13,16 +13,15 @@
 %struct.A = type { float, i32, double, i64 }
 
 ; sycl-kernel-add-function-attrs will add "kernel-call-once" to all barrier-calling functions.
-define void @f1(%struct.A* byval(%struct.A) align 8 %arg) {
+define void @f1(ptr byval(%struct.A) align 8 %arg) !kernel_arg_base_type !2 !arg_type_null_val !3 {
 entry:
   call void @_Z18work_group_barrierj12memory_scope(i32 1, i32 1)
   ret void
 }
 
-define void @kernel(%struct.A* nocapture readonly %arr) !intel_reqd_sub_group_size !1 {
+define void @kernel(ptr nocapture readonly %arr) !intel_reqd_sub_group_size !1 !kernel_arg_base_type !4 !arg_type_null_val !5 {
 entry:
-  %ptridx = getelementptr inbounds %struct.A, %struct.A* %arr, i64 0
-  call void @f1(%struct.A* nonnull byval(%struct.A) align 8 %ptridx)
+  call void @f1(ptr nonnull byval(%struct.A) align 8 %arr)
   ret void
 }
 
@@ -30,5 +29,9 @@ declare void @_Z18work_group_barrierj12memory_scope(i32, i32)
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (%struct.A*)* @kernel}
+!0 = !{ptr @kernel}
 !1 = !{i32 16}
+!2 = !{!"%struct.A"}
+!3 = !{ptr null}
+!4 = !{!"%struct.A*"}
+!5 = !{ptr null}

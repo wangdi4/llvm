@@ -8,7 +8,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent noinline norecurse nounwind optnone
-define dso_local i32 @foo(ptr addrspace(1) noalias noundef %dst) #0 !dbg !6 {
+define dso_local i32 @foo(ptr addrspace(1) noalias noundef %dst) #0 !dbg !6 !kernel_arg_base_type !36 !arg_type_null_val !61 {
 entry:
 ; CHECK-LABEL: @foo
 ; CHECK: %lid1.addr = alloca i64, align 8
@@ -83,7 +83,7 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
 declare i64 @_Z13get_global_idj(i32 noundef) #2
 
 ; Function Attrs: convergent noinline norecurse nounwind optnone
-define dso_local i32 @bar(ptr addrspace(1) noalias noundef %dst) #0 !dbg !24 {
+define dso_local i32 @bar(ptr addrspace(1) noalias noundef %dst) #0 !dbg !24 !kernel_arg_base_type !36 !arg_type_null_val !61 {
 entry:
 ; CHECK-LABEL: @bar
 ; CHECK: call i64 @_Z13get_global_idj(i32 noundef 0)
@@ -101,7 +101,7 @@ entry:
 }
 
 ; Function Attrs: convergent noinline norecurse nounwind optnone
-define dso_local void @test(ptr addrspace(1) noalias noundef align 4 %dst) #3 !dbg !31 !kernel_arg_addr_space !34 !kernel_arg_access_qual !35 !kernel_arg_type !36 !kernel_arg_base_type !36 !kernel_arg_type_qual !37 !kernel_arg_name !38 !kernel_arg_host_accessible !39 !kernel_arg_pipe_depth !40 !kernel_arg_pipe_io !41 !kernel_arg_buffer_location !41 !no_barrier_path !42 !kernel_has_sub_groups !39 !kernel_execution_length !43 !kernel_has_global_sync !39 !recommended_vector_length !34 {
+define dso_local void @test(ptr addrspace(1) noalias noundef align 4 %dst) #3 !dbg !31 !kernel_arg_addr_space !34 !kernel_arg_access_qual !35 !kernel_arg_type !36 !kernel_arg_base_type !36 !kernel_arg_type_qual !37 !kernel_arg_name !38 !kernel_arg_host_accessible !39 !kernel_arg_pipe_depth !40 !kernel_arg_pipe_io !41 !kernel_arg_buffer_location !41 !no_barrier_path !42 !kernel_has_sub_groups !39 !kernel_execution_length !43 !kernel_has_global_sync !39 !recommended_vector_length !34 !arg_type_null_val !61 {
 entry:
   %__ocl_dbg_gid0 = alloca i64, align 8
   call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid0, metadata !44, metadata !DIExpression()), !dbg !45
@@ -124,7 +124,7 @@ entry:
 }
 
 ; Function Attrs: convergent noinline norecurse nounwind optnone
-define dso_local void @test_barrier(ptr addrspace(1) noalias noundef align 4 %dst) #4 !dbg !53 !kernel_arg_addr_space !34 !kernel_arg_access_qual !35 !kernel_arg_type !36 !kernel_arg_base_type !36 !kernel_arg_type_qual !37 !kernel_arg_name !38 !kernel_arg_host_accessible !39 !kernel_arg_pipe_depth !40 !kernel_arg_pipe_io !41 !kernel_arg_buffer_location !41 !no_barrier_path !39 !kernel_has_sub_groups !39 !kernel_execution_length !54 !kernel_has_global_sync !39 !recommended_vector_length !34 {
+define dso_local void @test_barrier(ptr addrspace(1) noalias noundef align 4 %dst) #4 !dbg !53 !kernel_arg_addr_space !34 !kernel_arg_access_qual !35 !kernel_arg_type !36 !kernel_arg_base_type !36 !kernel_arg_type_qual !37 !kernel_arg_name !38 !kernel_arg_host_accessible !39 !kernel_arg_pipe_depth !40 !kernel_arg_pipe_io !41 !kernel_arg_buffer_location !41 !no_barrier_path !39 !kernel_has_sub_groups !39 !kernel_execution_length !54 !kernel_has_global_sync !39 !recommended_vector_length !34 !arg_type_null_val !61 {
 entry:
   %dst.addr = alloca ptr addrspace(1), align 8
   store ptr addrspace(1) %dst, ptr %dst.addr, align 8
@@ -216,3 +216,4 @@ attributes #8 = { convergent "kernel-call-once" "kernel-convergent-call" }
 !58 = !DILocation(line: 15, column: 7, scope: !53)
 !59 = !DILocation(line: 15, column: 3, scope: !53)
 !60 = !DILocation(line: 16, column: 1, scope: !53)
+!61 = !{ptr addrspace(1) null}

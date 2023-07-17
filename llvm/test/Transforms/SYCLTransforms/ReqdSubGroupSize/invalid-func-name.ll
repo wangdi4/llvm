@@ -12,14 +12,14 @@ target triple = "x86_64-pc-linux"
 
 ; CHECK: ![[subgroup_size_bar]] = !{i32 4}
 
-declare void @"foo"(i32 addrspace(1)*)
+declare void @"foo"(ptr addrspace(1))
 
-declare void @"bar"(i32 addrspace(1)*)
+declare void @"bar"(ptr addrspace(1))
 
 !sycl.kernels = !{!0}
 
 
-!0 = !{void (i32 addrspace(1)*)* @"foo", void (i32 addrspace(1)*)* @"bar"}
+!0 = !{ptr @"foo", ptr @"bar"}
 
 ; DEBUGIFY-NOT: WARNING
 

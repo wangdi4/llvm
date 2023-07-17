@@ -7,7 +7,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent norecurse nounwind
-define void @test(ptr addrspace(1) noalias %src) local_unnamed_addr #0 !dbg !6 !kernel_arg_addr_space !13 !kernel_arg_access_qual !14 !kernel_arg_type !15 !kernel_arg_base_type !15 !kernel_arg_type_qual !16 !kernel_arg_name !17 !kernel_arg_host_accessible !18 !kernel_arg_pipe_depth !19 !kernel_arg_pipe_io !16 !kernel_arg_buffer_location !16 !vectorized_kernel !20 !vectorized_masked_kernel !21 !no_barrier_path !22 !kernel_has_sub_groups !22 !opencl.stats.Vectorizer.CanVect !13 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !19 !vectorized_width !13 !scalar_kernel !23 !kernel_execution_length !24 !kernel_has_barrier !18 !kernel_has_global_sync !18 {
+define void @test(ptr addrspace(1) noalias %src) local_unnamed_addr #0 !dbg !6 !kernel_arg_addr_space !13 !kernel_arg_access_qual !14 !kernel_arg_type !15 !kernel_arg_base_type !15 !kernel_arg_type_qual !16 !kernel_arg_name !17 !kernel_arg_host_accessible !18 !kernel_arg_pipe_depth !19 !kernel_arg_pipe_io !16 !kernel_arg_buffer_location !16 !vectorized_kernel !20 !vectorized_masked_kernel !21 !no_barrier_path !22 !kernel_has_sub_groups !22 !opencl.stats.Vectorizer.CanVect !13 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !19 !vectorized_width !13 !scalar_kernel !23 !kernel_execution_length !24 !kernel_has_barrier !18 !kernel_has_global_sync !18 !arg_type_null_val !59 {
 entry:
 ; CHECK-LABEL: @test
 ; CHECK: %__ocl_dbg_gid0{{.*}} = alloca
@@ -223,3 +223,4 @@ attributes #6 = { convergent nounwind readnone }
 !56 = !DILocation(line: 4, column: 5, scope: !50)
 !57 = !DILocation(line: 4, column: 27, scope: !50)
 !58 = !DILocation(line: 5, column: 1, scope: !50)
+!59 = !{ptr addrspace(1) null}

@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -passes='debugify,sycl-kernel-sg-emu-loop-construct,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -opaque-pointers=0 -passes='sycl-kernel-sg-emu-loop-construct' -S %s | FileCheck %s
+; RUN: opt -passes='debugify,sycl-kernel-sg-emu-loop-construct,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes='sycl-kernel-sg-emu-loop-construct' -S %s | FileCheck %s
 
 ; This test checks SGLoopConstruct::createSGLoop() where each sg_barrier only has one jump target
 ; 1. Alloca sg.lid.ptr and sg.loop.src.ptr in "sg.loop.exclude" BB
@@ -21,8 +21,8 @@ sg.loop.exclude:
   br label %entry
 
 ; CHECK-LABEL: entry:
-; CHECK: store i32 0, i32* [[P_LID]]
-; CHECK: store i32 [[#DUMMY_ID:]], i32* [[P_LOOPSRC]]
+; CHECK: store i32 0, ptr [[P_LID]]
+; CHECK: store i32 [[#DUMMY_ID:]], ptr [[P_LOOPSRC]]
 entry:                                            ; preds = %sg.loop.exclude
 ; CHECK: [[L_HEADER:sg.loop.header.*]]:
 ; CHECK-NOT: call void @dummy_sg_barrier()
@@ -33,9 +33,9 @@ entry:                                            ; preds = %sg.loop.exclude
 sg.barrier.bb.1:                                  ; preds = %entry
 ; CHECK: [[L_EXITING:sg.loop.exiting.*]]:
 ; CHECK-NEXT: [[LOOPSIZE:%.*]] = call i32 @_Z18get_sub_group_sizev()
-; CHECK-NEXT: [[LID:%.*]] = load i32, i32* [[P_LID]]
+; CHECK-NEXT: [[LID:%.*]] = load i32, ptr [[P_LID]]
 ; CHECK-NEXT: [[LID_INC:%.*]] = add nuw i32 [[LID]], 1
-; CHECK-NEXT: store i32 [[LID_INC]], i32* [[P_LID]]
+; CHECK-NEXT: store i32 [[LID_INC]], ptr [[P_LID]]
 ; CHECK-NEXT: [[CMP:%.*]] = icmp ult i32 [[LID_INC]], [[LOOPSIZE]]
 ; CHECK-NEXT: br i1 [[CMP]], label %[[L_LATCH:sg.loop.latch.*]], label %[[L_EXIT:sg.loop.exit.*]]
 
@@ -44,8 +44,8 @@ sg.barrier.bb.1:                                  ; preds = %entry
 ; CHECK-NEXT: br label %[[L_HEADER]]
 
 ; CHECK: [[L_EXIT]]:
-; CHECK-NEXT: store i32 0, i32* [[P_LID]]
-; CHECK-NEXT: store i32 [[#BARRIER_ID:]], i32* [[P_LOOPSRC]]
+; CHECK-NEXT: store i32 0, ptr [[P_LID]]
+; CHECK-NEXT: store i32 [[#BARRIER_ID:]], ptr [[P_LOOPSRC]]
 ; CHECK-NEXT: br label %[[L_HEADER1:sg.loop.header.*]]
 
 ; CHECK: [[L_HEADER1]]:
@@ -57,9 +57,9 @@ sg.barrier.bb.1:                                  ; preds = %entry
 sg.barrier.bb.2:                                  ; preds = %sg.barrier.bb.1
 ; CHECK: [[L_EXITING1:sg.loop.exiting.*]]:
 ; CHECK-NEXT: [[LOOPSIZE1:%.*]] = call i32 @_Z18get_sub_group_sizev()
-; CHECK-NEXT: [[LID1:%.*]] = load i32, i32* [[P_LID]]
+; CHECK-NEXT: [[LID1:%.*]] = load i32, ptr [[P_LID]]
 ; CHECK-NEXT: [[LID_INC1:%.*]] = add nuw i32 [[LID1]], 1
-; CHECK-NEXT: store i32 [[LID_INC1]], i32* [[P_LID]]
+; CHECK-NEXT: store i32 [[LID_INC1]], ptr [[P_LID]]
 ; CHECK-NEXT: [[CMP1:%.*]] = icmp ult i32 [[LID_INC1]], [[LOOPSIZE1]]
 ; CHECK-NEXT: br i1 [[CMP1]], label %[[L_LATCH1:sg.loop.latch.*]], label %[[L_EXIT1:sg.loop.exit.*]]
 
@@ -68,8 +68,8 @@ sg.barrier.bb.2:                                  ; preds = %sg.barrier.bb.1
 ; CHECK-NEXT: br label %[[L_HEADER1]]
 
 ; CHECK: [[L_EXIT1]]:
-; CHECK-NEXT: store i32 0, i32* [[P_LID]]
-; CHECK-NEXT: store i32 [[#BARRIER_ID1:]], i32* [[P_LOOPSRC]]
+; CHECK-NEXT: store i32 0, ptr [[P_LID]]
+; CHECK-NEXT: store i32 [[#BARRIER_ID1:]], ptr [[P_LOOPSRC]]
 ; CHECK-NEXT: br label %[[L_HEADER2:sg.barrier.split.*]]
 
 ; CHECK: [[L_HEADER2]]:
@@ -85,7 +85,7 @@ declare void @dummy_sg_barrier()
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32)* @test}
+!0 = !{ptr @test}
 !1 = !{i1 true}
 !2 = !{i32 16}
 

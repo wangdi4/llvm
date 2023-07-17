@@ -6,7 +6,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent nounwind
-define void @test(ptr addrspace(1) noalias %a) local_unnamed_addr #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !5 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !7 !vectorized_kernel !8 !vectorized_masked_kernel !9 !no_barrier_path !10 !kernel_has_sub_groups !10 !vectorized_width !1 !scalar_kernel !11 !kernel_execution_length !12 !kernel_has_barrier !5 !kernel_has_global_sync !5 {
+define void @test(ptr addrspace(1) noalias %a) local_unnamed_addr #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !5 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !7 !vectorized_kernel !8 !vectorized_masked_kernel !9 !no_barrier_path !10 !kernel_has_sub_groups !10 !vectorized_width !1 !scalar_kernel !11 !kernel_execution_length !12 !kernel_has_barrier !5 !kernel_has_global_sync !5 !arg_type_null_val !15 {
 ; CHECK-LABEL: @test(
 ; CHECK:       entry:
 ; CHECK-NEXT:    [[EARLY_EXIT_CALL:%.*]] = call [7 x i64] @WG.boundaries.test(ptr addrspace(1) [[A:%.*]])
@@ -139,7 +139,7 @@ entry:
 }
 
 ; Function Attrs: nounwind
-define void @foo(ptr addrspace(1) noalias %a) local_unnamed_addr #2 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !5 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !7 !no_barrier_path !10 !kernel_has_barrier !5 !kernel_has_global_sync !5 {
+define void @foo(ptr addrspace(1) noalias %a) local_unnamed_addr #2 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !5 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !7 !no_barrier_path !10 !kernel_has_barrier !5 !kernel_has_global_sync !5 !arg_type_null_val !15 {
 ; CHECK-LABEL: @foo(
 ; CHECK:       entry:
 ; CHECK-NEXT:    [[BASE_GID_DIM0:%.*]] = call i64 @get_base_global_id.(i32 0)
@@ -207,6 +207,7 @@ attributes #3 = { nofree nosync nounwind willreturn writeonly }
 !12 = !{i32 2}
 !13 = !{i32 4}
 !14 = !{i32 22}
+!15 = !{ptr addrspace(1) null}
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY-COUNT-50: WARNING: Instruction with empty DebugLoc in function test

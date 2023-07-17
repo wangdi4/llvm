@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -passes='debugify,sycl-kernel-sg-emu-loop-construct,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -opaque-pointers=0 -passes='sycl-kernel-sg-emu-loop-construct' -S %s | FileCheck %s
+; RUN: opt -passes='debugify,sycl-kernel-sg-emu-loop-construct,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes='sycl-kernel-sg-emu-loop-construct' -S %s | FileCheck %s
 
 ; This test checks SGLoopConstruct::createSGLoop() where sg_barrier may have multiple jump targets
 ; The latch BB will have a "switch" inst to choose jump targets.
@@ -16,8 +16,8 @@ sg.loop.exclude:
   br label %entry
 
 ; CHECK-LABEL: entry:
-; CHECK: store i32 0, i32* [[P_LID]]
-; CHECK: store i32 [[#DUMMY_ID:]], i32* [[P_LOOPSRC]]
+; CHECK: store i32 0, ptr [[P_LID]]
+; CHECK: store i32 [[#DUMMY_ID:]], ptr [[P_LOOPSRC]]
 entry:                                            ; preds = %sg.loop.exclude
 ; CHECK: [[L_HEADER:sg.loop.header.*]]:
   call void @dummy_sg_barrier()
@@ -31,7 +31,7 @@ sg.barrier.bb.1:                                  ; preds = %entry
 ; CHECK: [[L_LATCH]]:
 
 ; CHECK: [[L_EXIT]]:
-; CHECK: store i32 [[#BARRIER_ID:]], i32* [[P_LOOPSRC]]
+; CHECK: store i32 [[#BARRIER_ID:]], ptr [[P_LOOPSRC]]
 ; CHECK: br label %[[L_HEADER1:sg.loop.header.*]]
 
 ; CHECK: [[L_HEADER1]]:
@@ -45,14 +45,14 @@ sg.barrier.bb.2:                                  ; preds = %sg.barrier.bb.1, %e
 
 ; JumpTargets.size() > 1
 ; CHECK: [[L_LATCH1]]:
-; CHECK-NEXT: [[LOOPSRC:%.*]] = load i32, i32* [[P_LOOPSRC]]
+; CHECK-NEXT: [[LOOPSRC:%.*]] = load i32, ptr [[P_LOOPSRC]]
 ; CHECK-NEXT: switch i32 [[LOOPSRC]], label %[[L_HEADER1]] [
 ; CHECK-NEXT:   i32 [[#DUMMY_ID]], label %[[L_HEADER]]
 ; CHECK-NEXT: ]
 
 ; CHECK: [[L_EXIT1]]:
-; CHECK-NEXT: store i32 0, i32* [[P_LID]]
-; CHECK-NEXT: store i32 [[#BARRIER_ID1:]], i32* [[P_LOOPSRC]]
+; CHECK-NEXT: store i32 0, ptr [[P_LID]]
+; CHECK-NEXT: store i32 [[#BARRIER_ID1:]], ptr [[P_LOOPSRC]]
 ; CHECK-NEXT: br label %[[L_HEADER2:sg.barrier.split.*]]
 
 ; CHECK: [[L_HEADER2]]:
@@ -67,7 +67,7 @@ declare void @dummy_sg_barrier()
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32)* @test}
+!0 = !{ptr @test}
 !1 = !{i1 true}
 !2 = !{i32 16}
 

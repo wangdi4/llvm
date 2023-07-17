@@ -111,6 +111,6 @@ declare i64 @_Z14get_num_groupsj(i32 %x)
 
 !sycl.kernels = !{!0}
 
-!0 = !{void ()* @gsize, void ()* @lsize, void ()* @enq_lsize, void ()* @groupsize}
+!0 = !{ptr @gsize, ptr @lsize, ptr @enq_lsize, ptr @groupsize}
 
 ; DEBUGIFY-NOT: WARNING

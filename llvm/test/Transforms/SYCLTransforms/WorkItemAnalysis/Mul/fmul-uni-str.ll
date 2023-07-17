@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -passes='require<sycl-kernel-builtin-info-analysis>,print<sycl-kernel-work-item-analysis>' %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes='require<sycl-kernel-builtin-info-analysis>,print<sycl-kernel-work-item-analysis>' %s -disable-output 2>&1 | FileCheck %s
 
 ;kernel void test_fmul(global int *in, global float *out) {
 ;  int gid = get_global_id(0);
@@ -42,17 +42,17 @@ target triple = "x86_64-pc-linux"
 ; CHECK-NEXT: STR   %mul6 = fmul float %spec.select, 1.200000e+01
 ; CHECK-NEXT: STR   %sext = shl i64 %call, 32
 ; CHECK-NEXT: SEQ   %idxprom = ashr exact i64 %sext, 32
-; CHECK-NEXT: PTR   %arrayidx = getelementptr inbounds float, float addrspace(1)* %out, i64 %idxprom
-; CHECK-NEXT: RND   store float %mul6, float addrspace(1)* %arrayidx, align 4, !tbaa !2
+; CHECK-NEXT: PTR   %arrayidx = getelementptr inbounds float, ptr addrspace(1) %out, i64 %idxprom
+; CHECK-NEXT: RND   store float %mul6, ptr addrspace(1) %arrayidx, align 4, !tbaa
 ; CHECK-NEXT: STR   %mul7 = fmul float %mul6, 1.000000e+02
 ; CHECK-NEXT: SEQ   %add8 = add nsw i32 %conv, 10
 ; CHECK-NEXT: SEQ   %idxprom9 = sext i32 %add8 to i64
-; CHECK-NEXT: PTR   %arrayidx10 = getelementptr inbounds float, float addrspace(1)* %out, i64 %idxprom9
-; CHECK-NEXT: RND   store float %mul7, float addrspace(1)* %arrayidx10, align 4, !tbaa !2
+; CHECK-NEXT: PTR   %arrayidx10 = getelementptr inbounds float, ptr addrspace(1) %out, i64 %idxprom9
+; CHECK-NEXT: RND   store float %mul7, ptr addrspace(1) %arrayidx10, align 4, !tbaa
 ; CHECK-NEXT: UNI   ret void
 
 ; Function Attrs: convergent norecurse nounwind
-define dso_local void @test_fmul(i32 addrspace(1)* %in, float addrspace(1)* %out) local_unnamed_addr #0 {
+define dso_local void @test_fmul(ptr addrspace(1) %in, ptr addrspace(1) %out) local_unnamed_addr #0 !kernel_arg_base_type !6 !arg_type_null_val !7 {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) #2
   %conv = trunc i64 %call to i32
@@ -75,13 +75,13 @@ for.end:                                          ; preds = %for.body
   %mul6 = fmul float %spec.select, 1.200000e+01
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
-  %arrayidx = getelementptr inbounds float, float addrspace(1)* %out, i64 %idxprom
-  store float %mul6, float addrspace(1)* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds float, ptr addrspace(1) %out, i64 %idxprom
+  store float %mul6, ptr addrspace(1) %arrayidx, align 4, !tbaa !2
   %mul7 = fmul float %mul6, 1.000000e+02
   %add8 = add nsw i32 %conv, 10
   %idxprom9 = sext i32 %add8 to i64
-  %arrayidx10 = getelementptr inbounds float, float addrspace(1)* %out, i64 %idxprom9
-  store float %mul7, float addrspace(1)* %arrayidx10, align 4, !tbaa !2
+  %arrayidx10 = getelementptr inbounds float, ptr addrspace(1) %out, i64 %idxprom9
+  store float %mul7, ptr addrspace(1) %arrayidx10, align 4, !tbaa !2
   ret void
 }
 
@@ -97,8 +97,10 @@ attributes #2 = { convergent nounwind readnone willreturn }
 !sycl.kernels = !{!1}
 
 !0 = !{i32 2, i32 0}
-!1 = !{void (i32 addrspace(1)*, float addrspace(1)*)* @test_fmul}
+!1 = !{ptr @test_fmul}
 !2 = !{!3, !3, i64 0}
 !3 = !{!"float", !4, i64 0}
 !4 = !{!"omnipotent char", !5, i64 0}
 !5 = !{!"Simple C/C++ TBAA"}
+!6 = !{!"int*", !"int*"}
+!7 = !{ptr addrspace(1) null, ptr addrspace(1) null}

@@ -7,12 +7,12 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: nounwind
-define void @_ZTSZZ16fill_and_extractvENKUlRN2cl4sycl7handlerEE_clES2_E10MatrixTest(i32 addrspace(1)* noalias %add.ptr.i) local_unnamed_addr #0 !kernel_arg_addr_space !3 !kernel_arg_access_qual !12 !kernel_arg_type !13 !kernel_arg_base_type !13 !kernel_arg_type_qual !14 !no_barrier_path !15 !kernel_has_sub_groups !16 !vectorized_kernel !17 !max_wg_dimensions !18 !vectorization_dimension !19 !vectorized_width !20 !intel_reqd_sub_group_size !20 !kernel_execution_length !21 !kernel_has_global_sync !16 !recommended_vector_length !20 !can_unite_workgroups !16 !scalar_kernel !11 {
+define void @_ZTSZZ16fill_and_extractvENKUlRN2cl4sycl7handlerEE_clES2_E10MatrixTest(ptr addrspace(1) noalias %add.ptr.i) local_unnamed_addr #0 !kernel_arg_addr_space !3 !kernel_arg_access_qual !12 !kernel_arg_type !13 !kernel_arg_base_type !13 !kernel_arg_type_qual !14 !no_barrier_path !15 !kernel_has_sub_groups !16 !vectorized_kernel !17 !max_wg_dimensions !18 !vectorization_dimension !19 !vectorized_width !20 !intel_reqd_sub_group_size !20 !kernel_execution_length !21 !kernel_has_global_sync !16 !recommended_vector_length !20 !can_unite_workgroups !16 !scalar_kernel !11 !arg_type_null_val !23 {
 ; CHECK-LABEL: define void @_ZTSZZ16fill_and_extractvENKUlRN2cl4sycl7handlerEE_clES2_E10MatrixTest
 ; CHECK-LABEL: VPlannedBB15vector_func:
 ; CHECK-NOT: call void @_ZGVbM8uv_sub_group_rowslice_insertelement.i32(i64 undef, <8 x i32> <i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42, i32 42>
 bb:
-  %early_exit_call = call [7 x i64] @WG.boundaries._ZTSZZ16fill_and_extractvENKUlRN2cl4sycl7handlerEE_clES2_E10MatrixTest(i32 addrspace(1)* %add.ptr.i)
+  %early_exit_call = call [7 x i64] @WG.boundaries._ZTSZZ16fill_and_extractvENKUlRN2cl4sycl7handlerEE_clES2_E10MatrixTest(ptr addrspace(1) %add.ptr.i)
   %i = extractvalue [7 x i64] %early_exit_call, 0
   %i1 = trunc i64 %i to i1
   br i1 %i1, label %WGLoopsEntry, label %exit
@@ -91,7 +91,7 @@ VPlannedBB15vector_func:                          ; preds = %VPlannedBB3vector_f
   %.extract.2.vector_func = extractelement <8 x i1> %i28, i64 2
   %.extract.1.vector_func = extractelement <8 x i1> %i28, i64 1
   %.extract.0.34vector_func = extractelement <8 x i1> %i28, i64 0
-  %scalar.gepvector_func = getelementptr inbounds i32, i32 addrspace(1)* %add.ptr.i, i64 %dim_0_vector_tid
+  %scalar.gepvector_func = getelementptr inbounds i32, ptr addrspace(1) %add.ptr.i, i64 %dim_0_vector_tid
   br label %VPlannedBB17vector_func
 
 VPlannedBB17vector_func:                          ; preds = %pred.call.continue86vector_func, %VPlannedBB15vector_func
@@ -257,8 +257,7 @@ pred.call.if85vector_func:                        ; preds = %pred.call.continue8
   br label %pred.call.continue86vector_func
 
 pred.call.continue86vector_func:                  ; preds = %pred.call.if85vector_func, %pred.call.continue84vector_func
-  %i59 = bitcast i32 addrspace(1)* %scalar.gepvector_func to <8 x i32> addrspace(1)*
-  call void @llvm.masked.store.v8i32.p1v8i32(<8 x i32> %i58, <8 x i32> addrspace(1)* %i59, i32 4, <8 x i1> %i54)
+  call void @llvm.masked.store.v8i32.p1(<8 x i32> %i58, ptr addrspace(1) %scalar.gepvector_func, i32 4, <8 x i1> %i54)
   %i60 = add i64 %uni.phi18vector_func, 1
   br i1 %.not88vector_func, label %VPlannedBB45vector_func, label %VPlannedBB17vector_func
 
@@ -294,7 +293,7 @@ matrix.fill.slice.loop:                           ; preds = %matrix.fill.slice.l
 
 matrix.fill.slice.loop.end:                       ; preds = %matrix.fill.slice.loop.header
   %cmp.i.i = icmp ult i64 %dim_0_tid, 2147483648
-  %arrayidx.i.i = getelementptr inbounds i32, i32 addrspace(1)* %add.ptr.i, i64 %dim_0_tid
+  %arrayidx.i.i = getelementptr inbounds i32, ptr addrspace(1) %add.ptr.i, i64 %dim_0_tid
   br label %for.cond.i
 
 for.cond.i:                                       ; preds = %for.body.i, %matrix.fill.slice.loop.end
@@ -307,7 +306,7 @@ for.body.i:                                       ; preds = %for.cond.i
   %rowslice.id = call i64 @get_sub_group_rowslice_id.v256i32.i64(<256 x i32> %mat, i32 16, i32 16, i64 %indvars.iv) #7
   %extract.elem = call i32 @sub_group_rowslice_extractelement.i32(i64 %rowslice.id) #7
   tail call void @llvm.assume(i1 %cmp.i.i)
-  store i32 %extract.elem, i32 addrspace(1)* %arrayidx.i.i, align 4
+  store i32 %extract.elem, ptr addrspace(1) %arrayidx.i.i, align 4
   %indvars.iv.next = add nuw i64 %indvars.iv, 1
   br label %for.cond.i
 
@@ -349,7 +348,7 @@ declare void @sub_group_rowslice_insertelement.i32(i64, i32) #6
 
 declare <256 x i32> @sub_group_insert_rowslice_to_matrix.v256i32(i64) #5
 
-define private [7 x i64] @WG.boundaries._ZTSZZ16fill_and_extractvENKUlRN2cl4sycl7handlerEE_clES2_E10MatrixTest(i32 addrspace(1)* %arg) !recommended_vector_length !22 {
+define private [7 x i64] @WG.boundaries._ZTSZZ16fill_and_extractvENKUlRN2cl4sycl7handlerEE_clES2_E10MatrixTest(ptr addrspace(1) %arg) !recommended_vector_length !22 {
 entry:
   %i = call i64 @_Z14get_local_sizej(i32 0)
   %i1 = call i64 @get_base_global_id.(i32 0)
@@ -382,7 +381,7 @@ declare void @_ZGVbM8uv_sub_group_rowslice_insertelement.i32(i64, <8 x i32>, <8 
 declare <8 x i32> @_ZGVbM8u_sub_group_rowslice_extractelement.i32(i64, <8 x i32>) #6
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn writeonly
-declare void @llvm.masked.store.v8i32.p1v8i32(<8 x i32>, <8 x i32> addrspace(1)*, i32 immarg, <8 x i1>) #8
+declare void @llvm.masked.store.v8i32.p1(<8 x i32>, ptr addrspace(1), i32 immarg, <8 x i1>) #8
 
 attributes #0 = { nounwind "may-have-openmp-directive"="false" "prefer-vector-width"="512" "vector-variants"="_ZGVeN8u__ZTSZZ16fill_and_extractvENKUlRN2cl4sycl7handlerEE_clES2_E10MatrixTest" }
 attributes #1 = { nofree nosync nounwind readnone willreturn }
@@ -421,7 +420,7 @@ attributes #9 = { nounwind "kernel-call-once" }
 !8 = !{!"2022.13.1.0"}
 !9 = !{!"a.out"}
 !10 = !{!"a.out1"}
-!11 = !{void (i32 addrspace(1)*)* @_ZTSZZ16fill_and_extractvENKUlRN2cl4sycl7handlerEE_clES2_E10MatrixTest}
+!11 = !{ptr @_ZTSZZ16fill_and_extractvENKUlRN2cl4sycl7handlerEE_clES2_E10MatrixTest}
 !12 = !{!"none", !"none"}
 !13 = !{!"int*", !"class.cl::sycl::id"}
 !14 = !{!"", !""}
@@ -433,6 +432,7 @@ attributes #9 = { nounwind "kernel-call-once" }
 !20 = !{i32 8}
 !21 = !{i32 1219}
 !22 = !{i32 16}
+!23 = !{ptr addrspace(1) null}
 
 ; The loss of debug info on subgroup builtins are expected.
 ; DEBUGIFY-COUNT-26: WARNING: Missing line

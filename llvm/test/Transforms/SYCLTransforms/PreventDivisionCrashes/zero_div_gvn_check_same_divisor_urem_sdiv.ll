@@ -2,12 +2,12 @@
 ; RUN: opt -passes=sycl-kernel-prevent-div-crashes,gvn -S %s -o - | FileCheck %s
 
 ; CHECK: @sample_test
-define void @sample_test(i32 %x, i32 %y, i32 addrspace(1)* nocapture %res) nounwind {
+define void @sample_test(i32 %x, i32 %y, ptr addrspace(1) nocapture %res) nounwind !kernel_arg_base_type !0 !arg_type_null_val !1 {
 entry:
   %rem = urem i32 %x, %y
   %div = sdiv i32 %x, %y
   %add = add i32 %rem, %div
-  store i32 %add, i32 addrspace(1)* %res
+  store i32 %add, ptr addrspace(1) %res
   ret void
 }
 
@@ -21,6 +21,7 @@ entry:
 ; CHECK-NEXT: 	[[NEW_DIVISOR_SDIV:%[a-zA-Z0-9]+]] = select i1 [[IS_DIVISOR_BAD]], i32 1, i32 %y
 ; CHECK-NEXT: 	sdiv i32 %x, [[NEW_DIVISOR_SDIV]]
 
-
-
 ; DEBUGIFY-NOT: WARNING
+
+!0 = !{!"int", !"int", !"int*"}
+!1 = !{i32 0, i32 0, ptr addrspace(1) null}

@@ -61,6 +61,6 @@ declare void @_Z18work_group_barrierj(i32 %0) #0
 attributes #0 = { convergent }
 
 !sycl.kernels = !{!0}
-!0 = !{void ()* @kernel_contains_barrier, void ()* @kernel_not_contains_barrier, void ()* @kernel_call_func_call_barrier, void ()* @kernel_call_func_call_func_call_barrier, void ()* @kernel_call_func_no_call_barrier}
+!0 = !{ptr @kernel_contains_barrier, ptr @kernel_not_contains_barrier, ptr @kernel_call_func_call_barrier, ptr @kernel_call_func_call_func_call_barrier, ptr @kernel_call_func_no_call_barrier}
 
 ; DEBUGIFY-NOT: WARNING

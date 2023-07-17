@@ -41,17 +41,17 @@ declare <144 x i32> @sub_group_insert_rowslice_to_matrix.v144i32(i64) #1
 define void @_ZGVeN16uu_test(<144 x i32> %mat, i64 %element.index) #4 !recommended_vector_length !1 !vectorized_width !1 !scalar_kernel !0 {
 entry:
   %alloca.mat = alloca <144 x i32>, align 1024
-  store <144 x i32> %mat, <144 x i32>* %alloca.mat, align 1024
+  store <144 x i32> %mat, ptr %alloca.mat, align 1024
   %alloca.element.index = alloca i64, align 8
-  store i64 %element.index, i64* %alloca.element.index, align 8
+  store i64 %element.index, ptr %alloca.element.index, align 8
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
   br label %simd.loop.preheader
 
 simd.loop.preheader:                              ; preds = %simd.begin.region
-  %load.element.index = load i64, i64* %alloca.element.index, align 8
-  %load.mat = load <144 x i32>, <144 x i32>* %alloca.mat, align 1024
+  %load.element.index = load i64, ptr %alloca.element.index, align 8
+  %load.mat = load <144 x i32>, ptr %alloca.mat, align 1024
   br label %VPlannedBB
 
 VPlannedBB:                                       ; preds = %simd.loop.preheader
@@ -142,10 +142,10 @@ attributes #5 = { nounwind }
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (<144 x i32>, i64)* @test}
+!0 = !{ptr @test}
 !1 = !{i32 16}
 !2 = !{i32 1}
-!3 = !{void (<144 x i32>, i64)* @_ZGVeN16uu_test}
+!3 = !{ptr @_ZGVeN16uu_test}
 !4 = distinct !{!4, !5}
 !5 = !{!"llvm.loop.isvectorized", i32 1}
 

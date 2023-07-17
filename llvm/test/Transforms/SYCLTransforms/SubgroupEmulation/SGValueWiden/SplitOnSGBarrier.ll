@@ -1,6 +1,6 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-sg-emu-value-widen -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-sg-emu-value-widen -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-sg-emu-value-widen -S %s -disable-output -debug-only=sycl-kernel-sg-emu-value-widen 2>&1 | FileCheck %s -check-prefix=CHECK-DT
+; RUN: opt -passes=sycl-kernel-sg-emu-value-widen -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes=sycl-kernel-sg-emu-value-widen -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-sg-emu-value-widen -S %s -disable-output -debug-only=sycl-kernel-sg-emu-value-widen 2>&1 | FileCheck %s -check-prefix=CHECK-DT
 
 ; Checks that DomTree is updated correctly after splitting the barrier-containing basic block.
 
@@ -42,7 +42,7 @@ declare void @_Z17sub_group_barrierj(i32)
 
 !sycl.kernels = !{!0}
 
-!0 = !{void ()* @kernel}
+!0 = !{ptr @kernel}
 !1 = !{i1 true}
 !2 = !{i32 16}
 

@@ -8,7 +8,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent mustprogress nofree norecurse nounwind willreturn writeonly
-define dso_local void @test(ptr addrspace(1) nocapture noundef writeonly %dst) local_unnamed_addr #0 !kernel_arg_addr_space !2 !kernel_arg_access_qual !3 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 !kernel_arg_name !6 !kernel_arg_host_accessible !7 !kernel_arg_pipe_depth !8 !kernel_arg_pipe_io !5 !kernel_arg_buffer_location !5 !no_barrier_path !9 !kernel_has_sub_groups !9 !vectorized_kernel !10 !vectorized_masked_kernel !11 !vectorized_width !2 {
+define dso_local void @test(ptr addrspace(1) nocapture noundef writeonly %dst) local_unnamed_addr #0 !kernel_arg_addr_space !2 !kernel_arg_access_qual !3 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 !kernel_arg_name !6 !kernel_arg_host_accessible !7 !kernel_arg_pipe_depth !8 !kernel_arg_pipe_io !5 !kernel_arg_buffer_location !5 !no_barrier_path !9 !kernel_has_sub_groups !9 !vectorized_kernel !10 !vectorized_masked_kernel !11 !vectorized_width !2 !arg_type_null_val !17 {
 ; CHECK-LABEL: @test(
 ; CHECK:       entry:
 ; CHECK-NEXT:    [[EARLY_EXIT_CALL:%.*]] = call [7 x i64] @WG.boundaries.test(ptr addrspace(1) [[DST:%.*]])
@@ -186,6 +186,7 @@ attributes #3 = { convergent nounwind readnone willreturn }
 !14 = !{!"omnipotent char", !15, i64 0}
 !15 = !{!"Simple C/C++ TBAA"}
 !16 = !{i32 16}
+!17 = !{ptr addrspace(1) null}
 
 ; DEBUGIFY-COUNT-53: WARNING: Instruction with empty DebugLoc in function test
 ; DEBUGIFY: WARNING: Missing line 1

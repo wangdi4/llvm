@@ -79,6 +79,6 @@ declare i32 @_Z12get_local_idj(i32)
 
 !0 = !{ptr @kernel_call_func_with_lid, ptr @kernel_call_func_without_tid}
 !1 = !{!"int*"}
-!2 = !{i32 addrspace(1)* null}
+!2 = !{ptr addrspace(1) null}
 
 ; DEBUGIFY-NOT: WARNING

@@ -238,7 +238,7 @@ attributes #0 = { convergent }
 !sycl.kernels = !{!0}
 !0 = !{ptr @test1, ptr @test2, ptr @test3, ptr @test4, ptr @test5, ptr @test6, ptr @test7, ptr @test8, ptr @test9, ptr @test10, ptr @test11, ptr @test12, ptr @test13, ptr @test14, ptr @test15, ptr @test16}
 !1 = !{!"int*"}
-!2 = !{i32 addrspace(1)* null}
+!2 = !{ptr addrspace(1) null}
 
 ; CHECK-DAG: [[SGMD_FALSE]] = !{i1 false}
 ; CHECK-DAG: [[SGMD_TRUE]] = !{i1 true}

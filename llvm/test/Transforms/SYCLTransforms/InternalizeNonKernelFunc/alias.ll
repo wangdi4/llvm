@@ -41,9 +41,12 @@ define spir_func i32 @foo(i32 %x) {
   ret i32 %x
 }
 
-@foo.alias = internal alias i32 (i32), i32 (i32)* @foo
+@foo.alias = internal alias i32 (i32), ptr @foo
 
-define spir_func void @bar(i64* %y) {
-  store i64 ptrtoint (i32 (i32)* @foo.alias to i64), i64* %y
+define spir_func void @bar(ptr %y) !kernel_arg_base_type !0 !arg_type_null_val !1 {
+  store i64 ptrtoint (ptr @foo.alias to i64), ptr %y, align 8
   ret void
 }
+
+!0 = !{!"long*"}
+!1 = !{ptr null}

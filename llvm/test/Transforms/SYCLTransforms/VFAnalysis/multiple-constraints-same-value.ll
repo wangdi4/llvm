@@ -18,6 +18,6 @@ define void @vec_len_hint_and_reqd_sg_size() !intel_vec_len_hint !{i32 8} !intel
 
 !sycl.kernels = !{!0}
 
-!0 = !{void ()* @vec_len_hint, void ()* @reqd_sg_size, void ()* @vec_len_hint_and_reqd_sg_size}
+!0 = !{ptr @vec_len_hint, ptr @reqd_sg_size, ptr @vec_len_hint_and_reqd_sg_size}
 
 ; CHECK-NOT: error: kernel

@@ -24,4 +24,4 @@ define void @reqd_sg_size() noinline !intel_reqd_sub_group_size !{i32 8} {
 
 !sycl.kernels = !{!0}
 
-!0 = !{void ()* @none, void ()* @vec_len_hint, void ()* @reqd_sg_size}
+!0 = !{ptr @none, ptr @vec_len_hint, ptr @reqd_sg_size}

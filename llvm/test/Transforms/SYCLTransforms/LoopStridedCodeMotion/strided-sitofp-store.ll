@@ -19,7 +19,7 @@ entryvector_func:                                 ; preds = %entryvector_func, %
   %broadcast.splatvector_func = shufflevector <8 x i32> %broadcast.splatinsertvector_func, <8 x i32> zeroinitializer, <8 x i32> zeroinitializer
   %1 = add nuw <8 x i32> %broadcast.splatvector_func, <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
   %convert.fp = sitofp <8 x i32> %1 to <8 x float>
-  store <8 x float> %convert.fp, <8 x float> addrspace(1)* null, align 4
+  store <8 x float> %convert.fp, ptr addrspace(1) null, align 4
   %dim0_inc_tid = add nuw nsw i64 %dim0__tid, 8
   br label %entryvector_func
 }

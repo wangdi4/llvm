@@ -1,9 +1,8 @@
-; RUN: opt -passes=sycl-kernel-resolve-matrix-fill -S %s | FileCheck %s -check-prefixes=CHECK,NONOPAQUE
+; RUN: opt -passes=sycl-kernel-resolve-matrix-fill -S %s | FileCheck %s
 ; RUN: opt -passes=sycl-kernel-resolve-matrix-fill -enable-debugify -S %s 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 
 define void @test() {
-; NONOPAQUE: [[LOAD_DATA:%loaded.fill.data.*]] = load i32, ptr addrspace(4) %load
-; OPAQUE: [[LOAD_DATA:%loaded.fill.data.*]] = load i32, ptr addrspace(4) %load
+; CHECK: [[LOAD_DATA:%loaded.fill.data.*]] = load i32, ptr addrspace(4) %load
 ; CHECK: [[MAT_INIT:%.*]] = call <144 x i32> @llvm.experimental.matrix.fill.v144i32.i32(i32 0, i32 12, i32 12, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
 ; CHECK-NEXT: [[SLICE_LENGTH:%slice.length.*]] = call i64 @llvm.experimental.matrix.wi.slice.length.v144i32(<144 x i32> [[MAT_INIT]], i32 12, i32 12, metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.unnecessary")
 ; CHECK-NEXT: br label %[[LOOP_HEADER:matrix.fill.slice.loop.header.*]]
