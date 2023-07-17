@@ -24,10 +24,10 @@
 #include "cl_object_pool.h"
 #include "cl_shared_ptr.hpp"
 #include "task_executor.h"
+#include <atomic>
 
 // FIXME 'using namespace' shouldn't be used in header file.
 using namespace Intel::OpenCL::TaskExecutor;
-using Intel::OpenCL::Utils::AtomicCounter;
 using Intel::OpenCL::Utils::SharedPtr;
 
 class WGContextPool : public IWGContextPool {
@@ -97,8 +97,8 @@ class TesterTaskSet : public ITaskSet {
 public:
   PREPARE_SHARED_PTR(TesterTaskSet)
 
-  static SharedPtr<TesterTaskSet> Allocate(unsigned int uiNumDims,
-                                           AtomicCounter *pUncompletedTasks) {
+  static SharedPtr<TesterTaskSet>
+  Allocate(unsigned int uiNumDims, std::atomic<long> *pUncompletedTasks) {
     return SharedPtr<TesterTaskSet>(
         new TesterTaskSet(uiNumDims, pUncompletedTasks));
   }
@@ -158,11 +158,11 @@ public:
   bool PreferNumaNodes() const override { return false; }
 
 private:
-  TesterTaskSet(unsigned int uiNumDims, AtomicCounter *pUncompletedTasks)
+  TesterTaskSet(unsigned int uiNumDims, std::atomic<long> *pUncompletedTasks)
       : m_bIsComplete(false), m_uiNumDims(uiNumDims),
         m_pUncompletedTasks(pUncompletedTasks) {}
 
   volatile bool m_bIsComplete;
   const unsigned int m_uiNumDims;
-  AtomicCounter *const m_pUncompletedTasks;
+  std::atomic<long> *const m_pUncompletedTasks;
 };

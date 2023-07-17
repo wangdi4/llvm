@@ -17,10 +17,11 @@
 #include <Logger.h>
 #include <build_event.h>
 #include <cl_device_api.h>
-#include <cl_synch_objects.h>
 #include <cl_types.h>
-#include <map>
 #include <observer.h>
+
+#include <atomic>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -194,7 +195,7 @@ protected:
   std::map<std::string, cl_prog_gv> m_gvPointers;
 
   // Ensure the object is multi-thread safe
-  mutable Intel::OpenCL::Utils::AtomicCounter m_currentAccesses;
+  mutable std::atomic<long> m_currentAccesses{0};
 };
 } // namespace Framework
 } // namespace OpenCL

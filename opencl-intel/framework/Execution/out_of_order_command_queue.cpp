@@ -28,8 +28,7 @@ OutOfOrderCommandQueue::OutOfOrderCommandQueue(
     cl_command_queue_properties clProperties, EventsManager *pEventManager)
     : IOclCommandQueueBase(pContext, clDefaultDeviceID, clProperties,
                            pEventManager),
-      m_depOnAll(nullptr), m_commandsInExecution(0), m_lastBarrier(nullptr),
-      m_unflushedCommands(0) {}
+      m_depOnAll(nullptr), m_lastBarrier(nullptr) {}
 
 OutOfOrderCommandQueue::~OutOfOrderCommandQueue() {}
 

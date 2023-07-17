@@ -24,7 +24,7 @@
 #include "program_service.h"
 
 #include "cl_device_api.h"
-#include "cl_synch_objects.h"
+#include "cl_sys_defines.h"
 #include "cl_thread.h"
 #include "cpu_dev_limits.h"
 #include "ocl_itt.h"
@@ -32,7 +32,6 @@
 #ifdef __USE_TBB_SCALABLE_ALLOCATOR__
 #include <tbb/scalable_allocator.h>
 #endif
-#include "cl_sys_defines.h"
 #include <atomic>
 
 #define COLOR_TABLE_SIZE 64
@@ -214,7 +213,6 @@ public:
   PREPARE_SHARED_PTR(NDRange)
 
   static unsigned int RGBTable[COLOR_TABLE_SIZE];
-  static AtomicCounter RGBTableCounter;
 
   static cl_dev_err_code Create(TaskDispatcher *pTD, cl_dev_cmd_desc *pCmd,
                                 SharedPtr<ITaskBase> *pTask,
@@ -283,14 +281,14 @@ protected:
   Intel::OpenCL::Utils::AtomicBitField m_bWGExecuted;
 
   // Unique ID of the NDRange command
-  static Intel::OpenCL::Utils::AtomicCounter s_lGlbNDRangeId;
+  static std::atomic<long> s_lGlbNDRangeId;
   long m_lNDRangeId;
 
 #ifdef _DEBUG
   // For debug
-  AtomicCounter m_lExecuting;
-  AtomicCounter m_lFinish;
-  AtomicCounter m_lAttaching;
+  std::atomic<long> m_lExecuting{0};
+  std::atomic<long> m_lFinish{0};
+  std::atomic<long> m_lAttaching{0};
 #endif
 };
 
@@ -349,7 +347,7 @@ private:
       const void *pBlockLiteral, size_t stBlockSize, const size_t *pLocalSizes,
       size_t stLocalSizeCount, const _ndrange_t *pNDRange);
 
-  static AtomicCounter sm_cmdIdCnt;
+  static std::atomic<long> sm_cmdIdCnt;
 
   cl_dev_cmd_param_kernel m_paramKernel;
   cl_dev_cmd_desc m_cmdDesc;

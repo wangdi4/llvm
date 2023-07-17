@@ -19,6 +19,7 @@
 #include "cl_shared_ptr.h"
 #include "cl_synch_objects.h"
 #include "cl_types.h"
+#include <atomic>
 
 namespace Intel {
 namespace OpenCL {
@@ -162,7 +163,7 @@ protected:
 
   HandleType m_handle; // the OpenCL handle of the object
   cl_int m_iId;        // object id
-  Intel::OpenCL::Utils::AtomicCounter m_uiRefCount; // reference count
+  std::atomic<long> m_uiRefCount{1}; // reference count
 
   ParentHandleType
       *m_pParentHandle; // the OpenCL handle of the parent the object belongs to

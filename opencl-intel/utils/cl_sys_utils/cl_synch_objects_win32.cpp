@@ -130,45 +130,6 @@ void OclBinarySemaphore::Signal() { SetEvent(m_semaphore); }
 void OclBinarySemaphore::Wait() { WaitForSingleObject(m_semaphore, INFINITE); }
 
 /************************************************************************
- * AtomicCounter implementation
- ************************************************************************/
-AtomicCounter::operator long() const {
-  return InterlockedCompareExchange(const_cast<volatile LONG *>(&m_val), 0, 0);
-}
-
-long AtomicCounter::operator++() // prefix, returns new val
-{
-  return InterlockedIncrement(&m_val);
-}
-
-long AtomicCounter::operator++(int alwaysZero) // postfix, returns previous val
-{
-  return InterlockedExchangeAdd(&m_val, 1);
-}
-
-long AtomicCounter::operator--() // prefix, returns new val
-{
-  return InterlockedDecrement(&m_val);
-}
-
-long AtomicCounter::operator--(int alwaysZero) // postfix, returns previous val
-{
-  return InterlockedExchangeAdd(&m_val, -1);
-}
-
-long AtomicCounter::add(long val) {
-  return InterlockedExchangeAdd(&m_val, val) + val;
-}
-
-long AtomicCounter::test_and_set(long comparand, long exchange) {
-  return InterlockedCompareExchange(&m_val, exchange, comparand);
-}
-
-long AtomicCounter::exchange(long val) {
-  return InterlockedExchange(&m_val, val);
-}
-
-/************************************************************************
  * AtomicBitField implementation
  ************************************************************************/
 AtomicBitField::AtomicBitField()
@@ -241,10 +202,6 @@ OclReaderWriterLock::OclReaderWriterLock() {
       sizeof(void *) ==
       sizeof(SRWLOCK)); // We assume that SRWLOCK defined as struct{void*}
   InitializeSRWLock((PSRWLOCK)&m_rwLock);
-#ifdef _DEBUG
-  readEnter = 0;
-  writeEnter = 0;
-#endif
 }
 
 OclReaderWriterLock::~OclReaderWriterLock() {

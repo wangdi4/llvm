@@ -15,7 +15,7 @@
 template <class Data>
 TBB_ThreadManager<Data>::TBB_ThreadManager()
     : m_DescriptorsArray(nullptr), m_uiNumberOfStaticEntries(0),
-      m_nextFreeEntry(0), m_bOverflowed(false) {}
+      m_bOverflowed(false) {}
 
 template <class Data>
 bool TBB_ThreadManager<Data>::Init(unsigned int uiNumberOfThreads) {

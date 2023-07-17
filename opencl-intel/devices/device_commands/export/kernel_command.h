@@ -164,7 +164,6 @@ protected:
    */
   const SharedPtr<KernelCommand> &GetParent() { return m_parent; }
 
-  AtomicCounter m_numUserDependecies;
   SharedPtr<KernelCommand> m_parent;
   SharedPtr<Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup>
       m_childrenTaskGroup;

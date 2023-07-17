@@ -31,13 +31,13 @@
 #ifdef __USE_TBB_CONCURENT_QUEUE
 #include <tbb/concurrent_queue.h>
 #endif
-#include <assert.h>
-#include <queue>
-
 #include "cl_utils.h"
 #include "hw_utils.h"
 #include "ittnotify.h"
+#include <assert.h>
+#include <atomic>
 #include <mutex>
+#include <queue>
 
 namespace Intel {
 namespace OpenCL {
@@ -62,25 +62,6 @@ private:
   T *volatile m_ptr;
 };
 
-class AtomicCounter {
-public:
-  AtomicCounter(long initVal = 0) : m_val(initVal) {}
-  ~AtomicCounter() {}
-
-  long operator++();               // prefix. Returns new val
-  long operator++(int alwaysZero); // postfix. Returns previous val
-  long operator--();
-  long operator--(int alwaysZero); // second argument enforced by the language,
-                                   // defaults to 0 by the compiler
-  long add(long val);              // returns new val
-  long test_and_set(long comparand, long exchange);
-  long exchange(long val);
-  operator long() const; // casting operator
-
-private:
-  volatile long m_val;
-};
-
 /************************************************************************
  * OclRecursiveMutex:
  * Add number of locked for std::recursive
@@ -103,7 +84,7 @@ public:
   bool lockedRecursively() const { return (lMutex > 1); }
 
 protected:
-  AtomicCounter lMutex;
+  std::atomic<long> lMutex{0};
   std::recursive_mutex mutex;
 };
 
@@ -311,8 +292,8 @@ protected:
   READ_WRITE_LOCK m_rwLock;
 
 #ifdef _DEBUG
-  AtomicCounter readEnter;
-  AtomicCounter writeEnter;
+  std::atomic<long> readEnter{0};
+  std::atomic<long> writeEnter{0};
 #endif
 };
 

@@ -24,6 +24,7 @@
 #include "task_executor.h"
 #include "test_utils.h"
 #include <algorithm>
+#include <atomic>
 #include <iostream>
 #include <vector>
 
@@ -50,7 +51,7 @@ struct NativeKernelParams {
   volatile bool m_bDoubleAffinity;
   volatile unsigned int m_uiMasterCpuId;
   affinityMask_t *m_pMask;
-  AtomicCounter m_cnt;
+  std::atomic<long> m_cnt{0};
 };
 
 static void CL_CALLBACK NativeKernel(void *ptr) {
@@ -98,7 +99,7 @@ public:
 
 private:
   const unsigned long m_ulNumKernels;
-  AtomicCounter m_cnt;
+  std::atomic<long> m_cnt{0};
   OclBinarySemaphore *const m_pSem;
 };
 

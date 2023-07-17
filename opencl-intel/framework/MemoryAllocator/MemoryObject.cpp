@@ -32,9 +32,8 @@ MemoryObject::MemoryObject(SharedPtr<Context> pContext)
                              "MemoryObject"),
       m_pContext(pContext), m_clMemObjectType(0), m_clFlags(0),
       m_pHostPtr(NULL), m_pBackingStore(NULL), m_uiNumDim(0),
-      m_pMemObjData(NULL), m_pParentObject(NULL), m_mapCount(0),
-      m_pMappedDevice(NULL), m_stMemObjSize(0),
-      m_bRegisteredInContextModule(false) {
+      m_pMemObjData(NULL), m_pParentObject(NULL), m_pMappedDevice(NULL),
+      m_stMemObjSize(0), m_bRegisteredInContextModule(false) {
   memset(m_stOrigin, 0, sizeof(m_stOrigin));
 
   m_mapMappedRegions.clear();

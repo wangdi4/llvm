@@ -16,6 +16,7 @@
 
 #include "cl_synch_objects.h"
 
+#include <atomic>
 #include <list>
 #include <mutex>
 #include <set>
@@ -174,7 +175,7 @@ private:
 
   long DriveEnterZombieState() const;
 
-  mutable AtomicCounter m_refCnt;
+  mutable std::atomic<long> m_refCnt{0};
   mutable std::mutex m_zombieLock; // all zombie-related checks to be done
                                    // inside lock except m_bCheckZombie
   mutable long m_zombieLevelCnt; // when object is considered zombie
