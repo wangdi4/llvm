@@ -773,6 +773,9 @@ void insertPrintf(const Twine &Prefix, IRBuilder<> &Builder,
                   ArrayRef<Value *> Inputs = std::nullopt,
                   ArrayRef<StringRef> InputPrefixes = std::nullopt);
 
+CallInst *createGetMaxSubGroupSizeCall(Instruction *IP, const Twine &Name);
+CallInst *createGetSubGroupLocalIdCall(Instruction *IP, const Twine &Name);
+
 #if INTEL_CUSTOMIZATION
 /// Check whether the given FixedVectorType represents a valid SYCL matrix.
 bool isValidMatrixType(FixedVectorType *MatrixType);

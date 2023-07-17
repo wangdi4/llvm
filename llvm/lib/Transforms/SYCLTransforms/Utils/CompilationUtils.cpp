@@ -2815,6 +2815,30 @@ static CallInst *generateCall(Module *M, StringRef FnName, Type *ReturnType,
   return Builder.CreateCall(Func, Args, Name);
 }
 
+CallInst *createGetMaxSubGroupSizeCall(Instruction *IP, const Twine &Name) {
+  IRBuilder<> Builder(IP);
+  auto &Ctx = IP->getContext();
+  auto AL = AttributeList()
+                .addFnAttribute(Ctx, Attribute::getWithMemoryEffects(
+                                         Ctx, MemoryEffects::none()))
+                .addFnAttribute(Ctx, Attribute::NoUnwind)
+                .addFnAttribute(Ctx, Attribute::WillReturn);
+  return generateCall(IP->getModule(), mangledGetMaxSubGroupSize(),
+                      Builder.getInt32Ty(), {}, Builder, Name, AL);
+}
+
+CallInst *createGetSubGroupLocalIdCall(Instruction *IP, const Twine &Name) {
+  IRBuilder<> Builder(IP);
+  auto &Ctx = IP->getContext();
+  auto AL = AttributeList()
+                .addFnAttribute(Ctx, Attribute::getWithMemoryEffects(
+                                         Ctx, MemoryEffects::none()))
+                .addFnAttribute(Ctx, Attribute::NoUnwind)
+                .addFnAttribute(Ctx, Attribute::WillReturn);
+  return generateCall(IP->getModule(), mangledGetSubGroupLocalId(),
+                      Builder.getInt32Ty(), {}, Builder, Name, AL);
+}
+
 #if INTEL_CUSTOMIZATION
 CallInst *createGetSubGroupSliceLengthCall(unsigned TotalElementCount,
                                            Instruction *IP, const Twine &Name) {
