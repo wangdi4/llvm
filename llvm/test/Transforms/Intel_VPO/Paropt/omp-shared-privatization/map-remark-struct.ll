@@ -72,7 +72,12 @@ entry:
   call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %0, i8* align 4 bitcast (%struct.S* @__const.test1.A to i8*), i64 4, i1 false)
   %1 = bitcast %struct.S* %B to i8*
   call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %1, i8* align 4 bitcast (%struct.S* @__const.test1.B to i8*), i64 4, i1 false)
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.FROM"(%struct.S* %retval, %struct.S* %retval, i64 4, i64 34, i8* null, i8* null), "QUAL.OMP.MAP.TO"(%struct.S* %A, %struct.S* %A, i64 4, i64 33, i8* null, i8* null), "QUAL.OMP.MAP.TOFROM"(%struct.S* %B, %struct.S* %B, i64 4, i64 35, i8* null, i8* null) ]
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    "QUAL.OMP.MAP.FROM"(%struct.S* %retval, %struct.S* %retval, i64 4, i64 34, i8* null, i8* null), ; MAP type: 34 = 0x22 = TARGET_PARAM (0x20) | FROM (0x2)
+    "QUAL.OMP.MAP.TO"(%struct.S* %A, %struct.S* %A, i64 4, i64 33, i8* null, i8* null), ; MAP type: 33 = 0x21 = TARGET_PARAM (0x20) | TO (0x1)
+    "QUAL.OMP.MAP.TOFROM"(%struct.S* %B, %struct.S* %B, i64 4, i64 35, i8* null, i8* null) ] ; MAP type: 35 = 0x23 = TARGET_PARAM (0x20) | FROM (0x2) | TO (0x1)
+
   %N = getelementptr inbounds %struct.S, %struct.S* %A, i32 0, i32 0
   %3 = load i32, i32* %N, align 4
   %N1 = getelementptr inbounds %struct.S, %struct.S* %B, i32 0, i32 0
@@ -81,6 +86,7 @@ entry:
   %N2 = getelementptr inbounds %struct.S, %struct.S* %retval, i32 0, i32 0
   store i32 %add, i32* %N2, align 4
   call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.TARGET"() ]
+
   %coerce.dive = getelementptr inbounds %struct.S, %struct.S* %retval, i32 0, i32 0
   %5 = load i32, i32* %coerce.dive, align 4
   ret i32 %5
