@@ -390,7 +390,7 @@ public:
   enum InductionKind {
     IK_NoInduction,  ///< Not an induction variable.
     IK_IntInduction, ///< Integer induction variable. Step = C.
-    IK_PtrInduction, ///< Pointer induction var. Step = C / sizeof(elem).
+    IK_PtrInduction, ///< Pointer induction var. Step = C.
     IK_FpInduction   ///< Floating point induction variable.
   };
 
@@ -515,10 +515,12 @@ public:
   }
 #endif
 
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   Type *getElementType() const {
     assert(IK == IK_PtrInduction && "Only pointer induction has element type");
     return ElementType;
   }
+#endif //INTEL_SYCL_OPAQUEPOINTER_READY
 
   /// Returns a reference to the type cast instructions in the induction
   /// update chain, that are redundant when guarded with a runtime
@@ -531,7 +533,9 @@ private:
   /// Private constructor - used by \c isInductionPHI.
   InductionDescriptor(Value *Start, InductionKind K, const SCEV *Step,
                       BinaryOperator *InductionBinOp = nullptr,
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
                       Type *ElementType = nullptr,
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
                       SmallVectorImpl<Instruction *> *Casts = nullptr);
 
 #if !INTEL_CUSTOMIZATION
@@ -546,9 +550,13 @@ private:
   // Instruction that advances induction variable.
   BinaryOperator *InductionBinOp = nullptr;
 #endif
+
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   // Element type for pointer induction variables.
   // TODO: This can be dropped once support for typed pointers is removed.
   Type *ElementType = nullptr;
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+
   // Instructions used for type-casts of the induction variable,
   // that are redundant when guarded with a runtime SCEV overflow check.
   SmallVector<Instruction *, 2> RedundantCasts;
