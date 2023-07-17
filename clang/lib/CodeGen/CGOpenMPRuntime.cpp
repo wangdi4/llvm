@@ -8036,7 +8036,7 @@ public:
           CombinedInfo.Exprs.emplace_back(MapDecl, MapExpr);
           CombinedInfo.BasePointers.push_back(BP.getPointer());
           CombinedInfo.DevicePtrDecls.push_back(nullptr);
-<<<<<<< HEAD
+          CombinedInfo.DevicePointers.push_back(DeviceInfoTy::None);
 #if INTEL_COLLAB
           if (CGF.CGM.getLangOpts().OpenMPLateOutline &&
               I->getAssociatedExpression()->getType()
@@ -8049,9 +8049,6 @@ public:
                 LB.getElementType(), LB.getPointer(), Idx, "arrayidx"));
           } else
 #endif //INTEL_COLLAB
-=======
-          CombinedInfo.DevicePointers.push_back(DeviceInfoTy::None);
->>>>>>> 0503904c5f90e563d40f5f227a8c0a879cb22985
           CombinedInfo.Pointers.push_back(LB.getPointer());
           CombinedInfo.Sizes.push_back(
               CGF.Builder.CreateIntCast(Size, CGF.Int64Ty, /*isSigned=*/true));
