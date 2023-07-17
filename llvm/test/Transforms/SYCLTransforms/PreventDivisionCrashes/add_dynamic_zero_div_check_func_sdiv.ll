@@ -2,10 +2,10 @@
 ; RUN: opt -passes=sycl-kernel-prevent-div-crashes -S %s -o - | FileCheck %s
 
 ; CHECK: @sample_test
-define void @sample_test(i32 %x, i32 %y, i32 addrspace(1)* nocapture %res) nounwind {
+define void @sample_test(i32 %x, i32 %y, ptr addrspace(1) nocapture %res) nounwind !kernel_arg_base_type !0 !arg_type_null_val !1 {
 entry:
   %div = sdiv i32 %x, %y
-  store i32 %div, i32 addrspace(1)* %res
+  store i32 %div, ptr addrspace(1) %res
   ret void
 }
 
@@ -19,3 +19,6 @@ entry:
 
 
 ; DEBUGIFY-NOT: WARNING
+
+!0 = !{!"int", !"int", !"int*"}
+!1 = !{i32 0, i32 0, ptr addrspace(1) null}

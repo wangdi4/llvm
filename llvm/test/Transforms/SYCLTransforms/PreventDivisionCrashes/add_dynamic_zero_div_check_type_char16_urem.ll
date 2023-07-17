@@ -2,10 +2,10 @@
 ; RUN: opt -passes=sycl-kernel-prevent-div-crashes -S %s -o - | FileCheck %s
 
 ; CHECK: @sample_test
-define void @sample_test(<16 x i8> %x, <16 x i8> %y, <16 x i8> addrspace(1)* nocapture %res) nounwind {
+define void @sample_test(<16 x i8> %x, <16 x i8> %y, ptr addrspace(1) nocapture %res) nounwind !kernel_arg_base_type !0 !arg_type_null_val !1 {
 entry:
   %rem = urem <16 x i8> %x, %y
-  store <16 x i8> %rem, <16 x i8> addrspace(1)* %res
+  store <16 x i8> %rem, ptr addrspace(1) %res
   ret void
 }
 
@@ -16,3 +16,6 @@ entry:
 
 
 ; DEBUGIFY-NOT: WARNING
+
+!0 = !{!"char16", !"char16", !"char16*"}
+!1 = !{<16 x i8> zeroinitializer, <16 x i8> zeroinitializer, ptr addrspace(1) null}

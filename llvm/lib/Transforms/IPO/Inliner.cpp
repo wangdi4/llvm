@@ -693,7 +693,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 #if INTEL_CUSTOMIZATION
       Report->inlineCallSite();
       Report->endUpdate();
-      MDReport->updateInliningReport();
+      MDReport->inlineCallSite();
       MDReport->endUpdate();
 #endif // INTEL_CUSTOMIZATION
       LLVM_DEBUG(dbgs() << "    Size after inlining: "

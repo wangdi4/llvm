@@ -587,8 +587,63 @@ void KernelBarrier::fixSpecialValues() {
   }
 }
 
+/// Hoist an uniform cross-barrier instruction and its depedent instructions to
+/// entry basic block, which donimates the instruction's users. Return true if
+/// the instruction either is already in the entry block or is hoisted. Return
+/// false if the instruction can't be hoisted.
+static bool
+hoistUniformCrossBarrierInstToEntryBlock(Instruction *I,
+                                         Instruction *InsertBefore) {
+  BasicBlock *InsertBeforeBB = InsertBefore->getParent();
+  if (I->getParent() == InsertBeforeBB)
+    return true;
+  if (isa<CallInst>(I) || I->use_empty())
+    return false;
+
+  // Collect dependent instructions to move.
+  SmallSetVector<Instruction *, 16> ToMove;
+  Use *TheUse = &*I->use_begin();
+  for (Use *U : make_range(po_begin(TheUse), po_end(TheUse))) {
+    Value *V = U->get();
+    // Skip constant value that may consist of global variable.
+    if (isa<GlobalVariable>(V) || isa<ConstantExpr>(V) ||
+        isa<ConstantAggregate>(V))
+      return false;
+    if (auto *Inst = dyn_cast<Instruction>(V)) {
+      if (auto *CI = dyn_cast<CallInst>(Inst)) {
+        Function *Callee = CI->getCalledFunction();
+        if (!Callee)
+          return false;
+        StringRef Name = Callee->getName();
+        using namespace CompilationUtils;
+        if (!isGetGlobalSize(Name) && !isGetGroupId(Name) &&
+            !isGetLocalSize(Name) && !isGetNumGroups(Name) &&
+            !isGetWorkDim(Name))
+          return false;
+      }
+      if (Inst->getParent() != InsertBeforeBB)
+        ToMove.insert(Inst);
+    }
+  }
+
+  for (Instruction *Inst : ToMove)
+    Inst->moveBefore(InsertBefore);
+
+  return true;
+}
+
 void KernelBarrier::fixCrossBarrierValues(Instruction *InsertBefore) {
-  for (Value *V : *CrossBarrierValues) {
+  ValueVec WorkList;
+  if (!InsertBefore->getFunction()->hasOptNone()) {
+    for (Value *V : llvm::reverse(*CrossBarrierValues))
+      if (!hoistUniformCrossBarrierInstToEntryBlock(cast<Instruction>(V),
+                                                    InsertBefore))
+        WorkList.push_back(V);
+  } else {
+    WorkList = *CrossBarrierValues;
+  }
+
+  for (Value *V : WorkList) {
     Instruction *Inst = dyn_cast<Instruction>(V);
     assert(Inst && "container of special values has non Instruction value!");
     // Find next instruction so we can create new instruction before it.

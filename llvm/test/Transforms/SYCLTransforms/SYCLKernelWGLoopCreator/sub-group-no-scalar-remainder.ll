@@ -17,11 +17,11 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent nounwind
-define void @test(i32 addrspace(1)* noalias %sub_groups_sizes) local_unnamed_addr #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !5 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !7 !vectorized_kernel !8 !no_barrier_path !9 !kernel_has_sub_groups !9 !scalar_kernel !10 !vectorized_width !1 !kernel_execution_length !11 !kernel_has_barrier !5 !kernel_has_global_sync !5 !max_wg_dimensions !1 {
+define void @test(ptr addrspace(1) noalias %sub_groups_sizes) local_unnamed_addr #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !5 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !7 !vectorized_kernel !8 !no_barrier_path !9 !kernel_has_sub_groups !9 !scalar_kernel !10 !vectorized_width !1 !kernel_execution_length !11 !kernel_has_barrier !5 !kernel_has_global_sync !5 !max_wg_dimensions !1 {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) #3
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %sub_groups_sizes, i64 %call
-  store i32 1, i32 addrspace(1)* %arrayidx, align 4, !tbaa !12
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %sub_groups_sizes, i64 %call
+  store i32 1, ptr addrspace(1) %arrayidx, align 4, !tbaa !12
   ret void
 }
 
@@ -31,7 +31,7 @@ declare i64 @_Z13get_global_idj(i32) local_unnamed_addr #1
 ; Function Attrs: convergent
 declare i32 @_Z22get_max_sub_group_sizev() local_unnamed_addr #2
 
-define [7 x i64] @WG.boundaries.test(i32 addrspace(1)* %0) {
+define [7 x i64] @WG.boundaries.test(ptr addrspace(1) %0) {
 entry:
   %1 = call i64 @_Z14get_local_sizej(i32 0)
   %2 = call i64 @get_base_global_id.(i32 0)
@@ -54,12 +54,11 @@ declare i64 @_Z14get_local_sizej(i32)
 declare i64 @get_base_global_id.(i32)
 
 ; Function Attrs: convergent nounwind
-define void @__Vectorized_.test(i32 addrspace(1)* noalias %sub_groups_sizes) local_unnamed_addr #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !5 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !7 !vectorized_kernel !10 !no_barrier_path !9 !kernel_has_sub_groups !9 !scalar_kernel !0 !vectorized_width !16 !kernel_execution_length !17 !kernel_has_barrier !5 !kernel_has_global_sync !5 !max_wg_dimensions !1 !vectorization_dimension !6 !can_unite_workgroups !5 {
+define void @__Vectorized_.test(ptr addrspace(1) noalias %sub_groups_sizes) local_unnamed_addr #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !5 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !7 !vectorized_kernel !10 !no_barrier_path !9 !kernel_has_sub_groups !9 !scalar_kernel !0 !vectorized_width !16 !kernel_execution_length !17 !kernel_has_barrier !5 !kernel_has_global_sync !5 !max_wg_dimensions !1 !vectorization_dimension !6 !can_unite_workgroups !5 {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) #3
-  %0 = getelementptr inbounds i32, i32 addrspace(1)* %sub_groups_sizes, i64 %call
-  %ptrTypeCast = bitcast i32 addrspace(1)* %0 to <16 x i32> addrspace(1)*
-  store <16 x i32> <i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16>, <16 x i32> addrspace(1)* %ptrTypeCast, align 4
+  %0 = getelementptr inbounds i32, ptr addrspace(1) %sub_groups_sizes, i64 %call
+  store <16 x i32> <i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16>, ptr addrspace(1) %0, align 4
   ret void
 }
 
@@ -72,7 +71,7 @@ attributes #3 = { convergent nounwind readnone }
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32 addrspace(1)*)* @test}
+!0 = !{ptr @test}
 !1 = !{i32 1}
 !2 = !{!"none"}
 !3 = !{!"uint*"}
@@ -80,7 +79,7 @@ attributes #3 = { convergent nounwind readnone }
 !5 = !{i1 false}
 !6 = !{i32 0}
 !7 = !{!"sub_groups_sizes"}
-!8 = !{void (i32 addrspace(1)*)* @__Vectorized_.test}
+!8 = !{ptr @__Vectorized_.test}
 !9 = !{i1 true}
 !10 = !{null}
 !11 = !{i32 4}
@@ -94,5 +93,5 @@ attributes #3 = { convergent nounwind readnone }
 ; DEBUGIFY-COUNT-26: WARNING: Instruction with empty DebugLoc in function test
 ; DEBUGIFY: WARNING: Missing line 1
 ; DEBUGIFY: WARNING: Missing line 19
-; DEBUGIFY: WARNING: Missing line 23
+; DEBUGIFY: WARNING: Missing line 22
 ; DEBUGIFY-NOT: WARNING

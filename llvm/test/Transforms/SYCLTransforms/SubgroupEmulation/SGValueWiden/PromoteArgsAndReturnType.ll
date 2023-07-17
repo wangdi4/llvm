@@ -1,6 +1,5 @@
-
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-sg-emu-value-widen -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-sg-emu-value-widen -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-sg-emu-value-widen -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes=sycl-kernel-sg-emu-value-widen -S %s | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -24,11 +23,10 @@ entry:
 
 ; GEP on widen alloca is bitcast to original pointer type (i1*)
 ; CHECK: [[SGLID_addr:%.*]] = call i32 @_Z22get_sub_group_local_idv()
-; CHECK: [[GEP_addr:%.*]] = getelementptr <16 x i8>, <16 x i8>* %w.a.addr, i32 0, i32 [[SGLID_addr]]
-; CHECK: [[CAST_addr:%.*]] = bitcast i8* [[GEP_addr]] to i1*
-; CHECK: store i1 [[TRUNC_a]], i1* [[CAST_addr]], align 1
-  store i1 %a, i1* %a.addr, align 1
-  %0 = load i1, i1* %a.addr, align 1
+; CHECK: [[GEP_addr:%.*]] = getelementptr <16 x i8>, ptr %w.a.addr, i32 0, i32 [[SGLID_addr]]
+; CHECK: store i1 [[TRUNC_a]], ptr [[GEP_addr]], align 1
+  store i1 %a, ptr %a.addr, align 1
+  %0 = load i1, ptr %a.addr, align 1
   %1 = zext i1 %0 to i32
   br label %sg.barrier.bb.
 
@@ -54,15 +52,15 @@ entry:
 sg.dummy.bb.1:                                    ; preds = %entry
   call void @dummy_sg_barrier()
   %x.addr = alloca i32, align 4
-  store i32 %x, i32* %x.addr, align 4
-  %0 = load i32, i32* %x.addr, align 4
+  store i32 %x, ptr %x.addr, align 4
+  %0 = load i32, ptr %x.addr, align 4
   %1 = trunc i32 %0 to i1
   br label %sg.barrier.bb.
 
 ; CHECK-LABEL: sg.barrier.bb.:
-; CHECK: [[VEC_i8:%.*]] = load <16 x i8>, <16 x i8>*
+; CHECK: [[VEC_i8:%.*]] = load <16 x i8>, ptr
 ; CHECK: [[RET_i8:%.*]] = call <16 x i8> @_ZGVbN16v_foo(<16 x i8> [[VEC_i8]])
-; CHECK: store <16 x i8> [[RET_i8]], <16 x i8>*
+; CHECK: store <16 x i8> [[RET_i8]], ptr
 sg.barrier.bb.:                                   ; preds = %sg.dummy.bb.1
   call void @_Z17sub_group_barrierj(i32 1)
   %call = call i1 @foo(i1 %1)
@@ -72,9 +70,9 @@ sg.barrier.bb.:                                   ; preds = %sg.dummy.bb.1
 ; GEP on <16 x i1>* is avoided.
 ; CHECK-LABEL: sg.dummy.bb.:
 ; CHECK: [[SGLID_call:%.*]] = call i32 @_Z22get_sub_group_local_idv()
-; CHECK: [[GEP_call:%.*]] = getelementptr <16 x i8>, <16 x i8>* %w.call, i32 0, i32 [[SGLID_call]]
-; CHECK-NOT: getelementptr <16 x i1>, <16 x i1>*
-; CHECK: [[LOAD_call:%.*]] = load i8, i8* [[GEP_call]]
+; CHECK: [[GEP_call:%.*]] = getelementptr <16 x i8>, ptr %w.call, i32 0, i32 [[SGLID_call]]
+; CHECK-NOT: getelementptr <16 x i1>, ptr
+; CHECK: [[LOAD_call:%.*]] = load i8, ptr [[GEP_call]]
 ; CHECK: [[TRUNC_call:%.*]] = trunc i8 [[LOAD_call]] to i1
 ; CHECK: %call.ext = zext i1 [[TRUNC_call]] to i32
 sg.dummy.bb.:                                     ; preds = %sg.barrier.bb.
@@ -98,7 +96,7 @@ attributes #0 = { "vector-variants"="_ZGVbM16v__Z13sub_group_alli(_Z13sub_group_
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32)* @test}
+!0 = !{ptr @test}
 !1 = !{i1 true}
 !2 = !{i32 16}
 

@@ -30,4 +30,4 @@ define void @reqd_sg_size() !intel_reqd_sub_group_size !{i32 8} {
 
 !sycl.kernels = !{!0}
 
-!0 = !{void ()* @call_vec_len_hint, void ()* @call_reqd_sg_size}
+!0 = !{ptr @call_vec_len_hint, ptr @call_reqd_sg_size}

@@ -1349,7 +1349,7 @@ bool SampleProfileLoader::tryInlineCandidate(
   }
   getInlineReport()->inlineCallSite();
   getInlineReport()->endUpdate();
-  getMDInlineReport()->updateInliningReport();
+  getMDInlineReport()->inlineCallSite();
   getMDInlineReport()->endUpdate();
 #endif // INTEL_CUSTOMIZATION
 

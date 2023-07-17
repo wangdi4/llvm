@@ -1,4 +1,5 @@
 ; RUN: opt -passes=inline -disable-output -inline-report=0xf847 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup,inline,inlinereportemitter' -disable-output -inline-report=0xf8c6 < %s 2>&1 | FileCheck %s
 
 ; Check that when the inliner replaces the indirect call to %__pf with a call
 ; to @_ZSt4endlIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_ that the call

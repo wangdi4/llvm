@@ -1,9 +1,17 @@
 ; RUN: opt -passes=inline -disable-output -inline-report=0xf847 < %s 2>&1 | FileCheck --check-prefixes=CHECK-CL,CHECK-CL-MAX %s
+; RUN: opt -passes='inlinereportsetup,inline,inlinereportemitter' -disable-output -inline-report=0xf8c6 < %s 2>&1 | FileCheck --check-prefixes=CHECK-CL,CHECK-CL-MAX %s
 ; RUN: opt -passes=inline -disable-output -inline-report=0x2f847 < %s 2>&1 | FileCheck --check-prefixes=CHECK-CL,CHECK-CL-CPT %s
+; RUN: opt -passes='inlinereportsetup,inline,inlinereportemitter' -disable-output -inline-report=0x2f8c6 < %s 2>&1 | FileCheck --check-prefixes=CHECK-CL,CHECK-CL-CPT %s
 ; RUN: opt -passes=inline -disable-output -inline-report=0xf847 -inline-report-compact-threshold=0 < %s 2>&1 | FileCheck --check-prefixes=CHECK-CL,CHECK-CL-CPT %s
+; RUN: opt -passes='inlinereportsetup,inline,inlinereportemitter' -disable-output -inline-report=0xf8c6 -inline-report-compact-threshold=0 < %s 2>&1 | FileCheck --check-prefixes=CHECK-CL,CHECK-CL-CPT %s
 ; RUN: opt -passes=inline -disable-output -inline-report=0xf847 -inline-report-compact-threshold=1 < %s 2>&1 | FileCheck --check-prefixes=CHECK-CL,CHECK-CL-CPT %s
+; RUN: opt -passes='inlinereportsetup,inline,inlinereportemitter' -disable-output -inline-report=0xf8c6 -inline-report-compact-threshold=2 < %s 2>&1 | FileCheck --check-prefixes=CHECK-CL,CHECK-CL-TH2 %s
+; RUN: opt -passes=inline -disable-output -inline-report=0xf847 -inline-report-compact-threshold=1 < %s 2>&1 | FileCheck --check-prefixes=CHECK-CL,CHECK-CL-CPT %s
+; RUN: opt -passes='inlinereportsetup,inline,inlinereportemitter' -disable-output -inline-report=0xf8c6 -inline-report-compact-threshold=1 < %s 2>&1 | FileCheck --check-prefixes=CHECK-CL,CHECK-CL-CPT %s
 ; RUN: opt -passes=inline -disable-output -inline-report=0xf847 -inline-report-compact-threshold=2 < %s 2>&1 | FileCheck --check-prefixes=CHECK-CL,CHECK-CL-TH2 %s
+; RUN: opt -passes='inlinereportsetup,inline,inlinereportemitter' -disable-output -inline-report=0xf8c6 -inline-report-compact-threshold=2 < %s 2>&1 | FileCheck --check-prefixes=CHECK-CL,CHECK-CL-TH2 %s
 ; RUN: opt -passes=inline -disable-output -inline-report=0xf847 -inline-report-compact-threshold=3 < %s 2>&1 | FileCheck --check-prefixes=CHECK-CL,CHECK-CL-MAX %s
+; RUN: opt -passes='inlinereportsetup,inline,inlinereportemitter' -disable-output -inline-report=0xf8c6 -inline-report-compact-threshold=3 < %s 2>&1 | FileCheck --check-prefixes=CHECK-CL,CHECK-CL-MAX %s
 
 ; Test compact form of inlining report.
 

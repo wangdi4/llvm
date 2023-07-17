@@ -6,7 +6,7 @@
 
 ; RUN: opt %s --debug-only=sycl-kernel-sg-size-collector -passes="sycl-kernel-update-call-attrs,sycl-kernel-vec-clone,sycl-kernel-vector-variant-lowering,sycl-kernel-sg-size-collector,sycl-kernel-sg-size-collector-indirect,sycl-kernel-vector-variant-fillin" -S 2>&1 | FileCheck %s
 
-define void @test(float %x, i32 addrspace(1)* noalias %a) !recommended_vector_length !13 {
+define void @test(float %x, ptr addrspace(1) noalias %a) !recommended_vector_length !1 !kernel_arg_base_type !2 !arg_type_null_val !3 {
 entry:
   %conv = fpext float %x to double
   %call = call {double, double} @direct(double %conv)
@@ -27,8 +27,9 @@ declare dso_local { double, double } @clog(double, double) local_unnamed_addr
 ; DEBUGIFY-COUNT-7: WARNING: Instruction with empty DebugLoc
 ; DEBUGIFY-NOT: WARNING
 
-!sycl.kernels = !{!4}
+!sycl.kernels = !{!0}
 
-!4 = !{void (float, i32 addrspace(1)*)* @test}
-!12 = !{i1 false}
-!13 = !{i32 4}
+!0 = !{ptr @test}
+!1 = !{i32 4}
+!2 = !{!"float", !"int*"}
+!3 = !{float 0.000000e+0, ptr addrspace(1) null}

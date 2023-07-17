@@ -22,7 +22,7 @@ define void @vec_len_hint_and_reqd_sg_size() !intel_vec_len_hint !{i32 16} !inte
 
 !sycl.kernels = !{!0}
 
-!0 = !{void ()* @heuristic, void ()* @vec_len_hint, void ()* @reqd_sg_size, void ()* @vec_len_hint_and_reqd_sg_size}
+!0 = !{ptr @heuristic, ptr @vec_len_hint, ptr @reqd_sg_size, ptr @vec_len_hint_and_reqd_sg_size}
 
 ; No diagnostics with zero or one constraint.
 ; CHECK-NO-FORCE-NOT: error: kernel "{{heuristic|vec_len_hint|reqd_sg_size}}"

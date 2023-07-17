@@ -27,10 +27,10 @@ attributes #0 = { nofree norecurse noreturn nosync nounwind readnone "vector-var
 
 !sycl.kernels = !{!0}
 
-!0 = !{void ()* @test}
+!0 = !{ptr @test}
 !1 = !{}
 !2 = !{i1 true}
-!3 = !{void ()* @_ZGVeN16_test}
+!3 = !{ptr @_ZGVeN16_test}
 !4 = !{i32 1}
 !5 = !{i32 0}
 !6 = !{i32 16}

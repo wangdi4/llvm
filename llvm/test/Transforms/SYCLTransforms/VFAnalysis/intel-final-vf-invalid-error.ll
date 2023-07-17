@@ -10,4 +10,4 @@ define void @test() {
 
 !sycl.kernels = !{!0}
 
-!0 = !{void ()* @test}
+!0 = !{ptr @test}

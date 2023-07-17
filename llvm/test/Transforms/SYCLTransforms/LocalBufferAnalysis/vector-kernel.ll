@@ -30,24 +30,24 @@ target triple = "x86_64-pc-linux"
 
 define dso_local void @test() !vectorized_kernel !1 {
 entry:
-  %0 = load i64, i64 addrspace(3)* getelementptr inbounds ([1 x i64], [1 x i64] addrspace(3)* @test.l, i64 0, i64 0), align 8, !tbaa !2
-  %1 = load i8, i8 addrspace(3)* getelementptr inbounds ([1 x i8], [1 x i8] addrspace(3)* @test.c, i64 0, i64 0), align 1, !tbaa !6
-  %2 = load i32, i32 addrspace(3)* getelementptr inbounds ([2 x i32], [2 x i32] addrspace(3)* @test.i, i64 0, i64 0), align 4, !tbaa !7
+  %0 = load i64, ptr addrspace(3) getelementptr inbounds ([1 x i64], ptr addrspace(3) @test.l, i64 0, i64 0), align 8, !tbaa !2
+  %1 = load i8, ptr addrspace(3) getelementptr inbounds ([1 x i8], ptr addrspace(3) @test.c, i64 0, i64 0), align 1, !tbaa !6
+  %2 = load i32, ptr addrspace(3) getelementptr inbounds ([2 x i32], ptr addrspace(3) @test.i, i64 0, i64 0), align 4, !tbaa !7
   ret void
 }
 
 define dso_local void @_ZGVeN16u_test() !scalar_kernel !0 {
 entry:
-  %0 = getelementptr inbounds [1 x i64], [1 x i64] addrspace(3)* @test.l, i64 0, i64 0
-  %1 = getelementptr inbounds [1 x i8], [1 x i8] addrspace(3)* @test.c, i64 0, i64 0
-  %2 = getelementptr inbounds [2 x i32], [2 x i32] addrspace(3)* @test.i, i64 0, i64 0
+  %0 = getelementptr inbounds [1 x i64], ptr addrspace(3) @test.l, i64 0, i64 0
+  %1 = getelementptr inbounds [1 x i8], ptr addrspace(3) @test.c, i64 0, i64 0
+  %2 = getelementptr inbounds [2 x i32], ptr addrspace(3) @test.i, i64 0, i64 0
   ret void
 }
 
 !sycl.kernels = !{!0}
 
-!0 = !{void ()* @test}
-!1 = !{void ()* @_ZGVeN16u_test}
+!0 = !{ptr @test}
+!1 = !{ptr @_ZGVeN16u_test}
 !2 = !{!3, !3, i64 0}
 !3 = !{!"long", !4, i64 0}
 !4 = !{!"omnipotent char", !5, i64 0}

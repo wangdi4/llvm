@@ -21,7 +21,7 @@ attributes #0 = { convergent norecurse nounwind }
 
 !sycl.kernels = !{!0}
 
-!0 = !{void ()* @test}
+!0 = !{ptr @test}
 !1 = !{}
 !2 = !{i1 true}
 !3 = distinct !{!3, !4, !5}

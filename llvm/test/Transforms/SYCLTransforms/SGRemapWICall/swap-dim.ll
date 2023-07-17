@@ -56,7 +56,7 @@ declare i64 @_Z12get_group_idj(i32 %x)
 
 !sycl.kernels = !{!0}
 
-!0 = !{void ()* @gid, void ()* @lid, void ()* @groupid}
+!0 = !{ptr @gid, ptr @lid, ptr @groupid}
 
 ; CHECK: ![[#MD]] = !{i32 2}
 

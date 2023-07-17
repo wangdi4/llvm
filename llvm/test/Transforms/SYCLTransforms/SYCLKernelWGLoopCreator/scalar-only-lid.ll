@@ -8,7 +8,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline nounwind optnone uwtable
-define dso_local void @test(ptr %out, ptr %dummy) #0 !no_barrier_path !{i1 1} {
+define dso_local void @test(ptr %out, ptr %dummy) #0 !no_barrier_path !{i1 1} !kernel_arg_base_type !1 !arg_type_null_val !2 {
 ; CHECK-LABEL: @test(
 ; CHECK:       entry:
 ; CHECK-NEXT:    [[OUT_ADDR:%.*]] = alloca ptr, align 8
@@ -75,6 +75,8 @@ attributes #0 = { noinline optnone }
 
 !sycl.kernels = !{!0}
 !0 = !{ptr @test}
+!1 = !{!"int*", !"int*"}
+!2 = !{ptr null, ptr null}
 
 ; DEBUGIFY-COUNT-25: WARNING: Instruction with empty DebugLoc in function test
 ; DEBUGIFY-NOT: WARNING

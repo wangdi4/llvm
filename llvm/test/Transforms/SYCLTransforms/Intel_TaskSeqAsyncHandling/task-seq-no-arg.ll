@@ -13,28 +13,28 @@ declare void @_Z6task_av()
 define void @_ZTS15ParallelForTask() {
 entry:
   %ts_a.i = alloca %"class.sycl::_V1::ext::intel::experimental::task_sequence", align 8
-  %ts_a.ascast.i = addrspacecast %"class.sycl::_V1::ext::intel::experimental::task_sequence"* %ts_a.i to %"class.sycl::_V1::ext::intel::experimental::task_sequence" addrspace(4)*
-  %id.i = getelementptr inbounds %"class.sycl::_V1::ext::intel::experimental::task_sequence", %"class.sycl::_V1::ext::intel::experimental::task_sequence"* %ts_a.i, i64 0, i32 1
-  %0 = load i64, i64* %id.i, align 8
-  call void @"_Z30__spirv_TaskSequenceAsyncINTELPU3AS456class.sycl::_V1::ext::intel::experimental::task_sequenceU13block_pointerFvvEli"(%"class.sycl::_V1::ext::intel::experimental::task_sequence" addrspace(4)* %ts_a.ascast.i, void ()* @_Z6task_av, i64 %0, i32 1)
+  %ts_a.ascast.i = addrspacecast ptr %ts_a.i to ptr addrspace(4)
+  %id.i = getelementptr inbounds %"class.sycl::_V1::ext::intel::experimental::task_sequence", ptr %ts_a.i, i64 0, i32 1
+  %0 = load i64, ptr %id.i, align 8
+  call void @"_Z30__spirv_TaskSequenceAsyncINTELPU3AS456class.sycl::_V1::ext::intel::experimental::task_sequenceU13block_pointerFvvEli"(ptr addrspace(4) %ts_a.ascast.i, ptr @_Z6task_av, i64 %0, i32 1)
   ret void
 }
 
-declare void @"_Z30__spirv_TaskSequenceAsyncINTELPU3AS456class.sycl::_V1::ext::intel::experimental::task_sequenceU13block_pointerFvvEli"(%"class.sycl::_V1::ext::intel::experimental::task_sequence" addrspace(4)*, void ()*, i64, i32)
+declare void @"_Z30__spirv_TaskSequenceAsyncINTELPU3AS456class.sycl::_V1::ext::intel::experimental::task_sequenceU13block_pointerFvvEli"(ptr addrspace(4), ptr, i64, i32)
 
 !sycl.kernels = !{!0}
 
-!0 = !{void ()* @_ZTS15ParallelForTask}
+!0 = !{ptr @_ZTS15ParallelForTask}
 
-; CHECK: define internal void @"_Z30__spirv_TaskSequenceAsyncINTELPU3AS456class.sycl::_V1::ext::intel::experimental::task_sequenceU13block_pointerFvvEli"(%"class.sycl::_V1::ext::intel::experimental::task_sequence" addrspace(4)* %{{.*}}, void ()* %{{.*}}, i64 %{{.*}}, i32 %{{.*}})
-; CHECK: %block.invoke = call i8 addrspace(4)* @"_Z30__spirv_TaskSequenceAsyncINTELPU3AS456class.sycl::_V1::ext::intel::experimental::task_sequenceU13block_pointerFvvEli.block_invoke_mapper"(i8 addrspace(4)* %{{.*}})
-; CHECK: call void @__async(i8 addrspace(4)* %{{.*}}, i32 %{{.*}}, i8 addrspace(4)* %block.invoke, i8 addrspace(4)* %{{.*}})
+; CHECK: define internal void @"_Z30__spirv_TaskSequenceAsyncINTELPU3AS456class.sycl::_V1::ext::intel::experimental::task_sequenceU13block_pointerFvvEli"(ptr addrspace(4) %{{.*}}, ptr %{{.*}}, i64 %{{.*}}, i32 %{{.*}})
+; CHECK: %block.invoke = call ptr addrspace(4) @"_Z30__spirv_TaskSequenceAsyncINTELPU3AS456class.sycl::_V1::ext::intel::experimental::task_sequenceU13block_pointerFvvEli.block_invoke_mapper"(ptr addrspace(4) %{{.*}})
+; CHECK: call void @__async(ptr addrspace(4) %{{.*}}, i32 %{{.*}}, ptr addrspace(4) %block.invoke, ptr addrspace(4) %{{.*}})
 
 ; CHECK: define void @_Z6task_av._block_invoke_kernel
 ; CHECK: call void @_Z6task_av()
 
-; CHECK: define internal i8 addrspace(4)* @"_Z30__spirv_TaskSequenceAsyncINTELPU3AS456class.sycl::_V1::ext::intel::experimental::task_sequenceU13block_pointerFvvEli.block_invoke_mapper"(i8 addrspace(4)* %{{.*}})
-; CHECK: ret i8 addrspace(4)* addrspacecast (i8* bitcast (void (i8*)* @_Z6task_av._block_invoke_kernel to i8*) to i8 addrspace(4)*)
+; CHECK: define internal ptr addrspace(4) @"_Z30__spirv_TaskSequenceAsyncINTELPU3AS456class.sycl::_V1::ext::intel::experimental::task_sequenceU13block_pointerFvvEli.block_invoke_mapper"(ptr addrspace(4) %{{.*}})
+; CHECK: ret ptr addrspace(4) addrspacecast (ptr @_Z6task_av._block_invoke_kernel to ptr addrspace(4))
 
 ; Generated functions won't contain any debug info, so we only check debug info
 ; in the original kernel wasn't discarded.

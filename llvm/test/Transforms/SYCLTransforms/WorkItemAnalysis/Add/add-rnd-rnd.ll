@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -passes='require<sycl-kernel-builtin-info-analysis>,print<sycl-kernel-work-item-analysis>' %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes='require<sycl-kernel-builtin-info-analysis>,print<sycl-kernel-work-item-analysis>' %s -disable-output 2>&1 | FileCheck %s
 
 ;kernel void
 ;test_add(global int *in, global int *out) {
@@ -14,22 +14,22 @@ target triple = "i686-pc-win32"
 
 ; CHECK: WorkItemAnalysis for function test_add:
 ; CHECK-NEXT: SEQ   %1 = tail call i32 @_Z13get_global_idj(i32 0) #0
-; CHECK-NEXT: PTR   %2 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %1
-; CHECK-NEXT: RND   %3 = load i32, i32 addrspace(1)* %2, align 4
+; CHECK-NEXT: PTR   %2 = getelementptr inbounds i32, ptr addrspace(1) %out, i32 %1
+; CHECK-NEXT: RND   %3 = load i32, ptr addrspace(1) %2, align 4
 ; CHECK-NEXT: STR   %4 = mul i32 %1, 11
 ; CHECK-NEXT: RND   %.neg1 = add nsw i32 %3, -2
 ; CHECK-NEXT: RND   %5 = sub i32 %.neg1, %4
-; CHECK-NEXT: RND   store i32 %5, i32 addrspace(1)* %2, align 4
+; CHECK-NEXT: RND   store i32 %5, ptr addrspace(1) %2, align 4
 ; CHECK-NEXT: UNI   ret void
 
-define void @test_add(i32 addrspace(1)* nocapture %in, i32 addrspace(1)* nocapture %out) nounwind {
+define void @test_add(ptr addrspace(1) nocapture %in, ptr addrspace(1) nocapture %out) nounwind !kernel_arg_base_type !2 !arg_type_null_val !3 {
   %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
-  %2 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %1
-  %3 = load i32, i32 addrspace(1)* %2, align 4
+  %2 = getelementptr inbounds i32, ptr addrspace(1) %out, i32 %1
+  %3 = load i32, ptr addrspace(1) %2, align 4
   %4 = mul i32 %1, 11
   %.neg1 = add nsw i32 %3, -2
   %5 = sub i32 %.neg1, %4
-  store i32 %5, i32 addrspace(1)* %2, align 4
+  store i32 %5, ptr addrspace(1) %2, align 4
   ret void
 }
 
@@ -37,5 +37,7 @@ declare i32 @_Z13get_global_idj(i32)
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @test_add, !1, !1, !"", !"int __attribute__((address_space(1))) *, int __attribute__((address_space(1))) *", !"opencl_test_add_locals_anchor"}
+!0 = !{ptr @test_add, !1, !1, !"", !"int __attribute__((address_space(1))) *, int __attribute__((address_space(1))) *", !"opencl_test_add_locals_anchor"}
 !1 = !{i32 0, i32 0, i32 0}
+!2 = !{!"int*", !"int*"}
+!3 = !{ptr addrspace(1) null, ptr addrspace(1) null}

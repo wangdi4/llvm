@@ -11,7 +11,7 @@
 ; CHECK:   <kernel> : 16
 
 
-define void @f1(float %x, i32 addrspace(1)* noalias %a) #0 {
+define void @f1(float %x, ptr addrspace(1) noalias %a) #0 !kernel_arg_base_type !3 !arg_type_null_val !4 {
 entry:
   %conv = fpext float %x to double
   %call = call {double, double} @direct(double %conv)
@@ -19,11 +19,11 @@ entry:
   ret void
 }
 
-define void @kernel(float %x, i32 addrspace(1)* noalias %a) #0 !kernel_has_sub_groups !2 !intel_reqd_sub_group_size !1 {
+define void @kernel(float %x, ptr addrspace(1) noalias %a) #0 !kernel_has_sub_groups !2 !intel_reqd_sub_group_size !1 !kernel_arg_base_type !3 !arg_type_null_val !4 {
 entry:
   %conv1 = fpext float %x to double
   %call = call {double, double} @direct(double %conv1)
-  call void @f1(float %x, i32 addrspace(1)* noalias %a)
+  call void @f1(float %x, ptr addrspace(1) noalias %a)
   ret void
 }
 
@@ -41,6 +41,8 @@ attributes #0 = { "has-sub-groups" }
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (float, i32 addrspace(1)*)* @kernel}
+!0 = !{ptr @kernel}
 !1 = !{i32 16}
 !2 = !{i1 true}
+!3 = !{!"float", !"int*"}
+!4 = !{float zeroinitializer, ptr addrspace(1) null}

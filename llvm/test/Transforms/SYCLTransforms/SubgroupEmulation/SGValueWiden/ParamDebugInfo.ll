@@ -1,27 +1,26 @@
-
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-sg-emu-value-widen -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-sg-emu-value-widen -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-sg-emu-value-widen -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes=sycl-kernel-sg-emu-value-widen -S %s | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-; CHECK: %dbg.param.c = alloca i32 addrspace(4)*, align 8
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata i32 addrspace(4)** %dbg.param.c, metadata !{{.*}}, metadata !DIExpression(DW_OP_deref))
-; CHECK: %[[#PARAM:]] = extractelement <16 x i32 addrspace(4)*> %c, i32 %sg.lid.{{.*}}
-; CHECK-NEXT: store i32 addrspace(4)* %[[#PARAM]], i32 addrspace(4)** %dbg.param.c
+; CHECK: %dbg.param.c = alloca ptr addrspace(4), align 8
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %dbg.param.c, metadata !{{.*}}, metadata !DIExpression(DW_OP_deref))
+; CHECK: %[[#PARAM:]] = extractelement <16 x ptr addrspace(4)> %c, i32 %sg.lid.{{.*}}
+; CHECK-NEXT: store ptr addrspace(4) %[[#PARAM]], ptr %dbg.param.c
 
 ; Function Attrs: convergent noinline norecurse nounwind
-define void @foo(i32 %b, i32 addrspace(4)* %c) #0 !dbg !15 {
+define void @foo(i32 %b, ptr addrspace(4) %c) #0 !dbg !15 !kernel_arg_base_type !51 !arg_type_null_val !52 {
 entry:
   call void @dummy_sg_barrier()
   %b.addr = alloca i32, align 4
-  %c.addr = alloca i32 addrspace(4)*, align 8
-  store i32 %b, i32* %b.addr, align 4
-  call void @llvm.dbg.declare(metadata i32* %b.addr, metadata !21, metadata !DIExpression()), !dbg !22
-  call void @llvm.dbg.declare(metadata i32 addrspace(4)* %c, metadata !21, metadata !DIExpression()), !dbg !22
-  store i32 addrspace(4)* %c, i32 addrspace(4)** %c.addr, align 8
-  call void @llvm.dbg.declare(metadata i32 addrspace(4)** %c.addr, metadata !23, metadata !DIExpression()), !dbg !24
-  %0 = load i32, i32* %b.addr, align 4, !dbg !25
+  %c.addr = alloca ptr addrspace(4), align 8
+  store i32 %b, ptr %b.addr, align 4
+  call void @llvm.dbg.declare(metadata ptr %b.addr, metadata !21, metadata !DIExpression()), !dbg !22
+  call void @llvm.dbg.declare(metadata ptr addrspace(4) %c, metadata !21, metadata !DIExpression()), !dbg !22
+  store ptr addrspace(4) %c, ptr %c.addr, align 8
+  call void @llvm.dbg.declare(metadata ptr %c.addr, metadata !23, metadata !DIExpression()), !dbg !24
+  %0 = load i32, ptr %b.addr, align 4, !dbg !25
   br label %sg.barrier.bb.1
 
 sg.barrier.bb.1:                                  ; preds = %entry
@@ -31,8 +30,8 @@ sg.barrier.bb.1:                                  ; preds = %entry
 
 sg.dummy.bb.:                                     ; preds = %sg.barrier.bb.1
   call void @dummy_sg_barrier()
-  %1 = load i32 addrspace(4)*, i32 addrspace(4)** %c.addr, align 8, !dbg !27
-  store i32 %call, i32 addrspace(4)* %1, align 4, !dbg !28
+  %1 = load ptr addrspace(4), ptr %c.addr, align 8, !dbg !27
+  store i32 %call, ptr addrspace(4) %1, align 4, !dbg !28
   br label %sg.barrier.bb.
 
 sg.barrier.bb.:                                   ; preds = %sg.dummy.bb.
@@ -47,29 +46,29 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
 declare i32 @_Z13sub_group_alli(i32) #2
 
 ; Function Attrs: convergent noinline norecurse nounwind
-define void @test(i32 addrspace(1)* noalias %a) #3 !dbg !30 !kernel_has_sub_groups !39 !sg_emu_size !41 {
+define void @test(ptr addrspace(1) noalias %a) #3 !dbg !30 !kernel_has_sub_groups !39 !sg_emu_size !41 !kernel_arg_base_type !53 !arg_type_null_val !54 {
 entry:
   call void @dummybarrier.()
   br label %sg.dummy.bb.1
 
 sg.dummy.bb.1:                                    ; preds = %entry
   call void @dummy_sg_barrier()
-  %a.addr = alloca i32 addrspace(1)*, align 8
+  %a.addr = alloca ptr addrspace(1), align 8
   %b = alloca i32, align 4
-  store i32 addrspace(1)* %a, i32 addrspace(1)** %a.addr, align 8
-  call void @llvm.dbg.declare(metadata i32 addrspace(1)** %a.addr, metadata !42, metadata !DIExpression()), !dbg !43
-  call void @llvm.dbg.declare(metadata i32* %b, metadata !44, metadata !DIExpression()), !dbg !45
+  store ptr addrspace(1) %a, ptr %a.addr, align 8
+  call void @llvm.dbg.declare(metadata ptr %a.addr, metadata !42, metadata !DIExpression()), !dbg !43
+  call void @llvm.dbg.declare(metadata ptr %b, metadata !44, metadata !DIExpression()), !dbg !45
   %call = call i64 @_Z12get_local_idj(i32 0) #7, !dbg !46
   %conv = trunc i64 %call to i32, !dbg !46
-  store i32 %conv, i32* %b, align 4, !dbg !45
-  %0 = load i32, i32* %b, align 4, !dbg !47
-  %1 = load i32 addrspace(1)*, i32 addrspace(1)** %a.addr, align 8, !dbg !48
-  %2 = addrspacecast i32 addrspace(1)* %1 to i32 addrspace(4)*
+  store i32 %conv, ptr %b, align 4, !dbg !45
+  %0 = load i32, ptr %b, align 4, !dbg !47
+  %1 = load ptr addrspace(1), ptr %a.addr, align 8, !dbg !48
+  %2 = addrspacecast ptr addrspace(1) %1 to ptr addrspace(4)
   br label %sg.barrier.bb.
 
 sg.barrier.bb.:                                   ; preds = %sg.dummy.bb.1
   call void @_Z17sub_group_barrierj(i32 1)
-  call void @foo(i32 %0, i32 addrspace(4)* %2) #5, !dbg !49
+  call void @foo(i32 %0, ptr addrspace(4) %2) #5, !dbg !49
   br label %sg.dummy.bb.
 
 sg.dummy.bb.:                                     ; preds = %sg.barrier.bb.
@@ -134,7 +133,7 @@ attributes #7 = { convergent nounwind readnone }
 !10 = !{!"2020.11.12.0"}
 !11 = !{!"test.dbg"}
 !12 = !{!"test.dbg1"}
-!13 = !{void (i32 addrspace(1)*)* @test}
+!13 = !{ptr @test}
 !14 = !{!"Code is vectorizable"}
 !15 = distinct !DISubprogram(name: "foo", scope: !16, file: !16, line: 1, type: !17, scopeLine: 1, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !0, retainedNodes: !2)
 !16 = !DIFile(filename: "1", directory: "/")
@@ -172,5 +171,9 @@ attributes #7 = { convergent nounwind readnone }
 !48 = !DILocation(line: 6, column: 8, scope: !30)
 !49 = !DILocation(line: 6, column: 1, scope: !30)
 !50 = !DILocation(line: 7, column: 1, scope: !30)
+!51 = !{!"int", !"int*"}
+!52 = !{i32 0, ptr addrspace(4) null}
+!53 = !{!"int*"}
+!54 = !{ptr addrspace(1) null}
 
 ; DEBUGIFY-NOT: WARNING

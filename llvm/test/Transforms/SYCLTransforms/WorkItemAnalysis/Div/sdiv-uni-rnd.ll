@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -passes='require<sycl-kernel-builtin-info-analysis>,print<sycl-kernel-work-item-analysis>' %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes='require<sycl-kernel-builtin-info-analysis>,print<sycl-kernel-work-item-analysis>' %s -disable-output 2>&1 | FileCheck %s
 
 ;kernel void
 ;test_div(global int *in, global int *out) {
@@ -28,8 +28,8 @@ target triple = "i686-pc-win32"
 ; CHECK: WorkItemAnalysis for function test_div:
 ; CHECK-NEXT: SEQ   %0 = tail call i32 @_Z13get_global_idj(i32 0) #0
 ; CHECK-NEXT: STR   %1 = mul nsw i32 %0, 7
-; CHECK-NEXT: RND   %2 = getelementptr inbounds i32, i32 addrspace(1)* %in, i32 %1
-; CHECK-NEXT: RND   %3 = load i32, i32 addrspace(1)* %2, align 4
+; CHECK-NEXT: RND   %2 = getelementptr inbounds i32, ptr addrspace(1) %in, i32 %1
+; CHECK-NEXT: RND   %3 = load i32, ptr addrspace(1) %2, align 4
 ; CHECK-NEXT: RND   %4 = add nsw i32 %3, 12
 ; CHECK-NEXT: UNI   br label %5
 ; CHECK-NEXT: UNI   %indvar = phi i32 [ 0, %bb.nph ], [ %i.03, %5 ]
@@ -51,8 +51,8 @@ target triple = "i686-pc-win32"
 ; CHECK-NEXT: RND   %13 = or i1 %9, %12
 ; CHECK-NEXT: RND   %14 = select i1 %13, i32 1, i32 %tmp
 ; CHECK-NEXT: RND   %15 = sdiv i32 %x.0, %14
-; CHECK-NEXT: PTR   %16 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %0
-; CHECK-NEXT: RND   store i32 %15, i32 addrspace(1)* %16, align 4
+; CHECK-NEXT: PTR   %16 = getelementptr inbounds i32, ptr addrspace(1) %out, i32 %0
+; CHECK-NEXT: RND   store i32 %15, ptr addrspace(1) %16, align 4
 ; CHECK-NEXT: UNI   %17 = icmp eq i32 %x.0, 0
 ; CHECK-NEXT: RND   %18 = icmp eq i32 %tmp, -2147483648
 ; CHECK-NEXT: UNI   %19 = icmp eq i32 %x.0, -1
@@ -61,16 +61,16 @@ target triple = "i686-pc-win32"
 ; CHECK-NEXT: RND   %22 = select i1 %21, i32 1, i32 %x.0
 ; CHECK-NEXT: RND   %23 = sdiv i32 %tmp, %22
 ; CHECK-NEXT: SEQ   %24 = add nsw i32 %0, 10
-; CHECK-NEXT: PTR   %25 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %24
-; CHECK-NEXT: RND   store i32 %23, i32 addrspace(1)* %25, align 4
+; CHECK-NEXT: PTR   %25 = getelementptr inbounds i32, ptr addrspace(1) %out, i32 %24
+; CHECK-NEXT: RND   store i32 %23, ptr addrspace(1) %25, align 4
 ; CHECK-NEXT: UNI   ret void
 
-define void @test_div(i32 addrspace(1)* nocapture %in, i32 addrspace(1)* nocapture %out) nounwind {
+define void @test_div(ptr addrspace(1) nocapture %in, ptr addrspace(1) nocapture %out) nounwind !kernel_arg_base_type !2 !arg_type_null_val !3 {
 bb.nph:
   %0 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %1 = mul nsw i32 %0, 7
-  %2 = getelementptr inbounds i32, i32 addrspace(1)* %in, i32 %1
-  %3 = load i32, i32 addrspace(1)* %2, align 4
+  %2 = getelementptr inbounds i32, ptr addrspace(1) %in, i32 %1
+  %3 = load i32, ptr addrspace(1) %2, align 4
   %4 = add nsw i32 %3, 12
   br label %5
 
@@ -96,8 +96,8 @@ bb.nph:
   %13 = or i1 %9, %12
   %14 = select i1 %13, i32 1, i32 %tmp
   %15 = sdiv i32 %x.0, %14
-  %16 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %0
-  store i32 %15, i32 addrspace(1)* %16, align 4
+  %16 = getelementptr inbounds i32, ptr addrspace(1) %out, i32 %0
+  store i32 %15, ptr addrspace(1) %16, align 4
   %17 = icmp eq i32 %x.0, 0
   %18 = icmp eq i32 %tmp, -2147483648
   %19 = icmp eq i32 %x.0, -1
@@ -106,8 +106,8 @@ bb.nph:
   %22 = select i1 %21, i32 1, i32 %x.0
   %23 = sdiv i32 %tmp, %22
   %24 = add nsw i32 %0, 10
-  %25 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %24
-  store i32 %23, i32 addrspace(1)* %25, align 4
+  %25 = getelementptr inbounds i32, ptr addrspace(1) %out, i32 %24
+  store i32 %23, ptr addrspace(1) %25, align 4
   ret void
 }
 
@@ -115,6 +115,7 @@ declare i32 @_Z13get_global_idj(i32)
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @test_div, !1, !1, !"", !"int __attribute__((address_space(1))) *, int __attribute__((address_space(1))) *", !"opencl_test_div_locals_anchor"}
+!0 = !{ptr @test_div, !1, !1, !"", !"int __attribute__((address_space(1))) *, int __attribute__((address_space(1))) *", !"opencl_test_div_locals_anchor"}
 !1 = !{i32 0, i32 0, i32 0}
-
+!2 = !{!"int*", !"int*"}
+!3 = !{ptr addrspace(1) null, ptr addrspace(1) null}

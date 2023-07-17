@@ -98,7 +98,7 @@ attributes #6 = { convergent nounwind readnone }
 !2 = !{!"-cl-std=CL2.0", !"-cl-opt-disable"}
 !3 = !{!"Intel(R) oneAPI DPC++ Compiler 2021.2.0 (YYYY.x.0.MMDD)"}
 !4 = !{!"Unable to vectorize because of calls to functions that can't be inlined"}
-!5 = !{void ()* @test2, void ()* @test1}
+!5 = !{ptr @test2, ptr @test1}
 !6 = !{i1 false}
 !7 = !{i32 2}
 !8 = !{i32 1}

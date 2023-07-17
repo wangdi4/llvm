@@ -25,15 +25,15 @@ target triple = "x86_64-pc-linux"
 
 define internal fastcc zeroext i1 @bar() {
 entry:
-  %0 = load i8, i8 addrspace(3)* @test.i, align 1, !tbaa !9
-  %1 = load i32, i32 addrspace(3)* @test.k, align 4
+  %0 = load i8, ptr addrspace(3) @test.i, align 1, !tbaa !9
+  %1 = load i32, ptr addrspace(3) @test.k, align 4
   ret i1 false
 }
 
 define internal fastcc zeroext i1 @foo() {
 entry:
-  %0 = load i8, i8 addrspace(3)* @test.i, align 1, !tbaa !9
-  %1 = load i64, i64 addrspace(3)* @test.j, align 8
+  %0 = load i8, ptr addrspace(3) @test.i, align 1, !tbaa !9
+  %1 = load i64, ptr addrspace(3) @test.j, align 8
   ret i1 false
 }
 
@@ -62,7 +62,7 @@ entry:
 !5 = !{!"2022.15.11.0"}
 !6 = !{!"_build_cl"}
 !7 = !{!"_build_cl1"}
-!8 = !{void ()* @test}
+!8 = !{ptr @test}
 !9 = !{!10, !10, i64 0}
 !10 = !{!"omnipotent char", !11, i64 0}
 !11 = !{!"Simple C/C++ TBAA"}

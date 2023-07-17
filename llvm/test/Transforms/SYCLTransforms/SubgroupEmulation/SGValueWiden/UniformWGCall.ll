@@ -1,36 +1,35 @@
-
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-sg-emu-value-widen -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-sg-emu-value-widen -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-sg-emu-value-widen -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes=sycl-kernel-sg-emu-value-widen -S %s | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent noinline norecurse nounwind
-define void @basic(i32 addrspace(1)* %scan_add, i32 addrspace(1)* %wg_reduce_add) #0 !no_barrier_path !12 !kernel_has_sub_groups !13 !kernel_has_barrier !13 !sg_emu_size !15 {
+define void @basic(ptr addrspace(1) %scan_add, ptr addrspace(1) %wg_reduce_add) #0 !no_barrier_path !12 !kernel_has_sub_groups !13 !kernel_has_barrier !13 !sg_emu_size !15 {
 ; CHECK-LABEL: wg.loop.exclude:
 ; CHECK: %u.CallWGForItem = alloca i32, align 4
 ; CHECK-LABEL: sg.loop.exclude:
 entry:
   call void @dummy_barrier.()
   %AllocaWGResult = alloca i32, align 4
-  store i32 0, i32* %AllocaWGResult, align 4
+  store i32 0, ptr %AllocaWGResult, align 4
   call void @dummy_barrier.()
   br label %sg.dummy.bb.
 
 sg.dummy.bb.:                                     ; preds = %entry
   call void @dummy_sg_barrier()
-  %scan_add.addr = alloca i32 addrspace(1)*, align 8
-  %wg_reduce_add.addr = alloca i32 addrspace(1)*, align 8
+  %scan_add.addr = alloca ptr addrspace(1), align 8
+  %wg_reduce_add.addr = alloca ptr addrspace(1), align 8
   %lid = alloca i32, align 4
-  store i32 addrspace(1)* %scan_add, i32 addrspace(1)** %scan_add.addr, align 8
-  store i32 addrspace(1)* %wg_reduce_add, i32 addrspace(1)** %wg_reduce_add.addr, align 8
+  store ptr addrspace(1) %scan_add, ptr %scan_add.addr, align 8
+  store ptr addrspace(1) %wg_reduce_add, ptr %wg_reduce_add.addr, align 8
   %call = call i64 @_Z12get_local_idj(i32 0) #6
   %conv = trunc i64 %call to i32
-  store i32 %conv, i32* %lid, align 4
-  %0 = load i32, i32* %lid, align 4
-  %CallWGForItem = call i32 @_Z21work_group_reduce_addiPi(i32 %0, i32* %AllocaWGResult) #7
+  store i32 %conv, ptr %lid, align 4
+  %0 = load i32, ptr %lid, align 4
+  %CallWGForItem = call i32 @_Z21work_group_reduce_addiPi(i32 %0, ptr %AllocaWGResult) #7
 ; CHECK: %CallWGForItem = call i32 @_Z21work_group_reduce_addiPi
-; CHECK-NEXT: store i32 %CallWGForItem, i32* %u.CallWGForItem
+; CHECK-NEXT: store i32 %CallWGForItem, ptr %u.CallWGForItem
   br label %sg.barrier.bb.
 
 sg.barrier.bb.:                                   ; preds = %sg.dummy.bb.
@@ -40,18 +39,18 @@ sg.barrier.bb.:                                   ; preds = %sg.dummy.bb.
 
 sg.dummy.bb.4:                                    ; preds = %sg.barrier.bb.
   call void @dummy_sg_barrier()
-  store i32 0, i32* %AllocaWGResult, align 4
+  store i32 0, ptr %AllocaWGResult, align 4
   call void @dummy_barrier.()
   br label %sg.dummy.bb.3
 
 sg.dummy.bb.3:                                    ; preds = %sg.dummy.bb.4
   call void @dummy_sg_barrier()
-  %1 = load i32 addrspace(1)*, i32 addrspace(1)** %wg_reduce_add.addr, align 8
-  %2 = load i32, i32* %lid, align 4
+  %1 = load ptr addrspace(1), ptr %wg_reduce_add.addr, align 8
+  %2 = load i32, ptr %lid, align 4
   %idxprom = sext i32 %2 to i64
-  %ptridx = getelementptr inbounds i32, i32 addrspace(1)* %1, i64 %idxprom
-  store i32 %CallWGForItem, i32 addrspace(1)* %ptridx, align 4
-  %3 = load i32, i32* %lid, align 4
+  %ptridx = getelementptr inbounds i32, ptr addrspace(1) %1, i64 %idxprom
+  store i32 %CallWGForItem, ptr addrspace(1) %ptridx, align 4
+  %3 = load i32, ptr %lid, align 4
   br label %sg.barrier.bb.2
 
 sg.barrier.bb.2:                                  ; preds = %sg.dummy.bb.3
@@ -61,11 +60,11 @@ sg.barrier.bb.2:                                  ; preds = %sg.dummy.bb.3
 
 sg.dummy.bb.6:                                    ; preds = %sg.barrier.bb.2
   call void @dummy_sg_barrier()
-  %4 = load i32 addrspace(1)*, i32 addrspace(1)** %scan_add.addr, align 8
-  %5 = load i32, i32* %lid, align 4
+  %4 = load ptr addrspace(1), ptr %scan_add.addr, align 8
+  %5 = load i32, ptr %lid, align 4
   %idxprom3 = sext i32 %5 to i64
-  %ptridx4 = getelementptr inbounds i32, i32 addrspace(1)* %4, i64 %idxprom3
-  store i32 %call2, i32 addrspace(1)* %ptridx4, align 4
+  %ptridx4 = getelementptr inbounds i32, ptr addrspace(1) %4, i64 %idxprom3
+  store i32 %call2, ptr addrspace(1) %ptridx4, align 4
   br label %sg.barrier.bb.1
 
 sg.barrier.bb.1:                                  ; preds = %sg.dummy.bb.6
@@ -90,7 +89,7 @@ declare i32 @_Z28sub_group_scan_inclusive_addi(i32) #3
 declare void @dummy_barrier.()
 
 ; Function Attrs: nofree norecurse nounwind
-declare i32 @_Z21work_group_reduce_addiPi(i32, i32* nocapture) #4
+declare i32 @_Z21work_group_reduce_addiPi(i32, ptr nocapture) #4
 
 ; Function Attrs: convergent
 declare void @_Z7barrierj(i32) #5
@@ -123,7 +122,7 @@ attributes #8 = { convergent "has-vplan-mask" }
 !1 = !{}
 !2 = !{!"-cl-opt-disable", !"-cl-std=CL2.0"}
 !3 = !{!"Intel(R) oneAPI DPC++ Compiler 2021.2.0 (YYYY.x.0.MMDD)"}
-!4 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @basic}
+!4 = !{ptr @basic}
 !5 = !{i32 1, i32 1}
 !6 = !{!"none", !"none"}
 !7 = !{!"int*", !"int*"}
@@ -135,6 +134,8 @@ attributes #8 = { convergent "has-vplan-mask" }
 !13 = !{i1 true}
 !14 = !{i32 23}
 !15 = !{i32 4}
+!16 = !{!"int*", !"int*"}
+!17 = !{ptr addrspace(1) null, ptr addrspace(1) null}
 
 ; DEBUGIFY-NOT: WARNING
 ; FIXME: SGValueWiden does not respect llvm.dbg.value and llvm.dbg.addr

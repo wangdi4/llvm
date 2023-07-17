@@ -24,4 +24,4 @@ define void @has_subgroup_false() !intel_vec_len_hint !{i32 1} !kernel_has_sub_g
 
 !sycl.kernels = !{!0}
 
-!0 = !{void ()* @none, void ()* @has_subgroup, void ()* @has_subgroup_false}
+!0 = !{ptr @none, ptr @has_subgroup, ptr @has_subgroup_false}

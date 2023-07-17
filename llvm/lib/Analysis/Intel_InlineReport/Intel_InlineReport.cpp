@@ -632,7 +632,7 @@ void InlineReport::inlineCallSite() {
   // site IRCS. Use IIMap to map the original calls to the new calls in the
   // cloned inline report.
   bool ForceCompact = Level & Compact;
-  if (IRFCallee->shouldCompactCallBase(IRFCallee, ForceCompact))
+  if (IRFCaller->shouldCompactCallBase(IRFCallee, ForceCompact))
     IRFCallee->compact();
   if (IRFCallee->getIsCompact())
     cloneChildrenCompact(IRFCaller, IRFCallee, ActiveIRCS, IIMap);
@@ -813,7 +813,7 @@ void InlineReport::print() const {
 
 bool InlineReportFunction::shouldCompactCallBase(
     InlineReportFunction *IRFCallee, bool ForceCompact) {
-  if (getIsCompact())
+  if (IRFCallee->getIsCompact())
     return false;
   if (ForceCompact)
     return true;

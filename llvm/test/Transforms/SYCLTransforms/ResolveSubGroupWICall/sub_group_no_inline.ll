@@ -17,13 +17,13 @@ declare i32 @_Z16get_sub_group_idv() local_unnamed_addr #2
 declare i64 @_Z14get_local_sizej(i32)
 
 ; Function Attrs: convergent nounwind
-define void @testKernel(i32 addrspace(1)* noalias %sub_groups_sizes) local_unnamed_addr #0 !kernel_arg_addr_space !11 !kernel_arg_access_qual !12 !kernel_arg_type !13 !kernel_arg_base_type !13 !kernel_arg_type_qual !14 !kernel_arg_host_accessible !15 !kernel_arg_pipe_depth !16 !kernel_arg_pipe_io !14 !kernel_arg_buffer_location !14 !kernel_arg_name !17 !vectorized_kernel !18 !no_barrier_path !19 !kernel_has_sub_groups !19 !vectorized_width !26 !vectorization_dimension !16 !can_unite_workgroups !15 {
+define void @testKernel(ptr addrspace(1) noalias %sub_groups_sizes) local_unnamed_addr #0 !kernel_arg_addr_space !11 !kernel_arg_access_qual !12 !kernel_arg_type !13 !kernel_arg_base_type !13 !kernel_arg_type_qual !14 !kernel_arg_host_accessible !15 !kernel_arg_pipe_depth !16 !kernel_arg_pipe_io !14 !kernel_arg_buffer_location !14 !kernel_arg_name !17 !vectorized_kernel !18 !no_barrier_path !19 !kernel_has_sub_groups !19 !vectorized_width !26 !vectorization_dimension !16 !can_unite_workgroups !15 !arg_type_null_val !28 {
 entry:
   ret void
 }
 
 ; Function Attrs: convergent nounwind
-define void @__Vectorized_.testKernel(i32 addrspace(1)* noalias %sub_groups_sizes) local_unnamed_addr #0 !kernel_arg_addr_space !11 !kernel_arg_access_qual !12 !kernel_arg_type !13 !kernel_arg_base_type !13 !kernel_arg_type_qual !14 !kernel_arg_host_accessible !15 !kernel_arg_pipe_depth !16 !kernel_arg_pipe_io !14 !kernel_arg_buffer_location !14 !kernel_arg_name !17 !vectorized_kernel !20 !no_barrier_path !19 !kernel_has_sub_groups !19 !vectorized_width !25 !vectorization_dimension !16 !can_unite_workgroups !15 {
+define void @__Vectorized_.testKernel(ptr addrspace(1) noalias %sub_groups_sizes) local_unnamed_addr #0 !kernel_arg_addr_space !11 !kernel_arg_access_qual !12 !kernel_arg_type !13 !kernel_arg_base_type !13 !kernel_arg_type_qual !14 !kernel_arg_host_accessible !15 !kernel_arg_pipe_depth !16 !kernel_arg_pipe_io !14 !kernel_arg_buffer_location !14 !kernel_arg_name !17 !vectorized_kernel !20 !no_barrier_path !19 !kernel_has_sub_groups !19 !vectorized_width !25 !vectorization_dimension !16 !can_unite_workgroups !15 {
 entry:
 ; CHECK-LABEL: @__Vectorized_.testKernel
 ; CHECK: call i32 @foo1(i64 16)
@@ -32,7 +32,7 @@ entry:
 }
 
 ; Function Attrs: convergent nounwind
-define void @testKernel1(i32 addrspace(1)* noalias %sub_groups_sizes) local_unnamed_addr #0 !kernel_arg_addr_space !11 !kernel_arg_access_qual !12 !kernel_arg_type !13 !kernel_arg_base_type !13 !kernel_arg_type_qual !14 !kernel_arg_host_accessible !15 !kernel_arg_pipe_depth !16 !kernel_arg_pipe_io !14 !kernel_arg_buffer_location !14 !kernel_arg_name !17 !vectorized_kernel !20 !no_barrier_path !19 !kernel_has_sub_groups !19 !vectorized_width !27 !vectorization_dimension !16 !can_unite_workgroups !15 {
+define void @testKernel1(ptr addrspace(1) noalias %sub_groups_sizes) local_unnamed_addr #0 !kernel_arg_addr_space !11 !kernel_arg_access_qual !12 !kernel_arg_type !13 !kernel_arg_base_type !13 !kernel_arg_type_qual !14 !kernel_arg_host_accessible !15 !kernel_arg_pipe_depth !16 !kernel_arg_pipe_io !14 !kernel_arg_buffer_location !14 !kernel_arg_name !17 !vectorized_kernel !20 !no_barrier_path !19 !kernel_has_sub_groups !19 !vectorized_width !27 !vectorization_dimension !16 !can_unite_workgroups !15 {
 entry:
 ; CHECK-LABEL: @testKernel1
 ; CHECK: call i32 @foo1(i64 8)
@@ -97,7 +97,7 @@ attributes #4 = { convergent nounwind }
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{i32 1, i32 2}
 !2 = !{}
-!3 = !{void (i32 addrspace(1)*)* @testKernel, void (i32 addrspace(1)*)* @testKernel1}
+!3 = !{ptr @testKernel, ptr @testKernel1}
 !11 = !{i32 1}
 !12 = !{!"none"}
 !13 = !{!"uint*"}
@@ -105,7 +105,7 @@ attributes #4 = { convergent nounwind }
 !15 = !{i1 false}
 !16 = !{i32 0}
 !17 = !{!"sub_groups_sizes"}
-!18 = !{void (i32 addrspace(1)*)* @__Vectorized_.testKernel}
+!18 = !{ptr @__Vectorized_.testKernel}
 !19 = !{i1 true}
 !20 = !{null}
 !21 = !{!22, !22, i64 0}
@@ -115,4 +115,6 @@ attributes #4 = { convergent nounwind }
 !25 = !{i32 16}
 !26 = !{i32 1}
 !27 = !{i32 8}
+!28 = !{ptr addrspace(1) null}
+
 ; DEBUGIFY-NOT: WARNING

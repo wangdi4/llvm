@@ -272,7 +272,7 @@ PreservedAnalyses ModuleInlinerPass::run(Module &M,
 #if INTEL_CUSTOMIZATION
     getInlineReport()->inlineCallSite();
     getInlineReport()->endUpdate();
-    getMDInlineReport()->updateInliningReport();
+    getMDInlineReport()->inlineCallSite();
     getMDInlineReport()->endUpdate();
 #endif // INTEL_CUSTOMIZATION
     LLVM_DEBUG(dbgs() << "    Size after inlining: " << F.getInstructionCount()

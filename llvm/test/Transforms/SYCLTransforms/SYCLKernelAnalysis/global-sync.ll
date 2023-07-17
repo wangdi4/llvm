@@ -66,7 +66,7 @@ attributes #2 = { convergent nounwind }
 
 !0 = !{ptr @test1, ptr @test2, ptr @test3, ptr @test_atomic_work_item_fence1, ptr @test_atomic_work_item_fence2}
 !1 = !{!"int*"}
-!2 = !{i32 addrspace(1)* null}
+!2 = !{ptr addrspace(1) null}
 
 ; CHECK-DAG: [[HasGlobalSync]] = !{i1 true}
 ; CHECK-DAG: [[NoGlobalSync]] = !{i1 false}

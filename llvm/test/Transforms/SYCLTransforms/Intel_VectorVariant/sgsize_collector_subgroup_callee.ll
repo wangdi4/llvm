@@ -45,6 +45,6 @@ attributes #1 = { "has-sub-groups" }
 !0 = !{i32 8}
 !1 = !{i32 16}
 !2 = !{i32 32}
-!3 = !{void ()* @kernel, void ()* @kernel2, void ()* @kernel3}
+!3 = !{ptr @kernel, ptr @kernel2, ptr @kernel3}
 
 ; DEBUGIFY-NOT: WARNING

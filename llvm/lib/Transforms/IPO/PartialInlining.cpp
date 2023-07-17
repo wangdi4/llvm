@@ -1709,7 +1709,7 @@ bool PartialInlinerImpl::tryPartialInline(FunctionCloner &Cloner) {
     }
     getInlineReport()->inlineCallSite();
     getInlineReport()->endUpdate();
-    getMDInlineReport()->updateInliningReport();
+    getMDInlineReport()->inlineCallSite();
     getMDInlineReport()->endUpdate();
 #endif // INTEL_CUSTOMIZATION
     CallerORE.emit(OR);

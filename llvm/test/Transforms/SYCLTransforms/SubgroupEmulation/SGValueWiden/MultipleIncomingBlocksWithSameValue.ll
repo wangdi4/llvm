@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-sg-emu-value-widen -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-sg-emu-value-widen -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-sg-emu-value-widen -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes=sycl-kernel-sg-emu-value-widen -S %s | FileCheck %s
 
 ; Checks that instructions are correctly dominated in case of multiple incoming blocks sharing the same incoming value.
 
@@ -10,11 +10,11 @@ define void @kernel() !kernel_has_sub_groups !1 !sg_emu_size !2 {
 ; CHECK:       while.body.i.i.i:
 ; CHECK-NEXT:    [[SPEC_SELECT:%.*]] = select i1 false, i64 0, i64 0
 ; CHECK-NEXT:    [[SG_LID_1:%.*]] = call i32 @_Z22get_sub_group_local_idv()
-; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr <8 x i64>, <8 x i64>* %w.spec.select, i32 0, i32 [[SG_LID_1]]
-; CHECK-NEXT:    store i64 [[SPEC_SELECT]], i64* [[TMP0]], align 8
+; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr <8 x i64>, ptr %w.spec.select, i32 0, i32 [[SG_LID_1]]
+; CHECK-NEXT:    store i64 [[SPEC_SELECT]], ptr [[TMP0]], align 8
 ; CHECK-NEXT:    [[SG_LID_:%.*]] = call i32 @_Z22get_sub_group_local_idv()
-; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr <8 x i64>, <8 x i64>* %w.spec.select, i32 0, i32 [[SG_LID_]]
-; CHECK-NEXT:    [[TMP2:%.*]] = load i64, i64* [[TMP1]], align 8
+; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr <8 x i64>, ptr %w.spec.select, i32 0, i32 [[SG_LID_]]
+; CHECK-NEXT:    [[TMP2:%.*]] = load i64, ptr [[TMP1]], align 8
 ; CHECK-NEXT:    br i1 true, label %while.body.i.i.i.i.1, label %if.then10.i
 ; CHECK:       while.body.i.i.i.i.1:
 ; CHECK-NEXT:    br label %if.then10.i
@@ -54,7 +54,7 @@ declare void @dummy_sg_barrier()
 
 !sycl.kernels = !{!0}
 
-!0 = !{void ()* @kernel}
+!0 = !{ptr @kernel}
 !1 = !{i1 true}
 !2 = !{i32 8}
 

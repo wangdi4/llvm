@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -passes='debugify,sycl-kernel-sg-emu-loop-construct,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -opaque-pointers=0 -passes='sycl-kernel-sg-emu-loop-construct' -S %s | FileCheck %s
+; RUN: opt -passes='debugify,sycl-kernel-sg-emu-loop-construct,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes='sycl-kernel-sg-emu-loop-construct' -S %s | FileCheck %s
 
 ; This test checks SGLoopConstruct::createSGLoop() where jump targets may exist:
 ; 1. inside a loop
@@ -18,8 +18,8 @@ sg.loop.exclude:
   br label %entry
 
 ; CHECK-LABEL: entry:
-; CHECK: store i32 0, i32* [[P_LID]]
-; CHECK: store i32 [[#UID:]], i32* [[P_LOOPSRC]]
+; CHECK: store i32 0, ptr [[P_LID]]
+; CHECK: store i32 [[#UID:]], ptr [[P_LOOPSRC]]
 entry:                                            ; preds = %sg.loop.exclude
 ; CHECK: [[L_HEADER:sg.loop.header.*]]:
   call void @dummy_sg_barrier()
@@ -36,7 +36,7 @@ break:                                            ; preds = %inf_loop
 
 barrier_inside:                                   ; preds = %break
 ; CHECK: [[L_LATCH:sg.loop.latch.*]]:
-; CHECK-NEXT: [[LOOPSRC:%.*]] = load i32, i32* [[P_LOOPSRC]]
+; CHECK-NEXT: [[LOOPSRC:%.*]] = load i32, ptr [[P_LOOPSRC]]
 ; CHECK-NEXT: switch i32 [[LOOPSRC]], label %[[L_HEADER1:sg.loop.header.*]] [
 ; CHECK-NEXT:   i32 [[#UID]], label %[[L_HEADER]]
 ; CHECK-NEXT: ]
@@ -46,14 +46,14 @@ barrier_inside:                                   ; preds = %break
   br label %barrier_outside
 
 inf_latch:                                        ; preds = %inf_loop
-; CHECK: store i32 [[#UID1:]], i32* [[P_LOOPSRC]]
+; CHECK: store i32 [[#UID1:]], ptr [[P_LOOPSRC]]
 ; CHECK: [[L_HEADER1]]:
   call void @dummy_sg_barrier()
   br label %inf_loop
 
 barrier_outside:                                  ; preds = %break, %barrier_inside, %entry
 ; CHECK: [[L_LATCH1:sg.loop.latch.*]]:
-; CHECK-NEXT: [[LOOPSRC1:%.*]] = load i32, i32* [[P_LOOPSRC]]
+; CHECK-NEXT: [[LOOPSRC1:%.*]] = load i32, ptr [[P_LOOPSRC]]
 ; CHECK-NEXT: switch i32 [[LOOPSRC1]], label %[[L_HEADER2]] [
 ; CHECK-DAG:    i32 [[#UID]], label %[[L_HEADER]]
 ; CHECK-DAG:    i32 [[#UID1]], label %[[L_HEADER1]]
@@ -68,7 +68,7 @@ declare void @dummy_sg_barrier()
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32)* @test}
+!0 = !{ptr @test}
 !1 = !{i1 true}
 !2 = !{i32 16}
 

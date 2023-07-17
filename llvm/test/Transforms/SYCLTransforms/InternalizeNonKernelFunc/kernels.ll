@@ -24,6 +24,6 @@ entry:
 ; CHECK: %x = add i32 1, %input
 
 !sycl.kernels = !{!0}
-!0 = !{void ()* @thisIsKernel, void (i32)* @alsoKernel}
+!0 = !{ptr @thisIsKernel, ptr @alsoKernel}
 
 ; DEBUGIFY-NOT: WARNING

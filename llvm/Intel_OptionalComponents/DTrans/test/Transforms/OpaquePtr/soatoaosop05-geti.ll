@@ -5,7 +5,7 @@
 ; RUN: opt < %s -whole-program-assume -intel-libirc-allowed -disable-output      \
 ; RUN:          -debug-only=dtrans-soatoaosop,dtrans-soatoaosop-struct                            \
 ; RUN:          -passes='require<dtrans-safetyanalyzer>,require<soatoaosop-approx>,require<soatoaosop-struct-methods>' \
-; RUN:          -dtrans-soatoaos-mem-off=3                                                        \
+; RUN:          -dtrans-soatoaosop-mem-off=3                                                        \
 ; RUN:          -dtrans-soatoaosop-array-type=class.ValueVectorOf.0                               \
 ; RUN:          -dtrans-soatoaosop-array-type=class.ValueVectorOf.1                               \
 ; RUN:          -dtrans-soatoaosop-base-ptr-off=3                                                 \

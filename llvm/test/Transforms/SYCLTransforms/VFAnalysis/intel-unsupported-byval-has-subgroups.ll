@@ -29,16 +29,15 @@ define void @f2() #0 {
   ret void
 }
 
-define void @f1(%struct.A* byval(%struct.A) align 8 %arg) #0 {
+define void @f1(ptr byval(%struct.A) align 8 %arg) #0 {
 entry:
   call void @f2()
   ret void
 }
 
-define void @kernel(%struct.A* nocapture readonly %arr) #0 !kernel_has_sub_groups !1 !intel_reqd_sub_group_size !2 {
+define void @kernel(ptr nocapture readonly %arr) #0 !kernel_has_sub_groups !1 !intel_reqd_sub_group_size !2 !kernel_arg_base_type !3 !arg_type_null_val !4 {
 entry:
-  %ptridx = getelementptr inbounds %struct.A, %struct.A* %arr, i64 0
-  call void @f1(%struct.A* nonnull byval(%struct.A) align 8 %ptridx)
+  call void @f1(ptr nonnull byval(%struct.A) align 8 %arr)
   ret void
 }
 
@@ -46,6 +45,8 @@ attributes #0 = { "has-sub-groups" }
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (%struct.A*)* @kernel}
+!0 = !{ptr @kernel}
 !1 = !{i1 true}
 !2 = !{i32 16}
+!3 = !{!"%struct.A*"}
+!4 = !{ptr null}

@@ -4,7 +4,7 @@
 ; RUN:       | FileCheck %s
 ; RUN: opt < %s -S -whole-program-assume -intel-libirc-allowed -passes=dtrans-soatoaosop                                \
 ; RUN:          -enable-intel-advanced-opts  -mattr=+avx2                                       \
-; RUN:          -dtrans-soatoaos-size-heuristic=false                   \
+; RUN:          -dtrans-soatoaosop-size-heuristic=false                   \
 ; RUN:       | %lli
 ; REQUIRES: system-linux
 

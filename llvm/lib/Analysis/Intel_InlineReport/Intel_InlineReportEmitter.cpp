@@ -24,6 +24,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
+#include <iomanip>
 
 using namespace llvm;
 using namespace MDInliningReport;
@@ -291,7 +292,12 @@ void IREmitterInfo::printCallSiteInlineReport(Metadata *MD,
   getOpVal(CSIR->getOperand(CSMDIR_IsInlined), "isInlined: ", &IsInlined);
   if (IsInlined) {
     printIndentCount(OS, IndentCount);
-    OS << "-> INLINE: ";
+    int64_t IsCompact = 0;
+    getOpVal(CSIR->getOperand(CSMDIR_IsCompact), "isCompact: ", &IsCompact);
+    if (IsCompact)
+      OS << "-> <C> INLINE: ";
+    else
+      OS << "-> INLINE: ";
     printCalleeNameModuleLineCol(CSIR);
     if (InlineReasonText[Reason].Type == InlPrtCost) {
       int64_t IsCostBenefit = 0;
@@ -508,8 +514,33 @@ void IREmitterInfo::printFunctionInlineReportFromMetadata(MDNode *Node) {
   else
     OS << Name << '\n';
   printCallSiteInlineReports(FuncReport->getOperand(FMDIR_CSs), 1);
+  // Print out the summarized inlines for this function.
+  if (Metadata *MDCIs = FuncReport->getOperand(FMDIR_CompactIndexes).get()) {
+     OS << "  SUMMARIZED INLINED CALL SITE COUNTS\n";
+     auto CIs = cast<MDTuple>(MDCIs);
+     Metadata *MDCCs = FuncReport->getOperand(FMDIR_CompactCounts).get();
+     auto CCs = cast<MDTuple>(MDCCs);
+     assert(CIs->getNumOperands() == CCs->getNumOperands() &&
+            "Expecting op match");
+     NamedMDNode *ModuleInlineReport =
+       M.getOrInsertNamedMetadata("intel.module.inlining.report");
+     for (unsigned I = 0, E = CIs->getNumOperands(); I < E; ++I) {
+       std::stringstream SS;
+       unsigned CompactIndex = 0;
+       StringRef CI = getOpStr(CIs->getOperand(I).get(), "Index: ");
+       CI.getAsInteger<unsigned>(0, CompactIndex);
+       auto FR = cast<MDTuple>(ModuleInlineReport->getOperand(CompactIndex));
+       std::string Name =
+           std::string(getOpStr(FR->getOperand(FMDIR_FuncName), "name: "));
+       unsigned CompactCount = 0;
+       StringRef CC = getOpStr(CCs->getOperand(I).get(), "Count: ");
+       CC.getAsInteger<unsigned>(0, CompactCount);
+       OS << "    ";
+       SS << std::setw(5) << " " << CompactCount << " ";
+       OS << SS.str() << Name << "\n";
+     }
+  }
   OS << '\n';
-
   return;
 }
 

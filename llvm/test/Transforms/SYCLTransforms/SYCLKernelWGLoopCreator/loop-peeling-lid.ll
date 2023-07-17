@@ -8,7 +8,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent norecurse nounwind
-define void @test(ptr addrspace(1) noalias %dst) local_unnamed_addr #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !5 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !7 !vectorized_kernel !8 !no_barrier_path !9 !scalar_kernel !10 !vectorized_width !1 !kernel_execution_length !11 !kernel_has_barrier !5 !kernel_has_global_sync !5 !max_wg_dimensions !1 {
+define void @test(ptr addrspace(1) noalias %dst) local_unnamed_addr #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !3 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !5 !kernel_arg_pipe_depth !6 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !kernel_arg_name !7 !vectorized_kernel !8 !no_barrier_path !9 !scalar_kernel !10 !vectorized_width !1 !kernel_execution_length !11 !kernel_has_barrier !5 !kernel_has_global_sync !5 !max_wg_dimensions !1 !arg_type_null_val !19 {
 entry:
   %call = tail call i64 @_Z12get_group_idj(i32 0) #2
   %call1 = tail call i64 @_Z14get_local_sizej(i32 0) #2
@@ -141,6 +141,7 @@ attributes #2 = { convergent nounwind readnone }
 !16 = !{i32 16}
 !17 = !{i32 11}
 !18 = !{i32 64}
+!19 = !{ptr addrspace(1) null}
 
 ; DEBUGIFY-COUNT-45: WARNING: Instruction with empty DebugLoc in function test
 ; DEBUGIFY: WARNING: Missing line 34
