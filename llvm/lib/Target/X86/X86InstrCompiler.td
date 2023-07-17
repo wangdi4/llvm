@@ -1675,6 +1675,11 @@ def : Pat<(X86add_flag_nocf GR64:$src1, 0x0000000080000000),
 // prefix.
 
 // AddedComplexity is needed to give priority over i64immSExt8 and i64immSExt32.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+let Predicates = [NoNDD] in {
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 let AddedComplexity = 1 in {
 def : Pat<(and GR64:$src, i64immZExt32:$imm),
           (SUBREG_TO_REG
@@ -1684,6 +1689,20 @@ def : Pat<(and GR64:$src, i64immZExt32:$imm),
               (i32 (GetLo32XForm imm:$imm))),
             sub_32bit)>;
 } // AddedComplexity = 1
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+}
+let Predicates = [HasNDD], AddedComplexity = 1 in {
+def : Pat<(and GR64:$src, i64immZExt32:$imm),
+          (SUBREG_TO_REG
+            (i64 0),
+            (AND32ri_ND
+              (EXTRACT_SUBREG GR64:$src, sub_32bit),
+              (i32 (GetLo32XForm imm:$imm))),
+            sub_32bit)>;
+} // Predicates, AddedComplexity = 1
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 
 // AddedComplexity is needed due to the increased complexity on the

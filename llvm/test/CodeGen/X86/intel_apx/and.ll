@@ -112,8 +112,7 @@ entry:
 define i64 @and64ri8(i64 noundef %a) {
 ; CHECK-LABEL: and64ri8:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    movq %rdi, %rax
-; CHECK-NEXT:    andl $123, %eax
+; CHECK-NEXT:    andl $123, %edi, %eax
 ; CHECK-NEXT:    retq
 entry:
     %and = and i64 %a, 123
@@ -154,8 +153,7 @@ entry:
 define i64 @and64ri(i64 noundef %a) {
 ; CHECK-LABEL: and64ri:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    movq %rdi, %rax
-; CHECK-NEXT:    andl $123456, %eax # imm = 0x1E240
+; CHECK-NEXT:    andl $123456, %edi, %eax # imm = 0x1E240
 ; CHECK-NEXT:    retq
 entry:
     %and = and i64 %a, 123456
@@ -234,7 +232,7 @@ define i64 @and64mi8(ptr %a) {
 ; CHECK-LABEL: and64mi8:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    movq (%rdi), %rax
-; CHECK-NEXT:    andl $123, %eax
+; CHECK-NEXT:    andl $123, %eax, %eax
 ; CHECK-NEXT:    retq
 entry:
   %t= load i64, ptr %a
@@ -281,7 +279,7 @@ define i64 @and64mi(ptr %a) {
 ; CHECK-LABEL: and64mi:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    movq (%rdi), %rax
-; CHECK-NEXT:    andl $123456, %eax # imm = 0x1E240
+; CHECK-NEXT:    andl $123456, %eax, %eax # imm = 0x1E240
 ; CHECK-NEXT:    retq
 entry:
   %t= load i64, ptr %a

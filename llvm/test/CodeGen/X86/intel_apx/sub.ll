@@ -492,7 +492,7 @@ declare void @f()
 define void @sub64ri_reloc(i64 %val) {
 ; CHECK-LABEL: sub64ri_reloc:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    subq $val, %rdi, %rax
+; CHECK-NEXT:    cmpq $val, %rdi
 ; CHECK-NEXT:    jbe .LBB41_2
 ; CHECK-NEXT:  # %bb.1: # %t
 ; CHECK-NEXT:    pushq %rax

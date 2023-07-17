@@ -151,7 +151,7 @@ cl_err_code ExecutionModule::Release(bool bTerminate) {
 
   if (NULL != m_pOclCommandQueueMap) {
     delete m_pOclCommandQueueMap;
-    m_pEventsManager = NULL;
+    m_pOclCommandQueueMap = NULL;
   }
 
   RELEASE_LOGGER_CLIENT;

@@ -4454,6 +4454,14 @@ bool X86InstrInfo::analyzeCompare(const MachineInstr &MI, Register &SrcReg,
   case X86::SUB32rm:
   case X86::SUB16rm:
   case X86::SUB8rm:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86::SUB64rm_ND:
+  case X86::SUB32rm_ND:
+  case X86::SUB16rm_ND:
+  case X86::SUB8rm_ND:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     SrcReg = MI.getOperand(1).getReg();
     SrcReg2 = 0;
     CmpMask = 0;
@@ -4463,6 +4471,14 @@ bool X86InstrInfo::analyzeCompare(const MachineInstr &MI, Register &SrcReg,
   case X86::SUB32rr:
   case X86::SUB16rr:
   case X86::SUB8rr:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86::SUB64rr_ND:
+  case X86::SUB32rr_ND:
+  case X86::SUB16rr_ND:
+  case X86::SUB8rr_ND:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     SrcReg = MI.getOperand(1).getReg();
     SrcReg2 = MI.getOperand(2).getReg();
     CmpMask = 0;
@@ -4472,6 +4488,14 @@ bool X86InstrInfo::analyzeCompare(const MachineInstr &MI, Register &SrcReg,
   case X86::SUB32ri:
   case X86::SUB16ri:
   case X86::SUB8ri:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86::SUB64ri32_ND:
+  case X86::SUB32ri_ND:
+  case X86::SUB16ri_ND:
+  case X86::SUB8ri_ND:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     SrcReg = MI.getOperand(1).getReg();
     SrcReg2 = 0;
     if (MI.getOperand(2).isImm()) {
@@ -4764,13 +4788,82 @@ bool X86InstrInfo::optimizeCompareInstr(MachineInstr &CmpInstr, Register SrcReg,
   case X86::SUB64rr:
   case X86::SUB32rr:
   case X86::SUB16rr:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86::SUB8rr:
+  case X86::SUB64ri32_ND:
+  case X86::SUB32ri_ND:
+  case X86::SUB16ri_ND:
+  case X86::SUB8ri_ND:
+  case X86::SUB64rm_ND:
+  case X86::SUB32rm_ND:
+  case X86::SUB16rm_ND:
+  case X86::SUB8rm_ND:
+  case X86::SUB64rr_ND:
+  case X86::SUB32rr_ND:
+  case X86::SUB16rr_ND:
+  case X86::SUB8rr_ND: {
+#else  // INTEL_FEATURE_ISA_APX_F
   case X86::SUB8rr: {
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     if (!MRI->use_nodbg_empty(CmpInstr.getOperand(0).getReg()))
       return false;
     // There is no use of the destination register, we can replace SUB with CMP.
     unsigned NewOpcode = 0;
     switch (CmpInstr.getOpcode()) {
     default: llvm_unreachable("Unreachable!");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    case X86::SUB64rm_ND:
+    case X86::SUB64rm:
+      NewOpcode = X86::CMP64rm;
+      break;
+    case X86::SUB32rm_ND:
+    case X86::SUB32rm:
+      NewOpcode = X86::CMP32rm;
+      break;
+    case X86::SUB16rm_ND:
+    case X86::SUB16rm:
+      NewOpcode = X86::CMP16rm;
+      break;
+    case X86::SUB8rm_ND:
+    case X86::SUB8rm:
+      NewOpcode = X86::CMP8rm;
+      break;
+    case X86::SUB64rr_ND:
+    case X86::SUB64rr:
+      NewOpcode = X86::CMP64rr;
+      break;
+    case X86::SUB32rr_ND:
+    case X86::SUB32rr:
+      NewOpcode = X86::CMP32rr;
+      break;
+    case X86::SUB16rr_ND:
+    case X86::SUB16rr:
+      NewOpcode = X86::CMP16rr;
+      break;
+    case X86::SUB8rr_ND:
+    case X86::SUB8rr:
+      NewOpcode = X86::CMP8rr;
+      break;
+    case X86::SUB64ri32_ND:
+    case X86::SUB64ri32:
+      NewOpcode = X86::CMP64ri32;
+      break;
+    case X86::SUB32ri_ND:
+    case X86::SUB32ri:
+      NewOpcode = X86::CMP32ri;
+      break;
+    case X86::SUB16ri_ND:
+    case X86::SUB16ri:
+      NewOpcode = X86::CMP16ri;
+      break;
+    case X86::SUB8ri_ND:
+    case X86::SUB8ri:
+      NewOpcode = X86::CMP8ri;
+      break;
+#else  // INTEL_FEATURE_ISA_APX_F
     case X86::SUB64rm:   NewOpcode = X86::CMP64rm;   break;
     case X86::SUB32rm:   NewOpcode = X86::CMP32rm;   break;
     case X86::SUB16rm:   NewOpcode = X86::CMP16rm;   break;
@@ -4783,6 +4876,8 @@ bool X86InstrInfo::optimizeCompareInstr(MachineInstr &CmpInstr, Register SrcReg,
     case X86::SUB32ri:   NewOpcode = X86::CMP32ri;   break;
     case X86::SUB16ri:   NewOpcode = X86::CMP16ri;   break;
     case X86::SUB8ri:    NewOpcode = X86::CMP8ri;    break;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     }
     CmpInstr.setDesc(get(NewOpcode));
     CmpInstr.removeOperand(0);
@@ -10937,7 +11032,8 @@ MachineInstr *X86InstrInfo::optimizeCCMPInstr(MachineRegisterInfo &MRI,
         MRI.getVRegDef(SrcRegDef->getOperand(2).getReg());
     if (VregDefInstr->getParent() != SrcRegDef->getParent())
       return nullptr;
-    if (VregDefInstr->getOpcode() == X86::AND32ri) {
+    if (VregDefInstr->getOpcode() == X86::AND32ri ||
+        VregDefInstr->getOpcode() == X86::AND32ri_ND) {
       AndMI = VregDefInstr;
       CopySubRegMI = SrcRegDef;
     }
@@ -10957,7 +11053,9 @@ MachineInstr *X86InstrInfo::optimizeCCMPInstr(MachineRegisterInfo &MRI,
     if (VregDefInstr->getParent() != SrcRegDef->getParent())
       return nullptr;
     if ((VregDefInstr->getOpcode() == X86::AND32ri ||
-         VregDefInstr->getOpcode() == X86::AND64ri32) &&
+         VregDefInstr->getOpcode() == X86::AND64ri32 ||
+         VregDefInstr->getOpcode() == X86::AND32ri_ND ||
+         VregDefInstr->getOpcode() == X86::AND64ri32_ND) &&
         isUInt<16>(VregDefInstr->getOperand(2).getImm())) {
       AndMI = VregDefInstr;
       CopySubRegMI = SrcRegDef;
@@ -10975,43 +11073,55 @@ MachineInstr *X86InstrInfo::optimizeCCMPInstr(MachineRegisterInfo &MRI,
   default:
     return nullptr;
   case X86::AND8ri:
+  case X86::AND8ri_ND:
     Opc = X86::CTEST8ri;
     break;
   case X86::AND16ri:
+  case X86::AND16ri_ND:
     Opc = X86::CTEST16ri;
     break;
   case X86::AND32ri:
+  case X86::AND32ri_ND:
     Opc = X86::CTEST32ri;
     break;
   case X86::AND64ri32:
+  case X86::AND64ri32_ND:
     Opc = X86::CTEST64ri32;
     break;
   case X86::AND8rm:
+  case X86::AND8rm_ND:
     Opc = X86::CTEST8mr;
     NeedMemOp = true;
     break;
   case X86::AND16rm:
+  case X86::AND16rm_ND:
     Opc = X86::CTEST16mr;
     NeedMemOp = true;
     break;
   case X86::AND32rm:
+  case X86::AND32rm_ND:
     Opc = X86::CTEST32mr;
     NeedMemOp = true;
     break;
   case X86::AND64rm:
+  case X86::AND64rm_ND:
     Opc = X86::CTEST64mr;
     NeedMemOp = true;
     break;
   case X86::AND8rr:
+  case X86::AND8rr_ND:
     Opc = X86::CTEST8rr;
     break;
   case X86::AND16rr:
+  case X86::AND16rr_ND:
     Opc = X86::CTEST16rr;
     break;
   case X86::AND32rr:
+  case X86::AND32rr_ND:
     Opc = X86::CTEST32rr;
     break;
   case X86::AND64rr:
+  case X86::AND64rr_ND:
     Opc = X86::CTEST64rr;
     break;
   }
