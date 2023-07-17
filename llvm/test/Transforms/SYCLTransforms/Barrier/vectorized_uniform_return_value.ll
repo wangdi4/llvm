@@ -171,7 +171,8 @@ attributes #17 = { convergent nounwind "call-params-num"="1" "kernel-call-once" 
 !18 = !{i32 9}
 
 ;; alloca for uniform cross-barrier value
-;DEBUGIFY:  WARNING: Instruction with empty DebugLoc in function _ZGVbN4v_foo -- %CallWGForItem5 = alloca <4 x i32>, align 16
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVbN4v_foo -- %CallFinalizeWG{{.*}} = alloca <4 x i32>, align 16
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVbN4v_foo -- %CallWGForItem{{.*}} = alloca <4 x i32>, align 16
 ;; barrier key values
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVbN4v_foo -- %pCurrBarrier = alloca i32, align 4
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVbN4v_foo -- %pCurrSBIndex = alloca i64, align 8
