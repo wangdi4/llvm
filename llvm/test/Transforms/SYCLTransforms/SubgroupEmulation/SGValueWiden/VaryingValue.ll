@@ -1,6 +1,5 @@
-
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-sg-emu-value-widen -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-sg-emu-value-widen -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-sg-emu-value-widen -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes=sycl-kernel-sg-emu-value-widen -S %s | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -16,13 +15,13 @@ sg.dummy.bb.:                                     ; preds = %entry
   %a = alloca i32, align 4
   %call = call i64 @_Z12get_local_idj(i32 0)
   %conv = trunc i64 %call to i32
-  store i32 %conv, i32* %x, align 4
-  %0 = load i32, i32* %x, align 4
+  store i32 %conv, ptr %x, align 4
+  %0 = load i32, ptr %x, align 4
   br label %sg.barrier.bb.1
 
 ; Currently, this case is identical to UniformArg.ll
 ; CHECK-LABEL: sg.barrier.bb.1:
-; CHECK: %[[#OP1:]] = load <16 x i32>, <16 x i32>* %w., align 64
+; CHECK: %[[#OP1:]] = load <16 x i32>, ptr %w., align 64
 ; CHECK: call <16 x i32> @_Z13sub_group_allDv16_iDv16_j(<16 x i32> %[[#OP1]], <16 x i32> %mask.i32)
 sg.barrier.bb.1:                                  ; preds = %sg.dummy.bb.
   call void @_Z17sub_group_barrierj(i32 1)
@@ -31,7 +30,7 @@ sg.barrier.bb.1:                                  ; preds = %sg.dummy.bb.
 
 sg.dummy.bb.3:                                    ; preds = %sg.barrier.bb.1
   call void @dummy_sg_barrier()
-  store i32 %call1, i32* %a, align 4
+  store i32 %call1, ptr %a, align 4
   br label %sg.barrier.bb.
 
 sg.barrier.bb.:                                   ; preds = %sg.dummy.bb.3
@@ -57,7 +56,7 @@ attributes #0 = { "vector-variants"="_ZGVbM16v__Z13sub_group_alli(_Z13sub_group_
 
 !sycl.kernels = !{!0}
 
-!0 = !{void ()* @test}
+!0 = !{ptr @test}
 !1 = !{i1 true}
 !2 = !{i32 16}
 

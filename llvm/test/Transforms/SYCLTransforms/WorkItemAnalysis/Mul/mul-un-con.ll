@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -passes='require<sycl-kernel-builtin-info-analysis>,print<sycl-kernel-work-item-analysis>' %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes='require<sycl-kernel-builtin-info-analysis>,print<sycl-kernel-work-item-analysis>' %s -disable-output 2>&1 | FileCheck %s
 
 ;__kernel void
 ;test_mul(__global int *in, __global int *out) {
@@ -37,16 +37,16 @@ target triple = "i686-pc-win32"
 ; CHECK-NEXT: UNI   %exitcond = icmp eq i32 %i4, 2000
 ; CHECK-NEXT: UNI   br i1 %exitcond, label %._crit_edge, label %bb
 ; CHECK-NEXT: STR   %i5 = mul nsw i32 %.x.1, %i
-; CHECK-NEXT: PTR   %i6 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %i
-; CHECK-NEXT: RND   store i32 %i5, i32 addrspace(1)* %i6, align 4
+; CHECK-NEXT: PTR   %i6 = getelementptr inbounds i32, ptr addrspace(1) %out, i32 %i
+; CHECK-NEXT: RND   store i32 %i5, ptr addrspace(1) %i6, align 4
 ; CHECK-NEXT: STR   %i7 = mul nsw i32 %i5, 100
 ; CHECK-NEXT: SEQ   %i8 = add nsw i32 %i, 10
-; CHECK-NEXT: PTR   %i9 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %i8
-; CHECK-NEXT: RND   store i32 %i7, i32 addrspace(1)* %i9, align 4
+; CHECK-NEXT: PTR   %i9 = getelementptr inbounds i32, ptr addrspace(1) %out, i32 %i8
+; CHECK-NEXT: RND   store i32 %i7, ptr addrspace(1) %i9, align 4
 ; CHECK-NEXT: UNI   ret void
 
 ; Function Attrs: nounwind
-define void @test_mul(i32 addrspace(1)* nocapture %in, i32 addrspace(1)* nocapture %out) #0 {
+define void @test_mul(ptr addrspace(1) nocapture %in, ptr addrspace(1) nocapture %out) #0 !kernel_arg_base_type !2 !arg_type_null_val !3 {
 bb.nph:
   %i = tail call i32 @_Z13get_global_idj(i32 0) #0
   br label %bb
@@ -63,12 +63,12 @@ bb:                                               ; preds = %bb, %bb.nph
 
 ._crit_edge:                                      ; preds = %bb
   %i5 = mul nsw i32 %.x.1, %i
-  %i6 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %i
-  store i32 %i5, i32 addrspace(1)* %i6, align 4
+  %i6 = getelementptr inbounds i32, ptr addrspace(1) %out, i32 %i
+  store i32 %i5, ptr addrspace(1) %i6, align 4
   %i7 = mul nsw i32 %i5, 100
   %i8 = add nsw i32 %i, 10
-  %i9 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %i8
-  store i32 %i7, i32 addrspace(1)* %i9, align 4
+  %i9 = getelementptr inbounds i32, ptr addrspace(1) %out, i32 %i8
+  store i32 %i7, ptr addrspace(1) %i9, align 4
   ret void
 }
 
@@ -78,5 +78,7 @@ attributes #0 = { nounwind }
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @test_mul, !1, !1, !"", !"int __attribute__((address_space(1))) *, int __attribute__((address_space(1))) *", !"opencl_test_mul_locals_anchor"}
+!0 = !{ptr @test_mul, !1, !1, !"", !"int __attribute__((address_space(1))) *, int __attribute__((address_space(1))) *", !"opencl_test_mul_locals_anchor"}
 !1 = !{i32 0, i32 0, i32 0}
+!2 = !{!"int*", !"int*"}
+!3 = !{ptr addrspace(1) null, ptr addrspace(1) null}

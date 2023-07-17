@@ -67,7 +67,7 @@ attributes #1 = { convergent nounwind readnone willreturn }
 !10 = !{!"omnipotent char", !11, i64 0}
 !11 = !{!"Simple C/C++ TBAA"}
 !12 = !{}
-!13 = !{i32 addrspace(1)* null}
+!13 = !{ptr addrspace(1) null}
 
 ; CHECK-DAG: [[ExecutionLength1]] = !{i32 123}
 ; CHECK-DAG: [[ExecutionLength2]] = !{i32 1}

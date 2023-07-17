@@ -4,7 +4,10 @@
 
 ; CHECK-NOT: store
 
-define void @test(i8 addrspace(2)* %c) {
-  store i8 0, i8 addrspace(2)* %c
+define void @test(ptr addrspace(2) %c) !kernel_arg_base_type !0 !arg_type_null_val !1 {
+  store i8 0, ptr addrspace(2) %c
   ret void
 }
+
+!0 = !{!"char*"}
+!1 = !{ptr addrspace(2) null}

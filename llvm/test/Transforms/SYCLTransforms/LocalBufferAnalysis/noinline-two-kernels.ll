@@ -30,25 +30,25 @@ target triple = "x86_64-pc-linux"
 
 define internal fastcc zeroext i1 @foo() {
 entry:
-  %0 = load i32, i32 addrspace(3)* getelementptr inbounds ([100 x i32], [100 x i32] addrspace(3)* @test1.i, i64 0, i64 0), align 4, !tbaa !1
-  %1 = load i32, i32 addrspace(3)* @test1.j, align 4
+  %0 = load i32, ptr addrspace(3) @test1.i, align 4, !tbaa !1
+  %1 = load i32, ptr addrspace(3) @test1.j, align 4
   ret i1 false
 }
 
 define internal fastcc zeroext i1 @bar() {
 entry:
-  %0 = load double, double addrspace(3)* getelementptr inbounds ([10 x double], [10 x double] addrspace(3)* @test2.s, i64 0, i64 0), align 8, !tbaa !5
-  %1 = load double, double addrspace(3)* @test2.t, align 8
+  %0 = load double, ptr addrspace(3) @test2.s, align 8, !tbaa !5
+  %1 = load double, ptr addrspace(3) @test2.t, align 8
   ret i1 false
 }
 
-define dso_local void @test1(i32 addrspace(1)* noalias noundef align 4 %results) {
+define dso_local void @test1(ptr addrspace(1) noalias noundef align 4 %results) !kernel_arg_base_type !7 !arg_type_null_val !8 {
 entry:
   %call1 = tail call fastcc zeroext i1 @foo()
   ret void
 }
 
-define dso_local void @test2(i32 addrspace(1)* noalias noundef align 4 %results) {
+define dso_local void @test2(ptr addrspace(1) noalias noundef align 4 %results) !kernel_arg_base_type !7 !arg_type_null_val !8 {
 entry:
   %call1 = tail call fastcc zeroext i1 @bar()
   ret void
@@ -56,10 +56,12 @@ entry:
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32 addrspace(1)*)* @test1, void (i32 addrspace(1)*)* @test2}
+!0 = !{ptr @test1, ptr @test2}
 !1 = !{!2, !2, i64 0}
 !2 = !{!"int", !3, i64 0}
 !3 = !{!"omnipotent char", !4, i64 0}
 !4 = !{!"Simple C/C++ TBAA"}
 !5 = !{!6, !6, i64 0}
 !6 = !{!"double", !3, i64 0}
+!7 = !{!"int*"}
+!8 = !{ptr addrspace(1) null}

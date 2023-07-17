@@ -11,25 +11,24 @@
 %struct.A = type { float, i32, double, i64 }
 
 
-define void @f1(%struct.A* byval(%struct.A) align 8 %arg) {
+define void @f1(ptr byval(%struct.A) align 8 %arg) !kernel_arg_base_type !3 !arg_type_null_val !4 {
 entry:
   ret void
 }
 
-define void @f2(%struct.A* nocapture readonly %arr) {
-  %ptridx = getelementptr inbounds %struct.A, %struct.A* %arr, i64 0
-  call void @f1(%struct.A* nonnull byval(%struct.A) align 8 %ptridx)
+define void @f2(ptr nocapture readonly %arr) !kernel_arg_base_type !5 !arg_type_null_val !6 {
+  call void @f1(ptr nonnull byval(%struct.A) align 8 %arr)
   ret void
 }
 
-define void @f3(%struct.A* nocapture readonly %arr) #0 {
-  call void @f2(%struct.A* nocapture readonly %arr)
+define void @f3(ptr nocapture readonly %arr) #0 !kernel_arg_base_type !5 !arg_type_null_val !6 {
+  call void @f2(ptr nocapture readonly %arr)
   ret void
 }
 
-define void @kernel(%struct.A* nocapture readonly %arr) #0 !kernel_has_sub_groups !1 !intel_reqd_sub_group_size !2 {
+define void @kernel(ptr nocapture readonly %arr) #0 !kernel_has_sub_groups !1 !intel_reqd_sub_group_size !2 !kernel_arg_base_type !5 !arg_type_null_val !6 {
 entry:
-  call void @f3(%struct.A* nocapture readonly %arr)
+  call void @f3(ptr nocapture readonly %arr)
   ret void
 }
 
@@ -37,6 +36,10 @@ attributes #0 = { "has-sub-groups" }
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (%struct.A*)* @kernel}
+!0 = !{ptr @kernel}
 !1 = !{i1 true}
 !2 = !{i32 16}
+!3 = !{!"%struct.A"}
+!4 = !{ptr null}
+!5 = !{!"%struct.A*"}
+!6 = !{ptr null}

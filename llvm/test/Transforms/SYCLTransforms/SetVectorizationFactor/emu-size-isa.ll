@@ -25,7 +25,7 @@ define void @non_kernel() {
 
 !sycl.kernels = !{!0}
 
-!0 = !{void ()* @kernel}
+!0 = !{ptr @kernel}
 
 ; CHECK-COMMON: define void @kernel
 ; CHECK-COMMON-SAME: !recommended_vector_length ![[#VL_METADATA_ID:]]

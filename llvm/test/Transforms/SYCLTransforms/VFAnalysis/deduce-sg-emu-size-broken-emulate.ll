@@ -22,4 +22,4 @@ define void @sg_emu_size() noinline optnone "has-sub-groups" !kernel_has_sub_gro
 
 !sycl.kernels = !{!0}
 
-!0 = !{void ()* @reqd, void ()* @sg_emu_size}
+!0 = !{ptr @reqd, ptr @sg_emu_size}

@@ -17,4 +17,4 @@ declare float @llvm.fmuladd.f32(float, float, float)
 
 !sycl.kernels = !{!0}
 
-!0 = !{void ()* @foo}
+!0 = !{ptr @foo}

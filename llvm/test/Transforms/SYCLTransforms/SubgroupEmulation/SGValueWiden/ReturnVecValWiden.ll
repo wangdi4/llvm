@@ -1,6 +1,5 @@
-
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-sg-emu-value-widen -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-sg-emu-value-widen -S %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-sg-emu-value-widen -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes=sycl-kernel-sg-emu-value-widen -S %s | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -9,8 +8,8 @@ define <16 x i32> @foo(i32 %a) {
 entry:
   call void @dummy_sg_barrier()
   %a.addr = alloca i32, align 4
-  store i32 %a, i32* %a.addr, align 4
-  %0 = load i32, i32* %a.addr, align 4
+  store i32 %a, ptr %a.addr, align 4
+  %0 = load i32, ptr %a.addr, align 4
   br label %sg.barrier.bb.
 
 sg.barrier.bb.:                                   ; preds = %entry
@@ -37,8 +36,8 @@ entry:
 sg.dummy.bb.1:                                    ; preds = %entry
   call void @dummy_sg_barrier()
   %x.addr = alloca i32, align 4
-  store i32 %x, i32* %x.addr, align 4
-  %0 = load i32, i32* %x.addr, align 4
+  store i32 %x, ptr %x.addr, align 4
+  %0 = load i32, ptr %x.addr, align 4
   br label %sg.barrier.bb.
 
 sg.barrier.bb.:                                   ; preds = %sg.dummy.bb.1
@@ -65,13 +64,12 @@ sg.dummy.bb.2:                                    ; preds = %sg.dummy.bb.
 
 ; CHECK: %sg.lid.1 = call i32 @_Z22get_sub_group_local_idv()
 ; CHECK-NEXT: [[MUL:%.*]] = mul i32 %sg.lid.1, 16
-; CHECK-NEXT: [[PTR:%.*]] = getelementptr <256 x i32>, <256 x i32>* %w.ret, i32 0, i32 [[MUL]]
-; CHECK-NEXT: [[CAST:%.*]] = bitcast i32* [[PTR]] to <16 x i32>*
-; CHECK-NEXT: store <16 x i32> %vec.ret, <16 x i32>* [[CAST]], align 64
+; CHECK-NEXT: [[PTR:%.*]] = getelementptr <256 x i32>, ptr %w.ret, i32 0, i32 [[MUL]]
+; CHECK-NEXT: store <16 x i32> %vec.ret, ptr [[PTR]], align 64
 
 ; CHECK: sg.dummy.bb.:
 ; CHECK: call void @_Z17sub_group_barrierj(i32 1)
-; CHECK-NEXT: [[RET:%.*]] = load <256 x i32>, <256 x i32>* %w.ret, align 1024
+; CHECK-NEXT: [[RET:%.*]] = load <256 x i32>, ptr %w.ret, align 1024
 ; CHECK-NEXT: ret <256 x i32> [[RET]]
 
 declare void @dummybarrier.()
@@ -84,7 +82,7 @@ attributes #0 = { "vector-variants"="_ZGVbM16v__Z13sub_group_alli(_Z13sub_group_
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32)* @test}
+!0 = !{ptr @test}
 !1 = !{i1 true}
 !2 = !{i32 16}
 

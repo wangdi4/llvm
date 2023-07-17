@@ -11,11 +11,11 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent noinline norecurse nounwind
-define internal fastcc void @foo(i32 addrspace(4)* noundef %results) unnamed_addr #0 {
+define internal fastcc void @foo(ptr addrspace(4) noundef %results) unnamed_addr #0 {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 noundef 0) #3
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(4)* %results, i64 %call
-  store i32 1234, i32 addrspace(4)* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(4) %results, i64 %call
+  store i32 1234, ptr addrspace(4) %arrayidx, align 4, !tbaa !2
   ret void
 }
 
@@ -23,15 +23,15 @@ entry:
 declare i64 @_Z13get_global_idj(i32 noundef) local_unnamed_addr #1
 
 ; Function Attrs: convergent norecurse nounwind
-define dso_local void @test(i32 addrspace(1)* noalias noundef align 4 %results) local_unnamed_addr #2 !no_barrier_path !6 !kernel_has_sub_groups !7 !kernel_has_global_sync !7 !max_wg_dimensions !8 {
+define dso_local void @test(ptr addrspace(1) noalias noundef align 4 %results) local_unnamed_addr #2 !no_barrier_path !6 !kernel_has_sub_groups !7 !kernel_has_global_sync !7 !max_wg_dimensions !8 {
 entry:
-  %0 = addrspacecast i32 addrspace(1)* %results to i32 addrspace(4)*
-  tail call fastcc void @foo(i32 addrspace(4)* noundef %0) #4
+  %0 = addrspacecast ptr addrspace(1) %results to ptr addrspace(4)
+  tail call fastcc void @foo(ptr addrspace(4) noundef %0) #4
   ret void
 }
 
 ; Function Attrs: convergent norecurse nounwind
-define dso_local [7 x i64] @WG.boundaries.test(i32 addrspace(1)* noalias noundef align 4 %0) local_unnamed_addr #2 {
+define dso_local [7 x i64] @WG.boundaries.test(ptr addrspace(1) noalias noundef align 4 %0) local_unnamed_addr #2 {
 entry:
   %local.size0 = call i64 @_Z14get_local_sizej(i32 0) #5
   %base.gid0 = call i64 @get_base_global_id.(i32 0) #5
@@ -65,7 +65,7 @@ attributes #5 = { nounwind }
 !sycl.kernels = !{!1}
 
 !0 = !{i32 2, i32 0}
-!1 = !{void (i32 addrspace(1)*)* @test}
+!1 = !{ptr @test}
 !2 = !{!3, !3, i64 0}
 !3 = !{!"int", !4, i64 0}
 !4 = !{!"omnipotent char", !5, i64 0}

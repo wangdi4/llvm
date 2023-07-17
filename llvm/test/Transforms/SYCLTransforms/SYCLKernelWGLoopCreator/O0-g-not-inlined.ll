@@ -45,7 +45,7 @@ target triple = "x86_64-pc-linux"
 ; CHECK-NEXT:  %gid2.ld = load i64, ptr %gid2.addr, align 8
 ; CHECK-NEXT:  store volatile i64 %gid2.ld, ptr %__ocl_dbg_gid2, align 8
 ; CHECK-NEXT:  store ptr addrspace(1) %dst, ptr %dst.addr, align 8
-; CHECK-NEXT:  call void @llvm.dbg.declare(metadata ptr %dst.addr, metadata !17, metadata !DIExpression()), !dbg
+; CHECK-NEXT:  call void @llvm.dbg.declare(metadata ptr %dst.addr, metadata !{{.*}}, metadata !DIExpression()), !dbg
 ; CHECK-NEXT:  [[LOAD:%[0-9]+]] = load ptr addrspace(1), ptr %dst.addr, align 8, !dbg
 ; CHECK-NEXT:  %gid0.ld1 = load i64, ptr %gid0.addr, align 8, !dbg [[DBGGid:![0-9]+]]
 ; CHECK-NEXT:  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) [[LOAD]], i64 %gid0.ld1, !dbg
@@ -53,7 +53,7 @@ target triple = "x86_64-pc-linux"
 ; CHECK: [[DBGGid]] = !DILocation(line: 3, column: 7, scope: !6)
 
 ; Function Attrs: convergent noinline norecurse nounwind optnone
-define dso_local void @foo(ptr addrspace(1) noalias noundef %dst) #0 !dbg !6 {
+define dso_local void @foo(ptr addrspace(1) noalias noundef %dst) #0 !dbg !6 !kernel_arg_base_type !27 !arg_type_null_val !43 {
 entry:
   %__ocl_dbg_gid0 = alloca i64, align 8
   call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid0, metadata !12, metadata !DIExpression()), !dbg !14
@@ -84,7 +84,7 @@ declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
 declare i64 @_Z13get_global_idj(i32 noundef) #2
 
 ; Function Attrs: convergent noinline norecurse nounwind optnone
-define dso_local void @test(ptr addrspace(1) noalias noundef align 4 %dst) #3 !dbg !23 !kernel_arg_addr_space !25 !kernel_arg_access_qual !26 !kernel_arg_type !27 !kernel_arg_base_type !27 !kernel_arg_type_qual !28 !kernel_arg_name !29 !kernel_arg_host_accessible !30 !kernel_arg_pipe_depth !31 !kernel_arg_pipe_io !28 !kernel_arg_buffer_location !28 !no_barrier_path !32 !kernel_has_sub_groups !30 !kernel_execution_length !33 !kernel_has_global_sync !30 !recommended_vector_length !25 {
+define dso_local void @test(ptr addrspace(1) noalias noundef align 4 %dst) #3 !dbg !23 !kernel_arg_addr_space !25 !kernel_arg_access_qual !26 !kernel_arg_type !27 !kernel_arg_base_type !27 !kernel_arg_type_qual !28 !kernel_arg_name !29 !kernel_arg_host_accessible !30 !kernel_arg_pipe_depth !31 !kernel_arg_pipe_io !28 !kernel_arg_buffer_location !28 !no_barrier_path !32 !kernel_has_sub_groups !30 !kernel_execution_length !33 !kernel_has_global_sync !30 !recommended_vector_length !25 !arg_type_null_val !43 {
 entry:
   %__ocl_dbg_gid0 = alloca i64, align 8
   call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid0, metadata !34, metadata !DIExpression()), !dbg !35
@@ -161,3 +161,4 @@ attributes #5 = { convergent }
 !40 = !DILocation(line: 7, column: 7, scope: !23)
 !41 = !DILocation(line: 7, column: 3, scope: !23)
 !42 = !DILocation(line: 8, column: 1, scope: !23)
+!43 = !{ptr addrspace(1) null}

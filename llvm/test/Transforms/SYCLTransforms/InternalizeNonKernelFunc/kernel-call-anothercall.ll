@@ -32,7 +32,7 @@ entry:
 
 !sycl.kernels = !{!0}
 
-!0 = !{void ()* @thisIsKernel}
+!0 = !{ptr @thisIsKernel}
 
 ; CHECK:        define void @thisIsKernel()
 ; CHECK:        %x = call i32 @nonKernel1()

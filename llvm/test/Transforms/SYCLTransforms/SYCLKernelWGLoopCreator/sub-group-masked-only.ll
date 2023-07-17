@@ -7,7 +7,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent nounwind
-define void @test(i32 addrspace(1)* noalias %a) local_unnamed_addr #0 !vectorized_masked_kernel !1 !no_barrier_path !2 !kernel_has_sub_groups !2 !vectorized_width !3 !scalar_kernel !4 {
+define void @test(ptr addrspace(1) noalias %a) local_unnamed_addr #0 !vectorized_masked_kernel !1 !no_barrier_path !2 !kernel_has_sub_groups !2 !vectorized_width !3 !scalar_kernel !4 {
 entry:
 ; CHECK: masked_kernel_entry:
 ; CHECK-NEXT: %dim_0_vector_ind_var = phi i64 [ %init.gid.dim0, %dim_0_vector_pre_head ], [ %dim_0_vector_inc_ind_var, %pred.call.continue10 ]
@@ -19,11 +19,11 @@ entry:
 ; CHECK-NEXT: %ind.var.mask.i1 = icmp ult <4 x i64> %ind.var.vec, %max.gid.splat
 ; CHECK-NEXT: %ind.var.mask = zext <4 x i1> %ind.var.mask.i1 to <4 x i32>
 
-  store i32 1, i32 addrspace(1)* %a, align 4, !tbaa !5
+  store i32 1, ptr addrspace(1) %a, align 4, !tbaa !5
   ret void
 }
 
-define [7 x i64] @WG.boundaries.test(i32 addrspace(1)* %0) !recommended_vector_length !9 {
+define [7 x i64] @WG.boundaries.test(ptr addrspace(1) %0) !recommended_vector_length !9 {
 entry:
   %1 = call i64 @_Z14get_local_sizej(i32 0)
   %2 = call i64 @get_base_global_id.(i32 0)
@@ -46,7 +46,7 @@ declare i64 @_Z14get_local_sizej(i32)
 declare i64 @get_base_global_id.(i32)
 
 ; Function Attrs: convergent nounwind
-define void @_ZGVcM4u_test(i32 addrspace(1)* noalias %a, <4 x i32> %mask) local_unnamed_addr #0 !no_barrier_path !2 !kernel_has_sub_groups !2 !vectorized_width !9 !scalar_kernel !0 !recommended_vector_length !9 !vectorized_kernel !4 !vectorization_dimension !10 !can_unite_workgroups !11 {
+define void @_ZGVcM4u_test(ptr addrspace(1) noalias %a, <4 x i32> %mask) local_unnamed_addr #0 !no_barrier_path !2 !kernel_has_sub_groups !2 !vectorized_width !9 !scalar_kernel !0 !recommended_vector_length !9 !vectorized_kernel !4 !vectorization_dimension !10 !can_unite_workgroups !11 {
 entry:
   %0 = icmp ne <4 x i32> %mask, zeroinitializer
   %Predicate = extractelement <4 x i1> %0, i64 0
@@ -82,21 +82,21 @@ pred.call.if9:                                    ; preds = %pred.call.continue8
 
 pred.call.continue10:                             ; preds = %pred.call.if9, %pred.call.continue8
   %5 = phi <4 x i32> [ %3, %pred.call.continue8 ], [ %4, %pred.call.if9 ]
-  %6 = getelementptr i32, i32 addrspace(1)* %a, <4 x i64> zeroinitializer
-  call void @llvm.masked.scatter.v4i32.v4p1i32(<4 x i32> %5, <4 x i32 addrspace(1)*> %6, i32 4, <4 x i1> %0)
+  %6 = getelementptr i32, ptr addrspace(1) %a, <4 x i64> zeroinitializer
+  call void @llvm.masked.scatter.v4i32.v4p1(<4 x i32> %5, <4 x ptr addrspace(1)> %6, i32 4, <4 x i1> %0)
   ret void
 }
 
 ; Function Attrs: nocallback nofree nosync nounwind willreturn writeonly
-declare void @llvm.masked.scatter.v4i32.v4p1i32(<4 x i32>, <4 x i32 addrspace(1)*>, i32 immarg, <4 x i1>) #1
+declare void @llvm.masked.scatter.v4i32.v4p1(<4 x i32>, <4 x ptr addrspace(1)>, i32 immarg, <4 x i1>) #1
 
 attributes #0 = { convergent nounwind "vector-variants"="_ZGVcM4u_test" }
 attributes #1 = { nocallback nofree nosync nounwind willreturn writeonly }
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32 addrspace(1)*)* @test}
-!1 = !{void (i32 addrspace(1)*, <4 x i32>)* @_ZGVcM4u_test}
+!0 = !{ptr @test}
+!1 = !{ptr @_ZGVcM4u_test}
 !2 = !{i1 true}
 !3 = !{i32 1}
 !4 = !{null}

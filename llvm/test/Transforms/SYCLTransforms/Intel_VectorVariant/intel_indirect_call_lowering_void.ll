@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 %s -passes=sycl-kernel-indirect-call-lowering -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 %s -passes=sycl-kernel-indirect-call-lowering -S | FileCheck %s
+; RUN: opt %s -passes=sycl-kernel-indirect-call-lowering -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt %s -passes=sycl-kernel-indirect-call-lowering -S | FileCheck %s
 
 define void @foo() {
 simd.begin.region:
@@ -20,8 +20,8 @@ vector.ph:                                        ; preds = %VPlannedBB1
 vector.body:                                      ; preds = %VPlannedBB3, %vector.ph
   %uni.phi = phi i32 [ 0, %vector.ph ], [ %2, %VPlannedBB3 ]
   %vec.phi = phi <16 x i32> [ <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>, %vector.ph ], [ %1, %VPlannedBB3 ]
-  %0 = load void (<16 x i32>, <16 x i32*>)*, void (<16 x i32>, <16 x i32*>)** poison, align 8
-  call void %0(<16 x i32> <i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3>, <16 x i32*> undef)
+  %0 = load ptr, ptr poison, align 8
+  call void %0(<16 x i32> <i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3>, <16 x ptr> undef)
   br label %VPlannedBB3
 
 VPlannedBB3:                                      ; preds = %vector.body
@@ -52,9 +52,9 @@ VPlannedBB9:                                      ; preds = %VPlannedBB5
 
 simd.loop:                                        ; preds = %VPlannedBB7, %simd.loop.exit
   %index = phi i32 [ %uni.phi6, %VPlannedBB7 ], [ %indvar, %simd.loop.exit ]
-  call void (void (i32, i32*)**, i32, i32*, ...) @__intel_indirect_call.2(void (i32, i32*)** poison, i32 3, i32* undef) #0
-; CHECK:  %4 = load void (<16 x i32>, <16 x i32*>, <16 x i32>)*, void (<16 x i32>, <16 x i32*>, <16 x i32>)** poison, align 8
-; CHECK:  call void %4(<16 x i32> <i32 3, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>, <16 x i32*> undef, <16 x i32> <i32 -1, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0>)
+  call void (ptr, i32, ptr, ...) @__intel_indirect_call.2(ptr poison, i32 3, ptr undef) #0
+; CHECK:  %4 = load ptr, ptr poison, align 8
+; CHECK:  call void %4(<16 x i32> <i32 3, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>, <16 x ptr> undef, <16 x i32> <i32 -1, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0>)
   br label %simd.loop.exit
 
 simd.loop.exit:                                   ; preds = %simd.loop
@@ -69,7 +69,7 @@ simd.end.region:                                  ; preds = %VPlannedBB9
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
-declare void @__intel_indirect_call.2(void (i32, i32*)**, i32, i32*, ...)
+declare void @__intel_indirect_call.2(ptr, i32, ptr, ...)
 
 attributes #0 = { "vector-variants"="_ZGVeM16vv___intel_indirect_call_XXX,_ZGVeN16vv___intel_indirect_call_XXX" }
 

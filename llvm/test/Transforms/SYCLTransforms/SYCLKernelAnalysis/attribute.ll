@@ -16,6 +16,6 @@ declare void @_Z18work_group_barrierj(i32) #0
 attributes #0 = { convergent }
 
 !sycl.kernels = !{!0}
-!0 = !{void ()* @kernel_contains_barrier}
+!0 = !{ptr @kernel_contains_barrier}
 
 ; DEBUGIFY-NOT: WARNING

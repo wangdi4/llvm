@@ -228,7 +228,7 @@ attributes #3 = { convergent nounwind readnone }
 !5 = !{!"float*", !"float*"}
 !6 = !{float addrspace(1)* null, float addrspace(1)* null}
 !7 = !{!"float*"}
-!8 = !{float addrspace(1)* null}
+!8 = !{ptr addrspace(1) null}
 
 
 ; DEBUGIFY-NOT: WARNING

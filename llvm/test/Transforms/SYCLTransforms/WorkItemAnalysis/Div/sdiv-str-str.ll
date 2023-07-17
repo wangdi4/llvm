@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -passes='require<sycl-kernel-builtin-info-analysis>,print<sycl-kernel-work-item-analysis>' %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes='require<sycl-kernel-builtin-info-analysis>,print<sycl-kernel-work-item-analysis>' %s -disable-output 2>&1 | FileCheck %s
 
 ;kernel void
 ;test_div(global int *in, global int *out) {
@@ -29,8 +29,8 @@ target triple = "i686-pc-win32"
 ; CHECK-NEXT: RND   %10 = or i1 %6, %9
 ; CHECK-NEXT: RND   %11 = select i1 %10, i32 1, i32 %5
 ; CHECK-NEXT: RND   %12 = sdiv i32 %3, %11
-; CHECK-NEXT: PTR   %13 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %1
-; CHECK-NEXT: RND   store i32 %12, i32 addrspace(1)* %13, align 4
+; CHECK-NEXT: PTR   %13 = getelementptr inbounds i32, ptr addrspace(1) %out, i32 %1
+; CHECK-NEXT: RND   store i32 %12, ptr addrspace(1) %13, align 4
 ; CHECK-NEXT: RND   %14 = icmp eq i32 %3, 0
 ; CHECK-NEXT: RND   %15 = icmp eq i32 %5, -2147483648
 ; CHECK-NEXT: RND   %16 = icmp eq i32 %3, -1
@@ -39,11 +39,11 @@ target triple = "i686-pc-win32"
 ; CHECK-NEXT: RND   %19 = select i1 %18, i32 1, i32 %3
 ; CHECK-NEXT: RND   %20 = sdiv i32 %5, %19
 ; CHECK-NEXT: SEQ   %21 = add nsw i32 %1, 10
-; CHECK-NEXT: PTR   %22 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %21
-; CHECK-NEXT: RND   store i32 %20, i32 addrspace(1)* %22, align 4
+; CHECK-NEXT: PTR   %22 = getelementptr inbounds i32, ptr addrspace(1) %out, i32 %21
+; CHECK-NEXT: RND   store i32 %20, ptr addrspace(1) %22, align 4
 ; CHECK-NEXT: UNI   ret void
 
-define void @test_div(i32 addrspace(1)* nocapture %in, i32 addrspace(1)* nocapture %out) nounwind {
+define void @test_div(ptr addrspace(1) nocapture %in, ptr addrspace(1) nocapture %out) nounwind !kernel_arg_base_type !2 !arg_type_null_val !3 {
   %1 = tail call i32 @_Z13get_global_idj(i32 0) nounwind
   %2 = mul nsw i32 %1, 11
   %3 = add nsw i32 %2, 100
@@ -56,8 +56,8 @@ define void @test_div(i32 addrspace(1)* nocapture %in, i32 addrspace(1)* nocaptu
   %10 = or i1 %6, %9
   %11 = select i1 %10, i32 1, i32 %5
   %12 = sdiv i32 %3, %11
-  %13 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %1
-  store i32 %12, i32 addrspace(1)* %13, align 4
+  %13 = getelementptr inbounds i32, ptr addrspace(1) %out, i32 %1
+  store i32 %12, ptr addrspace(1) %13, align 4
   %14 = icmp eq i32 %3, 0
   %15 = icmp eq i32 %5, -2147483648
   %16 = icmp eq i32 %3, -1
@@ -66,8 +66,8 @@ define void @test_div(i32 addrspace(1)* nocapture %in, i32 addrspace(1)* nocaptu
   %19 = select i1 %18, i32 1, i32 %3
   %20 = sdiv i32 %5, %19
   %21 = add nsw i32 %1, 10
-  %22 = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %21
-  store i32 %20, i32 addrspace(1)* %22, align 4
+  %22 = getelementptr inbounds i32, ptr addrspace(1) %out, i32 %21
+  store i32 %20, ptr addrspace(1) %22, align 4
   ret void
 }
 
@@ -75,5 +75,7 @@ declare i32 @_Z13get_global_idj(i32)
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @test_div, !1, !1, !"", !"int __attribute__((address_space(1))) *, int __attribute__((address_space(1))) *", !"opencl_test_div_locals_anchor"}
+!0 = !{ptr @test_div, !1, !1, !"", !"int __attribute__((address_space(1))) *, int __attribute__((address_space(1))) *", !"opencl_test_div_locals_anchor"}
 !1 = !{i32 0, i32 0, i32 0}
+!2 = !{!"int*", !"int*"}
+!3 = !{ptr addrspace(1) null, ptr addrspace(1) null}

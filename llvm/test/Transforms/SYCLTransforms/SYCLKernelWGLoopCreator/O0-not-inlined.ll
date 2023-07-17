@@ -8,7 +8,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent noinline norecurse nounwind optnone
-define dso_local void @foo(ptr addrspace(1) noalias noundef %dst) #0 {
+define dso_local void @foo(ptr addrspace(1) noalias noundef %dst) #0 !kernel_arg_base_type !4 !arg_type_null_val !11 {
 entry:
   %dst.addr = alloca ptr addrspace(1), align 8
   store ptr addrspace(1) %dst, ptr %dst.addr, align 8
@@ -23,7 +23,7 @@ entry:
 declare i64 @_Z13get_global_idj(i32 noundef) #1
 
 ; Function Attrs: convergent noinline norecurse nounwind optnone
-define dso_local void @test(ptr addrspace(1) noalias noundef align 4 %dst) #2 !kernel_arg_addr_space !2 !kernel_arg_access_qual !3 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 !kernel_arg_name !6 !kernel_arg_host_accessible !7 !kernel_arg_pipe_depth !8 !kernel_arg_pipe_io !5 !kernel_arg_buffer_location !5 !no_barrier_path !9 !kernel_has_sub_groups !7 !kernel_execution_length !10 !kernel_has_global_sync !7 !recommended_vector_length !2 {
+define dso_local void @test(ptr addrspace(1) noalias noundef align 4 %dst) #2 !kernel_arg_addr_space !2 !kernel_arg_access_qual !3 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 !kernel_arg_name !6 !kernel_arg_host_accessible !7 !kernel_arg_pipe_depth !8 !kernel_arg_pipe_io !5 !kernel_arg_buffer_location !5 !no_barrier_path !9 !kernel_has_sub_groups !7 !kernel_execution_length !10 !kernel_has_global_sync !7 !recommended_vector_length !2 !arg_type_null_val !11 {
 entry:
 ; CHECK-LABEL: @test
 ; CHECK: %local.ids = alloca [3 x i64], align 8
@@ -71,6 +71,7 @@ attributes #4 = { convergent }
 !8 = !{i32 0}
 !9 = !{i1 true}
 !10 = !{i32 5}
+!11 = !{ptr addrspace(1) null}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} call i64 @get_base_global_id.(i32 0)
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} call i64 @_Z14get_local_sizej(i32 0)

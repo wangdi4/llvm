@@ -7,11 +7,11 @@ target triple = "x86_64-pc-linux"
 ; CHECK-NOT: @_NSConcreteGlobalBlock
 ; CHECK-NOT: external
 
-@_NSConcreteGlobalBlock = external global i8*
+@_NSConcreteGlobalBlock = external global ptr
 @.str = private unnamed_addr constant [9 x i8] c"i12@?0i8\00", align 1
-@__block_descriptor_tmp = internal constant { i64, i64, i8*, i8* } { i64 0, i64 32, i8* getelementptr inbounds ([9 x i8], [9 x i8]* @.str, i32 0, i32 0), i8* null }
+@__block_descriptor_tmp = internal constant { i64, i64, ptr, ptr } { i64 0, i64 32, ptr @.str, ptr null }
 
-define spir_kernel void @block_typedef_reassign(i32 addrspace(1)* %res) nounwind !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_type_qual !5 !kernel_arg_name !6 {
+define spir_kernel void @block_typedef_reassign(ptr addrspace(1) %res) nounwind !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_type_qual !5 !kernel_arg_name !6 !arg_type_null_val !7 {
   ret void
 }
 
@@ -20,6 +20,7 @@ define spir_kernel void @block_typedef_reassign(i32 addrspace(1)* %res) nounwind
 !3 = !{!"int*"}
 !5 = !{!""}
 !6 = !{!"res"}
+!7 = !{ptr addrspace(1) null}
 
 ; DEBUGIFY: WARNING: Missing line 1
 ; DEBUGIFY: WARNING: Missing variable 1

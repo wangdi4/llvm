@@ -31,7 +31,7 @@ define i32 @foo(i32 %a) {
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32)* @test16, void (i32)* @test4, void (i32)* @test}
+!0 = !{ptr @test16, ptr @test4, ptr @test}
 !1 = !{i1 true}
 !2 = !{i32 16}
 !3 = !{i32 4}

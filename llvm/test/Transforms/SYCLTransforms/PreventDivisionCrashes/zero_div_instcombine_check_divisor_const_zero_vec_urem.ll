@@ -2,10 +2,10 @@
 ; RUN: opt -passes=sycl-kernel-prevent-div-crashes,instcombine -S %s -o - | FileCheck %s
 
 ; CHECK: @sample_test
-define void @sample_test(<16 x i64> %x, <16 x i64> addrspace(1)* nocapture %res) nounwind {
+define void @sample_test(<16 x i64> %x, ptr addrspace(1) nocapture %res) nounwind !kernel_arg_base_type !0 !arg_type_null_val !1 {
 entry:
   %rem = urem <16 x i64> %x, zeroinitializer
-  store <16 x i64> %rem, <16 x i64> addrspace(1)* %res
+  store <16 x i64> %rem, ptr addrspace(1) %res
   ret void
 }
 
@@ -14,3 +14,6 @@ entry:
 
 ; DEBUGIFY: WARNING: Missing line 1
 ; DEBUGIFY-NOT: WARNING
+
+!0 = !{!"long16", !"long16*"}
+!1 = !{<16 x i64> zeroinitializer, ptr addrspace(1) null}

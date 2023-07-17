@@ -3,58 +3,58 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline nounwind optnone uwtable
-define dso_local i32 @test(i32* noundef %p) #0 !dbg !8 {
+define dso_local i32 @test(ptr noundef %p) #0 !dbg !8 !kernel_arg_base_type !43 !arg_type_null_val !44 {
 ; CHECK-NOT: call void @llvm.dbg.declare
 ; CHECK-NOT: call void @llvm.dbg.value
 entry:
   %retval = alloca i32, align 4
-  %p.addr = alloca i32*, align 8
+  %p.addr = alloca ptr, align 8
   %res = alloca i32, align 4
   %i = alloca i32, align 4
-  store i32* %p, i32** %p.addr, align 8
-  call void @llvm.dbg.declare(metadata i32** %p.addr, metadata !14, metadata !DIExpression()), !dbg !15
-  call void @llvm.dbg.declare(metadata i32* %res, metadata !16, metadata !DIExpression()), !dbg !17
-  store i32 0, i32* %res, align 4, !dbg !17
-  %0 = load i32*, i32** %p.addr, align 8, !dbg !18
-  %tobool = icmp ne i32* %0, null, !dbg !18
+  store ptr %p, ptr %p.addr, align 8
+  call void @llvm.dbg.declare(metadata ptr %p.addr, metadata !14, metadata !DIExpression()), !dbg !15
+  call void @llvm.dbg.declare(metadata ptr %res, metadata !16, metadata !DIExpression()), !dbg !17
+  store i32 0, ptr %res, align 4, !dbg !17
+  %0 = load ptr, ptr %p.addr, align 8, !dbg !18
+  %tobool = icmp ne ptr %0, null, !dbg !18
   br i1 %tobool, label %if.end, label %if.then, !dbg !20
 
 if.then:                                          ; preds = %entry
-  store i32 0, i32* %retval, align 4, !dbg !21
+  store i32 0, ptr %retval, align 4, !dbg !21
   br label %return, !dbg !21
 
 if.end:                                           ; preds = %entry
-  call void @llvm.dbg.declare(metadata i32* %i, metadata !22, metadata !DIExpression()), !dbg !24
-  store i32 0, i32* %i, align 4, !dbg !24
+  call void @llvm.dbg.declare(metadata ptr %i, metadata !22, metadata !DIExpression()), !dbg !24
+  store i32 0, ptr %i, align 4, !dbg !24
   br label %for.cond, !dbg !25
 
 for.cond:                                         ; preds = %for.inc, %if.end
-  %1 = load i32, i32* %i, align 4, !dbg !26
-  %2 = load i32*, i32** %p.addr, align 8, !dbg !28
-  %3 = load i32, i32* %2, align 4, !dbg !29
+  %1 = load i32, ptr %i, align 4, !dbg !26
+  %2 = load ptr, ptr %p.addr, align 8, !dbg !28
+  %3 = load i32, ptr %2, align 4, !dbg !29
   %cmp = icmp slt i32 %1, %3, !dbg !30
   br i1 %cmp, label %for.body, label %for.end, !dbg !31
 
 for.body:                                         ; preds = %for.cond
-  %4 = load i32, i32* %i, align 4, !dbg !32
-  %5 = load i32, i32* %res, align 4, !dbg !33
+  %4 = load i32, ptr %i, align 4, !dbg !32
+  %5 = load i32, ptr %res, align 4, !dbg !33
   %add = add nsw i32 %5, %4, !dbg !33
-  store i32 %add, i32* %res, align 4, !dbg !33
+  store i32 %add, ptr %res, align 4, !dbg !33
   br label %for.inc, !dbg !34
 
 for.inc:                                          ; preds = %for.body
-  %6 = load i32, i32* %i, align 4, !dbg !35
+  %6 = load i32, ptr %i, align 4, !dbg !35
   %inc = add nsw i32 %6, 1, !dbg !35
-  store i32 %inc, i32* %i, align 4, !dbg !35
+  store i32 %inc, ptr %i, align 4, !dbg !35
   br label %for.cond, !dbg !36, !llvm.loop !37
 
 for.end:                                          ; preds = %for.cond
-  %7 = load i32, i32* %res, align 4, !dbg !40
-  store i32 %7, i32* %retval, align 4, !dbg !41
+  %7 = load i32, ptr %res, align 4, !dbg !40
+  store i32 %7, ptr %retval, align 4, !dbg !41
   br label %return, !dbg !41
 
 return:                                           ; preds = %for.end, %if.then
-  %8 = load i32, i32* %retval, align 4, !dbg !42
+  %8 = load i32, ptr %retval, align 4, !dbg !42
   ret i32 %8, !dbg !42
 }
 
@@ -111,3 +111,5 @@ attributes #1 = { nocallback nofree nosync nounwind readnone speculatable willre
 !40 = !DILocation(line: 6, column: 10, scope: !8)
 !41 = !DILocation(line: 6, column: 3, scope: !8)
 !42 = !DILocation(line: 7, column: 1, scope: !8)
+!43 = !{!"int*"}
+!44 = !{ptr null}

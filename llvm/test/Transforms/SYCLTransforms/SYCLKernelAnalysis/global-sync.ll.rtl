@@ -54,4 +54,4 @@ attributes #1 = { norecurse nounwind }
 attributes #2 = { nounwind }
 
 !0 = !{!"int*", !"int"}
-!1 = !{i32 addrspace(1)* null, i32 0}
+!1 = !{ptr addrspace(1) null, i32 0}

@@ -74,6 +74,8 @@ attributes #0 = { noinline optnone }
 
 !sycl.kernels = !{!0}
 !0 = !{ptr @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm}
+!1 = !{!"int*", !"int*"}
+!2 = !{ptr null, ptr null}
 
 ; DEBUGIFY-COUNT-23: WARNING: Instruction with empty DebugLoc in function _Z30ParallelForNDRangeImplKernel1DPiS_S_mmm
 ; DEBUGIFY: WARNING: Missing line 6

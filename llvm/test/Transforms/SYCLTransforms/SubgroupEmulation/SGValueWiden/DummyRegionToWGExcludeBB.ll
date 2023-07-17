@@ -1,4 +1,3 @@
-
 ; RUN: opt -passes=sycl-kernel-sg-emu-value-widen -S %s -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes=sycl-kernel-sg-emu-value-widen -S %s | FileCheck %s
 
@@ -25,8 +24,8 @@ entry:
 sg.dummy.bb.1:                                    ; preds = %entry
   call void @dummy_sg_barrier()
   %x.addr = alloca i32, align 4
-  store i32 %x, i32* %x.addr, align 4
-  %0 = load i32, i32* %x.addr, align 4
+  store i32 %x, ptr %x.addr, align 4
+  %0 = load i32, ptr %x.addr, align 4
   call void @dummy_barrier.()
   br label %sg.barrier.bb.
 
@@ -55,7 +54,7 @@ declare void @dummy_sg_barrier()
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32)* @test}
+!0 = !{ptr @test}
 !1 = !{i1 true}
 !2 = !{i32 16}
 

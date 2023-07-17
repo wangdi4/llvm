@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -passes='debugify,sycl-kernel-sg-emu-loop-construct,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -opaque-pointers=0 -passes='sycl-kernel-sg-emu-loop-construct' -S %s | FileCheck %s
+; RUN: opt -passes='debugify,sycl-kernel-sg-emu-loop-construct,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes='sycl-kernel-sg-emu-loop-construct' -S %s | FileCheck %s
 
 ; This test checks SGLoopConstruct::hoistSGLIdCalls()
 ; The non-sync-functions that use get_sub_group_local_id(), will be added by an extra
@@ -15,7 +15,7 @@ sg.loop.exclude:
 
 entry:
 ; CHECK: sg.loop.header{{.*}}:
-; CHECK: [[SGLID:%.*]] = load i32, i32* {{%sg.lid.ptr.*}}
+; CHECK: [[SGLID:%.*]] = load i32, ptr {{%sg.lid.ptr.*}}
   call void @dummy_sg_barrier()
   call void @wrapper()
 ; CHECK: call void @wrapper(i32 [[SGLID]])
@@ -49,7 +49,7 @@ declare void @_Z17sub_group_barrierj(i32)
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32)* @test}
+!0 = !{ptr @test}
 !1 = !{i1 true}
 !2 = !{i32 16}
 

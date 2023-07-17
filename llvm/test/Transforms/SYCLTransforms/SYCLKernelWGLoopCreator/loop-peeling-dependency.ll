@@ -42,6 +42,8 @@ entry:
 !3 = !{i32 16}
 !4 = !{i32 32}
 !5 = !{i32 0}
+!6 = !{!"half*", !"long", !"long"}
+!7 = !{ptr addrspace(1) null, i64 0, i64 0}
 
 ; DEBUGIFY-COUNT-60: WARNING: Instruction with empty DebugLoc in function _ZTS18larger_sad_calc_16
 ; DEBUGIFY-NEXT: WARNING: Missing line 12

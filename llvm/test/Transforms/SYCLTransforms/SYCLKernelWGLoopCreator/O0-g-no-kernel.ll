@@ -33,9 +33,9 @@ target triple = "x86_64-pc-linux"
 ; CHECK-NEXT: %base.gid2 = call i64 @get_base_global_id.(i32 2)
 ; CHECK-NEXT: %gid2 = add i64 %lid2, %base.gid2
 ; CHECK-NEXT: store i64 %gid2, ptr %gid2.addr, align 8
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid0, metadata !11, metadata !DIExpression()), !dbg
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid1, metadata !14, metadata !DIExpression()), !dbg
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid2, metadata !15, metadata !DIExpression()), !dbg
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid0, metadata !{{[0-9]+}}, metadata !DIExpression()), !dbg
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid1, metadata !{{[0-9]+}}, metadata !DIExpression()), !dbg
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid2, metadata !{{[0-9]+}}, metadata !DIExpression()), !dbg
 ; CHECK-NEXT: %gid0.ld = load i64, ptr %gid0.addr, align 8
 ; CHECK-NEXT: store volatile i64 %gid0.ld, ptr %__ocl_dbg_gid0, align 8
 ; CHECK-NEXT: %gid1.ld = load i64, ptr %gid1.addr, align 8
@@ -43,7 +43,7 @@ target triple = "x86_64-pc-linux"
 ; CHECK-NEXT: %gid2.ld = load i64, ptr %gid2.addr, align 8
 ; CHECK-NEXT: store volatile i64 %gid2.ld, ptr %__ocl_dbg_gid2, align 8
 ; CHECK-NEXT: store ptr addrspace(1) %dst, ptr %dst.addr, align 8
-; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %dst.addr, metadata !16, metadata !DIExpression()), !dbg
+; CHECK-NEXT: call void @llvm.dbg.declare(metadata ptr %dst.addr, metadata !{{[0-9]+}}, metadata !DIExpression()), !dbg
 ; CHECK-NEXT: %lid0.ld = load i64, ptr %lid0.addr, align 8, !dbg [[DBGLid:![0-9]+]]
 ; CHECK-NEXT: %conv = trunc i64 %lid0.ld to i32, !dbg [[DBGLid]]
 ; CHECK-NEXT: [[PTR:%[0-9]+]] = load ptr addrspace(1), ptr %dst.addr, align 8, !dbg
@@ -54,7 +54,7 @@ target triple = "x86_64-pc-linux"
 ; CHECK: [[DBGGid]] = !DILocation(line: 2, column: 7, scope: !6)
 
 ; Function Attrs: convergent noinline norecurse nounwind optnone
-define dso_local void @test(ptr addrspace(1) noalias noundef %dst) #0 !dbg !6 {
+define dso_local void @test(ptr addrspace(1) noalias noundef %dst) #0 !dbg !6 !kernel_arg_base_type !23 !arg_type_null_val !24 {
 entry:
   %__ocl_dbg_gid0 = alloca i64, align 8
   call void @llvm.dbg.declare(metadata ptr %__ocl_dbg_gid0, metadata !11, metadata !DIExpression()), !dbg !13
@@ -123,3 +123,5 @@ attributes #3 = { convergent nounwind readnone willreturn }
 !20 = !DILocation(line: 2, column: 7, scope: !6)
 !21 = !DILocation(line: 2, column: 25, scope: !6)
 !22 = !DILocation(line: 3, column: 1, scope: !6)
+!23 = !{!"int*"}
+!24 = !{ptr addrspace(1) null}

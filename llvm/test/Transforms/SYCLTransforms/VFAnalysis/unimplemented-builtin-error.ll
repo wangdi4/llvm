@@ -16,4 +16,4 @@ declare spir_func i32 @_Z14work_group_alli(i32)
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32)* @test}
+!0 = !{ptr @test}

@@ -1,35 +1,33 @@
-; RUN: opt -opaque-pointers=0 %s -sycl-enable-direct-function-call-vectorization -sycl-enable-direct-subgroup-function-call-vectorization -sycl-enable-byval-byref-function-call-vectorization -passes=sycl-kernel-sg-size-collector -S | FileCheck %s
-; RUN: opt -opaque-pointers=0 %s -passes=sycl-kernel-sg-size-collector -S | FileCheck %s -check-prefix CHECK-NO-FLAG
-; RUN: opt -opaque-pointers=0 %s -enable-debugify -disable-output -sycl-enable-direct-function-call-vectorization -sycl-enable-direct-subgroup-function-call-vectorization -sycl-enable-byval-byref-function-call-vectorization -passes=sycl-kernel-sg-size-collector -S 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -opaque-pointers=0 %s -enable-debugify -disable-output -passes=sycl-kernel-sg-size-collector -S 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt %s -sycl-enable-direct-function-call-vectorization -sycl-enable-direct-subgroup-function-call-vectorization -sycl-enable-byval-byref-function-call-vectorization -passes=sycl-kernel-sg-size-collector -S | FileCheck %s
+; RUN: opt %s -passes=sycl-kernel-sg-size-collector -S | FileCheck %s -check-prefix CHECK-NO-FLAG
+; RUN: opt %s -enable-debugify -disable-output -sycl-enable-direct-function-call-vectorization -sycl-enable-direct-subgroup-function-call-vectorization -sycl-enable-byval-byref-function-call-vectorization -passes=sycl-kernel-sg-size-collector -S 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt %s -enable-debugify -disable-output -passes=sycl-kernel-sg-size-collector -S 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 
 %struct.A = type { float, i32, double, i64 }
 
-define void @bar(%struct.A* byval(%struct.A) align 8 %arg) #0 {
-; CHECK: define void @bar(%struct.A* byval(%struct.A) align 8 %arg) #[[ATTR0:[0-9]+]] {
+define void @bar(ptr byval(%struct.A) align 8 %arg) #0 !kernel_arg_base_type !3 !arg_type_null_val !4 {
+; CHECK: define void @bar(ptr byval(%struct.A) align 8 %arg) #[[ATTR0:[0-9]+]]
 entry:
-  call void @foo(%struct.A* nonnull byval(%struct.A) align 8 %arg)
+  call void @foo(ptr nonnull byval(%struct.A) align 8 %arg)
   ret void
 }
 
-define void @foo(%struct.A* byref(%struct.A) align 8 %arg) {
-; CHECK: define void @foo(%struct.A* byref(%struct.A) align 8 %arg) #[[ATTR1:[0-9]+]] {
+define void @foo(ptr byref(%struct.A) align 8 %arg) !kernel_arg_base_type !3 !arg_type_null_val !4 {
+; CHECK: define void @foo(ptr byref(%struct.A) align 8 %arg) #[[ATTR1:[0-9]+]]
 entry:
-  call void @bar(%struct.A* nonnull byval(%struct.A) align 8 %arg)
+  call void @bar(ptr nonnull byval(%struct.A) align 8 %arg)
   ret void
 }
 
-define void @kernel(%struct.A* nocapture readonly %arr) !recommended_vector_length !0 {
+define void @kernel(ptr nocapture readonly %arr) !recommended_vector_length !0 !kernel_arg_base_type !5 !arg_type_null_val !6 {
 entry:
-  %ptridx = getelementptr inbounds %struct.A, %struct.A* %arr, i64 0
-  call void @foo(%struct.A* nonnull byval(%struct.A) align 8 %ptridx)
+  call void @foo(ptr nonnull byval(%struct.A) align 8 %arr)
   ret void
 }
 
-define void @kernel2(%struct.A* nocapture readonly %arr) !recommended_vector_length !1 {
+define void @kernel2(ptr nocapture readonly %arr) !recommended_vector_length !1 !kernel_arg_base_type !5 !arg_type_null_val !6 {
 entry:
-  %ptridx = getelementptr inbounds %struct.A, %struct.A* %arr, i64 0
-  call void @bar(%struct.A* nonnull byval(%struct.A) align 8 %ptridx)
+  call void @bar(ptr nonnull byval(%struct.A) align 8 %arr)
   ret void
 }
 
@@ -45,6 +43,10 @@ attributes #0 = { "vector-variants"="_ZGVeM16v_bar" }
 
 !0 = !{i32 8}
 !1 = !{i32 16}
-!2 = !{void (%struct.A*)* @kernel, void (%struct.A*)* @kernel2}
+!2 = !{ptr @kernel, ptr @kernel2}
+!3 = !{!"%struct.A"}
+!4 = !{ptr null}
+!5 = !{!"%struct.A*"}
+!6 = !{ptr null}
 
 ; DEBUGIFY-NOT: WARNING

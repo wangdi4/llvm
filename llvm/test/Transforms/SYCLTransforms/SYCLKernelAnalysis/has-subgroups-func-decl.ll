@@ -40,6 +40,6 @@ declare i64 @_Z14get_local_sizej(i32)
 
 !0 = !{ptr @testKernel}
 !1 = !{!"int*"}
-!2 = !{i32 addrspace(1)* null}
+!2 = !{ptr addrspace(1) null}
 
 ; DEBUGIFY-NOT: WARNING

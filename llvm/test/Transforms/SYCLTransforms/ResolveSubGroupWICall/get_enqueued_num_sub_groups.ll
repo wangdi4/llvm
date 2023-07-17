@@ -16,14 +16,14 @@ declare i32 @_Z27get_enqueued_num_sub_groupsv() local_unnamed_addr #2
 declare i64 @_Z14get_local_sizej(i32)
 
 ; Function Attrs: convergent nounwind
-define void @testKernel(i32 addrspace(1)* noalias %results) local_unnamed_addr #0 !kernel_arg_addr_space !12 !kernel_arg_access_qual !13 !kernel_arg_type !14 !kernel_arg_base_type !14 !kernel_arg_type_qual !15 !kernel_arg_host_accessible !16 !kernel_arg_pipe_depth !17 !kernel_arg_pipe_io !15 !kernel_arg_buffer_location !15 !kernel_arg_name !18 !vectorized_kernel !19 !no_barrier_path !20 !kernel_has_sub_groups !20 !vectorized_width !27 !vectorization_dimension !17 !can_unite_workgroups !16 {
+define void @testKernel(ptr addrspace(1) noalias %results) local_unnamed_addr #0 !kernel_arg_addr_space !12 !kernel_arg_access_qual !13 !kernel_arg_type !14 !kernel_arg_base_type !14 !kernel_arg_type_qual !15 !kernel_arg_host_accessible !16 !kernel_arg_pipe_depth !17 !kernel_arg_pipe_io !15 !kernel_arg_buffer_location !15 !kernel_arg_name !18 !vectorized_kernel !19 !no_barrier_path !20 !kernel_has_sub_groups !20 !vectorized_width !27 !vectorization_dimension !17 !can_unite_workgroups !16 !arg_type_null_val !28 {
 entry:
   ret void
 }
 
 ; Function Attrs: convergent nounwind
 ; CHECK-LABEL: @__Vectorized_.testKernel
-define void @__Vectorized_.testKernel(i32 addrspace(1)* noalias %results) local_unnamed_addr #0 !kernel_arg_addr_space !12 !kernel_arg_access_qual !13 !kernel_arg_type !14 !kernel_arg_base_type !14 !kernel_arg_type_qual !15 !kernel_arg_host_accessible !16 !kernel_arg_pipe_depth !17 !kernel_arg_pipe_io !15 !kernel_arg_buffer_location !15 !kernel_arg_name !18 !vectorized_kernel !21 !no_barrier_path !20 !kernel_has_sub_groups !20 !vectorized_width !26 !vectorization_dimension !17 !can_unite_workgroups !16 {
+define void @__Vectorized_.testKernel(ptr addrspace(1) noalias %results) local_unnamed_addr #0 !kernel_arg_addr_space !12 !kernel_arg_access_qual !13 !kernel_arg_type !14 !kernel_arg_base_type !14 !kernel_arg_type_qual !15 !kernel_arg_host_accessible !16 !kernel_arg_pipe_depth !17 !kernel_arg_pipe_io !15 !kernel_arg_buffer_location !15 !kernel_arg_name !18 !vectorized_kernel !21 !no_barrier_path !20 !kernel_has_sub_groups !20 !vectorized_width !26 !vectorization_dimension !17 !can_unite_workgroups !16 {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) #3
   %call1 = tail call i32 @_Z18get_num_sub_groupsv() #4
@@ -53,9 +53,8 @@ entry:
   %cond = zext i1 %cmp to i32
   %temp17 = insertelement <16 x i32> undef, i32 %cond, i32 0
   %vector16 = shufflevector <16 x i32> %temp17, <16 x i32> undef, <16 x i32> zeroinitializer
-  %0 = getelementptr inbounds i32, i32 addrspace(1)* %results, i64 %call
-  %ptrTypeCast = bitcast i32 addrspace(1)* %0 to <16 x i32> addrspace(1)*
-  store <16 x i32> %vector16, <16 x i32> addrspace(1)* %ptrTypeCast, align 4
+  %0 = getelementptr inbounds i32, ptr addrspace(1) %results, i64 %call
+  store <16 x i32> %vector16, ptr addrspace(1) %0, align 4
   ret void
 }
 
@@ -84,7 +83,7 @@ attributes #4 = { convergent nounwind }
 !1 = !{i32 2, i32 0}
 !2 = !{}
 !3 = !{!"-cl-std=CL2.0"}
-!4 = !{void (i32 addrspace(1)*)* @testKernel}
+!4 = !{ptr @testKernel}
 !12 = !{i32 1}
 !13 = !{!"none"}
 !14 = !{!"uint*"}
@@ -92,7 +91,7 @@ attributes #4 = { convergent nounwind }
 !16 = !{i1 false}
 !17 = !{i32 0}
 !18 = !{!"results"}
-!19 = !{void (i32 addrspace(1)*)* @__Vectorized_.testKernel}
+!19 = !{ptr @__Vectorized_.testKernel}
 !20 = !{i1 true}
 !21 = !{null}
 !22 = !{!23, !23, i64 0}
@@ -101,4 +100,6 @@ attributes #4 = { convergent nounwind }
 !25 = !{!"Simple C/C++ TBAA"}
 !26 = !{i32 16}
 !27 = !{i32 1}
+!28 = !{ptr addrspace(1) null}
+
 ; DEBUGIFY-NOT: WARNING

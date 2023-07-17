@@ -10,11 +10,11 @@ target triple = "x86_64-pc-linux"
 ; CHECK-SAME: !kernel_arg_addr_space !{{[0-9]+}} !kernel_arg_access_qual !{{[0-9]+}} !kernel_arg_type
 
 ; Function Attrs: convergent mustprogress nofree norecurse nounwind willreturn writeonly
-define dso_local void @test(i32 addrspace(1)* nocapture writeonly %dst) local_unnamed_addr #0 !kernel_arg_addr_space !3 !kernel_arg_access_qual !4 !kernel_arg_type !5 !kernel_arg_base_type !5 !kernel_arg_type_qual !6 !kernel_arg_name !7 !kernel_arg_host_accessible !8 !kernel_arg_pipe_depth !9 !kernel_arg_pipe_io !6 !kernel_arg_buffer_location !6 !no_barrier_path !10 !kernel_has_sub_groups !8 !vectorized_kernel !11 !vectorized_width !3 !recommended_vector_length !9 {
+define dso_local void @test(ptr addrspace(1) nocapture writeonly %dst) local_unnamed_addr #0 !kernel_arg_addr_space !3 !kernel_arg_access_qual !4 !kernel_arg_type !5 !kernel_arg_base_type !5 !kernel_arg_type_qual !6 !kernel_arg_name !7 !kernel_arg_host_accessible !8 !kernel_arg_pipe_depth !9 !kernel_arg_pipe_io !6 !kernel_arg_buffer_location !6 !no_barrier_path !10 !kernel_has_sub_groups !8 !vectorized_kernel !11 !vectorized_width !3 !recommended_vector_length !9 {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) #2
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %dst, i64 %call
-  store i32 0, i32 addrspace(1)* %arrayidx, align 4, !tbaa !12
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %dst, i64 %call
+  store i32 0, ptr addrspace(1) %arrayidx, align 4, !tbaa !12
   ret void
 }
 
@@ -22,14 +22,13 @@ entry:
 declare i64 @_Z13get_global_idj(i32) local_unnamed_addr #1
 
 ; Function Attrs: convergent mustprogress nofree norecurse nounwind willreturn writeonly
-define dso_local void @_ZGVeN16u_test(i32 addrspace(1)* nocapture writeonly %dst) local_unnamed_addr #0 !kernel_arg_addr_space !3 !kernel_arg_access_qual !4 !kernel_arg_type !5 !kernel_arg_base_type !5 !kernel_arg_type_qual !6 !kernel_arg_name !7 !kernel_arg_host_accessible !8 !kernel_arg_pipe_depth !9 !kernel_arg_pipe_io !6 !kernel_arg_buffer_location !6 !no_barrier_path !10 !kernel_has_sub_groups !8 !vectorized_width !16 !recommended_vector_length !16 !scalar_kernel !2 !vectorization_dimension !9 !can_unite_workgroups !8 {
+define dso_local void @_ZGVeN16u_test(ptr addrspace(1) nocapture writeonly %dst) local_unnamed_addr #0 !kernel_arg_addr_space !3 !kernel_arg_access_qual !4 !kernel_arg_type !5 !kernel_arg_base_type !5 !kernel_arg_type_qual !6 !kernel_arg_name !7 !kernel_arg_host_accessible !8 !kernel_arg_pipe_depth !9 !kernel_arg_pipe_io !6 !kernel_arg_buffer_location !6 !no_barrier_path !10 !kernel_has_sub_groups !8 !vectorized_width !16 !recommended_vector_length !16 !scalar_kernel !2 !vectorization_dimension !9 !can_unite_workgroups !8 {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) #2
   %sext = shl i64 %call, 32
   %.extract.0. = ashr exact i64 %sext, 32
-  %scalar.gep = getelementptr inbounds i32, i32 addrspace(1)* %dst, i64 %.extract.0.
-  %0 = bitcast i32 addrspace(1)* %scalar.gep to <16 x i32> addrspace(1)*
-  store <16 x i32> zeroinitializer, <16 x i32> addrspace(1)* %0, align 4
+  %scalar.gep = getelementptr inbounds i32, ptr addrspace(1) %dst, i64 %.extract.0.
+  store <16 x i32> zeroinitializer, ptr addrspace(1) %scalar.gep, align 4
   ret void
 }
 
@@ -46,7 +45,7 @@ attributes #2 = { convergent nounwind readnone willreturn }
 
 !0 = !{i32 2, i32 0}
 !1 = !{!"-cl-std=CL2.0"}
-!2 = !{void (i32 addrspace(1)*)* @test}
+!2 = !{ptr @test}
 !3 = !{i32 1}
 !4 = !{!"none"}
 !5 = !{!"int*"}
@@ -55,7 +54,7 @@ attributes #2 = { convergent nounwind readnone willreturn }
 !8 = !{i1 false}
 !9 = !{i32 0}
 !10 = !{i1 true}
-!11 = !{void (i32 addrspace(1)*)* @_ZGVeN16u_test}
+!11 = !{ptr @_ZGVeN16u_test}
 !12 = !{!13, !13, i64 0}
 !13 = !{!"int", !14, i64 0}
 !14 = !{!"omnipotent char", !15, i64 0}
@@ -63,6 +62,6 @@ attributes #2 = { convergent nounwind readnone willreturn }
 !16 = !{i32 16}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-44: WARNING: Instruction with empty DebugLoc in function test
-; DEBUGIFY: WARNING: Missing line 11
+; DEBUGIFY-COUNT-45: WARNING: Instruction with empty DebugLoc in function test
+; DEBUGIFY-COUNT-3: WARNING: Missing line
 ; DEBUGIFY-NOT: WARNING
