@@ -1,8 +1,8 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans
-; Require SW DTrans to use wholeprogramdevirt-multiversion=false option
+; Require SW DTrans to use %intel_devirt_options
 
-; RUN: opt -S -passes=wholeprogramdevirt,verify -whole-program-visibility -pass-remarks=wholeprogramdevirt -wholeprogramdevirt-multiversion=false %s 2>&1 | FileCheck %s ;INTEL
+; RUN: opt -S -passes=wholeprogramdevirt,verify -whole-program-visibility -pass-remarks=wholeprogramdevirt %intel_devirt_options %s 2>&1 | FileCheck %s ;INTEL
 
 target datalayout = "e-p:64:64"
 target triple = "x86_64-unknown-linux-gnu"
