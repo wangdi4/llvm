@@ -440,8 +440,8 @@ void VPOCodeGen::finalizeLoop() {
   NewLoop = LI->getLoopFor(LoopVectorBody);
   OrigLoop = LI->getLoopFor(LoopScalarBody);
 
-  // Preserve LocRange info in outgoing LoopID after LoopInfo is recomputed.
-  preserveLoopIDDbgMDs();
+  // Preserve metadata in outgoing LoopID after LoopInfo is recomputed.
+  preserveLoopIDMDs();
 }
 
 void VPOCodeGen::updateAnalysis() {
@@ -5571,20 +5571,33 @@ void VPOCodeGen::emitRemarksForScalarLoops() {
   }
 }
 
-void VPOCodeGen::preserveLoopIDDbgMDs() {
+void VPOCodeGen::preserveLoopIDMDs() {
   auto PreserveMDsForLoop = [this](VPLoop *VPL) {
     MDNode *LpID = VPL->getLoopID();
     if (!LpID)
       return;
 
-    SmallVector<MDNode *, 2> DbgLocMDs;
-    // Collect all DbgLoc metadata present in LoopID.
-    for (unsigned i = 1, e = LpID->getNumOperands(); i < e; i++) {
-      if (auto *DbgMD = dyn_cast<DILocation>(LpID->getOperand(i)))
-        DbgLocMDs.push_back(DbgMD);
+    SmallVector<MDNode *, 2> MDVec;
+    // Collect all metadata present in LpID, except for certain
+    // exclusions.  Don't include the llvm.loop.vectorize.enable directive
+    // or any llvm.loop.unroll directives except for disabling unrolling.
+    for (unsigned I = 1, E = LpID->getNumOperands(); I < E; I++) {
+      if (auto *MD = dyn_cast<MDNode>(LpID->getOperand(I))) {
+        if (MD && MD->getNumOperands() >= 1) {
+          MDString *S = dyn_cast<MDString>(MD->getOperand(0));
+          if (S) {
+            std::string Str = S->getString().str();
+            if (Str == "llvm.loop.vectorize.enable" ||
+                (Str.rfind("llvm.loop.unroll.", 0) == 0 &&
+                 Str != "llvm.loop.unroll.disable"))
+              continue;
+          }
+        }
+        MDVec.push_back(MD);
+      }
     }
 
-    if (DbgLocMDs.empty())
+    if (MDVec.empty())
       return;
 
     // Identify the IR loop that corresponds to current VPLoop.
@@ -5596,7 +5609,7 @@ void VPOCodeGen::preserveLoopIDDbgMDs() {
     // Add the MDNodes to LoopID.
     MDNode *NewLoopID = makePostTransformationMetadata(
         IRLp->getHeader()->getContext(), IRLp->getLoopID(),
-        {} /*No MDs to drop*/, DbgLocMDs);
+        {} /*No MDs to drop*/, MDVec);
     IRLp->setLoopID(NewLoopID);
   };
 
