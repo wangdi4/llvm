@@ -1290,14 +1290,17 @@ RecurrenceDescriptor::getReductionOpChain(PHINode *Phi, Loop *L) const {
 
 InductionDescriptor::InductionDescriptor(Value *Start, InductionKind K,
                                          const SCEV *Step, BinaryOperator *BOp,
-                                         Type *ElementType,
                                          SmallVectorImpl<Instruction *> *Casts)
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     : InductionDescriptorTempl(Start, K, BOp), Step(Step),
       ElementType(ElementType) {
 #else
     : StartValue(Start), IK(K), Step(Step), InductionBinOp(BOp),
       ElementType(ElementType) {
+=======
+    : StartValue(Start), IK(K), Step(Step), InductionBinOp(BOp) {
+>>>>>>> 94abecca6b908f26a979f50e800284a438d79c4b
   assert(IK != IK_NoInduction && "Not an induction");
 
   // Start value type should match the induction kind and the value
@@ -1325,11 +1328,6 @@ InductionDescriptor::InductionDescriptor(Value *Start, InductionKind K,
             InductionBinOp->getOpcode() == Instruction::FSub))) &&
          "Binary opcode should be specified for FP induction");
 #endif
-
-  if (IK == IK_PtrInduction)
-    assert(ElementType && "Pointer induction must have element type");
-  else
-    assert(!ElementType && "Non-pointer induction cannot have element type");
 
   if (Casts) {
     for (auto &Inst : *Casts) {
@@ -1608,15 +1606,14 @@ bool InductionDescriptor::isInductionPHI(
     BinaryOperator *BOp =
         dyn_cast<BinaryOperator>(Phi->getIncomingValueForBlock(Latch));
     D = InductionDescriptor(StartValue, IK_IntInduction, Step, BOp,
-                            /* ElementType */ nullptr, CastsToIgnore);
+                            CastsToIgnore);
     return true;
   }
 
   assert(PhiTy->isPointerTy() && "The PHI must be a pointer");
-  PointerType *PtrTy = cast<PointerType>(PhiTy);
 
-  // Always use i8 element type for opaque pointer inductions.
   // This allows induction variables w/non-constant steps.
+<<<<<<< HEAD
   if (PtrTy->isOpaque()) {
     D = InductionDescriptor(StartValue, IK_PtrInduction, Step,
                             /* BinOp */ nullptr,
@@ -1664,5 +1661,8 @@ bool InductionDescriptor::isInductionPHI(
                             /* BinOp */ nullptr, ElementType);
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  D = InductionDescriptor(StartValue, IK_PtrInduction, Step);
+>>>>>>> 94abecca6b908f26a979f50e800284a438d79c4b
   return true;
 }
