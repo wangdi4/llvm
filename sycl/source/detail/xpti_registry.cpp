@@ -49,11 +49,7 @@ void XPTIRegistry::bufferConstructorNotification(
 #ifdef XPTI_ENABLE_INSTRUMENTATION
   GlobalHandler::instance().getXPTIRegistry().initializeFrameworkOnce();
   constexpr uint16_t NotificationTraceType =
-<<<<<<< HEAD
-      xpti::trace_offload_alloc_construct;
-=======
       xpti::trace_offload_alloc_memory_object_construct;
->>>>>>> 740bf1528eeb764f029929dbc5473a8ecbc9f7e8
   if (!xptiCheckTraceEnabled(GBufferStreamID, NotificationTraceType))
     return;
 
@@ -66,11 +62,7 @@ void XPTIRegistry::bufferConstructorNotification(
                                         {Range[0], Range[1], Range[2]}};
 
   xpti::trace_event_data_t *TraceEvent = createTraceEvent(
-<<<<<<< HEAD
-      UserObj, "buffer", IId, CodeLoc, xpti::trace_offload_buffer_event);
-=======
       UserObj, "buffer", IId, CodeLoc, xpti::trace_offload_memory_object_event);
->>>>>>> 740bf1528eeb764f029929dbc5473a8ecbc9f7e8
   xptiNotifySubscribers(GBufferStreamID, NotificationTraceType, nullptr,
                         TraceEvent, IId, &BufConstr);
 #endif
@@ -82,11 +74,7 @@ void XPTIRegistry::bufferAssociateNotification(const void *UserObj,
   (void)MemObj;
 #ifdef XPTI_ENABLE_INSTRUMENTATION
   constexpr uint16_t NotificationTraceType =
-<<<<<<< HEAD
-      xpti::trace_offload_alloc_associate;
-=======
       xpti::trace_offload_alloc_memory_object_associate;
->>>>>>> 740bf1528eeb764f029929dbc5473a8ecbc9f7e8
   if (!xptiCheckTraceEnabled(GBufferStreamID, NotificationTraceType))
     return;
   uint64_t IId = xptiGetUniqueId();
@@ -104,12 +92,8 @@ void XPTIRegistry::bufferReleaseNotification(const void *UserObj,
   (void)UserObj;
   (void)MemObj;
 #ifdef XPTI_ENABLE_INSTRUMENTATION
-<<<<<<< HEAD
-  constexpr uint16_t NotificationTraceType = xpti::trace_offload_alloc_release;
-=======
   constexpr uint16_t NotificationTraceType =
       xpti::trace_offload_alloc_memory_object_release;
->>>>>>> 740bf1528eeb764f029929dbc5473a8ecbc9f7e8
   if (!xptiCheckTraceEnabled(GBufferStreamID, NotificationTraceType))
     return;
   uint64_t IId = xptiGetUniqueId();
@@ -125,12 +109,8 @@ void XPTIRegistry::bufferReleaseNotification(const void *UserObj,
 void XPTIRegistry::bufferDestructorNotification(const void *UserObj) {
   (void)UserObj;
 #ifdef XPTI_ENABLE_INSTRUMENTATION
-<<<<<<< HEAD
-  constexpr uint16_t NotificationTraceType = xpti::trace_offload_alloc_destruct;
-=======
   constexpr uint16_t NotificationTraceType =
       xpti::trace_offload_alloc_memory_object_destruct;
->>>>>>> 740bf1528eeb764f029929dbc5473a8ecbc9f7e8
   if (!xptiCheckTraceEnabled(GBufferStreamID, NotificationTraceType))
     return;
   uint64_t IId = xptiGetUniqueId();
@@ -162,8 +142,6 @@ void XPTIRegistry::bufferAccessorNotification(
       UserObj, "accessor", IId, CodeLoc, xpti::trace_offload_accessor_event);
   xptiNotifySubscribers(GBufferStreamID, NotificationTraceType, nullptr,
                         TraceEvent, IId, &AccessorConstr);
-<<<<<<< HEAD
-=======
 #endif
 }
 
@@ -381,7 +359,6 @@ void XPTIRegistry::sampledImageHostAccessorNotification(
                        xpti::trace_offload_accessor_event);
   xptiNotifySubscribers(GImageStreamID, NotificationTraceType, nullptr,
                         TraceEvent, IId, &AccessorConstr);
->>>>>>> 740bf1528eeb764f029929dbc5473a8ecbc9f7e8
 #endif
 }
 

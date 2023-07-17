@@ -13,11 +13,7 @@ int main() {
 
   try {
     // CHECK: [USM] Function uses unknown USM pointer (could be already released or not allocated as USM) as kernel parameter with index = 0.
-<<<<<<< HEAD
     // CHECK: | kernel location: function main at {{.*}}queue_single_task_released_pointer.cpp:[[# @LINE + 1 ]]
-=======
-    // CHECK: | kernel location: function main at {{.*}}/queue_single_task_released_pointer.cpp:[[# @LINE + 1 ]]
->>>>>>> 740bf1528eeb764f029929dbc5473a8ecbc9f7e8
     Q.single_task([=]() { *AllocSrc = 13; });
     Q.wait();
   } catch (...) {
