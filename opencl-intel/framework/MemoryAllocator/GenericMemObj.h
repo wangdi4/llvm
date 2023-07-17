@@ -23,6 +23,8 @@
 #include <Logger.h>
 #include <cl_device_api.h>
 #include <cl_object.h>
+
+#include <atomic>
 #include <list>
 #include <mutex>
 #include <stack>
@@ -726,15 +728,15 @@ private:
 
   // define the current memory mode status (Of all hierarchical group). Use only
   // the parent instance.
-  Utils::AtomicCounter m_hierarchicalMemoryMode;
+  std::atomic<long> m_hierarchicalMemoryMode{MEMORY_MODE_NORMAL};
 
   // Vector of all my sub-buffers. Use only the parent instance.
   TSubBufferList m_subBuffersList;
 
   struct update_parent_struct {
     update_parent_struct()
-        : m_parentValidSharingGroupIdDuringUpdate(MAX_DEVICE_SHARING_GROUP_ID),
-          m_updateParentFlag(0){};
+        : m_parentValidSharingGroupIdDuringUpdate(
+              MAX_DEVICE_SHARING_GROUP_ID){};
 
     // Vector of sub buffers that should update the parent before the next
     // memory object request. Use only the parent instance.
@@ -750,7 +752,7 @@ private:
 
     unsigned int m_parentValidSharingGroupIdDuringUpdate;
 
-    Utils::AtomicCounter m_updateParentFlag;
+    std::atomic<long> m_updateParentFlag{0};
   };
 
   update_parent_struct m_updateParentStruct;
@@ -1000,7 +1002,7 @@ private:
   IOCLDevRawMemoryAllocator *m_pRawMemoryAllocator;
 
   IOCLDevBackingStore *m_parent;
-  Utils::AtomicCounter m_refCount;
+  std::atomic<long> m_refCount{1};
 };
 
 //

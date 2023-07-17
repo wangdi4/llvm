@@ -16,6 +16,7 @@
 
 #include "cl_shared_ptr.h"
 #include "task_executor.h"
+#include <atomic>
 #include <mutex>
 #include <vector>
 
@@ -23,7 +24,6 @@ using Intel::OpenCL::TaskExecutor::ITask;
 using Intel::OpenCL::TaskExecutor::ITaskBase;
 using Intel::OpenCL::TaskExecutor::ITaskList;
 using Intel::OpenCL::TaskExecutor::TASK_PRIORITY;
-using Intel::OpenCL::Utils::AtomicCounter;
 using Intel::OpenCL::Utils::ReferenceCountedObject;
 using Intel::OpenCL::Utils::SharedPtr;
 
@@ -164,7 +164,7 @@ protected:
   void StopExecutionProfiling();
 
 private:
-  AtomicCounter m_numDependencies;
+  std::atomic<long> m_numDependencies{0};
   cl_dev_err_code m_err;
   volatile bool m_bCompleted;
   unsigned long long m_ulStartExecTime;

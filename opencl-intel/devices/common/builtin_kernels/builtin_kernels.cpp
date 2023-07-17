@@ -231,7 +231,8 @@ OMPExecutorThread::~OMPExecutorThread() {
 
 int OMPExecutorThread::Join() {
   if (m_running) {
-    if (0 != m_join.test_and_set(0, 1)) {
+    long OldValue = 0;
+    if (!m_join.compare_exchange_strong(OldValue, 1)) {
       return THREAD_RESULT_FAIL;
     }
     m_StartEvent.Signal();

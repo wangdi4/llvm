@@ -62,7 +62,6 @@ namespace TaskExecutor {
 
 //! global TBB task scheduler objects
 unsigned int gWorker_threads = 0;
-AtomicCounter glTaskSchedCounter;
 
 bool execute_command(const SharedPtr<ITaskBase> &pCmd,
                      base_command_list &cmdList) {

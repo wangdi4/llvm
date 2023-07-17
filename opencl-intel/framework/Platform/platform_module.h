@@ -21,6 +21,7 @@
 #include "iplatform.h"
 #include "ocl_itt.h"
 #include <Logger.h>
+#include <atomic>
 #include <ocl_config.h>
 #include <vector>
 
@@ -194,8 +195,8 @@ private:
   // module's existence
   SharedPtr<Device> *m_ppRootDevices;
   size_t m_uiRootDevicesCount; // size of m_ppRootDevices array
-  Intel::OpenCL::Utils::AtomicCounter
-      m_activeDeviceCount; // how many devices are still not closed
+  std::atomic<long> m_activeDeviceCount{
+      0}; // how many devices are still not closed
 
   // default device
   SharedPtr<Device> m_pDefaultDevice;

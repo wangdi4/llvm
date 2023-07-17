@@ -18,6 +18,8 @@
 #include "enqueue_commands.h"
 #include "ocl_command_queue.h"
 #include <cl_types.h>
+
+#include <atomic>
 #include <mutex>
 
 namespace Intel {
@@ -72,12 +74,12 @@ protected:
   // At all times, points to a command that depends on everything enqueued since
   // the last time clEnqueueBarrier/Marker was enqueued to this queue
   Intel::OpenCL::Utils::AtomicPointer<Command> m_depOnAll;
-  Intel::OpenCL::Utils::AtomicCounter m_commandsInExecution;
+  std::atomic<long> m_commandsInExecution{0};
   Intel::OpenCL::Utils::SharedPtr<OclEvent> m_lastBarrier;
   std::recursive_mutex m_muLastBarrer; // TODO: find better way to handle data
                                        // race on lastBarrier
   // Is meant to optimize away flushes made to an empty queue
-  Intel::OpenCL::Utils::AtomicCounter m_unflushedCommands;
+  std::atomic<long> m_unflushedCommands{0};
 };
 } // namespace Framework
 } // namespace OpenCL

@@ -19,6 +19,7 @@
 #include "harness_trapper.h"
 #include "task_executor.h"
 
+#include <atomic>
 #include <mutex>
 #include <tbb/task_arena.h>
 #include <tbb/task_group.h>
@@ -320,7 +321,7 @@ private:
 
   task_group_with_reference m_trappingTaskGroup;
 
-  Intel::OpenCL::Utils::AtomicCounter m_numOfActiveThreads;
+  std::atomic<long> m_numOfActiveThreads{0};
   unsigned int m_maxNumOfActiveThreads;
 
   bool new_threads_disabled() const { return (m_state >= DISABLE_NEW_THREADS); }

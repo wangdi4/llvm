@@ -14,12 +14,12 @@
 
 #pragma once
 
+#include <atomic>
 #include <list>
 
 #include "cl_framework.h"
 #include "event_observer.h"
 #include <cl_object.h>
-#include <cl_synch_objects.h>
 
 namespace Intel {
 namespace OpenCL {
@@ -219,7 +219,7 @@ protected:
   ObserversList_t m_SubmittedObserversList;
   std::mutex m_ObserversListGuard;
 
-  Intel::OpenCL::Utils::AtomicCounter m_numOfDependencies;
+  std::atomic<long> m_numOfDependencies{0};
 
   cl_int m_returnCode;
 

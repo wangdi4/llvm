@@ -17,6 +17,7 @@
 #include "cl_framework.h"
 #include "fe_compiler.h"
 #include <Logger.h>
+#include <atomic>
 #include <cl_device_api.h>
 #include <cl_dynamic_lib.h>
 #include <cl_object.h>
@@ -374,9 +375,8 @@ private:
 
   cl_int m_iNextClientId; // hold the next client logger id
 
-  Intel::OpenCL::Utils::AtomicCounter
-      m_pDeviceRefCount; // holds the reference count for the associated
-                         // IOCLDevice
+  std::atomic<long> m_pDeviceRefCount{0}; // holds the reference count for the
+                                          // associated IOCLDevice
 
   mutable std::recursive_mutex m_deviceInitializationMutex;
 

@@ -129,41 +129,6 @@ void OclOsDependentEvent::Reset() {
 }
 
 /************************************************************************
- * AtomicCounter implementation
- ************************************************************************/
-AtomicCounter::operator long() const {
-  return __sync_val_compare_and_swap(const_cast<volatile long *>(&m_val), 0, 0);
-}
-
-long AtomicCounter::operator++() // prefix, returns new val
-{
-  return __sync_add_and_fetch(&m_val, 1);
-}
-long AtomicCounter::operator++(
-    int /*alwaysZero*/) // postfix, returns previous val
-{
-  return __sync_fetch_and_add(&m_val, 1);
-}
-long AtomicCounter::operator--() // prefix, returns new val
-{
-  return __sync_sub_and_fetch(&m_val, 1);
-}
-long AtomicCounter::operator--(
-    int /*alwaysZero*/) // postfix, returns previous val
-{
-  return __sync_fetch_and_sub(&m_val, 1);
-}
-long AtomicCounter::add(long val) { return __sync_add_and_fetch(&m_val, val); }
-long AtomicCounter::test_and_set(long comparand, long exchange) {
-  return __sync_val_compare_and_swap(&m_val, comparand,
-                                     exchange); // CAS(*ptr, old, new)
-}
-
-long AtomicCounter::exchange(long val) {
-  return __sync_lock_test_and_set(&m_val, val);
-}
-
-/************************************************************************
  * AtomicBitField implementation
  ************************************************************************/
 AtomicBitField::AtomicBitField()
@@ -232,10 +197,6 @@ void OclBinarySemaphore::Wait() { sem_wait(&m_semaphore); }
  ************************************************************************/
 OclReaderWriterLock::OclReaderWriterLock() {
   pthread_rwlock_init(&m_rwLock, nullptr);
-#ifdef _DEBUG
-  readEnter = 0;
-  writeEnter = 0;
-#endif
 }
 
 OclReaderWriterLock::~OclReaderWriterLock() {

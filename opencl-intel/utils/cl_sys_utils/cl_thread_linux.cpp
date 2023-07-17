@@ -121,7 +121,8 @@ int OclThread::Join() {
   if (m_running) {
     // If I called to join myself or more than one thread try to join than
     // return error.
-    if ((isSelf()) || (0 != m_join.test_and_set(0, 1))) {
+    long OldValue = 0;
+    if ((isSelf()) || !m_join.compare_exchange_strong(OldValue, 1)) {
       return THREAD_RESULT_FAIL;
     }
     return WaitForCompletion();
@@ -142,11 +143,12 @@ int OclThread::WaitForCompletion() {
   // If I'm the first thread that try to wait for completion than use join
   // (If multiple threads simultaneously try to join with the same thread, the
   // results are undefined)
-  if (0 == m_numWaiters.test_and_set(0, 1)) {
+  long OldValue = 0;
+  if (m_numWaiters.compare_exchange_strong(OldValue, 1)) {
     pthread_join((*(pthread_t *)m_threadHandle), nullptr);
   } else {
     // multiple threads are waiting for completion
-    while (0 != m_numWaiters.operator long()) {
+    while (0 != m_numWaiters.load()) {
       hw_pause();
     }
   }

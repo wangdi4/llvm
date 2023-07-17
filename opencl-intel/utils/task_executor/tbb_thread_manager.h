@@ -16,6 +16,7 @@
 
 #include "cl_synch_objects.h"
 #include "cl_thread.h"
+#include <atomic>
 
 namespace Intel {
 namespace OpenCL {
@@ -69,7 +70,7 @@ private:
   static THREAD_LOCAL TBB_ThreadDescriptor<Data> *m_CurrentThreadGlobalID;
 
   unsigned int m_uiNumberOfStaticEntries;
-  Intel::OpenCL::Utils::AtomicCounter m_nextFreeEntry;
+  std::atomic<long> m_nextFreeEntry{0};
   volatile bool m_bOverflowed;
   static bool m_object_exists;
 };
