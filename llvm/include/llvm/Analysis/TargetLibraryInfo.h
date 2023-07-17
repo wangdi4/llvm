@@ -164,6 +164,7 @@ public:
     LIBMVEC_X86,      // GLIBC Vector Math library.
     MASSV,            // IBM MASS vector library.
     SVML,             // Intel short vector math library.
+<<<<<<< HEAD
     SLEEFGNUABI,      // SLEEF - SIMD Library for Evaluating Elementary Functions.
 #if INTEL_CUSTOMIZATION
     Libmvec,          // Glibc vector math library.
@@ -195,6 +196,10 @@ public:
     SVMLAltMathLibrary,// INTEL SVML Library
 #endif // INTEL_CUSTOMIZATION
     TestAltMathLibrary // Use a fake alternate math library for testing
+=======
+    SLEEFGNUABI, // SLEEF - SIMD Library for Evaluating Elementary Functions.
+    ArmPL        // Arm Performance Libraries.
+>>>>>>> 5b0e19a7ab05b51c72a8ae4c7b781438149dba7f
   };
 
   TargetLibraryInfoImpl();

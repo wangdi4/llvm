@@ -69,8 +69,13 @@ static cl::opt<TargetLibraryInfoImpl::VectorLibrary> ClVectorLibrary(
                           "Intel SVML library"),
                clEnumValN(TargetLibraryInfoImpl::SLEEFGNUABI, "sleefgnuabi",
                           "SIMD Library for Evaluating Elementary Functions"),
+<<<<<<< HEAD
                clEnumValN(TargetLibraryInfoImpl::Libmvec, "Libmvec", // INTEL
                           "Glibc vector math library")));            // INTEL
+=======
+               clEnumValN(TargetLibraryInfoImpl::ArmPL, "ArmPL",
+                          "Arm Performance Libraries")));
+>>>>>>> 5b0e19a7ab05b51c72a8ae4c7b781438149dba7f
 
 #if INTEL_CUSTOMIZATION
 // Flag to track if TLI should mark non-readonly functions as vectorizable.
@@ -6117,6 +6122,7 @@ void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
     }
     break;
   }
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case Libmvec: {
     const VecDesc VecFuncs[] = {
@@ -6128,6 +6134,25 @@ void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
     break;
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  case ArmPL: {
+    const VecDesc VecFuncs[] = {
+#define TLI_DEFINE_ARMPL_VECFUNCS
+#define TLI_DEFINE_VECFUNC(SCAL, VEC, VF, MASK) {SCAL, VEC, VF, MASK},
+#include "llvm/Analysis/VecFuncs.def"
+    };
+
+    switch (TargetTriple.getArch()) {
+    default:
+      break;
+    case llvm::Triple::aarch64:
+    case llvm::Triple::aarch64_be:
+      addVectorizableFunctions(VecFuncs);
+      break;
+    }
+    break;
+  }
+>>>>>>> 5b0e19a7ab05b51c72a8ae4c7b781438149dba7f
   case NoLibrary:
     break;
   }
