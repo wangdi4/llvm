@@ -34,7 +34,6 @@ piQueueCreate
 piQueueGetInfo
 piSamplerCreate
 piTearDown
-piclProgramCreateWithSource
 piextContextCreateWithNativeHandle
 piextContextGetNativeHandle
 piextDeviceCreateWithNativeHandle

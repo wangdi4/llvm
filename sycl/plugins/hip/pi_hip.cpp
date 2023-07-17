@@ -5676,7 +5676,6 @@ pi_result piPluginInit(pi_plugin *PluginInit) {
   _PI_CL(piextMemCreateWithNativeHandle, hip_piextMemCreateWithNativeHandle)
   // Program
   _PI_CL(piProgramCreate, hip_piProgramCreate)
-  _PI_CL(piclProgramCreateWithSource, hip_piclProgramCreateWithSource)
   _PI_CL(piProgramCreateWithBinary, hip_piProgramCreateWithBinary)
   _PI_CL(piProgramGetInfo, hip_piProgramGetInfo)
   _PI_CL(piProgramCompile, hip_piProgramCompile)
