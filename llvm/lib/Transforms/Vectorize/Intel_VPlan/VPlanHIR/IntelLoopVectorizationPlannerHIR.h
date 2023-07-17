@@ -42,6 +42,7 @@ private:
 
   /// HIR DDGraph that contains DD information for the incoming loop nest.
   HIRDDAnalysis *DDA;
+  mutable DDGraph DDG;
 
   HIRVectorizationLegality *HIRLegality;
 
@@ -157,6 +158,9 @@ public:
 
   /// Detects and returns the current type of planning.
   LoopVectorizationPlanner::PlannerType getPlannerType() const final;
+
+  /// Fetches/recomputes DDGraph from HIRDDAnalysis (DDA) in HIR pipeline.
+  const DDGraph *getDDGraph() const final;
 
   bool unroll(VPlanVector &Plan) override;
 
