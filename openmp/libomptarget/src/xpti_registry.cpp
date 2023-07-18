@@ -182,10 +182,16 @@ void XPTIRegistryTy::traceMemAssociate(uintptr_t HostPtr, uintptr_t TargetPtr) {
   if (xptiTraceEnabled()) {
     uint64_t CorrID = xptiGetUniqueId();
     xpti::offload_association_data_t Map{HostPtr, TargetPtr};
+<<<<<<< HEAD
     xptiNotifySubscribers(
         OMPStreamID,
         xpti::trace_offload_alloc_memory_object_associate,
         XPTIRegistry->getEvent(), nullptr, CorrID, &Map);
+=======
+    xptiNotifySubscribers(OMPStreamID,
+                          xpti::trace_offload_alloc_memory_object_associate,
+                          XPTIRegistry->getEvent(), nullptr, CorrID, &Map);
+>>>>>>> 740bf1528eeb764f029929dbc5473a8ecbc9f7e8
   }
 #endif
 }
