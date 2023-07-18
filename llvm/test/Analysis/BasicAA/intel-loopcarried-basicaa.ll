@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -disable-output -passes=aa-eval -evaluate-loopcarried-alias -print-all-alias-modref-info < %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers=0 -disable-output -passes=print-alias-sets -print-loopcarried-alias-sets < %s 2>&1 | FileCheck --check-prefix=AST %s
+; RUN: opt -disable-output -passes=aa-eval -evaluate-loopcarried-alias -print-all-alias-modref-info < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -passes=print-alias-sets -print-loopcarried-alias-sets < %s 2>&1 | FileCheck --check-prefix=AST %s
 
 ; This spot checks some of BasicAA's loopCarriedAlias-related
 ; behavior. BasicAA's ::loopCarriedAlias reuses only parts of ::alias;
@@ -12,14 +12,14 @@ target triple = "i386-unknown-linux-gnu"
 ; which are handled by BasicAA.
 ; Verify the AST-based analysis:
 ; AST-LABEL: function 'params':
-; AST-DAG: alias, Mod Pointers: (i32* %par0, LocationSize::precise(4))
-; AST-DAG: alias, Mod Pointers: (i32* %par1, LocationSize::precise(4))
+; AST-DAG: alias, Mod Pointers: (ptr %par0, LocationSize::precise(4))
+; AST-DAG: alias, Mod Pointers: (ptr %par1, LocationSize::precise(4))
 ; ...and also the pairwise analysis:
 ; CHECK-LABEL: Function: params:
 ; CHECK-DAG: NoAlias: i32* %par0, i32* %par1
-define void @params(i32* noalias %par0, i32* noalias %par1) {
-  store i32 0, i32* %par0
-  store i32 0, i32* %par1
+define void @params(ptr noalias %par0, ptr noalias %par1) {
+  store i32 0, ptr %par0
+  store i32 0, ptr %par1
   ret void
 }
 
@@ -30,22 +30,22 @@ define void @params(i32* noalias %par0, i32* noalias %par1) {
 ; Verify the AST-based analysis:
 ; AST-LABEL: function 'global':
 ; AST-DAG: 2 alias sets for 3 pointer values
-; AST-DAG: alias, Mod Pointers: (i32* %p0, LocationSize::precise(4)), (i32* @gv, LocationSize::precise(4))
-; AST-DAG: alias, Mod Pointers: (i32* %p1, LocationSize::precise(4))
+; AST-DAG: alias, Mod Pointers: (ptr %p0, LocationSize::precise(4)), (ptr @gv, LocationSize::precise(4))
+; AST-DAG: alias, Mod Pointers: (ptr %p1, LocationSize::precise(4))
 ; ...and also the pairwise analysis:
 ; CHECK-LABEL: Function: global:
 ; CHECK-DAG: MayAlias: i32* %p0, i32* @gv
 ; CHECK-DAG: NoAlias: i32* %p0, i32* %p1
 
-declare i32* @random.i32(i32* %ptr)
+declare ptr @random.i32(ptr %ptr)
 @gv = global i32 1
 
-define void @global(i32* %random) {
-  %p0 = getelementptr inbounds i32, i32* %random, i32 0
-  %p1 = getelementptr inbounds i32, i32* %random, i32 1
-  store i32 0, i32* %p0
-  store i32 0, i32* %p1
-  store i32 0, i32* @gv
+define void @global(ptr %random) {
+  %p0 = getelementptr inbounds i32, ptr %random, i32 0
+  %p1 = getelementptr inbounds i32, ptr %random, i32 1
+  store i32 0, ptr %p0
+  store i32 0, ptr %p1
+  store i32 0, ptr @gv
   ret void
 }
 
@@ -53,7 +53,7 @@ define void @global(i32* %random) {
 ; for the infamous pointer swapping example. (NoAlias would be correct
 ; for ::alias, but not for ::loopCarriedAlias.)
 ; AST-LABEL: function 'bug42143':
-; AST-DAG: alias, Mod/Ref Pointers: (float* %p, LocationSize::precise(4)), (float* %q, LocationSize::precise(4))
+; AST-DAG: alias, Mod/Ref Pointers: (ptr %p, LocationSize::precise(4)), (ptr %q, LocationSize::precise(4))
 ; CHECK-LABEL: Function: bug42143:
 ; CHECK-DAG: MayAlias: float* %p, float* %q
 define float @bug42143() {
@@ -63,10 +63,10 @@ entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
-  %p = phi float* [ %g, %entry ], [ %q, %for.body ]
-  %q = phi float* [ %h, %entry ], [ %p, %for.body ]
-  %0 = load float, float* %p, align 4
-  store float undef, float* %q, align 4
+  %p = phi ptr [ %g, %entry ], [ %q, %for.body ]
+  %q = phi ptr [ %h, %entry ], [ %p, %for.body ]
+  %0 = load float, ptr %p, align 4
+  store float undef, ptr %q, align 4
   %branch_cond = fcmp ugt float %0, 0.0
   br i1 %branch_cond, label %for.cond.cleanup, label %for.body
 
