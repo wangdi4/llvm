@@ -96,12 +96,18 @@
 // piextQueueGetNativeHandle
 // 14.33 Added new parameter (memory object properties) to
 // piextKernelSetArgMemObj
+<<<<<<< HEAD
 // 14.34 Added command-buffer extension methods
 // 14.35 Added piextEnablePeerAccess, piextDisablePeerAccess,
 // piextPeerAccessGetInfo, and pi_peer_attr enum.
 
 #define _PI_H_VERSION_MAJOR 14
 #define _PI_H_VERSION_MINOR 35
+=======
+
+#define _PI_H_VERSION_MAJOR 14
+#define _PI_H_VERSION_MINOR 33
+>>>>>>> b6449e19ded8cdddd9ce939d09d73311b866f7ad
 
 #define _PI_STRING_HELPER(a) #a
 #define _PI_CONCAT(a, b) _PI_STRING_HELPER(a.b)
