@@ -633,19 +633,19 @@ VPVectorShape VPlanDivergenceAnalysis::getVectorShape(const VPValue &V) const {
   return VPVectorShape::getUndef();
 }
 
-bool VPlanDivergenceAnalysis::shapesAreDifferent(VPVectorShape OldShape,
-                                                 VPVectorShape NewShape) {
+bool VPlanDivergenceAnalysis::shapesAreDifferent(VPVectorShape Shape1,
+                                                 VPVectorShape Shape2) {
   // For the first-time this function is called in context of private-entities,
-  // the OldShape is undefined.
+  // the Shapes can be undefined.
 
   // FIXME: That should be operator== modulo adjustment for undef being
   // different from another undef.
-  if ((OldShape.isUndefined() && !NewShape.isUndefined()) ||
-      (!OldShape.isUndefined() && NewShape.isUndefined()) ||
-      (!OldShape.isUndefined() && !NewShape.isUndefined() &&
-       (OldShape.getShapeDescriptor() != NewShape.getShapeDescriptor() ||
-        (OldShape.hasKnownStride() && NewShape.hasKnownStride() &&
-         OldShape.getStrideVal() != NewShape.getStrideVal())))) {
+  if ((Shape1.isUndefined() && !Shape2.isUndefined()) ||
+      (!Shape1.isUndefined() && Shape2.isUndefined()) ||
+      (!Shape1.isUndefined() && !Shape2.isUndefined() &&
+       (Shape1.getShapeDescriptor() != Shape2.getShapeDescriptor() ||
+        (Shape1.hasKnownStride() && Shape2.hasKnownStride() &&
+         Shape1.getStrideVal() != Shape2.getStrideVal())))) {
     return true;
   }
   return false;
