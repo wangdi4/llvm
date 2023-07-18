@@ -182,10 +182,6 @@ UR_APIEXPORT ur_result_t UR_APICALL urKernelSetArgValue(
     const ur_kernel_arg_value_properties_t *pProperties,
     const void *pArgValue) {
   std::ignore = pProperties;
-<<<<<<< HEAD
-=======
-  UR_ASSERT(hKernel, UR_RESULT_ERROR_INVALID_NULL_HANDLE);
->>>>>>> b6449e19ded8cdddd9ce939d09d73311b866f7ad
   UR_ASSERT(argSize, UR_RESULT_ERROR_INVALID_KERNEL_ARGUMENT_SIZE);
 
   ur_result_t Result = UR_RESULT_SUCCESS;
