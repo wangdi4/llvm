@@ -1,7 +1,7 @@
 ; Test to verify that HIRParVecAnalysis and VPlan HIR vectorizer can handle
 ; simple early exit loops.
 
-; RUN: opt %s -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -print-before=hir-vplan-vec -vplan-print-after-loop-massaging -vplan-enable-early-exit-loops -disable-vplan-predicator -disable-output 2>&1 | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -print-before=hir-vplan-vec -vplan-print-after-loop-massaging -vplan-enable-early-exit-loops -disable-output 2>&1 | FileCheck %s
 
 ; CHECK:  BEGIN REGION { }
 ; CHECK:        %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]

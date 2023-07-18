@@ -48,6 +48,7 @@
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constant.h"
@@ -1339,6 +1340,13 @@ tryToUnrollLoop(Loop *L, DominatorTree &DT, LoopInfo *LI, ScalarEvolution &SE,
         dbgs() << "Not attempting partial/runtime unroll in FullLoopUnroll.\n");
     return LoopUnrollResult::Unmodified;
   }
+
+#if INTEL_CUSTOMIZATION
+  if (OnlyFullUnroll && vpo::VPOAnalysisUtils::getBeginLoopDirective(*L))
+    // We do not fully unroll loops having OpenMP directive - it will be done
+    // later by VPlan Vectorizer pass.
+    return LoopUnrollResult::Unmodified;
+#endif // INTEL_CUSTOMIZATION
 
   // At this point, UP.Runtime indicates that run-time unrolling is allowed.
   // However, we only want to actually perform it if we don't know the trip

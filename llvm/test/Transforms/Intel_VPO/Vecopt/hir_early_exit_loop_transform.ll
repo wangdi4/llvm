@@ -15,7 +15,7 @@
 ;       @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; END REGION
 
-; RUN: opt %s -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-transformed-early-exit-loop -vplan-enable-early-exit-loops -disable-vplan-predicator -disable-output 2>&1 | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-transformed-early-exit-loop -vplan-enable-early-exit-loops -disable-output 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -59,7 +59,9 @@ define dso_local i32 @_Z3fooiPKaPaa(i32 %n, ptr nocapture readonly %a, i8 signex
 ; CHECK-NEXT:     i64 [[VP__SSA_PHI]] = phi  [ i64 [[VP6]], [[BB3]] ],  [ i64 undef, [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:     i32 [[VP_EXIT_ID_PHI:%.*]] = phi  [ i32 0, [[BB3]] ],  [ i32 1, [[INTERMEDIATE_BB0]] ]
 ; CHECK-NEXT:     i1 [[VP_TAKE_BACKEDGE_COND:%.*]] = phi  [ i1 [[VP7]], [[BB3]] ],  [ i1 false, [[INTERMEDIATE_BB0]] ]
-; CHECK-NEXT:     br i1 [[VP_TAKE_BACKEDGE_COND]], [[BB2]], [[CASCADED_IF_BLOCK0:cascaded.if.block[0-9]+]]
+; CHECK-NEXT:     i1 [[VP_EE_LATCH_COND_CANON:%.*]] = not i1 [[VP_TAKE_BACKEDGE_COND]]
+; CHECK-NEXT:     i1 [[VP_EE_MASK_IS_ZERO:%.*]] = all-zero-check i1 [[VP_EE_LATCH_COND_CANON]]
+; CHECK-NEXT:     br i1 [[VP_EE_MASK_IS_ZERO]], [[BB2]], [[CASCADED_IF_BLOCK0:cascaded.if.block[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[CASCADED_IF_BLOCK0]]: # preds: [[NEW_LOOP_LATCH0]]
 ; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp eq i32 [[VP_EXIT_ID_PHI]] i32 1
