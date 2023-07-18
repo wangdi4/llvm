@@ -478,19 +478,6 @@ bool MachineLICMBase::runOnMachineFunction(MachineFunction &MF) {
     CurPreheader = nullptr;
     ExitBlocks.clear();
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-    Worklist.append(CurLoop->begin(), CurLoop->end());
-    if (PreRegAlloc) {
-      // If this is done before regalloc, only visit outer-most
-      // preheader-sporting loops.
-      if (!LoopIsOuterMostWithPredecessor(CurLoop) && !IAOpt)
-        continue;
-    }
-#endif
-
-=======
->>>>>>> 33e60484d750291e99301e29e60fe72c8fa48ccd
     CurLoop->getExitBlocks(ExitBlocks);
 
     if (!PreRegAlloc)
