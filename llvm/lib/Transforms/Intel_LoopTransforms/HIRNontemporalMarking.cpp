@@ -103,7 +103,7 @@ class HIRNontemporalMarking {
 public:
   HIRNontemporalMarking(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
                         HIRLoopLocality &HLL, TargetTransformInfo &TTI)
-    : HIRF(HIRF), HDDA(HDDA), HLL(HLL), TTI(TTI) {}
+      : HIRF(HIRF), HDDA(HDDA), HLL(HLL), TTI(TTI), OnlyVectorAligned(false) {}
   bool run();
 };
 
