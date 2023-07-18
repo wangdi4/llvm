@@ -29,7 +29,7 @@ define i32 @foo(%struct.pair* byval(%struct.pair) %x) #0 {
 ; CHECK-NEXT:    store i32 [[SUM]], i32* [[RET_CAST_GEP]]
 ; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH]]
 ; CHECK:       simd.loop.latch:
-; CHECK-NEXT:    [[INDVAR]] = add nuw i32 [[INDEX]], 1
+; CHECK-NEXT:    [[INDVAR]] = add nuw nsw i32 [[INDEX]], 1
 ; CHECK-NEXT:    [[VL_COND:%.*]] = icmp ult i32 [[INDVAR]], 4
 ; CHECK-NEXT:    br i1 [[VL_COND]], label [[SIMD_LOOP_HEADER]], label [[SIMD_END_REGION:%.*]], !llvm.loop !0
 ; CHECK:       simd.end.region:

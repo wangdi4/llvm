@@ -277,6 +277,11 @@ bool LoopVectorizationPlannerHIR::unroll(VPlanVector &Plan) {
   return Result;
 }
 
+const loopopt::DDGraph *LoopVectorizationPlannerHIR::getDDGraph() const {
+  DDG = DDA->getGraph(TheLoop);
+  return &DDG;
+}
+
 void LoopVectorizationPlannerHIR::emitPeelRemainderVPLoops(unsigned VF,
                                                            unsigned UF) {
   if (isSearchLoop())

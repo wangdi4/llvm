@@ -393,7 +393,7 @@ attributes #8 = { convergent "kernel-call-once" "kernel-uniform-call" "opencl-ve
 ; CHECK-NEXT:    tail call void @llvm.experimental.matrix.store.v128f16.p1(<128 x half> [[SUB_A_SROA_0_0_I_LCSSA]], ptr addrspace(1) [[ADD_PTR_I48_I]], i64 32, i1 false, i32 8, i32 16, metadata !"matrix.rowmajor", metadata !"matrix.rowmajor", metadata !"scope.subgroup", metadata !"matrix.use.a")
 ; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH]]
 ; CHECK:       simd.loop.latch:
-; CHECK-NEXT:    [[INDVAR]] = add nuw i32 [[INDEX]], 1
+; CHECK-NEXT:    [[INDVAR]] = add nuw nsw i32 [[INDEX]], 1
 ; CHECK-NEXT:    [[VL_COND:%.*]] = icmp ult i32 [[INDVAR]], 16
 ; CHECK-NEXT:    br label [[SIMD_LOOP_HEADER]]
 ; CHECK:       simd.end.region:

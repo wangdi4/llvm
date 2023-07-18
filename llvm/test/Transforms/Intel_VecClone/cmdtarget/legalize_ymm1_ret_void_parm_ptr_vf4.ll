@@ -30,7 +30,7 @@ define dso_local void @foo(ptr nocapture %p) local_unnamed_addr #0 {
 ; CHECK-NEXT:    store double 0.000000e+00, ptr [[VEC_P_ELEM]], align 8
 ; CHECK-NEXT:    br label [[SIMD_LOOP_LATCH]]
 ; CHECK:       simd.loop.latch:
-; CHECK-NEXT:    [[INDVAR]] = add nuw i32 [[INDEX]], 1
+; CHECK-NEXT:    [[INDVAR]] = add nuw nsw i32 [[INDEX]], 1
 ; CHECK-NEXT:    [[VL_COND:%.*]] = icmp ult i32 [[INDVAR]], 4
 ; CHECK-NEXT:    br i1 [[VL_COND]], label [[SIMD_LOOP_HEADER]], label [[SIMD_END_REGION:%.*]], !llvm.loop [[LOOP0:![0-9]+]]
 ; CHECK:       simd.end.region:

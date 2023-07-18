@@ -952,10 +952,12 @@ VPlanTTICostModel::getTTICostForVF(const VPInstruction *VPInst, unsigned VF) {
   }
   case VPInstruction::GeneralMemOptConflict: {
     // General memory conflict is not handled in VPlan CG thus it is not
-    // supported in CM for VF > 1. We still can see in VF = 1 Plan if
+    // supported in CM nor for VF > 1. We still can see in VF = 1 Plan if
     // cost modelling is performed before general conflict optimization
     // into vectorizable forms of conflict.
-    assert(VF == 1 && "GeneralMemOptConflict supported for VF = 1 CM only.");
+    if (VF != 1)
+      return VPInstructionCost::getInvalid();
+
     // The cost of GeneralMemOptConflict is determined as the sum of costs
     // of all instructions within the Region of general conflict instruction.
     //

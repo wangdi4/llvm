@@ -1065,17 +1065,18 @@ LoopVectorizationPlanner::createCostModel(const VPlanVector *Plan,
                                           unsigned VF, unsigned UF) const {
   // Do not run VLSA for VF = 1
   VPlanVLSAnalysis *VLSACM = VF > 1 ? VLSA : nullptr;
+  const loopopt::DDGraph *DDG = getDDGraph();
 
   switch (getPlannerType()) {
     case PlannerType::Full:
       return VPlanCostModelFull::makeUniquePtr(Plan, VF, UF, TTI,
-                                               TLI, DL, VLSACM);
+                                               TLI, DL, VLSACM, DDG);
     case PlannerType::LightWeight:
       return VPlanCostModelLite::makeUniquePtr(Plan, VF, UF, TTI,
-                                               TLI, DL, VLSACM);
+                                               TLI, DL, VLSACM, DDG);
     case PlannerType::Base:
       return VPlanCostModelBase::makeUniquePtr(Plan, VF, UF, TTI,
-                                               TLI, DL, VLSACM);
+                                               TLI, DL, VLSACM, DDG);
   }
   llvm_unreachable("Uncovered Planner type in the switch-case above.");
 }
@@ -1086,17 +1087,18 @@ LoopVectorizationPlanner::createNoSLPCostModel(const VPlanVector *Plan,
                                                unsigned UF) const {
   // Do not run VLSA for VF = 1
   VPlanVLSAnalysis *VLSACM = VF > 1 ? VLSA : nullptr;
+  const loopopt::DDGraph *DDG = getDDGraph();
 
   switch (getPlannerType()) {
     case PlannerType::Full:
       return VPlanCostModelFullNoSLP::makeUniquePtr(Plan, VF, UF, TTI,
-                                                    TLI, DL, VLSACM);
+                                                    TLI, DL, VLSACM, DDG);
     case PlannerType::LightWeight:
       return VPlanCostModelLiteNoSLP::makeUniquePtr(Plan, VF, UF, TTI,
-                                                    TLI, DL, VLSACM);
+                                                    TLI, DL, VLSACM, DDG);
     case PlannerType::Base:
       return VPlanCostModelBaseNoSLP::makeUniquePtr(Plan, VF, UF, TTI,
-                                                    TLI, DL, VLSACM);
+                                                    TLI, DL, VLSACM, DDG);
   }
   llvm_unreachable("Uncovered Planner type in the switch-case above.");
 }
