@@ -142,7 +142,7 @@ void DDGraph::print(raw_ostream &OS) const {
   DDARefGatherer::MapTy Refs;
   DDARefGatherer::gather(CurNode, Refs);
 
-  for (auto Pair : Refs) {
+  for (auto &Pair : Refs) {
     for (DDRef *Ref : Pair.second) {
       for (DDEdge *E : outgoing(Ref)) {
         E->print(OS);

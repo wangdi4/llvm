@@ -1239,7 +1239,7 @@ bool HIRIdiomAnalyzer::tryMinMaxIdiom(HLDDNode *Node) {
   if (!LinkedInstr.empty()) {
     // Add Node as idiom.
     IdiomList.addIdiom(MinMaxInst, HIRVectorIdioms::MinOrMax);
-    for (auto Linked : LinkedInstr) {
+    for (auto &Linked : LinkedInstr) {
       IdiomList.addLinked(MinMaxInst, Linked.first /* Instruction */,
                           Linked.second /* IdiomKind */);
     }
