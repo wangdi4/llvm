@@ -2,7 +2,7 @@
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Check that we use "ivdep loop" metadata to prove that stores don't conflict.
-define void @example(<8 x i64>* %dest) "target-features"="+avx512f" {
+define void @example(ptr %dest) "target-features"="+avx512f" {
 ; CHECK-LABEL: @example(
 ; CHECK: call void @__libirc_nontemporal_store
 entry:
@@ -14,10 +14,10 @@ loop:
   %index.jump = add i64 %index, 20000
   %splat = insertelement <8 x i64> zeroinitializer, i64 %index, i32 1
   %splat2 = insertelement <8 x i64> zeroinitializer, i64 %index, i32 2
-  %addr = getelementptr inbounds <8 x i64>, <8 x i64>* %dest, i64 %index
-  %jump = getelementptr inbounds <8 x i64>, <8 x i64>* %dest, i64 %index.jump
-  store <8 x i64> %splat, <8 x i64>* %addr, align 16, !nontemporal !0
-  store <8 x i64> %splat2, <8 x i64>* %jump, align 16, !nontemporal !0
+  %addr = getelementptr inbounds <8 x i64>, ptr %dest, i64 %index
+  %jump = getelementptr inbounds <8 x i64>, ptr %dest, i64 %index.jump
+  store <8 x i64> %splat, ptr %addr, align 16, !nontemporal !0
+  store <8 x i64> %splat2, ptr %jump, align 16, !nontemporal !0
   %cond = icmp eq i64 %index, 1000
   br i1 %cond, label %exit, label %loop, !llvm.loop !1
 
@@ -27,7 +27,7 @@ exit:
 
 ; In this case we check that we still respect potential loop-independent
 ; conflicts. (For example, in this case j may be zero.)
-define void @example2(<8 x i64>* %dest, i64 %j) "target-features"="+avx512f" {
+define void @example2(ptr %dest, i64 %j) "target-features"="+avx512f" {
 ; CHECK-LABEL: @example2(
 ; CHECK-NOT: call void @__libirc_nontemporal_store
 entry:
@@ -39,10 +39,10 @@ loop:
   %index.jump = add i64 %index, %j
   %splat = insertelement <8 x i64> zeroinitializer, i64 %index, i32 1
   %splat2 = insertelement <8 x i64> zeroinitializer, i64 %index, i32 2
-  %addr = getelementptr inbounds <8 x i64>, <8 x i64>* %dest, i64 %index
-  %jump = getelementptr inbounds <8 x i64>, <8 x i64>* %dest, i64 %index.jump
-  store <8 x i64> %splat, <8 x i64>* %addr, align 16, !nontemporal !0
-  store <8 x i64> %splat2, <8 x i64>* %jump, align 16, !nontemporal !0
+  %addr = getelementptr inbounds <8 x i64>, ptr %dest, i64 %index
+  %jump = getelementptr inbounds <8 x i64>, ptr %dest, i64 %index.jump
+  store <8 x i64> %splat, ptr %addr, align 16, !nontemporal !0
+  store <8 x i64> %splat2, ptr %jump, align 16, !nontemporal !0
   %cond = icmp eq i64 %index, 1000
   br i1 %cond, label %exit, label %loop, !llvm.loop !2
 
