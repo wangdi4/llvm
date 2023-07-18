@@ -13,6 +13,14 @@
 // RUN:   | FileCheck -check-prefix=UNUSED %s
 // RUN: %clang_cl -### /Qvecabi:cmdtarget -c %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=UNUSED %s
+// RUN: %clangxx -### -xx86-64-v2 -vecabi=cmdtarget -c %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=UNUSED %s
+// RUN: %clangxx -### -march=x86-64-v3 -vecabi=cmdtarget -c %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=UNUSED %s
+// RUN: %clang_cl -### -Qxx86-64-v4 -Qvecabi:cmdtarget -c %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=UNUSED %s
+// RUN: %clang_cl -### /arch:x86-64 -Qvecabi:cmdtarget -c %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=UNUSED %s
 // UNUSED: argument unused
 // UNUSED-NOT: "-fvecabi-cmdtarget"
 

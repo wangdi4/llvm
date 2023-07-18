@@ -11,13 +11,6 @@
 
 ; Test src:
 ;
-; void test1(int A) {
-;   int B;
-; #pragma omp target
-; #pragma omp parallel firstprivate(A) private(B)
-;   {}
-; }
-;
 ; void test2(int N, int M, int T) {
 ;   int C, D;
 ; #pragma omp target teams thread_limit(T)
@@ -28,9 +21,6 @@
 ;     for (int J = 0; J < M; J++) {}
 ; }
 
-; CHECK-HOST:       remark:{{.*}} FIRSTPRIVATE clause for variable 'A.addr' on 'parallel' construct is redundant
-; CHECK-HOST:       remark:{{.*}} FIRSTPRIVATE clause for variable 'A.addr' on 'target' construct is redundant
-; CHECK-HOST:       remark:{{.*}} FIRSTPRIVATE clause for variable 'B' on 'target' construct is redundant
 ; CHECK-HOST:       remark:{{.*}} FIRSTPRIVATE clause for variable 'D' on 'loop' construct is redundant
 ; CHECK-HOST:       remark:{{.*}} SHARED clause for variable 'D' on 'parallel' construct is redundant
 ; CHECK-HOST:       remark:{{.*}} FIRSTPRIVATE clause for variable 'C' on 'distribute' construct is redundant
@@ -42,42 +32,6 @@
 ; CHECK-DEVICE-NOT: remark:{{.*}} FIRSTPRIVATE clause for variable '{{.+}}' is redundant
 ;
 ; CHECK-YAML:      --- !Analysis
-; CHECK-YAML-NEXT: Pass:            openmp
-; CHECK-YAML-NEXT: Name:            optimization note
-; CHECK-YAML-NEXT: Function:        test1
-; CHECK-YAML-NEXT: Args:
-; CHECK-YAML-NEXT:   - String:          FIRSTPRIVATE
-; CHECK-YAML-NEXT:   - String:          ' clause for variable '''
-; CHECK-YAML-NEXT:   - String:          A.addr
-; CHECK-YAML-NEXT:   - String:          ''' on '''
-; CHECK-YAML-NEXT:   - String:          parallel
-; CHECK-YAML-NEXT:   - String:          ''' construct is redundant'
-; CHECK-YAML-NEXT: ...
-; CHECK-YAML-NEXT: --- !Analysis
-; CHECK-YAML-NEXT: Pass:            openmp
-; CHECK-YAML-NEXT: Name:            optimization note
-; CHECK-YAML-NEXT: Function:        test1
-; CHECK-YAML-NEXT: Args:
-; CHECK-YAML-NEXT:   - String:          FIRSTPRIVATE
-; CHECK-YAML-NEXT:   - String:          ' clause for variable '''
-; CHECK-YAML-NEXT:   - String:          A.addr
-; CHECK-YAML-NEXT:   - String:          ''' on '''
-; CHECK-YAML-NEXT:   - String:          target
-; CHECK-YAML-NEXT:   - String:          ''' construct is redundant'
-; CHECK-YAML-NEXT: ...
-; CHECK-YAML-NEXT: --- !Analysis
-; CHECK-YAML-NEXT: Pass:            openmp
-; CHECK-YAML-NEXT: Name:            optimization note
-; CHECK-YAML-NEXT: Function:        test1
-; CHECK-YAML-NEXT: Args:
-; CHECK-YAML-NEXT:   - String:          FIRSTPRIVATE
-; CHECK-YAML-NEXT:   - String:          ' clause for variable '''
-; CHECK-YAML-NEXT:   - String:          B
-; CHECK-YAML-NEXT:   - String:          ''' on '''
-; CHECK-YAML-NEXT:   - String:          target
-; CHECK-YAML-NEXT:   - String:          ''' construct is redundant'
-; CHECK-YAML-NEXT: ...
-; CHECK-YAML-NEXT: --- !Analysis
 ; CHECK-YAML-NEXT: Pass:            openmp
 ; CHECK-YAML-NEXT: Name:            optimization note
 ; CHECK-YAML-NEXT: Function:        test2
@@ -166,40 +120,10 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 target device_triples = "spir64"
 
-@llvm.global_ctors = appending global [1 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 0, ptr @.omp_offloading.requires_reg, ptr null }]
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)
 
-; Function Attrs: noinline nounwind optnone uwtable
-define dso_local void @test1(i32 noundef %A) #0 {
-; CHECK-LABEL: @test1(
-entry:
-  %A.addr = alloca i32, align 4
-  %B = alloca i32, align 4
-  store i32 %A, ptr %A.addr, align 4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
-    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %A.addr, i32 0, i32 1),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %B, i32 0, i32 1) ]
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %A.addr, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %B, i32 0, i32 1) ]
-
-; CHECK:   call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"()
-; CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr null, i32 0, i32 1)
-; CHECK-SAME: "QUAL.OMP.PRIVATE:TYPED"(ptr %A.addr, i32 0, i32 1)
-
-  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.PARALLEL"() ]
-  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
-  ret void
-}
-
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #1
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #1
-
-; Function Attrs: noinline nounwind optnone uwtable
-define dso_local void @test2(i32 noundef %N, i32 noundef %M, i32 noundef %T) #0 {
+define dso_local void @test2(i32 noundef %N, i32 noundef %M, i32 noundef %T) {
 ; CHECK-LABEL: @test2(
 entry:
   %N.addr = alloca i32, align 4
@@ -240,7 +164,7 @@ entry:
   %3 = load i32, ptr %.capture_expr.4, align 4
   store i32 %3, ptr %.omp.ub, align 4
   %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
-    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
     "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %M.addr, i32 0, i32 1),
     "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %C, i32 0, i32 1),
     "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %D, i32 0, i32 1),
@@ -421,26 +345,6 @@ omp.precond.end27:                                ; preds = %omp.loop.exit26, %e
   ret void
 }
 
-; Function Attrs: noinline nounwind uwtable
-define internal void @.omp_offloading.requires_reg() #2 section ".text.startup" {
-entry:
-  call void @__tgt_register_requires(i64 1)
-  ret void
-}
+!omp_offload.info = !{!0}
 
-; Function Attrs: nounwind
-declare void @__tgt_register_requires(i64) #1
-
-attributes #0 = { noinline nounwind uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-attributes #1 = { nounwind }
-attributes #2 = { noinline nounwind uwtable "approx-func-fp-math"="true" "frame-pointer"="all" "loopopt-pipeline"="light" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
-
-!omp_offload.info = !{!0, !1}
-!llvm.module.flags = !{!2, !3, !4, !5}
-
-!0 = !{i32 0, i32 53, i32 -1916230714, !"_Z5test2", i32 10, i32 1, i32 0}
-!1 = !{i32 0, i32 53, i32 -1916230714, !"_Z5test1", i32 3, i32 0, i32 0}
-!2 = !{i32 1, !"wchar_size", i32 4}
-!3 = !{i32 7, !"openmp", i32 51}
-!4 = !{i32 7, !"uwtable", i32 2}
-!5 = !{i32 7, !"frame-pointer", i32 2}
+!0 = !{i32 0, i32 53, i32 -1916230714, !"_Z5test2", i32 10, i32 0, i32 0}

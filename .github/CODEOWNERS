@@ -103,13 +103,13 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/include/llvm/Support/X86DisassemblerDecoderCommon.h @phoebewang @KanRobert
 /llvm/include/llvm/TargetParser/X86TargetParser.def @phoebewang @FreddyLeaf
 /llvm/lib/TargetParser/X86TargetParser.cpp @phoebewang @FreddyLeaf
-/llvm/lib/CodeGen/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
-/llvm/lib/Target/X86/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
+/llvm/lib/CodeGen/ @phoebewang @williamweixiao @KanRobert
+/llvm/lib/Target/X86/ @phoebewang @williamweixiao @KanRobert
 /llvm/lib/Target/X86/Intel_X86ScheduleRYL.td @e-kud @jsji @daniel-zabawa
 /llvm/lib/Transforms/Intel_MapIntrinToIml/ @tianqingw @KanRobert @FreddyLeaf
 /llvm/lib/Transforms/Utils/Intel_IMLUtils.cpp @tianqingw @KanRobert @FreddyLeaf
-/llvm/lib/MC/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
-/llvm/utils/TableGen/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
+/llvm/lib/MC/ @phoebewang @williamweixiao @KanRobert
+/llvm/utils/TableGen/ @phoebewang @williamweixiao @KanRobert
 /llvm/utils/UpdateTestChecks/ @KanRobert
 /llvm/test/tools/UpdateTestChecks/ @KanRobert
 /llvm/utils/UpdateTestChecks/intel_update_markup.py @KanRobert @phoebewang @FreddyLeaf @HaohaiWen
@@ -123,23 +123,23 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/utils/update_mca_test_checks.py @KanRobert
 /llvm/utils/update_cc_test_checks.py @KanRobert
 /llvm/utils/intel_update_vplan_checks.py @tylanphear @skozhukh @sguggill @offsake @karthik-senthil
-/llvm/include/llvm/CodeGen/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
+/llvm/include/llvm/CodeGen/ @phoebewang @williamweixiao @KanRobert
 /llvm/include/llvm/IR/IntrinsicsX86.td @phoebewang
-/llvm/include/llvm/MC/ @LuoYuanke @phoebewang @williamweixiao
-/llvm/include/llvm/TableGen/ @LuoYuanke @phoebewang @williamweixiao
+/llvm/include/llvm/MC/ @phoebewang @williamweixiao
+/llvm/include/llvm/TableGen/ @phoebewang @williamweixiao
 /llvm/include/llvm/Target/TargetSelectionDAG.td @phoebewang
 /llvm/include/llvm/Target/Target.td @KanRobert @phoebewang
 /llvm/include/llvm/Transforms/Intel_MapIntrinToIml/ @tianqingw @KanRobert @FreddyLeaf
 /llvm/include/llvm/Transforms/Utils/Intel_IMLUtils.h @tianqingw @KanRobert @FreddyLeaf
 /llvm/test/Analysis/CostModel/X86/ @HaohaiWen
-/llvm/test/MC/X86/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
-/llvm/test/CodeGen/Generic/ @LuoYuanke @phoebewang @williamweixiao
-/llvm/test/CodeGen/MIR/X86/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
-/llvm/test/CodeGen/X86/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
+/llvm/test/MC/X86/ @phoebewang @williamweixiao @KanRobert
+/llvm/test/CodeGen/Generic/ @phoebewang @williamweixiao
+/llvm/test/CodeGen/MIR/X86/ @phoebewang @williamweixiao @KanRobert
+/llvm/test/CodeGen/X86/ @phoebewang @williamweixiao @KanRobert
 /llvm/test/MC/COFF/ @phoebewang
 /llvm/test/MC/Disassembler/X86/ @KanRobert
 /llvm/test/MC/ELF/ @KanRobert
-/llvm/test/TableGen/ @LuoYuanke @phoebewang @williamweixiao @KanRobert
+/llvm/test/TableGen/ @phoebewang @williamweixiao @KanRobert
 /llvm/test/Transforms/Intel_Float128Expand/X86/ @yubingex007-a11y
 /llvm/test/Transforms/Intel_FoldLoadsToGather/ @gpei-dev
 /llvm/test/Transforms/Intel_IVSplit/ @williamweixiao
@@ -188,7 +188,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/test/Other/Intel_new-pm-O3-paropt.ll @andykaylor @pankaj-chawla @intel-restricted/cmplrllvm-llvm-paropt
 /llvm/test/Other/Intel_opt-O2-pipeline-paropt.ll @andykaylor @pankaj-chawla @intel-restricted/cmplrllvm-llvm-paropt
 /llvm/test/Other/Intel_opt-O3-pipeline-paropt.ll @andykaylor @pankaj-chawla @intel-restricted/cmplrllvm-llvm-paropt
-/clang/lib/CodeGen/BackendUtil.cpp @andykaylor @pankaj-chawla @LuoYuanke @phoebewang @williamweixiao
+/clang/lib/CodeGen/BackendUtil.cpp @andykaylor @pankaj-chawla @phoebewang @williamweixiao
 /clang/test/CodeGen/lto-newpm-pipeline.c @andykaylor @pankaj-chawla
 
 # COMPONENT: DGI
@@ -279,7 +279,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/include/llvm/Transforms/Utils/SplitModule.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Utils/ValueMapper.h @robertcox-github @pvbattin
 /llvm/Intel_OptionalComponents/DTrans/ @robertcox-github @pvbattin
-/llvm/Intel_OptionalComponents/Intel_SupportedFeatures.txt  @LuoYuanke @phoebewang
+/llvm/Intel_OptionalComponents/Intel_SupportedFeatures.txt  @phoebewang
 /llvm/lib/Analysis/CallGraph.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/CallGraphSCCPass.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/CFLAndersAliasAnalysis.cpp @robertcox-github @pvbattin
@@ -890,8 +890,8 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/tools/intel-bin-opt-report @andykaylor @karthik-senthil
 
 # Code owners for register allocation report
-/llvm/lib/CodeGen/Intel_RAReportEmitter.cpp @LuoYuanke @phoebewang @williamweixiao @dwoodwor-intel
-/llvm/test/Analysis/Intel_OptReport/RegisterAllocation @LuoYuanke @phoebewang @williamweixiao @dwoodwor-intel
+/llvm/lib/CodeGen/Intel_RAReportEmitter.cpp @phoebewang @williamweixiao @dwoodwor-intel
+/llvm/test/Analysis/Intel_OptReport/RegisterAllocation @phoebewang @williamweixiao @dwoodwor-intel
 
 /llvm/tools/llvm-profgen/ @williamweixiao @HaohaiWen
 /llvm/test/tools/llvm-profgen/ @williamweixiao @HaohaiWen

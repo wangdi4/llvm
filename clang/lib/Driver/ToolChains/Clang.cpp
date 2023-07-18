@@ -2507,6 +2507,22 @@ static bool hasValidIntelArchOpt(const ArgList &Args,
 
   return false;
 }
+
+static bool hasValidNonGenericIntelArchOpt(const ArgList &Args,
+                                           const llvm::Triple &Triple) {
+  if (const Arg *A = clang::driver::getLastArchArg(Args, false))
+    if (A->getOption().matches(options::OPT_x))
+      if (x86::isValidNonGenericIntelCPU(A->getValue(), Triple))
+        return true;
+
+  if (const Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
+                                            options::OPT__SLASH_Qx))
+    if (A->getOption().matches(options::OPT__SLASH_Qx))
+      if (x86::isValidNonGenericIntelCPU(A->getValue(), Triple))
+        return true;
+
+  return false;
+}
 #endif // INTEL_CUSTOMIZATION
 
 void Clang::AddX86TargetArgs(const ArgList &Args,
@@ -8694,7 +8710,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                    options::OPT_fintel_pragma_prefetch, false))
     CmdArgs.push_back("-fno-intel-pragma-prefetch");
   // -vecabi support
-  if (hasValidIntelArchOpt(Args, Triple) || Args.hasArg(options::OPT_ax)) {
+  if (hasValidNonGenericIntelArchOpt(Args, Triple) ||
+      Args.hasArg(options::OPT_ax)) {
     if (Arg *A = Args.getLastArg(options::OPT_vecabi_EQ)) {
       StringRef Value = A->getValue();
       if (Value == "cmdtarget")
