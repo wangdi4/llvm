@@ -71,5 +71,42 @@ void VPTransformEarlyExitLoop::transform() {
   // executes loop body.
   EEBranch->swapSuccessors();
 
+  // Step 2
+  // ======
+  //
+  // Make the early-exit loop's backedge condition uniform. mergeLoopExits
+  // massages the CFG to generate a divergent backedge condition emitted in the
+  // new loop latch. We make it uniform by emitting an all-zero-check or
+  // all-one-check. If the loop header is taken on true branch of backedge, then
+  // we update the condition to be all-one-check (not + all-zero). Otherwise we
+  // update the condition to be all-zero-check. TODO: Consider unifying the
+  // implementation below with VPlanPredicator::fixupUniformInnerLoops and
+  // similar code in LoopCFU in the future.
+  auto *EEVPLoop = Plan.getVPLoopInfo()->getLoopFor(VPEEExecMask->getParent());
+  VPBasicBlock *EELoopLatch = EEVPLoop->getLoopLatch();
+  auto *EEBackedge = EELoopLatch->getTerminator();
+  LLVM_DEBUG(dbgs() << "Captured early-exit backedge: "; EEBackedge->dump();
+             dbgs() << "\n");
+
+  VPBasicBlock *EEHeader = EEVPLoop->getHeader();
+  assert((EEBackedge->getSuccessor(0) == EEHeader ||
+          EEBackedge->getSuccessor(1) == EEHeader) &&
+         "Early-exit loop's backedge does not lead to loop header.");
+  bool IsHeaderTakenOnTrue =
+      EEBackedge->getSuccessor(0 /*true succ*/) == EEHeader;
+
+  // We insert new instructions before backedge to make it uniform.
+  Builder.setInsertPoint(EEBackedge);
+  auto *EELatchCond = EEBackedge->getCondition();
+  // Canonicalization to determine if we need an all-one-check or all-zero-check
+  // based on which branch the header is taken on.
+  if (IsHeaderTakenOnTrue)
+    EELatchCond = Builder.createNot(EELatchCond, "ee.latch.cond.canon");
+
+  auto *EELatchAllZeroCheck =
+      Builder.createAllZeroCheck(EELatchCond, "ee.mask.is.zero");
+  // Update CondBit of backedge.
+  EEBackedge->setCondition(EELatchAllZeroCheck);
+
   VPLAN_DUMP(TransformEarlyExitLoopDumpsControl, Plan);
 }

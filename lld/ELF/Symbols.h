@@ -283,8 +283,8 @@ protected:
         referenced(false), referencedAfterWrap(false), traced(false),
         hasVersionSuffix(false), isInIplt(false), gotInIgot(false),
         folded(false), needsTocRestore(false), scriptDefined(false),
-        dsoProtected(false), auxIdx(0), dynsymIndex(0), verdefIndex(0),
-        versionId(0) {
+        dsoProtected(false), thunkAccessed(false), auxIdx(0), dynsymIndex(0),
+        verdefIndex(0), versionId(0) {
   }
 #endif
 

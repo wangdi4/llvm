@@ -12,15 +12,13 @@ loop:
 
   %idx1 = add nsw i32 %index, -20000
   %ext1 = sext i32 %idx1 to i64
-  %gep1 = getelementptr inbounds [26000000 x double], [26000000 x double]* undef, i64 0, i64 %ext1
-  %cst1 = bitcast double* %gep1 to <16 x double>*
-  store <16 x double> zeroinitializer, <16 x double>* %cst1, align 8, !nontemporal !0
+  %gep1 = getelementptr inbounds [26000000 x double], ptr undef, i64 0, i64 %ext1
+  store <16 x double> zeroinitializer, ptr %gep1, align 8, !nontemporal !0
 
   %idx2 = add nuw i32 %index, 1320000
   %ext2 = sext i32 %idx2 to i64
-  %gep2 = getelementptr inbounds [26000000 x double], [26000000 x double]* undef, i64 0, i64 %ext2
-  %cst2 = bitcast double* %gep2 to <16 x double>*
-  store <16 x double> zeroinitializer, <16 x double>* %cst2, align 8, !nontemporal !0
+  %gep2 = getelementptr inbounds [26000000 x double], ptr undef, i64 0, i64 %ext2
+  store <16 x double> zeroinitializer, ptr %gep2, align 8, !nontemporal !0
 
   %next = add nuw nsw i32 %index, 16
   %cond = icmp ult i32 %index, 1339984

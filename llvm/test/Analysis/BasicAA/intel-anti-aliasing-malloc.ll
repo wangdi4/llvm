@@ -1,6 +1,6 @@
 ; RUN: opt -aa-pipeline="basic-aa,tbaa" -passes="instcombine,gvn" %s -S | FileCheck %s
 
-; CHECK-NOT: %5 = load i64, i64* %size, align 8, !tbaa !2
+; CHECK-NOT: %5 = load i64, ptr %size, align 8, !tbaa !2
 
 ; ModuleID = 'second-test.cpp'
 source_filename = "second-test.cpp"
@@ -10,13 +10,13 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.data_t = type { [10 x double], i64 }
 
 ; Function Attrs: uwtable
-define dso_local i64* @_Z3foov() local_unnamed_addr #0 {
+define dso_local ptr @_Z3foov() local_unnamed_addr #0 {
 entry:
   %call = tail call %struct.data_t* @_Z9somewherev()
-  %call1 = tail call noalias i8* @malloc(i64 8) #3
-  %0 = bitcast i8* %call1 to i64*
+  %call1 = tail call noalias ptr @malloc(i64 8) #3
+  %0 = bitcast ptr %call1 to ptr
   %size = getelementptr inbounds %struct.data_t, %struct.data_t* %call, i64 0, i32 1, !intel-tbaa !2
-  %1 = load i64, i64* %size, align 8, !tbaa !2
+  %1 = load i64, ptr %size, align 8, !tbaa !2
   %cmp13 = icmp ugt i64 %1, 0
   br i1 %cmp13, label %for.body.lr.ph, label %for.cond.cleanup
 
@@ -27,20 +27,20 @@ for.cond.for.cond.cleanup_crit_edge:              ; preds = %for.body
   br label %for.cond.cleanup
 
 for.cond.cleanup:                                 ; preds = %for.cond.for.cond.cleanup_crit_edge, %entry
-  tail call void @_Z6escapePm(i64* %0)
-  ret i64* %0
+  tail call void @_Z6escapePm(ptr %0)
+  ret ptr %0
 
 for.body:                                         ; preds = %for.body.lr.ph, %for.body
   %2 = phi i64 [ 0, %for.body.lr.ph ], [ %4, %for.body ]
   %i.014 = phi i32 [ 0, %for.body.lr.ph ], [ %inc3, %for.body ]
-  store i64 %2, i64* %0, align 8, !tbaa !9
+  store i64 %2, ptr %0, align 8, !tbaa !9
   %arrayidx = getelementptr inbounds %struct.data_t, %struct.data_t* %call, i64 0, i32 0, i64 %2, !intel-tbaa !10
   %3 = load double, double* %arrayidx, align 8, !tbaa !10
   %inc = fadd double %3, 1.000000e+00
   store double %inc, double* %arrayidx, align 8, !tbaa !10
   %inc3 = add nuw nsw i32 %i.014, 1
   %4 = zext i32 %inc3 to i64
-  %5 = load i64, i64* %size, align 8, !tbaa !2
+  %5 = load i64, ptr %size, align 8, !tbaa !2
   %cmp = icmp ugt i64 %5, %4
   br i1 %cmp, label %for.body, label %for.cond.for.cond.cleanup_crit_edge
 }
@@ -48,9 +48,9 @@ for.body:                                         ; preds = %for.body.lr.ph, %fo
 declare dso_local %struct.data_t* @_Z9somewherev() local_unnamed_addr #1
 
 ; Function Attrs: nounwind
-declare dso_local noalias i8* @malloc(i64) local_unnamed_addr #2
+declare dso_local noalias ptr @malloc(i64) local_unnamed_addr #2
 
-declare dso_local void @_Z6escapePm(i64*) local_unnamed_addr #1
+declare dso_local void @_Z6escapePm(ptr) local_unnamed_addr #1
 
 attributes #0 = { uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }

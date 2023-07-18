@@ -3,7 +3,7 @@
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Multiple loop exiting blocks.
-define void @example(<8 x i64>* %dest, i64 %N) "target-features"="+avx512f" {
+define void @example(ptr %dest, i64 %N) "target-features"="+avx512f" {
 ; CHECK-LABEL: @example(
 ; CHECK-NOT: call void @__libirc_nontemporal_store
 entry:
@@ -13,8 +13,8 @@ loop:
   %index = phi i64 [ 0, %entry ], [ %index.next, %loop.latch ]
   %index.next = add i64 %index, 1
   %splat = insertelement <8 x i64> zeroinitializer, i64 %index, i32 0
-  %addr = getelementptr inbounds <8 x i64>, <8 x i64>* %dest, i64 %index
-  store <8 x i64> %splat, <8 x i64>* %addr, align 16, !nontemporal !0
+  %addr = getelementptr inbounds <8 x i64>, ptr %dest, i64 %index
+  store <8 x i64> %splat, ptr %addr, align 16, !nontemporal !0
   %if.test = icmp eq i64 %index, 5
   br i1 %if.test, label %exit, label %loop.latch
 
@@ -27,7 +27,7 @@ exit:
 }
 
 ; Multiple loop exit blocks.
-define void @example2(<8 x i64>* %dest, i64 %N) "target-features"="+avx512f" {
+define void @example2(ptr %dest, i64 %N) "target-features"="+avx512f" {
 ; CHECK-LABEL: @example2(
 ; CHECK-NOT: call void @__libirc_nontemporal_store
 entry:
@@ -37,8 +37,8 @@ loop:
   %index = phi i64 [ 0, %entry ], [ %index.next, %loop.latch ]
   %index.next = add i64 %index, 1
   %splat = insertelement <8 x i64> zeroinitializer, i64 %index, i32 0
-  %addr = getelementptr inbounds <8 x i64>, <8 x i64>* %dest, i64 %index
-  store <8 x i64> %splat, <8 x i64>* %addr, align 16, !nontemporal !0
+  %addr = getelementptr inbounds <8 x i64>, ptr %dest, i64 %index
+  store <8 x i64> %splat, ptr %addr, align 16, !nontemporal !0
   %if.test = icmp eq i64 %index, %N
   br i1 %if.test, label %exit2, label %loop.latch
 
@@ -54,7 +54,7 @@ exit2:
 }
 
 ; Multiple latch blocks
-define void @example3(<8 x i64>* %dest, i64 %N) "target-features"="+avx512f" {
+define void @example3(ptr %dest, i64 %N) "target-features"="+avx512f" {
 ; CHECK-LABEL: @example3(
 ; CHECK-NOT: call void @__libirc_nontemporal_store
 entry:
@@ -64,8 +64,8 @@ loop:
   %index = phi i64 [ 0, %entry ], [ %index.next, %loop.latch ], [ %index.next, %loop ]
   %index.next = add i64 %index, 1
   %splat = insertelement <8 x i64> zeroinitializer, i64 %index, i32 0
-  %addr = getelementptr inbounds <8 x i64>, <8 x i64>* %dest, i64 %index
-  store <8 x i64> %splat, <8 x i64>* %addr, align 16, !nontemporal !0
+  %addr = getelementptr inbounds <8 x i64>, ptr %dest, i64 %index
+  store <8 x i64> %splat, ptr %addr, align 16, !nontemporal !0
   %if.test = icmp eq i64 %index, %N
   br i1 %if.test, label %loop, label %loop.latch
 

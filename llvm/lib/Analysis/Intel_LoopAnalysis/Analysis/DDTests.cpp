@@ -5960,7 +5960,10 @@ bool DDTest::adjustDVforIVDEP(Dependences &Result, bool SameBase) {
   // to be supported. But multiple levels vectorization is not
   // currently generated
   for (; II >= 1; --II, Lp = Lp->getParentLoop()) {
-    if (Lp && Lp->hasVectorizeIVDepPragma()) {
+    if (!Lp)
+      break;
+
+    if (Lp->hasVectorizeIVDepPragma()) {
       IVDEPFound = true;
       if (!SameBase) {
         // Do not change the result if it was already better than '='

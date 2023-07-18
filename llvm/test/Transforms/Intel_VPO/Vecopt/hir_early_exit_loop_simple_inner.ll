@@ -1,7 +1,7 @@
 ; Test to verify that HIRParVecAnalysis and VPlan HIR vectorizer can handle
 ; simple early exit loops that are nested inside an outer loop.
 
-; RUN: opt %s -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -print-before=hir-vplan-vec -vplan-enable-early-exit-loops -disable-vplan-predicator -disable-output 2>&1 | FileCheck %s
+; RUN: opt %s -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -print-before=hir-vplan-vec -vplan-enable-early-exit-loops -disable-output 2>&1 | FileCheck %s
 
 ; CHECK:  BEGIN REGION { }
 ; CHECK:        + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>  <LEGAL_MAX_TC = 2147483647>
