@@ -2,7 +2,7 @@
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Should not convert: store is in an if statement.
-define void @example(<8 x i64>* %dest) "target-features"="+avx512f" {
+define void @example(ptr %dest) "target-features"="+avx512f" {
 ; CHECK-LABEL: @example(
 ; CHECK-NOT: call void @__libirc_nontemporal_store
 entry:
@@ -16,8 +16,8 @@ loop:
 
 loop.if:
   %splat = insertelement <8 x i64> zeroinitializer, i64 %index, i32 0
-  %addr = getelementptr inbounds <8 x i64>, <8 x i64>* %dest, i64 %index
-  store <8 x i64> %splat, <8 x i64>* %addr, align 16, !nontemporal !0
+  %addr = getelementptr inbounds <8 x i64>, ptr %dest, i64 %index
+  store <8 x i64> %splat, ptr %addr, align 16, !nontemporal !0
   br label %loop.latch
 
 loop.latch:
@@ -29,7 +29,7 @@ exit:
 }
 
 ; Should convert: store is not in an if statement.
-define void @example2(<8 x i64>* %dest) "target-features"="+avx512f" {
+define void @example2(ptr %dest) "target-features"="+avx512f" {
 ; CHECK-LABEL: @example2(
 ; CHECK: call void @__libirc_nontemporal_store
 entry:
@@ -46,8 +46,8 @@ loop.if:
 
 loop.latch:
   %splat = insertelement <8 x i64> zeroinitializer, i64 %index, i32 0
-  %addr = getelementptr inbounds <8 x i64>, <8 x i64>* %dest, i64 %index
-  store <8 x i64> %splat, <8 x i64>* %addr, align 16, !nontemporal !0
+  %addr = getelementptr inbounds <8 x i64>, ptr %dest, i64 %index
+  store <8 x i64> %splat, ptr %addr, align 16, !nontemporal !0
   %cond = icmp eq i64 %index, 10000
   br i1 %cond, label %exit, label %loop
 
@@ -56,7 +56,7 @@ exit:
 }
 
 ; Should not convert: exiting block is in an if statement.
-define void @example3(<8 x i64>* %dest) "target-features"="+avx512f" {
+define void @example3(ptr %dest) "target-features"="+avx512f" {
 ; CHECK-LABEL: @example3(
 ; CHECK-NOT: call void @__libirc_nontemporal_store
 entry:
@@ -74,8 +74,8 @@ loop.if:
 
 loop.latch:
   %splat = insertelement <8 x i64> zeroinitializer, i64 %index, i32 0
-  %addr = getelementptr inbounds <8 x i64>, <8 x i64>* %dest, i64 %index
-  store <8 x i64> %splat, <8 x i64>* %addr, align 16, !nontemporal !0
+  %addr = getelementptr inbounds <8 x i64>, ptr %dest, i64 %index
+  store <8 x i64> %splat, ptr %addr, align 16, !nontemporal !0
   br label %loop
 
 exit:
@@ -83,7 +83,7 @@ exit:
 }
 
 ; Should convert: exiting block not in if statement (dominates latch).
-define void @example4(<8 x i64>* %dest) "target-features"="+avx512f" {
+define void @example4(ptr %dest) "target-features"="+avx512f" {
 ; CHECK-LABEL: @example4(
 ; CHECK: call void @__libirc_nontemporal_store
 entry:
@@ -97,8 +97,8 @@ loop:
 
 loop.latch:
   %splat = insertelement <8 x i64> zeroinitializer, i64 %index, i32 0
-  %addr = getelementptr inbounds <8 x i64>, <8 x i64>* %dest, i64 %index
-  store <8 x i64> %splat, <8 x i64>* %addr, align 16, !nontemporal !0
+  %addr = getelementptr inbounds <8 x i64>, ptr %dest, i64 %index
+  store <8 x i64> %splat, ptr %addr, align 16, !nontemporal !0
   br label %loop
 
 exit:
