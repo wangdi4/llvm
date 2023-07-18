@@ -16858,8 +16858,6 @@ ExprResult Sema::ActOnAddrLabel(SourceLocation OpLoc, SourceLocation LabLoc,
 
 void Sema::ActOnStartStmtExpr() {
   PushExpressionEvaluationContext(ExprEvalContexts.back().Context);
-  // Make sure we diagnose jumping into a statement expression.
-  setFunctionHasBranchProtectedScope();
 }
 
 void Sema::ActOnStmtExprError() {
