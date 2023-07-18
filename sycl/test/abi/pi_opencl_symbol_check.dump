@@ -34,6 +34,7 @@ piQueueCreate
 piQueueGetInfo
 piSamplerCreate
 piTearDown
+<<<<<<< HEAD
 piclProgramCreateWithSource
 piextCommandBufferCreate
 piextCommandBufferFinalize
@@ -47,6 +48,8 @@ piextCommandBufferMemcpyUSM
 piextCommandBufferNDRangeKernel
 piextCommandBufferRelease
 piextCommandBufferRetain
+=======
+>>>>>>> 8cd9e6a9e28d32d1efb58ce77ce0c5375d3b426b
 piextContextCreateWithNativeHandle
 piextContextGetNativeHandle
 piextDeviceCreateWithNativeHandle
