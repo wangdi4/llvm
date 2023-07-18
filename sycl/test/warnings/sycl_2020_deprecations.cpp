@@ -170,14 +170,6 @@ int main() {
   auto SL = sycl::INTEL::source_language::opencl_c;
   (void)SL;
 
-<<<<<<< HEAD
-=======
-  sycl::half Val = 1.0f;
-  // expected-warning@+1{{'bit_cast<unsigned short, sycl::detail::half_impl::half>' is deprecated: use 'sycl::bit_cast' instead}}
-  auto BitCastRes = sycl::detail::bit_cast<unsigned short>(Val);
-  (void)BitCastRes;
-
->>>>>>> 1550ffe0bb29b635ba7b9589c7891f8560f7b722
   // expected-warning@+1{{'submit_barrier' is deprecated: use 'ext_oneapi_submit_barrier' instead}}
   Queue.submit_barrier();
 

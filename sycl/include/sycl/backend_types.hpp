@@ -26,10 +26,7 @@ enum class backend : char {
   all = 4,
   ext_intel_esimd_emulator = 5,
   ext_oneapi_hip = 6,
-<<<<<<< HEAD
   ext_native_cpu = 7,
-=======
->>>>>>> 1550ffe0bb29b635ba7b9589c7891f8560f7b722
 };
 
 template <backend Backend> class backend_traits;
