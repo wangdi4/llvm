@@ -4706,7 +4706,6 @@ private:
       resetUnscheduledDeps();
       MemoryDependencies.clear();
       ControlDependencies.clear();
-      UpdateDependencies = false; // INTEL
     }
 
     int unscheduledDepsInBundle() const {
@@ -4797,12 +4796,6 @@ private:
     /// True if this instruction is scheduled (or considered as scheduled in the
     /// dry-run).
     bool IsScheduled = false;
-#if INTEL_CUSTOMIZATION
-
-    /// True means we need to recalculate dependencies after Multi-Node
-    /// reordering (which may change def-use chains).
-    bool UpdateDependencies = false;
-#endif // INTEL_CUSTOMIZATION
   };
 
 #ifndef NDEBUG
@@ -5098,6 +5091,13 @@ private:
     std::optional<ScheduleData *>
     tryScheduleBundle(ArrayRef<Value *> VL, BoUpSLP *SLP,
                       const InstructionsState &S);
+
+#if INTEL_CUSTOMIZATION
+    /// Multi-node reordering may affect def-use chain and if scheduler's ready
+    /// list does have instructions which were afftected by reordering, reset
+    /// scheduler state to force recalculation of dependencies.
+    void updateSchedulerAfterMultiNodeReordering(BoUpSLP *SLP);
+#endif // INTEL_CUSTOMIZATION
 
     /// Un-bundles a group of instructions.
     void cancelScheduling(ArrayRef<Value *> VL, Value *OpValue);
@@ -6661,8 +6661,10 @@ void BoUpSLP::buildMultiNode_rec(ArrayRef<Value *> VL, TreeEntry *TE,
                                  unsigned Depth, const EdgeInfo &UserTreeIdx,
                                  BoUpSLP::BlockScheduling &BS) {
   // If we are building a new multinode, TE is the root entry.
-  if (CurrMultiNode.numOfTrunks() == 0)
+  if (CurrMultiNode.numOfTrunks() == 0) {
+    LLVM_DEBUG(dbgs() << "SLP: begin MultiNode.\n");
     CurrMultiNode.init(TE);
+  }
   // Add a new entry to the multinode under construction.
   CurrMultiNode.appendTrunk(TE->Idx);
 
@@ -6721,7 +6723,9 @@ void BoUpSLP::buildMultiNode_rec(ArrayRef<Value *> VL, TreeEntry *TE,
   // We've just built a MultiNode if we have a non-empty multinode
   // and we are back at the root.
   if (CurrMultiNode.numOfTrunks() > 0 && TE == CurrMultiNode.getRoot()) {
-    SmallVector<unsigned,2> VisitingOrder;
+    LLVM_DEBUG(dbgs() << "SLP: built MultiNode of size "
+                      << CurrMultiNode.numOfTrunks() << ".\n");
+    SmallVector<unsigned, 2> VisitingOrder;
     if (CurrMultiNode.reorderOperands(VisitingOrder)) {
       // We update the operands of the TreeEntries
       // and set opcode override vector (if needed)
@@ -6744,6 +6748,11 @@ void BoUpSLP::buildMultiNode_rec(ArrayRef<Value *> VL, TreeEntry *TE,
         CurrMultiNode.dumpDot();
 #endif
     }
+    // Block scheduler could speculatively put bundles in ready list, but
+    // reordering across instructions can affect dependency list and hence make
+    // scheduler state stale. In this case we reset schedule and re-run it for
+    // the block.
+    BS.updateSchedulerAfterMultiNodeReordering(this);
 
     // Recursion should continue without any active Multinode.
     CurrMultiNode.lock();
@@ -13540,14 +13549,6 @@ BoUpSLP::BlockScheduling::tryScheduleBundle(ArrayRef<Value *> VL, BoUpSLP *SLP,
     // whole bundle might not be ready.
     ReadyInsts.remove(BundleMember);
 
-#if INTEL_CUSTOMIZATION
-    // We need to force recalculation of dependencies as a bundle member could
-    // be scheduled as a single instruction before MultiNode reordering has been
-    // done. The reordering may invalidate dependencies.
-    if (!BundleMember->IsScheduled && BundleMember->hasValidDependencies() &&
-        !SLP->getDefUseOverride(BundleMember->Inst).empty())
-      BundleMember->UpdateDependencies = true;
-#endif // INTEL_CUSTOMIZATION
     if (!BundleMember->IsScheduled)
       continue;
     // A bundle member was scheduled as single instruction before and now
@@ -13566,6 +13567,29 @@ BoUpSLP::BlockScheduling::tryScheduleBundle(ArrayRef<Value *> VL, BoUpSLP *SLP,
   }
   return Bundle;
 }
+
+#if INTEL_CUSTOMIZATION
+void BoUpSLP::BlockScheduling::updateSchedulerAfterMultiNodeReordering(
+    BoUpSLP *SLP) {
+
+  if (ReadyInsts.empty() || all_of(ReadyInsts, [SLP](ScheduleData *SD) {
+        if (!SLP->getDefUseOverride(SD->Inst).empty()) {
+          assert(!SD->isPartOfBundle() && "Expected single instruction.");
+          return false;
+        }
+        return true;
+      }))
+    return;
+
+  // Reset scheduler as ready instructions changed their users after they have
+  // been placed to ready-list. We need to recalculate dependencies.
+  LLVM_DEBUG(dbgs() << "SLP: Reset scheduler due to MultiNode reordering.\n");
+
+  for (auto *I = ScheduleStart; I != ScheduleEnd; I = I->getNextNode())
+    doForAllOpcodes(I, [](ScheduleData *SD) { SD->clearDependencies(); });
+  resetSchedule();
+}
+#endif // INTEL_CUSTOMIZATION
 
 void BoUpSLP::BlockScheduling::cancelScheduling(ArrayRef<Value *> VL,
                                                 Value *OpValue) {
@@ -13759,15 +13783,6 @@ void BoUpSLP::BlockScheduling::calculateDependencies(ScheduleData *SD,
     for (ScheduleData *BundleMember = SD; BundleMember;
          BundleMember = BundleMember->NextInBundle) {
       assert(isInSchedulingRegion(BundleMember));
-#if INTEL_CUSTOMIZATION
-      bool UpdateDependencies = BundleMember->UpdateDependencies;
-      BundleMember->UpdateDependencies = false;
-      if (UpdateDependencies)
-        LLVM_DEBUG(
-            dbgs()
-            << "SLP:       force update deps after MultiNode reordering.\n ");
-      else
-#endif // INTEL_CUSTOMIZATION
       if (BundleMember->hasValidDependencies())
         continue;
 
@@ -13918,21 +13933,13 @@ void BoUpSLP::BlockScheduling::calculateDependencies(ScheduleData *SD,
           // balance between reduced runtime and accurate dependencies.
           numAliased++;
 
-#if INTEL_CUSTOMIZATION
-          // When we update def-use dependencies we don't need to collect
-          // memory dependencies again.
-          if (!UpdateDependencies)
-            DepDest->MemoryDependencies.push_back(BundleMember);
-#endif // INTEL_CUSTOMIZATION
+          DepDest->MemoryDependencies.push_back(BundleMember);
           BundleMember->Dependencies++;
           ScheduleData *DestBundle = DepDest->FirstInBundle;
           if (!DestBundle->IsScheduled) {
             BundleMember->incrementUnscheduledDeps(1);
           }
-#if INTEL_CUSTOMIZATION
-          if (!DestBundle->hasValidDependencies() ||
-              DestBundle->UpdateDependencies) {
-#endif // INTEL_CUSTOMIZATION
+          if (!DestBundle->hasValidDependencies()) {
             WorkList.push_back(DestBundle);
           }
         }
