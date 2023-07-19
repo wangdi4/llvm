@@ -11128,6 +11128,7 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
         ",+SPV_INTEL_fpga_buffer_location"
         ",+SPV_INTEL_fpga_argument_interfaces"
         ",+SPV_INTEL_fpga_invocation_pipelining_attributes"
+<<<<<<< HEAD
         ",+SPV_INTEL_task_sequence"; // INTEL
 
 #if INTEL_CUSTOMIZATION
@@ -11136,6 +11137,9 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
       INTELExtArg += ",+SPV_INTEL_optnone";
     }
 #endif // INTEL_CUSTOMIZATION
+=======
+        ",+SPV_INTEL_fpga_latency_control";
+>>>>>>> 1aabcf8eb9eda4ed221e74d4d587dc1afdd953af
     ExtArg = ExtArg + DefaultExtArg + INTELExtArg;
     if (C.getDriver().IsFPGAHWMode()) { // INTEL
       // Enable several extensions on FPGA H/W exclusively
