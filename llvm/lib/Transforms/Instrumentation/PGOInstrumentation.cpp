@@ -128,11 +128,7 @@
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Instrumentation/BlockCoverageInference.h"
 #include "llvm/Transforms/Instrumentation/CFGMST.h"
-<<<<<<< HEAD
 #include "llvm/Transforms/Instrumentation/MemProfiler.h"
-#include "llvm/Transforms/Instrumentation/Intel_MLPGO/ExtractFeatures.h" // INTEL
-=======
->>>>>>> 947b85a2ab0460febc21f8ea588b179a3a7295af
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/MisExpect.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
