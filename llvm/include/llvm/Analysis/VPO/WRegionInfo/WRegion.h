@@ -1920,6 +1920,7 @@ private:
   PrivateClause Priv;
   FirstprivateClause Fpriv;
   ReductionClause Reduction;
+  AllocateClause Alloc;
   bool Nowait = false;
 
 public:
@@ -1932,6 +1933,7 @@ public:
   DEFINE_GETTER(PrivateClause,      getPriv,     Priv)
   DEFINE_GETTER(FirstprivateClause, getFpriv,    Fpriv)
   DEFINE_GETTER(ReductionClause,    getRed,      Reduction)
+  DEFINE_GETTER(AllocateClause, getAllocate, Alloc)
   bool getNowait() const override { return Nowait; }
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                   unsigned Verbosity=1) const override;

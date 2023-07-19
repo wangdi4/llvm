@@ -2807,6 +2807,7 @@ bool WRegionNode::canHaveAllocate() const {
   case WRNSections:
   case WRNDistribute:
   case WRNSingle:
+  case WRNScope:
     return true;
   }
   return false;
