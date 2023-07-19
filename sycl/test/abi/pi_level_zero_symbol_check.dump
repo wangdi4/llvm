@@ -99,6 +99,8 @@ piextContextSetExtendedDeleter
 piextDeviceCreateWithNativeHandle
 piextDeviceGetNativeHandle
 piextDeviceSelectBinary
+piextDisablePeerAccess
+piextEnablePeerAccess
 piextEnqueueCommandBuffer
 piextEnqueueReadHostPipe
 piextEnqueueWriteHostPipe
@@ -113,6 +115,7 @@ piextKernelSetArgSampler
 piextMemCreateWithNativeHandle
 piextMemGetNativeHandle
 piextMemImageCreateWithNativeHandle
+piextPeerAccessGetInfo
 piextPlatformCreateWithNativeHandle
 piextPlatformGetNativeHandle
 piextPluginGetOpaqueData
@@ -134,6 +137,3 @@ piextUSMFree
 piextUSMGetMemAllocInfo
 piextUSMHostAlloc
 piextUSMSharedAlloc
-piextEnablePeerAccess
-piextDisablePeerAccess
-piextPeerAccessGetInfo
