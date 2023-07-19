@@ -18,7 +18,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @f = local_unnamed_addr global [1000 x float] zeroinitializer, align 16
 
 ; Function Attrs: norecurse nounwind readonly uwtable
-define i32 @_Z3subPiiii(i32* nocapture readonly %a, i32 %n1, i32 %n2, i32 %n3) local_unnamed_addr #0 {
+define i32 @_Z3subPiiii(ptr nocapture readonly %a, i32 %n1, i32 %n2, i32 %n3) local_unnamed_addr #0 {
 entry:
   %cmp30 = icmp sgt i32 %n1, 0
   br i1 %cmp30, label %for.body.preheader, label %for.cond.cleanup
@@ -45,18 +45,18 @@ for.body:                                         ; preds = %for.body.preheader,
   %s2.033 = phi float [ %sub11, %for.body ], [ 0.000000e+00, %for.body.preheader ]
   %s1.032 = phi float [ %sub3, %for.body ], [ 0.000000e+00, %for.body.preheader ]
   %s.031 = phi i32 [ %sub, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !1
   %sub = sub nsw i32 %0, %s.031
-  %arrayidx2 = getelementptr inbounds [1000 x float], [1000 x float]* @d, i64 0, i64 %indvars.iv
-  %1 = load float, float* %arrayidx2, align 4, !tbaa !5
+  %arrayidx2 = getelementptr inbounds [1000 x float], ptr @d, i64 0, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx2, align 4, !tbaa !5
   %sub3 = fsub float %1, %s1.032
   %add = fadd float %s2.033, %1
-  %arrayidx7 = getelementptr inbounds [1000 x float], [1000 x float]* @e, i64 0, i64 %indvars.iv
-  %2 = load float, float* %arrayidx7, align 4, !tbaa !5
+  %arrayidx7 = getelementptr inbounds [1000 x float], ptr @e, i64 0, i64 %indvars.iv
+  %2 = load float, ptr %arrayidx7, align 4, !tbaa !5
   %sub8 = fsub float %2, %add
-  %arrayidx10 = getelementptr inbounds [1000 x float], [1000 x float]* @f, i64 0, i64 %indvars.iv
-  %3 = load float, float* %arrayidx10, align 4, !tbaa !5
+  %arrayidx10 = getelementptr inbounds [1000 x float], ptr @f, i64 0, i64 %indvars.iv
+  %3 = load float, ptr %arrayidx10, align 4, !tbaa !5
   %sub11 = fsub float %3, %sub8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count

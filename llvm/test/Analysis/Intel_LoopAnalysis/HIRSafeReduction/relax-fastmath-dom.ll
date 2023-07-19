@@ -27,8 +27,8 @@ entry:
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %sum.07 = phi float [ 0.0, %entry ], [ %add, %for.body ]
-  %arrayidx = getelementptr inbounds [1024 x float], [1024 x float]* @arr, i64 0, i64 %indvars.iv
-  %0 = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [1024 x float], ptr @arr, i64 0, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx, align 4
   %add = fadd reassoc float %0, %sum.07
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024

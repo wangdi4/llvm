@@ -22,8 +22,8 @@ entry:
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %j.07 = phi i32 [ 1, %entry ], [ %mul, %for.body ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !1
   %mul = mul nsw i32 %0, %j.07
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100
@@ -35,10 +35,10 @@ for.end:                                          ; preds = %for.body
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { norecurse nounwind readonly uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

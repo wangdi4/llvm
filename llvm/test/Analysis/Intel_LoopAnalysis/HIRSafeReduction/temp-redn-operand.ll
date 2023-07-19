@@ -19,17 +19,17 @@ target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"
 target triple = "i386-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind readonly
-define float @foo(float* nocapture readonly %A, float* nocapture readonly %B) local_unnamed_addr #0 {
+define float @foo(ptr nocapture readonly %A, ptr nocapture readonly %B) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %i.010 = phi i32 [ 0, %entry ], [ %inc, %for.body ]
   %t2.09 = phi float [ undef, %entry ], [ %add, %for.body ]
-  %arrayidx = getelementptr inbounds float, float* %A, i32 %i.010
-  %0 = load float, float* %arrayidx, align 4, !tbaa !1
-  %arrayidx1 = getelementptr inbounds float, float* %B, i32 %i.010
-  %1 = load float, float* %arrayidx1, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds float, ptr %A, i32 %i.010
+  %0 = load float, ptr %arrayidx, align 4, !tbaa !1
+  %arrayidx1 = getelementptr inbounds float, ptr %B, i32 %i.010
+  %1 = load float, ptr %arrayidx1, align 4, !tbaa !1
   %mul = fmul float %0, %1
   %add = fadd float %mul, %t2.09
   %inc = add nuw nsw i32 %i.010, 1
@@ -42,10 +42,10 @@ for.end:                                          ; preds = %for.body
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { norecurse nounwind readonly "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="pentium4" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }
