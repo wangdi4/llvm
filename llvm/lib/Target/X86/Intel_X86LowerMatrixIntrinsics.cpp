@@ -227,7 +227,7 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixLoad(IntrinsicInst *II) {
   Type *MatrixElemType = MatrixType->getElementType();
   int64_t Factor = 1;
   int64_t SizeFactor = 1;
-  if (MatrixElemType->isIntegerTy(16))
+  if ((MatrixElemType->isIntegerTy(16) || MatrixElemType->isHalfTy()))
     SizeFactor = 2;
   else if (MatrixElemType->isFloatTy() || MatrixElemType->isIntegerTy(32))
     SizeFactor = 4;
@@ -251,7 +251,7 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixLoad(IntrinsicInst *II) {
       MatrixElemType->isIntegerTy(8))
     Factor = 4;
   else if (isMatBPacked(MatUse, MemLayout, MatLayout) &&
-           MatrixElemType->isIntegerTy(16))
+           (MatrixElemType->isIntegerTy(16) || MatrixElemType->isHalfTy()))
     Factor = 2;
   else if (isMatARowmajor(MatUse, MemLayout, MatLayout) ||
            isMatCRowmajor(MatUse, MemLayout, MatLayout) ||
@@ -334,7 +334,7 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixStore(IntrinsicInst *II) {
   int64_t Factor = 1;
   int64_t SizeFactor = 1;
   // FIXME: SizeFactor = MatrixElemType->getScalarSizeInBits()/8?
-  if (MatrixElemType->isIntegerTy(16))
+  if ((MatrixElemType->isIntegerTy(16) || MatrixElemType->isHalfTy()))
     SizeFactor = 2;
   else if (MatrixElemType->isFloatTy() || MatrixElemType->isIntegerTy(32))
     SizeFactor = 4;
@@ -357,7 +357,7 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixStore(IntrinsicInst *II) {
       MatrixElemType->isIntegerTy(8))
     Factor = 4;
   else if (isMatBPacked(MatUse, MemLayout, MatLayout) &&
-           MatrixElemType->isIntegerTy(16))
+           (MatrixElemType->isIntegerTy(16) || MatrixElemType->isHalfTy()))
     Factor = 2;
   else if (isMatARowmajor(MatUse, MemLayout, MatLayout) ||
            isMatCRowmajor(MatUse, MemLayout, MatLayout))
@@ -445,6 +445,10 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixMad(IntrinsicInst *II) {
     } else if (SrcMatrixElemType->isIntegerTy(8) &&
                DstMatrixElemType->isIntegerTy(32)) {
       IID = Intrinsic::x86_tdpbssd_internal;
+    } else if (SrcMatrixElemType->isHalfTy() &&
+               DstMatrixElemType->isFloatTy()) {
+      IID = Intrinsic::x86_tdpfp16ps_internal;
+      break;
     } else {
       report_fatal_error("unsupported Matrix type of matrix.mad!");
     }
@@ -638,7 +642,7 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixFill(IntrinsicInst *II) {
     report_fatal_error(Twine(OS.str()));
   }
 
-  if (MatrixElemType->isIntegerTy(16)) {
+  if ((MatrixElemType->isIntegerTy(16) || MatrixElemType->isHalfTy())) {
     SizeFactor = 2;
   } else if (MatrixElemType->isFloatTy() || MatrixElemType->isIntegerTy(32))
     SizeFactor = 4;
@@ -663,7 +667,7 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixFill(IntrinsicInst *II) {
     Factor = 4;
   else if ((cast<MDString>(MatUse)->getString().equals("matrix.use.b") ||
             cast<MDString>(MatLayout)->getString().equals("matrix.packed.b")) &&
-           MatrixElemType->isIntegerTy(16))
+           (MatrixElemType->isIntegerTy(16) || MatrixElemType->isHalfTy()))
     Factor = 2;
   else if (cast<MDString>(MatUse)->getString().equals("matrix.use.a") ||
            cast<MDString>(MatUse)->getString().equals(
