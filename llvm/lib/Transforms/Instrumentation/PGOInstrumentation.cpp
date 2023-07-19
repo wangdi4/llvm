@@ -121,22 +121,16 @@
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/GraphWriter.h"
-<<<<<<< HEAD
-=======
 #include "llvm/Support/HashBuilder.h"
 #include "llvm/Support/Process.h" // INTEL
->>>>>>> 3d2faf395d4e95c12a97e9efccca3ef3c298c536
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/TargetParser/Triple.h"
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Instrumentation/BlockCoverageInference.h"
 #include "llvm/Transforms/Instrumentation/CFGMST.h"
-<<<<<<< HEAD
 #include "llvm/Transforms/Instrumentation/MemProfiler.h"
-=======
 #include "llvm/Transforms/Instrumentation/Intel_MLPGO/ExtractFeatures.h" // INTEL
->>>>>>> 3d2faf395d4e95c12a97e9efccca3ef3c298c536
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/MisExpect.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
