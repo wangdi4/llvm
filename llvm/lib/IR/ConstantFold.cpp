@@ -2088,6 +2088,10 @@ Constant *llvm::ConstantFoldGetElementPtr(Type *PointeeTy, Constant *C,
       return Constant::getNullValue(GEPTy);
     }
   }
+<<<<<<< HEAD
+=======
+
+>>>>>>> 5c5709e78d39714d94ae7529daf99f57012c34ca
   if (ConstantExpr *CE = dyn_cast<ConstantExpr>(C)) {
     if (auto *GEP = dyn_cast<GEPOperator>(CE))
       if (Constant *C = foldGEPOfGEP(GEP, PointeeTy, InBounds, Idxs))
