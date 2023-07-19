@@ -10,7 +10,7 @@ define i32 @test8(i64 %res) nounwind {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    shrq $32, %rdi, %rcx # encoding: [0x62,0xf4,0xf4,0x18,0xc1,0xef,0x20]
 ; CHECK-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
-; CHECK-NEXT:    subl $3, %ecx, %ecx # encoding: [0x62,0xf4,0x74,0x18,0x83,0xe9,0x03]
+; CHECK-NEXT:    cmpl $3, %ecx # encoding: [0x83,0xf9,0x03]
 ; CHECK-NEXT:    setb %al # encoding: [0x0f,0x92,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %lnot = icmp ult i64 %res, 12884901888
@@ -23,7 +23,7 @@ define i32 @test11(i64 %l) nounwind {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    shrq $47, %rdi, %rcx # encoding: [0x62,0xf4,0xf4,0x18,0xc1,0xef,0x2f]
 ; CHECK-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
-; CHECK-NEXT:    subl $1, %ecx, %ecx # encoding: [0x62,0xf4,0x74,0x18,0x83,0xe9,0x01]
+; CHECK-NEXT:    cmpl $1, %ecx # encoding: [0x83,0xf9,0x01]
 ; CHECK-NEXT:    sete %al # encoding: [0x0f,0x94,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %shr.mask = and i64 %l, -140737488355328
@@ -39,7 +39,7 @@ define zeroext i1 @test15(i32 %bf.load, i32 %n) {
 ; CHECK-NEXT:    shrl $16, %edi, %eax # encoding: [0x62,0xf4,0x7c,0x18,0xc1,0xef,0x10]
 ; CHECK-NEXT:    testl %eax, %eax # encoding: [0x85,0xc0]
 ; CHECK-NEXT:    sete %cl # encoding: [0x0f,0x94,0xc1]
-; CHECK-NEXT:    subl %esi, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x29,0xf0]
+; CHECK-NEXT:    cmpl %esi, %eax # encoding: [0x39,0xf0]
 ; CHECK-NEXT:    setae %al # encoding: [0x0f,0x93,0xc0]
 ; CHECK-NEXT:    orb %al, %cl, %al # encoding: [0x62,0xf4,0x7c,0x18,0x08,0xc1]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
@@ -55,7 +55,7 @@ define zeroext i1 @test15(i32 %bf.load, i32 %n) {
 define i32 @pr42189(i16 signext %c) {
 ; CHECK-LABEL: pr42189:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    subl $32767, %edi, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x81,0xef,0xff,0x7f,0x00,0x00]
+; CHECK-NEXT:    cmpl $32767, %edi # encoding: [0x81,0xff,0xff,0x7f,0x00,0x00]
 ; CHECK-NEXT:    # imm = 0x7FFF
 ; CHECK-NEXT:    jne f@PLT # TAILCALL
 ; CHECK-NEXT:    # encoding: [0x75,A]
@@ -248,7 +248,7 @@ define zeroext i1 @adc(i128 %x) nounwind {
 define zeroext i1 @sbb(i128 %x, i128 %y) nounwind {
 ; CHECK-LABEL: sbb:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    subq %rdx, %rdi, %rax # encoding: [0x62,0xf4,0xfc,0x18,0x29,0xd7]
+; CHECK-NEXT:    cmpq %rdx, %rdi # encoding: [0x48,0x39,0xd7]
 ; CHECK-NEXT:    sbbq %rcx, %rsi, %rax # encoding: [0x62,0xf4,0xfc,0x18,0x19,0xce]
 ; CHECK-NEXT:    testq %rax, %rax # encoding: [0x48,0x85,0xc0]
 ; CHECK-NEXT:    setns %al # encoding: [0x0f,0x99,0xc0]

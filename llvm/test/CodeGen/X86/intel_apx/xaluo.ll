@@ -629,14 +629,14 @@ define i64 @uaddoselecti64(i64 %v1, i64 %v2) {
 define i32 @ssuboselecti32(i32 %v1, i32 %v2) {
 ; SDAG-LABEL: ssuboselecti32:
 ; SDAG:       ## %bb.0:
-; SDAG-NEXT:    subl %esi, %edi, %eax
+; SDAG-NEXT:    cmpl %esi, %edi
 ; SDAG-NEXT:    cmovol %edi, %esi, %eax
 ; SDAG-NEXT:    retq
 ;
 ; FAST-LABEL: ssuboselecti32:
 ; FAST:       ## %bb.0:
 ; FAST-NEXT:    movl %esi, %eax
-; FAST-NEXT:    subl %esi, %edi, %ecx
+; FAST-NEXT:    cmpl %esi, %edi
 ; FAST-NEXT:    cmovol %edi, %eax
 ; FAST-NEXT:    retq
   %t = call {i32, i1} @llvm.ssub.with.overflow.i32(i32 %v1, i32 %v2)
@@ -648,14 +648,14 @@ define i32 @ssuboselecti32(i32 %v1, i32 %v2) {
 define i64 @ssuboselecti64(i64 %v1, i64 %v2) {
 ; SDAG-LABEL: ssuboselecti64:
 ; SDAG:       ## %bb.0:
-; SDAG-NEXT:    subq %rsi, %rdi, %rax
+; SDAG-NEXT:    cmpq %rsi, %rdi
 ; SDAG-NEXT:    cmovoq %rdi, %rsi, %rax
 ; SDAG-NEXT:    retq
 ;
 ; FAST-LABEL: ssuboselecti64:
 ; FAST:       ## %bb.0:
 ; FAST-NEXT:    movq %rsi, %rax
-; FAST-NEXT:    subq %rsi, %rdi, %rcx
+; FAST-NEXT:    cmpq %rsi, %rdi
 ; FAST-NEXT:    cmovoq %rdi, %rax
 ; FAST-NEXT:    retq
   %t = call {i64, i1} @llvm.ssub.with.overflow.i64(i64 %v1, i64 %v2)
@@ -667,14 +667,14 @@ define i64 @ssuboselecti64(i64 %v1, i64 %v2) {
 define i32 @usuboselecti32(i32 %v1, i32 %v2) {
 ; SDAG-LABEL: usuboselecti32:
 ; SDAG:       ## %bb.0:
-; SDAG-NEXT:    subl %esi, %edi, %eax
+; SDAG-NEXT:    cmpl %esi, %edi
 ; SDAG-NEXT:    cmovbl %edi, %esi, %eax
 ; SDAG-NEXT:    retq
 ;
 ; FAST-LABEL: usuboselecti32:
 ; FAST:       ## %bb.0:
 ; FAST-NEXT:    movl %esi, %eax
-; FAST-NEXT:    subl %esi, %edi, %ecx
+; FAST-NEXT:    cmpl %esi, %edi
 ; FAST-NEXT:    cmovbl %edi, %eax
 ; FAST-NEXT:    retq
   %t = call {i32, i1} @llvm.usub.with.overflow.i32(i32 %v1, i32 %v2)
@@ -686,14 +686,14 @@ define i32 @usuboselecti32(i32 %v1, i32 %v2) {
 define i64 @usuboselecti64(i64 %v1, i64 %v2) {
 ; SDAG-LABEL: usuboselecti64:
 ; SDAG:       ## %bb.0:
-; SDAG-NEXT:    subq %rsi, %rdi, %rax
+; SDAG-NEXT:    cmpq %rsi, %rdi
 ; SDAG-NEXT:    cmovbq %rdi, %rsi, %rax
 ; SDAG-NEXT:    retq
 ;
 ; FAST-LABEL: usuboselecti64:
 ; FAST:       ## %bb.0:
 ; FAST-NEXT:    movq %rsi, %rax
-; FAST-NEXT:    subq %rsi, %rdi, %rcx
+; FAST-NEXT:    cmpq %rsi, %rdi
 ; FAST-NEXT:    cmovbq %rdi, %rax
 ; FAST-NEXT:    retq
   %t = call {i64, i1} @llvm.usub.with.overflow.i64(i64 %v1, i64 %v2)
@@ -860,7 +860,7 @@ continue:
 define zeroext i1 @ssubobri32(i32 %v1, i32 %v2) {
 ; SDAG-LABEL: ssubobri32:
 ; SDAG:       ## %bb.0:
-; SDAG-NEXT:    subl %esi, %edi, %eax
+; SDAG-NEXT:    cmpl %esi, %edi
 ; SDAG-NEXT:    jo LBB35_1
 ; SDAG-NEXT:  ## %bb.2: ## %continue
 ; SDAG-NEXT:    movb $1, %al
@@ -871,7 +871,7 @@ define zeroext i1 @ssubobri32(i32 %v1, i32 %v2) {
 ;
 ; FAST-LABEL: ssubobri32:
 ; FAST:       ## %bb.0:
-; FAST-NEXT:    subl %esi, %edi, %eax
+; FAST-NEXT:    cmpl %esi, %edi
 ; FAST-NEXT:    jo LBB35_1
 ; FAST-NEXT:  ## %bb.2: ## %continue
 ; FAST-NEXT:    movb $1, %al
@@ -898,7 +898,7 @@ continue:
 define zeroext i1 @ssubobri64(i64 %v1, i64 %v2) {
 ; SDAG-LABEL: ssubobri64:
 ; SDAG:       ## %bb.0:
-; SDAG-NEXT:    subq %rsi, %rdi, %rax
+; SDAG-NEXT:    cmpq %rsi, %rdi
 ; SDAG-NEXT:    jo LBB36_1
 ; SDAG-NEXT:  ## %bb.2: ## %continue
 ; SDAG-NEXT:    movb $1, %al
@@ -909,7 +909,7 @@ define zeroext i1 @ssubobri64(i64 %v1, i64 %v2) {
 ;
 ; FAST-LABEL: ssubobri64:
 ; FAST:       ## %bb.0:
-; FAST-NEXT:    subq %rsi, %rdi, %rax
+; FAST-NEXT:    cmpq %rsi, %rdi
 ; FAST-NEXT:    jo LBB36_1
 ; FAST-NEXT:  ## %bb.2: ## %continue
 ; FAST-NEXT:    movb $1, %al
@@ -936,7 +936,7 @@ continue:
 define zeroext i1 @usubobri32(i32 %v1, i32 %v2) {
 ; SDAG-LABEL: usubobri32:
 ; SDAG:       ## %bb.0:
-; SDAG-NEXT:    subl %esi, %edi, %eax
+; SDAG-NEXT:    cmpl %esi, %edi
 ; SDAG-NEXT:    jb LBB37_1
 ; SDAG-NEXT:  ## %bb.2: ## %continue
 ; SDAG-NEXT:    movb $1, %al
@@ -947,7 +947,7 @@ define zeroext i1 @usubobri32(i32 %v1, i32 %v2) {
 ;
 ; FAST-LABEL: usubobri32:
 ; FAST:       ## %bb.0:
-; FAST-NEXT:    subl %esi, %edi, %eax
+; FAST-NEXT:    cmpl %esi, %edi
 ; FAST-NEXT:    jb LBB37_1
 ; FAST-NEXT:  ## %bb.2: ## %continue
 ; FAST-NEXT:    movb $1, %al
@@ -974,7 +974,7 @@ continue:
 define zeroext i1 @usubobri64(i64 %v1, i64 %v2) {
 ; SDAG-LABEL: usubobri64:
 ; SDAG:       ## %bb.0:
-; SDAG-NEXT:    subq %rsi, %rdi, %rax
+; SDAG-NEXT:    cmpq %rsi, %rdi
 ; SDAG-NEXT:    jb LBB38_1
 ; SDAG-NEXT:  ## %bb.2: ## %continue
 ; SDAG-NEXT:    movb $1, %al
@@ -985,7 +985,7 @@ define zeroext i1 @usubobri64(i64 %v1, i64 %v2) {
 ;
 ; FAST-LABEL: usubobri64:
 ; FAST:       ## %bb.0:
-; FAST-NEXT:    subq %rsi, %rdi, %rax
+; FAST-NEXT:    cmpq %rsi, %rdi
 ; FAST-NEXT:    jb LBB38_1
 ; FAST-NEXT:  ## %bb.2: ## %continue
 ; FAST-NEXT:    movb $1, %al
