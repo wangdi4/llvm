@@ -29,13 +29,13 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @myred(i32* nocapture readonly %a, i32 %k, i32* nocapture %out, i32 %N) local_unnamed_addr #0 {
+define void @myred(ptr nocapture readonly %a, i32 %k, ptr nocapture %out, i32 %N) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
 for.cond.cleanup:                                 ; preds = %for.body
   %add1.lcssa = phi i32 [ %add1, %for.body ]
-  store i32 %add1.lcssa, i32* %out, align 4, !tbaa !2
+  store i32 %add1.lcssa, ptr %out, align 4, !tbaa !2
   ret void
 
 for.body:                                         ; preds = %for.body, %entry
@@ -43,8 +43,8 @@ for.body:                                         ; preds = %for.body, %entry
   %t.07 = phi i32 [ 1, %entry ], [ %add1, %for.body ]
   %div = udiv i32 %t.07, 3
   %add = add i32 %div, %k
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %add1 = add i32 %add, %0
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 40

@@ -1,4 +1,4 @@
-; RUN: opt -passes='default<O3>' -paropt=31 -disable-output -pass-remarks-analysis=openmp %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='default<O3>' -paropt=31 -disable-output -pass-remarks-analysis=openmp %s 2>&1 | FileCheck %s
 ;
 ; Test src:
 ;
@@ -30,29 +30,31 @@ target device_triples = "spir64"
 
 %struct.S = type { i32, i32, i32, i32, i32 }
 
-define dso_local void @_Z3barRK1S(ptr nonnull align 4 dereferenceable(20) %bbox) {
+define dso_local void @_Z3barRK1S(%struct.S* nonnull align 4 dereferenceable(20) %bbox) {
 entry:
-  %bbox.addr = alloca ptr, align 8
+  %bbox.addr = alloca %struct.S*, align 8
   %agg.tmp = alloca %struct.S, align 8
-  store ptr %bbox, ptr %bbox.addr, align 8
-  %0 = load ptr, ptr %bbox.addr, align 8
-  call void @llvm.memcpy.p0i8.p0i8.i64(ptr align 4 %agg.tmp, ptr align 4 %0, i64 20, i1 false)
-  call void @_Z3foo1S(ptr byval(%struct.S) align 8 %agg.tmp)
+  store %struct.S* %bbox, %struct.S** %bbox.addr, align 8
+  %0 = load %struct.S*, %struct.S** %bbox.addr, align 8
+  %1 = bitcast %struct.S* %agg.tmp to i8*
+  %2 = bitcast %struct.S* %0 to i8*
+  call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %1, i8* align 4 %2, i64 20, i1 false)
+  call void @_Z3foo1S(%struct.S* byval(%struct.S) align 8 %agg.tmp)
   ret void
 }
 
-declare dso_local void @_Z3foo1S(ptr byval(%struct.S) align 8)
+declare dso_local void @_Z3foo1S(%struct.S* byval(%struct.S) align 8)
 
-declare void @llvm.memcpy.p0i8.p0i8.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg)
+declare void @llvm.memcpy.p0i8.p0i8.i64(i8* noalias nocapture writeonly, i8* noalias nocapture readonly, i64, i1 immarg)
 
 define dso_local void @_Z4testv() "may-have-openmp-directive"="true" {
 entry:
   %bbox = alloca %struct.S, align 4
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
     "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
-    "QUAL.OMP.MAP.TOFROM"(ptr %bbox, ptr %bbox, i64 20, i64 547, ptr null, ptr null) ] ; MAP type: 547 = 0x223 = IMPLICIT (0x200) | TARGET_PARAM (0x20) | FROM (0x2) | TO (0x1)
+    "QUAL.OMP.MAP.TOFROM"(%struct.S* %bbox, %struct.S* %bbox, i64 20, i64 547, i8* null, i8* null) ] ; MAP type: 547 = 0x223 = IMPLICIT (0x200) | TARGET_PARAM (0x20) | FROM (0x2) | TO (0x1)
 
-  call void @_Z3barRK1S(ptr nonnull align 4 dereferenceable(20) %bbox)
+  call void @_Z3barRK1S(%struct.S* nonnull align 4 dereferenceable(20) %bbox)
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
 
   ret void

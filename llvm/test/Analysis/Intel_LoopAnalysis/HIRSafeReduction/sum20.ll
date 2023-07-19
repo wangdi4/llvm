@@ -16,7 +16,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @e = local_unnamed_addr global [1000 x float] zeroinitializer, align 16
 
 ; Function Attrs: norecurse nounwind readonly uwtable
-define i32 @_Z3subPiiii(i32* nocapture readonly %a, i32 %n1, i32 %n2, i32 %n3) local_unnamed_addr #0 {
+define i32 @_Z3subPiiii(ptr nocapture readonly %a, i32 %n1, i32 %n2, i32 %n3) local_unnamed_addr #0 {
 entry:
   %cmp25 = icmp sgt i32 %n1, 0
   br i1 %cmp25, label %for.body.preheader, label %for.cond.cleanup
@@ -43,15 +43,15 @@ for.body:                                         ; preds = %for.body.preheader,
   %s2.028 = phi float [ %sub9, %for.body ], [ 0.000000e+00, %for.body.preheader ]
   %s1.027 = phi float [ %sub3, %for.body ], [ 0.000000e+00, %for.body.preheader ]
   %s.026 = phi i32 [ %sub, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !1
   %sub = sub nsw i32 %0, %s.026
-  %arrayidx2 = getelementptr inbounds [1000 x float], [1000 x float]* @d, i64 0, i64 %indvars.iv
-  %1 = load float, float* %arrayidx2, align 4, !tbaa !5
+  %arrayidx2 = getelementptr inbounds [1000 x float], ptr @d, i64 0, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx2, align 4, !tbaa !5
   %sub3 = fsub float %1, %s1.027
   %sub6 = fsub float %1, %s2.028
-  %arrayidx8 = getelementptr inbounds [1000 x float], [1000 x float]* @e, i64 0, i64 %indvars.iv
-  %2 = load float, float* %arrayidx8, align 4, !tbaa !5
+  %arrayidx8 = getelementptr inbounds [1000 x float], ptr @e, i64 0, i64 %indvars.iv
+  %2 = load float, ptr %arrayidx8, align 4, !tbaa !5
   %sub9 = fsub float %2, %sub6
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count

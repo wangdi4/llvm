@@ -13,7 +13,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define i32 @foo(i32* nocapture %A, i32* nocapture %B, i32 %a, i32 %b, i32 %n) {
+define i32 @foo(ptr nocapture %A, ptr nocapture %B, i32 %a, i32 %b, i32 %n) {
 entry:
   %cmp13 = icmp sgt i32 %n, 0
   br i1 %cmp13, label %for.body.preheader, label %for.end
@@ -31,16 +31,16 @@ for.body:                                         ; preds = %for.body.preheader,
 
 if.then:                                          ; preds = %for.body
   %inc = add nsw i32 %a.addr.014, 1
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  store i32 %inc, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  store i32 %inc, ptr %arrayidx, align 4
   %output.1.in = bitcast i32 %a.addr.014.out to i32, !in.de.ssa !1
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %for.body
   %a.addr.1 = phi i32 [ %inc, %if.then ], [ %a.addr.014, %for.body ]
   %output.1 = phi i32 [ %a.addr.014.out, %if.then ], [ %b, %for.body ], !in.de.ssa !1
-  %arrayidx3 = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  store i32 %output.1, i32* %arrayidx3, align 4
+  %arrayidx3 = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  store i32 %output.1, ptr %arrayidx3, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, %n

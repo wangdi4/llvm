@@ -17,7 +17,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @a = common global [10000 x float] zeroinitializer, align 16
 
 ; Function Attrs: norecurse nounwind uwtable
-define i32 @sub(i64 %n, i64 %n2, i64 %n3, float* nocapture %sum1, float* nocapture %sum2) #0 {
+define i32 @sub(i64 %n, i64 %n2, i64 %n3, ptr nocapture %sum1, ptr nocapture %sum2) #0 {
 entry:
   %cmp17 = icmp sgt i64 %n, 0
   br i1 %cmp17, label %for.body, label %for.cond.cleanup
@@ -25,23 +25,23 @@ entry:
 for.cond.cleanup:                                 ; preds = %for.body, %entry
   %s2.0.lcssa = phi float [ 0.000000e+00, %entry ], [ %add, %for.body ]
   %s1.0.lcssa = phi float [ 0.000000e+00, %entry ], [ %add6, %for.body ]
-  store float %s1.0.lcssa, float* %sum1, align 4, !tbaa !1
-  store float %s2.0.lcssa, float* %sum2, align 4, !tbaa !1
+  store float %s1.0.lcssa, ptr %sum1, align 4, !tbaa !1
+  store float %s2.0.lcssa, ptr %sum2, align 4, !tbaa !1
   ret i32 0
 
 for.body:                                         ; preds = %entry, %for.body
   %i.020 = phi i64 [ %add3, %for.body ], [ 0, %entry ]
   %s2.019 = phi float [ %add, %for.body ], [ 0.000000e+00, %entry ]
   %s1.018 = phi float [ %add6, %for.body ], [ 0.000000e+00, %entry ]
-  %arrayidx = getelementptr inbounds [10000 x float], [10000 x float]* @b, i64 0, i64 %i.020
-  %0 = load float, float* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds [10000 x float], ptr @b, i64 0, i64 %i.020
+  %0 = load float, ptr %arrayidx, align 4, !tbaa !1
   %add = fadd float %s2.019, %0
-  %arrayidx1 = getelementptr inbounds [10000 x float], [10000 x float]* @a, i64 0, i64 %i.020
-  %1 = load float, float* %arrayidx1, align 4, !tbaa !1
+  %arrayidx1 = getelementptr inbounds [10000 x float], ptr @a, i64 0, i64 %i.020
+  %1 = load float, ptr %arrayidx1, align 4, !tbaa !1
   %add2 = fadd float %s1.018, %1
   %add3 = add nuw nsw i64 %i.020, 1
-  %arrayidx4 = getelementptr inbounds [10000 x float], [10000 x float]* @a, i64 0, i64 %add3
-  %2 = load float, float* %arrayidx4, align 4, !tbaa !1
+  %arrayidx4 = getelementptr inbounds [10000 x float], ptr @a, i64 0, i64 %add3
+  %2 = load float, ptr %arrayidx4, align 4, !tbaa !1
   %add5 = fadd float %2, 1.000000e+00
   %add6 = fadd float %add2, %add5
   %exitcond = icmp eq i64 %add3, %n

@@ -24,15 +24,15 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind readonly uwtable
-define i32 @foo(i32* nocapture readonly %A, i32 %k) local_unnamed_addr #0 {
+define i32 @foo(ptr nocapture readonly %A, i32 %k) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %t.08 = phi i32 [ 0, %entry ], [ %add1, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %add = add i32 %t.08, %k
   %add1 = add i32 %add, %0
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1

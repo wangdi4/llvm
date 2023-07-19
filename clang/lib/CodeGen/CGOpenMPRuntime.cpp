@@ -11163,7 +11163,7 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
   }
 
 #if INTEL_COLLAB
-  int64_t VarSize;
+  int64_t VarSize = 0;
   StringRef VarName;
   std::string ItaniumMangledName;
   if ((*Res == OMPDeclareTargetDeclAttr::MT_To ||
