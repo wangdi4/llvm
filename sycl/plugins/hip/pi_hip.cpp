@@ -96,20 +96,7 @@ pi_result piPluginInit(pi_plugin *PluginInit) {
   _PI_CL(piextMemGetNativeHandle, pi2ur::piextMemGetNativeHandle)
   _PI_CL(piextMemCreateWithNativeHandle, pi2ur::piextMemCreateWithNativeHandle)
   // Program
-<<<<<<< HEAD
-  _PI_CL(piProgramCreate, hip_piProgramCreate)
-  _PI_CL(piProgramCreateWithBinary, hip_piProgramCreateWithBinary)
-  _PI_CL(piProgramGetInfo, hip_piProgramGetInfo)
-  _PI_CL(piProgramCompile, hip_piProgramCompile)
-  _PI_CL(piProgramBuild, hip_piProgramBuild)
-  _PI_CL(piProgramLink, hip_piProgramLink)
-  _PI_CL(piProgramGetBuildInfo, hip_piProgramGetBuildInfo)
-  _PI_CL(piProgramRetain, hip_piProgramRetain)
-  _PI_CL(piProgramRelease, hip_piProgramRelease)
-  _PI_CL(piextProgramGetNativeHandle, hip_piextProgramGetNativeHandle)
-=======
   _PI_CL(piProgramCreate, pi2ur::piProgramCreate)
-  _PI_CL(piclProgramCreateWithSource, pi2ur::piclProgramCreateWithSource)
   _PI_CL(piProgramCreateWithBinary, pi2ur::piProgramCreateWithBinary)
   _PI_CL(piProgramGetInfo, pi2ur::piProgramGetInfo)
   _PI_CL(piProgramCompile, pi2ur::piProgramCompile)
@@ -119,7 +106,6 @@ pi_result piPluginInit(pi_plugin *PluginInit) {
   _PI_CL(piProgramRetain, pi2ur::piProgramRetain)
   _PI_CL(piProgramRelease, pi2ur::piProgramRelease)
   _PI_CL(piextProgramGetNativeHandle, pi2ur::piextProgramGetNativeHandle)
->>>>>>> ba8c5c8595671bcedcec5f7454d0b72398e9dc4e
   _PI_CL(piextProgramCreateWithNativeHandle,
          pi2ur::piextProgramCreateWithNativeHandle)
   _PI_CL(piextProgramSetSpecializationConstant,
