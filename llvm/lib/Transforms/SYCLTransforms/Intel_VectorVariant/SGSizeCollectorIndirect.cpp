@@ -10,6 +10,7 @@
 
 #include "llvm/Transforms/SYCLTransforms/Intel_VectorVariant/SGSizeCollectorIndirect.h"
 #include "llvm/Analysis/CallGraph.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Transforms/SYCLTransforms/Utils/MetadataAPI.h"
