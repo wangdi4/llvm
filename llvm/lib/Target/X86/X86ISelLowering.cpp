@@ -24580,10 +24580,20 @@ SDValue X86TargetLowering::LowerTRUNCATE(SDValue Op, SelectionDAG &DAG) const {
   // If we're called by the type legalizer, handle a few cases.
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
   if (!TLI.isTypeLegal(InVT)) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    if ((InVT == MVT::v8i64 || InVT == MVT::v16i32 || InVT == MVT::v16i64) &&
+        VT.is128BitVector() && Subtarget.hasAVX3()) {
+      assert((InVT == MVT::v16i64 || Subtarget.hasVLX() ||
+              Subtarget.hasAVX256P()) &&
+             "Unexpected subtarget!");
+#else  // INTEL_FEATURE_ISA_AVX256P
     if ((InVT == MVT::v8i64 || InVT == MVT::v16i32 || InVT == MVT::v16i64) &&
         VT.is128BitVector() && Subtarget.hasAVX512()) {
       assert((InVT == MVT::v16i64 || Subtarget.hasVLX()) &&
              "Unexpected subtarget!");
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       // The default behavior is to truncate one step, concatenate, and then
       // truncate the remainder. We'd rather produce two 64-bit results and
       // concatenate those.
@@ -24599,7 +24609,13 @@ SDValue X86TargetLowering::LowerTRUNCATE(SDValue Op, SelectionDAG &DAG) const {
     }
 
     // Pre-AVX512 see if we can make use of PACKSS/PACKUS.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    if (!Subtarget.hasAVX3()) {
+#else  // INTEL_FEATURE_ISA_AVX256P
     if (!Subtarget.hasAVX512()) {
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
       if (SDValue SignPack =
               LowerTruncateVecPackWithSignBits(VT, In, DL, Subtarget, DAG))
         return SignPack;
