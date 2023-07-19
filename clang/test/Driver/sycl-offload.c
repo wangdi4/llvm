@@ -648,14 +648,13 @@
 // RUN: %clang_cl -### -fsycl  %s 2>&1 | FileCheck -check-prefix FSYCL-CHECK %s
 // FSYCL-CHECK: warning: treating 'c' input as 'c++' when -fsycl is used [-Wexpected-file-type]
 
-<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // -fsycl-targets=<triple>=<opts> usage should be supported
 // RUN: %clang -### -fsycl -fsycl-targets=spir64="-DFOO -DBAR -mllvm -dummy-opt" %s 2>&1 | FileCheck -check-prefix FSYCL-CHECK-TARGOPTS %s
 // RUN: %clang_cl -### -fsycl -fsycl-targets=spir64="-DFOO -DBAR -mllvm -dummy-opt" %s 2>&1 | FileCheck -check-prefix FSYCL-CHECK-TARGOPTS %s
 // FSYCL-CHECK-TARGOPTS: clang{{.*}} "-triple" "spir64-unknown-unknown" {{.*}} "-D" "FOO" "-D" "BAR" {{.*}} "-mllvm" "-dummy-opt"
 // end INTEL_CUSTOMIZATION
-=======
+
 /// ###########################################################################
 
 /// Verify --offload-new-driver option phases
@@ -682,4 +681,3 @@
 // OFFLOAD-NEW-DRIVER: 18: backend, {17}, assembler, (host-sycl)
 // OFFLOAD-NEW-DRIVER: 19: assembler, {18}, object, (host-sycl)
 // OFFLOAD-NEW-DRIVER: 20: clang-linker-wrapper, {19}, image, (host-sycl)
->>>>>>> c6962a38d59bc66a8036067c136465b97a3271d9
