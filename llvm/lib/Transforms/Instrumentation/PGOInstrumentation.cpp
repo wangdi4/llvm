@@ -2687,12 +2687,7 @@ PreservedAnalyses PGOInstrumentationUse::run(Module &M,
     return &FAM.getResult<BlockFrequencyAnalysis>(F);
   };
 
-<<<<<<< HEAD
-  auto &CG = MAM.getResult<CallGraphAnalysis>(M); // INTEL
   auto *PSI = &MAM.getResult<ProfileSummaryAnalysis>(M);
-=======
-  auto *PSI = &AM.getResult<ProfileSummaryAnalysis>(M);
->>>>>>> 947b85a2ab0460febc21f8ea588b179a3a7295af
 
   if (!annotateAllFunctions(M, ProfileFileName, ProfileRemappingFileName, *FS,
                             LookupTLI, LookupBPI, LookupBFI, PSI, IsCS))

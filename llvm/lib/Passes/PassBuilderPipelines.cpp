@@ -2963,65 +2963,6 @@ PassBuilder::buildPerModuleDefaultPipeline(OptimizationLevel Level,
   // Now add the optimization pipeline.
   MPM.addPass(buildModuleOptimizationPipeline(Level, LTOPhase));
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if !INTEL_PRODUCT_RELEASE
-  if (LTOPhase == ThinOrFullLTOPhase::None) {
-    // Q: Refine me, There may be problem for add mlpgo pass here:
-    // not immediately ahead of pgo pass, because the pgo requested some
-    // other passes before it. zxzx
-    // TODO: if we decide to keep late MLPGO then this should be hooked
-    // to a user-visible option.
-    std::optional<std::string> MLPGO = sys::Process::GetEnv("INTEL_MLPGO_CG");
-    if (MLPGO)
-    MPM.addPass(MLPGOInference());
-
-    if (!PGOOpt) {
-    std::optional<std::string> MLPGO_CG_GEN =
-        sys::Process::GetEnv("INTEL_MLPGO_CG_GEN");
-    std::optional<std::string> MLPGO_CG_USE =
-        sys::Process::GetEnv("INTEL_MLPGO_CG_USE");
-
-    assert((!MLPGO_CG_GEN || !MLPGO_CG_USE) &&
-           "Both INTEL_MLPGO_CG_GEN and INTEL_MLPGO_CG_USE defined!");
-    assert((!MLPGO_CG_USE || !MLPGO) &&
-           "Both INTEL_MLPGOO_CG and INTEL_MLPGO_CG_USE defined!");
-
-    if (MLPGO_CG_GEN) {
-          PGOOpt = PGOOptions("default_lto.profraw", "", "", "", nullptr,
-                              PGOOptions::IRInstr, PGOOptions::NoCSAction);
-          PGOOpt->IsCGPGO = true;
-    } else if (MLPGO_CG_USE) {
-          PGOOpt = PGOOptions(MLPGO_CG_USE.value(), "", "", "", nullptr,
-                              PGOOptions::IRUse, PGOOptions::NoCSAction);
-          PGOOpt->IsCGPGO = true;
-    }
-    }
-
-    // Add all the requested passes for instrumentation PGO, if requested.
-    // TODO: PGOOpt->IsCGPGO is always false now. We can enable it by
-    // environment variable (like INTEL_MLPGO_CG_GEN/USE for lto) for non-post
-    // lto optimization.
-    if (PGOOpt && PGOOpt->IsCGPGO &&
-        LTOPhase != ThinOrFullLTOPhase::ThinLTOPostLink &&
-        (PGOOpt->Action == PGOOptions::IRInstr ||
-         PGOOpt->Action == PGOOptions::IRUse)) {
-    addPGOInstrPasses(MPM, Level,
-                      /* RunProfileGen */ PGOOpt->Action == PGOOptions::IRInstr,
-                      /* IsCS */ false, PGOOpt->ProfileFile,
-                      PGOOpt->ProfileRemappingFile, LTOPhase, PGOOpt->FS);
-    MPM.addPass(PGOIndirectCallPromotion(false, false));
-    }
-    if (PGOOpt && PGOOpt->IsCGPGO &&
-        LTOPhase != ThinOrFullLTOPhase::ThinLTOPostLink &&
-        PGOOpt->CSAction == PGOOptions::CSIRInstr)
-    MPM.addPass(PGOInstrumentationGenCreateVar(PGOOpt->CSProfileGenFile));
-  }
-#endif // !INTEL_PRODUCT_RELEASE
-#endif // INTEL_CUSTOMIZATION
-
-=======
->>>>>>> 947b85a2ab0460febc21f8ea588b179a3a7295af
   if (PGOOpt && PGOOpt->PseudoProbeForProfiling &&
       PGOOpt->Action == PGOOptions::SampleUse)
     MPM.addPass(PseudoProbeUpdatePass());
@@ -3825,49 +3766,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
                                       Level.getSizeLevel(), false));
 #endif // INTEL_CUSTOMIZATION
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if !INTEL_PRODUCT_RELEASE
-  if (!PGOOpt) {
-    std::optional<std::string> MLPGO_CG_GEN =
-        sys::Process::GetEnv("INTEL_MLPGO_CG_GEN");
-    std::optional<std::string> MLPGO_CG_USE =
-        sys::Process::GetEnv("INTEL_MLPGO_CG_USE");
-    std::optional<std::string> MLPGO = sys::Process::GetEnv("INTEL_MLPGO_LTO");
-
-    assert((!MLPGO_CG_GEN || !MLPGO_CG_USE) &&
-           "Both INTEL_MLPGO_CG_GEN and INTEL_MLPGO_CG_USE defined!");
-    assert((!MLPGO_CG_USE || !MLPGO) &&
-           "Both INTEL_MLPGO_LTO and INTEL_MLPGO_CG_USE defined!");
-
-    if (MLPGO)
-      MPM.addPass(MLPGOInference());
-
-    if (MLPGO_CG_GEN) {
-      PGOOpt = PGOOptions("default_lto.profraw", "", "", "", nullptr,
-                          PGOOptions::IRInstr, PGOOptions::NoCSAction);
-      PGOOpt->IsCGPGO = true;
-    } else if (MLPGO_CG_USE) {
-      PGOOpt = PGOOptions(MLPGO_CG_USE.value(), "", "", "", nullptr,
-                          PGOOptions::IRUse, PGOOptions::NoCSAction);
-      PGOOpt->IsCGPGO = true;
-    }
-  }
-  // Add all the requested passes for instrumentation PGO, if requested.
-  if (PGOOpt && PGOOpt->IsCGPGO &&
-      (PGOOpt->Action == PGOOptions::IRInstr ||
-       PGOOpt->Action == PGOOptions::IRUse)) {
-    addPGOInstrPasses(MPM, Level,
-                      /* RunProfileGen */ PGOOpt->Action == PGOOptions::IRInstr,
-                      /* IsCS */ false, PGOOpt->ProfileFile,
-                      PGOOpt->ProfileRemappingFile,
-                      ThinOrFullLTOPhase::FullLTOPostLink, PGOOpt->FS);
-    MPM.addPass(PGOIndirectCallPromotion(false, false));
-  }
-#endif // !INTEL_PRODUCT_RELEASE
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 947b85a2ab0460febc21f8ea588b179a3a7295af
   return MPM;
 }
 

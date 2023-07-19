@@ -1066,30 +1066,16 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
     PGOOpt = PGOOptions(
         CodeGenOpts.InstrProfileOutput.empty() ? getDefaultProfileGenName()
                                                : CodeGenOpts.InstrProfileOutput,
-<<<<<<< HEAD
         "", "", CodeGenOpts.MemoryProfileUsePath, nullptr, PGOOptions::IRInstr,
         PGOOptions::NoCSAction, CodeGenOpts.DebugInfoForProfiling);
-  else if (CodeGenOpts.hasProfileIRUse() || MLPGO_USE) { // INTEL
-=======
-        "", "", nullptr, PGOOptions::IRInstr, PGOOptions::NoCSAction,
-        CodeGenOpts.DebugInfoForProfiling);
   else if (CodeGenOpts.hasProfileIRUse()) {
->>>>>>> 947b85a2ab0460febc21f8ea588b179a3a7295af
     // -fprofile-use.
     auto CSAction = CodeGenOpts.hasProfileCSIRUse() ? PGOOptions::CSIRUse
                                                     : PGOOptions::NoCSAction;
     PGOOpt =
-<<<<<<< HEAD
-        PGOOptions(MLPGO_USE ? MLPGO_USE.value() : // INTEL
-                       CodeGenOpts.ProfileInstrumentUsePath,
-                   "", // INTEL
+        PGOOptions(CodeGenOpts.ProfileInstrumentUsePath, "",
                    CodeGenOpts.ProfileRemappingFile, CodeGenOpts.MemoryProfileUsePath, VFS,
                    PGOOptions::IRUse, CSAction, CodeGenOpts.DebugInfoForProfiling);
-=======
-        PGOOptions(CodeGenOpts.ProfileInstrumentUsePath, "",
-                   CodeGenOpts.ProfileRemappingFile, VFS, PGOOptions::IRUse,
-                   CSAction, CodeGenOpts.DebugInfoForProfiling);
->>>>>>> 947b85a2ab0460febc21f8ea588b179a3a7295af
   } else if (!CodeGenOpts.SampleProfileFile.empty())
     // -fprofile-sample-use
     PGOOpt = PGOOptions(
