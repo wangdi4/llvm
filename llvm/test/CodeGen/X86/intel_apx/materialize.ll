@@ -383,7 +383,7 @@ define i32 @rematerialize_minus_one_eflags(i32 %x) optsize {
 ; CHECK64-NEXT:    #APP
 ; CHECK64-NEXT:    #NO_APP
 ; CHECK64-NEXT:    xorl %eax, %eax
-; CHECK64-NEXT:    subl $123, %r14d, %ecx
+; CHECK64-NEXT:    cmpl $123, %r14d
 ; CHECK64-NEXT:    setne %al
 ; CHECK64-NEXT:    cmovnel %eax, %r15d, %eax
 ; CHECK64-NEXT:    addq $8, %rsp
@@ -422,7 +422,7 @@ define i32 @rematerialize_minus_one_eflags(i32 %x) optsize {
 ; CHECKWIN64-NEXT:    #APP
 ; CHECKWIN64-NEXT:    #NO_APP
 ; CHECKWIN64-NEXT:    xorl %eax, %eax
-; CHECKWIN64-NEXT:    subl $123, %r14d, %ecx
+; CHECKWIN64-NEXT:    cmpl $123, %r14d
 ; CHECKWIN64-NEXT:    setne %al
 ; CHECKWIN64-NEXT:    cmovnel %eax, %r15d, %eax
 ; CHECKWIN64-NEXT:    addq $40, %rsp
@@ -538,7 +538,7 @@ define i32 @rematerialize_minus_one_eflags_pgso(i32 %x) !prof !14 {
 ; CHECK64-NEXT:    #APP
 ; CHECK64-NEXT:    #NO_APP
 ; CHECK64-NEXT:    xorl %eax, %eax
-; CHECK64-NEXT:    subl $123, %r14d, %ecx
+; CHECK64-NEXT:    cmpl $123, %r14d
 ; CHECK64-NEXT:    setne %al
 ; CHECK64-NEXT:    cmovnel %eax, %r15d, %eax
 ; CHECK64-NEXT:    addq $8, %rsp
@@ -577,7 +577,7 @@ define i32 @rematerialize_minus_one_eflags_pgso(i32 %x) !prof !14 {
 ; CHECKWIN64-NEXT:    #APP
 ; CHECKWIN64-NEXT:    #NO_APP
 ; CHECKWIN64-NEXT:    xorl %eax, %eax
-; CHECKWIN64-NEXT:    subl $123, %r14d, %ecx
+; CHECKWIN64-NEXT:    cmpl $123, %r14d
 ; CHECKWIN64-NEXT:    setne %al
 ; CHECKWIN64-NEXT:    cmovnel %eax, %r15d, %eax
 ; CHECKWIN64-NEXT:    addq $40, %rsp

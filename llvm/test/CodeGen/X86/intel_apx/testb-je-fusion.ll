@@ -44,8 +44,8 @@ if.end:
 define i32 @macrofuse_cmp_je(i32 %flags, ptr %p) nounwind {
 ; BRANCHFUSIONONLY_NOPOSTRA-LABEL: macrofuse_cmp_je:
 ; BRANCHFUSIONONLY_NOPOSTRA:       # %bb.0: # %entry
-; BRANCHFUSIONONLY_NOPOSTRA-NEXT:    subl $512, %edi, %eax # imm = 0x200
 ; BRANCHFUSIONONLY_NOPOSTRA-NEXT:    movb $1, (%rsi)
+; BRANCHFUSIONONLY_NOPOSTRA-NEXT:    cmpl $512, %edi # imm = 0x200
 ; BRANCHFUSIONONLY_NOPOSTRA-NEXT:    je .LBB1_1
 ; BRANCHFUSIONONLY_NOPOSTRA-NEXT:  # %bb.2: # %if.then
 ; BRANCHFUSIONONLY_NOPOSTRA-NEXT:    movl $1, %eax
@@ -56,8 +56,8 @@ define i32 @macrofuse_cmp_je(i32 %flags, ptr %p) nounwind {
 ;
 ; MACROFUSION_NOPOSTRA-LABEL: macrofuse_cmp_je:
 ; MACROFUSION_NOPOSTRA:       # %bb.0: # %entry
-; MACROFUSION_NOPOSTRA-NEXT:    subl $512, %edi, %eax # imm = 0x200
 ; MACROFUSION_NOPOSTRA-NEXT:    movb $1, (%rsi)
+; MACROFUSION_NOPOSTRA-NEXT:    cmpl $512, %edi # imm = 0x200
 ; MACROFUSION_NOPOSTRA-NEXT:    je .LBB1_1
 ; MACROFUSION_NOPOSTRA-NEXT:  # %bb.2: # %if.then
 ; MACROFUSION_NOPOSTRA-NEXT:    movl $1, %eax
