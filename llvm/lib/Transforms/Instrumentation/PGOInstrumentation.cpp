@@ -121,11 +121,8 @@
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/GraphWriter.h"
-<<<<<<< HEAD
-=======
 #include "llvm/Support/HashBuilder.h"
 #include "llvm/Support/Process.h" // INTEL
->>>>>>> 3d2faf395d4e95c12a97e9efccca3ef3c298c536
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/TargetParser/Triple.h"
@@ -2768,12 +2765,8 @@ PreservedAnalyses PGOInstrumentationUse::run(Module &M,
     return &FAM.getResult<BlockFrequencyAnalysis>(F);
   };
 
-<<<<<<< HEAD
+  auto &CG = MAM.getResult<CallGraphAnalysis>(M); // INTEL
   auto *PSI = &MAM.getResult<ProfileSummaryAnalysis>(M);
-=======
-  auto &CG = AM.getResult<CallGraphAnalysis>(M); // INTEL
-  auto *PSI = &AM.getResult<ProfileSummaryAnalysis>(M);
->>>>>>> 3d2faf395d4e95c12a97e9efccca3ef3c298c536
 
   if (!annotateAllFunctions(M, ProfileFileName, ProfileRemappingFileName, *FS,
                             LookupTLI, LookupBPI, LookupBFI, CG, PSI, // INTEL
