@@ -76,12 +76,13 @@ Context::CreateImage(cl_mem_flags clFlags,
   }
 
   size_t dim[3] = {0}, pitch[2] = {0};
-  for (size_t i = 0; i < DIM; i++) {
+  for (size_t i = 0; i < DIM; i++)
     dim[i] = szImageDims[i];
-  }
-  for (size_t i = 0; i < DIM - 1; i++) {
-    pitch[i] = szImagePitches[i];
-  }
+
+  if constexpr (DIM > 1)
+    for (size_t i = 0; i < DIM - 1; i++)
+      pitch[i] = szImagePitches[i];
+
   if (bIsImageBuffer) {
     clErr = (*ppImage)->Initialize(clFlags, pclImageFormat, DIM, dim, pitch,
                                    pHostPtr, CL_RT_MEMOBJ_FORCE_BS);

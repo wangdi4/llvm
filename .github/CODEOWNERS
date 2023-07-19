@@ -7,24 +7,24 @@
 # COMPONENT: Architecture
 # JIRA: N/A
 # Core parts of LLVM owned by the architecture group
-/llvm/lib/BinaryFormat/ @andykaylor @pankaj-chawla
-/llvm/lib/Bitcode/ @andykaylor @pankaj-chawla
-/llvm/lib/IR/ @andykaylor @pankaj-chawla
-/llvm/lib/IRReader/ @andykaylor @pankaj-chawla
-/llvm/lib/Option/ @andykaylor @pankaj-chawla
-/llvm/lib/Support/ @andykaylor @pankaj-chawla
-/llvm/include/llvm/ @andykaylor @pankaj-chawla
-/llvm/include/llvm/ADT/ @andykaylor @pankaj-chawla
-/llvm/include/llvm/Analysis/Passes.h @andykaylor @pankaj-chawla
-/llvm/include/llvm/AsmParser/ @andykaylor @pankaj-chawla
-/llvm/include/llvm/BinaryFormat/ @andykaylor @pankaj-chawla
-/llvm/include/llvm/Bitcode/ @andykaylor @pankaj-chawla
-/llvm/include/llvm/Config/ @andykaylor @pankaj-chawla
-/llvm/include/llvm/IR/ @andykaylor @pankaj-chawla
-/llvm/include/llvm/IRReader/ @andykaylor @pankaj-chawla
-/llvm/include/llvm/Option/ @andykaylor @pankaj-chawla
-/llvm/include/llvm/Support/ @andykaylor @pankaj-chawla
-# Temporarily added Pankaj as a code owner for sabbatical coverage
+/llvm/lib/BinaryFormat/ @andykaylor @pankaj-chawla @robertcox-github @wjschmidt
+/llvm/lib/Bitcode/ @andykaylor @pankaj-chawla @robertcox-github @wjschmidt
+/llvm/lib/IR/ @andykaylor @pankaj-chawla @robertcox-github @wjschmidt
+/llvm/lib/IRReader/ @andykaylor @pankaj-chawla @robertcox-github @wjschmidt
+/llvm/lib/Option/ @andykaylor @pankaj-chawla @robertcox-github @wjschmidt
+/llvm/lib/Support/ @andykaylor @pankaj-chawla @robertcox-github @wjschmidt
+/llvm/include/llvm/ @andykaylor @pankaj-chawla @robertcox-github @wjschmidt
+/llvm/include/llvm/ADT/ @andykaylor @pankaj-chawla @robertcox-github @wjschmidt
+/llvm/include/llvm/Analysis/Passes.h @andykaylor @pankaj-chawla @robertcox-github @wjschmidt
+/llvm/include/llvm/AsmParser/ @andykaylor @pankaj-chawla @robertcox-github @wjschmidt
+/llvm/include/llvm/BinaryFormat/ @andykaylor @pankaj-chawla @robertcox-github @wjschmidt
+/llvm/include/llvm/Bitcode/ @andykaylor @pankaj-chawla @robertcox-github @wjschmidt
+/llvm/include/llvm/Config/ @andykaylor @pankaj-chawla @robertcox-github @wjschmidt
+/llvm/include/llvm/IR/ @andykaylor @pankaj-chawla @robertcox-github @wjschmidt
+/llvm/include/llvm/IRReader/ @andykaylor @pankaj-chawla @robertcox-github @wjschmidt
+/llvm/include/llvm/Option/ @andykaylor @pankaj-chawla @robertcox-github @wjschmidt
+/llvm/include/llvm/Support/ @andykaylor @pankaj-chawla @robertcox-github @wjschmidt
+# Temporarily added Robert and Bill as a code owners for vacation coverage
 
 # Assign ScalarOpt as the default owner of things in Transforms/Utils; specific
 # owners for individual files can be assigned below.
@@ -178,18 +178,18 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 
 # COMPONENT: Architecture
 # Pass pipeline creation has multiple stakeholders
-/llvm/lib/Transforms/IPO/PassManagerBuilder.cpp @andykaylor @pankaj-chawla
-/llvm/lib/Passes/ @andykaylor @pankaj-chawla
-/llvm/include/llvm/Passes/ @andykaylor @pankaj-chawla
-/llvm/test/Transforms/PhaseOrdering/ @andykaylor @pankaj-chawla
-/llvm/test/Other/new-pm-* @intel-restricted/xmain-gatekeeper @andykaylor @pankaj-chawla
+/llvm/lib/Transforms/IPO/PassManagerBuilder.cpp @andykaylor @pankaj-chawla @robertcox-github @wjschmidt
+/llvm/lib/Passes/ @andykaylor @pankaj-chawla @robertcox-github @wjschmidt
+/llvm/include/llvm/Passes/ @andykaylor @pankaj-chawla @robertcox-github @wjschmidt
+/llvm/test/Transforms/PhaseOrdering/ @andykaylor @pankaj-chawla @robertcox-github @wjschmidt
+/llvm/test/Other/new-pm-* @intel-restricted/xmain-gatekeeper @andykaylor @pankaj-chawla @robertcox-github @wjschmidt
 /llvm/test/Other/Intel_new-pm-O0-paropt-vecopt.ll @andykaylor @pankaj-chawla @sguggill @skozhukh @intel-restricted/cmplrllvm-llvm-paropt
 /llvm/test/Other/Intel_new-pm-O2-paropt.ll @andykaylor @pankaj-chawla @intel-restricted/cmplrllvm-llvm-paropt
 /llvm/test/Other/Intel_new-pm-O3-paropt.ll @andykaylor @pankaj-chawla @intel-restricted/cmplrllvm-llvm-paropt
 /llvm/test/Other/Intel_opt-O2-pipeline-paropt.ll @andykaylor @pankaj-chawla @intel-restricted/cmplrllvm-llvm-paropt
 /llvm/test/Other/Intel_opt-O3-pipeline-paropt.ll @andykaylor @pankaj-chawla @intel-restricted/cmplrllvm-llvm-paropt
 /clang/lib/CodeGen/BackendUtil.cpp @andykaylor @pankaj-chawla @phoebewang @williamweixiao
-/clang/test/CodeGen/lto-newpm-pipeline.c @andykaylor @pankaj-chawla
+/clang/test/CodeGen/lto-newpm-pipeline.c @andykaylor @pankaj-chawla @robertcox-github @wjschmidt
 
 # COMPONENT: DGI
 # JIRA: CMPLRLLVM->LLVM Debug Information
