@@ -23,21 +23,9 @@
 
 #pragma once
 
-#include <CL/__spirv/spirv_ops.hpp>
-#include <CL/__spirv/spirv_vars.hpp>
-#include <sycl/access/access.hpp>
-#include <sycl/detail/defines.hpp>
-#include <sycl/detail/generic_type_traits.hpp>
-#include <sycl/detail/helpers.hpp>
-#include <sycl/detail/spirv.hpp>
-#include <sycl/detail/type_traits.hpp>
-#include <sycl/ext/oneapi/functional.hpp>
-#include <sycl/id.hpp>
-#include <sycl/memory_enums.hpp>
-#include <sycl/range.hpp>
-#include <sycl/types.hpp>
-
-#include <type_traits>
+#include <sycl/group.hpp>
+#include <sycl/sub_group.hpp>
+#include <tuple>
 
 /* INTEL_CUSTOMIZATION */
 #ifdef DPCPP_HOST_DEVICE_PERF_NATIVE
@@ -48,103 +36,20 @@ extern "C" unsigned int __builtin_get_sub_group_local_id();
 
 namespace sycl {
 __SYCL_INLINE_VER_NAMESPACE(_V1) {
-template <typename T, access::address_space Space,
-          access::decorated DecorateAddress>
-class multi_ptr;
-
-namespace detail {
-
-namespace sub_group {
-
-// Selects 8, 16, 32, or 64-bit type depending on size of scalar type T.
-template <typename T>
-using SelectBlockT = select_cl_scalar_integral_unsigned_t<T>;
-
-template <typename T, access::address_space Space>
-using AcceptableForGlobalLoadStore =
-    std::bool_constant<!std::is_same_v<void, SelectBlockT<T>> &&
-                       Space == access::address_space::global_space>;
-
-template <typename T, access::address_space Space>
-using AcceptableForLocalLoadStore =
-    std::bool_constant<!std::is_same_v<void, SelectBlockT<T>> &&
-                       Space == access::address_space::local_space>;
-
-#ifdef __SYCL_DEVICE_ONLY__
-template <typename T, access::address_space Space,
-          access::decorated DecorateAddress>
-T load(const multi_ptr<T, Space, DecorateAddress> src) {
-  using BlockT = SelectBlockT<T>;
-  using PtrT = sycl::detail::ConvertToOpenCLType_t<
-      const multi_ptr<BlockT, Space, DecorateAddress>>;
-
-  BlockT Ret =
-      __spirv_SubgroupBlockReadINTEL<BlockT>(reinterpret_cast<PtrT>(src.get()));
-
-  return sycl::bit_cast<T>(Ret);
-}
-
-template <int N, typename T, access::address_space Space,
-          access::decorated DecorateAddress>
-vec<T, N> load(const multi_ptr<T, Space, DecorateAddress> src) {
-  using BlockT = SelectBlockT<T>;
-  using VecT = sycl::detail::ConvertToOpenCLType_t<vec<BlockT, N>>;
-  using PtrT = sycl::detail::ConvertToOpenCLType_t<
-      const multi_ptr<BlockT, Space, DecorateAddress>>;
-
-  VecT Ret =
-      __spirv_SubgroupBlockReadINTEL<VecT>(reinterpret_cast<PtrT>(src.get()));
-
-  return sycl::bit_cast<typename vec<T, N>::vector_t>(Ret);
-}
-
-template <typename T, access::address_space Space,
-          access::decorated DecorateAddress>
-void store(multi_ptr<T, Space, DecorateAddress> dst, const T &x) {
-  using BlockT = SelectBlockT<T>;
-  using PtrT = sycl::detail::ConvertToOpenCLType_t<
-      multi_ptr<BlockT, Space, DecorateAddress>>;
-
-  __spirv_SubgroupBlockWriteINTEL(reinterpret_cast<PtrT>(dst.get()),
-                                  sycl::bit_cast<BlockT>(x));
-}
-
-template <int N, typename T, access::address_space Space,
-          access::decorated DecorateAddress>
-void store(multi_ptr<T, Space, DecorateAddress> dst, const vec<T, N> &x) {
-  using BlockT = SelectBlockT<T>;
-  using VecT = sycl::detail::ConvertToOpenCLType_t<vec<BlockT, N>>;
-  using PtrT = sycl::detail::ConvertToOpenCLType_t<
-      const multi_ptr<BlockT, Space, DecorateAddress>>;
-
-  __spirv_SubgroupBlockWriteINTEL(reinterpret_cast<PtrT>(dst.get()),
-                                  sycl::bit_cast<VecT>(x));
-}
-#endif // __SYCL_DEVICE_ONLY__
-
-} // namespace sub_group
-
-// Helper for removing const and volatile qualifiers from the element type of
-// a multi_ptr.
-template <typename CVT, access::address_space Space,
-          access::decorated IsDecorated, typename T = std::remove_cv_t<CVT>>
-inline multi_ptr<T, Space, IsDecorated>
-GetUnqualMultiPtr(const multi_ptr<CVT, Space, IsDecorated> &Mptr) {
-  if constexpr (IsDecorated == access::decorated::legacy) {
-    return multi_ptr<T, Space, IsDecorated>{
-        const_cast<typename multi_ptr<T, Space, IsDecorated>::pointer_t>(
-            Mptr.get())};
-  } else {
-    return multi_ptr<T, Space, IsDecorated>{
-        const_cast<typename multi_ptr<T, Space, IsDecorated>::pointer>(
-            Mptr.get_decorated())};
-  }
-}
-
-} // namespace detail
-
 namespace ext::oneapi {
+struct __SYCL_DEPRECATED("use sycl::sub_group() instead") sub_group
+    : sycl::sub_group {
+  // These two constructors are intended to keep the correctness of such code
+  // after the sub_group class migration from ext::oneapi to the sycl namespace:
+  // sycl::ext::oneapi::sub_group sg =
+  //    sycl::ext::oneapi::experimental::this_sub_group();
+  // ...
+  // sycl::ext::oneapi::sub_group sg = item.get_sub_group();
+  // Note: this constructor is used for implicit conversion. Since the
+  // sub_group class doesn't have any members, just ignore the arg.
+  sub_group(const sycl::sub_group &sg) : sub_group() { std::ignore = sg; }
 
+<<<<<<< HEAD
 struct sub_group;
 namespace experimental {
 inline sub_group this_sub_group();
@@ -826,21 +731,11 @@ protected:
   template <int dimensions> friend class sycl::nd_item;
   friend sub_group this_sub_group();
   friend sub_group experimental::this_sub_group();
+=======
+private:
+>>>>>>> 0662e2a81014df12d9585b4a2f71d91c55537a60
   sub_group() = default;
 };
-
-__SYCL_DEPRECATED(
-    "use sycl::ext::oneapi::experimental::this_sub_group() instead")
-inline sub_group this_sub_group() {
-#ifdef __SYCL_DEVICE_ONLY__
-  return sub_group();
-#else
-  throw runtime_error("Sub-groups are not supported on host device.",
-                      PI_ERROR_INVALID_DEVICE);
-#endif
-}
-
 } // namespace ext::oneapi
-
 } // __SYCL_INLINE_VER_NAMESPACE(_V1)
 } // namespace sycl
