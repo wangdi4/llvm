@@ -69,17 +69,17 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.inc9
   %indvars.iv27 = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next28, %for.inc9 ]
-  %arrayidx1 = getelementptr inbounds [100 x [2 x double]], [100 x [2 x double]]* @A, i64 0, i64 %indvars.iv27, i64 1, !intel-tbaa !3
-  %0 = load double, double* %arrayidx1, align 8, !tbaa !3
+  %arrayidx1 = getelementptr inbounds [100 x [2 x double]], ptr @A, i64 0, i64 %indvars.iv27, i64 1, !intel-tbaa !3
+  %0 = load double, ptr %arrayidx1, align 8, !tbaa !3
   br label %for.body4
 
 for.body4:                                        ; preds = %for.body, %for.body4
   %cmp3 = phi i1 [ true, %for.body ], [ false, %for.body4 ]
   %indvars.iv = phi i64 [ 0, %for.body ], [ 1, %for.body4 ]
-  %arrayidx6 = getelementptr inbounds [2 x double], [2 x double]* @B, i64 0, i64 %indvars.iv, !intel-tbaa !9
-  %1 = load double, double* %arrayidx6, align 8, !tbaa !9
+  %arrayidx6 = getelementptr inbounds [2 x double], ptr @B, i64 0, i64 %indvars.iv, !intel-tbaa !9
+  %1 = load double, ptr %arrayidx6, align 8, !tbaa !9
   %add = fadd fast double %1, %0
-  store double %add, double* %arrayidx6, align 8, !tbaa !9
+  store double %add, ptr %arrayidx6, align 8, !tbaa !9
   br i1 %cmp3, label %for.body4, label %for.inc9, !llvm.loop !10
 
 for.inc9:                                         ; preds = %for.body4
@@ -92,8 +92,8 @@ for.end11.loopexit:                               ; preds = %for.inc9
 
 for.end11:                                        ; preds = %for.end11.loopexit, %entry.for.end11_crit_edge
   %idxprom12.pre-phi = phi i64 [ %.pre, %entry.for.end11_crit_edge ], [ %wide.trip.count, %for.end11.loopexit ]
-  %arrayidx13 = getelementptr inbounds [2 x double], [2 x double]* @B, i64 0, i64 %idxprom12.pre-phi, !intel-tbaa !9
-  %2 = load double, double* %arrayidx13, align 8, !tbaa !9
+  %arrayidx13 = getelementptr inbounds [2 x double], ptr @B, i64 0, i64 %idxprom12.pre-phi, !intel-tbaa !9
+  %2 = load double, ptr %arrayidx13, align 8, !tbaa !9
   ret double %2
 }
 

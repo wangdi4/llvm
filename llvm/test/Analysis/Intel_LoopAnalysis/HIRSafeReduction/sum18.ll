@@ -19,15 +19,15 @@ target triple = "x86_64-unknown-linux-gnu"
 @a = common local_unnamed_addr global [100 x i32] zeroinitializer, align 16
 
 ; Function Attrs: norecurse nounwind uwtable
-define i32 @sub(i64 %n, i32 %n2, i32 %n3, i32 %n4, double* nocapture %s) local_unnamed_addr #0 {
+define i32 @sub(i64 %n, i32 %n2, i32 %n3, i32 %n4, ptr nocapture %s) local_unnamed_addr #0 {
 entry:
   %cmp41 = icmp sgt i64 %n, 0
   br i1 %cmp41, label %for.body, label %for.end.thread
 
 for.end.thread:                                   ; preds = %entry
-  %0 = load double, double* %s, align 8, !tbaa !1
+  %0 = load double, ptr %s, align 8, !tbaa !1
   %add148 = fadd double %0, 0.000000e+00
-  store double %add148, double* %s, align 8, !tbaa !1
+  store double %add148, ptr %s, align 8, !tbaa !1
   br label %for.end16
 
 for.body:                                         ; preds = %entry, %for.body
@@ -41,9 +41,9 @@ for.body:                                         ; preds = %entry, %for.body
 
 for.end:                                          ; preds = %for.body
   %conv = sitofp i32 %mul to double
-  %1 = load double, double* %s, align 8, !tbaa !1
+  %1 = load double, ptr %s, align 8, !tbaa !1
   %add1 = fadd double %conv, %1
-  store double %add1, double* %s, align 8, !tbaa !1
+  store double %add1, ptr %s, align 8, !tbaa !1
   %cmp338 = icmp sgt i64 %n, 0
   br i1 %cmp338, label %for.body5, label %for.end16
 
@@ -65,9 +65,9 @@ for.body5:                                        ; preds = %for.end, %for.body5
 for.end16:                                        ; preds = %for.body5, %for.end.thread, %for.end
   %s1.1.lcssa = phi i32 [ %mul, %for.end ], [ 0, %for.end.thread ], [ %mul7, %for.body5 ]
   %conv17 = sitofp i32 %s1.1.lcssa to double
-  %2 = load double, double* %s, align 8, !tbaa !1
+  %2 = load double, ptr %s, align 8, !tbaa !1
   %add18 = fadd double %conv17, %2
-  store double %add18, double* %s, align 8, !tbaa !1
+  store double %add18, ptr %s, align 8, !tbaa !1
   ret i32 0
 }
 

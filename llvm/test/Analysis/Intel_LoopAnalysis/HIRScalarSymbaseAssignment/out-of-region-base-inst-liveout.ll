@@ -20,7 +20,7 @@ for.body3.thread:
   br label %if.end7.us.us
 
 if.end7.us.us:                                    ; preds = %for.body3.thread
-  %t0 = load i32, i32* @x, align 4
+  %t0 = load i32, ptr @x, align 4
   br label %loop
 
 loop:                                   ; preds = %for.cond1.us.us, %if.end7.us.us

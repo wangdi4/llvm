@@ -10,7 +10,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @a = common local_unnamed_addr global [100 x [100 x i32]] zeroinitializer, align 16
 
 ; Function Attrs: norecurse nounwind uwtable
-define i32 @sub(i64 %n, i64 %n2, i64 %n3, double* nocapture %s) local_unnamed_addr #0 {
+define i32 @sub(i64 %n, i64 %n2, i64 %n3, ptr nocapture %s) local_unnamed_addr #0 {
 entry:
   %cmp8 = icmp sgt i64 %n, 0
   br i1 %cmp8, label %for.body, label %for.end
@@ -18,8 +18,8 @@ entry:
 for.body:                                         ; preds = %entry, %for.body
   %i.010 = phi i64 [ %inc, %for.body ], [ 0, %entry ]
   %s1.09 = phi i64 [ %add, %for.body ], [ 0, %entry ]
-  %arrayidx1 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @a, i64 0, i64 %i.010, i64 %s1.09
-  %0 = load i32, i32* %arrayidx1, align 4, !tbaa !1
+  %arrayidx1 = getelementptr inbounds [100 x [100 x i32]], ptr @a, i64 0, i64 %i.010, i64 %s1.09
+  %0 = load i32, ptr %arrayidx1, align 4, !tbaa !1
   %conv = sext i32 %0 to i64
   %add = add nsw i64 %conv, %n
   %inc = add nuw nsw i64 %i.010, 1
@@ -32,7 +32,7 @@ for.end.loopexit:                                 ; preds = %for.body
 
 for.end:                                          ; preds = %for.end.loopexit, %entry
   %s1.0.lcssa = phi double [ 0.000000e+00, %entry ], [ %phitmp, %for.end.loopexit ]
-  store double %s1.0.lcssa, double* %s, align 8, !tbaa !5
+  store double %s1.0.lcssa, ptr %s, align 8, !tbaa !5
   ret i32 0
 }
 
