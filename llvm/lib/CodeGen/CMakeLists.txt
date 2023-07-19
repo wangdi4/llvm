@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021-2023 Intel Corporation
+# Modifications, Copyright (C) 2021-2022 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -305,9 +305,6 @@ add_llvm_component_library(LLVMCodeGen
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/CodeGen
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/CodeGen/PBQP
-# INTEL_CUSTOMIZATION
-  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms # MLPGO
-# end INTEL_CUSTOMIZATION
 
   LINK_LIBS ${LLVM_PTHREAD_LIB} ${MLLinkDeps}
 
@@ -337,9 +334,6 @@ add_llvm_component_library(LLVMCodeGen
   Target
   TargetParser
   TransformUtils
-# INTEL_CUSTOMIZATION
-  Instrumentation # MLPGO
-# end INTEL_CUSTOMIZATION
   )
 
 add_subdirectory(SelectionDAG)
