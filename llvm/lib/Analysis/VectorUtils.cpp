@@ -1049,25 +1049,12 @@ bool llvm::isSVMLDeviceFunction(const TargetLibraryInfo *TLI, StringRef FnName,
 }
 
 unsigned llvm::getPumpFactor(const CallBase &CB, bool IsMasked, unsigned VF,
-                             const TargetLibraryInfo *TLI) {
+                             const TargetLibraryInfo *TLI,
+                             const TargetTransformInfo *TTI) {
   StringRef FnName = CB.getCalledFunction()->getName();
-
-  // Call can already be vectorized for current VF, pumping not needed.
-  if (TLI->isFunctionVectorizable(CB, ElementCount::getFixed(VF), IsMasked))
-    return 1;
 
   // TODO: Pumping is supported only for simple SVML functions.
   if (isOpenCLSinCos(FnName))
-    return 1;
-
-  // Check if function can be vectorized for a dummy low VF value. This is
-  // purely to identify and filter out non-SVML functions.
-  // TODO: This filtering is temporary until we start supporting pumping feature
-  // for SIMD functions with vector-variants.
-  StringRef VecFnName =
-      TLI->getVectorizedFunction(FnName, ElementCount::getFixed(4) /*dummy VF*/,
-                                 IsMasked);
-  if (VecFnName.empty() || !isSVMLFunction(TLI, FnName, VecFnName))
     return 1;
 
   // Pumping can be done if function can be vectorized for any LowerVF starting
@@ -1079,7 +1066,7 @@ unsigned llvm::getPumpFactor(const CallBase &CB, bool IsMasked, unsigned VF,
   unsigned LowerVF;
   for (LowerVF = VF / 2; LowerVF > 1; LowerVF /= 2) {
     if (TLI->isFunctionVectorizable(CB, ElementCount::getFixed(LowerVF),
-                                    IsMasked))
+                                    IsMasked, TTI))
       return VF / LowerVF;
   }
 
