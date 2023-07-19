@@ -480,7 +480,10 @@ cl_err_code FissionableDevice::FissionDevice(
     const cl_device_partition_property *props, cl_uint num_entries,
     cl_dev_subdevice_id *out_devices, cl_uint *num_devices, size_t *sizes) {
   cl_dev_err_code dev_ret = CL_DEV_SUCCESS;
-  m_default_command_queue = nullptr;
+  {
+    std::lock_guard<std::mutex> CS(m_changeDefaultDeviceMutex);
+    m_default_command_queue = nullptr;
+  }
   // identify the partition mode and translate to device enum
   cl_dev_partition_prop partitionMode;
 
