@@ -5,7 +5,8 @@
 
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:        + DO i1 = 0, 1023, 4   <DO_LOOP> <simd-vectorized> <novectorize>
-; CHECK:        |   %for_simd_random_number_avx = @for_simd_random_number_avx();
+; CHECK:        |   %for_simd_random_number = @for_simd_random_number();
+; CHECK:        |   %for_simd_random_number2 = @for_simd_random_number();
 ; CHECK:        |   %for_simd_random_number_single_mask = @for_simd_random_number_single_mask({{%.*}});
 ; CHECK:        + END LOOP
 

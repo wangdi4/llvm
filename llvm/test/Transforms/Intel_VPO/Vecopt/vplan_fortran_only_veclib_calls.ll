@@ -16,7 +16,7 @@ loop.ph:
 loop.body:                                      ; preds = %loop.ph, %if.merge
   %iv = phi i64 [ 1, %loop.ph ], [ %iv.next, %if.merge ]
   %res1 = tail call reassoc ninf nsz arcp contract afn double @for_random_number() #4
-  ; CHECK: @for_simd_random_number_avx()
+  ; CHECK-2: @for_simd_random_number()
 
   %res2 = tail call reassoc ninf nsz arcp contract afn float @for_random_number_single() #4
   ; CHECK: @for_simd_random_number_single()
@@ -26,7 +26,7 @@ loop.body:                                      ; preds = %loop.ph, %if.merge
 
 if.then:                                        ; preds = %loop.body
   %res3 = tail call reassoc ninf nsz arcp contract afn double @for_random_number() #4
-  ; CHECK: @for_simd_random_number_avx_mask({{.*}})
+  ; CHECK-2: @for_simd_random_number_mask({{.*}})
 
   %res4 = tail call reassoc ninf nsz arcp contract afn float @for_random_number_single() #4
   ; CHECK: @for_simd_random_number_single_mask({{.*}})

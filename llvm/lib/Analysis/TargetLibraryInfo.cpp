@@ -34,6 +34,7 @@
 #include "llvm/TargetParser/Triple.h"
 
 #if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/Operator.h"
 #endif // INTEL_CUSTOMIZATION
 
@@ -183,12 +184,32 @@ bool TargetLibraryInfo::isValidCallForVectorization(const CallBase &CB) const {
   return IsValidMathLibFunc;
 }
 
-bool TargetLibraryInfo::isFunctionVectorizable(const CallBase &CB,
-                                               const ElementCount &VF,
-                                               bool IsMasked) const {
+static bool isCpuFeatureAvailableForTarget(StringRef CpuFeature,
+                                           const TargetTransformInfo *TTI) {
+  if (CpuFeature.empty())
+    return true;
+  if (!TTI)
+    return false;
+
+  bool IsAvailableForTgt = true;
+  if (CpuFeature == "avx" &&
+      !TTI->isAdvancedOptEnabled(
+          TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX))
+    IsAvailableForTgt = false;
+
+  return IsAvailableForTgt;
+}
+
+bool TargetLibraryInfo::isFunctionVectorizable(
+    const CallBase &CB, const ElementCount &VF, bool IsMasked,
+    const TargetTransformInfo *TTI) const {
   Function *F = CB.getCalledFunction();
   StringRef CalledFnName = F->getName();
+  // If the vector library function needs any specific CPU feature then check
+  // for its availability in the target being compiled for.
+  StringRef ReqdCpuFeature = getVectorFuncReqdCpuFeature(CalledFnName, VF);
   return isValidCallForVectorization(CB) &&
+         isCpuFeatureAvailableForTarget(ReqdCpuFeature, TTI) &&
          isFunctionVectorizable(CalledFnName, VF, IsMasked);
 }
 
@@ -6199,6 +6220,22 @@ bool TargetLibraryInfoImpl::isFortranOnlyVectorFunction(
   return false;
 }
 
+StringRef TargetLibraryInfoImpl::getVectorFuncReqdCpuFeature(
+    StringRef FuncName, const ElementCount &VF) const {
+  FuncName = sanitizeFunctionName(FuncName);
+  if (FuncName.empty())
+    return "";
+
+  std::vector<VecDesc>::const_iterator I =
+      llvm::lower_bound(VectorDescs, FuncName, compareWithScalarFnName);
+  while (I != VectorDescs.end() && StringRef(I->ScalarFnName) == FuncName) {
+    if (I->VectorizationFactor == VF)
+      return I->ReqdCpuFeature;
+    ++I;
+  }
+  return "";
+}
+
 bool TargetLibraryInfoImpl::isOMPLibFunc(LibFunc F) const {
   switch (F) {
     case LibFunc_kmpc_barrier:
@@ -6295,21 +6332,24 @@ bool TargetLibraryInfoImpl::isFunctionVectorizable(StringRef funcName,
 #endif
 }
 
-StringRef TargetLibraryInfoImpl::getVectorizedFunction(StringRef F,
-                                                       const ElementCount &VF,
-                                                       bool Masked) const {
+#if INTEL_CUSTOMIZATION
+StringRef TargetLibraryInfoImpl::getVectorizedFunction(
+    StringRef F, const ElementCount &VF, bool Masked,
+    const TargetTransformInfo *TTI) const {
   F = sanitizeFunctionName(F);
   if (F.empty())
     return F;
   std::vector<VecDesc>::const_iterator I =
       llvm::lower_bound(VectorDescs, F, compareWithScalarFnName);
   while (I != VectorDescs.end() && StringRef(I->ScalarFnName) == F) {
-    if ((I->VectorizationFactor == VF) && (I->Masked == Masked))
+    if ((I->VectorizationFactor == VF) && (I->Masked == Masked) &&
+        isCpuFeatureAvailableForTarget(I->ReqdCpuFeature, TTI))
       return I->VectorFnName;
     ++I;
   }
   return StringRef();
 }
+#endif // INTEL_CUSTOMIZATION
 
 TargetLibraryInfo TargetLibraryAnalysis::run(const Function &F,
                                              FunctionAnalysisManager &) {

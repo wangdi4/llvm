@@ -42,6 +42,7 @@ template <typename T> class ArrayRef;
 class Function;
 class Module;
 class Triple;
+class TargetTransformInfo; // INTEL
 
 /// Describes a possible implementation of a floating point builtin operation.
 struct AltMathDesc {
@@ -78,7 +79,8 @@ struct VecDesc {
   StringRef VectorFnName;
   ElementCount VectorizationFactor;
   bool Masked;
-  VecDescAttrBits AttrBits = 0; // INTEL
+  VecDescAttrBits AttrBits = 0;  // INTEL
+  StringRef ReqdCpuFeature = ""; // INTEL
 };
 
   enum LibFunc : unsigned {
@@ -301,6 +303,12 @@ public:
   /// that can be vectorized using its vector library equivalent.
   bool isFortranOnlyVectorFunction(StringRef F) const;
 
+  /// Return the CPU feature that is required to invoke the vector library
+  /// function that corresponds to scalar function \p F for given \p VF. Returns
+  /// empty string if no specific CPU feature is needed.
+  StringRef getVectorFuncReqdCpuFeature(StringRef F,
+                                        const ElementCount &VF) const;
+
   // True if the provided LibFunc \p F identifies an OpenMP library function,
   // i.e. the LibFunc_kmpc_* LibFuncs.
   bool isOMPLibFunc(LibFunc F) const;
@@ -318,10 +326,13 @@ public:
   /// vectorization factor.
   bool isFunctionVectorizable(StringRef F, bool IsMasked) const; // INTEL
 
+#if INTEL_CUSTOMIZATION
   /// Return the name of the equivalent of F, vectorized with factor VF. If no
   /// such mapping exists, return the empty string.
-  StringRef getVectorizedFunction(StringRef F, const ElementCount &VF,
-                                  bool Masked) const;
+  StringRef
+  getVectorizedFunction(StringRef F, const ElementCount &VF, bool Masked,
+                        const TargetTransformInfo *TTI = nullptr) const;
+#endif // INTEL_CUSTOMIZATION
 
   /// Set to true iff i32 parameters to library functions should have signext
   /// or zeroext attributes if they correspond to C-level int or unsigned int,
@@ -534,7 +545,8 @@ public:
   /// in the vector library table. This version checks for a specific match
   /// using given vectorization factor.
   bool isFunctionVectorizable(const CallBase &CB, const ElementCount &VF,
-                              bool IsMasked = false) const;
+                              bool IsMasked = false,
+                              const TargetTransformInfo *TTI = nullptr) const;
 
   /// A wrapper method for isFunctionVectorizable where the scalar call is
   /// checked based on its properties in addition to checking for a valid entry
@@ -574,6 +586,14 @@ public:
     return Impl->isFortranOnlyVectorFunction(F);
   }
 
+  /// Return the CPU feature that is required to invoke the vector library
+  /// function that corresponds to scalar function \p F for given \p VF. Returns
+  /// empty string if no specific CPU feature is needed.
+  StringRef getVectorFuncReqdCpuFeature(StringRef F,
+                                        const ElementCount &VF) const {
+    return Impl->getVectorFuncReqdCpuFeature(F, VF);
+  }
+
   // True if the provided LibFunc \p F identifies an OpenMP library function,
   // i.e. the LibFunc_kmpc_* LibFuncs.
   bool isOMPLibFunc(LibFunc F) const {
@@ -596,11 +616,14 @@ public:
   StringRef selectFPBuiltinImplementation(FPBuiltinIntrinsic *Builtin) const {
     return Impl->selectFPBuiltinImplementation(Builtin);
   }
-  StringRef getVectorizedFunction(StringRef F, const ElementCount &VF,
-                                  bool Masked = false) const {
-    return Impl->getVectorizedFunction(F, VF, Masked);
+#if INTEL_CUSTOMIZATION
+  StringRef
+  getVectorizedFunction(StringRef F, const ElementCount &VF,
+                        bool Masked = false,
+                        const TargetTransformInfo *TTI = nullptr) const {
+    return Impl->getVectorizedFunction(F, VF, Masked, TTI);
   }
-
+#endif // INTEL_CUSTOMIZATION
 
   /// Tests if the function is both available and a candidate for optimized code
   /// generation.
