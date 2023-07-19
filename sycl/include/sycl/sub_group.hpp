@@ -24,6 +24,13 @@
 
 #include <type_traits>
 
+/* INTEL_CUSTOMIZATION */
+#ifdef DPCPP_HOST_DEVICE_PERF_NATIVE
+extern "C" unsigned int __builtin_get_max_sub_group_size();
+extern "C" unsigned int __builtin_get_sub_group_local_id();
+#endif
+/* end INTEL_CUSTOMIZATION */
+
 namespace sycl {
 __SYCL_INLINE_VER_NAMESPACE(_V1) {
 template <typename T, access::address_space Space,
@@ -143,6 +150,10 @@ struct sub_group {
   id_type get_local_id() const {
 #ifdef __SYCL_DEVICE_ONLY__
     return __spirv_SubgroupLocalInvocationId();
+/* INTEL_CUSTOMIZATION */
+#elif defined(DPCPP_HOST_DEVICE_PERF_NATIVE)
+    return __builtin_get_sub_group_local_id();
+/* end INTEL_CUSTOMIZATION */
 #else
     throw runtime_error("Sub-groups are not supported on host device.",
                         PI_ERROR_INVALID_DEVICE);
@@ -170,6 +181,10 @@ struct sub_group {
   range_type get_max_local_range() const {
 #ifdef __SYCL_DEVICE_ONLY__
     return __spirv_SubgroupMaxSize();
+/* INTEL_CUSTOMIZATION */
+#elif defined(DPCPP_HOST_DEVICE_PERF_NATIVE)
+    return __builtin_get_max_sub_group_size();
+/* end INTEL_CUSTOMIZATION */
 #else
     throw runtime_error("Sub-groups are not supported on host device.",
                         PI_ERROR_INVALID_DEVICE);
