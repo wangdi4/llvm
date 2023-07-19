@@ -1,5 +1,5 @@
 diff --git a/hwloc/topology-linux.c b/hwloc/topology-linux.c
-index b3e5d3534..7bd67f1fa 100644
+index b3e5d3534..41774faee 100644
 --- a/hwloc/topology-linux.c
 +++ b/hwloc/topology-linux.c
 @@ -4838,6 +4838,7 @@ look_sysfscpu(struct hwloc_topology *topology,
@@ -19,20 +19,21 @@ index b3e5d3534..7bd67f1fa 100644
    } hwloc_bitmap_foreach_end();
  
    hwloc_bitmap_free(cpuset);
-@@ -6889,7 +6890,10 @@ hwloc_linuxfs_pci_look_pcidevices(struct hwloc_backend *backend)
+@@ -6889,7 +6890,11 @@ hwloc_linuxfs_pci_look_pcidevices(struct hwloc_backend *backend)
      memset(config_space_cache, 0xff, CONFIG_SPACE_CACHESIZE);
      err = snprintf(path, sizeof(path), "/sys/bus/pci/devices/%s/config", dirent->d_name);
      if ((size_t) err < sizeof(path)) {
 -      hwloc_read_path_by_length(path, (char *) config_space_cache, sizeof(config_space_cache), root_fd);
 +      if(hwloc_read_path_by_length(path, (char *) config_space_cache, sizeof(config_space_cache), root_fd) <= 0){
 +        errno = ENOSYS;
++        closedir(dir);
 +        return 0;
 +      }
        /* we have CONFIG_SPACE_CACHESIZE bytes + the ending \0 */
      }
  
 diff --git a/hwloc/topology-windows.c b/hwloc/topology-windows.c
-index 20b617a9b..594a64e55 100644
+index 20b617a9b..531431aec 100644
 --- a/hwloc/topology-windows.c
 +++ b/hwloc/topology-windows.c
 @@ -220,7 +220,7 @@ static void hwloc_win_get_function_ptrs(void)
@@ -44,6 +45,15 @@ index 20b617a9b..594a64e55 100644
      if (kernel32) {
        GetActiveProcessorGroupCountProc =
  	(PFN_GETACTIVEPROCESSORGROUPCOUNT) GetProcAddress(kernel32, "GetActiveProcessorGroupCount");
+@@ -249,7 +249,7 @@ static void hwloc_win_get_function_ptrs(void)
+     }
+ 
+     if (!QueryWorkingSetExProc) {
+-      HMODULE psapi = LoadLibrary("psapi.dll");
++      HMODULE psapi = LoadLibraryExA("psapi.dll", NULL, LOAD_LIBRARY_SEARCH_SYSTEM32);
+       if (psapi)
+         QueryWorkingSetExProc = (PFN_QUERYWORKINGSETEX) GetProcAddress(psapi, "QueryWorkingSetEx");
+     }
 diff --git a/hwloc/topology-x86.c b/hwloc/topology-x86.c
 index a1558f077..ca87bbf94 100644
 --- a/hwloc/topology-x86.c
