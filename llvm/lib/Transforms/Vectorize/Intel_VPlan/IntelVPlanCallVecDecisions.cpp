@@ -489,22 +489,22 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
   // Vectorizable library function like SVML calls. Set vector function name in
   // CallVecProperties.
   if (TLI->isFunctionVectorizable(*UnderlyingCI, ElementCount::getFixed(VF),
-                                  IsMasked)) {
+                                  IsMasked, TTI)) {
     VPCall->setVectorizeWithLibraryFn(TLI->getVectorizedFunction(
-        CalledFuncName, ElementCount::getFixed(VF), IsMasked));
+        CalledFuncName, ElementCount::getFixed(VF), IsMasked, TTI));
     return;
   }
 
   // Vectorize by pumping the call for a lower VF.
-  unsigned PumpFactor = getPumpFactor(*UnderlyingCI, IsMasked, VF, TLI);
+  unsigned PumpFactor = getPumpFactor(*UnderlyingCI, IsMasked, VF, TLI, TTI);
   if (PumpFactor > 1) {
     unsigned LowerVF = VF / PumpFactor;
     assert(TLI->isFunctionVectorizable(
-               *UnderlyingCI, ElementCount::getFixed(LowerVF), IsMasked) &&
+               *UnderlyingCI, ElementCount::getFixed(LowerVF), IsMasked, TTI) &&
            "Library function cannot be vectorized with lower VF.");
     VPCall->setVectorizeWithLibraryFn(
-        TLI->getVectorizedFunction(CalledFuncName,
-                                   ElementCount::getFixed(LowerVF), IsMasked),
+        TLI->getVectorizedFunction(
+            CalledFuncName, ElementCount::getFixed(LowerVF), IsMasked, TTI),
         PumpFactor);
     return;
   }

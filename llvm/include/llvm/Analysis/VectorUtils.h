@@ -1118,7 +1118,8 @@ bool isSVMLDeviceFunction(const TargetLibraryInfo *TLI, StringRef FnName,
 /// feature for the chosen \p VF. If yes, then the factor to pump by is
 /// returned, 1 otherwise.
 unsigned getPumpFactor(const CallBase &CB, bool IsMasked, unsigned VF,
-                       const TargetLibraryInfo *TLI);
+                       const TargetLibraryInfo *TLI,
+                       const TargetTransformInfo *TTI);
 
 /// \brief A helper function that returns value after skipping 'bitcast' and
 /// 'addrspacecast' on pointers.

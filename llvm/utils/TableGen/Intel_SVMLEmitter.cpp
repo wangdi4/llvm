@@ -448,13 +448,13 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
 
   OS << "{\"for_random_number\", \"for_simd_random_number\", FIXED(2), false, " << IsFortranOnlyAttr << "},\n";
   OS << "{\"for_random_number\", \"for_simd_random_number_mask\", FIXED(2), true, " << IsFortranOnlyAttr << "},\n";
-  OS << "{\"for_random_number\", \"for_simd_random_number_avx\", FIXED(4), false, " << IsFortranOnlyAttr << "},\n";
-  OS << "{\"for_random_number\", \"for_simd_random_number_avx_mask\", FIXED(4), true, " << IsFortranOnlyAttr << "},\n";
+  OS << "{\"for_random_number\", \"for_simd_random_number_avx\", FIXED(4), false, " << IsFortranOnlyAttr << ", \"avx\"},\n";
+  OS << "{\"for_random_number\", \"for_simd_random_number_avx_mask\", FIXED(4), true, " << IsFortranOnlyAttr << ", \"avx\"},\n";
 
   OS << "{\"for_random_number_single\", \"for_simd_random_number_single\", FIXED(4), false, " << IsFortranOnlyAttr << "},\n";
   OS << "{\"for_random_number_single\", \"for_simd_random_number_single_mask\", FIXED(4), true, " << IsFortranOnlyAttr << "},\n";
-  OS << "{\"for_random_number_single\", \"for_simd_random_number_single_avx\", FIXED(8), false, " << IsFortranOnlyAttr << "},\n";
-  OS << "{\"for_random_number_single\", \"for_simd_random_number_single_avx_mask\", FIXED(8), true, " << IsFortranOnlyAttr << "},\n";
+  OS << "{\"for_random_number_single\", \"for_simd_random_number_single_avx\", FIXED(8), false, " << IsFortranOnlyAttr << ", \"avx\"},\n";
+  OS << "{\"for_random_number_single\", \"for_simd_random_number_single_avx_mask\", FIXED(8), true, " << IsFortranOnlyAttr << ", \"avx\"},\n";
 
   OS << "#endif // GET_SVML_VARIANTS\n\n";
 }
