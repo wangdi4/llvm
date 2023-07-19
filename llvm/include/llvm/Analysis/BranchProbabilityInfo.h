@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may
-// not use, modify, copy, publish, distribute, disclose or transmit this
-// software or the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -178,17 +178,6 @@ public:
 
   BranchProbability getEdgeProbability(const BasicBlock *Src,
                                        const_succ_iterator Dst) const;
-
-#if INTEL_CUSTOMIZATION
-  std::optional<uint32_t> getLLVMEstimatedWeight(const BasicBlock *Src,
-                                                 const BasicBlock *Dst,
-                                                 const bool isEnterLoop) const;
-
-  /// Wrapper for compute unlikely successors
-  void computeUnlikelySuccessorsWrapper(
-      const BasicBlock *BB, Loop *L,
-      SmallPtrSetImpl<const BasicBlock *> &UnlikelyBlocks) const;
-#endif // INTEL_CUSTOMIZATION
 
   /// Test if an edge is hot relative to other out-edges of the Src.
   ///
@@ -494,29 +483,6 @@ public:
   void releaseMemory() override;
   void print(raw_ostream &OS, const Module *M = nullptr) const override;
 };
-
-#if INTEL_CUSTOMIZATION
-/// Set of dedicated "absolute" execution weights for a block. These weights are
-/// meaningful relative to each other and their derivatives only.
-enum class BlockExecWeight : std::uint32_t {
-  /// Special weight used for cases with exact zero probability.
-  ZERO = 0x0,
-  /// Minimal possible non zero weight.
-  LOWEST_NON_ZERO = 0x1,
-  /// Weight to an 'unreachable' block.
-  UNREACHABLE = ZERO,
-  /// Weight to a block containing non returning call.
-  NORETURN = LOWEST_NON_ZERO,
-  /// Weight to 'unwind' block of an invoke instruction.
-  UNWIND = LOWEST_NON_ZERO,
-  /// Weight to a 'cold' block. Cold blocks are the ones containing calls marked
-  /// with attribute 'cold'.
-  COLD = 0xffff,
-  /// Default weight is used in cases when there is no dedicated execution
-  /// weight set. It is not propagated through the domination line either.
-  DEFAULT = 0xfffff
-};
-#endif // INTEL_CUSTOMIZATION
 
 } // end namespace llvm
 

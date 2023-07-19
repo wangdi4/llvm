@@ -46,7 +46,6 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/PGOOptions.h"
-#include "llvm/Support/Process.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h"
@@ -90,7 +89,6 @@
 #include "llvm/Transforms/Instrumentation/ControlHeightReduction.h"
 #include "llvm/Transforms/Instrumentation/InstrOrderFile.h"
 #include "llvm/Transforms/Instrumentation/InstrProfiling.h"
-#include "llvm/Transforms/Instrumentation/Intel_MLPGO/Inference.h" // INTEL
 #include "llvm/Transforms/Instrumentation/MemProfiler.h"
 #include "llvm/Transforms/Instrumentation/PGOInstrumentation.h"
 #include "llvm/Transforms/Scalar/ADCE.h"
@@ -1787,21 +1785,8 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
-  // TODO: replace INTEL_MLPGO with using -fprofile-ml-use
-  std::optional<std::string> MLPGO;
-#if !INTEL_PRODUCT_RELEASE
-  MLPGO = sys::Process::GetEnv("INTEL_MLPGO");
-#endif
-  if (MLPGO)
-    MPM.addPass(MLPGOInference());
-
-  assert(!(PGOOpt && PGOOpt->Action == PGOOptions::IRUse && MLPGO) &&
-         "Both INTEL_MLPGO and PGO Use enabled!");
-
   // Add all the requested passes for instrumentation PGO, if requested.
-  if (PGOOpt && !PGOOpt->IsCGPGO &&
-      Phase != ThinOrFullLTOPhase::ThinLTOPostLink &&
+  if (PGOOpt && Phase != ThinOrFullLTOPhase::ThinLTOPostLink &&
       (PGOOpt->Action == PGOOptions::IRInstr ||
        PGOOpt->Action == PGOOptions::IRUse)) {
     addPGOInstrPasses(MPM, Level,
@@ -1810,12 +1795,9 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
                       PGOOpt->ProfileRemappingFile, Phase, PGOOpt->FS);
     MPM.addPass(PGOIndirectCallPromotion(false, false));
   }
-
-  if (PGOOpt && !PGOOpt->IsCGPGO &&
-      Phase != ThinOrFullLTOPhase::ThinLTOPostLink &&
+  if (PGOOpt && Phase != ThinOrFullLTOPhase::ThinLTOPostLink &&
       PGOOpt->CSAction == PGOOptions::CSIRInstr)
     MPM.addPass(PGOInstrumentationGenCreateVar(PGOOpt->CSProfileGenFile));
-#endif // INTEL_CUSTOMIZATION
 
   if (PGOOpt && Phase != ThinOrFullLTOPhase::ThinLTOPostLink &&
       !PGOOpt->MemoryProfile.empty())
@@ -2981,6 +2963,7 @@ PassBuilder::buildPerModuleDefaultPipeline(OptimizationLevel Level,
   // Now add the optimization pipeline.
   MPM.addPass(buildModuleOptimizationPipeline(Level, LTOPhase));
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if !INTEL_PRODUCT_RELEASE
   if (LTOPhase == ThinOrFullLTOPhase::None) {
@@ -3037,6 +3020,8 @@ PassBuilder::buildPerModuleDefaultPipeline(OptimizationLevel Level,
 #endif // !INTEL_PRODUCT_RELEASE
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 947b85a2ab0460febc21f8ea588b179a3a7295af
   if (PGOOpt && PGOOpt->PseudoProbeForProfiling &&
       PGOOpt->Action == PGOOptions::SampleUse)
     MPM.addPass(PseudoProbeUpdatePass());
@@ -3840,6 +3825,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
                                       Level.getSizeLevel(), false));
 #endif // INTEL_CUSTOMIZATION
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if !INTEL_PRODUCT_RELEASE
   if (!PGOOpt) {
@@ -3880,6 +3866,8 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   }
 #endif // !INTEL_PRODUCT_RELEASE
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 947b85a2ab0460febc21f8ea588b179a3a7295af
   return MPM;
 }
 
