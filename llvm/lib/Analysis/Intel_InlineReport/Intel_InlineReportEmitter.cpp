@@ -561,11 +561,25 @@ bool IREmitterInfo::runImpl() {
   }
 
   findDeadFunctionInfo(ModuleInlineReport);
+  SmallPtrSet<Function *, 16> FS;
   for (unsigned I = 0, E = ModuleInlineReport->getNumOperands(); I < E; ++I) {
     MDNode *Node = ModuleInlineReport->getOperand(I);
     printFunctionInlineReportFromMetadata(Node);
+    MDTuple *FR = cast<MDTuple>(Node);
+    std::string Name =
+        std::string(getOpStr(FR->getOperand(FMDIR_FuncName), "name: "));
+    if (Function *F = M.getFunction(Name))
+       FS.insert(F);
   }
-
+  // Make one last pass through the functions looking for "rogue"
+  // functions that have inlining report metadata, but were not inserted
+  // into the module inlining report table.
+  for (auto &F : M.functions()) {
+    if (FS.count(&F) || F.isDeclaration())
+       continue;
+    if (auto MDN = dyn_cast_or_null<MDTuple>(F.getMetadata(FunctionTag)))
+       printFunctionInlineReportFromMetadata(MDN);
+  }
   OS << "---- End Inlining Report ------ (via metadata)\n";
   delete getMDInlineReport();
   return true;

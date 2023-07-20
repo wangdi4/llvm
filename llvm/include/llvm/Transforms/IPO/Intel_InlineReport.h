@@ -354,6 +354,9 @@ public:
   /// Compact the children of 'IRCS' into this InlineReportFunction.
   void compactChildren(InlineReportCallSite *IRCS);
 
+  /// Clone compact info from 'IRF' to the current InlineReportFunction.
+  void cloneCompactInfo(InlineReportFunction *IRF);
+
 private:
   bool IsDead;
   bool IsCurrent;

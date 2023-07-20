@@ -13,12 +13,11 @@
 
 ; RUN: opt < %s -opaque-pointers -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -passes='module(intel-partialinline),cgscc(inline)' -inline-report=7 -disable-output 2>&1 | FileCheck %s
 
-; CHECK: COMPILE FUNC: _Z3fooP4Node.1
-; CHECK:   -> _Z3fooP4Node.1.for.body {{.*}}Outlined function from partial inlining
-
 ; CHECK: COMPILE FUNC: _Z3barP4Node
 ; CHECK: -> INLINE: _Z3fooP4Node.1{{.*}}<<Preferred for partial inlining>>
 ; CHECK:      -> _Z3fooP4Node.1.for.body {{.*}}Outlined function from partial inlining
+; CHECK: COMPILE FUNC: _Z3fooP4Node.1
+; CHECK:   -> _Z3fooP4Node.1.for.body {{.*}}Outlined function from partial inlining
 
 ; ModuleID = 'intel_simple_partial_inline_2_report.ll'
 source_filename = "intel_simple_partial_inline_2_report.ll"

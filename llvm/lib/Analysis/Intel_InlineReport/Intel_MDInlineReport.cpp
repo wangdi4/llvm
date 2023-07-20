@@ -509,6 +509,8 @@ void llvm::setMDReasonIsInlined(CallBase *Call, const InlineCost &IC) {
 bool InlineReportBuilder::shouldCompactCallBase(Function *Caller,
                                                 Function *Callee,
                                                 bool ForceCompact) {
+  if (!hasFunctionMetadata(Caller, Callee))
+    return false;
   unsigned CalleeIndex = getFunctionIndex(Callee);
   Module *M = Caller->getParent();
   NamedMDNode *ModuleInlineReport = M->getOrInsertNamedMetadata(ModuleTag);
@@ -693,6 +695,15 @@ bool InlineReportBuilder::getIsCompact(Metadata *CurrentCallInstReport) {
   auto CSIR = cast<MDTuple>(CurrentCallInstReport);
   getOpVal(CSIR->getOperand(CSMDIR_IsCompact), "isCompact: ", &IsCompact);
   return IsCompact;
+}
+
+bool InlineReportBuilder::hasFunctionMetadata(Function *Caller,
+                                              Function *Callee) {
+  if (!Caller->getMetadata(FunctionTag))
+    return false;
+  if (!Callee->getMetadata(FunctionTag))
+    return false;
+  return true;
 }
 
 void InlineReportBuilder::setIsCompact(Metadata *CurrentCallInstReport,
@@ -961,7 +972,8 @@ void InlineReportBuilder::inlineCallSite() {
   if (shouldCompactCallBase(CurrentCaller, CurrentCallee, Level & Compact))
     compact(CurrentCallee);
   Metadata *NewMD = nullptr;
-  if (getIsCompact(CurrentCallee))
+  bool hasFMD = hasFunctionMetadata(CurrentCaller, CurrentCallee);
+  if (hasFMD && getIsCompact(CurrentCallee))
     NewMD = cloneInliningReportCompact(CurrentCaller, CurrentCallee, VMap);
   else
     NewMD = cloneInliningReport(CurrentCallee, VMap);
@@ -974,9 +986,11 @@ void InlineReportBuilder::inlineCallSite() {
   IsInlinedStr.append(std::to_string(true));
   auto IsInlinedMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, IsInlinedStr));
   OldCallSiteIR->replaceOperandWith(CSMDIR_IsInlined, IsInlinedMD);
-  unsigned CallerIndex = getFunctionIndex(CurrentCaller);
-  unsigned CalleeIndex = getFunctionIndex(CurrentCallee);
-  InlineCount[CallerIndex] += InlineCount[CalleeIndex] + 1;
+  if (hasFMD) {
+    unsigned CallerIndex = getFunctionIndex(CurrentCaller);
+    unsigned CalleeIndex = getFunctionIndex(CurrentCallee);
+    InlineCount[CallerIndex] += InlineCount[CalleeIndex] + 1;
+  }
 }
 
 void InlineReportBuilder::replaceFunctionWithFunction(Function *OldFunction,

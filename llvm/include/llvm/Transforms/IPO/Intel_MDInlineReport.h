@@ -124,8 +124,9 @@ class InlineReportBuilder {
 
 public:
   explicit InlineReportBuilder(unsigned MyLevel)
-      : Level(MyLevel), CurrentCallInstr(nullptr),
-        CurrentCallInstReport(nullptr), CurrentCallee(nullptr){};
+      : Level(MyLevel), InitializedFromModuleTable(false),
+        CurrentCallInstr(nullptr), CurrentCallInstReport(nullptr),
+        CurrentCallee(nullptr) {}
 
   virtual ~InlineReportBuilder(void) {
     for (auto &IRCBEntry : IRCallbackMap)
@@ -134,9 +135,28 @@ public:
     deleteAllFunctionTemps();
   }
 
+  // Ensure that the temporary data structures are initialized to
+  // correspond with data read in from an IR file. This happens most
+  // commonly with LIT tests.
+  void ensureModuleTableIsInitialized(Module *M) {
+    if (!InitializedFromModuleTable) {
+      NamedMDNode *MIR =
+          M->getOrInsertNamedMetadata(MDInliningReport::ModuleTag);
+      for (unsigned I = 0, E = MIR->getNumOperands(); I < E; ++I) {
+        auto FR = cast<MDTuple>(MIR->getOperand(I));
+        auto FF = MDInliningReport::FMDIR_FuncName;
+        std::string Name = std::string(getOpStr(FR->getOperand(FF), "name: "));
+        if (Function *LF = M->getFunction(Name))
+          initFunctionTempsAtIndex(LF, I);
+      }
+      InitializedFromModuleTable = true;
+    }
+  }
+
   // Init the temporary data structures for the Function at the given index.
   void initFunctionTempsAtIndex(Function *F, unsigned Index) {
     FunctionIndexMap.insert({F, Index});
+    FunctionNameIndexMap.insert({F->getName(), Index});
     Inlines[Index] = new MapVector<unsigned, unsigned>;
     TotalInlines[Index] = new MapVector<unsigned, unsigned>;
     InlineCount[Index] = 0;
@@ -155,6 +175,7 @@ public:
   // Delete temporary data structures.
   void deleteAllFunctionTemps() {
     FunctionIndexMap.clear();
+    FunctionNameIndexMap.clear();
     for (auto MV : Inlines)
       delete MV.second;
     Inlines.clear();
@@ -187,27 +208,56 @@ public:
     return ModuleInlineReport->getNumOperands();
   }
 
+  // The function metdata may be present, but may not have been
+  // inserted into the metadata inlining report table because the
+  // specific optimization that created the function was not
+  // explicitly updated by calling the metadata inlining report
+  // update functions. If so, put it into the table and allocate
+  // temps for it.
+  unsigned fixRogueFunctionAndReturnIndex(Function *F, MDTuple *MDN) {
+    Module *M = F->getParent();
+    NamedMDNode *ModuleInlineReport =
+        M->getOrInsertNamedMetadata(MDInliningReport::ModuleTag);
+    unsigned Index = ModuleInlineReport->getNumOperands();
+    initFunctionTemps(F);
+    ModuleInlineReport->addOperand(MDN);
+    return Index;
+  }
+
   // Get the function index for 'F'.
   unsigned getFunctionIndex(Function *F) {
+    ensureModuleTableIsInitialized(F->getParent());
     auto MapIt = FunctionIndexMap.find(F);
-    if (MapIt == FunctionIndexMap.end())
-      return searchForFunctionName(F->getParent(), F->getName());
-    return MapIt->second;
+    if (MapIt != FunctionIndexMap.end())
+      return MapIt->second;
+    MDNode *MDN = F->getMetadata(MDInliningReport::FunctionTag);
+    if (auto MDT = dyn_cast_or_null<MDTuple>(MDN))
+      return fixRogueFunctionAndReturnIndex(F, MDT);
+    return searchForFunctionName(F->getParent(), F->getName());
   }
 
   // Get the function index for a Function with name 'FunctionName'.
   // This must be used if the Function may have already been deleted.
   unsigned getFunctionIndexByName(Module *M, StringRef FunctionName) {
+    ensureModuleTableIsInitialized(M);
     auto MapIt = FunctionNameIndexMap.find(FunctionName);
-    if (MapIt == FunctionNameIndexMap.end())
-      return searchForFunctionName(M, FunctionName);
-    return MapIt->second;
+    if (MapIt != FunctionNameIndexMap.end())
+      return MapIt->second;
+    if (Function *F = M->getFunction(FunctionName)) {
+      MDNode *MDN = F->getMetadata(MDInliningReport::FunctionTag);
+      if (auto MDT = dyn_cast_or_null<MDTuple>(MDN))
+        return fixRogueFunctionAndReturnIndex(F, MDT);
+    }
+    return searchForFunctionName(M, FunctionName);
   }
 
   // Return 'true' if the summarized form of 'F' should be used.
   bool getIsSummarized(Function *F) {
     return getIsCompact(F) && TotalInlines[getFunctionIndex(F)]->size();
   }
+
+  // Return 'true' if both the caller and callee have function metadata.
+  bool hasFunctionMetadata(Function *Caller, Function *Callee);
 
   bool getIsCompact(Function *F);
   void setIsCompact(Function *F, bool Value);
@@ -421,6 +471,9 @@ private:
   /// The Level is specified by the option -inline-report=N.
   /// See llvm/lib/Transforms/IPO/Inliner.cpp for details on Level.
   unsigned Level;
+  /// Is 'true' if the module metadata table has been queried to determine if
+  /// reading the IR has loaded entries into the module metadata table.
+  bool InitializedFromModuleTable;
   // Call instruction which is considered on the current inlining step.
   Instruction *CurrentCallInstr;
   // Metadata inlining report for the current call instruction.
