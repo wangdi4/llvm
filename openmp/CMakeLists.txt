@@ -162,7 +162,14 @@ endif()
 
 option(OPENMP_ENABLE_OMPT_TOOLS "Enable building ompt based tools for OpenMP."
        ${ENABLE_OMPT_TOOLS})
-if (OPENMP_ENABLE_OMPT_TOOLS)
+
+# INTEL_CUSTOMIZATION
+# Archer is enabled on Linux.
+option(OPENMP_ENABLE_ARCHER "Enable building ompt based tool Archer for OpenMP."
+       ON)
+
+if (OPENMP_ENABLE_ARCHER AND CMAKE_SYSTEM_NAME MATCHES "Linux")
+#end INTEL_CUSTOMIZATION
   add_subdirectory(tools)
 endif()
 
