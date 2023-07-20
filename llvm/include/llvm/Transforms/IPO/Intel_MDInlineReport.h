@@ -126,7 +126,7 @@ public:
   explicit InlineReportBuilder(unsigned MyLevel)
       : Level(MyLevel), InitializedFromModuleTable(false),
         CurrentCallInstr(nullptr), CurrentCallInstReport(nullptr),
-        CurrentCallee(nullptr) {}
+        CurrentCaller(nullptr), CurrentCallee(nullptr) {}
 
   virtual ~InlineReportBuilder(void) {
     for (auto &IRCBEntry : IRCallbackMap)
@@ -176,10 +176,10 @@ public:
   void deleteAllFunctionTemps() {
     FunctionIndexMap.clear();
     FunctionNameIndexMap.clear();
-    for (auto MV : Inlines)
+    for (auto &MV : Inlines)
       delete MV.second;
     Inlines.clear();
-    for (auto MV : TotalInlines)
+    for (auto &MV : TotalInlines)
       delete MV.second;
     TotalInlines.clear();
     InlineCount.clear();
