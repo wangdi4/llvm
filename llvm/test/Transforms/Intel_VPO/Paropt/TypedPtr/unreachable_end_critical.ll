@@ -1,5 +1,5 @@
-; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ; Original code:
 ; #include <stdlib.h>
@@ -26,19 +26,15 @@ target triple = "x86_64-unknown-linux-gnu"
 
 $__clang_call_terminate = comdat any
 
-@_ZTIi = external dso_local constant ptr
+@_ZTIi = external dso_local constant i8*
 
 ; Function Attrs: noinline nounwind optnone uwtable mustprogress
-define dso_local void @_Z3barv() #0 personality ptr @__gxx_personality_v0 {
+define dso_local void @_Z3barv() #0 personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) {
 entry:
-  %exn.slot = alloca ptr, align 8
+  %exn.slot = alloca i8*, align 8
   %ehselector.slot = alloca i32, align 4
   %t = alloca i32, align 4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %t, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %exn.slot, ptr null, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %ehselector.slot, i32 0, i32 1) ]
-
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.PRIVATE"(i32* %t), "QUAL.OMP.PRIVATE"(i8** %exn.slot), "QUAL.OMP.PRIVATE"(i32* %ehselector.slot) ]
   invoke void @_Z3foov()
           to label %invoke.cont unwind label %lpad
 
@@ -46,40 +42,39 @@ invoke.cont:                                      ; preds = %entry
   br label %try.cont
 
 lpad:                                             ; preds = %entry
-  %1 = landingpad { ptr, i32 }
-          catch ptr @_ZTIi
-          catch ptr null
-  %2 = extractvalue { ptr, i32 } %1, 0
-  store ptr %2, ptr %exn.slot, align 8
-  %3 = extractvalue { ptr, i32 } %1, 1
-  store i32 %3, ptr %ehselector.slot, align 4
+  %1 = landingpad { i8*, i32 }
+          catch i8* bitcast (i8** @_ZTIi to i8*)
+          catch i8* null
+  %2 = extractvalue { i8*, i32 } %1, 0
+  store i8* %2, i8** %exn.slot, align 8
+  %3 = extractvalue { i8*, i32 } %1, 1
+  store i32 %3, i32* %ehselector.slot, align 4
   br label %catch.dispatch
 
 catch.dispatch:                                   ; preds = %lpad
-  %sel = load i32, ptr %ehselector.slot, align 4
-  %4 = call i32 @llvm.eh.typeid.for(ptr @_ZTIi) #1
+  %sel = load i32, i32* %ehselector.slot, align 4
+  %4 = call i32 @llvm.eh.typeid.for(i8* bitcast (i8** @_ZTIi to i8*)) #1
   %matches = icmp eq i32 %sel, %4
   br i1 %matches, label %catch, label %terminate.handler
 
 catch:                                            ; preds = %catch.dispatch
-  %exn = load ptr, ptr %exn.slot, align 8
-  %5 = call ptr @__cxa_begin_catch(ptr %exn) #1
-  %6 = load i32, ptr %5, align 4
-  store i32 %6, ptr %t, align 4
-  %7 = load i32, ptr %t, align 4
-  %cmp = icmp ne i32 %7, 0
+  %exn = load i8*, i8** %exn.slot, align 8
+  %5 = call i8* @__cxa_begin_catch(i8* %exn) #1
+  %6 = bitcast i8* %5 to i32*
+  %7 = load i32, i32* %6, align 4
+  store i32 %7, i32* %t, align 4
+  %8 = load i32, i32* %t, align 4
+  %cmp = icmp ne i32 %8, 0
   br i1 %cmp, label %if.then, label %if.end
 
 if.then:                                          ; preds = %catch
-  %8 = call token @llvm.directive.region.entry() [ "DIR.OMP.CRITICAL"() ]
-
+  %9 = call token @llvm.directive.region.entry() [ "DIR.OMP.CRITICAL"() ]
   fence acquire
   call void @exit(i32 0) #6
   unreachable
 
 dummy:                                            ; No predecessors!
-  call void @llvm.directive.region.exit(token %8) [ "DIR.OMP.END.CRITICAL"() ]
-
+  call void @llvm.directive.region.exit(token %9) [ "DIR.OMP.END.CRITICAL"() ]
   br label %if.end
 
 if.end:                                           ; preds = %dummy, %catch
@@ -88,12 +83,11 @@ if.end:                                           ; preds = %dummy, %catch
 
 try.cont:                                         ; preds = %if.end, %invoke.cont
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL"() ]
-
   ret void
 
 terminate.handler:                                ; preds = %catch.dispatch
-  %exn1 = load ptr, ptr %exn.slot, align 8
-  call void @__clang_call_terminate(ptr %exn1) #6
+  %exn1 = load i8*, i8** %exn.slot, align 8
+  call void @__clang_call_terminate(i8* %exn1) #6
   unreachable
 }
 
@@ -108,16 +102,16 @@ declare dso_local void @_Z3foov() #2
 declare dso_local i32 @__gxx_personality_v0(...)
 
 ; Function Attrs: nounwind readnone
-declare i32 @llvm.eh.typeid.for(ptr) #3
+declare i32 @llvm.eh.typeid.for(i8*) #3
 
 ; Function Attrs: noinline noreturn nounwind
-define linkonce_odr hidden void @__clang_call_terminate(ptr %0) #4 comdat {
-  %2 = call ptr @__cxa_begin_catch(ptr %0) #1
+define linkonce_odr hidden void @__clang_call_terminate(i8* %0) #4 comdat {
+  %2 = call i8* @__cxa_begin_catch(i8* %0) #1
   call void @_ZSt9terminatev() #6
   unreachable
 }
 
-declare dso_local ptr @__cxa_begin_catch(ptr)
+declare dso_local i8* @__cxa_begin_catch(i8*)
 
 declare dso_local void @_ZSt9terminatev()
 

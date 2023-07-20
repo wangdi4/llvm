@@ -1,11 +1,11 @@
-; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s -check-prefix=PREPR
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s -check-prefix=PREPR
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s -check-prefix=PREPR
+; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s -check-prefix=PREPR
 
-; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg -S %s | FileCheck %s -check-prefix=SIMPL
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,simplifycfg,loop-simplify)' -S %s | FileCheck %s -check-prefix=SIMPL
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg -S %s | FileCheck %s -check-prefix=SIMPL
+; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,simplifycfg,loop-simplify)' -S %s | FileCheck %s -check-prefix=SIMPL
 
-; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s -check-prefix=TFORM
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,simplifycfg,loop-simplify,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s -check-prefix=TFORM
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s -check-prefix=TFORM
+; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,simplifycfg,loop-simplify,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s -check-prefix=TFORM
 
 ; Test src:
 ;
@@ -42,8 +42,8 @@
 
 ; Check for a branch emitted from begin to end directive after vpo-paropt-prepare phase.
 ; PREPR: call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"()
-; PREPR-SAME: "QUAL.OMP.JUMP.TO.END.IF"(ptr [[BRANCH_TEMP:%[^ ,]+]])
-; PREPR-NEXT: [[TEMP_LOAD:%[^ ]+]] = load volatile i1, ptr [[BRANCH_TEMP]]
+; PREPR-SAME: "QUAL.OMP.JUMP.TO.END.IF"(i1* [[BRANCH_TEMP:%[^ ,]+]])
+; PREPR-NEXT: [[TEMP_LOAD:%[^ ]+]] = load volatile i1, i1* [[BRANCH_TEMP]]
 ; PREPR-NEXT: [[CMP:%[^ ]+]] = icmp ne i1 [[TEMP_LOAD]], false
 ; PREPR-NEXT: br i1 [[CMP]], label %[[END_LABEL:[^ ,]+]], label %{{.*}}
 ; PREPR: [[END_LABEL]]:
@@ -52,7 +52,7 @@
 
 ; After simplifycfg, there should be no printf left in the IR as it's unreachable,
 ; but the two end region directives should still be present.
-; SIMPL-NOT: call i32 (ptr, ...) @printf
+; SIMPL-NOT: call i32 (i8*, ...) @printf
 ; SIMPL: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.PARALLEL"() ]
 ; SIMPL: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.PARALLEL"() ]
 
@@ -72,14 +72,14 @@ entry:
   %i = alloca i32, align 4
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
     "QUAL.OMP.NUM_THREADS"(i32 2),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %i, i32 0, i32 1) ]
+    "QUAL.OMP.PRIVATE:TYPED"(i32* %i, i32 0, i32 1) ]
 
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
     "QUAL.OMP.NUM_THREADS"(i32 4),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %i, i32 0, i32 1) ]
+    "QUAL.OMP.PRIVATE:TYPED"(i32* %i, i32 0, i32 1) ]
 
   %call = call i32 @omp_get_thread_num()
-  store i32 %call, ptr %i, align 4
+  store i32 %call, i32* %i, align 4
   br label %while.cond
 
 while.cond:                                       ; preds = %entry
@@ -91,7 +91,7 @@ while.body:                                       ; preds = %while.cond
 
   call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.CANCEL"() ]
   call void @exit(i32 1) #0
-  %call1 = call i32 (ptr, ...) @printf(ptr @.str, i32 10)
+  %call1 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([11 x i8], [11 x i8]* @.str, i64 0, i64 0), i32 10)
   unreachable
 
 dummy:                                            ; No predecessors!
@@ -103,7 +103,7 @@ dummy:                                            ; No predecessors!
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 declare dso_local i32 @omp_get_thread_num()
-declare dso_local i32 @printf(ptr, ...)
+declare dso_local i32 @printf(i8*, ...)
 declare dso_local void @exit(i32) #0
 
 attributes #0 = { noreturn nounwind }
