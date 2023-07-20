@@ -13,11 +13,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLDDNode.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Instructions.h"
@@ -29,7 +29,7 @@
 #include "Intel_DTrans/Transforms/PaddedPointerPropagation.h"
 #endif // INTEL_FEATURE_SW_DTRANS
 
-using namespace llvm;
+    using namespace llvm;
 using namespace llvm::loopopt;
 
 static cl::opt<bool>
@@ -69,7 +69,8 @@ RegDDRef::GEPInfo::GEPInfo()
       BitCastDestVecOrElemTy(nullptr), InBounds(false), AddressOf(false),
       NumCollapsedLevels(0), MaxVecLenAllowed(0), Alignment(0),
       HighestDimNumElements(0), CanUsePointeeSize(false),
-      AnyVarDimStrideMayBeZero(false), DummyGepLoc(nullptr) {}
+      AnyVarDimStrideMayBeZero(false), AnyDimStrideReversed(false),
+      DummyGepLoc(nullptr) {}
 
 RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
     : BaseCE(Info.BaseCE->clone()), BasePtrElementTy(Info.BasePtrElementTy),
@@ -80,6 +81,7 @@ RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
       HighestDimNumElements(Info.HighestDimNumElements),
       CanUsePointeeSize(Info.CanUsePointeeSize),
       AnyVarDimStrideMayBeZero(Info.AnyVarDimStrideMayBeZero),
+      AnyDimStrideReversed(Info.AnyDimStrideReversed),
       DimensionOffsets(Info.DimensionOffsets), DimTypes(Info.DimTypes),
       DimElementTypes(Info.DimElementTypes),
       StrideIsExactMultiple(Info.StrideIsExactMultiple), MDNodes(Info.MDNodes),
@@ -320,6 +322,9 @@ void RegDDRef::printImpl(formatted_raw_ostream &OS, bool Detailed,
       if (Detailed && anyVarDimStrideMayBeZero()) {
         OS << "{anyVarDimStrideMayBeZero}";
       }
+      if (Detailed && anyDimStrideReversed()) {
+        OS << "{anyDimStrideReversed}";
+      }
 
       if (auto *BitCastTy = getBitCastDestVecOrElemType()) {
         OS << "(";
@@ -488,6 +493,12 @@ bool RegDDRef::anyVarDimStrideMayBeZero() const {
   assert(hasGEPInfo() && "GEP ref expected!");
 
   return getGEPInfo()->AnyVarDimStrideMayBeZero;
+}
+
+bool RegDDRef::anyDimStrideReversed() const {
+  assert(hasGEPInfo() && "GEP ref expected!");
+
+  return getGEPInfo()->AnyDimStrideReversed;
 }
 
 Type *RegDDRef::getTypeImpl(bool IsSrc) const {
@@ -2133,7 +2144,7 @@ unsigned RegDDRef::getNumDimensionElements(unsigned DimensionNum) const {
     if (!getDimensionStride(DimensionNum)->isIntConstant(&CurDimStride) ||
         (CurDimStride == 0) ||
         !getDimensionStride(DimensionNum + 1)->isIntConstant(&NextDimStride) ||
-        (NextDimStride == 0)) {
+        (NextDimStride == 0) || anyDimStrideReversed()) {
       return 0;
     }
 
@@ -2162,7 +2173,6 @@ unsigned RegDDRef::getNumDimensionElements(unsigned DimensionNum) const {
     // TODO: How to get extent information?
     //
     bool IsEvenlyDivisible = (NextDimStride % CurDimStride == 0);
-
     return ((NextDimStride / CurDimStride) + (IsEvenlyDivisible ? 0 : 1));
   }
 
