@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers -passes='function(mem2reg),print<inline-report>' -disable-output -inline-report=0xea07 < %s 2>&1 | FileCheck %s
- ; RUN: opt -opaque-pointers -passes='inlinereportsetup,function(mem2reg),inlinereportemitter' -inline-report=0xea86 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='function(mem2reg),print<inline-report>' -disable-output -inline-report=0xea07 < %s 2>&1 | FileCheck %s
+ ; RUN: opt -passes='inlinereportsetup,function(mem2reg),inlinereportemitter' -inline-report=0xea86 -S < %s 2>&1 | FileCheck %s
 
 ; Check that llvm.lifetime.start.p0i8 is deleted as dead code.
 

@@ -1,7 +1,7 @@
 ; Inline report
-; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0xf87f -inline-for-xmain=false -inline-threshold=-1000 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-NEW
+; RUN: opt -passes='cgscc(inline)' -inline-report=0xf87f -inline-for-xmain=false -inline-threshold=-1000 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-NEW
 ; Inline report via metadata
-; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xf8fe < %s -S | opt -passes='cgscc(inline)' -inline-report=0xf8fe -inline-for-xmain=false -inline-threshold=-1000 -S | opt -passes='inlinereportemitter' -inline-report=0xf8fe -inline-threshold=-1000 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-OLD
+; RUN: opt -passes='inlinereportsetup' -inline-report=0xf8fe < %s -S | opt -passes='cgscc(inline)' -inline-report=0xf8fe -inline-for-xmain=false -inline-threshold=-1000 -S | opt -passes='inlinereportemitter' -inline-report=0xf8fe -inline-threshold=-1000 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-OLD
 
 ; CHECK-OLD: Begin
 ; CHECK-OLD-NOT: single callsite and local linkage

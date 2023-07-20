@@ -1,8 +1,8 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -opaque-pointers -disable-output -passes='cgscc(inline),simplifycfg' -inline-report=0xe807 2>&1 | FileCheck %s
-; RUN: opt < %s -opaque-pointers -disable-output -debug-only=inlinereport -passes='cgscc(inline),simplifycfg' -inline-report=0xe807 2>&1 | FileCheck --check-prefixes=CHECK-DBG,CHECK-DBG-CL %s
-; RUN: opt < %s -opaque-pointers -disable-output -passes='inlinereportsetup,cgscc(inline),simplifycfg,inlinereportemitter' -inline-report=0xe886 2>&1 | FileCheck %s
-; RUN: opt < %s -opaque-pointers -disable-output -debug-only=mdinlinereport -passes='inlinereportsetup,cgscc(inline),simplifycfg,inlinereportemitter' -inline-report=0xe886 2>&1 | FileCheck --check-prefix=CHECK-DBG %s
+; RUN: opt < %s -disable-output -passes='cgscc(inline),simplifycfg' -inline-report=0xe807 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -debug-only=inlinereport -passes='cgscc(inline),simplifycfg' -inline-report=0xe807 2>&1 | FileCheck --check-prefixes=CHECK-DBG,CHECK-DBG-CL %s
+; RUN: opt < %s -disable-output -passes='inlinereportsetup,cgscc(inline),simplifycfg,inlinereportemitter' -inline-report=0xe886 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -debug-only=mdinlinereport -passes='inlinereportsetup,cgscc(inline),simplifycfg,inlinereportemitter' -inline-report=0xe886 2>&1 | FileCheck --check-prefix=CHECK-DBG %s
 
 ; Check that when an invoke is converted to a call (as is the case for
 ; _ZN3ArrIPiEC2EiP3Mem and _ZN3ArrIPvEC2EiP3Mem below, the call appears

@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0xe807 -S < %s  2>&1 | FileCheck --check-prefix=CHECK-NEW %s
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck --check-prefix=CHECK-MOLD %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 -S < %s  2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck --check-prefix=CHECK-MOLD %s
 
 ; CHECK-OLD: COMPILE FUNC: bf_musttail
 ; CHECK-OLD: llvm.icall.branch.funnel {{.*}}Callee is intrinsic{{.*}}

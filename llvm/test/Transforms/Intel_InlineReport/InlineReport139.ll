@@ -1,8 +1,8 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers -passes='function(sroa),print<inline-report>' -disable-output -inline-report=0xea07 < %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -debug-only=inlinereport -passes='function(sroa),print<inline-report>' -disable-output -inline-report=0xea07 < %s 2>&1 | FileCheck --check-prefix=CHECK-DBG %s
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,function(sroa),inlinereportemitter' -disable-output -inline-report=0xea86 < %s -S 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -debug-only=mdinlinereport -passes='inlinereportsetup,function(sroa),inlinereportemitter' -disable-output -inline-report=0xea86 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-DBG %s
+; RUN: opt -passes='function(sroa),print<inline-report>' -disable-output -inline-report=0xea07 < %s 2>&1 | FileCheck %s
+; RUN: opt -debug-only=inlinereport -passes='function(sroa),print<inline-report>' -disable-output -inline-report=0xea07 < %s 2>&1 | FileCheck --check-prefix=CHECK-DBG %s
+; RUN: opt -passes='inlinereportsetup,function(sroa),inlinereportemitter' -disable-output -inline-report=0xea86 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -debug-only=mdinlinereport -passes='inlinereportsetup,function(sroa),inlinereportemitter' -disable-output -inline-report=0xea86 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-DBG %s
 
 ; Check that calls to llvm.lifetime.start and llvm.lifetime.end are deleted
 ; as dead code.

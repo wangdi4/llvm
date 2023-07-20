@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: system-windows,intel_feature_sw_advanced
-; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0xe807 -inline-threshold=0 -inline-tbb-parallel-for-min-funcs=0 -lto-inline-cost < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -inline-threshold=0 -inline-tbb-parallel-for-min-funcs=0 -lto-inline-cost -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
+; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 -inline-threshold=0 -inline-tbb-parallel-for-min-funcs=0 -lto-inline-cost < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
+; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -inline-threshold=0 -inline-tbb-parallel-for-min-funcs=0 -lto-inline-cost -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
 
 ; Show that ?relax@@YAXPEAH00H@Z is inlined because it is selected as a
 ; candidate using the "TBB parallel for" inlining heuristic on Windows.

@@ -1,6 +1,6 @@
-; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0xf847 -inline-threshold=10 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=0xf847 -inline-threshold=10 -disable-output < %s 2>&1 | FileCheck %s
 ; Inline report via metadata
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xf8c6 -inline-threshold=10 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xf8c6 -inline-threshold=10 -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK: foo{{.*}}EE{{.*}}Inlining is not profitable
 

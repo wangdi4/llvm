@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers < %s -passes='module(ip-cloning),cgscc(inline)' -ip-gen-cloning-force-enable-dtrans -inline-report=0xe807 -S 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers < %s -passes='inlinereportsetup,module(ip-cloning),cgscc(inline),inlinereportemitter' -ip-gen-cloning-force-enable-dtrans -inline-report=0xe807 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(ip-cloning),cgscc(inline)' -ip-gen-cloning-force-enable-dtrans -inline-report=0xe807 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='inlinereportsetup,module(ip-cloning),cgscc(inline),inlinereportemitter' -ip-gen-cloning-force-enable-dtrans -inline-report=0xe807 -S 2>&1 | FileCheck %s
 
 ; Test that the first n-1 recursive progression clones are inlined, while
 ; the n-th is not.

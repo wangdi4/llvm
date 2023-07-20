@@ -1,7 +1,7 @@
 ; Inline report
-; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
+; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
 ; Inline report via metadata
-; RUN: opt  -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
+; RUN: opt  -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
 
 ; Check that no instances of @wolff_ are inlined due to the inline budget and
 ; single callsite local linkage heuristics, because whole program read was

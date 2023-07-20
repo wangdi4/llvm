@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers < %s -passes='require<profile-summary>,cgscc(inline)' -pre-lto-inline-cost -inline-report=0xe807 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,require<profile-summary>,cgscc(inline),inlinereportemitter' -pre-lto-inline-cost -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
+; RUN: opt < %s -passes='require<profile-summary>,cgscc(inline)' -pre-lto-inline-cost -inline-report=0xe807 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
+; RUN: opt -passes='inlinereportsetup,require<profile-summary>,cgscc(inline),inlinereportemitter' -pre-lto-inline-cost -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
 
 ; Check that @bar is not inlined on the compile step of an -lfto compilation
 ; because @baz might get converted from a single callsite to multiple callsite

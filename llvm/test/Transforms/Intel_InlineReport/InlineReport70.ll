@@ -1,9 +1,9 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 ; Inline report
-; RUN: opt -opaque-pointers -passes='require<wholeprogram>,function(instcombine),cgscc(inline)' -whole-program-assume-read -lto-inline-cost -inlining-dyn-alloca-adjustable=false -inline-report=0xe807 -forced-inline-opt-level=3  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
+; RUN: opt -passes='require<wholeprogram>,function(instcombine),cgscc(inline)' -whole-program-assume-read -lto-inline-cost -inlining-dyn-alloca-adjustable=false -inline-report=0xe807 -forced-inline-opt-level=3  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
 ; Inline report via metadata
-; RUN: opt -opaque-pointers -passes='function(instcombine),inlinereportsetup,require<wholeprogram>,cgscc(inline),inlinereportemitter' -whole-program-assume-read -lto-inline-cost -inlining-dyn-alloca-adjustable=false -inline-report=0xe886 -forced-inline-opt-level=3  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
+; RUN: opt -passes='function(instcombine),inlinereportsetup,require<wholeprogram>,cgscc(inline),inlinereportemitter' -whole-program-assume-read -lto-inline-cost -inlining-dyn-alloca-adjustable=false -inline-report=0xe886 -forced-inline-opt-level=3  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
 
 ; Check that @flux_ and @bi_cgstab_block_ are inlined as single callsite and
 ; local linkage functions, even though the calls to them contain a module

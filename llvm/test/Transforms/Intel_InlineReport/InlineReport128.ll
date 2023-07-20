@@ -1,7 +1,7 @@
-; RUN: opt -opaque-pointers -passes=inline -inline-report=0x2819 -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -passes=inline -inline-report=0xf859 -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-IND
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0x2898 -S < %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xf8d8 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-IND
+; RUN: opt -passes=inline -inline-report=0x2819 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes=inline -inline-report=0xf859 -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-IND
+; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0x2898 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xf8d8 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-IND
 
 ; CMPLRLLVM-38989: Check that the inlining report generated at opt report "med"
 ; level does not include indirect calls, but does at "max" level.

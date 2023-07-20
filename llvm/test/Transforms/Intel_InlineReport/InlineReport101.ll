@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers -passes='cgscc(inline)',argpromotion -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK-NO-MD
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),argpromotion,inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK-MD
+; RUN: opt -passes='cgscc(inline)',argpromotion -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK-NO-MD
+; RUN: opt -passes='inlinereportsetup,cgscc(inline),argpromotion,inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK-MD
 
 ; This test case checks that the result for the inline report is correct
 ; when argument promotion is applied after inlining. In this case we aren't

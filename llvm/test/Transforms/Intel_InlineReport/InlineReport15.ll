@@ -1,7 +1,7 @@
 ; Inline report
-; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=15 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=15 < %s -S 2>&1 | FileCheck %s
 ; Inline report via metadata
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=142 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=142 < %s -S 2>&1 | FileCheck %s
 
 ; CHECK-NOT: <<Callee is always inline>>
 ; Test should not produce always inline message, as no function has been

@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers < %s -dtrans-inline-heuristics -intel-libirc-allowed -passes='cgscc(inline)' -inline-report=0xf847 -S 2>&1 | FileCheck %s --check-prefix=CHECK-CL
-; RUN: opt -opaque-pointers -dtrans-inline-heuristics -intel-libirc-allowed -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xf8c6 -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-MD
+; RUN: opt < %s -dtrans-inline-heuristics -intel-libirc-allowed -passes='cgscc(inline)' -inline-report=0xf847 -S 2>&1 | FileCheck %s --check-prefix=CHECK-CL
+; RUN: opt -dtrans-inline-heuristics -intel-libirc-allowed -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xf8c6 -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-MD
 
 ; Check that foo() is not inlined when -dtrans-inline-heuristics -intel-libirc-allowed is specified,
 ; because it ends in an unreachable instruction. NOTE: The check for '>1'

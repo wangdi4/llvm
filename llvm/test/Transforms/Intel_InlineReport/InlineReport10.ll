@@ -1,9 +1,9 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 ; Inline report
-; RUN: opt -opaque-pointers -passes='function(sroa),cgscc(inline)' -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes='function(sroa),cgscc(inline)' -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s
 ; Inline report via metadata
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,function(sroa),cgscc(inline),inlinereportemitter' -inline-report=0xe886 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup,function(sroa),cgscc(inline),inlinereportemitter' -inline-report=0xe886 < %s -S 2>&1 | FileCheck %s
 
 ; CHECK: Begin
 ; CHECK: double callsite

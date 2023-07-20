@@ -4,9 +4,9 @@
 ; removed and that the function main returns 0.
 
 ; Inline report
-; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0xe801 < %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-CL,CHECK
+; RUN: opt -passes='cgscc(inline)' -inline-report=0xe801 < %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK-CL,CHECK
 ; Inline report via metadata
-; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xe880 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xe880 -S | opt -passes='inlinereportemitter' -inline-report=0xe880 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-MD,CHECK
+; RUN: opt -passes='inlinereportsetup' -inline-report=0xe880 < %s -S | opt -passes='cgscc(inline)' -inline-report=0xe880 -S | opt -passes='inlinereportemitter' -inline-report=0xe880 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-MD,CHECK
 
 ; CHECK-MD: -> INLINE: {{.*}}myprintf{{.*}}
 ; CHECK-MD:DEAD STATIC FUNC: {{.*}}myprintf{{.*}}

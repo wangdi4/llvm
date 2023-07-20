@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers -S -passes='cgscc(inline),instcombine,module(post-inline-ip-cloning)' -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=1 -ip-gen-cloning-min-switch-count=0 -inline-report=0xe807 < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
-; RUN: opt -opaque-pointers -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline),instcombine,module(post-inline-ip-cloning)' -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=1 -ip-gen-cloning-min-switch-count=0 -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
+; RUN: opt -S -passes='cgscc(inline),instcombine,module(post-inline-ip-cloning)' -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=1 -ip-gen-cloning-min-switch-count=0 -inline-report=0xe807 < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
+; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline),instcombine,module(post-inline-ip-cloning)' -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=1 -ip-gen-cloning-min-switch-count=0 -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
 
 ; CMPLRLLVM-29570: Fix core dump with
 ; tc -r none -t cpu2017ref/527 -l opt_base6_core_avx512 -c " -mllvm -stats -mllvm -inline-report=3" --ignore_rules
