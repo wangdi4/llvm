@@ -58679,66 +58679,6 @@ static SDValue combineTruncatedArithmetic(SDNode *N, SelectionDAG &DAG,
   return SDValue();
 }
 
-<<<<<<< HEAD
-/// This function transforms truncation from vXi32/vXi64 to vXi8/vXi16 into
-/// X86ISD::PACKUS/X86ISD::PACKSS operations. We do it here because after type
-/// legalization the truncation will be translated into a BUILD_VECTOR with each
-/// element that is extracted from a vector and then truncated, and it is
-/// difficult to do this optimization based on them.
-/// TODO: Remove this and just use LowerTruncateVecPack.
-static SDValue combineVectorTruncation(SDNode *N, SelectionDAG &DAG,
-                                       const X86Subtarget &Subtarget) {
-  EVT OutVT = N->getValueType(0);
-  if (!OutVT.isVector())
-    return SDValue();
-
-  SDValue In = N->getOperand(0);
-  if (!In.getValueType().isSimple())
-    return SDValue();
-
-  EVT InVT = In.getValueType();
-  unsigned NumElems = OutVT.getVectorNumElements();
-
-  // AVX512 provides fast truncate ops.
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX256P
-  if (!Subtarget.hasSSE2() || Subtarget.hasAVX3())
-#else // INTEL_FEATURE_ISA_AVX256P
-  if (!Subtarget.hasSSE2() || Subtarget.hasAVX512())
-#endif // INTEL_FEATURE_ISA_AVX256P
-#endif // INTEL_CUSTOMIZATION
-    return SDValue();
-
-  EVT OutSVT = OutVT.getVectorElementType();
-  EVT InSVT = InVT.getVectorElementType();
-  if (!((InSVT == MVT::i16 || InSVT == MVT::i32 || InSVT == MVT::i64) &&
-        (OutSVT == MVT::i8 || OutSVT == MVT::i16) && isPowerOf2_32(NumElems) &&
-        NumElems >= 8))
-    return SDValue();
-
-  // SSSE3's pshufb results in less instructions in the cases below.
-  if (Subtarget.hasSSSE3() && NumElems == 8) {
-    if (InSVT == MVT::i16)
-      return SDValue();
-    if (InSVT == MVT::i32 &&
-        (OutSVT == MVT::i8 || !Subtarget.hasSSE41() || Subtarget.hasInt256()))
-      return SDValue();
-  }
-
-  SDLoc DL(N);
-  // SSE2 provides PACKUS for only 2 x v8i16 -> v16i8 and SSE4.1 provides PACKUS
-  // for 2 x v4i32 -> v8i16. For SSSE3 and below, we need to use PACKSS to
-  // truncate 2 x v4i32 to v8i16.
-  if (Subtarget.hasSSE41() || OutSVT == MVT::i8)
-    return truncateVectorWithPACKUS(OutVT, In, DL, Subtarget, DAG);
-  if (InSVT == MVT::i32)
-    return truncateVectorWithPACKSS(OutVT, In, DL, Subtarget, DAG);
-
-  return SDValue();
-}
-
-=======
->>>>>>> 451af635519113bc8fe94852d7489f26485f6689
 /// This function transforms vector truncation of 'extended sign-bits' or
 /// 'extended zero-bits' values.
 /// vXi16/vXi32/vXi64 to vXi8/vXi16/vXi32 into X86ISD::PACKSS/PACKUS operations.
