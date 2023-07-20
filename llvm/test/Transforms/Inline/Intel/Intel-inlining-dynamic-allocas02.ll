@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers -passes='cgscc(inline)'  -dtrans-inline-heuristics=false -pre-lto-inline-cost=false -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -dtrans-inline-heuristics=false -pre-lto-inline-cost=false -inline-report=0xe886 -S < %s 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
+; RUN: opt -passes='cgscc(inline)'  -dtrans-inline-heuristics=false -pre-lto-inline-cost=false -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -dtrans-inline-heuristics=false -pre-lto-inline-cost=false -inline-report=0xe886 -S < %s 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 
 ; Check that without -dtrans-inline-heuristics that @foo, which has a dynamic
 ; alloca, is not inlined.

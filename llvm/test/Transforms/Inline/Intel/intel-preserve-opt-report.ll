@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers -passes=always-inline -S %s | FileCheck %s
+; RUN: opt -passes=always-inline -S %s | FileCheck %s
 ;
 ; Original test src:
 ;
