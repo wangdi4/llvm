@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers -passes='cgscc(inline)' -pre-lto-inline-cost=false -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -dtrans-inline-heuristics -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -pre-lto-inline-cost=false -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -dtrans-inline-heuristics -inline-report=0xe886 -S < %s 2>&1 | FileCheck --check-prefix=CHECK-META %s
+; RUN: opt -passes='cgscc(inline)' -pre-lto-inline-cost=false -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -dtrans-inline-heuristics -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -pre-lto-inline-cost=false -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -dtrans-inline-heuristics -inline-report=0xe886 -S < %s 2>&1 | FileCheck --check-prefix=CHECK-META %s
 
 ; Check that link step loop fusion heuristic did not happen because
 ; -intel-libirc-allowed is missing

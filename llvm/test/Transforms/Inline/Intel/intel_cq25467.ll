@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers < %s -S -passes='function-attrs,cgscc(inline)' -inline-report=0xe807 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-OLD
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,function-attrs,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-NEW
+; RUN: opt < %s -S -passes='function-attrs,cgscc(inline)' -inline-report=0xe807 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-OLD
+; RUN: opt -passes='inlinereportsetup,function-attrs,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-NEW
 
 ; Check that the calls to stmxcsr and ldmcscr are still in the IR after
 ; inlining. (The new inline report is printed before the IR.)

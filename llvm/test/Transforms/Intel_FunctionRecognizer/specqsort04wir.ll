@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced,intel_feature_sw_dtrans
 ; UNSUPPORTED: system-linux
-; RUN: opt < %s -opaque-pointers -enable-dtrans -passes='function(functionrecognizer)' -S 2>&1 | FileCheck %s
+; RUN: opt < %s -enable-dtrans -passes='function(functionrecognizer)' -S 2>&1 | FileCheck %s
 
 ; Test that on Windows @spec_qsort is not recognized as a qsort spec_qsort,
 ; because a decrement operator is incorrectly formed.

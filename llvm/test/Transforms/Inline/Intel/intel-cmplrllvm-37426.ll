@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers < %s -passes='default<O3>' -inlinedefault-threshold=255 -S | FileCheck %s --check-prefix=CHECK255
-; RUN: opt -opaque-pointers < %s -passes='default<O3>' -inlinedefault-threshold=265 -S | FileCheck %s --check-prefix=CHECK265
+; RUN: opt < %s -passes='default<O3>' -inlinedefault-threshold=255 -S | FileCheck %s --check-prefix=CHECK255
+; RUN: opt < %s -passes='default<O3>' -inlinedefault-threshold=265 -S | FileCheck %s --check-prefix=CHECK265
 
 ; Check that the inlinedefault-threshold does alter the inline threshold at
 ; -O3 if over the aggressive default value of 250.
