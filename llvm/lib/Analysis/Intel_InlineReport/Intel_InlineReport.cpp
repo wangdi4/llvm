@@ -54,6 +54,7 @@ InlineReportCallSite::copyBase(CallBase *CB,
   NewCS->Line = Line;
   NewCS->Col = Col;
   NewCS->Children.clear();
+  NewCS->IsCompact = IsCompact;
   return NewCS;
 }
 
@@ -868,6 +869,14 @@ void InlineReportFunction::inheritCompactCallBases(
   }
 }
 
+void InlineReportFunction::cloneCompactInfo(InlineReportFunction *IRF) {
+  InlineCount = IRF->InlineCount;
+  for (auto &Pair : IRF->Inlines)
+    Inlines.insert(Pair);
+  for (auto &Pair : IRF->TotalInlines)
+    TotalInlines.insert(Pair);
+}
+
 void InlineReport::testAndPrint(void *Inliner) {
   if (!Inliner) {
     print();
@@ -1234,11 +1243,13 @@ void InlineReport::cloneFunction(Function *OldFunction, Function *NewFunction,
     return;
   InlineReportFunction *OldIRF = MapIt->second;
   InlineReportFunction *NewIRF = addFunction(NewFunction);
+  // Clone callsites.
   for (InlineReportCallSite *IRCS : OldIRF->getCallSites()) {
     InlineReportCallSite *NewIRCS = copyAndSetup(IRCS, VMap);
     NewIRF->addCallSite(NewIRCS);
     cloneCallSites(IRCS->getChildren(), VMap, IRCS, NewIRCS);
   }
+  NewIRF->cloneCompactInfo(OldIRF);
 }
 
 InlineReportCallSite *InlineReport::getCallSite(CallBase *Call) {

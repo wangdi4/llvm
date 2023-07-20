@@ -1,7 +1,7 @@
 ; This test verifies that "ippredopt-callsite" attribute is set
 ; for some of the calls during SOAToAOSOP transformation.
 
-; RUN: opt < %s -S -opaque-pointers -whole-program-assume                 \
+; RUN: opt < %s -S -whole-program-assume                                  \
 ; RUN:          -intel-libirc-allowed                                     \
 ; RUN:          -passes=dtrans-soatoaosop -enable-intel-advanced-opts     \
 ; RUN:          -mtriple=i686-- -mattr=+avx2  -dtrans-outofboundsok=false \
