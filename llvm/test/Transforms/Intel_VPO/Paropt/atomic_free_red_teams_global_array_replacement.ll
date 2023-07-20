@@ -1,8 +1,8 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S -vpo-paropt-atomic-free-reduction-slm=false -vpo-paropt-atomic-free-reduction-par-global=true <%s | FileCheck -check-prefix=NOSLM %s
-; RUN: opt -opaque-pointers=1 -switch-to-offload -passes="function(vpo-cfg-restructuring),vpo-paropt" -S -vpo-paropt-atomic-free-reduction-slm=false -vpo-paropt-atomic-free-reduction-par-global=true <%s | FileCheck -check-prefix=NOSLM %s
+; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S -vpo-paropt-atomic-free-reduction-slm=false <%s | FileCheck -check-prefix=NOSLM %s
+; RUN: opt -opaque-pointers=1 -switch-to-offload -passes="function(vpo-cfg-restructuring),vpo-paropt" -S -vpo-paropt-atomic-free-reduction-slm=false <%s | FileCheck -check-prefix=NOSLM %s
 
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S -vpo-paropt-atomic-free-reduction-slm=true -vpo-paropt-atomic-free-reduction-par-global=true <%s | FileCheck -check-prefix=SLM %s
-; RUN: opt -opaque-pointers=1 -switch-to-offload -passes="function(vpo-cfg-restructuring),vpo-paropt" -S -vpo-paropt-atomic-free-reduction-slm=true -vpo-paropt-atomic-free-reduction-par-global=true <%s | FileCheck -check-prefix=SLM %s
+; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S -vpo-paropt-atomic-free-reduction-slm=true -vpo-paropt-atomic-free-red-local-buf-size=0 <%s | FileCheck -check-prefix=SLM %s
+; RUN: opt -opaque-pointers=1 -switch-to-offload -passes="function(vpo-cfg-restructuring),vpo-paropt" -S -vpo-paropt-atomic-free-reduction-slm=true -vpo-paropt-atomic-free-red-local-buf-size=0 <%s | FileCheck -check-prefix=SLM %s
 
 ; Test src:
 ;
@@ -20,8 +20,7 @@
 ; Without SLM - with a team id based offset into the reduction buffer.
 
 ; NOSLM: [[GROUP_ID:%.+]] = call spir_func i64 @_Z12get_group_idj(i32 0)
-; NOSLM: [[GROUP_ID_X_NUM_ELEMS:%.+]] = mul i64 [[GROUP_ID]], 5
-; NOSLM: %team.buf.baseptr = getelementptr inbounds i32, ptr addrspace(1) %red_buf, i64 [[GROUP_ID_X_NUM_ELEMS]]
+; NOSLM: %team.buf.baseptr = getelementptr inbounds [5 x i32], ptr addrspace(1) %red_buf, i64 [[GROUP_ID]], i32 0
 ; NOSLM: %i1 = getelementptr inbounds [5 x i32], ptr addrspace(1) %team.buf.baseptr, i64 0, i64 1
 ; NOSLM: store i32 111, ptr addrspace(1) %i1, align 4
 

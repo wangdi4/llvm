@@ -25,10 +25,9 @@
 ; CHECK: %[[LOCAL_ID:[^,]+]] = call spir_func i64 @_Z12get_local_idj(i32 0)
 ; CHECK: %[[GROUP_ID:[^,]+]] = call spir_func i64 @_Z12get_group_idj(i32 0)
 ; CHECK: %[[LOCAL_OFFSET_TEAM:[^,]+]] = mul i64 %[[GROUP_ID]], 1024
-; CHECK: %[[LOCAL_OFFSET_TEAM_THREAD:[^,]+]] = add i64 %[[LOCAL_OFFSET_TEAM]], %[[LOCAL_ID]]
-; CHECK: %[[LOCAL_OFFSET:[^,]+]] = mul i64 %[[LOCAL_OFFSET_TEAM_THREAD]], 1
+; CHECK: %[[LOCAL_OFFSET:[^,]+]] = add i64 %[[LOCAL_OFFSET_TEAM]], %[[LOCAL_ID]]
 
-; CHECK: %[[LOCAL_BUF_BASE:[^,]+]] = getelementptr inbounds [1 x i32], [1 x i32] addrspace(1)* %[[RED_LOCAL_BUF]], i32 0, i64 %[[LOCAL_OFFSET]]
+; CHECK: %[[LOCAL_BUF_BASE:[^,]+]] = getelementptr inbounds [1 x i32], [1 x i32] addrspace(1)* %[[RED_LOCAL_BUF]], i64 %[[LOCAL_OFFSET]], i32 0
 ; CHECK-LABEL: red.update.body.to.tree:
 ; CHECK: %[[DST_PTR_TO:[^,]+]] = phi i32 addrspace(1)* [ %[[LOCAL_BUF_BASE]]
 ; CHECK: %[[SRC_PTR_TO:[^,]+]] = phi i32*
@@ -67,8 +66,7 @@
 ; CHECK-LABEL: counter_check:
 ; CHECK-LABEL: atomic.free.red.global.update.header:
 ; CHECK: %[[IDX_PHI_GLOBAL:[^,]+]] = phi i64
-; CHECK: %[[GLOBAL_OFFSET:[^,]+]] = mul i64 %[[IDX_PHI_GLOBAL]], 1
-; CHECK: %[[GLOBAL_BUF_BASE:[^,]+]] = getelementptr [1 x i32], [1 x i32] addrspace(1)* %[[RED_GLOBAL_BUF]], i64 %[[GLOBAL_OFFSET]]
+; CHECK: %[[GLOBAL_BUF_BASE:[^,]+]] = getelementptr [1 x i32], [1 x i32] addrspace(1)* %[[RED_GLOBAL_BUF]], i64 %[[IDX_PHI_GLOBAL]]
 ; CHECK: %[[GLOBAL_BUF_BC:[^,]+]] = bitcast [1 x i32] addrspace(1)* %[[GLOBAL_BUF_BASE]] to i32 addrspace(1)*
 ; CHECK-LABEL: atomic.free.red.global.update.body:
 ; CHECK-LABEL: red.update.body:
