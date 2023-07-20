@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt < %s -opaque-pointers -enable-npm-dtrans -passes='lto-pre-link<O3>' -S 2>&1 | FileCheck %s
+; RUN: opt < %s -enable-npm-dtrans -passes='lto-pre-link<O3>' -S 2>&1 | FileCheck %s
 
 ; Check that tail call elimination is not performed on foo
 

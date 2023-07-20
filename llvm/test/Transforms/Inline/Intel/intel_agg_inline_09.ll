@@ -5,7 +5,7 @@
 
 ; REQUIRES: asserts
 
-; RUN: opt -opaque-pointers < %s -passes='module(agginliner)' -debug-only=agginliner -whole-program-assume -intel-libirc-allowed -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(agginliner)' -debug-only=agginliner -whole-program-assume -intel-libirc-allowed -disable-output  2>&1 | FileCheck %s
 
 ; CHECK: AggInl: SingleAccessFunctionGlobalVarHeuristic
 ; CHECK: GV selected as candidate: grad

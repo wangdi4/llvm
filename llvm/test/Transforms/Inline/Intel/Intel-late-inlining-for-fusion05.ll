@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers -passes='require<wholeprogram>,cgscc(inline)' -pre-lto-inline-cost=false -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -dtrans-inline-heuristics -intel-libirc-allowed -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,require<wholeprogram>,cgscc(inline),inlinereportemitter' -pre-lto-inline-cost=false -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -dtrans-inline-heuristics -intel-libirc-allowed -inline-report=0xe886 -S < %s 2>&1 | FileCheck --check-prefix=CHECK-META %s
+; RUN: opt -passes='require<wholeprogram>,cgscc(inline)' -pre-lto-inline-cost=false -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -dtrans-inline-heuristics -intel-libirc-allowed -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN: opt -passes='inlinereportsetup,require<wholeprogram>,cgscc(inline),inlinereportemitter' -pre-lto-inline-cost=false -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -dtrans-inline-heuristics -intel-libirc-allowed -inline-report=0xe886 -S < %s 2>&1 | FileCheck --check-prefix=CHECK-META %s
 
 ; Test link compile step loop fusion heuristic
 ; This test is similar to Intel-late-inlining-for-fusion01.ll, but also checks

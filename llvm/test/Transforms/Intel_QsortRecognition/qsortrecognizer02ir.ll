@@ -1,6 +1,6 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt < %s -opaque-pointers -passes='module(qsortrecognizer)' -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(qsortrecognizer)' -S 2>&1 | FileCheck %s
 
 ; Check that the qsortrecognizer does not recognize @spec_qsort.40 as a spec
 ; qsort, because @arc_compare.55.85.115 was not recognized as a qsort compare.

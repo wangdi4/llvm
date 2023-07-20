@@ -2,8 +2,8 @@
 ; REQUIRES: intel_feature_sw_advanced
 ; INTEL CUSTOMIZATION:
 
-; RUN: opt -opaque-pointers -passes='cgscc(inline)' -pre-lto-inline-cost -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK-CL,CHECK-CL-NEW %s
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -pre-lto-inline-cost -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -inline-report=0xe886 -S < %s 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
+; RUN: opt -passes='cgscc(inline)' -pre-lto-inline-cost -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK-CL,CHECK-CL-NEW %s
+; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -pre-lto-inline-cost -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -inline-report=0xe886 -S < %s 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 
 ; Test checks that inlining happens for all foo() call sites. The inlining is
 ; supposed to be followed by loop fusion and vectorization.

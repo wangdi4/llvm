@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers -passes='cgscc(inline)' < %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes='cgscc(inline)' < %s -S 2>&1 | FileCheck %s
 
 ; Check that inlining a function with static allocas into a function with an
 ; OpenMp directive causes stacksave and stackrestore to be generated around
