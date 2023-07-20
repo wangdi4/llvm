@@ -1,5 +1,8 @@
-; Compiled from:
-; ----------------------------------------------------
+; RUN: opt -passes=sycl-kernel-pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-pipe-ordering %s -S | FileCheck %s
+
+; IR is dumped before PipeOrderingPass when building following kernel:
+;
 ; #pragma OPENCL EXTENSION cl_intel_channels : enable
 ;
 ; channel int ch;
@@ -9,144 +12,83 @@
 ;   write_channel_intel(ch, 42);
 ; }
 ;
-; __kernel void foo(__global int* iters) {
+; kernel void foo(global int* iters) {
 ;   for (int i = 0; i < *iters; ++i) {
 ;     write_to_channel();
 ;   // implicit work-group barrier here
 ;   }
 ; }
-; ----------------------------------------------------
-; Compile options:
-;   clang -cc1 -x cl -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -finclude-default-header -cl-std=CL1.2 -emit-llvm
-; Optimizer options:
-;   opt -sycl-kernel-builtin-lib=%p/../Inputs/fpga-pipes.rtl.bc -sycl-demangle-fpga-pipes -sycl-kernel-equalizer -sycl-kernel-channel-pipe-transformation -verify %s -S
-; ----------------------------------------------------
-; RUN: opt -passes=sycl-kernel-pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -passes=sycl-kernel-pipe-ordering %s -S | FileCheck %s
 
 ; CHECK-LABEL: for.cond:
 ; CHECK: call void @_Z18work_group_barrierj(i32 1)
-; CHECK: br i1 %cmp, label %for.body, label %for.cond.cleanup
+; CHECK-NEXT: br i1 %cmp, label %for.body, label %for.cond.cleanup
 
-target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
-target triple = "spir64-unknown-unknown-intelfpga"
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-pc-linux"
 
-%opencl.channel_t = type opaque
-%opencl.pipe_rw_t = type opaque
-%opencl.pipe_wo_t = type opaque
-%struct.__pipe_t = type { i32, i32, i32, i32, i32, i32, [0 x i8] }
+@ch = internal addrspace(1) global target("spirv.Channel") zeroinitializer, align 4, !packet_size !0, !packet_align !0
+@llvm.global_ctors = appending global [1 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 65535, ptr @__pipe_global_ctor, ptr null }]
+@ch.pipe = addrspace(1) global ptr addrspace(1) null, align 8, !packet_size !0, !packet_align !0
+@ch.pipe.bs = addrspace(1) global [456 x i8] zeroinitializer, align 4
 
-@ch = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
-@llvm.global_ctors = appending global [1 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 65535, void ()* @__pipe_global_ctor, i8* null }]
-@ch.pipe = addrspace(1) global %opencl.pipe_rw_t addrspace(1)* null, align 8, !packet_size !0, !packet_align !0
-@ch.pipe.bs = addrspace(1) global [328 x i8] zeroinitializer, align 4
-
-; Function Attrs: convergent noinline nounwind
-define void @write_to_channel() #0 {
+define internal void @write_to_channel() #0 {
 entry:
-  %write.src = alloca i32
-  %0 = load %opencl.pipe_rw_t addrspace(1)*, %opencl.pipe_rw_t addrspace(1)* addrspace(1)* @ch.pipe
-  %1 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @ch, align 4, !tbaa !6
-  store i32 42, i32* %write.src
-  %2 = bitcast %opencl.pipe_rw_t addrspace(1)* %0 to %opencl.pipe_wo_t addrspace(1)*
-  %3 = addrspacecast i32* %write.src to i8 addrspace(4)*
-  %4 = call i32 @__write_pipe_2_bl(%opencl.pipe_wo_t addrspace(1)* %2, i8 addrspace(4)* %3, i32 4, i32 4)
+  %write.src = alloca i32, align 4
+  %0 = load ptr addrspace(1), ptr addrspace(1) @ch.pipe, align 8, !tbaa !3
+  %1 = load ptr addrspace(1), ptr addrspace(1) @ch, align 4, !tbaa !3
+  store i32 42, ptr %write.src, align 4
+  %2 = addrspacecast ptr %write.src to ptr addrspace(4)
+  %3 = call i32 @__write_pipe_2_bl_fpga(ptr addrspace(1) %0, ptr addrspace(4) %2, i32 4, i32 4)
   ret void
 }
 
-; Function Attrs: convergent nounwind
-define void @foo(i32 addrspace(1)* %iters) #1 !kernel_arg_addr_space !9 !kernel_arg_access_qual !10 !kernel_arg_type !11 !kernel_arg_base_type !11 !kernel_arg_type_qual !12 !kernel_arg_host_accessible !13 !kernel_arg_pipe_depth !14 !kernel_arg_pipe_io !12 !kernel_arg_buffer_location !12 {
+define dso_local void @foo(ptr addrspace(1) noundef align 4 %iters) #1 !kernel_arg_base_type !6 !arg_type_null_val !7 {
 entry:
-  %iters.addr = alloca i32 addrspace(1)*, align 8
-  %i = alloca i32, align 4
-  store i32 addrspace(1)* %iters, i32 addrspace(1)** %iters.addr, align 8, !tbaa !15
-  %0 = bitcast i32* %i to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* %0) #4
-  store i32 0, i32* %i, align 4, !tbaa !17
   br label %for.cond
 
-for.cond:                                         ; preds = %for.inc, %entry
-  %1 = load i32, i32* %i, align 4, !tbaa !17
-  %2 = load i32 addrspace(1)*, i32 addrspace(1)** %iters.addr, align 8, !tbaa !15
-  %3 = load i32, i32 addrspace(1)* %2, align 4, !tbaa !17
-  %cmp = icmp slt i32 %1, %3
+for.cond:                                         ; preds = %for.body, %entry
+  %i.0 = phi i32 [ 0, %entry ], [ %inc, %for.body ]
+  %0 = load i32, ptr addrspace(1) %iters, align 4, !tbaa !8
+  %cmp = icmp slt i32 %i.0, %0
   br i1 %cmp, label %for.body, label %for.cond.cleanup
 
 for.cond.cleanup:                                 ; preds = %for.cond
-  %4 = bitcast i32* %i to i8*
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* %4) #4
-  br label %for.end
+  ret void
 
 for.body:                                         ; preds = %for.cond
-  call void @write_to_channel() #5
-  br label %for.inc
-
-for.inc:                                          ; preds = %for.body
-  %5 = load i32, i32* %i, align 4, !tbaa !17
-  %inc = add nsw i32 %5, 1
-  store i32 %inc, i32* %i, align 4, !tbaa !17
+  call void @write_to_channel() #2
+  %inc = add nuw nsw i32 %i.0, 1
   br label %for.cond
-
-for.end:                                          ; preds = %for.cond.cleanup
-  ret void
 }
-
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #2
-
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #2
 
 define void @__pipe_global_ctor() {
 entry:
-  call void @__pipe_init_intel(%struct.__pipe_t addrspace(1)* bitcast ([328 x i8] addrspace(1)* @ch.pipe.bs to %struct.__pipe_t addrspace(1)*), i32 4, i32 0, i32 0)
-  store %opencl.pipe_rw_t addrspace(1)* bitcast ([328 x i8] addrspace(1)* @ch.pipe.bs to %opencl.pipe_rw_t addrspace(1)*), %opencl.pipe_rw_t addrspace(1)* addrspace(1)* @ch.pipe
+  call void @__pipe_init_fpga(ptr addrspace(1) @ch.pipe.bs, i32 4, i32 0, i32 0)
+  store ptr addrspace(1) @ch.pipe.bs, ptr addrspace(1) @ch.pipe, align 8
   ret void
 }
 
-; Function Attrs: nounwind readnone
-declare void @__pipe_init_intel(%struct.__pipe_t addrspace(1)*, i32, i32, i32) #3
+declare void @__pipe_init_fpga(ptr addrspace(1) noundef, i32 noundef, i32 noundef, i32 noundef) #1
 
-; Function Attrs: nounwind readnone
-declare i32 @__write_pipe_2(%opencl.pipe_wo_t addrspace(1)*, i8 addrspace(4)* nocapture readonly, i32, i32) #3
+declare i32 @__write_pipe_2_bl_fpga(ptr addrspace(1), ptr addrspace(4), i32, i32)
 
-declare i32 @__write_pipe_2_bl(%opencl.pipe_wo_t addrspace(1)*, i8 addrspace(4)*, i32, i32)
+attributes #0 = { convergent noinline norecurse nounwind }
+attributes #1 = { convergent norecurse nounwind }
+attributes #2 = { convergent nounwind }
 
-attributes #0 = { convergent noinline nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "denorms-are-zero"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "denorms-are-zero"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "uniform-work-group-size"="true" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #2 = { argmemonly nounwind }
-attributes #3 = { nounwind readnone }
-attributes #4 = { nounwind }
-attributes #5 = { convergent }
-
-!llvm.module.flags = !{!1}
-!opencl.enable.FP_CONTRACT = !{}
-!opencl.ocl.version = !{!2}
-!opencl.spir.version = !{!2}
-!opencl.used.extensions = !{!3}
-!opencl.used.optional.core.features = !{!3}
-!opencl.compiler.options = !{!3}
-!llvm.ident = !{!4}
-!sycl.kernels = !{!5}
+!opencl.ocl.version = !{!1}
+!opencl.spir.version = !{!1}
+!sycl.kernels = !{!2}
 
 !0 = !{i32 4}
-!1 = !{i32 1, !"wchar_size", i32 4}
-!2 = !{i32 1, i32 2}
-!3 = !{}
-!4 = !{!"clang version 7.0.0 "}
-!5 = !{void (i32 addrspace(1)*)* @foo}
-!6 = !{!7, !7, i64 0}
-!7 = !{!"omnipotent char", !8, i64 0}
-!8 = !{!"Simple C/C++ TBAA"}
-!9 = !{i32 1}
-!10 = !{!"none"}
-!11 = !{!"int*"}
-!12 = !{!""}
-!13 = !{i1 false}
-!14 = !{i32 0}
-!15 = !{!16, !16, i64 0}
-!16 = !{!"any pointer", !7, i64 0}
-!17 = !{!18, !18, i64 0}
-!18 = !{!"int", !7, i64 0}
+!1 = !{i32 1, i32 2}
+!2 = !{ptr @foo}
+!3 = !{!4, !4, i64 0}
+!4 = !{!"omnipotent char", !5, i64 0}
+!5 = !{!"Simple C/C++ TBAA"}
+!6 = !{!"int*"}
+!7 = !{ptr addrspace(1) null}
+!8 = !{!9, !9, i64 0}
+!9 = !{!"int", !4, i64 0}
 
 ; DEBUGIFY-NOT: WARNING
