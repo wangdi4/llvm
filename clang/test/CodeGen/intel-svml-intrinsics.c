@@ -549,7 +549,7 @@ __m128i test_mm_div_epi8(__m128i A, __m128i B) {
   // CHECK-LABEL: test_mm_div_epi8
   // CHECK: [[DIVIDEND:%.*]] = bitcast <2 x i64> %{{.*}} to <16 x i8>
   // CHECK: [[DIVISOR:%.*]] = bitcast <2 x i64> %{{.*}} to <16 x i8>
-  // CHECK: [[RESULT:%.*]] = call svml_cc <16 x i8> @__svml_i8div16(<16 x i8> [[DIVIDEND]], <16 x i8> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK: [[RESULT:%.*]] = sdiv <16 x i8> [[DIVIDEND]], [[DIVISOR]]
   // CHECK: bitcast <16 x i8> [[RESULT]] to <2 x i64>
   return _mm_div_epi8(A, B);
 }
@@ -558,7 +558,7 @@ __m128i test_mm_div_epu8(__m128i A, __m128i B) {
   // CHECK-LABEL: test_mm_div_epu8
   // CHECK: [[DIVIDEND:%.*]] = bitcast <2 x i64> %{{.*}} to <16 x i8>
   // CHECK: [[DIVISOR:%.*]] = bitcast <2 x i64> %{{.*}} to <16 x i8>
-  // CHECK: [[RESULT:%.*]] = call svml_cc <16 x i8> @__svml_u8div16(<16 x i8> [[DIVIDEND]], <16 x i8> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK: [[RESULT:%.*]] = udiv <16 x i8> [[DIVIDEND]], [[DIVISOR]]
   // CHECK: bitcast <16 x i8> [[RESULT]] to <2 x i64>
   return _mm_div_epu8(A, B);
 }
@@ -567,7 +567,7 @@ __m128i test_mm_div_epi16(__m128i A, __m128i B) {
   // CHECK-LABEL: test_mm_div_epi16
   // CHECK: [[DIVIDEND:%.*]] = bitcast <2 x i64> %{{.*}} to <8 x i16>
   // CHECK: [[DIVISOR:%.*]] = bitcast <2 x i64> %{{.*}} to <8 x i16>
-  // CHECK: [[RESULT:%.*]] = call svml_cc <8 x i16> @__svml_i16div8(<8 x i16> [[DIVIDEND]], <8 x i16> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK: [[RESULT:%.*]] = sdiv <8 x i16> [[DIVIDEND]], [[DIVISOR]]
   // CHECK: bitcast <8 x i16> [[RESULT]] to <2 x i64>
   return _mm_div_epi16(A, B);
 }
@@ -576,7 +576,7 @@ __m128i test_mm_div_epu16(__m128i A, __m128i B) {
   // CHECK-LABEL: test_mm_div_epu16
   // CHECK: [[DIVIDEND:%.*]] = bitcast <2 x i64> %{{.*}} to <8 x i16>
   // CHECK: [[DIVISOR:%.*]] = bitcast <2 x i64> %{{.*}} to <8 x i16>
-  // CHECK: [[RESULT:%.*]] = call svml_cc <8 x i16> @__svml_u16div8(<8 x i16> [[DIVIDEND]], <8 x i16> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK: [[RESULT:%.*]] = udiv <8 x i16> [[DIVIDEND]], [[DIVISOR]]
   // CHECK: bitcast <8 x i16> [[RESULT]] to <2 x i64>
   return _mm_div_epu16(A, B);
 }
@@ -585,7 +585,7 @@ __m128i test_mm_div_epi32(__m128i A, __m128i B) {
   // CHECK-LABEL: test_mm_div_epi32
   // CHECK: [[DIVIDEND:%.*]] = bitcast <2 x i64> %{{.*}} to <4 x i32>
   // CHECK: [[DIVISOR:%.*]] = bitcast <2 x i64> %{{.*}} to <4 x i32>
-  // CHECK: [[RESULT:%.*]] = call svml_cc <4 x i32> @__svml_idiv4(<4 x i32> [[DIVIDEND]], <4 x i32> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK: [[RESULT:%.*]] = sdiv <4 x i32> [[DIVIDEND]], [[DIVISOR]]
   // CHECK: bitcast <4 x i32> [[RESULT]] to <2 x i64>
   return _mm_div_epi32(A, B);
 }
@@ -594,20 +594,20 @@ __m128i test_mm_div_epu32(__m128i A, __m128i B) {
   // CHECK-LABEL: test_mm_div_epu32
   // CHECK: [[DIVIDEND:%.*]] = bitcast <2 x i64> %{{.*}} to <4 x i32>
   // CHECK: [[DIVISOR:%.*]] = bitcast <2 x i64> %{{.*}} to <4 x i32>
-  // CHECK: [[RESULT:%.*]] = call svml_cc <4 x i32> @__svml_udiv4(<4 x i32> [[DIVIDEND]], <4 x i32> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK: [[RESULT:%.*]] = udiv <4 x i32> [[DIVIDEND]], [[DIVISOR]]
   // CHECK: bitcast <4 x i32> [[RESULT]] to <2 x i64>
   return _mm_div_epu32(A, B);
 }
 
 __m128i test_mm_div_epi64(__m128i A, __m128i B) {
   // CHECK-LABEL: test_mm_div_epi64
-  // CHECK: call svml_cc <2 x i64> @__svml_i64div2(<2 x i64> {{.*}}, <2 x i64> {{.*}}) #[[ATTR_USE_SVML]]
+  // CHECK: sdiv <2 x i64> {{.*}}, {{.*}}
   return _mm_div_epi64(A, B);
 }
 
 __m128i test_mm_div_epu64(__m128i A, __m128i B) {
   // CHECK-LABEL: test_mm_div_epu64
-  // CHECK: call svml_cc <2 x i64> @__svml_u64div2(<2 x i64> {{.*}}, <2 x i64> {{.*}}) #[[ATTR_USE_SVML]]
+  // CHECK: udiv <2 x i64> {{.*}}, {{.*}}
   return _mm_div_epu64(A, B);
 }
 
@@ -615,7 +615,7 @@ __m128i test_mm_idiv_epi32(__m128i A, __m128i B) {
   // CHECK-LABEL: test_mm_idiv_epi32
   // CHECK: [[DIVIDEND:%.*]] = bitcast <2 x i64> %{{.*}} to <4 x i32>
   // CHECK: [[DIVISOR:%.*]] = bitcast <2 x i64> %{{.*}} to <4 x i32>
-  // CHECK: [[RESULT:%.*]] = call svml_cc <4 x i32> @__svml_idiv4(<4 x i32> [[DIVIDEND]], <4 x i32> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK: [[RESULT:%.*]] = sdiv <4 x i32> [[DIVIDEND]], [[DIVISOR]]
   // CHECK: bitcast <4 x i32> [[RESULT]] to <2 x i64>
   return _mm_idiv_epi32(A, B);
 }
@@ -638,7 +638,7 @@ __m128i test_mm_irem_epi32(__m128i A, __m128i B) {
   // CHECK-LABEL: test_mm_irem_epi32
   // CHECK: [[DIVIDEND:%.*]] = bitcast <2 x i64> %{{.*}} to <4 x i32>
   // CHECK: [[DIVISOR:%.*]] = bitcast <2 x i64> %{{.*}} to <4 x i32>
-  // CHECK: [[RESULT:%.*]] = call svml_cc <4 x i32> @__svml_irem4(<4 x i32> [[DIVIDEND]], <4 x i32> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK: [[RESULT:%.*]] = srem <4 x i32> [[DIVIDEND]], [[DIVISOR]]
   // CHECK: bitcast <4 x i32> [[RESULT]] to <2 x i64>
   return _mm_irem_epi32(A, B);
 }
@@ -647,7 +647,7 @@ __m128i test_mm_rem_epi8(__m128i A, __m128i B) {
   // CHECK-LABEL: test_mm_rem_epi8
   // CHECK: [[DIVIDEND:%.*]] = bitcast <2 x i64> %{{.*}} to <16 x i8>
   // CHECK: [[DIVISOR:%.*]] = bitcast <2 x i64> %{{.*}} to <16 x i8>
-  // CHECK: [[RESULT:%.*]] = call svml_cc <16 x i8> @__svml_i8rem16(<16 x i8> [[DIVIDEND]], <16 x i8> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK: [[RESULT:%.*]] = srem <16 x i8> [[DIVIDEND]], [[DIVISOR]]
   // CHECK: bitcast <16 x i8> [[RESULT]] to <2 x i64>
   return _mm_rem_epi8(A, B);
 }
@@ -656,7 +656,7 @@ __m128i test_mm_rem_epu8(__m128i A, __m128i B) {
   // CHECK-LABEL: test_mm_rem_epu8
   // CHECK: [[DIVIDEND:%.*]] = bitcast <2 x i64> %{{.*}} to <16 x i8>
   // CHECK: [[DIVISOR:%.*]] = bitcast <2 x i64> %{{.*}} to <16 x i8>
-  // CHECK: [[RESULT:%.*]] = call svml_cc <16 x i8> @__svml_u8rem16(<16 x i8> [[DIVIDEND]], <16 x i8> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK: [[RESULT:%.*]] = urem <16 x i8> [[DIVIDEND]], [[DIVISOR]]
   // CHECK: bitcast <16 x i8> [[RESULT]] to <2 x i64>
   return _mm_rem_epu8(A, B);
 }
@@ -665,7 +665,7 @@ __m128i test_mm_rem_epi16(__m128i A, __m128i B) {
   // CHECK-LABEL: test_mm_rem_epi16
   // CHECK: [[DIVIDEND:%.*]] = bitcast <2 x i64> %{{.*}} to <8 x i16>
   // CHECK: [[DIVISOR:%.*]] = bitcast <2 x i64> %{{.*}} to <8 x i16>
-  // CHECK: [[RESULT:%.*]] = call svml_cc <8 x i16> @__svml_i16rem8(<8 x i16> [[DIVIDEND]], <8 x i16> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK: [[RESULT:%.*]] = srem <8 x i16> [[DIVIDEND]], [[DIVISOR]]
   // CHECK: bitcast <8 x i16> [[RESULT]] to <2 x i64>
   return _mm_rem_epi16(A, B);
 }
@@ -674,7 +674,7 @@ __m128i test_mm_rem_epu16(__m128i A, __m128i B) {
   // CHECK-LABEL: test_mm_rem_epu16
   // CHECK: [[DIVIDEND:%.*]] = bitcast <2 x i64> %{{.*}} to <8 x i16>
   // CHECK: [[DIVISOR:%.*]] = bitcast <2 x i64> %{{.*}} to <8 x i16>
-  // CHECK: [[RESULT:%.*]] = call svml_cc <8 x i16> @__svml_u16rem8(<8 x i16> [[DIVIDEND]], <8 x i16> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK: [[RESULT:%.*]] = urem <8 x i16> [[DIVIDEND]], [[DIVISOR]]
   // CHECK: bitcast <8 x i16> [[RESULT]] to <2 x i64>
   return _mm_rem_epu16(A, B);
 }
@@ -683,7 +683,7 @@ __m128i test_mm_rem_epi32(__m128i A, __m128i B) {
   // CHECK-LABEL: test_mm_rem_epi32
   // CHECK: [[DIVIDEND:%.*]] = bitcast <2 x i64> %{{.*}} to <4 x i32>
   // CHECK: [[DIVISOR:%.*]] = bitcast <2 x i64> %{{.*}} to <4 x i32>
-  // CHECK: [[RESULT:%.*]] = call svml_cc <4 x i32> @__svml_irem4(<4 x i32> [[DIVIDEND]], <4 x i32> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK: [[RESULT:%.*]] = srem <4 x i32> [[DIVIDEND]], [[DIVISOR]]
   // CHECK: bitcast <4 x i32> [[RESULT]] to <2 x i64>
   return _mm_rem_epi32(A, B);
 }
@@ -692,20 +692,20 @@ __m128i test_mm_rem_epu32(__m128i A, __m128i B) {
   // CHECK-LABEL: test_mm_rem_epu32
   // CHECK: [[DIVIDEND:%.*]] = bitcast <2 x i64> %{{.*}} to <4 x i32>
   // CHECK: [[DIVISOR:%.*]] = bitcast <2 x i64> %{{.*}} to <4 x i32>
-  // CHECK: [[RESULT:%.*]] = call svml_cc <4 x i32> @__svml_urem4(<4 x i32> [[DIVIDEND]], <4 x i32> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK: [[RESULT:%.*]] = urem <4 x i32> [[DIVIDEND]], [[DIVISOR]]
   // CHECK: bitcast <4 x i32> [[RESULT]] to <2 x i64>
   return _mm_rem_epu32(A, B);
 }
 
 __m128i test_mm_rem_epi64(__m128i A, __m128i B) {
   // CHECK-LABEL: test_mm_rem_epi64
-  // CHECK: call svml_cc <2 x i64> @__svml_i64rem2(<2 x i64> {{.*}}, <2 x i64> {{.*}}) #[[ATTR_USE_SVML]]
+  // CHECK: srem <2 x i64> {{.*}}, {{.*}}
   return _mm_rem_epi64(A, B);
 }
 
 __m128i test_mm_rem_epu64(__m128i A, __m128i B) {
   // CHECK-LABEL: test_mm_rem_epu64
-  // CHECK: call svml_cc <2 x i64> @__svml_u64rem2(<2 x i64> {{.*}}, <2 x i64> {{.*}}) #[[ATTR_USE_SVML]]
+  // CHECK: urem <2 x i64> {{.*}}, {{.*}}
   return _mm_rem_epu64(A, B);
 }
 
@@ -713,7 +713,7 @@ __m128i test_mm_udiv_epi32(__m128i A, __m128i B) {
   // CHECK-LABEL: test_mm_udiv_epi32
   // CHECK: [[DIVIDEND:%.*]] = bitcast <2 x i64> %{{.*}} to <4 x i32>
   // CHECK: [[DIVISOR:%.*]] = bitcast <2 x i64> %{{.*}} to <4 x i32>
-  // CHECK: [[RESULT:%.*]] = call svml_cc <4 x i32> @__svml_udiv4(<4 x i32> [[DIVIDEND]], <4 x i32> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK: [[RESULT:%.*]] = udiv <4 x i32> [[DIVIDEND]], [[DIVISOR]]
   // CHECK: bitcast <4 x i32> [[RESULT]] to <2 x i64>
   return _mm_udiv_epi32(A, B);
 }
@@ -736,7 +736,7 @@ __m128i test_mm_urem_epi32(__m128i A, __m128i B) {
   // CHECK-LABEL: test_mm_urem_epi32
   // CHECK: [[DIVIDEND:%.*]] = bitcast <2 x i64> %{{.*}} to <4 x i32>
   // CHECK: [[DIVISOR:%.*]] = bitcast <2 x i64> %{{.*}} to <4 x i32>
-  // CHECK: [[RESULT:%.*]] = call svml_cc <4 x i32> @__svml_urem4(<4 x i32> [[DIVIDEND]], <4 x i32> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK: [[RESULT:%.*]] = urem <4 x i32> [[DIVIDEND]], [[DIVISOR]]
   // CHECK: bitcast <4 x i32> [[RESULT]] to <2 x i64>
   return _mm_urem_epi32(A, B);
 }
@@ -1281,7 +1281,7 @@ __m256i test_mm256_div_epi8(__m256i A, __m256i B) {
   // CHECK-AVX2-LABEL: test_mm256_div_epi8
   // CHECK-AVX2: [[DIVIDEND:%.*]] = bitcast <4 x i64> %{{.*}} to <32 x i8>
   // CHECK-AVX2: [[DIVISOR:%.*]] = bitcast <4 x i64> %{{.*}} to <32 x i8>
-  // CHECK-AVX2: [[RESULT:%.*]] = call svml_cc <32 x i8> @__svml_i8div32(<32 x i8> [[DIVIDEND]], <32 x i8> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK-AVX2: [[RESULT:%.*]] = sdiv <32 x i8> [[DIVIDEND]], [[DIVISOR]]
   // CHECK-AVX2: bitcast <32 x i8> [[RESULT]] to <4 x i64>
   return _mm256_div_epi8(A, B);
 }
@@ -1290,7 +1290,7 @@ __m256i test_mm256_div_epu8(__m256i A, __m256i B) {
   // CHECK-AVX2-LABEL: test_mm256_div_epu8
   // CHECK-AVX2: [[DIVIDEND:%.*]] = bitcast <4 x i64> %{{.*}} to <32 x i8>
   // CHECK-AVX2: [[DIVISOR:%.*]] = bitcast <4 x i64> %{{.*}} to <32 x i8>
-  // CHECK-AVX2: [[RESULT:%.*]] = call svml_cc <32 x i8> @__svml_u8div32(<32 x i8> [[DIVIDEND]], <32 x i8> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK-AVX2: [[RESULT:%.*]] = udiv <32 x i8> [[DIVIDEND]], [[DIVISOR]]
   // CHECK-AVX2: bitcast <32 x i8> [[RESULT]] to <4 x i64>
   return _mm256_div_epu8(A, B);
 }
@@ -1299,7 +1299,7 @@ __m256i test_mm256_div_epi16(__m256i A, __m256i B) {
   // CHECK-AVX2-LABEL: test_mm256_div_epi16
   // CHECK-AVX2: [[DIVIDEND:%.*]] = bitcast <4 x i64> %{{.*}} to <16 x i16>
   // CHECK-AVX2: [[DIVISOR:%.*]] = bitcast <4 x i64> %{{.*}} to <16 x i16>
-  // CHECK-AVX2: [[RESULT:%.*]] = call svml_cc <16 x i16> @__svml_i16div16(<16 x i16> [[DIVIDEND]], <16 x i16> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK-AVX2: [[RESULT:%.*]] = sdiv <16 x i16> [[DIVIDEND]], [[DIVISOR]]
   // CHECK-AVX2: bitcast <16 x i16> [[RESULT]] to <4 x i64>
   return _mm256_div_epi16(A, B);
 }
@@ -1308,7 +1308,7 @@ __m256i test_mm256_div_epu16(__m256i A, __m256i B) {
   // CHECK-AVX2-LABEL: test_mm256_div_epu16
   // CHECK-AVX2: [[DIVIDEND:%.*]] = bitcast <4 x i64> %{{.*}} to <16 x i16>
   // CHECK-AVX2: [[DIVISOR:%.*]] = bitcast <4 x i64> %{{.*}} to <16 x i16>
-  // CHECK-AVX2: [[RESULT:%.*]] = call svml_cc <16 x i16> @__svml_u16div16(<16 x i16> [[DIVIDEND]], <16 x i16> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK-AVX2: [[RESULT:%.*]] = udiv <16 x i16> [[DIVIDEND]], [[DIVISOR]]
   // CHECK-AVX2: bitcast <16 x i16> [[RESULT]] to <4 x i64>
   return _mm256_div_epu16(A, B);
 }
@@ -1317,7 +1317,7 @@ __m256i test_mm256_div_epi32(__m256i A, __m256i B) {
   // CHECK-AVX2-LABEL: test_mm256_div_epi32
   // CHECK-AVX2: [[DIVIDEND:%.*]] = bitcast <4 x i64> %{{.*}} to <8 x i32>
   // CHECK-AVX2: [[DIVISOR:%.*]] = bitcast <4 x i64> %{{.*}} to <8 x i32>
-  // CHECK-AVX2: [[RESULT:%.*]] = call svml_cc <8 x i32> @__svml_idiv8(<8 x i32> [[DIVIDEND]], <8 x i32> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK-AVX2: [[RESULT:%.*]] = sdiv <8 x i32> [[DIVIDEND]], [[DIVISOR]]
   // CHECK-AVX2: bitcast <8 x i32> [[RESULT]] to <4 x i64>
   return _mm256_div_epi32(A, B);
 }
@@ -1326,20 +1326,20 @@ __m256i test_mm256_div_epu32(__m256i A, __m256i B) {
   // CHECK-AVX2-LABEL: test_mm256_div_epu32
   // CHECK-AVX2: [[DIVIDEND:%.*]] = bitcast <4 x i64> %{{.*}} to <8 x i32>
   // CHECK-AVX2: [[DIVISOR:%.*]] = bitcast <4 x i64> %{{.*}} to <8 x i32>
-  // CHECK-AVX2: [[RESULT:%.*]] = call svml_cc <8 x i32> @__svml_udiv8(<8 x i32> [[DIVIDEND]], <8 x i32> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK-AVX2: [[RESULT:%.*]] = udiv <8 x i32> [[DIVIDEND]], [[DIVISOR]]
   // CHECK-AVX2: bitcast <8 x i32> [[RESULT]] to <4 x i64>
   return _mm256_div_epu32(A, B);
 }
 
 __m256i test_mm256_div_epi64(__m256i A, __m256i B) {
   // CHECK-AVX2-LABEL: test_mm256_div_epi64
-  // CHECK-AVX2: call svml_cc <4 x i64> @__svml_i64div4(<4 x i64> %{{.*}}, <4 x i64> %{{.*}}) #[[ATTR_USE_SVML]]
+  // CHECK-AVX2: sdiv <4 x i64> %{{.*}}, %{{.*}}
   return _mm256_div_epi64(A, B);
 }
 
 __m256i test_mm256_div_epu64(__m256i A, __m256i B) {
   // CHECK-AVX2-LABEL: test_mm256_div_epu64
-  // CHECK-AVX2: call svml_cc <4 x i64> @__svml_u64div4(<4 x i64> %{{.*}}, <4 x i64> %{{.*}}) #[[ATTR_USE_SVML]]
+  // CHECK-AVX2: udiv <4 x i64> %{{.*}}, %{{.*}}
   return _mm256_div_epu64(A, B);
 }
 
@@ -1347,7 +1347,7 @@ __m256i test_mm256_idiv_epi32(__m256i A, __m256i B) {
   // CHECK-AVX2-LABEL: test_mm256_idiv_epi32
   // CHECK-AVX2: [[DIVIDEND:%.*]] = bitcast <4 x i64> %{{.*}} to <8 x i32>
   // CHECK-AVX2: [[DIVISOR:%.*]] = bitcast <4 x i64> %{{.*}} to <8 x i32>
-  // CHECK-AVX2: [[RESULT:%.*]] = call svml_cc <8 x i32> @__svml_idiv8(<8 x i32> [[DIVIDEND]], <8 x i32> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK-AVX2: [[RESULT:%.*]] = sdiv <8 x i32> [[DIVIDEND]], [[DIVISOR]]
   // CHECK-AVX2: bitcast <8 x i32> [[RESULT]] to <4 x i64>
   return _mm256_idiv_epi32(A, B);
 }
@@ -1370,7 +1370,7 @@ __m256i test_mm256_irem_epi32(__m256i A, __m256i B) {
   // CHECK-AVX2-LABEL: test_mm256_irem_epi32
   // CHECK-AVX2: [[DIVIDEND:%.*]] = bitcast <4 x i64> %{{.*}} to <8 x i32>
   // CHECK-AVX2: [[DIVISOR:%.*]] = bitcast <4 x i64> %{{.*}} to <8 x i32>
-  // CHECK-AVX2: [[RESULT:%.*]] = call svml_cc <8 x i32> @__svml_irem8(<8 x i32> [[DIVIDEND]], <8 x i32> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK-AVX2: [[RESULT:%.*]] = srem <8 x i32> [[DIVIDEND]], [[DIVISOR]]
   // CHECK-AVX2: bitcast <8 x i32> [[RESULT]] to <4 x i64>
   return _mm256_irem_epi32(A, B);
 }
@@ -1379,7 +1379,7 @@ __m256i test_mm256_rem_epi8(__m256i A, __m256i B) {
   // CHECK-AVX2-LABEL: test_mm256_rem_epi8
   // CHECK-AVX2: [[DIVIDEND:%.*]] = bitcast <4 x i64> %{{.*}} to <32 x i8>
   // CHECK-AVX2: [[DIVISOR:%.*]] = bitcast <4 x i64> %{{.*}} to <32 x i8>
-  // CHECK-AVX2: [[RESULT:%.*]] = call svml_cc <32 x i8> @__svml_i8rem32(<32 x i8> [[DIVIDEND]], <32 x i8> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK-AVX2: [[RESULT:%.*]] = srem <32 x i8> [[DIVIDEND]], [[DIVISOR]]
   // CHECK-AVX2: bitcast <32 x i8> [[RESULT]] to <4 x i64>
   return _mm256_rem_epi8(A, B);
 }
@@ -1388,7 +1388,7 @@ __m256i test_mm256_rem_epu8(__m256i A, __m256i B) {
   // CHECK-AVX2-LABEL: test_mm256_rem_epu8
   // CHECK-AVX2: [[DIVIDEND:%.*]] = bitcast <4 x i64> %{{.*}} to <32 x i8>
   // CHECK-AVX2: [[DIVISOR:%.*]] = bitcast <4 x i64> %{{.*}} to <32 x i8>
-  // CHECK-AVX2: [[RESULT:%.*]] = call svml_cc <32 x i8> @__svml_u8rem32(<32 x i8> [[DIVIDEND]], <32 x i8> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK-AVX2: [[RESULT:%.*]] = urem <32 x i8> [[DIVIDEND]], [[DIVISOR]]
   // CHECK-AVX2: bitcast <32 x i8> [[RESULT]] to <4 x i64>
   return _mm256_rem_epu8(A, B);
 }
@@ -1397,7 +1397,7 @@ __m256i test_mm256_rem_epi16(__m256i A, __m256i B) {
   // CHECK-AVX2-LABEL: test_mm256_rem_epi16
   // CHECK-AVX2: [[DIVIDEND:%.*]] = bitcast <4 x i64> %{{.*}} to <16 x i16>
   // CHECK-AVX2: [[DIVISOR:%.*]] = bitcast <4 x i64> %{{.*}} to <16 x i16>
-  // CHECK-AVX2: [[RESULT:%.*]] = call svml_cc <16 x i16> @__svml_i16rem16(<16 x i16> [[DIVIDEND]], <16 x i16> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK-AVX2: [[RESULT:%.*]] = srem <16 x i16> [[DIVIDEND]], [[DIVISOR]]
   // CHECK-AVX2: bitcast <16 x i16> [[RESULT]] to <4 x i64>
   return _mm256_rem_epi16(A, B);
 }
@@ -1406,7 +1406,7 @@ __m256i test_mm256_rem_epu16(__m256i A, __m256i B) {
   // CHECK-AVX2-LABEL: test_mm256_rem_epu16
   // CHECK-AVX2: [[DIVIDEND:%.*]] = bitcast <4 x i64> %{{.*}} to <16 x i16>
   // CHECK-AVX2: [[DIVISOR:%.*]] = bitcast <4 x i64> %{{.*}} to <16 x i16>
-  // CHECK-AVX2: [[RESULT:%.*]] = call svml_cc <16 x i16> @__svml_u16rem16(<16 x i16> [[DIVIDEND]], <16 x i16> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK-AVX2: [[RESULT:%.*]] = urem <16 x i16> [[DIVIDEND]], [[DIVISOR]]
   // CHECK-AVX2: bitcast <16 x i16> [[RESULT]] to <4 x i64>
   return _mm256_rem_epu16(A, B);
 }
@@ -1415,7 +1415,7 @@ __m256i test_mm256_rem_epi32(__m256i A, __m256i B) {
   // CHECK-AVX2-LABEL: test_mm256_rem_epi32
   // CHECK-AVX2: [[DIVIDEND:%.*]] = bitcast <4 x i64> %{{.*}} to <8 x i32>
   // CHECK-AVX2: [[DIVISOR:%.*]] = bitcast <4 x i64> %{{.*}} to <8 x i32>
-  // CHECK-AVX2: [[RESULT:%.*]] = call svml_cc <8 x i32> @__svml_irem8(<8 x i32> [[DIVIDEND]], <8 x i32> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK-AVX2: [[RESULT:%.*]] = srem <8 x i32> [[DIVIDEND]], [[DIVISOR]]
   // CHECK-AVX2: bitcast <8 x i32> [[RESULT]] to <4 x i64>
   return _mm256_rem_epi32(A, B);
 }
@@ -1424,20 +1424,20 @@ __m256i test_mm256_rem_epu32(__m256i A, __m256i B) {
   // CHECK-AVX2-LABEL: test_mm256_rem_epu32
   // CHECK-AVX2: [[DIVIDEND:%.*]] = bitcast <4 x i64> %{{.*}} to <8 x i32>
   // CHECK-AVX2: [[DIVISOR:%.*]] = bitcast <4 x i64> %{{.*}} to <8 x i32>
-  // CHECK-AVX2: [[RESULT:%.*]] = call svml_cc <8 x i32> @__svml_urem8(<8 x i32> [[DIVIDEND]], <8 x i32> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK-AVX2: [[RESULT:%.*]] = urem <8 x i32> [[DIVIDEND]], [[DIVISOR]]
   // CHECK-AVX2: bitcast <8 x i32> [[RESULT]] to <4 x i64>
   return _mm256_rem_epu32(A, B);
 }
 
 __m256i test_mm256_rem_epi64(__m256i A, __m256i B) {
   // CHECK-AVX2-LABEL: test_mm256_rem_epi64
-  // CHECK-AVX2: call svml_cc <4 x i64> @__svml_i64rem4(<4 x i64> %{{.*}}, <4 x i64> %{{.*}}) #[[ATTR_USE_SVML]]
+  // CHECK-AVX2: srem <4 x i64> %{{.*}}, %{{.*}}
   return _mm256_rem_epi64(A, B);
 }
 
 __m256i test_mm256_rem_epu64(__m256i A, __m256i B) {
   // CHECK-AVX2-LABEL: test_mm256_rem_epu64
-  // CHECK-AVX2: call svml_cc <4 x i64> @__svml_u64rem4(<4 x i64> %{{.*}}, <4 x i64> %{{.*}}) #[[ATTR_USE_SVML]]
+  // CHECK-AVX2: urem <4 x i64> %{{.*}}, %{{.*}}
   return _mm256_rem_epu64(A, B);
 }
 
@@ -1445,7 +1445,7 @@ __m256i test_mm256_udiv_epi32(__m256i A, __m256i B) {
   // CHECK-AVX2-LABEL: test_mm256_udiv_epi32
   // CHECK-AVX2: [[DIVIDEND:%.*]] = bitcast <4 x i64> %{{.*}} to <8 x i32>
   // CHECK-AVX2: [[DIVISOR:%.*]] = bitcast <4 x i64> %{{.*}} to <8 x i32>
-  // CHECK-AVX2: [[RESULT:%.*]] = call svml_cc <8 x i32> @__svml_udiv8(<8 x i32> [[DIVIDEND]], <8 x i32> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK-AVX2: [[RESULT:%.*]] = udiv <8 x i32> [[DIVIDEND]], [[DIVISOR]]
   // CHECK-AVX2: bitcast <8 x i32> [[RESULT]] to <4 x i64>
   return _mm256_udiv_epi32(A, B);
 }
@@ -1468,7 +1468,7 @@ __m256i test_mm256_urem_epi32(__m256i A, __m256i B) {
   // CHECK-AVX2-LABEL: test_mm256_urem_epi32
   // CHECK-AVX2: [[DIVIDEND:%.*]] = bitcast <4 x i64> %{{.*}} to <8 x i32>
   // CHECK-AVX2: [[DIVISOR:%.*]] = bitcast <4 x i64> %{{.*}} to <8 x i32>
-  // CHECK-AVX2: [[RESULT:%.*]] = call svml_cc <8 x i32> @__svml_urem8(<8 x i32> [[DIVIDEND]], <8 x i32> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK-AVX2: [[RESULT:%.*]] = urem <8 x i32> [[DIVIDEND]], [[DIVISOR]]
   // CHECK-AVX2: bitcast <8 x i32> [[RESULT]] to <4 x i64>
   return _mm256_urem_epi32(A, B);
 }
@@ -2601,7 +2601,7 @@ __m512i test_mm512_div_epi8(__m512i A, __m512i B) {
   // CHECK-AVX512F-LABEL: test_mm512_div_epi8
   // CHECK-AVX512F: [[DIVIDEND:%.*]] = bitcast <8 x i64> %{{.*}} to <64 x i8>
   // CHECK-AVX512F: [[DIVISOR:%.*]] = bitcast <8 x i64> %{{.*}} to <64 x i8>
-  // CHECK-AVX512F: [[RESULT:%.*]] = call svml_cc <64 x i8> @__svml_i8div64(<64 x i8> [[DIVIDEND]], <64 x i8> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK-AVX512F: [[RESULT:%.*]] = sdiv <64 x i8> [[DIVIDEND]], [[DIVISOR]]
   // CHECK-AVX512F: bitcast <64 x i8> [[RESULT]] to <8 x i64>
   return _mm512_div_epi8(A, B);
 }
@@ -2610,7 +2610,7 @@ __m512i test_mm512_div_epu8(__m512i A, __m512i B) {
   // CHECK-AVX512F-LABEL: test_mm512_div_epu8
   // CHECK-AVX512F: [[DIVIDEND:%.*]] = bitcast <8 x i64> %{{.*}} to <64 x i8>
   // CHECK-AVX512F: [[DIVISOR:%.*]] = bitcast <8 x i64> %{{.*}} to <64 x i8>
-  // CHECK-AVX512F: [[RESULT:%.*]] = call svml_cc <64 x i8> @__svml_u8div64(<64 x i8> [[DIVIDEND]], <64 x i8> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK-AVX512F: [[RESULT:%.*]] = udiv <64 x i8> [[DIVIDEND]], [[DIVISOR]]
   // CHECK-AVX512F: bitcast <64 x i8> [[RESULT]] to <8 x i64>
   return _mm512_div_epu8(A, B);
 }
@@ -2619,7 +2619,7 @@ __m512i test_mm512_div_epi16(__m512i A, __m512i B) {
   // CHECK-AVX512F-LABEL: test_mm512_div_epi16
   // CHECK-AVX512F: [[DIVIDEND:%.*]] = bitcast <8 x i64> %{{.*}} to <32 x i16>
   // CHECK-AVX512F: [[DIVISOR:%.*]] = bitcast <8 x i64> %{{.*}} to <32 x i16>
-  // CHECK-AVX512F: [[RESULT:%.*]] = call svml_cc <32 x i16> @__svml_i16div32(<32 x i16> [[DIVIDEND]], <32 x i16> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK-AVX512F: [[RESULT:%.*]] = sdiv <32 x i16> [[DIVIDEND]], [[DIVISOR]]
   // CHECK-AVX512F: bitcast <32 x i16> [[RESULT]] to <8 x i64>
   return _mm512_div_epi16(A, B);
 }
@@ -2628,7 +2628,7 @@ __m512i test_mm512_div_epu16(__m512i A, __m512i B) {
   // CHECK-AVX512F-LABEL: test_mm512_div_epu16
   // CHECK-AVX512F: [[DIVIDEND:%.*]] = bitcast <8 x i64> %{{.*}} to <32 x i16>
   // CHECK-AVX512F: [[DIVISOR:%.*]] = bitcast <8 x i64> %{{.*}} to <32 x i16>
-  // CHECK-AVX512F: [[RESULT:%.*]] = call svml_cc <32 x i16> @__svml_u16div32(<32 x i16> [[DIVIDEND]], <32 x i16> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK-AVX512F: [[RESULT:%.*]] = udiv <32 x i16> [[DIVIDEND]], [[DIVISOR]]
   // CHECK-AVX512F: bitcast <32 x i16> [[RESULT]] to <8 x i64>
   return _mm512_div_epu16(A, B);
 }
@@ -2637,7 +2637,7 @@ __m512i test_mm512_div_epi32(__m512i A, __m512i B) {
   // CHECK-AVX512F-LABEL: test_mm512_div_epi32
   // CHECK-AVX512F: [[DIVIDEND:%.*]] = bitcast <8 x i64> %{{.*}} to <16 x i32>
   // CHECK-AVX512F: [[DIVISOR:%.*]] = bitcast <8 x i64> %{{.*}} to <16 x i32>
-  // CHECK-AVX512F: [[RESULT:%.*]] = call svml_cc <16 x i32> @__svml_idiv16(<16 x i32> [[DIVIDEND]], <16 x i32> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK-AVX512F: [[RESULT:%.*]] = sdiv <16 x i32> [[DIVIDEND]], [[DIVISOR]]
   // CHECK-AVX512F: bitcast <16 x i32> [[RESULT]] to <8 x i64>
   return _mm512_div_epi32(A, B);
 }
@@ -2646,7 +2646,7 @@ __m512i test_mm512_div_epu32(__m512i A, __m512i B) {
   // CHECK-AVX512F-LABEL: test_mm512_div_epu32
   // CHECK-AVX512F: [[DIVIDEND:%.*]] = bitcast <8 x i64> %{{.*}} to <16 x i32>
   // CHECK-AVX512F: [[DIVISOR:%.*]] = bitcast <8 x i64> %{{.*}} to <16 x i32>
-  // CHECK-AVX512F: [[RESULT:%.*]] = call svml_cc <16 x i32> @__svml_udiv16(<16 x i32> [[DIVIDEND]], <16 x i32> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK-AVX512F: [[RESULT:%.*]] = udiv <16 x i32> [[DIVIDEND]], [[DIVISOR]]
   // CHECK-AVX512F: bitcast <16 x i32> [[RESULT]] to <8 x i64>
   return _mm512_div_epu32(A, B);
 }
@@ -2675,13 +2675,13 @@ __m512i test_mm512_mask_div_epu32(__m512i A, __mmask16 B, __m512i C, __m512i D) 
 
 __m512i test_mm512_div_epi64(__m512i A, __m512i B) {
   // CHECK-AVX512F-LABEL: test_mm512_div_epi64
-  // CHECK-AVX512F: call svml_cc <8 x i64> @__svml_i64div8(<8 x i64> %{{.*}}, <8 x i64> %{{.*}}) #[[ATTR_USE_SVML]]
+  // CHECK-AVX512F: sdiv <8 x i64> %{{.*}}, %{{.*}}
   return _mm512_div_epi64(A, B);
 }
 
 __m512i test_mm512_div_epu64(__m512i A, __m512i B) {
   // CHECK-AVX512F-LABEL: test_mm512_div_epu64
-  // CHECK-AVX512F: call svml_cc <8 x i64> @__svml_u64div8(<8 x i64> %{{.*}}, <8 x i64> %{{.*}}) #[[ATTR_USE_SVML]]
+  // CHECK-AVX512F: udiv <8 x i64> %{{.*}}, %{{.*}}
   return _mm512_div_epu64(A, B);
 }
 
@@ -2689,7 +2689,7 @@ __m512i test_mm512_rem_epi8(__m512i A, __m512i B) {
   // CHECK-AVX512F-LABEL: test_mm512_rem_epi8
   // CHECK-AVX512F: [[DIVIDEND:%.*]] = bitcast <8 x i64> %{{.*}} to <64 x i8>
   // CHECK-AVX512F: [[DIVISOR:%.*]] = bitcast <8 x i64> %{{.*}} to <64 x i8>
-  // CHECK-AVX512F: [[RESULT:%.*]] = call svml_cc <64 x i8> @__svml_i8rem64(<64 x i8> [[DIVIDEND]], <64 x i8> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK-AVX512F: [[RESULT:%.*]] = srem <64 x i8> [[DIVIDEND]], [[DIVISOR]]
   // CHECK-AVX512F: bitcast <64 x i8> [[RESULT]] to <8 x i64>
   return _mm512_rem_epi8(A, B);
 }
@@ -2698,7 +2698,7 @@ __m512i test_mm512_rem_epu8(__m512i A, __m512i B) {
   // CHECK-AVX512F-LABEL: test_mm512_rem_epu8
   // CHECK-AVX512F: [[DIVIDEND:%.*]] = bitcast <8 x i64> %{{.*}} to <64 x i8>
   // CHECK-AVX512F: [[DIVISOR:%.*]] = bitcast <8 x i64> %{{.*}} to <64 x i8>
-  // CHECK-AVX512F: [[RESULT:%.*]] = call svml_cc <64 x i8> @__svml_u8rem64(<64 x i8> [[DIVIDEND]], <64 x i8> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK-AVX512F: [[RESULT:%.*]] = urem <64 x i8> [[DIVIDEND]], [[DIVISOR]]
   // CHECK-AVX512F: bitcast <64 x i8> [[RESULT]] to <8 x i64>
   return _mm512_rem_epu8(A, B);
 }
@@ -2707,7 +2707,7 @@ __m512i test_mm512_rem_epi16(__m512i A, __m512i B) {
   // CHECK-AVX512F-LABEL: test_mm512_rem_epi16
   // CHECK-AVX512F: [[DIVIDEND:%.*]] = bitcast <8 x i64> %{{.*}} to <32 x i16>
   // CHECK-AVX512F: [[DIVISOR:%.*]] = bitcast <8 x i64> %{{.*}} to <32 x i16>
-  // CHECK-AVX512F: [[RESULT:%.*]] = call svml_cc <32 x i16> @__svml_i16rem32(<32 x i16> [[DIVIDEND]], <32 x i16> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK-AVX512F: [[RESULT:%.*]] = srem <32 x i16> [[DIVIDEND]], [[DIVISOR]]
   // CHECK-AVX512F: bitcast <32 x i16> [[RESULT]] to <8 x i64>
   return _mm512_rem_epi16(A, B);
 }
@@ -2716,7 +2716,7 @@ __m512i test_mm512_rem_epu16(__m512i A, __m512i B) {
   // CHECK-AVX512F-LABEL: test_mm512_rem_epu16
   // CHECK-AVX512F: [[DIVIDEND:%.*]] = bitcast <8 x i64> %{{.*}} to <32 x i16>
   // CHECK-AVX512F: [[DIVISOR:%.*]] = bitcast <8 x i64> %{{.*}} to <32 x i16>
-  // CHECK-AVX512F: [[RESULT:%.*]] = call svml_cc <32 x i16> @__svml_u16rem32(<32 x i16> [[DIVIDEND]], <32 x i16> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK-AVX512F: [[RESULT:%.*]] = urem <32 x i16> [[DIVIDEND]], [[DIVISOR]]
   // CHECK-AVX512F: bitcast <32 x i16> [[RESULT]] to <8 x i64>
   return _mm512_rem_epu16(A, B);
 }
@@ -2725,7 +2725,7 @@ __m512i test_mm512_rem_epi32(__m512i A, __m512i B) {
   // CHECK-AVX512F-LABEL: test_mm512_rem_epi32
   // CHECK-AVX512F: [[DIVIDEND:%.*]] = bitcast <8 x i64> %{{.*}} to <16 x i32>
   // CHECK-AVX512F: [[DIVISOR:%.*]] = bitcast <8 x i64> %{{.*}} to <16 x i32>
-  // CHECK-AVX512F: [[RESULT:%.*]] = call svml_cc <16 x i32> @__svml_irem16(<16 x i32> [[DIVIDEND]], <16 x i32> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK-AVX512F: [[RESULT:%.*]] = srem <16 x i32> [[DIVIDEND]], [[DIVISOR]]
   // CHECK-AVX512F: bitcast <16 x i32> [[RESULT]] to <8 x i64>
   return _mm512_rem_epi32(A, B);
 }
@@ -2734,7 +2734,7 @@ __m512i test_mm512_rem_epu32(__m512i A, __m512i B) {
   // CHECK-AVX512F-LABEL: test_mm512_rem_epu32
   // CHECK-AVX512F: [[DIVIDEND:%.*]] = bitcast <8 x i64> %{{.*}} to <16 x i32>
   // CHECK-AVX512F: [[DIVISOR:%.*]] = bitcast <8 x i64> %{{.*}} to <16 x i32>
-  // CHECK-AVX512F: [[RESULT:%.*]] = call svml_cc <16 x i32> @__svml_urem16(<16 x i32> [[DIVIDEND]], <16 x i32> [[DIVISOR]]) #[[ATTR_USE_SVML]]
+  // CHECK-AVX512F: [[RESULT:%.*]] = urem <16 x i32> [[DIVIDEND]], [[DIVISOR]]
   // CHECK-AVX512F: bitcast <16 x i32> [[RESULT]] to <8 x i64>
   return _mm512_rem_epu32(A, B);
 }
@@ -2763,13 +2763,13 @@ __m512i test_mm512_mask_rem_epu32(__m512i A, __mmask16 B, __m512i C, __m512i D) 
 
 __m512i test_mm512_rem_epi64(__m512i A, __m512i B) {
   // CHECK-AVX512F-LABEL: test_mm512_rem_epi64
-  // CHECK-AVX512F: call svml_cc <8 x i64> @__svml_i64rem8(<8 x i64> %{{.*}}, <8 x i64> %{{.*}}) #[[ATTR_USE_SVML]]
+  // CHECK-AVX512F: srem <8 x i64> %{{.*}}, %{{.*}}
   return _mm512_rem_epi64(A, B);
 }
 
 __m512i test_mm512_rem_epu64(__m512i A, __m512i B) {
   // CHECK-AVX512F-LABEL: test_mm512_rem_epu64
-  // CHECK-AVX512F: call svml_cc <8 x i64> @__svml_u64rem8(<8 x i64> %{{.*}}, <8 x i64> %{{.*}}) #[[ATTR_USE_SVML]]
+  // CHECK-AVX512F: urem <8 x i64> %{{.*}}, %{{.*}}
   return _mm512_rem_epu64(A, B);
 }
 

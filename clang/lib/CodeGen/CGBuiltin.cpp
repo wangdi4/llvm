@@ -9383,6 +9383,83 @@ findSVMLBuiltinInMap(unsigned BuiltinID) {
   return nullptr;
 }
 
+enum DivRemTypes { SDIV, UDIV, SREM, UREM, Forbidden };
+static int getSVMLDivRemType(unsigned BuiltinID) {
+  switch (BuiltinID) {
+  default:
+    return DivRemTypes::Forbidden;
+  case clang::X86::BI_mm_div_epi8:
+  case clang::X86::BI_mm_div_epi16:
+  case clang::X86::BI_mm_div_epi32:
+  case clang::X86::BI_mm_div_epi64:
+  case clang::X86::BI_mm_idiv_epi32:
+  case clang::X86::BI_mm256_div_epi8:
+  case clang::X86::BI_mm256_div_epi16:
+  case clang::X86::BI_mm256_div_epi32:
+  case clang::X86::BI_mm256_div_epi64:
+  case clang::X86::BI_mm256_idiv_epi32:
+  case clang::X86::BI_mm512_div_epi8:
+  case clang::X86::BI_mm512_div_epi16:
+  case clang::X86::BI_mm512_div_epi32:
+  case clang::X86::BI_mm512_div_epi64:
+    return DivRemTypes::SDIV;
+  case clang::X86::BI_mm_rem_epi8:
+  case clang::X86::BI_mm_rem_epi16:
+  case clang::X86::BI_mm_rem_epi32:
+  case clang::X86::BI_mm_rem_epi64:
+  case clang::X86::BI_mm_irem_epi32:
+  case clang::X86::BI_mm256_rem_epi8:
+  case clang::X86::BI_mm256_rem_epi16:
+  case clang::X86::BI_mm256_rem_epi32:
+  case clang::X86::BI_mm256_rem_epi64:
+  case clang::X86::BI_mm256_irem_epi32:
+  case clang::X86::BI_mm512_rem_epi8:
+  case clang::X86::BI_mm512_rem_epi16:
+  case clang::X86::BI_mm512_rem_epi32:
+  case clang::X86::BI_mm512_rem_epi64:
+    return DivRemTypes::SREM;
+  case clang::X86::BI_mm_div_epu8:
+  case clang::X86::BI_mm_div_epu16:
+  case clang::X86::BI_mm_div_epu32:
+  case clang::X86::BI_mm_div_epu64:
+  case clang::X86::BI_mm_udiv_epi32:
+  case clang::X86::BI_mm256_div_epu8:
+  case clang::X86::BI_mm256_div_epu16:
+  case clang::X86::BI_mm256_div_epu32:
+  case clang::X86::BI_mm256_div_epu64:
+  case clang::X86::BI_mm256_udiv_epi32:
+  case clang::X86::BI_mm512_div_epu8:
+  case clang::X86::BI_mm512_div_epu16:
+  case clang::X86::BI_mm512_div_epu32:
+  case clang::X86::BI_mm512_div_epu64:
+    return DivRemTypes::UDIV;
+  case clang::X86::BI_mm_rem_epu8:
+  case clang::X86::BI_mm_rem_epu16:
+  case clang::X86::BI_mm_rem_epu32:
+  case clang::X86::BI_mm_rem_epu64:
+  case clang::X86::BI_mm_urem_epi32:
+  case clang::X86::BI_mm256_rem_epu8:
+  case clang::X86::BI_mm256_rem_epu16:
+  case clang::X86::BI_mm256_rem_epu32:
+  case clang::X86::BI_mm256_rem_epu64:
+  case clang::X86::BI_mm256_urem_epi32:
+  case clang::X86::BI_mm512_rem_epu8:
+  case clang::X86::BI_mm512_rem_epu16:
+  case clang::X86::BI_mm512_rem_epu32:
+  case clang::X86::BI_mm512_rem_epu64:
+    return DivRemTypes::UREM;
+  case clang::X86::BI_mm_idivrem_epi32:
+  case clang::X86::BI_mm_udivrem_epi32:
+  case clang::X86::BI_mm256_idivrem_epi32:
+  case clang::X86::BI_mm256_udivrem_epi32:
+  case clang::X86::BI_mm512_mask_div_epi32:
+  case clang::X86::BI_mm512_mask_rem_epi32:
+  case clang::X86::BI_mm512_mask_div_epu32:
+  case clang::X86::BI_mm512_mask_rem_epu32:
+    return DivRemTypes::Forbidden;
+  }
+}
+
 Value *
 CodeGenFunction::EmitSVMLBuiltinExpr(unsigned BuiltinID,
                                      const char *LibCallName, unsigned Modifier,
@@ -9450,21 +9527,43 @@ CodeGenFunction::EmitSVMLBuiltinExpr(unsigned BuiltinID,
     Tys.insert(Tys.begin(), RetTy);
   }
 
-  llvm::FunctionType *FTy =
-      llvm::FunctionType::get(RetTy, Tys, /*Variadic*/false);
+  llvm::Value *Res = nullptr;
+  int DivRemType = getSVMLDivRemType(BuiltinID);
+  if (getLangOpts().Freestanding && DivRemType != DivRemTypes::Forbidden) {
+    Value *DIVREM = nullptr;
+    switch (DivRemType) {
+    default:
+      llvm_unreachable("unexpected SVML div/rem intrinsic.");
+    case DivRemTypes::SDIV:
+      DIVREM = Builder.CreateSDiv(Ops[0], Ops[1]);
+      break;
+    case DivRemTypes::UDIV:
+      DIVREM = Builder.CreateUDiv(Ops[0], Ops[1]);
+      break;
+    case DivRemTypes::SREM:
+      DIVREM = Builder.CreateSRem(Ops[0], Ops[1]);
+      break;
+    case DivRemTypes::UREM:
+      DIVREM = Builder.CreateURem(Ops[0], Ops[1]);
+      break;
+    }
+    Res = DIVREM;
+  } else {
+    llvm::FunctionType *FTy =
+        llvm::FunctionType::get(RetTy, Tys, /*Variadic*/ false);
 
-  llvm::FunctionCallee Func =
-      CGM.CreateSVMLFunction(FTy, LibCallName);
+    llvm::FunctionCallee Func = CGM.CreateSVMLFunction(FTy, LibCallName);
 
-  llvm::CallInst *Call = Builder.CreateCall(Func, Ops);
-  Call->setCallingConv(llvm::CallingConv::SVML);
+    llvm::CallInst *Call = Builder.CreateCall(Func, Ops);
+    Call->setCallingConv(llvm::CallingConv::SVML);
 
-  StringRef Name = CGM.getContext().BuiltinInfo.getName(BuiltinID);
-  llvm::AttributeList AttrList;
-  CGM.ConstructIMFCallAttributes(Name, AttrList, /*AlwaysUseSVML=*/true);
-  Call->setAttributes(AttrList);
+    StringRef Name = CGM.getContext().BuiltinInfo.getName(BuiltinID);
+    llvm::AttributeList AttrList;
+    CGM.ConstructIMFCallAttributes(Name, AttrList, /*AlwaysUseSVML=*/true);
+    Call->setAttributes(AttrList);
+    Res = Call;
+  }
 
-  llvm::Value *Res = Call;
   if (Modifier & SVMLTwoRets) {
     llvm::Value *StoredValue = Builder.CreateExtractValue(Res, 1);
     if (VectorTy != OrigVectorTy)
