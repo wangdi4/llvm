@@ -1739,6 +1739,7 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
     config->showTiming = true;
 
   config->showSummary = args.hasArg(OPT_summary);
+  config->printSearchPaths = args.hasArg(OPT_print_search_paths);
 
   // Handle --version, which is an lld extension. This option is a bit odd
   // because it doesn't start with "/", but we deliberately chose "--" to
@@ -2351,6 +2352,17 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
     addWinSysRootLibSearchPaths();
   }
   config->wordsize = config->is64() ? 8 : 4;
+
+  if (config->printSearchPaths) {
+    SmallString<256> buffer;
+    raw_svector_ostream stream(buffer);
+    stream << "Library search paths:\n";
+
+    for (StringRef path : searchPaths)
+      stream << "  " << path << "\n";
+
+    message(buffer);
+  }
 
   // Process files specified as /defaultlib. These must be processed after
   // addWinSysRootLibSearchPaths(), which is why they are in a separate loop.
