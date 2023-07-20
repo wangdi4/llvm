@@ -1,4 +1,4 @@
-; RUN: opt < %s -opaque-pointers -passes=argpromotion -S | FileCheck %s
+; RUN: opt < %s -passes=argpromotion -S | FileCheck %s
 
 ; Check that the first argument of @foo was not promoted because there was a
 ; mismatch between the formal and actual second arguments, but that the first
