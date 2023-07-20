@@ -35,15 +35,14 @@ define i32 @foo(i32 %inc77) local_unnamed_addr #0 {
 entry:
   %v_fqrhgjc.i = alloca i8, align 1
   %v_s = alloca i64, align 8
-  %0 = load i32, i32* @g_djqb, align 4
-  %1 = load i32, i32* @g_t, align 4
+  %0 = load i32, ptr @g_djqb, align 4
+  %1 = load i32, ptr @g_t, align 4
   %or = or i32 %1, 13
-  store i32 %or, i32* @g_t, align 4
-  store i32 0, i32* @g_n, align 4
-  %2 = bitcast i64* %v_s to i8*
-  %g_i.promoted268 = load i32, i32* @g_i, align 4
-  %g_ksoh.promoted = load i16, i16* @g_ksoh, align 2
-  %g_t.promoted = load i32, i32* @g_t, align 4
+  store i32 %or, ptr @g_t, align 4
+  store i32 0, ptr @g_n, align 4
+  %g_i.promoted268 = load i32, ptr @g_i, align 4
+  %g_ksoh.promoted = load i16, ptr @g_ksoh, align 2
+  %g_t.promoted = load i32, ptr @g_t, align 4
   br label %for.body81
 
 for.body81:                                       ; preds = %for.end120, %entry
@@ -55,10 +54,10 @@ for.body81:                                       ; preds = %for.end120, %entry
   br label %for.body87.lr.ph
 
 for.body87.lr.ph:                                 ; preds = %for.body81, %for.end114
-  %3 = phi i32 [ %.lcssa318320, %for.body81 ], [ %5, %for.end114 ]
+  %2 = phi i32 [ %.lcssa318320, %for.body81 ], [ %4, %for.end114 ]
   %conv98.lcssa316 = phi i16 [ %conv98.lcssa.lcssa319, %for.body81 ], [ %conv98.lcssa, %for.end114 ]
   %indvars.iv299 = phi i32 [ 10, %for.body81 ], [ %indvars.iv.next300, %for.end114 ]
-  %4 = phi i32 [ 53, %for.body81 ], [ %dec119, %for.end114 ]
+  %3 = phi i32 [ 53, %for.body81 ], [ %dec119, %for.end114 ]
   %xor111.lcssa263 = phi i32 [ %sub117.lcssa267, %for.body81 ], [ %sub117, %for.end114 ]
   %v_fnaob.0261 = phi i32 [ %dec119.lcssa269, %for.body81 ], [ %xor105.lcssa, %for.end114 ]
   br label %for.body87
@@ -74,25 +73,25 @@ for.body87:                                       ; preds = %for.body87.lr.ph, %
   %conv104 = and i32 %xor97, 65535
   %xor105 = xor i32 %conv104, %v_fnaob.1254
   %inc107 = add i32 %xor111259, 1
-  %and = and i32 %4, %inc107
+  %and = and i32 %3, %inc107
   %xor111 = xor i32 %dec113260, %and
   %dec113 = add nsw i32 %dec113260, -1
-  %cmp86 = icmp ugt i32 %dec113, %4
+  %cmp86 = icmp ugt i32 %dec113, %3
   br i1 %cmp86, label %for.body87, label %for.end114
 
 for.end114:                                       ; preds = %for.body87
   %conv98.lcssa = phi i16 [ %conv98, %for.body87 ]
   %xor105.lcssa = phi i32 [ %xor105, %for.body87 ]
   %xor111.lcssa = phi i32 [ %xor111, %for.body87 ]
-  %5 = add i32 %3, %indvars.iv299
+  %4 = add i32 %2, %indvars.iv299
   %sub117 = add i32 %xor111.lcssa, -33
-  %dec119 = add nsw i32 %4, -1
+  %dec119 = add nsw i32 %3, -1
   %indvars.iv.next300 = add nuw nsw i32 %indvars.iv299, 1
   %exitcond = icmp eq i32 %indvars.iv.next300, 42
   br i1 %exitcond, label %for.end120, label %for.body87.lr.ph
 
 for.end120:                                       ; preds = %for.end114
-  %.lcssa = phi i32 [ %5, %for.end114 ]
+  %.lcssa = phi i32 [ %4, %for.end114 ]
   %sub117.lcssa = phi i32 [ %sub117, %for.end114 ]
   %conv98.lcssa.lcssa = phi i16 [ %conv98.lcssa, %for.end114 ]
   %inc122 = add nuw nsw i32 %v_wfebnjn.5266, 1

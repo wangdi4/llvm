@@ -10,71 +10,70 @@
 
 
 @glob1 = common global [10 x i32] zeroinitializer, align 16
-@A = internal global i32* null, align 8
-@B = internal global i32* null, align 8
+@A = internal global ptr null, align 8
+@B = internal global ptr null, align 8
 
 ; Function Attrs: noinline nounwind uwtable
-define internal void @foo(i32** nocapture %p1) {
+define internal void @foo(ptr nocapture %p1) {
 entry:
-  store i32* getelementptr inbounds ([10 x i32], [10 x i32]* @glob1, i64 0, i64 0), i32** %p1, align 8
+  store ptr @glob1, ptr %p1, align 8
   ret void
 }
 
 ; Function Attrs: noinline nounwind uwtable
-define internal void @bar(i32** nocapture %p2) {
+define internal void @bar(ptr nocapture %p2) {
 entry:
-  %call = tail call noalias i8* @malloc(i64 40)
-  %0 = bitcast i32** %p2 to i8**
-  store i8* %call, i8** %0, align 8
+  %call = tail call noalias ptr @malloc(i64 40)
+  store ptr %call, ptr %p2, align 8
   ret void
 }
 
 ; Function Attrs: nounwind
-declare noalias i8* @malloc(i64)
+declare noalias ptr @malloc(i64)
 
 ; Function Attrs: noinline nounwind uwtable
-define internal void @foo1(i32** nocapture readonly %p) {
+define internal void @foo1(ptr nocapture readonly %p) {
 entry:
-  %0 = load i32*, i32** %p, align 8
-  store i32 1, i32* %0, align 4
-  %arrayidx1 = getelementptr inbounds i32*, i32** %p, i64 1
-  %1 = load i32*, i32** %arrayidx1, align 8
-  store i32 2, i32* %1, align 4
-  %arrayidx2 = getelementptr inbounds i32*, i32** %p, i64 2
-  %2 = load i32*, i32** %arrayidx2, align 8
-  store i32 3, i32* %2, align 4
-  %arrayidx3 = getelementptr inbounds i32*, i32** %p, i64 3
-  %3 = load i32*, i32** %arrayidx3, align 8
-  store i32 4, i32* %3, align 4
-  %arrayidx4 = getelementptr inbounds i32*, i32** %p, i64 4
-  %4 = load i32*, i32** %arrayidx4, align 8
-  store i32 5, i32* %4, align 4
+  %0 = load ptr, ptr %p, align 8
+  store i32 1, ptr %0, align 4
+  %arrayidx1 = getelementptr inbounds ptr, ptr %p, i64 1
+  %1 = load ptr, ptr %arrayidx1, align 8
+  store i32 2, ptr %1, align 4
+  %arrayidx2 = getelementptr inbounds ptr, ptr %p, i64 2
+  %2 = load ptr, ptr %arrayidx2, align 8
+  store i32 3, ptr %2, align 4
+  %arrayidx3 = getelementptr inbounds ptr, ptr %p, i64 3
+  %3 = load ptr, ptr %arrayidx3, align 8
+  store i32 4, ptr %3, align 4
+  %arrayidx4 = getelementptr inbounds ptr, ptr %p, i64 4
+  %4 = load ptr, ptr %arrayidx4, align 8
+  store i32 5, ptr %4, align 4
   ret void
 }
 
 ; Function Attrs: nounwind uwtable
 define i32 @test() {
 entry:
-  tail call void @foo(i32** nonnull @A)
-  tail call void @bar(i32** nonnull @B)
-  tail call void @foo1(i32** nonnull @B)
-  %bb = load i32*, i32** @B, align 8
-  %aa = load i32*, i32** @A, align 8
+  tail call void @foo(ptr nonnull @A)
+  tail call void @bar(ptr nonnull @B)
+  tail call void @foo1(ptr nonnull @B)
+  %bb = load ptr, ptr @B, align 8
+  %aa = load ptr, ptr @A, align 8
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %j.07 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %bb, i64 %j.07
-  %0 = load i32, i32* %arrayidx, align 4
-  %arrayidx1 = getelementptr inbounds i32, i32* %aa, i64 %j.07
-  store i32 %0, i32* %arrayidx1, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %bb, i64 %j.07
+  %0 = load i32, ptr %arrayidx, align 4
+  %arrayidx1 = getelementptr inbounds i32, ptr %aa, i64 %j.07
+  store i32 %0, ptr %arrayidx1, align 4
   %inc = add nuw nsw i64 %j.07, 1
   %exitcond = icmp eq i64 %inc, 10
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body
-  %1 = load i32*, i32** @A, align 8
-  %arrayidx2 = getelementptr inbounds i32, i32* %1, i64 2
-  %2 = load i32, i32* %arrayidx2, align 4
+  %1 = load ptr, ptr @A, align 8
+  %arrayidx2 = getelementptr inbounds i32, ptr %1, i64 2
+  %2 = load i32, ptr %arrayidx2, align 4
   ret i32 %2
 }

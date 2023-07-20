@@ -17,10 +17,10 @@ entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
-  %p = phi float* [ %g, %entry ], [ %q, %for.body ]
-  %q = phi float* [ %h, %entry ], [ %p, %for.body ]
-  %0 = load float, float* %p, align 4
-  store float undef, float* %q, align 4
+  %p = phi ptr [ %g, %entry ], [ %q, %for.body ]
+  %q = phi ptr [ %h, %entry ], [ %p, %for.body ]
+  %0 = load float, ptr %p, align 4
+  store float undef, ptr %q, align 4
   %branch_cond = fcmp ugt float %0, 0.0
   br i1 %branch_cond, label %for.cond.cleanup, label %for.body
 

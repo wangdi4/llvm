@@ -19,7 +19,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define void @foo(i16* nocapture %A, i32 %n) {
+define void @foo(ptr nocapture %A, i32 %n) {
 entry:
   %cmp.22 = icmp sgt i32 %n, 0
   br i1 %cmp.22, label %for.body, label %for.end
@@ -30,8 +30,8 @@ for.body:                                         ; preds = %entry, %if.end.7
   %conv = sext i16 %k.024 to i32
   %0 = trunc i64 %indvars.iv to i32
   %add = add nsw i32 %conv, %0
-  %arrayidx = getelementptr inbounds i16, i16* %A, i64 %indvars.iv
-  %1 = load i16, i16* %arrayidx, align 2
+  %arrayidx = getelementptr inbounds i16, ptr %A, i64 %indvars.iv
+  %1 = load i16, ptr %arrayidx, align 2
   %cmp2 = icmp sgt i16 %1, 5
   br i1 %cmp2, label %if.then, label %if.else
 
@@ -46,7 +46,7 @@ if.else:                                          ; preds = %for.body
 
 if.end.7:                                         ; preds = %if.else, %if.then
   %j.0 = phi i32 [ %inc, %if.then ], [ %.add, %if.else ]
-  store i16 %k.024, i16* %arrayidx, align 2
+  store i16 %k.024, ptr %arrayidx, align 2
   %conv10 = trunc i32 %j.0 to i16
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32

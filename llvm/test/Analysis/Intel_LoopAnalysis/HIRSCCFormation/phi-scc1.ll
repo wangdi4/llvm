@@ -15,16 +15,16 @@ entry:
 
 for.body.166:                                     ; preds = %WriteOut.exit521, %entry
   %inc169676 = phi i32 [ 0, %entry ], [ %inc169, %WriteOut.exit521 ]
-  %0 = phi i32* [ undef, %entry ], [ %2, %WriteOut.exit521 ]
-  %1 = phi i32* [ undef, %entry ], [ %add.ptr1.i.520, %WriteOut.exit521 ]
+  %0 = phi ptr [ undef, %entry ], [ %2, %WriteOut.exit521 ]
+  %1 = phi ptr [ undef, %entry ], [ %add.ptr1.i.520, %WriteOut.exit521 ]
   br i1 undef, label %if.then.i.519, label %WriteOut.exit521
 
 if.then.i.519:                                    ; preds = %for.body.166
   br label %WriteOut.exit521
 
 WriteOut.exit521:                                 ; preds = %if.then.i.519, %for.body.166
-  %2 = phi i32* [ null, %if.then.i.519 ], [ %1, %for.body.166 ]
-  %add.ptr1.i.520 = getelementptr inbounds i32, i32* %2, i32 undef
+  %2 = phi ptr [ null, %if.then.i.519 ], [ %1, %for.body.166 ]
+  %add.ptr1.i.520 = getelementptr inbounds i32, ptr %2, i32 undef
   %inc169 = add nsw i32 %inc169676, 1
   %cmp164 = icmp slt i32 %inc169, 512
   br i1 %cmp164, label %for.body.166, label %for.end.170

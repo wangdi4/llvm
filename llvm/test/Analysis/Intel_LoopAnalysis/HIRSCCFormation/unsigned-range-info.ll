@@ -22,14 +22,14 @@ for.body.i342:                                    ; preds = %for.body.i342, %ent
   %i.019.i = phi i32 [ %inc.i339, %for.body.i342 ], [ 0, %entry ]
   %mul.i = shl nuw nsw i32 %conv20.i, 1
   %add.i336 = or i32 %mul.i, 1
-  %arrayidx.i337 = getelementptr inbounds [200000 x i32], [200000 x i32]* @a, i32 0, i32 %i.019.i
-  store i32 %add.i336, i32* %arrayidx.i337, align 4
+  %arrayidx.i337 = getelementptr inbounds [200000 x i32], ptr @a, i32 0, i32 %i.019.i
+  store i32 %add.i336, ptr %arrayidx.i337, align 4
   %add2.i = add nuw nsw i32 %conv20.i, 3
   %conv4.i338 = shl nuw nsw i32 %add2.i, 1
   %mul5.i = and i32 %conv4.i338, 510
   %add6.i = or i32 %mul5.i, 1
-  %arrayidx7.i = getelementptr inbounds [200000 x i32], [200000 x i32]* @b, i32 0, i32 %i.019.i
-  store i32 %add6.i, i32* %arrayidx7.i, align 4
+  %arrayidx7.i = getelementptr inbounds [200000 x i32], ptr @b, i32 0, i32 %i.019.i
+  store i32 %add6.i, ptr %arrayidx7.i, align 4
   %inc.i339 = add nuw nsw i32 %i.019.i, 1
   %conv.i340 = and i32 %add2.i, 255
   %exitcond.i341 = icmp eq i32 %inc.i339, 200000

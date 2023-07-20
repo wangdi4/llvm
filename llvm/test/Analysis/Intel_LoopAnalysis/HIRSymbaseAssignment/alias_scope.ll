@@ -15,7 +15,7 @@ target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"
 target triple = "i386-unknown-linux-gnu"
 
 ; Function Attrs: nounwind
-define void @foo(i32* %p, i32* %q, i32 %n) #0 {
+define void @foo(ptr %p, ptr %q, i32 %n) #0 {
 entry:
   %cmp1 = icmp slt i32 0, %n
   br i1 %cmp1, label %for.body.lr.ph, label %for.end
@@ -24,13 +24,13 @@ for.body.lr.ph:                                   ; preds = %entry
   br label %for.body
 
 for.body:                                         ; preds = %for.body.lr.ph, %for.inc
-  %p.addr.04 = phi i32* [ %p, %for.body.lr.ph ], [ %incdec.ptr1, %for.inc ]
-  %q.addr.03 = phi i32* [ %q, %for.body.lr.ph ], [ %incdec.ptr, %for.inc ]
+  %p.addr.04 = phi ptr [ %p, %for.body.lr.ph ], [ %incdec.ptr1, %for.inc ]
+  %q.addr.03 = phi ptr [ %q, %for.body.lr.ph ], [ %incdec.ptr, %for.inc ]
   %i.02 = phi i32 [ 0, %for.body.lr.ph ], [ %inc, %for.inc ]
-  %incdec.ptr = getelementptr inbounds i32, i32* %q.addr.03, i32 1
-  %0 = load i32, i32* %q.addr.03, align 4, !alias.scope !901, !noalias !902
-  %incdec.ptr1 = getelementptr inbounds i32, i32* %p.addr.04, i32 1
-  store i32 %0, i32* %p.addr.04, align 4, !alias.scope !902, !noalias !901
+  %incdec.ptr = getelementptr inbounds i32, ptr %q.addr.03, i32 1
+  %0 = load i32, ptr %q.addr.03, align 4, !alias.scope !901, !noalias !902
+  %incdec.ptr1 = getelementptr inbounds i32, ptr %p.addr.04, i32 1
+  store i32 %0, ptr %p.addr.04, align 4, !alias.scope !902, !noalias !901
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body
