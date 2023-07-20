@@ -365,6 +365,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/test/Transforms/Intel_AutoCPUClone/ @abuyukku
 # Temporarily removed @romanovvlad
 /llvm/test/Transforms/Intel_DeadArrayOpsElimination/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Intel_DeadDopeVectorElimination/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_DopeVectorConstProp/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_DopeVectorHoist/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_DynamicCastsOptimization/ @robertcox-github @pvbattin
