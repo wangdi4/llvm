@@ -53,7 +53,6 @@ private:
   ProfileSummaryInfo *PSI;
   LoopAccessInfoManager *LAIs;
   OptimizationRemarkEmitter *ORE;
-  FatalErrorHandlerTy FatalErrorHandler;
 
   template <class Loop>
   bool processLoop(Loop *Lp, Function &Fn, WRNVecLoopNode *WRLp);
@@ -90,6 +89,10 @@ protected:
   TargetTransformInfo *TTI;
   TargetLibraryInfo *TLI;
   const DataLayout *DL;
+
+  /// Error handler. Is invoked (if set) on bailouts and is passed to CG
+  /// to react on unrecoverable errors.
+  VecErrorHandlerTy VecErrorHandler;
 
   OptReportBuilder ORBuilder;
   VPlanBailoutRemark BR;
@@ -174,7 +177,7 @@ public:
                OptReportVerbosity::Level Verbosity, WRegionInfo *WR,
                TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
                BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI,
-               FatalErrorHandlerTy FatalErrorHandler);
+               VecErrorHandlerTy VecErrorHandler);
 
   /// Whether to emit debug remarks into the opt report.
   static inline bool EmitDebugOptRemarks = false;
@@ -199,14 +202,17 @@ class VPlanDriverPass : public PassInfoMixin<VPlanDriverPass> {
   VPlanDriverImpl Impl;
   static bool RunForSycl;
   static bool RunForO0;
+  /// Error handler, see the corresponding commment in VPlanDriverImpl.
+  static VecErrorHandlerTy VecErrorHandler;
 
 public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
   static void setRunForSycl(bool isSycl) { RunForSycl = isSycl; }
   static void setRunForO0(bool isO0Vec) { RunForO0 = isO0Vec; }
-  static bool isRequired() {
-    return (RunForSycl || RunForO0);
-    }
+
+  static bool isRequired() { return (RunForSycl || RunForO0); }
+
+  static void setVecErrorHandler(VecErrorHandlerTy H) { VecErrorHandler = H; }
 };
 
 class VPlanDriverHIRImpl : public VPlanDriverImpl {
@@ -237,8 +243,7 @@ public:
                loopopt::HIRSafeReductionAnalysis *SafeRedAnalysis,
                OptReportVerbosity::Level Verbosity, WRegionInfo *WR,
                TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
-               AssumptionCache *AC, DominatorTree *DT,
-               FatalErrorHandlerTy FatalErrorHandler);
+               AssumptionCache *AC, DominatorTree *DT);
 
   VPlanDriverHIRImpl(bool LightWeightMode, bool WillRunLLVMIRVPlan)
       : VPlanDriverImpl(), HIRF(nullptr), HIRLoopStats(nullptr), DDA(nullptr),

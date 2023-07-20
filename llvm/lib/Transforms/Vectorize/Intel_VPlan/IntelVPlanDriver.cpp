@@ -131,6 +131,8 @@ static cl::opt<bool> VPlanEnableGeneralPeelingHIROpt(
 
 bool VPlanDriverPass::RunForSycl = false;
 bool VPlanDriverPass::RunForO0 = false;
+VecErrorHandlerTy VPlanDriverPass::VecErrorHandler = nullptr;
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<bool>
     VPlanPrintInit("vplan-print-after-init", cl::init(false),
@@ -160,6 +162,13 @@ static constexpr bool VPlanPrintInit = false;
 static constexpr bool VPlanPrintAfterSingleTripCountOpt = false;
 static constexpr bool VPlanPrintAfterFinalCondTransform = false;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+#ifndef NDEBUG
+static cl::opt<bool>
+    DebugErrHandler("vplan-debug-error-handler", cl::init(false),
+                    cl::desc("Enable error handler debugging"));
+
+#endif //NDEBUG
 
 STATISTIC(CandLoopsVectorized, "Number of candidate loops vectorized");
 
@@ -717,7 +726,7 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
                     << "\n");
 
   VPOCodeGen VCodeGen(Lp, Fn.getContext(), PSE, LI, DT, TLI, TTI, VF, UF, &LVL,
-                      &VLSA, Plan, ORBuilder, isOmpSIMDLoop, FatalErrorHandler);
+                      &VLSA, Plan, ORBuilder, isOmpSIMDLoop, VecErrorHandler);
   VCodeGen.initOpenCLScalarSelectSet(volcanoScalarSelect);
 
   // Run VLS analysis before IR for the current loop is modified.
@@ -810,6 +819,11 @@ bool VPlanDriverImpl::bailout(VPlanOptReportBuilder &VPORBuilder, Loop *Lp,
     VPORBuilder.addRemark(Lp, RemarkData.BailoutLevel,
                           RemarkData.BailoutRemark);
   }
+
+  // Execute error handler
+  if (VecErrorHandler)
+    VecErrorHandler(Lp->getHeader()->getParent(), VecErrorKind::Bailout);
+
   return false;
 }
 
@@ -1475,7 +1489,7 @@ PreservedAnalyses VPlanDriverPass::run(Function &F,
   LoopAccessInfoManager *LAIs = &AM.getResult<LoopAccessAnalysis>(F);
 
   if (!Impl.runImpl(F, LI, SE, DT, AC, AA, DB, LAIs, ORE, Verbosity, WR, TTI,
-                    TLI, BFI, nullptr, nullptr))
+                    TLI, BFI, nullptr, VecErrorHandler))
     return PreservedAnalyses::all();
 
   auto PA = PreservedAnalyses::none();
@@ -1487,11 +1501,10 @@ PreservedAnalyses VPlanDriverPass::run(Function &F,
 bool VPlanDriverImpl::runImpl(
     Function &Fn, LoopInfo *LI, ScalarEvolution *SE, DominatorTree *DT,
     AssumptionCache *AC, AliasAnalysis *AA, DemandedBits *DB,
-    LoopAccessInfoManager *LAIs,
-    OptimizationRemarkEmitter *ORE, OptReportVerbosity::Level Verbosity,
-    WRegionInfo *WR, TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
-    BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI,
-    FatalErrorHandlerTy FatalErrorHandler) {
+    LoopAccessInfoManager *LAIs, OptimizationRemarkEmitter *ORE,
+    OptReportVerbosity::Level Verbosity, WRegionInfo *WR,
+    TargetTransformInfo *TTI, TargetLibraryInfo *TLI, BlockFrequencyInfo *BFI,
+    ProfileSummaryInfo *PSI, VecErrorHandlerTy VecErrHandler) {
 
   LLVM_DEBUG(dbgs() << "VPlan LLVM-IR Driver for Function: " << Fn.getName()
                     << "\n");
@@ -1508,7 +1521,24 @@ bool VPlanDriverImpl::runImpl(
   this->TLI = TLI;
   this->BFI = BFI;
   this->WR = WR;
-  this->FatalErrorHandler = FatalErrorHandler;
+  this->VecErrorHandler = VecErrHandler;
+
+#ifndef NDEBUG
+  // Debug error handler.
+  if (!VecErrorHandler && DebugErrHandler) {
+    auto HandlerForDebug = [](llvm::Function *F, VecErrorKind K) -> void {
+      switch (K) {
+      case VecErrorKind::Bailout:
+        dbgs() << "Bailout signaled on " << F->getName() << "\n";
+        break;
+      case VecErrorKind::Fatal:
+        dbgs() << "Fatal error signaled on " << F->getName() << "\n";
+        break;
+      }
+    };
+    VecErrorHandler = HandlerForDebug;
+  }
+#endif
 
   ORBuilder.setup(Fn.getContext(), Verbosity);
   bool ModifiedFunc = processFunction(Fn);
@@ -1556,7 +1586,7 @@ PreservedAnalyses VPlanDriverHIRPass::runImpl(Function &F,
   auto DT = &AM.getResult<DominatorTreeAnalysis>(F);
 
   ModifiedHIR = Impl.runImpl(F, &HIRF, HIRLoopStats, DDA, SafeRedAnalysis,
-                             Verbosity, WR, TTI, TLI, AC, DT, nullptr);
+                             Verbosity, WR, TTI, TLI, AC, DT);
   return PreservedAnalyses::all();
 }
 
@@ -1566,7 +1596,7 @@ bool VPlanDriverHIRImpl::runImpl(
     loopopt::HIRSafeReductionAnalysis *SafeRedAnalysis,
     OptReportVerbosity::Level Verbosity, WRegionInfo *WR,
     TargetTransformInfo *TTI, TargetLibraryInfo *TLI, AssumptionCache *AC,
-    DominatorTree *DT, FatalErrorHandlerTy FatalErrorHandler) {
+    DominatorTree *DT) {
   LLVM_DEBUG(dbgs() << "VPlan HIR Driver for Function: " << Fn.getName()
                     << "\n");
   this->HIRF = HIRF;
@@ -1980,6 +2010,7 @@ bool VPlanDriverHIRImpl::bailout(VPlanOptReportBuilder &VPORBuilder, HLLoop *Lp,
     VPORBuilder.addRemark(Lp, RemarkData.BailoutLevel,
                           RemarkData.BailoutRemark);
   }
+
   return false;
 }
 

@@ -53,13 +53,13 @@ public:
              VPOVectorizationLegality *LVL, VPlanVLSAnalysis *VLSA,
              const VPlanVector *Plan, OptReportBuilder &ORBuilder,
              bool IsOmpSIMD = false,
-             FatalErrorHandlerTy FatalErrorHandler = nullptr)
+             VecErrorHandlerTy VecErrorHandler = nullptr)
       : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI), TTI(TTI),
         Legal(LVL), VLSA(VLSA),
         VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VecWidth), Plan(Plan),
         VF(VecWidth), UF(UnrollFactor), Builder(Context),
         OrigPreHeader(OrigLoop->getLoopPreheader()), ORBuilder(ORBuilder),
-        IsOmpSIMD(IsOmpSIMD), FatalErrorHandler(FatalErrorHandler) {}
+        IsOmpSIMD(IsOmpSIMD), VecErrorHandler(VecErrorHandler) {}
 
   ~VPOCodeGen() { assert(VFStack.empty() && "expected empty VF stack"); }
 
@@ -794,7 +794,7 @@ private:
   // True if #pragma omp simd defined for OrigLoop
   bool IsOmpSIMD;
 
-  FatalErrorHandlerTy FatalErrorHandler;
+  VecErrorHandlerTy VecErrorHandler;
 
   // True if loop has any entity for which a memory guard region is expected.
   // For example, UDRs, inscan reductions, array section reductions and complex
