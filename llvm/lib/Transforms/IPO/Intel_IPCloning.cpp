@@ -261,8 +261,6 @@ SmallDenseMap<Value *, GetElementPtrInst *> SpecialConstGEPMap;
 // and return the newly cloned Function.
 static Function *IPCloneFunction(Function *F, ValueToValueMapTy &VMap) {
   Function *NewF = CloneFunction(F, VMap);
-  getInlineReport()->cloneFunction(F, NewF, VMap);
-  getMDInlineReport()->cloneFunction(F, NewF, VMap);
   return NewF;
 }
 
@@ -1823,7 +1821,7 @@ static void fixRecProgressionBasisCall(Function &OrigF, Function &NewF) {
     if (CB && (CB->getCalledFunction() == &OrigF)) {
       if ((CB->getCaller() != &OrigF) && (CB->getCaller() != &NewF)) {
         U.set(&NewF);
-        CB->setCalledFunction(&NewF);
+        setCalledFunction(CB, &NewF);
       }
     }
   }
@@ -1850,7 +1848,7 @@ static void fixRecProgressionRecCalls(Function &OrigF, Function &PrevF,
     if (CB && (CB->getCalledFunction() == &OrigF)) {
       if (CB->getCaller() == &PrevF) {
         U.set(&NewF);
-        CB->setCalledFunction(&NewF);
+        setCalledFunction(CB, &NewF);
       }
     }
   }
@@ -6343,7 +6341,7 @@ void PredicateOpt::cloneNoOptBB(BasicBlock *BBIn, Function *OptF,
       if (auto CB = dyn_cast<CallBase>(&I)) {
         auto CBNew = cast<CallBase>(II);
         if (CB->getCalledFunction() == NoOptF) {
-          CBNew->setCalledFunction(OptF);
+          setCalledFunction(CBNew, OptF);
           getInlineReport()->addMultiversionedCallSite(CBNew);
           getMDInlineReport()->addMultiversionedCallSite(CBNew);
         }

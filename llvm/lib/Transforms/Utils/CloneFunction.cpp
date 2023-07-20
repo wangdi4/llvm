@@ -54,6 +54,8 @@
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_OptReport/OptReport.h"
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h"
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
@@ -406,7 +408,11 @@ Function *llvm::CloneFunction(Function *F, ValueToValueMapTy &VMap,
   CloneFunctionInto(NewF, F, VMap, CloneFunctionChangeType::LocalChangesOnly,
                     Returns, "", CodeInfo, nullptr, nullptr, // INTEL
                     StopAfterCloningDeclaration);            // INTEL
-
+#if INTEL_CUSTOMIZATION
+  getInlineReport()->initFunctionClosure(F);
+  getInlineReport()->cloneFunction(F, NewF, VMap);
+  getMDInlineReport()->cloneFunction(F, NewF, VMap);
+#endif // INTEL_CUSTOMIZATION
   return NewF;
 }
 

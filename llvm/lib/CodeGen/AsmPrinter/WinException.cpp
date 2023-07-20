@@ -1,4 +1,21 @@
 //===-- CodeGen/AsmPrinter/WinException.cpp - Dwarf Exception Impl ------===//
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -645,6 +662,7 @@ void WinException::emitSEHActionsForRange(const WinEHFuncInfo &FuncInfo,
     } else {
       // For an except, the filter can be 1 (catch-all) or a function
       // label.
+      assert(Handler->getNumber() >= 0 && "Handler BB was removed"); // INTEL
       FilterOrFinally = UME.Filter ? create32bitRef(UME.Filter)
                                    : MCConstantExpr::create(1, Ctx);
       ExceptOrNull = create32bitRef(Handler->getSymbol());

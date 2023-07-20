@@ -1106,9 +1106,6 @@ PartialInlinerImpl::FunctionCloner::FunctionCloner(
   // Clone the function, so that we can hack away on it.
   ValueToValueMapTy VMap;
   ClonedFunc = CloneFunction(F, VMap);
-  getInlineReport()->initFunctionClosure(F);             // INTEL
-  getInlineReport()->cloneFunction(F, ClonedFunc, VMap); // INTEL
-  getMDInlineReport()->cloneFunction(F, ClonedFunc, VMap); // INTEL
 
   ClonedOI->ReturnBlock = cast<BasicBlock>(VMap[OI->ReturnBlock]);
   ClonedOI->NonReturnBlock = cast<BasicBlock>(VMap[OI->NonReturnBlock]);
@@ -1137,9 +1134,6 @@ PartialInlinerImpl::FunctionCloner::FunctionCloner(
   // Clone the function, so that we can hack away on it.
   ValueToValueMapTy VMap;
   ClonedFunc = CloneFunction(F, VMap);
-  getInlineReport()->initFunctionClosure(F);             // INTEL
-  getInlineReport()->cloneFunction(F, ClonedFunc, VMap); // INTEL
-  getMDInlineReport()->cloneFunction(F, ClonedFunc, VMap); // INTEL
 
   // Go through all Outline Candidate Regions and update all BasicBlock
   // information.
