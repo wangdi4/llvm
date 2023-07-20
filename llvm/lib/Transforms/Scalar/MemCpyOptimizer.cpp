@@ -90,7 +90,6 @@ STATISTIC(NumMemSetInfer, "Number of memsets inferred");
 STATISTIC(NumMoveToCpy,   "Number of memmoves converted to memcpy");
 STATISTIC(NumCpyToSet,    "Number of memcpys converted to memset");
 STATISTIC(NumCallSlot,    "Number of call slot optimizations performed");
-STATISTIC(NumStackMove, "Number of stack-move optimizations performed");
 
 namespace {
 
@@ -750,23 +749,6 @@ bool MemCpyOptPass::processStoreOfLoad(StoreInst *SI, LoadInst *LI,
     eraseInstruction(LI);
     ++NumMemCpyInstr;
     return true;
-  }
-
-  // If this is a load-store pair from a stack slot to a stack slot, we
-  // might be able to perform the stack-move optimization just as we do for
-  // memcpys from an alloca to an alloca.
-  if (auto *DestAlloca = dyn_cast<AllocaInst>(SI->getPointerOperand())) {
-    if (auto *SrcAlloca = dyn_cast<AllocaInst>(LI->getPointerOperand())) {
-      if (performStackMoveOptzn(LI, SI, DestAlloca, SrcAlloca,
-                                DL.getTypeStoreSize(T), BAA)) {
-        // Avoid invalidating the iterator.
-        BBI = SI->getNextNonDebugInstruction()->getIterator();
-        eraseInstruction(SI);
-        eraseInstruction(LI);
-        ++NumMemCpyInstr;
-        return true;
-      }
-    }
   }
 
   return false;
@@ -1451,6 +1433,7 @@ bool MemCpyOptPass::performMemCpyToMemSetOptzn(MemCpyInst *MemCpy,
   return true;
 }
 
+<<<<<<< HEAD
 // Attempts to optimize the pattern whereby memory is copied from an alloca to
 // another alloca, where the two allocas don't have conflicting mod/ref. If
 // successful, the two allocas can be merged into one and the transfer can be
@@ -1655,6 +1638,8 @@ bool MemCpyOptPass::performStackMoveOptzn(Instruction *Load, Instruction *Store,
   return true;
 }
 
+=======
+>>>>>>> 36a6eb7d12a9f827bf3d5d4e5fdc68b8a62807b2
 /// Perform simplification of memcpy's.  If we have memcpy A
 /// which copies X to Y, and memcpy B which copies Y to Z, then we can rewrite
 /// B to be a memcpy from X to Z (or potentially a memmove, depending on
@@ -1711,14 +1696,13 @@ bool MemCpyOptPass::processMemCpy(MemCpyInst *M, BasicBlock::iterator &BBI) {
   MemoryAccess *SrcClobber = MSSA->getWalker()->getClobberingMemoryAccess(
       AnyClobber, MemoryLocation::getForSource(M), BAA);
 
-  // There are five possible optimizations we can do for memcpy:
+  // There are four possible optimizations we can do for memcpy:
   //   a) memcpy-memcpy xform which exposes redundance for DSE.
   //   b) call-memcpy xform for return slot optimization.
   //   c) memcpy from freshly alloca'd space or space that has just started
   //      its lifetime copies undefined data, and we can therefore eliminate
   //      the memcpy in favor of the data that was already at the destination.
   //   d) memcpy from a just-memset'd source can be turned into memset.
-  //   e) elimination of memcpy via stack-move optimization.
   if (auto *MD = dyn_cast<MemoryDef>(SrcClobber)) {
     if (Instruction *MI = MD->getMemoryInst()) {
       if (auto *CopySize = dyn_cast<ConstantInt>(M->getLength())) {
@@ -1737,8 +1721,7 @@ bool MemCpyOptPass::processMemCpy(MemCpyInst *M, BasicBlock::iterator &BBI) {
         }
       }
       if (auto *MDep = dyn_cast<MemCpyInst>(MI))
-        if (processMemCpyMemCpyDependence(M, MDep, BAA))
-          return true;
+        return processMemCpyMemCpyDependence(M, MDep, BAA);
       if (auto *MDep = dyn_cast<MemSetInst>(MI)) {
         if (performMemCpyToMemSetOptzn(M, MDep, BAA)) {
           LLVM_DEBUG(dbgs() << "Converted memcpy to memset\n");
@@ -1755,27 +1738,6 @@ bool MemCpyOptPass::processMemCpy(MemCpyInst *M, BasicBlock::iterator &BBI) {
       ++NumMemCpyInstr;
       return true;
     }
-  }
-
-  // If the transfer is from a stack slot to a stack slot, then we may be able
-  // to perform the stack-move optimization. See the comments in
-  // performStackMoveOptzn() for more details.
-  auto *DestAlloca = dyn_cast<AllocaInst>(M->getDest());
-  if (!DestAlloca)
-    return false;
-  auto *SrcAlloca = dyn_cast<AllocaInst>(M->getSource());
-  if (!SrcAlloca)
-    return false;
-  ConstantInt *Len = dyn_cast<ConstantInt>(M->getLength());
-  if (Len == nullptr)
-    return false;
-  if (performStackMoveOptzn(M, M, DestAlloca, SrcAlloca, Len->getZExtValue(),
-                            BAA)) {
-    // Avoid invalidating the iterator.
-    BBI = M->getNextNonDebugInstruction()->getIterator();
-    eraseInstruction(M);
-    ++NumMemCpyInstr;
-    return true;
   }
 
   return false;
