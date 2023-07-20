@@ -20,7 +20,7 @@ entry:
 for.cond15.preheader:                             ; preds = %for.cond15.preheader, %entry
   %indvars.iv333 = phi i64 [ %0, %entry ], [ %indvars.iv.next334, %for.cond15.preheader ]
   %indvars.iv.next334 = add nuw nsw i64 %indvars.iv333, 1
-  store i32 undef, i32* undef, align 8
+  store i32 undef, ptr undef, align 8
   %exitcond337 = icmp eq i64 %indvars.iv.next334, 84
   br i1 %exitcond337, label %for.cond12.for.end32_crit_edge, label %for.cond15.preheader
 

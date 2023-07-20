@@ -23,8 +23,6 @@ target triple = "x86_64-unknown-linux-gnu"
 define i32 @main() local_unnamed_addr #0 {
 entry:
   %ar = alloca [2 x i32], align 4
-  %0 = bitcast [2 x i32]* %ar to i8*
-  %arrayidx6 = getelementptr inbounds [2 x i32], [2 x i32]* %ar, i64 0, i64 0
   br label %for.body
 
 for.body:                                         ; preds = %for.inc9, %entry
@@ -34,8 +32,8 @@ for.body:                                         ; preds = %for.inc9, %entry
 
 for.body3:                                        ; preds = %for.body3, %for.body
   %indvars.iv = phi i64 [ 0, %for.body ], [ %indvars.iv.next, %for.body3 ]
-  %arrayidx = getelementptr inbounds [2 x i32], [2 x i32]* %ar, i64 0, i64 %indvars.iv
-  store i32 1, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [2 x i32], ptr %ar, i64 0, i64 %indvars.iv
+  store i32 1, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 2
   br i1 %exitcond, label %for.end, label %for.body3
@@ -46,9 +44,9 @@ for.end:                                          ; preds = %for.body3
   br i1 %cmp5, label %if.then, label %for.inc9
 
 if.then:                                          ; preds = %for.end
-  %1 = load i32, i32* %arrayidx6, align 4
-  %inc7 = add nsw i32 %1, 1
-  store i32 %inc7, i32* %arrayidx6, align 4
+  %0 = load i32, ptr %ar, align 4
+  %inc7 = add nsw i32 %0, 1
+  store i32 %inc7, ptr %ar, align 4
   %inc8 = add nsw i32 %res.022, 2
   br label %for.inc9
 

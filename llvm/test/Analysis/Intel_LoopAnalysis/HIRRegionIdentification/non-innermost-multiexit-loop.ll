@@ -24,7 +24,7 @@ declare token @llvm.directive.region.entry()
 
 declare void @llvm.directive.region.exit(token)
 
-define void @foo(i32* %arr, i32 %N1, i32 %N2, i32 %N3) {
+define void @foo(ptr %arr, i32 %N1, i32 %N2, i32 %N3) {
 DIR.OMP.SIMD.1:
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %outer.ph
@@ -34,8 +34,8 @@ outer.ph:
 
 outer.body:
   %outer.iv = phi i64 [ 0, %outer.ph ], [ %outer.iv.next, %outer.latch ]
-  %gep = getelementptr inbounds i32, i32* %arr, i64 %outer.iv
-  %ld = load i32, i32* %gep, align 4
+  %gep = getelementptr inbounds i32, ptr %arr, i64 %outer.iv
+  %ld = load i32, ptr %gep, align 4
   %cmp = icmp eq i32 %ld, %N1
   br i1 %cmp, label %middle.ph, label %outer.latch
 

@@ -16,12 +16,12 @@
 
 define void @foo() {
 entry:
-  %0 = load i32, i32* @g_d, align 4
-  %1 = load i32, i32* @g_mox, align 4
+  %0 = load i32, ptr @g_d, align 4
+  %1 = load i32, ptr @g_mox, align 4
   %inc = add i32 %1, 1
-  store i32 %inc, i32* @g_mox, align 4
-  store i32 0, i32* @g_d, align 4
-  %2 = load i64, i64* @g_tu, align 8
+  store i32 %inc, ptr @g_mox, align 4
+  store i32 0, ptr @g_d, align 4
+  %2 = load i64, ptr @g_tu, align 8
   br label %for.body
 
 for.body:                                         ; preds = %for.end26, %entry
@@ -38,10 +38,10 @@ for.body14:                                       ; preds = %for.body14, %for.bo
   %mul20 = shl i64 %v_h.1157, 1
   %add21 = sub nuw nsw i64 64, %v_h.1157
   %sub = add nuw nsw i64 %add21, %mul20
-  %arrayidx22 = getelementptr inbounds [192 x i64], [192 x i64]* @a1_c, i64 0, i64 %sub
-  %4 = load i64, i64* %arrayidx22, align 8
+  %arrayidx22 = getelementptr inbounds [192 x i64], ptr @a1_c, i64 0, i64 %sub
+  %4 = load i64, ptr %arrayidx22, align 8
   %sub23 = sub i64 %4, %conv
-  store i64 %sub23, i64* %arrayidx22, align 8
+  store i64 %sub23, ptr %arrayidx22, align 8
   %inc25 = add nuw nsw i64 %v_h.1157, 1
   %exitcond = icmp eq i64 %inc25, 64
   br i1 %exitcond, label %for.end26, label %for.body14
