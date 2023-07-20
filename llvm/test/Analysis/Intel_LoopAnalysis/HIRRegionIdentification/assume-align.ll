@@ -7,14 +7,14 @@
 ; CHECK: EntryBB: %loop
 
 
-define void @foo(double* %ptr) {
+define void @foo(ptr %ptr) {
 entry:
   br label %loop
 
 loop:
   %iv = phi i32 [ 0, %entry ], [ %iv.inc, %loop ]
   %cmp = icmp sgt i32 %iv, 5
-  call void @llvm.assume(i1 true) [ "align"(double* %ptr, i64 64) ]
+  call void @llvm.assume(i1 true) [ "align"(ptr %ptr, i64 64) ]
   %iv.inc = add nsw i32 %iv, 1
   %cmp1 = icmp sgt i32 %iv.inc, 15
   br i1 %cmp1, label %exit, label %loop

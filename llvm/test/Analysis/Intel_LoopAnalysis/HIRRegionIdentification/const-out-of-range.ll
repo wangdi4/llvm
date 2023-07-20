@@ -21,7 +21,7 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.S2 = type { double, [20 x %struct.S1], i16 }
 %struct.S1 = type { float, [20 x i32], i64 }
 
-@int_arr_ptr = dso_local local_unnamed_addr global [20 x i32]* null, align 8
+@int_arr_ptr = dso_local local_unnamed_addr global ptr null, align 8
 @int_arr = dso_local local_unnamed_addr global [20 x [20 x [20 x i32]]] zeroinitializer, align 16
 @s2_arr_arr = dso_local local_unnamed_addr global [20 x [20 x %struct.S2]] zeroinitializer, align 16
 @s2_arr = dso_local local_unnamed_addr global [20 x %struct.S2] zeroinitializer, align 16
@@ -29,16 +29,16 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
 define dso_local i32 @test1(i32 %n) local_unnamed_addr {
 entry:
-  %0 = load [20 x i32]*, [20 x i32]** @int_arr_ptr, align 8
+  %0 = load ptr, ptr @int_arr_ptr, align 8
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %cmp = phi i1 [ true, %entry ], [ false, %for.body ]
   %indvars.iv = phi i64 [ 0, %entry ], [ 1, %for.body ]
-  %arrayidx1 = getelementptr inbounds [20 x i32], [20 x i32]* %0, i64 %indvars.iv, i64 31
-  %1 = load i32, i32* %arrayidx1, align 4
+  %arrayidx1 = getelementptr inbounds [20 x i32], ptr %0, i64 %indvars.iv, i64 31
+  %1 = load i32, ptr %arrayidx1, align 4
   %add = add nsw i32 %1, %n
-  store i32 %add, i32* %arrayidx1, align 4
+  store i32 %add, ptr %arrayidx1, align 4
   br i1 %cmp, label %for.body, label %for.end
 
 for.end:                                          ; preds = %for.body
@@ -69,10 +69,10 @@ for.cond1.preheader:                              ; preds = %entry, %for.inc7
 
 for.body3:                                        ; preds = %for.cond1.preheader, %for.body3
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body3 ]
-  %arrayidx6 = getelementptr inbounds [20 x [20 x [20 x i32]]], [20 x [20 x [20 x i32]]]* @int_arr, i64 0, i64 %indvars.iv18, i64 25, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds [20 x [20 x [20 x i32]]], ptr @int_arr, i64 0, i64 %indvars.iv18, i64 25, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx6, align 4
   %add = add nsw i32 %0, %n
-  store i32 %add, i32* %arrayidx6, align 4
+  store i32 %add, ptr %arrayidx6, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 3
   br i1 %exitcond.not, label %for.inc7, label %for.body3
@@ -117,10 +117,10 @@ for.cond1.preheader:                              ; preds = %entry, %for.inc9
 
 for.body3:                                        ; preds = %for.cond1.preheader, %for.body3
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body3 ]
-  %arrayidx8 = getelementptr inbounds [20 x [20 x %struct.S2]], [20 x [20 x %struct.S2]]* @s2_arr_arr, i64 0, i64 %indvars.iv21, i64 21, i32 1, i64 %indvars.iv, i32 1, i64 %indvars.iv21
-  %0 = load i32, i32* %arrayidx8, align 4
+  %arrayidx8 = getelementptr inbounds [20 x [20 x %struct.S2]], ptr @s2_arr_arr, i64 0, i64 %indvars.iv21, i64 21, i32 1, i64 %indvars.iv, i32 1, i64 %indvars.iv21
+  %0 = load i32, ptr %arrayidx8, align 4
   %add = add nsw i32 %0, %n
-  store i32 %add, i32* %arrayidx8, align 4
+  store i32 %add, ptr %arrayidx8, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 10
   br i1 %exitcond.not, label %for.inc9, label %for.body3
@@ -149,8 +149,7 @@ for.end11:                                        ; preds = %for.inc9
 define dso_local i32 @test4(i32 %n) local_unnamed_addr {
 entry:
   %s2_local_arr = alloca [20 x %struct.S2], align 16
-  %0 = bitcast [20 x %struct.S2]* %s2_local_arr to i8*
-  call void @llvm.lifetime.start.p0i8(i64 38720, i8* nonnull %0)
+  call void @llvm.lifetime.start.p0(i64 38720, ptr nonnull %s2_local_arr)
   br label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %entry, %for.inc7
@@ -160,10 +159,10 @@ for.cond1.preheader:                              ; preds = %entry, %for.inc7
 
 for.body3:                                        ; preds = %for.cond1.preheader, %for.body3
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body3 ]
-  %arrayidx6 = getelementptr inbounds [20 x %struct.S2], [20 x %struct.S2]* %s2_local_arr, i64 0, i64 %indvars.iv, i32 1, i64 24, i32 1, i64 %indvars.iv18
-  %1 = load i32, i32* %arrayidx6, align 4
-  %add = add nsw i32 %1, %n
-  store i32 %add, i32* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds [20 x %struct.S2], ptr %s2_local_arr, i64 0, i64 %indvars.iv, i32 1, i64 24, i32 1, i64 %indvars.iv18
+  %0 = load i32, ptr %arrayidx6, align 4
+  %add = add nsw i32 %0, %n
+  store i32 %add, ptr %arrayidx6, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 3
   br i1 %exitcond.not, label %for.inc7, label %for.body3
@@ -172,7 +171,7 @@ for.inc7:                                         ; preds = %for.body3
   br i1 %cmp, label %for.cond1.preheader, label %for.end9
 
 for.end9:                                         ; preds = %for.inc7
-  call void @llvm.lifetime.end.p0i8(i64 38720, i8* nonnull %0)
+  call void @llvm.lifetime.end.p0(i64 38720, ptr nonnull %s2_local_arr)
   ret i32 0
 }
 
@@ -187,7 +186,7 @@ for.end9:                                         ; preds = %for.inc7
 ; }
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
-define dso_local i32 @test5(%struct.S2* nocapture %ptr_s2, i32 %n) local_unnamed_addr {
+define dso_local i32 @test5(ptr nocapture %ptr_s2, i32 %n) local_unnamed_addr {
 entry:
   br label %for.cond1.preheader
 
@@ -198,10 +197,10 @@ for.cond1.preheader:                              ; preds = %entry, %for.inc7
 
 for.body3:                                        ; preds = %for.cond1.preheader, %for.body3
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body3 ]
-  %arrayidx6 = getelementptr inbounds %struct.S2, %struct.S2* %ptr_s2, i64 %indvars.iv, i32 1, i64 %indvars.iv18, i32 1, i64 25
-  %0 = load i32, i32* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds %struct.S2, ptr %ptr_s2, i64 %indvars.iv, i32 1, i64 %indvars.iv18, i32 1, i64 25
+  %0 = load i32, ptr %arrayidx6, align 4
   %add = add nsw i32 %0, %n
-  store i32 %add, i32* %arrayidx6, align 4
+  store i32 %add, ptr %arrayidx6, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 3
   br i1 %exitcond.not, label %for.inc7, label %for.body3
@@ -224,16 +223,16 @@ for.end9:                                         ; preds = %for.inc7
 ; }
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
-define dso_local i32 @test6(%struct.S2* nocapture %ptr_s2, i32 %n) local_unnamed_addr {
+define dso_local i32 @test6(ptr nocapture %ptr_s2, i32 %n) local_unnamed_addr {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx1 = getelementptr inbounds %struct.S2, %struct.S2* %ptr_s2, i64 0, i32 1, i64 26, i32 1, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx1, align 4
+  %arrayidx1 = getelementptr inbounds %struct.S2, ptr %ptr_s2, i64 0, i32 1, i64 26, i32 1, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx1, align 4
   %add = add nsw i32 %0, %n
-  store i32 %add, i32* %arrayidx1, align 4
+  store i32 %add, ptr %arrayidx1, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 3
   br i1 %exitcond.not, label %for.end, label %for.body
@@ -243,7 +242,7 @@ for.end:                                          ; preds = %for.body
 }
 
 ; Function Attrs: argmemonly mustprogress nofree nosync nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture)
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture)
 
 ; Function Attrs: argmemonly mustprogress nofree nosync nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture)
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture)

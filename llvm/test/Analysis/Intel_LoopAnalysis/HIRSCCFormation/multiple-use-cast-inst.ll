@@ -16,7 +16,6 @@ target triple = "x86_64-unknown-linux-gnu"
 define float @do_comp(i32 %n) {
 entry:
   %arr = alloca [200 x float], align 16
-  %0 = bitcast [200 x float]* %arr to i8*
   %cmp10 = icmp sgt i32 %n, 0
   br i1 %cmp10, label %for.body.preheader, label %for.end
 
@@ -27,9 +26,9 @@ for.body.preheader:                               ; preds = %entry
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
   %ans.012 = phi float [ 0.000000e+00, %for.body.preheader ], [ %conv3, %for.body ]
-  %arrayidx = getelementptr inbounds [200 x float], [200 x float]* %arr, i64 0, i64 %indvars.iv
-  %1 = load float, float* %arrayidx, align 4
-  %conv = fpext float %1 to double
+  %arrayidx = getelementptr inbounds [200 x float], ptr %arr, i64 0, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx, align 4
+  %conv = fpext float %0 to double
   %conv1 = fpext float %ans.012 to double
   %add = fadd fast double %conv1, 1.000000e+00
   %add2 = fadd fast double %add, %conv
