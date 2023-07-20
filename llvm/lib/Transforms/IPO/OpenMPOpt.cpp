@@ -5645,8 +5645,12 @@ PreservedAnalyses OpenMPOptCGSCCPass::run(LazyCallGraph::SCC &C,
   // If SetFixpointIterations contains a default value then adjust
   // MaxFixpointIterations according heuristics.
   if (SetFixpointIterations.getNumOccurrences() == 0) {
+    size_t SCCInstructionsCount = 0;
+    for (auto F : SCC)
+      SCCInstructionsCount += F->getInstructionCount();
+
     unsigned DeviceIterations =
-        DeviceAggressiveAttributorThreshold / M.getInstructionCount();
+        DeviceAggressiveAttributorThreshold / SCCInstructionsCount;
     MaxFixpointIterations = isOpenMPDevice(M) ? DeviceIterations : 32u;
     MaxFixpointIterations = std::max(MaxFixpointIterations, 1u);
     MaxFixpointIterations =
