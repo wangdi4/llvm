@@ -983,7 +983,8 @@ static bool verifyPowTable(Value *Table, ConstantFP *Scale0, ConstantFP *Scale1,
     return false;
   auto *TableTy = dyn_cast<ArrayType>(TableInit->getType());
   // 2 rows + 5 elements for verification
-  if (TableTy->getNumElements() != TableRowSize * TableNumRows + 5)
+  if (!TableTy ||
+      (TableTy->getNumElements() != TableRowSize * TableNumRows + 5))
     return false;
 
   // Read the last 5 elements in the table. These are the input parameters,
