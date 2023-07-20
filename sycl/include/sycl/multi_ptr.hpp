@@ -858,7 +858,7 @@ public:
                 std::is_const_v<ET> && std::is_same_v<ET, ElementType>>>
   multi_ptr(
       local_accessor<typename std::remove_const_t<ET>, dimensions> Accessor)
-      : m_Pointer(detail::cast_AS<pointer_t>(Accessor.get_pointer())) {}
+      : multi_ptr(Accessor.get_pointer()) {}
 
   // Only if Space == constant_space and element type is const
   template <
@@ -1025,6 +1025,10 @@ public:
   multi_ptr(multi_ptr &&) = default;
   multi_ptr(pointer_t pointer) : m_Pointer(pointer) {}
 #ifdef __SYCL_DEVICE_ONLY__
+  template <
+      typename RelayPointerT = pointer_t,
+      typename = std::enable_if_t<std::is_same_v<RelayPointerT, pointer_t> &&
+                                  !std::is_same_v<RelayPointerT, void *>>>
   multi_ptr(void *pointer) : m_Pointer(detail::cast_AS<pointer_t>(pointer)) {
     // TODO An implementation should reject an argument if the deduced
     // address space is not compatible with Space.
@@ -1055,6 +1059,10 @@ public:
     return *this;
   }
 #ifdef __SYCL_DEVICE_ONLY__
+  template <
+      typename RelayPointerT = pointer_t,
+      typename = std::enable_if_t<std::is_same_v<RelayPointerT, pointer_t> &&
+                                  !std::is_same_v<RelayPointerT, void *>>>
   multi_ptr &operator=(void *pointer) {
     // TODO An implementation should reject an argument if the deduced
     // address space is not compatible with Space.
@@ -1102,7 +1110,7 @@ public:
           _Space == Space && (Space == access::address_space::generic_space ||
                               Space == access::address_space::local_space)>>
   multi_ptr(local_accessor<ElementType, dimensions> Accessor)
-      : m_Pointer(detail::cast_AS<pointer_t>(Accessor.get_pointer())) {}
+      : multi_ptr(Accessor.get_pointer()) {}
 
   // Only if Space == constant_space
   template <
@@ -1172,6 +1180,10 @@ public:
   multi_ptr(multi_ptr &&) = default;
   multi_ptr(pointer_t pointer) : m_Pointer(pointer) {}
 #ifdef __SYCL_DEVICE_ONLY__
+  template <
+      typename RelayPointerT = pointer_t,
+      typename = std::enable_if_t<std::is_same_v<RelayPointerT, pointer_t> &&
+                                  !std::is_same_v<RelayPointerT, const void *>>>
   multi_ptr(const void *pointer)
       : m_Pointer(detail::cast_AS<pointer_t>(pointer)) {
     // TODO An implementation should reject an argument if the deduced
@@ -1203,6 +1215,10 @@ public:
     return *this;
   }
 #ifdef __SYCL_DEVICE_ONLY__
+  template <
+      typename RelayPointerT = pointer_t,
+      typename = std::enable_if_t<std::is_same_v<RelayPointerT, pointer_t> &&
+                                  !std::is_same_v<RelayPointerT, const void *>>>
   multi_ptr &operator=(const void *pointer) {
     // TODO An implementation should reject an argument if the deduced
     // address space is not compatible with Space.
@@ -1250,7 +1266,7 @@ public:
           _Space == Space && (Space == access::address_space::generic_space ||
                               Space == access::address_space::local_space)>>
   multi_ptr(local_accessor<ElementType, dimensions> Accessor)
-      : m_Pointer(detail::cast_AS<pointer_t>(Accessor.get_pointer())) {}
+      : multi_ptr(Accessor.get_pointer()) {}
 
   // Only if Space == constant_space
   template <
