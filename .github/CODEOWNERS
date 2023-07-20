@@ -587,6 +587,9 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 # JIRA: CMPLRLIBS->LLVM Offload RT
 /openmp/libomptarget/ @intel-restricted/cmplrlibs-llvm-offload-rt
 
+# JIRA: CMPLRLLVM->LLVM Sanitizers and Programming Tools
+/openmp/tools/archer @cchen15
+
 # COMPONENT: ScalarOpt
 # JIRA: CMPLRLLVM->LLVM Scalar Optimizer
 /llvm/lib/IR/ConstantFold.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer
