@@ -1342,6 +1342,10 @@ void SelectionDAGISel::reportIPToStateForBlocks(MachineFunction *MF) {
     if (BB->getFirstMayFaultInst()) {
       // Report IP range only for blocks with Faulty inst
       auto MBBb = MBB->getFirstNonPHI();
+#if INTEL_CUSTOMIZATION
+      if (MBBb == MBB->end())
+        continue;
+#endif // INTEL_CUSTOMIZATION
       MachineInstr *MIb = &*MBBb;
       if (MIb->isTerminator())
         continue;

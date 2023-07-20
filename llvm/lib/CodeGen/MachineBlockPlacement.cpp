@@ -92,6 +92,7 @@
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/CodeGen/MachineModuleInfo.h"
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
@@ -3682,6 +3683,11 @@ void MachineBlockPlacement::initDupThreshold() {
 bool MachineBlockPlacement::runOnMachineFunction(MachineFunction &MF) {
   if (skipFunction(MF.getFunction()))
     return false;
+
+#if INTEL_CUSTOMIZATION
+  if (MF.getMMI().getModule()->getModuleFlag("eh-asynch"))
+    return false;
+#endif // INTEL_CUSTOMIZATION
 
   // Check for single-block functions and skip them.
   if (std::next(MF.begin()) == MF.end())
