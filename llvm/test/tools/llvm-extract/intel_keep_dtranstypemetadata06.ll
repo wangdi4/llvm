@@ -12,7 +12,7 @@
 ; being referred to by the constant expression, which is not currently
 ; implemented.
 
-; RUN: llvm-extract -opaque-pointers -keep-dtranstypemetadata -func test -S < %s | FileCheck %s
+; RUN: llvm-extract -keep-dtranstypemetadata -func test -S < %s | FileCheck %s
 
 @globalVar = internal global i32 zeroinitializer
 @globalPtr = internal global [4 x ptr] zeroinitializer, !intel_dtrans_type !1

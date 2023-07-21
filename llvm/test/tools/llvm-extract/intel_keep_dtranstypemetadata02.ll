@@ -5,24 +5,23 @@
 ; type definitions that are not needed to also be removed.
 
 ; RUN: llvm-extract -keep-dtranstypemetadata -func test -S < %s | FileCheck %s
-; RUN: llvm-extract -opaque-pointers -keep-dtranstypemetadata -func test -S < %s | FileCheck %s
 
 %struct.test01 = type { i64, i64 }
 %struct.test02 = type { i64, i64 }
 ; CHECK: %struct.test01 = type { i64, i64 }
 ; CHECK-NOT: %struct.test02 = type { i64, i64 }
 
-define void @caller(%struct.test01* "intel_dtrans_func_index"="1" %arg) !intel.dtrans.func.type !3 {
+define void @caller(ptr "intel_dtrans_func_index"="1" %arg) !intel.dtrans.func.type !3 {
   %tmp = alloca %struct.test02
-  %gep = getelementptr %struct.test02, %struct.test02* %tmp, i64 0, i32 0
-  store i64 0, i64* %gep
-  call void @test(%struct.test01* %arg)
+  %gep = getelementptr %struct.test02, ptr %tmp, i64 0, i32 0
+  store i64 0, ptr %gep
+  call void @test(ptr %arg)
   ret void
 }
 
-define void @test(%struct.test01* "intel_dtrans_func_index"="1" %arg) !intel.dtrans.func.type !4 {
-  %gep = getelementptr %struct.test01, %struct.test01* %arg, i64 0, i32 0
-  store i64 0, i64* %gep
+define void @test(ptr "intel_dtrans_func_index"="1" %arg) !intel.dtrans.func.type !4 {
+  %gep = getelementptr %struct.test01, ptr %arg, i64 0, i32 0
+  store i64 0, ptr %gep
   ret void
 }
 

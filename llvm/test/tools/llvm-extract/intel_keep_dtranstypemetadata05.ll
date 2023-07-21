@@ -4,7 +4,7 @@
 ; to a 'declare' created when an 'alias' is replaced as a function declaration
 ; during extraction.
 
-; RUN: llvm-extract -opaque-pointers -keep-dtranstypemetadata -func test -S < %s | FileCheck %s
+; RUN: llvm-extract -keep-dtranstypemetadata -func test -S < %s | FileCheck %s
 
 @globalVar = internal global i32 zeroinitializer
 @globalPtr = internal global ptr zeroinitializer, !intel_dtrans_type !1
