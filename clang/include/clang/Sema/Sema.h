@@ -14374,10 +14374,15 @@ private:
   bool CheckIntelFPGARegBuiltinFunctionCall(unsigned BuiltinID, CallExpr *Call);
   bool CheckIntelFPGAMemBuiltinFunctionCall(CallExpr *Call);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   bool CheckSIMDVariantBuiltinFunctionCall(unsigned BuiltinID,
                                            CallExpr *TheCall);
 #endif // INTEL_CUSTOMIZATION
+=======
+  bool CheckIntelSYCLPtrAnnotationBuiltinFunctionCall(unsigned BuiltinID,
+                                                      CallExpr *Call);
+>>>>>>> 05d3be63f9961354b34c41bf94184e332d3fb865
 
   bool SemaBuiltinVAStart(unsigned BuiltinID, CallExpr *TheCall);
   bool SemaBuiltinVAStartARMMicrosoft(CallExpr *Call);

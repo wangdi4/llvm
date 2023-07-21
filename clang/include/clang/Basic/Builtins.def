@@ -2069,9 +2069,14 @@ BUILTIN(__builtin_ms_va_copy, "vc*&c*&", "n")
 // Arithmetic Fence: to prevent FP reordering and reassociation optimizations
 LANGBUILTIN(__arithmetic_fence, "v.", "tE", ALL_LANGUAGES)
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 LANGBUILTIN(__fence, "v.", "tE", ALL_LANGUAGES)
 #endif // INTEL_CUSTOMIZATION
+=======
+// Builtins for Intel SYCL
+BUILTIN(__builtin_intel_sycl_ptr_annotation, "v.", "nt")
+>>>>>>> 05d3be63f9961354b34c41bf94184e332d3fb865
 
 // Builtins for Intel FPGA
 BUILTIN(__builtin_intel_fpga_reg, "v.", "nt")
