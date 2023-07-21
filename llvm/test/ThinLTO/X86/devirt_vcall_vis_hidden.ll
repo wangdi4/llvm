@@ -7,7 +7,7 @@
 ; Generate unsplit module with summary for ThinLTO index-based WPD.
 ; RUN: opt -thinlto-bc -o %t2.o %s
 ; INTEL_CUSTOMIZATION
-; RUN: llvm-lto2 run -opaque-pointers %t2.o -save-temps -pass-remarks=. \
+; RUN: llvm-lto2 run %t2.o -save-temps -pass-remarks=. \
 ; RUN:   %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -o %t3 \
@@ -26,7 +26,7 @@
 ; RUN: opt -thinlto-bc -thinlto-split-lto-unit -o %t.o %s
 ; FIXME: Fix machine verifier issues and remove -verify-machineinstrs=0. PR39436.
 ; INTEL_CUSTOMIZATION
-; RUN: llvm-lto2 run %t.o -opaque-pointers -save-temps -use-new-pm -pass-remarks=. \
+; RUN: llvm-lto2 run %t.o -save-temps -pass-remarks=. \
 ; RUN:   %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -o %t3 \
@@ -49,7 +49,7 @@
 
 ; Regular LTO WPD
 ; RUN: opt -o %t4.o %s
-; RUN: llvm-lto2 run -opaque-pointers %t4.o -opaque-pointers -save-temps -pass-remarks=. \
+; RUN: llvm-lto2 run %t4.o -save-temps -pass-remarks=. \
 ; RUN:   -whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_devirt_options \
