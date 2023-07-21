@@ -1,7 +1,7 @@
 ; OMP taskloop with 2 firstprivate objects. Verify copy constructor and
 ; destructor.
 
-; RUN: opt -passes="vpo-paropt" -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="vpo-paropt" -S %s | FileCheck %s
 
 ; clang creates wrappers for the object copy constructor and destructor.
 
@@ -110,7 +110,7 @@ $__clang_call_terminate = comdat any
 @_ZN3foo5kountE = dso_local global i32 1, align 4
 
 ; Function Attrs: noinline uwtable
-define dso_local i32 @_Z7Computev() #0 personality ptr @__gxx_personality_v0 {
+define dso_local i32 @_Z7Computev() #0 personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) {
 entry:
   %x = alloca %class.foo, align 4
   %y = alloca %class.foo, align 4
@@ -119,164 +119,183 @@ entry:
   %.omp.lb = alloca i64, align 8
   %.omp.ub = alloca i64, align 8
   %i2 = alloca i32, align 4
-  %exn.slot = alloca ptr
+  %exn.slot = alloca i8*
   %ehselector.slot = alloca i32
-  call void @llvm.lifetime.start.p0(i64 4, ptr %x) #3
-  call void @_ZN3fooC2Ev(ptr %x) #3
-  call void @llvm.lifetime.start.p0(i64 4, ptr %y) #3
-  call void @_ZN3fooC2Ev(ptr %y) #3
-  store i32 888, ptr %y, align 4, !tbaa !2
+  %0 = bitcast %class.foo* %x to i8*
+  call void @llvm.lifetime.start.p0i8(i64 4, i8* %0) #3
+  call void @_ZN3fooC2Ev(%class.foo* %x) #3
+  %1 = bitcast %class.foo* %y to i8*
+  call void @llvm.lifetime.start.p0i8(i64 4, i8* %1) #3
+  call void @_ZN3fooC2Ev(%class.foo* %y) #3
+  %i = getelementptr inbounds %class.foo, %class.foo* %y, i32 0, i32 0
+  store i32 888, i32* %i, align 4, !tbaa !2
   br label %DIR.OMP.PARALLEL.1
 
 DIR.OMP.PARALLEL.1:                               ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.omp.ub, i64 0, i64 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %i2, i32 0, i64 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.omp.lb, i64 0, i64 1),
-    "QUAL.OMP.SHARED:TYPED"(ptr %x, %class.foo zeroinitializer, i32 1),
-    "QUAL.OMP.SHARED:TYPED"(ptr %y, %class.foo zeroinitializer, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %tmp, i32 0, i32 1) ]
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
+    "QUAL.OMP.PRIVATE"(i64* %.omp.ub),
+    "QUAL.OMP.PRIVATE"(i32* %i2),
+    "QUAL.OMP.PRIVATE"(i64* %.omp.lb),
+    "QUAL.OMP.SHARED"(%class.foo* %x),
+    "QUAL.OMP.SHARED"(%class.foo* %y),
+    "QUAL.OMP.PRIVATE"(i32* %tmp) ]
   br label %DIR.OMP.PARALLEL.2
 
 DIR.OMP.PARALLEL.2:                               ; preds = %DIR.OMP.PARALLEL.1
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SINGLE"() ]
+  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.SINGLE"() ]
   br label %DIR.OMP.SINGLE.3
 
 DIR.OMP.SINGLE.3:                                 ; preds = %DIR.OMP.PARALLEL.2
   fence acquire
-  call void @llvm.lifetime.start.p0(i64 4, ptr %.omp.iv) #3
-  call void @llvm.lifetime.start.p0(i64 8, ptr %.omp.lb) #3
-  store i64 0, ptr %.omp.lb, align 8, !tbaa !7
-  call void @llvm.lifetime.start.p0(i64 8, ptr %.omp.ub) #3
-  store i64 0, ptr %.omp.ub, align 8, !tbaa !7
+  %4 = bitcast i32* %.omp.iv to i8*
+  call void @llvm.lifetime.start.p0i8(i64 4, i8* %4) #3
+  %5 = bitcast i64* %.omp.lb to i8*
+  call void @llvm.lifetime.start.p0i8(i64 8, i8* %5) #3
+  store i64 0, i64* %.omp.lb, align 8, !tbaa !7
+  %6 = bitcast i64* %.omp.ub to i8*
+  call void @llvm.lifetime.start.p0i8(i64 8, i8* %6) #3
+  store i64 0, i64* %.omp.ub, align 8, !tbaa !7
   br label %DIR.OMP.TASKLOOP.4
 
 DIR.OMP.TASKLOOP.4:                               ; preds = %DIR.OMP.SINGLE.3
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASKLOOP"(),
-    "QUAL.OMP.FIRSTPRIVATE:NONPOD.TYPED"(ptr %x, %class.foo zeroinitializer, i32 1, ptr @_ZTS3foo.omp.copy_constr, ptr @_ZTS3foo.omp.destr),
-    "QUAL.OMP.FIRSTPRIVATE:NONPOD.TYPED"(ptr %y, %class.foo zeroinitializer, i32 1, ptr @_ZTS3foo.omp.copy_constr, ptr @_ZTS3foo.omp.destr),
+  %7 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASKLOOP"(),
+    "QUAL.OMP.FIRSTPRIVATE:NONPOD"(%class.foo* %x, void (%class.foo*, %class.foo*)* @_ZTS3foo.omp.copy_constr, void (%class.foo*)* @_ZTS3foo.omp.destr),
+    "QUAL.OMP.FIRSTPRIVATE:NONPOD"(%class.foo* %y, void (%class.foo*, %class.foo*)* @_ZTS3foo.omp.copy_constr, void (%class.foo*)* @_ZTS3foo.omp.destr),
     "QUAL.OMP.NUM_TASKS"(i32 2),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.lb, i64 0, i32 1),
-    "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %.omp.iv, i32 0),
-    "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %.omp.ub, i64 0),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %i2, i32 0, i32 1) ]
+    "QUAL.OMP.FIRSTPRIVATE"(i64* %.omp.lb),
+    "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv),
+    "QUAL.OMP.NORMALIZED.UB"(i64* %.omp.ub),
+    "QUAL.OMP.PRIVATE"(i32* %i2) ]
   br label %DIR.OMP.TASKLOOP.5
 
 DIR.OMP.TASKLOOP.5:                               ; preds = %DIR.OMP.TASKLOOP.4
-  %3 = load i64, ptr %.omp.lb, align 8, !tbaa !7
-  %conv = trunc i64 %3 to i32
-  store i32 %conv, ptr %.omp.iv, align 4, !tbaa !9
+  %8 = load i64, i64* %.omp.lb, align 8, !tbaa !7
+  %conv = trunc i64 %8 to i32
+  store i32 %conv, i32* %.omp.iv, align 4, !tbaa !9
   br label %omp.inner.for.cond
 
 omp.inner.for.cond:                               ; preds = %omp.inner.for.inc, %DIR.OMP.TASKLOOP.5
-  %4 = load i32, ptr %.omp.iv, align 4, !tbaa !9
-  %conv1 = sext i32 %4 to i64
-  %5 = load i64, ptr %.omp.ub, align 8, !tbaa !7
-  %cmp = icmp ule i64 %conv1, %5
+  %9 = load i32, i32* %.omp.iv, align 4, !tbaa !9
+  %conv1 = sext i32 %9 to i64
+  %10 = load i64, i64* %.omp.ub, align 8, !tbaa !7
+  %cmp = icmp ule i64 %conv1, %10
   br i1 %cmp, label %omp.inner.for.body, label %omp.inner.for.end
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.cond
-  call void @llvm.lifetime.start.p0(i64 4, ptr %i2) #3
-  %6 = load i32, ptr %.omp.iv, align 4, !tbaa !9
-  %mul = mul nsw i32 %6, 1
+  %11 = bitcast i32* %i2 to i8*
+  call void @llvm.lifetime.start.p0i8(i64 4, i8* %11) #3
+  %12 = load i32, i32* %.omp.iv, align 4, !tbaa !9
+  %mul = mul nsw i32 %12, 1
   %add = add nsw i32 0, %mul
-  store i32 %add, ptr %i2, align 4, !tbaa !9
-  %7 = load i32, ptr %i2, align 4, !tbaa !9
-  %8 = load i32, ptr %x, align 4, !tbaa !2
-  %add4 = add nsw i32 %8, %7
-  store i32 %add4, ptr %x, align 4, !tbaa !2
-  %9 = load i32, ptr %i2, align 4, !tbaa !9
-  %10 = load i32, ptr %y, align 4, !tbaa !2
-  %add6 = add nsw i32 %10, %9
-  store i32 %add6, ptr %y, align 4, !tbaa !2
+  store i32 %add, i32* %i2, align 4, !tbaa !9
+  %13 = load i32, i32* %i2, align 4, !tbaa !9
+  %i3 = getelementptr inbounds %class.foo, %class.foo* %x, i32 0, i32 0
+  %14 = load i32, i32* %i3, align 4, !tbaa !2
+  %add4 = add nsw i32 %14, %13
+  store i32 %add4, i32* %i3, align 4, !tbaa !2
+  %15 = load i32, i32* %i2, align 4, !tbaa !9
+  %i5 = getelementptr inbounds %class.foo, %class.foo* %y, i32 0, i32 0
+  %16 = load i32, i32* %i5, align 4, !tbaa !2
+  %add6 = add nsw i32 %16, %15
+  store i32 %add6, i32* %i5, align 4, !tbaa !2
   br label %omp.body.continue
 
 omp.body.continue:                                ; preds = %omp.inner.for.body
-  call void @llvm.lifetime.end.p0(i64 4, ptr %i2) #3
+  %17 = bitcast i32* %i2 to i8*
+  call void @llvm.lifetime.end.p0i8(i64 4, i8* %17) #3
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %omp.body.continue
-  %11 = load i32, ptr %.omp.iv, align 4, !tbaa !9
-  %add7 = add nsw i32 %11, 1
-  store i32 %add7, ptr %.omp.iv, align 4, !tbaa !9
+  %18 = load i32, i32* %.omp.iv, align 4, !tbaa !9
+  %add7 = add nsw i32 %18, 1
+  store i32 %add7, i32* %.omp.iv, align 4, !tbaa !9
   br label %omp.inner.for.cond
 
 omp.inner.for.end:                                ; preds = %omp.inner.for.cond
   br label %omp.loop.exit
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.end
-  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.TASKLOOP"() ]
+  call void @llvm.directive.region.exit(token %7) [ "DIR.OMP.END.TASKLOOP"() ]
   br label %DIR.OMP.END.TASKLOOP.6
 
 DIR.OMP.END.TASKLOOP.6:                           ; preds = %omp.loop.exit
-  call void @llvm.lifetime.end.p0(i64 8, ptr %.omp.ub) #3
-  call void @llvm.lifetime.end.p0(i64 8, ptr %.omp.lb) #3
-  call void @llvm.lifetime.end.p0(i64 4, ptr %.omp.iv) #3
+  %19 = bitcast i64* %.omp.ub to i8*
+  call void @llvm.lifetime.end.p0i8(i64 8, i8* %19) #3
+  %20 = bitcast i64* %.omp.lb to i8*
+  call void @llvm.lifetime.end.p0i8(i64 8, i8* %20) #3
+  %21 = bitcast i32* %.omp.iv to i8*
+  call void @llvm.lifetime.end.p0i8(i64 4, i8* %21) #3
   fence release
   br label %DIR.OMP.END.SINGLE.7
 
 DIR.OMP.END.SINGLE.7:                             ; preds = %DIR.OMP.END.TASKLOOP.6
-  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.SINGLE"() ]
+  call void @llvm.directive.region.exit(token %3) [ "DIR.OMP.END.SINGLE"() ]
   br label %DIR.OMP.END.SINGLE.8
 
 DIR.OMP.END.SINGLE.8:                             ; preds = %DIR.OMP.END.SINGLE.7
-  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL"() ]
+  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.PARALLEL"() ]
   br label %DIR.OMP.END.PARALLEL.9
 
 DIR.OMP.END.PARALLEL.9:                           ; preds = %DIR.OMP.END.SINGLE.8
-  %12 = load i32, ptr %x, align 4, !tbaa !2
-  invoke void @_ZN3fooD2Ev(ptr %y)
+  %i8 = getelementptr inbounds %class.foo, %class.foo* %x, i32 0, i32 0
+  %22 = load i32, i32* %i8, align 4, !tbaa !2
+  invoke void @_ZN3fooD2Ev(%class.foo* %y)
           to label %invoke.cont unwind label %lpad
 
 invoke.cont:                                      ; preds = %DIR.OMP.END.PARALLEL.9
-  call void @llvm.lifetime.end.p0(i64 4, ptr %y) #3
-  call void @_ZN3fooD2Ev(ptr %x)
-  call void @llvm.lifetime.end.p0(i64 4, ptr %x) #3
-  ret i32 %12
+  %23 = bitcast %class.foo* %y to i8*
+  call void @llvm.lifetime.end.p0i8(i64 4, i8* %23) #3
+  call void @_ZN3fooD2Ev(%class.foo* %x)
+  %24 = bitcast %class.foo* %x to i8*
+  call void @llvm.lifetime.end.p0i8(i64 4, i8* %24) #3
+  ret i32 %22
 
 lpad:                                             ; preds = %DIR.OMP.END.PARALLEL.9
-  %13 = landingpad { ptr, i32 }
+  %25 = landingpad { i8*, i32 }
           cleanup
-  %14 = extractvalue { ptr, i32 } %13, 0
-  store ptr %14, ptr %exn.slot, align 8
-  %15 = extractvalue { ptr, i32 } %13, 1
-  store i32 %15, ptr %ehselector.slot, align 4
-  call void @llvm.lifetime.end.p0(i64 4, ptr %y) #3
-  invoke void @_ZN3fooD2Ev(ptr %x)
+  %26 = extractvalue { i8*, i32 } %25, 0
+  store i8* %26, i8** %exn.slot, align 8
+  %27 = extractvalue { i8*, i32 } %25, 1
+  store i32 %27, i32* %ehselector.slot, align 4
+  %28 = bitcast %class.foo* %y to i8*
+  call void @llvm.lifetime.end.p0i8(i64 4, i8* %28) #3
+  invoke void @_ZN3fooD2Ev(%class.foo* %x)
           to label %invoke.cont9 unwind label %terminate.lpad
 
 invoke.cont9:                                     ; preds = %lpad
-  call void @llvm.lifetime.end.p0(i64 4, ptr %x) #3
+  %29 = bitcast %class.foo* %x to i8*
+  call void @llvm.lifetime.end.p0i8(i64 4, i8* %29) #3
   br label %eh.resume
 
 eh.resume:                                        ; preds = %invoke.cont9
-  %exn = load ptr, ptr %exn.slot, align 8
-  %sel = load i32, ptr %ehselector.slot, align 4
-  %lpad.val = insertvalue { ptr, i32 } undef, ptr %exn, 0
-  %lpad.val10 = insertvalue { ptr, i32 } %lpad.val, i32 %sel, 1
-  resume { ptr, i32 } %lpad.val10
+  %exn = load i8*, i8** %exn.slot, align 8
+  %sel = load i32, i32* %ehselector.slot, align 4
+  %lpad.val = insertvalue { i8*, i32 } undef, i8* %exn, 0
+  %lpad.val10 = insertvalue { i8*, i32 } %lpad.val, i32 %sel, 1
+  resume { i8*, i32 } %lpad.val10
 
 terminate.lpad:                                   ; preds = %lpad
-  %16 = landingpad { ptr, i32 }
-          catch ptr null
-  %17 = extractvalue { ptr, i32 } %16, 0
-  call void @__clang_call_terminate(ptr %17) #6
+  %30 = landingpad { i8*, i32 }
+          catch i8* null
+  %31 = extractvalue { i8*, i32 } %30, 0
+  call void @__clang_call_terminate(i8* %31) #6
   unreachable
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #1
+declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
 
 ; Function Attrs: nounwind uwtable
-define linkonce_odr dso_local void @_ZN3fooC2Ev(ptr %this) unnamed_addr #2 comdat align 2 {
+define linkonce_odr dso_local void @_ZN3fooC2Ev(%class.foo* %this) unnamed_addr #2 comdat align 2 {
 entry:
-  %this.addr = alloca ptr, align 8
-  store ptr %this, ptr %this.addr, align 8, !tbaa !10
-  %this1 = load ptr, ptr %this.addr, align 8
-  %0 = load i32, ptr @_ZN3foo5kountE, align 4, !tbaa !9
+  %this.addr = alloca %class.foo*, align 8
+  store %class.foo* %this, %class.foo** %this.addr, align 8, !tbaa !10
+  %this1 = load %class.foo*, %class.foo** %this.addr, align 8
+  %0 = load i32, i32* @_ZN3foo5kountE, align 4, !tbaa !9
   %inc = add nsw i32 %0, 1
-  store i32 %inc, ptr @_ZN3foo5kountE, align 4, !tbaa !9
-  store i32 %0, ptr %this1, align 4, !tbaa !2
+  store i32 %inc, i32* @_ZN3foo5kountE, align 4, !tbaa !9
+  %i = getelementptr inbounds %class.foo, %class.foo* %this1, i32 0, i32 0
+  store i32 %0, i32* %i, align 4, !tbaa !2
   ret void
 }
 
@@ -287,66 +306,69 @@ declare token @llvm.directive.region.entry() #3
 declare void @llvm.directive.region.exit(token) #3
 
 ; Function Attrs: uwtable
-define internal void @_ZTS3foo.omp.copy_constr(ptr, ptr) #4 {
+define internal void @_ZTS3foo.omp.copy_constr(%class.foo*, %class.foo*) #4 {
 entry:
-  %.addr = alloca ptr, align 8
-  %.addr1 = alloca ptr, align 8
-  store ptr %0, ptr %.addr, align 8, !tbaa !10
-  store ptr %1, ptr %.addr1, align 8, !tbaa !10
-  %2 = load ptr, ptr %.addr, align 8
-  %3 = load ptr, ptr %.addr1, align 8, !tbaa !10
-  call void @_ZN3fooC2ERKS_(ptr %2, ptr dereferenceable(4) %3)
+  %.addr = alloca %class.foo*, align 8
+  %.addr1 = alloca %class.foo*, align 8
+  store %class.foo* %0, %class.foo** %.addr, align 8, !tbaa !10
+  store %class.foo* %1, %class.foo** %.addr1, align 8, !tbaa !10
+  %2 = load %class.foo*, %class.foo** %.addr, align 8
+  %3 = load %class.foo*, %class.foo** %.addr1, align 8, !tbaa !10
+  call void @_ZN3fooC2ERKS_(%class.foo* %2, %class.foo* dereferenceable(4) %3)
   ret void
 }
 
 ; Function Attrs: nounwind uwtable
-define linkonce_odr dso_local void @_ZN3fooC2ERKS_(ptr %this, ptr dereferenceable(4) %f) unnamed_addr #2 comdat align 2 {
+define linkonce_odr dso_local void @_ZN3fooC2ERKS_(%class.foo* %this, %class.foo* dereferenceable(4) %f) unnamed_addr #2 comdat align 2 {
 entry:
-  %this.addr = alloca ptr, align 8
-  %f.addr = alloca ptr, align 8
-  store ptr %this, ptr %this.addr, align 8, !tbaa !10
-  store ptr %f, ptr %f.addr, align 8, !tbaa !12
-  %this1 = load ptr, ptr %this.addr, align 8
-  %0 = load ptr, ptr %f.addr, align 8, !tbaa !12
-  %1 = load i32, ptr %0, align 4, !tbaa !2
+  %this.addr = alloca %class.foo*, align 8
+  %f.addr = alloca %class.foo*, align 8
+  store %class.foo* %this, %class.foo** %this.addr, align 8, !tbaa !10
+  store %class.foo* %f, %class.foo** %f.addr, align 8, !tbaa !12
+  %this1 = load %class.foo*, %class.foo** %this.addr, align 8
+  %0 = load %class.foo*, %class.foo** %f.addr, align 8, !tbaa !12
+  %i = getelementptr inbounds %class.foo, %class.foo* %0, i32 0, i32 0
+  %1 = load i32, i32* %i, align 4, !tbaa !2
   %add = add nsw i32 1000, %1
-  store i32 %add, ptr %this1, align 4, !tbaa !2
+  %i2 = getelementptr inbounds %class.foo, %class.foo* %this1, i32 0, i32 0
+  store i32 %add, i32* %i2, align 4, !tbaa !2
   ret void
 }
 
 ; Function Attrs: uwtable
-define internal void @_ZTS3foo.omp.destr(ptr) #4 section ".text.startup" {
+define internal void @_ZTS3foo.omp.destr(%class.foo*) #4 section ".text.startup" {
 entry:
-  %.addr = alloca ptr, align 8
-  store ptr %0, ptr %.addr, align 8, !tbaa !10
-  %1 = load ptr, ptr %.addr, align 8
-  call void @_ZN3fooD2Ev(ptr %1)
+  %.addr = alloca %class.foo*, align 8
+  store %class.foo* %0, %class.foo** %.addr, align 8, !tbaa !10
+  %1 = load %class.foo*, %class.foo** %.addr, align 8
+  call void @_ZN3fooD2Ev(%class.foo* %1)
   ret void
 }
 
 ; Function Attrs: nounwind uwtable
-define linkonce_odr dso_local void @_ZN3fooD2Ev(ptr %this) unnamed_addr #2 comdat align 2 {
+define linkonce_odr dso_local void @_ZN3fooD2Ev(%class.foo* %this) unnamed_addr #2 comdat align 2 {
 entry:
-  %this.addr = alloca ptr, align 8
-  store ptr %this, ptr %this.addr, align 8, !tbaa !10
-  %this1 = load ptr, ptr %this.addr, align 8
-  store i32 -1, ptr %this1, align 4, !tbaa !2
+  %this.addr = alloca %class.foo*, align 8
+  store %class.foo* %this, %class.foo** %this.addr, align 8, !tbaa !10
+  %this1 = load %class.foo*, %class.foo** %this.addr, align 8
+  %i = getelementptr inbounds %class.foo, %class.foo* %this1, i32 0, i32 0
+  store i32 -1, i32* %i, align 4, !tbaa !2
   ret void
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #1
+declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
 
 declare dso_local i32 @__gxx_personality_v0(...)
 
 ; Function Attrs: noinline noreturn nounwind
-define linkonce_odr hidden void @__clang_call_terminate(ptr) #5 comdat {
-  %2 = call ptr @__cxa_begin_catch(ptr %0) #3
+define linkonce_odr hidden void @__clang_call_terminate(i8*) #5 comdat {
+  %2 = call i8* @__cxa_begin_catch(i8* %0) #3
   call void @_ZSt9terminatev() #6
   unreachable
 }
 
-declare dso_local ptr @__cxa_begin_catch(ptr)
+declare dso_local i8* @__cxa_begin_catch(i8*)
 
 declare dso_local void @_ZSt9terminatev()
 
