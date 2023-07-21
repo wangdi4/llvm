@@ -4,7 +4,7 @@
 ; RUN: llvm-mc -triple=x86_64-pc-windows-msvc -filetype=obj -o %T/lto-chkstk-chkstk.obj %S/Inputs/lto-chkstk-chkstk.s
 ; RUN: rm -f %t.lib
 ; RUN: llvm-ar cru %t.lib %T/lto-chkstk-chkstk.obj
-; RUN: lld-link /out:%t.exe /entry:main /subsystem:console /mllvm:-opaque-pointers %t.obj %T/lto-chkstk-foo.obj %t.lib
+; RUN: lld-link /out:%t.exe /entry:main /subsystem:console %t.obj %T/lto-chkstk-foo.obj %t.lib
 
 target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-windows-msvc"

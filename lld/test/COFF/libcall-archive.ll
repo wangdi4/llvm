@@ -4,7 +4,7 @@
 ; RUN: llvm-as -o %t2.obj %S/Inputs/libcall-archive.ll
 ; RUN: llvm-mc -filetype=obj -triple=i686-unknown-windows -o %t3.obj %S/Inputs/libcall-archive.s
 ; RUN: llvm-ar rcs %t.a %t2.obj %t3.obj
-; RUN: lld-link -mllvm:-opaque-pointers -out:%t.exe -subsystem:console -entry:start -safeseh:no -lldmap:- %t.obj %t.a | FileCheck %s
+; RUN: lld-link -out:%t.exe -subsystem:console -entry:start -safeseh:no -lldmap:- %t.obj %t.a | FileCheck %s
 
 ; CHECK-NOT: ___sync_val_compare_and_swap_8
 ; CHECK: _start
