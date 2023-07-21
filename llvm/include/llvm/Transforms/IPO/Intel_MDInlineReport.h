@@ -358,7 +358,7 @@ public:
       LLVM_DEBUG(dbgs() << CB.getCaller()->getName() << " TO "
                         << CB.getCalledFunction()->getName());
     LLVM_DEBUG(dbgs() << "\n");
-    if (shouldSkipCallBase(&CB))
+    if (!FromCallback && shouldSkipCallBase(&CB))
       return;
     MDNode *MDIR = CB.getMetadata(MDInliningReport::CallSiteTag);
     if (MDIR && CurrentCallInstr != &CB)
