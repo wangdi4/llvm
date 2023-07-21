@@ -19,7 +19,7 @@
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v24:32:32-v32:32:32-v48:64:64-v64:64:64-v96:128:128-v128:128:128-v192:256:256-v256:256:256-v512:512:512-v1024:1024:1024-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-define void @test(float addrspace(1)* noalias nocapture %a, i64 %uniform1, i64 %uniform2) #0 {
+define void @test(ptr addrspace(1) noalias nocapture %a, i64 %uniform1, i64 %uniform2) #0 {
 entry:
   %call = tail call i64 @_Z12get_local_idj(i32 0) #2
   %sub = sub i64 %call, %uniform1
@@ -27,8 +27,8 @@ entry:
   br i1 %cmp, label %if.end, label %if.then
 
 if.then:                                          ; preds = %entry
-  %arrayidx = getelementptr inbounds float, float addrspace(1)* %a, i64 %call
-  store float 3.000000e+00, float addrspace(1)* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds float, ptr addrspace(1) %a, i64 %call
+  store float 3.000000e+00, ptr addrspace(1) %arrayidx, align 4
   br label %if.end
 
 if.end:                                           ; preds = %entry, %if.then
@@ -50,7 +50,7 @@ attributes #2 = { nounwind readnone }
 !opencl.used.optional.core.features = !{!8}
 !opencl.compiler.options = !{!8}
 
-!0 = !{void (float addrspace(1)*, i64, i64)* @test}
+!0 = !{ptr @test}
 !7 = !{i32 1, i32 2}
 !8 = !{}
 

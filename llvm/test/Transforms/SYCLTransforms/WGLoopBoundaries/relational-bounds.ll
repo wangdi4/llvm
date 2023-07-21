@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-wg-loop-bound %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-wg-loop-bound %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-wg-loop-bound %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes=sycl-kernel-wg-loop-bound %s -S | FileCheck %s
 
 ; The test checks that instructions are placed in order after replacing GID
 ; calls with the corresponding boundaries.
@@ -7,7 +7,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-define void @testKernel(i8 addrspace(1)* noalias %src, i8 addrspace(1)* noalias %dst, i64 %offset) local_unnamed_addr !no_barrier_path !1 {
+define void @testKernel(ptr addrspace(1) noalias %src, ptr addrspace(1) noalias %dst, i64 %offset) local_unnamed_addr !no_barrier_path !1 {
 entry:
   %gid0 = tail call i64 @_Z13get_global_idj(i32 0)
   %gid1 = tail call i64 @_Z13get_global_idj(i32 1)
@@ -37,18 +37,18 @@ land.lhs.true7:
 
 for.cond.preheader:
   ; Uses of sub{0..2} and add{3..5}
-  %src.addr.0 = getelementptr i8, i8 addrspace(1)* %src, i64 %sub0
-  %dst.addr.0 = getelementptr i8, i8 addrspace(1)* %dst, i64 %add3
-  %load0 = load i8, i8 addrspace(1)* %src.addr.0
-  store i8 %load0, i8 addrspace(1)* %dst.addr.0
-  %src.addr.1 = getelementptr i8, i8 addrspace(1)* %src, i64 %sub1
-  %dst.addr.1 = getelementptr i8, i8 addrspace(1)* %dst, i64 %add4
-  %load1 = load i8, i8 addrspace(1)* %src.addr.1
-  store i8 %load1, i8 addrspace(1)* %dst.addr.1
-  %src.addr.2 = getelementptr i8, i8 addrspace(1)* %src, i64 %sub2
-  %dst.addr.2 = getelementptr i8, i8 addrspace(1)* %dst, i64 %add5
-  %load2 = load i8, i8 addrspace(1)* %src.addr.2
-  store i8 %load2, i8 addrspace(1)* %dst.addr.2
+  %src.addr.0 = getelementptr i8, ptr addrspace(1) %src, i64 %sub0
+  %dst.addr.0 = getelementptr i8, ptr addrspace(1) %dst, i64 %add3
+  %load0 = load i8, ptr addrspace(1) %src.addr.0
+  store i8 %load0, ptr addrspace(1) %dst.addr.0
+  %src.addr.1 = getelementptr i8, ptr addrspace(1) %src, i64 %sub1
+  %dst.addr.1 = getelementptr i8, ptr addrspace(1) %dst, i64 %add4
+  %load1 = load i8, ptr addrspace(1) %src.addr.1
+  store i8 %load1, ptr addrspace(1) %dst.addr.1
+  %src.addr.2 = getelementptr i8, ptr addrspace(1) %src, i64 %sub2
+  %dst.addr.2 = getelementptr i8, ptr addrspace(1) %dst, i64 %add5
+  %load2 = load i8, ptr addrspace(1) %src.addr.2
+  store i8 %load2, ptr addrspace(1) %dst.addr.2
   br label %cleanup
 
 cleanup:
@@ -69,18 +69,18 @@ cleanup:
 ; CHECK:  %sub2 = add i64 %gsize2, -1
 ; CHECK:  %add2 = add i64 %sub2, 3
 ; CHECK:  %add5 = add i64 %add2, %offset
-; CHECK:  %src.addr.0 = getelementptr i8, i8 addrspace(1)* %src, i64 %sub0
-; CHECK:  %dst.addr.0 = getelementptr i8, i8 addrspace(1)* %dst, i64 %add3
-; CHECK:  %load0 = load i8, i8 addrspace(1)* %src.addr.0
-; CHECK:  store i8 %load0, i8 addrspace(1)* %dst.addr.0
-; CHECK:  %src.addr.1 = getelementptr i8, i8 addrspace(1)* %src, i64 %sub1
-; CHECK:  %dst.addr.1 = getelementptr i8, i8 addrspace(1)* %dst, i64 %add4
-; CHECK:  %load1 = load i8, i8 addrspace(1)* %src.addr.1
-; CHECK:  store i8 %load1, i8 addrspace(1)* %dst.addr.1
-; CHECK:  %src.addr.2 = getelementptr i8, i8 addrspace(1)* %src, i64 %sub2
-; CHECK:  %dst.addr.2 = getelementptr i8, i8 addrspace(1)* %dst, i64 %add5
-; CHECK:  %load2 = load i8, i8 addrspace(1)* %src.addr.2
-; CHECK:  store i8 %load2, i8 addrspace(1)* %dst.addr.2
+; CHECK:  %src.addr.0 = getelementptr i8, ptr addrspace(1) %src, i64 %sub0
+; CHECK:  %dst.addr.0 = getelementptr i8, ptr addrspace(1) %dst, i64 %add3
+; CHECK:  %load0 = load i8, ptr addrspace(1) %src.addr.0
+; CHECK:  store i8 %load0, ptr addrspace(1) %dst.addr.0
+; CHECK:  %src.addr.1 = getelementptr i8, ptr addrspace(1) %src, i64 %sub1
+; CHECK:  %dst.addr.1 = getelementptr i8, ptr addrspace(1) %dst, i64 %add4
+; CHECK:  %load1 = load i8, ptr addrspace(1) %src.addr.1
+; CHECK:  store i8 %load1, ptr addrspace(1) %dst.addr.1
+; CHECK:  %src.addr.2 = getelementptr i8, ptr addrspace(1) %src, i64 %sub2
+; CHECK:  %dst.addr.2 = getelementptr i8, ptr addrspace(1) %dst, i64 %add5
+; CHECK:  %load2 = load i8, ptr addrspace(1) %src.addr.2
+; CHECK:  store i8 %load2, ptr addrspace(1) %dst.addr.2
 ; CHECK:  br label %cleanup
 ; CHECK-LABEL: cleanup:
 ; CHECK:  ret void
@@ -91,7 +91,7 @@ declare i64 @_Z15get_global_sizej(i32) local_unnamed_addr
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i8 addrspace(1)*, i8 addrspace(1)*, i64)* @testKernel}
+!0 = !{ptr @testKernel}
 !1 = !{i1 true}
 
 ; DEBUGIFY-COUNT-48: Instruction with empty DebugLoc in function WG.boundaries.
