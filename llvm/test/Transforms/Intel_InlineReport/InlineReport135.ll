@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers -passes='deadargelim,print<inline-report>' -disable-output -inline-report=0xe801 < %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,deadargelim,inlinereportemitter' -inline-report=0xe880 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='deadargelim,print<inline-report>' -disable-output -inline-report=0xe801 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup,deadargelim,inlinereportemitter' -inline-report=0xe880 -S < %s 2>&1 | FileCheck %s
 
 ; Check that dead arg elimination does not produce DELETEs in the inlining
 ; report

@@ -19,6 +19,20 @@ namespace {
 // Test base including verifier and builder utilities
 class VPlanVerifierTestBase : public VPlanTestBase {
 protected:
+  void getHCFGPlan(BasicBlock *BB) {
+    Plan = buildHCFG(BB);
+    Verifier = std::make_unique<VPlanVerifier>(nullptr, *DL);
+    VPLoopInfo *VPLI = Plan->getVPLoopInfo();
+    assert(VPLI);
+
+    Plan->computeDT();
+    Plan->computePDT();
+    Plan->setVPlanDA(std::make_unique<VPlanDivergenceAnalysis>());
+    Plan->getVPlanDA()->compute(
+        Plan.get(), *VPLI->begin(), Plan->getVPLoopInfo(), nullptr /*VPVT*/,
+        *Plan->getDT(), *Plan->getPDT(), false /*Not in LCSSA form.*/);
+  }
+
   std::unique_ptr<VPlanVerifier> Verifier;
   std::unique_ptr<VPlanNonMasked> Plan;
   VPBuilder Builder;
@@ -111,4 +125,50 @@ TEST_F(VPlanVerifierTestBase, DTUpdateTest) {
   Verifier->verifyVPlan(Plan.get(), VPlanVerifier::SkipLoopInfo);
 }
 
+// Test for DA failures being caught by the verifier
+// Tests include missing shapes and differing shapes between
+// stored shape and the result of a fresh calculation
+TEST_F(VPlanVerifierTestBase, DATests) {
+  Module &M = parseModule(R"(
+    define void @foo(i64 %N, i64* %Idx) {
+      entry:
+        %outer.idx = load i64, i64* %Idx
+        br label %for.body
+      for.body:
+        %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
+        %indvars.iv.next = add i64 %indvars.iv, 1
+        %exitcond = icmp ne i64 %indvars.iv.next, %N
+        br i1 %exitcond, label %for.body, label %for.end
+      for.end:
+        ret void
+      }
+    )");
+
+  Function *Func = M.getFunction("foo");
+  BasicBlock *LoopHeader = Func->getEntryBlock().getSingleSuccessor();
+  getHCFGPlan(LoopHeader);
+  auto *DA = Plan->getVPlanDA();
+
+  // Create a new instruction without a DA shape and insert
+  Type *Ty32 = Type::getInt32Ty(*Plan->getLLVMContext());
+  Builder.setInsertPointFirstNonPhi(
+      (*Plan->getVPLoopInfo()->begin())->getHeader());
+  VPInstruction *CmpInst = Builder.createCmpInst(
+      CmpInst::ICMP_NE, Plan->getVPConstant(ConstantInt::get(Ty32, 0)),
+      Plan->getVPConstant(ConstantInt::get(Ty32, 1)), "UniformCmpInst");
+
+  // Run verifier after inserting an instruction with undefined shape
+  ASSERT_TRUE(DA->getVectorShape(*CmpInst).isUndefined());
+  EXPECT_DEATH(Verifier->verifyVPlan(Plan.get()), "Shape has not been defined");
+
+  // Give instruction the correct shape. Verifier should pass.
+  DA->updateDivergence(*CmpInst);
+  ASSERT_TRUE(DA->getVectorShape(*CmpInst).isUniform());
+  Verifier->verifyVPlan(Plan.get(), VPlanVerifier::CheckDAShapes);
+
+  // Set incorrect shape; expected shape is uniform. Should assert.
+  DA->markDivergent(*CmpInst);
+  EXPECT_DEATH(Verifier->verifyVPlan(Plan.get(), VPlanVerifier::CheckDAShapes),
+               "Recalculated shape for DA is different");
+}
 } // namespace

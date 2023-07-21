@@ -3233,12 +3233,23 @@ VPOParoptTransform::ScalarPHIReductionCombiner::ScalarPHIReductionCombiner(
 // Local atomic-free reduction base pointer is a GEP Result of the following
 // form:
 // 1) AtomicFreeReductionUseSLM == false:
-//    Result = red_local_buf + (GroupId * AtomicFreeRedLocalBufSize + ThreadId)
-//                             * NumElements,
+//    Result = red_local_buf + (GroupId*AtomicFreeRedLocalBufSize + ThreadId),
 //    where red_local_buf is a global memory buffer passed as a kernel argument
 // 2) AtomicFreeReductionUseSLM == true:
-//    Result = red_local_buf + ThreadId * NumElements,
+//    Result = red_local_buf + ThreadId,
 //    where red_local_buf is a local memory buffer private to each WG
+// Regardless of the SLM option, the local buffer has the following type:
+// scalars:
+//    [M x ElemTy],
+// arrays/arrsects:
+//    [M x [N * ElemTy]],
+// where
+// M = {
+//  AtomicFreeRedLocalBufSize x AtomicFreeRedGlobalBufSize, SLM=off
+//  AtomicFreeRedLocalBufSize,                              SLM=on
+// },
+// N = NumElems (i.e. section size),
+// ElemTy = BufTy returned by getItemInfo (i.e. item element type)
 Value *VPOParoptTransform::genLocalReductionBufferBase(ReductionItem *RedI,
                                                        Type *ElemTy,
                                                        Value *NumElements,
@@ -3246,24 +3257,30 @@ Value *VPOParoptTransform::genLocalReductionBufferBase(ReductionItem *RedI,
                                                        IRBuilder<> &Builder) {
   SmallVector<Value *, 2> Indices;
   GlobalVariable *LocalBuf = nullptr;
-  Value *LocalBufOff = nullptr;
   if (AtomicFreeReductionUseSLM) {
-    auto *BufTy = ArrayType::get(ElemTy, AtomicFreeRedLocalBufSize);
+    // For SLM buffer it's necessary to gep into the GV first,
+    // for non-SLM case it's not needed since the GV is transformed into
+    // a kernel argument by CodeExtractor
+    Indices.push_back(Builder.getInt32(0));
+    Indices.push_back(IdVal);
+    auto *BufTy = ElemTy;
+    if (NumElements) {
+      assert(isa<Constant>(NumElements) &&
+             "non-constant array sections are not supported by local "
+             "atomic-free reduction");
+      BufTy =
+          ArrayType::get(BufTy, cast<ConstantInt>(NumElements)->getZExtValue());
+      // array type requires one more level of gep indexing
+      Indices.push_back(Builder.getInt32(0));
+    }
+    BufTy = ArrayType::get(
+        BufTy, AtomicFreeRedLocalBufSize ? AtomicFreeRedLocalBufSize : 1);
     LocalBuf =
         new GlobalVariable(*F->getParent(), BufTy, false,
                            GlobalValue::LinkageTypes::InternalLinkage,
                            Constant::getNullValue(BufTy), "red_local_buf",
                            nullptr, GlobalValue::NotThreadLocal,
                            isTargetSPIRV() ? vpo::ADDRESS_SPACE_LOCAL : 0);
-    LocalBufOff = IdVal;
-    if (NumElements) {
-      assert(isa<Constant>(NumElements) &&
-             "non-constant array sections are not supported by local "
-             "atomic-free reduction");
-      auto *NumElementsCast =
-          Builder.CreateZExtOrTrunc(NumElements, Builder.getInt64Ty());
-      LocalBufOff = Builder.CreateMul(LocalBufOff, NumElementsCast);
-    }
   } else {
     // For the global buffer approach it's necessary to
     // get a pointer to the chunk corresponding to the right WI.
@@ -3272,21 +3289,13 @@ Value *VPOParoptTransform::genLocalReductionBufferBase(ReductionItem *RedI,
     assert(LocalBuf && "No local reduction buffer found");
     Value *GroupId =
         VPOParoptUtils::genGroupIdCall(0, &*Builder.GetInsertPoint());
-    LocalBufOff =
+    Value *LocalBufOff =
         Builder.CreateMul(GroupId, Builder.getInt64(AtomicFreeRedLocalBufSize));
     LocalBufOff = Builder.CreateAdd(LocalBufOff, IdVal);
-    if (NumElements) {
-      assert(isa<Constant>(NumElements) &&
-             "non-constant array sections are not supported by local "
-             "atomic-free reduction");
-      auto *NumElementsCast =
-          Builder.CreateZExtOrTrunc(NumElements, Builder.getInt64Ty());
-      LocalBufOff = Builder.CreateMul(LocalBufOff, NumElementsCast);
-    }
+    Indices.push_back(LocalBufOff);
+    if (LocalBuf->getValueType()->isArrayTy())
+      Indices.push_back(Builder.getInt32(0));
   }
-  if (LocalBuf->getValueType()->isArrayTy())
-    Indices.push_back(Builder.getInt32(0));
-  Indices.push_back(LocalBufOff);
   Value *ResultGep =
       Builder.CreateInBoundsGEP(LocalBuf->getValueType(), LocalBuf, Indices);
   if (RedI->getType() == ReductionItem::WRNReductionUdr)
@@ -3349,8 +3358,7 @@ void VPOParoptTransform::genAtomicFreeReductionLocalFini(
   // and hence not satisfying RedI->isArraySection() condition
   if (ElemTy->isArrayTy())
     std::tie(std::ignore, NumElems, std::ignore) =
-      genPrivAggregatePtrInfo(ElemTy, NumElems, RedI->getNew(), Builder);
-  // TODO: support tree update for UDR
+        genPrivAggregatePtrInfo(ElemTy, NumElems, RedI->getNew(), Builder);
   bool GenTreeUpdate =
       AtomicFreeRedLocalBufSize > 0 &&
       (!IsArrayOrArraySection || isa_and_nonnull<ConstantInt>(NumElems));
@@ -3535,13 +3543,16 @@ void VPOParoptTransform::genAtomicFreeReductionLocalFini(
 
   if (GenTreeUpdate) {
     Builder.SetInsertPoint(UpdateBB->getFirstNonPHI());
-    auto *NumElemsCasted =
-        IsArrayOrArraySection
-            ? Builder.CreateZExtOrTrunc(NumElems, IVPhi->getType())
-            : NumElems;
-    auto *LocalPtrOffset = IsArrayOrArraySection
-                               ? Builder.CreateMul(NumElemsCasted, IVPhi)
-                               : IVPhi;
+    Value *LocalPtrOffset = IVPhi;
+    // this is needed for array items because despite no NumElements
+    // is used in other reduction buffer related GEPs due to its original
+    // type being [NumElements * ElemTy]*, LocalPtr here is already casted
+    // to just ElemTy*
+    if (IsArrayOrArraySection) {
+      auto *NumElemsCasted =
+          Builder.CreateZExtOrTrunc(NumElems, IVPhi->getType());
+      LocalPtrOffset = Builder.CreateMul(NumElemsCasted, IVPhi);
+    }
     auto *LocalPtrPlus =
         Builder.CreateInBoundsGEP(ElemTy, LocalPtr, LocalPtrOffset);
     Combiner->setLocalValueLoc(LocalPtrPlus);
@@ -4144,11 +4155,9 @@ void VPOParoptTransform::genAtomicFreeReductionGlobalFini(
     // scalar:
     //  serial update: red_buf+idx_phi
     //  parallel update: red_buf+local_id(0)
-    // array section: red_buf + idx_phi*Section.size()
+    // array section: red_buf+idx_phi
     Value *Idx = IdxPhi;
-    if (IsArrayOrArraySection)
-      Idx = Builder.CreateMul(Idx, NumElements);
-    else if (UseParallelReduction)
+    if (UseParallelReduction)
       Idx = VPOParoptUtils::genLocalIdCall(0, InsertPt);
 
     if (UseParallelReduction)
@@ -6799,12 +6808,8 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
           Value *GroupId0 = VPOParoptUtils::genGroupIdCall(0, InsertPt);
 
-          const auto &[ElemTy, NumElements, AddrSpace] =
-              VPOParoptUtils::getItemInfo(RedI);
-          if (NumElements)
-            GroupId0 = Builder.CreateMul(GroupId0, NumElements);
           SmallVector<Value *, 2> Indices = {GroupId0};
-          if (RedI->getIsArraySection())
+          if (isArrayReduction(RedI))
             Indices.push_back(Builder.getInt32(0));
           GlobalBufToReplaceWith =
               Builder.CreateInBoundsGEP(GlobalBuf->getValueType(), GlobalBuf,
@@ -6820,8 +6825,11 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
           // operands on clauses. So, we need to use the addrspace of the
           // original operand -- whether that's generic or global -- for the
           // replacement.
-          GlobalBufToReplaceWith = Builder.CreatePointerBitCastOrAddrSpaceCast(
-              GlobalBufToReplaceWith, PointerType::get(ElemTy, AddrSpace));
+          unsigned AddrSpace;
+          std::tie(std::ignore, std::ignore, AddrSpace) =
+              VPOParoptUtils::getItemInfo(RedI);
+          GlobalBufToReplaceWith = VPOParoptUtils::genAddrSpaceCast(
+              GlobalBufToReplaceWith, &*Builder.GetInsertPoint(), AddrSpace);
         }
         if (GlobalBufToReplaceWith &&
             (!AtomicFreeReductionUseSLM || RedI->getIsArraySection())) {

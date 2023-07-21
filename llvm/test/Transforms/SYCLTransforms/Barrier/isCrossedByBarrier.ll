@@ -17,9 +17,9 @@ sg.loop.exclude:
 
 Split.Barrier.BB394:                              ; preds = %sg.dummy.bb.17, %sg.loop.exclude
   call void @_Z18work_group_barrierj12memory_scope(i32 0)
-  store i32 0, i32* %sg.lid.ptr, align 4
-  store i32 0, i32* %sg.loop.src.ptr, align 4
-  %0 = load i32, i32* null, align 4
+  store i32 0, ptr %sg.lid.ptr, align 4
+  store i32 0, ptr %sg.loop.src.ptr, align 4
+  %0 = load i32, ptr null, align 4
   br label %Split.Barrier.BB392
 
 Split.Barrier.BB392:                              ; preds = %Split.Barrier.BB394
@@ -27,7 +27,7 @@ Split.Barrier.BB392:                              ; preds = %Split.Barrier.BB394
   br label %sg.dummy.bb.17
 
 sg.dummy.bb.17:                                   ; preds = %Split.Barrier.BB392
-  store i32 0, i32* %sg.lid.ptr, align 4
-  store i32 12, i32* %sg.loop.src.ptr, align 4
+  store i32 0, ptr %sg.lid.ptr, align 4
+  store i32 12, ptr %sg.loop.src.ptr, align 4
   br label %Split.Barrier.BB394
 }

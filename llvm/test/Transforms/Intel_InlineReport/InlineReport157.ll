@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers -passes='require<anders-aa>,indirectcallconv,print<inline-report>' -intel-ind-call-force-andersen -disable-output -inline-report=0xf847 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
-; RUN: opt -opaque-pointers -passes='require<anders-aa>,inlinereportsetup,indirectcallconv,inlinereportemitter' -intel-ind-call-force-andersen -disable-output -inline-report=0xf8c6 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
+; RUN: opt -passes='require<anders-aa>,indirectcallconv,print<inline-report>' -intel-ind-call-force-andersen -disable-output -inline-report=0xf847 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
+; RUN: opt -passes='require<anders-aa>,inlinereportsetup,indirectcallconv,inlinereportemitter' -intel-ind-call-force-andersen -disable-output -inline-report=0xf8c6 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
 
 ; Check that the indirect call is specialized by global points-to and then
 ; deleted because no fallback case is needed.

@@ -1,6 +1,6 @@
-; RUN: opt -opaque-pointers -passes='argpromotion,cgscc(inline)' -inline-report=0xf859 < %s -S 2>&1 | FileCheck %s 
+; RUN: opt -passes='argpromotion,cgscc(inline)' -inline-report=0xf859 < %s -S 2>&1 | FileCheck %s 
 ; Inline report via metadata
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,argpromotion,cgscc(inline),inlinereportemitter' -inline-report=0xf8d8 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup,argpromotion,cgscc(inline),inlinereportemitter' -inline-report=0xf8d8 -S < %s 2>&1 | FileCheck %s
 
 ; CMPLRLLVM-32526: Check that the inlining report specified with -qopt-report=3
 ; does not seg fault when argument promotion is performed before inlining.

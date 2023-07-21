@@ -18,7 +18,9 @@ DIR.OMP.PARALLEL.1:                               ; preds = %DIR.OMP.PARALLEL.33
   br label %DIR.OMP.PARALLEL.2
 
 DIR.OMP.PARALLEL.2:                               ; preds = %DIR.OMP.PARALLEL.1
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED"(ptr %vla), "QUAL.OMP.SHARED"(ptr %arr) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
+    "QUAL.OMP.SHARED"(ptr %vla),
+    "QUAL.OMP.SHARED"(ptr %arr) ]
   br label %DIR.OMP.PARALLEL.35
 
 DIR.OMP.PARALLEL.35:                              ; preds = %DIR.OMP.PARALLEL.2

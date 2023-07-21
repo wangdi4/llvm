@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers < %s -passes='partial-inliner,print<inline-report>' -skip-partial-inlining-cost-analysis -inline-report=0xe807 -disable-output 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-CL %s
-; RUN: opt -opaque-pointers < %s -passes='inlinereportsetup,partial-inliner,inlinereportemitter' -skip-partial-inlining-cost-analysis -inline-report=0xe886 -disable-output 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-MD %s
+; RUN: opt < %s -passes='partial-inliner,print<inline-report>' -skip-partial-inlining-cost-analysis -inline-report=0xe807 -disable-output 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-CL %s
+; RUN: opt < %s -passes='inlinereportsetup,partial-inliner,inlinereportemitter' -skip-partial-inlining-cost-analysis -inline-report=0xe886 -disable-output 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-MD %s
 
 ; Check that partial inlining is recorded in the inlining report.
 

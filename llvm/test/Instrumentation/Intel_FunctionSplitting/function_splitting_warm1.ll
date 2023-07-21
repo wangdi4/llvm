@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 < %s -passes=function-splitting -function-splitting-min-size=2 -function-splitting-only-hot=true -S | FileCheck %s --check-prefix=CHECK --check-prefix=SPLITHOTONLY
-; RUN: opt -opaque-pointers=0 < %s -passes=function-splitting -function-splitting-min-size=2 -function-splitting-only-hot=false -S | FileCheck %s --check-prefix=CHECK --check-prefix=SPLITANY
+; RUN: opt < %s -passes=function-splitting -function-splitting-min-size=2 -function-splitting-only-hot=true -S | FileCheck %s --check-prefix=CHECK --check-prefix=SPLITHOTONLY
+; RUN: opt < %s -passes=function-splitting -function-splitting-min-size=2 -function-splitting-only-hot=false -S | FileCheck %s --check-prefix=CHECK --check-prefix=SPLITANY
 
 ; This is a basic test for the Intel Function Splitting pass.
 ;
@@ -9,7 +9,7 @@
 ; is set to not just split HOT functions.
 ;
 
-; CHECK-LABEL: define i32 @test(i32 %x, i32* %y)
+; CHECK-LABEL: define i32 @test(i32 %x, ptr %y)
 ; SPLITANY: codeRepl:
 ; SPLITANY: call void @test.if.else
 ; SPLITANY: define internal void @test.if.else
@@ -26,19 +26,19 @@ target triple = "x86_64-unknown-linux-gnu"
 @str.2 = private unnamed_addr constant [9 x i8] c"hot path\00"
 
 ; Function Attrs: inlinehint nounwind uwtable
-define i32 @test(i32 %x, i32* %y) local_unnamed_addr #0 !prof !29 {
+define i32 @test(i32 %x, ptr %y) local_unnamed_addr #0 !prof !29 {
 entry:
   %cmp = icmp slt i32 %x, 100
   br i1 %cmp, label %if.then, label %if.else, !prof !30
 
 if.then:                                          ; preds = %entry
-  %puts13 = call i32 @puts(i8* getelementptr inbounds ([9 x i8], [9 x i8]* @str.2, i64 0, i64 0))
-  %0 = load i32, i32* %y, align 4
+  %puts13 = call i32 @puts(ptr getelementptr inbounds ([9 x i8], ptr @str.2, i64 0, i64 0))
+  %0 = load i32, ptr %y, align 4
   br label %if.end8
 
 if.else:                                          ; preds = %entry
-  %puts = call i32 @puts(i8* getelementptr inbounds ([10 x i8], [10 x i8]* @str, i64 0, i64 0))
-  %1 = load i32, i32* %y, align 4
+  %puts = call i32 @puts(ptr getelementptr inbounds ([10 x i8], ptr @str, i64 0, i64 0))
+  %1 = load i32, ptr %y, align 4
   %cmp3 = icmp sgt i32 %1, 0
   %sub = sub nsw i32 0, %1
   %2 = select i1 %cmp3, i32 %1, i32 %sub
@@ -51,10 +51,10 @@ if.end8:                                          ; preds = %if.else, %if.then
 
 
 ; Function Attrs: nounwind
-declare i32 @printf(i8* nocapture readonly, ...) local_unnamed_addr #1
+declare i32 @printf(ptr nocapture readonly, ...) local_unnamed_addr #1
 
 ; Function Attrs: nounwind
-declare i32 @puts(i8* nocapture readonly) #1
+declare i32 @puts(ptr nocapture readonly) #1
 
 attributes #0 = { inlinehint nounwind uwtable }
 attributes #1 = { nounwind }

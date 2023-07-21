@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0x207 -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0x286 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=0x207 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0x286 -S < %s 2>&1 | FileCheck %s
 
 ; Check that at the above setting, llvm.intel.subscript intrinsics are
 ; emitted into the inlining report.

@@ -17,35 +17,34 @@
 ; }
 ; ----------------------------------------------------
 ; Compile options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl
+; opt -passes=sycl-kernel-target-ext-type-lower,sycl-kernel-equalizer %s -S
 ; ----------------------------------------------------
 ; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%t.rtl.bc %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%t.rtl.bc %s -S | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-channel-depth-emulation-mode=2 %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-channel-depth-emulation-mode=2 %s -S | FileCheck %s --check-prefixes=CHECK,IGNOREDEPTH
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-channel-depth-emulation-mode=1 %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-channel-depth-emulation-mode=1 %s -S | FileCheck %s --check-prefixes=CHECK,DEFAULT
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-channel-depth-emulation-mode=0 %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-channel-depth-emulation-mode=0 %s -S | FileCheck %s --check-prefixes=CHECK,STRICT
+; RUN: opt -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%t.rtl.bc %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%t.rtl.bc %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-channel-depth-emulation-mode=2 %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-channel-depth-emulation-mode=2 %s -S | FileCheck %s --check-prefixes=CHECK,IGNOREDEPTH
+; RUN: opt -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-channel-depth-emulation-mode=1 %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-channel-depth-emulation-mode=1 %s -S | FileCheck %s --check-prefixes=CHECK,DEFAULT
+; RUN: opt -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-channel-depth-emulation-mode=0 %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-channel-pipe-transformation -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-channel-depth-emulation-mode=0 %s -S | FileCheck %s --check-prefixes=CHECK,STRICT
 
-target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
+target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64-unknown-unknown-intelfpga"
 
-%opencl.channel_t = type opaque
+@bar = addrspace(1) global target("spirv.Channel") zeroinitializer, align 4, !packet_size !0, !packet_align !0, !depth !1
+@far = addrspace(1) global target("spirv.Channel") zeroinitializer, align 4, !packet_size !0, !packet_align !0, !depth !2
+@star = addrspace(1) global target("spirv.Channel") zeroinitializer, align 4, !packet_size !0, !packet_align !0
+@bar_arr = addrspace(1) global [5 x target("spirv.Channel")] zeroinitializer, align 4, !packet_size !0, !packet_align !0, !depth !1
+@far_arr = addrspace(1) global [5 x [4 x target("spirv.Channel")]] zeroinitializer, align 4, !packet_size !0, !packet_align !0, !depth !2
+@star_arr = addrspace(1) global [5 x [4 x [3 x target("spirv.Channel")]]] zeroinitializer, align 4, !packet_size !0, !packet_align !0
 
-@bar = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0, !depth !1
-@far = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0, !depth !2
-@star = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4, !packet_size !0, !packet_align !0
-@bar_arr = common addrspace(1) global [5 x %opencl.channel_t addrspace(1)*] zeroinitializer, align 4, !packet_size !0, !packet_align !0, !depth !1
-@far_arr = common addrspace(1) global [5 x [4 x %opencl.channel_t addrspace(1)*]] zeroinitializer, align 4, !packet_size !0, !packet_align !0, !depth !2
-@star_arr = common addrspace(1) global [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]] zeroinitializer, align 4, !packet_size !0, !packet_align !0
-
-; CHECK-DAG: @[[PIPE_BAR:bar.*]] = addrspace(1) global %opencl.pipe_rw_t addrspace(1)*
-; CHECK-DAG: @[[PIPE_FAR:far.*]] = addrspace(1) global %opencl.pipe_rw_t addrspace(1)*
-; CHECK-DAG: @[[PIPE_STAR:star.*]] = addrspace(1) global %opencl.pipe_rw_t addrspace(1)*
-; CHECK-DAG: @[[PIPE_BAR_ARR:bar_arr.*]] = addrspace(1) global [5 x %opencl.pipe_rw_t addrspace(1)*]
-; CHECK-DAG: @[[PIPE_FAR_ARR:far_arr.*]] = addrspace(1) global [5 x [4 x %opencl.pipe_rw_t addrspace(1)*]]
-; CHECK-DAG: @[[PIPE_STAR_ARR:star_arr.*]] = addrspace(1) global [5 x [4 x [3 x %opencl.pipe_rw_t addrspace(1)*]]]
+; CHECK-DAG: @[[PIPE_BAR:bar.*]] = addrspace(1) global ptr addrspace(1)
+; CHECK-DAG: @[[PIPE_FAR:far.*]] = addrspace(1) global ptr addrspace(1)
+; CHECK-DAG: @[[PIPE_STAR:star.*]] = addrspace(1) global ptr addrspace(1)
+; CHECK-DAG: @[[PIPE_BAR_ARR:bar_arr.*]] = addrspace(1) global [5 x ptr addrspace(1)]
+; CHECK-DAG: @[[PIPE_FAR_ARR:far_arr.*]] = addrspace(1) global [5 x [4 x ptr addrspace(1)]]
+; CHECK-DAG: @[[PIPE_STAR_ARR:star_arr.*]] = addrspace(1) global [5 x [4 x [3 x ptr addrspace(1)]]]
 ;
 ; size of pipe backing store is calculated as:
 ;   sizeof(__pipe_t) + packet_size * __get_pipe_max_packets(depth, mode)
@@ -128,28 +127,26 @@ target triple = "spir64-unknown-unknown-intelfpga"
 ; STRICT-DAG: @[[PIPE_FAR_ARR]].bs = addrspace(1) global [10960 x i8]
 ; STRICT-DAG: @[[PIPE_STAR_ARR]].bs = addrspace(1) global [27360 x i8]
 
-; Function Attrs: convergent nounwind
-define spir_kernel void @foo() #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !5 !kernel_arg_type !5 !kernel_arg_base_type !5 !kernel_arg_type_qual !5 !kernel_arg_host_accessible !5 !kernel_arg_pipe_depth !5 !kernel_arg_pipe_io !5 !kernel_arg_buffer_location !5 {
+; Function Attrs: convergent norecurse nounwind
+define dso_local void @foo() #0 !kernel_arg_addr_space !4 !kernel_arg_access_qual !4 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !4 !kernel_arg_host_accessible !4 !kernel_arg_pipe_depth !4 !kernel_arg_pipe_io !4 !kernel_arg_buffer_location !4 !arg_type_null_val !4 {
+entry:
   ret void
 }
 
-attributes #0 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { convergent norecurse nounwind "no-trapping-math"="true" "stack-protector-buffer-size"="8" "uniform-work-group-size"="true" }
 
-!llvm.module.flags = !{!3}
-!opencl.enable.FP_CONTRACT = !{}
-!opencl.ocl.version = !{!4}
-!opencl.spir.version = !{!4}
-!opencl.used.extensions = !{!5}
-!opencl.used.optional.core.features = !{!5}
-!opencl.compiler.options = !{!5}
-!llvm.ident = !{!6}
+!opencl.ocl.version = !{!3}
+!opencl.spir.version = !{!3}
+!opencl.compiler.options = !{!4}
+!llvm.ident = !{!5}
+!sycl.kernels = !{!6}
 
 !0 = !{i32 4}
 !1 = !{i32 0}
 !2 = !{i32 24}
-!3 = !{i32 1, !"wchar_size", i32 4}
-!4 = !{i32 1, i32 2}
-!5 = !{}
-!6 = !{!"clang version 6.0.0 "}
+!3 = !{i32 1, i32 2}
+!4 = !{}
+!5 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2024.0.0 (2024.x.0.YYYYMMDD)"}
+!6 = !{ptr @foo}
 
 ; DEBUGIFY-NOT: WARNING: Missing line

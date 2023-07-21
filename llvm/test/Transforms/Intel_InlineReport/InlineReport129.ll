@@ -1,9 +1,9 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 ; Inline report
-; RUN: opt -opaque-pointers -passes='require<wholeprogram>,lto<O3>' -whole-program-assume-read -inline-report=0xe807 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
+; RUN: opt -passes='require<wholeprogram>,lto<O3>' -whole-program-assume-read -inline-report=0xe807 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
 ; Inline report via metadata
-; RUN: opt -opaque-pointers -passes='require<wholeprogram>,lto<O3>' -whole-program-assume-read -inline-report=0xe886 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
+; RUN: opt -passes='require<wholeprogram>,lto<O3>' -whole-program-assume-read -inline-report=0xe886 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
 
 ; Check that @perdida_m_mp_generalized_hookes_law_ is inlined due to the inline
 ; budget heuristic and @perdida_m_mp_perdida_ is inlined due to the single

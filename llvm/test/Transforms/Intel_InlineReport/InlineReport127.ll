@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers -passes=inline -inline-report=0x2819 -disable-output < %s 2>&1 | FileCheck --strict-whitespace %s
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0x2898 -S < %s 2>&1 | FileCheck --strict-whitespace %s
+; RUN: opt -passes=inline -inline-report=0x2819 -disable-output < %s 2>&1 | FileCheck --strict-whitespace %s
+; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0x2898 -S < %s 2>&1 | FileCheck --strict-whitespace %s
 
 ; CMPLRLLVM-38939: Fix indentation of lines when "med" form of inlining report is
 ; used so that extra spaces are not emitted when EXTERN functions are excluded in

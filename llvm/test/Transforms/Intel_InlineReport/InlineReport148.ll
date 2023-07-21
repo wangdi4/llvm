@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers -passes='cgscc(inline)' -lto-inline-cost -inlining-dyn-alloca-adjustable=true -inlining-dyn-alloca-adjustable-max-count=1 -inline-report=0xe807 -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -lto-inline-cost -inlining-dyn-alloca-adjustable=true -inlining-dyn-alloca-adjustable-max-count=1 -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='cgscc(inline)' -lto-inline-cost -inlining-dyn-alloca-adjustable=true -inlining-dyn-alloca-adjustable-max-count=1 -inline-report=0xe807 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -lto-inline-cost -inlining-dyn-alloca-adjustable=true -inlining-dyn-alloca-adjustable-max-count=1 -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s
 
 ; Check that a single callsite function can not be inlined on the link step of an
 ; -flto compilation if it contains too many local Fortran adjustable arrays.

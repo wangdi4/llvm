@@ -2480,9 +2480,8 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
 
 #if INTEL_CUSTOMIZATION
   case Type::Channel: {
-    TypeInfo Info = getTypeInfo(cast<ChannelType>(T)->getElementType());
-    Width = Info.Width;
-    Align = Info.Align;
+    Width = Target->getPointerWidth(LangAS::opencl_global);
+    Align = Target->getPointerAlign(LangAS::opencl_global);
     break;
   }
 #endif // INTEL_CUSTOMIZATION

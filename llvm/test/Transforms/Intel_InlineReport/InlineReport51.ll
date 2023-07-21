@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers < %s -disable-output -passes='tilemvinlmarker,cgscc(inline)' -tile-candidate-test -tile-candidate-mark -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -inline-report=0xe807 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,tilemvinlmarker,cgscc(inline),inlinereportemitter' -tile-candidate-test -tile-candidate-mark -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -passes='tilemvinlmarker,cgscc(inline)' -tile-candidate-test -tile-candidate-mark -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -inline-report=0xe807 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup,tilemvinlmarker,cgscc(inline),inlinereportemitter' -tile-candidate-test -tile-candidate-mark -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s
 
 ; Check that the inlining report produces a single MAIN_ with six functions
 ; inlined into it to support tiling.

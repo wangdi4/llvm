@@ -644,6 +644,64 @@ bool tools::isUseSeparateSections(const Driver &D,
 }
 
 #if INTEL_CUSTOMIZATION
+static void AddllvmOption(const ToolChain &TC, const char *Opt, bool IsLink,
+                          const llvm::opt::ArgList &Args,
+                          llvm::opt::ArgStringList &CmdArgs) {
+  bool IsMSVC = TC.getTriple().isKnownWindowsMSVCEnvironment();
+  if (IsLink) {
+    StringRef LinkOpt = (IsMSVC ? "-mllvm:" : "-plugin-opt=");
+    CmdArgs.push_back(Args.MakeArgString(LinkOpt + Twine(Opt)));
+  } else {
+    CmdArgs.push_back("-mllvm");
+    CmdArgs.push_back(Opt);
+  }
+}
+
+#if INTEL_FEATURE_MARKERCOUNT
+void tools::addMarkerCountArgs(const ToolChain &TC,
+                               const llvm::opt::ArgList &Args,
+                               llvm::opt::ArgStringList &CmdArgs, bool IsLTO) {
+  const Driver &D = TC.getDriver();
+  if (Arg *A = Args.getLastArg(options::OPT_ffunction_marker_count_EQ,
+                               options::OPT_fmarker_count_EQ)) {
+    StringRef FM = A->getValue();
+    if (FM == "never" || FM == "me" || FM == "be")
+      if (IsLTO)
+        AddllvmOption(TC,
+                      Args.MakeArgString("-function-marker-count=" + Twine(FM)),
+                      IsLTO, Args, CmdArgs);
+      else
+        CmdArgs.push_back(
+            Args.MakeArgString("-ffunction-marker-count=" + Twine(FM)));
+    else
+      D.Diag(diag::err_drv_invalid_argument_to_option)
+          << FM << A->getOption().getName();
+  }
+  if (Arg *A = Args.getLastArg(options::OPT_floop_marker_count_EQ,
+                               options::OPT_fmarker_count_EQ)) {
+    StringRef LM = A->getValue();
+    if (LM == "never" || LM == "me" || LM == "be")
+      if (IsLTO)
+        AddllvmOption(TC, Args.MakeArgString("-loop-marker-count=" + Twine(LM)),
+                      IsLTO, Args, CmdArgs);
+      else
+        CmdArgs.push_back(
+            Args.MakeArgString("-floop-marker-count=" + Twine(LM)));
+    else
+      D.Diag(diag::err_drv_invalid_argument_to_option)
+          << LM << A->getOption().getName();
+  }
+  if (Arg *A = Args.getLastArg(options::OPT_foverride_marker_count_file_EQ))
+    if (IsLTO)
+      AddllvmOption(TC,
+                    Args.MakeArgString("-override-marker-count-file=" +
+                                       Twine(A->getValue())),
+                    IsLTO, Args, CmdArgs);
+    else
+      A->render(Args, CmdArgs);
+}
+#endif // INTEL_FEATURE_MARKERCOUNT
+
 void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
                           ArgStringList &CmdArgs, const InputInfo &Output,
                           const InputInfo &Input, bool IsThinLTO,
@@ -976,19 +1034,6 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
 }
 
 #if INTEL_CUSTOMIZATION
-static void AddllvmOption(const ToolChain &TC, const char *Opt, bool IsLink,
-                          const llvm::opt::ArgList &Args,
-                          llvm::opt::ArgStringList &CmdArgs) {
-  bool IsMSVC = TC.getTriple().isKnownWindowsMSVCEnvironment();
-  if (IsLink) {
-    StringRef LinkOpt = (IsMSVC ? "-mllvm:" : "-plugin-opt=");
-    CmdArgs.push_back(Args.MakeArgString(LinkOpt + Twine(Opt)));
-  } else {
-    CmdArgs.push_back("-mllvm");
-    CmdArgs.push_back(Opt);
-  }
-}
-
 static void RenderOptReportOptions(const ToolChain &TC, bool IsLink,
                                    const llvm::opt::ArgList &Args,
                                    llvm::opt::ArgStringList &CmdArgs,
@@ -1066,6 +1111,9 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
            Args.hasArg(options::OPT_fopenmp_target_simd) &&
            TC.getTriple().isSPIR();
   };
+#if INTEL_FEATURE_MARKERCOUNT
+  addMarkerCountArgs(TC, Args, CmdArgs, IsLink);
+#endif // INTEL_FEATURE_MARKERCOUNT
   StringRef MLTVal;
   if (const Arg *A = Args.getLastArg(options::OPT_qopt_mem_layout_trans_EQ)) {
     MLTVal = A->getValue();

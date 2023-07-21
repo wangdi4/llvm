@@ -10,7 +10,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent mustprogress nofree norecurse nounwind willreturn writeonly
-define dso_local void @test(i32 addrspace(1)* nocapture noundef writeonly %dst) local_unnamed_addr #0 !kernel_arg_addr_space !2 !kernel_arg_access_qual !3 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 !kernel_arg_name !6 !kernel_arg_host_accessible !7 !kernel_arg_pipe_depth !8 !kernel_arg_pipe_io !5 !kernel_arg_buffer_location !5 !no_barrier_path !9 !kernel_has_sub_groups !7 {
+define dso_local void @test(ptr addrspace(1) nocapture noundef writeonly %dst) local_unnamed_addr #0 !kernel_arg_addr_space !2 !kernel_arg_access_qual !3 !kernel_arg_type !4 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 !kernel_arg_name !6 !kernel_arg_host_accessible !7 !kernel_arg_pipe_depth !8 !kernel_arg_pipe_io !5 !kernel_arg_buffer_location !5 !no_barrier_path !9 !kernel_has_sub_groups !7 {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 noundef 0) #2
   %call1 = tail call i64 @_Z12get_local_idj(i32 noundef 0) #2
@@ -19,8 +19,8 @@ entry:
 
 if.then:                                          ; preds = %entry
   %conv = trunc i64 %call to i32
-  %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %dst, i64 %call
-  store i32 %conv, i32 addrspace(1)* %arrayidx, align 4, !tbaa !10
+  %arrayidx = getelementptr inbounds i32, ptr addrspace(1) %dst, i64 %call
+  store i32 %conv, ptr addrspace(1) %arrayidx, align 4, !tbaa !10
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %entry
@@ -42,7 +42,7 @@ attributes #2 = { convergent nounwind readnone willreturn }
 !sycl.kernels = !{!1}
 
 !0 = !{i32 2, i32 0}
-!1 = !{void (i32 addrspace(1)*)* @test}
+!1 = !{ptr @test}
 !2 = !{i32 1}
 !3 = !{!"none"}
 !4 = !{!"int*"}

@@ -69,10 +69,10 @@ for.end:                                          ; preds = %for.cond
 ; CHECK-LABEL: for.end:
 ; CHECK-NEXT: [[Index:%SBIndex[0-9]*]] = load i64, ptr %pCurrSBIndex, align 8
 ; CHECK-NEXT: [[Offset:%SB_LocalId_Offset[0-9]*]] = add nuw i64 [[Index]], {{[0-9]+}}
-; CHECK-NEXT: [[GEP:%[0-9]+]] = getelementptr inbounds i8, ptr %pSB, i64 [[Offset]]
+; CHECK-NEXT: [[GEP:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 [[Offset]]
 ; CHECK-NEXT: store ptr [[GEP]], ptr %i6.ascast.priv.addr, align 8
 ; CHECK-NEXT: [[LOAD:%[0-9]+]] = load ptr, ptr %i6.ascast.priv.addr, align 8
-; CHECK: store i32 0, ptr %26, align 4
+; CHECK: store i32 0, ptr [[LOAD]], align 4
 
   %13 = load ptr addrspace(4), ptr %d_sum.map.ptr.tmp.ascast.priv, align 8, !dbg !52
   %arrayidx5 = getelementptr inbounds i32, ptr addrspace(4) %13, i64 0, !dbg !52
@@ -82,7 +82,7 @@ for.end:                                          ; preds = %for.cond
 
 for.cond7:                                        ; preds = %for.inc13, %for.end
 ; CHECK-LABEL: for.cond7:
-; CHECK-NEXT: load i32, ptr %26, align 4
+; CHECK-NEXT: load i32, ptr [[LOAD]], align 4
 
   %14 = load i32, ptr %i6.ascast.priv, align 4, !dbg !57
   %cmp8 = icmp slt i32 %14, 1000, !dbg !59
@@ -90,7 +90,7 @@ for.cond7:                                        ; preds = %for.inc13, %for.end
 
 for.body9:                                        ; preds = %for.cond7
 ; CHECK-LABEL: for.body9:
-; CHECK: load i32, ptr %26, align 4
+; CHECK: load i32, ptr [[LOAD]], align 4
 
   %15 = load ptr addrspace(4), ptr %h_array_h.map.ptr.tmp.ascast.priv, align 8, !dbg !61
   %16 = load i32, ptr %i6.ascast.priv, align 4, !dbg !62
@@ -106,8 +106,8 @@ for.body9:                                        ; preds = %for.cond7
 
 for.inc13:                                        ; preds = %for.body9
 ; CHECK-LABEL: for.inc13:
-; CHECK-NEXT: load i32, ptr %26, align 4
-; CHECK: store i32 %inc14, ptr %26, align 4
+; CHECK-NEXT: load i32, ptr [[LOAD]], align 4
+; CHECK: store i32 %inc14, ptr [[LOAD]], align 4
 
   %20 = load i32, ptr %i6.ascast.priv, align 4, !dbg !65
   %inc14 = add nsw i32 %20, 1, !dbg !65

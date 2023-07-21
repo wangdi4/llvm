@@ -37,8 +37,25 @@ namespace llvm {
 class Pass;
 class Function; // INTEL
 
-using FatalErrorHandlerTy = std::function<void (llvm::Function *F)>;  // INTEL
+namespace vpo {
+#if INTEL_CUSTOMIZATION
+// Enum indicating vectorization error kind.
+enum class VecErrorKind {
+  // Means that a loop in the function was not vectorized by any reason, the
+  // code was not modified by vectorizer. May be useful in some cases in OCL
+  // pipeline.
+  Bailout,
+  // Means that by some reason vectorizer generated a wrong code and compilation
+  // should be aborted. That can happen due to different reasons. E.g. an
+  // indirect call in SYCL that is made using user-defined vector function
+  // pointer does not have the needed vector variant.
+  Fatal,
+};
 
+using VecErrorHandlerTy =
+    std::function<void(llvm::Function *F, VecErrorKind K)>;
+} // namespace vpo
+#endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 //
 // LoadStoreVectorizer - Create vector loads and stores, but leave scalar

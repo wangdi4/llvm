@@ -45,7 +45,7 @@ for.end:                                          ; preds = %for.cond
 ; CHECK-LABEL: for.end:
 ; CHECK-NEXT: [[Index:%SBIndex[0-9]+]] = load i64, ptr %pCurrSBIndex, align 8
 ; CHECK-NEXT: [[Offset:%SB_LocalId_Offset[0-9]+]] = add nuw i64 [[Index]], {{[0-9]+}}
-; CHECK-NEXT: [[GEP:%[0-9]+]] = getelementptr inbounds i8, ptr %pSB, i64 [[Offset]]
+; CHECK-NEXT: [[GEP:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 [[Offset]]
 ; CHECK-NEXT: store ptr [[GEP]], ptr %j.addr
 ; CHECK-NEXT: [[LOAD:%[0-9]+]] = load ptr, ptr %j.addr
 ; CHECK-NEXT: store i32 0, ptr [[LOAD]], align 4

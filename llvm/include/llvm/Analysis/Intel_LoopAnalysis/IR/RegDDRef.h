@@ -82,8 +82,7 @@ public:
   /// }
   ///
   /// value and reference types are DDRef*.
-  template <typename DDRefIteratorTy>
-  class const_all_ddref_iterator {
+  template <typename DDRefIteratorTy> class const_all_ddref_iterator {
   public:
     using iteration_category = std::bidirectional_iterator_tag;
     using value_type = const DDRef *;
@@ -217,15 +216,21 @@ private:
     unsigned NumCollapsedLevels; // Stores the number of dimensions collapsed by
                                  // loop collapsing pass. It is set to 0 by
                                  // default.
-    unsigned MaxVecLenAllowed; // Maximum Vector length allowed
+    unsigned MaxVecLenAllowed;   // Maximum Vector length allowed
     unsigned Alignment;
     // Extent is passed by Fortran FE to indicate known highest dimsize.
     unsigned HighestDimNumElements;
     // Set to true for fake pointer DD ref which access type is known.
     bool CanUsePointeeSize;
+
     // Fortran only. Set to true if one of the non-constant strides may be zero
     // as a result of PRODUCT or SUM functions.
     bool AnyVarDimStrideMayBeZero;
+
+    // Fortran only. Set to true if the strides are swapped
+    // as a result of the SPREAD function. It can be done for TRANSPOSE also
+    // but not yet
+    bool AnyDimStrideReversed;
 
     // Stores trailing structure element offsets for each dimension of the ref.
     // Consider the following structure GEP as an example-
@@ -1390,6 +1395,15 @@ public:
   void setAnyVarDimStrideMayBeZero(bool Val) {
     assert(hasGEPInfo() && "Mem ref expected");
     getGEPInfo()->AnyVarDimStrideMayBeZero = Val;
+  }
+
+  /// Fortran only. Returns true if any of the dimension strides is swapped
+  /// as a result of SPREAD function.  Only applicable to GEP refs.
+  bool anyDimStrideReversed() const;
+
+  void setAnyDimStrideReversed(bool Val) {
+    assert(hasGEPInfo() && "Mem ref expected");
+    getGEPInfo()->AnyDimStrideReversed = Val;
   }
 
   /// Verifies RegDDRef integrity.

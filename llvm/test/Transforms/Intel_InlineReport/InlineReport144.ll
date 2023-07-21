@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers -passes='require<anders-aa>,module(indirectcallconv),print<inline-report>' -disable-output -inline-report=0xe807 -intel-ind-call-force-andersen < %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,require<anders-aa>,module(indirectcallconv),inlinereportemitter' -inline-report=0xea86 -intel-ind-call-force-andersen -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='require<anders-aa>,module(indirectcallconv),print<inline-report>' -disable-output -inline-report=0xe807 -intel-ind-call-force-andersen < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup,require<anders-aa>,module(indirectcallconv),inlinereportemitter' -inline-report=0xea86 -intel-ind-call-force-andersen -S < %s 2>&1 | FileCheck %s
 
 ; Check that an indirect call is deleted by indirect call conversion.
 

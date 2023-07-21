@@ -18,7 +18,7 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: nounwind
-define void @test(float addrspace(1)* nocapture %input, float addrspace(1)* nocapture %res, i32 %n, i64 %l) #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 !kernel_arg_name !6 {
+define void @test(ptr addrspace(1) nocapture %input, ptr addrspace(1) nocapture %res, i32 %n, i64 %l) #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 !kernel_arg_name !6 {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) #2
   %sub = sub i64 %call, %l
@@ -30,10 +30,10 @@ entry:
 if.end:                                           ; preds = %entry
   %sext = shl i64 %sub, 32
   %idxprom = ashr exact i64 %sext, 32
-  %arrayidx = getelementptr inbounds float, float addrspace(1)* %input, i64 %idxprom
-  %0 = load float, float addrspace(1)* %arrayidx, align 4
-  %arrayidx4 = getelementptr inbounds float, float addrspace(1)* %res, i64 %idxprom
-  store float %0, float addrspace(1)* %arrayidx4, align 4
+  %arrayidx = getelementptr inbounds float, ptr addrspace(1) %input, i64 %idxprom
+  %0 = load float, ptr addrspace(1) %arrayidx, align 4
+  %arrayidx4 = getelementptr inbounds float, ptr addrspace(1) %res, i64 %idxprom
+  store float %0, ptr addrspace(1) %arrayidx4, align 4
   br label %return
 
 return:                                           ; preds = %entry, %if.end
@@ -55,12 +55,12 @@ attributes #2 = { nounwind readnone }
 !opencl.used.optional.core.features = !{!8}
 !opencl.compiler.options = !{!8}
 
-!0 = !{void (float addrspace(1)*, float addrspace(1)*, i32, i64)* @test}
+!0 = !{ptr @test}
 !1 = !{i32 1, i32 1, i32 0, i32 0}
 !2 = !{!"none", !"none", !"none", !"none"}
-!3 = !{!"float*", !"float*", !"int", !"long"}
+!3 = !{!"ptr", !"ptr", !"int", !"long"}
 !4 = !{!"", !"", !"", !""}
-!5 = !{!"float*", !"float*", !"int", !"long"}
+!5 = !{!"ptr", !"ptr", !"int", !"long"}
 !6 = !{!"input", !"res", !"n", !"l"}
 !7 = !{i32 1, i32 2}
 !8 = !{}

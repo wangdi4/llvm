@@ -20,8 +20,7 @@
 ; with a team id based offset into the reduction buffer.
 
 ; CHECK: [[GROUP_ID:%.+]] = call spir_func i64 @_Z12get_group_idj(i32 0)
-; CHECK: [[GROUP_ID_X_NUM_ELEMS:%.+]] = mul i64 [[GROUP_ID]], 5
-; CHECK: %team.buf.baseptr = getelementptr inbounds [5 x i32], [5 x i32] addrspace(1)* %red_buf, i64 [[GROUP_ID_X_NUM_ELEMS]], i32 0
+; CHECK: %team.buf.baseptr = getelementptr inbounds [5 x i32], [5 x i32] addrspace(1)* %red_buf, i64 [[GROUP_ID]], i32 0
 ; CHECK: %team.buf.baseptr.minus.offset = getelementptr i32, i32 addrspace(1)* %team.buf.baseptr, i64 0
 ; CHECK: [[TEAM_BUF_BASEPTR_MINUS_OFFSET_CAST:%.+]] = bitcast i32 addrspace(1)* %team.buf.baseptr.minus.offset to [5 x i32] addrspace(1)*
 ; CHECK: %i1 = getelementptr inbounds [5 x i32], [5 x i32] addrspace(1)* [[TEAM_BUF_BASEPTR_MINUS_OFFSET_CAST]], i64 0, i64 1

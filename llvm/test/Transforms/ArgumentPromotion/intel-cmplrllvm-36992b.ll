@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers -passes=argpromotion -S < %s | FileCheck %s
+; RUN: opt -passes=argpromotion -S < %s | FileCheck %s
 
 ; Check that 3 fields of a single structure argument are promoted,
 ; because MaxElements in ArgPromotion.cpp is 3.

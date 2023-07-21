@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers -passes='function(instcombine),print<inline-report>' -disable-output -inline-report=0xea07 < %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,function(instcombine),inlinereportemitter' -inline-report=0xea86 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='function(instcombine),print<inline-report>' -disable-output -inline-report=0xea07 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup,function(instcombine),inlinereportemitter' -inline-report=0xea86 -S < %s 2>&1 | FileCheck %s
 
 ; Check that calls to llvm.lifetime.start are deleted as dead code.
 
