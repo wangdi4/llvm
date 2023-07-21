@@ -53,12 +53,9 @@
 #include "llvm/Bitcode/BitcodeWriterPass.h"
 #include "llvm/GenXIntrinsics/GenXSPIRVWriterAdaptor.h"
 #include "llvm/IR/Dominators.h"
-<<<<<<< HEAD
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/IRPrintingPasses.h"
-=======
->>>>>>> c1d3d7ce2e4a3b05f70b0b2d8f6d7621ea0595aa
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRPrinter/IRPrintingPasses.h"
 #include "llvm/IRReader/IRReader.h"
