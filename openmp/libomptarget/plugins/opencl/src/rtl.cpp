@@ -2311,6 +2311,14 @@ static void decideKernelGroupArguments(int32_t DeviceId, int32_t NumTeams,
     }
   }
 
+  if (DeviceInfo->Option.DeviceType == CL_DEVICE_TYPE_CPU && KInfo &&
+      KInfo->getHasTeamsReduction() && !KInfo->isAtomicFreeReduction()) {
+    // Set max team size to 1 if we need to use fallback critical section which
+    // is not predictable with CPU backend.
+    MaxGroupSizeForced = true;
+    MaxGroupSize = 1;
+  }
+
   size_t MaxGroupCount = 0;
 
   if (NumTeams > 0) {
