@@ -58,6 +58,7 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FileUtilities.h"
 #include "llvm/Support/Path.h"
+#include "llvm/Support/Process.h" // INTEL MLPGO
 #include "llvm/Support/VersionTuple.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/TargetParser/AArch64TargetParser.h"
@@ -853,6 +854,19 @@ ToolChain::path_list ToolChain::getArchSpecificLibPaths() const {
 bool ToolChain::needsProfileRT(const ArgList &Args) {
   if (Args.hasArg(options::OPT_noprofilelib))
     return false;
+
+#if INTEL_CUSTOMIZATION
+#if !INTEL_PRODUCT_RELEASE
+  std::optional<std::string> MLPGO_CG_GEN =
+      llvm::sys::Process::GetEnv("INTEL_MLPGO_CG_GEN");
+  std::optional<std::string> MLPGO_GEN =
+      llvm::sys::Process::GetEnv("INTEL_MLPGO_GEN");
+
+  if (MLPGO_CG_GEN || MLPGO_GEN) {
+    return true;
+  }
+#endif // !INTEL_PRODUCT_RELEASE
+#endif // INTEL_CUSTOMIZATION
 
   return Args.hasArg(options::OPT_fprofile_generate) ||
          Args.hasArg(options::OPT_fprofile_generate_EQ) ||

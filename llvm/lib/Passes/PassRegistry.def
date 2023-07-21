@@ -190,6 +190,7 @@ MODULE_PASS("print<sycl-kernel-sg-size-analysis>", SGSizeAnalysisPrinter(dbgs())
 MODULE_PASS("print<sycl-kernel-vf-analysis>", VFAnalysisPrinter(dbgs()))
 MODULE_PASS("print<sycl-kernel-vec-dim-analysis>", VectorizationDimensionAnalysisPrinter(dbgs())) // INTEL
 
+MODULE_PASS("mlpgo", MLPGOInference()) // INTEL
 MODULE_PASS("agginliner", AggInlinerPass()) // INTEL
 MODULE_PASS("always-inline", AlwaysInlinerPass())
 MODULE_PASS("arg-noalias-prop", ArgNoAliasPropPass()) // INTEL
