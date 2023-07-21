@@ -54,8 +54,6 @@ function(llvm_create_cross_target project_name target_name toolchain buildtype)
       HOST_ARCH
       HOST_OS
       LIBCLC_TARGETS_TO_BUILD
-      onnxruntime_INSTALL_PREFIX
-      ONNX_MODEL_PATH
       )
 
     # Append the passthrough variables, accounting for nested lists and

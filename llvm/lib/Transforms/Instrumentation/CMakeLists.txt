@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2023 Intel Corporation
+# Modifications, Copyright (C) 2021 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -15,7 +15,6 @@
 # License.
 #
 # end INTEL_CUSTOMIZATION
-
 add_llvm_component_library(LLVMInstrumentation
   AddressSanitizer.cpp
   BoundsChecking.cpp
@@ -46,10 +45,7 @@ add_llvm_component_library(LLVMInstrumentation
   ValueProfileCollector.cpp
   ThreadSanitizer.cpp
   HWAddressSanitizer.cpp
-# INTEL_CUSTOMIZATION
-  Intel_MLPGO/ExtractFeatures.cpp
-  Intel_MLPGO/Inference.cpp
-# end INTEL_CUSTOMIZATION
+
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms
 
@@ -65,7 +61,4 @@ add_llvm_component_library(LLVMInstrumentation
   TargetParser
   TransformUtils
   ProfileData
-# INTEL_CUSTOMIZATION
-  MLPGOMLBackend
-# end INTEL_CUSTOMIZATION
   )

@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2023 Intel Corporation
+// Modifications, Copyright (C) 2021 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may
-// not use, modify, copy, publish, distribute, disclose or transmit this
-// software or the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -73,7 +73,6 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/PrettyStackTrace.h"
-#include "llvm/Support/Process.h" // INTEL MLPGO
 #include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/Timer.h"
 #include "llvm/Support/ToolOutputFile.h"
@@ -1062,21 +1061,12 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
     std::unique_ptr<llvm::ToolOutputFile> &ThinLinkOS) {
   std::optional<PGOOptions> PGOOpt;
 
-#if INTEL_CUSTOMIZATION
-  std::optional<std::string> MLPGO_GEN;
-  std::optional<std::string> MLPGO_USE;
-#if !INTEL_PRODUCT_RELEASE
-  MLPGO_GEN = llvm::sys::Process::GetEnv("INTEL_MLPGO_GEN");
-  MLPGO_USE = llvm::sys::Process::GetEnv("INTEL_MLPGO_USE");
-  assert(!MLPGO_GEN || !MLPGO_USE);
-#endif // !INTEL_PRODUCT_RELEASE
-#endif // INTEL_CUSTOMIZATION
-
-  if (CodeGenOpts.hasProfileIRInstr() || MLPGO_GEN) // INTEL
+  if (CodeGenOpts.hasProfileIRInstr())
     // -fprofile-generate.
     PGOOpt = PGOOptions(
         CodeGenOpts.InstrProfileOutput.empty() ? getDefaultProfileGenName()
                                                : CodeGenOpts.InstrProfileOutput,
+<<<<<<< HEAD
         "", "", CodeGenOpts.MemoryProfileUsePath, nullptr, PGOOptions::IRInstr,
         PGOOptions::NoCSAction, CodeGenOpts.DebugInfoForProfiling);
   else if (CodeGenOpts.hasProfileIRUse() || MLPGO_USE) { // INTEL
@@ -1089,6 +1079,18 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
         "", // INTEL
         CodeGenOpts.ProfileRemappingFile, CodeGenOpts.MemoryProfileUsePath, VFS,
         PGOOptions::IRUse, CSAction, CodeGenOpts.DebugInfoForProfiling);
+=======
+        "", "", nullptr, PGOOptions::IRInstr, PGOOptions::NoCSAction,
+        CodeGenOpts.DebugInfoForProfiling);
+  else if (CodeGenOpts.hasProfileIRUse()) {
+    // -fprofile-use.
+    auto CSAction = CodeGenOpts.hasProfileCSIRUse() ? PGOOptions::CSIRUse
+                                                    : PGOOptions::NoCSAction;
+    PGOOpt =
+        PGOOptions(CodeGenOpts.ProfileInstrumentUsePath, "",
+                   CodeGenOpts.ProfileRemappingFile, VFS, PGOOptions::IRUse,
+                   CSAction, CodeGenOpts.DebugInfoForProfiling);
+>>>>>>> 007d75ed5fdcd1f91dc7c3db02486da989c9c83a
   } else if (!CodeGenOpts.SampleProfileFile.empty())
     // -fprofile-sample-use
     PGOOpt = PGOOptions(
