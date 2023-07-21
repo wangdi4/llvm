@@ -2073,6 +2073,9 @@ LANGBUILTIN(__arithmetic_fence, "v.", "tE", ALL_LANGUAGES)
 LANGBUILTIN(__fence, "v.", "tE", ALL_LANGUAGES)
 #endif // INTEL_CUSTOMIZATION
 
+// Builtins for Intel SYCL
+BUILTIN(__builtin_intel_sycl_ptr_annotation, "v.", "nt")
+
 // Builtins for Intel FPGA
 BUILTIN(__builtin_intel_fpga_reg, "v.", "nt")
 BUILTIN(__builtin_intel_fpga_mem, "v.", "nt")
