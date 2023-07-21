@@ -39,6 +39,7 @@ set(LLVM_LINK_COMPONENTS
   Passes
   Analysis
 # INTEL_CUSTOMIZATION
+  IRPrinter
   GenXIntrinsics
   TargetParser
   VPOTransforms
