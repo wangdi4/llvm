@@ -2019,6 +2019,15 @@ public:
   ///   call spir_func i64 @_Z12get_group_idj
   static CallInst *genGroupIdCall(int Dim, Instruction *InsertPt);
 
+  /// Generate a call to get global id for the dimension provided.
+  /// For OpenMP SIMD path pick something of:
+  ///   call spir_func i64 _Z28__spirv_GlobalInvocationId_xv
+  ///   call spir_func i64 _Z28__spirv_GlobalInvocationId_yv
+  ///   call spir_func i64 _Z28__spirv_GlobalInvocationId_zv
+  /// Otherwise generate general OCL builtin:
+  ///   call spir_func i64 @_Z13get_global_idj
+  static CallInst *genGlobalIdCall(int Dim, Instruction *InsertPt);
+
   /// Generate a call to get local (group) size for the dimension provided.
   /// For OpenMP SIMD path pick something of:
   ///   call spir_func i64 _Z23__spirv_WorkgroupSize_xv
@@ -2027,6 +2036,16 @@ public:
   /// Otherwise generate general OCL builtin:
   ///   call spir_func i64 @_Z14get_local_sizej
   static CallInst *genLocalSizeCall(int Dim, Instruction *InsertPt);
+
+  /// Generate a call to get global (local*group) size for the dimension
+  /// provided.
+  /// For OpenMP SIMD path pick something of:
+  ///   call spir_func i64 _Z20__spirv_GlobalSize_xv
+  ///   call spir_func i64 _Z20__spirv_GlobalSize_yv
+  ///   call spir_func i64 _Z20__spirv_GlobalSize_zv
+  /// Otherwise generate general OCL builtin:
+  ///   call spir_func i64 @_Z15get_global_sizej
+  static CallInst *genGlobalSizeCall(int Dim, Instruction *InsertPt);
 
   /// Generate a call to get number of groups for the dimension provided.
   /// For OpenMP SIMD path pick something of:
