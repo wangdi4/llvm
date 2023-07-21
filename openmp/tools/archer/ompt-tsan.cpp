@@ -33,6 +33,17 @@
 
 #include "omp-tools.h"
 
+#ifdef INTEL_CUSTOMIZATION
+// This file is built with the omp-tools.h from the Intel compiler's include
+// directory, and that file currently doesn't have these two enum entries
+// defined. Meanwhile, the LLVM omp-tools.h has added these entries in
+// early July 2023. Until Intel adds these entries in its omp-tools.h,
+// we define these entries here based on what's in LLVM omp-tools.h
+// as a temporary solution.
+#define ompt_dependence_type_out_all_memory   34
+#define ompt_dependence_type_inout_all_memory 35
+#endif // INTEL_CUSTOMIZAZTION
+
 // Define attribute that indicates that the fall through from the previous
 // case label is intentional and should not be diagnosed by a compiler
 //   Code from libcxx/include/__config
