@@ -59,3 +59,9 @@ int main(int argc, char *argv[]) {
 // CHECK-NEXT: #0 {{.*}}task-taskgroup-unrelated.c:29
 // CHECK: DONE
 // CHECK: ThreadSanitizer: reported 1 warnings
+
+// INTEL_CUSTOMIZATION
+// This test sometimes fails because of "!dbg attachment points at wrong
+// subprogram for function", as reported in CMPLRLLVM-49511.
+// UNSUPPORTED: iomp
+// end INTEL_CUSTOMIZATION
