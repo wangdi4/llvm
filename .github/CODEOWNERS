@@ -224,7 +224,6 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 # COMPONENT: IPO/PGO
 # JIRA: CMPLRLLVM->LLVM Interprocedural Optimization
 /llvm/docs/Intel/DTrans/ @robertcox-github @pvbattin
-llvm/docs/Intel/MLPGO/MLPGO.rst @romanovvlad @smaslov-intel
 /llvm/include/llvm/Analysis/CallGraph.h @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/CallGraphSCCPass.h @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/CFLAliasAnalysisUtils.h @robertcox-github @pvbattin
@@ -250,12 +249,11 @@ llvm/docs/Intel/MLPGO/MLPGO.rst @romanovvlad @smaslov-intel
 /llvm/include/llvm/Analysis/ModuleSummaryAnalysis.h  @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/TargetLibraryInfo.def  @robertcox-github @pvbattin
 /llvm/include/llvm/Analysis/TargetLibraryInfo.h @robertcox-github @pvbattin
-/llvm/include/llvm/Intel_MLPGO @romanovvlad @smaslov-intel
 /llvm/include/llvm/Support/Intel_WP_utils.h @robertcox-github @pvbattin
 /llvm/include/llvm/Support/intel-plugin-api.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/IPO/ @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/IPO/Intel_AutoCPUClone.h @abuyukku
-/llvm/include/llvm/Transforms/Instrumentation/Intel_MLPGO @romanovvlad @smaslov-intel
+# Temporarily removed @romanovvlad
 /llvm/include/llvm/Transforms/IPO.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Scalar/Intel_AggressiveSpeculation.h @intel-restricted/cmplrllvm-llvm-scalar-optimizer @tcreech-intel @williamweixiao
 /llvm/include/llvm/Transforms/Scalar/Intel_ForcedCMOVGeneration.h @asudarsa
@@ -275,6 +273,7 @@ llvm/docs/Intel/MLPGO/MLPGO.rst @romanovvlad @smaslov-intel
 /llvm/include/llvm/Analysis/Utils/ImportedFunctionsInliningStatistics.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Utils/Intel_CloneUtils.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Utils/Intel_X86EmitMultiVersionResolver.h @abuyukku
+# Temporarily removed @romanovvlad
 /llvm/include/llvm/Transforms/Utils/LibCallsShrinkWrap.h  @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Utils/ModuleUtils.h @robertcox-github @pvbattin
 /llvm/include/llvm/Transforms/Utils/SplitModule.h @robertcox-github @pvbattin
@@ -306,13 +305,12 @@ llvm/docs/Intel/MLPGO/MLPGO.rst @romanovvlad @smaslov-intel
 /llvm/lib/Analysis/ModuleSummaryAnalysis.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/ReplayInlineAdvisor.cpp @robertcox-github @pvbattin
 /llvm/lib/Analysis/TargetLibraryInfo.cpp @robertcox-github @pvbattin
-/llvm/lib/Intel_MLPGO/ @romanovvlad @smaslov-intel
 /llvm/lib/Linker/ @robertcox-github @pvbattin
 /llvm/lib/LTO/ @robertcox-github @pvbattin
-/llvm/lib/Transforms/Instrumentation/Intel_MLPGO @romanovvlad @smaslov-intel
 /llvm/lib/Transforms/IPO/ @robertcox-github @pvbattin
 /llvm/lib/Transforms/IPO/Intel_AutoCPUClone.cpp @abuyukku
 /llvm/lib/Transforms/IPO/Intel_UnpredictableProfileLoader.cpp @robertcox-github @pvbattin @tcreech-intel @williamweixiao
+# Temporarily removed @romanovvlad
 /llvm/lib/Transforms/Scalar/Intel_AggressiveSpeculation.cpp @intel-restricted/cmplrllvm-llvm-scalar-optimizer @tcreech-intel @williamweixiao
 /llvm/lib/Transforms/Scalar/Intel_ForcedCMOVGeneration.cpp @asudarsa
 /llvm/lib/Transforms/Scalar/Intel_FunctionRecognizer.cpp @robertcox-github @pvbattin
@@ -334,6 +332,7 @@ llvm/docs/Intel/MLPGO/MLPGO.rst @romanovvlad @smaslov-intel
 /llvm/lib/Transforms/Utils/Intel_CloneUtils.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Utils/Intel_RegionSplitter.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Utils/Intel_X86EmitMultiVersionResolver.cpp @abuyukku
+# Temporarily removed @romanovvlad
 /llvm/lib/Transforms/Utils/LibCallsShrinkWrap.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Utils/ModuleUtils.cpp @robertcox-github @pvbattin
 /llvm/lib/Transforms/Utils/SplitModule.cpp @robertcox-github @pvbattin
@@ -349,7 +348,6 @@ llvm/docs/Intel/MLPGO/MLPGO.rst @romanovvlad @smaslov-intel
 /llvm/test/Analysis/Intel_ArrayUseAnalysis/ @robertcox-github @pvbattin
 /llvm/test/Analysis/Intel_WP/ @robertcox-github @pvbattin
 /llvm/test/Analysis/LazyCallGraph/ @robertcox-github @pvbattin
-/llvm/test/Intel_MLPGO/ @romanovvlad @smaslov-intel
 /llvm/test/Linker/ @robertcox-github @pvbattin
 /llvm/test/LTO/ @robertcox-github @pvbattin
 /llvm/test/ThinLTO/ @robertcox-github @pvbattin
@@ -365,6 +363,7 @@ llvm/docs/Intel/MLPGO/MLPGO.rst @romanovvlad @smaslov-intel
 /llvm/test/Transforms/Intel_AggressiveSpeculation/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer @tcreech-intel @williamweixiao
 /llvm/test/Transforms/Intel_ArgumentAlignment/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_AutoCPUClone/ @abuyukku
+# Temporarily removed @romanovvlad
 /llvm/test/Transforms/Intel_DeadArrayOpsElimination/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_DeadDopeVectorElimination/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_DopeVectorConstProp/ @robertcox-github @pvbattin
@@ -389,7 +388,6 @@ llvm/docs/Intel/MLPGO/MLPGO.rst @romanovvlad @smaslov-intel
 /llvm/test/Transforms/WholeProgramDevirt/ @robertcox-github @pvbattin
 /llvm/tools/gold/gold-plugin.cpp @robertcox-github @pvbattin
 /llvm/unittests/Analysis/TargetLibraryInfoTest.cpp @robertcox-github @pvbattin
-/llvm/utils/convert-to-c-array.py @romanovvlad @smaslov-intel
 
 # JIRA: CMPLRLLVM->LLVM Profile Guided Optimization
 /llvm/include/llvm/Analysis/BlockFrequencyInfo.h @robertcox-github @pvbattin

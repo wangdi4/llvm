@@ -2182,10 +2182,6 @@ if (INTEL_CUSTOMIZATION)
       ${INTEL_LIBDEV_DEPLOY_COMPONENTS_LIST}
     )
 
-    list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
-      onnxruntime
-    )
-
     set(INTEL_OPENCL_DEPLOY_COMPONENTS_LIST
       # OpenCL components
       ocl-common_clang ocl-common_clang_emu ocl-builtins ocl-builtins-shared
