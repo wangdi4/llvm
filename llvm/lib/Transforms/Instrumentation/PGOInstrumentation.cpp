@@ -122,12 +122,14 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/GraphWriter.h"
 #include "llvm/Support/HashBuilder.h"
+#include "llvm/Support/Process.h" // INTEL
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/TargetParser/Triple.h"
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Instrumentation/BlockCoverageInference.h"
 #include "llvm/Transforms/Instrumentation/CFGMST.h"
+#include "llvm/Transforms/Instrumentation/Intel_MLPGO/ExtractFeatures.h" // INTEL
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/MisExpect.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
@@ -1889,7 +1891,16 @@ void PGOUseFunc::populateCounters() {
   // Fix the obviously inconsistent entry count.
   if (FuncMaxCount > 0 && FuncEntryCount == 0)
     FuncEntryCount = 1;
-  F.setEntryCount(ProfileCount(FuncEntryCount, Function::PCT_Real));
+
+#if INTEL_CUSTOMIZATION
+#if !INTEL_PRODUCT_RELEASE
+  std::optional<std::string> MLPGO_PARTIAL_USE =
+      sys::Process::GetEnv("INTEL_MLPGO_PARTIAL_USE");
+  if (!MLPGO_PARTIAL_USE) {
+    F.setEntryCount(ProfileCount(FuncEntryCount, Function::PCT_Real));
+  }
+#endif // !INTEL_PRODUCT_RELEASE
+#endif // INTEL_CUSTOMIZATION
   markFunctionAttributes(FuncEntryCount, FuncMaxCount);
 
   // Now annotate select instructions
@@ -2432,12 +2443,54 @@ static void verifyFuncBFI(PGOUseFunc &Func, LoopInfo &LI,
     });
 }
 
+static void MLPGODumpFunctionFeatures(mlpgo::Parameters &Parameter, Function &F,
+                                      CallGraph &CG,
+                                      const BranchProbabilityInfo &OldBPI,
+                                      const PGOUseFunc &Func) {
+
+  mlpgo::InstFeaturesMapTy Inst2Features;
+  std::map<const BasicBlock *, uint64_t> BBCountValueMap;
+  std::map<std::pair<const BasicBlock *, const BasicBlock *>, uint64_t>
+      EdgeCountValueMap;
+
+  for (const auto &BB : F) {
+    const Instruction *Terminator = BB.getTerminator();
+    if (Terminator->getNumSuccessors() < 2)
+      continue;
+    if (!(isa<BranchInst>(Terminator) || isa<SwitchInst>(Terminator) ||
+          isa<IndirectBrInst>(Terminator) || isa<InvokeInst>(Terminator)))
+      continue;
+
+    const PGOUseBBInfo &BBCountInfo = Func.getBBInfo(&BB);
+    BBCountValueMap[&BB] = BBCountInfo.CountValue;
+    unsigned int Size = BBCountInfo.OutEdges.size();
+
+    for (unsigned int s = 0; s < Size; ++s) {
+      const PGOUseEdge *E = BBCountInfo.OutEdges[s];
+      const BasicBlock *SrcBB = E->SrcBB;
+      const BasicBlock *DestBB = E->DestBB;
+
+      if (DestBB == nullptr)
+        continue;
+      uint64_t EdgeCount = E->CountValue;
+      EdgeCountValueMap[std::pair<const BasicBlock *, const BasicBlock *>(
+          SrcBB, DestBB)] = EdgeCount;
+    }
+  }
+
+  mlpgo::ExtractFeatures(F, Parameter, OldBPI, CG, Inst2Features,
+                         BBCountValueMap);
+  mlpgo::DumpTrainingSet(F, Inst2Features, Parameter, BBCountValueMap,
+                         EdgeCountValueMap);
+}
+
+// MLPGO: add CG Parameter
 static bool annotateAllFunctions(
     Module &M, StringRef ProfileFileName, StringRef ProfileRemappingFileName,
     vfs::FileSystem &FS,
     function_ref<TargetLibraryInfo &(Function &)> LookupTLI,
     function_ref<BranchProbabilityInfo *(Function &)> LookupBPI,
-    function_ref<BlockFrequencyInfo *(Function &)> LookupBFI,
+    function_ref<BlockFrequencyInfo *(Function &)> LookupBFI, CallGraph &CG,
     ProfileSummaryInfo *PSI, bool IsCS) {
   LLVM_DEBUG(dbgs() << "Read in profile counters: ");
   auto &Ctx = M.getContext();
@@ -2493,6 +2546,15 @@ static bool annotateAllFunctions(
   bool InstrumentFuncEntry = PGOReader->instrEntryBBEnabled();
   if (PGOInstrumentEntry.getNumOccurrences() > 0)
     InstrumentFuncEntry = PGOInstrumentEntry;
+
+  mlpgo::Parameters MlpgoParameters(M);
+  std::optional<std::string> MLPGO_PARTIAL_USE;
+#if INTEL_CUSTOMIZATION
+#if !INTEL_PRODUCT_RELEASE
+  MLPGO_PARTIAL_USE = sys::Process::GetEnv("INTEL_MLPGO_PARTIAL_USE");
+#endif // !INTEL_PRODUCT_RELEASE
+#endif // INTEL_CUSTOMIZATION
+
   bool HasSingleByteCoverage = PGOReader->hasSingleByteCoverage();
   for (auto &F : M) {
     if (skipPGO(F))
@@ -2525,7 +2587,10 @@ static bool annotateAllFunctions(
     if (!Func.readCounters(PGOReader.get(), AllZeros, PseudoKind))
       continue;
     if (AllZeros) {
-      F.setEntryCount(ProfileCount(0, Function::PCT_Real));
+#if INTEL_CUSTOMIZATION
+      if (!MLPGO_PARTIAL_USE)
+        F.setEntryCount(ProfileCount(0, Function::PCT_Real));
+#endif // INTEL_CUSTOMIZATION
       if (Func.getProgramMaxCount() != 0)
         ColdFunctions.push_back(&F);
 #if INTEL_CUSTOMIZATION
@@ -2618,7 +2683,7 @@ static bool annotateAllFunctions(
       BranchProbabilityInfo NBPI(F, LI);
 
       // Fix func entry count.
-      if (PGOFixEntryCount)
+      if (PGOFixEntryCount && !MLPGO_PARTIAL_USE) // INTEL
         fixFuncEntryCount(Func, LI, NBPI);
 
       // Verify BlockFrequency information.
@@ -2629,7 +2694,20 @@ static bool annotateAllFunctions(
       }
       verifyFuncBFI(Func, LI, NBPI, HotCountThreshold, ColdCountThreshold);
     }
+
+#if INTEL_CUSTOMIZATION
+    if (MlpgoParameters.DumpFeatures) {
+      MLPGODumpFunctionFeatures(MlpgoParameters, F, CG, *BPI, Func);
+    }
+#endif // INTEL_CUSTOMIZATION
   }
+
+#if INTEL_CUSTOMIZATION
+  if (MLPGO_PARTIAL_USE) {
+    HotFunctions.clear();
+    ColdFunctions.clear();
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Set function hotness attribute from the profile.
   // We have to apply these attributes at the end because their presence
@@ -2687,10 +2765,16 @@ PreservedAnalyses PGOInstrumentationUse::run(Module &M,
     return &FAM.getResult<BlockFrequencyAnalysis>(F);
   };
 
+<<<<<<< HEAD
   auto *PSI = &MAM.getResult<ProfileSummaryAnalysis>(M);
+=======
+  auto &CG = AM.getResult<CallGraphAnalysis>(M); // INTEL
+  auto *PSI = &AM.getResult<ProfileSummaryAnalysis>(M);
+>>>>>>> e6dd7de53b166afa599472bc58fe32f408e7324b
 
   if (!annotateAllFunctions(M, ProfileFileName, ProfileRemappingFileName, *FS,
-                            LookupTLI, LookupBPI, LookupBFI, PSI, IsCS))
+                            LookupTLI, LookupBPI, LookupBFI, CG, PSI, // INTEL
+                            IsCS))                                    // INTEL
     return PreservedAnalyses::all();
 
   return PreservedAnalyses::none();
