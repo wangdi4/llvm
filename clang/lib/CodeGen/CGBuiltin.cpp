@@ -24677,7 +24677,6 @@ RValue CodeGenFunction::EmitIntelFPGAMemBuiltin(const CallExpr *E) {
   return RValue::get(Ann);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Generate a Vector ABI mangled name for a function.  If VLen and
 /// FuncName are known (when name is created from a real function and not a
@@ -24926,14 +24925,12 @@ RValue CodeGenFunction::EmitOpenMPDeviceSpirPrintfCallExpr(const CallExpr *E) {
   return RValue::get(CI);
 }
 #endif // INTEL_COLLAB
-=======
 static bool hasFuncNameRequestedFPAccuracy(StringRef Name,
                                            const LangOptions &LangOpts) {
   auto FuncMapIt = LangOpts.FPAccuracyFuncMap.find(Name.str());
   return (FuncMapIt != LangOpts.FPAccuracyFuncMap.end());
 }
 
->>>>>>> 9d4848d3572884f4384c414bcd7f25941aa47437
 llvm::CallInst *CodeGenFunction::EmitFPBuiltinIndirectCall(
     llvm::FunctionType *IRFuncTy, const SmallVectorImpl<llvm::Value *> &IRArgs,
     llvm::Value *FnPtr, const FunctionDecl *FD) {
