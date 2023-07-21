@@ -1,10 +1,8 @@
 ; REQUIRES: x86
 ; RUN: llvm-as %s -o %t.o
 
-; INTEL RUN: ld.lld -mllvm -opaque-pointers -shared -save-temps %t.o -o %t2.o
-; INTEL_CUSTOMIZATION
-; RUN: llvm-dis -opaque-pointers < %t2.o.0.0.preopt.bc | FileCheck %s
-; end INTEL_CUSTOMIZATION
+; RUN: ld.lld -shared -save-temps %t.o -o %t2.o
+; RUN: llvm-dis < %t2.o.0.0.preopt.bc | FileCheck %s
 
 ; CHECK: @GlobalValueName
 ; CHECK: @foo(i32 %in)

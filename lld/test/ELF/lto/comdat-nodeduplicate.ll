@@ -10,7 +10,7 @@
 ; RUN: llvm-as %t/b.ll -o %t/b.bc
 ; RUN: llvm-as %t/c.ll -o %t/c.bc
 
-; RUN: ld.lld -mllvm -opaque-pointers --save-temps -u foo %t/a.bc --start-lib %t/b.bc --end-lib -o %t/ab
+; RUN: ld.lld --save-temps -u foo %t/a.bc --start-lib %t/b.bc --end-lib -o %t/ab
 ; RUN: FileCheck %s --check-prefix=RESOL_AB < %t/ab.resolution.txt
 ; RUN: llvm-readelf -x .data %t/ab | FileCheck %s --check-prefix=DATA
 
@@ -20,7 +20,7 @@
 ; DATA: 0x[[#%x,]] 01000000 00000000  ........
 
 ;; __profc_foo from c.bc is non-prevailing and thus discarded.
-; RUN: ld.lld -mllvm -opaque-pointers --save-temps -u foo -u c %t/a.bc --start-lib %t/b.bc %t/c.bc --end-lib -o %t/abc
+; RUN: ld.lld --save-temps -u foo -u c %t/a.bc --start-lib %t/b.bc %t/c.bc --end-lib -o %t/abc
 ; RUN: FileCheck %s --check-prefix=RESOL_ABC < %t/abc.resolution.txt
 ; RUN: llvm-readelf -x .data %t/abc | FileCheck %s --check-prefix=DATA
 
@@ -34,28 +34,25 @@
 ; RUN: opt --module-summary %t/b.ll -o %t/b.bc
 ; RUN: opt --module-summary %t/c.ll -o %t/c.bc
 
-; RUN: ld.lld -mllvm -opaque-pointers --thinlto-index-only --save-temps -u foo %t/a.bc %t/b.bc -o %t/ab
+; RUN: ld.lld --thinlto-index-only --save-temps -u foo %t/a.bc %t/b.bc -o %t/ab
 ; RUN: FileCheck %s --check-prefix=RESOL_AB < %t/ab.resolution.txt
-; INTEL_CUSTOMIZATION
-; RUN: (llvm-dis -opaque-pointers < %t/b.bc && llvm-dis -opaque-pointers < %t/b.bc.thinlto.bc) | FileCheck %s --check-prefix=IR_AB
-; end INTEL_CUSTOMIZATION
-; RUN: ld.lld -mllvm -opaque-pointers -u foo %t/a.bc %t/b.bc -o %t/ab
+; RUN: (llvm-dis < %t/b.bc && llvm-dis < %t/b.bc.thinlto.bc) | FileCheck %s --check-prefix=IR_AB
+
+; RUN: ld.lld -u foo %t/a.bc %t/b.bc -o %t/ab
 ; RUN: llvm-readelf -x .data %t/ab | FileCheck %s --check-prefix=DATA
 
-; RUN: ld.lld -mllvm -opaque-pointers --thinlto-index-only --save-temps -u foo %t/a.bc --start-lib %t/b.bc --end-lib -o %t/ab
+; RUN: ld.lld --thinlto-index-only --save-temps -u foo %t/a.bc --start-lib %t/b.bc --end-lib -o %t/ab
 ; RUN: FileCheck %s --check-prefix=RESOL_AB < %t/ab.resolution.txt
-; INTEL_CUSTOMIZATION
-; RUN: (llvm-dis -opaque-pointers < %t/b.bc && llvm-dis -opaque-pointers < %t/b.bc.thinlto.bc) | FileCheck %s --check-prefix=IR_AB
-; end INTEL_CUSTOMIZATION
-; RUN: ld.lld -mllvm -opaque-pointers -u foo %t/a.bc --start-lib %t/b.bc --end-lib -o %t/ab
+; RUN: (llvm-dis < %t/b.bc && llvm-dis < %t/b.bc.thinlto.bc) | FileCheck %s --check-prefix=IR_AB
+
+; RUN: ld.lld -u foo %t/a.bc --start-lib %t/b.bc --end-lib -o %t/ab
 ; RUN: llvm-readelf -x .data %t/ab | FileCheck %s --check-prefix=DATA
 
-; RUN: ld.lld -mllvm -opaque-pointers --thinlto-index-only --save-temps -u foo -u c %t/a.bc --start-lib %t/b.bc %t/c.bc --end-lib -o %t/abc
+; RUN: ld.lld --thinlto-index-only --save-temps -u foo -u c %t/a.bc --start-lib %t/b.bc %t/c.bc --end-lib -o %t/abc
 ; RUN: FileCheck %s --check-prefix=RESOL_ABC < %t/abc.resolution.txt
-; INTEL_CUSTOMIZATION
-; RUN: (llvm-dis -opaque-pointers < %t/b.bc && llvm-dis -opaque-pointers < %t/b.bc.thinlto.bc) | FileCheck %s --check-prefix=IR_ABC
-; end INTEL_CUSTOMIZATION
-; RUN: ld.lld -mllvm -opaque-pointers -u foo %t/a.bc --start-lib %t/b.bc %t/c.bc --end-lib -o %t/abc
+; RUN: (llvm-dis < %t/b.bc && llvm-dis < %t/b.bc.thinlto.bc) | FileCheck %s --check-prefix=IR_ABC
+
+; RUN: ld.lld -u foo %t/a.bc --start-lib %t/b.bc %t/c.bc --end-lib -o %t/abc
 ; RUN: llvm-readelf -x .data %t/abc | FileCheck %s --check-prefix=DATA
 
 ; IR_AB-DAG: gv: (name: "__profd_foo", {{.*}} guid = [[PROFD:[0-9]+]]

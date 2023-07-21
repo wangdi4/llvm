@@ -6,35 +6,29 @@
 ; RUN: opt --thinlto-bc -o %t2.o %s
 ; RUN: ld.lld %t2.o -o %t3 -save-temps --lto-whole-program-visibility \
 ; INTEL_CUSTOMIZATION
-; RUN: %intel_mllvm %intel_devirt_options -mllvm -opaque-pointers \
+; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
-; INTEL_CUSTOMIZATION
-; RUN: llvm-dis -opaque-pointers %t2.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
-; end INTEL_CUSTOMIZATION
+; RUN: llvm-dis %t2.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
 
 ;; Hybrid WPD
 ;; Generate split module with summary for hybrid Thin/Regular LTO WPD.
 ; RUN: opt --thinlto-bc --thinlto-split-lto-unit -o %t.o %s
 ; RUN: ld.lld %t.o -o %t3 -save-temps --lto-whole-program-visibility \
 ; INTEL_CUSTOMIZATION
-; RUN: %intel_mllvm %intel_devirt_options -mllvm -opaque-pointers \
+; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
-; INTEL_CUSTOMIZATION
-; RUN: llvm-dis -opaque-pointers %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
-; end INTEL_CUSTOMIZATION
+; RUN: llvm-dis %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
 
 ;; Regular LTO WPD
 ; RUN: opt -o %t4.o %s
 ; RUN: ld.lld %t4.o -o %t3 -save-temps --lto-whole-program-visibility \
 ; INTEL_CUSTOMIZATION
-; RUN: %intel_mllvm %intel_devirt_options -mllvm -opaque-pointers \
+; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
-; INTEL_CUSTOMIZATION
-; RUN: llvm-dis -opaque-pointers %t3.0.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
-; end INTEL_CUSTOMIZATION
+; RUN: llvm-dis %t3.0.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
 
 ; REMARK-DAG: single-impl: devirtualized a call to _ZN1A1nEi
 ; REMARK-DAG: single-impl: devirtualized a call to _ZN1D1mEi
@@ -45,45 +39,34 @@
 ;; Index based WPD
 ; RUN: ld.lld %t2.o -o %t3 -save-temps \
 ; INTEL_CUSTOMIZATION
-; RUN: %intel_mllvm %intel_devirt_options -mllvm -opaque-pointers \
+; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. \
 ; RUN:   2>&1 | FileCheck /dev/null --implicit-check-not single-impl --allow-empty
-; INTEL_CUSTOMIZATION
-; RUN: llvm-dis -opaque-pointers %t2.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-NODEVIRT-IR
-; end INTEL_CUSTOMIZATION
+; RUN: llvm-dis %t2.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-NODEVIRT-IR
 ;; Ensure --no-lto-whole-program-visibility overrides explicit --lto-whole-program-visibility.
 ; RUN: ld.lld %t2.o -o %t3 -save-temps --lto-whole-program-visibility --no-lto-whole-program-visibility \
-; INTEL_CUSTOMIZATION
-; RUN: -mllvm -opaque-pointers \
-; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. \
 ; RUN:   2>&1 | FileCheck /dev/null --implicit-check-not single-impl --allow-empty
-; INTEL_CUSTOMIZATION
-; RUN: llvm-dis -opaque-pointers %t2.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-NODEVIRT-IR
-; end INTEL_CUSTOMIZATION
+; RUN: llvm-dis %t2.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-NODEVIRT-IR
 
 ;; Hybrid WPD
 ; RUN: ld.lld %t.o -o %t3 -save-temps \
 ; INTEL_CUSTOMIZATION
-; RUN: %intel_mllvm %intel_devirt_options -mllvm -opaque-pointers \
+; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. \
 ; RUN:   2>&1 | FileCheck /dev/null --implicit-check-not single-impl --allow-empty
-; INTEL_CUSTOMIZATION
-; RUN: llvm-dis -opaque-pointers %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-NODEVIRT-IR
-; end INTEL_CUSTOMIZATION
+; RUN: llvm-dis %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-NODEVIRT-IR
 
 ;; Regular LTO WPD
 ; RUN: ld.lld %t4.o -o %t3 -save-temps \
 ; INTEL_CUSTOMIZATION
-; RUN: %intel_mllvm %intel_devirt_options -mllvm -opaque-pointers \
+; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. \
 ; RUN:   2>&1 | FileCheck /dev/null --implicit-check-not single-impl --allow-empty
-; INTEL_CUSTOMIZATION
-; RUN: llvm-dis -opaque-pointers %t3.0.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-NODEVIRT-IR
-; end INTEL_CUSTOMIZATION
+; RUN: llvm-dis %t3.0.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-NODEVIRT-IR
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-grtev4-linux-gnu"

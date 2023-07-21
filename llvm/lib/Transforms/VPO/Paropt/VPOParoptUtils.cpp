@@ -1450,21 +1450,21 @@ CallInst *VPOParoptUtils::genOCLGenericCall(StringRef FnName,
 enum class IndexBuiltinKind {
   LOCAL_ID,
   GROUP_ID,
+  GLOBAL_ID,
   LOCAL_SIZE,
   NUM_GROUPS,
+  GLOBAL_SIZE,
   INDEX_BUILTIN_MAX
 };
 
 static const StringRef IndexBuiltinNamesOCL[] = {
-    "_Z12get_local_idj", "_Z12get_group_idj", "_Z14get_local_sizej",
-    "_Z14get_num_groupsj"};
+    "_Z12get_local_idj",   "_Z12get_group_idj",   "_Z13get_global_idj",
+    "_Z14get_local_sizej", "_Z14get_num_groupsj", "_Z15get_global_sizej"};
 
 static const StringRef IndexBuiltinNamesSPV[] = {
-    "_Z27__spirv_LocalInvocationId",
-    "_Z21__spirv_WorkgroupId",
-    "_Z23__spirv_WorkgroupSize",
-    "_Z23__spirv_NumWorkgroups",
-};
+    "_Z27__spirv_LocalInvocationId",  "_Z21__spirv_WorkgroupId",
+    "_Z28__spirv_GlobalInvocationId", "_Z23__spirv_WorkgroupSize",
+    "_Z23__spirv_NumWorkgroups",      "_Z20__spirv_GlobalSize"};
 
 static CallInst *genIndexingBuiltinCall(IndexBuiltinKind BuiltinId, int Dim,
                                         Instruction *InsertPt) {
@@ -1508,6 +1508,11 @@ CallInst *VPOParoptUtils::genGroupIdCall(int Dim, Instruction *InsertPt) {
   return genIndexingBuiltinCall(IndexBuiltinKind::GROUP_ID, Dim, InsertPt);
 }
 
+// Generate a call to get global id for the dimension provided
+CallInst *VPOParoptUtils::genGlobalIdCall(int Dim, Instruction *InsertPt) {
+  return genIndexingBuiltinCall(IndexBuiltinKind::GLOBAL_ID, Dim, InsertPt);
+}
+
 // Generate a call to get local (group) size for the dimension provided
 CallInst *VPOParoptUtils::genLocalSizeCall(int Dim, Instruction *InsertPt) {
   return genIndexingBuiltinCall(IndexBuiltinKind::LOCAL_SIZE, Dim, InsertPt);
@@ -1516,6 +1521,11 @@ CallInst *VPOParoptUtils::genLocalSizeCall(int Dim, Instruction *InsertPt) {
 // Generate a call to get number of groups the dimension provided
 CallInst *VPOParoptUtils::genNumGroupsCall(int Dim, Instruction *InsertPt) {
   return genIndexingBuiltinCall(IndexBuiltinKind::NUM_GROUPS, Dim, InsertPt);
+}
+
+// Generate a call to get local (group) size for the dimension provided
+CallInst *VPOParoptUtils::genGlobalSizeCall(int Dim, Instruction *InsertPt) {
+  return genIndexingBuiltinCall(IndexBuiltinKind::GLOBAL_SIZE, Dim, InsertPt);
 }
 
 // Set SPIR_FUNC calling convention for SPIR-V targets, otherwise,

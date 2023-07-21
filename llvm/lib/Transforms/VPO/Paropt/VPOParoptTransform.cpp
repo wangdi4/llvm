@@ -151,12 +151,52 @@ static cl::opt<bool> AllowDistributeDimension(
      cl::desc("Allow using separate ND-range dimension "
               "for OpenMP distribute."));
 
-// Due to implicit widening for SPIR targets, we want to schedule a loop
-// such that adjacent WIs process adjacent iterations of the loop.
-static cl::opt<bool> AvoidStridedProcessing(
-    "vpo-paropt-avoid-strided-processing", cl::Hidden, cl::init(true),
+namespace {
+enum class OCLLoopProcessingKind { NonStridedLWS, NonStridedGWS, Strided };
+} // namespace
+
+// The example below illustrates the different ways of worksharing loop
+// processing (numbers in the table indicate indices of elements being processed
+// by a particular thread)
+//
+// NumTeams = 2, TeamSize = 4 => LWS = 4, GWS = 8
+// Team         0                  1
+// Thread   0  1  2  3         4  5  6  7
+// --------------------------------------   Processing = NonStridedLWS
+//          0  1  2  3         8  9 10 11     LoopStride = LWS = 4
+//          4  5  6  7        12 13 14 15     Thread2ThreadStride = 1
+//                                          Same iteration elements can
+//                                          potentially be combined into a
+//                                          'wave' (GPU SIMD instruction) of
+//                                          length 4
+//
+// --------------------------------------   Processing = NonStridedLWS
+//          0  1  2  3         4  5  6  7     LoopStride = GWS = 8
+//          8  9 10 11        12 13 14 15     Thread2ThreadStride = 1
+//                                          Same iteration elements can
+//                                          potentially be combined into a
+//                                          'wave' (GPU SIMD instruction) of
+//                                          length 8
+//
+// --------------------------------------   Processing = Strided
+//          0  2  4  6         8 10 12 14     LoopStride = 1
+//          1  3  5  7         9 11 13 15     Thread2ThreadStride = GWS/LWS = 2
+//
+static cl::opt<OCLLoopProcessingKind> OCLLoopProcessing(
+    "vpo-paropt-ocl-loop-processing", cl::Hidden,
+    cl::init(OCLLoopProcessingKind::NonStridedLWS),
     cl::desc("For SPIR targets schedule parallel loops such that adjacent "
-             "threads execute adjacent iterations of the loop."));
+             "threads execute adjacent iterations of the loop."),
+    cl::values(clEnumValN(OCLLoopProcessingKind::NonStridedLWS,
+                          "non-strided-lws",
+                          "use non-strided processing with the inner loop "
+                          "increment value = LWS"),
+               clEnumValN(OCLLoopProcessingKind::NonStridedGWS,
+                          "non-strided-gws",
+                          "use non-strided processing with the inner loop "
+                          "increment value = GWS"),
+               clEnumValN(OCLLoopProcessingKind::Strided, "strided",
+                          "use strided processing")));
 
 static cl::opt<bool> UseFastReduction("vpo-paropt-fast-reduction", cl::Hidden,
                                       cl::init(true),
@@ -549,10 +589,25 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
 
   Value *Chunk = nullptr;
   Value *TeamStrideVal = nullptr;
+  // NOTE: using OCLLoopProcessingKind::NonStridedGWS and GWS stride here
+  // may be a bit confusing, but that's different strides:
+  // LoopProcessingKind stride refers to the stride between the adjacent
+  // threads executing the loop (=1 for NonStrided kinds), while on the IR
+  // level the loop's IV is incremented with GWS, i.e. the loop's stride is GWS
+  bool UseGWSStride =
+      OCLLoopProcessing == OCLLoopProcessingKind::NonStridedGWS &&
+      !VPOParoptUtils::enableDeviceSimdCodeGen() &&
+      !VPOParoptUtils::useSPMDMode(W) &&
+      getSchedKindForMultiLevelLoops(W, VPOParoptUtils::getLoopScheduleKind(W),
+                                     WRNScheduleStaticEven) ==
+          WRNScheduleStaticEven;
   // With specific ND-range and non-static distribute schedule each work group
   // executes at most one iteration of the distribute loop, so we know that
-  // chunk size will be one.
-  if (isa<WRNDistributeNode>(W) && VPOParoptUtils::useSPMDMode(W) &&
+  // chunk size will be one, and that's why the distribute loop's stride value
+  // should be the whole trip count. The latter if fair for GWS-strided
+  // workshare-loop since it doesn't employ contiguous per-team chunking as well
+  if (isa<WRNDistributeNode>(W) &&
+      (VPOParoptUtils::useSPMDMode(W) || UseGWSStride) &&
       W->getDistSchedule().getKind() != WRNScheduleDistributeStatic) {
     Chunk = ConstantInt::get(cast<IntegerType>(ItSpaceType), 1);
     TeamStrideVal = ItSpace;
@@ -588,18 +643,29 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
   Value *GroupId = Builder.CreateZExtOrTrunc(GroupIdCall, ItSpaceType);
 
   // Compute new_team_lb
-  // FIXME: this multiplication may actually overflow,
-  //        if big chunk size is specified in the schedule() clause.
-  Value *LBDiff = Builder.CreateMul(GroupId, Chunk);
+  Value *LBDiff;
+  if (UseGWSStride) {
+    // team_lb is just lb for GWS stride
+    LBDiff = ConstantInt::get(cast<IntegerType>(ItSpaceType), 0);
+  } else {
+    // FIXME: this multiplication may actually overflow,
+    //        if big chunk size is specified in the schedule() clause.
+    LBDiff = Builder.CreateMul(GroupId, Chunk);
+  }
   LB = Builder.CreateAdd(LB, LBDiff);
   Builder.CreateStore(LB, LowerBnd);
   if (TeamLowerBnd)
     Builder.CreateStore(LB, TeamLowerBnd);
 
   // Compute new_team_ub
-  ConstantInt *ValueOne = ConstantInt::get(cast<IntegerType>(ItSpaceType), 1);
-  Value *Ch = Builder.CreateSub(Chunk, ValueOne);
-  Value *NewUB = Builder.CreateAdd(LB, Ch);
+  Value *NewUB;
+  if (UseGWSStride) {
+    NewUB = UB;
+  } else {
+    ConstantInt *ValueOne = ConstantInt::get(cast<IntegerType>(ItSpaceType), 1);
+    Value *Ch = Builder.CreateSub(Chunk, ValueOne);
+    NewUB = Builder.CreateAdd(LB, Ch);
+  }
 
   // Compare bounds using signed/unsigned comparison based on the ZTT compare.
   // This helps optimizing CFG after Paropt. If ZTT is not found, then
@@ -693,7 +759,7 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   WRNScheduleKind SchedKind = getSchedKindForMultiLevelLoops(
       W, VPOParoptUtils::getLoopScheduleKind(W), WRNScheduleStaticEven);
 
-  // There are two ways to process iterations of the chunk
+  // There are three ways to process iterations of the chunk
   // provided by the teams distribution for static even scheduling:
   //   Strided:
   //     chunk_size =
@@ -703,10 +769,15 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   //     new_ub = min(new_lb + chunk_size - 1, ub);
   //     for (i = new_lb; i <= new_ub; i++)
   //
-  //   Non-strided:
+  //   Non-strided with LWS increment:
   //     new_lb = lb + get_local_id(Idx);
   //     new_ub = ub;
   //     for (i = new_lb; i <= new_ub; i += get_local_size(Idx))
+  //
+  //   Non-strided with GWS increment:
+  //     new_lb = lb + get_global_id(Idx);
+  //     new_ub = ub;
+  //     for (i = new_lb; i <= new_ub; i += get_global_size(Idx))
   //
   // Due to implicit widening (combining adjacent WIs into a SIMD program),
   // in Strided case, vector representing induction variable 'i' will
@@ -719,7 +790,7 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   // a few arithmetic operations and a min() computation with
   // Non-strided scheduling.
   //
-  // To be on the safe side, we only use Non-strided scheduling,
+  // To be on the safe side, we only use Non-strided LWS scheduling,
   // if the iteration processing pattern matches the canonical one,
   // i.e. the induction variable is incremented by 1 on each iteration.
   //
@@ -751,17 +822,17 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   // If get_global_id(Idx) returns value outside of the loop's
   // iteration space, then the loop above will just not run,
   // otherwise, it will run exactly one iteration.
-  bool IncrementByLocalSize = false;
+  bool IncrementBySize = false;
   PHINode *PN = WRegionUtils::getOmpCanonicalInductionVariable(L);
   Instruction *IVInc =
       dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch()));
   uint32_t IVAddendOp = 0;
-  if (AvoidStridedProcessing &&
+  if (OCLLoopProcessing != OCLLoopProcessingKind::Strided &&
       !VPOParoptUtils::enableDeviceSimdCodeGen() &&
       !VPOParoptUtils::useSPMDMode(W) &&
       // Do this only for schedule(static) for the time being.
-      SchedKind == WRNScheduleStaticEven &&
-      IVInc && IVInc->getOpcode() == Instruction::Add) {
+      SchedKind == WRNScheduleStaticEven && IVInc &&
+      IVInc->getOpcode() == Instruction::Add) {
     if (IVInc->getOperand(0) == PN)
       IVAddendOp = 1;
 
@@ -769,7 +840,7 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
     if (AddendConst && AddendConst->isOneValue())
       // Make sure that the canonical induction variable is incremented
       // by 1 each iteration.
-      IncrementByLocalSize = true;
+      IncrementBySize = true;
   }
 
   // All operands of math expressions below will be of LBType
@@ -784,7 +855,7 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
 
     Value *NumThreads = Builder.CreateSExtOrTrunc(LocalSize, LBType);
     if (SchedKind == WRNScheduleStaticEven) {
-      if (!IncrementByLocalSize) {
+      if (!IncrementBySize) {
         // The chunk size is not used for Non-strided scheduling.
         // Otherwise, it is equal to:
         //   chunk_size =
@@ -801,7 +872,7 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
       llvm_unreachable(
           "Unsupported loop schedule type in OpenCL based offloading!");
 
-    if (IncrementByLocalSize)
+    if (IncrementBySize)
       // Static even scheduling does not create a scheduling loop
       // for chunks processing, so the scheduling stride is not needed.
       // Reset it to nullptr here to make sure all invalid users
@@ -815,23 +886,40 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
     CallInst *LocalId = VPOParoptUtils::genLocalIdCall(DimNum, CallsInsertPt);
     Value *LocalIdCasted = Builder.CreateSExtOrTrunc(LocalId, LBType);
 
+    bool UseGWSProcessing =
+        OCLLoopProcessing == OCLLoopProcessingKind::NonStridedGWS;
+
     Value *LBDiff = nullptr;
-    if (IncrementByLocalSize)
+    if (IncrementBySize) {
       // new_lb = lb + get_local_id(Idx);
-      LBDiff = LocalIdCasted;
-    else
+      if (UseGWSProcessing) {
+        CallInst *GlobalId =
+            VPOParoptUtils::genGlobalIdCall(DimNum, CallsInsertPt);
+        Value *GlobalIdCasted = Builder.CreateSExtOrTrunc(GlobalId, LBType);
+        LBDiff = GlobalIdCasted;
+      } else {
+        LBDiff = LocalIdCasted;
+      }
+    } else {
       // new_lb = lb + get_local_id(Idx) * chunk_size;
       LBDiff = Builder.CreateMul(LocalIdCasted, Chunk);
+    }
     LB = Builder.CreateAdd(LB, LBDiff);
     Builder.CreateStore(LB, LowerBnd);
 
-    if (IncrementByLocalSize) {
+    if (IncrementBySize) {
       // new_ub = ub;
       NewUB = UB;
 
-      auto *LocalSizeCasted = CastInst::CreateIntegerCast(
-          LocalSize, IVInc->getType(), false, "", IVInc);
-      IVInc->replaceUsesOfWith(IVInc->getOperand(IVAddendOp), LocalSizeCasted);
+      auto *SizeToCast = LocalSize;
+      if (UseGWSProcessing) {
+        CallInst *GlobalSize =
+            VPOParoptUtils::genGlobalSizeCall(DimNum, CallsInsertPt);
+        SizeToCast = GlobalSize;
+      }
+      auto *SizeCasted = CastInst::CreateIntegerCast(
+          SizeToCast, IVInc->getType(), false, "", IVInc);
+      IVInc->replaceUsesOfWith(IVInc->getOperand(IVAddendOp), SizeCasted);
     } else {
       // new_ub = min(new_lb + chunk_size - 1, ub);
       //
@@ -844,27 +932,7 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   } else {
     // Use SPMD mode by setting lower and upper bound to get_global_id().
     // This will let each WI execute just one iteration of the loop.
-    CallInst *GlobalId;
-
-    if (EmitSPIRVBuiltins) {
-      std::string fname;
-      SmallVector<Value *, 1> Arg;
-      switch (DimNum) {
-      case 0: fname = "_Z28__spirv_GlobalInvocationId_xv";
-        break;
-      case 1: fname = "_Z28__spirv_GlobalInvocationId_yv";
-        break;
-      case 2: fname = "_Z28__spirv_GlobalInvocationId_zv";
-        break;
-      default:
-        llvm_unreachable("Invalid dimentional index ");
-      }
-      GlobalId = VPOParoptUtils::genOCLGenericCall(fname,
-        GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
-    } else {
-      GlobalId = VPOParoptUtils::genOCLGenericCall("_Z13get_global_idj",
-        GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
-    }
+    CallInst *GlobalId = VPOParoptUtils::genGlobalIdCall(DimNum, CallsInsertPt);
 
     Value *GlobalIdCasted = Builder.CreateSExtOrTrunc(GlobalId, LBType);
     Builder.CreateStore(GlobalIdCasted, LowerBnd);
@@ -872,7 +940,7 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   }
 
   // No need to update UpperBnd for Non-strided scheduling.
-  if (!IncrementByLocalSize) {
+  if (!IncrementBySize) {
     // Compare bounds using signed/unsigned comparison based on the ZTT compare.
     // This helps optimizing CFG after Paropt. If ZTT is not found, then
     // use unsigned comparison.
@@ -1291,7 +1359,9 @@ bool VPOParoptTransform::genOCLParallelLoop(
        // Each iteration of the original distribute parallel loop is executed
        // by a single WI, and we rely on OpenCL paritioning of WIs across WGs.
        // Thus, there is no need to compute the team bounds.
-       (WRegionUtils::isDistributeNode(W) || !VPOParoptUtils::useSPMDMode(W)));
+       (WRegionUtils::isDistributeNode(W) ||
+        (!VPOParoptUtils::useSPMDMode(W)))/* &&
+         OCLLoopProcessing != OCLLoopProcessingKind::NonStridedGWS*/);
 
   bool GenTeamDistDispatchLoop =
       // Team distribute dispatch loop is only needed for chunked
@@ -1313,6 +1383,10 @@ bool VPOParoptTransform::genOCLParallelLoop(
           [](const WRegionNode *W) { return W->getIsParLoop(); },
           [](const WRegionNode *W) { return !isa<WRNTargetNode>(W); }))
     DoNotPartition = true;
+  bool LoopNeedsBoundsUpdate =
+      isa<WRNParallelSectionsNode>(W) ||
+      WRegionUtils::isDistributeParLoopNode(W) || isa<WRNParallelLoopNode>(W) ||
+      isa<WRNWksLoopNode>(W) || isa<WRNSectionsNode>(W);
 
   for (unsigned I = W->getWRNLoopInfo().getNormIVSize(); I > 0; --I) {
 
@@ -1363,10 +1437,7 @@ bool VPOParoptTransform::genOCLParallelLoop(
                                        TeamLowerBnd, TeamUpperBnd, TeamStride,
                                        DistSchedKind, TeamLB, TeamUB, TeamST);
 
-    if (isa<WRNParallelSectionsNode>(W) ||
-        WRegionUtils::isDistributeParLoopNode(W) ||
-        isa<WRNParallelLoopNode>(W) || isa<WRNWksLoopNode>(W) ||
-        isa<WRNSectionsNode>(W))
+    if (LoopNeedsBoundsUpdate)
       genOCLLoopBoundUpdateCode(W, I - 1, LowerBnd, UpperBnd, SchedStride);
 
     genOCLLoopPartitionCode(W, I - 1, LowerBnd, UpperBnd, SchedStride,

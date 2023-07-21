@@ -542,7 +542,7 @@ public:
     LLVM_DEBUG(dbgs() << "\n");
     if (!isClassicIREnabled())
       return;
-    if (shouldSkipCallBase(&CB))
+    if (!FromCallback && shouldSkipCallBase(&CB))
       return;
     if (ActiveInlineCallBase != &CB) {
       auto MapIt = IRCallBaseCallSiteMap.find(&CB);

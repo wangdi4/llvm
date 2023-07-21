@@ -265,10 +265,11 @@ bool VPOUtils::isPointerCastOrZeroOffsetGEP(Value *V) {
 // Lit tests for some of the above cases are:
 // A: target_map_global_array.ll,rename_and_restore_nested.ll
 // B: target_map_gep_fence2.ll
-// C: rename_and_restore_struct_castoutside.ll
-// D: rename_and_restore_int_addrcast.ll,rename_and_restore_struct_castinside.ll
-// E: rename_and_restore_struct_castsame.ll
-// F: rename_and_restore_struct_castboth.ll
+// C: [rename_and_]restore_struct_castoutside.ll
+// D: [rename_and_]restore_int_addrcast.ll,
+//    [rename_and_]restore_struct_castinside.ll
+// E: [rename_and_]restore_struct_castsame.ll
+// F: [rename_and_]restore_struct_castboth.ll
 // G: restore_remove_lifetime_of_temps.ll
 // H: restore_remove_lifetime_of_temps_nocast_opaqueptrs.ll
 bool VPOUtils::restoreOperands(Function &F) {
