@@ -54,6 +54,11 @@ void Intel::OpenCL::Utils::InitHwloc() {
                                               HWLOC_TYPE_FILTER_KEEP_NONE);
     assert(!err && "hwloc_topology_set_all_types_filter failed");
 
+    // filter GROUP back in
+    err = hwloc_topology_set_type_filter(topology, HWLOC_OBJ_GROUP,
+                                         HWLOC_TYPE_FILTER_KEEP_STRUCTURE);
+    assert(!err && "Enable HWLOC_OBJ_GROUP failed");
+
     // filter Package back in
     err = hwloc_topology_set_type_filter(topology, HWLOC_OBJ_PACKAGE,
                                          HWLOC_TYPE_FILTER_KEEP_ALL);
