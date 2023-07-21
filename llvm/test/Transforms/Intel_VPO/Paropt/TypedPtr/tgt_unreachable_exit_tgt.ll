@@ -1,5 +1,5 @@
-; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -passes='vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='vpo-paropt' -S %s | FileCheck %s
 
 ; Check that we can outline successive target regions with unreachable exit blocks.
 
@@ -24,8 +24,8 @@
 ;
 ; //int main() { foo(); }
 
-; CHECK: call i32 @__tgt_target_mapper(ptr @{{[^,]+}}, i64 %{{[^,]+}}, ptr @[[OUTLINED_ENTRY1:__omp_offloading[^, ]+]].region_id, i32 0, ptr null, ptr null, ptr null, ptr null, ptr null, ptr null)
-; CHECK: call i32 @__tgt_target_mapper(ptr @{{[^,]+}}, i64 %{{[^,]+}}, ptr @[[OUTLINED_ENTRY2:__omp_offloading[^, ]+]].region_id, i32 0, ptr null, ptr null, ptr null, ptr null, ptr null, ptr null)
+; CHECK: call i32 @__tgt_target_mapper(%struct.ident_t* @{{[^,]+}}, i64 %{{[^,]+}}, i8* @[[OUTLINED_ENTRY1:__omp_offloading[^, ]+]].region_id, i32 0, i8** null, i8** null, i64* null, i64* null, i8** null, i8** null)
+; CHECK: call i32 @__tgt_target_mapper(%struct.ident_t* @{{[^,]+}}, i64 %{{[^,]+}}, i8* @[[OUTLINED_ENTRY2:__omp_offloading[^, ]+]].region_id, i32 0, i8** null, i8** null, i64* null, i64* null, i8** null, i8** null)
 
 ; Check that the outlined functions contain the orphaned exit blocks with
 ; no predecessors.

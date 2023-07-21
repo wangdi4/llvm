@@ -1,5 +1,5 @@
-; RUN: opt -bugpoint-enable-legacy-pm -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ; Original code:
 ; void foo(int *a)
@@ -16,79 +16,77 @@
 ; CHECK: [[ZTT:%.+]] = icmp sle i32 0, %{{.+}}
 ; CHECK: br i1 [[ZTT]], label %[[PHB:[^,]+]], label %[[REXIT:[^,]+]]
 ; CHECK: [[PHB]]:
-; CHECK: [[TOK:%.+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),
-; CHECK-SAME: "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %[[LPRIV:[^,]+]], i32 0, i32 1)
+; CHECK: [[TOK:%.+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),{{.*}}"QUAL.OMP.LASTPRIVATE"(i32* %[[LPRIV:[^,]+]]){{.*}} ]
 ; CHECK: br label %[[LOOPBODY:[^,]+]]
 ; CHECK: [[LOOPBODY]]:
-; CHECK: store {{.*}}ptr %[[LPRIV]]
-; CHECK: load {{.*}}ptr %[[LPRIV]]
-; CHECK: store {{.*}}ptr %[[LPRIV]]
+; CHECK: store {{.*}}i32* %[[LPRIV]]
+; CHECK: load {{.*}}i32* %[[LPRIV]]
+; CHECK: store {{.*}}i32* %[[LPRIV]]
 ; CHECK: br i1 %{{[^,]+}}, label %[[LOOPBODY]], label %[[LEXIT:[^,]+]]
 ; CHECK: [[LEXIT]]:
 ; CHECK: call void @llvm.directive.region.exit(token [[TOK]]) [ "DIR.OMP.END.SIMD"() ]
-; CHECK: %[[V:.+]] = load i32, ptr %[[LPRIV]]
-; CHECK: store i32 %[[V]], ptr %l
+; CHECK: %[[V:.+]] = load i32, i32* %[[LPRIV]]
+; CHECK: store i32 %[[V]], i32* %l
 ; CHECK: br label %[[REXIT]]
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @foo(ptr %a) #0 {
+define dso_local void @foo(i32* %a) #0 {
 entry:
-  %a.addr = alloca ptr, align 8
+  %a.addr = alloca i32*, align 8
   %i = alloca i32, align 4
   %l = alloca i32, align 4
   %.omp.iv = alloca i32, align 4
   %tmp = alloca i32, align 4
   %.omp.ub = alloca i32, align 4
-  store ptr %a, ptr %a.addr, align 8
-  store i32 0, ptr %l, align 4
+  store i32* %a, i32** %a.addr, align 8
+  store i32 0, i32* %l, align 4
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.omp.ub, i32 0, i32 1),
-    "QUAL.OMP.SHARED:TYPED"(ptr %i, i32 0, i32 1),
-    "QUAL.OMP.SHARED:TYPED"(ptr %l, i32 0, i32 1),
-    "QUAL.OMP.SHARED:TYPED"(ptr %a.addr, ptr null, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.omp.iv, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %tmp, i32 0, i32 1) ]
+    "QUAL.OMP.PRIVATE"(i32* %.omp.ub),
+    "QUAL.OMP.SHARED"(i32* %l),
+    "QUAL.OMP.SHARED"(i32* %i),
+    "QUAL.OMP.SHARED"(i32** %a.addr),
+    "QUAL.OMP.PRIVATE"(i32* %tmp) ]
 
-  store i32 9999, ptr %.omp.ub, align 4
+  store i32 9999, i32* %.omp.ub, align 4
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),
-    "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %l, i32 0, i32 1),
-    "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %.omp.iv, i32 0),
-    "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %.omp.ub, i32 0) ]
+    "QUAL.OMP.LASTPRIVATE"(i32* %l),
+    "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv),
+    "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub) ]
 
-  store i32 0, ptr %.omp.iv, align 4
+  store i32 0, i32* %.omp.iv, align 4
   br label %omp.inner.for.cond
 
 omp.inner.for.cond:                               ; preds = %omp.inner.for.inc, %entry
-  %2 = load i32, ptr %.omp.iv, align 4
-  %3 = load i32, ptr %.omp.ub, align 4
+  %2 = load i32, i32* %.omp.iv, align 4
+  %3 = load i32, i32* %.omp.ub, align 4
   %cmp = icmp sle i32 %2, %3
   br i1 %cmp, label %omp.inner.for.body, label %omp.inner.for.end
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.cond
-  %4 = load i32, ptr %.omp.iv, align 4
+  %4 = load i32, i32* %.omp.iv, align 4
   %mul = mul nsw i32 %4, 1
   %add = add nsw i32 0, %mul
-  store i32 %add, ptr %i, align 4
-  %5 = load ptr, ptr %a.addr, align 8
-  %6 = load i32, ptr %i, align 4
+  store i32 %add, i32* %i, align 4
+  %5 = load i32*, i32** %a.addr, align 8
+  %6 = load i32, i32* %i, align 4
   %idxprom = sext i32 %6 to i64
-  %arrayidx = getelementptr inbounds i32, ptr %5, i64 %idxprom
-  %7 = load i32, ptr %arrayidx, align 4
-  store i32 %7, ptr %l, align 4
-  %8 = load i32, ptr %l, align 4
+  %arrayidx = getelementptr inbounds i32, i32* %5, i64 %idxprom
+  %7 = load i32, i32* %arrayidx, align 4
+  store i32 %7, i32* %l, align 4
+  %8 = load i32, i32* %l, align 4
   %inc = add nsw i32 %8, 1
-  store i32 %inc, ptr %l, align 4
+  store i32 %inc, i32* %l, align 4
   br label %omp.body.continue
 
 omp.body.continue:                                ; preds = %omp.inner.for.body
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %omp.body.continue
-  %9 = load i32, ptr %.omp.iv, align 4
+  %9 = load i32, i32* %.omp.iv, align 4
   %add1 = add nsw i32 %9, 1
-  store i32 %add1, ptr %.omp.iv, align 4
+  store i32 %add1, i32* %.omp.iv, align 4
   br label %omp.inner.for.cond
 
 omp.inner.for.end:                                ; preds = %omp.inner.for.cond

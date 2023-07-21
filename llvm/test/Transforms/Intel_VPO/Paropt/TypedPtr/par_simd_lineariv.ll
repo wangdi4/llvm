@@ -1,5 +1,5 @@
-; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ; Test src:
 
@@ -35,61 +35,60 @@ entry:
   %tmp = alloca i32, align 4
   %.omp.iv = alloca i32, align 4
   %.omp.ub = alloca i32, align 4
-  store i32 0, ptr %retval, align 4
-  store i32 0, ptr %indexK, align 4
+  store i32 0, i32* %retval, align 4
+  store i32 0, i32* %indexK, align 4
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
     "QUAL.OMP.NUM_THREADS"(i32 4),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.omp.iv, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %.omp.ub, i32 0, i32 1),
-    "QUAL.OMP.SHARED:TYPED"(ptr %indexK, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %tmp, i32 0, i32 1) ]
+    "QUAL.OMP.PRIVATE"(i32* %.omp.iv),
+    "QUAL.OMP.PRIVATE"(i32* %.omp.ub),
+    "QUAL.OMP.SHARED"(i32* %indexK),
+    "QUAL.OMP.PRIVATE"(i32* %tmp) ]
 
-  store i32 1, ptr %.omp.ub, align 4
+  store i32 1, i32* %.omp.ub, align 4
 
 ; Check that the private copy of %indexK is used on the SIMD directive.
-; CHECK:      "DIR.OMP.SIMD"()
-; CHECK-SAME: "QUAL.OMP.LINEAR:IV.TYPED"(ptr %indexK.linear.iv, i32 0, i32 1, i32 1) ]
+; CHECK: {{%[^ ]+}} = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), {{.*}} "QUAL.OMP.LINEAR:IV"(i32* %indexK.linear.iv, i32 1) ]
 
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),
-    "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %.omp.iv, i32 0),
-    "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %.omp.ub, i32 0),
-    "QUAL.OMP.LINEAR:IV.TYPED"(ptr %indexK, i32 0, i32 1, i32 1) ]
+    "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv),
+    "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub),
+    "QUAL.OMP.LINEAR:IV"(i32* %indexK, i32 1) ]
 
-  store i32 0, ptr %.omp.iv, align 4
+  store i32 0, i32* %.omp.iv, align 4
   br label %omp.inner.for.cond
 
 omp.inner.for.cond:                               ; preds = %omp.inner.for.inc, %entry
-  %2 = load i32, ptr %.omp.iv, align 4
-  %3 = load i32, ptr %.omp.ub, align 4
+  %2 = load i32, i32* %.omp.iv, align 4
+  %3 = load i32, i32* %.omp.ub, align 4
   %cmp = icmp sle i32 %2, %3
   br i1 %cmp, label %omp.inner.for.body, label %omp.inner.for.end
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.cond
-  %4 = load i32, ptr %.omp.iv, align 4
+  %4 = load i32, i32* %.omp.iv, align 4
   %mul = mul nsw i32 %4, 1
   %add = add nsw i32 0, %mul
-  store i32 %add, ptr %indexK, align 4
-  %5 = load i32, ptr %indexK, align 4
-  %call = call i32 (ptr, ...) @printf(ptr @.str, i32 %5)
+  store i32 %add, i32* %indexK, align 4
+  %5 = load i32, i32* %indexK, align 4
+  %call = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i64 0, i64 0), i32 %5)
   br label %omp.body.continue
 
 omp.body.continue:                                ; preds = %omp.inner.for.body
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %omp.body.continue
-  %6 = load i32, ptr %.omp.iv, align 4
+  %6 = load i32, i32* %.omp.iv, align 4
   %add1 = add nsw i32 %6, 1
-  store i32 %add1, ptr %.omp.iv, align 4
-  %7 = load i32, ptr %indexK, align 4
+  store i32 %add1, i32* %.omp.iv, align 4
+  %7 = load i32, i32* %indexK, align 4
   %add2 = add nsw i32 %7, 1
-  store i32 %add2, ptr %indexK, align 4
+  store i32 %add2, i32* %indexK, align 4
 ; Check that %indexK is replaced by its private copy inside the region.
-; CHECK: store i32 %add2, ptr %indexK.linear.iv, align 4
+; CHECK: store i32 %add2, i32* %indexK.linear.iv, align 4
   br label %omp.inner.for.cond
 
 ; Check for the copy-out of the private copy of %indexK back to the original, after the loop.
-; CHECK: [[FINAL_VAL:%[^ ]+]] = load i32, ptr %indexK.linear.iv
-; CHECK: store i32 [[FINAL_VAL]], ptr %indexK
+; CHECK: [[FINAL_VAL:%[^ ]+]] = load i32, i32* %indexK.linear.iv
+; CHECK: store i32 [[FINAL_VAL]], i32* %indexK
 
 omp.inner.for.end:                                ; preds = %omp.inner.for.cond
   br label %omp.loop.exit
@@ -97,12 +96,12 @@ omp.inner.for.end:                                ; preds = %omp.inner.for.cond
 omp.loop.exit:                                    ; preds = %omp.inner.for.end
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.SIMD"() ]
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL"() ]
-  %8 = load i32, ptr %indexK, align 4
-  %call3 = call i32 (ptr, ...) @printf(ptr @.str, i32 %8)
-  %9 = load i32, ptr %retval, align 4
+  %8 = load i32, i32* %indexK, align 4
+  %call3 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i64 0, i64 0), i32 %8)
+  %9 = load i32, i32* %retval, align 4
   ret i32 %9
 }
 
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
-declare dso_local i32 @printf(ptr, ...)
+declare dso_local i32 @printf(i8*, ...)

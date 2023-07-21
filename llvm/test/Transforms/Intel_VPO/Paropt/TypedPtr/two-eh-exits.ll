@@ -1,4 +1,4 @@
-; RUN: opt -S -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -S -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' %s | FileCheck %s
 ;
 ; In this case, CFE has merged two cleanup handlers inside an OMP region,
 ; with a cleanup handler outside the OMP region.
@@ -59,10 +59,10 @@ declare dso_local void @_ZN4camp10make_tupleIJiiEEENS_5tupleIJDpNS_8internal17un
 
 declare dso_local void @_ZN4RAJA12ReduceMaxLocINS_6policy3omp17omp_target_reduceEdN4camp5tupleIJiiEEEECI2NS_15TargetReduceLocINS_3omp6maxlocIdS6_EEdS6_EEEdS6_() unnamed_addr #1 align 2
 
-define dso_local void @_ZN42gtest_case_ReductionTupleLocTestTargetOMP_17ReduceMaxLocTupleISt5tupleIJN4RAJA6policy3omp28omp_target_parallel_for_execILm256EEENS2_12ReduceMinLocINS4_17omp_target_reduceEdN4camp5tupleIJiiEEEEEEEE8TestBodyEv() unnamed_addr #1 comdat align 2 personality ptr @__gxx_personality_v0 {
+define dso_local void @_ZN42gtest_case_ReductionTupleLocTestTargetOMP_17ReduceMaxLocTupleISt5tupleIJN4RAJA6policy3omp28omp_target_parallel_for_execILm256EEENS2_12ReduceMinLocINS4_17omp_target_reduceEdN4camp5tupleIJiiEEEEEEEE8TestBodyEv() unnamed_addr #1 comdat align 2 personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) {
 entry:
-  %dptr = alloca ptr, align 8
-  %tptr = alloca ptr, align 8
+  %dptr = alloca double*, align 8
+  %tptr = alloca double**, align 8
   %ptr1 = alloca double, align 8
   %ptr2 = alloca double, align 8
   invoke void @_ZN4RAJA17TypedRangeSegmentIllEC2Ell()
@@ -81,12 +81,12 @@ DIR.OMP.TARGET.DATA.212:                          ; preds = %invoke.cont4
 
 DIR.OMP.TARGET.DATA.1:                            ; preds = %DIR.OMP.TARGET.DATA.212
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(),
-    "QUAL.OMP.MAP.TOFROM"(ptr %ptr1, ptr %ptr2, i64 0, i64 64, ptr @.mapname.278, ptr null) ]
+    "QUAL.OMP.MAP.TOFROM"(double* %ptr1, double* %ptr2, i64 0, i64 64, [48 x i8]* @.mapname.278, i8* null) ]
   br label %DIR.OMP.TARGET.DATA.3.split.split
 
 DIR.OMP.TARGET.DATA.3.split.split:                ; preds = %DIR.OMP.TARGET.DATA.1
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(),
-    "QUAL.OMP.MAP.TOFROM"(ptr %dptr, ptr %dptr, i64 0, i64 64, ptr @.mapname.257, ptr null) ]
+    "QUAL.OMP.MAP.TOFROM"(double** %dptr, double** %dptr, i64 0, i64 64, [46 x i8]* @.mapname.257, i8* null) ]
   invoke fastcc void @_ZZN42gtest_case_ReductionTupleLocTestTargetOMP_17ReduceMaxLocTupleISt5tupleIJN4RAJA6policy3omp28omp_target_parallel_for_execILm256EEENS2_12ReduceMinLocINS4_17omp_target_reduceEdN4camp5tupleIJiiEEEEEEEE8TestBodyEvENUliE_C2ERKSF_()
           to label %.noexc.i.i.i unwind label %lpad.i.i.i
 
@@ -101,12 +101,12 @@ invoke.cont2.i.i.i.i:                             ; preds = %invoke.cont.i.i.i.i
   br label %DIR.OMP.END.TARGET.DATA.18
 
 lpad.i.i.i.i:                                     ; preds = %.noexc.i.i.i
-  %2 = landingpad { ptr, i32 }
+  %2 = landingpad { i8*, i32 }
           cleanup
   br label %lpad.body.i.i.i
 
 lpad.i.i.i:                                       ; preds = %DIR.OMP.TARGET.DATA.3.split.split
-  %3 = landingpad { ptr, i32 }
+  %3 = landingpad { i8*, i32 }
           cleanup
   br label %lpad.body.i.i.i
 
@@ -114,7 +114,7 @@ lpad.i.i.i:                                       ; preds = %DIR.OMP.TARGET.DATA
 ; it's been removed). lpad.body.i.i.i is the edge from inside the region that
 ; we need to delete.
 common.resume:                                    ; preds = %lpad, %lpad.body.i.i.i
-  resume { ptr, i32 } undef
+  resume { i8*, i32 } undef
 
 ; This is the merge point inside the region for both of the landingpads.
 ; It flows into the merge point outside the region.
@@ -130,12 +130,12 @@ DIR.OMP.END.TARGET.DATA.19:                       ; preds = %DIR.OMP.END.TARGET.
   unreachable
 
 lpad:                                             ; preds = %entry
-  %4 = landingpad { ptr, i32 }
+  %4 = landingpad { i8*, i32 }
           cleanup
   br label %common.resume
 
 lpad3:                                            ; preds = %invoke.cont4, %invoke.cont
-  %5 = landingpad { ptr, i32 }
+  %5 = landingpad { i8*, i32 }
           cleanup
   unreachable
 }
