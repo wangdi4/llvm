@@ -4,9 +4,9 @@
 
 # RUN: rm -rf %t && split-file %s %t
 # RUN: llvm-mc -triple x86_64-elf --filetype=obj -o %t/unwind.o %t/unwind.s
-# RUN: ld.lld -mllvm -opaque-pointers -shared -o %t/libunwind.so -soname libunwind.so %t/unwind.o
+# RUN: ld.lld -shared -o %t/libunwind.so -soname libunwind.so %t/unwind.o
 # RUN: llvm-as -o %t/resume.bc %t/resume.ll
-# RUN: ld.lld -mllvm -opaque-pointers -shared -o %t/libresume.so -soname libresume.so %t/resume.bc \
+# RUN: ld.lld -shared -o %t/libresume.so -soname libresume.so %t/resume.bc \
 # RUN:   %t/libunwind.so --wrap _Unwind_Resume
 # RUN: llvm-objdump --no-print-imm-hex --dynamic-reloc --disassemble %t/libresume.so | \
 # RUN:   FileCheck --check-prefix=UNWIND-DISASM %s
@@ -26,10 +26,10 @@
 # UNWIND-DYNSYM-NEXT: FUNC    GLOBAL DEFAULT     9 _Z1fv
 
 # RUN: llvm-mc -triple x86_64-elf -filetype=obj -o %t/malloc.o %t/malloc.s
-# RUN: ld.lld -mllvm -opaque-pointers -shared -o %t/libmalloc.so -soname libmalloc.so %t/malloc.o
+# RUN: ld.lld -shared -o %t/libmalloc.so -soname libmalloc.so %t/malloc.o
 # RUN: llvm-mc -triple x86_64-elf -filetype=obj -o %t/emutls.o %t/emutls.s
-# RUN: llvm-as -opaque-pointers=1 -o %t/usetls.bc %t/usetls.ll
-# RUN: ld.lld --plugin-opt=opaque-pointers -shared -o %t/libusetls.so \
+# RUN: llvm-as -o %t/usetls.bc %t/usetls.ll
+# RUN: ld.lld -shared -o %t/libusetls.so \
 # RUN:   %t/usetls.bc %t/libmalloc.so \
 # RUN:   --start-lib %t/emutls.o -mllvm -emulated-tls --wrap malloc
 # RUN: llvm-objdump --no-print-imm-hex --dynamic-reloc --disassemble %t/libusetls.so | \

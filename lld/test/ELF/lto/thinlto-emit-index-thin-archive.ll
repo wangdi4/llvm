@@ -6,15 +6,13 @@
 ; RUN: llvm-as %p/Inputs/thinlto.ll -o ./dir1/unused.o
 ; RUN: llvm-as %p/Inputs/thin1.ll -o ./dir1/thin.o
 ; RUN: llvm-as %p/Inputs/thin2.ll -o ./dir2/thin.o
-; INTEL_CUSTOMIZATION
-; RUN: llvm-ar crT -opaque-pointers ./dir2/lib.a dir1/unused.o dir1/thin.o dir2/thin.o
-; end INTEL_CUSTOMIZATION
+; RUN: llvm-ar crT ./dir2/lib.a dir1/unused.o dir1/thin.o dir2/thin.o
 
 ;; For a thin archive referencing object files in a different directory,
 ;; emit index files (lib.a($member at $offset).thinlto.bc) in the directory
 ;; containing the archive, even in the lazy case. The information about the
 ;; referenced member's directory is lost.
-; RUN: ld.lld -mllvm -opaque-pointers --thinlto-emit-index-files ./dir2/lib.a ./dir1/main.o -o c --save-temps
+; RUN: ld.lld --thinlto-emit-index-files ./dir2/lib.a ./dir1/main.o -o c --save-temps
 ; RUN: ls ./dir2 | FileCheck %s --check-prefix CHECK-UNUSED
 
 ; CHECK-UNUSED: lib.a(unused.o at {{[1-9][0-9]+}})
@@ -34,7 +32,7 @@
 ; RUN: rm -rf ./dir2/*.thinlto.bc
 ;; Empty index files for unused files in thin archives should still be emitted
 ;; in the same format when using --whole-archive
-; RUN: ld.lld -mllvm -opaque-pointers --thinlto-emit-index-files --whole-archive ./dir2/lib.a ./dir1/main.o -o d
+; RUN: ld.lld --thinlto-emit-index-files --whole-archive ./dir2/lib.a ./dir1/main.o -o d
 ; RUN: ls ./dir2 | FileCheck %s --check-prefix CHECK-UNUSED
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

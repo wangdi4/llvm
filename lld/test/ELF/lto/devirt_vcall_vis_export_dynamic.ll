@@ -6,37 +6,31 @@
 ;; Index based WPD
 ;; Generate unsplit module with summary for ThinLTO index-based WPD.
 ; RUN: opt --thinlto-bc -o %t2.o %s
-; RUN: ld.lld -mllvm -opaque-pointers %t2.o -o %t3 -save-temps --lto-whole-program-visibility \
+; RUN: ld.lld %t2.o -o %t3 -save-temps --lto-whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
-; INTEL_CUSTOMIZATION
-; RUN: llvm-dis -opaque-pointers %t2.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
-; end INTEL_CUSTOMIZATION
+; RUN: llvm-dis %t2.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
 
 ;; Hybrid WPD
 ;; Generate split module with summary for hybrid Thin/Regular LTO WPD.
 ; RUN: opt --thinlto-bc --thinlto-split-lto-unit -o %t.o %s
-; RUN: ld.lld -mllvm -opaque-pointers %t.o -o %t3 -save-temps --lto-whole-program-visibility \
+; RUN: ld.lld %t.o -o %t3 -save-temps --lto-whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
-; INTEL_CUSTOMIZATION
-; RUN: llvm-dis -opaque-pointers %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
-; end INTEL_CUSTOMIZATION
+; RUN: llvm-dis %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
 
 ;; Regular LTO WPD
 ; RUN: opt -o %t4.o %s
-; RUN: ld.lld -mllvm -opaque-pointers %t4.o -o %t3 -save-temps --lto-whole-program-visibility \
+; RUN: ld.lld %t4.o -o %t3 -save-temps --lto-whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. 2>&1 | FileCheck %s --check-prefix=REMARK
-; INTEL_CUSTOMIZATION
-; RUN: llvm-dis -opaque-pointers %t3.0.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
-; end INTEL_CUSTOMIZATION
+; RUN: llvm-dis %t3.0.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
 
 ; REMARK-DAG: single-impl: devirtualized a call to _ZN1A1nEi
 ; REMARK-DAG: single-impl: devirtualized a call to _ZN1D1mEi
@@ -44,72 +38,60 @@
 ;; Check that all WPD fails with --export-dynamic.
 
 ;; Index based WPD
-; RUN: ld.lld -mllvm -opaque-pointers %t2.o -o %t3 -save-temps --lto-whole-program-visibility \
+; RUN: ld.lld %t2.o -o %t3 -save-temps --lto-whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. \
 ; RUN:   --export-dynamic 2>&1 | FileCheck /dev/null --implicit-check-not single-impl --allow-empty
-; INTEL_CUSTOMIZATION
-; RUN: llvm-dis -opaque-pointers %t2.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-NODEVIRT-IR
-; end INTEL_CUSTOMIZATION
+; RUN: llvm-dis %t2.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-NODEVIRT-IR
 
 ;; Hybrid WPD
-; RUN: ld.lld -mllvm -opaque-pointers %t.o -o %t3 -save-temps --lto-whole-program-visibility \
+; RUN: ld.lld %t.o -o %t3 -save-temps --lto-whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. \
 ; RUN:   --export-dynamic 2>&1 | FileCheck /dev/null --implicit-check-not single-impl --allow-empty
-; INTEL_CUSTOMIZATION
-; RUN: llvm-dis -opaque-pointers %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-NODEVIRT-IR
-; end INTEL_CUSTOMIZATION
+; RUN: llvm-dis %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-NODEVIRT-IR
 
 ;; Regular LTO WPD
-; RUN: ld.lld -mllvm -opaque-pointers %t4.o -o %t3 -save-temps --lto-whole-program-visibility \
+; RUN: ld.lld %t4.o -o %t3 -save-temps --lto-whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. \
 ; RUN:   --export-dynamic 2>&1 | FileCheck /dev/null --implicit-check-not single-impl --allow-empty
-; INTEL_CUSTOMIZATION
-; RUN: llvm-dis -opaque-pointers %t3.0.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-NODEVIRT-IR
-; end INTEL_CUSTOMIZATION
+; RUN: llvm-dis %t3.0.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-NODEVIRT-IR
 
 ;; Check that WPD fails for target _ZN1D1mEi with --export-dynamic-symbol=_ZTV1D.
 
 ;; Index based WPD
-; RUN: ld.lld -mllvm -opaque-pointers %t2.o -o %t3 -save-temps --lto-whole-program-visibility \
+; RUN: ld.lld %t2.o -o %t3 -save-temps --lto-whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. \
 ; RUN:   --export-dynamic-symbol=_ZTV1D 2>&1 | FileCheck %s --check-prefix=REMARK-AONLY
-; INTEL_CUSTOMIZATION
-; RUN: llvm-dis -opaque-pointers %t2.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-AONLY-IR
-; end INTEL_CUSTOMIZATION
+; RUN: llvm-dis %t2.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-AONLY-IR
 
 ;; Hybrid WPD
-; RUN: ld.lld -mllvm -opaque-pointers %t.o -o %t3 -save-temps --lto-whole-program-visibility \
+; RUN: ld.lld %t.o -o %t3 -save-temps --lto-whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. \
 ; RUN:   --export-dynamic-symbol=_ZTV1D 2>&1 | FileCheck %s --check-prefix=REMARK-AONLY
-; INTEL_CUSTOMIZATION
-; RUN: llvm-dis -opaque-pointers %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-AONLY-IR
-; end INTEL_CUSTOMIZATION
+; RUN: llvm-dis %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-AONLY-IR
 
 ;; Regular LTO WPD
-; RUN: ld.lld -mllvm -opaque-pointers %t4.o -o %t3 -save-temps --lto-whole-program-visibility \
+; RUN: ld.lld %t4.o -o %t3 -save-temps --lto-whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. \
 ; RUN:   --export-dynamic-symbol=_ZTV1D 2>&1 | FileCheck %s --check-prefix=REMARK-AONLY
-; INTEL_CUSTOMIZATION
-; RUN: llvm-dis -opaque-pointers %t3.0.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-AONLY-IR
-; end INTEL_CUSTOMIZATION
+; RUN: llvm-dis %t3.0.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-AONLY-IR
 
 ; REMARK-AONLY-NOT: single-impl:
 ; REMARK-AONLY: single-impl: devirtualized a call to _ZN1A1nEi
@@ -119,37 +101,31 @@
 ; RUN: echo "{ _ZTV1D; };" > %t.list
 
 ;; Index based WPD
-; RUN: ld.lld -mllvm -opaque-pointers %t2.o -o %t3 -save-temps --lto-whole-program-visibility \
+; RUN: ld.lld %t2.o -o %t3 -save-temps --lto-whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. \
 ; RUN:   --dynamic-list=%t.list 2>&1 | FileCheck %s --check-prefix=REMARK-AONLY
-; INTEL_CUSTOMIZATION
-; RUN: llvm-dis -opaque-pointers %t2.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-AONLY-IR
-; end INTEL_CUSTOMIZATION
+; RUN: llvm-dis %t2.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-AONLY-IR
 
 ;; Hybrid WPD
-; RUN: ld.lld -mllvm -opaque-pointers %t.o -o %t3 -save-temps --lto-whole-program-visibility \
+; RUN: ld.lld %t.o -o %t3 -save-temps --lto-whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. \
 ; RUN:   --dynamic-list=%t.list 2>&1 | FileCheck %s --check-prefix=REMARK-AONLY
-; INTEL_CUSTOMIZATION
-; RUN: llvm-dis -opaque-pointers %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-AONLY-IR
-; end INTEL_CUSTOMIZATION
+; RUN: llvm-dis %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-AONLY-IR
 
 ;; Regular LTO WPD
-; RUN: ld.lld -mllvm -opaque-pointers %t4.o -o %t3 -save-temps --lto-whole-program-visibility \
+; RUN: ld.lld %t4.o -o %t3 -save-temps --lto-whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
 ; RUN:   -mllvm -pass-remarks=. \
 ; RUN:   --dynamic-list=%t.list 2>&1 | FileCheck %s --check-prefix=REMARK-AONLY
-; INTEL_CUSTOMIZATION
-; RUN: llvm-dis -opaque-pointers %t3.0.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-AONLY-IR
-; end INTEL_CUSTOMIZATION
+; RUN: llvm-dis %t3.0.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-AONLY-IR
 
 ;; Check that all WPD fails with when linking against a shared library containing
 ;; preemptible versions of the vtables. In this case the symbols in the object being
@@ -158,8 +134,8 @@
 
 ;; Index based WPD
 ; RUN: opt -relocation-model=pic --thinlto-bc -o %t5.o %s
-; RUN: ld.lld -mllvm -opaque-pointers %t5.o -o %t5.so -shared
-; RUN: ld.lld -mllvm -opaque-pointers %t5.o %t5.so -o %t5 -save-temps --lto-whole-program-visibility \
+; RUN: ld.lld %t5.o -o %t5.so -shared
+; RUN: ld.lld %t5.o %t5.so -o %t5 -save-temps --lto-whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
@@ -167,8 +143,8 @@
 
 ;; Hybrid WPD
 ; RUN: opt -relocation-model=pic --thinlto-bc --thinlto-split-lto-unit -o %t5.o %s
-; RUN: ld.lld -mllvm -opaque-pointers %t5.o -o %t5.so -shared
-; RUN: ld.lld -mllvm -opaque-pointers %t5.o %t5.so -o %t5 -save-temps --lto-whole-program-visibility \
+; RUN: ld.lld %t5.o -o %t5.so -shared
+; RUN: ld.lld %t5.o %t5.so -o %t5 -save-temps --lto-whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
@@ -176,8 +152,8 @@
 
 ;; Regular LTO WPD
 ; RUN: opt -relocation-model=pic -o %t5.o %s
-; RUN: ld.lld -mllvm -opaque-pointers %t5.o -o %t5.so -shared
-; RUN: ld.lld -mllvm -opaque-pointers %t5.o %t5.so -o %t5 -save-temps --lto-whole-program-visibility \
+; RUN: ld.lld %t5.o -o %t5.so -shared
+; RUN: ld.lld %t5.o %t5.so -o %t5 -save-temps --lto-whole-program-visibility \
 ; INTEL_CUSTOMIZATION
 ; RUN: %intel_mllvm %intel_devirt_options \
 ; end INTEL_CUSTOMIZATION
