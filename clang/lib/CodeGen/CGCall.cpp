@@ -2534,7 +2534,7 @@ void CodeGenModule::getDefaultFunctionFPAccuracyAttributes(
       StringRef FPAccuracyVal = llvm::fp::getAccuracyForFPBuiltin(
           ID, FuncType, convertFPAccuracy(FuncMapIt->second));
       assert(!FPAccuracyVal.empty() && "A valid accuracy value is expected");
-      FuncAttrs.addAttribute("fpbuiltin-max-error=", FPAccuracyVal);
+      FuncAttrs.addAttribute("fpbuiltin-max-error", FPAccuracyVal);
       MD = llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(
           Int32Ty, convertFPAccuracyToAspect(FuncMapIt->second)));
     }
@@ -2544,7 +2544,7 @@ void CodeGenModule::getDefaultFunctionFPAccuracyAttributes(
       StringRef FPAccuracyVal = llvm::fp::getAccuracyForFPBuiltin(
           ID, FuncType, convertFPAccuracy(getLangOpts().FPAccuracyVal));
       assert(!FPAccuracyVal.empty() && "A valid accuracy value is expected");
-      FuncAttrs.addAttribute("fpbuiltin-max-error=", FPAccuracyVal);
+      FuncAttrs.addAttribute("fpbuiltin-max-error", FPAccuracyVal);
       MD = llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(
           Int32Ty, convertFPAccuracyToAspect(getLangOpts().FPAccuracyVal)));
     }
