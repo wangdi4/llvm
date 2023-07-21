@@ -386,6 +386,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/test/Transforms/OpenMP/ @intel-restricted/cmplrllvm-llvm-paropt
 /llvm/test/Transforms/PartialInlining/ @robertcox-github @pvbattin
 /llvm/test/Transforms/WholeProgramDevirt/ @robertcox-github @pvbattin
+/llvm/test/tools/llvm-extract/intel_keep_dtranstypemetadata* @robertcox-github @pvbattin
 /llvm/tools/gold/gold-plugin.cpp @robertcox-github @pvbattin
 /llvm/unittests/Analysis/TargetLibraryInfoTest.cpp @robertcox-github @pvbattin
 
