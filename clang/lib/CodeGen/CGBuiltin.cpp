@@ -6151,18 +6151,14 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     return EmitIntelFPGARegBuiltin(E, ReturnValue);
   case Builtin::BI__builtin_intel_fpga_mem:
     return EmitIntelFPGAMemBuiltin(E);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_generate_SIMD_variant:
     return EmitBuiltinGenerateSIMDVariant(E);
   case Builtin::BI__builtin_call_SIMD_variant:
     return EmitBuiltinCallSIMDVariant(E);
 #endif  // INTEL_CUSTOMIZATION
-
-=======
   case Builtin::BI__builtin_intel_sycl_ptr_annotation:
     return EmitIntelSYCLPtrAnnotationBuiltin(E);
->>>>>>> 05d3be63f9961354b34c41bf94184e332d3fb865
   case Builtin::BI__builtin_get_device_side_mangled_name: {
     auto Name = CGM.getCUDARuntime().getDeviceSideName(
         cast<DeclRefExpr>(E->getArg(0)->IgnoreImpCasts())->getDecl());
