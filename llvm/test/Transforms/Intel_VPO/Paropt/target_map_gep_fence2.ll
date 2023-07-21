@@ -1,7 +1,7 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s -check-prefix=PREPR
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s -check-prefix=PREPR
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -early-cse -vpo-restore-operands -S %s | FileCheck %s -check-prefix=RESTR
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,early-cse,vpo-restore-operands)' -S %s | FileCheck %s -check-prefix=RESTR
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s -check-prefix=PREPR
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s -check-prefix=PREPR
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -early-cse -vpo-restore-operands -S %s | FileCheck %s -check-prefix=RESTR
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,early-cse,vpo-restore-operands)' -S %s | FileCheck %s -check-prefix=RESTR
 ;
 ;
 ; Below is the original C source.
@@ -23,94 +23,73 @@
 ; entry:
 ;   %sbox = alloca i32*, align 8
 ;   store i32* getelementptr inbounds ([256 x i32], [256 x i32]* @g_sbox, i32 0, i32 0), i32** %sbox
-;   %1 = load i32*, i32** %sbox, align 8
-;   %arrayidx = getelementptr inbounds i32, i32* %1, i64 0
+;   %sbox.val = load i32*, i32** %sbox, align 8
+;   %arrayidx = getelementptr inbounds i32, i32* %sbox.val, i64 0
 ;   br label %DIR.OMP.TARGET.1
 ;
 ; DIR.OMP.TARGET.1:                                 ; preds = %entry
 ;   %2 = call token @llvm.directive.region.entry() [
 ;          "DIR.OMP.TARGET"(),
 ;          "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
-;          "QUAL.OMP.MAP.TO:AGGRHEAD"(i32** %sbox, i32** %sbox, i64 8),
-;          "QUAL.OMP.MAP.TO:AGGR"(i32** %sbox, i32* %arrayidx, i64 1024),
+;          "QUAL.OMP.MAP.TO"(i32* %sbox.val, i32* %arrayidx, i64 1024, i64 1, i8* null, i8* null)
 ;          ... ]
 ;
 ; Make sure that in prepare pass, %arrayidx and %sbox are renamed, even though %arrayidx has
 ; no use inside the region.
 
-target triple = "x86_64-unknown-linux-gnu"
-target device_triples = "spir64"
-
-@g_sbox = common dso_local global [256 x i32] zeroinitializer, align 16
-@"@tid.addr" = external global i32
-
-; Function Attrs: nounwind uwtable
-define dso_local i32 @main() #0 {
-entry:
-  %retval = alloca i32, align 4
-  %sbox = alloca i32*, align 8
-  %dummy = alloca i32, align 4
-  store i32 0, i32* %retval, align 4
-  %0 = bitcast i32** %sbox to i8*
-  call void @llvm.lifetime.start.p0i8(i64 8, i8* %0) #2
-  store i32* getelementptr inbounds ([256 x i32], [256 x i32]* @g_sbox, i32 0, i32 0), i32** %sbox, align 8, !tbaa !3
-  %1 = load i32*, i32** %sbox, align 8, !tbaa !3
-  %arrayidx = getelementptr inbounds i32, i32* %1, i64 0
-;
 ; Make sure that vpo-paropt-prepare captures %local to a temporary location.
-; PREPR: store i32** %sbox, i32*** [[SADDR:%[a-zA-Z._0-9]+]]
-; PREPR: store i32* %arrayidx, i32** [[AADDR:%[a-zA-Z._0-9]+]]
+; PREPR: store ptr %arrayidx, ptr [[AADDR:%[a-zA-Z._0-9]+]]
+; PREPR: store ptr %sbox.val, ptr [[SADDR:%[a-zA-Z._0-9]+]]
 ; PREPR: call token @llvm.directive.region.entry()
 ; And the Value where %local is store is added to the directive in a
 ; "QUAL.OMP.OPERAND.ADDR" clause.
-; PREPR-SAME: "QUAL.OMP.OPERAND.ADDR"(i32** %sbox, i32*** [[SADDR]])
-; PREPR-SAME: "QUAL.OMP.OPERAND.ADDR"(i32* %arrayidx, i32** [[AADDR]])
+; PREPR-SAME: "QUAL.OMP.OPERAND.ADDR"(ptr %arrayidx, ptr [[AADDR]])
+; PREPR-SAME: "QUAL.OMP.OPERAND.ADDR"(ptr %sbox.val, ptr [[SADDR]])
 ;
 ; Make sure that the above renaming is removed after vpo-restore-operands pass.
-; RESTR: call token @llvm.directive.region.entry()
-; RESTR-SAME: "QUAL.OMP.MAP.TO:AGGRHEAD"(i32** %sbox, i32** %sbox, i64 8)
-; RESTR-SAME: "QUAL.OMP.MAP.TO:AGGR"(i32** %sbox, i32* getelementptr inbounds ([256 x i32], [256 x i32]* @g_sbox{{.*}}){{.*}})
-; RESTR-NOT: store i32** %sbox, i32*** {{%[a-zA-Z._0-9]+}}
-; RESTR-NOT: store i32* %arrayidx, i32** {{AADDR:%[a-zA-Z._0-9]+}}
+; RESTR-NOT: store ptr %arrayidx, ptr {{AADDR:%[a-zA-Z._0-9]+}}
+; RESTR-NOT: store ptr %sbox.val, ptr {{%[a-zA-Z._0-9]+}}
 ; RESTR-NOT: "QUAL.OMP.OPERAND.ADDR"
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TO:AGGRHEAD"(i32** %sbox, i32** %sbox, i64 8), "QUAL.OMP.MAP.TO:AGGR"(i32** %sbox, i32* %arrayidx, i64 1024), "QUAL.OMP.PRIVATE"(i32* %dummy) ]
-  %3 = bitcast i32* %dummy to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* %3) #2
-  store i32 123, i32* %dummy, align 4, !tbaa !7
-  %4 = bitcast i32* %dummy to i8*
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* %4) #2
-  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.TARGET"() ]
-  %5 = bitcast i32** %sbox to i8*
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* %5) #2
+; RESTR: call token @llvm.directive.region.entry()
+; RESTR-SAME: "QUAL.OMP.MAP.TO"(ptr @g_sbox, ptr @g_sbox, i64 1024, i64 1, ptr null, ptr null)
+
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+target device_triples = "x86_64"
+
+@g_sbox = dso_local global [256 x i32] zeroinitializer, align 16
+
+define dso_local i32 @main() {
+entry:
+  %retval = alloca i32, align 4
+  %sbox = alloca ptr, align 8
+  %sbox.map.ptr.tmp = alloca ptr, align 8
+  %dummy = alloca i32, align 4
+  store i32 0, ptr %retval, align 4
+  call void @llvm.lifetime.start.p0(i64 8, ptr %sbox)
+  store ptr @g_sbox, ptr %sbox, align 8
+  %sbox.val = load ptr, ptr %sbox, align 8
+  %arrayidx = load ptr, ptr %sbox, align 8
+  %i1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    "QUAL.OMP.MAP.TO"(ptr %sbox.val, ptr %arrayidx, i64 1024, i64 1, ptr null, ptr null), ; MAP type: 1 = 0x1 = TO (0x1)
+    "QUAL.OMP.PRIVATE:TYPED"(ptr %dummy, i32 0, i32 1),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr %sbox.map.ptr.tmp, ptr null, i32 1) ]
+
+  store ptr %sbox.val, ptr %sbox.map.ptr.tmp, align 8
+  call void @llvm.lifetime.start.p0(i64 4, ptr %dummy)
+  store i32 123, ptr %dummy, align 4
+  call void @llvm.lifetime.end.p0(i64 4, ptr %dummy)
+  call void @llvm.directive.region.exit(token %i1) [ "DIR.OMP.END.TARGET"() ]
+
+  call void @llvm.lifetime.end.p0(i64 8, ptr %sbox)
   ret i32 0
 }
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
-
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #2
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #2
-
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
-
-attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { argmemonly nounwind }
-attributes #2 = { nounwind }
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture)
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture)
 
 !omp_offload.info = !{!0}
-!llvm.module.flags = !{!1}
-!llvm.ident = !{!2}
-
-!0 = !{i32 0, i32 46, i32 -1940912277, !"main", i32 4, i32 0, i32 0}
-!1 = !{i32 1, !"wchar_size", i32 4}
-!2 = !{!"clang version 8.0.0"}
-!3 = !{!4, !4, i64 0}
-!4 = !{!"pointer@_ZTSPj", !5, i64 0}
-!5 = !{!"omnipotent char", !6, i64 0}
-!6 = !{!"Simple C/C++ TBAA"}
-!7 = !{!8, !8, i64 0}
-!8 = !{!"int", !5, i64 0}
+!0 = !{i32 0, i32 66306, i32 40916905, !"_Z4main", i32 4, i32 0, i32 0, i32 0}
