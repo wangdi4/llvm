@@ -6,11 +6,8 @@
 ; LIT test to demonstrate issue with cost modeling of masked accesses in VLS heuristic.
 ; We are not accounting for the access being masked when estimating the gain from VLS
 ; grouping which can incorrectly cause us to vectorize a loop as we over estimate the
-; gain from vectorization.
-;
-; FIXME: The stores below are masked. The checks below show that the combined cost of
-; the two strided stores to lp2[2*i1] and lp2[2*i1+1] is 6. The cost of one unit-stride
-; store to lp1[i1] is 8 which is more than the cost of the two non-unit strided stores.
+; gain from vectorization. In the case below, masked VLS access cost is higher and
+; we should not see adjustments from VLS heuristic.
 ;
 define void @foo(ptr noalias %lp1, ptr noalias %lp2) {
 ; CHECK-LABEL:  Cost Model for VPlan foo:HIR.#{{[0-9]+}} with VF = 4:
@@ -19,12 +16,12 @@ define void @foo(ptr noalias %lp1, ptr noalias %lp2) {
 ; CHECK-NEXT:    Cost 8 for store i64 [[VP0]] ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:    Cost 6 for i64 [[VP7:%.*]] = mul i64 2 i64 [[VP0]]
 ; CHECK-NEXT:    Cost 0 for ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr %lp2 i64 [[VP7]]
-; CHECK-NEXT:    Cost 19 for store i64 [[VP0]] ptr [[VP_SUBSCRIPT_1]] *OVLS*(-19) AdjCost: 0
+; CHECK-NEXT:    Cost 19 for store i64 [[VP0]] ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:    Cost 1 for i64 [[VP8:%.*]] = add i64 [[VP7]] i64 1
 ; CHECK-NEXT:    Cost 0 for ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr %lp2 i64 [[VP8]]
-; CHECK-NEXT:    Cost 19 for store i64 [[VP7]] ptr [[VP_SUBSCRIPT_2]] *OVLS*(-13) AdjCost: 6
+; CHECK-NEXT:    Cost 19 for store i64 [[VP7]] ptr [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:  Cost 0 for br {{BB.*}}
-; CHECK-NEXT: {{BB.*}}: base cost: 21
+; CHECK-NEXT: {{BB.*}}: base cost: 53
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

@@ -1282,7 +1282,8 @@ void HeuristicOVLSMember::apply(
     VPInstructionCost TTIInterleaveCost = CM->TTI.getInterleavedMemoryOpCost(
         LoadStore->getOpcode(), WideVecTy, InterleaveFactor, Indices,
         cast<VPLoadStoreInst>(LoadStore)->getAlignment(), AddrSpace,
-        TTI::TCK_RecipThroughput, false /* UseMaskForCond */,
+        TTI::TCK_RecipThroughput,
+        LoadStore->getParent()->getPredicate() != nullptr /* UseMaskForCond */,
         false /* UseMaskForGaps */);
     if (!VLSGroupCost.isValid() || TTIInterleaveCost < VLSGroupCost)
       VLSGroupCost = TTIInterleaveCost;
