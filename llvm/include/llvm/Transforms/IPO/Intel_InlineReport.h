@@ -542,7 +542,7 @@ public:
     LLVM_DEBUG(dbgs() << "\n");
     if (!isClassicIREnabled())
       return;
-    if (shouldSkipCallBase(&CB))
+    if (!FromCallback && shouldSkipCallBase(&CB))
       return;
     if (ActiveInlineCallBase != &CB) {
       auto MapIt = IRCallBaseCallSiteMap.find(&CB);
@@ -572,7 +572,6 @@ public:
     if (MapIt != IRFunctionMap.end() || !FromCallback) {
       InlineReportFunction *IRF = getOrAddFunction(&F);
       setDead(&F);
-      IRF->setLinkageChar(&F);
       IRFunctionMap.erase(&F);
       IRDeadFunctionSet.insert(IRF);
     }

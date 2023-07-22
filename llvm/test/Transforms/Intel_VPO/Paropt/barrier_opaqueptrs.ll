@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-paropt-prepare -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes=vpo-paropt-prepare -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt-prepare -S %s | FileCheck %s
+; RUN: opt -passes=vpo-paropt-prepare -S %s | FileCheck %s
 
 ; ModuleID = 'barrier_test.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

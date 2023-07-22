@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-wrncollection -analyze -debug -S %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(print<vpo-wrncollection>)' -debug -S %s 2>&1 | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-wrncollection -analyze -debug -S %s 2>&1 | FileCheck %s
+; RUN: opt -passes='function(print<vpo-wrncollection>)' -debug -S %s 2>&1 | FileCheck %s
 ;
 ; Test src: Input IR was hand modified because FE does not yet handle MASKED and FILTER
 ; #include <omp.h>

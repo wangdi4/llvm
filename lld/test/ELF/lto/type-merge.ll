@@ -1,10 +1,8 @@
 ; REQUIRES: x86
 ; RUN: llvm-as %s -o %t.o
 ; RUN: llvm-as %p/Inputs/type-merge.ll -o %t2.o
-; INTEL RUN: ld.lld -mllvm -opaque-pointers %t.o %t2.o -o %t -shared -save-temps
-; INTEL_CUSTOMIZATION
-; RUN: llvm-dis -opaque-pointers < %t.0.0.preopt.bc | FileCheck %s
-; end INTEL_CUSTOMIZATION
+; INTEL RUN: ld.lld %t.o %t2.o -o %t -shared -save-temps
+; RUN: llvm-dis < %t.0.0.preopt.bc | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

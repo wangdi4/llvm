@@ -2,10 +2,10 @@
 
 ; RUN: echo -e ".global variable\n.global DllMainCRTStartup\n.text\nDllMainCRTStartup:\nret\n.data\nvariable:\n.long 42" > %t-lib.s
 ; RUN: llvm-mc -triple=x86_64-windows-gnu %t-lib.s -filetype=obj -o %t-lib.obj
-; RUN: lld-link -out:%t-lib.dll -dll -entry:DllMainCRTStartup %t-lib.obj -mllvm:-opaque-pointers -lldmingw -implib:%t-lib.lib
+; RUN: lld-link -out:%t-lib.dll -dll -entry:DllMainCRTStartup %t-lib.obj -lldmingw -implib:%t-lib.lib
 
 ; RUN: llvm-as -o %t.obj %s
-; RUN: lld-link -lldmingw -out:%t.exe -entry:entry -mllvm:-opaque-pointers %t.obj %t-lib.lib
+; RUN: lld-link -lldmingw -out:%t.exe -entry:entry %t.obj %t-lib.lib
 
 ; RUN: llvm-readobj --coff-imports %t.exe | FileCheck -check-prefix=IMPORTS %s
 

@@ -61,8 +61,17 @@ static bool collectRemovableDependencies(Value *V, ValueSet *SafeTerminals,
   if (isa<SwitchInst>(V) || isa<IndirectBrInst>(V))
     return false;
   else if (auto *BR = dyn_cast<BranchInst>(V)) {
-    assert(BR->isConditional() && "Branch expected to be conditional only.");
+    // In the case if branch depends on dopevector we need to analyze all
+    // instruction in successors.
+    for (auto S : BR->successors()) {
+      for (auto &I : *S) {
+        if (!collectRemovableDependencies(&I, SafeTerminals, Dependencies))
+          return false;
+      }
+    }
     return true;
+  } else if (auto *RI = dyn_cast<ReturnInst>(V)) {
+    return RI->getType()->isVoidTy();
   } else if (auto *I = dyn_cast<Instruction>(V))
     IsSafe = !(I->mayHaveSideEffects() || I->getParent()->hasAddressTaken()) ||
              SafeTerminals->contains(V);
@@ -157,6 +166,10 @@ static void eraseValues(
     ValueSet *ValuesToRemove,
     const std::function<const PostDominatorTree &(Function *)> &GetPDT) {
   for (auto *V : *ValuesToRemove) {
+    LLVM_DEBUG({
+      dbgs() << "Removing: ";
+      V->dump();
+    });
     if (auto *BR = dyn_cast<BranchInst>(V)) {
       // Here we handle a special scenario where a conditional branch
       // depends on a dope vector. As the dope vector is removed,
@@ -190,6 +203,7 @@ static bool DeadDopeVectorEliminationPassImpl(
     std::function<const TargetLibraryInfo &(Function &)> &GetTLI,
     const std::function<const PostDominatorTree &(Function *)> &GetPDT) {
 
+  LLVM_DEBUG(dbgs() << "Start DeadDopeVectorElimination\n");
   if (!WPInfo.isWholeProgramSafe()) {
     LLVM_DEBUG(dbgs() << "DeadDopeVectorElimination: Not whole program safe\n");
     return false;

@@ -8,7 +8,7 @@
 ; RUN: opt --thinlto-bc --thinlto-split-lto-unit -o %t/User.o %t/User.ll
 ; RUN: echo '{ global: _Z17useDoThingWithCatv; local: *; };' > %t/version.exp
 
-; RUN: ld.lld -mllvm -opaque-pointers %t/Cat.o %t/User.o -shared -o %t/libA.so -save-temps --lto-whole-program-visibility \
+; RUN: ld.lld %t/Cat.o %t/User.o -shared -o %t/libA.so -save-temps --lto-whole-program-visibility \
 ; RUN:   -mllvm -pass-remarks=. --version-script %t/version.exp 2>&1 | \
 ; RUN:   FileCheck %s --check-prefix=REMARK
 
