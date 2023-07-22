@@ -1027,6 +1027,15 @@ static void ompt_tsan_dependences(ompt_data_t *task_data,
         (TaskDependency *)malloc(sizeof(TaskDependency) * ndeps);
     Data->DependencyCount = ndeps;
     for (int i = 0, d = 0; i < ndeps; i++, d++) {
+#ifndef INTEL_CUSTOMIZATION
+      // This file is built with the omp-tools.h from the Intel compiler's
+      // include directory, and that file currently doesn't have these
+      // two ompt_dependence_type_t enum entries defined:
+      //   ompt_dependence_type_out_all_memory
+      //   ompt_dependence_type_inout_all_memory
+      // Meanwhile, the LLVM omp-tools.h has added these entries in early
+      // July 2023. Until Intel adds these entries in its omp-tools.h,
+      // we disable this check here.
       if (deps[i].dependence_type == ompt_dependence_type_out_all_memory ||
           deps[i].dependence_type == ompt_dependence_type_inout_all_memory) {
         Data->setAllMemoryDep();
@@ -1042,6 +1051,7 @@ static void ompt_tsan_dependences(ompt_data_t *task_data,
         d--;
         continue;
       }
+#endif // INTEL_CUSTOMIZATION
       auto ret = Data->Parent->DependencyMap->insert(
           std::make_pair(deps[i].variable.ptr, nullptr));
       if (ret.second) {
