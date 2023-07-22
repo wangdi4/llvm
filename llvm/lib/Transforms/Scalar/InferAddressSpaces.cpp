@@ -1575,18 +1575,10 @@ bool InferAddressSpacesImpl::rewriteWithNewAddressSpaces(
         if (AddrSpaceCastInst *ASC = dyn_cast<AddrSpaceCastInst>(CurUser)) {
           unsigned NewAS = NewV->getType()->getPointerAddressSpace();
           if (ASC->getDestAddressSpace() == NewAS) {
-<<<<<<< HEAD
 #if INTEL_COLLAB
             auto *BCNewV = NewV;
 #endif // INTEL_COLLAB
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-            if (!cast<PointerType>(ASC->getType()->getScalarType())
-                     ->hasSameElementTypeAs(
-                         cast<PointerType>(NewV->getType()->getScalarType()))) {
-#else
-=======
 #ifndef INTEL_SYCL_OPAQUEPOINTER_READY
->>>>>>> e85760b5f381fc5a5c66fa9ce3a96d0f520bf9ea
             if (!cast<PointerType>(ASC->getType())
                     ->hasSameElementTypeAs(
                         cast<PointerType>(NewV->getType()))) {
@@ -1604,14 +1596,10 @@ bool InferAddressSpacesImpl::rewriteWithNewAddressSpaces(
                 NewV = BCNewV;
 #endif // INTEL_COLLAB
             }
-<<<<<<< HEAD
 #if INTEL_COLLAB
             ASC->replaceAllUsesWith(BCNewV);
 #endif // INTEL_COLLAB
-=======
 #endif
-            ASC->replaceAllUsesWith(NewV);
->>>>>>> e85760b5f381fc5a5c66fa9ce3a96d0f520bf9ea
             DeadInstructions.push_back(ASC);
             continue;
           }
