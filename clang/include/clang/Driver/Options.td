@@ -3713,21 +3713,13 @@ def fsycl_device_obj_EQ : Joined<["-"], "fsycl-device-obj=">,
   "device code stored in the resulting object. Valid values are: spirv, llvmir "
   "(default)">;
 def fsycl_use_bitcode : Flag<["-"], "fsycl-use-bitcode">,
-<<<<<<< HEAD
-  Alias<fsycl_device_obj_EQ>, AliasArgs<["llvmir"]>, Flags<[CoreOption, DpcppOption]>,
-  HelpText<"Use LLVM bitcode instead of SPIR-V in fat objects">;
-def fno_sycl_use_bitcode : Flag<["-"], "fno-sycl-use-bitcode">,
-  Alias<fsycl_device_obj_EQ>, AliasArgs<["spirv"]>, Flags<[CoreOption, DpcppOption]>,
-  HelpText<"Use SPIR-V instead of LLVM bitcode in fat objects">;
-=======
   Alias<fsycl_device_obj_EQ>, AliasArgs<["llvmir"]>,
-  Flags<[CoreOption, Deprecated]>,
+  Flags<[CoreOption, Deprecated, DpcppOption]>,
   HelpText<"Use LLVM bitcode instead of SPIR-V in fat objects (deprecated)">;
 def fno_sycl_use_bitcode : Flag<["-"], "fno-sycl-use-bitcode">,
   Alias<fsycl_device_obj_EQ>, AliasArgs<["spirv"]>,
-  Flags<[CoreOption, Deprecated]>,
+  Flags<[CoreOption, Deprecated, DpcppOption]>,
   HelpText<"Use SPIR-V instead of LLVM bitcode in fat objects (deprecated)">;
->>>>>>> 1a52f1aa5261df323b35b7d82b7219cd6546bae3
 def fsycl_link_EQ : Joined<["-"], "fsycl-link=">,
   Flags<[CC1Option, CoreOption, DpcppOption]>, HelpText<"Generate partially linked device and host object to be used at various stages of compilation">, Values<"image,early">;
 def fsycl_link : Flag<["-"], "fsycl-link">, Alias<fsycl_link_EQ>,
