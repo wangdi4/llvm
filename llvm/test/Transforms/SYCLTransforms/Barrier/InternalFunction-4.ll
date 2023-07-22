@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-barrier -S < %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-barrier -S < %s | FileCheck %s
 ;;*****************************************************************************
 ; This test checks the Barrier pass
 ;; The case: kernel "main" with barrier instruction and the non-uniform value "%y"
@@ -42,38 +42,32 @@ L4:
 ;;;; TODO: add regular expression for the below values.
 
 ; CHECK-LABEL: L2:                                               ; preds = %SyncBB2
-; CHECK: %SBIndex = load i32, i32* %pCurrSBIndex
-; CHECK: %SB_LocalId_Offset = add nuw i32 %SBIndex, 8
-; CHECK: %1 = getelementptr inbounds i8, i8* %pSB, i32 %SB_LocalId_Offset
-; CHECK: %pSB_LocalId = bitcast i8* %1 to i32*
-; CHECK: %SBIndex10 = load i32, i32* %pCurrSBIndex
-; CHECK: %SB_LocalId_Offset11 = add nuw i32 %SBIndex10, 0
-; CHECK: %2 = getelementptr inbounds i8, i8* %pSB, i32 %SB_LocalId_Offset11
-; CHECK: %pSB_LocalId12 = bitcast i8* %2 to i32*
-; CHECK: %loadedValue13 = load i32, i32* %pSB_LocalId12
-; CHECK: store i32 %loadedValue13, i32* %pSB_LocalId
+; CHECK: [[SBIndex:%.*]] = load i32, ptr %pCurrSBIndex
+; CHECK: [[SB_LocalId_Offset:%.*]] = add nuw i32 [[SBIndex]], 8
+; CHECK: [[GEP0:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i32 [[SB_LocalId_Offset]]
+; CHECK: [[SBIndex7:%.*]] = load i32, ptr %pCurrSBIndex
+; CHECK: [[SB_LocalId_Offset8:%.*]] = add nuw i32 [[SBIndex7]], 0
+; CHECK: [[GEP1:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i32 [[SB_LocalId_Offset8]]
+; CHECK: [[loadedValue9:%.*]] = load i32, ptr [[GEP1]]
+; CHECK: store i32 [[loadedValue9]], ptr [[GEP0]]
 ; CHECK: br label %CallBB
 ;; TODO_END ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; CHECK: call i32 @foo
 ; CHECK: br label %
-;;;; TODO: add regular expression for the below values.
 ; CHECK-LABEL: SyncBB3:
-; CHECK: %SBIndex1 = load i32, i32* %pCurrSBIndex
-; CHECK: %SB_LocalId_Offset2 = add nuw i32 %SBIndex1, 12
-; CHECK: %11 = getelementptr inbounds i8, i8* %pSB, i32 %SB_LocalId_Offset2
-; CHECK: %pSB_LocalId3 = bitcast i8* %11 to i32*
-; CHECK: %loadedValue = load i32, i32* %pSB_LocalId3
-; CHECK: %SBIndex4 = load i32, i32* %pCurrSBIndex
-; CHECK: %SB_LocalId_Offset5 = add nuw i32 %SBIndex4, 4
-; CHECK: %12 = getelementptr inbounds i8, i8* %pSB, i32 %SB_LocalId_Offset5
-; CHECK: %pSB_LocalId6 = bitcast i8* %12 to i32*
-; CHECK: store i32 %loadedValue, i32* %pSB_LocalId6
-; CHECK: %SBIndex18 = load i32, i32* %pCurrSBIndex
-; CHECK: %SB_LocalId_Offset19 = add nuw i32 %SBIndex18, 4
-; CHECK: %13 = getelementptr inbounds i8, i8* %pSB, i32 %SB_LocalId_Offset19
-; CHECK: %pSB_LocalId20 = bitcast i8* %13 to i32*
-; CHECK: %loadedValue21 = load i32, i32* %pSB_LocalId20
-; CHECK: %w = and i32 %loadedValue21, %loadedValue21
+; CHECK: [[SBIndex1:%.*]] = load i32, ptr %pCurrSBIndex
+; CHECK: [[SB_LocalId_Offset2:%.*]] = add nuw i32 [[SBIndex1]], 12
+; CHECK: [[GEP0:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i32 [[SB_LocalId_Offset2]]
+; CHECK: %loadedValue = load i32, ptr [[GEP0]]
+; CHECK: [[SBIndex4:%.*]] = load i32, ptr %pCurrSBIndex
+; CHECK: [[SB_LocalId_Offset5:%.*]] = add nuw i32 [[SBIndex4]], 4
+; CHECK: [[GEP1:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i32 [[SB_LocalId_Offset5]]
+; CHECK: store i32 %loadedValue, ptr [[GEP1]]
+; CHECK: [[SBIndex18:%.*]] = load i32, ptr %pCurrSBIndex
+; CHECK: [[SB_LocalId_Offset19:%.*]] = add nuw i32 [[SBIndex18]], 4
+; CHECK: [[GEP2:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i32 [[SB_LocalId_Offset19]]
+; CHECK: [[loadedValue21:%.*]] = load i32, ptr [[GEP2]]
+; CHECK: %w = and i32 [[loadedValue21]], [[loadedValue21]]
 ; CHECK: br label %L4
 ;; TODO_END ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; CHECK-NOT: @dummy_barrier.
@@ -93,16 +87,15 @@ L2:
 ; CHECK-NOT: @_Z18work_group_barrierj
 ;;;; TODO: add regular expression for the below values.
 ; CHECK: LoopBB:
-; CHECK: %SBIndex1 = load i32, i32* %pCurrSBIndex
+; CHECK: %SBIndex1 = load i32, ptr %pCurrSBIndex
 ; CHECK: %SB_LocalId_Offset = add nuw i32 %SBIndex1, 12
-; CHECK: %7 = getelementptr inbounds i8, i8* %pSB, i32 %SB_LocalId_Offset
-; CHECK: %pSB_LocalId = bitcast i8* %7 to i32*
-; CHECK: store i32 0, i32* %pSB_LocalId
-; CHECK: %LocalId_0 = load i32, i32* %pLocalId_0
-; CHECK: %8 = add nuw i32 %LocalId_0, 1
-; CHECK: store i32 %8, i32* %pLocalId_0
-; CHECK: %9 = icmp ult i32 %8, %LocalSize_0
-; CHECK: br i1 %9, label %Dispatch, label %LoopEnd_0
+; CHECK: [[GEP0:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i32 %SB_LocalId_Offset
+; CHECK: store i32 0, ptr [[GEP0]]
+; CHECK: %LocalId_0 = load i32, ptr %pLocalId_0
+; CHECK: [[LocalId:%.*]] = add nuw i32 %LocalId_0, 1
+; CHECK: store i32 [[LocalId]], ptr %pLocalId_0
+; CHECK: [[ICMP:%.*]] = icmp ult i32 [[LocalId]], %LocalSize_0
+; CHECK: br i1 [[ICMP]], label %Dispatch, label %LoopEnd_0
 ;; TODO_END ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; CHECK: ret i32 0
 }
@@ -113,21 +106,21 @@ declare void @dummy_barrier.()
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i32)* @main}
+!0 = !{ptr @main}
 !1 = !{i1 false}
 
 ;; barrier key values
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %pCurrBarrier = alloca i32, align 4
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %pCurrSBIndex = alloca i32, align 4
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %pLocalIds = alloca [3 x i32], align 4
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %pSB = call i8* @get_special_buffer.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %pSB = call ptr @get_special_buffer.()
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %LocalSize_0 = call i32 @_Z14get_local_sizej(i32 0)
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %LocalSize_1 = call i32 @_Z14get_local_sizej(i32 1)
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %LocalSize_2 = call i32 @_Z14get_local_sizej(i32 2)
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %pCurrBarrier = alloca i32, align 4
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %pCurrSBIndex = alloca i32, align 4
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %pLocalIds = alloca [3 x i32], align 4
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %pSB = call i8* @get_special_buffer.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %pSB = call ptr @get_special_buffer.()
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %LocalSize_0 = call i32 @_Z14get_local_sizej(i32 0)
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %LocalSize_1 = call i32 @_Z14get_local_sizej(i32 1)
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %LocalSize_2 = call i32 @_Z14get_local_sizej(i32 2)

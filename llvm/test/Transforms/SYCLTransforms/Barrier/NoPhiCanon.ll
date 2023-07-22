@@ -34,7 +34,7 @@ entry:
 ; CHECK-LABEL: define void @fixCrossBarrierValues()
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT: %add.i = add nuw nsw i64 0, 42
-; CHECK-NEXT: %p.addr = alloca i64*, align 8
+; CHECK-NEXT: %p.addr = alloca ptr, align 8
 
   call void @dummy_barrier.()
   %add.i = add nuw nsw i64 0, 42
@@ -54,7 +54,7 @@ L2:
 L3:
 ; CHECK: %add.i.i = phi i64 [ %add.i, %SyncBB{{[0-9]*}} ], [ %add.i, %L1 ], [ %add.i, %L2 ]
   %add.i.i = phi i64 [ %add.i, %Split.Barrier.BB1 ], [ %add.i, %L1 ], [ %add.i, %L2 ]
-  %pp = load i64, i64* %p, align 8
+  %pp = load i64, ptr %p, align 8
   br label %Split.Barrier.BB
 
 Split.Barrier.BB:

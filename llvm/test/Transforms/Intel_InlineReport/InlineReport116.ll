@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers -pre-lto-inline-cost -passes='cgscc(inline)' -inline-report=0xe807 -S < %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -pre-lto-inline-cost -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -pre-lto-inline-cost -passes='cgscc(inline)' -inline-report=0xe807 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -pre-lto-inline-cost -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s
 
 ; Check that _ZN11xercesc_2_717JanitorMemFunCallINS_13FieldValueMapEED2Ev gets
 ; inlined in both places in the old and new pass manager on the compile step,

@@ -24,15 +24,15 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: nounwind
-define void @test(float addrspace(1)* %a) #0 {
+define void @test(ptr addrspace(1) %a) #0 {
   %1 = call i64 @_Z13get_global_idj(i32 0) #2
   %.off = add i64 %1, -100
   %2 = icmp ugt i64 %.off, 100
   br i1 %2, label %5, label %3
 
 ; <label>:3                                       ; preds = %0
-  %4 = getelementptr inbounds float, float addrspace(1)* %a, i64 %1
-  store float 3.000000e+00, float addrspace(1)* %4, align 4
+  %4 = getelementptr inbounds float, ptr addrspace(1) %a, i64 %1
+  store float 3.000000e+00, ptr addrspace(1) %4, align 4
   br label %5
 
 ; <label>:5                                       ; preds = %0, %3
@@ -54,7 +54,7 @@ attributes #2 = { nounwind readnone }
 !opencl.used.optional.core.features = !{!8}
 !opencl.compiler.options = !{!8}
 
-!0 = !{void (float addrspace(1)*)* @test}
+!0 = !{ptr @test}
 !7 = !{i32 1, i32 2}
 !8 = !{}
 

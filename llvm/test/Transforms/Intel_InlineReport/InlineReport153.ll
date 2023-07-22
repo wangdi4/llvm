@@ -5,8 +5,8 @@
 ; compilation because it is recognized by the function recognizer and
 ; inlining is delayed until the link step.
 
-; RUN: opt -opaque-pointers -passes='function(functionrecognizer),cgscc(inline)' -funcrec-round -pre-lto-inline-cost -dtrans-inline-heuristics -intel-libirc-allowed -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,function(functionrecognizer),cgscc(inline),inlinereportemitter' -funcrec-round -pre-lto-inline-cost -dtrans-inline-heuristics -intel-libirc-allowed -inline-report=0xe886 < %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK,CHECK-MD
+; RUN: opt -passes='function(functionrecognizer),cgscc(inline)' -funcrec-round -pre-lto-inline-cost -dtrans-inline-heuristics -intel-libirc-allowed -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
+; RUN: opt -passes='inlinereportsetup,function(functionrecognizer),cgscc(inline),inlinereportemitter' -funcrec-round -pre-lto-inline-cost -dtrans-inline-heuristics -intel-libirc-allowed -inline-report=0xe886 < %s -S 2>&1 | FileCheck %s -check-prefixes=CHECK,CHECK-MD
 
 ; CHECK-CL: call fast double @MagickRound(
 ; CHECK-LABEL: COMPILE FUNC: Wrapper

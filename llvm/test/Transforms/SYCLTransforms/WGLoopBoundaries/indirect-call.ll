@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-wg-loop-bound %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
-; RUN: opt -opaque-pointers=0 -passes=sycl-kernel-wg-loop-bound %s -S | FileCheck %s
+; RUN: opt -passes=sycl-kernel-wg-loop-bound %s -S -enable-debugify -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
+; RUN: opt -passes=sycl-kernel-wg-loop-bound %s -S | FileCheck %s
 
 ; The test checks that the pass doesn't crash and treats indirect calls as
 ; operations w/ side effect and leaves the kernel untouched.
@@ -13,13 +13,13 @@ declare void @bar(i64)
 define void @test_indirect_call(i1 %c) local_unnamed_addr !no_barrier_path !{i1 true} {
 ; CHECK-LABEL: define void @test_indirect_call
 ; CHECK-NEXT: entry:
-; CHECK-NEXT:   %fn.ptr = select i1 %c, void (i64)* @foo, void (i64)* @bar
+; CHECK-NEXT:   %fn.ptr = select i1 %c, ptr @foo, ptr @bar
 ; CHECK-NEXT:   call void %fn.ptr(i64 0)
 ; CHECK-NEXT:   %0 = tail call i64 @_Z13get_global_idj(i32 0)
 ; CHECK-NEXT:   %cmp = icmp ne i64 %0, 0
 ; CHECK-NEXT:   br i1 %cmp, label %if.then, label %exit
 entry:
-  %fn.ptr = select i1 %c, void(i64)* @foo, void(i64)* @bar
+  %fn.ptr = select i1 %c, ptr @foo, ptr @bar
   call void %fn.ptr(i64 0)
   %0 = tail call i64 @_Z13get_global_idj(i32 0)
   %cmp = icmp ne i64 %0, 0
@@ -39,7 +39,7 @@ declare i64 @_Z13get_global_idj(i32) local_unnamed_addr
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (i1)* @test_indirect_call}
+!0 = !{ptr @test_indirect_call}
 
 ; DEBUGIFY-COUNT-14: Instruction with empty DebugLoc in function WG.boundaries.
 ; DEBUGIFY-NOT: WARNING

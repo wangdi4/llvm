@@ -1,4 +1,4 @@
-; RUN: opt < %s -S -opaque-pointers -passes=optimize-dyn-casts | FileCheck %s
+; RUN: opt < %s -S -passes=optimize-dyn-casts | FileCheck %s
 
 ; Test case with dlopen that loads dynamic library in runtime.
 ; It is expected that whole porgram will not be detected for this

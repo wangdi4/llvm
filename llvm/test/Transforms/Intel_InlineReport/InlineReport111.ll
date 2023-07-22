@@ -1,11 +1,11 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 ; Inline report
-; RUN: opt -opaque-pointers -passes='lto-pre-link<O3>' -whole-program-assume-read -lto-inline-cost -inline-report=0xe807 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK-PRE,CHECK-PRE-BEFORE
-; RUN: opt -opaque-pointers -passes='lto<O3>' -whole-program-assume-read -lto-inline-cost -inline-report=0xe807 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK-POST,CHECK-POST-BEFORE
+; RUN: opt -passes='lto-pre-link<O3>' -whole-program-assume-read -lto-inline-cost -inline-report=0xe807 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK-PRE,CHECK-PRE-BEFORE
+; RUN: opt -passes='lto<O3>' -whole-program-assume-read -lto-inline-cost -inline-report=0xe807 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK-POST,CHECK-POST-BEFORE
 ; Inline report via metadata
-; RUN: opt -opaque-pointers -passes='lto-pre-link<O3>' -whole-program-assume-read -lto-inline-cost -inline-report=0xe886 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK-PRE,CHECK-PRE-AFTER
-; RUN: opt -opaque-pointers -passes='lto<O3>' -whole-program-assume-read -lto-inline-cost -inline-report=0xe886 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK-POST,CHECK-POST-AFTER
+; RUN: opt -passes='lto-pre-link<O3>' -whole-program-assume-read -lto-inline-cost -inline-report=0xe886 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK-PRE,CHECK-PRE-AFTER
+; RUN: opt -passes='lto<O3>' -whole-program-assume-read -lto-inline-cost -inline-report=0xe886 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK-POST,CHECK-POST-AFTER
 
 ; Check that all instances of @sw_IP_ddx_ and @sw_IP_ddy_ are inlined
 ; due to the inline budget and single callsite local linkage heuristics,

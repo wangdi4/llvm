@@ -10,8 +10,8 @@ define i1 @isfinite(ptr %X) {
 ; CHECK-NEXT:    setne %al
 ; CHECK-NEXT:    retq
 entry:
-  %fdtest = call i16 @_fdtest(ptr %X)
-  %isfin = icmp slt i16 %fdtest, 1
+  %fpclass = call i16 @_fdtest(ptr %X)
+  %isfin = icmp slt i16 %fpclass, 1
   ret i1 %isfin
 }
 
@@ -24,8 +24,8 @@ define i1 @notfinite(ptr %X) {
 ; CHECK-NEXT:    sete %al
 ; CHECK-NEXT:    retq
 entry:
-  %fdtest = call i16 @_fdtest(ptr %X)
-  %notfin = icmp sge i16 %fdtest, 1
+  %fpclass = call i16 @_fdtest(ptr %X)
+  %notfin = icmp sge i16 %fpclass, 1
   ret i1 %notfin
 }
 
@@ -38,8 +38,8 @@ define i1 @isinf(ptr %X) {
 ; CHECK-NEXT:    sete %al
 ; CHECK-NEXT:    retq
 entry:
-  %fdtest = call i16 @_fdtest(ptr %X)
-  %isinf = icmp eq i16 %fdtest, 1
+  %fpclass = call i16 @_fdtest(ptr %X)
+  %isinf = icmp eq i16 %fpclass, 1
   ret i1 %isinf
 }
 
@@ -52,8 +52,8 @@ define i1 @notinf(ptr %X) {
 ; CHECK-NEXT:    setne %al
 ; CHECK-NEXT:    retq
 entry:
-  %fdtest = call i16 @_fdtest(ptr %X)
-  %isinf = icmp ne i16 %fdtest, 1
+  %fpclass = call i16 @_fdtest(ptr %X)
+  %isinf = icmp ne i16 %fpclass, 1
   ret i1 %isinf
 }
 
@@ -70,8 +70,8 @@ define i1 @isnan(ptr %X) {
 ; CHECK-NEXT:    andb %cl, %al
 ; CHECK-NEXT:    retq
 entry:
-  %fdtest = call i16 @_fdtest(ptr %X)
-  %isnan = icmp eq i16 %fdtest, 2
+  %fpclass = call i16 @_fdtest(ptr %X)
+  %isnan = icmp eq i16 %fpclass, 2
   ret i1 %isnan
 }
 
@@ -88,8 +88,8 @@ define i1 @notnan(ptr %X) {
 ; CHECK-NEXT:    orb %cl, %al
 ; CHECK-NEXT:    retq
 entry:
-  %fdtest = call i16 @_fdtest(ptr %X)
-  %notnan = icmp ne i16 %fdtest, 2
+  %fpclass = call i16 @_fdtest(ptr %X)
+  %notnan = icmp ne i16 %fpclass, 2
   ret i1 %notnan
 }
 
@@ -105,8 +105,8 @@ define i1 @isnormal(ptr %X) {
 ; CHECK-NEXT:    andb %cl, %al
 ; CHECK-NEXT:    retq
 entry:
-  %fdtest = call i16 @_fdtest(ptr %X)
-  %isnor = icmp eq i16 %fdtest, -1
+  %fpclass = call i16 @_fdtest(ptr %X)
+  %isnor = icmp eq i16 %fpclass, -1
   ret i1 %isnor
 }
 
@@ -122,8 +122,8 @@ define i1 @notnormal(ptr %X) {
 ; CHECK-NEXT:    orb %cl, %al
 ; CHECK-NEXT:    retq
 entry:
-  %fdtest = call i16 @_fdtest(ptr %X)
-  %notnor = icmp ne i16 %fdtest, -1
+  %fpclass = call i16 @_fdtest(ptr %X)
+  %notnor = icmp ne i16 %fpclass, -1
   ret i1 %notnor
 }
 

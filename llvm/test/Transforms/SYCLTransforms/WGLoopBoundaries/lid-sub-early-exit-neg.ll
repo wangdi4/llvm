@@ -30,7 +30,7 @@ entry:
   br i1 %cmp, label %if.then, label %if.end
 
 if.then:                                          ; preds = %entry
-  %call4 = tail call i32 (i8 addrspace(2)*, ...) @printf(i8 addrspace(2)* noundef getelementptr inbounds ([14 x i8], [14 x i8] addrspace(2)* @.str, i64 0, i64 0), i32 noundef %conv) #4
+  %call4 = tail call i32 (ptr addrspace(2), ...) @printf(ptr addrspace(2) noundef @.str, i32 noundef %conv) #4
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %entry
@@ -41,7 +41,7 @@ if.end:                                           ; preds = %if.then, %entry
 declare i64 @_Z12get_local_idj(i32 noundef) local_unnamed_addr #1
 
 ; Function Attrs: convergent nofree nounwind
-declare noundef i32 @printf(i8 addrspace(2)* nocapture noundef readonly, ...) local_unnamed_addr #2
+declare noundef i32 @printf(ptr addrspace(2) nocapture noundef readonly, ...) local_unnamed_addr #2
 
 attributes #0 = { convergent norecurse nounwind "frame-pointer"="none" "min-legal-vector-width"="0" "no-trapping-math"="true" "prefer-vector-width"="512" "stack-protector-buffer-size"="8" "stackrealign" "uniform-work-group-size"="true" }
 attributes #1 = { convergent mustprogress nofree nounwind readnone willreturn "frame-pointer"="none" "no-trapping-math"="true" "prefer-vector-width"="512" "stack-protector-buffer-size"="8" "stackrealign" }
@@ -62,7 +62,7 @@ attributes #4 = { convergent nobuiltin nounwind }
 !0 = !{i32 1, i32 2}
 !1 = !{}
 !2 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2022.1.0 (2022.x.0.YYYYMMDD)"}
-!3 = !{void (i32)* @test}
+!3 = !{ptr @test}
 !4 = !{i32 0}
 !5 = !{!"none"}
 !6 = !{!"int"}

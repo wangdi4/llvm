@@ -393,7 +393,11 @@ static bool isFDTest(const CallInst *C) {
   if (!T.isWindowsMSVCEnvironment())
     return false;
 
-  if (C->getName() != "fdtest")
+  Value *CalledOp = C->getCalledOperand();
+  if (!CalledOp)
+    return false;
+
+  if (CalledOp->getName() != "_fdtest")
     return false;
 
   if (C->getNumOperands() != 2)

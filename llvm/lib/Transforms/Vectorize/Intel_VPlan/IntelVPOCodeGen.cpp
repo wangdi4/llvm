@@ -1297,8 +1297,9 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     if (VPCall->isIntelIndirectCall() &&
         VPCall->getVectorizationScenario() !=
         VPCallInstruction::CallVecScenariosTy::VectorVariant) {
-      if (FatalErrorHandler)
-        FatalErrorHandler(OrigLoop->getHeader()->getParent());
+      if (VecErrorHandler)
+        VecErrorHandler(OrigLoop->getHeader()->getParent(),
+                        VecErrorKind::Fatal);
       else
         llvm_unreachable("Intel indirect call should have vector-variants!");
     }

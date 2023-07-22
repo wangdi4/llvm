@@ -50,7 +50,7 @@ for.end:                                          ; preds = %for.cond.cleanup
 ; CHECK-LABEL: for.end:
 ; CHECK-NEXT: [[Index:%SBIndex[0-9]*]] = load i64, ptr %pCurrSBIndex, align 8
 ; CHECK-NEXT: [[Offset:%SB_LocalId_Offset[0-9]*]] = add nuw i64 [[Index]], {{[0-9]+}}
-; CHECK-NEXT: [[GEP:%[0-9]+]] = getelementptr inbounds i8, ptr %pSB, i64 [[Offset]]
+; CHECK-NEXT: [[GEP:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 [[Offset]]
 ; CHECK-NEXT: store ptr [[GEP]], ptr %rhs.addr, align 8
 ; CHECK-NEXT: [[LOAD:%[0-9]+]] = load ptr, ptr %rhs.addr, align 8
 
@@ -60,8 +60,8 @@ for.end:                                          ; preds = %for.cond.cleanup
 
 if.then10:                                        ; preds = %for.end
 ; CHECK-LABEL: if.then10:
-; CHECK-NEXT: store i32 0, ptr %22, align 4
-; CHECK-NEXT: load i32, ptr %22, align 4
+; CHECK-NEXT: store i32 0, ptr [[LOAD]], align 4
+; CHECK-NEXT: load i32, ptr [[LOAD]], align 4
 
   store i32 0, ptr %rhs, align 4
   %2 = load i32, ptr %rhs, align 4
@@ -69,7 +69,7 @@ if.then10:                                        ; preds = %for.end
 
 if.end12:                                         ; preds = %if.then10, %for.end
 ; CHECK-LABEL: if.end12:
-; CHECK-NEXT: bitcast ptr %22 to ptr
+; CHECK-NEXT: bitcast ptr [[LOAD]] to ptr
 
   %3 = bitcast ptr %rhs to ptr
   call void @llvm.lifetime.end.p0(i64 4, ptr %3)

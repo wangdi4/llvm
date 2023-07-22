@@ -34,7 +34,7 @@ if.end29.i:                                       ; preds = %if.else.i, %if.then
 }
 
 ; Function Attrs: nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #0
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #0
 
 declare void @dummy_barrier.()
 

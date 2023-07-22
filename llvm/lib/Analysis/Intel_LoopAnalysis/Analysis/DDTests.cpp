@@ -1307,7 +1307,7 @@ const CanonExpr *DDTest::stripExt(const CanonExpr *CE, bool StripSExt,
 
   // Constant should fit into smaller type.
   if (!ConstantInt::isValueValidForType(Blob->getType(), CEConst))
-      return CE;
+    return CE;
 
   unsigned BlobIdx = BU.findOrInsertBlob(Blob);
   auto *NewCE = CE->getCanonExprUtils().createStandAloneBlobCanonExpr(
@@ -1324,11 +1324,10 @@ const CanonExpr *DDTest::stripExt(const CanonExpr *CE, bool StripSExt,
   return NewCE;
 }
 
-
 // A wrapper around for dealing special cases of predicates
 // Looks for cases where we're interested in comparing for equality.
 bool DDTest::isKnownPredicateImpl(ICmpInst::Predicate Pred, const CanonExpr *X,
-                              const CanonExpr *Y) {
+                                  const CanonExpr *Y) {
   const CanonExpr *Delta = getMinus(X, Y);
   if (!Delta) {
     return false;
@@ -1400,7 +1399,6 @@ bool DDTest::isKnownPredicate(ICmpInst::Predicate Pred, const CanonExpr *X,
   }
 
   return isKnownPredicateImpl(Pred, X, Y);
-
 }
 
 // All subscripts are all the same type.
@@ -4210,8 +4208,7 @@ bool DDTest::tryDelinearize(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef,
     // Skip [0] since it doesn't influence the delinearization.
     // Note: out of bound array access could result in non-zero first index.
     // Be conservative here and only work with zero cases.
-    if (SrcDDRef->accessesGlobalVar() &&
-        DstDDRef->accessesGlobalVar() &&
+    if (SrcDDRef->accessesGlobalVar() && DstDDRef->accessesGlobalVar() &&
         Pair[1].Src->isZero() && Pair[1].Dst->isZero()) {
       HasGlobalBaseValue = true;
       AuxTy = Pair[1].Src->getSrcType();
@@ -5143,6 +5140,10 @@ std::unique_ptr<Dependences> DDTest::depends(const DDRef *SrcDDRef,
   if (HNU.getFunction().isFortran() && EqualBaseAndShape) {
     if (SrcRegDDRef->anyVarDimStrideMayBeZero() ||
         DstRegDDRef->anyVarDimStrideMayBeZero()) {
+      return std::make_unique<Dependences>(Result);
+    }
+    if (SrcRegDDRef->anyDimStrideReversed() ||
+        DstRegDDRef->anyDimStrideReversed()) {
       return std::make_unique<Dependences>(Result);
     }
   }
@@ -6271,7 +6272,6 @@ bool DDTest::findDependencies(DDRef *SrcDDRef, DDRef *DstDDRef,
   bool IsSrcRval = true;
   bool IsDstRval = true;
   bool IsCollapsedWithBackwardDep = false;
-
 
   HLNode *SrcHIR = SrcDDRef->getHLDDNode();
   HLNode *DstHIR = DstDDRef->getHLDDNode();

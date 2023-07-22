@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0xec07 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK-NEW,CHECK-BEFORE %s
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xec86 -S < %s 2>&1 | FileCheck --check-prefixes=CHECK-META,CHECK-AFTER %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=0xec07 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK-NEW,CHECK-BEFORE %s
+; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xec86 -S < %s 2>&1 | FileCheck --check-prefixes=CHECK-META,CHECK-AFTER %s
 
 ; Check that when 0x400 bit is selected in the inlining report, that the
 ; language of the functions and callsites is printed as either 'F' (Fortran)

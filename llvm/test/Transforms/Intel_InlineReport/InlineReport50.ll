@@ -1,7 +1,7 @@
 ; Inline report
-; RUN: opt -opaque-pointers < %s -passes='cgscc(inline)' -inline-report=0xe807 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='cgscc(inline)' -inline-report=0xe807 -S 2>&1 | FileCheck %s
 ; Inline report via metadata
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s
 
 ; Check that non-inlining of PrintFloats is due to it being a VarArgs
 ; function

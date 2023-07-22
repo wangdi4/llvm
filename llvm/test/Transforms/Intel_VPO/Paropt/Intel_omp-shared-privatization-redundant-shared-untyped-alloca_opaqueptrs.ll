@@ -10,7 +10,7 @@
 ;   b;
 ; }
 
-; CHECK:  "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED:TYPED"(ptr null, i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr %b, i64 0, i32 1)
+; CHECK:  "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED"(ptr null), "QUAL.OMP.PRIVATE:TYPED"(ptr %b, i64 0, i32 1)
 
 define i32 @a() {
 bb0:
@@ -18,7 +18,8 @@ bb0:
   br label %bb1
 
 bb1:                                              ; preds = %bb0
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED:TYPED"(ptr %b, i64 0, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
+    "QUAL.OMP.SHARED"(ptr %b) ]
   br label %bb2
 
 bb2:                                              ; preds = %bb1

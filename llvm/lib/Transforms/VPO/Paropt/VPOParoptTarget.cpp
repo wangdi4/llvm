@@ -1621,16 +1621,23 @@ bool VPOParoptTransform::createAtomicFreeReductionBuffers(WRegionNode *W) {
     FoundProperItem = true;
 
     assert(BufTy && "Found untyped reduction item");
-    uint64_t Size = DL.getTypeSizeInBits(BufTy) / 8;
+
+    // For arrays/arrsects the type of the buffer is expected to be
+    //    [M x [N * ElemTy]], where
+    // M = {
+    //  AtomicFreeRedLocalBufSize x AtomicFreeRedGlobalBufSize, local buffer
+    //  AtomicFreeRedGlobalBufSize,                             global buffer
+    // },
+    // N = NumElems (i.e. section size),
+    // ElemTy = BufTy returned by getItemInfo (i.e. item element type)
+    if (NumElems)
+      BufTy =
+          ArrayType::get(BufTy, cast<ConstantInt>(NumElems)->getZExtValue());
+
     uint64_t MapType = TGT_MAP_PRIVATE | TGT_MAP_CLOSE;
     Value *MapTypeVal =
         ConstantInt::get(Type::getInt64Ty(F->getContext()), MapType);
-
-    if (RedI->getIsArraySection()) {
-      assert(NumElems && "No elements number specified for array section");
-      BufTy =
-          ArrayType::get(BufTy, cast<ConstantInt>(NumElems)->getZExtValue());
-    }
+    uint64_t Size = DL.getTypeSizeInBits(BufTy) / 8;
 
     Module *M = F->getParent();
     assert(M && "Function has no parent module.");

@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -opaque-pointers < %s -passes='module(ip-cloning),cgscc(inline)' -ip-gen-cloning-force-enable-dtrans -inline-report=0xe807 -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
-; RUN: opt -opaque-pointers < %s -passes='inlinereportsetup,module(ip-cloning),cgscc(inline),inlinereportemitter' -ip-gen-cloning-force-enable-dtrans -inline-report=0xe807 -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN: opt < %s -passes='module(ip-cloning),cgscc(inline)' -ip-gen-cloning-force-enable-dtrans -inline-report=0xe807 -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN: opt < %s -passes='inlinereportsetup,module(ip-cloning),cgscc(inline),inlinereportemitter' -ip-gen-cloning-force-enable-dtrans -inline-report=0xe807 -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
 
 @count = available_externally dso_local local_unnamed_addr global i32 0, align 8
 

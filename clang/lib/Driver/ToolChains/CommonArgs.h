@@ -242,9 +242,8 @@ void addX86AlignBranchArgs(const Driver &D, const llvm::opt::ArgList &Args,
                            const StringRef PluginOptPrefix = "");
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_MARKERCOUNT
-void addMarkerCountArgs(const Driver &D, const llvm::opt::ArgList &Args,
-                        llvm::opt::ArgStringList &CmdArgs, bool IsLTO,
-                        const StringRef PluginOptPrefix = "");
+void addMarkerCountArgs(const ToolChain &TC, const llvm::opt::ArgList &Args,
+                        llvm::opt::ArgStringList &CmdArgs, bool IsLTO);
 #endif // INTEL_FEATURE_MARKERCOUNT
 #endif // INTEL_CUSTOMIZATION
 

@@ -1,5 +1,5 @@
 ; Disabled for [CMPLRLLVM-25349]: opt -passes='default<O3>' -inline-report=0xe807 -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -opaque-pointers -passes='default<O3>' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='default<O3>' -inline-report=0xe886 -S < %s 2>&1 | FileCheck %s
 
 ; Check that by default at -O3, the standard and metadata inlining reports
 ; are only printed once.

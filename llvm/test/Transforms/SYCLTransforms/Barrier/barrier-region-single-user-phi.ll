@@ -18,7 +18,7 @@ entry:
 ; CHECK-LABEL: SyncBB1:
 ; CHECK-NEXT: [[Index:%SBIndex[0-9]*]] = load i64, ptr %pCurrSBIndex, align 8
 ; CHECK-NEXT: [[Offset:%SB_LocalId_Offset[0-9]*]] = add nuw i64 [[Index]], 0
-; CHECK-NEXT: [[GEP:%[0-9]+]] = getelementptr inbounds i8, ptr %pSB, i64 [[Offset]]
+; CHECK-NEXT: [[GEP:%pSB_LocalId[0-9]*]] = getelementptr inbounds i8, ptr %pSB, i64 [[Offset]]
 ; CHECK-NEXT: store ptr [[GEP]], ptr %sum1.ascast.red.addr, align 8
 ; CHECK-NEXT: [[LOAD:%[0-9]+]] = load ptr, ptr %sum1.ascast.red.addr, align 8
 

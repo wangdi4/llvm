@@ -951,13 +951,14 @@ Value *KernelBarrier::getAddressInSpecialBuffer(unsigned int Offset,
   Value *CurrSB = createGetCurrSBIndex(B);
   CurrSB = B.CreateNUWAdd(CurrSB, OffsetVal, "SB_LocalId_Offset");
   Value *Idxs[1] = {CurrSB};
-  Value *AddrInSBinBytes = B.CreateInBoundsGEP(
-      Utils.getSpecialBufferValueTy(),
-      CurrentBarrierKeyValues->SpecialBufferValue, ArrayRef<Value *>(Idxs));
-  // Bitcast pointer according to alloca type!
-  Value *AddrInSpecialBuffer =
-      B.CreatePointerCast(AddrInSBinBytes, Ty, "pSB_LocalId");
-  return AddrInSpecialBuffer;
+  Value *AddrInSBinBytes =
+      B.CreateInBoundsGEP(Utils.getSpecialBufferValueTy(),
+                          CurrentBarrierKeyValues->SpecialBufferValue,
+                          ArrayRef<Value *>(Idxs), "pSB_LocalId");
+  // Bitcast pointer according to alloca type for typed pointer!
+  return Ty->isOpaquePointerTy()
+             ? AddrInSBinBytes
+             : B.CreatePointerCast(AddrInSBinBytes, Ty, "pSB_LocalId");
 }
 
 // TODO: Since ResolveVariableTIDCall ran before this pass, we won't encounter

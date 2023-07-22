@@ -365,6 +365,7 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 /llvm/test/Transforms/Intel_AutoCPUClone/ @abuyukku
 # Temporarily removed @romanovvlad
 /llvm/test/Transforms/Intel_DeadArrayOpsElimination/ @robertcox-github @pvbattin
+/llvm/test/Transforms/Intel_DeadDopeVectorElimination/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_DopeVectorConstProp/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_DopeVectorHoist/ @robertcox-github @pvbattin
 /llvm/test/Transforms/Intel_DynamicCastsOptimization/ @robertcox-github @pvbattin
@@ -585,6 +586,9 @@ InvokeSimd/ @intel-restricted/dpcpp-esimd-reviewers
 
 # JIRA: CMPLRLIBS->LLVM Offload RT
 /openmp/libomptarget/ @intel-restricted/cmplrlibs-llvm-offload-rt
+
+# JIRA: CMPLRLLVM->LLVM Sanitizers and Programming Tools
+/openmp/tools/archer @cchen15
 
 # COMPONENT: ScalarOpt
 # JIRA: CMPLRLLVM->LLVM Scalar Optimizer

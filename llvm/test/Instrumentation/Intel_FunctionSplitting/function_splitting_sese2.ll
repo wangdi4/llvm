@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 < %s -passes=function-splitting -function-splitting-min-size=5 -function-splitting-only-hot=false -S | FileCheck %s
+; RUN: opt < %s -passes=function-splitting -function-splitting-min-size=5 -function-splitting-only-hot=false -S | FileCheck %s
 
 ; This is a basic test for the Intel Function Splitting pass.
 ;
@@ -9,7 +9,7 @@
 ; This is a test to verify the function splitting is occuring when there
 ; are several blocks that exit the region to a common successor.
 
-; CHECK-LABEL: define void @test(i32 %x, i32* %y)
+; CHECK-LABEL: define void @test(i32 %x, ptr %y)
 ; CHECK-LABEL: codeRepl:
 ; CHECK: call void @test.if.else
 ; CHECK: define internal void @test.if.else
@@ -28,32 +28,32 @@ target triple = "x86_64-unknown-linux-gnu"
 @str.4 = private unnamed_addr constant [9 x i8] c"hot path\00"
 
 ; Function Attrs: inlinehint nounwind uwtable
-define void @test(i32 %x, i32* %y) local_unnamed_addr #0 !prof !29 {
+define void @test(i32 %x, ptr %y) local_unnamed_addr #0 !prof !29 {
 entry:
   %cmp = icmp slt i32 %x, 100
   br i1 %cmp, label %if.then, label %if.else, !prof !30
 
 if.then:                                          ; preds = %entry
-  %puts27 = call i32 @puts(i8* getelementptr inbounds ([9 x i8], [9 x i8]* @str.4, i64 0, i64 0))
-  %0 = load i32, i32* %y, align 4
-  store i32 %0, i32* @gValue1, align 4
+  %puts27 = call i32 @puts(ptr getelementptr inbounds ([9 x i8], ptr @str.4, i64 0, i64 0))
+  %0 = load i32, ptr %y, align 4
+  store i32 %0, ptr @gValue1, align 4
   br label %if.end15
 
 if.else:                                          ; preds = %entry
-  %puts = call i32 @puts(i8* getelementptr inbounds ([10 x i8], [10 x i8]* @str, i64 0, i64 0))
-  %1 = load i32, i32* %y, align 4
+  %puts = call i32 @puts(ptr getelementptr inbounds ([10 x i8], ptr @str, i64 0, i64 0))
+  %1 = load i32, ptr %y, align 4
   %cmp3 = icmp sgt i32 %1, 0
   br i1 %cmp3, label %land.lhs.true, label %if.end15
 
 land.lhs.true:                                    ; preds = %if.else
-  %arrayidx4 = getelementptr inbounds i32, i32* %y, i64 1
-  %2 = load i32, i32* %arrayidx4, align 4
+  %arrayidx4 = getelementptr inbounds i32, ptr %y, i64 1
+  %2 = load i32, ptr %arrayidx4, align 4
   %cmp5 = icmp sgt i32 %2, 0
   br i1 %cmp5, label %land.lhs.true6, label %if.end15
 
 land.lhs.true6:                                   ; preds = %land.lhs.true
-  %arrayidx7 = getelementptr inbounds i32, i32* %y, i64 2
-  %3 = load i32, i32* %arrayidx7, align 4
+  %arrayidx7 = getelementptr inbounds i32, ptr %y, i64 2
+  %3 = load i32, ptr %arrayidx7, align 4
   %cmp8 = icmp sgt i32 %3, 0
   br i1 %cmp8, label %if.then9, label %if.end15
 
@@ -61,20 +61,20 @@ if.then9:                                         ; preds = %land.lhs.true6
   %add = add nsw i32 %1, %x
   %add12 = add nsw i32 %add, %2
   %add14 = add nsw i32 %add12, %3
-  store i32 %add14, i32* @gValue2, align 4
+  store i32 %add14, ptr @gValue2, align 4
   br label %if.end15
 
 if.end15:                                         ; preds = %if.else, %land.lhs.true, %land.lhs.true6, %if.then9, %if.then
-  %puts26 = call i32 @puts(i8* getelementptr inbounds ([26 x i8], [26 x i8]* @str.3, i64 0, i64 0))
-  store i32 0, i32* @gValue3, align 4
+  %puts26 = call i32 @puts(ptr getelementptr inbounds ([26 x i8], ptr @str.3, i64 0, i64 0))
+  store i32 0, ptr @gValue3, align 4
   ret void
 }
 
 ; Function Attrs: nounwind
-declare i32 @printf(i8* nocapture readonly, ...) local_unnamed_addr #1
+declare i32 @printf(ptr nocapture readonly, ...) local_unnamed_addr #1
 
 ; Function Attrs: nounwind
-declare i32 @puts(i8* nocapture readonly) #2
+declare i32 @puts(ptr nocapture readonly) #2
 
 attributes #0 = { inlinehint nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }

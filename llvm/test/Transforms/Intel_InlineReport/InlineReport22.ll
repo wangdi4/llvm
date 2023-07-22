@@ -1,9 +1,9 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
 ; Inline report
-; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed < %s -S 2>&1 | FileCheck  --check-prefix=CHECK-NEW %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 -dtrans-inline-heuristics -intel-libirc-allowed < %s -S 2>&1 | FileCheck  --check-prefix=CHECK-NEW %s
 ; Inline report via metadata
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-OLD
+; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -dtrans-inline-heuristics -intel-libirc-allowed -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-OLD
 
 ; Check that inlining is inhibited for @mysavestackgrow, because it does
 ; special key stack computations. Here, @myrealloc is an external function

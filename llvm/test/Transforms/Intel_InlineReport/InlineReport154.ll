@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -opaque-pointers -disable-output -debug-only=inlinereport -passes='cgscc(inline),simplifycfg' -inline-report=0xe807 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -debug-only=inlinereport -passes='cgscc(inline),simplifycfg' -inline-report=0xe807 2>&1 | FileCheck %s
 
 ; Check that in producing the classic inlining report, each removal of a
 ; CallBase or Function is followed immediately by the removal of its

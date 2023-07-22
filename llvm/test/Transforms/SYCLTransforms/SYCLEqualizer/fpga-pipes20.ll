@@ -23,10 +23,10 @@
 ; ----------------------------------------------------
 
 ; RUN: llvm-as %p/../Inputs/fpga-pipes.rtl -o %t.rtl.bc
-; RUN: opt -opaque-pointers=0 -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-demangle-fpga-pipes -passes=sycl-kernel-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers=0 -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-demangle-fpga-pipes -passes=sycl-kernel-equalizer -S %s | FileCheck %s
+; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-demangle-fpga-pipes -passes=sycl-kernel-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -sycl-kernel-builtin-lib=%t.rtl.bc -sycl-demangle-fpga-pipes -passes=sycl-kernel-equalizer -S %s | FileCheck %s
 
-; CHECK-LABEL: define void @test1
+; CHECK-LABEL: define dso_local void @test1
 ; CHECK-NOT: call i32 @__read_pipe_2_AS{{[0-9]}}
 ; CHECK: call i32 @__read_pipe_2_fpga
 ; CHECK-NOT: call i32 @__read_pipe_2_AS{{[0-9]}}
@@ -36,8 +36,7 @@
 ; CHECK-NOT: call i32 @__read_pipe_2_AS{{[0-9]}}
 ; CHECK-NOT: declare i32 @__read_pipe_2_AS{{[0-9]}}
 ;
-; CHECK-LABEL: define void @test2
-;
+; CHECK-LABEL: define dso_local void @test2
 ; CHECK-NOT: call i32 @__write_pipe_2_AS{{[0-9]}}
 ; CHECK: call i32 @__write_pipe_2_fpga
 ; CHECK-NOT: call i32 @__write_pipe_2_AS{{[0-9]}}
@@ -52,116 +51,98 @@
 ; CHECK: declare i32 @__read_pipe_2_fpga
 ; CHECK: declare i32 @__write_pipe_2_fpga
 
-target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
+target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64-unknown-unknown-intelfpga"
 
-%opencl.pipe_ro_t = type opaque
-%opencl.pipe_wo_t = type opaque
+; Function Attrs: nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #0
 
-; Function Attrs: convergent nounwind
-define spir_func void @test1(%opencl.pipe_ro_t addrspace(1)* %p, i32 addrspace(1)* %ptr) #0 {
+; Function Attrs: nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #0
+
+; Function Attrs: convergent norecurse nounwind
+define dso_local spir_func void @test1(ptr addrspace(1) %p, ptr addrspace(1) noundef %ptr) #1 !arg_type_null_val !3 {
 entry:
-  %p.addr = alloca %opencl.pipe_ro_t addrspace(1)*, align 8
-  %ptr.addr = alloca i32 addrspace(1)*, align 8
-  %ptr_l = alloca i32 addrspace(3)*, align 8
-  %ptr_p = alloca i32 addrspace(4)*, align 8
-  store %opencl.pipe_ro_t addrspace(1)* %p, %opencl.pipe_ro_t addrspace(1)** %p.addr, align 8, !tbaa !4
-  store i32 addrspace(1)* %ptr, i32 addrspace(1)** %ptr.addr, align 8, !tbaa !7
-  %0 = load %opencl.pipe_ro_t addrspace(1)*, %opencl.pipe_ro_t addrspace(1)** %p.addr, align 8, !tbaa !4
-  %1 = load i32 addrspace(1)*, i32 addrspace(1)** %ptr.addr, align 8, !tbaa !7
-  %2 = addrspacecast i32 addrspace(1)* %1 to i8 addrspace(4)*
-  %3 = call i32 @__read_pipe_2(%opencl.pipe_ro_t addrspace(1)* %0, i8 addrspace(4)* %2, i32 4, i32 4)
-  %4 = bitcast i32 addrspace(3)** %ptr_l to i8*
-  call void @llvm.lifetime.start.p0i8(i64 8, i8* %4) #2
-  %5 = load %opencl.pipe_ro_t addrspace(1)*, %opencl.pipe_ro_t addrspace(1)** %p.addr, align 8, !tbaa !4
-  %6 = load i32 addrspace(3)*, i32 addrspace(3)** %ptr_l, align 8, !tbaa !7
-  %7 = addrspacecast i32 addrspace(3)* %6 to i8 addrspace(4)*
-  %8 = call i32 @__read_pipe_2(%opencl.pipe_ro_t addrspace(1)* %5, i8 addrspace(4)* %7, i32 4, i32 4)
-  %9 = bitcast i32 addrspace(4)** %ptr_p to i8*
-  call void @llvm.lifetime.start.p0i8(i64 8, i8* %9) #2
-  %10 = load %opencl.pipe_ro_t addrspace(1)*, %opencl.pipe_ro_t addrspace(1)** %p.addr, align 8, !tbaa !4
-  %11 = load i32 addrspace(4)*, i32 addrspace(4)** %ptr_p, align 8, !tbaa !7
-  %12 = bitcast i32 addrspace(4)* %11 to i8 addrspace(4)*
-  %13 = call i32 @__read_pipe_2(%opencl.pipe_ro_t addrspace(1)* %10, i8 addrspace(4)* %12, i32 4, i32 4)
-  %14 = bitcast i32 addrspace(4)** %ptr_p to i8*
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* %14) #2
-  %15 = bitcast i32 addrspace(3)** %ptr_l to i8*
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* %15) #2
+  %p.addr = alloca ptr addrspace(1), align 8
+  %ptr.addr = alloca ptr addrspace(1), align 8
+  %ptr_l = alloca ptr addrspace(3), align 8
+  %ptr_p = alloca ptr addrspace(4), align 8
+  store ptr addrspace(1) %p, ptr %p.addr, align 8, !tbaa !4
+  store ptr addrspace(1) %ptr, ptr %ptr.addr, align 8, !tbaa !7
+  %0 = load ptr addrspace(1), ptr %p.addr, align 8, !tbaa !4
+  %1 = load ptr addrspace(1), ptr %ptr.addr, align 8, !tbaa !7
+  %2 = addrspacecast ptr addrspace(1) %1 to ptr addrspace(4)
+  %3 = call spir_func i32 @__read_pipe_2(ptr addrspace(1) %0, ptr addrspace(4) %2, i32 4, i32 4)
+  call void @llvm.lifetime.start.p0(i64 8, ptr %ptr_l) #2
+  %4 = load ptr addrspace(1), ptr %p.addr, align 8, !tbaa !4
+  %5 = load ptr addrspace(3), ptr %ptr_l, align 8, !tbaa !7
+  %6 = addrspacecast ptr addrspace(3) %5 to ptr addrspace(4)
+  %7 = call spir_func i32 @__read_pipe_2(ptr addrspace(1) %4, ptr addrspace(4) %6, i32 4, i32 4)
+  call void @llvm.lifetime.start.p0(i64 8, ptr %ptr_p) #2
+  %8 = load ptr addrspace(1), ptr %p.addr, align 8, !tbaa !4
+  %9 = load ptr addrspace(4), ptr %ptr_p, align 8, !tbaa !7
+  %10 = call spir_func i32 @__read_pipe_2(ptr addrspace(1) %8, ptr addrspace(4) %9, i32 4, i32 4)
+  call void @llvm.lifetime.end.p0(i64 8, ptr %ptr_p) #2
+  call void @llvm.lifetime.end.p0(i64 8, ptr %ptr_l) #2
   ret void
 }
 
-declare i32 @__read_pipe_2(%opencl.pipe_ro_t addrspace(1)*, i8 addrspace(4)*, i32, i32)
+declare spir_func i32 @__read_pipe_2(ptr addrspace(1), ptr addrspace(4), i32, i32)
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
-
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
-
-; Function Attrs: convergent nounwind
-define spir_func void @test2(%opencl.pipe_wo_t addrspace(1)* %p, i32 addrspace(1)* %ptr) #0 {
+; Function Attrs: convergent norecurse nounwind
+define dso_local spir_func void @test2(ptr addrspace(1) %p, ptr addrspace(1) noundef %ptr) #1 !arg_type_null_val !9 {
 entry:
-  %p.addr = alloca %opencl.pipe_wo_t addrspace(1)*, align 8
-  %ptr.addr = alloca i32 addrspace(1)*, align 8
-  %ptr_l = alloca i32 addrspace(3)*, align 8
-  %ptr_p = alloca i32 addrspace(4)*, align 8
-  %ptr_c = alloca i32 addrspace(2)*, align 8
-  store %opencl.pipe_wo_t addrspace(1)* %p, %opencl.pipe_wo_t addrspace(1)** %p.addr, align 8, !tbaa !4
-  store i32 addrspace(1)* %ptr, i32 addrspace(1)** %ptr.addr, align 8, !tbaa !7
-  %0 = load %opencl.pipe_wo_t addrspace(1)*, %opencl.pipe_wo_t addrspace(1)** %p.addr, align 8, !tbaa !4
-  %1 = load i32 addrspace(1)*, i32 addrspace(1)** %ptr.addr, align 8, !tbaa !7
-  %2 = addrspacecast i32 addrspace(1)* %1 to i8 addrspace(4)*
-  %3 = call i32 @__write_pipe_2(%opencl.pipe_wo_t addrspace(1)* %0, i8 addrspace(4)* %2, i32 4, i32 4)
-  %4 = bitcast i32 addrspace(3)** %ptr_l to i8*
-  call void @llvm.lifetime.start.p0i8(i64 8, i8* %4) #2
-  %5 = load %opencl.pipe_wo_t addrspace(1)*, %opencl.pipe_wo_t addrspace(1)** %p.addr, align 8, !tbaa !4
-  %6 = load i32 addrspace(3)*, i32 addrspace(3)** %ptr_l, align 8, !tbaa !7
-  %7 = addrspacecast i32 addrspace(3)* %6 to i8 addrspace(4)*
-  %8 = call i32 @__write_pipe_2(%opencl.pipe_wo_t addrspace(1)* %5, i8 addrspace(4)* %7, i32 4, i32 4)
-  %9 = bitcast i32 addrspace(4)** %ptr_p to i8*
-  call void @llvm.lifetime.start.p0i8(i64 8, i8* %9) #2
-  %10 = load %opencl.pipe_wo_t addrspace(1)*, %opencl.pipe_wo_t addrspace(1)** %p.addr, align 8, !tbaa !4
-  %11 = load i32 addrspace(4)*, i32 addrspace(4)** %ptr_p, align 8, !tbaa !7
-  %12 = bitcast i32 addrspace(4)* %11 to i8 addrspace(4)*
-  %13 = call i32 @__write_pipe_2(%opencl.pipe_wo_t addrspace(1)* %10, i8 addrspace(4)* %12, i32 4, i32 4)
-  %14 = bitcast i32 addrspace(2)** %ptr_c to i8*
-  call void @llvm.lifetime.start.p0i8(i64 8, i8* %14) #2
-  %15 = load %opencl.pipe_wo_t addrspace(1)*, %opencl.pipe_wo_t addrspace(1)** %p.addr, align 8, !tbaa !4
-  %16 = load i32 addrspace(2)*, i32 addrspace(2)** %ptr_c, align 8, !tbaa !7
-  %17 = addrspacecast i32 addrspace(2)* %16 to i8 addrspace(4)*
-  %18 = call i32 @__write_pipe_2(%opencl.pipe_wo_t addrspace(1)* %15, i8 addrspace(4)* %17, i32 4, i32 4)
-  %19 = bitcast i32 addrspace(2)** %ptr_c to i8*
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* %19) #2
-  %20 = bitcast i32 addrspace(4)** %ptr_p to i8*
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* %20) #2
-  %21 = bitcast i32 addrspace(3)** %ptr_l to i8*
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* %21) #2
+  %p.addr = alloca ptr addrspace(1), align 8
+  %ptr.addr = alloca ptr addrspace(1), align 8
+  %ptr_l = alloca ptr addrspace(3), align 8
+  %ptr_p = alloca ptr addrspace(4), align 8
+  %ptr_c = alloca ptr addrspace(2), align 8
+  store ptr addrspace(1) %p, ptr %p.addr, align 8, !tbaa !4
+  store ptr addrspace(1) %ptr, ptr %ptr.addr, align 8, !tbaa !7
+  %0 = load ptr addrspace(1), ptr %p.addr, align 8, !tbaa !4
+  %1 = load ptr addrspace(1), ptr %ptr.addr, align 8, !tbaa !7
+  %2 = addrspacecast ptr addrspace(1) %1 to ptr addrspace(4)
+  %3 = call spir_func i32 @__write_pipe_2(ptr addrspace(1) %0, ptr addrspace(4) %2, i32 4, i32 4)
+  call void @llvm.lifetime.start.p0(i64 8, ptr %ptr_l) #2
+  %4 = load ptr addrspace(1), ptr %p.addr, align 8, !tbaa !4
+  %5 = load ptr addrspace(3), ptr %ptr_l, align 8, !tbaa !7
+  %6 = addrspacecast ptr addrspace(3) %5 to ptr addrspace(4)
+  %7 = call spir_func i32 @__write_pipe_2(ptr addrspace(1) %4, ptr addrspace(4) %6, i32 4, i32 4)
+  call void @llvm.lifetime.start.p0(i64 8, ptr %ptr_p) #2
+  %8 = load ptr addrspace(1), ptr %p.addr, align 8, !tbaa !4
+  %9 = load ptr addrspace(4), ptr %ptr_p, align 8, !tbaa !7
+  %10 = call spir_func i32 @__write_pipe_2(ptr addrspace(1) %8, ptr addrspace(4) %9, i32 4, i32 4)
+  call void @llvm.lifetime.start.p0(i64 8, ptr %ptr_c) #2
+  %11 = load ptr addrspace(1), ptr %p.addr, align 8, !tbaa !4
+  %12 = load ptr addrspace(2), ptr %ptr_c, align 8, !tbaa !7
+  %13 = addrspacecast ptr addrspace(2) %12 to ptr addrspace(4)
+  %14 = call spir_func i32 @__write_pipe_2(ptr addrspace(1) %11, ptr addrspace(4) %13, i32 4, i32 4)
+  call void @llvm.lifetime.end.p0(i64 8, ptr %ptr_c) #2
+  call void @llvm.lifetime.end.p0(i64 8, ptr %ptr_p) #2
+  call void @llvm.lifetime.end.p0(i64 8, ptr %ptr_l) #2
   ret void
 }
 
-declare i32 @__write_pipe_2(%opencl.pipe_wo_t addrspace(1)*, i8 addrspace(4)*, i32, i32)
+declare spir_func i32 @__write_pipe_2(ptr addrspace(1), ptr addrspace(4), i32, i32)
 
-attributes #0 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "denorms-are-zero"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { argmemonly nounwind }
+attributes #0 = { nocallback nofree nosync nounwind willreturn memory(argmem: readwrite) }
+attributes #1 = { convergent norecurse nounwind "no-trapping-math"="true" "stack-protector-buffer-size"="8" }
 attributes #2 = { nounwind }
 
-!llvm.module.flags = !{!0}
-!opencl.enable.FP_CONTRACT = !{}
-!opencl.ocl.version = !{!1}
-!opencl.spir.version = !{!1}
-!opencl.used.extensions = !{!2}
-!opencl.used.optional.core.features = !{!2}
-!opencl.compiler.options = !{!2}
-!llvm.ident = !{!3}
+!opencl.ocl.version = !{!0}
+!opencl.spir.version = !{!0}
+!opencl.compiler.options = !{!1}
+!llvm.ident = !{!2}
 
-!0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{i32 2, i32 0}
-!2 = !{}
-!3 = !{!"clang version 7.0.0 "}
+!0 = !{i32 2, i32 0}
+!1 = !{}
+!2 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2024.0.0 (2024.x.0.YYYYMMDD)"}
+!3 = !{target("spirv.Pipe", 0) zeroinitializer, ptr addrspace(1) null}
 !4 = !{!5, !5, i64 0}
 !5 = !{!"omnipotent char", !6, i64 0}
 !6 = !{!"Simple C/C++ TBAA"}
 !7 = !{!8, !8, i64 0}
 !8 = !{!"any pointer", !5, i64 0}
+!9 = !{target("spirv.Pipe", 1) zeroinitializer, ptr addrspace(1) null}
 
 ; DEBUGIFY-NOT: WARNING

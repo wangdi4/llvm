@@ -10,7 +10,7 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "i686-pc-win32"
 
 
-define void @program(i32 addrspace(1)* %out, <4 x i32> %dim, i32 %uni) nounwind alwaysinline {
+define void @program(ptr addrspace(1) %out, <4 x i32> %dim, i32 %uni) nounwind alwaysinline {
   %id = call i32 @_Z13get_global_idj(i32 0) nounwind
   %thr = extractelement <4 x i32> %dim, i32 0
   %bound_bool = icmp slt i32 %id, %thr
@@ -19,8 +19,8 @@ define void @program(i32 addrspace(1)* %out, <4 x i32> %dim, i32 %uni) nounwind 
   br i1 %and_cond, label %ret, label %body
 
 body:
-  %outptr = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %id
-  store i32 0, i32 addrspace(1)* %outptr
+  %outptr = getelementptr inbounds i32, ptr addrspace(1) %out, i32 %id
+  store i32 0, ptr addrspace(1) %outptr
   br label %ret
 
 ret:
@@ -32,7 +32,7 @@ declare i32 @_Z13get_global_idj(i32)
 declare void @_Z7barrierm(i32)
 
 !sycl.kernels = !{!0}
-!0 = !{void (i32 addrspace(1)* , <4 x i32>, i32)* @program}
+!0 = !{ptr @program}
 
 ; DEBUGIFY-COUNT-14: Instruction with empty DebugLoc in function WG.boundaries.
 ; DEBUGIFY-NOT: WARNING

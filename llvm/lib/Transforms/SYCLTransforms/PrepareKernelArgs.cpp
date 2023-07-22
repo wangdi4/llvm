@@ -185,8 +185,17 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
         Alignment =
             NextPowerOf2((VecSize == 3 ? 4 : VecSize) * A.value().value() - 1);
       } else {
-        for (User *U : CallIt->users()) {
-          if (isa<LoadInst>(U) || isa<StoreInst>(U))
+        SmallVector<User *, 8> WorkList{CallIt->users()};
+        SmallPtrSet<Value *, 4> Def{&*CallIt};
+        while (!WorkList.empty()) {
+          User *U = WorkList.pop_back_val();
+          if (isa<AddrSpaceCastInst>(U) || isa<SelectInst>(U) ||
+              isa<PHINode>(U)) {
+            Def.insert(U);
+            WorkList.append(U->user_begin(), U->user_end());
+            continue;
+          }
+          if (auto *Op = getLoadStorePointerOperand(U); Op && Def.contains(Op))
             EltTy = getMaxSizeType(DL, EltTy, getLoadStoreType(U));
           else if (auto *GEP = dyn_cast<GetElementPtrInst>(U))
             EltTy = getMaxSizeType(DL, EltTy, GEP->getSourceElementType());

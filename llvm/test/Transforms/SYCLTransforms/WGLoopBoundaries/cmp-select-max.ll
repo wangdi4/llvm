@@ -16,7 +16,7 @@ target triple = "i686-pc-win32"
 declare i32 @_Z13get_global_idj(i32) nounwind readnone
 
 
-define void @cmp_select_max_kernel(<4 x i8> addrspace(1)* nocapture %dst, i32 %width, i32 %height) nounwind {
+define void @cmp_select_max_kernel(ptr addrspace(1) nocapture %dst, i32 %width, i32 %height) nounwind {
   %id0 = tail call i32 @_Z13get_global_idj(i32 0) nounwind readnone
   %id1 = tail call i32 @_Z13get_global_idj(i32 1) nounwind readnone
   %cmp0 = icmp slt i32 %id0, 1
@@ -25,14 +25,14 @@ define void @cmp_select_max_kernel(<4 x i8> addrspace(1)* nocapture %dst, i32 %w
   %select1 = select i1 %cmp1, i32 %id1, i32 1
   %mul = mul nsw i32 %select1, %width
   %ind = add nsw i32 %mul, %select0
-  %ptr = getelementptr inbounds <4 x i8>, <4 x i8> addrspace(1)* %dst, i32 %ind
-  store <4 x i8> <i8 100, i8 100, i8 100, i8 100>, <4 x i8> addrspace(1)* %ptr, align 4
+  %ptr = getelementptr inbounds <4 x i8>, ptr addrspace(1) %dst, i32 %ind
+  store <4 x i8> <i8 100, i8 100, i8 100, i8 100>, ptr addrspace(1) %ptr, align 4
   ret void
 }
 
 !sycl.kernels = !{!0}
 
-!0 = !{void (<4 x i8> addrspace(1)*, i32, i32)* @cmp_select_max_kernel}
+!0 = !{ptr @cmp_select_max_kernel}
 
 ; DEBUGIFY-COUNT-27: Instruction with empty DebugLoc in function WG.boundaries.
 ; DEBUGIFY-COUNT-4: Missing line

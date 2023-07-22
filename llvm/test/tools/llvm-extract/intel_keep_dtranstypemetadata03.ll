@@ -3,24 +3,23 @@
 ; This test is verify that all DTrans type metadata is removed during extraction.
 
 ; RUN: llvm-extract -keep-dtranstypemetadata=false -func test -S < %s | FileCheck %s
-; RUN: llvm-extract -opaque-pointers -keep-dtranstypemetadata=false -func test -S < %s | FileCheck %s
 
 %struct.test01 = type { i64, i64 }
 
-define void @caller(%struct.test01* "intel_dtrans_func_index"="1" %arg) !intel.dtrans.func.type !3 {
-  call void @test(%struct.test01* %arg)
+define void @caller(ptr "intel_dtrans_func_index"="1" %arg) !intel.dtrans.func.type !3 {
+  call void @test(ptr %arg)
   ret void
 }
 ; CHECK-NOT: @caller
 
-define void @test(%struct.test01* "intel_dtrans_func_index"="1" %arg) !intel.dtrans.func.type !4 {
-  call void @callee(%struct.test01* %arg)
+define void @test(ptr "intel_dtrans_func_index"="1" %arg) !intel.dtrans.func.type !4 {
+  call void @callee(ptr %arg)
   ret void
 }
 ; CHECK: define void @test({{.*}} %arg)
 ; CHECK-NOT: !intel.dtrans.func.type
 
-define void @callee(%struct.test01* "intel_dtrans_func_index"="1" %arg) !intel.dtrans.func.type !5 {
+define void @callee(ptr "intel_dtrans_func_index"="1" %arg) !intel.dtrans.func.type !5 {
   ret void
 }
 ; CHECK: declare void @callee({{.*}})

@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers -passes='module(pgo-icall-prom),print<inline-report>' -disable-output -inline-report=0xf847 < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,module(pgo-icall-prom),inlinereportemitter' -disable-output -inline-report=0xf8c6 < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
+; RUN: opt -passes='module(pgo-icall-prom),print<inline-report>' -disable-output -inline-report=0xf847 < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
+; RUN: opt -passes='inlinereportsetup,module(pgo-icall-prom),inlinereportemitter' -disable-output -inline-report=0xf8c6 < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
 
 ; Check that indirect call is specialized to call @peak directly using PGO
 

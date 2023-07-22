@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers < %s -passes='cgscc(inline)' -inline-threshold=225 -inlinehint-threshold=325 -inline-report=0xf847 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xf8c6 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
+; RUN: opt < %s -passes='cgscc(inline)' -inline-threshold=225 -inlinehint-threshold=325 -inline-report=0xf847 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
+; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xf8c6 -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
 
 ; Check that bar is inlined into foo and then baz is inlined in bar when
 ; #pragma inlinehint recursive is used. The threshold should be 325 for

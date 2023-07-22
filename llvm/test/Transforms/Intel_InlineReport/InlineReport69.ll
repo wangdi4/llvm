@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers -passes='cgscc(inline)' -inline-report=0x7 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK-OLD,CHECK-CODE-BEFORE %s
-; RUN: opt -opaque-pointers -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck --check-prefixes=CHECK-NEW,CHECK-CODE-AFTER %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=0x7 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK-OLD,CHECK-CODE-BEFORE %s
+; RUN: opt -passes='inlinereportsetup,cgscc(inline),inlinereportemitter' -inline-report=0xe886 -S < %s 2>&1 | FileCheck --check-prefixes=CHECK-NEW,CHECK-CODE-AFTER %s
 
 ; Check that inlining between callers and callees of different languages
 ; does not occur.

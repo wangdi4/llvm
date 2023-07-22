@@ -3162,6 +3162,7 @@ class DimInfo {
   Value *Stride = nullptr;
   bool IsExactMultiple = true;
   bool CanVarDimStrideBeZero = false;
+  bool IsDimStrideReversed = false;
 
   SmallVector<Value *, 4> Indices;
   SmallVector<Value *, 4> IndicesLB;
@@ -3186,6 +3187,8 @@ public:
   void setStrideIsExactMultiple(bool Flag) { IsExactMultiple = Flag; }
   bool canVarDimStrideBeZero() const { return CanVarDimStrideBeZero; }
   void setVarDimStrideCanBeZero(bool Flag) { CanVarDimStrideBeZero = Flag; }
+  bool isDimStrideReversed() const { return IsDimStrideReversed; }
+  void setDimStrideReversed(bool Flag) { IsDimStrideReversed = Flag; }
 
   // Adds an \p Idx to the dimension. Later these indices will be merged into a
   // single CanonExpr.
@@ -3535,6 +3538,7 @@ std::list<ArrayInfo> HIRParser::GEPChain::parseGEPOp(const SubscriptInst *Sub) {
   Dim.addIndex(Sub->getIndex(), Sub->getLowerBound());
   Dim.setStrideIsExactMultiple(Sub->isExact());
   Dim.setVarDimStrideCanBeZero(Sub->canVarDimStrideBeZero());
+  Dim.setDimStrideReversed(Sub->isDimStrideReversed());
   Dim.setExtent(Sub->getExtent());
 
   return {Arr};
@@ -3938,6 +3942,7 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
   GEPChain Chain(*this, GEPOp);
   auto *OffsetTy = Chain.getOffsetTy();
   bool AnyVarDimStrideMayBeZero = false;
+  bool AnyDimStrideReversed = false;
 
   // If Ref has existing dimensions we may have to start from merging in the
   // highest dimension, but only if the first dimension we just parsed does not
@@ -4004,6 +4009,8 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
                                Dim.isStrideExactMultiple());
       AnyVarDimStrideMayBeZero =
           AnyVarDimStrideMayBeZero || Dim.canVarDimStrideBeZero();
+      AnyDimStrideReversed =
+          AnyDimStrideReversed || Dim.isDimStrideReversed();
     }
   }
 
@@ -4015,6 +4022,7 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
 
   Ref->setBasePtrElementType(getBasePtrElementType(BaseGEPOp));
   Ref->setAnyVarDimStrideMayBeZero(AnyVarDimStrideMayBeZero);
+  Ref->setAnyDimStrideReversed(AnyDimStrideReversed);
 }
 
 void HIRParser::addPhiBaseGEPDimensions(const GEPOrSubsOperator *GEPOp,
@@ -4863,8 +4871,7 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
 
   bool FakeDDRefsRequired = (Call && !Call->doesNotAccessMemory() &&
                              !Call->onlyAccessesInaccessibleMemory());
-  bool IsReadOnly =
-      (FakeDDRefsRequired && Call->onlyReadsMemory());
+  bool IsReadOnly = (FakeDDRefsRequired && Call->onlyReadsMemory());
 
   unsigned NumArgOperands = Call ? Call->arg_size() : 0;
 
