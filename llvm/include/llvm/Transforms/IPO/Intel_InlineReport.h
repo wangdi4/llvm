@@ -572,7 +572,6 @@ public:
     if (MapIt != IRFunctionMap.end() || !FromCallback) {
       InlineReportFunction *IRF = getOrAddFunction(&F);
       setDead(&F);
-      IRF->setLinkageChar(&F);
       IRFunctionMap.erase(&F);
       IRDeadFunctionSet.insert(IRF);
     }
