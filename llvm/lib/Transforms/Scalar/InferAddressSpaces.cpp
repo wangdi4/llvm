@@ -1578,15 +1578,10 @@ bool InferAddressSpacesImpl::rewriteWithNewAddressSpaces(
 #if INTEL_COLLAB
             auto *BCNewV = NewV;
 #endif // INTEL_COLLAB
-#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
-            if (!cast<PointerType>(ASC->getType()->getScalarType())
-                     ->hasSameElementTypeAs(
-                         cast<PointerType>(NewV->getType()->getScalarType()))) {
-#else
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
             if (!cast<PointerType>(ASC->getType())
                     ->hasSameElementTypeAs(
                         cast<PointerType>(NewV->getType()))) {
-#endif
               BasicBlock::iterator InsertPos;
               if (Instruction *NewVInst = dyn_cast<Instruction>(NewV))
                 InsertPos = std::next(NewVInst->getIterator());
@@ -1604,6 +1599,7 @@ bool InferAddressSpacesImpl::rewriteWithNewAddressSpaces(
 #if INTEL_COLLAB
             ASC->replaceAllUsesWith(BCNewV);
 #endif // INTEL_COLLAB
+#endif
             DeadInstructions.push_back(ASC);
             continue;
           }
