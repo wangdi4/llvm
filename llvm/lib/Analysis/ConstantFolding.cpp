@@ -992,6 +992,10 @@ Constant *SymbolicallyEvaluateGEP(const GEPOperator *GEP,
   // For GEPs of GlobalValues, use the value type, otherwise use an i8 GEP.
   if (auto *GV = dyn_cast<GlobalValue>(Ptr))
     SrcElemTy = GV->getValueType();
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
+  else if (!PTy->isOpaque())
+    SrcElemTy = PTy->getNonOpaquePointerElementType();
+#endif
   else
     SrcElemTy = Type::getInt8Ty(Ptr->getContext());
 
