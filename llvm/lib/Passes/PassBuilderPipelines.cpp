@@ -2035,6 +2035,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   // user pragmas (like unroller & vectorizer) are triggered in LTO link phase.
   if (!PrepareForLTO)
     FPM.addPass(WarnMissedTransformationsPass());
+#endif // INTEL_CUSTOMIZATION
   // Now that we are done with loop unrolling, be it either by LoopVectorizer,
   // or LoopUnroll passes, some variable-offset GEP's into alloca's could have
   // become constant-offset, thus enabling SROA and alloca promotion. Do so.
@@ -2045,7 +2046,6 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   // the CFG mess this may created if allowed to modify CFG, so forbid that.
   FPM.addPass(SROAPass(SROAPass(SROAOptions::ModifyCFG)));
 #endif // !INTEL_CUSTOMIZATION
-#endif // INTEL_CUSTOMIZATION
   }
 
 #if INTEL_CUSTOMIZATION
@@ -2077,6 +2077,8 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
     if (isLoopOptEnabled(Level))
       FPM.addPass(NontemporalStorePass());
 #endif // INTEL_FEATURE_SW_ADVANCED
+    addInstCombinePass(FPM, true /* EnableUpCasting */,
+                       true /* EnableCanonicalizeSwap */);
   }
 #endif // INTEL_CUSTOMIZATOIN
 }
