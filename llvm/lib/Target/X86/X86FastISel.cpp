@@ -2205,7 +2205,14 @@ bool X86FastISel::X86FastEmitCMoveSelect(MVT RetVT, const Instruction *I) {
     return false;
 
   const TargetRegisterInfo &TRI = *Subtarget->getRegisterInfo();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  unsigned Opc =
+      X86::getCMovOpcode(TRI.getRegSizeInBits(*RC) / 8, Subtarget->hasNDD());
+#else  // INTEL_FEATURE_ISA_APX_F
   unsigned Opc = X86::getCMovOpcode(TRI.getRegSizeInBits(*RC)/8);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   Register ResultReg = fastEmitInst_rri(Opc, RC, RHSReg, LHSReg, CC);
   updateValueMap(I, ResultReg);
   return true;

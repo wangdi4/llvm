@@ -55,7 +55,14 @@ enum AsmComments {
 std::pair<CondCode, bool> getX86ConditionCode(CmpInst::Predicate Predicate);
 
 /// Return a cmov opcode for the given register size in bytes, and operand type.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+unsigned getCMovOpcode(unsigned RegBytes, bool HasNDD = false,
+                       bool HasMemoryOperand = false);
+#else  // INTEL_FEATURE_ISA_APX_F
 unsigned getCMovOpcode(unsigned RegBytes, bool HasMemoryOperand = false);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
 /// Return the source operand # for condition code by \p MCID. If the
 /// instruction doesn't have a condition code, return -1.

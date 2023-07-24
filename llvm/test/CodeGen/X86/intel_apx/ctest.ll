@@ -521,7 +521,7 @@ define i8 @ctest8rr_zf_opt(i8 %a, i8 %b, i8* nocapture %c)  {
 ; NDD-NEXT:  # %bb.1: # %if.then
 ; NDD-NEXT:    movb %dil, (%rdx) # encoding: [0x40,0x88,0x3a]
 ; NDD-NEXT:  .LBB16_2: # %if.end
-; NDD-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
+; NDD-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; NDD-NEXT:    retq # encoding: [0xc3]
 entry:
   %tobool = icmp ne i8 %a, 0
@@ -562,7 +562,7 @@ define i16 @ctest16rr_sf_opt(i16 %a, i16 %b, i16* nocapture %c)  {
 ; NDD-NEXT:  # %bb.1: # %if.then
 ; NDD-NEXT:    movw %di, (%rdx) # encoding: [0x66,0x89,0x3a]
 ; NDD-NEXT:  .LBB17_2: # %if.end
-; NDD-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
+; NDD-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; NDD-NEXT:    retq # encoding: [0xc3]
 entry:
   %tobool = icmp slt i16 %a, 0
@@ -601,7 +601,7 @@ define i32 @ctest32rr_zf_opt(i32 %a, i32 %b, i32* nocapture %c)  {
 ; NDD-NEXT:  # %bb.1: # %if.then
 ; NDD-NEXT:    movl %edi, (%rdx) # encoding: [0x89,0x3a]
 ; NDD-NEXT:  .LBB18_2: # %if.end
-; NDD-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
+; NDD-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; NDD-NEXT:    retq # encoding: [0xc3]
 entry:
   %tobool = icmp ne i32 %a, 0
@@ -640,7 +640,7 @@ define i64 @ctest64rr_sf_opt(i64 %a, i64 %b, i64* nocapture %c)  {
 ; NDD-NEXT:  # %bb.1: # %if.then
 ; NDD-NEXT:    movq %rdi, (%rdx) # encoding: [0x48,0x89,0x3a]
 ; NDD-NEXT:  .LBB19_2: # %if.end
-; NDD-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
+; NDD-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; NDD-NEXT:    retq # encoding: [0xc3]
 entry:
   %tobool = icmp ne i64 %a, 0
@@ -679,7 +679,7 @@ define i8 @ctest8mr_opt(i8 %a, i8 %b, i8* nocapture %c, i8* %ptr)  {
 ; NDD-NEXT:  # %bb.1: # %if.then
 ; NDD-NEXT:    movb %dil, (%rdx) # encoding: [0x40,0x88,0x3a]
 ; NDD-NEXT:  .LBB20_2: # %if.end
-; NDD-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
+; NDD-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; NDD-NEXT:    retq # encoding: [0xc3]
 entry:
   %d = load i8, i8* %ptr
@@ -719,7 +719,7 @@ define i16 @ctest16mr_opt(i16 %a, i16 %b, i16* nocapture %c, i16* %ptr)  {
 ; NDD-NEXT:  # %bb.1: # %if.then
 ; NDD-NEXT:    movw %di, (%rdx) # encoding: [0x66,0x89,0x3a]
 ; NDD-NEXT:  .LBB21_2: # %if.end
-; NDD-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
+; NDD-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; NDD-NEXT:    retq # encoding: [0xc3]
 entry:
   %d = load i16, i16* %ptr
@@ -759,7 +759,7 @@ define i32 @ctest32mr_opt(i32 %a, i32 %b, i32* nocapture %c, i32* %ptr)  {
 ; NDD-NEXT:  # %bb.1: # %if.then
 ; NDD-NEXT:    movl %edi, (%rdx) # encoding: [0x89,0x3a]
 ; NDD-NEXT:  .LBB22_2: # %if.end
-; NDD-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
+; NDD-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; NDD-NEXT:    retq # encoding: [0xc3]
 entry:
   %d = load i32, i32* %ptr
@@ -799,7 +799,7 @@ define i64 @ctest64mr_opt(i64 %a, i64 %b, i64* nocapture %c, i64* %ptr)  {
 ; NDD-NEXT:  # %bb.1: # %if.then
 ; NDD-NEXT:    movq %rdi, (%rdx) # encoding: [0x48,0x89,0x3a]
 ; NDD-NEXT:  .LBB23_2: # %if.end
-; NDD-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
+; NDD-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; NDD-NEXT:    retq # encoding: [0xc3]
 entry:
   %d = load i64, i64* %ptr
@@ -839,7 +839,7 @@ define i8 @ctest8ri_opt(i8 %a, i8 %b, i8* nocapture %c)  {
 ; NDD-NEXT:  # %bb.1: # %if.then
 ; NDD-NEXT:    movb %dil, (%rdx) # encoding: [0x40,0x88,0x3a]
 ; NDD-NEXT:  .LBB24_2: # %if.end
-; NDD-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
+; NDD-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; NDD-NEXT:    retq # encoding: [0xc3]
 entry:
   %tobool = icmp ne i8 %a, 0
@@ -880,7 +880,7 @@ define i16 @ctest16ri_opt(i16 %a, i16 %b, i16* nocapture %c)  {
 ; NDD-NEXT:  # %bb.1: # %if.then
 ; NDD-NEXT:    movw %di, (%rdx) # encoding: [0x66,0x89,0x3a]
 ; NDD-NEXT:  .LBB25_2: # %if.end
-; NDD-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
+; NDD-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; NDD-NEXT:    retq # encoding: [0xc3]
 entry:
   %tobool = icmp ne i16 %a, 0
@@ -921,7 +921,7 @@ define i32 @ctest32ri_opt(i32 %a, i32 %b, i32* nocapture %c)  {
 ; NDD-NEXT:  # %bb.1: # %if.then
 ; NDD-NEXT:    movl %edi, (%rdx) # encoding: [0x89,0x3a]
 ; NDD-NEXT:  .LBB26_2: # %if.end
-; NDD-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
+; NDD-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; NDD-NEXT:    retq # encoding: [0xc3]
 entry:
   %tobool = icmp ne i32 %a, 0
@@ -962,7 +962,7 @@ define i64 @ctest64ri_opt(i64 %a, i64 %b, i64* nocapture %c)  {
 ; NDD-NEXT:  # %bb.1: # %if.then
 ; NDD-NEXT:    movq %rdi, (%rdx) # encoding: [0x48,0x89,0x3a]
 ; NDD-NEXT:  .LBB27_2: # %if.end
-; NDD-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
+; NDD-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; NDD-NEXT:    retq # encoding: [0xc3]
 entry:
   %tobool = icmp ne i64 %a, 0
@@ -1002,7 +1002,7 @@ define i8 @ctest8mi_opt(i8 %a, i8* %ptr, i8* nocapture %c)  {
 ; NDD-NEXT:  # %bb.1: # %if.then
 ; NDD-NEXT:    movb %dil, (%rdx) # encoding: [0x40,0x88,0x3a]
 ; NDD-NEXT:  .LBB28_2: # %if.end
-; NDD-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
+; NDD-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; NDD-NEXT:    retq # encoding: [0xc3]
 entry:
   %b = load i8, i8* %ptr
@@ -1048,7 +1048,7 @@ define i16 @ctest16mi_opt(i16 %a, i16* %ptr, i16* nocapture %c)  {
 ; NDD-NEXT:  # %bb.1: # %if.then
 ; NDD-NEXT:    movw %di, (%rdx) # encoding: [0x66,0x89,0x3a]
 ; NDD-NEXT:  .LBB29_2: # %if.end
-; NDD-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
+; NDD-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; NDD-NEXT:    retq # encoding: [0xc3]
 entry:
   %b = load i16, i16* %ptr
@@ -1092,7 +1092,7 @@ define i32 @ctest32mi_opt(i32 %a, i32* %ptr, i32* nocapture %c)  {
 ; NDD-NEXT:  # %bb.1: # %if.then
 ; NDD-NEXT:    movl %edi, (%rdx) # encoding: [0x89,0x3a]
 ; NDD-NEXT:  .LBB30_2: # %if.end
-; NDD-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
+; NDD-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; NDD-NEXT:    retq # encoding: [0xc3]
 entry:
   %b = load i32, i32* %ptr
@@ -1138,7 +1138,7 @@ define i64 @ctest64mi_opt(i64 %a, i64* %ptr, i64* nocapture %c)  {
 ; NDD-NEXT:  # %bb.1: # %if.then
 ; NDD-NEXT:    movq %rdi, (%rdx) # encoding: [0x48,0x89,0x3a]
 ; NDD-NEXT:  .LBB31_2: # %if.end
-; NDD-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
+; NDD-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; NDD-NEXT:    retq # encoding: [0xc3]
 entry:
   %b = load i64, i64* %ptr

@@ -2152,7 +2152,19 @@ MachineInstr *X86InstrInfo::commuteInstructionImpl(MachineInstr &MI, bool NewMI,
   case X86::SHRD32rri8: // A = SHRD32rri8 B, C, I -> A = SHLD32rri8 C, B, (32-I)
   case X86::SHLD32rri8: // A = SHLD32rri8 B, C, I -> A = SHRD32rri8 C, B, (32-I)
   case X86::SHRD64rri8: // A = SHRD64rri8 B, C, I -> A = SHLD64rri8 C, B, (64-I)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86::SHLD64rri8: // A = SHLD64rri8 B, C, I -> A = SHRD64rri8 C, B, (64-I)
+  case X86::SHRD16rri8_ND:
+  case X86::SHLD16rri8_ND:
+  case X86::SHRD32rri8_ND:
+  case X86::SHLD32rri8_ND:
+  case X86::SHRD64rri8_ND:
+  case X86::SHLD64rri8_ND:{
+#else  // INTEL_FEATURE_ISA_APX_F
   case X86::SHLD64rri8:{// A = SHLD64rri8 B, C, I -> A = SHRD64rri8 C, B, (64-I)
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     unsigned Opc;
     unsigned Size;
     switch (MI.getOpcode()) {
@@ -2163,6 +2175,16 @@ MachineInstr *X86InstrInfo::commuteInstructionImpl(MachineInstr &MI, bool NewMI,
     case X86::SHLD32rri8: Size = 32; Opc = X86::SHRD32rri8; break;
     case X86::SHRD64rri8: Size = 64; Opc = X86::SHLD64rri8; break;
     case X86::SHLD64rri8: Size = 64; Opc = X86::SHRD64rri8; break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    case X86::SHRD16rri8_ND: Size = 16; Opc = X86::SHLD16rri8_ND; break;
+    case X86::SHLD16rri8_ND: Size = 16; Opc = X86::SHRD16rri8_ND; break;
+    case X86::SHRD32rri8_ND: Size = 32; Opc = X86::SHLD32rri8_ND; break;
+    case X86::SHLD32rri8_ND: Size = 32; Opc = X86::SHRD32rri8_ND; break;
+    case X86::SHRD64rri8_ND: Size = 64; Opc = X86::SHLD64rri8_ND; break;
+    case X86::SHLD64rri8_ND: Size = 64; Opc = X86::SHRD64rri8_ND; break;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     }
     unsigned Amt = MI.getOperand(3).getImm();
     auto &WorkingMI = cloneIfNew(MI);
@@ -2420,6 +2442,11 @@ MachineInstr *X86InstrInfo::commuteInstructionImpl(MachineInstr &MI, bool NewMI,
     return TargetInstrInfo::commuteInstructionImpl(WorkingMI, /*NewMI=*/false,
                                                    OpIdx1, OpIdx2);
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86::CMOV16rr_ND:  case X86::CMOV32rr_ND:  case X86::CMOV64rr_ND:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86::CMOV16rr:  case X86::CMOV32rr:  case X86::CMOV64rr: {
     auto &WorkingMI = cloneIfNew(MI);
     unsigned OpNo = MI.getDesc().getNumOperands() - 1;
@@ -3045,12 +3072,33 @@ X86::getX86ConditionCode(CmpInst::Predicate Predicate) {
 }
 
 /// Return a cmov opcode for the given register size in bytes, and operand type.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+unsigned X86::getCMovOpcode(unsigned RegBytes, bool HasNDD,
+                            bool HasMemoryOperand) {
+#else  // INTEL_FEATURE_ISA_APX_F
 unsigned X86::getCMovOpcode(unsigned RegBytes, bool HasMemoryOperand) {
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   switch(RegBytes) {
   default: llvm_unreachable("Illegal register size!");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case 2:
+    return HasMemoryOperand ? (HasNDD ? X86::CMOV16rm_ND : X86::CMOV16rm)
+                            : (HasNDD ? X86::CMOV16rr_ND : X86::CMOV16rr);
+  case 4:
+    return HasMemoryOperand ? (HasNDD ? X86::CMOV32rm_ND : X86::CMOV32rm)
+                            : (HasNDD ? X86::CMOV32rr_ND : X86::CMOV32rr);
+  case 8:
+    return HasMemoryOperand ? (HasNDD ? X86::CMOV64rm_ND : X86::CMOV64rm)
+                            : (HasNDD ? X86::CMOV64rr_ND : X86::CMOV64rr);
+#else  // INTEL_FEATURE_ISA_APX_F
   case 2: return HasMemoryOperand ? X86::CMOV16rm : X86::CMOV16rr;
   case 4: return HasMemoryOperand ? X86::CMOV32rm : X86::CMOV32rr;
   case 8: return HasMemoryOperand ? X86::CMOV64rm : X86::CMOV64rr;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   }
 }
 
@@ -3656,8 +3704,16 @@ void X86InstrInfo::insertSelect(MachineBasicBlock &MBB,
   const TargetRegisterInfo &TRI = *MRI.getTargetRegisterInfo();
   const TargetRegisterClass &RC = *MRI.getRegClass(DstReg);
   assert(Cond.size() == 1 && "Invalid Cond array");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  unsigned Opc =
+      X86::getCMovOpcode(TRI.getRegSizeInBits(RC) / 8, Subtarget.hasNDD(),
+                         false /*HasMemoryOperand*/);
+#else  // INTEL_FEATURE_ISA_APX_F
   unsigned Opc = X86::getCMovOpcode(TRI.getRegSizeInBits(RC) / 8,
                                     false /*HasMemoryOperand*/);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   BuildMI(MBB, I, DL, get(Opc), DstReg)
       .addReg(FalseReg)
       .addReg(TrueReg)
@@ -4540,6 +4596,14 @@ bool X86InstrInfo::isRedundantFlagInstr(const MachineInstr &FlagI,
   case X86::CMP32rr:
   case X86::CMP16rr:
   case X86::CMP8rr:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86::SUB64rr_ND:
+  case X86::SUB32rr_ND:
+  case X86::SUB16rr_ND:
+  case X86::SUB8rr_ND:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86::SUB64rr:
   case X86::SUB32rr:
   case X86::SUB16rr:
@@ -4565,6 +4629,14 @@ bool X86InstrInfo::isRedundantFlagInstr(const MachineInstr &FlagI,
   case X86::CMP32ri:
   case X86::CMP16ri:
   case X86::CMP8ri:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86::SUB64ri32_ND:
+  case X86::SUB32ri_ND:
+  case X86::SUB16ri_ND:
+  case X86::SUB8ri_ND:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86::SUB64ri32:
   case X86::SUB32ri:
   case X86::SUB16ri:
@@ -4614,7 +4686,14 @@ inline static bool isDefConvertible(const MachineInstr &MI, bool &NoSignFlag,
   // i386 GOTNTPOFF/INDNTPOFF relocations can convert an ADD to a LEA during
   // Initial Exec to Local Exec relaxation. In these cases, we must not depend
   // on the EFLAGS modification of ADD actually happening in the final binary.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  if (MI.getOpcode() == X86::ADD64rm || MI.getOpcode() == X86::ADD32rm ||
+      MI.getOpcode() == X86::ADD64rm_ND || MI.getOpcode() == X86::ADD32rm_ND) {
+#else  // INTEL_FEATURE_ISA_APX_F
   if (MI.getOpcode() == X86::ADD64rm || MI.getOpcode() == X86::ADD32rm) {
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     unsigned Flags = MI.getOperand(5).getTargetFlags();
     if (Flags == X86II::MO_GOTTPOFF || Flags == X86II::MO_INDNTPOFF ||
         Flags == X86II::MO_GOTNTPOFF)
@@ -4628,20 +4707,61 @@ inline static bool isDefConvertible(const MachineInstr &MI, bool &NoSignFlag,
   // N.B.: The processor truncates the shift count depending on the encoding.
   case X86::SAR8ri:    case X86::SAR16ri:  case X86::SAR32ri:case X86::SAR64ri:
   case X86::SHR8ri:    case X86::SHR16ri:  case X86::SHR32ri:case X86::SHR64ri:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86::SAR8ri_ND: case X86::SAR16ri_ND: case X86::SAR32ri_ND: case X86::SAR64ri_ND:
+  case X86::SHR8ri_ND: case X86::SHR16ri_ND: case X86::SHR32ri_ND: case X86::SHR64ri_ND:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
      return getTruncatedShiftCount(MI, 2) != 0;
 
   // Some left shift instructions can be turned into LEA instructions but only
   // if their flags aren't used. Avoid transforming such instructions.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86::SHL8ri_ND: case X86::SHL16ri_ND: case X86::SHL32ri_ND: case X86::SHL64ri_ND:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86::SHL8ri:    case X86::SHL16ri:  case X86::SHL32ri:case X86::SHL64ri:{
     unsigned ShAmt = getTruncatedShiftCount(MI, 2);
     if (isTruncatedShiftCountForLEA(ShAmt)) return false;
     return ShAmt != 0;
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86::SHRD16rri8_ND:case X86::SHRD32rri8_ND:case X86::SHRD64rri8_ND:
+  case X86::SHLD16rri8_ND:case X86::SHLD32rri8_ND:case X86::SHLD64rri8_ND:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86::SHRD16rri8:case X86::SHRD32rri8:case X86::SHRD64rri8:
   case X86::SHLD16rri8:case X86::SHLD32rri8:case X86::SHLD64rri8:
      return getTruncatedShiftCount(MI, 3) != 0;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86::SUB64ri32_ND: case X86::SUB32ri_ND:  case X86::SUB16ri_ND:
+  case X86::SUB8ri_ND:    case X86::SUB64rr_ND:  case X86::SUB32rr_ND:
+  case X86::SUB16rr_ND:   case X86::SUB8rr_ND:   case X86::SUB64rm_ND:
+  case X86::SUB32rm_ND:   case X86::SUB16rm_ND:  case X86::SUB8rm_ND:
+  case X86::DEC64r_ND:    case X86::DEC32r_ND:   case X86::DEC16r_ND:
+  case X86::DEC8r_ND:     case X86::INC8r_ND:    case X86::NEG8r_ND:
+  case X86::ADD64ri32_ND: case X86::ADD32ri_ND:  case X86::ADD16ri_ND:
+  case X86::ADD8ri_ND:    case X86::ADD64rr_ND:  case X86::ADD32rr_ND:
+  case X86::ADD16rr_ND:   case X86::ADD8rr_ND:   case X86::ADD64rm_ND:
+  case X86::ADD32rm_ND:   case X86::ADD16rm_ND:  case X86::ADD8rm_ND:
+  case X86::INC64r_ND:    case X86::INC32r_ND:   case X86::INC16r_ND:
+  case X86::ADC64ri32_ND: case X86::ADC32ri_ND:  case X86::ADC16ri_ND:
+  case X86::ADC8ri_ND:    case X86::ADC64rr_ND:  case X86::ADC32rr_ND:
+  case X86::ADC16rr_ND:   case X86::ADC8rr_ND:   case X86::ADC64rm_ND:
+  case X86::ADC32rm_ND:   case X86::ADC16rm_ND:  case X86::ADC8rm_ND:
+  case X86::SBB64ri32_ND: case X86::SBB32ri_ND:  case X86::SBB16ri_ND:
+  case X86::SBB8ri_ND:    case X86::SBB64rr_ND:  case X86::SBB32rr_ND:
+  case X86::SBB16rr_ND:   case X86::SBB8rr_ND:   case X86::SBB64rm_ND:
+  case X86::SBB32rm_ND:   case X86::SBB16rm_ND:  case X86::SBB8rm_ND:
+  case X86::NEG16r_ND:    case X86::NEG32r_ND:   case X86::NEG64r_ND:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86::SUB64ri32: case X86::SUB32ri:  case X86::SUB16ri:
   case X86::SUB8ri:    case X86::SUB64rr:  case X86::SUB32rr:
   case X86::SUB16rr:   case X86::SUB8rr:   case X86::SUB64rm:
@@ -4671,6 +4791,22 @@ inline static bool isDefConvertible(const MachineInstr &MI, bool &NoSignFlag,
   case X86::TZCNT32rr: case X86::TZCNT32rm:
   case X86::TZCNT64rr: case X86::TZCNT64rm:
     return true;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86::AND64ri32_ND:   case X86::AND32ri_ND:   case X86::AND16ri_ND:
+  case X86::AND8ri_ND:      case X86::AND64rr_ND:   case X86::AND32rr_ND:
+  case X86::AND16rr_ND:     case X86::AND8rr_ND:    case X86::AND64rm_ND:
+  case X86::AND32rm_ND:     case X86::AND16rm_ND:   case X86::AND8rm_ND:
+  case X86::XOR64ri32_ND:   case X86::XOR32ri_ND:   case X86::XOR16ri_ND:
+  case X86::XOR8ri_ND:      case X86::XOR64rr_ND:   case X86::XOR32rr_ND:
+  case X86::XOR16rr_ND:     case X86::XOR8rr_ND:    case X86::XOR64rm_ND:
+  case X86::XOR32rm_ND:     case X86::XOR16rm_ND:   case X86::XOR8rm_ND:
+  case X86::OR64ri32_ND:    case X86::OR32ri_ND:    case X86::OR16ri_ND:
+  case X86::OR8ri_ND:       case X86::OR64rr_ND:    case X86::OR32rr_ND:
+  case X86::OR16rr_ND:      case X86::OR8rr_ND:     case X86::OR64rm_ND:
+  case X86::OR32rm_ND:      case X86::OR16rm_ND:    case X86::OR8rm_ND:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86::AND64ri32:   case X86::AND32ri:   case X86::AND16ri:
   case X86::AND8ri:      case X86::AND64rr:   case X86::AND32rr:
   case X86::AND16rr:     case X86::AND8rr:    case X86::AND64rm:
@@ -4731,6 +4867,14 @@ inline static bool isDefConvertible(const MachineInstr &MI, bool &NoSignFlag,
 static X86::CondCode isUseDefConvertible(const MachineInstr &MI) {
   switch (MI.getOpcode()) {
   default: return X86::COND_INVALID;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86::NEG8r_ND:
+  case X86::NEG16r_ND:
+  case X86::NEG32r_ND:
+  case X86::NEG64r_ND:
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86::NEG8r:
   case X86::NEG16r:
   case X86::NEG32r:
@@ -5275,8 +5419,15 @@ static bool Expand2AddrKreg(MachineInstrBuilder &MIB, const MCInstrDesc &Desc,
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+static bool expandMOV32r1(MachineInstrBuilder &MIB, const TargetInstrInfo &TII,
+                          bool MinusOne, const X86Subtarget &Subtarget) {
+#else  // INTEL_FEATURE_ISA_APX_F
 static bool expandMOV32r1(MachineInstrBuilder &MIB, const TargetInstrInfo &TII,
                           bool MinusOne) {
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   MachineBasicBlock &MBB = *MIB->getParent();
   const DebugLoc &DL = MIB->getDebugLoc();
   Register Reg = MIB.getReg(0);
@@ -5287,7 +5438,15 @@ static bool expandMOV32r1(MachineInstrBuilder &MIB, const TargetInstrInfo &TII,
       .addReg(Reg, RegState::Undef);
 
   // Turn the pseudo into an INC or DEC.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  MIB->setDesc(
+      TII.get(MinusOne ? (Subtarget.hasNDD() ? X86::DEC32r_ND : X86::DEC32r)
+                       : (Subtarget.hasNDD() ? X86::INC32r_ND : X86::INC32r)));
+#else  // INTEL_FEATURE_ISA_APX_F
   MIB->setDesc(TII.get(MinusOne ? X86::DEC32r : X86::INC32r));
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   MIB.addReg(Reg);
 
   return true;
@@ -5451,18 +5610,51 @@ bool X86InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   MachineInstrBuilder MIB(*MI.getParent()->getParent(), MI);
   switch (MI.getOpcode()) {
   case X86::MOV32r0:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    return Expand2AddrUndef(
+        MIB, get(Subtarget.hasNDD() ? X86::XOR32rr_ND : X86::XOR32rr));
+#else  // INTEL_FEATURE_ISA_APX_F
     return Expand2AddrUndef(MIB, get(X86::XOR32rr));
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86::MOV32r1:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    return expandMOV32r1(MIB, *this, /*MinusOne=*/false, Subtarget);
+#else  // INTEL_FEATURE_ISA_APX_F
     return expandMOV32r1(MIB, *this, /*MinusOne=*/ false);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86::MOV32r_1:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    return expandMOV32r1(MIB, *this, /*MinusOne=*/true, Subtarget);
+#else  // INTEL_FEATURE_ISA_APX_F
     return expandMOV32r1(MIB, *this, /*MinusOne=*/ true);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86::MOV32ImmSExti8:
   case X86::MOV64ImmSExti8:
     return ExpandMOVImmSExti8(MIB, *this, Subtarget);
   case X86::SETB_C32r:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    return Expand2AddrUndef(
+        MIB, get(Subtarget.hasNDD() ? X86::SBB32rr_ND : X86::SBB32rr));
+#else  // INTEL_FEATURE_ISA_APX_F
     return Expand2AddrUndef(MIB, get(X86::SBB32rr));
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86::SETB_C64r:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    return Expand2AddrUndef(
+        MIB, get(Subtarget.hasNDD() ? X86::SBB64rr_ND : X86::SBB64rr));
+#else  // INTEL_FEATURE_ISA_APX_F
     return Expand2AddrUndef(MIB, get(X86::SBB64rr));
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   case X86::MMX_SET0:
     return Expand2AddrUndef(MIB, get(X86::MMX_PXORrr));
   case X86::V_SET0:
@@ -5667,6 +5859,45 @@ bool X86InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   case X86::XOR64_FP:
   case X86::XOR32_FP:
     return expandXorFP(MIB, *this);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86::SHLDROT32ri:
+    return expandSHXDROT(
+        MIB, get(Subtarget.hasNDD() ? X86::SHLD32rri8_ND : X86::SHLD32rri8));
+  case X86::SHLDROT64ri:
+    return expandSHXDROT(
+        MIB, get(Subtarget.hasNDD() ? X86::SHLD64rri8_ND : X86::SHLD64rri8));
+  case X86::SHRDROT32ri:
+    return expandSHXDROT(
+        MIB, get(Subtarget.hasNDD() ? X86::SHRD32rri8_ND : X86::SHRD32rri8));
+  case X86::SHRDROT64ri:
+    return expandSHXDROT(
+        MIB, get(Subtarget.hasNDD() ? X86::SHRD64rri8_ND : X86::SHRD64rri8));
+  case X86::ADD8rr_DB:
+    MIB->setDesc(get(Subtarget.hasNDD() ? X86::OR8rr_ND : X86::OR8rr));
+    break;
+  case X86::ADD16rr_DB:
+    MIB->setDesc(get(Subtarget.hasNDD() ? X86::OR16rr_ND : X86::OR16rr));
+    break;
+  case X86::ADD32rr_DB:
+    MIB->setDesc(get(Subtarget.hasNDD() ? X86::OR32rr_ND : X86::OR32rr));
+    break;
+  case X86::ADD64rr_DB:
+    MIB->setDesc(get(Subtarget.hasNDD() ? X86::OR64rr_ND : X86::OR64rr));
+    break;
+  case X86::ADD8ri_DB:
+    MIB->setDesc(get(Subtarget.hasNDD() ? X86::OR8ri_ND : X86::OR8ri));
+    break;
+  case X86::ADD16ri_DB:
+    MIB->setDesc(get(Subtarget.hasNDD() ? X86::OR16ri_ND : X86::OR16ri));
+    break;
+  case X86::ADD32ri_DB:
+    MIB->setDesc(get(Subtarget.hasNDD() ? X86::OR32ri_ND : X86::OR32ri));
+    break;
+  case X86::ADD64ri32_DB:
+    MIB->setDesc(get(Subtarget.hasNDD() ? X86::OR64ri32_ND : X86::OR64ri32));
+    break;
+#else  // INTEL_FEATURE_ISA_APX_F
   case X86::SHLDROT32ri: return expandSHXDROT(MIB, get(X86::SHLD32rri8));
   case X86::SHLDROT64ri: return expandSHXDROT(MIB, get(X86::SHLD64rri8));
   case X86::SHRDROT32ri: return expandSHXDROT(MIB, get(X86::SHRD32rri8));
@@ -5679,6 +5910,8 @@ bool X86InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   case X86::ADD16ri_DB:   MIB->setDesc(get(X86::OR16ri));   break;
   case X86::ADD32ri_DB:   MIB->setDesc(get(X86::OR32ri));   break;
   case X86::ADD64ri32_DB: MIB->setDesc(get(X86::OR64ri32)); break;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   }
   return false;
 }
@@ -6461,15 +6694,34 @@ void X86InstrInfo::breakPartialRegDependency(
     // Using XOR32rr because it has shorter encoding and zeros up the upper bits
     // as well.
     Register XReg = TRI->getSubReg(Reg, X86::sub_32bit);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    BuildMI(*MI.getParent(), MI, MI.getDebugLoc(),
+            get(Subtarget.hasNDD() ? X86::XOR32rr_ND : X86::XOR32rr), XReg)
+        .addReg(XReg, RegState::Undef)
+        .addReg(XReg, RegState::Undef)
+        .addReg(Reg, RegState::ImplicitDefine);
+#else  // INTEL_FEATURE_ISA_APX_F
     BuildMI(*MI.getParent(), MI, MI.getDebugLoc(), get(X86::XOR32rr), XReg)
         .addReg(XReg, RegState::Undef)
         .addReg(XReg, RegState::Undef)
         .addReg(Reg, RegState::ImplicitDefine);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     MI.addRegisterKilled(Reg, TRI, true);
   } else if (X86::GR32RegClass.contains(Reg)) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    BuildMI(*MI.getParent(), MI, MI.getDebugLoc(),
+            get(Subtarget.hasNDD() ? X86::XOR32rr_ND : X86::XOR32rr), Reg)
+        .addReg(Reg, RegState::Undef)
+        .addReg(Reg, RegState::Undef);
+#else  // INTEL_FEATURE_ISA_APX_F
     BuildMI(*MI.getParent(), MI, MI.getDebugLoc(), get(X86::XOR32rr), Reg)
         .addReg(Reg, RegState::Undef)
         .addReg(Reg, RegState::Undef);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     MI.addRegisterKilled(Reg, TRI, true);
   }
 }
@@ -9859,6 +10111,26 @@ bool X86InstrInfo::isAssociativeAndCommutative(const MachineInstr &Inst,
   case X86::ADD8rr:
   case X86::ADD16rr:
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+  case X86::ADD8rr_ND:
+  case X86::ADD16rr_ND:
+  case X86::ADD64rr_ND:
+  case X86::AND8rr_ND:
+  case X86::AND16rr_ND:
+  case X86::AND32rr_ND:
+  case X86::AND64rr_ND:
+  case X86::OR8rr_ND:
+  case X86::OR16rr_ND:
+  case X86::OR32rr_ND:
+  case X86::OR64rr_ND:
+  case X86::XOR8rr_ND:
+  case X86::XOR16rr_ND:
+  case X86::XOR32rr_ND:
+  case X86::XOR64rr_ND:
+  case X86::IMUL16rr_ND:
+  case X86::IMUL32rr_ND:
+  case X86::IMUL64rr_ND:
+#endif // INTEL_FEATURE_ISA_APX_F
     //  case X86::ADD32rr:
     //  Revert part of D136396 when it is fortran
     //  as it makes 548@opt_speed -4%.

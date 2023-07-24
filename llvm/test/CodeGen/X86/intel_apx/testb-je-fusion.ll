@@ -8,7 +8,7 @@
 define i32 @macrofuse_test_je(i32 %flags, ptr %p) nounwind {
 ; BRANCHFUSIONONLY_NOPOSTRA-LABEL: macrofuse_test_je:
 ; BRANCHFUSIONONLY_NOPOSTRA:       # %bb.0: # %entry
-; BRANCHFUSIONONLY_NOPOSTRA-NEXT:    xorl %eax, %eax
+; BRANCHFUSIONONLY_NOPOSTRA-NEXT:    xorl %eax, %eax, %eax
 ; BRANCHFUSIONONLY_NOPOSTRA-NEXT:    movb $1, (%rsi)
 ; BRANCHFUSIONONLY_NOPOSTRA-NEXT:    testl $512, %edi # imm = 0x200
 ; BRANCHFUSIONONLY_NOPOSTRA-NEXT:    je .LBB0_2
@@ -19,7 +19,7 @@ define i32 @macrofuse_test_je(i32 %flags, ptr %p) nounwind {
 ;
 ; MACROFUSION_NOPOSTRA-LABEL: macrofuse_test_je:
 ; MACROFUSION_NOPOSTRA:       # %bb.0: # %entry
-; MACROFUSION_NOPOSTRA-NEXT:    xorl %eax, %eax
+; MACROFUSION_NOPOSTRA-NEXT:    xorl %eax, %eax, %eax
 ; MACROFUSION_NOPOSTRA-NEXT:    movb $1, (%rsi)
 ; MACROFUSION_NOPOSTRA-NEXT:    testl $512, %edi # imm = 0x200
 ; MACROFUSION_NOPOSTRA-NEXT:    je .LBB0_2
@@ -51,7 +51,7 @@ define i32 @macrofuse_cmp_je(i32 %flags, ptr %p) nounwind {
 ; BRANCHFUSIONONLY_NOPOSTRA-NEXT:    movl $1, %eax
 ; BRANCHFUSIONONLY_NOPOSTRA-NEXT:    retq
 ; BRANCHFUSIONONLY_NOPOSTRA-NEXT:  .LBB1_1:
-; BRANCHFUSIONONLY_NOPOSTRA-NEXT:    xorl %eax, %eax
+; BRANCHFUSIONONLY_NOPOSTRA-NEXT:    xorl %eax, %eax, %eax
 ; BRANCHFUSIONONLY_NOPOSTRA-NEXT:    retq
 ;
 ; MACROFUSION_NOPOSTRA-LABEL: macrofuse_cmp_je:
@@ -63,7 +63,7 @@ define i32 @macrofuse_cmp_je(i32 %flags, ptr %p) nounwind {
 ; MACROFUSION_NOPOSTRA-NEXT:    movl $1, %eax
 ; MACROFUSION_NOPOSTRA-NEXT:    retq
 ; MACROFUSION_NOPOSTRA-NEXT:  .LBB1_1:
-; MACROFUSION_NOPOSTRA-NEXT:    xorl %eax, %eax
+; MACROFUSION_NOPOSTRA-NEXT:    xorl %eax, %eax, %eax
 ; MACROFUSION_NOPOSTRA-NEXT:    retq
 entry:
   %sub = sub i32 %flags, 512
