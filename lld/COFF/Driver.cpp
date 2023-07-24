@@ -521,21 +521,17 @@ StringRef LinkerDriver::findFile(StringRef filename) {
     return filename;
   };
 
-<<<<<<< HEAD
   bool hasPathSep = (filename.find_first_of("/\\") != StringRef::npos);
 #if INTEL_CUSTOMIZATION
   // CMPLRLLVM-48406: libraries specified by /DEFAULTLIB in the .drectve
   // section can either be an absolute filepath or a relative filepath.
   // Relative filepaths need to be searched for in the searchPaths
   // directories.
-  if (hasPathSep)
+  if (sys::path::is_absolute(filename))
     if (sys::fs::exists(filename))
       return getFilename(filename);
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (sys::path::is_absolute(filename))
-    return getFilename(filename);
->>>>>>> b6c2f100c23bb715edbec57a4894f1ae551cd1d4
+
   bool hasExt = filename.contains('.');
   for (StringRef dir : searchPaths) {
     SmallString<128> path = dir;
