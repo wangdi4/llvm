@@ -2855,6 +2855,24 @@ void CodeGenModule::SetLLVMFunctionAttributesForDefinition(const Decl *D,
       F->addTypeMetadata(0, Id);
     }
   }
+
+#ifdef INTEL_CUSTOMIZATION
+  // Attach auto-cpu-dispatch and auto-arch target metadata on function
+  // definitions(not declarations) in non-offload modules.
+  if (!getLangOpts().OpenMPIsDevice && !getLangOpts().SYCLIsDevice) {
+    // Skip functions that are manually marked for multiversioning
+    // and those which are tuned using attribute "target".
+    auto *FD = dyn_cast<FunctionDecl>(D);
+    if (FD && FD->hasBody() && !FD->isMultiVersion() &&
+        !FD->hasAttr<TargetAttr>() && !FD->hasAttr<OMPDeclareSimdDeclAttr>() &&
+        !FD->hasAttr<OMPDeclareVariantAttr>()) {
+      if (llvm::MDNode *TargetsMD = getAutoCPUDispatchTargetsMetadata())
+        F->addMetadata("llvm.auto.cpu.dispatch", *TargetsMD);
+      else if (llvm::MDNode *TargetsMD = getAutoArchTargetsMetadata())
+        F->addMetadata("llvm.auto.arch", *TargetsMD);
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 void CodeGenModule::SetCommonAttributes(GlobalDecl GD, llvm::GlobalValue *GV) {
@@ -3461,6 +3479,7 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
                                                CalleeIdx, PayloadIndices,
                                                /* VarArgsArePassed */ false)}));
   }
+<<<<<<< HEAD
 #ifdef INTEL_CUSTOMIZATION
   // Skip declaration, functions that are mamually marked for multiversioning
   // and those which are tuned by a user using attribute "target".
@@ -3482,6 +3501,8 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
   if (const auto *A = FD->getAttr<SYCLUsesAspectsAttr>())
     applySYCLAspectsMD(A, getContext(), getLLVMContext(), F,
                        "sycl_used_aspects");
+=======
+>>>>>>> cc72e29d45b5e015939b680d759675cc7ef53b1c
 }
 
 void CodeGenModule::addUsedGlobal(llvm::GlobalValue *GV) {

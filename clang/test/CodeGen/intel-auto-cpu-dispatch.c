@@ -1,12 +1,18 @@
 // RUN: %clang_cc1 -ax=broadwell,skylake-avx512 -triple x86_64-linux-gnu -emit-llvm -o - %s -fopenmp -fintel-openmp-region -disable-llvm-passes | FileCheck %s
+// RUN: %clang_cc1 -ax=broadwell,skylake-avx512 -triple x86_64-linux-gnu -emit-llvm -o - %s -disable-llvm-passes | FileCheck %s --check-prefix FORWARD-DECL
 
-// Declarations are not marked for auto-CPU dispatch
+// Declarations are not marked for auto CPU dispatch.
 // CHECK-DAG: declare i32 @foo() #{{[0-9]*}}
 int foo(void);
+int tee(void);
 
-// This function is eligible for auto-CPU dispatch.
+// This function is eligible for auto CPU dispatch.
 // CHECK-DAG: define dso_local i32 @bar() #{{[0-9]*}} !llvm.auto.cpu.dispatch [[MD:![0-9]*]]
-int bar(void) { foo(); return 4;}
+int bar(void) { foo(); return tee(); }
+
+// Functions definitions with forward declarations are eligible for auto CPU dispatch.
+// FORWARD-DECL: define dso_local i32 @tee() #{{[0-9]*}} !llvm.auto.cpu.dispatch [[MD:![0-9]*]]
+int tee(void) { return 0; }
 
 // Functions below have predefined target and must not be auto-CPU dispatched.
 
