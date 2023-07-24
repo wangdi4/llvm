@@ -83,7 +83,20 @@ Dependence analysis is implemented in the following files:
 Loop Vectorization Legality
 ---------------------------
 
-...description...
+As its name suggests, the legality phase determines whether there are any aspects of a loop
+that preclude vectorization, other than the dependence analysis already performed.  Legality
+imports explicitly declared information from the WRegion description of the loop, including
+loop entities (reductions, privates, and linears, the last of which includes inductions), and
+checks for any limitations within the implementation that prevents vectorization for now.
+
+Some additional checking is needed along the LLVM IR path that isn't necessary along the HIR path.
+For example, the HIR framework ensures the vectorizer only sees loops with specific control
+flow patterns, but we need to check for these when consuming LLVM IR.  We must also resolve
+any incompatibilities between the community's auto-recognition of inductions/reductions and
+VPlan's framework for representing them.
+
+Note that some loops don't even make it to the legality phase, as the VPlan driver also
+does some legality testing in its ``isSupported()`` method.
 
 Legality is implemented in the following files:
 
@@ -92,10 +105,20 @@ Legality is implemented in the following files:
 * `.../VPlanHIR/IntelVPlanHCFGBuilderHIR.h <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelVPlanHCFGBuilderHIR.h>`_
 * `.../VPlanHIR/IntelVPlanHCFGBuilderHIR.cpp <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Transforms/Vectorize/Intel_VPlan/VPlanHIR/IntelVPlanHCFGBuilderHIR.cpp>`_
 
+The HIR framework (beyond the scope of this document) can be found here:
+
+* `llvm/lib/Analysis/Intel_LoopAnalysis/Framework/ <https://github.com/intel-restricted/applications.compilers.llvm-project/blob/xmain/llvm/lib/Analysis/Intel_LoopAnalysis/Framework/>`_
+
 Loop Vectorization Planner
 --------------------------
 
-...description...
+Once we've determined a loop is legal to vectorize, the work to perform vectorization is
+overseen by the VPlan planner.  The planner constructs an initial VPlan from scratch,
+populating it with a control flow graph and VPInstructions.  It then performs various
+analyses and transforms to optimize the VPlan, employs cost modeling to select the best
+vectorization factor and unroll factor, determines whether peel and/or remainder loops
+will be generated, generates remarks for the optimization report, and requests the code
+generator to create vectorized code in the appropriate IR.
 
 The Planner is implemented in the following files:
 
@@ -110,7 +133,12 @@ Framework APIs
 API for VPValue and Derived Types
 ---------------------------------
 
-...description...
+The VPlan IR framework follows the structure of the LLVM IR framework closely.  LLVM provides
+``Value`` as a base class for ``User``, which is a base class for ``Instruction``.  Similarly
+in VPlan IR, ``VPValue`` serves as a base class for ``VPUser``, which is a base class for
+``VPInstruction``, and so on.  This portion of the API includes ``VPValue``, ``VPUser``,
+``VPProxyUser``, ``VPConstant``, ``VPConstantInt``, ``VPExternalDef``, ``VPExternalUse``,
+``VPMetadataAsValue``, ``VPLiveInValue``, and ``VPLiveOutValue``.
 
 The API for VPValue and its derived types is implemented in the following file:
 
@@ -119,7 +147,24 @@ The API for VPValue and its derived types is implemented in the following file:
 API for VPlan and VPInstruction
 -------------------------------
 
-...description...
+The ``IntelVPlan.h`` header file is quite large, and contains most of the API for defining
+and manipulating ``VPlan`` and ``VPInstruction`` objects.  The API can be broken into logical
+sections:
+
+* *General instructions:* ``VPInstruction``, ``VPPushVF``, ``VPCmpInst``, ``VPBranchInst``, ``VPBlendInst``, ``VPPHINode``, ``VPGEPInstruction``, ``VPSubscriptInst``, ``VPLoadStoreInst``, ``VPHIRCopyInst``, ``VPCallInstruction``,  ``VPConstStepVector``, ``VPOrigTripCountCalculation``, ``VPVectorTripCountCalculation``, ``VPInvSCEVWrapper``, ``VPActiveLane``, ``VPActiveLaneExtract``, ``VPConvertMaskToInt``, ``VPInsertExtractValue``, ``VPOrigLiveOutImpl``
+* *Loop entity instructions:* ``VPPrivateNonPODInstImpl``, ``VPPrivateLastValueNonPODTemplInst``, ``VPInductionInit``, ``VPInductionInitStep``, ``VPInductionFinal``, ``VPReductionInit``, ``VPReductionFinal``, ``VPReductionFinalUDR``, ``VPReductionFinalInscan``, ``VPReductionFinalArrayCmplxImpl``, ``VPRunningUDSBase``, ``VPRunningInclusiveUDS``, ``VPRunningExclusiveUDS``, ``VPRunningInclusiveReduction``, ``VPRunningExclusiveReduction``, ``VPPrivateFinalC``
+* *Loop representation instructions:* ``VPScalarLoopBase``, ``VPPeelRemainderImpl``, ``VPPeelRemainder``, ``VPPeelRemainderHIR``, ``VPScalarPeel``, ``VPScalarPeelHIR``, ``VPScalarRemainder``, ``VPScalarRemainderHIR``
+* *Idiom instructions:* ``VPCompressExpandInitFinal``, ``VPCompressExpandInit``, ``VPCompressExpandFinal``, ``VPGeneralMemOptConflict``, ``VPTreeConflict``, ``VPConflictInsn``, ``VPPermute``, ``VPCompressExpandIndex``, ``VPCompressExpandIndexInc``
+* *Memory allocation instructions:* ``F90DVBufferInit``, ``VPAllocateMemBase``, ``VPAllocateDVBuffer``, ``VPAllocatePrivate``
+* *VLS instructions:* ``VPVLSBaseInst``, ``VPVLSLoad``, ``VPVLSStore``, ``VPVLSExtract``, ``VPVLSInsert``
+* *VPlan and variants:* ``VPlan``, ``VPlanScalar``, ``VPlanVector``, ``VPlanScalarPeel``, ``VPlanScalarRemainder``, ``VPlanMasked``, ``VPlanNonMasked``
+* *Plan adapters:* ``VPlanAdapter``, ``VPlanPeelAdapter``
+* *Regions:* ``VPRegion``
+* *Library calls:* ``VPTransformLibraryCall``
+* *Early exit loop support:* ``VPEarlyExitCond``, ``VPEarlyExitExecMask``
+* *Analysis classes:* ``VPAnalysesFactoryBase``, ``VPAnalysesFactory``, ``VPAnalysesFactoryHIR``
+* *VPlan state:* ``VPIteration``, ``VPCallback``, ``VPTransformState``
+* *Utilities:* ``VPlanPrinter``, ``VPlanUtils``, ``VPlanOptReportBuilder``, ``VPlanDumpControl``
 
 The API for VPlans and VPInstructions is implemented in the following files:
 
@@ -129,7 +174,10 @@ The API for VPlans and VPInstructions is implemented in the following files:
 VPlan Utilities API
 -------------------
 
-...description...
+The VPlan Utilities API contains a number of standalone utility functions that are not a
+part of any class.  Most of them are used to ask questions about a ``VPInstruction`` or
+``VPValue``.  There is also an iterator class ``sese_df_iterator`` that provides depth-first
+access to blocks of an SESE region.
 
 The VPlan utilities API is implemented in the following file:
 
@@ -138,7 +186,8 @@ The VPlan utilities API is implemented in the following file:
 VPlan Builder
 -------------
 
-The VPlan Builder API provides methods for creating VPlan instructions.
+The VPlan Builder API provides methods for creating VPlan instructions.  The ``VPBuilderHIR``
+class also provides support for storing underlying HIR nodes with instructions.
 
 The VPlan Builder API is implemented in the following files:
 
@@ -148,9 +197,12 @@ The VPlan Builder API is implemented in the following files:
 Externals API
 -------------
 
-API for external defs and uses, and live-ins/liveouts.
+The externals API provides methods for tracking values that are external to the VPlan being
+analyzed.  These include lists of external defs and uses, and lists of live-in and live-out
+values.
 
-...further description...
+API classes include ``VPUnlinkedInstructions``, ``ScalarInOutDescr``, ``ScalarInOutDescrHIR``,
+``ScalarInOutList``, ``ScalarInOutListHIR``, ``VPExternalValues``, and ``VPLiveInOutCreator``.
 
 The externals API is implemented in the following files:
 
@@ -160,7 +212,11 @@ The externals API is implemented in the following files:
 Basic Block API
 ---------------
 
-...description...
+The basic block API defines the ``VPBasicBlock`` class that implements basic blocks within the
+VPlan CFG framework.  It includes methods for adding and removing instructions, as well as
+iterators over instructions, predecessor blocks, and successor blocks.  The API also includes
+the ``VPBlockUtils`` class that provides methods for splitting blocks, updating dominator trees,
+and so forth, and the ``GraphTraits`` specialization for VPlan basic blocks.
 
 The basic block API is implemented in the following files:
 
@@ -170,7 +226,11 @@ The basic block API is implemented in the following files:
 Loop API
 --------
 
-...description...
+Loops in VPlan are represented by the ``VPLoop`` and ``VPLoopInfo`` classes.  ``VPLoop``
+specializes and extends the LLVM ``LoopBase`` templated class for the VPlan data structures.
+Likewise, ``VPLoopInfo`` specializes the LLVM ``LoopInfoBase`` templated class that identifies
+loops in a control flow graph.  The loop ABI also includes ``GraphTraits`` and
+``OptReportTraits`` for ``VPLoop`` objects, as well as iterator classes.
 
 The loop API is implemented in the following files:
 
