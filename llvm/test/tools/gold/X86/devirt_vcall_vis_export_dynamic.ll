@@ -14,7 +14,7 @@
 ; RUN:   %intel_plugin_devirt_options \
 ; INTEL_CUSTOMIZATION
 ; RUN:   --plugin-opt=save-temps \
-; RUN:   --plugin-opt=-pass-remarks=. -plugin-opt=opaque-pointers \
+; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t2.o -o %t3 2>&1 | FileCheck %s --check-prefix=REMARK
 ; RUN: llvm-dis %t2.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
 
@@ -27,7 +27,7 @@
 ; RUN:   %intel_plugin_devirt_options \
 ; INTEL_CUSTOMIZATION
 ; RUN:   --plugin-opt=save-temps \
-; RUN:   --plugin-opt=-pass-remarks=. -plugin-opt=opaque-pointers \
+; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t.o -o %t3 2>&1 | FileCheck %s --check-prefix=REMARK
 ; RUN: llvm-dis %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
 
@@ -39,7 +39,7 @@
 ; RUN:   %intel_plugin_devirt_options \
 ; INTEL_CUSTOMIZATION
 ; RUN:   --plugin-opt=save-temps \
-; RUN:   --plugin-opt=-pass-remarks=. -plugin-opt=opaque-pointers \
+; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t4.o -o %t3 2>&1 | FileCheck %s --check-prefix=REMARK
 ; RUN: llvm-dis %t3.0.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
 
@@ -55,7 +55,7 @@
 ; RUN:   %intel_plugin_devirt_options \
 ; INTEL_CUSTOMIZATION
 ; RUN:   --plugin-opt=save-temps \
-; RUN:   --plugin-opt=-pass-remarks=. -plugin-opt=opaque-pointers \
+; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t2.o -o %t3 \
 ; RUN:   --export-dynamic 2>&1 | FileCheck /dev/null --implicit-check-not single-impl --allow-empty
 ; RUN: llvm-dis %t2.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-NODEVIRT-IR
@@ -67,7 +67,7 @@
 ; RUN:   %intel_plugin_devirt_options \
 ; INTEL_CUSTOMIZATION
 ; RUN:   --plugin-opt=save-temps \
-; RUN:   --plugin-opt=-pass-remarks=. -plugin-opt=opaque-pointers \
+; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t.o -o %t3 \
 ; RUN:   --export-dynamic 2>&1 | FileCheck /dev/null --implicit-check-not single-impl --allow-empty
 ; RUN: llvm-dis %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-NODEVIRT-IR
@@ -79,7 +79,7 @@
 ; RUN:   %intel_plugin_devirt_options \
 ; INTEL_CUSTOMIZATION
 ; RUN:   --plugin-opt=save-temps \
-; RUN:   --plugin-opt=-pass-remarks=. -plugin-opt=opaque-pointers \
+; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t4.o -o %t3 \
 ; RUN:   --export-dynamic 2>&1 | FileCheck /dev/null --implicit-check-not single-impl --allow-empty
 ; RUN: llvm-dis %t3.0.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-NODEVIRT-IR
@@ -92,30 +92,30 @@
 ;; Index based WPD
 ; RUN: opt -relocation-model=pic --thinlto-bc -o %t5.o %s
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
-; RUN: 	 %t5.o -o %t5.so -shared -plugin-opt=opaque-pointers
+; RUN: 	 %t5.o -o %t5.so -shared
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
 ; RUN:   --plugin-opt=whole-program-visibility \
-; RUN:   --plugin-opt=-pass-remarks=. -plugin-opt=opaque-pointers \
+; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t5.o %t5.so -o %t5 \
 ; RUN:   --export-dynamic 2>&1 | FileCheck /dev/null --implicit-check-not single-impl --allow-empty
 
 ;; Hybrid WPD
 ; RUN: opt -relocation-model=pic --thinlto-bc --thinlto-split-lto-unit -o %t5.o %s
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
-; RUN: 	 %t5.o -o %t5.so -shared -plugin-opt=opaque-pointers
+; RUN: 	 %t5.o -o %t5.so -shared
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
 ; RUN:   --plugin-opt=whole-program-visibility \
-; RUN:   --plugin-opt=-pass-remarks=. -plugin-opt=opaque-pointers \
+; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t5.o %t5.so -o %t5 \
 ; RUN:   --export-dynamic 2>&1 | FileCheck /dev/null --implicit-check-not single-impl --allow-empty
 
 ;; Regular LTO WPD
 ; RUN: opt -relocation-model=pic -o %t5.o %s
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
-; RUN: 	 %t5.o -o %t5.so -shared -plugin-opt=opaque-pointers
+; RUN: 	 %t5.o -o %t5.so -shared
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
 ; RUN:   --plugin-opt=whole-program-visibility \
-; RUN:   --plugin-opt=-pass-remarks=. -plugin-opt=opaque-pointers \
+; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t5.o %t5.so -o %t5 \
 ; RUN:   --export-dynamic 2>&1 | FileCheck /dev/null --implicit-check-not single-impl --allow-empty
 

@@ -3,7 +3,7 @@
 
 ; RUN: %gold -plugin %llvmshlibdir/LLVMgold%shlibext \
 ; RUN:    --plugin-opt=save-temps \
-; RUN:    --plugin-opt=thinlto -plugin-opt=opaque-pointers \
+; RUN:    --plugin-opt=thinlto \
 ; RUN:    -m elf_x86_64 \
 ; RUN:    -shared %t1.o %t2.o -o %t3
 
