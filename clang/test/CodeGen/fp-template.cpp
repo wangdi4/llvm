@@ -65,19 +65,4 @@ namespace PR63542 {
 #pragma STDC FENV_ROUND FE_TOWARDZERO
 #pragma STDC FENV_ACCESS ON
 
-namespace PR63542 {
-  template <class Compare> float stable_sort(float x, Compare) {
-    float result = x + x;
-    stable_sort(x, int());
-    return result;
-  }
-  float linkage_wrap() { return stable_sort(0.0, 1); }
-}
-
-// CHECK-LABEL: define {{.*}} float @_ZN7PR6354211stable_sortIiEEffT_(
-// CHECK:         llvm.experimental.constrained.fadd.f32
-
-// Must be at the end of translation unit.
-#pragma STDC FENV_ACCESS ON
-
 // CHECK: attributes #[[ATTR01]] = { {{.*}}strictfp
