@@ -2243,17 +2243,9 @@ pi_result piPluginInit(pi_plugin *PluginInit) {
     return PI_ERROR_INVALID_VALUE;
   }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
   std::cout
       << "WARNING: The ESIMD Emulator is deprecated and will be removed in the "
          "future release of Intel(R) oneAPI DPC++/C++ Compiler 2024.0.\n";
-#endif // INTEL_CUSTOMIZATION
-=======
-  std::cout
-      << "WARNING: The ESIMD Emulator is deprecated and will be removed in the "
-         "future.\n";
->>>>>>> c07ccb4f480fe4a49aec419d3eba6ce62d4a3d64
 
   // Check that the major version matches in PiVersion and SupportedVersion
   _PI_PLUGIN_VERSION_CHECK(PluginInit->PiVersion, SupportedVersion);
