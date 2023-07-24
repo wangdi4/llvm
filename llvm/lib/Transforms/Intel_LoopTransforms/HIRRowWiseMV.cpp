@@ -873,7 +873,7 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
   }
 
 #if INTEL_INTERNAL_BUILD
-  ORBuilder(*CheckLoop).addOrigin("Probe loop for row-wise multiversioning");
+  ORBuilder(*CheckLoop).addOrigin(OptRemarkID::RowWiseMultiversionProbeLoop);
 #endif
 
   // Add ZTTs from the outer loops to make sure the accesses are safe. This
@@ -1300,12 +1300,11 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
     // instead.
 #if INTEL_INTERNAL_BUILD
     if (ORBuilder.isOptReportOn()) {
-      std::string Message;
-      raw_string_ostream MessageStream{Message};
-      MessageStream
-        << "Row-wise multiversioned loop for value "
-        << cast<ConstantFP>(MVVals[MVInd])->getValueAPF().convertToDouble();
-      ORBuilder(*MVLoop).addOrigin(Message);
+      ORBuilder(*MVLoop).addOrigin(
+          OptRemarkID::RowWiseMultiversionedLoop,
+          std::to_string(cast<ConstantFP>(MVVals[MVInd])
+                             ->getValueAPF()
+                             .convertToDouble()));
     }
 #endif
 

@@ -48,7 +48,7 @@ attributes #0 = { "target-cpu"="skylake-avx512" }
 ; CHECK-DAG: ![[OPTREPORT_PRAGMA]] = distinct !{!"intel.optreport", ![[REMARKS:[0-9]+]]}
 ; CHECK-DAG: ![[REMARKS]] = !{!"intel.optreport.remarks", ![[DUMMY:[0-9]+]], ![[LLORG_UNROLLED:[0-9]+]]}
 ; CHECK-DAG: ![[DUMMY]] = !{!"intel.optreport.remark", i32 0, !"dummy opt report"}
-; CHECK-DAG: ![[LLORG_UNROLLED]] = !{!"intel.optreport.remark", i32 0, !"LLorg: Loop has been unrolled by %d factor", i32 8}
+; CHECK-DAG: ![[LLORG_UNROLLED]] = !{!"intel.optreport.remark", i32 25604, !"Loop has been partially unrolled with factor %d by LLVM LoopUnroll", i32 8}
 ; CHECK-DAG: ![[UNROLL_DISABLE]] = !{!"llvm.loop.unroll.disable"}
 
 ; CHECK-DAG: ![[LOOP_HEUR]] = distinct !{![[LOOP_HEUR]], ![[OPTREPORT_ROOT_HEUR:[0-9]+]]}

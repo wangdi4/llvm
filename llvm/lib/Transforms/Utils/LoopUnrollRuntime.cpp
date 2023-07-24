@@ -1025,8 +1025,7 @@ bool llvm::UnrollRuntimeLoopRemainder(
     // Loop, so we move all the next siblings (if there are any)
     // to the remainder Loop.
     LORB(*L, *LI).moveSiblingsTo(*remainderLoop, *LI);
-    LORB(*remainderLoop, *LI).addOrigin("LLorg: Remainder loop for partial "
-                                        "unrolling");
+    LORB(*remainderLoop, *LI).addOrigin(OptRemarkID::LLORGRemainderLoop);
   }
 #endif  // INTEL_CUSTOMIZATION
 
