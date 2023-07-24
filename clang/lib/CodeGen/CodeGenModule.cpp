@@ -2855,6 +2855,24 @@ void CodeGenModule::SetLLVMFunctionAttributesForDefinition(const Decl *D,
       F->addTypeMetadata(0, Id);
     }
   }
+
+#ifdef INTEL_CUSTOMIZATION
+  // Attach auto-cpu-dispatch and auto-arch target metadata on function
+  // definitions(not declarations) in non-offload modules.
+  if (!getLangOpts().OpenMPIsTargetDevice && !getLangOpts().SYCLIsDevice) {
+    // Skip functions that are manually marked for multiversioning
+    // and those which are tuned using attribute "target".
+    auto *FD = dyn_cast<FunctionDecl>(D);
+    if (FD && FD->hasBody() && !FD->isMultiVersion() &&
+        !FD->hasAttr<TargetAttr>() && !FD->hasAttr<OMPDeclareSimdDeclAttr>() &&
+        !FD->hasAttr<OMPDeclareVariantAttr>()) {
+      if (llvm::MDNode *TargetsMD = getAutoCPUDispatchTargetsMetadata())
+        F->addMetadata("llvm.auto.cpu.dispatch", *TargetsMD);
+      else if (llvm::MDNode *TargetsMD = getAutoArchTargetsMetadata())
+        F->addMetadata("llvm.auto.arch", *TargetsMD);
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 void CodeGenModule::SetCommonAttributes(GlobalDecl GD, llvm::GlobalValue *GV) {
@@ -3461,18 +3479,6 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
                                                CalleeIdx, PayloadIndices,
                                                /* VarArgsArePassed */ false)}));
   }
-#ifdef INTEL_CUSTOMIZATION
-  // Skip declaration, functions that are mamually marked for multiversioning
-  // and those which are tuned by a user using attribute "target".
-  if (FD->hasBody() && !FD->hasAttr<TargetAttr>() && !FD->isMultiVersion() &&
-      !FD->hasAttr<OMPDeclareSimdDeclAttr>() &&
-      !FD->hasAttr<OMPDeclareVariantAttr>()) {
-    if (llvm::MDNode *TargetsMD = getAutoCPUDispatchTargetsMetadata())
-      F->addMetadata("llvm.auto.cpu.dispatch", *TargetsMD);
-    else if (llvm::MDNode *TargetsMD = getAutoArchTargetsMetadata())
-      F->addMetadata("llvm.auto.arch", *TargetsMD);
-  }
-#endif //INTEL_CUSTOMIZATION
 
   // Apply SYCL specific attributes/metadata.
   if (const auto *A = FD->getAttr<SYCLDeviceHasAttr>())
