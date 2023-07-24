@@ -1647,13 +1647,8 @@ declare i32 @__tgt_target_kernel_nowait(ptr, i64, i32, i32, ptr, ptr, i32, ptr, 
 ; OPTIMISTIC: ; Function Attrs: nofree nosync nounwind willreturn memory(inaccessiblemem: read)
 ; OPTIMISTIC-NEXT: declare dso_local i32 @omp_get_supported_active_levels()
 
-<<<<<<< HEAD
-; OPTIMISTIC: ; Function Attrs: nofree nosync nounwind willreturn memory(inaccessiblemem: read)
-; OPTIMISTIC-NEXT: declare i32 @__kmpc_global_thread_num(ptr nocapture readonly) ;INTEL
-=======
 ; OPTIMISTIC: ; Function Attrs: nofree nosync nounwind willreturn memory(argmem: read, inaccessiblemem: read)
-; OPTIMISTIC-NEXT: declare i32 @__kmpc_global_thread_num(ptr nocapture nofree readonly)
->>>>>>> 232ce90541fe1bd1aa96319b36d8fe5b5344a52b
+; OPTIMISTIC-NEXT: declare i32 @__kmpc_global_thread_num(ptr nocapture readonly) ;INTEL
 
 ; OPTIMISTIC: ; Function Attrs: nounwind
 ; OPTIMISTIC-NEXT: declare void @__kmpc_fork_call(ptr nocapture nofree readonly, i32, ptr nocapture nofree readonly, ...)

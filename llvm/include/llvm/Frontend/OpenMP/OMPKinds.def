@@ -726,16 +726,11 @@ __OMP_RTL_ATTRS(__kmpc_error, AttributeSet(), AttributeSet(),
                 ParamAttrs(AttributeSet(), SExt))
 __OMP_RTL_ATTRS(__kmpc_flush, BarrierAttrs, AttributeSet(),
                 ParamAttrs(ReadOnlyPtrAttrs))
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-__OMP_RTL_ATTRS(__kmpc_global_thread_num, GetterAttrs, SExt,
+__OMP_RTL_ATTRS(__kmpc_global_thread_num, GetterArgReadAttrs, SExt,
                 ArrayRef<AttributeSet>({AttributeSet(EnumAttr(NoCapture),
                                                      EnumAttr(ReadOnly))}))
 #endif // INTEL_CUSTOMIZATION
-=======
-__OMP_RTL_ATTRS(__kmpc_global_thread_num, GetterArgReadAttrs, SExt,
-                ParamAttrs(ReadOnlyPtrAttrs))
->>>>>>> 232ce90541fe1bd1aa96319b36d8fe5b5344a52b
 __OMP_RTL_ATTRS(__kmpc_get_hardware_thread_id_in_block, GetterAttrs, ZExt,
                 ParamAttrs())
 __OMP_RTL_ATTRS(__kmpc_fork_call, ForkAttrs, AttributeSet(),
