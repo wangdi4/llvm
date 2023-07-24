@@ -1,5 +1,5 @@
-; RUN: opt -bugpoint-enable-legacy-pm -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -switch-to-offload -vpo-paropt-opt-scalar-fp=false -S %s | FileCheck %s
-; RUN: opt -passes="function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt" -switch-to-offload -vpo-paropt-opt-scalar-fp=false -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -switch-to-offload -vpo-paropt-opt-scalar-fp=false -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes="function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt" -switch-to-offload -vpo-paropt-opt-scalar-fp=false -S %s | FileCheck %s
 
 ; -- vecadd.cpp ---------------------------------------------------------------
 ; #include <stdio.h>
@@ -40,11 +40,11 @@
 ; }
 ; -- vecadd.cpp ---------------------------------------------------------------
 ;
-; CHECK: define {{.*}}void @__omp_offloading_{{.*}}vecaddv{{.*}}(ptr addrspace(1) %v1.ascast, ptr addrspace(1) %v2.ascast, ptr addrspace(1) noalias %v3.ascast, ptr addrspace(1) %.omp.lb.ascast, ptr addrspace(1) %.omp.ub.ascast, ptr addrspace(1) %i.ascast) {{.*}} !dbg [[OFFLOAD:![0-9]+]] {
-; CHECK-DAG: call void @llvm.dbg.value(metadata ptr addrspace(1) [[V1_STORAGE:%v1.ascast]], metadata [[V1_DIVAR:![0-9]+]], metadata !DIExpression(DW_OP_deref)), !dbg [[L36C17:![0-9]+]]
-; CHECK-DAG: call void @llvm.dbg.value(metadata ptr addrspace(1) [[V2_STORAGE:%v2.ascast]], metadata [[V2_DIVAR:![0-9]+]], metadata !DIExpression(DW_OP_deref)), !dbg [[L36C24:![0-9]+]]
-; CHECK-DAG: call void @llvm.dbg.value(metadata ptr addrspace(1) [[V3_STORAGE:%v3.ascast]], metadata [[V3_DIVAR:![0-9]+]], metadata !DIExpression(DW_OP_deref)), !dbg [[L36C10:![0-9]+]]
-; CHECK-DAG: call void @llvm.dbg.value(metadata ptr addrspace(1) [[I_STORAGE:%i.ascast]], metadata [[I_DIVAR:![0-9]+]], metadata !DIExpression(DW_OP_deref)), !dbg [[L39C8:![0-9]+]]
+; CHECK: define {{.*}}void @__omp_offloading_{{.*}}vecaddv{{.*}}([100 x float] addrspace(1)* %v1.ascast, [100 x float] addrspace(1)* %v2.ascast, [100 x float] addrspace(1)* noalias %v3.ascast, i32 addrspace(1)* %.omp.lb.ascast, i32 addrspace(1)* %.omp.ub.ascast, i32 addrspace(1)* %i.ascast) {{.*}} !dbg [[OFFLOAD:![0-9]+]] {
+; CHECK-DAG: call void @llvm.dbg.value(metadata [100 x float] addrspace(1)* [[V1_STORAGE:%v1.ascast]], metadata [[V1_DIVAR:![0-9]+]], metadata !DIExpression(DW_OP_deref)), !dbg [[L36C17:![0-9]+]]
+; CHECK-DAG: call void @llvm.dbg.value(metadata [100 x float] addrspace(1)* [[V2_STORAGE:%v2.ascast]], metadata [[V2_DIVAR:![0-9]+]], metadata !DIExpression(DW_OP_deref)), !dbg [[L36C24:![0-9]+]]
+; CHECK-DAG: call void @llvm.dbg.value(metadata [100 x float] addrspace(1)* [[V3_STORAGE:%v3.ascast]], metadata [[V3_DIVAR:![0-9]+]], metadata !DIExpression(DW_OP_deref)), !dbg [[L36C10:![0-9]+]]
+; CHECK-DAG: call void @llvm.dbg.value(metadata i32 addrspace(1)* [[I_STORAGE:%i.ascast]], metadata [[I_DIVAR:![0-9]+]], metadata !DIExpression(DW_OP_deref)), !dbg [[L39C8:![0-9]+]]
 ; CHECK: }
 ;
 ; CHECK-NOT: {{![0-9]+}} = distinct !DISubprogram(name: "vecadd"
@@ -73,174 +73,159 @@ target device_triples = "spir64"
 define dso_local spir_func void @_Z6vecaddv() #0 !dbg !8 {
 entry:
   %N = alloca i32, align 4
-  %N.ascast = addrspacecast ptr %N to ptr addrspace(4)
+  %N.ascast = addrspacecast i32* %N to i32 addrspace(4)*
   %v3 = alloca [100 x float], align 4
-  %v3.ascast = addrspacecast ptr %v3 to ptr addrspace(4)
+  %v3.ascast = addrspacecast [100 x float]* %v3 to [100 x float] addrspace(4)*
   %v1 = alloca [100 x float], align 4
-  %v1.ascast = addrspacecast ptr %v1 to ptr addrspace(4)
+  %v1.ascast = addrspacecast [100 x float]* %v1 to [100 x float] addrspace(4)*
   %v2 = alloca [100 x float], align 4
-  %v2.ascast = addrspacecast ptr %v2 to ptr addrspace(4)
+  %v2.ascast = addrspacecast [100 x float]* %v2 to [100 x float] addrspace(4)*
   %i = alloca i32, align 4
-  %i.ascast = addrspacecast ptr %i to ptr addrspace(4)
+  %i.ascast = addrspacecast i32* %i to i32 addrspace(4)*
   %.omp.lb = alloca i32, align 4
-  %.omp.lb.ascast = addrspacecast ptr %.omp.lb to ptr addrspace(4)
+  %.omp.lb.ascast = addrspacecast i32* %.omp.lb to i32 addrspace(4)*
   %.omp.ub = alloca i32, align 4
-  %.omp.ub.ascast = addrspacecast ptr %.omp.ub to ptr addrspace(4)
+  %.omp.ub.ascast = addrspacecast i32* %.omp.ub to i32 addrspace(4)*
   %.omp.iv = alloca i32, align 4
-  %.omp.iv.ascast = addrspacecast ptr %.omp.iv to ptr addrspace(4)
+  %.omp.iv.ascast = addrspacecast i32* %.omp.iv to i32 addrspace(4)*
   %tmp = alloca i32, align 4
-  %tmp.ascast = addrspacecast ptr %tmp to ptr addrspace(4)
-  call void @llvm.dbg.declare(metadata ptr addrspace(4) %N.ascast, metadata !11, metadata !DIExpression()), !dbg !14
-  store i32 100, ptr addrspace(4) %N.ascast, align 4, !dbg !14
-  call void @llvm.dbg.declare(metadata ptr addrspace(4) %v3.ascast, metadata !15, metadata !DIExpression()), !dbg !20
-  call void @llvm.dbg.declare(metadata ptr addrspace(4) %v1.ascast, metadata !21, metadata !DIExpression()), !dbg !22
-  call void @llvm.dbg.declare(metadata ptr addrspace(4) %v2.ascast, metadata !23, metadata !DIExpression()), !dbg !24
-  call spir_func void @_Z4initPfS_i(ptr addrspace(4) %v1.ascast, ptr addrspace(4) %v2.ascast, i32 100), !dbg !27
-  call void @llvm.dbg.declare(metadata ptr addrspace(4) %i.ascast, metadata !28, metadata !DIExpression()), !dbg !29
-  call void @llvm.dbg.declare(metadata ptr addrspace(4) %.omp.lb.ascast, metadata !30, metadata !DIExpression()), !dbg !32
-  store i32 0, ptr addrspace(4) %.omp.lb.ascast, align 4, !dbg !33
-  call void @llvm.dbg.declare(metadata ptr addrspace(4) %.omp.ub.ascast, metadata !34, metadata !DIExpression()), !dbg !32
-  store i32 99, ptr addrspace(4) %.omp.ub.ascast, align 4, !dbg !33
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
-    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
-    "QUAL.OMP.MAP.TO"(ptr addrspace(4) %v1.ascast, ptr addrspace(4) %v1.ascast, i64 400, i64 33, ptr null, ptr null), ; MAP type: 33 = 0x21 = TARGET_PARAM (0x20) | TO (0x1)
-    "QUAL.OMP.MAP.TO"(ptr addrspace(4) %v2.ascast, ptr addrspace(4) %v2.ascast, i64 400, i64 33, ptr null, ptr null), ; MAP type: 33 = 0x21 = TARGET_PARAM (0x20) | TO (0x1)
-    "QUAL.OMP.MAP.FROM"(ptr addrspace(4) %v3.ascast, ptr addrspace(4) %v3.ascast, i64 400, i64 34, ptr null, ptr null), ; MAP type: 34 = 0x22 = TARGET_PARAM (0x20) | FROM (0x2)
-    "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %.omp.iv.ascast, i32 0, i32 1),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) %.omp.lb.ascast, i32 0, i32 1),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) %.omp.ub.ascast, i32 0, i32 1),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) %i.ascast, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %tmp.ascast, i32 0, i32 1) ]
-, !dbg !35
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(),
-    "QUAL.OMP.SHARED:TYPED"(ptr addrspace(4) %v1.ascast, float 0.000000e+00, i64 100),
-    "QUAL.OMP.SHARED:TYPED"(ptr addrspace(4) %v2.ascast, float 0.000000e+00, i64 100),
-    "QUAL.OMP.SHARED:TYPED"(ptr addrspace(4) %v3.ascast, float 0.000000e+00, i64 100),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %i.ascast, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %.omp.iv.ascast, i32 0, i32 1),
-    "QUAL.OMP.SHARED:TYPED"(ptr addrspace(4) %.omp.lb.ascast, i32 0, i32 1),
-    "QUAL.OMP.SHARED:TYPED"(ptr addrspace(4) %.omp.ub.ascast, i32 0, i32 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %tmp.ascast, i32 0, i32 1) ]
-, !dbg !36
-  call void @llvm.dbg.declare(metadata ptr addrspace(4) %.omp.iv.ascast, metadata !37, metadata !DIExpression()), !dbg !40
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"(),
-    "QUAL.OMP.SHARED:TYPED"(ptr addrspace(4) %v1.ascast, float 0.000000e+00, i64 100),
-    "QUAL.OMP.SHARED:TYPED"(ptr addrspace(4) %v2.ascast, float 0.000000e+00, i64 100),
-    "QUAL.OMP.SHARED:TYPED"(ptr addrspace(4) %v3.ascast, float 0.000000e+00, i64 100),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %i.ascast, i32 0, i32 1),
-    "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr addrspace(4) %.omp.iv.ascast, i32 0),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) %.omp.lb.ascast, i32 0, i32 1),
-    "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr addrspace(4) %.omp.ub.ascast, i32 0) ]
-, !dbg !41
-  %3 = load i32, ptr addrspace(4) %.omp.lb.ascast, align 4, !dbg !42
-  store i32 %3, ptr addrspace(4) %.omp.iv.ascast, align 4, !dbg !42
+  %tmp.ascast = addrspacecast i32* %tmp to i32 addrspace(4)*
+  call void @llvm.dbg.declare(metadata i32 addrspace(4)* %N.ascast, metadata !11, metadata !DIExpression()), !dbg !14
+  store i32 100, i32 addrspace(4)* %N.ascast, align 4, !dbg !14
+  call void @llvm.dbg.declare(metadata [100 x float] addrspace(4)* %v3.ascast, metadata !15, metadata !DIExpression()), !dbg !20
+  call void @llvm.dbg.declare(metadata [100 x float] addrspace(4)* %v1.ascast, metadata !21, metadata !DIExpression()), !dbg !22
+  call void @llvm.dbg.declare(metadata [100 x float] addrspace(4)* %v2.ascast, metadata !23, metadata !DIExpression()), !dbg !24
+  %arraydecay = getelementptr inbounds [100 x float], [100 x float] addrspace(4)* %v1.ascast, i64 0, i64 0, !dbg !25
+  %arraydecay1 = getelementptr inbounds [100 x float], [100 x float] addrspace(4)* %v2.ascast, i64 0, i64 0, !dbg !26
+  call spir_func void @_Z4initPfS_i(float addrspace(4)* %arraydecay, float addrspace(4)* %arraydecay1, i32 100), !dbg !27
+  call void @llvm.dbg.declare(metadata i32 addrspace(4)* %i.ascast, metadata !28, metadata !DIExpression()), !dbg !29
+  call void @llvm.dbg.declare(metadata i32 addrspace(4)* %.omp.lb.ascast, metadata !30, metadata !DIExpression()), !dbg !32
+  store i32 0, i32 addrspace(4)* %.omp.lb.ascast, align 4, !dbg !33
+  call void @llvm.dbg.declare(metadata i32 addrspace(4)* %.omp.ub.ascast, metadata !34, metadata !DIExpression()), !dbg !32
+  store i32 99, i32 addrspace(4)* %.omp.ub.ascast, align 4, !dbg !33
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TO"([100 x float] addrspace(4)* %v1.ascast, [100 x float] addrspace(4)* %v1.ascast, i64 400, i64 33, i8* null, i8* null), "QUAL.OMP.MAP.TO"([100 x float] addrspace(4)* %v2.ascast, [100 x float] addrspace(4)* %v2.ascast, i64 400, i64 33, i8* null, i8* null), "QUAL.OMP.MAP.FROM"([100 x float] addrspace(4)* %v3.ascast, [100 x float] addrspace(4)* %v3.ascast, i64 400, i64 34, i8* null, i8* null), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %i.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %tmp.ascast) ], !dbg !35
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.SHARED"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.SHARED"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.SHARED"(i32 addrspace(4)* %i.ascast), "QUAL.OMP.SHARED"([100 x float] addrspace(4)* %v2.ascast), "QUAL.OMP.SHARED"([100 x float] addrspace(4)* %v1.ascast), "QUAL.OMP.SHARED"([100 x float] addrspace(4)* %v3.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %tmp.ascast) ], !dbg !36
+  call void @llvm.dbg.declare(metadata i32 addrspace(4)* %.omp.iv.ascast, metadata !37, metadata !DIExpression()), !dbg !40
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"(), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.NORMALIZED.IV"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.NORMALIZED.UB"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %i.ascast), "QUAL.OMP.SHARED"([100 x float] addrspace(4)* %v2.ascast), "QUAL.OMP.SHARED"([100 x float] addrspace(4)* %v1.ascast), "QUAL.OMP.SHARED"([100 x float] addrspace(4)* %v3.ascast) ], !dbg !41
+  %3 = load i32, i32 addrspace(4)* %.omp.lb.ascast, align 4, !dbg !42
+  store i32 %3, i32 addrspace(4)* %.omp.iv.ascast, align 4, !dbg !42
   br label %omp.inner.for.cond, !dbg !41
 
 omp.inner.for.cond:                               ; preds = %omp.inner.for.inc, %entry
-  %4 = load i32, ptr addrspace(4) %.omp.iv.ascast, align 4, !dbg !42
-  %5 = load i32, ptr addrspace(4) %.omp.ub.ascast, align 4, !dbg !42
+  %4 = load i32, i32 addrspace(4)* %.omp.iv.ascast, align 4, !dbg !42
+  %5 = load i32, i32 addrspace(4)* %.omp.ub.ascast, align 4, !dbg !42
   %cmp = icmp sle i32 %4, %5, !dbg !43
   br i1 %cmp, label %omp.inner.for.body, label %omp.inner.for.end, !dbg !41
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.cond
-  %6 = load i32, ptr addrspace(4) %.omp.iv.ascast, align 4, !dbg !42
+  %6 = load i32, i32 addrspace(4)* %.omp.iv.ascast, align 4, !dbg !42
   %mul = mul nsw i32 %6, 1, !dbg !44
   %add = add nsw i32 0, %mul, !dbg !44
-  store i32 %add, ptr addrspace(4) %i.ascast, align 4, !dbg !44
-  %7 = load i32, ptr addrspace(4) %i.ascast, align 4, !dbg !45
+  store i32 %add, i32 addrspace(4)* %i.ascast, align 4, !dbg !44
+  %7 = load i32, i32 addrspace(4)* %i.ascast, align 4, !dbg !45
   %idxprom = sext i32 %7 to i64, !dbg !47
-  %arrayidx = getelementptr inbounds [100 x float], ptr addrspace(4) %v2.ascast, i64 0, i64 %idxprom, !dbg !47
-  %8 = load float, ptr addrspace(4) %arrayidx, align 4, !dbg !48
+  %arrayidx = getelementptr inbounds [100 x float], [100 x float] addrspace(4)* %v2.ascast, i64 0, i64 %idxprom, !dbg !47
+  %8 = load float, float addrspace(4)* %arrayidx, align 4, !dbg !48
   %mul2 = fmul float %8, 2.000000e+00, !dbg !48
-  store float %mul2, ptr addrspace(4) %arrayidx, align 4, !dbg !48
-  %9 = load i32, ptr addrspace(4) %i.ascast, align 4, !dbg !49
+  store float %mul2, float addrspace(4)* %arrayidx, align 4, !dbg !48
+  %9 = load i32, i32 addrspace(4)* %i.ascast, align 4, !dbg !49
   %idxprom3 = sext i32 %9 to i64, !dbg !50
-  %arrayidx4 = getelementptr inbounds [100 x float], ptr addrspace(4) %v1.ascast, i64 0, i64 %idxprom3, !dbg !50
-  %10 = load float, ptr addrspace(4) %arrayidx4, align 4, !dbg !50
-  %11 = load i32, ptr addrspace(4) %i.ascast, align 4, !dbg !51
+  %arrayidx4 = getelementptr inbounds [100 x float], [100 x float] addrspace(4)* %v1.ascast, i64 0, i64 %idxprom3, !dbg !50
+  %10 = load float, float addrspace(4)* %arrayidx4, align 4, !dbg !50
+  %11 = load i32, i32 addrspace(4)* %i.ascast, align 4, !dbg !51
   %idxprom5 = sext i32 %11 to i64, !dbg !52
-  %arrayidx6 = getelementptr inbounds [100 x float], ptr addrspace(4) %v2.ascast, i64 0, i64 %idxprom5, !dbg !52
-  %12 = load float, ptr addrspace(4) %arrayidx6, align 4, !dbg !52
+  %arrayidx6 = getelementptr inbounds [100 x float], [100 x float] addrspace(4)* %v2.ascast, i64 0, i64 %idxprom5, !dbg !52
+  %12 = load float, float addrspace(4)* %arrayidx6, align 4, !dbg !52
   %add7 = fadd float %10, %12, !dbg !53
-  %13 = load i32, ptr addrspace(4) %i.ascast, align 4, !dbg !54
+  %13 = load i32, i32 addrspace(4)* %i.ascast, align 4, !dbg !54
   %idxprom8 = sext i32 %13 to i64, !dbg !55
-  %arrayidx9 = getelementptr inbounds [100 x float], ptr addrspace(4) %v3.ascast, i64 0, i64 %idxprom8, !dbg !55
-  store float %add7, ptr addrspace(4) %arrayidx9, align 4, !dbg !56
+  %arrayidx9 = getelementptr inbounds [100 x float], [100 x float] addrspace(4)* %v3.ascast, i64 0, i64 %idxprom8, !dbg !55
+  store float %add7, float addrspace(4)* %arrayidx9, align 4, !dbg !56
   br label %omp.body.continue, !dbg !57
 
 omp.body.continue:                                ; preds = %omp.inner.for.body
   br label %omp.inner.for.inc, !dbg !58
 
 omp.inner.for.inc:                                ; preds = %omp.body.continue
-  %14 = load i32, ptr addrspace(4) %.omp.iv.ascast, align 4, !dbg !42
+  %14 = load i32, i32 addrspace(4)* %.omp.iv.ascast, align 4, !dbg !42
   %add10 = add nsw i32 %14, 1, !dbg !43
-  store i32 %add10, ptr addrspace(4) %.omp.iv.ascast, align 4, !dbg !43
+  store i32 %add10, i32 addrspace(4)* %.omp.iv.ascast, align 4, !dbg !43
   br label %omp.inner.for.cond, !dbg !58, !llvm.loop !59
 
 omp.inner.for.end:                                ; preds = %omp.inner.for.cond
   br label %omp.loop.exit, !dbg !58
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.end
-  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"() ]
-, !dbg !41
-  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TEAMS"() ]
-, !dbg !36
-  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
-, !dbg !35
+  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"() ], !dbg !41
+  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TEAMS"() ], !dbg !36
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ], !dbg !35
   ret void, !dbg !61
+
+; uselistorder directives
+  uselistorder i32 addrspace(4)* %tmp.ascast, { 1, 0 }
+  uselistorder i32 addrspace(4)* %.omp.iv.ascast, { 3, 4, 5, 6, 7, 2, 1, 0 }
+  uselistorder i32 addrspace(4)* %.omp.ub.ascast, { 3, 2, 1, 0, 4 }
+  uselistorder i32 addrspace(4)* %.omp.lb.ascast, { 3, 2, 1, 0, 4 }
+  uselistorder i32 addrspace(4)* %i.ascast, { 3, 4, 5, 6, 7, 2, 1, 0 }
+  uselistorder token ()* @llvm.directive.region.entry, { 2, 1, 0 }
 }
 
 ; Function Attrs: nounwind readnone speculatable willreturn
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
 
 ; Function Attrs: noinline nounwind optnone uwtable
-define dso_local spir_func void @_Z4initPfS_i(ptr addrspace(4) %v1, ptr addrspace(4) %v2, i32 %N) #2 !dbg !62 {
+define dso_local spir_func void @_Z4initPfS_i(float addrspace(4)* %v1, float addrspace(4)* %v2, i32 %N) #2 !dbg !62 {
 entry:
-  %v1.addr = alloca ptr addrspace(4), align 8
-  %v1.addr.ascast = addrspacecast ptr %v1.addr to ptr addrspace(4)
-  %v2.addr = alloca ptr addrspace(4), align 8
-  %v2.addr.ascast = addrspacecast ptr %v2.addr to ptr addrspace(4)
+  %v1.addr = alloca float addrspace(4)*, align 8
+  %v1.addr.ascast = addrspacecast float addrspace(4)** %v1.addr to float addrspace(4)* addrspace(4)*
+  %v2.addr = alloca float addrspace(4)*, align 8
+  %v2.addr.ascast = addrspacecast float addrspace(4)** %v2.addr to float addrspace(4)* addrspace(4)*
   %N.addr = alloca i32, align 4
-  %N.addr.ascast = addrspacecast ptr %N.addr to ptr addrspace(4)
+  %N.addr.ascast = addrspacecast i32* %N.addr to i32 addrspace(4)*
   %i = alloca i32, align 4
-  %i.ascast = addrspacecast ptr %i to ptr addrspace(4)
-  store ptr addrspace(4) %v1, ptr addrspace(4) %v1.addr.ascast, align 8
-  call void @llvm.dbg.declare(metadata ptr addrspace(4) %v1.addr.ascast, metadata !66, metadata !DIExpression()), !dbg !67
-  store ptr addrspace(4) %v2, ptr addrspace(4) %v2.addr.ascast, align 8
-  call void @llvm.dbg.declare(metadata ptr addrspace(4) %v2.addr.ascast, metadata !68, metadata !DIExpression()), !dbg !69
-  store i32 %N, ptr addrspace(4) %N.addr.ascast, align 4
-  call void @llvm.dbg.declare(metadata ptr addrspace(4) %N.addr.ascast, metadata !70, metadata !DIExpression()), !dbg !71
-  call void @llvm.dbg.declare(metadata ptr addrspace(4) %i.ascast, metadata !72, metadata !DIExpression()), !dbg !74
-  store i32 0, ptr addrspace(4) %i.ascast, align 4, !dbg !74
+  %i.ascast = addrspacecast i32* %i to i32 addrspace(4)*
+  store float addrspace(4)* %v1, float addrspace(4)* addrspace(4)* %v1.addr.ascast, align 8
+  call void @llvm.dbg.declare(metadata float addrspace(4)* addrspace(4)* %v1.addr.ascast, metadata !66, metadata !DIExpression()), !dbg !67
+  store float addrspace(4)* %v2, float addrspace(4)* addrspace(4)* %v2.addr.ascast, align 8
+  call void @llvm.dbg.declare(metadata float addrspace(4)* addrspace(4)* %v2.addr.ascast, metadata !68, metadata !DIExpression()), !dbg !69
+  store i32 %N, i32 addrspace(4)* %N.addr.ascast, align 4
+  call void @llvm.dbg.declare(metadata i32 addrspace(4)* %N.addr.ascast, metadata !70, metadata !DIExpression()), !dbg !71
+  call void @llvm.dbg.declare(metadata i32 addrspace(4)* %i.ascast, metadata !72, metadata !DIExpression()), !dbg !74
+  store i32 0, i32 addrspace(4)* %i.ascast, align 4, !dbg !74
   br label %for.cond, !dbg !75
 
 for.cond:                                         ; preds = %for.inc, %entry
-  %0 = load i32, ptr addrspace(4) %i.ascast, align 4, !dbg !76
-  %1 = load i32, ptr addrspace(4) %N.addr.ascast, align 4, !dbg !78
+  %0 = load i32, i32 addrspace(4)* %i.ascast, align 4, !dbg !76
+  %1 = load i32, i32 addrspace(4)* %N.addr.ascast, align 4, !dbg !78
   %cmp = icmp slt i32 %0, %1, !dbg !79
   br i1 %cmp, label %for.body, label %for.end, !dbg !80
 
 for.body:                                         ; preds = %for.cond
-  %2 = load ptr addrspace(4), ptr addrspace(4) %v1.addr.ascast, align 8, !dbg !81
-  %3 = load i32, ptr addrspace(4) %i.ascast, align 4, !dbg !83
+  %2 = load float addrspace(4)*, float addrspace(4)* addrspace(4)* %v1.addr.ascast, align 8, !dbg !81
+  %3 = load i32, i32 addrspace(4)* %i.ascast, align 4, !dbg !83
   %idxprom = sext i32 %3 to i64, !dbg !81
-  %arrayidx = getelementptr inbounds float, ptr addrspace(4) %2, i64 %idxprom, !dbg !81
-  store float 1.000000e+00, ptr addrspace(4) %arrayidx, align 4, !dbg !84
-  %4 = load ptr addrspace(4), ptr addrspace(4) %v2.addr.ascast, align 8, !dbg !85
-  %5 = load i32, ptr addrspace(4) %i.ascast, align 4, !dbg !86
+  %arrayidx = getelementptr inbounds float, float addrspace(4)* %2, i64 %idxprom, !dbg !81
+  store float 1.000000e+00, float addrspace(4)* %arrayidx, align 4, !dbg !84
+  %4 = load float addrspace(4)*, float addrspace(4)* addrspace(4)* %v2.addr.ascast, align 8, !dbg !85
+  %5 = load i32, i32 addrspace(4)* %i.ascast, align 4, !dbg !86
   %idxprom1 = sext i32 %5 to i64, !dbg !85
-  %arrayidx2 = getelementptr inbounds float, ptr addrspace(4) %4, i64 %idxprom1, !dbg !85
-  store float 1.000000e+00, ptr addrspace(4) %arrayidx2, align 4, !dbg !87
+  %arrayidx2 = getelementptr inbounds float, float addrspace(4)* %4, i64 %idxprom1, !dbg !85
+  store float 1.000000e+00, float addrspace(4)* %arrayidx2, align 4, !dbg !87
   br label %for.inc, !dbg !88
 
 for.inc:                                          ; preds = %for.body
-  %6 = load i32, ptr addrspace(4) %i.ascast, align 4, !dbg !89
+  %6 = load i32, i32 addrspace(4)* %i.ascast, align 4, !dbg !89
   %inc = add nsw i32 %6, 1, !dbg !89
-  store i32 %inc, ptr addrspace(4) %i.ascast, align 4, !dbg !89
+  store i32 %inc, i32 addrspace(4)* %i.ascast, align 4, !dbg !89
   br label %for.cond, !dbg !90, !llvm.loop !91
 
 for.end:                                          ; preds = %for.cond
   ret void, !dbg !93
+
+; uselistorder directives
+  uselistorder i32 0, { 3, 1, 0, 2 }
+  uselistorder void (metadata, metadata, metadata)* @llvm.dbg.declare, { 4, 5, 6, 7, 0, 1, 2, 3, 8, 9, 10, 11 }
+  uselistorder i32 1, { 7, 8, 9, 10, 11, 0, 1, 2, 3, 4, 5, 6, 12, 13, 14, 15 }
 }
 
 ; Function Attrs: nounwind

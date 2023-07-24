@@ -6,44 +6,40 @@
 ;; INTEL - to the new PM.
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
 ; RUN:     --plugin-opt=thinlto \
-; RUN:     --plugin-opt=new-pass-manager \
 ; RUN:     --plugin-opt=debug-pass-manager \
 ; RUN:     --plugin-opt=cache-dir=%t.cache \
 ; RUN:     --plugin-opt=O0 \
-; RUN:     --plugin-opt=save-temps -plugin-opt=opaque-pointers \
+; RUN:     --plugin-opt=save-temps \
 ; RUN:     -shared \
 ; RUN:     -o %t2.o %t.o 2>&1 | FileCheck %s --check-prefix=CHECK-O0-SLP
 ; RUN: llvm-dis %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-O0-LPV
 
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
 ; RUN:     --plugin-opt=thinlto \
-; RUN:     --plugin-opt=new-pass-manager \
 ; RUN:     --plugin-opt=debug-pass-manager \
 ; RUN:     --plugin-opt=cache-dir=%t.cache \
 ; RUN:     --plugin-opt=O1 \
-; RUN:     --plugin-opt=save-temps -plugin-opt=opaque-pointers \
+; RUN:     --plugin-opt=save-temps \
 ; RUN:     -shared \
 ; RUN:     -o %t3.o %t.o 2>&1 | FileCheck %s --check-prefix=CHECK-O1-SLP
 ; RUN: llvm-dis %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-O1-LPV
 
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
 ; RUN:     --plugin-opt=thinlto \
-; RUN:     --plugin-opt=new-pass-manager \
 ; RUN:     --plugin-opt=debug-pass-manager \
 ; RUN:     --plugin-opt=cache-dir=%t.cache \
 ; RUN:     --plugin-opt=O2 \
-; RUN:     --plugin-opt=save-temps -plugin-opt=opaque-pointers \
+; RUN:     --plugin-opt=save-temps \
 ; RUN:     -shared \
 ; RUN:     -o %t4.o %t.o 2>&1 | FileCheck %s --check-prefix=CHECK-O2-SLP
 ; RUN: llvm-dis %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-O2-LPV
 
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
 ; RUN:     --plugin-opt=thinlto \
-; RUN:     --plugin-opt=new-pass-manager \
 ; RUN:     --plugin-opt=debug-pass-manager \
 ; RUN:     --plugin-opt=cache-dir=%t.cache \
 ; RUN:     --plugin-opt=O3 \
-; RUN:     --plugin-opt=save-temps -plugin-opt=opaque-pointers \
+; RUN:     --plugin-opt=save-temps \
 ; RUN:     -shared \
 ; RUN:     -o %t5.o %t.o 2>&1 | FileCheck %s --check-prefix=CHECK-O3-SLP
 ; RUN: llvm-dis %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-O3-LPV

@@ -8,7 +8,7 @@
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_plugin_devirt_options \
 ; INTEL_CUSTOMIZATION
-; RUN:   --plugin-opt=save-temps -plugin-opt=opaque-pointers \
+; RUN:   --plugin-opt=save-temps \
 ; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t2.o -o %t3 2>&1 | FileCheck %s --check-prefix=REMARK
 ; RUN: llvm-dis %t2.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
@@ -21,7 +21,7 @@
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_plugin_devirt_options \
 ; INTEL_CUSTOMIZATION
-; RUN:   --plugin-opt=save-temps -plugin-opt=opaque-pointers \
+; RUN:   --plugin-opt=save-temps \
 ; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t.o -o %t3 2>&1 | FileCheck %s --check-prefix=REMARK
 ; RUN: llvm-dis %t.o.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
@@ -33,7 +33,7 @@
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_plugin_devirt_options \
 ; INTEL_CUSTOMIZATION
-; RUN:   --plugin-opt=save-temps -plugin-opt=opaque-pointers \
+; RUN:   --plugin-opt=save-temps \
 ; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t4.o -o %t3 2>&1 | FileCheck %s --check-prefix=REMARK
 ; RUN: llvm-dis %t3.0.4.opt.bc -o - | FileCheck %s --check-prefix=CHECK-IR
@@ -49,7 +49,7 @@
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_plugin_devirt_options \
 ; INTEL_CUSTOMIZATION
-; RUN:   --plugin-opt=save-temps -plugin-opt=opaque-pointers \
+; RUN:   --plugin-opt=save-temps \
 ; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t2.o -o %t3 \
 ; RUN:   2>&1 | FileCheck /dev/null --implicit-check-not single-impl --allow-empty
@@ -60,7 +60,7 @@
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_plugin_devirt_options \
 ; INTEL_CUSTOMIZATION
-; RUN:   --plugin-opt=save-temps -plugin-opt=opaque-pointers \
+; RUN:   --plugin-opt=save-temps \
 ; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t.o -o %t3 \
 ; RUN:   2>&1 | FileCheck /dev/null --implicit-check-not single-impl --allow-empty
@@ -71,7 +71,7 @@
 ; INTEL_CUSTOMIZATION
 ; RUN:   %intel_plugin_devirt_options \
 ; INTEL_CUSTOMIZATION
-; RUN:   --plugin-opt=save-temps -plugin-opt=opaque-pointers \
+; RUN:   --plugin-opt=save-temps \
 ; RUN:   --plugin-opt=-pass-remarks=. \
 ; RUN:   %t4.o -o %t3 \
 ; RUN:   2>&1 | FileCheck /dev/null --implicit-check-not single-impl --allow-empty

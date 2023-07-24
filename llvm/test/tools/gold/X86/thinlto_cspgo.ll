@@ -7,7 +7,7 @@
 ; RUN: %gold -plugin %llvmshlibdir/LLVMgold%shlibext \
 ; RUN:    -m elf_x86_64 \
 ; RUN:    --plugin-opt=thinlto \
-; RUN:    --plugin-opt=save-temps -plugin-opt=opaque-pointers \
+; RUN:    --plugin-opt=save-temps \
 ; RUN:    --plugin-opt=cs-profile-path=%t.profdata \
 ; RUN:    --plugin-opt=jobs=1 \
 ; RUN:    %t1.o %t2.o -o %t3

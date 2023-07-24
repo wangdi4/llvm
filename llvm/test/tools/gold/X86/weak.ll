@@ -2,7 +2,6 @@
 ; RUN: llvm-as %p/Inputs/weak.ll -o %t2.o
 
 ; RUN: %gold -plugin %llvmshlibdir/LLVMgold%shlibext \
-; INTEL RUN: -plugin-opt=opaque-pointers \
 ; RUN:    --plugin-opt=emit-llvm \
 ; RUN:    -shared %t.o %t2.o -o %t3.o
 ; RUN: llvm-dis %t3.o -o - | FileCheck %s
