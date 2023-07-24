@@ -3550,6 +3550,48 @@ void VPOCodeGen::generateVectorCalls(VPCallInstruction *VPCall,
           getOrInsertVectorLibFunction(CalledFunc, VF / PumpFactor, VecArgTys,
                                        TLI, VectorIntrinID, IsMasked);
     }
+
+    // For AVX512 ISA class as per VECABI mask argument shell be passed in one
+    // or more GPRs, individual bits of which correspond to masked elements.
+    // Logical mask type is a vector variant is vector of elements of
+    // characteristic data type.
+    // For AVX512 mask we generate following legalization sequence (if
+    // characteristic data type is double):
+    //    %0 = bitcast <8 x double> %mask to <8 x i64>
+    //    %1 = trunc  <8 x i64> %0 to <8 x i1>
+    //    %2 = bitcast <8 x i1> %1 to i8
+    //    %legal_mask = zext i8 %2 to i32
+    auto PackMaskArgument = [this](Value *Mask) {
+      auto *MaskVecTy = cast<FixedVectorType>(Mask->getType());
+      Type *MaskEltTy = MaskVecTy->getElementType();
+      unsigned MaskVF = MaskVecTy->getNumElements();
+
+      Value *MaskArg = Mask;
+      //     bitcast <8 x double> %x to <8 x i64>
+      if (!MaskEltTy->isIntegerTy()) {
+        MaskEltTy = Type::getIntNTy(MaskVecTy->getContext(),
+                                    MaskEltTy->getPrimitiveSizeInBits());
+        Type *VecToType = FixedVectorType::get(MaskEltTy, MaskVF);
+        MaskArg = Builder.CreateBitCast(MaskArg, VecToType);
+      }
+      //    trunc  <8 x i64> %x to <8 x i1>
+      MaskArg = Builder.CreateTrunc(
+          MaskArg, FixedVectorType::get(
+                       Type::getInt1Ty(MaskVecTy->getContext()), MaskVF));
+
+      //    bitcast <8 x i1> %x to i8
+      MaskArg = Builder.CreateBitCast(
+          MaskArg, Type::getIntNTy(MaskVecTy->getContext(), MaskVF));
+
+      Type *LegalMaskArgType =
+          VFABI::getPackedMaskArgumentTy(MaskVecTy->getContext(), MaskVF);
+      //    zext i8 %x to i32
+      if (MaskVF < LegalMaskArgType->getPrimitiveSizeInBits())
+        MaskArg = Builder.CreateZExtOrTrunc(MaskArg, LegalMaskArgType);
+      return MaskArg;
+    };
+    bool HasPackedMask = VFABILegalizationEnabled && MatchedVariant &&
+                         VFABI::hasPackedMask(*MatchedVariant);
     SmallVector<AttributeSet, 2> LegalizedVecArgAttrs;
     SmallVector<Value *, 2> LegalizedVecArgs;
     for (unsigned ArgIdx = 0; ArgIdx < VecArgs.size(); ++ArgIdx) {
@@ -3557,12 +3599,14 @@ void VPOCodeGen::generateVectorCalls(VPCallInstruction *VPCall,
       AttributeSet Attrs = VecArgAttrs[ArgIdx];
       int NumChunks = ArgChunks[ArgIdx];
       assert(NumChunks > 0 && "Expected at least one data chunk.");
+      bool DoPackMask = HasPackedMask && ArgIdx == (VecArgs.size() - 1);
       bool Fragmented = NumChunks != 1;
       for (int Chunk = 0; Chunk < NumChunks; ++Chunk) {
         Value *ChunkV = Fragmented ? generateExtractSubVector(
                                          LogicalArg, Chunk, NumChunks, Builder)
                                    : LogicalArg;
-        LegalizedVecArgs.push_back(ChunkV);
+        Value *MaskArg = DoPackMask ? PackMaskArgument(ChunkV) : ChunkV;
+        LegalizedVecArgs.push_back(MaskArg);
         LegalizedVecArgAttrs.push_back(Attrs);
       }
     }

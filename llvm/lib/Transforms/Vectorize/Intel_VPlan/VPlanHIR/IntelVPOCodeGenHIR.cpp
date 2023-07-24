@@ -3227,6 +3227,53 @@ void VPOCodeGenHIR::generateWideCalls(const VPCallInstruction *VPCall,
     }
     assert(VectorF && "Can't create vector function.");
 
+    auto PackMaskArgument = [this](RegDDRef *Mask) {
+      auto *MaskVecTy = cast<FixedVectorType>(Mask->getDestType());
+      Type *MaskEltTy = MaskVecTy->getElementType();
+      unsigned MaskVF = MaskVecTy->getNumElements();
+
+      RegDDRef *MaskArg = Mask;
+      //     bitcast <8 x double> %x to <8 x i64>
+      if (!MaskEltTy->isIntegerTy()) {
+        MaskEltTy = Type::getIntNTy(MaskVecTy->getContext(),
+                                    MaskEltTy->getPrimitiveSizeInBits());
+        Type *VecToType = FixedVectorType::get(MaskEltTy, MaskVF);
+
+        HLInst *ConvertInst = HLNodeUtilities.createCastHLInst(
+            VecToType, Instruction::BitCast, MaskArg->clone());
+        addInstUnmasked(ConvertInst);
+        MaskArg = ConvertInst->getLvalDDRef();
+      }
+      //    trunc  <8 x i64> %x to <8 x i1>
+      HLInst *TruncInst = HLNodeUtilities.createTrunc(
+          FixedVectorType::get(Type::getInt1Ty(MaskVecTy->getContext()),
+                               MaskVF),
+          MaskArg->clone());
+      addInstUnmasked(TruncInst);
+      MaskArg = TruncInst->getLvalDDRef();
+
+      //    bitcast <8 x i1> %x to i8
+      HLInst *CastInst = HLNodeUtilities.createCastHLInst(
+          Type::getIntNTy(MaskVecTy->getContext(), MaskVF),
+          Instruction::BitCast, MaskArg->clone());
+      addInstUnmasked(CastInst);
+      MaskArg = CastInst->getLvalDDRef();
+
+      Type *LegalMaskArgType =
+          VFABI::getPackedMaskArgumentTy(MaskVecTy->getContext(), MaskVF);
+
+      //    zext i8 %x to i32
+      if (MaskVF < LegalMaskArgType->getPrimitiveSizeInBits()) {
+        HLInst *ZextInst =
+            HLNodeUtilities.createZExt(LegalMaskArgType, MaskArg->clone());
+        addInstUnmasked(ZextInst);
+        MaskArg = ZextInst->getLvalDDRef();
+      }
+      return MaskArg;
+    };
+
+    bool HasPackedMask = VFABILegalizationEnabled && MatchedVariant &&
+                         VFABI::hasPackedMask(*MatchedVariant);
     SmallVector<AttributeSet, 2> LegalizedArgAttrs;
     SmallVector<RegDDRef *, 4> LegalizedCallArgs;
     for (unsigned ArgIdx = 0; ArgIdx < CallArgs.size(); ++ArgIdx) {
@@ -3234,15 +3281,19 @@ void VPOCodeGenHIR::generateWideCalls(const VPCallInstruction *VPCall,
       AttributeSet Attrs = ArgAttrs[ArgIdx];
       int NumChunks = ArgChunks[ArgIdx];
       assert(NumChunks > 0 && "Expected at least one data chunk.");
+      bool DoPackMask = HasPackedMask && ArgIdx == (CallArgs.size() - 1);
       bool Fragmented = NumChunks != 1;
       for (int Chunk = 0; Chunk < NumChunks; ++Chunk) {
+        RegDDRef *LegalArg = LogicalArg;
         if (Fragmented) {
           HLInst *SubV = extractSubVector(LogicalArg, Chunk, NumChunks);
           addInstUnmasked(SubV);
-          LegalizedCallArgs.push_back(SubV->getLvalDDRef()->clone());
-        } else {
-          LegalizedCallArgs.push_back(LogicalArg);
+          LegalArg = SubV->getLvalDDRef()->clone();
         }
+        if (DoPackMask)
+          LegalArg = PackMaskArgument(LegalArg)->clone();
+
+        LegalizedCallArgs.push_back(LegalArg);
         LegalizedArgAttrs.push_back(Attrs);
       }
     }

@@ -633,12 +633,18 @@ const DenseMap<DiagTableKey, const char *> OptReportDiag::Diags = {
     {OptRemarkID::LoopReversed, "Loop was reversed"},
     {OptRemarkID::IVarRangeSplitUsingCondition,
      "Induction variable range split using condition%s"},
+#if INTEL_INTERNAL_BUILD
     {OptRemarkID::LoopRowWiseMultiversioned,
      "Loop has been row-wise multiversioned"},
+    {OptRemarkID::RowWiseMultiversionedLoop,
+     "Row-wise multiversioned loop for value %s"},
+#endif // INTEL_INTERNAL_BUILD
     {OptRemarkID::NumArrayRefsScalarReplaced,
      "Number of Array Refs Scalar Replaced In Loop: %d"},
+#if INTEL_INTERNAL_BUILD
     {OptRemarkID::SumWindowReuseCount,
      "Inner loop sums optimized with sum window reuse"},
+#endif // INTEL_INTERNAL_BUILD
     {OptRemarkID::LoopConvertedToSwitch, "Loop converted to switch"},
     {OptRemarkID::PeeledLoopForFusion, "Peeled loop for fusion"},
     {OptRemarkID::LoopHasReduction, "Loop has reduction"},
@@ -665,6 +671,18 @@ const DenseMap<DiagTableKey, const char *> OptReportDiag::Diags = {
      "CSA: OpenMP worksharing loop will be pipelined"},
     {OptRemarkID::TightLoopFound, "Tight cycle found for Loop %s"},
     {OptRemarkID::TightLoopValue, "%s"},
+#if INTEL_INTERNAL_BUILD
+    {OptRemarkID::RowWiseMultiversionProbeLoop,
+     "Probe loop for row-wise multiversioning"},
+    {OptRemarkID::WindowSumInitialization,
+     "Window sum initialization loop for sum window reuse"},
+#endif // INTEL_INTERNAL_BUILD
+    {OptRemarkID::LLORGFullyUnrolled,
+     "Loop has been completely unrolled by LLVM LoopUnroll"},
+    {OptRemarkID::LLORGUnrolledBy,
+     "Loop has been partially unrolled with factor %d by LLVM LoopUnroll"},
+    {OptRemarkID::LLORGRemainderLoop,
+     "Remainder loop for LLVM LoopUnroll partial unrolling"},
 };
 
 const char *OptReportDiag::getMsg(DiagTableKey Id) {

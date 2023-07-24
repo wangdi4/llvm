@@ -114,6 +114,15 @@ class VecCloneImpl {
     Instruction *widenVectorArgumentsAndReturn(Instruction *&Mask,
                                                PHINode *Phi);
 
+    // Worker for widenVectorArgumentsAndReturn which generates unpacking
+    // instructions to convert mask packed as bits of an integer argument into
+    // vector of characteristic data type(i.e.logical mask type).
+    // Used to unpack mask for a vector variant of AVX512 ISA class.
+    // \p VecArgTy is the logical mask type,
+    // \p Arg is actual ("packed") mask argument.
+    Value *generateUnpackIntMask(FixedVectorType *VecArgTy, Value *Arg,
+                                 Instruction *InsertPt);
+
     /// Mark memory as uniform for SIMD directives.
     void processUniformArgs();
 

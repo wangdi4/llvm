@@ -605,6 +605,12 @@ void calcVectorVariantParamChunks(MutableArrayRef<int> ArgChunks,
                                   int &RetChunks, ArrayRef<Type *> ArgTys,
                                   Type *RetTy, const VFInfo &Variant,
                                   bool PtrSize64);
+// Return true if variant has mask which should be packed into a bitset.
+bool hasPackedMask(const VFInfo &V);
+
+// Return integer type used to pass mask via GPR.
+Type *getPackedMaskArgumentTy(LLVMContext &C, unsigned MaskSize);
+
 #endif // INTEL_CUSTOMIZATION
 
 /// This routine mangles the given VectorName according to the LangRef
@@ -919,17 +925,6 @@ typedef std::map<Function*, DeclaredVariants> FunctionVariants;
 /// specified according to the vector function ABI.
 Type *calcCharacteristicType(Function &F, const VFInfo &Variant);
 
-/// \brief Some targets do not support particular types, so promote to a type
-/// that is supported.
-inline Type *promoteToSupportedType(Type *Ty, const VFInfo &Variant) {
-  // On AVX512 promote char and short to int
-  if (Variant.getISA() == VFISAKind::AVX512 &&
-      (Ty->isIntegerTy(8) || Ty->isIntegerTy(16)))
-    return Type::getInt32Ty(Ty->getContext());
-
-  return Ty;
-}
-
 /// Determine the characteristic type using the \pReturnType and argument list
 /// passed by \p ArgBegin and \p ArgEnd of the vector function as specified
 /// according to the vector function ABI.
@@ -959,10 +954,6 @@ Type *calcCharacteristicType(Type *ReturnType, RangeIterator Args,
       CharacteristicDataType->isVectorTy()) {
     CharacteristicDataType = Type::getInt32Ty(ReturnType->getContext());
   }
-
-  // Promote char/short types to int for Xeon Phi.
-  CharacteristicDataType =
-      promoteToSupportedType(CharacteristicDataType, Variant);
 
   if (CharacteristicDataType->isPointerTy()) {
     unsigned CharacteristicTypeSize =
