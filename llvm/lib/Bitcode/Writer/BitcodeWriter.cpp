@@ -1018,7 +1018,11 @@ void ModuleBitcodeWriter::writeTypeTable() {
       TypeVals.push_back(AddressSpace);
       if (AddressSpace == 0)
         AbbrevToUse = OpaquePtrAbbrev;
+<<<<<<< HEAD
 #else
+=======
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+>>>>>>> 6241a64e53f1f2051209b5a5fbe6569fa52c02f4
       if (PTy->isOpaque()) {
         // OPAQUE_POINTER: [address space]
         Code = bitc::TYPE_CODE_OPAQUE_POINTER;
@@ -1031,7 +1035,11 @@ void ModuleBitcodeWriter::writeTypeTable() {
         TypeVals.push_back(VE.getTypeID(PTy->getNonOpaquePointerElementType()));
         TypeVals.push_back(AddressSpace);
       }
+<<<<<<< HEAD
 #endif
+=======
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+>>>>>>> 6241a64e53f1f2051209b5a5fbe6569fa52c02f4
       break;
     }
     case Type::FunctionTyID: {
