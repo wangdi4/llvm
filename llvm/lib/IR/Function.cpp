@@ -953,7 +953,7 @@ static std::string getMangledTypeStr(Type *Ty, bool &HasUnnamedType) {
     if (!PTyp->isOpaque())
       Result += getMangledTypeStr(PTyp->getNonOpaquePointerElementType(),
                                   HasUnnamedType);
-#endif
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   } else if (ArrayType *ATyp = dyn_cast<ArrayType>(Ty)) {
     Result += "a" + utostr(ATyp->getNumElements()) +
               getMangledTypeStr(ATyp->getElementType(), HasUnnamedType);

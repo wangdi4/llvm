@@ -995,7 +995,7 @@ Constant *SymbolicallyEvaluateGEP(const GEPOperator *GEP,
 #ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   else if (!PTy->isOpaque())
     SrcElemTy = PTy->getNonOpaquePointerElementType();
-#endif
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   else
     SrcElemTy = Type::getInt8Ty(Ptr->getContext());
 

@@ -165,14 +165,15 @@ static inline SourcePred sizedPtrType() {
   auto Pred = [](ArrayRef<Value *>, const Value *V) {
     if (V->isSwiftError())
       return false;
+
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     return V->getType()->isPointerTy();
-#else
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     if (const auto *PtrT = dyn_cast<PointerType>(V->getType()))
       return PtrT->isOpaque() ||
              PtrT->getNonOpaquePointerElementType()->isSized();
     return false;
-#endif
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   };
   auto Make = [](ArrayRef<Value *>, ArrayRef<Type *> Ts) {
     std::vector<Constant *> Result;
