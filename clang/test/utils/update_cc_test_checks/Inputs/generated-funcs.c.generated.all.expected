@@ -248,12 +248,20 @@ void foo(void) {
 //.
 // OMP: [[META0:![0-9]+]] = !{i32 1, !"wchar_size", i32 4}
 // OMP: [[META1:![0-9]+]] = !{i32 7, !"openmp", i32 51}
+<<<<<<< HEAD
 // OMP: [[META2:![0-9]+]] = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2024.0.0 (2024.0.0.YYYYMMDD)"}
+=======
+// OMP: [[META2:![0-9]+]] = !{!"clang version {{.*}}"}
+>>>>>>> 5b8b9b39ccd06989b722f8d0adad0aa4da6d7d72
 // OMP: [[META3:![0-9]+]] = !{[[META4:![0-9]+]]}
 // OMP: [[META4]] = !{i64 2, i64 -1, i64 -1, i1 true}
 //.
 // NOOMP: [[META0:![0-9]+]] = !{i32 1, !"wchar_size", i32 4}
+<<<<<<< HEAD
 // NOOMP: [[META1:![0-9]+]] = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2024.0.0 (2024.0.0.YYYYMMDD)"}
+=======
+// NOOMP: [[META1:![0-9]+]] = !{!"clang version {{.*}}"}
+>>>>>>> 5b8b9b39ccd06989b722f8d0adad0aa4da6d7d72
 // NOOMP: [[LOOP2]] = distinct !{[[LOOP2]], [[META3:![0-9]+]]}
 // NOOMP: [[META3]] = !{!"llvm.loop.mustprogress"}
 // NOOMP: [[LOOP4]] = distinct !{[[LOOP4]], [[META3]]}
