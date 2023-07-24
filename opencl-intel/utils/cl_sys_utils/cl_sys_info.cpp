@@ -168,3 +168,19 @@ bool Intel::OpenCL::Utils::GetProcessorIndexFromNumaNode(
   }
   return true;
 }
+
+std::unordered_map<int, int> Intel::OpenCL::Utils::GetProcessorToSocketMap() {
+  unsigned numSockets = GetNumberOfCpuSockets();
+  std::unordered_map<int, int> CoreIdToPhysicalId;
+  for (unsigned node = 0; node < numSockets; node++) {
+    // If no object exists, NULL is returned
+    hwloc_obj_t obj = hwloc_get_obj_by_type(topology, HWLOC_OBJ_PACKAGE, node);
+    assert(obj && "Get Socket Object Failed!");
+    int prev = hwloc_bitmap_next(obj->cpuset, -1);
+    while (-1 != prev) {
+      CoreIdToPhysicalId[prev] = node;
+      prev = hwloc_bitmap_next(obj->cpuset, prev);
+    }
+  }
+  return CoreIdToPhysicalId;
+}

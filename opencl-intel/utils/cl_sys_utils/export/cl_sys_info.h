@@ -16,8 +16,8 @@
 
 #include "cl_sys_defines.h"
 #include "cl_utils.h"
-#include <map>
 #include <stdint.h>
+#include <unordered_map>
 #include <vector>
 
 namespace Intel {
@@ -47,7 +47,7 @@ extern bool GetProcessorIndexFromNumaNode(unsigned long node,
 extern bool GetProcessorMaskFromNumaNode(unsigned long node,
                                          affinityMask_t *pMask,
                                          unsigned int *nodeSize = nullptr);
-extern std::map<int, int> GetProcessorToSocketMap();
+extern std::unordered_map<int, int> GetProcessorToSocketMap();
 extern unsigned int GetCpuId();
 extern const char *GetFullModuleNameForLoad(const char *moduleName);
 extern const char *GetModuleProductVersion();
