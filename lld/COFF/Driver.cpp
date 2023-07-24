@@ -527,10 +527,11 @@ StringRef LinkerDriver::findFile(StringRef filename) {
   // section can either be an absolute filepath or a relative filepath.
   // Relative filepaths need to be searched for in the searchPaths
   // directories.
-  if (hasPathSep)
+  if (sys::path::is_absolute(filename))
     if (sys::fs::exists(filename))
       return getFilename(filename);
 #endif // INTEL_CUSTOMIZATION
+
   bool hasExt = filename.contains('.');
   for (StringRef dir : searchPaths) {
     SmallString<128> path = dir;
