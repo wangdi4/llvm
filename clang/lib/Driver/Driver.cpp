@@ -229,6 +229,7 @@ std::string Driver::GetResourcesPath(StringRef BinaryPath,
     // path of the embedding binary, which for LLVM binaries will be in bin/.
     // ../lib gets us to lib/ in both cases.
     P = llvm::sys::path::parent_path(Dir);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // We're trying to compute a relative path to the "lib" directory, but the
     // number of levels we need to travel up depends on whether we're being
@@ -246,6 +247,10 @@ std::string Driver::GetResourcesPath(StringRef BinaryPath,
       P = llvm::sys::path::parent_path(Child);
     }
 #endif
+=======
+    // This search path is also created in the COFF driver of lld, so any
+    // changes here also needs to happen in lld/COFF/Driver.cpp
+>>>>>>> af744f0b84e2b6410be65277068b9033124c73b2
     llvm::sys::path::append(P, CLANG_INSTALL_LIBDIR_BASENAME, "clang",
                             CLANG_VERSION_MAJOR_STRING);
   }
