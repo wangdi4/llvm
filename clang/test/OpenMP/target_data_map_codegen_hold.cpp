@@ -527,10 +527,10 @@ void foo(int arg) {
 //.
 // CHECK-PPC64LE: [[META0:![0-9]+]] = !{i32 1, !"wchar_size", i32 4}
 // CHECK-PPC64LE: [[META1:![0-9]+]] = !{i32 7, !"openmp", i32 51}
-// CHECK-PPC64LE: [[META2:![0-9]+]] = !{!"{{.*}}clang version {{.*}}"}
+// NOT-CHECK-PPC64LE: [[META2:![0-9]+]] = !{!"{{.*}}clang version {{.*}}"} ;INTEL
 //.
 // CHECK-I386: [[META0:![0-9]+]] = !{i32 1, !"NumRegisterParameters", i32 0}
 // CHECK-I386: [[META1:![0-9]+]] = !{i32 1, !"wchar_size", i32 4}
 // CHECK-I386: [[META2:![0-9]+]] = !{i32 7, !"openmp", i32 51}
-// CHECK-I386: [[META3:![0-9]+]] = !{!"{{.*}}clang version {{.*}}"}
+// NOT-CHECK-I386: [[META3:![0-9]+]] = !{!"{{.*}}clang version {{.*}}"} ;INTEL
 //.
