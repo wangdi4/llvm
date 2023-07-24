@@ -726,38 +726,106 @@ void VecCloneImpl::Factory::updateVectorArgumentUses(
   }
 }
 
+Value *VecCloneImpl::Factory::generateUnpackIntMask(FixedVectorType *VecArgTy,
+                                                    Value *Arg,
+                                                    Instruction *InsertPt) {
+  // Generate unpacking code for the integer mask. Note that we may use
+  // only some least significant bits off the while integer value.
+  // If we have mask type i32 and 8 mask elements per chunk we generate
+  // something like this (assuming double here is element type of logical
+  // mask):
+  // %1 = trunc i32 %mask to i8
+  // %2 = bitcast i8 %1 to <8 x i1>
+  // %3 = sext <8 x i1> %i2 to <8 x i64>
+  // %4 = bitcast <8 x i64> %i3 to <8 x double>
+
+  Value *ArgChunk = Arg;
+  unsigned NumBits = VecArgTy->getNumElements();
+  auto *ArgTy = cast<IntegerType>(Arg->getType());
+  // Note that type of the argument may have unused bits.
+  // We need to know what would be "useful" type, i.e. one where all bits
+  // are used.
+  Type *EffectiveMaskIntTy = ArgTy;
+  if (NumBits < ArgTy->getBitWidth()) {
+    EffectiveMaskIntTy = Type::getIntNTy(ArgTy->getContext(), NumBits);
+    ArgChunk = new TruncInst(ArgChunk, EffectiveMaskIntTy,
+                             Arg->getName() + ".trunc", InsertPt);
+  }
+  ArgChunk = new BitCastInst(
+      ArgChunk,
+      FixedVectorType::get(Type::getInt1Ty(ArgTy->getContext()), NumBits),
+      Arg->getName() + ".vec", InsertPt);
+
+  // If logical argument is not already integer, we need to promote (sign
+  // extend) vector of i1 elements to vector of integer elements of equal
+  // size to logical mask element.
+  // It would also mean that we need final value cast to the type of
+  // logical argument.
+
+  Type *SextEltTy = VecArgTy->getElementType();
+  bool NeedValueCast = !SextEltTy->isIntegerTy();
+  if (NeedValueCast)
+    SextEltTy = Type::getIntNTy(ArgTy->getContext(),
+                                SextEltTy->getPrimitiveSizeInBits());
+  ArgChunk = new SExtInst(ArgChunk, FixedVectorType::get(SextEltTy, NumBits),
+                          Arg->getName() + ".vec.sext", InsertPt);
+  if (NeedValueCast)
+    ArgChunk = new BitCastInst(
+        ArgChunk, FixedVectorType::get(VecArgTy->getElementType(), NumBits),
+        Arg->getName() + ".vec.cast", InsertPt);
+
+  return ArgChunk;
+}
+
 Instruction *
 VecCloneImpl::Factory::widenVectorArgumentsAndReturn(Instruction *&Mask,
                                                      PHINode *Phi) {
 
+  // Generate store of argument into allocated area (VecAI).
+  // If arguments passed by multiple chunks, then corresponding number of stores
+  // generated to fill in the entire location with the logical argument value.
+  // If the argument is mask and does require unpacking (UnpackIntMask is true),
+  // then unpacking sequence is generated before storing a mask chunk.
   auto GenStore = [this](AllocaInst *VecAI, Function::arg_iterator &ArgIt,
-                         Type *ArgTy, int NumParts) {
+                         int NumParts, bool UnpackIntMask) {
     Instruction *InsertPt = EntryBlock->getTerminator();
-    Type *VecTy = VecAI->getAllocatedType();
+    auto *WideVecTy = cast<FixedVectorType>(VecAI->getAllocatedType());
+    FixedVectorType *VecArgTy =
+        UnpackIntMask ? nullptr : cast<FixedVectorType>(ArgIt->getType());
+    if (!VecArgTy) {
+      // If we have to unpack mask then type of mask (or its chunk) is integer.
+      // So we will need to unpuck that mask and transform it into vector type
+      // of what would be chunk type for non-packed mask.
+      unsigned ChunkVF = WideVecTy->getNumElements() / NumParts;
+      VecArgTy = FixedVectorType::get(WideVecTy->getElementType(), ChunkVF);
+    }
 
     Instruction *Ptr = VecAI;
     // generate bitcast to legal argument type if required.
-    if (ArgTy != VecTy && !VecAI->getType()->isOpaquePointerTy())
+    if (VecArgTy != WideVecTy && !VecAI->getType()->isOpaquePointerTy())
       Ptr = new BitCastInst(
-          VecAI, PointerType::get(ArgTy, VecAI->getType()->getAddressSpace()),
+          VecAI,
+          PointerType::get(VecArgTy, VecAI->getType()->getAddressSpace()),
           VecAI->getName() + ".subv.cast", InsertPt);
 
-    Align Alignmt = DL.getABITypeAlign(ArgTy);
+    Align Alignmt = DL.getABITypeAlign(VecArgTy);
     int Chunk = 0;
     while (--NumParts >= 0) {
-      assert(ArgTy == ArgIt->getType() && "Expected same argument type");
+      Value *ArgChunk = UnpackIntMask
+                            ? generateUnpackIntMask(VecArgTy, ArgIt, InsertPt)
+                            : ArgIt;
 
       Instruction *ChunkPtr = Ptr;
-      if (ArgTy != VecTy) {
+      if (VecArgTy != WideVecTy) {
         auto *GEP = GetElementPtrInst::Create(
-            ArgTy, Ptr,
-            ConstantInt::get(Type::getInt32Ty(ArgTy->getContext()), Chunk),
+            VecArgTy, Ptr,
+            ConstantInt::get(Type::getInt32Ty(VecArgTy->getContext()), Chunk),
             VecAI->getName() + ".gep." + std::to_string(Chunk), InsertPt);
         GEP->setIsInBounds(true);
         ChunkPtr = GEP;
       }
 
-      auto *SI = new StoreInst(ArgIt, ChunkPtr, false /*volatile*/, Alignmt);
+      auto *SI = new StoreInst(ArgChunk, ChunkPtr, false /*volatile*/, Alignmt);
       SI->insertBefore(InsertPt);
 
       ++Chunk;
@@ -818,10 +886,12 @@ VecCloneImpl::Factory::widenVectorArgumentsAndReturn(Instruction *&Mask,
     }
 
     // This function is run after the arguments have been already widened!
-    VectorType *VecType = cast<VectorType>(ArgIt->getType());
-    Type *LogicalVecType = LogicalArgTypes[I];
-    assert((VecType == LogicalVecType || NumChunks > 1) &&
+    Type *ArgType = ArgIt->getType();
+    Type *LogicalArgType = LogicalArgTypes[I];
+    assert((ArgType == LogicalArgType || NumChunks > 1 ||
+            (IsMaskArg && VFABI::hasPackedMask(V) && ArgType->isIntegerTy())) &&
            "Incorrect vector function signature?");
+    (void)ArgType;
 
     // Create a new vector alloca and bitcast to a pointer to the element
     // type. The following is an example of what the cast should look like:
@@ -841,17 +911,19 @@ VecCloneImpl::Factory::widenVectorArgumentsAndReturn(Instruction *&Mask,
     // using the loop index.
     // Note that for alloca we need to use logical vector type.
     AllocaInst *VecAlloca = GenAlloca(
-        LogicalVecType, IsMaskArg ? "vec.mask" : "vec." + OrigArg->getName());
+        LogicalArgType, IsMaskArg ? "vec.mask" : "vec." + OrigArg->getName());
 
     Type *ElemType = OrigArg ? OrigArg->getType() : nullptr;
     if (!ElemType) {
       // If the argument is a mask, the scalar function argument does not exist.
-      ElemType = VecType->getElementType();
+      // We need to get this element type from logical argument type as
+      // actual mask argument may be packed into integer.
+      ElemType = cast<FixedVectorType>(LogicalArgType)->getElementType();
     } else if (ElemType->isIntOrIntVectorTy(1)) {
       // If the original argument type was `i1`, then we promoted it to an
       // `i8`. Use `i8` as the element type instead, to avoid a GEP into a
       // `<VF x i1>` when updating the argument's uses.
-      assert(VecType->getElementType()->isIntegerTy(8) &&
+      assert(cast<FixedVectorType>(ArgType)->getElementType()->isIntegerTy(8) &&
              "expected element type to be promoted to i8 from i1");
       ElemType = ElemType->getWithNewBitWidth(8);
     }
@@ -861,7 +933,7 @@ VecCloneImpl::Factory::widenVectorArgumentsAndReturn(Instruction *&Mask,
 
     Argument *Arg = ArgIt;
     // Store the vector argument into the new VF-widened alloca.
-    GenStore(VecAlloca, ArgIt, VecType, NumChunks);
+    GenStore(VecAlloca, ArgIt, NumChunks, IsMaskArg && VFABI::hasPackedMask(V));
     if (IsMaskArg) {
       Mask = VecArg;
       continue;
