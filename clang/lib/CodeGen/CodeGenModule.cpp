@@ -2863,7 +2863,7 @@ void CodeGenModule::SetLLVMFunctionAttributesForDefinition(const Decl *D,
 #ifdef INTEL_CUSTOMIZATION
   // Attach auto-cpu-dispatch and auto-arch target metadata on function
   // definitions(not declarations) in non-offload modules.
-  if (!getLangOpts().OpenMPIsDevice && !getLangOpts().SYCLIsDevice) {
+  if (!getLangOpts().OpenMPIsTargetDevice && !getLangOpts().SYCLIsDevice) {
     // Skip functions that are manually marked for multiversioning
     // and those which are tuned using attribute "target".
     auto *FD = dyn_cast<FunctionDecl>(D);
@@ -3483,19 +3483,6 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
                                                CalleeIdx, PayloadIndices,
                                                /* VarArgsArePassed */ false)}));
   }
-<<<<<<< HEAD
-#ifdef INTEL_CUSTOMIZATION
-  // Skip declaration, functions that are mamually marked for multiversioning
-  // and those which are tuned by a user using attribute "target".
-  if (FD->hasBody() && !FD->hasAttr<TargetAttr>() && !FD->isMultiVersion() &&
-      !FD->hasAttr<OMPDeclareSimdDeclAttr>() &&
-      !FD->hasAttr<OMPDeclareVariantAttr>()) {
-    if (llvm::MDNode *TargetsMD = getAutoCPUDispatchTargetsMetadata())
-      F->addMetadata("llvm.auto.cpu.dispatch", *TargetsMD);
-    else if (llvm::MDNode *TargetsMD = getAutoArchTargetsMetadata())
-      F->addMetadata("llvm.auto.arch", *TargetsMD);
-  }
-#endif //INTEL_CUSTOMIZATION
 
   // Apply SYCL specific attributes/metadata.
   if (const auto *A = FD->getAttr<SYCLDeviceHasAttr>())
@@ -3505,8 +3492,6 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
   if (const auto *A = FD->getAttr<SYCLUsesAspectsAttr>())
     applySYCLAspectsMD(A, getContext(), getLLVMContext(), F,
                        "sycl_used_aspects");
-=======
->>>>>>> cc72e29d45b5e015939b680d759675cc7ef53b1c
 }
 
 void CodeGenModule::addUsedGlobal(llvm::GlobalValue *GV) {
