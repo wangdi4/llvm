@@ -1120,8 +1120,8 @@ void llvm::buildVectorVariantLogicalSignature(
 /// changed) then returned back via VecRetTy and \p LegalizedArgs array
 /// populated with legalized types of the function arguments.
 static void buildTargetISALegalizedSignature(
-    ArrayRef<Type *> ArgTys, ArrayRef<int> ArgNumParts, int RetChunks,
-    SmallVectorImpl<Type *> &LegalizedArgs, Type *&VecRetTy) {
+    const VFInfo &Variant, ArrayRef<Type *> ArgTys, ArrayRef<int> ArgNumParts,
+    int RetChunks, SmallVectorImpl<Type *> &LegalizedArgs, Type *&VecRetTy) {
   assert(ArgTys.size() == ArgNumParts.size() &&
          "Inconsistent arguments information");
 
@@ -1138,6 +1138,17 @@ static void buildTargetISALegalizedSignature(
     int NumChunks = ArgNumParts[I];
     assert(NumChunks != 0 && "An argument must have at least one part");
     Type *ChunkTy = GetChunkType(T, NumChunks);
+
+    // Per VecABI mask argument for AVX512 is passed via GPRs and shall be
+    // lowered as i32 or i64 type. Number of mask arguments matches number of
+    // chunks.
+    if (I == (ArgTys.size() - 1) && VFABI::hasPackedMask(Variant)) {
+      // This is mask argument which has to be legalized into idividual bits of
+      // an integer value.
+      ChunkTy = VFABI::getPackedMaskArgumentTy(
+          ChunkTy->getContext(),
+          cast<FixedVectorType>(ChunkTy)->getNumElements());
+    }
     while (--NumChunks >= 0)
       LegalizedArgs.push_back(ChunkTy);
   }
@@ -1207,9 +1218,11 @@ llvm::getOrInsertVectorVariantFunction(Function &OrigF, const VFInfo &Variant,
 
   Type *VecRetTy = RetTy;
   SmallVector<Type *> LegalizedArgTys(ArgTys);
-  if (RetChunks > 1 || any_of(ArgChunks, [](int N) { return N > 1; }))
-    buildTargetISALegalizedSignature(ArgTys, ArgChunks, RetChunks,
+  if (VFABI::hasPackedMask(Variant) || RetChunks > 1 ||
+      any_of(ArgChunks, [](int N) { return N > 1; })) {
+    buildTargetISALegalizedSignature(Variant, ArgTys, ArgChunks, RetChunks,
                                      LegalizedArgTys, VecRetTy);
+  }
   FunctionType *FTy = FunctionType::get(VecRetTy, LegalizedArgTys, false);
 
   VectorF = Function::Create(FTy, OrigF.getLinkage(), VFnName, M);
@@ -2387,6 +2400,24 @@ void VFABI::calcVectorVariantParamChunks(MutableArrayRef<int> ArgChunks,
 
   RetChunks = RetTy->isVoidTy() ? 1 : LookupTable(RetTy);
   assert(RetChunks > 0 && "Unsupported VLEN for given ISA and return type");
+}
+
+bool VFABI::hasPackedMask(const VFInfo &V) {
+  // TODO: Mask packing isn't Intel mangling specific,
+  // remove this limitation once arguments legalization enabled for gcc
+  // mangling.
+  if (!VFInfo::isIntelVFABIMangling(V.VectorName))
+    return false;
+  return V.isMasked() && V.getISA() == VFISAKind::AVX512;
+}
+
+Type *VFABI::getPackedMaskArgumentTy(LLVMContext &C, unsigned MaskSize) {
+  if (MaskSize <= 32)
+    return Type::getInt32Ty(C);
+  if (MaskSize <= 64)
+    return Type::getInt64Ty(C);
+  llvm_unreachable("unable to handle more than 64 bits with a GPR");
+  return nullptr;
 }
 #endif // INTEL_CUSTOMIZATION
 
