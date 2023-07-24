@@ -2453,7 +2453,7 @@ void clang::sema::AnalysisBasedWarnings::IssueWarnings(
         !Diags.isIgnored(diag::warn_unsafe_buffer_variable,
                          Node->getBeginLoc())) {
       clang::checkUnsafeBufferUsage(Node, R,
-                                    UnsafeBufferUsageShouldEmitSuggestions, S);
+                                    UnsafeBufferUsageShouldEmitSuggestions);
     }
 
     // More analysis ...
