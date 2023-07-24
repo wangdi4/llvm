@@ -1299,6 +1299,7 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   case LibFunc_msvc_std_ios_base_failure_const_ptr_ctor:
   case LibFunc_msvc_std_ios_base_failure_scalar_deleting_dtor:
   case LibFunc_msvc_std_ios_base_scalar_deleting_dtor:
+  case LibFunc_msvc_std_istreambuf_iterator_operator_equals:
   case LibFunc_msvc_std_istreambuf_iterator_operator_plus_plus:
   case LibFunc_msvc_std_locale_facet_decref:
   case LibFunc_msvc_std_locale_facet_incref:
