@@ -294,7 +294,7 @@ declare i64 @llvm.usub.sat.i64(i64, i64)
 define i8 @subflag8rr(i8 noundef %a, i8 noundef %b) {
 ; CHECK-LABEL: subflag8rr:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    xorl %eax, %eax, %eax
 ; CHECK-NEXT:    subb %sil, %dil, %cl
 ; CHECK-NEXT:    movzbl %cl, %ecx
 ; CHECK-NEXT:    cmovbl %eax, %ecx, %eax
@@ -308,7 +308,7 @@ entry:
 define i16 @subflag16rr(i16 noundef %a, i16 noundef %b) {
 ; CHECK-LABEL: subflag16rr:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    xorl %eax, %eax, %eax
 ; CHECK-NEXT:    subw %si, %di, %cx
 ; CHECK-NEXT:    cmovbl %eax, %ecx, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
@@ -321,7 +321,7 @@ entry:
 define i32 @subflag32rr(i32 noundef %a, i32 noundef %b) {
 ; CHECK-LABEL: subflag32rr:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    xorl %eax, %eax, %eax
 ; CHECK-NEXT:    subl %esi, %edi, %ecx
 ; CHECK-NEXT:    cmovbl %eax, %ecx, %eax
 ; CHECK-NEXT:    retq
@@ -333,7 +333,7 @@ entry:
 define i64 @subflag64rr(i64 noundef %a, i64 noundef %b) {
 ; CHECK-LABEL: subflag64rr:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    xorl %eax, %eax, %eax
 ; CHECK-NEXT:    subq %rsi, %rdi, %rcx
 ; CHECK-NEXT:    cmovbq %rax, %rcx, %rax
 ; CHECK-NEXT:    retq
@@ -345,7 +345,7 @@ entry:
 define i8 @subflag8rm(i8 noundef %a, ptr %b) {
 ; CHECK-LABEL: subflag8rm:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    xorl %eax, %eax, %eax
 ; CHECK-NEXT:    subb (%rsi), %dil, %cl
 ; CHECK-NEXT:    movzbl %cl, %ecx
 ; CHECK-NEXT:    cmovbl %eax, %ecx, %eax
@@ -360,7 +360,7 @@ entry:
 define i16 @subflag16rm(i16 noundef %a, ptr %b) {
 ; CHECK-LABEL: subflag16rm:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    xorl %eax, %eax, %eax
 ; CHECK-NEXT:    subw (%rsi), %di, %cx
 ; CHECK-NEXT:    cmovbl %eax, %ecx, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
@@ -374,7 +374,7 @@ entry:
 define i32 @subflag32rm(i32 noundef %a, ptr %b) {
 ; CHECK-LABEL: subflag32rm:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    xorl %eax, %eax, %eax
 ; CHECK-NEXT:    subl (%rsi), %edi, %ecx
 ; CHECK-NEXT:    cmovbl %eax, %ecx, %eax
 ; CHECK-NEXT:    retq
@@ -387,7 +387,7 @@ entry:
 define i64 @subflag64rm(i64 noundef %a, ptr %b) {
 ; CHECK-LABEL: subflag64rm:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    xorl %eax, %eax, %eax
 ; CHECK-NEXT:    subq (%rsi), %rdi, %rcx
 ; CHECK-NEXT:    cmovbq %rax, %rcx, %rax
 ; CHECK-NEXT:    retq
@@ -400,7 +400,7 @@ entry:
 define i16 @subflag16ri8(i16 noundef %a) {
 ; CHECK-LABEL: subflag16ri8:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    xorl %eax, %eax, %eax
 ; CHECK-NEXT:    subw $123, %di, %cx
 ; CHECK-NEXT:    cmovbl %eax, %ecx, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
@@ -413,7 +413,7 @@ entry:
 define i32 @subflag32ri8(i32 noundef %a) {
 ; CHECK-LABEL: subflag32ri8:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    xorl %eax, %eax, %eax
 ; CHECK-NEXT:    subl $123, %edi, %ecx
 ; CHECK-NEXT:    cmovbl %eax, %ecx, %eax
 ; CHECK-NEXT:    retq
@@ -425,7 +425,7 @@ entry:
 define i64 @subflag64ri8(i64 noundef %a) {
 ; CHECK-LABEL: subflag64ri8:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    xorl %eax, %eax, %eax
 ; CHECK-NEXT:    subq $123, %rdi, %rcx
 ; CHECK-NEXT:    cmovbq %rax, %rcx, %rax
 ; CHECK-NEXT:    retq
@@ -437,7 +437,7 @@ entry:
 define i8 @subflag8ri(i8 noundef %a) {
 ; CHECK-LABEL: subflag8ri:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    xorl %eax, %eax, %eax
 ; CHECK-NEXT:    subb $123, %dil, %cl
 ; CHECK-NEXT:    movzbl %cl, %ecx
 ; CHECK-NEXT:    cmovbl %eax, %ecx, %eax
@@ -451,7 +451,7 @@ entry:
 define i16 @subflag16ri(i16 noundef %a) {
 ; CHECK-LABEL: subflag16ri:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    xorl %eax, %eax, %eax
 ; CHECK-NEXT:    subw $1234, %di, %cx # imm = 0x4D2
 ; CHECK-NEXT:    cmovbl %eax, %ecx, %eax
 ; CHECK-NEXT:    # kill: def $ax killed $ax killed $eax
@@ -464,7 +464,7 @@ entry:
 define i32 @subflag32ri(i32 noundef %a) {
 ; CHECK-LABEL: subflag32ri:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    xorl %eax, %eax, %eax
 ; CHECK-NEXT:    subl $123456, %edi, %ecx # imm = 0x1E240
 ; CHECK-NEXT:    cmovbl %eax, %ecx, %eax
 ; CHECK-NEXT:    retq
@@ -476,7 +476,7 @@ entry:
 define i64 @subflag64ri(i64 noundef %a) {
 ; CHECK-LABEL: subflag64ri:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    xorl %eax, %eax
+; CHECK-NEXT:    xorl %eax, %eax, %eax
 ; CHECK-NEXT:    subq $123456, %rdi, %rcx # imm = 0x1E240
 ; CHECK-NEXT:    cmovbq %rax, %rcx, %rax
 ; CHECK-NEXT:    retq

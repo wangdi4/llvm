@@ -9,7 +9,7 @@ define i32 @test8(i64 %res) nounwind {
 ; CHECK-LABEL: test8:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    shrq $32, %rdi, %rcx # encoding: [0x62,0xf4,0xf4,0x18,0xc1,0xef,0x20]
-; CHECK-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
+; CHECK-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; CHECK-NEXT:    cmpl $3, %ecx # encoding: [0x83,0xf9,0x03]
 ; CHECK-NEXT:    setb %al # encoding: [0x0f,0x92,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
@@ -22,7 +22,7 @@ define i32 @test11(i64 %l) nounwind {
 ; CHECK-LABEL: test11:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    shrq $47, %rdi, %rcx # encoding: [0x62,0xf4,0xf4,0x18,0xc1,0xef,0x2f]
-; CHECK-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
+; CHECK-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; CHECK-NEXT:    cmpl $1, %ecx # encoding: [0x83,0xf9,0x01]
 ; CHECK-NEXT:    sete %al # encoding: [0x0f,0x94,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
@@ -37,7 +37,6 @@ define zeroext i1 @test15(i32 %bf.load, i32 %n) {
 ; CHECK-LABEL: test15:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    shrl $16, %edi, %eax # encoding: [0x62,0xf4,0x7c,0x18,0xc1,0xef,0x10]
-; CHECK-NEXT:    testl %eax, %eax # encoding: [0x85,0xc0]
 ; CHECK-NEXT:    sete %cl # encoding: [0x0f,0x94,0xc1]
 ; CHECK-NEXT:    cmpl %esi, %eax # encoding: [0x39,0xf0]
 ; CHECK-NEXT:    setae %al # encoding: [0x0f,0x93,0xc0]
@@ -87,7 +86,7 @@ declare i32 @f()
 define i32 @lowmask_i64_mask64(i64 %val) {
 ; CHECK-LABEL: lowmask_i64_mask64:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
+; CHECK-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; CHECK-NEXT:    shlq $16, %rdi # encoding: [0x48,0xc1,0xe7,0x10]
 ; CHECK-NEXT:    sete %al # encoding: [0x0f,0x94,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
@@ -100,7 +99,7 @@ define i32 @lowmask_i64_mask64(i64 %val) {
 define i64 @lowmask_i64_mask64_extra_use(i64 %val) nounwind {
 ; CHECK-LABEL: lowmask_i64_mask64_extra_use:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
+; CHECK-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; CHECK-NEXT:    movq %rdi, %rcx # encoding: [0x48,0x89,0xf9]
 ; CHECK-NEXT:    shlq $16, %rcx # encoding: [0x48,0xc1,0xe1,0x10]
 ; CHECK-NEXT:    sete %al # encoding: [0x0f,0x94,0xc0]
@@ -116,7 +115,7 @@ define i64 @lowmask_i64_mask64_extra_use(i64 %val) nounwind {
 define i32 @lowmask_i64_mask32(i64 %val) {
 ; CHECK-LABEL: lowmask_i64_mask32:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
+; CHECK-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; CHECK-NEXT:    shlq $44, %rdi # encoding: [0x48,0xc1,0xe7,0x2c]
 ; CHECK-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
@@ -129,9 +128,8 @@ define i32 @lowmask_i64_mask32(i64 %val) {
 define i32 @test7(i64 %res) nounwind {
 ; CHECK-LABEL: test7:
 ; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; CHECK-NEXT:    shrq $32, %rdi, %rcx # encoding: [0x62,0xf4,0xf4,0x18,0xc1,0xef,0x20]
-; CHECK-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
-; CHECK-NEXT:    testq %rcx, %rcx # encoding: [0x48,0x85,0xc9]
 ; CHECK-NEXT:    sete %al # encoding: [0x0f,0x94,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
 entry:
@@ -143,9 +141,8 @@ entry:
 define i32 @test9(i64 %res) nounwind {
 ; CHECK-LABEL: test9:
 ; CHECK:       # %bb.0:
+; CHECK-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; CHECK-NEXT:    shrq $33, %rdi, %rcx # encoding: [0x62,0xf4,0xf4,0x18,0xc1,0xef,0x21]
-; CHECK-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
-; CHECK-NEXT:    testq %rcx, %rcx # encoding: [0x48,0x85,0xc9]
 ; CHECK-NEXT:    sete %al # encoding: [0x0f,0x94,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %lnot = icmp ult i64 %res, 8589934592
@@ -156,9 +153,8 @@ define i32 @test9(i64 %res) nounwind {
 define i32 @test10(i64 %res) nounwind {
 ; CHECK-LABEL: test10:
 ; CHECK:       # %bb.0:
+; CHECK-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; CHECK-NEXT:    shrq $32, %rdi, %rcx # encoding: [0x62,0xf4,0xf4,0x18,0xc1,0xef,0x20]
-; CHECK-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
-; CHECK-NEXT:    testq %rcx, %rcx # encoding: [0x48,0x85,0xc9]
 ; CHECK-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %lnot = icmp uge i64 %res, 4294967296
@@ -170,7 +166,6 @@ define i32 @test14(i32 %mask, i32 %base, i32 %intra) {
 ; CHECK-LABEL: test14:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    shrl $7, %edi, %eax # encoding: [0x62,0xf4,0x7c,0x18,0xc1,0xef,0x07]
-; CHECK-NEXT:    testl %eax, %eax # encoding: [0x85,0xc0]
 ; CHECK-NEXT:    cmovnsl %edx, %esi, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x49,0xf2]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %s = lshr i32 %mask, 7
@@ -182,7 +177,7 @@ define i32 @test14(i32 %mask, i32 %base, i32 %intra) {
 define i64 @highmask_i64_mask64_extra_use(i64 %val) nounwind {
 ; CHECK-LABEL: highmask_i64_mask64_extra_use:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
+; CHECK-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; CHECK-NEXT:    movq %rdi, %rcx # encoding: [0x48,0x89,0xf9]
 ; CHECK-NEXT:    shrq $41, %rcx # encoding: [0x48,0xc1,0xe9,0x29]
 ; CHECK-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
@@ -198,7 +193,7 @@ define i64 @highmask_i64_mask64_extra_use(i64 %val) nounwind {
 define i32 @highmask_i64_mask32(i64 %val) {
 ; CHECK-LABEL: highmask_i64_mask32:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
+; CHECK-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; CHECK-NEXT:    shrq $20, %rdi # encoding: [0x48,0xc1,0xef,0x14]
 ; CHECK-NEXT:    sete %al # encoding: [0x0f,0x94,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
@@ -212,7 +207,6 @@ define void @shl(i32 %x) nounwind {
 ; CHECK-LABEL: shl:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    addl %edi, %edi, %edi # encoding: [0x62,0xf4,0x44,0x18,0x01,0xff]
-; CHECK-NEXT:    testl %edi, %edi # encoding: [0x85,0xff]
 ; CHECK-NEXT:    jne foo@PLT # TAILCALL
 ; CHECK-NEXT:    # encoding: [0x75,A]
 ; CHECK-NEXT:    # fixup A - offset: 1, value: foo@PLT-1, kind: FK_PCRel_1
@@ -237,7 +231,6 @@ define zeroext i1 @adc(i128 %x) nounwind {
 ; CHECK-NEXT:    # imm = 0x8000000000000000
 ; CHECK-NEXT:    addq %rax, %rdi, %rax # encoding: [0x62,0xf4,0xfc,0x18,0x01,0xc7]
 ; CHECK-NEXT:    adcq $0, %rsi, %rax # encoding: [0x62,0xf4,0xfc,0x18,0x83,0xd6,0x00]
-; CHECK-NEXT:    testq %rax, %rax # encoding: [0x48,0x85,0xc0]
 ; CHECK-NEXT:    sete %al # encoding: [0x0f,0x94,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %add = add i128 %x, 9223372036854775808
@@ -250,7 +243,6 @@ define zeroext i1 @sbb(i128 %x, i128 %y) nounwind {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    cmpq %rdx, %rdi # encoding: [0x48,0x39,0xd7]
 ; CHECK-NEXT:    sbbq %rcx, %rsi, %rax # encoding: [0x62,0xf4,0xfc,0x18,0x19,0xce]
-; CHECK-NEXT:    testq %rax, %rax # encoding: [0x48,0x85,0xc0]
 ; CHECK-NEXT:    setns %al # encoding: [0x0f,0x99,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %sub = sub i128 %x, %y
@@ -269,7 +261,6 @@ define i32 @test4(i32 %a, i32 %b) nounwind  {
 ; CHECK-NEXT:    notl %eax, %ecx # encoding: [0x62,0xf4,0x74,0x18,0xf7,0xd0]
 ; CHECK-NEXT:    andl %esi, %ecx, %ecx # encoding: [0x62,0xf4,0x74,0x18,0x21,0xf1]
 ; CHECK-NEXT:    addl %ecx, %ecx, %esi # encoding: [0x62,0xf4,0x4c,0x18,0x01,0xc9]
-; CHECK-NEXT:    testl %esi, %esi # encoding: [0x85,0xf6]
 ; CHECK-NEXT:    jne .LBB16_1 # encoding: [0x75,A]
 ; CHECK-NEXT:    # fixup A - offset: 1, value: .LBB16_1-1, kind: FK_PCRel_1
 ; CHECK-NEXT:  # %bb.2: # %bb12
@@ -300,7 +291,6 @@ define i8 @test6(i8 %a, i8 %b) nounwind  {
 ; CHECK-NEXT:    notb %al, %cl # encoding: [0x62,0xf4,0x74,0x18,0xf6,0xd0]
 ; CHECK-NEXT:    andb %sil, %cl, %cl # encoding: [0x62,0xf4,0x74,0x18,0x20,0xf1]
 ; CHECK-NEXT:    addb %cl, %cl, %sil # encoding: [0x62,0xf4,0x4c,0x18,0x00,0xc9]
-; CHECK-NEXT:    testb %sil, %sil # encoding: [0x40,0x84,0xf6]
 ; CHECK-NEXT:    jne .LBB17_1 # encoding: [0x75,A]
 ; CHECK-NEXT:    # fixup A - offset: 1, value: .LBB17_1-1, kind: FK_PCRel_1
 ; CHECK-NEXT:  # %bb.2: # %bb12
@@ -333,7 +323,6 @@ define i32 @test7_1(i32 %a, i32 %b) nounwind  {
 ; CHECK-NEXT:    # imm = 0x7FFFFFFE
 ; CHECK-NEXT:    andl %esi, %ecx, %ecx # encoding: [0x62,0xf4,0x74,0x18,0x21,0xf1]
 ; CHECK-NEXT:    addl %ecx, %ecx, %esi # encoding: [0x62,0xf4,0x4c,0x18,0x01,0xc9]
-; CHECK-NEXT:    testl %esi, %esi # encoding: [0x85,0xf6]
 ; CHECK-NEXT:    jne .LBB18_1 # encoding: [0x75,A]
 ; CHECK-NEXT:    # fixup A - offset: 1, value: .LBB18_1-1, kind: FK_PCRel_1
 ; CHECK-NEXT:  # %bb.2: # %bb12

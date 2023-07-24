@@ -10,7 +10,6 @@ define i8 @or_i8_ri(i8 zeroext %0, i8 zeroext %1) {
 ; X64-LABEL: or_i8_ri:
 ; X64:       # %bb.0:
 ; X64-NEXT:    orb $-17, %dil, %al
-; X64-NEXT:    testb %al, %al
 ; X64-NEXT:    movzbl %al, %eax
 ; X64-NEXT:    cmovel %edi, %eax, %eax
 ; X64-NEXT:    # kill: def $al killed $al killed $eax
@@ -25,7 +24,6 @@ define i8 @or_i8_rr(i8 zeroext %0, i8 zeroext %1) {
 ; X64-LABEL: or_i8_rr:
 ; X64:       # %bb.0:
 ; X64-NEXT:    orl %edi, %esi, %eax
-; X64-NEXT:    testl %eax, %eax
 ; X64-NEXT:    cmovel %edi, %eax, %eax
 ; X64-NEXT:    # kill: def $al killed $al killed $eax
 ; X64-NEXT:    retq
@@ -39,7 +37,6 @@ define i16 @or_i16_ri(i16 zeroext %0, i16 zeroext %1) {
 ; X64-LABEL: or_i16_ri:
 ; X64:       # %bb.0:
 ; X64-NEXT:    orl $65519, %edi, %eax # imm = 0xFFEF
-; X64-NEXT:    testl %eax, %eax
 ; X64-NEXT:    cmovel %edi, %eax, %eax
 ; X64-NEXT:    # kill: def $ax killed $ax killed $eax
 ; X64-NEXT:    retq
@@ -53,7 +50,6 @@ define i16 @or_i16_rr(i16 zeroext %0, i16 zeroext %1) {
 ; X64-LABEL: or_i16_rr:
 ; X64:       # %bb.0:
 ; X64-NEXT:    orl %edi, %esi, %eax
-; X64-NEXT:    testl %eax, %eax
 ; X64-NEXT:    cmovel %edi, %eax, %eax
 ; X64-NEXT:    # kill: def $ax killed $ax killed $eax
 ; X64-NEXT:    retq
@@ -67,7 +63,6 @@ define i32 @or_i32_ri(i32 %0, i32 %1) {
 ; X64-LABEL: or_i32_ri:
 ; X64:       # %bb.0:
 ; X64-NEXT:    orl $-17, %edi, %eax
-; X64-NEXT:    testl %eax, %eax
 ; X64-NEXT:    cmovlel %edi, %eax, %eax
 ; X64-NEXT:    retq
   %3 = or i32 %0, -17
@@ -80,7 +75,6 @@ define i32 @or_i32_rr(i32 %0, i32 %1) {
 ; X64-LABEL: or_i32_rr:
 ; X64:       # %bb.0:
 ; X64-NEXT:    orl %edi, %esi, %eax
-; X64-NEXT:    testl %eax, %eax
 ; X64-NEXT:    cmovlel %edi, %eax, %eax
 ; X64-NEXT:    retq
   %3 = or i32 %1, %0
@@ -93,7 +87,6 @@ define i64 @or_i64_ri(i64 %0, i64 %1) nounwind {
 ; X64-LABEL: or_i64_ri:
 ; X64:       # %bb.0:
 ; X64-NEXT:    orq $17, %rdi, %rax
-; X64-NEXT:    testq %rax, %rax
 ; X64-NEXT:    cmovleq %rdi, %rax, %rax
 ; X64-NEXT:    retq
   %3 = or i64 %0, 17
@@ -106,7 +99,6 @@ define i64 @or_i64_rr(i64 %0, i64 %1) nounwind {
 ; X64-LABEL: or_i64_rr:
 ; X64:       # %bb.0:
 ; X64-NEXT:    orq %rdi, %rsi, %rax
-; X64-NEXT:    testq %rax, %rax
 ; X64-NEXT:    cmovleq %rdi, %rax, %rax
 ; X64-NEXT:    retq
   %3 = or i64 %1, %0

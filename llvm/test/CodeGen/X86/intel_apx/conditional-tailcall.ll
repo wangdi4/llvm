@@ -121,7 +121,7 @@ define x86_thiscallcc zeroext i1 @BlockPlacementTest(ptr %this, i32 %x) optsize 
 ; CHECK64-NEXT:    # kill: def $al killed $al killed $eax
 ; CHECK64-NEXT:    retq # encoding: [0xc3]
 ; CHECK64-NEXT:  .LBB2_3:
-; CHECK64-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
+; CHECK64-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; CHECK64-NEXT:    jmp .LBB2_2 # encoding: [0xeb,A]
 ; CHECK64-NEXT:    # fixup A - offset: 1, value: .LBB2_2-1, kind: FK_PCRel_1
 ;
@@ -140,7 +140,7 @@ define x86_thiscallcc zeroext i1 @BlockPlacementTest(ptr %this, i32 %x) optsize 
 ; WIN64-NEXT:    # kill: def $al killed $al killed $eax
 ; WIN64-NEXT:    retq # encoding: [0xc3]
 ; WIN64-NEXT:  .LBB2_3:
-; WIN64-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
+; WIN64-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; WIN64-NEXT:    jmp .LBB2_2 # encoding: [0xeb,A]
 ; WIN64-NEXT:    # fixup A - offset: 1, value: .LBB2_2-1, kind: FK_PCRel_1
 entry:
@@ -177,7 +177,7 @@ define zeroext i1 @pr31257(ptr nocapture readonly dereferenceable(8) %s) minsize
 ; CHECK64-NEXT:    movq (%rdi), %rdi # encoding: [0x48,0x8b,0x3f]
 ; CHECK64-NEXT:    movq -24(%rdi), %rax # encoding: [0x48,0x8b,0x47,0xe8]
 ; CHECK64-NEXT:    addq %rax, %rdi, %rsi # encoding: [0x62,0xf4,0xcc,0x18,0x01,0xc7]
-; CHECK64-NEXT:    xorl %r8d, %r8d # encoding: [0x45,0x31,0xc0]
+; CHECK64-NEXT:    xorl %r8d, %r8d, %r8d # encoding: [0x62,0x54,0x3c,0x18,0x31,0xc0]
 ; CHECK64-NEXT:    pushq $2 # encoding: [0x6a,0x02]
 ; CHECK64-NEXT:    .cfi_adjust_cfa_offset 8
 ; CHECK64-NEXT:    popq %rcx # encoding: [0x59]
@@ -257,7 +257,7 @@ define zeroext i1 @pr31257(ptr nocapture readonly dereferenceable(8) %s) minsize
 ; CHECK64-NEXT:    # kill: def $al killed $al killed $eax
 ; CHECK64-NEXT:    retq # encoding: [0xc3]
 ; CHECK64-NEXT:  .LBB3_13:
-; CHECK64-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
+; CHECK64-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; CHECK64-NEXT:    # kill: def $al killed $al killed $eax
 ; CHECK64-NEXT:    retq # encoding: [0xc3]
 ;
@@ -266,7 +266,7 @@ define zeroext i1 @pr31257(ptr nocapture readonly dereferenceable(8) %s) minsize
 ; WIN64-NEXT:    movq (%rcx), %rcx # encoding: [0x48,0x8b,0x09]
 ; WIN64-NEXT:    movq -24(%rcx), %rax # encoding: [0x48,0x8b,0x41,0xe8]
 ; WIN64-NEXT:    addq %rax, %rcx, %rdx # encoding: [0x62,0xf4,0xec,0x18,0x01,0xc1]
-; WIN64-NEXT:    xorl %r8d, %r8d # encoding: [0x45,0x31,0xc0]
+; WIN64-NEXT:    xorl %r8d, %r8d, %r8d # encoding: [0x62,0x54,0x3c,0x18,0x31,0xc0]
 ; WIN64-NEXT:  .LBB3_1: # %for.cond
 ; WIN64-NEXT:    # =>This Inner Loop Header: Depth=1
 ; WIN64-NEXT:    testq %rax, %rax # encoding: [0x48,0x85,0xc0]
@@ -337,7 +337,7 @@ define zeroext i1 @pr31257(ptr nocapture readonly dereferenceable(8) %s) minsize
 ; WIN64-NEXT:    # kill: def $al killed $al killed $eax
 ; WIN64-NEXT:    retq # encoding: [0xc3]
 ; WIN64-NEXT:  .LBB3_13:
-; WIN64-NEXT:    xorl %eax, %eax # encoding: [0x31,0xc0]
+; WIN64-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
 ; WIN64-NEXT:    # kill: def $al killed $al killed $eax
 ; WIN64-NEXT:    retq # encoding: [0xc3]
 entry:
