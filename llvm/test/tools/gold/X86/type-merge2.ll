@@ -2,7 +2,6 @@
 ; RUN: llvm-as %p/Inputs/type-merge2.ll -o %t2.o
 ; RUN: %gold -plugin %llvmshlibdir/LLVMgold%shlibext \
 ; RUN:    -m elf_x86_64 \
-; INTEL RUN: -plugin-opt=opaque-pointers \
 ; RUN:    --plugin-opt=save-temps \
 ; RUN:    -shared %t.o %t2.o -o %t3.o
 ; RUN: llvm-dis %t3.o.0.2.internalize.bc -o - | FileCheck %s
