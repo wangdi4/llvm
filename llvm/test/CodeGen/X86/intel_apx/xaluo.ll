@@ -551,18 +551,11 @@ define zeroext i1 @usuboi64(i64 %v1, i64 %v2, ptr %res) {
 ; Check the use of the overflow bit in combination with a select instruction.
 ;
 define i32 @saddoselecti32(i32 %v1, i32 %v2) {
-; SDAG-LABEL: saddoselecti32:
-; SDAG:       ## %bb.0:
-; SDAG-NEXT:    addl %esi, %edi, %eax
-; SDAG-NEXT:    cmovol %edi, %esi, %eax
-; SDAG-NEXT:    retq
-;
-; FAST-LABEL: saddoselecti32:
-; FAST:       ## %bb.0:
-; FAST-NEXT:    movl %esi, %eax
-; FAST-NEXT:    addl %esi, %edi, %ecx
-; FAST-NEXT:    cmovol %edi, %eax
-; FAST-NEXT:    retq
+; CHECK-LABEL: saddoselecti32:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:    addl %esi, %edi, %eax
+; CHECK-NEXT:    cmovol %edi, %esi, %eax
+; CHECK-NEXT:    retq
   %t = call {i32, i1} @llvm.sadd.with.overflow.i32(i32 %v1, i32 %v2)
   %obit = extractvalue {i32, i1} %t, 1
   %ret = select i1 %obit, i32 %v1, i32 %v2
@@ -570,18 +563,11 @@ define i32 @saddoselecti32(i32 %v1, i32 %v2) {
 }
 
 define i64 @saddoselecti64(i64 %v1, i64 %v2) {
-; SDAG-LABEL: saddoselecti64:
-; SDAG:       ## %bb.0:
-; SDAG-NEXT:    addq %rsi, %rdi, %rax
-; SDAG-NEXT:    cmovoq %rdi, %rsi, %rax
-; SDAG-NEXT:    retq
-;
-; FAST-LABEL: saddoselecti64:
-; FAST:       ## %bb.0:
-; FAST-NEXT:    movq %rsi, %rax
-; FAST-NEXT:    addq %rsi, %rdi, %rcx
-; FAST-NEXT:    cmovoq %rdi, %rax
-; FAST-NEXT:    retq
+; CHECK-LABEL: saddoselecti64:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:    addq %rsi, %rdi, %rax
+; CHECK-NEXT:    cmovoq %rdi, %rsi, %rax
+; CHECK-NEXT:    retq
   %t = call {i64, i1} @llvm.sadd.with.overflow.i64(i64 %v1, i64 %v2)
   %obit = extractvalue {i64, i1} %t, 1
   %ret = select i1 %obit, i64 %v1, i64 %v2
@@ -589,18 +575,11 @@ define i64 @saddoselecti64(i64 %v1, i64 %v2) {
 }
 
 define i32 @uaddoselecti32(i32 %v1, i32 %v2) {
-; SDAG-LABEL: uaddoselecti32:
-; SDAG:       ## %bb.0:
-; SDAG-NEXT:    addl %esi, %edi, %eax
-; SDAG-NEXT:    cmovbl %edi, %esi, %eax
-; SDAG-NEXT:    retq
-;
-; FAST-LABEL: uaddoselecti32:
-; FAST:       ## %bb.0:
-; FAST-NEXT:    movl %esi, %eax
-; FAST-NEXT:    addl %esi, %edi, %ecx
-; FAST-NEXT:    cmovbl %edi, %eax
-; FAST-NEXT:    retq
+; CHECK-LABEL: uaddoselecti32:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:    addl %esi, %edi, %eax
+; CHECK-NEXT:    cmovbl %edi, %esi, %eax
+; CHECK-NEXT:    retq
   %t = call {i32, i1} @llvm.uadd.with.overflow.i32(i32 %v1, i32 %v2)
   %obit = extractvalue {i32, i1} %t, 1
   %ret = select i1 %obit, i32 %v1, i32 %v2
@@ -608,18 +587,11 @@ define i32 @uaddoselecti32(i32 %v1, i32 %v2) {
 }
 
 define i64 @uaddoselecti64(i64 %v1, i64 %v2) {
-; SDAG-LABEL: uaddoselecti64:
-; SDAG:       ## %bb.0:
-; SDAG-NEXT:    addq %rsi, %rdi, %rax
-; SDAG-NEXT:    cmovbq %rdi, %rsi, %rax
-; SDAG-NEXT:    retq
-;
-; FAST-LABEL: uaddoselecti64:
-; FAST:       ## %bb.0:
-; FAST-NEXT:    movq %rsi, %rax
-; FAST-NEXT:    addq %rsi, %rdi, %rcx
-; FAST-NEXT:    cmovbq %rdi, %rax
-; FAST-NEXT:    retq
+; CHECK-LABEL: uaddoselecti64:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:    addq %rsi, %rdi, %rax
+; CHECK-NEXT:    cmovbq %rdi, %rsi, %rax
+; CHECK-NEXT:    retq
   %t = call {i64, i1} @llvm.uadd.with.overflow.i64(i64 %v1, i64 %v2)
   %obit = extractvalue {i64, i1} %t, 1
   %ret = select i1 %obit, i64 %v1, i64 %v2
@@ -627,18 +599,11 @@ define i64 @uaddoselecti64(i64 %v1, i64 %v2) {
 }
 
 define i32 @ssuboselecti32(i32 %v1, i32 %v2) {
-; SDAG-LABEL: ssuboselecti32:
-; SDAG:       ## %bb.0:
-; SDAG-NEXT:    cmpl %esi, %edi
-; SDAG-NEXT:    cmovol %edi, %esi, %eax
-; SDAG-NEXT:    retq
-;
-; FAST-LABEL: ssuboselecti32:
-; FAST:       ## %bb.0:
-; FAST-NEXT:    movl %esi, %eax
-; FAST-NEXT:    cmpl %esi, %edi
-; FAST-NEXT:    cmovol %edi, %eax
-; FAST-NEXT:    retq
+; CHECK-LABEL: ssuboselecti32:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:    cmpl %esi, %edi
+; CHECK-NEXT:    cmovol %edi, %esi, %eax
+; CHECK-NEXT:    retq
   %t = call {i32, i1} @llvm.ssub.with.overflow.i32(i32 %v1, i32 %v2)
   %obit = extractvalue {i32, i1} %t, 1
   %ret = select i1 %obit, i32 %v1, i32 %v2
@@ -646,18 +611,11 @@ define i32 @ssuboselecti32(i32 %v1, i32 %v2) {
 }
 
 define i64 @ssuboselecti64(i64 %v1, i64 %v2) {
-; SDAG-LABEL: ssuboselecti64:
-; SDAG:       ## %bb.0:
-; SDAG-NEXT:    cmpq %rsi, %rdi
-; SDAG-NEXT:    cmovoq %rdi, %rsi, %rax
-; SDAG-NEXT:    retq
-;
-; FAST-LABEL: ssuboselecti64:
-; FAST:       ## %bb.0:
-; FAST-NEXT:    movq %rsi, %rax
-; FAST-NEXT:    cmpq %rsi, %rdi
-; FAST-NEXT:    cmovoq %rdi, %rax
-; FAST-NEXT:    retq
+; CHECK-LABEL: ssuboselecti64:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:    cmpq %rsi, %rdi
+; CHECK-NEXT:    cmovoq %rdi, %rsi, %rax
+; CHECK-NEXT:    retq
   %t = call {i64, i1} @llvm.ssub.with.overflow.i64(i64 %v1, i64 %v2)
   %obit = extractvalue {i64, i1} %t, 1
   %ret = select i1 %obit, i64 %v1, i64 %v2
@@ -665,18 +623,11 @@ define i64 @ssuboselecti64(i64 %v1, i64 %v2) {
 }
 
 define i32 @usuboselecti32(i32 %v1, i32 %v2) {
-; SDAG-LABEL: usuboselecti32:
-; SDAG:       ## %bb.0:
-; SDAG-NEXT:    cmpl %esi, %edi
-; SDAG-NEXT:    cmovbl %edi, %esi, %eax
-; SDAG-NEXT:    retq
-;
-; FAST-LABEL: usuboselecti32:
-; FAST:       ## %bb.0:
-; FAST-NEXT:    movl %esi, %eax
-; FAST-NEXT:    cmpl %esi, %edi
-; FAST-NEXT:    cmovbl %edi, %eax
-; FAST-NEXT:    retq
+; CHECK-LABEL: usuboselecti32:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:    cmpl %esi, %edi
+; CHECK-NEXT:    cmovbl %edi, %esi, %eax
+; CHECK-NEXT:    retq
   %t = call {i32, i1} @llvm.usub.with.overflow.i32(i32 %v1, i32 %v2)
   %obit = extractvalue {i32, i1} %t, 1
   %ret = select i1 %obit, i32 %v1, i32 %v2
@@ -684,18 +635,11 @@ define i32 @usuboselecti32(i32 %v1, i32 %v2) {
 }
 
 define i64 @usuboselecti64(i64 %v1, i64 %v2) {
-; SDAG-LABEL: usuboselecti64:
-; SDAG:       ## %bb.0:
-; SDAG-NEXT:    cmpq %rsi, %rdi
-; SDAG-NEXT:    cmovbq %rdi, %rsi, %rax
-; SDAG-NEXT:    retq
-;
-; FAST-LABEL: usuboselecti64:
-; FAST:       ## %bb.0:
-; FAST-NEXT:    movq %rsi, %rax
-; FAST-NEXT:    cmpq %rsi, %rdi
-; FAST-NEXT:    cmovbq %rdi, %rax
-; FAST-NEXT:    retq
+; CHECK-LABEL: usuboselecti64:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:    cmpq %rsi, %rdi
+; CHECK-NEXT:    cmovbq %rdi, %rsi, %rax
+; CHECK-NEXT:    retq
   %t = call {i64, i1} @llvm.usub.with.overflow.i64(i64 %v1, i64 %v2)
   %obit = extractvalue {i64, i1} %t, 1
   %ret = select i1 %obit, i64 %v1, i64 %v2
@@ -714,7 +658,7 @@ define zeroext i1 @saddobri32(i32 %v1, i32 %v2) {
 ; SDAG-NEXT:    movb $1, %al
 ; SDAG-NEXT:    retq
 ; SDAG-NEXT:  LBB31_1: ## %overflow
-; SDAG-NEXT:    xorl %eax, %eax
+; SDAG-NEXT:    xorl %eax, %eax, %eax
 ; SDAG-NEXT:    retq
 ;
 ; FAST-LABEL: saddobri32:
@@ -727,7 +671,7 @@ define zeroext i1 @saddobri32(i32 %v1, i32 %v2) {
 ; FAST-NEXT:    movzbl %al, %eax
 ; FAST-NEXT:    retq
 ; FAST-NEXT:  LBB31_1: ## %overflow
-; FAST-NEXT:    xorl %eax, %eax
+; FAST-NEXT:    xorl %eax, %eax, %eax
 ; FAST-NEXT:    andb $1, %al, %al
 ; FAST-NEXT:    movzbl %al, %eax
 ; FAST-NEXT:    retq
@@ -752,7 +696,7 @@ define zeroext i1 @saddobri64(i64 %v1, i64 %v2) {
 ; SDAG-NEXT:    movb $1, %al
 ; SDAG-NEXT:    retq
 ; SDAG-NEXT:  LBB32_1: ## %overflow
-; SDAG-NEXT:    xorl %eax, %eax
+; SDAG-NEXT:    xorl %eax, %eax, %eax
 ; SDAG-NEXT:    retq
 ;
 ; FAST-LABEL: saddobri64:
@@ -765,7 +709,7 @@ define zeroext i1 @saddobri64(i64 %v1, i64 %v2) {
 ; FAST-NEXT:    movzbl %al, %eax
 ; FAST-NEXT:    retq
 ; FAST-NEXT:  LBB32_1: ## %overflow
-; FAST-NEXT:    xorl %eax, %eax
+; FAST-NEXT:    xorl %eax, %eax, %eax
 ; FAST-NEXT:    andb $1, %al, %al
 ; FAST-NEXT:    movzbl %al, %eax
 ; FAST-NEXT:    retq
@@ -790,7 +734,7 @@ define zeroext i1 @uaddobri32(i32 %v1, i32 %v2) {
 ; SDAG-NEXT:    movb $1, %al
 ; SDAG-NEXT:    retq
 ; SDAG-NEXT:  LBB33_1: ## %overflow
-; SDAG-NEXT:    xorl %eax, %eax
+; SDAG-NEXT:    xorl %eax, %eax, %eax
 ; SDAG-NEXT:    retq
 ;
 ; FAST-LABEL: uaddobri32:
@@ -803,7 +747,7 @@ define zeroext i1 @uaddobri32(i32 %v1, i32 %v2) {
 ; FAST-NEXT:    movzbl %al, %eax
 ; FAST-NEXT:    retq
 ; FAST-NEXT:  LBB33_1: ## %overflow
-; FAST-NEXT:    xorl %eax, %eax
+; FAST-NEXT:    xorl %eax, %eax, %eax
 ; FAST-NEXT:    andb $1, %al, %al
 ; FAST-NEXT:    movzbl %al, %eax
 ; FAST-NEXT:    retq
@@ -828,7 +772,7 @@ define zeroext i1 @uaddobri64(i64 %v1, i64 %v2) {
 ; SDAG-NEXT:    movb $1, %al
 ; SDAG-NEXT:    retq
 ; SDAG-NEXT:  LBB34_1: ## %overflow
-; SDAG-NEXT:    xorl %eax, %eax
+; SDAG-NEXT:    xorl %eax, %eax, %eax
 ; SDAG-NEXT:    retq
 ;
 ; FAST-LABEL: uaddobri64:
@@ -841,7 +785,7 @@ define zeroext i1 @uaddobri64(i64 %v1, i64 %v2) {
 ; FAST-NEXT:    movzbl %al, %eax
 ; FAST-NEXT:    retq
 ; FAST-NEXT:  LBB34_1: ## %overflow
-; FAST-NEXT:    xorl %eax, %eax
+; FAST-NEXT:    xorl %eax, %eax, %eax
 ; FAST-NEXT:    andb $1, %al, %al
 ; FAST-NEXT:    movzbl %al, %eax
 ; FAST-NEXT:    retq
@@ -866,7 +810,7 @@ define zeroext i1 @ssubobri32(i32 %v1, i32 %v2) {
 ; SDAG-NEXT:    movb $1, %al
 ; SDAG-NEXT:    retq
 ; SDAG-NEXT:  LBB35_1: ## %overflow
-; SDAG-NEXT:    xorl %eax, %eax
+; SDAG-NEXT:    xorl %eax, %eax, %eax
 ; SDAG-NEXT:    retq
 ;
 ; FAST-LABEL: ssubobri32:
@@ -879,7 +823,7 @@ define zeroext i1 @ssubobri32(i32 %v1, i32 %v2) {
 ; FAST-NEXT:    movzbl %al, %eax
 ; FAST-NEXT:    retq
 ; FAST-NEXT:  LBB35_1: ## %overflow
-; FAST-NEXT:    xorl %eax, %eax
+; FAST-NEXT:    xorl %eax, %eax, %eax
 ; FAST-NEXT:    andb $1, %al, %al
 ; FAST-NEXT:    movzbl %al, %eax
 ; FAST-NEXT:    retq
@@ -904,7 +848,7 @@ define zeroext i1 @ssubobri64(i64 %v1, i64 %v2) {
 ; SDAG-NEXT:    movb $1, %al
 ; SDAG-NEXT:    retq
 ; SDAG-NEXT:  LBB36_1: ## %overflow
-; SDAG-NEXT:    xorl %eax, %eax
+; SDAG-NEXT:    xorl %eax, %eax, %eax
 ; SDAG-NEXT:    retq
 ;
 ; FAST-LABEL: ssubobri64:
@@ -917,7 +861,7 @@ define zeroext i1 @ssubobri64(i64 %v1, i64 %v2) {
 ; FAST-NEXT:    movzbl %al, %eax
 ; FAST-NEXT:    retq
 ; FAST-NEXT:  LBB36_1: ## %overflow
-; FAST-NEXT:    xorl %eax, %eax
+; FAST-NEXT:    xorl %eax, %eax, %eax
 ; FAST-NEXT:    andb $1, %al, %al
 ; FAST-NEXT:    movzbl %al, %eax
 ; FAST-NEXT:    retq
@@ -942,7 +886,7 @@ define zeroext i1 @usubobri32(i32 %v1, i32 %v2) {
 ; SDAG-NEXT:    movb $1, %al
 ; SDAG-NEXT:    retq
 ; SDAG-NEXT:  LBB37_1: ## %overflow
-; SDAG-NEXT:    xorl %eax, %eax
+; SDAG-NEXT:    xorl %eax, %eax, %eax
 ; SDAG-NEXT:    retq
 ;
 ; FAST-LABEL: usubobri32:
@@ -955,7 +899,7 @@ define zeroext i1 @usubobri32(i32 %v1, i32 %v2) {
 ; FAST-NEXT:    movzbl %al, %eax
 ; FAST-NEXT:    retq
 ; FAST-NEXT:  LBB37_1: ## %overflow
-; FAST-NEXT:    xorl %eax, %eax
+; FAST-NEXT:    xorl %eax, %eax, %eax
 ; FAST-NEXT:    andb $1, %al, %al
 ; FAST-NEXT:    movzbl %al, %eax
 ; FAST-NEXT:    retq
@@ -980,7 +924,7 @@ define zeroext i1 @usubobri64(i64 %v1, i64 %v2) {
 ; SDAG-NEXT:    movb $1, %al
 ; SDAG-NEXT:    retq
 ; SDAG-NEXT:  LBB38_1: ## %overflow
-; SDAG-NEXT:    xorl %eax, %eax
+; SDAG-NEXT:    xorl %eax, %eax, %eax
 ; SDAG-NEXT:    retq
 ;
 ; FAST-LABEL: usubobri64:
@@ -993,7 +937,7 @@ define zeroext i1 @usubobri64(i64 %v1, i64 %v2) {
 ; FAST-NEXT:    movzbl %al, %eax
 ; FAST-NEXT:    retq
 ; FAST-NEXT:  LBB38_1: ## %overflow
-; FAST-NEXT:    xorl %eax, %eax
+; FAST-NEXT:    xorl %eax, %eax, %eax
 ; FAST-NEXT:    andb $1, %al, %al
 ; FAST-NEXT:    movzbl %al, %eax
 ; FAST-NEXT:    retq
@@ -1015,7 +959,7 @@ define {i64, i1} @saddoovf(i64 %a, i64 %b) {
 ; CHECK-NEXT:    sarq $17, %rdi, %rax
 ; CHECK-NEXT:    shrq $31, %rsi, %rcx
 ; CHECK-NEXT:    addq %rcx, %rax, %rax
-; CHECK-NEXT:    xorl %edx, %edx
+; CHECK-NEXT:    xorl %edx, %edx, %edx
 ; CHECK-NEXT:    retq
   %1 = ashr i64 %a, 17
   %2 = lshr i64 %b, 31
@@ -1029,7 +973,7 @@ define {i64, i1} @ssuboovf(i64 %a, i64 %b) {
 ; CHECK-NEXT:    movzwl %di, %eax
 ; CHECK-NEXT:    shrq $22, %rsi, %rcx
 ; CHECK-NEXT:    subq %rcx, %rax, %rax
-; CHECK-NEXT:    xorl %edx, %edx
+; CHECK-NEXT:    xorl %edx, %edx, %edx
 ; CHECK-NEXT:    retq
   %1 = and i64 %a, 65535
   %2 = lshr i64 %b, 22
@@ -1043,7 +987,7 @@ define {i64, i1} @uaddoovf(i64 %a, i64 %b) {
 ; CHECK-NEXT:    movzbl %dil, %eax
 ; CHECK-NEXT:    movzbl %sil, %ecx
 ; CHECK-NEXT:    addq %rcx, %rax, %rax
-; CHECK-NEXT:    xorl %edx, %edx
+; CHECK-NEXT:    xorl %edx, %edx, %edx
 ; CHECK-NEXT:    retq
   %1 = and i64 %a, 255
   %2 = and i64 %b, 255
@@ -1055,7 +999,7 @@ define {i64, i1} @usuboovf(i64 %a, i64 %b) {
 ; CHECK-LABEL: usuboovf:
 ; CHECK:       ## %bb.0:
 ; CHECK-NEXT:    notq %rsi, %rax
-; CHECK-NEXT:    xorl %edx, %edx
+; CHECK-NEXT:    xorl %edx, %edx, %edx
 ; CHECK-NEXT:    retq
   %t0 = call {i64, i1} @llvm.usub.with.overflow.i64(i64 %a, i64 %a)
   %v0 = extractvalue {i64, i1} %t0, 0
@@ -1083,10 +1027,9 @@ define i32 @incovfselectstore(i32 %v1, i32 %v2, ptr %x) {
 ;
 ; FAST-LABEL: incovfselectstore:
 ; FAST:       ## %bb.0:
-; FAST-NEXT:    movl %esi, %eax
 ; FAST-NEXT:    movl %edi, %ecx
 ; FAST-NEXT:    incl %ecx
-; FAST-NEXT:    cmovol %edi, %eax
+; FAST-NEXT:    cmovol %edi, %esi, %eax
 ; FAST-NEXT:    movl %ecx, (%rdx)
 ; FAST-NEXT:    retq
   %t = call {i32, i1} @llvm.sadd.with.overflow.i32(i32 %v1, i32 1)
@@ -1108,10 +1051,9 @@ define i32 @decovfselectstore(i32 %v1, i32 %v2, ptr %x) {
 ;
 ; FAST-LABEL: decovfselectstore:
 ; FAST:       ## %bb.0:
-; FAST-NEXT:    movl %esi, %eax
 ; FAST-NEXT:    movl %edi, %ecx
 ; FAST-NEXT:    decl %ecx
-; FAST-NEXT:    cmovol %edi, %eax
+; FAST-NEXT:    cmovol %edi, %esi, %eax
 ; FAST-NEXT:    movl %ecx, (%rdx)
 ; FAST-NEXT:    retq
 ;

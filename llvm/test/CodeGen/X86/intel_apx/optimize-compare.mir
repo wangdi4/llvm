@@ -9,9 +9,8 @@ body: |
     ; CHECK-LABEL: name: opt_redundant_flags_0
     ; CHECK: [[COPY:%[0-9]+]]:gr32 = COPY $esi
     ; CHECK-NEXT: [[COPY1:%[0-9]+]]:gr32 = COPY $edi
-    ; CHECK-NEXT: [[SUB32rr_ND:%[0-9]+]]:gr32 = SUB32rr_ND [[COPY]], [[COPY1]], implicit-def dead $eflags
+    ; CHECK-NEXT: [[SUB32rr_ND:%[0-9]+]]:gr32 = SUB32rr_ND [[COPY]], [[COPY1]], implicit-def $eflags
     ; CHECK-NEXT: $eax = COPY [[SUB32rr_ND]]
-    ; CHECK-NEXT: CMP32rr [[COPY]], [[COPY1]], implicit-def $eflags
     ; CHECK-NEXT: $bl = SETCCr 2, implicit $eflags
     %0:gr32 = COPY $esi
     %1:gr32 = COPY $edi
@@ -28,10 +27,9 @@ body: |
     ; CHECK-LABEL: name: opt_redundant_flags_1
     ; CHECK: [[COPY:%[0-9]+]]:gr32 = COPY $esi
     ; CHECK-NEXT: [[COPY1:%[0-9]+]]:gr32 = COPY $edi
-    ; CHECK-NEXT: [[SUB32rr_ND:%[0-9]+]]:gr32 = SUB32rr_ND [[COPY]], [[COPY1]], implicit-def dead $eflags
+    ; CHECK-NEXT: [[SUB32rr_ND:%[0-9]+]]:gr32 = SUB32rr_ND [[COPY]], [[COPY1]], implicit-def $eflags
     ; CHECK-NEXT: $eax = COPY [[SUB32rr_ND]]
-    ; CHECK-NEXT: CMP32rr [[COPY1]], [[COPY]], implicit-def $eflags
-    ; CHECK-NEXT: $bl = SETCCr 3, implicit $eflags
+    ; CHECK-NEXT: $bl = SETCCr 6, implicit $eflags
     %0:gr32 = COPY $esi
     %1:gr32 = COPY $edi
     %2:gr32 = SUB32rr_ND %0, %1, implicit-def dead $eflags
@@ -50,7 +48,6 @@ body: |
     ; CHECK-NEXT: [[SUB32rr_ND:%[0-9]+]]:gr32 = SUB32rr_ND [[COPY]], [[COPY1]], implicit-def $eflags
     ; CHECK-NEXT: $cl = SETCCr 2, implicit $eflags
     ; CHECK-NEXT: $eax = COPY [[SUB32rr_ND]]
-    ; CHECK-NEXT: CMP32rr [[COPY]], [[COPY1]], implicit-def $eflags
     ; CHECK-NEXT: $bl = SETCCr 2, implicit $eflags
     %0:gr32 = COPY $esi
     %1:gr32 = COPY $edi
@@ -67,9 +64,8 @@ body: |
   bb.0:
     ; CHECK-LABEL: name: opt_zerocmp_user_0
     ; CHECK: [[COPY:%[0-9]+]]:gr32 = COPY $esi
-    ; CHECK-NEXT: [[NEG32r_ND:%[0-9]+]]:gr32 = NEG32r_ND [[COPY]], implicit-def dead $eflags
-    ; CHECK-NEXT: TEST32rr [[COPY]], [[COPY]], implicit-def $eflags
-    ; CHECK-NEXT: $al = SETCCr 4, implicit $eflags
+    ; CHECK-NEXT: [[NEG32r_ND:%[0-9]+]]:gr32 = NEG32r_ND [[COPY]], implicit-def $eflags
+    ; CHECK-NEXT: $al = SETCCr 3, implicit $eflags
     %0:gr32 = COPY $esi
     %1:gr32 = NEG32r_ND %0, implicit-def dead $eflags
     ; TEST should be removed.

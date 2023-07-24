@@ -580,7 +580,7 @@ void CPUDevice::calculateComputeUnitMap() {
   const unsigned numCoresPerSocket = m_numCores / numSockets;
   std::vector<std::vector<int>> coresPerSocket(numSockets);
   if (HTEnabled && "sockets" == places) {
-    std::map<int, int> coreToSocket = GetProcessorToSocketMap();
+    std::unordered_map<int, int> coreToSocket = GetProcessorToSocketMap();
     for (unsigned i = 0; i < m_numCores; ++i)
       coresPerSocket[coreToSocket[processorMap[i]]].push_back(i);
     for (auto &C : coresPerSocket) {
