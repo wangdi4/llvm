@@ -21,7 +21,8 @@ void foo(float *A, int *B, State *C) {
   char* p;
 
   __builtin_intel_sycl_ptr_annotation();
-  // expected-error@-1{{too few arguments to function call, expected 1, have 0}}
+  // expected-error@-1{{too few arguments to function call, expected at least 1, have 0}}
+  // INTEL: Customized due to CMPLRLLVM-38851
   x = __builtin_intel_sycl_ptr_annotation(A, "test");
   // expected-error@-1{{number of parameters must be odd number}}
   y = __builtin_intel_sycl_ptr_annotation(B, "test", i);
