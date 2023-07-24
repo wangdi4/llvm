@@ -344,44 +344,6 @@ bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(
 #endif // USE_NUMA
 }
 
-std::map<int, int> Intel::OpenCL::Utils::GetProcessorToSocketMap() {
-  // TODO use hwloc.
-  const unsigned numSockets = Intel::OpenCL::Utils::GetNumberOfCpuSockets();
-  (void)numSockets;
-  std::map<int, int> CoreIdToPhysicalId;
-
-  std::string SysCpuDir = "/sys/devices/system/cpu";
-  assert(fs::is_directory(SysCpuDir) &&
-         "/sys/devices/system/cpu isn't a directory");
-
-  Regex r("cpu[0-9]+");
-  std::error_code EC;
-  for (fs::directory_iterator I(SysCpuDir, EC), E; I != E && !EC;
-       I.increment(EC)) {
-    const std::string Path = I->path();
-    StringRef Filename = path::filename(Path);
-    if (!r.match(Filename))
-      continue;
-    std::string PhysicalIdFile = Path + "/topology/physical_package_id";
-    std::string Buf(4, ' ');
-    Expected<fs::file_t> FD = fs::openNativeFileForRead(PhysicalIdFile);
-    if (!FD)
-      assert(false && toString(FD.takeError()).c_str());
-    if (Expected<size_t> BytesRead =
-            fs::readNativeFile(*FD, MutableArrayRef(&*Buf.begin(), Buf.size())))
-      Buf = Buf.substr(0, *BytesRead);
-    else
-      assert(false && toString(BytesRead.takeError()).c_str());
-    EC = fs::closeFile(*FD);
-    assert(!EC && "failed to close file");
-    int PhysicalId = std::stoi(Buf);
-    assert((unsigned)PhysicalId < numSockets && "physical id is out of range");
-    CoreIdToPhysicalId[std::stoi(Filename.substr(3).str())] = PhysicalId;
-  }
-
-  return CoreIdToPhysicalId;
-}
-
 ///////////////////////////////////////////////////////////////////////////////////////////
 // return the ID of the CPU the current thread is running on
 ////////////////////////////////////////////////////////////////////
