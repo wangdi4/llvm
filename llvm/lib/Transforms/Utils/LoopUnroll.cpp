@@ -491,8 +491,7 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
       });
 #if INTEL_CUSTOMIZATION
     ORBuilder(*L, *LI)
-        .addRemark(OptReportVerbosity::Low,
-                   "LLorg: Loop has been completely unrolled")
+        .addRemark(OptReportVerbosity::Low, OptRemarkID::LLORGFullyUnrolled)
         .preserveLostOptReport();
 #endif  // INTEL_CUSTOMIZATION
   } else {
@@ -501,8 +500,7 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
     //       and report all the different unrolling cases in the
     //       conditional clauses below.
     ORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,
-                                 "LLorg: Loop has been unrolled by %d factor",
-                                 ULO.Count);
+                                 OptRemarkID::LLORGUnrolledBy, ULO.Count);
 #endif  // INTEL_CUSTOMIZATION
     LLVM_DEBUG(dbgs() << "UNROLLING loop %" << Header->getName() << " by "
                       << ULO.Count);

@@ -174,9 +174,14 @@ enum class OptRemarkID {
   NumCollapsedLoops = 25567,
   LoopReversed = 25579,
   IVarRangeSplitUsingCondition = 25580,
+#if INTEL_INTERNAL_BUILD
   LoopRowWiseMultiversioned = 25581,
+  RowWiseMultiversionedLoop = 25582,
+#endif // INTEL_INTERNAL_BUILD
   NumArrayRefsScalarReplaced = 25583,
+#if INTEL_INTERNAL_BUILD
   SumWindowReuseCount = 25584,
+#endif // INTEL_INTERNAL_BUILD
   LoopConvertedToSwitch = 25585,
   PeeledLoopForFusion = 25586,
   LoopHasReduction = 25587,
@@ -193,6 +198,13 @@ enum class OptRemarkID {
   OpenMPWorkShareLoopPipelined = 25598,
   TightLoopFound = 25599,
   TightLoopValue = 25600,
+#if INTEL_INTERNAL_BUILD
+  RowWiseMultiversionProbeLoop = 25601,
+  WindowSumInitialization = 25602,
+#endif // INTEL_INTERNAL_BUILD
+  LLORGFullyUnrolled = 25603,
+  LLORGUnrolledBy = 25604,
+  LLORGRemainderLoop = 25605,
 };
 
 struct DiagTableKey {
