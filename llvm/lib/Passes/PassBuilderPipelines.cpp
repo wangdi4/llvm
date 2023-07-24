@@ -2046,7 +2046,6 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   // the CFG mess this may created if allowed to modify CFG, so forbid that.
   FPM.addPass(SROAPass(SROAPass(SROAOptions::ModifyCFG)));
 #endif // !INTEL_CUSTOMIZATION
-  }
 
 #if INTEL_CUSTOMIZATION
   // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1
@@ -2064,6 +2063,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
       LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap,
                /*AllowSpeculation=*/true),
       /*UseMemorySSA=*/true, /*UseBlockFrequencyInfo=*/false));
+  }
 
   // Now that we've vectorized and unrolled loops, we may have more refined
   // alignment information, try to re-derive it here.
