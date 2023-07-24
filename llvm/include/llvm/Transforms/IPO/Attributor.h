@@ -3540,6 +3540,15 @@ struct AAMustProgress
                          AAMustProgress> {
   AAMustProgress(const IRPosition &IRP, Attributor &A) : IRAttribute(IRP) {}
 
+  static bool isImpliedByIR(Attributor &A, const IRPosition &IRP,
+                            Attribute::AttrKind ImpliedAttributeKind,
+                            bool IgnoreSubsumingPositions = false) {
+    // Note: This is also run for non-IPO amendable functions.
+    assert(ImpliedAttributeKind == Attribute::MustProgress);
+    return A.hasAttr(IRP, {Attribute::MustProgress, Attribute::WillReturn},
+                     IgnoreSubsumingPositions, Attribute::MustProgress);
+  }
+
   /// Return true if we assume that the underlying value is nonnull.
   bool isAssumedMustProgress() const { return getAssumed(); }
 
@@ -3658,6 +3667,8 @@ struct AAWillReturn
   static bool isImpliedByIR(Attributor &A, const IRPosition &IRP,
                             Attribute::AttrKind ImpliedAttributeKind,
                             bool IgnoreSubsumingPositions = false) {
+    // Note: This is also run for non-IPO amendable functions.
+    assert(ImpliedAttributeKind == Attribute::WillReturn);
     if (IRAttribute::isImpliedByIR(A, IRP, ImpliedAttributeKind,
                                    IgnoreSubsumingPositions))
       return true;
@@ -3833,6 +3844,17 @@ struct AANoFree
                          StateWrapper<BooleanState, AbstractAttribute>,
                          AANoFree> {
   AANoFree(const IRPosition &IRP, Attributor &A) : IRAttribute(IRP) {}
+
+  /// See IRAttribute::isImpliedByIR
+  static bool isImpliedByIR(Attributor &A, const IRPosition &IRP,
+                            Attribute::AttrKind ImpliedAttributeKind,
+                            bool IgnoreSubsumingPositions = false) {
+    // Note: This is also run for non-IPO amendable functions.
+    assert(ImpliedAttributeKind == Attribute::NoFree);
+    return A.hasAttr(
+        IRP, {Attribute::ReadNone, Attribute::ReadOnly, Attribute::NoFree},
+        IgnoreSubsumingPositions, Attribute::NoFree);
+  }
 
   /// See AbstractAttribute::isValidIRPositionForInit
   static bool isValidIRPositionForInit(Attributor &A, const IRPosition &IRP) {
