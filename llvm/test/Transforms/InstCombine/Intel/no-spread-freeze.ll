@@ -14,7 +14,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define hidden void @LBM_initializeSpecialCellsForLDC.DIR.OMP.PARALLEL.LOOP.2.split70(double* %grid.addr.0.val) #0 {
+define hidden void @LBM_initializeSpecialCellsForLDC.DIR.OMP.PARALLEL.LOOP.2.split70(ptr %grid.addr.0.val) #0 {
 DIR.OMP.PARALLEL.LOOP.3:
   br label %if.then.preheader
 
@@ -73,9 +73,8 @@ lor.lhs.false7.us47.us:                           ; preds = %for.body4.us44.us
   %mul39.us.us = mul nuw nsw i32 %add38.us.us, 20
   %add40.us.us = add nuw nsw i32 %mul39.us.us, 19
   %idxprom41.us.us = zext i32 %add40.us.us to i64
-  %arrayidx42.us.us = getelementptr inbounds double, double* %grid.addr.0.val, i64 %idxprom41.us.us
-  %2 = bitcast double* %arrayidx42.us.us to i32*
-  store i32 0, i32* %2, align 4
+  %arrayidx42.us.us = getelementptr inbounds double, ptr %grid.addr.0.val, i64 %idxprom41.us.us
+  store i32 0, ptr %arrayidx42.us.us, align 4
   br label %for.body4.us44.us
 
 for.body4.lr.ph:                                  ; preds = %if.then.preheader.split

@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -passes="instcombine" < %s -S | FileCheck %s
+; RUN: opt -passes="instcombine" < %s -S | FileCheck %s
 
 ; Both fcmp instructions should have nnan flag set
 define i1 @no_convert1 (float %a, float %b, float %c) {
@@ -43,19 +43,19 @@ entry:
 }
 
 ; FCmp instructions should have single common use
-define i1 @no_convert4 (float %a, float %b, float %c, i8* %d)  {
+define i1 @no_convert4 (float %a, float %b, float %c, ptr %d)  {
 ; CHECK-LABEL: @no_convert4(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[CMP:%.*]] = fcmp nnan olt float %c, %a
 ; CHECK-NEXT:    [[TMP1:%.*]] = zext i1 [[CMP]] to i8
 ; CHECK-NEXT:    [[CMP1:%.*]] = fcmp nnan olt float %c, %b
-; CHECK-NEXT:    store i8 [[TMP1]], i8* %d
+; CHECK-NEXT:    store i8 [[TMP1]], ptr %d
 ; CHECK-NEXT:    [[TMP2:%.*]] = or i1 [[CMP]], [[CMP1]]
 entry:
   %cmp = fcmp nnan olt float %c, %a
   %frombool = zext i1 %cmp to i8
   %cmp3 = fcmp nnan olt float %c, %b
-  store i8 %frombool, i8* %d, align 1
+  store i8 %frombool, ptr %d, align 1
   %0 = or i1 %cmp, %cmp3
   ret i1 %0
 }

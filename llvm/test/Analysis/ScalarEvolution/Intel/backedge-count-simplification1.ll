@@ -10,7 +10,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @foo(i32 %t, i32* nocapture %A) {
+define dso_local void @foo(i32 %t, ptr nocapture %A) {
 entry:
   %cmp6 = icmp sgt i32 %t, 0
   br i1 %cmp6, label %while.body.preheader, label %while.end
@@ -21,9 +21,9 @@ while.body.preheader:                             ; preds = %entry
 
 while.body:                                       ; preds = %while.body.preheader, %while.body
   %indvars.iv = phi i64 [ %0, %while.body.preheader ], [ %indvars.iv.next, %while.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
   %1 = trunc i64 %indvars.iv to i32
-  store i32 %1, i32* %arrayidx, align 4
+  store i32 %1, ptr %arrayidx, align 4
   %cmp = icmp sgt i64 %indvars.iv, 1
   %indvars.iv.next = add nsw i64 %indvars.iv, -1
   br i1 %cmp, label %while.body, label %while.end.loopexit

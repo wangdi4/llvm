@@ -4,9 +4,9 @@
 
 @dest = dso_local global %struct.a zeroinitializer, align 4
 
-declare void @llvm.memcpy.p0i8.p0i8.i64(i8*, i8*, i64, i1)
+declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1)
 
-define dso_local void @use(%struct.a* %src) {
+define dso_local void @use(ptr %src) {
 ; CHECK-LABEL: @use(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr inbounds { i32, i32 }, ptr [[SRC:%.*]], i64 0, i32 0
@@ -18,9 +18,7 @@ define dso_local void @use(%struct.a* %src) {
 ; CHECK-NEXT:    ret void
 ;
 entry:
-  %src.i8 = bitcast %struct.a* %src to i8*
-  %dest.i8 = bitcast %struct.a* @dest to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %dest.i8, i8* align 4 %src.i8, i64 8, i1 false), !tbaa.struct !0
+  call void @llvm.memcpy.p0.p0.i64(ptr align 4 @dest, ptr align 4 %src, i64 8, i1 false), !tbaa.struct !0
   ret void
 }
 

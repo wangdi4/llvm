@@ -4,7 +4,7 @@ target datalayout = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"
 
 ; CHECK:     Running analysis: OptReportOptionsAnalysis
 ; CHECK-NOT: Invalidating analysis: OptReportOptionsAnalysis
-define i32 @unroll_dce(i32* noalias nocapture readonly %b) {
+define i32 @unroll_dce(ptr noalias nocapture readonly %b) {
 entry:
   ret i32 1
 }

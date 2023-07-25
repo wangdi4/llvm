@@ -36,8 +36,8 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %f.07 = phi i32 [ %add2, %for.body ], [ 0, %for.body.preheader ]
   %idxprom = zext i32 %f.07 to i64
-  %arrayidx = getelementptr inbounds [18 x i8], [18 x i8]* @arr_461, i64 0, i64 %idxprom, !intel-tbaa !2
-  store i8 1, i8* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [18 x i8], ptr @arr_461, i64 0, i64 %idxprom, !intel-tbaa !2
+  store i8 1, ptr %arrayidx, align 4, !tbaa !2
   %add2 = add nuw nsw i32 %f.07, 4
   %cmp = icmp slt i32 %add2, %add
   br i1 %cmp, label %for.body, label %for.cond.cleanup.loopexit

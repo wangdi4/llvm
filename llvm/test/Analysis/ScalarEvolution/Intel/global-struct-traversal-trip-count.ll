@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 < %s -analyze -bugpoint-enable-legacy-pm -scalar-evolution | FileCheck %s
-; RUN: opt -opaque-pointers=0 < %s -disable-output "-passes=print<scalar-evolution>" 2>&1 | FileCheck %s
+; RUN: opt < %s -analyze -bugpoint-enable-legacy-pm -scalar-evolution | FileCheck %s
+; RUN: opt < %s -disable-output "-passes=print<scalar-evolution>" 2>&1 | FileCheck %s
 
 ; Verify that we are able to simplify the backedge taken count of this loop iterating the global structure to 1.
 
@@ -14,11 +14,10 @@ entry:
   br label %loop
 
 loop:                                              ; preds = %loop, %entry
-  %iv = phi %struct* [ getelementptr inbounds ([2 x %struct], [2 x %struct]* @glob_const, i64 0, i64 0), %entry ], [ %iv.inc, %loop ]
-  %gep = getelementptr inbounds %struct, %struct* %iv, i64 0, i32 0
-  %ld = load i32, i32* %gep, align 8
-  %iv.inc = getelementptr inbounds %struct, %struct* %iv, i64 1
-  %cmp = icmp ult %struct* %iv.inc, getelementptr inbounds ([2 x %struct], [2 x %struct]* @glob_const, i64 1, i64 0)
+  %iv = phi ptr [ @glob_const, %entry ], [ %iv.inc, %loop ]
+  %ld = load i32, ptr %iv, align 8
+  %iv.inc = getelementptr inbounds %struct, ptr %iv, i64 1
+  %cmp = icmp ult ptr %iv.inc, getelementptr inbounds ([2 x %struct], ptr @glob_const, i64 1, i64 0)
   br i1 %cmp, label %loop, label %exit
 
 exit:

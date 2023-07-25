@@ -15,7 +15,7 @@
 ; SCOPED-MODE: backedge-taken count is (-1 + (sext i32 %n to i64))<nsw>
 
 
-define void @foo(i32 %n1, i32* nocapture %A) {
+define void @foo(i32 %n1, ptr nocapture %A) {
 entry:
   %cmp1 = icmp sgt i32 %n1, 1
   %n = select i1 %cmp1, i32 -5, i32 5
@@ -26,8 +26,8 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %i.06 = phi i64 [ %inc, %for.body ], [ 1, %entry ]
-  %ptridx = getelementptr inbounds i32, i32* %A, i64 %i.06
-  store i32 %n, i32* %ptridx, align 4
+  %ptridx = getelementptr inbounds i32, ptr %A, i64 %i.06
+  store i32 %n, ptr %ptridx, align 4
   %inc = add nuw nsw i64 %i.06, 1
   %cmp = icmp eq i64 %inc, %wide.tc
   br i1 %cmp, label %for.end, label %for.body

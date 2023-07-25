@@ -29,7 +29,7 @@ target triple = "x86_64-pc-linux"
 declare i64 @_Z13get_global_idj(i32) local_unnamed_addr #0
 
 ; Function Attrs: nounwind
-define void @_ZGVeN16uuuuu__ZTSN2cl4sycl6detail19__pf_kernel_wrapperI7manSYCLEE(%"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range") %_arg_, i32 addrspace(1)* noalias %_arg_1, %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range") %_arg_2, %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range") %_arg_3, %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range") %_arg_4) local_unnamed_addr #1 !kernel_arg_addr_space !8 !kernel_arg_access_qual !9 !kernel_arg_type !10 !kernel_arg_base_type !10 !kernel_arg_type_qual !11 !no_barrier_path !12 !vectorized_kernel !13 !kernel_has_sub_groups !14 !scalarized_kernel !15 !vectorized_width !16 !ocl_recommended_vector_length !16 !vectorization_dimension !17 !can_unite_workgroups !14 {
+define void @_ZGVeN16uuuuu__ZTSN2cl4sycl6detail19__pf_kernel_wrapperI7manSYCLEE(ptr byval(%"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range") %_arg_, ptr addrspace(1) noalias %_arg_1, ptr byval(%"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range") %_arg_2, ptr byval(%"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range") %_arg_3, ptr byval(%"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range") %_arg_4) local_unnamed_addr #1 !kernel_arg_addr_space !8 !kernel_arg_access_qual !9 !kernel_arg_type !10 !kernel_arg_base_type !10 !kernel_arg_type_qual !11 !no_barrier_path !12 !vectorized_kernel !13 !kernel_has_sub_groups !14 !scalarized_kernel !15 !vectorized_width !16 !ocl_recommended_vector_length !16 !vectorization_dimension !17 !can_unite_workgroups !14 {
 
 ; CHECK:       new.loop.latch10:
 ; CHECK-NEXT:    br label %VPlannedBB22
@@ -46,8 +46,8 @@ define void @_ZGVeN16uuuuu__ZTSN2cl4sycl6detail19__pf_kernel_wrapperI7manSYCLEE(
 ; CHECK-NEXT:    br i1 [[TMP26]], label [[VPLANNEDBB25:%.*]], label [[VPLANNEDBB3:%.*]]
 
 entry:
-  %alloca._arg_1 = alloca i32 addrspace(1)*, align 8
-  store i32 addrspace(1)* %_arg_1, i32 addrspace(1)** %alloca._arg_1, align 8
+  %alloca._arg_1 = alloca ptr addrspace(1), align 8
+  store ptr addrspace(1) %_arg_1, ptr %alloca._arg_1, align 8
   %0 = call i64 @_Z13get_global_idj(i32 2) #2
   %1 = call i64 @_Z13get_global_idj(i32 1) #2
   %2 = call i64 @_Z13get_global_idj(i32 0) #2
@@ -57,13 +57,12 @@ simd.begin.region:                                ; preds = %entry
   br label %simd.loop.preheader
 
 simd.loop.preheader:                              ; preds = %simd.begin.region
-  %load._arg_1 = load i32 addrspace(1)*, i32 addrspace(1)** %alloca._arg_1, align 8
-  %agg.tmp5.sroa.2.0..sroa_idx4 = getelementptr inbounds %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range", %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"* %_arg_3, i64 0, i32 0, i32 0, i64 1
-  %agg.tmp5.sroa.2.0.copyload = load i64, i64* %agg.tmp5.sroa.2.0..sroa_idx4, align 8
-  %agg.tmp6.sroa.0.sroa.0.0..sroa_idx = getelementptr inbounds %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range", %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"* %_arg_4, i64 0, i32 0, i32 0, i64 0
-  %agg.tmp6.sroa.0.sroa.0.0.copyload = load i64, i64* %agg.tmp6.sroa.0.sroa.0.0..sroa_idx, align 8
-  %agg.tmp6.sroa.0.sroa.2.0..sroa_idx31 = getelementptr inbounds %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range", %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"* %_arg_4, i64 0, i32 0, i32 0, i64 1
-  %agg.tmp6.sroa.0.sroa.2.0.copyload = load i64, i64* %agg.tmp6.sroa.0.sroa.2.0..sroa_idx31, align 8
+  %load._arg_1 = load ptr addrspace(1), ptr %alloca._arg_1, align 8
+  %agg.tmp5.sroa.2.0..sroa_idx4 = getelementptr inbounds %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range", ptr %_arg_3, i64 0, i32 0, i32 0, i64 1
+  %agg.tmp5.sroa.2.0.copyload = load i64, ptr %agg.tmp5.sroa.2.0..sroa_idx4, align 8
+  %agg.tmp6.sroa.0.sroa.0.0.copyload = load i64, ptr %_arg_4, align 8
+  %agg.tmp6.sroa.0.sroa.2.0..sroa_idx31 = getelementptr inbounds %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range", ptr %_arg_4, i64 0, i32 0, i32 0, i64 1
+  %agg.tmp6.sroa.0.sroa.2.0.copyload = load i64, ptr %agg.tmp6.sroa.0.sroa.2.0..sroa_idx31, align 8
   %conv.i.i = trunc i64 %1 to i32
   %conv.i7.i.i = sitofp i32 %conv.i.i to float
   %mul.i8.i.i = fmul fast float %conv.i7.i.i, 0x3F35D867C0000000
@@ -89,8 +88,8 @@ vector.ph:                                        ; preds = %VPlannedBB1
   br label %vector.body
 
 vector.body:                                      ; preds = %VPlannedBB29, %vector.ph
-  %uni.phi = phi i32 [ 0, %vector.ph ], [ %31, %VPlannedBB29 ]
-  %vec.phi = phi <16 x i32> [ <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>, %vector.ph ], [ %30, %VPlannedBB29 ]
+  %uni.phi = phi i32 [ 0, %vector.ph ], [ %30, %VPlannedBB29 ]
+  %vec.phi = phi <16 x i32> [ <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>, %vector.ph ], [ %29, %VPlannedBB29 ]
   %3 = sext <16 x i32> %vec.phi to <16 x i64>
   %4 = add nuw <16 x i64> %3, %broadcast.splat
   %5 = trunc <16 x i64> %4 to <16 x i32>
@@ -162,15 +161,14 @@ VPlannedBB25:                                     ; preds = %VPlannedBB22
   %vec.phi26 = phi <16 x i32> [ %23, %VPlannedBB22 ]
   %28 = add <16 x i64> %broadcast.splat28, %4
   %.extract.0. = extractelement <16 x i64> %28, i32 0
-  %scalar.gep = getelementptr inbounds i32, i32 addrspace(1)* %load._arg_1, i64 %.extract.0.
-  %29 = bitcast i32 addrspace(1)* %scalar.gep to <16 x i32> addrspace(1)*
-  store <16 x i32> %vec.phi26, <16 x i32> addrspace(1)* %29, align 4
+  %scalar.gep = getelementptr inbounds i32, ptr addrspace(1) %load._arg_1, i64 %.extract.0.
+  store <16 x i32> %vec.phi26, ptr addrspace(1) %scalar.gep, align 4
   br label %VPlannedBB29
 
 VPlannedBB29:                                     ; preds = %VPlannedBB25
-  %30 = add nuw <16 x i32> %vec.phi, <i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16>
-  %31 = add nuw i32 %uni.phi, 16
-  %32 = icmp ult i32 %31, 16
+  %29 = add nuw <16 x i32> %vec.phi, <i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16, i32 16>
+  %30 = add nuw i32 %uni.phi, 16
+  %31 = icmp ult i32 %30, 16
   br i1 false, label %vector.body, label %VPlannedBB30, !llvm.loop !18
 
 VPlannedBB30:                                     ; preds = %VPlannedBB29
@@ -195,8 +193,8 @@ VPlannedBB35:                                     ; preds = %VPlannedBB31
 
 simd.loop:                                        ; preds = %simd.loop.exit, %VPlannedBB33
   %index = phi i32 [ %uni.phi32, %VPlannedBB33 ], [ %indvar, %simd.loop.exit ]
-  %33 = sext i32 %index to i64
-  %add = add nuw i64 %33, %2
+  %32 = sext i32 %index to i64
+  %add = add nuw i64 %32, %2
   %conv3.i.i = trunc i64 %add to i32
   %conv.i.i.i = sitofp i32 %conv3.i.i to float
   %mul.i5.i.i = fmul fast float %conv.i.i.i, 0x3F35D867C0000000
@@ -229,8 +227,8 @@ if.end.i.i.i:                                     ; preds = %for.body.i.i.i
 _ZZZN10MandelSYCLILi6000ELi6000ELi10000EE8EvaluateEvENKUlRN2cl4sycl7handlerEE_clES4_ENKUlNS2_2idILi2EEEE_clES7_.exit.i: ; preds = %if.end.i.i.i, %for.body.i.i.i
   %count.0.lcssa.i.i.i = phi i32 [ %count.014.i.i.i, %for.body.i.i.i ], [ 10000, %if.end.i.i.i ]
   %add6.1.i.i.i.i = add i64 %add.1.i.i.i.i, %add
-  %arrayidx.i4.i.i = getelementptr inbounds i32, i32 addrspace(1)* %load._arg_1, i64 %add6.1.i.i.i.i
-  store i32 %count.0.lcssa.i.i.i, i32 addrspace(1)* %arrayidx.i4.i.i, align 4
+  %arrayidx.i4.i.i = getelementptr inbounds i32, ptr addrspace(1) %load._arg_1, i64 %add6.1.i.i.i.i
+  store i32 %count.0.lcssa.i.i.i, ptr addrspace(1) %arrayidx.i4.i.i, align 4
   br label %simd.loop.exit
 
 simd.loop.exit:                                   ; preds = %_ZZZN10MandelSYCLILi6000ELi6000ELi10000EE8EvaluateEvENKUlRN2cl4sycl7handlerEE_clES4_ENKUlNS2_2idILi2EEEE_clES7_.exit.i

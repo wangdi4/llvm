@@ -6,16 +6,14 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.T = type { double, double }
 
 ; Function Attrs: nounwind uwtable
-define void @test_memcpy2strcpy(%struct.T* %t1, %struct.T* %t2) #0 {
+define void @test_memcpy2strcpy(ptr %t1, ptr %t2) #0 {
 entry:
-  %0 = bitcast %struct.T* %t2 to i8*
-  %1 = bitcast %struct.T* %t1 to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %0, i8* %1, i64 16, i1 false), !tbaa.struct !1
+  call void @llvm.memcpy.p0.p0.i64(ptr %t2, ptr %t1, i64 16, i1 false), !tbaa.struct !1
   ret void
 }
 
 ; Function Attrs: nounwind
-declare void @llvm.memcpy.p0i8.p0i8.i64(i8* nocapture, i8* nocapture readonly, i64, i1) #1
+declare void @llvm.memcpy.p0.p0.i64(ptr nocapture, ptr nocapture readonly, i64, i1) #1
 
 attributes #0 = { nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind }

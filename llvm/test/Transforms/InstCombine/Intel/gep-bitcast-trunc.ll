@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -passes="instcombine" < %s -S | FileCheck %s
+; RUN: opt -passes="instcombine" < %s -S | FileCheck %s
 
 ; This series of tests ensures that InstCombine can transform things like:
 ;   %t = getelementptr i8* bitcast (i32* %arr to i8*), %scale
@@ -21,17 +21,15 @@ declare void @use64(i64) readonly
 ; Verify that we can descale sums through casts. (This is more likely to happen
 ; with 32-bit pointers.)
 ; CHECK-LABEL: @test_descale_uniques_casts
-; CHECK-DAG: getelementptr i32, i32* %src, i32
+; CHECK-DAG: getelementptr i32, ptr %src, i32
 ; CHECK-DAG: = trunc i64 %in to i32
 ; CHECK-NOT: bitcast
-define void @test_descale_uniques_casts(i64 %in, i32* %src) {
+define void @test_descale_uniques_casts(i64 %in, ptr %src) {
   %mul = mul i64 128, %in
   %add = add i64 %mul, 64
   %trunc = trunc i64 %add to i32
-  %bc = bitcast i32* %src to i8*
-  %gep = getelementptr inbounds i8, i8* %bc, i32 %trunc
-  %gep.bc = bitcast i8* %gep to i32*
-  %val = load i32, i32* %gep.bc
+  %gep = getelementptr inbounds i8, ptr %src, i32 %trunc
+  %val = load i32, ptr %gep
   call void @use(i32 %val)
   call void @use64(i64 %mul)
   ret void
@@ -40,22 +38,18 @@ define void @test_descale_uniques_casts(i64 %in, i32* %src) {
 ; Convert gep/bitcast when there are multiple uses of the truncated scale.
 ; (This module's datalayout will result in the GEP indices being truncated to
 ; i32.)
-define void @test_multi_uses(i32* %in1, i32* %in2, i64 %in) {
+define void @test_multi_uses(ptr %in1, ptr %in2, i64 %in) {
 ; CHECK-LABEL: @test_multi_uses
-; CHECK-DAG: getelementptr i32, i32* %in1, i32 [[TRUNC1:.*]]
-; CHECK-DAG: getelementptr i32, i32* %in2, i32 [[TRUNC2:.*]]
+; CHECK-DAG: getelementptr i32, ptr %in1, i32 [[TRUNC1:.*]]
+; CHECK-DAG: getelementptr i32, ptr %in2, i32 [[TRUNC2:.*]]
 ; CHECK-DAG: [[TRUNC1]] = trunc i64 %in to i32
 ; CHECK-DAG: [[TRUNC2]] = trunc i64 %in to i32
 ; CHECK-NOT: bitcast
   %index = shl nuw nsw i64 %in, 2
-  %bc1 = bitcast i32* %in1 to i8*
-  %bc2 = bitcast i32* %in2 to i8*
-  %gep1 = getelementptr inbounds i8, i8* %bc1, i64 %index
-  %gep2 = getelementptr inbounds i8, i8* %bc2, i64 %index
-  %gep1.bc = bitcast i8* %gep1 to i32*
-  %gep2.bc = bitcast i8* %gep2 to i32*
-  %val1 = load i32, i32* %gep1.bc
-  %val2 = load i32, i32* %gep2.bc
+  %gep1 = getelementptr inbounds i8, ptr %in1, i64 %index
+  %gep2 = getelementptr inbounds i8, ptr %in2, i64 %index
+  %val1 = load i32, ptr %gep1
+  %val2 = load i32, ptr %gep2
   call void @use(i32 %val1)
   call void @use(i32 %val2)
   ret void
@@ -68,13 +62,13 @@ define void @test_multi_uses(i32* %in1, i32* %in2, i64 %in) {
 ; descaled while the second use (by ret) is preserved.
 ; (Note that this module's datalayout will result in the GEP indices being
 ; truncated to i32.)
-define i64 @test_descale_add2(i32* %src, i64 %in, i64 %cantdescale) {
+define i64 @test_descale_add2(ptr %src, i64 %in, i64 %cantdescale) {
 ; CHECK-LABEL: @test_descale_add2
 ; Ensure that we descaled:
 ; CHECK-NOT: bitcast
 
 ; Verify the descaled sum:
-; CHECK-DAG: getelementptr i32, i32* %src, i32 [[TRUNC:.*]]
+; CHECK-DAG: getelementptr i32, ptr %src, i32 [[TRUNC:.*]]
 ; CHECK-DAG: [[TRUNC]] = trunc i64 [[DESCALED:.*]] to i32
 ; CHECK-DAG: [[DESCALED]] = mul {{.*}} i64 [[NEWSUM:.*]], %cantdescale
 ; CHECK-DAG: [[NEWSUM]] = add {{.*}} i64 [[NEWSHIFT:.*]], 2
@@ -88,10 +82,8 @@ define i64 @test_descale_add2(i32* %src, i64 %in, i64 %cantdescale) {
   %shift = shl nuw nsw i64 %in, 3
   %add = add nsw i64 %shift, 8
   %index = mul nuw nsw i64 %add, %cantdescale
-  %bc = bitcast i32* %src to i8*
-  %gep = getelementptr inbounds i8, i8* %bc, i64 %index
-  %gep.bc = bitcast i8* %gep to i32*
-  %val = load i32, i32* %gep.bc
+  %gep = getelementptr inbounds i8, ptr %src, i64 %index
+  %val = load i32, ptr %gep
   call void @use(i32 %val)
   ret i64 %index
 }
