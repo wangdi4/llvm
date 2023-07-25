@@ -2407,7 +2407,11 @@ Constant *ConstantExpr::getGetElementPtr(Type *Ty, Constant *C,
          "GEP indices invalid!");;
 
   // Get the result type of the getelementptr!
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Type *ReqTy = GetElementPtrInst::getGEPReturnType(C, Idxs);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+  Type *ReqTy = GetElementPtrInst::getGEPReturnType(Ty, C, Idxs);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   if (OnlyIfReducedTy == ReqTy)
     return nullptr;
 
