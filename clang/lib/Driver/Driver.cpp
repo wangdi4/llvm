@@ -4199,14 +4199,8 @@ getLinkerArgs(Compilation &C, DerivedArgList &Args, bool IncludeObj = false) {
     if (A->getOption().matches(options::OPT__SLASH_link)) {
       for (StringRef Value : A->getValues()) {
         // Add any libpath values.
-<<<<<<< HEAD
-        StringRef OptCheck(Value);
-        if (OptCheck.starts_with_insensitive("-libpath:") || // INTEL
-            OptCheck.starts_with_insensitive("/libpath:"))   // INTEL
-=======
         if (Value.starts_with_insensitive("-libpath:") ||
             Value.starts_with_insensitive("/libpath:"))
->>>>>>> f4e0d3177338db8be4bd9e9b280f7b733c2f15f8
           LibPaths.emplace_back(Value.substr(std::string("-libpath:").size()));
         if (addLibArg(Value))
           continue;
