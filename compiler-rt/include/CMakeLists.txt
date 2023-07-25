@@ -1,3 +1,21 @@
+# INTEL_CUSTOMIZATION
+#
+# INTEL CONFIDENTIAL
+#
+# Modifications, Copyright (C) 2023-2023 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials, and
+# your use of them is governed by the express license under which they were
+# provided to you ("License"). Unless the License provides otherwise, you may not
+# use, modify, copy, publish, distribute, disclose or transmit this software or
+# the related documents without Intel's prior written permission.
+#
+# This software and the related documents are provided as is, with no express
+# or implied warranties, other than those that are expressly stated in the
+# License.
+#
+# end INTEL_CUSTOMIZATION
+
 if (COMPILER_RT_BUILD_SANITIZERS)
   set(SANITIZER_HEADERS
     sanitizer/allocator_interface.h
@@ -43,7 +61,11 @@ endif(COMPILER_RT_BUILD_ORC)
 
 if (COMPILER_RT_BUILD_PROFILE)
   set(PROFILE_HEADERS
-    profile/InstrProfData.inc
+  # INTEL_CUSTOMIZATION
+  # This file contains the declarations for the user accessible
+  # PGO runtime API.
+    profile/pgouser.h
+  # end INTEL_CUSTOMIZATION
     )
 endif(COMPILER_RT_BUILD_PROFILE)
 
