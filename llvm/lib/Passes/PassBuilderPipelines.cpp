@@ -1778,10 +1778,8 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
-  if (PrepareForLTO && DTransEnabled) {
-    MPM.addPass(dtrans::DTransForceInlinePass());
+  if (PrepareForLTO && DTransEnabled)
     MPM.addPass(dtransOP::DTransForceInlineOPPass());
-  }
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 

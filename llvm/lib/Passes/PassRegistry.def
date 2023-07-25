@@ -45,9 +45,6 @@ MODULE_ANALYSIS("dtrans-module-fieldmodref-result", DTransFieldModRefResult())
 MODULE_ANALYSIS("dtrans-immutable-analysis", DTransImmutableAnalysis())
 MODULE_ANALYSIS("dtrans-safetyanalyzer", dtransOP::DTransSafetyAnalyzer())
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-MODULE_ANALYSIS("soatoaos-approx", dtrans::SOAToAOSApproximationDebug())
-MODULE_ANALYSIS("soatoaos-struct-methods",
-                dtrans::SOAToAOSStructMethodsCheckDebug())
 MODULE_ANALYSIS("soatoaosop-approx", dtransOP::SOAToAOSOPApproximationDebug())
 MODULE_ANALYSIS("soatoaosop-array-methods",
                 dtransOP::SOAToAOSOPArrayMethodsCheckDebug())
@@ -211,42 +208,24 @@ MODULE_PASS("cross-dso-cfi", CrossDSOCFIPass())
 MODULE_PASS("deadargelim", DeadArgumentEliminationPass())
 MODULE_PASS("debugify", NewPMDebugifyPass())
 #if INTEL_FEATURE_SW_DTRANS
-MODULE_PASS("dtrans-aostosoa", dtrans::AOSToSOAPass())           // INTEL
 MODULE_PASS("dtrans-aostosoaop", dtransOP::AOSToSOAOPPass())     // INTEL
-MODULE_PASS("dtrans-reusefield", dtrans::ReuseFieldPass())       // INTEL
 MODULE_PASS("dtrans-reusefieldop", dtransOP::ReuseFieldOPPass()) // INTEL
-MODULE_PASS("dtrans-deletefield", dtrans::DeleteFieldPass())     // INTEL
 MODULE_PASS("dtrans-deletefieldop", dtransOP::DeleteFieldOPPass()) // INTEL
-MODULE_PASS("dtrans-reorderfields", dtrans::ReorderFieldsPass()) // INTEL
 MODULE_PASS("dtrans-reorderfieldsop", dtransOP::ReorderFieldsOPPass()) // INTEL
-MODULE_PASS("dtrans-resolvetypes", dtrans::ResolveTypesPass())   // INTEL
-MODULE_PASS("dtrans-dynclone", dtrans::DynClonePass())           // INTEL
 MODULE_PASS("dtrans-dyncloneop", dtransOP::DynClonePass())       // INTEL
-MODULE_PASS("dtrans-soatoaos-prepare", dtrans::SOAToAOSPreparePass()) // INTEL
 MODULE_PASS("dtrans-soatoaosop-prepare", dtransOP::SOAToAOSOPPreparePass()) // INTEL
-MODULE_PASS("dtrans-soatoaos", dtrans::SOAToAOSPass())           // INTEL
 MODULE_PASS("dtrans-soatoaosop", dtransOP::SOAToAOSOPPass())     // INTEL
 MODULE_PASS("dtrans-weakalign", dtrans::WeakAlignPass())         // INTEL
-MODULE_PASS("dtrans-paddedmalloc", dtrans::PaddedMallocPass())       // INTEL
 MODULE_PASS("dtrans-paddedmallocop", dtransOP::PaddedMallocOPPass()) // INTEL
-MODULE_PASS("padded-pointer-prop", dtrans::PaddedPtrPropPass())        // INTEL
 MODULE_PASS("padded-pointer-prop-op", dtransOP::PaddedPtrPropOPPass()) // INTEL
-MODULE_PASS("dtrans-elim-ro-field-access",                       // INTEL
-            dtrans::EliminateROFieldAccessPass())                // INTEL
 MODULE_PASS("dtrans-elim-ro-field-access-op",                    // INTEL
             dtransOP::EliminateROFieldAccessPass())              // INTEL
-MODULE_PASS("dtrans-meminittrimdown", dtrans::MemInitTrimDownPass()) // INTEL
 MODULE_PASS("dtrans-meminittrimdownop", dtransOP::MemInitTrimDownOPPass()) // INTEL
-MODULE_PASS("dtrans-memmanagetrans", dtrans::MemManageTransPass()) // INTEL
 MODULE_PASS("dtrans-memmanagetransop", dtransOP::MemManageTransOPPass()) // INTEL
 MODULE_PASS("dtrans-normalizeop", dtransOP::DTransNormalizeOPPass()) // INTEL
-MODULE_PASS("dtrans-codealign", dtrans::CodeAlignPass())         // INTEL
 MODULE_PASS("dtrans-codealignop", dtransOP::CodeAlignPass())   // INTEL
 MODULE_PASS("dtrans-transpose", dtrans::TransposePass())         // INTEL
-MODULE_PASS("dtrans-commutecond", dtrans::CommuteCondPass())     // INTEL
 MODULE_PASS("dtrans-commutecondop", dtransOP::CommuteCondOPPass()) // INTEL
-MODULE_PASS("dtrans-force-inline",           // INTEL
-            dtrans::DTransForceInlinePass()) // INTEL
 MODULE_PASS("dtrans-force-inline-op",            // INTEL
             dtransOP::DTransForceInlineOPPass()) // INTEL
 MODULE_PASS("remove-all-dtranstypemetadata",              // INTEL
@@ -255,17 +234,12 @@ MODULE_PASS("remove-dead-dtranstypemetadata",              // INTEL
             dtransOP::RemoveDeadDTransTypeMetadataPass()) // INTEL
 #if !INTEL_PRODUCT_RELEASE
 MODULE_PASS("dtransop-optbasetest", dtransOP::DTransOPOptBaseTestPass()) // INTEL
-MODULE_PASS("dtrans-optbasetest", dtrans::OptBaseTestPass()) // INTEL
 MODULE_PASS("dtrans-typemetadatareader",                         // INTEL
             dtransOP::DTransTypeMetadataReaderTestPass())          // INTEL
 MODULE_PASS("dtrans-ptrtypeanalyzertest",                        // INTEL
             dtransOP::DTransPtrTypeAnalyzerTestPass())             // INTEL
 #endif // !INTEL_PRODUCT_RELEASE
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-MODULE_PASS("soatoaos-arrays-methods-transform",                 // INTEL
-            dtrans::SOAToAOSArrayMethodsTransformDebug())        // INTEL
-MODULE_PASS("soatoaos-struct-methods-transform",                 // INTEL
-            dtrans::SOAToAOSStructMethodsTransformDebug())       // INTEL
 MODULE_PASS("soatoaosop-arrays-methods-transform",               // INTEL
             dtransOP::SOAToAOSArrayMethodsTransformDebug())      // INTEL
 MODULE_PASS("soatoaosop-struct-methods-transform",               // INTEL
@@ -565,12 +539,6 @@ FUNCTION_ANALYSIS("pass-instrumentation", PassInstrumentationAnalysis(PIC))
 FUNCTION_ANALYSIS("uniformity", UniformityInfoAnalysis())
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_DTRANS
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-FUNCTION_ANALYSIS("soatoaos-array-methods", dtrans::SOAToAOSArrayMethodsCheckDebug())
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-#endif // INTEL_FEATURE_SW_DTRANS
-
 FUNCTION_ANALYSIS("array-use", ArrayUseAnalysis())
 FUNCTION_ANALYSIS("xm-opt-level", XmainOptLevelAnalysis())
 FUNCTION_ANALYSIS("xm-optreport-options", OptReportOptionsAnalysis())
