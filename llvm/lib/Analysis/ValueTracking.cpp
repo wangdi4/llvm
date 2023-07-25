@@ -4949,9 +4949,10 @@ void computeKnownFPClass(const Value *V, const APInt &DemandedElts,
           break;
 
         const Value *Exp = II->getArgOperand(1);
-        unsigned BitWidth =
-            Exp->getType()->getScalarType()->getIntegerBitWidth();
+        Type *ExpTy = Exp->getType();
+        unsigned BitWidth = ExpTy->getScalarType()->getIntegerBitWidth();
         KnownBits ExponentKnownBits(BitWidth);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         // we vectorize pow with a scalar exponent, base and exp may be
         // different types.
@@ -4959,6 +4960,11 @@ void computeKnownFPClass(const Value *V, const APInt &DemandedElts,
             Exp->getType()->isVectorTy() ? DemandedElts : APInt(1, 1);
         computeKnownBits(Exp, NumElts, ExponentKnownBits, Depth + 1, Q);
 #endif // INTEL_CUSTOMIZATION
+=======
+        computeKnownBits(Exp,
+                         isa<VectorType>(ExpTy) ? DemandedElts : APInt(1, 1),
+                         ExponentKnownBits, Depth + 1, Q);
+>>>>>>> 82c65cc8f8568dfd86c094a7a599f616ba757f1d
 
         if (ExponentKnownBits.Zero[0]) { // Is even
           Known.knownNot(fcNegative);
