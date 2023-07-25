@@ -42,11 +42,7 @@
 // as a temporary solution.
 #define ompt_dependence_type_out_all_memory   34
 #define ompt_dependence_type_inout_all_memory 35
-<<<<<<< HEAD
-#endif // INTEL_CUSTOMIZAZTION
-=======
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 2487df3fd9175703fa6c42a7e532ed62efd2d27f
 
 // Define attribute that indicates that the fall through from the previous
 // case label is intentional and should not be diagnosed by a compiler

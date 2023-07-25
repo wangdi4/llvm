@@ -20,11 +20,7 @@ if (NOT DEFINED UNIFIED_RUNTIME_LIBRARY OR NOT DEFINED UNIFIED_RUNTIME_INCLUDE_D
   include(FetchContent)
 
   set(UNIFIED_RUNTIME_REPO "https://github.com/oneapi-src/unified-runtime.git")
-<<<<<<< HEAD
   set(UNIFIED_RUNTIME_TAG 3c6f02c7a76a0448a83932d93c2dbeff25af70aa)
-=======
-  set(UNIFIED_RUNTIME_TAG c7b0caf4e3ce5330bd0669db6e8e498b48e8ad27)
->>>>>>> 2487df3fd9175703fa6c42a7e532ed62efd2d27f
 
   if(INTEL_CUSTOMIZATION)
     # 1Source policy is to use internal mirrors as much as possible.
