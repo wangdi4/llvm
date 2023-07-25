@@ -23,8 +23,8 @@ float4 spvectordiv(float4 a, float4 b) {
 
 float spscalarsqrt(float a) {
   // CHECK-LABEL: @spscalarsqrt
-  // NODIVOPT: call float @llvm.sqrt.f32(float %{{.+}}), !fpmath ![[MD_SQRT:[0-9]+]]
-  // DIVOPT: call float @llvm.sqrt.f32(float %{{.+}}){{$}}
+  // NODIVOPT: call float @llvm.sqrt.f32(float %{{.+}}) #{{.+}}, !fpmath ![[MD_SQRT:[0-9]+]]
+  // DIVOPT: call float @llvm.sqrt.f32(float %{{.+}}) #{{.+}}{{$}}
   return __builtin_sqrtf(a);
 }
 
@@ -57,7 +57,7 @@ double4 dpvectordiv(double4 a, double4 b) {
 
 double dpscalarsqrt(double a) {
   // CHECK-LABEL: @dpscalarsqrt
-  // CHECK: call double @llvm.sqrt.f64(double %{{.+}}){{$}}
+  // CHECK: call double @llvm.sqrt.f64(double %{{.+}}) #{{.+}}{{$}}
   return __builtin_sqrt(a);
 }
 
