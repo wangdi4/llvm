@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -passes="vplan-vec,print" -disable-output -vplan-enable-f90-dv -debug-only=vploop-analysis -vplan-force-vf=2 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="vplan-vec,print" -disable-output -debug-only=vploop-analysis -vplan-force-vf=2 < %s 2>&1 | FileCheck %s
 
 ; CHECK:      Aliases:
 ; CHECK-NEXT: ptr %"C1.dim_info$.spacing$"

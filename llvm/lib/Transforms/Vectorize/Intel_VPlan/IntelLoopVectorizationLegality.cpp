@@ -61,6 +61,12 @@ static cl::opt<bool, true> EnableF90DVSupportOpt(
     "vplan-enable-f90-dv", cl::location(EnableF90DVSupport), cl::Hidden,
     cl::desc("Enable OMP SIMD private support for Fortran Dope Vectors."));
 
+static cl::opt<bool, true>
+    EnableHIRF90DVSupportOpt("vplan-enable-hir-f90-dv",
+                             cl::location(EnableHIRF90DVSupport), cl::Hidden,
+                             cl::desc("Enable OMP SIMD private support for "
+                                      "Fortran Dope Vectors in HIR path."));
+
 static cl::opt<NestedSimdStrategies, true> NestedSimdStrategyOpt(
     "vplan-nested-simd-strategy", cl::location(NestedSimdStrategy), cl::Hidden,
     cl::desc("How to vectorize nested SIMD loops"),
@@ -77,7 +83,8 @@ namespace llvm {
 namespace vpo {
 bool ForceUDSReductionVec = true;
 bool EnableHIRPrivateArrays = false;
-bool EnableF90DVSupport = false;
+bool EnableF90DVSupport = true;
+bool EnableHIRF90DVSupport = false;
 NestedSimdStrategies NestedSimdStrategy = NestedSimdStrategies::Outermost;
 } // namespace vpo
 } // namespace llvm

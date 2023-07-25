@@ -1,5 +1,5 @@
-; RUN: opt -passes='vplan-vec' -S -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-print-after-final-cond-transform -vplan-enable-f90-dv < %s 2>&1 | FileCheck %s -check-prefixes=LLVMIR,CHECK
-; RUN: opt -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec' -S -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-print-after-final-cond-transform -disable-vplan-codegen -vplan-enable-f90-dv < %s 2>&1 | FileCheck %s
+; RUN: opt -passes='vplan-vec' -S -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-print-after-final-cond-transform < %s 2>&1 | FileCheck %s -check-prefixes=LLVMIR,CHECK
+; RUN: opt -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec' -S -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-print-after-final-cond-transform -disable-vplan-codegen -vplan-enable-hir-f90-dv < %s 2>&1 | FileCheck %s
 
 ; Fortran sourcecode used for this test
 ; integer function sum(c1, c2, n, m)
