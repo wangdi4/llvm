@@ -588,6 +588,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare %struct* @\"??$use_facet@V?$numpunct@D@std@@@std@@YAAEBV?$numpunct@D@0@AEBVlocale@0@@Z\"(%struct*)\n"
       "declare %struct* @\"??$use_facet@V?$num_get@DV?$istreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@@std@@YAAEBV?$num_get@DV?$istreambuf_iterator@DU?$char_traits@D@std@@@std@@@0@AEBVlocale@0@@Z\"(%struct*)\n"
       "declare %struct* @\"??$use_facet@V?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@@std@@YAAEBV?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@0@AEBVlocale@0@@Z\"(%struct*)\n"
+      "declare i1 @\"??$?8DU?$char_traits@D@std@@@std@@YA_NAEBV?$istreambuf_iterator@DU?$char_traits@D@std@@@0@0@Z\"(%struct*, %struct*)\n"
       "declare i32 @\"??$_Immortalize_impl@V_Iostream_error_category@std@@@std@@YAHPEAX0PEAPEAX@Z\"(i8*, i8*, i8*)\n"
       "declare i8* @\"??_G?$num_get@DV?$istreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEAAPEAXI@Z\"(%struct*, i32)\n"
       "declare i8* @\"??_G?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@MEAAPEAXI@Z\"(%struct*, i32)\n"

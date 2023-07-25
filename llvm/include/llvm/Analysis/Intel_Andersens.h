@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -424,6 +424,13 @@ class AndersensAAResult : public AAResultBase,
   // which are not escaped from the current routine.
   SmallPtrSet<const Value *, 16> NonEscapeStaticVars;
   SmallPtrSet<const Instruction *, 16> NonPointerAssignments;
+
+  // This is used to maintain its own old points-to set for indirect
+  // call processing instead of using OldPointsTo in the corresponding
+  // Node. OldPointsTo in corresponding Node doesn’t always help as its
+  // value is updated before processing indirect calls during constraint
+  // solving.
+  DenseMap<CallBase *, SparseBitVector<> *> IndirectFPtrOldPointsTo;
 
   /// Handle to clear this analysis on deletion of values.
   struct AndersensDeletionCallbackHandle final : CallbackVH {

@@ -4065,10 +4065,19 @@ void AndersensAAResult::ProcessIndirectCall(CallBase *CB) {
   assert(call_fptr && "Expecting function fptr");
   const Node *N = &GraphNodes[FindNode(getNode(call_fptr))];
 
-  PointsToDiff.intersectWithComplement(N->PointsTo, N->OldPointsTo);
-  if (PointsToDiff.empty()) {
-    return;
+  auto *FPtrOldPointsTo = IndirectFPtrOldPointsTo[CB];
+  if (!FPtrOldPointsTo) {
+    // Allocate memory if not allocated yet.
+    FPtrOldPointsTo = new SparseBitVector<>;
+    IndirectFPtrOldPointsTo[CB] = FPtrOldPointsTo;
   }
+
+  PointsToDiff.intersectWithComplement(N->PointsTo, FPtrOldPointsTo);
+  if (PointsToDiff.empty())
+    return;
+
+  // Update old points-to info.
+  *FPtrOldPointsTo |= PointsToDiff;
 
   for (SparseBitVector<>::iterator bi = PointsToDiff.begin(),
        EP = PointsToDiff.end();
@@ -4434,6 +4443,13 @@ void AndersensAAResult::SolveConstraints() {
     WorkList* t = CurrWL; CurrWL = NextWL; NextWL = t;
   }
 
+  // Free up allocated memory for IndirectFPtrOldPointsTo.
+  for (unsigned I = 0, E = IndirectCallList.size(); I != E; ++I) {
+    auto *FPtrOldPointsTo = IndirectFPtrOldPointsTo[IndirectCallList[I]];
+    if (FPtrOldPointsTo)
+      delete FPtrOldPointsTo;
+  }
+  IndirectFPtrOldPointsTo.clear();
 
   Node2DFS.clear();
   Node2Deleted.clear();

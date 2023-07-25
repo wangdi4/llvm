@@ -1409,6 +1409,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_msvc_std_ios_base_failure_const_ptr_ctor);
     TLI.setUnavailable(LibFunc_msvc_std_ios_base_failure_scalar_deleting_dtor);
     TLI.setUnavailable(LibFunc_msvc_std_ios_base_scalar_deleting_dtor);
+    TLI.setUnavailable(LibFunc_msvc_std_istreambuf_iterator_operator_equals);
     TLI.setUnavailable(LibFunc_msvc_std_istreambuf_iterator_operator_plus_plus);
     TLI.setUnavailable(LibFunc_msvc_std_locale_facet_decref);
     TLI.setUnavailable(LibFunc_msvc_std_locale_facet_incref);
@@ -2368,6 +2369,11 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
      return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isIntegerTy());
+
+  case LibFunc_msvc_std_istreambuf_iterator_operator_equals:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
 
   case LibFunc_msvc_std_istreambuf_iterator_operator_plus_plus:
     return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
