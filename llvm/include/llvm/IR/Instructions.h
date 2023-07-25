@@ -1077,12 +1077,31 @@ public:
 
   /// Returns the pointer type returned by the GEP
   /// instruction, which may be a vector of pointers.
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   static Type *getGEPReturnType(Value *Ptr, ArrayRef<Value *> IdxList) {
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+  static Type *getGEPReturnType(Type *ElTy, Value *Ptr,
+                                ArrayRef<Value *> IdxList) {
+    PointerType *OrigPtrTy = cast<PointerType>(Ptr->getType()->getScalarType());
+    unsigned AddrSpace = OrigPtrTy->getAddressSpace();
+    Type *ResultElemTy = checkGEPType(getIndexedType(ElTy, IdxList));
+    Type *Ty = OrigPtrTy->isOpaque()
+      ? PointerType::get(OrigPtrTy->getContext(), AddrSpace)
+      : PointerType::get(ResultElemTy, AddrSpace);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+
     // Vector GEP
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     Type *Ty = Ptr->getType();
     if (Ty->isVectorTy())
       return Ty;
 
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+    if (auto *PtrVTy = dyn_cast<VectorType>(Ptr->getType())) {
+      ElementCount EltCount = PtrVTy->getElementCount();
+      return VectorType::get(Ty, EltCount);
+    }
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     for (Value *Index : IdxList)
       if (auto *IndexVTy = dyn_cast<VectorType>(Index->getType())) {
         ElementCount EltCount = IndexVTy->getElementCount();
@@ -1147,7 +1166,11 @@ GetElementPtrInst::GetElementPtrInst(Type *PointeeType, Value *Ptr,
                                      ArrayRef<Value *> IdxList, unsigned Values,
                                      const Twine &NameStr,
                                      Instruction *InsertBefore)
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     : Instruction(getGEPReturnType(Ptr, IdxList), GetElementPtr,
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+    : Instruction(getGEPReturnType(PointeeType, Ptr, IdxList), GetElementPtr,
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
                   OperandTraits<GetElementPtrInst>::op_end(this) - Values,
                   Values, InsertBefore),
       SourceElementType(PointeeType),
@@ -1159,7 +1182,11 @@ GetElementPtrInst::GetElementPtrInst(Type *PointeeType, Value *Ptr,
                                      ArrayRef<Value *> IdxList, unsigned Values,
                                      const Twine &NameStr,
                                      BasicBlock *InsertAtEnd)
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
     : Instruction(getGEPReturnType(Ptr, IdxList), GetElementPtr,
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+    : Instruction(getGEPReturnType(PointeeType, Ptr, IdxList), GetElementPtr,
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
                   OperandTraits<GetElementPtrInst>::op_end(this) - Values,
                   Values, InsertAtEnd),
       SourceElementType(PointeeType),
