@@ -561,11 +561,19 @@ void VPOVectorizationLegality::parseMinMaxReduction(
     auto It = find_if(LoopHeaderPhiNode->users(), [this](auto *U) {
       return !TheLoop->isLoopInvariant(U) &&
              (isa<PHINode>(U) || isa<SelectInst>(U) ||
-              match(U, m_CombineOr(m_Intrinsic<Intrinsic::maxnum>(),
-                                   m_Intrinsic<Intrinsic::minnum>())));
+              match(U, m_CombineOr(
+                           m_CombineOr(m_Intrinsic<Intrinsic::maxnum>(),
+                                       m_Intrinsic<Intrinsic::minnum>()),
+                           m_CombineOr(m_Intrinsic<Intrinsic::maximum>(),
+                                       m_Intrinsic<Intrinsic::minimum>()))));
     });
     if (It != LoopHeaderPhiNode->user_end())
       MinMaxResultInst = cast<Instruction>(*It);
+
+    if (match(MinMaxResultInst, m_Intrinsic<Intrinsic::maximum>()))
+      Kind = RecurKind::FMaximum;
+    else if (match(MinMaxResultInst, m_Intrinsic<Intrinsic::minimum>()))
+      Kind = RecurKind::FMinimum;
 
     SmallPtrSet<Instruction *, 4> CastInsts;
     FastMathFlags FMF = FastMathFlags::getFast();

@@ -128,6 +128,10 @@ public:
     return MinimumProfitablePeelTC;
   }
 
+  uint64_t getMinProfitableMaskedRemTC() const {
+    return MinProfitableMaskedRemTC;
+  }
+
   /// Simple main vector loop and scalar remainder scenario of a
   /// a constant trip count loop. The main vector and scalar remainder
   /// loops can be added for such scenarios without any checks to see
@@ -227,6 +231,7 @@ private:
     MainUF = 1;
   }
   void setMinimumProfitablePeelTC(uint64_t N) { MinimumProfitablePeelTC = N; }
+  void setMinProfitableMaskedRemTC(uint64_t N) { MinProfitableMaskedRemTC = N; }
 
   AuxLoopDescr Main;
   AuxLoopDescr Peel;
@@ -239,6 +244,9 @@ private:
   // For dynamic peeling: what is the minimum trip count for peeling to become
   // profitable?
   uint64_t MinimumProfitablePeelTC = 0;
+
+  // Jump to a scalar remainder loop if runtime TC is less than this value.
+  uint64_t MinProfitableMaskedRemTC = 0;
 };
 
 inline raw_ostream &operator<<(raw_ostream &OS,

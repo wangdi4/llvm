@@ -757,6 +757,7 @@ void VPlanCFGMerger::createMergedCFG(SingleLoopVecScenario &Scen,
   MainVF = Scen.getMainVF();
   MainUF = Scen.getMainUF();
   MinimumProfitablePeelTC = Scen.getMinimumProfitablePeelTC();
+  MinProfitableMaskedRemTC = Scen.getMinProfitableMaskedRemTC();
   emitSkeleton(Plans, OrigLoop);
   mergeVPlans(Plans, LoopDescrs);
   VPLAN_DUMP(CfgMergeDumpControl, Plan);
@@ -1319,6 +1320,11 @@ void VPlanCFGMerger::updateAdapterOperands(VPBasicBlock *AdapterBB,
 //                           |
 //                         Exit
 //
+// Note: vector remainder loop can be either masked or unmasked. In case of
+// masked one we actually don't need a scalar remainder. But we can insert and
+// execute it instead of masked remainder if it is profitable for a particular
+// TC value. Please see a diagram below for that case.
+//
 // The skeleton emission is optimized for the simple scenario of constant
 // trip count loops with a main vector and scalar remainder to enable
 // better downstream optimizations. The main and remainder loops are
@@ -1484,6 +1490,101 @@ void VPlanCFGMerger::emitSkeleton(std::list<PlanDescr> &Plans,
       }
       // Check4, Check5 on the diagram above
       createTCCheckBeforeMain(nullptr, P, PrevD, PPrevD);
+    }
+
+    if (P.isMaskedRemainder() && MinProfitableMaskedRemTC &&
+        Iter != Plans.begin()) {
+
+      // At this point we have both scalar and masked vector remainders rendered
+      // with theirs merge blocks.
+      //
+      //                    ...
+      //                     |
+      //            +-----------------------+
+      //            | Merge before vec rem  |
+      //            +-----------------------+
+      //            | Masked vec remainder  |
+      //            +-----------------------+
+      //                      \______________________
+      //                                             \
+      //                (no predecessors)             |
+      //                     |                        |
+      //            +-----------------------+         |
+      //            | Merge before scal rem |         |
+      //            +-----------------------+         |
+      //            | Scalar remainder loop |         |
+      //            +-----------------------+         |
+      //                     |       ________________/
+      //                     |      /
+      //            +-----------------------+
+      //            |     Final Merge       |
+      //            +-----------------------+
+      //                     |
+      //                   Exit
+      //
+      // The goal is to insert a runtime check for the actual TC value between
+      // masked vector remainder and its merge block. In case if TC value is not
+      // considered to be profitable for masked mode remainder we skip its
+      // execution and jump over it right to the scalar remainder's merge block.
+      //
+      //                    ...
+      //                     |
+      //            +-----------------------+
+      //            | Merge before vec rem  |
+      //            +-----------------------+
+      //                     |
+      //    ____true- ( TC < ProfitableTC )
+      //   /               false
+      //  |                  |
+      //  |         +-----------------------+
+      //  |         | Masked vec remainder  |
+      //  |         +-----------------------+
+      //   \________________  \______________________
+      //                    \                        \
+      //            +-----------------------+         |
+      //            | Merge before scal rem |         |
+      //            +-----------------------+         |
+      //            | Scalar remainder loop |         |
+      //            +-----------------------+         |
+      //                     |       ________________/
+      //                     |      /
+      //            +-----------------------+
+      //            |     Final Merge       |
+      //            +-----------------------+
+      //                     |
+      //                   Exit
+
+      // We need to find an actual incoming TC value.
+      VPValue *IndStart =
+          Plan.getMainLoop(true)->getInductionInit()->getStartValueOperand();
+      unsigned MergeId = cast<VPLiveInValue>(IndStart)->getMergeId();
+      auto Phis = P.MergeBefore->getVPPhis();
+      auto It = llvm::find_if(
+          Phis, [&](auto &Phi) { return Phi.getMergeId() == MergeId; });
+      assert(It != Phis.end() && "Induction Phi is expected to exist");
+
+      // Creating new BB with the TC check.
+      auto *TestBB =
+          new VPBasicBlock(VPlanUtils::createUniqueName("BB"), &Plan);
+      VPBlockUtils::insertBlockBefore(TestBB, P.FirstBB);
+
+      VPBuilder Builder;
+      Builder.setInsertPoint(TestBB);
+
+      auto Sub = Builder.createSub(OrigUB, &*It);
+      Plan.getVPlanDA()->markUniform(*Sub);
+
+      VPInstruction *RemTCCheck =
+          Builder.createCmpInst(CmpInst::ICMP_ULT, Sub,
+                                Plan.getVPConstant(ConstantInt::get(
+                                    Sub->getType(), MinProfitableMaskedRemTC)));
+      Plan.getVPlanDA()->markUniform(*RemTCCheck);
+
+      // Create a jump to scalar remainder merge block and update its incoming
+      // values accordingly.
+      auto &PrevP = *std::prev(Iter);
+      TestBB->setTerminator(PrevP.MergeBefore, P.FirstBB, RemTCCheck);
+      updateMergeBlockIncomings(P, PrevP.MergeBefore, TestBB, false);
     }
   }
 

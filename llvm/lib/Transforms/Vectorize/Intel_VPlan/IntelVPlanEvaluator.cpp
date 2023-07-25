@@ -16,6 +16,7 @@
 #include "IntelVPlanVLSAnalysis.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include <cmath>
 
 #define DEBUG_TYPE "VPlanEvaluator"
 
@@ -326,6 +327,11 @@ VPlanRemainderEvaluator::calculateBestVariant() {
       calculatePlanCost(MainLoopVF, MaskedModePlan, false);
   VPInstructionCost MaskedVectorCost = MaskedOverhead +
     MaskedVectorIterCost * MainLoopUF;
+
+  if (MaskedVectorCost.isValid() && ScalarIterCost.isValid() &&
+      ScalarIterCost > 0)
+    MinProfitableMaskedRemTC =
+        std::ceil((MaskedVectorCost / ScalarIterCost).getFloatValue());
 
   MaskedVectorCost += calculatePumpingOverhead(MaskedModePlan) * MainLoopUF;
 

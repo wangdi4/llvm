@@ -78,6 +78,12 @@ void VPReduction::dump(raw_ostream &OS) const {
   case RecurKind::FMax:
     OS << "(FloatMax)";
     break;
+  case RecurKind::FMinimum:
+    OS << "(FloatMinimum)";
+    break;
+  case RecurKind::FMaximum:
+    OS << "(FloatMaximum)";
+    break;
   case RecurKind::Udr:
     OS << "(UDR)";
     break;
@@ -327,6 +333,10 @@ unsigned VPReduction::getReductionOpcode(RecurKind K) {
     return VPInstruction::FMin;
   case RecurKind::FMax:
     return VPInstruction::FMax;
+  case RecurKind::FMinimum:
+    return VPInstruction::FMinimum;
+  case RecurKind::FMaximum:
+    return VPInstruction::FMaximum;
   default:
     return RDTempl::getOpcode(K);
   }
@@ -648,13 +658,13 @@ VPValue *VPLoopEntityList::getReductionIdentity(const VPReduction *Red) const {
     case RecurKind::UMax:
     case RecurKind::FMin:
     case RecurKind::FMax:
+    case RecurKind::FMinimum:
+    case RecurKind::FMaximum:
     case RecurKind::SelectICmp:
     case RecurKind::SelectFCmp:
     case RecurKind::Udr:
       return Red->getRecurrenceStartValue();
     case RecurKind::None:
-    case RecurKind::FMinimum:
-    case RecurKind::FMaximum:
       llvm_unreachable("Unknown recurrence kind");
     }
   }
@@ -694,11 +704,13 @@ bool VPLoopEntityList::isMinMaxLastItem(const VPReduction &Red) const {
   case RecurKind::SMin:
   case RecurKind::UMin:
   case RecurKind::FMin:
+  case RecurKind::FMinimum:
     IsMin = true;
     break;
   case RecurKind::SMax:
   case RecurKind::UMax:
   case RecurKind::FMax:
+  case RecurKind::FMaximum:
     IsMin = false;
     break;
   default:

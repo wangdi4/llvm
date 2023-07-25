@@ -180,6 +180,10 @@ public:
 
   unsigned getRemainderVF() const { return RemainderVF; }
 
+  uint64_t getMinProfitableMaskedRemTC() const {
+    return MinProfitableMaskedRemTC;
+  }
+
   // Returns the trip count of the best remainder kind. In case of VectorScalar
   // kind, we might have a new remainder loop. For this reason, we return a pair
   // of trip counts: the first value of the pair is the trip count of the
@@ -206,6 +210,7 @@ private:
   unsigned NewRemainderTC = 0;
   unsigned RemainderTC = 0;
   bool TCIsUnknown = true;
+  uint64_t MinProfitableMaskedRemTC = 0;
 
   RemainderLoopKind calculateBestVariant();
 
