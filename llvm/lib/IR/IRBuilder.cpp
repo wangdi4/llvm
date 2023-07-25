@@ -1522,8 +1522,12 @@ Value *IRBuilderBase::CreatePreserveArrayAccessIndex(
   SmallVector<Value *, 4> IdxList(Dimension, Zero);
   IdxList.push_back(LastIndexV);
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  Type *ResultType = GetElementPtrInst::getGEPReturnType(Base, IdxList);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   Type *ResultType =
       GetElementPtrInst::getGEPReturnType(ElTy, Base, IdxList);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   Module *M = BB->getParent()->getParent();
   Function *FnPreserveArrayAccessIndex = Intrinsic::getDeclaration(
@@ -1573,7 +1577,11 @@ Value *IRBuilderBase::CreatePreserveStructAccessIndex(
   Value *GEPIndex = getInt32(Index);
   Constant *Zero = ConstantInt::get(Type::getInt32Ty(Context), 0);
   Type *ResultType =
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      GetElementPtrInst::getGEPReturnType(Base, {Zero, GEPIndex});
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
       GetElementPtrInst::getGEPReturnType(ElTy, Base, {Zero, GEPIndex});
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   Module *M = BB->getParent()->getParent();
   Function *FnPreserveStructAccessIndex = Intrinsic::getDeclaration(
