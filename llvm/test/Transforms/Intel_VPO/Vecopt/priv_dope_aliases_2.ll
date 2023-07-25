@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -passes="vplan-vec" -disable-output -vplan-enable-f90-dv -debug-only=vploop-analysis < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="vplan-vec" -disable-output -debug-only=vploop-analysis < %s 2>&1 | FileCheck %s
 
 ; Dope vector is used outside the loop and alias shouldn't be generated.
 
