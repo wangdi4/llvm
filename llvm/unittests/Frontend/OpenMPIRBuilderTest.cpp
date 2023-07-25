@@ -162,6 +162,9 @@ static omp::ScheduleKind getSchedKind(omp::OMPScheduleType SchedType) {
 class OpenMPIRBuilderTest : public testing::Test {
 protected:
   void SetUp() override {
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
+    Ctx.setOpaquePointers(true);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     M.reset(new Module("MyModule", Ctx));
     FunctionType *FTy =
         FunctionType::get(Type::getVoidTy(Ctx), {Type::getInt32Ty(Ctx)},

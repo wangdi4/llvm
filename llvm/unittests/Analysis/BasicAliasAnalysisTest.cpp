@@ -66,7 +66,11 @@ protected:
 
 public:
   BasicAATest()
-      : M("BasicAATest", C), B(C), DL(DLString), TLI(TLII), F(nullptr) {}
+      : M("BasicAATest", C), B(C), DL(DLString), TLI(TLII), F(nullptr) {
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
+    C.setOpaquePointers(true);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
+  }
 };
 
 // Check that a function arg can't trivially alias a global when we're accessing
