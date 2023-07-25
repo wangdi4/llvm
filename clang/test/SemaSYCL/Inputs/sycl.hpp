@@ -430,7 +430,7 @@ public:
 } // namespace intel
 } // namespace ext
 #endif // INTEL_CUSTOMIZATION
-} // inline namespace _V1
+} // namespace _V1
 } // namespace sycl
 
 #endif
