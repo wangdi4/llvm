@@ -141,6 +141,10 @@
 #endif
 
 #if INTEL_CUSTOMIZATION
+/// bool __cdecl std::operator==<char,struct std::char_traits<char> >(class std::istreambuf_iterator<char,struct std::char_traits<char> > const & __ptr64,class std::istreambuf_iterator<char,struct std::char_traits<char> > const & __ptr64)
+TLI_DEFINE_ENUM_INTERNAL(msvc_std_istreambuf_iterator_operator_equals)
+TLI_DEFINE_STRING_INTERNAL("??$?8DU?$char_traits@D@std@@@std@@YA_NAEBV?$istreambuf_iterator@DU?$char_traits@D@std@@@0@0@Z")
+TLI_DEFINE_SIG_INTERNAL(/* Checked manually. */)
 /// int __cdecl std::_Immortalize_impl<class std::_Iostream_error_category>(void * __ptr64,void * __ptr64,void * __ptr64 * __ptr64)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_under_immortalize_impl)
 TLI_DEFINE_STRING_INTERNAL("??$_Immortalize_impl@V_Iostream_error_category@std@@@std@@YAHPEAX0PEAPEAX@Z")
