@@ -1060,9 +1060,9 @@ private:
                                   ArrayRef<Type *> OverloadedTypes,
                                   const Twine &Name = "");
 
-<<<<<<< HEAD
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   Value *getCastedInt8PtrValue(Value *Ptr);
-
+#endif
 #if INTEL_CUSTOMIZATION
   /// Insert and return the specified instruction without changing its debug
   /// location.
@@ -1073,8 +1073,6 @@ private:
   }
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 3be16bd7d102205eaa6a67e918de75306883ed15
   //===--------------------------------------------------------------------===//
   // Instruction creation methods: Terminators
   //===--------------------------------------------------------------------===//
