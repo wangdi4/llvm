@@ -64,15 +64,10 @@
 #include <sycl/ext/intel/experimental/pipe_properties.hpp>
 #include <sycl/ext/intel/experimental/pipes.hpp>
 #include <sycl/ext/intel/usm_pointers.hpp>
-/* INTEL_CUSTOMIZATION */
-#ifndef DISABLE_SYCL_EXT_ANNOTATED_INTERFACES
-#include <sycl/ext/oneapi/annotated_arg/annotated_arg.hpp>
-#include <sycl/ext/oneapi/annotated_arg/annotated_ptr.hpp>
-#include <sycl/ext/oneapi/annotated_arg/properties.hpp>
-#endif
-/* end INTEL_CUSTOMIZATION */
 #include <sycl/ext/oneapi/device_global/device_global.hpp>
 #include <sycl/ext/oneapi/device_global/properties.hpp>
+#include <sycl/ext/oneapi/experimental/annotated_arg/annotated_arg.hpp>
+#include <sycl/ext/oneapi/experimental/annotated_ptr/annotated_ptr.hpp>
 #include <sycl/ext/oneapi/experimental/ballot_group.hpp>
 #include <sycl/ext/oneapi/experimental/bfloat16_math.hpp>
 #include <sycl/ext/oneapi/experimental/builtins.hpp>
