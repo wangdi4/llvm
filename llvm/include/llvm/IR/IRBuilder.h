@@ -1060,6 +1060,7 @@ private:
                                   ArrayRef<Type *> OverloadedTypes,
                                   const Twine &Name = "");
 
+<<<<<<< HEAD
   Value *getCastedInt8PtrValue(Value *Ptr);
 
 #if INTEL_CUSTOMIZATION
@@ -1072,6 +1073,8 @@ private:
   }
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 3be16bd7d102205eaa6a67e918de75306883ed15
   //===--------------------------------------------------------------------===//
   // Instruction creation methods: Terminators
   //===--------------------------------------------------------------------===//
