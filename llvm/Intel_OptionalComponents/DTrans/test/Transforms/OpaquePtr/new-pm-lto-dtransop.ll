@@ -44,6 +44,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT: Running pass: dtransOP::DTransNormalizeOPPass
 ; CHECK-NEXT: Running pass: dtransOP::CommuteCondOPPass
 ; CHECK-NEXT: Running analysis: dtransOP::DTransSafetyAnalyzer
+; CHECK-NEXT: Running analysis: DTransImmutableAnalysis
 ; CHECK-NEXT: Running pass: dtransOP::MemInitTrimDownOPPass
 ; CHECK-NEXT: Running pass: dtransOP::SOAToAOSOPPreparePass
 ; CHECK-NEXT: Running pass: dtransOP::SOAToAOSOPPass
@@ -52,7 +53,9 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Note: Weak align uses the same pass for opaque and non-opaque pointers,
 ; so it is not in the dtransOP namespace.
 ; CHECK-NEXT: Running pass: dtrans::WeakAlignPass
-; CHECK-NEXT: Running pass: dtransOP::DeleteFieldOPPass
+; Not using '-NEXT' here because weak align causes some TargetLibraryAnalysis
+; to run.
+; CHECK: Running pass: dtransOP::DeleteFieldOPPass
 ; CHECK-NEXT: Running pass: dtransOP::ReorderFieldsOPPass
 ; CHECK-NEXT: Running pass: dtransOP::AOSToSOAOPPass
 ; CHECK-NEXT: Running pass: dtransOP::ReuseFieldOPPass
