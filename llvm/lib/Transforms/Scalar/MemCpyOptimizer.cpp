@@ -1535,7 +1535,7 @@ bool MemCpyOptPass::performStackMoveOptzn(Instruction *Load, Instruction *Store,
         switch (DetermineUseCaptureKind(U, IsDereferenceableOrNull)) {
         case UseCaptureKind::MAY_CAPTURE:
           return false;
-        case UseCaptureKind::PASSTHROUGH:
+        case UseCaptureKind::USER_MAY_CAPTURE: // INTEL_COLLAB
           // Instructions cannot have non-instruction users.
           Worklist.push_back(cast<Instruction>(U.getUser()));
           continue;
