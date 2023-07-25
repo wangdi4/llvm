@@ -1,5 +1,4 @@
 ; RUN: opt -passes='sycl-kernel-prepare-args' -S %s | FileCheck %s
-
 ; RUN: opt -passes='sycl-kernel-prepare-args' -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 
 ; This test checks that block_invoke kernel function is not broken by
@@ -9,7 +8,6 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 %struct.ndrange_t.6 = type { i32, [3 x i64], [3 x i64], [3 x i64] }
-%opencl.queue_t.5 = type opaque
 
 define internal void @__block_fn_block_invoke(ptr addrspace(4) %.block_descriptor, ptr addrspace(3) noalias %pLocalMemBase, ptr noalias %pWorkDim, ptr noalias %pWGId, [4 x i64] %BaseGlbId, ptr noalias %pSpecialBuf, ptr noalias %RuntimeHandle) #0 !kernel_arg_base_type !8 !arg_type_null_val !9 {
 entry:

@@ -45,7 +45,6 @@ BB3:
 
 ; CHECK:        define void @foo
 ; CHECK-NEXT: entry:
-;; Check for opaque pointer
 ; CHECK-NEXT:   [[VAR0:%[a-zA-Z0-9]+]] = getelementptr i8, ptr addrspace(3) %pLocalMemBase, i32 0
 ; CHECK-NEXT:   [[VAR1:%[a-zA-Z0-9]+]] = getelementptr i8, ptr addrspace(3) %pLocalMemBase, i32 1
 ; CHECK-NEXT:   [[VAR2:%[a-zA-Z0-9]+]] = getelementptr i8, ptr addrspace(3) %pLocalMemBase, i32 16

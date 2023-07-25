@@ -4,11 +4,6 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-%opencl.reserve_id_t.5 = type opaque
-%opencl.pipe_wo_t.6 = type opaque
-%opencl.pipe_ro_t.7 = type opaque
-%opencl.event_t.5 = type opaque
-
 ; Function Attrs: convergent nounwind
 ; CHECK-LABEL: @_ZGVeN4uuuuuuuuuu_compute_sum
 define void @compute_sum(ptr addrspace(1) %a, i32 %n, ptr addrspace(1) %tmp_sum, ptr addrspace(1) %sum, ptr addrspace(1) %out_pipe, ptr addrspace(1) %in_pipe, ptr addrspace(3) %localBuffer, ptr addrspace(1) %add.ptr, i64 %conv6, i64 %conv7) local_unnamed_addr #0 !recommended_vector_length !1 !kernel_arg_base_type !3 !arg_type_null_val !4 {

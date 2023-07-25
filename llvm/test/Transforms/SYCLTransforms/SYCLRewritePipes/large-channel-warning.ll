@@ -136,7 +136,6 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
 %struct._ZTS19ConstantPipeStorage.ConstantPipeStorage = type { i32, i32, i32 }
-%opencl.pipe_ro_t.6 = type opaque
 
 @_ZN2cl4sycl4pipeI8s2m_pipeiLi20EE9m_StorageE = available_externally addrspace(1) constant %struct._ZTS19ConstantPipeStorage.ConstantPipeStorage { i32 256, i32 256, i32 1024 }, align 4
 
