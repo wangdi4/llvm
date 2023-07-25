@@ -184,7 +184,8 @@ static bool materializeSampledImageOpaqueTypeName(Module &M) {
 bool SYCLPreprocessSPIRVFriendlyIRPass::runImpl(Module &M) {
   bool Changed = false;
   Changed |= insertOpenCLVersionMetadata(M);
-  Changed |= materializeSampledImageOpaqueTypeName(M);
+  if (M.getContext().supportsTypedPointers())
+    Changed |= materializeSampledImageOpaqueTypeName(M);
   return Changed;
 }
 

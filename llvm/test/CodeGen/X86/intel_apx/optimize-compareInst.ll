@@ -87,7 +87,7 @@ define i32 @lowmask_i64_mask64(i64 %val) {
 ; CHECK-LABEL: lowmask_i64_mask64:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
-; CHECK-NEXT:    shlq $16, %rdi # encoding: [0x48,0xc1,0xe7,0x10]
+; CHECK-NEXT:    shlq $16, %rdi, %rcx # encoding: [0x62,0xf4,0xf4,0x18,0xc1,0xe7,0x10]
 ; CHECK-NEXT:    sete %al # encoding: [0x0f,0x94,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %and = and i64 %val, 281474976710655
@@ -100,8 +100,7 @@ define i64 @lowmask_i64_mask64_extra_use(i64 %val) nounwind {
 ; CHECK-LABEL: lowmask_i64_mask64_extra_use:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
-; CHECK-NEXT:    movq %rdi, %rcx # encoding: [0x48,0x89,0xf9]
-; CHECK-NEXT:    shlq $16, %rcx # encoding: [0x48,0xc1,0xe1,0x10]
+; CHECK-NEXT:    shlq $16, %rdi, %rcx # encoding: [0x62,0xf4,0xf4,0x18,0xc1,0xe7,0x10]
 ; CHECK-NEXT:    sete %al # encoding: [0x0f,0x94,0xc0]
 ; CHECK-NEXT:    imulq %rdi, %rax, %rax # encoding: [0x62,0xf4,0xfc,0x18,0xaf,0xc7]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
@@ -116,7 +115,7 @@ define i32 @lowmask_i64_mask32(i64 %val) {
 ; CHECK-LABEL: lowmask_i64_mask32:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
-; CHECK-NEXT:    shlq $44, %rdi # encoding: [0x48,0xc1,0xe7,0x2c]
+; CHECK-NEXT:    shlq $44, %rdi, %rcx # encoding: [0x62,0xf4,0xf4,0x18,0xc1,0xe7,0x2c]
 ; CHECK-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %and = and i64 %val, 1048575
@@ -178,8 +177,7 @@ define i64 @highmask_i64_mask64_extra_use(i64 %val) nounwind {
 ; CHECK-LABEL: highmask_i64_mask64_extra_use:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
-; CHECK-NEXT:    movq %rdi, %rcx # encoding: [0x48,0x89,0xf9]
-; CHECK-NEXT:    shrq $41, %rcx # encoding: [0x48,0xc1,0xe9,0x29]
+; CHECK-NEXT:    shrq $41, %rdi, %rcx # encoding: [0x62,0xf4,0xf4,0x18,0xc1,0xef,0x29]
 ; CHECK-NEXT:    setne %al # encoding: [0x0f,0x95,0xc0]
 ; CHECK-NEXT:    imulq %rdi, %rax, %rax # encoding: [0x62,0xf4,0xfc,0x18,0xaf,0xc7]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
@@ -194,7 +192,7 @@ define i32 @highmask_i64_mask32(i64 %val) {
 ; CHECK-LABEL: highmask_i64_mask32:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    xorl %eax, %eax, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x31,0xc0]
-; CHECK-NEXT:    shrq $20, %rdi # encoding: [0x48,0xc1,0xef,0x14]
+; CHECK-NEXT:    shrq $20, %rdi, %rcx # encoding: [0x62,0xf4,0xf4,0x18,0xc1,0xef,0x14]
 ; CHECK-NEXT:    sete %al # encoding: [0x0f,0x94,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %and = and i64 %val, -1048576

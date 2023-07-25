@@ -5,7 +5,6 @@
 
 define void @test() {
 ; CHECK-LABEL: define void @test
-;; Check for opaque pointer
 ; CHECK-NEXT: [[GEP:%[0-9]+]] = getelementptr i8, ptr addrspace(3) %pLocalMemBase, i32 0
 ; CHECK-NEXT: [[ASC:%[0-9]+]] = addrspacecast ptr addrspace(3) [[GEP]] to ptr
 ; CHECK-NEXT: %[[INSERT:.*]] = insertvalue { ptr, i8 } undef, ptr [[ASC]], 0

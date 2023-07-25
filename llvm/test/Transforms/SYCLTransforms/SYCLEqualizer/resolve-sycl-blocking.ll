@@ -6,8 +6,6 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "spir64-unknown-unknown"
 
 %struct._ZTS19ConstantPipeStorage.ConstantPipeStorage = type { i32, i32, i32 }
-%opencl.pipe_wo_t = type opaque
-%opencl.pipe_ro_t = type opaque
 
 @_ZN2cl4sycl4pipeIZ4mainE9some_pipe_0iLi1EE9m_StorageE = available_externally addrspace(1) constant %struct._ZTS19ConstantPipeStorage.ConstantPipeStorage { i32 4, i32 4, i32 1 }, align 4
 

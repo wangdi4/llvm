@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers -passes=sycl-kernel-coerce-types -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: opt -opaque-pointers -passes=sycl-kernel-coerce-types -S %s -o - | FileCheck %s
+; RUN: opt -passes=sycl-kernel-coerce-types -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=sycl-kernel-coerce-types -S %s -o - | FileCheck %s
 
 ; This test checks caller and callee patching that makes use of the coerced arguments
 
