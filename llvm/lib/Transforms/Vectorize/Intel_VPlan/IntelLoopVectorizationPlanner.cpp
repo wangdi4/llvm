@@ -2382,9 +2382,11 @@ void LoopVectorizationPlanner::reportReductions(VPlanVector *Plan,
       SS1 << "unsigned maximum";
       break;
     case RecurKind::FMin:
+    case RecurKind::FMinimum:
       SS1 << "minimum";
       break;
     case RecurKind::FMax:
+    case RecurKind::FMaximum:
       SS1 << "maximum";
       break;
     case RecurKind::FMulAdd:

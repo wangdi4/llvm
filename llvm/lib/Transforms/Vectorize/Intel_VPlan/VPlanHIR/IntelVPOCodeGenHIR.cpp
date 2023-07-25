@@ -2153,6 +2153,8 @@ static HLInst *createVectorReduce(const VPReductionFinal *RedFinal,
     break;
   case Intrinsic::vector_reduce_fmax:
   case Intrinsic::vector_reduce_fmin:
+  case Intrinsic::vector_reduce_fmaximum:
+  case Intrinsic::vector_reduce_fminimum:
     assert(!Acc && "Unexpected initial value");
     // TODO: Need processing to determine NoNaN.
     return HLNodeUtilities.createFPMinMaxVectorReduce(

@@ -262,6 +262,10 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "fmax";
   case VPInstruction::FMin:
     return "fmin";
+  case VPInstruction::FMaximum:
+    return "fmaximum";
+  case VPInstruction::FMinimum:
+    return "fminimum";
   case VPInstruction::InductionInit:
     return "induction-init";
   case VPInstruction::InductionInitStep:

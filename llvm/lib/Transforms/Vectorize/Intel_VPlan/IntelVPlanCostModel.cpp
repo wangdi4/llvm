@@ -1628,7 +1628,9 @@ VPlanTTICostModel::getTTICostForVF(const VPInstruction *VPInst, unsigned VF) {
     return Cost;
   }
   case VPInstruction::FMax:
-  case VPInstruction::FMin: {
+  case VPInstruction::FMin:
+  case VPInstruction::FMaximum:
+  case VPInstruction::FMinimum: {
     Intrinsic::ID Intrin = getIntrinsicForMinMaxOpcode(VPInst->getOpcode());
     auto *VecTy = getWidenedType(VPInst->getType(), VF);
 
