@@ -78,15 +78,6 @@ if platform.system() in ["NetBSD"]:
 if lit_config.useValgrind:
     config.target_triple += "-vg"
 
-<<<<<<< HEAD
-# Running on ELF based *nix
-if platform.system() in ["FreeBSD", "NetBSD", "Linux"]:
-    config.available_features.add("system-linker-elf")
-
-# Set if host-cxxabi's demangler can handle target's symbols.
-if platform.system() not in ["Windows"]:
-    config.available_features.add("demangler")
-
 # INTEL_CUSTOMIZATION
 # Add 'intel_opencl' feature based on ICS_WSVARIANT value.
 ics_wsvariant = os.environ.get("ICS_WSVARIANT")
@@ -126,8 +117,6 @@ config.substitutions.append(('%intel_devirt_options', intel_devirt_options))
 config.substitutions.append(('%intel_mllvm', intel_mllvm))
 # end INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 6a00e70976966e48de525858757c074d16498505
 llvm_config.feature_config(
     [
         (
