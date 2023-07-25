@@ -4,7 +4,7 @@
 define i1 @shl64ri_LeadingZeros(i64 noundef %a) {
 ; CHECK-LABEL: shl64ri_LeadingZeros:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    shlq $49, %rdi
+; CHECK-NEXT:    shlq $49, %rdi, %rax
 ; CHECK-NEXT:    sete %al
 ; CHECK-NEXT:    retq
 entry:
@@ -16,7 +16,7 @@ entry:
 define i1 @shr64ri_TrailingZeros(i64 noundef %a) {
 ; CHECK-LABEL: shr64ri_TrailingZeros:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    shrq $56, %rdi
+; CHECK-NEXT:    shrq $56, %rdi, %rax
 ; CHECK-NEXT:    sete %al
 ; CHECK-NEXT:    retq
 entry:
@@ -28,8 +28,8 @@ entry:
 define i1 @shr64ri_MidOnes8(i64 noundef %a) {
 ; CHECK-LABEL: shr64ri_MidOnes8:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    shrq $55, %rdi
-; CHECK-NEXT:    testb %dil, %dil
+; CHECK-NEXT:    shrq $55, %rdi, %rax
+; CHECK-NEXT:    testb %al, %al
 ; CHECK-NEXT:    sete %al
 ; CHECK-NEXT:    retq
 entry:
@@ -41,8 +41,8 @@ entry:
 define i1 @shr64ri_MidOnes16(i64 noundef %a) {
 ; CHECK-LABEL: shr64ri_MidOnes16:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    shrq $47, %rdi
-; CHECK-NEXT:    testw %di, %di
+; CHECK-NEXT:    shrq $47, %rdi, %rax
+; CHECK-NEXT:    testw %ax, %ax
 ; CHECK-NEXT:    sete %al
 ; CHECK-NEXT:    retq
 entry:
@@ -54,8 +54,8 @@ entry:
 define i1 @shr64ri_MidOnes32(i64 noundef %a) {
 ; CHECK-LABEL: shr64ri_MidOnes32:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    shrq $31, %rdi
-; CHECK-NEXT:    testl %edi, %edi
+; CHECK-NEXT:    shrq $31, %rdi, %rax
+; CHECK-NEXT:    testl %eax, %eax
 ; CHECK-NEXT:    sete %al
 ; CHECK-NEXT:    retq
 entry:

@@ -193,10 +193,10 @@ define i32 @cnt32_optsize(i32 %x) nounwind readnone optsize {
 ; X64-NEXT:    andl $1431655765, %eax, %eax # imm = 0x55555555
 ; X64-NEXT:    subl %eax, %edi, %eax
 ; X64-NEXT:    movl $858993459, %ecx # imm = 0x33333333
-; X64-NEXT:    shrl $2, %eax, %edx
-; X64-NEXT:    andl %ecx, %eax
-; X64-NEXT:    andl %ecx, %edx
-; X64-NEXT:    addl %edx, %eax, %eax
+; X64-NEXT:    andl %ecx, %eax, %edx
+; X64-NEXT:    shrl $2, %eax, %eax
+; X64-NEXT:    andl %ecx, %eax, %eax
+; X64-NEXT:    addl %eax, %edx, %eax
 ; X64-NEXT:    shrl $4, %eax, %ecx
 ; X64-NEXT:    addl %ecx, %eax, %eax
 ; X64-NEXT:    andl $252645135, %eax, %eax # imm = 0xF0F0F0F
@@ -294,10 +294,10 @@ define i32 @cnt32_pgso(i32 %x) nounwind readnone !prof !14 {
 ; X64-NEXT:    andl $1431655765, %eax, %eax # imm = 0x55555555
 ; X64-NEXT:    subl %eax, %edi, %eax
 ; X64-NEXT:    movl $858993459, %ecx # imm = 0x33333333
-; X64-NEXT:    shrl $2, %eax, %edx
-; X64-NEXT:    andl %ecx, %eax
-; X64-NEXT:    andl %ecx, %edx
-; X64-NEXT:    addl %edx, %eax, %eax
+; X64-NEXT:    andl %ecx, %eax, %edx
+; X64-NEXT:    shrl $2, %eax, %eax
+; X64-NEXT:    andl %ecx, %eax, %eax
+; X64-NEXT:    addl %eax, %edx, %eax
 ; X64-NEXT:    shrl $4, %eax, %ecx
 ; X64-NEXT:    addl %ecx, %eax, %eax
 ; X64-NEXT:    andl $252645135, %eax, %eax # imm = 0xF0F0F0F
