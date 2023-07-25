@@ -670,7 +670,6 @@ public:
   }
 };
 
-<<<<<<< HEAD
 #ifdef INTEL_CUSTOMIZATION
 namespace ext {
 namespace intel {
@@ -686,8 +685,5 @@ public:
 } // namespace intel
 } // namespace ext
 #endif // INTEL_CUSTOMIZATION
-} // inline namespace _V1
-=======
 } // namespace _V1
->>>>>>> 9568e36490ddccc405486daeaffa05d48cd7bcb1
 } // namespace sycl
