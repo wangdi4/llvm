@@ -331,11 +331,24 @@ UR_APIEXPORT ur_result_t UR_APICALL urKernelSetExecInfo(
     ur_kernel_handle_t hKernel, ur_kernel_exec_info_t propName, size_t propSize,
     const ur_kernel_exec_info_properties_t *pProperties,
     const void *pPropValue) {
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> 2487df3fd9175703fa6c42a7e532ed62efd2d27f
   std::ignore = hKernel;
   std::ignore = propSize;
   std::ignore = pPropValue;
   std::ignore = pProperties;
 
+<<<<<<< HEAD
+=======
+=======
+  std::ignore = propSize;
+  std::ignore = pProperties;
+  UR_ASSERT(hKernel, UR_RESULT_ERROR_INVALID_NULL_HANDLE);
+  UR_ASSERT(pPropValue, UR_RESULT_ERROR_INVALID_NULL_POINTER);
+>>>>>>> b6449e19ded8cdddd9ce939d09d73311b866f7ad
+>>>>>>> 2487df3fd9175703fa6c42a7e532ed62efd2d27f
   switch (propName) {
   case UR_KERNEL_EXEC_INFO_USM_INDIRECT_ACCESS:
   case UR_KERNEL_EXEC_INFO_USM_PTRS:
@@ -363,6 +376,13 @@ UR_APIEXPORT ur_result_t UR_APICALL
 urKernelSetArgSampler(ur_kernel_handle_t hKernel, uint32_t argIndex,
                       const ur_kernel_arg_sampler_properties_t *pProperties,
                       ur_sampler_handle_t hArgValue) {
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+  UR_ASSERT(hKernel, UR_RESULT_ERROR_INVALID_NULL_HANDLE);
+>>>>>>> b6449e19ded8cdddd9ce939d09d73311b866f7ad
+>>>>>>> 2487df3fd9175703fa6c42a7e532ed62efd2d27f
   std::ignore = pProperties;
 
   ur_result_t Result = UR_RESULT_SUCCESS;

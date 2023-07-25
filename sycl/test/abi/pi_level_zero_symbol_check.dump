@@ -81,7 +81,10 @@ piSamplerGetInfo
 piSamplerRelease
 piSamplerRetain
 piTearDown
+<<<<<<< HEAD
 piextBindlessImageSamplerCreate
+=======
+>>>>>>> 2487df3fd9175703fa6c42a7e532ed62efd2d27f
 piextCommandBufferCreate
 piextCommandBufferFinalize
 piextCommandBufferMemBufferCopy

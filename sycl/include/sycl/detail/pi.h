@@ -146,7 +146,11 @@
 // 14.37 Added piextUSMImportExternalPointer and piextUSMReleaseImportedPointer.
 
 #define _PI_H_VERSION_MAJOR 14
+<<<<<<< HEAD
 #define _PI_H_VERSION_MINOR 37
+=======
+#define _PI_H_VERSION_MINOR 35
+>>>>>>> 2487df3fd9175703fa6c42a7e532ed62efd2d27f
 
 #define _PI_STRING_HELPER(a) #a
 #define _PI_CONCAT(a, b) _PI_STRING_HELPER(a.b)
