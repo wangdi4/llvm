@@ -68,7 +68,7 @@ entry:
   %idxprom = sext i32 %0 to i64
   %a = getelementptr inbounds %struct.S, %struct.S* %this1, i32 0, i32 0
   %arrayidx = getelementptr inbounds [4 x i32], [4 x i32]* %a, i64 0, i64 %idxprom
-  %1 = call i32* @llvm.intel.fakeload.p0i32(i32* %arrayidx, metadata !8) 
+  %1 = call i32* @llvm.intel.fakeload.p0i32(i32* %arrayidx, metadata !8)
   ret i32* %1
 }
 
@@ -84,14 +84,14 @@ entry:
   %idxprom = sext i32 %0 to i64
   %b = getelementptr inbounds %struct.S, %struct.S* %this1, i32 0, i32 1
   %arrayidx = getelementptr inbounds [4 x i32], [4 x i32]* %b, i64 0, i64 %idxprom
-  %1 = call i32* @llvm.intel.fakeload.p0i32(i32* %arrayidx, metadata !11) 
+  %1 = call i32* @llvm.intel.fakeload.p0i32(i32* %arrayidx, metadata !11)
   ret i32* %1
 }
 
 ; CHECK-NOT: call i32* @llvm.intel.fakeload
 
 ; Function Attrs: nounwind
-declare i32* @llvm.intel.fakeload.p0i32(i32*, metadata) 
+declare i32* @llvm.intel.fakeload.p0i32(i32*, metadata)
 
 
 !llvm.ident = !{!0}

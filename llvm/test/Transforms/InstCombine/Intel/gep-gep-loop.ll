@@ -13,10 +13,10 @@ $_ZTSZZ9reduceStdRN2cl4sycl6bufferIKfLi1ENS0_6detail17aligned_allocatorIcEEvEERN
 
 @result = external dso_local local_unnamed_addr global float, align 8
 
-define dso_local spir_kernel void @_ZTSZZ9reduceStdRN2cl4sycl6bufferIKfLi1ENS0_6detail17aligned_allocatorIcEEvEERNS1_IfLi1ES5_vEEPffRmR4SYCLmmENKUlRNS0_7handlerEE_clESF_E11StandardDev(i64 %_arg_, float addrspace(1)* %_arg_3, float %_arg_8, i1 %cond) local_unnamed_addr #0 comdat !kernel_arg_buffer_location !1 {
+define dso_local spir_kernel void @_ZTSZZ9reduceStdRN2cl4sycl6bufferIKfLi1ENS0_6detail17aligned_allocatorIcEEvEERNS1_IfLi1ES5_vEEPffRmR4SYCLmmENKUlRNS0_7handlerEE_clESF_E11StandardDev(i64 %_arg_, ptr addrspace(1) %_arg_3, float %_arg_8, i1 %cond) local_unnamed_addr #0 comdat !kernel_arg_buffer_location !1 {
 entry:
-  %0 = load i64, i64 addrspace(4)* null, align 8
-  %add.ptr.i53 = getelementptr inbounds float, float addrspace(1)* %_arg_3, i64 %0
+  %0 = load i64, ptr addrspace(4) null, align 8
+  %add.ptr.i53 = getelementptr inbounds float, ptr addrspace(1) %_arg_3, i64 %0
   %1 = trunc i64 %_arg_ to i32
   %conv6.i = mul i32 %1, 96
   br label %for.cond.i
@@ -30,14 +30,14 @@ for.cond.i:                                       ; preds = %for.body.i, %entry
 for.cond.i.i.i.preheader:                         ; preds = %for.cond.i
   %cmp14.i = icmp ugt i64 1, 0
   %2 = select i1 %cmp14.i, float %sum2_local.0.i, float 0.000000e+00
-  %rcast = addrspacecast float *@result to float addrspace(4)*
-  store float %2, float addrspace(4)* %rcast, align 4
+  %rcast = addrspacecast ptr @result to ptr addrspace(4)
+  store float %2, ptr addrspace(4) %rcast, align 4
   ret void
 
 for.body.i:                                       ; preds = %for.cond.i
-  %arrayidx.i84.i = getelementptr inbounds float, float addrspace(1)* %add.ptr.i53, i64 %conv7.i
-  %arrayidx.ascast.i85.i = addrspacecast float addrspace(1)* %arrayidx.i84.i to float addrspace(4)*
-  %3 = load float, float addrspace(4)* %arrayidx.ascast.i85.i, align 4
+  %arrayidx.i84.i = getelementptr inbounds float, ptr addrspace(1) %add.ptr.i53, i64 %conv7.i
+  %arrayidx.ascast.i85.i = addrspacecast ptr addrspace(1) %arrayidx.i84.i to ptr addrspace(4)
+  %3 = load float, ptr addrspace(4) %arrayidx.ascast.i85.i, align 4
   %sub.i = fsub fast float %3, %_arg_8
   %mul10.i = fmul fast float %sub.i, %sub.i
   %add.i = fadd fast float %sum2_local.0.i, %mul10.i

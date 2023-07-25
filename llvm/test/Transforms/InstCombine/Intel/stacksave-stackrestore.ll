@@ -22,18 +22,14 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local i32 @foo() #0 {
 entry:
   %a = alloca [100 x i32], align 16
-  %savedstack = tail call i8* @llvm.stacksave()
-  %0 = bitcast [100 x i32]* %a to i8*
-  call void @llvm.lifetime.start.p0i8(i64 400, i8* %0) #3
-  %arraydecay = getelementptr inbounds [100 x i32], [100 x i32]* %a, i64 0, i64 0
-  %1 = bitcast i32* %arraydecay to i8*
-  call void @llvm.memset.p0i8.i64(i8* align 16 %1, i8 0, i64 400, i1 false)
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* %a, i64 0, i64 7, !intel-tbaa !2
-  %2 = load i32, i32* %arrayidx, align 4, !tbaa !2
-  %3 = bitcast [100 x i32]* %a to i8*
-  call void @llvm.lifetime.end.p0i8(i64 400, i8* %3) #3
-  tail call void @llvm.stackrestore(i8* %savedstack)
-  ret i32 %2
+  %savedstack = tail call ptr @llvm.stacksave()
+  call void @llvm.lifetime.start.p0(i64 400, ptr %a) #3
+  call void @llvm.memset.p0.i64(ptr align 16 %a, i8 0, i64 400, i1 false)
+  %arrayidx = getelementptr inbounds [100 x i32], ptr %a, i64 0, i64 7, !intel-tbaa !2
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
+  call void @llvm.lifetime.end.p0(i64 400, ptr %a) #3
+  tail call void @llvm.stackrestore(ptr %savedstack)
+  ret i32 %0
 }
 
 ; In @foo, llorg removes the stacksave/stackrestore as a special case because
@@ -44,21 +40,17 @@ entry:
 define dso_local i32 @bar(i32 %c) #0 {
 entry:
   %a = alloca [100 x i32], align 16
-  %savedstack = tail call i8* @llvm.stacksave()
-  %0 = bitcast [100 x i32]* %a to i8*
-  call void @llvm.lifetime.start.p0i8(i64 400, i8* %0) #3
-  %arraydecay = getelementptr inbounds [100 x i32], [100 x i32]* %a, i64 0, i64 0
-  %1 = bitcast i32* %arraydecay to i8*
-  call void @llvm.memset.p0i8.i64(i8* align 16 %1, i8 0, i64 400, i1 false)
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* %a, i64 0, i64 7, !intel-tbaa !2
-  %2 = load i32, i32* %arrayidx, align 4, !tbaa !2
-  %3 = bitcast [100 x i32]* %a to i8*
-  call void @llvm.lifetime.end.p0i8(i64 400, i8* %3) #3
-  tail call void @llvm.stackrestore(i8* %savedstack)
+  %savedstack = tail call ptr @llvm.stacksave()
+  call void @llvm.lifetime.start.p0(i64 400, ptr %a) #3
+  call void @llvm.memset.p0.i64(ptr align 16 %a, i8 0, i64 400, i1 false)
+  %arrayidx = getelementptr inbounds [100 x i32], ptr %a, i64 0, i64 7, !intel-tbaa !2
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
+  call void @llvm.lifetime.end.p0(i64 400, ptr %a) #3
+  tail call void @llvm.stackrestore(ptr %savedstack)
   br label %split
 
 split:
-  %sum = add i32 %c, %2
+  %sum = add i32 %c, %0
   ret i32 %sum
 }
 
@@ -71,39 +63,35 @@ split:
 define dso_local i32 @bat(i32 %c) #0 {
 entry:
   %a = alloca [100 x i32], align 16
-  %savedstack = tail call i8* @llvm.stacksave()
-  %0 = bitcast [100 x i32]* %a to i8*
-  call void @llvm.lifetime.start.p0i8(i64 400, i8* %0) #3
-  %arraydecay = getelementptr inbounds [100 x i32], [100 x i32]* %a, i64 0, i64 0
-  %1 = bitcast i32* %arraydecay to i8*
+  %savedstack = tail call ptr @llvm.stacksave()
+  call void @llvm.lifetime.start.p0(i64 400, ptr %a) #3
   call void @use()
-  call void @llvm.memset.p0i8.i64(i8* align 16 %1, i8 0, i64 400, i1 false)
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* %a, i64 0, i64 7, !intel-tbaa !2
-  %2 = load i32, i32* %arrayidx, align 4, !tbaa !2
-  %3 = bitcast [100 x i32]* %a to i8*
-  call void @llvm.lifetime.end.p0i8(i64 400, i8* %3) #3
-  tail call void @llvm.stackrestore(i8* %savedstack)
+  call void @llvm.memset.p0.i64(ptr align 16 %a, i8 0, i64 400, i1 false)
+  %arrayidx = getelementptr inbounds [100 x i32], ptr %a, i64 0, i64 7, !intel-tbaa !2
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
+  call void @llvm.lifetime.end.p0(i64 400, ptr %a) #3
+  tail call void @llvm.stackrestore(ptr %savedstack)
   br label %split
 
 split:
-  %sum = add i32 %c, %2
+  %sum = add i32 %c, %0
   ret i32 %sum
 }
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn writeonly
-declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg) #2
+declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i1 immarg) #2
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #1
 
 ; Function Attrs: nofree nosync nounwind willreturn
-declare i8* @llvm.stacksave() #4
+declare ptr @llvm.stacksave() #4
 
 ; Function Attrs: nofree nosync nounwind willreturn
-declare void @llvm.stackrestore(i8*) #4
+declare void @llvm.stackrestore(ptr) #4
 
 declare void @use()
 

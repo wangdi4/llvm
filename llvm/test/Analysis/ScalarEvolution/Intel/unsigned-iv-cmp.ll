@@ -46,8 +46,8 @@ for.cond8.preheader:                              ; preds = %for.cond8.preheader
   br i1 %cmp1012, label %for.body11.lr.ph, label %for.end
 
 for.body11.lr.ph:                                 ; preds = %for.cond8.preheader
-  %k.promoted = load i8, i8* @k, align 1, !tbaa !3
-  %.promoted = load i8, i8* getelementptr inbounds ([20 x i8], [20 x i8]* @i, i64 0, i64 0), align 16, !tbaa !6
+  %k.promoted = load i8, ptr @k, align 1, !tbaa !3
+  %.promoted = load i8, ptr @i, align 16, !tbaa !6
   br label %for.body11
 
 for.body11:                                       ; preds = %for.body11.lr.ph, %for.body11
@@ -55,8 +55,8 @@ for.body11:                                       ; preds = %for.body11.lr.ph, %
   %conv1314 = phi i8 [ %k.promoted, %for.body11.lr.ph ], [ %conv13, %for.body11 ]
   %d.013 = phi i32 [ %z.018, %for.body11.lr.ph ], [ %add16, %for.body11 ]
   %conv9 = zext i32 %d.013 to i64
-  %arrayidx = getelementptr inbounds [20 x i32], [20 x i32]* @p, i64 0, i64 %conv9, !intel-tbaa !8
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !8
+  %arrayidx = getelementptr inbounds [20 x i32], ptr @p, i64 0, i64 %conv9, !intel-tbaa !8
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !8
   %1 = trunc i32 %0 to i8
   %conv13 = or i8 %conv1314, %1
   %add = add i8 %add15, 3
@@ -67,8 +67,8 @@ for.body11:                                       ; preds = %for.body11.lr.ph, %
 for.cond8.for.end_crit_edge:                      ; preds = %for.body11
   %conv13.lcssa = phi i8 [ %conv13, %for.body11 ]
   %add.lcssa = phi i8 [ %add, %for.body11 ]
-  store i8 %conv13.lcssa, i8* @k, align 1, !tbaa !3
-  store i8 %add.lcssa, i8* getelementptr inbounds ([20 x i8], [20 x i8]* @i, i64 0, i64 0), align 16, !tbaa !6
+  store i8 %conv13.lcssa, ptr @k, align 1, !tbaa !3
+  store i8 %add.lcssa, ptr @i, align 16, !tbaa !6
   br label %for.end
 
 for.end:                                          ; preds = %for.cond8.for.end_crit_edge, %for.cond8.preheader
@@ -92,15 +92,15 @@ for.end21:                                        ; preds = %for.end19
 
 for.end24:                                        ; preds = %for.end21
   %add23.lcssa = phi i64 [ %add23, %for.end21 ]
-  store i64 %add23.lcssa, i64* @q, align 8, !tbaa !16
-  %2 = load i8, i8* getelementptr inbounds ([20 x i8], [20 x i8]* @i, i64 0, i64 0), align 16, !tbaa !6
+  store i64 %add23.lcssa, ptr @q, align 8, !tbaa !16
+  %2 = load i8, ptr @i, align 16, !tbaa !6
   %conv25 = zext i8 %2 to i32
-  %call = tail call i32 (i8*, ...) @printf(i8* nonnull dereferenceable(1) getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i64 0, i64 0), i32 %conv25)
+  %call = tail call i32 (ptr, ...) @printf(ptr nonnull dereferenceable(1) @.str, i32 %conv25)
   ret i32 0
 }
 
 ; Function Attrs: nofree nounwind
-declare dso_local noundef i32 @printf(i8* nocapture noundef readonly, ...) local_unnamed_addr #1
+declare dso_local noundef i32 @printf(ptr nocapture noundef readonly, ...) local_unnamed_addr #1
 
 attributes #0 = { nofree norecurse nounwind uwtable mustprogress "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
 attributes #1 = { nofree nounwind "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }

@@ -17,13 +17,13 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define dso_local void @_Z3foov() local_unnamed_addr {
 entry:
-  %tmp0 = load i32, i32* @tf_1_var_128, align 4
-  %tmp1 = load i32, i32* @tf_1_var_96, align 4
+  %tmp0 = load i32, ptr @tf_1_var_128, align 4
+  %tmp1 = load i32, ptr @tf_1_var_96, align 4
   %cmp = icmp eq i32 %tmp1, -1
   %tmp2 = sext i1 %cmp to i32
   %sub = add i32 %tmp0, %tmp2
   %conv2 = trunc i32 %sub to i16
-  store i16 %conv2, i16* @tf_1_var_168, align 2
+  store i16 %conv2, ptr @tf_1_var_168, align 2
   ret void
 }
 
@@ -33,15 +33,14 @@ entry:
 ; CHECK-NOT: xor
 ; CHECK-NOT: sext
 ; CHECK: ret void
-define void @flex128_encode_int(i16 %type, i8* %src) {
+define void @flex128_encode_int(i16 %type, ptr %src) {
 entry:
   %type.off = add i16 %type, -10
   %switch = icmp ult i16 %type.off, 1
   br i1 %switch, label %do.body33, label %if.end68
 
 do.body33:                                        ; preds = %entry
-  %__tbuf34.0..sroa_cast8 = bitcast i8* %src to i64*
-  %__tbuf34.0.copyload = load i64, i64* %__tbuf34.0..sroa_cast8, align 1
+  %__tbuf34.0.copyload = load i64, ptr %src, align 1
   %tobool38.not = icmp sgt i64 %__tbuf34.0.copyload, -1
   %neg40 = xor i64 %__tbuf34.0.copyload, -1
   %spec.select52 = select i1 %tobool38.not, i64 %__tbuf34.0.copyload, i64 %neg40

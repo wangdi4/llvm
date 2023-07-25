@@ -20,19 +20,19 @@ target triple = "x86_64-unknown-linux-gnu"
 define i32 @foo() {
 entry:
   %retval = alloca i32, align 4
-  %0 = load i32, i32* @a, align 4
+  %0 = load i32, ptr @a, align 4
   %tobool = icmp ne i32 %0, 0
   br i1 %tobool, label %if.then, label %if.end
 
 if.then:                                          ; preds = %entry
-  store i32 1, i32* %retval, align 4
+  store i32 1, ptr %retval, align 4
   br label %return
 
 if.end:                                           ; preds = %entry
-  store i32 0, i32* %retval, align 4
+  store i32 0, ptr %retval, align 4
   br label %return
 
 return:                                           ; preds = %if.end, %if.then
-  %1 = load i32, i32* %retval, align 4
+  %1 = load i32, ptr %retval, align 4
   ret i32 %1
 }

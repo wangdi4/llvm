@@ -10,7 +10,7 @@
 
 ; CHECK: backedge-taken count is (-1 + %n)
 
-define void @foo(i32 %n, i32* nocapture %A) {
+define void @foo(i32 %n, ptr nocapture %A) {
 entry:
   %add = add nsw i32 %n, 1
   %cmp5 = icmp slt i32 %n, 1
@@ -19,8 +19,8 @@ entry:
 for.body:                                         ; preds = %for.body, %entry
   %i.06 = phi i32 [ %inc, %for.body ], [ 2, %entry ]
   %idxprom = zext i32 %i.06 to i64
-  %ptridx = getelementptr inbounds i32, i32* %A, i64 %idxprom
-  store i32 %i.06, i32* %ptridx, align 4
+  %ptridx = getelementptr inbounds i32, ptr %A, i64 %idxprom
+  store i32 %i.06, ptr %ptridx, align 4
   %inc = add nuw nsw i32 %i.06, 1
   %cmp = icmp sgt i32 %inc, %add
   br i1 %cmp, label %for.end, label %for.body

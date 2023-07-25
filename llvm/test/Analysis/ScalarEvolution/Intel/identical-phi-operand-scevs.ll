@@ -28,8 +28,8 @@ entry:
 
 for.body:                                         ; preds = %if.end18, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next.pre-phi, %if.end18 ]
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* @a, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr @a, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %1 = sext i32 %0 to i64
   %cmp1 = icmp slt i64 %1, %indvars.iv
   br i1 %cmp1, label %if.then, label %if.else14

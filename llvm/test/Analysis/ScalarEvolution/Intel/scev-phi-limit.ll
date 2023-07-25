@@ -22,9 +22,9 @@ declare dso_local i32 @pluto(...)
 
 declare hidden void @spam() local_unnamed_addr #0
 
-define hidden void @barney() local_unnamed_addr #0 personality i8* bitcast (i32 (...)* @pluto to i8*) {
+define hidden void @barney() local_unnamed_addr #0 personality ptr @pluto {
 bb:
-  %init = load i64, i64* @res, align 8
+  %init = load i64, ptr @res, align 8
   %val2 = add i64 %init, 1
   invoke void @spam()
           to label %bb1 unwind label %bb37
@@ -173,182 +173,182 @@ bb36:                                             ; preds = %bb35
   unreachable
 
 bb37:                                             ; preds = %bb
-  %tmp = landingpad { i8*, i32 }
+  %tmp = landingpad { ptr, i32 }
           cleanup
   br label %bb175
 
 bb38:                                             ; preds = %bb1
-  %tmp39 = landingpad { i8*, i32 }
+  %tmp39 = landingpad { ptr, i32 }
           cleanup
   br label %bb173
 
 bb40:                                             ; preds = %bb2
-  %tmp41 = landingpad { i8*, i32 }
+  %tmp41 = landingpad { ptr, i32 }
           cleanup
   br label %bb171
 
 bb42:                                             ; preds = %bb3
-  %tmp43 = landingpad { i8*, i32 }
+  %tmp43 = landingpad { ptr, i32 }
           cleanup
   br label %bb169
 
 bb44:                                             ; preds = %bb4
-  %tmp45 = landingpad { i8*, i32 }
+  %tmp45 = landingpad { ptr, i32 }
           cleanup
   br label %bb167
 
 bb46:                                             ; preds = %bb5
-  %tmp47 = landingpad { i8*, i32 }
+  %tmp47 = landingpad { ptr, i32 }
           cleanup
   br label %bb165
 
 bb48:                                             ; preds = %bb6
-  %tmp49 = landingpad { i8*, i32 }
+  %tmp49 = landingpad { ptr, i32 }
           cleanup
   br label %bb163
 
 bb50:                                             ; preds = %bb7
-  %tmp51 = landingpad { i8*, i32 }
+  %tmp51 = landingpad { ptr, i32 }
           cleanup
   br label %bb161
 
 bb52:                                             ; preds = %bb8
-  %tmp53 = landingpad { i8*, i32 }
+  %tmp53 = landingpad { ptr, i32 }
           cleanup
   br label %bb159
 
 bb54:                                             ; preds = %bb9
-  %tmp55 = landingpad { i8*, i32 }
+  %tmp55 = landingpad { ptr, i32 }
           cleanup
   br label %bb157
 
 bb56:                                             ; preds = %bb10
-  %tmp57 = landingpad { i8*, i32 }
+  %tmp57 = landingpad { ptr, i32 }
           cleanup
   br label %bb155
 
 bb58:                                             ; preds = %bb11
-  %tmp59 = landingpad { i8*, i32 }
+  %tmp59 = landingpad { ptr, i32 }
           cleanup
   br label %bb153
 
 bb60:                                             ; preds = %bb12
-  %tmp61 = landingpad { i8*, i32 }
+  %tmp61 = landingpad { ptr, i32 }
           cleanup
   br label %bb151
 
 bb62:                                             ; preds = %bb13
-  %tmp63 = landingpad { i8*, i32 }
+  %tmp63 = landingpad { ptr, i32 }
           cleanup
   br label %bb149
 
 bb64:                                             ; preds = %bb14
-  %tmp65 = landingpad { i8*, i32 }
+  %tmp65 = landingpad { ptr, i32 }
           cleanup
   br label %bb147
 
 bb66:                                             ; preds = %bb15
-  %tmp67 = landingpad { i8*, i32 }
+  %tmp67 = landingpad { ptr, i32 }
           cleanup
   br label %bb145
 
 bb68:                                             ; preds = %bb16
-  %tmp69 = landingpad { i8*, i32 }
+  %tmp69 = landingpad { ptr, i32 }
           cleanup
   br label %bb143
 
 bb70:                                             ; preds = %bb17
-  %tmp71 = landingpad { i8*, i32 }
+  %tmp71 = landingpad { ptr, i32 }
           cleanup
   br label %bb141
 
 bb72:                                             ; preds = %bb18
-  %tmp73 = landingpad { i8*, i32 }
+  %tmp73 = landingpad { ptr, i32 }
           cleanup
   br label %bb139
 
 bb74:                                             ; preds = %bb19
-  %tmp75 = landingpad { i8*, i32 }
+  %tmp75 = landingpad { ptr, i32 }
           cleanup
   br label %bb137
 
 bb76:                                             ; preds = %bb20
-  %tmp77 = landingpad { i8*, i32 }
+  %tmp77 = landingpad { ptr, i32 }
           cleanup
   br label %bb135
 
 bb78:                                             ; preds = %bb21
-  %tmp79 = landingpad { i8*, i32 }
+  %tmp79 = landingpad { ptr, i32 }
           cleanup
   br label %bb133
 
 bb80:                                             ; preds = %bb22
-  %tmp81 = landingpad { i8*, i32 }
+  %tmp81 = landingpad { ptr, i32 }
           cleanup
   br label %bb131
 
 bb82:                                             ; preds = %bb23
-  %tmp83 = landingpad { i8*, i32 }
+  %tmp83 = landingpad { ptr, i32 }
           cleanup
   br label %bb129
 
 bb84:                                             ; preds = %bb24
-  %tmp85 = landingpad { i8*, i32 }
+  %tmp85 = landingpad { ptr, i32 }
           cleanup
   br label %bb127
 
 bb86:                                             ; preds = %bb25
-  %tmp87 = landingpad { i8*, i32 }
+  %tmp87 = landingpad { ptr, i32 }
           cleanup
   br label %bb125
 
 bb88:                                             ; preds = %bb26
-  %tmp89 = landingpad { i8*, i32 }
+  %tmp89 = landingpad { ptr, i32 }
           cleanup
   br label %bb123
 
 bb90:                                             ; preds = %bb27
-  %tmp91 = landingpad { i8*, i32 }
+  %tmp91 = landingpad { ptr, i32 }
           cleanup
   br label %bb121
 
 bb92:                                             ; preds = %bb28
-  %tmp93 = landingpad { i8*, i32 }
+  %tmp93 = landingpad { ptr, i32 }
           cleanup
   br label %bb119
 
 bb94:                                             ; preds = %bb29
-  %tmp95 = landingpad { i8*, i32 }
+  %tmp95 = landingpad { ptr, i32 }
           cleanup
   br label %bb117
 
 bb96:                                             ; preds = %bb30
-  %tmp97 = landingpad { i8*, i32 }
+  %tmp97 = landingpad { ptr, i32 }
           cleanup
   br label %bb115
 
 bb98:                                             ; preds = %bb31
-  %tmp99 = landingpad { i8*, i32 }
+  %tmp99 = landingpad { ptr, i32 }
           cleanup
   br label %bb113
 
 bb100:                                            ; preds = %bb32
-  %tmp101 = landingpad { i8*, i32 }
+  %tmp101 = landingpad { ptr, i32 }
           cleanup
   br label %bb111
 
 bb102:                                            ; preds = %bb33
-  %tmp103 = landingpad { i8*, i32 }
+  %tmp103 = landingpad { ptr, i32 }
           cleanup
   br label %bb109
 
 bb104:                                            ; preds = %bb34
-  %tmp105 = landingpad { i8*, i32 }
+  %tmp105 = landingpad { ptr, i32 }
           cleanup
   br label %bb108
 
 bb106:                                            ; preds = %bb35
-  %tmp107 = landingpad { i8*, i32 }
+  %tmp107 = landingpad { ptr, i32 }
           cleanup
   br label %bb108
 
@@ -495,12 +495,12 @@ bb175:                                            ; preds = %bb173, %bb37
 bb177:                                            ; preds = %bb177, %bb175
   %tmp178 = phi i64 [ %tmp179, %bb177 ], [ %tmp176, %bb175 ]
   %tmp179 = add i64 %tmp178, 1
-  store i64 %tmp179, i64* @res, align 8
+  store i64 %tmp179, ptr @res, align 8
   %tmp180 = icmp eq i64 %tmp178, %val2
   br i1 %tmp180, label %bb181, label %bb177
 
 bb181:                                            ; preds = %bb177
-  resume { i8*, i32 } undef
+  resume { ptr, i32 } undef
 }
 
 attributes #0 = { "unsafe-fp-math"="true" }

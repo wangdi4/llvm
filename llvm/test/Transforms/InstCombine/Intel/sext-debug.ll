@@ -27,12 +27,12 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define dso_local void @_Z3foov() local_unnamed_addr {
 entry:
-  %tmp0 = load i32, i32* @tf_1_var_128, align 4
-  %tmp1 = load i32, i32* @tf_1_var_96, align 4
+  %tmp0 = load i32, ptr @tf_1_var_128, align 4
+  %tmp1 = load i32, ptr @tf_1_var_96, align 4
   %cmp = icmp eq i32 %tmp1, -1
   %tmp2 = sext i1 %cmp to i32
   %sub = add i32 %tmp0, %tmp2
   %conv2 = trunc i32 %sub to i16
-  store i16 %conv2, i16* @tf_1_var_168, align 2
+  store i16 %conv2, ptr @tf_1_var_168, align 2
   ret void
 }

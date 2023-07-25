@@ -14,7 +14,7 @@ target triple = "x86_64-pc-windows-msvc19.29.30133"
 %struct.widget = type { i64 }
 
 ; Function Attrs: argmemonly nofree nounwind willreturn
-declare void @llvm.memcpy.p0i8.p0i8.i64(i8* noalias nocapture writeonly, i8* noalias nocapture readonly, i64, i1 immarg) #0
+declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #0
 
 define dso_local void @quux() local_unnamed_addr #1 align 2 {
 bb:
@@ -39,20 +39,17 @@ bb5:                                              ; preds = %bb3
 
 bb6:                                              ; preds = %bb4, %bb1
   %tmp7 = phi i64 [ %tmp2, %bb4 ], [ %tmp2, %bb1 ]
-  %tmp8 = bitcast i8* undef to %struct.hoge*
-  %tmp9 = getelementptr inbounds %struct.hoge, %struct.hoge* %tmp8, i64 undef
-  %tmp10 = getelementptr inbounds %struct.hoge, %struct.hoge* %tmp9, i64 %tmp7
+  %tmp9 = getelementptr inbounds %struct.hoge, ptr undef, i64 undef
+  %tmp10 = getelementptr inbounds %struct.hoge, ptr %tmp9, i64 %tmp7
   br label %bb11
 
 bb11:                                             ; preds = %bb11, %bb6
-  %tmp12 = phi %struct.hoge* [ %tmp17, %bb11 ], [ undef, %bb6 ]
-  %tmp13 = phi %struct.hoge* [ %tmp16, %bb11 ], [ %tmp10, %bb6 ]
-  %tmp14 = bitcast %struct.hoge* %tmp13 to i8*
-  %tmp15 = bitcast %struct.hoge* %tmp12 to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* noundef nonnull align 8 dereferenceable(16) %tmp14, i8* noundef nonnull align 8 dereferenceable(16) %tmp15, i64 16, i1 false) #2
-  %tmp16 = getelementptr inbounds %struct.hoge, %struct.hoge* %tmp13, i64 1
-  %tmp17 = getelementptr inbounds %struct.hoge, %struct.hoge* %tmp12, i64 1
-  %tmp18 = icmp eq %struct.hoge* %tmp17, undef
+  %tmp12 = phi ptr [ %tmp17, %bb11 ], [ undef, %bb6 ]
+  %tmp13 = phi ptr [ %tmp16, %bb11 ], [ %tmp10, %bb6 ]
+  call void @llvm.memcpy.p0.p0.i64(ptr noundef nonnull align 8 dereferenceable(16) %tmp13, ptr noundef nonnull align 8 dereferenceable(16) %tmp12, i64 16, i1 false) #2
+  %tmp16 = getelementptr inbounds %struct.hoge, ptr %tmp13, i64 1
+  %tmp17 = getelementptr inbounds %struct.hoge, ptr %tmp12, i64 1
+  %tmp18 = icmp eq ptr %tmp17, undef
   br i1 %tmp18, label %bb19, label %bb11
 
 bb19:                                             ; preds = %bb11
