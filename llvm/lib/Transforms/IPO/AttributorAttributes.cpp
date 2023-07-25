@@ -11422,7 +11422,7 @@ struct AAPotentialValuesReturned : public AAPotentialValuesFloating {
   /// See AbstractAttribute::updateImpl(...).
   ChangeStatus updateImpl(Attributor &A) override {
     auto AssumedBefore = getAssumed();
-    bool UsedAssumedInformation;
+    bool UsedAssumedInformation = false;
 
     SmallVector<AA::ValueAndContext> Values;
     Function *AnchorScope = getAnchorScope();
@@ -11507,7 +11507,7 @@ struct AAPotentialValuesReturned : public AAPotentialValuesFloating {
           Changed = ChangeStatus::CHANGED;
       return true;
     };
-    bool UsedAssumedInformation;
+    bool UsedAssumedInformation = false;
     (void)A.checkForAllInstructions(RetInstPred, *this, {Instruction::Ret},
                                     UsedAssumedInformation,
                                     /* CheckBBLivenessOnly */ true);
