@@ -1004,6 +1004,16 @@ public:
     return FpPragmaStack.CurrentValue;
   }
 
+  class FpPragmaStackSaveRAII {
+  public:
+    FpPragmaStackSaveRAII(Sema &S) : S(S), SavedStack(S.FpPragmaStack) {}
+    ~FpPragmaStackSaveRAII() { S.FpPragmaStack = std::move(SavedStack); }
+
+  private:
+    Sema &S;
+    PragmaStack<FPOptionsOverride> SavedStack;
+  };
+
   void resetFPOptions(FPOptions FPO) {
     CurFPFeatures = FPO;
     FpPragmaStack.Stack.clear();

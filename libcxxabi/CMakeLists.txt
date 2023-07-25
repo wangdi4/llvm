@@ -73,9 +73,6 @@ option(LIBCXXABI_HAS_WIN32_THREAD_API "Ignore auto-detection and force use of wi
 option(LIBCXXABI_HAS_EXTERNAL_THREAD_API
   "Build libc++abi with an externalized threading API.
   This option may only be set to ON when LIBCXXABI_ENABLE_THREADS=ON." OFF)
-option(LIBCXXABI_BUILD_EXTERNAL_THREAD_LIBRARY
-  "Build libc++abi with an externalized threading library.
-   This option may only be set to ON when LIBCXXABI_ENABLE_THREADS=ON" OFF)
 option(LIBCXXABI_ENABLE_FORGIVING_DYNAMIC_CAST
 "Make dynamic_cast more forgiving when type_info's mistakenly have hidden \
 visibility, and thus multiple type_infos can exist for a single type. \
@@ -363,11 +360,6 @@ if (NOT LIBCXXABI_ENABLE_THREADS)
                         " be set to ON when LIBCXXABI_ENABLE_THREADS"
                         " is also set to ON.")
   endif()
-  if (LIBCXXABI_BUILD_EXTERNAL_THREAD_LIBRARY)
-    message(FATAL_ERROR "LIBCXXABI_BUILD_EXTERNAL_THREAD_LIBRARY can only"
-                        " be set to ON when LIBCXXABI_ENABLE_THREADS"
-                        " is also set to ON.")
-  endif()
   add_definitions(-D_LIBCXXABI_HAS_NO_THREADS)
 endif()
 
@@ -380,11 +372,6 @@ if (LIBCXXABI_HAS_EXTERNAL_THREAD_API)
   if (LIBCXXABI_HAS_WIN32_THREAD_API)
     message(FATAL_ERROR "The options LIBCXXABI_HAS_EXTERNAL_THREAD_API"
                         " and LIBCXXABI_HAS_WIN32_THREAD_API cannot be both"
-                        " set to ON at the same time.")
-  endif()
-  if (LIBCXXABI_BUILD_EXTERNAL_THREAD_LIBRARY)
-    message(FATAL_ERROR "The options LIBCXXABI_BUILD_EXTERNAL_THREAD_LIBRARY"
-                        " and LIBCXXABI_HAS_EXTERNAL_THREAD_API cannot be both"
                         " set to ON at the same time.")
   endif()
 endif()
@@ -404,9 +391,7 @@ if (LLVM_ENABLE_MODULES)
 endif()
 
 set(LIBCXXABI_HAS_UNDEFINED_SYMBOLS OFF)
-if ((NOT LIBCXXABI_ENABLE_NEW_DELETE_DEFINITIONS)
-    OR (LIBCXXABI_BUILD_EXTERNAL_THREAD_LIBRARY AND LIBCXXABI_ENABLE_SHARED)
-    OR MINGW)
+if ((NOT LIBCXXABI_ENABLE_NEW_DELETE_DEFINITIONS) OR MINGW)
   set(LIBCXXABI_HAS_UNDEFINED_SYMBOLS ON)
 endif()
 
@@ -430,10 +415,6 @@ endif()
 
 if (LIBCXXABI_HAS_EXTERNAL_THREAD_API)
   add_definitions(-D_LIBCPP_HAS_THREAD_API_EXTERNAL)
-endif()
-
-if (LIBCXXABI_BUILD_EXTERNAL_THREAD_LIBRARY)
-  add_definitions(-D_LIBCPP_HAS_THREAD_LIBRARY_EXTERNAL)
 endif()
 
 if (MSVC)
