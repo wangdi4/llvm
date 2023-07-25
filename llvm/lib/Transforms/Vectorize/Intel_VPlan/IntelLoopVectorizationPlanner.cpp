@@ -149,6 +149,17 @@ static cl::opt<bool> EnableDivergentBranchLoops(
     "vplan-enable-divergent-branches", cl::init(true), cl::Hidden,
     cl::desc("Enable vectorization of loops containing divergent branches."));
 
+static cl::opt<bool> EnableMaskedRemTCRuntimeCheck(
+    "vplan-enable-masked-rem-tc-runtime-check", cl::Hidden, cl::init(true),
+    cl::desc("Prefer a scalar remainder loop if vector remainder is not "
+             "profitable for the runtime TC value."));
+
+static cl::opt<uint64_t>
+    MaskedRemTCThreshold("vplan-masked-rem-tc-threshold", cl::Hidden,
+                         cl::init(5),
+                         cl::desc("Minimum TC value to consider switching to "
+                                  "scalar remainder profitable."));
+
 static LoopVPlanDumpControl LCSSADumpControl("lcssa", "LCSSA transformation");
 static LoopVPlanDumpControl LoopCFUDumpControl("loop-cfu",
                                                "LoopCFU transformation");
@@ -2027,6 +2038,11 @@ void LoopVectorizationPlanner::updateVecScenario(
   case RemKind::MaskedVector:
     // Note: for masked remainder we use the same VF as for main loop.
     VecScenario.addMaskedRemainder(VF);
+    if (EnableMaskedRemTCRuntimeCheck && !isVecRemainderEnforced() &&
+        RE.getMinProfitableMaskedRemTC() >= MaskedRemTCThreshold) {
+      VecScenario.addScalarRemainder();
+      VecScenario.setMinProfitableMaskedRemTC(RE.getMinProfitableMaskedRemTC());
+    }
     break;
   }
   if (MainIsMasked) {
