@@ -414,6 +414,7 @@ class __attribute__((sycl_special_class)) __SYCL_TYPE(annotated_ptr) annotated_p
 } // namespace experimental
 } // namespace oneapi
 } // namespace ext
+<<<<<<< HEAD
 
 #ifdef INTEL_CUSTOMIZATION
 namespace ext {
@@ -431,6 +432,9 @@ public:
 } // namespace ext
 #endif // INTEL_CUSTOMIZATION
 } // inline namespace _V1
+=======
+} // namespace _V1
+>>>>>>> 9568e36490ddccc405486daeaffa05d48cd7bcb1
 } // namespace sycl
 
 #endif
