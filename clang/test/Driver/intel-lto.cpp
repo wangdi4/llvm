@@ -10,7 +10,7 @@
 // CHECK_LTO: "-plugin-opt=fintel-libirc-allowed"
 // CHECK_LTO: "-plugin-opt=-disable-hir-generate-mkl-call"
 // CHECK_LTO: "-plugin-opt=-intel-abi-compatible=true"
-// CHECK_LTO: "-plugin-opt=-dummy-option"
+// CHECK_LTO-NOT: "-plugin-opt=-dummy-option"
 
 // RUN: %clang_cl --target=x86_64-pc-windows-msvc -flto -fuse-ld=lld --intel -mllvm -dummy-option -### %s 2>&1 \
 // RUN: %clang_cl --target=x86_64-pc-windows-msvc -Qipo --intel -mllvm -dummy-option -### %s 2>&1 \

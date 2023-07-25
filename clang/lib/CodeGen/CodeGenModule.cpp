@@ -70,6 +70,7 @@
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Frontend/OpenMP/OMPIRBuilder.h"
+#include "llvm/IR/AttributeMask.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Intrinsics.h"
@@ -559,7 +560,7 @@ void CodeGenModule::createOpenMPRuntime() {
   case llvm::Triple::nvptx:
   case llvm::Triple::nvptx64:
   case llvm::Triple::amdgcn:
-    assert(getLangOpts().OpenMPIsDevice &&
+    assert(getLangOpts().OpenMPIsTargetDevice &&
            "OpenMP AMDGPU/NVPTX is only prepared to deal with device code.");
     OpenMPRuntime.reset(new CGOpenMPRuntimeGPU(*this));
     break;
@@ -1227,13 +1228,17 @@ void CodeGenModule::Release() {
                               getTarget().getTargetOpts().NVVMCudaPrecSqrt);
   }
 
+  if (LangOpts.SYCLIsDevice && LangOpts.SYCLIsNativeCPU) {
+    getModule().addModuleFlag(llvm::Module::Error, "is-native-cpu", 1);
+  }
+
   if (LangOpts.EHAsynch)
     getModule().addModuleFlag(llvm::Module::Warning, "eh-asynch", 1);
 
   // Indicate whether this Module was compiled with -fopenmp
   if (getLangOpts().OpenMP && !getLangOpts().OpenMPSimd)
     getModule().addModuleFlag(llvm::Module::Max, "openmp", LangOpts.OpenMP);
-  if (getLangOpts().OpenMPIsDevice)
+  if (getLangOpts().OpenMPIsTargetDevice)
     getModule().addModuleFlag(llvm::Module::Max, "openmp-device",
                               LangOpts.OpenMP);
 
@@ -2581,6 +2586,10 @@ void CodeGenModule::GenKernelArgMetadata(llvm::Function *Fn,
       Fn->setMetadata("kernel_arg_exclusive_ptr",
                       llvm::MDNode::get(VMContext, argSYCLAccessorPtrs));
     }
+    if (LangOpts.SYCLIsNativeCPU) {
+      Fn->setMetadata("kernel_arg_type",
+                      llvm::MDNode::get(VMContext, argTypeNames));
+    }
   } else {
     if (getLangOpts().OpenCL || getLangOpts().SYCLIsDevice) {
       Fn->setMetadata("kernel_arg_addr_space",
@@ -2822,8 +2831,8 @@ void CodeGenModule::SetLLVMFunctionAttributesForDefinition(const Decl *D,
   // functions. If the current target's C++ ABI requires this and this is a
   // member function, set its alignment accordingly.
   if (getTarget().getCXXABI().areMemberFunctionsAligned()) {
-    if (F->getAlignment() < 2 && isa<CXXMethodDecl>(D))
-      F->setAlignment(llvm::Align(2));
+    if (F->getPointerAlignment(getDataLayout()) < 2 && isa<CXXMethodDecl>(D))
+      F->setAlignment(std::max(llvm::Align(2), F->getAlign().valueOrOne()));
   }
 
   // In the cross-dso CFI mode with canonical jump tables, we want !type
@@ -2854,7 +2863,7 @@ void CodeGenModule::SetLLVMFunctionAttributesForDefinition(const Decl *D,
 #ifdef INTEL_CUSTOMIZATION
   // Attach auto-cpu-dispatch and auto-arch target metadata on function
   // definitions(not declarations) in non-offload modules.
-  if (!getLangOpts().OpenMPIsDevice && !getLangOpts().SYCLIsDevice) {
+  if (!getLangOpts().OpenMPIsTargetDevice && !getLangOpts().SYCLIsDevice) {
     // Skip functions that are manually marked for multiversioning
     // and those which are tuned using attribute "target".
     auto *FD = dyn_cast<FunctionDecl>(D);
@@ -2868,15 +2877,6 @@ void CodeGenModule::SetLLVMFunctionAttributesForDefinition(const Decl *D,
     }
   }
 #endif // INTEL_CUSTOMIZATION
-}
-
-void CodeGenModule::setLLVMFunctionFEnvAttributes(const FunctionDecl *D,
-                                                  llvm::Function *F) {
-  if (D->hasAttr<StrictFPAttr>()) {
-    llvm::AttrBuilder FuncAttrs(F->getContext());
-    FuncAttrs.addAttribute("strictfp");
-    F->addFnAttrs(FuncAttrs);
-  }
 }
 
 void CodeGenModule::SetCommonAttributes(GlobalDecl GD, llvm::GlobalValue *GV) {
@@ -2959,8 +2959,7 @@ bool CodeGenModule::GetCPUAndFeaturesAttributes(GlobalDecl GD,
     if (SD) {
       // Apply the given CPU name as the 'tune-cpu' so that the optimizer can
       // favor this processor.
-      TuneCPU = getTarget().getCPUSpecificTuneName(
-          SD->getCPUName(GD.getMultiVersionIndex())->getName());
+      TuneCPU = SD->getCPUName(GD.getMultiVersionIndex())->getName();
     }
   } else {
     // Otherwise just add the existing target cpu and target features to the
@@ -3241,7 +3240,7 @@ static void addDeclareVariantAttributes(CodeGenModule &CGM,
 }
 
 void CodeGenModule::SetTargetRegionFunctionAttributes(llvm::Function *Fn) {
-  if (Fn && getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice &&
+  if (Fn && getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsTargetDevice &&
       inTargetRegion() && getOpenMPRuntime().getShouldMarkAsGlobal())
     Fn->addFnAttr("openmp-target-declare", "true");
 }
@@ -3297,9 +3296,6 @@ std::string CodeGenModule::getUniqueItaniumABIMangledName(GlobalDecl GD) {
 }
 #endif // INTEL_COLLAB
 void CodeGenModule::setKCFIType(const FunctionDecl *FD, llvm::Function *F) {
-  if (isa<CXXMethodDecl>(FD) && !cast<CXXMethodDecl>(FD)->isStatic())
-    return;
-
   llvm::LLVMContext &Ctx = F->getContext();
   llvm::MDBuilder MDB(Ctx);
   F->setMetadata(llvm::LLVMContext::MD_kcfi_type,
@@ -3345,6 +3341,19 @@ void CodeGenModule::finalizeKCFITypes() {
                           .str();
     M.appendModuleInlineAsm(Asm);
   }
+}
+
+template <typename AttrT>
+void applySYCLAspectsMD(AttrT *A, ASTContext &ACtx, llvm::LLVMContext &LLVMCtx,
+                        llvm::Function *F, StringRef MDName) {
+  SmallVector<llvm::Metadata *, 4> AspectsMD;
+  for (auto *Aspect : A->aspects()) {
+    llvm::APSInt AspectInt = Aspect->EvaluateKnownConstInt(ACtx);
+    auto *T = llvm::Type::getInt32Ty(LLVMCtx);
+    auto *C = llvm::Constant::getIntegerValue(T, AspectInt);
+    AspectsMD.push_back(llvm::ConstantAsMetadata::get(C));
+  }
+  F->setMetadata(MDName, llvm::MDNode::get(LLVMCtx, AspectsMD));
 }
 
 void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
@@ -3474,6 +3483,15 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
                                                CalleeIdx, PayloadIndices,
                                                /* VarArgsArePassed */ false)}));
   }
+
+  // Apply SYCL specific attributes/metadata.
+  if (const auto *A = FD->getAttr<SYCLDeviceHasAttr>())
+    applySYCLAspectsMD(A, getContext(), getLLVMContext(), F,
+                       "sycl_declared_aspects");
+
+  if (const auto *A = FD->getAttr<SYCLUsesAspectsAttr>())
+    applySYCLAspectsMD(A, getContext(), getLLVMContext(), F,
+                       "sycl_used_aspects");
 }
 
 void CodeGenModule::addUsedGlobal(llvm::GlobalValue *GV) {
@@ -4429,7 +4447,7 @@ ConstantAddress CodeGenModule::GetWeakRefReference(const ValueDecl *VD) {
 
 #if INTEL_COLLAB
 static bool canDefineAliasOnTarget(CodeGenModule &CGM, GlobalDecl GD) {
-  if (!CGM.getLangOpts().OpenMPIsDevice)
+  if (!CGM.getLangOpts().OpenMPIsTargetDevice)
     return true;
 
   // If compiling OpenMP device code only define this if it is marked
@@ -4892,7 +4910,7 @@ void CodeGenModule::EmitGlobalDefinition(GlobalDecl GD, llvm::GlobalValue *GV) {
 
     if (const auto *Method = dyn_cast<CXXMethodDecl>(D)) {
 #if INTEL_COLLAB
-      if (getLangOpts().OpenMPIsDevice &&
+      if (getLangOpts().OpenMPIsTargetDevice &&
           (isa<CXXConstructorDecl>(Method) || isa<CXXDestructorDecl>(Method))) {
         // Check if already emitted and if so return. This happens in the
         // EmitGlobalFunctionDefinition path but not for structors. This can
@@ -5330,7 +5348,7 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
   // the iFunc instead. Name Mangling will handle the rest of the changes.
   if (const FunctionDecl *FD = cast_or_null<FunctionDecl>(D)) {
     // For the device mark the function as one that should be emitted.
-    if (getLangOpts().OpenMPIsDevice && OpenMPRuntime &&
+    if (getLangOpts().OpenMPIsTargetDevice && OpenMPRuntime &&
         !OpenMPRuntime->markAsGlobalTarget(GD) && FD->isDefined() &&
         !DontDefer && !IsForDefinition) {
       if (const FunctionDecl *FDDef = FD->getDefinition()) {
@@ -5455,20 +5473,8 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
   }
 
   assert(F->getName() == MangledName && "name was uniqued!");
-  if (D) {
+  if (D)
     SetFunctionAttributes(GD, F, IsIncompleteFunction, IsThunk);
-    if (const auto *A = D->getAttr<SYCLDeviceHasAttr>()) {
-      SmallVector<llvm::Metadata *, 4> AspectsMD;
-      for (auto *Aspect : A->aspects()) {
-        llvm::APSInt AspectInt = Aspect->EvaluateKnownConstInt(getContext());
-        auto *T = llvm::Type::getInt32Ty(getLLVMContext());
-        auto *C = llvm::Constant::getIntegerValue(T, AspectInt);
-        AspectsMD.push_back(llvm::ConstantAsMetadata::get(C));
-      }
-      F->setMetadata("sycl_declared_aspects",
-                     llvm::MDNode::get(getLLVMContext(), AspectsMD));
-    }
-  }
   if (ExtraAttrs.hasFnAttrs()) {
     llvm::AttrBuilder B(F->getContext(), ExtraAttrs.getFnAttrs());
     F->addFnAttrs(B);
@@ -5539,7 +5545,7 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
   }
 
 #if INTEL_COLLAB
-  if (getLangOpts().OpenMPIsDevice && getLangOpts().OpenMPLateOutline)
+  if (getLangOpts().OpenMPIsTargetDevice && getLangOpts().OpenMPLateOutline)
     if (auto *OldFn = dyn_cast_or_null<llvm::Function>(Entry))
       if (OldFn->hasFnAttribute("openmp-target-declare"))
         F->addFnAttr("openmp-target-declare", "true");
@@ -6174,7 +6180,7 @@ LangAS CodeGenModule::GetGlobalVarAddressSpace(const VarDecl *D) {
     if (OpenMPRuntime->hasAllocateAttributeForGlobalVar(D, AS))
       return AS;
 #if INTEL_COLLAB
-    if (LangOpts.OpenMPLateOutline && LangOpts.OpenMPIsDevice) {
+    if (LangOpts.OpenMPLateOutline && LangOpts.OpenMPIsTargetDevice) {
       if (D && D->getType().getAddressSpace() != LangAS::Default)
         // Allow overriding the address space, e.g.
         // with __attribute__((opencl_constant)).
@@ -6206,7 +6212,7 @@ LangAS CodeGenModule::GetGlobalConstantAddressSpace() const {
 #if INTEL_COLLAB
   if (generatingOpenCLConstants())
     return LangAS::opencl_constant;
-  if (LangOpts.OpenMPLateOutline && LangOpts.OpenMPIsDevice)
+  if (LangOpts.OpenMPLateOutline && LangOpts.OpenMPIsTargetDevice)
     return LangAS::sycl_global;
 #endif // INTEL_COLLAB
   if (auto AS = getTarget().getConstantAddressSpace())
@@ -6595,7 +6601,7 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
 
   // If this is OpenMP device, check if it is legal to emit this global
   // normally.
-  if (LangOpts.OpenMPIsDevice && OpenMPRuntime &&
+  if (LangOpts.OpenMPIsTargetDevice && OpenMPRuntime &&
       OpenMPRuntime->emitTargetGlobalVariable(D))
     return;
 
@@ -7258,9 +7264,6 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
 
   maybeSetTrivialComdat(*D, *Fn);
 
-  // Set CodeGen attributes that represent floating point environment.
-  setLLVMFunctionFEnvAttributes(D, Fn);
-
   CodeGenFunction(*this).GenerateCode(GD, Fn, FI);
 
   setNonAliasAttributes(GD, Fn);
@@ -7288,7 +7291,7 @@ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
         getOpenMPRuntime().registerTargetIndirectFn(
             getUniqueItaniumABIMangledName(GD), GV);
         Fn->addFnAttr("openmp-target-declare", "true");
-        if (getLangOpts().OpenMPIsDevice)
+        if (getLangOpts().OpenMPIsTargetDevice)
           Fn->addFnAttr("referenced-indirectly");
       }
     }
@@ -7615,7 +7618,7 @@ CodeGenModule::GetAddrOfConstantCFString(const StringLiteral *Literal) {
   }
 
   // Note: -fwritable-strings doesn't make the backing store strings of
-  // CFStrings writable. (See <rdar://problem/10657500>)
+  // CFStrings writable.
   auto *GV =
       new llvm::GlobalVariable(getModule(), C->getType(), /*isConstant=*/true,
                                llvm::GlobalValue::PrivateLinkage, C, ".str");
@@ -8363,7 +8366,7 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
     if (LangOpts.CUDA && LangOpts.CUDAIsDevice)
       break;
     // File-scope asm is ignored during device-side OpenMP compilation.
-    if (LangOpts.OpenMPIsDevice)
+    if (LangOpts.OpenMPIsTargetDevice)
       break;
     // File-scope asm is ignored during device-side SYCL compilation.
     if (LangOpts.SYCLIsDevice)
@@ -8810,7 +8813,7 @@ void CodeGenModule::EmitIntelDriverTempfile() {
   if (!getLangOpts().IntelCompat ||
       !getLangOpts().OpenMPLateOutline ||
       getLangOpts().IntelDriverTempfileName.empty() ||
-      getLangOpts().OpenMPIsDevice)
+      getLangOpts().OpenMPIsTargetDevice)
     return;
 
   StringRef MainFileName;
@@ -8871,7 +8874,7 @@ llvm::Constant *CodeGenModule::GetAddrOfRTTIDescriptor(QualType Ty,
   // FIXME: should we even be calling this method if RTTI is disabled
   // and it's not for EH?
   if ((!ForEH && !getLangOpts().RTTI) || getLangOpts().CUDAIsDevice ||
-      (getLangOpts().OpenMP && getLangOpts().OpenMPIsDevice &&
+      (getLangOpts().OpenMP && getLangOpts().OpenMPIsTargetDevice &&
        getTriple().isNVPTX()))
 #if INTEL_COLLAB
     return llvm::Constant::getNullValue(DefaultInt8PtrTy);

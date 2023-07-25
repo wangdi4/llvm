@@ -27,6 +27,7 @@
 #include "clang/Basic/CodeGenOptions.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/LangOptions.h"
+#include "clang/Basic/SYCLNativeCPUHelpers.h"
 #include "clang/Basic/TargetOptions.h"
 #include "clang/Basic/Targets/SPIR.h"
 #include "clang/Frontend/FrontendDiagnostic.h"
@@ -55,7 +56,6 @@
 #include "llvm/IRPrinter/IRPrintingPasses.h"
 #include "llvm/LTO/LTOBackend.h"
 #include "llvm/MC/MCAsmInfo.h"
-#include "llvm/MC/SubtargetFeature.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Object/OffloadBinary.h"
 #include "llvm/Passes/PassBuilder.h"
@@ -63,8 +63,10 @@
 #include "llvm/Passes/StandardInstrumentations.h"
 #include "llvm/SYCLLowerIR/CompileTimePropertiesPass.h"
 #include "llvm/SYCLLowerIR/ESIMD/ESIMDVerifier.h"
+#include "llvm/SYCLLowerIR/EmitSYCLNativeCPUHeader.h"
 #include "llvm/SYCLLowerIR/LowerWGLocalMemory.h"
 #include "llvm/SYCLLowerIR/MutatePrintfAddrspace.h"
+#include "llvm/SYCLLowerIR/PrepareSYCLNativeCPU.h"
 #include "llvm/SYCLLowerIR/SYCLAddOptLevelAttribute.h"
 #include "llvm/SYCLLowerIR/SYCLPropagateAspectsUsage.h"
 #include "llvm/Support/BuryPointer.h"
@@ -78,6 +80,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
+#include "llvm/TargetParser/SubtargetFeature.h"
 #include "llvm/TargetParser/Triple.h"
 #include "llvm/Transforms/IPO/DeadArgumentElimination.h"
 #include "llvm/Transforms/IPO/LowerTypeTests.h"
@@ -928,7 +931,7 @@ static void addKCFIPass(const Triple &TargetTriple, const LangOptions &LangOpts,
                         PassBuilder &PB) {
   // If the back-end supports KCFI operand bundle lowering, skip KCFIPass.
   if (TargetTriple.getArch() == llvm::Triple::x86_64 ||
-      TargetTriple.isAArch64(64))
+      TargetTriple.isAArch64(64) || TargetTriple.isRISCV())
     return;
 
   // Ensure we lower KCFI operand bundles with -O0.
@@ -1365,6 +1368,12 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
 
       // Process properties and annotations
       MPM.addPass(CompileTimePropertiesPass());
+
+      if (LangOpts.SYCLIsNativeCPU) {
+        MPM.addPass(
+            EmitSYCLNativeCPUHeaderPass(getNativeCPUHeaderName(LangOpts)));
+        MPM.addPass(PrepareSYCLNativeCPUPass());
+      }
     }
   }
 

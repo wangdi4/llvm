@@ -47,7 +47,7 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPDefaultConstructor(const Expr *IPriv,
   // If generating device code, don't emit the routine if we are not inside
   // a target region, since it won't be used and will cause problems if
   // used from a later target region.
-  if (CGF.getLangOpts().OpenMPIsDevice && !CGM.inTargetRegion())
+  if (CGF.getLangOpts().OpenMPIsTargetDevice && !CGM.inTargetRegion())
     return llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
 
   if (!IPriv)
@@ -119,7 +119,7 @@ OpenMPLateOutliner::emitOpenMPDestructor(QualType Ty, bool IsUDR) {
   // If generating device code, don't emit the routine if we are not inside
   // a target region, since it won't be used and will cause problems if
   // used from a later target region.
-  if (CGF.getLangOpts().OpenMPIsDevice && !CGM.inTargetRegion())
+  if (CGF.getLangOpts().OpenMPIsTargetDevice && !CGM.inTargetRegion())
     return llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
 
   SmallString<256> OutName;
@@ -170,7 +170,7 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
   // If generating device code, don't emit the routine if we are not inside
   // a target region, since it won't be used and will cause problems if
   // used from a later target region.
-  if (CGF.getLangOpts().OpenMPIsDevice && !CGM.inTargetRegion())
+  if (CGF.getLangOpts().OpenMPIsTargetDevice && !CGM.inTargetRegion())
     return llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
 
   if (!IPriv)
@@ -291,7 +291,7 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyAssign(QualType Ty,
   // If generating device code, don't emit the routine if we are not inside
   // a target region, since it won't be used and will cause problems if
   // used from a later target region.
-  if (CGF.getLangOpts().OpenMPIsDevice && !CGM.inTargetRegion())
+  if (CGF.getLangOpts().OpenMPIsTargetDevice && !CGM.inTargetRegion())
     return llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
 
   auto &C = CGM.getContext();
@@ -1391,7 +1391,7 @@ void OpenMPLateOutliner::emitOMPPrivateClause(const OMPPrivateClause *Cl) {
   // Private clauses may generate routines used in target region so
   // setup the TargetRegion context if needed.
   bool IsDeviceTarget =
-      CGF.getLangOpts().OpenMPIsDevice &&
+      CGF.getLangOpts().OpenMPIsTargetDevice &&
       (CGF.CGM.inTargetRegion() ||
        isOpenMPTargetExecutionDirective(Directive.getDirectiveKind()));
   CodeGenModule::InTargetRegionRAII ITR(CGF.CGM, IsDeviceTarget);
@@ -1500,7 +1500,7 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
   // Reduction clauses may generate routines used in target region so
   // setup the TargetRegion context if needed.
   bool IsDeviceTarget =
-      CGF.getLangOpts().OpenMPIsDevice &&
+      CGF.getLangOpts().OpenMPIsTargetDevice &&
       (CGF.CGM.inTargetRegion() ||
        isOpenMPTargetExecutionDirective(Directive.getDirectiveKind()));
 
@@ -1520,7 +1520,7 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
     if (const OMPDeclareReductionDecl *DRD = CGOpenMPRuntime::getRedInit(*I)) {
       IsUDR = true;
       // If device compile only generate routines used in target regions.
-      if (!CGF.getLangOpts().OpenMPIsDevice || IsDeviceTarget) {
+      if (!CGF.getLangOpts().OpenMPIsTargetDevice || IsDeviceTarget) {
         CodeGenModule::InTargetRegionRAII ITR(CGF.CGM, IsDeviceTarget);
         std::pair<llvm::Function *, llvm::Function *> InitCombiner;
         InitCombiner = CGF.CGM.getOpenMPRuntime().getUserDefinedReduction(DRD);
@@ -1530,7 +1530,7 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
     } else if (!isa<BinaryOperator>((*I)->IgnoreImpCasts())) {
       IsUDR = true;
       // If device compile only generate routines used in target regions.
-      if (!CGF.getLangOpts().OpenMPIsDevice || IsDeviceTarget) {
+      if (!CGF.getLangOpts().OpenMPIsTargetDevice || IsDeviceTarget) {
         CodeGenModule::InTargetRegionRAII ITR(CGF.CGM, IsDeviceTarget);
         const auto *LVD = cast<VarDecl>(cast<DeclRefExpr>(*ILHS)->getDecl());
         const auto *RVD = cast<VarDecl>(cast<DeclRefExpr>(*IRHS)->getDecl());
@@ -1673,7 +1673,7 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
       addArg(E, IsRef, UseTypedClauses, /*NeedsTypedElements=*/true, ElemTy);
     else
       addTypedArg(E, IsRef);
-    if (IsUDR && CGF.getLangOpts().OpenMPIsDevice && !IsDeviceTarget) {
+    if (IsUDR && CGF.getLangOpts().OpenMPIsTargetDevice && !IsDeviceTarget) {
       // A UDR seen outside device code will be thrown away. Just add null
       // values for all the UDR routines (constructor, destructor, combiner,
       // and init.
@@ -1795,7 +1795,7 @@ void OpenMPLateOutliner::emitOMPFirstprivateClause(
   // Firstprivate clauses may generate routines used in target region so
   // setup the TargetRegion context if needed.
   bool IsDeviceTarget =
-      CGF.getLangOpts().OpenMPIsDevice &&
+      CGF.getLangOpts().OpenMPIsTargetDevice &&
       (CGF.CGM.inTargetRegion() ||
        isOpenMPTargetExecutionDirective(Directive.getDirectiveKind()));
   CodeGenModule::InTargetRegionRAII ITR(CGF.CGM, IsDeviceTarget);
@@ -4577,7 +4577,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
           llvm_unreachable("Unexpected next directive kind.");
       }
     }
-    bool IsDeviceTarget = getLangOpts().OpenMPIsDevice &&
+    bool IsDeviceTarget = getLangOpts().OpenMPIsTargetDevice &&
       isOpenMPTargetExecutionDirective(S.getDirectiveKind());
     if (IsDeviceTarget)
       addAttrsForFuncWithTargetRegion(CurFn);
@@ -4658,7 +4658,7 @@ void CodeGenFunction::EmitLateOutlineOMPLoopDirective(
   auto &&CodeGen = [&S,Kind](CodeGenFunction &CGF, PrePostActionTy &) {
     CGF.EmitLateOutlineOMPLoop(S, Kind);
   };
-  bool IsDeviceTarget = getLangOpts().OpenMPIsDevice &&
+  bool IsDeviceTarget = getLangOpts().OpenMPIsTargetDevice &&
     isOpenMPTargetExecutionDirective(S.getDirectiveKind());
   if (IsDeviceTarget)
     addAttrsForFuncWithTargetRegion(CurFn);

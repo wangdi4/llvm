@@ -56,6 +56,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringExtras.h"
 
 #if INTEL_CUSTOMIZATION
 #include "clang/Basic/PartialDiagnostic.h"

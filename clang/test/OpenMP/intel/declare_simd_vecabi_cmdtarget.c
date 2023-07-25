@@ -22,9 +22,9 @@ double set_c(float* b, float p)
   return *b + p;
 }
 
-// sandybridge, Integer width:16, Floating width:32
+// core_2nd_gen_avx, Integer width:16, Floating width:32
 
 // CHECK-DAG: _ZGVyN4l4v_set_a
 // CHECK-DAG: _ZGVyN8l4v_set_b
 // CHECK-DAG: _ZGVyN4l4v_set_c
-// CHECK-DAG: sandybridge
+// CHECK-DAG: core_2nd_gen_avx

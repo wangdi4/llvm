@@ -229,7 +229,8 @@ static bool isSameDeclaration(Decl *X, Decl *Y) {
 static DeducedTemplateArgument
 checkDeducedTemplateArguments(ASTContext &Context,
                               const DeducedTemplateArgument &X,
-                              const DeducedTemplateArgument &Y) {
+                              const DeducedTemplateArgument &Y,
+                              bool AggregateCandidateDeduction = false) {
   // We have no deduction for one or both of the arguments; they're compatible.
   if (X.isNull())
     return Y;
@@ -367,20 +368,24 @@ checkDeducedTemplateArguments(ASTContext &Context,
 
   case TemplateArgument::Pack: {
     if (Y.getKind() != TemplateArgument::Pack ||
-        X.pack_size() != Y.pack_size())
+        (!AggregateCandidateDeduction && X.pack_size() != Y.pack_size()))
       return DeducedTemplateArgument();
 
     llvm::SmallVector<TemplateArgument, 8> NewPack;
-    for (TemplateArgument::pack_iterator XA = X.pack_begin(),
-                                      XAEnd = X.pack_end(),
-                                         YA = Y.pack_begin();
+    for (TemplateArgument::pack_iterator
+             XA = X.pack_begin(),
+             XAEnd = X.pack_end(), YA = Y.pack_begin(), YAEnd = Y.pack_end();
          XA != XAEnd; ++XA, ++YA) {
-      TemplateArgument Merged = checkDeducedTemplateArguments(
-          Context, DeducedTemplateArgument(*XA, X.wasDeducedFromArrayBound()),
-          DeducedTemplateArgument(*YA, Y.wasDeducedFromArrayBound()));
-      if (Merged.isNull() && !(XA->isNull() && YA->isNull()))
-        return DeducedTemplateArgument();
-      NewPack.push_back(Merged);
+      if (YA != YAEnd) {
+        TemplateArgument Merged = checkDeducedTemplateArguments(
+            Context, DeducedTemplateArgument(*XA, X.wasDeducedFromArrayBound()),
+            DeducedTemplateArgument(*YA, Y.wasDeducedFromArrayBound()));
+        if (Merged.isNull() && !(XA->isNull() && YA->isNull()))
+          return DeducedTemplateArgument();
+        NewPack.push_back(Merged);
+      } else {
+        NewPack.push_back(*XA);
+      }
     }
 
     return DeducedTemplateArgument(
@@ -711,8 +716,10 @@ public:
   /// Prepare to deduce the packs named within Pattern.
   PackDeductionScope(Sema &S, TemplateParameterList *TemplateParams,
                      SmallVectorImpl<DeducedTemplateArgument> &Deduced,
-                     TemplateDeductionInfo &Info, TemplateArgument Pattern)
-      : S(S), TemplateParams(TemplateParams), Deduced(Deduced), Info(Info) {
+                     TemplateDeductionInfo &Info, TemplateArgument Pattern,
+                     bool DeducePackIfNotAlreadyDeduced = false)
+      : S(S), TemplateParams(TemplateParams), Deduced(Deduced), Info(Info),
+        DeducePackIfNotAlreadyDeduced(DeducePackIfNotAlreadyDeduced){
     unsigned NumNamedPacks = addPacks(Pattern);
     finishConstruction(NumNamedPacks);
   }
@@ -956,8 +963,13 @@ public:
 
       // Check the new pack matches any previous value.
       DeducedTemplateArgument OldPack = *Loc;
-      DeducedTemplateArgument Result =
-          checkDeducedTemplateArguments(S.Context, OldPack, NewPack);
+      DeducedTemplateArgument Result = checkDeducedTemplateArguments(
+          S.Context, OldPack, NewPack, DeducePackIfNotAlreadyDeduced);
+
+      Info.AggregateDeductionCandidateHasMismatchedArity =
+          OldPack.getKind() == TemplateArgument::Pack &&
+          NewPack.getKind() == TemplateArgument::Pack &&
+          OldPack.pack_size() != NewPack.pack_size() && !Result.isNull();
 
       // If we deferred a deduction of this pack, check that one now too.
       if (!Result.isNull() && !Pack.DeferredDeduction.isNull()) {
@@ -997,6 +1009,7 @@ private:
   TemplateDeductionInfo &Info;
   unsigned PackElements = 0;
   bool IsPartiallyExpanded = false;
+  bool DeducePackIfNotAlreadyDeduced = false;
   /// The number of expansions, if we have a fully-expanded pack in this scope.
   std::optional<unsigned> FixedNumExpansions;
 
@@ -3615,7 +3628,7 @@ Sema::TemplateDeductionResult Sema::FinishTemplateArgumentDeduction(
   if (FunctionTemplate->getFriendObjectKind())
     Owner = FunctionTemplate->getLexicalDeclContext();
   FunctionDecl *FD = FunctionTemplate->getTemplatedDecl();
-  // additional check for inline friend, 
+  // additional check for inline friend,
   // ```
   //   template <class F1> int foo(F1 X);
   //   template <int A1> struct A {
@@ -4110,7 +4123,7 @@ Sema::TemplateDeductionResult Sema::DeduceTemplateArguments(
     FunctionTemplateDecl *FunctionTemplate,
     TemplateArgumentListInfo *ExplicitTemplateArgs, ArrayRef<Expr *> Args,
     FunctionDecl *&Specialization, TemplateDeductionInfo &Info,
-    bool PartialOverloading,
+    bool PartialOverloading, bool AggregateDeductionCandidate,
     llvm::function_ref<bool(ArrayRef<QualType>)> CheckNonDependent) {
   if (FunctionTemplate->isInvalidDecl())
     return TDK_Invalid;
@@ -4197,9 +4210,12 @@ Sema::TemplateDeductionResult Sema::DeduceTemplateArguments(
       continue;
     }
 
+    bool IsTrailingPack = ParamIdx + 1 == NumParamTypes;
+
     QualType ParamPattern = ParamExpansion->getPattern();
     PackDeductionScope PackScope(*this, TemplateParams, Deduced, Info,
-                                 ParamPattern);
+                                 ParamPattern,
+                                 AggregateDeductionCandidate && IsTrailingPack);
 
     // C++0x [temp.deduct.call]p1:
     //   For a function parameter pack that occurs at the end of the
@@ -4217,7 +4233,7 @@ Sema::TemplateDeductionResult Sema::DeduceTemplateArguments(
     // the length of the explicitly-specified pack if it's expanded by the
     // parameter pack and 0 otherwise, and we treat each deduction as a
     // non-deduced context.
-    if (ParamIdx + 1 == NumParamTypes || PackScope.hasFixedArity()) {
+    if (IsTrailingPack || PackScope.hasFixedArity()) {
       for (; ArgIdx < Args.size() && PackScope.hasNextElement();
            PackScope.nextPackElement(), ++ArgIdx) {
         ParamTypesForArgChecking.push_back(ParamPattern);

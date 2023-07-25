@@ -60,7 +60,6 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeLegacyLICMPassPass(Registry);
   initializeLegacyLoopSinkPassPass(Registry);
   initializeLoopDataPrefetchLegacyPassPass(Registry);
-  initializeLoopAccessLegacyAnalysisPass(Registry);
   initializeLoopInstSimplifyLegacyPassPass(Registry);
   initializeLoopPredicationLegacyPassPass(Registry);
   initializeLoopRotateLegacyPassPass(Registry);
@@ -73,8 +72,6 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeLowerConstantIntrinsicsPass(Registry);
   initializeLowerExpectIntrinsicPass(Registry);
   initializeLowerGuardIntrinsicLegacyPassPass(Registry);
-  initializeLowerMatrixIntrinsicsLegacyPassPass(Registry);
-  initializeLowerMatrixIntrinsicsMinimalLegacyPassPass(Registry);
   initializeLowerWidenableConditionLegacyPassPass(Registry);
   initializeLowerSubscriptIntrinsicLegacyPassPass(Registry); // INTEL
   initializeMergeICmpsLegacyPassPass(Registry);
@@ -97,7 +94,6 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeSpeculativeExecutionLegacyPassPass(Registry);
   initializeStraightLineStrengthReduceLegacyPassPass(Registry);
   initializePlaceBackedgeSafepointsLegacyPassPass(Registry);
-  initializePlaceSafepointsLegacyPassPass(Registry);
 #if INTEL_CUSTOMIZATION
   initializeNonLTOGlobalOptLegacyPassPass(Registry);
 #if INTEL_FEATURE_SW_ADVANCED

@@ -324,7 +324,7 @@ LANGOPT(OpenMPStableFileID, 1, 0,
     "Compute file ids for OpenMP mangling using relative file path "
     "instead of using file system's file id.")
 #endif // INTEL_CUSTOMIZATION
-LANGOPT(OpenMPIsDevice    , 1, 0, "Generate code only for OpenMP target device")
+LANGOPT(OpenMPIsTargetDevice    , 1, 0, "Generate code only for OpenMP target device")
 LANGOPT(OpenMPCUDAMode    , 1, 0, "Generate code for OpenMP pragmas in SIMT/SPMD mode")
 LANGOPT(OpenMPIRBuilder   , 1, 0, "Use the experimental OpenMP-IR-Builder codegen path.")
 LANGOPT(OpenMPCUDANumSMs  , 32, 0, "Number of SMs for CUDA devices.")
@@ -380,6 +380,7 @@ LANGOPT(SYCLEnableIntHeaderDiags, 1, 0, "Enable diagnostics that require the "
         "SYCL integration header")
 LANGOPT(SYCLAllowVirtualFunctions, 1, 0,
         "Allow virtual functions calls in code for SYCL device")
+LANGOPT(SYCLIsNativeCPU      , 1, 0, "Generate code for SYCL NativeCPU")
 
 LANGOPT(HIPUseNewLaunchAPI, 1, 0, "Use new kernel launching API for HIP")
 
@@ -584,6 +585,8 @@ LANGOPT(IncrementalExtensions, 1, 0, " True if we want to process statements"
         "on the global scope, ignore EOF token and continue later on (thus "
         "avoid tearing the Lexer and etc. down). Controlled by "
         "-fincremental-extensions.")
+
+BENIGN_LANGOPT(CheckNew, 1, 0, "Do not assume C++ operator new may not return NULL")
 
 #undef LANGOPT
 #undef COMPATIBLE_LANGOPT

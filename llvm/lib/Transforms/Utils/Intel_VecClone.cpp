@@ -270,47 +270,6 @@ static bool isValidCPUName(StringRef Name, const Module *M) {
 }
 #endif // NDEBUG
 
-// Resolve target CPU name into name which is consumable by X86 target parser.
-static StringRef resolveCPUName(StringRef CPUName, const Module *M) {
-  // Lookup through additional aliases, if any.
-  // I.e. resolve "corei7" to "core_i7_sse4_2".
-  auto AliasName = [=](StringRef Name) -> StringRef {
-    return StringSwitch<StringRef>(Name)
-#define CPU_SPECIFIC_ALIAS_ADDITIONAL(NEW_NAME, NAME) .Case(NEW_NAME, NAME)
-#include "llvm/TargetParser/X86TargetParser.def"
-        .Default(Name);
-  };
-  auto GetTuneName = [=](StringRef Name) -> StringRef {
-    return StringSwitch<StringRef>(AliasName(Name))
-#define CPU_SPECIFIC(NAME, TUNE_NAME, MANGLING, FEATURES) .Case(NAME, TUNE_NAME)
-#define CPU_SPECIFIC_ALIAS(NEW_NAME, TUNE_NAME, NAME) .Case(NEW_NAME, TUNE_NAME)
-#include "llvm/TargetParser/X86TargetParser.def"
-        .Default("");
-  };
-
-  // An important note!
-  // This is rather strange that there are two tables used to lookup a CPU
-  // names. X86 target parser uses array of CPUs defined separately and it is
-  // just a subset of those defined in X86TargetParser.def. But clang front-end
-  // looks through the latter when resolving CPU name for dispatch-targets
-  // attribute. That particularly creates a problem that we cannot apply that
-  // name directly for "target-cpu"/"tune-cpu" attributes because
-  // parseArchX86/parseTuneCPU do lookups at the smaller table. For example
-  // "core_i7_sse4_2" is accepted for ompx_processor clause of simd declare
-  // pragma while "corei7" or "nehalem" is not accepted. So in order to generate
-  // valid attribute value we need to convert "core_i7_sse4_2" to another name,
-  // the alias that the X86 target parser would accept. Using tune name for
-  // that purpose does not sound like the right fit but it actually does exactly
-  // what we want. Looking via an alias name before further lookup is just
-  // a safety measure which technically is not required. So we will keep it
-  // for a case if pragma implementation changed to allow more aliases.
-  StringRef TargetCpu = GetTuneName(CPUName);
-  LLVM_DEBUG(dbgs() << "Dispatch target CPU " << CPUName << " resolved into "
-                    << TargetCpu << "\n");
-  assert(isValidCPUName(TargetCpu, M) && "Unsupported CPU name");
-  return TargetCpu;
-}
-
 // This routine does actually apply CPU-specific settings for a new clone
 // according to "target-dispatch" attribute data of the scalar function.
 static void applyTargetCPUData(
@@ -325,8 +284,7 @@ static void applyTargetCPUData(
   ArrayRef<StringRef> TargetCpuList = It->second;
   if (TargetCpuList.size() == 1) {
     // Targeted for specific CPU
-    StringRef TargetCpu =
-        resolveCPUName(TargetCpuList.front(), Clone->getParent());
+    StringRef TargetCpu = TargetCpuList.front();
     LLVM_DEBUG(dbgs() << "Targeting " << Clone->getName() << " for "
                       << TargetCpu << "\n");
     SmallVector<StringRef, 64> TargetCPUFeatures;
@@ -350,8 +308,7 @@ static void applyTargetCPUData(
 
   SmallVector<Metadata *> TargetMDs;
   for (StringRef TargetCPU : TargetCpuList) {
-    StringRef TargetCpu = resolveCPUName(TargetCPU, Clone->getParent());
-    TargetMDs.push_back(MDString::get(Ctx, TargetCpu));
+    TargetMDs.push_back(MDString::get(Ctx, TargetCPU));
   }
   MDNode *AutoCPUMultiVersionMetadata = MDNode::get(Ctx, TargetMDs);
   Clone->addMetadata("llvm.vec.auto.cpu.dispatch", *AutoCPUMultiVersionMetadata);

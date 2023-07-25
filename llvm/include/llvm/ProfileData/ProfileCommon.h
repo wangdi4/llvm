@@ -34,8 +34,9 @@ class FunctionSamples;
 
 } // end namespace sampleprof
 
-inline const char *getHotSectionPrefix() { return "hot"; }
+#ifdef INTEL_CUSTOMIZATION
 inline const char *getUnlikelySectionPrefix() { return "unlikely"; }
+#endif // INTEL_CUSTOMIZATION
 
 class ProfileSummaryBuilder {
 private:

@@ -1004,6 +1004,12 @@ public:
     return FpPragmaStack.CurrentValue;
   }
 
+  void resetFPOptions(FPOptions FPO) {
+    CurFPFeatures = FPO;
+    FpPragmaStack.Stack.clear();
+    FpPragmaStack.CurrentValue = FPO.getChangesFrom(FPOptions(LangOpts));
+  }
+
   // RAII object to push / pop sentinel slots for all MS #pragma stacks.
   // Actions should be performed only if we enter / exit a C++ method body.
   class PragmaStackSentinelRAII {
@@ -1231,7 +1237,7 @@ public:
   class DelayedDiagnostics;
 
   class DelayedDiagnosticsState {
-    sema::DelayedDiagnosticPool *SavedPool;
+    sema::DelayedDiagnosticPool *SavedPool = nullptr;
     friend class Sema::DelayedDiagnostics;
   };
   typedef DelayedDiagnosticsState ParsingDeclState;
@@ -4390,7 +4396,8 @@ public:
       bool AllowExplicitConversion = false,
       ADLCallKind IsADLCandidate = ADLCallKind::NotADL,
       ConversionSequenceList EarlyConversions = std::nullopt,
-      OverloadCandidateParamOrder PO = {});
+      OverloadCandidateParamOrder PO = {},
+      bool AggregateCandidateDeduction = false);
   void AddFunctionCandidates(const UnresolvedSetImpl &Functions,
                       ArrayRef<Expr *> Args,
                       OverloadCandidateSet &CandidateSet,
@@ -4431,7 +4438,8 @@ public:
       OverloadCandidateSet &CandidateSet, bool SuppressUserConversions = false,
       bool PartialOverloading = false, bool AllowExplicit = true,
       ADLCallKind IsADLCandidate = ADLCallKind::NotADL,
-      OverloadCandidateParamOrder PO = {});
+      OverloadCandidateParamOrder PO = {},
+      bool AggregateCandidateDeduction = false);
   bool CheckNonDependentConversions(
       FunctionTemplateDecl *FunctionTemplate, ArrayRef<QualType> ParamTypes,
       ArrayRef<Expr *> Args, OverloadCandidateSet &CandidateSet,
@@ -6146,6 +6154,8 @@ public:
   /// fragments (e.g. "foo" "bar" L"baz").
   ExprResult ActOnStringLiteral(ArrayRef<Token> StringToks,
                                 Scope *UDLScope = nullptr);
+
+  ExprResult ActOnUnevaluatedStringLiteral(ArrayRef<Token> StringToks);
 
   /// ControllingExprOrType is either an opaque pointer coming out of a
   /// ParsedType or an Expr *. FIXME: it'd be better to split this interface
@@ -9570,7 +9580,7 @@ public:
       FunctionTemplateDecl *FunctionTemplate,
       TemplateArgumentListInfo *ExplicitTemplateArgs, ArrayRef<Expr *> Args,
       FunctionDecl *&Specialization, sema::TemplateDeductionInfo &Info,
-      bool PartialOverloading,
+      bool PartialOverloading, bool AggregateDeductionCandidate,
       llvm::function_ref<bool(ArrayRef<QualType>)> CheckNonDependent);
 
   TemplateDeductionResult
@@ -9630,10 +9640,16 @@ public:
   /// not already done so.
   void DeclareImplicitDeductionGuides(TemplateDecl *Template,
                                       SourceLocation Loc);
+  FunctionTemplateDecl *DeclareImplicitDeductionGuideFromInitList(
+      TemplateDecl *Template, MutableArrayRef<QualType> ParamTypes,
+      SourceLocation Loc);
+  llvm::DenseMap<unsigned, CXXDeductionGuideDecl *>
+      AggregateDeductionCandidates;
 
   QualType DeduceTemplateSpecializationFromInitializer(
       TypeSourceInfo *TInfo, const InitializedEntity &Entity,
-      const InitializationKind &Kind, MultiExprArg Init);
+      const InitializationKind &Kind, MultiExprArg Init,
+      ParenListExpr *PL = nullptr);
 
   QualType deduceVarTypeFromInitializer(VarDecl *VDecl, DeclarationName Name,
                                         QualType Type, TypeSourceInfo *TSI,
@@ -9813,7 +9829,10 @@ public:
       /// Memoization means we are _not_ instantiating a template because
       /// it is already instantiated (but we entered a context where we
       /// would have had to if it was not already instantiated).
-      Memoization
+      Memoization,
+
+      /// We are building deduction guides for a class.
+      BuildingDeductionGuides,
     } Kind;
 
     /// Was the enclosing context a non-instantiation SFINAE context?
@@ -10126,6 +10145,13 @@ public:
                           const RequiresExpr *E,
                           sema::TemplateDeductionInfo &DeductionInfo,
                           SourceRange InstantiationRange);
+
+    struct BuildingDeductionGuidesTag {};
+    /// \brief Note that we are building deduction guides.
+    InstantiatingTemplate(Sema &SemaRef, SourceLocation PointOfInstantiation,
+                          TemplateDecl *Entity, BuildingDeductionGuidesTag,
+                          SourceRange InstantiationRange = SourceRange());
+
     /// Note that we have finished instantiating this template.
     void Clear();
 
@@ -14173,6 +14199,7 @@ public:
                                          ArrayRef<IdentifierLocPair> Protocols);
   void CodeCompleteObjCProtocolDecl(Scope *S);
   void CodeCompleteObjCInterfaceDecl(Scope *S);
+  void CodeCompleteObjCClassForwardDecl(Scope *S);
   void CodeCompleteObjCSuperclass(Scope *S,
                                   IdentifierInfo *ClassName,
                                   SourceLocation ClassNameLoc);
@@ -14335,6 +14362,7 @@ private:
   bool CheckRISCVLMUL(CallExpr *TheCall, unsigned ArgNum);
   bool CheckRISCVBuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
                                      CallExpr *TheCall);
+  void checkRVVTypeSupport(QualType Ty, SourceLocation Loc, ValueDecl *D);
   bool CheckLoongArchBuiltinFunctionCall(const TargetInfo &TI,
                                          unsigned BuiltinID, CallExpr *TheCall);
   bool CheckWebAssemblyBuiltinFunctionCall(const TargetInfo &TI,
@@ -14523,7 +14551,7 @@ public:
 private:
   void CheckImplicitConversions(Expr *E, SourceLocation CC = SourceLocation());
   void CheckBoolLikeConversion(Expr *E, SourceLocation CC);
-  void CheckForIntOverflow(Expr *E);
+  void CheckForIntOverflow(const Expr *E);
   void CheckUnsequencedOperations(const Expr *E);
 
   /// Perform semantic checks on a completed expression. This will either
@@ -14945,6 +14973,8 @@ struct LateParsedTemplate {
   CachedTokens Toks;
   /// The template function declaration to be late parsed.
   Decl *D;
+  /// Floating-point options in the point of definition.
+  FPOptions FPO;
 };
 
 template <>

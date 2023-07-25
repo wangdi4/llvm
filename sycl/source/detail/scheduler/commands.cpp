@@ -1533,8 +1533,9 @@ AllocaCommandBase *ExecCGCommand::getAllocaForReq(Requirement *Req) {
     if (Dep.MDepRequirement == Req)
       return Dep.MAllocaCmd;
   }
-  throw runtime_error("Alloca for command not found",
-                      PI_ERROR_INVALID_OPERATION);
+  throw sycl::exception(sycl::make_error_code(sycl::errc::runtime),
+                        "Alloca for command not found " +
+                            codeToString(PI_ERROR_INVALID_OPERATION));
 }
 
 std::vector<std::shared_ptr<const void>>
@@ -2210,8 +2211,6 @@ static pi_result SetKernelParamsAndLaunch(
       break;
     case kernel_param_kind_t::kind_accessor: {
       Requirement *Req = (Requirement *)(Arg.MPtr);
-      if (Req->MAccessRange == range<3>({0, 0, 0}))
-        break;
       assert(getMemAllocationFunc != nullptr &&
              "We should have caught this earlier.");
 
@@ -2257,10 +2256,11 @@ static pi_result SetKernelParamsAndLaunch(
     }
     case kernel_param_kind_t::kind_specialization_constants_buffer: {
       if (Queue->is_host()) {
-        throw sycl::feature_not_supported(
+        throw sycl::exception(
+            sycl::make_error_code(sycl::errc::feature_not_supported),
             "SYCL2020 specialization constants are not yet supported on host "
-            "device",
-            PI_ERROR_INVALID_OPERATION);
+            "device " +
+                codeToString(PI_ERROR_INVALID_OPERATION));
       }
       assert(DeviceImageImpl != nullptr);
       sycl::detail::pi::PiMem SpecConstsBuffer =
@@ -2277,7 +2277,9 @@ static pi_result SetKernelParamsAndLaunch(
       break;
     }
     case kernel_param_kind_t::kind_invalid:
-      throw runtime_error("Invalid kernel param kind", PI_ERROR_INVALID_VALUE);
+      throw sycl::exception(sycl::make_error_code(sycl::errc::runtime),
+                            "Invalid kernel param kind " +
+                                codeToString(PI_ERROR_INVALID_VALUE));
       break;
     }
   };
@@ -2524,8 +2526,9 @@ pi_int32 ExecCGCommand::enqueueImp() {
   switch (MCommandGroup->getType()) {
 
   case CG::CGTYPE::UpdateHost: {
-    throw runtime_error("Update host should be handled by the Scheduler.",
-                        PI_ERROR_INVALID_OPERATION);
+    throw sycl::exception(sycl::make_error_code(sycl::errc::runtime),
+                          "Update host should be handled by the Scheduler. " +
+                              codeToString(PI_ERROR_INVALID_VALUE));
   }
   case CG::CGTYPE::CopyAccToPtr: {
     CGCopy *Copy = (CGCopy *)MCommandGroup.get();
@@ -2715,7 +2718,9 @@ pi_int32 ExecCGCommand::enqueueImp() {
         break;
       }
       default:
-        throw runtime_error("Unsupported arg type", PI_ERROR_INVALID_VALUE);
+        throw sycl::exception(sycl::make_error_code(sycl::errc::runtime),
+                              "Unsupported arg type " +
+                                  codeToString(PI_ERROR_INVALID_VALUE));
       }
     }
 
@@ -2724,7 +2729,8 @@ pi_int32 ExecCGCommand::enqueueImp() {
     if (HostTask->MHostTask->isInteropTask()) {
       // Extract the Mem Objects for all Requirements, to ensure they are
       // available if a user asks for them inside the interop task scope
-      const std::vector<Requirement *> &HandlerReq = HostTask->getRequirements();
+      const std::vector<Requirement *> &HandlerReq =
+          HostTask->getRequirements();
       auto ReqToMemConv = [&ReqToMem, HostTask](Requirement *Req) {
         const std::vector<AllocaCommandBase *> &AllocaCmds =
             Req->MSYCLMemObj->MRecord->MAllocaCommands;
@@ -2742,9 +2748,10 @@ pi_int32 ExecCGCommand::enqueueImp() {
         assert(false &&
                "Can't get memory object due to no allocation available");
 
-        throw runtime_error(
-            "Can't get memory object due to no allocation available",
-            PI_ERROR_INVALID_MEM_OBJECT);
+        throw sycl::exception(
+            sycl::make_error_code(sycl::errc::runtime),
+            "Can't get memory object due to no allocation available " +
+                codeToString(PI_ERROR_INVALID_MEM_OBJECT));
       };
       std::for_each(std::begin(HandlerReq), std::end(HandlerReq), ReqToMemConv);
       std::sort(std::begin(ReqToMem), std::end(ReqToMem));
@@ -2826,7 +2833,9 @@ pi_int32 ExecCGCommand::enqueueImp() {
     throw runtime_error("CG type not implemented.", PI_ERROR_INVALID_OPERATION);
   }
   case CG::CGTYPE::None:
-    throw runtime_error("CG type not implemented.", PI_ERROR_INVALID_OPERATION);
+    throw sycl::exception(sycl::make_error_code(sycl::errc::runtime),
+                          "CG type not implemented. " +
+                              codeToString(PI_ERROR_INVALID_OPERATION));
   }
   return PI_ERROR_INVALID_OPERATION;
 }

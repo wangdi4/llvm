@@ -64,6 +64,7 @@ Using Clang as a Compiler
    ThinLTO
    APINotes
    DebuggingCoroutines
+   AMDGPUSupport
    CommandGuide/index
    FAQ
 
@@ -77,6 +78,7 @@ Using Clang as a Library
    ExternalClangExamples
    IntroductionToTheClangAST
    LibTooling
+   LibClang
    LibFormat
    ClangPlugins
    RAVFrontendAction

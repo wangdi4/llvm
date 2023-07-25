@@ -354,7 +354,8 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
                            bool ShouldPreserveAssemblyUseListOrder,
                            bool ShouldPreserveBitcodeUseListOrder,
                            bool EmitSummaryIndex, bool EmitModuleHash,
-                           bool EnableDebugify, bool VerifyDIPreserve) {
+                           bool EnableDebugify, bool VerifyDIPreserve,
+                           bool UnifiedLTO) {
   bool VerifyEachPass = VK == VK_VerifyEachPass;
 
   auto FS = vfs::getRealFileSystem();
@@ -439,9 +440,13 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
   // to false above so we shouldn't necessarily need to check whether or not the
   // option has been enabled.
   PTO.LoopUnrolling = !DisableLoopUnrolling;
+
 #if INTEL_CUSTOMIZATION
   PTO.DisableIntelProprietaryOpts = DisableIntelProprietaryOpts;
 #endif // INTEL_CUSTOMIZATION
+
+  PTO.UnifiedLTO = UnifiedLTO;
+
   PassBuilder PB(TM, PTO, P, &PIC);
   registerEPCallbacks(PB);
 

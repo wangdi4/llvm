@@ -73,6 +73,7 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Argument.h"
+#include "llvm/IR/AttributeMask.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
@@ -303,6 +304,14 @@ const MemoryMapParams Linux_X86_64_MemoryMapParams = {
     0x100000000000, // OriginBase
 };
 // NOLINTEND(readability-identifier-naming)
+
+// loongarch64 Linux
+const MemoryMapParams Linux_LoongArch64_MemoryMapParams = {
+    0,              // AndMask (not used)
+    0x500000000000, // XorMask
+    0,              // ShadowBase (not used)
+    0x100000000000, // OriginBase
+};
 
 namespace {
 
@@ -1126,6 +1135,9 @@ bool DataFlowSanitizer::initializeModule(Module &M) {
     break;
   case Triple::x86_64:
     MapParams = &Linux_X86_64_MemoryMapParams;
+    break;
+  case Triple::loongarch64:
+    MapParams = &Linux_LoongArch64_MemoryMapParams;
     break;
   default:
     report_fatal_error("unsupported architecture");
@@ -2155,9 +2167,14 @@ std::pair<Value *, Value *> DFSanFunction::loadShadowFast(
       ShadowSize == 4 ? Type::getInt32Ty(*DFS.Ctx) : Type::getInt64Ty(*DFS.Ctx);
 
   IRBuilder<> IRB(Pos);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  Value *CombinedWideShadow =
+      IRB.CreateAlignedLoad(WideShadowTy, ShadowAddr, ShadowAlign);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   Value *WideAddr = IRB.CreateBitCast(ShadowAddr, WideShadowTy->getPointerTo());
   Value *CombinedWideShadow =
       IRB.CreateAlignedLoad(WideShadowTy, WideAddr, ShadowAlign);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   unsigned WideShadowBitWidth = WideShadowTy->getIntegerBitWidth();
   const uint64_t BytesPerWideShadow = WideShadowBitWidth / DFS.ShadowWidthBits;
@@ -2194,10 +2211,17 @@ std::pair<Value *, Value *> DFSanFunction::loadShadowFast(
   // shadow).
   for (uint64_t ByteOfs = BytesPerWideShadow; ByteOfs < Size;
        ByteOfs += BytesPerWideShadow) {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    ShadowAddr = IRB.CreateGEP(WideShadowTy, ShadowAddr,
+                               ConstantInt::get(DFS.IntptrTy, 1));
+    Value *NextWideShadow =
+        IRB.CreateAlignedLoad(WideShadowTy, ShadowAddr, ShadowAlign);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
     WideAddr = IRB.CreateGEP(WideShadowTy, WideAddr,
                              ConstantInt::get(DFS.IntptrTy, 1));
     Value *NextWideShadow =
         IRB.CreateAlignedLoad(WideShadowTy, WideAddr, ShadowAlign);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
     CombinedWideShadow = IRB.CreateOr(CombinedWideShadow, NextWideShadow);
     if (ShouldTrackOrigins) {
       Value *NextOrigin = DFS.loadNextOrigin(Pos, OriginAlign, &OriginAddr);

@@ -2120,6 +2120,9 @@ bool VPlanDriverImpl::isVPlanCandidate<llvm::Loop>(Function &Fn, Loop *Lp) {
   if (!Lp->isInnermost())
     return false;
 
+  if (!LAIs)
+    return false;
+
   PredicatedScalarEvolution PSE(*SE, *Lp);
   LoopVectorizationRequirements Requirements;
   LoopVectorizeHints Hints(Lp, true, *ORE);

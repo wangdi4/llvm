@@ -139,6 +139,21 @@ using namespace clang::driver;
 using namespace clang;
 using namespace llvm::opt;
 
+// clang-offload-bundler is currently generating a 'standardized' target triple.
+// Triple's format - Architecture-Vendor-OS-Environment.
+// Bundle sections created by clang-offload-bundler contain the 'standardized'
+// triple. This routine transforms the triple specified by user as input to this
+// 'standardized' format to facilitate checks.
+static std::string standardizedTriple(std::string OrigTriple) {
+  if (OrigTriple.back() == '-') // Already standardized
+    return OrigTriple;
+  llvm::Triple t = llvm::Triple(OrigTriple);
+  return llvm::Triple(t.getArchName(), t.getVendorName(), t.getOSName(),
+                      t.getEnvironmentName())
+             .str() +
+         "-";
+}
+
 static std::optional<llvm::Triple> getOffloadTargetTriple(const Driver &D,
                                                           const ArgList &Args) {
   auto OffloadTargets = Args.getAllArgValues(options::OPT_offload_EQ);
@@ -244,7 +259,7 @@ Driver::Driver(StringRef ClangExecutable, StringRef TargetTriple,
     : Diags(Diags), VFS(std::move(VFS)), Mode(GCCMode),
       SaveTemps(SaveTempsNone), BitcodeEmbed(EmbedNone),
       Offload(OffloadHostDevice), CXX20HeaderType(HeaderMode_None),
-      ModulesModeCXX20(false), LTOMode(LTOK_None),
+      ModulesModeCXX20(false), LTOMode(LTOK_None), OffloadLTOMode(LTOK_None),
 #if INTEL_CUSTOMIZATION
       IntelPrintOptions(false), IntelMode(false), DPCPPMode(false),
 #endif // INTEL_CUSTOMIZATION
@@ -1592,18 +1607,23 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
   checkSingleArgValidity(DeviceCodeSplit,
                          {"per_kernel", "per_source", "auto", "off"});
 
+  bool IsSYCLNativeCPU = isSYCLNativeCPU(C.getInputArgs());
   Arg *SYCLForceTarget =
       getArgRequiringSYCLRuntime(options::OPT_fsycl_force_target_EQ);
   if (SYCLForceTarget) {
     StringRef Val(SYCLForceTarget->getValue());
     llvm::Triple TT(MakeSYCLDeviceTriple(Val));
-    if (!isValidSYCLTriple(TT))
+    // Todo: we skip the check for the valid SYCL target, because currently
+    // setting native_cpu as a target overrides all the other targets,
+    // re-enable the check once native_cpu can coexist.
+    if (!IsSYCLNativeCPU && !isValidSYCLTriple(TT))
       Diag(clang::diag::err_drv_invalid_sycl_target) << Val;
   }
   bool HasSYCLTargetsOption = SYCLTargets || SYCLLinkTargets || SYCLAddTargets;
+
   llvm::StringMap<StringRef> FoundNormalizedTriples;
   llvm::SmallVector<llvm::Triple, 4> UniqueSYCLTriplesVec;
-  if (HasSYCLTargetsOption) {
+  if (!IsSYCLNativeCPU && HasSYCLTargetsOption) {
     // At this point, we know we have a valid combination
     // of -fsycl*target options passed
     Arg *SYCLTargetsValues = SYCLTargets ? SYCLTargets : SYCLLinkTargets;
@@ -1711,6 +1731,11 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
         Diag(clang::diag::warn_drv_empty_joined_argument)
             << SYCLAddTargets->getAsString(C.getInputArgs());
     }
+  } else if (IsSYCLNativeCPU) {
+    const ToolChain *HostTC = C.getSingleOffloadToolChain<Action::OFK_Host>();
+    llvm::Triple HostTriple = HostTC->getTriple();
+    UniqueSYCLTriplesVec.push_back(HostTriple);
+    addSYCLDefaultTriple(C, UniqueSYCLTriplesVec);
   } else {
     // If -fsycl is supplied without -fsycl-*targets we will assume SPIR-V
     // unless -fintelfpga is supplied, which uses SPIR-V with fpga AOT.
@@ -2323,6 +2348,36 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
       UArgs->hasArg(options::OPT__SLASH_arm64EC)) {
     getDiags().Report(clang::diag::warn_target_override_arm64ec)
         << TC.getTriple().str();
+  }
+
+  // A common user mistake is specifying a target of aarch64-none-eabi or
+  // arm-none-elf whereas the correct names are aarch64-none-elf &
+  // arm-none-eabi. Detect these cases and issue a warning.
+  if (TC.getTriple().getOS() == llvm::Triple::UnknownOS &&
+      TC.getTriple().getVendor() == llvm::Triple::UnknownVendor) {
+    switch (TC.getTriple().getArch()) {
+    case llvm::Triple::arm:
+    case llvm::Triple::armeb:
+    case llvm::Triple::thumb:
+    case llvm::Triple::thumbeb:
+      if (TC.getTriple().getEnvironmentName() == "elf") {
+        Diag(diag::warn_target_unrecognized_env)
+            << TargetTriple
+            << (TC.getTriple().getArchName().str() + "-none-eabi");
+      }
+      break;
+    case llvm::Triple::aarch64:
+    case llvm::Triple::aarch64_be:
+    case llvm::Triple::aarch64_32:
+      if (TC.getTriple().getEnvironmentName().startswith("eabi")) {
+        Diag(diag::warn_target_unrecognized_env)
+            << TargetTriple
+            << (TC.getTriple().getArchName().str() + "-none-elf");
+      }
+      break;
+    default:
+      break;
+    }
   }
 
   // The compilation takes ownership of Args.
@@ -4489,7 +4544,12 @@ class OffloadingActionBuilder final {
                           const Driver::InputList &Inputs,
                           Action::OffloadKind OFKind,
                           OffloadingActionBuilder &OAB)
-        : DeviceActionBuilder(C, Args, Inputs, OFKind, OAB) {}
+        : DeviceActionBuilder(C, Args, Inputs, OFKind, OAB) {
+
+      CompileDeviceOnly = C.getDriver().offloadDeviceOnly();
+      Relocatable = Args.hasFlag(options::OPT_fgpu_rdc,
+                                 options::OPT_fno_gpu_rdc, /*Default=*/false);
+    }
 
     ActionBuilderReturnCode addDeviceDependences(Action *HostAction) override {
       // While generating code for CUDA, we only depend on the host input action
@@ -4642,9 +4702,6 @@ class OffloadingActionBuilder final {
           !C.hasOffloadToolChain<Action::OFK_HIP>())
         return false;
 
-      Relocatable = Args.hasFlag(options::OPT_fgpu_rdc,
-                                 options::OPT_fno_gpu_rdc, /*Default=*/false);
-
       const ToolChain *HostTC = C.getSingleOffloadToolChain<Action::OFK_Host>();
       assert(HostTC && "No toolchain for host compilation.");
       if (HostTC->getTriple().isNVPTX() ||
@@ -4663,7 +4720,6 @@ class OffloadingActionBuilder final {
               : C.getSingleOffloadToolChain<Action::OFK_HIP>());
 
       CompileHostOnly = C.getDriver().offloadHostOnly();
-      CompileDeviceOnly = C.getDriver().offloadDeviceOnly();
       EmitLLVM = Args.getLastArg(options::OPT_emit_llvm);
       EmitAsm = Args.getLastArg(options::OPT_S);
       FixedCUID = Args.getLastArgValue(options::OPT_cuid_EQ);
@@ -4913,17 +4969,41 @@ class OffloadingActionBuilder final {
     // only compilation. Bundle other type of output files only if
     // --gpu-bundle-output is specified for device only compilation.
     std::optional<bool> BundleOutput;
+    std::optional<bool> EmitReloc;
 
   public:
     HIPActionBuilder(Compilation &C, DerivedArgList &Args,
                      const Driver::InputList &Inputs,
                      OffloadingActionBuilder &OAB)
         : CudaActionBuilderBase(C, Args, Inputs, Action::OFK_HIP, OAB) {
+
       DefaultCudaArch = CudaArch::GFX906;
+
+      if (Args.hasArg(options::OPT_fhip_emit_relocatable,
+                      options::OPT_fno_hip_emit_relocatable)) {
+        EmitReloc = Args.hasFlag(options::OPT_fhip_emit_relocatable,
+                                 options::OPT_fno_hip_emit_relocatable, false);
+
+        if (*EmitReloc) {
+          if (Relocatable) {
+            C.getDriver().Diag(diag::err_opt_not_valid_with_opt)
+                << "-fhip-emit-relocatable"
+                << "-fgpu-rdc";
+          }
+
+          if (!CompileDeviceOnly) {
+            C.getDriver().Diag(diag::err_opt_not_valid_without_opt)
+                << "-fhip-emit-relocatable"
+                << "--cuda-device-only";
+          }
+        }
+      }
+
       if (Args.hasArg(options::OPT_gpu_bundle_output,
                       options::OPT_no_gpu_bundle_output))
         BundleOutput = Args.hasFlag(options::OPT_gpu_bundle_output,
-                                    options::OPT_no_gpu_bundle_output, true);
+                                    options::OPT_no_gpu_bundle_output, true) &&
+                       (!EmitReloc || !*EmitReloc);
     }
 
     bool canUseBundlerUnbundler() const override { return true; }
@@ -4970,8 +5050,10 @@ class OffloadingActionBuilder final {
       assert(!CompileHostOnly &&
              "Not expecting HIP actions in host-only compilation.");
 
+      bool ShouldLink = !EmitReloc || !*EmitReloc;
+
       if (!Relocatable && CurPhase == phases::Backend && !EmitLLVM &&
-          !EmitAsm) {
+          !EmitAsm && ShouldLink) {
         // If we are in backend phase, we attempt to generate the fat binary.
         // We compile each arch to IR and use a link action to generate code
         // object containing ISA. Then we use a special "link" action to create
@@ -5047,6 +5129,8 @@ class OffloadingActionBuilder final {
 
         return CompileDeviceOnly ? ABRT_Ignore_Host : ABRT_Success;
       } else if (CurPhase == phases::Link) {
+        if (!ShouldLink)
+          return ABRT_Success;
         // Save CudaDeviceActions to DeviceLinkerInputs for each GPU subarch.
         // This happens to each device action originated from each input file.
         // Later on, device actions in DeviceLinkerInputs are used to create
@@ -5084,8 +5168,11 @@ class OffloadingActionBuilder final {
         CudaDeviceActions.clear();
       }
 
-      return (CompileDeviceOnly && CurPhase == FinalPhase) ? ABRT_Ignore_Host
-                                                           : ABRT_Success;
+      return (CompileDeviceOnly &&
+              (CurPhase == FinalPhase ||
+               (!ShouldLink && CurPhase == phases::Assemble)))
+                 ? ABRT_Ignore_Host
+                 : ABRT_Success;
     }
 
     void appendLinkDeviceActions(ActionList &AL) override {
@@ -6688,6 +6775,19 @@ class OffloadingActionBuilder final {
           } else
             FullDeviceLinkAction = FullLinkObject;
 
+          bool IsSYCLNativeCPU = isSYCLNativeCPU(Args);
+          if (IsSYCLNativeCPU) {
+            // for SYCL Native CPU, we just take the linked device
+            // modules, lower them to an object file , and link it to the host
+            // object file.
+            auto *backendAct = C.MakeAction<BackendJobAction>(
+                FullDeviceLinkAction, types::TY_PP_Asm);
+            auto *asmAct =
+                C.MakeAction<AssembleJobAction>(backendAct, types::TY_Object);
+            DA.add(*asmAct, *TC, BoundArch, Action::OFK_SYCL);
+            return;
+          }
+
           // reflects whether current target is ahead-of-time and can't
           // support runtime setting of specialization constants
           bool isAOT = isNVPTX || isAMDGCN || isSpirvAOT;
@@ -7001,7 +7101,7 @@ class OffloadingActionBuilder final {
             Arch = C.getDriver().MakeSYCLDeviceTriple("spir64_fpga").str();
           if (std::find(UniqueSections.begin(), UniqueSections.end(), Arch) ==
               UniqueSections.end())
-            UniqueSections.push_back(Arch);
+            UniqueSections.push_back(standardizedTriple(Arch));
         }
       }
 
@@ -7014,7 +7114,7 @@ class OffloadingActionBuilder final {
           SectionTriple += "-";
           SectionTriple += SyclTarget.BoundArch;
         }
-
+        SectionTriple = standardizedTriple(SectionTriple);
         // If any matching section is found, we are good.
         if (std::find(UniqueSections.begin(), UniqueSections.end(),
                       SectionTriple) != UniqueSections.end())
@@ -7073,7 +7173,17 @@ class OffloadingActionBuilder final {
       bool GpuInitHasErrors = false;
       bool HasSYCLTargetsOption =
           SYCLAddTargets || SYCLTargets || SYCLLinkTargets;
-      if (HasSYCLTargetsOption) {
+      bool IsSYCLNativeCPU = isSYCLNativeCPU(C.getInputArgs());
+
+      // check if multiple targets are passed along with native_cpu:
+      // currently native_cpu overrides all the other targets, so we emit a
+      // warning
+      if (IsSYCLNativeCPU) {
+        auto *SYCLTargets = Args.getLastArg(options::OPT_fsycl_targets_EQ);
+        if (SYCLTargets->getNumValues() > 1)
+          C.getDriver().Diag(clang::diag::warn_drv_sycl_native_cpu_and_targets);
+      }
+      if (!IsSYCLNativeCPU && HasSYCLTargetsOption) {
         if (SYCLTargets || SYCLLinkTargets) {
           Arg *SYCLTargetsValues = SYCLTargets ? SYCLTargets : SYCLLinkTargets;
           // Fill SYCLTripleList
@@ -7206,6 +7316,14 @@ class OffloadingActionBuilder final {
               GpuArchList.emplace_back(TT, nullptr);
           }
         }
+      } else if (IsSYCLNativeCPU) {
+        const ToolChain *HostTC =
+            C.getSingleOffloadToolChain<Action::OFK_Host>();
+        llvm::Triple TT = HostTC->getTriple();
+        auto TCIt = llvm::find_if(
+            ToolChains, [&](auto &TC) { return TT == TC->getTriple(); });
+        SYCLTripleList.push_back(TT);
+        SYCLTargetInfoList.emplace_back(*TCIt, nullptr);
       } else if (HasValidSYCLRuntime) {
         // -fsycl is provided without -fsycl-*targets.
         bool SYCLfpga = C.getInputArgs().hasArg(options::OPT_fintelfpga);
@@ -7390,7 +7508,6 @@ public:
         ++InactiveBuilders;
         continue;
       }
-
       auto RetCode =
           SB->getDeviceDependences(DDeps, CurPhase, FinalPhase, Phases);
 
@@ -10780,6 +10897,10 @@ const ToolChain &Driver::getOffloadingDeviceToolChain(const ArgList &Args,
                 *this, Target, HostTC, Args, TargetDeviceOffloadKind);
             break;
           default:
+            if (isSYCLNativeCPU(Args)) {
+          TC = std::make_unique<toolchains::SYCLToolChain>(*this, Target,
+                                                           HostTC, Args);
+            }
           break;
         }
       break;

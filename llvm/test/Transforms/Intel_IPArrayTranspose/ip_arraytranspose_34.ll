@@ -7,9 +7,9 @@
 ; CHECK: Passed: All validations
 ; CHECK: Transpose is Profitable
 ; CHECK{LITERAL}: SCEV before: (20971520 + (8 * (zext i32 {{{-2621421,+,1310720}<%bb246>,+,5120}<%bb254>,+,20}<%bb263> to i64))<nuw><nsw> + %i73)
-; CHECK{LITERAL}: SCEV after: {{{(5140119552 + %i73),+,524288}<nw><%bb246>,+,2048}<nw><%bb254>,+,8}<nw><%bb263>
+; CHECK{LITERAL}: SCEV after: {{{(5140119552 + %i73)<nuw>,+,524288}<nuw><%bb246>,+,2048}<nuw><%bb254>,+,8}<nuw><%bb263>
 ; CHECK{LITERAL}: SCEV before: (20971520 + (8 * (zext i32 {{{-2621421,+,1310720}<%bb246>,+,5120}<%bb254>,+,20}<%bb263> to i64))<nuw><nsw> + %i73)
-; CHECK{LITERAL}: SCEV after: {{{(5140119552 + %i73),+,524288}<nw><%bb246>,+,2048}<nw><%bb254>,+,8}<nw><%bb263>
+; CHECK{LITERAL}: SCEV after: {{{(5140119552 + %i73)<nuw>,+,524288}<nuw><%bb246>,+,2048}<nuw><%bb254>,+,8}<nuw><%bb263>
 ; CHECK: IP Array Transpose: Done
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

@@ -3244,12 +3244,13 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
     Value *UnderlyingPtrOp =
             PtrOp->stripAndAccumulateInBoundsConstantOffsets(DL,
                                                              BasePtrOffset);
-    if (auto *AI = dyn_cast<AllocaInst>(UnderlyingPtrOp)) {
+    bool CanBeNull, CanBeFreed;
+    uint64_t DerefBytes = UnderlyingPtrOp->getPointerDereferenceableBytes(
+        DL, CanBeNull, CanBeFreed);
+    if (!CanBeNull && !CanBeFreed && DerefBytes != 0) {
       if (GEP.accumulateConstantOffset(DL, BasePtrOffset) &&
           BasePtrOffset.isNonNegative()) {
-        APInt AllocSize(
-            IdxWidth,
-            DL.getTypeAllocSize(AI->getAllocatedType()).getKnownMinValue());
+        APInt AllocSize(IdxWidth, DerefBytes);
         if (BasePtrOffset.ule(AllocSize)) {
           return GetElementPtrInst::CreateInBounds(
               GEP.getSourceElementType(), PtrOp, Indices, GEP.getName());
@@ -3462,8 +3463,11 @@ Instruction *InstCombinerImpl::visitAllocSite(Instruction &MI) {
 
       if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
         if (II->getIntrinsicID() == Intrinsic::objectsize) {
-          Value *Result =
-              lowerObjectSizeCall(II, DL, &TLI, AA, /*MustSucceed=*/true);
+          SmallVector<Instruction *> InsertedInstructions;
+          Value *Result = lowerObjectSizeCall(
+              II, DL, &TLI, AA, /*MustSucceed=*/true, &InsertedInstructions);
+          for (Instruction *Inserted : InsertedInstructions)
+            Worklist.add(Inserted);
           replaceInstUsesWith(*I, Result);
           eraseInstFromFunction(*I);
           Users[i] = nullptr; // Skip examining in the next loop.
@@ -3784,9 +3788,19 @@ bool InstCombinerImpl::handleUnreachableFrom(Instruction *I) {
 bool InstCombinerImpl::handlePotentiallyDeadSuccessors(BasicBlock *BB,
                                                        BasicBlock *LiveSucc) {
   bool Changed = false;
-  for (BasicBlock *Succ : successors(BB))
-    if (Succ != LiveSucc && Succ->getSinglePredecessor())
-      Changed |= handleUnreachableFrom(&Succ->front());
+  for (BasicBlock *Succ : successors(BB)) {
+    // The live successor isn't dead.
+    if (Succ == LiveSucc)
+      continue;
+
+    if (!all_of(predecessors(Succ), [&](BasicBlock *Pred) {
+          return DT.dominates(BasicBlockEdge(BB, Succ),
+                              BasicBlockEdge(Pred, Succ));
+        }))
+      continue;
+
+    Changed |= handleUnreachableFrom(&Succ->front());
+  }
   return Changed;
 }
 

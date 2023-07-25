@@ -115,6 +115,7 @@ int DeviceTy::associatePtr(void *HstPtrBegin, void *TgtPtrBegin, int64_t Size) {
                /*HstPtrBase=*/(uintptr_t)HstPtrBegin,
                /*HstPtrBegin=*/(uintptr_t)HstPtrBegin,
                /*HstPtrEnd=*/(uintptr_t)HstPtrBegin + Size,
+               /*TgtAllocBegin=*/(uintptr_t)TgtPtrBegin,
                /*TgtPtrBegin=*/(uintptr_t)TgtPtrBegin,
                /*UseHoldRefCount=*/false, /*Name=*/nullptr,
                /*IsRefCountINF=*/true))
@@ -249,9 +250,10 @@ LookupResult DeviceTy::lookupMapping(HDTTMapAccessorTy &HDTTMap,
 
 TargetPointerResultTy DeviceTy::getTargetPointer(
     HDTTMapAccessorTy &HDTTMap, void *HstPtrBegin, void *HstPtrBase,
-    int64_t Size, map_var_info_t HstPtrName, bool HasFlagTo, bool HasFlagAlways,
-    bool IsImplicit, bool UpdateRefCount, bool HasCloseModifier,
-    bool HasPresentModifier, bool HasHoldModifier, AsyncInfoTy &AsyncInfo,
+    int64_t TgtPadding, int64_t Size, map_var_info_t HstPtrName, bool HasFlagTo,
+    bool HasFlagAlways, bool IsImplicit, bool UpdateRefCount,
+    bool HasCloseModifier, bool HasPresentModifier, bool HasHoldModifier,
+    AsyncInfoTy &AsyncInfo,
 #if INTEL_COLLAB
     HostDataToTargetTy *OwnedTPR, bool ReleaseHDTTMap, bool UseHostMem) {
 #else  // INTEL_COLLAB
@@ -347,35 +349,39 @@ TargetPointerResultTy DeviceTy::getTargetPointer(
     LR.TPR.Flags.IsNewEntry = true;
 #if INTEL_COLLAB
     int32_t AllocOpt = UseHostMem ? ALLOC_OPT_HOST_MEM : ALLOC_OPT_NONE;
-    uintptr_t Ptr = (uintptr_t)dataAllocBase(Size, HstPtrBegin, HstPtrBase,
-                                             AllocOpt);
+    uintptr_t TgtAllocBegin = (uintptr_t)dataAllocBase(
+        TgtPadding + Size, HstPtrBegin, HstPtrBase, AllocOpt);
 #else  // INTEL_COLLAB
-    uintptr_t Ptr = (uintptr_t)allocData(Size, HstPtrBegin);
+    uintptr_t TgtAllocBegin =
+        (uintptr_t)allocData(TgtPadding + Size, HstPtrBegin);
 #endif // INTEL_COLLAB
+    uintptr_t TgtPtrBegin = TgtAllocBegin + TgtPadding;
     // Release the mapping table lock only after the entry is locked by
     // attaching it to TPR.
     LR.TPR.setEntry(HDTTMap
                         ->emplace(new HostDataToTargetTy(
                             (uintptr_t)HstPtrBase, (uintptr_t)HstPtrBegin,
-                            (uintptr_t)HstPtrBegin + Size, Ptr, HasHoldModifier,
-                            HstPtrName))
+                            (uintptr_t)HstPtrBegin + Size, TgtAllocBegin,
+                            TgtPtrBegin, HasHoldModifier, HstPtrName))
                         .first->HDTT);
 #if INTEL_CUSTOMIZATION
-    XPTIRegistry->traceMemAssociate((uintptr_t)HstPtrBegin, Ptr);
+    XPTIRegistry->traceMemAssociate((uintptr_t)HstPtrBegin, TgtPtrBegin);
 #endif // INTEL_CUSTOMIZATION
     INFO(OMP_INFOTYPE_MAPPING_CHANGED, DeviceID,
          "Creating new map entry with HstPtrBase=" DPxMOD
+         ", HstPtrBegin=" DPxMOD ", TgtAllocBegin=" DPxMOD", TgtPtrBegin=" DPxMOD
 #if INTEL_COLLAB
-         ", HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", Size=%" PRId64 ", "
+         ", Size=%" PRId64 ", "
 #else  // INTEL_COLLAB
-         ", HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", Size=%ld, "
+         ", Size=%ld, "
 #endif // INTEL_COLLAB
          "DynRefCount=%s, HoldRefCount=%s, Name=%s\n",
-         DPxPTR(HstPtrBase), DPxPTR(HstPtrBegin), DPxPTR(Ptr), Size,
+         DPxPTR(HstPtrBase), DPxPTR(HstPtrBegin), DPxPTR(TgtAllocBegin),
+         DPxPTR(TgtPtrBegin), Size,
          LR.TPR.getEntry()->dynRefCountToStr().c_str(),
          LR.TPR.getEntry()->holdRefCountToStr().c_str(),
          (HstPtrName) ? getNameFromMapping(HstPtrName).c_str() : "unknown");
-    LR.TPR.TargetPointer = (void *)Ptr;
+    LR.TPR.TargetPointer = (void *)TgtPtrBegin;
 
     // Notify the plugin about the new mapping.
     if (notifyDataMapped(HstPtrBegin, Size))
@@ -561,8 +567,9 @@ int DeviceTy::eraseMapEntry(HDTTMapAccessorTy &HDTTMap,
 int DeviceTy::deallocTgtPtrAndEntry(HostDataToTargetTy *Entry, int64_t Size) {
   assert(Entry && "Trying to deallocate a null entry.");
 
-  DP("Deleting tgt data " DPxMOD " of size %" PRId64 "\n",
-     DPxPTR(Entry->TgtPtrBegin), Size);
+  DP("Deleting tgt data " DPxMOD " of size %" PRId64 " by freeing allocation "
+     "starting at " DPxMOD "\n",
+     DPxPTR(Entry->TgtPtrBegin), Size, DPxPTR(Entry->TgtAllocBegin));
 
   void *Event = Entry->getEvent();
   if (Event && destroyEvent(Event) != OFFLOAD_SUCCESS) {
@@ -570,7 +577,7 @@ int DeviceTy::deallocTgtPtrAndEntry(HostDataToTargetTy *Entry, int64_t Size) {
     return OFFLOAD_FAIL;
   }
 
-  int Ret = deleteData((void *)Entry->TgtPtrBegin);
+  int Ret = deleteData((void *)Entry->TgtAllocBegin);
 
   // Notify the plugin about the unmapped memory.
   Ret |= notifyDataUnmapped((void *)Entry->HstPtrBegin);
@@ -632,14 +639,14 @@ void *DeviceTy::allocData(int64_t Size, void *HstPtr, int32_t Kind) {
 #endif // INTEL_CUSTOMIZATION
 }
 
-int32_t DeviceTy::deleteData(void *TgtPtrBegin, int32_t Kind) {
+int32_t DeviceTy::deleteData(void *TgtAllocBegin, int32_t Kind) {
 #if INTEL_CUSTOMIZATION
-  auto CorrID = XPTIRegistry->traceMemReleaseBegin((uintptr_t)TgtPtrBegin);
-  auto Rc = RTL->data_delete(RTLDeviceID, TgtPtrBegin, Kind);
-  XPTIRegistry->traceMemReleaseEnd((uintptr_t)TgtPtrBegin, CorrID);
+  auto CorrID = XPTIRegistry->traceMemReleaseBegin((uintptr_t)TgtAllocBegin);
+  auto Rc = RTL->data_delete(RTLDeviceID, TgtAllocBegin, Kind);
+  XPTIRegistry->traceMemReleaseEnd((uintptr_t)TgtAllocBegin, CorrID);
   return Rc;
 #else  // INTEL_CUSTOMIZATION
-  return RTL->data_delete(RTLDeviceID, TgtPtrBegin, Kind);
+  return RTL->data_delete(RTLDeviceID, TgtAllocBegin, Kind);
 #endif // INTEL_CUSTOMIZATION
 }
 

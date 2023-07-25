@@ -525,6 +525,12 @@ static bool FixupInvocation(CompilerInvocation &Invocation,
     LangOpts.NewAlignOverride = 0;
   }
 
+  // Diagnose FPAccuracy option validity.
+  if (!LangOpts.FPAccuracyVal.empty())
+    for (const auto &F : LangOpts.FPAccuracyFuncMap)
+      Diags.Report(diag::warn_function_fp_accuracy_already_set)
+          << F.second << F.first;
+
   // Prevent the user from specifying both -fsycl-is-device and -fsycl-is-host.
   if (LangOpts.SYCLIsDevice && LangOpts.SYCLIsHost)
     Diags.Report(diag::err_drv_argument_not_allowed_with) << "-fsycl-is-device"
@@ -1091,15 +1097,6 @@ static bool ParseAnalyzerArgs(AnalyzerOptions &Opts, ArgList &Args,
 
       A->claim();
       Opts.Config[key] = std::string(val);
-
-      // FIXME: Remove this hunk after clang-17 released.
-      constexpr auto SingleFAM =
-          "consider-single-element-arrays-as-flexible-array-members";
-      if (key == SingleFAM) {
-        Diags.Report(diag::warn_analyzer_deprecated_option_with_alternative)
-            << SingleFAM << "clang-17"
-            << "-fstrict-flex-arrays=<N>";
-      }
     }
   }
 
@@ -2108,9 +2105,6 @@ bool CompilerInvocation::ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args,
             << "-fdiagnostics-hotness-threshold=";
     }
   }
-
-  if (Args.getLastArg(options::OPT_ffp_builtin_accuracy_EQ))
-    Opts.FPAccuracy = 1;
 
   if (auto *arg =
           Args.getLastArg(options::OPT_fdiagnostics_misexpect_tolerance_EQ)) {
@@ -3591,8 +3585,8 @@ void CompilerInvocation::GenerateLangArgs(const LangOptions &Opts,
     if (!Opts.OpenMPUseTLS)
       GenerateArg(Args, OPT_fnoopenmp_use_tls, SA);
 
-    if (Opts.OpenMPIsDevice)
-      GenerateArg(Args, OPT_fopenmp_is_device, SA);
+    if (Opts.OpenMPIsTargetDevice)
+      GenerateArg(Args, OPT_fopenmp_is_target_device, SA);
 
     if (Opts.OpenMPIRBuilder)
       GenerateArg(Args, OPT_fopenmp_enable_irbuilder, SA);
@@ -3795,23 +3789,12 @@ void CompilerInvocation::ParseFpAccuracyArgs(LangOptions &Opts, ArgList &Args,
               FuncName = FuncName.drop_front(1);
             if (FuncName.back() == ']')
               FuncName = FuncName.drop_back(1);
-            auto FuncMap = Opts.FPAccuracyFuncMap.find(FuncName.str());
-            if (FuncMap != Opts.FPAccuracyFuncMap.end()) {
-              if (!FuncMap->second.empty()) {
-                Diags.Report(diag::warn_function_fp_accuracy_already_set)
-                    << FuncMap->second << FuncName.str();
-              }
-            } else {
-              checkFPAccuracyIsValid(ValElement[0], Diags);
-              if (!Opts.FPAccuracyVal.empty())
-                Diags.Report(diag::warn_function_fp_accuracy_already_set)
-                    << Opts.FPAccuracyVal << FuncName.str();
-              // No need to fill the map if the FPaccuracy is 'default'.
-              // The default builtin will be generated.
-              if (!ValElement[0].equals("default"))
-                Opts.FPAccuracyFuncMap.insert(
-                    {FuncName.str(), ValElement[0].str()});
-            }
+            checkFPAccuracyIsValid(ValElement[0], Diags);
+            // No need to fill the map if the FPaccuracy is 'default'.
+            // The default builtin will be generated.
+            if (!ValElement[0].equals("default"))
+              Opts.FPAccuracyFuncMap.insert(
+                  {FuncName.str(), ValElement[0].str()});
           }
         }
       }
@@ -4241,14 +4224,15 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
   Opts.OpenMPSimd = !Opts.OpenMP && IsSimdSpecified;
   Opts.OpenMPUseTLS = !Opts.OpenMPThreadPrivateLegacy && // INTEL
       Opts.OpenMP && !Args.hasArg(options::OPT_fnoopenmp_use_tls);
-  Opts.OpenMPIsDevice =
-      Opts.OpenMP && Args.hasArg(options::OPT_fopenmp_is_device);
+  Opts.OpenMPIsTargetDevice =
+      Opts.OpenMP && Args.hasArg(options::OPT_fopenmp_is_target_device);
   Opts.OpenMPIRBuilder =
       Opts.OpenMP && Args.hasArg(options::OPT_fopenmp_enable_irbuilder);
   bool IsTargetSpecified =
-      Opts.OpenMPIsDevice || Args.hasArg(options::OPT_fopenmp_targets_EQ);
+      Opts.OpenMPIsTargetDevice || Args.hasArg(options::OPT_fopenmp_targets_EQ);
 
-  Opts.ConvergentFunctions = Opts.ConvergentFunctions || Opts.OpenMPIsDevice;
+  Opts.ConvergentFunctions =
+      Opts.ConvergentFunctions || Opts.OpenMPIsTargetDevice;
 
 #if INTEL_CUSTOMIZATION
   Opts.OpenMPSimdOnly = false;
@@ -4276,7 +4260,7 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
       Opts.OpenMP = Version;
     // Provide diagnostic when a given target is not expected to be an OpenMP
     // device or host.
-    if (!Opts.OpenMPIsDevice) {
+    if (!Opts.OpenMPIsTargetDevice) {
       switch (T.getArch()) {
       default:
         break;
@@ -4296,13 +4280,13 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
 
   // Set the flag to prevent the implementation from emitting device exception
   // handling code for those requiring so.
-  if ((Opts.OpenMPIsDevice && (T.isNVPTX() || T.isAMDGCN())) ||
+  if ((Opts.OpenMPIsTargetDevice && (T.isNVPTX() || T.isAMDGCN())) ||
       Opts.OpenCLCPlusPlus) {
 
     Opts.Exceptions = 0;
     Opts.CXXExceptions = 0;
   }
-  if (Opts.OpenMPIsDevice && T.isNVPTX()) {
+  if (Opts.OpenMPIsTargetDevice && T.isNVPTX()) {
     Opts.OpenMPCUDANumSMs =
         getLastArgIntValue(Args, options::OPT_fopenmp_cuda_number_of_sm_EQ,
                            Opts.OpenMPCUDANumSMs, Diags);
@@ -4316,15 +4300,15 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
 
   // Set the value of the debugging flag used in the new offloading device RTL.
   // Set either by a specific value or to a default if not specified.
-  if (Opts.OpenMPIsDevice && (Args.hasArg(OPT_fopenmp_target_debug) ||
-                              Args.hasArg(OPT_fopenmp_target_debug_EQ))) {
+  if (Opts.OpenMPIsTargetDevice && (Args.hasArg(OPT_fopenmp_target_debug) ||
+                                    Args.hasArg(OPT_fopenmp_target_debug_EQ))) {
     Opts.OpenMPTargetDebug = getLastArgIntValue(
         Args, OPT_fopenmp_target_debug_EQ, Opts.OpenMPTargetDebug, Diags);
     if (!Opts.OpenMPTargetDebug && Args.hasArg(OPT_fopenmp_target_debug))
       Opts.OpenMPTargetDebug = 1;
   }
 
-  if (Opts.OpenMPIsDevice) {
+  if (Opts.OpenMPIsTargetDevice) {
     if (Args.hasArg(OPT_fopenmp_assume_teams_oversubscription))
       Opts.OpenMPTeamSubscription = true;
     if (Args.hasArg(OPT_fopenmp_assume_threads_oversubscription))
@@ -4383,7 +4367,8 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
   }
 
   // Set CUDA mode for OpenMP target NVPTX/AMDGCN if specified in options
-  Opts.OpenMPCUDAMode = Opts.OpenMPIsDevice && (T.isNVPTX() || T.isAMDGCN()) &&
+  Opts.OpenMPCUDAMode = Opts.OpenMPIsTargetDevice &&
+                        (T.isNVPTX() || T.isAMDGCN()) &&
                         Args.hasArg(options::OPT_fopenmp_cuda_mode);
 
   // FIXME: Eliminate this dependency.
@@ -4948,7 +4933,7 @@ bool CompilerInvocation::CreateFromArgsImpl(
   }
 
   // Set the triple of the host for OpenMP device compile.
-  if (LangOpts.OpenMPIsDevice)
+  if (LangOpts.OpenMPIsTargetDevice)
     Res.getTargetOpts().HostTriple = Res.getFrontendOpts().AuxTriple;
 
 #if INTEL_CUSTOMIZATION

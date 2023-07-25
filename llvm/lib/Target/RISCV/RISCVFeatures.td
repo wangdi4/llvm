@@ -344,7 +344,8 @@ def HasStdExtZcb : Predicate<"Subtarget->hasStdExtZcb()">,
 
 def FeatureStdExtZcd
     : SubtargetFeature<"zcd", "HasStdExtZcd", "true",
-                       "'Zcd' (Compressed Double-Precision Floating-Point Instructions)">;
+                       "'Zcd' (Compressed Double-Precision Floating-Point Instructions)",
+                       [FeatureStdExtZca]>;
 
 def HasStdExtCOrZcd
     : Predicate<"Subtarget->hasStdExtC() || Subtarget->hasStdExtZcd()">,
@@ -354,7 +355,8 @@ def HasStdExtCOrZcd
 
 def FeatureStdExtZcf
     : SubtargetFeature<"zcf", "HasStdExtZcf", "true",
-                       "'Zcf' (Compressed Single-Precision Floating-Point Instructions)">;
+                       "'Zcf' (Compressed Single-Precision Floating-Point Instructions)",
+                       [FeatureStdExtZca]>;
 
 def HasStdExtCOrZcf
     : Predicate<"Subtarget->hasStdExtC() || Subtarget->hasStdExtZcf()">,
@@ -654,6 +656,13 @@ def HasHalfFPLoadStoreMove
                                     "'Zfbfmin' (Scalar BF16 Converts) or "
                                     "'Zvfbfwma' (Vector BF16 widening mul-add)">;
 
+def FeatureStdExtZacas
+    : SubtargetFeature<"experimental-zacas", "HasStdExtZacas", "true",
+                       "'Zacas' (Atomic Compare-And-Swap Instructions)">;
+def HasStdExtZacas : Predicate<"Subtarget->hasStdExtZacas()">,
+                               AssemblerPredicate<(all_of FeatureStdExtZacas),
+                               "'Zacas' (Atomic Compare-And-Swap Instructions)">;
+
 //===----------------------------------------------------------------------===//
 // Vendor extensions
 //===----------------------------------------------------------------------===//
@@ -752,6 +761,12 @@ def HasVendorXSfvcp : Predicate<"Subtarget->hasVendorXSfvcp()">,
                                 AssemblerPredicate<(all_of FeatureVendorXSfvcp),
                                 "'XSfvcp' (SiFive Custom Vector Coprocessor Interface Instructions)">;
 
+def FeatureVendorXSfcie
+    : SubtargetFeature<"xsfcie", "HasVendorXSfcie", "true",
+                       "'XSfcie' (SiFive Custom Instruction Extension SCIE.)">;
+def HasVendorXSfcie : Predicate<"Subtarget->hasVendorXSfcie()">,
+                        AssemblerPredicate<(all_of FeatureVendorXSfcie),
+                        "'XSfcie' (SiFive Custom Instruction Extension SCIE.)">;
 
 def FeatureVendorXCVbitmanip
     : SubtargetFeature<"xcvbitmanip", "HasVendorXCVbitmanip", "true",

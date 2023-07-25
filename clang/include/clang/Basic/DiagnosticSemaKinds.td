@@ -494,9 +494,6 @@ def err_ellipsis_first_param : Error<
   "ISO C requires a named parameter before '...'">;
 def err_declarator_need_ident : Error<"declarator requires an identifier">;
 def err_language_linkage_spec_unknown : Error<"unknown linkage language">;
-def err_language_linkage_spec_not_ascii : Error<
-  "string literal in language linkage specifier cannot have an "
-  "encoding-prefix">;
 def ext_use_out_of_scope_declaration : ExtWarn<
   "use of out-of-scope declaration of %0%select{| whose type is not "
   "compatible with that of an implicit declaration}1">,
@@ -2749,7 +2746,7 @@ def note_immediate_function_reason : Note<
   "expression}3">;
 
 def note_invalid_consteval_initializer : Note<
-  "in the default initalizer of %0">;
+  "in the default initializer of %0">;
 def note_invalid_consteval_initializer_here : Note<
   "initialized here %0">;
 def err_invalid_consteval_decl_kind : Error<
@@ -3054,6 +3051,10 @@ def warn_auto_var_is_id : Warning<
 def warn_attribute_ignored_no_calls_in_stmt: Warning<
   "%0 attribute is ignored because there exists no call expression inside the "
   "statement">,
+  InGroup<IgnoredAttributes>;
+
+def warn_attribute_ignored_non_function_pointer: Warning<
+  "%0 attribute is ignored because %1 is not a function pointer">,
   InGroup<IgnoredAttributes>;
 
 def warn_function_attribute_ignored_in_stmt : Warning<
@@ -4798,9 +4799,6 @@ def note_ovl_candidate_bad_cvr : Note<
     "%select{const|restrict|const and restrict|volatile|const and volatile|"
     "volatile and restrict|const, volatile, and restrict}4 qualifier"
     "%select{||s||s|s|s}4">;
-def note_ovl_candidate_bad_unaligned : Note<
-    "candidate %sub{select_ovl_candidate_kind}0,1,2 not viable: "
-    "%ordinal5 argument (%3) would lose __unaligned qualifier">;
 def note_ovl_candidate_bad_base_to_derived_conv : Note<
     "candidate %sub{select_ovl_candidate_kind}0,1,2 not viable: "
     "cannot %select{convert from|convert from|bind}3 "
@@ -9809,7 +9807,7 @@ def note_lambda_capture_initializer : Note<
   "%select{implicitly |}2captured%select{| by reference}3"
   "%select{%select{ due to use|}2 here|"
   " via initialization of lambda capture %0}1">;
-def note_init_with_default_member_initalizer : Note<
+def note_init_with_default_member_initializer : Note<
   "initializing field %0 with default member initializer">;
 
 // Check for initializing a member variable with the address or a reference to
@@ -11525,22 +11523,11 @@ def note_global_module_introducer_missing : Note<
 def err_export_within_anonymous_namespace : Error<
   "export declaration appears within anonymous namespace">;
 def note_anonymous_namespace : Note<"anonymous namespace begins here">;
-def ext_export_no_name_block : ExtWarn<
-  "ISO C++20 does not permit %select{an empty|a static_assert}0 declaration "
-  "to appear in an export block">, InGroup<ExportUnnamed>;
-def ext_export_no_names : ExtWarn<
-  "ISO C++20 does not permit a declaration that does not introduce any names "
-  "to be exported">, InGroup<ExportUnnamed>;
-def introduces_no_names : Error<
-  "declaration does not introduce any names to be exported">;
 def note_export : Note<"export block begins here">;
-def err_export_no_name : Error<
-  "%select{empty|static_assert|asm}0 declaration cannot be exported">;
-def ext_export_using_directive : ExtWarn<
-  "ISO C++20 does not permit using directive to be exported">,
-  InGroup<DiagGroup<"export-using-directive">>;
 def err_export_within_export : Error<
   "export declaration appears within another export declaration">;
+def err_export_anon_ns_internal : Error<
+  "anonymous namespaces cannot be exported">;
 def err_export_internal : Error<
   "declaration of %0 with internal linkage cannot be exported">;
 def err_export_using_internal : Error<
@@ -11820,6 +11807,10 @@ def err_objc_type_args_specialized_class : Error<
 def err_objc_type_args_wrong_arity : Error<
   "too %select{many|few}0 type arguments for class %1 (have %2, expected %3)">;
 }
+
+def err_type_available_only_in_default_eval_method : Error<
+  "cannot use type '%0' within '#pragma clang fp eval_method'; type is set "
+  "according to the default eval method for the translation unit">;
 
 def err_objc_type_arg_not_id_compatible : Error<
   "type argument %0 is neither an Objective-C object nor a block type">;

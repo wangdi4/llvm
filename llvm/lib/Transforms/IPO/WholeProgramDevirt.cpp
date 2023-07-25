@@ -598,6 +598,10 @@ struct DevirtModule {
   // optimize a call more than once.
   SmallPtrSet<CallBase *, 8> OptimizedCalls;
 
+  // Store calls that had their ptrauth bundle removed. They are to be deleted
+  // at the end of the optimization.
+  SmallVector<CallBase *, 8> CallsWithPtrAuthBundleRemoved;
+
   // This map keeps track of the number of "unsafe" uses of a loaded function
   // pointer. The key is the associated llvm.type.test intrinsic call generated
   // by this pass. An unsafe use is one that calls the loaded function pointer
@@ -1182,7 +1186,7 @@ bool DevirtModule::tryFindVirtualCallTargets(
       return false;
 
     Constant *Ptr = getPointerAtOffset(TM.Bits->GV->getInitializer(),
-                                       TM.Offset + ByteOffset, M);
+                                       TM.Offset + ByteOffset, M, TM.Bits->GV);
     if (!Ptr)
       return false;
 
@@ -1364,6 +1368,14 @@ void DevirtModule::applySingleImplDevirt(VTableSlotInfo &SlotInfo,
         // !callees metadata.
         CB.setMetadata(LLVMContext::MD_prof, nullptr);
         CB.setMetadata(LLVMContext::MD_callees, nullptr);
+        if (CB.getCalledOperand() &&
+            CB.getOperandBundle(LLVMContext::OB_ptrauth)) {
+          auto *NewCS =
+              CallBase::removeOperandBundle(&CB, LLVMContext::OB_ptrauth, &CB);
+          CB.replaceAllUsesWith(NewCS);
+          // Schedule for deletion at the end of pass run.
+          CallsWithPtrAuthBundleRemoved.push_back(&CB);
+        }
       }
 
 #if INTEL_CUSTOMIZATION
@@ -1975,8 +1987,12 @@ void DevirtModule::applyVirtualConstProp(CallSiteInfo &CSInfo, StringRef FnName,
       Call.replaceAndErase("virtual-const-prop-1-bit", FnName, RemarksEnabled,
                            OREGetter, IsBitSet);
     } else {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      Value *Val = B.CreateLoad(RetType, Addr);
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
       Value *ValAddr = B.CreateBitCast(Addr, RetType->getPointerTo());
       Value *Val = B.CreateLoad(RetType, ValAddr);
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
       NumVirtConstProp++;
       Call.replaceAndErase("virtual-const-prop", FnName, RemarksEnabled,
                            OREGetter, Val);
@@ -2294,9 +2310,23 @@ void DevirtModule::scanTypeCheckedLoadUsers(Function *TypeCheckedLoadFunc) {
     // This helps avoid unnecessary spills.
     IRBuilder<> LoadB(
         (LoadedPtrs.size() == 1 && !HasNonCallUses) ? LoadedPtrs[0] : CI);
-    Value *GEP = LoadB.CreateGEP(Int8Ty, Ptr, Offset);
-    Value *GEPPtr = LoadB.CreateBitCast(GEP, PointerType::getUnqual(Int8PtrTy));
-    Value *LoadedValue = LoadB.CreateLoad(Int8PtrTy, GEPPtr);
+
+    Value *LoadedValue = nullptr;
+    if (TypeCheckedLoadFunc->getIntrinsicID() ==
+        Intrinsic::type_checked_load_relative) {
+      Value *GEP = LoadB.CreateGEP(Int8Ty, Ptr, Offset);
+      Value *GEPPtr = LoadB.CreateBitCast(GEP, PointerType::getUnqual(Int32Ty));
+      LoadedValue = LoadB.CreateLoad(Int32Ty, GEPPtr);
+      LoadedValue = LoadB.CreateSExt(LoadedValue, IntPtrTy);
+      GEP = LoadB.CreatePtrToInt(GEP, IntPtrTy);
+      LoadedValue = LoadB.CreateAdd(GEP, LoadedValue);
+      LoadedValue = LoadB.CreateIntToPtr(LoadedValue, Int8PtrTy);
+    } else {
+      Value *GEP = LoadB.CreateGEP(Int8Ty, Ptr, Offset);
+      Value *GEPPtr =
+          LoadB.CreateBitCast(GEP, PointerType::getUnqual(Int8PtrTy));
+      LoadedValue = LoadB.CreateLoad(Int8PtrTy, GEPPtr);
+    }
 
     for (Instruction *LoadedPtr : LoadedPtrs) {
       LoadedPtr->replaceAllUsesWith(LoadedValue);
@@ -2498,6 +2528,8 @@ bool DevirtModule::run() {
       M.getFunction(Intrinsic::getName(Intrinsic::type_test));
   Function *TypeCheckedLoadFunc =
       M.getFunction(Intrinsic::getName(Intrinsic::type_checked_load));
+  Function *TypeCheckedLoadRelativeFunc =
+      M.getFunction(Intrinsic::getName(Intrinsic::type_checked_load_relative));
   Function *AssumeFunc = M.getFunction(Intrinsic::getName(Intrinsic::assume));
 
   // Normally if there are no users of the devirtualization intrinsics in the
@@ -2506,7 +2538,9 @@ bool DevirtModule::run() {
   if (!ExportSummary &&
       (!TypeTestFunc || TypeTestFunc->use_empty() || !AssumeFunc ||
        AssumeFunc->use_empty()) &&
-      (!TypeCheckedLoadFunc || TypeCheckedLoadFunc->use_empty()))
+      (!TypeCheckedLoadFunc || TypeCheckedLoadFunc->use_empty()) &&
+      (!TypeCheckedLoadRelativeFunc ||
+       TypeCheckedLoadRelativeFunc->use_empty()))
     return false;
 
 #if INTEL_CUSTOMIZATION
@@ -2526,6 +2560,9 @@ bool DevirtModule::run() {
 
   if (TypeCheckedLoadFunc)
     scanTypeCheckedLoadUsers(TypeCheckedLoadFunc);
+
+  if (TypeCheckedLoadRelativeFunc)
+    scanTypeCheckedLoadUsers(TypeCheckedLoadRelativeFunc);
 
   if (ImportSummary) {
     for (auto &S : CallSlots)
@@ -2698,6 +2735,9 @@ bool DevirtModule::run() {
   IntelDevirtMV.runDevirtVerifier(M);
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
+
+  for (auto *CI : CallsWithPtrAuthBundleRemoved)
+    CI->eraseFromParent();
 
   return true;
 }

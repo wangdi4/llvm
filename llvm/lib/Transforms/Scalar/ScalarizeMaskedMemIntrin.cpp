@@ -335,10 +335,12 @@ static void scalarizeMaskedLoad(const DataLayout &DL, CallInst *CI,
   // Adjust alignment for the scalar instruction.
   const Align AdjustedAlignVal =
       commonAlignment(AlignVal, EltTy->getPrimitiveSizeInBits() / 8);
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   // Bitcast %addr from i8* to EltTy*
   Type *NewPtrType =
       EltTy->getPointerTo(Ptr->getType()->getPointerAddressSpace());
   Value *FirstEltPtr = Builder.CreateBitCast(Ptr, NewPtrType);
+#endif
   unsigned VectorWidth = cast<FixedVectorType>(VecType)->getNumElements();
 
   // The result vector
@@ -352,7 +354,11 @@ static void scalarizeMaskedLoad(const DataLayout &DL, CallInst *CI,
     for (unsigned Idx = 0; Idx < VectorWidth; ++Idx) {
       if (cast<Constant>(Mask)->getAggregateElement(Idx)->isNullValue())
         continue;
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      Value *Gep = Builder.CreateConstInBoundsGEP1_32(EltTy, Ptr, Idx);
+#else
       Value *Gep = Builder.CreateConstInBoundsGEP1_32(EltTy, FirstEltPtr, Idx);
+#endif
       LoadInst *Load = Builder.CreateAlignedLoad(EltTy, Gep, AdjustedAlignVal);
       VResult = Builder.CreateInsertElement(VResult, Load, Idx);
     }
@@ -401,7 +407,11 @@ static void scalarizeMaskedLoad(const DataLayout &DL, CallInst *CI,
     CondBlock->setName("cond.load");
 
     Builder.SetInsertPoint(CondBlock->getTerminator());
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    Value *Gep = Builder.CreateConstInBoundsGEP1_32(EltTy, Ptr, Idx);
+#else
     Value *Gep = Builder.CreateConstInBoundsGEP1_32(EltTy, FirstEltPtr, Idx);
+#endif
     LoadInst *Load = Builder.CreateAlignedLoad(EltTy, Gep, AdjustedAlignVal);
     Value *NewVResult = Builder.CreateInsertElement(VResult, Load, Idx);
 
@@ -478,10 +488,12 @@ static void scalarizeMaskedStore(const DataLayout &DL, CallInst *CI,
   // Adjust alignment for the scalar instruction.
   const Align AdjustedAlignVal =
       commonAlignment(AlignVal, EltTy->getPrimitiveSizeInBits() / 8);
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
   // Bitcast %addr from i8* to EltTy*
   Type *NewPtrType =
       EltTy->getPointerTo(Ptr->getType()->getPointerAddressSpace());
   Value *FirstEltPtr = Builder.CreateBitCast(Ptr, NewPtrType);
+#endif
   unsigned VectorWidth = cast<FixedVectorType>(VecType)->getNumElements();
 
   if (isConstantIntVector(Mask)) {
@@ -493,7 +505,11 @@ static void scalarizeMaskedStore(const DataLayout &DL, CallInst *CI,
       if (cast<Constant>(Mask)->getAggregateElement(Idx)->isNullValue())
         continue;
       Value *OneElt = Builder.CreateExtractElement(Src, Idx);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+      Value *Gep = Builder.CreateConstInBoundsGEP1_32(EltTy, Ptr, Idx);
+#else
       Value *Gep = Builder.CreateConstInBoundsGEP1_32(EltTy, FirstEltPtr, Idx);
+#endif
       Builder.CreateAlignedStore(OneElt, Gep, AdjustedAlignVal);
     }
     CI->eraseFromParent();
@@ -540,7 +556,11 @@ static void scalarizeMaskedStore(const DataLayout &DL, CallInst *CI,
 
     Builder.SetInsertPoint(CondBlock->getTerminator());
     Value *OneElt = Builder.CreateExtractElement(Src, Idx);
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    Value *Gep = Builder.CreateConstInBoundsGEP1_32(EltTy, Ptr, Idx);
+#else
     Value *Gep = Builder.CreateConstInBoundsGEP1_32(EltTy, FirstEltPtr, Idx);
+#endif
     Builder.CreateAlignedStore(OneElt, Gep, AdjustedAlignVal);
 
     // Create "else" block, fill it in the next iteration

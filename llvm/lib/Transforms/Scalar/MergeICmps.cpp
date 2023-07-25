@@ -59,6 +59,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar/MergeICmps.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Loads.h"

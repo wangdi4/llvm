@@ -47,21 +47,6 @@ static std::string getTargetFeatures(StringRef TargetCpu) {
   return "+" + llvm::join(CPUFeatures, ",+");
 }
 
-static char getTargetSuffix(StringRef TargetCpu) {
-  return StringSwitch<char>(TargetCpu)
-#define CPU_SPECIFIC(NAME, TUNE_NAME, MANGLING, FEATURES) .Case(NAME, MANGLING)
-#include "llvm/TargetParser/X86TargetParser.def"
-      .Default(0);
-}
-
-static StringRef CPUSpecificCPUDispatchNameDealias(StringRef Name) {
-  return llvm::StringSwitch<StringRef>(Name)
-#define CPU_SPECIFIC_ALIAS(NEW_NAME, TUNE_NAME, NAME) .Case(NEW_NAME, NAME)
-#define CPU_SPECIFIC_ALIAS_ADDITIONAL(NEW_NAME, NAME) .Case(NEW_NAME, NAME)
-#include "llvm/TargetParser/X86TargetParser.def"
-      .Default(Name);
-}
-
 static bool
 libIRCMVResolverOptionComparator(const MultiVersionResolverOption &LHS,
                                  const MultiVersionResolverOption &RHS) {
@@ -410,11 +395,7 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     for (const MDOperand &TargetInfoIt : TargetsMD->operands()) {
       StringRef TargetCpu = cast<MDString>(TargetInfoIt.get())->getString();
 
-      // Get llvm/TargetParser/X86TargetParser.def friendly target name.
-      const StringRef TargetCpuDealiased =
-          CPUSpecificCPUDispatchNameDealias(TargetCpu);
-
-      auto TargetCpuSuffix = getTargetSuffix(TargetCpuDealiased);
+      auto TargetCpuSuffix = X86::getCPUDispatchMangling(TargetCpu);
       // Skip target if not recognized by llvm/TargetParser/X86TargetParser.def
       assert(TargetCpuSuffix != '\0' && "A target is not recognized!");
       if (TargetCpuSuffix == '\0')
@@ -551,13 +532,10 @@ cloneFunctions(Module &M, function_ref<LoopInfo &(Function &)> GetLoopInfo,
     for (auto& I : Clones) {
       const StringRef TargetCpu = I.first;
 
-      // Get llvm/TargetParser/X86TargetParser.def friendly target name.
-      const StringRef TargetCpuDealiased = CPUSpecificCPUDispatchNameDealias(TargetCpu);
-
       auto *NewGA =
         GlobalAlias::create(GA->getValueType(),
                             GA->getType()->getPointerAddressSpace(), GA->getLinkage(),
-                            Name + "." + getTargetSuffix(TargetCpuDealiased), &M);
+                            Name + "." + X86::getCPUDispatchMangling(TargetCpu), &M);
 
       ValueToValueMapTy VMap;
       VMap[Aliasee] = I.second;

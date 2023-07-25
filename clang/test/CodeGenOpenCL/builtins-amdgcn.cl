@@ -601,11 +601,11 @@ void test_get_local_id(int d, global int *out)
 
 // CHECK-LABEL: @test_get_workgroup_size(
 // CHECK: call align 4 dereferenceable(64) ptr addrspace(4) @llvm.amdgcn.dispatch.ptr()
-// CHECK: getelementptr i16, ptr addrspace(4) %{{.*}}, i64 2
+// CHECK: getelementptr inbounds i16, ptr addrspace(4) %{{.*}}, i64 2
 // CHECK: load i16, ptr addrspace(4) %{{.*}}, align 4, !range [[$WS_RANGE:![0-9]*]], !invariant.load{{.*}}, !noundef ;INTEL
-// CHECK: getelementptr i16, ptr addrspace(4) %{{.*}}, i64 3
+// CHECK: getelementptr inbounds i16, ptr addrspace(4) %{{.*}}, i64 3
 // CHECK: load i16, ptr addrspace(4) %{{.*}}, align 2, !range [[$WS_RANGE:![0-9]*]], !invariant.load{{.*}}, !noundef ;INTEL
-// CHECK: getelementptr i16, ptr addrspace(4) %{{.*}}, i64 4
+// CHECK: getelementptr inbounds i16, ptr addrspace(4) %{{.*}}, i64 4
 // CHECK: load i16, ptr addrspace(4) %{{.*}}, align 4, !range [[$WS_RANGE:![0-9]*]], !invariant.load{{.*}}, !noundef ;INTEL
 void test_get_workgroup_size(int d, global int *out)
 {
@@ -619,11 +619,11 @@ void test_get_workgroup_size(int d, global int *out)
 
 // CHECK-LABEL: @test_get_grid_size(
 // CHECK: call align 4 dereferenceable(64) ptr addrspace(4) @llvm.amdgcn.dispatch.ptr()
-// CHECK: getelementptr i32, ptr addrspace(4) %{{.*}}, i64 3 ;INTEL
+// CHECK: getelementptr inbounds i32, ptr addrspace(4) %{{.*}}, i64 3 ;INTEL
 // CHECK: load i32, ptr addrspace(4) %{{.*}}, align 4, !invariant.load
-// CHECK: getelementptr i32, ptr addrspace(4) %{{.*}}, i64 4 ;INTEL
+// CHECK: getelementptr inbounds i32, ptr addrspace(4) %{{.*}}, i64 4 ;INTEL
 // CHECK: load i32, ptr addrspace(4) %{{.*}}, align 4, !invariant.load
-// CHECK: getelementptr i32, ptr addrspace(4) %{{.*}}, i64 5 ;INTEL
+// CHECK: getelementptr inbounds i32, ptr addrspace(4) %{{.*}}, i64 5 ;INTEL
 // CHECK: load i32, ptr addrspace(4) %{{.*}}, align 4, !invariant.load
 void test_get_grid_size(int d, global int *out)
 {
@@ -693,14 +693,12 @@ kernel void test_gws_sema_p(uint id) {
 
 // CHECK-LABEL: @test_mbcnt_lo(
 // CHECK: call i32 @llvm.amdgcn.mbcnt.lo(i32 %src0, i32 %src1)
-// CHECK: declare i32 @llvm.amdgcn.mbcnt.lo(i32, i32) #[[$MBCNT_ATTRS:[0-9]+]]
 kernel void test_mbcnt_lo(global uint* out, uint src0, uint src1) {
   *out = __builtin_amdgcn_mbcnt_lo(src0, src1);
 }
 
 // CHECK-LABEL: @test_mbcnt_hi(
 // CHECK: call i32 @llvm.amdgcn.mbcnt.hi(i32 %src0, i32 %src1)
-// CHECK: declare i32 @llvm.amdgcn.mbcnt.hi(i32, i32) #[[$MBCNT_ATTRS]]
 kernel void test_mbcnt_hi(global uint* out, uint src0, uint src1) {
   *out = __builtin_amdgcn_mbcnt_hi(src0, src1);
 }
@@ -837,7 +835,6 @@ void test_atomic_inc_dec(local uint *lptr, global uint *gptr, uint val) {
 // CHECK-DAG: [[$WS_RANGE]] = !{i16 1, i16 1025}
 // CHECK-DAG: attributes #[[$NOUNWIND_READONLY]] = { mustprogress nocallback nofree nosync nounwind willreturn memory(read) }
 // CHECK-DAG: attributes #[[$READ_EXEC_ATTRS]] = { convergent }
-// CHECK-DAG: attributes #[[$MBCNT_ATTRS]] = {{.* convergent .*}}
 // CHECK-DAG: ![[$EXEC]] = !{!"exec"}
 // CHECK-DAG: ![[$EXEC_LO]] = !{!"exec_lo"}
 // CHECK-DAG: ![[$EXEC_HI]] = !{!"exec_hi"}

@@ -18,6 +18,7 @@
 #include "clang/Driver/DriverDiagnostic.h"
 #include "clang/Driver/MultilibBuilder.h"
 #include "clang/Driver/Options.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Option/ArgList.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/VirtualFileSystem.h"
@@ -175,7 +176,7 @@ static void findMultilibsFromYAML(const ToolChain &TC, const Driver &D,
   Result.Multilibs = ErrorOrMultilibSet.get();
   if (Result.Multilibs.select(Flags, Result.SelectedMultilibs))
     return;
-  D.Diag(clang::diag::err_drv_no_matching_multilib) << llvm::join(Flags, " ");
+  D.Diag(clang::diag::warn_drv_missing_multilib) << llvm::join(Flags, " ");
   std::stringstream ss;
   for (const Multilib &Multilib : Result.Multilibs)
     ss << "\n" << llvm::join(Multilib.flags(), " ");
@@ -230,6 +231,10 @@ bool BareMetal::handlesTarget(const llvm::Triple &Triple) {
 
 Tool *BareMetal::buildLinker() const {
   return new tools::baremetal::Linker(*this);
+}
+
+Tool *BareMetal::buildStaticLibTool() const {
+  return new tools::baremetal::StaticLibTool(*this);
 }
 
 std::string BareMetal::computeSysRoot() const {
@@ -368,6 +373,51 @@ void BareMetal::AddLinkRuntimeLib(const ArgList &Args,
   llvm_unreachable("Unhandled RuntimeLibType.");
 }
 
+void baremetal::StaticLibTool::ConstructJob(Compilation &C, const JobAction &JA,
+                                            const InputInfo &Output,
+                                            const InputInfoList &Inputs,
+                                            const ArgList &Args,
+                                            const char *LinkingOutput) const {
+  const Driver &D = getToolChain().getDriver();
+
+  // Silence warning for "clang -g foo.o -o foo"
+  Args.ClaimAllArgs(options::OPT_g_Group);
+  // and "clang -emit-llvm foo.o -o foo"
+  Args.ClaimAllArgs(options::OPT_emit_llvm);
+  // and for "clang -w foo.o -o foo". Other warning options are already
+  // handled somewhere else.
+  Args.ClaimAllArgs(options::OPT_w);
+  // Silence warnings when linking C code with a C++ '-stdlib' argument.
+  Args.ClaimAllArgs(options::OPT_stdlib_EQ);
+
+  // ar tool command "llvm-ar <options> <output_file> <input_files>".
+  ArgStringList CmdArgs;
+  // Create and insert file members with a deterministic index.
+  CmdArgs.push_back("rcsD");
+  CmdArgs.push_back(Output.getFilename());
+
+  for (const auto &II : Inputs) {
+    if (II.isFilename()) {
+      CmdArgs.push_back(II.getFilename());
+    }
+  }
+
+  // Delete old output archive file if it already exists before generating a new
+  // archive file.
+  const char *OutputFileName = Output.getFilename();
+  if (Output.isFilename() && llvm::sys::fs::exists(OutputFileName)) {
+    if (std::error_code EC = llvm::sys::fs::remove(OutputFileName)) {
+      D.Diag(diag::err_drv_unable_to_remove_file) << EC.message();
+      return;
+    }
+  }
+
+  const char *Exec = Args.MakeArgString(getToolChain().GetStaticLibToolPath());
+  C.addCommand(std::make_unique<Command>(JA, *this,
+                                         ResponseFileSupport::AtFileCurCP(),
+                                         Exec, CmdArgs, Inputs, Output));
+}
+
 void baremetal::Linker::ConstructJob(Compilation &C, const JobAction &JA,
                                      const InputInfo &Output,
                                      const InputInfoList &Inputs,
@@ -381,9 +431,9 @@ void baremetal::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
   CmdArgs.push_back("-Bstatic");
 
-  Args.AddAllArgs(CmdArgs, {options::OPT_L, options::OPT_T_Group,
-                            options::OPT_e, options::OPT_s, options::OPT_t,
-                            options::OPT_Z_Flag, options::OPT_r});
+  Args.AddAllArgs(CmdArgs,
+                  {options::OPT_L, options::OPT_T_Group, options::OPT_s,
+                   options::OPT_t, options::OPT_Z_Flag, options::OPT_r});
 
   TC.AddFilePathLibArgs(Args, CmdArgs);
 
@@ -417,8 +467,7 @@ void baremetal::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   CmdArgs.push_back("-o");
   CmdArgs.push_back(Output.getFilename());
 
-  C.addCommand(std::make_unique<Command>(JA, *this,
-                                         ResponseFileSupport::AtFileCurCP(),
-                                         Args.MakeArgString(TC.GetLinkerPath()),
-                                         CmdArgs, Inputs, Output));
+  C.addCommand(std::make_unique<Command>(
+      JA, *this, ResponseFileSupport::AtFileCurCP(),
+      Args.MakeArgString(TC.GetLinkerPath()), CmdArgs, Inputs, Output));
 }

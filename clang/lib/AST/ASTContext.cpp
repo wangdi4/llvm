@@ -1704,11 +1704,11 @@ const llvm::fltSemantics &ASTContext::getFloatTypeSemantics(QualType T) const {
     if (getLangOpts().OpenMPLateOutline)
       return Target->getLongDoubleFormat();
 #endif // INTEL_COLLAB
-    if (getLangOpts().OpenMP && getLangOpts().OpenMPIsDevice)
+    if (getLangOpts().OpenMP && getLangOpts().OpenMPIsTargetDevice)
       return AuxTarget->getLongDoubleFormat();
     return Target->getLongDoubleFormat();
   case BuiltinType::Float128:
-    if (getLangOpts().OpenMP && getLangOpts().OpenMPIsDevice)
+    if (getLangOpts().OpenMP && getLangOpts().OpenMPIsTargetDevice)
       return AuxTarget->getFloat128Format();
     return Target->getFloat128Format();
   }
@@ -2154,7 +2154,8 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
         Width = Target->getBFloat16Width();
         Align = Target->getBFloat16Align();
       } else if ((getLangOpts().SYCLIsDevice ||
-                  (getLangOpts().OpenMP && getLangOpts().OpenMPIsDevice)) &&
+                  (getLangOpts().OpenMP &&
+                   getLangOpts().OpenMPIsTargetDevice)) &&
                  AuxTarget->hasBFloat16Type()) {
         Width = AuxTarget->getBFloat16Width();
         Align = AuxTarget->getBFloat16Align();
@@ -2163,11 +2164,11 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
     case BuiltinType::Float16:
     case BuiltinType::Half:
       if (Target->hasFloat16Type() || !getLangOpts().OpenMP ||
-          !getLangOpts().OpenMPIsDevice) {
+          !getLangOpts().OpenMPIsTargetDevice) {
         Width = Target->getHalfWidth();
         Align = Target->getHalfAlign();
       } else {
-        assert(getLangOpts().OpenMP && getLangOpts().OpenMPIsDevice &&
+        assert(getLangOpts().OpenMP && getLangOpts().OpenMPIsTargetDevice &&
                "Expected OpenMP device compilation.");
         Width = AuxTarget->getHalfWidth();
         Align = AuxTarget->getHalfAlign();
@@ -2187,7 +2188,7 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
       break;
     case BuiltinType::LongDouble:
       if ((getLangOpts().SYCLIsDevice ||
-           (getLangOpts().OpenMP && getLangOpts().OpenMPIsDevice)) &&
+           (getLangOpts().OpenMP && getLangOpts().OpenMPIsTargetDevice)) &&
           AuxTarget != nullptr &&
 #if INTEL_COLLAB
           // AuxTarget is not adjusted for command-line options such as
@@ -2208,11 +2209,11 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
       break;
     case BuiltinType::Float128:
       if (Target->hasFloat128Type() || !getLangOpts().OpenMP ||
-          !getLangOpts().OpenMPIsDevice) {
+          !getLangOpts().OpenMPIsTargetDevice) {
         Width = Target->getFloat128Width();
         Align = Target->getFloat128Align();
       } else {
-        assert(getLangOpts().OpenMP && getLangOpts().OpenMPIsDevice &&
+        assert(getLangOpts().OpenMP && getLangOpts().OpenMPIsTargetDevice &&
                "Expected OpenMP device compilation.");
         Width = AuxTarget->getFloat128Width();
         Align = AuxTarget->getFloat128Align();
@@ -9676,8 +9677,8 @@ static uint64_t getRVVTypeSize(ASTContext &Context, const BuiltinType *Ty) {
 
   ASTContext::BuiltinVectorTypeInfo Info = Context.getBuiltinVectorTypeInfo(Ty);
 
-  unsigned EltSize = Context.getTypeSize(Info.ElementType);
-  unsigned MinElts = Info.EC.getKnownMinValue();
+  uint64_t EltSize = Context.getTypeSize(Info.ElementType);
+  uint64_t MinElts = Info.EC.getKnownMinValue();
   return VScale->first * MinElts * EltSize;
 }
 
@@ -10142,6 +10143,9 @@ static bool sameObjCTypeArgs(ASTContext &ctx,
     return false;
 
   ObjCTypeParamList *typeParams = iface->getTypeParamList();
+  if (!typeParams)
+    return false;
+
   for (unsigned i = 0, n = lhsArgs.size(); i != n; ++i) {
     if (ctx.hasSameType(lhsArgs[i], rhsArgs[i]))
       continue;

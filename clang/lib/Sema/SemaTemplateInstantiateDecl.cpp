@@ -2759,9 +2759,8 @@ Decl *TemplateDeclInstantiator::VisitFunctionDecl(
     Function = CXXDeductionGuideDecl::Create(
         SemaRef.Context, DC, D->getInnerLocStart(),
         InstantiatedExplicitSpecifier, NameInfo, T, TInfo,
-        D->getSourceRange().getEnd());
-    if (DGuide->isCopyDeductionCandidate())
-      cast<CXXDeductionGuideDecl>(Function)->setIsCopyDeductionCandidate();
+        D->getSourceRange().getEnd(), /*Ctor=*/nullptr,
+        DGuide->getDeductionCandidateKind());
     Function->setAccess(D->getAccess());
   } else {
     Function = FunctionDecl::Create(
@@ -5743,6 +5742,10 @@ void Sema::InstantiateFunctionDefinition(SourceLocation PointOfInstantiation,
     // Enter the scope of this instantiation. We don't use
     // PushDeclContext because we don't have a scope.
     Sema::ContextRAII savedContext(*this, Function);
+
+    FPFeaturesStateRAII SavedFPFeatures(*this);
+    CurFPFeatures = FPOptions(getLangOpts());
+    FpPragmaStack.CurrentValue = FPOptionsOverride();
 
     if (addInstantiatedParametersToScope(Function, PatternDecl, Scope,
                                          TemplateArgs))

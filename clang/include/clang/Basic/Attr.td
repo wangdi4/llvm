@@ -1389,12 +1389,12 @@ def SYCLType: InheritableAttr {
   let Subjects = SubjectList<[CXXRecord, Enum], ErrorDiag>;
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost];
   let Args = [EnumArgument<"Type", "SYCLType",
-                           ["accessor", "local_accessor", "spec_constant",
+                           ["accessor", "local_accessor",
                             "specialization_id", "kernel_handler", "buffer_location",
                             "no_alias", "accessor_property_list", "group",
                             "private_memory", "aspect", "annotated_ptr", "annotated_arg",
                             "stream", "sampler", "host_pipe"],
-                           ["accessor", "local_accessor", "spec_constant",
+                           ["accessor", "local_accessor",
                             "specialization_id", "kernel_handler", "buffer_location",
                             "no_alias", "accessor_property_list", "group",
                             "private_memory", "aspect", "annotated_ptr", "annotated_arg",
@@ -2155,9 +2155,8 @@ def : MutualExclusions<[Likely, Unlikely]>;
 def NoMerge : DeclOrStmtAttr {
   let Spellings = [Clang<"nomerge">];
   let Documentation = [NoMergeDocs];
-  let Subjects = SubjectList<[Function, Stmt], ErrorDiag,
-                             "functions and statements">;
-  let SimpleHandler = 1;
+  let Subjects = SubjectList<[Function, Stmt, Var], ErrorDiag,
+                             "functions, statements and variables">;
 }
 
 def MustTail : StmtAttr {
@@ -5493,3 +5492,10 @@ def ReadOnlyPlacement : InheritableAttr {
   let Subjects = SubjectList<[Record]>;
   let Documentation = [ReadOnlyPlacementDocs];
 }
+
+def AvailableOnlyInDefaultEvalMethod : InheritableAttr {
+  let Spellings = [Clang<"available_only_in_default_eval_method">];
+  let Subjects = SubjectList<[TypedefName], ErrorDiag>;
+  let Documentation = [Undocumented];
+}
+

@@ -1358,15 +1358,24 @@ void Clang::AddPreprocessingOptions(Compilation &C, const JobAction &JA,
       (getToolChain().getTriple().isNVPTX() ||
        getToolChain().getTriple().isAMDGCN())) {
 
-      // Add include/gpu-none-libc/* to our system include path. This lets us use
-      // GPU-specific system headers first. 
-      // TODO: We need to find a way to make these headers compatible with the
-      // host environment.
+    // Without an offloading language we will include these headers directly.
+    // Offloading languages will instead only use the declarations stored in
+    // the resource directory at clang/lib/Headers/llvm_libc_wrappers.
+    if (C.getActiveOffloadKinds() == Action::OFK_None) {
       SmallString<128> P(llvm::sys::path::parent_path(D.InstalledDir));
       llvm::sys::path::append(P, "include");
       llvm::sys::path::append(P, "gpu-none-llvm");
       CmdArgs.push_back("-c-isystem");
       CmdArgs.push_back(Args.MakeArgString(P));
+    } else if (C.getActiveOffloadKinds() == Action::OFK_OpenMP) {
+      // TODO: CUDA / HIP include their own headers for some common functions
+      // implemented here. We'll need to clean those up so they do not conflict.
+      SmallString<128> P(D.ResourceDir);
+      llvm::sys::path::append(P, "include");
+      llvm::sys::path::append(P, "llvm_libc_wrappers");
+      CmdArgs.push_back("-internal-isystem");
+      CmdArgs.push_back(Args.MakeArgString(P));
+    }
   }
 
   // If we are offloading to a target via OpenMP we need to include the
@@ -1477,6 +1486,9 @@ void Clang::AddPreprocessingOptions(Compilation &C, const JobAction &JA,
       continue;
     } else if (A->getOption().matches(options::OPT_stdlibxx_isystem)) {
       // Translated to -internal-isystem by the driver, no need to pass to cc1.
+      continue;
+    } else if (A->getOption().matches(options::OPT_ibuiltininc)) {
+      // This is used only by the driver. No need to pass to cc1.
       continue;
     }
 
@@ -4314,7 +4326,8 @@ static void RenderCharacterOptions(const ArgList &Args, const llvm::Triple &T,
       else
         CmdArgs.push_back("-fsigned-wchar");
     }
-  }
+  } else if (T.isOSzOS())
+    CmdArgs.push_back("-fno-signed-wchar");
 #if INTEL_CUSTOMIZATION
   if (Args.hasFlag(options::OPT__SLASH_Zc_wchar_t_,
                    options::OPT__SLASH_Zc_wchar_t, false))
@@ -5493,6 +5506,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   bool IsFPGASYCLOffloadDevice =
       IsSYCLOffloadDevice &&
       Triple.getSubArch() == llvm::Triple::SPIRSubArch_fpga;
+  bool IsSYCLNativeCPU = isSYCLNativeCPU(Args);
 
   // Perform the SYCL host compilation using an external compiler if the user
   // requested.
@@ -5665,10 +5679,16 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                       options::OPT_fno_sycl_early_optimizations,
                       !WantToDisableEarlyOptimizations))
       CmdArgs.push_back("-fno-sycl-early-optimizations");
-    else if (RawTriple.isSPIR()) {
+    else if (RawTriple.isSPIR() || IsSYCLNativeCPU) {
       // Set `sycl-opt` option to configure LLVM passes for SPIR target
       CmdArgs.push_back("-mllvm");
       CmdArgs.push_back("-sycl-opt");
+    }
+    if (IsSYCLNativeCPU) {
+      CmdArgs.push_back("-fsycl-is-native-cpu");
+      CmdArgs.push_back("-D");
+      CmdArgs.push_back("__SYCL_NATIVE_CPU__");
+      CmdArgs.push_back("-fno-autolink");
     }
 
     // Turn on Dead Parameter Elimination Optimization with early optimizations
@@ -5863,6 +5883,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       // Let the FE know we are doing a SYCL offload compilation, but we are
       // doing the host pass.
       CmdArgs.push_back("-fsycl-is-host");
+      if (IsSYCLNativeCPU) {
+        CmdArgs.push_back("-D");
+        CmdArgs.push_back("__SYCL_NATIVE_CPU__");
+      }
 
       if (!D.IsCLMode()) {
         // SYCL library is guaranteed to work correctly only with dynamic
@@ -6053,7 +6077,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back("-fdirectives-only");
     }
   } else if (isa<AssembleJobAction>(JA)) {
-    if (IsSYCLOffloadDevice) {
+    if (IsSYCLOffloadDevice && !IsSYCLNativeCPU) {
       CmdArgs.push_back("-emit-llvm-bc");
     } else {
       CmdArgs.push_back("-emit-obj");
@@ -6459,6 +6483,37 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     if (Value)
       CmdArgs.push_back(Args.MakeArgString("-falign-loops=" +
                                            Twine(std::min(Value, 65536u))));
+  }
+
+  if (Triple.isOSzOS()) {
+    // On z/OS some of the system header feature macros need to
+    // be defined to enable most cross platform projects to build
+    // successfully.  Ths include the libc++ library.  A
+    // complicating factor is that users can define these
+    // macros to the same or different values.  We need to add
+    // the definition for these macros to the compilation command
+    // if the user hasn't already defined them.
+
+    auto findMacroDefinition = [&](const std::string &Macro) {
+      auto MacroDefs = Args.getAllArgValues(options::OPT_D);
+      return std::find_if(MacroDefs.begin(), MacroDefs.end(),
+                          [&](const std::string &M) {
+                            return M == Macro ||
+                                   M.find(Macro + '=') != std::string::npos;
+                          }) != MacroDefs.end();
+    };
+
+    // _UNIX03_WITHDRAWN is required for libcxx & porting.
+    if (!findMacroDefinition("_UNIX03_WITHDRAWN"))
+      CmdArgs.push_back("-D_UNIX03_WITHDRAWN");
+    // _OPEN_DEFAULT is required for XL compat
+    if (!findMacroDefinition("_OPEN_DEFAULT"))
+      CmdArgs.push_back("-D_OPEN_DEFAULT");
+    if (D.CCCIsCXX() || types::isCXX(Input.getType())) {
+      // _XOPEN_SOURCE=600 is required for libcxx.
+      if (!findMacroDefinition("_XOPEN_SOURCE"))
+        CmdArgs.push_back("-D_XOPEN_SOURCE=600");
+    }
   }
 
   llvm::Reloc::Model RelocationModel;
@@ -6897,8 +6952,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
   // Enable -mconstructor-aliases except on darwin, where we have to work around
-  // a linker bug (see <rdar://problem/7651567>), and CUDA device code, where
-  // aliases aren't supported.
+  // a linker bug, and CUDA device code, where aliases aren't supported.
   if (!RawTriple.isOSDarwin() && !RawTriple.isNVPTX())
     CmdArgs.push_back("-mconstructor-aliases");
 
@@ -7703,6 +7757,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasFlag(options::OPT_femulated_tls, options::OPT_fno_emulated_tls,
                    Triple.hasDefaultEmulatedTLS()))
     CmdArgs.push_back("-femulated-tls");
+
+  Args.addOptInFlag(CmdArgs, options::OPT_fcheck_new,
+                    options::OPT_fno_check_new);
 
   if (Arg *A = Args.getLastArg(options::OPT_fzero_call_used_regs_EQ)) {
     // FIXME: There's no reason for this to be restricted to X86. The backend
@@ -8839,7 +8896,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   auto FRecordSwitches =
       Args.hasFlag(options::OPT_frecord_command_line,
                    options::OPT_fno_record_command_line, false);
-  if (FRecordSwitches && !Triple.isOSBinFormatELF())
+  if (FRecordSwitches && !Triple.isOSBinFormatELF() &&
+      !Triple.isOSBinFormatXCOFF())
     D.Diag(diag::err_drv_unsupported_opt_for_target)
         << Args.getLastArg(options::OPT_frecord_command_line)->getAsString(Args)
         << TripleStr;
@@ -8931,13 +8989,18 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     }
   }
 
+  if (IsHIPDevice)
+    Args.addOptOutFlag(CmdArgs,
+                       options::OPT_fhip_fp32_correctly_rounded_divide_sqrt,
+                       options::OPT_fno_hip_fp32_correctly_rounded_divide_sqrt);
+
   // OpenMP offloading device jobs take the argument -fopenmp-host-ir-file-path
   // to specify the result of the compile phase on the host, so the meaningful
-  // device declarations can be identified. Also, -fopenmp-is-device is passed
-  // along to tell the frontend that it is generating code for a device, so that
-  // only the relevant declarations are emitted.
+  // device declarations can be identified. Also, -fopenmp-is-target-device is
+  // passed along to tell the frontend that it is generating code for a device,
+  // so that only the relevant declarations are emitted.
   if (IsOpenMPDevice) {
-    CmdArgs.push_back("-fopenmp-is-device");
+    CmdArgs.push_back("-fopenmp-is-target-device");
     if (OpenMPDeviceInput) {
       CmdArgs.push_back("-fopenmp-host-ir-file-path");
       CmdArgs.push_back(Args.MakeArgString(OpenMPDeviceInput->getFilename()));

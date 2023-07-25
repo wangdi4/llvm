@@ -13,8 +13,8 @@
 ; CHECK:      define internal void @__intel.acd.resolver() #2 {
 ; CHECK-NEXT:   resolver_entry:
 ; CHECK-NEXT:   %cpu_feature_indicator = load i64, ptr @__intel_cpu_feature_indicator, align 8
-; CHECK-NEXT:   %cpu_feature_join = and i64 %cpu_feature_indicator, 429926490090
-; CHECK-NEXT:   %cpu_feature_check = icmp eq i64 %cpu_feature_join, 429926490090
+; CHECK-NEXT:   %cpu_feature_join = and i64 %cpu_feature_indicator, 429926490094
+; CHECK-NEXT:   %cpu_feature_check = icmp eq i64 %cpu_feature_join, 429926490094
 ; CHECK-NEXT:   br i1 %cpu_feature_check, label %resolver_return, label %resolver_else
 ; CHECK-EMPTY:
 ; CHECK-NEXT: resolver_return:                                  ; preds = %resolver_entry

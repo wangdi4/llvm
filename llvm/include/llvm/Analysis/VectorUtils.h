@@ -742,7 +742,6 @@ public:
 
 template <typename T> class ArrayRef;
 class DemandedBits;
-class GetElementPtrInst;
 template <typename InstTy> class InterleaveGroup;
 class IRBuilderBase;
 class Loop;

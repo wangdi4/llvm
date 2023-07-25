@@ -30,6 +30,7 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/Analysis/Intel_OptReport/OptReport.h" // INTEL
+#include "llvm/IR/AttributeMask.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"

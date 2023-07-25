@@ -140,6 +140,13 @@ using OffsetAndArgPart = std::pair<int64_t, ArgPart>;
 
 static Value *createByteGEP(IRBuilderBase &IRB, const DataLayout &DL,
                             Value *Ptr, Type *ResElemTy, int64_t Offset) {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+  if (Offset != 0) {
+    APInt APOffset(DL.getIndexTypeSizeInBits(Ptr->getType()), Offset);
+    Ptr = IRB.CreateGEP(IRB.getInt8Ty(), Ptr, IRB.getInt(APOffset));
+  }
+    return Ptr;
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
   // For non-opaque pointers, try to create a "nice" GEP if possible, otherwise
   // fall back to an i8 GEP to a specific offset.
   unsigned AddrSpace = Ptr->getType()->getPointerAddressSpace();
@@ -183,6 +190,7 @@ static Value *createByteGEP(IRBuilderBase &IRB, const DataLayout &DL,
     Ptr = IRB.CreateGEP(IRB.getInt8Ty(), Ptr, IRB.getInt(OrigOffset));
   }
   return IRB.CreateBitCast(Ptr, ResElemTy->getPointerTo(AddrSpace));
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 }
 
 /// DoPromotion - This method actually performs the promotion of the specified

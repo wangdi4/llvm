@@ -590,6 +590,17 @@ struct VariableGEPIndex {
   /// True if all operations in this expression are NSW.
   bool IsNSW;
 
+  /// True if the index should be subtracted rather than added. We don't simply
+  /// negate the Scale, to avoid losing the NSW flag: X - INT_MIN*1 may be
+  /// non-wrapping, while X + INT_MIN*(-1) wraps.
+  bool IsNegated;
+
+  bool hasNegatedScaleOf(const VariableGEPIndex &Other) const {
+    if (IsNegated == Other.IsNegated)
+      return Scale == -Other.Scale;
+    return Scale == Other.Scale;
+  }
+
   void dump() const {
     print(dbgs());
     dbgs() << "\n";
@@ -599,7 +610,9 @@ struct VariableGEPIndex {
        << ", zextbits=" << Val.ZExtBits
        << ", sextbits=" << Val.SExtBits
        << ", truncbits=" << Val.TruncBits
-       << ", scale=" << Scale << ")";
+       << ", scale=" << Scale
+       << ", nsw=" << IsNSW
+       << ", negated=" << IsNegated << ")";
   }
 };
 }
@@ -696,7 +709,8 @@ void BasicAAResult::DecomposeSubscript(const SubscriptInst *Subs,
     }
 
     if (!!Scale) {
-      VariableGEPIndex Entry = {LE.Val, Scale, {}, LE.IsNSW};
+      VariableGEPIndex Entry = {
+          LE.Val, Scale, {}, LE.IsNSW, /* IsNegated */ false};
       Entry.CxtI = Subs;
       Decomposed.VarIndices.push_back(Entry);
     }
@@ -903,7 +917,8 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
       Scale = adjustToIndexSize(Scale, IndexSize);
 
       if (!!Scale) {
-        VariableGEPIndex Entry = {LE.Val, Scale, CxtI, LE.IsNSW};
+        VariableGEPIndex Entry = {LE.Val, Scale, CxtI, LE.IsNSW,
+                                  /* IsNegated */ false};
         Decomposed.VarIndices.push_back(Entry);
       }
     }
@@ -1429,9 +1444,14 @@ AliasResult BasicAAResult::aliasGEP(
     assert(OffsetRange.getBitWidth() == Scale.getBitWidth() &&
            "Bit widths are normalized to MaxIndexSize");
     if (Index.IsNSW)
-      OffsetRange = OffsetRange.add(CR.smul_sat(ConstantRange(Scale)));
+      CR = CR.smul_sat(ConstantRange(Scale));
     else
-      OffsetRange = OffsetRange.add(CR.smul_fast(ConstantRange(Scale)));
+      CR = CR.smul_fast(ConstantRange(Scale));
+
+    if (Index.IsNegated)
+      OffsetRange = OffsetRange.sub(CR);
+    else
+      OffsetRange = OffsetRange.add(CR);
   }
 
   // We now have accesses at two offsets from the same base:
@@ -1498,7 +1518,7 @@ AliasResult BasicAAResult::aliasGEP(
     // inequality of values across loop iterations.
     const VariableGEPIndex &Var0 = DecompGEP1.VarIndices[0];
     const VariableGEPIndex &Var1 = DecompGEP1.VarIndices[1];
-    if (Var0.Scale == -Var1.Scale && Var0.Val.TruncBits == 0 &&
+    if (Var0.hasNegatedScaleOf(Var1) && Var0.Val.TruncBits == 0 &&
         Var0.Val.hasSameCastsAs(Var1.Val) && !AAQI.MayBeCrossIteration &&
         isKnownNonEqual(Var0.Val.V, Var1.Val.V, DL, &AC, /* CxtI */ nullptr,
                         DT))
@@ -2307,6 +2327,13 @@ void BasicAAResult::subtractDecomposedGEPs(DecomposedGEP &DestGEP,
           !Dest.Val.hasSameCastsAs(Src.Val))
         continue;
 
+      // Normalize IsNegated if we're going to lose the NSW flag anyway.
+      if (Dest.IsNegated) {
+        Dest.Scale = -Dest.Scale;
+        Dest.IsNegated = false;
+        Dest.IsNSW = false;
+      }
+
       // If we found it, subtract off Scale V's from the entry in Dest.  If it
       // goes to zero, remove the entry.
       if (Dest.Scale != Src.Scale) {
@@ -2321,7 +2348,8 @@ void BasicAAResult::subtractDecomposedGEPs(DecomposedGEP &DestGEP,
 
     // If we didn't consume this entry, add it to the end of the Dest list.
     if (!Found) {
-      VariableGEPIndex Entry = {Src.Val, -Src.Scale, Src.CxtI, Src.IsNSW};
+      VariableGEPIndex Entry = {Src.Val, Src.Scale, Src.CxtI, Src.IsNSW,
+                                /* IsNegated */ true};
       DestGEP.VarIndices.push_back(Entry);
     }
   }
@@ -2343,7 +2371,7 @@ bool BasicAAResult::constantOffsetHeuristic(const DecomposedGEP &GEP,
   const VariableGEPIndex &Var0 = GEP.VarIndices[0], &Var1 = GEP.VarIndices[1];
 
   if (Var0.Val.TruncBits != 0 || !Var0.Val.hasSameCastsAs(Var1.Val) ||
-      Var0.Scale != -Var1.Scale ||
+      !Var0.hasNegatedScaleOf(Var1) ||
       Var0.Val.V->getType() != Var1.Val.V->getType())
     return false;
 

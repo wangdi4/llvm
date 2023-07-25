@@ -437,9 +437,9 @@ public:
   }
 
   InstructionCost getGEPCost(Type *PointeeType, const Value *Ptr,
-                             ArrayRef<const Value *> Operands,
+                             ArrayRef<const Value *> Operands, Type *AccessType,
                              TTI::TargetCostKind CostKind) {
-    return BaseT::getGEPCost(PointeeType, Ptr, Operands, CostKind);
+    return BaseT::getGEPCost(PointeeType, Ptr, Operands, AccessType, CostKind);
   }
 
   unsigned getEstimatedNumberOfCaseClusters(const SwitchInst &SI,
@@ -555,6 +555,9 @@ public:
 
   unsigned getInliningThresholdMultiplier() const { return 1; }
   unsigned adjustInliningThreshold(const CallBase *CB) { return 0; }
+  unsigned getCallerAllocaCost(const CallBase *CB, const AllocaInst *AI) const {
+    return 0;
+  }
 
   int getInlinerVectorBonusPercent() const { return 150; }
 
@@ -1664,6 +1667,8 @@ public:
     case Intrinsic::vector_reduce_smin:
     case Intrinsic::vector_reduce_fmax:
     case Intrinsic::vector_reduce_fmin:
+    case Intrinsic::vector_reduce_fmaximum:
+    case Intrinsic::vector_reduce_fminimum:
     case Intrinsic::vector_reduce_umax:
     case Intrinsic::vector_reduce_umin: {
       IntrinsicCostAttributes Attrs(IID, RetTy, Args[0]->getType(), FMF, I, 1);
@@ -1968,17 +1973,29 @@ public:
       return thisT()->getArithmeticReductionCost(Instruction::FMul, VecOpTy,
                                                  FMF, CostKind);
     case Intrinsic::vector_reduce_smax:
+      return thisT()->getMinMaxReductionCost(Intrinsic::smax, VecOpTy,
+                                             ICA.getFlags(), CostKind);
     case Intrinsic::vector_reduce_smin:
-    case Intrinsic::vector_reduce_fmax:
-    case Intrinsic::vector_reduce_fmin:
-      return thisT()->getMinMaxReductionCost(
-          VecOpTy, cast<VectorType>(CmpInst::makeCmpResultType(VecOpTy)),
-          /*IsUnsigned=*/false, ICA.getFlags(), CostKind);
+      return thisT()->getMinMaxReductionCost(Intrinsic::smin, VecOpTy,
+                                             ICA.getFlags(), CostKind);
     case Intrinsic::vector_reduce_umax:
+      return thisT()->getMinMaxReductionCost(Intrinsic::umax, VecOpTy,
+                                             ICA.getFlags(), CostKind);
     case Intrinsic::vector_reduce_umin:
-      return thisT()->getMinMaxReductionCost(
-          VecOpTy, cast<VectorType>(CmpInst::makeCmpResultType(VecOpTy)),
-          /*IsUnsigned=*/true, ICA.getFlags(), CostKind);
+      return thisT()->getMinMaxReductionCost(Intrinsic::umin, VecOpTy,
+                                             ICA.getFlags(), CostKind);
+    case Intrinsic::vector_reduce_fmax:
+      return thisT()->getMinMaxReductionCost(Intrinsic::maxnum, VecOpTy,
+                                             ICA.getFlags(), CostKind);
+    case Intrinsic::vector_reduce_fmin:
+      return thisT()->getMinMaxReductionCost(Intrinsic::minnum, VecOpTy,
+                                             ICA.getFlags(), CostKind);
+    case Intrinsic::vector_reduce_fmaximum:
+      return thisT()->getMinMaxReductionCost(Intrinsic::maximum, VecOpTy,
+                                             ICA.getFlags(), CostKind);
+    case Intrinsic::vector_reduce_fminimum:
+      return thisT()->getMinMaxReductionCost(Intrinsic::minimum, VecOpTy,
+                                             ICA.getFlags(), CostKind);
     case Intrinsic::abs: {
       // abs(X) = select(icmp(X,0),X,sub(0,X))
       Type *CondTy = RetTy->getWithNewBitWidth(1);
@@ -1998,7 +2015,7 @@ public:
     case Intrinsic::umax:
     case Intrinsic::umin: {
       // minmax(X,Y) = select(icmp(X,Y),X,Y)
-      Type *CondTy = RetTy->getWithNewBitWidth(1);
+      Type *CondTy = CmpInst::makeCmpResultType(RetTy); // INTEL
       bool IsUnsigned = IID == Intrinsic::umax || IID == Intrinsic::umin;
       CmpInst::Predicate Pred =
           IsUnsigned ? CmpInst::ICMP_UGT : CmpInst::ICMP_SGT;
@@ -2426,8 +2443,8 @@ public:
 
   /// Try to calculate op costs for min/max reduction operations.
   /// \param CondTy Conditional type for the Select instruction.
-  InstructionCost getMinMaxReductionCost(VectorType *Ty, VectorType *CondTy,
-                                         bool IsUnsigned, FastMathFlags FMF,
+  InstructionCost getMinMaxReductionCost(Intrinsic::ID IID, VectorType *Ty,
+                                         FastMathFlags FMF,
                                          TTI::TargetCostKind CostKind) {
     // Targets must implement a default value for the scalable case, since
     // we don't know how many lanes the vector has.
@@ -2435,19 +2452,8 @@ public:
       return InstructionCost::getInvalid();
 
     Type *ScalarTy = Ty->getElementType();
-    Type *ScalarCondTy = CondTy->getElementType();
     unsigned NumVecElts = cast<FixedVectorType>(Ty)->getNumElements();
     unsigned NumReduxLevels = Log2_32(NumVecElts);
-    unsigned CmpOpcode;
-    if (Ty->isFPOrFPVectorTy()) {
-      CmpOpcode = Instruction::FCmp;
-    } else {
-#if INTEL_CUSTOMIZATION
-      assert((Ty->isIntOrIntVectorTy() || Ty->isPtrOrPtrVectorTy()) &&
-             "expecting floating point or integer type for min/max reduction");
-#endif // INTEL_CUSTOMIZATION
-      CmpOpcode = Instruction::ICmp;
-    }
     InstructionCost MinMaxCost = 0;
     InstructionCost ShuffleCost = 0;
     std::pair<InstructionCost, MVT> LT = thisT()->getTypeLegalizationCost(Ty);
@@ -2457,16 +2463,13 @@ public:
     while (NumVecElts > MVTLen) {
       NumVecElts /= 2;
       auto *SubTy = FixedVectorType::get(ScalarTy, NumVecElts);
-      CondTy = FixedVectorType::get(ScalarCondTy, NumVecElts);
 
       ShuffleCost +=
           thisT()->getShuffleCost(TTI::SK_ExtractSubvector, Ty, std::nullopt,
                                   CostKind, NumVecElts, SubTy);
-      MinMaxCost +=
-          thisT()->getCmpSelInstrCost(CmpOpcode, SubTy, CondTy,
-                                      CmpInst::BAD_ICMP_PREDICATE, CostKind) +
-          thisT()->getCmpSelInstrCost(Instruction::Select, SubTy, CondTy,
-                                      CmpInst::BAD_ICMP_PREDICATE, CostKind);
+
+      IntrinsicCostAttributes Attrs(IID, SubTy, {SubTy, SubTy}, FMF);
+      MinMaxCost += getIntrinsicInstrCost(Attrs, CostKind);
       Ty = SubTy;
       ++LongVectorCount;
     }
@@ -2480,12 +2483,8 @@ public:
     ShuffleCost +=
         NumReduxLevels * thisT()->getShuffleCost(TTI::SK_PermuteSingleSrc, Ty,
                                                  std::nullopt, CostKind, 0, Ty);
-    MinMaxCost +=
-        NumReduxLevels *
-        (thisT()->getCmpSelInstrCost(CmpOpcode, Ty, CondTy,
-                                     CmpInst::BAD_ICMP_PREDICATE, CostKind) +
-         thisT()->getCmpSelInstrCost(Instruction::Select, Ty, CondTy,
-                                     CmpInst::BAD_ICMP_PREDICATE, CostKind));
+    IntrinsicCostAttributes Attrs(IID, Ty, {Ty, Ty}, FMF);
+    MinMaxCost += NumReduxLevels * getIntrinsicInstrCost(Attrs, CostKind);
     // The last min/max should be in vector registers and we counted it above.
     // So just need a single extractelement.
     return ShuffleCost + MinMaxCost +

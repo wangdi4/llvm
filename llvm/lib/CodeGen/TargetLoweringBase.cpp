@@ -231,6 +231,11 @@ void TargetLoweringBase::InitLibcalls(const Triple &TT) {
     setLibcallName(RTLIB::LDEXP_F80, nullptr);
     setLibcallName(RTLIB::LDEXP_F128, nullptr);
     setLibcallName(RTLIB::LDEXP_PPCF128, nullptr);
+
+    setLibcallName(RTLIB::FREXP_F32, nullptr);
+    setLibcallName(RTLIB::FREXP_F80, nullptr);
+    setLibcallName(RTLIB::FREXP_F128, nullptr);
+    setLibcallName(RTLIB::FREXP_PPCF128, nullptr);
   }
 }
 
@@ -524,6 +529,11 @@ RTLIB::Libcall RTLIB::getPOWI(EVT RetVT) {
 RTLIB::Libcall RTLIB::getLDEXP(EVT RetVT) {
   return getFPLibCall(RetVT, LDEXP_F32, LDEXP_F64, LDEXP_F80, LDEXP_F128,
                       LDEXP_PPCF128);
+}
+
+RTLIB::Libcall RTLIB::getFREXP(EVT RetVT) {
+  return getFPLibCall(RetVT, FREXP_F32, FREXP_F64, FREXP_F80, FREXP_F128,
+                      FREXP_PPCF128);
 }
 
 RTLIB::Libcall RTLIB::getOUTLINE_ATOMIC(unsigned Opc, AtomicOrdering Order,
@@ -878,8 +888,9 @@ void TargetLoweringBase::initActions() {
     setOperationAction(ISD::FATAN, VT, Expand);
     setOperationAction(ISD::FATAN2, VT, Expand);
 #endif  // INTEL_CUSTOMIZATION
-    setOperationAction({ISD::FROUND, ISD::FROUNDEVEN, ISD::FPOWI, ISD::FLDEXP},
-                       VT, Expand);
+    setOperationAction(
+        {ISD::FROUND, ISD::FROUNDEVEN, ISD::FPOWI, ISD::FLDEXP, ISD::FFREXP},
+        VT, Expand);
 
     // These operations default to expand for vector types.
     if (VT.isVector())
@@ -2028,7 +2039,8 @@ void TargetLoweringBase::insertSSPDeclarations(Module &M) const {
     // FreeBSD has "__stack_chk_guard" defined externally on libc.so
     if (M.getDirectAccessExternalData() &&
         !TM.getTargetTriple().isWindowsGNUEnvironment() &&
-        !TM.getTargetTriple().isOSFreeBSD())
+        !TM.getTargetTriple().isOSFreeBSD() &&
+        !TM.getTargetTriple().isOSDarwin())
       GV->setDSOLocal(true);
   }
 }

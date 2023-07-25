@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021-2022 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -2090,7 +2090,15 @@ static bool eliminateDeadStores(Function &F, AliasAnalysis &AA, MemorySSA &MSSA,
                                 const LoopInfo &LI) {
   bool MadeChange = false;
 
-  MSSA.ensureOptimizedUses();
+#if INTEL_CUSTOMIZATION
+  // Community has removed ensureOptimizedUses call to improve compile-time. But
+  // this is causing some dead store instructions are not removed by DSE pass.
+  // Some DTrans optimizations are not triggered due to the presence of these
+  // dead store instructions. For now, call ensureOptimizedUses at least for
+  // routines that are marked with "noinline-dtrans" attribute.
+  if (F.hasFnAttribute("noinline-dtrans"))
+    MSSA.ensureOptimizedUses();
+#endif // INTEL_CUSTOMIZATION
   DSEState State(F, AA, MSSA, DT, PDT, AC, TLI, LI);
   // For each store:
   for (unsigned I = 0; I < State.MemDefs.size(); I++) {

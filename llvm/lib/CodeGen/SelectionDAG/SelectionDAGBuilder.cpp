@@ -2057,7 +2057,11 @@ void SelectionDAGBuilder::visitRet(const ReturnInst &I) {
     // registers the usual way.
     SmallVector<EVT, 1> PtrValueVTs;
     ComputeValueVTs(TLI, DL,
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+                    PointerType::get(F->getContext(),
+#else
                     F->getReturnType()->getPointerTo(
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
                         DAG.getDataLayout().getAllocaAddrSpace()),
                     PtrValueVTs);
 
@@ -4567,11 +4571,13 @@ static bool getUniformBase(const Value *Ptr, SDValue &Base, SDValue &Index,
   if (BasePtr->getType()->isVectorTy() || !IndexVal->getType()->isVectorTy())
     return false;
 
-  uint64_t ScaleVal = DL.getTypeAllocSize(GEP->getResultElementType());
+  TypeSize ScaleVal = DL.getTypeAllocSize(GEP->getResultElementType());
+  if (ScaleVal.isScalable())
+    return false;
 
   // Target may not support the required addressing mode.
   if (ScaleVal != 1 &&
-      !TLI.isLegalScaleForGatherScatter(ScaleVal, ElemSize))
+      !TLI.isLegalScaleForGatherScatter(ScaleVal.getFixedValue(), ElemSize))
     return false;
 
   Base = SDB->getValue(BasePtr);
@@ -6782,6 +6788,14 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
                              getValue(I.getArgOperand(0)),
                              getValue(I.getArgOperand(1)), Flags));
     return;
+  case Intrinsic::frexp: {
+    SmallVector<EVT, 2> ValueVTs;
+    ComputeValueVTs(TLI, DAG.getDataLayout(), I.getType(), ValueVTs);
+    SDVTList VTs = DAG.getVTList(ValueVTs);
+    setValue(&I,
+             DAG.getNode(ISD::FFREXP, sdl, VTs, getValue(I.getArgOperand(0))));
+    return;
+  }
   case Intrinsic::arithmetic_fence: {
     setValue(&I, DAG.getNode(ISD::ARITH_FENCE, sdl,
                              getValue(I.getArgOperand(0)).getValueType(),
@@ -7581,10 +7595,9 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
   }
   case Intrinsic::xray_customevent: {
     // Here we want to make sure that the intrinsic behaves as if it has a
-    // specific calling convention, and only for x86_64.
-    // FIXME: Support other platforms later.
+    // specific calling convention.
     const auto &Triple = DAG.getTarget().getTargetTriple();
-    if (Triple.getArch() != Triple::x86_64)
+    if (!Triple.isAArch64(64) && Triple.getArch() != Triple::x86_64)
       return;
 
     SmallVector<SDValue, 8> Ops;
@@ -7611,10 +7624,9 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
   }
   case Intrinsic::xray_typedevent: {
     // Here we want to make sure that the intrinsic behaves as if it has a
-    // specific calling convention, and only for x86_64.
-    // FIXME: Support other platforms later.
+    // specific calling convention.
     const auto &Triple = DAG.getTarget().getTargetTriple();
-    if (Triple.getArch() != Triple::x86_64)
+    if (!Triple.isAArch64(64) && Triple.getArch() != Triple::x86_64)
       return;
 
     SmallVector<SDValue, 8> Ops;
@@ -10781,7 +10793,12 @@ TargetLowering::LowerCallTo(TargetLowering::CallLoweringInfo &CLI) const {
     // The instruction result is the result of loading from the
     // hidden sret parameter.
     SmallVector<EVT, 1> PVTs;
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+    Type *PtrRetTy =
+        PointerType::get(OrigRetTy->getContext(), DL.getAllocaAddrSpace());
+#else 
     Type *PtrRetTy = OrigRetTy->getPointerTo(DL.getAllocaAddrSpace());
+#endif
 
     ComputeValueVTs(*this, DL, PtrRetTy, PVTs);
     assert(PVTs.size() == 1 && "Pointers should fit in one register");
@@ -11109,7 +11126,11 @@ void SelectionDAGISel::LowerArguments(const Function &F) {
     // Put in an sret pointer parameter before all the other parameters.
     SmallVector<EVT, 1> ValueVTs;
     ComputeValueVTs(*TLI, DAG.getDataLayout(),
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+                    PointerType::get(F.getContext(),
+#else
                     F.getReturnType()->getPointerTo(
+#endif
                         DAG.getDataLayout().getAllocaAddrSpace()),
                     ValueVTs);
 
@@ -11303,7 +11324,11 @@ void SelectionDAGISel::LowerArguments(const Function &F) {
     // from the sret argument into it.
     SmallVector<EVT, 1> ValueVTs;
     ComputeValueVTs(*TLI, DAG.getDataLayout(),
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+                    PointerType::get(F.getContext(),
+#else
                     F.getReturnType()->getPointerTo(
+#endif
                         DAG.getDataLayout().getAllocaAddrSpace()),
                     ValueVTs);
     MVT VT = ValueVTs[0].getSimpleVT();

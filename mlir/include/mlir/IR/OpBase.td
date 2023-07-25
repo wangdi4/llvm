@@ -253,8 +253,8 @@ class Property<string storageTypeParam = "", string desc = ""> {
   // - `$_storage` is the storage type value.
   // - `$_reader` is a `DialectBytecodeReader`.
   code readFromMlirBytecode = [{
-    if (failed(readFromMlirBytecode($_reader, $_storage)))
-      return failure();
+    if (::mlir::failed(readFromMlirBytecode($_reader, $_storage)))
+      return ::mlir::failure();
   }];
 
   // Default value for the property.
@@ -570,6 +570,8 @@ def F128 : F<128>;
 
 def BF16 : Type<CPred<"$_self.isBF16()">, "bfloat16 type">,
            BuildableType<"$_builder.getBF16Type()">;
+def TF32 : Type<CPred<"$_self.isTF32()">, "tf32 type">,
+           BuildableType<"$_builder.getTF32Type()">;
 def F8E4M3FN : Type<CPred<"$_self.isFloat8E4M3FN()">, "f8E4M3FN type">,
                BuildableType<"$_builder.getFloat8E4M3FNType()">;
 def F8E5M2 : Type<CPred<"$_self.isFloat8E5M2()">, "f8E5M2 type">,

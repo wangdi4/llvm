@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Modifications, Copyright (C) 2021 Intel Corporation
+# Modifications, Copyright (C) 2021-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -14,7 +14,6 @@
 # or implied warranties, other than those that are expressly stated in the
 # License.
 #
-# end INTEL_CUSTOMIZATION
 ##===----------------------------------------------------------------------===##
 #
 # Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -46,113 +45,71 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "${tmachine}$")
     # Define macro with the ELF ID for this target.
     add_definitions("-DTARGET_ELF_ID=${elf_machine_id}")
 
-      if(INTEL_CUSTOMIZATION)
-        if(NOT LIBOMPTARGET_DEP_LIBELF_FOUND)
-          message(FATAL_ERROR "Required dependency LIBELF is not found")
-        endif()
-        add_library(ffi-stub SHARED
-          ${CMAKE_CURRENT_SOURCE_DIR}/../generic-elf-64bit/src/ffi_stub.c)
-        target_compile_definitions(ffi-stub PRIVATE INTEL_CUSTOMIZATION=1)
-        target_link_libraries(ffi-stub PRIVATE "-Wl,--soname=libffi.so")
-        set(LIBOMPTARGET_DEP_LIBFFI_LIBRARIES ffi-stub)
+    if(NOT LIBOMPTARGET_DEP_LIBELF_FOUND)
+      message(FATAL_ERROR "Required dependency LIBELF is not found")
+    endif()
+    add_library(ffi-stub SHARED
+      ${CMAKE_CURRENT_SOURCE_DIR}/../generic-elf-64bit/src/ffi_stub.c)
+    target_compile_definitions(ffi-stub PRIVATE INTEL_CUSTOMIZATION=1)
+    target_link_libraries(ffi-stub PRIVATE "-Wl,--soname=libffi.so")
+    set(LIBOMPTARGET_DEP_LIBFFI_LIBRARIES ffi-stub)
 
-        # Do not build it as LLVM library for product build
-        add_library("omptarget.rtl.${tmachine_libname}" SHARED
-          ${CMAKE_CURRENT_SOURCE_DIR}/../generic-elf-64bit/src/rtl.cpp)
+    # Do not build it as LLVM library for product build
+    add_library("omptarget.rtl.${tmachine_libname}" SHARED
+      ${CMAKE_CURRENT_SOURCE_DIR}/../generic-elf-64bit/src/rtl.cpp)
 
-        target_link_libraries(
-          "omptarget.rtl.${tmachine_libname}"
-          elf_common
-          ${LIBOMPTARGET_DEP_LIBFFI_LIBRARIES}
-          ${LIBOMPTARGET_DEP_LIBELF_LIBRARIES}
-          dl
-          ${OPENMP_PTHREAD_LIB}
-          "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports")
-      else(INTEL_CUSTOMIZATION)
-      add_llvm_library("omptarget.rtl.${tmachine_libname}"
-        SHARED
+    target_link_libraries(
+      "omptarget.rtl.${tmachine_libname}"
+      elf_common
+      ${LIBOMPTARGET_DEP_LIBFFI_LIBRARIES}
+      ${LIBOMPTARGET_DEP_LIBELF_LIBRARIES}
+      dl
+      ${OPENMP_PTHREAD_LIB}
+      "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports")
 
-      ${CMAKE_CURRENT_SOURCE_DIR}/../generic-elf-64bit/src/rtl.cpp
-
-      ADDITIONAL_HEADER_DIRS
-      ${LIBOMPTARGET_INCLUDE_DIR}
-      ${LIBOMPTARGET_DEP_LIBFFI_INCLUDE_DIR}
-
-        LINK_LIBS 
-        PRIVATE
-        elf_common
-        ${LIBOMPTARGET_DEP_LIBFFI_LIBRARIES}
-        ${OPENMP_PTHREAD_LIB}
-        "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports"
-
-        NO_INSTALL_RPATH
-      )
-      endif(INTEL_CUSTOMIZATION)
-
-      # Install plugin under the lib destination folder.
-      install(TARGETS "omptarget.rtl.${tmachine_libname}"
-# INTEL_CUSTOMIZATION
-        COMPONENT llvm-${tmachine_libname}-ompplugin
-# end INTEL_CUSTOMIZATION
-        LIBRARY DESTINATION "${OPENMP_INSTALL_LIBDIR}")
+    # Install plugin under the lib destination folder.
+    install(TARGETS "omptarget.rtl.${tmachine_libname}"
+      COMPONENT llvm-${tmachine_libname}-ompplugin
+      LIBRARY DESTINATION "${OPENMP_INSTALL_LIBDIR}")
     set_target_properties("omptarget.rtl.${tmachine_libname}" PROPERTIES
       INSTALL_RPATH "$ORIGIN" BUILD_RPATH "$ORIGIN:${CMAKE_CURRENT_BINARY_DIR}/.."
       CXX_VISIBILITY_PRESET protected)
 
-      target_include_directories( "omptarget.rtl.${tmachine_libname}" PRIVATE
-        ${LIBOMPTARGET_INCLUDE_DIR}
-        ${LIBOMPTARGET_DEP_LIBFFI_INCLUDE_DIR})
+    target_include_directories( "omptarget.rtl.${tmachine_libname}" PRIVATE
+      ${LIBOMPTARGET_INCLUDE_DIR}
+      ${LIBOMPTARGET_DEP_LIBFFI_INCLUDE_DIR})
 
-      list(APPEND LIBOMPTARGET_TESTED_PLUGINS
-        "omptarget.rtl.${tmachine_libname}")
+    list(APPEND LIBOMPTARGET_TESTED_PLUGINS "omptarget.rtl.${tmachine_libname}")
 
-      # Report to the parent scope that we are building a plugin.
-      set(LIBOMPTARGET_SYSTEM_TARGETS
-        "${LIBOMPTARGET_SYSTEM_TARGETS} ${tmachine_triple} ${tmachine_triple}-LTO" PARENT_SCOPE)
-      set(LIBOMPTARGET_TESTED_PLUGINS
-        "${LIBOMPTARGET_TESTED_PLUGINS}" PARENT_SCOPE)
+    # Report to the parent scope that we are building a plugin.
+    set(LIBOMPTARGET_SYSTEM_TARGETS
+      "${LIBOMPTARGET_SYSTEM_TARGETS} ${tmachine_triple} ${tmachine_triple}-LTO" PARENT_SCOPE)
+    set(LIBOMPTARGET_TESTED_PLUGINS
+      "${LIBOMPTARGET_TESTED_PLUGINS}" PARENT_SCOPE)
 
-    else(LIBOMPTARGET_DEP_LIBFFI_FOUND)
-      libomptarget_say("Not building ${tmachine_name} offloading plugin: libffi dependency not found.")
-    endif(LIBOMPTARGET_DEP_LIBFFI_FOUND)
+  else(LIBOMPTARGET_DEP_LIBFFI_FOUND)
+    libomptarget_say("Not building ${tmachine_name} offloading plugin: libffi dependency not found.")
+  endif(LIBOMPTARGET_DEP_LIBFFI_FOUND)
 else()
   libomptarget_say("Not building ${tmachine_name} offloading plugin: machine not found in the system.")
 endif()
 endmacro()
 
-if(INTEL_CUSTOMIZATION)
 add_subdirectory(x86_64)
-else(INTEL_CUSTOMIZATION)
-add_subdirectory(aarch64)
-add_subdirectory(amdgpu)
-add_subdirectory(cuda)
-add_subdirectory(ppc64)
-add_subdirectory(ppc64le)
-add_subdirectory(ve)
-add_subdirectory(x86_64)
-add_subdirectory(remote)
-endif(INTEL_CUSTOMIZATION)
-
-if(INTEL_CUSTOMIZATION)
 # INTEL_FEATURE_CSA
-  is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_CSA)
-  if (p)
-    add_subdirectory(Intel_CSA)
-  endif()
-# end INTEL_FEATURE_CSA
+is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_CSA)
+if (p)
+  add_subdirectory(Intel_CSA)
 endif()
-
-if (INTEL_COLLAB)
-  add_subdirectory(opencl)
-# INTEL_CUSTOMIZATION
-  add_subdirectory(level0)
+# end INTEL_FEATURE_CSA
+add_subdirectory(opencl)
+add_subdirectory(level0)
 if(LIBOMPTARGET_UNIFIED_RUNTIME_BUILD)
   add_subdirectory(unified_runtime)
 endif()
-# end INTEL_CUSTOMIZATION
-endif(INTEL_COLLAB)
 
 # Make sure the parent scope can see the plugins that will be created.
 set(LIBOMPTARGET_SYSTEM_TARGETS "${LIBOMPTARGET_SYSTEM_TARGETS}" PARENT_SCOPE)
 set(LIBOMPTARGET_TESTED_PLUGINS "${LIBOMPTARGET_TESTED_PLUGINS}" PARENT_SCOPE)
 
+# end INTEL_CUSTOMIZATION

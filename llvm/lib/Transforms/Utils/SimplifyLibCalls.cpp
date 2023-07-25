@@ -31,10 +31,12 @@
 #include "llvm/Transforms/Utils/SimplifyLibCalls.h"
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/SmallString.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ValueTracking.h"
+#include "llvm/IR/AttributeMask.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
@@ -1568,12 +1570,16 @@ static Value *optimizeMemCmpConstantSize(CallInst *CI, Value *LHS, Value *RHS,
     // First, see if we can fold either argument to a constant.
     Value *LHSV = nullptr;
     if (auto *LHSC = dyn_cast<Constant>(LHS)) {
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
       LHSC = ConstantExpr::getBitCast(LHSC, IntType->getPointerTo());
+#endif
       LHSV = ConstantFoldLoadFromConstPtr(LHSC, IntType, DL);
     }
     Value *RHSV = nullptr;
     if (auto *RHSC = dyn_cast<Constant>(RHS)) {
+#ifndef INTEL_SYCL_OPAQUEPOINTER_READY
       RHSC = ConstantExpr::getBitCast(RHSC, IntType->getPointerTo());
+#endif
       RHSV = ConstantFoldLoadFromConstPtr(RHSC, IntType, DL);
     }
 
@@ -1582,6 +1588,12 @@ static Value *optimizeMemCmpConstantSize(CallInst *CI, Value *LHS, Value *RHS,
     if ((LHSV || getKnownAlignment(LHS, DL, CI) >= PrefAlignment) &&
         (RHSV || getKnownAlignment(RHS, DL, CI) >= PrefAlignment)) {
       if (!LHSV) {
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
+        LHSV = B.CreateLoad(IntType, LHS, "lhsv");
+      }
+      if (!RHSV)
+        RHSV = B.CreateLoad(IntType, RHS, "rhsv");
+#else
         Type *LHSPtrTy =
             IntType->getPointerTo(LHS->getType()->getPointerAddressSpace());
         LHSV = B.CreateLoad(IntType, B.CreateBitCast(LHS, LHSPtrTy), "lhsv");
@@ -1591,6 +1603,7 @@ static Value *optimizeMemCmpConstantSize(CallInst *CI, Value *LHS, Value *RHS,
             IntType->getPointerTo(RHS->getType()->getPointerAddressSpace());
         RHSV = B.CreateLoad(IntType, B.CreateBitCast(RHS, RHSPtrTy), "rhsv");
       }
+#endif
       return B.CreateZExt(B.CreateICmpNE(LHSV, RHSV), CI->getType(), "memcmp");
     }
   }

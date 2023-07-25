@@ -35,6 +35,7 @@
 #include "DwarfUnit.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/DIE.h"
@@ -3573,7 +3574,7 @@ template <typename DataT>
 void DwarfDebug::addAccelNameImpl(const DICompileUnit &CU,
                                   AccelTable<DataT> &AppleAccel, StringRef Name,
                                   const DIE &Die) {
-  if (getAccelTableKind() == AccelTableKind::None)
+  if (getAccelTableKind() == AccelTableKind::None || Name.empty())
     return;
 
   if (getAccelTableKind() != AccelTableKind::Apple &&
