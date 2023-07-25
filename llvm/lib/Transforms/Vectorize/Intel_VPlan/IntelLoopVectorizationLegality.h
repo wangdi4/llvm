@@ -43,6 +43,7 @@ class VPOVectorizationLegality;
 extern bool ForceUDSReductionVec;
 extern bool EnableHIRPrivateArrays;
 extern bool EnableF90DVSupport;
+extern bool EnableHIRF90DVSupport;
 
 template <typename LegalityTy> class VectorizationLegalityBase {
   static constexpr IRKind IR =
@@ -93,11 +94,13 @@ private:
     }
 
     for (PrivateItem *Item : WRLp->getPriv().items()) {
-      if (!EnableF90DVSupport && Item->getIsF90DopeVector())
+      if ((!EnableF90DVSupport ||
+           (!EnableHIRF90DVSupport && IR == IRKind::HIR)) &&
+          Item->getIsF90DopeVector())
         // See CMPLRLLVM-10783.
-        return bailout(
-            OptReportVerbosity::High, OptRemarkID::VecFailGenericBailout,
-            INTERNAL("F90 dope vector reductions are not supported."));
+        return bailout(OptReportVerbosity::High,
+                       OptRemarkID::VecFailGenericBailout,
+                       INTERNAL("F90 dope vector privates are not supported."));
       if (!visitPrivate(Item)) {
         assert(BR.BailoutRemark && "visitPrivate didn't set bailout data!");
         return false;
