@@ -10,7 +10,7 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.data = type { i64, [64 x float] }
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @_Z3fooP3s64S0_S0_P4data(%struct.s64* %p, %struct.s64* %q, %struct.s64* %r, %struct.data* %d) local_unnamed_addr #0 {
+define dso_local void @_Z3fooP3s64S0_S0_P4data(ptr %p, ptr %q, ptr %r, ptr %d) local_unnamed_addr #0 {
 ; CHECK-LABEL: @_Z3fooP3s64S0_S0_P4data(
 ; CHECK:       for.body:
 ; With -opaque-ptrs we won't have a GEP x,0 here
@@ -35,8 +35,7 @@ entry:
 for.cond:                                         ; preds = %for.body, %entry
   %i.0 = phi i32 [ 0, %entry ], [ %inc, %for.body ]
   %conv = sext i32 %i.0 to i64
-  %size = getelementptr inbounds %struct.data, %struct.data* %d, i32 0, i32 0, !intel-tbaa !2
-  %0 = load i64, i64* %size, align 8, !tbaa !2
+  %0 = load i64, ptr %d, align 8, !tbaa !2
   %cmp = icmp ult i64 %conv, %0
   br i1 %cmp, label %for.body, label %for.cond.cleanup
 
@@ -44,24 +43,22 @@ for.cond.cleanup:                                 ; preds = %for.cond
   ret void
 
 for.body:                                         ; preds = %for.cond
-  %1 = bitcast %struct.s64* %p to i8*
-  %2 = bitcast %struct.s64* %q to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %1, i8* align 4 %2, i64 8, i1 false), !tbaa.struct !9
-  %s = getelementptr inbounds %struct.s64, %struct.s64* %r, i32 0, i32 1, !intel-tbaa !15
-  %3 = load i16, i16* %s, align 4, !tbaa !15
-  %conv1 = sext i16 %3 to i32
+  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %p, ptr align 4 %q, i64 8, i1 false), !tbaa.struct !9
+  %s = getelementptr inbounds %struct.s64, ptr %r, i32 0, i32 1, !intel-tbaa !15
+  %1 = load i16, ptr %s, align 4, !tbaa !15
+  %conv1 = sext i16 %1 to i32
   %conv2 = sitofp i32 %conv1 to float
-  %A = getelementptr inbounds %struct.data, %struct.data* %d, i32 0, i32 1, !intel-tbaa !17
-  %arrayidx = getelementptr inbounds [64 x float], [64 x float]* %A, i64 0, i64 %conv, !intel-tbaa !18
-  %4 = load float, float* %arrayidx, align 4, !tbaa !19
-  %add = fadd float %4, %conv2
-  store float %add, float* %arrayidx, align 4, !tbaa !19
+  %A = getelementptr inbounds %struct.data, ptr %d, i32 0, i32 1, !intel-tbaa !17
+  %arrayidx = getelementptr inbounds [64 x float], ptr %A, i64 0, i64 %conv, !intel-tbaa !18
+  %2 = load float, ptr %arrayidx, align 4, !tbaa !19
+  %add = fadd float %2, %conv2
+  store float %add, ptr %arrayidx, align 4, !tbaa !19
   %inc = add nsw i32 %i.0, 1
   br label %for.cond
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.memcpy.p0i8.p0i8.i64(i8* nocapture writeonly, i8* nocapture readonly, i64, i1 immarg) #1
+declare void @llvm.memcpy.p0.p0.i64(ptr nocapture writeonly, ptr nocapture readonly, i64, i1 immarg) #1
 
 attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

@@ -43,7 +43,7 @@ if.then.5:                                        ; preds = %if.else.3
   br label %return
 
 if.end.7:                                         ; preds = %if.else.3
-  %puts = tail call i32 @puts(i8* getelementptr inbounds ([2 x i8], [2 x i8]* @str, i64 0, i64 0))
+  %puts = tail call i32 @puts(ptr @str)
   br label %return
 
 return:                                           ; preds = %if.then, %if.end.7, %if.then.5
@@ -52,8 +52,8 @@ return:                                           ; preds = %if.then, %if.end.7,
 }
 
 ; Function Attrs: nounwind
-declare i32 @printf(i8* nocapture readonly, ...) 
+declare i32 @printf(ptr nocapture readonly, ...)
 
 ; Function Attrs: nounwind
-declare i32 @puts(i8* nocapture readonly)
+declare i32 @puts(ptr nocapture readonly)
 

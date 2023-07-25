@@ -36,35 +36,35 @@ declare void @use(i32) readonly
 declare i64 @get_global_id(i32) readonly
 
 ; Do not convert sext to zext. DPC++ like example.
-define void @test1(i32* %p, i32 %x) {
+define void @test1(ptr %p, i32 %x) {
 ; CHECK-LABEL: @test1
 ; CHECK:   sext
 ; CHECK-NOT: zext
-  %addr_begin = getelementptr i32, i32* %p, i64 40
+  %addr_begin = getelementptr i32, ptr %p, i64 40
   %val_fixed = call i64 @get_global_id(i32 0), !range !0
   %trunc = trunc i64 %val_fixed to i32
   %add = add nsw nuw i32 %trunc, %x
   %sext = sext i32 %add to i64
-  %addr = getelementptr i32, i32* %addr_begin, i64 %sext
-  %val = load i32, i32* %addr
+  %addr = getelementptr i32, ptr %addr_begin, i64 %sext
+  %val = load i32, ptr %addr
   call void @use(i32 %val)
   ret void
 }
 
 ; Do not convert sext to zext. Loop index example.
-define void @test2(i32* %p, i32 %x) {
+define void @test2(ptr %p, i32 %x) {
 ; CHECK-LABEL: @test2
 ; CHECK:   sext
 ; CHECK-NOT: zext
 bb0:
-  %addr_begin = getelementptr i32, i32* %p, i64 40
+  %addr_begin = getelementptr i32, ptr %p, i64 40
   br label %bb1
 bb1:
   %index = phi i32 [ zeroinitializer, %bb0 ], [ %inc, %bb1 ]
   %add = add nsw nuw i32 %index, %x
   %i = sext i32 %add to i64
-  %addr = getelementptr i32, i32* %addr_begin, i64 %i
-  %val = load i32, i32* %addr
+  %addr = getelementptr i32, ptr %addr_begin, i64 %i
+  %val = load i32, ptr %addr
   call void @use(i32 %val)
   %inc = add nsw nuw i32 %index, 1
   %cond = icmp ult i32 %inc, 100000
@@ -77,20 +77,20 @@ bb2:
 ;   from:     sext_i32_to_i64(trunc_i64_to_i32(X) + C)
 ;   to:       ((X << 32) + (C << 32)) >> 32
 ;
-define void @test3(i32* %p, i32 %x) {
+define void @test3(ptr %p, i32 %x) {
 ; CHECK-LABEL: @test3
 ; CHECK:        trunc
 ; CHECK-NEXT:   add
 ; CHECK-NEXT:   sext
 ; CHECK-NOT:    shl
 ; CHECK-NOT:    ashr
-  %addr_begin = getelementptr i32, i32* %p, i64 40
+  %addr_begin = getelementptr i32, ptr %p, i64 40
   %val_fixed = call i64 @get_global_id(i32 0)
   %trunc = trunc i64 %val_fixed to i32
   %add = add i32 %trunc, 2
   %sext = sext i32 %add to i64
-  %addr = getelementptr i32, i32* %addr_begin, i64 %sext
-  %val = load i32, i32* %addr
+  %addr = getelementptr i32, ptr %addr_begin, i64 %sext
+  %val = load i32, ptr %addr
   call void @use(i32 %val)
   ret void
 }

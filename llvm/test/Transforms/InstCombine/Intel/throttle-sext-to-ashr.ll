@@ -1,11 +1,11 @@
-; RUN: opt -opaque-pointers=0 -passes=instcombine <%s -S | FileCheck %s
+; RUN: opt -passes=instcombine <%s -S | FileCheck %s
 
 ; Verify that a probable innermost level subscript is not changed into a form with ashr.
 ; Notice that the rank number is zero for the relavant subscript.
 ; This supression was intended to help the vectorization of innermost loops.
 ;
 ; CHECK-DAG:  %[[INT_SEXT164:.*]] = sext i32 %add.53 to i64
-; CHECK-DAG:  %"fetch.153[][][]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %"val$[]_fetch.154", i64 8, double* elementtype(double) %"fetch.153[][]", i64 %[[INT_SEXT164]])
+; CHECK-DAG:  %"fetch.153[][][]" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %"val$[]_fetch.154", i64 8, ptr elementtype(double) %"fetch.153[][]", i64 %[[INT_SEXT164]])
 
 ; Instcombine is not suppressed for a non-zero rank, 2.
 ;
@@ -13,7 +13,7 @@
 ;            %add.51 = add i64 %mul.49, %omp.pdo.start195.val
 ; CHECK-DAG: %[[SEXT1:.*]] = shl i64 %add.51, 32
 ; CHECK-DAG: %[[INT_SEXT170:.*]] = ashr exact i64 %[[SEXT1]], 32
-; CHECK-DAG: call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 %"val$[]_fetch.160", i64 %"val$[]_fetch.159", double* elementtype(double) %fetch.153, i64 %[[INT_SEXT170]])
+; CHECK-DAG: call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 %"val$[]_fetch.160", i64 %"val$[]_fetch.159", ptr elementtype(double) %fetch.153, i64 %[[INT_SEXT170]])
 
 ; Instcombine is not suppressed for a non-zero rank, 1.
 ;
@@ -21,40 +21,40 @@
 ;             %add.52 = add i64 %mul.50, %do.start202.val
 ; CHECK-DAG:  %[[SEXT:.*]] = shl i64 %add.52, 32
 ; CHECK-DAG:  %[[INT_SEXT167:.*]] = ashr exact i64 %[[SEXT]], 32
-; CHECK-DAG:  call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 %mul.55, double* elementtype(double) %"var$2.addr_a0$_fetch.168[]", i64 %[[INT_SEXT167]])
+; CHECK-DAG:  call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 0, i64 %mul.55, ptr elementtype(double) %"var$2.addr_a0$_fetch.168[]", i64 %[[INT_SEXT167]])
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%"QNCA_a0$double*$rank3$" = type { double*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }
-%struct.ident_t = type { i32, i32, i32, i32, i8* }
-%"QNCA_a0$double*$rank3$.0" = type { double*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }
+%"QNCA_a0$ptr$rank3$" = type { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }
+%struct.ident_t = type { i32, i32, i32, i32, ptr }
+%"QNCA_a0$ptr$rank3$.0" = type { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }
 
-@my_work_ = external global %"QNCA_a0$double*$rank3$"
+@my_work_ = external global %"QNCA_a0$ptr$rank3$"
 @nx_ = external global i32, align 8
 @.kmpc_loc.0.0.8 = external hidden unnamed_addr global %struct.ident_t
 @.kmpc_loc.0.0.10 = external hidden unnamed_addr global %struct.ident_t
 
 ; Function Attrs: nounwind readnone speculatable
-declare i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8, i64, i32, i64*, i32) #0
+declare ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8, i64, i32, ptr, i32) #0
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #1
 
 ; Function Attrs: nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #0
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #0
 
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #1
 
 ; Function Attrs: nounwind
-declare void @__kmpc_dist_for_static_init_8(%struct.ident_t*, i32, i32, i32*, i64*, i64*, i64*, i64*, i64, i64) #1
+declare void @__kmpc_dist_for_static_init_8(ptr, i32, i32, ptr, ptr, ptr, ptr, ptr, i64, i64) #1
 
 ; Function Attrs: nofree nounwind
-declare void @__kmpc_for_static_fini(%struct.ident_t* nocapture readonly, i32) #2
+declare void @__kmpc_for_static_fini(ptr nocapture readonly, i32) #2
 
 ; Function Attrs: nounwind uwtable
-define hidden void @foo.DIR.OMP.DISTRIBUTE.PARLOOP.25.split416.split(i32* nocapture readonly %tid, i32* nocapture readnone %bid, %"QNCA_a0$double*$rank3$.0"* nocapture readonly %"var$2", i64 %"var$4.fpriv333.fp393.val", i64 %"var$3.fpriv336.fp395.val", i64 %do.step204.val, i64 %do.start202.val, i64 %omp.pdo.step197.val, i64 %omp.pdo.start195.val, i64 %omp.collapsed.ub216.priv.val, i64 %do.norm.ub206.val421, i64 %omp.pdo.norm.ub200.val, i64 %omp.collapsed.lb215.priv.val, i64 %omp.pdo.norm.lb199.val, i64 %do.norm.lb205.val) #3 {
+define hidden void @foo.DIR.OMP.DISTRIBUTE.PARLOOP.25.split416.split(ptr nocapture readonly %tid, ptr nocapture readnone %bid, ptr nocapture readonly %"var$2", i64 %"var$4.fpriv333.fp393.val", i64 %"var$3.fpriv336.fp395.val", i64 %do.step204.val, i64 %do.start202.val, i64 %omp.pdo.step197.val, i64 %omp.pdo.start195.val, i64 %omp.collapsed.ub216.priv.val, i64 %do.norm.ub206.val421, i64 %omp.pdo.norm.ub200.val, i64 %omp.collapsed.lb215.priv.val, i64 %omp.pdo.norm.lb199.val, i64 %do.norm.lb205.val) #3 {
 DIR.OMP.DISTRIBUTE.PARLOOP.13.split:
   %is.last = alloca i32, align 4
   %lower.bnd = alloca i64, align 4
@@ -62,7 +62,7 @@ DIR.OMP.DISTRIBUTE.PARLOOP.13.split:
   %stride = alloca i64, align 4
   %upperD = alloca i64, align 4
   %"foo$I.fpriv339.linear.iv" = alloca i32, align 8
-  store i32 0, i32* %is.last, align 4
+  store i32 0, ptr %is.last, align 4
   %0 = trunc i64 %"var$4.fpriv333.fp393.val" to i32
   %1 = trunc i64 %"var$3.fpriv336.fp395.val" to i32
   %2 = trunc i64 %do.step204.val to i32
@@ -93,37 +93,36 @@ omp.pdo.body46:                                   ; preds = %omp.pdo.body46.lr.p
   %omp.pdo.norm.iv191.local.0414 = phi i64 [ 0, %omp.pdo.body46.lr.ph ], [ %add.61, %omp.pdo.body46 ]
   %int_sext162 = trunc i64 %omp.pdo.norm.iv191.local.0414 to i32
   %add.53 = add nsw i32 %int_sext162, 1
-  store i32 %add.53, i32* %"foo$I.fpriv339.linear.iv", align 1, !tbaa !12, !alias.scope !16, !noalias !21, !llvm.access.group !124
-  %fetch.153 = load double*, double** getelementptr inbounds (%"QNCA_a0$double*$rank3$", %"QNCA_a0$double*$rank3$"* @my_work_, i64 0, i32 0), align 1, !tbaa !127, !alias.scope !130, !noalias !131, !llvm.access.group !124
-  %"val$[]163" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) getelementptr inbounds (%"QNCA_a0$double*$rank3$", %"QNCA_a0$double*$rank3$"* @my_work_, i64 0, i32 6, i64 0, i32 2), i32 0)
-  %"val$[]_fetch.154" = load i64, i64* %"val$[]163", align 1, !tbaa !132, !alias.scope !133, !noalias !131, !llvm.access.group !124
+  store i32 %add.53, ptr %"foo$I.fpriv339.linear.iv", align 1, !tbaa !12, !alias.scope !16, !noalias !21, !llvm.access.group !124
+  %fetch.153 = load ptr, ptr @my_work_, align 1, !tbaa !127, !alias.scope !130, !noalias !131, !llvm.access.group !124
+  %"val$[]163" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) getelementptr inbounds (%"QNCA_a0$ptr$rank3$", ptr @my_work_, i64 0, i32 6, i64 0, i32 2), i32 0)
+  %"val$[]_fetch.154" = load i64, ptr %"val$[]163", align 1, !tbaa !132, !alias.scope !133, !noalias !131, !llvm.access.group !124
   %int_sext164 = sext i32 %add.53 to i64
-  %"val$[]165" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) getelementptr inbounds (%"QNCA_a0$double*$rank3$", %"QNCA_a0$double*$rank3$"* @my_work_, i64 0, i32 6, i64 0, i32 1), i32 1)
-  %"val$[]_fetch.156" = load i64, i64* %"val$[]165", align 1, !tbaa !134, !range !135, !alias.scope !136, !noalias !131, !llvm.access.group !124
-  %"val$[]166" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) getelementptr inbounds (%"QNCA_a0$double*$rank3$", %"QNCA_a0$double*$rank3$"* @my_work_, i64 0, i32 6, i64 0, i32 2), i32 1)
-  %"val$[]_fetch.157" = load i64, i64* %"val$[]166", align 1, !tbaa !132, !alias.scope !137, !noalias !131, !llvm.access.group !124
+  %"val$[]165" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) getelementptr inbounds (%"QNCA_a0$ptr$rank3$", ptr @my_work_, i64 0, i32 6, i64 0, i32 1), i32 1)
+  %"val$[]_fetch.156" = load i64, ptr %"val$[]165", align 1, !tbaa !134, !range !135, !alias.scope !136, !noalias !131, !llvm.access.group !124
+  %"val$[]166" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) getelementptr inbounds (%"QNCA_a0$ptr$rank3$", ptr @my_work_, i64 0, i32 6, i64 0, i32 2), i32 1)
+  %"val$[]_fetch.157" = load i64, ptr %"val$[]166", align 1, !tbaa !132, !alias.scope !137, !noalias !131, !llvm.access.group !124
   %int_sext167 = sext i32 %add.52 to i64
-  %"val$[]168" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) getelementptr inbounds (%"QNCA_a0$double*$rank3$", %"QNCA_a0$double*$rank3$"* @my_work_, i64 0, i32 6, i64 0, i32 1), i32 2)
-  %"val$[]_fetch.159" = load i64, i64* %"val$[]168", align 1, !tbaa !134, !range !135, !alias.scope !138, !noalias !131, !llvm.access.group !124
-  %"val$[]169" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) getelementptr inbounds (%"QNCA_a0$double*$rank3$", %"QNCA_a0$double*$rank3$"* @my_work_, i64 0, i32 6, i64 0, i32 2), i32 2)
-  %"val$[]_fetch.160" = load i64, i64* %"val$[]169", align 1, !tbaa !132, !alias.scope !139, !noalias !131, !llvm.access.group !124
+  %"val$[]168" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) getelementptr inbounds (%"QNCA_a0$ptr$rank3$", ptr @my_work_, i64 0, i32 6, i64 0, i32 1), i32 2)
+  %"val$[]_fetch.159" = load i64, ptr %"val$[]168", align 1, !tbaa !134, !range !135, !alias.scope !138, !noalias !131, !llvm.access.group !124
+  %"val$[]169" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) getelementptr inbounds (%"QNCA_a0$ptr$rank3$", ptr @my_work_, i64 0, i32 6, i64 0, i32 2), i32 2)
+  %"val$[]_fetch.160" = load i64, ptr %"val$[]169", align 1, !tbaa !132, !alias.scope !139, !noalias !131, !llvm.access.group !124
   %int_sext170 = sext i32 %add.51 to i64
-  %"fetch.153[]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 %"val$[]_fetch.160", i64 %"val$[]_fetch.159", double* elementtype(double) %fetch.153, i64 %int_sext170)
-  %"fetch.153[][]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 %"val$[]_fetch.157", i64 %"val$[]_fetch.156", double* elementtype(double) %"fetch.153[]", i64 %int_sext167)
-  %"fetch.153[][][]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %"val$[]_fetch.154", i64 8, double* elementtype(double) %"fetch.153[][]", i64 %int_sext164)
-  %"fetch.153[][][]_fetch.167" = load double, double* %"fetch.153[][][]", align 1, !tbaa !140, !alias.scope !142, !noalias !143, !llvm.access.group !124
-  %"var$2.addr_a0$176" = getelementptr inbounds %"QNCA_a0$double*$rank3$.0", %"QNCA_a0$double*$rank3$.0"* %"var$2", i64 0, i32 0
-  %"var$2.addr_a0$_fetch.168" = load double*, double** %"var$2.addr_a0$176", align 1, !tbaa !144, !alias.scope !146, !noalias !131, !llvm.access.group !124
+  %"fetch.153[]" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 %"val$[]_fetch.160", i64 %"val$[]_fetch.159", ptr elementtype(double) %fetch.153, i64 %int_sext170)
+  %"fetch.153[][]" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 %"val$[]_fetch.157", i64 %"val$[]_fetch.156", ptr elementtype(double) %"fetch.153[]", i64 %int_sext167)
+  %"fetch.153[][][]" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 %"val$[]_fetch.154", i64 8, ptr elementtype(double) %"fetch.153[][]", i64 %int_sext164)
+  %"fetch.153[][][]_fetch.167" = load double, ptr %"fetch.153[][][]", align 1, !tbaa !140, !alias.scope !142, !noalias !143, !llvm.access.group !124
+  %"var$2.addr_a0$_fetch.168" = load ptr, ptr %"var$2", align 1, !tbaa !144, !alias.scope !146, !noalias !131, !llvm.access.group !124
   %add.57 = add nsw i32 %1, 2
   %int_sext178 = sext i32 %add.57 to i64
   %mul.55 = shl nsw i64 %int_sext178, 3
   %add.59 = add nsw i32 %0, 2
   %int_sext180 = sext i32 %add.59 to i64
   %mul.56 = mul nsw i64 %mul.55, %int_sext180
-  %"var$2.addr_a0$_fetch.168[]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 0, i64 %mul.56, double* elementtype(double) %"var$2.addr_a0$_fetch.168", i64 %int_sext170)
-  %"var$2.addr_a0$_fetch.168[][]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 %mul.55, double* elementtype(double) %"var$2.addr_a0$_fetch.168[]", i64 %int_sext167)
-  %"var$2.addr_a0$_fetch.168[][][]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 0, i64 8, double* elementtype(double) %"var$2.addr_a0$_fetch.168[][]", i64 %int_sext164)
-  store double %"fetch.153[][][]_fetch.167", double* %"var$2.addr_a0$_fetch.168[][][]", align 1, !tbaa !147, !alias.scope !149, !noalias !150, !llvm.access.group !124
+  %"var$2.addr_a0$_fetch.168[]" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 0, i64 %mul.56, ptr elementtype(double) %"var$2.addr_a0$_fetch.168", i64 %int_sext170)
+  %"var$2.addr_a0$_fetch.168[][]" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 0, i64 %mul.55, ptr elementtype(double) %"var$2.addr_a0$_fetch.168[]", i64 %int_sext167)
+  %"var$2.addr_a0$_fetch.168[][][]" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 8, ptr elementtype(double) %"var$2.addr_a0$_fetch.168[][]", i64 %int_sext164)
+  store double %"fetch.153[][][]_fetch.167", ptr %"var$2.addr_a0$_fetch.168[][][]", align 1, !tbaa !147, !alias.scope !149, !noalias !150, !llvm.access.group !124
   %add.61 = add nsw i64 %omp.pdo.norm.iv191.local.0414, 1
   %7 = add nsw i64 %int_sext194, 1
   %rel.9.not = icmp sgt i64 %7, %add.61
@@ -133,14 +132,14 @@ DIR.OMP.SIMD.11:                                  ; preds = %do.cond41
   %int_sext160 = trunc i64 %storemerge to i32
   %mul.50 = mul nsw i32 %2, %int_sext160
   %add.52 = add nsw i32 %mul.50, %3
-  %fetch.143 = load i32, i32* @nx_, align 1, !tbaa !154, !alias.scope !156, !noalias !131, !llvm.access.group !125
+  %fetch.143 = load i32, ptr @nx_, align 1, !tbaa !154, !alias.scope !156, !noalias !131, !llvm.access.group !125
   %sub.8 = sub nsw i32 %fetch.143, 1
   %int_sext194 = sext i32 %sub.8 to i64
   %rel.9.not413 = icmp sgt i64 0, %int_sext194
   br i1 %rel.9.not413, label %DIR.OMP.END.SIMD.20385, label %omp.pdo.body46.lr.ph
 
 omp.pdo.body46.lr.ph:                             ; preds = %DIR.OMP.SIMD.11
-  %8 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV"(i32* %"foo$I.fpriv339.linear.iv", i32 1), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ], !llvm.access.group !125
+  %8 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV"(ptr %"foo$I.fpriv339.linear.iv", i32 1), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ], !llvm.access.group !125
   br label %omp.pdo.body46
 
 omp.pdo.cond45.DIR.OMP.END.SIMD.20.loopexit_crit_edge: ; preds = %omp.pdo.body46
@@ -156,14 +155,14 @@ do.epilog43:                                      ; preds = %do.cond41
   br label %omp.pdo.cond35
 
 omp.collapsed.loop.body220.lr.ph:                 ; preds = %DIR.OMP.DISTRIBUTE.PARLOOP.13.split
-  %my.tid = load i32, i32* %tid, align 4
-  store i64 %omp.collapsed.lb215.priv.val, i64* %lower.bnd, align 4
-  store i64 %omp.collapsed.ub216.priv.val, i64* %upper.bnd, align 4
-  store i64 1, i64* %stride, align 4
-  store i64 %omp.collapsed.ub216.priv.val, i64* %upperD, align 4
-  call void @__kmpc_dist_for_static_init_8(%struct.ident_t* @.kmpc_loc.0.0.8, i32 %my.tid, i32 34, i32* nonnull %is.last, i64* nonnull %lower.bnd, i64* nonnull %upper.bnd, i64* nonnull %upperD, i64* nonnull %stride, i64 1, i64 1)
-  %lb.new = load i64, i64* %lower.bnd, align 4, !range !157
-  %ub.new = load i64, i64* %upper.bnd, align 4, !range !157
+  %my.tid = load i32, ptr %tid, align 4
+  store i64 %omp.collapsed.lb215.priv.val, ptr %lower.bnd, align 4
+  store i64 %omp.collapsed.ub216.priv.val, ptr %upper.bnd, align 4
+  store i64 1, ptr %stride, align 4
+  store i64 %omp.collapsed.ub216.priv.val, ptr %upperD, align 4
+  call void @__kmpc_dist_for_static_init_8(ptr @.kmpc_loc.0.0.8, i32 %my.tid, i32 34, ptr nonnull %is.last, ptr nonnull %lower.bnd, ptr nonnull %upper.bnd, ptr nonnull %upperD, ptr nonnull %stride, i64 1, i64 1)
+  %lb.new = load i64, ptr %lower.bnd, align 4, !range !157
+  %ub.new = load i64, ptr %upper.bnd, align 4, !range !157
   %omp.ztt = icmp sle i64 %lb.new, %ub.new
   br i1 %omp.ztt, label %omp.collapsed.loop.body220, label %loop.region.exit
 
@@ -179,7 +178,7 @@ omp.collapsed.loop.inc222:                        ; preds = %omp.pdo.cond35
   br i1 %.not376, label %omp.collapsed.loop.body220, label %loop.region.exit, !prof !158, !llvm.loop !159
 
 loop.region.exit:                                 ; preds = %omp.collapsed.loop.inc222, %omp.collapsed.loop.body220.lr.ph
-  call void @__kmpc_for_static_fini(%struct.ident_t* @.kmpc_loc.0.0.10, i32 %my.tid)
+  call void @__kmpc_for_static_fini(ptr @.kmpc_loc.0.0.10, i32 %my.tid)
   br label %DIR.OMP.END.DISTRIBUTE.PARLOOP.21.loopexit
 
 DIR.OMP.END.DISTRIBUTE.PARLOOP.21.loopexit:       ; preds = %loop.region.exit, %DIR.OMP.DISTRIBUTE.PARLOOP.13.split

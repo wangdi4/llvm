@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -passes="gvn" < %s -enable-split-backedge-in-load-pre -S | FileCheck %s
+; RUN: opt -passes="gvn" < %s -enable-split-backedge-in-load-pre -S | FileCheck %s
 
 ; Verify that loop id gets duplicated to the new basic block when the backedge
 ; is split by GVN.
@@ -10,22 +10,22 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK: @bar
 ; CHECK: crit_edge, !llvm.loop
-; CHECK: %.pre = load double, double* getelementptr inbounds ([10 x double], [10 x double]* @A, i64 0, i64 1)
+; CHECK: %.pre = load double, ptr getelementptr inbounds ([10 x double], ptr @A, i64 0, i64 1)
 ; CHECK-NEXT: br label %for.body, !llvm.loop
 ; CHECK: ret void
 
 define void @bar(double %n, double %m) {
 entry:
-  store double %m, double* getelementptr inbounds ([10 x double], [10 x double]* @A, i64 0, i64 1), align 8, !tbaa !1
+  store double %m, ptr getelementptr inbounds ([10 x double], ptr @A, i64 0, i64 1), align 8, !tbaa !1
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 3, %entry ], [ %indvars.iv.next, %for.body ]
   %n.addr.05 = phi double [ %n, %entry ], [ %mul, %for.body ]
-  %0 = load double, double* getelementptr inbounds ([10 x double], [10 x double]* @A, i64 0, i64 1), align 8, !tbaa !1
+  %0 = load double, ptr getelementptr inbounds ([10 x double], ptr @A, i64 0, i64 1), align 8, !tbaa !1
   %mul = fmul fast double %0, %n.addr.05
-  %arrayidx = getelementptr inbounds [10 x double], [10 x double]* @A, i64 0, i64 %indvars.iv
-  store double %mul, double* %arrayidx, align 8, !tbaa !1
+  %arrayidx = getelementptr inbounds [10 x double], ptr @A, i64 0, i64 %indvars.iv
+  store double %mul, ptr %arrayidx, align 8, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 9
   br i1 %exitcond, label %for.end, label %for.body, !llvm.loop !6

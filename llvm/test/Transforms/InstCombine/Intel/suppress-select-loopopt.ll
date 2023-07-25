@@ -6,7 +6,7 @@
 ; On success there should be no 'select' instruction.
 
 ; Function Attrs: nounwind
-define i32 @suppress_or_sext_opt(i32* %pa) local_unnamed_addr "pre_loopopt" {
+define i32 @suppress_or_sext_opt(ptr %pa) local_unnamed_addr "pre_loopopt" {
 ; CHECK-LABEL: @suppress_or_sext_opt(
 ; CHECK:         %1 = icmp sgt i32 %0, 0
 ; CHECK-NEXT:    %slct = sext i1 %1 to i32
@@ -22,7 +22,7 @@ bb0:                                          ; preds = %entry, %bb1
   br i1 %rel0, label %bb1, label %bb2
 
 bb1:                                          ; preds = %bb0
-  %0 = load i32, i32* %pa
+  %0 = load i32, ptr %pa
   %1 = icmp sgt i32 %0, 0
   %isext = sext i1 %1 to i32
   %rel1 = icmp ne i32 %isext, 0

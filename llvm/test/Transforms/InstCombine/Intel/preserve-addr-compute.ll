@@ -4,13 +4,13 @@
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 
-define void @test1(i64* %lower.bnd, i64* %upper.bnd, double* %addr) {
+define void @test1(ptr %lower.bnd, ptr %upper.bnd, ptr %addr) {
 ; CHECK-LABEL: @test1
 ; PRESERVE:       sext i32
 ; NOPRESERVE-NOT: sext i32
 entry:
-  %lb = load i64, i64* %lower.bnd, align 8, !range !0
-  %ub = load i64, i64* %upper.bnd, align 8, !range !0
+  %lb = load i64, ptr %lower.bnd, align 8, !range !0
+  %ub = load i64, ptr %upper.bnd, align 8, !range !0
   br label %loop
 
 loop:
@@ -19,11 +19,10 @@ loop:
   %mul = mul nuw nsw i32 %val, 20
   %add = add nuw nsw i32 %mul, 19
   %idx = sext i32 %add to i64
-  %ptr = getelementptr inbounds double, double* %addr, i64 %idx
-  %cst = bitcast double* %ptr to i32*
-  %int = load i32, i32* %cst, align 4
+  %ptr = getelementptr inbounds double, ptr %addr, i64 %idx
+  %int = load i32, ptr %ptr, align 4
   %or = or i32 %int, 2
-  store i32 %or, i32* %cst, align 4
+  store i32 %or, ptr %ptr, align 4
   br label %inc
 
 inc:

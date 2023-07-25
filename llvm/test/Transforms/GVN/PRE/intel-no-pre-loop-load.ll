@@ -8,19 +8,19 @@
 ; or
 ; OpenMP is enabled
 
-; RUN: opt -opaque-pointers=0 -aa-pipeline="basic-aa" -passes="lcssa,gvn" -enable-load-pre -enable-pre -S < %s | FileCheck %s
+; RUN: opt -aa-pipeline="basic-aa" -passes="lcssa,gvn" -enable-load-pre -enable-pre -S < %s | FileCheck %s
 
 declare void @may_free_memory()
 
 declare i32 @personality_function()
 
-define i32 @prefer_vector_width(i32 addrspace(1)* %p) #0 gc "statepoint-example" personality i32 ()* @"personality_function" {
+define i32 @prefer_vector_width(ptr addrspace(1) %p) #0 gc "statepoint-example" personality ptr @"personality_function" {
 ; CHECK-LABEL: @prefer_vector_width(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[IV_NEXT:%.*]], [[BACKEDGE:%.*]] ]
-; CHECK-NEXT:    [[X:%.*]] = load i32, i32 addrspace(1)* [[P:%.*]], align 4
+; CHECK-NEXT:    [[X:%.*]] = load i32, ptr addrspace(1) [[P:%.*]], align 4
 ; CHECK-NEXT:    [[COND:%.*]] = icmp ne i32 [[X]], 0
 ; CHECK-NEXT:    br i1 [[COND]], label [[HOT_PATH:%.*]], label [[COLD_PATH:%.*]]
 ; CHECK:       hot_path:
@@ -40,7 +40,7 @@ entry:
 
 loop:
   %iv = phi i32 [ 0, %entry], [%iv.next, %backedge]
-  %x = load i32, i32 addrspace(1)* %p
+  %x = load i32, ptr addrspace(1) %p
   %cond = icmp ne i32 %x, 0
   br i1 %cond, label %hot_path, label %cold_path
 
@@ -60,13 +60,13 @@ exit:
   ret i32 %x
 }
 
-define i32 @has_openmp(i32 addrspace(1)* %p) #1 gc "statepoint-example" personality i32 ()* @"personality_function" {
+define i32 @has_openmp(ptr addrspace(1) %p) #1 gc "statepoint-example" personality ptr @"personality_function" {
 ; CHECK-LABEL: @has_openmp(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[IV:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[IV_NEXT:%.*]], [[BACKEDGE:%.*]] ]
-; CHECK-NEXT:    [[X:%.*]] = load i32, i32 addrspace(1)* [[P:%.*]], align 4
+; CHECK-NEXT:    [[X:%.*]] = load i32, ptr addrspace(1) [[P:%.*]], align 4
 ; CHECK-NEXT:    [[COND:%.*]] = icmp ne i32 [[X]], 0
 ; CHECK-NEXT:    br i1 [[COND]], label [[HOT_PATH:%.*]], label [[COLD_PATH:%.*]]
 ; CHECK:       hot_path:
@@ -86,7 +86,7 @@ entry:
 
 loop:
   %iv = phi i32 [ 0, %entry], [%iv.next, %backedge]
-  %x = load i32, i32 addrspace(1)* %p
+  %x = load i32, ptr addrspace(1) %p
   %cond = icmp ne i32 %x, 0
   br i1 %cond, label %hot_path, label %cold_path
 

@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers=0 -passes=instcombine -debug-only=instcombine -S <%s 2>&1 | FileCheck %s
+; RUN: opt -passes=instcombine -debug-only=instcombine -S <%s 2>&1 | FileCheck %s
 
 ; Check memcpy lowering for Fortran
 

@@ -4,7 +4,7 @@
 %struct.A = type { i8 }
 
 ; Function Attrs: mustprogress nounwind uwtable
-define dso_local void @_Z3fooP1BS0_(%struct.B* %in, %struct.B* %out) {
+define dso_local void @_Z3fooP1BS0_(ptr %in, ptr %out) {
 ; CHECK-LABEL: @_Z3fooP1BS0_(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = load i8, ptr [[IN:%.*]], align 1
@@ -12,20 +12,18 @@ define dso_local void @_Z3fooP1BS0_(%struct.B* %in, %struct.B* %out) {
 ; CHECK-NEXT:    ret void
 ;
 entry:
-  %in.addr = alloca %struct.B*, align 8
-  %out.addr = alloca %struct.B*, align 8
-  store %struct.B* %in, %struct.B** %in.addr, align 8, !tbaa !3
-  store %struct.B* %out, %struct.B** %out.addr, align 8, !tbaa !3
-  %0 = load %struct.B*, %struct.B** %in.addr, align 8, !tbaa !3
-  %1 = load %struct.B*, %struct.B** %out.addr, align 8, !tbaa !3
-  %2 = bitcast %struct.B* %1 to i8*
-  %3 = bitcast %struct.B* %0 to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 1 %2, i8* align 1 %3, i64 1, i1 false), !tbaa.struct !7
+  %in.addr = alloca ptr, align 8
+  %out.addr = alloca ptr, align 8
+  store ptr %in, ptr %in.addr, align 8, !tbaa !3
+  store ptr %out, ptr %out.addr, align 8, !tbaa !3
+  %0 = load ptr, ptr %in.addr, align 8, !tbaa !3
+  %1 = load ptr, ptr %out.addr, align 8, !tbaa !3
+  call void @llvm.memcpy.p0.p0.i64(ptr align 1 %1, ptr align 1 %0, i64 1, i1 false), !tbaa.struct !7
   ret void
 }
 
 ; Function Attrs: argmemonly nofree nounwind willreturn
-declare void @llvm.memcpy.p0i8.p0i8.i64(i8* noalias nocapture writeonly, i8* noalias nocapture readonly, i64, i1 immarg) #0
+declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #0
 
 attributes #0 = { argmemonly nofree nounwind willreturn }
 
