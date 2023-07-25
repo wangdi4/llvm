@@ -46,6 +46,9 @@ class VPlanCFGMerger {
   /// loop and proceed unaligned.
   uint64_t MinimumProfitablePeelTC = 0;
 
+  // Jump to a scalar remainder loop if runtime TC is less than this value.
+  uint64_t MinProfitableMaskedRemTC = 0;
+
   // Instruction that contain PeelCount. It's assigned during VPlan CG for peel
   // count calculation and used in the follow up VPlan CG for various checks.
   VPValue *PeelCount = nullptr;

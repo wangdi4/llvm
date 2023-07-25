@@ -1195,7 +1195,8 @@ public:
 
 private:
   void fillReductionKinds(Type *DestType, unsigned OpCode, PredicateTy Pred,
-                          bool IsMax, HIRVectorIdioms::IdiomId IdKind) {
+                          bool IsMax, HIRVectorIdioms::IdiomId IdKind,
+                          bool IsIEEE = false) {
     RedType = DestType;
     IsSigned = false;
     IdiomKind = IdKind;
@@ -1225,7 +1226,7 @@ private:
       RKind = RecurKind::Xor;
       break;
     case Instruction::Select:
-      setMinMaxReductionKind(Pred, IsMax);
+      setMinMaxReductionKind(Pred, IsMax, IsIEEE);
       break;
     default:
       llvm_unreachable("Unexpected reduction opcode");
@@ -1233,7 +1234,7 @@ private:
     }
   }
 
-  void setMinMaxReductionKind(PredicateTy Pred, bool IsMax) {
+  void setMinMaxReductionKind(PredicateTy Pred, bool IsMax, bool IsIEEE) {
     switch (Pred) {
     case PredicateTy::ICMP_SGE:
     case PredicateTy::ICMP_SGT:
@@ -1250,7 +1251,8 @@ private:
       break;
     default:
       assert(CmpInst::isFPPredicate(Pred) && "expected FP predicate");
-      RKind = IsMax ? RecurKind::FMax : RecurKind::FMin;
+      RKind = IsIEEE ? (IsMax ? RecurKind::FMaximum : RecurKind::FMinimum)
+                     : (IsMax ? RecurKind::FMax : RecurKind::FMin);
       break;
     }
   }
@@ -1343,6 +1345,8 @@ private:
         // Predicate type is needed to determine reduction kind for min/max
         // reductions. For other reductions predicate is undefined.
         auto Pred = PredicateTy::BAD_ICMP_PREDICATE;
+        // Distinguish between minnum/maxnum and minimum/maximum intrinsics.
+        bool IsIEEE = false;
         if (Opcode == Instruction::Select) {
           if (isa<SelectInst>((*RedCurrent)->getLLVMInstruction())) {
             Pred = (*RedCurrent)->getPredicate().Kind;
@@ -1350,11 +1354,15 @@ private:
             auto Id = IC->getIntrinsicID();
             switch (Id) {
             case Intrinsic::minnum:
-            case Intrinsic::minimum:
             case Intrinsic::maxnum:
+              // Set predicate as floating point
+              Pred = PredicateTy::FIRST_FCMP_PREDICATE;
+              break;
+            case Intrinsic::minimum:
             case Intrinsic::maximum:
               // Set predicate as floating point
               Pred = PredicateTy::FIRST_FCMP_PREDICATE;
+              IsIEEE = true;
               break;
             case Intrinsic::smin:
             case Intrinsic::smax:
@@ -1376,7 +1384,7 @@ private:
 
         Descriptor.fillReductionKinds(
             (*RedCurrent)->getLvalDDRef()->getDestType(), Opcode, Pred,
-            (*RedCurrent)->isMax(), HIRVectorIdioms::NoIdiom);
+            (*RedCurrent)->isMax(), HIRVectorIdioms::NoIdiom, IsIEEE);
         Descriptor.RedChain = ChainCurrent->Chain;
         break;
       }

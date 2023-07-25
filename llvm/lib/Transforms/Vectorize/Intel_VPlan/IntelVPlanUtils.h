@@ -184,6 +184,10 @@ inline Intrinsic::ID getVectorReduceIntrinsic(unsigned BinOpcode) {
     return Intrinsic::vector_reduce_fmax;
   case VPInstruction::FMin:
     return Intrinsic::vector_reduce_fmin;
+  case VPInstruction::FMaximum:
+    return Intrinsic::vector_reduce_fmaximum;
+  case VPInstruction::FMinimum:
+    return Intrinsic::vector_reduce_fminimum;
   default:
     llvm_unreachable("Vector reduction opcode not supported.");
   }
@@ -205,6 +209,10 @@ inline Intrinsic::ID getIntrinsicForMinMaxOpcode(unsigned BinOpcode) {
     return Intrinsic::maxnum;
   case VPInstruction::FMin:
     return Intrinsic::minnum;
+  case VPInstruction::FMaximum:
+    return Intrinsic::maximum;
+  case VPInstruction::FMinimum:
+    return Intrinsic::minimum;
   default:
     llvm_unreachable("Reduction opcode not supported.");
   }
@@ -219,6 +227,8 @@ inline bool isMinMaxOpcode(unsigned BinOpcode) {
   case VPInstruction::SMax:
   case VPInstruction::FMax:
   case VPInstruction::FMin:
+  case VPInstruction::FMinimum:
+  case VPInstruction::FMaximum:
     return true;
   default:
     return false;

@@ -2320,7 +2320,9 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
   case VPInstruction::UMax:
   case VPInstruction::SMax:
   case VPInstruction::FMin:
-  case VPInstruction::FMax: {
+  case VPInstruction::FMax:
+  case VPInstruction::FMinimum:
+  case VPInstruction::FMaximum: {
     unsigned BinOpCode = VPInst->getOpcode();
     Value *Op1 = getVectorValue(VPInst->getOperand(0));
     Value *Op2 = getVectorValue(VPInst->getOperand(1));
@@ -5149,6 +5151,14 @@ Value *VPOCodeGen::createVectorReduce(Intrinsic::ID Intrin, Value *VecValue,
   case Intrinsic::vector_reduce_fmin:
     assert(!Acc && "Unexpected initial value");
     Ret = Builder.CreateFPMinReduce(VecValue);
+    break;
+  case Intrinsic::vector_reduce_fmaximum:
+    assert(!Acc && "Unexpected initial value");
+    Ret = Builder.CreateFPMaximumReduce(VecValue);
+    break;
+  case Intrinsic::vector_reduce_fminimum:
+    assert(!Acc && "Unexpected initial value");
+    Ret = Builder.CreateFPMinimumReduce(VecValue);
     break;
   default:
     llvm_unreachable("unsupported reduction");

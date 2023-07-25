@@ -609,6 +609,8 @@ public:
              //   UMin(0, poison) = poison
              //   UMinSeq(0, poison) = 0
     FMin,
+    FMaximum,
+    FMinimum,
     InductionInit,
     InductionInitStep,
     InductionFinal,

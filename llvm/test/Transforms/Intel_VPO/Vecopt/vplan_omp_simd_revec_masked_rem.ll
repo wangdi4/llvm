@@ -114,7 +114,7 @@ body.inner:
 
   %j.next = add i32 %j, 1
   %cmp.inner = icmp eq i32 %j.next, 63
-  br i1 %cmp.inner, label %latch.inner, label %body.inner
+  br i1 %cmp.inner, label %latch.inner, label %body.inner, !llvm.loop !1
 
 latch.inner:
   call void @llvm.directive.region.exit(token %token.inner) [ "DIR.OMP.END.SIMD"() ]
@@ -135,3 +135,6 @@ exit:
 
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
+
+!1 = distinct !{!1, !2}
+!2 = !{!"llvm.loop.intel.vector.vecremainder", !"true"}
