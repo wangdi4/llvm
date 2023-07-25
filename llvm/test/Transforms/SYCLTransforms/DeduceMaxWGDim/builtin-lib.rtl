@@ -1,11 +1,8 @@
 ; Function Attrs: nofree norecurse nounwind
-define i32 @_Z10atomic_addPU3AS1Vii(ptr addrspace(1) nocapture %p, i32 %val) local_unnamed_addr #0 !kernel_arg_base_type !0 !arg_type_null_val !1 {
+define i32 @_Z10atomic_addPU3AS1Vii(ptr addrspace(1) nocapture %p, i32 %val) local_unnamed_addr #0 {
 entry:
   %0 = atomicrmw add ptr addrspace(1) %p, i32 %val seq_cst, align 4
   ret i32 %0
 }
 
 attributes #0 = { nofree norecurse nounwind }
-
-!0 = !{!"int*", !"int"}
-!1 = !{i32 addrspace(1)* null, i32 0}

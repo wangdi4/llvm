@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers -passes=sycl-kernel-group-builtin -S < %s | FileCheck %s
+; RUN: opt -passes=sycl-kernel-group-builtin -S < %s | FileCheck %s
 
 ; key-only private close sort scalar version
 define dso_local void @sort1(ptr addrspace(1) noundef align 1 %data1, ptr addrspace(1) noundef align 1 %scratch){

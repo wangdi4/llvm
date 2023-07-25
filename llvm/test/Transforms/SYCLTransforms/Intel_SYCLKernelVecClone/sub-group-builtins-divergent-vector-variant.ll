@@ -3,9 +3,6 @@
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "x86_64-unknown-linux-gnu"
-%opencl.image2d_ro_t = type opaque
-%opencl.image2d_rw_t = type opaque
-%opencl.image2d_wo_t = type opaque
 
 define void @test(ptr addrspace(1) %ints, ptr addrspace(1) %coords) !recommended_vector_length !3 !kernel_arg_base_type !4 !arg_type_null_val !5 {
   %gid = tail call i64 @_Z13get_global_idj(i32 0)

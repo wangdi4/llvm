@@ -4,8 +4,6 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-%opencl.image2d_ro_t.5 = type opaque
-
 ; CHECK-LABEL: @_ZGVeN16u_test
 ; Function Attrs: convergent norecurse nounwind
 define void @test(ptr addrspace(1) noalias %img) local_unnamed_addr #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !kernel_arg_name !12 !no_barrier_path !10 !kernel_has_sub_groups !13 !recommended_vector_length !14 !arg_type_null_val !15 {
