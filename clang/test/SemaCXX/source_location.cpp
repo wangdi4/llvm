@@ -1,7 +1,15 @@
+<<<<<<< HEAD
 // INTEL RUN: %clang_cc1 -std=c++1z -fcxx-exceptions -fexceptions -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -verify %s
 // INTEL RUN: %clang_cc1 -std=c++2a -fcxx-exceptions -DUSE_CONSTEVAL -fexceptions -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -verify %s
 // INTEL RUN: %clang_cc1 -std=c++1z -fcxx-exceptions -fms-extensions -DMS -fexceptions -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -verify %s
 // INTEL RUN: %clang_cc1 -std=c++2a -fcxx-exceptions -fms-extensions -DMS -DUSE_CONSTEVAL -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -fexceptions -verify %s
+=======
+// RUN: %clang_cc1 -std=c++1z -fcxx-exceptions -fexceptions -verify %s
+// RUN: %clang_cc1 -std=c++2a -fcxx-exceptions -DUSE_CONSTEVAL -fexceptions -verify %s
+// RUN: %clang_cc1 -std=c++2b -fcxx-exceptions -DUSE_CONSTEVAL -DPAREN_INIT -fexceptions -verify %s
+// RUN: %clang_cc1 -std=c++1z -fcxx-exceptions -fms-extensions -DMS -fexceptions -verify %s
+// RUN: %clang_cc1 -std=c++2a -fcxx-exceptions -fms-extensions -DMS -DUSE_CONSTEVAL -fexceptions -verify %s
+>>>>>>> 64cfcde31a48962c3bbc703753a4ea41200da7a8
 // expected-no-diagnostics
 
 #define assert(...) ((__VA_ARGS__) ? ((void)0) : throw 42)
@@ -781,3 +789,20 @@ constexpr int f(int i = G<T>{}.line) {
 static_assert(f<int>() != // intentional new line
               f<int>());
 }
+
+#ifdef PAREN_INIT
+namespace GH63903 {
+struct S {
+    int _;
+    int i = SL::current().line();
+    int j = __builtin_LINE();
+};
+// Ensure parent aggregate initialization is consistent with brace
+// aggregate initialization.
+// Note: consteval functions are evaluated where they are used.
+static_assert(S(0).i == __builtin_LINE());
+static_assert(S(0).i == S{0}.i);
+static_assert(S(0).j == S{0}.j);
+static_assert(S(0).j == S{0}.i);
+}
+#endif
