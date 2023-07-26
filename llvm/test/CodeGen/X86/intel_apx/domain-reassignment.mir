@@ -273,19 +273,19 @@ body:             |
   ; CHECK-NEXT:   [[COPY3:%[0-9]+]]:vr512 = COPY $zmm2
   ; CHECK-NEXT:   [[COPY4:%[0-9]+]]:vr512 = COPY $zmm3
   ; CHECK-NEXT:   [[VCMPPDZrri:%[0-9]+]]:vk8 = VCMPPDZrri [[COPY3]], [[COPY4]], 0, implicit $mxcsr
-  ; CHECK-NEXT:   [[COPY5:%[0-9]+]]:gr32 = COPY [[VCMPPDZrri]]
-  ; CHECK-NEXT:   [[COPY6:%[0-9]+]]:gr8 = COPY [[COPY5]].sub_8bit
-  ; CHECK-NEXT:   [[SHR8ri_ND:%[0-9]+]]:gr8 = SHR8ri_ND [[COPY6]], 2, implicit-def dead $eflags
-  ; CHECK-NEXT:   [[SHL8ri_ND:%[0-9]+]]:gr8 = SHL8ri_ND [[SHR8ri_ND]], 1, implicit-def dead $eflags
-  ; CHECK-NEXT:   [[NOT8r_ND:%[0-9]+]]:gr8 = NOT8r_ND [[SHL8ri_ND]]
-  ; CHECK-NEXT:   [[OR8rr_ND:%[0-9]+]]:gr8 = OR8rr_ND [[NOT8r_ND]], [[SHR8ri_ND]], implicit-def dead $eflags
-  ; CHECK-NEXT:   [[AND8rr_ND:%[0-9]+]]:gr8 = AND8rr_ND [[OR8rr_ND]], [[SHL8ri_ND]], implicit-def dead $eflags
-  ; CHECK-NEXT:   [[XOR8rr_ND:%[0-9]+]]:gr8 = XOR8rr_ND [[AND8rr_ND]], [[SHR8ri_ND]], implicit-def dead $eflags
-  ; CHECK-NEXT:   [[ADD8rr_ND:%[0-9]+]]:gr8 = ADD8rr_ND [[XOR8rr_ND]], [[NOT8r_ND]], implicit-def dead $eflags
-  ; CHECK-NEXT:   [[DEF:%[0-9]+]]:gr32 = IMPLICIT_DEF
-  ; CHECK-NEXT:   [[INSERT_SUBREG:%[0-9]+]]:gr32 = INSERT_SUBREG [[DEF]], [[ADD8rr_ND]], %subreg.sub_8bit_hi
-  ; CHECK-NEXT:   [[COPY7:%[0-9]+]]:vk8wm = COPY [[INSERT_SUBREG]]
-  ; CHECK-NEXT:   [[VMOVAPDZrrk:%[0-9]+]]:vr512 = VMOVAPDZrrk [[COPY2]], killed [[COPY7]], [[COPY1]]
+  ; CHECK-NEXT:   [[COPY5:%[0-9]+]]:vk32 = COPY [[VCMPPDZrri]]
+  ; CHECK-NEXT:   [[COPY6:%[0-9]+]]:vk8 = COPY [[COPY5]]
+  ; CHECK-NEXT:   [[KSHIFTRBri:%[0-9]+]]:vk8 = KSHIFTRBri [[COPY6]], 2
+  ; CHECK-NEXT:   [[KSHIFTLBri:%[0-9]+]]:vk8 = KSHIFTLBri [[KSHIFTRBri]], 1
+  ; CHECK-NEXT:   [[KNOTBrr:%[0-9]+]]:vk8 = KNOTBrr [[KSHIFTLBri]]
+  ; CHECK-NEXT:   [[KORBrr:%[0-9]+]]:vk8 = KORBrr [[KNOTBrr]], [[KSHIFTRBri]]
+  ; CHECK-NEXT:   [[KANDBrr:%[0-9]+]]:vk8 = KANDBrr [[KORBrr]], [[KSHIFTLBri]]
+  ; CHECK-NEXT:   [[KXORBrr:%[0-9]+]]:vk8 = KXORBrr [[KANDBrr]], [[KSHIFTRBri]]
+  ; CHECK-NEXT:   [[KADDBrr:%[0-9]+]]:vk8 = KADDBrr [[KXORBrr]], [[KNOTBrr]]
+  ; CHECK-NEXT:   [[DEF:%[0-9]+]]:vk32 = IMPLICIT_DEF
+  ; CHECK-NEXT:   [[COPY7:%[0-9]+]]:vk32 = COPY [[KADDBrr]]
+  ; CHECK-NEXT:   [[COPY8:%[0-9]+]]:vk8wm = COPY [[COPY7]]
+  ; CHECK-NEXT:   [[VMOVAPDZrrk:%[0-9]+]]:vr512 = VMOVAPDZrrk [[COPY2]], killed [[COPY8]], [[COPY1]]
   ; CHECK-NEXT:   VMOVAPDZmr [[COPY]], 1, $noreg, 0, $noreg, killed [[VMOVAPDZrrk]]
   ; CHECK-NEXT: {{  $}}
   ; CHECK-NEXT: bb.1:
@@ -397,18 +397,18 @@ body:             |
   ; CHECK-NEXT:   [[COPY3:%[0-9]+]]:vr512 = COPY $zmm2
   ; CHECK-NEXT:   [[COPY4:%[0-9]+]]:vr512 = COPY $zmm3
   ; CHECK-NEXT:   [[VCMPPSZrri:%[0-9]+]]:vk16 = VCMPPSZrri [[COPY3]], [[COPY4]], 0, implicit $mxcsr
-  ; CHECK-NEXT:   [[COPY5:%[0-9]+]]:gr32 = COPY [[VCMPPSZrri]]
-  ; CHECK-NEXT:   [[COPY6:%[0-9]+]]:gr16 = COPY [[COPY5]].sub_16bit
-  ; CHECK-NEXT:   [[SHR16ri_ND:%[0-9]+]]:gr16 = SHR16ri_ND [[COPY6]], 2, implicit-def dead $eflags
-  ; CHECK-NEXT:   [[SHL16ri_ND:%[0-9]+]]:gr16 = SHL16ri_ND [[SHR16ri_ND]], 1, implicit-def dead $eflags
-  ; CHECK-NEXT:   [[NOT16r_ND:%[0-9]+]]:gr16 = NOT16r_ND [[SHL16ri_ND]]
-  ; CHECK-NEXT:   [[OR16rr_ND:%[0-9]+]]:gr16 = OR16rr_ND [[NOT16r_ND]], [[SHR16ri_ND]], implicit-def dead $eflags
-  ; CHECK-NEXT:   [[AND16rr_ND:%[0-9]+]]:gr16 = AND16rr_ND [[OR16rr_ND]], [[SHL16ri_ND]], implicit-def dead $eflags
-  ; CHECK-NEXT:   [[XOR16rr_ND:%[0-9]+]]:gr16 = XOR16rr_ND [[AND16rr_ND]], [[SHR16ri_ND]], implicit-def dead $eflags
-  ; CHECK-NEXT:   [[DEF:%[0-9]+]]:gr32 = IMPLICIT_DEF
-  ; CHECK-NEXT:   [[INSERT_SUBREG:%[0-9]+]]:gr32 = INSERT_SUBREG [[DEF]], [[XOR16rr_ND]], %subreg.sub_16bit
-  ; CHECK-NEXT:   [[COPY7:%[0-9]+]]:vk16wm = COPY [[INSERT_SUBREG]]
-  ; CHECK-NEXT:   [[VMOVAPSZrrk:%[0-9]+]]:vr512 = VMOVAPSZrrk [[COPY2]], killed [[COPY7]], [[COPY1]]
+  ; CHECK-NEXT:   [[COPY5:%[0-9]+]]:vk32 = COPY [[VCMPPSZrri]]
+  ; CHECK-NEXT:   [[COPY6:%[0-9]+]]:vk16 = COPY [[COPY5]]
+  ; CHECK-NEXT:   [[KSHIFTRWri:%[0-9]+]]:vk16 = KSHIFTRWri [[COPY6]], 2
+  ; CHECK-NEXT:   [[KSHIFTLWri:%[0-9]+]]:vk16 = KSHIFTLWri [[KSHIFTRWri]], 1
+  ; CHECK-NEXT:   [[KNOTWrr:%[0-9]+]]:vk16 = KNOTWrr [[KSHIFTLWri]]
+  ; CHECK-NEXT:   [[KORWrr:%[0-9]+]]:vk16 = KORWrr [[KNOTWrr]], [[KSHIFTRWri]]
+  ; CHECK-NEXT:   [[KANDWrr:%[0-9]+]]:vk16 = KANDWrr [[KORWrr]], [[KSHIFTLWri]]
+  ; CHECK-NEXT:   [[KXORWrr:%[0-9]+]]:vk16 = KXORWrr [[KANDWrr]], [[KSHIFTRWri]]
+  ; CHECK-NEXT:   [[DEF:%[0-9]+]]:vk32 = IMPLICIT_DEF
+  ; CHECK-NEXT:   [[COPY7:%[0-9]+]]:vk32 = COPY [[KXORWrr]]
+  ; CHECK-NEXT:   [[COPY8:%[0-9]+]]:vk16wm = COPY [[COPY7]]
+  ; CHECK-NEXT:   [[VMOVAPSZrrk:%[0-9]+]]:vr512 = VMOVAPSZrrk [[COPY2]], killed [[COPY8]], [[COPY1]]
   ; CHECK-NEXT:   VMOVAPSZmr [[COPY]], 1, $noreg, 0, $noreg, killed [[VMOVAPSZrrk]]
   ; CHECK-NEXT: {{  $}}
   ; CHECK-NEXT: bb.1:
@@ -510,16 +510,16 @@ body:             |
   ; CHECK-NEXT:   [[COPY:%[0-9]+]]:gr64 = COPY $rdi
   ; CHECK-NEXT:   [[COPY1:%[0-9]+]]:vr512 = COPY $zmm0
   ; CHECK-NEXT:   [[COPY2:%[0-9]+]]:vr512 = COPY $zmm1
-  ; CHECK-NEXT:   [[MOV32rm:%[0-9]+]]:gr32 = MOV32rm [[COPY]], 1, $noreg, 0, $noreg
-  ; CHECK-NEXT:   [[SHR32ri_ND:%[0-9]+]]:gr32 = SHR32ri_ND [[MOV32rm]], 2, implicit-def dead $eflags
-  ; CHECK-NEXT:   [[SHL32ri_ND:%[0-9]+]]:gr32 = SHL32ri_ND [[SHR32ri_ND]], 1, implicit-def dead $eflags
-  ; CHECK-NEXT:   [[NOT32r_ND:%[0-9]+]]:gr32 = NOT32r_ND [[SHL32ri_ND]]
-  ; CHECK-NEXT:   [[OR32rr_ND:%[0-9]+]]:gr32 = OR32rr_ND [[NOT32r_ND]], [[SHR32ri_ND]], implicit-def dead $eflags
-  ; CHECK-NEXT:   [[AND32rr_ND:%[0-9]+]]:gr32 = AND32rr_ND [[OR32rr_ND]], [[SHL32ri_ND]], implicit-def dead $eflags
-  ; CHECK-NEXT:   [[XOR32rr_ND:%[0-9]+]]:gr32 = XOR32rr_ND [[AND32rr_ND]], [[SHR32ri_ND]], implicit-def dead $eflags
-  ; CHECK-NEXT:   [[ANDN32rr:%[0-9]+]]:gr32 = ANDN32rr [[XOR32rr_ND]], [[OR32rr_ND]], implicit-def dead $eflags
-  ; CHECK-NEXT:   [[ADD32rr_ND:%[0-9]+]]:gr32 = ADD32rr_ND [[ANDN32rr]], [[XOR32rr_ND]], implicit-def dead $eflags
-  ; CHECK-NEXT:   [[COPY3:%[0-9]+]]:vk32wm = COPY [[ADD32rr_ND]]
+  ; CHECK-NEXT:   [[KMOVDkm:%[0-9]+]]:vk32 = KMOVDkm [[COPY]], 1, $noreg, 0, $noreg
+  ; CHECK-NEXT:   [[KSHIFTRDri:%[0-9]+]]:vk32 = KSHIFTRDri [[KMOVDkm]], 2
+  ; CHECK-NEXT:   [[KSHIFTLDri:%[0-9]+]]:vk32 = KSHIFTLDri [[KSHIFTRDri]], 1
+  ; CHECK-NEXT:   [[KNOTDrr:%[0-9]+]]:vk32 = KNOTDrr [[KSHIFTLDri]]
+  ; CHECK-NEXT:   [[KORDrr:%[0-9]+]]:vk32 = KORDrr [[KNOTDrr]], [[KSHIFTRDri]]
+  ; CHECK-NEXT:   [[KANDDrr:%[0-9]+]]:vk32 = KANDDrr [[KORDrr]], [[KSHIFTLDri]]
+  ; CHECK-NEXT:   [[KXORDrr:%[0-9]+]]:vk32 = KXORDrr [[KANDDrr]], [[KSHIFTRDri]]
+  ; CHECK-NEXT:   [[KANDNDrr:%[0-9]+]]:vk32 = KANDNDrr [[KXORDrr]], [[KORDrr]]
+  ; CHECK-NEXT:   [[KADDDrr:%[0-9]+]]:vk32 = KADDDrr [[KANDNDrr]], [[KXORDrr]]
+  ; CHECK-NEXT:   [[COPY3:%[0-9]+]]:vk32wm = COPY [[KADDDrr]]
   ; CHECK-NEXT:   [[VMOVDQU16Zrrk:%[0-9]+]]:vr512 = VMOVDQU16Zrrk [[COPY2]], killed [[COPY3]], [[COPY1]]
   ; CHECK-NEXT:   VMOVDQA32Zmr [[COPY]], 1, $noreg, 0, $noreg, killed [[VMOVDQU16Zrrk]]
   ; CHECK-NEXT: {{  $}}
@@ -617,16 +617,16 @@ body:             |
   ; CHECK-NEXT:   [[COPY:%[0-9]+]]:gr64 = COPY $rdi
   ; CHECK-NEXT:   [[COPY1:%[0-9]+]]:vr512 = COPY $zmm0
   ; CHECK-NEXT:   [[COPY2:%[0-9]+]]:vr512 = COPY $zmm1
-  ; CHECK-NEXT:   [[MOV64rm:%[0-9]+]]:gr64 = MOV64rm [[COPY]], 1, $noreg, 0, $noreg
-  ; CHECK-NEXT:   [[SHR64ri_ND:%[0-9]+]]:gr64 = SHR64ri_ND [[MOV64rm]], 2, implicit-def dead $eflags
-  ; CHECK-NEXT:   [[SHL64ri_ND:%[0-9]+]]:gr64 = SHL64ri_ND [[SHR64ri_ND]], 1, implicit-def dead $eflags
-  ; CHECK-NEXT:   [[NOT64r_ND:%[0-9]+]]:gr64 = NOT64r_ND [[SHL64ri_ND]]
-  ; CHECK-NEXT:   [[OR64rr_ND:%[0-9]+]]:gr64 = OR64rr_ND [[NOT64r_ND]], [[SHR64ri_ND]], implicit-def dead $eflags
-  ; CHECK-NEXT:   [[AND64rr_ND:%[0-9]+]]:gr64 = AND64rr_ND [[OR64rr_ND]], [[SHL64ri_ND]], implicit-def dead $eflags
-  ; CHECK-NEXT:   [[XOR64rr_ND:%[0-9]+]]:gr64 = XOR64rr_ND [[AND64rr_ND]], [[SHR64ri_ND]], implicit-def dead $eflags
-  ; CHECK-NEXT:   [[ANDN64rr:%[0-9]+]]:gr64 = ANDN64rr [[XOR64rr_ND]], [[OR64rr_ND]], implicit-def dead $eflags
-  ; CHECK-NEXT:   [[ADD64rr_ND:%[0-9]+]]:gr64 = ADD64rr_ND [[ANDN64rr]], [[XOR64rr_ND]], implicit-def dead $eflags
-  ; CHECK-NEXT:   [[COPY3:%[0-9]+]]:vk64wm = COPY [[ADD64rr_ND]]
+  ; CHECK-NEXT:   [[KMOVQkm:%[0-9]+]]:vk64 = KMOVQkm [[COPY]], 1, $noreg, 0, $noreg
+  ; CHECK-NEXT:   [[KSHIFTRQri:%[0-9]+]]:vk64 = KSHIFTRQri [[KMOVQkm]], 2
+  ; CHECK-NEXT:   [[KSHIFTLQri:%[0-9]+]]:vk64 = KSHIFTLQri [[KSHIFTRQri]], 1
+  ; CHECK-NEXT:   [[KNOTQrr:%[0-9]+]]:vk64 = KNOTQrr [[KSHIFTLQri]]
+  ; CHECK-NEXT:   [[KORQrr:%[0-9]+]]:vk64 = KORQrr [[KNOTQrr]], [[KSHIFTRQri]]
+  ; CHECK-NEXT:   [[KANDQrr:%[0-9]+]]:vk64 = KANDQrr [[KORQrr]], [[KSHIFTLQri]]
+  ; CHECK-NEXT:   [[KXORQrr:%[0-9]+]]:vk64 = KXORQrr [[KANDQrr]], [[KSHIFTRQri]]
+  ; CHECK-NEXT:   [[KANDNQrr:%[0-9]+]]:vk64 = KANDNQrr [[KXORQrr]], [[KORQrr]]
+  ; CHECK-NEXT:   [[KADDQrr:%[0-9]+]]:vk64 = KADDQrr [[KANDNQrr]], [[KXORQrr]]
+  ; CHECK-NEXT:   [[COPY3:%[0-9]+]]:vk64wm = COPY [[KADDQrr]]
   ; CHECK-NEXT:   [[VMOVDQU8Zrrk:%[0-9]+]]:vr512 = VMOVDQU8Zrrk [[COPY2]], killed [[COPY3]], [[COPY1]]
   ; CHECK-NEXT:   VMOVDQA32Zmr [[COPY]], 1, $noreg, 0, $noreg, killed [[VMOVDQU8Zrrk]]
   ; CHECK-NEXT: {{  $}}
@@ -718,10 +718,11 @@ body:             |
     ; CHECK-NEXT: [[COPY:%[0-9]+]]:gr64 = COPY $rdi
     ; CHECK-NEXT: [[COPY1:%[0-9]+]]:vr512 = COPY $zmm0
     ; CHECK-NEXT: [[COPY2:%[0-9]+]]:vr512 = COPY $zmm1
-    ; CHECK-NEXT: [[MOVZX16rm8_:%[0-9]+]]:gr16 = MOVZX16rm8 [[COPY]], 1, $noreg, 0, $noreg
-    ; CHECK-NEXT: [[NOT16r_ND:%[0-9]+]]:gr16 = NOT16r_ND [[MOVZX16rm8_]]
-    ; CHECK-NEXT: [[COPY3:%[0-9]+]]:vk16wm = COPY [[NOT16r_ND]]
-    ; CHECK-NEXT: [[VMOVAPSZrrk:%[0-9]+]]:vr512 = VMOVAPSZrrk [[COPY2]], killed [[COPY3]], [[COPY1]]
+    ; CHECK-NEXT: [[KMOVBkm:%[0-9]+]]:vk8 = KMOVBkm [[COPY]], 1, $noreg, 0, $noreg
+    ; CHECK-NEXT: [[COPY3:%[0-9]+]]:vk16 = COPY [[KMOVBkm]]
+    ; CHECK-NEXT: [[KNOTWrr:%[0-9]+]]:vk16 = KNOTWrr [[COPY3]]
+    ; CHECK-NEXT: [[COPY4:%[0-9]+]]:vk16wm = COPY [[KNOTWrr]]
+    ; CHECK-NEXT: [[VMOVAPSZrrk:%[0-9]+]]:vr512 = VMOVAPSZrrk [[COPY2]], killed [[COPY4]], [[COPY1]]
     ; CHECK-NEXT: VMOVAPSZmr [[COPY]], 1, $noreg, 0, $noreg, killed [[VMOVAPSZrrk]]
     ; CHECK-NEXT: RET 0
     %0 = COPY $rdi
@@ -788,11 +789,13 @@ body:             |
     ; CHECK-NEXT: [[COPY:%[0-9]+]]:gr64 = COPY $rdi
     ; CHECK-NEXT: [[COPY1:%[0-9]+]]:vr512 = COPY $zmm0
     ; CHECK-NEXT: [[COPY2:%[0-9]+]]:vr512 = COPY $zmm1
-    ; CHECK-NEXT: [[MOVZX32rm8_:%[0-9]+]]:gr32 = MOVZX32rm8 [[COPY]], 1, $noreg, 0, $noreg
-    ; CHECK-NEXT: [[MOVZX32rm16_:%[0-9]+]]:gr32 = MOVZX32rm16 [[COPY]], 1, $noreg, 0, $noreg
-    ; CHECK-NEXT: [[ADD32rr_ND:%[0-9]+]]:gr32 = ADD32rr_ND [[MOVZX32rm8_]], [[MOVZX32rm16_]], implicit-def dead $eflags
-    ; CHECK-NEXT: [[COPY3:%[0-9]+]]:vk64wm = COPY [[ADD32rr_ND]]
-    ; CHECK-NEXT: [[VMOVDQU16Zrrk:%[0-9]+]]:vr512 = VMOVDQU16Zrrk [[COPY2]], killed [[COPY3]], [[COPY1]]
+    ; CHECK-NEXT: [[KMOVBkm:%[0-9]+]]:vk8 = KMOVBkm [[COPY]], 1, $noreg, 0, $noreg
+    ; CHECK-NEXT: [[COPY3:%[0-9]+]]:vk32 = COPY [[KMOVBkm]]
+    ; CHECK-NEXT: [[KMOVWkm:%[0-9]+]]:vk16 = KMOVWkm [[COPY]], 1, $noreg, 0, $noreg
+    ; CHECK-NEXT: [[COPY4:%[0-9]+]]:vk32 = COPY [[KMOVWkm]]
+    ; CHECK-NEXT: [[KADDDrr:%[0-9]+]]:vk32 = KADDDrr [[COPY3]], [[COPY4]]
+    ; CHECK-NEXT: [[COPY5:%[0-9]+]]:vk64wm = COPY [[KADDDrr]]
+    ; CHECK-NEXT: [[VMOVDQU16Zrrk:%[0-9]+]]:vr512 = VMOVDQU16Zrrk [[COPY2]], killed [[COPY5]], [[COPY1]]
     ; CHECK-NEXT: VMOVDQA32Zmr [[COPY]], 1, $noreg, 0, $noreg, killed [[VMOVDQU16Zrrk]]
     ; CHECK-NEXT: RET 0
     %0 = COPY $rdi
@@ -860,11 +863,13 @@ body:             |
     ; CHECK-NEXT: [[COPY:%[0-9]+]]:gr64 = COPY $rdi
     ; CHECK-NEXT: [[COPY1:%[0-9]+]]:vr512 = COPY $zmm0
     ; CHECK-NEXT: [[COPY2:%[0-9]+]]:vr512 = COPY $zmm1
-    ; CHECK-NEXT: [[MOVZX64rm8_:%[0-9]+]]:gr64 = MOVZX64rm8 [[COPY]], 1, $noreg, 0, $noreg
-    ; CHECK-NEXT: [[MOVZX64rm16_:%[0-9]+]]:gr64 = MOVZX64rm16 [[COPY]], 1, $noreg, 0, $noreg
-    ; CHECK-NEXT: [[ADD64rr_ND:%[0-9]+]]:gr64 = ADD64rr_ND [[MOVZX64rm8_]], [[MOVZX64rm16_]], implicit-def dead $eflags
-    ; CHECK-NEXT: [[COPY3:%[0-9]+]]:vk64wm = COPY [[ADD64rr_ND]]
-    ; CHECK-NEXT: [[VMOVDQU8Zrrk:%[0-9]+]]:vr512 = VMOVDQU8Zrrk [[COPY2]], killed [[COPY3]], [[COPY1]]
+    ; CHECK-NEXT: [[KMOVBkm:%[0-9]+]]:vk8 = KMOVBkm [[COPY]], 1, $noreg, 0, $noreg
+    ; CHECK-NEXT: [[COPY3:%[0-9]+]]:vk64 = COPY [[KMOVBkm]]
+    ; CHECK-NEXT: [[KMOVWkm:%[0-9]+]]:vk16 = KMOVWkm [[COPY]], 1, $noreg, 0, $noreg
+    ; CHECK-NEXT: [[COPY4:%[0-9]+]]:vk64 = COPY [[KMOVWkm]]
+    ; CHECK-NEXT: [[KADDQrr:%[0-9]+]]:vk64 = KADDQrr [[COPY3]], [[COPY4]]
+    ; CHECK-NEXT: [[COPY5:%[0-9]+]]:vk64wm = COPY [[KADDQrr]]
+    ; CHECK-NEXT: [[VMOVDQU8Zrrk:%[0-9]+]]:vr512 = VMOVDQU8Zrrk [[COPY2]], killed [[COPY5]], [[COPY1]]
     ; CHECK-NEXT: VMOVDQA32Zmr [[COPY]], 1, $noreg, 0, $noreg, killed [[VMOVDQU8Zrrk]]
     ; CHECK-NEXT: RET 0
     %0 = COPY $rdi
