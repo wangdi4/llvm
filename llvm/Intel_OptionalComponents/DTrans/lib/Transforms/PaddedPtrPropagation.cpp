@@ -99,7 +99,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "Intel_DTrans/Analysis/DTrans.h"
-#include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransInfoAdapter.h"
 #include "Intel_DTrans/Transforms/DTransPaddedMalloc.h"
 #include "Intel_DTrans/Transforms/PaddedPointerPropagation.h"
@@ -1051,29 +1050,6 @@ void removePaddedMarkUp(IntrinsicInst *I) {
 //===----------------------------------------------------------------------===//
 ///                  Pass run implementation for new pass manager
 //===----------------------------------------------------------------------===//
-
-namespace dtrans {
-
-// Potentially the pass can change CFG by inserting new BB after InvokeInst.
-// In that case, it preserves none of its analyses.
-PreservedAnalyses PaddedPtrPropPass::run(Module &M, ModuleAnalysisManager &AM) {
-  auto &DTInfo = AM.getResult<DTransAnalysis>(M);
-  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
-  if (!DTInfo.useDTransAnalysis())
-    return PreservedAnalyses::all();
-  dtrans::DTransAnalysisInfoAdapter AIAdaptor(DTInfo);
-  PaddedPtrPropImpl<dtrans::DTransAnalysisInfoAdapter> PaddedPtrI(AIAdaptor);
-  bool Modified = PaddedPtrI.run(M, WPInfo);
-  if (Modified) {
-    PreservedAnalyses PA;
-    PA.preserve<DTransAnalysis>();
-    PA.preserve<WholeProgramAnalysis>();
-    return PA;
-  }
-  return PreservedAnalyses::all();
-}
-
-} // namespace dtrans
 
 namespace dtransOP {
 

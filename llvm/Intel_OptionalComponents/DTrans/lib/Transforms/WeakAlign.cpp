@@ -13,10 +13,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "Intel_DTrans/Transforms/WeakAlign.h"
-#include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
-#include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
@@ -66,7 +64,6 @@ PreservedAnalyses dtrans::WeakAlignPass::run(Module &M,
     return PreservedAnalyses::all();
 
   PreservedAnalyses PA;
-  PA.preserve<DTransAnalysis>();
   PA.preserve<WholeProgramAnalysis>();
   return PA;
 }

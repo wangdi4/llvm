@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -S %s | FileCheck %s
 
 ; Test to check that we replace all printf's in spir64 code with ocl_printf,
 ; and not just those inside the target region.
@@ -37,27 +37,30 @@ target device_triples = "spir64"
 @.str.1 = private unnamed_addr addrspace(1) constant [9 x i8] c"i = %d.\0A\00", align 1
 
 ; Function Attrs: noinline nounwind optnone uwtable
-define internal spir_func void @"_Z10run_on_tgtIZ4mainE3$_0EvOT_"(%"class._ZTSZ4mainE3$_0" addrspace(4)* dereferenceable(1) %func_body) #0 {
+define internal spir_func void @"_Z10run_on_tgtIZ4mainE3$_0EvOT_"(ptr addrspace(4) dereferenceable(1) %func_body) #0 {
 entry:
-  %func_body.addr = alloca %"class._ZTSZ4mainE3$_0" addrspace(4)*, align 8
-  %func_body.addr.ascast = addrspacecast %"class._ZTSZ4mainE3$_0" addrspace(4)** %func_body.addr to %"class._ZTSZ4mainE3$_0" addrspace(4)* addrspace(4)*
+  %func_body.addr = alloca ptr addrspace(4), align 8
+  %func_body.addr.ascast = addrspacecast ptr %func_body.addr to ptr addrspace(4)
   %body = alloca %"class._ZTSZ4mainE3$_0", align 1
-  %body.ascast = addrspacecast %"class._ZTSZ4mainE3$_0"* %body to %"class._ZTSZ4mainE3$_0" addrspace(4)*
+  %body.ascast = addrspacecast ptr %body to ptr addrspace(4)
   %i = alloca i32, align 4
-  %i.ascast = addrspacecast i32* %i to i32 addrspace(4)*
-  store %"class._ZTSZ4mainE3$_0" addrspace(4)* %func_body, %"class._ZTSZ4mainE3$_0" addrspace(4)* addrspace(4)* %func_body.addr.ascast, align 8
-  %0 = load %"class._ZTSZ4mainE3$_0" addrspace(4)*, %"class._ZTSZ4mainE3$_0" addrspace(4)* addrspace(4)* %func_body.addr.ascast, align 8
-  store i32 10, i32 addrspace(4)* %i.ascast, align 4
+  %i.ascast = addrspacecast ptr %i to ptr addrspace(4)
+  store ptr addrspace(4) %func_body, ptr addrspace(4) %func_body.addr.ascast, align 8
+  %0 = load ptr addrspace(4), ptr addrspace(4) %func_body.addr.ascast, align 8
+  store i32 10, ptr addrspace(4) %i.ascast, align 4
 
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TO"(%"class._ZTSZ4mainE3$_0" addrspace(4)* %body.ascast, %"class._ZTSZ4mainE3$_0" addrspace(4)* %body.ascast, i64 1, i64 33), "QUAL.OMP.MAP.TO"(i32 addrspace(4)* %i.ascast, i32 addrspace(4)* %i.ascast, i64 4, i64 33) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    "QUAL.OMP.MAP.TO"(ptr addrspace(4) %body.ascast, ptr addrspace(4) %body.ascast, i64 1, i64 33), ; MAP type: 33 = 0x21 = TARGET_PARAM (0x20) | TO (0x1)
+    "QUAL.OMP.MAP.TO"(ptr addrspace(4) %i.ascast, ptr addrspace(4) %i.ascast, i64 4, i64 33) ] ; MAP type: 33 = 0x21 = TARGET_PARAM (0x20) | TO (0x1)
 
-  %call = call spir_func i32 (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)* getelementptr inbounds ([9 x i8], [9 x i8] addrspace(4)* addrspacecast ([9 x i8] addrspace(1)* @.str to [9 x i8] addrspace(4)*), i64 0, i64 0)) #1
+  %call = call spir_func i32 (ptr addrspace(4), ...) @printf(ptr addrspace(4) getelementptr inbounds ([9 x i8], ptr addrspace(4) addrspacecast (ptr addrspace(1) @.str to ptr addrspace(4)), i64 0, i64 0)) #1
 ; Make sure that call to printf is replaced with ocl_printf
-; CHECK-NOT: call {{.*}} (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)* {{.*}})
-; CHECK: call {{.*}} (i8 addrspace(2)*, ...) @_Z18__spirv_ocl_printfPU3AS2cz(i8 addrspace(2)* {{.*}})
+; CHECK-NOT: call {{.*}} (ptr addrspace(4), ...) @printf(ptr addrspace(4) {{.*}})
+; CHECK: call {{.*}} (ptr addrspace(2), ...) @_Z18__spirv_ocl_printfPU3AS2cz(ptr addrspace(2) {{.*}})
 
-  %2 = load i32, i32 addrspace(4)* %i.ascast, align 4
-  call spir_func void @"_ZZ4mainENK3$_0clEi"(%"class._ZTSZ4mainE3$_0" addrspace(4)* %body.ascast, i32 %2) #1
+  %2 = load i32, ptr addrspace(4) %i.ascast, align 4
+  call spir_func void @"_ZZ4mainENK3$_0clEi"(ptr addrspace(4) %body.ascast, i32 %2) #1
 
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TARGET"() ]
   ret void
@@ -69,27 +72,27 @@ declare token @llvm.directive.region.entry() #1
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #1
 
-declare dso_local spir_func i32 @printf(i8 addrspace(4)*, ...) #2
+declare dso_local spir_func i32 @printf(ptr addrspace(4), ...) #2
 ; Check that the declaration of orifinal printf is deleted, and declaration of ocl_printf is added.
-; CHECK-NOT: declare dso_local spir_func i32 @printf(i8 addrspace(4)*, ...)
-; CHECK: declare dso_local spir_func i32 @_Z18__spirv_ocl_printfPU3AS2cz(i8 addrspace(2)*, ...)
+; CHECK-NOT: declare dso_local spir_func i32 @printf(ptr addrspace(4), ...)
+; CHECK: declare dso_local spir_func i32 @_Z18__spirv_ocl_printfPU3AS2cz(ptr addrspace(2), ...)
 
 ; Function Attrs: noinline nounwind optnone uwtable
-define internal spir_func void @"_ZZ4mainENK3$_0clEi"(%"class._ZTSZ4mainE3$_0" addrspace(4)* %this, i32 %i) #3 align 2 {
+define internal spir_func void @"_ZZ4mainENK3$_0clEi"(ptr addrspace(4) %this, i32 %i) #3 align 2 {
 entry:
-  %this.addr = alloca %"class._ZTSZ4mainE3$_0" addrspace(4)*, align 8
-  %this.addr.ascast = addrspacecast %"class._ZTSZ4mainE3$_0" addrspace(4)** %this.addr to %"class._ZTSZ4mainE3$_0" addrspace(4)* addrspace(4)*
+  %this.addr = alloca ptr addrspace(4), align 8
+  %this.addr.ascast = addrspacecast ptr %this.addr to ptr addrspace(4)
   %i.addr = alloca i32, align 4
-  %i.addr.ascast = addrspacecast i32* %i.addr to i32 addrspace(4)*
-  store %"class._ZTSZ4mainE3$_0" addrspace(4)* %this, %"class._ZTSZ4mainE3$_0" addrspace(4)* addrspace(4)* %this.addr.ascast, align 8
-  store i32 %i, i32 addrspace(4)* %i.addr.ascast, align 4
-  %this1 = load %"class._ZTSZ4mainE3$_0" addrspace(4)*, %"class._ZTSZ4mainE3$_0" addrspace(4)* addrspace(4)* %this.addr.ascast, align 8
-  %0 = load i32, i32 addrspace(4)* %i.addr.ascast, align 4
+  %i.addr.ascast = addrspacecast ptr %i.addr to ptr addrspace(4)
+  store ptr addrspace(4) %this, ptr addrspace(4) %this.addr.ascast, align 8
+  store i32 %i, ptr addrspace(4) %i.addr.ascast, align 4
+  %this1 = load ptr addrspace(4), ptr addrspace(4) %this.addr.ascast, align 8
+  %0 = load i32, ptr addrspace(4) %i.addr.ascast, align 4
 
-  %call = call spir_func i32 (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)* getelementptr inbounds ([9 x i8], [9 x i8] addrspace(4)* addrspacecast ([9 x i8] addrspace(1)* @.str.1 to [9 x i8] addrspace(4)*), i64 0, i64 0), i32 %0)
+  %call = call spir_func i32 (ptr addrspace(4), ...) @printf(ptr addrspace(4) getelementptr inbounds ([9 x i8], ptr addrspace(4) addrspacecast (ptr addrspace(1) @.str.1 to ptr addrspace(4)), i64 0, i64 0), i32 %0)
 ; Make sure that call to printf is replaced with ocl_printf
-; CHECK-NOT: call {{.*}} (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)* {{.*}})
-; CHECK: call {{.*}} (i8 addrspace(2)*, ...) @_Z18__spirv_ocl_printfPU3AS2cz(i8 addrspace(2)* {{.*}})
+; CHECK-NOT: call {{.*}} (ptr addrspace(4), ...) @printf(ptr addrspace(4) {{.*}})
+; CHECK: call {{.*}} (ptr addrspace(2), ...) @_Z18__spirv_ocl_printfPU3AS2cz(ptr addrspace(2) {{.*}})
 
   ret void
 }

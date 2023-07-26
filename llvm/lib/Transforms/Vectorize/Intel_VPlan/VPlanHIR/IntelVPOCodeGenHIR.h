@@ -265,9 +265,8 @@ public:
   // A helper function for concatenating vectors. This function concatenates two
   // vectors having the same element type. If the second vector has fewer
   // elements than the first, it is padded with undefs. This function mimics
-  // the interface in VectorUtils.cpp modified to work with HIR. Vector values
-  // V1 and V2 are concatenated and masked using Mask.
-  RegDDRef *concatenateTwoVectors(RegDDRef *V1, RegDDRef *V2, RegDDRef *Mask);
+  // the interface in VectorUtils.cpp modified to work with HIR.
+  RegDDRef *concatenateTwoVectors(RegDDRef *V1, RegDDRef *V2);
 
   // Concatenate a list of vectors. This function generates code that
   // concatenate the vectors in VecsArray into a single large vector. The number
@@ -275,8 +274,8 @@ public:
   // the same. The number of elements in the vectors should also be the same;
   // however, if the last vector has fewer elements, it will be padded with
   // undefs. This function mimics the interface in VectorUtils.cpp modified to
-  // work with HIR. Vector values are concatenated and masked using Mask.
-  RegDDRef *concatenateVectors(ArrayRef<RegDDRef *> VecsArray, RegDDRef *Mask);
+  // work with HIR.
+  RegDDRef *concatenateVectors(ArrayRef<RegDDRef *> VecsArray);
 
   /// Helper method to create a shuffle using \p Input and undef vectors based
   /// on given \p Mask vector. Shuffle's result is writen to \p WLvalRef if
@@ -1141,8 +1140,7 @@ private:
   // Helper utility to combine pumped call results into a single vector for
   // current VF context. If pumping is not done then the single element of \p
   // CallResults is trivially returned.
-  HLInst *getCombinedCallResults(ArrayRef<HLInst *> CallResults,
-                                 RegDDRef *Mask);
+  HLInst *getCombinedCallResults(ArrayRef<HLInst *> CallResults);
 
   // Helper utility to combine pumped call results when return type of call is a
   // struct of vectors (for example, sincos function).

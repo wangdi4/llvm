@@ -355,32 +355,6 @@ bool EliminateROFieldAccessImpl<InfoClass>::run(Module &M,
 }
 
 namespace llvm {
-namespace dtrans {
-
-bool EliminateROFieldAccessPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
-                                         WholeProgramInfo &WPInfo) {
-  if (!DTInfo.useDTransAnalysis())
-    return false;
-  DTransAnalysisInfoAdapter AIAdaptor(DTInfo);
-  EliminateROFieldAccessImpl<DTransAnalysisInfoAdapter>
-      EROFieldAccessI(AIAdaptor);
-  return EROFieldAccessI.run(M, WPInfo);
-}
-
-PreservedAnalyses EliminateROFieldAccessPass::run(Module &M,
-                                                  ModuleAnalysisManager &AM) {
-  auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
-  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
-
-  if (!runImpl(M, DTransInfo, WPInfo))
-    return PreservedAnalyses::all();
-  // TODO: Mark the actual preserved analyses.
-  PreservedAnalyses PA;
-  PA.preserve<WholeProgramAnalysis>();
-  return PA;
-}
-} // namespace dtrans
-
 namespace dtransOP {
 
 bool EliminateROFieldAccessPass::runImpl(Module &M, DTransSafetyInfo &DTInfo,

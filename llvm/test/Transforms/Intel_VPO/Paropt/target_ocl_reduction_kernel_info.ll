@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-atomic-free-reduction=false -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -vpo-paropt-atomic-free-reduction=false -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-atomic-free-reduction=false -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -vpo-paropt-atomic-free-reduction=false -S %s | FileCheck %s
 
 ; Original code:
 ;void foo() {
@@ -19,15 +19,22 @@ target device_triples = "spir64"
 define hidden spir_func void @foo() #0 {
 entry:
   %s = alloca i32, align 4
-  %s.ascast = addrspacecast i32* %s to i32 addrspace(4)*
-  store i32 0, i32 addrspace(4)* %s.ascast, align 4, !tbaa !8
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM"(i32 addrspace(4)* %s.ascast, i32 addrspace(4)* %s.ascast, i64 4, i64 547, i8* null, i8* null) ]
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.REDUCTION.ADD"(i32 addrspace(4)* %s.ascast) ]
-  %2 = load i32, i32 addrspace(4)* %s.ascast, align 4, !tbaa !8
+  %s.ascast = addrspacecast ptr %s to ptr addrspace(4)
+  store i32 0, ptr addrspace(4) %s.ascast, align 4, !tbaa !8
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    "QUAL.OMP.MAP.TOFROM"(ptr addrspace(4) %s.ascast, ptr addrspace(4) %s.ascast, i64 4, i64 33315, ptr null, ptr null) ] ; MAP type: 33315 = 0x8223 = IMPLICIT (0x200) | TARGET_PARAM (0x20) | FROM (0x2) | TO (0x1) | UNKNOWN (0x8000)
+
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(),
+    "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr addrspace(4) %s.ascast, i32 0, i32 1) ]
+
+  %2 = load i32, ptr addrspace(4) %s.ascast, align 4, !tbaa !8
   %inc = add nsw i32 %2, 1
-  store i32 %inc, i32 addrspace(4)* %s.ascast, align 4, !tbaa !8
+  store i32 %inc, ptr addrspace(4) %s.ascast, align 4, !tbaa !8
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TEAMS"() ]
+
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
+
   ret void
 }
 
