@@ -451,19 +451,8 @@ let Uses = [EAX, ECX, EDX] in
 def WRMSRNS : I<0x01, MRM_C6, (outs), (ins), "wrmsrns", []>, PS;
 let Defs = [EAX, EDX], Uses = [ECX] in
 def RDMSR : I<0x32, RawFrm, (outs), (ins), "rdmsr", []>, TB;
-<<<<<<< HEAD
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_PBNDKB
-let Uses = [RAX, RBX, RCX], Predicates = [In64BitMode] in
-def PBNDKB : I<0x01, MRM_C7, (outs), (ins), "pbndkb", []>, PS;
-#endif // INTEL_FEATURE_ISA_PBNDKB
-#endif // INTEL_CUSTOMIZATION
-
-=======
 let Defs = [RAX, EFLAGS], Uses = [RBX, RCX], Predicates = [In64BitMode] in
 def PBNDKB : I<0x01, MRM_C7, (outs), (ins), "pbndkb", []>, PS;
->>>>>>> cb11f97eb6ba42352bb1f7cc15a9242f4912aaf2
 let Uses = [RSI, RDI, RCX], Predicates = [In64BitMode] in {
 def WRMSRLIST : I<0x01, MRM_C6, (outs), (ins), "wrmsrlist", []>, XS;
 def RDMSRLIST : I<0x01, MRM_C6, (outs), (ins), "rdmsrlist", []>, XD;
