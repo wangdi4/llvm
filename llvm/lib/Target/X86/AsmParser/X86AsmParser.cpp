@@ -4239,22 +4239,6 @@ bool X86AsmParser::MatchAndEmitATTInstruction(SMLoc IDLoc, unsigned &Opcode,
       emitInstruction(Inst, Operands, Out);
     Opcode = Inst.getOpcode();
     return false;
-#if INTEL_CUSTOMIZATION
-  case Match_InvalidImmUnsignedi1: {
-    SMLoc ErrorLoc = ((X86Operand &)*Operands[ErrorInfo]).getStartLoc();
-    if (ErrorLoc == SMLoc())
-      ErrorLoc = IDLoc;
-    return Error(ErrorLoc, "immediate must be an integer in range [0, 1]",
-                 EmptyRange, MatchingInlineAsm);
-  }
-  case Match_InvalidImmUnsignedi2: {
-    SMLoc ErrorLoc = ((X86Operand &)*Operands[ErrorInfo]).getStartLoc();
-    if (ErrorLoc == SMLoc())
-      ErrorLoc = IDLoc;
-    return Error(ErrorLoc, "immediate must be an integer in range [0, 3]",
-                 EmptyRange, MatchingInlineAsm);
-  }
-#endif // INTEL_CUSTOMIZATION
   case Match_InvalidImmUnsignedi4: {
     SMLoc ErrorLoc = ((X86Operand &)*Operands[ErrorInfo]).getStartLoc();
     if (ErrorLoc == SMLoc())
@@ -4648,24 +4632,6 @@ bool X86AsmParser::MatchAndEmitIntelInstruction(SMLoc IDLoc, unsigned &Opcode,
     return Error(IDLoc, "invalid operand for instruction", EmptyRange,
                  MatchingInlineAsm);
   }
-
-#if INTEL_CUSTOMIZATION
-  if (llvm::count(Match, Match_InvalidImmUnsignedi1) == 1) {
-    SMLoc ErrorLoc = ((X86Operand &)*Operands[ErrorInfo]).getStartLoc();
-    if (ErrorLoc == SMLoc())
-      ErrorLoc = IDLoc;
-    return Error(ErrorLoc, "immediate must be an integer in range [0, 1]",
-                 EmptyRange, MatchingInlineAsm);
-  }
-
-  if (llvm::count(Match, Match_InvalidImmUnsignedi2) == 1) {
-    SMLoc ErrorLoc = ((X86Operand &)*Operands[ErrorInfo]).getStartLoc();
-    if (ErrorLoc == SMLoc())
-      ErrorLoc = IDLoc;
-    return Error(ErrorLoc, "immediate must be an integer in range [0, 3]",
-                 EmptyRange, MatchingInlineAsm);
-  }
-#endif // INTEL_CUSTOMIZATION
 
   if (llvm::count(Match, Match_InvalidImmUnsignedi4) == 1) {
     SMLoc ErrorLoc = ((X86Operand &)*Operands[ErrorInfo]).getStartLoc();

@@ -739,22 +739,6 @@ def ImmSExti64i8AsmOperand : ImmSExtAsmOperandClass {
                       ImmSExti64i32AsmOperand];
 }
 
-#if INTEL_CUSTOMIZATION
-// 1-bit immediate used by some EVEX instructions
-def ImmUnsignedi1AsmOperand : AsmOperandClass {
-  let Name = "ImmUnsignedi1";
-  let RenderMethod = "addImmOperands";
-  let DiagnosticType = "InvalidImmUnsignedi1";
-}
-
-// 2-bit immediate used by some EVEX instructions
-def ImmUnsignedi2AsmOperand : AsmOperandClass {
-  let Name = "ImmUnsignedi2";
-  let RenderMethod = "addImmOperands";
-  let DiagnosticType = "InvalidImmUnsignedi2";
-}
-#endif // INTEL_CUSTOMIZATION
-
 // 4-bit immediate used by some XOP instructions
 // [0, 0xF]
 def ImmUnsignedi4AsmOperand : AsmOperandClass {
@@ -794,22 +778,6 @@ def i64i8imm   : Operand<i64> {
   let ParserMatchClass = ImmSExti64i8AsmOperand;
   let OperandType = "OPERAND_IMMEDIATE";
 }
-
-#if INTEL_CUSTOMIZATION
-// Unsigned 1-bit immediate used by some EVEX instructions.
-def u1imm : Operand<i8> {
-  let PrintMethod = "printU8Imm";
-  let ParserMatchClass = ImmUnsignedi1AsmOperand;
-  let OperandType = "OPERAND_IMMEDIATE";
-}
-
-// Unsigned 2-bit immediate used by some EVEX instructions.
-def u2imm : Operand<i8> {
-  let PrintMethod = "printU8Imm";
-  let ParserMatchClass = ImmUnsignedi2AsmOperand;
-  let OperandType = "OPERAND_IMMEDIATE";
-}
-#endif // INTEL_CUSTOMIZATION
 
 // Unsigned 4-bit immediate used by some XOP instructions.
 def u4imm : Operand<i8> {

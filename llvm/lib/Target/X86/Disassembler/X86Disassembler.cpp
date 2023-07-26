@@ -1998,18 +1998,6 @@ static int readOperands(struct InternalInstruction *insn) {
       if (Op.encoding != ENCODING_REG && insn->eaDisplacement == EA_DISP_8)
         insn->displacement *= 1 << (Op.encoding - ENCODING_RM);
       break;
-#if INTEL_CUSTOMIZATION
-    case ENCODING_I_EVEX_a:
-      assert((insn->vectorExtensionType == TYPE_EVEX) && "illegal immediate");
-      insn->immediates[insn->numImmediatesConsumed++] =
-          (aaaFromEVEX4of4(insn->vectorExtensionPrefix[3]) >> 2) & 0x1;
-      break;
-    case ENCODING_I_EVEX_aa:
-      assert((insn->vectorExtensionType == TYPE_EVEX) && "illegal immediate");
-      insn->immediates[insn->numImmediatesConsumed++] =
-          aaaFromEVEX4of4(insn->vectorExtensionPrefix[3]) & 0x3;
-      break;
-#endif // INTEL_CUSTOMIZATION
     case ENCODING_IB:
       if (sawRegImm) {
         // Saw a register immediate so don't read again and instead split the
@@ -2725,10 +2713,6 @@ static bool translateOperand(MCInst &mcInst, const OperandSpecifier &operand,
   CASE_ENCODING_RM:
   CASE_ENCODING_VSIB:
     return translateRM(mcInst, operand, insn, Dis);
-#if INTEL_CUSTOMIZATION
-  case ENCODING_I_EVEX_a:
-  case ENCODING_I_EVEX_aa:
-#endif // INTEL_CUSTOMIZATION
   case ENCODING_IB:
   case ENCODING_IW:
   case ENCODING_ID:

@@ -1726,22 +1726,6 @@ PrefixKind X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand,
 #endif // INTEL_CUSTOMIZATION
     break;
   }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-  case X86II::MRM0rImmAAA:
-  case X86II::MRM6rImmAAA: {
-    // MRMnrImmAAA instructions forms:
-    //  dst1(VEX_4V), dst2(ModR/M), u1imm(EVEX.a), u2imm(EVEX.aa)
-    if (HasVEX_4V)
-      Prefix.set4VV2(MI, CurOp++, /*IsND=*/true);
-    Prefix.setBB2(MI, CurOp++);
-    Prefix.setAAA((MI.getOperand(CurOp).getImm() << 2) |
-                  MI.getOperand(CurOp + 1).getImm());
-
-    break;
-  }
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
   }
   if (EncodeRC) {
     Prefix.setL(EVEX_rc & 0x1);
@@ -2450,20 +2434,6 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI,
     break;
   }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_APX_F
-  case X86II::MRM0rImmAAA:
-  case X86II::MRM6rImmAAA: {
-    if (HasVEX_4V) // Skip the register dst (which is encoded in VEX_VVVV).
-      ++CurOp;
-    emitByte(BaseOpcode, CB);
-    emitRegModRMByte(MI.getOperand(CurOp++),
-                     (Form == X86II::MRM0rImmAAA) ? 0 : 6, CB);
-    CurOp += 2; // Skip the immediates (which is encoded in EVEX_aaa)
-    break;
-  }
-#endif // INTEL_FEATURE_ISA_APX_F
-#endif // INTEL_CUSTOMIZATION
   case X86II::MRMXm:
   case X86II::MRM0m:
   case X86II::MRM1m:
