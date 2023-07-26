@@ -2481,7 +2481,11 @@ function(llvm_setup_rpath name)
     set(_install_rpath "${LLVM_LIBRARY_OUTPUT_INTDIR}" "${CMAKE_INSTALL_PREFIX}/lib${LLVM_LIBDIR_SUFFIX}" ${extra_libdir})
   elseif(UNIX)
     set(_build_rpath "\$ORIGIN/../lib${LLVM_LIBDIR_SUFFIX}" ${extra_libdir})
-    set(_install_rpath "\$ORIGIN/../lib${LLVM_LIBDIR_SUFFIX}")
+# INTEL_CUSTOMIZATION
+    # Point to deploy/lib from deploy/bin/compiler
+    # TODO: find a way to point to to deploy/lib from deply/bin as well
+    set(_install_rpath "\$ORIGIN/../../lib${LLVM_LIBDIR_SUFFIX}")
+# end INTEL_CUSTOMIZATION
     if(${CMAKE_SYSTEM_NAME} MATCHES "(FreeBSD|DragonFly)")
       set_property(TARGET ${name} APPEND_STRING PROPERTY
                    LINK_FLAGS " -Wl,-z,origin ")

@@ -1466,6 +1466,11 @@ void DwarfDebug::endModule() {
     for (auto *IE : CUNode->getImportedEntities()) {
       assert(!isa_and_nonnull<DILocalScope>(IE->getScope()) &&
              "Unexpected function-local entity in 'imports' CU field.");
+#if INTEL_CUSTOMIZATION
+      // Temporary workaround for CMPLRLLVM-49549, to handle incorrect debug
+      // information produced by the front-end without crashing.
+      if (CU->getOrCreateContextDIE(IE->getScope()))
+#endif // INTEL_CUSTOMIZATION
       CU->getOrCreateImportedEntityDIE(IE);
     }
     for (const auto *D : CU->getDeferredLocalDecls()) {
