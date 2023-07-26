@@ -1,6 +1,6 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ; This file is a simplified version of the IR emitted by ifx FE.
 ; Test src:
@@ -26,46 +26,43 @@
 ; !
 ; !      end program
 
-
-; ModuleID = 'intel_fort_dv_par_private.ll'
-source_filename = "par_dope_vector.f90"
-target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
-
-define void @foo_({ i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* noalias %"foo_$A") #0 {
-alloca:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.FIRSTPRIVATE:F90_DV"({ i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* %"foo_$A") ]
-
 ; Check for the allocation of local dope vector
-; CHECK: [[PRIV_DV:%[^ ]+]] = alloca { i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }
+; CHECK: [[PRIV_DV:%[^ ]+]] = alloca %"QNCA_a0$i16*$rank3$", align 8
 
 ; Check that the dope vector init call is emitted
-; CHECK: [[SIZE:%[^ ]+]] = call i64 @_f90_dope_vector_init2(i8* %{{[^ ]+}}, i8* %{{[^ ]+}})
-; CHECK: [[NUM_ELEMENTS:%[^ ]+]] = udiv i64 [[SIZE]], 2
+; CHECK: [[SIZE:%[^ ]+]] = call i64 @_f90_dope_vector_init2(ptr [[PRIV_DV]], ptr %"foo_$A")
 
 ; Check that local data is allocated and stored to the addr0 field of the dope vector.
-; CHECK: [[ADDR0:%[^ ]+]] = getelementptr inbounds { i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, { i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* [[PRIV_DV]], i32 0, i32 0
-; CHECK: [[DATA:%[^ ]+]] = alloca i16, i64 [[NUM_ELEMENTS]]
-; CHECK: store i16* [[DATA]], i16** [[ADDR0]]
+; CHECK: [[IS_ALLOCATED:%[^ ]+]] = icmp sgt i64 [[SIZE]], 0
+; CHECK: br i1 [[IS_ALLOCATED]], label %allocated.then, label %{{.*}}
+; CHECK: allocated.then:
+; CHECK: [[NUM_ELEMENTS:%[^ ]+]] = udiv i64 [[SIZE]], 2
+; CHECK: [[ADDR0:%[^ ]+]] = getelementptr inbounds %"QNCA_a0$i16*$rank3$", ptr [[PRIV_DV]], i32 0, i32 0
+; CHECK: [[DATA:%[^ ]+]] = alloca i16, i64 [[NUM_ELEMENTS]], align 2
+; CHECK: store ptr [[DATA]], ptr [[ADDR0]]
 
 ; Check that we call f90_firstprivate_copy function.
-; CHECK: call void @_f90_firstprivate_copy(i8* %{{[^ ]+}}, i8* %{{[^ ]+}})
+; CHECK: call void @_f90_firstprivate_copy(ptr [[PRIV_DV]], ptr %"foo_$A")
 
-  %"foo_$A_$field0$" = getelementptr inbounds { i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }, { i16*, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }* %"foo_$A", i32 0, i32 0
-  %"foo_$A_$field0$5" = load i16*, i16** %"foo_$A_$field0$"
-  store i16 1, i16* %"foo_$A_$field0$5"
+; Check that the private DV is used inside the region.
+; CHECK: %"foo_$A.addr_a0$_fetch" = load ptr, ptr [[PRIV_DV]], align 1
+; CHECK: store i16 1, ptr %"foo_$A.addr_a0$_fetch", align 1
+
+%"QNCA_a0$i16*$rank3$" = type { ptr, i64, i64, i64, i64, i64, [3 x { i64, i64, i64 }] }
+
+define void @foo_(ptr noalias dereferenceable(120) "assumed_shape" "ptrnoalias" %"foo_$A") {
+bb_new2:
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
+    "QUAL.OMP.FIRSTPRIVATE:F90_DV.TYPED"(ptr %"foo_$A", %"QNCA_a0$i16*$rank3$" zeroinitializer, i16 0) ]
+
+  %"foo_$A.addr_a0$_fetch" = load ptr, ptr %"foo_$A", align 1
+  store i16 1, ptr %"foo_$A.addr_a0$_fetch", align 1
 
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL"() ]
   ret void
 }
 
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #1
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #1
-
-attributes #0 = { "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" }
-attributes #1 = { nounwind }
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)
 
 ; end INTEL_CUSTOMIZATION

@@ -1,6 +1,6 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,loop-simplify,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,loop-simplify,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ; This file is a simplified version of the expected IR emitted by ifx FE.
 ; Test src:
@@ -22,42 +22,31 @@
 ; !
 ; !       end program
 
-; ModuleID = 'par_array_fixed.f90'
-source_filename = "par_array_fixed.f90"
+; Check for the allocation of local copy
+; CHECK: [[A_PRIV:%[^ ]+]] = alloca [10 x float]
+
+; Check for initialization of local array
+; CHECK: [[A_PRIV_GEP0:%.+]] = getelementptr inbounds [10 x float], ptr [[A_PRIV]], i32 0, i32 0
+; CHECK: call void @llvm.memcpy.p0.p0.i64(ptr{{.*}}[[A_PRIV_GEP0]], ptr{{.*}}%"foo_$A", i64 40, i1 false)
+
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo_(float* %"foo_$A") #0 {
+define void @foo_(ptr %"foo_$A") {
 alloca:
   %"var$1" = alloca [8 x i64], align 8
-  %foo.A.cast = bitcast float* %"foo_$A" to [10 x float]*
   br label %bb2
 
 bb2:                                              ; preds = %alloca
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.FIRSTPRIVATE"([10 x float]* %foo.A.cast) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
+    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %"foo_$A", float 0.000000e+00, i64 10) ]
 
-; Check for the allocation of local copy
-; CHECK: [[A_PRIV:%[^ ]+]] = alloca [10 x float]
-; Check for initialization of local array
-
-; CHECK: [[A_PRIV_CAST:%[^ ]+]] = bitcast [10 x float]* [[A_PRIV]] to i8*
-; CHECK: [[A_CAST:%[^ ]+]] = bitcast [10 x float]* %foo.A.cast to i8*
-; CHECK: call void @llvm.memcpy.p0i8.p0i8.i64(i8*{{.*}}[[A_PRIV_CAST]], i8*{{.*}}[[A_CAST]], i64 40, i1 false)
-
-  %foo.A = bitcast [10 x float]* %foo.A.cast to float*
-  %1 = getelementptr inbounds float, float* %foo.A, i64 1
-  store float 1.000000e+00, float* %1
+  %1 = getelementptr inbounds float, ptr %"foo_$A", i64 1
+  store float 1.000000e+00, ptr %1
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL"() ]
   ret void
 }
 
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #1
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #1
-
-attributes #0 = { "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" }
-attributes #1 = { nounwind }
-attributes #2 = { nounwind readnone speculatable }
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)
 ; end INTEL_CUSTOMIZATION
