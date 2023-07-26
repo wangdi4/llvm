@@ -50,7 +50,6 @@
 #include "llvm/Transforms/Scalar.h"
 
 #if INTEL_FEATURE_SW_DTRANS
-#include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
 #include "Intel_DTrans/Analysis/DTransTypeMetadataPropagator.h"
 #endif // INTEL_FEATURE_SW_DTRANS
@@ -72,8 +71,8 @@ static cl::opt<bool> IndCallConvForceAndersen("intel-ind-call-force-andersen",
                                               cl::init(false),
                                               cl::ReallyHidden);
 
-// Option to force DTransAnalysis to be available for indirect call conversion.
-// Useful for LIT tests.
+// Option to force DTransSafetyAnalyzer to be available for indirect call
+// conversion. Useful for LIT tests.
 static cl::opt<bool> IndCallConvForceDTrans("intel-ind-call-force-dtrans",
                                             cl::init(false), cl::ReallyHidden);
 
@@ -84,10 +83,8 @@ namespace {
 struct IndirectCallConvImpl {
 #if INTEL_FEATURE_SW_DTRANS
   IndirectCallConvImpl(AndersensAAResult *AnderPointsTo,
-                       DTransAnalysisInfo *DTransInfo,
                        dtransOP::DTransSafetyInfo *DTransSI)
-      : AnderPointsTo(AnderPointsTo), DTransInfo(DTransInfo),
-        DTransSI(DTransSI){};
+      : AnderPointsTo(AnderPointsTo), DTransSI(DTransSI){};
 #else  // INTEL_FEATURE_SW_DTRANS
   IndirectCallConvImpl(AndersensAAResult *AnderPointsTo)
       : AnderPointsTo(AnderPointsTo){};
@@ -102,8 +99,6 @@ struct IndirectCallConvImpl {
 private:
   AndersensAAResult *AnderPointsTo;
 #if INTEL_FEATURE_SW_DTRANS
-  // Used with legacy DTransAnalysis pass
-  DTransAnalysisInfo *DTransInfo;
   // Used with DTransSafetyAnalyzer for opaque pointers pass
   dtransOP::DTransSafetyInfo *DTransSI;
 #endif // INTEL_FEATURE_SW_DTRANS
@@ -211,18 +206,6 @@ bool IndirectCallConvImpl::convert(CallBase *Call) {
   LLVM_DEBUG(TraceOn = true;);
   InlICSType ICSMethod = InlICSNone;
 #if INTEL_FEATURE_SW_DTRANS
-  // Try the legacy DTransAnalysis. This path will be removed after the compiler
-  // is fully transitioned to opaque pointers. When opaque pointers are in use,
-  // useDTransAnalysis will always return 'false.
-  if (DTransInfo && DTransInfo->useDTransAnalysis()) {
-    if (DTransInfo->GetFuncPointerPossibleTargets(call_fptr, PossibleTargets,
-                                                  Call, TraceOn)) {
-      IsComplete = AndersensAAResult::AndersenSetResult::Complete;
-      ICSMethod = InlICSSFA;
-    }
-  }
-  // Try the DTransSafetyAnalyzer. This path gets used when opaque pointers
-  // are in use.
   if (IsComplete == AndersensAAResult::AndersenSetResult::Incomplete)
     if (DTransSI && DTransSI->useDTransSafetyAnalysis()) {
       if (DTransSI->GetFuncPointerPossibleTargets(call_fptr, PossibleTargets,
@@ -539,16 +522,13 @@ PreservedAnalyses IndirectCallConvPass::run(Module &M,
                             ? &MAM.getResult<AndersensAA>(M)
                             : nullptr;
 #if INTEL_FEATURE_SW_DTRANS
-  auto *DTransInfo = (UseDTrans || IndCallConvForceDTrans)
-                         ? &MAM.getResult<DTransAnalysis>(M)
-                         : nullptr;
   auto *DTransSI = (!M.getContext().supportsTypedPointers() &&
                     (UseDTrans || IndCallConvForceDTrans))
                        ? &MAM.getResult<dtransOP::DTransSafetyAnalyzer>(M)
                        : nullptr;
-  if (!AnderPointsTo && !DTransInfo && !DTransSI)
+  if (!AnderPointsTo && !DTransSI)
     return PreservedAnalyses::all();
-  IndirectCallConvImpl ImplObj(AnderPointsTo, DTransInfo, DTransSI);
+  IndirectCallConvImpl ImplObj(AnderPointsTo, DTransSI);
 #else  // INTEL_FEATURE_SW_DTRANS
   if (!AnderPointsTo)
     return PreservedAnalyses::all();
@@ -563,9 +543,6 @@ PreservedAnalyses IndirectCallConvPass::run(Module &M,
     return PreservedAnalyses::all();
   auto PA = PreservedAnalyses();
   PA.preserve<AndersensAA>();
-#if INTEL_FEATURE_SW_DTRANS
-  PA.preserve<DTransAnalysis>();
-#endif // INTEL_FEATURE_SW_DTRANS
   PA.preserve<WholeProgramAnalysis>();
   return PA;
 }
