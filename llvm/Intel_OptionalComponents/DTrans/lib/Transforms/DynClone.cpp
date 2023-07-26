@@ -17,7 +17,6 @@
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/Analysis/DTransInfoAdapter.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
-#include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
 #include "llvm/ADT/SetOperations.h"
 #include "llvm/Analysis/ConstantFolding.h"
@@ -4681,46 +4680,6 @@ template <class InfoClass> bool DynCloneImpl<InfoClass>::run(void) {
   CI->setIsNoInline();
 
   return true;
-}
-
-bool DynClonePass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
-                           DynGetTLITy GetTLI, WholeProgramInfo &WPInfo,
-                           LoopInfoFuncType &GetLI) {
-
-  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
-  if (!WPInfo.isWholeProgramSafe() || !WPInfo.isAdvancedOptEnabled(TTIAVX2))
-    return false;
-
-  if (!DTInfo.useDTransAnalysis())
-    return false;
-
-  auto &DL = M.getDataLayout();
-  DTransAnalysisInfoAdapter AIAdaptor(DTInfo);
-  DynCloneImpl<DTransAnalysisInfoAdapter> DynCloneI(M, DL, AIAdaptor, GetLI,
-                                                    GetTLI);
-  return DynCloneI.run();
-}
-
-PreservedAnalyses DynClonePass::run(Module &M, ModuleAnalysisManager &AM) {
-  auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
-  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
-
-  FunctionAnalysisManager &FAM =
-      AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
-
-  LoopInfoFuncType GetLI = [&FAM](Function &F) -> LoopInfo & {
-    return FAM.getResult<LoopAnalysis>(F);
-  };
-  auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
-    return FAM.getResult<TargetLibraryAnalysis>(F);
-  };
-  if (!runImpl(M, DTransInfo, GetTLI, WPInfo, GetLI))
-    return PreservedAnalyses::all();
-
-  // TODO: Mark the actual preserved analyses.
-  PreservedAnalyses PA;
-  PA.preserve<WholeProgramAnalysis>();
-  return PA;
 }
 
 } // namespace dtrans

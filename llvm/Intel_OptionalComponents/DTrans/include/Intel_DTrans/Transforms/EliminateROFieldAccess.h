@@ -20,24 +20,12 @@
 #ifndef INTEL_DTRANS_TRANSFORMS_ELIMROFIELDACCESS_H
 #define INTEL_DTRANS_TRANSFORMS_ELIMROFIELDACCESS_H
 
-#include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {
 
-namespace dtrans {
-
-/// Pass to perform elimination.
-class EliminateROFieldAccessPass
-    : public PassInfoMixin<dtrans::EliminateROFieldAccessPass> {
-public:
-  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
-
-  bool runImpl(Module &M, DTransAnalysisInfo &DTInfo, WholeProgramInfo &WPInfo);
-};
-
-} // namespace dtrans
+class WholeProgramInfo;
 
 namespace dtransOP {
 
@@ -45,7 +33,7 @@ class DTransSafetyInfo;
 
 /// Pass to perform elimination.
 class EliminateROFieldAccessPass
-    : public PassInfoMixin<dtrans::EliminateROFieldAccessPass> {
+    : public PassInfoMixin<dtransOP::EliminateROFieldAccessPass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
