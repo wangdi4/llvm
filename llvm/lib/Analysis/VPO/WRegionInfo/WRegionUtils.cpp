@@ -925,6 +925,53 @@ bool WRegionUtils::hasCancelConstruct(WRegionNode *W) {
   return false;
 }
 
+#if 0
+bool WRegionUtils::hasWorksharingLoop(WRegionNode *W, bool Recursive) {
+  assert(W && "hasWorksharingLoop: null WRegionNode");
+
+  for (WRegionNode *Child : W->getChildren()) {
+    unsigned SubClassID = Child->getWRegionKindID();
+    switch (SubClassID) {
+    case WRegionNode::WRNWksLoop:
+    case WRegionNode::WRNSections:
+    case WRegionNode::WRNWorkshare:
+      return true;
+    }
+    if (Recursive) {
+      switch (SubClassID) {
+      case WRegionNode::WRNParallelLoop:
+      case WRegionNode::WRNParallelSections:
+      case WRegionNode::WRNParallelWorkshare:
+        return true;
+      }
+      if (hasWorksharingLoop(Child, true))
+        return true;
+    }
+  }
+  return false;
+}
+#endif
+
+bool WRegionUtils::hasParallelOrGenericLoop(WRegionNode *W, bool Recursive) {
+  assert(W && "hasParallelOrGenericLoop: null WRegionNode");
+
+  for (WRegionNode *Child : W->getChildren()) {
+    unsigned SubClassID = Child->getWRegionKindID();
+    switch (SubClassID) {
+    case WRegionNode::WRNParallel:
+    case WRegionNode::WRNParallelLoop:
+    case WRegionNode::WRNParallelSections:
+    case WRegionNode::WRNParallelWorkshare:
+    case WRegionNode::WRNGenericLoop:
+      return true;
+    }
+    if (Recursive)
+      if (hasParallelOrGenericLoop(Child, true))
+        return true;
+  }
+  return false;
+}
+
 // Return nullptr if W has no parent of the specified kind.
 WRegionNode *WRegionUtils::getParentRegion(const WRegionNode *W,
                                            unsigned WRegionKind) {

@@ -271,7 +271,8 @@ private:
   bool DisableOffload;
 
   /// Contain all parallel/sync/offload constructs to be transformed
-  WRegionListTy WRegionList;
+  WRegionListTy WRegionList;         // post-oder
+  WRegionListTy WRegionListPreOrder; // pre-order
 
   /// Offload entries.
   SmallVector<OffloadEntry *, 8> OffloadEntries;
@@ -579,6 +580,7 @@ private:
   /// \param[out] NeedTID : 'true' if any W visited has W->needsTID()==true
   /// \param[out] NeedBID : 'true' if any W visited has W->needsBID()==true
   void gatherWRegionNodeList(bool &NeedTID, bool &NeedBID);
+  void gatherWRegionNodeListPreOrder();
 
   enum FunctionKind : int {
     FK_Start = 0,
@@ -2479,7 +2481,7 @@ private:
   bool genInteropCode(WRegionNode* W);
 
   /// Replace loop construct with the mapped directive in IR
-  bool replaceGenericLoop(WRegionNode *W);
+  bool replaceGenericLoop(WRegionNode *W, unsigned LoopMappingScheme);
 
   /// The given \p W region is one of the kinds allowing internal normalized
   /// upper bound clause (e.g. "omp parallel for").

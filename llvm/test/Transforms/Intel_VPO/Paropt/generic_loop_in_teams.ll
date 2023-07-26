@@ -1,7 +1,9 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt-map-loop-bind-teams-to-distribute=false -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck -check-prefix=NON-CONFM %s
-; RUN: opt -opaque-pointers=1 -vpo-paropt-map-loop-bind-teams-to-distribute=false -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck -check-prefix=NON-CONFM %s
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt-map-loop-bind-teams-to-distribute=true -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck -check-prefix=CONFM %s
-; RUN: opt -opaque-pointers=1 -vpo-paropt-map-loop-bind-teams-to-distribute=true -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck -check-prefix=CONFM %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-loop-collapse -S %s | FileCheck -check-prefix=NON-CONFM %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse)' -S %s | FileCheck -check-prefix=NON-CONFM %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=0 -bugpoint-enable-legacy-pm -vpo-paropt-map-loop-bind-teams-to-distribute=false -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck -check-prefix=NON-CONFM %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=0 -vpo-paropt-map-loop-bind-teams-to-distribute=false -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck -check-prefix=NON-CONFM %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=0 -bugpoint-enable-legacy-pm -vpo-paropt-map-loop-bind-teams-to-distribute=true -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck -check-prefix=CONFM %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=0 -vpo-paropt-map-loop-bind-teams-to-distribute=true -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck -check-prefix=CONFM %s
 
 ; Test src:
 ;
@@ -16,9 +18,14 @@
 ;   }
 ; }
 
+; SCHEME0:
 ; This test checks "loop" construct mapping after prepare pass if binding rule is teams.
 ; For conforming behavior, loop is mapped to "distribute" and for non-conforming mapping is
 ; "distribute parallel for" which can be toggled using flag '-vpo-paropt-map-loop-bind-teams-to-distribute'
+
+; SCHEME1: 
+; The "loop" construct is mapped to "distribute parallel for" in this case because it does not have a
+; "parallel" construct as its immediate child. For simplicity, reuse the NON-CONFM checker from SCHEME0.
 
 ; NON-CONFM-NOT: call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(), {{.*}}
 ; NON-CONFM: call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"(), "QUAL.OMP.SHARED:TYPED"({{.*}}), "QUAL.OMP.SHARED:TYPED"({{.*}}), "QUAL.OMP.NORMALIZED.IV:TYPED"({{.*}}), "QUAL.OMP.FIRSTPRIVATE:TYPED"({{.*}}), "QUAL.OMP.NORMALIZED.UB:TYPED"({{.*}}), "QUAL.OMP.PRIVATE:TYPED"({{.*}})

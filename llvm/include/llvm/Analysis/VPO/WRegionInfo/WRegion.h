@@ -2350,7 +2350,9 @@ public:
   WRNLoopBindKind getLoopBind() const override { return LoopBind; }
   WRNLoopOrderKind getLoopOrder() const override { return LoopOrder; }
 
-  bool mapLoopScheme();
+  void mapLoop(unsigned LoopMappingScheme = 1);
+  void mapLoopScheme0();
+  void mapLoopScheme1();
 
   int getMappedDir() const { return MappedDir; }
 

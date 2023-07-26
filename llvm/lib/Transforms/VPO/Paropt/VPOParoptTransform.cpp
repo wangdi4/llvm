@@ -373,14 +373,60 @@ static cl::opt<bool> DefaultNDRangeTripcountHeuristic(
     cl::desc("Use profitability heuristic when passing tripcount"
              "with default ND-range"));
 
+// Select scheme to map LOOP constructs.
+// Scheme 0 is the original implementation that does the replacement
+//          in the Prepare Pass and in an in-to-out order.
+// Scheme 1 does the replacement in the Collapse Pass and in an
+//          out-to-in order.
+// This flag is for debugging purposes only, in case of regressions.
+// TODO: remove this flag and all code paths with LoopMappingScheme==0
+static cl::opt<unsigned> LoopMappingScheme(
+    "vpo-paropt-loop-mapping-scheme", cl::Hidden, cl::init(1),
+    cl::desc("Scheme to replace OMP loop constructs. 0: replace in the Prepare "
+             "Pass in an in-to-out order. 1 (default): replace in the Collapse "
+             "pass in an out-to-in order"));
+
+// This flag is meaningful only when LoopMappingScheme==0. This scheme doesn't
+// look at the child constructs of the LOOP construct so it maps TEAMS LOOP
+// conservatively to TEAMS DISTRIBUTE. Setting this flag to false (default)
+// tells the compiler to be more aggressive and map TEAMS LOOP to
+// TEAMS DISTRIBUTE PARALLEL FOR/DO.
+//
+// Note: Scheme 1 looks at the child constructs of the LOOP to decide if to use
+//     TEAMS DISTRIBUTE or TEAMS DISTRIBUTE PARALLEL FOR/DO so it doesn't need
+//     (ie, it ignores) this flag
 static cl::opt<bool> MapLoopBindTeamsToDistribute(
     "vpo-paropt-map-loop-bind-teams-to-distribute", cl::Hidden, cl::init(false),
     cl::desc("Map loop construct to distribute when bound to teams"));
 
-//
 // Use with the WRNVisitor class (in WRegionUtils.h) to walk the WRGraph
-// (DFS) to gather all WRegion Nodes;
-//
+// in a pre-order fashion so a parent node is visited before its children.
+class VPOWRegionVisitorPreOrder {
+
+public:
+  WRegionListTy &WRNListPreOrder;
+
+  VPOWRegionVisitorPreOrder(WRegionListTy &WL) : WRNListPreOrder(WL) {}
+
+  void preVisit(WRegionNode *W) { WRNListPreOrder.push_back(W); }
+
+  void postVisit(WRegionNode *W) {}
+
+  bool quitVisit(WRegionNode *W) { return false; }
+};
+
+void VPOParoptTransform::gatherWRegionNodeListPreOrder() {
+  LLVM_DEBUG(dbgs() << "\nSTART: Gather WRegion Pre-Order Node List\n");
+
+  VPOWRegionVisitorPreOrder Visitor(WRegionListPreOrder);
+  WRegionUtils::forwardVisit(Visitor, WI->getWRGraph());
+
+  LLVM_DEBUG(dbgs() << "\nEND: Gather WRegion Pre-Order Node List\n");
+  return;
+}
+
+// Use with the WRNVisitor class (in WRegionUtils.h) to walk the WRGraph
+// in a post-order fashion so a parent node is visited after its children.
 class VPOWRegionVisitor {
 
 public:
@@ -1747,8 +1793,14 @@ bool VPOParoptTransform::paroptTransforms() {
   // Collects the list of WRNs into WRegionList, and sets NeedTID and NeedBID
   // to true/false depending on whether it finds a WRN that needs the TID or
   // BID, respectively.
-  gatherWRegionNodeList(NeedTID, NeedBID);
+  gatherWRegionNodeList(NeedTID, NeedBID); // list order is in-to-out
 
+  if (LoopMappingScheme == 1 && isModeOmpNoFECollapse()) {
+    gatherWRegionNodeListPreOrder(); // list order is out-to-in
+    for (auto *W : WRegionListPreOrder)
+      if (auto *WL = dyn_cast<WRNGenericLoopNode>(W))
+        RoutineChanged |= replaceGenericLoop(WL, LoopMappingScheme);
+  }
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   if (isTargetCSA()) {
@@ -2797,7 +2849,8 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNGenericLoop:
         if (Mode & ParPrepare) {
           debugPrintHeader(W, Mode);
-          Changed |= replaceGenericLoop(W);
+          if (LoopMappingScheme == 0)
+            Changed |= replaceGenericLoop(W, LoopMappingScheme);
           Changed |= regularizeOMPLoop(W);
           Changed |= canonicalizeGlobalVariableReferences(W);
           Changed |= VPOUtils::renameOperandsUsingStoreThenLoad(W, DT, LI);
@@ -14075,17 +14128,13 @@ BasicBlock *VPOParoptTransform::getLoopExitBB(WRegionNode *W, unsigned Idx) {
   return LoopExitBB;
 }
 
-// Initial Implementation for loop construct in OpenMP 5.0
-//   The loop construct will be mapped to underlying loop scheme according to
-//   binding rules and parent region/directive. See details in mapLoopScheme
-//   function.
-bool VPOParoptTransform::replaceGenericLoop(WRegionNode *W) {
+// Convert the LOOP construct using the LoopMappingScheme specified.
+// See details in mapLoop().
+bool VPOParoptTransform::replaceGenericLoop(WRegionNode *W,
+                                            unsigned LoopMappingScheme) {
   WRNGenericLoopNode *WL = cast<WRNGenericLoopNode>(W);
 
-  // Map loop construct to underlying loop scheme
-  bool Changed = WL->mapLoopScheme();
-  assert(Changed &&
-         "Loop directive must be mapped to right parallization scheme.");
+  WL->mapLoop(LoopMappingScheme);
 
   int MappedDir = WL->getMappedDir();
 
@@ -14117,7 +14166,7 @@ bool VPOParoptTransform::replaceGenericLoop(WRegionNode *W) {
   bool HasReduction = !WL->getRed().empty();
 
   if (IsDistributeLoopBindTeams) {
-    if (!MapLoopBindTeamsToDistribute) {
+    if (!MapLoopBindTeamsToDistribute && LoopMappingScheme == 0) {
       MappedDir = DIR_OMP_DISTRIBUTE_PARLOOP;
       IsDistributeLoopBindTeams = false;
     } else if (HasReduction) {
@@ -14193,7 +14242,7 @@ bool VPOParoptTransform::replaceGenericLoop(WRegionNode *W) {
   ExitCI = VPOUtils::addOperandBundlesInCall(
       ExitCI, {{MappedExitDirStr, ArrayRef<Value *>{}}});
 
-  return Changed;
+  return true;
 }
 
 // Targets that support non-default address spaces may have the following
@@ -15133,7 +15182,12 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   assert(W->canHavePrivate() && "OpenMP loop region cannot have PRIVATE?");
   AddToNewClauses(PrivateString, OldIVPtrAndElemTys);
 
-  if (W->canHaveFirstprivate()) {
+  bool IsGenericLoopMappedToSIMD = false;
+  if (auto *WGL = dyn_cast<WRNGenericLoopNode>(W))
+    if (WGL->getMappedDir() == DIR_OMP_SIMD)
+      IsGenericLoopMappedToSIMD = true;
+
+  if (W->canHaveFirstprivate() && !IsGenericLoopMappedToSIMD) {
     // SIMD cannot have firstprivate() clause.
     // TODO: Might need to add LIVEIN for regions that cannot have firstprivate.
     // We should probably make LB PRIVATE, since we assume that it is always 0.
@@ -15499,7 +15553,7 @@ bool VPOParoptTransform::shouldNotUseKnownNDRange(WRegionNode *W) const {
   if (WTeams) {
     if (auto *WGL = dyn_cast<WRNGenericLoopNode>(W)) {
       if (WGL->getMappedDir() == -1)
-        WGL->mapLoopScheme();
+        WGL->mapLoop(LoopMappingScheme);
       if (WGL->getMappedDir() != DIR_OMP_DISTRIBUTE_PARLOOP &&
           WGL->getMappedDir() != DIR_OMP_DISTRIBUTE)
         return true;
