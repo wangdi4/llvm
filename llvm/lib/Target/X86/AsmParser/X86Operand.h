@@ -297,26 +297,6 @@ struct X86Operand final : public MCParsedAsmOperand {
     return isImmSExti64i32Value(CE->getValue());
   }
 
-#if INTEL_CUSTOMIZATION
-  bool isImmUnsignedi1() const {
-    if (!isImm()) return false;
-    // If this isn't a constant expr, reject it. The immediate byte is shared
-    // with a register encoding. We can't have it affected by a relocation.
-    const MCConstantExpr *CE = dyn_cast<MCConstantExpr>(getImm());
-    if (!CE) return false;
-    return isImmUnsignedi1Value(CE->getValue());
-  }
-
-  bool isImmUnsignedi2() const {
-    if (!isImm()) return false;
-    // If this isn't a constant expr, reject it. The immediate byte is shared
-    // with a register encoding. We can't have it affected by a relocation.
-    const MCConstantExpr *CE = dyn_cast<MCConstantExpr>(getImm());
-    if (!CE) return false;
-    return isImmUnsignedi2Value(CE->getValue());
-  }
-#endif // INTEL_CUSTOMIZATION
-
   bool isImmUnsignedi4() const {
     if (!isImm()) return false;
     // If this isn't a constant expr, reject it. The immediate byte is shared

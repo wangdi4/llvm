@@ -28,10 +28,12 @@ entry:
 define void @csr2() nounwind {
 ; CHECK-LABEL: csr2:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    push2 $1, %rbp, %r15, $0
+; CHECK-NEXT:    pushq %rax
+; CHECK-NEXT:    push2 %rbp, %r15
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    #NO_APP
-; CHECK-NEXT:    pop2 $0, %r15, %rbp, $1
+; CHECK-NEXT:    pop2 %r15, %rbp
+; CHECK-NEXT:    popq %rax
 ; CHECK-NEXT:    retq
 ;
 ; FRAME-LABEL: csr2:
@@ -53,10 +55,10 @@ define void @csr3() nounwind {
 ; CHECK-LABEL: csr3:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    pushq %rbp
-; CHECK-NEXT:    push2 $0, %r15, %r14, $0
+; CHECK-NEXT:    push2 %r15, %r14
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    #NO_APP
-; CHECK-NEXT:    pop2 $0, %r14, %r15, $0
+; CHECK-NEXT:    pop2 %r14, %r15
 ; CHECK-NEXT:    popq %rbp
 ; CHECK-NEXT:    retq
 ;
@@ -64,10 +66,10 @@ define void @csr3() nounwind {
 ; FRAME:       # %bb.0: # %entry
 ; FRAME-NEXT:    pushq %rbp
 ; FRAME-NEXT:    movq %rsp, %rbp
-; FRAME-NEXT:    push2 $0, %r15, %r14, $0
+; FRAME-NEXT:    push2 %r15, %r14
 ; FRAME-NEXT:    #APP
 ; FRAME-NEXT:    #NO_APP
-; FRAME-NEXT:    pop2 $0, %r14, %r15, $0
+; FRAME-NEXT:    pop2 %r14, %r15
 ; FRAME-NEXT:    popq %rbp
 ; FRAME-NEXT:    retq
 entry:
@@ -78,24 +80,26 @@ entry:
 define void @csr4() nounwind {
 ; CHECK-LABEL: csr4:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    push2 $1, %rbp, %r15, $0
-; CHECK-NEXT:    push2 $0, %r14, %r13, $0
+; CHECK-NEXT:    pushq %rax
+; CHECK-NEXT:    push2 %rbp, %r15
+; CHECK-NEXT:    push2 %r14, %r13
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    #NO_APP
-; CHECK-NEXT:    pop2 $0, %r13, %r14, $0
-; CHECK-NEXT:    pop2 $0, %r15, %rbp, $1
+; CHECK-NEXT:    pop2 %r13, %r14
+; CHECK-NEXT:    pop2 %r15, %rbp
+; CHECK-NEXT:    popq %rax
 ; CHECK-NEXT:    retq
 ;
 ; FRAME-LABEL: csr4:
 ; FRAME:       # %bb.0: # %entry
 ; FRAME-NEXT:    pushq %rbp
 ; FRAME-NEXT:    movq %rsp, %rbp
-; FRAME-NEXT:    push2 $0, %r15, %r14, $0
+; FRAME-NEXT:    push2 %r15, %r14
 ; FRAME-NEXT:    pushq %r13
 ; FRAME-NEXT:    #APP
 ; FRAME-NEXT:    #NO_APP
 ; FRAME-NEXT:    popq %r13
-; FRAME-NEXT:    pop2 $0, %r14, %r15, $0
+; FRAME-NEXT:    pop2 %r14, %r15
 ; FRAME-NEXT:    popq %rbp
 ; FRAME-NEXT:    retq
 entry:
@@ -107,12 +111,12 @@ define void @csr5() nounwind {
 ; CHECK-LABEL: csr5:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    pushq %rbp
-; CHECK-NEXT:    push2 $0, %r15, %r14, $0
-; CHECK-NEXT:    push2 $0, %r13, %r12, $0
+; CHECK-NEXT:    push2 %r15, %r14
+; CHECK-NEXT:    push2 %r13, %r12
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    #NO_APP
-; CHECK-NEXT:    pop2 $0, %r12, %r13, $0
-; CHECK-NEXT:    pop2 $0, %r14, %r15, $0
+; CHECK-NEXT:    pop2 %r12, %r13
+; CHECK-NEXT:    pop2 %r14, %r15
 ; CHECK-NEXT:    popq %rbp
 ; CHECK-NEXT:    retq
 ;
@@ -120,12 +124,12 @@ define void @csr5() nounwind {
 ; FRAME:       # %bb.0: # %entry
 ; FRAME-NEXT:    pushq %rbp
 ; FRAME-NEXT:    movq %rsp, %rbp
-; FRAME-NEXT:    push2 $0, %r15, %r14, $0
-; FRAME-NEXT:    push2 $0, %r13, %r12, $0
+; FRAME-NEXT:    push2 %r15, %r14
+; FRAME-NEXT:    push2 %r13, %r12
 ; FRAME-NEXT:    #APP
 ; FRAME-NEXT:    #NO_APP
-; FRAME-NEXT:    pop2 $0, %r12, %r13, $0
-; FRAME-NEXT:    pop2 $0, %r14, %r15, $0
+; FRAME-NEXT:    pop2 %r12, %r13
+; FRAME-NEXT:    pop2 %r14, %r15
 ; FRAME-NEXT:    popq %rbp
 ; FRAME-NEXT:    retq
 entry:
@@ -136,371 +140,33 @@ entry:
 define void @csr6() nounwind {
 ; CHECK-LABEL: csr6:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    push2 $1, %rbp, %r15, $0
-; CHECK-NEXT:    push2 $0, %r14, %r13, $0
-; CHECK-NEXT:    push2 $0, %r12, %rbx, $0
+; CHECK-NEXT:    pushq %rax
+; CHECK-NEXT:    push2 %rbp, %r15
+; CHECK-NEXT:    push2 %r14, %r13
+; CHECK-NEXT:    push2 %r12, %rbx
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    #NO_APP
-; CHECK-NEXT:    pop2 $0, %rbx, %r12, $0
-; CHECK-NEXT:    pop2 $0, %r13, %r14, $0
-; CHECK-NEXT:    pop2 $0, %r15, %rbp, $1
+; CHECK-NEXT:    pop2 %rbx, %r12
+; CHECK-NEXT:    pop2 %r13, %r14
+; CHECK-NEXT:    pop2 %r15, %rbp
+; CHECK-NEXT:    popq %rax
 ; CHECK-NEXT:    retq
 ;
 ; FRAME-LABEL: csr6:
 ; FRAME:       # %bb.0: # %entry
 ; FRAME-NEXT:    pushq %rbp
 ; FRAME-NEXT:    movq %rsp, %rbp
-; FRAME-NEXT:    push2 $0, %r15, %r14, $0
-; FRAME-NEXT:    push2 $0, %r13, %r12, $0
+; FRAME-NEXT:    push2 %r15, %r14
+; FRAME-NEXT:    push2 %r13, %r12
 ; FRAME-NEXT:    pushq %rbx
 ; FRAME-NEXT:    #APP
 ; FRAME-NEXT:    #NO_APP
 ; FRAME-NEXT:    popq %rbx
-; FRAME-NEXT:    pop2 $0, %r12, %r13, $0
-; FRAME-NEXT:    pop2 $0, %r14, %r15, $0
+; FRAME-NEXT:    pop2 %r12, %r13
+; FRAME-NEXT:    pop2 %r14, %r15
 ; FRAME-NEXT:    popq %rbp
 ; FRAME-NEXT:    retq
 entry:
   tail call void asm sideeffect "", "~{rbp},~{r15},~{r14},~{r13},~{r12},~{rbx},~{dirflag},~{fpsr},~{flags}"()
   ret void
-}
-
-define i32 @csr6_alloc8(ptr %argv) nounwind {
-; CHECK-LABEL: csr6_alloc8:
-; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    push2 $1, %rbp, %r15, $0
-; CHECK-NEXT:    push2 $0, %r14, %r13, $0
-; CHECK-NEXT:    push2 $0, %r12, %rbx, $1
-; CHECK-NEXT:    #APP
-; CHECK-NEXT:    #NO_APP
-; CHECK-NEXT:    xorl %ecx, %ecx
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    callq *%rcx
-; CHECK-NEXT:    pop2 $1, %rbx, %r12, $0
-; CHECK-NEXT:    pop2 $0, %r13, %r14, $0
-; CHECK-NEXT:    pop2 $0, %r15, %rbp, $1
-; CHECK-NEXT:    retq
-;
-; FRAME-LABEL: csr6_alloc8:
-; FRAME:       # %bb.0: # %entry
-; FRAME-NEXT:    pushq %rbp
-; FRAME-NEXT:    movq %rsp, %rbp
-; FRAME-NEXT:    push2 $0, %r15, %r14, $0
-; FRAME-NEXT:    push2 $0, %r13, %r12, $0
-; FRAME-NEXT:    pushq %rbx
-; FRAME-NEXT:    pushq %rax
-; FRAME-NEXT:    #APP
-; FRAME-NEXT:    #NO_APP
-; FRAME-NEXT:    xorl %ecx, %ecx
-; FRAME-NEXT:    xorl %eax, %eax
-; FRAME-NEXT:    callq *%rcx
-; FRAME-NEXT:    addq $8, %rsp
-; FRAME-NEXT:    popq %rbx
-; FRAME-NEXT:    pop2 $0, %r12, %r13, $0
-; FRAME-NEXT:    pop2 $0, %r14, %r15, $0
-; FRAME-NEXT:    popq %rbp
-; FRAME-NEXT:    retq
-entry:
-  tail call void asm sideeffect "", "~{rbp},~{r15},~{r14},~{r13},~{r12},~{rbx},~{dirflag},~{fpsr},~{flags}"()
-  %a = alloca [1 x ptr], align 8
-  %b = call ptr (...) null()
-  ret i32 undef
-}
-
-define i32 @csr6_alloc16(ptr %argv) nounwind {
-; CHECK-LABEL: csr6_alloc16:
-; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    push2 $1, %rbp, %r15, $0
-; CHECK-NEXT:    push2 $0, %r14, %r13, $0
-; CHECK-NEXT:    push2 $0, %r12, %rbx, $1
-; CHECK-NEXT:    #APP
-; CHECK-NEXT:    #NO_APP
-; CHECK-NEXT:    xorl %ecx, %ecx
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    callq *%rcx
-; CHECK-NEXT:    pop2 $1, %rbx, %r12, $0
-; CHECK-NEXT:    pop2 $0, %r13, %r14, $0
-; CHECK-NEXT:    pop2 $0, %r15, %rbp, $1
-; CHECK-NEXT:    retq
-;
-; FRAME-LABEL: csr6_alloc16:
-; FRAME:       # %bb.0: # %entry
-; FRAME-NEXT:    pushq %rbp
-; FRAME-NEXT:    movq %rsp, %rbp
-; FRAME-NEXT:    push2 $0, %r15, %r14, $0
-; FRAME-NEXT:    push2 $0, %r13, %r12, $0
-; FRAME-NEXT:    pushq %rbx
-; FRAME-NEXT:    subq $24, %rsp
-; FRAME-NEXT:    #APP
-; FRAME-NEXT:    #NO_APP
-; FRAME-NEXT:    xorl %ecx, %ecx
-; FRAME-NEXT:    xorl %eax, %eax
-; FRAME-NEXT:    callq *%rcx
-; FRAME-NEXT:    addq $24, %rsp
-; FRAME-NEXT:    popq %rbx
-; FRAME-NEXT:    pop2 $0, %r12, %r13, $0
-; FRAME-NEXT:    pop2 $0, %r14, %r15, $0
-; FRAME-NEXT:    popq %rbp
-; FRAME-NEXT:    retq
-entry:
-  tail call void asm sideeffect "", "~{rbp},~{r15},~{r14},~{r13},~{r12},~{rbx},~{dirflag},~{fpsr},~{flags}"()
-  %a = alloca [2 x ptr], align 8
-  %b = call ptr (...) null()
-  ret i32 undef
-}
-
-define i32 @csr6_alloc24(ptr %argv) nounwind {
-; CHECK-LABEL: csr6_alloc24:
-; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    push2 $1, %rbp, %r15, $0
-; CHECK-NEXT:    push2 $0, %r14, %r13, $0
-; CHECK-NEXT:    push2 $0, %r12, %rbx, $2
-; CHECK-NEXT:    #APP
-; CHECK-NEXT:    #NO_APP
-; CHECK-NEXT:    xorl %ecx, %ecx
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    callq *%rcx
-; CHECK-NEXT:    pop2 $2, %rbx, %r12, $0
-; CHECK-NEXT:    pop2 $0, %r13, %r14, $0
-; CHECK-NEXT:    pop2 $0, %r15, %rbp, $1
-; CHECK-NEXT:    retq
-;
-; FRAME-LABEL: csr6_alloc24:
-; FRAME:       # %bb.0: # %entry
-; FRAME-NEXT:    pushq %rbp
-; FRAME-NEXT:    movq %rsp, %rbp
-; FRAME-NEXT:    push2 $0, %r15, %r14, $0
-; FRAME-NEXT:    push2 $0, %r13, %r12, $0
-; FRAME-NEXT:    pushq %rbx
-; FRAME-NEXT:    subq $24, %rsp
-; FRAME-NEXT:    #APP
-; FRAME-NEXT:    #NO_APP
-; FRAME-NEXT:    xorl %ecx, %ecx
-; FRAME-NEXT:    xorl %eax, %eax
-; FRAME-NEXT:    callq *%rcx
-; FRAME-NEXT:    addq $24, %rsp
-; FRAME-NEXT:    popq %rbx
-; FRAME-NEXT:    pop2 $0, %r12, %r13, $0
-; FRAME-NEXT:    pop2 $0, %r14, %r15, $0
-; FRAME-NEXT:    popq %rbp
-; FRAME-NEXT:    retq
-entry:
-  tail call void asm sideeffect "", "~{rbp},~{r15},~{r14},~{r13},~{r12},~{rbx},~{dirflag},~{fpsr},~{flags}"()
-  %a = alloca [3 x ptr], align 8
-  %b = call ptr (...) null()
-  ret i32 undef
-}
-
-define i32 @csr6_alloc32(ptr %argv) nounwind {
-; CHECK-LABEL: csr6_alloc32:
-; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    push2 $1, %rbp, %r15, $0
-; CHECK-NEXT:    push2 $0, %r14, %r13, $0
-; CHECK-NEXT:    push2 $0, %r12, %rbx, $2
-; CHECK-NEXT:    #APP
-; CHECK-NEXT:    #NO_APP
-; CHECK-NEXT:    xorl %ecx, %ecx
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    callq *%rcx
-; CHECK-NEXT:    pop2 $2, %rbx, %r12, $0
-; CHECK-NEXT:    pop2 $0, %r13, %r14, $0
-; CHECK-NEXT:    pop2 $0, %r15, %rbp, $1
-; CHECK-NEXT:    retq
-;
-; FRAME-LABEL: csr6_alloc32:
-; FRAME:       # %bb.0: # %entry
-; FRAME-NEXT:    pushq %rbp
-; FRAME-NEXT:    movq %rsp, %rbp
-; FRAME-NEXT:    push2 $0, %r15, %r14, $0
-; FRAME-NEXT:    push2 $0, %r13, %r12, $0
-; FRAME-NEXT:    pushq %rbx
-; FRAME-NEXT:    subq $40, %rsp
-; FRAME-NEXT:    #APP
-; FRAME-NEXT:    #NO_APP
-; FRAME-NEXT:    xorl %ecx, %ecx
-; FRAME-NEXT:    xorl %eax, %eax
-; FRAME-NEXT:    callq *%rcx
-; FRAME-NEXT:    addq $40, %rsp
-; FRAME-NEXT:    popq %rbx
-; FRAME-NEXT:    pop2 $0, %r12, %r13, $0
-; FRAME-NEXT:    pop2 $0, %r14, %r15, $0
-; FRAME-NEXT:    popq %rbp
-; FRAME-NEXT:    retq
-entry:
-  tail call void asm sideeffect "", "~{rbp},~{r15},~{r14},~{r13},~{r12},~{rbx},~{dirflag},~{fpsr},~{flags}"()
-  %a = alloca [4 x ptr], align 8
-  %b = call ptr (...) null()
-  ret i32 undef
-}
-
-define i32 @csr6_alloc40(ptr %argv) nounwind {
-; CHECK-LABEL: csr6_alloc40:
-; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    push2 $1, %rbp, %r15, $0
-; CHECK-NEXT:    push2 $0, %r14, %r13, $0
-; CHECK-NEXT:    push2 $0, %r12, %rbx, $3
-; CHECK-NEXT:    #APP
-; CHECK-NEXT:    #NO_APP
-; CHECK-NEXT:    xorl %ecx, %ecx
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    callq *%rcx
-; CHECK-NEXT:    pop2 $3, %rbx, %r12, $0
-; CHECK-NEXT:    pop2 $0, %r13, %r14, $0
-; CHECK-NEXT:    pop2 $0, %r15, %rbp, $1
-; CHECK-NEXT:    retq
-;
-; FRAME-LABEL: csr6_alloc40:
-; FRAME:       # %bb.0: # %entry
-; FRAME-NEXT:    pushq %rbp
-; FRAME-NEXT:    movq %rsp, %rbp
-; FRAME-NEXT:    push2 $0, %r15, %r14, $0
-; FRAME-NEXT:    push2 $0, %r13, %r12, $0
-; FRAME-NEXT:    pushq %rbx
-; FRAME-NEXT:    subq $40, %rsp
-; FRAME-NEXT:    #APP
-; FRAME-NEXT:    #NO_APP
-; FRAME-NEXT:    xorl %ecx, %ecx
-; FRAME-NEXT:    xorl %eax, %eax
-; FRAME-NEXT:    callq *%rcx
-; FRAME-NEXT:    addq $40, %rsp
-; FRAME-NEXT:    popq %rbx
-; FRAME-NEXT:    pop2 $0, %r12, %r13, $0
-; FRAME-NEXT:    pop2 $0, %r14, %r15, $0
-; FRAME-NEXT:    popq %rbp
-; FRAME-NEXT:    retq
-entry:
-  tail call void asm sideeffect "", "~{rbp},~{r15},~{r14},~{r13},~{r12},~{rbx},~{dirflag},~{fpsr},~{flags}"()
-  %a = alloca [5 x ptr], align 8
-  %b = call ptr (...) null()
-  ret i32 undef
-}
-
-define i32 @csr6_alloc48(ptr %argv) nounwind {
-; CHECK-LABEL: csr6_alloc48:
-; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    push2 $1, %rbp, %r15, $0
-; CHECK-NEXT:    push2 $0, %r14, %r13, $0
-; CHECK-NEXT:    push2 $0, %r12, %rbx, $3
-; CHECK-NEXT:    #APP
-; CHECK-NEXT:    #NO_APP
-; CHECK-NEXT:    xorl %ecx, %ecx
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    callq *%rcx
-; CHECK-NEXT:    pop2 $3, %rbx, %r12, $0
-; CHECK-NEXT:    pop2 $0, %r13, %r14, $0
-; CHECK-NEXT:    pop2 $0, %r15, %rbp, $1
-; CHECK-NEXT:    retq
-;
-; FRAME-LABEL: csr6_alloc48:
-; FRAME:       # %bb.0: # %entry
-; FRAME-NEXT:    pushq %rbp
-; FRAME-NEXT:    movq %rsp, %rbp
-; FRAME-NEXT:    push2 $0, %r15, %r14, $0
-; FRAME-NEXT:    push2 $0, %r13, %r12, $0
-; FRAME-NEXT:    pushq %rbx
-; FRAME-NEXT:    subq $56, %rsp
-; FRAME-NEXT:    #APP
-; FRAME-NEXT:    #NO_APP
-; FRAME-NEXT:    xorl %ecx, %ecx
-; FRAME-NEXT:    xorl %eax, %eax
-; FRAME-NEXT:    callq *%rcx
-; FRAME-NEXT:    addq $56, %rsp
-; FRAME-NEXT:    popq %rbx
-; FRAME-NEXT:    pop2 $0, %r12, %r13, $0
-; FRAME-NEXT:    pop2 $0, %r14, %r15, $0
-; FRAME-NEXT:    popq %rbp
-; FRAME-NEXT:    retq
-entry:
-  tail call void asm sideeffect "", "~{rbp},~{r15},~{r14},~{r13},~{r12},~{rbx},~{dirflag},~{fpsr},~{flags}"()
-  %a = alloca [6 x ptr], align 8
-  %b = call ptr (...) null()
-  ret i32 undef
-}
-
-define i32 @csr6_alloc56(ptr %argv) nounwind {
-; CHECK-LABEL: csr6_alloc56:
-; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    push2 $1, %rbp, %r15, $0
-; CHECK-NEXT:    push2 $0, %r14, %r13, $0
-; CHECK-NEXT:    push2 $0, %r12, %rbx, $3
-; CHECK-NEXT:    subq $16, %rsp
-; CHECK-NEXT:    #APP
-; CHECK-NEXT:    #NO_APP
-; CHECK-NEXT:    xorl %ecx, %ecx
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    callq *%rcx
-; CHECK-NEXT:    addq $16, %rsp
-; CHECK-NEXT:    pop2 $3, %rbx, %r12, $0
-; CHECK-NEXT:    pop2 $0, %r13, %r14, $0
-; CHECK-NEXT:    pop2 $0, %r15, %rbp, $1
-; CHECK-NEXT:    retq
-;
-; FRAME-LABEL: csr6_alloc56:
-; FRAME:       # %bb.0: # %entry
-; FRAME-NEXT:    pushq %rbp
-; FRAME-NEXT:    movq %rsp, %rbp
-; FRAME-NEXT:    push2 $0, %r15, %r14, $0
-; FRAME-NEXT:    push2 $0, %r13, %r12, $0
-; FRAME-NEXT:    pushq %rbx
-; FRAME-NEXT:    subq $56, %rsp
-; FRAME-NEXT:    #APP
-; FRAME-NEXT:    #NO_APP
-; FRAME-NEXT:    xorl %ecx, %ecx
-; FRAME-NEXT:    xorl %eax, %eax
-; FRAME-NEXT:    callq *%rcx
-; FRAME-NEXT:    addq $56, %rsp
-; FRAME-NEXT:    popq %rbx
-; FRAME-NEXT:    pop2 $0, %r12, %r13, $0
-; FRAME-NEXT:    pop2 $0, %r14, %r15, $0
-; FRAME-NEXT:    popq %rbp
-; FRAME-NEXT:    retq
-entry:
-  tail call void asm sideeffect "", "~{rbp},~{r15},~{r14},~{r13},~{r12},~{rbx},~{dirflag},~{fpsr},~{flags}"()
-  %a = alloca [7 x ptr], align 8
-  %b = call ptr (...) null()
-  ret i32 undef
-}
-
-define i32 @csr6_alloc64(ptr %argv) nounwind {
-; CHECK-LABEL: csr6_alloc64:
-; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    push2 $1, %rbp, %r15, $0
-; CHECK-NEXT:    push2 $0, %r14, %r13, $0
-; CHECK-NEXT:    push2 $0, %r12, %rbx, $3
-; CHECK-NEXT:    subq $16, %rsp
-; CHECK-NEXT:    #APP
-; CHECK-NEXT:    #NO_APP
-; CHECK-NEXT:    xorl %ecx, %ecx
-; CHECK-NEXT:    xorl %eax, %eax
-; CHECK-NEXT:    callq *%rcx
-; CHECK-NEXT:    addq $16, %rsp
-; CHECK-NEXT:    pop2 $3, %rbx, %r12, $0
-; CHECK-NEXT:    pop2 $0, %r13, %r14, $0
-; CHECK-NEXT:    pop2 $0, %r15, %rbp, $1
-; CHECK-NEXT:    retq
-;
-; FRAME-LABEL: csr6_alloc64:
-; FRAME:       # %bb.0: # %entry
-; FRAME-NEXT:    pushq %rbp
-; FRAME-NEXT:    movq %rsp, %rbp
-; FRAME-NEXT:    push2 $0, %r15, %r14, $0
-; FRAME-NEXT:    push2 $0, %r13, %r12, $0
-; FRAME-NEXT:    pushq %rbx
-; FRAME-NEXT:    subq $72, %rsp
-; FRAME-NEXT:    #APP
-; FRAME-NEXT:    #NO_APP
-; FRAME-NEXT:    xorl %ecx, %ecx
-; FRAME-NEXT:    xorl %eax, %eax
-; FRAME-NEXT:    callq *%rcx
-; FRAME-NEXT:    addq $72, %rsp
-; FRAME-NEXT:    popq %rbx
-; FRAME-NEXT:    pop2 $0, %r12, %r13, $0
-; FRAME-NEXT:    pop2 $0, %r14, %r15, $0
-; FRAME-NEXT:    popq %rbp
-; FRAME-NEXT:    retq
-entry:
-  tail call void asm sideeffect "", "~{rbp},~{r15},~{r14},~{r13},~{r12},~{rbx},~{dirflag},~{fpsr},~{flags}"()
-  %a = alloca [8 x ptr], align 8
-  %b = call ptr (...) null()
-  ret i32 undef
 }

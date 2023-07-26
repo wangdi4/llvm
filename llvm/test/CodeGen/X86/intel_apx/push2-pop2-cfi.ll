@@ -51,11 +51,15 @@ define i32 @csr6_alloc16(ptr %argv) {
 ;
 ; LIN-LABEL: csr6_alloc16:
 ; LIN:       # %bb.0: # %entry
-; LIN-NEXT:    push2 $1, %rbp, %r15, $0
+; LIN-NEXT:    pushq %rax
+; LIN-NEXT:    .cfi_def_cfa_offset 16
+; LIN-NEXT:    push2 %rbp, %r15
 ; LIN-NEXT:    .cfi_def_cfa_offset 32
-; LIN-NEXT:    push2 $0, %r14, %r13, $0
+; LIN-NEXT:    push2 %r14, %r13
 ; LIN-NEXT:    .cfi_def_cfa_offset 48
-; LIN-NEXT:    push2 $0, %r12, %rbx, $1
+; LIN-NEXT:    push2 %r12, %rbx
+; LIN-NEXT:    .cfi_def_cfa_offset 64
+; LIN-NEXT:    subq $16, %rsp
 ; LIN-NEXT:    .cfi_def_cfa_offset 80
 ; LIN-NEXT:    .cfi_offset %rbx, -64
 ; LIN-NEXT:    .cfi_offset %r12, -56
@@ -68,11 +72,15 @@ define i32 @csr6_alloc16(ptr %argv) {
 ; LIN-NEXT:    xorl %ecx, %ecx
 ; LIN-NEXT:    xorl %eax, %eax
 ; LIN-NEXT:    callq *%rcx
-; LIN-NEXT:    pop2 $1, %rbx, %r12, $0
+; LIN-NEXT:    addq $16, %rsp
+; LIN-NEXT:    .cfi_def_cfa_offset 64
+; LIN-NEXT:    pop2 %rbx, %r12
 ; LIN-NEXT:    .cfi_def_cfa_offset 48
-; LIN-NEXT:    pop2 $0, %r13, %r14, $0
+; LIN-NEXT:    pop2 %r13, %r14
 ; LIN-NEXT:    .cfi_def_cfa_offset 32
-; LIN-NEXT:    pop2 $0, %r15, %rbp, $1
+; LIN-NEXT:    pop2 %r15, %rbp
+; LIN-NEXT:    .cfi_def_cfa_offset 16
+; LIN-NEXT:    popq %rcx
 ; LIN-NEXT:    .cfi_def_cfa_offset 8
 ; LIN-NEXT:    retq
 ;
@@ -110,24 +118,30 @@ define i32 @csr6_alloc16(ptr %argv) {
 ;
 ; WIN-LABEL: csr6_alloc16:
 ; WIN:       # %bb.0: # %entry
-; WIN-NEXT:    push2 $1, %r15, %r14, $0
+; WIN-NEXT:    pushq %rax
+; WIN-NEXT:    .seh_pushreg %rax
+; WIN-NEXT:    push2 %r15, %r14
 ; WIN-NEXT:    .seh_pushreg %r15
 ; WIN-NEXT:    .seh_pushreg %r14
-; WIN-NEXT:    push2 $0, %r13, %r12, $0
+; WIN-NEXT:    push2 %r13, %r12
 ; WIN-NEXT:    .seh_pushreg %r13
 ; WIN-NEXT:    .seh_pushreg %r12
-; WIN-NEXT:    push2 $0, %rbp, %rbx, $3
+; WIN-NEXT:    push2 %rbp, %rbx
 ; WIN-NEXT:    .seh_pushreg %rbp
 ; WIN-NEXT:    .seh_pushreg %rbx
+; WIN-NEXT:    subq $48, %rsp
+; WIN-NEXT:    .seh_stackalloc 48
 ; WIN-NEXT:    .seh_endprologue
 ; WIN-NEXT:    #APP
 ; WIN-NEXT:    #NO_APP
 ; WIN-NEXT:    xorl %eax, %eax
 ; WIN-NEXT:    callq *%rax
 ; WIN-NEXT:    nop
-; WIN-NEXT:    pop2 $3, %rbx, %rbp, $0
-; WIN-NEXT:    pop2 $0, %r12, %r13, $0
-; WIN-NEXT:    pop2 $0, %r14, %r15, $1
+; WIN-NEXT:    addq $48, %rsp
+; WIN-NEXT:    pop2 %rbx, %rbp
+; WIN-NEXT:    pop2 %r12, %r13
+; WIN-NEXT:    pop2 %r14, %r15
+; WIN-NEXT:    popq %rcx
 ; WIN-NEXT:    retq
 ; WIN-NEXT:    .seh_endproc
 entry:

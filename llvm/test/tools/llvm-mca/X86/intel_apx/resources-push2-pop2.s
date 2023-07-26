@@ -11,16 +11,14 @@
 # CHECK-NEXT: [6]: HasSideEffects (U)
 
 # CHECK:      [1]    [2]    [3]    [4]    [5]    [6]    Instructions:
-# CHECK-NEXT:  2      12    0.50           *            push2	$1, %rax, %rcx, $3
-# CHECK-NEXT:  2      12    0.50           *            push2	$1, %r16, %rcx, $3
-# CHECK-NEXT:  2      12    0.50           *            push2	$1, %rax, %r17, $3
-# CHECK-NEXT:  2      12    0.50           *            push2	$1, %r16, %r17, $3
-# CHECK-NEXT:  2      12    0.50           *            push2	$0, %rax, %rcx, $2
-# CHECK-NEXT:  1      5     0.33    *                   pop2	$3, %rax, %rcx, $1
-# CHECK-NEXT:  1      5     0.33    *                   pop2	$3, %r16, %rcx, $1
-# CHECK-NEXT:  1      5     0.33    *                   pop2	$3, %rax, %r17, $1
-# CHECK-NEXT:  1      5     0.33    *                   pop2	$3, %r16, %r17, $1
-# CHECK-NEXT:  1      5     0.33    *                   pop2	$2, %rax, %rcx, $0
+# CHECK-NEXT:  2      12    0.50           *            push2	%rax, %rcx 
+# CHECK-NEXT:  2      12    0.50           *            push2	%r16, %rcx 
+# CHECK-NEXT:  2      12    0.50           *            push2	%rax, %r17 
+# CHECK-NEXT:  2      12    0.50           *            push2	%r16, %r17 
+# CHECK-NEXT:  1      5     0.33    *                   pop2	%rax, %rcx
+# CHECK-NEXT:  1      5     0.33    *                   pop2	%r16, %rcx
+# CHECK-NEXT:  1      5     0.33    *                   pop2	%rax, %r17
+# CHECK-NEXT:  1      5     0.33    *                   pop2	%r16, %r17
 
 # CHECK:      Resources:
 # CHECK-NEXT: [0]   - SPRPort00
@@ -37,19 +35,18 @@
 # CHECK-NEXT: [11]  - SPRPort11
 # CHECK-NEXT: [12]  - SPRPortInvalid
 
+
 # CHECK:      Resource pressure per iteration:
-# CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]
-# CHECK-NEXT:  -      -     1.67   1.67   2.50    -      -     2.50   2.50   2.50    -     1.67    -
+# CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]   
+# CHECK-NEXT:  -      -     1.33   1.33   2.00    -      -     2.00   2.00   2.00    -     1.33    -     
 
 # CHECK:      Resource pressure by instruction:
 # CHECK-NEXT: [0]    [1]    [2]    [3]    [4]    [5]    [6]    [7]    [8]    [9]    [10]   [11]   [12]   Instructions:
-# CHECK-NEXT:  -      -      -      -     0.50    -      -     0.50   0.50   0.50    -      -      -     push2	$1, %rax, %rcx, $3
-# CHECK-NEXT:  -      -      -      -     0.50    -      -     0.50   0.50   0.50    -      -      -     push2	$1, %r16, %rcx, $3
-# CHECK-NEXT:  -      -      -      -     0.50    -      -     0.50   0.50   0.50    -      -      -     push2	$1, %rax, %r17, $3
-# CHECK-NEXT:  -      -      -      -     0.50    -      -     0.50   0.50   0.50    -      -      -     push2	$1, %r16, %r17, $3
-# CHECK-NEXT:  -      -      -      -     0.50    -      -     0.50   0.50   0.50    -      -      -     push2	$0, %rax, %rcx, $2
-# CHECK-NEXT:  -      -     0.33   0.33    -      -      -      -      -      -      -     0.33    -     pop2	$3, %rax, %rcx, $1
-# CHECK-NEXT:  -      -     0.33   0.33    -      -      -      -      -      -      -     0.33    -     pop2	$3, %r16, %rcx, $1
-# CHECK-NEXT:  -      -     0.33   0.33    -      -      -      -      -      -      -     0.33    -     pop2	$3, %rax, %r17, $1
-# CHECK-NEXT:  -      -     0.33   0.33    -      -      -      -      -      -      -     0.33    -     pop2	$3, %r16, %r17, $1
-# CHECK-NEXT:  -      -     0.33   0.33    -      -      -      -      -      -      -     0.33    -     pop2	$2, %rax, %rcx, $0
+# CHECK-NEXT:  -      -      -      -     0.50    -      -     0.50   0.50   0.50    -      -      -     push2	%rax, %rcx 
+# CHECK-NEXT:  -      -      -      -     0.50    -      -     0.50   0.50   0.50    -      -      -     push2	%r16, %rcx 
+# CHECK-NEXT:  -      -      -      -     0.50    -      -     0.50   0.50   0.50    -      -      -     push2	%rax, %r17 
+# CHECK-NEXT:  -      -      -      -     0.50    -      -     0.50   0.50   0.50    -      -      -     push2	%r16, %r17 
+# CHECK-NEXT:  -      -     0.33   0.33    -      -      -      -      -      -      -     0.33    -     pop2	%rax, %rcx
+# CHECK-NEXT:  -      -     0.33   0.33    -      -      -      -      -      -      -     0.33    -     pop2	%r16, %rcx
+# CHECK-NEXT:  -      -     0.33   0.33    -      -      -      -      -      -      -     0.33    -     pop2	%rax, %r17
+# CHECK-NEXT:  -      -     0.33   0.33    -      -      -      -      -      -      -     0.33    -     pop2	%r16, %r17
