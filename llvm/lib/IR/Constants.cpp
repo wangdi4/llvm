@@ -2403,8 +2403,10 @@ Constant *ConstantExpr::getGetElementPtr(Type *Ty, Constant *C,
           ConstantFoldGetElementPtr(Ty, C, InBounds, InRangeIndex, Idxs))
     return FC;          // Fold a few common cases.
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   assert(GetElementPtrInst::getIndexedType(Ty, Idxs) &&
          "GEP indices invalid!");;
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   // Get the result type of the getelementptr!
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
