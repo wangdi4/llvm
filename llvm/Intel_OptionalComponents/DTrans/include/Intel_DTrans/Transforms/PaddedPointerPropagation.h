@@ -24,16 +24,6 @@
 
 namespace llvm {
 
-namespace dtrans {
-
-/// Pass for new pass manager for padding property propagation.
-class PaddedPtrPropPass : public PassInfoMixin<PaddedPtrPropPass> {
-public:
-  PreservedAnalyses run(Module &M, ModuleAnalysisManager &);
-};
-
-} // namespace dtrans
-
 namespace dtransOP {
 
 /// Pass for new pass manager for padding property propagation.

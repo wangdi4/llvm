@@ -60,7 +60,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT: Running pass: dtransOP::AOSToSOAOPPass
 ; CHECK-NEXT: Running pass: dtransOP::ReuseFieldOPPass
 ; CHECK-NEXT: Running pass: dtransOP::DeleteFieldOPPass
-; CHECK-NEXT: Running pass: dtrans::EliminateROFieldAccessPass
+; CHECK-NEXT: Running pass: dtransOP::EliminateROFieldAccessPass
 ; CHECK-NEXT: Running pass: dtransOP::DynClonePass on
 ; CHECK-NEXT: Running pass: dtrans::AnnotatorCleanerPass
 

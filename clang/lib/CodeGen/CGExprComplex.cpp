@@ -128,7 +128,7 @@ public:
 
   ComplexPairTy EmitComplexDiv(llvm::Value *LHSr, llvm::Value *RHSr,
                                llvm::Value *RHSi, llvm::Value *LHSi) {
-    llvm::Value *DSTr, *DSTi;
+    llvm::Value *DSTr = nullptr, *DSTi = nullptr;
     if (RHSi) {
       if (!LHSi)
         LHSi = llvm::Constant::getNullValue(RHSi->getType());

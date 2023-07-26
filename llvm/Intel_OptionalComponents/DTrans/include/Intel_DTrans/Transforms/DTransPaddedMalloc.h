@@ -19,7 +19,6 @@
 #ifndef INTEL_DTRANS_TRANSFORMS_PADDEDMALLOC_H
 #define INTEL_DTRANS_TRANSFORMS_PADDEDMALLOC_H
 
-#include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransInfoAdapter.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Instructions.h"
@@ -81,19 +80,6 @@ private:
 private:
   SmallVector<Function *, 8> BadCastValidatedFuncs;
   InfoClass &DTransInfo;
-};
-
-class PaddedMallocPass : public PassInfoMixin<dtrans::PaddedMallocPass> {
-public:
-  PaddedMallocPass() {};
-
-  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
-
-  // Actual implementation of the optimization
-  bool runImpl(
-      Module &M, DTransAnalysisInfo &DTInfo, LoopInfoFuncType &GetLI,
-      std::function<const TargetLibraryInfo &(Function &)> GetTLI,
-      WholeProgramInfo &WPInfo);
 };
 
 } // namespace dtrans

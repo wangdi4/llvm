@@ -88,6 +88,10 @@ void GlobalCompilerConfig::LoadConfig() {
     m_LLVMOptions.emplace_back("-sycl-enable-o0-vectorization");
     // Enable O0 vectorization for C++ pipeline
     m_LLVMOptions.emplace_back("-enable-o0-vectorization");
+    // Vectorization at O0 requires "#pragma openmp simd" processing,
+    // which is activated by -fiopenmp-simd.
+    // -paropt=11 equals to -fiopenmp-simd.
+    m_LLVMOptions.emplace_back("-paropt=11");
   }
 }
 

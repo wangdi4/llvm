@@ -25,18 +25,6 @@
 namespace llvm {
 
 class WholeProgramInfo;
-class DTransAnalysisInfo;
-
-namespace dtrans {
-
-class CommuteCondPass : public PassInfoMixin<dtrans::CommuteCondPass> {
-public:
-  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
-
-  bool runImpl(Module &M, DTransAnalysisInfo &Info, WholeProgramInfo &WPInfo);
-};
-
-} // end namespace dtrans
 
 namespace dtransOP {
 class DTransSafetyInfo;

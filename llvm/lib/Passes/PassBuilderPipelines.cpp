@@ -2136,7 +2136,7 @@ void PassBuilder::addVPOPreparePasses(FunctionPassManager &FPM) {
 void PassBuilder::addVPOPasses(ModulePassManager &MPM, FunctionPassManager &FPM,
                                OptimizationLevel Level, bool RunVec,
                                bool Simplify) {
-  if (!EnableO0Vectorization && !RunVPOParopt)
+  if (!RunVPOParopt)
     return;
 
   unsigned OptLevel = Level.getSpeedupLevel();
