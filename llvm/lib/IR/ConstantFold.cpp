@@ -2024,10 +2024,15 @@ Constant *llvm::ConstantFoldGetElementPtr(Type *PointeeTy, Constant *C,
                                           ArrayRef<Value *> Idxs) {
   if (Idxs.empty()) return C;
 
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   Type *GEPTy = GetElementPtrInst::getGEPReturnType(
 #ifdef INTEL_SYCL_OPAQUEPOINTER_READY
       C, ArrayRef((Value *const *)Idxs.data(), Idxs.size()));
 #else // INTEL_SYCL_OPAQUEPOINTER_READY
+<<<<<<< HEAD
+=======
+  Type *GEPTy = GetElementPtrInst::getGEPReturnType(
+>>>>>>> 74f35ce2f2a55ebdfde79ff4b895d2e131a767c5
       PointeeTy, C, ArrayRef((Value *const *)Idxs.data(), Idxs.size()));
 #endif // INTEL_SYCL_OPAQUEPOINTER_READY
 

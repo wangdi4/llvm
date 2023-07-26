@@ -1342,12 +1342,20 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
         getNVIDIAOffloadTargetTriple(*this, C.getInputArgs(), HostTriple);
     if (!CudaTriple)
       return;
-    // Use the CUDA and host triples as the key into the
-    // getOffloadingDeviceToolChain, because the device toolchain we
-    // create depends on both.
-    auto CudaTC = &getOffloadingDeviceToolChain(C.getInputArgs(), *CudaTriple,
-                                                *HostTC, OFK);
-    C.addOffloadDeviceToolChain(CudaTC, OFK);
+    // Use the CUDA and host triples as the key into the ToolChains map,
+    // because the device toolchain we create depends on both.
+    auto &CudaTC = ToolChains[CudaTriple->str() + "/" + HostTriple.str()];
+    if (!CudaTC) {
+      CudaTC = std::make_unique<toolchains::CudaToolChain>(
+          *this, *CudaTriple, *HostTC, C.getInputArgs(), OFK);
+
+    // Emit a warning if the detected CUDA version is too new.
+    CudaInstallationDetector &CudaInstallation =
+          static_cast<toolchains::CudaToolChain &>(*CudaTC).CudaInstallation;
+      if (CudaInstallation.isValid())
+        CudaInstallation.WarnIfUnsupportedVersion();
+    }
+    C.addOffloadDeviceToolChain(CudaTC.get(), OFK);
   } else if (IsHIP) {
     if (auto *OMPTargetArg =
             C.getInputArgs().getLastArg(options::OPT_fopenmp_targets_EQ)) {

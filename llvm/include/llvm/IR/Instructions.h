@@ -1110,6 +1110,29 @@ public:
     // Scalar GEP
     return Ty;
   }
+#else // INTEL_SYCL_OPAQUEPOINTER_READY
+  static Type *getGEPReturnType(Type *ElTy, Value *Ptr,
+                                ArrayRef<Value *> IdxList) {
+    PointerType *OrigPtrTy = cast<PointerType>(Ptr->getType()->getScalarType());
+    unsigned AddrSpace = OrigPtrTy->getAddressSpace();
+    Type *ResultElemTy = checkGEPType(getIndexedType(ElTy, IdxList));
+    Type *PtrTy = OrigPtrTy->isOpaque()
+      ? PointerType::get(OrigPtrTy->getContext(), AddrSpace)
+      : PointerType::get(ResultElemTy, AddrSpace);
+    // Vector GEP
+    if (auto *PtrVTy = dyn_cast<VectorType>(Ptr->getType())) {
+      ElementCount EltCount = PtrVTy->getElementCount();
+      return VectorType::get(PtrTy, EltCount);
+    }
+    for (Value *Index : IdxList)
+      if (auto *IndexVTy = dyn_cast<VectorType>(Index->getType())) {
+        ElementCount EltCount = IndexVTy->getElementCount();
+        return VectorType::get(PtrTy, EltCount);
+      }
+    // Scalar GEP
+    return PtrTy;
+  }
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
 
   unsigned getNumIndices() const {  // Note: always non-negative
     return getNumOperands() - 1;
