@@ -6623,10 +6623,17 @@ def fsycl_enable_function_pointers : Flag<["-"],
   HelpText<"Experimental Feature: Enables function pointers and support for "
   "virtual functions for DPC++ kernels and device functions.">;
 def fsycl_dead_args_optimization : Flag<["-"], "fsycl-dead-args-optimization">,
+<<<<<<< HEAD
   Group<sycl_Group>, Flags<[NoArgumentUnused, CoreOption, DpcppOption]>, HelpText<"Enables "
   "elimination of DPC++ dead kernel arguments">;
 def fno_sycl_dead_args_optimization : Flag<["-"], "fno-sycl-dead-args-optimization">,
   Group<sycl_Group>, Flags<[NoArgumentUnused, CoreOption, DpcppOption]>, HelpText<"Disables "
+=======
+  Group<sycl_Group>, Flags<[CoreOption]>, HelpText<"Enables "
+  "elimination of DPC++ dead kernel arguments">;
+def fno_sycl_dead_args_optimization : Flag<["-"], "fno-sycl-dead-args-optimization">,
+  Group<sycl_Group>, Flags<[CoreOption]>, HelpText<"Disables "
+>>>>>>> bf128c873e74b4c991712249a3f2145264725888
   "elimination of DPC++ dead kernel arguments">;
 def fsycl_device_lib_EQ : CommaJoined<["-"], "fsycl-device-lib=">, Group<sycl_Group>, Flags<[NoXarchOption, CoreOption, DpcppOption]>,
   Values<"libc, libm-fp32, libm-fp64, libimf-fp32, libimf-fp64, libimf-bf16, all">, HelpText<"Control inclusion of "
@@ -6641,10 +6648,10 @@ def fsycl_fp32_prec_sqrt : Flag<["-"], "fsycl-fp32-prec-sqrt">, Group<sycl_Group
   MarshallingInfoFlag<CodeGenOpts<"SYCLFp32PrecSqrt">>;
 #endif // INTEL_CUSTOMIZATION
 def fsycl_device_lib_jit_link : Flag<["-"], "fsycl-device-lib-jit-link">,
-  Group<sycl_Group>, Flags<[NoArgumentUnused, CoreOption]>, HelpText<"Enables "
+  Group<sycl_Group>, Flags<[CoreOption]>, HelpText<"Enables "
   "sycl device library jit link (experimental)">;
 def fno_sycl_device_lib_jit_link : Flag<["-"], "fno-sycl-device-lib-jit-link">,
-  Group<sycl_Group>, Flags<[NoArgumentUnused, CoreOption]>, HelpText<"Disables "
+  Group<sycl_Group>, Flags<[CoreOption]>, HelpText<"Disables "
   "sycl device library jit link (experimental)">;
 
 //===----------------------------------------------------------------------===//
