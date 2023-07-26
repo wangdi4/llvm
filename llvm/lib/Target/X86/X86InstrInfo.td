@@ -1853,9 +1853,21 @@ def Xi64 : X86TypeInfo<i64, "q", GR64, loadi64, i64mem, Imm32S, i64i32imm,
 /// 4. Infers whether the low bit of the opcode should be 0 (for i8 operations)
 ///    or 1 (for i16,i32,i64 operations).
 class ITy<bits<8> opcode, Format f, X86TypeInfo typeinfo, dag outs, dag ins,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+          string mnemonic, string args, list<dag> pattern, bit InferBit0=1>
+#else // INTEL_FEATURE_ISA_APX_F
           string mnemonic, string args, list<dag> pattern>
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
   : I<{opcode{7}, opcode{6}, opcode{5}, opcode{4},
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+       opcode{3}, opcode{2}, opcode{1}, !if(!eq(InferBit0,1), typeinfo.HasOddOpcode, opcode{0}) },
+#else // INTEL_FEATURE_ISA_APX_F
        opcode{3}, opcode{2}, opcode{1}, typeinfo.HasOddOpcode },
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
       f, outs, ins,
       !strconcat(mnemonic, "{", typeinfo.InstrSuffix, "}\t", args), pattern> {
 
@@ -1868,13 +1880,14 @@ class ITy<bits<8> opcode, Format f, X86TypeInfo typeinfo, dag outs, dag ins,
 #if INTEL_FEATURE_ISA_APX_F
 // EVEX version for ITy, OpSize prefix is encoded in EVEX.pp
 class ITy_EVEX<bits<8> opcode, Format f, X86TypeInfo typeinfo, dag outs, dag ins,
-          string mnemonic, string args, list<dag> pattern>
-  : ITy<opcode, f, typeinfo, outs, ins, mnemonic, args, pattern>, T_MAP4, EVEX {
+          string mnemonic, string args, list<dag> pattern, bit InferBit0=1>
+  : ITy<opcode, f, typeinfo, outs, ins, mnemonic, args, pattern, InferBit0>, EVEX {
   // Infer instruction prefixes from type info.
   let OpPrefix = !if (!eq (typeinfo.OpSize, OpSize16), PD, PS);
   let OpSize = OpSizeFixed;
   let CD8_Scale = {0, 0, 0, 0, 0, 0, 0};
   let hasSideEffects = 0;
+  let OpMap = T_MAP4;
 }
 
 #endif // INTEL_FEATURE_ISA_APX_F
