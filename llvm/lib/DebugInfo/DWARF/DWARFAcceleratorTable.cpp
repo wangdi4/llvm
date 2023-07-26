@@ -1,5 +1,23 @@
 //===- DWARFAcceleratorTable.cpp ------------------------------------------===//
 //
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
+//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -560,18 +578,18 @@ Error DWARFDebugNames::NameIndex::extract() {
 
   const unsigned SectionOffsetSize = dwarf::getDwarfOffsetByteSize(Hdr.Format);
   CUsBase = Offset;
-  Offset += Hdr.CompUnitCount * SectionOffsetSize;
-  Offset += Hdr.LocalTypeUnitCount * SectionOffsetSize;
-  Offset += Hdr.ForeignTypeUnitCount * 8;
+  Offset += (uint64_t) Hdr.CompUnitCount * SectionOffsetSize;          // INTEL
+  Offset += (uint64_t) Hdr.LocalTypeUnitCount * SectionOffsetSize;     // INTEL
+  Offset += (uint64_t) Hdr.ForeignTypeUnitCount * 8;                   // INTEL
   BucketsBase = Offset;
   Offset += Hdr.BucketCount * 4;
   HashesBase = Offset;
   if (Hdr.BucketCount > 0)
     Offset += Hdr.NameCount * 4;
   StringOffsetsBase = Offset;
-  Offset += Hdr.NameCount * SectionOffsetSize;
+  Offset += (uint64_t) Hdr.NameCount * SectionOffsetSize;              // INTEL
   EntryOffsetsBase = Offset;
-  Offset += Hdr.NameCount * SectionOffsetSize;
+  Offset += (uint64_t) Hdr.NameCount * SectionOffsetSize;              // INTEL
 
   if (!AS.isValidOffsetForDataOfSize(Offset, Hdr.AbbrevTableSize))
     return createStringError(errc::illegal_byte_sequence,

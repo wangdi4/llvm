@@ -96,7 +96,8 @@ DwarfCompileUnit::DwarfCompileUnit(unsigned UID, const DICompileUnit *Node,
 /// DW_FORM_addr or DW_FORM_GNU_addr_index.
 void DwarfCompileUnit::addLabelAddress(DIE &Die, dwarf::Attribute Attribute,
                                        const MCSymbol *Label) {
-  if ((Skeleton || !DD->useSplitDwarf()) && Label)
+  assert(Label && "INTEL: Expecting a valid label.");                  // INTEL
+  if (Skeleton || !DD->useSplitDwarf())                                // INTEL
     DD->addArangeLabel(SymbolCU(this, Label));
 
   // Don't use the address pool in non-fission or in the skeleton unit itself.
