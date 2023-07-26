@@ -3000,11 +3000,11 @@ PassBuilder::buildPerModuleDefaultPipeline(OptimizationLevel Level,
              "Both INTEL_MLPGOO_CG and INTEL_MLPGO_CG_USE defined!");
 
       if (MLPGO_CG_GEN) {
-        PGOOpt = PGOOptions("default_lto.profraw", "", "", nullptr,
+        PGOOpt = PGOOptions("default_lto.profraw", "", "", "", nullptr,
                             PGOOptions::IRInstr, PGOOptions::NoCSAction);
         PGOOpt->IsCGPGO = true;
       } else if (MLPGO_CG_USE) {
-        PGOOpt = PGOOptions(MLPGO_CG_USE.value(), "", "", nullptr,
+        PGOOpt = PGOOptions(MLPGO_CG_USE.value(), "", "", "", nullptr,
                             PGOOptions::IRUse, PGOOptions::NoCSAction);
         PGOOpt->IsCGPGO = true;
       }
@@ -3853,11 +3853,11 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
       MPM.addPass(MLPGOInference());
 
     if (MLPGO_CG_GEN) {
-      PGOOpt = PGOOptions("default_lto.profraw", "", "", nullptr,
+      PGOOpt = PGOOptions("default_lto.profraw", "", "", "", nullptr,
                           PGOOptions::IRInstr, PGOOptions::NoCSAction);
       PGOOpt->IsCGPGO = true;
     } else if (MLPGO_CG_USE) {
-      PGOOpt = PGOOptions(MLPGO_CG_USE.value(), "", "", nullptr,
+      PGOOpt = PGOOptions(MLPGO_CG_USE.value(), "", "", "", nullptr,
                           PGOOptions::IRUse, PGOOptions::NoCSAction);
       PGOOpt->IsCGPGO = true;
     }
