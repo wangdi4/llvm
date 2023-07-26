@@ -2311,8 +2311,7 @@ void VPOCodeGenHIR::propagateDebugLocation(const VPInstruction *VPInst) {
     SetDebugLoc(ScalRef, DbgLoc);
 }
 
-RegDDRef *VPOCodeGenHIR::concatenateTwoVectors(RegDDRef *V1, RegDDRef *V2,
-                                               RegDDRef *Mask) {
+RegDDRef *VPOCodeGenHIR::concatenateTwoVectors(RegDDRef *V1, RegDDRef *V2) {
   auto *VecTy1 = dyn_cast<FixedVectorType>(V1->getDestType());
   auto *VecTy2 = dyn_cast<FixedVectorType>(V2->getDestType());
   assert(VecTy1 && VecTy2 &&
@@ -2333,7 +2332,7 @@ RegDDRef *VPOCodeGenHIR::concatenateTwoVectors(RegDDRef *V1, RegDDRef *V2,
 
     HLInst *ExtShuffle = HLNodeUtilities.createShuffleVectorInst(
         V2->clone(), UndefDDRef, ExtMaskDDRef, "ext.shuf");
-    addInst(ExtShuffle, Mask);
+    addInstUnmasked(ExtShuffle);
     V2 = ExtShuffle->getLvalDDRef();
   }
 
@@ -2343,12 +2342,11 @@ RegDDRef *VPOCodeGenHIR::concatenateTwoVectors(RegDDRef *V1, RegDDRef *V2,
 
   HLInst *CombShuffle = HLNodeUtilities.createShuffleVectorInst(
       V1->clone(), V2->clone(), CombMaskDDRef, "comb.shuf");
-  addInst(CombShuffle, Mask);
+  addInstUnmasked(CombShuffle);
   return CombShuffle->getLvalDDRef();
 }
 
-RegDDRef *VPOCodeGenHIR::concatenateVectors(ArrayRef<RegDDRef *> VecsArray,
-                                            RegDDRef *Mask) {
+RegDDRef *VPOCodeGenHIR::concatenateVectors(ArrayRef<RegDDRef *> VecsArray) {
   int64_t NumVecs = VecsArray.size();
   assert(NumVecs > 1 && "Should be at least two vectors");
 
@@ -2361,7 +2359,7 @@ RegDDRef *VPOCodeGenHIR::concatenateVectors(ArrayRef<RegDDRef *> VecsArray,
       assert((V0->getDestType() == V1->getDestType() || Index == NumVecs - 2) &&
              "Only the last vector may have a different type");
 
-      TmpList.push_back(concatenateTwoVectors(V0, V1, Mask));
+      TmpList.push_back(concatenateTwoVectors(V0, V1));
     }
 
     // Push the last vector if the total number of vectors is odd.
@@ -2924,7 +2922,7 @@ void VPOCodeGenHIR::widenLibraryCall(const VPCallInstruction *VPCall,
   if (PumpFactor > 1 && ReturnTy->isStructTy())
     CombinedResult = getCombinedCallResultsForStructTy(CallResults);
   else
-    CombinedResult = getCombinedCallResults(CallResults, Mask);
+    CombinedResult = getCombinedCallResults(CallResults);
 
   assert(CombinedResult && "Unexpected null combined result.");
   assert(CombinedResult->isAttached() &&
@@ -3075,8 +3073,7 @@ void VPOCodeGenHIR::widenCallArgs(const VPCallInstruction *VPCall,
   }
 }
 
-HLInst *VPOCodeGenHIR::getCombinedCallResults(ArrayRef<HLInst *> CallResults,
-                                              RegDDRef *Mask) {
+HLInst *VPOCodeGenHIR::getCombinedCallResults(ArrayRef<HLInst *> CallResults) {
   if (CallResults.size() == 1)
     return CallResults[0];
 
@@ -3087,7 +3084,7 @@ HLInst *VPOCodeGenHIR::getCombinedCallResults(ArrayRef<HLInst *> CallResults,
     SmallVector<RegDDRef *, 4> Lvals;
     for (auto *Call : CallResults)
       Lvals.push_back(Call->getLvalDDRef());
-    RegDDRef *Combined = concatenateVectors(Lvals, Mask);
+    RegDDRef *Combined = concatenateVectors(Lvals);
     assert(Combined->isLval() &&
            "Expected l-val as return value from concatenateVectors.");
     return cast<HLInst>(Combined->getHLDDNode());
@@ -3153,7 +3150,7 @@ HLInst *VPOCodeGenHIR::getCombinedCallResultsForStructTy(
       Parts.push_back(ExtractVal->getLvalDDRef());
     }
 
-    RegDDRef *CombinedVector = concatenateVectors(Parts, nullptr /*Mask*/);
+    RegDDRef *CombinedVector = concatenateVectors(Parts);
     HLInst *InsertVal = HLNodeUtilities.createInsertValueInst(
         Combined->clone(), CombinedVector->clone(), I, "insert.result");
     addInstUnmasked(InsertVal);
@@ -3181,7 +3178,7 @@ HLInst *VPOCodeGenHIR::getCombinedCallResultForStructTy(HLInst *Call) {
     addInstUnmasked(ExtractVal);
     Parts.push_back(ExtractVal);
   }
-  return getCombinedCallResults(Parts, nullptr /*Mask*/);
+  return getCombinedCallResults(Parts);
 }
 
 void VPOCodeGenHIR::generateWideCalls(const VPCallInstruction *VPCall,
