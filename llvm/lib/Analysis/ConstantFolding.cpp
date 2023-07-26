@@ -902,8 +902,16 @@ static Constant *StripPtrCastKeepAS(Constant *Ptr) {
   auto *NewPtrTy = cast<PointerType>(Ptr->getType());
 
   // Preserve the address space number of the pointer.
+#ifdef INTEL_SYCL_OPAQUEPOINTER_READY
   if (NewPtrTy->getAddressSpace() != OldPtrTy->getAddressSpace())
     Ptr = ConstantExpr::getPointerCast(Ptr, OldPtrTy);
+#else  // INTEL_SYCL_OPAQUEPOINTER_READY
+  if (NewPtrTy->getAddressSpace() != OldPtrTy->getAddressSpace()) {
+    Ptr = ConstantExpr::getPointerCast(
+        Ptr, PointerType::getWithSamePointeeType(NewPtrTy,
+                                                 OldPtrTy->getAddressSpace()));
+  }
+#endif // INTEL_SYCL_OPAQUEPOINTER_READY
   return Ptr;
 }
 
