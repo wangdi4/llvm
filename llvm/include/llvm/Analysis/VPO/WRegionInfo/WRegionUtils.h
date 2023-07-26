@@ -360,6 +360,19 @@ public:
   /// directly inside its region; \b false otherwise.
   static bool hasCancelConstruct(WRegionNode *W);
 
+#if 0
+  /// Returns \b true if \p W contains a for/do, sections, or workshare
+  /// construct. If Recursive==false, search only the immediate children;
+  /// otherwise, search children recursively, including composite parallel
+  /// worksharing WRNs.
+  static bool hasWorksharingLoop(WRegionNode *W, bool Recursive = false);
+#endif
+
+  /// Returns \b true if \p W contains a parallel or generic loop construct.
+  /// If Recursive==false, search only the immediate children; otherwise,
+  /// search children recursively.
+  static bool hasParallelOrGenericLoop(WRegionNode *W, bool Recursive = false);
+
   /// Return \b true if the WRGraph contains OMP target construct(s).
   /// This is used by offloading codegen to exclude routines with
   /// target regions from the target code after outlining is done.

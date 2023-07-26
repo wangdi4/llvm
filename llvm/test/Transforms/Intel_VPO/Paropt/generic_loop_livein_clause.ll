@@ -1,7 +1,9 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt-map-loop-bind-teams-to-distribute=false -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck -check-prefix=NON-CONFM %s
-; RUN: opt -opaque-pointers=1 -vpo-paropt-map-loop-bind-teams-to-distribute=false -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck -check-prefix=NON-CONFM %s
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-paropt-map-loop-bind-teams-to-distribute=true -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck -check-prefix=CONFM %s
-; RUN: opt -opaque-pointers=1 -vpo-paropt-map-loop-bind-teams-to-distribute=true -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck -check-prefix=CONFM %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck -check-prefix=SCHEME1 %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck -check-prefix=SCHEME1 %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=0 -bugpoint-enable-legacy-pm -vpo-paropt-map-loop-bind-teams-to-distribute=false -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck -check-prefixes=SCHEME0,NON-CONFM %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=0 -vpo-paropt-map-loop-bind-teams-to-distribute=false -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck -check-prefixes=SCHEME0,NON-CONFM %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=0 -bugpoint-enable-legacy-pm -vpo-paropt-map-loop-bind-teams-to-distribute=true -vpo-cfg-restructuring -vpo-paropt-prepare -S <%s | FileCheck -check-prefixes=SCHEME0,CONFM %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=0 -vpo-paropt-map-loop-bind-teams-to-distribute=true -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S <%s | FileCheck -check-prefixes=SCHEME0,CONFM %s
 
 ; Test src:
 ;
@@ -18,7 +20,7 @@
 ;     a[i] = n;
 ;
 ; // case 3
-; #pragma omp loop bind(teams) // -> DISTRIBUTE PARALLEL FOR (non-conforming) or DISTRIBUTE (conforming)
+; #pragma omp loop bind(teams) // -> DISTRIBUTE PARALLEL FOR (scheme1, scheme0+nonconforming) or DISTRIBUTE (scheme0+conforming)
 ;   for (int i = 0; i < 100; i++)
 ;     a[i] = n;
 ; }
@@ -26,24 +28,25 @@
 ; case 1: GenericLoop --> SIMD; check that
 ;    a. SHARED --> LIVEIN
 ;    b. FIRSTPRIVATE --> LIVEIN
-;    c. variables are renamed with OPERAND.ADDR
+;    c. variables are renamed with OPERAND.ADDR (scheme0)
 ;
 ; case 2: GenericLoop --> FOR; check that
 ;    a. SHARED --> LIVEIN
 ;    b. FIRSTPRIVATE --> unchanged
-;    c. variables are renamed with OPERAND.ADDR
+;    c. variables are renamed with OPERAND.ADDR (scheme0)
 ;
-; case 3: GenericLoop --> DISTRIBUTE PARALLEL FOR (non-conforming) or DISTRIBUTE (conforming); check that
-;    a. SHARED --> unchanged (non-conforming) or clause removed (conforming)
+; case 3: GenericLoop --> DISTRIBUTE PARALLEL FOR (scheme1 or scheme0+nonconforming) or DISTRIBUTE (scheme0+conforming); check that
+;    a. SHARED --> unchanged (scheme1 or scheme0+nonconforming) or clause removed (scheme0+conforming)
 ;    b. FIRSTPRIVATE --> unchanged
-;    c. variables are renamed with OPERAND.ADDR
+;    c. variables are renamed with OPERAND.ADDR (scheme0)
 
-; NON-CONFM: "DIR.OMP.SIMD"(), "QUAL.OMP.LIVEIN"(ptr %a), "QUAL.OMP.LIVEIN"(ptr %m), "QUAL.OMP.LIVEIN"(ptr %n), {{.*}}, "QUAL.OMP.LIVEIN"(ptr %.omp.lb), {{.*}}, {{.*}}, {{.*}}, "QUAL.OMP.OPERAND.ADDR"(ptr %.omp.lb, ptr %.omp.lb.addr), "QUAL.OMP.OPERAND.ADDR"(ptr %a, ptr %a.addr), "QUAL.OMP.OPERAND.ADDR"(ptr %m, ptr %m.addr), "QUAL.OMP.OPERAND.ADDR"(ptr %n, ptr %n.addr)
-; NON-CONFM: "DIR.OMP.LOOP"(), "QUAL.OMP.LIVEIN"(ptr %a), "QUAL.OMP.LIVEIN"(ptr %n), {{.*}}, "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.lb5, i32 0, i32 1), {{.*}}, {{.*}}, {{.*}}, "QUAL.OMP.OPERAND.ADDR"(ptr %.omp.lb5, ptr %.omp.lb5.addr), "QUAL.OMP.OPERAND.ADDR"(ptr %a, ptr %a.addr{{[0-9]*}}), "QUAL.OMP.OPERAND.ADDR"(ptr %n, ptr %n.addr{{[0-9]*}})
+; SCHEME1: "DIR.OMP.SIMD"(), "QUAL.OMP.LIVEIN"(ptr %a), "QUAL.OMP.LIVEIN"(ptr %m), "QUAL.OMP.LIVEIN"(ptr %n), {{.*}}, "QUAL.OMP.LIVEIN"(ptr %.omp.lb)
+; SCHEME1: "DIR.OMP.LOOP"(), "QUAL.OMP.LIVEIN"(ptr %a), "QUAL.OMP.LIVEIN"(ptr %n), {{.*}}, "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.lb5, i32 0, i32 1)
+; SCHEME1: "DIR.OMP.DISTRIBUTE.PARLOOP"(), "QUAL.OMP.SHARED:TYPED"(ptr %a, i32 0, i64 100), "QUAL.OMP.SHARED:TYPED"(ptr %n, i32 0, i32 1), {{.*}}, "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.lb23, i32 0, i32 1)
+
+; SCHEME0: "DIR.OMP.SIMD"(), "QUAL.OMP.LIVEIN"(ptr %a), "QUAL.OMP.LIVEIN"(ptr %m), "QUAL.OMP.LIVEIN"(ptr %n), {{.*}}, "QUAL.OMP.LIVEIN"(ptr %.omp.lb), {{.*}}, {{.*}}, {{.*}}, "QUAL.OMP.OPERAND.ADDR"(ptr %.omp.lb, ptr %.omp.lb.addr), "QUAL.OMP.OPERAND.ADDR"(ptr %a, ptr %a.addr), "QUAL.OMP.OPERAND.ADDR"(ptr %m, ptr %m.addr), "QUAL.OMP.OPERAND.ADDR"(ptr %n, ptr %n.addr)
+; SCHEME0: "DIR.OMP.LOOP"(), "QUAL.OMP.LIVEIN"(ptr %a), "QUAL.OMP.LIVEIN"(ptr %n), {{.*}}, "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.lb5, i32 0, i32 1), {{.*}}, {{.*}}, {{.*}}, "QUAL.OMP.OPERAND.ADDR"(ptr %.omp.lb5, ptr %.omp.lb5.addr), "QUAL.OMP.OPERAND.ADDR"(ptr %a, ptr %a.addr{{[0-9]*}}), "QUAL.OMP.OPERAND.ADDR"(ptr %n, ptr %n.addr{{[0-9]*}})
 ; NON-CONFM: "DIR.OMP.DISTRIBUTE.PARLOOP"(), "QUAL.OMP.SHARED:TYPED"(ptr %a, i32 0, i64 100), "QUAL.OMP.SHARED:TYPED"(ptr %n, i32 0, i32 1), {{.*}}, "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.lb23, i32 0, i32 1), {{.*}}, {{.*}}, {{.*}}, "QUAL.OMP.OPERAND.ADDR"(ptr %.omp.lb23, ptr %.omp.lb23.addr), "QUAL.OMP.OPERAND.ADDR"(ptr %a, ptr %a.addr{{[0-9]*}}), "QUAL.OMP.OPERAND.ADDR"(ptr %n, ptr %n.addr{{[0-9]*}})
-
-; CONFM: "DIR.OMP.SIMD"(), "QUAL.OMP.LIVEIN"(ptr %a), "QUAL.OMP.LIVEIN"(ptr %m), "QUAL.OMP.LIVEIN"(ptr %n), {{.*}}, "QUAL.OMP.LIVEIN"(ptr %.omp.lb), {{.*}}, {{.*}}, {{.*}}, "QUAL.OMP.OPERAND.ADDR"(ptr %.omp.lb, ptr %.omp.lb.addr), "QUAL.OMP.OPERAND.ADDR"(ptr %a, ptr %a.addr), "QUAL.OMP.OPERAND.ADDR"(ptr %m, ptr %m.addr), "QUAL.OMP.OPERAND.ADDR"(ptr %n, ptr %n.addr)
-; CONFM: "DIR.OMP.LOOP"(), "QUAL.OMP.LIVEIN"(ptr %a), "QUAL.OMP.LIVEIN"(ptr %n), {{.*}}, "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.lb5, i32 0, i32 1), {{.*}}, {{.*}}, {{.*}}, "QUAL.OMP.OPERAND.ADDR"(ptr %.omp.lb5, ptr %.omp.lb5.addr), "QUAL.OMP.OPERAND.ADDR"(ptr %a, ptr %a.addr{{[0-9]*}}), "QUAL.OMP.OPERAND.ADDR"(ptr %n, ptr %n.addr{{[0-9]*}})
 ; CONFM: "DIR.OMP.DISTRIBUTE"(), {{.*}}, "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.lb23, i32 0, i32 1), {{.*}}, {{.*}}, {{.*}}, "QUAL.OMP.OPERAND.ADDR"(ptr %.omp.lb23, ptr %.omp.lb23.addr), "QUAL.OMP.OPERAND.ADDR"(ptr %a, ptr %a.addr{{[0-9]*}}), "QUAL.OMP.OPERAND.ADDR"(ptr %n, ptr %n.addr{{[0-9]*}})
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

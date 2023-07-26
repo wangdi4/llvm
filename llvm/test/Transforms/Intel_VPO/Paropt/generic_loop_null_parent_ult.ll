@@ -1,13 +1,15 @@
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ; Test src:
 ;
 ; #include <stdio.h>
 ; void foo() {
 ;   int l = 1;
-; #pragma omp loop
+; #pragma omp loop bind(thread)
 ;   for (int i = l; i < 10; i++)
 ;     ;
 ; }
@@ -50,6 +52,7 @@ omp.precond.then:                                 ; preds = %entry
   %3 = load i32, ptr %.capture_expr.1, align 4
   store i32 %3, ptr %.omp.ub, align 4
   %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(),
+    "QUAL.OMP.BIND.THREAD"(),
     "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %.omp.iv, i32 0),
     "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.lb, i32 0, i32 1),
     "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %.omp.ub, i32 0),

@@ -1,20 +1,22 @@
-; RUN: opt -opaque-pointers=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-loop-collapse -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse)' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s
 
 ; Test src:
 ;
 ; int aaa[1000];
 ; void foo() {
 ;   for (int i = 0; i < 1000; ++i) {
-; #pragma omp loop
+; #pragma omp loop bind(thread)
 ;     for (int j = 0; j < 100; j++) {
 ;       aaa[i] += i + j;
 ;     }
 ;   }
 ; }
 
-; This test checks the "loop" construct is mapped to "simd" after prepare pass,
-; if binding region is not defined.
+; Check that "loop bind(thread)" is mapped to "simd"
+; when it's not lexically enclosed in another construct.
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -54,6 +56,7 @@ for.body:                                         ; preds = %for.cond
 ; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), {{.*}}
 
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"(),
+    "QUAL.OMP.BIND.THREAD"(),
     "QUAL.OMP.SHARED:TYPED"(ptr @aaa, i32 0, i64 1000),
     "QUAL.OMP.SHARED:TYPED"(ptr %i, i32 0, i32 1),
     "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %.omp.iv, i32 0),

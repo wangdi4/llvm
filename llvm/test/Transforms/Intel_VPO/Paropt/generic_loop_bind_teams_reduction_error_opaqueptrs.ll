@@ -1,5 +1,7 @@
-; RUN: not opt -opaque-pointers=1 -vpo-paropt-map-loop-bind-teams-to-distribute=true -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s 2>&1 | FileCheck %s
-; RUN: not opt -opaque-pointers=1 -vpo-paropt-map-loop-bind-teams-to-distribute=true -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=1 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-loop-collapse -S %s 2>&1 | FileCheck -check-prefix=SCHEME1 %s
+; RUN: opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=1 -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse)' -S %s 2>&1 | FileCheck  -check-prefix=SCHEME1 %s
+; RUN: not opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=0 -vpo-paropt-map-loop-bind-teams-to-distribute=true -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s 2>&1 | FileCheck %s
+; RUN: not opt -opaque-pointers=1 -vpo-paropt-loop-mapping-scheme=0 -vpo-paropt-map-loop-bind-teams-to-distribute=true -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s 2>&1 | FileCheck %s
 
 ; Test src:
 ;
@@ -17,10 +19,17 @@
 ;  }
 ; }
 
+; SCHEME=0:
 ; This test checks that prepare pass will emit error for reduction clauses found on loop construct 
 ; if binding is teams.
-
 ; CHECK: 'reduction' clause on a 'loop' construct with 'teams' binding is not supported 
+
+; SCHEME=1:
+; The LOOP construct above is mapped to DISTRIBUTE PARALLEL FOR so the error message is not triggered
+; SCHEME1-NOT: 'reduction' clause on a 'loop' construct with 'teams' binding is not supported 
+; SCHEME1-NOT: @llvm.directive.region.entry() [ "DIR.OMP.GENERICLOOP"()
+; SCHEME1: @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"()
+
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 target device_triples = "spir64"
