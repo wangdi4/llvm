@@ -1,5 +1,5 @@
-; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -S %s | FileCheck %s
 
 ; Original code:
 ; #pragma omp declare target
@@ -12,11 +12,12 @@
 
 ; Make sure __kmpc_global_thread_num, __kmpc_single and __kmpc_end_single
 ; calls use correct functions signature:
-; CHECK: call spir_func i32 @__kmpc_global_thread_num(ptr addrspace(4){{.*}})
-; CHECK: call spir_func i32 @__kmpc_single(ptr addrspace(4){{[^,]*}}, i32{{.*}})
-; CHECK: call spir_func void @__kmpc_end_single(ptr addrspace(4){{[^,]*}}, i32{{.*}})
-; CHECK: declare spir_func i32 @__kmpc_single(ptr addrspace(4), i32)
-; CHECKL declare spir_func void @__kmpc_end_single(ptr addrspace(4), i32)
+; CHECK: [[IDENTTY:%[a-zA-Z._0-9]+]] = type { i32, i32, i32, i32, i8 addrspace(4)* }
+; CHECK: call spir_func i32 @__kmpc_global_thread_num([[IDENTTY]] addrspace(4)*{{.*}})
+; CHECK: call spir_func i32 @__kmpc_single([[IDENTTY]] addrspace(4)*{{[^,]*}}, i32{{.*}})
+; CHECK: call spir_func void @__kmpc_end_single([[IDENTTY]] addrspace(4)*{{[^,]*}}, i32{{.*}})
+; CHECK: declare spir_func i32 @__kmpc_single([[IDENTTY]] addrspace(4)*, i32)
+; CHECKL declare spir_func void @__kmpc_end_single([[IDENTTY]] addrspace(4)*, i32)
 
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
@@ -30,7 +31,7 @@ define hidden spir_func void @_Z10initializev() #0 {
 entry:
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SINGLE"() ]
   fence acquire
-  store double 1.230000e+02, ptr addrspace(4) addrspacecast (ptr addrspace(1) @coef_bnd to ptr addrspace(4)), align 8
+  store double 1.230000e+02, double addrspace(4)* addrspacecast (double addrspace(1)* @coef_bnd to double addrspace(4)*), align 8
   fence release
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SINGLE"() ]
   ret void
@@ -52,7 +53,7 @@ attributes #1 = { nounwind }
 !opencl.compiler.options = !{!3}
 !llvm.ident = !{!5}
 
-!0 = !{i32 1, !"_Z8coef_bnd", i32 0, i32 0, ptr addrspace(1) @coef_bnd}
+!0 = !{i32 1, !"_Z8coef_bnd", i32 0, i32 0, double addrspace(1)* @coef_bnd}
 !1 = !{i32 1, !"wchar_size", i32 4}
 !2 = !{i32 7, !"PIC Level", i32 2}
 !3 = !{}
