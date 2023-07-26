@@ -129,11 +129,7 @@
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Instrumentation/BlockCoverageInference.h"
 #include "llvm/Transforms/Instrumentation/CFGMST.h"
-<<<<<<< HEAD
-=======
 #include "llvm/Transforms/Instrumentation/Intel_MLPGO/ExtractFeatures.h" // INTEL
-#include "llvm/Transforms/Instrumentation/MemProfiler.h"
->>>>>>> 3d974a2b4208841834cfb61818956ae05c298089
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/MisExpect.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
@@ -2770,6 +2766,10 @@ PreservedAnalyses PGOInstrumentationUse::run(Module &M,
   };
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+  auto &CG = MAM.getResult<CallGraphAnalysis>(M); // INTEL
+>>>>>>> ce927d1c0f1a (Conflict resolution.)
   auto *PSI = &MAM.getResult<ProfileSummaryAnalysis>(M);
 =======
   auto &CG = AM.getResult<CallGraphAnalysis>(M); // INTEL
