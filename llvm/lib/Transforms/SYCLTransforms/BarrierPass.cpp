@@ -193,7 +193,7 @@ bool KernelBarrier::runOnFunction(Function &F) {
   fixAllocaAndDbg(F);
 
   // Fix cross barrier uniform values.
-  fixCrossBarrierValues(&*F.begin()->begin());
+  fixCrossBarrierValues(F);
 
   // Replace sync instructions with internal loop over WI ID.
   replaceSyncInstructions();
@@ -626,15 +626,18 @@ hoistUniformCrossBarrierInstToEntryBlock(Instruction *I,
     }
   }
 
-  for (Instruction *Inst : ToMove)
+  for (Instruction *Inst : ToMove) {
     Inst->moveBefore(InsertBefore);
+    Inst->dropLocation();
+  }
 
   return true;
 }
 
-void KernelBarrier::fixCrossBarrierValues(Instruction *InsertBefore) {
+void KernelBarrier::fixCrossBarrierValues(Function &F) {
   ValueVec WorkList;
-  if (!InsertBefore->getFunction()->hasOptNone()) {
+  if (!F.hasOptNone()) {
+    Instruction *InsertBefore = &*F.begin()->getFirstNonPHIOrDbgOrAlloca();
     for (Value *V : llvm::reverse(*CrossBarrierValues))
       if (!hoistUniformCrossBarrierInstToEntryBlock(cast<Instruction>(V),
                                                     InsertBefore))
@@ -642,6 +645,8 @@ void KernelBarrier::fixCrossBarrierValues(Instruction *InsertBefore) {
   } else {
     WorkList = *CrossBarrierValues;
   }
+
+  Instruction *InsertBefore = &*F.begin()->begin();
 
   for (Value *V : WorkList) {
     Instruction *Inst = dyn_cast<Instruction>(V);

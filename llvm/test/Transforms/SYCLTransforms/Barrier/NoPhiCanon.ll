@@ -33,8 +33,11 @@ define void @fixCrossBarrierValues() {
 entry:
 ; CHECK-LABEL: define void @fixCrossBarrierValues()
 ; CHECK-NEXT: entry:
-; CHECK-NEXT: %add.i = add nuw nsw i64 0, 42
 ; CHECK-NEXT: %p.addr = alloca ptr, align 8
+; CHECK-NEXT: %pCurrBarrier = alloca i32, align 4
+; CHECK-NEXT: %pCurrSBIndex = alloca i64, align 8
+; CHECK-NEXT: %pLocalIds = alloca [3 x i64], align 8
+; CHECK-NEXT: %add.i = add nuw nsw i64 0, 42
 
   call void @dummy_barrier.()
   %add.i = add nuw nsw i64 0, 42

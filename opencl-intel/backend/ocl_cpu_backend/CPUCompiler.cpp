@@ -141,13 +141,16 @@ BuiltinModules *CPUCompiler::GetOrLoadBuiltinModules(bool ForceLoad) {
   }
   return m_builtinModules[TID].get();
 }
-// If binary not matchs current cpu arch
-// and cpu is backwards compatible,load builtin modules again
+
+// If binary doesn't match current cpu arch but its maximum supported
+// instruction can be supported by current cpu, load builtin modules again
+// for backwards compatibility.
 void CPUCompiler::SetBuiltinModules(const std::string &cpuName,
                                     const std::string &cpuFeatures = "") {
   // config.GetLoadBuiltins should be true
   SelectCpu(cpuName, cpuFeatures);
   Utils::applyCpuIdLLVMOptions(m_CpuId);
+  GetOrLoadBuiltinModules(true);
 }
 
 CPUCompiler::CPUCompiler(const ICompilerConfig &config) : Compiler(config) {
