@@ -53,9 +53,12 @@ using ValueSet = SetVector<Value *>;
 //  holds all found dependencies which can be removed.
 //
 static bool collectRemovableDependencies(Value *V, ValueSet *SafeTerminals,
-                                         ValueSet *Dependencies) {
-  if (Dependencies->contains(V))
+                                         ValueSet *Dependencies,
+                                         ValueSet *Visited) {
+  if (Visited->contains(V))
     return true;
+
+  Visited->insert(V);
 
   bool IsSafe = false;
   if (isa<SwitchInst>(V) || isa<IndirectBrInst>(V))
@@ -65,7 +68,8 @@ static bool collectRemovableDependencies(Value *V, ValueSet *SafeTerminals,
     // instruction in successors.
     for (auto S : BR->successors()) {
       for (auto &I : *S) {
-        if (!collectRemovableDependencies(&I, SafeTerminals, Dependencies))
+        if (!collectRemovableDependencies(&I, SafeTerminals, Dependencies,
+                                          Visited))
           return false;
       }
     }
@@ -85,7 +89,7 @@ static bool collectRemovableDependencies(Value *V, ValueSet *SafeTerminals,
 
   Dependencies->insert(V);
   for (auto U : V->users()) {
-    if (!collectRemovableDependencies(U, SafeTerminals, Dependencies))
+    if (!collectRemovableDependencies(U, SafeTerminals, Dependencies, Visited))
       return false;
   }
   return true;
@@ -154,7 +158,8 @@ collectRemovableDependencies(GlobalDopeVector *DV) {
   auto *DVInfo = DV->getGlobalDopeVectorInfo();
   auto *DVObj = DVInfo->getDVObject();
   auto STF = getSafeTerminalValues(DV);
-  if (!collectRemovableDependencies(DVObj, STF.get(), Res.get()))
+  ValueSet Visited;
+  if (!collectRemovableDependencies(DVObj, STF.get(), Res.get(), &Visited))
     return {};
   return std::move(Res);
 }
