@@ -1126,7 +1126,14 @@ WRNGenericLoopNode::WRNGenericLoopNode(BasicBlock *BB, LoopInfo *Li)
   LLVM_DEBUG(dbgs() << "\nCreated WRNGenericLoopNode<" << getNumber() << ">\n");
 }
 
-//
+void WRNGenericLoopNode::mapLoop(unsigned LoopMappingScheme) {
+  if (LoopMappingScheme == 0)
+    mapLoopScheme0();
+  else
+    mapLoopScheme1();
+}
+
+// Algorithm (LoopMappingScheme=0):
 // If BIND is present:
 //   BIND=parallel  ==> change to DIR_OMP_LOOP
 //   BIND=teams     ==> change to DIR_OMP_DISTRIBUTE
@@ -1144,17 +1151,16 @@ WRNGenericLoopNode::WRNGenericLoopNode(BasicBlock *BB, LoopInfo *Li)
 //   Parent=WksLoop||ParallelLoop||DistributeParLoop||Taskloop ==> DIR_OMP_SIMD
 //   Parent=anything else  ==> DIR_OMP_SIMD
 //
-bool WRNGenericLoopNode::mapLoopScheme() {
-  bool Mapped = false;
+void WRNGenericLoopNode::mapLoopScheme0() {
+  constexpr int DIR_OMP_NONE = -1;
+  MappedDir = DIR_OMP_NONE;
+
   if (getLoopBind() == WRNLoopBindParallel) {
     MappedDir = DIR_OMP_LOOP;
-    Mapped = true;
   } else if (getLoopBind() == WRNLoopBindTeams) {
     MappedDir = DIR_OMP_DISTRIBUTE;
-    Mapped = true;
   } else if (getLoopBind() == WRNLoopBindThread) {
     MappedDir = DIR_OMP_SIMD;
-    Mapped = true;
   } else {
     assert(getLoopBind() == WRNLoopBindAbsent &&
            "Unknown binding in BIND clause");
@@ -1164,13 +1170,11 @@ bool WRNGenericLoopNode::mapLoopScheme() {
     if (Parent == nullptr) {
       LLVM_DEBUG(dbgs() << "GenericLoop's parent WRN is nullptr\n");
       MappedDir = DIR_OMP_SIMD;
-      Mapped = true;
     } else {
       LLVM_DEBUG(dbgs() << "GenericLoop's parent WRN: " << Parent->getName()
                         << "\n");
       if (Parent->getWRegionKindID() == WRegionNode::WRNParallel) {
         MappedDir = DIR_OMP_LOOP;
-        Mapped = true;
       } else if (Parent->getWRegionKindID() == WRegionNode::WRNTeams) {
         // For GenericLoop enclosed in parent Teams construct, scheme cannot be
         // parallelism generating.  Spec states 'binding thread set is the set
@@ -1183,27 +1187,199 @@ bool WRNGenericLoopNode::mapLoopScheme() {
         if (getIsDoConcurrent())
           MappedDir = DIR_OMP_DISTRIBUTE_PARLOOP;
 #endif // INTEL_CUSTOMIZATION
-        Mapped = true;
       } else if (Parent->getWRegionKindID() == WRegionNode::WRNDistribute ||
                  Parent->getWRegionKindID() == WRegionNode::WRNTarget) {
         MappedDir = DIR_OMP_PARALLEL_LOOP;
-        Mapped = true;
       } else {
         MappedDir = DIR_OMP_SIMD;
-        Mapped = true;
       }
     }
   }
 
-  if (Mapped) {
-    LLVM_DEBUG(dbgs() << "Mapped DIR_OMP_GENERICLOOP to "
-                      << VPOAnalysisUtils::getDirectiveString(MappedDir)
-                      << "\n");
-    LLVM_DEBUG(dbgs() << "Binding rules: " << WRNLoopBindName[getLoopBind()]
-                      << "\n");
+  if (MappedDir == DIR_OMP_NONE)
+    llvm_unreachable("LOOP construct mapping failed (scheme 0)");
+
+  LLVM_DEBUG(dbgs() << "Mapped [scheme 0] DIR_OMP_GENERICLOOP to "
+                    << VPOAnalysisUtils::getDirectiveString(MappedDir) << "\n");
+  LLVM_DEBUG(dbgs() << "Binding rules: " << WRNLoopBindName[getLoopBind()]
+                    << "\n");
+}
+
+// Algorithm (LoopMappingScheme=1):
+//
+// Parent = DIR_OMP_TEAMS:
+//   // 1. BIND(THREAD) and BIND(PARALLEL)
+//   //    Only the master threads of all teams in the league  encounter this
+//   //    LOOP, so BIND(THREAD) and BIND(PARALLEL) are equivalent here; in
+//   //    both cases each team must execute all iterations, so it is correct
+//   //    to map it to either PARALLEL FOR or SIMD, but incorrect to map it
+//   //    to DISTRIBUTE or DISTRIBUTE PARALLEL FOR because then each team
+//   //    will only execute part of the iteration space.
+//   // 2. BIND(TEAMS)
+//   //    This binding means the league of teams can share the work, so
+//   //    it is correct to map it to DISTRIBUTE or DISTRIBUTE PARALLEL FOR.
+//   //    Our optimization maps it to DISTRIBUTE if it has an immediate child
+//   //    construct that is PARALLEL or LOOP; otherwise it maps it to
+//   //    DISTRIBUTE PARALLEL FOR.
+//   // 3. Example showing the difference
+//   //
+//   //     int x[4] = {} ; //initialize to 0
+//   //     #pragma omp teams num_teams(2) firstprivate(x)
+//   //     {
+//   //       // #pragma omp loop bind(thread)    // each team prints four 9's
+//   //       // #pragma omp loop bind(parallel)  // each team prints four 9's
+//   //       #pragma omp loop bind(teams)        // each team prints two 9's
+//   //                                           //              and two 0's
+//   //       for (int i = 0; i < 4; i++)
+//   //         x[i] = 9;
+//   //       for (int j = 0; j < 4; j++) {
+//   //         printf("Team %d x[%d] = %d\n", omp_get_team_num(), j, x[j]);
+//   //       }
+//   //     }
+//
+//   if (Bind == thread or parallel)
+//     MappedDir = DIR_OMP_PARALLEL_LOOP;
+//   else { // Bind == teams or absent
+//    if (LOOP has an immediate child that is a PARALLEL or LOOP construct)
+//      MappedDir = DIR_OMP_DISTRIBUTE;
+//    else
+//      MappedDir = DIR_OMP_DISTRIBUTE_PARLOOP;
+//   }
+//
+// Parent = DIR_OMP_DISTRIBUTE:
+//
+//   // Only the master thread of the implicit parallel team encounters
+//   // the LOOP, so BIND(THREAD) and BIND(PARALLEL) are equivalent here,
+//   // and it is always safe to map it to PARALLEL FOR or SIMD.
+//
+//   MappedDir = DIR_OMP_PARALLEL_LOOP;
+//
+// Parent = DIR_OMP_PARALLEL:
+//
+//   // Every thread of the parallel team encounters the LOOP.
+//   // With BIND(THREAD) each thread must execute all iterations so we
+//   // can only map it to SIMD. If we mapped it to FOR then each thread
+//   // will only execute part of the iteration space, which is incorrect.
+//   // For example, this LOOP BIND(THREAD) inside PARALLEL can be vectorized
+//   // within each thread but not parallelized across the 2 threads:
+//   //
+//   //   int x[4] = {} ; //initialize to 0
+//   //   #pragma omp parallel num_threads(2) firstprivate(x)
+//   //   {
+//   //     #pragma omp loop bind(thread)
+//   //     for (int i = 0; i < 4; i++)
+//   //       x[i] = 9;
+//   //     for (int j = 0; j < 4; j++)
+//   //       printf("Thread %d x[%d] = %d\n", omp_get_thread_num(), j, x[j]);
+//   //   }
+//   //   LOOP->SIMD: each thread prints all 9's
+//   //   LOOP->FOR : each thread prints two 9's and two 0's
+//
+//   if (Bind == thread)
+//     MappedDir = DIR_OMP_SIMD;
+//   else // Bind == parallel or absent
+//     MappedDir = DIR_OMP_LOOP;
+//
+// Parent = Worksharing-loop or DIR_OMP_TASK[LOOP] or DIR_OMP_SIMD:
+//   MappedDir = DIR_OMP_SIMD;
+//
+// Any other parent construct (including no parent):
+//   if (Bind == thread)
+//     MappedDir = DIR_OMP_SIMD;
+//   else if (Bind == parallel)
+//     MappedDir = DIR_OMP_LOOP;
+//   else if (Bind == absent)
+//     MappedDir = DIR_OMP_PARALLEL_LOOP;
+//   else { // Bind == teams
+//    if (LOOP has an immediate child that is a PARALLEL or LOOP construct)
+//      MappedDir = DIR_OMP_DISTRIBUTE;
+//    else
+//      MappedDir = DIR_OMP_DISTRIBUTE_PARLOOP;
+//   }
+void WRNGenericLoopNode::mapLoopScheme1() {
+  constexpr int DIR_OMP_NONE = -1;
+
+  // DirID of the Parent construct.
+  // ParentDirID==DIR_OMP_NONE means no parent construct was found.
+  int ParentDirID = DIR_OMP_NONE;
+
+  WRNLoopBindKind Bind = getLoopBind();
+  MappedDir = DIR_OMP_NONE;
+
+  WRegionNode *Parent = getParent();
+  if (Parent) {
+    ParentDirID = Parent->getDirID();
+    if (ParentDirID == DIR_OMP_GENERICLOOP) {
+      // if Parent is a LOOP construct, set DirID to its MappedDir
+      ParentDirID = cast<WRNGenericLoopNode>(Parent)->getMappedDir();
+      assert(ParentDirID != DIR_OMP_NONE &&
+             "Unexpected: Parent LOOP construct is unmapped under scheme 1");
+    }
   }
 
-  return Mapped;
+  assert((ParentDirID != DIR_OMP_NONE || Bind != WRNLoopBindAbsent) &&
+         "Missing BIND clause in an orphaned LOOP construct");
+
+  switch (ParentDirID) {
+  // case DIR_OMP_TARGET:
+  // TODO: We want to map LOOP that's closely nested inside a TARGET
+  //       to a TEAMS DISTRIBUTE or TEAMS DISTRIBUTE PARALLEL FOR
+  //       but the Paropt BE can't safely (1) detect close nesting nor
+  //       (2) convert LOOP into multiple constructs, so this has to be
+  //       done in the FE. A solution is for FE to change LOOP into
+  //       TEAMS LOOP if it's closedly nested inside TARGET.
+  //       Note that if LOOP is not closely nested inside TARGET,
+  //       then it just falls into the default case in this switch.
+  case DIR_OMP_TEAMS:
+    if (Bind == WRNLoopBindThread || Bind == WRNLoopBindParallel)
+      MappedDir = DIR_OMP_PARALLEL_LOOP;
+    else if (getRed().empty() && // DISTRIBUTE does not support REDUCTION
+             WRegionUtils::hasParallelOrGenericLoop(this))
+      MappedDir = DIR_OMP_DISTRIBUTE;
+    else
+      MappedDir = DIR_OMP_DISTRIBUTE_PARLOOP;
+    break;
+  case DIR_OMP_DISTRIBUTE:
+    MappedDir = DIR_OMP_PARALLEL_LOOP;
+    break;
+  case DIR_OMP_PARALLEL:
+    if (Bind == WRNLoopBindThread)
+      MappedDir = DIR_OMP_SIMD;
+    else // bind(parallel) or absent
+      MappedDir = DIR_OMP_LOOP;
+    break;
+  case DIR_OMP_LOOP:
+  case DIR_OMP_SECTIONS:
+  case DIR_OMP_WORKSHARE:
+  case DIR_OMP_PARALLEL_LOOP:
+  case DIR_OMP_PARALLEL_SECTIONS:
+  case DIR_OMP_PARALLEL_WORKSHARE:
+  case DIR_OMP_DISTRIBUTE_PARLOOP:
+  case DIR_OMP_TASK:
+  case DIR_OMP_TASKLOOP:
+  case DIR_OMP_SIMD:
+    MappedDir = DIR_OMP_SIMD;
+    break;
+  default:
+    // No parent or parent not one of the above cases
+    if (Bind == WRNLoopBindThread)
+      MappedDir = DIR_OMP_SIMD;
+    else if (Bind == WRNLoopBindParallel)
+      MappedDir = DIR_OMP_LOOP;
+    else if (Bind == WRNLoopBindAbsent)
+      MappedDir = DIR_OMP_PARALLEL_LOOP;
+    // after this point Bind must be WRNLoopBindTeams
+    else if (WRegionUtils::hasParallelOrGenericLoop(this))
+      MappedDir = DIR_OMP_DISTRIBUTE;
+    else
+      MappedDir = DIR_OMP_DISTRIBUTE_PARLOOP;
+  }
+
+  if (MappedDir == DIR_OMP_NONE)
+    llvm_unreachable("LOOP construct mapping failed (scheme 1)");
+
+  LLVM_DEBUG(dbgs() << "Mapped [scheme 1] DIR_OMP_GENERICLOOP to "
+                    << VPOAnalysisUtils::getDirectiveString(MappedDir) << "\n");
 }
 
 void WRNGenericLoopNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,

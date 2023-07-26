@@ -81,8 +81,8 @@ private:
   void fixSpecialValues();
 
   /// Hanlde Values of Group-B.2 of processed function.
-  /// InsertBefore instruction to insert new alloca before.
-  void fixCrossBarrierValues(Instruction *InsertBefore);
+  /// \p F Function to fix.
+  void fixCrossBarrierValues(Function &F);
 
   /// Handle synchronize value of processed function.
   void replaceSyncInstructions();

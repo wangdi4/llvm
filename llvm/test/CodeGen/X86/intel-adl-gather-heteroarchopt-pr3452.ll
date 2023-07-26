@@ -3,9 +3,9 @@
 ; the legacy pass manager for now. Eventually, we should split the run line
 ; so that middle end passes use the new pass manager and the codegen pass
 ; (x86-hetero-arch-opt) uses the legacy pass manager.
-; RUN: opt -opaque-pointers=0 %s -bugpoint-enable-legacy-pm -mtriple=x86_64-- -mcpu=alderlake --x86-hetero-arch-opt --verify -S -o - | FileCheck %s
+; RUN: opt %s -bugpoint-enable-legacy-pm -mtriple=x86_64-- -mcpu=alderlake --x86-hetero-arch-opt --verify -S -o - | FileCheck %s
 
-define double @test_clone_loop_with_outside_def(double *%src, i32 *%srcidx, double %ext) #0 {
+define double @test_clone_loop_with_outside_def(ptr %src, ptr %srcidx, double %ext) #0 {
 ; CHECK-LABEL: @test_clone_loop_with_outside_def(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = call i8 @llvm.x86.intel.fast.cpuid.coretype()
@@ -15,12 +15,12 @@ define double @test_clone_loop_with_outside_def(double *%src, i32 *%srcidx, doub
 ; CHECK-NEXT:    [[SUM:%.*]] = phi double [ 0.000000e+00, [[ENTRY:%.*]] ], [ [[TMP8:%.*]], [[BODY2:%.*]] ]
 ; CHECK-NEXT:    [[I:%.*]] = phi i32 [ 0, [[ENTRY]] ], [ [[NEXTI:%.*]], [[BODY2]] ]
 ; CHECK-NEXT:    [[I64:%.*]] = zext i32 [[I]] to i64
-; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds i32, i32* [[SRCIDX:%.*]], i64 [[I64]]
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i32* [[TMP2]] to <16 x i32>*
-; CHECK-NEXT:    [[TMP4:%.*]] = load <16 x i32>, <16 x i32>* [[TMP3]], align 4
+; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds i32, ptr [[SRCIDX:%.*]], i64 [[I64]]
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast ptr [[TMP2]] to ptr
+; CHECK-NEXT:    [[TMP4:%.*]] = load <16 x i32>, ptr [[TMP3]], align 4
 ; CHECK-NEXT:    [[TMP5:%.*]] = zext <16 x i32> [[TMP4]] to <16 x i64>
-; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr inbounds double, double* [[SRC:%.*]], <16 x i64> [[TMP5]]
-; CHECK-NEXT:    [[TMP7:%.*]] = call <16 x double> @llvm.masked.gather.v16f64.v16p0f64(<16 x double*> [[TMP6]], i32 8, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <16 x double> undef)
+; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr inbounds double, ptr [[SRC:%.*]], <16 x i64> [[TMP5]]
+; CHECK-NEXT:    [[TMP7:%.*]] = call <16 x double> @llvm.masked.gather.v16f64.v16p0(<16 x ptr> [[TMP6]], i32 8, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <16 x double> undef)
 ; CHECK-NEXT:    [[TMP8]] = call fast double @llvm.vector.reduce.fadd.v16f64(double [[SUM]], <16 x double> [[TMP7]])
 ; CHECK-NEXT:    [[COND1:%.*]] = fcmp olt double [[TMP8]], 1.234000e+03
 ; CHECK-NEXT:    br i1 [[COND1]], label [[BODY2]], label [[EXIT:%.*]]
@@ -32,12 +32,12 @@ define double @test_clone_loop_with_outside_def(double *%src, i32 *%srcidx, doub
 ; CHECK-NEXT:    [[SUM_CLONE:%.*]] = phi double [ 0.000000e+00, [[ENTRY]] ], [ [[TMP15:%.*]], [[BODY2_CLONE:%.*]] ]
 ; CHECK-NEXT:    [[I_CLONE]] = phi i32 [ 0, [[ENTRY]] ], [ [[NEXTI_CLONE]], [[BODY2_CLONE]] ]
 ; CHECK-NEXT:    [[I64_CLONE:%.*]] = zext i32 [[I_CLONE]] to i64
-; CHECK-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i32, i32* [[SRCIDX]], i64 [[I64_CLONE]]
-; CHECK-NEXT:    [[TMP10:%.*]] = bitcast i32* [[TMP9]] to <16 x i32>*
-; CHECK-NEXT:    [[TMP11:%.*]] = load <16 x i32>, <16 x i32>* [[TMP10]], align 4
+; CHECK-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i32, ptr [[SRCIDX]], i64 [[I64_CLONE]]
+; CHECK-NEXT:    [[TMP10:%.*]] = bitcast ptr [[TMP9]] to ptr
+; CHECK-NEXT:    [[TMP11:%.*]] = load <16 x i32>, ptr [[TMP10]], align 4
 ; CHECK-NEXT:    [[TMP12:%.*]] = zext <16 x i32> [[TMP11]] to <16 x i64>
-; CHECK-NEXT:    [[TMP13:%.*]] = getelementptr inbounds double, double* [[SRC]], <16 x i64> [[TMP12]]
-; CHECK-NEXT:    [[TMP14:%.*]] = call <16 x double> @llvm.masked.gather.v16f64.v16p0f64(<16 x double*> [[TMP13]], i32 8, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <16 x double> undef), !hetero.arch.opt.disable.gather !0
+; CHECK-NEXT:    [[TMP13:%.*]] = getelementptr inbounds double, ptr [[SRC]], <16 x i64> [[TMP12]]
+; CHECK-NEXT:    [[TMP14:%.*]] = call <16 x double> @llvm.masked.gather.v16f64.v16p0(<16 x ptr> [[TMP13]], i32 8, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <16 x double> undef), !hetero.arch.opt.disable.gather !0
 ; CHECK-NEXT:    [[TMP15]] = call fast double @llvm.vector.reduce.fadd.v16f64(double [[SUM_CLONE]], <16 x double> [[TMP14]])
 ; CHECK-NEXT:    [[COND1_CLONE:%.*]] = fcmp olt double [[TMP15]], 1.234000e+03
 ; CHECK-NEXT:    br i1 [[COND1_CLONE]], label [[BODY2_CLONE]], label [[EXIT]]
@@ -52,31 +52,36 @@ define double @test_clone_loop_with_outside_def(double *%src, i32 *%srcidx, doub
 entry:
   br label %loop
 
-loop:
-  %sum = phi double [ zeroinitializer, %entry ], [ %6, %body2 ]
+loop:                                             ; preds = %body2, %entry
+  %sum = phi double [ 0.000000e+00, %entry ], [ %6, %body2 ]
   %i = phi i32 [ 0, %entry ], [ %nexti, %body2 ]
   %i64 = zext i32 %i to i64
-  %0 = getelementptr inbounds i32, i32* %srcidx, i64 %i64
-  %1 = bitcast i32* %0 to <16 x i32>*
-  %2 = load <16 x i32>, <16 x i32>* %1, align 4
+  %0 = getelementptr inbounds i32, ptr %srcidx, i64 %i64
+  %1 = bitcast ptr %0 to ptr
+  %2 = load <16 x i32>, ptr %1, align 4
   %3 = zext <16 x i32> %2 to <16 x i64>
-  %4 = getelementptr inbounds double, double* %src, <16 x i64> %3
-  %5 = call <16 x double> @llvm.masked.gather.v16f64.v16p0f64(<16 x double*> %4, i32 8, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <16 x double> undef)
+  %4 = getelementptr inbounds double, ptr %src, <16 x i64> %3
+  %5 = call <16 x double> @llvm.masked.gather.v16f64.v16p0(<16 x ptr> %4, i32 8, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <16 x double> undef)
   %6 = call fast double @llvm.vector.reduce.fadd.v16f64(double %sum, <16 x double> %5)
-  %cond1 = fcmp olt double %6, 1234.0
+  %cond1 = fcmp olt double %6, 1.234000e+03
   br i1 %cond1, label %body2, label %exit
 
-body2:
+body2:                                            ; preds = %loop
   %nexti = add nuw nsw i32 %i, 16
   %cond2 = icmp ult i32 %nexti, 4096
   br i1 %cond2, label %loop, label %exit
 
-exit:
+exit:                                             ; preds = %body2, %loop
   %result = phi double [ %ext, %loop ], [ %sum, %body2 ]
   ret double %result
 }
 
-declare double @llvm.vector.reduce.fadd.v16f64(double, <16 x double>)
-declare <16 x double> @llvm.masked.gather.v16f64.v16p0f64(<16 x double*>, i32 , <16 x i1>, <16 x double>)
+; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
+declare double @llvm.vector.reduce.fadd.v16f64(double, <16 x double>) #1
+
+; Function Attrs: nocallback nofree nosync nounwind willreturn memory(read)
+declare <16 x double> @llvm.masked.gather.v16f64.v16p0(<16 x ptr>, i32 immarg, <16 x i1>, <16 x double>) #2
 
 attributes #0 = { "target-cpu"="alderlake" }
+attributes #1 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
+attributes #2 = { nocallback nofree nosync nounwind willreturn memory(read) }
