@@ -1,15 +1,8 @@
-<<<<<<< HEAD
 // INTEL RUN: %clang_cc1 -std=c++1z -fcxx-exceptions -fexceptions -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -verify %s
 // INTEL RUN: %clang_cc1 -std=c++2a -fcxx-exceptions -DUSE_CONSTEVAL -fexceptions -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -verify %s
+// INTEL RUN: %clang_cc1 -std=c++2b -fcxx-exceptions -DUSE_CONSTEVAL -DPAREN_INIT -fexceptions -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -verify %s
 // INTEL RUN: %clang_cc1 -std=c++1z -fcxx-exceptions -fms-extensions -DMS -fexceptions -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -verify %s
 // INTEL RUN: %clang_cc1 -std=c++2a -fcxx-exceptions -fms-extensions -DMS -DUSE_CONSTEVAL -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -fexceptions -verify %s
-=======
-// RUN: %clang_cc1 -std=c++1z -fcxx-exceptions -fexceptions -verify %s
-// RUN: %clang_cc1 -std=c++2a -fcxx-exceptions -DUSE_CONSTEVAL -fexceptions -verify %s
-// RUN: %clang_cc1 -std=c++2b -fcxx-exceptions -DUSE_CONSTEVAL -DPAREN_INIT -fexceptions -verify %s
-// RUN: %clang_cc1 -std=c++1z -fcxx-exceptions -fms-extensions -DMS -fexceptions -verify %s
-// RUN: %clang_cc1 -std=c++2a -fcxx-exceptions -fms-extensions -DMS -DUSE_CONSTEVAL -fexceptions -verify %s
->>>>>>> 64cfcde31a48962c3bbc703753a4ea41200da7a8
 // expected-no-diagnostics
 
 #define assert(...) ((__VA_ARGS__) ? ((void)0) : throw 42)
