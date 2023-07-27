@@ -2549,10 +2549,27 @@ public:
         const llvm::dtrans::SafetyData SD =
             IsCandidate ? dtrans::BadCastingPending : dtrans::BadCasting;
         bool SkipBadCastingForParent = IsOkayToSkipBadCastingOnParentStruct(I);
-        if (!SkipBadCastingForParent)
-          setBaseTypeInfoSafetyData(
-              ParentTy, SD, "Incompatible pointer type for field load/store",
-              &I);
+        if (!SkipBadCastingForParent) {
+          // Don't propagate BadCasting to other pointer fields in a
+          // parent structure when only a pointer field of the struct is
+          // involved in BadCasting.
+          if (IndexedType->isPointerTy() && ValOp->getType()->isPointerTy()) {
+            // Set BadCasting to parent struct and propagate it only for
+            // non-pointer fields.
+            setOnlyNestedBaseTypeInfoSafetyData(
+                ParentTy, SD, "Incompatible pointer type for field load/store",
+                &I);
+            // Set and propagate BadCasting for pointer field type that
+            // involves in BadCasting.
+            setBaseTypeInfoSafetyData(
+                IndexedType, SD,
+                "Incompatible pointer type for field load/store", &I);
+          } else {
+            setBaseTypeInfoSafetyData(
+                ParentTy, SD, "Incompatible pointer type for field load/store",
+                &I);
+          }
+        }
         if (ValInfo)
           for (auto *ValAliasTy :
                ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
@@ -2568,9 +2585,24 @@ public:
         LoadStoreUseRelatedTypes = false;
       } else if (LoadStoreUseRelatedTypes) {
         const llvm::dtrans::SafetyData SD = dtrans::BadCastingForRelatedTypes;
-        setBaseTypeInfoSafetyData(
-            ParentTy, SD,
-            "Pointer type for field load/store contains related types", &I);
+        // Don't propagate SD to other pointer fields in a parent structure
+        // when only a pointer field of the struct is involved in BadCasting.
+        if (IndexedType->isPointerTy() && ValOp->getType()->isPointerTy()) {
+          // Set SD to parent struct and propagate it only for non-pointer
+          // fields.
+          setOnlyNestedBaseTypeInfoSafetyData(
+              ParentTy, SD,
+              "Pointer type for field load/store contains related types", &I);
+          // Set and propagate SD for pointer field type that involves in
+          // BadCasting.
+          setBaseTypeInfoSafetyData(
+              IndexedType, SD,
+              "Pointer type for field load/store contains related types", &I);
+        } else {
+          setBaseTypeInfoSafetyData(
+              ParentTy, SD,
+              "Pointer type for field load/store contains related types", &I);
+        }
         if (ValInfo)
           for (auto *ValAliasTy :
                ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
@@ -7357,6 +7389,20 @@ private:
                                   /*ForPtrCarried=*/false);
   }
 
+  // This is similar to setBaseTypeInfoSafetyData, except that there is only
+  // propagation to nested but not to referenced types of 'Ty'.
+  void
+  setOnlyNestedBaseTypeInfoSafetyData(DTransType *Ty, dtrans::SafetyData Data,
+                                      StringRef Reason, Value *V,
+                                      SafetyInfoReportCB Callback = nullptr) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    printSafetyDataDebugMessage(Data, Reason, V, nullptr, Callback);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    setBaseTypeInfoSafetyDataImpl(
+        Ty, Data, /*DoCascade=*/true, /*DoPtrCarried=*/false, V,
+        /*ForCascade=*/false, /*ForPtrCarried=*/false);
+  }
+
   // This is similar to setBaseTypeInfoSafetyData, except that there is no
   // propagation to nested or referenced types of 'Ty'.
   void setOnlyBaseTypeInfoSafetyData(DTransType *Ty, dtrans::SafetyData Data,
@@ -7367,7 +7413,7 @@ private:
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     setBaseTypeInfoSafetyDataImpl(
         Ty, Data, /*DoCascade=*/false, /*DoPtrCarried=*/false, V,
-        /*ForCascade=*/false, +/*ForPtrCarried=*/false);
+        /*ForCascade=*/false, /*ForPtrCarried=*/false);
   }
 
   // Set the safety data on all the aliased types of 'PtrInfo'
