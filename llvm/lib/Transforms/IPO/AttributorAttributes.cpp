@@ -10486,6 +10486,11 @@ struct AACallEdgesCallSite : public AACallEdgesImpl {
     SmallVector<AA::ValueAndContext> Values;
     // Process any value that we might call.
     auto ProcessCalledOperand = [&](Value *V, Instruction *CtxI) {
+      if (isa<Constant>(V)) {
+        VisitValue(*V, CtxI);
+        return;
+      }
+
       bool UsedAssumedInformation = false;
       Values.clear();
       if (!A.getAssumedSimplifiedValues(IRPosition::value(*V), *this, Values,
