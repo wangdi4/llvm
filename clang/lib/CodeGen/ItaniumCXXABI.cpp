@@ -2010,7 +2010,6 @@ llvm::Value *ItaniumCXXABI::getVTableAddressPointInStructorWithVTT(
   /// Load the VTT.
   llvm::Value *VTT = CGF.LoadCXXVTT();
   if (VirtualPointerIndex)
-<<<<<<< HEAD
 #if INTEL_COLLAB
     VTT = CGF.Builder.CreateConstInBoundsGEP1_64(
         CGF.DefaultInt8PtrTy, VTT, VirtualPointerIndex);
@@ -2019,12 +2018,8 @@ llvm::Value *ItaniumCXXABI::getVTableAddressPointInStructorWithVTT(
   return CGF.Builder.CreateAlignedLoad(CGF.DefaultInt8PtrTy, VTT,
                                        CGF.getPointerAlign());
 #else // INTEL_COLLAB
-    VTT = CGF.Builder.CreateConstInBoundsGEP1_64(
-        CGF.VoidPtrTy, VTT, VirtualPointerIndex);
-=======
     VTT = CGF.Builder.CreateConstInBoundsGEP1_64(CGF.GlobalsVoidPtrTy, VTT,
                                                  VirtualPointerIndex);
->>>>>>> bf021c1c9409ed83287870aabe4b9d60006e85f8
 
   // And load the address point from the VTT.
   return CGF.Builder.CreateAlignedLoad(CGF.GlobalsVoidPtrTy, VTT,
@@ -3597,17 +3592,16 @@ ItaniumRTTIBuilder::GetAddrOfExternalRTTIDescriptor(QualType Ty) {
     // Note for the future: If we would ever like to do deferred emission of
     // RTTI, check if emitting vtables opportunistically need any adjustment.
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
     GV = new llvm::GlobalVariable(CGM.getModule(), CGM.DefaultInt8PtrTy,
                                   /*isConstant=*/true,
                                   llvm::GlobalValue::ExternalLinkage, nullptr,
                                   Name);
 #else // INTEL_COLLAB
-    GV = new llvm::GlobalVariable(CGM.getModule(), CGM.Int8PtrTy,
-                                  /*isConstant=*/true,
-                                  llvm::GlobalValue::ExternalLinkage, nullptr,
-                                  Name);
+    GV = new llvm::GlobalVariable(
+        CGM.getModule(), CGM.GlobalsInt8PtrTy,
+        /*isConstant=*/true, llvm::GlobalValue::ExternalLinkage, nullptr, Name);
+
 #endif // INTEL_COLLAB
 
 #if INTEL_CUSTOMIZATION
@@ -3619,11 +3613,6 @@ ItaniumRTTIBuilder::GetAddrOfExternalRTTIDescriptor(QualType Ty) {
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
-=======
-    GV = new llvm::GlobalVariable(
-        CGM.getModule(), CGM.GlobalsInt8PtrTy,
-        /*isConstant=*/true, llvm::GlobalValue::ExternalLinkage, nullptr, Name);
->>>>>>> bf021c1c9409ed83287870aabe4b9d60006e85f8
     const CXXRecordDecl *RD = Ty->getAsCXXRecordDecl();
     CGM.setGVProperties(GV, RD);
     // Import the typeinfo symbol when all non-inline virtual methods are
@@ -3636,16 +3625,12 @@ ItaniumRTTIBuilder::GetAddrOfExternalRTTIDescriptor(QualType Ty) {
     }
   }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   return llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
       GV, CGM.DefaultInt8PtrTy);
 #else // INTEL_COLLAB
-  return llvm::ConstantExpr::getBitCast(GV, CGM.Int8PtrTy);
-#endif // INTEL_COLLAB
-=======
   return GV;
->>>>>>> bf021c1c9409ed83287870aabe4b9d60006e85f8
+#endif // INTEL_COLLAB
 }
 
 /// TypeInfoIsInStandardLibrary - Given a builtin type, returns whether the type
@@ -4140,16 +4125,12 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(QualType Ty) {
     assert(!OldGV->hasAvailableExternallyLinkage() &&
            "available_externally typeinfos not yet implemented");
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
     return llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
         OldGV, CGM.DefaultInt8PtrTy);
 #else // INTEL_COLLAB
-    return llvm::ConstantExpr::getBitCast(OldGV, CGM.Int8PtrTy);
-#endif // INTEL_COLLAB
-=======
     return OldGV;
->>>>>>> bf021c1c9409ed83287870aabe4b9d60006e85f8
+#endif // INTEL_COLLAB
   }
 
   // Check if there is already an external RTTI descriptor for this type.
@@ -4213,21 +4194,15 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
         llvm::ConstantExpr::getIntToPtr(TypeNameField, CGM.DefaultInt8PtrTy);
 #else // INTEL_COLLAB
     TypeNameField =
-<<<<<<< HEAD
-        llvm::ConstantExpr::getIntToPtr(TypeNameField, CGM.Int8PtrTy);
+        llvm::ConstantExpr::getIntToPtr(TypeNameField, CGM.GlobalsInt8PtrTy);
 #endif // INTEL_COLLAB
   } else {
 #if INTEL_COLLAB
     TypeNameField = llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
         TypeName, CGM.DefaultInt8PtrTy);
 #else // INTEL_COLLAB
-    TypeNameField = llvm::ConstantExpr::getBitCast(TypeName, CGM.Int8PtrTy);
-#endif // INTEL_COLLAB
-=======
-        llvm::ConstantExpr::getIntToPtr(TypeNameField, CGM.GlobalsInt8PtrTy);
-  } else {
     TypeNameField = TypeName;
->>>>>>> bf021c1c9409ed83287870aabe4b9d60006e85f8
+#endif // INTEL_COLLAB
   }
   Fields.push_back(TypeNameField);
 
@@ -4399,16 +4374,12 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
 #endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   return llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
       GV, CGM.DefaultInt8PtrTy);
 #else // INTEL_COLLAB
-  return llvm::ConstantExpr::getBitCast(GV, CGM.Int8PtrTy);
-#endif // INTEL_COLLAB
-=======
   return GV;
->>>>>>> bf021c1c9409ed83287870aabe4b9d60006e85f8
+#endif // INTEL_COLLAB
 }
 
 /// BuildObjCObjectTypeInfo - Build the appropriate kind of type_info

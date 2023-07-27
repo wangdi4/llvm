@@ -8876,15 +8876,11 @@ llvm::Constant *CodeGenModule::GetAddrOfRTTIDescriptor(QualType Ty,
   if ((!ForEH && !getLangOpts().RTTI) || getLangOpts().CUDAIsDevice ||
       (getLangOpts().OpenMP && getLangOpts().OpenMPIsTargetDevice &&
        getTriple().isNVPTX()))
-<<<<<<< HEAD
 #if INTEL_COLLAB
     return llvm::Constant::getNullValue(DefaultInt8PtrTy);
 #else // INTEL_COLLAB
-    return llvm::Constant::getNullValue(Int8PtrTy);
-#endif // INTEL_COLLAB
-=======
     return llvm::Constant::getNullValue(GlobalsInt8PtrTy);
->>>>>>> bf021c1c9409ed83287870aabe4b9d60006e85f8
+#endif // INTEL_COLLAB
 
   if (ForEH && Ty->isObjCObjectPointerType() &&
       LangOpts.ObjCRuntime.isGNUFamily())
