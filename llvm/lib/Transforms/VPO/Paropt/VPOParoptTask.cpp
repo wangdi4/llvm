@@ -325,17 +325,18 @@ void VPOParoptTransform::genTaskTRedType() {
 
   LLVMContext &C = F->getContext();
   IntegerType *Int32Ty = Type::getInt32Ty(C);
-  IntegerType *Int64Ty = Type::getInt64Ty(C);
   PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
+  const DataLayout &DL = F->getParent()->getDataLayout();
+  IntegerType *SizeTTy = DL.getIntPtrType(C);
 
   if (Mode & OmpTbb)
     KmpTaskTRedTy = VPOParoptUtils::getOrCreateStructType(
         F, "__struct.kmp_task_t_red_item",
-        {Int8PtrTy, Int64Ty, Int8PtrTy, Int8PtrTy, Int8PtrTy, Int32Ty});
+        {Int8PtrTy, SizeTTy, Int8PtrTy, Int8PtrTy, Int8PtrTy, Int32Ty});
   else
     KmpTaskTRedTy = VPOParoptUtils::getOrCreateStructType(
         F, "__struct.kmp_taskred_input_t",
-        {Int8PtrTy, Int8PtrTy, Int64Ty, Int8PtrTy, Int8PtrTy, Int8PtrTy,
+        {Int8PtrTy, Int8PtrTy, SizeTTy, Int8PtrTy, Int8PtrTy, Int8PtrTy,
          Int32Ty});
 }
 
@@ -352,13 +353,8 @@ void VPOParoptTransform::genKmpTaskDependInfo() {
 
   LLVMContext &C = F->getContext();
 
-  IntegerType *IntTy;
   const DataLayout &DL = F->getParent()->getDataLayout();
-
-  if (DL.getIntPtrType(Type::getInt8PtrTy(C))->getIntegerBitWidth() == 64)
-    IntTy = Type::getInt64Ty(C);
-  else
-    IntTy = Type::getInt32Ty(C);
+  IntegerType *IntTy = DL.getIntPtrType(C);
 
   Type *KmpTaskDependTyArgs[] = {IntTy, IntTy, Type::getInt8Ty(C)};
 
