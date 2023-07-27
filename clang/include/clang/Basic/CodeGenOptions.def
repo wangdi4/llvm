@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -372,6 +372,7 @@ VALUE_CODEGENOPT(UnwindTables, 2, 0) ///< Unwind tables (1) or asynchronous unwi
 CODEGENOPT(VectorizeLoop     , 1, 0) ///< Run loop vectorizer.
 CODEGENOPT(VectorizeSLP      , 1, 0) ///< Run SLP vectorizer.
 CODEGENOPT(ProfileSampleAccurate, 1, 0) ///< Sample profile is accurate.
+CODEGENOPT(ProfileMLUse, 1, 0) ///< Use ML profile. // INTEL
 
 /// Treat loops as finite: language, always, never.
 ENUM_CODEGENOPT(FiniteLoops, FiniteLoopsKind, 2, FiniteLoopsKind::Language)

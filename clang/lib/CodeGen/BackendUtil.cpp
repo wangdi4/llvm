@@ -1091,6 +1091,12 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
         CodeGenOpts.SampleProfileFile, "", CodeGenOpts.ProfileRemappingFile,
         VFS, PGOOptions::SampleUse, PGOOptions::NoCSAction,
         CodeGenOpts.DebugInfoForProfiling, CodeGenOpts.PseudoProbeForProfiling);
+#if INTEL_CUSTOMIZATION
+  else if (CodeGenOpts.ProfileMLUse)
+    // -fprofile-ml-use
+    PGOOpt = PGOOptions("", "", "", nullptr, PGOOptions::MLUse,
+                        PGOOptions::NoCSAction, false, false);
+#endif // INTEL_CUSTOMIZATION
   else if (CodeGenOpts.PseudoProbeForProfiling)
     // -fpseudo-probe-for-profiling
     PGOOpt = PGOOptions("", "", "", nullptr, PGOOptions::NoAction,
