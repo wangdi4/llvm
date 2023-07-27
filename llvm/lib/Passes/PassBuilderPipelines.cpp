@@ -1790,7 +1790,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
-  bool MLPGO = PGOOpt->Action == PGOOptions::MLUse;
+  bool MLPGO = PGOOpt && PGOOpt->Action == PGOOptions::MLUse;
   if (MLPGO)
     MPM.addPass(MLPGOInference());
 
