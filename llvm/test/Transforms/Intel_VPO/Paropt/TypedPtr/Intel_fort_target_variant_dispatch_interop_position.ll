@@ -1,6 +1,6 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s
 ;
 ; In Fortran, when the variant function has string parameters, the compiler adds
 ; special hidden parameters at the end of the function call for the string lengths.
@@ -42,8 +42,8 @@
 ;   call foo_gpu(string, num, interop_obj, hidden_parameter_for_string_length)
 ;   (arg position:  1     2     **3**          4 )
 ;
-; CHECK: [[INTEROPOBJ:%[^ ]+]] = call ptr @__tgt_create_interop_obj(i64 0, i8 0, ptr null)
-; CHECK-NEXT: call{{.*}}@submodule_mp_foo_gpu_{{.*}}(ptr @strlit.2, ptr @0, ptr [[INTEROPOBJ]], i64 5)
+; CHECK: [[INTEROPOBJ:%[^ ]+]] = call i8* @__tgt_create_interop_obj(i64 0, i8 0, i8* null)
+; CHECK-NEXT: call{{.*}}@submodule_mp_foo_gpu_{{.*}}(i8* getelementptr inbounds ([5 x i8], [5 x i8]* @strlit.2, i32 0, i32 0), i32* @0, i8* [[INTEROPOBJ]], i64 5)
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -57,10 +57,10 @@ target device_triples = "spir64"
 define void @MAIN__() {
 alloca_3:
   %"$io_ctx" = alloca [8 x i64], align 16
-  %strlit.2_fetch.13 = load [5 x i8], ptr @strlit.2, align 1
+  %strlit.2_fetch.13 = load [5 x i8], [5 x i8]* @strlit.2, align 1
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.VARIANT.DISPATCH"(),
     "QUAL.OMP.DEVICE"(i32 0) ]
-  call void @submodule_mp_foo_(ptr @strlit.2, ptr @0, i64 5)
+  call void @submodule_mp_foo_(i8* getelementptr inbounds ([5 x i8], [5 x i8]* @strlit.2, i32 0, i32 0), i32* @0, i64 5)
   br label %bb5
 
 bb5:                                              ; preds = %alloca_3
@@ -68,11 +68,11 @@ bb5:                                              ; preds = %alloca_3
   ret void
 }
 
-declare void @submodule_mp_foo_gpu_(ptr readonly %STRING, ptr readonly dereferenceable(4) %NUM, ptr dereferenceable(8) %INTEROP, i64 %"var$1$val")
-declare void @submodule_mp_foo_(ptr readonly %STRING, ptr readonly dereferenceable(4) %NUM, i64 %"var$2$val") #0
-declare i32 @for_write_seq_lis(ptr %0, i32 %1, i64 %2, ptr %3, ptr %4, ...)
-declare i32 @for_write_seq_lis_xmit(ptr nocapture readonly %0, ptr nocapture readonly %1, ptr %2)
-declare i32 @for_set_reentrancy(ptr nocapture readonly %0)
+declare void @submodule_mp_foo_gpu_(i8* readonly %STRING, i32* readonly dereferenceable(4) %NUM, %"ISO_C_BINDING$.btC_PTR"* dereferenceable(8) %INTEROP, i64 %"var$1$val")
+declare void @submodule_mp_foo_(i8* readonly %STRING, i32* readonly dereferenceable(4) %NUM, i64 %"var$2$val") #0
+declare i32 @for_write_seq_lis(i8* %0, i32 %1, i64 %2, i8* %3, i8* %4, ...)
+declare i32 @for_write_seq_lis_xmit(i8* nocapture readonly %0, i8* nocapture readonly %1, i8* %2)
+declare i32 @for_set_reentrancy(i32* nocapture readonly %0)
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token %0)
 

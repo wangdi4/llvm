@@ -1,7 +1,6 @@
 ; INTEL_CUSTOMIZATION
-;
-; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt-prepare -S %s | FileCheck %s
-; RUN: opt -passes='function(vpo-paropt-prepare)' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-paropt-prepare -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='function(vpo-paropt-prepare)' -S %s | FileCheck %s
 ;
 ; Comple the Fortran source code below with ifx -c -fiopenmp -fopenmp-targets=spir64
 ;
@@ -38,7 +37,7 @@
 ; there were no store instructions in the region after the subroutine call.)
 ;
 ; Verify that the variant call to foo_gpu is emitted
-; CHECK: %variant = call i32 @foo_gpu_(ptr
+; CHECK: %variant = call i32 @foo_gpu_(i32*
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -73,11 +72,11 @@ bb8:                                              ; preds = %bb5
   br label %bb7
 
 bb9:                                              ; preds = %bb7
-  %func_result2 = call i32 @foo_(ptr %"main_$ARG")
+  %func_result2 = call i32 @foo_(i32* %"main_$ARG")
   br label %bb6
 
 bb6:                                              ; preds = %bb9
-  store i32 %func_result2, ptr %"main_$RES_GPU", align 1
+  store i32 %func_result2, i32* %"main_$RES_GPU", align 1
   br label %DIR.OMP.END.TARGET.VARIANT.DISPATCH.2
 
 DIR.OMP.END.TARGET.VARIANT.DISPATCH.2:            ; preds = %bb6
@@ -93,7 +92,7 @@ bb1:                                              ; preds = %DIR.OMP.END.TARGET.
 
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
-declare i32 @foo_(ptr) #0
+declare i32 @foo_(i32*) #0
 
 attributes #0 = { "openmp-variant"="name:foo_gpu_;construct:target_variant_dispatch;arch:gen" }
 ; end INTEL_CUSTOMIZATION

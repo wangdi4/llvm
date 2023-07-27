@@ -1,5 +1,5 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt --passes="vpo-paropt-loop-collapse" -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 --passes="vpo-paropt-loop-collapse" -S %s | FileCheck %s
 
 ; More complex version of collapse-sect.ll.
 ; PARALLEL LOOP {
@@ -176,8 +176,8 @@ omp.pdo.cond476:                                  ; preds = %DIR.OMP.LOOP.20, %d
   br i1 undef, label %omp.pdo.body477, label %omp.pdo.epilog478
 
 omp.pdo.body477:                                  ; preds = %omp.pdo.cond476
-  %do.norm.lb_fetch.391 = load i64, ptr undef, align 8
-  store i64 %do.norm.lb_fetch.391, ptr undef, align 8
+  %do.norm.lb_fetch.391 = load i64, i64* undef, align 8
+  store i64 %do.norm.lb_fetch.391, i64* undef, align 8
   br label %do.cond482
 
 do.cond482:                                       ; preds = %do.body483, %omp.pdo.body477
@@ -193,13 +193,13 @@ bb_new479:                                        ; preds = %DIR.OMP.END.MASKED.
   %8 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(),
     "QUAL.OMP.COLLAPSE"(i32 2),
     "QUAL.OMP.SCHEDULE.STATIC"(i32 0),
-    "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr undef, i64 0, ptr undef, i64 0),
-    "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr undef, i64 0, ptr undef, i64 0) ]
+    "QUAL.OMP.NORMALIZED.IV"(i64* undef, i64* undef),
+    "QUAL.OMP.NORMALIZED.UB"(i64* undef, i64* undef) ]
   br label %DIR.OMP.LOOP.20
 
 DIR.OMP.LOOP.20:                                  ; preds = %bb_new479
-  %omp.pdo.norm.lb_fetch.381 = load i64, ptr undef, align 8
-  store i64 %omp.pdo.norm.lb_fetch.381, ptr undef, align 8
+  %omp.pdo.norm.lb_fetch.381 = load i64, i64* undef, align 8
+  store i64 %omp.pdo.norm.lb_fetch.381, i64* undef, align 8
   br label %omp.pdo.cond476
 
 omp.pdo.epilog478:                                ; preds = %omp.pdo.cond476
@@ -216,7 +216,9 @@ rtn:
 
 DIR.OMP.PARALLEL.23:                              ; preds = %bb32
   %9 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
-    "QUAL.OMP.SHARED"(ptr @cccsds_) ]
+    "QUAL.OMP.SHARED"(i64* bitcast ([240 x i8]* @cccsds_ to i64*)),
+    "QUAL.OMP.FIRSTPRIVATE"(i64* bitcast (i8* getelementptr inbounds ([56 x i8], [56 x i8]* @len_, i32 0, i64 16) to i64*)),
+    "QUAL.OMP.FIRSTPRIVATE"(i64* bitcast (i8* getelementptr inbounds ([56 x i8], [56 x i8]* @len_, i32 0, i64 8) to i64*)) ]
   br label %bb_new352
 
 bb_new352:                                        ; preds = %DIR.OMP.PARALLEL.23
