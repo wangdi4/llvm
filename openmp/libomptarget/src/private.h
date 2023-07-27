@@ -466,6 +466,12 @@ public:
   }
 
   operator AsyncInfoTy &() { return *AsyncInfo; }
+#if INTEL_CUSTOMIZATION
+  // Coverity fix -- missing copy assignment constructor. Disabling copy
+  // construction makes more sense for this type.
+  TaskAsyncInfoWrapperTy(const TaskAsyncInfoWrapperTy &O) = delete;
+  TaskAsyncInfoWrapperTy &operator=(const TaskAsyncInfoWrapperTy &O) = delete;
+#endif // INTEL_CUSTOMIZATION
 };
 
 // Implement exponential backoff counting.
