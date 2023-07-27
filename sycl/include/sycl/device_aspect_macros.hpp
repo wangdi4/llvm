@@ -481,7 +481,6 @@
 #ifndef __SYCL_ANY_DEVICE_HAS_ext_intel_legacy_image__
 // __SYCL_ASPECT(ext_intel_legacy_image, 41)
 #define __SYCL_ANY_DEVICE_HAS_ext_intel_legacy_image__ 0
-<<<<<<< HEAD
 #endif
 
 #ifndef __SYCL_ANY_DEVICE_HAS_ext_oneapi_bindless_images__
@@ -537,6 +536,4 @@
 #ifndef __SYCL_ANY_DEVICE_HAS_ext_oneapi_mipmap_level_reference__
 //__SYCL_ASPECT(ext_oneapi_mipmap_level_reference, 52)
 #define __SYCL_ANY_DEVICE_HAS_ext_oneapi_mipmap_level_reference__ 0
-=======
->>>>>>> b2f76288ce7fb05266d985fb79790e259be193a8
 #endif
