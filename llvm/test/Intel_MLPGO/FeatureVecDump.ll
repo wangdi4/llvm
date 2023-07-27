@@ -3,7 +3,7 @@
 ; RUN: cat %t.profile.mlpgo* | FileCheck %s --check-prefixes=FEATURE_DUMP
 ; Remove the output to avoid collision with subsequent runs of the test
 ; RUN: rm %t.profile.mlpgo*
-; RUN: env INTEL_MLPGO="1" opt -debug-only=mlpgo -passes=mlpgo %s -S 2>&1 | FileCheck %s --check-prefixes=PROB_DUMP,PROB_METADATA
+; RUN: opt -profile-ml-use -debug-only=mlpgo -passes=mlpgo %s -S 2>&1 | FileCheck %s --check-prefixes=PROB_DUMP,PROB_METADATA
 
 ; The IR is generated from
 ; int TripCount = 64;
