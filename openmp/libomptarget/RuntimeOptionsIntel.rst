@@ -136,6 +136,24 @@ Only OpenCL plugin supports "CPU" device type.
 
 **Default**: GPU type
 
+``ONEAPI_DEVICE_SELECTOR = <selector-string>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+<selector-string> ::= { <accept-filters> | <discard-filters> | <accept-filters>;<discard-filters> }
+<accept-filters> ::= <accept-filter>[;<accept-filter>...]
+<discard-filters> ::= <discard-filter>[;<discard-filter>...]
+<accept-filter> ::= <term>
+<discard-filter> ::= !<term>  // currently  not supported
+<term> ::= <backend>:<devices>
+<backend> ::= { * | level_zero | opencl | x86_64 }  // case insensitive
+<devices> ::= <device>[,<device>...]
+<device> ::= { * | cpu | gpu | fpga | <num> | <num>.<num> | <num>.* | *.* | <num>.<num>.<num> | <num>.<num>.* | <num>.*.* | *.*.*  } 
+
+Enables selecting plugins, devicetypes and devices.
+
+**Default**: undefined
+
 ``LIBOMPTARGET_PLUGIN_PROFILE=<Enable>[,<Unit>]``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code-block:: rst

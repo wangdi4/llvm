@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-post-vec-complete-unroll,print<hir>" 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-post-vec-complete-unroll,print<hir>" 2>&1 < %s | FileCheck %s
 
 ; Verify that we suppress the unrolling of this loopnest because we do not clean
 ; up the liveout use of %4 when the inner loop is eliminated during unrolling.
@@ -22,7 +22,7 @@
 ; CHECK: |   {
 ; CHECK: |      + DO i2 = 0, i1 + -4, 1   <DO_LOOP>  <MAX_TC_EST = 1>
 ; CHECK: |      |   %4 = (@l)[0][i1];
-; CHECK: |      |   (@l)[0][0] = %4;
+; CHECK: |      |   (i32*)(@l)[0] = %4;
 ; CHECK: |      + END LOOP
 ; CHECK: |
 ; CHECK: |      (@c)[0] = %1;
@@ -51,10 +51,10 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind uwtable
 define i32 @main() local_unnamed_addr #0 {
 entry:
-  store i32 3, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @l, i64 0, i64 0), align 16, !tbaa !2
-  %0 = load i32, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @l2, i64 0, i64 0), align 16
+  store i32 3, ptr @l, align 16, !tbaa !2
+  %0 = load i32, ptr @l2, align 16
   %tobool1 = icmp eq i32 %0, 0
-  %uwu.promoted = load i32, i32* @uwu, align 4, !tbaa !7
+  %uwu.promoted = load i32, ptr @uwu, align 4, !tbaa !7
   br label %for.body
 
 for.body:                                         ; preds = %for.inc18, %entry
@@ -62,15 +62,15 @@ for.body:                                         ; preds = %for.inc18, %entry
   %indvars.iv41 = phi i64 [ 0, %entry ], [ %indvars.iv.next42, %for.inc18 ]
   %indvars.iv = phi i32 [ 1, %entry ], [ %indvars.iv.next, %for.inc18 ]
   %sub40 = phi i32 [ %uwu.promoted, %entry ], [ %sub, %for.inc18 ]
-  %arrayidx = getelementptr inbounds [20 x i32], [20 x i32]* @n, i64 0, i64 %indvars.iv41
-  %2 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [20 x i32], ptr @n, i64 0, i64 %indvars.iv41
+  %2 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %tobool = icmp eq i32 %2, 0
   %brmerge = or i1 %tobool, %tobool1
   %.mux = select i1 %tobool, i32 8, i32 0
   br i1 %brmerge, label %cond.end4, label %cond.true2
 
 cond.true2:                                       ; preds = %for.body
-  %3 = load i32, i32* @p, align 4, !tbaa !7
+  %3 = load i32, ptr @p, align 4, !tbaa !7
   %mul = mul i32 %3, %1
   br label %cond.end4
 
@@ -81,21 +81,21 @@ cond.end4:                                        ; preds = %for.body, %cond.tru
   br i1 %tobool6, label %for.inc18, label %for.body12.lr.ph
 
 for.body12.lr.ph:                                 ; preds = %cond.end4
-  %arrayidx14 = getelementptr inbounds [20 x i32], [20 x i32]* @l, i64 0, i64 %indvars.iv41
+  %arrayidx14 = getelementptr inbounds [20 x i32], ptr @l, i64 0, i64 %indvars.iv41
   br label %for.body12
 
 for.body12:                                       ; preds = %for.body12.lr.ph, %for.body12
   %jv.034 = phi i32 [ 4, %for.body12.lr.ph ], [ %inc, %for.body12 ]
-  %4 = load i32, i32* %arrayidx14, align 4, !tbaa !2
-  store i32 %4, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @l, i64 0, i64 0), align 16, !tbaa !2
+  %4 = load i32, ptr %arrayidx14, align 4, !tbaa !2
+  store i32 %4, ptr @l, align 16, !tbaa !2
   %inc = add nuw nsw i32 %jv.034, 1
   %exitcond = icmp eq i32 %inc, %indvars.iv
   br i1 %exitcond, label %for.cond7.for.inc18.loopexit_crit_edge, label %for.body12
 
 for.cond7.for.inc18.loopexit_crit_edge:           ; preds = %for.body12
   %.lcssa = phi i32 [ %4, %for.body12 ]
-  store i32 %1, i32* @c, align 4, !tbaa !7
-  store i32 %1, i32* @p, align 4, !tbaa !7
+  store i32 %1, ptr @c, align 4, !tbaa !7
+  store i32 %1, ptr @p, align 4, !tbaa !7
   br label %for.inc18
 
 for.inc18:                                        ; preds = %for.cond7.for.inc18.loopexit_crit_edge, %cond.end4
@@ -107,7 +107,7 @@ for.inc18:                                        ; preds = %for.cond7.for.inc18
 
 for.end20:                                        ; preds = %for.inc18
   %sub.lcssa = phi i32 [ %sub, %for.inc18 ]
-  store i32 %sub.lcssa, i32* @uwu, align 4, !tbaa !7
+  store i32 %sub.lcssa, ptr @uwu, align 4, !tbaa !7
   ret i32 0
 }
 

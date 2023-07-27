@@ -39,7 +39,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @Glob = dso_local local_unnamed_addr constant [2 x %struct.S] [%struct.S { i32 1, i32 2 }, %struct.S { i32 3, i32 0 }], align 16
 
 ; Function Attrs: nofree norecurse nounwind uwtable
-define dso_local void @foo(i32* nocapture %A, i32 %n) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture %A, i32 %n) local_unnamed_addr #0 {
 entry:
   %cmp26 = icmp sgt i32 %n, 0
   br i1 %cmp26, label %for.cond1.preheader.preheader, label %for.cond.cleanup
@@ -65,20 +65,20 @@ for.cond.cleanup3:                                ; preds = %for.body4
 for.body4:                                        ; preds = %for.cond1.preheader, %for.body4
   %cmp2 = phi i1 [ true, %for.cond1.preheader ], [ false, %for.body4 ]
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ 1, %for.body4 ]
-  %a = getelementptr inbounds [2 x %struct.S], [2 x %struct.S]* @Glob, i64 0, i64 %indvars.iv, i32 0, !intel-tbaa !2
-  %0 = load i32, i32* %a, align 8, !tbaa !2
+  %a = getelementptr inbounds [2 x %struct.S], ptr @Glob, i64 0, i64 %indvars.iv, i32 0, !intel-tbaa !2
+  %0 = load i32, ptr %a, align 8, !tbaa !2
   %1 = shl nuw nsw i64 %indvars.iv, 1
-  %ptridx = getelementptr inbounds i32, i32* %A, i64 %1
-  %2 = load i32, i32* %ptridx, align 4, !tbaa !8
+  %ptridx = getelementptr inbounds i32, ptr %A, i64 %1
+  %2 = load i32, ptr %ptridx, align 4, !tbaa !8
   %add = add nsw i32 %2, %0
-  store i32 %add, i32* %ptridx, align 4, !tbaa !8
-  %b = getelementptr inbounds [2 x %struct.S], [2 x %struct.S]* @Glob, i64 0, i64 %indvars.iv, i32 1, !intel-tbaa !9
-  %3 = load i32, i32* %b, align 4, !tbaa !9
+  store i32 %add, ptr %ptridx, align 4, !tbaa !8
+  %b = getelementptr inbounds [2 x %struct.S], ptr @Glob, i64 0, i64 %indvars.iv, i32 1, !intel-tbaa !9
+  %3 = load i32, ptr %b, align 4, !tbaa !9
   %4 = or i64 %1, 1
-  %ptridx11 = getelementptr inbounds i32, i32* %A, i64 %4
-  %5 = load i32, i32* %ptridx11, align 4, !tbaa !8
+  %ptridx11 = getelementptr inbounds i32, ptr %A, i64 %4
+  %5 = load i32, ptr %ptridx11, align 4, !tbaa !8
   %add12 = add nsw i32 %5, %3
-  store i32 %add12, i32* %ptridx11, align 4, !tbaa !8
+  store i32 %add12, ptr %ptridx11, align 4, !tbaa !8
   br i1 %cmp2, label %for.body4, label %for.cond.cleanup3
 }
 

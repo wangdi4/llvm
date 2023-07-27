@@ -39,7 +39,7 @@
 
 target datalayout = "p:32:32"
 
-define void @foo(float* %ptr1, float* %ptr2, float* %ptr3, i32 %stride1, i32 %stride2) {
+define void @foo(ptr %ptr1, ptr %ptr2, ptr %ptr3, i32 %stride1, i32 %stride2) {
 entry:
   br label %outer
 
@@ -52,22 +52,22 @@ outer:                                    ; preds = %entry, %middle.exit
 middle:                                    ; preds = %inner.exit, %inner.exit
   %iv.m = phi i32 [ 0, %outer ], [ %iv.next.m, %inner.exit ]
   %2 = add nsw i32 %iv.m, %0
-  %3 = getelementptr inbounds float, float* %ptr1, i32 %2
+  %3 = getelementptr inbounds float, ptr %ptr1, i32 %2
   br label %inner
 
 inner:                                    ; preds = %inner, %middle
   %iv.i = phi i32 [ 0, %middle ], [ %iv.next.i, %inner ]
-  %4 = load float, float* %3, align 4
+  %4 = load float, ptr %3, align 4
   %5 = mul nuw nsw i32 %iv.i, 25
   %6 = add i32 %1, %5
-  %7 = getelementptr inbounds float, float* %ptr2, i32 %6
-  %8 = load float, float* %7, align 4
+  %7 = getelementptr inbounds float, ptr %ptr2, i32 %6
+  %8 = load float, ptr %7, align 4
   %9 = fmul fast float %8, %4
   %10 = add nuw nsw i32 %5, %iv.m
-  %11 = getelementptr inbounds float, float* %ptr3, i32 %10
-  %12 = load float, float* %11, align 4
+  %11 = getelementptr inbounds float, ptr %ptr3, i32 %10
+  %12 = load float, ptr %11, align 4
   %13 = fadd fast float %12, %9
-  store float %13, float* %11, align 4
+  store float %13, ptr %11, align 4
   %iv.next.i = add nuw nsw i32 %iv.i, 1
   %14 = icmp eq i32 %iv.next.i, %stride1
   br i1 %14, label %inner.exit, label %inner

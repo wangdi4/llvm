@@ -1,7 +1,7 @@
 ; Test that this lit test can be passed with opaque pointer and get the correct value of the
 ; const aggregate variable to create the const ref in DDRefUtils::simplifyConstArray().
-; 
-; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-pre-vec-complete-unroll,print<hir>" 2>&1 < %s | FileCheck %s
+;
+; RUN: opt -passes="hir-ssa-deconstruction,hir-pre-vec-complete-unroll,print<hir>" 2>&1 < %s | FileCheck %s
 ;
 ;*** IR Dump Before HIR PreVec Complete Unroll (hir-pre-vec-complete-unroll) ***
 ;Function: e

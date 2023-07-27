@@ -73,7 +73,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @_ZL4glob = internal unnamed_addr constant [2 x [2 x double]] [[2 x double] [double 1.000000e+00, double 2.000000e+00], [2 x double] [double 3.000000e+00, double 0.000000e+00]], align 16
 
 ; Function Attrs: uwtable
-define dso_local i32 @_Z3fooPii(i32* nocapture readonly %A, i32 %n) local_unnamed_addr #0 {
+define dso_local i32 @_Z3fooPii(ptr nocapture readonly %A, i32 %n) local_unnamed_addr #0 {
 entry:
   %cmp46 = icmp sgt i32 %n, 0
   br i1 %cmp46, label %for.cond1.preheader.preheader, label %for.cond.cleanup
@@ -100,8 +100,8 @@ for.body4:                                        ; preds = %for.cond1.preheader
   %add2.041 = phi i32 [ 0, %for.cond1.preheader ], [ %add2.1, %for.inc ]
   %sum.140 = phi i32 [ %sum.047, %for.cond1.preheader ], [ %add5, %for.inc ]
   %add5 = add nsw i32 %add2.041, %sum.140
-  %ptridx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %0 = load i32, i32* %ptridx, align 4, !tbaa !2
+  %ptridx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %0 = load i32, ptr %ptridx, align 4, !tbaa !2
   %cmp6 = icmp eq i32 %0, 0
   br i1 %cmp6, label %for.inc, label %if.then
 
@@ -128,12 +128,12 @@ for.body11:                                       ; preds = %for.body11.preheade
   %indvars.iv49 = phi i64 [ 1, %for.inc19 ], [ 0, %for.body11.preheader ]
   %add.044 = phi i32 [ %add.1, %for.inc19 ], [ 1, %for.body11.preheader ]
   %sum.243 = phi i32 [ %add14, %for.inc19 ], [ %add5.lcssa, %for.body11.preheader ]
-  %ptridx13 = getelementptr inbounds i32, i32* %A, i64 %indvars.iv49
-  %1 = load i32, i32* %ptridx13, align 4, !tbaa !2
+  %ptridx13 = getelementptr inbounds i32, ptr %A, i64 %indvars.iv49
+  %1 = load i32, ptr %ptridx13, align 4, !tbaa !2
   %mul = mul nsw i32 %1, %add.044
   %add14 = add nsw i32 %mul, %sum.243
-  %arrayidx = getelementptr inbounds [2 x [2 x double]], [2 x [2 x double]]* @_ZL4glob, i64 0, i64 0, i64 %indvars.iv49
-  %2 = load double, double* %arrayidx, align 8, !tbaa !6
+  %arrayidx = getelementptr inbounds [2 x [2 x double]], ptr @_ZL4glob, i64 0, i64 0, i64 %indvars.iv49
+  %2 = load double, ptr %arrayidx, align 8, !tbaa !6
   %cmp16 = fcmp fast une double %2, 0.000000e+00
   br i1 %cmp16, label %if.then17, label %for.inc19
 

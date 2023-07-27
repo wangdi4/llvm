@@ -69,7 +69,7 @@ for.cond5.preheader:                              ; preds = %for.cond1.preheader
   %cmp2 = phi i1 [ true, %for.cond1.preheader ], [ false, %for.cond.cleanup7 ]
   %indvars.iv45 = phi i64 [ 0, %for.cond1.preheader ], [ 1, %for.cond.cleanup7 ]
   %sum.addr.141 = phi i32 [ %sum.addr.043, %for.cond1.preheader ], [ %sum.addr.3.lcssa, %for.cond.cleanup7 ]
-  %arrayidx15 = getelementptr inbounds [2 x [2 x i32]], [2 x [2 x i32]]* @glob, i64 0, i64 %indvars.iv45, i64 %indvars.iv45
+  %arrayidx15 = getelementptr inbounds [2 x [2 x i32]], ptr @glob, i64 0, i64 %indvars.iv45, i64 %indvars.iv45
   br label %for.body8
 
 for.cond.cleanup3:                                ; preds = %for.cond.cleanup7
@@ -86,15 +86,15 @@ for.body8:                                        ; preds = %for.cond5.preheader
   %cmp6 = phi i1 [ true, %for.cond5.preheader ], [ false, %for.inc ]
   %indvars.iv = phi i64 [ 0, %for.cond5.preheader ], [ 1, %for.inc ]
   %sum.addr.239 = phi i32 [ %sum.addr.141, %for.cond5.preheader ], [ %sum.addr.3, %for.inc ]
-  %arrayidx10 = getelementptr inbounds [2 x [2 x i32]], [2 x [2 x i32]]* @glob, i64 0, i64 %indvars.iv45, i64 %indvars.iv, !intel-tbaa !4
-  %0 = load i32, i32* %arrayidx10, align 4, !tbaa !4
+  %arrayidx10 = getelementptr inbounds [2 x [2 x i32]], ptr @glob, i64 0, i64 %indvars.iv45, i64 %indvars.iv, !intel-tbaa !4
+  %0 = load i32, ptr %arrayidx10, align 4, !tbaa !4
   %cmp11 = icmp eq i32 %0, 0
   br i1 %cmp11, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body8
-  %1 = load i32, i32* %arrayidx15, align 4, !tbaa !4
-  %arrayidx19 = getelementptr inbounds [2 x [2 x i32]], [2 x [2 x i32]]* @glob, i64 0, i64 %indvars.iv, i64 %indvars.iv, !intel-tbaa !4
-  %2 = load i32, i32* %arrayidx19, align 4, !tbaa !4
+  %1 = load i32, ptr %arrayidx15, align 4, !tbaa !4
+  %arrayidx19 = getelementptr inbounds [2 x [2 x i32]], ptr @glob, i64 0, i64 %indvars.iv, i64 %indvars.iv, !intel-tbaa !4
+  %2 = load i32, ptr %arrayidx19, align 4, !tbaa !4
   %mul = mul nsw i32 %2, %1
   %add = add nsw i32 %mul, %sum.addr.239
   br label %for.inc

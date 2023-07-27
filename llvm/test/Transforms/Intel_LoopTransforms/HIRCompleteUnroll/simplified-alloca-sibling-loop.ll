@@ -8,16 +8,16 @@
 
 ; CHECK: BEGIN REGION { }
 ; CHECK: + DO i1 = 0, 9, 1   <DO_LOOP>
-; CHECK: |   %2 = (@A)[0][i1];
-; CHECK: |   (%B)[0][i1] = %2 + 1;
+; CHECK: |   %0 = (@A)[0][i1];
+; CHECK: |   (%B)[0][i1] = %0 + 1;
 ; CHECK: + END LOOP
 ; CHECK: END REGION
 
 ; CHECK: BEGIN REGION { }
 ; CHECK: + DO i1 = 0, 9, 1   <DO_LOOP>
-; CHECK: |   %3 = (%B)[0][i1];
-; CHECK: |   %4 = (@A)[0][i1];
-; CHECK: |   (%C)[0][i1] = %3 + %4;
+; CHECK: |   %1 = (%B)[0][i1];
+; CHECK: |   %2 = (@A)[0][i1];
+; CHECK: |   (%C)[0][i1] = %1 + %2;
 ; CHECK: + END LOOP
 ; CHECK: END REGION
 
@@ -36,19 +36,17 @@ define i32 @foo() local_unnamed_addr #0 {
 entry:
   %B = alloca [100 x i32], align 16
   %C = alloca [100 x i32], align 16
-  %0 = bitcast [100 x i32]* %B to i8*
-  call void @llvm.lifetime.start.p0i8(i64 400, i8* nonnull %0) #2
-  %1 = bitcast [100 x i32]* %C to i8*
-  call void @llvm.lifetime.start.p0i8(i64 400, i8* nonnull %1) #2
+  call void @llvm.lifetime.start.p0(i64 400, ptr nonnull %B) #2
+  call void @llvm.lifetime.start.p0(i64 400, ptr nonnull %C) #2
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv30 = phi i64 [ 0, %entry ], [ %indvars.iv.next31, %for.body ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %indvars.iv30
-  %2 = load i32, i32* %arrayidx, align 4, !tbaa !2
-  %add = add nsw i32 %2, 1
-  %arrayidx2 = getelementptr inbounds [100 x i32], [100 x i32]* %B, i64 0, i64 %indvars.iv30
-  store i32 %add, i32* %arrayidx2, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %indvars.iv30
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
+  %add = add nsw i32 %0, 1
+  %arrayidx2 = getelementptr inbounds [100 x i32], ptr %B, i64 0, i64 %indvars.iv30
+  store i32 %add, ptr %arrayidx2, align 4, !tbaa !2
   %indvars.iv.next31 = add nuw nsw i64 %indvars.iv30, 1
   %exitcond32 = icmp eq i64 %indvars.iv.next31, 10
   br i1 %exitcond32, label %for.end, label %for.body
@@ -58,33 +56,33 @@ for.end:                                          ; preds = %for.body
 
 for.body5:                                        ; preds = %for.body5, %for.end
   %indvars.iv = phi i64 [ 0, %for.end ], [ %indvars.iv.next, %for.body5 ]
-  %arrayidx7 = getelementptr inbounds [100 x i32], [100 x i32]* %B, i64 0, i64 %indvars.iv
-  %3 = load i32, i32* %arrayidx7, align 4, !tbaa !2
-  %arrayidx9 = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %indvars.iv
-  %4 = load i32, i32* %arrayidx9, align 4, !tbaa !2
-  %add10 = add nsw i32 %4, %3
-  %arrayidx12 = getelementptr inbounds [100 x i32], [100 x i32]* %C, i64 0, i64 %indvars.iv
-  store i32 %add10, i32* %arrayidx12, align 4, !tbaa !2
+  %arrayidx7 = getelementptr inbounds [100 x i32], ptr %B, i64 0, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx7, align 4, !tbaa !2
+  %arrayidx9 = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %indvars.iv
+  %2 = load i32, ptr %arrayidx9, align 4, !tbaa !2
+  %add10 = add nsw i32 %2, %1
+  %arrayidx12 = getelementptr inbounds [100 x i32], ptr %C, i64 0, i64 %indvars.iv
+  store i32 %add10, ptr %arrayidx12, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 10
   br i1 %exitcond, label %for.end15, label %for.body5
 
 for.end15:                                        ; preds = %for.body5
-  %arrayidx16 = getelementptr inbounds [100 x i32], [100 x i32]* %C, i64 0, i64 2
-  %5 = load i32, i32* %arrayidx16, align 8, !tbaa !2
-  %arrayidx17 = getelementptr inbounds [100 x i32], [100 x i32]* %C, i64 0, i64 3
-  %6 = load i32, i32* %arrayidx17, align 4, !tbaa !2
-  %add18 = add nsw i32 %6, %5
-  call void @llvm.lifetime.end.p0i8(i64 400, i8* nonnull %1) #2
-  call void @llvm.lifetime.end.p0i8(i64 400, i8* nonnull %0) #2
+  %arrayidx16 = getelementptr inbounds [100 x i32], ptr %C, i64 0, i64 2
+  %3 = load i32, ptr %arrayidx16, align 8, !tbaa !2
+  %arrayidx17 = getelementptr inbounds [100 x i32], ptr %C, i64 0, i64 3
+  %4 = load i32, ptr %arrayidx17, align 4, !tbaa !2
+  %add18 = add nsw i32 %4, %3
+  call void @llvm.lifetime.end.p0(i64 400, ptr nonnull %C) #2
+  call void @llvm.lifetime.end.p0(i64 400, ptr nonnull %B) #2
   ret i32 %add18
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0(i64, ptr nocapture) #1
 
 attributes #0 = { nounwind readonly uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

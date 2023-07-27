@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that after complete unrolling the If, switch and labels are removed.
 
@@ -34,17 +34,17 @@
 ; CHECK-NOT: switch
 ; CHECK-NOT: :
 
-; CHECK: %3 = (@a)[0][0];
+; CHECK: %3 = (i32*)(@a)[0];
 ; CHECK: %xor5 = %3  ^  1;
-; CHECK: (@a)[0][0] = %xor5;
+; CHECK: (i32*)(@a)[0] = %xor5;
 
 ; CHECK-NOT: if
 ; CHECK-NOT: switch
 ; CHECK-NOT: :
 
-; CHECK: %3 = (@a)[0][0];
+; CHECK: %3 = (i32*)(@a)[0];
 ; CHECK: %xor5 = %3  ^  1;
-; CHECK: (@a)[0][0] = %xor5;
+; CHECK: (i32*)(@a)[0] = %xor5;
 
 ; CHECK: END REGION
 
@@ -65,7 +65,7 @@ entry:
 ; Function Attrs: norecurse nounwind uwtable
 define i32 @main() local_unnamed_addr #1 {
 entry:
-  %0 = load i8, i8* @x, align 1
+  %0 = load i8, ptr @x, align 1
   %tobool = icmp eq i8 %0, 0
   br label %for.body
 
@@ -83,13 +83,13 @@ cond.true:                                        ; preds = %for.body
 
 sw.bb:                                            ; preds = %cond.true, %cond.true
   %2 = xor i8 %1, 1
-  store i8 %2, i8* @x, align 1
+  store i8 %2, ptr @x, align 1
   br label %for.inc
 
 sw.default:                                       ; preds = %cond.true, %for.body
-  %3 = load i32, i32* getelementptr inbounds ([5 x i32], [5 x i32]* @a, i64 0, i64 0), align 16
+  %3 = load i32, ptr @a, align 16
   %xor5 = xor i32 %3, 1
-  store i32 %xor5, i32* getelementptr inbounds ([5 x i32], [5 x i32]* @a, i64 0, i64 0), align 16
+  store i32 %xor5, ptr @a, align 16
   br label %for.inc
 
 for.inc:                                          ; preds = %sw.default, %sw.bb

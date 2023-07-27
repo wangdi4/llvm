@@ -42,7 +42,7 @@ outer.loop:
 
 loop:
   %iv = phi i64 [ 0, %outer.loop], [ %iv.inc, %loop]
-  %gep1 = getelementptr [2 x %stuct.func.ptr], [2 x %stuct.func.ptr]* @struct_glob, i64 0, i64 %iv, i32 0
+  %gep1 = getelementptr [2 x %stuct.func.ptr], ptr @struct_glob, i64 0, i64 %iv, i32 0
   %char_ld = load ptr, ptr %gep1
   %iv.inc = add i64 %iv, 1
   %cmp = icmp eq i64 %iv.inc, 2

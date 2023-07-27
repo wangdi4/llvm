@@ -23,7 +23,7 @@
 
 %struct.t_struct = type { i8, i32, [4 x double] }
 
-define void @foo(%struct.t_struct* %a.fpriv, i32 %t4) {
+define void @foo(ptr %a.fpriv, i32 %t4) {
 entry:
   br label %omp.inner.for.body.us.us
 
@@ -33,8 +33,8 @@ omp.inner.for.body.us.us:                         ; preds = %omp.inner.for.inc.u
 
 for.body22.us.us:                                 ; preds = %for.inc37.us.us, %omp.inner.for.body.us.us
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.inc37.us.us ], [ 0, %omp.inner.for.body.us.us ]
-  %arrayidx25.us.us = getelementptr inbounds %struct.t_struct, %struct.t_struct* %a.fpriv, i64 0, i32 2, i64 %indvars.iv
-  %t5 = load double, double* %arrayidx25.us.us, align 8
+  %arrayidx25.us.us = getelementptr inbounds %struct.t_struct, ptr %a.fpriv, i64 0, i32 2, i64 %indvars.iv
+  %t5 = load double, ptr %arrayidx25.us.us, align 8
   %sub.us.us = fadd reassoc double %t5, -3.330000e+01
   %t6 = tail call reassoc double @llvm.fabs.f64(double %sub.us.us)
   %cmp26.us.us = fcmp reassoc ogt double %t6, 0x3E7AD7F29ABCAF48

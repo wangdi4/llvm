@@ -36,14 +36,14 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree nosync nounwind writeonly uwtable
-define void @sub_(float* noalias nocapture writeonly dereferenceable(4) %"sub_$RDA") local_unnamed_addr #0 {
+define void @sub_(ptr noalias nocapture writeonly dereferenceable(4) %"sub_$RDA") local_unnamed_addr #0 {
 alloca_0:
   br label %loop_test23.preheader
 
 loop_body4:                                       ; preds = %loop_test3.preheader, %loop_body4
   %"$loop_ctr.021" = phi i64 [ 1, %loop_test3.preheader ], [ %add.1, %loop_body4 ]
-  %"sub_$RDA_entry[][][][][][][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %"sub_$RDA_entry[][][][][][]", i64 %"$loop_ctr.021")
-  store float 1.000000e+00, float* %"sub_$RDA_entry[][][][][][][]", align 1, !tbaa !0
+  %"sub_$RDA_entry[][][][][][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(float) %"sub_$RDA_entry[][][][][][]", i64 %"$loop_ctr.021")
+  store float 1.000000e+00, ptr %"sub_$RDA_entry[][][][][][][]", align 1, !tbaa !0
   %add.1 = add nuw nsw i64 %"$loop_ctr.021", 1
   %exitcond.not = icmp eq i64 %add.1, 4
   br i1 %exitcond.not, label %loop_exit5, label %loop_body4
@@ -55,7 +55,7 @@ loop_exit5:                                       ; preds = %loop_body4
 
 loop_test3.preheader:                             ; preds = %loop_test7.preheader, %loop_exit5
   %"$loop_ctr1.022" = phi i64 [ 1, %loop_test7.preheader ], [ %add.2, %loop_exit5 ]
-  %"sub_$RDA_entry[][][][][][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 12, float* nonnull elementtype(float) %"sub_$RDA_entry[][][][][]", i64 %"$loop_ctr1.022")
+  %"sub_$RDA_entry[][][][][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 12, ptr nonnull elementtype(float) %"sub_$RDA_entry[][][][][]", i64 %"$loop_ctr1.022")
   br label %loop_body4
 
 loop_exit9:                                       ; preds = %loop_exit5
@@ -65,7 +65,7 @@ loop_exit9:                                       ; preds = %loop_exit5
 
 loop_test7.preheader:                             ; preds = %loop_test11.preheader, %loop_exit9
   %"$loop_ctr2.023" = phi i64 [ 1, %loop_test11.preheader ], [ %add.3, %loop_exit9 ]
-  %"sub_$RDA_entry[][][][][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 36, float* nonnull elementtype(float) %"sub_$RDA_entry[][][][]", i64 %"$loop_ctr2.023")
+  %"sub_$RDA_entry[][][][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 36, ptr nonnull elementtype(float) %"sub_$RDA_entry[][][][]", i64 %"$loop_ctr2.023")
   br label %loop_test3.preheader
 
 loop_exit13:                                      ; preds = %loop_exit9
@@ -75,7 +75,7 @@ loop_exit13:                                      ; preds = %loop_exit9
 
 loop_test11.preheader:                            ; preds = %loop_test15.preheader, %loop_exit13
   %"$loop_ctr3.024" = phi i64 [ 1, %loop_test15.preheader ], [ %add.4, %loop_exit13 ]
-  %"sub_$RDA_entry[][][][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 3, i64 1, i64 108, float* nonnull elementtype(float) %"sub_$RDA_entry[][][]", i64 %"$loop_ctr3.024")
+  %"sub_$RDA_entry[][][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 108, ptr nonnull elementtype(float) %"sub_$RDA_entry[][][]", i64 %"$loop_ctr3.024")
   br label %loop_test7.preheader
 
 loop_exit17:                                      ; preds = %loop_exit13
@@ -85,7 +85,7 @@ loop_exit17:                                      ; preds = %loop_exit13
 
 loop_test15.preheader:                            ; preds = %loop_test19.preheader, %loop_exit17
   %"$loop_ctr4.025" = phi i64 [ 1, %loop_test19.preheader ], [ %add.5, %loop_exit17 ]
-  %"sub_$RDA_entry[][][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 4, i64 1, i64 324, float* nonnull elementtype(float) %"sub_$RDA_entry[][]", i64 %"$loop_ctr4.025")
+  %"sub_$RDA_entry[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 324, ptr nonnull elementtype(float) %"sub_$RDA_entry[][]", i64 %"$loop_ctr4.025")
   br label %loop_test11.preheader
 
 loop_exit21:                                      ; preds = %loop_exit17
@@ -95,7 +95,7 @@ loop_exit21:                                      ; preds = %loop_exit17
 
 loop_test19.preheader:                            ; preds = %loop_test23.preheader, %loop_exit21
   %"$loop_ctr5.026" = phi i64 [ 1, %loop_test23.preheader ], [ %add.6, %loop_exit21 ]
-  %"sub_$RDA_entry[][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 5, i64 1, i64 972, float* nonnull elementtype(float) %"sub_$RDA_entry[]", i64 %"$loop_ctr5.026")
+  %"sub_$RDA_entry[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 5, i64 1, i64 972, ptr nonnull elementtype(float) %"sub_$RDA_entry[]", i64 %"$loop_ctr5.026")
   br label %loop_test15.preheader
 
 loop_exit25:                                      ; preds = %loop_exit21
@@ -105,7 +105,7 @@ loop_exit25:                                      ; preds = %loop_exit21
 
 loop_test23.preheader:                            ; preds = %alloca_0, %loop_exit25
   %"$loop_ctr6.027" = phi i64 [ 1, %alloca_0 ], [ %add.7, %loop_exit25 ]
-  %"sub_$RDA_entry[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 6, i64 1, i64 2916, float* nonnull elementtype(float) %"sub_$RDA", i64 %"$loop_ctr6.027")
+  %"sub_$RDA_entry[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 6, i64 1, i64 2916, ptr nonnull elementtype(float) %"sub_$RDA", i64 %"$loop_ctr6.027")
   br label %loop_test19.preheader
 
 loop_exit29:                                      ; preds = %loop_exit25
@@ -113,7 +113,7 @@ loop_exit29:                                      ; preds = %loop_exit25
 }
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8, i64, i64, float*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
 attributes #0 = { nofree nosync nounwind writeonly uwtable "denormal-fp-math"="preserve_sign,preserve_sign" "frame-pointer"="none" "intel-lang"="fortran" "loopopt-pipeline"="light" "min-legal-vector-width"="0" "pre_loopopt" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" }
 attributes #1 = { nofree nosync nounwind readnone speculatable }

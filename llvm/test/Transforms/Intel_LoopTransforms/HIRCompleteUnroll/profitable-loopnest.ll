@@ -38,7 +38,7 @@
 
 @_ZZ13sharpen_imagePK5ImagePS_E6kernel = internal constant [9 x float] [float 0.000000e+00, float -1.000000e+00, float 0.000000e+00, float -1.000000e+00, float 5.000000e+00, float -1.000000e+00, float 0.000000e+00, float -1.000000e+00, float 0.000000e+00], align 16
 
-define void @_Z13sharpen_imagePK5ImagePS_(i64 %add.i.us, i64 %add36.i.us, i64 %conv.i, i8* %base) #0 {
+define void @_Z13sharpen_imagePK5ImagePS_(i64 %add.i.us, i64 %add36.i.us, i64 %conv.i, ptr %base) #0 {
 entry:
   br label %for.cond30.preheader.us.i.us
 
@@ -60,21 +60,21 @@ for.body33.us.i.us:                               ; preds = %for.body33.us.i.us,
   %g.1189.us.i.us = phi float [ %g.0196.us.i.us, %for.cond30.preheader.us.i.us ], [ %add53.us.i.us, %for.body33.us.i.us ]
   %add38.us.i.us = add i64 %sub37.us.i.us, %v.0191.us.i.us
   %mul39.us.i.us = mul i64 %add38.us.i.us, 3
-  %arrayidx.us.i.us = getelementptr inbounds i8, i8* %base, i64 %mul39.us.i.us
-  %0 = load i8, i8* %arrayidx.us.i.us, align 1
+  %arrayidx.us.i.us = getelementptr inbounds i8, ptr %base, i64 %mul39.us.i.us
+  %0 = load i8, ptr %arrayidx.us.i.us, align 1
   %conv41.us.i.us = uitofp i8 %0 to float
   %add43.us.i.us = add nuw nsw i64 %v.0191.us.i.us, %mul42.us.i.us
-  %arrayidx44.us.i.us = getelementptr inbounds [9 x float], [9 x float]* @_ZZ13sharpen_imagePK5ImagePS_E6kernel, i64 0, i64 %add43.us.i.us
-  %1 = load float, float* %arrayidx44.us.i.us, align 4
+  %arrayidx44.us.i.us = getelementptr inbounds [9 x float], ptr @_ZZ13sharpen_imagePK5ImagePS_E6kernel, i64 0, i64 %add43.us.i.us
+  %1 = load float, ptr %arrayidx44.us.i.us, align 4
   %mul45.us.i.us = fmul fast float %conv41.us.i.us, %1
   %add46.us.i.us = fadd fast float %mul45.us.i.us, %r.1192.us.i.us
-  %arrayidx47.us.i.us = getelementptr inbounds i8, i8* %arrayidx.us.i.us, i64 1
-  %2 = load i8, i8* %arrayidx47.us.i.us, align 1
+  %arrayidx47.us.i.us = getelementptr inbounds i8, ptr %arrayidx.us.i.us, i64 1
+  %2 = load i8, ptr %arrayidx47.us.i.us, align 1
   %conv48.us.i.us = uitofp i8 %2 to float
   %mul52.us.i.us = fmul fast float %conv48.us.i.us, %1
   %add53.us.i.us = fadd fast float %mul52.us.i.us, %g.1189.us.i.us
-  %arrayidx54.us.i.us = getelementptr inbounds i8, i8* %arrayidx.us.i.us, i64 2
-  %3 = load i8, i8* %arrayidx54.us.i.us, align 1
+  %arrayidx54.us.i.us = getelementptr inbounds i8, ptr %arrayidx.us.i.us, i64 2
+  %3 = load i8, ptr %arrayidx54.us.i.us, align 1
   %conv55.us.i.us = uitofp i8 %3 to float
   %mul59.us.i.us = fmul fast float %conv55.us.i.us, %1
   %add60.us.i.us = fadd fast float %mul59.us.i.us, %b.1190.us.i.us

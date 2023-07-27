@@ -14,8 +14,8 @@ entry:
 
 loop:                                              ; preds = %loop, %entry
   %iv = phi i64 [ 0, %entry ], [ %iv.inc, %loop ]
-  %gep = getelementptr inbounds [3 x i32], [3 x i32]* @A, i64 0, i64 %iv
-  store i32 0, i32* %gep, align 4
+  %gep = getelementptr inbounds [3 x i32], ptr @A, i64 0, i64 %iv
+  store i32 0, ptr %gep, align 4
   %iv.inc = add nuw nsw i64 %iv, 1
   %cmp = icmp eq i64 %iv.inc, 3
   br i1 %cmp, label %exit, label %loop

@@ -18,7 +18,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind readonly uwtable
-define i32 @foo(i32* nocapture readonly %A, i32 %k) local_unnamed_addr #0 {
+define i32 @foo(ptr nocapture readonly %A, i32 %k) local_unnamed_addr #0 {
 entry:
   %cmp1 = icmp sgt i32 %k, 5
   br label %for.body
@@ -26,15 +26,15 @@ entry:
 for.body:                                         ; preds = %for.inc, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.inc ]
   %t.014 = phi i32 [ 0, %entry ], [ %t.1, %for.inc ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %add = add nsw i32 %0, %t.014
   br i1 %cmp1, label %if.then, label %for.inc
 
 if.then:                                          ; preds = %for.body
   %1 = add nsw i64 %indvars.iv, -1
-  %arrayidx3 = getelementptr inbounds i32, i32* %A, i64 %1
-  %2 = load i32, i32* %arrayidx3, align 4, !tbaa !2
+  %arrayidx3 = getelementptr inbounds i32, ptr %A, i64 %1
+  %2 = load i32, ptr %arrayidx3, align 4, !tbaa !2
   %add4 = add nsw i32 %2, %add
   br label %for.inc
 

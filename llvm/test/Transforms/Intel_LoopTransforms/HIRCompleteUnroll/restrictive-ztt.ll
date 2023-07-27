@@ -18,7 +18,7 @@
 ; (%m)[0][13];
 
 ; CHECK: BEGIN REGION { modified }
-; CHECK-NEXT: %1 = (%m)[0][7];
+; CHECK-NEXT: %0 = (%m)[0][7];
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -26,8 +26,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local i32 @main() local_unnamed_addr{
 entry:
   %m = alloca [100 x i32], align 16
-  %0 = bitcast [100 x i32]* %m to i8*
-  call void @llvm.memset.p0i8.i64(i8* nonnull align 16 dereferenceable(400) %0, i8 0, i64 400, i1 false)
+  call void @llvm.memset.p0.i64(ptr nonnull align 16 dereferenceable(400) %m, i8 0, i64 400, i1 false)
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.inc5
@@ -45,20 +44,20 @@ for.body4:                                        ; preds = %if.then, %for.body4
   %indvars.iv27 = phi i64 [ %indvars.iv, %if.then ], [ %indvars.iv.next28, %for.body4 ]
   %nl.122 = phi i32 [ %nl.026, %if.then ], [ %dec, %for.body4 ]
   %dec = add i32 %nl.122, -1
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* %m, i64 0, i64 %indvars.iv27
-  %1 = load i32, i32* %arrayidx, align 4
-  %mul = mul i32 %1, %nl.122
-  store i32 %mul, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x i32], ptr %m, i64 0, i64 %indvars.iv27
+  %0 = load i32, ptr %arrayidx, align 4
+  %mul = mul i32 %0, %nl.122
+  store i32 %mul, ptr %arrayidx, align 4
   %indvars.iv.next28 = add nuw nsw i64 %indvars.iv27, 1
   %exitcond = icmp eq i64 %indvars.iv.next28, 14
   br i1 %exitcond, label %for.inc5.loopexit, label %for.body4
 
 for.inc5.loopexit:                                ; preds = %for.body4
-  %2 = add i32 %nl.026, %indvars.iv29
+  %1 = add i32 %nl.026, %indvars.iv29
   br label %for.inc5
 
 for.inc5:                                         ; preds = %for.inc5.loopexit, %for.body
-  %nl.2 = phi i32 [ %nl.026, %for.body ], [ %2, %for.inc5.loopexit ]
+  %nl.2 = phi i32 [ %nl.026, %for.body ], [ %1, %for.inc5.loopexit ]
   %dec6 = add nsw i32 %j0.023, -1
   %cmp = icmp ugt i32 %dec6, 1
   %indvars.iv.next = add nsw i64 %indvars.iv, -1
@@ -70,5 +69,5 @@ for.end7:                                         ; preds = %for.inc5
   ret i32 0
 }
 
-declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)
+declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i1 immarg)
 

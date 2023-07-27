@@ -23,7 +23,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i8* nocapture %C, i32* nocapture %A, float* nocapture %F, i32 %n) local_unnamed_addr #0 {
+define void @foo(ptr nocapture %C, ptr nocapture %A, ptr nocapture %F, i32 %n) local_unnamed_addr #0 {
 entry:
   %cmp37 = icmp sgt i32 %n, 0
   br i1 %cmp37, label %for.body.lr.ph, label %for.end20
@@ -36,8 +36,8 @@ for.body4.lr.ph:                                  ; preds = %for.body.lr.ph, %fo
   %indvars.iv41 = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next42, %for.inc18 ]
   %0 = trunc i64 %indvars.iv41 to i32
   %conv = trunc i64 %indvars.iv41 to i8
-  %arrayidx = getelementptr inbounds i8, i8* %C, i64 %indvars.iv41
-  store i8 %conv, i8* %arrayidx, align 1, !tbaa !2
+  %arrayidx = getelementptr inbounds i8, ptr %C, i64 %indvars.iv41
+  store i8 %conv, ptr %arrayidx, align 1, !tbaa !2
   br label %for.body4
 
 for.body4:                                        ; preds = %for.inc15, %for.body4.lr.ph
@@ -46,13 +46,13 @@ for.body4:                                        ; preds = %for.inc15, %for.bod
 
 for.body8:                                        ; preds = %for.body8, %for.body4
   %indvars.iv = phi i64 [ 0, %for.body4 ], [ %indvars.iv.next, %for.body8 ]
-  %arrayidx10 = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx10, align 4, !tbaa !5
+  %arrayidx10 = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx10, align 4, !tbaa !5
   %idxprom11 = sext i32 %1 to i64
-  %arrayidx12 = getelementptr inbounds float, float* %F, i64 %idxprom11
-  store float 1.000000e+00, float* %arrayidx12, align 4, !tbaa !7
+  %arrayidx12 = getelementptr inbounds float, ptr %F, i64 %idxprom11
+  store float 1.000000e+00, ptr %arrayidx12, align 4, !tbaa !7
   %add = add nsw i32 %1, %0
-  store i32 %add, i32* %arrayidx10, align 4, !tbaa !5
+  store i32 %add, ptr %arrayidx10, align 4, !tbaa !5
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 10
   br i1 %exitcond, label %for.inc15, label %for.body8

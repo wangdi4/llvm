@@ -54,7 +54,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline nounwind uwtable
-define void @foo(i32* %a, i32 %n) #0 {
+define void @foo(ptr %a, i32 %n) #0 {
 entry:
   %cmp3 = icmp slt i32 0, %n
   br i1 %cmp3, label %for.body.lr.ph, label %for.end18
@@ -73,8 +73,8 @@ for.body3.lr.ph:                                  ; preds = %for.body
 for.body3:                                        ; preds = %for.body3.lr.ph, %for.inc
   %j.0 = phi i32 [ 0, %for.body3.lr.ph ], [ %inc, %for.inc ]
   %idxprom = sext i32 %j.0 to i64
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %idxprom
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %idxprom
+  %0 = load i32, ptr %arrayidx, align 4
   switch i32 %0, label %sw.default [
     i32 0, label %sw.bb
     i32 1, label %sw.bb7
@@ -86,8 +86,8 @@ sw.bb:                                            ; preds = %for.body3
 
 if.then:                                          ; preds = %sw.bb
   %idxprom5 = sext i32 %j.0 to i64
-  %arrayidx6 = getelementptr inbounds i32, i32* %a, i64 %idxprom5
-  store i32 3, i32* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds i32, ptr %a, i64 %idxprom5
+  store i32 3, ptr %arrayidx6, align 4
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %sw.bb
@@ -99,8 +99,8 @@ sw.bb7:                                           ; preds = %for.body3
 
 if.then9:                                         ; preds = %sw.bb7
   %idxprom10 = sext i32 %j.0 to i64
-  %arrayidx11 = getelementptr inbounds i32, i32* %a, i64 %idxprom10
-  store i32 7, i32* %arrayidx11, align 4
+  %arrayidx11 = getelementptr inbounds i32, ptr %a, i64 %idxprom10
+  store i32 7, ptr %arrayidx11, align 4
   br label %if.end12
 
 if.end12:                                         ; preds = %if.then9, %sw.bb7
@@ -122,10 +122,10 @@ for.cond1.for.end_crit_edge:                      ; preds = %for.inc
 
 for.end:                                          ; preds = %for.cond1.for.end_crit_edge, %for.body
   %idxprom13 = sext i32 %i.0 to i64
-  %arrayidx14 = getelementptr inbounds i32, i32* %a, i64 %idxprom13
-  %1 = load i32, i32* %arrayidx14, align 4
+  %arrayidx14 = getelementptr inbounds i32, ptr %a, i64 %idxprom13
+  %1 = load i32, ptr %arrayidx14, align 4
   %inc15 = add nsw i32 %1, 1
-  store i32 %inc15, i32* %arrayidx14, align 4
+  store i32 %inc15, ptr %arrayidx14, align 4
   br label %for.inc16
 
 for.inc16:                                        ; preds = %for.end

@@ -10,8 +10,8 @@
 ; CHECK: + DO i1 = 0, 9, 1   <DO_LOOP>
 ; CHECK: |   if (i1 == 0)
 ; CHECK: |   {
-; CHECK: |      %2 = (@A)[0][i1];
-; CHECK: |      (%B)[0][i1] = %2 + 1;
+; CHECK: |      %0 = (@A)[0][i1];
+; CHECK: |      (%B)[0][i1] = %0 + 1;
 ; CHECK: |   }
 ; CHECK: |   else
 ; CHECK: |   {
@@ -22,9 +22,9 @@
 
 ; CHECK: BEGIN REGION { }
 ; CHECK: + DO i1 = 0, 9, 1   <DO_LOOP>
-; CHECK: |   %3 = (%B)[0][i1];
-; CHECK: |   %4 = (@A)[0][i1];
-; CHECK: |   (%C)[0][i1] = %3 + %4;
+; CHECK: |   %1 = (%B)[0][i1];
+; CHECK: |   %2 = (@A)[0][i1];
+; CHECK: |   (%C)[0][i1] = %1 + %2;
 ; CHECK: + END LOOP
 ; CHECK: END REGION
 
@@ -41,8 +41,6 @@ define i32 @foo() {
 entry:
   %B = alloca [100 x i32], align 16
   %C = alloca [100 x i32], align 16
-  %0 = bitcast [100 x i32]* %B to i8*
-  %1 = bitcast [100 x i32]* %C to i8*
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.inc
@@ -52,18 +50,18 @@ for.body:                                         ; preds = %entry, %for.inc
 
 if.then:                                          ; preds = %for.body
   %idxprom = sext i32 %i.02 to i64
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %idxprom
-  %2 = load i32, i32* %arrayidx, align 4
-  %add = add nsw i32 %2, 1
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %idxprom
+  %0 = load i32, ptr %arrayidx, align 4
+  %add = add nsw i32 %0, 1
   %idxprom2 = sext i32 %i.02 to i64
-  %arrayidx3 = getelementptr inbounds [100 x i32], [100 x i32]* %B, i64 0, i64 %idxprom2
-  store i32 %add, i32* %arrayidx3, align 4
+  %arrayidx3 = getelementptr inbounds [100 x i32], ptr %B, i64 0, i64 %idxprom2
+  store i32 %add, ptr %arrayidx3, align 4
   br label %if.end
 
 if.else:                                          ; preds = %for.body
   %idxprom4 = sext i32 %i.02 to i64
-  %arrayidx5 = getelementptr inbounds [100 x i32], [100 x i32]* %B, i64 0, i64 %idxprom4
-  store i32 5, i32* %arrayidx5, align 4
+  %arrayidx5 = getelementptr inbounds [100 x i32], ptr %B, i64 0, i64 %idxprom4
+  store i32 5, ptr %arrayidx5, align 4
   br label %if.end
 
 if.end:                                           ; preds = %if.else, %if.then
@@ -80,15 +78,15 @@ for.end:                                          ; preds = %for.inc
 for.body8:                                        ; preds = %for.end, %for.inc16
   %i.11 = phi i32 [ 0, %for.end ], [ %inc17, %for.inc16 ]
   %idxprom9 = sext i32 %i.11 to i64
-  %arrayidx10 = getelementptr inbounds [100 x i32], [100 x i32]* %B, i64 0, i64 %idxprom9
-  %3 = load i32, i32* %arrayidx10, align 4
+  %arrayidx10 = getelementptr inbounds [100 x i32], ptr %B, i64 0, i64 %idxprom9
+  %1 = load i32, ptr %arrayidx10, align 4
   %idxprom11 = sext i32 %i.11 to i64
-  %arrayidx12 = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %idxprom11
-  %4 = load i32, i32* %arrayidx12, align 4
-  %add13 = add nsw i32 %3, %4
+  %arrayidx12 = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %idxprom11
+  %2 = load i32, ptr %arrayidx12, align 4
+  %add13 = add nsw i32 %1, %2
   %idxprom14 = sext i32 %i.11 to i64
-  %arrayidx15 = getelementptr inbounds [100 x i32], [100 x i32]* %C, i64 0, i64 %idxprom14
-  store i32 %add13, i32* %arrayidx15, align 4
+  %arrayidx15 = getelementptr inbounds [100 x i32], ptr %C, i64 0, i64 %idxprom14
+  store i32 %add13, ptr %arrayidx15, align 4
   br label %for.inc16
 
 for.inc16:                                        ; preds = %for.body8
@@ -97,12 +95,10 @@ for.inc16:                                        ; preds = %for.body8
   br i1 %cmp7, label %for.body8, label %for.end18
 
 for.end18:                                        ; preds = %for.inc16
-  %arrayidx19 = getelementptr inbounds [100 x i32], [100 x i32]* %C, i64 0, i64 2
-  %5 = load i32, i32* %arrayidx19, align 8
-  %arrayidx20 = getelementptr inbounds [100 x i32], [100 x i32]* %C, i64 0, i64 3
-  %6 = load i32, i32* %arrayidx20, align 4
-  %add21 = add nsw i32 %5, %6
-  %7 = bitcast [100 x i32]* %C to i8*
-  %8 = bitcast [100 x i32]* %B to i8*
+  %arrayidx19 = getelementptr inbounds [100 x i32], ptr %C, i64 0, i64 2
+  %3 = load i32, ptr %arrayidx19, align 8
+  %arrayidx20 = getelementptr inbounds [100 x i32], ptr %C, i64 0, i64 3
+  %4 = load i32, ptr %arrayidx20, align 4
+  %add21 = add nsw i32 %3, %4
   ret i32 %add21
 }

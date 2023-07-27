@@ -69,12 +69,12 @@ for.body63.lr.ph:                                 ; preds = %for.body58
   %conv59 = zext i32 %indvars.iv447 to i64
   %add69 = add i32 %indvars.iv447, 128
   %conv70 = zext i32 %add69 to i64
-  %arrayidx75 = getelementptr inbounds [192 x i32], [192 x i32]* @a1_bl, i64 0, i64 %1
+  %arrayidx75 = getelementptr inbounds [192 x i32], ptr @a1_bl, i64 0, i64 %1
   %sub78 = sub i32 89, %indvars.iv447
   %idxprom79 = zext i32 %sub78 to i64
   %add81 = add i32 %indvars.iv447, 20
   %idxprom82 = zext i32 %add81 to i64
-  %arrayidx75.promoted = load i32, i32* %arrayidx75, align 4
+  %arrayidx75.promoted = load i32, ptr %arrayidx75, align 4
   br label %for.body63
 
 for.body63:                                       ; preds = %for.body63.lr.ph, %for.body63
@@ -84,25 +84,25 @@ for.body63:                                       ; preds = %for.body63.lr.ph, %
   %conv64 = zext i32 %2 to i64
   %and65 = and i64 %conv64, %in
   %conv66 = trunc i64 %and65 to i32
-  %arrayidx68 = getelementptr inbounds [192 x [192 x i32]], [192 x [192 x i32]]* @a2_p, i64 0, i64 %v_ekgo.0417, i64 %1
-  %3 = load i32, i32* %arrayidx68, align 4
+  %arrayidx68 = getelementptr inbounds [192 x [192 x i32]], ptr @a2_p, i64 0, i64 %v_ekgo.0417, i64 %1
+  %3 = load i32, ptr %arrayidx68, align 4
   %sub71 = sub i64 %conv70, %v_ekgo.0417
-  %arrayidx72 = getelementptr inbounds [192 x i32], [192 x i32]* @a1_r, i64 0, i64 %sub71
-  %4 = load i32, i32* %arrayidx72, align 4
+  %arrayidx72 = getelementptr inbounds [192 x i32], ptr @a1_r, i64 0, i64 %sub71
+  %4 = load i32, ptr %arrayidx72, align 4
   %add73 = add i32 %4, %3
-  store i32 %add73, i32* %arrayidx72, align 4
+  store i32 %add73, ptr %arrayidx72, align 4
   %xor76 = xor i32 %xor76450, %conv66
-  %arrayidx84 = getelementptr inbounds [192 x [192 x [192 x i32]]], [192 x [192 x [192 x i32]]]* @a3_wp, i64 0, i64 %idxprom79, i64 %idxprom82, i64 %v_ekgo.0417
-  %5 = load i32, i32* %arrayidx84, align 4
+  %arrayidx84 = getelementptr inbounds [192 x [192 x [192 x i32]]], ptr @a3_wp, i64 0, i64 %idxprom79, i64 %idxprom82, i64 %v_ekgo.0417
+  %5 = load i32, ptr %arrayidx84, align 4
   %inc85 = add i32 %5, 1
-  store i32 %inc85, i32* %arrayidx84, align 4
+  store i32 %inc85, ptr %arrayidx84, align 4
   %inc87 = add nuw nsw i64 %v_ekgo.0417, 1
   %exitcond449 = icmp eq i64 %v_ekgo.0417, %1
   br i1 %exitcond449, label %for.cond89.preheader.loopexit, label %for.body63
 
 for.cond89.preheader.loopexit:                    ; preds = %for.body63
   %xor76.lcssa = phi i32 [ %xor76, %for.body63 ]
-  store i32 %xor76.lcssa, i32* %arrayidx75, align 4
+  store i32 %xor76.lcssa, ptr %arrayidx75, align 4
   br label %for.cond89.preheader
 
 for.cond89.preheader:                             ; preds = %for.cond89.preheader.loopexit, %for.body58
@@ -110,8 +110,8 @@ for.cond89.preheader:                             ; preds = %for.cond89.preheade
   %add103 = sub i32 64, %indvars.iv447
   %sub104 = add i32 %add103, %mul102
   %idxprom105 = zext i32 %sub104 to i64
-  %arrayidx106 = getelementptr inbounds [192 x i32], [192 x i32]* @a1_bl, i64 0, i64 %idxprom105
-  store i32 0, i32* %arrayidx106, align 4
+  %arrayidx106 = getelementptr inbounds [192 x i32], ptr @a1_bl, i64 0, i64 %idxprom105
+  store i32 0, ptr %arrayidx106, align 4
   %indvars.iv.next448 = add i32 %indvars.iv447, 1
   %cmp57 = icmp ult i32 %indvars.iv.next448, 64
   br i1 %cmp57, label %for.body58, label %for.exit

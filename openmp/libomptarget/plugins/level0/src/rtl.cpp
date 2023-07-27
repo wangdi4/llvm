@@ -1418,9 +1418,10 @@ typedef std::vector<std::vector<int32_t>> SubDeviceIdsTy;
 
 /// Device modes for multi-tile devices
 enum DeviceMode {
-  DEVICE_MODE_TOP = 0,  // Use only top-level devices with subdevice clause
-  DEVICE_MODE_SUB,      // Use only tiles
-  DEVICE_MODE_SUBSUB    // Use only c-slices
+  DEVICE_MODE_TOP = 0, // Use only top-level devices with subdevice clause
+  DEVICE_MODE_SUB,     // Use only tiles
+  DEVICE_MODE_SUBSUB,  // Use only c-slices
+  DEVICE_MODE_EXPLICIT // Use only devices specified with ONEAPI_DEVICE_SELECTOR
 };
 
 /// Specialization constants used for a module compilation.
@@ -1545,6 +1546,29 @@ struct RTLOptionTy {
   /// Decides how subdevices are exposed as OpenMP devices
   int32_t DeviceMode = DEVICE_MODE_TOP;
 
+  /// List of Root devices provided via option ONEAPI_DEVICE_SELECTOR
+  std::vector<std::tuple<int32_t, int32_t, int32_t>> ExplicitRootDevices;
+
+  /// Is the given RootID, SubID, CcsID specified in ONEAPI_DEVICE_SELECTOR
+  bool shouldAddDevice(int32_t RootID, int32_t SubID, int32_t CCSID) {
+    if (ExplicitRootDevices.empty())
+      return false;
+    for (const auto &RootDev : ExplicitRootDevices) {
+      int32_t ErootID, EsubID, ECCSID;
+      ErootID = std::get<0>(RootDev);
+      if (!((ErootID == -2) || (RootID == ErootID)))
+        continue;
+      EsubID = std::get<1>(RootDev);
+      if (((EsubID != -2) || (SubID == -1)) && (EsubID != SubID))
+        continue;
+      ECCSID = std::get<2>(RootDev);
+      if (((ECCSID != -2) || (CCSID == -1)) && (ECCSID != CCSID))
+        continue;
+      return true;
+    }
+    return false;
+  }
+
   /// Enable/disable using immediate command lists
   /// 0: Disable, 1: Compute, 2: Copy, 3: All
 #if _WIN32
@@ -1582,19 +1606,6 @@ struct RTLOptionTy {
   RTLOptionTy() {
     const char *Env = nullptr;
 
-    // Target device type
-    if ((Env = readEnvVar("LIBOMPTARGET_DEVICETYPE"))) {
-      std::string Value(Env);
-      if (Value == "GPU" || Value == "gpu" || Value == "") {
-        DeviceType = ZE_DEVICE_TYPE_GPU;
-      } else if (Value == "CPU" || Value == "cpu") {
-        DeviceType = ZE_DEVICE_TYPE_CPU;
-        DP("Warning: CPU device is not supported\n");
-      } else {
-        DP("Warning: Invalid LIBOMPTARGET_DEVICETYPE=%s\n", Env);
-      }
-    }
-
     // Compilation options for IGC
     if ((Env = readEnvVar("LIBOMPTARGET_LEVEL_ZERO_COMPILATION_OPTIONS",
                           "LIBOMPTARGET_LEVEL0_COMPILATION_OPTIONS")))
@@ -1613,21 +1624,105 @@ struct RTLOptionTy {
       }
     }
 
-    // Device mode
-    if ((Env = readEnvVar("LIBOMPTARGET_DEVICES"))) {
-      std::string Value(Env);
-      if (Value == "DEVICE" || Value == "device") {
-        DP("Device mode is %s -- using top-level devices with subdevice "
-           "clause support\n", Value.c_str());
-        DeviceMode = DEVICE_MODE_TOP;
-      } else if (Value == "SUBDEVICE" || Value == "subdevice") {
-        DP("Device mode is %s -- using 1st-level sub-devices\n", Value.c_str());
-        DeviceMode = DEVICE_MODE_SUB;
-      } else if (Value == "SUBSUBDEVICE" || Value == "subsubdevice") {
-        DP("Device mode is %s -- using 2nd-level sub-devices\n", Value.c_str());
-        DeviceMode = DEVICE_MODE_SUBSUB;
-      } else {
-        DP("Unknown device mode %s\n", Value.c_str());
+    // Explicit Device mode if ONEAPI_DEVICE_SELECTOR is set
+    if ((Env = readEnvVar("ONEAPI_DEVICE_SELECTOR"))) {
+      std::string EnvStr(Env);
+      std::transform(EnvStr.begin(), EnvStr.end(), EnvStr.begin(),
+                     [](unsigned char C) { return std::tolower(C); });
+      std::vector<std::string_view> OdsStr = tokenize(EnvStr, ";");
+      for (const auto Term : OdsStr) {
+        std::vector<std::string_view> Backend = tokenize(Term, ":");
+        if (Backend.size() != 2) {
+          DP("Warning: Invalid ONEAPI_DEVICE_SELECTOR Backend  Pair\n");
+          continue;
+        }
+        if (!(((Backend[0].size() == 1) && (Backend[0][0] == '*')) ||
+              (!strncmp(Backend[0].data(), "level_zero", Backend[0].length()))))
+          break;
+        std::vector<std::string_view> Devices = tokenize(Backend[1], ",");
+        for (const auto DeviceId : Devices) {
+          std::vector<std::string_view> SubDevices = tokenize(DeviceId, ".");
+          int32_t RootD[3] = {-1, -1, -1};
+          if (SubDevices.empty() || (SubDevices.size() > 3) ||
+              !(((SubDevices[0].size() == 3) &&
+                 (!strncmp(SubDevices[0].data(), "gpu", 3))) ||
+                ((SubDevices[0].size() == 1) && (SubDevices[0][0] == '*')) ||
+                (isDigits(SubDevices[0])))) {
+            DP("Warning: Invalid ONEAPI_DEVICE_SELECTOR Device ID\n");
+            continue;
+          }
+          if (!strncmp(SubDevices[0].data(), "gpu", 3) ||
+              (SubDevices[0][0] == '*'))
+            RootD[0] = -2;
+          else
+            RootD[0] = std::atoi(SubDevices[0].data());
+          if ((SubDevices.size() > 1)) {
+            if ((SubDevices[1].size() == 1) && (SubDevices[1][0] == '*'))
+              RootD[1] = -2;
+            else {
+              if (!isDigits(SubDevices[1]))
+                continue;
+              RootD[1] = std::atoi(SubDevices[1].data());
+            }
+          }
+          if ((SubDevices.size() > 2)) {
+            if ((SubDevices[2].size() == 1) && (SubDevices[2][0] == '*'))
+              RootD[2] = -2;
+            else {
+              if (!isDigits(SubDevices[2]))
+                continue;
+              RootD[2] = std::atoi(SubDevices[2].data());
+            }
+          }
+          ExplicitRootDevices.push_back(std::tuple<int32_t, int32_t, int32_t>(
+              RootD[0], RootD[1], RootD[2]));
+        }
+      }
+    }
+
+    DP("ONEAPI_DEVICE_SELECTOR specified %zu root devices\n",
+       ExplicitRootDevices.size());
+    DP("  (DeviceID[.SubID[.CCSID]]) -2(all), -1(ignore)\n");
+    for (auto &T : ExplicitRootDevices) {
+      DP(" %d.%.d.%d\n", std::get<0>(T), std::get<1>(T), std::get<2>(T));
+      (void)T; // silence warning
+    }
+
+    if (ExplicitRootDevices.size() != 0)
+      DeviceMode = DEVICE_MODE_EXPLICIT;
+    else {
+      // Target device type
+      if ((Env = readEnvVar("LIBOMPTARGET_DEVICETYPE"))) {
+        std::string Value(Env);
+        if (Value == "GPU" || Value == "gpu" || Value == "") {
+          DeviceType = ZE_DEVICE_TYPE_GPU;
+        } else if (Value == "CPU" || Value == "cpu") {
+          DeviceType = ZE_DEVICE_TYPE_CPU;
+          DP("Warning: CPU device is not supported\n");
+        } else {
+          DP("Warning: Invalid LIBOMPTARGET_DEVICETYPE=%s\n", Env);
+        }
+      }
+
+      // Device mode
+      if ((Env = readEnvVar("LIBOMPTARGET_DEVICES"))) {
+        std::string Value(Env);
+        if (Value == "DEVICE" || Value == "device") {
+          DP("Device mode is %s -- using top-level devices with subdevice "
+             "clause support\n",
+             Value.c_str());
+          DeviceMode = DEVICE_MODE_TOP;
+        } else if (Value == "SUBDEVICE" || Value == "subdevice") {
+          DP("Device mode is %s -- using 1st-level sub-devices\n",
+             Value.c_str());
+          DeviceMode = DEVICE_MODE_SUB;
+        } else if (Value == "SUBSUBDEVICE" || Value == "subsubdevice") {
+          DP("Device mode is %s -- using 2nd-level sub-devices\n",
+             Value.c_str());
+          DeviceMode = DEVICE_MODE_SUBSUB;
+        } else {
+          DP("Unknown device mode %s\n", Value.c_str());
+        }
       }
     }
 
@@ -2078,6 +2173,37 @@ struct RTLOptionTy {
       WARNING("%s is being deprecated. Use %s instead.\n", OldName, Name);
     }
     return Value;
+  }
+
+  bool isDigits(const std::string_view &str) {
+    if (str.size() == 0)
+      return false;
+    return std::all_of(str.begin(), str.end(), ::isdigit);
+  }
+
+  /// Parse String  and split into tokens of string_views based on the
+  /// Delim character.
+  std::vector<std::string_view> tokenize(const std::string_view &Filter,
+                                         const std::string &Delim) {
+    std::vector<std::string_view> Tokens;
+    size_t Pos = 0;
+    size_t LastPos = 0;
+    while ((Pos = Filter.find(Delim, LastPos)) != std::string::npos) {
+      std::string_view Tok(Filter.data() + LastPos, (Pos - LastPos));
+
+      if (!Tok.empty()) {
+        Tokens.push_back(Tok);
+      }
+      // move the search starting index
+      LastPos = Pos + 1;
+    }
+
+    // Add remainder if any
+    if (LastPos < Filter.size()) {
+      std::string_view Tok(Filter.data() + LastPos, Filter.size() - LastPos);
+      Tokens.push_back(Tok);
+    }
+    return Tokens;
   }
 
   /// Parse boolean value
@@ -5513,15 +5639,20 @@ int32_t RTLDeviceInfoTy::findDevices() {
   // for the first-level subdevice, and use multi-context queue/list for the
   // second-level subdevice.
   bool SupportsClause = (Option.DeviceMode == DEVICE_MODE_TOP);
-  if (SupportsClause) {
+  bool ExplicitMode = (Option.DeviceMode == DEVICE_MODE_EXPLICIT);
+  std::vector<std::tuple<int32_t, int32_t, int32_t>> ExplicitRootDevices;
+  if (SupportsClause || ExplicitMode) {
     for (auto &T : Tuples) {
       if (std::get<2>(T) >= 0 || std::get<3>(T) >= 0)
         continue;
       SubDeviceIds.emplace_back(2); // Prepare for subdevice clause support
       auto IdStr = getIdStr(std::get<1>(T), std::get<2>(T), std::get<3>(T));
-      appendDeviceProperties(std::get<0>(T), IdStr);
+      if (!ExplicitMode || Option.shouldAddDevice(
+                               std::get<1>(T), std::get<2>(T), std::get<3>(T)))
+        appendDeviceProperties(std::get<0>(T), IdStr);
     }
   }
+
   for (int32_t I = 0; I < (int)NumFoundDevices; I++) {
     if (Option.DeviceMode != DEVICE_MODE_SUBSUB) {
       // Initialize first-level subdevices properties
@@ -5532,7 +5663,10 @@ int32_t RTLDeviceInfoTy::findDevices() {
           SubDeviceIds[I][0].push_back(Devices.size());
         auto IdStr = getIdStr(std::get<1>(T), std::get<2>(T), std::get<3>(T));
         SubDeviceIds.emplace_back(); // Put empty list for subdevices
-        appendDeviceProperties(std::get<0>(T), IdStr);
+        if (!ExplicitMode ||
+            Option.shouldAddDevice(std::get<1>(T), std::get<2>(T),
+                                   std::get<3>(T)))
+          appendDeviceProperties(std::get<0>(T), IdStr);
       }
     }
     if (Option.DeviceMode != DEVICE_MODE_SUB) {
@@ -5544,7 +5678,10 @@ int32_t RTLDeviceInfoTy::findDevices() {
           SubDeviceIds[I][1].push_back(Devices.size());
         auto IdStr = getIdStr(std::get<1>(T), std::get<2>(T), std::get<3>(T));
         SubDeviceIds.emplace_back(); // Put empty list for subdevices
-        appendDeviceProperties(std::get<0>(T), IdStr, std::get<3>(T));
+        if (!ExplicitMode ||
+            Option.shouldAddDevice(std::get<1>(T), std::get<2>(T),
+                                   std::get<3>(T)))
+          appendDeviceProperties(std::get<0>(T), IdStr, std::get<3>(T));
       }
     }
   }

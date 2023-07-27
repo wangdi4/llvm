@@ -24,7 +24,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* %A, i32* %B) {
+define void @foo(ptr %A, ptr %B) {
 entry:
   br label %outer.loop
 
@@ -34,10 +34,10 @@ outer.loop:
 
 loop:
   %iv = phi i64 [ 0, %outer.loop], [ %iv.inc, %loop]
-  %gepb = getelementptr inbounds i32, i32* %B, i64 %iv
-  %ld = load i32, i32* %gepb, align 4
-  %gepa = getelementptr inbounds i32, i32* %A, i64 %iv
-  store i32 %ld, i32* %gepa, align 4
+  %gepb = getelementptr inbounds i32, ptr %B, i64 %iv
+  %ld = load i32, ptr %gepb, align 4
+  %gepa = getelementptr inbounds i32, ptr %A, i64 %iv
+  store i32 %ld, ptr %gepa, align 4
   %iv.inc = add i64 %iv, 1
   %cmp = icmp eq i64 %iv.inc, 2
   br i1 %cmp, label %outer.latch, label %loop, !llvm.loop !0

@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-post-vec-complete-unroll,print<hir>" 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-post-vec-complete-unroll,print<hir>" 2>&1 < %s | FileCheck %s
 
 ; Verify that we correctly remove redundant switch cases after complete unroll. We were not taking into account the truncation trunc.i32.i3() in the switch condition when returning the constant which resulted in incorrect switch case removal.
 
@@ -8,36 +8,36 @@
 ; CHECK: |   switch(i1)
 ; CHECK: |   {
 ; CHECK: |   case 0:
-; CHECK: |      %puts18 = @puts(&((@str.11)[0][0]));
+; CHECK: |      %puts18 = @puts(&((@str.11)[0]));
 ; CHECK: |      break;
 ; CHECK: |   case 1:
-; CHECK: |      %puts17 = @puts(&((@str.10)[0][0]));
+; CHECK: |      %puts17 = @puts(&((@str.10)[0]));
 ; CHECK: |      break;
 ; CHECK: |   case 2:
-; CHECK: |      %puts16 = @puts(&((@str.9)[0][0]));
+; CHECK: |      %puts16 = @puts(&((@str.9)[0]));
 ; CHECK: |      break;
 ; CHECK: |   case -3:
-; CHECK: |      %puts15 = @puts(&((@str.8)[0][0]));
+; CHECK: |      %puts15 = @puts(&((@str.8)[0]));
 ; CHECK: |      break;
 ; CHECK: |   case -2:
-; CHECK: |      %puts14 = @puts(&((@str.7)[0][0]));
+; CHECK: |      %puts14 = @puts(&((@str.7)[0]));
 ; CHECK: |      break;
 ; CHECK: |   default:
-; CHECK: |      %puts19 = @puts(&((@str.12)[0][0]));
+; CHECK: |      %puts19 = @puts(&((@str.12)[0]));
 ; CHECK: |      break;
 ; CHECK: |   }
 ; CHECK: + END LOOP
 
 ; CHECK: Function
 
-; CHECK: %puts18 = @puts(&((@str.11)[0][0]));
-; CHECK: %puts17 = @puts(&((@str.10)[0][0]));
-; CHECK: %puts16 = @puts(&((@str.9)[0][0]));
-; CHECK: %puts19 = @puts(&((@str.12)[0][0]));
-; CHECK: %puts19 = @puts(&((@str.12)[0][0]));
-; CHECK: %puts15 = @puts(&((@str.8)[0][0]));
-; CHECK: %puts14 = @puts(&((@str.7)[0][0]));
-; CHECK: %puts19 = @puts(&((@str.12)[0][0]));
+; CHECK: %puts18 = @puts(&((@str.11)[0]));
+; CHECK: %puts17 = @puts(&((@str.10)[0]));
+; CHECK: %puts16 = @puts(&((@str.9)[0]));
+; CHECK: %puts19 = @puts(&((@str.12)[0]));
+; CHECK: %puts19 = @puts(&((@str.12)[0]));
+; CHECK: %puts15 = @puts(&((@str.8)[0]));
+; CHECK: %puts14 = @puts(&((@str.7)[0]));
+; CHECK: %puts19 = @puts(&((@str.12)[0]));
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -74,27 +74,27 @@ for.body:                                         ; preds = %for.inc, %entry
   ]
 
 sw.bb:                                            ; preds = %for.body
-  %puts18 = tail call i32 @puts(i8* getelementptr inbounds ([2 x i8], [2 x i8]* @str.11, i64 0, i64 0))
+  %puts18 = tail call i32 @puts(ptr @str.11)
   br label %for.inc
 
 sw.bb1:                                           ; preds = %for.body
-  %puts17 = tail call i32 @puts(i8* getelementptr inbounds ([2 x i8], [2 x i8]* @str.10, i64 0, i64 0))
+  %puts17 = tail call i32 @puts(ptr @str.10)
   br label %for.inc
 
 sw.bb3:                                           ; preds = %for.body
-  %puts16 = tail call i32 @puts(i8* getelementptr inbounds ([2 x i8], [2 x i8]* @str.9, i64 0, i64 0))
+  %puts16 = tail call i32 @puts(ptr @str.9)
   br label %for.inc
 
 sw.bb5:                                           ; preds = %for.body
-  %puts15 = tail call i32 @puts(i8* getelementptr inbounds ([2 x i8], [2 x i8]* @str.8, i64 0, i64 0))
+  %puts15 = tail call i32 @puts(ptr @str.8)
   br label %for.inc
 
 sw.bb7:                                           ; preds = %for.body
-  %puts14 = tail call i32 @puts(i8* getelementptr inbounds ([2 x i8], [2 x i8]* @str.7, i64 0, i64 0))
+  %puts14 = tail call i32 @puts(ptr @str.7)
   br label %for.inc
 
 sw.default:                                       ; preds = %for.body
-  %puts19 = tail call i32 @puts(i8* getelementptr inbounds ([8 x i8], [8 x i8]* @str.12, i64 0, i64 0))
+  %puts19 = tail call i32 @puts(ptr @str.12)
   br label %for.inc
 
 for.inc:                                          ; preds = %sw.bb, %sw.bb1, %sw.bb3, %sw.bb5, %sw.bb7, %sw.default
@@ -103,10 +103,10 @@ for.inc:                                          ; preds = %sw.bb, %sw.bb1, %sw
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.inc
-  %puts = tail call i32 @puts(i8* getelementptr inbounds ([6 x i8], [6 x i8]* @str, i64 0, i64 0))
+  %puts = tail call i32 @puts(ptr @str)
   ret i32 0
 }
 
 ; Function Attrs: nounwind
-declare i32 @puts(i8* nocapture readonly)
+declare i32 @puts(ptr nocapture readonly)
 

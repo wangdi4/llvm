@@ -53,7 +53,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline nounwind uwtable
-define void @foo(i8* %a, i32 %n) #0 {
+define void @foo(ptr %a, i32 %n) #0 {
 entry:
   %cmp6 = icmp slt i32 0, %n
   br i1 %cmp6, label %for.body.lr.ph, label %for.end19
@@ -90,8 +90,8 @@ for.body9:                                        ; preds = %for.body9.lr.ph, %f
 if.then:                                          ; preds = %for.body9
   %conv = trunc i32 %j.02 to i8
   %idxprom = sext i32 %i.03 to i64
-  %arrayidx = getelementptr inbounds i8, i8* %a, i64 %idxprom
-  store i8 %conv, i8* %arrayidx, align 1
+  %arrayidx = getelementptr inbounds i8, ptr %a, i64 %idxprom
+  store i8 %conv, ptr %arrayidx, align 1
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %for.body9
