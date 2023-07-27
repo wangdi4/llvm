@@ -1630,7 +1630,8 @@ def fprofile_sample_use_EQ : Joined<["-"], "fprofile-sample-use=">,
     MarshallingInfoString<CodeGenOpts<"SampleProfileFile">>;
 def fprofile_ml_use : Flag<["-"], "fprofile-ml-use">, Flags<[NoXarchOption, CC1Option]>,
     HelpText<"Use pre-trained machine learning model for profile guided "
-    "optimizations.">;
+    "optimizations.">,
+    MarshallingInfoFlag<CodeGenOpts<"ProfileMLUse">>;
 #endif // INTEL_CUSTOMIZATION
 def fprofile_sample_accurate : Flag<["-"], "fprofile-sample-accurate">,
     Group<f_Group>, Flags<[NoXarchOption, CC1Option]>,

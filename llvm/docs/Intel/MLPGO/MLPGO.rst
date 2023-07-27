@@ -104,16 +104,15 @@ Environment variables
    data
 3. `INTEL_MLPGO_MODEL_PATH=<filename>` - use `<filename` as machine learning
    model instead of embedded one
-4. `INTEL_MLPGO` - use machine learning for predicting branch probabilities
-5. `MLPGO_OUTPUT=<filename>` - dump features to the `<filename>`
-6. `MLPGO_REMOVE_NON_RUN` - do not dump features for not executed branches
-7. `MLPGO_DUMP_WITH_INF` - dump feature with inference results
-8. `MLPGO_DUMP_WITH_DEBUG_INFO` - dump features with additional debug info
-9. `MLPGO_DUMP_JSON` - dump features in JSON format
-10. `MLPGO_DUMP_UNKNOWN_FEATURES=<filename>` - dump unknown features to
+4. `MLPGO_OUTPUT=<filename>` - dump features to the `<filename>`
+5. `MLPGO_REMOVE_NON_RUN` - do not dump features for not executed branches
+6. `MLPGO_DUMP_WITH_INF` - dump feature with inference results
+7. `MLPGO_DUMP_WITH_DEBUG_INFO` - dump features with additional debug info
+8. `MLPGO_DUMP_JSON` - dump features in JSON format
+9. `MLPGO_DUMP_UNKNOWN_FEATURES=<filename>` - dump unknown features to
     `<filename>`
-11. `INTEL_MLPGO_PARTIAL_USE` - do not update function entry count
-12. `INTEL_MLPGO_CG`
-13. `INTEL_MLPGO_LTO`
-14. `INTEL_MLPGO_CG_USE`
-15. `INTEL_MLPGO_CG_GEN`
+10. `INTEL_MLPGO_PARTIAL_USE` - do not update function entry count
+11. `INTEL_MLPGO_CG`
+12. `INTEL_MLPGO_LTO`
+13. `INTEL_MLPGO_CG_USE`
+14. `INTEL_MLPGO_CG_GEN`

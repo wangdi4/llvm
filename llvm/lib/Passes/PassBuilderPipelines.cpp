@@ -443,6 +443,10 @@ static cl::opt<bool> EnableWPA(
     "enable-npm-whole-program-analysis", cl::init(true), cl::ReallyHidden,
     cl::desc("Enable Whole Program analysis in the new pass manager"));
 
+static cl::opt<bool>
+    ProfileMLUse("profile-ml-use", cl::Hidden, cl::init(false),
+                 cl::desc("Use Machine Learning for profile inference"));
+
 extern cl::opt<bool> ConvertToSubs;
 extern cl::opt<bool> EnableLV;
 enum class ThroughputMode { None, SingleJob, MultipleJob };
@@ -1786,16 +1790,12 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
-  // TODO: replace INTEL_MLPGO with using -fprofile-ml-use
-  std::optional<std::string> MLPGO;
-#if !INTEL_PRODUCT_RELEASE
-  MLPGO = sys::Process::GetEnv("INTEL_MLPGO");
-#endif
+  bool MLPGO = PGOOpt && PGOOpt->Action == PGOOptions::MLUse;
   if (MLPGO)
     MPM.addPass(MLPGOInference());
 
   assert(!(PGOOpt && PGOOpt->Action == PGOOptions::IRUse && MLPGO) &&
-         "Both INTEL_MLPGO and PGO Use enabled!");
+         "Both MLPGO and PGO Use enabled!");
 
   // Add all the requested passes for instrumentation PGO, if requested.
   if (PGOOpt && !PGOOpt->IsCGPGO &&
