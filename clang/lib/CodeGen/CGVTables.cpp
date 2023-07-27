@@ -734,7 +734,7 @@ llvm::Type *CodeGenModule::getVTableComponentType() const {
 #if INTEL_COLLAB
   return DefaultInt8PtrTy;
 #else // INTEL_COLLAB
-  return Int8PtrTy;
+  return GlobalsInt8PtrTy;
 #endif // INTEL_COLLAB
 }
 
@@ -752,7 +752,7 @@ static void AddPointerLayoutOffset(const CodeGenModule &CGM,
 #else // INTEL_COLLAB
   builder.add(llvm::ConstantExpr::getIntToPtr(
       llvm::ConstantInt::get(CGM.PtrDiffTy, offset.getQuantity()),
-      CGM.Int8PtrTy));
+      CGM.GlobalsInt8PtrTy));
 #endif  // INTEL_COLLAB
 }
 
@@ -794,7 +794,7 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
       return builder.add(
           llvm::ConstantExpr::getBitCast(rtti, CGM.DefaultInt8PtrTy));
 #else // INTEL_COLLAB
-       return builder.add(llvm::ConstantExpr::getBitCast(rtti, CGM.Int8PtrTy));
+      return builder.add(rtti);
 #endif // INTEL_COLLAB
 
   case VTableComponent::CK_FunctionPointer:
@@ -814,7 +814,8 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
               ? MD->hasAttr<CUDADeviceAttr>()
               : (MD->hasAttr<CUDAHostAttr>() || !MD->hasAttr<CUDADeviceAttr>());
       if (!CanEmitMethod)
-        return builder.add(llvm::ConstantExpr::getNullValue(CGM.Int8PtrTy));
+        return builder.add(
+            llvm::ConstantExpr::getNullValue(CGM.GlobalsInt8PtrTy));
       // Method is acceptable, continue processing as usual.
     }
 
@@ -838,20 +839,20 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
       // with the local symbol. As a temporary solution, fill these components
       // with zero. We shouldn't be calling these in the first place anyway.
       if (useRelativeLayout())
-        return llvm::ConstantPointerNull::get(CGM.Int8PtrTy);
+        return llvm::ConstantPointerNull::get(CGM.GlobalsInt8PtrTy);
 
       // For NVPTX devices in OpenMP emit special functon as null pointers,
       // otherwise linking ends up with unresolved references.
       if (CGM.getLangOpts().OpenMP && CGM.getLangOpts().OpenMPIsTargetDevice &&
           CGM.getTriple().isNVPTX())
-        return llvm::ConstantPointerNull::get(CGM.Int8PtrTy);
+        return llvm::ConstantPointerNull::get(CGM.GlobalsInt8PtrTy);
       llvm::FunctionType *fnTy =
           llvm::FunctionType::get(CGM.VoidTy, /*isVarArg=*/false);
       llvm::Constant *fn = cast<llvm::Constant>(
           CGM.CreateRuntimeFunction(fnTy, name).getCallee());
       if (auto f = dyn_cast<llvm::Function>(fn))
         f->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
-      return llvm::ConstantExpr::getBitCast(fn, CGM.Int8PtrTy);
+      return fn;
     };
 
     llvm::Constant *fnPtr;
@@ -902,7 +903,18 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
       return builder.add(llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
           fnPtr, CGM.DefaultInt8PtrTy));
 #else // INTEL_COLLAB
-      return builder.add(llvm::ConstantExpr::getBitCast(fnPtr, CGM.Int8PtrTy));
+      // TODO: this icky and only exists due to functions being in the generic
+      //       address space, rather than the global one, even though they are
+      //       globals;  fixing said issue might be intrusive, and will be done
+      //       later.
+      unsigned FnAS = fnPtr->getType()->getPointerAddressSpace();
+      unsigned GVAS = CGM.GlobalsInt8PtrTy->getPointerAddressSpace();
+
+      if (FnAS != GVAS)
+        fnPtr =
+            llvm::ConstantExpr::getAddrSpaceCast(fnPtr, CGM.GlobalsInt8PtrTy);
+      return builder.add(fnPtr);
+
 #endif // INTEL_COLLAB
   }
 
@@ -913,7 +925,7 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
 #if INTEL_COLLAB
       return builder.addNullPointer(CGM.DefaultInt8PtrTy);
 #else // INTEL_COLLAB
-      return builder.addNullPointer(CGM.Int8PtrTy);
+      return builder.addNullPointer(CGM.GlobalsInt8PtrTy);
 #endif  // INTEL_COLLAB
   }
 
