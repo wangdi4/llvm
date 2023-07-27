@@ -269,13 +269,14 @@ StmtResult Parser::ParsePragmaBlockLoop(StmtVector &Stmts,
 static bool ParseIntelBlockLoopToken(Preprocessor &PP, Token &Tok,
                                      Token PragmaName, Token Option,
                                      tok::TokenKind StopTK,
+                                     tok::TokenKind SecStopTK,
                                      PragmaBlockLoopInfo *Info) {
   SmallVector<Token, 1> ValueList;
   int getToken = 1;
   while (Tok.isNot(tok::eod)) {
     if (Tok.is(tok::l_paren))
       getToken++;
-    else if (Tok.is(StopTK) || Tok.is(tok::r_paren)) {
+    else if (Tok.is(StopTK) || Tok.is(tok::r_paren) || Tok.is(SecStopTK)) {
       getToken--;
       if (getToken == 0)
         break;
@@ -284,8 +285,13 @@ static bool ParseIntelBlockLoopToken(Preprocessor &PP, Token &Tok,
     ValueList.push_back(Tok);
     PP.Lex(Tok);
   }
-  if (Tok.isNot(tok::r_paren) && Tok.isNot(StopTK)) {
-    PP.Diag(Tok.getLocation(), diag::err_expected) << StopTK << tok::r_paren;
+  if (Tok.isNot(tok::r_paren) && Tok.isNot(StopTK) && Tok.isNot(SecStopTK)) {
+    if (SecStopTK != tok::r_paren)
+      PP.Diag(Tok.getLocation(), diag::err_expected_three)
+          << StopTK << SecStopTK << tok::r_paren;
+    else
+      PP.Diag(Tok.getLocation(), diag::err_expected_either)
+          << StopTK << tok::r_paren;
     return true;
   }
 
@@ -313,7 +319,8 @@ static bool ParseIntelBlockLoopToken(Preprocessor &PP, Token &Tok,
     Info->Levels.push_back(Info->LastToks);
     Info->Level = Option;
     // level(3) ==> level(3:3)
-    if (Tok.is(tok::r_paren) && Info->Levels.size() == 1) {
+    if ((Tok.is(tok::r_paren) || Tok.is(tok::comma)) &&
+        Info->Levels.size() % 2 != 0) {
       Info->Levels.push_back(Info->LastToks);
     }
   }
@@ -382,6 +389,7 @@ void PragmaBlockLoopHandler::HandlePragma(Preprocessor &PP,
   do {
     Token Option = Tok;
     tok::TokenKind StopTK = tok::r_paren;
+    tok::TokenKind SecStopTK = tok::r_paren;
     IdentifierInfo *OptionInfo = Tok.getIdentifierInfo();
     bool OptionValid = llvm::StringSwitch<bool>(OptionInfo->getName())
                            .Case("block_loop", true)
@@ -408,6 +416,7 @@ void PragmaBlockLoopHandler::HandlePragma(Preprocessor &PP,
       }
       HasLevel = true;
       StopTK = tok::colon;
+      SecStopTK = tok::comma;
     }
     if (OptionInfo->isStr("private")) {
       if (HasPrivate) {
@@ -425,16 +434,20 @@ void PragmaBlockLoopHandler::HandlePragma(Preprocessor &PP,
         return;
       }
       PP.Lex(Tok);
-      if (ParseIntelBlockLoopToken(PP, Tok, PragmaName, Option, StopTK, Info))
+      if (ParseIntelBlockLoopToken(PP, Tok, PragmaName, Option, StopTK,
+                                   SecStopTK, Info))
         return;
     }
-    if ((OptionInfo->isStr("level") && Tok.is(tok::colon)) ||
+    if ((OptionInfo->isStr("level") &&
+         (Tok.is(tok::colon) || Tok.is(tok::comma))) ||
         (OptionInfo->isStr("private") && Tok.is(tok::comma))) {
       do {
         PP.Lex(Tok);
-        if (ParseIntelBlockLoopToken(PP, Tok, PragmaName, Option, StopTK, Info))
+        if (ParseIntelBlockLoopToken(PP, Tok, PragmaName, Option, StopTK,
+                                     SecStopTK, Info))
           return;
-      } while (OptionInfo->isStr("private") && Tok.isNot(tok::r_paren));
+      } while ((OptionInfo->isStr("private") || OptionInfo->isStr("level")) &&
+               Tok.isNot(tok::r_paren));
     }
     if (Tok.is(tok::r_paren))
       PP.Lex(Tok);
