@@ -914,14 +914,15 @@ static Attr *handleIntelBlockLoopAttr(Sema &S, Stmt *St, const ParsedAttr &AA,
         FE = A.getArgAsExpr(++AI);
         AI++;
       }
-      if (A.isArgIdent(AI) &&
-          A.getArgAsIdent(AI)->Ident->isStr("level")) {
+      if (A.isArgIdent(AI) && A.getArgAsIdent(AI)->Ident->isStr("level")) {
         SourceLoc = A.getArgAsIdent(AI)->Loc; //beginning of Level clause
-        int64_t LevelFrom = getConstInt(S, ++AI, A);
-        int64_t LevelTo = getConstInt(S, ++AI, A);
+        do {
+          int64_t LevelFrom = getConstInt(S, ++AI, A);
+          int64_t LevelTo = getConstInt(S, ++AI, A);
+          if (checkOverlapingLevels(S, FE, LevelFrom, LevelTo, SourceLoc, Map))
+            return nullptr;
+        } while (AI + 1 < A.getNumArgs() && !A.isArgIdent(AI + 1));
         AI++;
-        if (checkOverlapingLevels(S, FE, LevelFrom, LevelTo, SourceLoc, Map))
-          return nullptr;
       } else {
         if (!Map.empty()) {
           // No user specified level for current pragma, but other block_loop

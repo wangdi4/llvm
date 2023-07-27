@@ -1,7 +1,7 @@
 ; INTEL_CUSTOMIZATION
 ;
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-paropt-prepare -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-paropt-prepare)' -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-paropt-prepare -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-paropt-prepare)' -S %s | FileCheck %s
 ;
 ; Comple the Fortran source code below with ifx -c -fiopenmp -fopenmp-targets=spir64
 ;
@@ -38,7 +38,7 @@
 ; there were no store instructions in the region after the subroutine call.)
 ;
 ; Verify that the variant call to foo_gpu is emitted
-; CHECK: %variant = call i32 @foo_gpu_(i32*
+; CHECK: %variant = call i32 @foo_gpu_(ptr
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -46,8 +46,7 @@ target device_triples = "spir64"
 
 @0 = internal unnamed_addr constant i32 2
 
-; Function Attrs: nounwind uwtable
-define void @MAIN__() #0 {
+define void @MAIN__() {
 alloca_1:
   %"var$1" = alloca [8 x i64], align 16
   %"main_$ARG" = alloca i32, align 8
@@ -58,7 +57,6 @@ bb2:                                              ; preds = %alloca_1
   br label %bb3
 
 bb3:                                              ; preds = %bb2
-  %func_result = call i32 @for_set_reentrancy(i32* @0)
   br label %DIR.OMP.TARGET.VARIANT.DISPATCH.1
 
 DIR.OMP.TARGET.VARIANT.DISPATCH.1:                ; preds = %bb3
@@ -75,11 +73,11 @@ bb8:                                              ; preds = %bb5
   br label %bb7
 
 bb9:                                              ; preds = %bb7
-  %func_result2 = call i32 @foo_(i32* %"main_$ARG")
+  %func_result2 = call i32 @foo_(ptr %"main_$ARG")
   br label %bb6
 
 bb6:                                              ; preds = %bb9
-  store i32 %func_result2, i32* %"main_$RES_GPU", align 1
+  store i32 %func_result2, ptr %"main_$RES_GPU", align 1
   br label %DIR.OMP.END.TARGET.VARIANT.DISPATCH.2
 
 DIR.OMP.END.TARGET.VARIANT.DISPATCH.2:            ; preds = %bb6
@@ -93,15 +91,9 @@ bb1:                                              ; preds = %DIR.OMP.END.TARGET.
   ret void
 }
 
-declare i32 @for_set_reentrancy(i32*)
-declare token @llvm.directive.region.entry() #1
-declare void @llvm.directive.region.exit(token) #1
-declare i32 @foo_(i32*) #2
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)
+declare i32 @foo_(ptr) #0
 
-attributes #0 = { nounwind uwtable "intel-lang"="fortran" "min-legal-vector-width"="0" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" }
-attributes #1 = { nounwind }
-attributes #2 = { "openmp-variant"="name:foo_gpu_;construct:target_variant_dispatch;arch:gen" }
-
-!omp_offload.info = !{}
-
+attributes #0 = { "openmp-variant"="name:foo_gpu_;construct:target_variant_dispatch;arch:gen" }
 ; end INTEL_CUSTOMIZATION

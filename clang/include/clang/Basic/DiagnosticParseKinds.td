@@ -1410,6 +1410,7 @@ def err_omp_unknown_map_type_modifier : Error<
   "incorrect map type modifier, expected one of: 'always', 'close', 'mapper'"
   "%select{|, 'present'|, 'present', 'iterator'}0%select{|, 'ompx_hold'}1">;
 #if INTEL_CUSTOMIZATION
+def err_expected_three : Error<"expected %0, %1 or %2">;
 def err_omp_unknown_lastprivate_modifier : Error<
   "incorrect lastprivate modifier, expected 'conditional'">;
 def err_omp_expected_identifier_for_ompx_processor : Error<

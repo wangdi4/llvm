@@ -49,7 +49,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind readonly uwtable
-define i32 @foo(i32* nocapture readonly %a, i32 %b) #0 {
+define i32 @foo(ptr nocapture readonly %a, i32 %b) #0 {
 entry:
   br label %for.body
 
@@ -75,8 +75,8 @@ if.else:                                          ; preds = %for.body
   br i1 %cmp2, label %alter, label %if.end.4
 
 if.end.4:                                         ; preds = %if.else
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx, align 4, !tbaa !1
   br label %skip
 
 skip:                                             ; preds = %if.end.4, %if.then

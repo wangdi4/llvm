@@ -1,6 +1,6 @@
 ; With forced hir-cg, we should see HIR->LLVM IR occur
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S < %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-optreport-emitter,hir-cg" -force-hir-cg -S < %s 2>&1 | FileCheck %s --check-prefix=OPTREPORT
+; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -force-hir-cg -S < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-optreport-emitter,hir-cg" -force-hir-cg -S < %s 2>&1 | FileCheck %s --check-prefix=OPTREPORT
 
 ; terminator of entry bblock should have changed
 ; CHECK: for.body:
@@ -8,7 +8,7 @@
 
 ;
 ; CHECK: region.0:
-; CHECK: store i64 0, i64* %i1
+; CHECK: store i64 0, ptr %i1
 ; CHECK-NEXT: br label %[[L1Label:loop.[0-9]+]]
 
 ; CHECK: [[L1Label]]:
@@ -22,13 +22,13 @@
 ; Check load attributes and metadata
 ; CHECK-SAME: align 4
 ; CHECK-SAME: tbaa
-; CHECK-NEXT: store i32 [[GEPLOAD]], i32* [[TEMPSLOT:.*]]
+; CHECK-NEXT: store i32 [[GEPLOAD]], ptr [[TEMPSLOT:.*]]
 
 ; get addr of A[], load memslot from earlier and stored loaded
 ; value at that addr
 ; CHECK-DAG: [[GEP:%.*]] = getelementptr {{.*}} @A
-; CHECK-DAG: [[TEMPLOAD:%t.*]] = load i32, i32* [[TEMPSLOT]]
-; CHECK-NEXT: store i32 [[TEMPLOAD]], i32* [[GEP]]
+; CHECK-DAG: [[TEMPLOAD:%t.*]] = load i32, ptr [[TEMPSLOT]]
+; CHECK-NEXT: store i32 [[TEMPLOAD]], ptr [[GEP]]
 
 ; Check store attributes and metadata
 ; CHECK-SAME: align 4
@@ -58,16 +58,16 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %i.05 = phi i64 [ 1, %entry ], [ %inc, %for.body ]
-  %arrayidx = getelementptr inbounds [10 x i32], [10 x i32]* @B, i64 0, i64 %i.05
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !1
-  %arrayidx1 = getelementptr inbounds [10 x i32], [10 x i32]* @A, i64 0, i64 %i.05
-  store i32 %0, i32* %arrayidx1, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds [10 x i32], ptr @B, i64 0, i64 %i.05
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !1
+  %arrayidx1 = getelementptr inbounds [10 x i32], ptr @A, i64 0, i64 %i.05
+  store i32 %0, ptr %arrayidx1, align 4, !tbaa !1
   %inc = add nuw nsw i64 %i.05, 1
   %exitcond = icmp eq i64 %inc, 5
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body
-  %1 = load i32, i32* getelementptr inbounds ([10 x i32], [10 x i32]* @A, i64 0, i64 2), align 8, !tbaa !1
+  %1 = load i32, ptr getelementptr inbounds ([10 x i32], ptr @A, i64 0, i64 2), align 8, !tbaa !1
   ret i32 %1
 }
 

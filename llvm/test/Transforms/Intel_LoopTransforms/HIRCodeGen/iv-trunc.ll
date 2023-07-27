@@ -1,4 +1,4 @@
-;RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-cg" -S -force-hir-cg %s | FileCheck %s
+;RUN: opt -passes="hir-ssa-deconstruction,hir-cg" -S -force-hir-cg %s | FileCheck %s
 
 ; In subscript expr on <5> and <11>, we have a 64 bit iv in a 32 bit src
 ;CE(but 64 bit dest type). Verify that the iv is generated as a truncated
@@ -26,20 +26,20 @@
 ; CHECK: {{loop.[0-9]+:}}
 
 ; CG for LINEAR zext.i32.i64(i1 + 16)]
-; CHECK: [[IVLOAD1:%.*]] = load i64, i64* %i1.i64
+; CHECK: [[IVLOAD1:%.*]] = load i64, ptr %i1.i64
 ; CHECK: [[TRUNC_IV1:%.*]] = trunc i64 [[IVLOAD1]] to i32
 ; CHECK: [[ADD_IV:%.*]] = add i32 [[TRUNC_IV1]], 16
 ; CHECK: zext i32 [[ADD_IV]] to i64
 
 ; CG for LINEAR zext.i32.i64(3 * i1 + %N)]
-; CHECK: [[IVLOAD2:%.*]] = load i64, i64* %i1.i64
+; CHECK: [[IVLOAD2:%.*]] = load i64, ptr %i1.i64
 ; CHECK: [[TRUNC_IV2:%.*]] = trunc i64 [[IVLOAD2]] to i32
 ; CHECK: [[MUL_IV:%.*]] = mul i32 3, [[TRUNC_IV2]]
 ; CHECK: [[ADD_IV2:%.*]] = add i32 %N, [[MUL_IV]]
 ; CHECK: zext i32 [[ADD_IV2]] to i64
 
 ; Check wrap flags on IV
-; CHECK: [[IV_LOAD3:%.*]] = load i64, i64* %i1.i64
+; CHECK: [[IV_LOAD3:%.*]] = load i64, ptr %i1.i64
 ; CHECK: [[IV_UPDATE:%.*]] = add nuw nsw i64 [[IV_LOAD3]], 1
 ; CHECK: icmp ne i64 [[IV_LOAD3]]
 
@@ -48,7 +48,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define i32 @_Z3fooPii(i32* nocapture %A, i32 %N) #0 {
+define i32 @_Z3fooPii(ptr nocapture %A, i32 %N) #0 {
 entry:
   %cmp.14 = icmp eq i32 %N, 0
   br i1 %cmp.14, label %for.cond.cleanup, label %for.body.preheader
@@ -61,22 +61,22 @@ for.cond.cleanup.loopexit:                        ; preds = %for.body
 
 for.cond.cleanup:                                 ; preds = %for.cond.cleanup.loopexit, %entry
   %idxprom4 = sext i32 %N to i64
-  %arrayidx5 = getelementptr inbounds i32, i32* %A, i64 %idxprom4
-  %0 = load i32, i32* %arrayidx5, align 4, !tbaa !1
+  %arrayidx5 = getelementptr inbounds i32, ptr %A, i64 %idxprom4
+  %0 = load i32, ptr %arrayidx5, align 4, !tbaa !1
   ret i32 %0
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.preheader ]
   %add = add i64 %indvars.iv, 16
   %idxprom = and i64 %add, 4294967295
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %idxprom
-  store i32 77, i32* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %idxprom
+  store i32 77, ptr %arrayidx, align 4, !tbaa !1
   %1 = trunc i64 %indvars.iv to i32
   %mul = mul i32 %1, 3
   %add1 = add i32 %mul, %N
   %idxprom2 = zext i32 %add1 to i64
-  %arrayidx3 = getelementptr inbounds i32, i32* %A, i64 %idxprom2
-  store i32 22, i32* %arrayidx3, align 4, !tbaa !1
+  %arrayidx3 = getelementptr inbounds i32, ptr %A, i64 %idxprom2
+  store i32 22, ptr %arrayidx3, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, %N

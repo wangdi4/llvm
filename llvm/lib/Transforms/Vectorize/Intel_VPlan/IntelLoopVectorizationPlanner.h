@@ -458,6 +458,8 @@ public:
   /// \Returns the selected best unroll factor.
   unsigned getBestUF() {return VecScenario.getMainUF();}
 
+  bool peelWasSelected() const { return VecScenario.hasPeel(); }
+
   /// Reads all metadata specified by pragmas
   void readLoopMetadata() {
     VectorlengthMD =

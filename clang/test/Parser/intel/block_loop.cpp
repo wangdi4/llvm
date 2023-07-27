@@ -24,4 +24,13 @@ void error_check(int i, int *x, int *y)
   for (i = 0; i < 10; ++i) {
     x[i] = y[i];
   }
+  // expected-error@+1 {{expected ':', ',' or ')'}}
+  #pragma block_loop level(1,1:3
+  for (i = 0; i < 10; ++i) {
+    x[i] = y[i];
+  }
+  // expected-error@+1 {{expected ':', ',' or ')'}}
+  #pragma block_loop level(1:3,1
+  for (i = 0; i < 10; ++i)
+    x[i] = y[i];
 }

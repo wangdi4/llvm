@@ -1,7 +1,5 @@
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-cg" < %s -force-hir-cg -S 2>&1 | FileCheck %s
-
-; This run command verifies that code generation is successful without compfails for opaque pinters.
-; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-cg" < %s -force-hir-cg
+; This run command verifies that code generation is successful without compfails for opaque pointers.
+; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" < %s -force-hir-cg
 
 ; Verify that CG can correctly handle opaque types. %3 is a pointer to an opaque type. Make sure &((%3)[0]) is lowered correctly to a pointer without a GEP.
 ; CHECK:    BEGIN REGION { }
@@ -29,38 +27,37 @@
 target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"
 target triple = "i386-unknown-linux-gnu"
 
-%struct.sticklineset_t = type { i32, i32, %struct.stickline_t** }
+%struct.sticklineset_t = type { i32, i32, ptr }
 %struct.stickline_t = type opaque
 
-define %struct.sticklineset_t* @sticklineset_test(%struct.sticklineset_t* %call) local_unnamed_addr #3 {
+define ptr @sticklineset_test(ptr %call) local_unnamed_addr #3 {
 entry:
-  %tobool = icmp eq %struct.sticklineset_t* %call, null
+  %tobool = icmp eq ptr %call, null
   br i1 %tobool, label %cleanup, label %for.body.i.lr.ph
 
 for.body.i.lr.ph:                                 ; preds = %entry
-  %stickline = getelementptr inbounds %struct.sticklineset_t, %struct.sticklineset_t* %call, i32 0, i32 2
-  %0 = load %struct.stickline_t**, %struct.stickline_t*** %stickline, align 4
-  store %struct.stickline_t* null, %struct.stickline_t** %0, align 4
-  %1 = load %struct.stickline_t**, %struct.stickline_t*** %stickline, align 4
-  %arrayidx2 = getelementptr inbounds %struct.stickline_t*, %struct.stickline_t** %1, i32 1
-  store %struct.stickline_t* inttoptr (i32 77 to %struct.stickline_t*), %struct.stickline_t** %arrayidx2, align 4
-  %n = getelementptr inbounds %struct.sticklineset_t, %struct.sticklineset_t* %call, i32 0, i32 0
-  store i32 2, i32* %n, align 4
+  %stickline = getelementptr inbounds %struct.sticklineset_t, ptr %call, i32 0, i32 2
+  %0 = load ptr, ptr %stickline, align 4
+  store ptr null, ptr %0, align 4
+  %1 = load ptr, ptr %stickline, align 4
+  %arrayidx2 = getelementptr inbounds ptr, ptr %1, i32 1
+  store ptr inttoptr (i32 77 to ptr), ptr %arrayidx2, align 4
+  store i32 2, ptr %call, align 4
   br label %for.body.i
 
 for.body.i:                                       ; preds = %for.body.i.lr.ph, %if.end.i
   %k.0.i14 = phi i32 [ 0, %for.body.i.lr.ph ], [ %inc7.i, %if.end.i ]
   %n.0.i13 = phi i32 [ 0, %for.body.i.lr.ph ], [ %n.1.i, %if.end.i ]
-  %2 = load %struct.stickline_t**, %struct.stickline_t*** %stickline, align 4
-  %arrayidx.i = getelementptr inbounds %struct.stickline_t*, %struct.stickline_t** %2, i32 %k.0.i14
-  %3 = load %struct.stickline_t*, %struct.stickline_t** %arrayidx.i, align 4
-  %tobool3.i = icmp eq %struct.stickline_t* %3, null
+  %2 = load ptr, ptr %stickline, align 4
+  %arrayidx.i = getelementptr inbounds ptr, ptr %2, i32 %k.0.i14
+  %3 = load ptr, ptr %arrayidx.i, align 4
+  %tobool3.i = icmp eq ptr %3, null
   br i1 %tobool3.i, label %if.end.i, label %if.then4.i
 
 if.then4.i:                                       ; preds = %for.body.i
   %inc.i = add nsw i32 %n.0.i13, 1
-  %arrayidx6.i = getelementptr inbounds %struct.stickline_t*, %struct.stickline_t** %2, i32 %n.0.i13
-  store %struct.stickline_t* %3, %struct.stickline_t** %arrayidx6.i, align 4
+  %arrayidx6.i = getelementptr inbounds ptr, ptr %2, i32 %n.0.i13
+  store ptr %3, ptr %arrayidx6.i, align 4
   br label %if.end.i
 
 if.end.i:                                         ; preds = %if.then4.i, %for.body.i
@@ -71,11 +68,11 @@ if.end.i:                                         ; preds = %if.then4.i, %for.bo
 
 sticklineset_compress.exit:                       ; preds = %if.end.i
   %n.1.i.lcssa = phi i32 [ %n.1.i, %if.end.i ]
-  store i32 %n.1.i.lcssa, i32* %n, align 4
+  store i32 %n.1.i.lcssa, ptr %call, align 4
   br label %cleanup
 
 cleanup:                                          ; preds = %entry, %sticklineset_compress.exit
-  %retval.0 = phi %struct.sticklineset_t* [ %call, %sticklineset_compress.exit ], [ null, %entry ]
-  ret %struct.sticklineset_t* %retval.0
+  %retval.0 = phi ptr [ %call, %sticklineset_compress.exit ], [ null, %entry ]
+  ret ptr %retval.0
 }
 

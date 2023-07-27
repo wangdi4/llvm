@@ -173,17 +173,17 @@ for.cond.4.preheader.preheader:                   ; preds = %for.cond.4.preheade
 
 for.body.6.lr.ph:                                 ; preds = %for.cond.4.for.inc.14_crit_edge, %for.cond.4.preheader.preheader
   %j.039 = phi i64 [ %inc15, %for.cond.4.for.inc.14_crit_edge ], [ 0, %for.cond.4.preheader.preheader ]
-  %arrayidx7 = getelementptr inbounds [1024 x [1024 x double]], [1024 x [1024 x double]]* @c, i64 0, i64 %i.042, i64 %j.039
-  %arrayidx7.promoted = load double, double* %arrayidx7, align 8, !tbaa !1
+  %arrayidx7 = getelementptr inbounds [1024 x [1024 x double]], ptr @c, i64 0, i64 %i.042, i64 %j.039
+  %arrayidx7.promoted = load double, ptr %arrayidx7, align 8, !tbaa !1
   br label %for.body.6
 
 for.body.6:                                       ; preds = %for.body.6, %for.body.6.lr.ph
   %0 = phi double [ %arrayidx7.promoted, %for.body.6.lr.ph ], [ %add, %for.body.6 ]
   %k.037 = phi i64 [ 0, %for.body.6.lr.ph ], [ %inc, %for.body.6 ]
-  %arrayidx9 = getelementptr inbounds [1024 x [1024 x double]], [1024 x [1024 x double]]* @a, i64 0, i64 %i.042, i64 %k.037
-  %1 = load double, double* %arrayidx9, align 8, !tbaa !1
-  %arrayidx11 = getelementptr inbounds [1024 x [1024 x double]], [1024 x [1024 x double]]* @b, i64 0, i64 %k.037, i64 %j.039
-  %2 = load double, double* %arrayidx11, align 8, !tbaa !1
+  %arrayidx9 = getelementptr inbounds [1024 x [1024 x double]], ptr @a, i64 0, i64 %i.042, i64 %k.037
+  %1 = load double, ptr %arrayidx9, align 8, !tbaa !1
+  %arrayidx11 = getelementptr inbounds [1024 x [1024 x double]], ptr @b, i64 0, i64 %k.037, i64 %j.039
+  %2 = load double, ptr %arrayidx11, align 8, !tbaa !1
   %mul = fmul double %1, %2
   %add = fadd double %0, %mul
   %inc = add nuw nsw i64 %k.037, 1
@@ -191,7 +191,7 @@ for.body.6:                                       ; preds = %for.body.6, %for.bo
   br i1 %exitcond, label %for.cond.4.for.inc.14_crit_edge, label %for.body.6
 
 for.cond.4.for.inc.14_crit_edge:                  ; preds = %for.body.6
-  store double %add, double* %arrayidx7, align 8, !tbaa !1
+  store double %add, ptr %arrayidx7, align 8, !tbaa !1
   %inc15 = add nuw nsw i64 %j.039, 1
   %exitcond44 = icmp eq i64 %inc15, %N
   br i1 %exitcond44, label %for.inc.17, label %for.body.6.lr.ph

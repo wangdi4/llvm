@@ -22,7 +22,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @foo([1000 x double]* nocapture %A, [1000 x double]* nocapture readonly %B, [1000 x double]* nocapture readonly %C) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture %A, ptr nocapture readonly %B, ptr nocapture readonly %C) local_unnamed_addr #0 {
 entry:
   %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.BLOCK_LOOP"(), "QUAL.PRAGMA.LEVEL"(i32 1), "QUAL.PRAGMA.FACTOR"(i32 0), "QUAL.PRAGMA.LEVEL"(i32 2), "QUAL.PRAGMA.FACTOR"(i32 0) ]
   br label %for.cond1.preheader
@@ -33,15 +33,15 @@ for.cond1.preheader:                              ; preds = %entry, %for.inc13
 
 for.body3:                                        ; preds = %for.cond1.preheader, %for.body3
   %indvars.iv = phi i64 [ 1, %for.cond1.preheader ], [ %indvars.iv.next, %for.body3 ]
-  %arrayidx = getelementptr inbounds [1000 x double], [1000 x double]* %C, i64 %indvars.iv28, i64 %indvars.iv
-  %1 = load double, double* %arrayidx, align 8, !tbaa !2
-  %arrayidx8 = getelementptr inbounds [1000 x double], [1000 x double]* %B, i64 %indvars.iv28, i64 %indvars.iv
-  %2 = load double, double* %arrayidx8, align 8, !tbaa !2
+  %arrayidx = getelementptr inbounds [1000 x double], ptr %C, i64 %indvars.iv28, i64 %indvars.iv
+  %1 = load double, ptr %arrayidx, align 8, !tbaa !2
+  %arrayidx8 = getelementptr inbounds [1000 x double], ptr %B, i64 %indvars.iv28, i64 %indvars.iv
+  %2 = load double, ptr %arrayidx8, align 8, !tbaa !2
   %mul = fmul fast double %2, %1
-  %arrayidx12 = getelementptr inbounds [1000 x double], [1000 x double]* %A, i64 %indvars.iv28, i64 %indvars.iv
-  %3 = load double, double* %arrayidx12, align 8, !tbaa !2
+  %arrayidx12 = getelementptr inbounds [1000 x double], ptr %A, i64 %indvars.iv28, i64 %indvars.iv
+  %3 = load double, ptr %arrayidx12, align 8, !tbaa !2
   %add = fadd fast double %3, %mul
-  store double %add, double* %arrayidx12, align 8, !tbaa !2
+  store double %add, ptr %arrayidx12, align 8, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1000
   br i1 %exitcond, label %for.inc13, label %for.body3

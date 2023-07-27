@@ -1,7 +1,6 @@
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-cg" -hir-cost-model-throttling=0 -force-hir-cg -print-after=hir-temp-cleanup,hir-cg -disable-output 2>&1 | FileCheck %s
 
 ; Verify that the code is generated with a crash. Notice that the input is by default using opaque pointers (i.e. "ptr").
-; Option -opaque-pointers is not needed.
 
 ; CHECK:              + DO i1 = 0, zext.i32.i64(%0) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 441>  <LEGAL_MAX_TC = 2147483647>
 ; CHECK:              |   %1 = (%this)[0].5.0[i1];

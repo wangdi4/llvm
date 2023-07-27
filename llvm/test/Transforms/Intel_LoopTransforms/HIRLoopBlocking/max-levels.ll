@@ -67,18 +67,18 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #0
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #0
 
 ; Function Attrs: nofree nounwind uwtable
-define void @sd_t_d1_1_(i32* noalias nocapture readonly %"sd_t_d1_1_$H3D", i32* noalias nocapture readonly %"sd_t_d1_1_$H2D", i32* noalias nocapture readonly %"sd_t_d1_1_$H1D", i32* noalias nocapture readonly %"sd_t_d1_1_$P6D", i32* noalias nocapture readonly %"sd_t_d1_1_$P5D", i32* noalias nocapture readonly %"sd_t_d1_1_$P4D", i32* noalias nocapture readonly %"sd_t_d1_1_$H7D", double* noalias nocapture %"sd_t_d1_1_$TRIPLESX", double* noalias nocapture readonly %"sd_t_d1_1_$T2SUB", double* noalias nocapture readonly %"sd_t_d1_1_$V2SUB") local_unnamed_addr #1 {
+define void @sd_t_d1_1_(ptr noalias nocapture readonly %"sd_t_d1_1_$H3D", ptr noalias nocapture readonly %"sd_t_d1_1_$H2D", ptr noalias nocapture readonly %"sd_t_d1_1_$H1D", ptr noalias nocapture readonly %"sd_t_d1_1_$P6D", ptr noalias nocapture readonly %"sd_t_d1_1_$P5D", ptr noalias nocapture readonly %"sd_t_d1_1_$P4D", ptr noalias nocapture readonly %"sd_t_d1_1_$H7D", ptr noalias nocapture %"sd_t_d1_1_$TRIPLESX", ptr noalias nocapture readonly %"sd_t_d1_1_$T2SUB", ptr noalias nocapture readonly %"sd_t_d1_1_$V2SUB") local_unnamed_addr #1 {
 alloca_3:
-  %"sd_t_d1_1_$H3D_fetch" = load i32, i32* %"sd_t_d1_1_$H3D", align 1
-  %"sd_t_d1_1_$H2D_fetch" = load i32, i32* %"sd_t_d1_1_$H2D", align 1
-  %"sd_t_d1_1_$H1D_fetch" = load i32, i32* %"sd_t_d1_1_$H1D", align 1
-  %"sd_t_d1_1_$P6D_fetch" = load i32, i32* %"sd_t_d1_1_$P6D", align 1
-  %"sd_t_d1_1_$P5D_fetch" = load i32, i32* %"sd_t_d1_1_$P5D", align 1
-  %"sd_t_d1_1_$P4D_fetch" = load i32, i32* %"sd_t_d1_1_$P4D", align 1
-  %"sd_t_d1_1_$H7D_fetch" = load i32, i32* %"sd_t_d1_1_$H7D", align 1
+  %"sd_t_d1_1_$H3D_fetch" = load i32, ptr %"sd_t_d1_1_$H3D", align 1
+  %"sd_t_d1_1_$H2D_fetch" = load i32, ptr %"sd_t_d1_1_$H2D", align 1
+  %"sd_t_d1_1_$H1D_fetch" = load i32, ptr %"sd_t_d1_1_$H1D", align 1
+  %"sd_t_d1_1_$P6D_fetch" = load i32, ptr %"sd_t_d1_1_$P6D", align 1
+  %"sd_t_d1_1_$P5D_fetch" = load i32, ptr %"sd_t_d1_1_$P5D", align 1
+  %"sd_t_d1_1_$P4D_fetch" = load i32, ptr %"sd_t_d1_1_$P4D", align 1
+  %"sd_t_d1_1_$H7D_fetch" = load i32, ptr %"sd_t_d1_1_$H7D", align 1
   %int_sext = sext i32 %"sd_t_d1_1_$H3D_fetch" to i64
   %mul = shl nsw i64 %int_sext, 3
   %int_sext27 = sext i32 %"sd_t_d1_1_$H2D_fetch" to i64
@@ -126,7 +126,7 @@ bb2018:                                           ; preds = %bb2023, %bb2018.pre
   br i1 %rel6, label %bb2023, label %bb2022.preheader
 
 bb2022.preheader:                                 ; preds = %bb2018
-  %"sd_t_d1_1_$TRIPLESX[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 5, i64 1, i64 %mul34, double* elementtype(double) %"sd_t_d1_1_$TRIPLESX", i64 %indvars.iv319)
+  %"sd_t_d1_1_$TRIPLESX[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 5, i64 1, i64 %mul34, ptr elementtype(double) %"sd_t_d1_1_$TRIPLESX", i64 %indvars.iv319)
   br label %bb2022
 
 bb2022:                                           ; preds = %bb2027, %bb2022.preheader
@@ -134,7 +134,7 @@ bb2022:                                           ; preds = %bb2027, %bb2022.pre
   br i1 %rel10, label %bb2027, label %bb2026.preheader
 
 bb2026.preheader:                                 ; preds = %bb2022
-  %"sd_t_d1_1_$TRIPLESX[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %mul32, double* elementtype(double) %"sd_t_d1_1_$TRIPLESX[]", i64 %indvars.iv315)
+  %"sd_t_d1_1_$TRIPLESX[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %mul32, ptr elementtype(double) %"sd_t_d1_1_$TRIPLESX[]", i64 %indvars.iv315)
   br label %bb2026
 
 bb2026:                                           ; preds = %bb2031, %bb2026.preheader
@@ -142,7 +142,7 @@ bb2026:                                           ; preds = %bb2031, %bb2026.pre
   br i1 %rel14, label %bb2031, label %bb2030.preheader
 
 bb2030.preheader:                                 ; preds = %bb2026
-  %"sd_t_d1_1_$TRIPLESX[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul30, double* elementtype(double) %"sd_t_d1_1_$TRIPLESX[][]", i64 %indvars.iv311)
+  %"sd_t_d1_1_$TRIPLESX[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %mul30, ptr elementtype(double) %"sd_t_d1_1_$TRIPLESX[][]", i64 %indvars.iv311)
   br label %bb2030
 
 bb2030:                                           ; preds = %bb2035, %bb2030.preheader
@@ -150,10 +150,10 @@ bb2030:                                           ; preds = %bb2035, %bb2030.pre
   br i1 %rel18, label %bb2035, label %bb2034.preheader
 
 bb2034.preheader:                                 ; preds = %bb2030
-  %"sd_t_d1_1_$TRIPLESX[][][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul28, double* elementtype(double) %"sd_t_d1_1_$TRIPLESX[][][]", i64 %indvars.iv307)
-  %"sd_t_d1_1_$T2SUB[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul56, double* elementtype(double) %"sd_t_d1_1_$T2SUB", i64 %indvars.iv307)
-  %"sd_t_d1_1_$T2SUB[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul53, double* elementtype(double) %"sd_t_d1_1_$T2SUB[]", i64 %indvars.iv315)
-  %"sd_t_d1_1_$T2SUB[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul51, double* elementtype(double) %"sd_t_d1_1_$T2SUB[][]", i64 %indvars.iv319)
+  %"sd_t_d1_1_$TRIPLESX[][][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %mul28, ptr elementtype(double) %"sd_t_d1_1_$TRIPLESX[][][]", i64 %indvars.iv307)
+  %"sd_t_d1_1_$T2SUB[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %mul56, ptr elementtype(double) %"sd_t_d1_1_$T2SUB", i64 %indvars.iv307)
+  %"sd_t_d1_1_$T2SUB[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %mul53, ptr elementtype(double) %"sd_t_d1_1_$T2SUB[]", i64 %indvars.iv315)
+  %"sd_t_d1_1_$T2SUB[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul51, ptr elementtype(double) %"sd_t_d1_1_$T2SUB[][]", i64 %indvars.iv319)
   br label %bb2034
 
 bb2034:                                           ; preds = %bb2039, %bb2034.preheader
@@ -161,7 +161,7 @@ bb2034:                                           ; preds = %bb2039, %bb2034.pre
   br i1 %rel22, label %bb2039, label %bb2038.preheader
 
 bb2038.preheader:                                 ; preds = %bb2034
-  %"sd_t_d1_1_$TRIPLESX[][][][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* elementtype(double) %"sd_t_d1_1_$TRIPLESX[][][][]", i64 %indvars.iv303)
+  %"sd_t_d1_1_$TRIPLESX[][][][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul, ptr elementtype(double) %"sd_t_d1_1_$TRIPLESX[][][][]", i64 %indvars.iv303)
   br label %bb2038
 
 bb2038:                                           ; preds = %bb2043, %bb2038.preheader
@@ -169,20 +169,20 @@ bb2038:                                           ; preds = %bb2043, %bb2038.pre
   br i1 %rel26, label %bb2043, label %bb2042.preheader
 
 bb2042.preheader:                                 ; preds = %bb2038
-  %"sd_t_d1_1_$TRIPLESX[][][][][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"sd_t_d1_1_$TRIPLESX[][][][][]", i64 %indvars.iv299)
-  %"sd_t_d1_1_$TRIPLESX[][][][][][].promoted" = load double, double* %"sd_t_d1_1_$TRIPLESX[][][][][][]", align 1
+  %"sd_t_d1_1_$TRIPLESX[][][][][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"sd_t_d1_1_$TRIPLESX[][][][][]", i64 %indvars.iv299)
+  %"sd_t_d1_1_$TRIPLESX[][][][][][].promoted" = load double, ptr %"sd_t_d1_1_$TRIPLESX[][][][][][]", align 1
   br label %bb2042
 
 bb2042:                                           ; preds = %bb2042, %bb2042.preheader
   %indvars.iv = phi i64 [ 1, %bb2042.preheader ], [ %indvars.iv.next, %bb2042 ]
   %sub298 = phi double [ %"sd_t_d1_1_$TRIPLESX[][][][][][].promoted", %bb2042.preheader ], [ %sub, %bb2042 ]
-  %"sd_t_d1_1_$T2SUB[][][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"sd_t_d1_1_$T2SUB[][][]", i64 %indvars.iv)
-  %"sd_t_d1_1_$T2SUB[][][][]_fetch" = load double, double* %"sd_t_d1_1_$T2SUB[][][][]", align 1
-  %"sd_t_d1_1_$V2SUB[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul87, double* elementtype(double) %"sd_t_d1_1_$V2SUB", i64 %indvars.iv)
-  %"sd_t_d1_1_$V2SUB[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul28, double* elementtype(double) %"sd_t_d1_1_$V2SUB[]", i64 %indvars.iv311)
-  %"sd_t_d1_1_$V2SUB[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* elementtype(double) %"sd_t_d1_1_$V2SUB[][]", i64 %indvars.iv303)
-  %"sd_t_d1_1_$V2SUB[][][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"sd_t_d1_1_$V2SUB[][][]", i64 %indvars.iv299)
-  %"sd_t_d1_1_$V2SUB[][][][]_fetch" = load double, double* %"sd_t_d1_1_$V2SUB[][][][]", align 1
+  %"sd_t_d1_1_$T2SUB[][][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"sd_t_d1_1_$T2SUB[][][]", i64 %indvars.iv)
+  %"sd_t_d1_1_$T2SUB[][][][]_fetch" = load double, ptr %"sd_t_d1_1_$T2SUB[][][][]", align 1
+  %"sd_t_d1_1_$V2SUB[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %mul87, ptr elementtype(double) %"sd_t_d1_1_$V2SUB", i64 %indvars.iv)
+  %"sd_t_d1_1_$V2SUB[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %mul28, ptr elementtype(double) %"sd_t_d1_1_$V2SUB[]", i64 %indvars.iv311)
+  %"sd_t_d1_1_$V2SUB[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul, ptr elementtype(double) %"sd_t_d1_1_$V2SUB[][]", i64 %indvars.iv303)
+  %"sd_t_d1_1_$V2SUB[][][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"sd_t_d1_1_$V2SUB[][][]", i64 %indvars.iv299)
+  %"sd_t_d1_1_$V2SUB[][][][]_fetch" = load double, ptr %"sd_t_d1_1_$V2SUB[][][][]", align 1
   %mul113 = fmul double %"sd_t_d1_1_$T2SUB[][][][]_fetch", %"sd_t_d1_1_$V2SUB[][][][]_fetch"
   %sub = fsub double %sub298, %mul113
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -191,7 +191,7 @@ bb2042:                                           ; preds = %bb2042, %bb2042.pre
 
 bb2043.loopexit:                                  ; preds = %bb2042
   %sub.lcssa = phi double [ %sub, %bb2042 ]
-  store double %sub.lcssa, double* %"sd_t_d1_1_$TRIPLESX[][][][][][]", align 1
+  store double %sub.lcssa, ptr %"sd_t_d1_1_$TRIPLESX[][][][][][]", align 1
   br label %bb2043
 
 bb2043:                                           ; preds = %bb2043.loopexit, %bb2038

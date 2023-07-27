@@ -34,9 +34,9 @@
 ; RESTRICT:   = uitofp.i32.float(([[ALLOC_0]])[i2 + [[SUM]] * i3 + i4]);
 ; RESTRICT:   = uitofp.i32.float(([[ALLOC_1]])[i2 + [[SUM]] * i3 + i4]);
 ; RESTRICT:   = uitofp.i32.float(([[ALLOC_2]])[i2 + [[SUM]] * i3 + i4]);
-; NORESTRICT: ([[INNERARRAY]])[i2 + %alpha * i3 + i4].0);
-; NORESTRICT: ([[INNERARRAY]])[i2 + %alpha * i3 + i4].1);
-; NORESTRICT: ([[INNERARRAY]])[i2 + %alpha * i3 + i4].2);
+; NORESTRICT: ([[INNERARRAY]])[i2 + {{%alpha}} * i3 + i4].0);
+; NORESTRICT: ([[INNERARRAY]])[i2 + {{%alpha}} * i3 + i4].1);
+; NORESTRICT: ([[INNERARRAY]])[i2 + {{%alpha}} * i3 + i4].2);
 ; CHECK: END LOOP
 ; CHECK: END LOOP
 ; CHECK: END LOOP
@@ -48,7 +48,7 @@
 %struct.point = type { i32, i32, i32 }
 
 ; Function Attrs: nofree norecurse nounwind uwtable
-define dso_local float @foo(%struct.point** nocapture readonly %Ap, %struct.point** nocapture readonly %Bp, i64 %alpha) {
+define dso_local float @foo(ptr nocapture readonly %Ap, ptr nocapture readonly %Bp, i64 %alpha) {
 entry:
   br label %for.body
 
@@ -59,10 +59,10 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup5
 for.body:                                         ; preds = %entry, %for.cond.cleanup5
   %indvars.iv123 = phi i64 [ 0, %entry ], [ %indvars.iv.next124, %for.cond.cleanup5 ]
   %sum.0115 = phi float [ 0.000000e+00, %entry ], [ %add41.lcssa.lcssa.lcssa, %for.cond.cleanup5 ]
-  %ptridx = getelementptr inbounds %struct.point*, %struct.point** %Ap, i64 %indvars.iv123
-  %0 = load %struct.point*, %struct.point** %ptridx, align 8
-  %ptridx2 = getelementptr inbounds %struct.point*, %struct.point** %Bp, i64 %indvars.iv123
-  %1 = load %struct.point*, %struct.point** %ptridx2, align 8
+  %ptridx = getelementptr inbounds ptr, ptr %Ap, i64 %indvars.iv123
+  %0 = load ptr, ptr %ptridx, align 8
+  %ptridx2 = getelementptr inbounds ptr, ptr %Bp, i64 %indvars.iv123
+  %1 = load ptr, ptr %ptridx2, align 8
   br label %for.cond7.preheader
 
 for.cond7.preheader:                              ; preds = %for.body, %for.cond.cleanup9
@@ -87,12 +87,12 @@ for.cond.cleanup9:                                ; preds = %for.cond.cleanup13
   %add41.lcssa.lcssa = phi float [ %add41.lcssa, %for.cond.cleanup13 ]
   %conv45 = fptoui float %add41.lcssa.lcssa to i32
   %2 = add nuw nsw i64 %indvars.iv119, %indvars.iv123
-  %x49 = getelementptr inbounds %struct.point, %struct.point* %1, i64 %2, i32 0
-  store i32 %conv45, i32* %x49, align 4, !alias.scope !9, !noalias !12
-  %y54 = getelementptr inbounds %struct.point, %struct.point* %1, i64 %2, i32 1
-  store i32 %conv45, i32* %y54, align 4, !alias.scope !9, !noalias !12
-  %z59 = getelementptr inbounds %struct.point, %struct.point* %1, i64 %2, i32 2
-  store i32 %conv45, i32* %z59, align 4, !alias.scope !9, !noalias !12
+  %x49 = getelementptr inbounds %struct.point, ptr %1, i64 %2, i32 0
+  store i32 %conv45, ptr %x49, align 4, !alias.scope !9, !noalias !12
+  %y54 = getelementptr inbounds %struct.point, ptr %1, i64 %2, i32 1
+  store i32 %conv45, ptr %y54, align 4, !alias.scope !9, !noalias !12
+  %z59 = getelementptr inbounds %struct.point, ptr %1, i64 %2, i32 2
+  store i32 %conv45, ptr %z59, align 4, !alias.scope !9, !noalias !12
   %indvars.iv.next120 = add nuw nsw i64 %indvars.iv119, 1
   %exitcond122 = icmp eq i64 %indvars.iv.next120, 1024
   br i1 %exitcond122, label %for.cond.cleanup5, label %for.cond7.preheader
@@ -107,14 +107,14 @@ for.body14:                                       ; preds = %for.cond11.preheade
   %indvars.iv = phi i64 [ 0, %for.cond11.preheader ], [ %indvars.iv.next, %for.body14 ]
   %sum.3109 = phi float [ %sum.2111, %for.cond11.preheader ], [ %add41, %for.body14 ]
   %add17 = add nsw i64 %add, %indvars.iv
-  %x19 = getelementptr inbounds %struct.point, %struct.point* %0, i64 %add17, i32 0
-  %3 = load i32, i32* %x19, align 4, !alias.scope !12, !noalias !9
+  %x19 = getelementptr inbounds %struct.point, ptr %0, i64 %add17, i32 0
+  %3 = load i32, ptr %x19, align 4, !alias.scope !12, !noalias !9
   %conv20 = uitofp i32 %3 to float
-  %y28 = getelementptr inbounds %struct.point, %struct.point* %0, i64 %add17, i32 1
-  %4 = load i32, i32* %y28, align 4, !alias.scope !12, !noalias !9
+  %y28 = getelementptr inbounds %struct.point, ptr %0, i64 %add17, i32 1
+  %4 = load i32, ptr %y28, align 4, !alias.scope !12, !noalias !9
   %conv29 = uitofp i32 %4 to float
-  %z37 = getelementptr inbounds %struct.point, %struct.point* %0, i64 %add17, i32 2
-  %5 = load i32, i32* %z37, align 4, !alias.scope !12, !noalias !9
+  %z37 = getelementptr inbounds %struct.point, ptr %0, i64 %add17, i32 2
+  %5 = load i32, ptr %z37, align 4, !alias.scope !12, !noalias !9
   %conv38 = uitofp i32 %5 to float
   %add39 = fadd float %conv20, %conv29
   %add40 = fadd float %add39, %conv38

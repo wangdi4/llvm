@@ -479,6 +479,29 @@ VPlanAlignmentAnalysis::tryGetKnownAlignment(const VPValue *Val,
   return std::nullopt;
 }
 
+void VPlanAlignmentAnalysis::propagateAlignment(
+    VPlanVector *Plan, unsigned VF,
+    const VPlanPeelingVariant *GuaranteedPeeling) {
+  if (!GuaranteedPeeling || VF == 1) {
+    // Skip if we have no alignment to propagate.
+    return;
+  }
+
+  bool NegOneStride;
+  VPlanAlignmentAnalysis VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VF);
+  for (auto &Inst : vpinstructions(Plan)) {
+    if (auto *LS = dyn_cast<VPLoadStoreInst>(&Inst)) {
+      if (!isVectorizableLoadStore(LS) ||
+          !Plan->getVPlanDA()->isUnitStrideLoadStore(LS, NegOneStride))
+        continue;
+
+      const auto TargetAlign = VPAA.getAlignmentUnitStride(*LS, GuaranteedPeeling);
+      if (TargetAlign > LS->getAlignment())
+        LS->setAlignment(TargetAlign);
+    }
+  }
+}
+
 Align VPlanAlignmentAnalysis::getAlignmentUnitStrideImpl(
     const VPLoadStoreInst &Memref, const VPlanStaticPeeling &SP) const {
   Align AlignFromIR = Memref.getAlignment();

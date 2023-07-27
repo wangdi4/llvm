@@ -135,17 +135,17 @@ for.body:                                         ; preds = %for.end23, %entry
 
 for.cond4.preheader:                              ; preds = %for.inc21, %for.body
   %indvars.iv44 = phi i64 [ 0, %for.body ], [ %indvars.iv.next45, %for.inc21 ]
-  %arrayidx8 = getelementptr inbounds [8192 x [8192 x i32]], [8192 x [8192 x i32]]* @C, i64 0, i64 %indvars.iv47, i64 %indvars.iv44, !intel-tbaa !2
-  %arrayidx8.promoted = load i32, i32* %arrayidx8, align 4, !tbaa !2
+  %arrayidx8 = getelementptr inbounds [8192 x [8192 x i32]], ptr @C, i64 0, i64 %indvars.iv47, i64 %indvars.iv44, !intel-tbaa !2
+  %arrayidx8.promoted = load i32, ptr %arrayidx8, align 4, !tbaa !2
   br label %for.body6
 
 for.body6:                                        ; preds = %for.body6, %for.cond4.preheader
   %indvars.iv = phi i64 [ 0, %for.cond4.preheader ], [ %indvars.iv.next, %for.body6 ]
   %2 = phi i32 [ %arrayidx8.promoted, %for.cond4.preheader ], [ %add, %for.body6 ]
-  %arrayidx12 = getelementptr inbounds [8192 x [8192 x i32]], [8192 x [8192 x i32]]* @A, i64 0, i64 %indvars.iv47, i64 %indvars.iv, !intel-tbaa !2
-  %3 = load i32, i32* %arrayidx12, align 4, !tbaa !2
-  %arrayidx16 = getelementptr inbounds [8192 x [8192 x i32]], [8192 x [8192 x i32]]* @B, i64 0, i64 %indvars.iv, i64 %indvars.iv44, !intel-tbaa !2
-  %4 = load i32, i32* %arrayidx16, align 4, !tbaa !2
+  %arrayidx12 = getelementptr inbounds [8192 x [8192 x i32]], ptr @A, i64 0, i64 %indvars.iv47, i64 %indvars.iv, !intel-tbaa !2
+  %3 = load i32, ptr %arrayidx12, align 4, !tbaa !2
+  %arrayidx16 = getelementptr inbounds [8192 x [8192 x i32]], ptr @B, i64 0, i64 %indvars.iv, i64 %indvars.iv44, !intel-tbaa !2
+  %4 = load i32, ptr %arrayidx16, align 4, !tbaa !2
   %mul = mul nsw i32 %4, %3
   %add = add nsw i32 %mul, %2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -154,7 +154,7 @@ for.body6:                                        ; preds = %for.body6, %for.con
 
 for.inc21:                                        ; preds = %for.body6
   %add.lcssa = phi i32 [ %add, %for.body6 ]
-  store i32 %add.lcssa, i32* %arrayidx8, align 4, !tbaa !2
+  store i32 %add.lcssa, ptr %arrayidx8, align 4, !tbaa !2
   %indvars.iv.next45 = add nuw nsw i64 %indvars.iv44, 1
   %exitcond46 = icmp eq i64 %indvars.iv.next45, 8192
   br i1 %exitcond46, label %for.end23, label %for.cond4.preheader
@@ -188,17 +188,17 @@ for.cond1.preheader:                              ; preds = %for.inc24, %entry
 for.body3:                                        ; preds = %for.end, %for.cond1.preheader
   %indvars.iv44 = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next45, %for.end ]
   %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.BLOCK_LOOP"(), "QUAL.PRAGMA.LEVEL"(i32 -1), "QUAL.PRAGMA.FACTOR"(i32 64) ]
-  %arrayidx8 = getelementptr inbounds [8192 x [8192 x i32]], [8192 x [8192 x i32]]* @C, i64 0, i64 %indvars.iv47, i64 %indvars.iv44, !intel-tbaa !2
-  %arrayidx8.promoted = load i32, i32* %arrayidx8, align 4, !tbaa !2
+  %arrayidx8 = getelementptr inbounds [8192 x [8192 x i32]], ptr @C, i64 0, i64 %indvars.iv47, i64 %indvars.iv44, !intel-tbaa !2
+  %arrayidx8.promoted = load i32, ptr %arrayidx8, align 4, !tbaa !2
   br label %for.body6
 
 for.body6:                                        ; preds = %for.body6, %for.body3
   %indvars.iv = phi i64 [ 0, %for.body3 ], [ %indvars.iv.next, %for.body6 ]
   %1 = phi i32 [ %arrayidx8.promoted, %for.body3 ], [ %add, %for.body6 ]
-  %arrayidx12 = getelementptr inbounds [8192 x [8192 x i32]], [8192 x [8192 x i32]]* @A, i64 0, i64 %indvars.iv47, i64 %indvars.iv, !intel-tbaa !2
-  %2 = load i32, i32* %arrayidx12, align 4, !tbaa !2
-  %arrayidx16 = getelementptr inbounds [8192 x [8192 x i32]], [8192 x [8192 x i32]]* @B, i64 0, i64 %indvars.iv, i64 %indvars.iv44, !intel-tbaa !2
-  %3 = load i32, i32* %arrayidx16, align 4, !tbaa !2
+  %arrayidx12 = getelementptr inbounds [8192 x [8192 x i32]], ptr @A, i64 0, i64 %indvars.iv47, i64 %indvars.iv, !intel-tbaa !2
+  %2 = load i32, ptr %arrayidx12, align 4, !tbaa !2
+  %arrayidx16 = getelementptr inbounds [8192 x [8192 x i32]], ptr @B, i64 0, i64 %indvars.iv, i64 %indvars.iv44, !intel-tbaa !2
+  %3 = load i32, ptr %arrayidx16, align 4, !tbaa !2
   %mul = mul nsw i32 %3, %2
   %add = add nsw i32 %mul, %1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -207,7 +207,7 @@ for.body6:                                        ; preds = %for.body6, %for.bod
 
 for.end:                                          ; preds = %for.body6
   %add.lcssa = phi i32 [ %add, %for.body6 ]
-  store i32 %add.lcssa, i32* %arrayidx8, align 4, !tbaa !2
+  store i32 %add.lcssa, ptr %arrayidx8, align 4, !tbaa !2
   call void @llvm.directive.region.exit(token %0) [ "DIR.PRAGMA.END.BLOCK_LOOP"() ]
   %indvars.iv.next45 = add nuw nsw i64 %indvars.iv44, 1
   %exitcond46 = icmp eq i64 %indvars.iv.next45, 8192
@@ -234,17 +234,17 @@ for.cond1.preheader:                              ; preds = %for.inc24, %entry
 
 for.cond4.preheader:                              ; preds = %for.inc21, %for.cond1.preheader
   %indvars.iv44 = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next45, %for.inc21 ]
-  %arrayidx8 = getelementptr inbounds [8192 x [8192 x i32]], [8192 x [8192 x i32]]* @C, i64 0, i64 %indvars.iv47, i64 %indvars.iv44, !intel-tbaa !2
-  %arrayidx8.promoted = load i32, i32* %arrayidx8, align 4, !tbaa !2
+  %arrayidx8 = getelementptr inbounds [8192 x [8192 x i32]], ptr @C, i64 0, i64 %indvars.iv47, i64 %indvars.iv44, !intel-tbaa !2
+  %arrayidx8.promoted = load i32, ptr %arrayidx8, align 4, !tbaa !2
   br label %for.body6
 
 for.body6:                                        ; preds = %for.body6, %for.cond4.preheader
   %indvars.iv = phi i64 [ 0, %for.cond4.preheader ], [ %indvars.iv.next, %for.body6 ]
   %1 = phi i32 [ %arrayidx8.promoted, %for.cond4.preheader ], [ %add, %for.body6 ]
-  %arrayidx12 = getelementptr inbounds [8192 x [8192 x i32]], [8192 x [8192 x i32]]* @A, i64 0, i64 %indvars.iv47, i64 %indvars.iv, !intel-tbaa !2
-  %2 = load i32, i32* %arrayidx12, align 4, !tbaa !2
-  %arrayidx16 = getelementptr inbounds [8192 x [8192 x i32]], [8192 x [8192 x i32]]* @B, i64 0, i64 %indvars.iv, i64 %indvars.iv44, !intel-tbaa !2
-  %3 = load i32, i32* %arrayidx16, align 4, !tbaa !2
+  %arrayidx12 = getelementptr inbounds [8192 x [8192 x i32]], ptr @A, i64 0, i64 %indvars.iv47, i64 %indvars.iv, !intel-tbaa !2
+  %2 = load i32, ptr %arrayidx12, align 4, !tbaa !2
+  %arrayidx16 = getelementptr inbounds [8192 x [8192 x i32]], ptr @B, i64 0, i64 %indvars.iv, i64 %indvars.iv44, !intel-tbaa !2
+  %3 = load i32, ptr %arrayidx16, align 4, !tbaa !2
   %mul = mul nsw i32 %3, %2
   %add = add nsw i32 %mul, %1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -253,7 +253,7 @@ for.body6:                                        ; preds = %for.body6, %for.con
 
 for.inc21:                                        ; preds = %for.body6
   %add.lcssa = phi i32 [ %add, %for.body6 ]
-  store i32 %add.lcssa, i32* %arrayidx8, align 4, !tbaa !2
+  store i32 %add.lcssa, ptr %arrayidx8, align 4, !tbaa !2
   %indvars.iv.next45 = add nuw nsw i64 %indvars.iv44, 1
   %exitcond46 = icmp eq i64 %indvars.iv.next45, 8192
   br i1 %exitcond46, label %for.inc24, label %for.cond4.preheader
