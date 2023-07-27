@@ -1094,6 +1094,7 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
     // -fprofile-sample-use
     PGOOpt = PGOOptions(
         CodeGenOpts.SampleProfileFile, "", CodeGenOpts.ProfileRemappingFile,
+<<<<<<< HEAD
         CodeGenOpts.MemoryProfileUsePath, VFS, PGOOptions::SampleUse,
         PGOOptions::NoCSAction, CodeGenOpts.DebugInfoForProfiling,
         CodeGenOpts.PseudoProbeForProfiling);
@@ -1102,6 +1103,16 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
     PGOOpt = PGOOptions("", "", "", CodeGenOpts.MemoryProfileUsePath, VFS,
                         PGOOptions::NoAction, PGOOptions::NoCSAction,
                         CodeGenOpts.DebugInfoForProfiling);
+=======
+        VFS, PGOOptions::SampleUse, PGOOptions::NoCSAction,
+        CodeGenOpts.DebugInfoForProfiling, CodeGenOpts.PseudoProbeForProfiling);
+#if INTEL_CUSTOMIZATION
+  else if (CodeGenOpts.ProfileMLUse)
+    // -fprofile-ml-use
+    PGOOpt = PGOOptions("", "", "", nullptr, PGOOptions::MLUse,
+                        PGOOptions::NoCSAction, false, false);
+#endif // INTEL_CUSTOMIZATION
+>>>>>>> 320221b76f51e1c202844eab1da07ce764cc4b35
   else if (CodeGenOpts.PseudoProbeForProfiling)
     // -fpseudo-probe-for-profiling
     PGOOpt = PGOOptions("", "", "", /*MemoryProfile=*/"", nullptr,

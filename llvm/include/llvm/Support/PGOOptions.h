@@ -42,7 +42,7 @@ class FileSystem;
 
 /// A struct capturing PGO tunables.
 struct PGOOptions {
-  enum PGOAction { NoAction, IRInstr, IRUse, SampleUse };
+  enum PGOAction { NoAction, IRInstr, IRUse, SampleUse, MLUse }; // INTEL
   enum CSPGOAction { NoCSAction, CSIRInstr, CSIRUse };
   PGOOptions(std::string ProfileFile, std::string CSProfileGenFile,
              std::string ProfileRemappingFile, std::string MemoryProfile,
