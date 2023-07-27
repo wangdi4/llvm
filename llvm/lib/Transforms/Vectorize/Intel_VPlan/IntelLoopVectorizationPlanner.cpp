@@ -1629,6 +1629,8 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
                      << MainLoopIterationCost << ". Skip it.\n");
         continue;
       }
+      assert(MainLoopIterationCost >= 0 && MainLoopOverhead >= 0 &&
+             "Loop costs must be non-negative");
       LLVM_DEBUG(
           dbgs() << "Selected peeling: "; 
           if (PeelingVariant) {
@@ -1686,6 +1688,9 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
                           << " without peel is unknown. Skip it.\n");
         continue;
       }
+      assert(MainLoopIterationCostWithoutPeel >= 0 &&
+             MainLoopOverheadWithoutPeel >= 0 &&
+             "Loop costs must be non-negative");
 
       // Calculate the total cost of remainder loop having no peeling, if there
       // is one.
@@ -1724,6 +1729,8 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       VPInstructionCost VectorGain =
           PeelingDecision.ShouldPeel ? GainWithPeel : GainWithoutPeel;
       // Calculate speedup relatively to single scalar iteration.
+      assert((ScalarIterationCost - VectorGain / TripCount) != 0 &&
+             "Division by zero computing vector speedup");
       VPInstructionCost Speedup =
           ScalarIterationCost / (ScalarIterationCost - VectorGain / TripCount);
       VPInstructionCost VectorIterationCost =
