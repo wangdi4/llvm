@@ -277,6 +277,10 @@ public:
     return getLoopType() == LoopType::LTRemainder && !isMasked();
   }
 
+  bool isScalarRemainder() const {
+    return getLoopType() == LoopType::LTRemainder && isa<VPlanScalar>(Plan);
+  }
+
   bool isMaskedOrScalarRemainder() const {
     return getLoopType() == LoopType::LTRemainder &&
            (isMasked() || isa<VPlanScalar>(Plan));
