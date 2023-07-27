@@ -1337,6 +1337,7 @@ void VPlanCFGMerger::emitSkeleton(std::list<PlanDescr> &Plans,
 
   VPBasicBlock *FinalMerge, *LastMerge;
   VPBasicBlock *FinalRemainderMerge = nullptr;
+  VPBasicBlock *ScalRemMerge = nullptr;
   auto LastVPBB = &*Plan.getExitBlock();
 
   // Find original upper bound of the main loop. We need it to generate trip
@@ -1492,6 +1493,9 @@ void VPlanCFGMerger::emitSkeleton(std::list<PlanDescr> &Plans,
       createTCCheckBeforeMain(nullptr, P, PrevD, PPrevD);
     }
 
+    if (P.isScalarRemainder())
+      ScalRemMerge = P.MergeBefore;
+
     if (P.isMaskedRemainder() && MinProfitableMaskedRemTC &&
         Iter != Plans.begin()) {
 
@@ -1563,29 +1567,16 @@ void VPlanCFGMerger::emitSkeleton(std::list<PlanDescr> &Plans,
           Phis, [&](auto &Phi) { return Phi.getMergeId() == MergeId; });
       assert(It != Phis.end() && "Induction Phi is expected to exist");
 
-      // Creating new BB with the TC check.
-      auto *TestBB =
-          new VPBasicBlock(VPlanUtils::createUniqueName("BB"), &Plan);
-      VPBlockUtils::insertBlockBefore(TestBB, P.FirstBB);
-
-      VPBuilder Builder;
-      Builder.setInsertPoint(TestBB);
-
-      auto Sub = Builder.createSub(OrigUB, &*It);
-      Plan.getVPlanDA()->markUniform(*Sub);
-
-      VPInstruction *RemTCCheck =
-          Builder.createCmpInst(CmpInst::ICMP_ULT, Sub,
-                                Plan.getVPConstant(ConstantInt::get(
-                                    Sub->getType(), MinProfitableMaskedRemTC)));
-      Plan.getVPlanDA()->markUniform(*RemTCCheck);
-
-      // Create a jump to scalar remainder merge block and update its incoming
-      // values accordingly.
-      auto &PrevP = *std::prev(Iter);
-      TestBB->setTerminator(PrevP.MergeBefore, P.FirstBB, RemTCCheck);
-      updateMergeBlockIncomings(P, PrevP.MergeBefore, TestBB, false);
+      VPBasicBlock *TestBB =
+          createMaskedRemTCCheck(P.FirstBB, ScalRemMerge, &*It);
+      updateMergeBlockIncomings(P, ScalRemMerge, TestBB, false);
     }
+  }
+
+  if (MinProfitableMaskedRemTC) {
+    VPBasicBlock *TestBB =
+        createMaskedRemTCCheck(std::prev(Plans.end())->FirstBB, ScalRemMerge);
+    updateMergeBlockIncomings(Plan, ScalRemMerge, TestBB, true);
   }
 
   // Set the merge-phis from FinalMerge as operands of VPExternalUses.
@@ -1618,6 +1609,35 @@ void VPlanCFGMerger::emitSkeleton(std::list<PlanDescr> &Plans,
     }
   }
   VPLAN_DUMP(MergeSkeletonDumpControl, Plan);
+}
+
+VPBasicBlock *VPlanCFGMerger::createMaskedRemTCCheck(VPBasicBlock *InsertBefore,
+                                                     VPBasicBlock *MergeBlk,
+                                                     VPValue *Subtract) {
+
+  // Creating new BB with the TC check.
+  auto *TestBB = new VPBasicBlock(VPlanUtils::createUniqueName("BB"), &Plan);
+  VPBlockUtils::insertBlockBefore(TestBB, InsertBefore);
+
+  VPBuilder Builder;
+  Builder.setInsertPoint(TestBB);
+
+  VPValue *CompareTo = OrigUB;
+  if (Subtract) {
+    CompareTo = Builder.createSub(OrigUB, Subtract);
+    Plan.getVPlanDA()->markUniform(*CompareTo);
+  }
+
+  VPInstruction *RemTCCheck = Builder.createCmpInst(
+      CmpInst::ICMP_ULT, CompareTo,
+      Plan.getVPConstant(
+          ConstantInt::get(CompareTo->getType(), MinProfitableMaskedRemTC)));
+  Plan.getVPlanDA()->markUniform(*RemTCCheck);
+
+  // Create a jump to scalar remainder merge block.
+  TestBB->setTerminator(MergeBlk, InsertBefore, RemTCCheck);
+
+  return TestBB;
 }
 
 // TODO: Implement the check. It should return true if we create peel loop

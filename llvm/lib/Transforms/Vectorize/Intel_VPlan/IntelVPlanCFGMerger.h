@@ -173,6 +173,13 @@ private:
   template <class LoopTy>
   void emitSkeleton(std::list<PlanDescr> &Plans, LoopTy *OrigLoop);
 
+  // Create a check (before \p InsertBefore block) for the runtime TC value and
+  // jump to \p MergeBlk (merge block before scalar remainder) in case if the
+  // value less than masked vector remainver profitable TC value.
+  VPBasicBlock *createMaskedRemTCCheck(VPBasicBlock *InsertBefore,
+                                       VPBasicBlock *MergeBlk,
+                                       VPValue *Subtract = nullptr);
+
   // Create a check for whether the loop described by \p PrevDescr should be
   // executed after the loop described by \p Descr. I.e. the check for the upper
   // bound of the loop from \p Descr is not equal to the upper bound of the loop
