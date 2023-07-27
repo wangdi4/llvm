@@ -1341,7 +1341,7 @@ static llvm::FunctionCallee getThrowFn(CodeGenModule &CGM) {
   llvm::Type *Args[3] = {CGM.DefaultInt8PtrTy, CGM.DefaultInt8PtrTy,
                          CGM.DefaultInt8PtrTy};
 #else // INTEL_COLLAB
-  llvm::Type *Args[3] = { CGM.Int8PtrTy, CGM.Int8PtrTy, CGM.Int8PtrTy };
+  llvm::Type *Args[3] = { CGM.Int8PtrTy, CGM.GlobalsInt8PtrTy, CGM.Int8PtrTy };
 #endif  // INTEL_COLLAB
   llvm::FunctionType *FTy =
     llvm::FunctionType::get(CGM.VoidTy, Args, /*isVarArg=*/false);
