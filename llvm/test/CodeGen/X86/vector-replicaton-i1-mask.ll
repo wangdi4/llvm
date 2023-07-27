@@ -14,7 +14,7 @@ define void @mask_replication_factor2_vf2(ptr %in.maskvec, ptr %in.vec, ptr %out
 ; AVX512F-ONLY-NEXT:    kmovw (%rdi), %k1
 ; AVX512F-ONLY-NEXT:    vpcmpeqd %xmm0, %xmm0, %xmm0
 ; AVX512F-ONLY-NEXT:    vmovdqa32 %xmm0, %xmm0 {%k1} {z}
-; AVX512F-ONLY-NEXT:    vpshufd {{.*#+}} xmm0 = xmm0[0,0,1,1]
+; AVX512F-ONLY-NEXT:    vpmovsxdq %xmm0, %xmm0
 ; AVX512F-ONLY-NEXT:    vptestmd %xmm0, %xmm0, %k1
 ; AVX512F-ONLY-NEXT:    vmovdqa32 (%rsi), %xmm0 {%k1} {z}
 ; AVX512F-ONLY-NEXT:    vmovdqa %xmm0, (%rdx)
@@ -24,7 +24,7 @@ define void @mask_replication_factor2_vf2(ptr %in.maskvec, ptr %in.vec, ptr %out
 ; AVX512DQ:       # %bb.0:
 ; AVX512DQ-NEXT:    kmovw (%rdi), %k0
 ; AVX512DQ-NEXT:    vpmovm2d %k0, %xmm0
-; AVX512DQ-NEXT:    vpshufd {{.*#+}} xmm0 = xmm0[0,0,1,1]
+; AVX512DQ-NEXT:    vpmovsxdq %xmm0, %xmm0
 ; AVX512DQ-NEXT:    vpmovd2m %xmm0, %k1
 ; AVX512DQ-NEXT:    vmovdqa32 (%rsi), %xmm0 {%k1} {z}
 ; AVX512DQ-NEXT:    vmovdqa %xmm0, (%rdx)
@@ -35,7 +35,7 @@ define void @mask_replication_factor2_vf2(ptr %in.maskvec, ptr %in.vec, ptr %out
 ; AVX512BW-NEXT:    kmovq (%rdi), %k1
 ; AVX512BW-NEXT:    vpcmpeqd %xmm0, %xmm0, %xmm0
 ; AVX512BW-NEXT:    vmovdqa32 %xmm0, %xmm0 {%k1} {z}
-; AVX512BW-NEXT:    vpshufd {{.*#+}} xmm0 = xmm0[0,0,1,1]
+; AVX512BW-NEXT:    vpmovsxdq %xmm0, %xmm0
 ; AVX512BW-NEXT:    vptestmd %xmm0, %xmm0, %k1
 ; AVX512BW-NEXT:    vmovdqa32 (%rsi), %xmm0 {%k1} {z}
 ; AVX512BW-NEXT:    vmovdqa %xmm0, (%rdx)
@@ -2344,7 +2344,7 @@ define void @mask_replication_factor4_vf2(ptr %in.maskvec, ptr %in.vec, ptr %out
 ; AVX512F-SLOW-NEXT:    kmovw (%rdi), %k1
 ; AVX512F-SLOW-NEXT:    vpcmpeqd %ymm0, %ymm0, %ymm0
 ; AVX512F-SLOW-NEXT:    vmovdqa32 %ymm0, %ymm0 {%k1} {z}
-; AVX512F-SLOW-NEXT:    vpshufd {{.*#+}} xmm0 = xmm0[0,0,1,1]
+; AVX512F-SLOW-NEXT:    vpmovsxdq %xmm0, %xmm0
 ; AVX512F-SLOW-NEXT:    vpermq {{.*#+}} ymm0 = ymm0[0,0,1,1]
 ; AVX512F-SLOW-NEXT:    vptestmd %ymm0, %ymm0, %k1
 ; AVX512F-SLOW-NEXT:    vmovdqa32 (%rsi), %ymm0 {%k1} {z}
@@ -2369,7 +2369,7 @@ define void @mask_replication_factor4_vf2(ptr %in.maskvec, ptr %in.vec, ptr %out
 ; AVX512DQ-SLOW:       # %bb.0:
 ; AVX512DQ-SLOW-NEXT:    kmovw (%rdi), %k0
 ; AVX512DQ-SLOW-NEXT:    vpmovm2d %k0, %ymm0
-; AVX512DQ-SLOW-NEXT:    vpshufd {{.*#+}} xmm0 = xmm0[0,0,1,1]
+; AVX512DQ-SLOW-NEXT:    vpmovsxdq %xmm0, %xmm0
 ; AVX512DQ-SLOW-NEXT:    vpermq {{.*#+}} ymm0 = ymm0[0,0,1,1]
 ; AVX512DQ-SLOW-NEXT:    vpmovd2m %ymm0, %k1
 ; AVX512DQ-SLOW-NEXT:    vmovdqa32 (%rsi), %ymm0 {%k1} {z}
@@ -2394,7 +2394,7 @@ define void @mask_replication_factor4_vf2(ptr %in.maskvec, ptr %in.vec, ptr %out
 ; AVX512BW-SLOW-NEXT:    kmovq (%rdi), %k1
 ; AVX512BW-SLOW-NEXT:    vpcmpeqd %ymm0, %ymm0, %ymm0
 ; AVX512BW-SLOW-NEXT:    vmovdqa32 %ymm0, %ymm0 {%k1} {z}
-; AVX512BW-SLOW-NEXT:    vpshufd {{.*#+}} xmm0 = xmm0[0,0,1,1]
+; AVX512BW-SLOW-NEXT:    vpmovsxdq %xmm0, %xmm0
 ; AVX512BW-SLOW-NEXT:    vpermq {{.*#+}} ymm0 = ymm0[0,0,1,1]
 ; AVX512BW-SLOW-NEXT:    vptestmd %ymm0, %ymm0, %k1
 ; AVX512BW-SLOW-NEXT:    vmovdqa32 (%rsi), %ymm0 {%k1} {z}
@@ -2420,7 +2420,7 @@ define void @mask_replication_factor4_vf2(ptr %in.maskvec, ptr %in.vec, ptr %out
 ; AVX512VBMI-SLOW-NEXT:    kmovq (%rdi), %k1
 ; AVX512VBMI-SLOW-NEXT:    vpcmpeqd %ymm0, %ymm0, %ymm0
 ; AVX512VBMI-SLOW-NEXT:    vmovdqa32 %ymm0, %ymm0 {%k1} {z}
-; AVX512VBMI-SLOW-NEXT:    vpshufd {{.*#+}} xmm0 = xmm0[0,0,1,1]
+; AVX512VBMI-SLOW-NEXT:    vpmovsxdq %xmm0, %xmm0
 ; AVX512VBMI-SLOW-NEXT:    vpermq {{.*#+}} ymm0 = ymm0[0,0,1,1]
 ; AVX512VBMI-SLOW-NEXT:    vptestmd %ymm0, %ymm0, %k1
 ; AVX512VBMI-SLOW-NEXT:    vmovdqa32 (%rsi), %ymm0 {%k1} {z}
