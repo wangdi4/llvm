@@ -321,7 +321,7 @@ private:
   void predicateInstructions();
 
   /// Reverse vector elements
-  Value *reverseVector(Value *Vec, unsigned Stride = 1);
+  Value *reverseVector(Value *Vec, unsigned OriginalVL = 1);
 
   /// Insert the new loop to the loop hierarchy and pass manager
   /// and update the analysis passes.
