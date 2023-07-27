@@ -49,8 +49,8 @@ for.cond2.preheader.lr.ph:                        ; preds = %entry
 
 for.body6.lr.ph:                                  ; preds = %for.inc10, %for.cond2.preheader.lr.ph
   %i.023 = phi i64 [ 0, %for.cond2.preheader.lr.ph ], [ %inc11, %for.inc10 ]
-  %arrayidx = getelementptr inbounds [10 x i32], [10 x i32]* @B, i64 0, i64 %i.023
-  %1 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds [10 x i32], ptr @B, i64 0, i64 %i.023
+  %1 = load i32, ptr %arrayidx, align 4, !tbaa !1
   %mul = shl i64 %i.023, 1
   br label %for.body6
 
@@ -58,8 +58,8 @@ for.body6:                                        ; preds = %for.body6, %for.bod
   %j.021 = phi i64 [ 0, %for.body6.lr.ph ], [ %inc, %for.body6 ]
   %mul8 = mul nsw i64 %j.021, %conv7
   %add = add nsw i64 %mul8, %mul
-  %arrayidx9 = getelementptr inbounds [10 x i32], [10 x i32]* @A, i64 0, i64 %add
-  store i32 %1, i32* %arrayidx9, align 4, !tbaa !1
+  %arrayidx9 = getelementptr inbounds [10 x i32], ptr @A, i64 0, i64 %add
+  store i32 %1, ptr %arrayidx9, align 4, !tbaa !1
   %inc = add nuw nsw i64 %j.021, 1
   %exitcond = icmp eq i64 %inc, %0
   br i1 %exitcond, label %for.inc10, label %for.body6
@@ -76,10 +76,10 @@ for.end12:                                        ; preds = %for.end12.loopexit,
   ret void
 }
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { nounwind uwtable "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind }

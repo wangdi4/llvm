@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S %s | FileCheck %s
 
 ; GPU-offload test for Atomic. The test is created by compiling
 ; the C test below with:  icx -O0 -fiopenmp -fopenmp-targets=spir64 -Qoption,cpp,-fintel-openmp-region-atomic
@@ -23,19 +23,16 @@
 ;
 ; 2. Emit the kmpc atomic call without the ident_t and the global_id parameters
 ; 3. Add addrspace(4) to the pointer parameter
-; CHECK: call spir_func void @__kmpc_atomic_fixed4_add(i32 addrspace(4)* %{{[0-9]+}}, i32 2)
+; CHECK: call spir_func void @__kmpc_atomic_fixed4_add(ptr addrspace(4) %{{[0-9]+}}, i32 2)
 
 
-; ModuleID = '<stdin>'
-source_filename = "atomic.c"
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64"
 target device_triples = "spir64"
 
 @.str = private unnamed_addr constant [7 x i8] c"aaa=%d\00", align 1
 
-; Function Attrs: noinline nounwind optnone uwtable
-define dso_local i32 @main() #0 {
+define dso_local i32 @main() {
 entry:
   %retval = alloca i32, align 4
   %i = alloca i32, align 4
@@ -46,35 +43,53 @@ entry:
   %.omp.ub = alloca i32, align 4
   %.omp.stride = alloca i32, align 4
   %.omp.is_last = alloca i32, align 4
-  store i32 0, i32* %retval, align 4
-  store i32 10, i32* %aaa, align 4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM"(i32* %aaa), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.PRIVATE"(i32* %.omp.lb), "QUAL.OMP.PRIVATE"(i32* %.omp.stride), "QUAL.OMP.PRIVATE"(i32* %.omp.is_last), "QUAL.OMP.PRIVATE"(i32* %tmp) ]
-  store i32 0, i32* %.omp.lb, align 4
-  store i32 31, i32* %.omp.ub, align 4
-  store i32 1, i32* %.omp.stride, align 4
-  store i32 0, i32* %.omp.is_last, align 4
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.NUM_THREADS"(i32 32), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.SHARED"(i32* %aaa) ]
-  %2 = load i32, i32* %.omp.lb, align 4
-  store i32 %2, i32* %.omp.iv, align 4
+  store i32 0, ptr %retval, align 4
+  store i32 10, ptr %aaa, align 4
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    "QUAL.OMP.MAP.TOFROM"(ptr %aaa, ptr %aaa, i64 4, i64 35, ptr null, ptr null),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr %i, i32 0, i64 1),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr %.omp.lb, i32 0, i64 1),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr %.omp.stride, i32 0, i64 1),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr %.omp.is_last, i32 0, i64 1),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr %tmp, i32 0, i64 1) ]
+
+  store i32 0, ptr %.omp.lb, align 4
+  store i32 31, ptr %.omp.ub, align 4
+  store i32 1, ptr %.omp.stride, align 4
+  store i32 0, ptr %.omp.is_last, align 4
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(),
+    "QUAL.OMP.NUM_THREADS"(i32 32),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr %i, i32 0, i64 1),
+    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr %.omp.lb, i32 0, i64 1),
+    "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr %.omp.iv, i32 0),
+    "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr %.omp.ub, i32 0),
+    "QUAL.OMP.SHARED:TYPED"(ptr %aaa, i32 0, i64 1) ]
+
+  %2 = load i32, ptr %.omp.lb, align 4
+  store i32 %2, ptr %.omp.iv, align 4
   br label %omp.inner.for.cond
 
 omp.inner.for.cond:                               ; preds = %omp.inner.for.inc, %entry
-  %3 = load i32, i32* %.omp.iv, align 4
-  %4 = load i32, i32* %.omp.ub, align 4
+  %3 = load i32, ptr %.omp.iv, align 4
+  %4 = load i32, ptr %.omp.ub, align 4
   %cmp = icmp sle i32 %3, %4
   br i1 %cmp, label %omp.inner.for.body, label %omp.inner.for.end
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.cond
-  %5 = load i32, i32* %.omp.iv, align 4
+  %5 = load i32, ptr %.omp.iv, align 4
   %mul = mul nsw i32 %5, 1
   %add = add nsw i32 0, %mul
-  store i32 %add, i32* %i, align 4
-  %6 = call token @llvm.directive.region.entry() [ "DIR.OMP.ATOMIC"(), "QUAL.OMP.UPDATE"() ]
+  store i32 %add, ptr %i, align 4
+  %6 = call token @llvm.directive.region.entry() [ "DIR.OMP.ATOMIC"(),
+    "QUAL.OMP.UPDATE"() ]
+
   fence acquire
-  %7 = load i32, i32* %aaa, align 4
+  %7 = load i32, ptr %aaa, align 4
   %add1 = add nsw i32 %7, 2
-  store i32 %add1, i32* %aaa, align 4
+  store i32 %add1, ptr %aaa, align 4
   fence release
+
   call void @llvm.directive.region.exit(token %6) [ "DIR.OMP.END.ATOMIC"() ]
   br label %omp.body.continue
 
@@ -82,9 +97,9 @@ omp.body.continue:                                ; preds = %omp.inner.for.body
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %omp.body.continue
-  %8 = load i32, i32* %.omp.iv, align 4
+  %8 = load i32, ptr %.omp.iv, align 4
   %add2 = add nsw i32 %8, 1
-  store i32 %add2, i32* %.omp.iv, align 4
+  store i32 %add2, ptr %.omp.iv, align 4
   br label %omp.inner.for.cond
 
 omp.inner.for.end:                                ; preds = %omp.inner.for.cond
@@ -93,27 +108,14 @@ omp.inner.for.end:                                ; preds = %omp.inner.for.cond
 omp.loop.exit:                                    ; preds = %omp.inner.for.end
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
-  %9 = load i32, i32* %aaa, align 4
-  %call = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([7 x i8], [7 x i8]* @.str, i32 0, i32 0), i32 %9)
+  %9 = load i32, ptr %aaa, align 4
+  %call = call i32 (ptr, ...) @printf(ptr @.str, i32 %9)
   ret i32 0
 }
 
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #1
-
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #1
-
-declare dso_local i32 @printf(i8*, ...) #2
-
-attributes #0 = { noinline nounwind optnone uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { nounwind }
-attributes #2 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)
+declare dso_local i32 @printf(ptr, ...)
 
 !omp_offload.info = !{!0}
-!llvm.module.flags = !{!1}
-!llvm.ident = !{!2}
-
 !0 = !{i32 0, i32 59, i32 -696885959, !"main", i32 5, i32 0, i32 0}
-!1 = !{i32 1, !"wchar_size", i32 4}
-!2 = !{!"clang version 8.0.0"}

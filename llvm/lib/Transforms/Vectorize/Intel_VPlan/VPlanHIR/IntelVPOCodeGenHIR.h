@@ -314,7 +314,7 @@ public:
   HLInst *extractSubVector(RegDDRef *Input, unsigned Part, unsigned NumParts,
                            RegDDRef *LValRef = nullptr);
 
-  HLInst *createReverseVector(RegDDRef *ValRef);
+  HLInst *createReverseVector(RegDDRef *ValRef, unsigned OriginalVL = 1);
 
   HLInst *handleLiveOutLinearInEarlyExit(HLInst *Inst, RegDDRef *Mask,
                                          bool MaskIsNonZero);

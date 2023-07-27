@@ -624,18 +624,29 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
   if (VF > 1) {
     LVP.createMergerVPlans(VPAF);
 
-    const auto *PeelingVariant = Plan->getPreferredPeeling(VF);
+    const auto *PreferredPeeling = Plan->getPreferredPeeling(VF);
+    // TODO: remove this hack after getGuaranteedPeeling is fixed.
+    const auto *GuaranteedPeeling = LVP.peelWasSelected()
+                                        ? Plan->getGuaranteedPeeling(VF)
+                                        : &VPlanStaticPeeling::NoPeelLoop;
 
     // Note, the loop is executed only when new cfg merger is enabled.
     for (const CfgMergerPlanDescr &PlanDescr : LVP.mergerVPlans()) {
       auto LpKind = PlanDescr.getLoopType();
       VPlan *Plan = PlanDescr.getVPlan();
 
-      if (isa<VPlanVector>(Plan))
+      if (isa<VPlanVector>(Plan)) {
         // All-zero bypass is added after best plan selection because cost model
         // tuning is not yet implemented and we don't want to prevent
         // vectorization.
         LVP.insertAllZeroBypasses(cast<VPlanVector>(Plan), PlanDescr.getVF());
+
+        // For non-peel loops, if we have a guaranteed peel, we should propagate
+        // the alignment from that peel. Do so now before CG.
+        if (LpKind != CfgMergerPlanDescr::LoopType::LTPeel)
+          VPlanAlignmentAnalysis::propagateAlignment(
+              cast<VPlanVector>(Plan), PlanDescr.getVF(), GuaranteedPeeling);
+      }
 
       // For unroller, we only want to pass the main-vector, i.e., the unmasked
       // vector loop.
@@ -698,9 +709,9 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
       // Capture opt-report remarks for peel loops.
       if (LpKind == CfgMergerPlanDescr::LoopType::LTPeel) {
         if (isa<VPlanVector>(Plan))
-          addOptReportRemarksForVecPeel(PlanDescr, PeelingVariant);
+          addOptReportRemarksForVecPeel(PlanDescr, PreferredPeeling);
         else if (isa<VPlanScalar>(Plan))
-          addOptReportRemarksForScalPeel(PlanDescr, PeelingVariant);
+          addOptReportRemarksForScalPeel(PlanDescr, PreferredPeeling);
       }
     }
     LVP.emitPeelRemainderVPLoops(VF, UF);
@@ -1813,7 +1824,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   if (VF > 1) {
     LVP.createMergerVPlans(VPAF);
 
-    const auto *PeelingVariant = Plan->getPreferredPeeling(VF);
+    const auto *PreferredPeeling = Plan->getPreferredPeeling(VF);
 
     // Run some VPlan-to-VPlan transforms for each new auxiliary loop created by
     // CFGMerger.
@@ -1864,9 +1875,9 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
       // Capture opt-report remarks for peel loops.
       if (LpKind == CfgMergerPlanDescr::LoopType::LTPeel) {
         if (isa<VPlanVector>(Plan))
-          addOptReportRemarksForVecPeel(PlanDescr, PeelingVariant);
+          addOptReportRemarksForVecPeel(PlanDescr, PreferredPeeling);
         else if (isa<VPlanScalar>(Plan))
-          addOptReportRemarksForScalPeel(PlanDescr, PeelingVariant);
+          addOptReportRemarksForScalPeel(PlanDescr, PreferredPeeling);
       }
     }
 

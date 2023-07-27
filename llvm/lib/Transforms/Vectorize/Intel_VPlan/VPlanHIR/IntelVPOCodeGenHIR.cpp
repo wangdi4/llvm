@@ -188,14 +188,23 @@ static Constant *createSequentialMask(unsigned Start, unsigned NumInts,
   return ConstantVector::get(Mask);
 }
 
-HLInst *VPOCodeGenHIR::createReverseVector(RegDDRef *ValRef) {
+/// Reverses vector represented in input \p ValRef. If \p OriginalVL is greater
+/// than 1, then this utility performs re-vectorization aware reversing. For
+/// example, if original value was scalar, then a vector <A0, A1, A2, A3> will
+/// be reversed to <A3, A2, A1, A0>. If original value was vector, then a vector
+/// <A0, B0, A1, B1, A2, B2, A3, B3> will be reversed to <A3, B3, A2, B2, A1,
+/// B1, A0, B0>.
+HLInst *VPOCodeGenHIR::createReverseVector(RegDDRef *ValRef,
+                                           unsigned OriginalVL) {
   unsigned NumElems =
       cast<FixedVectorType>(ValRef->getDestType())->getNumElements();
   SmallVector<Constant *, 4> ShuffleMask;
-  for (unsigned I = 0; I < NumElems; I++) {
-    Constant *Mask =
-        ConstantInt::get(Type::getInt32Ty(Context), NumElems - I - 1);
-    ShuffleMask.push_back(Mask);
+  for (unsigned I = 0; I < NumElems / OriginalVL; I++) {
+    for (unsigned J = 0; J < OriginalVL; J++) {
+      Constant *Mask = ConstantInt::get(Type::getInt32Ty(Context),
+                                        NumElems - (I + 1) * OriginalVL + J);
+      ShuffleMask.push_back(Mask);
+    }
   }
 
   HLInst *Shuffle = createShuffleWithUndef(ValRef, ShuffleMask, "reverse");
@@ -6076,6 +6085,10 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore,
     Mask = CurMaskValue;
 
   auto Opcode = VPLoadStore->getOpcode();
+  auto *ValueTy = VPLoadStore->getValueType();
+  unsigned OriginalVL = ValueTy->isVectorTy()
+                            ? cast<FixedVectorType>(ValueTy)->getNumElements()
+                            : 1;
 
   const VPValue *PtrOp = VPLoadStore->getPointerOperand();
   if (!Plan->getVPlanDA()->isDivergent(*PtrOp)) {
@@ -6098,20 +6111,19 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore,
   bool IsUnitStride =
       Plan->getVPlanDA()->isUnitStrideLoadStore(VPLoadStore, IsNegOneStride);
 
-  if (Mask && IsNegOneStride) {
-    auto *RevInst = createReverseVector(Mask->clone());
-    Mask = RevInst->getLvalDDRef();
-  }
-
   // If the load/store element type is a vector, we need to replicate mask
   // vector elements if non-null.
   if (Mask) {
-    auto *ValueTy = VPLoadStore->getValueType();
     if (auto *ValueVecTy = dyn_cast<FixedVectorType>(ValueTy)) {
       HLInst *ReplMaskInst =
           replicateVectorElts(Mask, ValueVecTy->getNumElements());
       addInstUnmasked(ReplMaskInst);
       Mask = ReplMaskInst->getLvalDDRef();
+    }
+
+    if (IsNegOneStride) {
+      auto *RevInst = createReverseVector(Mask->clone(), OriginalVL);
+      Mask = RevInst->getLvalDDRef();
     }
   }
 
@@ -6137,7 +6149,7 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore,
     addInst(WInst, Mask);
     // Reverse the loaded value for negative -1 stride.
     if (IsNegOneStride)
-      WInst = createReverseVector(WInst->getLvalDDRef()->clone());
+      WInst = createReverseVector(WInst->getLvalDDRef()->clone(), OriginalVL);
     addVPValueWideRefMapping(VPLoadStore, WInst->getLvalDDRef());
   } else {
     if (IsUnitStride)
@@ -6153,7 +6165,7 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore,
     RegDDRef *StoreVal = widenRef(VPLoadStore->getOperand(0), getVF());
     // Reverse the value to be stored for negative -1 stride.
     if (IsNegOneStride) {
-      WInst = createReverseVector(StoreVal);
+      WInst = createReverseVector(StoreVal, OriginalVL);
       StoreVal = WInst->getLvalDDRef()->clone();
     }
     WInst = HLNodeUtilities.createStore(StoreVal, ".vec", MemRef);

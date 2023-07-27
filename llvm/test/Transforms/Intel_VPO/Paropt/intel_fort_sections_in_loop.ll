@@ -1,5 +1,5 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt -opaque-pointers=0 --passes="vpo-paropt-loop-collapse" -S %s | FileCheck %s
+; RUN: opt --passes="vpo-paropt-loop-collapse" -S %s | FileCheck %s
 
 ; More complex version of collapse-sect.ll.
 ; PARALLEL LOOP {
@@ -17,6 +17,57 @@
 ;
 ; The "CODE" block(s) were not added to the inner loop.
 
+; CHECK-LABEL: alloca_0
+; CHECK-LABEL: bb13
+; CHECK-LABEL: bb32
+; CHECK-LABEL: call.post.list361
+; CHECK-LABEL: ccsd_trpdrv_omp_.sw.case1.1
+; CHECK-LABEL: call.post.list373
+; CHECK-LABEL: ccsd_trpdrv_omp_.sw.case2.1
+; CHECK-LABEL: call.post.list385
+; CHECK-LABEL: ccsd_trpdrv_omp_.sw.case3.1
+; CHECK-LABEL: call.post.list397
+; CHECK-LABEL: ccsd_trpdrv_omp_.sw.case4.1
+; CHECK-LABEL: call.post.list409
+; CHECK-LABEL: ccsd_trpdrv_omp_.sw.case5.1
+; CHECK-LABEL: DIR.OMP.SECTION.10
+; CHECK-LABEL: call.post.list421
+; CHECK-LABEL: ccsd_trpdrv_omp_.sw.case6.1
+; CHECK-LABEL: call.post.list433
+; CHECK-LABEL: ccsd_trpdrv_omp_.sw.case7.1
+; CHECK-LABEL: call.post.list445
+; CHECK-LABEL: DIR.OMP.END.SECTION.15
+; CHECK-LABEL: DIR.OMP.END.SECTIONS.16
+; CHECK-LABEL: DIR.OMP.MASKED.17
+; CHECK-LABEL: call.pre.list450_then
+; CHECK-LABEL: call.pre.list462_else
+; CHECK-LABEL: bb43_endif
+; CHECK-LABEL: DIR.OMP.END.MASKED.18
+; CHECK-LABEL: omp.pdo.cond476
+; CHECK-LABEL: omp.pdo.body477
+; CHECK-LABEL: do.cond482
+; CHECK-LABEL: do.body483
+; CHECK-LABEL: do.epilog484
+; CHECK-LABEL: bb_new479
+; CHECK-LABEL: bb_new479.split
+; CHECK-LABEL: DIR.OMP.LOOP.20
+; CHECK-LABEL: DIR.OMP.LOOP.20.split
+; CHECK-LABEL: omp.collapsed.loop.cond
+; CHECK-LABEL: omp.collapsed.loop.body
+; CHECK-LABEL: omp.collapsed.loop.exit
+; CHECK-LABEL: omp.collapsed.loop.inc
+; CHECK-LABEL: omp.collapsed.loop.postexit
+; CHECK-LABEL: DIR.OMP.END.LOOP.21
+; CHECK-LABEL: DIR.OMP.PARALLEL.23
+; CHECK-LABEL: bb_new352
+; CHECK-LABEL: .sloop.header.1
+; CHECK-LABEL: .sloop.body.1
+; CHECK-LABEL: ccsd_trpdrv_omp_.sw.succBB.1
+; CHECK-LABEL: ccsd_trpdrv_omp_.sloop.latch.1
+; CHECK-LABEL: ccsd_trpdrv_omp_.sw.case0.1
+; CHECK-LABEL: .sloop.preheader.1
+; CHECK-LABEL: ccsd_trpdrv_omp_.sw.epilog.1
+
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 target device_triples = "spir64"
@@ -24,7 +75,7 @@ target device_triples = "spir64"
 @len_ = external unnamed_addr global [56 x i8], align 32
 @cccsds_ = external unnamed_addr global [240 x i8], align 32
 
-define void @ccsd_trpdrv_omp_() #0 {
+define void @ccsd_trpdrv_omp_() {
 alloca_0:
   br label %bb13
 
@@ -125,8 +176,8 @@ omp.pdo.cond476:                                  ; preds = %DIR.OMP.LOOP.20, %d
   br i1 undef, label %omp.pdo.body477, label %omp.pdo.epilog478
 
 omp.pdo.body477:                                  ; preds = %omp.pdo.cond476
-  %do.norm.lb_fetch.391 = load i64, i64* undef, align 8
-  store i64 %do.norm.lb_fetch.391, i64* undef, align 8
+  %do.norm.lb_fetch.391 = load i64, ptr undef, align 8
+  store i64 %do.norm.lb_fetch.391, ptr undef, align 8
   br label %do.cond482
 
 do.cond482:                                       ; preds = %do.body483, %omp.pdo.body477
@@ -139,12 +190,16 @@ do.epilog484:                                     ; preds = %do.cond482
   br label %omp.pdo.cond476
 
 bb_new479:                                        ; preds = %DIR.OMP.END.MASKED.18
-  %8 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.COLLAPSE"(i32 2), "QUAL.OMP.SCHEDULE.STATIC"(i32 0), "QUAL.OMP.REDUCTION.ADD"(double* undef), "QUAL.OMP.REDUCTION.ADD"(double* undef), "QUAL.OMP.REDUCTION.ADD"(double* undef), "QUAL.OMP.REDUCTION.ADD"(double* undef), "QUAL.OMP.PRIVATE"(i64* undef), "QUAL.OMP.PRIVATE"(i64* undef), "QUAL.OMP.PRIVATE"(i64* undef), "QUAL.OMP.PRIVATE"(i64* undef), "QUAL.OMP.PRIVATE"(i64* undef), "QUAL.OMP.PRIVATE"(i64* undef), "QUAL.OMP.FIRSTPRIVATE"(i64* undef), "QUAL.OMP.FIRSTPRIVATE"(i64* undef), "QUAL.OMP.NORMALIZED.IV"(i64* undef, i64* undef), "QUAL.OMP.NORMALIZED.UB"(i64* undef, i64* undef), "QUAL.OMP.LIVEIN"(double* undef), "QUAL.OMP.LIVEIN"(double* undef), "QUAL.OMP.LIVEIN"(double* undef), "QUAL.OMP.LIVEIN"(double* undef), "QUAL.OMP.LIVEIN"(double* undef), "QUAL.OMP.LIVEIN"(double* undef), "QUAL.OMP.LIVEIN"(double* undef), "QUAL.OMP.LIVEIN"(double* undef), "QUAL.OMP.LIVEIN"(double* undef), "QUAL.OMP.LIVEIN"(double* undef), "QUAL.OMP.LIVEIN"(double* undef), "QUAL.OMP.LIVEIN"(double* undef), "QUAL.OMP.LIVEIN"(double* undef), "QUAL.OMP.LIVEIN"(double* undef), "QUAL.OMP.LIVEIN"(double* undef), "QUAL.OMP.LIVEIN"(double* undef), "QUAL.OMP.LIVEIN"(i64* undef), "QUAL.OMP.LIVEIN"(i64* undef), "QUAL.OMP.LIVEIN"(double* undef), "QUAL.OMP.LIVEIN"(i64* undef) ]
+  %8 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(),
+    "QUAL.OMP.COLLAPSE"(i32 2),
+    "QUAL.OMP.SCHEDULE.STATIC"(i32 0),
+    "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr undef, i64 0, ptr undef, i64 0),
+    "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr undef, i64 0, ptr undef, i64 0) ]
   br label %DIR.OMP.LOOP.20
 
 DIR.OMP.LOOP.20:                                  ; preds = %bb_new479
-  %omp.pdo.norm.lb_fetch.381 = load i64, i64* undef, align 8
-  store i64 %omp.pdo.norm.lb_fetch.381, i64* undef, align 8
+  %omp.pdo.norm.lb_fetch.381 = load i64, ptr undef, align 8
+  store i64 %omp.pdo.norm.lb_fetch.381, ptr undef, align 8
   br label %omp.pdo.cond476
 
 omp.pdo.epilog478:                                ; preds = %omp.pdo.cond476
@@ -160,7 +215,8 @@ rtn:
   ret void
 
 DIR.OMP.PARALLEL.23:                              ; preds = %bb32
-  %9 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(i64* undef), "QUAL.OMP.SHARED"(i64* bitcast (i8* getelementptr inbounds ([240 x i8], [240 x i8]* @cccsds_, i32 0, i64 184) to i64*)), "QUAL.OMP.SHARED"(i64* bitcast (i8* getelementptr inbounds ([240 x i8], [240 x i8]* @cccsds_, i32 0, i64 216) to i64*)), "QUAL.OMP.SHARED"(i64* bitcast ([240 x i8]* @cccsds_ to i64*)), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(i64* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.SHARED"(double* undef), "QUAL.OMP.PRIVATE"(i64* undef), "QUAL.OMP.PRIVATE"(i64* undef), "QUAL.OMP.PRIVATE"(i64* undef), "QUAL.OMP.PRIVATE"(i64* undef), "QUAL.OMP.PRIVATE"(double* undef), "QUAL.OMP.PRIVATE"(double* undef), "QUAL.OMP.FIRSTPRIVATE"(i64* undef), "QUAL.OMP.FIRSTPRIVATE"(i64* undef), "QUAL.OMP.FIRSTPRIVATE"(i64* undef), "QUAL.OMP.FIRSTPRIVATE"(i64* undef), "QUAL.OMP.FIRSTPRIVATE"(i64* bitcast (i8* getelementptr inbounds ([56 x i8], [56 x i8]* @len_, i32 0, i64 16) to i64*)), "QUAL.OMP.FIRSTPRIVATE"(i64* bitcast (i8* getelementptr inbounds ([56 x i8], [56 x i8]* @len_, i32 0, i64 8) to i64*)), "QUAL.OMP.FIRSTPRIVATE"(i64* undef), "QUAL.OMP.FIRSTPRIVATE"(i64* undef), "QUAL.OMP.FIRSTPRIVATE"(i64* undef), "QUAL.OMP.FIRSTPRIVATE"(i64* undef), "QUAL.OMP.FIRSTPRIVATE"(i64* undef), "QUAL.OMP.FIRSTPRIVATE"(i64* undef), "QUAL.OMP.FIRSTPRIVATE"(i64* undef), "QUAL.OMP.FIRSTPRIVATE"(i64* undef), "QUAL.OMP.FIRSTPRIVATE"(i64* undef), "QUAL.OMP.FIRSTPRIVATE"(i64* undef), "QUAL.OMP.FIRSTPRIVATE"(i64* undef), "QUAL.OMP.FIRSTPRIVATE"(i64* undef), "QUAL.OMP.FIRSTPRIVATE"(i64* undef), "QUAL.OMP.FIRSTPRIVATE"(i64* undef), "QUAL.OMP.FIRSTPRIVATE"(i64* undef), "QUAL.OMP.FIRSTPRIVATE"(i64* undef), "QUAL.OMP.FIRSTPRIVATE"(i64* undef) ]
+  %9 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
+    "QUAL.OMP.SHARED"(ptr @cccsds_) ]
   br label %bb_new352
 
 bb_new352:                                        ; preds = %DIR.OMP.PARALLEL.23
@@ -172,64 +228,6 @@ DIR.OMP.SECTIONS.24:                              ; preds = %bb_new352
   br label %call.post.list361
 }
 
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #1
-
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #1
-
-attributes #0 = { "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" }
-attributes #1 = { nounwind }
-
-; CHECK-LABEL: alloca_0
-; CHECK-LABEL: bb13
-; CHECK-LABEL: bb32
-; CHECK-LABEL: call.post.list361
-; CHECK-LABEL: ccsd_trpdrv_omp_.sw.case1.1
-; CHECK-LABEL: call.post.list373
-; CHECK-LABEL: ccsd_trpdrv_omp_.sw.case2.1
-; CHECK-LABEL: call.post.list385
-; CHECK-LABEL: ccsd_trpdrv_omp_.sw.case3.1
-; CHECK-LABEL: call.post.list397
-; CHECK-LABEL: ccsd_trpdrv_omp_.sw.case4.1
-; CHECK-LABEL: call.post.list409
-; CHECK-LABEL: ccsd_trpdrv_omp_.sw.case5.1
-; CHECK-LABEL: DIR.OMP.SECTION.10
-; CHECK-LABEL: call.post.list421
-; CHECK-LABEL: ccsd_trpdrv_omp_.sw.case6.1
-; CHECK-LABEL: call.post.list433
-; CHECK-LABEL: ccsd_trpdrv_omp_.sw.case7.1
-; CHECK-LABEL: call.post.list445
-; CHECK-LABEL: DIR.OMP.END.SECTION.15
-; CHECK-LABEL: DIR.OMP.END.SECTIONS.16
-; CHECK-LABEL: DIR.OMP.MASKED.17
-; CHECK-LABEL: call.pre.list450_then
-; CHECK-LABEL: call.pre.list462_else
-; CHECK-LABEL: bb43_endif
-; CHECK-LABEL: DIR.OMP.END.MASKED.18
-; CHECK-LABEL: omp.pdo.cond476
-; CHECK-LABEL: omp.pdo.body477
-; CHECK-LABEL: do.cond482
-; CHECK-LABEL: do.body483
-; CHECK-LABEL: do.epilog484
-; CHECK-LABEL: bb_new479
-; CHECK-LABEL: bb_new479.split
-; CHECK-LABEL: DIR.OMP.LOOP.20
-; CHECK-LABEL: DIR.OMP.LOOP.20.split
-; CHECK-LABEL: omp.collapsed.loop.cond
-; CHECK-LABEL: omp.collapsed.loop.body
-; CHECK-LABEL: omp.collapsed.loop.exit
-; CHECK-LABEL: omp.collapsed.loop.inc
-; CHECK-LABEL: omp.collapsed.loop.postexit
-; CHECK-LABEL: DIR.OMP.END.LOOP.21
-; CHECK-LABEL: DIR.OMP.PARALLEL.23
-; CHECK-LABEL: bb_new352
-; CHECK-LABEL: .sloop.header.1
-; CHECK-LABEL: .sloop.body.1
-; CHECK-LABEL: ccsd_trpdrv_omp_.sw.succBB.1
-; CHECK-LABEL: ccsd_trpdrv_omp_.sloop.latch.1
-; CHECK-LABEL: ccsd_trpdrv_omp_.sw.case0.1
-; CHECK-LABEL: .sloop.preheader.1
-; CHECK-LABEL: ccsd_trpdrv_omp_.sw.epilog.1
-
+declare void @llvm.directive.region.exit(token)
+declare token @llvm.directive.region.entry()
 ; end INTEL_CUSTOMIZATION

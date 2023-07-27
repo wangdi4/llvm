@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -passes='argpromotion' -S %s | FileCheck %s
+; RUN: opt -passes='argpromotion' -S %s | FileCheck %s
 
 ; Original code:
 ; #pragma omp declare target
@@ -27,23 +27,22 @@ target device_triples = "spir64"
 %struct.str = type { float, float }
 
 ; Function Attrs: nounwind
-define hidden spir_func float @bar(%struct.str addrspace(4)* byval(%struct.str) align 4 %arg) #0 {
+define hidden spir_func float @bar(ptr addrspace(4) byval(%struct.str) align 4 %arg) #0 {
 entry:
   %retval = alloca float, align 4
-  %retval.ascast = addrspacecast float* %retval to float addrspace(4)*
-  %call = call fast spir_func float @foo(%struct.str addrspace(4)* byval(%struct.str) align 4 %arg)
+  %retval.ascast = addrspacecast ptr %retval to ptr addrspace(4)
+  %call = call fast spir_func float @foo(ptr addrspace(4) byval(%struct.str) align 4 %arg)
   ret float %call
 }
 
 ; Function Attrs: nounwind
-define internal spir_func float @foo(%struct.str addrspace(4)* byval(%struct.str) align 4 %arg) #0 {
+define internal spir_func float @foo(ptr addrspace(4) byval(%struct.str) align 4 %arg) #0 {
 entry:
   %retval = alloca float, align 4
-  %retval.ascast = addrspacecast float* %retval to float addrspace(4)*
-  %x = getelementptr inbounds %struct.str, %struct.str addrspace(4)* %arg, i32 0, i32 0, !intel-tbaa !4
-  %0 = load float, float addrspace(4)* %x, align 4, !tbaa !4
-  %y = getelementptr inbounds %struct.str, %struct.str addrspace(4)* %arg, i32 0, i32 1, !intel-tbaa !9
-  %1 = load float, float addrspace(4)* %y, align 4, !tbaa !9
+  %retval.ascast = addrspacecast ptr %retval to ptr addrspace(4)
+  %0 = load float, ptr addrspace(4) %arg, align 4, !tbaa !4
+  %y = getelementptr inbounds %struct.str, ptr addrspace(4) %arg, i32 0, i32 1, !intel-tbaa !9
+  %1 = load float, ptr addrspace(4) %y, align 4, !tbaa !9
   %add = fadd fast float %0, %1
   ret float %add
 }

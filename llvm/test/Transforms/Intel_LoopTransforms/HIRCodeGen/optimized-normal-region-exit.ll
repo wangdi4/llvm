@@ -51,22 +51,22 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define dso_local i32 @main() {
 entry:
-  store i8 20, i8* @g, align 1
-  %0 = load i8, i8* @b, align 1
+  store i8 20, ptr @g, align 1
+  %0 = load i8, ptr @b, align 1
   %conv2 = zext i8 %0 to i64
-  %1 = load i64, i64* @a, align 8
+  %1 = load i64, ptr @a, align 8
   %sub = sub i64 %1, %conv2
-  store i64 %sub, i64* @a, align 8
+  store i64 %sub, ptr @a, align 8
   %2 = trunc i64 %sub to i8
-  %l.promoted = load i32, i32* @l, align 4
+  %l.promoted = load i32, ptr @l, align 4
   br label %for.body6
 
 for.body6:                                        ; preds = %entry, %for.body17
   %g.promoted = phi i8 [ 20, %entry ], [ %conv20, %for.body17 ]
   %indvars.iv = phi i64 [ 2, %entry ], [ %indvars.iv.next, %for.body17 ]
   %conv1137 = phi i32 [ %l.promoted, %entry ], [ %conv11, %for.body17 ]
-  %arrayidx = getelementptr inbounds [20 x i16], [20 x i16]* @d, i64 0, i64 %indvars.iv
-  %3 = load i16, i16* %arrayidx, align 2
+  %arrayidx = getelementptr inbounds [20 x i16], ptr @d, i64 0, i64 %indvars.iv
+  %3 = load i16, ptr %arrayidx, align 2
   %conv7 = zext i16 %3 to i64
   %add = add nuw nsw i64 %conv7, 16
   %4 = trunc i64 %add to i32
@@ -76,7 +76,7 @@ for.body6:                                        ; preds = %entry, %for.body17
 
 for.body17:                                       ; preds = %for.body6
   %conv20 = sub i8 %g.promoted, %2
-  store i8 %conv20, i8* @g, align 1
+  store i8 %conv20, ptr @g, align 1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 3
   %cmp4 = icmp ult i64 %indvars.iv, 3
   br i1 %cmp4, label %for.body6, label %for.end28

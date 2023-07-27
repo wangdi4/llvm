@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-cg" < %s -force-hir-cg -S | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" < %s -force-hir-cg -S | FileCheck %s
 
 ; DO i1 = 0, 4, 1   <DO_LOOP>
 ;
@@ -21,36 +21,36 @@
 ; Check that the i2 loop with ztt, preheader and postexit is CG'd correctly.
 ; CHECK: region.0:
 ; Check outer loop begin
-; CHECK: store i64 0, i64* %i1.i64
+; CHECK: store i64 0, ptr %i1.i64
 ; CHECK: loop.{{[0-9]+}}:
 
 ; Check ztt
-; CHECK: [[I1LOAD:%.*]] = load i64, i64* %i1.i64
+; CHECK: [[I1LOAD:%.*]] = load i64, ptr %i1.i64
 ; CHECK: [[ZTTCMP:%.*]] = icmp slt i64 [[I1LOAD]], [[INDVARS:%.*]]
 ; CHECK: br i1 [[ZTTCMP]], label %[[TRUEZTT:then.[0-9]]]
 
 ; Check preheader stmts
 ; CHECK: [[TRUEZTT]]:
-; CHECK: [[I1LOAD1:%.*]] = load i64, i64* %i1.i64
-; CHECK-NEXT: [[AGEP:%.*]] = getelementptr inbounds i32*, i32** %A, i64 [[I1LOAD1]]
-; CHECK-NEXT: [[ALOAD:%.*]] = load i32*, i32** [[AGEP]]
-; CHECK-NEXT: store i32* [[ALOAD]], i32** [[STORE0:%.*]],
-; CHECK-NEXT: [[BLOAD:%.*]] = load i32*, i32**
-; CHECK-NEXT: store i32* [[BLOAD]], i32** [[STORE1:%.*]],
+; CHECK: [[I1LOAD1:%.*]] = load i64, ptr %i1.i64
+; CHECK-NEXT: [[AGEP:%.*]] = getelementptr inbounds ptr, ptr %A, i64 [[I1LOAD1]]
+; CHECK-NEXT: [[ALOAD:%.*]] = load ptr, ptr [[AGEP]]
+; CHECK-NEXT: store ptr [[ALOAD]], ptr [[STORE0:%.*]],
+; CHECK-NEXT: [[BLOAD:%.*]] = load ptr, ptr
+; CHECK-NEXT: store ptr [[BLOAD]], ptr [[STORE1:%.*]],
 ; CHECK: br label %[[I2LOOP:.*]]
 
 ; Check some stmts in i2 loop body
 ; CHECK: [[I2LOOP]]:
-; CHECK: [[BGEP:%.*]] = getelementptr inbounds i32*, i32** %B
-; CHECK-NEXT: load i32*, i32** [[BGEP]]
-; CHECK: getelementptr inbounds i32, i32* [[STORE0]]
-; CHECK: getelementptr inbounds i32, i32* [[STORE1]]
+; CHECK: [[BGEP:%.*]] = getelementptr inbounds ptr, ptr %B
+; CHECK-NEXT: load ptr, ptr [[BGEP]]
+; CHECK: getelementptr inbounds i32, ptr [[STORE0]]
+; CHECK: getelementptr inbounds i32, ptr [[STORE1]]
 ; CHECK: br i1 {{%.*}}, label %[[I2LOOP]], label %[[POSTEXIT:.*]]
 
 ; Check postexit stmts
 ; CHECK: [[POSTEXIT]]:
 ; CHECK: add i64 %M, 5
-; CHECK: [[I1LOAD2:%.*]] = load i64, i64* %i1.i64
+; CHECK: [[I1LOAD2:%.*]] = load i64, ptr %i1.i64
 ; CHECK: mul i64 [[INDVARS]]{{[0-9]+}}, [[I1LOAD2]]
 
 
@@ -59,7 +59,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define i32 @foo(i32** nocapture readonly %A, i32** nocapture readonly %B, i64 %M) {
+define i32 @foo(ptr nocapture readonly %A, ptr nocapture readonly %B, i64 %M) {
 entry:
   %cmp.58 = icmp sgt i64 %M, 0
   br i1 %cmp.58, label %for.cond.1.preheader.lr.ph, label %for.cond.cleanup
@@ -82,23 +82,23 @@ for.cond.5.preheader:                             ; preds = %for.cond.cleanup.7,
   br i1 %cmp6.51, label %for.body.8.lr.ph, label %for.cond.cleanup.7
 
 for.body.8.lr.ph:                                 ; preds = %for.cond.5.preheader
-  %arrayidx11 = getelementptr inbounds i32*, i32** %A, i64 %i.056
-  %0 = load i32*, i32** %arrayidx11, align 8
-  %1 = load i32*, i32** %B, align 8
+  %arrayidx11 = getelementptr inbounds ptr, ptr %A, i64 %i.056
+  %0 = load ptr, ptr %arrayidx11, align 8
+  %1 = load ptr, ptr %B, align 8
   br label %for.body.8
 
 for.body.8:                                       ; preds = %for.body.8, %for.body.8.lr.ph
   %j.052 = phi i64 [ %i.056, %for.body.8.lr.ph ], [ %inc, %for.body.8 ]
-  %arrayidx = getelementptr inbounds i32*, i32** %B, i64 %j.052
-  %2 = load i32*, i32** %arrayidx, align 8
-  %arrayidx9 = getelementptr inbounds i32, i32* %2, i64 %i.056
-  %3 = load i32, i32* %arrayidx9, align 4
+  %arrayidx = getelementptr inbounds ptr, ptr %B, i64 %j.052
+  %2 = load ptr, ptr %arrayidx, align 8
+  %arrayidx9 = getelementptr inbounds i32, ptr %2, i64 %i.056
+  %3 = load i32, ptr %arrayidx9, align 4
   %add10 = add nsw i64 %j.052, %M
-  %arrayidx12 = getelementptr inbounds i32, i32* %0, i64 %add10
-  store i32 %3, i32* %arrayidx12, align 4
+  %arrayidx12 = getelementptr inbounds i32, ptr %0, i64 %add10
+  store i32 %3, ptr %arrayidx12, align 4
   %add13 = add nuw nsw i64 %j.052, %i.056
-  %arrayidx15 = getelementptr inbounds i32, i32* %1, i64 %add13
-  store i32 5, i32* %arrayidx15, align 4
+  %arrayidx15 = getelementptr inbounds i32, ptr %1, i64 %add13
+  store i32 5, ptr %arrayidx15, align 4
   %inc = add nuw nsw i64 %j.052, 1
   %exitcond = icmp eq i64 %inc, %indvars.iv
   br i1 %exitcond, label %for.cond.5.for.cond.cleanup.7_crit_edge, label %for.body.8
@@ -126,10 +126,10 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.3,
   %l2.0.lcssa = phi i64 [ undef, %entry ], [ %l2.2.lcssa.lcssa, %for.cond.cleanup.3 ]
   %add23 = add nsw i64 %l2.0.lcssa, 3
   %add24 = add nsw i64 %l.0.lcssa, 2
-  %arrayidx25 = getelementptr inbounds i32*, i32** %A, i64 %add24
-  %4 = load i32*, i32** %arrayidx25, align 8
-  %arrayidx26 = getelementptr inbounds i32, i32* %4, i64 %add23
-  %5 = load i32, i32* %arrayidx26, align 4
+  %arrayidx25 = getelementptr inbounds ptr, ptr %A, i64 %add24
+  %4 = load ptr, ptr %arrayidx25, align 8
+  %arrayidx26 = getelementptr inbounds i32, ptr %4, i64 %add23
+  %5 = load i32, ptr %arrayidx26, align 4
   ret i32 %5
 }
 

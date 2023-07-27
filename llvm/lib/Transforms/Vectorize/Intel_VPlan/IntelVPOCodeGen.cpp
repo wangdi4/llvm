@@ -476,7 +476,7 @@ BasicBlock &VPOCodeGen::getFunctionEntryBlock() const {
 Value *VPOCodeGen::reverseVector(Value *Vec, unsigned OriginalVL) {
   unsigned NumElts = cast<FixedVectorType>(Vec->getType())->getNumElements();
   SmallVector<Constant *, 8> ShuffleMask;
-  for (unsigned i = 0; i < NumElts; i += OriginalVL)
+  for (unsigned i = 0; i < NumElts / OriginalVL; i++)
     for (unsigned j = 0; j < OriginalVL; j++)
       ShuffleMask.push_back(
           Builder.getInt32(NumElts - (i + 1) * OriginalVL + j));
@@ -3035,8 +3035,7 @@ Value *VPOCodeGen::vectorizeUnitStrideLoad(VPLoadStoreInst *VPLoad,
   unsigned OriginalVL = LoadType->isVectorTy()
                             ? cast<FixedVectorType>(LoadType)->getNumElements()
                             : 1;
-  Align Alignment =
-      VPAA.getAlignmentUnitStride(*VPLoad, Plan->getGuaranteedPeeling(VF));
+  Align Alignment = VPLoad->getAlignment();
   Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(
       Ptr, VPLoad->getValueType(), IsNegOneStride);
   Type *WidenedType = getWidenedType(LoadType, VF);
@@ -3086,7 +3085,7 @@ Value *VPOCodeGen::vectorizeUnitStrideLoad(VPLoadStoreInst *VPLoad,
   propagateLoadStoreInstAliasMetadata(WideLoad, VPLoad);
 
   if (IsNegOneStride) // Reverse
-    return reverseVector(WideLoad);
+    return reverseVector(WideLoad, OriginalVL);
   return WideLoad;
 }
 
@@ -3169,8 +3168,7 @@ void VPOCodeGen::vectorizeUnitStrideStore(VPLoadStoreInst *VPStore,
                             : 1;
   Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(
       Ptr, VPStore->getValueType(), IsNegOneStride);
-  Align Alignment =
-      VPAA.getAlignmentUnitStride(*VPStore, Plan->getGuaranteedPeeling(VF));
+  Align Alignment = VPStore->getAlignment();
 
   // For the opt-report, check if this memref was aligned by peeling. We use
   // preferred peeling instead of guaranteed, as otherwise when dynamically
@@ -3182,7 +3180,7 @@ void VPOCodeGen::vectorizeUnitStrideStore(VPLoadStoreInst *VPStore,
   if (IsNegOneStride) // Reverse
     // If we store to reverse consecutive memory locations, then we need
     // to reverse the order of elements in the stored value.
-    VecDataOp = reverseVector(VecDataOp);
+    VecDataOp = reverseVector(VecDataOp, OriginalVL);
 
   Instruction *Store;
   if (MaskValue) {
@@ -3394,9 +3392,10 @@ Value *VPOCodeGen::createWidenedBasePtrConsecutiveLoadStore(VPValue *Ptr,
     // correct operand for widened load/store.
     VecPtr = getScalarValue(Ptr, 0);
 
-  VecPtr = Reverse ? Builder.CreateGEP(
-                         WideDataTy->getScalarType(), VecPtr,
-                         Builder.getInt32(1 - WideDataTy->getNumElements()))
+  // Adjust the memory reference for negative one stride case so that we can do
+  // a wide load/store.
+  VecPtr = Reverse ? Builder.CreateGEP(ScalarAccessType, VecPtr,
+                                       Builder.getInt32(1 - VF))
                    : VecPtr;
   VecPtr = Builder.CreateBitCast(VecPtr, WideDataTy->getPointerTo(AddrSpace));
   return VecPtr;

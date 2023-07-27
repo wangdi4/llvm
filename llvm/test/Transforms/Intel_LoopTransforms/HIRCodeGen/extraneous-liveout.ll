@@ -17,11 +17,11 @@ for.body78:                                       ; preds = %entry, %for.body78
   %0 = phi i32 [ 0, %entry ], [ %inc83, %for.body78 ]
   %1 = phi i32 [ %.ph, %entry ], [ %add80, %for.body78 ]
   %add80 = add i32 %1, 64
-  store i32 %add80, i32* @g_hjwx, align 4
-  store i32 %liveout, i32* %v_l, align 4
-  %2 = load i32, i32* @g_jyqdijl, align 4
+  store i32 %add80, ptr @g_hjwx, align 4
+  store i32 %liveout, ptr %v_l, align 4
+  %2 = load i32, ptr @g_jyqdijl, align 4
   %inc81 = add i32 %2, 1
-  store i32 %inc81, i32* @g_jyqdijl, align 4
+  store i32 %inc81, ptr @g_jyqdijl, align 4
   %inc83 = add nuw nsw i32 %0, 1
   %cmp77 = icmp ult i32 %inc83, 63
   br i1 %cmp77, label %for.body78, label %for.end84

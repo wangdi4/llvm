@@ -66,8 +66,8 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup3
 
 for.cond5.preheader:                              ; preds = %for.cond1.preheader, %for.cond.cleanup7
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.cond.cleanup7 ]
-  %arrayidx14 = getelementptr inbounds [400 x [400 x i32]], [400 x [400 x i32]]* @A, i64 0, i64 %indvars.iv38, i64 %indvars.iv, !intel-tbaa !2
-  %arrayidx14.promoted = load i32, i32* %arrayidx14, align 4, !tbaa !2
+  %arrayidx14 = getelementptr inbounds [400 x [400 x i32]], ptr @A, i64 0, i64 %indvars.iv38, i64 %indvars.iv, !intel-tbaa !2
+  %arrayidx14.promoted = load i32, ptr %arrayidx14, align 4, !tbaa !2
   br label %for.body8
 
 for.cond.cleanup3:                                ; preds = %for.cond.cleanup7
@@ -77,7 +77,7 @@ for.cond.cleanup3:                                ; preds = %for.cond.cleanup7
 
 for.cond.cleanup7:                                ; preds = %for.body8
   %add15.lcssa = phi i32 [ %add15, %for.body8 ]
-  store i32 %add15.lcssa, i32* %arrayidx14, align 4, !tbaa !2
+  store i32 %add15.lcssa, ptr %arrayidx14, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond37 = icmp eq i64 %indvars.iv.next, 400
   br i1 %exitcond37, label %for.cond.cleanup3, label %for.cond5.preheader
@@ -89,8 +89,8 @@ for.body8:                                        ; preds = %for.cond5.preheader
   %rem.lhs.trunc = trunc i32 %add to i16
   %rem33 = urem i16 %rem.lhs.trunc, 400
   %idxprom9 = zext i16 %rem33 to i64
-  %arrayidx10 = getelementptr inbounds [400 x [400 x i32]], [400 x [400 x i32]]* @B, i64 0, i64 %indvars.iv38, i64 %idxprom9, !intel-tbaa !2
-  %1 = load i32, i32* %arrayidx10, align 4, !tbaa !2
+  %arrayidx10 = getelementptr inbounds [400 x [400 x i32]], ptr @B, i64 0, i64 %indvars.iv38, i64 %idxprom9, !intel-tbaa !2
+  %1 = load i32, ptr %arrayidx10, align 4, !tbaa !2
   %add15 = add nsw i32 %0, %1
   %exitcond = icmp eq i32 %add, 400
   br i1 %exitcond, label %for.cond.cleanup7, label %for.body8

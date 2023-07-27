@@ -63,12 +63,12 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind uwtable
 define dso_local void @h() local_unnamed_addr #0 {
 entry:
-  %.pr = load i32, i32* @d, align 4, !tbaa !2
+  %.pr = load i32, ptr @d, align 4, !tbaa !2
   %tobool15 = icmp eq i32 %.pr, 0
   br i1 %tobool15, label %for.end11, label %for.cond1.preheader.lr.ph
 
 for.cond1.preheader.lr.ph:                        ; preds = %entry
-  %0 = load i64, i64* @f, align 8, !tbaa !6
+  %0 = load i64, ptr @f, align 8, !tbaa !6
   br label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %for.cond1.preheader.lr.ph, %for.inc10
@@ -81,8 +81,8 @@ for.cond4.preheader:                              ; preds = %for.cond1.preheader
 
 for.body6:                                        ; preds = %for.cond4.preheader, %for.body6
   %indvars.iv = phi i64 [ 2, %for.cond4.preheader ], [ %indvars.iv.next, %for.body6 ]
-  %arrayidx = getelementptr inbounds [9 x [1 x i64]], [9 x [1 x i64]]* @g, i64 0, i64 1, i64 %indvars.iv
-  store i64 %0, i64* %arrayidx, align 8, !tbaa !8
+  %arrayidx = getelementptr inbounds [9 x [1 x i64]], ptr @g, i64 0, i64 1, i64 %indvars.iv
+  store i64 %0, ptr %arrayidx, align 8, !tbaa !8
   %1 = trunc i64 %indvars.iv to i32
   %tobool5 = icmp eq i32 %1, -2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 2
@@ -99,9 +99,9 @@ for.inc10:                                        ; preds = %for.inc7
   br i1 %tobool, label %for.cond.for.end11_crit_edge, label %for.cond1.preheader
 
 for.cond.for.end11_crit_edge:                     ; preds = %for.inc10
-  store i32 0, i32* @c, align 4, !tbaa !2
-  store i32 0, i32* @e, align 4, !tbaa !2
-  store i32 0, i32* @d, align 4, !tbaa !2
+  store i32 0, ptr @c, align 4, !tbaa !2
+  store i32 0, ptr @e, align 4, !tbaa !2
+  store i32 0, ptr @d, align 4, !tbaa !2
   br label %for.end11
 
 for.end11:                                        ; preds = %for.cond.for.end11_crit_edge, %entry

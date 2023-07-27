@@ -39,8 +39,8 @@ for.body:                                         ; preds = %for.body, %for.body
   %mul = mul nsw i32 %0, %0
   %2 = select i1 %cmp1, i32 %1, i32 %mul, !prof !31
   %conv2.sink = sitofp i32 %2 to double
-  %3 = getelementptr inbounds [20 x double], [20 x double]* @a, i64 0, i64 %indvars.iv, !intel-tbaa !32
-  store double %conv2.sink, double* %3, align 8
+  %3 = getelementptr inbounds [20 x double], ptr @a, i64 0, i64 %indvars.iv, !intel-tbaa !32
+  store double %conv2.sink, ptr %3, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.end.loopexit, label %for.body, !prof !37
@@ -49,7 +49,7 @@ for.end.loopexit:                                 ; preds = %for.body
   br label %for.end
 
 for.end:                                          ; preds = %for.end.loopexit, %entry
-  %4 = load double, double* getelementptr inbounds ([20 x double], [20 x double]* @a, i64 0, i64 3), align 8, !tbaa !32
+  %4 = load double, ptr getelementptr inbounds ([20 x double], ptr @a, i64 0, i64 3), align 8, !tbaa !32
   %conv5 = fptosi double %4 to i32
   ret i32 %conv5
 }

@@ -19,7 +19,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define float @foo(i32 %n, i64* %base, i64* %ptr) #0 {
+define float @foo(i32 %n, ptr %base, ptr %ptr) #0 {
 entry:
   %conv = sext i32 %n to i64
   %cmp1 = icmp ult i64 0, %conv
@@ -36,9 +36,9 @@ for.body:                                         ; preds = %for.body.lr.ph, %fo
   %conv2 = uitofp i64 %i.02 to float
   %mul = fmul float %conv2, 3.000000e+00, !fpmath !0
   %add = fadd float %a.03, %mul
-  %add.ptr = getelementptr inbounds i64, i64* %ptr, i64 %i.02
-  %sub.ptr.lhs.cast = ptrtoint i64* %add.ptr to i64
-  %sub.ptr.rhs.cast = ptrtoint i64* %base to i64
+  %add.ptr = getelementptr inbounds i64, ptr %ptr, i64 %i.02
+  %sub.ptr.lhs.cast = ptrtoint ptr %add.ptr to i64
+  %sub.ptr.rhs.cast = ptrtoint ptr %base to i64
   %sub.ptr.sub = sub i64 %sub.ptr.lhs.cast, %sub.ptr.rhs.cast
   %sub.ptr.div = sdiv exact i64 %sub.ptr.sub, 8
   %div = udiv i64 %sub.ptr.div, 8
