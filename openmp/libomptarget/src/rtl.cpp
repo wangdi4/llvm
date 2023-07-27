@@ -210,6 +210,119 @@ DllMain(HINSTANCE const instance, // handle to DLL module
 #endif // _WIN32
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_COLLAB
+std::vector<std::string_view> tokenize(const std::string_view &Filter,
+                                       const std::string &Delim) {
+  std::vector<std::string_view> Tokens;
+  size_t Pos = 0;
+  size_t LastPos = 0;
+
+  while ((Pos = Filter.find(Delim, LastPos)) != std::string::npos) {
+    std::string_view Tok(Filter.data() + LastPos, (Pos - LastPos));
+
+    if (!Tok.empty()) {
+      Tokens.push_back(Tok);
+    }
+    // move the search starting index
+    LastPos = Pos + 1;
+  }
+
+  // Add remainder if any
+  if (LastPos < Filter.size()) {
+    std::string_view Tok(Filter.data() + LastPos, Filter.size() - LastPos);
+    Tokens.push_back(Tok);
+  }
+  return Tokens;
+}
+
+void getPlugInNameFromEnv(std::vector<const char *> &RTLChecked) {
+#if _WIN32
+#define GET_RTL_NAME(Name) "omptarget.rtl." #Name ".dll"
+#else
+#define GET_RTL_NAME(Name) "libomptarget.rtl." #Name ".so"
+#endif
+
+  //  Process ONEAPI_DEVICE_SELECTOR first and then LIBOMPTARGET_PLUGIN
+  //  which will  be obsoleted
+  if (char *Env = getenv("ONEAPI_DEVICE_SELECTOR")) {
+    // Empty string select level0
+    if (Env[0] == '\0') {
+      RTLChecked.push_back(GET_RTL_NAME(level0));
+      return;
+    }
+
+    bool done_l0 = false;
+    bool done_opencl = false;
+    bool done_x86_64 = false;
+    bool done_ur = false;
+    std::string EnvStr(Env);
+    std::transform(EnvStr.begin(), EnvStr.end(), EnvStr.begin(),
+                   [](unsigned char C) { return std::tolower(C); });
+    std::vector<std::string_view> OdsStr = tokenize(EnvStr, ";");
+    for (const auto Filter : OdsStr) {
+      std::vector<std::string_view> Backend = tokenize(Filter, ":");
+      if (Backend.empty() || (Backend.size() == 1)) {
+        continue;
+      }
+      auto Plugin = Backend.front();
+      if (!strncmp(Plugin.data(), "*", Plugin.length())) {
+        RTLChecked.insert(RTLChecked.begin(), RTLNames,
+                          RTLNames + sizeof(RTLNames) / sizeof(const char *));
+        return;
+      } else if (!strncmp(Plugin.data(), "level_zero", Plugin.length()) &&
+                 !done_l0) {
+        RTLChecked.push_back(GET_RTL_NAME(level0));
+        done_l0 = true;
+      } else if (!strncmp(Plugin.data(), "opencl", Plugin.length()) &&
+                 !done_opencl) {
+        RTLChecked.push_back(GET_RTL_NAME(opencl));
+        done_opencl = true;
+      } else if (!strncmp(Plugin.data(), "unified_runtime", Plugin.length()) &&
+                 !done_ur) {
+        RTLChecked.push_back(GET_RTL_NAME(unified_runtime));
+        done_ur = true;
+      } else if (!strncmp(Plugin.data(), "x86_64", Plugin.length()) &&
+                 !done_x86_64) {
+        RTLChecked.push_back(GET_RTL_NAME(x86_64));
+        done_x86_64 = true;
+      } else if (Plugin[0] == '!') {
+        DP("Negative filter ignored currently not supported '%.*s'\n",
+           static_cast<int>(Plugin.length()), Plugin.data());
+      } else {
+        DP("Unknown  plugin specified with ONEAPI_DEVICE_SELECTOR '%.*s'\n",
+           static_cast<int>(Plugin.length()), Plugin.data());
+      }
+    }
+    if (char *EnvStr = getenv("LIBOMPTARGET_PLUGIN"))
+      DP("Ignoring LIBOMPTARGET_PLUGIN  since ONEAPI_DEVICE_SELECTOR is  "
+         "set\n");
+    return;
+  }
+
+  if (char *EnvStr = getenv("LIBOMPTARGET_PLUGIN")) {
+    std::string PlugInName(EnvStr);
+    if (PlugInName == "OPENCL" || PlugInName == "opencl") {
+      RTLChecked.push_back(GET_RTL_NAME(opencl));
+#if INTEL_CUSTOMIZATION
+    } else if (PlugInName == "LEVEL0" || PlugInName == "level0" ||
+               PlugInName == "LEVEL_ZERO" || PlugInName == "level_zero") {
+      RTLChecked.push_back(GET_RTL_NAME(level0));
+#if OMPTARGET_UNIFIED_RUNTIME_BUILD
+    } else if (PlugInName == "UNIFIED_RUNTIME" ||
+               PlugInName == "unified_runtime") {
+      RTLChecked.push_back(GET_RTL_NAME(unified_runtime));
+#endif // OMPTARGET_UNIFIED_RUNTIME_BUILD
+#endif // INTEL_CUSTOMIZATION
+    } else if (PlugInName == "X86_64" || PlugInName == "x86_64") {
+      RTLChecked.push_back(GET_RTL_NAME(x86_64));
+    } else {
+      DP("Unknown plugin name '%s'\n", EnvStr);
+    }
+  }
+  return;
+}
+#endif // INTEL_COLLAB
+
 void RTLsTy::loadRTLs() {
 
 #if INTEL_CUSTOMIZATION
@@ -235,34 +348,10 @@ void RTLsTy::loadRTLs() {
 
 #if INTEL_COLLAB
 
-#if _WIN32
-#define GET_RTL_NAME(Name) "omptarget.rtl." #Name ".dll"
-#else
-#define GET_RTL_NAME(Name) "libomptarget.rtl." #Name ".so"
-#endif
-
   // Only check a single plugin if specified by user
   std::vector<const char *> RTLChecked;
-  if (char *EnvStr = getenv("LIBOMPTARGET_PLUGIN")) {
-    std::string PlugInName(EnvStr);
-    if (PlugInName == "OPENCL" || PlugInName == "opencl") {
-      RTLChecked.push_back(GET_RTL_NAME(opencl));
-#if INTEL_CUSTOMIZATION
-    } else if (PlugInName == "LEVEL0" || PlugInName == "level0" ||
-               PlugInName == "LEVEL_ZERO" || PlugInName == "level_zero") {
-      RTLChecked.push_back(GET_RTL_NAME(level0));
-#if OMPTARGET_UNIFIED_RUNTIME_BUILD
-    } else if (PlugInName == "UNIFIED_RUNTIME" ||
-               PlugInName == "unified_runtime") {
-      RTLChecked.push_back(GET_RTL_NAME(unified_runtime));
-#endif // OMPTARGET_UNIFIED_RUNTIME_BUILD
-#endif // INTEL_CUSTOMIZATION
-    } else if (PlugInName == "X86_64" || PlugInName == "x86_64") {
-      RTLChecked.push_back(GET_RTL_NAME(x86_64));
-    } else {
-      DP("Unknown plugin name '%s'\n", EnvStr);
-    }
-  }
+  getPlugInNameFromEnv(RTLChecked);
+
   // Use the whole list by default
   if (RTLChecked.empty()) {
     RTLChecked.insert(RTLChecked.begin(), RTLNames,
