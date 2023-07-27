@@ -94,6 +94,10 @@ public:
 
     // Total TTI-based costs for the reduction.
     VPInstructionCost Cost = 0;
+
+    // TTI-based costs for the actual reduction instruction(s),
+    // excluding costs for computing non-reduction operands.
+    VPInstructionCost RedCost = 0;
   };
 
   // Map from PHI nodes to their recurrence kind and associated cost.

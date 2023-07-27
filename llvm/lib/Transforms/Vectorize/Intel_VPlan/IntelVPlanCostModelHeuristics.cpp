@@ -1396,19 +1396,24 @@ void HeuristicUnroll::apply(const VPInstructionCost &TTICost,
     // cost to the loop cost, with the expectation that the ILP
     // benefits are best when there is little other independent
     // work in the loop.
-    auto ILPScore = BaseILPScore * RI.Cost / Cost;
+    // The incoming loop cost may become lower than the cost
+    // recorded on the partial sum candidate due to other heuristics,
+    // so we clamp this to 1.
+    auto ILPScore =
+        std::min(BaseILPScore * RI.Cost / Cost, VPInstructionCost(1));
 
-    // Assuming Cost = C' + R (where R = RI.RecCost), subtracting
+    // Assuming Cost = C' + R (where R = RI.RedCost), subtracting
     // R*(1-S) yields the following cost after scaling by UF:
     //   UF(C' + R - (1-S)*R) = UF*C' + UF*S*R
     // We subtract R * ILPScore * (1 - 1/uf) from the total
     // cost, so that a score of 0 gives S = 1 (no benefit), and a
     // score of 1 gives S = 1/UF.
-    CostReduction += RI.Cost * ILPScore * DescaleForUF;
+    CostReduction += RI.RedCost * ILPScore * DescaleForUF;
 
     LLVM_DEBUG(dbgs() << "HeuristicUnroll: partial sum reduction seen\n";
                dbgs() << "  PHI node: "; Iter.first->dump();
-               dbgs() << "  Reduction cost: " << RI.Cost << "\n"
+               dbgs() << "  Reduction cost: " << RI.Cost << ", " << RI.RedCost
+                      << "\n"
                       << "  ILPScore: " << ILPScore << " = " << BaseILPScore
                       << " * (" << RI.Cost << " / " << Cost << ")\n");
   }
@@ -1437,6 +1442,7 @@ void HeuristicUnroll::apply(const VPInstructionCost &TTICost,
       }
   }
 
+  assert(Cost > CostReduction && "Cost reduction exceeds total cost");
   Cost = Cost - CostReduction;
   LLVM_DEBUG(dbgs() << "HeuristicUnoll: Cost reduction: " << CostReduction
                     << "\n");
@@ -1458,10 +1464,12 @@ void PartialSumAnalysis::analyze(VPlanTTICostModel *CM,
     return (!C.isValid() || C.isUnknown()) ? Default : C;
   };
 
-  // Computes the recurrence and operand cost for a potential
-  // partial sum candidate given the PHI carrying the recurrence.
+  // Returns a pair (Cost, RedCost) for a  partial sum candidate,
+  // given the PHI carrying the recurrence, where Cost is the total TTI costs
+  // for instructions in the reduction proper or only used by the reduction,
+  // and RedCost is the cost of the reduction chain instructions alone.
   auto getReductionCost = [&](const VPPHINode &Phi, const VPLoop *VPL) {
-    VPInstructionCost RecCost, OpCost;
+    VPInstructionCost RedCost, OpCost;
     // First do a depth-first traversal from the PHI to collect instructions
     // in the chain and their associated costs.
     df_iterator_default_set<VPUser *> Visited;
@@ -1476,7 +1484,7 @@ void PartialSumAnalysis::analyze(VPlanTTICostModel *CM,
           continue;
         }
         ReducChain.push_back(Inst);
-        RecCost += getTTICost(Inst);
+        RedCost += getTTICost(Inst);
       }
       ++It;
     }
@@ -1506,9 +1514,9 @@ void PartialSumAnalysis::analyze(VPlanTTICostModel *CM,
 
     LLVM_DEBUG(dbgs() << "PartialSumAnalysis: found candidate\n";
                dbgs() << "  PHI: "; Phi.dump();
-               dbgs() << "  Recurrence cost = " << RecCost
+               dbgs() << "  Recurrence cost = " << RedCost
                       << ", Operand cost = " << OpCost << "\n");
-    return RecCost + OpCost;
+    return std::make_pair(OpCost + RedCost, RedCost);
   };
 
   AnalyzedPlan = &Plan;
@@ -1528,8 +1536,10 @@ void PartialSumAnalysis::analyze(VPlanTTICostModel *CM,
         continue;
 
       if (VPReductionFinal *VPRF =
-              VPlanLoopUnroller::getPartialSumReducFinal(*VPL, PhiNode))
-        Candidates[&PhiNode] = {VPRF, getReductionCost(PhiNode, VPL)};
+              VPlanLoopUnroller::getPartialSumReducFinal(*VPL, PhiNode)) {
+        auto Costs = getReductionCost(PhiNode, VPL);
+        Candidates[&PhiNode] = {VPRF, Costs.first, Costs.second};
+      }
     }
   }
 }
