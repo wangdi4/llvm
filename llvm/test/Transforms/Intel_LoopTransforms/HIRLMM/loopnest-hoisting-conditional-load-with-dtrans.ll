@@ -4,7 +4,7 @@
 ; RUN: opt -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-fieldmodref-analysis>,function(hir-ssa-deconstruction,print<hir>,hir-lmm,print<hir>)' -aa-pipeline="basic-aa" -hir-cost-model-throttling=0 -hir-lmm-loopnest-hoisting=true < %s 2>&1 | FileCheck %s
 
 ; This command verifies that we do not compfail in hir-lmm in the absence of FieldModRef results.
-; RUN: opt -opaque-pointers=0 -passes='hir-ssa-deconstruction,hir-lmm,print<hir>' -aa-pipeline="basic-aa" -hir-cost-model-throttling=0 -hir-lmm-loopnest-hoisting=true < %s 2>&1 | FileCheck %s --check-prefix=NO-COMPFAIL
+; RUN: opt -passes='hir-ssa-deconstruction,hir-lmm,print<hir>' -aa-pipeline="basic-aa" -hir-cost-model-throttling=0 -hir-lmm-loopnest-hoisting=true < %s 2>&1 | FileCheck %s --check-prefix=NO-COMPFAIL
 
 ; NO-COMPFAIL: DO i1
 
@@ -53,31 +53,31 @@ target triple = "x86_64-unknown-linux-gnu"
 @A = common dso_local local_unnamed_addr global [10 x [10 x i32]] zeroinitializer, align 16
 
 ; Function Attrs: nofree norecurse nounwind uwtable
-define dso_local void @bar(%struct.IntPair* noalias %Pair) {
+define dso_local void @bar(ptr noalias "intel_dtrans_func_index"="1" %Pair) !intel.dtrans.func.type !3 {
 entry:
-  %second = getelementptr inbounds %struct.IntPair, %struct.IntPair* %Pair, i64 0, i32 1
-  %second.load = load i32, i32* %second, align 4
+  %second = getelementptr inbounds %struct.IntPair, ptr %Pair, i64 0, i32 1
+  %second.load = load i32, ptr %second, align 4
   %inc = add nsw i32 %second.load, 1
-  store i32 %inc, i32* %second, align 4
+  store i32 %inc, ptr %second, align 4
   ret void
 }
 
 ; Function Attrs: nofree norecurse nounwind uwtable
-define dso_local void @foo(i32 %n, %struct.IntPair* noalias %Pair) local_unnamed_addr #0 {
+define dso_local void @foo(i32 %n, ptr noalias "intel_dtrans_func_index"="1" %Pair) local_unnamed_addr #0 !intel.dtrans.func.type !4 {
 entry:
   %cmp22 = icmp sgt i32 %n, 0
-  %first.dom = getelementptr inbounds %struct.IntPair, %struct.IntPair* %Pair, i64 0, i32 0
-  %firs.dom.load = load i32, i32* %first.dom, align 4
+  %first.dom = getelementptr inbounds %struct.IntPair, ptr %Pair, i64 0, i32 0
+  %firs.dom.load = load i32, ptr %first.dom, align 4
   br i1 %cmp22, label %for.body.lr.ph, label %for.end9
 
 for.body.lr.ph:                                   ; preds = %entry
-  %first = getelementptr inbounds %struct.IntPair, %struct.IntPair* %Pair, i64 0, i32 0
+  %first = getelementptr inbounds %struct.IntPair, ptr %Pair, i64 0, i32 0
   %wide.trip.count2729 = zext i32 %n to i64
   br label %for.body3.lr.ph
 
 for.body3.lr.ph:                                  ; preds = %for.body.lr.ph, %for.inc7
   %indvars.iv25 = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next26, %for.inc7 ]
-  tail call void @bar(%struct.IntPair* %Pair) #1
+  tail call void @bar(ptr %Pair) #1
   br label %for.body3
 
 for.body3:                                        ; preds = %for.inc, %for.body3.lr.ph
@@ -86,11 +86,11 @@ for.body3:                                        ; preds = %for.inc, %for.body3
   br i1 %cmp4, label %if.then, label %for.inc
 
 if.then:                                          ; preds = %for.body3
-  %first.load = load i32, i32* %first, align 4
-  %arrayidx6 = getelementptr inbounds [10 x [10 x i32]], [10 x [10 x i32]]* @A, i64 0, i64 %indvars.iv25, i64 %indvars.iv
-  %load = load i32, i32* %arrayidx6, align 4
+  %first.load = load i32, ptr %first, align 4
+  %arrayidx6 = getelementptr inbounds [10 x [10 x i32]], ptr @A, i64 0, i64 %indvars.iv25, i64 %indvars.iv
+  %load = load i32, ptr %arrayidx6, align 4
   %add = add nsw i32 %load, %first.load
-  store i32 %add, i32* %arrayidx6, align 4
+  store i32 %add, ptr %arrayidx6, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body3, %if.then
@@ -109,5 +109,13 @@ for.end9.loopexit:                                ; preds = %for.inc7
 for.end9:                                         ; preds = %for.end9.loopexit, %entry
   ret void
 }
+
+!1 = !{i32 0, i32 0}  ; i32
+!2 = !{%struct.IntPair zeroinitializer, i32 1}  ; %struct.IntPair*
+!3 = distinct !{!2}
+!4 = distinct !{!2}
+!5 = !{!"S", %struct.IntPair zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+
+!intel.dtrans.types = !{!5}
 
 ; end INTEL_FEATURE_SW_ADVANCED

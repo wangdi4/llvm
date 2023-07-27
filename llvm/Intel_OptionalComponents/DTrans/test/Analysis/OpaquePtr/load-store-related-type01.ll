@@ -19,7 +19,8 @@
 
 ; CHECK-BC: dtrans-safety: Bad casting (related types) -- Pointer type for field load/store contains related types
 ; CHECK-BC:   [foo]   %2 = load ptr, ptr %1, align 8
-; CHECK-BC: dtrans-safety: Cascading pointer carried safety condition: From: %class.TestClass.Outer = type { %class.TestClass*, i32 } To: %class.TestClass = type { %class.MainClass.base, [4 x i8] } :: Bad casting (related types)
+; CHECK-BC: dtrans-safety: Bad casting (related types) -- Pointer type for field load/store contains related types
+; CHECK-BC:  [foo]   %2 = load ptr, ptr %1, align 8
 ; CHECK-BC: dtrans-safety: Bad casting (related types) -- Pointer type for field load/store contains related types
 ; CHECK-BC:   [foo]   %2 = load ptr, ptr %1, align 8
 ; CHECK-BC: dtrans-safety: Bad casting (related types) -- Pointer type for field load/store contains related types
