@@ -111,10 +111,10 @@ define zeroext i1 @saddoinci8(i8 %v1, ptr %res) {
 ;
 ; FAST-LABEL: saddoinci8:
 ; FAST:       ## %bb.0:
-; FAST-NEXT:    incb %dil
-; FAST-NEXT:    seto %al
-; FAST-NEXT:    movb %dil, (%rsi)
-; FAST-NEXT:    andb $1, %al, %al
+; FAST-NEXT:    incb %dil, %al
+; FAST-NEXT:    seto %cl
+; FAST-NEXT:    movb %al, (%rsi)
+; FAST-NEXT:    andb $1, %cl, %al
 ; FAST-NEXT:    movzbl %al, %eax
 ; FAST-NEXT:    retq
   %t = call {i8, i1} @llvm.sadd.with.overflow.i8(i8 %v1, i8 1)
@@ -134,10 +134,10 @@ define zeroext i1 @saddoinci16(i16 %v1, ptr %res) {
 ;
 ; FAST-LABEL: saddoinci16:
 ; FAST:       ## %bb.0:
-; FAST-NEXT:    incw %di
-; FAST-NEXT:    seto %al
-; FAST-NEXT:    movw %di, (%rsi)
-; FAST-NEXT:    andb $1, %al, %al
+; FAST-NEXT:    incw %di, %ax
+; FAST-NEXT:    seto %cl
+; FAST-NEXT:    movw %ax, (%rsi)
+; FAST-NEXT:    andb $1, %cl, %al
 ; FAST-NEXT:    movzbl %al, %eax
 ; FAST-NEXT:    retq
   %t = call {i16, i1} @llvm.sadd.with.overflow.i16(i16 %v1, i16 1)
@@ -157,10 +157,10 @@ define zeroext i1 @saddoinci32(i32 %v1, ptr %res) {
 ;
 ; FAST-LABEL: saddoinci32:
 ; FAST:       ## %bb.0:
-; FAST-NEXT:    incl %edi
-; FAST-NEXT:    seto %al
-; FAST-NEXT:    movl %edi, (%rsi)
-; FAST-NEXT:    andb $1, %al, %al
+; FAST-NEXT:    incl %edi, %eax
+; FAST-NEXT:    seto %cl
+; FAST-NEXT:    movl %eax, (%rsi)
+; FAST-NEXT:    andb $1, %cl, %al
 ; FAST-NEXT:    movzbl %al, %eax
 ; FAST-NEXT:    retq
   %t = call {i32, i1} @llvm.sadd.with.overflow.i32(i32 %v1, i32 1)
@@ -180,10 +180,10 @@ define zeroext i1 @saddoinci64(i64 %v1, ptr %res) {
 ;
 ; FAST-LABEL: saddoinci64:
 ; FAST:       ## %bb.0:
-; FAST-NEXT:    incq %rdi
-; FAST-NEXT:    seto %al
-; FAST-NEXT:    movq %rdi, (%rsi)
-; FAST-NEXT:    andb $1, %al, %al
+; FAST-NEXT:    incq %rdi, %rax
+; FAST-NEXT:    seto %cl
+; FAST-NEXT:    movq %rax, (%rsi)
+; FAST-NEXT:    andb $1, %cl, %al
 ; FAST-NEXT:    movzbl %al, %eax
 ; FAST-NEXT:    retq
   %t = call {i64, i1} @llvm.sadd.with.overflow.i64(i64 %v1, i64 1)
@@ -1018,20 +1018,12 @@ define {i64, i1} @usuboovf(i64 %a, i64 %b) {
 
 ; Make sure we select an INC for both the data use and the flag use.
 define i32 @incovfselectstore(i32 %v1, i32 %v2, ptr %x) {
-; SDAG-LABEL: incovfselectstore:
-; SDAG:       ## %bb.0:
-; SDAG-NEXT:    incl %edi, %ecx
-; SDAG-NEXT:    cmovol %edi, %esi, %eax
-; SDAG-NEXT:    movl %ecx, (%rdx)
-; SDAG-NEXT:    retq
-;
-; FAST-LABEL: incovfselectstore:
-; FAST:       ## %bb.0:
-; FAST-NEXT:    movl %edi, %ecx
-; FAST-NEXT:    incl %ecx
-; FAST-NEXT:    cmovol %edi, %esi, %eax
-; FAST-NEXT:    movl %ecx, (%rdx)
-; FAST-NEXT:    retq
+; CHECK-LABEL: incovfselectstore:
+; CHECK:       ## %bb.0:
+; CHECK-NEXT:    incl %edi, %ecx
+; CHECK-NEXT:    cmovol %edi, %esi, %eax
+; CHECK-NEXT:    movl %ecx, (%rdx)
+; CHECK-NEXT:    retq
   %t = call {i32, i1} @llvm.sadd.with.overflow.i32(i32 %v1, i32 1)
   %obit = extractvalue {i32, i1} %t, 1
   %ret = select i1 %obit, i32 %v1, i32 %v2
@@ -1051,8 +1043,7 @@ define i32 @decovfselectstore(i32 %v1, i32 %v2, ptr %x) {
 ;
 ; FAST-LABEL: decovfselectstore:
 ; FAST:       ## %bb.0:
-; FAST-NEXT:    movl %edi, %ecx
-; FAST-NEXT:    decl %ecx
+; FAST-NEXT:    decl %edi, %ecx
 ; FAST-NEXT:    cmovol %edi, %esi, %eax
 ; FAST-NEXT:    movl %ecx, (%rdx)
 ; FAST-NEXT:    retq

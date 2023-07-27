@@ -1677,8 +1677,17 @@ bool X86FastISel::X86SelectSExt(const Instruction *I) {
 
     // Negate the result to make an 8-bit sign extended value.
     ResultReg = createResultReg(&X86::GR8RegClass);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, MIMD,
+            TII.get(Subtarget->hasNDD() ? X86::NEG8r_ND : X86::NEG8r),
+            ResultReg)
+        .addReg(ZExtReg);
+#else  // INTEL_FEATURE_ISA_APX_F
     BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, MIMD, TII.get(X86::NEG8r),
             ResultReg).addReg(ZExtReg);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
     SrcVT = MVT::i8;
   }
@@ -1863,9 +1872,23 @@ bool X86FastISel::X86SelectShift(const Instruction *I) {
     CReg = X86::CL;
     RC = &X86::GR8RegClass;
     switch (I->getOpcode()) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    case Instruction::LShr:
+      OpReg = Subtarget->hasNDD() ? X86::SHR8rCL_ND : X86::SHR8rCL;
+      break;
+    case Instruction::AShr:
+      OpReg = Subtarget->hasNDD() ? X86::SAR8rCL_ND : X86::SAR8rCL;
+      break;
+    case Instruction::Shl:
+      OpReg = Subtarget->hasNDD() ? X86::SHL8rCL_ND : X86::SHL8rCL;
+      break;
+#else  // INTEL_FEATURE_ISA_APX_F
     case Instruction::LShr: OpReg = X86::SHR8rCL; break;
     case Instruction::AShr: OpReg = X86::SAR8rCL; break;
     case Instruction::Shl:  OpReg = X86::SHL8rCL; break;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     default: return false;
     }
   } else if (I->getType()->isIntegerTy(16)) {
@@ -1873,27 +1896,69 @@ bool X86FastISel::X86SelectShift(const Instruction *I) {
     RC = &X86::GR16RegClass;
     switch (I->getOpcode()) {
     default: llvm_unreachable("Unexpected shift opcode");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    case Instruction::LShr:
+      OpReg = Subtarget->hasNDD() ? X86::SHR16rCL_ND : X86::SHR16rCL;
+      break;
+    case Instruction::AShr:
+      OpReg = Subtarget->hasNDD() ? X86::SAR16rCL_ND : X86::SAR16rCL;
+      break;
+    case Instruction::Shl:
+      OpReg = Subtarget->hasNDD() ? X86::SHL16rCL_ND : X86::SHL16rCL;
+      break;
+#else  // INTEL_FEATURE_ISA_APX_F
     case Instruction::LShr: OpReg = X86::SHR16rCL; break;
     case Instruction::AShr: OpReg = X86::SAR16rCL; break;
     case Instruction::Shl:  OpReg = X86::SHL16rCL; break;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     }
   } else if (I->getType()->isIntegerTy(32)) {
     CReg = X86::ECX;
     RC = &X86::GR32RegClass;
     switch (I->getOpcode()) {
     default: llvm_unreachable("Unexpected shift opcode");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    case Instruction::LShr:
+      OpReg = Subtarget->hasNDD() ? X86::SHR32rCL_ND : X86::SHR32rCL;
+      break;
+    case Instruction::AShr:
+      OpReg = Subtarget->hasNDD() ? X86::SAR32rCL_ND : X86::SAR32rCL;
+      break;
+    case Instruction::Shl:
+      OpReg = Subtarget->hasNDD() ? X86::SHL32rCL_ND : X86::SHL32rCL;
+      break;
+#else  // INTEL_FEATURE_ISA_APX_F
     case Instruction::LShr: OpReg = X86::SHR32rCL; break;
     case Instruction::AShr: OpReg = X86::SAR32rCL; break;
     case Instruction::Shl:  OpReg = X86::SHL32rCL; break;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     }
   } else if (I->getType()->isIntegerTy(64)) {
     CReg = X86::RCX;
     RC = &X86::GR64RegClass;
     switch (I->getOpcode()) {
     default: llvm_unreachable("Unexpected shift opcode");
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    case Instruction::LShr:
+      OpReg = Subtarget->hasNDD() ? X86::SHR64rCL_ND : X86::SHR64rCL;
+      break;
+    case Instruction::AShr:
+      OpReg = Subtarget->hasNDD() ? X86::SAR64rCL_ND : X86::SAR64rCL;
+      break;
+    case Instruction::Shl:
+      OpReg = Subtarget->hasNDD() ? X86::SHL64rCL_ND : X86::SHL64rCL;
+      break;
+#else  // INTEL_FEATURE_ISA_APX_F
     case Instruction::LShr: OpReg = X86::SHR64rCL; break;
     case Instruction::AShr: OpReg = X86::SAR64rCL; break;
     case Instruction::Shl:  OpReg = X86::SHL64rCL; break;
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     }
   } else {
     return false;
@@ -2071,8 +2136,18 @@ bool X86FastISel::X86SelectDivRem(const Instruction *I) {
             TII.get(Copy), SourceSuperReg).addReg(X86::AX);
 
     // Shift AX right by 8 bits instead of using AH.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+    BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, MIMD,
+            TII.get(Subtarget->hasNDD() ? X86::SHR16ri_ND : X86::SHR16ri),
+            ResultSuperReg)
+        .addReg(SourceSuperReg)
+        .addImm(8);
+#else  // INTEL_FEATURE_ISA_APX_F
     BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, MIMD, TII.get(X86::SHR16ri),
             ResultSuperReg).addReg(SourceSuperReg).addImm(8);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
     // Now reference the 8-bit subreg of the result.
     ResultReg = fastEmitInst_extractsubreg(MVT::i8, ResultSuperReg,
@@ -3031,19 +3106,41 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
     unsigned ResultReg = 0;
     // Check if we have an immediate version.
     if (const auto *CI = dyn_cast<ConstantInt>(RHS)) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+      static const uint16_t Opc_ND[2][4] = {
+          {X86::INC8r_ND, X86::INC16r_ND, X86::INC32r_ND, X86::INC64r_ND},
+          {X86::DEC8r_ND, X86::DEC16r_ND, X86::DEC32r_ND, X86::DEC64r_ND}};
+      static const uint16_t Opc[2][4] = {
+          {X86::INC8r, X86::INC16r, X86::INC32r, X86::INC64r},
+          {X86::DEC8r, X86::DEC16r, X86::DEC32r, X86::DEC64r}};
+#else  // INTEL_FEATURE_ISA_APX_F
       static const uint16_t Opc[2][4] = {
         { X86::INC8r, X86::INC16r, X86::INC32r, X86::INC64r },
         { X86::DEC8r, X86::DEC16r, X86::DEC32r, X86::DEC64r }
       };
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
 
       if (CI->isOne() && (BaseOpc == ISD::ADD || BaseOpc == ISD::SUB) &&
           CondCode == X86::COND_O) {
         // We can use INC/DEC.
         ResultReg = createResultReg(TLI.getRegClassFor(VT));
         bool IsDec = BaseOpc == ISD::SUB;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+        BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, MIMD,
+                TII.get(Subtarget->hasNDD()
+                            ? Opc_ND[IsDec][VT.SimpleTy - MVT::i8]
+                            : Opc[IsDec][VT.SimpleTy - MVT::i8]),
+                ResultReg)
+            .addReg(LHSReg);
+#else  // INTEL_FEATURE_ISA_APX_F
         BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, MIMD,
                 TII.get(Opc[IsDec][VT.SimpleTy-MVT::i8]), ResultReg)
           .addReg(LHSReg);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
       } else
         ResultReg = fastEmit_ri(VT, VT, BaseOpc, LHSReg, CI->getZExtValue());
     }
@@ -3070,18 +3167,44 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
       ResultReg = fastEmitInst_r(MULOpc[VT.SimpleTy-MVT::i8],
                                  TLI.getRegClassFor(VT), RHSReg);
     } else if (BaseOpc == X86ISD::SMUL && !ResultReg) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+      static const uint16_t MULOpc_ND[] = {X86::IMUL8r, X86::IMUL16rr_ND,
+                                           X86::IMUL32rr_ND, X86::IMUL64rr_ND};
+      static const uint16_t MULOpc[] = {X86::IMUL8r, X86::IMUL16rr,
+                                        X86::IMUL32rr, X86::IMUL64rr};
+#else  // INTEL_FEATURE_ISA_APX_F
       static const uint16_t MULOpc[] =
         { X86::IMUL8r, X86::IMUL16rr, X86::IMUL32rr, X86::IMUL64rr };
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
       if (VT == MVT::i8) {
         // Copy the first operand into AL, which is an implicit input to the
         // X86::IMUL8r instruction.
         BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, MIMD,
                TII.get(TargetOpcode::COPY), X86::AL)
           .addReg(LHSReg);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+        ResultReg =
+            fastEmitInst_r(Subtarget->hasNDD() ? MULOpc_ND[0] : MULOpc[0],
+                           TLI.getRegClassFor(VT), RHSReg);
+#else  // INTEL_FEATURE_ISA_APX_F
         ResultReg = fastEmitInst_r(MULOpc[0], TLI.getRegClassFor(VT), RHSReg);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
       } else
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_APX_F
+        ResultReg = fastEmitInst_rr(Subtarget->hasNDD()
+                                        ? MULOpc_ND[VT.SimpleTy - MVT::i8]
+                                        : MULOpc[VT.SimpleTy - MVT::i8],
+                                    TLI.getRegClassFor(VT), LHSReg, RHSReg);
+#else  // INTEL_FEATURE_ISA_APX_F
         ResultReg = fastEmitInst_rr(MULOpc[VT.SimpleTy-MVT::i8],
                                     TLI.getRegClassFor(VT), LHSReg, RHSReg);
+#endif // INTEL_FEATURE_ISA_APX_F
+#endif // INTEL_CUSTOMIZATION
     }
 
     if (!ResultReg)
