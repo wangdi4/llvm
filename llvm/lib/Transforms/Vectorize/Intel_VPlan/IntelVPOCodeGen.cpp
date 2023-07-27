@@ -3035,8 +3035,7 @@ Value *VPOCodeGen::vectorizeUnitStrideLoad(VPLoadStoreInst *VPLoad,
   unsigned OriginalVL = LoadType->isVectorTy()
                             ? cast<FixedVectorType>(LoadType)->getNumElements()
                             : 1;
-  Align Alignment =
-      VPAA.getAlignmentUnitStride(*VPLoad, Plan->getGuaranteedPeeling(VF));
+  Align Alignment = VPLoad->getAlignment();
   Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(
       Ptr, VPLoad->getValueType(), IsNegOneStride);
   Type *WidenedType = getWidenedType(LoadType, VF);
@@ -3169,8 +3168,7 @@ void VPOCodeGen::vectorizeUnitStrideStore(VPLoadStoreInst *VPStore,
                             : 1;
   Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(
       Ptr, VPStore->getValueType(), IsNegOneStride);
-  Align Alignment =
-      VPAA.getAlignmentUnitStride(*VPStore, Plan->getGuaranteedPeeling(VF));
+  Align Alignment = VPStore->getAlignment();
 
   // For the opt-report, check if this memref was aligned by peeling. We use
   // preferred peeling instead of guaranteed, as otherwise when dynamically

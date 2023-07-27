@@ -341,6 +341,17 @@ public:
   MaybeAlign tryGetKnownAlignment(const VPValue *Val,
                                   const VPInstruction *CtxI) const;
 
+  /// Given a \p Plan, a \p VF and a \p GuaranteedPeeling variant, propagate
+  /// alignment from the specified peeling to affected load/stores.
+  ///
+  /// NOTE: This method takes the guaranteed peeling variant as a separate
+  /// parameter instead of calling VPlan::getGuaranteedPeeling(), as this
+  /// method can be called on remainder VPlans, which do not have peeling set;
+  /// in such a case, the peeling variant should come from the peeling selected
+  /// on the main VPlan.
+  static void propagateAlignment(VPlanVector *Plan, unsigned VF,
+                                 const VPlanPeelingVariant *GuaranteedPeeling);
+
 private:
   Align getAlignmentUnitStrideImpl(const VPLoadStoreInst &Memref,
                                    const VPlanStaticPeeling &SP) const;
