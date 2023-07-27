@@ -520,6 +520,7 @@ static bool isSelect01(const APInt &C1I, const APInt &C2I) {
 /// optimization.
 Instruction *InstCombinerImpl::foldSelectIntoOp(SelectInst &SI, Value *TrueVal,
                                                 Value *FalseVal) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // CMPLRLLVM-32859: This transformation inhibits AVX512 masking as it
   // inserts an extra zero operand.
@@ -536,6 +537,9 @@ Instruction *InstCombinerImpl::foldSelectIntoOp(SelectInst &SI, Value *TrueVal,
 #endif
 
   // See the comment above GetSelectFoldableOperands for a description of the
+=======
+  // See the comment above getSelectFoldableOperands for a description of the
+>>>>>>> 966318005abeaea458f331d58033d5eeb50af3a3
   // transformation we are doing here.
   auto TryFoldSelectIntoOp = [&](SelectInst &SI, Value *TrueVal,
                                  Value *FalseVal,
@@ -570,7 +574,7 @@ Instruction *InstCombinerImpl::foldSelectIntoOp(SelectInst &SI, Value *TrueVal,
     if (!isa<Constant>(OOp) ||
         (OOpIsAPInt && isSelect01(C->getUniqueInteger(), *OOpC))) {
       Value *NewSel = Builder.CreateSelect(SI.getCondition(), Swapped ? C : OOp,
-                                           Swapped ? OOp : C);
+                                           Swapped ? OOp : C, "", &SI);
       if (isa<FPMathOperator>(&SI))
         cast<Instruction>(NewSel)->setFastMathFlags(FMF);
       NewSel->takeName(TVI);
