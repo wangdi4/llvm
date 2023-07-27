@@ -26,7 +26,7 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.S = type { i32, float }
 
 ; Function Attrs: norecurse nounwind readonly uwtable
-define float @foo([10 x %struct.S]* nocapture readonly %A) local_unnamed_addr #0 {
+define float @foo(ptr nocapture readonly %A) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -38,8 +38,8 @@ for.body:                                         ; preds = %for.inc6, %entry
 for.body3:                                        ; preds = %for.body3, %for.body
   %indvars.iv = phi i64 [ 0, %for.body ], [ %indvars.iv.next, %for.body3 ]
   %t.118 = phi float [ %t.020, %for.body ], [ %add, %for.body3 ]
-  %f = getelementptr inbounds [10 x %struct.S], [10 x %struct.S]* %A, i64 %indvars.iv21, i64 %indvars.iv, i32 1
-  %0 = load float, float* %f, align 4, !tbaa !2
+  %f = getelementptr inbounds [10 x %struct.S], ptr %A, i64 %indvars.iv21, i64 %indvars.iv, i32 1
+  %0 = load float, ptr %f, align 4, !tbaa !2
   %add = fadd float %t.118, %0
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 10

@@ -27,21 +27,21 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local double @foo(double* nocapture %x, double* nocapture readonly %y) local_unnamed_addr #0 {
+define dso_local double @foo(ptr nocapture %x, ptr nocapture readonly %y) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
 for.cond.cleanup:                                 ; preds = %for.body
-  %0 = load double, double* %x, align 8, !tbaa !2
+  %0 = load double, ptr %x, align 8, !tbaa !2
   ret double %0
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds double, double* %y, i64 %indvars.iv
-  %1 = load double, double* %arrayidx, align 8, !tbaa !2
+  %arrayidx = getelementptr inbounds double, ptr %y, i64 %indvars.iv
+  %1 = load double, ptr %arrayidx, align 8, !tbaa !2
   %add = fadd double %1, 1.000000e+00
-  %arrayidx2 = getelementptr inbounds double, double* %x, i64 %indvars.iv
-  store double %add, double* %arrayidx2, align 8, !tbaa !2
+  %arrayidx2 = getelementptr inbounds double, ptr %x, i64 %indvars.iv
+  store double %add, ptr %arrayidx2, align 8, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 4
   br i1 %exitcond, label %for.cond.cleanup, label %for.body, !llvm.loop !6

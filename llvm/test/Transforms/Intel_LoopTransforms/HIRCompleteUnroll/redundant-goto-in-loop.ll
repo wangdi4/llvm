@@ -60,8 +60,8 @@ unroll_header:
 
 unroll_body:
   %i = phi i64 [0, %unroll_header], [%ip, %unroll_body]
-  %up = getelementptr [100 x i64], [100 x i64]* @A, i64 0, i64 %i
-  store i64 %i, i64* %up
+  %up = getelementptr [100 x i64], ptr @A, i64 0, i64 %i
+  store i64 %i, ptr %up
   %ip = add nsw i64 %i, 1
   %ucmp = icmp ult i64 %i, 1
   br i1 %ucmp, label %unroll_body, label %header
@@ -75,8 +75,8 @@ body:
 
 body1:
   %add = add i64 %iv, %jv
-  %p = getelementptr [100 x i64], [100 x i64]* @A, i64 0, i64 %add
-  store i64 %iv, i64* %p
+  %p = getelementptr [100 x i64], ptr @A, i64 0, i64 %add
+  store i64 %iv, ptr %p
   br i1 %c2, label %body2, label %out_latch
 
 body2:

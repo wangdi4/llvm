@@ -54,7 +54,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind readnone uwtable
-define dso_local double @_Z3fooi(i32 %n, double* %A) local_unnamed_addr #0 {
+define dso_local double @_Z3fooi(i32 %n, ptr %A) local_unnamed_addr #0 {
 entry:
   %cmp20 = icmp sgt i32 %n, 0
   br i1 %cmp20, label %for.cond1.preheader.preheader, label %for.cond.cleanup
@@ -65,8 +65,8 @@ for.cond1.preheader.preheader:                    ; preds = %entry
 for.cond1.preheader:                              ; preds = %for.cond1.preheader.preheader, %for.cond.cleanup3
   %ii.022 = phi i32 [ %inc7, %for.cond.cleanup3 ], [ 0, %for.cond1.preheader.preheader ]
   %sum.021 = phi double [ %add7, %for.cond.cleanup3 ], [ 0.000000e+00, %for.cond1.preheader.preheader ]
-  %Aip = getelementptr inbounds double, double* %A, i32 %ii.022
-  %Ai = load double, double* %Aip, align 8
+  %Aip = getelementptr inbounds double, ptr %A, i32 %ii.022
+  %Ai = load double, ptr %Aip, align 8
   br label %for.body4
 
 for.cond.cleanup.loopexit:                        ; preds = %for.cond.cleanup3

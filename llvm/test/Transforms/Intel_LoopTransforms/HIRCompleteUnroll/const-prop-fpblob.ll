@@ -63,7 +63,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @_ZL4glob = internal unnamed_addr constant [2 x [2 x double]] [[2 x double] [double 1.000000e+00, double 2.000000e+00], [2 x double] [double 3.000000e+00, double 0.000000e+00]], align 16
 
 ; Function Attrs: norecurse nounwind readonly uwtable
-define dso_local double @_Z3fooPdi(double* nocapture readonly %A, i32 %n) local_unnamed_addr #0 {
+define dso_local double @_Z3fooPdi(ptr nocapture readonly %A, i32 %n) local_unnamed_addr #0 {
 entry:
   %cmp41 = icmp sgt i32 %n, 0
   br i1 %cmp41, label %for.cond1.preheader.preheader, label %for.cond.cleanup
@@ -112,10 +112,10 @@ for.body8:                                        ; preds = %for.cond5.preheader
 
 if.then:                                          ; preds = %for.body8
   %sub = fsub fast double %tmp.135, %sum.234
-  %ptridx = getelementptr inbounds double, double* %A, i64 %indvars.iv
-  %0 = load double, double* %ptridx, align 8, !tbaa !2
-  %arrayidx12 = getelementptr inbounds [2 x [2 x double]], [2 x [2 x double]]* @_ZL4glob, i64 0, i64 %indvars.iv44, i64 %indvars.iv, !intel-tbaa !6
-  %1 = load double, double* %arrayidx12, align 8, !tbaa !6
+  %ptridx = getelementptr inbounds double, ptr %A, i64 %indvars.iv
+  %0 = load double, ptr %ptridx, align 8, !tbaa !2
+  %arrayidx12 = getelementptr inbounds [2 x [2 x double]], ptr @_ZL4glob, i64 0, i64 %indvars.iv44, i64 %indvars.iv, !intel-tbaa !6
+  %1 = load double, ptr %arrayidx12, align 8, !tbaa !6
   %mul = fmul fast double %1, %0
   %add = fadd fast double %mul, %sum.234
   br label %for.inc

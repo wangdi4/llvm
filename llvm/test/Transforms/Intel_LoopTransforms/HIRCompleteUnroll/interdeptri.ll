@@ -22,7 +22,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define i32 @_Z3fooPPiS0_(i32** %A, i32** %B) #0 {
+define i32 @_Z3fooPPiS0_(ptr %A, ptr %B) #0 {
 entry:
   br label %for.body
 
@@ -40,14 +40,14 @@ for.body6.lr.ph:                                  ; preds = %for.body3
 
 for.body6:                                        ; preds = %for.body6.lr.ph, %for.inc
   %j.02 = phi i64 [ 0, %for.body6.lr.ph ], [ %inc, %for.inc ]
-  %arrayidx = getelementptr inbounds i32*, i32** %B, i64 %j.02
-  %0 = load i32*, i32** %arrayidx, align 8
-  %arrayidx7 = getelementptr inbounds i32, i32* %0, i64 %k.04
-  %1 = load i32, i32* %arrayidx7, align 4
-  %arrayidx8 = getelementptr inbounds i32*, i32** %A, i64 %i.03
-  %2 = load i32*, i32** %arrayidx8, align 8
-  %arrayidx9 = getelementptr inbounds i32, i32* %2, i64 %j.02
-  store i32 %1, i32* %arrayidx9, align 4
+  %arrayidx = getelementptr inbounds ptr, ptr %B, i64 %j.02
+  %0 = load ptr, ptr %arrayidx, align 8
+  %arrayidx7 = getelementptr inbounds i32, ptr %0, i64 %k.04
+  %1 = load i32, ptr %arrayidx7, align 4
+  %arrayidx8 = getelementptr inbounds ptr, ptr %A, i64 %i.03
+  %2 = load ptr, ptr %arrayidx8, align 8
+  %arrayidx9 = getelementptr inbounds i32, ptr %2, i64 %j.02
+  store i32 %1, ptr %arrayidx9, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body6
@@ -75,10 +75,10 @@ for.inc13:                                        ; preds = %for.end12
   br i1 %cmp, label %for.body, label %for.end15
 
 for.end15:                                        ; preds = %for.inc13
-  %arrayidx16 = getelementptr inbounds i32*, i32** %A, i64 2
-  %3 = load i32*, i32** %arrayidx16, align 8
-  %arrayidx17 = getelementptr inbounds i32, i32* %3, i64 3
-  %4 = load i32, i32* %arrayidx17, align 4
+  %arrayidx16 = getelementptr inbounds ptr, ptr %A, i64 2
+  %3 = load ptr, ptr %arrayidx16, align 8
+  %arrayidx17 = getelementptr inbounds i32, ptr %3, i64 3
+  %4 = load i32, ptr %arrayidx17, align 4
   ret i32 %4
 }
 

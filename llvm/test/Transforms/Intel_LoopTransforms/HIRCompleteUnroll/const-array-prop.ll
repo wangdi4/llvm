@@ -33,20 +33,20 @@ target triple = "x86_64-unknown-linux-gnu"
 @B = internal unnamed_addr constant [4 x i32] [i32 4, i32 5, i32 6, i32 7], align 16
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i32* nocapture %C) local_unnamed_addr #0 {
+define void @foo(ptr nocapture %C) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [4 x i32], [4 x i32]* @A, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [4 x i32], ptr @A, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %idxprom0 = sext i32 %0 to i64
-  %arrayidx2 = getelementptr inbounds [4 x i32], [4 x i32]* @B, i64 0, i64 %idxprom0
-  %1 = load i32, i32* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds [4 x i32], ptr @B, i64 0, i64 %idxprom0
+  %1 = load i32, ptr %arrayidx2, align 4
   %idxprom1 = sext i32 %1 to i64
-  %arrayidx3 = getelementptr inbounds i32, i32* %C, i64 %idxprom1
-  store i32 %0, i32* %arrayidx3, align 4
+  %arrayidx3 = getelementptr inbounds i32, ptr %C, i64 %idxprom1
+  store i32 %0, ptr %arrayidx3, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 4
   br i1 %exitcond, label %for.end, label %for.body

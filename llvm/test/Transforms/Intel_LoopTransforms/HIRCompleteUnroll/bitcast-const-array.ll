@@ -31,7 +31,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @A = internal unnamed_addr constant [4 x i32] [i32 1, i32 2, i32 3, i32 4], align 16
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i32* nocapture %B, i64 %n) local_unnamed_addr #0 {
+define void @foo(ptr nocapture %B, i64 %n) local_unnamed_addr #0 {
 entry:
   br label %for.outer
 
@@ -41,12 +41,10 @@ for.outer:
 
 for.body:                                         ; preds = %for.body, %for.outer
   %indvars.iv = phi i64 [ 0, %for.outer ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [4 x i32], [4 x i32]* @A, i64 0, i64 %indvars.iv
-  %ld.ptr = bitcast i32* %arrayidx to float*
-  %0 = load float, float* %ld.ptr, align 4
-  %arrayidx2 = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %st.ptr = bitcast i32* %arrayidx2 to float*
-  store float %0, float* %st.ptr, align 4
+  %arrayidx = getelementptr inbounds [4 x i32], ptr @A, i64 0, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  store float %0, ptr %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 4
   br i1 %exitcond, label %latch, label %for.body

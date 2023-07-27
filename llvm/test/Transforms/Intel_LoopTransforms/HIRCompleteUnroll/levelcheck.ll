@@ -32,7 +32,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define i32 @foo(i32* nocapture %A, i32* nocapture readonly %B, i64 %M, i64 %K) #0 {
+define i32 @foo(ptr nocapture %A, ptr nocapture readonly %B, i64 %M, i64 %K) #0 {
 entry:
   %add = add i64 %K, %M
   %cmp.23 = icmp sgt i64 %add, 0
@@ -40,8 +40,8 @@ entry:
 
 for.body:                                         ; preds = %entry, %for.inc.8
   %i.024 = phi i64 [ %inc9, %for.inc.8 ], [ 0, %entry ]
-  %arrayidx = getelementptr inbounds i32, i32* %B, i64 %i.024
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds i32, ptr %B, i64 %i.024
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !1
   %conv = sext i32 %0 to i64
   br label %for.body.4
 
@@ -50,8 +50,8 @@ for.body.4:                                       ; preds = %for.body.4, %for.bo
   %mul = mul nsw i64 %j.022, %conv
   %conv5 = trunc i64 %mul to i32
   %add6 = add nuw nsw i64 %j.022, 1
-  %arrayidx7 = getelementptr inbounds i32, i32* %A, i64 %add6
-  store i32 %conv5, i32* %arrayidx7, align 4, !tbaa !1
+  %arrayidx7 = getelementptr inbounds i32, ptr %A, i64 %add6
+  store i32 %conv5, ptr %arrayidx7, align 4, !tbaa !1
   %exitcond = icmp eq i64 %add6, 5
   br i1 %exitcond, label %for.inc.8, label %for.body.4
 
@@ -66,10 +66,10 @@ for.end.10:                                       ; preds = %for.inc.8, %entry
 }
 
 ; Function Attrs: nounwind argmemonly
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: nounwind argmemonly
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind argmemonly }

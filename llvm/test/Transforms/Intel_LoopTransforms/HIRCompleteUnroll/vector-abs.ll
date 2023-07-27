@@ -32,7 +32,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind readonly uwtable
-define hidden i32 @x264_pixel_sad_16x16(i8* nocapture readonly, i32, i8* nocapture readonly, i32) #0 {
+define hidden i32 @x264_pixel_sad_16x16(ptr nocapture readonly, i32, ptr nocapture readonly, i32) #0 {
   %5 = sext i32 %1 to i64
   %6 = sext i32 %3 to i64
   br label %7
@@ -40,8 +40,8 @@ define hidden i32 @x264_pixel_sad_16x16(i8* nocapture readonly, i32, i8* nocaptu
 ; <label>:7:                                      ; preds = %14, %4
   %8 = phi i32 [ 0, %4 ], [ %18, %14 ]
   %9 = phi i32 [ 0, %4 ], [ %15, %14 ]
-  %10 = phi i8* [ %0, %4 ], [ %16, %14 ]
-  %11 = phi i8* [ %2, %4 ], [ %17, %14 ]
+  %10 = phi ptr [ %0, %4 ], [ %16, %14 ]
+  %11 = phi ptr [ %2, %4 ], [ %17, %14 ]
   br label %20
 
 ; <label>:12:                                     ; preds = %14
@@ -50,8 +50,8 @@ define hidden i32 @x264_pixel_sad_16x16(i8* nocapture readonly, i32, i8* nocaptu
 
 ; <label>:14:                                     ; preds = %20
   %15 = phi i32 [ %33, %20 ]
-  %16 = getelementptr inbounds i8, i8* %10, i64 %5
-  %17 = getelementptr inbounds i8, i8* %11, i64 %6
+  %16 = getelementptr inbounds i8, ptr %10, i64 %5
+  %17 = getelementptr inbounds i8, ptr %11, i64 %6
   %18 = add nuw nsw i32 %8, 1
   %19 = icmp eq i32 %18, 16
   br i1 %19, label %12, label %7
@@ -59,11 +59,11 @@ define hidden i32 @x264_pixel_sad_16x16(i8* nocapture readonly, i32, i8* nocaptu
 ; <label>:20:                                     ; preds = %20, %7
   %21 = phi i64 [ 0, %7 ], [ %34, %20 ]
   %22 = phi i32 [ %9, %7 ], [ %33, %20 ]
-  %23 = getelementptr inbounds i8, i8* %10, i64 %21
-  %24 = load i8, i8* %23, align 1, !tbaa !2
+  %23 = getelementptr inbounds i8, ptr %10, i64 %21
+  %24 = load i8, ptr %23, align 1, !tbaa !2
   %25 = zext i8 %24 to i32
-  %26 = getelementptr inbounds i8, i8* %11, i64 %21
-  %27 = load i8, i8* %26, align 1, !tbaa !2
+  %26 = getelementptr inbounds i8, ptr %11, i64 %21
+  %27 = load i8, ptr %26, align 1, !tbaa !2
   %28 = zext i8 %27 to i32
   %29 = sub nsw i32 %25, %28
   %30 = icmp slt i32 %29, 0

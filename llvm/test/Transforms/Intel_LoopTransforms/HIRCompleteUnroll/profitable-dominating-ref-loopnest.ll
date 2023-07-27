@@ -42,25 +42,25 @@
 %"class.boost::array.3" = type { [8 x i32] }
 %"class.std::vector" = type { %"struct.std::_Vector_base" }
 %"struct.std::_Vector_base" = type { %"struct.std::_Vector_base<int, std::allocator<int> >::_Vector_impl" }
-%"struct.std::_Vector_base<int, std::allocator<int> >::_Vector_impl" = type { i32*, i32*, i32* }
+%"struct.std::_Vector_base<int, std::allocator<int> >::_Vector_impl" = type { ptr, ptr, ptr }
 %"class.boost::array.5.20" = type { [24 x i32] }
 %"class.boost::array.6.21" = type { [24 x %"struct.std::pair"] }
 %"struct.std::pair" = type { i32, i32 }
 %class.FastBoard = type <{ %"class.boost::array", %"class.boost::array", i32, i32, i32, %"class.boost::array.0", %"class.boost::array.1", %"class.boost::array.1", %"class.boost::array.1", %"class.boost::array.1", %"class.boost::array", [2 x i8], %"class.boost::array.2", %"class.boost::array.3", %"class.boost::array.4", %"class.boost::array.4", %"class.std::vector", i32, [4 x i8] }>
 
-define void @foo(%class.FastBoard* %t9, i16 %t241, i64 %t247, i32 %t305) {
+define void @foo(ptr %t9, i16 %t241, i64 %t247, i32 %t305) {
 entry:
-  %t302 = getelementptr inbounds %class.FastBoard, %class.FastBoard* %t9, i64 0, i32 8, i32 0, i64 %t247
+  %t302 = getelementptr inbounds %class.FastBoard, ptr %t9, i64 0, i32 8, i32 0, i64 %t247
   br label %outerloop
 
 outerloop:                                    ; preds = %outerbackedge, %entry
   %t313 = phi i64 [ 0, %entry ], [ %t339, %outerbackedge ]
-  %t314 = getelementptr inbounds %class.FastBoard, %class.FastBoard* %t9, i64 0, i32 12, i32 0, i64 %t313
-  %t315 = load i32, i32* %t314, align 4, !tbaa !25
+  %t314 = getelementptr inbounds %class.FastBoard, ptr %t9, i64 0, i32 12, i32 0, i64 %t313
+  %t315 = load i32, ptr %t314, align 4, !tbaa !25
   %t316 = add nsw i32 %t315, %t305
   %t317 = sext i32 %t316 to i64
-  %t318 = getelementptr inbounds %class.FastBoard, %class.FastBoard* %t9, i64 0, i32 5, i32 0, i64 %t317
-  %t319 = load i32, i32* %t318, align 4, !tbaa !1
+  %t318 = getelementptr inbounds %class.FastBoard, ptr %t9, i64 0, i32 5, i32 0, i64 %t317
+  %t319 = load i32, ptr %t318, align 4, !tbaa !1
   %t320 = icmp eq i32 %t319, 2
   br i1 %t320, label %if, label %outerbackedge
 
@@ -69,12 +69,12 @@ if:                                    ; preds = %outerloop
 
 innerloop:                                    ; preds = %backedge, %if
   %t326 = phi i64 [ %t323, %backedge ], [ 0, %if ]
-  %t327 = getelementptr inbounds %class.FastBoard, %class.FastBoard* %t9, i64 0, i32 12, i32 0, i64 %t326
-  %t328 = load i32, i32* %t327, align 4, !tbaa !25
+  %t327 = getelementptr inbounds %class.FastBoard, ptr %t9, i64 0, i32 12, i32 0, i64 %t326
+  %t328 = load i32, ptr %t327, align 4, !tbaa !25
   %t329 = add nsw i32 %t328, %t316
   %t330 = sext i32 %t329 to i64
-  %t331 = getelementptr inbounds %class.FastBoard, %class.FastBoard* %t9, i64 0, i32 7, i32 0, i64 %t330
-  %t332 = load i16, i16* %t331, align 2, !tbaa !14
+  %t331 = getelementptr inbounds %class.FastBoard, ptr %t9, i64 0, i32 7, i32 0, i64 %t330
+  %t332 = load i16, ptr %t331, align 2, !tbaa !14
   %t333 = icmp eq i16 %t332, %t241
   br i1 %t333, label %earlyexit, label %backedge
 
@@ -84,9 +84,9 @@ backedge:                                    ; preds = %innerloop
   br i1 %t324, label %innerloop, label %exit
 
 exit:                                    ; preds = %backedge
-  %t335 = load i16, i16* %t302, align 2, !tbaa !14
+  %t335 = load i16, ptr %t302, align 2, !tbaa !14
   %t336 = add i16 %t335, 1
-  store i16 %t336, i16* %t302, align 2, !tbaa !14
+  store i16 %t336, ptr %t302, align 2, !tbaa !14
   br label %outerbackedge
 
 earlyexit:                                    ; preds = %innerloop

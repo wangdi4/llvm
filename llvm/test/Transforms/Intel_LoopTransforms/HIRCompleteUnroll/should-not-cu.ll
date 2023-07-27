@@ -7,8 +7,8 @@
 
 ;         BEGIN REGION { }
 ;               + DO i1 = 0, 2 * %arg17, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
-;               |   @llvm.lifetime.start.p0i8(32,  &((i8*)(%tmp20)[0]));
-;               |   @llvm.lifetime.start.p0i8(32,  &((i8*)(%tmp21)[0]));
+;               |   @llvm.lifetime.start.p0(32,  &((i8*)(%tmp20)[0]));
+;               |   @llvm.lifetime.start.p0(32,  &((i8*)(%tmp21)[0]));
 ;               |
 ;               |   + DO i2 = 0, 7, 1   <DO_LOOP>     // This loop should not unroll
 ;               |   |   %tmp72 = (%tmp18)[0][i2];
@@ -45,8 +45,8 @@
 ;               |   |   + END LOOP
 ;               |   + END LOOP
 ;               |
-;               |   @llvm.lifetime.end.p0i8(32,  &((i8*)(%tmp21)[0]));
-;               |   @llvm.lifetime.end.p0i8(32,  &((i8*)(%tmp20)[0]));
+;               |   @llvm.lifetime.end.p0(32,  &((i8*)(%tmp21)[0]));
+;               |   @llvm.lifetime.end.p0(32,  &((i8*)(%tmp20)[0]));
 ;               + END LOOP
 ;         END REGION
 
@@ -56,21 +56,20 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #0
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #0
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #0
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #0
 
 ; Function Attrs: mustprogress nofree nosync nounwind uwtable
-define dso_local void @zot(float* nocapture readonly %arg, float* nocapture %arg1, i32 %arg2, i32 %arg3, i32 %arg4, float %arg5, float %arg6, float %arg7, float %arg8, float %arg9, float %arg10, float %arg11, float %arg12, float %arg13, float %arg14, float %arg15, float %arg16, i32 %arg17) local_unnamed_addr #1 {
+define dso_local void @zot(ptr nocapture readonly %arg, ptr nocapture %arg1, i32 %arg2, i32 %arg3, i32 %arg4, float %arg5, float %arg6, float %arg7, float %arg8, float %arg9, float %arg10, float %arg11, float %arg12, float %arg13, float %arg14, float %arg15, float %arg16, i32 %arg17) local_unnamed_addr #1 {
 bb:
   %tmp = alloca [4 x [8 x float]], align 16
   %tmp18 = alloca [8 x float], align 16
   %tmp19 = alloca [8 x float], align 16
   %tmp20 = alloca [8 x i32], align 16
   %tmp21 = alloca [8 x i32], align 16
-  %tmp22 = bitcast [4 x [8 x float]]* %tmp to i8*
-  call void @llvm.lifetime.start.p0i8(i64 128, i8* nonnull %tmp22) #3
+  call void @llvm.lifetime.start.p0(i64 128, ptr nonnull %tmp) #3
   br label %bb23
 
 bb23:                                             ; preds = %bb32, %bb
@@ -78,10 +77,8 @@ bb23:                                             ; preds = %bb32, %bb
   br label %bb35
 
 bb25:                                             ; preds = %bb32
-  %tmp26 = bitcast [8 x float]* %tmp18 to i8*
-  call void @llvm.lifetime.start.p0i8(i64 32, i8* nonnull %tmp26) #3
-  %tmp27 = bitcast [8 x float]* %tmp19 to i8*
-  call void @llvm.lifetime.start.p0i8(i64 32, i8* nonnull %tmp27) #3
+  call void @llvm.lifetime.start.p0(i64 32, ptr nonnull %tmp18) #3
+  call void @llvm.lifetime.start.p0(i64 32, ptr nonnull %tmp19) #3
   %tmp28 = sitofp i32 %arg3 to float
   %tmp29 = fsub fast float %tmp28, %arg16
   %tmp30 = fmul fast float %tmp29, %arg8
@@ -95,17 +92,14 @@ bb32:                                             ; preds = %bb35
 
 bb35:                                             ; preds = %bb35, %bb23
   %tmp36 = phi i64 [ 0, %bb23 ], [ %tmp38, %bb35 ]
-  %tmp37 = getelementptr inbounds [4 x [8 x float]], [4 x [8 x float]]* %tmp, i64 0, i64 %tmp24, i64 %tmp36, !intel-tbaa !8
-  store float 0.000000e+00, float* %tmp37, align 4, !tbaa !8
+  %tmp37 = getelementptr inbounds [4 x [8 x float]], ptr %tmp, i64 0, i64 %tmp24, i64 %tmp36, !intel-tbaa !8
+  store float 0.000000e+00, ptr %tmp37, align 4, !tbaa !8
   %tmp38 = add nuw nsw i64 %tmp36, 1
   %tmp39 = icmp eq i64 %tmp38, 8
   br i1 %tmp39, label %bb32, label %bb35, !llvm.loop !14
 
 bb40:                                             ; preds = %bb48
   %tmp41 = shl i32 %arg17, 1
-  %tmp42 = bitcast [8 x i32]* %tmp20 to i8*
-  %tmp43 = bitcast [8 x i32]* %tmp21 to i8*
-  %tmp44 = bitcast float* %arg to [4 x float]*
   %tmp45 = icmp slt i32 %tmp41, 0
   br i1 %tmp45, label %bb63, label %bb46
 
@@ -121,12 +115,12 @@ bb48:                                             ; preds = %bb48, %bb25
   %tmp53 = fsub fast float %tmp52, %arg15
   %tmp54 = fmul fast float %tmp53, %arg7
   %tmp55 = fadd fast float %tmp54, %tmp30
-  %tmp56 = getelementptr inbounds [8 x float], [8 x float]* %tmp18, i64 0, i64 %tmp49, !intel-tbaa !15
-  store float %tmp55, float* %tmp56, align 4, !tbaa !15
+  %tmp56 = getelementptr inbounds [8 x float], ptr %tmp18, i64 0, i64 %tmp49, !intel-tbaa !15
+  store float %tmp55, ptr %tmp56, align 4, !tbaa !15
   %tmp57 = fmul fast float %tmp53, %arg9
   %tmp58 = fadd fast float %tmp57, %tmp31
-  %tmp59 = getelementptr inbounds [8 x float], [8 x float]* %tmp19, i64 0, i64 %tmp49, !intel-tbaa !15
-  store float %tmp58, float* %tmp59, align 4, !tbaa !15
+  %tmp59 = getelementptr inbounds [8 x float], ptr %tmp19, i64 0, i64 %tmp49, !intel-tbaa !15
+  store float %tmp58, ptr %tmp59, align 4, !tbaa !15
   %tmp60 = add nuw nsw i64 %tmp49, 1
   %tmp61 = icmp eq i64 %tmp60, 8
   br i1 %tmp61, label %bb40, label %bb48, !llvm.loop !16
@@ -142,24 +136,24 @@ bb63:                                             ; preds = %bb62, %bb40
 
 bb67:                                             ; preds = %bb100, %bb46
   %tmp68 = phi i32 [ %tmp101, %bb100 ], [ 0, %bb46 ]
-  call void @llvm.lifetime.start.p0i8(i64 32, i8* nonnull %tmp42) #3
-  call void @llvm.lifetime.start.p0i8(i64 32, i8* nonnull %tmp43) #3
+  call void @llvm.lifetime.start.p0(i64 32, ptr nonnull %tmp20) #3
+  call void @llvm.lifetime.start.p0(i64 32, ptr nonnull %tmp21) #3
   br label %bb69
 
 bb69:                                             ; preds = %bb69, %bb67
   %tmp70 = phi i64 [ 0, %bb67 ], [ %tmp95, %bb69 ]
-  %tmp71 = getelementptr inbounds [8 x float], [8 x float]* %tmp18, i64 0, i64 %tmp70, !intel-tbaa !15
-  %tmp72 = load float, float* %tmp71, align 4, !tbaa !15
+  %tmp71 = getelementptr inbounds [8 x float], ptr %tmp18, i64 0, i64 %tmp70, !intel-tbaa !15
+  %tmp72 = load float, ptr %tmp71, align 4, !tbaa !15
   %tmp73 = fmul fast float %tmp72, %arg11
-  %tmp74 = getelementptr inbounds [8 x float], [8 x float]* %tmp19, i64 0, i64 %tmp70, !intel-tbaa !15
-  %tmp75 = load float, float* %tmp74, align 4, !tbaa !15
+  %tmp74 = getelementptr inbounds [8 x float], ptr %tmp19, i64 0, i64 %tmp70, !intel-tbaa !15
+  %tmp75 = load float, ptr %tmp74, align 4, !tbaa !15
   %tmp76 = fmul fast float %tmp75, %arg12
   %tmp77 = fadd fast float %tmp76, %tmp73
   %tmp78 = fmul fast float %tmp72, %arg13
   %tmp79 = fmul fast float %tmp75, %arg14
   %tmp80 = fadd fast float %tmp79, %tmp78
-  store float %tmp77, float* %tmp71, align 4, !tbaa !15
-  store float %tmp80, float* %tmp74, align 4, !tbaa !15
+  store float %tmp77, ptr %tmp71, align 4, !tbaa !15
+  store float %tmp80, ptr %tmp74, align 4, !tbaa !15
   %tmp81 = fadd fast float %tmp77, %arg15
   %tmp82 = fadd fast float %tmp80, %arg16
   %tmp83 = fcmp fast ogt float %tmp81, %arg5
@@ -170,12 +164,12 @@ bb69:                                             ; preds = %bb69, %bb67
   %tmp88 = tail call fast float @llvm.maxnum.f32(float %tmp87, float 0.000000e+00)
   %tmp89 = fadd fast float %tmp85, 5.000000e-01
   %tmp90 = fptosi float %tmp89 to i32
-  %tmp91 = getelementptr inbounds [8 x i32], [8 x i32]* %tmp20, i64 0, i64 %tmp70, !intel-tbaa !17
-  store i32 %tmp90, i32* %tmp91, align 4, !tbaa !17
+  %tmp91 = getelementptr inbounds [8 x i32], ptr %tmp20, i64 0, i64 %tmp70, !intel-tbaa !17
+  store i32 %tmp90, ptr %tmp91, align 4, !tbaa !17
   %tmp92 = fadd fast float %tmp88, 5.000000e-01
   %tmp93 = fptosi float %tmp92 to i32
-  %tmp94 = getelementptr inbounds [8 x i32], [8 x i32]* %tmp21, i64 0, i64 %tmp70, !intel-tbaa !17
-  store i32 %tmp93, i32* %tmp94, align 4, !tbaa !17
+  %tmp94 = getelementptr inbounds [8 x i32], ptr %tmp21, i64 0, i64 %tmp70, !intel-tbaa !17
+  store i32 %tmp93, ptr %tmp94, align 4, !tbaa !17
   %tmp95 = add nuw nsw i64 %tmp70, 1
   %tmp96 = icmp eq i64 %tmp95, 8
   br i1 %tmp96, label %bb97, label %bb69, !llvm.loop !20
@@ -188,8 +182,8 @@ bb98:                                             ; preds = %bb103, %bb97
   br label %bb106
 
 bb100:                                            ; preds = %bb103
-  call void @llvm.lifetime.end.p0i8(i64 32, i8* nonnull %tmp43) #3
-  call void @llvm.lifetime.end.p0i8(i64 32, i8* nonnull %tmp42) #3
+  call void @llvm.lifetime.end.p0(i64 32, ptr nonnull %tmp21) #3
+  call void @llvm.lifetime.end.p0(i64 32, ptr nonnull %tmp20) #3
   %tmp101 = add nuw nsw i32 %tmp68, 1
   %tmp102 = icmp eq i32 %tmp101, %tmp47
   br i1 %tmp102, label %bb62, label %bb67, !llvm.loop !21
@@ -201,19 +195,19 @@ bb103:                                            ; preds = %bb106
 
 bb106:                                            ; preds = %bb106, %bb98
   %tmp107 = phi i64 [ 0, %bb98 ], [ %tmp120, %bb106 ]
-  %tmp108 = getelementptr inbounds [8 x i32], [8 x i32]* %tmp21, i64 0, i64 %tmp107, !intel-tbaa !17
-  %tmp109 = load i32, i32* %tmp108, align 4, !tbaa !17
+  %tmp108 = getelementptr inbounds [8 x i32], ptr %tmp21, i64 0, i64 %tmp107, !intel-tbaa !17
+  %tmp109 = load i32, ptr %tmp108, align 4, !tbaa !17
   %tmp110 = mul nsw i32 %tmp109, %arg4
-  %tmp111 = getelementptr inbounds [8 x i32], [8 x i32]* %tmp20, i64 0, i64 %tmp107, !intel-tbaa !17
-  %tmp112 = load i32, i32* %tmp111, align 4, !tbaa !17
+  %tmp111 = getelementptr inbounds [8 x i32], ptr %tmp20, i64 0, i64 %tmp107, !intel-tbaa !17
+  %tmp112 = load i32, ptr %tmp111, align 4, !tbaa !17
   %tmp113 = add nsw i32 %tmp110, %tmp112
   %tmp114 = sext i32 %tmp113 to i64
-  %tmp115 = getelementptr inbounds [4 x float], [4 x float]* %tmp44, i64 %tmp114, i64 %tmp99
-  %tmp116 = load float, float* %tmp115, align 4, !tbaa !23
-  %tmp117 = getelementptr inbounds [4 x [8 x float]], [4 x [8 x float]]* %tmp, i64 0, i64 %tmp99, i64 %tmp107, !intel-tbaa !8
-  %tmp118 = load float, float* %tmp117, align 4, !tbaa !8
+  %tmp115 = getelementptr inbounds [4 x float], ptr %arg, i64 %tmp114, i64 %tmp99
+  %tmp116 = load float, ptr %tmp115, align 4, !tbaa !23
+  %tmp117 = getelementptr inbounds [4 x [8 x float]], ptr %tmp, i64 0, i64 %tmp99, i64 %tmp107, !intel-tbaa !8
+  %tmp118 = load float, ptr %tmp117, align 4, !tbaa !8
   %tmp119 = fadd fast float %tmp118, %tmp116
-  store float %tmp119, float* %tmp117, align 4, !tbaa !8
+  store float %tmp119, ptr %tmp117, align 4, !tbaa !8
   %tmp120 = add nuw nsw i64 %tmp107, 1
   %tmp121 = icmp eq i64 %tmp120, 8
   br i1 %tmp121, label %bb103, label %bb106, !llvm.loop !25
@@ -232,24 +226,23 @@ bb127:                                            ; preds = %bb124
 
 bb128:                                            ; preds = %bb128, %bb122
   %tmp129 = phi i64 [ 0, %bb122 ], [ %tmp133, %bb128 ]
-  %tmp130 = getelementptr inbounds [4 x [8 x float]], [4 x [8 x float]]* %tmp, i64 0, i64 %tmp123, i64 %tmp129, !intel-tbaa !8
-  %tmp131 = load float, float* %tmp130, align 4, !tbaa !8
+  %tmp130 = getelementptr inbounds [4 x [8 x float]], ptr %tmp, i64 0, i64 %tmp123, i64 %tmp129, !intel-tbaa !8
+  %tmp131 = load float, ptr %tmp130, align 4, !tbaa !8
   %tmp132 = fmul fast float %tmp131, %tmp66
-  store float %tmp132, float* %tmp130, align 4, !tbaa !8
+  store float %tmp132, ptr %tmp130, align 4, !tbaa !8
   %tmp133 = add nuw nsw i64 %tmp129, 1
   %tmp134 = icmp eq i64 %tmp133, 8
   br i1 %tmp134, label %bb124, label %bb128, !llvm.loop !27
 
 bb135:                                            ; preds = %bb154
-  %tmp136 = bitcast float* %arg1 to [4 x float]*
   %tmp137 = mul nsw i32 %arg4, %arg3
   %tmp138 = add nsw i32 %tmp137, %arg2
   br label %bb157
 
 bb139:                                            ; preds = %bb154, %bb127
   %tmp140 = phi i64 [ %tmp155, %bb154 ], [ 0, %bb127 ]
-  %tmp141 = getelementptr inbounds [4 x [8 x float]], [4 x [8 x float]]* %tmp, i64 0, i64 3, i64 %tmp140, !intel-tbaa !8
-  %tmp142 = load float, float* %tmp141, align 4, !tbaa !8
+  %tmp141 = getelementptr inbounds [4 x [8 x float]], ptr %tmp, i64 0, i64 3, i64 %tmp140, !intel-tbaa !8
+  %tmp142 = load float, ptr %tmp141, align 4, !tbaa !8
   %tmp143 = fcmp fast une float %tmp142, 0.000000e+00
   br i1 %tmp143, label %bb144, label %bb154
 
@@ -259,10 +252,10 @@ bb144:                                            ; preds = %bb139
 
 bb146:                                            ; preds = %bb146, %bb144
   %tmp147 = phi i64 [ 0, %bb144 ], [ %tmp151, %bb146 ]
-  %tmp148 = getelementptr inbounds [4 x [8 x float]], [4 x [8 x float]]* %tmp, i64 0, i64 %tmp147, i64 %tmp140, !intel-tbaa !8
-  %tmp149 = load float, float* %tmp148, align 4, !tbaa !8
+  %tmp148 = getelementptr inbounds [4 x [8 x float]], ptr %tmp, i64 0, i64 %tmp147, i64 %tmp140, !intel-tbaa !8
+  %tmp149 = load float, ptr %tmp148, align 4, !tbaa !8
   %tmp150 = fmul fast float %tmp149, %tmp145
-  store float %tmp150, float* %tmp148, align 4, !tbaa !8
+  store float %tmp150, ptr %tmp148, align 4, !tbaa !8
   %tmp151 = add nuw nsw i64 %tmp147, 1
   %tmp152 = icmp eq i64 %tmp151, 4
   br i1 %tmp152, label %bb153, label %bb146, !llvm.loop !28
@@ -280,9 +273,9 @@ bb157:                                            ; preds = %bb160, %bb135
   br label %bb163
 
 bb159:                                            ; preds = %bb160
-  call void @llvm.lifetime.end.p0i8(i64 32, i8* nonnull %tmp27) #3
-  call void @llvm.lifetime.end.p0i8(i64 32, i8* nonnull %tmp26) #3
-  call void @llvm.lifetime.end.p0i8(i64 128, i8* nonnull %tmp22) #3
+  call void @llvm.lifetime.end.p0(i64 32, ptr nonnull %tmp19) #3
+  call void @llvm.lifetime.end.p0(i64 32, ptr nonnull %tmp18) #3
+  call void @llvm.lifetime.end.p0(i64 128, ptr nonnull %tmp) #3
   ret void
 
 bb160:                                            ; preds = %bb163
@@ -292,13 +285,13 @@ bb160:                                            ; preds = %bb163
 
 bb163:                                            ; preds = %bb163, %bb157
   %tmp164 = phi i64 [ 0, %bb157 ], [ %tmp171, %bb163 ]
-  %tmp165 = getelementptr inbounds [4 x [8 x float]], [4 x [8 x float]]* %tmp, i64 0, i64 %tmp158, i64 %tmp164, !intel-tbaa !8
-  %tmp166 = load float, float* %tmp165, align 4, !tbaa !8
+  %tmp165 = getelementptr inbounds [4 x [8 x float]], ptr %tmp, i64 0, i64 %tmp158, i64 %tmp164, !intel-tbaa !8
+  %tmp166 = load float, ptr %tmp165, align 4, !tbaa !8
   %tmp167 = trunc i64 %tmp164 to i32
   %tmp168 = add nsw i32 %tmp138, %tmp167
   %tmp169 = sext i32 %tmp168 to i64
-  %tmp170 = getelementptr inbounds [4 x float], [4 x float]* %tmp136, i64 %tmp169, i64 %tmp158
-  store float %tmp166, float* %tmp170, align 4, !tbaa !23
+  %tmp170 = getelementptr inbounds [4 x float], ptr %arg1, i64 %tmp169, i64 %tmp158
+  store float %tmp166, ptr %tmp170, align 4, !tbaa !23
   %tmp171 = add nuw nsw i64 %tmp164, 1
   %tmp172 = icmp eq i64 %tmp171, 8
   br i1 %tmp172, label %bb160, label %bb163, !llvm.loop !31

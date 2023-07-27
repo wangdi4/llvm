@@ -35,12 +35,12 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nofree norecurse nounwind uwtable
 define dso_local i32 @main() local_unnamed_addr #0 {
 entry:
-  %0 = load i32, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @ym, i64 0, i64 0), align 16
-  %1 = load i8, i8* @b, align 1
+  %0 = load i32, ptr @ym, align 16
+  %1 = load i8, ptr @b, align 1
   %2 = trunc i32 %0 to i8
   %conv1 = add i8 %1, %2
-  store i8 %conv1, i8* @b, align 1
-  store i64 1, i64* @k, align 8
+  store i8 %conv1, ptr @b, align 1
+  store i64 1, ptr @k, align 8
   br label %for.cond3.preheader
 
 for.cond3.preheader:                              ; preds = %for.end20, %entry
@@ -58,21 +58,21 @@ for.cond8.preheader:                              ; preds = %for.cond8.preheader
   %j.037 = phi i64 [ %inc19, %for.end ], [ 9, %for.cond8.preheader.preheader ]
   %4 = add i64 %indvar, 10
   %add12 = add i64 %j.037, 6
-  %arrayidx13 = getelementptr inbounds [20 x i32], [20 x i32]* @ym, i64 0, i64 %add12
+  %arrayidx13 = getelementptr inbounds [20 x i32], ptr @ym, i64 0, i64 %add12
   %add14 = add i64 %j.037, 7
-  %arrayidx15 = getelementptr inbounds [20 x i32], [20 x i32]* @i, i64 0, i64 %add14
+  %arrayidx15 = getelementptr inbounds [20 x i32], ptr @i, i64 0, i64 %add14
   br label %for.body11
 
 for.body11:                                       ; preds = %for.cond8.preheader, %for.inc
   %z.035 = phi i64 [ 0, %for.cond8.preheader ], [ %inc, %for.inc ]
-  %arrayidx = getelementptr inbounds [20 x i32], [20 x i32]* @t, i64 0, i64 %z.035
-  %5 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [20 x i32], ptr @t, i64 0, i64 %z.035
+  %5 = load i32, ptr %arrayidx, align 4
   %tobool = icmp eq i32 %5, 0
   br i1 %tobool, label %if.else, label %for.inc
 
 if.else:                                          ; preds = %for.body11
-  %6 = load i32, i32* %arrayidx15, align 4
-  store i32 %6, i32* %arrayidx13, align 4
+  %6 = load i32, ptr %arrayidx15, align 4
+  store i32 %6, ptr %arrayidx13, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body11, %if.else
@@ -96,7 +96,7 @@ for.end20:                                        ; preds = %for.end20.loopexit,
   br i1 %exitcond43, label %for.end23, label %for.cond3.preheader
 
 for.end23:                                        ; preds = %for.end20
-  store i64 4, i64* @k, align 8
+  store i64 4, ptr @k, align 8
   ret i32 0
 }
 

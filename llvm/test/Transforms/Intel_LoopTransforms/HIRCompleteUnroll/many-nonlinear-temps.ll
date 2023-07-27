@@ -193,7 +193,7 @@ target triple = "x86_64-unknown-linux-gnu"
 declare i64 @llvm.fshl.i64(i64, i64, i64) #0
 
 ; Function Attrs: nofree norecurse nounwind uwtable
-define dso_local void @wibble.bb91(i64 %tmp51, i64 %tmp50, i64 %tmp49, i64 %tmp48, i64 %tmp47, i64 %tmp46, i64 %tmp45, i64 %tmp44, [80 x i64]* %tmp2, i64* %tmp243.out, i64* %tmp244.out, i64* %tmp272.out, i64* %tmp273.out, i64* %tmp301.out, i64* %tmp302.out, i64* %tmp330.out, i64* %tmp331.out) #1 {
+define dso_local void @wibble.bb91(i64 %tmp51, i64 %tmp50, i64 %tmp49, i64 %tmp48, i64 %tmp47, i64 %tmp46, i64 %tmp45, i64 %tmp44, ptr %tmp2, ptr %tmp243.out, ptr %tmp244.out, ptr %tmp272.out, ptr %tmp273.out, ptr %tmp301.out, ptr %tmp302.out, ptr %tmp330.out, ptr %tmp331.out) #1 {
 newFuncRoot:
   br label %bb91
 
@@ -216,10 +216,10 @@ bb91:                                             ; preds = %newFuncRoot, %bb91
   %tmp107 = xor i64 %tmp97, %tmp98
   %tmp108 = and i64 %tmp107, %tmp99
   %tmp109 = xor i64 %tmp108, %tmp97
-  %tmp110 = getelementptr inbounds [80 x i64], [80 x i64]* @global, i64 0, i64 %tmp92, !intel-tbaa !8
-  %tmp111 = load i64, i64* %tmp110, align 16, !tbaa !8
-  %tmp112 = getelementptr inbounds [80 x i64], [80 x i64]* %tmp2, i64 0, i64 %tmp92, !intel-tbaa !8
-  %tmp113 = load i64, i64* %tmp112, align 16, !tbaa !8
+  %tmp110 = getelementptr inbounds [80 x i64], ptr @global, i64 0, i64 %tmp92, !intel-tbaa !8
+  %tmp111 = load i64, ptr %tmp110, align 16, !tbaa !8
+  %tmp112 = getelementptr inbounds [80 x i64], ptr %tmp2, i64 0, i64 %tmp92, !intel-tbaa !8
+  %tmp113 = load i64, ptr %tmp112, align 16, !tbaa !8
   %tmp114 = add i64 %tmp106, %tmp111
   %tmp115 = add i64 %tmp114, %tmp113
   %tmp116 = add i64 %tmp115, %tmp109
@@ -244,10 +244,10 @@ bb91:                                             ; preds = %newFuncRoot, %bb91
   %tmp135 = and i64 %tmp126, %tmp134
   %tmp136 = xor i64 %tmp135, %tmp98
   %tmp137 = or i64 %tmp92, 1
-  %tmp138 = getelementptr inbounds [80 x i64], [80 x i64]* @global, i64 0, i64 %tmp137, !intel-tbaa !8
-  %tmp139 = load i64, i64* %tmp138, align 8, !tbaa !8
-  %tmp140 = getelementptr inbounds [80 x i64], [80 x i64]* %tmp2, i64 0, i64 %tmp137, !intel-tbaa !8
-  %tmp141 = load i64, i64* %tmp140, align 8, !tbaa !8
+  %tmp138 = getelementptr inbounds [80 x i64], ptr @global, i64 0, i64 %tmp137, !intel-tbaa !8
+  %tmp139 = load i64, ptr %tmp138, align 8, !tbaa !8
+  %tmp140 = getelementptr inbounds [80 x i64], ptr %tmp2, i64 0, i64 %tmp137, !intel-tbaa !8
+  %tmp141 = load i64, ptr %tmp140, align 8, !tbaa !8
   %tmp142 = add i64 %tmp136, %tmp97
   %tmp143 = add i64 %tmp142, %tmp139
   %tmp144 = add i64 %tmp143, %tmp133
@@ -273,10 +273,10 @@ bb91:                                             ; preds = %newFuncRoot, %bb91
   %tmp164 = and i64 %tmp156, %tmp163
   %tmp165 = xor i64 %tmp164, %tmp99
   %tmp166 = or i64 %tmp92, 2
-  %tmp167 = getelementptr inbounds [80 x i64], [80 x i64]* @global, i64 0, i64 %tmp166, !intel-tbaa !8
-  %tmp168 = load i64, i64* %tmp167, align 16, !tbaa !8
-  %tmp169 = getelementptr inbounds [80 x i64], [80 x i64]* %tmp2, i64 0, i64 %tmp166, !intel-tbaa !8
-  %tmp170 = load i64, i64* %tmp169, align 16, !tbaa !8
+  %tmp167 = getelementptr inbounds [80 x i64], ptr @global, i64 0, i64 %tmp166, !intel-tbaa !8
+  %tmp168 = load i64, ptr %tmp167, align 16, !tbaa !8
+  %tmp169 = getelementptr inbounds [80 x i64], ptr %tmp2, i64 0, i64 %tmp166, !intel-tbaa !8
+  %tmp170 = load i64, ptr %tmp169, align 16, !tbaa !8
   %tmp171 = add i64 %tmp168, %tmp98
   %tmp172 = add i64 %tmp171, %tmp170
   %tmp173 = add i64 %tmp172, %tmp165
@@ -302,10 +302,10 @@ bb91:                                             ; preds = %newFuncRoot, %bb91
   %tmp193 = and i64 %tmp185, %tmp192
   %tmp194 = xor i64 %tmp193, %tmp126
   %tmp195 = or i64 %tmp92, 3
-  %tmp196 = getelementptr inbounds [80 x i64], [80 x i64]* @global, i64 0, i64 %tmp195, !intel-tbaa !8
-  %tmp197 = load i64, i64* %tmp196, align 8, !tbaa !8
-  %tmp198 = getelementptr inbounds [80 x i64], [80 x i64]* %tmp2, i64 0, i64 %tmp195, !intel-tbaa !8
-  %tmp199 = load i64, i64* %tmp198, align 8, !tbaa !8
+  %tmp196 = getelementptr inbounds [80 x i64], ptr @global, i64 0, i64 %tmp195, !intel-tbaa !8
+  %tmp197 = load i64, ptr %tmp196, align 8, !tbaa !8
+  %tmp198 = getelementptr inbounds [80 x i64], ptr %tmp2, i64 0, i64 %tmp195, !intel-tbaa !8
+  %tmp199 = load i64, ptr %tmp198, align 8, !tbaa !8
   %tmp200 = add i64 %tmp197, %tmp99
   %tmp201 = add i64 %tmp200, %tmp199
   %tmp202 = add i64 %tmp201, %tmp194
@@ -331,10 +331,10 @@ bb91:                                             ; preds = %newFuncRoot, %bb91
   %tmp222 = and i64 %tmp214, %tmp221
   %tmp223 = xor i64 %tmp222, %tmp156
   %tmp224 = or i64 %tmp92, 4
-  %tmp225 = getelementptr inbounds [80 x i64], [80 x i64]* @global, i64 0, i64 %tmp224, !intel-tbaa !8
-  %tmp226 = load i64, i64* %tmp225, align 16, !tbaa !8
-  %tmp227 = getelementptr inbounds [80 x i64], [80 x i64]* %tmp2, i64 0, i64 %tmp224, !intel-tbaa !8
-  %tmp228 = load i64, i64* %tmp227, align 16, !tbaa !8
+  %tmp225 = getelementptr inbounds [80 x i64], ptr @global, i64 0, i64 %tmp224, !intel-tbaa !8
+  %tmp226 = load i64, ptr %tmp225, align 16, !tbaa !8
+  %tmp227 = getelementptr inbounds [80 x i64], ptr %tmp2, i64 0, i64 %tmp224, !intel-tbaa !8
+  %tmp228 = load i64, ptr %tmp227, align 16, !tbaa !8
   %tmp229 = add i64 %tmp226, %tmp126
   %tmp230 = add i64 %tmp229, %tmp228
   %tmp231 = add i64 %tmp230, %tmp223
@@ -350,9 +350,9 @@ bb91:                                             ; preds = %newFuncRoot, %bb91
   %tmp241 = or i64 %tmp239, %tmp240
   %tmp242 = add i64 %tmp237, %tmp241
   %tmp243 = add i64 %tmp232, %tmp128
-  store i64 %tmp243, i64* %tmp243.out, align 8
+  store i64 %tmp243, ptr %tmp243.out, align 8
   %tmp244 = add i64 %tmp242, %tmp232
-  store i64 %tmp244, i64* %tmp244.out, align 8
+  store i64 %tmp244, ptr %tmp244.out, align 8
   %tmp245 = tail call i64 @llvm.fshl.i64(i64 %tmp243, i64 %tmp243, i64 50)
   %tmp246 = tail call i64 @llvm.fshl.i64(i64 %tmp243, i64 %tmp243, i64 46)
   %tmp247 = xor i64 %tmp245, %tmp246
@@ -362,10 +362,10 @@ bb91:                                             ; preds = %newFuncRoot, %bb91
   %tmp251 = and i64 %tmp243, %tmp250
   %tmp252 = xor i64 %tmp251, %tmp185
   %tmp253 = or i64 %tmp92, 5
-  %tmp254 = getelementptr inbounds [80 x i64], [80 x i64]* @global, i64 0, i64 %tmp253, !intel-tbaa !8
-  %tmp255 = load i64, i64* %tmp254, align 8, !tbaa !8
-  %tmp256 = getelementptr inbounds [80 x i64], [80 x i64]* %tmp2, i64 0, i64 %tmp253, !intel-tbaa !8
-  %tmp257 = load i64, i64* %tmp256, align 8, !tbaa !8
+  %tmp254 = getelementptr inbounds [80 x i64], ptr @global, i64 0, i64 %tmp253, !intel-tbaa !8
+  %tmp255 = load i64, ptr %tmp254, align 8, !tbaa !8
+  %tmp256 = getelementptr inbounds [80 x i64], ptr %tmp2, i64 0, i64 %tmp253, !intel-tbaa !8
+  %tmp257 = load i64, ptr %tmp256, align 8, !tbaa !8
   %tmp258 = add i64 %tmp255, %tmp156
   %tmp259 = add i64 %tmp258, %tmp257
   %tmp260 = add i64 %tmp259, %tmp252
@@ -381,9 +381,9 @@ bb91:                                             ; preds = %newFuncRoot, %bb91
   %tmp270 = or i64 %tmp268, %tmp269
   %tmp271 = add i64 %tmp266, %tmp270
   %tmp272 = add i64 %tmp261, %tmp157
-  store i64 %tmp272, i64* %tmp272.out, align 8
+  store i64 %tmp272, ptr %tmp272.out, align 8
   %tmp273 = add i64 %tmp271, %tmp261
-  store i64 %tmp273, i64* %tmp273.out, align 8
+  store i64 %tmp273, ptr %tmp273.out, align 8
   %tmp274 = tail call i64 @llvm.fshl.i64(i64 %tmp272, i64 %tmp272, i64 50)
   %tmp275 = tail call i64 @llvm.fshl.i64(i64 %tmp272, i64 %tmp272, i64 46)
   %tmp276 = xor i64 %tmp274, %tmp275
@@ -393,10 +393,10 @@ bb91:                                             ; preds = %newFuncRoot, %bb91
   %tmp280 = and i64 %tmp272, %tmp279
   %tmp281 = xor i64 %tmp280, %tmp214
   %tmp282 = or i64 %tmp92, 6
-  %tmp283 = getelementptr inbounds [80 x i64], [80 x i64]* @global, i64 0, i64 %tmp282, !intel-tbaa !8
-  %tmp284 = load i64, i64* %tmp283, align 16, !tbaa !8
-  %tmp285 = getelementptr inbounds [80 x i64], [80 x i64]* %tmp2, i64 0, i64 %tmp282, !intel-tbaa !8
-  %tmp286 = load i64, i64* %tmp285, align 16, !tbaa !8
+  %tmp283 = getelementptr inbounds [80 x i64], ptr @global, i64 0, i64 %tmp282, !intel-tbaa !8
+  %tmp284 = load i64, ptr %tmp283, align 16, !tbaa !8
+  %tmp285 = getelementptr inbounds [80 x i64], ptr %tmp2, i64 0, i64 %tmp282, !intel-tbaa !8
+  %tmp286 = load i64, ptr %tmp285, align 16, !tbaa !8
   %tmp287 = add i64 %tmp284, %tmp185
   %tmp288 = add i64 %tmp287, %tmp286
   %tmp289 = add i64 %tmp288, %tmp281
@@ -412,9 +412,9 @@ bb91:                                             ; preds = %newFuncRoot, %bb91
   %tmp299 = or i64 %tmp297, %tmp298
   %tmp300 = add i64 %tmp295, %tmp299
   %tmp301 = add i64 %tmp290, %tmp186
-  store i64 %tmp301, i64* %tmp301.out, align 8
+  store i64 %tmp301, ptr %tmp301.out, align 8
   %tmp302 = add i64 %tmp300, %tmp290
-  store i64 %tmp302, i64* %tmp302.out, align 8
+  store i64 %tmp302, ptr %tmp302.out, align 8
   %tmp303 = tail call i64 @llvm.fshl.i64(i64 %tmp301, i64 %tmp301, i64 50)
   %tmp304 = tail call i64 @llvm.fshl.i64(i64 %tmp301, i64 %tmp301, i64 46)
   %tmp305 = xor i64 %tmp303, %tmp304
@@ -424,10 +424,10 @@ bb91:                                             ; preds = %newFuncRoot, %bb91
   %tmp309 = and i64 %tmp301, %tmp308
   %tmp310 = xor i64 %tmp309, %tmp243
   %tmp311 = or i64 %tmp92, 7
-  %tmp312 = getelementptr inbounds [80 x i64], [80 x i64]* @global, i64 0, i64 %tmp311, !intel-tbaa !8
-  %tmp313 = load i64, i64* %tmp312, align 8, !tbaa !8
-  %tmp314 = getelementptr inbounds [80 x i64], [80 x i64]* %tmp2, i64 0, i64 %tmp311, !intel-tbaa !8
-  %tmp315 = load i64, i64* %tmp314, align 8, !tbaa !8
+  %tmp312 = getelementptr inbounds [80 x i64], ptr @global, i64 0, i64 %tmp311, !intel-tbaa !8
+  %tmp313 = load i64, ptr %tmp312, align 8, !tbaa !8
+  %tmp314 = getelementptr inbounds [80 x i64], ptr %tmp2, i64 0, i64 %tmp311, !intel-tbaa !8
+  %tmp315 = load i64, ptr %tmp314, align 8, !tbaa !8
   %tmp316 = add i64 %tmp313, %tmp214
   %tmp317 = add i64 %tmp316, %tmp315
   %tmp318 = add i64 %tmp317, %tmp310
@@ -443,9 +443,9 @@ bb91:                                             ; preds = %newFuncRoot, %bb91
   %tmp328 = or i64 %tmp326, %tmp327
   %tmp329 = add i64 %tmp324, %tmp328
   %tmp330 = add i64 %tmp319, %tmp215
-  store i64 %tmp330, i64* %tmp330.out, align 8
+  store i64 %tmp330, ptr %tmp330.out, align 8
   %tmp331 = add i64 %tmp329, %tmp319
-  store i64 %tmp331, i64* %tmp331.out, align 8
+  store i64 %tmp331, ptr %tmp331.out, align 8
   %tmp332 = add nuw nsw i64 %tmp92, 8
   %tmp333 = icmp ult i64 %tmp92, 72
   br i1 %tmp333, label %bb91, label %bb82.exitStub, !llvm.loop !13

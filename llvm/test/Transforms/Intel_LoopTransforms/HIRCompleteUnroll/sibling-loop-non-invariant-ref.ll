@@ -21,7 +21,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i32* nocapture %A, i32 %n) local_unnamed_addr #0 {
+define void @foo(ptr nocapture %A, i32 %n) local_unnamed_addr #0 {
 entry:
   %cmp30 = icmp sgt i32 %n, 0
   br i1 %cmp30, label %for.body.lr.ph, label %for.end14
@@ -36,9 +36,9 @@ for.body3.lr.ph:                                  ; preds = %for.body.lr.ph, %fo
 
 for.body3:                                        ; preds = %for.body3, %for.body3.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body3.lr.ph ], [ %indvars.iv.next, %for.body3 ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
   %0 = trunc i64 %indvars.iv to i32
-  store i32 %0, i32* %arrayidx, align 4, !tbaa !2
+  store i32 %0, ptr %arrayidx, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.end, label %for.body3
@@ -48,9 +48,9 @@ for.end:                                          ; preds = %for.body3
 
 for.body6:                                        ; preds = %for.body6, %for.end
   %indvars.iv32 = phi i64 [ 0, %for.end ], [ %indvars.iv.next33, %for.body6 ]
-  %arrayidx8 = getelementptr inbounds i32, i32* %A, i64 %indvars.iv32
+  %arrayidx8 = getelementptr inbounds i32, ptr %A, i64 %indvars.iv32
   %1 = trunc i64 %indvars.iv32 to i32
-  store i32 %1, i32* %arrayidx8, align 4, !tbaa !2
+  store i32 %1, ptr %arrayidx8, align 4, !tbaa !2
   %indvars.iv.next33 = add nuw nsw i64 %indvars.iv32, 1
   %exitcond34 = icmp eq i64 %indvars.iv.next33, 10
   br i1 %exitcond34, label %for.inc12, label %for.body6

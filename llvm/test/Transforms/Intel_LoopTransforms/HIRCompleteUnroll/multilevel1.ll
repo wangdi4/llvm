@@ -13,7 +13,7 @@
 ;<25>            + END LOOP
 ;<0>       END REGION
 
-; RUN: opt -opaque-pointers=0 -passes="loop-simplify,hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-cg" -S < %s | FileCheck %s
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-cg" -S < %s | FileCheck %s
 ; CHECK: entry
 
 ; terminator of entry bblock should point to new unrolled region.
@@ -22,8 +22,8 @@
 
 ; check loop is completely unrolled.
 ; CHECK: region.0:
-; CHECK: getelementptr inbounds ([550 x i32], [550 x i32]* @A, i64 0, i64 -1)
-; CHECK: getelementptr inbounds ([550 x i32], [550 x i32]* @A, i64 0, i64 0)
+; CHECK: getelementptr inbounds ([550 x i32], ptr @A, i64 0, i64 -1)
+; CHECK: getelementptr inbounds ([550 x i32], ptr @A, i64 0, i64 1)
 ; CHECK: getelementptr
 ; CHECK: getelementptr
 ; CHECK: getelementptr
@@ -38,15 +38,13 @@
 ; CHECK: getelementptr
 ; CHECK: getelementptr
 ; CHECK: getelementptr
-; CHECK: getelementptr
-; CHECK: getelementptr
-; CHECK: getelementptr inbounds ([550 x i32], [550 x i32]* @A, i64 0, i64 8)
-; CHECK: getelementptr inbounds ([550 x i32], [550 x i32]* @A, i64 0, i64 9)
+; CHECK: getelementptr inbounds ([550 x i32], ptr @A, i64 0, i64 8)
+; CHECK: getelementptr inbounds ([550 x i32], ptr @A, i64 0, i64 9)
 ; CHECK-NEXT: br label %for.end{{.*}}
 
 ; Check that proper optreport order is emitted for deleted loops (Completely Unrolled).
 ; Emitted structure has one remark for completely unrolled loops assigned to parent loop (because all inner loops are unrolled).
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-opt-report=low %s 2>&1 < %s -S | FileCheck %s --check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-opt-report=low %s 2>&1 < %s -S | FileCheck %s --check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT-NEXT:     remark #25436: Loop completely unrolled by 2
@@ -75,10 +73,10 @@ for.body3:                                        ; preds = %for.body3, %for.con
   %mul = shl nsw i64 %j.018, 1
   %add = add nuw nsw i64 %mul, %i.019
   %sub = add nsw i64 %add, -1
-  %arrayidx = getelementptr inbounds [550 x i32], [550 x i32]* @A, i64 0, i64 %sub
-  %0 = load i32, i32* %arrayidx, align 4
-  %arrayidx6 = getelementptr inbounds [550 x i32], [550 x i32]* @A, i64 0, i64 %add
-  store i32 %0, i32* %arrayidx6, align 4
+  %arrayidx = getelementptr inbounds [550 x i32], ptr @A, i64 0, i64 %sub
+  %0 = load i32, ptr %arrayidx, align 4
+  %arrayidx6 = getelementptr inbounds [550 x i32], ptr @A, i64 0, i64 %add
+  store i32 %0, ptr %arrayidx6, align 4
   %inc = add nuw nsw i64 %j.018, 1
   %exitcond = icmp eq i64 %inc, 5
   br i1 %exitcond, label %for.inc7, label %for.body3
@@ -93,7 +91,7 @@ for.end9:                                         ; preds = %for.inc7
 }
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture)
+declare void @llvm.lifetime.start(i64, ptr nocapture)
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture)
+declare void @llvm.lifetime.end(i64, ptr nocapture)

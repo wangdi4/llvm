@@ -17,15 +17,15 @@
 %struct.S = type { float, i32 }
 
 ; Function Attrs: norecurse nounwind readonly uwtable
-define i32 @foo([10 x %struct.S]* nocapture readonly %ptr, i64 %idx) local_unnamed_addr #0 {
+define i32 @foo(ptr nocapture readonly %ptr, i64 %idx) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %t.07 = phi i32 [ 0, %entry ], [ %add, %for.body ]
-  %d = getelementptr inbounds [10 x %struct.S], [10 x %struct.S]* %ptr, i64 %indvars.iv, i64 %idx, i32 1
-  %0 = load i32, i32* %d, align 4, !tbaa !1
+  %d = getelementptr inbounds [10 x %struct.S], ptr %ptr, i64 %indvars.iv, i64 %idx, i32 1
+  %0 = load i32, ptr %d, align 4, !tbaa !1
   %add = add nsw i32 %0, %t.07
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 10

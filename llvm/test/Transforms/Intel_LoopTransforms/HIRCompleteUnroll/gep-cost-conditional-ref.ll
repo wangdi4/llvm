@@ -18,7 +18,7 @@
 ; CHECK: + END LOOP
 
 
-define void @foo(i32* %ptr, i64 %idx1, i64 %idx2, i64 %idx3) {
+define void @foo(ptr %ptr, i64 %idx1, i64 %idx2, i64 %idx3) {
 entry:
   %add1 = add i64 %idx1, 1
   br label %pre
@@ -32,11 +32,11 @@ bb475:                                            ; preds = %bb103, %pre
   br i1 %rel.73, label %bb103, label %bb479_else
 
 bb479_else:                                       ; preds = %bb475
-  %sub1 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %ptr, i64 %add1)
-  %sub2 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 20, i32* elementtype(i32) %sub1, i64 %iv)
-  %sub3 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 100, i32* elementtype(i32) %sub2, i64 %iv)
-  %sub4 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 3, i64 1, i64 500, i32* elementtype(i32) %sub3, i64 %iv)
-  store i32 0, i32* %sub4, align 1
+  %sub1 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %ptr, i64 %add1)
+  %sub2 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20, ptr elementtype(i32) %sub1, i64 %iv)
+  %sub3 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 100, ptr elementtype(i32) %sub2, i64 %iv)
+  %sub4 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 500, ptr elementtype(i32) %sub3, i64 %iv)
+  store i32 0, ptr %sub4, align 1
   br label %bb103
 
 bb103:                                            ; preds = %bb479_else, %bb475
@@ -48,7 +48,7 @@ bb124.loopexit:
   ret void
 }
 
-declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i64) #2
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #2
 
 attributes #2 = { nounwind readnone speculatable }
 

@@ -48,34 +48,34 @@
 ; CHECK-CHANGED-POST: Dump After HIRPostVecCompleteUnroll
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @jpeg_fdct_islow(i32* nocapture %data) #0 {
+define void @jpeg_fdct_islow(ptr nocapture %data) #0 {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %ctr.0329 = phi i32 [ 7, %entry ], [ %dec, %for.body ]
-  %dataptr.0328 = phi i32* [ %data, %entry ], [ %add.ptr, %for.body ]
-  %0 = load i32, i32* %dataptr.0328, align 4
-  %arrayidx1 = getelementptr inbounds i32, i32* %dataptr.0328, i64 7
-  %1 = load i32, i32* %arrayidx1, align 4
+  %dataptr.0328 = phi ptr [ %data, %entry ], [ %add.ptr, %for.body ]
+  %0 = load i32, ptr %dataptr.0328, align 4
+  %arrayidx1 = getelementptr inbounds i32, ptr %dataptr.0328, i64 7
+  %1 = load i32, ptr %arrayidx1, align 4
   %add = add nsw i32 %1, %0
   %sub = sub nsw i32 %0, %1
-  %arrayidx4 = getelementptr inbounds i32, i32* %dataptr.0328, i64 1
-  %2 = load i32, i32* %arrayidx4, align 4
-  %arrayidx5 = getelementptr inbounds i32, i32* %dataptr.0328, i64 6
-  %3 = load i32, i32* %arrayidx5, align 4
+  %arrayidx4 = getelementptr inbounds i32, ptr %dataptr.0328, i64 1
+  %2 = load i32, ptr %arrayidx4, align 4
+  %arrayidx5 = getelementptr inbounds i32, ptr %dataptr.0328, i64 6
+  %3 = load i32, ptr %arrayidx5, align 4
   %add6 = add nsw i32 %3, %2
   %sub9 = sub nsw i32 %2, %3
-  %arrayidx10 = getelementptr inbounds i32, i32* %dataptr.0328, i64 2
-  %4 = load i32, i32* %arrayidx10, align 4
-  %arrayidx11 = getelementptr inbounds i32, i32* %dataptr.0328, i64 5
-  %5 = load i32, i32* %arrayidx11, align 4
+  %arrayidx10 = getelementptr inbounds i32, ptr %dataptr.0328, i64 2
+  %4 = load i32, ptr %arrayidx10, align 4
+  %arrayidx11 = getelementptr inbounds i32, ptr %dataptr.0328, i64 5
+  %5 = load i32, ptr %arrayidx11, align 4
   %add12 = add nsw i32 %5, %4
   %sub15 = sub nsw i32 %4, %5
-  %arrayidx16 = getelementptr inbounds i32, i32* %dataptr.0328, i64 3
-  %6 = load i32, i32* %arrayidx16, align 4
-  %arrayidx17 = getelementptr inbounds i32, i32* %dataptr.0328, i64 4
-  %7 = load i32, i32* %arrayidx17, align 4
+  %arrayidx16 = getelementptr inbounds i32, ptr %dataptr.0328, i64 3
+  %6 = load i32, ptr %arrayidx16, align 4
+  %arrayidx17 = getelementptr inbounds i32, ptr %dataptr.0328, i64 4
+  %7 = load i32, ptr %arrayidx17, align 4
   %add18 = add nsw i32 %7, %6
   %sub21 = sub nsw i32 %6, %7
   %add22 = add nsw i32 %add18, %add
@@ -84,22 +84,22 @@ for.body:                                         ; preds = %entry, %for.body
   %sub25 = sub nsw i32 %add6, %add12
   %add26 = add nsw i32 %add22, %add24
   %shl = shl i32 %add26, 2
-  store i32 %shl, i32* %dataptr.0328, align 4
+  store i32 %shl, ptr %dataptr.0328, align 4
   %sub28 = sub nsw i32 %add22, %add24
   %shl29 = shl i32 %sub28, 2
-  store i32 %shl29, i32* %arrayidx17, align 4
+  store i32 %shl29, ptr %arrayidx17, align 4
   %add31 = add nsw i32 %sub23, %sub25
   %mul = mul nsw i32 %add31, 4433
   %mul32 = mul nsw i32 %sub23, 6270
   %add33 = add i32 %mul32, 1024
   %add34 = add i32 %add33, %mul
   %shr = ashr i32 %add34, 11
-  store i32 %shr, i32* %arrayidx10, align 4
+  store i32 %shr, ptr %arrayidx10, align 4
   %mul36 = mul nsw i32 %sub25, -15137
   %add37 = add i32 %mul36, 1024
   %add38 = add i32 %add37, %mul
   %shr39 = ashr i32 %add38, 11
-  store i32 %shr39, i32* %arrayidx5, align 4
+  store i32 %shr39, ptr %arrayidx5, align 4
   %add41 = add nsw i32 %sub21, %sub
   %add42 = add nsw i32 %sub15, %sub9
   %add43 = add nsw i32 %sub21, %sub9
@@ -120,23 +120,23 @@ for.body:                                         ; preds = %entry, %for.body
   %add58 = add i32 %add57, %mul51
   %add59 = add i32 %add58, %add55
   %shr60 = ashr i32 %add59, 11
-  store i32 %shr60, i32* %arrayidx1, align 4
+  store i32 %shr60, ptr %arrayidx1, align 4
   %add62 = add i32 %mul48, 1024
   %add63 = add i32 %add62, %mul52
   %add64 = add i32 %add63, %add56
   %shr65 = ashr i32 %add64, 11
-  store i32 %shr65, i32* %arrayidx11, align 4
+  store i32 %shr65, ptr %arrayidx11, align 4
   %add67 = add i32 %mul49, 1024
   %add68 = add i32 %add67, %mul52
   %add69 = add i32 %add68, %add55
   %shr70 = ashr i32 %add69, 11
-  store i32 %shr70, i32* %arrayidx16, align 4
+  store i32 %shr70, ptr %arrayidx16, align 4
   %add72 = add i32 %mul50, 1024
   %add73 = add i32 %add72, %mul51
   %add74 = add i32 %add73, %add56
   %shr75 = ashr i32 %add74, 11
-  store i32 %shr75, i32* %arrayidx4, align 4
-  %add.ptr = getelementptr inbounds i32, i32* %dataptr.0328, i64 8
+  store i32 %shr75, ptr %arrayidx4, align 4
+  %add.ptr = getelementptr inbounds i32, ptr %dataptr.0328, i64 8
   %dec = add nsw i32 %ctr.0329, -1
   %cmp = icmp sgt i32 %ctr.0329, 0
   br i1 %cmp, label %for.body, label %for.end166, !llvm.loop !0

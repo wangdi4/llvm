@@ -37,7 +37,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @_ZL4zero = internal unnamed_addr constant [3 x double] zeroinitializer, align 16
 
 ; Function Attrs: norecurse nounwind readonly uwtable
-define dso_local double @_Z3fooiPi(i32 %n, i32* nocapture readonly %A) local_unnamed_addr #0 {
+define dso_local double @_Z3fooiPi(i32 %n, ptr nocapture readonly %A) local_unnamed_addr #0 {
 entry:
   %cmp19 = icmp sgt i32 %n, 0
   br i1 %cmp19, label %for.cond1.preheader.preheader, label %for.cond.cleanup
@@ -67,10 +67,10 @@ for.cond.cleanup3:                                ; preds = %for.body4
 for.body4:                                        ; preds = %for.cond1.preheader, %for.body4
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body4 ]
   %sum.117 = phi double [ %sum.020, %for.cond1.preheader ], [ %add, %for.body4 ]
-  %arrayidx = getelementptr inbounds [3 x double], [3 x double]* @_ZL4zero, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  %0 = load double, double* %arrayidx, align 8, !tbaa !2
-  %ptridx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %1 = load i32, i32* %ptridx, align 4, !tbaa !7
+  %arrayidx = getelementptr inbounds [3 x double], ptr @_ZL4zero, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  %0 = load double, ptr %arrayidx, align 8, !tbaa !2
+  %ptridx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %1 = load i32, ptr %ptridx, align 4, !tbaa !7
   %conv = sitofp i32 %1 to double
   %mul = fmul fast double %0, %conv
   %add = fadd fast double %mul, %sum.117

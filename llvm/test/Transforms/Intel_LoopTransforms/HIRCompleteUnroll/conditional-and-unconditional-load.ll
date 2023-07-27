@@ -27,7 +27,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define i32 @foo(i32* %A, i32 %n) {
+define i32 @foo(ptr %A, i32 %n) {
 entry:
   %cmp3 = icmp slt i32 0, %n
   br i1 %cmp3, label %for.body.lr.ph, label %for.end9
@@ -48,15 +48,15 @@ for.body3:                                        ; preds = %for.body, %if.end
 
 if.then:                                          ; preds = %for.body3
   %idxprom = sext i32 %j.01 to i64
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %idxprom
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %idxprom
+  %0 = load i32, ptr %arrayidx, align 4
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %for.body3
   %t.2 = phi i32 [ %0, %if.then ], [ %t.12, %for.body3 ]
   %idxprom5 = sext i32 %j.01 to i64
-  %arrayidx6 = getelementptr inbounds i32, i32* %A, i64 %idxprom5
-  %1 = load i32, i32* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds i32, ptr %A, i64 %idxprom5
+  %1 = load i32, ptr %arrayidx6, align 4
   %add = add nsw i32 %t.2, %1
   %inc = add nsw i32 %j.01, 1
   %cmp2 = icmp slt i32 %inc, 10
