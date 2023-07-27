@@ -1,7 +1,24 @@
 /*
  * ompt-tsan.cpp -- Archer runtime library, TSan annotations for Archer
  */
-
+// INTEL_CUSTOMIZATION
+//
+// INTEL CONFIDENTIAL
+//
+// Modifications, Copyright (C) 2023 Intel Corporation
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+//
+// end INTEL_CUSTOMIZATION
+//
 //===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -339,9 +356,16 @@ __thread DependencyDataPool *DependencyDataPool::ThreadDataPool = nullptr;
 
 /// Data structure to store additional information for task dependency.
 struct DependencyData final : DataPoolEntry<DependencyData> {
+#if INTEL_CUSTOMIZATION
+  /// Coverity fix
+  ompt_tsan_clockid in = 0;
+  ompt_tsan_clockid out = 0;
+  ompt_tsan_clockid inoutset = 0;
+#else  // INTEL_CUSTOMIZATION
   ompt_tsan_clockid in;
   ompt_tsan_clockid out;
   ompt_tsan_clockid inoutset;
+#endif // INTEL_CUSTOMIZATION
   void *GetInPtr() { return &in; }
   void *GetOutPtr() { return &out; }
   void *GetInoutsetPtr() { return &inoutset; }
@@ -403,7 +427,12 @@ struct ParallelData final : DataPoolEntry<ParallelData> {
   /// Two addresses for relationships with barriers.
   ompt_tsan_clockid Barrier[2];
 
+#if INTEL_CUSTOMIZATION
+  /// Coverity fix
+  const void *codePtr = nullptr;
+#else  // INTEL_CUSTOMIZATION
   const void *codePtr;
+#endif // INTEL_CUSTOMIZATION
 
   void *GetParallelPtr() { return &(Barrier[1]); }
 
@@ -433,11 +462,20 @@ template <> __thread TaskgroupPool *TaskgroupPool::ThreadDataPool = nullptr;
 
 /// Data structure to support stacking of taskgroups and allow synchronization.
 struct Taskgroup final : DataPoolEntry<Taskgroup> {
+#if INTEL_CUSTOMIZATION
+  /// Coverity fix
+  /// Its address is used for relationships of the taskgroup's task set.
+  ompt_tsan_clockid Ptr = 0;
+
+  /// Reference to the parent taskgroup.
+  Taskgroup *Parent = nullptr;
+#else  // INTEL_CUSTOMIZATION
   /// Its address is used for relationships of the taskgroup's task set.
   ompt_tsan_clockid Ptr;
 
   /// Reference to the parent taskgroup.
   Taskgroup *Parent;
+#endif // INTEL_CUSTOMIZATION
 
   void *GetPtr() { return &Ptr; }
 
@@ -539,8 +577,14 @@ struct TaskData final : DataPoolEntry<TaskData> {
   TaskData *Init(TaskData *parent, int taskType) {
     TaskType = taskType;
     Parent = parent;
+#if INTEL_CUSTOMIZATION
+    /// Coverity fix
+    if (Parent != nullptr) {
+      Team = Parent->Team;
+#else  // INTEL_CUSTOMIZATION
     Team = Parent->Team;
     if (Parent != nullptr) {
+#endif // INTEL_CUSTOMIZATION
       Parent->RefCount++;
       // Copy over pointer to taskgroup. This task may set up its own stack
       // but for now belongs to its parent's taskgroup.
@@ -568,7 +612,12 @@ struct TaskData final : DataPoolEntry<TaskData> {
     Team = nullptr;
     TaskGroup = nullptr;
     if (DependencyMap) {
+#if INTEL_CUSTOMIZATION
+      /// Coverity fix
+      for (auto &i : *DependencyMap)
+#else  // INTEL_CUSTOMIZATION
       for (auto i : *DependencyMap)
+#endif // INTEL_CUSTOMIZATION
         i.second->Delete();
       delete DependencyMap;
     }

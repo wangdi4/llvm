@@ -1325,6 +1325,7 @@ bool X86GlobalFMA::crackCyclicFMAs(MachineBasicBlock &MB) {
   // function prunes PHIs for integer register classes. We can assume
   // MB is a self-loop so we do not check the PHI MBB operands.
   auto isCandidatePHI = [this](MachineInstr &Phi) {
+    LLVM_DEBUG(dbgs() << "isCandidatePhi " << Phi);
     assert(Phi.isPHI() && "expected PHI instruction");
     switch (MRI->getRegClass(Phi.getOperand(0).getReg())->getID()) {
     case X86::VR64RegClassID:
@@ -1406,14 +1407,20 @@ bool X86GlobalFMA::crackCyclicFMAs(MachineBasicBlock &MB) {
           Cur(MRI->use_nodbg_begin(MI->getOperand(0).getReg())) {}
   };
 
+  // Collect all PHIs which may be part of a candidate chain.
+  // We do this in advance as insertion can invalidate the
+  // MB.phis() iterator.
+  SmallVector<MachineInstr *, 8u> CandidatePHIs;
+  for (auto &Phi : MB.phis())
+    if (isCandidatePHI(Phi))
+      CandidatePHIs.emplace_back(&Phi);
+
   bool Changed = false;
   SmallVector<Cand, 8u> Stack;
-  for (auto &Phi : MB.phis()) {
-    if (!isCandidatePHI(Phi))
-      continue;
+  for (auto *Phi : CandidatePHIs) {
     assert(Stack.empty() && "garbage left on stack");
-    Stack.emplace_back(&Phi, 0, MRI);
-    LLVM_DEBUG(FMADbg::dbgs() << "crack: visiting phi " << Phi << "\n");
+    Stack.emplace_back(Phi, 0, MRI);
+    LLVM_DEBUG(FMADbg::dbgs() << "crack: visiting phi " << *Phi << "\n");
     while (!Stack.empty()) {
       auto &C = Stack.back();
       if (C.Cur != MRI->use_nodbg_end()) {
@@ -1508,7 +1515,6 @@ bool X86GlobalFMA::crackFMAInstr(MachineInstr *MI, int OpNum) {
 
   LLVM_DEBUG(FMADbg::dbgs()
              << "cracking instruction (op = " << OpNum << "): " << *MI);
-  LLVM_DEBUG(FMADbg::dbgs() << "  operand: " << MI->getOperand(OpNum) << "\n");
 
   // Holds the result of the generated multiply, or other add/sub operand
   // if this isn't being cracked.
@@ -1538,8 +1544,6 @@ bool X86GlobalFMA::crackFMAInstr(MachineInstr *MI, int OpNum) {
         MulOpnds.push_back(
             MachineOperand::CreateReg(NewMI->getOperand(0).getReg(), false));
       }
-      LLVM_DEBUG(FMADbg::dbgs() << "\tmul operand (pos " << I
-                                << ") = " << MulOpnds.back() << "\n");
     }
     MulResult = MRI->createVirtualRegister(RC);
     auto *NewMI = genInstruction(MulOpcode, MulResult, MulOpnds,
