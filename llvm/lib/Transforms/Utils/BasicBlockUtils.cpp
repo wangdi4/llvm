@@ -1811,70 +1811,11 @@ Instruction *llvm::SplitBlockAndInsertIfThen(Value *Cond,
                                              MDNode *BranchWeights,
                                              DomTreeUpdater *DTU, LoopInfo *LI,
                                              BasicBlock *ThenBlock) {
-<<<<<<< HEAD
-  SmallVector<DominatorTree::UpdateType, 8> Updates;
-  BasicBlock *Head = SplitBefore->getParent();
-  BasicBlock *Tail = Head->splitBasicBlock(SplitBefore->getIterator());
-  if (DTU) {
-    SmallPtrSet<BasicBlock *, 8> UniqueSuccessorsOfHead;
-    Updates.push_back({DominatorTree::Insert, Head, Tail});
-    Updates.reserve(Updates.size() + 2 * succ_size(Tail));
-    for (BasicBlock *SuccessorOfHead : successors(Tail))
-      if (UniqueSuccessorsOfHead.insert(SuccessorOfHead).second) {
-        Updates.push_back({DominatorTree::Insert, Tail, SuccessorOfHead});
-        Updates.push_back({DominatorTree::Delete, Head, SuccessorOfHead});
-      }
-  }
-  Instruction *HeadOldTerm = Head->getTerminator();
-  LLVMContext &C = Head->getContext();
-  Instruction *CheckTerm;
-  bool CreateThenBlock = (ThenBlock == nullptr);
-  if (CreateThenBlock) {
-    ThenBlock = BasicBlock::Create(C, "", Head->getParent(), Tail);
-    if (Unreachable)
-      CheckTerm = new UnreachableInst(C, ThenBlock);
-    else {
-      CheckTerm = BranchInst::Create(Tail, ThenBlock);
-      if (DTU)
-        Updates.push_back({DominatorTree::Insert, ThenBlock, Tail});
-    }
-    CheckTerm->setDebugLoc(SplitBefore->getDebugLoc());
-  } else
-    CheckTerm = ThenBlock->getTerminator();
-  BranchInst *HeadNewTerm =
-      BranchInst::Create(/*ifTrue*/ ThenBlock, /*ifFalse*/ Tail, Cond);
-  if (DTU)
-    Updates.push_back({DominatorTree::Insert, Head, ThenBlock});
-  HeadNewTerm->setMetadata(LLVMContext::MD_prof, BranchWeights);
-  ReplaceInstWithInst(HeadOldTerm, HeadNewTerm);
-
-  if (DTU)
-    DTU->applyUpdates(Updates);
-
-  if (LI) {
-    if (Loop *L = LI->getLoopFor(Head)) {
-      // unreachable-terminated blocks cannot belong to any loop.
-      if (!Unreachable)
-#if INTEL_COLLAB
-        // we get an assertion when ThenBlock was already created
-        // with SplitBlock* methods and was already added to the loop there
-        if (!LI->getLoopFor(ThenBlock))
-          L->addBasicBlockToLoop(ThenBlock, *LI);
-#else    // INTEL_COLLAB
-        L->addBasicBlockToLoop(ThenBlock, *LI);
-#endif // INTEL_COLLAB
-      L->addBasicBlockToLoop(Tail, *LI);
-    }
-  }
-
-  return CheckTerm;
-=======
   SplitBlockAndInsertIfThenElse(
       Cond, SplitBefore, &ThenBlock, /* ElseBlock */ nullptr,
       /* UnreachableThen */ Unreachable,
       /* UnreachableElse */ false, BranchWeights, DTU, LI);
   return ThenBlock->getTerminator();
->>>>>>> ab9f2bebd6d500537d85e828f6e44ee4740a99e1
 }
 
 void llvm::SplitBlockAndInsertIfThenElse(Value *Cond, Instruction *SplitBefore,
