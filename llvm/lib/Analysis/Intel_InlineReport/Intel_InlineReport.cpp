@@ -55,6 +55,7 @@ InlineReportCallSite::copyBase(CallBase *CB,
   NewCS->Col = Col;
   NewCS->Children.clear();
   NewCS->IsCompact = IsCompact;
+  NewCS->ICSMethod = ICSMethod;
   return NewCS;
 }
 
@@ -541,7 +542,6 @@ void InlineReport::cloneChildrenCompact(InlineReportFunction *IRFCaller,
                                         InlineReportFunction *IRFCallee,
                                         InlineReportCallSite *NewCallSite,
                                         ValueToValueMapTy &IIMap) {
-  assert(NewCallSite->getChildren().empty());
   IRFCaller->inheritCompactCallBases(IRFCallee);
   if (IRFCallee->getIsSummarized())
     NewCallSite->setIsCompact(true);
@@ -571,7 +571,6 @@ void InlineReport::cloneChildrenCompact(InlineReportFunction *IRFCaller,
 void InlineReport::cloneChildren(InlineReportCallSiteVector &OldCallSiteVector,
                                  InlineReportCallSite *NewCallSite,
                                  ValueToValueMapTy &IIMap) {
-  assert(NewCallSite->getChildren().empty());
   for (unsigned I = 0, E = OldCallSiteVector.size(); I < E; ++I) {
     InlineReportCallSite *IRCSj = OldCallSiteVector[I];
     //

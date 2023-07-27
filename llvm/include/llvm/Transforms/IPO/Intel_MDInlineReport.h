@@ -481,8 +481,12 @@ private:
   Function *CurrentCaller;
   // Function called in the current call instruction.
   Function *CurrentCallee;
-  // Copy metadata 'OldMD' for use my another Function or CallBase.
+  // Copy metadata 'OldMD' for use by another Function or CallBase.
   Metadata *copyMD(LLVMContext &C, Metadata *OldMD);
+  // Copy metadata 'OldMD' for use by another Function or CallBase.
+  // Save a map from the original to the copied metadata.
+  Metadata *copyMDWithMap(LLVMContext &C, Metadata *OldMD,
+                          DenseMap<Metadata *, Metadata *> &MDMap);
 
   ///
   /// CallbackVM for Instructions and Functions in the InlineReport
