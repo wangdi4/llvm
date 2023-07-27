@@ -1,5 +1,5 @@
-; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -S %s | FileCheck %s
 
 ; Original code:
 ; #pragma omp declare target
@@ -31,7 +31,7 @@ entry:
 
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SINGLE"() ]
   fence acquire
-  store double 1.230000e+02, ptr addrspace(4) addrspacecast (ptr addrspace(1) @coef_bnd to ptr addrspace(4)), align 8
+  store double 1.230000e+02, double addrspace(4)* addrspacecast (double addrspace(1)* @coef_bnd to double addrspace(4)*), align 8
   fence release
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.SINGLE"() ]
 
@@ -44,4 +44,4 @@ declare void @llvm.directive.region.exit(token)
 attributes #0 = { "openmp-target-declare"="true" }
 
 !omp_offload.info = !{!0}
-!0 = !{i32 1, !"_Z8coef_bnd", i32 0, i32 0, ptr addrspace(1) @coef_bnd}
+!0 = !{i32 1, !"_Z8coef_bnd", i32 0, i32 0, double addrspace(1)* @coef_bnd}

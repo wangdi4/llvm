@@ -1,5 +1,5 @@
-; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-gpu-execution-scheme=0 -S %s | FileCheck %s
-; RUN: opt -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -vpo-paropt-gpu-execution-scheme=0 -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-gpu-execution-scheme=0 -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -vpo-paropt-gpu-execution-scheme=0 -S %s | FileCheck %s
 
 ; void star1() {
 ;     #pragma omp target parallel for schedule(static,7)
@@ -23,57 +23,57 @@ target device_triples = "spir64"
 define dso_local spir_func void @star1() {
 entry:
   %.omp.lb = alloca i64, align 8
-  %0 = addrspacecast ptr %.omp.lb to ptr addrspace(4)
+  %0 = addrspacecast i64* %.omp.lb to i64 addrspace(4)*
   %.omp.ub = alloca i64, align 8
-  %1 = addrspacecast ptr %.omp.ub to ptr addrspace(4)
+  %1 = addrspacecast i64* %.omp.ub to i64 addrspace(4)*
   %.omp.iv = alloca i64, align 8
-  %2 = addrspacecast ptr %.omp.iv to ptr addrspace(4)
+  %2 = addrspacecast i64* %.omp.iv to i64 addrspace(4)*
   %tmp = alloca i64, align 8
-  %3 = addrspacecast ptr %tmp to ptr addrspace(4)
+  %3 = addrspacecast i64* %tmp to i64 addrspace(4)*
   %i = alloca i64, align 8
-  %4 = addrspacecast ptr %i to ptr addrspace(4)
-  store i64 0, ptr addrspace(4) %0, align 8
-  store i64 98, ptr addrspace(4) %1, align 8
+  %4 = addrspacecast i64* %i to i64 addrspace(4)*
+  store i64 0, i64 addrspace(4)* %0, align 8
+  store i64 98, i64 addrspace(4)* %1, align 8
 
   %5 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
     "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %4, i64 0, i64 1),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) %0, i64 0, i64 1),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) %1, i64 0, i64 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %2, i64 0, i64 1),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %3, i64 0, i64 1) ]
+    "QUAL.OMP.PRIVATE"(i64 addrspace(4)* %4),
+    "QUAL.OMP.FIRSTPRIVATE"(i64 addrspace(4)* %0),
+    "QUAL.OMP.FIRSTPRIVATE"(i64 addrspace(4)* %1),
+    "QUAL.OMP.PRIVATE"(i64 addrspace(4)* %2),
+    "QUAL.OMP.PRIVATE"(i64 addrspace(4)* %3) ]
 
   %6 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(),
     "QUAL.OMP.SCHEDULE.STATIC"(i32 7),
-    "QUAL.OMP.FIRSTPRIVATE:TYPED"(ptr addrspace(4) %0, i64 0, i64 1),
-    "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr addrspace(4) %2, i64 0),
-    "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr addrspace(4) %1, i64 0),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %4, i64 0, i64 1) ]
+    "QUAL.OMP.FIRSTPRIVATE"(i64 addrspace(4)* %0),
+    "QUAL.OMP.NORMALIZED.IV"(i64 addrspace(4)* %2),
+    "QUAL.OMP.NORMALIZED.UB"(i64 addrspace(4)* %1),
+    "QUAL.OMP.PRIVATE"(i64 addrspace(4)* %4) ]
 
-  %7 = load i64, ptr addrspace(4) %0, align 8
-  store i64 %7, ptr addrspace(4) %2, align 8
+  %7 = load i64, i64 addrspace(4)* %0, align 8
+  store i64 %7, i64 addrspace(4)* %2, align 8
   br label %omp.inner.for.cond
 
 omp.inner.for.cond:                               ; preds = %omp.inner.for.inc, %entry
-  %8 = load i64, ptr addrspace(4) %2, align 8
-  %9 = load i64, ptr addrspace(4) %1, align 8
+  %8 = load i64, i64 addrspace(4)* %2, align 8
+  %9 = load i64, i64 addrspace(4)* %1, align 8
   %cmp = icmp sle i64 %8, %9
   br i1 %cmp, label %omp.inner.for.body, label %omp.inner.for.end
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.cond
-  %10 = load i64, ptr addrspace(4) %2, align 8
+  %10 = load i64, i64 addrspace(4)* %2, align 8
   %mul = mul nsw i64 %10, 1
   %add = add nsw i64 1, %mul
-  store i64 %add, ptr addrspace(4) %4, align 8
+  store i64 %add, i64 addrspace(4)* %4, align 8
   br label %omp.body.continue
 
 omp.body.continue:                                ; preds = %omp.inner.for.body
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %omp.body.continue
-  %11 = load i64, ptr addrspace(4) %2, align 8
+  %11 = load i64, i64 addrspace(4)* %2, align 8
   %add1 = add nsw i64 %11, 1
-  store i64 %add1, ptr addrspace(4) %2, align 8
+  store i64 %add1, i64 addrspace(4)* %2, align 8
   br label %omp.inner.for.cond
 
 omp.inner.for.end:                                ; preds = %omp.inner.for.cond

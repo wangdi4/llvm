@@ -1,5 +1,5 @@
-; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -opaque-pointers=0 -switch-to-offload -passes='function(vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 ;
 ; Check that we emit the device built-in math functions for:
 ;   double exp10()  -->  _Z17__spirv_ocl_exp10d
@@ -38,25 +38,25 @@ define hidden spir_func void @_Z3foov() {
 entry:
   %dres = alloca double, align 8
   %fres = alloca float, align 4
-  %dres.ascast = addrspacecast ptr %dres to ptr addrspace(4)
-  %fres.ascast = addrspacecast ptr %fres to ptr addrspace(4)
+  %dres.ascast = addrspacecast double* %dres to double addrspace(4)*
+  %fres.ascast = addrspacecast float* %fres to float addrspace(4)*
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
     "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
-    "QUAL.OMP.MAP.FROM"(ptr addrspace(4) %dres.ascast, ptr addrspace(4) %dres.ascast, i64 8, i64 34, ptr null, ptr null),
-    "QUAL.OMP.MAP.FROM"(ptr addrspace(4) %fres.ascast, ptr addrspace(4) %fres.ascast, i64 4, i64 34, ptr null, ptr null) ]
+    "QUAL.OMP.MAP.FROM"(double addrspace(4)* %dres.ascast, double addrspace(4)* %dres.ascast, i64 8, i64 34, i8* null, i8* null),
+    "QUAL.OMP.MAP.FROM"(float addrspace(4)* %fres.ascast, float addrspace(4)* %fres.ascast, i64 4, i64 34, i8* null, i8* null) ]
 
   %call = call fast spir_func double @exp10(double 3.000000e+00)
 ;CHECK:   call fast spir_func double @_Z17__spirv_ocl_exp10d(double 3.000000e+00)
 
-  store double %call, ptr addrspace(4) %dres.ascast, align 8
+  store double %call, double addrspace(4)* %dres.ascast, align 8
 
   %call1 = call fast spir_func float @exp10f(float 3.000000e+00)
 ;CHECK:    call fast spir_func float @_Z17__spirv_ocl_exp10f(float 3.000000e+00)
 
-  store float %call1, ptr addrspace(4) %fres.ascast, align 4
+  store float %call1, float addrspace(4)* %fres.ascast, align 4
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
-  %1 = load double, ptr addrspace(4) %dres.ascast, align 8
-  %2 = load float, ptr addrspace(4) %fres.ascast, align 4
+  %1 = load double, double addrspace(4)* %dres.ascast, align 8
+  %2 = load float, float addrspace(4)* %fres.ascast, align 4
   call spir_func void @_Z3bardf(double %1, float %2)
   ret void
 }
