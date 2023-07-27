@@ -69,8 +69,8 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup3
 
 for.cond5.preheader:                              ; preds = %for.cond.cleanup7, %for.cond1.preheader
   %indvars.iv40 = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next41, %for.cond.cleanup7 ]
-  %arrayidx14 = getelementptr inbounds [4096 x [4096 x double]], [4096 x [4096 x double]]* @b, i64 0, i64 %indvars.iv43, i64 %indvars.iv40, !intel-tbaa !2
-  %0 = load double, double* %arrayidx14, align 8, !tbaa !2
+  %arrayidx14 = getelementptr inbounds [4096 x [4096 x double]], ptr @b, i64 0, i64 %indvars.iv43, i64 %indvars.iv40, !intel-tbaa !2
+  %0 = load double, ptr %arrayidx14, align 8, !tbaa !2
   br label %for.body8
 
 for.cond.cleanup3:                                ; preds = %for.cond.cleanup7
@@ -85,13 +85,13 @@ for.cond.cleanup7:                                ; preds = %for.body8
 
 for.body8:                                        ; preds = %for.body8, %for.cond5.preheader
   %indvars.iv = phi i64 [ 0, %for.cond5.preheader ], [ %indvars.iv.next, %for.body8 ]
-  %arrayidx10 = getelementptr inbounds [4096 x [4096 x double]], [4096 x [4096 x double]]* @a, i64 0, i64 %indvars.iv40, i64 %indvars.iv, !intel-tbaa !2
-  %1 = load double, double* %arrayidx10, align 8, !tbaa !2
+  %arrayidx10 = getelementptr inbounds [4096 x [4096 x double]], ptr @a, i64 0, i64 %indvars.iv40, i64 %indvars.iv, !intel-tbaa !2
+  %1 = load double, ptr %arrayidx10, align 8, !tbaa !2
   %mul = fmul double %1, %0
-  %arrayidx18 = getelementptr inbounds [4096 x [4096 x double]], [4096 x [4096 x double]]* @c, i64 0, i64 %indvars.iv43, i64 %indvars.iv, !intel-tbaa !2
-  %2 = load double, double* %arrayidx18, align 8, !tbaa !2
+  %arrayidx18 = getelementptr inbounds [4096 x [4096 x double]], ptr @c, i64 0, i64 %indvars.iv43, i64 %indvars.iv, !intel-tbaa !2
+  %2 = load double, ptr %arrayidx18, align 8, !tbaa !2
   %add = fadd double %2, %mul
-  store double %add, double* %arrayidx18, align 8, !tbaa !2
+  store double %add, ptr %arrayidx18, align 8, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 4096
   br i1 %exitcond, label %for.cond.cleanup7, label %for.body8

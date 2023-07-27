@@ -33,22 +33,22 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @foo(double* noalias nocapture %A, double** noalias nocapture readonly %B, double* noalias nocapture readnone %C) local_unnamed_addr #0 {
+define dso_local void @foo(ptr noalias nocapture %A, ptr noalias nocapture readonly %B, ptr noalias nocapture readnone %C) local_unnamed_addr #0 {
 entry:
   %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.BLOCK_LOOP"(), "QUAL.PRAGMA.LEVEL"(i32 1), "QUAL.PRAGMA.FACTOR"(i32 256) ]
   br label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %entry, %for.cond.cleanup3
   %indvars.iv27 = phi i64 [ 1, %entry ], [ %indvars.iv.next28, %for.cond.cleanup3 ]
-  %ptridx = getelementptr inbounds double, double* %A, i64 %indvars.iv27
-  %ptridx6 = getelementptr inbounds double*, double** %B, i64 %indvars.iv27
-  %1 = load double*, double** %ptridx6, align 8, !tbaa !2
-  %ptridx.promoted = load double, double* %ptridx, align 8, !tbaa !6
+  %ptridx = getelementptr inbounds double, ptr %A, i64 %indvars.iv27
+  %ptridx6 = getelementptr inbounds ptr, ptr %B, i64 %indvars.iv27
+  %1 = load ptr, ptr %ptridx6, align 8, !tbaa !2
+  %ptridx.promoted = load double, ptr %ptridx, align 8, !tbaa !6
   br label %for.body4
 
 for.cond.cleanup3:                                ; preds = %for.body4
   %add.lcssa = phi double [ %add, %for.body4 ]
-  store double %add.lcssa, double* %ptridx, align 8, !tbaa !6
+  store double %add.lcssa, ptr %ptridx, align 8, !tbaa !6
   %indvars.iv.next28 = add nuw nsw i64 %indvars.iv27, 1
   %exitcond29 = icmp eq i64 %indvars.iv.next28, 1000
   br i1 %exitcond29, label %for.end13, label %for.cond1.preheader
@@ -56,8 +56,8 @@ for.cond.cleanup3:                                ; preds = %for.body4
 for.body4:                                        ; preds = %for.cond1.preheader, %for.body4
   %indvars.iv = phi i64 [ 1, %for.cond1.preheader ], [ %indvars.iv.next, %for.body4 ]
   %add26 = phi double [ %ptridx.promoted, %for.cond1.preheader ], [ %add, %for.body4 ]
-  %ptridx8 = getelementptr inbounds double, double* %1, i64 %indvars.iv
-  %2 = load double, double* %ptridx8, align 8, !tbaa !6
+  %ptridx8 = getelementptr inbounds double, ptr %1, i64 %indvars.iv
+  %2 = load double, ptr %ptridx8, align 8, !tbaa !6
   %mul = fmul fast double %2, %add26
   %add = fadd fast double %mul, %add26
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1

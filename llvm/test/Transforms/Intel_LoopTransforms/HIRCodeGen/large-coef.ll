@@ -19,18 +19,18 @@
 target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"
 target triple = "i386-unknown-linux-gnu"
 
-%struct.bignum_st = type { i32*, i32, i32, i32 }
+%struct.bignum_st = type { ptr, i32, i32, i32 }
 
-define i32 @BN_mod_word(%struct.bignum_st* nocapture readonly %a, i32 %w) {
+define i32 @BN_mod_word(ptr nocapture readonly %a, i32 %w) {
 entry:
-  %top = getelementptr inbounds %struct.bignum_st, %struct.bignum_st* %a, i32 0, i32 1
-  %0 = load i32, i32* %top, align 4
+  %top = getelementptr inbounds %struct.bignum_st, ptr %a, i32 0, i32 1
+  %0 = load i32, ptr %top, align 4
   %cmp.10 = icmp sgt i32 %0, 0
   br i1 %cmp.10, label %for.body.lr.ph, label %for.end
 
 for.body.lr.ph:                                   ; preds = %entry
-  %d = getelementptr inbounds %struct.bignum_st, %struct.bignum_st* %a, i32 0, i32 0
-  %1 = load i32*, i32** %d, align 4
+  %d = getelementptr inbounds %struct.bignum_st, ptr %a, i32 0, i32 0
+  %1 = load ptr, ptr %d, align 4
   %conv1 = zext i32 %w to i64
   br label %for.body
 
@@ -39,8 +39,8 @@ for.body:                                         ; preds = %for.body, %for.body
   %ret.011 = phi i64 [ 0, %for.body.lr.ph ], [ %rem, %for.body ]
   %i.012 = add nsw i32 %i.012.in, -1
   %shl = shl i64 %ret.011, 32
-  %arrayidx = getelementptr inbounds i32, i32* %1, i32 %i.012
-  %2 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %1, i32 %i.012
+  %2 = load i32, ptr %arrayidx, align 4
   %conv = zext i32 %2 to i64
   %or = or i64 %conv, %shl
   %rem = urem i64 %or, %conv1

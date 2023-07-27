@@ -30,7 +30,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nounwind uwtable
-define dso_local void @matrix_mul_vect(i64 %N, float* noalias nocapture readonly %A, float* noalias nocapture %B) local_unnamed_addr #0 {
+define dso_local void @matrix_mul_vect(i64 %N, ptr noalias nocapture readonly %A, ptr noalias nocapture %B) local_unnamed_addr #0 {
 entry:
   %cmp24 = icmp sgt i64 %N, 0
   br i1 %cmp24, label %for.body3.lr.ph.preheader, label %for.end10
@@ -46,13 +46,13 @@ for.body3.lr.ph:                                  ; preds = %for.body3.lr.ph.pre
 for.body3:                                        ; preds = %for.body3.lr.ph, %for.body3
   %j.023 = phi i64 [ 0, %for.body3.lr.ph ], [ %inc, %for.body3 ]
   %add = add nsw i64 %j.023, %mul
-  %ptridx = getelementptr inbounds float, float* %A, i64 %add
-  %0 = load float, float* %ptridx, align 4, !tbaa !2
-  %ptridx4 = getelementptr inbounds float, float* %B, i64 %j.023
-  %1 = load float, float* %ptridx4, align 4, !tbaa !2
+  %ptridx = getelementptr inbounds float, ptr %A, i64 %add
+  %0 = load float, ptr %ptridx, align 4, !tbaa !2
+  %ptridx4 = getelementptr inbounds float, ptr %B, i64 %j.023
+  %1 = load float, ptr %ptridx4, align 4, !tbaa !2
   %mul5 = fmul float %0, %1
   %add7 = fadd float %1, %mul5
-  store float %add7, float* %ptridx4, align 4, !tbaa !2
+  store float %add7, ptr %ptridx4, align 4, !tbaa !2
   %inc = add nuw nsw i64 %j.023, 1
   %exitcond = icmp eq i64 %inc, %N
   br i1 %exitcond, label %for.inc8, label %for.body3

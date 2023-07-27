@@ -1,16 +1,16 @@
-;RUN: opt -opaque-pointers=0 -passes="hir-cg" -force-hir-cg -S %s | FileCheck %s
+;RUN: opt -passes="hir-cg" -force-hir-cg -S %s | FileCheck %s
 
 ;Verify CG for this HIR STMT
 ;<7> %.c = (%0 > %1) ? %0 : %c;
 ;CHECK: loop.{{.*}}:
 ; Rely on Verifier to filter illegal combinations
-;CHECK-DAG: [[A_ADDR:%.*]] = getelementptr inbounds i32, i32* %a,
-;CHECK-DAG: [[A_LOAD:%.*]] = load i32, i32* [[A_ADDR]]
-;CHECK-DAG: store i32 [[A_LOAD]], i32* %t[[A_SYM:[0-9]+]]
+;CHECK-DAG: [[A_ADDR:%.*]] = getelementptr inbounds i32, ptr %a,
+;CHECK-DAG: [[A_LOAD:%.*]] = load i32, ptr [[A_ADDR]]
+;CHECK-DAG: store i32 [[A_LOAD]], ptr %t[[A_SYM:[0-9]+]]
 
-;CHECK-DAG: [[B_ADDR:%.*]] = getelementptr inbounds i32, i32* %b,
-;CHECK-DAG: [[B_LOAD:%.*]] = load i32, i32* [[B_ADDR]]
-;CHECK-DAG: store i32 [[B_LOAD]], i32* %t[[B_SYM:[0-9]+]]
+;CHECK-DAG: [[B_ADDR:%.*]] = getelementptr inbounds i32, ptr %b,
+;CHECK-DAG: [[B_LOAD:%.*]] = load i32, ptr [[B_ADDR]]
+;CHECK-DAG: store i32 [[B_LOAD]], ptr %t[[B_SYM:[0-9]+]]
 
 ;predicate is a[i] > b[i]
 ;CHECK: [[HIR_CMP:%.*]] = icmp sgt i32 %t[[A_SYM]].{{[0-9]*}}, %t[[B_SYM]].{{[0-9]*}}
@@ -21,7 +21,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind readonly uwtable
-define i32 @foo(i32* nocapture readonly %a, i32* nocapture readonly %b, i32 %c) #0 {
+define i32 @foo(ptr nocapture readonly %a, ptr nocapture readonly %b, i32 %c) #0 {
 entry:
   %cmp.17 = icmp sgt i32 %c, 0
   br i1 %cmp.17, label %for.body.preheader, label %for.cond.cleanup
@@ -40,10 +40,10 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.preheader ]
   %output.018 = phi i32 [ %output.1, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
-  %arrayidx2 = getelementptr inbounds i32, i32* %b, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx2, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds i32, ptr %b, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx2, align 4
   %cmp3 = icmp sgt i32 %0, %1
   %.c = select i1 %cmp3, i32 %0, i32 %c
   %output.1 = add nsw i32 %.c, %output.018

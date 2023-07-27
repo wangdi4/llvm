@@ -1,32 +1,31 @@
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -hir-cost-model-throttling=0 -S -vplan-force-vf=2 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -hir-cost-model-throttling=0 -S -vplan-force-vf=2 < %s 2>&1 | FileCheck %s
 
 ; Verify that we are successfully able to generate vector code for the function pointer setting loop.
 
-; CHECK: + DO i1 = 0, 79, 2   <DO_LOOP>
-; CHECK: |   (<2 x %struct.TypHeader* (%struct.TypHeader*)*>*)(@EvTab)[0][i1] = @CantEval;
+; CHECK: + DO i1 = 0, 79, 2   <DO_LOOP> <auto-vectorized>
+; CHECK: |   (<2 x ptr>*)(@EvTab)[0][i1] = @CantEval;
 ; CHECK: + END LOOP
 
-; CHECK: bitcast %struct.TypHeader* (%struct.TypHeader*)** %{{.*}} to <2 x %struct.TypHeader* (%struct.TypHeader*)*>*
-; CHECK: store <2 x %struct.TypHeader* (%struct.TypHeader*)*> <%struct.TypHeader* (%struct.TypHeader*)* @CantEval, %struct.TypHeader* (%struct.TypHeader*)* @CantEval>
+; CHECK: store <2 x ptr> <ptr @CantEval, ptr @CantEval>
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 
-%struct.TypHeader = type { i64, %struct.TypHeader**, [3 x i8], i8 }
+%struct.TypHeader = type { i64, ptr, [3 x i8], i8 }
 
-@EvTab = external hidden unnamed_addr global [81 x %struct.TypHeader* (%struct.TypHeader*)*], align 16
+@EvTab = external hidden unnamed_addr global [81 x ptr], align 16
 
-declare hidden %struct.TypHeader* @CantEval(%struct.TypHeader*)
+declare hidden ptr @CantEval(ptr)
 
 define void @InitEval() {
   br label %loop
 
 loop:                                      ; preds = %loop, %0
   %iv = phi i64 [ 0, %0 ], [ %inc, %loop ]
-  %gep = getelementptr [81 x %struct.TypHeader* (%struct.TypHeader*)*], [81 x %struct.TypHeader* (%struct.TypHeader*)*]* @EvTab, i64 0, i64 %iv
-  store %struct.TypHeader* (%struct.TypHeader*)* @CantEval, %struct.TypHeader* (%struct.TypHeader*)** %gep, align 8, !tbaa !1
+  %gep = getelementptr [81 x ptr], ptr @EvTab, i64 0, i64 %iv
+  store ptr @CantEval, ptr %gep, align 8, !tbaa !1
   %inc = add nuw nsw i64 %iv, 1
   %cmp = icmp eq i64 %inc, 81
   br i1 %cmp, label %exit, label %loop

@@ -16,7 +16,7 @@
 ; CHECK-LABEL: @test1
 ; CHECK-NOT: !llvm.loop
 
-define void @test1(float* %P) {
+define void @test1(ptr %P) {
 entry:
   br label %for.body
 
@@ -27,8 +27,8 @@ for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %0 = trunc i64 %indvars.iv to i32
   %conv = sitofp i32 %0 to float
-  %ptridx = getelementptr inbounds float, float* %P, i64 %indvars.iv
-  store float %conv, float* %ptridx, align 4, !llvm.access.group !2
+  %ptridx = getelementptr inbounds float, ptr %P, i64 %indvars.iv
+  store float %conv, ptr %ptridx, align 4, !llvm.access.group !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond, label %for.cond.cleanup, label %for.body, !llvm.loop !0

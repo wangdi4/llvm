@@ -1,7 +1,7 @@
 ;; This test verifies correct cg for an HLIf, representing ztt of an i2 loop
 ;; Also verifies correct cg for a double subscript address calculation
 ;;
-; RUN: opt -opaque-pointers=0 -passes="hir-cg" -force-hir-cg -S < %s | FileCheck %s
+; RUN: opt -passes="hir-cg" -force-hir-cg -S < %s | FileCheck %s
 ; basic cg
 ; CHECK: region.0:
 
@@ -24,14 +24,14 @@
 ; CHECK: [[L2Label]]:
 
 ; these arent fully reorderable, but verifier should eliminate illegal ones
-; CHECK-DAG: [[I1:%[0-9]+]] = load i64, i64* %i1.i64
+; CHECK-DAG: [[I1:%[0-9]+]] = load i64, ptr %i1.i64
 ; CHECK-DAG: [[I1_MUL_2:%[0-9]+]] = mul i64 2, [[I1]]
 
-; CHECK-DAG: [[I2:%[0-9]+]] = load i64, i64* %i2.i64
+; CHECK-DAG: [[I2:%[0-9]+]] = load i64, ptr %i2.i64
 ; CHECK-DAG: [[SEXT_K:%[0-9]+]] = sext i32 %k to i64
 ; CHECK-DAG: [[I2_MUL_K:%[0-9]+]] = mul i64 [[SEXT_K]], [[I2]]
 ; (@A)[2 * i1][sext.i32.i64(%k) * i2]
-; CHECK:  getelementptr inbounds [10 x [10 x i32]], [10 x [10 x i32]]* @A, i64 0, i64 [[I1_MUL_2]], i64 [[I2_MUL_K]]
+; CHECK:  getelementptr inbounds [10 x [10 x i32]], ptr @A, i64 0, i64 [[I1_MUL_2]], i64 [[I2_MUL_K]]
 
 ; after i2, we jump to if's merge point
 ; CHECK: after[[L2Label]]:
@@ -63,16 +63,16 @@ for.cond2.preheader:                              ; preds = %for.inc11, %for.con
   br i1 %cmp418, label %for.body6.lr.ph, label %for.inc11
 
 for.body6.lr.ph:                                  ; preds = %for.cond2.preheader
-  %arrayidx = getelementptr inbounds [10 x i32], [10 x i32]* @B, i64 0, i64 %i.021
-  %2 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds [10 x i32], ptr @B, i64 0, i64 %i.021
+  %2 = load i32, ptr %arrayidx, align 4, !tbaa !1
   %mul8 = shl nsw i64 %i.021, 1
   br label %for.body6
 
 for.body6:                                        ; preds = %for.body6, %for.body6.lr.ph
   %j.019 = phi i64 [ 0, %for.body6.lr.ph ], [ %inc, %for.body6 ]
   %mul = mul nsw i64 %j.019, %conv7
-  %arrayidx10 = getelementptr inbounds [10 x [10 x i32]], [10 x [10 x i32]]* @A, i64 0, i64 %mul8, i64 %mul
-  store i32 %2, i32* %arrayidx10, align 4, !tbaa !1
+  %arrayidx10 = getelementptr inbounds [10 x [10 x i32]], ptr @A, i64 0, i64 %mul8, i64 %mul
+  store i32 %2, ptr %arrayidx10, align 4, !tbaa !1
   %inc = add nuw nsw i64 %j.019, 1
   %exitcond = icmp eq i64 %inc, %0
   br i1 %exitcond, label %for.inc11.loopexit, label %for.body6

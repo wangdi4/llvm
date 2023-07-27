@@ -1,7 +1,7 @@
-;RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,print<hir>,hir-cg" -force-hir-cg -print-after=hir-cg 2>&1 %s | FileCheck %s
+;RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-cg" -force-hir-cg -print-after=hir-cg 2>&1 %s | FileCheck %s
 
 ; Verify that we are able to generate code correctly in opaque ptr mode when
-; there is an implied bitcast (i8* to i32*) between GEPs. First GEP was 
+; there is an implied bitcast (i8* to i32*) between GEPs. First GEP was
 ; emitted in i8 type because stride is non-const.
 
 ; CHECK: [[GEP1:%.*]] = getelementptr inbounds i8, ptr %arr, i64 {{.*}}

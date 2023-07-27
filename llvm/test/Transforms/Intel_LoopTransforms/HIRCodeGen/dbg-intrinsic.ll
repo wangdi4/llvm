@@ -39,14 +39,14 @@
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
 define dso_local i32 @e() local_unnamed_addr #0 !dbg !30 {
 entry:
-  %.pr = load i32, i32* @c, align 4, !dbg !39, !tbaa !42
-  %0 = load i32, i32* @a, align 4, !dbg !46
+  %.pr = load i32, ptr @c, align 4, !dbg !39, !tbaa !42
+  %0 = load i32, ptr @a, align 4, !dbg !46
   call void @llvm.dbg.value(metadata <1 x i64> undef, metadata !34, metadata !DIExpression()), !dbg !48
   %tobool.not14 = icmp eq i32 %.pr, 0, !dbg !49
   br i1 %tobool.not14, label %for.end8, label %for.body.lr.ph, !dbg !49
 
 for.body.lr.ph:                                   ; preds = %entry
-  %.pr12.pre = load i32, i32* @b, align 4, !dbg !50, !tbaa !42
+  %.pr12.pre = load i32, ptr @b, align 4, !dbg !50, !tbaa !42
   %phi.cmp = icmp eq i32 %.pr12.pre, 0, !dbg !49
   br label %for.body, !dbg !49
 
@@ -64,10 +64,10 @@ for.body3.preheader:                              ; preds = %for.body
   %conv = zext i32 %add to i64, !dbg !46
   %sext = shl i64 %conv, 56, !dbg !55
   %conv4 = ashr exact i64 %sext, 56, !dbg !55
-  %2 = inttoptr i64 %conv4 to <1 x double>*, !dbg !56
+  %2 = inttoptr i64 %conv4 to ptr, !dbg !56
   call void @llvm.dbg.value(metadata i32 undef, metadata !34, metadata !DIExpression()), !dbg !48
-  %3 = load <1 x double>, <1 x double>* %2, align 8, !dbg !56, !tbaa !57
-  store i32 0, i32* @b, align 4, !dbg !58, !tbaa !42
+  %3 = load <1 x double>, ptr %2, align 8, !dbg !56, !tbaa !57
+  store i32 0, ptr @b, align 4, !dbg !58, !tbaa !42
   br label %for.end, !dbg !53
 
 for.end:                                          ; preds = %for.body3.preheader, %for.body
@@ -84,8 +84,8 @@ for.cond.for.end8_crit_edge:                      ; preds = %for.end
   %5 = bitcast double %4 to <2 x i32>, !dbg !63
   %6 = extractelement <2 x i32> %5, i64 0, !dbg !63
   call void @llvm.dbg.value(metadata i32 %6, metadata !37, metadata !DIExpression()), !dbg !48
-  store i32 %6, i32* @d, align 4, !dbg !64, !tbaa !42
-  store i32 0, i32* @c, align 4, !dbg !59, !tbaa !42
+  store i32 %6, ptr @d, align 4, !dbg !64, !tbaa !42
+  store i32 0, ptr @c, align 4, !dbg !59, !tbaa !42
   br label %for.end8, !dbg !49
 
 for.end8:                                         ; preds = %for.cond.for.end8_crit_edge, %entry
