@@ -7330,47 +7330,14 @@ bool CodeGenPrepare::optimizeSelectInst(SelectInst *SI) {
 
   // Sink expensive instructions into the conditional blocks to avoid executing
   // them speculatively.
-<<<<<<< HEAD
-  for (SelectInst *SI : ASI) {
-    if (sinkSelectOperand(TTI, SI->getTrueValue())) {
-      if (TrueBlock == nullptr) {
-        TrueBlock = BasicBlock::Create(SI->getContext(), "select.true.sink",
-                                       EndBlock->getParent(), EndBlock);
-        TrueBranch = BranchInst::Create(EndBlock, TrueBlock);
-        if (IsHugeFunc)
-          FreshBBs.insert(TrueBlock);
-        if (L)
-          L->addBasicBlockToLoop(TrueBlock, *LI);
-        TrueBranch->setDebugLoc(SI->getDebugLoc());
-      }
-      auto *TrueInst = cast<Instruction>(SI->getTrueValue());
-      TrueInst->moveBefore(TrueBranch);
-
-      SinkInstOperandsRecursively(TrueInst, TTI); // INTEL
-    }
-    if (sinkSelectOperand(TTI, SI->getFalseValue())) {
-      if (FalseBlock == nullptr) {
-        FalseBlock = BasicBlock::Create(SI->getContext(), "select.false.sink",
-                                        EndBlock->getParent(), EndBlock);
-        if (IsHugeFunc)
-          FreshBBs.insert(FalseBlock);
-        if (L)
-          L->addBasicBlockToLoop(FalseBlock, *LI);
-        FalseBranch = BranchInst::Create(EndBlock, FalseBlock);
-        FalseBranch->setDebugLoc(SI->getDebugLoc());
-      }
-      auto *FalseInst = cast<Instruction>(SI->getFalseValue());
-      FalseInst->moveBefore(FalseBranch);
-
-      SinkInstOperandsRecursively(FalseInst, TTI); // INTEL
-    }
-  }
-=======
-  for (Instruction *I : TrueInstrs)
+  for (Instruction *I : TrueInstrs) {
     I->moveBefore(TrueBranch);
-  for (Instruction *I : FalseInstrs)
+    SinkInstOperandsRecursively(I, TTI); // INTEL
+  }
+  for (Instruction *I : FalseInstrs) {
     I->moveBefore(FalseBranch);
->>>>>>> 4c95f79cce190a3bc9ad4add2d32a2ae5f035d91
+    SinkInstOperandsRecursively(I, TTI); // INTEL
+  }
 
   // If we did not create a new block for one of the 'true' or 'false' paths
   // of the condition, it means that side of the branch goes to the end block
