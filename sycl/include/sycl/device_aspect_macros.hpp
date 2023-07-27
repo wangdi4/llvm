@@ -218,7 +218,6 @@
 #define __SYCL_ALL_DEVICES_HAVE_ext_intel_legacy_image__ 0
 #endif
 
-<<<<<<< HEAD
 #ifndef __SYCL_ALL_DEVICES_HAVE_ext_oneapi_bindless_images__
 // __SYCL_ASPECT(ext_oneapi_bindless_images, 42)
 #define __SYCL_ALL_DEVICES_HAVE_ext_oneapi_bindless_images__ 0
@@ -274,8 +273,6 @@
 #define __SYCL_ALL_DEVICES_HAVE_ext_oneapi_mipmap_level_reference__ 0
 #endif
 
-=======
->>>>>>> b2f76288ce7fb05266d985fb79790e259be193a8
 #ifndef __SYCL_ANY_DEVICE_HAS_host__
 // __SYCL_ASPECT(host, 0)
 #define __SYCL_ANY_DEVICE_HAS_host__ 0
