@@ -921,7 +921,152 @@ static bool foldPatternedLoads(Instruction &I, const DataLayout &DL) {
   return true;
 }
 
-<<<<<<< HEAD
+/// Try to replace a mathlib call to sqrt with the LLVM intrinsic. This avoids
+/// pessimistic codegen that has to account for setting errno and can enable
+/// vectorization.
+static bool foldSqrt(CallInst *Call, TargetTransformInfo &TTI,
+                     TargetLibraryInfo &TLI, AssumptionCache &AC,
+                     DominatorTree &DT) {
+  Module *M = Call->getModule();
+
+  // If (1) this is a sqrt libcall, (2) we can assume that NAN is not created
+  // (because NNAN or the operand arg must not be less than -0.0) and (2) we
+  // would not end up lowering to a libcall anyway (which could change the value
+  // of errno), then:
+  // (1) errno won't be set.
+  // (2) it is safe to convert this to an intrinsic call.
+  Type *Ty = Call->getType();
+  Value *Arg = Call->getArgOperand(0);
+  if (TTI.haveFastSqrt(Ty) &&
+      (Call->hasNoNaNs() ||
+       cannotBeOrderedLessThanZero(Arg, M->getDataLayout(), &TLI, 0, &AC, Call,
+                                   &DT))) {
+    IRBuilder<> Builder(Call);
+    IRBuilderBase::FastMathFlagGuard Guard(Builder);
+    Builder.setFastMathFlags(Call->getFastMathFlags());
+
+    Function *Sqrt = Intrinsic::getDeclaration(M, Intrinsic::sqrt, Ty);
+    Value *NewSqrt = Builder.CreateCall(Sqrt, Arg, "sqrt");
+    Call->replaceAllUsesWith(NewSqrt);
+
+    // Explicitly erase the old call because a call with side effects is not
+    // trivially dead.
+    Call->eraseFromParent();
+    return true;
+  }
+
+  return false;
+}
+
+/// Try to expand strcmp(P, "x") calls.
+static bool expandStrcmp(CallInst *CI, DominatorTree &DT, bool &MadeCFGChange) {
+  Value *Str1P = CI->getArgOperand(0), *Str2P = CI->getArgOperand(1);
+
+  // Trivial cases are optimized during inst combine
+  if (Str1P == Str2P)
+    return false;
+
+  StringRef Str1, Str2;
+  bool HasStr1 = getConstantStringInfo(Str1P, Str1);
+  bool HasStr2 = getConstantStringInfo(Str2P, Str2);
+
+  Value *NonConstantP = nullptr;
+  StringRef ConstantStr;
+
+  if (!HasStr1 && HasStr2 && Str2.size() == 1) {
+    NonConstantP = Str1P;
+    ConstantStr = Str2;
+  } else if (!HasStr2 && HasStr1 && Str1.size() == 1) {
+    NonConstantP = Str2P;
+    ConstantStr = Str1;
+  } else {
+    return false;
+  }
+
+  // Check if strcmp result is only used in a comparison with zero
+  if (!isOnlyUsedInZeroComparison(CI))
+    return false;
+
+  // For strcmp(P, "x") do the following transformation:
+  //
+  // (before)
+  // dst = strcmp(P, "x")
+  //
+  // (after)
+  // v0 = P[0] - 'x'
+  // [if v0 == 0]
+  //   v1 = P[1]
+  // dst = phi(v0, v1)
+  //
+
+  IRBuilder<> B(CI->getParent());
+  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
+
+  Type *RetType = CI->getType();
+
+  B.SetInsertPoint(CI);
+  BasicBlock *InitialBB = B.GetInsertBlock();
+  Value *Str1FirstCharacterValue =
+      B.CreateZExt(B.CreateLoad(B.getInt8Ty(), NonConstantP), RetType);
+  Value *Str2FirstCharacterValue =
+      ConstantInt::get(RetType, static_cast<unsigned char>(ConstantStr[0]));
+  Value *FirstCharacterSub =
+      B.CreateNSWSub(Str1FirstCharacterValue, Str2FirstCharacterValue);
+  Value *IsFirstCharacterSubZero =
+      B.CreateICmpEQ(FirstCharacterSub, ConstantInt::get(RetType, 0));
+  Instruction *IsFirstCharacterSubZeroBBTerminator = SplitBlockAndInsertIfThen(
+      IsFirstCharacterSubZero, CI, /*Unreachable*/ false,
+      /*BranchWeights*/ nullptr, &DTU);
+
+  B.SetInsertPoint(IsFirstCharacterSubZeroBBTerminator);
+  B.GetInsertBlock()->setName("strcmp_expand_sub_is_zero");
+  BasicBlock *IsFirstCharacterSubZeroBB = B.GetInsertBlock();
+  Value *Str1SecondCharacterValue = B.CreateZExt(
+      B.CreateLoad(B.getInt8Ty(), B.CreateConstInBoundsGEP1_64(
+                                      B.getInt8Ty(), NonConstantP, 1)),
+      RetType);
+
+  B.SetInsertPoint(CI);
+  B.GetInsertBlock()->setName("strcmp_expand_sub_join");
+
+  PHINode *Result = B.CreatePHI(RetType, 2);
+  Result->addIncoming(FirstCharacterSub, InitialBB);
+  Result->addIncoming(Str1SecondCharacterValue, IsFirstCharacterSubZeroBB);
+
+  CI->replaceAllUsesWith(Result);
+  CI->eraseFromParent();
+
+  MadeCFGChange = true;
+
+  return true;
+}
+
+static bool foldLibraryCalls(Instruction &I, TargetTransformInfo &TTI,
+                             TargetLibraryInfo &TLI, DominatorTree &DT,
+                             AssumptionCache &AC, bool &MadeCFGChange) {
+  CallInst *CI = dyn_cast<CallInst>(&I);
+  if (!CI)
+    return false;
+
+  LibFunc Func;
+  Module *M = I.getModule();
+  if (!TLI.getLibFunc(*CI, Func) || !isLibFuncEmittable(M, &TLI, Func))
+    return false;
+
+  switch (Func) {
+  case LibFunc_sqrt:
+  case LibFunc_sqrtf:
+  case LibFunc_sqrtl:
+    return foldSqrt(CI, TTI, TLI, AC, DT);
+  case LibFunc_strcmp:
+    return expandStrcmp(CI, DT, MadeCFGChange);
+  default:
+    break;
+  }
+
+  return false;
+}
+
 #if INTEL_CUSTOMIZATION
 // Compute a specific formula (described in mathPowTable()) into
 // a static table.
@@ -1145,153 +1290,6 @@ static bool matchPowTable(Instruction &I) {
   return false;
 }
 #endif // INTEL_CUSTOMIZATION
-=======
-/// Try to replace a mathlib call to sqrt with the LLVM intrinsic. This avoids
-/// pessimistic codegen that has to account for setting errno and can enable
-/// vectorization.
-static bool foldSqrt(CallInst *Call, TargetTransformInfo &TTI,
-                     TargetLibraryInfo &TLI, AssumptionCache &AC,
-                     DominatorTree &DT) {
-  Module *M = Call->getModule();
-
-  // If (1) this is a sqrt libcall, (2) we can assume that NAN is not created
-  // (because NNAN or the operand arg must not be less than -0.0) and (2) we
-  // would not end up lowering to a libcall anyway (which could change the value
-  // of errno), then:
-  // (1) errno won't be set.
-  // (2) it is safe to convert this to an intrinsic call.
-  Type *Ty = Call->getType();
-  Value *Arg = Call->getArgOperand(0);
-  if (TTI.haveFastSqrt(Ty) &&
-      (Call->hasNoNaNs() ||
-       cannotBeOrderedLessThanZero(Arg, M->getDataLayout(), &TLI, 0, &AC, Call,
-                                   &DT))) {
-    IRBuilder<> Builder(Call);
-    IRBuilderBase::FastMathFlagGuard Guard(Builder);
-    Builder.setFastMathFlags(Call->getFastMathFlags());
-
-    Function *Sqrt = Intrinsic::getDeclaration(M, Intrinsic::sqrt, Ty);
-    Value *NewSqrt = Builder.CreateCall(Sqrt, Arg, "sqrt");
-    Call->replaceAllUsesWith(NewSqrt);
-
-    // Explicitly erase the old call because a call with side effects is not
-    // trivially dead.
-    Call->eraseFromParent();
-    return true;
-  }
-
-  return false;
-}
-
-/// Try to expand strcmp(P, "x") calls.
-static bool expandStrcmp(CallInst *CI, DominatorTree &DT, bool &MadeCFGChange) {
-  Value *Str1P = CI->getArgOperand(0), *Str2P = CI->getArgOperand(1);
-
-  // Trivial cases are optimized during inst combine
-  if (Str1P == Str2P)
-    return false;
-
-  StringRef Str1, Str2;
-  bool HasStr1 = getConstantStringInfo(Str1P, Str1);
-  bool HasStr2 = getConstantStringInfo(Str2P, Str2);
-
-  Value *NonConstantP = nullptr;
-  StringRef ConstantStr;
-
-  if (!HasStr1 && HasStr2 && Str2.size() == 1) {
-    NonConstantP = Str1P;
-    ConstantStr = Str2;
-  } else if (!HasStr2 && HasStr1 && Str1.size() == 1) {
-    NonConstantP = Str2P;
-    ConstantStr = Str1;
-  } else {
-    return false;
-  }
-
-  // Check if strcmp result is only used in a comparison with zero
-  if (!isOnlyUsedInZeroComparison(CI))
-    return false;
-
-  // For strcmp(P, "x") do the following transformation:
-  //
-  // (before)
-  // dst = strcmp(P, "x")
-  //
-  // (after)
-  // v0 = P[0] - 'x'
-  // [if v0 == 0]
-  //   v1 = P[1]
-  // dst = phi(v0, v1)
-  //
-
-  IRBuilder<> B(CI->getParent());
-  DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
-
-  Type *RetType = CI->getType();
-
-  B.SetInsertPoint(CI);
-  BasicBlock *InitialBB = B.GetInsertBlock();
-  Value *Str1FirstCharacterValue =
-      B.CreateZExt(B.CreateLoad(B.getInt8Ty(), NonConstantP), RetType);
-  Value *Str2FirstCharacterValue =
-      ConstantInt::get(RetType, static_cast<unsigned char>(ConstantStr[0]));
-  Value *FirstCharacterSub =
-      B.CreateNSWSub(Str1FirstCharacterValue, Str2FirstCharacterValue);
-  Value *IsFirstCharacterSubZero =
-      B.CreateICmpEQ(FirstCharacterSub, ConstantInt::get(RetType, 0));
-  Instruction *IsFirstCharacterSubZeroBBTerminator = SplitBlockAndInsertIfThen(
-      IsFirstCharacterSubZero, CI, /*Unreachable*/ false,
-      /*BranchWeights*/ nullptr, &DTU);
-
-  B.SetInsertPoint(IsFirstCharacterSubZeroBBTerminator);
-  B.GetInsertBlock()->setName("strcmp_expand_sub_is_zero");
-  BasicBlock *IsFirstCharacterSubZeroBB = B.GetInsertBlock();
-  Value *Str1SecondCharacterValue = B.CreateZExt(
-      B.CreateLoad(B.getInt8Ty(), B.CreateConstInBoundsGEP1_64(
-                                      B.getInt8Ty(), NonConstantP, 1)),
-      RetType);
-
-  B.SetInsertPoint(CI);
-  B.GetInsertBlock()->setName("strcmp_expand_sub_join");
-
-  PHINode *Result = B.CreatePHI(RetType, 2);
-  Result->addIncoming(FirstCharacterSub, InitialBB);
-  Result->addIncoming(Str1SecondCharacterValue, IsFirstCharacterSubZeroBB);
-
-  CI->replaceAllUsesWith(Result);
-  CI->eraseFromParent();
-
-  MadeCFGChange = true;
-
-  return true;
-}
-
-static bool foldLibraryCalls(Instruction &I, TargetTransformInfo &TTI,
-                             TargetLibraryInfo &TLI, DominatorTree &DT,
-                             AssumptionCache &AC, bool &MadeCFGChange) {
-  CallInst *CI = dyn_cast<CallInst>(&I);
-  if (!CI)
-    return false;
-
-  LibFunc Func;
-  Module *M = I.getModule();
-  if (!TLI.getLibFunc(*CI, Func) || !isLibFuncEmittable(M, &TLI, Func))
-    return false;
-
-  switch (Func) {
-  case LibFunc_sqrt:
-  case LibFunc_sqrtf:
-  case LibFunc_sqrtl:
-    return foldSqrt(CI, TTI, TLI, AC, DT);
-  case LibFunc_strcmp:
-    return expandStrcmp(CI, DT, MadeCFGChange);
-  default:
-    break;
-  }
-
-  return false;
-}
->>>>>>> 8981520b19f2d2fe3d2bc80cf26318ee6b5b7473
 
 /// This is the entry point for folds that could be implemented in regular
 /// InstCombine, but they are separated because they are not expected to
@@ -1369,16 +1367,13 @@ PreservedAnalyses AggressiveInstCombinePass::run(Function &F,
 
   // Mark all the analyses that instcombine updates as preserved.
   PreservedAnalyses PA;
-<<<<<<< HEAD
-  PA.preserveSet<CFGAnalyses>();
-  PA.preserve<WholeProgramAnalysis>();   // INTEL
-=======
 
   if (MadeCFGChange)
     PA.preserve<DominatorTreeAnalysis>();
   else
     PA.preserveSet<CFGAnalyses>();
 
->>>>>>> 8981520b19f2d2fe3d2bc80cf26318ee6b5b7473
+  PA.preserve<WholeProgramAnalysis>(); // INTEL
+
   return PA;
 }
