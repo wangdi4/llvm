@@ -20,7 +20,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local i32 @main() local_unnamed_addr {
 entry:
-  %0 = load i32, i32* @a, align 4
+  %0 = load i32, ptr @a, align 4
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
@@ -35,7 +35,7 @@ for.body:                                         ; preds = %for.body, %entry
 
 for.cond.cleanup:                                 ; preds = %for.body
   %add.lcssa = phi i32 [ %add, %for.body ]
-  store i32 %add.lcssa, i32* @a, align 4
+  store i32 %add.lcssa, ptr @a, align 4
   ret i32 0
 }
 

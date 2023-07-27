@@ -59,7 +59,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline nounwind uwtable
-define void @foo(i32* %p, i32* %q, i32* %r, i32 %n, i32 %k) #0 {
+define void @foo(ptr %p, ptr %q, ptr %r, i32 %n, i32 %k) #0 {
 entry:
   %cmp3 = icmp slt i32 0, %n
   br i1 %cmp3, label %for.body.lr.ph, label %for.end13
@@ -91,26 +91,26 @@ sw.default:                                       ; preds = %for.body3
 
 L1:                                               ; preds = %sw.bb
   %idxprom = zext i32 %i.01 to i64
-  %arrayidx = getelementptr inbounds i32, i32* %p, i64 %idxprom
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %p, i64 %idxprom
+  %0 = load i32, ptr %arrayidx, align 4
   %add = add nsw i32 %0, 1
-  store i32 %add, i32* %arrayidx, align 4
+  store i32 %add, ptr %arrayidx, align 4
   br label %exit
 
 L2:                                               ; preds = %sw.bb4
   %idxprom5 = zext i32 %i.01 to i64
-  %arrayidx6 = getelementptr inbounds i32, i32* %p, i64 %idxprom5
-  %1 = load i32, i32* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds i32, ptr %p, i64 %idxprom5
+  %1 = load i32, ptr %arrayidx6, align 4
   %add7 = add nsw i32 %1, 2
-  store i32 %add7, i32* %arrayidx6, align 4
+  store i32 %add7, ptr %arrayidx6, align 4
   br label %exit
 
 L3:                                               ; preds = %sw.default
   %idxprom8 = zext i32 %i.01 to i64
-  %arrayidx9 = getelementptr inbounds i32, i32* %q, i64 %idxprom8
-  %2 = load i32, i32* %arrayidx9, align 4
+  %arrayidx9 = getelementptr inbounds i32, ptr %q, i64 %idxprom8
+  %2 = load i32, ptr %arrayidx9, align 4
   %add10 = add nsw i32 %2, 3
-  store i32 %add10, i32* %arrayidx9, align 4
+  store i32 %add10, ptr %arrayidx9, align 4
   br label %exit
 
 exit:                                             ; preds = %L3, %L2, %L1

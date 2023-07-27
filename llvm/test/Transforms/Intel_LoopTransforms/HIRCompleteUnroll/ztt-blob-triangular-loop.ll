@@ -65,25 +65,25 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define i32 @main() local_unnamed_addr #0 {
 entry:
-  call void @llvm.memset.p0i8.i64(i8* getelementptr inbounds ([20 x i8], [20 x i8]* @s, i64 0, i64 0), i8 6, i64 20, i32 16, i1 false)
-  store i32 20, i32* @z, align 4, !tbaa !1
-  store i32 4, i32* @b, align 4, !tbaa !1
-  %0 = load i32, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @uw, i64 0, i64 0), align 16, !tbaa !5
+  call void @llvm.memset.p0.i64(ptr @s, i8 6, i64 20, i32 16, i1 false)
+  store i32 20, ptr @z, align 4, !tbaa !1
+  store i32 4, ptr @b, align 4, !tbaa !1
+  %0 = load i32, ptr @uw, align 16, !tbaa !5
   %tobool = icmp ne i32 %0, 0
   br label %for.body3
 
 for.cond27.preheader:                             ; preds = %for.inc24
   %.lcssa = phi i8 [ %1, %for.inc24 ]
   %conv.le = zext i8 %.lcssa to i64
-  store i32 10, i32* @b, align 4, !tbaa !1
-  store i64 %conv.le, i64* @q, align 8, !tbaa !7
-  store i64 0, i64* @f, align 8, !tbaa !7
+  store i32 10, ptr @b, align 4, !tbaa !1
+  store i64 %conv.le, ptr @q, align 8, !tbaa !7
+  store i64 0, ptr @f, align 8, !tbaa !7
   br label %for.body30
 
 for.body3:                                        ; preds = %for.inc24, %entry
   %indvars.iv49 = phi i64 [ 4, %entry ], [ %indvars.iv.next50, %for.inc24 ]
-  %arrayidx5 = getelementptr inbounds [20 x i8], [20 x i8]* @s, i64 0, i64 %indvars.iv49
-  %1 = load i8, i8* %arrayidx5, align 1, !tbaa !9
+  %arrayidx5 = getelementptr inbounds [20 x i8], ptr @s, i64 0, i64 %indvars.iv49
+  %1 = load i8, ptr %arrayidx5, align 1, !tbaa !9
   %cmp744 = icmp ult i64 %indvars.iv49, 8
   %or.cond = or i1 %tobool, %cmp744
   br i1 %or.cond, label %for.inc24, label %for.cond10.preheader.preheader
@@ -99,10 +99,10 @@ for.cond10.preheader:                             ; preds = %for.cond10.preheade
 
 for.inc24.loopexit:                               ; preds = %for.cond10.preheader
   %indvars.iv.lcssa = phi i64 [ %indvars.iv, %for.cond10.preheader ]
-  %arrayidx15 = getelementptr inbounds [20 x i16], [20 x i16]* @e, i64 0, i64 %indvars.iv.lcssa
-  %2 = load i16, i16* %arrayidx15, align 2, !tbaa !11
+  %arrayidx15 = getelementptr inbounds [20 x i16], ptr @e, i64 0, i64 %indvars.iv.lcssa
+  %2 = load i16, ptr %arrayidx15, align 2, !tbaa !11
   %conv16 = trunc i16 %2 to i8
-  store i8 %conv16, i8* %arrayidx5, align 1, !tbaa !9
+  store i8 %conv16, ptr %arrayidx5, align 1, !tbaa !9
   br label %for.inc24
 
 for.inc24:                                        ; preds = %for.inc24.loopexit, %for.body3
@@ -112,13 +112,13 @@ for.inc24:                                        ; preds = %for.inc24.loopexit,
 
 for.body30:                                       ; preds = %for.cond27.preheader, %for.body30
   %inc34.sink42 = phi i64 [ 0, %for.cond27.preheader ], [ %inc34, %for.body30 ]
-  %arrayidx31 = getelementptr inbounds [20 x i8], [20 x i8]* @s, i64 0, i64 %inc34.sink42
-  %3 = load i8, i8* %arrayidx31, align 1, !tbaa !9
+  %arrayidx31 = getelementptr inbounds [20 x i8], ptr @s, i64 0, i64 %inc34.sink42
+  %3 = load i8, ptr %arrayidx31, align 1, !tbaa !9
   %conv32 = zext i8 %3 to i32
   tail call void @print_int(i32 %conv32) #3
-  %4 = load i64, i64* @f, align 8, !tbaa !7
+  %4 = load i64, ptr @f, align 8, !tbaa !7
   %inc34 = add i64 %4, 1
-  store i64 %inc34, i64* @f, align 8, !tbaa !7
+  store i64 %inc34, ptr @f, align 8, !tbaa !7
   %cmp28 = icmp ult i64 %inc34, 20
   br i1 %cmp28, label %for.body30, label %for.end35
 
@@ -129,7 +129,7 @@ for.end35:                                        ; preds = %for.body30
 declare void @print_int(i32) local_unnamed_addr #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i32, i1) #2
+declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i32, i1) #2
 
 attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }

@@ -7,9 +7,9 @@
 ; store before the outer loops which form perfect loopnest.
 
 ; CHECK: BEGIN REGION { }
-; CHECK: (%Tmp1)[0][0] = 5;
+; CHECK: (i32*)(%Tmp1)[0] = 5;
 ; CHECK: (%Tmp1)[0][1] = 5;
-; CHECK: (%Tmp2)[0][0] = 50;
+; CHECK: (i32*)(%Tmp2)[0] = 50;
 ; CHECK: (%Tmp2)[0][1] = 100;
 
 ; CHECK: + DO i1 = 0, 249, 1   <DO_LOOP>
@@ -46,21 +46,19 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly nofree nosync nounwind uwtable
-define dso_local void @foo(i32* nocapture noundef %A, i32* nocapture noundef %B) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture noundef %A, ptr nocapture noundef %B) local_unnamed_addr #0 {
 entry:
   %Tmp1 = alloca [2 x i32], align 4
   %Tmp2 = alloca [2 x i32], align 4
   br label %bb
 
 bb:
-  %arrayidx = getelementptr inbounds [2 x i32], [2 x i32]* %Tmp1, i64 0, i64 0
-  store i32 5, i32* %arrayidx, align 4
-  %arrayidx1 = getelementptr inbounds [2 x i32], [2 x i32]* %Tmp1, i64 0, i64 1
-  store i32 5, i32* %arrayidx1, align 4
-  %arrayidx2 = getelementptr inbounds [2 x i32], [2 x i32]* %Tmp2, i64 0, i64 0
-  store i32 50, i32* %arrayidx2, align 4
-  %arrayidx3 = getelementptr inbounds [2 x i32], [2 x i32]* %Tmp2, i64 0, i64 1
-  store i32 100, i32* %arrayidx3, align 4
+  store i32 5, ptr %Tmp1, align 4
+  %arrayidx1 = getelementptr inbounds [2 x i32], ptr %Tmp1, i64 0, i64 1
+  store i32 5, ptr %arrayidx1, align 4
+  store i32 50, ptr %Tmp2, align 4
+  %arrayidx3 = getelementptr inbounds [2 x i32], ptr %Tmp2, i64 0, i64 1
+  store i32 100, ptr %arrayidx3, align 4
   br label %for.cond4.preheader
 
 for.cond4.preheader:                              ; preds = %entry, %for.inc11
@@ -70,13 +68,13 @@ for.cond4.preheader:                              ; preds = %entry, %for.inc11
 for.body6:                                        ; preds = %for.cond4.preheader, %for.body6
   %cmp5 = phi i1 [ true, %for.cond4.preheader ], [ false, %for.body6 ]
   %indvars.iv = phi i64 [ 0, %for.cond4.preheader ], [ 1, %for.body6 ]
-  %arrayidx7 = getelementptr inbounds [2 x i32], [2 x i32]* %Tmp1, i64 0, i64 %indvars.iv
-  %t2 = load i32, i32* %arrayidx7, align 4
+  %arrayidx7 = getelementptr inbounds [2 x i32], ptr %Tmp1, i64 0, i64 %indvars.iv
+  %t2 = load i32, ptr %arrayidx7, align 4
   %t3 = add nuw nsw i64 %indvars.iv, %indvars.iv51
-  %arrayidx9 = getelementptr inbounds i32, i32* %A, i64 %t3
-  %t4 = load i32, i32* %arrayidx9, align 4
+  %arrayidx9 = getelementptr inbounds i32, ptr %A, i64 %t3
+  %t4 = load i32, ptr %arrayidx9, align 4
   %add10 = add nsw i32 %t4, %t2
-  store i32 %add10, i32* %arrayidx9, align 4
+  store i32 %add10, ptr %arrayidx9, align 4
   br i1 %cmp5, label %for.body6, label %for.inc11
 
 for.inc11:                                        ; preds = %for.body6
@@ -94,13 +92,13 @@ for.cond17.preheader:                             ; preds = %for.cond17.preheade
 for.body19:                                       ; preds = %for.cond17.preheader, %for.body19
   %cmp18 = phi i1 [ true, %for.cond17.preheader ], [ false, %for.body19 ]
   %indvars.iv53 = phi i64 [ 0, %for.cond17.preheader ], [ 1, %for.body19 ]
-  %arrayidx21 = getelementptr inbounds [2 x i32], [2 x i32]* %Tmp2, i64 0, i64 %indvars.iv53
-  %t5 = load i32, i32* %arrayidx21, align 4
+  %arrayidx21 = getelementptr inbounds [2 x i32], ptr %Tmp2, i64 0, i64 %indvars.iv53
+  %t5 = load i32, ptr %arrayidx21, align 4
   %t6 = add nuw nsw i64 %indvars.iv53, %indvars.iv56
-  %arrayidx24 = getelementptr inbounds i32, i32* %B, i64 %t6
-  %t7 = load i32, i32* %arrayidx24, align 4
+  %arrayidx24 = getelementptr inbounds i32, ptr %B, i64 %t6
+  %t7 = load i32, ptr %arrayidx24, align 4
   %add25 = add nsw i32 %t7, %t5
-  store i32 %add25, i32* %arrayidx24, align 4
+  store i32 %add25, ptr %arrayidx24, align 4
   br i1 %cmp18, label %for.body19, label %for.inc29
 
 for.inc29:                                        ; preds = %for.body19

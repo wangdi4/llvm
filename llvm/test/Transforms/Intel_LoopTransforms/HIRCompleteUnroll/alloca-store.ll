@@ -20,40 +20,39 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define hidden void @sub8x8_dct8(i16* nocapture, i8* nocapture readonly, i8* nocapture readonly) {
+define hidden void @sub8x8_dct8(ptr nocapture, ptr nocapture readonly, ptr nocapture readonly) {
   %4 = alloca [64 x i16], align 16
-  %5 = bitcast [64 x i16]* %4 to i8*
-  br label %6
+  br label %5
 
-; <label>:6:                                      ; preds = %24, %3
-  %7 = phi i64 [ %27, %24 ], [ 0, %3 ]
-  %8 = phi i8* [ %25, %24 ], [ %1, %3 ]
-  %9 = phi i8* [ %26, %24 ], [ %2, %3 ]
-  %10 = shl i64 %7, 3
-  br label %11
+; <label>:6:                                      ; preds = %23, %3
+  %6 = phi i64 [ %26, %23 ], [ 0, %3 ]
+  %7 = phi ptr [ %24, %23 ], [ %1, %3 ]
+  %8 = phi ptr [ %25, %23 ], [ %2, %3 ]
+  %9 = shl i64 %6, 3
+  br label %10
 
-; <label>:11:                                     ; preds = %11, %6
-  %12 = phi i64 [ 0, %6 ], [ %22, %11 ]
-  %13 = getelementptr inbounds i8, i8* %8, i64 %12
-  %14 = load i8, i8* %13, align 1, !tbaa !2
-  %15 = zext i8 %14 to i16
-  %16 = getelementptr inbounds i8, i8* %9, i64 %12
-  %17 = load i8, i8* %16, align 1, !tbaa !2
-  %18 = zext i8 %17 to i16
-  %19 = sub nsw i16 %15, %18
-  %20 = add nuw nsw i64 %12, %10
-  %21 = getelementptr inbounds [64 x i16], [64 x i16]* %4, i64 0, i64 %20
-  store i16 %19, i16* %21, align 2, !tbaa !5
-  %22 = add nuw nsw i64 %12, 1
-  %23 = icmp eq i64 %22, 8
-  br i1 %23, label %24, label %11
+; <label>:11:                                     ; preds = %10, %5
+  %11 = phi i64 [ 0, %5 ], [ %21, %10 ]
+  %12 = getelementptr inbounds i8, ptr %7, i64 %11
+  %13 = load i8, ptr %12, align 1, !tbaa !2
+  %14 = zext i8 %13 to i16
+  %15 = getelementptr inbounds i8, ptr %8, i64 %11
+  %16 = load i8, ptr %15, align 1, !tbaa !2
+  %17 = zext i8 %16 to i16
+  %18 = sub nsw i16 %14, %17
+  %19 = add nuw nsw i64 %11, %9
+  %20 = getelementptr inbounds [64 x i16], ptr %4, i64 0, i64 %19
+  store i16 %18, ptr %20, align 2, !tbaa !5
+  %21 = add nuw nsw i64 %11, 1
+  %22 = icmp eq i64 %21, 8
+  br i1 %22, label %23, label %10
 
-; <label>:24:                                     ; preds = %11
-  %25 = getelementptr inbounds i8, i8* %8, i64 16
-  %26 = getelementptr inbounds i8, i8* %9, i64 32
-  %27 = add nuw nsw i64 %7, 1
-  %28 = icmp eq i64 %27, 8
-  br i1 %28, label %exit, label %6
+; <label>:24:                                     ; preds = %10
+  %24 = getelementptr inbounds i8, ptr %7, i64 16
+  %25 = getelementptr inbounds i8, ptr %8, i64 32
+  %26 = add nuw nsw i64 %6, 1
+  %27 = icmp eq i64 %26, 8
+  br i1 %27, label %exit, label %5
 
 exit:
   ret void

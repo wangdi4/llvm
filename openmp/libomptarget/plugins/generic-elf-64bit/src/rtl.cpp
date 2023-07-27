@@ -353,7 +353,7 @@ int32_t __tgt_rtl_launch_kernel(int32_t DeviceId, void *TgtEntryPtr,
       Ptrs[I] = TgtArgs[I];
     else
       Ptrs[I] = (void *)((intptr_t)TgtArgs[I] + offset);
-    Args[I] = &Ptrs[I];
+    Args[I] = Ptrs.data() + I;
   }
 
   ffi_status Status = ffi_prep_cif(&Cif, FFI_DEFAULT_ABI, KernelArgs->NumArgs,

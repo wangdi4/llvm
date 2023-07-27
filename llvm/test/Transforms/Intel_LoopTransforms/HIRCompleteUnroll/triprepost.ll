@@ -33,7 +33,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @_Z4funcPfPii(float* nocapture %p, i32* nocapture %A, i32 %n) #0 {
+define void @_Z4funcPfPii(ptr nocapture %p, ptr nocapture %A, i32 %n) #0 {
 entry:
   br label %for.cond1.preheader
 
@@ -44,7 +44,7 @@ for.cond1.preheader:                              ; preds = %for.inc5, %entry
   br i1 %cmp216, label %for.body3.lr.ph, label %for.inc5
 
 for.body3.lr.ph:                                  ; preds = %for.cond1.preheader
-  %p.promoted = load float, float* %p, align 4, !tbaa !1
+  %p.promoted = load float, ptr %p, align 4, !tbaa !1
   br label %for.body3
 
 for.body3:                                        ; preds = %for.body3, %for.body3.lr.ph
@@ -56,9 +56,9 @@ for.body3:                                        ; preds = %for.body3, %for.bod
   br i1 %exitcond, label %for.cond1.for.inc5_crit_edge, label %for.body3
 
 for.cond1.for.inc5_crit_edge:                     ; preds = %for.body3
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv20
-  store i32 1, i32* %arrayidx, align 4, !tbaa !5
-  store float %conv4, float* %p, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv20
+  store i32 1, ptr %arrayidx, align 4, !tbaa !5
+  store float %conv4, ptr %p, align 4, !tbaa !1
   br label %for.inc5
 
 for.inc5:                                         ; preds = %for.cond1.for.inc5_crit_edge, %for.cond1.preheader

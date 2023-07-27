@@ -15,10 +15,10 @@ entry:
 
 loop:                                              ; preds = %loop, %entry
   %iv = phi i64 [ 0, %entry ], [ %iv.inc, %loop ]
-  %gep = getelementptr inbounds [3 x i32], [3 x i32]* @A, i64 0, i64 %iv
-  %gep1 = getelementptr inbounds [3 x i32], [3 x i32]* @B, i64 0, i64 %iv
-  %ld = load i32, i32* %gep1, align 4
-  store i32 %ld, i32* %gep, align 4
+  %gep = getelementptr inbounds [3 x i32], ptr @A, i64 0, i64 %iv
+  %gep1 = getelementptr inbounds [3 x i32], ptr @B, i64 0, i64 %iv
+  %ld = load i32, ptr %gep1, align 4
+  store i32 %ld, ptr %gep, align 4
   %iv.inc = add nuw nsw i64 %iv, 1
   %cmp = icmp eq i64 %iv.inc, 3
   br i1 %cmp, label %exit, label %loop
