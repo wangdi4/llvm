@@ -1,0 +1,190 @@
+# INTEL_FEATURE_CPU_RYL
+# REQUIRES: intel_feature_cpu_ryl
+#
+# This test checks the experimental feature to unfuse/crack fmadd
+# instructions in any cyclic dependency in a single-block loop.
+#
+# The test case is generated from:
+#
+# f.c:
+# double f(const double *x, const double *y, unsigned n) {
+#   double a = 0.;
+# #pragma novector
+# #pragma nounroll
+#   for (unsigned i = 0; i != n; ++i) {
+#     a += x[0] * y[i];
+#   }
+#   return a;
+# }
+#
+# clang -xroyal -O2 -S -ffast-math -emit-llvm f.c
+# llc < f.ll -stop-before=global-fma 
+#
+# Regression test for CMPLRLLVM-49249. Check for no assertion with -x86-crack-cyclic-fmas
+# when there is a cyclic FMA as the first non-PHI instruction in a block.
+# RUN: llc -o - %s -mtriple=x86_64-- -x86-crack-cyclic-fmas=true -run-pass=global-fma
+--- |
+  ; ModuleID = '<stdin>'
+  source_filename = "f.c"
+  target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+  target triple = "x86_64-unknown-linux-gnu"
+  
+  ; Function Attrs: nofree norecurse nosync nounwind memory(argmem: read) uwtable
+  define dso_local nofpclass(nan inf) double @f(ptr nocapture noundef readonly %x, ptr nocapture noundef readonly %y, i32 noundef %n) local_unnamed_addr #0 {
+  entry:
+    %cmp.not5 = icmp eq i32 %n, 0
+    br i1 %cmp.not5, label %for.cond.cleanup, label %for.body.lr.ph
+  
+  for.body.lr.ph:                                   ; preds = %entry
+    %0 = load double, ptr %x, align 8, !tbaa !3
+    %1 = zext i32 %n to i64
+    br label %for.body
+  
+  for.cond.cleanup:                                 ; preds = %for.body, %entry
+    %a.0.lcssa = phi double [ 0.000000e+00, %entry ], [ %add, %for.body ]
+    ret double %a.0.lcssa
+  
+  for.body:                                         ; preds = %for.body, %for.body.lr.ph
+    %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
+    %a.06 = phi double [ 0.000000e+00, %for.body.lr.ph ], [ %add, %for.body ]
+    %2 = shl nuw nsw i64 %indvars.iv, 3
+    %scevgep = getelementptr i8, ptr %y, i64 %2
+    %3 = load double, ptr %scevgep, align 8, !tbaa !3
+    %mul = fmul fast double %3, %0
+    %add = fadd fast double %mul, %a.06
+    %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+    %cmp.not = icmp eq i64 %1, %indvars.iv.next
+    br i1 %cmp.not, label %for.cond.cleanup, label %for.body, !llvm.loop !7
+  }
+  
+  attributes #0 = { nofree norecurse nosync nounwind memory(argmem: read) uwtable "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="royal" "target-features"="+adx,+aes,+avx,+avx2,+avx256p,+avxvnni,+bmi,+bmi2,+cldemote,+clflushopt,+clwb,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+gfni,+hreset,+invpcid,+kl,+lzcnt,+mmx,+movbe,+movdir64b,+movdiri,+pclmul,+pconfig,+pku,+popcnt,+prfchw,+ptwrite,+rdpid,+rdrnd,+rdseed,+sahf,+serialize,+sgx,+sha,+shstk,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+vaes,+vpclmulqdq,+waitpkg,+widekl,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
+  
+  !llvm.module.flags = !{!0, !1}
+  !llvm.ident = !{!2}
+  
+  !0 = !{i32 1, !"wchar_size", i32 4}
+  !1 = !{i32 7, !"uwtable", i32 2}
+  !2 = !{!"Intel(R) oneAPI DPC++/C++ Compiler 2024.0.0 (2024.0.0.YYYYMMDD)"}
+  !3 = !{!4, !4, i64 0}
+  !4 = !{!"double", !5, i64 0}
+  !5 = !{!"omnipotent char", !6, i64 0}
+  !6 = !{!"Simple C/C++ TBAA"}
+  !7 = distinct !{!7, !8, !9}
+  !8 = !{!"llvm.loop.mustprogress"}
+  !9 = !{!"llvm.loop.unroll.disable"}
+
+...
+---
+name:            f
+alignment:       16
+exposesReturnsTwice: false
+legalized:       false
+regBankSelected: false
+selected:        false
+failedISel:      false
+tracksRegLiveness: true
+hasWinCFI:       false
+callsEHReturn:   false
+callsUnwindInit: false
+hasEHCatchret:   false
+hasEHScopes:     false
+hasEHFunclets:   false
+isOutlined:      false
+debugInstrRef:   true
+failsVerification: false
+tracksDebugUserValues: false
+registers:
+  - { id: 0, class: fr64x, preferred-register: '' }
+  - { id: 1, class: gr64, preferred-register: '' }
+  - { id: 2, class: fr64x, preferred-register: '' }
+  - { id: 3, class: gr64_nosp, preferred-register: '' }
+  - { id: 4, class: fr64x, preferred-register: '' }
+  - { id: 5, class: fr64x, preferred-register: '' }
+  - { id: 6, class: gr64, preferred-register: '' }
+  - { id: 7, class: gr64, preferred-register: '' }
+  - { id: 8, class: gr64, preferred-register: '' }
+  - { id: 9, class: gr32, preferred-register: '' }
+  - { id: 10, class: fr64x, preferred-register: '' }
+  - { id: 11, class: gr64, preferred-register: '' }
+  - { id: 12, class: fr64x, preferred-register: '' }
+  - { id: 13, class: gr32, preferred-register: '' }
+  - { id: 14, class: gr32, preferred-register: '' }
+  - { id: 15, class: gr64, preferred-register: '' }
+liveins:
+  - { reg: '$rdi', virtual-reg: '%7' }
+  - { reg: '$rsi', virtual-reg: '%8' }
+  - { reg: '$edx', virtual-reg: '%9' }
+frameInfo:
+  isFrameAddressTaken: false
+  isReturnAddressTaken: false
+  hasStackMap:     false
+  hasPatchPoint:   false
+  stackSize:       0
+  offsetAdjustment: 0
+  maxAlignment:    1
+  adjustsStack:    false
+  hasCalls:        false
+  stackProtector:  ''
+  functionContext: ''
+  maxCallFrameSize: 4294967295
+  cvBytesOfCalleeSavedRegisters: 0
+  hasOpaqueSPAdjustment: false
+  hasVAStart:      false
+  hasMustTailInVarArgFunc: false
+  hasTailCall:     false
+  localFrameSize:  0
+  savePoint:       ''
+  restorePoint:    ''
+fixedStack:      []
+stack:           []
+entry_values:    []
+callSites:       []
+debugValueSubstitutions: []
+constants:       []
+machineFunctionInfo: {}
+body:             |
+  bb.0.entry:
+    successors: %bb.4(0x30000000), %bb.1(0x50000000)
+    liveins: $rdi, $rsi, $edx
+  
+    %9:gr32 = COPY $edx
+    %8:gr64 = COPY $rsi
+    %7:gr64 = COPY $rdi
+    TEST32rr %9, %9, implicit-def $eflags
+    JCC_1 %bb.1, 5, implicit $eflags
+  
+  bb.4.entry:
+    successors: %bb.2(0x80000000)
+  
+    %10:fr64x = AVX512_FsFLD0SD
+    JMP_1 %bb.2
+  
+  bb.1.for.body.lr.ph:
+    successors: %bb.3(0x80000000)
+  
+    %0:fr64x = VMOVSDZrm_alt %7, 1, $noreg, 0, $noreg :: (load (s64) from %ir.x, !tbaa !3)
+    %13:gr32 = MOV32rr %9
+    %1:gr64 = SUBREG_TO_REG 0, killed %13, %subreg.sub_32bit
+    %12:fr64x = AVX512_FsFLD0SD
+    %14:gr32 = MOV32r0 implicit-def dead $eflags
+    %11:gr64 = SUBREG_TO_REG 0, killed %14, %subreg.sub_32bit
+    JMP_1 %bb.3
+  
+  bb.2.for.cond.cleanup:
+    %2:fr64x = PHI %10, %bb.4, %5, %bb.3
+    $xmm0 = COPY %2
+    RET 0, $xmm0
+  
+  bb.3.for.body:
+    successors: %bb.2(0x04000000), %bb.3(0x7c000000)
+  
+    %3:gr64_nosp = PHI %11, %bb.1, %6, %bb.3
+    %4:fr64x = PHI %12, %bb.1, %5, %bb.3
+    %5:fr64x = nnan ninf nsz arcp contract afn reassoc nofpexcept VFMADD132SDZm %0, %4, %8, 8, %3, 0, $noreg, implicit $mxcsr :: (load (s64) from %ir.scevgep, !tbaa !3)
+    %6:gr64 = nuw nsw INC64r %3, implicit-def dead $eflags
+    %15:gr64 = SUB64rr %1, %6, implicit-def $eflags
+    JCC_1 %bb.2, 4, implicit $eflags
+    JMP_1 %bb.3
+
+...
+# end INTEL_FEATURE_CPU_RYL

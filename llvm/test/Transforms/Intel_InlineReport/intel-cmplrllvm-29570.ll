@@ -43,15 +43,15 @@
 ; CHECK-CL: INLINE: callee
 
 ; CHECK-MD: COMPILE FUNC: caller.[[I1]]
+; CHECK-MD: DELETE: llvm.experimental.noalias.scope.decl
+; CHECK-MD: DELETE: llvm.experimental.noalias.scope.decl
 ; CHECK-MD: EXTERN: opaque_callee
-; CHECK-MD: DELETE: llvm.experimental.noalias.scope.decl
-; CHECK-MD: DELETE: llvm.experimental.noalias.scope.decl
 ; CHECK-MD: INLINE: callee
 
 ; CHECK-MD: COMPILE FUNC: caller.[[I0]]
+; CHECK-MD: DELETE: llvm.experimental.noalias.scope.decl
+; CHECK-MD: DELETE: llvm.experimental.noalias.scope.decl
 ; CHECK-MD: EXTERN: opaque_callee
-; CHECK-MD: DELETE: llvm.experimental.noalias.scope.decl
-; CHECK-MD: DELETE: llvm.experimental.noalias.scope.decl
 ; CHECK-MD: INLINE: callee
 
 ; CHECK-MD: define {{.*}} @callee(ptr %x)

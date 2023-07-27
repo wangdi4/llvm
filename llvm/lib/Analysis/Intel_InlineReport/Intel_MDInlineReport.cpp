@@ -1101,6 +1101,26 @@ Metadata *InlineReportBuilder::copyMD(LLVMContext &C, Metadata *OldMD) {
   return NewMD;
 }
 
+Metadata *
+InlineReportBuilder::copyMDWithMap(LLVMContext &C, Metadata *OldMD,
+                                   DenseMap<Metadata *, Metadata *> &MDMap) {
+  if (!OldMD)
+    return nullptr;
+  Metadata *NewMD = nullptr;
+  if (MDString *OldStrMD = dyn_cast<MDString>(OldMD)) {
+    NewMD = llvm::MDString::get(C, OldStrMD->getString());
+  } else if (MDTuple *OldTupleMD = dyn_cast<MDTuple>(OldMD)) {
+    SmallVector<Metadata *, 20> Ops;
+    int NumOps = OldTupleMD->getNumOperands();
+    for (int I = 0; I < NumOps; ++I)
+      Ops.push_back(copyMD(C, OldTupleMD->getOperand(I)));
+    NewMD = OldTupleMD->isDistinct() ? MDTuple::getDistinct(C, Ops)
+                                     : MDTuple::get(C, Ops);
+    MDMap[OldMD] = NewMD;
+  }
+  return NewMD;
+}
+
 void InlineReportBuilder::cloneCallBaseToCallBase(CallBase *OldCall,
                                                   CallBase *NewCall) {
   if (!isMDIREnabled())
@@ -1193,33 +1213,30 @@ void InlineReportBuilder::cloneFunction(Function *OldFunction,
   SmallVector<Metadata *, 100> Ops;
   SmallPtrSet<Metadata *, 32> CopiedMD;
   Ops.push_back(llvm::MDString::get(Ctx, CallSitesTag));
-  // Add callsites corresponding to the cloned calls.
-  for (auto &I : instructions(OldFunction)) {
-    if (auto CBOld = dyn_cast<CallBase>(&I)) {
-      if (auto CBNew = dyn_cast_or_null<CallBase>(VMap[CBOld])) {
-        if (Metadata *CBOldMD =
-                CBOld->getMetadata(MDInliningReport::CallSiteTag)) {
-          CopiedMD.insert(CBOldMD);
-          auto *CBOldMDTuple = cast<MDTuple>(CBOldMD);
-          auto *CBNewMDTuple = cast<MDTuple>(copyMD(Ctx, CBOldMDTuple));
-          CBNew->setMetadata(MDInliningReport::CallSiteTag, CBNewMDTuple);
-          Ops.push_back(CBNewMDTuple);
-        }
-      }
-    }
-  }
-  // Add callsites corresponding to the inlined calls in the original.
+  DenseMap<Metadata *, Metadata *> MDMap;
+  // Clone the metadata from 'OldFunction' for 'NewFunction'.
   if (Metadata *MDCSs = OldFunctionMDTuple->getOperand(FMDIR_CSs).get()) {
     auto CSs = cast<MDTuple>(MDCSs);
     for (unsigned I = 1, E = CSs->getNumOperands(); I < E; ++I) {
       Metadata *OldMD = CSs->getOperand(I).get();
-      if (!CopiedMD.contains(OldMD)) {
-        auto OldMDTuple = cast<MDTuple>(OldMD);
-        auto NewMDTuple = cast<MDTuple>(copyMD(Ctx, OldMDTuple));
-        Ops.push_back(NewMDTuple);
-      }
+      auto OldMDTuple = cast<MDTuple>(OldMD);
+      auto NewMDTuple = cast<MDTuple>(copyMDWithMap(Ctx, OldMDTuple, MDMap));
+      Ops.push_back(NewMDTuple);
     }
   }
+  // Attach cloned metadata to newly created callsites.
+  for (auto &I : instructions(OldFunction))
+    if (auto CBOld = dyn_cast<CallBase>(&I))
+      if (auto CBNew = dyn_cast_or_null<CallBase>(VMap[CBOld]))
+        if (Metadata *CBOldMD =
+                CBOld->getMetadata(MDInliningReport::CallSiteTag)) {
+          auto MapIt = MDMap.find(CBOldMD);
+          if (MapIt != MDMap.end()) {
+            auto NewMDTuple = cast<MDTuple>(MapIt->second);
+            CBNew->setMetadata(MDInliningReport::CallSiteTag, NewMDTuple);
+            addCallback(CBNew);
+          }
+        }
   MDNode *NewCSs = MDTuple::getDistinct(Ctx, Ops);
   NewFunctionMDTuple->replaceOperandWith(FMDIR_CSs, NewCSs);
 }

@@ -139,7 +139,7 @@ ModRefInfo FieldModRefResult::getModRefInfo(const CallBase *Call,
   // GetElementPtrInst.
   //
   // This is similar to the function dtrans::getStructField, but because this
-  // is operating without the results of DTransAnalysisInfo being available
+  // is operating without the results of DTransSafetyInfo being available
   // byte-flattened GEPs will not be supported, resulting in conservative
   // results being reported for these.
   auto GetStructField = [](const GetElementPtrInst *GEP)
@@ -1398,7 +1398,7 @@ Value *DTransModRefAnalyzerImpl<InfoClass>::traceToAllocation(
 }
 
 // Set the FieldModRefResult data structure for the fields that passed the
-// safety checks. The DTransAnalysisInfo may be discarded because that pass is
+// safety checks. The DTransSafetyInfo may be discarded because that pass is
 // not preserved, but the FieldModRefResult should be preserved for use by
 // other passes.
 template <class InfoClass>
@@ -1525,18 +1525,6 @@ void DTransModRefAnalyzerImpl<InfoClass>::printQueryResults(
 } // end anonymous namespace
 
 bool DTransModRefAnalyzer::runAnalysis(Module &M,
-                                       DTransAnalysisInfo &DTransInfo,
-                                       WholeProgramInfo &WPInfo,
-                                       FieldModRefResult &FMRResult) {
-  if (!DTransInfo.useDTransAnalysis())
-    return false;
-
-  dtrans::DTransAnalysisInfoAdapter AIAdaptor(DTransInfo);
-  DTransModRefAnalyzerImpl<dtrans::DTransAnalysisInfoAdapter> Impl;
-  return Impl.runAnalysis(M, AIAdaptor, WPInfo, FMRResult);
-}
-
-bool DTransModRefAnalyzer::runAnalysis(Module &M,
                                        dtransOP::DTransSafetyInfo &DTransInfo,
                                        WholeProgramInfo &WPInfo,
                                        FieldModRefResult &FMRResult) {
@@ -1566,20 +1554,11 @@ AnalysisKey DTransFieldModRefAnalysis::Key;
 DTransFieldModRefAnalysis::Result
 DTransFieldModRefAnalysis::run(Module &M, ModuleAnalysisManager &AM) {
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
-  FieldModRefResult &FMRResult = AM.getResult<DTransFieldModRefResult>(M);
 
-  // Run the typed pointer version of DTrans when using typed pointers.
-  if (M.getContext().supportsTypedPointers()) {
-    // TODO: This block should be removed when only opaque pointers are supported.
-    auto &DTransInfo = AM.getResult<DTransAnalysis>(M);
-    DTransModRefAnalyzer Analyzer;
-    Analyzer.runAnalysis(M, DTransInfo, WPInfo, FMRResult);
-  } else {
-    auto &DTSafetyInfo = AM.getResult<dtransOP::DTransSafetyAnalyzer>(M);
-    FieldModRefResult &FMRResult = AM.getResult<DTransFieldModRefResult>(M);
-    DTransModRefAnalyzer Analyzer;
-    Analyzer.runAnalysis(M, DTSafetyInfo, WPInfo, FMRResult);
-  }
+  auto &DTSafetyInfo = AM.getResult<dtransOP::DTransSafetyAnalyzer>(M);
+  FieldModRefResult &FMRResult = AM.getResult<DTransFieldModRefResult>(M);
+  DTransModRefAnalyzer Analyzer;
+  Analyzer.runAnalysis(M, DTSafetyInfo, WPInfo, FMRResult);
 
   return FMRResult;
 }
