@@ -44,8 +44,14 @@ char *basename(const char* path)
         return(base1 + 1);
     else if (base2)
         return(base2 + 1);
-
+#if defined(__clang__)
+ #pragma GCC diagnostic push
+ #pragma GCC diagnostic ignored "-Wcast-qual"
+ #endif
     return((char*)path);
+#if defined(__clang__)
+ #pragma GCC diagnostic pop
+ #endif
 }
 char *dirname(char* path)
 {
