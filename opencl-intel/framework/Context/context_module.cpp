@@ -2424,6 +2424,13 @@ void ContextModule::RemoveAllMemObjects(bool preserve_user_handles) {
     p.second->USMFree(p.first);
   m_mapUSMBuffers.clear();
 
+  // Actually, all tracker events should be unregistered when related command
+  // done as expected. But we push tracker event into wait list after command
+  // has been enqueued, sometimes command has already completed by this time.
+  // Then the tracker event will never be unregistered. So we need to manually
+  // clear wait list here.
+  m_mapUSMFreeWaitList.clear();
+
   // Remove all mapped regions
   MemObjListType mapped_list;
   m_setMappedMemObjects.getObjects(mapped_list);

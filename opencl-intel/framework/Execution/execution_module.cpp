@@ -139,11 +139,7 @@ cl_err_code ExecutionModule::Initialize(ocl_entry_points *pOclEntryPoints,
   return CL_SUCCESS;
 }
 
-cl_err_code ExecutionModule::Release(bool bTerminate) {
-  if (bTerminate) {
-    return CL_SUCCESS;
-  }
-
+cl_err_code ExecutionModule::Release() {
   if (NULL != m_pEventsManager) {
     delete m_pEventsManager;
     m_pEventsManager = NULL;
