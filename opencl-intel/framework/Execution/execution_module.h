@@ -330,7 +330,7 @@ public:
                                     size_t szParamValueSize, void *pParamValue,
                                     size_t *pszParamValueSizeRet) override;
 
-  cl_err_code Release(bool bTerminate);
+  cl_err_code Release();
   cl_err_code Finish(const SharedPtr<IOclCommandQueueBase> &pCommandQueue);
   void DeleteAllActiveQueues(bool preserve_user_handles);
   void CancelAllActiveQueues();

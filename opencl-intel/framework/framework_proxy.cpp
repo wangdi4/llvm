@@ -593,7 +593,7 @@ void FrameworkProxy::Release(bool bTerminate) {
 #endif
 
   if (nullptr != m_pExecutionModule) {
-    m_pExecutionModule->Release(bTerminate);
+    m_pExecutionModule->Release();
     delete m_pExecutionModule;
   }
 
