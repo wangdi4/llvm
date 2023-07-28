@@ -14388,7 +14388,6 @@ private:
   bool CheckSIMDVariantBuiltinFunctionCall(unsigned BuiltinID,
                                            CallExpr *TheCall);
 #endif // INTEL_CUSTOMIZATION
-
   bool CheckIntelSYCLPtrAnnotationBuiltinFunctionCall(unsigned BuiltinID,
                                                       CallExpr *Call);
 
