@@ -194,10 +194,6 @@ As a whole, the ``.cpp`` file looks like:
 
   #include "llvm/IR/LegacyPassManager.h"
 
-#if INTEL_CUSTOMIZATION
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
-#endif // INTEL_CUSTOMIZATION
-
   using namespace llvm;
 
   namespace {

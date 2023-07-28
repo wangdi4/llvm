@@ -64,8 +64,10 @@ define dso_local i32 @_Z3fooiPKaPaa(i32 %n, ptr nocapture readonly %a, i8 signex
 ; CHECK-NEXT:     br i1 [[VP_EE_MASK_IS_ZERO]], [[BB2]], [[CASCADED_IF_BLOCK0:cascaded.if.block[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[CASCADED_IF_BLOCK0]]: # preds: [[NEW_LOOP_LATCH0]]
-; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp eq i32 [[VP_EXIT_ID_PHI]] i32 1
-; CHECK-NEXT:     br i1 [[VP8]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
+; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp ne i32 [[VP_EXIT_ID_PHI]] i32 0
+; CHECK-NEXT:     i32 [[VP_EARLY_EXIT_LANE:%.*]] = early-exit-lane i1 [[VP8]]
+; CHECK-NEXT:     i1 [[VP9:%.*]] = icmp eq i32 [[VP_EXIT_ID_PHI]] i32 1
+; CHECK-NEXT:     br i1 [[VP9]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: [[CASCADED_IF_BLOCK0]]
 ; CHECK-NEXT:       i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1

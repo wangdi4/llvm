@@ -33,9 +33,11 @@ constexpr dpas_argument_type tf32 = dpas_argument_type::tf32;
 
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
+#ifdef ESIMD_EMBARGO
 constexpr dpas_argument_type hf8 = dpas_argument_type::hf8;
 constexpr dpas_argument_type bf8 = dpas_argument_type::bf8;
 constexpr dpas_argument_type df = dpas_argument_type::df;
+#endif // end ESIMD_EMBARGO
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 
@@ -61,12 +63,14 @@ std::string toString(dpas_argument_type T) {
     return "tf32";
     /* INTEL_CUSTOMIZATION */
     /* INTEL_FEATURE_ESIMD_EMBARGO */
+#ifdef ESIMD_EMBARGO
   case dpas_argument_type::hf8:
     return "hf8";
   case dpas_argument_type::bf8:
     return "bf8";
   case dpas_argument_type::df:
     return "df";
+#endif // end ESIMD_EMBARGO
     /* end INTEL_FEATURE_ESIMD_EMBARGO */
     /* end INTEL_CUSTOMIZATION */
   case dpas_argument_type::s1:
@@ -86,15 +90,19 @@ template <dpas_argument_type T> struct DpasPrintType {
                                   T == dpas_argument_type::u8;
   static constexpr bool is_fp =
       T == dpas_argument_type::fp16 || T == dpas_argument_type::bf16 ||
-      /* INTEL_CUSTOMIZATION */
-      /* INTEL_FEATURE_ESIMD_EMBARGO */
+  /* INTEL_CUSTOMIZATION */
+  /* INTEL_FEATURE_ESIMD_EMBARGO */
+#ifdef ESIMD_EMBARGO
       T == dpas_argument_type::hf8 || T == dpas_argument_type::bf8 ||
+#endif // end ESIMD_EMBARGO
       /* end INTEL_FEATURE_ESIMD_EMBARGO */
       /* end INTEL_CUSTOMIZATION */
       T == dpas_argument_type::tf32;
   /* INTEL_CUSTOMIZATION */
   /* INTEL_FEATURE_ESIMD_EMBARGO */
+#ifdef ESIMD_EMBARGO
   static constexpr bool is_double = T == dpas_argument_type::df;
+#endif // end ESIMD_EMBARGO
   /* end INTEL_FEATURE_ESIMD_EMBARGO */
   /* end INTEL_CUSTOMIZATION */
 
@@ -102,15 +110,19 @@ template <dpas_argument_type T> struct DpasPrintType {
       is_fp, float,
       std::conditional_t<
           is_sint, int,
-          /* INTEL_CUSTOMIZATION */
-          /* INTEL_FEATURE_ESIMD_EMBARGO */
+  /* INTEL_CUSTOMIZATION */
+  /* INTEL_FEATURE_ESIMD_EMBARGO */
+#ifdef ESIMD_EMBARGO
           std::conditional_t<is_double, double,
+#endif // end ESIMD_EMBARGO
                              /* end INTEL_FEATURE_ESIMD_EMBARGO */
                              /* end INTEL_CUSTOMIZATION */
                              std::conditional_t<is_uint, unsigned int, void>>>
-      /* INTEL_CUSTOMIZATION */
-      /* INTEL_FEATURE_ESIMD_EMBARGO */
+  /* INTEL_CUSTOMIZATION */
+  /* INTEL_FEATURE_ESIMD_EMBARGO */
+#ifdef ESIMD_EMBARGO
       >
+#endif // end ESIMD_EMBARGO
       /* end INTEL_FEATURE_ESIMD_EMBARGO */
       /* end INTEL_CUSTOMIZATION */
       ;
@@ -136,9 +148,11 @@ template <dpas_argument_type T> struct DpasNaturalOperandType {
 
   /* INTEL_CUSTOMIZATION */
   /* INTEL_FEATURE_ESIMD_EMBARGO */
+#ifdef ESIMD_EMBARGO
   static constexpr bool is_hf8 = T == dpas_argument_type::hf8;
   static constexpr bool is_bf8 = T == dpas_argument_type::bf8;
   static constexpr bool is_df = T == dpas_argument_type::df;
+#endif // end ESIMD_EMBARGO
   /* end INTEL_FEATURE_ESIMD_EMBARGO */
   /* end INTEL_CUSTOMIZATION */
 
@@ -153,8 +167,9 @@ template <dpas_argument_type T> struct DpasNaturalOperandType {
                   is_bf16, sycl::ext::oneapi::bfloat16,
                   std::conditional_t<
                       is_tf32, sycl::ext::intel::experimental::esimd::tfloat32,
-                      /* INTEL_CUSTOMIZATION */
-                      /* INTEL_FEATURE_ESIMD_EMBARGO */
+  /* INTEL_CUSTOMIZATION */
+  /* INTEL_FEATURE_ESIMD_EMBARGO */
+#ifdef ESIMD_EMBARGO
                       std::conditional_t<
                           is_df, double,
                           std::conditional_t<
@@ -163,12 +178,15 @@ template <dpas_argument_type T> struct DpasNaturalOperandType {
                               std::conditional_t<
                                   is_bf8,
                                   sycl::ext::intel::experimental::esimd::bf8,
+#endif // end ESIMD_EMBARGO
                                   /* end INTEL_FEATURE_ESIMD_EMBARGO */
                                   /* end INTEL_CUSTOMIZATION */
                                   void>>>>>
-              /* INTEL_CUSTOMIZATION */
-              /* INTEL_FEATURE_ESIMD_EMBARGO */
+  /* INTEL_CUSTOMIZATION */
+  /* INTEL_FEATURE_ESIMD_EMBARGO */
+#ifdef ESIMD_EMBARGO
               >>>
+#endif // end ESIMD_EMBARGO
       /* end INTEL_FEATURE_ESIMD_EMBARGO */
       /* end INTEL_CUSTOMIZATION */
       ;
@@ -186,10 +204,12 @@ template <dpas_argument_type T> constexpr int getBitSize() {
 
   case dpas_argument_type::s8:
   case dpas_argument_type::u8:
-  /* INTEL_CUSTOMIZATION */
-  /* INTEL_FEATURE_ESIMD_EMBARGO */
+    /* INTEL_CUSTOMIZATION */
+    /* INTEL_FEATURE_ESIMD_EMBARGO */
+#ifdef ESIMD_EMBARGO
   case dpas_argument_type::hf8:
   case dpas_argument_type::bf8:
+#endif // end ESIMD_EMBARGO
     /* end INTEL_FEATURE_ESIMD_EMBARGO */
     /* end INTEL_CUSTOMIZATION */
     return 8;
@@ -199,10 +219,12 @@ template <dpas_argument_type T> constexpr int getBitSize() {
 
   case dpas_argument_type::tf32:
     return 32;
-  /* INTEL_CUSTOMIZATION */
-  /* INTEL_FEATURE_ESIMD_EMBARGO */
+    /* INTEL_CUSTOMIZATION */
+    /* INTEL_FEATURE_ESIMD_EMBARGO */
+#ifdef ESIMD_EMBARGO
   case dpas_argument_type::df:
     return 64;
+#endif // end ESIMD_EMBARGO
     /* end INTEL_FEATURE_ESIMD_EMBARGO */
     /* end INTEL_CUSTOMIZATION */
 

@@ -1211,7 +1211,7 @@ bool InnermostLoopAnalyzer::canCalcDimInfo(
   if (RefDefNumDims < (InnermostLevel - OutermostLoopLevel))
     return false;
 
-  for (auto OneGroup : Groups) {
+  for (auto &OneGroup : Groups) {
 
     auto *FirstRef = OneGroup.front();
 
@@ -1299,7 +1299,7 @@ bool InnermostLoopAnalyzer::analyzeDims(const RegDDRef *Ref,
   // Now check if all IV levels strictly increases dimnum decreases.
   // It trivially gurantees that all IVs are different.
   int PrevLevelOffset = -1;
-  for (auto DimInfo : make_range(DimInfoVec.begin(), DimInfoVec.end())) {
+  for (auto &DimInfo : make_range(DimInfoVec.begin(), DimInfoVec.end())) {
     if (!DimInfo.hasIV())
       continue;
 

@@ -1188,4 +1188,107 @@ TEST_F(VPlanAlignmentAnalysisTest, AlignedLinearMemref) {
   }
 }
 
+TEST_F(VPlanAlignmentAnalysisTest, AlignmentPropagation) {
+  buildVPlanFromString(R"(
+      @A = external global [100 x float], align 16
+      define void @foo() {
+      entry:
+        br label %for.body
+      for.body:
+        %iv = phi i32 [ 0, %entry ], [ %iv.next, %for.body ]
+        %arrayidx = getelementptr [100 x float], ptr @A, i64 0, i32 %iv
+        load float, ptr %arrayidx, align 4
+        %iv.next = add nuw nsw i32 %iv, 1
+        %cond = icmp eq i32 %iv.next, 1024
+        br i1 %cond, label %exit, label %for.body
+      exit:
+        ret void
+      })");
+
+  commonSetup();
+
+  // DA is needed for alignment propagation
+  Plan->setVPlanDA(std::make_unique<VPlanDivergenceAnalysis>());
+  Plan->computeDA();
+
+  auto It = find_if(vpinstructions(Plan.get()), [](const VPInstruction &I) {
+    return isa<VPLoadStoreInst>(&I);
+  });
+  ASSERT_NE(It, vpinstructions(Plan.get()).end());
+  VPLoadStoreInst &LS = cast<VPLoadStoreInst>(*It);
+  const auto ResetAlign = [OrigAlign = LS.getAlignment()](VPLoadStoreInst &LS) {
+    LS.setAlignment(OrigAlign);
+  };
+
+  // Static peel tests
+  {
+    // Format is {VF, Peel, ExpectedAlign}
+    const std::tuple<unsigned, VPlanStaticPeeling, uint64_t>
+        InputAndExpecteds[] = {
+            {1, VPlanStaticPeeling::NoPeelLoop, 4},
+            {1, VPlanStaticPeeling{0}, 4},
+            {2, VPlanStaticPeeling::NoPeelLoop, 8},
+            {2, VPlanStaticPeeling{0}, 8},
+            {2, VPlanStaticPeeling{1}, 4},
+            {4, VPlanStaticPeeling::NoPeelLoop, 16},
+            {4, VPlanStaticPeeling{0}, 16},
+            {4, VPlanStaticPeeling{1}, 4},
+            {4, VPlanStaticPeeling{2}, 8},
+            {4, VPlanStaticPeeling{3}, 4},
+            {8, VPlanStaticPeeling::NoPeelLoop, 16},
+            {8, VPlanStaticPeeling{0}, 16},
+            {8, VPlanStaticPeeling{1}, 4},
+            {8, VPlanStaticPeeling{2}, 8},
+            {8, VPlanStaticPeeling{4}, 16},
+            {8, VPlanStaticPeeling{5}, 4},
+            {8, VPlanStaticPeeling{6}, 8},
+            {8, VPlanStaticPeeling{7}, 4},
+        };
+    for (const auto &[VF, Peel, ExpectedAlign] : InputAndExpecteds) {
+      ResetAlign(LS);
+      VPlanAlignmentAnalysis::propagateAlignment(Plan.get(), VF, &Peel);
+      EXPECT_EQ(LS.getAlignment().value(), ExpectedAlign)
+          << ", VF = " << VF << ", peel count = " << Peel.peelCount()
+          << " (static)";
+    }
+  }
+
+  // Dynamic peel tests
+  {
+    const auto Ind = VPSE->asConstStepInduction(LS.getAddressSCEV());
+    ASSERT_TRUE(Ind.has_value());
+    const auto DynamicPeel = [&](uint64_t TargetAlign) {
+      return VPlanDynamicPeeling(&LS, *Ind, Align(TargetAlign));
+    };
+
+    // Format is {VF, Peel, ExpectedAlign}
+    const std::tuple<unsigned, VPlanDynamicPeeling, uint64_t>
+        InputAndExpecteds[] = {
+            {1, DynamicPeel(8), 4},   {1, DynamicPeel(16), 4},
+            {1, DynamicPeel(32), 4},  {2, DynamicPeel(8), 8},
+            {2, DynamicPeel(16), 16}, // FIXME: should be 8 (VF * Step == 8)
+            {2, DynamicPeel(32), 32}, // FIXME: should be 8 (VF * Step == 8)
+            {4, DynamicPeel(8), 8},   {4, DynamicPeel(16), 16},
+            {4, DynamicPeel(32), 32}, // FIXME: should be 16 (VF * Step == 16)
+            {8, DynamicPeel(8), 8},   {8, DynamicPeel(16), 16},
+            {8, DynamicPeel(32), 32},
+        };
+    for (const auto &[VF, Peel, ExpectedAlign] : InputAndExpecteds) {
+      ResetAlign(LS);
+      VPlanAlignmentAnalysis::propagateAlignment(Plan.get(), VF, &Peel);
+      EXPECT_EQ(LS.getAlignment().value(), ExpectedAlign)
+          << "VF = " << VF
+          << ", target align = " << Peel.targetAlignment().value()
+          << " (dynamic)";
+    }
+  }
+
+  // Null alignment tests
+  for (const unsigned VF : {1, 2, 4, 8}) {
+    ResetAlign(LS);
+    VPlanAlignmentAnalysis::propagateAlignment(Plan.get(), VF, nullptr);
+    EXPECT_EQ(LS.getAlignment().value(), (uint64_t)4) << "peel = nullptr";
+  }
+}
+
 } // namespace

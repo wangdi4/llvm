@@ -412,6 +412,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "early-exit-cond";
   case VPInstruction::EarlyExitExecMask:
     return "early-exit-exec-mask";
+  case VPInstruction::EarlyExitLane:
+    return "early-exit-lane";
   default:
     return Instruction::getOpcodeName(Opcode);
   }
