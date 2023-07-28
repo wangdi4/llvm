@@ -9160,7 +9160,6 @@ def : InstAlias<"vcvtneps2bf16x\t{$src, $dst|$dst, $src}",
 def : InstAlias<"vcvtneps2bf16y\t{$src, $dst|$dst, $src}",
                 (VCVTNEPS2BF16Yrr VR128:$dst, VR256:$src), 0, "att">;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 let Uses = [MXCSR], checkVEXPredicate = 1,
@@ -9696,21 +9695,6 @@ let Predicates = [HasAVXRAOFP, NoVLX_Or_NoRAOFP], checkVEXPredicate = 1 in {
 }
 #endif // INTEL_FEATURE_ISA_AVX_RAO_FP
 
-#if INTEL_FEATURE_ISA_SHA512
-let Predicates = [HasSHA512], Constraints = "$src1 = $dst" in {
-def VSHA512MSG1rr : I<0xcc, MRMSrcReg, (outs VR256:$dst),
-                    (ins VR256:$src1, VR128:$src2),
-                    "vsha512msg1\t{$src2, $dst|$dst, $src2}",
-                    [(set VR256:$dst,
-                     (int_x86_vsha512msg1 VR256:$src1, VR128:$src2))]>, VEX_L,
-                    VEX, T8XD;
-def VSHA512MSG2rr : I<0xcd, MRMSrcReg, (outs VR256:$dst),
-                    (ins VR256:$src1, VR256:$src2),
-                    "vsha512msg2\t{$src2, $dst|$dst, $src2}",
-                    [(set VR256:$dst,
-                     (int_x86_vsha512msg2 VR256:$src1, VR256:$src2))]>, VEX_L,
-                    VEX, T8XD;
-=======
 // FIXME: Is there a better scheduler class for SHA512 than WriteVecIMul?
 let Predicates = [HasSHA512], Constraints = "$src1 = $dst" in {
 def VSHA512MSG1rr : I<0xcc, MRMSrcReg, (outs VR256:$dst),
@@ -9725,16 +9709,13 @@ def VSHA512MSG2rr : I<0xcd, MRMSrcReg, (outs VR256:$dst),
                      [(set VR256:$dst,
                        (int_x86_vsha512msg2 VR256:$src1, VR256:$src2))]>, VEX_L,
                      VEX, T8XD, Sched<[WriteVecIMul]>;
->>>>>>> fc3b7874b6c95f04a249e2c9da3c5221f50c85b2
 def VSHA512RNDS2rr : I<0xcb, MRMSrcReg, (outs VR256:$dst),
                       (ins VR256:$src1, VR256:$src2, VR128:$src3),
                       "vsha512rnds2\t{$src3, $src2, $dst|$dst, $src2, $src3}",
                       [(set VR256:$dst,
-<<<<<<< HEAD
                        (int_x86_vsha512rnds2 VR256:$src1, VR256:$src2, VR128:$src3))]>,
-                      VEX_L, VEX_4V, T8XD;
+                      VEX_L, VEX_4V, T8XD, Sched<[WriteVecIMul]>;
 }
-#endif // INTEL_FEATURE_ISA_SHA512
 
 #if INTEL_FEATURE_ISA_SM3
 let Predicates = [HasSM3], Constraints = "$src1 = $dst" in {
@@ -9845,8 +9826,3 @@ defm VPDPWUUD   : avx_vnni_int16<0xd2, "vpdpwuud", 1>, T8PS;
 defm VPDPWUUDS  : avx_vnni_int16<0xd3, "vpdpwuuds", 1>, T8PS;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI_INT16
 #endif // INTEL_CUSTOMIZATION
-=======
-                        (int_x86_vsha512rnds2 VR256:$src1, VR256:$src2, VR128:$src3))]>,
-                      VEX_L, VEX_4V, T8XD, Sched<[WriteVecIMul]>;
-}
->>>>>>> fc3b7874b6c95f04a249e2c9da3c5221f50c85b2
