@@ -1,7 +1,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Copyright (C) 2022 Intel Corporation
+# Copyright (C) 2022-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -95,7 +95,7 @@ add_custom_target(
 
 add_opencl_library(
   OCLBuiltinsRef
-  SHARED
+  STATIC
   EXCLUDE_FROM_ALL_BUILD
   ${OCL_SOURCE_FILES}
   ${OCL_INCLUDE_FILES}
@@ -116,7 +116,5 @@ add_opencl_library(
   REFALU)
 
 add_dependencies(OCLBuiltinsRef ${TARGET_NAME})
-
-set_linux_exports_file(OCLBuiltinsRef OCLBuiltins_linux_exports.txt)
 
 set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "Backend")
