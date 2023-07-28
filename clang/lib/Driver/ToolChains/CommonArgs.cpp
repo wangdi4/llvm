@@ -1427,6 +1427,27 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
                    options::OPT_global_hoist, false))
     addllvmOption("-global-loads-unsafe");
 
+  // -fprofile-sample-generate=2
+  if (Args.getLastArgValue(options::OPT_fprofile_sample_generate_EQ) ==
+      "med-fidelity") {
+    // Disable vectorizer converting conditional branches to masking operations
+    // (for both main loop and remainder loop).
+    addllvmOption("-vplan-enable-divergent-branches=false");
+    addllvmOption("-vplan-enable-masked-variant=false");
+
+    // Disable LoopOpt loop collapsing.
+    addllvmOption("-disable-hir-loop-collapse=true");
+
+    // Disable SimplifyCFG converting conditional branches to selects.
+    addllvmOption("-phi-node-folding-threshold=0");
+    addllvmOption("-two-entry-phi-node-folding-threshold=0");
+    addllvmOption("-speculate-one-expensive-inst=false");
+
+    // Disable EarlyIfConversion converting conditional branches into predicated
+    // instructions.
+    addllvmOption("-x86-early-ifcvt=false");
+  }
+
   // Enable the compatible intel ABI as default.
   if (TC.getDriver().IsIntelMode())
     addllvmOption("-intel-abi-compatible=true");
