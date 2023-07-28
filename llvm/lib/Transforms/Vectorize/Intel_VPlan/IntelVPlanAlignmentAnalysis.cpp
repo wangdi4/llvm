@@ -30,6 +30,10 @@ static cl::opt<bool>
 using namespace llvm;
 using namespace llvm::vpo;
 
+static LoopVPlanDumpControl
+    AlignmentPropagationControl("alignment-propagation",
+                                "propagating alignment due to peeling");
+
 /// Modular multiplicative inverse.
 static int modularMultiplicativeInverse(int Val, int Mod) {
   assert(Val > 0 && Mod > Val && "Invalid Arguments");
@@ -482,8 +486,10 @@ VPlanAlignmentAnalysis::tryGetKnownAlignment(const VPValue *Val,
 void VPlanAlignmentAnalysis::propagateAlignment(
     VPlanVector *Plan, unsigned VF,
     const VPlanPeelingVariant *GuaranteedPeeling) {
+  LLVM_DEBUG(dbgs() << "Propagating alignment for " << Plan->getName() << "\n");
+
   if (!GuaranteedPeeling || VF == 1) {
-    // Skip if we have no alignment to propagate.
+    LLVM_DEBUG(dbgs() << "Skip: no alignment to propagate");
     return;
   }
 
@@ -496,10 +502,16 @@ void VPlanAlignmentAnalysis::propagateAlignment(
         continue;
 
       const auto TargetAlign = VPAA.getAlignmentUnitStride(*LS, GuaranteedPeeling);
-      if (TargetAlign > LS->getAlignment())
+      if (TargetAlign > LS->getAlignment()) {
+        LLVM_DEBUG(dbgs() << "Upgrading alignment of " << *LS << "from "
+                          << LS->getAlignment().value() << " to "
+                          << TargetAlign.value() << "\n");
         LS->setAlignment(TargetAlign);
+      }
     }
   }
+
+  VPLAN_DUMP(AlignmentPropagationControl, Plan);
 }
 
 Align VPlanAlignmentAnalysis::getAlignmentUnitStrideImpl(
