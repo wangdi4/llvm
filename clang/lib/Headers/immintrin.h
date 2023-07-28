@@ -456,6 +456,7 @@ typedef struct __tile1024i_str {
 /* INTEL_FEATURE_ISA_AVX512_VNNI_INT8 */
 #if defined(__AVX512VNNIINT8_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+<<<<<<< HEAD
       defined(__AVX512VNNIINT8__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512vnniint8/avx512vnniint8intrin.h>
 #endif
@@ -709,6 +710,14 @@ typedef struct __tile1024i_str {
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__RDPID__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
+=======
+    defined(__SHA512__)
+#include <sha512intrin.h>
+#endif
+
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__RDPID__)
+>>>>>>> fc3b7874b6c95f04a249e2c9da3c5221f50c85b2
 /// Returns the value of the IA32_TSC_AUX MSR (0xc0000103).
 ///
 /// \headerfile <immintrin.h>
