@@ -11,7 +11,6 @@
 #include <sycl/detail/defines_elementary.hpp>
 
 #include <iterator>
-#include <memory>
 #include <type_traits>
 
 namespace sycl {
