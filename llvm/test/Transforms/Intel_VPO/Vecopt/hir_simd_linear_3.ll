@@ -5,7 +5,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; <0>          BEGIN REGION { }
-; <2>                %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.LINEAR(&((%lp.addr.linear)[0])2),  QUAL.OMP.LINEAR:IV(&((%l1.linear.iv)[0])1),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null) ]
+; <2>                %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.LINEAR:PTR_TO_PTR.TYPED(&((%lp.addr.linear)[0]), 0, 1, 2) ]
 ; <19>
 ; <19>               + DO i1 = 0, 1023, 1   <DO_LOOP> <simd>
 ; <6>                |   @_Z3bazPPl(&((%lp.addr.linear)[0]));
@@ -21,7 +21,6 @@ define void @_Z3fooPl(i64* noundef %lp) {
 ; CHECK-NEXT:  VPlan IR for: _Z3fooPl:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%lp.addr.linear}
-; CHECK-DAG:     [[VP1:%.*]] = {%l1.linear.iv}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
@@ -64,12 +63,11 @@ define void @_Z3fooPl(i64* noundef %lp) {
 ;
 DIR.OMP.SIMD.1:
   %lp.addr.linear = alloca i64*, align 8
-  %l1.linear.iv = alloca i64, align 8
   store i64* %lp, i64** %lp.addr.linear, align 8
   br label %DIR.OMP.SIMD.116
 
 DIR.OMP.SIMD.116:                                 ; preds = %DIR.OMP.SIMD.1
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR"(i64** %lp.addr.linear, i32 2), "QUAL.OMP.LINEAR:IV"(i64* %l1.linear.iv, i32 1), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:PTR_TO_PTR.TYPED"(i64** %lp.addr.linear, i64 0, i32 1, i32 2) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.116
