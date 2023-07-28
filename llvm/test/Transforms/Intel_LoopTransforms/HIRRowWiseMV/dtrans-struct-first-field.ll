@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans
 
-; RUN: opt -whole-program-assume -passes='require<dtransanalysis>,function(hir-ssa-deconstruction,hir-temp-cleanup,hir-rowwise-mv)' -print-before=hir-rowwise-mv -disable-output 2>&1 < %s | FileCheck %s
+; RUN: opt -whole-program-assume -passes='require<dtrans-safetyanalyzer>,function(hir-ssa-deconstruction,hir-temp-cleanup,hir-rowwise-mv)' -print-before=hir-rowwise-mv -disable-output 2>&1 < %s | FileCheck %s
 
 ; This test checks that HIRRowWiseMV doesn't crash if it encounters an opaque
 ; pointer struct GEP where the base pointer is the first struct field and the

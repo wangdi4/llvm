@@ -38,7 +38,6 @@
 MODULE_ANALYSIS("callgraph", CallGraphAnalysis())
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
-MODULE_ANALYSIS("dtransanalysis", DTransAnalysis())
 MODULE_ANALYSIS("dtrans-fieldmodref-analysis", DTransFieldModRefAnalysis())
 MODULE_ANALYSIS("dtrans-fieldmodrefop-analysis", DTransFieldModRefOPAnalysis())
 MODULE_ANALYSIS("dtrans-module-fieldmodref-result", DTransFieldModRefResult())
