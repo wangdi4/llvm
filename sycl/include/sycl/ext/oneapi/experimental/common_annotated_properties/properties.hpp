@@ -14,7 +14,11 @@
 #include <sycl/ext/oneapi/properties/property_value.hpp>
 
 namespace sycl {
+<<<<<<< HEAD
 inline namespace _V1 {
+=======
+__SYCL_INLINE_VER_NAMESPACE(_V1) {
+>>>>>>> b629981764b9da0ffdb334179a6fc3a6855433c0
 namespace ext {
 namespace oneapi {
 namespace experimental {
@@ -60,5 +64,9 @@ struct check_property_list<T, Prop, Props...>
 } // namespace experimental
 } // namespace oneapi
 } // namespace ext
+<<<<<<< HEAD
 } // namespace _V1
+=======
+} // __SYCL_INLINE_VER_NAMESPACE(_V1)
+>>>>>>> b629981764b9da0ffdb334179a6fc3a6855433c0
 } // namespace sycl
