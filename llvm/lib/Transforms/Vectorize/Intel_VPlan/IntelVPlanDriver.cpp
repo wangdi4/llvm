@@ -917,16 +917,35 @@ bool VPlanDriverImpl::isSupported<vpo::HLLoop>(vpo::HLLoop *Lp,
   return Self->isSupported(Lp, WRLp);
 }
 
-/// Standard Mode: standard path for (TODO: automatic and) explicit
-/// vectorization.
+/// Standard Mode: standard path for automatic and explicit vectorization.
 /// Explicit vectorization: it uses WRegion analysis to collect and vectorize
 /// all the WRNVecLoopNode's.
-template <typename Loop>
-bool VPlanDriverImpl::runStandardMode(Function &Fn) {
+template <typename Loop> bool VPlanDriverImpl::runStandardMode(Function &Fn) {
+  const bool ShouldVectorizeChildren =
+      NestedSimdStrategy == NestedSimdStrategies::Innermost ||
+      (NestedSimdStrategy == NestedSimdStrategies::FromInside &&
+       std::is_same_v<Loop, llvm::Loop>);
+  const bool ShouldVectorizeWithChildren =
+      NestedSimdStrategy != NestedSimdStrategies::Innermost;
 
-  SmallVector<std::pair<Loop *, WRNVecLoopNode *>, 8> LoopsToVectorize;
-  auto AddLoopToVectorize = [&](WRegionNode *WRNode,
-                                auto &&AddLoopToVectorize) {
+  // Describes a candidate loop to vectorize, along with its WRN node and
+  // (optional) loop header. The loop header is used only in the LLVM-IR path.
+  struct LoopToVectorize {
+    Loop *L = nullptr;
+    WRNVecLoopNode *WRLp = nullptr;
+    BasicBlock *Header = nullptr;
+  };
+  SmallVector<LoopToVectorize, 8> LoopsToVectorize;
+  auto AddLoopToVectorize = [&LoopsToVectorize](Loop *Lp,
+                                                WRNVecLoopNode *WRLp) {
+    if constexpr (std::is_same_v<Loop, llvm::Loop>) {
+      LoopsToVectorize.push_back(LoopToVectorize{Lp, WRLp, Lp->getHeader()});
+    } else {
+      LoopsToVectorize.push_back(LoopToVectorize{Lp, WRLp});
+    }
+  };
+  auto AddLoopsToVectorize = [&](WRegionNode *WRNode,
+                                 auto &&AddLoopsToVectorize) {
     if (WRNVecLoopNode *WRLp = dyn_cast<WRNVecLoopNode>(WRNode)) {
       Loop *Lp = WRLp->getTheLoop<Loop>();
       clearBailoutRemark();
@@ -939,11 +958,10 @@ bool VPlanDriverImpl::runStandardMode(Function &Fn) {
         return;
       }
 
-      if (NestedSimdStrategy == NestedSimdStrategies::Innermost &&
-          WRLp->hasChildren())
+      if (ShouldVectorizeChildren && WRLp->hasChildren())
         for (auto *WRN :
              make_range(WRLp->wrn_child_begin(), WRLp->wrn_child_end()))
-          AddLoopToVectorize(WRN, AddLoopToVectorize);
+          AddLoopsToVectorize(WRN, AddLoopsToVectorize);
 
       if (!VPlanForceBuild && !isSupported(Lp, WRLp)) {
         LLVM_DEBUG(dbgs() << "Bailing out: Loop is not supported!\n");
@@ -954,9 +972,8 @@ bool VPlanDriverImpl::runStandardMode(Function &Fn) {
         return;
       }
 
-      if (NestedSimdStrategy != NestedSimdStrategies::Innermost ||
-          !WRLp->hasChildren())
-        LoopsToVectorize.emplace_back(Lp, WRLp);
+      if (ShouldVectorizeWithChildren || !WRLp->hasChildren())
+        AddLoopToVectorize(Lp, WRLp);
     }
   };
 
@@ -972,108 +989,54 @@ bool VPlanDriverImpl::runStandardMode(Function &Fn) {
 
   LLVM_DEBUG(dbgs() << "WD: WRGraph #nodes= " << WRGraph->size() << "\n");
   for (auto WRNode : *WRGraph)
-    AddLoopToVectorize(WRNode, AddLoopToVectorize);
+    AddLoopsToVectorize(WRNode, AddLoopsToVectorize);
 
   bool ModifiedFunc = false;
-  for (const auto &It : LoopsToVectorize) {
-    LLVM_DEBUG(dbgs() << "VD: Starting VPlan for \n");
-    LLVM_DEBUG(It.second->dump());
-
-    ModifiedFunc |= processLoop(It.first, Fn, It.second);
-  }
-
-  return ModifiedFunc;
-}
-
-// We recalculate LoopInfo after each loop processed (see processLoop) so can't
-// use Loop* from WRNVecLoopNode as in the default implementation. Make an
-// explicit specialization to workaround that fact.
-//
-// Note that We have an issue with WRNVecLoopNode storing the stale Loop after
-// our LoopInfo recompute. It doesn't seem to cause any issue for now but might
-// be a source for some hidden bugs. Anyway, proper on-the-fly LoopInfo update
-// is a long-term solution, the below is simply "good enough" workaround for
-// now.
-template <>
-bool VPlanDriverImpl::runStandardMode<llvm::Loop>(Function &Fn) {
-
-  SmallVector<std::pair<BasicBlock *, WRNVecLoopNode *>, 8> LoopsToVectorize;
-  auto AddLoopToVectorize = [&](WRegionNode *WRNode,
-                                auto &&AddLoopToVectorize) {
-    if (WRNVecLoopNode *WRLp = dyn_cast<WRNVecLoopNode>(WRNode)) {
-      Loop *Lp = WRLp->getTheLoop<Loop>();
-      clearBailoutRemark();
-
-      if (!Lp) {
-        LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop was optimized out.\n");
-        // No bail-out remark since Lp is nullptr.
-        return;
-      }
-
-      if ((NestedSimdStrategy == NestedSimdStrategies::Innermost ||
-           NestedSimdStrategy == NestedSimdStrategies::FromInside) &&
-          WRLp->hasChildren())
-        for (auto *WRN :
-             make_range(WRLp->wrn_child_begin(), WRLp->wrn_child_end()))
-          AddLoopToVectorize(WRN, AddLoopToVectorize);
-
-      if (!VPlanForceBuild && !isSupported(Lp, WRLp)) {
-        LLVM_DEBUG(dbgs() << "Bailing out: Loop is not supported!\n");
-        assert(BR.BailoutRemark &&
-               "isSupported() failed to provide bailout data!\n");
-        VPlanOptReportBuilder VPORB(ORBuilder, LI);
-        (void)bailout(VPORB, Lp, WRLp, BR);
-        return;
-      }
-
-      if (NestedSimdStrategy != NestedSimdStrategies::Innermost ||
-          !WRLp->hasChildren())
-        LoopsToVectorize.emplace_back(Lp->getHeader(), WRLp);
+  for (const LoopToVectorize &Cand : LoopsToVectorize) {
+    Loop *L = Cand.L;
+    if constexpr (std::is_same_v<Loop, llvm::Loop>) {
+      // We recalculate LoopInfo after each loop processed (see processLoop) so
+      // can't use Loop* from WRNVecLoopNode as in the HIR path.
+      //
+      // Note that We have an issue with WRNVecLoopNode storing the stale Loop
+      // after our LoopInfo recompute. It doesn't seem to cause any issue for
+      // now but might be a source for some hidden bugs. Anyway, proper
+      // on-the-fly LoopInfo update is a long-term solution, the below is simply
+      // "good enough" workaround for now.
+      assert(Cand.Header != nullptr);
+      L = LI->getLoopFor(Cand.Header);
     }
-  };
-
-  LLVM_DEBUG(dbgs() << "VD: Standard Vectorization mode\n");
-
-  isEmitKernelOptRemarks = true;
-
-  IRKind IR = IRKind::LLVMIR;
-  WR->buildWRGraph(IR);
-  WRContainerImpl *WRGraph = WR->getWRGraph();
-
-  LLVM_DEBUG(dbgs() << "WD: WRGraph #nodes= " << WRGraph->size() << "\n");
-  for (auto WRNode : *WRGraph)
-    AddLoopToVectorize(WRNode, AddLoopToVectorize);
-
-  bool ModifiedFunc = false;
-  for (const auto &It : LoopsToVectorize) {
-    Loop *Lp = LI->getLoopFor(It.first);
+    assert(L != nullptr);
+    assert(Cand.WRLp != nullptr);
     LLVM_DEBUG(dbgs() << "VD: Starting VPlan for \n");
-    LLVM_DEBUG(It.second->dump());
+    LLVM_DEBUG(L->dump());
 
-    // Inner loop vectorization might cause LCSSA form breakage. For example:
-    //
-    //   vector.body:
-    //     %vec.phi3 = phi <4 x i32> ..., [ %0, %vector.body ]
-    //     ...
-    //     %wide.load = load <4 x i32>, ptr %scalar.gep, align 4
-    //     %0 = add <4 x i32> %vec.phi3, %wide.load
-    //     ...
-    //     br i1 %3, label %VPlannedBB4, label %vector.body
-    //
-    //   VPlannedBB4:
-    //     %4 = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> %0)
-    //
-    // formLCSSA call changes instruction form in the latter block; after that
-    // we can do vectorization of the outer loop.
-    //
-    //   VPlannedBB4:
-    //     %.lcssa = phi <4 x i32> [ %0, %vector.body ]
-    //     %4 = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> %.lcssa)
-    //
-    if (NestedSimdStrategy == NestedSimdStrategies::FromInside)
-      ModifiedFunc |= formLCSSA(*Lp, *DT, LI, SE);
+    if constexpr (std::is_same_v<Loop, llvm::Loop>) {
+      // Inner loop vectorization might cause LCSSA form breakage. For example:
+      //
+      //   vector.body:
+      //     %vec.phi3 = phi <4 x i32> ..., [ %0, %vector.body ]
+      //     ...
+      //     %wide.load = load <4 x i32>, ptr %scalar.gep, align 4
+      //     %0 = add <4 x i32> %vec.phi3, %wide.load
+      //     ...
+      //     br i1 %3, label %VPlannedBB4, label %vector.body
+      //
+      //   VPlannedBB4:
+      //     %4 = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> %0)
+      //
+      // formLCSSA call changes instruction form in the latter block; after that
+      // we can do vectorization of the outer loop.
+      //
+      //   VPlannedBB4:
+      //     %.lcssa = phi <4 x i32> [ %0, %vector.body ]
+      //     %4 = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> %.lcssa)
+      //
+      if (NestedSimdStrategy == NestedSimdStrategies::FromInside)
+        ModifiedFunc |= formLCSSA(*L, *DT, LI, SE);
+    }
 
-    ModifiedFunc |= processLoop(Lp, Fn, It.second);
+    ModifiedFunc |= processLoop(L, Fn, Cand.WRLp);
   }
 
   return ModifiedFunc;
