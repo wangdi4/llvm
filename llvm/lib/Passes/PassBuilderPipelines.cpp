@@ -446,48 +446,169 @@ static cl::opt<bool> EnableWPA(
 static cl::opt<bool>
     ProfileMLUse("profile-ml-use", cl::Hidden, cl::init(false),
                  cl::desc("Use Machine Learning for profile inference"));
+cl::opt<bool> ConvertToSubs(
+    "convert-to-subs-before-loopopt", cl::init(false), cl::ReallyHidden,
+    cl::desc("Enables conversion of GEPs to subscripts before loopopt"));
 
-extern cl::opt<bool> ConvertToSubs;
-extern cl::opt<bool> EnableLV;
+cl::opt<bool> EnableLV("enable-lv", cl::init(false), cl::Hidden,
+                       cl::desc("Enable community loop vectorizer"));
+
+cl::opt<bool> EnableLoadCoalescing("enable-load-coalescing", cl::init(true),
+                                   cl::Hidden, cl::ZeroOrMore,
+                                   cl::desc("Enable load coalescing"));
+
+cl::opt<bool>
+    EnableSROAAfterSLP("enable-sroa-after-slp", cl::init(true), cl::Hidden,
+                       cl::desc("Run SROA pass after the SLP vectorizer"));
+
 enum class ThroughputMode { None, SingleJob, MultipleJob };
-extern cl::opt<ThroughputMode> ThroughputModeOpt;
-extern cl::opt<bool> EnableLoadCoalescing;
-extern cl::opt<bool> EnableSROAAfterSLP;
-
-namespace llvm {
-extern cl::opt<bool> EnableHandlePragmaVectorAligned;
-// Andersen AliasAnalysis
-extern cl::opt<bool> EnableAndersen;
-extern cl::opt<bool> EnableArgNoAliasProp;
-extern cl::opt<bool> RunLoopOptFrameworkOnly;
-enum class LoopOptMode { None, LightWeight, Full };
-extern cl::opt<LoopOptMode> RunLoopOpts;
-extern cl::opt<bool> EnableTbaaProp;
-extern cl::opt<bool> EnableVPlanDriver;
-extern cl::opt<bool> RunVecClone;
-extern cl::opt<bool> EnableDeviceSimd;
-extern cl::opt<bool> EnableVPlanDriverHIR;
-extern cl::opt<bool> RunVPOVecopt;
-extern cl::opt<bool> RunPreLoopOptVPOPasses;
-extern cl::opt<bool> RunPostLoopOptVPOPasses;
-extern cl::opt<bool> EnableVPOParoptSharedPrivatization;
-extern cl::opt<bool> EnableVPOParoptTargetInline;
-extern cl::opt<bool> EnableEarlyLSR;
-extern cl::opt<bool> EnableStdContainerOpt;
-extern cl::opt<bool> EnableNonLTOGlobalVarOpt;
-extern cl::opt<bool> EarlyJumpThreading;
-} // namespace llvm
-#endif // INTEL_CUSTOMIZATION
+cl::opt<ThroughputMode> ThroughputModeOpt(
+    "throughput-opt", cl::init(ThroughputMode::None), cl::Hidden,
+    cl::ValueOptional,
+    cl::desc(
+        "Specifies if compiler should optimize for throughput performance"),
+    cl::values(clEnumValN(ThroughputMode::None, "0", "No mode speficied"),
+               clEnumValN(ThroughputMode::SingleJob, "1",
+                          "Assume application will run a single copy"),
+               clEnumValN(ThroughputMode::MultipleJob, "2",
+                          "Assume application will run multiple copies")));
 
 #if INTEL_COLLAB
-namespace llvm {
-// TODO: Change this to an enum class in PassManagerBuilder.cpp
 enum { InvokeParoptBeforeInliner = 1, InvokeParoptAfterInliner };
-extern cl::opt<unsigned> RunVPOOpt;
-extern cl::opt<unsigned> RunVPOParopt;
-extern cl::opt<bool> SPIRVOptimizationMode;
-} // namespace llvm
+cl::opt<unsigned> RunVPOOpt("vpoopt", cl::init(InvokeParoptAfterInliner),
+                            cl::Hidden, cl::desc("Runs all VPO passes"));
+
+// The user can use -mllvm -paropt=<mode> to enable various paropt
+// transformations, where <mode> is a bit vector (see enum VPOParoptMode
+// for a description of the bits.) For example, paropt=0x7 enables
+// "ParPrepare" (0x1), "ParTrans" (0x2), and "OmpPar" (0x4).
+// TODO: this does not seem to work with the new pass manager,
+//       so we need to fix it soon.
+static cl::opt<unsigned> RunVPOParopt("paropt", cl::init(0x00000000),
+                                      cl::Hidden,
+                                      cl::desc("Run VPO Paropt Pass"));
+static cl::opt<bool>
+    SPIRVOptimizationMode("spirv-opt", cl::init(false), cl::Hidden,
+                          cl::desc("Enable SPIR-V optimization mode."));
 #endif // INTEL_COLLAB
+
+cl::opt<bool> RunVPOVecopt("vecopt", cl::init(false), cl::Hidden,
+                           cl::desc("Run VPO Vecopt Pass"));
+
+// Switch to enable or disable all VPO related pre-loopopt passes
+cl::opt<bool> RunPreLoopOptVPOPasses("pre-loopopt-vpo-passes", cl::init(false),
+                                     cl::Hidden,
+                                     cl::desc("Run VPO passes before loopot"));
+
+// Switch to enable or disable all VPO related post-loopopt passes
+cl::opt<bool> RunPostLoopOptVPOPasses("post-loopopt-vpo-passes", cl::init(true),
+                                      cl::Hidden,
+                                      cl::desc("Run VPO passes after loopot"));
+
+// Set LLVM-IR VPlan driver pass to be enabled by default
+cl::opt<bool> EnableVPlanDriver("vplan-driver", cl::init(true), cl::Hidden,
+                                cl::desc("Enable VPlan Driver"));
+
+cl::opt<bool> RunVecClone("enable-vec-clone", cl::init(true), cl::Hidden,
+                          cl::desc("Run Vector Function Cloning"));
+
+cl::opt<bool>
+    EnableDeviceSimd("enable-device-simd", cl::init(false), cl::Hidden,
+                     cl::desc("Enable VPlan vectorzer for SIMD on device"));
+
+cl::opt<bool> EnableVPlanDriverHIR("vplan-driver-hir", cl::init(true),
+                                   cl::Hidden, cl::desc("Enable VPlan Driver"));
+// INTEL - HIR passes
+enum class LoopOptMode { None, LightWeight, Full };
+cl::opt<LoopOptMode> RunLoopOpts(
+    "loopopt", cl::init(LoopOptMode::None), cl::Hidden, cl::ValueOptional,
+    cl::desc("Runs loop optimization passes"),
+    cl::values(clEnumValN(LoopOptMode::None, "0", "Disable loopopt passes"),
+               clEnumValN(LoopOptMode::LightWeight, "1",
+                          "Enable lightweight loopopt(minimal passes)"),
+               clEnumValN(LoopOptMode::Full, "2", "Enable all loopopt passes"),
+               // Value assumed when just -loopopt is specified.
+               clEnumValN(LoopOptMode::Full, "", "")));
+
+cl::opt<bool> RunLoopOptFrameworkOnly(
+    "loopopt-framework-only", cl::init(false), cl::Hidden,
+    cl::desc("Enables loopopt framework without any transformation passes"));
+
+// register promotion for global vars at -O2 and above.
+cl::opt<bool> EnableNonLTOGlobalVarOpt(
+    "enable-non-lto-global-var-opt", cl::init(true), cl::Hidden,
+    cl::desc("Enable register promotion for global vars outside of the LTO."));
+
+// Std Container Optimization at -O2 and above.
+cl::opt<bool>
+    EnableStdContainerOpt("enable-std-container-opt", cl::init(true),
+                          cl::Hidden,
+                          cl::desc("Enable Std Container Optimization"));
+
+static cl::opt<bool> EnableTbaaProp("enable-tbaa-prop", cl::init(true),
+                                    cl::Hidden,
+                                    cl::desc("Enable Tbaa Propagation"));
+
+// Andersen AliasAnalysis
+cl::opt<bool> EnableAndersen("enable-andersen", cl::init(true), cl::Hidden,
+                             cl::desc("Enable Andersen's Alias Analysis"));
+
+#if INTEL_FEATURE_SW_DTRANS
+// DTrans optimizations -- this is a placeholder for future work.
+static cl::opt<bool> EnableDTrans("enable-dtrans", cl::init(false), cl::Hidden,
+                                  cl::desc("Enable DTrans optimizations"));
+#endif // INTEL_FEATURE_SW_DTRANS
+
+// PGO based function splitting
+static cl::opt<bool> EnableFunctionSplitting(
+    "enable-function-splitting", cl::init(false), cl::Hidden,
+    cl::desc("Enable function splitting optimization based on PGO data"));
+
+cl::opt<bool> EnableHandlePragmaVectorAligned(
+    "enable-handle-pragma-vector-aligned", cl::init(true),
+    cl::desc("Enable Handle Pragma Vector Aligned pass"));
+
+#if INTEL_FEATURE_CSA
+// CSA graph splitter.
+static cl::opt<bool> RunCSAGraphSplitter(
+    "enable-csa-graph-splitter", cl::init(false), cl::Hidden, cl::ZeroOrMore,
+    cl::desc("Run CSA graph splitter after late outlining."));
+
+// Add extra passes for CSA target.
+static cl::opt<bool>
+    EnableCSAPasses("enable-csa-passes", cl::init(false), cl::ReallyHidden,
+                    cl::ZeroOrMore,
+                    cl::desc("Enable extra passes for CSA target."));
+#endif // INTEL_FEATURE_CSA
+
+cl::opt<bool> EnableArgNoAliasProp(
+    "enable-arg-noalias-prop", cl::init(true), cl::Hidden, cl::ZeroOrMore,
+    cl::desc("Enable noalias propagation for function arguments."));
+
+cl::opt<bool> EnableVPOParoptSharedPrivatization(
+    "enable-vpo-paropt-shared-privatization", cl::init(true), cl::Hidden,
+    cl::ZeroOrMore, cl::desc("Enable VPO Paropt Shared Privatization pass."));
+
+cl::opt<bool> EnableVPOParoptTargetInline(
+    "enable-vpo-paropt-target-inline", cl::init(false), cl::Hidden,
+    cl::ZeroOrMore, cl::desc("Enable VPO Paropt Target Inline pass."));
+
+cl::opt<bool>
+    EnableEarlyLSR("enable-early-lsr", cl::init(false), cl::Hidden,
+                   cl::ZeroOrMore,
+                   cl::desc("Enable early Loop Strength Reduction pass."));
+
+cl::opt<bool> EarlyJumpThreading("early-jump-threading", cl::init(true),
+                                 cl::Hidden,
+                                 cl::desc("Run the early jump threading pass"));
+
+// The "legacy" loop unswitcher currently has better performance.
+static cl::opt<bool> EnableSimpleLoopUnswitch(
+    "enable-simple-loop-unswitch", cl::init(false), cl::Hidden,
+    cl::desc("Enable the simple loop unswitch pass. Also enables independent "
+             "cleanup passes integrated into the loop pass manager pipeline."));
+
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
 

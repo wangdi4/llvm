@@ -1238,7 +1238,7 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   auto addMultiVersionFlag = [&](const Arg &OptArg, OptSpecifier Opt) {
     if (IsLink && OptArg.getOption().matches(Opt) &&
         x86::isValidIntelCPU(OptArg.getValue(), TC.getTriple()))
-      addllvmOption("-enable-multiversioning");
+      addllvmOption("-enable-npm-multiversioning");
   };
   // Given -x, turn on multi-versioning
   // FIXME: These checks for Intel -x and -Qx are used in many places, we

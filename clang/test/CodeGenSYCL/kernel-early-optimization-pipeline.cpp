@@ -9,12 +9,6 @@
 // RUN: %clang_cc1 -O2 -fsycl-is-device -triple spir64-unknown-unknown %s -mdebug-pass Structure -emit-llvm -fno-sycl-early-optimizations -o /dev/null 2>&1 | FileCheck %s --check-prefix=CHECK-NEWPM-NOEARLYOPT
 // CHECK-NEWPM-NOEARLYOPT-NOT: ConstantMergePass
 // CHECK-NEWPM-NOEARLYOPT: SYCLMutatePrintfAddrspacePass
-//
-// INTEL_CUSTOMIZATION
-// Additionally check regular C++:
-// RUN: %clang_cc1 -O2 -triple x86_64 %s -flegacy-pass-manager -mllvm -debug-pass=Structure -emit-llvm -o - 2>&1 | FileCheck %s --check-prefix=CHECK-CPP
-// CHECK-CPP: Transform sin and cos calls
-// end INTEL_CUSTOMIZATION
 
 // Checks that the compile time properties pass is added into the compilation pipeline
 //

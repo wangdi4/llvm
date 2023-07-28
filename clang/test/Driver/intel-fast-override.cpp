@@ -9,5 +9,5 @@
 // -fast -xOPT should not generate duplicate entries
 // RUN: %clang_cl -### --intel -fast -QxSSE4.2 %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-FAST-NODUP %s
 // CHECK-INTEL-FAST-NODUP: "-mllvm:-mcpu=corei7"
-// CHECK-INTEL-FAST-NODUP-NOT: "-mllvm:-enable-multiversioning" "-mllvm:-enable-multiversioning"
+// CHECK-INTEL-FAST-NODUP-NOT: "-mllvm:-enable-npm-multiversioning" "-mllvm:-enable-npm-multiversioning"
 

@@ -3,7 +3,7 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -360,39 +360,6 @@ static void runNewPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
   MPM.run(Mod, MAM);
 }
 
-#if INTEL_CUSTOMIZATION
-static void runOldPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
-                           bool IsThinLTO, ModuleSummaryIndex *ExportSummary,
-                           const ModuleSummaryIndex *ImportSummary) {
-  legacy::PassManager passes;
-  passes.add(createTargetTransformInfoWrapperPass(TM->getTargetIRAnalysis()));
-
-  NoPGOWarnMismatch = !Conf.PGOWarnMismatch; // INTEL
-
-  PassManagerBuilder PMB;
-  PMB.LibraryInfo = new TargetLibraryInfoImpl(Triple(TM->getTargetTriple()));
-  if (Conf.Freestanding)
-    PMB.LibraryInfo->disableAllFunctions();
-
-  // Store the information related to whole program
-  PMB.addWholeProgramUtils(Conf.WPUtils);
-  PMB.ExportSummary = ExportSummary;
-  PMB.ImportSummary = ImportSummary;
-  // Unconditionally verify input since it is not verified before this
-  // point and has unknown origin.
-  PMB.VerifyInput = true;
-  PMB.VerifyOutput = !Conf.DisableVerify;
-  PMB.LoopVectorize = true;
-  PMB.SLPVectorize = true;
-  PMB.OptLevel = Conf.OptLevel;
-  if (IsThinLTO)
-    PMB.populateThinLTOPassManager(passes);
-  else
-    PMB.populateLTOPassManager(passes);
-  passes.run(Mod);
-}
-#endif // INTEL_CUSTOMIZATION
-
 bool lto::opt(const Config &Conf, TargetMachine *TM, unsigned Task, Module &Mod,
               bool IsThinLTO, ModuleSummaryIndex *ExportSummary,
               const ModuleSummaryIndex *ImportSummary,
@@ -416,14 +383,9 @@ bool lto::opt(const Config &Conf, TargetMachine *TM, unsigned Task, Module &Mod,
                                /*Cmdline*/ CmdArgs);
   }
 #endif // !INTEL_PRODUCT_RELEASE
-#if INTEL_CUSTOMIZATION
-  if (Conf.UseNewPM || !Conf.OptPipeline.empty()) {
+  // FIXME: Plumb the combined index into the new pass manager.
     runNewPMPasses(Conf, Mod, TM, Conf.OptLevel, IsThinLTO, ExportSummary,
                    ImportSummary);
-  } else {
-    runOldPMPasses(Conf, Mod, TM, IsThinLTO, ExportSummary, ImportSummary);
-  }
-#endif // INTEL_CUSTOMIZATION
   return !Conf.PostOptModuleHook || Conf.PostOptModuleHook(Task, Mod);
 }
 

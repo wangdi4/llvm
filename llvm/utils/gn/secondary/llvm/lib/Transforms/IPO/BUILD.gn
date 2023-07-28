@@ -54,9 +54,6 @@ static_library("IPO") {
     "ModuleInliner.cpp",
     "OpenMPOpt.cpp",
     "PartialInlining.cpp",
-+#if INTEL_CUSTOMIZATION
-    "PassManagerBuilder.cpp",
-#endif // INTEL_CUSTOMIZATION
     "SCCP.cpp",
     "SampleContextTracker.cpp",
     "SampleProfile.cpp",

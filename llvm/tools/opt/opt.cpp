@@ -70,7 +70,6 @@
 #include "llvm/Target/TargetMachine.h"
 #ifdef INTEL_CUSTOMIZATION
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/TargetParser/Host.h"
 #include "llvm/TargetParser/SubtargetFeature.h"
@@ -343,35 +342,6 @@ static inline void addPass(legacy::PassManagerBase &PM, Pass *P) {
   if (VerifyEach)
     PM.add(createVerifierPass());
 }
-
-/// This routine adds optimization passes based on selected optimization level,
-/// OptLevel.
-///
-/// OptLevel - Optimization Level
-static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
-                                  legacy::FunctionPassManager &FPM,
-                                  TargetMachine *TM, unsigned OptLevel,
-                                  unsigned SizeLevel) {
-  if (!NoVerify || VerifyEach)
-    FPM.add(createVerifierPass()); // Verify that input is correct
-
-  PassManagerBuilder Builder;
-  Builder.OptLevel = OptLevel;
-  Builder.SizeLevel = SizeLevel;
-
-  if (OptLevel <= 1) {
-    Builder.Inliner = createAlwaysInlinerLegacyPass();
-  }
-  Builder.DisableIntelProprietaryOpts = DisableIntelProprietaryOpts;
-
-  Builder.LoopVectorize = OptLevel > 1 && SizeLevel < 2;
-
-  Builder.SLPVectorize = OptLevel > 1 && SizeLevel < 2;
-
-  Builder.populateFunctionPassManager(FPM);
-  Builder.populateModulePassManager(MPM);
-}
-
 #endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // CodeGen-related helper functions.
@@ -948,37 +918,6 @@ int main(int argc, char **argv) {
 
   // Create a new optimization pass for each one specified on the command line
   for (unsigned i = 0; i < PassList.size(); ++i) {
-#ifdef INTEL_CUSTOMIZATION
-    if (OptLevelO0 && OptLevelO0.getPosition() < PassList.getPosition(i)) {
-      AddOptimizationPasses(Passes, *FPasses, TM.get(), 0, 0);
-      OptLevelO0 = false;
-    }
-
-    if (OptLevelO1 && OptLevelO1.getPosition() < PassList.getPosition(i)) {
-      AddOptimizationPasses(Passes, *FPasses, TM.get(), 1, 0);
-      OptLevelO1 = false;
-    }
-
-    if (OptLevelO2 && OptLevelO2.getPosition() < PassList.getPosition(i)) {
-      AddOptimizationPasses(Passes, *FPasses, TM.get(), 2, 0);
-      OptLevelO2 = false;
-    }
-
-    if (OptLevelOs && OptLevelOs.getPosition() < PassList.getPosition(i)) {
-      AddOptimizationPasses(Passes, *FPasses, TM.get(), 2, 1);
-      OptLevelOs = false;
-    }
-
-    if (OptLevelOz && OptLevelOz.getPosition() < PassList.getPosition(i)) {
-      AddOptimizationPasses(Passes, *FPasses, TM.get(), 2, 2);
-      OptLevelOz = false;
-    }
-
-    if (OptLevelO3 && OptLevelO3.getPosition() < PassList.getPosition(i)) {
-      AddOptimizationPasses(Passes, *FPasses, TM.get(), 3, 0);
-      OptLevelO3 = false;
-    }
-
     const PassInfo *PassInf = PassList[i];
     Pass *P = nullptr;
     if (PassInf->getNormalCtor())
@@ -986,6 +925,8 @@ int main(int argc, char **argv) {
     else
       errs() << argv[0] << ": cannot create pass: "
              << PassInf->getPassName() << "\n";
+
+#ifdef INTEL_CUSTOMIZATION
     if (P) {
       PassKind Kind = P->getPassKind();
       addPass(Passes, P);
@@ -1010,27 +951,7 @@ int main(int argc, char **argv) {
         }
       }
     }
-#endif // INTEL_CUSTOMIZATION
   }
-
-#ifdef INTEL_CUSTOMIZATION
-  if (OptLevelO0)
-    AddOptimizationPasses(Passes, *FPasses, TM.get(), 0, 0);
-
-  if (OptLevelO1)
-    AddOptimizationPasses(Passes, *FPasses, TM.get(), 1, 0);
-
-  if (OptLevelO2)
-    AddOptimizationPasses(Passes, *FPasses, TM.get(), 2, 0);
-
-  if (OptLevelOs)
-    AddOptimizationPasses(Passes, *FPasses, TM.get(), 2, 1);
-
-  if (OptLevelOz)
-    AddOptimizationPasses(Passes, *FPasses, TM.get(), 2, 2);
-
-  if (OptLevelO3)
-    AddOptimizationPasses(Passes, *FPasses, TM.get(), 3, 0);
 
   if (FPasses) {
     FPasses->doInitialization();

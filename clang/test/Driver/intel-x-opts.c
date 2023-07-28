@@ -269,7 +269,7 @@
 // XSSE42_MTUNE-SAME: "-tune-cpu" "haswell"
 //
 // ADV_OPT-SAME: "-fintel-advanced-optim"
-// ADV_OPT-NOT: "-enable-multiversioning"
+// ADV_OPT-NOT: "-enable-npm-multiversioning"
 
 // LTO check
 // RUN: %clang -### -target x86_64-unknown-linux-gnu -flto -xCORE-AVX512 %s 2>&1 \
@@ -282,10 +282,10 @@
 // RUN:  | FileCheck -check-prefixes=FLTO_XCOREAVX512_WIN %s
 // FLTO_XCOREAVX512: "-plugin-opt=mcpu=skylake-avx512"
 // FLTO_XCOREAVX512: "-plugin-opt=fintel-advanced-optim"
-// FLTO_XCOREAVX512: "-plugin-opt=-enable-multiversioning"
+// FLTO_XCOREAVX512: "-plugin-opt=-enable-npm-multiversioning"
 // FLTO_XCOREAVX512_WIN: "-mllvm:-mcpu=skylake-avx512"
 // FLTO_XCOREAVX512_WIN: "-mllvm:-enable-intel-advanced-opts"
-// FLTO_XCOREAVX512_WIN: "-mllvm:-enable-multiversioning"
+// FLTO_XCOREAVX512_WIN: "-mllvm:-enable-npm-multiversioning"
 
 // Option override diagnostic check
 // RUN: %clang -### -xbroadwell -march=nocona -c %s 2>&1 \
