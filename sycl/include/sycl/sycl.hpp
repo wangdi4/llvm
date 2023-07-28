@@ -64,7 +64,10 @@
 #include <sycl/ext/intel/experimental/pipe_properties.hpp>
 #include <sycl/ext/intel/experimental/pipes.hpp>
 #include <sycl/ext/intel/usm_pointers.hpp>
+<<<<<<< HEAD
 #include <sycl/ext/oneapi/bindless_images.hpp>
+=======
+>>>>>>> b629981764b9da0ffdb334179a6fc3a6855433c0
 #include <sycl/ext/oneapi/device_global/device_global.hpp>
 #include <sycl/ext/oneapi/device_global/properties.hpp>
 #include <sycl/ext/oneapi/experimental/annotated_arg/annotated_arg.hpp>
