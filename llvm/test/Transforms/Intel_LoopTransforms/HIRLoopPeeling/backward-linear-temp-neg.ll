@@ -25,10 +25,10 @@ entry:
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %t.07 = phi i32 [ 5, %entry ], [ %0, %for.body ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %indvars.iv
   %trunc.iv = trunc i64 %indvars.iv to i32
   %mul = mul i32 %trunc.iv, %t.07
-  store i32 %mul, i32* %arrayidx, align 4
+  store i32 %mul, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %0 = trunc i64 %indvars.iv to i32
   %exitcond.not = icmp eq i64 %indvars.iv.next, 100

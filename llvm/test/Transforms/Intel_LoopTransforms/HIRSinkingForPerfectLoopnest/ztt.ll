@@ -97,8 +97,8 @@ for.cond.cleanup3:                                ; preds = %for.cond.cleanup3.l
 
 for.body4:                                        ; preds = %for.body4.preheader, %for.cond.cleanup9
   %indvars.iv51 = phi i64 [ %indvars.iv.next52, %for.cond.cleanup9 ], [ 0, %for.body4.preheader ]
-  %arrayidx6 = getelementptr inbounds [100 x [100 x float]], [100 x [100 x float]]* @c, i64 0, i64 %indvar, i64 %indvars.iv51, !intel-tbaa !2
-  store float 0.000000e+00, float* %arrayidx6, align 4, !tbaa !2
+  %arrayidx6 = getelementptr inbounds [100 x [100 x float]], ptr @c, i64 0, i64 %indvar, i64 %indvars.iv51, !intel-tbaa !2
+  store float 0.000000e+00, ptr %arrayidx6, align 4, !tbaa !2
   br i1 %cmp843, label %for.body10.preheader, label %for.cond.cleanup9
 
 for.body10.preheader:                             ; preds = %for.body4
@@ -106,7 +106,7 @@ for.body10.preheader:                             ; preds = %for.body4
 
 for.cond7.for.cond.cleanup9_crit_edge:            ; preds = %for.body10
   %add.lcssa = phi float [ %add, %for.body10 ]
-  store float %add.lcssa, float* %arrayidx6, align 4, !tbaa !2
+  store float %add.lcssa, ptr %arrayidx6, align 4, !tbaa !2
   br label %for.cond.cleanup9
 
 for.cond.cleanup9:                                ; preds = %for.cond7.for.cond.cleanup9_crit_edge, %for.body4
@@ -117,10 +117,10 @@ for.cond.cleanup9:                                ; preds = %for.cond7.for.cond.
 for.body10:                                       ; preds = %for.body10.preheader, %for.body10
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body10 ], [ 0, %for.body10.preheader ]
   %add45 = phi float [ %add, %for.body10 ], [ 0.000000e+00, %for.body10.preheader ]
-  %arrayidx14 = getelementptr inbounds [100 x [100 x float]], [100 x [100 x float]]* @a, i64 0, i64 %indvar, i64 %indvars.iv, !intel-tbaa !2
-  %0 = load float, float* %arrayidx14, align 4, !tbaa !2
-  %arrayidx18 = getelementptr inbounds [100 x [100 x float]], [100 x [100 x float]]* @b, i64 0, i64 %indvars.iv, i64 %indvars.iv51, !intel-tbaa !2
-  %1 = load float, float* %arrayidx18, align 4, !tbaa !2
+  %arrayidx14 = getelementptr inbounds [100 x [100 x float]], ptr @a, i64 0, i64 %indvar, i64 %indvars.iv, !intel-tbaa !2
+  %0 = load float, ptr %arrayidx14, align 4, !tbaa !2
+  %arrayidx18 = getelementptr inbounds [100 x [100 x float]], ptr @b, i64 0, i64 %indvars.iv, i64 %indvars.iv51, !intel-tbaa !2
+  %1 = load float, ptr %arrayidx18, align 4, !tbaa !2
   %mul = fmul float %0, %1
   %add = fadd float %add45, %mul
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1

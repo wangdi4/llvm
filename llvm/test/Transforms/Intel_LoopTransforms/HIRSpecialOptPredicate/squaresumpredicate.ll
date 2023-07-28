@@ -119,14 +119,12 @@ bb:
   %mul45 = mul i64 %lshr44, %lshr
   %getelementptr46 = getelementptr inbounds %struct.barney, ptr %alloca7, i64 0, i32 2
   %getelementptr47 = getelementptr inbounds %struct.barney, ptr %alloca7, i64 0, i32 1
-  %getelementptr48 = getelementptr inbounds %struct.barney, ptr %alloca7, i64 0, i32 0
   %getelementptr49 = getelementptr inbounds %struct.wombat, ptr %alloca6, i64 0, i32 5
   %getelementptr50 = getelementptr inbounds %struct.wombat, ptr %alloca6, i64 0, i32 6
   %getelementptr51 = getelementptr inbounds %struct.wombat, ptr %alloca6, i64 0, i32 7
   %getelementptr52 = getelementptr inbounds %struct.barney, ptr %alloca7, i64 0, i32 3
   %getelementptr53 = getelementptr inbounds %struct.wombat, ptr %alloca6, i64 0, i32 8
   %getelementptr54 = getelementptr inbounds %struct.quux, ptr %arg, i64 0, i32 47
-  %getelementptr55 = getelementptr inbounds [4096 x i8], ptr %alloca, i64 0, i64 0
   %getelementptr56 = getelementptr inbounds %struct.quux, ptr %arg, i64 0, i32 53, i64 0
   %getelementptr57 = getelementptr inbounds %struct.quux, ptr %arg, i64 0, i32 48
   %add58 = add nsw i64 %sdiv41, 1
@@ -260,7 +258,7 @@ bb129:                                            ; preds = %bb121
   %fmul140 = fmul fast float %fsub139, %fsub139
   %fadd141 = fadd fast float %fmul140, %fmul135
   %load142 = load float, ptr %getelementptr37, align 8
-  %load143 = load i16, ptr %getelementptr48, align 2
+  %load143 = load i16, ptr %alloca7, align 2
   %uitofp144 = uitofp i16 %load143 to float
   %fsub145 = fsub fast float %load142, %uitofp144
   %fmul146 = fmul fast float %fsub145, %fsub145
@@ -458,10 +456,10 @@ bb290:                                            ; preds = %bb283
   %add291 = add nsw i64 %phi61, 1
   %load292 = load i64, ptr %getelementptr13, align 8
   call void @llvm.lifetime.start.p0(i64 4096, ptr nonnull %alloca) #3
-  %call293 = call i64 (ptr, i64, ptr, ...) null(ptr noundef nonnull %getelementptr55, i64 noundef 4096, ptr noundef nonnull null, ptr noundef nonnull null, ptr noundef nonnull %getelementptr56) #3
+  %call293 = call i64 (ptr, i64, ptr, ...) null(ptr noundef nonnull %alloca, i64 noundef 4096, ptr noundef nonnull null, ptr noundef nonnull null, ptr noundef nonnull %getelementptr56) #3
   %load294 = load ptr, ptr %getelementptr54, align 8
   %load295 = load ptr, ptr %getelementptr57, align 8
-  %call296 = call i32 %load294(ptr noundef nonnull %getelementptr55, i64 noundef %phi61, i64 noundef %load292, ptr noundef %load295) #3
+  %call296 = call i32 %load294(ptr noundef nonnull %alloca, i64 noundef %phi61, i64 noundef %load292, ptr noundef %load295) #3
   call void @llvm.lifetime.end.p0(i64 4096, ptr nonnull %alloca) #3
   %icmp297 = icmp eq i32 %call296, 0
   %select298 = select i1 %icmp297, i32 0, i32 %select287

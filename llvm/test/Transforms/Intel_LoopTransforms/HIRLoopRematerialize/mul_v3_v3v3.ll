@@ -35,26 +35,26 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local void @Vsub(double* noalias nocapture %a, double* noalias nocapture readonly %b, double* noalias nocapture readonly %c) local_unnamed_addr #0 {
+define dso_local void @Vsub(ptr noalias nocapture %a, ptr noalias nocapture readonly %b, ptr noalias nocapture readonly %c) local_unnamed_addr #0 {
 entry:
-  %0 = load double, double* %b, align 8, !tbaa !2
-  %1 = load double, double* %c, align 8, !tbaa !2
+  %0 = load double, ptr %b, align 8, !tbaa !2
+  %1 = load double, ptr %c, align 8, !tbaa !2
   %mul = fmul double %0, %1
-  store double %mul, double* %a, align 8, !tbaa !2
-  %arrayidx3 = getelementptr inbounds double, double* %b, i64 1
-  %2 = load double, double* %arrayidx3, align 8, !tbaa !2
-  %arrayidx4 = getelementptr inbounds double, double* %c, i64 1
-  %3 = load double, double* %arrayidx4, align 8, !tbaa !2
+  store double %mul, ptr %a, align 8, !tbaa !2
+  %arrayidx3 = getelementptr inbounds double, ptr %b, i64 1
+  %2 = load double, ptr %arrayidx3, align 8, !tbaa !2
+  %arrayidx4 = getelementptr inbounds double, ptr %c, i64 1
+  %3 = load double, ptr %arrayidx4, align 8, !tbaa !2
   %mul5 = fmul double %2, %3
-  %arrayidx6 = getelementptr inbounds double, double* %a, i64 1
-  store double %mul5, double* %arrayidx6, align 8, !tbaa !2
-  %arrayidx7 = getelementptr inbounds double, double* %b, i64 2
-  %4 = load double, double* %arrayidx7, align 8, !tbaa !2
-  %arrayidx8 = getelementptr inbounds double, double* %c, i64 2
-  %5 = load double, double* %arrayidx8, align 8, !tbaa !2
+  %arrayidx6 = getelementptr inbounds double, ptr %a, i64 1
+  store double %mul5, ptr %arrayidx6, align 8, !tbaa !2
+  %arrayidx7 = getelementptr inbounds double, ptr %b, i64 2
+  %4 = load double, ptr %arrayidx7, align 8, !tbaa !2
+  %arrayidx8 = getelementptr inbounds double, ptr %c, i64 2
+  %5 = load double, ptr %arrayidx8, align 8, !tbaa !2
   %mul9 = fmul double %4, %5
-  %arrayidx10 = getelementptr inbounds double, double* %a, i64 2
-  store double %mul9, double* %arrayidx10, align 8, !tbaa !2
+  %arrayidx10 = getelementptr inbounds double, ptr %a, i64 2
+  store double %mul9, ptr %arrayidx10, align 8, !tbaa !2
   ret void
 }
 

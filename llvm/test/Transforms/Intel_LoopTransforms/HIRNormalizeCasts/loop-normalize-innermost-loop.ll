@@ -29,7 +29,7 @@
 ; CHECK: END REGION
 
 
-define void @foo(i32 %rows, i32 %cols, double* %arr) {
+define void @foo(i32 %rows, i32 %cols, ptr %arr) {
 entry:
   br label %for.cond2.preheader.lr.ph.i6919
 
@@ -63,8 +63,8 @@ for.body5.i6930:                                  ; preds = %for.body5.i6930, %f
   %indvars.iv.i6924 = phi i64 [ 0, %for.body5.lr.ph.i6921 ], [ %indvars.iv.next.i6928, %for.body5.i6930 ]
   %result.128.i = phi double [ %result.031.i, %for.body5.lr.ph.i6921 ], [ %add.i6927, %for.body5.i6930 ]
   %2 = add nsw i64 %indvars.iv.i6924, %1
-  %arrayidx.i.i6925 = getelementptr inbounds double, double* %arr, i64 %2
-  %3 = load double, double* %arrayidx.i.i6925, align 8
+  %arrayidx.i.i6925 = getelementptr inbounds double, ptr %arr, i64 %2
+  %3 = load double, ptr %arrayidx.i.i6925, align 8
   %mul.i6926 = fmul fast double %3, %3
   %add.i6927 = fadd fast double %mul.i6926, %result.128.i
   %indvars.iv.next.i6928 = add nuw nsw i64 %indvars.iv.i6924, 1
