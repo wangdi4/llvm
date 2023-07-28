@@ -1612,10 +1612,16 @@ defm gnu_inline_asm : BoolFOption<"gnu-inline-asm",
   NegFlag<SetFalse, [CC1Option], "Disable GNU style inline asm">, PosFlag<SetTrue>>;
 
 #if INTEL_CUSTOMIZATION
-def fprofile_sample_generate : Flag<["-"], "fprofile-sample-generate">,
+def fprofile_sample_generate_EQ : Joined<["-"], "fprofile-sample-generate=">,
+  Values<"none,keep-all-opt,med-fidelity,max-fidelity">, Group<f_Group>,
+  Flags<[NoXarchOption, CoreOption]>,
+  HelpText<"Enable compiler and linker generating information and adjusting "
+           "optimizations for Sample-based Profile Guided Optimizations (SPGO)."
+           " Vaild arguments are none, keep-all-opt, med-fidelity, max-fidelity"
+           ". (experimental)">;
+def : Flag<["-"], "fprofile-sample-generate">,
   Group<f_Group>, Flags<[NoXarchOption, CoreOption]>,
-  HelpText<"Enable compiler and linker generating information for Sample-based "
-           "Profile Guided Optimizations (SPGO). (experimental)">;
+  Alias<fprofile_sample_generate_EQ>, AliasArgs<["keep-all-opt"]>;
 #endif // INTEL_CUSTOMIZATION
 
 def fprofile_sample_use : Flag<["-"], "fprofile-sample-use">, Group<f_Group>,
@@ -8607,8 +8613,12 @@ def _SLASH_fprofile_remapping_file_COL : CLJoined<"fprofile-remapping-file:">,
   Alias<fprofile_remapping_file_EQ>;
 def _SLASH_fprofile_remapping_file_EQ : CLJoined<"fprofile-remapping-file=">,
   Alias<fprofile_remapping_file_EQ>;
-def _SLASH_fprofile_sample_generate : CLFlag<"fprofile-sample-generate">,
-  Alias<fprofile_sample_generate>;
+def _SLASH_fprofile_sample_generate_EQ : CLJoined<"fprofile-sample-generate=">,
+  Alias<fprofile_sample_generate_EQ>;
+def _SLASH_fprofile_sample_generate_COL : CLJoined<"fprofile-sample-generate:">,
+  Alias<fprofile_sample_generate_EQ>;
+def : CLFlag<"fprofile-sample-generate">,
+  Alias<fprofile_sample_generate_EQ>, AliasArgs<["keep-all-opt"]>;
 def _SLASH_fprofile_sample_use : CLFlag<"fprofile-sample-use">,
   Alias<fprofile_sample_use>;
 def _SLASH_fprofile_sample_use_COL : CLJoined<"fprofile-sample-use:">,

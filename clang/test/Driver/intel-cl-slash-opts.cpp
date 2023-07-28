@@ -113,6 +113,11 @@
 // RUN:     /fprofile-remapping-file=foo %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHECK-ERROR %s
 
+// /fprofile-sample-generate, /fprofile-sample-generate: /fprofile-sample-generate=
+// RUN:   %clang_cl -### /fprofile-sample-generate /fprofile-sample-generate:med-fidelity \
+// RUN:     /fprofile-sample-generate=max-fidelity -- %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHECK-ERROR %s
+
 // /fprofile-sample-use, /fno-profile-sample-use, /fprofile-sample-use:, /fprofile-sample-use=
 // RUN:   %clang_cl -### /fprofile-sample-use /fno-profile-sample-use \
 // RUN:     /fprofile-sample-use:%s /fprofile-sample-use=%s %s 2>&1 \

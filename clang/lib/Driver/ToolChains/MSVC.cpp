@@ -382,7 +382,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       if (!A->getOption().matches(options::OPT_fno_profile_instr_generate))
         CmdArgs.push_back(Args.MakeArgString("-incremental:no"));
 
-  if (Args.hasArg(options::OPT_fprofile_sample_generate))
+  if (Args.hasArg(options::OPT_fprofile_sample_generate_EQ))
     CmdArgs.push_back(Args.MakeArgString("-profile-sample-generate"));
 #endif // INTEL_CUSTOMIZATION
 

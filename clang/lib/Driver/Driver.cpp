@@ -583,7 +583,10 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
     if (!Args.hasArgNoClaim(
             options::OPT_O_Group, options::OPT__SLASH_O, options::OPT_g_Group,
             options::OPT_intel_debug_Group, options::OPT__SLASH_Z7)) {
-      addClaim(IsCLMode() ? options::OPT__SLASH_O : options::OPT_O, "2");
+      // -fprofile-sample-generate=max-fidelity implies -O0.
+      if (Args.getLastArgValue(options::OPT_fprofile_sample_generate_EQ) !=
+          "max-fidelity")
+        addClaim(IsCLMode() ? options::OPT__SLASH_O : options::OPT_O, "2");
       // "-vectorize-loops" and "-vectorize-slp" are enabled when optimization
       // level is -O2 or higher. The implied -O2 is appended to the options
       // list, which will make -fno-vectorize and -fno-slp-vectorize cannot
@@ -825,49 +828,6 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
       continue;
     }
 
-#if INTEL_CUSTOMIZATION
-    // Rewrite SPGO options to several detail options.
-    if (A->getOption().matches(options::OPT_fprofile_sample_generate) ||
-        A->getOption().matches(options::OPT_fprofile_sample_use_EQ)) {
-      // /Ob0 /Ob1 will disable inlining which is important for SPGO.
-      if (Arg *O = Args.getLastArg(options::OPT__SLASH_O)) {
-        StringRef V = O->getValue(0);
-        if (V.equals_insensitive("b0") || V.equals_insensitive("b1"))
-          Diag(clang::diag::err_drv_not_supported_spgo_opt)
-              << Twine(O->getSpelling() + V).str() << 1 << "Ob2/Ob3";
-      }
-
-      if (Arg *O =
-              Args.getLastArg(options::OPT_fno_unique_internal_linkage_names,
-                              options::OPT_fno_debug_info_for_profiling))
-        Diag(clang::diag::err_drv_not_supported_spgo_opt)
-            << O->getSpelling().str() << 0;
-
-      DAL->AddFlagArg(
-          A, Opts.getOption(options::OPT_funique_internal_linkage_names));
-      DAL->AddFlagArg(A,
-                      Opts.getOption(options::OPT_fdebug_info_for_profiling));
-
-      if (A->getOption().matches(options::OPT_fprofile_sample_generate)) {
-        // This option will be expanded to debug options later.
-        DAL->AddFlagArg(A,
-                        Opts.getOption(options::OPT_fprofile_sample_generate));
-        if (IsCLMode()) {
-          if (!Args.getLastArgValue(options::OPT_fuse_ld_EQ, "lld")
-                   .equals_insensitive("lld"))
-            Diag(clang::diag::err_drv_spgo_without_lld);
-          DAL->AddJoinedArg(A, Opts.getOption(options::OPT_fuse_ld_EQ), "lld");
-        }
-      }
-
-      if (A->getOption().matches(options::OPT_fprofile_sample_use_EQ))
-        DAL->AddJoinedArg(A,
-                          Opts.getOption(options::OPT_fprofile_sample_use_EQ),
-                          A->getValue());
-      continue;
-    }
-#endif // INTEL_CUSTOMIZATION
-
     // Rewrite reserved library names.
     if (A->getOption().matches(options::OPT_l)) {
       StringRef Value = A->getValue();
@@ -972,6 +932,60 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
 #endif
 
 #if INTEL_CUSTOMIZATION
+  unsigned ProfileLevel = 0;
+  if (const Arg *A =
+          Args.getLastArg(options::OPT_fprofile_sample_generate_EQ)) {
+    ProfileLevel = llvm::StringSwitch<unsigned>(A->getValue())
+                       .Case("none", 0)
+                       .Case("keep-all-opt", 1)
+                       .Case("med-fidelity", 2)
+                       .Case("max-fidelity", 3)
+                       .Default(UINT_MAX);
+    if (ProfileLevel == UINT_MAX)
+      Diag(clang::diag::err_drv_invalid_value)
+          << A->getAsString(Args) << A->getValue();
+
+    // Zero means no -fprofile_sample_generate.
+    if (ProfileLevel == 0)
+      DAL->eraseArg(options::OPT_fprofile_sample_generate_EQ);
+  }
+
+  // Expand SPGO options to several detail options.
+  if (ProfileLevel || Args.hasArg(options::OPT_fprofile_sample_use_EQ)) {
+    // /Ob0 /Ob1 will disable inlining which is important for SPGO.
+    if (Arg *O = Args.getLastArg(options::OPT__SLASH_O)) {
+      StringRef V = O->getValue(0);
+      if (V.equals_insensitive("b0") || V.equals_insensitive("b1"))
+        Diag(clang::diag::err_drv_not_supported_spgo_opt)
+            << Twine(O->getSpelling() + V).str() << 1 << "Ob2/Ob3";
+    }
+
+    if (Arg *O = Args.getLastArg(options::OPT_fno_unique_internal_linkage_names,
+                                 options::OPT_fno_debug_info_for_profiling))
+      Diag(clang::diag::err_drv_not_supported_spgo_opt)
+          << O->getSpelling().str() << 0;
+
+    // Common flags for ProfileLevel > 0 and -fprofile-sample_use=.
+    DAL->AddFlagArg(
+        nullptr, Opts.getOption(options::OPT_funique_internal_linkage_names));
+    DAL->AddFlagArg(nullptr,
+                    Opts.getOption(options::OPT_fdebug_info_for_profiling));
+
+    if (ProfileLevel) {
+      // Uses -O0 for max-fidelity. med-fidelity will be handed later.
+      if (ProfileLevel == 3)
+        DAL->AddFlagArg(nullptr, Opts.getOption(options::OPT_O0));
+
+      if (IsCLMode()) {
+        if (!Args.getLastArgValue(options::OPT_fuse_ld_EQ, "lld")
+                 .equals_insensitive("lld"))
+          Diag(clang::diag::err_drv_spgo_without_lld);
+        DAL->AddJoinedArg(nullptr, Opts.getOption(options::OPT_fuse_ld_EQ),
+                          "lld");
+      }
+    }
+  }
+
   addIntelArgs(*DAL, Args, Opts);
 #endif // INTEL_CUSTOMIZATION
 

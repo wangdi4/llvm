@@ -4615,7 +4615,7 @@ renderDebugOptions(const ToolChain &TC, const Driver &D, const llvm::Triple &T,
   // allow -gsplit-dwarf with either -gN or IR input.
 #if INTEL_CUSTOMIZATION
   if (IRInput || Args.hasArg(options::OPT_g_Group,
-                             options::OPT_fprofile_sample_generate)) {
+                             options::OPT_fprofile_sample_generate_EQ)) {
 #endif // INTEL_CUSTOMIZATION
     Arg *SplitDWARFArg;
     DwarfFission = getDebugFissionKind(D, Args, SplitDWARFArg);
@@ -4639,7 +4639,7 @@ renderDebugOptions(const ToolChain &TC, const Driver &D, const llvm::Triple &T,
     }
   }
 
-  if (Args.getLastArg(options::OPT_fprofile_sample_generate) &&
+  if (Args.hasArg(options::OPT_fprofile_sample_generate_EQ) &&
       (DebugInfoKind < llvm::codegenoptions::DebugLineTablesOnly)) {
     DebugInfoKind = llvm::codegenoptions::DebugLineTablesOnly;
     CheckDwarfFission = true;
@@ -4683,7 +4683,7 @@ renderDebugOptions(const ToolChain &TC, const Driver &D, const llvm::Triple &T,
     EmitCodeView = checkDebugInfoOption(A, Args, D, TC);
 
 #if INTEL_CUSTOMIZATION
-  if (Args.getLastArg(options::OPT_fprofile_sample_generate))
+  if (Args.hasArg(options::OPT_fprofile_sample_generate_EQ))
     EmitDwarf = true;
 #endif // INTEL_CUSTOMIZATION
 
