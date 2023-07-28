@@ -113,9 +113,9 @@ for.cond.cleanup3:                                ; preds = %for.cond.cleanup3.l
 
 for.body4:                                        ; preds = %for.body4.preheader, %for.cond.cleanup9
   %indvars.iv74 = phi i64 [ %indvars.iv.next75, %for.cond.cleanup9 ], [ 0, %for.body4.preheader ]
-  %arrayidx6 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @d, i64 0, i64 %indvars.iv78, i64 %indvars.iv74, !intel-tbaa !5
-  store i32 0, i32* %arrayidx6, align 4, !tbaa !5
-  %arrayidx36 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @c, i64 0, i64 %indvars.iv78, i64 %indvars.iv74
+  %arrayidx6 = getelementptr inbounds [100 x [100 x i32]], ptr @d, i64 0, i64 %indvars.iv78, i64 %indvars.iv74, !intel-tbaa !5
+  store i32 0, ptr %arrayidx6, align 4, !tbaa !5
+  %arrayidx36 = getelementptr inbounds [100 x [100 x i32]], ptr @c, i64 0, i64 %indvars.iv78, i64 %indvars.iv74
   br i1 %cmp865, label %for.body10.preheader, label %for.cond.cleanup9
 
 for.body10.preheader:                             ; preds = %for.body4
@@ -124,8 +124,8 @@ for.body10.preheader:                             ; preds = %for.body4
 for.cond7.for.cond.cleanup9_crit_edge:            ; preds = %for.body10
   %add.lcssa = phi i32 [ %add, %for.body10 ]
   %add32.lcssa = phi i32 [ %add32, %for.body10 ]
-  store i32 %add32.lcssa, i32* %arrayidx6, align 4, !tbaa !5
-  store i32 %add.lcssa, i32* %arrayidx36, align 4, !tbaa !5
+  store i32 %add32.lcssa, ptr %arrayidx6, align 4, !tbaa !5
+  store i32 %add.lcssa, ptr %arrayidx36, align 4, !tbaa !5
   br label %for.cond.cleanup9
 
 for.cond.cleanup9:                                ; preds = %for.cond7.for.cond.cleanup9_crit_edge, %for.body4
@@ -137,10 +137,10 @@ for.body10:                                       ; preds = %for.body10.preheade
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body10 ], [ 0, %for.body10.preheader ]
   %add3268 = phi i32 [ %add32, %for.body10 ], [ 0, %for.body10.preheader ]
   %t.066 = phi i32 [ %add, %for.body10 ], [ 0, %for.body10.preheader ]
-  %arrayidx14 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @a, i64 0, i64 %indvars.iv78, i64 %indvars.iv, !intel-tbaa !5
-  %0 = load i32, i32* %arrayidx14, align 4, !tbaa !5
-  %arrayidx18 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @b, i64 0, i64 %indvars.iv, i64 %indvars.iv74, !intel-tbaa !5
-  %1 = load i32, i32* %arrayidx18, align 4, !tbaa !5
+  %arrayidx14 = getelementptr inbounds [100 x [100 x i32]], ptr @a, i64 0, i64 %indvars.iv78, i64 %indvars.iv, !intel-tbaa !5
+  %0 = load i32, ptr %arrayidx14, align 4, !tbaa !5
+  %arrayidx18 = getelementptr inbounds [100 x [100 x i32]], ptr @b, i64 0, i64 %indvars.iv, i64 %indvars.iv74, !intel-tbaa !5
+  %1 = load i32, ptr %arrayidx18, align 4, !tbaa !5
   %mul = mul nsw i32 %1, %0
   %add = add nsw i32 %mul, %t.066
   %add32 = add nsw i32 %add3268, %mul

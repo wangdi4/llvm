@@ -36,22 +36,22 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local void @Vsub(double* noalias nocapture %a, double* noalias nocapture readonly %b, double %n) local_unnamed_addr #0 {
+define dso_local void @Vsub(ptr noalias nocapture %a, ptr noalias nocapture readonly %b, double %n) local_unnamed_addr #0 {
 entry:
   %mul = fmul double %n, %n
-  %0 = load double, double* %b, align 8, !tbaa !2
+  %0 = load double, ptr %b, align 8, !tbaa !2
   %mul1 = fmul double %mul, %0
-  store double %mul1, double* %a, align 8, !tbaa !2
-  %arrayidx4 = getelementptr inbounds double, double* %b, i64 1
-  %1 = load double, double* %arrayidx4, align 8, !tbaa !2
+  store double %mul1, ptr %a, align 8, !tbaa !2
+  %arrayidx4 = getelementptr inbounds double, ptr %b, i64 1
+  %1 = load double, ptr %arrayidx4, align 8, !tbaa !2
   %mul5 = fmul double %mul, %1
-  %arrayidx6 = getelementptr inbounds double, double* %a, i64 1
-  store double %mul5, double* %arrayidx6, align 8, !tbaa !2
-  %arrayidx8 = getelementptr inbounds double, double* %b, i64 2
-  %2 = load double, double* %arrayidx8, align 8, !tbaa !2
+  %arrayidx6 = getelementptr inbounds double, ptr %a, i64 1
+  store double %mul5, ptr %arrayidx6, align 8, !tbaa !2
+  %arrayidx8 = getelementptr inbounds double, ptr %b, i64 2
+  %2 = load double, ptr %arrayidx8, align 8, !tbaa !2
   %mul9 = fmul double %mul, %2
-  %arrayidx10 = getelementptr inbounds double, double* %a, i64 2
-  store double %mul9, double* %arrayidx10, align 8, !tbaa !2
+  %arrayidx10 = getelementptr inbounds double, ptr %a, i64 2
+  store double %mul9, ptr %arrayidx10, align 8, !tbaa !2
   ret void
 }
 

@@ -93,29 +93,29 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local void @project_v3_plane(float* nocapture %v, float* nocapture readonly %n, float* nocapture readonly %p) local_unnamed_addr #0 {
+define dso_local void @project_v3_plane(ptr nocapture %v, ptr nocapture readonly %n, ptr nocapture readonly %p) local_unnamed_addr #0 {
 entry:
-  %0 = load float, float* %v, align 4, !tbaa !2
-  %1 = load float, float* %p, align 4, !tbaa !2
+  %0 = load float, ptr %v, align 4, !tbaa !2
+  %1 = load float, ptr %p, align 4, !tbaa !2
   %sub = fsub float %0, %1
-  %arrayidx3 = getelementptr inbounds float, float* %v, i64 1
-  %2 = load float, float* %arrayidx3, align 4, !tbaa !2
-  %arrayidx4 = getelementptr inbounds float, float* %p, i64 1
-  %3 = load float, float* %arrayidx4, align 4, !tbaa !2
+  %arrayidx3 = getelementptr inbounds float, ptr %v, i64 1
+  %2 = load float, ptr %arrayidx3, align 4, !tbaa !2
+  %arrayidx4 = getelementptr inbounds float, ptr %p, i64 1
+  %3 = load float, ptr %arrayidx4, align 4, !tbaa !2
   %sub5 = fsub float %2, %3
-  %arrayidx7 = getelementptr inbounds float, float* %v, i64 2
-  %4 = load float, float* %arrayidx7, align 4, !tbaa !2
-  %arrayidx8 = getelementptr inbounds float, float* %p, i64 2
-  %5 = load float, float* %arrayidx8, align 4, !tbaa !2
+  %arrayidx7 = getelementptr inbounds float, ptr %v, i64 2
+  %4 = load float, ptr %arrayidx7, align 4, !tbaa !2
+  %arrayidx8 = getelementptr inbounds float, ptr %p, i64 2
+  %5 = load float, ptr %arrayidx8, align 4, !tbaa !2
   %sub9 = fsub float %4, %5
-  %6 = load float, float* %n, align 4, !tbaa !2
+  %6 = load float, ptr %n, align 4, !tbaa !2
   %mul13 = fmul float %sub, %6
-  %arrayidx15 = getelementptr inbounds float, float* %n, i64 1
-  %7 = load float, float* %arrayidx15, align 4, !tbaa !2
+  %arrayidx15 = getelementptr inbounds float, ptr %n, i64 1
+  %7 = load float, ptr %arrayidx15, align 4, !tbaa !2
   %mul16 = fmul float %sub5, %7
   %add = fadd float %mul13, %mul16
-  %arrayidx18 = getelementptr inbounds float, float* %n, i64 2
-  %8 = load float, float* %arrayidx18, align 4, !tbaa !2
+  %arrayidx18 = getelementptr inbounds float, ptr %n, i64 2
+  %8 = load float, ptr %arrayidx18, align 4, !tbaa !2
   %mul19 = fmul float %sub9, %8
   %add20 = fadd float %add, %mul19
   %mul23 = fmul float %6, %6
@@ -128,11 +128,11 @@ entry:
   %sub36 = fsub float %7, %div
   %sub39 = fsub float %8, %div
   %sub43 = fsub float %0, %sub33
-  store float %sub43, float* %v, align 4, !tbaa !2
+  store float %sub43, ptr %v, align 4, !tbaa !2
   %sub46 = fsub float %2, %sub36
-  store float %sub46, float* %arrayidx3, align 4, !tbaa !2
+  store float %sub46, ptr %arrayidx3, align 4, !tbaa !2
   %sub49 = fsub float %4, %sub39
-  store float %sub49, float* %arrayidx7, align 4, !tbaa !2
+  store float %sub49, ptr %arrayidx7, align 4, !tbaa !2
   ret void
 }
 
