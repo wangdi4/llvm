@@ -20,44 +20,42 @@ entry:
   %i.addr = alloca i32, align 4
   %j = alloca i32, align 4
   %cleanup.dest.slot = alloca i32, align 4
-  store i32 %i, i32* %i.addr, align 4
-  %0 = bitcast i32* %j to i8*
-  store i32 0, i32* %j, align 4
+  store i32 %i, ptr %i.addr, align 4
+  store i32 0, ptr %j, align 4
   br label %for.cond
 
 for.cond:                                         ; preds = %for.inc, %entry
-  %1 = load i32, i32* %j, align 4
-  %2 = load i32, i32* %i.addr, align 4
-  %cmp = icmp slt i32 %1, %2
+  %0 = load i32, ptr %j, align 4
+  %1 = load i32, ptr %i.addr, align 4
+  %cmp = icmp slt i32 %0, %1
   br i1 %cmp, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond
-  %3 = load i32, i32* %j, align 4
-  %cmp1 = icmp sgt i32 %3, 10
+  %2 = load i32, ptr %j, align 4
+  %cmp1 = icmp sgt i32 %2, 10
   br i1 %cmp1, label %if.then, label %if.end
 
 if.then:                                          ; preds = %for.body
-  store i32 0, i32* %retval, align 4
-  store i32 1, i32* %cleanup.dest.slot, align 4
+  store i32 0, ptr %retval, align 4
+  store i32 1, ptr %cleanup.dest.slot, align 4
   br label %cleanup
 
 if.end:                                           ; preds = %for.body
   br label %for.inc
 
 for.inc:                                          ; preds = %if.end
-  %4 = load i32, i32* %j, align 4
-  %inc = add nsw i32 %4, 1
-  store i32 %inc, i32* %j, align 4
+  %3 = load i32, ptr %j, align 4
+  %inc = add nsw i32 %3, 1
+  store i32 %inc, ptr %j, align 4
   br label %for.cond
 for.end:                                          ; preds = %for.cond
-  store i32 1, i32* %retval, align 4
-  store i32 1, i32* %cleanup.dest.slot, align 4
+  store i32 1, ptr %retval, align 4
+  store i32 1, ptr %cleanup.dest.slot, align 4
   br label %cleanup
 
 cleanup:                                          ; preds = %for.end, %if.then
-  %5 = bitcast i32* %j to i8*
-  %6 = load i32, i32* %retval, align 4
-  ret i32 %6
+  %4 = load i32, ptr %retval, align 4
+  ret i32 %4
 }
 
 ; end INTEL_FEATURE_SW_ADVANCED

@@ -3,68 +3,51 @@
 ; propagation won't be applied because the array was casted to a different
 ; type.
 
-; RUN: opt -opaque-pointers=0 -passes=ipsccp -S %s | FileCheck %s --check-prefix NOOPAQUE
-; RUN: opt -opaque-pointers -passes=ipsccp -S %s | FileCheck %s --check-prefix OPAQUE
+; RUN: opt -passes=ipsccp -S %s | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 %DummyStruct = type { [2 x i8] }
-%TestStruct = type { [16 x i8], [16 x i8], i32, i8* }
-%TestStruct.1 = type { [16 x i8], [16 x i8], i32, %DummyStruct* }
+%TestStruct = type { [16 x i8], [16 x i8], i32, ptr }
+%TestStruct.1 = type { [16 x i8], [16 x i8], i32, ptr }
 @globArray = internal global [1000 x %TestStruct] zeroinitializer
 
 ; Check that the GEP in @callback wasn't changed when opaque is false.
 ; (opaque pointers: the 0 0 GEP is deleted)
-define internal void @callback(i8* %ID, [1000 x %TestStruct.1]* %Arr) {
-; NOOPAQUE-LABEL: @callback(
-; NOOPAQUE-NEXT:  entry:
-; NOOPAQUE-NEXT:    [[DUMMY:%.*]] = getelementptr [1000 x %TestStruct.1], [1000 x %TestStruct.1]* [[ARR:%.*]], i64 0, i64 0
-; NOOPAQUE-NEXT:    ret void
-;
-; OPAQUE-LABEL: @callback(
-; OPAQUE-NEXT:  entry:
-; OPAQUE-NEXT:    ret void
+define internal void @callback(ptr %ID, ptr %Arr) {
+; CHECK-LABEL: @callback(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    ret void
 ;
 entry:
-  %dummy = getelementptr [1000 x %TestStruct.1], [1000 x %TestStruct.1]* %Arr, i64 0, i64 0
   ret void
 }
 
 ; Check that the parameter in the call site for @callback wasn't updated
-define internal void @foo(%TestStruct.1* %Arr) {
-; NOOPAQUE-LABEL: @foo(
-; NOOPAQUE-NEXT:  entry:
-; NOOPAQUE-NEXT:    call void (i32, void (i8*, ...)*, ...) @broker(i32 3, void (i8*, ...)* bitcast (void (i8*, [1000 x %TestStruct.1]*)* @callback to void (i8*, ...)*), %TestStruct.1* [[ARR:%.*]])
-; NOOPAQUE-NEXT:    ret void
-;
-; OPAQUE-LABEL: @foo(
-; OPAQUE-NEXT:  entry:
-; OPAQUE-NEXT:    call void (i32, ptr, ...) @broker(i32 3, ptr @callback, ptr @globArray)
-; OPAQUE-NEXT:    ret void
+define internal void @foo(ptr %Arr) {
+; CHECK-LABEL: @foo(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    call void (i32, ptr, ...) @broker(i32 3, ptr @callback, ptr @globArray)
+; CHECK-NEXT:    ret void
 ;
 entry:
-  call void (i32, void (i8*, ...)*, ...) @broker(i32 3, void (i8*, ...)* bitcast (void (i8*, [1000 x %TestStruct.1]*)* @callback to void (i8*, ...)*), %TestStruct.1* %Arr)
+  call void (i32, ptr, ...) @broker(i32 3, ptr @callback, ptr %Arr)
   ret void
 }
 
 define void @bar() {
-; NOOPAQUE-LABEL: @bar(
-; NOOPAQUE-NEXT:  entry:
-; NOOPAQUE-NEXT:    call void @foo(%TestStruct.1* getelementptr inbounds ([1000 x %TestStruct.1], [1000 x %TestStruct.1]* bitcast ([1000 x %TestStruct]* @globArray to [1000 x %TestStruct.1]*), i64 0, i64 0))
-; NOOPAQUE-NEXT:    ret void
-;
-; OPAQUE-LABEL: @bar(
-; OPAQUE-NEXT:  entry:
-; OPAQUE-NEXT:    call void @foo(ptr @globArray)
-; OPAQUE-NEXT:    ret void
+; CHECK-LABEL: @bar(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    call void @foo(ptr @globArray)
+; CHECK-NEXT:    ret void
 ;
 entry:
-  call void @foo(%TestStruct.1* getelementptr inbounds ([1000 x %TestStruct.1], [1000 x %TestStruct.1]* bitcast ([1000 x %TestStruct]* @globArray to [1000 x %TestStruct.1]*), i64 0, i64 0))
+  call void @foo(ptr @globArray)
   ret void
 }
 
-declare !callback !0 void @broker(i32, void (i8*, ...)*, ...)
+declare !callback !0 void @broker(i32, ptr, ...)
 
 !0 = !{!1}
 !1 = !{i64 1, i64 -1, i1 true}

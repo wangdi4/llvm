@@ -914,6 +914,10 @@ bool X86InstrInfo::isReallyTriviallyReMaterializable(
   case X86::MOV32r0:
   case X86::MOV32r1:
   case X86::MOV32r_1:
+#if INTEL_CUSTOMIZATION
+  case X86::MOV32ri8:
+  case X86::MOV32ri16:
+#endif // INTEL_CUSTOMIZATION
   case X86::MOV32ri64:
   case X86::MOV64ImmSExti8:
   case X86::V_SET0:
@@ -5828,6 +5832,13 @@ bool X86InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     MIB.addReg(Reg, RegState::ImplicitDefine);
     return true;
   }
+#if INTEL_CUSTOMIZATION
+  case X86::MOV32ri8:
+  case X86::MOV32ri16: {
+    MI.setDesc(get(X86::MOV32ri));
+    return true;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   case X86::RDFLAGS32:
   case X86::RDFLAGS64: {

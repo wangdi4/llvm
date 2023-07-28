@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; CMPLRLLVM-33537, case 2
 
-; RUN: opt -opaque-pointers=0 -passes="loop-mssa(licm)" -enable-intel-advanced-opts=true -S < %s | FileCheck %s
+; RUN: opt -passes="loop-mssa(licm)" -enable-intel-advanced-opts=true -S < %s | FileCheck %s
 
 target triple = "i686-pc-linux-gnu"
 
@@ -22,10 +22,10 @@ target triple = "i686-pc-linux-gnu"
 ; CHECK-LABEL: for.body.lr.ph:
 ; CHECK-NOT: load
 ; CHECK-LABEL: for.body:
-; CHECK: load i32, i32* %ptr
+; CHECK: load i32, ptr %ptr
 ; CHECK-LABEL: if.end:
 
-define dso_local void @f(i32* nocapture %ptr, i32 %n) #0 {
+define dso_local void @f(ptr nocapture %ptr, i32 %n) #0 {
 entry:
   %cmp7 = icmp slt i32 0, %n
   br i1 %cmp7, label %for.body.lr.ph, label %cleanup1
@@ -35,12 +35,12 @@ for.body.lr.ph:                                   ; preds = %entry
 
 for.body:                                         ; preds = %for.body.lr.ph, %if.end
   %i.08 = phi i32 [ 0, %for.body.lr.ph ], [ %inc, %if.end ]
-  %0 = load i32, i32* %ptr, align 4
+  %0 = load i32, ptr %ptr, align 4
   %tobool.not = icmp eq i32 %0, 0
   br i1 %tobool.not, label %if.end, label %for.body.cleanup1_crit_edge
 
 if.end:                                           ; preds = %for.body
-  store i32 1, i32* %ptr, align 4
+  store i32 1, ptr %ptr, align 4
   %inc = add nuw nsw i32 %i.08, 1
   %cmp = icmp slt i32 %inc, %n
   br i1 %cmp, label %for.body, label %for.cond.cleanup1_crit_edge
