@@ -1,4 +1,4 @@
-; RUN: opt -S -passes=globalopt -opaque-pointers < %s | FileCheck %s
+; RUN: opt -S -passes=globalopt < %s | FileCheck %s
 ;; Check that Global Opt preserves address space of llvm.used and
 ;; llvm.compiler.used variables.
 
