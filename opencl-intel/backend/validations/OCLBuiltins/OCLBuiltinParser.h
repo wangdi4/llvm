@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -25,8 +25,8 @@ Apple clang
 #ifndef OCL_BUILTIN_PARSER_H
 #define OCL_BUILTIN_PARSER_H
 
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/Support/DataTypes.h"
-#include <llvm/ADT/ArrayRef.h>
 
 #include <string>
 

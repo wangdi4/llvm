@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2011-2018 Intel Corporation.
+// Copyright 2011-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,12 +15,12 @@
 #ifndef HELPERS_H
 #define HELPERS_H
 
-#include <llvm/ADT/APInt.h>
-#include <llvm/ADT/ArrayRef.h>
-#include <llvm/ExecutionEngine/GenericValue.h>
-#include <llvm/IR/DerivedTypes.h>
-#include <llvm/Support/DataTypes.h>     // int8_t, int16_t, ... declared here
-#include <llvm/Support/ErrorHandling.h> // report_fatal_error declared here
+#include "llvm/ADT/APInt.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ExecutionEngine/GenericValue.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/Support/DataTypes.h"     // int8_t, int16_t, ... declared here
+#include "llvm/Support/ErrorHandling.h" // report_fatal_error declared here
 
 #include "FloatOperations.h"
 #include "OCLBuiltinParser.h"
