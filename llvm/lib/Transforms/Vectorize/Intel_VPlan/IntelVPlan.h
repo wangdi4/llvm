@@ -732,6 +732,8 @@ public:
     EarlyExitCond,     // Capture CondBit that leads to early-exit from loop.
     EarlyExitExecMask, // Represent mask to track executable lanes of early-exit
                        // loop body.
+    EarlyExitLane,     // Identify the first lane that takes an early-exit from
+                       // loop.
   };
 
 private:
@@ -5235,6 +5237,32 @@ public:
 
   VPEarlyExitExecMask *cloneImpl() const override {
     return new VPEarlyExitExecMask(getOperand(0));
+  }
+};
+
+// Instruction to identify the first vector lane that takes an early-exit (if
+// any) from the loop. This will be used for finalization of loop entities. If
+// all iterations/lanes do not take early-exit, then it returns -1.
+class VPEarlyExitLane final : public VPInstruction {
+public:
+  VPEarlyExitLane(VPValue *Mask)
+      : VPInstruction(VPInstruction::EarlyExitLane,
+                      Type::getInt32Ty(Mask->getType()->getContext()), {Mask}) {
+    assert(Mask->getType()->isIntegerTy(1 /*Bitwidth*/) &&
+           "Mask operand expected to be i1 type.");
+  }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::EarlyExitLane;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPEarlyExitLane *cloneImpl() const override {
+    return new VPEarlyExitLane(getOperand(0));
   }
 };
 

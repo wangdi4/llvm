@@ -57,7 +57,7 @@ void VPTransformEarlyExitLoop::transform() {
   // example, if the early-exit condition for 4 iterations looks like <0, 1, 0,
   // 1>, the execution mask for loop body should look like <1, 0, 0, 0>.
   // VPEarlyExitExecMask represents this idiomatic operation.
-
+  //
   auto *VPEEExecMask = Builder.create<VPEarlyExitExecMask>(
       "early.exit.exec.mask", VPEECond->getOperand(0));
   VPEECond->replaceAllUsesWith(VPEEExecMask);
@@ -82,6 +82,7 @@ void VPTransformEarlyExitLoop::transform() {
   // update the condition to be all-zero-check. TODO: Consider unifying the
   // implementation below with VPlanPredicator::fixupUniformInnerLoops and
   // similar code in LoopCFU in the future.
+  //
   auto *EEVPLoop = Plan.getVPLoopInfo()->getLoopFor(VPEEExecMask->getParent());
   VPBasicBlock *EELoopLatch = EEVPLoop->getLoopLatch();
   auto *EEBackedge = EELoopLatch->getTerminator();
@@ -107,6 +108,56 @@ void VPTransformEarlyExitLoop::transform() {
       Builder.createAllZeroCheck(EELatchCond, "ee.mask.is.zero");
   // Update CondBit of backedge.
   EEBackedge->setCondition(EELatchAllZeroCheck);
+
+  // Step 3
+  // ======
+  //
+  // Identify the first lane in vector iteration that takes early-exit, if any.
+  // We use the following properties/guarantees about the loop from
+  // mergeLoopExits -
+  //   - loop has a single merged exit block
+  //   - merged exit block has a series of cascaded checks to divert
+  //   control-flow to appropriate exit block
+  //   - mergeLoopExits reserves the ExitID=0 to represent the main exit from
+  //   loop and all side exits have ExitID > 0
+  //
+  // Based on these properties we compute mask to identify early-exit lane via
+  // ExitID != 0. For example, if ExitID is <0, 0, 1, 2>, then mask will be <0,
+  // 0, 1, 1> and early-exit lane will be 2.
+  //
+  VPBasicBlock *EEMergedExit = EEVPLoop->getExitBlock();
+  assert(
+      EEMergedExit &&
+      "Explicit early-exit loop is expected to have a single merged exit BB.");
+
+  // Get the merged exit blocks terminator. It should start the cascaded-if
+  // series of operations.
+  auto *ExitBranch = cast<VPBranchInst>(EEMergedExit->getTerminator());
+  assert(ExitBranch->getNumSuccessors() == 2 &&
+         "Expected 2 successors for merged exit of explicit early-exit loop.");
+  auto *CascadedIfCond = cast<VPCmpInst>(ExitBranch->getCondition());
+
+  // Obtain the exit ID PHI using operands of the cascaded-if CondBit. Pseudo
+  // VPlan-IR for reference - merged.exit:
+  //   %c = icmp eq %exit-id-phi, 0
+  //   br %c, %main.exit, %side.exit
+  unsigned ExitIDPhiOperandNum =
+      isa<VPConstant>(CascadedIfCond->getOperand(0)) ? 1 : 0;
+  auto *ExitIDPhi =
+      cast<VPPHINode>(CascadedIfCond->getOperand(ExitIDPhiOperandNum));
+  LLVM_DEBUG(dbgs() << "Captured exit ID phi: "; ExitIDPhi->dump();
+             dbgs() << "\n");
+
+  // Insert new instructions to compute the early-exit lane in merged exit,
+  // before the cascaded-if condition.
+  Builder.setInsertPoint(CascadedIfCond);
+  // ExitID = 0 is reserved for main exit by mergeLoopExits. So use the login
+  // ExitID != 0 to identify lanes that take side-exits.
+  auto *EEIDMask = Builder.createCmpInst(
+      CmpInst::ICMP_NE, ExitIDPhi,
+      Plan.getVPConstant(ConstantInt::get(ExitIDPhi->getType(), 0)));
+  auto *EELane = Builder.create<VPEarlyExitLane>("early.exit.lane", EEIDMask);
+  (void)EELane;
 
   VPLAN_DUMP(TransformEarlyExitLoopDumpsControl, Plan);
 }
