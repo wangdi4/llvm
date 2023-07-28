@@ -1302,6 +1302,9 @@ void InlineReportBuilder::addIndirectCallBaseTarget(InlICSType ICSMethod,
                                                     CallBase *CBDirect) {
   if (!isMDIREnabled())
     return;
+  Metadata *CBIndirectMD = CBIndirect->getMetadata(CallSiteTag);
+  if (!CBIndirectMD)
+    return;
   CallSiteInliningReport CSIR(CBDirect, nullptr, NinlrNewlyCreated);
   Function *Callee = CBDirect->getCalledFunction();
   std::string FuncName = std::string(Callee ? Callee->getName() : "");
@@ -1320,7 +1323,6 @@ void InlineReportBuilder::addIndirectCallBaseTarget(InlICSType ICSMethod,
   // the last call in the list.
   SmallVector<Metadata *, 100> Ops;
   Ops.push_back(llvm::MDString::get(Ctx, CallSitesTag));
-  Metadata *CBIndirectMD = CBIndirect->getMetadata(CallSiteTag);
   auto *CBIndirectMDTuple = cast<MDTuple>(CBIndirectMD);
   if (Metadata *MDCSs = CBIndirectMDTuple->getOperand(CSMDIR_CSs).get()) {
     auto CSs = cast<MDTuple>(MDCSs);

@@ -3,13 +3,13 @@
 //
 // INTEL CONFIDENTIAL
 //
-// Modifications, Copyright (C) 2021 Intel Corporation
+// Modifications, Copyright (C) 2021-2023 Intel Corporation
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
-// provided to you ("License"). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// provided to you ("License"). Unless the License provides otherwise, you may
+// not use, modify, copy, publish, distribute, disclose or transmit this
+// software or the related documents without Intel's prior written permission.
 //
 // This software and the related documents are provided as is, with no express
 // or implied warranties, other than those that are expressly stated in the
@@ -2715,6 +2715,13 @@ JumpThreadingPass::cloneInstructions(BasicBlock::iterator BI,
     Instruction *New = BI->clone();
     New->setName(BI->getName());
     New->insertInto(NewBB, NewBB->end());
+#if INTEL_CUSTOMIZATION
+    if (auto CB1 = dyn_cast<CallBase>(New)) {
+      auto CB0 = cast<CallBase>(&*BI);
+      getInlineReport()->cloneCallBaseToCallBase(CB0, CB1);
+      getMDInlineReport()->cloneCallBaseToCallBase(CB0, CB1);
+    }
+#endif // INTEL_CUSTOMIZATION
     ValueMapping[&*BI] = New;
     adaptNoAliasScopes(New, ClonedScopes, Context);
 
@@ -3288,6 +3295,13 @@ void JumpThreadingPass::threadEdge(
       New->setName(BI->getName());
       New->insertInto(NewBB, NewBB->end());
       ValueMapping[&*BI] = New;
+#if INTEL_CUSTOMIZATION
+      if (auto CB1 = dyn_cast<CallBase>(New)) {
+        auto CB0 = cast<CallBase>(&*BI);
+        getInlineReport()->cloneCallBaseToCallBase(CB0, CB1);
+        getMDInlineReport()->cloneCallBaseToCallBase(CB0, CB1);
+      }
+#endif // INTEL_CUSTOMIZATION
       adaptNoAliasScopes(New, ClonedScopes, Context);
     }
 
@@ -3872,7 +3886,13 @@ bool JumpThreadingPass::duplicateCondBranchOnPHIIntoPred(
   for (; BI != BB->end(); ++BI) {
     Instruction *New = BI->clone();
     New->insertInto(PredBB, OldPredBranch->getIterator());
-
+#if INTEL_CUSTOMIZATION
+    if (auto CB1 = dyn_cast<CallBase>(New)) {
+      auto CB0 = cast<CallBase>(&*BI);
+      getInlineReport()->cloneCallBaseToCallBase(CB0, CB1);
+      getMDInlineReport()->cloneCallBaseToCallBase(CB0, CB1);
+    }
+#endif // INTEL_CUSTOMIZATION
     // Remap operands to patch up intra-block references.
     for (unsigned i = 0, e = New->getNumOperands(); i != e; ++i)
       if (Instruction *Inst = dyn_cast<Instruction>(New->getOperand(i))) {
