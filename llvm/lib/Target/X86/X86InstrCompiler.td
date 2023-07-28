@@ -346,6 +346,18 @@ let Predicates = [OptForSize, Not64BitMode],
   def : Pat<(i16 -1), (EXTRACT_SUBREG (MOV32r_1), sub_16bit)>;
 }
 
+// INTEL_CUSTOMIZATION
+let Predicates = [IntelAdvOpt], AddedComplexity = 1 in {
+  let SchedRW = [WriteMove], isReMaterializable = 1, isPseudo = 1 in {
+    def MOV32ri16 : I<0, Pseudo, (outs GR32:$dst), (ins i16imm:$src), "", []>;
+    def MOV32ri8  : I<0, Pseudo, (outs GR32:$dst), (ins i8imm:$src),  "", []>;
+  } // SchedRW
+
+  def : Pat<(i16 imm:$src), (EXTRACT_SUBREG (MOV32ri16 imm:$src), sub_16bit)>;
+  def : Pat<(i8 imm:$src), (EXTRACT_SUBREG (MOV32ri8 imm:$src), sub_8bit)>;
+}
+// end INTEL_CUSTOMIZATION
+
 let isReMaterializable = 1, isPseudo = 1, AddedComplexity = 5,
     SchedRW = [WriteALU] in {
 // AddedComplexity higher than MOV64ri but lower than MOV32r0 and MOV32r1.
