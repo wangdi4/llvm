@@ -12,8 +12,8 @@ define double @foo(i32 %i) #0 {
 
 entry:
   %idxprom = sext i32 %i to i64
-  %arrayidx = getelementptr inbounds [1024 x double], [1024 x double]* @x, i64 0, i64 %idxprom
-  %0 = load double, double* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds [1024 x double], ptr @x, i64 0, i64 %idxprom
+  %0 = load double, ptr %arrayidx, align 8
   %max1_cmp = fcmp ogt double %0, -3.276800e+04
   br i1 %max1_cmp, label %max1.true, label %max1.end
 
@@ -26,7 +26,7 @@ max1.end:
   br i1 %cond, label %min.true, label %end
 
 min.true:
-  %1 = load double, double* %arrayidx, align 8
+  %1 = load double, ptr %arrayidx, align 8
   %max2_cmp = fcmp ogt double %1, -3.276800e+04
   br i1 %max2_cmp, label %max2.true, label %end
 

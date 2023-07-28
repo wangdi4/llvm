@@ -4,7 +4,7 @@
 %eh.ThrowInfo = type { i32, i32, i32, i32 }
 
 ; Function Attrs: noinline norecurse optnone uwtable
-define dso_local i32 @main(fp128 %x) #0 personality i8* bitcast (i32 (...)* @__CxxFrameHandler3 to i8*) {
+define dso_local i32 @main(fp128 %x) #0 personality ptr @__CxxFrameHandler3 {
 ; CHECK-LABEL: @main(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = alloca fp128, align 16
@@ -19,35 +19,34 @@ define dso_local i32 @main(fp128 %x) #0 personality i8* bitcast (i32 (...)* @__C
 ; CHECK-NEXT:    store fp128 [[X:%.*]], ptr [[TMP3]], align 16
 ; CHECK-NEXT:    store i32 0, ptr [[RETVAL]], align 4
 ; CHECK-NEXT:    store i32 1, ptr [[TMP]], align 4
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast ptr [[TMP]] to ptr
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 16, ptr [[TMP2]])
 ; CHECK-NEXT:    call void @__addq(ptr [[TMP2]], ptr [[TMP3]], ptr [[TMP3]])
-; CHECK-NEXT:    [[TMP5:%.*]] = load fp128, ptr [[TMP2]], align 16
+; CHECK-NEXT:    [[TMP4:%.*]] = load fp128, ptr [[TMP2]], align 16
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 16, ptr [[TMP2]])
-; CHECK-NEXT:    invoke void @_CxxThrowException(ptr [[TMP4]], ptr null)
+; CHECK-NEXT:    invoke void @_CxxThrowException(ptr [[TMP]], ptr null)
 ; CHECK-NEXT:    to label [[UNREACHABLE:%.*]] unwind label [[CATCH_DISPATCH:%.*]]
 ; CHECK:       catch.dispatch:
-; CHECK-NEXT:    [[TMP6:%.*]] = catchswitch within none [label %catch] unwind label [[CATCH_DISPATCH1:%.*]]
+; CHECK-NEXT:    [[TMP5:%.*]] = catchswitch within none [label %catch] unwind label [[CATCH_DISPATCH1:%.*]]
 ; CHECK:       catch.dispatch1:
-; CHECK-NEXT:    [[TMP7:%.*]] = catchswitch within none [label %catch2] unwind to caller
+; CHECK-NEXT:    [[TMP6:%.*]] = catchswitch within none [label %catch2] unwind to caller
 ; CHECK:       catch2:
-; CHECK-NEXT:    [[TMP8:%.*]] = catchpad within [[TMP7]] [i32 0, ptr %i3]
+; CHECK-NEXT:    [[TMP7:%.*]] = catchpad within [[TMP6]] [i32 0, ptr %i3]
 ; CHECK-NEXT:    store i32 2, ptr [[RETVAL]], align 4
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 16, ptr [[TMP0]])
 ; CHECK-NEXT:    call void @__addq(ptr [[TMP0]], ptr [[TMP3]], ptr [[TMP3]])
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 16, ptr [[TMP3]])
-; CHECK-NEXT:    [[TMP9:%.*]] = load fp128, ptr [[TMP0]], align 16
+; CHECK-NEXT:    [[TMP8:%.*]] = load fp128, ptr [[TMP0]], align 16
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 16, ptr [[TMP0]])
-; CHECK-NEXT:    catchret from [[TMP8]] to label [[CATCHRET_DEST4:%.*]]
+; CHECK-NEXT:    catchret from [[TMP7]] to label [[CATCHRET_DEST4:%.*]]
 ; CHECK:       catch:
-; CHECK-NEXT:    [[TMP10:%.*]] = catchpad within [[TMP6]] [i32 0, ptr %i]
+; CHECK-NEXT:    [[TMP9:%.*]] = catchpad within [[TMP5]] [i32 0, ptr %i]
 ; CHECK-NEXT:    store i32 1, ptr [[RETVAL]], align 4
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 16, ptr [[TMP1]])
 ; CHECK-NEXT:    call void @__addq(ptr [[TMP1]], ptr [[TMP3]], ptr [[TMP3]])
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 16, ptr [[TMP3]])
-; CHECK-NEXT:    [[TMP11:%.*]] = load fp128, ptr [[TMP1]], align 16
+; CHECK-NEXT:    [[TMP10:%.*]] = load fp128, ptr [[TMP1]], align 16
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 16, ptr [[TMP1]])
-; CHECK-NEXT:    catchret from [[TMP10]] to label [[CATCHRET_DEST:%.*]]
+; CHECK-NEXT:    catchret from [[TMP9]] to label [[CATCHRET_DEST:%.*]]
 ; CHECK:       catchret.dest:
 ; CHECK-NEXT:    br label [[RETURN:%.*]]
 ; CHECK:       try.cont:
@@ -58,8 +57,8 @@ define dso_local i32 @main(fp128 %x) #0 personality i8* bitcast (i32 (...)* @__C
 ; CHECK-NEXT:    store i32 0, ptr [[RETVAL]], align 4
 ; CHECK-NEXT:    br label [[RETURN]]
 ; CHECK:       return:
-; CHECK-NEXT:    [[TMP12:%.*]] = load i32, ptr [[RETVAL]], align 4
-; CHECK-NEXT:    ret i32 [[TMP12]]
+; CHECK-NEXT:    [[TMP11:%.*]] = load i32, ptr [[RETVAL]], align 4
+; CHECK-NEXT:    ret i32 [[TMP11]]
 ; CHECK:       unreachable:
 ; CHECK-NEXT:    unreachable
 ;
@@ -68,30 +67,29 @@ entry:
   %tmp = alloca i32, align 4
   %i = alloca i32, align 4
   %i3 = alloca i32, align 4
-  store i32 0, i32* %retval, align 4
-  store i32 1, i32* %tmp, align 4
-  %0 = bitcast i32* %tmp to i8*
-  %1 = fadd fp128 %x, %x
-  invoke void @_CxxThrowException(i8* %0, %eh.ThrowInfo* null) #1
+  store i32 0, ptr %retval, align 4
+  store i32 1, ptr %tmp, align 4
+  %0 = fadd fp128 %x, %x
+  invoke void @_CxxThrowException(ptr %tmp, ptr null) #1
   to label %unreachable unwind label %catch.dispatch
 
 catch.dispatch:                                   ; preds = %entry
-  %2 = catchswitch within none [label %catch] unwind label %catch.dispatch1
+  %1 = catchswitch within none [label %catch] unwind label %catch.dispatch1
 
 catch.dispatch1:                                  ; preds = %catch.dispatch
-  %3 = catchswitch within none [label %catch2] unwind to caller
+  %2 = catchswitch within none [label %catch2] unwind to caller
 
 catch2:                                           ; preds = %catch.dispatch1
-  %4 = catchpad within %3 [i32 0, i32* %i3]
-  store i32 2, i32* %retval, align 4
-  %5 = fadd fp128 %x, %x
-  catchret from %4 to label %catchret.dest4
+  %3 = catchpad within %2 [i32 0, ptr %i3]
+  store i32 2, ptr %retval, align 4
+  %4 = fadd fp128 %x, %x
+  catchret from %3 to label %catchret.dest4
 
 catch:                                            ; preds = %catch.dispatch
-  %6 = catchpad within %2 [i32 0, i32* %i]
-  store i32 1, i32* %retval, align 4
-  %7 = fadd fp128 %x, %x
-  catchret from %6 to label %catchret.dest
+  %5 = catchpad within %1 [i32 0, ptr %i]
+  store i32 1, ptr %retval, align 4
+  %6 = fadd fp128 %x, %x
+  catchret from %5 to label %catchret.dest
 
 catchret.dest:                                    ; preds = %catch
   br label %return
@@ -103,17 +101,17 @@ catchret.dest4:                                   ; preds = %catch2
   br label %return
 
 try.cont5:                                        ; preds = %try.cont
-  store i32 0, i32* %retval, align 4
+  store i32 0, ptr %retval, align 4
   br label %return
 
 return:                                           ; preds = %try.cont5, %catchret.dest4, %catchret.dest
-  %8 = load i32, i32* %retval, align 4
-  ret i32 %8
+  %7 = load i32, ptr %retval, align 4
+  ret i32 %7
 
 unreachable:                                      ; preds = %entry
   unreachable
 }
 
-declare dso_local void @_CxxThrowException(i8*, %eh.ThrowInfo*)
+declare dso_local void @_CxxThrowException(ptr, ptr)
 
 declare dso_local i32 @__CxxFrameHandler3(...)

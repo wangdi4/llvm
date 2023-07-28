@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 < %s -passes=sccp -S | FileCheck %s
+; RUN: opt < %s -passes=sccp -S | FileCheck %s
 
 ; Verify that @llvm.directive.region.entry() is also removed when we fold known
 ; true/false conditional branches making 'exit' block with
@@ -7,7 +7,7 @@
 ; CHECK: pre:
 ; CHECK-NEXT: br label %loop
 
-; CHECK: store i32 0, i32* %gep
+; CHECK: store i32 0, ptr %gep
 ; CHECK-NEXT: br label %loop
 
 ; CHECK-NOT: exit:
@@ -22,14 +22,14 @@ entry:
   br label %pre
 
 pre:                                              ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ENABLE"(i32 0), "QUAL.PRAGMA.VAR"([10 x i32]* @A), "QUAL.PRAGMA.HINT"(i32 -1), "QUAL.PRAGMA.DISTANCE"(i32 -1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ENABLE"(i32 0), "QUAL.PRAGMA.VAR"(ptr @A), "QUAL.PRAGMA.HINT"(i32 -1), "QUAL.PRAGMA.DISTANCE"(i32 -1) ]
   br i1 false, label %exit, label %loop
 
 loop:                                              ; preds = %loop, %pre
   %iv = phi i64 [ 1, %pre ], [ %add.1, %loop ]
   %add.1 = add nsw i64 %iv, 1
-  %gep = getelementptr inbounds [10 x i32], [10 x i32]* @A, i32 0, i64 %iv
-  store i32 0, i32* %gep, align 4
+  %gep = getelementptr inbounds [10 x i32], ptr @A, i32 0, i64 %iv
+  store i32 0, ptr %gep, align 4
   br i1 true, label %loop, label %exit
 
 exit:                   ; preds = %pre, %loop

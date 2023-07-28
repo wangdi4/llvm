@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 < %s  -bugpoint-enable-legacy-pm -tbaa  -std-container-alias   -basiccg -domtree -basic-aa -aa -std-container-opt  -loops  -loop-rotate -licm   -S | FileCheck %s
-; RUN: opt -opaque-pointers=0 < %s -passes="std-container-opt,loop-rotate,loop-mssa(licm)" -S | FileCheck %s
+; RUN: opt < %s  -bugpoint-enable-legacy-pm -tbaa  -std-container-alias   -basiccg -domtree -basic-aa -aa -std-container-opt  -loops  -loop-rotate -licm   -S | FileCheck %s
+; RUN: opt < %s -passes="std-container-opt,loop-rotate,loop-mssa(licm)" -S | FileCheck %s
 
 ; The compiler is exptected to hoisted out the load a[i][k] out of the loop j. 
 ; The header file vector is pre-process under windows.
@@ -23,10 +23,10 @@ target triple = "x86_64-pc-windows-msvc"
 
 %"class.std::vector" = type { %"class.std::_Vector_alloc" }
 %"class.std::_Vector_alloc" = type { %"class.std::_Vector_val" }
-%"class.std::_Vector_val" = type { %"class.std::vector.0"*, %"class.std::vector.0"*, %"class.std::vector.0"* }
+%"class.std::_Vector_val" = type { ptr, ptr, ptr }
 %"class.std::vector.0" = type { %"class.std::_Vector_alloc.1" }
 %"class.std::_Vector_alloc.1" = type { %"class.std::_Vector_val.2" }
-%"class.std::_Vector_val.2" = type { float*, float*, float* }
+%"class.std::_Vector_val.2" = type { ptr, ptr, ptr }
 
 @"\01?a@@3V?$vector@V?$vector@MV?$allocator@M@std@@@std@@V?$allocator@V?$vector@MV?$allocator@M@std@@@std@@@2@@std@@A" = global %"class.std::vector" zeroinitializer, align 8
 @"\01?b@@3V?$vector@V?$vector@MV?$allocator@M@std@@@std@@V?$allocator@V?$vector@MV?$allocator@M@std@@@std@@@2@@std@@A" = global %"class.std::vector" zeroinitializer, align 8
@@ -58,42 +58,42 @@ for.cond4:                                        ; preds = %for.body6, %for.bod
   br i1 %cmp5, label %for.body6, label %for.inc21
 
 for.body6:                                        ; preds = %for.cond4
-; CHECK: %tmp2 = load float, float* %add.ptr.i13, align 4, !tbaa !18, !std.container.ptr !12
-; CHECK-NEXT: %add.ptr.i5 = getelementptr inbounds float, float* %tmp7, i64 %conv7
-; CHECK-NEXT: %tmp8 = load float, float* %add.ptr.i5, align 4, !tbaa !18, !std.container.ptr !14
+; CHECK: %tmp2 = load float, ptr %add.ptr.i13, align 4, !tbaa !18, !std.container.ptr !12
+; CHECK-NEXT: %add.ptr.i5 = getelementptr inbounds float, ptr %tmp7, i64 %conv7
+; CHECK-NEXT: %tmp8 = load float, ptr %add.ptr.i5, align 4, !tbaa !18, !std.container.ptr !14
 ; CHECK-NEXT: %mul = fmul float %tmp5, %tmp8
 ; CHECK-NEXT: %add = fadd float %tmp2, %mul
-; CHECK-NEXT: %add.ptr.i1 = getelementptr inbounds float, float* %tmp10, i64 %conv7
-; CHECK-NEXT: store float %add, float* %add.ptr.i1, align 4, !tbaa !18, !std.container.ptr !12
+; CHECK-NEXT: %add.ptr.i1 = getelementptr inbounds float, ptr %tmp10, i64 %conv7
+; CHECK-NEXT: store float %add, ptr %add.ptr.i1, align 4, !tbaa !18, !std.container.ptr !12
   %conv = sext i32 %i.0 to i64
-  %tmp = load %"class.std::vector.0"*, %"class.std::vector.0"** getelementptr inbounds (%"class.std::vector", %"class.std::vector"* @"\01?c@@3V?$vector@V?$vector@MV?$allocator@M@std@@@std@@V?$allocator@V?$vector@MV?$allocator@M@std@@@std@@@2@@std@@A", i64 0, i32 0, i32 0, i32 0), align 8, !tbaa !8
-  %call.i = call %"class.std::vector.0"* @"llvm.intel.std.container.ptr.p0class.std::vector.0"(%"class.std::vector.0"* %tmp)
+  %tmp = load ptr, ptr @"\01?c@@3V?$vector@V?$vector@MV?$allocator@M@std@@@std@@V?$allocator@V?$vector@MV?$allocator@M@std@@@std@@@2@@std@@A", align 8, !tbaa !8
+  %call.i = call ptr @"llvm.intel.std.container.ptr.p0class.std::vector.0"(ptr %tmp)
   %conv7 = sext i32 %j.0 to i64
-  %_Myfirst.i12 = getelementptr inbounds %"class.std::vector.0", %"class.std::vector.0"* %call.i, i64 %conv, i32 0, i32 0, i32 0
-  %tmp1 = load float*, float** %_Myfirst.i12, align 8, !tbaa !13
-  %add.ptr.i13 = getelementptr inbounds float, float* %tmp1, i64 %conv7
-  %tmp2 = load float, float* %add.ptr.i13, align 4, !tbaa !16
-  %tmp3 = load %"class.std::vector.0"*, %"class.std::vector.0"** getelementptr inbounds (%"class.std::vector", %"class.std::vector"* @"\01?a@@3V?$vector@V?$vector@MV?$allocator@M@std@@@std@@V?$allocator@V?$vector@MV?$allocator@M@std@@@std@@@2@@std@@A", i64 0, i32 0, i32 0, i32 0), align 8, !tbaa !8
-  %call.i10 = call %"class.std::vector.0"* @"llvm.intel.std.container.ptr.p0class.std::vector.0"(%"class.std::vector.0"* %tmp3)
+  %_Myfirst.i12 = getelementptr inbounds %"class.std::vector.0", ptr %call.i, i64 %conv, i32 0, i32 0, i32 0
+  %tmp1 = load ptr, ptr %_Myfirst.i12, align 8, !tbaa !13
+  %add.ptr.i13 = getelementptr inbounds float, ptr %tmp1, i64 %conv7
+  %tmp2 = load float, ptr %add.ptr.i13, align 4, !tbaa !16
+  %tmp3 = load ptr, ptr @"\01?a@@3V?$vector@V?$vector@MV?$allocator@M@std@@@std@@V?$allocator@V?$vector@MV?$allocator@M@std@@@std@@@2@@std@@A", align 8, !tbaa !8
+  %call.i10 = call ptr @"llvm.intel.std.container.ptr.p0class.std::vector.0"(ptr %tmp3)
   %conv11 = sext i32 %k.0 to i64
-  %_Myfirst.i8 = getelementptr inbounds %"class.std::vector.0", %"class.std::vector.0"* %call.i10, i64 %conv, i32 0, i32 0, i32 0
-  %tmp4 = load float*, float** %_Myfirst.i8, align 8, !tbaa !13
-  %add.ptr.i9 = getelementptr inbounds float, float* %tmp4, i64 %conv11
-  %tmp5 = load float, float* %add.ptr.i9, align 4, !tbaa !16
-  %tmp6 = load %"class.std::vector.0"*, %"class.std::vector.0"** getelementptr inbounds (%"class.std::vector", %"class.std::vector"* @"\01?b@@3V?$vector@V?$vector@MV?$allocator@M@std@@@std@@V?$allocator@V?$vector@MV?$allocator@M@std@@@std@@@2@@std@@A", i64 0, i32 0, i32 0, i32 0), align 8, !tbaa !8
-  %call.i6 = call %"class.std::vector.0"* @"llvm.intel.std.container.ptr.p0class.std::vector.0"(%"class.std::vector.0"* %tmp6)
-  %_Myfirst.i4 = getelementptr inbounds %"class.std::vector.0", %"class.std::vector.0"* %call.i6, i64 %conv11, i32 0, i32 0, i32 0
-  %tmp7 = load float*, float** %_Myfirst.i4, align 8, !tbaa !13
-  %add.ptr.i5 = getelementptr inbounds float, float* %tmp7, i64 %conv7
-  %tmp8 = load float, float* %add.ptr.i5, align 4, !tbaa !16
+  %_Myfirst.i8 = getelementptr inbounds %"class.std::vector.0", ptr %call.i10, i64 %conv, i32 0, i32 0, i32 0
+  %tmp4 = load ptr, ptr %_Myfirst.i8, align 8, !tbaa !13
+  %add.ptr.i9 = getelementptr inbounds float, ptr %tmp4, i64 %conv11
+  %tmp5 = load float, ptr %add.ptr.i9, align 4, !tbaa !16
+  %tmp6 = load ptr, ptr @"\01?b@@3V?$vector@V?$vector@MV?$allocator@M@std@@@std@@V?$allocator@V?$vector@MV?$allocator@M@std@@@std@@@2@@std@@A", align 8, !tbaa !8
+  %call.i6 = call ptr @"llvm.intel.std.container.ptr.p0class.std::vector.0"(ptr %tmp6)
+  %_Myfirst.i4 = getelementptr inbounds %"class.std::vector.0", ptr %call.i6, i64 %conv11, i32 0, i32 0, i32 0
+  %tmp7 = load ptr, ptr %_Myfirst.i4, align 8, !tbaa !13
+  %add.ptr.i5 = getelementptr inbounds float, ptr %tmp7, i64 %conv7
+  %tmp8 = load float, ptr %add.ptr.i5, align 4, !tbaa !16
   %mul = fmul float %tmp5, %tmp8
   %add = fadd float %tmp2, %mul
-  %tmp9 = load %"class.std::vector.0"*, %"class.std::vector.0"** getelementptr inbounds (%"class.std::vector", %"class.std::vector"* @"\01?c@@3V?$vector@V?$vector@MV?$allocator@M@std@@@std@@V?$allocator@V?$vector@MV?$allocator@M@std@@@std@@@2@@std@@A", i64 0, i32 0, i32 0, i32 0), align 8, !tbaa !8
-  %call.i2 = call %"class.std::vector.0"* @"llvm.intel.std.container.ptr.p0class.std::vector.0"(%"class.std::vector.0"* %tmp9)
-  %_Myfirst.i = getelementptr inbounds %"class.std::vector.0", %"class.std::vector.0"* %call.i2, i64 %conv, i32 0, i32 0, i32 0
-  %tmp10 = load float*, float** %_Myfirst.i, align 8, !tbaa !13
-  %add.ptr.i1 = getelementptr inbounds float, float* %tmp10, i64 %conv7
-  store float %add, float* %add.ptr.i1, align 4, !tbaa !16
+  %tmp9 = load ptr, ptr @"\01?c@@3V?$vector@V?$vector@MV?$allocator@M@std@@@std@@V?$allocator@V?$vector@MV?$allocator@M@std@@@std@@@2@@std@@A", align 8, !tbaa !8
+  %call.i2 = call ptr @"llvm.intel.std.container.ptr.p0class.std::vector.0"(ptr %tmp9)
+  %_Myfirst.i = getelementptr inbounds %"class.std::vector.0", ptr %call.i2, i64 %conv, i32 0, i32 0, i32 0
+  %tmp10 = load ptr, ptr %_Myfirst.i, align 8, !tbaa !13
+  %add.ptr.i1 = getelementptr inbounds float, ptr %tmp10, i64 %conv7
+  store float %add, ptr %add.ptr.i1, align 4, !tbaa !16
   %inc = add nsw i32 %j.0, 1
   br label %for.cond4
 
@@ -110,7 +110,7 @@ for.end26:                                        ; preds = %for.cond
 }
 
 ; Function Attrs: nounwind readonly
-declare %"class.std::vector.0"* @"llvm.intel.std.container.ptr.p0class.std::vector.0"(%"class.std::vector.0"*) #0
+declare ptr @"llvm.intel.std.container.ptr.p0class.std::vector.0"(ptr) #0
 
 attributes #0 = { nounwind readonly }
 

@@ -1,10 +1,10 @@
-; RUN: opt -opaque-pointers=0 -passes="loop(loop-reduce)" -S < %s | FileCheck %s
+; RUN: opt -passes="loop(loop-reduce)" -S < %s | FileCheck %s
 
 ; 11269: LSR was holding deleted SCEVs and values, while trying to update
 ; debug information.
 
 ; CHECK-NOT: %spec.select.1
-; CHECK: call void @llvm.dbg.value(metadata %struct.MLoopCol.28.228.314.343.458.602.631.689.718.950.979.1008.1034.1112.1373*
+; CHECK: call void @llvm.dbg.value(metadata ptr
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -16,12 +16,11 @@ entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
-  %lcol18.0120 = phi %struct.MLoopCol.28.228.314.343.458.602.631.689.718.950.979.1008.1034.1112.1373* [ undef, %entry ], [ %spec.select, %for.body ]
-  %p_lcol.0119 = phi %struct.MLoopCol.28.228.314.343.458.602.631.689.718.950.979.1008.1034.1112.1373* [ undef, %entry ], [ %spec.select1, %for.body ]
-  %spec.select = select i1 undef, %struct.MLoopCol.28.228.314.343.458.602.631.689.718.950.979.1008.1034.1112.1373* %lcol18.0120, %struct.MLoopCol.28.228.314.343.458.602.631.689.718.950.979.1008.1034.1112.1373* null
-  %spec.select1 = select i1 undef, %struct.MLoopCol.28.228.314.343.458.602.631.689.718.950.979.1008.1034.1112.1373* %p_lcol.0119, %struct.MLoopCol.28.228.314.343.458.602.631.689.718.950.979.1008.1034.1112.1373* null
-  %0 = getelementptr inbounds %struct.MLoopCol.28.228.314.343.458.602.631.689.718.950.979.1008.1034.1112.1373, %struct.MLoopCol.28.228.314.343.458.602.631.689.718.950.979.1008.1034.1112.1373* %spec.select, i64 0, i32 0
-  call void @llvm.dbg.value(metadata %struct.MLoopCol.28.228.314.343.458.602.631.689.718.950.979.1008.1034.1112.1373* %spec.select1, metadata !507, metadata !DIExpression()), !dbg !515
+  %lcol18.0120 = phi ptr [ undef, %entry ], [ %spec.select, %for.body ]
+  %p_lcol.0119 = phi ptr [ undef, %entry ], [ %spec.select1, %for.body ]
+  %spec.select = select i1 undef, ptr %lcol18.0120, ptr null
+  %spec.select1 = select i1 undef, ptr %p_lcol.0119, ptr null
+  call void @llvm.dbg.value(metadata ptr %spec.select1, metadata !507, metadata !DIExpression()), !dbg !515
   br label %for.body
 }
 

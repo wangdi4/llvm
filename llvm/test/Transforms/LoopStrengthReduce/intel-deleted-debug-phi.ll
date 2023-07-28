@@ -4,53 +4,53 @@
 ; When the SCEVs are salvaged to update the debug MD, the SCEV for the phi
 ; should not be analyzed, as it is a SCEVUnknown with a null Value.
 
-; RUN: opt -opaque-pointers=0 -passes="debugify,function(loop-reduce)" -S < %s | FileCheck %s
+; RUN: opt -passes="debugify,function(loop-reduce)" -S < %s | FileCheck %s
 
 ; Function Attrs: nounwind
-define void @nopreheader(i8* %end) {
+define void @nopreheader(ptr %end) {
 ; CHECK-LABEL: @nopreheader(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[WHILE_COND179:%.*]], !dbg [[DBG15:![0-9]+]]
 ; CHECK:       while.cond179:
 ; CHECK-NEXT:    call void @llvm.dbg.value(metadata i8 undef, metadata [[META9:![0-9]+]], metadata !DIExpression()), !dbg [[DBG16:![0-9]+]]
-; CHECK-NEXT:    indirectbr i8* undef, [label [[LAND_RHS184:%.*]], label %while.end453], !dbg [[DBG17:![0-9]+]]
+; CHECK-NEXT:    indirectbr ptr undef, [label [[LAND_RHS184:%.*]], label %while.end453], !dbg [[DBG17:![0-9]+]]
 ; CHECK:       land.rhs184:
-; CHECK-NEXT:    indirectbr i8* undef, [label [[WHILE_END453:%.*]], label %while.cond197], !dbg [[DBG18:![0-9]+]]
+; CHECK-NEXT:    indirectbr ptr undef, [label [[WHILE_END453:%.*]], label %while.cond197], !dbg [[DBG18:![0-9]+]]
 ; CHECK:       while.cond197:
-; CHECK-NEXT:    indirectbr i8* undef, [label [[LAND_RHS202:%.*]], label %while.end215], !dbg [[DBG19:![0-9]+]]
+; CHECK-NEXT:    indirectbr ptr undef, [label [[LAND_RHS202:%.*]], label %while.end215], !dbg [[DBG19:![0-9]+]]
 ; CHECK:       land.rhs202:
-; CHECK-NEXT:    indirectbr i8* undef, [label [[WHILE_END215:%.*]], label %while.cond197], !dbg [[DBG20:![0-9]+]]
+; CHECK-NEXT:    indirectbr ptr undef, [label [[WHILE_END215:%.*]], label %while.cond197], !dbg [[DBG20:![0-9]+]]
 ; CHECK:       while.end215:
-; CHECK-NEXT:    indirectbr i8* undef, [label [[PREMATURE:%.*]], label %if.end221], !dbg [[DBG21:![0-9]+]]
+; CHECK-NEXT:    indirectbr ptr undef, [label [[PREMATURE:%.*]], label %if.end221], !dbg [[DBG21:![0-9]+]]
 ; CHECK:       if.end221:
-; CHECK-NEXT:    indirectbr i8* undef, [label [[WHILE_COND238_PREHEADER:%.*]], label %lor.lhs.false227], !dbg [[DBG22:![0-9]+]]
+; CHECK-NEXT:    indirectbr ptr undef, [label [[WHILE_COND238_PREHEADER:%.*]], label %lor.lhs.false227], !dbg [[DBG22:![0-9]+]]
 ; CHECK:       lor.lhs.false227:
-; CHECK-NEXT:    indirectbr i8* undef, [label [[WHILE_COND238_PREHEADER]], label %if.else], !dbg [[DBG23:![0-9]+]]
+; CHECK-NEXT:    indirectbr ptr undef, [label [[WHILE_COND238_PREHEADER]], label %if.else], !dbg [[DBG23:![0-9]+]]
 ; CHECK:       while.cond238.preheader:
-; CHECK-NEXT:    indirectbr i8* undef, [label %while.cond238], !dbg [[DBG24:![0-9]+]]
+; CHECK-NEXT:    indirectbr ptr undef, [label %while.cond238], !dbg [[DBG24:![0-9]+]]
 ; CHECK:       while.cond238:
 ; CHECK-NEXT:    [[TMP0:%.*]] = phi i64 [ [[INDVAR_NEXT15:%.*]], [[LAND_RHS243:%.*]] ], [ 0, [[WHILE_COND238_PREHEADER]] ], !dbg [[DBG25:![0-9]+]]
 ; CHECK-NEXT:    call void @llvm.dbg.value(metadata i64 [[TMP0]], metadata [[META11:![0-9]+]], metadata !DIExpression()), !dbg [[DBG25]]
 ; CHECK-NEXT:    [[TMPX:%.*]] = add i64 undef, [[TMP0]], !dbg [[DBG26:![0-9]+]]
 ; CHECK-NEXT:    call void @llvm.dbg.value(metadata i64 [[TMPX]], metadata [[META12:![0-9]+]], metadata !DIExpression()), !dbg [[DBG26]]
-; CHECK-NEXT:    indirectbr i8* undef, [label [[LAND_RHS243]], label %while.end256], !dbg [[DBG27:![0-9]+]]
+; CHECK-NEXT:    indirectbr ptr undef, [label [[LAND_RHS243]], label %while.end256], !dbg [[DBG27:![0-9]+]]
 ; CHECK:       land.rhs243:
 ; CHECK-NEXT:    [[INDVAR_NEXT15]] = add i64 [[TMP0]], 1, !dbg [[DBG28:![0-9]+]]
 ; CHECK-NEXT:    call void @llvm.dbg.value(metadata i64 [[INDVAR_NEXT15]], metadata [[META13:![0-9]+]], metadata !DIExpression()), !dbg [[DBG28]]
-; CHECK-NEXT:    indirectbr i8* undef, [label [[WHILE_END256:%.*]], label %while.cond238], !dbg [[DBG29:![0-9]+]]
+; CHECK-NEXT:    indirectbr ptr undef, [label [[WHILE_END256:%.*]], label %while.cond238], !dbg [[DBG29:![0-9]+]]
 ; CHECK:       while.end256:
 ; CHECK-NEXT:    unreachable, !dbg [[DBG30:![0-9]+]]
 ; CHECK:       if.else:
-; CHECK-NEXT:    indirectbr i8* undef, [label [[IF_THEN297:%.*]], label %if.else386], !dbg [[DBG31:![0-9]+]]
+; CHECK-NEXT:    indirectbr ptr undef, [label [[IF_THEN297:%.*]], label %if.else386], !dbg [[DBG31:![0-9]+]]
 ; CHECK:       if.then297:
-; CHECK-NEXT:    indirectbr i8* undef, [label [[PREMATURE]], label %if.end307], !dbg [[DBG32:![0-9]+]]
+; CHECK-NEXT:    indirectbr ptr undef, [label [[PREMATURE]], label %if.end307], !dbg [[DBG32:![0-9]+]]
 ; CHECK:       if.end307:
-; CHECK-NEXT:    indirectbr i8* undef, [label [[IF_END314:%.*]], label %FAIL], !dbg [[DBG33:![0-9]+]]
+; CHECK-NEXT:    indirectbr ptr undef, [label [[IF_END314:%.*]], label %FAIL], !dbg [[DBG33:![0-9]+]]
 ; CHECK:       if.end314:
-; CHECK-NEXT:    indirectbr i8* undef, [label [[PREMATURE]], label %if.end348], !dbg [[DBG34:![0-9]+]]
+; CHECK-NEXT:    indirectbr ptr undef, [label [[PREMATURE]], label %if.end348], !dbg [[DBG34:![0-9]+]]
 ; CHECK:       if.end348:
-; CHECK-NEXT:    call void @llvm.dbg.value(metadata i8* undef, metadata [[META14:![0-9]+]], metadata !DIExpression(DW_OP_plus_uconst, 2, DW_OP_stack_value)), !dbg [[DBG35:![0-9]+]]
-; CHECK-NEXT:    indirectbr i8* undef, [label %while.cond179], !dbg [[DBG36:![0-9]+]]
+; CHECK-NEXT:    call void @llvm.dbg.value(metadata ptr undef, metadata [[META14:![0-9]+]], metadata !DIExpression(DW_OP_plus_uconst, 2, DW_OP_stack_value)), !dbg [[DBG35:![0-9]+]]
+; CHECK-NEXT:    indirectbr ptr undef, [label %while.cond179], !dbg [[DBG36:![0-9]+]]
 ; CHECK:       if.else386:
 ; CHECK-NEXT:    unreachable, !dbg [[DBG37:![0-9]+]]
 ; CHECK:       while.end453:
@@ -67,57 +67,57 @@ entry:
   br label %while.cond179
 
 while.cond179:                                    ; preds = %if.end348, %entry
-  %s.1 = phi i8* [ %incdec.ptr356, %if.end348 ], [ undef, %entry ]
-  indirectbr i8* undef, [label %land.rhs184, label %while.end453]
+  %s.1 = phi ptr [ %incdec.ptr356, %if.end348 ], [ undef, %entry ]
+  indirectbr ptr undef, [label %land.rhs184, label %while.end453]
 
 land.rhs184:                                      ; preds = %while.cond179
-  indirectbr i8* undef, [label %while.end453, label %while.cond197]
+  indirectbr ptr undef, [label %while.end453, label %while.cond197]
 
 while.cond197:                                    ; preds = %land.rhs202, %land.rhs184
-  indirectbr i8* undef, [label %land.rhs202, label %while.end215]
+  indirectbr ptr undef, [label %land.rhs202, label %while.end215]
 
 land.rhs202:                                      ; preds = %while.cond197
-  indirectbr i8* undef, [label %while.end215, label %while.cond197]
+  indirectbr ptr undef, [label %while.end215, label %while.cond197]
 
 while.end215:                                     ; preds = %land.rhs202, %while.cond197
-  indirectbr i8* undef, [label %PREMATURE, label %if.end221]
+  indirectbr ptr undef, [label %PREMATURE, label %if.end221]
 
 if.end221:                                        ; preds = %while.end215
-  indirectbr i8* undef, [label %while.cond238.preheader, label %lor.lhs.false227]
+  indirectbr ptr undef, [label %while.cond238.preheader, label %lor.lhs.false227]
 
 lor.lhs.false227:                                 ; preds = %if.end221
-  indirectbr i8* undef, [label %while.cond238.preheader, label %if.else]
+  indirectbr ptr undef, [label %while.cond238.preheader, label %if.else]
 
 while.cond238.preheader:                          ; preds = %lor.lhs.false227, %if.end221
-  indirectbr i8* undef, [label %while.cond238]
+  indirectbr ptr undef, [label %while.cond238]
 
 while.cond238:                                    ; preds = %land.rhs243, %while.cond238.preheader
   %0 = phi i64 [ %indvar.next15, %land.rhs243 ], [ 0, %while.cond238.preheader ]
   %tmpx = add i64 undef, %0
-  indirectbr i8* undef, [label %land.rhs243, label %while.end256]
+  indirectbr ptr undef, [label %land.rhs243, label %while.end256]
 
 land.rhs243:                                      ; preds = %while.cond238
   %indvar.next15 = add i64 %0, 1
-  indirectbr i8* undef, [label %while.end256, label %while.cond238]
+  indirectbr ptr undef, [label %while.end256, label %while.cond238]
 
 while.end256:                                     ; preds = %land.rhs243, %while.cond238
   unreachable
 
 if.else:                                          ; preds = %lor.lhs.false227
-  indirectbr i8* undef, [label %if.then297, label %if.else386]
+  indirectbr ptr undef, [label %if.then297, label %if.else386]
 
 if.then297:                                       ; preds = %if.else
-  indirectbr i8* undef, [label %PREMATURE, label %if.end307]
+  indirectbr ptr undef, [label %PREMATURE, label %if.end307]
 
 if.end307:                                        ; preds = %if.then297
-  indirectbr i8* undef, [label %if.end314, label %FAIL]
+  indirectbr ptr undef, [label %if.end314, label %FAIL]
 
 if.end314:                                        ; preds = %if.end307
-  indirectbr i8* undef, [label %PREMATURE, label %if.end348]
+  indirectbr ptr undef, [label %PREMATURE, label %if.end348]
 
 if.end348:                                        ; preds = %if.end314
-  %incdec.ptr356 = getelementptr inbounds i8, i8* undef, i64 2
-  indirectbr i8* undef, [label %while.cond179]
+  %incdec.ptr356 = getelementptr inbounds i8, ptr undef, i64 2
+  indirectbr ptr undef, [label %while.cond179]
 
 if.else386:                                       ; preds = %if.else
   unreachable
