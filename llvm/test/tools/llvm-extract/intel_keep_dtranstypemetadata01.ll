@@ -14,7 +14,7 @@
 ; requires that all functions get materialized by llvm-extract before the extraction
 ; begins.
 ; RUN: llvm-as -o - < %s | llvm-extract -keep-dtranstypemetadata -func test -S | FileCheck %s
-; RUN: llvm-as -opaque-pointers -o - < %s | llvm-extract -opaque-pointers -keep-dtranstypemetadata -func test -S | FileCheck %s
+; RUN: llvm-as -o - < %s | llvm-extract -keep-dtranstypemetadata -func test -S | FileCheck %s
 
 %struct.test01 = type { i64, i64 }
 
