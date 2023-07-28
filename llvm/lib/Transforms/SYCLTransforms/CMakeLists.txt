@@ -2,7 +2,7 @@
 #
 # INTEL CONFIDENTIAL
 #
-# Copyright (C) 2022 Intel Corporation
+# Copyright (C) 2022-2023 Intel Corporation
 #
 # This software and the related documents are Intel copyrighted materials, and
 # your use of them is governed by the express license under which they were
@@ -72,6 +72,7 @@ add_llvm_component_library(LLVMSYCLTransforms
   LocalBuffers.cpp
   LoopStridedCodeMotion.cpp
   LoopWIAnalysis.cpp
+  MathFuncSelect.cpp
   OptimizeIDivAndIRem.cpp
   PatchCallbackArgs.cpp
   PhiCanonicalization.cpp

@@ -7,26 +7,24 @@ $_ZN1S4getaEi = comdat any
 $_ZN1S4getbEi = comdat any
 
 ; Function Attrs: nounwind uwtable
-define i32* @test(%struct.S* %this, i32 %i) {
+define ptr @test(ptr %this, i32 %i) {
 entry:
-  %this.addr = alloca %struct.S*, align 8
+  %this.addr = alloca ptr, align 8
   %i.addr = alloca i32, align 4
-  store %struct.S* %this, %struct.S** %this.addr, align 8, !tbaa !6
-  store i32 %i, i32* %i.addr, align 4, !tbaa !4
-  %this1 = load %struct.S*, %struct.S** %this.addr, align 8
-  %0 = load i32, i32* %i.addr, align 4, !tbaa !4
+  store ptr %this, ptr %this.addr, align 8, !tbaa !6
+  store i32 %i, ptr %i.addr, align 4, !tbaa !4
+  %this1 = load ptr, ptr %this.addr, align 8
+  %0 = load i32, ptr %i.addr, align 4, !tbaa !4
   %idxprom = sext i32 %0 to i64
-  %a = getelementptr inbounds %struct.S, %struct.S* %this1, i32 0, i32 0
-  %arrayidx = getelementptr inbounds [4 x i32], [4 x i32]* %a, i64 0, i64 %idxprom
-  %1 = call i32* @llvm.intel.fakeload.p0i32(i32* %arrayidx, metadata !8)
-  ret i32* %1
+  %arrayidx = getelementptr inbounds [4 x i32], ptr %this1, i64 0, i64 %idxprom
+  %1 = call ptr @llvm.intel.fakeload.p0(ptr %arrayidx, metadata !8)
+  ret ptr %1
 }
 
-; CHECK-NOT: call i32* @llvm.intel.fakeload
+; CHECK-NOT: call ptr @llvm.intel.fakeload
 
 ; Function Attrs: nounwind
-declare i32* @llvm.intel.fakeload.p0i32(i32*, metadata)
-
+declare ptr @llvm.intel.fakeload.p0(ptr, metadata)
 
 !llvm.ident = !{!0}
 

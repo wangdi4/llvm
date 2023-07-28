@@ -858,19 +858,19 @@ define dso_local i32 @f() local_unnamed_addr #0 {
 ;
 entry:
   %tmp = alloca { fp128, fp128 }, align 16
-  %tmp.realp = getelementptr inbounds { fp128, fp128 }, { fp128, fp128 }* %tmp, i64 0, i32 0
-  %tmp.imagp = getelementptr inbounds { fp128, fp128 }, { fp128, fp128 }* %tmp, i64 0, i32 1
-  %c.real.pre = load fp128, fp128* getelementptr inbounds ({ fp128, fp128 }, { fp128, fp128 }* @c, i64 0, i32 0), align 16
-  %c.imag.pre = load fp128, fp128* getelementptr inbounds ({ fp128, fp128 }, { fp128, fp128 }* @c, i64 0, i32 1), align 16
+  %tmp.realp = getelementptr inbounds { fp128, fp128 }, ptr %tmp, i64 0, i32 0
+  %tmp.imagp = getelementptr inbounds { fp128, fp128 }, ptr %tmp, i64 0, i32 1
+  %c.real.pre = load fp128, ptr @c, align 16
+  %c.imag.pre = load fp128, ptr getelementptr inbounds ({ fp128, fp128 }, ptr @c, i64 0, i32 1), align 16
   br label %for.cond
 
 for.cond:                                         ; preds = %complex_mul_cont, %entry
   %c.imag = phi fp128 [ %imag_mul_phi, %complex_mul_cont ], [ %c.imag.pre, %entry ]
   %c.real = phi fp128 [ %real_mul_phi, %complex_mul_cont ], [ %c.real.pre, %entry ]
-  store fp128 %c.real, fp128* getelementptr inbounds ({ fp128, fp128 }, { fp128, fp128 }* @d, i64 0, i32 0), align 16
-  store fp128 %c.imag, fp128* getelementptr inbounds ({ fp128, fp128 }, { fp128, fp128 }* @d, i64 0, i32 1), align 16
-  %b.real = load fp128, fp128* getelementptr inbounds ({ fp128, fp128 }, { fp128, fp128 }* @b, i64 0, i32 0), align 16
-  %b.imag = load fp128, fp128* getelementptr inbounds ({ fp128, fp128 }, { fp128, fp128 }* @b, i64 0, i32 1), align 16
+  store fp128 %c.real, ptr @d, align 16
+  store fp128 %c.imag, ptr getelementptr inbounds ({ fp128, fp128 }, ptr @d, i64 0, i32 1), align 16
+  %b.real = load fp128, ptr @b, align 16
+  %b.imag = load fp128, ptr getelementptr inbounds ({ fp128, fp128 }, ptr @b, i64 0, i32 1), align 16
   %mul_ac = fmul fp128 %c.real, %b.real
   %mul_bd = fmul fp128 %c.imag, %b.imag
   %mul_ad = fmul fp128 %c.real, %b.imag
@@ -883,21 +883,21 @@ for.cond:                                         ; preds = %complex_mul_cont, %
   br i1 %or.cond, label %complex_mul_libcall, label %complex_mul_cont
 
 complex_mul_libcall:                              ; preds = %for.cond
-  call void @__multc3({ fp128, fp128 }* nonnull sret({fp128, fp128}) align 16 %tmp, fp128 %c.real, fp128 %c.imag, fp128 %b.real, fp128 %b.imag) #1
-  %tmp.real = load fp128, fp128* %tmp.realp, align 16
-  %tmp.imag = load fp128, fp128* %tmp.imagp, align 16
-  %d.real.pre = load fp128, fp128* getelementptr inbounds ({ fp128, fp128 }, { fp128, fp128 }* @d, i64 0, i32 0), align 16
+  call void @__multc3(ptr nonnull sret({fp128, fp128}) align 16 %tmp, fp128 %c.real, fp128 %c.imag, fp128 %b.real, fp128 %b.imag) #1
+  %tmp.real = load fp128, ptr %tmp.realp, align 16
+  %tmp.imag = load fp128, ptr %tmp.imagp, align 16
+  %d.real.pre = load fp128, ptr @d, align 16
   br label %complex_mul_cont
 
 complex_mul_cont:                                 ; preds = %complex_mul_libcall, %for.cond
   %d.real = phi fp128 [ %c.real, %for.cond ], [ %c.imag, %complex_mul_libcall ]
   %real_mul_phi = phi fp128 [ %mul_r, %for.cond ], [ %tmp.real, %complex_mul_libcall ]
   %imag_mul_phi = phi fp128 [ %mul_i, %for.cond ], [ %tmp.imag, %complex_mul_libcall ]
-  store fp128 %real_mul_phi, fp128* getelementptr inbounds ({ fp128, fp128 }, { fp128, fp128 }* @c, i64 0, i32 0), align 16
-  store fp128 %imag_mul_phi, fp128* getelementptr inbounds ({ fp128, fp128 }, { fp128, fp128 }* @c, i64 0, i32 1), align 16
+  store fp128 %real_mul_phi, ptr @c, align 16
+  store fp128 %imag_mul_phi, ptr getelementptr inbounds ({ fp128, fp128 }, ptr @c, i64 0, i32 1), align 16
   %conv = fptosi fp128 %d.real to i32
-  store i32 %conv, i32* @e, align 4
+  store i32 %conv, ptr @e, align 4
   br label %for.cond
 }
 
-declare dso_local void @__multc3({ fp128, fp128 }*, fp128, fp128, fp128, fp128) local_unnamed_addr
+declare dso_local void @__multc3(ptr, fp128, fp128, fp128, fp128) local_unnamed_addr

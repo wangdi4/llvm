@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2023 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -303,6 +303,8 @@ public:
 
   const std::string &getProlog() const { return m_Prolog; }
 
+  const std::string &getEpilogInit() const { return m_EpilogInit; }
+
   const std::string &getEpilog() const { return m_Epilog; }
 
   std::string getSVMLRounding(const std::string &) const;
@@ -312,6 +314,7 @@ protected:
   const Record *m_Record;
   std::string m_Target;
   std::string m_Prolog;
+  std::string m_EpilogInit;
   std::string m_Epilog;
   std::map<std::string, OclType *> m_TypeMap;
   std::map<std::string, OclBuiltin *> m_ProtoMap;

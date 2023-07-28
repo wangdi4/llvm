@@ -456,6 +456,7 @@ llvm/docs/Intel/MLPGO/MLPGO.rst @romanovvlad @smaslov-intel
 /llvm/test/Transforms/Intel_VPO/Vecopt/ @sguggill @skozhukh @mamasten @offsake
 /llvm/test/Transforms/Intel_VPO/Vecopt/optreport/ @karthik-senthil @speryt @skozhukh
 /llvm/test/Transforms/LoopVectorize/ @sguggill @skozhukh @mamasten @offsake
+/llvm/test/Transforms/Intel_HandlePragmaVectorAligned/ @sguggill @skozhukh @mamasten @offsake
 /llvm/test/Transforms/Util/*TLI-mappings* @sguggill @skozhukh @mamasten @offsake
 /llvm/unittests/Analysis/VectorFunctionABITest.cpp @sguggill @skozhukh @mamasten @offsake
 /llvm/unittests/Transforms/Vectorize/ @sguggill @skozhukh @mamasten @offsake
@@ -865,12 +866,14 @@ llvm/docs/Intel/MLPGO/MLPGO.rst @romanovvlad @smaslov-intel
 /llvm/test/Transforms/LoopVersioning/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/LowerSwitch/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/Mem2Reg/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/MergeICmps/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/NaryReassociate/ @asudarsa @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/Reassociate/ @asudarsa @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/SCCP/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/SROA/ @jcranmer-intel @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/SimpleLoopUnswitch/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 /llvm/test/Transforms/SimplifyCFG/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
+/llvm/test/Transforms/VectorCombine/ @gpei-dev
 /llvm/test/Verifier/ @intel-restricted/cmplrllvm-llvm-scalar-optimizer
 
 # Nontemporal store conversion pass

@@ -118,6 +118,7 @@ MODULE_PASS("sycl-kernel-infinite-loop-creator", InfiniteLoopCreatorPass())
 MODULE_PASS("sycl-kernel-internalize-func", InternalizeNonKernelFuncPass())
 MODULE_PASS("sycl-kernel-linear-id-resolver", LinearIdResolverPass())
 MODULE_PASS("sycl-kernel-local-buffers", LocalBuffersPass())
+MODULE_PASS("sycl-kernel-math-func-select", MathFuncSelectPass())
 MODULE_PASS("sycl-kernel-reduce-cross-barrier-values", ReduceCrossBarrierValuesPass())
 MODULE_PASS("sycl-kernel-relaxed-math", RelaxedMathPass())
 #if INTEL_CUSTOMIZATION
