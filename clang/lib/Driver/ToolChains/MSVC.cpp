@@ -476,14 +476,19 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back(
           Args.MakeArgString(std::string("/vfsoverlay:") + A->getValue()));
 
+#if INTEL_CUSTOMIZATION
     if (C.getDriver().isUsingLTO() &&
         Args.hasFlag(options::OPT_gsplit_dwarf, options::OPT_gno_split_dwarf,
-                     false))
-      CmdArgs.push_back(Args.MakeArgString(Twine("/dwodir:") +
-                                           Output.getFilename() + "_dwo"));
+                     false)) {
+      if (const Arg *A = Args.getLastArg(options::OPT_fprofile_dwo_dir_EQ))
+        CmdArgs.push_back(
+            Args.MakeArgString(Twine("/dwodir:") + A->getValue()));
+      else
+        CmdArgs.push_back(Args.MakeArgString(Twine("/dwodir:") +
+                                             Output.getFilename() + "_dwo"));
+    }
   }
 
-#if INTEL_CUSTOMIZATION
   // TODO: Create a more streamlined and centralized way to add the additional
   // llvm options that are set.  i.e. set once and use for both Linux and
   // Windows compilation paths.

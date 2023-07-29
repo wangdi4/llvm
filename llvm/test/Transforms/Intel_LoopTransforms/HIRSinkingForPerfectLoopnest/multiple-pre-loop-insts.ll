@@ -48,8 +48,8 @@ for.body3:                                        ; preds = %for.cond1.preheader
   %t2.048 = phi i32 [ 1, %for.cond1.preheader ], [ %2, %for.body3 ]
   %cmp6.not47 = phi i1 [ true, %for.cond1.preheader ], [ false, %for.body3 ]
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @A, i64 0, i64 0, i64 %indvars.iv.next
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds [100 x [100 x i32]], ptr @A, i64 0, i64 0, i64 %indvars.iv.next
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !3
   %cmp5 = icmp sle i32 %0, %i.050
   %cmp8.not = select i1 %cmp6.not47, i1 %cmp5, i1 false
   %1 = trunc i64 %indvars.iv.next to i32
@@ -61,8 +61,8 @@ for.end:                                          ; preds = %for.body3
   %.lcssa = phi i32 [ %2, %for.body3 ]
   %add24 = add nuw nsw i32 %i.050, 1
   %idxprom25 = sext i32 %.lcssa to i64
-  %arrayidx26 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @A, i64 0, i64 0, i64 %idxprom25
-  store i32 %add24, i32* %arrayidx26, align 4, !tbaa !3
+  %arrayidx26 = getelementptr inbounds [100 x [100 x i32]], ptr @A, i64 0, i64 0, i64 %idxprom25
+  store i32 %add24, ptr %arrayidx26, align 4, !tbaa !3
   %exitcond51.not = icmp eq i32 %add24, 100
   br i1 %exitcond51.not, label %for.end29, label %for.cond1.preheader, !llvm.loop !11
 

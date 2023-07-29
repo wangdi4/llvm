@@ -14,7 +14,6 @@
 ;
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
 ;
-; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
 ;
 ;*** IR Dump Before HIR Sinking For Perfect Loopnest (hir-sinking-for-perfect-loopnest) ***
 ;Function: matrix_mul_matrix
@@ -61,7 +60,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
-define dso_local void @matrix_mul_matrix(i32 %N, i32* noalias nocapture %C, i32* noalias nocapture readonly %A, i32* noalias nocapture readonly %B) local_unnamed_addr #0 {
+define dso_local void @matrix_mul_matrix(i32 %N, ptr noalias nocapture %C, ptr noalias nocapture readonly %A, ptr noalias nocapture readonly %B) local_unnamed_addr #0 {
 entry:
   %cmp548 = icmp sgt i32 %N, 0
   br i1 %cmp548, label %for.cond1.preheader.preheader, label %for.end26
@@ -78,19 +77,19 @@ for.body3.preheader:                              ; preds = %for.inc24, %for.con
 for.body6.lr.ph:                                  ; preds = %for.inc21, %for.body3.preheader
   %indvars.iv59 = phi i64 [ 0, %for.body3.preheader ], [ %indvars.iv.next60, %for.inc21 ]
   %2 = add nuw nsw i64 %indvars.iv59, %1
-  %arrayidx = getelementptr inbounds i32, i32* %C, i64 %2
+  %arrayidx = getelementptr inbounds i32, ptr %C, i64 %2
   br label %for.body6
 
 for.body6:                                        ; preds = %for.body6.lr.ph, %for.body6
   %indvars.iv = phi i64 [ 0, %for.body6.lr.ph ], [ %indvars.iv.next, %for.body6 ]
   %3 = phi i32 [ 0, %for.body6.lr.ph ], [ %add20, %for.body6 ]
   %4 = add nuw nsw i64 %indvars.iv, %1
-  %arrayidx10 = getelementptr inbounds i32, i32* %A, i64 %4
-  %5 = load i32, i32* %arrayidx10, align 4, !tbaa !3
+  %arrayidx10 = getelementptr inbounds i32, ptr %A, i64 %4
+  %5 = load i32, ptr %arrayidx10, align 4, !tbaa !3
   %6 = mul nsw i64 %indvars.iv, %0
   %7 = add nuw nsw i64 %6, %indvars.iv59
-  %arrayidx14 = getelementptr inbounds i32, i32* %B, i64 %7
-  %8 = load i32, i32* %arrayidx14, align 4, !tbaa !3
+  %arrayidx14 = getelementptr inbounds i32, ptr %B, i64 %7
+  %8 = load i32, ptr %arrayidx14, align 4, !tbaa !3
   %mul15 = mul nsw i32 %8, %5
   %add20 = add nsw i32 %3, %mul15
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -99,7 +98,7 @@ for.body6:                                        ; preds = %for.body6.lr.ph, %f
 
 for.inc21:                                        ; preds = %for.body6
   %add20.lcssa = phi i32 [ %add20, %for.body6 ]
-  store i32 %add20.lcssa, i32* %arrayidx, align 4, !tbaa !3
+  store i32 %add20.lcssa, ptr %arrayidx, align 4, !tbaa !3
   %indvars.iv.next60 = add nuw nsw i64 %indvars.iv59, 1
   %exitcond63.not = icmp eq i64 %indvars.iv.next60, %0
   br i1 %exitcond63.not, label %for.inc24, label %for.body6.lr.ph, !llvm.loop !9

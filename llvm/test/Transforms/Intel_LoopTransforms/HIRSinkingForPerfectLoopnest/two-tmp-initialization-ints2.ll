@@ -179,7 +179,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
-define dso_local void @matrix_mul_matrix(i32 %N, i32* noalias nocapture %C, i32* noalias nocapture readonly %A, i32* noalias nocapture readonly %B, i32* noalias nocapture %D) local_unnamed_addr #0 {
+define dso_local void @matrix_mul_matrix(i32 %N, ptr noalias nocapture %C, ptr noalias nocapture readonly %A, ptr noalias nocapture readonly %B, ptr noalias nocapture %D) local_unnamed_addr #0 {
 entry:
   %cmp981 = icmp sgt i32 %N, 0
   br i1 %cmp981, label %for.cond1.preheader.preheader, label %for.end44
@@ -196,8 +196,8 @@ for.body3.preheader:                              ; preds = %for.inc42, %for.con
 for.body10.lr.ph:                                 ; preds = %for.inc39, %for.body3.preheader
   %indvars.iv95 = phi i64 [ 0, %for.body3.preheader ], [ %indvars.iv.next96, %for.inc39 ]
   %2 = add nuw nsw i64 %indvars.iv95, %1
-  %arrayidx = getelementptr inbounds i32, i32* %C, i64 %2
-  %arrayidx7 = getelementptr inbounds i32, i32* %D, i64 %2
+  %arrayidx = getelementptr inbounds i32, ptr %C, i64 %2
+  %arrayidx7 = getelementptr inbounds i32, ptr %D, i64 %2
   %3 = mul nsw i64 %indvars.iv95, %0
   br label %for.body10
 
@@ -206,19 +206,19 @@ for.body10:                                       ; preds = %for.body10.lr.ph, %
   %4 = phi i32 [ 0, %for.body10.lr.ph ], [ %add38, %for.body10 ]
   %5 = phi i32 [ 0, %for.body10.lr.ph ], [ %add24, %for.body10 ]
   %6 = add nuw nsw i64 %indvars.iv, %1
-  %arrayidx14 = getelementptr inbounds i32, i32* %A, i64 %6
-  %7 = load i32, i32* %arrayidx14, align 4, !tbaa !3
+  %arrayidx14 = getelementptr inbounds i32, ptr %A, i64 %6
+  %7 = load i32, ptr %arrayidx14, align 4, !tbaa !3
   %8 = mul nsw i64 %indvars.iv, %0
   %9 = add nuw nsw i64 %8, %indvars.iv95
-  %arrayidx18 = getelementptr inbounds i32, i32* %B, i64 %9
-  %10 = load i32, i32* %arrayidx18, align 4, !tbaa !3
+  %arrayidx18 = getelementptr inbounds i32, ptr %B, i64 %9
+  %10 = load i32, ptr %arrayidx18, align 4, !tbaa !3
   %mul19 = mul nsw i32 %10, %7
   %add24 = add nsw i32 %5, %mul19
   %11 = add nuw nsw i64 %indvars.iv, %3
-  %arrayidx28 = getelementptr inbounds i32, i32* %A, i64 %11
-  %12 = load i32, i32* %arrayidx28, align 4, !tbaa !3
-  %arrayidx32 = getelementptr inbounds i32, i32* %B, i64 %6
-  %13 = load i32, i32* %arrayidx32, align 4, !tbaa !3
+  %arrayidx28 = getelementptr inbounds i32, ptr %A, i64 %11
+  %12 = load i32, ptr %arrayidx28, align 4, !tbaa !3
+  %arrayidx32 = getelementptr inbounds i32, ptr %B, i64 %6
+  %13 = load i32, ptr %arrayidx32, align 4, !tbaa !3
   %mul33 = mul nsw i32 %13, %12
   %add38 = add nsw i32 %4, %mul33
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -228,8 +228,8 @@ for.body10:                                       ; preds = %for.body10.lr.ph, %
 for.inc39:                                        ; preds = %for.body10
   %add24.lcssa = phi i32 [ %add24, %for.body10 ]
   %add38.lcssa = phi i32 [ %add38, %for.body10 ]
-  store i32 %add24.lcssa, i32* %arrayidx, align 4, !tbaa !3
-  store i32 %add38.lcssa, i32* %arrayidx7, align 4, !tbaa !3
+  store i32 %add24.lcssa, ptr %arrayidx, align 4, !tbaa !3
+  store i32 %add38.lcssa, ptr %arrayidx7, align 4, !tbaa !3
   %indvars.iv.next96 = add nuw nsw i64 %indvars.iv95, 1
   %exitcond101.not = icmp eq i64 %indvars.iv.next96, %0
   br i1 %exitcond101.not, label %for.inc42, label %for.body10.lr.ph, !llvm.loop !9

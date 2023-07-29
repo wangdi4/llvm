@@ -803,9 +803,16 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
     }
   }
 
-  if (Args.hasArg(options::OPT_gsplit_dwarf))
-    CmdArgs.push_back(Args.MakeArgString(
-        Twine(PluginOptPrefix) + "dwo_dir=" + Output.getFilename() + "_dwo"));
+#if INTEL_CUSTOMIZATION
+  if (Args.hasArg(options::OPT_gsplit_dwarf)) {
+    if (const Arg *A = Args.getLastArg(options::OPT_fprofile_dwo_dir_EQ))
+      CmdArgs.push_back(Args.MakeArgString(Twine(PluginOptPrefix) +
+                                           "dwo_dir=" + A->getValue()));
+    else
+      CmdArgs.push_back(Args.MakeArgString(
+          Twine(PluginOptPrefix) + "dwo_dir=" + Output.getFilename() + "_dwo"));
+  }
+#endif
 
   if (IsThinLTO && !IsOSAIX)
     CmdArgs.push_back(Args.MakeArgString(Twine(PluginOptPrefix) + "thinlto"));
@@ -1255,7 +1262,7 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   auto addMultiVersionFlag = [&](const Arg &OptArg, OptSpecifier Opt) {
     if (IsLink && OptArg.getOption().matches(Opt) &&
         x86::isValidIntelCPU(OptArg.getValue(), TC.getTriple()))
-      addllvmOption("-enable-multiversioning");
+      addllvmOption("-enable-npm-multiversioning");
   };
   // Given -x, turn on multi-versioning
   // FIXME: These checks for Intel -x and -Qx are used in many places, we

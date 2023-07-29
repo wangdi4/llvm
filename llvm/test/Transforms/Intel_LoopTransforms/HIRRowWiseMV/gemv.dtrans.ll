@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_DTRANS
 ; REQUIRES: intel_feature_sw_dtrans
 
-; RUN: opt -opaque-pointers=0 -whole-program-assume -intel-libirc-allowed -passes='require<dtransanalysis>,function(hir-ssa-deconstruction,hir-temp-cleanup,hir-rowwise-mv)' -print-before=hir-rowwise-mv -print-after=hir-rowwise-mv -disable-output 2>&1 < %s | FileCheck %s
+; RUN: opt -whole-program-assume -intel-libirc-allowed -passes='require<dtrans-safetyanalyzer>,function(hir-ssa-deconstruction,hir-temp-cleanup,hir-rowwise-mv)' -print-before=hir-rowwise-mv -print-after=hir-rowwise-mv -disable-output 2>&1 < %s | FileCheck %s
 
 ; This test checks that the basic row-wise multiversioning transformation
 ; generates the expected code when using DTrans analysis to determine likely
@@ -93,20 +93,20 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       + END LOOP
 ; CHECK: END REGION
 
-%struct.BInfo = type { i32, double* }
+%struct.BInfo = type { i32, ptr }
 
-declare noalias i8* @malloc(i64)
+declare !intel.dtrans.func.type !4 noalias  "intel_dtrans_func_index"="1" ptr @malloc(i64)
 
-define double @gemv(double* %A, %struct.BInfo* %BI) #0 {
+define double @gemv(ptr "intel_dtrans_func_index"="1" %A, ptr "intel_dtrans_func_index"="2" %BI) #0 !intel.dtrans.func.type !6 {
 entry:
   br label %L0
 
 L0:
   %h = phi i32 [ 0, %entry ], [ %h.next, %L0.latch ]
   %sum = phi double [ 0.0, %entry ], [ %sum.final, %L0.latch ]
-  %bptr = getelementptr inbounds %struct.BInfo, %struct.BInfo* %BI, i32 0, i32 1
-  %b = load double*, double** %bptr
-  %bfirst = load double, double* %b
+  %bptr = getelementptr inbounds %struct.BInfo, ptr %BI, i32 0, i32 1
+  %b = load ptr, ptr %bptr
+  %bfirst = load double, ptr %b
   %bcheck = fcmp une double %bfirst, 0.0
   br i1 %bcheck, label %L1.pre, label %L0.latch
 
@@ -123,10 +123,10 @@ L2:
   %j = phi i32 [ 0, %L1 ], [ %j.next, %L2 ]
   %sum.L2 = phi double [ %sum.L1, %L1 ], [ %sum.next, %L2 ]
   %A_ind = add nuw nsw i32 %A_row, %j
-  %Aijp = getelementptr inbounds double, double* %A, i32 %A_ind
-  %Aij = load double, double* %Aijp
-  %bjp = getelementptr inbounds double, double* %b, i32 %j
-  %bj = load double, double* %bjp
+  %Aijp = getelementptr inbounds double, ptr %A, i32 %A_ind
+  %Aij = load double, ptr %Aijp
+  %bjp = getelementptr inbounds double, ptr %b, i32 %j
+  %bj = load double, ptr %bjp
   %Aijbj = fmul nnan nsz arcp afn reassoc double %Aij, %bj
   %sum.next = fadd double %sum.L2, %Aijbj
   %j.next = add nuw nsw i32 %j, 1
@@ -157,16 +157,25 @@ L0.exit:
 @GBI = global %struct.BInfo zeroinitializer, align 8
 
 define void @structinit() {
-  %b8 = tail call noalias dereferenceable_or_null(1024) i8* @malloc(i64 1024)
-  %b = bitcast i8* %b8 to double*
-  store double* %b, double** getelementptr inbounds (%struct.BInfo, %struct.BInfo* @GBI, i64 0, i32 1), align 8
-  %b2 = getelementptr inbounds double, double* %b, i64 2
-  store double -1.0, double* %b2, align 8
-  %b3 = getelementptr inbounds double, double* %b, i64 3
-  store double 0.0, double* %b3, align 8
+  %b8 = tail call noalias dereferenceable_or_null(1024) ptr @malloc(i64 1024)
+  %b = bitcast ptr %b8 to ptr
+  store ptr %b, ptr getelementptr inbounds (%struct.BInfo, ptr @GBI, i64 0, i32 1), align 8
+  %b2 = getelementptr inbounds double, ptr %b, i64 2
+  store double -1.0, ptr %b2, align 8
+  %b3 = getelementptr inbounds double, ptr %b, i64 3
+  store double 0.0, ptr %b3, align 8
   ret void
 }
 
 attributes #0 = { "unsafe-fp-math"="true" }
 
+!1 = !{i32 0, i32 0}  ; i32
+!2 = !{double 0.0e+00, i32 1}  ; double*
+!3 = !{i8 0, i32 1}  ; i8*
+!4 = distinct !{!3}
+!5 = !{%struct.BInfo zeroinitializer, i32 1}  ; %struct.BInfo*
+!6 = distinct !{!2, !5}
+!7 = !{!"S", %struct.BInfo zeroinitializer, i32 2, !1, !2} ; { i32, double* }
+
+!intel.dtrans.types = !{!7}
 ; end INTEL_FEATURE_SW_DTRANS

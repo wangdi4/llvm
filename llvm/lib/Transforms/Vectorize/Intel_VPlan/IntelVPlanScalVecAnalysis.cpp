@@ -632,6 +632,13 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
     return true;
 
+  case VPInstruction::EarlyExitLane: {
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    setSVAKindForAllOperands(Inst, SVAKind::Vector);
+    setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+
   case VPInstruction::Not:
   case VPInstruction::SMax:
   case VPInstruction::UMax:
@@ -1188,6 +1195,7 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::CompressExpandIndexInc:
   case VPInstruction::CompressExpandMask:
   case VPInstruction::SOAExtractValue:
+  case VPInstruction::EarlyExitLane:
     return true;
   default:
     return false;

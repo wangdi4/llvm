@@ -48,26 +48,26 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nounwind uwtable
-define dso_local i32 @foo(i32* nocapture readonly %sv, i32* nocapture %t, i32* nocapture %x, i32* nocapture readonly %k) local_unnamed_addr #0 {
+define dso_local i32 @foo(ptr nocapture readonly %sv, ptr nocapture %t, ptr nocapture %x, ptr nocapture readonly %k) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.inc10
   %indvars.iv21 = phi i64 [ 63, %entry ], [ %indvars.iv.next22, %for.inc10 ]
-  %arrayidx = getelementptr inbounds i32, i32* %sv, i64 %indvars.iv21
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds i32, ptr %sv, i64 %indvars.iv21
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %add = add nsw i32 %0, 62
-  %arrayidx2 = getelementptr inbounds i32, i32* %x, i64 %indvars.iv21
-  store i32 %add, i32* %arrayidx2, align 4, !tbaa !2
+  %arrayidx2 = getelementptr inbounds i32, ptr %x, i64 %indvars.iv21
+  store i32 %add, ptr %arrayidx2, align 4, !tbaa !2
   br label %for.body5
 
 for.body5:                                        ; preds = %for.body5, %for.body
   %indvars.iv = phi i64 [ 1, %for.body ], [ %indvars.iv.next, %for.body5 ]
-  %1 = load i32, i32* %k, align 4, !tbaa !2
-  %arrayidx8 = getelementptr inbounds i32, i32* %t, i64 %indvars.iv
-  %2 = load i32, i32* %arrayidx8, align 4, !tbaa !2
+  %1 = load i32, ptr %k, align 4, !tbaa !2
+  %arrayidx8 = getelementptr inbounds i32, ptr %t, i64 %indvars.iv
+  %2 = load i32, ptr %arrayidx8, align 4, !tbaa !2
   %add9 = add nsw i32 %2, %1
-  store i32 %add9, i32* %arrayidx8, align 4, !tbaa !2
+  store i32 %add9, ptr %arrayidx8, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 45
   br i1 %exitcond, label %for.inc10, label %for.body5

@@ -47,9 +47,6 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/Valgrind.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
-#if INTEL_CUSTOMIZATION
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
-#endif // INTEL_CUSTOMIZATION
 
 // Enable this macro to debug bugpoint itself.
 //#define DEBUG_BUGPOINT 1
@@ -211,13 +208,6 @@ int main(int argc, char **argv) {
     return 1;
 
   AddToDriver PM(D);
-
-#ifdef INTEL_CUSTOMIZATION
-  if (StandardLinkOpts) {
-    PassManagerBuilder Builder;
-    Builder.populateLTOPassManager(PM);
-  }
-#endif // INTEL_CUSTOMIZATION
 
   for (const PassInfo *PI : PassList)
     D.addPass(std::string(PI->getPassArgument()));

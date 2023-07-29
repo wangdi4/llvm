@@ -41,23 +41,22 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.S = type { double, double }
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local void @Vsub(double* nocapture %a, %struct.S* nocapture readonly %b, double %n) local_unnamed_addr #0 {
+define dso_local void @Vsub(ptr nocapture %a, ptr nocapture readonly %b, double %n) local_unnamed_addr #0 {
 entry:
   %mul = fmul double %n, %n
-  %X = getelementptr inbounds %struct.S, %struct.S* %b, i64 0, i32 0, !intel-tbaa !2
-  %0 = load double, double* %X, align 8, !tbaa !2
+  %0 = load double, ptr %b, align 8, !tbaa !2
   %mul1 = fmul double %mul, %0
-  store double %mul1, double* %a, align 8, !tbaa !7
-  %Y = getelementptr inbounds %struct.S, %struct.S* %b, i64 1, i32 1
-  %1 = load double, double* %Y, align 8, !tbaa !8
+  store double %mul1, ptr %a, align 8, !tbaa !7
+  %Y = getelementptr inbounds %struct.S, ptr %b, i64 1, i32 1
+  %1 = load double, ptr %Y, align 8, !tbaa !8
   %mul5 = fmul double %mul, %1
-  %arrayidx6 = getelementptr inbounds double, double* %a, i64 1
-  store double %mul5, double* %arrayidx6, align 8, !tbaa !7
-  %X9 = getelementptr inbounds %struct.S, %struct.S* %b, i64 2, i32 0
-  %2 = load double, double* %X9, align 8, !tbaa !2
+  %arrayidx6 = getelementptr inbounds double, ptr %a, i64 1
+  store double %mul5, ptr %arrayidx6, align 8, !tbaa !7
+  %X9 = getelementptr inbounds %struct.S, ptr %b, i64 2, i32 0
+  %2 = load double, ptr %X9, align 8, !tbaa !2
   %mul10 = fmul double %mul, %2
-  %arrayidx11 = getelementptr inbounds double, double* %a, i64 2
-  store double %mul10, double* %arrayidx11, align 8, !tbaa !7
+  %arrayidx11 = getelementptr inbounds double, ptr %a, i64 2
+  store double %mul10, ptr %arrayidx11, align 8, !tbaa !7
   ret void
 }
 

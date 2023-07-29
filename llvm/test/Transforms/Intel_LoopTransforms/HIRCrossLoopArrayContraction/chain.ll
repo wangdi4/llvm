@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -intel-libirc-allowed -hir-create-function-level-region -passes="hir-ssa-deconstruction,require<hir-loop-statistics>,hir-cross-loop-array-contraction,print<hir>,hir-cg" -force-hir-cg -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -intel-libirc-allowed -hir-create-function-level-region -passes="hir-ssa-deconstruction,require<hir-loop-statistics>,hir-cross-loop-array-contraction,print<hir>,hir-cg" -force-hir-cg -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; BEGIN REGION { }
 ;       + DO i1 = 0, 99, 1   <DO_LOOP>
@@ -42,9 +42,9 @@
 ;       + END LOOP
 ;
 ;       %7 = (%C)[0][1][2][3][4][5];
-;       @llvm.lifetime.end.p0i8(40000000000,  &((i8*)(%C)[0]));
-;       @llvm.lifetime.end.p0i8(40000000000,  &((i8*)(%B)[0]));
-;       @llvm.lifetime.end.p0i8(40000000000,  &((i8*)(%A)[0]));
+;       @llvm.lifetime.end.p0(40000000000,  &((i8*)(%C)[0]));
+;       @llvm.lifetime.end.p0(40000000000,  &((i8*)(%B)[0]));
+;       @llvm.lifetime.end.p0(40000000000,  &((i8*)(%A)[0]));
 ;       ret %7;
 ; END REGION
 
@@ -78,9 +78,9 @@
 ;            + END LOOP
 ;
 ;            %7 = (%C)[0][1][2][3][4][5];
-;            @llvm.lifetime.end.p0i8(40000000000,  &((i8*)(%C)[0]));
-;            @llvm.lifetime.end.p0i8(40000000000,  &((i8*)(%B)[0]));
-;            @llvm.lifetime.end.p0i8(40000000000,  &((i8*)(%A)[0]));
+;            @llvm.lifetime.end.p0(40000000000,  &((i8*)(%C)[0]));
+;            @llvm.lifetime.end.p0(40000000000,  &((i8*)(%B)[0]));
+;            @llvm.lifetime.end.p0(40000000000,  &((i8*)(%A)[0]));
 ;            ret %7;
 ;      END REGION
 
@@ -97,27 +97,27 @@
 ; CHECK:           |   |   |
 ; CHECK:           |   |   |   + DO i4 = 0, 99, 1   <DO_LOOP>
 ; CHECK:           |   |   |   |   + DO i5 = 0, 99, 1   <DO_LOOP>
-; CHECK:           |   |   |   |   |   %5 = (%ContractedArray)[0][i5][i4];
-; CHECK:           |   |   |   |   |   (%ContractedArray16)[0][i4][i5] = i5 + %5;
+; CHECK:           |   |   |   |   |   %2 = (%ContractedArray)[0][i5][i4];
+; CHECK:           |   |   |   |   |   (%ContractedArray16)[0][i4][i5] = i5 + %2;
 ; CHECK:           |   |   |   |   + END LOOP
 ; CHECK:           |   |   |   + END LOOP
 ; CHECK:           |   |   |
 ; CHECK:           |   |   |
 ; CHECK:           |   |   |   + DO i4 = 0, 99, 1   <DO_LOOP>
 ; CHECK:           |   |   |   |   + DO i5 = 0, 99, 1   <DO_LOOP>
-; CHECK:           |   |   |   |   |   %8 = (%ContractedArray16)[0][i5][i4];
-; CHECK:           |   |   |   |   |   (%C)[0][i1][i2][i3][i4][i5] = i5 + %8;
+; CHECK:           |   |   |   |   |   %5 = (%ContractedArray16)[0][i5][i4];
+; CHECK:           |   |   |   |   |   (%C)[0][i1][i2][i3][i4][i5] = i5 + %5;
 ; CHECK:           |   |   |   |   + END LOOP
 ; CHECK:           |   |   |   + END LOOP
 ; CHECK:           |   |   + END LOOP
 ; CHECK:           |   + END LOOP
 ; CHECK:           + END LOOP
 ;
-; CHECK:           %7 = (%C)[0][1][2][3][4][5];
-; CHECK:           @llvm.lifetime.end.p0i8(40000000000,  &((i8*)(%C)[0]));
-; CHECK:           @llvm.lifetime.end.p0i8(40000000000,  &((i8*)(%B)[0]));
-; CHECK:           @llvm.lifetime.end.p0i8(40000000000,  &((i8*)(%A)[0]));
-; CHECK:           ret %7;
+; CHECK:           %4 = (%C)[0][1][2][3][4][5];
+; CHECK:           @llvm.lifetime.end.p0(40000000000,  &((%C)[0]));
+; CHECK:           @llvm.lifetime.end.p0(40000000000,  &((%B)[0]));
+; CHECK:           @llvm.lifetime.end.p0(40000000000,  &((%A)[0]));
+; CHECK:           ret %4;
 ; CHECK:     END REGION
 
 
@@ -130,12 +130,9 @@ entry:
   %A = alloca [100 x [100 x [100 x [100 x [100 x i32]]]]], align 16
   %B = alloca [100 x [100 x [100 x [100 x [100 x i32]]]]], align 16
   %C = alloca [100 x [100 x [100 x [100 x [100 x i32]]]]], align 16
-  %0 = bitcast [100 x [100 x [100 x [100 x [100 x i32]]]]]* %A to i8*
-  call void @llvm.lifetime.start.p0i8(i64 40000000000, i8* nonnull %0) #3
-  %1 = bitcast [100 x [100 x [100 x [100 x [100 x i32]]]]]* %B to i8*
-  call void @llvm.lifetime.start.p0i8(i64 40000000000, i8* nonnull %1) #3
-  %2 = bitcast [100 x [100 x [100 x [100 x [100 x i32]]]]]* %C to i8*
-  call void @llvm.lifetime.start.p0i8(i64 40000000000, i8* nonnull %2) #3
+  call void @llvm.lifetime.start.p0(i64 40000000000, ptr nonnull %A) #3
+  call void @llvm.lifetime.start.p0(i64 40000000000, ptr nonnull %B) #3
+  call void @llvm.lifetime.start.p0(i64 40000000000, ptr nonnull %C) #3
   br label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %entry, %for.cond.cleanup3
@@ -179,10 +176,10 @@ for.cond.cleanup15:                               ; preds = %for.body16
 
 for.body16:                                       ; preds = %for.cond13.preheader, %for.body16
   %indvars.iv265 = phi i64 [ 0, %for.cond13.preheader ], [ %indvars.iv.next266, %for.body16 ]
-  %3 = add nuw nsw i64 %indvars.iv265, %indvars.iv269
-  %arrayidx24 = getelementptr inbounds [100 x [100 x [100 x [100 x [100 x i32]]]]], [100 x [100 x [100 x [100 x [100 x i32]]]]]* %A, i64 0, i64 %indvars.iv278, i64 %indvars.iv275, i64 %indvars.iv272, i64 %indvars.iv269, i64 %indvars.iv265, !intel-tbaa !7
-  %4 = trunc i64 %3 to i32
-  store i32 %4, i32* %arrayidx24, align 4, !tbaa !7
+  %0 = add nuw nsw i64 %indvars.iv265, %indvars.iv269
+  %arrayidx24 = getelementptr inbounds [100 x [100 x [100 x [100 x [100 x i32]]]]], ptr %A, i64 0, i64 %indvars.iv278, i64 %indvars.iv275, i64 %indvars.iv272, i64 %indvars.iv269, i64 %indvars.iv265, !intel-tbaa !7
+  %1 = trunc i64 %0 to i32
+  store i32 %1, ptr %arrayidx24, align 4, !tbaa !7
   %indvars.iv.next266 = add nuw nsw i64 %indvars.iv265, 1
   %exitcond268.not = icmp eq i64 %indvars.iv.next266, 100
   br i1 %exitcond268.not, label %for.cond.cleanup15, label %for.body16, !llvm.loop !16
@@ -228,12 +225,12 @@ for.cond.cleanup60:                               ; preds = %for.body61
 
 for.body61:                                       ; preds = %for.cond58.preheader, %for.body61
   %indvars.iv250 = phi i64 [ 0, %for.cond58.preheader ], [ %indvars.iv.next251, %for.body61 ]
-  %arrayidx71 = getelementptr inbounds [100 x [100 x [100 x [100 x [100 x i32]]]]], [100 x [100 x [100 x [100 x [100 x i32]]]]]* %A, i64 0, i64 %indvars.iv262, i64 %indvars.iv259, i64 %indvars.iv256, i64 %indvars.iv250, i64 %indvars.iv253, !intel-tbaa !7
-  %5 = load i32, i32* %arrayidx71, align 4, !tbaa !7
-  %6 = trunc i64 %indvars.iv250 to i32
-  %add72 = add nsw i32 %5, %6
-  %arrayidx82 = getelementptr inbounds [100 x [100 x [100 x [100 x [100 x i32]]]]], [100 x [100 x [100 x [100 x [100 x i32]]]]]* %B, i64 0, i64 %indvars.iv262, i64 %indvars.iv259, i64 %indvars.iv256, i64 %indvars.iv253, i64 %indvars.iv250, !intel-tbaa !7
-  store i32 %add72, i32* %arrayidx82, align 4, !tbaa !7
+  %arrayidx71 = getelementptr inbounds [100 x [100 x [100 x [100 x [100 x i32]]]]], ptr %A, i64 0, i64 %indvars.iv262, i64 %indvars.iv259, i64 %indvars.iv256, i64 %indvars.iv250, i64 %indvars.iv253, !intel-tbaa !7
+  %2 = load i32, ptr %arrayidx71, align 4, !tbaa !7
+  %3 = trunc i64 %indvars.iv250 to i32
+  %add72 = add nsw i32 %2, %3
+  %arrayidx82 = getelementptr inbounds [100 x [100 x [100 x [100 x [100 x i32]]]]], ptr %B, i64 0, i64 %indvars.iv262, i64 %indvars.iv259, i64 %indvars.iv256, i64 %indvars.iv253, i64 %indvars.iv250, !intel-tbaa !7
+  store i32 %add72, ptr %arrayidx82, align 4, !tbaa !7
   %indvars.iv.next251 = add nuw nsw i64 %indvars.iv250, 1
   %exitcond252.not = icmp eq i64 %indvars.iv.next251, 100
   br i1 %exitcond252.not, label %for.cond.cleanup60, label %for.body61, !llvm.loop !21
@@ -243,12 +240,12 @@ for.cond104.preheader:                            ; preds = %for.cond104.prehead
   br label %for.cond109.preheader
 
 for.cond.cleanup101:                              ; preds = %for.cond.cleanup106
-  %arrayidx163 = getelementptr inbounds [100 x [100 x [100 x [100 x [100 x i32]]]]], [100 x [100 x [100 x [100 x [100 x i32]]]]]* %C, i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, !intel-tbaa !7
-  %7 = load i32, i32* %arrayidx163, align 4, !tbaa !7
-  call void @llvm.lifetime.end.p0i8(i64 40000000000, i8* nonnull %2) #3
-  call void @llvm.lifetime.end.p0i8(i64 40000000000, i8* nonnull %1) #3
-  call void @llvm.lifetime.end.p0i8(i64 40000000000, i8* nonnull %0) #3
-  ret i32 %7
+  %arrayidx163 = getelementptr inbounds [100 x [100 x [100 x [100 x [100 x i32]]]]], ptr %C, i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, !intel-tbaa !7
+  %4 = load i32, ptr %arrayidx163, align 4, !tbaa !7
+  call void @llvm.lifetime.end.p0(i64 40000000000, ptr nonnull %C) #3
+  call void @llvm.lifetime.end.p0(i64 40000000000, ptr nonnull %B) #3
+  call void @llvm.lifetime.end.p0(i64 40000000000, ptr nonnull %A) #3
+  ret i32 %4
 
 for.cond109.preheader:                            ; preds = %for.cond104.preheader, %for.cond.cleanup111
   %indvars.iv244 = phi i64 [ 0, %for.cond104.preheader ], [ %indvars.iv.next245, %for.cond.cleanup111 ]
@@ -284,22 +281,22 @@ for.cond.cleanup121:                              ; preds = %for.body122
 
 for.body122:                                      ; preds = %for.cond119.preheader, %for.body122
   %indvars.iv = phi i64 [ 0, %for.cond119.preheader ], [ %indvars.iv.next, %for.body122 ]
-  %arrayidx132 = getelementptr inbounds [100 x [100 x [100 x [100 x [100 x i32]]]]], [100 x [100 x [100 x [100 x [100 x i32]]]]]* %B, i64 0, i64 %indvars.iv247, i64 %indvars.iv244, i64 %indvars.iv241, i64 %indvars.iv, i64 %indvars.iv238, !intel-tbaa !7
-  %8 = load i32, i32* %arrayidx132, align 4, !tbaa !7
-  %9 = trunc i64 %indvars.iv to i32
-  %add133 = add nsw i32 %8, %9
-  %arrayidx143 = getelementptr inbounds [100 x [100 x [100 x [100 x [100 x i32]]]]], [100 x [100 x [100 x [100 x [100 x i32]]]]]* %C, i64 0, i64 %indvars.iv247, i64 %indvars.iv244, i64 %indvars.iv241, i64 %indvars.iv238, i64 %indvars.iv, !intel-tbaa !7
-  store i32 %add133, i32* %arrayidx143, align 4, !tbaa !7
+  %arrayidx132 = getelementptr inbounds [100 x [100 x [100 x [100 x [100 x i32]]]]], ptr %B, i64 0, i64 %indvars.iv247, i64 %indvars.iv244, i64 %indvars.iv241, i64 %indvars.iv, i64 %indvars.iv238, !intel-tbaa !7
+  %5 = load i32, ptr %arrayidx132, align 4, !tbaa !7
+  %6 = trunc i64 %indvars.iv to i32
+  %add133 = add nsw i32 %5, %6
+  %arrayidx143 = getelementptr inbounds [100 x [100 x [100 x [100 x [100 x i32]]]]], ptr %C, i64 0, i64 %indvars.iv247, i64 %indvars.iv244, i64 %indvars.iv241, i64 %indvars.iv238, i64 %indvars.iv, !intel-tbaa !7
+  store i32 %add133, ptr %arrayidx143, align 4, !tbaa !7
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond.not, label %for.cond.cleanup121, label %for.body122, !llvm.loop !26
 }
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #1
 
 ; Function Attrs: nounwind readnone uwtable
 define dso_local i32 @main() local_unnamed_addr #2 {

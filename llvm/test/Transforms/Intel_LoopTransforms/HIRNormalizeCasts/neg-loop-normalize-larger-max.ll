@@ -40,7 +40,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly mustprogress nofree norecurse nosync nounwind readonly willreturn uwtable
-define dso_local noundef i32 @_Z3fooPji(i32* nocapture noundef readonly %a, i16 noundef %n) local_unnamed_addr {
+define dso_local noundef i32 @_Z3fooPji(ptr nocapture noundef readonly %a, i16 noundef %n) local_unnamed_addr {
 entry:
   %zn = zext i16 %n to i32
   %ub = sub i32 %zn, 2
@@ -63,8 +63,8 @@ for.body:                                         ; preds = %for.body.preheader,
   %indvars.iv = phi i32 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
   %res.09 = phi i32 [ 0, %for.body.preheader ], [ %add1, %for.body ]
   %1 = add nuw nsw i32 %indvars.iv, %0
-  %arrayidx = getelementptr inbounds i32, i32* %a, i32 %1
-  %2 = load i32, i32* %arrayidx
+  %arrayidx = getelementptr inbounds i32, ptr %a, i32 %1
+  %2 = load i32, ptr %arrayidx
   %add1 = add i32 %2, %res.09
   %indvars.iv.next = add nuw nsw i32 %indvars.iv, 1
   %exitcond.not = icmp eq i32 %indvars.iv.next, %ub
