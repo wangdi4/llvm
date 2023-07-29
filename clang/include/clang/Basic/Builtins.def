@@ -2071,7 +2071,6 @@ LANGBUILTIN(__arithmetic_fence, "v.", "tE", ALL_LANGUAGES)
 #if INTEL_CUSTOMIZATION
 LANGBUILTIN(__fence, "v.", "tE", ALL_LANGUAGES)
 #endif // INTEL_CUSTOMIZATION
-
 // Builtins for Intel SYCL
 BUILTIN(__builtin_intel_sycl_ptr_annotation, "v.", "nt")
 
