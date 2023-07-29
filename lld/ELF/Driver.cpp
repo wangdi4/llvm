@@ -370,16 +370,13 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
     InputFile::isInGroup = true;
     for (const std::pair<MemoryBufferRef, uint64_t> &p : members) {
       auto magic = identify_magic(p.first.getBuffer());
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-      if (magic == file_magic::bitcode || (magic == file_magic::elf_relocatable &&
-            !tryAddFatLTOFile(p.first, path, p.second, true))) {
+      if (magic == file_magic::bitcode || magic == file_magic::elf_relocatable) {
         // The following lines are community code. They were commented out and
         // replaced with the code below since we need to catch when an
         // object has GNU LTO information.
         // if (magic == file_magic::elf_relocatable)
-        //   if (!tryAddFatLTOFile(p.first, path, p.second, true))
-        //     files.push_back(createObjFile(p.first, path, true));
+        //   files.push_back(createObjFile(p.first, path, true));
         // else if (magic == file_magic::bitcode)
         //   files.push_back(make<BitcodeFile>(p.first, path, p.second, true));
         auto *lazyFile = (magic == file_magic::elf_relocatable)
@@ -395,13 +392,6 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
       else if (ParseNestedArchive(p.first)) {
         continue;
       } else {
-=======
-      if (magic == file_magic::elf_relocatable)
-        files.push_back(createObjFile(p.first, path, true));
-      else if (magic == file_magic::bitcode)
-        files.push_back(make<BitcodeFile>(p.first, path, p.second, true));
-      else
->>>>>>> 1733d949633a61cd0213f63e22d461a39e798946
         warn(path + ": archive member '" + p.first.getBufferIdentifier() +
              "' is neither ET_REL nor LLVM bitcode");
       }
@@ -434,14 +424,12 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
     files.push_back(make<BitcodeFile>(mbref, "", 0, inLib));
     break;
   case file_magic::elf_relocatable:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // The following line is community code. It was commented out and
     // replaced with the code below since we need to catch when an
     // object has GNU LTO information.
-    // if (!tryAddFatLTOFile(mbref, "", 0, inLib))
-    //   files.push_back(createObjFile(mbref, "", inLib));
-    if (!tryAddFatLTOFile(mbref, "", 0, inLib)) {
+    // files.push_back(createObjFile(mbref, "", inLib));
+    {
       auto *objFile = createObjFile(mbref, "", inLib);
       if (objFile->isGNULTOFile)
         ctx.gnuLTOFiles.push_back(objFile);
@@ -449,9 +437,6 @@ void LinkerDriver::addFile(StringRef path, bool withLOption) {
         files.push_back(objFile);
     }
 #endif // INTEL_CUSTOMIZATION
-=======
-    files.push_back(createObjFile(mbref, "", inLib));
->>>>>>> 1733d949633a61cd0213f63e22d461a39e798946
     break;
   default:
     error(path + ": unknown file type");
