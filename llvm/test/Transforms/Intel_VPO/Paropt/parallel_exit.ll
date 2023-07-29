@@ -1,13 +1,9 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; NPM note: prune-eh pass is pinned to legacy pass manager (d673beee55 =>
-; https://reviews.llvm.org/D90012).Since it verifies that the VPO won't crash
-; after running it we cannot just remove it, thus making the test pinned to LPM.
-
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare),function-attrs,function(simplifycfg,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 
 ; Pass conditon: There is no crash in WRegion construction, due to the
-; `region.exit` directive being deleted for being unreachable, by either
-; simplifycfg or prune-eh pass.
-;
+; `region.exit` directive being deleted for being unreachable by simplifycfg pass.
+
 ; Test Src:
 ;
 ; #include <stdio.h>
@@ -27,62 +23,48 @@
 ;   foo();
 ;   return 0;
 ; }
-;
-;
+
+
 ; CHECK: call {{.+}} @__kmpc_fork_call
 
-; ModuleID = 'parallel_exit.c'
-source_filename = "parallel_exit.c"
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 @.str = private unnamed_addr constant [10 x i8] c"tid = %d\0A\00", align 1
 
-; Function Attrs: noinline nounwind uwtable
-define dso_local void @foo() #0 {
+define dso_local void @foo() {
 entry:
   %tid = alloca i32, align 4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.PRIVATE"(i32* %tid) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr %tid, i32 0, i32 1) ]
+
   %call = call i32 @omp_get_thread_num()
-  store i32 %call, i32* %tid, align 4
-  %1 = load i32, i32* %tid, align 4
-  %call1 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([10 x i8], [10 x i8]* @.str, i64 0, i64 0), i32 %1)
-  call void @exit(i32 1) #5
+  store i32 %call, ptr %tid, align 4
+  %1 = load i32, ptr %tid, align 4
+  %call1 = call i32 (ptr, ...) @printf(ptr noundef @.str, i32 noundef %1)
+  call void @exit(i32 noundef 1) #6
+  unreachable
+
+dummy:                                            ; No predecessors!
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL"() ]
+
   ret void
 }
 
-; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #1
+declare token @llvm.directive.region.entry()
 
-; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #1
+declare void @llvm.directive.region.exit(token)
 
-declare dso_local i32 @omp_get_thread_num() #2
+declare dso_local i32 @omp_get_thread_num()
 
-declare dso_local i32 @printf(i8*, ...) #2
+declare dso_local i32 @printf(ptr noundef, ...)
 
-; Function Attrs: noreturn nounwind
-declare dso_local void @exit(i32) #3
+declare dso_local void @exit(i32 noundef)
 
-; Function Attrs: noinline nounwind uwtable
-define dso_local i32 @main() #4 {
+define dso_local i32 @main() #5 {
 entry:
   %retval = alloca i32, align 4
-  store i32 0, i32* %retval, align 4
+  store i32 0, ptr %retval, align 4
   call void @foo()
   ret i32 0
 }
-
-attributes #0 = { noinline nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { nounwind }
-attributes #2 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #3 = { noreturn nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #4 = { noinline nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #5 = { noreturn nounwind }
-
-!llvm.module.flags = !{!0}
-!llvm.ident = !{!1}
-
-!0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"clang version 9.0.0"}
