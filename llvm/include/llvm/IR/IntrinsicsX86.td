@@ -6671,6 +6671,7 @@ def int_x86_vcvtneps2bf16256
 
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
 //===----------------------------------------------------------------------===//
+<<<<<<< HEAD
 let TargetPrefix = "x86" in {
 //AMX-MEMORY2-EVEX
   def int_x86_tbroadcastrowd
@@ -9449,6 +9450,27 @@ def int_x86_avx512vnnifp8_vdphf8ps512 : ClangBuiltin<"__builtin_ia32_vdphf8ps512
 #endif // INTEL_FEATURE_ISA_AVX512_VNNI_FP8
 #endif // INTEL_CUSTOMIZATION
 
+=======
+// SM3 intrinsics
+let TargetPrefix = "x86" in {
+  def int_x86_vsm3msg1
+      : ClangBuiltin<"__builtin_ia32_vsm3msg1">,
+        DefaultAttrsIntrinsic<[llvm_v4i32_ty],
+        [llvm_v4i32_ty, llvm_v4i32_ty, llvm_v4i32_ty],
+        [IntrNoMem]>;
+  def int_x86_vsm3msg2
+      : ClangBuiltin<"__builtin_ia32_vsm3msg2">,
+        DefaultAttrsIntrinsic<[llvm_v4i32_ty],
+        [llvm_v4i32_ty, llvm_v4i32_ty, llvm_v4i32_ty],
+        [IntrNoMem]>;
+  def int_x86_vsm3rnds2
+      : ClangBuiltin<"__builtin_ia32_vsm3rnds2">,
+        DefaultAttrsIntrinsic<[llvm_v4i32_ty],
+        [llvm_v4i32_ty, llvm_v4i32_ty, llvm_v4i32_ty, llvm_i32_ty],
+        [ImmArg<ArgIndex<3>>, IntrNoMem]>;
+}
+//===----------------------------------------------------------------------===//
+>>>>>>> c6f66de21af060ead6e5402858351e9e869dc15f
 // RAO-INT intrinsics
 let TargetPrefix = "x86" in {
   def int_x86_aadd32

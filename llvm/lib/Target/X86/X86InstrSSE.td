@@ -9717,7 +9717,11 @@ def VSHA512RNDS2rr : I<0xcb, MRMSrcReg, (outs VR256:$dst),
                       VEX_L, VEX_4V, T8XD, Sched<[WriteVecIMul]>;
 }
 
+<<<<<<< HEAD
 #if INTEL_FEATURE_ISA_SM3
+=======
+// FIXME: Is there a better scheduler class for SM3 than WriteVecIMul?
+>>>>>>> c6f66de21af060ead6e5402858351e9e869dc15f
 let Predicates = [HasSM3], Constraints = "$src1 = $dst" in {
   multiclass SM3_Base<string OpStr> {
     def rr : I<0xda, MRMSrcReg, (outs VR128:$dst),
@@ -9725,13 +9729,23 @@ let Predicates = [HasSM3], Constraints = "$src1 = $dst" in {
               !strconcat(OpStr, "\t{$src3, $src2, $dst|$dst, $src2, $src3}"),
               [(set VR128:$dst,
                (!cast<Intrinsic>("int_x86_"#OpStr) VR128:$src1,
+<<<<<<< HEAD
                 VR128:$src2, VR128:$src3))]>, VEX_4V;
+=======
+                VR128:$src2, VR128:$src3))]>,
+              Sched<[WriteVecIMul]>, VEX_4V;
+>>>>>>> c6f66de21af060ead6e5402858351e9e869dc15f
     def rm : I<0xda, MRMSrcMem, (outs VR128:$dst),
               (ins VR128:$src1, VR128:$src2, i128mem:$src3),
               !strconcat(OpStr, "\t{$src3, $src2, $dst|$dst, $src2, $src3}"),
               [(set VR128:$dst,
                (!cast<Intrinsic>("int_x86_"#OpStr) VR128:$src1,
+<<<<<<< HEAD
                 VR128:$src2, (loadv4i32 addr:$src3)))]>, VEX_4V;
+=======
+                VR128:$src2, (loadv4i32 addr:$src3)))]>,
+              Sched<[WriteVecIMul]>, VEX_4V;
+>>>>>>> c6f66de21af060ead6e5402858351e9e869dc15f
   }
 
   multiclass VSM3RNDS2_Base {
@@ -9740,19 +9754,30 @@ let Predicates = [HasSM3], Constraints = "$src1 = $dst" in {
               "vsm3rnds2\t{$src4, $src3, $src2, $dst|$dst, $src2, $src3, $src4}",
               [(set VR128:$dst,
                (int_x86_vsm3rnds2 VR128:$src1,
+<<<<<<< HEAD
                 VR128:$src2, VR128:$src3, timm:$src4))]>;
+=======
+                VR128:$src2, VR128:$src3, timm:$src4))]>,
+              Sched<[WriteVecIMul]>;
+>>>>>>> c6f66de21af060ead6e5402858351e9e869dc15f
     def rm : Ii8<0xde, MRMSrcMem, (outs VR128:$dst),
               (ins VR128:$src1, VR128:$src2, i128mem:$src3, i32u8imm:$src4),
               "vsm3rnds2\t{$src4, $src3, $src2, $dst|$dst, $src2, $src3, $src4}",
               [(set VR128:$dst,
                (int_x86_vsm3rnds2 VR128:$src1,
+<<<<<<< HEAD
                 VR128:$src2, (loadv4i32 addr:$src3), timm:$src4))]>;
+=======
+                VR128:$src2, (loadv4i32 addr:$src3), timm:$src4))]>,
+              Sched<[WriteVecIMul]>;
+>>>>>>> c6f66de21af060ead6e5402858351e9e869dc15f
   }
 }
 
 defm VSM3MSG1 : SM3_Base<"vsm3msg1">, T8PS;
 defm VSM3MSG2 : SM3_Base<"vsm3msg2">, T8PD;
 defm VSM3RNDS2 : VSM3RNDS2_Base, VEX_4V, TAPD;
+<<<<<<< HEAD
 
 #endif // INTEL_FEATURE_ISA_SM3
 
@@ -9826,3 +9851,5 @@ defm VPDPWUUD   : avx_vnni_int16<0xd2, "vpdpwuud", 1>, T8PS;
 defm VPDPWUUDS  : avx_vnni_int16<0xd3, "vpdpwuuds", 1>, T8PS;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI_INT16
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> c6f66de21af060ead6e5402858351e9e869dc15f
