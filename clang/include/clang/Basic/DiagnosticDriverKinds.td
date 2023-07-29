@@ -290,6 +290,8 @@ def err_drv_not_supported_spgo_opt
 def err_drv_spgo_without_lld
   : Error<"SPGO requires lld linker and will use it by default on Windows. "
           "Do not specify -fuse-ld= or use -fuse-ld=lld instead">;
+def err_drv_fail_to_create_directory
+  : Error<"Failed to create directory %0: %1">;
 #endif // INTEL_CUSTOMIZATION
 
 def err_target_unsupported_arch

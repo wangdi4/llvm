@@ -25,6 +25,21 @@
 // RUN: %clang_cl -### --target=x86_64-unknown-windows-msvc /fprofile-sample-generate -gsplit-dwarf -c -- %s 2>&1 | FileCheck --check-prefix=CHECK-GENERATE-FISSION %s
 // CHECK-GENERATE-FISSION: "-split-dwarf-file" "intel-spgo.dwo" "-split-dwarf-output" "intel-spgo.dwo"
 
+// RUN: %clang -### --target=x86_64-unknown-linux -fprofile-sample-generate -gsplit-dwarf -fprofile-dwo-dir=profile_dwo %s 2>&1 | FileCheck --check-prefix=CHECK-GENERATE-DWODIR %s
+// RUN: %clang_cl -### --target=x86_64-unknown-windows-msvc /fprofile-sample-generate -gsplit-dwarf /fprofile-dwo-dir=profile_dwo -- %s 2>&1 | FileCheck --check-prefix=CHECK-GENERATE-DWODIR %s
+// CHECK-GENERATE-DWODIR: "-dumpdir" "profile_dwo{{/|\\\\}}"
+
+// RUN: %clang -### --target=x86_64-unknown-linux -gsplit-dwarf -fprofile-dwo-dir=profile_dwo %s 2>&1 | FileCheck --check-prefix=CHECK-GENERATE-ORPHAN-DWODIR %s
+// CHECK-GENERATE-ORPHAN-DWODIR: warning: argument unused during compilation: '-fprofile-dwo-dir=profile_dwo' [-Wunused-command-line-argument]
+
+// RUN: %clang --target=x86_64-unknown-linux -fprofile-sample-generate -c -flto -o %t.o %s
+// RUN: %clang -### --target=x86_64-unknown-linux -fprofile-sample-generate -gsplit-dwarf -fprofile-dwo-dir=profile_dwo -flto %t.o 2>&1 | FileCheck --check-prefix=CHECK-GENERATE-DWODIR-LTO %s
+// CHECK-GENERATE-DWODIR-LTO: "-plugin-opt=dwo_dir=profile_dwo"
+
+// RUN: %clang_cl -### --target=x86_64-unknown-windows-msvc /fprofile-sample-generate -c -flto -o %t.o -- %s
+// RUN: %clang_cl -### --target=x86_64-unknown-windows-msvc /fprofile-sample-generate -gsplit-dwarf -fprofile-dwo-dir=profile_dwo -flto -o %t.o -- %s 2>&1 | FileCheck --check-prefix=CHECK-CL-GENERATE-DWODIR-LTO %s
+// CHECK-CL-GENERATE-DWODIR-LTO: "/dwodir:profile_dwo"
+
 // RUN: %clang_cl -### --target=x86_64-unknown-windows-msvc -S /fprofile-sample-generate /Ob1 -- %s 2>&1 | FileCheck --check-prefix=CHECK-GENERATE-ERROR1 %s
 // CHECK-GENERATE-ERROR1: error: option '/Ob1' not supported for SPGO, use 'Ob2/Ob3' instead
 

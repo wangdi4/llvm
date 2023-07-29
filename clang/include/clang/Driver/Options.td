@@ -1622,6 +1622,10 @@ def fprofile_sample_generate_EQ : Joined<["-"], "fprofile-sample-generate=">,
 def : Flag<["-"], "fprofile-sample-generate">,
   Group<f_Group>, Flags<[NoXarchOption, CoreOption]>,
   Alias<fprofile_sample_generate_EQ>, AliasArgs<["keep-all-opt"]>;
+def fprofile_dwo_dir_EQ : Joined<["-"], "fprofile-dwo-dir=">, Group<f_Group>,
+  Flags<[NoXarchOption, CoreOption]>,
+  HelpText<"Directory to store .dwo files when using -fprofile-sample-generate "
+           "and -gsplit-dwarf. (experimental)">;
 #endif // INTEL_CUSTOMIZATION
 
 def fprofile_sample_use : Flag<["-"], "fprofile-sample-use">, Group<f_Group>,
@@ -8617,6 +8621,10 @@ def _SLASH_fprofile_sample_generate_EQ : CLJoined<"fprofile-sample-generate=">,
   Alias<fprofile_sample_generate_EQ>;
 def _SLASH_fprofile_sample_generate_COL : CLJoined<"fprofile-sample-generate:">,
   Alias<fprofile_sample_generate_EQ>;
+def _SLASH_fprofile_dwo_dir_COL: CLJoined<"fprofile-dwo-dir:">,
+  Alias<fprofile_dwo_dir_EQ>;
+def _SLASH_fprofile_dwo_dir_EQ: CLJoined<"fprofile-dwo-dir=">,
+  Alias<fprofile_dwo_dir_EQ>;
 def : CLFlag<"fprofile-sample-generate">,
   Alias<fprofile_sample_generate_EQ>, AliasArgs<["keep-all-opt"]>;
 def _SLASH_fprofile_sample_use : CLFlag<"fprofile-sample-use">,
