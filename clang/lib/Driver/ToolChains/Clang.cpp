@@ -7180,6 +7180,15 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back("-split-dwarf-output");
       CmdArgs.push_back(SplitDWARFOut);
     }
+#if INTEL_CUSTOMIZATION
+    // Create directory specified by -fprofile-dwo-dir. LTO backend will create
+    // dwo directory automatically.
+    if (!D.isUsingLTO())
+      if (const Arg *A = Args.getLastArg(options::OPT_fprofile_dwo_dir_EQ))
+        if (auto EC = llvm::sys::fs::create_directories(A->getValue()))
+          D.Diag(diag::err_drv_fail_to_create_directory)
+              << A->getValue() << EC.message();
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Pass the linker version in use.

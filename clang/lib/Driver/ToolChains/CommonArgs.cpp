@@ -803,9 +803,16 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
     }
   }
 
-  if (Args.hasArg(options::OPT_gsplit_dwarf))
-    CmdArgs.push_back(Args.MakeArgString(
-        Twine(PluginOptPrefix) + "dwo_dir=" + Output.getFilename() + "_dwo"));
+#if INTEL_CUSTOMIZATION
+  if (Args.hasArg(options::OPT_gsplit_dwarf)) {
+    if (const Arg *A = Args.getLastArg(options::OPT_fprofile_dwo_dir_EQ))
+      CmdArgs.push_back(Args.MakeArgString(Twine(PluginOptPrefix) +
+                                           "dwo_dir=" + A->getValue()));
+    else
+      CmdArgs.push_back(Args.MakeArgString(
+          Twine(PluginOptPrefix) + "dwo_dir=" + Output.getFilename() + "_dwo"));
+  }
+#endif
 
   if (IsThinLTO)
     CmdArgs.push_back(Args.MakeArgString(Twine(PluginOptPrefix) + "thinlto"));

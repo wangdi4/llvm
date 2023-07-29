@@ -978,6 +978,16 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
       if (ProfileLevel == 3)
         DAL->AddFlagArg(nullptr, Opts.getOption(options::OPT_O0));
 
+      if (const Arg *PDD = Args.getLastArg(options::OPT_fprofile_dwo_dir_EQ)) {
+        StringRef ProfileDwoDir = PDD->getValue();
+        StringRef DumpDir(ProfileDwoDir);
+        if (!llvm::sys::path::is_separator(DumpDir.back()))
+          DumpDir = Args.MakeArgString(Twine(DumpDir) +
+                                       llvm::sys::path::get_separator());
+        DAL->AddSeparateArg(nullptr, Opts.getOption(options::OPT_dumpdir),
+                            DumpDir);
+      }
+
       if (IsCLMode()) {
         if (!Args.getLastArgValue(options::OPT_fuse_ld_EQ, "lld")
                  .equals_insensitive("lld"))
@@ -987,6 +997,12 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
       }
     }
   }
+
+  if (!ProfileLevel)
+    if (const Arg *A = Args.getLastArg(options::OPT_fprofile_dwo_dir_EQ)) {
+      Diag(diag::warn_drv_unused_argument) << A->getAsString(Args);
+      DAL->eraseArg(options::OPT_fprofile_dwo_dir_EQ);
+    }
 
   addIntelArgs(*DAL, Args, Opts);
 #endif // INTEL_CUSTOMIZATION
