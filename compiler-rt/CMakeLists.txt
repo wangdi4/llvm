@@ -480,6 +480,8 @@ if(MSVC)
     CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
     CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
     CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+    string(REGEX REPLACE "[/-]M[DT]d" "" ${flag_var} "${${flag_var}}")
+    string(REGEX REPLACE "[/-]MD" "" ${flag_var} "${${flag_var}}")
     string(REGEX REPLACE "[/-]D_DEBUG" "" ${flag_var} "${${flag_var}}")
   endforeach()
 # end INTEL_CUSTOMIZATION
