@@ -180,6 +180,7 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool HasPTWRITE = false;
   bool HasINVPCID = false;
   bool HasENQCMD = false;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_FP8
   bool HasAMXFP8 = false;
@@ -371,6 +372,9 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool HasCF = false;
 #endif // INTEL_FEATURE_ISA_APX_F
 #endif // INTEL_CUSTOMIZATION
+=======
+  bool HasAVXVNNIINT16 = false;
+>>>>>>> 1c154bd755153b5c6ada4bbed58facf23f6abffc
   bool HasAMXFP16 = false;
   bool HasCMPCCXADD = false;
   bool HasRAOINT = false;

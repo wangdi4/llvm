@@ -9782,6 +9782,7 @@ defm VSM4KEY4Y : SM4_Base<"vsm4key4", VR256, "256", loadv8i32, i256mem>, T8XS, V
 defm VSM4RNDS4  : SM4_Base<"vsm4rnds4", VR128, "128", loadv4i32, i128mem>, T8XD, VEX_4V;
 defm VSM4RNDS4Y : SM4_Base<"vsm4rnds4", VR256, "256", loadv8i32, i256mem>, T8XD, VEX_L, VEX_4V;
 
+<<<<<<< HEAD
 #if INTEL_FEATURE_ISA_AVX_VNNI_INT16
 let Predicates = [HasAVXVNNIINT16, NoAVX256P_And_NoVLX_Or_NoVNNIINT16],
     Constraints = "$src1 = $dst", checkVEXPredicate = 1 in
@@ -9819,6 +9820,43 @@ multiclass avx_vnni_int16<bits<8> opc, string OpcodeStr, bit IsCommutable> {
               (v8i32 (!cast<Intrinsic>("int_x86_"#OpcodeStr#"256")
                       VR256:$src1, VR256:$src2, (loadv8i32 addr:$src3))))]>,
              VEX_4V, VEX_L, Sched<[SchedWriteVecIMul.YMM]>;
+=======
+let Predicates = [HasAVXVNNIINT16], Constraints = "$src1 = $dst" in
+multiclass avx_vnni_int16<bits<8> opc, string OpcodeStr, bit IsCommutable> {
+  let isCommutable = IsCommutable in
+  def rr  : I<opc, MRMSrcReg, (outs VR128:$dst),
+              (ins VR128:$src1, VR128:$src2, VR128:$src3),
+              !strconcat(OpcodeStr, "\t{$src3, $src2, $dst|$dst, $src2, $src3}"),
+              [(set VR128:$dst,
+                (v4i32 (!cast<Intrinsic>("int_x86_avx2_"#OpcodeStr#"_128")
+                        VR128:$src1, VR128:$src2, VR128:$src3)))]>,
+              VEX_4V, Sched<[SchedWriteVecIMul.XMM]>;
+
+  def rm  : I<opc, MRMSrcMem, (outs VR128:$dst),
+              (ins VR128:$src1, VR128:$src2, i128mem:$src3),
+              !strconcat(OpcodeStr, "\t{$src3, $src2, $dst|$dst, $src2, $src3}"),
+              [(set VR128:$dst,
+                (v4i32 (!cast<Intrinsic>("int_x86_avx2_"#OpcodeStr#"_128")
+                        VR128:$src1, VR128:$src2, (loadv4i32 addr:$src3))))]>,
+              VEX_4V, Sched<[SchedWriteVecIMul.XMM]>;
+
+  let isCommutable = IsCommutable in
+  def Yrr  : I<opc, MRMSrcReg, (outs VR256:$dst),
+               (ins VR256:$src1, VR256:$src2, VR256:$src3),
+               !strconcat(OpcodeStr, "\t{$src3, $src2, $dst|$dst, $src2, $src3}"),
+               [(set VR256:$dst,
+                 (v8i32 (!cast<Intrinsic>("int_x86_avx2_"#OpcodeStr#"_256")
+                         VR256:$src1, VR256:$src2, VR256:$src3)))]>,
+               VEX_4V, VEX_L, Sched<[SchedWriteVecIMul.YMM]>;
+
+  def Yrm  : I<opc, MRMSrcMem, (outs VR256:$dst),
+               (ins VR256:$src1, VR256:$src2, i256mem:$src3),
+               !strconcat(OpcodeStr, "\t{$src3, $src2, $dst|$dst, $src2, $src3}"),
+               [(set VR256:$dst,
+                 (v8i32 (!cast<Intrinsic>("int_x86_avx2_"#OpcodeStr#"_256")
+                         VR256:$src1, VR256:$src2, (loadv8i32 addr:$src3))))]>,
+               VEX_4V, VEX_L, Sched<[SchedWriteVecIMul.YMM]>;
+>>>>>>> 1c154bd755153b5c6ada4bbed58facf23f6abffc
 }
 
 defm VPDPWSUD   : avx_vnni_int16<0xd2, "vpdpwsud", 0>, T8XS;
@@ -9827,5 +9865,8 @@ defm VPDPWUSD   : avx_vnni_int16<0xd2, "vpdpwusd", 0>, T8PD;
 defm VPDPWUSDS  : avx_vnni_int16<0xd3, "vpdpwusds", 0>, T8PD;
 defm VPDPWUUD   : avx_vnni_int16<0xd2, "vpdpwuud", 1>, T8PS;
 defm VPDPWUUDS  : avx_vnni_int16<0xd3, "vpdpwuuds", 1>, T8PS;
+<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_AVX_VNNI_INT16
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 1c154bd755153b5c6ada4bbed58facf23f6abffc

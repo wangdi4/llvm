@@ -2762,13 +2762,19 @@ bool X86InstrInfo::findCommutedOpIndices(const MachineInstr &MI,
   case X86::VPDPWSSDrr:
   case X86::VPDPWSSDSYrr:
   case X86::VPDPWSSDSrr:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_VNNI_INT16
+=======
+>>>>>>> 1c154bd755153b5c6ada4bbed58facf23f6abffc
   case X86::VPDPWUUDrr:
   case X86::VPDPWUUDYrr:
   case X86::VPDPWUUDSrr:
   case X86::VPDPWUUDSYrr:
+<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_AVX_VNNI_INT16
+=======
+>>>>>>> 1c154bd755153b5c6ada4bbed58facf23f6abffc
   case X86::VPDPBSSDSrr:
   case X86::VPDPBSSDSYrr:
   case X86::VPDPBSSDrr:

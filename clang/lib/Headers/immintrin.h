@@ -714,6 +714,11 @@ typedef struct __tile1024i_str {
 #endif
 
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVXVNNIINT16__)
+#include <avxvnniint16intrin.h>
+#endif
+
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__RDPID__)
 /// Returns the value of the IA32_TSC_AUX MSR (0xc0000103).
 ///

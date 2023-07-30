@@ -1038,6 +1038,7 @@ constexpr FeatureBitset ImpliedFeaturesUMSR = {};
 constexpr FeatureBitset ImpliedFeaturesPREFETCHI = {};
 constexpr FeatureBitset ImpliedFeaturesCMPCCXADD = {};
 constexpr FeatureBitset ImpliedFeaturesRAOINT = {};
+constexpr FeatureBitset ImpliedFeaturesAVXVNNIINT16 = FeatureAVX2;
 constexpr FeatureBitset ImpliedFeaturesAVXVNNIINT8 = FeatureAVX2;
 constexpr FeatureBitset ImpliedFeaturesAVXIFMA = FeatureAVX2;
 constexpr FeatureBitset ImpliedFeaturesAVXNECONVERT = FeatureAVX2;
