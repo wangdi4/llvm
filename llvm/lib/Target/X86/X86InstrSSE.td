@@ -9758,22 +9758,6 @@ defm VSM3MSG1 : SM3_Base<"vsm3msg1">, T8PS;
 defm VSM3MSG2 : SM3_Base<"vsm3msg2">, T8PD;
 defm VSM3RNDS2 : VSM3RNDS2_Base, VEX_4V, TAPD;
 
-<<<<<<< HEAD
-#if INTEL_FEATURE_ISA_SM4
-let Predicates = [HasSM4, NoAVX256P_And_NoVLX] in {
-  multiclass SM4_Base<string OpStr, RegisterClass RC, string VL,
-                      PatFrag LD, X86MemOperand MemOp> {
-    def rr : I<0xda, MRMSrcReg, (outs RC:$dst),
-              (ins RC:$src1, RC:$src2),
-              !strconcat(OpStr, "\t{$src2, $src1, $dst|$dst, $src1, $src2}"),
-              [(set RC:$dst, (!cast<Intrinsic>("int_x86_"#OpStr#VL) RC:$src1,
-                RC:$src2))]>;
-    def rm : I<0xda, MRMSrcMem, (outs RC:$dst),
-              (ins RC:$src1, MemOp:$src2),
-              !strconcat(OpStr, "\t{$src2, $src1, $dst|$dst, $src1, $src2}"),
-              [(set RC:$dst, (!cast<Intrinsic>("int_x86_"#OpStr#VL) RC:$src1,
-               (LD addr:$src2)))]>;
-=======
 // FIXME: Is there a better scheduler class for SM4 than WriteVecIMul?
 let Predicates = [HasSM4] in {
   multiclass SM4_Base<string OpStr, RegisterClass RC, string VL,
@@ -9790,7 +9774,6 @@ let Predicates = [HasSM4] in {
                [(set RC:$dst, (!cast<Intrinsic>("int_x86_"#OpStr#VL) RC:$src1,
                  (LD addr:$src2)))]>,
                Sched<[WriteVecIMul]>;
->>>>>>> 049d6a3f428efeb1a22f62e55b808f60b0bf27cc
   }
 }
 
@@ -9798,8 +9781,6 @@ defm VSM4KEY4  : SM4_Base<"vsm4key4", VR128, "128", loadv4i32, i128mem>, T8XS, V
 defm VSM4KEY4Y : SM4_Base<"vsm4key4", VR256, "256", loadv8i32, i256mem>, T8XS, VEX_L, VEX_4V;
 defm VSM4RNDS4  : SM4_Base<"vsm4rnds4", VR128, "128", loadv4i32, i128mem>, T8XD, VEX_4V;
 defm VSM4RNDS4Y : SM4_Base<"vsm4rnds4", VR256, "256", loadv8i32, i256mem>, T8XD, VEX_L, VEX_4V;
-<<<<<<< HEAD
-#endif // INTEL_FEATURE_ISA_SM4
 
 #if INTEL_FEATURE_ISA_AVX_VNNI_INT16
 let Predicates = [HasAVXVNNIINT16, NoAVX256P_And_NoVLX_Or_NoVNNIINT16],
@@ -9848,5 +9829,3 @@ defm VPDPWUUD   : avx_vnni_int16<0xd2, "vpdpwuud", 1>, T8PS;
 defm VPDPWUUDS  : avx_vnni_int16<0xd3, "vpdpwuuds", 1>, T8PS;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI_INT16
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 049d6a3f428efeb1a22f62e55b808f60b0bf27cc
