@@ -784,7 +784,6 @@ int main() {
     }
   }
 
-<<<<<<< HEAD
   // placeholder accessor exception (4)  // SYCL2020 4.7.6.9
   {
     sycl::queue q;
@@ -819,10 +818,7 @@ int main() {
     }
   }
 
-  // SYCL2020 4.9.4.1: calling require() on empty accessor should throw
-=======
   // SYCL2020 4.9.4.1: calling require() on empty accessor should not throw.
->>>>>>> 95dca5959a016a103401836f064fdde9bed26d57
   {
     sycl::queue q;
     try {
