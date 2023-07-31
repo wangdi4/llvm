@@ -80,7 +80,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; <76>       final.merge.76:
 ; <0>  END REGION
 
-define void @example(i64* %dest) "target-features"="+avx512f" {
+define void @example(ptr %dest) "target-features"="+avx512f" {
 ; CHECK-LABEL: example
 ;     CHECK: BEGIN REGION { modified }
 ;     CHECK:       + DO i64 i1 = 0, %{{.*}}, 1   <DO_LOOP>  <MAX_TC_EST = 7>  <LEGAL_MAX_TC = 7> <vector-peel> <nounroll> <novectorize> <max_trip_count = 7>
@@ -103,8 +103,8 @@ entry:
 loop:
   %index = phi i64 [ 0, %entry ], [ %index.next, %loop ]
   %index.next = add i64 %index, 1
-  %addr = getelementptr inbounds i64, i64* %dest, i64 %index
-  store i64 %index, i64* %addr, align 8
+  %addr = getelementptr inbounds i64, ptr %dest, i64 %index
+  store i64 %index, ptr %addr, align 8
   %cond = icmp eq i64 %index, 6400000
   br i1 %cond, label %exit, label %loop
 

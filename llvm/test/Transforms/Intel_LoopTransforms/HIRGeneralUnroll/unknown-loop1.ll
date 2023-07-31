@@ -56,15 +56,15 @@
 ; CHECK:      [[LOOPEXIT]]:
 
 
-%struct.trie_node = type { i64, i64, %struct.trie_node*, %struct.trie_node* }
+%struct.trie_node = type { i64, i64, ptr, ptr }
 
-define void @foo(i64 %in1, %struct.trie_node* %in2, i64 %in3) {
+define void @foo(i64 %in1, ptr %in2, i64 %in3) {
 entry:
   br label %while.body
 
 while.body:                                       ; preds = %entry, %while.body
   %0 = phi i64 [ %4, %while.body ], [ %in1, %entry ]
-  %next_node.0261 = phi %struct.trie_node* [ %3, %while.body ], [ %in2, %entry ]
+  %next_node.0261 = phi ptr [ %3, %while.body ], [ %in2, %entry ]
   %iv = phi i64 [ %iv.next, %while.body ], [ 0, %entry ]
   %sh_prom46 = trunc i64 %0 to i32
   %1 = and i32 %sh_prom46, 31
@@ -72,13 +72,13 @@ while.body:                                       ; preds = %entry, %while.body
   %conv48 = sext i32 %shl47 to i64
   %and49 = and i64 %in3, %conv48
   %tobool50 = icmp eq i64 %and49, 0
-  %llink54 = getelementptr inbounds %struct.trie_node, %struct.trie_node* %next_node.0261, i64 %iv, i32 2
-  %rlink52 = getelementptr inbounds %struct.trie_node, %struct.trie_node* %next_node.0261, i64 %iv, i32 3
-  %2 = select i1 %tobool50, %struct.trie_node** %llink54, %struct.trie_node** %rlink52
-  %3 = load %struct.trie_node*, %struct.trie_node** %2, align 8
-  %cmpbit41 = getelementptr inbounds %struct.trie_node, %struct.trie_node* %3, i64 0, i32 1
+  %llink54 = getelementptr inbounds %struct.trie_node, ptr %next_node.0261, i64 %iv, i32 2
+  %rlink52 = getelementptr inbounds %struct.trie_node, ptr %next_node.0261, i64 %iv, i32 3
+  %2 = select i1 %tobool50, ptr %llink54, ptr %rlink52
+  %3 = load ptr, ptr %2, align 8
+  %cmpbit41 = getelementptr inbounds %struct.trie_node, ptr %3, i64 0, i32 1
   %iv.next = add i64 %iv, 1
-  %4 = load i64, i64* %cmpbit41, align 8
+  %4 = load i64, ptr %cmpbit41, align 8
   %cmp42 = icmp ugt i64 %0, %4
   br i1 %cmp42, label %while.body, label %for.cond56.preheader.loopexit
 

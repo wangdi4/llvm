@@ -52,9 +52,9 @@ for.body3.preheader:                              ; preds = %for.cond1.preheader
 
 for.body:                                         ; preds = %for.body, %for.body.preheader
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @a, i64 0, i64 %indvars.iv, !intel-tbaa !3
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @a, i64 0, i64 %indvars.iv, !intel-tbaa !3
   %i = trunc i64 %indvars.iv to i32
-  store i32 %i, i32* %arrayidx, align 4, !tbaa !3
+  store i32 %i, ptr %arrayidx, align 4, !tbaa !3
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond.not, label %for.cond1.preheader, label %for.body, !llvm.loop !8
@@ -62,8 +62,8 @@ for.body:                                         ; preds = %for.body, %for.body
 for.body3:                                        ; preds = %for.body3, %for.body3.preheader
   %indvars.iv24 = phi i64 [ 0, %for.body3.preheader ], [ %indvars.iv.next25, %for.body3 ]
   %s.023 = phi i32 [ 0, %for.body3.preheader ], [ %add, %for.body3 ]
-  %arrayidx5 = getelementptr inbounds [100 x i32], [100 x i32]* @a, i64 0, i64 %indvars.iv24, !intel-tbaa !3
-  %i1 = load i32, i32* %arrayidx5, align 4, !tbaa !3
+  %arrayidx5 = getelementptr inbounds [100 x i32], ptr @a, i64 0, i64 %indvars.iv24, !intel-tbaa !3
+  %i1 = load i32, ptr %arrayidx5, align 4, !tbaa !3
   %add = add nsw i32 %i1, %s.023
   %indvars.iv.next25 = add nuw nsw i64 %indvars.iv24, 1
   %exitcond27.not = icmp eq i64 %indvars.iv.next25, %wide.trip.count

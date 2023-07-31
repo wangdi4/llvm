@@ -48,8 +48,8 @@ for.body:                                         ; preds = %entry, %for.body
   %conv2 = ashr exact i64 %sext, 56
   %and = and i64 %conv2, %conv3
   %conv5 = trunc i64 %and to i32
-  %arrayidx = getelementptr inbounds [1 x i32], [1 x i32]* @b, i64 0, i64 %indvars.iv
-  store i32 %conv5, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [1 x i32], ptr @b, i64 0, i64 %indvars.iv
+  store i32 %conv5, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 3
   %cmp = icmp ult i64 %indvars.iv.next, 8
   br i1 %cmp, label %for.body, label %for.end

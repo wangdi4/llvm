@@ -41,27 +41,27 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct.TCDef = type { [16 x i8], [16 x i8], [16 x i8], [16 x i8], [64 x i8], i16, %struct.version_number, %struct.version_number, %struct.version_number, i32, i32, i32, i32, i16, i64, i64, i64, i64, i16, %struct.snr_result_s, [4 x double], %struct.ee_connection_s** }
+%struct.TCDef = type { [16 x i8], [16 x i8], [16 x i8], [16 x i8], [64 x i8], i16, %struct.version_number, %struct.version_number, %struct.version_number, i32, i32, i32, i32, i16, i64, i64, i64, i64, i16, %struct.snr_result_s, [4 x double], ptr }
 %struct.version_number = type { i8, i8, i8, i8 }
 %struct.snr_result_s = type { double, double, double, i32, i32, i32, double, double, i32, i32, double, i32 }
-%struct.ee_connection_s = type { i32, i32, i8*, i32, i32, %union.pthread_mutex_t, %union.pthread_cond_t, i8*, i32 }
+%struct.ee_connection_s = type { i32, i32, ptr, i32, i32, %union.pthread_mutex_t, %union.pthread_cond_t, ptr, i32 }
 %union.pthread_mutex_t = type { %struct.__pthread_mutex_s }
 %struct.__pthread_mutex_s = type { i32, i32, i32, i32, i32, i16, i16, %struct.__pthread_internal_list }
-%struct.__pthread_internal_list = type { %struct.__pthread_internal_list*, %struct.__pthread_internal_list* }
+%struct.__pthread_internal_list = type { ptr, ptr }
 %union.pthread_cond_t = type { %struct.__pthread_cond_s }
 %struct.__pthread_cond_s = type { %union.anon, %union.anon, [2 x i32], [2 x i32], i32, i32, [2 x i32] }
 %union.anon = type { i64 }
 %struct.intparts_s = type { i8, i16, i32, i32 }
 
 ; Function Attrs: nofree nounwind uwtable
-define hidden void @foo(%struct.TCDef* %arg, i8* nocapture readonly %arg1, double* noalias %i5, double* noalias %i8) {
+define hidden void @foo(ptr %arg, ptr nocapture readonly %arg1, ptr noalias %i5, ptr noalias %i8) {
 bb:
-  %i = getelementptr inbounds i8, i8* %arg1, i64 16
-  %i2 = bitcast i8* %i to i32*
-  %i3 = load i32, i32* %i2, align 8, !tbaa !6
-  %i4 = bitcast i8* %arg1 to double**
-  %i6 = getelementptr inbounds i8, i8* %arg1, i64 8
-  %i7 = bitcast i8* %i6 to double**
+  %i = getelementptr inbounds i8, ptr %arg1, i64 16
+  %i2 = bitcast ptr %i to ptr
+  %i3 = load i32, ptr %i2, align 8, !tbaa !6
+  %i4 = bitcast ptr %arg1 to ptr
+  %i6 = getelementptr inbounds i8, ptr %arg1, i64 8
+  %i7 = bitcast ptr %i6 to ptr
   %i9 = sdiv i32 %i3, 2
   %i10 = icmp eq i32 %i9, 1
   br i1 %i10, label %bb165, label %bb11
@@ -120,7 +120,7 @@ bb72:                                             ; preds = %bb67
   br label %bb73
 
 bb73:                                             ; preds = %bb160, %bb72
-  %i74 = phi double* [ %i161, %bb160 ], [ %i8, %bb72 ]
+  %i74 = phi ptr [ %i161, %bb160 ], [ %i8, %bb72 ]
   %i75 = phi i32 [ %i162, %bb160 ], [ 0, %bb72 ]
   %i76 = phi i32 [ %i77, %bb160 ], [ 1, %bb72 ]
   %i77 = shl nsw i32 %i76, 1
@@ -135,27 +135,27 @@ bb80:                                             ; preds = %bb80, %bb73
   %i84 = add nuw nsw i32 %i82, %i76
   %i85 = shl nsw i32 %i84, 1
   %i86 = sext i32 %i85 to i64
-  %i87 = getelementptr inbounds double, double* %i5, i64 %i86
-  %i88 = load double, double* %i87, align 8, !tbaa !20, !alias.scope !17
+  %i87 = getelementptr inbounds double, ptr %i5, i64 %i86
+  %i88 = load double, ptr %i87, align 8, !tbaa !20, !alias.scope !17
   %i89 = or i32 %i85, 1
   %i90 = sext i32 %i89 to i64
-  %i91 = getelementptr inbounds double, double* %i5, i64 %i90
-  %i92 = load double, double* %i91, align 8, !tbaa !20, !alias.scope !17
+  %i91 = getelementptr inbounds double, ptr %i5, i64 %i90
+  %i92 = load double, ptr %i91, align 8, !tbaa !20, !alias.scope !17
   %i93 = sext i32 %i83 to i64
-  %i94 = getelementptr inbounds double, double* %i5, i64 %i93
-  %i95 = load double, double* %i94, align 8, !tbaa !20, !alias.scope !17
+  %i94 = getelementptr inbounds double, ptr %i5, i64 %i93
+  %i95 = load double, ptr %i94, align 8, !tbaa !20, !alias.scope !17
   %i96 = fsub fast double %i95, %i88
-  store double %i96, double* %i87, align 8, !tbaa !20, !alias.scope !17
+  store double %i96, ptr %i87, align 8, !tbaa !20, !alias.scope !17
   %i97 = or i32 %i83, 1
   %i98 = sext i32 %i97 to i64
-  %i99 = getelementptr inbounds double, double* %i5, i64 %i98
-  %i100 = load double, double* %i99, align 8, !tbaa !20, !alias.scope !17
+  %i99 = getelementptr inbounds double, ptr %i5, i64 %i98
+  %i100 = load double, ptr %i99, align 8, !tbaa !20, !alias.scope !17
   %i101 = fsub fast double %i100, %i92
-  store double %i101, double* %i91, align 8, !tbaa !20, !alias.scope !17
+  store double %i101, ptr %i91, align 8, !tbaa !20, !alias.scope !17
   %i102 = fadd fast double %i95, %i88
-  store double %i102, double* %i94, align 8, !tbaa !20, !alias.scope !17
+  store double %i102, ptr %i94, align 8, !tbaa !20, !alias.scope !17
   %i103 = fadd fast double %i100, %i92
-  store double %i103, double* %i99, align 8, !tbaa !20, !alias.scope !17
+  store double %i103, ptr %i99, align 8, !tbaa !20, !alias.scope !17
   %i104 = add nuw nsw i64 %i81, %i79
   %i105 = add nuw nsw i32 %i82, %i77
   %i106 = icmp slt i64 %i104, %i70
@@ -170,11 +170,11 @@ bb109:                                            ; preds = %bb107
   br label %bb111
 
 bb111:                                            ; preds = %bb151, %bb109
-  %i112 = phi double* [ %i152, %bb151 ], [ %i74, %bb109 ]
+  %i112 = phi ptr [ %i152, %bb151 ], [ %i74, %bb109 ]
   %i113 = phi i32 [ %i153, %bb151 ], [ 1, %bb109 ]
-  %i114 = getelementptr inbounds double, double* %i112, i64 1
-  %i115 = load double, double* %i112, align 8, !tbaa !20, !noalias !17
-  %i116 = load double, double* %i114, align 8, !tbaa !20, !noalias !17
+  %i114 = getelementptr inbounds double, ptr %i112, i64 1
+  %i115 = load double, ptr %i112, align 8, !tbaa !20, !noalias !17
+  %i116 = load double, ptr %i114, align 8, !tbaa !20, !noalias !17
   br label %bb117
 
 bb117:                                            ; preds = %bb117, %bb111
@@ -185,12 +185,12 @@ bb117:                                            ; preds = %bb117, %bb111
   %i122 = add nuw nsw i32 %i120, %i76
   %i123 = shl nsw i32 %i122, 1
   %i124 = sext i32 %i123 to i64
-  %i125 = getelementptr inbounds double, double* %i5, i64 %i124
-  %i126 = load double, double* %i125, align 8, !tbaa !20, !alias.scope !17
+  %i125 = getelementptr inbounds double, ptr %i5, i64 %i124
+  %i126 = load double, ptr %i125, align 8, !tbaa !20, !alias.scope !17
   %i127 = or i32 %i123, 1
   %i128 = sext i32 %i127 to i64
-  %i129 = getelementptr inbounds double, double* %i5, i64 %i128
-  %i130 = load double, double* %i129, align 8, !tbaa !20, !alias.scope !17
+  %i129 = getelementptr inbounds double, ptr %i5, i64 %i128
+  %i130 = load double, ptr %i129, align 8, !tbaa !20, !alias.scope !17
   %i131 = fmul fast double %i126, %i115
   %i132 = fmul fast double %i130, %i116
   %i133 = fsub fast double %i131, %i132
@@ -198,27 +198,27 @@ bb117:                                            ; preds = %bb117, %bb111
   %i135 = fmul fast double %i126, %i116
   %i136 = fadd fast double %i134, %i135
   %i137 = sext i32 %i121 to i64
-  %i138 = getelementptr inbounds double, double* %i5, i64 %i137
-  %i139 = load double, double* %i138, align 8, !tbaa !20, !alias.scope !17
+  %i138 = getelementptr inbounds double, ptr %i5, i64 %i137
+  %i139 = load double, ptr %i138, align 8, !tbaa !20, !alias.scope !17
   %i140 = fsub fast double %i139, %i133
-  store double %i140, double* %i125, align 8, !tbaa !20, !alias.scope !17
+  store double %i140, ptr %i125, align 8, !tbaa !20, !alias.scope !17
   %i141 = or i32 %i121, 1
   %i142 = sext i32 %i141 to i64
-  %i143 = getelementptr inbounds double, double* %i5, i64 %i142
-  %i144 = load double, double* %i143, align 8, !tbaa !20, !alias.scope !17
+  %i143 = getelementptr inbounds double, ptr %i5, i64 %i142
+  %i144 = load double, ptr %i143, align 8, !tbaa !20, !alias.scope !17
   %i145 = fsub fast double %i144, %i136
-  store double %i145, double* %i129, align 8, !tbaa !20, !alias.scope !17
+  store double %i145, ptr %i129, align 8, !tbaa !20, !alias.scope !17
   %i146 = fadd fast double %i133, %i139
-  store double %i146, double* %i138, align 8, !tbaa !20, !alias.scope !17
+  store double %i146, ptr %i138, align 8, !tbaa !20, !alias.scope !17
   %i147 = fadd fast double %i144, %i136
-  store double %i147, double* %i143, align 8, !tbaa !20, !alias.scope !17
+  store double %i147, ptr %i143, align 8, !tbaa !20, !alias.scope !17
   %i148 = add nuw nsw i64 %i118, %i79
   %i149 = add nuw nsw i32 %i119, %i77
   %i150 = icmp slt i64 %i148, %i70
   br i1 %i150, label %bb117, label %bb151
 
 bb151:                                            ; preds = %bb117
-  %i152 = getelementptr inbounds double, double* %i112, i64 2
+  %i152 = getelementptr inbounds double, ptr %i112, i64 2
   %i153 = add nuw nsw i32 %i113, 1
   %i154 = icmp eq i32 %i153, %i76
   br i1 %i154, label %bb155, label %bb111
@@ -226,12 +226,12 @@ bb151:                                            ; preds = %bb117
 bb155:                                            ; preds = %bb151
   %i156 = zext i32 %i110 to i64
   %i157 = shl nuw nsw i64 %i156, 1
-  %i158 = getelementptr double, double* %i74, i64 2
-  %i159 = getelementptr double, double* %i158, i64 %i157
+  %i158 = getelementptr double, ptr %i74, i64 2
+  %i159 = getelementptr double, ptr %i158, i64 %i157
   br label %bb160
 
 bb160:                                            ; preds = %bb155, %bb107
-  %i161 = phi double* [ %i74, %bb107 ], [ %i159, %bb155 ]
+  %i161 = phi ptr [ %i74, %bb107 ], [ %i159, %bb155 ]
   %i162 = add nuw nsw i32 %i75, 1
   %i163 = icmp eq i32 %i162, %i23
   br i1 %i163, label %bb164, label %bb73

@@ -83,7 +83,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #0
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #0
 
 define hidden fastcc void @hoge() unnamed_addr #1 {
 bb:
@@ -713,35 +713,35 @@ bb208:                                            ; preds = %bb207
   br i1 undef, label %bb272, label %bb209
 
 bb209:                                            ; preds = %bb208
-  %tmp210 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 undef, double* elementtype(double) nonnull %tmp113, i64 1) #2
-  %tmp211 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 undef, double* elementtype(double) nonnull %tmp, i64 1) #2
+  %tmp210 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 undef, ptr elementtype(double) nonnull %tmp113, i64 1) #2
+  %tmp211 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 undef, ptr elementtype(double) nonnull %tmp, i64 1) #2
   br label %bb212
 
 bb212:                                            ; preds = %bb269, %bb209
   br i1 undef, label %bb237, label %bb213
 
 bb213:                                            ; preds = %bb212
-  %tmp214 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 undef, i64 32, double* elementtype(double) nonnull %tmp210, i64 undef) #2
+  %tmp214 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 undef, i64 32, ptr elementtype(double) nonnull %tmp210, i64 undef) #2
   br label %bb215
 
 bb215:                                            ; preds = %bb215, %bb213
   %tmp216 = phi i64 [ 1, %bb213 ], [ %tmp219, %bb215 ]
-  %tmp217 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp214, i64 %tmp216) #2
-  %tmp218 = bitcast double* %tmp217 to i64*
-  store i64 undef, i64* %tmp218, align 1
+  %tmp217 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp214, i64 %tmp216) #2
+  %tmp218 = bitcast ptr %tmp217 to ptr
+  store i64 undef, ptr %tmp218, align 1
   %tmp219 = add nuw nsw i64 %tmp216, 1
   %tmp220 = icmp eq i64 %tmp219, undef
   br i1 %tmp220, label %bb221, label %bb215
 
 bb221:                                            ; preds = %bb215
-  %tmp222 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 undef, i64 32, double* elementtype(double) nonnull %tmp211, i64 undef) #2
+  %tmp222 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 undef, i64 32, ptr elementtype(double) nonnull %tmp211, i64 undef) #2
   br label %bb223
 
 bb223:                                            ; preds = %bb223, %bb221
   %tmp224 = phi i64 [ 1, %bb221 ], [ undef, %bb223 ]
-  %tmp225 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp222, i64 %tmp224) #2
-  %tmp226 = bitcast double* %tmp225 to i64*
-  store i64 undef, i64* %tmp226, align 1
+  %tmp225 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp222, i64 %tmp224) #2
+  %tmp226 = bitcast ptr %tmp225 to ptr
+  store i64 undef, ptr %tmp226, align 1
   %tmp227 = icmp eq i64 undef, undef
   br i1 %tmp227, label %bb228, label %bb223
 
@@ -751,8 +751,8 @@ bb228:                                            ; preds = %bb223
 bb229:                                            ; preds = %bb229, %bb228
   %tmp230 = phi double [ %tmp234, %bb229 ], [ 0xFFF0000000000000, %bb228 ]
   %tmp231 = phi i64 [ %tmp235, %bb229 ], [ 1, %bb228 ]
-  %tmp232 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp214, i64 %tmp231) #2
-  %tmp233 = load double, double* %tmp232, align 1
+  %tmp232 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp214, i64 %tmp231) #2
+  %tmp233 = load double, ptr %tmp232, align 1
   %tmp234 = select i1 undef, double %tmp233, double %tmp230
   %tmp235 = add nuw nsw i64 %tmp231, 1
   %tmp236 = icmp eq i64 %tmp235, undef
@@ -763,14 +763,14 @@ bb237:                                            ; preds = %bb212
 
 bb238:                                            ; preds = %bb229
   %tmp239 = phi double [ %tmp234, %bb229 ]
-  store double %tmp239, double* undef, align 1
+  store double %tmp239, ptr undef, align 1
   br label %bb240
 
 bb240:                                            ; preds = %bb240, %bb238
   %tmp241 = phi double [ 0x7FF0000000000000, %bb238 ], [ %tmp245, %bb240 ]
   %tmp242 = phi i64 [ 1, %bb238 ], [ %tmp246, %bb240 ]
-  %tmp243 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp214, i64 %tmp242) #2
-  %tmp244 = load double, double* %tmp243, align 1
+  %tmp243 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp214, i64 %tmp242) #2
+  %tmp244 = load double, ptr %tmp243, align 1
   %tmp245 = select i1 undef, double %tmp244, double %tmp241
   %tmp246 = add nuw nsw i64 %tmp242, 1
   %tmp247 = icmp eq i64 %tmp246, undef
@@ -778,14 +778,14 @@ bb240:                                            ; preds = %bb240, %bb238
 
 bb248:                                            ; preds = %bb240
   %tmp249 = phi double [ %tmp245, %bb240 ]
-  store double %tmp249, double* undef, align 1
+  store double %tmp249, ptr undef, align 1
   br label %bb250
 
 bb250:                                            ; preds = %bb250, %bb248
   %tmp251 = phi double [ 0xFFF0000000000000, %bb248 ], [ %tmp255, %bb250 ]
   %tmp252 = phi i64 [ 1, %bb248 ], [ %tmp256, %bb250 ]
-  %tmp253 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp222, i64 %tmp252) #2
-  %tmp254 = load double, double* %tmp253, align 1
+  %tmp253 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp222, i64 %tmp252) #2
+  %tmp254 = load double, ptr %tmp253, align 1
   %tmp255 = select i1 undef, double %tmp254, double %tmp251
   %tmp256 = add nuw nsw i64 %tmp252, 1
   %tmp257 = icmp eq i64 %tmp256, undef
@@ -793,14 +793,14 @@ bb250:                                            ; preds = %bb250, %bb248
 
 bb258:                                            ; preds = %bb250
   %tmp259 = phi double [ %tmp255, %bb250 ]
-  store double %tmp259, double* undef, align 1
+  store double %tmp259, ptr undef, align 1
   br label %bb260
 
 bb260:                                            ; preds = %bb260, %bb258
   %tmp261 = phi double [ 0x7FF0000000000000, %bb258 ], [ %tmp265, %bb260 ]
   %tmp262 = phi i64 [ 1, %bb258 ], [ %tmp266, %bb260 ]
-  %tmp263 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %tmp222, i64 %tmp262) #2
-  %tmp264 = load double, double* %tmp263, align 1
+  %tmp263 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %tmp222, i64 %tmp262) #2
+  %tmp264 = load double, ptr %tmp263, align 1
   %tmp265 = select i1 undef, double %tmp264, double %tmp261
   %tmp266 = add nuw nsw i64 %tmp262, 1
   %tmp267 = icmp eq i64 %tmp266, undef

@@ -24,15 +24,15 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i8 noundef %n, i64* nocapture noundef writeonly %A) {
+define void @foo(i8 noundef %n, ptr nocapture noundef writeonly %A) {
 entry:
   br label %do.body
 
 do.body:                                          ; preds = %do.body, %entry
   %i.0 = phi i8 [ %n, %entry ], [ %inc, %do.body ]
   %idxprom = zext i8 %i.0 to i64
-  %arrayidx = getelementptr inbounds i64, i64* %A, i64 %idxprom
-  store i64 %idxprom, i64* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i64, ptr %A, i64 %idxprom
+  store i64 %idxprom, ptr %arrayidx, align 4
   %inc = add i8 %i.0, 1
   %cmp.not = icmp eq i8 %inc, 7
   br i1 %cmp.not, label %do.end, label %do.body

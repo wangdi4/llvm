@@ -31,15 +31,15 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.inc, %for.body.preheader
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.inc ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %cmp1 = icmp eq i64 %indvars.iv, 0
   br i1 %cmp1, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
   %1 = add nsw i64 %indvars.iv, -1
-  %arrayidx3 = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %1
-  %2 = load i32, i32* %arrayidx3, align 4, !tbaa !2
+  %arrayidx3 = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %1
+  %2 = load i32, ptr %arrayidx3, align 4, !tbaa !2
   %add = add nsw i32 %2, %0
   br label %for.inc
 

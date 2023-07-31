@@ -42,7 +42,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i32** nocapture %a, i32* nocapture %b, i32 %n, i32 %m) {
+define void @foo(ptr nocapture %a, ptr nocapture %b, i32 %n, i32 %m) {
 entry:
   %cmp39 = icmp sgt i32 %n, 0
   br i1 %cmp39, label %for.cond1.preheader.lr.ph, label %cleanup17
@@ -54,7 +54,7 @@ for.cond1.preheader.lr.ph:                        ; preds = %entry
 
 for.body4.lr.ph:                                  ; preds = %for.cond1.preheader
   %indvars.iv45 = phi i64 [ 0, %for.cond1.preheader.lr.ph ], [ %indvars.iv.next46, %for.inc15 ]
-  %arrayidx13 = getelementptr inbounds i32, i32* %b, i64 %indvars.iv45
+  %arrayidx13 = getelementptr inbounds i32, ptr %b, i64 %indvars.iv45
   br label %for.body4
 
 for.body4:                                        ; preds = %for.body4.lr.ph, %if.end
@@ -64,18 +64,18 @@ for.body4:                                        ; preds = %for.body4.lr.ph, %i
 
 if.then:                                          ; preds = %for.body4
   %.lcssa = phi i64 [ %1, %for.body4 ]
-  %2 = load i32*, i32** %a, align 8
-  %arrayidx7 = getelementptr inbounds i32, i32* %2, i64 %.lcssa
-  %3 = load i32, i32* %arrayidx7, align 4
+  %2 = load ptr, ptr %a, align 8
+  %arrayidx7 = getelementptr inbounds i32, ptr %2, i64 %.lcssa
+  %3 = load i32, ptr %arrayidx7, align 4
   %inc = add nsw i32 %3, 1
-  store i32 %inc, i32* %arrayidx7, align 4
+  store i32 %inc, ptr %arrayidx7, align 4
   br label %cleanup17
 
 if.end:                                           ; preds = %for.body4
-  %arrayidx10 = getelementptr inbounds i32*, i32** %a, i64 %1
-  %4 = load i32*, i32** %arrayidx10, align 8
-  %5 = load i32, i32* %4, align 4
-  store i32 %5, i32* %arrayidx13, align 4
+  %arrayidx10 = getelementptr inbounds ptr, ptr %a, i64 %1
+  %4 = load ptr, ptr %arrayidx10, align 8
+  %5 = load i32, ptr %4, align 4
+  store i32 %5, ptr %arrayidx13, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %cmp2 = icmp slt i64 %indvars.iv.next, 50
   br i1 %cmp2, label %for.body4, label %for.inc15.loopexit
@@ -92,9 +92,9 @@ cleanup17.loopexit:                               ; preds = %for.inc15
   br label %cleanup17
 
 cleanup17:                                        ; preds = %cleanup17.loopexit, %entry, %if.then
-  %6 = load i32*, i32** %a, align 8
-  %incdec.ptr = getelementptr inbounds i32, i32* %6, i64 1
-  store i32* %incdec.ptr, i32** %a, align 8
+  %6 = load ptr, ptr %a, align 8
+  %incdec.ptr = getelementptr inbounds i32, ptr %6, i64 1
+  store ptr %incdec.ptr, ptr %a, align 8
   ret void
 }
 

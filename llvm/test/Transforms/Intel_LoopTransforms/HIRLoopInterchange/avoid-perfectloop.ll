@@ -55,10 +55,10 @@ for.cond1.preheader:                              ; preds = %for.inc10, %entry
 
 for.body3:                                        ; preds = %for.body3, %for.cond1.preheader
   %indvars.iv102 = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next103, %for.body3 ]
-  %arrayidx5 = getelementptr inbounds [20 x [20 x i32]], [20 x [20 x i32]]* @a, i64 0, i64 %indvars.iv105, i64 %indvars.iv102, !intel-tbaa !2
-  store i32 7, i32* %arrayidx5, align 4, !tbaa !2
-  %arrayidx9 = getelementptr inbounds [20 x [20 x i32]], [20 x [20 x i32]]* @b, i64 0, i64 %indvars.iv105, i64 %indvars.iv102, !intel-tbaa !2
-  store i32 777, i32* %arrayidx9, align 4, !tbaa !2
+  %arrayidx5 = getelementptr inbounds [20 x [20 x i32]], ptr @a, i64 0, i64 %indvars.iv105, i64 %indvars.iv102, !intel-tbaa !2
+  store i32 7, ptr %arrayidx5, align 4, !tbaa !2
+  %arrayidx9 = getelementptr inbounds [20 x [20 x i32]], ptr @b, i64 0, i64 %indvars.iv105, i64 %indvars.iv102, !intel-tbaa !2
+  store i32 777, ptr %arrayidx9, align 4, !tbaa !2
   %indvars.iv.next103 = add nuw nsw i64 %indvars.iv102, 1
   %exitcond104 = icmp eq i64 %indvars.iv.next103, 20
   br i1 %exitcond104, label %for.inc10, label %for.body3
@@ -84,8 +84,8 @@ for.cond19.preheader:                             ; preds = %for.end28, %for.con
 for.body21:                                       ; preds = %for.body21, %for.cond19.preheader
   %indvars.iv93 = phi i64 [ 0, %for.cond19.preheader ], [ %indvars.iv.next94, %for.body21 ]
   %s.283 = phi i32 [ %s.185, %for.cond19.preheader ], [ %add, %for.body21 ]
-  %arrayidx25 = getelementptr inbounds [20 x [20 x i32]], [20 x [20 x i32]]* @a, i64 0, i64 %indvars.iv93, i64 %indvars.iv99, !intel-tbaa !2
-  %0 = load i32, i32* %arrayidx25, align 4, !tbaa !2
+  %arrayidx25 = getelementptr inbounds [20 x [20 x i32]], ptr @a, i64 0, i64 %indvars.iv93, i64 %indvars.iv99, !intel-tbaa !2
+  %0 = load i32, ptr %arrayidx25, align 4, !tbaa !2
   %add = add nsw i32 %0, %s.283
   %indvars.iv.next94 = add nuw nsw i64 %indvars.iv93, 1
   %exitcond95 = icmp eq i64 %indvars.iv.next94, 10
@@ -93,8 +93,8 @@ for.body21:                                       ; preds = %for.body21, %for.co
 
 for.end28:                                        ; preds = %for.body21
   %add.lcssa = phi i32 [ %add, %for.body21 ]
-  %arrayidx32 = getelementptr inbounds [20 x [20 x i32]], [20 x [20 x i32]]* @b, i64 0, i64 %indvars.iv96, i64 %indvars.iv99, !intel-tbaa !2
-  store i32 %add.lcssa, i32* %arrayidx32, align 4, !tbaa !2
+  %arrayidx32 = getelementptr inbounds [20 x [20 x i32]], ptr @b, i64 0, i64 %indvars.iv96, i64 %indvars.iv99, !intel-tbaa !2
+  store i32 %add.lcssa, ptr %arrayidx32, align 4, !tbaa !2
   %indvars.iv.next97 = add nuw nsw i64 %indvars.iv96, 1
   %exitcond98 = icmp eq i64 %indvars.iv.next97, 10
   br i1 %exitcond98, label %for.inc36, label %for.cond19.preheader
@@ -114,9 +114,9 @@ for.cond42.preheader:                             ; preds = %for.cond42.preheade
 
 for.body44:                                       ; preds = %for.body44, %for.cond42.preheader
   %indvars.iv = phi i64 [ 0, %for.cond42.preheader ], [ %indvars.iv.next, %for.body44 ]
-  %arrayidx48 = getelementptr inbounds [20 x [20 x i32]], [20 x [20 x i32]]* @b, i64 0, i64 %indvars.iv90, i64 %indvars.iv, !intel-tbaa !2
-  %1 = load i32, i32* %arrayidx48, align 4, !tbaa !2
-  %call = tail call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @.str, i64 0, i64 0), i32 %1)
+  %arrayidx48 = getelementptr inbounds [20 x [20 x i32]], ptr @b, i64 0, i64 %indvars.iv90, i64 %indvars.iv, !intel-tbaa !2
+  %1 = load i32, ptr %arrayidx48, align 4, !tbaa !2
+  %call = tail call i32 (ptr, ...) @printf(ptr @.str, i32 %1)
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 10
   br i1 %exitcond, label %for.end51, label %for.body44
@@ -132,7 +132,7 @@ for.end55:                                        ; preds = %for.end51
 }
 
 ; Function Attrs: nounwind
-declare dso_local i32 @printf(i8* nocapture readonly, ...) local_unnamed_addr #1
+declare dso_local i32 @printf(ptr nocapture readonly, ...) local_unnamed_addr #1
 
 ; Function Attrs: nounwind
 declare i32 @putchar(i32) local_unnamed_addr #2

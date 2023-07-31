@@ -32,37 +32,37 @@ target triple = "x86_64-unknown-linux-gnu"
 @.str = private unnamed_addr constant [10 x i8] c"res = %u\0A\00", align 1
 
 ; Function Attrs: nofree norecurse nounwind uwtable writeonly
-define dso_local void @init(i32* nocapture %a, i32 %n, i32 %seed) local_unnamed_addr #0 {
+define dso_local void @init(ptr nocapture %a, i32 %n, i32 %seed) local_unnamed_addr #0 {
 entry:
-  store i32 1, i32* %a, align 4, !tbaa !2
+  store i32 1, ptr %a, align 4, !tbaa !2
   ret void
 }
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #1
 
 ; Function Attrs: nofree nounwind uwtable
 define dso_local i32 @main() local_unnamed_addr #2 {
 entry:
   %s = alloca [100 x i32], align 16
   %uv9 = alloca [100 x [100 x i32]], align 16
-  %0 = bitcast [100 x i32]* %s to i8*
-  call void @llvm.lifetime.start.p0i8(i64 400, i8* nonnull %0) #5
-  call void @llvm.memset.p0i8.i64(i8* nonnull align 16 dereferenceable(400) %0, i8 0, i64 400, i1 false)
-  %1 = bitcast [100 x [100 x i32]]* %uv9 to i8*
-  call void @llvm.lifetime.start.p0i8(i64 40000, i8* nonnull %1) #5
-  call void @llvm.memset.p0i8.i64(i8* nonnull align 16 dereferenceable(40000) %1, i8 0, i64 40000, i1 false)
+  %0 = bitcast ptr %s to ptr
+  call void @llvm.lifetime.start.p0(i64 400, ptr nonnull %0) #5
+  call void @llvm.memset.p0.i64(ptr nonnull align 16 dereferenceable(400) %0, i8 0, i64 400, i1 false)
+  %1 = bitcast ptr %uv9 to ptr
+  call void @llvm.lifetime.start.p0(i64 40000, ptr nonnull %1) #5
+  call void @llvm.memset.p0.i64(ptr nonnull align 16 dereferenceable(40000) %1, i8 0, i64 40000, i1 false)
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.end13
   %indvars.iv59 = phi i64 [ 1, %entry ], [ %indvars.iv.next60, %for.end13 ]
   %jp.050 = phi i32 [ 0, %entry ], [ %jp.1.lcssa, %for.end13 ]
   %2 = add nsw i64 %indvars.iv59, -1
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* %s, i64 0, i64 %2, !intel-tbaa !6
-  %3 = load i32, i32* %arrayidx, align 4, !tbaa !6
+  %arrayidx = getelementptr inbounds [100 x i32], ptr %s, i64 0, i64 %2, !intel-tbaa !6
+  %3 = load i32, ptr %arrayidx, align 4, !tbaa !6
   %cmp246 = icmp ugt i64 %indvars.iv59, 1
   br i1 %cmp246, label %for.cond4.preheader.preheader, label %for.end13
 
@@ -80,10 +80,10 @@ for.body6.preheader:                              ; preds = %for.cond4.preheader
 
 for.body6:                                        ; preds = %for.body6.preheader, %for.body6
   %indvars.iv52 = phi i64 [ %indvars.iv.next53, %for.body6 ], [ %indvars.iv, %for.body6.preheader ]
-  %arrayidx10 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* %uv9, i64 0, i64 0, i64 %indvars.iv52, !intel-tbaa !8
-  %4 = load i32, i32* %arrayidx10, align 4, !tbaa !8
+  %arrayidx10 = getelementptr inbounds [100 x [100 x i32]], ptr %uv9, i64 0, i64 0, i64 %indvars.iv52, !intel-tbaa !8
+  %4 = load i32, ptr %arrayidx10, align 4, !tbaa !8
   %add = add i32 %4, 1
-  store i32 %add, i32* %arrayidx10, align 4, !tbaa !8
+  store i32 %add, ptr %arrayidx10, align 4, !tbaa !8
   %indvars.iv.next53 = add nuw nsw i64 %indvars.iv52, 1
   %exitcond = icmp eq i64 %indvars.iv.next53, 3
   br i1 %exitcond, label %for.inc11.loopexit, label %for.body6, !llvm.loop !10
@@ -104,27 +104,27 @@ for.end13.loopexit:                               ; preds = %for.inc11
 
 for.end13:                                        ; preds = %for.end13.loopexit, %for.body
   %jp.1.lcssa = phi i32 [ %jp.050, %for.body ], [ %jp.2.lcssa.lcssa, %for.end13.loopexit ]
-  %arrayidx15 = getelementptr inbounds [100 x i32], [100 x i32]* %s, i64 0, i64 %indvars.iv59, !intel-tbaa !6
-  %5 = load i32, i32* %arrayidx15, align 4, !tbaa !6
+  %arrayidx15 = getelementptr inbounds [100 x i32], ptr %s, i64 0, i64 %indvars.iv59, !intel-tbaa !6
+  %5 = load i32, ptr %arrayidx15, align 4, !tbaa !6
   %add16 = add i32 %5, %jp.1.lcssa
-  store i32 %add16, i32* %arrayidx15, align 4, !tbaa !6
+  store i32 %add16, ptr %arrayidx15, align 4, !tbaa !6
   %indvars.iv.next60 = add nuw nsw i64 %indvars.iv59, 1
   %exitcond62 = icmp eq i64 %indvars.iv.next60, 38
   br i1 %exitcond62, label %for.end19, label %for.body, !llvm.loop !13
 
 for.end19:                                        ; preds = %for.end13
   %.lcssa = phi i32 [ %3, %for.end13 ]
-  %call = tail call i32 (i8*, ...) @printf(i8* nonnull dereferenceable(1) getelementptr inbounds ([10 x i8], [10 x i8]* @.str, i64 0, i64 0), i32 %.lcssa)
-  call void @llvm.lifetime.end.p0i8(i64 40000, i8* nonnull %1) #5
-  call void @llvm.lifetime.end.p0i8(i64 400, i8* nonnull %0) #5
+  %call = tail call i32 (ptr, ...) @printf(ptr nonnull dereferenceable(1) @.str, i32 %.lcssa)
+  call void @llvm.lifetime.end.p0(i64 40000, ptr nonnull %1) #5
+  call void @llvm.lifetime.end.p0(i64 400, ptr nonnull %0) #5
   ret i32 0
 }
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn writeonly
-declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg) #3
+declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i1 immarg) #3
 
 ; Function Attrs: nofree nounwind
-declare dso_local noundef i32 @printf(i8* nocapture noundef readonly, ...) local_unnamed_addr #4
+declare dso_local noundef i32 @printf(ptr nocapture noundef readonly, ...) local_unnamed_addr #4
 
 attributes #0 = { nofree norecurse nounwind uwtable writeonly "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-jump-tables"="false" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="corei7-avx" "target-features"="+avx,+cx16,+cx8,+fxsr,+mmx,+pclmul,+popcnt,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="true" "use-soft-float"="false" }
 attributes #1 = { argmemonly nofree nosync nounwind willreturn }

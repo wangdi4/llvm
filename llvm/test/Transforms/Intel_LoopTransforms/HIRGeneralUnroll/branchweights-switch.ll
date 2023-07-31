@@ -142,8 +142,8 @@ for.body:                                         ; preds = %for.inc, %for.body.
   %0 = trunc i64 %indvars.iv to i32
   %1 = add i32 %0, 2
   %conv = sitofp i32 %1 to double
-  %arrayidx = getelementptr inbounds [20 x double], [20 x double]* @a, i64 0, i64 %indvars.iv, !intel-tbaa !31
-  store double %conv, double* %arrayidx, align 8, !tbaa !31
+  %arrayidx = getelementptr inbounds [20 x double], ptr @a, i64 0, i64 %indvars.iv, !intel-tbaa !31
+  store double %conv, ptr %arrayidx, align 8, !tbaa !31
   %2 = trunc i64 %indvars.iv to i32
   %mul = mul nsw i32 %2, %2
   %rem = urem i32 %mul, 3
@@ -153,15 +153,15 @@ for.body:                                         ; preds = %for.inc, %for.body.
   ], !prof !36
 
 sw.bb:                                            ; preds = %for.body
-  %call = tail call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([14 x i8], [14 x i8]* @.str, i64 0, i64 0), i32 %2), !intel-profx !37
+  %call = tail call i32 (ptr, ...) @printf(ptr @.str, i32 %2), !intel-profx !37
   br label %for.inc
 
 sw.bb1:                                           ; preds = %for.body
-  %call2 = tail call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([14 x i8], [14 x i8]* @.str.1, i64 0, i64 0), i32 %2), !intel-profx !38
+  %call2 = tail call i32 (ptr, ...) @printf(ptr @.str.1, i32 %2), !intel-profx !38
   br label %for.inc
 
 sw.default:                                       ; preds = %for.body
-  %call3 = tail call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([16 x i8], [16 x i8]* @.str.2, i64 0, i64 0), i32 %2), !intel-profx !39
+  %call3 = tail call i32 (ptr, ...) @printf(ptr @.str.2, i32 %2), !intel-profx !39
   br label %for.inc
 
 for.inc:                                          ; preds = %sw.bb, %sw.bb1, %sw.default
@@ -173,13 +173,13 @@ for.end.loopexit:                                 ; preds = %for.inc
   br label %for.end
 
 for.end:                                          ; preds = %for.end.loopexit, %entry
-  %3 = load double, double* getelementptr inbounds ([20 x double], [20 x double]* @a, i64 0, i64 3), align 8, !tbaa !31
+  %3 = load double, ptr getelementptr inbounds ([20 x double], ptr @a, i64 0, i64 3), align 8, !tbaa !31
   %conv4 = fptosi double %3 to i32
   ret i32 %conv4
 }
 
 ; Function Attrs: nounwind
-declare dso_local i32 @printf(i8* nocapture readonly, ...) local_unnamed_addr #1
+declare dso_local i32 @printf(ptr nocapture readonly, ...) local_unnamed_addr #1
 
 ; Function Attrs: inlinehint nounwind uwtable
 define dso_local i32 @main() local_unnamed_addr #0 !prof !29 {

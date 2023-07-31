@@ -61,7 +61,7 @@
 ; CHECK:         }
 ; CHECK:   END REGION
 
-define dso_local void @_Z3fooPiii(i32* nocapture noundef %a, i32 noundef %n, i32 noundef %m) {
+define dso_local void @_Z3fooPiii(ptr nocapture noundef %a, i32 noundef %n, i32 noundef %m) {
 entry:
   %cmp37 = icmp sgt i32 %n, 0
   br i1 %cmp37, label %for.body.lr.ph, label %for.cond.cleanup
@@ -86,11 +86,11 @@ for.body5.preheader:                              ; preds = %for.body
 
 for.body5:                                        ; preds = %for.body5.preheader, %for.body5
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body5 ], [ 0, %for.body5.preheader ]
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx
   %add8 = shl i32 %0, 1
   %add11 = add i32 %add8, 4
-  store i32 %add11, i32* %arrayidx
+  store i32 %add11, ptr %arrayidx
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 10
   br i1 %exitcond.not, label %if.end.loopexit, label %for.body5
@@ -99,10 +99,10 @@ if.end.loopexit:                                  ; preds = %for.body5
   br label %if.end
 
 if.end:                                           ; preds = %if.end.loopexit, %for.body
-  %arrayidx13 = getelementptr inbounds i32, i32* %a, i64 %indvars.iv39
-  %1 = load i32, i32* %arrayidx13
+  %arrayidx13 = getelementptr inbounds i32, ptr %a, i64 %indvars.iv39
+  %1 = load i32, ptr %arrayidx13
   %add14 = add nsw i32 %1, 1
-  store i32 %add14, i32* %arrayidx13
+  store i32 %add14, ptr %arrayidx13
   %indvars.iv.next40 = add nuw nsw i64 %indvars.iv39, 1
   %exitcond41.not = icmp eq i64 %indvars.iv.next40, %wide.trip.count
   br i1 %exitcond41.not, label %for.cond.cleanup.loopexit, label %for.body

@@ -151,84 +151,84 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nosync nounwind memory(read, argmem: readwrite, inaccessiblemem: none) uwtable
-define void @module_ra_flg_mp_ice_98_(i32* noalias nocapture readonly dereferenceable(4) %"band_new_$nv_", i32* noalias nocapture readonly dereferenceable(4) %"band_new_$ib_", float* noalias nocapture readonly dereferenceable(4) %"band_new_$pde_", float* noalias nocapture readonly dereferenceable(4) %"band_new_$piwc_", float* noalias nocapture writeonly dereferenceable(4) %"band_new_$ti_", float* noalias nocapture writeonly dereferenceable(4) %"band_new_$wi_", float* noalias nocapture writeonly dereferenceable(4) %"band_new_$wwi_") #0 {
+define void @module_ra_flg_mp_ice_98_(ptr noalias nocapture readonly dereferenceable(4) %"band_new_$nv_", ptr noalias nocapture readonly dereferenceable(4) %"band_new_$ib_", ptr noalias nocapture readonly dereferenceable(4) %"band_new_$pde_", ptr noalias nocapture readonly dereferenceable(4) %"band_new_$piwc_", ptr noalias nocapture writeonly dereferenceable(4) %"band_new_$ti_", ptr noalias nocapture writeonly dereferenceable(4) %"band_new_$wi_", ptr noalias nocapture writeonly dereferenceable(4) %"band_new_$wwi_") #0 {
 alloca_37:
-  %"band_new_$ib__fetch.3435" = load i32, i32* %"band_new_$ib_", align 1
+  %"band_new_$ib__fetch.3435" = load i32, ptr %"band_new_$ib_", align 1
   %rel.492 = icmp slt i32 %"band_new_$ib__fetch.3435", 7
-  %"ice5_mp_cp_[][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) null, i64 1)
-  %"ice5_mp_cp_[][]29" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) null, i64 2)
-  %"ice5_mp_cp_[][]32" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) null, i64 3)
-  %"ice5_mp_cp_[][]35" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) null, i64 4)
-  %"ice5_mp_dps_[][]39" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) null, i64 2)
+  %"ice5_mp_cp_[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) null, i64 1)
+  %"ice5_mp_cp_[][]29" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) null, i64 2)
+  %"ice5_mp_cp_[][]32" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) null, i64 3)
+  %"ice5_mp_cp_[][]35" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) null, i64 4)
+  %"ice5_mp_dps_[][]39" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) null, i64 2)
   br label %bb673
 
 bb673:                                            ; preds = %bb678_endif, %alloca_37
   %indvars.iv = phi i64 [ 1, %alloca_37 ], [ %indvars.iv.next, %bb678_endif ]
-  %"band_new_$piwc_[]126" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) %"band_new_$piwc_", i64 %indvars.iv)
-  %"band_new_$piwc_[]_fetch.3410" = load float, float* %"band_new_$piwc_[]126", align 1
+  %"band_new_$piwc_[]126" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"band_new_$piwc_", i64 %indvars.iv)
+  %"band_new_$piwc_[]_fetch.3410" = load float, ptr %"band_new_$piwc_[]126", align 1
   %rel.491 = fcmp olt float %"band_new_$piwc_[]_fetch.3410", 0x3EE4F8B580000000
   br i1 %rel.491, label %bb_new1647_then, label %bb_new1655_else
 
 bb_new1659_then:                                  ; preds = %bb_new1655_else
-  %"band_new_$dz_[]_fetch.3437" = load float, float* null, align 1
+  %"band_new_$dz_[]_fetch.3437" = load float, ptr null, align 1
   %mul.868 = fmul float %"band_new_$dz_[]_fetch.3437", 1.000000e+03
   %mul.869 = fmul float %"band_new_$piwc_[]_fetch.3410", %mul.868
-  %"ice5_mp_ap_[][]_fetch.3441" = load float, float* null, align 4
-  %"ice5_mp_ap_[][]_fetch.3443" = load float, float* null, align 4
+  %"ice5_mp_ap_[][]_fetch.3441" = load float, ptr null, align 4
+  %"ice5_mp_ap_[][]_fetch.3443" = load float, ptr null, align 4
   %div.181 = fdiv float %"ice5_mp_ap_[][]_fetch.3443", %"band_new_$pde_[]_fetch.3428"
   %add.514 = fadd float %"ice5_mp_ap_[][]_fetch.3441", %div.181
   %mul.872 = fmul float %mul.869, %add.514
   %add.516 = fadd float 0.000000e+00, 0.000000e+00
   %add.517 = fadd float %add.516, 0.000000e+00
   %sub.264 = fsub float 1.000000e+00, %add.517
-  %"ice5_mp_cp_[][]_fetch.3457" = load float, float* %"ice5_mp_cp_[][]", align 4
-  %"ice5_mp_cp_[][]_fetch.3459" = load float, float* %"ice5_mp_cp_[][]29", align 4
+  %"ice5_mp_cp_[][]_fetch.3457" = load float, ptr %"ice5_mp_cp_[][]", align 4
+  %"ice5_mp_cp_[][]_fetch.3459" = load float, ptr %"ice5_mp_cp_[][]29", align 4
   %mul.882 = fmul float %"band_new_$pde_[]_fetch.3428", %"ice5_mp_cp_[][]_fetch.3459"
   %add.518 = fadd float %"ice5_mp_cp_[][]_fetch.3457", %mul.882
-  %"ice5_mp_cp_[][]_fetch.3462" = load float, float* %"ice5_mp_cp_[][]32", align 4
+  %"ice5_mp_cp_[][]_fetch.3462" = load float, ptr %"ice5_mp_cp_[][]32", align 4
   %mul.884 = fmul float %mul.866, %"ice5_mp_cp_[][]_fetch.3462"
-  %"ice5_mp_cp_[][]_fetch.3465" = load float, float* %"ice5_mp_cp_[][]35", align 4
+  %"ice5_mp_cp_[][]_fetch.3465" = load float, ptr %"ice5_mp_cp_[][]35", align 4
   %mul.886 = fmul float %mul.867, %"ice5_mp_cp_[][]_fetch.3465"
   %add.520 = fadd float 0.000000e+00, %mul.886
-  %"ice5_mp_dps_[][]_fetch.3468" = load float, float* null, align 4
-  %"ice5_mp_dps_[][]_fetch.3470" = load float, float* %"ice5_mp_dps_[][]39", align 4
+  %"ice5_mp_dps_[][]_fetch.3468" = load float, ptr null, align 4
+  %"ice5_mp_dps_[][]_fetch.3470" = load float, ptr %"ice5_mp_dps_[][]39", align 4
   %mul.889 = fmul float %"band_new_$pde_[]_fetch.3428", %"ice5_mp_dps_[][]_fetch.3470"
   %add.521 = fadd float %"ice5_mp_dps_[][]_fetch.3468", %mul.889
-  %"ice5_mp_dps_[][]_fetch.3473" = load float, float* null, align 4
+  %"ice5_mp_dps_[][]_fetch.3473" = load float, ptr null, align 4
   %mul.891 = fmul float %mul.866, %"ice5_mp_dps_[][]_fetch.3473"
   %mul.893 = fmul float %mul.867, 0.000000e+00
   %mul.894 = fmul float %sub.264, 0.000000e+00
   %mul.895 = fmul float %mul.872, 0.000000e+00
-  %"band_new_$wi_[]48" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) %"band_new_$wi_", i64 %indvars.iv)
-  store float 0.000000e+00, float* %"band_new_$wi_[]48", align 1
+  %"band_new_$wi_[]48" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"band_new_$wi_", i64 %indvars.iv)
+  store float 0.000000e+00, ptr %"band_new_$wi_[]48", align 1
   %sub.268 = fsub float %add.520, 0.000000e+00
   br label %bb678_endif
 
 bb_new1676_else:                                  ; preds = %bb_new1655_else
   %mul.912 = fmul float %mul.866, 0.000000e+00
   %mul.914 = fmul float %mul.867, 0.000000e+00
-  %"ice5_mp_cp_[][]_fetch.3543" = load float, float* null, align 4
+  %"ice5_mp_cp_[][]_fetch.3543" = load float, ptr null, align 4
   %mul.918 = fmul float %"band_new_$pde_[]_fetch.3428", %"ice5_mp_cp_[][]_fetch.3543"
   br label %bb678_endif
 
 bb_new1647_then:                                  ; preds = %bb673
-  %"band_new_$ti_[]122" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) %"band_new_$ti_", i64 %indvars.iv)
-  store float 0.000000e+00, float* %"band_new_$ti_[]122", align 1
-  %"band_new_$wi_[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) %"band_new_$wi_", i64 %indvars.iv)
-  store float 0.000000e+00, float* %"band_new_$wi_[]", align 1
-  %"band_new_$wwi_[][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) null, i64 %indvars.iv)
-  store float 0.000000e+00, float* %"band_new_$wwi_[][]", align 1
-  %"band_new_$wwi_[][]6" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) null, i64 %indvars.iv)
-  store float 0.000000e+00, float* %"band_new_$wwi_[][]6", align 1
-  %"band_new_$wwi_[][]9" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) null, i64 %indvars.iv)
-  store float 0.000000e+00, float* %"band_new_$wwi_[][]9", align 1
-  %"band_new_$wwi_[][]12" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) null, i64 %indvars.iv)
-  store float 0.000000e+00, float* %"band_new_$wwi_[][]12", align 1
+  %"band_new_$ti_[]122" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"band_new_$ti_", i64 %indvars.iv)
+  store float 0.000000e+00, ptr %"band_new_$ti_[]122", align 1
+  %"band_new_$wi_[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"band_new_$wi_", i64 %indvars.iv)
+  store float 0.000000e+00, ptr %"band_new_$wi_[]", align 1
+  %"band_new_$wwi_[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) null, i64 %indvars.iv)
+  store float 0.000000e+00, ptr %"band_new_$wwi_[][]", align 1
+  %"band_new_$wwi_[][]6" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) null, i64 %indvars.iv)
+  store float 0.000000e+00, ptr %"band_new_$wwi_[][]6", align 1
+  %"band_new_$wwi_[][]9" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) null, i64 %indvars.iv)
+  store float 0.000000e+00, ptr %"band_new_$wwi_[][]9", align 1
+  %"band_new_$wwi_[][]12" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) null, i64 %indvars.iv)
+  store float 0.000000e+00, ptr %"band_new_$wwi_[][]12", align 1
   br label %bb678_endif
 
 bb_new1655_else:                                  ; preds = %bb673
-  %"band_new_$pde_[]124" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) %"band_new_$pde_", i64 %indvars.iv)
-  %"band_new_$pde_[]_fetch.3428" = load float, float* %"band_new_$pde_[]124", align 1
+  %"band_new_$pde_[]124" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"band_new_$pde_", i64 %indvars.iv)
+  %"band_new_$pde_[]_fetch.3428" = load float, ptr %"band_new_$pde_[]124", align 1
   %mul.866 = fmul float %"band_new_$pde_[]_fetch.3428", %"band_new_$pde_[]_fetch.3428"
   %mul.867 = fmul float %"band_new_$pde_[]_fetch.3428", %mul.866
   br i1 %rel.492, label %bb_new1659_then, label %bb_new1676_else
@@ -248,10 +248,10 @@ bb674.loopexit:                                   ; preds = %bb678_endif
 }
 
 ; Function Attrs: nocallback nofree norecurse nosync nounwind speculatable willreturn memory(none)
-declare float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8, i64, i64, float*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
 ; uselistorder directives
-uselistorder float* (i8, i64, i64, float*, i64)* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64, { 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 }
+uselistorder ptr @llvm.intel.subscript.p0.i64.i64.p0.i64, { 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 }
 
 attributes #0 = { nofree norecurse nosync nounwind memory(read, argmem: readwrite, inaccessiblemem: none) uwtable "denormal-fp-math"="preserve_sign" "frame-pointer"="none" "intel-lang"="fortran" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" }
 attributes #1 = { nocallback nofree norecurse nosync nounwind speculatable willreturn memory(none) }

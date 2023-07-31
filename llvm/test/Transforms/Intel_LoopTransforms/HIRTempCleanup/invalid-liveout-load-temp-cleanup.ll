@@ -45,16 +45,16 @@ target triple = "x86_64-unknown-linux-gnu"
 @A = dso_local local_unnamed_addr global [100 x i32] zeroinitializer, align 16
 @B = dso_local local_unnamed_addr global [100 x i32] zeroinitializer, align 16
 
-define dso_local void @foo(i32 %t, i32* %C) {
+define dso_local void @foo(i32 %t, ptr %C) {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %entry, %latch
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %latch ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %indvars.iv
-  store i32 10, i32* %arrayidx, align 4
-  %arrayidx2 = getelementptr inbounds [100 x i32], [100 x i32]* @B, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx2, align 4
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %indvars.iv
+  store i32 10, ptr %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds [100 x i32], ptr @B, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx2, align 4
   %cmp = icmp eq i32 %t, 0
   br i1 %cmp, label %if, label %else
 
@@ -66,8 +66,8 @@ else:
 
 latch:
   %phi = phi i32 [ %0, %else], [ 5, %if ]
-  %arrayidx3 = getelementptr inbounds i32, i32* %C, i64 %indvars.iv
-  store i32 %phi, i32* %arrayidx3, align 4
+  %arrayidx3 = getelementptr inbounds i32, ptr %C, i64 %indvars.iv
+  store i32 %phi, ptr %arrayidx3, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond.not, label %for.end, label %for.body

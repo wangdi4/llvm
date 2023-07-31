@@ -85,11 +85,11 @@ entry:
   %ep = alloca [100 x [100 x i32]], align 16
   %s7 = alloca [100 x i32], align 16
   %x = alloca [100 x i32], align 16
-  store i32 69, i32* %k, align 4
-  store i32 74, i32* %i, align 4
-  store i32 2, i32* %fs, align 4
-  store i32 30, i32* %k7, align 4
-  store i32 74, i32* %n1, align 4
+  store i32 69, ptr %k, align 4
+  store i32 74, ptr %i, align 4
+  store i32 2, ptr %fs, align 4
+  store i32 30, ptr %k7, align 4
+  store i32 74, ptr %n1, align 4
   br label %for.cond.7.preheader
 
 for.cond.7.preheader:                             ; preds = %for.inc.48, %entry
@@ -103,19 +103,19 @@ for.cond.7.preheader:                             ; preds = %for.inc.48, %entry
   br i1 %cmp8.128, label %for.body.9.lr.ph, label %for.inc.48
 
 for.body.9.lr.ph:                                 ; preds = %for.cond.7.preheader
-  %fs.promoted = load i32, i32* %fs, align 4
+  %fs.promoted = load i32, ptr %fs, align 4
   %3 = add nsw i64 %indvars.iv169, -1
-  %arrayidx12 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* %ti, i64 0, i64 %indvars.iv169, i64 %3
+  %arrayidx12 = getelementptr inbounds [100 x [100 x i32]], ptr %ti, i64 0, i64 %indvars.iv169, i64 %3
   br label %for.body.9
 
 for.body.9:                                       ; preds = %for.body.9, %for.body.9.lr.ph
   %indvars.iv148 = phi i64 [ %indvars.iv169, %for.body.9.lr.ph ], [ %indvars.iv.next149, %for.body.9 ]
   %add21136 = phi i32 [ %fs.promoted, %for.body.9.lr.ph ], [ %add21, %for.body.9 ]
-  %4 = load i32, i32* %arrayidx12, align 4
-  %arrayidx16 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* %ti, i64 0, i64 %indvars.iv148, i64 %indvars.iv148
-  store i32 %4, i32* %arrayidx16, align 4
-  %arrayidx20 = getelementptr inbounds [100 x i32], [100 x i32]* %n, i64 0, i64 %indvars.iv148
-  %5 = load i32, i32* %arrayidx20, align 4
+  %4 = load i32, ptr %arrayidx12, align 4
+  %arrayidx16 = getelementptr inbounds [100 x [100 x i32]], ptr %ti, i64 0, i64 %indvars.iv148, i64 %indvars.iv148
+  store i32 %4, ptr %arrayidx16, align 4
+  %arrayidx20 = getelementptr inbounds [100 x i32], ptr %n, i64 0, i64 %indvars.iv148
+  %5 = load i32, ptr %arrayidx20, align 4
   %6 = trunc i64 %indvars.iv148 to i32
   %add = add i32 %6, %5
   %add21 = add i32 %add, %add21136
@@ -126,8 +126,8 @@ for.body.9:                                       ; preds = %for.body.9, %for.bo
 
 for.cond.7.for.cond.22.preheader_crit_edge:       ; preds = %for.body.9
   %add21.lcssa = phi i32 [ %add21, %for.body.9 ]
-  store i32 %add21.lcssa, i32* %fs, align 4
-  %arrayidx18.le = getelementptr inbounds [100 x i32], [100 x i32]* %a, i64 0, i64 %2
+  store i32 %add21.lcssa, ptr %fs, align 4
+  %arrayidx18.le = getelementptr inbounds [100 x i32], ptr %a, i64 0, i64 %2
   br label %for.inc.48
 
 for.inc.48:                                       ; preds = %for.cond.22.preheader, %for.cond.22.for.inc.48_crit_edge

@@ -89,16 +89,16 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind uwtable
 define i32 @main() local_unnamed_addr #0 {
 entry:
-  store i32 0, i32* @i, align 4
-  %0 = load i32, i32* @c1, align 4
+  store i32 0, ptr @i, align 4
+  %0 = load i32, ptr @c1, align 4
   %tobool = icmp eq i32 %0, 0
-  %1 = load i32, i32* @c2, align 4
+  %1 = load i32, ptr @c2, align 4
   %tobool7 = icmp eq i32 %1, 0
   br label %for.body3.lr.ph
 
 for.body3.lr.ph:                                  ; preds = %entry, %for.inc15
   %inc16.sink24 = phi i32 [ 0, %entry ], [ %inc16, %for.inc15 ]
-  %x.promoted = load i32, i32* @x, align 4
+  %x.promoted = load i32, ptr @x, align 4
   br label %for.body3
 
 for.cond1:                                        ; preds = %for.body3
@@ -114,8 +114,8 @@ for.body3:                                        ; preds = %for.body3.lr.ph, %f
 
 if.then:                                          ; preds = %for.body3
   %inc.lcssa = phi i32 [ %inc, %for.body3 ]
-  store i32 %inc.lcssa, i32* @x, align 4
-  store i32 0, i32* @k, align 4
+  store i32 %inc.lcssa, ptr @x, align 4
+  store i32 0, ptr @k, align 4
   br label %for.body6
 
 for.body6:                                        ; preds = %for.inc, %if.then
@@ -125,7 +125,7 @@ for.body6:                                        ; preds = %for.inc, %if.then
 
 if.then8:                                         ; preds = %for.body6
   %inc9 = add nsw i32 %2, 1
-  store i32 %inc9, i32* @x, align 4
+  store i32 %inc9, ptr @x, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body6, %if.then8
@@ -135,13 +135,13 @@ for.inc:                                          ; preds = %for.body6, %if.then
   br i1 %exitcond, label %for.inc15.loopexit, label %for.body6
 
 for.inc15.loopexit:                               ; preds = %for.inc
-  store i32 2, i32* @k, align 4
+  store i32 2, ptr @k, align 4
   br label %for.inc15
 
 for.cond1.for.inc15.loopexit18_crit_edge:         ; preds = %for.cond1
   %inc.lcssa35 = phi i32 [ %inc, %for.cond1 ]
   %inc13.lcssa34 = phi i32 [ %inc13, %for.cond1 ]
-  store i32 %inc.lcssa35, i32* @x, align 4
+  store i32 %inc.lcssa35, ptr @x, align 4
   br label %for.inc15
 
 for.inc15:                                        ; preds = %for.cond1.for.inc15.loopexit18_crit_edge, %for.inc15.loopexit
@@ -152,8 +152,8 @@ for.inc15:                                        ; preds = %for.cond1.for.inc15
 
 for.end17:                                        ; preds = %for.inc15
   %inc16.sink2425.lcssa = phi i32 [ %inc16.sink2425, %for.inc15 ]
-  store i32 %inc16.sink2425.lcssa, i32* @j, align 4
-  store i32 2, i32* @i, align 4
+  store i32 %inc16.sink2425.lcssa, ptr @j, align 4
+  store i32 2, ptr @i, align 4
   ret i32 0
 }
 

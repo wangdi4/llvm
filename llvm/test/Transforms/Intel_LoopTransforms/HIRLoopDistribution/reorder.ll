@@ -54,27 +54,27 @@ for.body.lr.ph:                                   ; preds = %entry
 
 for.body:                                         ; preds = %for.body, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [128 x float], [128 x float]* @B, i64 0, i64 %indvars.iv
-  %1 = load float, float* %arrayidx, align 4
-  %arrayidx2 = getelementptr inbounds [128 x float], [128 x float]* @C, i64 0, i64 %indvars.iv
-  %2 = load float, float* %arrayidx2, align 4
+  %arrayidx = getelementptr inbounds [128 x float], ptr @B, i64 0, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds [128 x float], ptr @C, i64 0, i64 %indvars.iv
+  %2 = load float, ptr %arrayidx2, align 4
   %add = fadd float %1, %2
   %add3 = add nsw i64 %indvars.iv, %blob1
-  %arrayidx4 = getelementptr inbounds [128 x float], [128 x float]* @MC, i64 0, i64 %add3
-  store float %add, float* %arrayidx4, align 4
-  %arrayidx6 = getelementptr inbounds [128 x float], [128 x float]* @DC, i64 0, i64 %indvars.iv
-  %3 = bitcast float* %arrayidx6 to i32*
-  %4 = load i32, i32* %3, align 4
+  %arrayidx4 = getelementptr inbounds [128 x float], ptr @MC, i64 0, i64 %add3
+  store float %add, ptr %arrayidx4, align 4
+  %arrayidx6 = getelementptr inbounds [128 x float], ptr @DC, i64 0, i64 %indvars.iv
+  %3 = bitcast ptr %arrayidx6 to ptr
+  %4 = load i32, ptr %3, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx9 = getelementptr inbounds [128 x float], [128 x float]* @B, i64 0, i64 %indvars.iv.next
-  %5 = bitcast float* %arrayidx9 to i32*
-  store i32 %4, i32* %5, align 4
-  %6 = load float, float* %arrayidx2, align 4
+  %arrayidx9 = getelementptr inbounds [128 x float], ptr @B, i64 0, i64 %indvars.iv.next
+  %5 = bitcast ptr %arrayidx9 to ptr
+  store i32 %4, ptr %5, align 4
+  %6 = load float, ptr %arrayidx2, align 4
   %add13 = add nsw i64 %indvars.iv, %blob2
-  %arrayidx14 = getelementptr inbounds [128 x float], [128 x float]* @MC, i64 0, i64 %add13
-  %7 = load float, float* %arrayidx14, align 4
+  %arrayidx14 = getelementptr inbounds [128 x float], ptr @MC, i64 0, i64 %add13
+  %7 = load float, ptr %arrayidx14, align 4
   %add15 = fadd float %6, %7
-  store float %add15, float* %arrayidx2, align 4
+  store float %add15, ptr %arrayidx2, align 4
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, %0
   br i1 %exitcond, label %for.cond.for.end_crit_edge, label %for.body
@@ -85,8 +85,8 @@ for.cond.for.end_crit_edge:                       ; preds = %for.body
 
 for.end:                                          ; preds = %entry, %for.cond.for.end_crit_edge
   %i.0.lcssa = phi i64 [ %phitmp, %for.cond.for.end_crit_edge ], [ -1, %entry ]
-  %arrayidx20 = getelementptr inbounds [128 x float], [128 x float]* @MC, i64 0, i64 %i.0.lcssa
-  %8 = load float, float* %arrayidx20, align 4
+  %arrayidx20 = getelementptr inbounds [128 x float], ptr @MC, i64 0, i64 %i.0.lcssa
+  %8 = load float, ptr %arrayidx20, align 4
   ret float %8
 }
 

@@ -30,18 +30,18 @@ for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %0 = shl nsw i64 %indvars.iv, 1
   %1 = sub nuw nsw i64 100, %0
-  %arrayidx = getelementptr inbounds [1000 x float], [1000 x float]* @a, i64 0, i64 %1
-  %2 = load float, float* %arrayidx, align 8, !tbaa !1
+  %arrayidx = getelementptr inbounds [1000 x float], ptr @a, i64 0, i64 %1
+  %2 = load float, ptr %arrayidx, align 8, !tbaa !1
   %add = fadd float %2, 1.000000e+00
-  store float %add, float* %arrayidx, align 8, !tbaa !1
+  store float %add, ptr %arrayidx, align 8, !tbaa !1
   %3 = add nuw nsw i64 %indvars.iv, 2
   %4 = trunc i64 %3 to i32
   %conv = sitofp i32 %4 to float
   %5 = sub nuw nsw i64 50, %indvars.iv
-  %arrayidx4 = getelementptr inbounds [1000 x float], [1000 x float]* @a, i64 0, i64 %5
-  %6 = load float, float* %arrayidx4, align 4, !tbaa !1
+  %arrayidx4 = getelementptr inbounds [1000 x float], ptr @a, i64 0, i64 %5
+  %6 = load float, ptr %arrayidx4, align 4, !tbaa !1
   %add5 = fadd float %conv, %6
-  store float %add5, float* %arrayidx4, align 4, !tbaa !1
+  store float %add5, ptr %arrayidx4, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 51
   br i1 %exitcond, label %for.end, label %for.body

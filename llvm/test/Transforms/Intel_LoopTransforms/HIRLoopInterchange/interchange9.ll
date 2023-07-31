@@ -42,36 +42,36 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind uwtable
 define void @CalculateQuantParam() local_unnamed_addr #0 {
 entry:
-  %0 = load i32, i32* getelementptr inbounds ([6 x i32], [6 x i32]* @present, i64 0, i64 0), align 16, !tbaa !1
+  %0 = load i32, ptr @present, align 16, !tbaa !1
   %tobool = icmp ne i32 %0, 0
-  %1 = load i16, i16* getelementptr inbounds ([6 x i16], [6 x i16]* @UseDefaultScalingMatrix4x4Flag, i64 0, i64 0), align 2
+  %1 = load i16, ptr @UseDefaultScalingMatrix4x4Flag, align 2
   %tobool7 = icmp eq i16 %1, 0
   %or.cond = and i1 %tobool, %tobool7
-  %2 = load i32, i32* getelementptr inbounds ([6 x i32], [6 x i32]* @present, i64 0, i64 1), align 4, !tbaa !1
+  %2 = load i32, ptr getelementptr inbounds ([6 x i32], ptr @present, i64 0, i64 1), align 4, !tbaa !1
   %tobool70 = icmp eq i32 %2, 0
-  %3 = load i32, i32* getelementptr inbounds ([6 x i32], [6 x i32]* @present, i64 0, i64 2), align 8, !tbaa !1
+  %3 = load i32, ptr getelementptr inbounds ([6 x i32], ptr @present, i64 0, i64 2), align 8, !tbaa !1
   %tobool145 = icmp eq i32 %3, 0
-  %4 = load i32, i32* getelementptr inbounds ([6 x i32], [6 x i32]* @present, i64 0, i64 3), align 4, !tbaa !1
+  %4 = load i32, ptr getelementptr inbounds ([6 x i32], ptr @present, i64 0, i64 3), align 4, !tbaa !1
   %tobool224 = icmp ne i32 %4, 0
-  %5 = load i16, i16* getelementptr inbounds ([6 x i16], [6 x i16]* @UseDefaultScalingMatrix4x4Flag, i64 0, i64 3), align 2
+  %5 = load i16, ptr getelementptr inbounds ([6 x i16], ptr @UseDefaultScalingMatrix4x4Flag, i64 0, i64 3), align 2
   %tobool227 = icmp eq i16 %5, 0
   %or.cond651 = and i1 %tobool224, %tobool227
-  %6 = load i32, i32* getelementptr inbounds ([6 x i32], [6 x i32]* @present, i64 0, i64 4), align 16, !tbaa !1
+  %6 = load i32, ptr getelementptr inbounds ([6 x i32], ptr @present, i64 0, i64 4), align 16, !tbaa !1
   %tobool297 = icmp eq i32 %6, 0
-  %7 = load i32, i32* getelementptr inbounds ([6 x i32], [6 x i32]* @present, i64 0, i64 5), align 4, !tbaa !1
+  %7 = load i32, ptr getelementptr inbounds ([6 x i32], ptr @present, i64 0, i64 5), align 4, !tbaa !1
   %tobool376 = icmp eq i32 %7, 0
-  %8 = load i16, i16* getelementptr inbounds ([6 x i16], [6 x i16]* @UseDefaultScalingMatrix4x4Flag, i64 0, i64 5), align 2
+  %8 = load i16, ptr getelementptr inbounds ([6 x i16], ptr @UseDefaultScalingMatrix4x4Flag, i64 0, i64 5), align 2
   %tobool411 = icmp ne i16 %8, 0
-  %9 = select i1 %tobool411, [16 x i16]* @Quant_inter_default, [16 x i16]* getelementptr inbounds ([6 x [16 x i16]], [6 x [16 x i16]]* @ScalingList4x4, i64 0, i64 5)
-  %10 = load i16, i16* getelementptr inbounds ([6 x i16], [6 x i16]* @UseDefaultScalingMatrix4x4Flag, i64 0, i64 4), align 2
+  %9 = select i1 %tobool411, ptr @Quant_inter_default, ptr getelementptr inbounds ([6 x [16 x i16]], ptr @ScalingList4x4, i64 0, i64 5)
+  %10 = load i16, ptr getelementptr inbounds ([6 x i16], ptr @UseDefaultScalingMatrix4x4Flag, i64 0, i64 4), align 2
   %tobool332 = icmp ne i16 %10, 0
-  %11 = select i1 %tobool332, [16 x i16]* @Quant_inter_default, [16 x i16]* getelementptr inbounds ([6 x [16 x i16]], [6 x [16 x i16]]* @ScalingList4x4, i64 0, i64 4)
-  %12 = load i16, i16* getelementptr inbounds ([6 x i16], [6 x i16]* @UseDefaultScalingMatrix4x4Flag, i64 0, i64 2), align 2
+  %11 = select i1 %tobool332, ptr @Quant_inter_default, ptr getelementptr inbounds ([6 x [16 x i16]], ptr @ScalingList4x4, i64 0, i64 4)
+  %12 = load i16, ptr getelementptr inbounds ([6 x i16], ptr @UseDefaultScalingMatrix4x4Flag, i64 0, i64 2), align 2
   %tobool180 = icmp ne i16 %12, 0
-  %13 = select i1 %tobool180, [16 x i16]* @Quant_intra_default, [16 x i16]* getelementptr inbounds ([6 x [16 x i16]], [6 x [16 x i16]]* @ScalingList4x4, i64 0, i64 2)
-  %14 = load i16, i16* getelementptr inbounds ([6 x i16], [6 x i16]* @UseDefaultScalingMatrix4x4Flag, i64 0, i64 1), align 2
+  %13 = select i1 %tobool180, ptr @Quant_intra_default, ptr getelementptr inbounds ([6 x [16 x i16]], ptr @ScalingList4x4, i64 0, i64 2)
+  %14 = load i16, ptr getelementptr inbounds ([6 x i16], ptr @UseDefaultScalingMatrix4x4Flag, i64 0, i64 1), align 2
   %tobool105 = icmp ne i16 %14, 0
-  %15 = select i1 %tobool105, [16 x i16]* @Quant_intra_default, [16 x i16]* getelementptr inbounds ([6 x [16 x i16]], [6 x [16 x i16]]* @ScalingList4x4, i64 0, i64 1)
+  %15 = select i1 %tobool105, ptr @Quant_intra_default, ptr getelementptr inbounds ([6 x [16 x i16]], ptr @ScalingList4x4, i64 0, i64 1)
   br label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %for.inc462, %entry
@@ -86,27 +86,27 @@ for.body6:                                        ; preds = %if.end458, %for.con
   %indvars.iv = phi i64 [ 0, %for.cond4.preheader ], [ %indvars.iv.next, %if.end458 ]
   %16 = shl i64 %indvars.iv, 2
   %17 = add nuw nsw i64 %16, %indvars.iv660
-  %arrayidx42 = getelementptr inbounds [6 x [4 x [4 x i32]]], [6 x [4 x [4 x i32]]]* @quant_coef, i64 0, i64 %indvars.iv663, i64 %indvars.iv660, i64 %indvars.iv
-  %18 = load i32, i32* %arrayidx42, align 4, !tbaa !6
+  %arrayidx42 = getelementptr inbounds [6 x [4 x [4 x i32]]], ptr @quant_coef, i64 0, i64 %indvars.iv663, i64 %indvars.iv660, i64 %indvars.iv
+  %18 = load i32, ptr %arrayidx42, align 4, !tbaa !6
   %shl43 = shl i32 %18, 4
-  %arrayidx45 = getelementptr inbounds [6 x [16 x i16]], [6 x [16 x i16]]* @ScalingList4x4, i64 0, i64 0, i64 %17
-  %arrayidx14 = getelementptr inbounds [16 x i16], [16 x i16]* @Quant_intra_default, i64 0, i64 %17
-  %19 = select i1 %or.cond, i16* %arrayidx45, i16* %arrayidx14
-  %20 = load i16, i16* %19, align 2, !tbaa !10
+  %arrayidx45 = getelementptr inbounds [6 x [16 x i16]], ptr @ScalingList4x4, i64 0, i64 0, i64 %17
+  %arrayidx14 = getelementptr inbounds [16 x i16], ptr @Quant_intra_default, i64 0, i64 %17
+  %19 = select i1 %or.cond, ptr %arrayidx45, ptr %arrayidx14
+  %20 = load i16, ptr %19, align 2, !tbaa !10
   %conv46 = sext i16 %20 to i32
   %div47 = sdiv i32 %shl43, %conv46
-  %arrayidx53 = getelementptr inbounds [6 x [4 x [4 x i32]]], [6 x [4 x [4 x i32]]]* @LevelScale4x4Luma_Intra, i64 0, i64 %indvars.iv663, i64 %indvars.iv660, i64 %indvars.iv
-  store i32 %div47, i32* %arrayidx53, align 4, !tbaa !6
-  %arrayidx59 = getelementptr inbounds [6 x [4 x [4 x i32]]], [6 x [4 x [4 x i32]]]* @dequant_coef, i64 0, i64 %indvars.iv663, i64 %indvars.iv660, i64 %indvars.iv
-  %21 = load i32, i32* %arrayidx59, align 4, !tbaa !6
+  %arrayidx53 = getelementptr inbounds [6 x [4 x [4 x i32]]], ptr @LevelScale4x4Luma_Intra, i64 0, i64 %indvars.iv663, i64 %indvars.iv660, i64 %indvars.iv
+  store i32 %div47, ptr %arrayidx53, align 4, !tbaa !6
+  %arrayidx59 = getelementptr inbounds [6 x [4 x [4 x i32]]], ptr @dequant_coef, i64 0, i64 %indvars.iv663, i64 %indvars.iv660, i64 %indvars.iv
+  %21 = load i32, ptr %arrayidx59, align 4, !tbaa !6
   %mul63 = mul nsw i32 %21, %conv46
-  %arrayidx69 = getelementptr inbounds [6 x [4 x [4 x i32]]], [6 x [4 x [4 x i32]]]* @InvLevelScale4x4Luma_Intra, i64 0, i64 %indvars.iv663, i64 %indvars.iv660, i64 %indvars.iv
-  store i32 %mul63, i32* %arrayidx69, align 4, !tbaa !6
+  %arrayidx69 = getelementptr inbounds [6 x [4 x [4 x i32]]], ptr @InvLevelScale4x4Luma_Intra, i64 0, i64 %indvars.iv663, i64 %indvars.iv660, i64 %indvars.iv
+  store i32 %mul63, ptr %arrayidx69, align 4, !tbaa !6
   br i1 %tobool70, label %if.end144, label %if.else96
 
 if.else96:                                        ; preds = %for.body6
-  %arrayidx110 = getelementptr inbounds [16 x i16], [16 x i16]* %15, i64 0, i64 %17
-  %22 = load i16, i16* %arrayidx110, align 2, !tbaa !10
+  %arrayidx110 = getelementptr inbounds [16 x i16], ptr %15, i64 0, i64 %17
+  %22 = load i16, ptr %arrayidx110, align 2, !tbaa !10
   %conv111 = sext i16 %22 to i32
   %div112 = sdiv i32 %shl43, %conv111
   %mul137 = mul nsw i32 %21, %conv111
@@ -115,15 +115,15 @@ if.else96:                                        ; preds = %for.body6
 if.end144:                                        ; preds = %for.body6, %if.else96
   %23 = phi i32 [ %div112, %if.else96 ], [ %div47, %for.body6 ]
   %24 = phi i32 [ %mul137, %if.else96 ], [ %mul63, %for.body6 ]
-  %25 = getelementptr inbounds [2 x [6 x [4 x [4 x i32]]]], [2 x [6 x [4 x [4 x i32]]]]* @LevelScale4x4Chroma_Intra, i64 0, i64 0, i64 %indvars.iv663, i64 %indvars.iv660, i64 %indvars.iv
-  store i32 %23, i32* %25, align 4
-  %arrayidx143 = getelementptr inbounds [2 x [6 x [4 x [4 x i32]]]], [2 x [6 x [4 x [4 x i32]]]]* @InvLevelScale4x4Chroma_Intra, i64 0, i64 0, i64 %indvars.iv663, i64 %indvars.iv660, i64 %indvars.iv
-  store i32 %24, i32* %arrayidx143, align 4, !tbaa !12
+  %25 = getelementptr inbounds [2 x [6 x [4 x [4 x i32]]]], ptr @LevelScale4x4Chroma_Intra, i64 0, i64 0, i64 %indvars.iv663, i64 %indvars.iv660, i64 %indvars.iv
+  store i32 %23, ptr %25, align 4
+  %arrayidx143 = getelementptr inbounds [2 x [6 x [4 x [4 x i32]]]], ptr @InvLevelScale4x4Chroma_Intra, i64 0, i64 0, i64 %indvars.iv663, i64 %indvars.iv660, i64 %indvars.iv
+  store i32 %24, ptr %arrayidx143, align 4, !tbaa !12
   br i1 %tobool145, label %if.end223, label %if.else171
 
 if.else171:                                       ; preds = %if.end144
-  %arrayidx187 = getelementptr inbounds [16 x i16], [16 x i16]* %13, i64 0, i64 %17
-  %26 = load i16, i16* %arrayidx187, align 2, !tbaa !10
+  %arrayidx187 = getelementptr inbounds [16 x i16], ptr %13, i64 0, i64 %17
+  %26 = load i16, ptr %arrayidx187, align 2, !tbaa !10
   %conv188 = sext i16 %26 to i32
   %div191 = sdiv i32 %shl43, %conv188
   %mul216 = mul nsw i32 %21, %conv188
@@ -132,26 +132,26 @@ if.else171:                                       ; preds = %if.end144
 if.end223:                                        ; preds = %if.end144, %if.else171
   %.sink666 = phi i32 [ %div191, %if.else171 ], [ %23, %if.end144 ]
   %mul216.sink = phi i32 [ %mul216, %if.else171 ], [ %24, %if.end144 ]
-  %27 = getelementptr inbounds [2 x [6 x [4 x [4 x i32]]]], [2 x [6 x [4 x [4 x i32]]]]* @LevelScale4x4Chroma_Intra, i64 0, i64 1, i64 %indvars.iv663, i64 %indvars.iv660, i64 %indvars.iv
-  store i32 %.sink666, i32* %27, align 4
-  %arrayidx222 = getelementptr inbounds [2 x [6 x [4 x [4 x i32]]]], [2 x [6 x [4 x [4 x i32]]]]* @InvLevelScale4x4Chroma_Intra, i64 0, i64 1, i64 %indvars.iv663, i64 %indvars.iv660, i64 %indvars.iv
-  store i32 %mul216.sink, i32* %arrayidx222, align 4, !tbaa !12
-  %arrayidx271 = getelementptr inbounds [6 x [16 x i16]], [6 x [16 x i16]]* @ScalingList4x4, i64 0, i64 3, i64 %17
-  %arrayidx237 = getelementptr inbounds [16 x i16], [16 x i16]* @Quant_inter_default, i64 0, i64 %17
-  %28 = select i1 %or.cond651, i16* %arrayidx271, i16* %arrayidx237
-  %29 = load i16, i16* %28, align 2, !tbaa !10
+  %27 = getelementptr inbounds [2 x [6 x [4 x [4 x i32]]]], ptr @LevelScale4x4Chroma_Intra, i64 0, i64 1, i64 %indvars.iv663, i64 %indvars.iv660, i64 %indvars.iv
+  store i32 %.sink666, ptr %27, align 4
+  %arrayidx222 = getelementptr inbounds [2 x [6 x [4 x [4 x i32]]]], ptr @InvLevelScale4x4Chroma_Intra, i64 0, i64 1, i64 %indvars.iv663, i64 %indvars.iv660, i64 %indvars.iv
+  store i32 %mul216.sink, ptr %arrayidx222, align 4, !tbaa !12
+  %arrayidx271 = getelementptr inbounds [6 x [16 x i16]], ptr @ScalingList4x4, i64 0, i64 3, i64 %17
+  %arrayidx237 = getelementptr inbounds [16 x i16], ptr @Quant_inter_default, i64 0, i64 %17
+  %28 = select i1 %or.cond651, ptr %arrayidx271, ptr %arrayidx237
+  %29 = load i16, ptr %28, align 2, !tbaa !10
   %conv272 = sext i16 %29 to i32
   %div273 = sdiv i32 %shl43, %conv272
-  %arrayidx279 = getelementptr inbounds [6 x [4 x [4 x i32]]], [6 x [4 x [4 x i32]]]* @LevelScale4x4Luma_Inter, i64 0, i64 %indvars.iv663, i64 %indvars.iv660, i64 %indvars.iv
-  store i32 %div273, i32* %arrayidx279, align 4, !tbaa !6
+  %arrayidx279 = getelementptr inbounds [6 x [4 x [4 x i32]]], ptr @LevelScale4x4Luma_Inter, i64 0, i64 %indvars.iv663, i64 %indvars.iv660, i64 %indvars.iv
+  store i32 %div273, ptr %arrayidx279, align 4, !tbaa !6
   %mul289 = mul nsw i32 %21, %conv272
-  %arrayidx295 = getelementptr inbounds [6 x [4 x [4 x i32]]], [6 x [4 x [4 x i32]]]* @InvLevelScale4x4Luma_Inter, i64 0, i64 %indvars.iv663, i64 %indvars.iv660, i64 %indvars.iv
-  store i32 %mul289, i32* %arrayidx295, align 4, !tbaa !6
+  %arrayidx295 = getelementptr inbounds [6 x [4 x [4 x i32]]], ptr @InvLevelScale4x4Luma_Inter, i64 0, i64 %indvars.iv663, i64 %indvars.iv660, i64 %indvars.iv
+  store i32 %mul289, ptr %arrayidx295, align 4, !tbaa !6
   br i1 %tobool297, label %if.end375, label %if.else323
 
 if.else323:                                       ; preds = %if.end223
-  %arrayidx339 = getelementptr inbounds [16 x i16], [16 x i16]* %11, i64 0, i64 %17
-  %30 = load i16, i16* %arrayidx339, align 2, !tbaa !10
+  %arrayidx339 = getelementptr inbounds [16 x i16], ptr %11, i64 0, i64 %17
+  %30 = load i16, ptr %arrayidx339, align 2, !tbaa !10
   %conv340 = sext i16 %30 to i32
   %div343 = sdiv i32 %shl43, %conv340
   %mul368 = mul nsw i32 %21, %conv340
@@ -160,20 +160,20 @@ if.else323:                                       ; preds = %if.end223
 if.end375:                                        ; preds = %if.end223, %if.else323
   %31 = phi i32 [ %div343, %if.else323 ], [ %div273, %if.end223 ]
   %32 = phi i32 [ %mul368, %if.else323 ], [ %mul289, %if.end223 ]
-  %33 = getelementptr inbounds [2 x [6 x [4 x [4 x i32]]]], [2 x [6 x [4 x [4 x i32]]]]* @LevelScale4x4Chroma_Inter, i64 0, i64 0, i64 %indvars.iv663, i64 %indvars.iv660, i64 %indvars.iv
-  store i32 %31, i32* %33, align 4
-  %arrayidx374 = getelementptr inbounds [2 x [6 x [4 x [4 x i32]]]], [2 x [6 x [4 x [4 x i32]]]]* @InvLevelScale4x4Chroma_Inter, i64 0, i64 0, i64 %indvars.iv663, i64 %indvars.iv660, i64 %indvars.iv
-  store i32 %32, i32* %arrayidx374, align 4, !tbaa !12
+  %33 = getelementptr inbounds [2 x [6 x [4 x [4 x i32]]]], ptr @LevelScale4x4Chroma_Inter, i64 0, i64 0, i64 %indvars.iv663, i64 %indvars.iv660, i64 %indvars.iv
+  store i32 %31, ptr %33, align 4
+  %arrayidx374 = getelementptr inbounds [2 x [6 x [4 x [4 x i32]]]], ptr @InvLevelScale4x4Chroma_Inter, i64 0, i64 0, i64 %indvars.iv663, i64 %indvars.iv660, i64 %indvars.iv
+  store i32 %32, ptr %arrayidx374, align 4, !tbaa !12
   br i1 %tobool376, label %if.end458, label %if.else402
 
 if.else402:                                       ; preds = %if.end375
-  %arrayidx418 = getelementptr inbounds [16 x i16], [16 x i16]* %9, i64 0, i64 %17
-  %34 = load i16, i16* %arrayidx418, align 2, !tbaa !10
+  %arrayidx418 = getelementptr inbounds [16 x i16], ptr %9, i64 0, i64 %17
+  %34 = load i16, ptr %arrayidx418, align 2, !tbaa !10
   %conv419 = sext i16 %34 to i32
   %div422 = sdiv i32 %shl43, %conv419
   %mul447 = mul nsw i32 %21, %conv419
-  %arrayidx449 = getelementptr inbounds [10 x i32], [10 x i32]* @M, i64 0, i64 %indvars.iv
-  %35 = load i32, i32* %arrayidx449, align 4, !tbaa !14
+  %arrayidx449 = getelementptr inbounds [10 x i32], ptr @M, i64 0, i64 %indvars.iv
+  %35 = load i32, ptr %arrayidx449, align 4, !tbaa !14
   %idxprom450 = sext i32 %35 to i64
   br label %if.end458
 
@@ -181,10 +181,10 @@ if.end458:                                        ; preds = %if.end375, %if.else
   %.sink668 = phi i32 [ %div422, %if.else402 ], [ %31, %if.end375 ]
   %36 = phi i64 [ %idxprom450, %if.else402 ], [ 1, %if.end375 ]
   %mul447.sink = phi i32 [ %mul447, %if.else402 ], [ %32, %if.end375 ]
-  %37 = getelementptr inbounds [2 x [6 x [4 x [4 x i32]]]], [2 x [6 x [4 x [4 x i32]]]]* @LevelScale4x4Chroma_Inter, i64 0, i64 1, i64 %indvars.iv663, i64 %indvars.iv660, i64 %indvars.iv
-  store i32 %.sink668, i32* %37, align 4
-  %arrayidx457 = getelementptr inbounds [2 x [6 x [4 x [4 x i32]]]], [2 x [6 x [4 x [4 x i32]]]]* @InvLevelScale4x4Chroma_Inter, i64 0, i64 %36, i64 %indvars.iv663, i64 %indvars.iv660, i64 %indvars.iv
-  store i32 %mul447.sink, i32* %arrayidx457, align 4, !tbaa !12
+  %37 = getelementptr inbounds [2 x [6 x [4 x [4 x i32]]]], ptr @LevelScale4x4Chroma_Inter, i64 0, i64 1, i64 %indvars.iv663, i64 %indvars.iv660, i64 %indvars.iv
+  store i32 %.sink668, ptr %37, align 4
+  %arrayidx457 = getelementptr inbounds [2 x [6 x [4 x [4 x i32]]]], ptr @InvLevelScale4x4Chroma_Inter, i64 0, i64 %36, i64 %indvars.iv663, i64 %indvars.iv660, i64 %indvars.iv
+  store i32 %mul447.sink, ptr %arrayidx457, align 4, !tbaa !12
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 4
   br i1 %exitcond, label %for.inc459, label %for.body6

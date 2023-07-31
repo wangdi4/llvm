@@ -41,12 +41,12 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @foo() local_unnamed_addr #0 personality i32 (...)* @pluto {
+define dso_local void @foo() local_unnamed_addr #0 personality ptr @pluto {
 bb:
   br label %bb1
 
 bb1:                                              ; preds = %bb3, %bb
-  %tmp = load float*, float** undef, align 8
+  %tmp = load ptr, ptr undef, align 8
   br label %bb5
 
 bb2:                                              ; preds = %bb3
@@ -82,11 +82,11 @@ bb19:                                             ; preds = %bb19, %bb10
   %tmp20 = phi i64 [ 0, %bb10 ], [ %tmp27, %bb19 ]
   %tmp21 = add i32 %tmp12, 0
   %tmp22 = zext i32 %tmp21 to i64
-  %tmp23 = getelementptr inbounds float, float* %tmp, i64 %tmp22
-  %tmp24 = load float, float* %tmp23, align 4
+  %tmp23 = getelementptr inbounds float, ptr %tmp, i64 %tmp22
+  %tmp24 = load float, ptr %tmp23, align 4
   %tmp25 = fsub fast float undef, %tmp24
-  %tmp26 = getelementptr inbounds [3 x double], [3 x double]* undef, i64 0, i64 %tmp20
-  store double undef, double* %tmp26, align 8
+  %tmp26 = getelementptr inbounds [3 x double], ptr undef, i64 0, i64 %tmp20
+  store double undef, ptr %tmp26, align 8
   %tmp27 = add nuw nsw i64 %tmp20, 1
   %tmp28 = icmp eq i64 %tmp27, 3
   br i1 %tmp28, label %bb16, label %bb19, !llvm.loop !0

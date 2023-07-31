@@ -4,8 +4,6 @@
 
 ; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-general-unroll,print<hir>,hir-cg" -S < %s 2>&1 | FileCheck %s
 ;
-; RUN: opt -opaque-pointers -passes="loop-simplify,hir-ssa-deconstruction,hir-general-unroll,print<hir>,hir-cg" -S < %s 2>&1 | FileCheck %s
-;
 ; HIR Check
 ; CHECK: BEGIN REGION { modified }
 ; CHECK: DO i1 = 0, 34, 1
@@ -77,10 +75,10 @@ entry:
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %1 = mul nsw i64 %indvars.iv, %0
-  %arrayidx = getelementptr inbounds [284 x i32], [284 x i32]* @a, i64 0, i64 %1
-  %2 = load i32, i32* %arrayidx, align 4
-  %arrayidx2 = getelementptr inbounds [284 x i32], [284 x i32]* @a, i64 0, i64 %indvars.iv
-  store i32 %2, i32* %arrayidx2, align 4
+  %arrayidx = getelementptr inbounds [284 x i32], ptr @a, i64 0, i64 %1
+  %2 = load i32, ptr %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds [284 x i32], ptr @a, i64 0, i64 %indvars.iv
+  store i32 %2, ptr %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 284
   br i1 %exitcond, label %for.end, label %for.body
@@ -90,9 +88,9 @@ for.end:                                          ; preds = %for.body
 }
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture)
+declare void @llvm.lifetime.start(i64, ptr nocapture)
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture)
+declare void @llvm.lifetime.end(i64, ptr nocapture)
 
 

@@ -48,31 +48,31 @@ for.body:                                         ; preds = %for.body, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
   %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.DISTRIBUTE_POINT"() ]
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx = getelementptr inbounds [1000 x float], [1000 x float]* @a4, i64 0, i64 %indvars.iv.next
-  %1 = load float, float* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [1000 x float], ptr @a4, i64 0, i64 %indvars.iv.next
+  %1 = load float, ptr %arrayidx, align 4, !tbaa !2
   %2 = add nuw nsw i64 %indvars.iv, 3
-  %arrayidx3 = getelementptr inbounds [1000 x float], [1000 x float]* @a4, i64 0, i64 %2
-  %3 = load float, float* %arrayidx3, align 4, !tbaa !2
+  %arrayidx3 = getelementptr inbounds [1000 x float], ptr @a4, i64 0, i64 %2
+  %3 = load float, ptr %arrayidx3, align 4, !tbaa !2
   %sub = fsub float %1, %3
-  %arrayidx5 = getelementptr inbounds [1000 x float], [1000 x float]* @a1, i64 0, i64 %indvars.iv
-  store float %sub, float* %arrayidx5, align 4, !tbaa !2
+  %arrayidx5 = getelementptr inbounds [1000 x float], ptr @a1, i64 0, i64 %indvars.iv
+  store float %sub, ptr %arrayidx5, align 4, !tbaa !2
   call void @llvm.directive.region.exit(token %0) [ "DIR.PRAGMA.END.DISTRIBUTE_POINT"() ]
   %4 = add nuw nsw i64 %indvars.iv, 2
-  %arrayidx8 = getelementptr inbounds [1000 x float], [1000 x float]* @a4, i64 0, i64 %4
-  %5 = load float, float* %arrayidx8, align 4, !tbaa !2
+  %arrayidx8 = getelementptr inbounds [1000 x float], ptr @a4, i64 0, i64 %4
+  %5 = load float, ptr %arrayidx8, align 4, !tbaa !2
   %6 = add nuw nsw i64 %indvars.iv, 7
-  %arrayidx11 = getelementptr inbounds [1000 x float], [1000 x float]* @a4, i64 0, i64 %6
-  %7 = load float, float* %arrayidx11, align 4, !tbaa !2
+  %arrayidx11 = getelementptr inbounds [1000 x float], ptr @a4, i64 0, i64 %6
+  %7 = load float, ptr %arrayidx11, align 4, !tbaa !2
   %sub12 = fsub float %5, %7
-  %arrayidx14 = getelementptr inbounds [1000 x float], [1000 x float]* @a2, i64 0, i64 %indvars.iv
-  store float %sub12, float* %arrayidx14, align 4, !tbaa !2
-  %8 = load float, float* %arrayidx3, align 4, !tbaa !2
+  %arrayidx14 = getelementptr inbounds [1000 x float], ptr @a2, i64 0, i64 %indvars.iv
+  store float %sub12, ptr %arrayidx14, align 4, !tbaa !2
+  %8 = load float, ptr %arrayidx3, align 4, !tbaa !2
   %9 = add nuw nsw i64 %indvars.iv, 8
-  %arrayidx20 = getelementptr inbounds [1000 x float], [1000 x float]* @a4, i64 0, i64 %9
-  %10 = load float, float* %arrayidx20, align 4, !tbaa !2
+  %arrayidx20 = getelementptr inbounds [1000 x float], ptr @a4, i64 0, i64 %9
+  %10 = load float, ptr %arrayidx20, align 4, !tbaa !2
   %add21 = fadd float %8, %10
-  %arrayidx23 = getelementptr inbounds [1000 x float], [1000 x float]* @a3, i64 0, i64 %indvars.iv
-  store float %add21, float* %arrayidx23, align 4, !tbaa !2
+  %arrayidx23 = getelementptr inbounds [1000 x float], ptr @a3, i64 0, i64 %indvars.iv
+  store float %add21, ptr %arrayidx23, align 4, !tbaa !2
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.end.loopexit, label %for.body
 

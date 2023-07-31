@@ -23,24 +23,24 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local i32 @main() local_unnamed_addr #0 {
 entry:
-  %0 = load i64, i64* getelementptr inbounds ([192 x i64], [192 x i64]* @a1_ly, i64 0, i64 0), align 16
+  %0 = load i64, ptr @a1_ly, align 16
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %1 = phi i64 [ %0, %entry ], [ %5, %for.body ]
   %or = or i64 %1, 19
-  store i64 %or, i64* getelementptr inbounds ([192 x i64], [192 x i64]* @a1_ly, i64 0, i64 0), align 16
+  store i64 %or, ptr @a1_ly, align 16
   %2 = trunc i64 %indvars.iv to i32
   %3 = add i32 %2, -24
   %div = udiv i32 %3, 90
   %conv1 = zext i32 %div to i64
-  %arrayidx = getelementptr inbounds [192 x i64], [192 x i64]* @a1_ly, i64 0, i64 %indvars.iv
-  %4 = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds [192 x i64], ptr @a1_ly, i64 0, i64 %indvars.iv
+  %4 = load i64, ptr %arrayidx, align 8
   %xor = xor i64 %4, %conv1
-  store i64 %xor, i64* %arrayidx, align 8
+  store i64 %xor, ptr %arrayidx, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %5 = load i64, i64* getelementptr inbounds ([192 x i64], [192 x i64]* @a1_ly, i64 0, i64 0), align 16
+  %5 = load i64, ptr @a1_ly, align 16
   %exitcond = icmp eq i64 %indvars.iv.next, 64
   br i1 %exitcond, label %for.end, label %for.body
 

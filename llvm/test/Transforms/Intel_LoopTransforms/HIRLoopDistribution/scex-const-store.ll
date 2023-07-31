@@ -40,7 +40,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline nounwind uwtable
-define dso_local void @foo(float* %a) #0 {
+define dso_local void @foo(ptr %a) #0 {
 entry:
   br label %for.body
 
@@ -58,8 +58,8 @@ if.end:                                           ; preds = %if.then, %for.body
   %p = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.DISTRIBUTE_POINT"() ]
   %conv = sitofp i32 %t.0 to float
   %idxprom = sext i32 %i.01 to i64
-  %arrayidx = getelementptr inbounds float, float* %a, i64 %idxprom
-  store float %conv, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds float, ptr %a, i64 %idxprom
+  store float %conv, ptr %arrayidx, align 4
   call void @llvm.directive.region.exit(token %p) [ "DIR.PRAGMA.END.DISTRIBUTE_POINT"() ]
   br label %for.inc
 

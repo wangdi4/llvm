@@ -52,19 +52,19 @@ for.body:                                         ; preds = %for.inc, %entry
   br i1 %cmp1, label %if.then, label %for.inc
 
 if.then:                                          ; preds = %for.body
-  %arrayidx = getelementptr inbounds [100 x float], [100 x float]* @B, i64 0, i64 %indvars.iv
-  %0 = load float, float* %arrayidx, align 4
-  %arrayidx3 = getelementptr inbounds [100 x float], [100 x float]* @C, i64 0, i64 %indvars.iv
-  %1 = load float, float* %arrayidx3, align 4
+  %arrayidx = getelementptr inbounds [100 x float], ptr @B, i64 0, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx, align 4
+  %arrayidx3 = getelementptr inbounds [100 x float], ptr @C, i64 0, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx3, align 4
   %add = fadd float %0, %1
-  %arrayidx5 = getelementptr inbounds [100 x float], [100 x float]* @A, i64 0, i64 %indvars.iv
-  store float %add, float* %arrayidx5, align 4
+  %arrayidx5 = getelementptr inbounds [100 x float], ptr @A, i64 0, i64 %indvars.iv
+  store float %add, ptr %arrayidx5, align 4
   %2 = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx8 = getelementptr inbounds [100 x float], [100 x float]* @A, i64 0, i64 %2
-  %3 = load float, float* %arrayidx8, align 4
+  %arrayidx8 = getelementptr inbounds [100 x float], ptr @A, i64 0, i64 %2
+  %3 = load float, ptr %arrayidx8, align 4
   %conv10 = fadd float %3, 1.000000e+00
-  %arrayidx12 = getelementptr inbounds [100 x float], [100 x float]* @D, i64 0, i64 %indvars.iv
-  store float %conv10, float* %arrayidx12, align 4
+  %arrayidx12 = getelementptr inbounds [100 x float], ptr @D, i64 0, i64 %indvars.iv
+  store float %conv10, ptr %arrayidx12, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %if.then, %for.body

@@ -1,10 +1,10 @@
 ; REQUIRES: asserts
 
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-simulate-get-num-threads-frugally=true -debug-only=vpo-paropt-target -S %s 2>&1 | FileCheck %s -check-prefixes=DEFAULT,ALL
-; RUN: opt -opaque-pointers=0 -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-simulate-get-num-threads-frugally=true -debug-only=vpo-paropt-target -S %s 2>&1 | FileCheck %s -check-prefixes=DEFAULT,ALL
+; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-simulate-get-num-threads-frugally=true -debug-only=vpo-paropt-target -S %s 2>&1 | FileCheck %s -check-prefixes=DEFAULT,ALL
+; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-simulate-get-num-threads-frugally=true -debug-only=vpo-paropt-target -S %s 2>&1 | FileCheck %s -check-prefixes=DEFAULT,ALL
 
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-simulate-get-num-threads-frugally=false -debug-only=vpo-paropt-target -S %s 2>&1 | FileCheck %s -check-prefixes=NOFRUGAL,ALL
-; RUN: opt -opaque-pointers=0 -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-simulate-get-num-threads-frugally=false -debug-only=vpo-paropt-target -S %s 2>&1 | FileCheck %s -check-prefixes=NOFRUGAL,ALL
+; RUN: opt -bugpoint-enable-legacy-pm -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-simulate-get-num-threads-frugally=false -debug-only=vpo-paropt-target -S %s 2>&1 | FileCheck %s -check-prefixes=NOFRUGAL,ALL
+; RUN: opt -switch-to-offload -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-simulate-get-num-threads-frugally=false -debug-only=vpo-paropt-target -S %s 2>&1 | FileCheck %s -check-prefixes=NOFRUGAL,ALL
 
 ; Test src:
 
@@ -64,25 +64,33 @@ define hidden i32 @main() #0 {
 entry:
   %retval = alloca i32, align 4
   %nt = alloca i32, align 4
-  %retval.ascast = addrspacecast i32* %retval to i32 addrspace(4)*
-  %nt.ascast = addrspacecast i32* %nt to i32 addrspace(4)*
-  store i32 0, i32 addrspace(4)* %retval.ascast, align 4
+  %retval.ascast = addrspacecast ptr %retval to ptr addrspace(4)
+  %nt.ascast = addrspacecast ptr %nt to ptr addrspace(4)
+  store i32 0, ptr addrspace(4) %retval.ascast, align 4
 
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %nt.ascast) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    "QUAL.OMP.PRIVATE:TYPED"(ptr addrspace(4) %nt.ascast, i32 0, i32 1) ]
+
 
   %call = call spir_func i32 @omp_get_num_threads() #4
-  store i32 %call, i32 addrspace(4)* %nt.ascast, align 4
+  store i32 %call, ptr addrspace(4) %nt.ascast, align 4
 
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED"(i32 addrspace(4)* %nt.ascast) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(),
+    "QUAL.OMP.SHARED:TYPED"(ptr addrspace(4) %nt.ascast, i32 0, i32 1) ]
+
   %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.MASTER"() ]
+
   fence acquire
-  %3 = load i32, i32 addrspace(4)* %nt.ascast, align 4
-  %call1 = call spir_func i32 (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)* getelementptr inbounds ([4 x i8], [4 x i8] addrspace(4)* addrspacecast ([4 x i8] addrspace(1)* @.str to [4 x i8] addrspace(4)*), i64 0, i64 0), i32 %3) #4
+  %3 = load i32, ptr addrspace(4) %nt.ascast, align 4
+  %call1 = call spir_func i32 (ptr addrspace(4), ...) @printf(ptr addrspace(4) addrspacecast (ptr addrspace(1) @.str to ptr addrspace(4)), i32 %3) #4
   fence release
   call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.MASTER"() ]
+
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.PARALLEL"() ]
 
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
+
   ret i32 0
 }
 
@@ -96,7 +104,7 @@ declare void @llvm.directive.region.exit(token) #1
 declare spir_func i32 @omp_get_num_threads() #2
 
 ; Function Attrs: convergent
-declare spir_func i32 @printf(i8 addrspace(4)*, ...) #3
+declare spir_func i32 @printf(ptr addrspace(4), ...) #3
 
 attributes #0 = { convergent noinline nounwind optnone "approx-func-fp-math"="true" "contains-openmp-target"="true" "frame-pointer"="all" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "unsafe-fp-math"="true" }
 attributes #1 = { nounwind }

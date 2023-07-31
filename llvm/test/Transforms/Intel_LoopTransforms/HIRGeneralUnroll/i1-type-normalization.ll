@@ -56,15 +56,15 @@
 ; CHECK:   break;
 ; CHECK: }
 
-define void @foo(i32* %A, i64 %n) {
+define void @foo(ptr %A, i64 %n) {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %and = and i64 %indvars.iv, 1
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %and
-  store i32 3, i32* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %and
+  store i32 3, ptr %arrayidx, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %n
   br i1 %exitcond, label %for.end, label %for.body

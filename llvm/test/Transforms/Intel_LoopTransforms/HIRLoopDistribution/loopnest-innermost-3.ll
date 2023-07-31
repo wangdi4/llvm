@@ -62,19 +62,19 @@ for.cond.cleanup3:                                ; preds = %for.body4
 
 for.body4:                                        ; preds = %for.body4, %for.cond1.preheader
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body4 ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %indvars.iv
-  %Idx = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %indvars.iv
+  %Idx = load i32, ptr %arrayidx, align 4
 
-  %arrayidx12 = getelementptr inbounds [100 x float], [100 x float]* @C, i64 0, i32 %Idx
-  %t1 = load float, float* %arrayidx12, align 4
+  %arrayidx12 = getelementptr inbounds [100 x float], ptr @C, i64 0, i32 %Idx
+  %t1 = load float, ptr %arrayidx12, align 4
 
-  %arrayidx7 = getelementptr inbounds [100 x float], [100 x float]* @B, i64 0, i64 %indvars.iv
-  %t2 = load float, float* %arrayidx7, align 4
+  %arrayidx7 = getelementptr inbounds [100 x float], ptr @B, i64 0, i64 %indvars.iv
+  %t2 = load float, ptr %arrayidx7, align 4
   %t3 = fadd float %t1, %t2
-  store float %t3, float* %arrayidx7, align 4
+  store float %t3, ptr %arrayidx7, align 4
 
-  %arrayidx13 = getelementptr inbounds [100 x float], [100 x float]* @D, i64 0, i32 %Idx
-  store float %t1, float* %arrayidx13, align 4
+  %arrayidx13 = getelementptr inbounds [100 x float], ptr @D, i64 0, i32 %Idx
+  store float %t1, ptr %arrayidx13, align 4
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100

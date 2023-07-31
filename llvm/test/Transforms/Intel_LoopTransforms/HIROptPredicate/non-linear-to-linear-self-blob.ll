@@ -30,7 +30,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @foo(i32 %n, i32* %p) #0 {
+define dso_local void @foo(i32 %n, ptr %p) #0 {
 entry:
   br label %for.body
 
@@ -47,8 +47,8 @@ if.then:                                          ; preds = %for.body
 if.end:                                           ; preds = %if.then, %for.body
   %x.1 = phi i32 [ %inc, %if.then ], [ %x.01, %for.body ]
   %idxprom = sext i32 %i.02 to i64
-  %arrayidx = getelementptr inbounds i32, i32* %p, i64 %idxprom
-  store i32 %x.1, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %p, i64 %idxprom
+  store i32 %x.1, ptr %arrayidx, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %if.end

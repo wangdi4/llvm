@@ -56,23 +56,23 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body, %for.body.preheader
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [1000 x float], [1000 x float]* @b, i64 0, i64 %indvars.iv
-  %0 = load float, float* %arrayidx, align 4
-  %arrayidx2 = getelementptr inbounds [1000 x float], [1000 x float]* @c, i64 0, i64 %indvars.iv
-  %1 = load float, float* %arrayidx2, align 4
-  %arrayidx4 = getelementptr inbounds [1000 x float], [1000 x float]* @a, i64 0, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds [1000 x float], ptr @b, i64 0, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds [1000 x float], ptr @c, i64 0, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx2, align 4
+  %arrayidx4 = getelementptr inbounds [1000 x float], ptr @a, i64 0, i64 %indvars.iv
   %sub = fsub float %0, %1
-  store float %sub, float* %arrayidx4, align 4
+  store float %sub, ptr %arrayidx4, align 4
   %2 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.DISTRIBUTE_POINT"() ]
-  %3 = load float, float* %arrayidx4, align 4
-  %4 = load float, float* %arrayidx2, align 4
+  %3 = load float, ptr %arrayidx4, align 4
+  %4 = load float, ptr %arrayidx2, align 4
   %mul = fmul float %3, %4
-  store float %mul, float* %arrayidx4, align 4
+  store float %mul, ptr %arrayidx4, align 4
   call void @llvm.directive.region.exit(token %2) [ "DIR.PRAGMA.END.DISTRIBUTE_POINT"() ]
-  %5 = load float, float* %arrayidx4, align 4
-  %6 = load float, float* %arrayidx2, align 4
+  %5 = load float, ptr %arrayidx4, align 4
+  %6 = load float, ptr %arrayidx2, align 4
   %div = fdiv float %5, %6
-  store float %div, float* %arrayidx4, align 4
+  store float %div, ptr %arrayidx4, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.end.loopexit, label %for.body

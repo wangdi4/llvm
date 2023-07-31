@@ -36,12 +36,12 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind uwtable
 define dso_local void @f() local_unnamed_addr #0 {
 entry:
-  %.pr = load i32, i32* @d, align 4
+  %.pr = load i32, ptr @d, align 4
   %tobool22 = icmp eq i32 %.pr, 0
   br i1 %tobool22, label %for.end15, label %for.cond1.preheader.lr.ph
 
 for.cond1.preheader.lr.ph:                        ; preds = %entry
-  %e.promoted23 = load i32, i32* @e, align 4
+  %e.promoted23 = load i32, ptr @e, align 4
   %0 = sub i32 -2, %.pr
   %1 = and i32 %0, -2
   %2 = add i32 %.pr, %1
@@ -55,8 +55,8 @@ for.cond1.preheader:                              ; preds = %for.cond1.preheader
 
 for.body2:                                        ; preds = %for.body2, %for.cond1.preheader
   %indvars.iv = phi i64 [ 1, %for.cond1.preheader ], [ %indvars.iv.next, %for.body2 ]
-  %arrayidx = getelementptr inbounds [0 x i64], [0 x i64]* @b, i64 0, i64 %indvars.iv
-  store i64 %conv, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds [0 x i64], ptr @b, i64 0, i64 %indvars.iv
+  store i64 %conv, ptr %arrayidx, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 11
   br i1 %exitcond, label %for.body6.preheader, label %for.body2
@@ -67,8 +67,8 @@ for.body6.preheader:                              ; preds = %for.body2
 for.body6:                                        ; preds = %for.body6.preheader, %for.body6
   %indvars.iv26 = phi i64 [ %indvars.iv.next27, %for.body6 ], [ 1, %for.body6.preheader ]
   %conv1021 = phi i32 [ %conv10, %for.body6 ], [ %conv10.lcssa24, %for.body6.preheader ]
-  %arrayidx8 = getelementptr inbounds [0 x i64], [0 x i64]* @b, i64 0, i64 %indvars.iv26
-  %3 = load i64, i64* %arrayidx8, align 8
+  %arrayidx8 = getelementptr inbounds [0 x i64], ptr @b, i64 0, i64 %indvars.iv26
+  %3 = load i64, ptr %arrayidx8, align 8
   %4 = trunc i64 %3 to i32
   %conv10 = and i32 %conv1021, %4
   %indvars.iv.next27 = add nuw nsw i64 %indvars.iv26, 1
@@ -84,9 +84,9 @@ for.inc14:                                        ; preds = %for.body6
 for.cond.for.end15_crit_edge:                     ; preds = %for.inc14
   %conv10.lcssa.lcssa = phi i32 [ %conv10.lcssa, %for.inc14 ]
   %5 = add i32 %2, 2
-  store i32 %conv10.lcssa.lcssa, i32* @e, align 4
-  store i32 11, i32* @c, align 4
-  store i32 %5, i32* @d, align 4
+  store i32 %conv10.lcssa.lcssa, ptr @e, align 4
+  store i32 11, ptr @c, align 4
+  store i32 %5, ptr @d, align 4
   br label %for.end15
 
 for.end15:                                        ; preds = %for.cond.for.end15_crit_edge, %entry

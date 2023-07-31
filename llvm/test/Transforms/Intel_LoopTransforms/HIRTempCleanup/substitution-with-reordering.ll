@@ -1,5 +1,5 @@
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>,hir-temp-cleanup,print<hir-framework>" -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -opaque-pointers -passes="hir-ssa-deconstruction,print<hir-framework>,hir-temp-cleanup,print<hir-framework>" -disable-output 2>&1 | FileCheck %s
+
 
 ; Verify that temp cleanup cleans up %best.014.out by moving its use in %tmp.015 before the invalidating definition %best.014.
 
@@ -43,8 +43,8 @@ for.body:                                         ; preds = %for.body, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
   %tmp.015 = phi i32 [ 0, %for.body.preheader ], [ %spec.select12, %for.body ]
   %best.014 = phi i32 [ -111111111, %for.body.preheader ], [ %spec.select, %for.body ]
-  %arrayidx = getelementptr inbounds [1000 x i32], [1000 x i32]* @ordering, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [1000 x i32], ptr @ordering, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %cmp1 = icmp sgt i32 %0, %best.014
   %spec.select = select i1 %cmp1, i32 %0, i32 %best.014
   %1 = trunc i64 %indvars.iv to i32

@@ -88,44 +88,43 @@ target triple = "x86_64-unknown-linux-gnu"
 @anon.dd7a7b7a12f2fcffb00f487a714d6282.1 = internal unnamed_addr constant i32 2
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 %0, i64 %1, i64 %2, double* %3, i64 %4) #0
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 %0, i64 %1, i64 %2, ptr %3, i64 %4) #0
 
 ; Function Attrs: nofree
-declare dso_local i32 @for_write_seq_fmt(i8* %0, i32 %1, i64 %2, i8* %3, i8* %4, i8* %5, ...) local_unnamed_addr #1
+declare dso_local i32 @for_write_seq_fmt(ptr %0, i32 %1, i64 %2, ptr %3, ptr %4, ptr %5, ...) local_unnamed_addr #1
 
 ; Function Attrs: nofree
-declare dso_local i32 @for_write_seq_fmt_xmit(i8* nocapture readonly %0, i8* nocapture readonly %1, i8* %2) local_unnamed_addr #1
+declare dso_local i32 @for_write_seq_fmt_xmit(ptr nocapture readonly %0, ptr nocapture readonly %1, ptr %2) local_unnamed_addr #1
 
 ; Function Attrs: nofree
-declare dso_local i32 @for_write_seq_lis(i8* %0, i32 %1, i64 %2, i8* %3, i8* %4, ...) local_unnamed_addr #1
+declare dso_local i32 @for_write_seq_lis(ptr %0, i32 %1, i64 %2, ptr %3, ptr %4, ...) local_unnamed_addr #1
 
 ; Function Attrs: nofree
-declare dso_local i32 @for_write_seq_lis_xmit(i8* nocapture readonly %0, i8* nocapture readonly %1, i8* %2) local_unnamed_addr #1
+declare dso_local i32 @for_write_seq_lis_xmit(ptr nocapture readonly %0, ptr nocapture readonly %1, ptr %2) local_unnamed_addr #1
 
 
 ; Function Attrs: nofree
-declare dso_local i32 @for_set_reentrancy(i32* nocapture readonly %0) local_unnamed_addr #1
+declare dso_local i32 @for_set_reentrancy(ptr nocapture readonly %0) local_unnamed_addr #1
 
 ; Function Attrs: nofree
-declare dso_local i32 @for_read_seq_lis(i8* %0, i32 %1, i64 %2, i8* %3, i8* %4, ...) local_unnamed_addr #1
+declare dso_local i32 @for_read_seq_lis(ptr %0, i32 %1, i64 %2, ptr %3, ptr %4, ...) local_unnamed_addr #1
 
 ; Function Attrs: nofree
-declare dso_local i32 @for_read_seq_lis_xmit(i8* nocapture readonly %0, i8* nocapture readonly %1, i8* %2) local_unnamed_addr #1
+declare dso_local i32 @for_read_seq_lis_xmit(ptr nocapture readonly %0, ptr nocapture readonly %1, ptr %2) local_unnamed_addr #1
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 %0, i64 %1, i64 %2, i32* %3, i64 %4) #0
 
 ; Function Attrs: nofree
-declare dso_local i64 @for_trim(i8* nocapture %0, i64 %1, i8* nocapture readonly %2, i64 %3) local_unnamed_addr #1
+declare dso_local i64 @for_trim(ptr nocapture %0, i64 %1, ptr nocapture readonly %2, i64 %3) local_unnamed_addr #1
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn mustprogress
-declare void @llvm.for.cpystr.i64.i64.i64(i8* noalias nocapture writeonly %0, i64 %1, i8* noalias nocapture readonly %2, i64 %3, i64 %4, i1 immarg %5) #3
+declare void @llvm.for.cpystr.i64.i64.i64(ptr noalias nocapture writeonly %0, i64 %1, ptr noalias nocapture readonly %2, i64 %3, i64 %4, i1 immarg %5) #3
 
 ; Function Attrs: nofree
-declare dso_local i32 @for_open(i8* nocapture %0, i32 %1, i64 %2, i8* nocapture readonly %3, i8* %4, ...) local_unnamed_addr #1
+declare dso_local i32 @for_open(ptr nocapture %0, i32 %1, i64 %2, ptr nocapture readonly %3, ptr %4, ...) local_unnamed_addr #1
 
 ; Function Attrs: nofree
-declare dso_local i32 @for_close(i8* nocapture %0, i32 %1, i64 %2, i8* nocapture readonly %3, i8* nocapture readonly %4, ...) local_unnamed_addr #1
+declare dso_local i32 @for_close(ptr nocapture %0, i32 %1, i64 %2, ptr nocapture readonly %3, ptr nocapture readonly %4, ...) local_unnamed_addr #1
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable willreturn mustprogress
 declare double @llvm.pow.f64(double %0, double %1) #4
@@ -138,20 +137,20 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %18 = alloca [4 x i8], align 1
   %19 = alloca { double }, align 8
   %20 = alloca [4 x i8], align 1
-  %21 = alloca { i64, i8* }, align 8
+  %21 = alloca { i64, ptr }, align 8
   %22 = alloca [4 x i8], align 1
   %23 = alloca { double }, align 8
   %24 = alloca [8 x i64], align 32
   %25 = alloca [4 x i8], align 1
-  %26 = alloca { i64, i8* }, align 8
+  %26 = alloca { i64, ptr }, align 8
   %27 = alloca [4 x i8], align 1
   %28 = alloca { i32 }, align 8
   %29 = alloca [4 x i8], align 1
-  %30 = alloca { i64, i8* }, align 8
+  %30 = alloca { i64, ptr }, align 8
   %31 = alloca [4 x i8], align 1
   %32 = alloca { double }, align 8
   %33 = alloca [4 x i8], align 1
-  %34 = alloca { i64, i8* }, align 8
+  %34 = alloca { i64, ptr }, align 8
   %35 = alloca [4 x i8], align 1
   %36 = alloca { double }, align 8
   %37 = sext i32 %2 to i64
@@ -263,12 +262,12 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %143 = mul i64 undef, undef
   %144 = mul i64 undef, undef
   %145 = alloca double, i64 undef, align 8
-  %146 = load double, double* undef, align 8
-  %147 = load double, double* undef, align 8
-  %148 = load double, double* undef, align 8
-  %149 = load double, double* undef, align 8
-  %150 = load double, double* undef, align 8
-  %151 = load double, double* undef, align 8
+  %146 = load double, ptr undef, align 8
+  %147 = load double, ptr undef, align 8
+  %148 = load double, ptr undef, align 8
+  %149 = load double, ptr undef, align 8
+  %150 = load double, ptr undef, align 8
+  %151 = load double, ptr undef, align 8
   %152 = call i32 @llvm.ssa.copy.i32(i32 undef)
   %153 = call double @llvm.ssa.copy.f64(double undef)
   %154 = call double @llvm.ssa.copy.f64(double undef)
@@ -9455,60 +9454,60 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br label %9335
 
 9335:                                             ; preds = %14
-  %9336 = getelementptr inbounds [4 x i8], [4 x i8]* %35, i64 0, i64 3
-  %9337 = getelementptr inbounds [4 x i8], [4 x i8]* %35, i64 0, i64 2
-  %9338 = getelementptr inbounds [4 x i8], [4 x i8]* %35, i64 0, i64 1
-  %9339 = getelementptr inbounds [4 x i8], [4 x i8]* %35, i64 0, i64 0
-  %9340 = getelementptr inbounds [4 x i8], [4 x i8]* %22, i64 0, i64 3
-  %9341 = getelementptr inbounds [4 x i8], [4 x i8]* %22, i64 0, i64 2
-  %9342 = getelementptr inbounds [4 x i8], [4 x i8]* %22, i64 0, i64 1
-  %9343 = getelementptr inbounds [4 x i8], [4 x i8]* %22, i64 0, i64 0
-  %9344 = getelementptr inbounds [4 x i8], [4 x i8]* %18, i64 0, i64 3
-  %9345 = getelementptr inbounds [4 x i8], [4 x i8]* %18, i64 0, i64 2
-  %9346 = getelementptr inbounds [4 x i8], [4 x i8]* %18, i64 0, i64 1
-  %9347 = getelementptr inbounds [4 x i8], [4 x i8]* %18, i64 0, i64 0
-  %9348 = getelementptr inbounds [4 x i8], [4 x i8]* %31, i64 0, i64 3
-  %9349 = getelementptr inbounds [4 x i8], [4 x i8]* %31, i64 0, i64 2
-  %9350 = getelementptr inbounds [4 x i8], [4 x i8]* %31, i64 0, i64 1
-  %9351 = getelementptr inbounds [4 x i8], [4 x i8]* %31, i64 0, i64 0
-  %9352 = getelementptr inbounds [4 x i8], [4 x i8]* %29, i64 0, i64 3
-  %9353 = getelementptr inbounds [4 x i8], [4 x i8]* %29, i64 0, i64 2
-  %9354 = getelementptr inbounds [4 x i8], [4 x i8]* %29, i64 0, i64 1
-  %9355 = getelementptr inbounds [4 x i8], [4 x i8]* %29, i64 0, i64 0
-  %9356 = getelementptr inbounds [4 x i8], [4 x i8]* %27, i64 0, i64 3
-  %9357 = getelementptr inbounds [4 x i8], [4 x i8]* %27, i64 0, i64 2
-  %9358 = getelementptr inbounds [4 x i8], [4 x i8]* %27, i64 0, i64 1
-  %9359 = getelementptr inbounds [4 x i8], [4 x i8]* %27, i64 0, i64 0
-  %9360 = getelementptr inbounds { double }, { double }* %36, i64 0, i32 0
-  %9361 = getelementptr inbounds { i64, i8* }, { i64, i8* }* %34, i64 0, i32 1
-  %9362 = getelementptr inbounds { i64, i8* }, { i64, i8* }* %34, i64 0, i32 0
-  %9363 = getelementptr inbounds [4 x i8], [4 x i8]* %33, i64 0, i64 3
-  %9364 = getelementptr inbounds [4 x i8], [4 x i8]* %33, i64 0, i64 2
-  %9365 = getelementptr inbounds [4 x i8], [4 x i8]* %33, i64 0, i64 1
-  %9366 = getelementptr inbounds [4 x i8], [4 x i8]* %33, i64 0, i64 0
-  %9367 = getelementptr inbounds { double }, { double }* %23, i64 0, i32 0
-  %9368 = getelementptr inbounds { i64, i8* }, { i64, i8* }* %21, i64 0, i32 1
-  %9369 = getelementptr inbounds { i64, i8* }, { i64, i8* }* %21, i64 0, i32 0
-  %9370 = getelementptr inbounds [4 x i8], [4 x i8]* %20, i64 0, i64 3
-  %9371 = getelementptr inbounds [4 x i8], [4 x i8]* %20, i64 0, i64 2
-  %9372 = getelementptr inbounds [4 x i8], [4 x i8]* %20, i64 0, i64 1
-  %9373 = getelementptr inbounds [4 x i8], [4 x i8]* %20, i64 0, i64 0
-  %9374 = getelementptr inbounds { double }, { double }* %19, i64 0, i32 0
-  %9375 = getelementptr inbounds { double }, { double }* %17, i64 0, i32 0
-  %9376 = getelementptr inbounds [4 x i8], [4 x i8]* %16, i64 0, i64 3
-  %9377 = getelementptr inbounds [4 x i8], [4 x i8]* %16, i64 0, i64 2
-  %9378 = getelementptr inbounds [4 x i8], [4 x i8]* %16, i64 0, i64 1
-  %9379 = getelementptr inbounds [4 x i8], [4 x i8]* %16, i64 0, i64 0
-  %9380 = getelementptr inbounds { double }, { double }* %32, i64 0, i32 0
-  %9381 = getelementptr inbounds { i64, i8* }, { i64, i8* }* %30, i64 0, i32 1
-  %9382 = getelementptr inbounds { i64, i8* }, { i64, i8* }* %30, i64 0, i32 0
-  %9383 = getelementptr inbounds { i32 }, { i32 }* %28, i64 0, i32 0
-  %9384 = getelementptr inbounds { i64, i8* }, { i64, i8* }* %26, i64 0, i32 1
-  %9385 = getelementptr inbounds { i64, i8* }, { i64, i8* }* %26, i64 0, i32 0
-  %9386 = getelementptr inbounds [4 x i8], [4 x i8]* %25, i64 0, i64 3
-  %9387 = getelementptr inbounds [4 x i8], [4 x i8]* %25, i64 0, i64 2
-  %9388 = getelementptr inbounds [4 x i8], [4 x i8]* %25, i64 0, i64 1
-  %9389 = getelementptr inbounds [4 x i8], [4 x i8]* %25, i64 0, i64 0
+  %9336 = getelementptr inbounds [4 x i8], ptr %35, i64 0, i64 3
+  %9337 = getelementptr inbounds [4 x i8], ptr %35, i64 0, i64 2
+  %9338 = getelementptr inbounds [4 x i8], ptr %35, i64 0, i64 1
+  %9339 = getelementptr inbounds [4 x i8], ptr %35, i64 0, i64 0
+  %9340 = getelementptr inbounds [4 x i8], ptr %22, i64 0, i64 3
+  %9341 = getelementptr inbounds [4 x i8], ptr %22, i64 0, i64 2
+  %9342 = getelementptr inbounds [4 x i8], ptr %22, i64 0, i64 1
+  %9343 = getelementptr inbounds [4 x i8], ptr %22, i64 0, i64 0
+  %9344 = getelementptr inbounds [4 x i8], ptr %18, i64 0, i64 3
+  %9345 = getelementptr inbounds [4 x i8], ptr %18, i64 0, i64 2
+  %9346 = getelementptr inbounds [4 x i8], ptr %18, i64 0, i64 1
+  %9347 = getelementptr inbounds [4 x i8], ptr %18, i64 0, i64 0
+  %9348 = getelementptr inbounds [4 x i8], ptr %31, i64 0, i64 3
+  %9349 = getelementptr inbounds [4 x i8], ptr %31, i64 0, i64 2
+  %9350 = getelementptr inbounds [4 x i8], ptr %31, i64 0, i64 1
+  %9351 = getelementptr inbounds [4 x i8], ptr %31, i64 0, i64 0
+  %9352 = getelementptr inbounds [4 x i8], ptr %29, i64 0, i64 3
+  %9353 = getelementptr inbounds [4 x i8], ptr %29, i64 0, i64 2
+  %9354 = getelementptr inbounds [4 x i8], ptr %29, i64 0, i64 1
+  %9355 = getelementptr inbounds [4 x i8], ptr %29, i64 0, i64 0
+  %9356 = getelementptr inbounds [4 x i8], ptr %27, i64 0, i64 3
+  %9357 = getelementptr inbounds [4 x i8], ptr %27, i64 0, i64 2
+  %9358 = getelementptr inbounds [4 x i8], ptr %27, i64 0, i64 1
+  %9359 = getelementptr inbounds [4 x i8], ptr %27, i64 0, i64 0
+  %9360 = getelementptr inbounds { double }, ptr %36, i64 0, i32 0
+  %9361 = getelementptr inbounds { i64, ptr }, ptr %34, i64 0, i32 1
+  %9362 = getelementptr inbounds { i64, ptr }, ptr %34, i64 0, i32 0
+  %9363 = getelementptr inbounds [4 x i8], ptr %33, i64 0, i64 3
+  %9364 = getelementptr inbounds [4 x i8], ptr %33, i64 0, i64 2
+  %9365 = getelementptr inbounds [4 x i8], ptr %33, i64 0, i64 1
+  %9366 = getelementptr inbounds [4 x i8], ptr %33, i64 0, i64 0
+  %9367 = getelementptr inbounds { double }, ptr %23, i64 0, i32 0
+  %9368 = getelementptr inbounds { i64, ptr }, ptr %21, i64 0, i32 1
+  %9369 = getelementptr inbounds { i64, ptr }, ptr %21, i64 0, i32 0
+  %9370 = getelementptr inbounds [4 x i8], ptr %20, i64 0, i64 3
+  %9371 = getelementptr inbounds [4 x i8], ptr %20, i64 0, i64 2
+  %9372 = getelementptr inbounds [4 x i8], ptr %20, i64 0, i64 1
+  %9373 = getelementptr inbounds [4 x i8], ptr %20, i64 0, i64 0
+  %9374 = getelementptr inbounds { double }, ptr %19, i64 0, i32 0
+  %9375 = getelementptr inbounds { double }, ptr %17, i64 0, i32 0
+  %9376 = getelementptr inbounds [4 x i8], ptr %16, i64 0, i64 3
+  %9377 = getelementptr inbounds [4 x i8], ptr %16, i64 0, i64 2
+  %9378 = getelementptr inbounds [4 x i8], ptr %16, i64 0, i64 1
+  %9379 = getelementptr inbounds [4 x i8], ptr %16, i64 0, i64 0
+  %9380 = getelementptr inbounds { double }, ptr %32, i64 0, i32 0
+  %9381 = getelementptr inbounds { i64, ptr }, ptr %30, i64 0, i32 1
+  %9382 = getelementptr inbounds { i64, ptr }, ptr %30, i64 0, i32 0
+  %9383 = getelementptr inbounds { i32 }, ptr %28, i64 0, i32 0
+  %9384 = getelementptr inbounds { i64, ptr }, ptr %26, i64 0, i32 1
+  %9385 = getelementptr inbounds { i64, ptr }, ptr %26, i64 0, i32 0
+  %9386 = getelementptr inbounds [4 x i8], ptr %25, i64 0, i64 3
+  %9387 = getelementptr inbounds [4 x i8], ptr %25, i64 0, i64 2
+  %9388 = getelementptr inbounds [4 x i8], ptr %25, i64 0, i64 1
+  %9389 = getelementptr inbounds [4 x i8], ptr %25, i64 0, i64 0
   br i1 %109, label %9483, label %9390
 
 9390:                                             ; preds = %9335
@@ -9528,15 +9527,15 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9391, label %9478, label %9402
 
 9402:                                             ; preds = %9400
-  %9403 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %89, i64 %9401)
-  %9404 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %80, i64 %9401)
-  %9405 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %56, i64 %9401)
-  %9406 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %55, i64 %9401)
-  %9407 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %54, i64 %9401)
-  %9408 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %53, i64 %9401)
-  %9409 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %52, i64 %9401)
-  %9410 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %51, i64 %9401)
-  %9411 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %50, i64 %9401)
+  %9403 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %89, i64 %9401)
+  %9404 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %80, i64 %9401)
+  %9405 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %56, i64 %9401)
+  %9406 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %55, i64 %9401)
+  %9407 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %54, i64 %9401)
+  %9408 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %53, i64 %9401)
+  %9409 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %52, i64 %9401)
+  %9410 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %51, i64 %9401)
+  %9411 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %50, i64 %9401)
   %9412 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !4
   br label %9413
 
@@ -9545,73 +9544,73 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9392, label %9473, label %9415
 
 9415:                                             ; preds = %9413
-  %9416 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %9403, i64 %9414)
-  %9417 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %9404, i64 %9414)
-  %9418 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %9405, i64 %9414)
-  %9419 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %9406, i64 %9414)
-  %9420 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %9407, i64 %9414)
-  %9421 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %9408, i64 %9414)
-  %9422 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %9409, i64 %9414)
-  %9423 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %9410, i64 %9414)
-  %9424 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %9411, i64 %9414)
+  %9416 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %9403, i64 %9414)
+  %9417 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %9404, i64 %9414)
+  %9418 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %9405, i64 %9414)
+  %9419 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %9406, i64 %9414)
+  %9420 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %9407, i64 %9414)
+  %9421 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %9408, i64 %9414)
+  %9422 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %9409, i64 %9414)
+  %9423 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %9410, i64 %9414)
+  %9424 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %9411, i64 %9414)
   %9425 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !5
   br label %9426
 
 9426:                                             ; preds = %9468, %9415
   %9427 = phi i64 [ 1, %9415 ], [ %9469, %9468 ], !in.de.ssa !5
-  %9428 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %9416, i64 %9427)
-  %9429 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %9417, i64 %9427)
-  %9430 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %9418, i64 %9427)
-  %9431 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %9419, i64 %9427)
-  %9432 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %9420, i64 %9427)
-  %9433 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %9421, i64 %9427)
-  %9434 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %9422, i64 %9427)
-  %9435 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %9423, i64 %9427)
-  %9436 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %9424, i64 %9427)
+  %9428 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %9416, i64 %9427)
+  %9429 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %9417, i64 %9427)
+  %9430 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %9418, i64 %9427)
+  %9431 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %9419, i64 %9427)
+  %9432 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %9420, i64 %9427)
+  %9433 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %9421, i64 %9427)
+  %9434 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %9422, i64 %9427)
+  %9435 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %9423, i64 %9427)
+  %9436 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %9424, i64 %9427)
   %9437 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !6
   br label %9438
 
 9438:                                             ; preds = %9463, %9426
   %9439 = phi i64 [ %9465, %9463 ], [ 1, %9426 ], !in.de.ssa !6
-  %9440 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9429, i64 %9439)
-  store double 0.000000e+00, double* %9440, align 1
-  %9441 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %9430, i64 %9439)
-  %9442 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %9431, i64 %9439)
-  %9443 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %9432, i64 %9439)
-  %9444 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %9433, i64 %9439)
-  %9445 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %9434, i64 %9439)
-  %9446 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %9435, i64 %9439)
-  %9447 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %9436, i64 %9439)
-  %9448 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %9428, i64 %9439)
+  %9440 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9429, i64 %9439)
+  store double 0.000000e+00, ptr %9440, align 1
+  %9441 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %9430, i64 %9439)
+  %9442 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %9431, i64 %9439)
+  %9443 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %9432, i64 %9439)
+  %9444 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %9433, i64 %9439)
+  %9445 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %9434, i64 %9439)
+  %9446 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %9435, i64 %9439)
+  %9447 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %9436, i64 %9439)
+  %9448 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %9428, i64 %9439)
   %9449 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !7
   br label %9450
 
 9450:                                             ; preds = %9450, %9438
   %9451 = phi i64 [ %9460, %9450 ], [ 1, %9438 ], !in.de.ssa !7
-  %9452 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9441, i64 %9451)
-  store double 0.000000e+00, double* %9452, align 1
-  %9453 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9442, i64 %9451)
-  store double 0.000000e+00, double* %9453, align 1
-  %9454 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9443, i64 %9451)
-  store double 0.000000e+00, double* %9454, align 1
-  %9455 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9444, i64 %9451)
-  store double 0.000000e+00, double* %9455, align 1
-  %9456 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9445, i64 %9451)
-  store double 0.000000e+00, double* %9456, align 1
-  %9457 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9446, i64 %9451)
-  store double 0.000000e+00, double* %9457, align 1
-  %9458 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9447, i64 %9451)
-  store double 0.000000e+00, double* %9458, align 1
-  %9459 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9448, i64 %9451)
-  store double 0.000000e+00, double* %9459, align 1
+  %9452 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9441, i64 %9451)
+  store double 0.000000e+00, ptr %9452, align 1
+  %9453 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9442, i64 %9451)
+  store double 0.000000e+00, ptr %9453, align 1
+  %9454 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9443, i64 %9451)
+  store double 0.000000e+00, ptr %9454, align 1
+  %9455 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9444, i64 %9451)
+  store double 0.000000e+00, ptr %9455, align 1
+  %9456 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9445, i64 %9451)
+  store double 0.000000e+00, ptr %9456, align 1
+  %9457 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9446, i64 %9451)
+  store double 0.000000e+00, ptr %9457, align 1
+  %9458 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9447, i64 %9451)
+  store double 0.000000e+00, ptr %9458, align 1
+  %9459 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9448, i64 %9451)
+  store double 0.000000e+00, ptr %9459, align 1
   %9460 = add nuw nsw i64 %9451, 1
   %9461 = icmp eq i64 %9460, 6
   %9462 = call i64 @llvm.ssa.copy.i64(i64 %9460), !in.de.ssa !7
   br i1 %9461, label %9463, label %9450
 
 9463:                                             ; preds = %9450
-  %9464 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9448, i64 %9439)
-  store double 1.000000e+00, double* %9464, align 1
+  %9464 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9448, i64 %9439)
+  store double 1.000000e+00, ptr %9464, align 1
   %9465 = add nuw nsw i64 %9439, 1
   %9466 = icmp eq i64 %9465, 6
   %9467 = call i64 @llvm.ssa.copy.i64(i64 %9465), !in.de.ssa !6
@@ -9665,7 +9664,7 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9486, label %9525, label %9497
 
 9497:                                             ; preds = %9495
-  %9498 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %81, i64 %9496)
+  %9498 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %81, i64 %9496)
   %9499 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !9
   br label %9500
 
@@ -9674,20 +9673,20 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9487, label %9520, label %9502
 
 9502:                                             ; preds = %9500
-  %9503 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %9498, i64 %9501)
+  %9503 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %9498, i64 %9501)
   %9504 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !10
   br label %9505
 
 9505:                                             ; preds = %9515, %9502
   %9506 = phi i64 [ 1, %9502 ], [ %9516, %9515 ], !in.de.ssa !10
-  %9507 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %9503, i64 %9506)
+  %9507 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %9503, i64 %9506)
   %9508 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !11
   br label %9509
 
 9509:                                             ; preds = %9509, %9505
   %9510 = phi i64 [ %9512, %9509 ], [ 1, %9505 ], !in.de.ssa !11
-  %9511 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9507, i64 %9510)
-  store double 0.000000e+00, double* %9511, align 1
+  %9511 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9507, i64 %9510)
+  store double 0.000000e+00, ptr %9511, align 1
   %9512 = add nuw nsw i64 %9510, 1
   %9513 = icmp eq i64 %9512, 6
   %9514 = call i64 @llvm.ssa.copy.i64(i64 %9512), !in.de.ssa !11
@@ -9730,7 +9729,7 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9486, label %9560, label %9535
 
 9535:                                             ; preds = %9533
-  %9536 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %88, i64 %9534)
+  %9536 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %88, i64 %9534)
   %9537 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !13
   br label %9538
 
@@ -9739,23 +9738,23 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9487, label %9555, label %9540
 
 9540:                                             ; preds = %9538
-  %9541 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %9536, i64 %9539)
+  %9541 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %9536, i64 %9539)
   %9542 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !14
   br label %9543
 
 9543:                                             ; preds = %9543, %9540
   %9544 = phi i64 [ 1, %9540 ], [ %9551, %9543 ], !in.de.ssa !14
-  %9545 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %9541, i64 %9544)
-  %9546 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9545, i64 1)
-  store double 0x3FB99999A0000000, double* %9546, align 1
-  %9547 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9545, i64 2)
-  store double 0.000000e+00, double* %9547, align 1
-  %9548 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9545, i64 3)
-  store double 0.000000e+00, double* %9548, align 1
-  %9549 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9545, i64 4)
-  store double 0.000000e+00, double* %9549, align 1
-  %9550 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9545, i64 5)
-  store double 0x3FD0000014000014, double* %9550, align 1
+  %9545 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %9541, i64 %9544)
+  %9546 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9545, i64 1)
+  store double 0x3FB99999A0000000, ptr %9546, align 1
+  %9547 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9545, i64 2)
+  store double 0.000000e+00, ptr %9547, align 1
+  %9548 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9545, i64 3)
+  store double 0.000000e+00, ptr %9548, align 1
+  %9549 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9545, i64 4)
+  store double 0.000000e+00, ptr %9549, align 1
+  %9550 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9545, i64 5)
+  store double 0x3FD0000014000014, ptr %9550, align 1
   %9551 = add nuw nsw i64 %9544, 1
   %9552 = icmp eq i64 %9551, %9493
   %9553 = call i64 @llvm.ssa.copy.i64(i64 %9551), !in.de.ssa !14
@@ -9803,23 +9802,23 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9672, label %9594, label %9579
 
 9579:                                             ; preds = %9577
-  %9580 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %9599, i64 %9578)
+  %9580 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %9599, i64 %9578)
   %9581 = call i64 @llvm.ssa.copy.i64(i64 %9673), !in.de.ssa !18
   br label %9582
 
 9582:                                             ; preds = %9582, %9579
   %9583 = phi i64 [ %9673, %9579 ], [ %9590, %9582 ], !in.de.ssa !18
-  %9584 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %9580, i64 %9583)
-  %9585 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9584, i64 1)
-  store double 1.000000e+00, double* %9585, align 1
-  %9586 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9584, i64 2)
-  store double 0.000000e+00, double* %9586, align 1
-  %9587 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9584, i64 3)
-  store double 0.000000e+00, double* %9587, align 1
-  %9588 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9584, i64 4)
-  store double 0.000000e+00, double* %9588, align 1
-  %9589 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9584, i64 5)
-  store double 0x4004000014000014, double* %9589, align 1
+  %9584 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %9580, i64 %9583)
+  %9585 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9584, i64 1)
+  store double 1.000000e+00, ptr %9585, align 1
+  %9586 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9584, i64 2)
+  store double 0.000000e+00, ptr %9586, align 1
+  %9587 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9584, i64 3)
+  store double 0.000000e+00, ptr %9587, align 1
+  %9588 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9584, i64 4)
+  store double 0.000000e+00, ptr %9588, align 1
+  %9589 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9584, i64 5)
+  store double 0x4004000014000014, ptr %9589, align 1
   %9590 = add nsw i64 %9583, 1
   %9591 = icmp eq i64 %9590, %9680
   %9592 = call i64 @llvm.ssa.copy.i64(i64 %9590), !in.de.ssa !18
@@ -9835,7 +9834,7 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9596, label %9601, label %9577
 
 9598:                                             ; preds = %9568
-  %9599 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %88, i64 %9569)
+  %9599 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %88, i64 %9569)
   %9600 = call i64 @llvm.ssa.copy.i64(i64 %9675), !in.de.ssa !17
   br label %9577
 
@@ -9861,7 +9860,7 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9698, label %9656, label %9616
 
 9616:                                             ; preds = %9608
-  %9617 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %88, i64 %9609)
+  %9617 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %88, i64 %9609)
   %9618 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !20
   br label %9619
 
@@ -9876,7 +9875,7 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
 9625:                                             ; preds = %9619
   %9626 = fmul fast double %9624, %9624
   %9627 = fadd fast double %9626, %9615
-  %9628 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %9617, i64 %9620)
+  %9628 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %9617, i64 %9620)
   %9629 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !21
   br label %9630
 
@@ -9892,17 +9891,17 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9638, label %9646, label %9639
 
 9639:                                             ; preds = %9630
-  %9640 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %9628, i64 %9631)
-  %9641 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9640, i64 1)
-  store double 1.000000e+00, double* %9641, align 1
-  %9642 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9640, i64 2)
-  store double 0.000000e+00, double* %9642, align 1
-  %9643 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9640, i64 3)
-  store double 0.000000e+00, double* %9643, align 1
-  %9644 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9640, i64 4)
-  store double 0.000000e+00, double* %9644, align 1
-  %9645 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9640, i64 5)
-  store double 0x4004000014000014, double* %9645, align 1
+  %9640 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %9628, i64 %9631)
+  %9641 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9640, i64 1)
+  store double 1.000000e+00, ptr %9641, align 1
+  %9642 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9640, i64 2)
+  store double 0.000000e+00, ptr %9642, align 1
+  %9643 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9640, i64 3)
+  store double 0.000000e+00, ptr %9643, align 1
+  %9644 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9640, i64 4)
+  store double 0.000000e+00, ptr %9644, align 1
+  %9645 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9640, i64 5)
+  store double 0x4004000014000014, ptr %9645, align 1
   br label %9646
 
 9646:                                             ; preds = %9639, %9630
@@ -9998,67 +9997,67 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
 
 9713:                                             ; preds = %9711
   %9714 = fmul fast double %10, 5.000000e-02
-  %9715 = getelementptr inbounds [4 x i8], [4 x i8]* %25, i64 0, i64 0
-  %9716 = getelementptr inbounds [4 x i8], [4 x i8]* %25, i64 0, i64 1
-  %9717 = getelementptr inbounds [4 x i8], [4 x i8]* %25, i64 0, i64 2
-  %9718 = getelementptr inbounds [4 x i8], [4 x i8]* %25, i64 0, i64 3
-  %9719 = getelementptr inbounds { i64, i8* }, { i64, i8* }* %26, i64 0, i32 0
-  %9720 = getelementptr inbounds { i64, i8* }, { i64, i8* }* %26, i64 0, i32 1
-  %9721 = bitcast [8 x i64]* %24 to i8*
-  %9722 = bitcast { i64, i8* }* %26 to i8*
-  %9723 = getelementptr inbounds [4 x i8], [4 x i8]* %27, i64 0, i64 0
-  %9724 = getelementptr inbounds [4 x i8], [4 x i8]* %27, i64 0, i64 1
-  %9725 = getelementptr inbounds [4 x i8], [4 x i8]* %27, i64 0, i64 2
-  %9726 = getelementptr inbounds [4 x i8], [4 x i8]* %27, i64 0, i64 3
-  %9727 = getelementptr inbounds { i32 }, { i32 }* %28, i64 0, i32 0
-  %9728 = bitcast { i32 }* %28 to i8*
-  %9729 = getelementptr inbounds [4 x i8], [4 x i8]* %29, i64 0, i64 0
-  %9730 = getelementptr inbounds [4 x i8], [4 x i8]* %29, i64 0, i64 1
-  %9731 = getelementptr inbounds [4 x i8], [4 x i8]* %29, i64 0, i64 2
-  %9732 = getelementptr inbounds [4 x i8], [4 x i8]* %29, i64 0, i64 3
-  %9733 = getelementptr inbounds { i64, i8* }, { i64, i8* }* %30, i64 0, i32 0
-  %9734 = getelementptr inbounds { i64, i8* }, { i64, i8* }* %30, i64 0, i32 1
-  %9735 = bitcast { i64, i8* }* %30 to i8*
-  %9736 = getelementptr inbounds [4 x i8], [4 x i8]* %31, i64 0, i64 0
-  %9737 = getelementptr inbounds [4 x i8], [4 x i8]* %31, i64 0, i64 1
-  %9738 = getelementptr inbounds [4 x i8], [4 x i8]* %31, i64 0, i64 2
-  %9739 = getelementptr inbounds [4 x i8], [4 x i8]* %31, i64 0, i64 3
-  %9740 = getelementptr inbounds { double }, { double }* %32, i64 0, i32 0
-  %9741 = bitcast { double }* %32 to i8*
+  %9715 = getelementptr inbounds [4 x i8], ptr %25, i64 0, i64 0
+  %9716 = getelementptr inbounds [4 x i8], ptr %25, i64 0, i64 1
+  %9717 = getelementptr inbounds [4 x i8], ptr %25, i64 0, i64 2
+  %9718 = getelementptr inbounds [4 x i8], ptr %25, i64 0, i64 3
+  %9719 = getelementptr inbounds { i64, ptr }, ptr %26, i64 0, i32 0
+  %9720 = getelementptr inbounds { i64, ptr }, ptr %26, i64 0, i32 1
+  %9721 = bitcast ptr %24 to ptr
+  %9722 = bitcast ptr %26 to ptr
+  %9723 = getelementptr inbounds [4 x i8], ptr %27, i64 0, i64 0
+  %9724 = getelementptr inbounds [4 x i8], ptr %27, i64 0, i64 1
+  %9725 = getelementptr inbounds [4 x i8], ptr %27, i64 0, i64 2
+  %9726 = getelementptr inbounds [4 x i8], ptr %27, i64 0, i64 3
+  %9727 = getelementptr inbounds { i32 }, ptr %28, i64 0, i32 0
+  %9728 = bitcast ptr %28 to ptr
+  %9729 = getelementptr inbounds [4 x i8], ptr %29, i64 0, i64 0
+  %9730 = getelementptr inbounds [4 x i8], ptr %29, i64 0, i64 1
+  %9731 = getelementptr inbounds [4 x i8], ptr %29, i64 0, i64 2
+  %9732 = getelementptr inbounds [4 x i8], ptr %29, i64 0, i64 3
+  %9733 = getelementptr inbounds { i64, ptr }, ptr %30, i64 0, i32 0
+  %9734 = getelementptr inbounds { i64, ptr }, ptr %30, i64 0, i32 1
+  %9735 = bitcast ptr %30 to ptr
+  %9736 = getelementptr inbounds [4 x i8], ptr %31, i64 0, i64 0
+  %9737 = getelementptr inbounds [4 x i8], ptr %31, i64 0, i64 1
+  %9738 = getelementptr inbounds [4 x i8], ptr %31, i64 0, i64 2
+  %9739 = getelementptr inbounds [4 x i8], ptr %31, i64 0, i64 3
+  %9740 = getelementptr inbounds { double }, ptr %32, i64 0, i32 0
+  %9741 = bitcast ptr %32 to ptr
   %9742 = icmp slt i32 %4, 1
-  %9743 = getelementptr inbounds [4 x i8], [4 x i8]* %33, i64 0, i64 0
-  %9744 = getelementptr inbounds [4 x i8], [4 x i8]* %33, i64 0, i64 1
-  %9745 = getelementptr inbounds [4 x i8], [4 x i8]* %33, i64 0, i64 2
-  %9746 = getelementptr inbounds [4 x i8], [4 x i8]* %33, i64 0, i64 3
-  %9747 = getelementptr inbounds { i64, i8* }, { i64, i8* }* %34, i64 0, i32 0
-  %9748 = getelementptr inbounds { i64, i8* }, { i64, i8* }* %34, i64 0, i32 1
-  %9749 = bitcast { i64, i8* }* %34 to i8*
-  %9750 = getelementptr inbounds [4 x i8], [4 x i8]* %35, i64 0, i64 0
-  %9751 = getelementptr inbounds [4 x i8], [4 x i8]* %35, i64 0, i64 1
-  %9752 = getelementptr inbounds [4 x i8], [4 x i8]* %35, i64 0, i64 2
-  %9753 = getelementptr inbounds [4 x i8], [4 x i8]* %35, i64 0, i64 3
-  %9754 = getelementptr inbounds { double }, { double }* %36, i64 0, i32 0
-  %9755 = bitcast { double }* %36 to i8*
+  %9743 = getelementptr inbounds [4 x i8], ptr %33, i64 0, i64 0
+  %9744 = getelementptr inbounds [4 x i8], ptr %33, i64 0, i64 1
+  %9745 = getelementptr inbounds [4 x i8], ptr %33, i64 0, i64 2
+  %9746 = getelementptr inbounds [4 x i8], ptr %33, i64 0, i64 3
+  %9747 = getelementptr inbounds { i64, ptr }, ptr %34, i64 0, i32 0
+  %9748 = getelementptr inbounds { i64, ptr }, ptr %34, i64 0, i32 1
+  %9749 = bitcast ptr %34 to ptr
+  %9750 = getelementptr inbounds [4 x i8], ptr %35, i64 0, i64 0
+  %9751 = getelementptr inbounds [4 x i8], ptr %35, i64 0, i64 1
+  %9752 = getelementptr inbounds [4 x i8], ptr %35, i64 0, i64 2
+  %9753 = getelementptr inbounds [4 x i8], ptr %35, i64 0, i64 3
+  %9754 = getelementptr inbounds { double }, ptr %36, i64 0, i32 0
+  %9755 = bitcast ptr %36 to ptr
   %9756 = add nuw nsw i32 %4, 1
   %9757 = sext i32 %9756 to i64
   %9758 = icmp slt i32 %3, 1
   %9759 = icmp slt i32 %2, 1
-  %9760 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %88, i64 3) #9
+  %9760 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %88, i64 3) #9
   %9761 = add nsw i32 %6, 3
   %9762 = sext i32 %9761 to i64
-  %9763 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %88, i64 %9762) #9
-  %9764 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %88, i64 4) #9
-  %9765 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %88, i64 %83) #9
+  %9763 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %88, i64 %9762) #9
+  %9764 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %88, i64 4) #9
+  %9765 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %88, i64 %83) #9
   %9766 = add nsw i32 %2, 1
   %9767 = add nsw i32 %3, 1
   %9768 = zext i32 %9767 to i64
   %9769 = sext i32 %9766 to i64
   %9770 = add nsw i32 %6, 1
   %9771 = sext i32 %9770 to i64
-  %9772 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %88, i64 %9771) #9
-  %9773 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %88, i64 1) #9
-  %9774 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %88, i64 %58) #9
-  %9775 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %88, i64 2) #9
+  %9772 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %88, i64 %9771) #9
+  %9773 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %88, i64 1) #9
+  %9774 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %88, i64 %58) #9
+  %9775 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %88, i64 2) #9
   %9776 = fmul fast double 0x4006666660000000, %1
   %9777 = fdiv fast double 1.000000e+00, %100
   %9778 = fmul fast double %100, %100
@@ -10087,9 +10086,9 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %9801 = lshr exact i64 %9800, 3
   %9802 = shl nsw i64 %37, 3
   %9803 = mul nsw i64 %9802, %40
-  %9804 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %77, i64 1) #9
-  %9805 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %77, i64 %58) #9
-  %9806 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %72, i64 1) #9
+  %9804 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %77, i64 1) #9
+  %9805 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %77, i64 %58) #9
+  %9806 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %72, i64 1) #9
   %9807 = fmul fast double 0x3FD9999980000000, %108
   %9808 = fmul fast double %9807, %1
   %9809 = fdiv fast double 1.000000e+00, %9808
@@ -10101,43 +10100,43 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %9815 = fmul fast double %9810, %108
   %9816 = fdiv fast double 1.000000e+00, %9815
   %9817 = icmp eq i32 %11, 1
-  %9818 = bitcast [8 x i64]* %15 to i8*
-  %9819 = getelementptr inbounds [4 x i8], [4 x i8]* %16, i64 0, i64 0
-  %9820 = bitcast { double }* %17 to i8*
-  %9821 = getelementptr inbounds [4 x i8], [4 x i8]* %18, i64 0, i64 0
-  %9822 = bitcast { double }* %19 to i8*
-  %9823 = getelementptr inbounds [4 x i8], [4 x i8]* %20, i64 0, i64 0
-  %9824 = bitcast { i64, i8* }* %21 to i8*
-  %9825 = getelementptr inbounds [4 x i8], [4 x i8]* %22, i64 0, i64 0
-  %9826 = bitcast { double }* %23 to i8*
+  %9818 = bitcast ptr %15 to ptr
+  %9819 = getelementptr inbounds [4 x i8], ptr %16, i64 0, i64 0
+  %9820 = bitcast ptr %17 to ptr
+  %9821 = getelementptr inbounds [4 x i8], ptr %18, i64 0, i64 0
+  %9822 = bitcast ptr %19 to ptr
+  %9823 = getelementptr inbounds [4 x i8], ptr %20, i64 0, i64 0
+  %9824 = bitcast ptr %21 to ptr
+  %9825 = getelementptr inbounds [4 x i8], ptr %22, i64 0, i64 0
+  %9826 = bitcast ptr %23 to ptr
   %9827 = mul nuw nsw i64 %39, 40
   %9828 = mul nsw i64 %9827, %42
   %9829 = mul nsw i64 %9828, %60
   %9830 = lshr exact i64 %9829, 3
-  %9831 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %81, i64 2) #9
-  %9832 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %81, i64 %58) #9
-  %9833 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %81, i64 %9771) #9
-  %9834 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %81, i64 1) #9
+  %9831 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %81, i64 2) #9
+  %9832 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %81, i64 %58) #9
+  %9833 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %81, i64 %9771) #9
+  %9834 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %81, i64 1) #9
   %9835 = icmp slt i32 %6, -1
   %9836 = zext i32 %9761 to i64
   %9837 = zext i32 %57 to i64
-  %9838 = getelementptr inbounds [4 x i8], [4 x i8]* %16, i64 0, i64 1
-  %9839 = getelementptr inbounds [4 x i8], [4 x i8]* %16, i64 0, i64 2
-  %9840 = getelementptr inbounds [4 x i8], [4 x i8]* %16, i64 0, i64 3
-  %9841 = getelementptr inbounds { double }, { double }* %17, i64 0, i32 0
-  %9842 = getelementptr inbounds [4 x i8], [4 x i8]* %18, i64 0, i64 1
-  %9843 = getelementptr inbounds [4 x i8], [4 x i8]* %18, i64 0, i64 2
-  %9844 = getelementptr inbounds [4 x i8], [4 x i8]* %18, i64 0, i64 3
-  %9845 = getelementptr inbounds { double }, { double }* %19, i64 0, i32 0
-  %9846 = getelementptr inbounds [4 x i8], [4 x i8]* %20, i64 0, i64 1
-  %9847 = getelementptr inbounds [4 x i8], [4 x i8]* %20, i64 0, i64 2
-  %9848 = getelementptr inbounds [4 x i8], [4 x i8]* %20, i64 0, i64 3
-  %9849 = getelementptr inbounds { i64, i8* }, { i64, i8* }* %21, i64 0, i32 0
-  %9850 = getelementptr inbounds { i64, i8* }, { i64, i8* }* %21, i64 0, i32 1
-  %9851 = getelementptr inbounds [4 x i8], [4 x i8]* %22, i64 0, i64 1
-  %9852 = getelementptr inbounds [4 x i8], [4 x i8]* %22, i64 0, i64 2
-  %9853 = getelementptr inbounds [4 x i8], [4 x i8]* %22, i64 0, i64 3
-  %9854 = getelementptr inbounds { double }, { double }* %23, i64 0, i32 0
+  %9838 = getelementptr inbounds [4 x i8], ptr %16, i64 0, i64 1
+  %9839 = getelementptr inbounds [4 x i8], ptr %16, i64 0, i64 2
+  %9840 = getelementptr inbounds [4 x i8], ptr %16, i64 0, i64 3
+  %9841 = getelementptr inbounds { double }, ptr %17, i64 0, i32 0
+  %9842 = getelementptr inbounds [4 x i8], ptr %18, i64 0, i64 1
+  %9843 = getelementptr inbounds [4 x i8], ptr %18, i64 0, i64 2
+  %9844 = getelementptr inbounds [4 x i8], ptr %18, i64 0, i64 3
+  %9845 = getelementptr inbounds { double }, ptr %19, i64 0, i32 0
+  %9846 = getelementptr inbounds [4 x i8], ptr %20, i64 0, i64 1
+  %9847 = getelementptr inbounds [4 x i8], ptr %20, i64 0, i64 2
+  %9848 = getelementptr inbounds [4 x i8], ptr %20, i64 0, i64 3
+  %9849 = getelementptr inbounds { i64, ptr }, ptr %21, i64 0, i32 0
+  %9850 = getelementptr inbounds { i64, ptr }, ptr %21, i64 0, i32 1
+  %9851 = getelementptr inbounds [4 x i8], ptr %22, i64 0, i64 1
+  %9852 = getelementptr inbounds [4 x i8], ptr %22, i64 0, i64 2
+  %9853 = getelementptr inbounds [4 x i8], ptr %22, i64 0, i64 3
+  %9854 = getelementptr inbounds { double }, ptr %23, i64 0, i32 0
   %9855 = call i32 @llvm.ssa.copy.i32(i32 1), !in.de.ssa !22
   br label %9856
 
@@ -10154,32 +10153,32 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9759, label %9891, label %9862
 
 9862:                                             ; preds = %9860
-  %9863 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %9760, i64 %9861) #9
-  %9864 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %9763, i64 %9861) #9
-  %9865 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %9764, i64 %9861) #9
-  %9866 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %9765, i64 %9861) #9
+  %9863 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %9760, i64 %9861) #9
+  %9864 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %9763, i64 %9861) #9
+  %9865 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %9764, i64 %9861) #9
+  %9866 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %9765, i64 %9861) #9
   %9867 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !24
   br label %9868
 
 9868:                                             ; preds = %9886, %9862
   %9869 = phi i64 [ 1, %9862 ], [ %9887, %9886 ], !in.de.ssa !24
-  %9870 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %9863, i64 %9869) #9
-  %9871 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %9864, i64 %9869) #9
-  %9872 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %9865, i64 %9869) #9
-  %9873 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %9866, i64 %9869) #9
+  %9870 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %9863, i64 %9869) #9
+  %9871 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %9864, i64 %9869) #9
+  %9872 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %9865, i64 %9869) #9
+  %9873 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %9866, i64 %9869) #9
   %9874 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !25
   br label %9875
 
 9875:                                             ; preds = %9875, %9868
   %9876 = phi i64 [ %9883, %9875 ], [ 1, %9868 ], !in.de.ssa !25
-  %9877 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9870, i64 %9876) #9
-  %9878 = load double, double* %9877, align 1, !alias.scope !26, !noalias !29
-  %9879 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9871, i64 %9876) #9
-  store double %9878, double* %9879, align 1, !alias.scope !26, !noalias !29
-  %9880 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9872, i64 %9876) #9
-  %9881 = load double, double* %9880, align 1, !alias.scope !26, !noalias !29
-  %9882 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9873, i64 %9876) #9
-  store double %9881, double* %9882, align 1, !alias.scope !26, !noalias !29
+  %9877 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9870, i64 %9876) #9
+  %9878 = load double, ptr %9877, align 1, !alias.scope !26, !noalias !29
+  %9879 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9871, i64 %9876) #9
+  store double %9878, ptr %9879, align 1, !alias.scope !26, !noalias !29
+  %9880 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9872, i64 %9876) #9
+  %9881 = load double, ptr %9880, align 1, !alias.scope !26, !noalias !29
+  %9882 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9873, i64 %9876) #9
+  store double %9881, ptr %9882, align 1, !alias.scope !26, !noalias !29
   %9883 = add nuw nsw i64 %9876, 1
   %9884 = icmp eq i64 %9883, 6
   %9885 = call i64 @llvm.ssa.copy.i64(i64 %9883), !in.de.ssa !25
@@ -10209,32 +10208,32 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9759, label %9928, label %9899
 
 9899:                                             ; preds = %9897
-  %9900 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %9772, i64 %9898) #9
-  %9901 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %9773, i64 %9898) #9
-  %9902 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %9774, i64 %9898) #9
-  %9903 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %9775, i64 %9898) #9
+  %9900 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %9772, i64 %9898) #9
+  %9901 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %9773, i64 %9898) #9
+  %9902 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %9774, i64 %9898) #9
+  %9903 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %9775, i64 %9898) #9
   %9904 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !34
   br label %9905
 
 9905:                                             ; preds = %9923, %9899
   %9906 = phi i64 [ 1, %9899 ], [ %9924, %9923 ], !in.de.ssa !34
-  %9907 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %9900, i64 %9906) #9
-  %9908 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %9901, i64 %9906) #9
-  %9909 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %9902, i64 %9906) #9
-  %9910 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %9903, i64 %9906) #9
+  %9907 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %9900, i64 %9906) #9
+  %9908 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %9901, i64 %9906) #9
+  %9909 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %9902, i64 %9906) #9
+  %9910 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %9903, i64 %9906) #9
   %9911 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !35
   br label %9912
 
 9912:                                             ; preds = %9912, %9905
   %9913 = phi i64 [ %9920, %9912 ], [ 1, %9905 ], !in.de.ssa !35
-  %9914 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9907, i64 %9913) #9
-  %9915 = load double, double* %9914, align 1, !alias.scope !26, !noalias !29
-  %9916 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9908, i64 %9913) #9
-  store double %9915, double* %9916, align 1, !alias.scope !26, !noalias !29
-  %9917 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9909, i64 %9913) #9
-  %9918 = load double, double* %9917, align 1, !alias.scope !26, !noalias !29
-  %9919 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9910, i64 %9913) #9
-  store double %9918, double* %9919, align 1, !alias.scope !26, !noalias !29
+  %9914 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9907, i64 %9913) #9
+  %9915 = load double, ptr %9914, align 1, !alias.scope !26, !noalias !29
+  %9916 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9908, i64 %9913) #9
+  store double %9915, ptr %9916, align 1, !alias.scope !26, !noalias !29
+  %9917 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9909, i64 %9913) #9
+  %9918 = load double, ptr %9917, align 1, !alias.scope !26, !noalias !29
+  %9919 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9910, i64 %9913) #9
+  store double %9918, ptr %9919, align 1, !alias.scope !26, !noalias !29
   %9920 = add nuw nsw i64 %9913, 1
   %9921 = icmp eq i64 %9920, 6
   %9922 = call i64 @llvm.ssa.copy.i64(i64 %9920), !in.de.ssa !35
@@ -10281,7 +10280,7 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9758, label %10030, label %9949
 
 9949:                                             ; preds = %9945
-  %9950 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %88, i64 %9946)
+  %9950 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %88, i64 %9946)
   %9951 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !40
   %9952 = call double @llvm.ssa.copy.f64(double %9948), !in.de.ssa !41
   br label %9953
@@ -10293,7 +10292,7 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9759, label %10021, label %9957
 
 9957:                                             ; preds = %9953
-  %9958 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %9950, i64 %9954)
+  %9958 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %9950, i64 %9954)
   %9959 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !42
   %9960 = call double @llvm.ssa.copy.f64(double %9956), !in.de.ssa !43
   br label %9961
@@ -10301,20 +10300,20 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
 9961:                                             ; preds = %9961, %9957
   %9962 = phi i64 [ 1, %9957 ], [ %10015, %9961 ], !in.de.ssa !42
   %9963 = phi double [ %9956, %9957 ], [ %10014, %9961 ], !in.de.ssa !43
-  %9964 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %9958, i64 %9962)
-  %9965 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9964, i64 1)
-  %9966 = load double, double* %9965, align 1
-  %9967 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9964, i64 2)
-  %9968 = load double, double* %9967, align 1
+  %9964 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %9958, i64 %9962)
+  %9965 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9964, i64 1)
+  %9966 = load double, ptr %9965, align 1
+  %9967 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9964, i64 2)
+  %9968 = load double, ptr %9967, align 1
   %9969 = fdiv fast double %9968, %9966
-  %9970 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9964, i64 3)
-  %9971 = load double, double* %9970, align 1
+  %9970 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9964, i64 3)
+  %9971 = load double, ptr %9970, align 1
   %9972 = fdiv fast double %9971, %9966
-  %9973 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9964, i64 4)
-  %9974 = load double, double* %9973, align 1
+  %9973 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9964, i64 4)
+  %9974 = load double, ptr %9973, align 1
   %9975 = fdiv fast double %9974, %9966
-  %9976 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %9964, i64 5)
-  %9977 = load double, double* %9976, align 1
+  %9976 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %9964, i64 5)
+  %9977 = load double, ptr %9976, align 1
   %9978 = fmul fast double %9966, 5.000000e-01
   %9979 = fmul fast double %9969, %9969
   %9980 = fmul fast double %9972, %9972
@@ -10408,11 +10407,11 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9758, label %10281, label %10047
 
 10047:                                            ; preds = %10044
-  %10048 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %88, i64 %10046) #9
-  %10049 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %68, i64 %10045) #9
+  %10048 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %88, i64 %10046) #9
+  %10049 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %68, i64 %10045) #9
   %10050 = and i64 %10046, 4294967295
-  %10051 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %88, i64 %10050) #9
-  %10052 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %65, i64 %10045) #9
+  %10051 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %88, i64 %10050) #9
+  %10052 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %65, i64 %10045) #9
   %10053 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !56
   br label %10054
 
@@ -10423,11 +10422,11 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
 10056:                                            ; preds = %10054
   %10057 = trunc i64 %10055 to i32
   %10058 = srem i32 %10057, %9767
-  %10059 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %10048, i64 %10055) #9
-  %10060 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %10049, i64 %10055) #9
+  %10059 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %10048, i64 %10055) #9
+  %10060 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %10049, i64 %10055) #9
   %10061 = zext i32 %10058 to i64
-  %10062 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %10051, i64 %10061) #9
-  %10063 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %10052, i64 %10055) #9
+  %10062 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %10051, i64 %10061) #9
+  %10063 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %10052, i64 %10055) #9
   %10064 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !57
   br label %10065
 
@@ -10436,17 +10435,17 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %10067 = trunc i64 %10066 to i32
   %10068 = srem i32 %10067, %2
   %10069 = add nuw nsw i32 %10068, 1
-  %10070 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10059, i64 %10066) #9
-  %10071 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10070, i64 1) #9
-  %10072 = load double, double* %10071, align 1, !alias.scope !44, !noalias !58
-  %10073 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10070, i64 2) #9
-  %10074 = load double, double* %10073, align 1, !alias.scope !44, !noalias !58
+  %10070 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10059, i64 %10066) #9
+  %10071 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10070, i64 1) #9
+  %10072 = load double, ptr %10071, align 1, !alias.scope !44, !noalias !58
+  %10073 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10070, i64 2) #9
+  %10074 = load double, ptr %10073, align 1, !alias.scope !44, !noalias !58
   %10075 = fdiv fast double %10074, %10072
-  %10076 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10070, i64 3) #9
-  %10077 = load double, double* %10076, align 1, !alias.scope !44, !noalias !58
+  %10076 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10070, i64 3) #9
+  %10077 = load double, ptr %10076, align 1, !alias.scope !44, !noalias !58
   %10078 = fdiv fast double %10077, %10072
-  %10079 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10070, i64 4) #9
-  %10080 = load double, double* %10079, align 1, !alias.scope !44, !noalias !58
+  %10079 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10070, i64 4) #9
+  %10080 = load double, ptr %10079, align 1, !alias.scope !44, !noalias !58
   %10081 = fdiv fast double %10080, %10072
   %10082 = fmul fast double %10075, %10075
   %10083 = fmul fast double %10078, %10078
@@ -10455,108 +10454,108 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %10086 = fadd fast double %10084, %10085
   %10087 = fmul fast double %10086, 5.000000e-01
   %10088 = fmul fast double %10087, 0x3FD9999980000000
-  %10089 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10070, i64 5) #9
-  %10090 = load double, double* %10089, align 1, !alias.scope !44, !noalias !58
+  %10089 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10070, i64 5) #9
+  %10090 = load double, ptr %10089, align 1, !alias.scope !44, !noalias !58
   %10091 = fmul fast double %10090, 0x3FF6666660000000
   %10092 = fdiv fast double %10091, %10072
   %10093 = fdiv fast double %10090, %10072
   %10094 = fsub fast double %10093, %10087
   %10095 = fmul fast double %10094, 0x3FD9999980000000
   %10096 = call fast double @llvm.pow.f64(double %10095, double 7.500000e-01) #9
-  %10097 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %10060, i64 %10066) #9
-  %10098 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10097, i64 1) #9
-  %10099 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10098, i64 1) #9
-  store double 0.000000e+00, double* %10099, align 1, !alias.scope !47, !noalias !68
+  %10097 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %10060, i64 %10066) #9
+  %10098 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10097, i64 1) #9
+  %10099 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10098, i64 1) #9
+  store double 0.000000e+00, ptr %10099, align 1, !alias.scope !47, !noalias !68
   %10100 = fsub fast double %10088, %10082
-  %10101 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10098, i64 2) #9
-  store double %10100, double* %10101, align 1, !alias.scope !47, !noalias !68
+  %10101 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10098, i64 2) #9
+  store double %10100, ptr %10101, align 1, !alias.scope !47, !noalias !68
   %10102 = fneg fast double %10075
   %10103 = fmul fast double %10078, %10102
-  %10104 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10098, i64 3) #9
-  store double %10103, double* %10104, align 1, !alias.scope !47, !noalias !68
+  %10104 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10098, i64 3) #9
+  store double %10103, ptr %10104, align 1, !alias.scope !47, !noalias !68
   %10105 = fmul fast double %10081, %10102
-  %10106 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10098, i64 4) #9
-  store double %10105, double* %10106, align 1, !alias.scope !47, !noalias !68
+  %10106 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10098, i64 4) #9
+  store double %10105, ptr %10106, align 1, !alias.scope !47, !noalias !68
   %10107 = fmul fast double %10088, 2.000000e+00
   %10108 = fsub fast double %10107, %10092
   %10109 = fmul fast double %10108, %10075
-  %10110 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10098, i64 5) #9
-  store double %10109, double* %10110, align 1, !alias.scope !47, !noalias !68
-  %10111 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10097, i64 2) #9
-  %10112 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10111, i64 1) #9
-  store double 1.000000e+00, double* %10112, align 1, !alias.scope !47, !noalias !68
+  %10110 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10098, i64 5) #9
+  store double %10109, ptr %10110, align 1, !alias.scope !47, !noalias !68
+  %10111 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10097, i64 2) #9
+  %10112 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10111, i64 1) #9
+  store double 1.000000e+00, ptr %10112, align 1, !alias.scope !47, !noalias !68
   %10113 = fmul fast double %10075, 0xBFE3333340000000
   %10114 = fsub fast double %10075, %10113
-  %10115 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10111, i64 2) #9
-  store double %10114, double* %10115, align 1, !alias.scope !47, !noalias !68
-  %10116 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10111, i64 3) #9
-  store double %10078, double* %10116, align 1, !alias.scope !47, !noalias !68
-  %10117 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10111, i64 4) #9
-  store double %10081, double* %10117, align 1, !alias.scope !47, !noalias !68
+  %10115 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10111, i64 2) #9
+  store double %10114, ptr %10115, align 1, !alias.scope !47, !noalias !68
+  %10116 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10111, i64 3) #9
+  store double %10078, ptr %10116, align 1, !alias.scope !47, !noalias !68
+  %10117 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10111, i64 4) #9
+  store double %10081, ptr %10117, align 1, !alias.scope !47, !noalias !68
   %10118 = fmul fast double %10075, 0x3FD9999980000000
   %10119 = fmul fast double %10118, %10075
   %10120 = fadd fast double %10088, %10119
   %10121 = fsub fast double %10092, %10120
-  %10122 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10111, i64 5) #9
-  store double %10121, double* %10122, align 1, !alias.scope !47, !noalias !68
-  %10123 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10097, i64 3) #9
-  %10124 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10123, i64 1) #9
-  store double 0.000000e+00, double* %10124, align 1, !alias.scope !47, !noalias !68
+  %10122 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10111, i64 5) #9
+  store double %10121, ptr %10122, align 1, !alias.scope !47, !noalias !68
+  %10123 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10097, i64 3) #9
+  %10124 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10123, i64 1) #9
+  store double 0.000000e+00, ptr %10124, align 1, !alias.scope !47, !noalias !68
   %10125 = fmul fast double %10078, 0xBFD9999980000000
-  %10126 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10123, i64 2) #9
-  store double %10125, double* %10126, align 1, !alias.scope !47, !noalias !68
-  %10127 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10123, i64 3) #9
-  store double %10075, double* %10127, align 1, !alias.scope !47, !noalias !68
-  %10128 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10123, i64 4) #9
-  store double 0.000000e+00, double* %10128, align 1, !alias.scope !47, !noalias !68
+  %10126 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10123, i64 2) #9
+  store double %10125, ptr %10126, align 1, !alias.scope !47, !noalias !68
+  %10127 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10123, i64 3) #9
+  store double %10075, ptr %10127, align 1, !alias.scope !47, !noalias !68
+  %10128 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10123, i64 4) #9
+  store double 0.000000e+00, ptr %10128, align 1, !alias.scope !47, !noalias !68
   %10129 = fneg fast double %10118
   %10130 = fmul fast double %10078, %10129
-  %10131 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10123, i64 5) #9
-  store double %10130, double* %10131, align 1, !alias.scope !47, !noalias !68
-  %10132 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10097, i64 4) #9
-  %10133 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10132, i64 1) #9
-  store double 0.000000e+00, double* %10133, align 1, !alias.scope !47, !noalias !68
+  %10131 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10123, i64 5) #9
+  store double %10130, ptr %10131, align 1, !alias.scope !47, !noalias !68
+  %10132 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10097, i64 4) #9
+  %10133 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10132, i64 1) #9
+  store double 0.000000e+00, ptr %10133, align 1, !alias.scope !47, !noalias !68
   %10134 = fmul fast double %10081, 0xBFD9999980000000
-  %10135 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10132, i64 2) #9
-  store double %10134, double* %10135, align 1, !alias.scope !47, !noalias !68
-  %10136 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10132, i64 3) #9
-  store double 0.000000e+00, double* %10136, align 1, !alias.scope !47, !noalias !68
-  %10137 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10132, i64 4) #9
-  store double %10075, double* %10137, align 1, !alias.scope !47, !noalias !68
+  %10135 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10132, i64 2) #9
+  store double %10134, ptr %10135, align 1, !alias.scope !47, !noalias !68
+  %10136 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10132, i64 3) #9
+  store double 0.000000e+00, ptr %10136, align 1, !alias.scope !47, !noalias !68
+  %10137 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10132, i64 4) #9
+  store double %10075, ptr %10137, align 1, !alias.scope !47, !noalias !68
   %10138 = fmul fast double %10081, %10129
-  %10139 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10132, i64 5) #9
-  store double %10138, double* %10139, align 1, !alias.scope !47, !noalias !68
-  %10140 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10097, i64 5) #9
-  %10141 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10140, i64 1) #9
-  store double 0.000000e+00, double* %10141, align 1, !alias.scope !47, !noalias !68
-  %10142 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10140, i64 2) #9
-  store double 0x3FD9999980000000, double* %10142, align 1, !alias.scope !47, !noalias !68
-  %10143 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10140, i64 3) #9
-  store double 0.000000e+00, double* %10143, align 1, !alias.scope !47, !noalias !68
-  %10144 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10140, i64 4) #9
-  store double 0.000000e+00, double* %10144, align 1, !alias.scope !47, !noalias !68
+  %10139 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10132, i64 5) #9
+  store double %10138, ptr %10139, align 1, !alias.scope !47, !noalias !68
+  %10140 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10097, i64 5) #9
+  %10141 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10140, i64 1) #9
+  store double 0.000000e+00, ptr %10141, align 1, !alias.scope !47, !noalias !68
+  %10142 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10140, i64 2) #9
+  store double 0x3FD9999980000000, ptr %10142, align 1, !alias.scope !47, !noalias !68
+  %10143 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10140, i64 3) #9
+  store double 0.000000e+00, ptr %10143, align 1, !alias.scope !47, !noalias !68
+  %10144 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10140, i64 4) #9
+  store double 0.000000e+00, ptr %10144, align 1, !alias.scope !47, !noalias !68
   %10145 = fmul fast double %10075, 0x3FF6666660000000
-  %10146 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10140, i64 5) #9
-  store double %10145, double* %10146, align 1, !alias.scope !47, !noalias !68
+  %10146 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10140, i64 5) #9
+  store double %10145, ptr %10146, align 1, !alias.scope !47, !noalias !68
   %10147 = zext i32 %10069 to i64
-  %10148 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10062, i64 %10147) #9
-  %10149 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10148, i64 1) #9
-  %10150 = load double, double* %10149, align 1, !alias.scope !44, !noalias !58
-  %10151 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10148, i64 2) #9
-  %10152 = load double, double* %10151, align 1, !alias.scope !44, !noalias !58
+  %10148 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10062, i64 %10147) #9
+  %10149 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10148, i64 1) #9
+  %10150 = load double, ptr %10149, align 1, !alias.scope !44, !noalias !58
+  %10151 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10148, i64 2) #9
+  %10152 = load double, ptr %10151, align 1, !alias.scope !44, !noalias !58
   %10153 = fdiv fast double %10152, %10150
-  %10154 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10148, i64 3) #9
-  %10155 = load double, double* %10154, align 1, !alias.scope !44, !noalias !58
+  %10154 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10148, i64 3) #9
+  %10155 = load double, ptr %10154, align 1, !alias.scope !44, !noalias !58
   %10156 = fdiv fast double %10155, %10150
-  %10157 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10148, i64 4) #9
-  %10158 = load double, double* %10157, align 1, !alias.scope !44, !noalias !58
+  %10157 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10148, i64 4) #9
+  %10158 = load double, ptr %10157, align 1, !alias.scope !44, !noalias !58
   %10159 = fdiv fast double %10158, %10150
   %10160 = fdiv fast double 1.000000e+00, %10150
   %10161 = fdiv fast double 1.000000e+00, %10072
   %10162 = fsub fast double %10160, %10161
   %10163 = fmul fast double %10162, %9777
-  %10164 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10148, i64 5) #9
-  %10165 = load double, double* %10164, align 1, !alias.scope !44, !noalias !58
+  %10164 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10148, i64 5) #9
+  %10165 = load double, ptr %10164, align 1, !alias.scope !44, !noalias !58
   %10166 = fdiv fast double %10165, %10150
   %10167 = fmul fast double %10153, %10153
   %10168 = fmul fast double %10156, %10156
@@ -10569,10 +10568,10 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %10175 = call fast double @llvm.pow.f64(double %10174, double 7.500000e-01) #9
   %10176 = fadd fast double %10175, %10096
   %10177 = fmul fast double %10176, 5.000000e-01
-  %10178 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %10063, i64 %10066) #9
-  %10179 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10178, i64 1) #9
-  %10180 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10179, i64 1) #9
-  store double 0.000000e+00, double* %10180, align 1, !alias.scope !49, !noalias !69
+  %10178 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %10063, i64 %10066) #9
+  %10179 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10178, i64 1) #9
+  %10180 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10179, i64 1) #9
+  store double 0.000000e+00, ptr %10180, align 1, !alias.scope !49, !noalias !69
   %10181 = fdiv fast double %10075, %10072
   %10182 = fdiv fast double %10153, %10150
   %10183 = fsub fast double %10181, %10182
@@ -10585,16 +10584,16 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %10190 = fsub fast double %10188, %10189
   %10191 = fmul fast double %10177, %10184
   %10192 = fmul fast double %10191, %9777
-  %10193 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10179, i64 2) #9
-  store double %10192, double* %10193, align 1, !alias.scope !49, !noalias !69
+  %10193 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10179, i64 2) #9
+  store double %10192, ptr %10193, align 1, !alias.scope !49, !noalias !69
   %10194 = fmul fast double %10177, %10187
   %10195 = fmul fast double %10194, %9777
-  %10196 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10179, i64 3) #9
-  store double %10195, double* %10196, align 1, !alias.scope !49, !noalias !69
+  %10196 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10179, i64 3) #9
+  store double %10195, ptr %10196, align 1, !alias.scope !49, !noalias !69
   %10197 = fmul fast double %10177, %10190
   %10198 = fmul fast double %10197, %9777
-  %10199 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10179, i64 4) #9
-  store double %10198, double* %10199, align 1, !alias.scope !49, !noalias !69
+  %10199 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10179, i64 4) #9
+  store double %10198, ptr %10199, align 1, !alias.scope !49, !noalias !69
   %10200 = fdiv fast double %10082, %10072
   %10201 = fdiv fast double %10167, %10150
   %10202 = fsub fast double %10200, %10201
@@ -10620,74 +10619,74 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %10222 = fadd fast double %10221, %10219
   %10223 = fmul fast double %10222, %10177
   %10224 = fmul fast double %10223, %9777
-  %10225 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10179, i64 5) #9
-  store double %10224, double* %10225, align 1, !alias.scope !49, !noalias !69
-  %10226 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10178, i64 2) #9
-  %10227 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10226, i64 1) #9
-  store double 0.000000e+00, double* %10227, align 1, !alias.scope !49, !noalias !69
+  %10225 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10179, i64 5) #9
+  store double %10224, ptr %10225, align 1, !alias.scope !49, !noalias !69
+  %10226 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10178, i64 2) #9
+  %10227 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10226, i64 1) #9
+  store double 0.000000e+00, ptr %10227, align 1, !alias.scope !49, !noalias !69
   %10228 = fmul fast double %10177, %10163
   %10229 = fmul fast double %10228, 0x3FF5555560000000
-  %10230 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10226, i64 2) #9
-  store double %10229, double* %10230, align 1, !alias.scope !49, !noalias !69
-  %10231 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10226, i64 3) #9
-  store double 0.000000e+00, double* %10231, align 1, !alias.scope !49, !noalias !69
-  %10232 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10226, i64 4) #9
-  store double 0.000000e+00, double* %10232, align 1, !alias.scope !49, !noalias !69
-  %10233 = load double, double* %10193, align 1, !alias.scope !49, !noalias !69
+  %10230 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10226, i64 2) #9
+  store double %10229, ptr %10230, align 1, !alias.scope !49, !noalias !69
+  %10231 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10226, i64 3) #9
+  store double 0.000000e+00, ptr %10231, align 1, !alias.scope !49, !noalias !69
+  %10232 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10226, i64 4) #9
+  store double 0.000000e+00, ptr %10232, align 1, !alias.scope !49, !noalias !69
+  %10233 = load double, ptr %10193, align 1, !alias.scope !49, !noalias !69
   %10234 = fmul fast double %10177, %9789
   %10235 = fsub fast double %10182, %10181
   %10236 = fmul fast double %10234, %10235
   %10237 = fmul fast double %10236, %9777
   %10238 = fadd fast double %10233, %10237
   %10239 = fneg fast double %10238
-  %10240 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10226, i64 5) #9
-  store double %10239, double* %10240, align 1, !alias.scope !49, !noalias !69
-  %10241 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10178, i64 3) #9
-  %10242 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10241, i64 1) #9
-  store double 0.000000e+00, double* %10242, align 1, !alias.scope !49, !noalias !69
-  %10243 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10241, i64 2) #9
-  store double 0.000000e+00, double* %10243, align 1, !alias.scope !49, !noalias !69
-  %10244 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10241, i64 3) #9
-  store double %10228, double* %10244, align 1, !alias.scope !49, !noalias !69
-  %10245 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10241, i64 4) #9
-  store double 0.000000e+00, double* %10245, align 1, !alias.scope !49, !noalias !69
-  %10246 = load double, double* %10196, align 1, !alias.scope !49, !noalias !69
+  %10240 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10226, i64 5) #9
+  store double %10239, ptr %10240, align 1, !alias.scope !49, !noalias !69
+  %10241 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10178, i64 3) #9
+  %10242 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10241, i64 1) #9
+  store double 0.000000e+00, ptr %10242, align 1, !alias.scope !49, !noalias !69
+  %10243 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10241, i64 2) #9
+  store double 0.000000e+00, ptr %10243, align 1, !alias.scope !49, !noalias !69
+  %10244 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10241, i64 3) #9
+  store double %10228, ptr %10244, align 1, !alias.scope !49, !noalias !69
+  %10245 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10241, i64 4) #9
+  store double 0.000000e+00, ptr %10245, align 1, !alias.scope !49, !noalias !69
+  %10246 = load double, ptr %10196, align 1, !alias.scope !49, !noalias !69
   %10247 = fsub fast double %10186, %10185
   %10248 = fmul fast double %10234, %10247
   %10249 = fmul fast double %10248, %9777
   %10250 = fadd fast double %10246, %10249
   %10251 = fneg fast double %10250
-  %10252 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10241, i64 5) #9
-  store double %10251, double* %10252, align 1, !alias.scope !49, !noalias !69
-  %10253 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10178, i64 4) #9
-  %10254 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10253, i64 1) #9
-  store double 0.000000e+00, double* %10254, align 1, !alias.scope !49, !noalias !69
-  %10255 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10253, i64 2) #9
-  store double 0.000000e+00, double* %10255, align 1, !alias.scope !49, !noalias !69
-  %10256 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10253, i64 3) #9
-  store double 0.000000e+00, double* %10256, align 1, !alias.scope !49, !noalias !69
-  %10257 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10253, i64 4) #9
-  store double %10228, double* %10257, align 1, !alias.scope !49, !noalias !69
-  %10258 = load double, double* %10199, align 1, !alias.scope !49, !noalias !69
+  %10252 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10241, i64 5) #9
+  store double %10251, ptr %10252, align 1, !alias.scope !49, !noalias !69
+  %10253 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10178, i64 4) #9
+  %10254 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10253, i64 1) #9
+  store double 0.000000e+00, ptr %10254, align 1, !alias.scope !49, !noalias !69
+  %10255 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10253, i64 2) #9
+  store double 0.000000e+00, ptr %10255, align 1, !alias.scope !49, !noalias !69
+  %10256 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10253, i64 3) #9
+  store double 0.000000e+00, ptr %10256, align 1, !alias.scope !49, !noalias !69
+  %10257 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10253, i64 4) #9
+  store double %10228, ptr %10257, align 1, !alias.scope !49, !noalias !69
+  %10258 = load double, ptr %10199, align 1, !alias.scope !49, !noalias !69
   %10259 = fsub fast double %10189, %10188
   %10260 = fmul fast double %10234, %10259
   %10261 = fmul fast double %10260, %9777
   %10262 = fadd fast double %10258, %10261
   %10263 = fneg fast double %10262
-  %10264 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10253, i64 5) #9
-  store double %10263, double* %10264, align 1, !alias.scope !49, !noalias !69
-  %10265 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10178, i64 5) #9
-  %10266 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10265, i64 1) #9
-  store double 0.000000e+00, double* %10266, align 1, !alias.scope !49, !noalias !69
-  %10267 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10265, i64 2) #9
-  store double 0.000000e+00, double* %10267, align 1, !alias.scope !49, !noalias !69
-  %10268 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10265, i64 3) #9
-  store double 0.000000e+00, double* %10268, align 1, !alias.scope !49, !noalias !69
-  %10269 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10265, i64 4) #9
-  store double 0.000000e+00, double* %10269, align 1, !alias.scope !49, !noalias !69
+  %10264 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10253, i64 5) #9
+  store double %10263, ptr %10264, align 1, !alias.scope !49, !noalias !69
+  %10265 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10178, i64 5) #9
+  %10266 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10265, i64 1) #9
+  store double 0.000000e+00, ptr %10266, align 1, !alias.scope !49, !noalias !69
+  %10267 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10265, i64 2) #9
+  store double 0.000000e+00, ptr %10267, align 1, !alias.scope !49, !noalias !69
+  %10268 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10265, i64 3) #9
+  store double 0.000000e+00, ptr %10268, align 1, !alias.scope !49, !noalias !69
+  %10269 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10265, i64 4) #9
+  store double 0.000000e+00, ptr %10269, align 1, !alias.scope !49, !noalias !69
   %10270 = fmul fast double %10234, %10163
-  %10271 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10265, i64 5) #9
-  store double %10270, double* %10271, align 1, !alias.scope !49, !noalias !69
+  %10271 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10265, i64 5) #9
+  store double %10270, ptr %10271, align 1, !alias.scope !49, !noalias !69
   %10272 = add nuw nsw i64 %10066, 1
   %10273 = icmp eq i64 %10272, %9769
   %10274 = call i64 @llvm.ssa.copy.i64(i64 %10272), !in.de.ssa !57
@@ -10729,11 +10728,11 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9758, label %10525, label %10291
 
 10291:                                            ; preds = %10288
-  %10292 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %88, i64 %10290) #9
-  %10293 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %67, i64 %10289) #9
+  %10292 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %88, i64 %10290) #9
+  %10293 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %67, i64 %10289) #9
   %10294 = and i64 %10290, 4294967295
-  %10295 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %88, i64 %10294) #9
-  %10296 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %64, i64 %10289) #9
+  %10295 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %88, i64 %10294) #9
+  %10296 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %64, i64 %10289) #9
   %10297 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !82
   br label %10298
 
@@ -10745,11 +10744,11 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %10301 = trunc i64 %10299 to i32
   %10302 = srem i32 %10301, %3
   %10303 = add nuw nsw i32 %10302, 1
-  %10304 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %10292, i64 %10299) #9
-  %10305 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %10293, i64 %10299) #9
+  %10304 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %10292, i64 %10299) #9
+  %10305 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %10293, i64 %10299) #9
   %10306 = zext i32 %10303 to i64
-  %10307 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %10295, i64 %10306) #9
-  %10308 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %10296, i64 %10299) #9
+  %10307 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %10295, i64 %10306) #9
+  %10308 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %10296, i64 %10299) #9
   %10309 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !83
   br label %10310
 
@@ -10757,17 +10756,17 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %10311 = phi i64 [ 1, %10300 ], [ %10516, %10310 ], !in.de.ssa !83
   %10312 = trunc i64 %10311 to i32
   %10313 = srem i32 %10312, %9766
-  %10314 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10304, i64 %10311) #9
-  %10315 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10314, i64 1) #9
-  %10316 = load double, double* %10315, align 1, !alias.scope !70, !noalias !84
-  %10317 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10314, i64 2) #9
-  %10318 = load double, double* %10317, align 1, !alias.scope !70, !noalias !84
+  %10314 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10304, i64 %10311) #9
+  %10315 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10314, i64 1) #9
+  %10316 = load double, ptr %10315, align 1, !alias.scope !70, !noalias !84
+  %10317 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10314, i64 2) #9
+  %10318 = load double, ptr %10317, align 1, !alias.scope !70, !noalias !84
   %10319 = fdiv fast double %10318, %10316
-  %10320 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10314, i64 3) #9
-  %10321 = load double, double* %10320, align 1, !alias.scope !70, !noalias !84
+  %10320 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10314, i64 3) #9
+  %10321 = load double, ptr %10320, align 1, !alias.scope !70, !noalias !84
   %10322 = fdiv fast double %10321, %10316
-  %10323 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10314, i64 4) #9
-  %10324 = load double, double* %10323, align 1, !alias.scope !70, !noalias !84
+  %10323 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10314, i64 4) #9
+  %10324 = load double, ptr %10323, align 1, !alias.scope !70, !noalias !84
   %10325 = fdiv fast double %10324, %10316
   %10326 = fmul fast double %10319, %10319
   %10327 = fmul fast double %10322, %10322
@@ -10776,108 +10775,108 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %10330 = fadd fast double %10328, %10329
   %10331 = fmul fast double %10330, 5.000000e-01
   %10332 = fmul fast double %10331, 0x3FD9999980000000
-  %10333 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10314, i64 5) #9
-  %10334 = load double, double* %10333, align 1, !alias.scope !70, !noalias !84
+  %10333 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10314, i64 5) #9
+  %10334 = load double, ptr %10333, align 1, !alias.scope !70, !noalias !84
   %10335 = fmul fast double %10334, 0x3FF6666660000000
   %10336 = fdiv fast double %10335, %10316
   %10337 = fdiv fast double %10334, %10316
   %10338 = fsub fast double %10337, %10331
   %10339 = fmul fast double %10338, 0x3FD9999980000000
   %10340 = call fast double @llvm.pow.f64(double %10339, double 7.500000e-01) #9
-  %10341 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %10305, i64 %10311) #9
-  %10342 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10341, i64 1) #9
-  %10343 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10342, i64 1) #9
-  store double 0.000000e+00, double* %10343, align 1, !alias.scope !73, !noalias !94
+  %10341 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %10305, i64 %10311) #9
+  %10342 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10341, i64 1) #9
+  %10343 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10342, i64 1) #9
+  store double 0.000000e+00, ptr %10343, align 1, !alias.scope !73, !noalias !94
   %10344 = fneg fast double %10322
   %10345 = fmul fast double %10319, %10344
-  %10346 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10342, i64 2) #9
-  store double %10345, double* %10346, align 1, !alias.scope !73, !noalias !94
+  %10346 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10342, i64 2) #9
+  store double %10345, ptr %10346, align 1, !alias.scope !73, !noalias !94
   %10347 = fsub fast double %10332, %10327
-  %10348 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10342, i64 3) #9
-  store double %10347, double* %10348, align 1, !alias.scope !73, !noalias !94
+  %10348 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10342, i64 3) #9
+  store double %10347, ptr %10348, align 1, !alias.scope !73, !noalias !94
   %10349 = fmul fast double %10325, %10344
-  %10350 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10342, i64 4) #9
-  store double %10349, double* %10350, align 1, !alias.scope !73, !noalias !94
+  %10350 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10342, i64 4) #9
+  store double %10349, ptr %10350, align 1, !alias.scope !73, !noalias !94
   %10351 = fmul fast double %10332, 2.000000e+00
   %10352 = fsub fast double %10351, %10336
   %10353 = fmul fast double %10352, %10322
-  %10354 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10342, i64 5) #9
-  store double %10353, double* %10354, align 1, !alias.scope !73, !noalias !94
-  %10355 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10341, i64 2) #9
-  %10356 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10355, i64 1) #9
-  store double 0.000000e+00, double* %10356, align 1, !alias.scope !73, !noalias !94
-  %10357 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10355, i64 2) #9
-  store double %10322, double* %10357, align 1, !alias.scope !73, !noalias !94
+  %10354 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10342, i64 5) #9
+  store double %10353, ptr %10354, align 1, !alias.scope !73, !noalias !94
+  %10355 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10341, i64 2) #9
+  %10356 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10355, i64 1) #9
+  store double 0.000000e+00, ptr %10356, align 1, !alias.scope !73, !noalias !94
+  %10357 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10355, i64 2) #9
+  store double %10322, ptr %10357, align 1, !alias.scope !73, !noalias !94
   %10358 = fmul fast double %10319, 0xBFD9999980000000
-  %10359 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10355, i64 3) #9
-  store double %10358, double* %10359, align 1, !alias.scope !73, !noalias !94
-  %10360 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10355, i64 4) #9
-  store double 0.000000e+00, double* %10360, align 1, !alias.scope !73, !noalias !94
+  %10359 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10355, i64 3) #9
+  store double %10358, ptr %10359, align 1, !alias.scope !73, !noalias !94
+  %10360 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10355, i64 4) #9
+  store double 0.000000e+00, ptr %10360, align 1, !alias.scope !73, !noalias !94
   %10361 = fmul fast double %10322, 0x3FD9999980000000
   %10362 = fneg fast double %10361
   %10363 = fmul fast double %10319, %10362
-  %10364 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10355, i64 5) #9
-  store double %10363, double* %10364, align 1, !alias.scope !73, !noalias !94
-  %10365 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10341, i64 3) #9
-  %10366 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10365, i64 1) #9
-  store double 1.000000e+00, double* %10366, align 1, !alias.scope !73, !noalias !94
-  %10367 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10365, i64 2) #9
-  store double %10319, double* %10367, align 1, !alias.scope !73, !noalias !94
+  %10364 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10355, i64 5) #9
+  store double %10363, ptr %10364, align 1, !alias.scope !73, !noalias !94
+  %10365 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10341, i64 3) #9
+  %10366 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10365, i64 1) #9
+  store double 1.000000e+00, ptr %10366, align 1, !alias.scope !73, !noalias !94
+  %10367 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10365, i64 2) #9
+  store double %10319, ptr %10367, align 1, !alias.scope !73, !noalias !94
   %10368 = fmul fast double %10322, 0xBFE3333340000000
   %10369 = fsub fast double %10322, %10368
-  %10370 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10365, i64 3) #9
-  store double %10369, double* %10370, align 1, !alias.scope !73, !noalias !94
-  %10371 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10365, i64 4) #9
-  store double %10325, double* %10371, align 1, !alias.scope !73, !noalias !94
+  %10370 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10365, i64 3) #9
+  store double %10369, ptr %10370, align 1, !alias.scope !73, !noalias !94
+  %10371 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10365, i64 4) #9
+  store double %10325, ptr %10371, align 1, !alias.scope !73, !noalias !94
   %10372 = fmul fast double %10361, %10322
   %10373 = fadd fast double %10332, %10372
   %10374 = fsub fast double %10336, %10373
-  %10375 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10365, i64 5) #9
-  store double %10374, double* %10375, align 1, !alias.scope !73, !noalias !94
-  %10376 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10341, i64 4) #9
-  %10377 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10376, i64 1) #9
-  store double 0.000000e+00, double* %10377, align 1, !alias.scope !73, !noalias !94
-  %10378 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10376, i64 2) #9
-  store double 0.000000e+00, double* %10378, align 1, !alias.scope !73, !noalias !94
+  %10375 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10365, i64 5) #9
+  store double %10374, ptr %10375, align 1, !alias.scope !73, !noalias !94
+  %10376 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10341, i64 4) #9
+  %10377 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10376, i64 1) #9
+  store double 0.000000e+00, ptr %10377, align 1, !alias.scope !73, !noalias !94
+  %10378 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10376, i64 2) #9
+  store double 0.000000e+00, ptr %10378, align 1, !alias.scope !73, !noalias !94
   %10379 = fmul fast double %10325, 0xBFD9999980000000
-  %10380 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10376, i64 3) #9
-  store double %10379, double* %10380, align 1, !alias.scope !73, !noalias !94
-  %10381 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10376, i64 4) #9
-  store double %10322, double* %10381, align 1, !alias.scope !73, !noalias !94
+  %10380 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10376, i64 3) #9
+  store double %10379, ptr %10380, align 1, !alias.scope !73, !noalias !94
+  %10381 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10376, i64 4) #9
+  store double %10322, ptr %10381, align 1, !alias.scope !73, !noalias !94
   %10382 = fmul fast double %10325, %10362
-  %10383 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10376, i64 5) #9
-  store double %10382, double* %10383, align 1, !alias.scope !73, !noalias !94
-  %10384 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10341, i64 5) #9
-  %10385 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10384, i64 1) #9
-  store double 0.000000e+00, double* %10385, align 1, !alias.scope !73, !noalias !94
-  %10386 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10384, i64 2) #9
-  store double 0.000000e+00, double* %10386, align 1, !alias.scope !73, !noalias !94
-  %10387 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10384, i64 3) #9
-  store double 0x3FD9999980000000, double* %10387, align 1, !alias.scope !73, !noalias !94
-  %10388 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10384, i64 4) #9
-  store double 0.000000e+00, double* %10388, align 1, !alias.scope !73, !noalias !94
+  %10383 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10376, i64 5) #9
+  store double %10382, ptr %10383, align 1, !alias.scope !73, !noalias !94
+  %10384 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10341, i64 5) #9
+  %10385 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10384, i64 1) #9
+  store double 0.000000e+00, ptr %10385, align 1, !alias.scope !73, !noalias !94
+  %10386 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10384, i64 2) #9
+  store double 0.000000e+00, ptr %10386, align 1, !alias.scope !73, !noalias !94
+  %10387 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10384, i64 3) #9
+  store double 0x3FD9999980000000, ptr %10387, align 1, !alias.scope !73, !noalias !94
+  %10388 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10384, i64 4) #9
+  store double 0.000000e+00, ptr %10388, align 1, !alias.scope !73, !noalias !94
   %10389 = fmul fast double %10322, 0x3FF6666660000000
-  %10390 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10384, i64 5) #9
-  store double %10389, double* %10390, align 1, !alias.scope !73, !noalias !94
+  %10390 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10384, i64 5) #9
+  store double %10389, ptr %10390, align 1, !alias.scope !73, !noalias !94
   %10391 = zext i32 %10313 to i64
-  %10392 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10307, i64 %10391) #9
-  %10393 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10392, i64 1) #9
-  %10394 = load double, double* %10393, align 1, !alias.scope !70, !noalias !84
-  %10395 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10392, i64 2) #9
-  %10396 = load double, double* %10395, align 1, !alias.scope !70, !noalias !84
+  %10392 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10307, i64 %10391) #9
+  %10393 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10392, i64 1) #9
+  %10394 = load double, ptr %10393, align 1, !alias.scope !70, !noalias !84
+  %10395 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10392, i64 2) #9
+  %10396 = load double, ptr %10395, align 1, !alias.scope !70, !noalias !84
   %10397 = fdiv fast double %10396, %10394
-  %10398 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10392, i64 3) #9
-  %10399 = load double, double* %10398, align 1, !alias.scope !70, !noalias !84
+  %10398 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10392, i64 3) #9
+  %10399 = load double, ptr %10398, align 1, !alias.scope !70, !noalias !84
   %10400 = fdiv fast double %10399, %10394
-  %10401 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10392, i64 4) #9
-  %10402 = load double, double* %10401, align 1, !alias.scope !70, !noalias !84
+  %10401 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10392, i64 4) #9
+  %10402 = load double, ptr %10401, align 1, !alias.scope !70, !noalias !84
   %10403 = fdiv fast double %10402, %10394
   %10404 = fdiv fast double 1.000000e+00, %10394
   %10405 = fdiv fast double 1.000000e+00, %10316
   %10406 = fsub fast double %10404, %10405
   %10407 = fmul fast double %10406, %9780
-  %10408 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10392, i64 5) #9
-  %10409 = load double, double* %10408, align 1, !alias.scope !70, !noalias !84
+  %10408 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10392, i64 5) #9
+  %10409 = load double, ptr %10408, align 1, !alias.scope !70, !noalias !84
   %10410 = fdiv fast double %10409, %10394
   %10411 = fmul fast double %10397, %10397
   %10412 = fmul fast double %10400, %10400
@@ -10890,10 +10889,10 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %10419 = call fast double @llvm.pow.f64(double %10418, double 7.500000e-01) #9
   %10420 = fadd fast double %10419, %10340
   %10421 = fmul fast double %10420, 5.000000e-01
-  %10422 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %10308, i64 %10311) #9
-  %10423 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10422, i64 1) #9
-  %10424 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10423, i64 1) #9
-  store double 0.000000e+00, double* %10424, align 1, !alias.scope !75, !noalias !95
+  %10422 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %10308, i64 %10311) #9
+  %10423 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10422, i64 1) #9
+  %10424 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10423, i64 1) #9
+  store double 0.000000e+00, ptr %10424, align 1, !alias.scope !75, !noalias !95
   %10425 = fdiv fast double %10319, %10316
   %10426 = fdiv fast double %10397, %10394
   %10427 = fsub fast double %10425, %10426
@@ -10905,17 +10904,17 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %10433 = fsub fast double %10431, %10432
   %10434 = fmul fast double %10421, %10427
   %10435 = fmul fast double %10434, %9780
-  %10436 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10423, i64 2) #9
-  store double %10435, double* %10436, align 1, !alias.scope !75, !noalias !95
+  %10436 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10423, i64 2) #9
+  store double %10435, ptr %10436, align 1, !alias.scope !75, !noalias !95
   %10437 = fmul fast double %10430, 0x3FF5555560000000
   %10438 = fmul fast double %10421, %10437
   %10439 = fmul fast double %10438, %9780
-  %10440 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10423, i64 3) #9
-  store double %10439, double* %10440, align 1, !alias.scope !75, !noalias !95
+  %10440 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10423, i64 3) #9
+  store double %10439, ptr %10440, align 1, !alias.scope !75, !noalias !95
   %10441 = fmul fast double %10421, %10433
   %10442 = fmul fast double %10441, %9780
-  %10443 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10423, i64 4) #9
-  store double %10442, double* %10443, align 1, !alias.scope !75, !noalias !95
+  %10443 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10423, i64 4) #9
+  store double %10442, ptr %10443, align 1, !alias.scope !75, !noalias !95
   %10444 = fdiv fast double %10326, %10316
   %10445 = fdiv fast double %10411, %10394
   %10446 = fsub fast double %10444, %10445
@@ -10941,74 +10940,74 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %10466 = fadd fast double %10465, %10463
   %10467 = fmul fast double %10466, %10421
   %10468 = fmul fast double %10467, %9780
-  %10469 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10423, i64 5) #9
-  store double %10468, double* %10469, align 1, !alias.scope !75, !noalias !95
-  %10470 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10422, i64 2) #9
-  %10471 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10470, i64 1) #9
-  store double 0.000000e+00, double* %10471, align 1, !alias.scope !75, !noalias !95
+  %10469 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10423, i64 5) #9
+  store double %10468, ptr %10469, align 1, !alias.scope !75, !noalias !95
+  %10470 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10422, i64 2) #9
+  %10471 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10470, i64 1) #9
+  store double 0.000000e+00, ptr %10471, align 1, !alias.scope !75, !noalias !95
   %10472 = fmul fast double %10421, %10407
-  %10473 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10470, i64 2) #9
-  store double %10472, double* %10473, align 1, !alias.scope !75, !noalias !95
-  %10474 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10470, i64 3) #9
-  store double 0.000000e+00, double* %10474, align 1, !alias.scope !75, !noalias !95
-  %10475 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10470, i64 4) #9
-  store double 0.000000e+00, double* %10475, align 1, !alias.scope !75, !noalias !95
-  %10476 = load double, double* %10436, align 1, !alias.scope !75, !noalias !95
+  %10473 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10470, i64 2) #9
+  store double %10472, ptr %10473, align 1, !alias.scope !75, !noalias !95
+  %10474 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10470, i64 3) #9
+  store double 0.000000e+00, ptr %10474, align 1, !alias.scope !75, !noalias !95
+  %10475 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10470, i64 4) #9
+  store double 0.000000e+00, ptr %10475, align 1, !alias.scope !75, !noalias !95
+  %10476 = load double, ptr %10436, align 1, !alias.scope !75, !noalias !95
   %10477 = fmul fast double %10421, %9789
   %10478 = fsub fast double %10426, %10425
   %10479 = fmul fast double %10477, %10478
   %10480 = fmul fast double %10479, %9780
   %10481 = fadd fast double %10476, %10480
   %10482 = fneg fast double %10481
-  %10483 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10470, i64 5) #9
-  store double %10482, double* %10483, align 1, !alias.scope !75, !noalias !95
-  %10484 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10422, i64 3) #9
-  %10485 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10484, i64 1) #9
-  store double 0.000000e+00, double* %10485, align 1, !alias.scope !75, !noalias !95
-  %10486 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10484, i64 2) #9
-  store double 0.000000e+00, double* %10486, align 1, !alias.scope !75, !noalias !95
+  %10483 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10470, i64 5) #9
+  store double %10482, ptr %10483, align 1, !alias.scope !75, !noalias !95
+  %10484 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10422, i64 3) #9
+  %10485 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10484, i64 1) #9
+  store double 0.000000e+00, ptr %10485, align 1, !alias.scope !75, !noalias !95
+  %10486 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10484, i64 2) #9
+  store double 0.000000e+00, ptr %10486, align 1, !alias.scope !75, !noalias !95
   %10487 = fmul fast double %10472, 0x3FF5555560000000
-  %10488 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10484, i64 3) #9
-  store double %10487, double* %10488, align 1, !alias.scope !75, !noalias !95
-  %10489 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10484, i64 4) #9
-  store double 0.000000e+00, double* %10489, align 1, !alias.scope !75, !noalias !95
-  %10490 = load double, double* %10440, align 1, !alias.scope !75, !noalias !95
+  %10488 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10484, i64 3) #9
+  store double %10487, ptr %10488, align 1, !alias.scope !75, !noalias !95
+  %10489 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10484, i64 4) #9
+  store double 0.000000e+00, ptr %10489, align 1, !alias.scope !75, !noalias !95
+  %10490 = load double, ptr %10440, align 1, !alias.scope !75, !noalias !95
   %10491 = fsub fast double %10429, %10428
   %10492 = fmul fast double %10477, %10491
   %10493 = fmul fast double %10492, %9780
   %10494 = fadd fast double %10490, %10493
   %10495 = fneg fast double %10494
-  %10496 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10484, i64 5) #9
-  store double %10495, double* %10496, align 1, !alias.scope !75, !noalias !95
-  %10497 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10422, i64 4) #9
-  %10498 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10497, i64 1) #9
-  store double 0.000000e+00, double* %10498, align 1, !alias.scope !75, !noalias !95
-  %10499 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10497, i64 2) #9
-  store double 0.000000e+00, double* %10499, align 1, !alias.scope !75, !noalias !95
-  %10500 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10497, i64 3) #9
-  store double 0.000000e+00, double* %10500, align 1, !alias.scope !75, !noalias !95
-  %10501 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10497, i64 4) #9
-  store double %10472, double* %10501, align 1, !alias.scope !75, !noalias !95
-  %10502 = load double, double* %10443, align 1, !alias.scope !75, !noalias !95
+  %10496 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10484, i64 5) #9
+  store double %10495, ptr %10496, align 1, !alias.scope !75, !noalias !95
+  %10497 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10422, i64 4) #9
+  %10498 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10497, i64 1) #9
+  store double 0.000000e+00, ptr %10498, align 1, !alias.scope !75, !noalias !95
+  %10499 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10497, i64 2) #9
+  store double 0.000000e+00, ptr %10499, align 1, !alias.scope !75, !noalias !95
+  %10500 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10497, i64 3) #9
+  store double 0.000000e+00, ptr %10500, align 1, !alias.scope !75, !noalias !95
+  %10501 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10497, i64 4) #9
+  store double %10472, ptr %10501, align 1, !alias.scope !75, !noalias !95
+  %10502 = load double, ptr %10443, align 1, !alias.scope !75, !noalias !95
   %10503 = fsub fast double %10432, %10431
   %10504 = fmul fast double %10477, %10503
   %10505 = fmul fast double %10504, %9780
   %10506 = fadd fast double %10502, %10505
   %10507 = fneg fast double %10506
-  %10508 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10497, i64 5) #9
-  store double %10507, double* %10508, align 1, !alias.scope !75, !noalias !95
-  %10509 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10422, i64 5) #9
-  %10510 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10509, i64 1) #9
-  store double 0.000000e+00, double* %10510, align 1, !alias.scope !75, !noalias !95
-  %10511 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10509, i64 2) #9
-  store double 0.000000e+00, double* %10511, align 1, !alias.scope !75, !noalias !95
-  %10512 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10509, i64 3) #9
-  store double 0.000000e+00, double* %10512, align 1, !alias.scope !75, !noalias !95
-  %10513 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10509, i64 4) #9
-  store double 0.000000e+00, double* %10513, align 1, !alias.scope !75, !noalias !95
+  %10508 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10497, i64 5) #9
+  store double %10507, ptr %10508, align 1, !alias.scope !75, !noalias !95
+  %10509 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10422, i64 5) #9
+  %10510 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10509, i64 1) #9
+  store double 0.000000e+00, ptr %10510, align 1, !alias.scope !75, !noalias !95
+  %10511 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10509, i64 2) #9
+  store double 0.000000e+00, ptr %10511, align 1, !alias.scope !75, !noalias !95
+  %10512 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10509, i64 3) #9
+  store double 0.000000e+00, ptr %10512, align 1, !alias.scope !75, !noalias !95
+  %10513 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10509, i64 4) #9
+  store double 0.000000e+00, ptr %10513, align 1, !alias.scope !75, !noalias !95
   %10514 = fmul fast double %10477, %10407
-  %10515 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10509, i64 5) #9
-  store double %10514, double* %10515, align 1, !alias.scope !75, !noalias !95
+  %10515 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10509, i64 5) #9
+  store double %10514, ptr %10515, align 1, !alias.scope !75, !noalias !95
   %10516 = add nuw nsw i64 %10311, 1
   %10517 = icmp eq i64 %10516, %9769
   %10518 = call i64 @llvm.ssa.copy.i64(i64 %10516), !in.de.ssa !83
@@ -11068,11 +11067,11 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
 10539:                                            ; preds = %10534
   %10540 = add nuw nsw i64 %10535, 2
   %10541 = add nuw nsw i64 %10535, 1
-  %10542 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %88, i64 %10541) #9
-  %10543 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %66, i64 %10535) #9
+  %10542 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %88, i64 %10541) #9
+  %10543 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %66, i64 %10535) #9
   %10544 = and i64 %10540, 4294967295
-  %10545 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %88, i64 %10544) #9
-  %10546 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %63, i64 %10535) #9
+  %10545 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %88, i64 %10544) #9
+  %10546 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %63, i64 %10535) #9
   %10547 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !111
   br label %10548
 
@@ -11083,11 +11082,11 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
 10550:                                            ; preds = %10548
   %10551 = trunc i64 %10549 to i32
   %10552 = srem i32 %10551, %9767
-  %10553 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %10542, i64 %10549) #9
-  %10554 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %10543, i64 %10549) #9
+  %10553 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %10542, i64 %10549) #9
+  %10554 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %10543, i64 %10549) #9
   %10555 = zext i32 %10552 to i64
-  %10556 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %10545, i64 %10555) #9
-  %10557 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %10546, i64 %10549) #9
+  %10556 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %10545, i64 %10555) #9
+  %10557 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %10546, i64 %10549) #9
   %10558 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !112
   br label %10559
 
@@ -11095,17 +11094,17 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %10560 = phi i64 [ 1, %10550 ], [ %10765, %10559 ], !in.de.ssa !112
   %10561 = trunc i64 %10560 to i32
   %10562 = srem i32 %10561, %9766
-  %10563 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10553, i64 %10560) #9
-  %10564 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10563, i64 1) #9
-  %10565 = load double, double* %10564, align 1, !alias.scope !96, !noalias !113
-  %10566 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10563, i64 2) #9
-  %10567 = load double, double* %10566, align 1, !alias.scope !96, !noalias !113
+  %10563 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10553, i64 %10560) #9
+  %10564 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10563, i64 1) #9
+  %10565 = load double, ptr %10564, align 1, !alias.scope !96, !noalias !113
+  %10566 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10563, i64 2) #9
+  %10567 = load double, ptr %10566, align 1, !alias.scope !96, !noalias !113
   %10568 = fdiv fast double %10567, %10565
-  %10569 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10563, i64 3) #9
-  %10570 = load double, double* %10569, align 1, !alias.scope !96, !noalias !113
+  %10569 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10563, i64 3) #9
+  %10570 = load double, ptr %10569, align 1, !alias.scope !96, !noalias !113
   %10571 = fdiv fast double %10570, %10565
-  %10572 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10563, i64 4) #9
-  %10573 = load double, double* %10572, align 1, !alias.scope !96, !noalias !113
+  %10572 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10563, i64 4) #9
+  %10573 = load double, ptr %10572, align 1, !alias.scope !96, !noalias !113
   %10574 = fdiv fast double %10573, %10565
   %10575 = fmul fast double %10568, %10568
   %10576 = fmul fast double %10571, %10571
@@ -11114,108 +11113,108 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %10579 = fadd fast double %10577, %10578
   %10580 = fmul fast double %10579, 5.000000e-01
   %10581 = fmul fast double %10580, 0x3FD9999980000000
-  %10582 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10563, i64 5) #9
-  %10583 = load double, double* %10582, align 1, !alias.scope !96, !noalias !113
+  %10582 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10563, i64 5) #9
+  %10583 = load double, ptr %10582, align 1, !alias.scope !96, !noalias !113
   %10584 = fmul fast double %10583, 0x3FF6666660000000
   %10585 = fdiv fast double %10584, %10565
   %10586 = fdiv fast double %10583, %10565
   %10587 = fsub fast double %10586, %10580
   %10588 = fmul fast double %10587, 0x3FD9999980000000
   %10589 = call fast double @llvm.pow.f64(double %10588, double 7.500000e-01) #9
-  %10590 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %10554, i64 %10560) #9
-  %10591 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10590, i64 1) #9
-  %10592 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10591, i64 1) #9
-  store double 0.000000e+00, double* %10592, align 1, !alias.scope !99, !noalias !122
+  %10590 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %10554, i64 %10560) #9
+  %10591 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10590, i64 1) #9
+  %10592 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10591, i64 1) #9
+  store double 0.000000e+00, ptr %10592, align 1, !alias.scope !99, !noalias !122
   %10593 = fneg fast double %10574
   %10594 = fmul fast double %10568, %10593
-  %10595 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10591, i64 2) #9
-  store double %10594, double* %10595, align 1, !alias.scope !99, !noalias !122
+  %10595 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10591, i64 2) #9
+  store double %10594, ptr %10595, align 1, !alias.scope !99, !noalias !122
   %10596 = fmul fast double %10571, %10593
-  %10597 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10591, i64 3) #9
-  store double %10596, double* %10597, align 1, !alias.scope !99, !noalias !122
+  %10597 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10591, i64 3) #9
+  store double %10596, ptr %10597, align 1, !alias.scope !99, !noalias !122
   %10598 = fsub fast double %10581, %10578
-  %10599 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10591, i64 4) #9
-  store double %10598, double* %10599, align 1, !alias.scope !99, !noalias !122
+  %10599 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10591, i64 4) #9
+  store double %10598, ptr %10599, align 1, !alias.scope !99, !noalias !122
   %10600 = fmul fast double %10581, 2.000000e+00
   %10601 = fsub fast double %10600, %10585
   %10602 = fmul fast double %10601, %10574
-  %10603 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10591, i64 5) #9
-  store double %10602, double* %10603, align 1, !alias.scope !99, !noalias !122
-  %10604 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10590, i64 2) #9
-  %10605 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10604, i64 1) #9
-  store double 0.000000e+00, double* %10605, align 1, !alias.scope !99, !noalias !122
-  %10606 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10604, i64 2) #9
-  store double %10574, double* %10606, align 1, !alias.scope !99, !noalias !122
-  %10607 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10604, i64 3) #9
-  store double 0.000000e+00, double* %10607, align 1, !alias.scope !99, !noalias !122
+  %10603 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10591, i64 5) #9
+  store double %10602, ptr %10603, align 1, !alias.scope !99, !noalias !122
+  %10604 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10590, i64 2) #9
+  %10605 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10604, i64 1) #9
+  store double 0.000000e+00, ptr %10605, align 1, !alias.scope !99, !noalias !122
+  %10606 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10604, i64 2) #9
+  store double %10574, ptr %10606, align 1, !alias.scope !99, !noalias !122
+  %10607 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10604, i64 3) #9
+  store double 0.000000e+00, ptr %10607, align 1, !alias.scope !99, !noalias !122
   %10608 = fmul fast double %10568, 0xBFD9999980000000
-  %10609 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10604, i64 4) #9
-  store double %10608, double* %10609, align 1, !alias.scope !99, !noalias !122
+  %10609 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10604, i64 4) #9
+  store double %10608, ptr %10609, align 1, !alias.scope !99, !noalias !122
   %10610 = fmul fast double %10574, 0x3FD9999980000000
   %10611 = fneg fast double %10610
   %10612 = fmul fast double %10568, %10611
-  %10613 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10604, i64 5) #9
-  store double %10612, double* %10613, align 1, !alias.scope !99, !noalias !122
-  %10614 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10590, i64 3) #9
-  %10615 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10614, i64 1) #9
-  store double 0.000000e+00, double* %10615, align 1, !alias.scope !99, !noalias !122
-  %10616 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10614, i64 2) #9
-  store double 0.000000e+00, double* %10616, align 1, !alias.scope !99, !noalias !122
-  %10617 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10614, i64 3) #9
-  store double %10574, double* %10617, align 1, !alias.scope !99, !noalias !122
+  %10613 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10604, i64 5) #9
+  store double %10612, ptr %10613, align 1, !alias.scope !99, !noalias !122
+  %10614 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10590, i64 3) #9
+  %10615 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10614, i64 1) #9
+  store double 0.000000e+00, ptr %10615, align 1, !alias.scope !99, !noalias !122
+  %10616 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10614, i64 2) #9
+  store double 0.000000e+00, ptr %10616, align 1, !alias.scope !99, !noalias !122
+  %10617 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10614, i64 3) #9
+  store double %10574, ptr %10617, align 1, !alias.scope !99, !noalias !122
   %10618 = fmul fast double %10571, 0xBFD9999980000000
-  %10619 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10614, i64 4) #9
-  store double %10618, double* %10619, align 1, !alias.scope !99, !noalias !122
+  %10619 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10614, i64 4) #9
+  store double %10618, ptr %10619, align 1, !alias.scope !99, !noalias !122
   %10620 = fmul fast double %10571, %10611
-  %10621 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10614, i64 5) #9
-  store double %10620, double* %10621, align 1, !alias.scope !99, !noalias !122
-  %10622 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10590, i64 4) #9
-  %10623 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10622, i64 1) #9
-  store double 1.000000e+00, double* %10623, align 1, !alias.scope !99, !noalias !122
-  %10624 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10622, i64 2) #9
-  store double %10568, double* %10624, align 1, !alias.scope !99, !noalias !122
-  %10625 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10622, i64 3) #9
-  store double %10571, double* %10625, align 1, !alias.scope !99, !noalias !122
+  %10621 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10614, i64 5) #9
+  store double %10620, ptr %10621, align 1, !alias.scope !99, !noalias !122
+  %10622 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10590, i64 4) #9
+  %10623 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10622, i64 1) #9
+  store double 1.000000e+00, ptr %10623, align 1, !alias.scope !99, !noalias !122
+  %10624 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10622, i64 2) #9
+  store double %10568, ptr %10624, align 1, !alias.scope !99, !noalias !122
+  %10625 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10622, i64 3) #9
+  store double %10571, ptr %10625, align 1, !alias.scope !99, !noalias !122
   %10626 = fmul fast double %10574, 0xBFE3333340000000
   %10627 = fsub fast double %10574, %10626
-  %10628 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10622, i64 4) #9
-  store double %10627, double* %10628, align 1, !alias.scope !99, !noalias !122
+  %10628 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10622, i64 4) #9
+  store double %10627, ptr %10628, align 1, !alias.scope !99, !noalias !122
   %10629 = fmul fast double %10610, %10574
   %10630 = fadd fast double %10581, %10629
   %10631 = fsub fast double %10585, %10630
-  %10632 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10622, i64 5) #9
-  store double %10631, double* %10632, align 1, !alias.scope !99, !noalias !122
-  %10633 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10590, i64 5) #9
-  %10634 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10633, i64 1) #9
-  store double 0.000000e+00, double* %10634, align 1, !alias.scope !99, !noalias !122
-  %10635 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10633, i64 2) #9
-  store double 0.000000e+00, double* %10635, align 1, !alias.scope !99, !noalias !122
-  %10636 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10633, i64 3) #9
-  store double 0.000000e+00, double* %10636, align 1, !alias.scope !99, !noalias !122
-  %10637 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10633, i64 4) #9
-  store double 0x3FD9999980000000, double* %10637, align 1, !alias.scope !99, !noalias !122
+  %10632 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10622, i64 5) #9
+  store double %10631, ptr %10632, align 1, !alias.scope !99, !noalias !122
+  %10633 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10590, i64 5) #9
+  %10634 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10633, i64 1) #9
+  store double 0.000000e+00, ptr %10634, align 1, !alias.scope !99, !noalias !122
+  %10635 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10633, i64 2) #9
+  store double 0.000000e+00, ptr %10635, align 1, !alias.scope !99, !noalias !122
+  %10636 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10633, i64 3) #9
+  store double 0.000000e+00, ptr %10636, align 1, !alias.scope !99, !noalias !122
+  %10637 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10633, i64 4) #9
+  store double 0x3FD9999980000000, ptr %10637, align 1, !alias.scope !99, !noalias !122
   %10638 = fmul fast double %10574, 0x3FF6666660000000
-  %10639 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10633, i64 5) #9
-  store double %10638, double* %10639, align 1, !alias.scope !99, !noalias !122
+  %10639 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10633, i64 5) #9
+  store double %10638, ptr %10639, align 1, !alias.scope !99, !noalias !122
   %10640 = zext i32 %10562 to i64
-  %10641 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10556, i64 %10640) #9
-  %10642 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10641, i64 1) #9
-  %10643 = load double, double* %10642, align 1, !alias.scope !96, !noalias !113
-  %10644 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10641, i64 2) #9
-  %10645 = load double, double* %10644, align 1, !alias.scope !96, !noalias !113
+  %10641 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10556, i64 %10640) #9
+  %10642 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10641, i64 1) #9
+  %10643 = load double, ptr %10642, align 1, !alias.scope !96, !noalias !113
+  %10644 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10641, i64 2) #9
+  %10645 = load double, ptr %10644, align 1, !alias.scope !96, !noalias !113
   %10646 = fdiv fast double %10645, %10643
-  %10647 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10641, i64 3) #9
-  %10648 = load double, double* %10647, align 1, !alias.scope !96, !noalias !113
+  %10647 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10641, i64 3) #9
+  %10648 = load double, ptr %10647, align 1, !alias.scope !96, !noalias !113
   %10649 = fdiv fast double %10648, %10643
-  %10650 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10641, i64 4) #9
-  %10651 = load double, double* %10650, align 1, !alias.scope !96, !noalias !113
+  %10650 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10641, i64 4) #9
+  %10651 = load double, ptr %10650, align 1, !alias.scope !96, !noalias !113
   %10652 = fdiv fast double %10651, %10643
   %10653 = fdiv fast double 1.000000e+00, %10643
   %10654 = fdiv fast double 1.000000e+00, %10565
   %10655 = fsub fast double %10653, %10654
   %10656 = fmul fast double %10655, %9783
-  %10657 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10641, i64 5) #9
-  %10658 = load double, double* %10657, align 1, !alias.scope !96, !noalias !113
+  %10657 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10641, i64 5) #9
+  %10658 = load double, ptr %10657, align 1, !alias.scope !96, !noalias !113
   %10659 = fdiv fast double %10658, %10643
   %10660 = fmul fast double %10646, %10646
   %10661 = fmul fast double %10649, %10649
@@ -11228,10 +11227,10 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %10668 = call fast double @llvm.pow.f64(double %10667, double 7.500000e-01) #9
   %10669 = fadd fast double %10668, %10589
   %10670 = fmul fast double %10669, 5.000000e-01
-  %10671 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %10557, i64 %10560) #9
-  %10672 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10671, i64 1) #9
-  %10673 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10672, i64 1) #9
-  store double 0.000000e+00, double* %10673, align 1, !alias.scope !101, !noalias !123
+  %10671 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %10557, i64 %10560) #9
+  %10672 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10671, i64 1) #9
+  %10673 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10672, i64 1) #9
+  store double 0.000000e+00, ptr %10673, align 1, !alias.scope !101, !noalias !123
   %10674 = fdiv fast double %10568, %10565
   %10675 = fdiv fast double %10646, %10643
   %10676 = fsub fast double %10674, %10675
@@ -11243,17 +11242,17 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %10682 = fsub fast double %10680, %10681
   %10683 = fmul fast double %10670, %10676
   %10684 = fmul fast double %10683, %9783
-  %10685 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10672, i64 2) #9
-  store double %10684, double* %10685, align 1, !alias.scope !101, !noalias !123
+  %10685 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10672, i64 2) #9
+  store double %10684, ptr %10685, align 1, !alias.scope !101, !noalias !123
   %10686 = fmul fast double %10670, %10679
   %10687 = fmul fast double %10686, %9783
-  %10688 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10672, i64 3) #9
-  store double %10687, double* %10688, align 1, !alias.scope !101, !noalias !123
+  %10688 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10672, i64 3) #9
+  store double %10687, ptr %10688, align 1, !alias.scope !101, !noalias !123
   %10689 = fmul fast double %10682, 0x3FF5555560000000
   %10690 = fmul fast double %10670, %10689
   %10691 = fmul fast double %10690, %9783
-  %10692 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10672, i64 4) #9
-  store double %10691, double* %10692, align 1, !alias.scope !101, !noalias !123
+  %10692 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10672, i64 4) #9
+  store double %10691, ptr %10692, align 1, !alias.scope !101, !noalias !123
   %10693 = fdiv fast double %10575, %10565
   %10694 = fdiv fast double %10660, %10643
   %10695 = fsub fast double %10693, %10694
@@ -11279,74 +11278,74 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %10715 = fadd fast double %10714, %10712
   %10716 = fmul fast double %10715, %10670
   %10717 = fmul fast double %10716, %9783
-  %10718 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10672, i64 5) #9
-  store double %10717, double* %10718, align 1, !alias.scope !101, !noalias !123
-  %10719 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10671, i64 2) #9
-  %10720 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10719, i64 1) #9
-  store double 0.000000e+00, double* %10720, align 1, !alias.scope !101, !noalias !123
+  %10718 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10672, i64 5) #9
+  store double %10717, ptr %10718, align 1, !alias.scope !101, !noalias !123
+  %10719 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10671, i64 2) #9
+  %10720 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10719, i64 1) #9
+  store double 0.000000e+00, ptr %10720, align 1, !alias.scope !101, !noalias !123
   %10721 = fmul fast double %10670, %10656
-  %10722 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10719, i64 2) #9
-  store double %10721, double* %10722, align 1, !alias.scope !101, !noalias !123
-  %10723 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10719, i64 3) #9
-  store double 0.000000e+00, double* %10723, align 1, !alias.scope !101, !noalias !123
-  %10724 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10719, i64 4) #9
-  store double 0.000000e+00, double* %10724, align 1, !alias.scope !101, !noalias !123
-  %10725 = load double, double* %10685, align 1, !alias.scope !101, !noalias !123
+  %10722 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10719, i64 2) #9
+  store double %10721, ptr %10722, align 1, !alias.scope !101, !noalias !123
+  %10723 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10719, i64 3) #9
+  store double 0.000000e+00, ptr %10723, align 1, !alias.scope !101, !noalias !123
+  %10724 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10719, i64 4) #9
+  store double 0.000000e+00, ptr %10724, align 1, !alias.scope !101, !noalias !123
+  %10725 = load double, ptr %10685, align 1, !alias.scope !101, !noalias !123
   %10726 = fmul fast double %10670, %9789
   %10727 = fsub fast double %10675, %10674
   %10728 = fmul fast double %10726, %10727
   %10729 = fmul fast double %10728, %9783
   %10730 = fadd fast double %10725, %10729
   %10731 = fneg fast double %10730
-  %10732 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10719, i64 5) #9
-  store double %10731, double* %10732, align 1, !alias.scope !101, !noalias !123
-  %10733 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10671, i64 3) #9
-  %10734 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10733, i64 1) #9
-  store double 0.000000e+00, double* %10734, align 1, !alias.scope !101, !noalias !123
-  %10735 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10733, i64 2) #9
-  store double 0.000000e+00, double* %10735, align 1, !alias.scope !101, !noalias !123
-  %10736 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10733, i64 3) #9
-  store double %10721, double* %10736, align 1, !alias.scope !101, !noalias !123
-  %10737 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10733, i64 4) #9
-  store double 0.000000e+00, double* %10737, align 1, !alias.scope !101, !noalias !123
-  %10738 = load double, double* %10688, align 1, !alias.scope !101, !noalias !123
+  %10732 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10719, i64 5) #9
+  store double %10731, ptr %10732, align 1, !alias.scope !101, !noalias !123
+  %10733 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10671, i64 3) #9
+  %10734 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10733, i64 1) #9
+  store double 0.000000e+00, ptr %10734, align 1, !alias.scope !101, !noalias !123
+  %10735 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10733, i64 2) #9
+  store double 0.000000e+00, ptr %10735, align 1, !alias.scope !101, !noalias !123
+  %10736 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10733, i64 3) #9
+  store double %10721, ptr %10736, align 1, !alias.scope !101, !noalias !123
+  %10737 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10733, i64 4) #9
+  store double 0.000000e+00, ptr %10737, align 1, !alias.scope !101, !noalias !123
+  %10738 = load double, ptr %10688, align 1, !alias.scope !101, !noalias !123
   %10739 = fsub fast double %10678, %10677
   %10740 = fmul fast double %10726, %10739
   %10741 = fmul fast double %10740, %9783
   %10742 = fadd fast double %10738, %10741
   %10743 = fneg fast double %10742
-  %10744 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10733, i64 5) #9
-  store double %10743, double* %10744, align 1, !alias.scope !101, !noalias !123
-  %10745 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10671, i64 4) #9
-  %10746 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10745, i64 1) #9
-  store double 0.000000e+00, double* %10746, align 1, !alias.scope !101, !noalias !123
-  %10747 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10745, i64 2) #9
-  store double 0.000000e+00, double* %10747, align 1, !alias.scope !101, !noalias !123
-  %10748 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10745, i64 3) #9
-  store double 0.000000e+00, double* %10748, align 1, !alias.scope !101, !noalias !123
+  %10744 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10733, i64 5) #9
+  store double %10743, ptr %10744, align 1, !alias.scope !101, !noalias !123
+  %10745 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10671, i64 4) #9
+  %10746 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10745, i64 1) #9
+  store double 0.000000e+00, ptr %10746, align 1, !alias.scope !101, !noalias !123
+  %10747 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10745, i64 2) #9
+  store double 0.000000e+00, ptr %10747, align 1, !alias.scope !101, !noalias !123
+  %10748 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10745, i64 3) #9
+  store double 0.000000e+00, ptr %10748, align 1, !alias.scope !101, !noalias !123
   %10749 = fmul fast double %10721, 0x3FF5555560000000
-  %10750 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10745, i64 4) #9
-  store double %10749, double* %10750, align 1, !alias.scope !101, !noalias !123
-  %10751 = load double, double* %10692, align 1, !alias.scope !101, !noalias !123
+  %10750 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10745, i64 4) #9
+  store double %10749, ptr %10750, align 1, !alias.scope !101, !noalias !123
+  %10751 = load double, ptr %10692, align 1, !alias.scope !101, !noalias !123
   %10752 = fsub fast double %10681, %10680
   %10753 = fmul fast double %10726, %10752
   %10754 = fmul fast double %10753, %9783
   %10755 = fadd fast double %10751, %10754
   %10756 = fneg fast double %10755
-  %10757 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10745, i64 5) #9
-  store double %10756, double* %10757, align 1, !alias.scope !101, !noalias !123
-  %10758 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10671, i64 5) #9
-  %10759 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10758, i64 1) #9
-  store double 0.000000e+00, double* %10759, align 1, !alias.scope !101, !noalias !123
-  %10760 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10758, i64 2) #9
-  store double 0.000000e+00, double* %10760, align 1, !alias.scope !101, !noalias !123
-  %10761 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10758, i64 3) #9
-  store double 0.000000e+00, double* %10761, align 1, !alias.scope !101, !noalias !123
-  %10762 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10758, i64 4) #9
-  store double 0.000000e+00, double* %10762, align 1, !alias.scope !101, !noalias !123
+  %10757 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10745, i64 5) #9
+  store double %10756, ptr %10757, align 1, !alias.scope !101, !noalias !123
+  %10758 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10671, i64 5) #9
+  %10759 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10758, i64 1) #9
+  store double 0.000000e+00, ptr %10759, align 1, !alias.scope !101, !noalias !123
+  %10760 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10758, i64 2) #9
+  store double 0.000000e+00, ptr %10760, align 1, !alias.scope !101, !noalias !123
+  %10761 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10758, i64 3) #9
+  store double 0.000000e+00, ptr %10761, align 1, !alias.scope !101, !noalias !123
+  %10762 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10758, i64 4) #9
+  store double 0.000000e+00, ptr %10762, align 1, !alias.scope !101, !noalias !123
   %10763 = fmul fast double %10726, %10656
-  %10764 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10758, i64 5) #9
-  store double %10763, double* %10764, align 1, !alias.scope !101, !noalias !123
+  %10764 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10758, i64 5) #9
+  store double %10763, ptr %10764, align 1, !alias.scope !101, !noalias !123
   %10765 = add nuw nsw i64 %10560, 1
   %10766 = icmp eq i64 %10765, %9769
   %10767 = call i64 @llvm.ssa.copy.i64(i64 %10765), !in.de.ssa !112
@@ -11390,22 +11389,22 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
 
 10788:                                            ; preds = %10785
   %10789 = add nuw nsw i64 %10786, 2
-  %10790 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %89, i64 %10786)
-  %10791 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %65, i64 %10786)
-  %10792 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %64, i64 %10786)
-  %10793 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %63, i64 %10787)
-  %10794 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %63, i64 %10786)
-  %10795 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %56, i64 %10786)
-  %10796 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %68, i64 %10786)
-  %10797 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %55, i64 %10786)
-  %10798 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %52, i64 %10786)
-  %10799 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %67, i64 %10786)
-  %10800 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %54, i64 %10786)
-  %10801 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %51, i64 %10786)
-  %10802 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %66, i64 %10789)
-  %10803 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %53, i64 %10786)
-  %10804 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %66, i64 %10786)
-  %10805 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %50, i64 %10786)
+  %10790 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %89, i64 %10786)
+  %10791 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %65, i64 %10786)
+  %10792 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %64, i64 %10786)
+  %10793 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %63, i64 %10787)
+  %10794 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %63, i64 %10786)
+  %10795 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %56, i64 %10786)
+  %10796 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %68, i64 %10786)
+  %10797 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %55, i64 %10786)
+  %10798 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %52, i64 %10786)
+  %10799 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %67, i64 %10786)
+  %10800 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %54, i64 %10786)
+  %10801 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %51, i64 %10786)
+  %10802 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %66, i64 %10789)
+  %10803 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %53, i64 %10786)
+  %10804 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %66, i64 %10786)
+  %10805 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %50, i64 %10786)
   %10806 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !125
   br label %10807
 
@@ -11425,27 +11424,27 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %10816 = add i32 %9791, %10814
   %10817 = srem i32 %10816, %3
   %10818 = add nsw i32 %10817, 1
-  %10819 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %10790, i64 %10808)
-  %10820 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %10791, i64 %10808)
-  %10821 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %10792, i64 %10808)
+  %10819 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %10790, i64 %10808)
+  %10820 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %10791, i64 %10808)
+  %10821 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %10792, i64 %10808)
   %10822 = sext i32 %10818 to i64
-  %10823 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %10792, i64 %10822)
-  %10824 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %10793, i64 %10808)
-  %10825 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %10794, i64 %10808)
-  %10826 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %10795, i64 %10808)
-  %10827 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %10796, i64 %10808)
-  %10828 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %10797, i64 %10808)
-  %10829 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %10798, i64 %10808)
+  %10823 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %10792, i64 %10822)
+  %10824 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %10793, i64 %10808)
+  %10825 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %10794, i64 %10808)
+  %10826 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %10795, i64 %10808)
+  %10827 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %10796, i64 %10808)
+  %10828 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %10797, i64 %10808)
+  %10829 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %10798, i64 %10808)
   %10830 = and i64 %10815, 4294967295
   %10831 = select i1 %10813, i64 1, i64 %10830
-  %10832 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %10799, i64 %10831)
-  %10833 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %10800, i64 %10808)
-  %10834 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %10799, i64 %10822)
-  %10835 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %10801, i64 %10808)
-  %10836 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %10802, i64 %10808)
-  %10837 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %10803, i64 %10808)
-  %10838 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %10804, i64 %10808)
-  %10839 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %10805, i64 %10808)
+  %10832 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %10799, i64 %10831)
+  %10833 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %10800, i64 %10808)
+  %10834 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %10799, i64 %10822)
+  %10835 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %10801, i64 %10808)
+  %10836 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %10802, i64 %10808)
+  %10837 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %10803, i64 %10808)
+  %10838 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %10804, i64 %10808)
+  %10839 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %10805, i64 %10808)
   %10840 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !127
   br label %10841
 
@@ -11457,78 +11456,78 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %10846 = add nsw i32 %10845, 1
   %10847 = icmp eq i64 %10842, %9796
   %10848 = add nuw i64 %10842, 1
-  %10849 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %10819, i64 %10842)
-  %10850 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %10820, i64 %10842)
+  %10849 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %10819, i64 %10842)
+  %10850 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %10820, i64 %10842)
   %10851 = sext i32 %10846 to i64
-  %10852 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %10820, i64 %10851)
-  %10853 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %10821, i64 %10842)
-  %10854 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %10823, i64 %10842)
-  %10855 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %10824, i64 %10842)
-  %10856 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %10825, i64 %10842)
-  %10857 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %10826, i64 %10842)
+  %10852 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %10820, i64 %10851)
+  %10853 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %10821, i64 %10842)
+  %10854 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %10823, i64 %10842)
+  %10855 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %10824, i64 %10842)
+  %10856 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %10825, i64 %10842)
+  %10857 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %10826, i64 %10842)
   %10858 = and i64 %10848, 4294967295
   %10859 = select i1 %10847, i64 1, i64 %10858
-  %10860 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %10827, i64 %10859)
-  %10861 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %10828, i64 %10842)
-  %10862 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %10827, i64 %10851)
-  %10863 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %10829, i64 %10842)
-  %10864 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %10832, i64 %10842)
-  %10865 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %10833, i64 %10842)
-  %10866 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %10834, i64 %10842)
-  %10867 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %10835, i64 %10842)
-  %10868 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %10836, i64 %10842)
-  %10869 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %10837, i64 %10842)
-  %10870 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %10838, i64 %10842)
-  %10871 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %10839, i64 %10842)
+  %10860 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %10827, i64 %10859)
+  %10861 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %10828, i64 %10842)
+  %10862 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %10827, i64 %10851)
+  %10863 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %10829, i64 %10842)
+  %10864 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %10832, i64 %10842)
+  %10865 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %10833, i64 %10842)
+  %10866 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %10834, i64 %10842)
+  %10867 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %10835, i64 %10842)
+  %10868 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %10836, i64 %10842)
+  %10869 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %10837, i64 %10842)
+  %10870 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %10838, i64 %10842)
+  %10871 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %10839, i64 %10842)
   %10872 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !128
   br label %10873
 
 10873:                                            ; preds = %10982, %10841
   %10874 = phi i64 [ %10983, %10982 ], [ 1, %10841 ], !in.de.ssa !128
-  %10875 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10849, i64 %10874)
-  %10876 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10850, i64 %10874)
-  %10877 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10852, i64 %10874)
-  %10878 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10853, i64 %10874)
-  %10879 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10854, i64 %10874)
-  %10880 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10855, i64 %10874)
-  %10881 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10856, i64 %10874)
-  %10882 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10857, i64 %10874)
-  %10883 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10860, i64 %10874)
-  %10884 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10861, i64 %10874)
-  %10885 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10862, i64 %10874)
-  %10886 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10863, i64 %10874)
-  %10887 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10864, i64 %10874)
-  %10888 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10865, i64 %10874)
-  %10889 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10866, i64 %10874)
-  %10890 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10867, i64 %10874)
-  %10891 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10868, i64 %10874)
-  %10892 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10869, i64 %10874)
-  %10893 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10870, i64 %10874)
-  %10894 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %10871, i64 %10874)
+  %10875 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10849, i64 %10874)
+  %10876 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10850, i64 %10874)
+  %10877 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10852, i64 %10874)
+  %10878 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10853, i64 %10874)
+  %10879 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10854, i64 %10874)
+  %10880 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10855, i64 %10874)
+  %10881 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10856, i64 %10874)
+  %10882 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10857, i64 %10874)
+  %10883 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10860, i64 %10874)
+  %10884 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10861, i64 %10874)
+  %10885 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10862, i64 %10874)
+  %10886 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10863, i64 %10874)
+  %10887 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10864, i64 %10874)
+  %10888 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10865, i64 %10874)
+  %10889 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10866, i64 %10874)
+  %10890 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10867, i64 %10874)
+  %10891 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10868, i64 %10874)
+  %10892 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10869, i64 %10874)
+  %10893 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10870, i64 %10874)
+  %10894 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %10871, i64 %10874)
   %10895 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !129
   br label %10896
 
 10896:                                            ; preds = %10896, %10873
   %10897 = phi i64 [ %10979, %10896 ], [ 1, %10873 ], !in.de.ssa !129
-  %10898 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10875, i64 %10897)
-  %10899 = load double, double* %10898, align 1
-  %10900 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10876, i64 %10897)
-  %10901 = load double, double* %10900, align 1
-  %10902 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10877, i64 %10897)
-  %10903 = load double, double* %10902, align 1
+  %10898 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10875, i64 %10897)
+  %10899 = load double, ptr %10898, align 1
+  %10900 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10876, i64 %10897)
+  %10901 = load double, ptr %10900, align 1
+  %10902 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10877, i64 %10897)
+  %10903 = load double, ptr %10902, align 1
   %10904 = fsub fast double %10901, %10903
   %10905 = fmul fast double %10904, %9777
-  %10906 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10878, i64 %10897)
-  %10907 = load double, double* %10906, align 1
-  %10908 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10879, i64 %10897)
-  %10909 = load double, double* %10908, align 1
+  %10906 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10878, i64 %10897)
+  %10907 = load double, ptr %10906, align 1
+  %10908 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10879, i64 %10897)
+  %10909 = load double, ptr %10908, align 1
   %10910 = fsub fast double %10907, %10909
   %10911 = fmul fast double %10910, %9780
   %10912 = fadd fast double %10911, %10905
-  %10913 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10880, i64 %10897)
-  %10914 = load double, double* %10913, align 1
-  %10915 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10881, i64 %10897)
-  %10916 = load double, double* %10915, align 1
+  %10913 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10880, i64 %10897)
+  %10914 = load double, ptr %10913, align 1
+  %10915 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10881, i64 %10897)
+  %10916 = load double, ptr %10915, align 1
   %10917 = fsub fast double %10914, %10916
   %10918 = fmul fast double %10917, %9783
   %10919 = fadd fast double %10912, %10918
@@ -11541,63 +11540,63 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %10926 = fmul fast double %10925, %7
   %10927 = fmul fast double %10926, %9795
   %10928 = fadd fast double %10923, %10927
-  %10929 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10882, i64 %10897)
-  store double %10928, double* %10929, align 1
-  %10930 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10883, i64 %10897)
-  %10931 = load double, double* %10930, align 1
+  %10929 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10882, i64 %10897)
+  store double %10928, ptr %10929, align 1
+  %10930 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10883, i64 %10897)
+  %10931 = load double, ptr %10930, align 1
   %10932 = fmul fast double %10901, %9793
   %10933 = fsub fast double %10931, %10932
   %10934 = fmul fast double %10933, %10782
   %10935 = fmul fast double %10924, %7
   %10936 = fsub fast double %10934, %10935
   %10937 = fmul fast double %10936, %9777
-  %10938 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10884, i64 %10897)
-  store double %10937, double* %10938, align 1
-  %10939 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10885, i64 %10897)
-  %10940 = load double, double* %10939, align 1
+  %10938 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10884, i64 %10897)
+  store double %10937, ptr %10938, align 1
+  %10939 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10885, i64 %10897)
+  %10940 = load double, ptr %10939, align 1
   %10941 = fmul fast double %10903, %9793
   %10942 = fsub fast double %10940, %10941
   %10943 = fmul fast double %10942, %10783
   %10944 = fsub fast double %10943, %10935
   %10945 = fmul fast double %10944, %9777
-  %10946 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10886, i64 %10897)
-  store double %10945, double* %10946, align 1
-  %10947 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10887, i64 %10897)
-  %10948 = load double, double* %10947, align 1
+  %10946 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10886, i64 %10897)
+  store double %10945, ptr %10946, align 1
+  %10947 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10887, i64 %10897)
+  %10948 = load double, ptr %10947, align 1
   %10949 = fmul fast double %10907, %9793
   %10950 = fsub fast double %10948, %10949
   %10951 = fmul fast double %10950, %10782
   %10952 = fsub fast double %10951, %10935
   %10953 = fmul fast double %10952, %9780
-  %10954 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10888, i64 %10897)
-  store double %10953, double* %10954, align 1
-  %10955 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10889, i64 %10897)
-  %10956 = load double, double* %10955, align 1
+  %10954 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10888, i64 %10897)
+  store double %10953, ptr %10954, align 1
+  %10955 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10889, i64 %10897)
+  %10956 = load double, ptr %10955, align 1
   %10957 = fmul fast double %10909, %9793
   %10958 = fsub fast double %10956, %10957
   %10959 = fmul fast double %10958, %10783
   %10960 = fsub fast double %10959, %10935
   %10961 = fmul fast double %10960, %9780
-  %10962 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10890, i64 %10897)
-  store double %10961, double* %10962, align 1
-  %10963 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10891, i64 %10897)
-  %10964 = load double, double* %10963, align 1
+  %10962 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10890, i64 %10897)
+  store double %10961, ptr %10962, align 1
+  %10963 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10891, i64 %10897)
+  %10964 = load double, ptr %10963, align 1
   %10965 = fmul fast double %10914, %9793
   %10966 = fsub fast double %10964, %10965
   %10967 = fmul fast double %10966, %10782
   %10968 = fsub fast double %10967, %10935
   %10969 = fmul fast double %10968, %9783
-  %10970 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10892, i64 %10897)
-  store double %10969, double* %10970, align 1
-  %10971 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10893, i64 %10897)
-  %10972 = load double, double* %10971, align 1
+  %10970 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10892, i64 %10897)
+  store double %10969, ptr %10970, align 1
+  %10971 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10893, i64 %10897)
+  %10972 = load double, ptr %10971, align 1
   %10973 = fmul fast double %10916, %9793
   %10974 = fsub fast double %10972, %10973
   %10975 = fmul fast double %10974, %10783
   %10976 = fsub fast double %10975, %10935
   %10977 = fmul fast double %10976, %9783
-  %10978 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %10894, i64 %10897)
-  store double %10977, double* %10978, align 1
+  %10978 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %10894, i64 %10897)
+  store double %10977, ptr %10978, align 1
   %10979 = add nuw nsw i64 %10897, 1
   %10980 = icmp eq i64 %10979, 6
   %10981 = call i64 @llvm.ssa.copy.i64(i64 %10979), !in.de.ssa !129
@@ -11647,7 +11646,7 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   call void @llvm.experimental.noalias.scope.decl(metadata !147)
   call void @llvm.experimental.noalias.scope.decl(metadata !149)
   call void @llvm.experimental.noalias.scope.decl(metadata !151)
-  %11001 = call i8* @llvm.stacksave()
+  %11001 = call ptr @llvm.stacksave()
   %11002 = alloca double, i64 %9801, align 8
   %11003 = alloca double, i64 %9801, align 8
   %11004 = alloca double, i64 %9801, align 8
@@ -11657,12 +11656,12 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9758, label %11084, label %11008
 
 11008:                                            ; preds = %11000
-  %11009 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11003, i64 1) #9
-  %11010 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11007, i64 1) #9
-  %11011 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11006, i64 1) #9
-  %11012 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11005, i64 1) #9
-  %11013 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11004, i64 1) #9
-  %11014 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11002, i64 1) #9
+  %11009 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11003, i64 1) #9
+  %11010 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11007, i64 1) #9
+  %11011 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11006, i64 1) #9
+  %11012 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11005, i64 1) #9
+  %11013 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11004, i64 1) #9
+  %11014 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11002, i64 1) #9
   %11015 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !153
   br label %11016
 
@@ -11671,41 +11670,41 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9759, label %11079, label %11018
 
 11018:                                            ; preds = %11016
-  %11019 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %9775, i64 %11017) #9
-  %11020 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11009, i64 %11017) #9
-  %11021 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11010, i64 %11017) #9
-  %11022 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11011, i64 %11017) #9
-  %11023 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11012, i64 %11017) #9
-  %11024 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11013, i64 %11017) #9
-  %11025 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11014, i64 %11017) #9
-  %11026 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %9804, i64 %11017) #9
+  %11019 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %9775, i64 %11017) #9
+  %11020 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11009, i64 %11017) #9
+  %11021 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11010, i64 %11017) #9
+  %11022 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11011, i64 %11017) #9
+  %11023 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11012, i64 %11017) #9
+  %11024 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11013, i64 %11017) #9
+  %11025 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11014, i64 %11017) #9
+  %11026 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %9804, i64 %11017) #9
   %11027 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !154
   br label %11028
 
 11028:                                            ; preds = %11028, %11018
   %11029 = phi i64 [ 1, %11018 ], [ %11075, %11028 ], !in.de.ssa !154
-  %11030 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11019, i64 %11029) #9
-  %11031 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11030, i64 1) #9
-  %11032 = load double, double* %11031, align 1, !alias.scope !130, !noalias !155
-  %11033 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11020, i64 %11029) #9
-  store double %11032, double* %11033, align 1, !noalias !160
-  %11034 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11030, i64 2) #9
-  %11035 = load double, double* %11034, align 1, !alias.scope !130, !noalias !155
+  %11030 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11019, i64 %11029) #9
+  %11031 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11030, i64 1) #9
+  %11032 = load double, ptr %11031, align 1, !alias.scope !130, !noalias !155
+  %11033 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11020, i64 %11029) #9
+  store double %11032, ptr %11033, align 1, !noalias !160
+  %11034 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11030, i64 2) #9
+  %11035 = load double, ptr %11034, align 1, !alias.scope !130, !noalias !155
   %11036 = fdiv fast double %11035, %11032
-  %11037 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11021, i64 %11029) #9
-  store double %11036, double* %11037, align 1, !noalias !160
-  %11038 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11030, i64 3) #9
-  %11039 = load double, double* %11038, align 1, !alias.scope !130, !noalias !155
+  %11037 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11021, i64 %11029) #9
+  store double %11036, ptr %11037, align 1, !noalias !160
+  %11038 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11030, i64 3) #9
+  %11039 = load double, ptr %11038, align 1, !alias.scope !130, !noalias !155
   %11040 = fdiv fast double %11039, %11032
-  %11041 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11022, i64 %11029) #9
-  store double %11040, double* %11041, align 1, !noalias !160
-  %11042 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11030, i64 4) #9
-  %11043 = load double, double* %11042, align 1, !alias.scope !130, !noalias !155
+  %11041 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11022, i64 %11029) #9
+  store double %11040, ptr %11041, align 1, !noalias !160
+  %11042 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11030, i64 4) #9
+  %11043 = load double, ptr %11042, align 1, !alias.scope !130, !noalias !155
   %11044 = fdiv fast double %11043, %11032
-  %11045 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11023, i64 %11029) #9
-  store double %11044, double* %11045, align 1, !noalias !160
-  %11046 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11030, i64 5) #9
-  %11047 = load double, double* %11046, align 1, !alias.scope !130, !noalias !155
+  %11045 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11023, i64 %11029) #9
+  store double %11044, ptr %11045, align 1, !noalias !160
+  %11046 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11030, i64 5) #9
+  %11047 = load double, ptr %11046, align 1, !alias.scope !130, !noalias !155
   %11048 = fmul fast double %11032, 5.000000e-01
   %11049 = fmul fast double %11036, %11036
   %11050 = fmul fast double %11040, %11040
@@ -11715,31 +11714,31 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %11054 = fmul fast double %11048, %11053
   %11055 = fsub fast double %11047, %11054
   %11056 = fmul fast double %11055, 0x3FD9999980000000
-  %11057 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11024, i64 %11029) #9
-  store double %11056, double* %11057, align 1, !noalias !160
+  %11057 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11024, i64 %11029) #9
+  store double %11056, ptr %11057, align 1, !noalias !160
   %11058 = fmul fast double %11056, 0x3FF6666660000000
   %11059 = fdiv fast double %11058, %11032
   %11060 = call fast double @llvm.pow.f64(double %11059, double 7.500000e-01) #9
-  %11061 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11025, i64 %11029) #9
-  store double %11060, double* %11061, align 1, !noalias !160
+  %11061 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11025, i64 %11029) #9
+  store double %11060, ptr %11061, align 1, !noalias !160
   %11062 = fmul fast double %11044, %11032
-  %11063 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11026, i64 %11029) #9
-  %11064 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11063, i64 1) #9
-  store double %11062, double* %11064, align 1, !alias.scope !137, !noalias !161
+  %11063 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11026, i64 %11029) #9
+  %11064 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11063, i64 1) #9
+  store double %11062, ptr %11064, align 1, !alias.scope !137, !noalias !161
   %11065 = fmul fast double %11062, %11036
-  %11066 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11063, i64 2) #9
-  store double %11065, double* %11066, align 1, !alias.scope !137, !noalias !161
+  %11066 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11063, i64 2) #9
+  store double %11065, ptr %11066, align 1, !alias.scope !137, !noalias !161
   %11067 = fmul fast double %11062, %11040
-  %11068 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11063, i64 3) #9
-  store double %11067, double* %11068, align 1, !alias.scope !137, !noalias !161
+  %11068 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11063, i64 3) #9
+  store double %11067, ptr %11068, align 1, !alias.scope !137, !noalias !161
   %11069 = fmul fast double %11052, %11032
   %11070 = fadd fast double %11056, %11069
-  %11071 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11063, i64 4) #9
-  store double %11070, double* %11071, align 1, !alias.scope !137, !noalias !161
+  %11071 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11063, i64 4) #9
+  store double %11070, ptr %11071, align 1, !alias.scope !137, !noalias !161
   %11072 = fadd fast double %11056, %11047
   %11073 = fmul fast double %11072, %11044
-  %11074 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11063, i64 5) #9
-  store double %11073, double* %11074, align 1, !alias.scope !137, !noalias !161
+  %11074 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11063, i64 5) #9
+  store double %11073, ptr %11074, align 1, !alias.scope !137, !noalias !161
   %11075 = add nuw nsw i64 %11029, 1
   %11076 = icmp eq i64 %11075, %9769
   %11077 = call i64 @llvm.ssa.copy.i64(i64 %11075), !in.de.ssa !154
@@ -11771,16 +11770,16 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
 
 11090:                                            ; preds = %11087
   %11091 = add nuw nsw i64 %11088, 2
-  %11092 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %88, i64 %11091) #9
-  %11093 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11003, i64 %11089) #9
-  %11094 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11007, i64 %11089) #9
-  %11095 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11006, i64 %11089) #9
-  %11096 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11005, i64 %11089) #9
-  %11097 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11004, i64 %11089) #9
-  %11098 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11002, i64 %11089) #9
-  %11099 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %79, i64 %11088) #9
-  %11100 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %78, i64 %11088) #9
-  %11101 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %77, i64 %11089) #9
+  %11092 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %88, i64 %11091) #9
+  %11093 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11003, i64 %11089) #9
+  %11094 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11007, i64 %11089) #9
+  %11095 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11006, i64 %11089) #9
+  %11096 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11005, i64 %11089) #9
+  %11097 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11004, i64 %11089) #9
+  %11098 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11002, i64 %11089) #9
+  %11099 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %79, i64 %11088) #9
+  %11100 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %78, i64 %11088) #9
+  %11101 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %77, i64 %11089) #9
   %11102 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !163
   br label %11103
 
@@ -11789,43 +11788,43 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9759, label %11192, label %11105
 
 11105:                                            ; preds = %11103
-  %11106 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %11092, i64 %11104) #9
-  %11107 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11093, i64 %11104) #9
-  %11108 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11094, i64 %11104) #9
-  %11109 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11095, i64 %11104) #9
-  %11110 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11096, i64 %11104) #9
-  %11111 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11097, i64 %11104) #9
-  %11112 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11098, i64 %11104) #9
-  %11113 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %11099, i64 %11104) #9
-  %11114 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %11100, i64 %11104) #9
-  %11115 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %11101, i64 %11104) #9
+  %11106 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %11092, i64 %11104) #9
+  %11107 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11093, i64 %11104) #9
+  %11108 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11094, i64 %11104) #9
+  %11109 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11095, i64 %11104) #9
+  %11110 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11096, i64 %11104) #9
+  %11111 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11097, i64 %11104) #9
+  %11112 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11098, i64 %11104) #9
+  %11113 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %11099, i64 %11104) #9
+  %11114 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %11100, i64 %11104) #9
+  %11115 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %11101, i64 %11104) #9
   %11116 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !164
   br label %11117
 
 11117:                                            ; preds = %11117, %11105
   %11118 = phi i64 [ 1, %11105 ], [ %11188, %11117 ], !in.de.ssa !164
-  %11119 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11106, i64 %11118) #9
-  %11120 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11119, i64 1) #9
-  %11121 = load double, double* %11120, align 1, !alias.scope !130, !noalias !155
-  %11122 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11107, i64 %11118) #9
-  store double %11121, double* %11122, align 1, !noalias !160
-  %11123 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11119, i64 2) #9
-  %11124 = load double, double* %11123, align 1, !alias.scope !130, !noalias !155
+  %11119 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11106, i64 %11118) #9
+  %11120 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11119, i64 1) #9
+  %11121 = load double, ptr %11120, align 1, !alias.scope !130, !noalias !155
+  %11122 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11107, i64 %11118) #9
+  store double %11121, ptr %11122, align 1, !noalias !160
+  %11123 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11119, i64 2) #9
+  %11124 = load double, ptr %11123, align 1, !alias.scope !130, !noalias !155
   %11125 = fdiv fast double %11124, %11121
-  %11126 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11108, i64 %11118) #9
-  store double %11125, double* %11126, align 1, !noalias !160
-  %11127 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11119, i64 3) #9
-  %11128 = load double, double* %11127, align 1, !alias.scope !130, !noalias !155
+  %11126 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11108, i64 %11118) #9
+  store double %11125, ptr %11126, align 1, !noalias !160
+  %11127 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11119, i64 3) #9
+  %11128 = load double, ptr %11127, align 1, !alias.scope !130, !noalias !155
   %11129 = fdiv fast double %11128, %11121
-  %11130 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11109, i64 %11118) #9
-  store double %11129, double* %11130, align 1, !noalias !160
-  %11131 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11119, i64 4) #9
-  %11132 = load double, double* %11131, align 1, !alias.scope !130, !noalias !155
+  %11130 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11109, i64 %11118) #9
+  store double %11129, ptr %11130, align 1, !noalias !160
+  %11131 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11119, i64 4) #9
+  %11132 = load double, ptr %11131, align 1, !alias.scope !130, !noalias !155
   %11133 = fdiv fast double %11132, %11121
-  %11134 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11110, i64 %11118) #9
-  store double %11133, double* %11134, align 1, !noalias !160
-  %11135 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11119, i64 5) #9
-  %11136 = load double, double* %11135, align 1, !alias.scope !130, !noalias !155
+  %11134 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11110, i64 %11118) #9
+  store double %11133, ptr %11134, align 1, !noalias !160
+  %11135 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11119, i64 5) #9
+  %11136 = load double, ptr %11135, align 1, !alias.scope !130, !noalias !155
   %11137 = fmul fast double %11121, 5.000000e-01
   %11138 = fmul fast double %11125, %11125
   %11139 = fmul fast double %11129, %11129
@@ -11835,65 +11834,65 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %11143 = fmul fast double %11137, %11142
   %11144 = fsub fast double %11136, %11143
   %11145 = fmul fast double %11144, 0x3FD9999980000000
-  %11146 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11111, i64 %11118) #9
-  store double %11145, double* %11146, align 1, !noalias !160
+  %11146 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11111, i64 %11118) #9
+  store double %11145, ptr %11146, align 1, !noalias !160
   %11147 = fmul fast double %11145, 0x3FF6666660000000
   %11148 = fdiv fast double %11147, %11121
   %11149 = call fast double @llvm.pow.f64(double %11148, double 7.500000e-01) #9
-  %11150 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11112, i64 %11118) #9
-  store double %11149, double* %11150, align 1, !noalias !160
+  %11150 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11112, i64 %11118) #9
+  store double %11149, ptr %11150, align 1, !noalias !160
   %11151 = fmul fast double %11125, %11121
-  %11152 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11113, i64 %11118) #9
-  %11153 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11152, i64 1) #9
-  store double %11151, double* %11153, align 1, !alias.scope !133, !noalias !165
+  %11152 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11113, i64 %11118) #9
+  %11153 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11152, i64 1) #9
+  store double %11151, ptr %11153, align 1, !alias.scope !133, !noalias !165
   %11154 = fmul fast double %11138, %11121
   %11155 = fadd fast double %11145, %11154
-  %11156 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11152, i64 2) #9
-  store double %11155, double* %11156, align 1, !alias.scope !133, !noalias !165
+  %11156 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11152, i64 2) #9
+  store double %11155, ptr %11156, align 1, !alias.scope !133, !noalias !165
   %11157 = fmul fast double %11129, %11151
-  %11158 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11152, i64 3) #9
-  store double %11157, double* %11158, align 1, !alias.scope !133, !noalias !165
+  %11158 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11152, i64 3) #9
+  store double %11157, ptr %11158, align 1, !alias.scope !133, !noalias !165
   %11159 = fmul fast double %11133, %11151
-  %11160 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11152, i64 4) #9
-  store double %11159, double* %11160, align 1, !alias.scope !133, !noalias !165
+  %11160 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11152, i64 4) #9
+  store double %11159, ptr %11160, align 1, !alias.scope !133, !noalias !165
   %11161 = fadd fast double %11145, %11136
   %11162 = fmul fast double %11161, %11125
-  %11163 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11152, i64 5) #9
-  store double %11162, double* %11163, align 1, !alias.scope !133, !noalias !165
+  %11163 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11152, i64 5) #9
+  store double %11162, ptr %11163, align 1, !alias.scope !133, !noalias !165
   %11164 = fmul fast double %11129, %11121
-  %11165 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11114, i64 %11118) #9
-  %11166 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11165, i64 1) #9
-  store double %11164, double* %11166, align 1, !alias.scope !135, !noalias !166
+  %11165 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11114, i64 %11118) #9
+  %11166 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11165, i64 1) #9
+  store double %11164, ptr %11166, align 1, !alias.scope !135, !noalias !166
   %11167 = fmul fast double %11164, %11125
-  %11168 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11165, i64 2) #9
-  store double %11167, double* %11168, align 1, !alias.scope !135, !noalias !166
+  %11168 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11165, i64 2) #9
+  store double %11167, ptr %11168, align 1, !alias.scope !135, !noalias !166
   %11169 = fmul fast double %11139, %11121
   %11170 = fadd fast double %11145, %11169
-  %11171 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11165, i64 3) #9
-  store double %11170, double* %11171, align 1, !alias.scope !135, !noalias !166
+  %11171 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11165, i64 3) #9
+  store double %11170, ptr %11171, align 1, !alias.scope !135, !noalias !166
   %11172 = fmul fast double %11133, %11164
-  %11173 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11165, i64 4) #9
-  store double %11172, double* %11173, align 1, !alias.scope !135, !noalias !166
+  %11173 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11165, i64 4) #9
+  store double %11172, ptr %11173, align 1, !alias.scope !135, !noalias !166
   %11174 = fmul fast double %11161, %11129
-  %11175 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11165, i64 5) #9
-  store double %11174, double* %11175, align 1, !alias.scope !135, !noalias !166
+  %11175 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11165, i64 5) #9
+  store double %11174, ptr %11175, align 1, !alias.scope !135, !noalias !166
   %11176 = fmul fast double %11133, %11121
-  %11177 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11115, i64 %11118) #9
-  %11178 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11177, i64 1) #9
-  store double %11176, double* %11178, align 1, !alias.scope !137, !noalias !161
+  %11177 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11115, i64 %11118) #9
+  %11178 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11177, i64 1) #9
+  store double %11176, ptr %11178, align 1, !alias.scope !137, !noalias !161
   %11179 = fmul fast double %11176, %11125
-  %11180 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11177, i64 2) #9
-  store double %11179, double* %11180, align 1, !alias.scope !137, !noalias !161
+  %11180 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11177, i64 2) #9
+  store double %11179, ptr %11180, align 1, !alias.scope !137, !noalias !161
   %11181 = fmul fast double %11176, %11129
-  %11182 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11177, i64 3) #9
-  store double %11181, double* %11182, align 1, !alias.scope !137, !noalias !161
+  %11182 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11177, i64 3) #9
+  store double %11181, ptr %11182, align 1, !alias.scope !137, !noalias !161
   %11183 = fmul fast double %11141, %11121
   %11184 = fadd fast double %11145, %11183
-  %11185 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11177, i64 4) #9
-  store double %11184, double* %11185, align 1, !alias.scope !137, !noalias !161
+  %11185 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11177, i64 4) #9
+  store double %11184, ptr %11185, align 1, !alias.scope !137, !noalias !161
   %11186 = fmul fast double %11161, %11133
-  %11187 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11177, i64 5) #9
-  store double %11186, double* %11187, align 1, !alias.scope !137, !noalias !161
+  %11187 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11177, i64 5) #9
+  store double %11186, ptr %11187, align 1, !alias.scope !137, !noalias !161
   %11188 = add nuw nsw i64 %11118, 1
   %11189 = icmp eq i64 %11188, %9769
   %11190 = call i64 @llvm.ssa.copy.i64(i64 %11188), !in.de.ssa !164
@@ -11923,12 +11922,12 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9758, label %11468, label %11202
 
 11202:                                            ; preds = %11201
-  %11203 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11003, i64 %58) #9
-  %11204 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11007, i64 %58) #9
-  %11205 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11006, i64 %58) #9
-  %11206 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11005, i64 %58) #9
-  %11207 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11004, i64 %58) #9
-  %11208 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11002, i64 %58) #9
+  %11203 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11003, i64 %58) #9
+  %11204 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11007, i64 %58) #9
+  %11205 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11006, i64 %58) #9
+  %11206 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11005, i64 %58) #9
+  %11207 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11004, i64 %58) #9
+  %11208 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11002, i64 %58) #9
   %11209 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !167
   br label %11210
 
@@ -11937,41 +11936,41 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9759, label %11273, label %11212
 
 11212:                                            ; preds = %11210
-  %11213 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %9763, i64 %11211) #9
-  %11214 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11203, i64 %11211) #9
-  %11215 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11204, i64 %11211) #9
-  %11216 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11205, i64 %11211) #9
-  %11217 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11206, i64 %11211) #9
-  %11218 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11207, i64 %11211) #9
-  %11219 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11208, i64 %11211) #9
-  %11220 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %9805, i64 %11211) #9
+  %11213 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %9763, i64 %11211) #9
+  %11214 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11203, i64 %11211) #9
+  %11215 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11204, i64 %11211) #9
+  %11216 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11205, i64 %11211) #9
+  %11217 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11206, i64 %11211) #9
+  %11218 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11207, i64 %11211) #9
+  %11219 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11208, i64 %11211) #9
+  %11220 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %9805, i64 %11211) #9
   %11221 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !168
   br label %11222
 
 11222:                                            ; preds = %11222, %11212
   %11223 = phi i64 [ 1, %11212 ], [ %11269, %11222 ], !in.de.ssa !168
-  %11224 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11213, i64 %11223) #9
-  %11225 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11224, i64 1) #9
-  %11226 = load double, double* %11225, align 1, !alias.scope !130, !noalias !155
-  %11227 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11214, i64 %11223) #9
-  store double %11226, double* %11227, align 1, !noalias !160
-  %11228 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11224, i64 2) #9
-  %11229 = load double, double* %11228, align 1, !alias.scope !130, !noalias !155
+  %11224 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11213, i64 %11223) #9
+  %11225 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11224, i64 1) #9
+  %11226 = load double, ptr %11225, align 1, !alias.scope !130, !noalias !155
+  %11227 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11214, i64 %11223) #9
+  store double %11226, ptr %11227, align 1, !noalias !160
+  %11228 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11224, i64 2) #9
+  %11229 = load double, ptr %11228, align 1, !alias.scope !130, !noalias !155
   %11230 = fdiv fast double %11229, %11226
-  %11231 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11215, i64 %11223) #9
-  store double %11230, double* %11231, align 1, !noalias !160
-  %11232 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11224, i64 3) #9
-  %11233 = load double, double* %11232, align 1, !alias.scope !130, !noalias !155
+  %11231 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11215, i64 %11223) #9
+  store double %11230, ptr %11231, align 1, !noalias !160
+  %11232 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11224, i64 3) #9
+  %11233 = load double, ptr %11232, align 1, !alias.scope !130, !noalias !155
   %11234 = fdiv fast double %11233, %11226
-  %11235 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11216, i64 %11223) #9
-  store double %11234, double* %11235, align 1, !noalias !160
-  %11236 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11224, i64 4) #9
-  %11237 = load double, double* %11236, align 1, !alias.scope !130, !noalias !155
+  %11235 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11216, i64 %11223) #9
+  store double %11234, ptr %11235, align 1, !noalias !160
+  %11236 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11224, i64 4) #9
+  %11237 = load double, ptr %11236, align 1, !alias.scope !130, !noalias !155
   %11238 = fdiv fast double %11237, %11226
-  %11239 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11217, i64 %11223) #9
-  store double %11238, double* %11239, align 1, !noalias !160
-  %11240 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11224, i64 5) #9
-  %11241 = load double, double* %11240, align 1, !alias.scope !130, !noalias !155
+  %11239 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11217, i64 %11223) #9
+  store double %11238, ptr %11239, align 1, !noalias !160
+  %11240 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11224, i64 5) #9
+  %11241 = load double, ptr %11240, align 1, !alias.scope !130, !noalias !155
   %11242 = fmul fast double %11226, 5.000000e-01
   %11243 = fmul fast double %11230, %11230
   %11244 = fmul fast double %11234, %11234
@@ -11981,31 +11980,31 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %11248 = fmul fast double %11242, %11247
   %11249 = fsub fast double %11241, %11248
   %11250 = fmul fast double %11249, 0x3FD9999980000000
-  %11251 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11218, i64 %11223) #9
-  store double %11250, double* %11251, align 1, !noalias !160
+  %11251 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11218, i64 %11223) #9
+  store double %11250, ptr %11251, align 1, !noalias !160
   %11252 = fmul fast double %11250, 0x3FF6666660000000
   %11253 = fdiv fast double %11252, %11226
   %11254 = call fast double @llvm.pow.f64(double %11253, double 7.500000e-01) #9
-  %11255 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11219, i64 %11223) #9
-  store double %11254, double* %11255, align 1, !noalias !160
+  %11255 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11219, i64 %11223) #9
+  store double %11254, ptr %11255, align 1, !noalias !160
   %11256 = fmul fast double %11238, %11226
-  %11257 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11220, i64 %11223) #9
-  %11258 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11257, i64 1) #9
-  store double %11256, double* %11258, align 1, !alias.scope !137, !noalias !161
+  %11257 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11220, i64 %11223) #9
+  %11258 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11257, i64 1) #9
+  store double %11256, ptr %11258, align 1, !alias.scope !137, !noalias !161
   %11259 = fmul fast double %11256, %11230
-  %11260 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11257, i64 2) #9
-  store double %11259, double* %11260, align 1, !alias.scope !137, !noalias !161
+  %11260 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11257, i64 2) #9
+  store double %11259, ptr %11260, align 1, !alias.scope !137, !noalias !161
   %11261 = fmul fast double %11256, %11234
-  %11262 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11257, i64 3) #9
-  store double %11261, double* %11262, align 1, !alias.scope !137, !noalias !161
+  %11262 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11257, i64 3) #9
+  store double %11261, ptr %11262, align 1, !alias.scope !137, !noalias !161
   %11263 = fmul fast double %11246, %11226
   %11264 = fadd fast double %11250, %11263
-  %11265 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11257, i64 4) #9
-  store double %11264, double* %11265, align 1, !alias.scope !137, !noalias !161
+  %11265 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11257, i64 4) #9
+  store double %11264, ptr %11265, align 1, !alias.scope !137, !noalias !161
   %11266 = fadd fast double %11250, %11241
   %11267 = fmul fast double %11266, %11238
-  %11268 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11257, i64 5) #9
-  store double %11267, double* %11268, align 1, !alias.scope !137, !noalias !161
+  %11268 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11257, i64 5) #9
+  store double %11267, ptr %11268, align 1, !alias.scope !137, !noalias !161
   %11269 = add nuw nsw i64 %11223, 1
   %11270 = icmp eq i64 %11269, %9769
   %11271 = call i64 @llvm.ssa.copy.i64(i64 %11269), !in.de.ssa !168
@@ -12021,18 +12020,18 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %11275, label %11277, label %11210
 
 11277:                                            ; preds = %11273
-  %11278 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11004, i64 1) #9
-  %11279 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11003, i64 1) #9
-  %11280 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11002, i64 1) #9
-  %11281 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11002, i64 2) #9
-  %11282 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11005, i64 1) #9
-  %11283 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11005, i64 2) #9
-  %11284 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11007, i64 2) #9
-  %11285 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11007, i64 1) #9
-  %11286 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11006, i64 2) #9
-  %11287 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11006, i64 1) #9
-  %11288 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11004, i64 2) #9
-  %11289 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11003, i64 2) #9
+  %11278 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11004, i64 1) #9
+  %11279 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11003, i64 1) #9
+  %11280 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11002, i64 1) #9
+  %11281 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11002, i64 2) #9
+  %11282 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11005, i64 1) #9
+  %11283 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11005, i64 2) #9
+  %11284 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11007, i64 2) #9
+  %11285 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11007, i64 1) #9
+  %11286 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11006, i64 2) #9
+  %11287 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11006, i64 1) #9
+  %11288 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11004, i64 2) #9
+  %11289 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11003, i64 2) #9
   %11290 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !169
   br label %11291
 
@@ -12052,30 +12051,30 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %11300 = add i32 %9791, %11298
   %11301 = srem i32 %11300, %3
   %11302 = add nsw i32 %11301, 1
-  %11303 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11278, i64 %11292) #9
-  %11304 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11279, i64 %11292) #9
-  %11305 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %9806, i64 %11292) #9
-  %11306 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11280, i64 %11292) #9
-  %11307 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11281, i64 %11292) #9
-  %11308 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11282, i64 %11292) #9
-  %11309 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11283, i64 %11292) #9
-  %11310 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11284, i64 %11292) #9
-  %11311 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11285, i64 %11292) #9
+  %11303 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11278, i64 %11292) #9
+  %11304 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11279, i64 %11292) #9
+  %11305 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %9806, i64 %11292) #9
+  %11306 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11280, i64 %11292) #9
+  %11307 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11281, i64 %11292) #9
+  %11308 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11282, i64 %11292) #9
+  %11309 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11283, i64 %11292) #9
+  %11310 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11284, i64 %11292) #9
+  %11311 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11285, i64 %11292) #9
   %11312 = and i64 %11299, 4294967295
   %11313 = select i1 %11297, i64 1, i64 %11312
-  %11314 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11282, i64 %11313) #9
+  %11314 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11282, i64 %11313) #9
   %11315 = sext i32 %11302 to i64
-  %11316 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11282, i64 %11315) #9
-  %11317 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11283, i64 %11313) #9
-  %11318 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11283, i64 %11315) #9
-  %11319 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11286, i64 %11292) #9
-  %11320 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11287, i64 %11292) #9
-  %11321 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11287, i64 %11313) #9
-  %11322 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11287, i64 %11315) #9
-  %11323 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11286, i64 %11313) #9
-  %11324 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11286, i64 %11315) #9
-  %11325 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11288, i64 %11292) #9
-  %11326 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11289, i64 %11292) #9
+  %11316 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11282, i64 %11315) #9
+  %11317 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11283, i64 %11313) #9
+  %11318 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11283, i64 %11315) #9
+  %11319 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11286, i64 %11292) #9
+  %11320 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11287, i64 %11292) #9
+  %11321 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11287, i64 %11313) #9
+  %11322 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11287, i64 %11315) #9
+  %11323 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11286, i64 %11313) #9
+  %11324 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11286, i64 %11315) #9
+  %11325 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11288, i64 %11292) #9
+  %11326 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11289, i64 %11292) #9
   %11327 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !171
   br label %11328
 
@@ -12087,98 +12086,98 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %11333 = add nsw i32 %11332, 1
   %11334 = icmp eq i64 %11329, %9796
   %11335 = add nuw i64 %11329, 1
-  %11336 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11303, i64 %11329) #9
-  %11337 = load double, double* %11336, align 1, !noalias !160
+  %11336 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11303, i64 %11329) #9
+  %11337 = load double, ptr %11336, align 1, !noalias !160
   %11338 = fmul fast double %11337, 0x3FF6666660000000
-  %11339 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11304, i64 %11329) #9
-  %11340 = load double, double* %11339, align 1, !noalias !160
+  %11339 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11304, i64 %11329) #9
+  %11340 = load double, ptr %11339, align 1, !noalias !160
   %11341 = fdiv fast double %11338, %11340
-  %11342 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11305, i64 %11329) #9
-  %11343 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11342, i64 1) #9
-  store double 0.000000e+00, double* %11343, align 1, !alias.scope !143, !noalias !172
-  %11344 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11306, i64 %11329) #9
-  %11345 = load double, double* %11344, align 1, !noalias !160
-  %11346 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11307, i64 %11329) #9
-  %11347 = load double, double* %11346, align 1, !noalias !160
+  %11342 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11305, i64 %11329) #9
+  %11343 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11342, i64 1) #9
+  store double 0.000000e+00, ptr %11343, align 1, !alias.scope !143, !noalias !172
+  %11344 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11306, i64 %11329) #9
+  %11345 = load double, ptr %11344, align 1, !noalias !160
+  %11346 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11307, i64 %11329) #9
+  %11347 = load double, ptr %11346, align 1, !noalias !160
   %11348 = fadd fast double %11347, %11345
   %11349 = fmul fast double %11348, 5.000000e-01
   %11350 = and i64 %11335, 4294967295
   %11351 = select i1 %11334, i64 1, i64 %11350
-  %11352 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11308, i64 %11351) #9
-  %11353 = load double, double* %11352, align 1, !noalias !160
+  %11352 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11308, i64 %11351) #9
+  %11353 = load double, ptr %11352, align 1, !noalias !160
   %11354 = sext i32 %11333 to i64
-  %11355 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11308, i64 %11354) #9
-  %11356 = load double, double* %11355, align 1, !noalias !160
-  %11357 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11309, i64 %11351) #9
-  %11358 = load double, double* %11357, align 1, !noalias !160
-  %11359 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11309, i64 %11354) #9
-  %11360 = load double, double* %11359, align 1, !noalias !160
+  %11355 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11308, i64 %11354) #9
+  %11356 = load double, ptr %11355, align 1, !noalias !160
+  %11357 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11309, i64 %11351) #9
+  %11358 = load double, ptr %11357, align 1, !noalias !160
+  %11359 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11309, i64 %11354) #9
+  %11360 = load double, ptr %11359, align 1, !noalias !160
   %11361 = fadd fast double %11353, %11358
   %11362 = fadd fast double %11356, %11360
   %11363 = fsub fast double %11361, %11362
   %11364 = fmul fast double %11363, 2.500000e-01
   %11365 = fmul fast double %11364, %9777
-  %11366 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11310, i64 %11329) #9
-  %11367 = load double, double* %11366, align 1, !noalias !160
-  %11368 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11311, i64 %11329) #9
-  %11369 = load double, double* %11368, align 1, !noalias !160
+  %11366 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11310, i64 %11329) #9
+  %11367 = load double, ptr %11366, align 1, !noalias !160
+  %11368 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11311, i64 %11329) #9
+  %11369 = load double, ptr %11368, align 1, !noalias !160
   %11370 = fsub fast double %11367, %11369
   %11371 = fmul fast double %11370, %9783
   %11372 = fadd fast double %11371, %11365
   %11373 = fmul fast double %11372, %11349
-  %11374 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11342, i64 2) #9
-  store double %11373, double* %11374, align 1, !alias.scope !143, !noalias !172
-  %11375 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11314, i64 %11329) #9
-  %11376 = load double, double* %11375, align 1, !noalias !160
-  %11377 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11316, i64 %11329) #9
-  %11378 = load double, double* %11377, align 1, !noalias !160
-  %11379 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11317, i64 %11329) #9
-  %11380 = load double, double* %11379, align 1, !noalias !160
-  %11381 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11318, i64 %11329) #9
-  %11382 = load double, double* %11381, align 1, !noalias !160
+  %11374 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11342, i64 2) #9
+  store double %11373, ptr %11374, align 1, !alias.scope !143, !noalias !172
+  %11375 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11314, i64 %11329) #9
+  %11376 = load double, ptr %11375, align 1, !noalias !160
+  %11377 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11316, i64 %11329) #9
+  %11378 = load double, ptr %11377, align 1, !noalias !160
+  %11379 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11317, i64 %11329) #9
+  %11380 = load double, ptr %11379, align 1, !noalias !160
+  %11381 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11318, i64 %11329) #9
+  %11382 = load double, ptr %11381, align 1, !noalias !160
   %11383 = fadd fast double %11376, %11380
   %11384 = fadd fast double %11378, %11382
   %11385 = fsub fast double %11383, %11384
   %11386 = fmul fast double %11385, 2.500000e-01
   %11387 = fmul fast double %11386, %9780
-  %11388 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11319, i64 %11329) #9
-  %11389 = load double, double* %11388, align 1, !noalias !160
-  %11390 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11320, i64 %11329) #9
-  %11391 = load double, double* %11390, align 1, !noalias !160
+  %11388 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11319, i64 %11329) #9
+  %11389 = load double, ptr %11388, align 1, !noalias !160
+  %11390 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11320, i64 %11329) #9
+  %11391 = load double, ptr %11390, align 1, !noalias !160
   %11392 = fsub fast double %11389, %11391
   %11393 = fmul fast double %11392, %9783
   %11394 = fadd fast double %11393, %11387
   %11395 = fmul fast double %11394, %11349
-  %11396 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11342, i64 3) #9
-  store double %11395, double* %11396, align 1, !alias.scope !143, !noalias !172
-  %11397 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11311, i64 %11351) #9
-  %11398 = load double, double* %11397, align 1, !noalias !160
-  %11399 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11311, i64 %11354) #9
-  %11400 = load double, double* %11399, align 1, !noalias !160
-  %11401 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11321, i64 %11329) #9
-  %11402 = load double, double* %11401, align 1, !noalias !160
-  %11403 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11322, i64 %11329) #9
-  %11404 = load double, double* %11403, align 1, !noalias !160
+  %11396 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11342, i64 3) #9
+  store double %11395, ptr %11396, align 1, !alias.scope !143, !noalias !172
+  %11397 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11311, i64 %11351) #9
+  %11398 = load double, ptr %11397, align 1, !noalias !160
+  %11399 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11311, i64 %11354) #9
+  %11400 = load double, ptr %11399, align 1, !noalias !160
+  %11401 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11321, i64 %11329) #9
+  %11402 = load double, ptr %11401, align 1, !noalias !160
+  %11403 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11322, i64 %11329) #9
+  %11404 = load double, ptr %11403, align 1, !noalias !160
   %11405 = fsub fast double %11402, %11404
   %11406 = fmul fast double %11348, 0x3FC5555555555555
-  %11407 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11309, i64 %11329) #9
-  %11408 = load double, double* %11407, align 1, !noalias !160
-  %11409 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11308, i64 %11329) #9
-  %11410 = load double, double* %11409, align 1, !noalias !160
+  %11407 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11309, i64 %11329) #9
+  %11408 = load double, ptr %11407, align 1, !noalias !160
+  %11409 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11308, i64 %11329) #9
+  %11410 = load double, ptr %11409, align 1, !noalias !160
   %11411 = fsub fast double %11408, %11410
   %11412 = fmul fast double %11411, 4.000000e+00
   %11413 = fmul fast double %11412, %9783
-  %11414 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11310, i64 %11351) #9
-  %11415 = load double, double* %11414, align 1, !noalias !160
-  %11416 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11310, i64 %11354) #9
-  %11417 = load double, double* %11416, align 1, !noalias !160
+  %11414 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11310, i64 %11351) #9
+  %11415 = load double, ptr %11414, align 1, !noalias !160
+  %11416 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11310, i64 %11354) #9
+  %11417 = load double, ptr %11416, align 1, !noalias !160
   %11418 = fadd fast double %11398, %11415
   %11419 = fadd fast double %11400, %11417
   %11420 = fsub fast double %11418, %11419
-  %11421 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11323, i64 %11329) #9
-  %11422 = load double, double* %11421, align 1, !noalias !160
-  %11423 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11324, i64 %11329) #9
-  %11424 = load double, double* %11423, align 1, !noalias !160
+  %11421 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11323, i64 %11329) #9
+  %11422 = load double, ptr %11421, align 1, !noalias !160
+  %11423 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11324, i64 %11329) #9
+  %11424 = load double, ptr %11423, align 1, !noalias !160
   %11425 = fsub fast double %11422, %11424
   %11426 = fmul fast double %11405, -5.000000e-01
   %11427 = fmul fast double %11426, %9780
@@ -12190,31 +12189,31 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %11433 = fadd fast double %11432, %11429
   %11434 = fadd fast double %11433, %11431
   %11435 = fmul fast double %11406, %11434
-  %11436 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11342, i64 4) #9
-  store double %11435, double* %11436, align 1, !alias.scope !143, !noalias !172
+  %11436 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11342, i64 4) #9
+  store double %11435, ptr %11436, align 1, !alias.scope !143, !noalias !172
   %11437 = fadd fast double %11369, %11367
-  %11438 = load double, double* %11374, align 1, !alias.scope !143, !noalias !172
+  %11438 = load double, ptr %11374, align 1, !alias.scope !143, !noalias !172
   %11439 = fmul fast double %11438, %11437
   %11440 = fadd fast double %11391, %11389
-  %11441 = load double, double* %11396, align 1, !alias.scope !143, !noalias !172
+  %11441 = load double, ptr %11396, align 1, !alias.scope !143, !noalias !172
   %11442 = fmul fast double %11441, %11440
   %11443 = fadd fast double %11442, %11439
   %11444 = fadd fast double %11410, %11408
   %11445 = fmul fast double %11435, %11444
   %11446 = fadd fast double %11443, %11445
   %11447 = fmul fast double %11446, 5.000000e-01
-  %11448 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11325, i64 %11329) #9
-  %11449 = load double, double* %11448, align 1, !noalias !160
+  %11448 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11325, i64 %11329) #9
+  %11449 = load double, ptr %11448, align 1, !noalias !160
   %11450 = fmul fast double %11449, 0x3FF6666660000000
-  %11451 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11326, i64 %11329) #9
-  %11452 = load double, double* %11451, align 1, !noalias !160
+  %11451 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11326, i64 %11329) #9
+  %11452 = load double, ptr %11451, align 1, !noalias !160
   %11453 = fdiv fast double %11450, %11452
   %11454 = fsub fast double %11453, %11341
   %11455 = fmul fast double %11454, %11349
   %11456 = fmul fast double %11455, %9809
   %11457 = fadd fast double %11456, %11447
-  %11458 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11342, i64 5) #9
-  store double %11457, double* %11458, align 1, !alias.scope !143, !noalias !172
+  %11458 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11342, i64 5) #9
+  store double %11457, ptr %11458, align 1, !alias.scope !143, !noalias !172
   %11459 = icmp eq i64 %11335, %9769
   %11460 = call i64 @llvm.ssa.copy.i64(i64 %11335), !in.de.ssa !171
   br i1 %11459, label %11461, label %11328
@@ -12240,7 +12239,7 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br label %11472
 
 11471:                                            ; preds = %11468
-  call void @llvm.stackrestore(i8* %11001)
+  call void @llvm.stackrestore(ptr %11001)
   br label %12089
 
 11472:                                            ; preds = %11469, %11841
@@ -12250,23 +12249,23 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
 
 11475:                                            ; preds = %11472
   %11476 = add nuw nsw i64 %11473, 2
-  %11477 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %76, i64 %11473) #9
-  %11478 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11002, i64 %11474) #9
-  %11479 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11004, i64 %11474) #9
-  %11480 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11003, i64 %11474) #9
-  %11481 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11006, i64 %11474) #9
-  %11482 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11005, i64 %11476) #9
-  %11483 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11005, i64 %11473) #9
-  %11484 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11007, i64 %11474) #9
-  %11485 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11007, i64 %11476) #9
-  %11486 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11007, i64 %11473) #9
-  %11487 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11005, i64 %11474) #9
-  %11488 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %75, i64 %11473) #9
-  %11489 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %72, i64 %11474) #9
-  %11490 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11002, i64 %11476) #9
-  %11491 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11006, i64 %11476) #9
-  %11492 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11004, i64 %11476) #9
-  %11493 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %9803, double* elementtype(double) nonnull %11003, i64 %11476) #9
+  %11477 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %76, i64 %11473) #9
+  %11478 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11002, i64 %11474) #9
+  %11479 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11004, i64 %11474) #9
+  %11480 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11003, i64 %11474) #9
+  %11481 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11006, i64 %11474) #9
+  %11482 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11005, i64 %11476) #9
+  %11483 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11005, i64 %11473) #9
+  %11484 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11007, i64 %11474) #9
+  %11485 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11007, i64 %11476) #9
+  %11486 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11007, i64 %11473) #9
+  %11487 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11005, i64 %11474) #9
+  %11488 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %75, i64 %11473) #9
+  %11489 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %72, i64 %11474) #9
+  %11490 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11002, i64 %11476) #9
+  %11491 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11006, i64 %11476) #9
+  %11492 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11004, i64 %11476) #9
+  %11493 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %9803, ptr elementtype(double) nonnull %11003, i64 %11476) #9
   %11494 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !174
   br label %11495
 
@@ -12286,40 +12285,40 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %11504 = add i32 %9791, %11502
   %11505 = srem i32 %11504, %3
   %11506 = add nsw i32 %11505, 1
-  %11507 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %11477, i64 %11496) #9
-  %11508 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11478, i64 %11496) #9
-  %11509 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11479, i64 %11496) #9
-  %11510 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11480, i64 %11496) #9
+  %11507 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %11477, i64 %11496) #9
+  %11508 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11478, i64 %11496) #9
+  %11509 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11479, i64 %11496) #9
+  %11510 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11480, i64 %11496) #9
   %11511 = and i64 %11503, 4294967295
   %11512 = select i1 %11501, i64 1, i64 %11511
-  %11513 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11481, i64 %11512) #9
+  %11513 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11481, i64 %11512) #9
   %11514 = sext i32 %11506 to i64
-  %11515 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11481, i64 %11514) #9
-  %11516 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11482, i64 %11496) #9
-  %11517 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11483, i64 %11496) #9
-  %11518 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11484, i64 %11496) #9
-  %11519 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11484, i64 %11512) #9
-  %11520 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11484, i64 %11514) #9
-  %11521 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11481, i64 %11496) #9
-  %11522 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11485, i64 %11496) #9
-  %11523 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11486, i64 %11496) #9
-  %11524 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11487, i64 %11496) #9
-  %11525 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %11488, i64 %11496) #9
-  %11526 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11478, i64 %11512) #9
-  %11527 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11482, i64 %11512) #9
-  %11528 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11483, i64 %11512) #9
-  %11529 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11487, i64 %11512) #9
-  %11530 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11479, i64 %11512) #9
-  %11531 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11480, i64 %11512) #9
-  %11532 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %11489, i64 %11496) #9
-  %11533 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11490, i64 %11496) #9
-  %11534 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11487, i64 %11514) #9
-  %11535 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11482, i64 %11514) #9
-  %11536 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11491, i64 %11496) #9
-  %11537 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11491, i64 %11512) #9
-  %11538 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11491, i64 %11514) #9
-  %11539 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11492, i64 %11496) #9
-  %11540 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %9802, double* elementtype(double) nonnull %11493, i64 %11496) #9
+  %11515 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11481, i64 %11514) #9
+  %11516 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11482, i64 %11496) #9
+  %11517 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11483, i64 %11496) #9
+  %11518 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11484, i64 %11496) #9
+  %11519 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11484, i64 %11512) #9
+  %11520 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11484, i64 %11514) #9
+  %11521 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11481, i64 %11496) #9
+  %11522 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11485, i64 %11496) #9
+  %11523 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11486, i64 %11496) #9
+  %11524 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11487, i64 %11496) #9
+  %11525 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %11488, i64 %11496) #9
+  %11526 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11478, i64 %11512) #9
+  %11527 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11482, i64 %11512) #9
+  %11528 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11483, i64 %11512) #9
+  %11529 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11487, i64 %11512) #9
+  %11530 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11479, i64 %11512) #9
+  %11531 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11480, i64 %11512) #9
+  %11532 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %11489, i64 %11496) #9
+  %11533 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11490, i64 %11496) #9
+  %11534 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11487, i64 %11514) #9
+  %11535 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11482, i64 %11514) #9
+  %11536 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11491, i64 %11496) #9
+  %11537 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11491, i64 %11512) #9
+  %11538 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11491, i64 %11514) #9
+  %11539 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11492, i64 %11496) #9
+  %11540 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %9802, ptr elementtype(double) nonnull %11493, i64 %11496) #9
   %11541 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !176
   br label %11542
 
@@ -12331,53 +12330,53 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %11547 = add nsw i32 %11546, 1
   %11548 = icmp eq i64 %11543, %9796
   %11549 = add nuw i64 %11543, 1
-  %11550 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11507, i64 %11543) #9
-  %11551 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11550, i64 1) #9
-  store double 0.000000e+00, double* %11551, align 1, !alias.scope !139, !noalias !177
-  %11552 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11508, i64 %11543) #9
-  %11553 = load double, double* %11552, align 1, !noalias !160
+  %11550 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11507, i64 %11543) #9
+  %11551 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11550, i64 1) #9
+  store double 0.000000e+00, ptr %11551, align 1, !alias.scope !139, !noalias !177
+  %11552 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11508, i64 %11543) #9
+  %11553 = load double, ptr %11552, align 1, !noalias !160
   %11554 = and i64 %11549, 4294967295
   %11555 = select i1 %11548, i64 1, i64 %11554
-  %11556 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11508, i64 %11555) #9
-  %11557 = load double, double* %11556, align 1, !noalias !160
+  %11556 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11508, i64 %11555) #9
+  %11557 = load double, ptr %11556, align 1, !noalias !160
   %11558 = fadd fast double %11557, %11553
   %11559 = fmul fast double %11558, 5.000000e-01
-  %11560 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11509, i64 %11543) #9
-  %11561 = load double, double* %11560, align 1, !noalias !160
+  %11560 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11509, i64 %11543) #9
+  %11561 = load double, ptr %11560, align 1, !noalias !160
   %11562 = fmul fast double %11561, 0x3FF6666660000000
-  %11563 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11510, i64 %11543) #9
-  %11564 = load double, double* %11563, align 1, !noalias !160
+  %11563 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11510, i64 %11543) #9
+  %11564 = load double, ptr %11563, align 1, !noalias !160
   %11565 = fdiv fast double %11562, %11564
-  %11566 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11513, i64 %11543) #9
-  %11567 = load double, double* %11566, align 1, !noalias !160
-  %11568 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11515, i64 %11543) #9
-  %11569 = load double, double* %11568, align 1, !noalias !160
+  %11566 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11513, i64 %11543) #9
+  %11567 = load double, ptr %11566, align 1, !noalias !160
+  %11568 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11515, i64 %11543) #9
+  %11569 = load double, ptr %11568, align 1, !noalias !160
   %11570 = fsub fast double %11567, %11569
-  %11571 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11516, i64 %11543) #9
-  %11572 = load double, double* %11571, align 1, !noalias !160
-  %11573 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11517, i64 %11543) #9
-  %11574 = load double, double* %11573, align 1, !noalias !160
+  %11571 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11516, i64 %11543) #9
+  %11572 = load double, ptr %11571, align 1, !noalias !160
+  %11573 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11517, i64 %11543) #9
+  %11574 = load double, ptr %11573, align 1, !noalias !160
   %11575 = fsub fast double %11572, %11574
   %11576 = fmul fast double %11575, -5.000000e-01
   %11577 = fmul fast double %11576, %9783
   %11578 = fmul fast double %11558, 0x3FC5555555555555
-  %11579 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11518, i64 %11555) #9
-  %11580 = load double, double* %11579, align 1, !noalias !160
-  %11581 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11518, i64 %11543) #9
-  %11582 = load double, double* %11581, align 1, !noalias !160
+  %11579 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11518, i64 %11555) #9
+  %11580 = load double, ptr %11579, align 1, !noalias !160
+  %11581 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11518, i64 %11543) #9
+  %11582 = load double, ptr %11581, align 1, !noalias !160
   %11583 = fsub fast double %11580, %11582
   %11584 = fmul fast double %11583, 4.000000e+00
   %11585 = fmul fast double %11584, %9777
-  %11586 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11513, i64 %11555) #9
-  %11587 = load double, double* %11586, align 1, !noalias !160
-  %11588 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11515, i64 %11555) #9
-  %11589 = load double, double* %11588, align 1, !noalias !160
+  %11586 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11513, i64 %11555) #9
+  %11587 = load double, ptr %11586, align 1, !noalias !160
+  %11588 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11515, i64 %11555) #9
+  %11589 = load double, ptr %11588, align 1, !noalias !160
   %11590 = fadd fast double %11587, %11570
   %11591 = fsub fast double %11590, %11589
-  %11592 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11516, i64 %11555) #9
-  %11593 = load double, double* %11592, align 1, !noalias !160
-  %11594 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11517, i64 %11555) #9
-  %11595 = load double, double* %11594, align 1, !noalias !160
+  %11592 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11516, i64 %11555) #9
+  %11593 = load double, ptr %11592, align 1, !noalias !160
+  %11594 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11517, i64 %11555) #9
+  %11595 = load double, ptr %11594, align 1, !noalias !160
   %11596 = fsub fast double %11593, %11595
   %11597 = fmul fast double %11591, -5.000000e-01
   %11598 = fmul fast double %11597, %9780
@@ -12387,95 +12386,95 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %11602 = fadd fast double %11601, %11598
   %11603 = fadd fast double %11602, %11600
   %11604 = fmul fast double %11578, %11603
-  %11605 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11550, i64 2) #9
-  store double %11604, double* %11605, align 1, !alias.scope !139, !noalias !177
-  %11606 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11519, i64 %11543) #9
-  %11607 = load double, double* %11606, align 1, !noalias !160
-  %11608 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11520, i64 %11543) #9
-  %11609 = load double, double* %11608, align 1, !noalias !160
+  %11605 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11550, i64 2) #9
+  store double %11604, ptr %11605, align 1, !alias.scope !139, !noalias !177
+  %11606 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11519, i64 %11543) #9
+  %11607 = load double, ptr %11606, align 1, !noalias !160
+  %11608 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11520, i64 %11543) #9
+  %11609 = load double, ptr %11608, align 1, !noalias !160
   %11610 = fsub fast double %11607, %11609
   %11611 = fmul fast double %11610, 5.000000e-01
   %11612 = fmul fast double %11611, %9780
-  %11613 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11519, i64 %11555) #9
-  %11614 = load double, double* %11613, align 1, !noalias !160
-  %11615 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11520, i64 %11555) #9
-  %11616 = load double, double* %11615, align 1, !noalias !160
+  %11613 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11519, i64 %11555) #9
+  %11614 = load double, ptr %11613, align 1, !noalias !160
+  %11615 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11520, i64 %11555) #9
+  %11616 = load double, ptr %11615, align 1, !noalias !160
   %11617 = fmul fast double %11616, -5.000000e-01
   %11618 = fmul fast double %11617, %9780
   %11619 = fadd fast double %11612, %11614
   %11620 = fadd fast double %11619, %11618
   %11621 = fmul fast double %11620, 5.000000e-01
-  %11622 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11521, i64 %11555) #9
-  %11623 = load double, double* %11622, align 1, !noalias !160
-  %11624 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11521, i64 %11543) #9
-  %11625 = load double, double* %11624, align 1, !noalias !160
+  %11622 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11521, i64 %11555) #9
+  %11623 = load double, ptr %11622, align 1, !noalias !160
+  %11624 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11521, i64 %11543) #9
+  %11625 = load double, ptr %11624, align 1, !noalias !160
   %11626 = fsub fast double %11623, %11625
   %11627 = fmul fast double %11626, %9777
   %11628 = fadd fast double %11621, %11627
   %11629 = fmul fast double %11628, %11559
-  %11630 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11550, i64 3) #9
-  store double %11629, double* %11630, align 1, !alias.scope !139, !noalias !177
-  %11631 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11522, i64 %11543) #9
-  %11632 = load double, double* %11631, align 1, !noalias !160
-  %11633 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11523, i64 %11543) #9
-  %11634 = load double, double* %11633, align 1, !noalias !160
-  %11635 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11522, i64 %11555) #9
-  %11636 = load double, double* %11635, align 1, !noalias !160
-  %11637 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11523, i64 %11555) #9
-  %11638 = load double, double* %11637, align 1, !noalias !160
+  %11630 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11550, i64 3) #9
+  store double %11629, ptr %11630, align 1, !alias.scope !139, !noalias !177
+  %11631 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11522, i64 %11543) #9
+  %11632 = load double, ptr %11631, align 1, !noalias !160
+  %11633 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11523, i64 %11543) #9
+  %11634 = load double, ptr %11633, align 1, !noalias !160
+  %11635 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11522, i64 %11555) #9
+  %11636 = load double, ptr %11635, align 1, !noalias !160
+  %11637 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11523, i64 %11555) #9
+  %11638 = load double, ptr %11637, align 1, !noalias !160
   %11639 = fadd fast double %11632, %11636
   %11640 = fadd fast double %11634, %11638
   %11641 = fsub fast double %11639, %11640
   %11642 = fmul fast double %11641, 2.500000e-01
   %11643 = fmul fast double %11642, %9783
-  %11644 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11524, i64 %11555) #9
-  %11645 = load double, double* %11644, align 1, !noalias !160
-  %11646 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11524, i64 %11543) #9
-  %11647 = load double, double* %11646, align 1, !noalias !160
+  %11644 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11524, i64 %11555) #9
+  %11645 = load double, ptr %11644, align 1, !noalias !160
+  %11646 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11524, i64 %11543) #9
+  %11647 = load double, ptr %11646, align 1, !noalias !160
   %11648 = fsub fast double %11645, %11647
   %11649 = fmul fast double %11648, %9777
   %11650 = fadd fast double %11649, %11643
   %11651 = fmul fast double %11650, %11559
-  %11652 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11550, i64 4) #9
-  store double %11651, double* %11652, align 1, !alias.scope !139, !noalias !177
+  %11652 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11550, i64 4) #9
+  store double %11651, ptr %11652, align 1, !alias.scope !139, !noalias !177
   %11653 = fadd fast double %11582, %11580
-  %11654 = load double, double* %11605, align 1, !alias.scope !139, !noalias !177
+  %11654 = load double, ptr %11605, align 1, !alias.scope !139, !noalias !177
   %11655 = fmul fast double %11654, %11653
   %11656 = fadd fast double %11625, %11623
-  %11657 = load double, double* %11630, align 1, !alias.scope !139, !noalias !177
+  %11657 = load double, ptr %11630, align 1, !alias.scope !139, !noalias !177
   %11658 = fmul fast double %11657, %11656
   %11659 = fadd fast double %11658, %11655
   %11660 = fadd fast double %11647, %11645
   %11661 = fmul fast double %11651, %11660
   %11662 = fadd fast double %11659, %11661
   %11663 = fmul fast double %11662, 5.000000e-01
-  %11664 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11509, i64 %11555) #9
-  %11665 = load double, double* %11664, align 1, !noalias !160
+  %11664 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11509, i64 %11555) #9
+  %11665 = load double, ptr %11664, align 1, !noalias !160
   %11666 = fmul fast double %11665, 0x3FF6666660000000
-  %11667 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11510, i64 %11555) #9
-  %11668 = load double, double* %11667, align 1, !noalias !160
+  %11667 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11510, i64 %11555) #9
+  %11668 = load double, ptr %11667, align 1, !noalias !160
   %11669 = fdiv fast double %11666, %11668
   %11670 = fsub fast double %11669, %11565
   %11671 = fmul fast double %11670, %11559
   %11672 = fmul fast double %11671, %9812
   %11673 = fadd fast double %11672, %11663
-  %11674 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11550, i64 5) #9
-  store double %11673, double* %11674, align 1, !alias.scope !139, !noalias !177
-  %11675 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11525, i64 %11543) #9
-  %11676 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11675, i64 1) #9
-  store double 0.000000e+00, double* %11676, align 1, !alias.scope !141, !noalias !178
-  %11677 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11526, i64 %11543) #9
-  %11678 = load double, double* %11677, align 1, !noalias !160
+  %11674 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11550, i64 5) #9
+  store double %11673, ptr %11674, align 1, !alias.scope !139, !noalias !177
+  %11675 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11525, i64 %11543) #9
+  %11676 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11675, i64 1) #9
+  store double 0.000000e+00, ptr %11676, align 1, !alias.scope !141, !noalias !178
+  %11677 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11526, i64 %11543) #9
+  %11678 = load double, ptr %11677, align 1, !noalias !160
   %11679 = fadd fast double %11678, %11553
   %11680 = fmul fast double %11679, 5.000000e-01
   %11681 = sext i32 %11547 to i64
-  %11682 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11521, i64 %11681) #9
-  %11683 = load double, double* %11682, align 1, !noalias !160
+  %11682 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11521, i64 %11681) #9
+  %11683 = load double, ptr %11682, align 1, !noalias !160
   %11684 = fsub fast double %11623, %11683
   %11685 = fmul fast double %11684, 5.000000e-01
   %11686 = fmul fast double %11685, %9777
-  %11687 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11513, i64 %11681) #9
-  %11688 = load double, double* %11687, align 1, !noalias !160
+  %11687 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11513, i64 %11681) #9
+  %11688 = load double, ptr %11687, align 1, !noalias !160
   %11689 = fsub fast double %11587, %11688
   %11690 = fadd fast double %11689, %11686
   %11691 = fmul fast double %11690, 5.000000e-01
@@ -12483,75 +12482,75 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %11693 = fmul fast double %11692, %9780
   %11694 = fadd fast double %11691, %11693
   %11695 = fmul fast double %11694, %11680
-  %11696 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11675, i64 2) #9
-  store double %11695, double* %11696, align 1, !alias.scope !141, !noalias !178
-  %11697 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11518, i64 %11681) #9
-  %11698 = load double, double* %11697, align 1, !noalias !160
+  %11696 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11675, i64 2) #9
+  store double %11695, ptr %11696, align 1, !alias.scope !141, !noalias !178
+  %11697 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11518, i64 %11681) #9
+  %11698 = load double, ptr %11697, align 1, !noalias !160
   %11699 = fsub fast double %11580, %11698
   %11700 = fmul fast double %11679, 0x3FC5555555555555
   %11701 = fsub fast double %11567, %11625
   %11702 = fmul fast double %11701, 4.000000e+00
   %11703 = fmul fast double %11702, %9780
-  %11704 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11519, i64 %11681) #9
-  %11705 = load double, double* %11704, align 1, !noalias !160
+  %11704 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11519, i64 %11681) #9
+  %11705 = load double, ptr %11704, align 1, !noalias !160
   %11706 = fsub fast double %11614, %11705
   %11707 = fadd fast double %11706, %11699
   %11708 = fmul fast double %11707, 5.000000e-01
   %11709 = fmul fast double %11708, %9777
-  %11710 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11527, i64 %11543) #9
-  %11711 = load double, double* %11710, align 1, !noalias !160
-  %11712 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11528, i64 %11543) #9
-  %11713 = load double, double* %11712, align 1, !noalias !160
+  %11710 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11527, i64 %11543) #9
+  %11711 = load double, ptr %11710, align 1, !noalias !160
+  %11712 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11528, i64 %11543) #9
+  %11713 = load double, ptr %11712, align 1, !noalias !160
   %11714 = fadd fast double %11703, %11577
   %11715 = fadd fast double %11714, %11713
   %11716 = fadd fast double %11711, %11709
   %11717 = fsub fast double %11715, %11716
   %11718 = fmul fast double %11700, %11717
-  %11719 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11675, i64 3) #9
-  store double %11718, double* %11719, align 1, !alias.scope !141, !noalias !178
+  %11719 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11675, i64 3) #9
+  store double %11718, ptr %11719, align 1, !alias.scope !141, !noalias !178
   %11720 = fmul fast double %11709, 5.000000e-01
-  %11721 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11529, i64 %11543) #9
-  %11722 = load double, double* %11721, align 1, !noalias !160
+  %11721 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11529, i64 %11543) #9
+  %11722 = load double, ptr %11721, align 1, !noalias !160
   %11723 = fsub fast double %11722, %11647
   %11724 = fmul fast double %11723, %9780
   %11725 = fadd fast double %11724, %11720
   %11726 = fmul fast double %11725, %11680
-  %11727 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11675, i64 4) #9
-  store double %11726, double* %11727, align 1, !alias.scope !141, !noalias !178
+  %11727 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11675, i64 4) #9
+  store double %11726, ptr %11727, align 1, !alias.scope !141, !noalias !178
   %11728 = fadd fast double %11607, %11582
-  %11729 = load double, double* %11696, align 1, !alias.scope !141, !noalias !178
+  %11729 = load double, ptr %11696, align 1, !alias.scope !141, !noalias !178
   %11730 = fmul fast double %11729, %11728
   %11731 = fadd fast double %11625, %11567
-  %11732 = load double, double* %11719, align 1, !alias.scope !141, !noalias !178
+  %11732 = load double, ptr %11719, align 1, !alias.scope !141, !noalias !178
   %11733 = fmul fast double %11732, %11731
   %11734 = fadd fast double %11733, %11730
   %11735 = fadd fast double %11722, %11647
   %11736 = fmul fast double %11726, %11735
   %11737 = fadd fast double %11734, %11736
   %11738 = fmul fast double %11737, 5.000000e-01
-  %11739 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11530, i64 %11543) #9
-  %11740 = load double, double* %11739, align 1, !noalias !160
+  %11739 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11530, i64 %11543) #9
+  %11740 = load double, ptr %11739, align 1, !noalias !160
   %11741 = fmul fast double %11740, 0x3FF6666660000000
-  %11742 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11531, i64 %11543) #9
-  %11743 = load double, double* %11742, align 1, !noalias !160
+  %11742 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11531, i64 %11543) #9
+  %11743 = load double, ptr %11742, align 1, !noalias !160
   %11744 = fdiv fast double %11741, %11743
   %11745 = fsub fast double %11744, %11565
   %11746 = fmul fast double %11745, %11680
   %11747 = fmul fast double %11746, %9814
   %11748 = fadd fast double %11747, %11738
-  %11749 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11675, i64 5) #9
-  store double %11748, double* %11749, align 1, !alias.scope !141, !noalias !178
-  %11750 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11532, i64 %11543) #9
-  %11751 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11750, i64 1) #9
-  store double 0.000000e+00, double* %11751, align 1, !alias.scope !143, !noalias !172
-  %11752 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11533, i64 %11543) #9
-  %11753 = load double, double* %11752, align 1, !noalias !160
+  %11749 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11675, i64 5) #9
+  store double %11748, ptr %11749, align 1, !alias.scope !141, !noalias !178
+  %11750 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11532, i64 %11543) #9
+  %11751 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11750, i64 1) #9
+  store double 0.000000e+00, ptr %11751, align 1, !alias.scope !143, !noalias !172
+  %11752 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11533, i64 %11543) #9
+  %11753 = load double, ptr %11752, align 1, !noalias !160
   %11754 = fadd fast double %11753, %11553
   %11755 = fmul fast double %11754, 5.000000e-01
-  %11756 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11524, i64 %11681) #9
-  %11757 = load double, double* %11756, align 1, !noalias !160
-  %11758 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11516, i64 %11681) #9
-  %11759 = load double, double* %11758, align 1, !noalias !160
+  %11756 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11524, i64 %11681) #9
+  %11757 = load double, ptr %11756, align 1, !noalias !160
+  %11758 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11516, i64 %11681) #9
+  %11759 = load double, ptr %11758, align 1, !noalias !160
   %11760 = fadd fast double %11645, %11593
   %11761 = fadd fast double %11757, %11759
   %11762 = fsub fast double %11760, %11761
@@ -12561,37 +12560,37 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %11766 = fmul fast double %11765, %9783
   %11767 = fadd fast double %11764, %11766
   %11768 = fmul fast double %11767, %11755
-  %11769 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11750, i64 2) #9
-  store double %11768, double* %11769, align 1, !alias.scope !143, !noalias !172
-  %11770 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11534, i64 %11543) #9
-  %11771 = load double, double* %11770, align 1, !noalias !160
-  %11772 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11535, i64 %11543) #9
-  %11773 = load double, double* %11772, align 1, !noalias !160
+  %11769 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11750, i64 2) #9
+  store double %11768, ptr %11769, align 1, !alias.scope !143, !noalias !172
+  %11770 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11534, i64 %11543) #9
+  %11771 = load double, ptr %11770, align 1, !noalias !160
+  %11772 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11535, i64 %11543) #9
+  %11773 = load double, ptr %11772, align 1, !noalias !160
   %11774 = fadd fast double %11722, %11711
   %11775 = fadd fast double %11771, %11773
   %11776 = fsub fast double %11774, %11775
   %11777 = fmul fast double %11776, 2.500000e-01
   %11778 = fmul fast double %11777, %9780
-  %11779 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11536, i64 %11543) #9
-  %11780 = load double, double* %11779, align 1, !noalias !160
+  %11779 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11536, i64 %11543) #9
+  %11780 = load double, ptr %11779, align 1, !noalias !160
   %11781 = fsub fast double %11780, %11625
   %11782 = fmul fast double %11781, %9783
   %11783 = fadd fast double %11778, %11782
   %11784 = fmul fast double %11783, %11755
-  %11785 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11750, i64 3) #9
-  store double %11784, double* %11785, align 1, !alias.scope !143, !noalias !172
+  %11785 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11750, i64 3) #9
+  store double %11784, ptr %11785, align 1, !alias.scope !143, !noalias !172
   %11786 = fmul fast double %11754, 0x3FC5555555555555
   %11787 = fsub fast double %11572, %11647
   %11788 = fmul fast double %11787, 4.000000e+00
   %11789 = fmul fast double %11788, %9783
-  %11790 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11522, i64 %11681) #9
-  %11791 = load double, double* %11790, align 1, !noalias !160
+  %11790 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11522, i64 %11681) #9
+  %11791 = load double, ptr %11790, align 1, !noalias !160
   %11792 = fadd fast double %11699, %11636
   %11793 = fsub fast double %11792, %11791
-  %11794 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11537, i64 %11543) #9
-  %11795 = load double, double* %11794, align 1, !noalias !160
-  %11796 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11538, i64 %11543) #9
-  %11797 = load double, double* %11796, align 1, !noalias !160
+  %11794 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11537, i64 %11543) #9
+  %11795 = load double, ptr %11794, align 1, !noalias !160
+  %11796 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11538, i64 %11543) #9
+  %11797 = load double, ptr %11796, align 1, !noalias !160
   %11798 = fsub fast double %11795, %11797
   %11799 = fmul fast double %11570, -5.000000e-01
   %11800 = fmul fast double %11799, %9780
@@ -12603,31 +12602,31 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %11806 = fadd fast double %11805, %11802
   %11807 = fadd fast double %11806, %11804
   %11808 = fmul fast double %11786, %11807
-  %11809 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11750, i64 4) #9
-  store double %11808, double* %11809, align 1, !alias.scope !143, !noalias !172
+  %11809 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11750, i64 4) #9
+  store double %11808, ptr %11809, align 1, !alias.scope !143, !noalias !172
   %11810 = fadd fast double %11632, %11582
-  %11811 = load double, double* %11769, align 1, !alias.scope !143, !noalias !172
+  %11811 = load double, ptr %11769, align 1, !alias.scope !143, !noalias !172
   %11812 = fmul fast double %11811, %11810
   %11813 = fadd fast double %11780, %11625
-  %11814 = load double, double* %11785, align 1, !alias.scope !143, !noalias !172
+  %11814 = load double, ptr %11785, align 1, !alias.scope !143, !noalias !172
   %11815 = fmul fast double %11814, %11813
   %11816 = fadd fast double %11815, %11812
   %11817 = fadd fast double %11647, %11572
   %11818 = fmul fast double %11808, %11817
   %11819 = fadd fast double %11816, %11818
   %11820 = fmul fast double %11819, 5.000000e-01
-  %11821 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11539, i64 %11543) #9
-  %11822 = load double, double* %11821, align 1, !noalias !160
+  %11821 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11539, i64 %11543) #9
+  %11822 = load double, ptr %11821, align 1, !noalias !160
   %11823 = fmul fast double %11822, 0x3FF6666660000000
-  %11824 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11540, i64 %11543) #9
-  %11825 = load double, double* %11824, align 1, !noalias !160
+  %11824 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11540, i64 %11543) #9
+  %11825 = load double, ptr %11824, align 1, !noalias !160
   %11826 = fdiv fast double %11823, %11825
   %11827 = fsub fast double %11826, %11565
   %11828 = fmul fast double %11827, %11755
   %11829 = fmul fast double %11828, %9816
   %11830 = fadd fast double %11820, %11829
-  %11831 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11750, i64 5) #9
-  store double %11830, double* %11831, align 1, !alias.scope !143, !noalias !172
+  %11831 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11750, i64 5) #9
+  store double %11830, ptr %11831, align 1, !alias.scope !143, !noalias !172
   %11832 = icmp eq i64 %11549, %9769
   %11833 = call i64 @llvm.ssa.copy.i64(i64 %11549), !in.de.ssa !176
   br i1 %11832, label %11834, label %11542
@@ -12651,7 +12650,7 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %11842, label %11844, label %11472
 
 11844:                                            ; preds = %11841
-  call void @llvm.stackrestore(i8* %11001)
+  call void @llvm.stackrestore(ptr %11001)
   %11845 = fmul fast double %10041, 5.000000e-01
   %11846 = fmul fast double %10041, %8
   %11847 = fmul fast double %10041, %9
@@ -12667,21 +12666,21 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %11853 = add nuw nsw i64 %11850, 4
   %11854 = add nuw nsw i64 %11850, 3
   %11855 = add nuw nsw i64 %11850, 2
-  %11856 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %79, i64 %11850)
-  %11857 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %78, i64 %11850)
-  %11858 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %77, i64 %11855)
-  %11859 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %77, i64 %11850)
-  %11860 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %76, i64 %11850)
-  %11861 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %75, i64 %11850)
-  %11862 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %72, i64 %11851)
-  %11863 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %72, i64 %11850)
-  %11864 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %88, i64 %11855)
-  %11865 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %88, i64 %11854)
-  %11866 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %88, i64 %11851)
-  %11867 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %88, i64 %11853)
-  %11868 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %88, i64 %11850)
-  %11869 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %80, i64 %11850)
-  %11870 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %81, i64 %11851)
+  %11856 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %79, i64 %11850)
+  %11857 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %78, i64 %11850)
+  %11858 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %77, i64 %11855)
+  %11859 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %77, i64 %11850)
+  %11860 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %76, i64 %11850)
+  %11861 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %75, i64 %11850)
+  %11862 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %72, i64 %11851)
+  %11863 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %72, i64 %11850)
+  %11864 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %88, i64 %11855)
+  %11865 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %88, i64 %11854)
+  %11866 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %88, i64 %11851)
+  %11867 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %88, i64 %11853)
+  %11868 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %88, i64 %11850)
+  %11869 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %80, i64 %11850)
+  %11870 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %81, i64 %11851)
   %11871 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !180
   br label %11872
 
@@ -12703,32 +12702,32 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %11885 = add nsw i32 %11875, -3
   %11886 = srem i32 %11885, %3
   %11887 = add nsw i32 %11886, 1
-  %11888 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %11856, i64 %11873)
+  %11888 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %11856, i64 %11873)
   %11889 = and i64 %11876, 4294967295
   %11890 = select i1 %11881, i64 1, i64 %11889
-  %11891 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %11857, i64 %11890)
+  %11891 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %11857, i64 %11890)
   %11892 = sext i32 %11884 to i64
-  %11893 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %11857, i64 %11892)
-  %11894 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %11858, i64 %11873)
-  %11895 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %11859, i64 %11873)
-  %11896 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %11860, i64 %11873)
-  %11897 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %11861, i64 %11873)
-  %11898 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %11861, i64 %11892)
-  %11899 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %11862, i64 %11873)
-  %11900 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %11863, i64 %11873)
-  %11901 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %11864, i64 %11873)
-  %11902 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %11864, i64 %11890)
-  %11903 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %11864, i64 %11892)
-  %11904 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %11865, i64 %11873)
-  %11905 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %11866, i64 %11873)
+  %11893 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %11857, i64 %11892)
+  %11894 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %11858, i64 %11873)
+  %11895 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %11859, i64 %11873)
+  %11896 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %11860, i64 %11873)
+  %11897 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %11861, i64 %11873)
+  %11898 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %11861, i64 %11892)
+  %11899 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %11862, i64 %11873)
+  %11900 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %11863, i64 %11873)
+  %11901 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %11864, i64 %11873)
+  %11902 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %11864, i64 %11890)
+  %11903 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %11864, i64 %11892)
+  %11904 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %11865, i64 %11873)
+  %11905 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %11866, i64 %11873)
   %11906 = zext i32 %11880 to i64
-  %11907 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %11864, i64 %11906)
+  %11907 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %11864, i64 %11906)
   %11908 = sext i32 %11887 to i64
-  %11909 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %11864, i64 %11908)
-  %11910 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %11867, i64 %11873)
-  %11911 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %11868, i64 %11873)
-  %11912 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %11869, i64 %11873)
-  %11913 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %11870, i64 %11873)
+  %11909 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %11864, i64 %11908)
+  %11910 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %11867, i64 %11873)
+  %11911 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %11868, i64 %11873)
+  %11912 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %11869, i64 %11873)
+  %11913 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %11870, i64 %11873)
   %11914 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !181
   br label %11915
 
@@ -12749,140 +12748,140 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %11929 = add nuw nsw i32 %11928, 1
   %11930 = and i64 %11926, 4294967295
   %11931 = select i1 %11925, i64 1, i64 %11930
-  %11932 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11888, i64 %11931)
+  %11932 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11888, i64 %11931)
   %11933 = sext i32 %11924 to i64
-  %11934 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11888, i64 %11933)
-  %11935 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11891, i64 %11916)
-  %11936 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11893, i64 %11916)
-  %11937 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11894, i64 %11916)
-  %11938 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11895, i64 %11916)
-  %11939 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11896, i64 %11916)
-  %11940 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11896, i64 %11933)
-  %11941 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11897, i64 %11916)
-  %11942 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11898, i64 %11916)
-  %11943 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11899, i64 %11916)
-  %11944 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11900, i64 %11916)
-  %11945 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11901, i64 %11931)
-  %11946 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11901, i64 %11916)
-  %11947 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11901, i64 %11933)
-  %11948 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11902, i64 %11916)
-  %11949 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11903, i64 %11916)
-  %11950 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11904, i64 %11916)
-  %11951 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11905, i64 %11916)
+  %11934 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11888, i64 %11933)
+  %11935 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11891, i64 %11916)
+  %11936 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11893, i64 %11916)
+  %11937 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11894, i64 %11916)
+  %11938 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11895, i64 %11916)
+  %11939 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11896, i64 %11916)
+  %11940 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11896, i64 %11933)
+  %11941 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11897, i64 %11916)
+  %11942 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11898, i64 %11916)
+  %11943 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11899, i64 %11916)
+  %11944 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11900, i64 %11916)
+  %11945 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11901, i64 %11931)
+  %11946 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11901, i64 %11916)
+  %11947 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11901, i64 %11933)
+  %11948 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11902, i64 %11916)
+  %11949 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11903, i64 %11916)
+  %11950 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11904, i64 %11916)
+  %11951 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11905, i64 %11916)
   %11952 = zext i32 %11929 to i64
-  %11953 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11901, i64 %11952)
+  %11953 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11901, i64 %11952)
   %11954 = sext i32 %11921 to i64
-  %11955 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11901, i64 %11954)
-  %11956 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11907, i64 %11916)
-  %11957 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11909, i64 %11916)
-  %11958 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11910, i64 %11916)
-  %11959 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11911, i64 %11916)
-  %11960 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11912, i64 %11916)
-  %11961 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %11913, i64 %11916)
+  %11955 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11901, i64 %11954)
+  %11956 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11907, i64 %11916)
+  %11957 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11909, i64 %11916)
+  %11958 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11910, i64 %11916)
+  %11959 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11911, i64 %11916)
+  %11960 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11912, i64 %11916)
+  %11961 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %11913, i64 %11916)
   %11962 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !182
   br label %11963
 
 11963:                                            ; preds = %11963, %11915
   %11964 = phi i64 [ %12074, %11963 ], [ 1, %11915 ], !in.de.ssa !182
-  %11965 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11932, i64 %11964)
-  %11966 = load double, double* %11965, align 1
-  %11967 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11934, i64 %11964)
-  %11968 = load double, double* %11967, align 1
+  %11965 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11932, i64 %11964)
+  %11966 = load double, ptr %11965, align 1
+  %11967 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11934, i64 %11964)
+  %11968 = load double, ptr %11967, align 1
   %11969 = fsub fast double %11966, %11968
   %11970 = fmul fast double %11969, %9777
-  %11971 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11935, i64 %11964)
-  %11972 = load double, double* %11971, align 1
-  %11973 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11936, i64 %11964)
-  %11974 = load double, double* %11973, align 1
+  %11971 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11935, i64 %11964)
+  %11972 = load double, ptr %11971, align 1
+  %11973 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11936, i64 %11964)
+  %11974 = load double, ptr %11973, align 1
   %11975 = fsub fast double %11972, %11974
   %11976 = fmul fast double %11975, %9780
   %11977 = fadd fast double %11976, %11970
-  %11978 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11937, i64 %11964)
-  %11979 = load double, double* %11978, align 1
-  %11980 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11938, i64 %11964)
-  %11981 = load double, double* %11980, align 1
+  %11978 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11937, i64 %11964)
+  %11979 = load double, ptr %11978, align 1
+  %11980 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11938, i64 %11964)
+  %11981 = load double, ptr %11980, align 1
   %11982 = fsub fast double %11979, %11981
   %11983 = fmul fast double %11982, %9783
   %11984 = fadd fast double %11977, %11983
   %11985 = fmul fast double %11845, %11984
-  %11986 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11939, i64 %11964)
-  %11987 = load double, double* %11986, align 1
-  %11988 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11940, i64 %11964)
-  %11989 = load double, double* %11988, align 1
+  %11986 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11939, i64 %11964)
+  %11987 = load double, ptr %11986, align 1
+  %11988 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11940, i64 %11964)
+  %11989 = load double, ptr %11988, align 1
   %11990 = fsub fast double %11987, %11989
   %11991 = fmul fast double %11990, %9777
-  %11992 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11941, i64 %11964)
-  %11993 = load double, double* %11992, align 1
-  %11994 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11942, i64 %11964)
-  %11995 = load double, double* %11994, align 1
+  %11992 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11941, i64 %11964)
+  %11993 = load double, ptr %11992, align 1
+  %11994 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11942, i64 %11964)
+  %11995 = load double, ptr %11994, align 1
   %11996 = fsub fast double %11993, %11995
   %11997 = fmul fast double %11996, %9780
   %11998 = fadd fast double %11997, %11991
-  %11999 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11943, i64 %11964)
-  %12000 = load double, double* %11999, align 1
-  %12001 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11944, i64 %11964)
-  %12002 = load double, double* %12001, align 1
+  %11999 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11943, i64 %11964)
+  %12000 = load double, ptr %11999, align 1
+  %12001 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11944, i64 %11964)
+  %12002 = load double, ptr %12001, align 1
   %12003 = fsub fast double %12000, %12002
   %12004 = fmul fast double %12003, %9783
   %12005 = fadd fast double %11998, %12004
   %12006 = fmul fast double %12005, %10041
   %12007 = fmul fast double %12006, %9793
   %12008 = fsub fast double %12007, %11985
-  %12009 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11945, i64 %11964)
-  %12010 = load double, double* %12009, align 1
-  %12011 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11946, i64 %11964)
-  %12012 = load double, double* %12011, align 1
+  %12009 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11945, i64 %11964)
+  %12010 = load double, ptr %12009, align 1
+  %12011 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11946, i64 %11964)
+  %12012 = load double, ptr %12011, align 1
   %12013 = fmul fast double %12012, -2.000000e+00
   %12014 = fadd fast double %12013, %12010
-  %12015 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11947, i64 %11964)
-  %12016 = load double, double* %12015, align 1
+  %12015 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11947, i64 %11964)
+  %12016 = load double, ptr %12015, align 1
   %12017 = fadd fast double %12014, %12016
   %12018 = fmul fast double %12017, %9777
-  %12019 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11948, i64 %11964)
-  %12020 = load double, double* %12019, align 1
+  %12019 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11948, i64 %11964)
+  %12020 = load double, ptr %12019, align 1
   %12021 = fadd fast double %12020, %12013
-  %12022 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11949, i64 %11964)
-  %12023 = load double, double* %12022, align 1
+  %12022 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11949, i64 %11964)
+  %12023 = load double, ptr %12022, align 1
   %12024 = fadd fast double %12021, %12023
   %12025 = fmul fast double %12024, %9780
   %12026 = fadd fast double %12025, %12018
-  %12027 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11950, i64 %11964)
-  %12028 = load double, double* %12027, align 1
+  %12027 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11950, i64 %11964)
+  %12028 = load double, ptr %12027, align 1
   %12029 = fadd fast double %12028, %12013
-  %12030 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11951, i64 %11964)
-  %12031 = load double, double* %12030, align 1
+  %12030 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11951, i64 %11964)
+  %12031 = load double, ptr %12030, align 1
   %12032 = fadd fast double %12029, %12031
   %12033 = fmul fast double %12032, %9783
   %12034 = fadd fast double %12026, %12033
   %12035 = fmul fast double %11846, %12034
-  %12036 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11953, i64 %11964)
-  %12037 = load double, double* %12036, align 1
+  %12036 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11953, i64 %11964)
+  %12037 = load double, ptr %12036, align 1
   %12038 = fmul fast double %12012, 6.000000e+00
   %12039 = fadd fast double %12016, %12010
   %12040 = fmul fast double %12039, -4.000000e+00
-  %12041 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11955, i64 %11964)
-  %12042 = load double, double* %12041, align 1
+  %12041 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11955, i64 %11964)
+  %12042 = load double, ptr %12041, align 1
   %12043 = fadd fast double %12040, %12038
   %12044 = fadd fast double %12043, %12037
   %12045 = fadd fast double %12044, %12042
   %12046 = fmul fast double %12045, %9777
-  %12047 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11956, i64 %11964)
-  %12048 = load double, double* %12047, align 1
+  %12047 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11956, i64 %11964)
+  %12048 = load double, ptr %12047, align 1
   %12049 = fadd fast double %12023, %12020
   %12050 = fmul fast double %12049, -4.000000e+00
-  %12051 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11957, i64 %11964)
-  %12052 = load double, double* %12051, align 1
+  %12051 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11957, i64 %11964)
+  %12052 = load double, ptr %12051, align 1
   %12053 = fadd fast double %12050, %12038
   %12054 = fadd fast double %12053, %12048
   %12055 = fadd fast double %12054, %12052
   %12056 = fmul fast double %12055, %9780
   %12057 = fadd fast double %12056, %12046
-  %12058 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11958, i64 %11964)
-  %12059 = load double, double* %12058, align 1
+  %12058 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11958, i64 %11964)
+  %12059 = load double, ptr %12058, align 1
   %12060 = fadd fast double %12031, %12028
   %12061 = fmul fast double %12060, -4.000000e+00
-  %12062 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11959, i64 %11964)
-  %12063 = load double, double* %12062, align 1
+  %12062 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11959, i64 %11964)
+  %12063 = load double, ptr %12062, align 1
   %12064 = fadd fast double %12061, %12038
   %12065 = fadd fast double %12064, %12059
   %12066 = fadd fast double %12065, %12063
@@ -12891,10 +12890,10 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %12069 = fmul fast double %11847, %12068
   %12070 = fsub fast double %12035, %12069
   %12071 = fadd fast double %12070, %12008
-  %12072 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11960, i64 %11964)
-  store double %12071, double* %12072, align 1
-  %12073 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %11961, i64 %11964)
-  store double %12071, double* %12073, align 1
+  %12072 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11960, i64 %11964)
+  store double %12071, ptr %12072, align 1
+  %12073 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %11961, i64 %11964)
+  store double %12071, ptr %12073, align 1
   %12074 = add nuw nsw i64 %11964, 1
   %12075 = icmp eq i64 %12074, 6
   %12076 = call i64 @llvm.ssa.copy.i64(i64 %12074), !in.de.ssa !182
@@ -12925,32 +12924,32 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br label %12089
 
 12089:                                            ; preds = %12088, %11471
-  store i8 56, i8* %9715, align 1
-  store i8 4, i8* %9716, align 1
-  store i8 2, i8* %9717, align 1
-  store i8 0, i8* %9718, align 1
-  store i64 11, i64* %9719, align 8
-  store i8* getelementptr inbounds ([11 x i8], [11 x i8]* @strlit.3, i64 0, i64 0), i8** %9720, align 8
-  %12090 = call i32 (i8*, i32, i64, i8*, i8*, i8*, ...) @for_write_seq_fmt(i8* nonnull %9721, i32 6, i64 1239157112576, i8* nonnull %9715, i8* nonnull %9722, i8* getelementptr inbounds ([52 x i8], [52 x i8]* @"shell_$format_pack", i64 0, i64 0)) #9
-  store i8 9, i8* %9723, align 1
-  store i8 1, i8* %9724, align 1
-  store i8 2, i8* %9725, align 1
-  store i8 0, i8* %9726, align 1
-  store i32 %9857, i32* %9727, align 8
-  %12091 = call i32 @for_write_seq_fmt_xmit(i8* nonnull %9721, i8* nonnull %9723, i8* nonnull %9728) #9
-  store i8 56, i8* %9729, align 1
-  store i8 4, i8* %9730, align 1
-  store i8 2, i8* %9731, align 1
-  store i8 0, i8* %9732, align 1
-  store i64 6, i64* %9733, align 8
-  store i8* getelementptr inbounds ([6 x i8], [6 x i8]* @strlit.2.3, i64 0, i64 0), i8** %9734, align 8
-  %12092 = call i32 @for_write_seq_fmt_xmit(i8* nonnull %9721, i8* nonnull %9729, i8* nonnull %9735) #9
-  store i8 48, i8* %9736, align 1
-  store i8 1, i8* %9737, align 1
-  store i8 1, i8* %9738, align 1
-  store i8 0, i8* %9739, align 1
-  store double %10041, double* %9740, align 8
-  %12093 = call i32 @for_write_seq_fmt_xmit(i8* nonnull %9721, i8* nonnull %9736, i8* nonnull %9741) #9
+  store i8 56, ptr %9715, align 1
+  store i8 4, ptr %9716, align 1
+  store i8 2, ptr %9717, align 1
+  store i8 0, ptr %9718, align 1
+  store i64 11, ptr %9719, align 8
+  store ptr @strlit.3, ptr %9720, align 8
+  %12090 = call i32 (ptr, i32, i64, ptr, ptr, ptr, ...) @for_write_seq_fmt(ptr nonnull %9721, i32 6, i64 1239157112576, ptr nonnull %9715, ptr nonnull %9722, ptr @"shell_$format_pack") #9
+  store i8 9, ptr %9723, align 1
+  store i8 1, ptr %9724, align 1
+  store i8 2, ptr %9725, align 1
+  store i8 0, ptr %9726, align 1
+  store i32 %9857, ptr %9727, align 8
+  %12091 = call i32 @for_write_seq_fmt_xmit(ptr nonnull %9721, ptr nonnull %9723, ptr nonnull %9728) #9
+  store i8 56, ptr %9729, align 1
+  store i8 4, ptr %9730, align 1
+  store i8 2, ptr %9731, align 1
+  store i8 0, ptr %9732, align 1
+  store i64 6, ptr %9733, align 8
+  store ptr @strlit.2.3, ptr %9734, align 8
+  %12092 = call i32 @for_write_seq_fmt_xmit(ptr nonnull %9721, ptr nonnull %9729, ptr nonnull %9735) #9
+  store i8 48, ptr %9736, align 1
+  store i8 1, ptr %9737, align 1
+  store i8 1, ptr %9738, align 1
+  store i8 0, ptr %9739, align 1
+  store double %10041, ptr %9740, align 8
+  %12093 = call i32 @for_write_seq_fmt_xmit(ptr nonnull %9721, ptr nonnull %9736, ptr nonnull %9741) #9
   br i1 %9817, label %12094, label %13356
 
 12094:                                            ; preds = %12089
@@ -12964,16 +12963,16 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   call void @llvm.experimental.noalias.scope.decl(metadata !198)
   call void @llvm.experimental.noalias.scope.decl(metadata !200)
   call void @llvm.experimental.noalias.scope.decl(metadata !202)
-  %12095 = call i8* @llvm.stacksave()
-  call void @llvm.lifetime.start.p0i8(i64 64, i8* nonnull %9818)
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %9819)
-  call void @llvm.lifetime.start.p0i8(i64 8, i8* nonnull %9820)
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %9821)
-  call void @llvm.lifetime.start.p0i8(i64 8, i8* nonnull %9822)
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %9823)
-  call void @llvm.lifetime.start.p0i8(i64 16, i8* nonnull %9824)
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %9825)
-  call void @llvm.lifetime.start.p0i8(i64 8, i8* nonnull %9826)
+  %12095 = call ptr @llvm.stacksave()
+  call void @llvm.lifetime.start.p0(i64 64, ptr nonnull %9818)
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %9819)
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %9820)
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %9821)
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %9822)
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %9823)
+  call void @llvm.lifetime.start.p0(i64 16, ptr nonnull %9824)
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %9825)
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %9826)
   %12096 = alloca double, i64 %9830, align 8
   %12097 = alloca double, i64 %9830, align 8
   %12098 = alloca double, i64 %9830, align 8
@@ -12990,24 +12989,24 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9759, label %12127, label %12105
 
 12105:                                            ; preds = %12103
-  %12106 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %9831, i64 %12104) #9
-  %12107 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %9832, i64 %12104) #9
+  %12106 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %9831, i64 %12104) #9
+  %12107 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %9832, i64 %12104) #9
   %12108 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !205
   br label %12109
 
 12109:                                            ; preds = %12122, %12105
   %12110 = phi i64 [ 1, %12105 ], [ %12123, %12122 ], !in.de.ssa !205
-  %12111 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12106, i64 %12110) #9
-  %12112 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12107, i64 %12110) #9
+  %12111 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12106, i64 %12110) #9
+  %12112 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12107, i64 %12110) #9
   %12113 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !206
   br label %12114
 
 12114:                                            ; preds = %12114, %12109
   %12115 = phi i64 [ 1, %12109 ], [ %12119, %12114 ], !in.de.ssa !206
-  %12116 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12111, i64 %12115) #9
-  %12117 = load double, double* %12116, align 1, !alias.scope !207, !noalias !210
-  %12118 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12112, i64 %12115) #9
-  store double %12117, double* %12118, align 1, !alias.scope !207, !noalias !210
+  %12116 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12111, i64 %12115) #9
+  %12117 = load double, ptr %12116, align 1, !alias.scope !207, !noalias !210
+  %12118 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12112, i64 %12115) #9
+  store double %12117, ptr %12118, align 1, !alias.scope !207, !noalias !210
   %12119 = add nuw nsw i64 %12115, 1
   %12120 = icmp eq i64 %12119, 6
   %12121 = call i64 @llvm.ssa.copy.i64(i64 %12119), !in.de.ssa !206
@@ -13037,24 +13036,24 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9759, label %12157, label %12135
 
 12135:                                            ; preds = %12133
-  %12136 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %9833, i64 %12134) #9
-  %12137 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %9834, i64 %12134) #9
+  %12136 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %9833, i64 %12134) #9
+  %12137 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %9834, i64 %12134) #9
   %12138 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !220
   br label %12139
 
 12139:                                            ; preds = %12152, %12135
   %12140 = phi i64 [ 1, %12135 ], [ %12153, %12152 ], !in.de.ssa !220
-  %12141 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12136, i64 %12140) #9
-  %12142 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12137, i64 %12140) #9
+  %12141 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12136, i64 %12140) #9
+  %12142 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12137, i64 %12140) #9
   %12143 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !221
   br label %12144
 
 12144:                                            ; preds = %12144, %12139
   %12145 = phi i64 [ %12149, %12144 ], [ 1, %12139 ], !in.de.ssa !221
-  %12146 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12141, i64 %12145) #9
-  %12147 = load double, double* %12146, align 1, !alias.scope !207, !noalias !210
-  %12148 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12142, i64 %12145) #9
-  store double %12147, double* %12148, align 1, !alias.scope !207, !noalias !210
+  %12146 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12141, i64 %12145) #9
+  %12147 = load double, ptr %12146, align 1, !alias.scope !207, !noalias !210
+  %12148 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12142, i64 %12145) #9
+  store double %12147, ptr %12148, align 1, !alias.scope !207, !noalias !210
   %12149 = add nuw nsw i64 %12145, 1
   %12150 = icmp eq i64 %12149, 6
   %12151 = call i64 @llvm.ssa.copy.i64(i64 %12149), !in.de.ssa !221
@@ -13090,10 +13089,10 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9758, label %12207, label %12167
 
 12167:                                            ; preds = %12165
-  %12168 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12099, i64 %12166) #9
-  %12169 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12100, i64 %12166) #9
-  %12170 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12097, i64 %12166) #9
-  %12171 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12096, i64 %12166) #9
+  %12168 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12099, i64 %12166) #9
+  %12169 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12100, i64 %12166) #9
+  %12170 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12097, i64 %12166) #9
+  %12171 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12096, i64 %12166) #9
   %12172 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !223
   br label %12173
 
@@ -13102,32 +13101,32 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9759, label %12202, label %12175
 
 12175:                                            ; preds = %12173
-  %12176 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12168, i64 %12174) #9
-  %12177 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12169, i64 %12174) #9
-  %12178 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12170, i64 %12174) #9
-  %12179 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12171, i64 %12174) #9
+  %12176 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12168, i64 %12174) #9
+  %12177 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12169, i64 %12174) #9
+  %12178 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12170, i64 %12174) #9
+  %12179 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12171, i64 %12174) #9
   %12180 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !224
   br label %12181
 
 12181:                                            ; preds = %12197, %12175
   %12182 = phi i64 [ 1, %12175 ], [ %12198, %12197 ], !in.de.ssa !224
-  %12183 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12176, i64 %12182) #9
-  %12184 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12177, i64 %12182) #9
-  %12185 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12178, i64 %12182) #9
-  %12186 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12179, i64 %12182) #9
+  %12183 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12176, i64 %12182) #9
+  %12184 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12177, i64 %12182) #9
+  %12185 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12178, i64 %12182) #9
+  %12186 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12179, i64 %12182) #9
   %12187 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !225
   br label %12188
 
 12188:                                            ; preds = %12188, %12181
   %12189 = phi i64 [ 1, %12181 ], [ %12194, %12188 ], !in.de.ssa !225
-  %12190 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12183, i64 %12189) #9
-  store double 0.000000e+00, double* %12190, align 1, !noalias !226
-  %12191 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12184, i64 %12189) #9
-  store double 0.000000e+00, double* %12191, align 1, !noalias !226
-  %12192 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12185, i64 %12189) #9
-  store double 0.000000e+00, double* %12192, align 1, !noalias !226
-  %12193 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12186, i64 %12189) #9
-  store double 0.000000e+00, double* %12193, align 1, !noalias !226
+  %12190 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12183, i64 %12189) #9
+  store double 0.000000e+00, ptr %12190, align 1, !noalias !226
+  %12191 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12184, i64 %12189) #9
+  store double 0.000000e+00, ptr %12191, align 1, !noalias !226
+  %12192 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12185, i64 %12189) #9
+  store double 0.000000e+00, ptr %12192, align 1, !noalias !226
+  %12193 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12186, i64 %12189) #9
+  store double 0.000000e+00, ptr %12193, align 1, !noalias !226
   %12194 = add nuw nsw i64 %12189, 1
   %12195 = icmp eq i64 %12194, 6
   %12196 = call i64 @llvm.ssa.copy.i64(i64 %12194), !in.de.ssa !225
@@ -13184,17 +13183,17 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
 
 12219:                                            ; preds = %12216
   %12220 = add nuw nsw i64 %12217, 2
-  %12221 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12099, i64 %12218) #9
-  %12222 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %56, i64 %12217) #9
-  %12223 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %81, i64 %12218) #9
-  %12224 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %55, i64 %12217) #9
-  %12225 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %54, i64 %12217) #9
-  %12226 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %53, i64 %12217) #9
-  %12227 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %81, i64 %12220) #9
-  %12228 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %52, i64 %12217) #9
-  %12229 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %51, i64 %12217) #9
-  %12230 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %50, i64 %12217) #9
-  %12231 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %81, i64 %12217) #9
+  %12221 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12099, i64 %12218) #9
+  %12222 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %56, i64 %12217) #9
+  %12223 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %81, i64 %12218) #9
+  %12224 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %55, i64 %12217) #9
+  %12225 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %54, i64 %12217) #9
+  %12226 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %53, i64 %12217) #9
+  %12227 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %81, i64 %12220) #9
+  %12228 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %52, i64 %12217) #9
+  %12229 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %51, i64 %12217) #9
+  %12230 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %50, i64 %12217) #9
+  %12231 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %81, i64 %12217) #9
   %12232 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !248
   br label %12233
 
@@ -13214,22 +13213,22 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %12242 = add i32 %9791, %12240
   %12243 = srem i32 %12242, %3
   %12244 = add nsw i32 %12243, 1
-  %12245 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12221, i64 %12234) #9
-  %12246 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %12222, i64 %12234) #9
-  %12247 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12223, i64 %12234) #9
-  %12248 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %12224, i64 %12234) #9
-  %12249 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %12225, i64 %12234) #9
+  %12245 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12221, i64 %12234) #9
+  %12246 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %12222, i64 %12234) #9
+  %12247 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12223, i64 %12234) #9
+  %12248 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %12224, i64 %12234) #9
+  %12249 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %12225, i64 %12234) #9
   %12250 = and i64 %12241, 4294967295
   %12251 = select i1 %12239, i64 1, i64 %12250
-  %12252 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12223, i64 %12251) #9
-  %12253 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %12226, i64 %12234) #9
-  %12254 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12227, i64 %12234) #9
-  %12255 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %12228, i64 %12234) #9
-  %12256 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %12229, i64 %12234) #9
+  %12252 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12223, i64 %12251) #9
+  %12253 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %12226, i64 %12234) #9
+  %12254 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12227, i64 %12234) #9
+  %12255 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %12228, i64 %12234) #9
+  %12256 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %12229, i64 %12234) #9
   %12257 = sext i32 %12244 to i64
-  %12258 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12223, i64 %12257) #9
-  %12259 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %12230, i64 %12234) #9
-  %12260 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12231, i64 %12234) #9
+  %12258 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12223, i64 %12257) #9
+  %12259 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %12230, i64 %12234) #9
+  %12260 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12231, i64 %12234) #9
   %12261 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !250
   br label %12262
 
@@ -13241,31 +13240,31 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %12267 = add i32 %9792, %12265
   %12268 = srem i32 %12267, %2
   %12269 = add nsw i32 %12268, 1
-  %12270 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12245, i64 %12263) #9
-  %12271 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %12246, i64 %12263) #9
-  %12272 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12247, i64 %12263) #9
-  %12273 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %12248, i64 %12263) #9
+  %12270 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12245, i64 %12263) #9
+  %12271 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %12246, i64 %12263) #9
+  %12272 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12247, i64 %12263) #9
+  %12273 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %12248, i64 %12263) #9
   %12274 = and i64 %12266, 4294967295
   %12275 = select i1 %12264, i64 1, i64 %12274
-  %12276 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12247, i64 %12275) #9
-  %12277 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %12249, i64 %12263) #9
-  %12278 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12252, i64 %12263) #9
-  %12279 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %12253, i64 %12263) #9
-  %12280 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12254, i64 %12263) #9
-  %12281 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %12255, i64 %12263) #9
+  %12276 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12247, i64 %12275) #9
+  %12277 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %12249, i64 %12263) #9
+  %12278 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12252, i64 %12263) #9
+  %12279 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %12253, i64 %12263) #9
+  %12280 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12254, i64 %12263) #9
+  %12281 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %12255, i64 %12263) #9
   %12282 = sext i32 %12269 to i64
-  %12283 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12247, i64 %12282) #9
-  %12284 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %12256, i64 %12263) #9
-  %12285 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12258, i64 %12263) #9
-  %12286 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %12259, i64 %12263) #9
-  %12287 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12260, i64 %12263) #9
+  %12283 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12247, i64 %12282) #9
+  %12284 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %12256, i64 %12263) #9
+  %12285 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12258, i64 %12263) #9
+  %12286 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %12259, i64 %12263) #9
+  %12287 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12260, i64 %12263) #9
   %12288 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !251
   br label %12289
 
 12289:                                            ; preds = %12349, %12262
   %12290 = phi i64 [ 1, %12262 ], [ %12351, %12349 ], !in.de.ssa !251
-  %12291 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12270, i64 %12290) #9
-  store double 0.000000e+00, double* %12291, align 1, !alias.scope !227, !noalias !252
+  %12291 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12270, i64 %12290) #9
+  store double 0.000000e+00, ptr %12291, align 1, !alias.scope !227, !noalias !252
   %12292 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !257
   %12293 = call double @llvm.ssa.copy.f64(double 0.000000e+00), !in.de.ssa !258
   br label %12294
@@ -13273,53 +13272,53 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
 12294:                                            ; preds = %12294, %12289
   %12295 = phi i64 [ 1, %12289 ], [ %12346, %12294 ], !in.de.ssa !257
   %12296 = phi double [ 0.000000e+00, %12289 ], [ %12345, %12294 ], !in.de.ssa !258
-  %12297 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12271, i64 %12295) #9
-  %12298 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12297, i64 %12290) #9
-  %12299 = load double, double* %12298, align 1, !alias.scope !259, !noalias !260
-  %12300 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12272, i64 %12295) #9
-  %12301 = load double, double* %12300, align 1, !alias.scope !261, !noalias !262
+  %12297 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12271, i64 %12295) #9
+  %12298 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12297, i64 %12290) #9
+  %12299 = load double, ptr %12298, align 1, !alias.scope !259, !noalias !260
+  %12300 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12272, i64 %12295) #9
+  %12301 = load double, ptr %12300, align 1, !alias.scope !261, !noalias !262
   %12302 = fmul fast double %12301, %12299
   %12303 = fadd fast double %12302, %12296
-  %12304 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12273, i64 %12295) #9
-  %12305 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12304, i64 %12290) #9
-  %12306 = load double, double* %12305, align 1, !alias.scope !263, !noalias !264
-  %12307 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12276, i64 %12295) #9
-  %12308 = load double, double* %12307, align 1, !alias.scope !261, !noalias !262
+  %12304 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12273, i64 %12295) #9
+  %12305 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12304, i64 %12290) #9
+  %12306 = load double, ptr %12305, align 1, !alias.scope !263, !noalias !264
+  %12307 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12276, i64 %12295) #9
+  %12308 = load double, ptr %12307, align 1, !alias.scope !261, !noalias !262
   %12309 = fmul fast double %12308, %12306
   %12310 = fadd fast double %12303, %12309
-  %12311 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12277, i64 %12295) #9
-  %12312 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12311, i64 %12290) #9
-  %12313 = load double, double* %12312, align 1, !alias.scope !265, !noalias !266
-  %12314 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12278, i64 %12295) #9
-  %12315 = load double, double* %12314, align 1, !alias.scope !261, !noalias !262
+  %12311 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12277, i64 %12295) #9
+  %12312 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12311, i64 %12290) #9
+  %12313 = load double, ptr %12312, align 1, !alias.scope !265, !noalias !266
+  %12314 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12278, i64 %12295) #9
+  %12315 = load double, ptr %12314, align 1, !alias.scope !261, !noalias !262
   %12316 = fmul fast double %12315, %12313
   %12317 = fadd fast double %12310, %12316
-  %12318 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12279, i64 %12295) #9
-  %12319 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12318, i64 %12290) #9
-  %12320 = load double, double* %12319, align 1, !alias.scope !267, !noalias !268
-  %12321 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12280, i64 %12295) #9
-  %12322 = load double, double* %12321, align 1, !alias.scope !261, !noalias !262
+  %12318 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12279, i64 %12295) #9
+  %12319 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12318, i64 %12290) #9
+  %12320 = load double, ptr %12319, align 1, !alias.scope !267, !noalias !268
+  %12321 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12280, i64 %12295) #9
+  %12322 = load double, ptr %12321, align 1, !alias.scope !261, !noalias !262
   %12323 = fmul fast double %12322, %12320
   %12324 = fadd fast double %12317, %12323
-  %12325 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12281, i64 %12295) #9
-  %12326 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12325, i64 %12290) #9
-  %12327 = load double, double* %12326, align 1, !alias.scope !269, !noalias !270
-  %12328 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12283, i64 %12295) #9
-  %12329 = load double, double* %12328, align 1, !alias.scope !261, !noalias !262
+  %12325 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12281, i64 %12295) #9
+  %12326 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12325, i64 %12290) #9
+  %12327 = load double, ptr %12326, align 1, !alias.scope !269, !noalias !270
+  %12328 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12283, i64 %12295) #9
+  %12329 = load double, ptr %12328, align 1, !alias.scope !261, !noalias !262
   %12330 = fmul fast double %12329, %12327
   %12331 = fadd fast double %12324, %12330
-  %12332 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12284, i64 %12295) #9
-  %12333 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12332, i64 %12290) #9
-  %12334 = load double, double* %12333, align 1, !alias.scope !271, !noalias !272
-  %12335 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12285, i64 %12295) #9
-  %12336 = load double, double* %12335, align 1, !alias.scope !261, !noalias !262
+  %12332 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12284, i64 %12295) #9
+  %12333 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12332, i64 %12290) #9
+  %12334 = load double, ptr %12333, align 1, !alias.scope !271, !noalias !272
+  %12335 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12285, i64 %12295) #9
+  %12336 = load double, ptr %12335, align 1, !alias.scope !261, !noalias !262
   %12337 = fmul fast double %12336, %12334
   %12338 = fadd fast double %12331, %12337
-  %12339 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12286, i64 %12295) #9
-  %12340 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12339, i64 %12290) #9
-  %12341 = load double, double* %12340, align 1, !alias.scope !273, !noalias !274
-  %12342 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12287, i64 %12295) #9
-  %12343 = load double, double* %12342, align 1, !alias.scope !261, !noalias !262
+  %12339 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12286, i64 %12295) #9
+  %12340 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12339, i64 %12290) #9
+  %12341 = load double, ptr %12340, align 1, !alias.scope !273, !noalias !274
+  %12342 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12287, i64 %12295) #9
+  %12343 = load double, ptr %12342, align 1, !alias.scope !261, !noalias !262
   %12344 = fmul fast double %12343, %12341
   %12345 = fadd fast double %12338, %12344
   %12346 = add nuw nsw i64 %12295, 1
@@ -13329,7 +13328,7 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
 
 12349:                                            ; preds = %12294
   %12350 = phi double [ %12345, %12294 ]
-  store double %12350, double* %12291, align 1, !alias.scope !227, !noalias !252
+  store double %12350, ptr %12291, align 1, !alias.scope !227, !noalias !252
   %12351 = add nuw nsw i64 %12290, 1
   %12352 = icmp eq i64 %12351, 6
   %12353 = call i64 @llvm.ssa.copy.i64(i64 %12351), !in.de.ssa !251
@@ -13371,9 +13370,9 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
 
 12374:                                            ; preds = %12370
   %12375 = add nsw i64 %12371, -1
-  %12376 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %80, i64 %12375) #9
-  %12377 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12099, i64 %12371) #9
-  %12378 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12098, i64 %12371) #9
+  %12376 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %80, i64 %12375) #9
+  %12377 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12099, i64 %12371) #9
+  %12378 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12098, i64 %12371) #9
   %12379 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !277
   %12380 = call double @llvm.ssa.copy.f64(double %12373), !in.de.ssa !278
   br label %12381
@@ -13385,9 +13384,9 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9759, label %12421, label %12385
 
 12385:                                            ; preds = %12381
-  %12386 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12376, i64 %12382) #9
-  %12387 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12377, i64 %12382) #9
-  %12388 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12378, i64 %12382) #9
+  %12386 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12376, i64 %12382) #9
+  %12387 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12377, i64 %12382) #9
+  %12388 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12378, i64 %12382) #9
   %12389 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !279
   %12390 = call double @llvm.ssa.copy.f64(double %12384), !in.de.ssa !280
   br label %12391
@@ -13395,25 +13394,25 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
 12391:                                            ; preds = %12412, %12385
   %12392 = phi i64 [ 1, %12385 ], [ %12415, %12412 ], !in.de.ssa !279
   %12393 = phi double [ %12384, %12385 ], [ %12413, %12412 ], !in.de.ssa !280
-  %12394 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12386, i64 %12392) #9
-  %12395 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12387, i64 %12392) #9
-  %12396 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12388, i64 %12392) #9
+  %12394 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12386, i64 %12392) #9
+  %12395 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12387, i64 %12392) #9
+  %12396 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12388, i64 %12392) #9
   %12397 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !281
   br label %12398
 
 12398:                                            ; preds = %12398, %12391
   %12399 = phi i64 [ 1, %12391 ], [ %12409, %12398 ], !in.de.ssa !281
   %12400 = phi double [ %12393, %12391 ], [ %12407, %12398 ]
-  %12401 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12394, i64 %12399) #9
-  %12402 = load double, double* %12401, align 1, !alias.scope !186, !noalias !282
-  %12403 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12395, i64 %12399) #9
-  %12404 = load double, double* %12403, align 1, !noalias !226
+  %12401 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12394, i64 %12399) #9
+  %12402 = load double, ptr %12401, align 1, !alias.scope !186, !noalias !282
+  %12403 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12395, i64 %12399) #9
+  %12404 = load double, ptr %12403, align 1, !noalias !226
   %12405 = fsub fast double %12402, %12404
-  store double %12405, double* %12403, align 1, !noalias !226
+  store double %12405, ptr %12403, align 1, !noalias !226
   %12406 = fmul fast double %12405, %12405
   %12407 = fadd fast double %12406, %12400
-  %12408 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12396, i64 %12399) #9
-  store double %12405, double* %12408, align 1, !noalias !226
+  %12408 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12396, i64 %12399) #9
+  store double %12405, ptr %12408, align 1, !noalias !226
   %12409 = add nuw nsw i64 %12399, 1
   %12410 = icmp eq i64 %12409, 6
   %12411 = call i64 @llvm.ssa.copy.i64(i64 %12409), !in.de.ssa !281
@@ -13460,32 +13459,32 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
 
 12439:                                            ; preds = %12436, %12212
   %12440 = phi double [ 0.000000e+00, %12212 ], [ %12437, %12436 ], !in.de.ssa !246
-  store i8 48, i8* %9819, align 1, !noalias !226
-  store i8 1, i8* %9838, align 1, !noalias !226
-  store i8 2, i8* %9839, align 1, !noalias !226
-  store i8 0, i8* %9840, align 1, !noalias !226
-  store double %12440, double* %9841, align 8, !noalias !226
-  %12441 = call i32 (i8*, i32, i64, i8*, i8*, i8*, ...) @for_write_seq_fmt(i8* nonnull %9818, i32 6, i64 1239157112576, i8* nonnull %9819, i8* nonnull %9820, i8* getelementptr inbounds ([40 x i8], [40 x i8]* @"bi_cgstab_block_$format_pack", i64 0, i64 0)) #9, !noalias !226
-  store i8 48, i8* %9821, align 1, !noalias !226
-  store i8 1, i8* %9842, align 1, !noalias !226
-  store i8 1, i8* %9843, align 1, !noalias !226
-  store i8 0, i8* %9844, align 1, !noalias !226
-  store double 1.000000e-03, double* %9845, align 8, !noalias !226
-  %12442 = call i32 @for_write_seq_fmt_xmit(i8* nonnull %9818, i8* nonnull %9821, i8* nonnull %9822) #9, !noalias !226
+  store i8 48, ptr %9819, align 1, !noalias !226
+  store i8 1, ptr %9838, align 1, !noalias !226
+  store i8 2, ptr %9839, align 1, !noalias !226
+  store i8 0, ptr %9840, align 1, !noalias !226
+  store double %12440, ptr %9841, align 8, !noalias !226
+  %12441 = call i32 (ptr, i32, i64, ptr, ptr, ptr, ...) @for_write_seq_fmt(ptr nonnull %9818, i32 6, i64 1239157112576, ptr nonnull %9819, ptr nonnull %9820, ptr @"bi_cgstab_block_$format_pack") #9, !noalias !226
+  store i8 48, ptr %9821, align 1, !noalias !226
+  store i8 1, ptr %9842, align 1, !noalias !226
+  store i8 1, ptr %9843, align 1, !noalias !226
+  store i8 0, ptr %9844, align 1, !noalias !226
+  store double 1.000000e-03, ptr %9845, align 8, !noalias !226
+  %12442 = call i32 @for_write_seq_fmt_xmit(ptr nonnull %9818, ptr nonnull %9821, ptr nonnull %9822) #9, !noalias !226
   %12443 = fmul fast double 0x3EB0C6F7A0B5ED8D, %12440
   %12444 = fcmp fast ogt double %12440, %12443
   %12445 = call double @llvm.ssa.copy.f64(double %12440), !in.de.ssa !283
   br i1 %12444, label %12446, label %13352
 
 12446:                                            ; preds = %12439
-  %12447 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12100, i64 2) #9
-  %12448 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12100, i64 %58) #9
-  %12449 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12100, i64 %9771) #9
-  %12450 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12100, i64 1) #9
-  %12451 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12099, i64 2) #9
-  %12452 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12099, i64 %58) #9
-  %12453 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12099, i64 %9771) #9
-  %12454 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12099, i64 1) #9
+  %12447 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12100, i64 2) #9
+  %12448 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12100, i64 %58) #9
+  %12449 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12100, i64 %9771) #9
+  %12450 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12100, i64 1) #9
+  %12451 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12099, i64 2) #9
+  %12452 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12099, i64 %58) #9
+  %12453 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12099, i64 %9771) #9
+  %12454 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12099, i64 1) #9
   %12455 = call double @llvm.ssa.copy.f64(double 1.000000e+00), !in.de.ssa !284
   %12456 = call double @llvm.ssa.copy.f64(double 1.000000e+00), !in.de.ssa !285
   %12457 = call double @llvm.ssa.copy.f64(double 1.000000e+00), !in.de.ssa !286
@@ -13513,8 +13512,8 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9758, label %12523, label %12473
 
 12473:                                            ; preds = %12469
-  %12474 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12098, i64 %12470) #9
-  %12475 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12099, i64 %12470) #9
+  %12474 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12098, i64 %12470) #9
+  %12475 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12099, i64 %12470) #9
   %12476 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !290
   %12477 = call double @llvm.ssa.copy.f64(double %12472), !in.de.ssa !291
   br label %12478
@@ -13526,8 +13525,8 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9759, label %12514, label %12482
 
 12482:                                            ; preds = %12478
-  %12483 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12474, i64 %12479) #9
-  %12484 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12475, i64 %12479) #9
+  %12483 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12474, i64 %12479) #9
+  %12484 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12475, i64 %12479) #9
   %12485 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !292
   %12486 = call double @llvm.ssa.copy.f64(double %12481), !in.de.ssa !293
   br label %12487
@@ -13535,18 +13534,18 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
 12487:                                            ; preds = %12505, %12482
   %12488 = phi i64 [ 1, %12482 ], [ %12508, %12505 ], !in.de.ssa !292
   %12489 = phi double [ %12481, %12482 ], [ %12506, %12505 ], !in.de.ssa !293
-  %12490 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12483, i64 %12488) #9
-  %12491 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12484, i64 %12488) #9
+  %12490 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12483, i64 %12488) #9
+  %12491 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12484, i64 %12488) #9
   %12492 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !294
   br label %12493
 
 12493:                                            ; preds = %12493, %12487
   %12494 = phi i64 [ 1, %12487 ], [ %12502, %12493 ], !in.de.ssa !294
   %12495 = phi double [ %12489, %12487 ], [ %12501, %12493 ]
-  %12496 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12490, i64 %12494) #9
-  %12497 = load double, double* %12496, align 1, !noalias !226
-  %12498 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12491, i64 %12494) #9
-  %12499 = load double, double* %12498, align 1, !noalias !226
+  %12496 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12490, i64 %12494) #9
+  %12497 = load double, ptr %12496, align 1, !noalias !226
+  %12498 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12491, i64 %12494) #9
+  %12499 = load double, ptr %12498, align 1, !noalias !226
   %12500 = fmul fast double %12499, %12497
   %12501 = fadd fast double %12500, %12495
   %12502 = add nuw nsw i64 %12494, 1
@@ -13601,9 +13600,9 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9758, label %12581, label %12537
 
 12537:                                            ; preds = %12535
-  %12538 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12099, i64 %12536) #9
-  %12539 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12100, i64 %12536) #9
-  %12540 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12097, i64 %12536) #9
+  %12538 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12099, i64 %12536) #9
+  %12539 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12100, i64 %12536) #9
+  %12540 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12097, i64 %12536) #9
   %12541 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !296
   br label %12542
 
@@ -13612,34 +13611,34 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9759, label %12576, label %12544
 
 12544:                                            ; preds = %12542
-  %12545 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12538, i64 %12543) #9
-  %12546 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12539, i64 %12543) #9
-  %12547 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12540, i64 %12543) #9
+  %12545 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12538, i64 %12543) #9
+  %12546 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12539, i64 %12543) #9
+  %12547 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12540, i64 %12543) #9
   %12548 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !297
   br label %12549
 
 12549:                                            ; preds = %12571, %12544
   %12550 = phi i64 [ 1, %12544 ], [ %12572, %12571 ], !in.de.ssa !297
-  %12551 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12545, i64 %12550) #9
-  %12552 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12546, i64 %12550) #9
-  %12553 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12547, i64 %12550) #9
+  %12551 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12545, i64 %12550) #9
+  %12552 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12546, i64 %12550) #9
+  %12553 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12547, i64 %12550) #9
   %12554 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !298
   br label %12555
 
 12555:                                            ; preds = %12555, %12549
   %12556 = phi i64 [ 1, %12549 ], [ %12568, %12555 ], !in.de.ssa !298
-  %12557 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12551, i64 %12556) #9
-  %12558 = load double, double* %12557, align 1, !noalias !226
-  %12559 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12552, i64 %12556) #9
-  %12560 = load double, double* %12559, align 1, !noalias !226
-  %12561 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12553, i64 %12556) #9
-  %12562 = load double, double* %12561, align 1, !noalias !226
+  %12557 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12551, i64 %12556) #9
+  %12558 = load double, ptr %12557, align 1, !noalias !226
+  %12559 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12552, i64 %12556) #9
+  %12560 = load double, ptr %12559, align 1, !noalias !226
+  %12561 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12553, i64 %12556) #9
+  %12562 = load double, ptr %12561, align 1, !noalias !226
   %12563 = fmul fast double %12562, %12464
   %12564 = fsub fast double %12560, %12563
   %12565 = fmul fast double %12531, %12564
   %12566 = fmul fast double %12565, %12533
   %12567 = fadd fast double %12566, %12558
-  store double %12567, double* %12559, align 1, !noalias !226
+  store double %12567, ptr %12559, align 1, !noalias !226
   %12568 = add nuw nsw i64 %12556, 1
   %12569 = icmp eq i64 %12568, 6
   %12570 = call i64 @llvm.ssa.copy.i64(i64 %12568), !in.de.ssa !298
@@ -13686,24 +13685,24 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9759, label %12615, label %12593
 
 12593:                                            ; preds = %12591
-  %12594 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12447, i64 %12592) #9
-  %12595 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12448, i64 %12592) #9
+  %12594 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12447, i64 %12592) #9
+  %12595 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12448, i64 %12592) #9
   %12596 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !300
   br label %12597
 
 12597:                                            ; preds = %12610, %12593
   %12598 = phi i64 [ 1, %12593 ], [ %12611, %12610 ], !in.de.ssa !300
-  %12599 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12594, i64 %12598) #9
-  %12600 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12595, i64 %12598) #9
+  %12599 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12594, i64 %12598) #9
+  %12600 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12595, i64 %12598) #9
   %12601 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !301
   br label %12602
 
 12602:                                            ; preds = %12602, %12597
   %12603 = phi i64 [ 1, %12597 ], [ %12607, %12602 ], !in.de.ssa !301
-  %12604 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12599, i64 %12603) #9
-  %12605 = load double, double* %12604, align 1, !alias.scope !302, !noalias !305
-  %12606 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12600, i64 %12603) #9
-  store double %12605, double* %12606, align 1, !alias.scope !302, !noalias !305
+  %12604 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12599, i64 %12603) #9
+  %12605 = load double, ptr %12604, align 1, !alias.scope !302, !noalias !305
+  %12606 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12600, i64 %12603) #9
+  store double %12605, ptr %12606, align 1, !alias.scope !302, !noalias !305
   %12607 = add nuw nsw i64 %12603, 1
   %12608 = icmp eq i64 %12607, 6
   %12609 = call i64 @llvm.ssa.copy.i64(i64 %12607), !in.de.ssa !301
@@ -13733,24 +13732,24 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9759, label %12645, label %12623
 
 12623:                                            ; preds = %12621
-  %12624 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12449, i64 %12622) #9
-  %12625 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12450, i64 %12622) #9
+  %12624 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12449, i64 %12622) #9
+  %12625 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12450, i64 %12622) #9
   %12626 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !311
   br label %12627
 
 12627:                                            ; preds = %12640, %12623
   %12628 = phi i64 [ 1, %12623 ], [ %12641, %12640 ], !in.de.ssa !311
-  %12629 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12624, i64 %12628) #9
-  %12630 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12625, i64 %12628) #9
+  %12629 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12624, i64 %12628) #9
+  %12630 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12625, i64 %12628) #9
   %12631 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !312
   br label %12632
 
 12632:                                            ; preds = %12632, %12627
   %12633 = phi i64 [ %12637, %12632 ], [ 1, %12627 ], !in.de.ssa !312
-  %12634 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12629, i64 %12633) #9
-  %12635 = load double, double* %12634, align 1, !alias.scope !302, !noalias !305
-  %12636 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12630, i64 %12633) #9
-  store double %12635, double* %12636, align 1, !alias.scope !302, !noalias !305
+  %12634 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12629, i64 %12633) #9
+  %12635 = load double, ptr %12634, align 1, !alias.scope !302, !noalias !305
+  %12636 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12630, i64 %12633) #9
+  store double %12635, ptr %12636, align 1, !alias.scope !302, !noalias !305
   %12637 = add nuw nsw i64 %12633, 1
   %12638 = icmp eq i64 %12637, 6
   %12639 = call i64 @llvm.ssa.copy.i64(i64 %12637), !in.de.ssa !312
@@ -13798,17 +13797,17 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
 
 12657:                                            ; preds = %12654
   %12658 = add nuw nsw i64 %12655, 2
-  %12659 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12097, i64 %12656) #9
-  %12660 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %56, i64 %12655) #9
-  %12661 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12100, i64 %12656) #9
-  %12662 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %55, i64 %12655) #9
-  %12663 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %54, i64 %12655) #9
-  %12664 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %53, i64 %12655) #9
-  %12665 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12100, i64 %12658) #9
-  %12666 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %52, i64 %12655) #9
-  %12667 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %51, i64 %12655) #9
-  %12668 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %50, i64 %12655) #9
-  %12669 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12100, i64 %12655) #9
+  %12659 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12097, i64 %12656) #9
+  %12660 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %56, i64 %12655) #9
+  %12661 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12100, i64 %12656) #9
+  %12662 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %55, i64 %12655) #9
+  %12663 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %54, i64 %12655) #9
+  %12664 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %53, i64 %12655) #9
+  %12665 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12100, i64 %12658) #9
+  %12666 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %52, i64 %12655) #9
+  %12667 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %51, i64 %12655) #9
+  %12668 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %50, i64 %12655) #9
+  %12669 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12100, i64 %12655) #9
   %12670 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !334
   br label %12671
 
@@ -13828,22 +13827,22 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %12680 = add i32 %9791, %12678
   %12681 = srem i32 %12680, %3
   %12682 = add nsw i32 %12681, 1
-  %12683 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12659, i64 %12672) #9
-  %12684 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %12660, i64 %12672) #9
-  %12685 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12661, i64 %12672) #9
-  %12686 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %12662, i64 %12672) #9
-  %12687 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %12663, i64 %12672) #9
+  %12683 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12659, i64 %12672) #9
+  %12684 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %12660, i64 %12672) #9
+  %12685 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12661, i64 %12672) #9
+  %12686 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %12662, i64 %12672) #9
+  %12687 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %12663, i64 %12672) #9
   %12688 = and i64 %12679, 4294967295
   %12689 = select i1 %12677, i64 1, i64 %12688
-  %12690 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12661, i64 %12689) #9
-  %12691 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %12664, i64 %12672) #9
-  %12692 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12665, i64 %12672) #9
-  %12693 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %12666, i64 %12672) #9
-  %12694 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %12667, i64 %12672) #9
+  %12690 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12661, i64 %12689) #9
+  %12691 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %12664, i64 %12672) #9
+  %12692 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12665, i64 %12672) #9
+  %12693 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %12666, i64 %12672) #9
+  %12694 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %12667, i64 %12672) #9
   %12695 = sext i32 %12682 to i64
-  %12696 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12661, i64 %12695) #9
-  %12697 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %12668, i64 %12672) #9
-  %12698 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12669, i64 %12672) #9
+  %12696 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12661, i64 %12695) #9
+  %12697 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %12668, i64 %12672) #9
+  %12698 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12669, i64 %12672) #9
   %12699 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !336
   br label %12700
 
@@ -13855,31 +13854,31 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %12705 = add i32 %9792, %12703
   %12706 = srem i32 %12705, %2
   %12707 = add nsw i32 %12706, 1
-  %12708 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12683, i64 %12701) #9
-  %12709 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %12684, i64 %12701) #9
-  %12710 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12685, i64 %12701) #9
-  %12711 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %12686, i64 %12701) #9
+  %12708 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12683, i64 %12701) #9
+  %12709 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %12684, i64 %12701) #9
+  %12710 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12685, i64 %12701) #9
+  %12711 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %12686, i64 %12701) #9
   %12712 = and i64 %12704, 4294967295
   %12713 = select i1 %12702, i64 1, i64 %12712
-  %12714 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12685, i64 %12713) #9
-  %12715 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %12687, i64 %12701) #9
-  %12716 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12690, i64 %12701) #9
-  %12717 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %12691, i64 %12701) #9
-  %12718 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12692, i64 %12701) #9
-  %12719 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %12693, i64 %12701) #9
+  %12714 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12685, i64 %12713) #9
+  %12715 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %12687, i64 %12701) #9
+  %12716 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12690, i64 %12701) #9
+  %12717 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %12691, i64 %12701) #9
+  %12718 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12692, i64 %12701) #9
+  %12719 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %12693, i64 %12701) #9
   %12720 = sext i32 %12707 to i64
-  %12721 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12685, i64 %12720) #9
-  %12722 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %12694, i64 %12701) #9
-  %12723 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12696, i64 %12701) #9
-  %12724 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %12697, i64 %12701) #9
-  %12725 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12698, i64 %12701) #9
+  %12721 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12685, i64 %12720) #9
+  %12722 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %12694, i64 %12701) #9
+  %12723 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12696, i64 %12701) #9
+  %12724 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %12697, i64 %12701) #9
+  %12725 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12698, i64 %12701) #9
   %12726 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !337
   br label %12727
 
 12727:                                            ; preds = %12787, %12700
   %12728 = phi i64 [ 1, %12700 ], [ %12789, %12787 ], !in.de.ssa !337
-  %12729 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12708, i64 %12728) #9
-  store double 0.000000e+00, double* %12729, align 1, !alias.scope !313, !noalias !338
+  %12729 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12708, i64 %12728) #9
+  store double 0.000000e+00, ptr %12729, align 1, !alias.scope !313, !noalias !338
   %12730 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !343
   %12731 = call double @llvm.ssa.copy.f64(double 0.000000e+00), !in.de.ssa !344
   br label %12732
@@ -13887,53 +13886,53 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
 12732:                                            ; preds = %12732, %12727
   %12733 = phi i64 [ 1, %12727 ], [ %12784, %12732 ], !in.de.ssa !343
   %12734 = phi double [ 0.000000e+00, %12727 ], [ %12783, %12732 ], !in.de.ssa !344
-  %12735 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12709, i64 %12733) #9
-  %12736 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12735, i64 %12728) #9
-  %12737 = load double, double* %12736, align 1, !alias.scope !345, !noalias !346
-  %12738 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12710, i64 %12733) #9
-  %12739 = load double, double* %12738, align 1, !alias.scope !316, !noalias !347
+  %12735 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12709, i64 %12733) #9
+  %12736 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12735, i64 %12728) #9
+  %12737 = load double, ptr %12736, align 1, !alias.scope !345, !noalias !346
+  %12738 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12710, i64 %12733) #9
+  %12739 = load double, ptr %12738, align 1, !alias.scope !316, !noalias !347
   %12740 = fmul fast double %12739, %12737
   %12741 = fadd fast double %12740, %12734
-  %12742 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12711, i64 %12733) #9
-  %12743 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12742, i64 %12728) #9
-  %12744 = load double, double* %12743, align 1, !alias.scope !348, !noalias !349
-  %12745 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12714, i64 %12733) #9
-  %12746 = load double, double* %12745, align 1, !alias.scope !316, !noalias !347
+  %12742 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12711, i64 %12733) #9
+  %12743 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12742, i64 %12728) #9
+  %12744 = load double, ptr %12743, align 1, !alias.scope !348, !noalias !349
+  %12745 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12714, i64 %12733) #9
+  %12746 = load double, ptr %12745, align 1, !alias.scope !316, !noalias !347
   %12747 = fmul fast double %12746, %12744
   %12748 = fadd fast double %12741, %12747
-  %12749 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12715, i64 %12733) #9
-  %12750 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12749, i64 %12728) #9
-  %12751 = load double, double* %12750, align 1, !alias.scope !350, !noalias !351
-  %12752 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12716, i64 %12733) #9
-  %12753 = load double, double* %12752, align 1, !alias.scope !316, !noalias !347
+  %12749 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12715, i64 %12733) #9
+  %12750 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12749, i64 %12728) #9
+  %12751 = load double, ptr %12750, align 1, !alias.scope !350, !noalias !351
+  %12752 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12716, i64 %12733) #9
+  %12753 = load double, ptr %12752, align 1, !alias.scope !316, !noalias !347
   %12754 = fmul fast double %12753, %12751
   %12755 = fadd fast double %12748, %12754
-  %12756 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12717, i64 %12733) #9
-  %12757 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12756, i64 %12728) #9
-  %12758 = load double, double* %12757, align 1, !alias.scope !352, !noalias !353
-  %12759 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12718, i64 %12733) #9
-  %12760 = load double, double* %12759, align 1, !alias.scope !316, !noalias !347
+  %12756 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12717, i64 %12733) #9
+  %12757 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12756, i64 %12728) #9
+  %12758 = load double, ptr %12757, align 1, !alias.scope !352, !noalias !353
+  %12759 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12718, i64 %12733) #9
+  %12760 = load double, ptr %12759, align 1, !alias.scope !316, !noalias !347
   %12761 = fmul fast double %12760, %12758
   %12762 = fadd fast double %12755, %12761
-  %12763 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12719, i64 %12733) #9
-  %12764 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12763, i64 %12728) #9
-  %12765 = load double, double* %12764, align 1, !alias.scope !354, !noalias !355
-  %12766 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12721, i64 %12733) #9
-  %12767 = load double, double* %12766, align 1, !alias.scope !316, !noalias !347
+  %12763 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12719, i64 %12733) #9
+  %12764 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12763, i64 %12728) #9
+  %12765 = load double, ptr %12764, align 1, !alias.scope !354, !noalias !355
+  %12766 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12721, i64 %12733) #9
+  %12767 = load double, ptr %12766, align 1, !alias.scope !316, !noalias !347
   %12768 = fmul fast double %12767, %12765
   %12769 = fadd fast double %12762, %12768
-  %12770 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12722, i64 %12733) #9
-  %12771 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12770, i64 %12728) #9
-  %12772 = load double, double* %12771, align 1, !alias.scope !356, !noalias !357
-  %12773 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12723, i64 %12733) #9
-  %12774 = load double, double* %12773, align 1, !alias.scope !316, !noalias !347
+  %12770 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12722, i64 %12733) #9
+  %12771 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12770, i64 %12728) #9
+  %12772 = load double, ptr %12771, align 1, !alias.scope !356, !noalias !357
+  %12773 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12723, i64 %12733) #9
+  %12774 = load double, ptr %12773, align 1, !alias.scope !316, !noalias !347
   %12775 = fmul fast double %12774, %12772
   %12776 = fadd fast double %12769, %12775
-  %12777 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12724, i64 %12733) #9
-  %12778 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12777, i64 %12728) #9
-  %12779 = load double, double* %12778, align 1, !alias.scope !358, !noalias !359
-  %12780 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12725, i64 %12733) #9
-  %12781 = load double, double* %12780, align 1, !alias.scope !316, !noalias !347
+  %12777 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12724, i64 %12733) #9
+  %12778 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12777, i64 %12728) #9
+  %12779 = load double, ptr %12778, align 1, !alias.scope !358, !noalias !359
+  %12780 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12725, i64 %12733) #9
+  %12781 = load double, ptr %12780, align 1, !alias.scope !316, !noalias !347
   %12782 = fmul fast double %12781, %12779
   %12783 = fadd fast double %12776, %12782
   %12784 = add nuw nsw i64 %12733, 1
@@ -13943,7 +13942,7 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
 
 12787:                                            ; preds = %12732
   %12788 = phi double [ %12783, %12732 ]
-  store double %12788, double* %12729, align 1, !alias.scope !313, !noalias !338
+  store double %12788, ptr %12729, align 1, !alias.scope !313, !noalias !338
   %12789 = add nuw nsw i64 %12728, 1
   %12790 = icmp eq i64 %12789, 6
   %12791 = call i64 @llvm.ssa.copy.i64(i64 %12789), !in.de.ssa !337
@@ -13984,8 +13983,8 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9758, label %12862, label %12812
 
 12812:                                            ; preds = %12808
-  %12813 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12098, i64 %12809) #9
-  %12814 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12097, i64 %12809) #9
+  %12813 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12098, i64 %12809) #9
+  %12814 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12097, i64 %12809) #9
   %12815 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !362
   %12816 = call double @llvm.ssa.copy.f64(double %12811), !in.de.ssa !363
   br label %12817
@@ -13997,8 +13996,8 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9759, label %12853, label %12821
 
 12821:                                            ; preds = %12817
-  %12822 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12813, i64 %12818) #9
-  %12823 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12814, i64 %12818) #9
+  %12822 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12813, i64 %12818) #9
+  %12823 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12814, i64 %12818) #9
   %12824 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !364
   %12825 = call double @llvm.ssa.copy.f64(double %12820), !in.de.ssa !365
   br label %12826
@@ -14006,18 +14005,18 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
 12826:                                            ; preds = %12844, %12821
   %12827 = phi i64 [ 1, %12821 ], [ %12847, %12844 ], !in.de.ssa !364
   %12828 = phi double [ %12820, %12821 ], [ %12845, %12844 ], !in.de.ssa !365
-  %12829 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12822, i64 %12827) #9
-  %12830 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12823, i64 %12827) #9
+  %12829 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12822, i64 %12827) #9
+  %12830 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12823, i64 %12827) #9
   %12831 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !366
   br label %12832
 
 12832:                                            ; preds = %12832, %12826
   %12833 = phi i64 [ 1, %12826 ], [ %12841, %12832 ], !in.de.ssa !366
   %12834 = phi double [ %12828, %12826 ], [ %12840, %12832 ]
-  %12835 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12829, i64 %12833) #9
-  %12836 = load double, double* %12835, align 1, !noalias !226
-  %12837 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12830, i64 %12833) #9
-  %12838 = load double, double* %12837, align 1, !noalias !226
+  %12835 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12829, i64 %12833) #9
+  %12836 = load double, ptr %12835, align 1, !noalias !226
+  %12837 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12830, i64 %12833) #9
+  %12838 = load double, ptr %12837, align 1, !noalias !226
   %12839 = fmul fast double %12838, %12836
   %12840 = fadd fast double %12839, %12834
   %12841 = add nuw nsw i64 %12833, 1
@@ -14070,8 +14069,8 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9758, label %12910, label %12874
 
 12874:                                            ; preds = %12872
-  %12875 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12099, i64 %12873) #9
-  %12876 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12097, i64 %12873) #9
+  %12875 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12099, i64 %12873) #9
+  %12876 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12097, i64 %12873) #9
   %12877 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !368
   br label %12878
 
@@ -14080,27 +14079,27 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9759, label %12905, label %12880
 
 12880:                                            ; preds = %12878
-  %12881 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12875, i64 %12879) #9
-  %12882 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12876, i64 %12879) #9
+  %12881 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12875, i64 %12879) #9
+  %12882 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12876, i64 %12879) #9
   %12883 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !369
   br label %12884
 
 12884:                                            ; preds = %12900, %12880
   %12885 = phi i64 [ 1, %12880 ], [ %12901, %12900 ], !in.de.ssa !369
-  %12886 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12881, i64 %12885) #9
-  %12887 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12882, i64 %12885) #9
+  %12886 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12881, i64 %12885) #9
+  %12887 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12882, i64 %12885) #9
   %12888 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !370
   br label %12889
 
 12889:                                            ; preds = %12889, %12884
   %12890 = phi i64 [ 1, %12884 ], [ %12897, %12889 ], !in.de.ssa !370
-  %12891 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12886, i64 %12890) #9
-  %12892 = load double, double* %12891, align 1, !noalias !226
-  %12893 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12887, i64 %12890) #9
-  %12894 = load double, double* %12893, align 1, !noalias !226
+  %12891 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12886, i64 %12890) #9
+  %12892 = load double, ptr %12891, align 1, !noalias !226
+  %12893 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12887, i64 %12890) #9
+  %12894 = load double, ptr %12893, align 1, !noalias !226
   %12895 = fmul fast double %12894, %12870
   %12896 = fsub fast double %12892, %12895
-  store double %12896, double* %12891, align 1, !noalias !226
+  store double %12896, ptr %12891, align 1, !noalias !226
   %12897 = add nuw nsw i64 %12890, 1
   %12898 = icmp eq i64 %12897, 6
   %12899 = call i64 @llvm.ssa.copy.i64(i64 %12897), !in.de.ssa !370
@@ -14147,24 +14146,24 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9759, label %12944, label %12922
 
 12922:                                            ; preds = %12920
-  %12923 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12451, i64 %12921) #9
-  %12924 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12452, i64 %12921) #9
+  %12923 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12451, i64 %12921) #9
+  %12924 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12452, i64 %12921) #9
   %12925 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !372
   br label %12926
 
 12926:                                            ; preds = %12939, %12922
   %12927 = phi i64 [ 1, %12922 ], [ %12940, %12939 ], !in.de.ssa !372
-  %12928 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12923, i64 %12927) #9
-  %12929 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12924, i64 %12927) #9
+  %12928 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12923, i64 %12927) #9
+  %12929 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12924, i64 %12927) #9
   %12930 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !373
   br label %12931
 
 12931:                                            ; preds = %12931, %12926
   %12932 = phi i64 [ 1, %12926 ], [ %12936, %12931 ], !in.de.ssa !373
-  %12933 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12928, i64 %12932) #9
-  %12934 = load double, double* %12933, align 1, !alias.scope !374, !noalias !377
-  %12935 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12929, i64 %12932) #9
-  store double %12934, double* %12935, align 1, !alias.scope !374, !noalias !377
+  %12933 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12928, i64 %12932) #9
+  %12934 = load double, ptr %12933, align 1, !alias.scope !374, !noalias !377
+  %12935 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12929, i64 %12932) #9
+  store double %12934, ptr %12935, align 1, !alias.scope !374, !noalias !377
   %12936 = add nuw nsw i64 %12932, 1
   %12937 = icmp eq i64 %12936, 6
   %12938 = call i64 @llvm.ssa.copy.i64(i64 %12936), !in.de.ssa !373
@@ -14194,24 +14193,24 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9759, label %12974, label %12952
 
 12952:                                            ; preds = %12950
-  %12953 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12453, i64 %12951) #9
-  %12954 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12454, i64 %12951) #9
+  %12953 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12453, i64 %12951) #9
+  %12954 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12454, i64 %12951) #9
   %12955 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !383
   br label %12956
 
 12956:                                            ; preds = %12969, %12952
   %12957 = phi i64 [ 1, %12952 ], [ %12970, %12969 ], !in.de.ssa !383
-  %12958 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12953, i64 %12957) #9
-  %12959 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %12954, i64 %12957) #9
+  %12958 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12953, i64 %12957) #9
+  %12959 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %12954, i64 %12957) #9
   %12960 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !384
   br label %12961
 
 12961:                                            ; preds = %12961, %12956
   %12962 = phi i64 [ %12966, %12961 ], [ 1, %12956 ], !in.de.ssa !384
-  %12963 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12958, i64 %12962) #9
-  %12964 = load double, double* %12963, align 1, !alias.scope !374, !noalias !377
-  %12965 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %12959, i64 %12962) #9
-  store double %12964, double* %12965, align 1, !alias.scope !374, !noalias !377
+  %12963 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12958, i64 %12962) #9
+  %12964 = load double, ptr %12963, align 1, !alias.scope !374, !noalias !377
+  %12965 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %12959, i64 %12962) #9
+  store double %12964, ptr %12965, align 1, !alias.scope !374, !noalias !377
   %12966 = add nuw nsw i64 %12962, 1
   %12967 = icmp eq i64 %12966, 6
   %12968 = call i64 @llvm.ssa.copy.i64(i64 %12966), !in.de.ssa !384
@@ -14260,17 +14259,17 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
 
 12987:                                            ; preds = %12984
   %12988 = add nuw nsw i64 %12985, 2
-  %12989 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12096, i64 %12986) #9
-  %12990 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %56, i64 %12985) #9
-  %12991 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12099, i64 %12986) #9
-  %12992 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %55, i64 %12985) #9
-  %12993 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %54, i64 %12985) #9
-  %12994 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %53, i64 %12985) #9
-  %12995 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12099, i64 %12988) #9
-  %12996 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %52, i64 %12985) #9
-  %12997 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %51, i64 %12985) #9
-  %12998 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %93, double* elementtype(double) nonnull %50, i64 %12985) #9
-  %12999 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12099, i64 %12985) #9
+  %12989 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12096, i64 %12986) #9
+  %12990 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %56, i64 %12985) #9
+  %12991 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12099, i64 %12986) #9
+  %12992 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %55, i64 %12985) #9
+  %12993 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %54, i64 %12985) #9
+  %12994 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %53, i64 %12985) #9
+  %12995 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12099, i64 %12988) #9
+  %12996 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %52, i64 %12985) #9
+  %12997 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %51, i64 %12985) #9
+  %12998 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 4, i64 1, i64 %93, ptr elementtype(double) nonnull %50, i64 %12985) #9
+  %12999 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12099, i64 %12985) #9
   %13000 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !407
   br label %13001
 
@@ -14290,22 +14289,22 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %13010 = add i32 %9791, %13008
   %13011 = srem i32 %13010, %3
   %13012 = add nsw i32 %13011, 1
-  %13013 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12989, i64 %13002) #9
-  %13014 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %12990, i64 %13002) #9
-  %13015 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12991, i64 %13002) #9
-  %13016 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %12992, i64 %13002) #9
-  %13017 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %12993, i64 %13002) #9
+  %13013 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12989, i64 %13002) #9
+  %13014 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %12990, i64 %13002) #9
+  %13015 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12991, i64 %13002) #9
+  %13016 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %12992, i64 %13002) #9
+  %13017 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %12993, i64 %13002) #9
   %13018 = and i64 %13009, 4294967295
   %13019 = select i1 %13007, i64 1, i64 %13018
-  %13020 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12991, i64 %13019) #9
-  %13021 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %12994, i64 %13002) #9
-  %13022 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12995, i64 %13002) #9
-  %13023 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %12996, i64 %13002) #9
-  %13024 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %12997, i64 %13002) #9
+  %13020 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12991, i64 %13019) #9
+  %13021 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %12994, i64 %13002) #9
+  %13022 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12995, i64 %13002) #9
+  %13023 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %12996, i64 %13002) #9
+  %13024 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %12997, i64 %13002) #9
   %13025 = sext i32 %13012 to i64
-  %13026 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12991, i64 %13025) #9
-  %13027 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %92, double* elementtype(double) nonnull %12998, i64 %13002) #9
-  %13028 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %12999, i64 %13002) #9
+  %13026 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12991, i64 %13025) #9
+  %13027 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %92, ptr elementtype(double) nonnull %12998, i64 %13002) #9
+  %13028 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %12999, i64 %13002) #9
   %13029 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !409
   br label %13030
 
@@ -14317,31 +14316,31 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %13035 = add i32 %9792, %13033
   %13036 = srem i32 %13035, %2
   %13037 = add nsw i32 %13036, 1
-  %13038 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %13013, i64 %13031) #9
-  %13039 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %13014, i64 %13031) #9
-  %13040 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %13015, i64 %13031) #9
-  %13041 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %13016, i64 %13031) #9
+  %13038 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %13013, i64 %13031) #9
+  %13039 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %13014, i64 %13031) #9
+  %13040 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %13015, i64 %13031) #9
+  %13041 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %13016, i64 %13031) #9
   %13042 = and i64 %13034, 4294967295
   %13043 = select i1 %13032, i64 1, i64 %13042
-  %13044 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %13015, i64 %13043) #9
-  %13045 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %13017, i64 %13031) #9
-  %13046 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %13020, i64 %13031) #9
-  %13047 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %13021, i64 %13031) #9
-  %13048 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %13022, i64 %13031) #9
-  %13049 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %13023, i64 %13031) #9
+  %13044 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %13015, i64 %13043) #9
+  %13045 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %13017, i64 %13031) #9
+  %13046 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %13020, i64 %13031) #9
+  %13047 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %13021, i64 %13031) #9
+  %13048 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %13022, i64 %13031) #9
+  %13049 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %13023, i64 %13031) #9
   %13050 = sext i32 %13037 to i64
-  %13051 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %13015, i64 %13050) #9
-  %13052 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %13024, i64 %13031) #9
-  %13053 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %13026, i64 %13031) #9
-  %13054 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %13027, i64 %13031) #9
-  %13055 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %13028, i64 %13031) #9
+  %13051 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %13015, i64 %13050) #9
+  %13052 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %13024, i64 %13031) #9
+  %13053 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %13026, i64 %13031) #9
+  %13054 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 200, ptr elementtype(double) nonnull %13027, i64 %13031) #9
+  %13055 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %13028, i64 %13031) #9
   %13056 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !410
   br label %13057
 
 13057:                                            ; preds = %13117, %13030
   %13058 = phi i64 [ 1, %13030 ], [ %13119, %13117 ], !in.de.ssa !410
-  %13059 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %13038, i64 %13058) #9
-  store double 0.000000e+00, double* %13059, align 1, !alias.scope !385, !noalias !411
+  %13059 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %13038, i64 %13058) #9
+  store double 0.000000e+00, ptr %13059, align 1, !alias.scope !385, !noalias !411
   %13060 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !416
   %13061 = call double @llvm.ssa.copy.f64(double 0.000000e+00), !in.de.ssa !417
   br label %13062
@@ -14349,53 +14348,53 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
 13062:                                            ; preds = %13062, %13057
   %13063 = phi i64 [ 1, %13057 ], [ %13114, %13062 ], !in.de.ssa !416
   %13064 = phi double [ 0.000000e+00, %13057 ], [ %13113, %13062 ], !in.de.ssa !417
-  %13065 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %13039, i64 %13063) #9
-  %13066 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %13065, i64 %13058) #9
-  %13067 = load double, double* %13066, align 1, !alias.scope !418, !noalias !419
-  %13068 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %13040, i64 %13063) #9
-  %13069 = load double, double* %13068, align 1, !alias.scope !388, !noalias !420
+  %13065 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %13039, i64 %13063) #9
+  %13066 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %13065, i64 %13058) #9
+  %13067 = load double, ptr %13066, align 1, !alias.scope !418, !noalias !419
+  %13068 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %13040, i64 %13063) #9
+  %13069 = load double, ptr %13068, align 1, !alias.scope !388, !noalias !420
   %13070 = fmul fast double %13069, %13067
   %13071 = fadd fast double %13070, %13064
-  %13072 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %13041, i64 %13063) #9
-  %13073 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %13072, i64 %13058) #9
-  %13074 = load double, double* %13073, align 1, !alias.scope !421, !noalias !422
-  %13075 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %13044, i64 %13063) #9
-  %13076 = load double, double* %13075, align 1, !alias.scope !388, !noalias !420
+  %13072 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %13041, i64 %13063) #9
+  %13073 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %13072, i64 %13058) #9
+  %13074 = load double, ptr %13073, align 1, !alias.scope !421, !noalias !422
+  %13075 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %13044, i64 %13063) #9
+  %13076 = load double, ptr %13075, align 1, !alias.scope !388, !noalias !420
   %13077 = fmul fast double %13076, %13074
   %13078 = fadd fast double %13071, %13077
-  %13079 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %13045, i64 %13063) #9
-  %13080 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %13079, i64 %13058) #9
-  %13081 = load double, double* %13080, align 1, !alias.scope !423, !noalias !424
-  %13082 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %13046, i64 %13063) #9
-  %13083 = load double, double* %13082, align 1, !alias.scope !388, !noalias !420
+  %13079 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %13045, i64 %13063) #9
+  %13080 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %13079, i64 %13058) #9
+  %13081 = load double, ptr %13080, align 1, !alias.scope !423, !noalias !424
+  %13082 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %13046, i64 %13063) #9
+  %13083 = load double, ptr %13082, align 1, !alias.scope !388, !noalias !420
   %13084 = fmul fast double %13083, %13081
   %13085 = fadd fast double %13078, %13084
-  %13086 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %13047, i64 %13063) #9
-  %13087 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %13086, i64 %13058) #9
-  %13088 = load double, double* %13087, align 1, !alias.scope !425, !noalias !426
-  %13089 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %13048, i64 %13063) #9
-  %13090 = load double, double* %13089, align 1, !alias.scope !388, !noalias !420
+  %13086 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %13047, i64 %13063) #9
+  %13087 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %13086, i64 %13058) #9
+  %13088 = load double, ptr %13087, align 1, !alias.scope !425, !noalias !426
+  %13089 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %13048, i64 %13063) #9
+  %13090 = load double, ptr %13089, align 1, !alias.scope !388, !noalias !420
   %13091 = fmul fast double %13090, %13088
   %13092 = fadd fast double %13085, %13091
-  %13093 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %13049, i64 %13063) #9
-  %13094 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %13093, i64 %13058) #9
-  %13095 = load double, double* %13094, align 1, !alias.scope !427, !noalias !428
-  %13096 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %13051, i64 %13063) #9
-  %13097 = load double, double* %13096, align 1, !alias.scope !388, !noalias !420
+  %13093 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %13049, i64 %13063) #9
+  %13094 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %13093, i64 %13058) #9
+  %13095 = load double, ptr %13094, align 1, !alias.scope !427, !noalias !428
+  %13096 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %13051, i64 %13063) #9
+  %13097 = load double, ptr %13096, align 1, !alias.scope !388, !noalias !420
   %13098 = fmul fast double %13097, %13095
   %13099 = fadd fast double %13092, %13098
-  %13100 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %13052, i64 %13063) #9
-  %13101 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %13100, i64 %13058) #9
-  %13102 = load double, double* %13101, align 1, !alias.scope !429, !noalias !430
-  %13103 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %13053, i64 %13063) #9
-  %13104 = load double, double* %13103, align 1, !alias.scope !388, !noalias !420
+  %13100 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %13052, i64 %13063) #9
+  %13101 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %13100, i64 %13058) #9
+  %13102 = load double, ptr %13101, align 1, !alias.scope !429, !noalias !430
+  %13103 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %13053, i64 %13063) #9
+  %13104 = load double, ptr %13103, align 1, !alias.scope !388, !noalias !420
   %13105 = fmul fast double %13104, %13102
   %13106 = fadd fast double %13099, %13105
-  %13107 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %13054, i64 %13063) #9
-  %13108 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %13107, i64 %13058) #9
-  %13109 = load double, double* %13108, align 1, !alias.scope !431, !noalias !432
-  %13110 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %13055, i64 %13063) #9
-  %13111 = load double, double* %13110, align 1, !alias.scope !388, !noalias !420
+  %13107 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %13054, i64 %13063) #9
+  %13108 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %13107, i64 %13058) #9
+  %13109 = load double, ptr %13108, align 1, !alias.scope !431, !noalias !432
+  %13110 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %13055, i64 %13063) #9
+  %13111 = load double, ptr %13110, align 1, !alias.scope !388, !noalias !420
   %13112 = fmul fast double %13111, %13109
   %13113 = fadd fast double %13106, %13112
   %13114 = add nuw nsw i64 %13063, 1
@@ -14405,7 +14404,7 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
 
 13117:                                            ; preds = %13062
   %13118 = phi double [ %13113, %13062 ]
-  store double %13118, double* %13059, align 1, !alias.scope !385, !noalias !411
+  store double %13118, ptr %13059, align 1, !alias.scope !385, !noalias !411
   %13119 = add nuw nsw i64 %13058, 1
   %13120 = icmp eq i64 %13119, 6
   %13121 = call i64 @llvm.ssa.copy.i64(i64 %13119), !in.de.ssa !410
@@ -14449,8 +14448,8 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9758, label %13211, label %13145
 
 13145:                                            ; preds = %13139
-  %13146 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12096, i64 %13140) #9
-  %13147 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12099, i64 %13140) #9
+  %13146 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12096, i64 %13140) #9
+  %13147 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12099, i64 %13140) #9
   %13148 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !436
   %13149 = call double @llvm.ssa.copy.f64(double %13144), !in.de.ssa !437
   %13150 = call double @llvm.ssa.copy.f64(double %13143), !in.de.ssa !438
@@ -14465,8 +14464,8 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9759, label %13198, label %13157
 
 13157:                                            ; preds = %13151
-  %13158 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %13146, i64 %13152) #9
-  %13159 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %13147, i64 %13152) #9
+  %13158 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %13146, i64 %13152) #9
+  %13159 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %13147, i64 %13152) #9
   %13160 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !439
   %13161 = call double @llvm.ssa.copy.f64(double %13156), !in.de.ssa !440
   %13162 = call double @llvm.ssa.copy.f64(double %13155), !in.de.ssa !441
@@ -14476,8 +14475,8 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %13164 = phi i64 [ 1, %13157 ], [ %13190, %13185 ], !in.de.ssa !439
   %13165 = phi double [ %13156, %13157 ], [ %13186, %13185 ], !in.de.ssa !440
   %13166 = phi double [ %13155, %13157 ], [ %13187, %13185 ], !in.de.ssa !441
-  %13167 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %13158, i64 %13164) #9
-  %13168 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %13159, i64 %13164) #9
+  %13167 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %13158, i64 %13164) #9
+  %13168 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %13159, i64 %13164) #9
   %13169 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !442
   br label %13170
 
@@ -14485,10 +14484,10 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   %13171 = phi i64 [ 1, %13163 ], [ %13182, %13170 ], !in.de.ssa !442
   %13172 = phi double [ %13165, %13163 ], [ %13179, %13170 ]
   %13173 = phi double [ %13166, %13163 ], [ %13181, %13170 ]
-  %13174 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %13167, i64 %13171) #9
-  %13175 = load double, double* %13174, align 1, !noalias !226
-  %13176 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %13168, i64 %13171) #9
-  %13177 = load double, double* %13176, align 1, !noalias !226
+  %13174 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %13167, i64 %13171) #9
+  %13175 = load double, ptr %13174, align 1, !noalias !226
+  %13176 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %13168, i64 %13171) #9
+  %13177 = load double, ptr %13176, align 1, !noalias !226
   %13178 = fmul fast double %13177, %13175
   %13179 = fadd fast double %13178, %13172
   %13180 = fmul fast double %13175, %13175
@@ -14554,10 +14553,10 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9758, label %13276, label %13226
 
 13226:                                            ; preds = %13224
-  %13227 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %81, i64 %13225) #9
-  %13228 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12100, i64 %13225) #9
-  %13229 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12099, i64 %13225) #9
-  %13230 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12096, i64 %13225) #9
+  %13227 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %81, i64 %13225) #9
+  %13228 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12100, i64 %13225) #9
+  %13229 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12099, i64 %13225) #9
+  %13230 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12096, i64 %13225) #9
   %13231 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !444
   br label %13232
 
@@ -14566,40 +14565,40 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9759, label %13271, label %13234
 
 13234:                                            ; preds = %13232
-  %13235 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %13227, i64 %13233) #9
-  %13236 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %13228, i64 %13233) #9
-  %13237 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %13229, i64 %13233) #9
-  %13238 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %13230, i64 %13233) #9
+  %13235 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %13227, i64 %13233) #9
+  %13236 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %13228, i64 %13233) #9
+  %13237 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %13229, i64 %13233) #9
+  %13238 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %13230, i64 %13233) #9
   %13239 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !445
   br label %13240
 
 13240:                                            ; preds = %13266, %13234
   %13241 = phi i64 [ 1, %13234 ], [ %13267, %13266 ], !in.de.ssa !445
-  %13242 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %13235, i64 %13241) #9
-  %13243 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %13236, i64 %13241) #9
-  %13244 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %13237, i64 %13241) #9
-  %13245 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %13238, i64 %13241) #9
+  %13242 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %13235, i64 %13241) #9
+  %13243 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %13236, i64 %13241) #9
+  %13244 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %13237, i64 %13241) #9
+  %13245 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %13238, i64 %13241) #9
   %13246 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !446
   br label %13247
 
 13247:                                            ; preds = %13247, %13240
   %13248 = phi i64 [ 1, %13240 ], [ %13263, %13247 ], !in.de.ssa !446
-  %13249 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %13242, i64 %13248) #9
-  %13250 = load double, double* %13249, align 1, !alias.scope !183, !noalias !447
-  %13251 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %13243, i64 %13248) #9
-  %13252 = load double, double* %13251, align 1, !noalias !226
+  %13249 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %13242, i64 %13248) #9
+  %13250 = load double, ptr %13249, align 1, !alias.scope !183, !noalias !447
+  %13251 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %13243, i64 %13248) #9
+  %13252 = load double, ptr %13251, align 1, !noalias !226
   %13253 = fmul fast double %13252, %12917
   %13254 = fadd fast double %13253, %13250
-  %13255 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %13244, i64 %13248) #9
-  %13256 = load double, double* %13255, align 1, !noalias !226
+  %13255 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %13244, i64 %13248) #9
+  %13256 = load double, ptr %13255, align 1, !noalias !226
   %13257 = fmul fast double %13256, %13222
   %13258 = fadd fast double %13254, %13257
-  store double %13258, double* %13249, align 1, !alias.scope !183, !noalias !447
-  %13259 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %13245, i64 %13248) #9
-  %13260 = load double, double* %13259, align 1, !noalias !226
+  store double %13258, ptr %13249, align 1, !alias.scope !183, !noalias !447
+  %13259 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %13245, i64 %13248) #9
+  %13260 = load double, ptr %13259, align 1, !noalias !226
   %13261 = fmul fast double %13260, %13222
   %13262 = fsub fast double %13256, %13261
-  store double %13262, double* %13255, align 1, !noalias !226
+  store double %13262, ptr %13255, align 1, !noalias !226
   %13263 = add nuw nsw i64 %13248, 1
   %13264 = icmp eq i64 %13263, 6
   %13265 = call i64 @llvm.ssa.copy.i64(i64 %13263), !in.de.ssa !446
@@ -14641,7 +14640,7 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9758, label %13332, label %13287
 
 13287:                                            ; preds = %13283
-  %13288 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %12099, i64 %13284) #9
+  %13288 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %12099, i64 %13284) #9
   %13289 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !450
   %13290 = call double @llvm.ssa.copy.f64(double %13286), !in.de.ssa !451
   br label %13291
@@ -14653,7 +14652,7 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9759, label %13323, label %13295
 
 13295:                                            ; preds = %13291
-  %13296 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %13288, i64 %13292) #9
+  %13296 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %13288, i64 %13292) #9
   %13297 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !452
   %13298 = call double @llvm.ssa.copy.f64(double %13294), !in.de.ssa !453
   br label %13299
@@ -14661,15 +14660,15 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
 13299:                                            ; preds = %13314, %13295
   %13300 = phi i64 [ 1, %13295 ], [ %13317, %13314 ], !in.de.ssa !452
   %13301 = phi double [ %13294, %13295 ], [ %13315, %13314 ], !in.de.ssa !453
-  %13302 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %13296, i64 %13300) #9
+  %13302 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %13296, i64 %13300) #9
   %13303 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !454
   br label %13304
 
 13304:                                            ; preds = %13304, %13299
   %13305 = phi i64 [ 1, %13299 ], [ %13311, %13304 ], !in.de.ssa !454
   %13306 = phi double [ %13301, %13299 ], [ %13310, %13304 ]
-  %13307 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %13302, i64 %13305) #9
-  %13308 = load double, double* %13307, align 1, !noalias !226
+  %13307 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %13302, i64 %13305) #9
+  %13308 = load double, ptr %13307, align 1, !noalias !226
   %13309 = fmul fast double %13308, %13308
   %13310 = fadd fast double %13309, %13306
   %13311 = add nuw nsw i64 %13305, 1
@@ -14733,29 +14732,29 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
 
 13352:                                            ; preds = %13349, %12439
   %13353 = phi double [ %12440, %12439 ], [ %13350, %13349 ], !in.de.ssa !283
-  store i8 56, i8* %9823, align 1, !noalias !226
-  store i8 4, i8* %9846, align 1, !noalias !226
-  store i8 2, i8* %9847, align 1, !noalias !226
-  store i8 0, i8* %9848, align 1, !noalias !226
-  store i64 16, i64* %9849, align 8, !noalias !226
-  store i8* getelementptr inbounds ([16 x i8], [16 x i8]* @strlit, i64 0, i64 0), i8** %9850, align 8, !noalias !226
-  %13354 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_write_seq_lis(i8* nonnull %9818, i32 20, i64 1239157112576, i8* nonnull %9823, i8* nonnull %9824) #9, !noalias !226
-  store i8 48, i8* %9825, align 1, !noalias !226
-  store i8 1, i8* %9851, align 1, !noalias !226
-  store i8 1, i8* %9852, align 1, !noalias !226
-  store i8 0, i8* %9853, align 1, !noalias !226
-  store double %13353, double* %9854, align 8, !noalias !226
-  %13355 = call i32 @for_write_seq_lis_xmit(i8* nonnull %9818, i8* nonnull %9825, i8* nonnull %9826) #9, !noalias !226
-  call void @llvm.lifetime.end.p0i8(i64 64, i8* nonnull %9818)
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %9819)
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* nonnull %9820)
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %9821)
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* nonnull %9822)
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %9823)
-  call void @llvm.lifetime.end.p0i8(i64 16, i8* nonnull %9824)
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %9825)
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* nonnull %9826)
-  call void @llvm.stackrestore(i8* %12095)
+  store i8 56, ptr %9823, align 1, !noalias !226
+  store i8 4, ptr %9846, align 1, !noalias !226
+  store i8 2, ptr %9847, align 1, !noalias !226
+  store i8 0, ptr %9848, align 1, !noalias !226
+  store i64 16, ptr %9849, align 8, !noalias !226
+  store ptr @strlit, ptr %9850, align 8, !noalias !226
+  %13354 = call i32 (ptr, i32, i64, ptr, ptr, ...) @for_write_seq_lis(ptr nonnull %9818, i32 20, i64 1239157112576, ptr nonnull %9823, ptr nonnull %9824) #9, !noalias !226
+  store i8 48, ptr %9825, align 1, !noalias !226
+  store i8 1, ptr %9851, align 1, !noalias !226
+  store i8 1, ptr %9852, align 1, !noalias !226
+  store i8 0, ptr %9853, align 1, !noalias !226
+  store double %13353, ptr %9854, align 8, !noalias !226
+  %13355 = call i32 @for_write_seq_lis_xmit(ptr nonnull %9818, ptr nonnull %9825, ptr nonnull %9826) #9, !noalias !226
+  call void @llvm.lifetime.end.p0(i64 64, ptr nonnull %9818)
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %9819)
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %9820)
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %9821)
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %9822)
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %9823)
+  call void @llvm.lifetime.end.p0(i64 16, ptr nonnull %9824)
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %9825)
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %9826)
+  call void @llvm.stackrestore(ptr %12095)
   br label %13356
 
 13356:                                            ; preds = %13352, %12089
@@ -14770,9 +14769,9 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9758, label %13397, label %13361
 
 13361:                                            ; preds = %13359
-  %13362 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %88, i64 %13360)
+  %13362 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %88, i64 %13360)
   %13363 = add nsw i64 %13360, -1
-  %13364 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %81, i64 %13363)
+  %13364 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %81, i64 %13363)
   %13365 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !456
   br label %13366
 
@@ -14781,26 +14780,26 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9759, label %13392, label %13368
 
 13368:                                            ; preds = %13366
-  %13369 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %13362, i64 %13367)
-  %13370 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %13364, i64 %13367)
+  %13369 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %13362, i64 %13367)
+  %13370 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %13364, i64 %13367)
   %13371 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !457
   br label %13372
 
 13372:                                            ; preds = %13387, %13368
   %13373 = phi i64 [ 1, %13368 ], [ %13388, %13387 ], !in.de.ssa !457
-  %13374 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %13369, i64 %13373)
-  %13375 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %13370, i64 %13373)
+  %13374 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %13369, i64 %13373)
+  %13375 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %13370, i64 %13373)
   %13376 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !458
   br label %13377
 
 13377:                                            ; preds = %13377, %13372
   %13378 = phi i64 [ %13384, %13377 ], [ 1, %13372 ], !in.de.ssa !458
-  %13379 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %13374, i64 %13378)
-  %13380 = load double, double* %13379, align 1
-  %13381 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %13375, i64 %13378)
-  %13382 = load double, double* %13381, align 1
+  %13379 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %13374, i64 %13378)
+  %13380 = load double, ptr %13379, align 1
+  %13381 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %13375, i64 %13378)
+  %13382 = load double, ptr %13381, align 1
   %13383 = fadd fast double %13382, %13380
-  store double %13383, double* %13379, align 1
+  store double %13383, ptr %13379, align 1
   %13384 = add nuw nsw i64 %13378, 1
   %13385 = icmp eq i64 %13384, 6
   %13386 = call i64 @llvm.ssa.copy.i64(i64 %13384), !in.de.ssa !458
@@ -14849,7 +14848,7 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9758, label %13456, label %13411
 
 13411:                                            ; preds = %13407
-  %13412 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %91, double* elementtype(double) nonnull %81, i64 %13408)
+  %13412 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 3, i64 1, i64 %91, ptr elementtype(double) nonnull %81, i64 %13408)
   %13413 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !462
   %13414 = call double @llvm.ssa.copy.f64(double %13410), !in.de.ssa !463
   br label %13415
@@ -14861,7 +14860,7 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   br i1 %9759, label %13447, label %13419
 
 13419:                                            ; preds = %13415
-  %13420 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %90, double* elementtype(double) nonnull %13412, i64 %13416)
+  %13420 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %90, ptr elementtype(double) nonnull %13412, i64 %13416)
   %13421 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !464
   %13422 = call double @llvm.ssa.copy.f64(double %13418), !in.de.ssa !465
   br label %13423
@@ -14869,15 +14868,15 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
 13423:                                            ; preds = %13438, %13419
   %13424 = phi i64 [ 1, %13419 ], [ %13441, %13438 ], !in.de.ssa !464
   %13425 = phi double [ %13418, %13419 ], [ %13439, %13438 ], !in.de.ssa !465
-  %13426 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %13420, i64 %13424)
+  %13426 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 40, ptr elementtype(double) nonnull %13420, i64 %13424)
   %13427 = call i64 @llvm.ssa.copy.i64(i64 1), !in.de.ssa !466
   br label %13428
 
 13428:                                            ; preds = %13428, %13423
   %13429 = phi i64 [ %13435, %13428 ], [ 1, %13423 ], !in.de.ssa !466
   %13430 = phi double [ %13434, %13428 ], [ %13425, %13423 ]
-  %13431 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %13426, i64 %13429)
-  %13432 = load double, double* %13431, align 1
+  %13431 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) nonnull %13426, i64 %13429)
+  %13432 = load double, ptr %13431, align 1
   %13433 = fmul fast double %13432, %13432
   %13434 = fadd fast double %13433, %13430
   %13435 = add nuw nsw i64 %13429, 1
@@ -14926,19 +14925,19 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
 
 13465:                                            ; preds = %13462, %13402
   %13466 = phi double [ 0.000000e+00, %13402 ], [ %13463, %13462 ], !in.de.ssa !459
-  store i8 56, i8* %9743, align 1
-  store i8 4, i8* %9744, align 1
-  store i8 2, i8* %9745, align 1
-  store i8 0, i8* %9746, align 1
-  store i64 9, i64* %9747, align 8
-  store i8* getelementptr inbounds ([9 x i8], [9 x i8]* @strlit.4, i64 0, i64 0), i8** %9748, align 8
-  %13467 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_write_seq_lis(i8* nonnull %9721, i32 30, i64 1239157112576, i8* nonnull %9743, i8* nonnull %9749) #9
-  store i8 48, i8* %9750, align 1
-  store i8 1, i8* %9751, align 1
-  store i8 1, i8* %9752, align 1
-  store i8 0, i8* %9753, align 1
-  store double %13466, double* %9754, align 8
-  %13468 = call i32 @for_write_seq_lis_xmit(i8* nonnull %9721, i8* nonnull %9750, i8* nonnull %9755) #9
+  store i8 56, ptr %9743, align 1
+  store i8 4, ptr %9744, align 1
+  store i8 2, ptr %9745, align 1
+  store i8 0, ptr %9746, align 1
+  store i64 9, ptr %9747, align 8
+  store ptr @strlit.4, ptr %9748, align 8
+  %13467 = call i32 (ptr, i32, i64, ptr, ptr, ...) @for_write_seq_lis(ptr nonnull %9721, i32 30, i64 1239157112576, ptr nonnull %9743, ptr nonnull %9749) #9
+  store i8 48, ptr %9750, align 1
+  store i8 1, ptr %9751, align 1
+  store i8 1, ptr %9752, align 1
+  store i8 0, ptr %9753, align 1
+  store double %13466, ptr %9754, align 8
+  %13468 = call i32 @for_write_seq_lis_xmit(ptr nonnull %9721, ptr nonnull %9750, ptr nonnull %9755) #9
   %13469 = add nuw nsw i32 %9857, 1
   %13470 = icmp sgt i32 %13469, %13
   %13471 = call i32 @llvm.ssa.copy.i32(i32 %13469), !in.de.ssa !22
@@ -14967,16 +14966,16 @@ declare double @llvm.maxnum.f64(double %0, double %1) #4
 declare void @llvm.experimental.noalias.scope.decl(metadata %0) #6
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn mustprogress
-declare void @llvm.lifetime.start.p0i8(i64 immarg %0, i8* nocapture %1) #3
+declare void @llvm.lifetime.start.p0(i64 immarg %0, ptr nocapture %1) #3
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn mustprogress
-declare void @llvm.lifetime.end.p0i8(i64 immarg %0, i8* nocapture %1) #3
+declare void @llvm.lifetime.end.p0(i64 immarg %0, ptr nocapture %1) #3
 
 ; Function Attrs: nofree nosync nounwind willreturn mustprogress
-declare i8* @llvm.stacksave() #7
+declare ptr @llvm.stacksave() #7
 
 ; Function Attrs: nofree nosync nounwind willreturn mustprogress
-declare void @llvm.stackrestore(i8* %0) #7
+declare void @llvm.stackrestore(ptr %0) #7
 
 ; Function Attrs: nofree nosync nounwind readnone willreturn
 declare i64 @llvm.ssa.copy.i64(i64 returned %0) #8

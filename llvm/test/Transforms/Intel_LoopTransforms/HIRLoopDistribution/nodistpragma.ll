@@ -28,7 +28,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @loop_distribution_pragma2(double* noalias nocapture %c, double* noalias nocapture %x) local_unnamed_addr #0 {
+define dso_local void @loop_distribution_pragma2(ptr noalias nocapture %c, ptr noalias nocapture %x) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -37,17 +37,17 @@ for.body:                                         ; preds = %entry, %for.body
   %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.DISTRIBUTE_POINT"() ]
   %1 = trunc i64 %indvars.iv to i32
   %conv = sitofp i32 %1 to double
-  %arrayidx = getelementptr inbounds double, double* %x, i64 %indvars.iv
-  %2 = load double, double* %arrayidx, align 8, !tbaa !3
+  %arrayidx = getelementptr inbounds double, ptr %x, i64 %indvars.iv
+  %2 = load double, ptr %arrayidx, align 8, !tbaa !3
   %add = fadd fast double %2, %conv
-  %arrayidx2 = getelementptr inbounds double, double* %c, i64 %indvars.iv
-  store double %add, double* %arrayidx2, align 8, !tbaa !3
+  %arrayidx2 = getelementptr inbounds double, ptr %c, i64 %indvars.iv
+  store double %add, ptr %arrayidx2, align 8, !tbaa !3
   call void @llvm.directive.region.exit(token %0) [ "DIR.PRAGMA.END.DISTRIBUTE_POINT"() ]
   %3 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.DISTRIBUTE_POINT"() ]
   %add6 = fadd fast double %add, %conv
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx9 = getelementptr inbounds double, double* %x, i64 %indvars.iv.next
-  store double %add6, double* %arrayidx9, align 8, !tbaa !3
+  %arrayidx9 = getelementptr inbounds double, ptr %x, i64 %indvars.iv.next
+  store double %add6, ptr %arrayidx9, align 8, !tbaa !3
   call void @llvm.directive.region.exit(token %3) [ "DIR.PRAGMA.END.DISTRIBUTE_POINT"() ]
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1023
   br i1 %exitcond.not, label %for.end, label %for.body, !llvm.loop !7

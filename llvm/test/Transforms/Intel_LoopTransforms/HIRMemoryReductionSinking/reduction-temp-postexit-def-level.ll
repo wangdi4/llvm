@@ -38,28 +38,28 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 @a = dso_local local_unnamed_addr global i32 0, align 4
-@b = dso_local local_unnamed_addr global i32* null, align 8
+@b = dso_local local_unnamed_addr global ptr null, align 8
 
 ; Function Attrs: nofree norecurse nounwind uwtable
 define dso_local void @c() local_unnamed_addr #0 {
 entry:
-  %0 = load i32*, i32** @b, align 8
+  %0 = load ptr, ptr @b, align 8
   br label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %entry, %for.inc5
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.inc5 ]
-  %ptridx = getelementptr inbounds i32, i32* %0, i64 %indvars.iv
+  %ptridx = getelementptr inbounds i32, ptr %0, i64 %indvars.iv
   %1 = trunc i64 %indvars.iv to i32
   br label %for.body3
 
 for.body3:                                        ; preds = %for.cond1.preheader, %for.body3
   %e.012 = phi i32 [ 0, %for.cond1.preheader ], [ %inc, %for.body3 ]
-  %2 = load i32, i32* @a, align 4
+  %2 = load i32, ptr @a, align 4
   %add = add nsw i32 %2, %1
-  store i32 %add, i32* @a, align 4
-  %3 = load i32, i32* %ptridx, align 4
+  store i32 %add, ptr @a, align 4
+  %3 = load i32, ptr %ptridx, align 4
   %add4 = add nsw i32 %3, %1
-  store i32 %add4, i32* %ptridx, align 4
+  store i32 %add4, ptr %ptridx, align 4
   %inc = add nuw nsw i32 %e.012, 1
   %exitcond = icmp eq i32 %inc, 6
   br i1 %exitcond, label %for.inc5, label %for.body3

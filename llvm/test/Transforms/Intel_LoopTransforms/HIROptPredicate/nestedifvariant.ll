@@ -112,50 +112,50 @@ for.cond.1.preheader:                             ; preds = %for.end, %entry
   %add7 = add nuw nsw i64 %i.079, 1
   %mul = shl nsw i64 %i.079, 1
   %conv29 = sitofp i64 %mul to float
-  %arrayidx4.phi.trans.insert = getelementptr inbounds [1000 x [1000 x float]], [1000 x [1000 x float]]* @B, i64 0, i64 %i.079, i64 1
-  %.pre = load float, float* %arrayidx4.phi.trans.insert, align 4, !tbaa !1
+  %arrayidx4.phi.trans.insert = getelementptr inbounds [1000 x [1000 x float]], ptr @B, i64 0, i64 %i.079, i64 1
+  %.pre = load float, ptr %arrayidx4.phi.trans.insert, align 4, !tbaa !1
   br label %for.body.3
 
 for.body.3:                                       ; preds = %for.cond.1.backedge, %for.cond.1.preheader
   %0 = phi float [ %.pre, %for.cond.1.preheader ], [ %3, %for.cond.1.backedge ]
   %j.078 = phi i64 [ 1, %for.cond.1.preheader ], [ %add11, %for.cond.1.backedge ]
-  %arrayidx4 = getelementptr inbounds [1000 x [1000 x float]], [1000 x [1000 x float]]* @B, i64 0, i64 %i.079, i64 %j.078
-  %arrayidx6 = getelementptr inbounds [1000 x [1000 x float]], [1000 x [1000 x float]]* @C, i64 0, i64 %j.078, i64 %i.079
-  %1 = load float, float* %arrayidx6, align 4, !tbaa !1
+  %arrayidx4 = getelementptr inbounds [1000 x [1000 x float]], ptr @B, i64 0, i64 %i.079, i64 %j.078
+  %arrayidx6 = getelementptr inbounds [1000 x [1000 x float]], ptr @C, i64 0, i64 %j.078, i64 %i.079
+  %1 = load float, ptr %arrayidx6, align 4, !tbaa !1
   %add = fadd float %0, %1
-  %arrayidx9 = getelementptr inbounds [1000 x [1000 x float]], [1000 x [1000 x float]]* @B, i64 0, i64 %add7, i64 %j.078
-  %2 = load float, float* %arrayidx9, align 4, !tbaa !1
+  %arrayidx9 = getelementptr inbounds [1000 x [1000 x float]], ptr @B, i64 0, i64 %add7, i64 %j.078
+  %2 = load float, ptr %arrayidx9, align 4, !tbaa !1
   %add10 = fadd float %add, %2
   %add11 = add nuw nsw i64 %j.078, 1
-  %arrayidx13 = getelementptr inbounds [1000 x [1000 x float]], [1000 x [1000 x float]]* @B, i64 0, i64 %i.079, i64 %add11
-  %3 = load float, float* %arrayidx13, align 4, !tbaa !1
+  %arrayidx13 = getelementptr inbounds [1000 x [1000 x float]], ptr @B, i64 0, i64 %i.079, i64 %add11
+  %3 = load float, ptr %arrayidx13, align 4, !tbaa !1
   %add14 = fadd float %add10, %3
-  %arrayidx16 = getelementptr inbounds [1000 x [1000 x float]], [1000 x [1000 x float]]* @A, i64 0, i64 %j.078, i64 %i.079
-  store float %add14, float* %arrayidx16, align 4, !tbaa !1
+  %arrayidx16 = getelementptr inbounds [1000 x [1000 x float]], ptr @A, i64 0, i64 %j.078, i64 %i.079
+  store float %add14, ptr %arrayidx16, align 4, !tbaa !1
   %cmp17 = icmp sgt i64 %j.078, 10
   br i1 %cmp17, label %if.then, label %if.else.32
 
 if.then:                                          ; preds = %for.body.3
-  %arrayidx23 = getelementptr inbounds [1000 x [1000 x float]], [1000 x [1000 x float]]* @B, i64 0, i64 %add7, i64 %add11
-  store float %add14, float* %arrayidx23, align 4, !tbaa !1
+  %arrayidx23 = getelementptr inbounds [1000 x [1000 x float]], ptr @B, i64 0, i64 %add7, i64 %add11
+  store float %add14, ptr %arrayidx23, align 4, !tbaa !1
   br i1 %cmp24, label %if.then.25, label %if.else
 
 if.then.25:                                       ; preds = %if.then
   %add26 = add nuw nsw i64 %j.078, %i.079
   %conv = sitofp i64 %add26 to float
-  %arrayidx28 = getelementptr inbounds [1000 x [1000 x float]], [1000 x [1000 x float]]* @C, i64 0, i64 %i.079, i64 %j.078
-  store float %conv, float* %arrayidx28, align 4, !tbaa !1
+  %arrayidx28 = getelementptr inbounds [1000 x [1000 x float]], ptr @C, i64 0, i64 %i.079, i64 %j.078
+  store float %conv, ptr %arrayidx28, align 4, !tbaa !1
   br label %for.cond.1.backedge
 
 if.else:                                          ; preds = %if.then
-  store float %conv29, float* %arrayidx4, align 4, !tbaa !1
+  store float %conv29, ptr %arrayidx4, align 4, !tbaa !1
   br label %for.cond.1.backedge
 
 if.else.32:                                       ; preds = %for.body.3
-  %arrayidx36 = getelementptr inbounds [1000 x [1000 x float]], [1000 x [1000 x float]]* @C, i64 0, i64 %i.079, i64 %j.078
-  %4 = load float, float* %arrayidx36, align 4, !tbaa !1
+  %arrayidx36 = getelementptr inbounds [1000 x [1000 x float]], ptr @C, i64 0, i64 %i.079, i64 %j.078
+  %4 = load float, ptr %arrayidx36, align 4, !tbaa !1
   %add37 = fadd float %add14, %4
-  store float %add37, float* %arrayidx9, align 4, !tbaa !1
+  store float %add37, ptr %arrayidx9, align 4, !tbaa !1
   br label %for.cond.1.backedge
 
 for.cond.1.backedge:                              ; preds = %if.else.32, %if.else, %if.then.25
@@ -164,8 +164,8 @@ for.cond.1.backedge:                              ; preds = %if.else.32, %if.els
 
 for.end:                                          ; preds = %for.cond.1.backedge
   %conv42 = sitofp i64 %i.079 to float
-  %arrayidx44 = getelementptr inbounds [1000 x [1000 x float]], [1000 x [1000 x float]]* @C, i64 0, i64 %i.079, i64 2
-  store float %conv42, float* %arrayidx44, align 8, !tbaa !1
+  %arrayidx44 = getelementptr inbounds [1000 x [1000 x float]], ptr @C, i64 0, i64 %i.079, i64 2
+  store float %conv42, ptr %arrayidx44, align 8, !tbaa !1
   %exitcond80 = icmp eq i64 %add7, 1000
   br i1 %exitcond80, label %for.end.47, label %for.cond.1.preheader
 
@@ -174,10 +174,10 @@ for.end.47:                                       ; preds = %for.end
 }
 
 ; Function Attrs: nounwind argmemonly
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: nounwind argmemonly
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind argmemonly }

@@ -25,10 +25,10 @@ for.body3.preheader:                              ; preds = %entry, %for.inc7
 
 for.body3:                                        ; preds = %for.body3, %for.body3.preheader
   %j.019 = phi i64 [ %inc, %for.body3 ], [ 0, %for.body3.preheader ]
-  %arrayidx4 = getelementptr inbounds [1000 x [1000 x float]], [1000 x [1000 x float]]* @A, i64 0, i64 %j.019, i64 %i.021
-  %0 = load float, float* %arrayidx4, align 4, !tbaa !1
+  %arrayidx4 = getelementptr inbounds [1000 x [1000 x float]], ptr @A, i64 0, i64 %j.019, i64 %i.021
+  %0 = load float, ptr %arrayidx4, align 4, !tbaa !1
   %add = fadd float %0, 1.000000e+00
-  store float %add, float* %arrayidx4, align 4, !tbaa !1
+  store float %add, ptr %arrayidx4, align 4, !tbaa !1
   %inc = add nuw nsw i64 %j.019, 1
   %exitcond = icmp eq i64 %inc, %indvars.iv
   br i1 %exitcond, label %for.inc7, label %for.body3

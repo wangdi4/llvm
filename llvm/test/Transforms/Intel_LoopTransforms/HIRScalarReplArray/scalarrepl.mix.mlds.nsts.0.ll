@@ -102,50 +102,50 @@ entry:
   br label %for.body
 
 for.cond.cleanup:                                 ; preds = %for.body
-  %0 = load  i32, i32* getelementptr inbounds ([1000 x i32], [1000 x i32]* @A, i64 0, i64 0), align 16, !tbaa !1
-  %1 = load  i32, i32* getelementptr inbounds ([1000 x i32], [1000 x i32]* @B, i64 0, i64 1), align 4, !tbaa !1
+  %0 = load  i32, ptr @A, align 16, !tbaa !1
+  %1 = load  i32, ptr getelementptr inbounds ([1000 x i32], ptr @B, i64 0, i64 1), align 4, !tbaa !1
   %add40 = add i32 %0, 1
   %add41 = add i32 %add40, %1
   ret i32 %add41
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 1, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [1000 x i32], [1000 x i32]* @A, i64 0, i64 %indvars.iv
-  %2 = load  i32, i32* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds [1000 x i32], ptr @A, i64 0, i64 %indvars.iv
+  %2 = load  i32, ptr %arrayidx, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx2 = getelementptr inbounds [1000 x i32], [1000 x i32]* @A, i64 0, i64 %indvars.iv.next
-  %3 = load  i32, i32* %arrayidx2, align 4, !tbaa !1
+  %arrayidx2 = getelementptr inbounds [1000 x i32], ptr @A, i64 0, i64 %indvars.iv.next
+  %3 = load  i32, ptr %arrayidx2, align 4, !tbaa !1
   %add3 = add nsw i32 %3, %2
   %4 = add nuw nsw i64 %indvars.iv, 2
-  %arrayidx6 = getelementptr inbounds [1000 x i32], [1000 x i32]* @A, i64 0, i64 %4
-  %5 = load  i32, i32* %arrayidx6, align 4, !tbaa !1
+  %arrayidx6 = getelementptr inbounds [1000 x i32], ptr @A, i64 0, i64 %4
+  %5 = load  i32, ptr %arrayidx6, align 4, !tbaa !1
   %add7 = add nsw i32 %add3, %5
-  store  i32 %add7, i32* %arrayidx, align 4, !tbaa !1
+  store  i32 %add7, ptr %arrayidx, align 4, !tbaa !1
   %6 = add nsw i64 %indvars.iv, -1
-  %arrayidx11 = getelementptr inbounds [1000 x i32], [1000 x i32]* @A, i64 0, i64 %6
-  %7 = load  i32, i32* %arrayidx11, align 4, !tbaa !1
-  %8 = load  i32, i32* %arrayidx2, align 4, !tbaa !1
+  %arrayidx11 = getelementptr inbounds [1000 x i32], ptr @A, i64 0, i64 %6
+  %7 = load  i32, ptr %arrayidx11, align 4, !tbaa !1
+  %8 = load  i32, ptr %arrayidx2, align 4, !tbaa !1
   %add15 = add nsw i32 %8, %7
-  store  i32 %add15, i32* %arrayidx2, align 4, !tbaa !1
-  %9 = load  i32, i32* %arrayidx, align 4, !tbaa !1
-  %10 = load  i32, i32* %arrayidx2, align 4, !tbaa !1
+  store  i32 %add15, ptr %arrayidx2, align 4, !tbaa !1
+  %9 = load  i32, ptr %arrayidx, align 4, !tbaa !1
+  %10 = load  i32, ptr %arrayidx2, align 4, !tbaa !1
   %sub24 = sub nsw i32 %9, %10
-  store  i32 %sub24, i32* %arrayidx6, align 4, !tbaa !1
-  %11 = load  i32, i32* %arrayidx, align 4, !tbaa !1
-  %12 = load  i32, i32* %arrayidx11, align 4, !tbaa !1
+  store  i32 %sub24, ptr %arrayidx6, align 4, !tbaa !1
+  %11 = load  i32, ptr %arrayidx, align 4, !tbaa !1
+  %12 = load  i32, ptr %arrayidx11, align 4, !tbaa !1
   %add33 = add nsw i32 %12, %11
-  %13 = load  i32, i32* %arrayidx2, align 4, !tbaa !1
+  %13 = load  i32, ptr %arrayidx2, align 4, !tbaa !1
   %add37 = add nsw i32 %add33, %13
-  store  i32 %add37, i32* %arrayidx, align 4, !tbaa !1
+  store  i32 %add37, ptr %arrayidx, align 4, !tbaa !1
   %exitcond = icmp eq i64 %indvars.iv.next, 101
   br i1 %exitcond, label %for.cond.cleanup, label %for.body
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

@@ -37,17 +37,17 @@
 ; ModuleID = 'new.ll'
 source_filename = "new.ll"
 
-define dso_local void @foo(i32 %t, i32* %A, i32* %B) {
+define dso_local void @foo(i32 %t, ptr %A, ptr %B) {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.inc
   %i.05 = phi i32 [ 0, %entry ], [ %inc, %for.inc ]
   %idz = sext i32 %i.05 to i64
-  %lhs = getelementptr inbounds i32, i32* %B, i64 0
-  %rhs = getelementptr inbounds i32, i32* %B, i64 %idz
-  %lhs.ld = load i32, i32* %lhs
-  %rhs.ld = load i32, i32* %rhs
+  %lhs = getelementptr inbounds i32, ptr %B, i64 0
+  %rhs = getelementptr inbounds i32, ptr %B, i64 %idz
+  %lhs.ld = load i32, ptr %lhs
+  %rhs.ld = load i32, ptr %rhs
   %cmp1 = icmp sgt i32 %lhs.ld, %rhs.ld
   %cmp2 = icmp sgt i32 %t, 1
   %and = and i1 %cmp1, %cmp2
@@ -55,8 +55,8 @@ for.body:                                         ; preds = %entry, %for.inc
 
 if.then:                                          ; preds = %land.lhs.true
   %idxprom = sext i32 %i.05 to i64
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %idxprom
-  store i32 %i.05, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %idxprom
+  store i32 %i.05, ptr %arrayidx, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %if.end

@@ -22,18 +22,18 @@ target triple = "x86_64-unknown-linux-gnu"
 @c = common dso_local local_unnamed_addr global i32 0, align 4
 @d = common dso_local local_unnamed_addr global i8 0, align 1
 @a = common dso_local local_unnamed_addr global i8 0, align 1
-@b = common dso_local local_unnamed_addr global i32* null, align 8
+@b = common dso_local local_unnamed_addr global ptr null, align 8
 
 ; Function Attrs: norecurse nounwind uwtable
 define dso_local void @foo() local_unnamed_addr #0 {
 entry:
-  %.pr = load i32, i32* @c, align 4
+  %.pr = load i32, ptr @c, align 4
   %tobool8 = icmp eq i32 %.pr, 0
   br i1 %tobool8, label %for.end, label %for.body.lr.ph
 
 for.body.lr.ph:                                   ; preds = %entry
-  %0 = load i32*, i32** @b, align 8
-  %.pre = load i8, i8* @d, align 1
+  %0 = load ptr, ptr @b, align 8
+  %.pre = load i8, ptr @d, align 1
   br label %for.body
 
 for.body:                                         ; preds = %for.body.lr.ph, %for.body
@@ -42,13 +42,13 @@ for.body:                                         ; preds = %for.body.lr.ph, %fo
   %shr = ashr i8 %2, 7
   %sub = sub i8 %shr, %2
   %or = or i8 %sub, 7
-  store i8 %or, i8* @a, align 1
-  %3 = load i32, i32* %0, align 4
+  store i8 %or, ptr @a, align 1
+  %3 = load i32, ptr %0, align 4
   %4 = trunc i32 %3 to i8
   %conv5 = add i8 %shr, %4
-  store i8 %conv5, i8* @d, align 1
+  store i8 %conv5, ptr @d, align 1
   %add6 = add i32 %1, 3
-  store i32 %add6, i32* @c, align 4
+  store i32 %add6, ptr @c, align 4
   %tobool = icmp eq i32 %add6, 0
   br i1 %tobool, label %for.end.loopexit, label %for.body
 

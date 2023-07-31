@@ -56,7 +56,7 @@ entry:
 
 for.cond1.preheader:                              ; preds = %entry, %for.cond.cleanup3
   %i.030 = phi i32 [ 0, %entry ], [ %inc16, %for.cond.cleanup3 ]
-  %simd = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %simd = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
   %cmp9 = icmp eq i32 %i.030, 5
   br label %for.cond5.preheader
 

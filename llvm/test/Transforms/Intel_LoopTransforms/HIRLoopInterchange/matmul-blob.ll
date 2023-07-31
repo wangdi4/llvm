@@ -72,18 +72,18 @@ for.body3.lr.ph:                                  ; preds = %for.body.lr.ph, %fo
 
 for.body6.lr.ph:                                  ; preds = %for.body3.lr.ph, %for.inc24
   %indvars.iv51 = phi i64 [ 0, %for.body3.lr.ph ], [ %indvars.iv.next52, %for.inc24 ]
-  %arrayidx8 = getelementptr inbounds [1000 x [1000 x i32]], [1000 x [1000 x i32]]* @c, i64 0, i64 %indvars.iv51, i64 %indvars.iv55
-  %arrayidx8.promoted = load i32, i32* %arrayidx8, align 4, !tbaa !2
+  %arrayidx8 = getelementptr inbounds [1000 x [1000 x i32]], ptr @c, i64 0, i64 %indvars.iv51, i64 %indvars.iv55
+  %arrayidx8.promoted = load i32, ptr %arrayidx8, align 4, !tbaa !2
   br label %for.body6
 
 for.body6:                                        ; preds = %for.body6, %for.body6.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body6.lr.ph ], [ %indvars.iv.next, %for.body6 ]
   %1 = phi i32 [ %arrayidx8.promoted, %for.body6.lr.ph ], [ %add19, %for.body6 ]
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx12 = getelementptr inbounds [1000 x [1000 x i32]], [1000 x [1000 x i32]]* @a, i64 0,  i64 %indvars.iv.next, i64 %indvars.iv51
-  %2 = load i32, i32* %arrayidx12, align 4, !tbaa !2
-  %arrayidx17 = getelementptr inbounds [1000 x [1000 x i32]], [1000 x [1000 x i32]]* @b, i64 0, i64 %indvars.iv, i64 %0
-  %3 = load i32, i32* %arrayidx17, align 4, !tbaa !2
+  %arrayidx12 = getelementptr inbounds [1000 x [1000 x i32]], ptr @a, i64 0,  i64 %indvars.iv.next, i64 %indvars.iv51
+  %2 = load i32, ptr %arrayidx12, align 4, !tbaa !2
+  %arrayidx17 = getelementptr inbounds [1000 x [1000 x i32]], ptr @b, i64 0, i64 %indvars.iv, i64 %0
+  %3 = load i32, ptr %arrayidx17, align 4, !tbaa !2
   %mul = mul nsw i32 %3, %2
   %add18 = add i32 %1, 1
   %add19 = add i32 %add18, %mul
@@ -92,7 +92,7 @@ for.body6:                                        ; preds = %for.body6, %for.bod
 
 for.inc24:                                        ; preds = %for.body6
   %add19.lcssa = phi i32 [ %add19, %for.body6 ]
-  store i32 %add19.lcssa, i32* %arrayidx8, align 4, !tbaa !2
+  store i32 %add19.lcssa, ptr %arrayidx8, align 4, !tbaa !2
   %indvars.iv.next52 = add nuw nsw i64 %indvars.iv51, 1
   %exitcond54 = icmp eq i64 %indvars.iv.next52, %wide.trip.count
   br i1 %exitcond54, label %for.inc27, label %for.body6.lr.ph

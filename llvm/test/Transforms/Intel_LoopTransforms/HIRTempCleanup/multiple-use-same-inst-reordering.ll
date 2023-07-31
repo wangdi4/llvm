@@ -47,7 +47,7 @@
 ; CHECK: + END LOOP
 
 
-define void @foo(i32 %t12, i32 %nt.promoted29, i32* %ee, i32 %indvars.iv, i32 %indvars.iv27, i32 %t17, i1 %tobool.not) {
+define void @foo(i32 %t12, i32 %nt.promoted29, ptr %ee, i32 %indvars.iv, i32 %indvars.iv27, i32 %t17, i1 %tobool.not) {
 entry:
   br label %for.body3
 
@@ -58,9 +58,9 @@ for.body3:                                        ; preds = %for.inc7, %entry
   br i1 %tobool.not, label %if.else, label %for.inc7.loopexit
 
 if.else:                                          ; preds = %for.body3
-  %t19 = load i32, i32* %ee, align 4
+  %t19 = load i32, ptr %ee, align 4
   %mul = mul i32 %t19, %t18
-  store i32 %mul, i32* %ee, align 4
+  store i32 %mul, ptr %ee, align 4
   br label %for.inc7
 
 for.inc7.loopexit:                                ; preds = %for.body3

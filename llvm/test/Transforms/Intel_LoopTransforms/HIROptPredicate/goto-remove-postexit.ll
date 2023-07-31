@@ -41,7 +41,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @foo(i32* %p, i32 %n, i32 %s) {
+define dso_local void @foo(ptr %p, i32 %n, i32 %s) {
 entry:
   br label %for.body
 
@@ -79,8 +79,8 @@ for.cond1.for.end_crit_edge:                      ; preds = %for.inc
 for.end:                                          ; preds = %for.cond1.for.end_crit_edge, %for.body
   %t.1.lcssa = phi i32 [ %split, %for.cond1.for.end_crit_edge ], [ %t.05, %for.body ]
   %idxprom = sext i32 %i.06 to i64
-  %arrayidx = getelementptr inbounds i32, i32* %p, i64 %idxprom
-  store i32 %t.1.lcssa, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %p, i64 %idxprom
+  store i32 %t.1.lcssa, ptr %arrayidx, align 4
   br label %for.inc5
 
 for.inc5:                                         ; preds = %for.end
@@ -92,8 +92,8 @@ for.end7:                                         ; preds = %for.inc5
   br label %L1
 
 L1:                                               ; preds = %for.end7, %if.then
-  %arrayidx8 = getelementptr inbounds i32, i32* %p, i64 0
-  store i32 0, i32* %arrayidx8, align 4
+  %arrayidx8 = getelementptr inbounds i32, ptr %p, i64 0
+  store i32 0, ptr %arrayidx8, align 4
   ret void
 }
 

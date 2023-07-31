@@ -46,7 +46,7 @@
 ; CHECK-LIVEIN: LiveIn symbases:
 ; CHECK-LIVEIN-SAME: [[LIVEINSYM:.*]]
 
-define void @foo(i32 %n, i32* nocapture %A, i32* nocapture %B) {
+define void @foo(i32 %n, ptr nocapture %A, ptr nocapture %B) {
 entry:
   %cmp24 = icmp sgt i32 %n, 1
   br i1 %cmp24, label %for.body4.lr.ph.preheader, label %for.end10
@@ -59,18 +59,18 @@ for.body4.lr.ph:                                  ; preds = %for.body4.lr.ph.pre
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.inc8 ], [ 1, %for.body4.lr.ph.preheader ]
   %t.026 = phi i32 [ %mul, %for.inc8 ], [ 1, %for.body4.lr.ph.preheader ]
   %mul = shl nsw i32 %t.026, 1
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %arrayidx6 = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %arrayidx6 = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
   br label %for.body4
 
 for.body4:                                        ; preds = %for.body4, %for.body4.lr.ph
   %j.023 = phi i32 [ 0, %for.body4.lr.ph ], [ %inc, %for.body4 ]
-  %0 = load i32, i32* %arrayidx, align 4
+  %0 = load i32, ptr %arrayidx, align 4
   %add = add nsw i32 %0, %t.026
-  store i32 %add, i32* %arrayidx, align 4
-  %1 = load i32, i32* %arrayidx6, align 4
+  store i32 %add, ptr %arrayidx, align 4
+  %1 = load i32, ptr %arrayidx6, align 4
   %add7 = add nsw i32 %1, %mul
-  store i32 %add7, i32* %arrayidx6, align 4
+  store i32 %add7, ptr %arrayidx6, align 4
   %inc = add nuw nsw i32 %j.023, 1
   %exitcond = icmp eq i32 %inc, %n
   br i1 %exitcond, label %for.inc8, label %for.body4

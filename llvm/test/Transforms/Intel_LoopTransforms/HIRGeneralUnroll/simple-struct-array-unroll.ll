@@ -21,7 +21,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @arr = common local_unnamed_addr global [100 x %struct.S] zeroinitializer, align 16
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i32* nocapture readnone %A, i32 %n) local_unnamed_addr #0 {
+define void @foo(ptr nocapture readnone %A, i32 %n) local_unnamed_addr #0 {
 entry:
   %cmp5 = icmp sgt i32 %n, 0
   br i1 %cmp5, label %for.body.preheader, label %for.end
@@ -31,9 +31,9 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.preheader ]
-  %a = getelementptr inbounds [100 x %struct.S], [100 x %struct.S]* @arr, i64 0, i64 %indvars.iv, i32 0
+  %a = getelementptr inbounds [100 x %struct.S], ptr @arr, i64 0, i64 %indvars.iv, i32 0
   %0 = trunc i64 %indvars.iv to i32
-  store i32 %0, i32* %a, align 4
+  store i32 %0, ptr %a, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, %n

@@ -96,39 +96,39 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define i32 @foo(i32* nocapture %A, i32* nocapture readonly %B) #0 {
+define i32 @foo(ptr nocapture %A, ptr nocapture readonly %B) #0 {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %0 = sub nuw nsw i64 20, %indvars.iv
-  %arrayidx = getelementptr inbounds i32, i32* %B, i64 %0
-  %1 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds i32, ptr %B, i64 %0
+  %1 = load i32, ptr %arrayidx, align 4, !tbaa !1
   %2 = add nuw nsw i64 %indvars.iv, 2
   %3 = trunc i64 %2 to i32
   %add1 = add i32 %3, %1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx4 = getelementptr inbounds i32, i32* %A, i64 %indvars.iv.next
-  store i32 %add1, i32* %arrayidx4, align 4, !tbaa !1
+  %arrayidx4 = getelementptr inbounds i32, ptr %A, i64 %indvars.iv.next
+  store i32 %add1, ptr %arrayidx4, align 4, !tbaa !1
   %exitcond = icmp eq i64 %indvars.iv.next, 5
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body
-  %arrayidx5 = getelementptr inbounds i32, i32* %A, i64 1
-  %4 = load i32, i32* %arrayidx5, align 4, !tbaa !1
-  %arrayidx6 = getelementptr inbounds i32, i32* %B, i64 1
-  %5 = load i32, i32* %arrayidx6, align 4, !tbaa !1
+  %arrayidx5 = getelementptr inbounds i32, ptr %A, i64 1
+  %4 = load i32, ptr %arrayidx5, align 4, !tbaa !1
+  %arrayidx6 = getelementptr inbounds i32, ptr %B, i64 1
+  %5 = load i32, ptr %arrayidx6, align 4, !tbaa !1
   %add7 = add i32 %4, 1
   %add8 = add i32 %add7, %5
   ret i32 %add8
 }
 
 ; Function Attrs: nounwind argmemonly
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: nounwind argmemonly
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind argmemonly }
