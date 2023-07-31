@@ -136,7 +136,7 @@
 
 #if INTEL_CUSTOMIZATION
 
-#include "llvm/Analysis/SyncDependenceAnalysis.h"
+#include "SyncDependenceAnalysis.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/LoopInfo.h"
