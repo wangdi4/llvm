@@ -1,7 +1,7 @@
-; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -vpo-paropt-enable-push-code-location=true -S %s | FileCheck %s --check-prefix=PCL -check-prefix=ALL
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-use-mapper-api=false -vpo-paropt-enable-push-code-location=true -S %s | FileCheck %s --check-prefix=PCL -check-prefix=ALL
-; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -vpo-paropt-enable-push-code-location=false -S %s | FileCheck %s --check-prefix=NOPCL -check-prefix=ALL
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-use-mapper-api=false -vpo-paropt-enable-push-code-location=false -S %s | FileCheck %s --check-prefix=NOPCL -check-prefix=ALL
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -vpo-paropt-enable-push-code-location=true -S %s | FileCheck %s --check-prefix=PCL -check-prefix=ALL
+; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-use-mapper-api=false -vpo-paropt-enable-push-code-location=true -S %s | FileCheck %s --check-prefix=PCL -check-prefix=ALL
+; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -vpo-paropt-enable-push-code-location=false -S %s | FileCheck %s --check-prefix=NOPCL -check-prefix=ALL
+; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-use-mapper-api=false -vpo-paropt-enable-push-code-location=false -S %s | FileCheck %s --check-prefix=NOPCL -check-prefix=ALL
 ;
 ;Test src:
 ;void foo(int* p)
@@ -17,39 +17,34 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 target device_triples = "spir64"
 
-@llvm.global_ctors = appending global [1 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 0, ptr @.omp_offloading.requires_reg, ptr null }]
+@llvm.global_ctors = appending global [1 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 0, void ()* @.omp_offloading.requires_reg, i8* null }]
 
 ; PCL: [[SRC_STR:@[^ ]+]] = private unnamed_addr constant [50 x i8] c";/path/to/file/pushCodeLocationTest/jj.c;foo;3;4;;"
 ; NOPCL-NOT: private unnamed_addr constant [50 x i8] c";/path/to/file/pushCodeLocationTest/jj.c;foo;3;4;;"
 
 ; Function Attrs: noinline nounwind optnone uwtable
-define dso_local void @foo(ptr %p) #0 !dbg !8 {
+define dso_local void @foo(i32* %p) #0 !dbg !8 {
 entry:
-  %p.addr = alloca ptr, align 8
-  %p.map.ptr.tmp = alloca ptr, align 8
-  store ptr %p, ptr %p.addr, align 8
-  call void @llvm.dbg.declare(metadata ptr %p.addr, metadata !13, metadata !DIExpression()), !dbg !14
-  %0 = load ptr, ptr %p.addr, align 8, !dbg !15
-  %1 = load ptr, ptr %p.addr, align 8, !dbg !16
-  %arrayidx = getelementptr inbounds i32, ptr %1, i64 0, !dbg !16
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
-    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
-    "QUAL.OMP.MAP.TOFROM:AGGRHEAD"(ptr %0, ptr %arrayidx, i64 80),
-    "QUAL.OMP.PRIVATE:TYPED"(ptr %p.map.ptr.tmp, ptr null, i32 1) ]
-, !dbg !15
+  %p.addr = alloca i32*, align 8
+  %p.map.ptr.tmp = alloca i32*, align 8
+  store i32* %p, i32** %p.addr, align 8
+  call void @llvm.dbg.declare(metadata i32** %p.addr, metadata !13, metadata !DIExpression()), !dbg !14
+  %0 = load i32*, i32** %p.addr, align 8, !dbg !15
+  %1 = load i32*, i32** %p.addr, align 8, !dbg !16
+  %arrayidx = getelementptr inbounds i32, i32* %1, i64 0, !dbg !16
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM:AGGRHEAD"(i32* %0, i32* %arrayidx, i64 80), "QUAL.OMP.PRIVATE"(i32** %p.map.ptr.tmp) ], !dbg !15
 
 ; Check that we are generating __tgt_push_code_location only when -vpo-paropt-enable-push-code-location=true
-; PCL: call void @__tgt_push_code_location(ptr [[SRC_STR]], ptr @__tgt_target)
+; PCL: call void @__tgt_push_code_location(i8* getelementptr inbounds ([50 x i8], [50 x i8]* [[SRC_STR]], i32 0, i32 0), i8* bitcast (i32 (i64, i8*, i32, i8**, i8**, i64*, i64*)* @__tgt_target to i8*))
 ; NOPCL-NOT: call void @__tgt_push_code_location
 ; ALL: call i32 @__tgt_target({{.*}})
 
-  store ptr %0, ptr %p.map.ptr.tmp, align 8, !dbg !15
-  %3 = load ptr, ptr %p.map.ptr.tmp, align 8, !dbg !18
-  %arrayidx1 = getelementptr inbounds i32, ptr %3, i64 2, !dbg !18
-  store i32 3, ptr %arrayidx1, align 4, !dbg !20
+  store i32* %0, i32** %p.map.ptr.tmp, align 8, !dbg !15
+  %3 = load i32*, i32** %p.map.ptr.tmp, align 8, !dbg !18
+  %arrayidx1 = getelementptr inbounds i32, i32* %3, i64 2, !dbg !18
+  store i32 3, i32* %arrayidx1, align 4, !dbg !20
 
-  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.TARGET"() ]
-, !dbg !15
+  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.TARGET"() ], !dbg !15
   ret void, !dbg !21
 }
 
