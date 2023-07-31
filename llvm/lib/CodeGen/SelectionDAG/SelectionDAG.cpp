@@ -1970,10 +1970,8 @@ SDValue SelectionDAG::getCondCode(ISD::CondCode Cond) {
 
 SDValue SelectionDAG::getVScale(const SDLoc &DL, EVT VT, APInt MulImm,
                                 bool ConstantFold) {
-  assert(MulImm.getSignificantBits() <= VT.getSizeInBits() &&
-         "Immediate does not fit VT");
-
-  MulImm = MulImm.sextOrTrunc(VT.getSizeInBits());
+  assert(MulImm.getBitWidth() == VT.getSizeInBits() &&
+         "APInt size does not match type size!");
 
   if (ConstantFold) {
     const MachineFunction &MF = getMachineFunction();
@@ -5808,7 +5806,8 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
     if (OpOpcode == ISD::UNDEF)
       return getUNDEF(VT);
     if (OpOpcode == ISD::VSCALE && !NewNodesMustHaveLegalTypes)
-      return getVScale(DL, VT, N1.getConstantOperandAPInt(0));
+      return getVScale(DL, VT,
+                       N1.getConstantOperandAPInt(0).trunc(VT.getSizeInBits()));
     break;
   case ISD::ANY_EXTEND_VECTOR_INREG:
   case ISD::ZERO_EXTEND_VECTOR_INREG:
