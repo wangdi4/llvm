@@ -62,20 +62,20 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @b = common dso_local local_unnamed_addr global i32 0, align 4
 @a = common dso_local local_unnamed_addr global i32 0, align 4
-@d = common dso_local local_unnamed_addr global i32* null, align 8
+@d = common dso_local local_unnamed_addr global ptr null, align 8
 @c = common dso_local local_unnamed_addr global i16 0, align 2
 
 ; Function Attrs: norecurse nounwind uwtable
 define dso_local void @e() local_unnamed_addr #0 {
 entry:
-  %0 = load i32*, i32** @d, align 8, !tbaa !2
-  %.pre = load i32, i32* @b, align 4, !tbaa !6
+  %0 = load ptr, ptr @d, align 8, !tbaa !2
+  %.pre = load i32, ptr @b, align 4, !tbaa !6
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %f.03 = phi i32 [ 0, %entry ], [ %add, %for.body ]
-  store i32 %.pre, i32* @a, align 4, !tbaa !6
-  %1 = load i32, i32* %0, align 4, !tbaa !6
+  store i32 %.pre, ptr @a, align 4, !tbaa !6
+  %1 = load i32, ptr %0, align 4, !tbaa !6
   %add = add nuw nsw i32 %f.03, 3
   %cmp = icmp ult i32 %add, 51
   br i1 %cmp, label %for.body, label %for.end
@@ -84,7 +84,7 @@ for.end:                                          ; preds = %for.body
   %.lcssa = phi i32 [ %1, %for.body ]
   %mul = mul nsw i32 %.lcssa, %.lcssa
   %conv = trunc i32 %mul to i16
-  store i16 %conv, i16* @c, align 2, !tbaa !8
+  store i16 %conv, ptr @c, align 2, !tbaa !8
   ret void
 }
 

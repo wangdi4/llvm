@@ -5,7 +5,7 @@
 
 ;HIR:
 ;            BEGIN REGION { }
-;                  @llvm.memcpy.p0i8.p0i8.i64(&((%SSS)[0].0.0[0]),  &((@__const.main.SSS)[0].0.0[0]),  10,  0);
+;                  @llvm.memcpy.p0.p0.i64(&((%SSS)[0].0.0[0]),  &((@__const.main.SSS)[0].0.0[0]),  10,  0);
 ;                  %1 = (%SSS)[0].0.0[%n];
 ;                  ret %1;
 ;            END REGION
@@ -36,17 +36,17 @@ entry:
   br label %bb
 
 bb:                                          ; preds = entry%
-  %0 = getelementptr inbounds %struct.s1, %struct.s1* %SSS, i64 0, i32 0, i32 0, i64 0
-  call void @llvm.memcpy.p0i8.p0i8.i64(i8* noundef nonnull align 1 dereferenceable(10) %0, i8* noundef nonnull align 1 dereferenceable(10) getelementptr inbounds (%struct.s1, %struct.s1* @__const.main.SSS, i64 0, i32 0, i32 0, i64 0), i64 10, i1 false)
+  %0 = getelementptr inbounds %struct.s1, ptr %SSS, i64 0, i32 0, i32 0, i64 0
+  call void @llvm.memcpy.p0.p0.i64(ptr noundef nonnull align 1 dereferenceable(10) %0, ptr noundef nonnull align 1 dereferenceable(10) @__const.main.SSS, i64 10, i1 false)
   %idxprom5 = zext i32 %n to i64
-  %arrayidx6 = getelementptr inbounds %struct.s1, %struct.s1* %SSS, i64 0, i32 0, i32 0, i64 %idxprom5, !intel-tbaa !3
-  %1 = load i8, i8* %arrayidx6, align 1, !tbaa !3
+  %arrayidx6 = getelementptr inbounds %struct.s1, ptr %SSS, i64 0, i32 0, i32 0, i64 %idxprom5, !intel-tbaa !3
+  %1 = load i8, ptr %arrayidx6, align 1, !tbaa !3
   %conv7 = sext i8 %1 to i32
   ret i32 %conv7
 }
 
 ; Function Attrs: mustprogress nocallback nofree nounwind willreturn memory(argmem: readwrite)
-declare void @llvm.memcpy.p0i8.p0i8.i64(i8* noalias nocapture writeonly, i8* noalias nocapture readonly, i64, i1 immarg) #2
+declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #2
 
 attributes #0 = { mustprogress nofree norecurse nosync nounwind willreturn memory(none) uwtable "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "frame-pointer"="none" "loopopt-pipeline"="light" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
 attributes #2 = { mustprogress nocallback nofree nounwind willreturn memory(argmem: readwrite) }

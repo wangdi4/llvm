@@ -93,19 +93,18 @@ target triple = "x86_64-unknown-linux-gnu"
 @"crout_$IMAX" = external hidden unnamed_addr global [1 x i32], align 16
 
 ; Function Attrs: nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #0
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #0
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
 declare double @llvm.fabs.f64(double) #1
 
 ; Function Attrs: nounwind readnone speculatable
-declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i64) #0
 
 ; Function Attrs: nofree nosync nounwind willreturn
-declare i8* @llvm.stacksave() #2
+declare ptr @llvm.stacksave() #2
 
 ; Function Attrs: nofree nosync nounwind willreturn
-declare void @llvm.stackrestore(i8*) #2
+declare void @llvm.stackrestore(ptr) #2
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
 declare i64 @llvm.smax.i64(i64, i64) #1
@@ -121,17 +120,17 @@ entry:
   %t6 = alloca [2 x i32], align 16
   %t7 = alloca [2 x i32], align 16
   %t8 = alloca [2 x i32], align 16
-  %t9 = getelementptr inbounds [2 x i32], [2 x i32]* %t8, i64 0, i64 0
-  %t10 = getelementptr inbounds [2 x i32], [2 x i32]* %t6, i64 0, i64 0
-  %t11 = getelementptr inbounds [2 x i32], [2 x i32]* %t3, i64 0, i64 0
+  %t9 = getelementptr inbounds [2 x i32], ptr %t8, i64 0, i64 0
+  %t10 = getelementptr inbounds [2 x i32], ptr %t6, i64 0, i64 0
+  %t11 = getelementptr inbounds [2 x i32], ptr %t3, i64 0, i64 0
   %t12 = alloca [250 x double], align 8
   %t13 = alloca [62500 x double], align 8
   %t14 = alloca [250 x i32], align 4
-  %t15 = getelementptr inbounds [62500 x double], [62500 x double]* %t13, i64 0, i64 0
-  %t16 = tail call i8* @llvm.stacksave()
+  %t15 = getelementptr inbounds [62500 x double], ptr %t13, i64 0, i64 0
+  %t16 = tail call ptr @llvm.stacksave()
   %t17 = alloca [250 x i32], align 4
-  %t18 = getelementptr inbounds [250 x i32], [250 x i32]* %t17, i64 0, i64 0
-  %t30 = getelementptr inbounds [250 x double], [250 x double]* %t12, i64 0, i64 0
+  %t18 = getelementptr inbounds [250 x i32], ptr %t17, i64 0, i64 0
+  %t30 = getelementptr inbounds [250 x double], ptr %t12, i64 0, i64 0
   br label %t514
 
 t514:                                              ; preds = %entry
@@ -145,9 +144,9 @@ t518:                                              ; preds = %t544, %t514
   %t520 = phi i64 [ %t550, %t544 ], [ 1, %t514 ]
   %t521 = tail call i64 @llvm.smax.i64(i64 %t520, i64 2)
   %t522 = add nuw nsw i64 %t516, %t521
-  %t523 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 2000, double* nonnull elementtype(double) %t15, i64 %t519)
-  %t524 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %t523, i64 %t516)
-  %t525 = load double, double* %t524, align 1, !tbaa !10
+  %t523 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 2000, ptr nonnull elementtype(double) %t15, i64 %t519)
+  %t524 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %t523, i64 %t516)
+  %t525 = load double, ptr %t524, align 1, !tbaa !10
   %t526 = sub nuw nsw i64 %t519, %t516
   %t527 = icmp eq i64 %t519, %t517
   br i1 %t527, label %t544, label %t528
@@ -159,10 +158,10 @@ t529:                                              ; preds = %t529, %t528
   %t530 = phi double [ %t538, %t529 ], [ 0.000000e+00, %t528 ]
   %t531 = phi i64 [ %t539, %t529 ], [ %t517, %t528 ]
   %t532 = phi i64 [ %t540, %t529 ], [ 1, %t528 ]
-  %t533 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %t30, i64 %t532)
-  %t534 = load double, double* %t533, align 1, !tbaa !14
-  %t535 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %t523, i64 %t531)
-  %t536 = load double, double* %t535, align 1, !tbaa !10
+  %t533 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %t30, i64 %t532)
+  %t534 = load double, ptr %t533, align 1, !tbaa !14
+  %t535 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %t523, i64 %t531)
+  %t536 = load double, ptr %t535, align 1, !tbaa !10
   %t537 = fmul fast double %t536, %t534
   %t538 = fadd fast double %t537, %t530
   %t539 = add nuw nsw i64 %t531, 1
@@ -178,9 +177,9 @@ t544:                                              ; preds = %t542, %t518
   %t545 = phi double [ 0.000000e+00, %t518 ], [ %t543, %t542 ]
   %t546 = fadd fast double %t545, %t525
   %t547 = fneg fast double %t546
-  store double %t547, double* %t524, align 1, !tbaa !10
-  %t548 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %t30, i64 %t526)
-  store double %t547, double* %t548, align 1, !tbaa !14
+  store double %t547, ptr %t524, align 1, !tbaa !10
+  %t548 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %t30, i64 %t526)
+  store double %t547, ptr %t548, align 1, !tbaa !14
   %t549 = add nuw nsw i64 %t519, 1
   %t550 = add nuw nsw i64 %t520, 1
   %t551 = icmp eq i64 %t549, 251
@@ -204,11 +203,11 @@ t556:                                              ; preds = %t625, %t555
 t561:                                              ; preds = %t561, %t556
   %t562 = phi i64 [ %t568, %t561 ], [ %t560, %t556 ]
   %t563 = phi i64 [ %t569, %t561 ], [ 1, %t556 ]
-  %t564 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 2000, double* nonnull elementtype(double) %t15, i64 %t562)
-  %t565 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %t564, i64 %t557)
-  %t566 = load double, double* %t565, align 1, !tbaa !10
-  %t567 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %t30, i64 %t563)
-  store double %t566, double* %t567, align 1, !tbaa !14
+  %t564 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 2000, ptr nonnull elementtype(double) %t15, i64 %t562)
+  %t565 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %t564, i64 %t557)
+  %t566 = load double, ptr %t565, align 1, !tbaa !10
+  %t567 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %t30, i64 %t563)
+  store double %t566, ptr %t567, align 1, !tbaa !14
   %t568 = add nuw nsw i64 %t562, 1
   %t569 = add nuw nsw i64 %t563, 1
   %t570 = icmp ugt i64 %t569, %t559
@@ -219,19 +218,19 @@ t571:                                              ; preds = %t561
 
 t572:                                              ; preds = %t590, %t571
   %t573 = phi i64 [ %t593, %t590 ], [ 1, %t571 ]
-  %t574 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 2000, double* nonnull elementtype(double) %t15, i64 %t573)
-  %t575 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %t574, i64 %t557)
-  %t576 = load double, double* %t575, align 1, !tbaa !10
+  %t574 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 2000, ptr nonnull elementtype(double) %t15, i64 %t573)
+  %t575 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %t574, i64 %t557)
+  %t576 = load double, ptr %t575, align 1, !tbaa !10
   br label %t577
 
 t577:                                              ; preds = %t577, %t572
   %t578 = phi double [ %t586, %t577 ], [ 0.000000e+00, %t572 ]
   %t579 = phi i64 [ %t587, %t577 ], [ %t560, %t572 ]
   %t580 = phi i64 [ %t588, %t577 ], [ 1, %t572 ]
-  %t581 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %t30, i64 %t580)
-  %t582 = load double, double* %t581, align 1, !tbaa !14
-  %t583 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %t574, i64 %t579)
-  %t584 = load double, double* %t583, align 1, !tbaa !10
+  %t581 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %t30, i64 %t580)
+  %t582 = load double, ptr %t581, align 1, !tbaa !14
+  %t583 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %t574, i64 %t579)
+  %t584 = load double, ptr %t583, align 1, !tbaa !10
   %t585 = fmul fast double %t584, %t582
   %t586 = fadd fast double %t585, %t578
   %t587 = add nuw nsw i64 %t579, 1
@@ -242,7 +241,7 @@ t577:                                              ; preds = %t577, %t572
 t590:                                              ; preds = %t577
   %t591 = phi double [ %t586, %t577 ]
   %t592 = fadd fast double %t591, %t576
-  store double %t592, double* %t575, align 1, !tbaa !10
+  store double %t592, ptr %t575, align 1, !tbaa !10
   %t593 = add nuw nsw i64 %t573, 1
   %t594 = icmp eq i64 %t593, %t558
   br i1 %t594, label %t595, label %t572
@@ -253,7 +252,7 @@ t595:                                              ; preds = %t590
 t596:                                              ; preds = %t620, %t595
   %t597 = phi i64 [ %t623, %t620 ], [ %t558, %t595 ]
   %t598 = sub nsw i64 251, %t597
-  %t599 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 2000, double* nonnull elementtype(double) %t15, i64 %t597)
+  %t599 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 2000, ptr nonnull elementtype(double) %t15, i64 %t597)
   %t600 = icmp ugt i64 %t597, 250
   br i1 %t600, label %t620, label %t601
 
@@ -266,10 +265,10 @@ t603:                                              ; preds = %t603, %t601
   %t605 = phi i64 [ %t614, %t603 ], [ %t597, %t601 ]
   %t606 = phi i64 [ %t615, %t603 ], [ %t602, %t601 ]
   %t607 = phi i64 [ %t616, %t603 ], [ 1, %t601 ]
-  %t608 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %t30, i64 %t606)
-  %t609 = load double, double* %t608, align 1, !tbaa !14
-  %t610 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %t599, i64 %t605)
-  %t611 = load double, double* %t610, align 1, !tbaa !10
+  %t608 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %t30, i64 %t606)
+  %t609 = load double, ptr %t608, align 1, !tbaa !14
+  %t610 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %t599, i64 %t605)
+  %t611 = load double, ptr %t610, align 1, !tbaa !10
   %t612 = fmul fast double %t611, %t609
   %t613 = fadd fast double %t612, %t604
   %t614 = add nuw nsw i64 %t605, 1
@@ -284,8 +283,8 @@ t618:                                              ; preds = %t603
 
 t620:                                              ; preds = %t618, %t596
   %t621 = phi double [ 0.000000e+00, %t596 ], [ %t619, %t618 ]
-  %t622 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %t599, i64 %t557)
-  store double %t621, double* %t622, align 1, !tbaa !10
+  %t622 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %t599, i64 %t557)
+  store double %t621, ptr %t622, align 1, !tbaa !10
   %t623 = add nuw nsw i64 %t597, 1
   %t624 = icmp eq i64 %t623, 251
   br i1 %t624, label %t625, label %t596

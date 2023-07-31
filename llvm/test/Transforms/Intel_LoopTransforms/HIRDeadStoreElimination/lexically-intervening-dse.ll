@@ -21,16 +21,16 @@
 ;
 ; CHECK-NOT:       (%i)[0] = 3;
 ;
-define void @foo(i8* %c, i32* %i) {
+define void @foo(ptr %c, ptr %i) {
 entry:
   br label %bb
 
 bb:
-  store i32 1, i32* %i, align 4
-  %t = load i8, i8*  %c, align 1
-  store i32 3, i32* %i, align 4
-  store i8 1, i8* %c, align 1
-  store i32 4, i32* %i, align 4
+  store i32 1, ptr %i, align 4
+  %t = load i8, ptr  %c, align 1
+  store i32 3, ptr %i, align 4
+  store i8 1, ptr %c, align 1
+  store i32 4, ptr %i, align 4
   ret void
 }
 

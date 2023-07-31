@@ -48,7 +48,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @window2d(double* %A, double*noalias %B) {
+define void @window2d(ptr %A, ptr noalias %B) {
 
 entry:
   br label %L1
@@ -68,8 +68,8 @@ L3:
   %k = phi i64 [ 0, %L2 ], [ %k.next, %L3 ]
   %sum.L3 = phi double [ %sum, %L2 ], [ %sum.next.L3, %L3 ]
   %ijk = add nsw nuw i64 %ij, %k
-  %Aijkptr = getelementptr inbounds double, double* %A, i64 %ijk
-  %Aijk = load double, double* %Aijkptr, align 8
+  %Aijkptr = getelementptr inbounds double, ptr %A, i64 %ijk
+  %Aijk = load double, ptr %Aijkptr, align 8
   %sum.next.L3 = fadd fast double %sum.L3, %Aijk
   %k.next = add nsw nuw i64 %k, 1
   %cond.L3 = icmp ne i64 %k.next, 8
@@ -83,8 +83,8 @@ L2.latch:
 
 L1.latch:
   %sum.final = phi double [ %sum.next, %L2.latch ]
-  %Biptr = getelementptr inbounds double, double* %B, i64 %i
-  store double %sum.final, double* %Biptr, align 8
+  %Biptr = getelementptr inbounds double, ptr %B, i64 %i
+  store double %sum.final, ptr %Biptr, align 8
   %i.next = add nsw nuw i64 %i, 1
   %cond.L1 = icmp ne i64 %i.next, 56
   br i1 %cond.L1, label %L1, label %exit

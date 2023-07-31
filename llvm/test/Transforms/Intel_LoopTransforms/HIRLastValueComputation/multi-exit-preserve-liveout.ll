@@ -44,7 +44,7 @@
 ; CHECK:      + END LOOP
 
 
-define void @foo(i32* %ptr, i64 %stride, i1 %cond) {
+define void @foo(ptr %ptr, i64 %stride, i1 %cond) {
 entry:
   br label %loop.outer
 
@@ -64,8 +64,8 @@ inner.latch:                                             ; preds = %loop.inner
 outer.latch:                                             ; preds = %inner.latch, %loop.inner
   %liveout = phi i32 [ %inner.iv, %loop.inner ], [ 10000, %inner.latch ]
   %i77 = add nuw nsw i64 %outer.iv, %stride
-  %i78 = getelementptr inbounds i32, i32* %ptr, i64 %i77
-  store i32 %liveout, i32* %i78, align 4
+  %i78 = getelementptr inbounds i32, ptr %ptr, i64 %i77
+  store i32 %liveout, ptr %i78, align 4
   %outer.iv.inc = add nuw nsw i64 %outer.iv, 1
   %i80 = icmp eq i64 %outer.iv.inc, 2000
   br i1 %i80, label %exit, label %loop.outer

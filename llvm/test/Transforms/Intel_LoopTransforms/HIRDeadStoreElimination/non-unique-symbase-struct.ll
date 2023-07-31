@@ -80,30 +80,30 @@ for.body.lr.ph:                                   ; preds = %entry
 
 for.body3.preheader:                              ; preds = %for.body.lr.ph, %for.end
   %indvars.iv34 = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next35, %for.end ]
-  %a = getelementptr inbounds [50 x %struct.ab], [50 x %struct.ab]* @A, i64 0, i64 %indvars.iv34, i32 0
-  store i32 0, i32* %a, align 8, !tbaa !2
+  %a = getelementptr inbounds [50 x %struct.ab], ptr @A, i64 0, i64 %indvars.iv34, i32 0
+  store i32 0, ptr %a, align 8, !tbaa !2
   br label %for.body3
 
 for.body3:                                        ; preds = %for.body3, %for.body3.preheader
   %indvars.iv = phi i64 [ 0, %for.body3.preheader ], [ %indvars.iv.next, %for.body3 ]
-  %a6 = getelementptr inbounds [50 x %struct.ab], [50 x %struct.ab]* @T, i64 0, i64 %indvars.iv, i32 0
-  %0 = load i32, i32* %a6, align 8, !tbaa !2
-  %b = getelementptr inbounds [50 x %struct.ab], [50 x %struct.ab]* @B, i64 0, i64 %indvars.iv, i32 1
-  %1 = load i32, i32* %b, align 4, !tbaa !7
+  %a6 = getelementptr inbounds [50 x %struct.ab], ptr @T, i64 0, i64 %indvars.iv, i32 0
+  %0 = load i32, ptr %a6, align 8, !tbaa !2
+  %b = getelementptr inbounds [50 x %struct.ab], ptr @B, i64 0, i64 %indvars.iv, i32 1
+  %1 = load i32, ptr %b, align 4, !tbaa !7
   %add = add nsw i32 %1, %0
-  store i32 %add, i32* %a6, align 8, !tbaa !2
+  store i32 %add, ptr %a6, align 8, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.end, label %for.body3
 
 for.end:                                          ; preds = %for.body3
-  %2 = getelementptr inbounds [50 x %struct.ab], [50 x %struct.ab]* @T, i64 0, i64 %indvars.iv34, i32 0
-  %3 = load i32, i32* %2, align 8, !tbaa !8
-  store i32 %3, i32* %a, align 8, !tbaa !8
-  %4 = getelementptr inbounds [50 x %struct.ab], [50 x %struct.ab]* @T, i64 0, i64 %indvars.iv34, i32 1
-  %5 = load i32, i32* %4, align 4, !tbaa !8
-  %6 = getelementptr inbounds [50 x %struct.ab], [50 x %struct.ab]* @A, i64 0, i64 %indvars.iv34, i32 1
-  store i32 %5, i32* %6, align 4, !tbaa !8
+  %2 = getelementptr inbounds [50 x %struct.ab], ptr @T, i64 0, i64 %indvars.iv34, i32 0
+  %3 = load i32, ptr %2, align 8, !tbaa !8
+  store i32 %3, ptr %a, align 8, !tbaa !8
+  %4 = getelementptr inbounds [50 x %struct.ab], ptr @T, i64 0, i64 %indvars.iv34, i32 1
+  %5 = load i32, ptr %4, align 4, !tbaa !8
+  %6 = getelementptr inbounds [50 x %struct.ab], ptr @A, i64 0, i64 %indvars.iv34, i32 1
+  store i32 %5, ptr %6, align 4, !tbaa !8
   %indvars.iv.next35 = add nuw nsw i64 %indvars.iv34, 1
   %exitcond37 = icmp eq i64 %indvars.iv.next35, %wide.trip.count
   br i1 %exitcond37, label %for.end18.loopexit, label %for.body3.preheader
@@ -112,7 +112,7 @@ for.end18.loopexit:                               ; preds = %for.end
   br label %for.end18
 
 for.end18:                                        ; preds = %for.end18.loopexit, %entry
-  %7 = load i32, i32* getelementptr inbounds ([50 x %struct.ab], [50 x %struct.ab]* @A, i64 0, i64 0, i32 0), align 16, !tbaa !2
+  %7 = load i32, ptr @A, align 16, !tbaa !2
   ret i32 %7
 }
 

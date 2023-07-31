@@ -54,7 +54,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nounwind uwtable
-define dso_local void @foo(i32* noalias %A, i32** noalias %B, i32 %n) local_unnamed_addr {
+define dso_local void @foo(ptr noalias %A, ptr noalias %B, i32 %n) local_unnamed_addr {
 entry:
   %cmp523 = icmp sgt i32 %n, 0
   br i1 %cmp523, label %for.cond1.preheader.us.preheader, label %for.end14
@@ -69,8 +69,8 @@ for.cond1.preheader.us:                           ; preds = %for.inc12.us-lcssa.
 
 for.body3.us.us:                                  ; preds = %for.cond4.for.inc9_crit_edge.us.us, %for.cond1.preheader.us
   %indvars.iv47 = phi i64 [ 0, %for.cond1.preheader.us ], [ %indvars.iv.next48, %for.cond4.for.inc9_crit_edge.us.us ]
-  %arrayidx.us.us = getelementptr inbounds i32*, i32** %B, i64 %indvars.iv47
-  %0 = load i32*, i32** %arrayidx.us.us, align 8, !tbaa !2
+  %arrayidx.us.us = getelementptr inbounds ptr, ptr %B, i64 %indvars.iv47
+  %0 = load ptr, ptr %arrayidx.us.us, align 8, !tbaa !2
   %1 = trunc i64 %indvars.iv47 to i32
   br label %for.body6.us.us
 
@@ -81,8 +81,8 @@ for.cond4.for.inc9_crit_edge.us.us:               ; preds = %for.body6.us.us
 
 for.body6.us.us:                                  ; preds = %for.body6.us.us, %for.body3.us.us
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body6.us.us ], [ 0, %for.body3.us.us ]
-  %arrayidx8.us.us = getelementptr inbounds i32, i32* %0, i64 %indvars.iv
-  store i32 %1, i32* %arrayidx8.us.us, align 4, !tbaa !8
+  %arrayidx8.us.us = getelementptr inbounds i32, ptr %0, i64 %indvars.iv
+  store i32 %1, ptr %arrayidx8.us.us, align 4, !tbaa !8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.cond4.for.inc9_crit_edge.us.us, label %for.body6.us.us

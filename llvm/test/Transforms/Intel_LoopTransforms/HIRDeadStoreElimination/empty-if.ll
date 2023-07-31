@@ -43,16 +43,16 @@ for.body:                                         ; preds = %if.end, %for.body.p
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %if.end ]
   %s.017 = phi i32 [ 0, %for.body.preheader ], [ %add, %if.end ]
   %cmp1 = icmp ugt i64 %indvars.iv, 5
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @a, i64 0, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @a, i64 0, i64 %indvars.iv
   br i1 %cmp1, label %if.then, label %if.end
 
 if.then:                                          ; preds = %for.body
-  store i32 3, i32* %arrayidx, align 4, !tbaa !2
+  store i32 3, ptr %arrayidx, align 4, !tbaa !2
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %for.body
   %0 = trunc i64 %indvars.iv to i32
-  store i32 %0, i32* %arrayidx, align 4, !tbaa !2
+  store i32 %0, ptr %arrayidx, align 4, !tbaa !2
   %add = add nuw nsw i32 %s.017, %0
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count

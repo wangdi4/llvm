@@ -60,11 +60,11 @@ for.body8.i:                                      ; preds = %for.body8.i, %for.c
   %row_sum.037.i = phi double [ 0.000000e+00, %for.cond5.preheader.i ], [ %t101, %for.body8.i ]
   %t96 = shl i64 %indvars.iv.i435, 8
   %t97 = add nuw nsw i64 %t96, %indvars.iv50.i
-  %arrayidx.i436 = getelementptr inbounds [65536 x double], [65536 x double]* @_ZZ4mainE9first_ref, i64 0, i64 %t97
-  %t98 = load double, double* %arrayidx.i436, align 8
+  %arrayidx.i436 = getelementptr inbounds [65536 x double], ptr @_ZZ4mainE9first_ref, i64 0, i64 %t97
+  %t98 = load double, ptr %arrayidx.i436, align 8
   %t99 = add nuw nsw i64 %indvars.iv.i435, %t94
-  %arrayidx12.i = getelementptr inbounds [65536 x double], [65536 x double]* @_ZZ4mainE10second_ref, i64 0, i64 %t99
-  %t100 = load double, double* %arrayidx12.i, align 8
+  %arrayidx12.i = getelementptr inbounds [65536 x double], ptr @_ZZ4mainE10second_ref, i64 0, i64 %t99
+  %t100 = load double, ptr %arrayidx12.i, align 8
   %t101 = call double @bar(double %t98, double %t100, double %row_sum.037.i) #16
   %indvars.iv.next.i437 = add nuw nsw i64 %indvars.iv.i435, 1
   %exitcond.i438 = icmp eq i64 %indvars.iv.next.i437, 256
@@ -73,8 +73,8 @@ for.body8.i:                                      ; preds = %for.body8.i, %for.c
 for.cond.cleanup7.i:                              ; preds = %for.body8.i
   %.lcssa = phi double [ %t101, %for.body8.i ]
   %t95 = add nuw nsw i64 %t94, %indvars.iv50.i
-  %arrayidx16.i = getelementptr inbounds [65536 x double], [65536 x double]* @_ZZ4mainE11product_ref, i64 0, i64 %t95
-  store double %.lcssa, double* %arrayidx16.i, align 8
+  %arrayidx16.i = getelementptr inbounds [65536 x double], ptr @_ZZ4mainE11product_ref, i64 0, i64 %t95
+  store double %.lcssa, ptr %arrayidx16.i, align 8
   %indvars.iv.next45.i = add nuw nsw i64 %indvars.iv44.i, 1
   %exitcond49.i = icmp eq i64 %indvars.iv.next45.i, 256
   br i1 %exitcond49.i, label %for.cond.cleanup3.i434, label %for.cond5.preheader.i

@@ -24,18 +24,18 @@
 ; CHECK:      |   (%A)[0] = 5;
 ; CHECK:      + END LOOP
 
-define dso_local i32 @foo(i32* nocapture %A) {
+define dso_local i32 @foo(ptr nocapture %A) {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %t.02 = phi i32 [ 0, %entry ], [ %add, %for.body ]
   %i.01 = phi i32 [ 0, %entry ], [ %inc, %for.body ]
-  store i32 0, i32* %A, align 4
-  store i32 %i.01, i32* %A, align 4
-  %ld = load i32, i32* %A, align 4
+  store i32 0, ptr %A, align 4
+  store i32 %i.01, ptr %A, align 4
+  %ld = load i32, ptr %A, align 4
   %add = add nuw nsw i32 %t.02, %ld
-  store i32 5, i32* %A, align 4
+  store i32 5, ptr %A, align 4
   %inc = add nuw nsw i32 %i.01, 1
   %cmp = icmp ult i32 %inc, 100
   br i1 %cmp, label %for.body, label %for.end

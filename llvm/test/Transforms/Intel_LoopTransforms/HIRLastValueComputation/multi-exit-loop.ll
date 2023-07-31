@@ -32,7 +32,7 @@
 ; CHECK:           %i.012.out = %N + -1;
 ; CHECK:  END REGION
 ;
-define dso_local i64 @foo(i64 %N, i64* nocapture %A) local_unnamed_addr {
+define dso_local i64 @foo(i64 %N, ptr nocapture %A) local_unnamed_addr {
 entry:
   %cmp11 = icmp sgt i64 %N, 0
   br i1 %cmp11, label %for.body.preheader, label %for.end
@@ -43,14 +43,14 @@ for.body.preheader:                               ; preds = %entry
 for.body:                                         ; preds = %for.body.preheader, %if.end
   %t.013 = phi i64 [ %i.012, %if.end ], [ 0, %for.body.preheader ]
   %i.012 = phi i64 [ %inc3, %if.end ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i64, i64* %A, i64 %i.012
-  %0 = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %A, i64 %i.012
+  %0 = load i64, ptr %arrayidx, align 8
   %cmp1 = icmp sgt i64 %0, 0
   br i1 %cmp1, label %for.end.loopexit, label %if.end
 
 if.end:                                           ; preds = %for.body
   %inc = add nsw i64 %0, 1
-  store i64 %inc, i64* %arrayidx, align 8
+  store i64 %inc, ptr %arrayidx, align 8
   %inc3 = add nuw nsw i64 %i.012, 1
   %cmp = icmp slt i64 %inc3, %N
   br i1 %cmp, label %for.body, label %for.end.loopexit

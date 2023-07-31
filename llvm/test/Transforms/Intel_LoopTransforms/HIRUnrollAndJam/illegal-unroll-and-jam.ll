@@ -55,14 +55,14 @@ for.body3.preheader:                              ; preds = %for.cond1.preheader
 
 for.body3:                                        ; preds = %for.body3.preheader, %for.body3
   %j.024 = phi i64 [ %inc, %for.body3 ], [ 0, %for.body3.preheader ]
-  %arrayidx4 = getelementptr inbounds [100 x [100 x float]], [100 x [100 x float]]* @A, i64 0, i64 %i.026, i64 %j.024
-  %0 = load float, float* %arrayidx4, align 4
-  %arrayidx6 = getelementptr inbounds [100 x [100 x float]], [100 x [100 x float]]* @A, i64 0, i64 %add7, i64 %j.024
-  %1 = load float, float* %arrayidx6, align 4
+  %arrayidx4 = getelementptr inbounds [100 x [100 x float]], ptr @A, i64 0, i64 %i.026, i64 %j.024
+  %0 = load float, ptr %arrayidx4, align 4
+  %arrayidx6 = getelementptr inbounds [100 x [100 x float]], ptr @A, i64 0, i64 %add7, i64 %j.024
+  %1 = load float, ptr %arrayidx6, align 4
   %add = fadd float %0, %1
   %sub = add nsw i64 %j.024, -1
-  %arrayidx9 = getelementptr inbounds [100 x [100 x float]], [100 x [100 x float]]* @A, i64 0, i64 %add7, i64 %sub
-  store float %add, float* %arrayidx9, align 4
+  %arrayidx9 = getelementptr inbounds [100 x [100 x float]], ptr @A, i64 0, i64 %add7, i64 %sub
+  store float %add, ptr %arrayidx9, align 4
   %inc = add nuw nsw i64 %j.024, 1
   %exitcond = icmp eq i64 %inc, %m
   br i1 %exitcond, label %for.inc10.loopexit, label %for.body3

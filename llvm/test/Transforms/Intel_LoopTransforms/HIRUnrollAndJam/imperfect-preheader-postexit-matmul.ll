@@ -59,17 +59,17 @@ for.body3:                                        ; preds = %for.inc17, %for.bod
   br i1 %cmp535, label %for.body6.lr.ph, label %for.inc17
 
 for.body6.lr.ph:                                  ; preds = %for.body3
-  %arrayidx16 = getelementptr inbounds [100 x [100 x double]], [100 x [100 x double]]* @C, i64 0, i64 %indvars.iv45, i64 %indvars.iv41
-  %arrayidx16.promoted = load double, double* %arrayidx16, align 8, !tbaa !2
+  %arrayidx16 = getelementptr inbounds [100 x [100 x double]], ptr @C, i64 0, i64 %indvars.iv45, i64 %indvars.iv41
+  %arrayidx16.promoted = load double, ptr %arrayidx16, align 8, !tbaa !2
   br label %for.body6
 
 for.body6:                                        ; preds = %for.body6, %for.body6.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body6.lr.ph ], [ %indvars.iv.next, %for.body6 ]
   %0 = phi double [ %arrayidx16.promoted, %for.body6.lr.ph ], [ %add, %for.body6 ]
-  %arrayidx8 = getelementptr inbounds [100 x [100 x double]], [100 x [100 x double]]* @A, i64 0, i64 %indvars.iv45, i64 %indvars.iv
-  %1 = load double, double* %arrayidx8, align 8, !tbaa !2
-  %arrayidx12 = getelementptr inbounds [100 x [100 x double]], [100 x [100 x double]]* @B, i64 0, i64 %indvars.iv, i64 %indvars.iv41
-  %2 = load double, double* %arrayidx12, align 8, !tbaa !2
+  %arrayidx8 = getelementptr inbounds [100 x [100 x double]], ptr @A, i64 0, i64 %indvars.iv45, i64 %indvars.iv
+  %1 = load double, ptr %arrayidx8, align 8, !tbaa !2
+  %arrayidx12 = getelementptr inbounds [100 x [100 x double]], ptr @B, i64 0, i64 %indvars.iv, i64 %indvars.iv41
+  %2 = load double, ptr %arrayidx12, align 8, !tbaa !2
   %mul = fmul double %1, %2
   %add = fadd double %0, %mul
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -78,7 +78,7 @@ for.body6:                                        ; preds = %for.body6, %for.bod
 
 for.cond4.for.inc17_crit_edge:                    ; preds = %for.body6
   %add.lcssa = phi double [ %add, %for.body6 ]
-  store double %add.lcssa, double* %arrayidx16, align 8, !tbaa !2
+  store double %add.lcssa, ptr %arrayidx16, align 8, !tbaa !2
   br label %for.inc17
 
 for.inc17:                                        ; preds = %for.cond4.for.inc17_crit_edge, %for.body3

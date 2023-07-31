@@ -38,17 +38,17 @@
 ; CHECK-NOT: (%A)[5] = 0;
 
 
-define void @foo(i32* noalias %A, i32* noalias %B) {
+define void @foo(ptr noalias %A, ptr noalias %B) {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i32 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 5
-  store i32 0, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 5
+  store i32 0, ptr %arrayidx, align 4
   %sext = sext i32 %indvars.iv to i64
-  %arrayidx2 = getelementptr inbounds i32, i32* %B, i64 %sext
-  %ld = load i32, i32* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds i32, ptr %B, i64 %sext
+  %ld = load i32, ptr %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i32 %indvars.iv, 1
   %exitcond = icmp eq i32 0, %ld
   br i1 %exitcond, label %for.end.loopexit, label %for.body
@@ -58,11 +58,11 @@ for.end.loopexit:                                 ; preds = %for.body1
 
 for.body1:                                         ; preds = %for.body1, %for.end.loopexit
   %indvars.iv1 = phi i32 [ 0, %for.end.loopexit ], [ %indvars.iv.next1, %for.body1 ]
-  %arrayidx.1 = getelementptr inbounds i32, i32* %A, i64 5
-  store i32 %indvars.iv, i32* %arrayidx.1, align 4
+  %arrayidx.1 = getelementptr inbounds i32, ptr %A, i64 5
+  store i32 %indvars.iv, ptr %arrayidx.1, align 4
   %sext1 = sext i32 %indvars.iv1 to i64
-  %arrayidx2.1 = getelementptr inbounds i32, i32* %B, i64 %sext1
-  %ld1 = load i32, i32* %arrayidx2.1, align 4
+  %arrayidx2.1 = getelementptr inbounds i32, ptr %B, i64 %sext1
+  %ld1 = load i32, ptr %arrayidx2.1, align 4
   %indvars.iv.next1 = add nuw nsw i32 %indvars.iv1, 1
   %exitcond1 = icmp eq i32 0, %ld1
   br i1 %exitcond1, label %for.end.loopexit1, label %for.body1

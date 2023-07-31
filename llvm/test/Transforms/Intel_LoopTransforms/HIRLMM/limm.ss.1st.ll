@@ -95,20 +95,20 @@ for.cond1.preheader:                              ; preds = %for.inc8, %entry
   %indvars.iv22 = phi i64 [ 0, %entry ], [ %indvars.iv.next23, %for.inc8 ]
   %0 = shl nsw i64 %indvars.iv22, 1
   %tobool = icmp eq i64 %indvars.iv22, 0
-  %arrayidx5 = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %indvars.iv22
+  %arrayidx5 = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %indvars.iv22
   %1 = trunc i64 %0 to i32
   br label %for.body3
 
 for.body3:                                        ; preds = %for.inc, %for.cond1.preheader
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.inc ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @B, i64 0, i64 %indvars.iv
-  store i32 %1, i32* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @B, i64 0, i64 %indvars.iv
+  store i32 %1, ptr %arrayidx, align 4, !tbaa !1
   br i1 %tobool, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body3
-  %2 = load i32, i32* %arrayidx5, align 4, !tbaa !1
+  %2 = load i32, ptr %arrayidx5, align 4, !tbaa !1
   %add = add nsw i32 %2, 1
-  store i32 %add, i32* %arrayidx5, align 4, !tbaa !1
+  store i32 %add, ptr %arrayidx5, align 4, !tbaa !1
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body3, %if.then
@@ -122,18 +122,18 @@ for.inc8:                                         ; preds = %for.inc
   br i1 %exitcond25, label %for.end10, label %for.cond1.preheader
 
 for.end10:                                        ; preds = %for.inc8
-  %3 = load i32, i32* getelementptr inbounds ([100 x i32], [100 x i32]* @A, i64 0, i64 0), align 16, !tbaa !1
-  %4 = load i32, i32* getelementptr inbounds ([100 x i32], [100 x i32]* @B, i64 0, i64 1), align 4, !tbaa !1
+  %3 = load i32, ptr @A, align 16, !tbaa !1
+  %4 = load i32, ptr getelementptr inbounds ([100 x i32], ptr @B, i64 0, i64 1), align 4, !tbaa !1
   %add11 = add i32 %3, 1
   %add12 = add i32 %add11, %4
   ret i32 %add12
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { norecurse nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

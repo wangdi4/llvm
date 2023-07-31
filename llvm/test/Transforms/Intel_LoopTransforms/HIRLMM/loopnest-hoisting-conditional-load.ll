@@ -44,14 +44,14 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @A = common dso_local local_unnamed_addr global [10 x [10 x i32]] zeroinitializer, align 16
 ; Function Attrs: nofree norecurse nounwind uwtable
-define dso_local void @foo(i32 %n, i32 %t, i32* noalias readonly %B) local_unnamed_addr #0 {
+define dso_local void @foo(i32 %n, i32 %t, ptr noalias readonly %B) local_unnamed_addr #0 {
 entry:
-  %gep = getelementptr inbounds i32, i32* %B, i64 2
+  %gep = getelementptr inbounds i32, ptr %B, i64 2
   %cmp25 = icmp sgt i32 %n, 0
   br i1 %cmp25, label %for.cond1.preheader.lr.ph, label %for.end12
 
 for.cond1.preheader.lr.ph:                        ; preds = %entry
-  %0 = load i32, i32* %gep, align 4
+  %0 = load i32, ptr %gep, align 4
   %add = add nsw i32 %0, %t
   %cmp4 = icmp sgt i32 %add, 3
   %wide.trip.count3032 = zext i32 %n to i64
@@ -67,10 +67,10 @@ for.body3:                                        ; preds = %for.inc, %for.body3
   br i1 %cmp4, label %if.then, label %for.inc
 
 if.then:                                          ; preds = %for.body3
-  %1 = load i32, i32* %gep, align 4
-  %arrayidx8 = getelementptr inbounds [10 x [10 x i32]], [10 x [10 x i32]]* @A, i64 0, i64 %indvars.iv28, i64 %indvars.iv
+  %1 = load i32, ptr %gep, align 4
+  %arrayidx8 = getelementptr inbounds [10 x [10 x i32]], ptr @A, i64 0, i64 %indvars.iv28, i64 %indvars.iv
   %add9 = add nsw i32 %div, %1
-  store i32 %add9, i32* %arrayidx8, align 4
+  store i32 %add9, ptr %arrayidx8, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body3, %if.then

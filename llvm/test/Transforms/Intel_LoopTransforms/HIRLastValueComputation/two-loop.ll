@@ -26,7 +26,7 @@
 ; ModuleID = 'new2.ll'
 source_filename = "new2.ll"
 
-define dso_local i32 @foo(i32* nocapture readnone %A, i32 %b, i32 %N, i32 %M) local_unnamed_addr {
+define dso_local i32 @foo(ptr nocapture readnone %A, i32 %b, i32 %N, i32 %M) local_unnamed_addr {
 entry:
   %cmp3 = icmp slt i32 0, %N
   br i1 %cmp3, label %for.cond1.preheader.lr.ph, label %for.end6

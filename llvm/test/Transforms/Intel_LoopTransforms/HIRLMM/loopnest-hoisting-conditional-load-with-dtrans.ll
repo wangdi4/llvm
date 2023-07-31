@@ -111,7 +111,7 @@ for.end9:                                         ; preds = %for.end9.loopexit, 
 }
 
 !1 = !{i32 0, i32 0}  ; i32
-!2 = !{%struct.IntPair zeroinitializer, i32 1}  ; %struct.IntPair*
+!2 = !{%struct.IntPair zeroinitializer, i32 1}  ; ptr
 !3 = distinct !{!2}
 !4 = distinct !{!2}
 !5 = !{!"S", %struct.IntPair zeroinitializer, i32 2, !1, !1} ; { i32, i32 }

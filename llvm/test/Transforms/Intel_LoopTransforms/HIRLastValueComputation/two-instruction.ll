@@ -26,7 +26,7 @@
 source_filename = "foo3.ll"
 
 ; Function Attrs: nounwind uwtable
-define dso_local i32 @foo(i32* %A, i32 %N, i32 %b) local_unnamed_addr #0 {
+define dso_local i32 @foo(ptr %A, i32 %N, i32 %b) local_unnamed_addr #0 {
 entry:
   %cmp1 = icmp slt i32 0, %N
   br i1 %cmp1, label %for.body.lr.ph, label %for.end
@@ -38,12 +38,12 @@ for.body:                                         ; preds = %for.body.lr.ph, %fo
   %i.02 = phi i32 [ 0, %for.body.lr.ph ], [ %add, %for.body ]
   %add = add nsw i32 %i.02, 1
   %idxprom = sext i32 %add to i64
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %idxprom
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %idxprom
+  %0 = load i32, ptr %arrayidx, align 4
   %add1 = add nsw i32 %0, %b
   %idxprom2 = sext i32 %i.02 to i64
-  %arrayidx3 = getelementptr inbounds i32, i32* %A, i64 %idxprom2
-  store i32 %add1, i32* %arrayidx3, align 4
+  %arrayidx3 = getelementptr inbounds i32, ptr %A, i64 %idxprom2
+  store i32 %add1, ptr %arrayidx3, align 4
   %mul = mul nsw i32 %b, %i.02
   %mul4 = mul nsw i32 %mul, 2
   %add5 = add nsw i32 %mul4, 100

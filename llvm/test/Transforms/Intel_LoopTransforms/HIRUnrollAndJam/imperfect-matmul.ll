@@ -89,19 +89,19 @@ for.cond.4.preheader.preheader:                   ; preds = %for.cond.4.preheade
 
 for.body.6.lr.ph:                                 ; preds = %for.inc.14, %for.cond.4.preheader.preheader
   %k.040 = phi i64 [ %inc15, %for.inc.14 ], [ 0, %for.cond.4.preheader.preheader ]
-  %arrayidx11 = getelementptr inbounds [1024 x [1024 x double]], [1024 x [1024 x double]]* @b, i64 0, i64 %k.040, i64 %j.043
-  %0 = load double, double* %arrayidx11, align 8, !tbaa !1
+  %arrayidx11 = getelementptr inbounds [1024 x [1024 x double]], ptr @b, i64 0, i64 %k.040, i64 %j.043
+  %0 = load double, ptr %arrayidx11, align 8, !tbaa !1
   br label %for.body.6
 
 for.body.6:                                       ; preds = %for.body.6, %for.body.6.lr.ph
   %i.038 = phi i64 [ 0, %for.body.6.lr.ph ], [ %inc, %for.body.6 ]
-  %arrayidx7 = getelementptr inbounds [1024 x [1024 x double]], [1024 x [1024 x double]]* @c, i64 0, i64 %i.038, i64 %j.043
-  %1 = load double, double* %arrayidx7, align 8, !tbaa !1
-  %arrayidx9 = getelementptr inbounds [1024 x [1024 x double]], [1024 x [1024 x double]]* @a, i64 0, i64 %i.038, i64 %k.040
-  %2 = load double, double* %arrayidx9, align 8, !tbaa !1
+  %arrayidx7 = getelementptr inbounds [1024 x [1024 x double]], ptr @c, i64 0, i64 %i.038, i64 %j.043
+  %1 = load double, ptr %arrayidx7, align 8, !tbaa !1
+  %arrayidx9 = getelementptr inbounds [1024 x [1024 x double]], ptr @a, i64 0, i64 %i.038, i64 %k.040
+  %2 = load double, ptr %arrayidx9, align 8, !tbaa !1
   %mul = fmul double %2, %0
   %add = fadd double %1, %mul
-  store double %add, double* %arrayidx7, align 8, !tbaa !1
+  store double %add, ptr %arrayidx7, align 8, !tbaa !1
   %inc = add nuw nsw i64 %i.038, 1
   %exitcond = icmp eq i64 %inc, %N
   br i1 %exitcond, label %for.inc.14, label %for.body.6

@@ -13,7 +13,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local double @sub1([412 x double]* nocapture %A, [512 x double]* nocapture %B, i32 %M, i32 %N, i32 %ntimes) local_unnamed_addr #0 {
+define dso_local double @sub1(ptr nocapture %A, ptr nocapture %B, i32 %M, i32 %N, i32 %ntimes) local_unnamed_addr #0 {
 entry:
   %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.BLOCK_LOOP"(), "QUAL.PRAGMA.LEVEL"(i32 1), "QUAL.PRAGMA.FACTOR"(i32 256) ]
   %cmp88 = icmp sgt i32 %ntimes, 0
@@ -40,11 +40,11 @@ for.cond23.preheader.preheader:                   ; preds = %for.cond.cleanup7
 
 for.body8:                                        ; preds = %for.cond5.preheader, %for.body8
   %indvars.iv = phi i64 [ 0, %for.cond5.preheader ], [ %indvars.iv.next, %for.body8 ]
-  %arrayidx = getelementptr inbounds [512 x double], [512 x double]* %B, i64 %indvars.iv90, i64 %indvars.iv
-  %1 = load double, double* %arrayidx, align 8, !tbaa !2
+  %arrayidx = getelementptr inbounds [512 x double], ptr %B, i64 %indvars.iv90, i64 %indvars.iv
+  %1 = load double, ptr %arrayidx, align 8, !tbaa !2
   %add = fadd fast double %1, 1.000000e+00
-  %arrayidx13 = getelementptr inbounds [412 x double], [412 x double]* %A, i64 %indvars.iv90, i64 %indvars.iv
-  store double %add, double* %arrayidx13, align 8, !tbaa !7
+  %arrayidx13 = getelementptr inbounds [412 x double], ptr %A, i64 %indvars.iv90, i64 %indvars.iv
+  store double %add, ptr %arrayidx13, align 8, !tbaa !7
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 3
   br i1 %exitcond, label %for.cond.cleanup7, label %for.body8
@@ -64,11 +64,11 @@ for.cond.cleanup25:                               ; preds = %for.body26
 
 for.body26:                                       ; preds = %for.cond23.preheader, %for.body26
   %indvars.iv93 = phi i64 [ 0, %for.cond23.preheader ], [ %indvars.iv.next94, %for.body26 ]
-  %arrayidx30 = getelementptr inbounds [412 x double], [412 x double]* %A, i64 %indvars.iv96, i64 %indvars.iv93
-  %2 = load double, double* %arrayidx30, align 8, !tbaa !7
+  %arrayidx30 = getelementptr inbounds [412 x double], ptr %A, i64 %indvars.iv96, i64 %indvars.iv93
+  %2 = load double, ptr %arrayidx30, align 8, !tbaa !7
   %add31 = fadd fast double %2, 2.000000e+00
-  %arrayidx35 = getelementptr inbounds [512 x double], [512 x double]* %B, i64 %indvars.iv96, i64 %indvars.iv93
-  store double %add31, double* %arrayidx35, align 8, !tbaa !2
+  %arrayidx35 = getelementptr inbounds [512 x double], ptr %B, i64 %indvars.iv96, i64 %indvars.iv93
+  store double %add31, ptr %arrayidx35, align 8, !tbaa !2
   %indvars.iv.next94 = add nuw nsw i64 %indvars.iv93, 1
   %exitcond95 = icmp eq i64 %indvars.iv.next94, 3
   br i1 %exitcond95, label %for.cond.cleanup25, label %for.body26
@@ -82,12 +82,12 @@ for.end44:                                        ; preds = %for.end44.loopexit,
   %idxprom45 = sext i32 %sub to i64
   %sub47 = add nsw i32 %N, -1
   %idxprom48 = sext i32 %sub47 to i64
-  %arrayidx49 = getelementptr inbounds [412 x double], [412 x double]* %A, i64 %idxprom45, i64 %idxprom48
-  %3 = load double, double* %arrayidx49, align 8, !tbaa !7
-  %arrayidx55 = getelementptr inbounds [512 x double], [512 x double]* %B, i64 %idxprom45, i64 %idxprom48
-  %4 = load double, double* %arrayidx55, align 8, !tbaa !2
-  %arrayidx57 = getelementptr inbounds [412 x double], [412 x double]* %A, i64 0, i64 1, !intel-tbaa !7
-  %5 = load double, double* %arrayidx57, align 8, !tbaa !7
+  %arrayidx49 = getelementptr inbounds [412 x double], ptr %A, i64 %idxprom45, i64 %idxprom48
+  %3 = load double, ptr %arrayidx49, align 8, !tbaa !7
+  %arrayidx55 = getelementptr inbounds [512 x double], ptr %B, i64 %idxprom45, i64 %idxprom48
+  %4 = load double, ptr %arrayidx55, align 8, !tbaa !2
+  %arrayidx57 = getelementptr inbounds [412 x double], ptr %A, i64 0, i64 1, !intel-tbaa !7
+  %5 = load double, ptr %arrayidx57, align 8, !tbaa !7
   %mul = fmul fast double %5, %4
   %add58 = fadd fast double %mul, %3
   ret double %add58
