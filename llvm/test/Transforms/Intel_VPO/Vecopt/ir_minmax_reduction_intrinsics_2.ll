@@ -6,7 +6,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define float @foo(float* %A) {
+define float @foo(ptr %A) {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT:  VPlan IR for: foo:for.body
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
@@ -20,7 +20,7 @@ define float @foo(float* %A) {
 
 ; CHECK:        [[VPBB_HEADER:BB[0-9]+]]: # preds: [[VPBB_PH]], [[VPBB_HEADER]]
 ; CHECK:          float [[VP_MAX_014]] = phi [ float [[VP__MAX_0]], [[VPBB_HEADER]] ], [ float [[VP_REDMINMAX_RED_INIT]], [[VPBB_PH]] ]
-; CHECK:          float [[VP__MAX_0]] = call float [[VP_LOAD:%vp.*]] float [[VP_MAX_014]] float (float, float)* @llvm.maximum.f32
+; CHECK:          float [[VP__MAX_0]] = call float [[VP_LOAD:%vp.*]] float [[VP_MAX_014]] ptr @llvm.maximum.f32
 
 ; CHECK:        [[VPBB_EXIT:BB[0-9]+]]: # preds: [[VPBB_HEADER]]
 ; CHECK-NEXT:     float [[VP_REDMINMAX_RED_FINAL]] = reduction-final{fmaximum} float [[VP__MAX_0]]
@@ -44,18 +44,18 @@ entry:
   br label %begin.simd
 
 begin.simd:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MAX:TYPED"(float* %red, float zeroinitializer, i32 1) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MAX:TYPED"(ptr %red, float zeroinitializer, i32 1) ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:
-  %0 = load float, float* %red, align 4
+  %0 = load float, ptr %red, align 4
   br label %for.body
 
 for.body:
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 1, %DIR.QUAL.LIST.END.2 ]
   %Max.014 = phi float [ %.Max.0, %for.body ], [ %0, %DIR.QUAL.LIST.END.2 ]
-  %arrayidx1 = getelementptr inbounds float, float* %A, i64 %indvars.iv
-  %1 = load float, float* %arrayidx1, align 4
+  %arrayidx1 = getelementptr inbounds float, ptr %A, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx1, align 4
   %.Max.0 = call float @llvm.maximum.f32(float %1, float %Max.014)
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 2049

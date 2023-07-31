@@ -63,35 +63,35 @@ define dso_local i32 @getElement(i32 %n) {
 ; CHECK-NEXT:  Basic Block: [[BB0]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB3:BB[0-9]+]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB2]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV42:%.*]] = phi  [ i64 [[VP_INDVARS_IV_NEXT43:%.*]], [[BB2]] ],  [ i64 [[VP_INDVARS_IV42_IND_INIT:%.*]], [[BB3]] ]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV:%.*]] i64 0 i64 [[VP_INDVARS_IV42]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds [1024 x i32]* @b i64 0 i64 [[VP_INDVARS_IV42]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP1:%.*]] = load i32* [[VP_ARRAYIDX2]]
+; CHECK-NEXT:  Divergent: [Shape: Random] ptr [[VP_ARRAYIDX:%.*]] = getelementptr inbounds ptr [[VP_ARR_PRIV:%.*]] i64 0 i64 [[VP_INDVARS_IV42]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP0:%.*]] = load ptr [[VP_ARRAYIDX]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] ptr [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds ptr @b i64 0 i64 [[VP_INDVARS_IV42]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP1:%.*]] = load ptr [[VP_ARRAYIDX2]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[VP_IDXPROM3:%.*]] = sext i32 [[VP1]] to i64
-; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_ARRAYIDX4:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV]] i64 0 i64 [[VP_IDXPROM3]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP2:%.*]] = load i32* [[VP_ARRAYIDX4]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_BC1:%.*]] = bitcast i32* [[VP_ARRAYIDX]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_BC_LOAD1:%.*]] = load i32* [[VP_BC1]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_BC2:%.*]] = bitcast i32* [[VP_ARRAYIDX]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_BC3:%.*]] = bitcast i32* [[VP_ARRAYIDX4]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_BC_LOAD3:%.*]] = load i32* [[VP_BC3]]
+; CHECK-NEXT:  Divergent: [Shape: Random] ptr [[VP_ARRAYIDX4:%.*]] = getelementptr inbounds ptr [[VP_ARR_PRIV]] i64 0 i64 [[VP_IDXPROM3]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP2:%.*]] = load ptr [[VP_ARRAYIDX4]]
+; CHECK-NEXT:  Divergent: [Shape: Random] ptr [[VP_BC1:%.*]] = bitcast ptr [[VP_ARRAYIDX]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_BC_LOAD1:%.*]] = load ptr [[VP_BC1]]
+; CHECK-NEXT:  Divergent: [Shape: Random] ptr [[VP_BC2:%.*]] = bitcast ptr [[VP_ARRAYIDX]]
+; CHECK-NEXT:  Divergent: [Shape: Random] ptr [[VP_BC3:%.*]] = bitcast ptr [[VP_ARRAYIDX4]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_BC_LOAD3:%.*]] = load ptr [[VP_BC3]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_ADD12:%.*]] = add i32 [[VP0]] i32 [[TMP0:%.*]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_ADD13:%.*]] = add i32 [[VP_ADD12]] i32 [[VP2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 0, [[BB0]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB1]] ]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32* [[VP_ARRAYIDX7:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV]] i64 0 i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP3:%.*]] = load i32* [[VP_ARRAYIDX7]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_ARRAYIDX9:%.*]] = getelementptr inbounds [1024 x i32]* @b i64 0 i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP4:%.*]] = load i32* [[VP_ARRAYIDX9]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] ptr [[VP_ARRAYIDX7:%.*]] = getelementptr inbounds ptr [[VP_ARR_PRIV]] i64 0 i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP3:%.*]] = load ptr [[VP_ARRAYIDX7]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] ptr [[VP_ARRAYIDX9:%.*]] = getelementptr inbounds ptr @b i64 0 i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP4:%.*]] = load ptr [[VP_ARRAYIDX9]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IDXPROM10:%.*]] = sext i32 [[VP4]] to i64
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32* [[VP_ARRAYIDX11:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV]] i64 0 i64 [[VP_IDXPROM10]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP5:%.*]] = load i32* [[VP_ARRAYIDX11]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] ptr [[VP_ARRAYIDX11:%.*]] = getelementptr inbounds ptr [[VP_ARR_PRIV]] i64 0 i64 [[VP_IDXPROM10]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP5:%.*]] = load ptr [[VP_ARRAYIDX11]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_ADD14:%.*]] = add i32 [[VP_ADD13]] i32 [[VP3]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_ADD15:%.*]] = add i32 [[VP_ADD14]] i32 [[VP5]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_DIV:%.*]] = sdiv i32 [[VP_ADD15]] i32 4
-; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_ARRAYIDX19:%.*]] = getelementptr inbounds [1024 x [1024 x i32]]* @arr2 i64 0 i64 [[VP_INDVARS_IV42]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:  Divergent: [Shape: Random] store i32 [[VP_DIV]] i32* [[VP_ARRAYIDX19]]
+; CHECK-NEXT:  Divergent: [Shape: Random] ptr [[VP_ARRAYIDX19:%.*]] = getelementptr inbounds ptr @arr2 i64 0 i64 [[VP_INDVARS_IV42]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:  Divergent: [Shape: Random] store i32 [[VP_DIV]] ptr [[VP_ARRAYIDX19]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 1024
 ; CHECK-EMPTY:
@@ -104,47 +104,44 @@ define dso_local i32 @getElement(i32 %n) {
 ;
 
 omp.inner.for.body.lr.ph:
-  %0 = load i32, i32* getelementptr inbounds ([1024 x i32], [1024 x i32]* @arr, i64 0, i64 0), align 16
+  %0 = load i32, ptr @arr, align 16
   %arr.priv = alloca [1024 x i32], align 4
   %i.lpriv = alloca i32, align 4
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-%1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([1024 x i32]* %arr.priv, i32 0, i32 1024), "QUAL.OMP.LASTPRIVATE:TYPED"(i32* %i.lpriv, i32 0, i32 1) ]
+%1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"(ptr %arr.priv, i32 0, i32 1024), "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %i.lpriv, i32 0, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.inc, %DIR.OMP.SIMD.1
   %indvars.iv42 = phi i64 [ %indvars.iv.next43, %omp.inner.for.inc ], [ 0, %DIR.OMP.SIMD.1 ]
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr.priv, i64 0, i64 %indvars.iv42
-  %2 = load i32, i32* %arrayidx, align 4
-  %arrayidx2 = getelementptr inbounds [1024 x i32], [1024 x i32]* @b, i64 0, i64 %indvars.iv42
-  %3 = load i32, i32* %arrayidx2, align 4
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr %arr.priv, i64 0, i64 %indvars.iv42
+  %2 = load i32, ptr %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds [1024 x i32], ptr @b, i64 0, i64 %indvars.iv42
+  %3 = load i32, ptr %arrayidx2, align 4
   %idxprom3 = sext i32 %3 to i64
-  %arrayidx4 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr.priv, i64 0, i64 %idxprom3
-  %4 = load i32, i32* %arrayidx4, align 4
-  %bc1 = bitcast i32* %arrayidx to i32*
-  %bc.load1 = load i32, i32* %bc1, align 4
-  %bc2 = bitcast i32* %arrayidx to i32*
-  %bc3 = bitcast i32* %arrayidx4 to i32*
-  %bc.load3 = load i32, i32* %bc3, align 4
+  %arrayidx4 = getelementptr inbounds [1024 x i32], ptr %arr.priv, i64 0, i64 %idxprom3
+  %4 = load i32, ptr %arrayidx4, align 4
+  %bc.load1 = load i32, ptr %arrayidx, align 4
+  %bc.load3 = load i32, ptr %arrayidx4, align 4
   %add12 = add nsw i32 %2, %0
   %add13 = add nsw i32 %add12, %4
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %omp.inner.for.body
   %indvars.iv = phi i64 [ 0, %omp.inner.for.body ], [ %indvars.iv.next, %for.body ]
-  %arrayidx7 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr.priv, i64 0, i64 %indvars.iv
-  %5 = load i32, i32* %arrayidx7, align 4
-  %arrayidx9 = getelementptr inbounds [1024 x i32], [1024 x i32]* @b, i64 0, i64 %indvars.iv
-  %6 = load i32, i32* %arrayidx9, align 4
+  %arrayidx7 = getelementptr inbounds [1024 x i32], ptr %arr.priv, i64 0, i64 %indvars.iv
+  %5 = load i32, ptr %arrayidx7, align 4
+  %arrayidx9 = getelementptr inbounds [1024 x i32], ptr @b, i64 0, i64 %indvars.iv
+  %6 = load i32, ptr %arrayidx9, align 4
   %idxprom10 = sext i32 %6 to i64
-  %arrayidx11 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr.priv, i64 0, i64 %idxprom10
-  %7 = load i32, i32* %arrayidx11, align 4
+  %arrayidx11 = getelementptr inbounds [1024 x i32], ptr %arr.priv, i64 0, i64 %idxprom10
+  %7 = load i32, ptr %arrayidx11, align 4
   %add14 = add nsw i32 %add13, %5
   %add15 = add nsw i32 %add14, %7
   %div = sdiv i32 %add15, 4
-  %arrayidx19 = getelementptr inbounds [1024 x [1024 x i32]], [1024 x [1024 x i32]]* @arr2, i64 0, i64 %indvars.iv42, i64 %indvars.iv
-  store i32 %div, i32* %arrayidx19, align 4
+  %arrayidx19 = getelementptr inbounds [1024 x [1024 x i32]], ptr @arr2, i64 0, i64 %indvars.iv42, i64 %indvars.iv
+  store i32 %div, ptr %arrayidx19, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %omp.inner.for.inc, label %for.body
@@ -155,7 +152,7 @@ omp.inner.for.inc:                                ; preds = %for.body
   br i1 %exitcond44, label %DIR.OMP.END.SIMD.4, label %omp.inner.for.body
 
 DIR.OMP.END.SIMD.4:                               ; preds = %omp.inner.for.inc
-  store i32 1023, i32* %i.lpriv, align 4
+  store i32 1023, ptr %i.lpriv, align 4
   br label %DIR.OMP.END.SIMD.2
 
 DIR.OMP.END.SIMD.2:                               ; preds = %DIR.OMP.END.SIMD.4
@@ -163,7 +160,7 @@ DIR.OMP.END.SIMD.2:                               ; preds = %DIR.OMP.END.SIMD.4
   br label %DIR.OMP.END.SIMD.3
 
 DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2
-  %8 = load i32, i32* getelementptr inbounds ([1024 x [1024 x i32]], [1024 x [1024 x i32]]* @arr2, i64 0, i64 103, i64 100), align 16
+  %8 = load i32, ptr getelementptr inbounds ([1024 x [1024 x i32]], ptr @arr2, i64 0, i64 103, i64 100), align 16
   ret i32 %8
 }
 
@@ -174,24 +171,24 @@ define dso_local void @getElement2(i32 %n) {
 ; CHECK-NEXT:  Basic Block: [[BB0]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1:BB[0-9]+]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB0]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1:%.*]] = phi  [ i64 [[VP_IV1_IND_INIT:%.*]], [[BB1]] ],  [ i64 [[VP_IV1_NEXT:%.*]], [[BB0]] ]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_STR_GEP1:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR1_PRIV:%.*]] i64 0 i64 [[VP_IV1]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_STR_GEP2:%.*]] = getelementptr inbounds i32* [[VP_STR_GEP1]] i64 [[VP_IV1]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_LD_1:%.*]] = load i32* [[VP_STR_GEP2]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32* [[VP_UNI_GEP1:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR2_PRIV:%.*]] i64 0 i64 0
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32* [[VP_UNI_GEP2:%.*]] = getelementptr inbounds i32* [[VP_UNI_GEP1]] i64 0
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32* [[VP_UNI_GEP3:%.*]] = getelementptr inbounds i32* [[VP_UNI_GEP2]] i64 0
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32* [[VP_UNI_GEP4:%.*]] = getelementptr inbounds i32* [[VP_UNI_GEP3]] i64 0
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_LD_2:%.*]] = load i32* [[VP_UNI_GEP4]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_UNIT_STRIDE_GEP1:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR3_PRIV:%.*]] i64 0 i64 [[VP_IV1]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_LD_3:%.*]] = load i32* [[VP_UNIT_STRIDE_GEP1]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_UNIT_STRIDE_GEP2:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR4_PRIV:%.*]] i64 0 i64 [[VP_IV1]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_UNI_GEP5:%.*]] = getelementptr inbounds i32* [[VP_UNIT_STRIDE_GEP2]] i64 0
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32* [[VP_UNI_GEP6:%.*]] = getelementptr inbounds i32* [[VP_UNI_GEP1]] i64 0
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_LD_4:%.*]] = load i32* [[VP_UNI_GEP2]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_UNI_GEP7:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR5_PRIV:%.*]] i64 0 i64 [[VP_IV1]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_UNIT_STRIDE_GEP6:%.*]] = getelementptr inbounds i32* [[VP_UNI_GEP7]] i64 5
-; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_UNIT_STRIDE_GEP7:%.*]] = getelementptr inbounds i32* [[VP_UNI_GEP7]] i64 0
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_LD_5:%.*]] = load i32* [[VP_UNIT_STRIDE_GEP7]]
+; CHECK-NEXT:  Divergent: [Shape: Random] ptr [[VP_STR_GEP1:%.*]] = getelementptr inbounds ptr [[VP_ARR1_PRIV:%.*]] i64 0 i64 [[VP_IV1]]
+; CHECK-NEXT:  Divergent: [Shape: Random] ptr [[VP_STR_GEP2:%.*]] = getelementptr inbounds ptr [[VP_STR_GEP1]] i64 [[VP_IV1]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_LD_1:%.*]] = load ptr [[VP_STR_GEP2]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] ptr [[VP_UNI_GEP1:%.*]] = getelementptr inbounds ptr [[VP_ARR2_PRIV:%.*]] i64 0 i64 0
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] ptr [[VP_UNI_GEP2:%.*]] = getelementptr inbounds ptr [[VP_UNI_GEP1]] i64 0
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] ptr [[VP_UNI_GEP3:%.*]] = getelementptr inbounds ptr [[VP_UNI_GEP2]] i64 0
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] ptr [[VP_UNI_GEP4:%.*]] = getelementptr inbounds ptr [[VP_UNI_GEP3]] i64 0
+; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_LD_2:%.*]] = load ptr [[VP_UNI_GEP4]]
+; CHECK-NEXT:  Divergent: [Shape: Random] ptr [[VP_UNIT_STRIDE_GEP1:%.*]] = getelementptr inbounds ptr [[VP_ARR3_PRIV:%.*]] i64 0 i64 [[VP_IV1]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_LD_3:%.*]] = load ptr [[VP_UNIT_STRIDE_GEP1]]
+; CHECK-NEXT:  Divergent: [Shape: Random] ptr [[VP_UNIT_STRIDE_GEP2:%.*]] = getelementptr inbounds ptr [[VP_ARR4_PRIV:%.*]] i64 0 i64 [[VP_IV1]]
+; CHECK-NEXT:  Divergent: [Shape: Random] ptr [[VP_UNI_GEP5:%.*]] = getelementptr inbounds ptr [[VP_UNIT_STRIDE_GEP2]] i64 0
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] ptr [[VP_UNI_GEP6:%.*]] = getelementptr inbounds ptr [[VP_UNI_GEP1]] i64 0
+; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_LD_4:%.*]] = load ptr [[VP_UNI_GEP2]]
+; CHECK-NEXT:  Divergent: [Shape: Random] ptr [[VP_UNI_GEP7:%.*]] = getelementptr inbounds ptr [[VP_ARR5_PRIV:%.*]] i64 0 i64 [[VP_IV1]]
+; CHECK-NEXT:  Divergent: [Shape: Random] ptr [[VP_UNIT_STRIDE_GEP6:%.*]] = getelementptr inbounds ptr [[VP_UNI_GEP7]] i64 5
+; CHECK-NEXT:  Divergent: [Shape: Random] ptr [[VP_UNIT_STRIDE_GEP7:%.*]] = getelementptr inbounds ptr [[VP_UNI_GEP7]] i64 0
+; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_LD_5:%.*]] = load ptr [[VP_UNIT_STRIDE_GEP7]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1_NEXT]] = add i64 [[VP_IV1]] i64 [[VP_IV1_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
@@ -203,7 +200,7 @@ define dso_local void @getElement2(i32 %n) {
 ;
 
 omp.inner.for.body.lr.ph:
-  %0 = load i32, i32* getelementptr inbounds ([1024 x i32], [1024 x i32]* @arr, i64 0, i64 0), align 16
+  %0 = load i32, ptr @arr, align 16
   %arr1.priv = alloca [1024 x i32], align 4
   %arr2.priv = alloca [1024 x i32], align 4
   %arr3.priv = alloca [1024 x i32], align 4
@@ -212,7 +209,7 @@ omp.inner.for.body.lr.ph:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr1.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr2.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr3.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr4.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr5.priv, i32 0, i32 1024) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr1.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr2.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr3.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr4.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr5.priv, i32 0, i32 1024) ]
   br label %for.preheader
 
 for.preheader:
@@ -221,32 +218,25 @@ for.preheader:
 for.body:
   %iv1 = phi i64 [ 0, %for.preheader ], [ %iv1.next, %for.body ]
   ; Sequence of unit-stride GEPs which result in > VF stride: UnProfitable.
-  %str.gep1 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr1.priv, i64 0, i64 %iv1
-  %str.gep2 = getelementptr inbounds i32, i32* %str.gep1, i64 %iv1
-  %ld.1 = load i32, i32* %str.gep2, align 4
+  %str.gep1 = getelementptr inbounds [1024 x i32], ptr %arr1.priv, i64 0, i64 %iv1
+  %str.gep2 = getelementptr inbounds i32, ptr %str.gep1, i64 %iv1
+  %ld.1 = load i32, ptr %str.gep2, align 4
 
   ; Uniform GEP: Profitable.
-  %uni.gep1 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr2.priv, i64 0, i64 0
-  %uni.gep2 = getelementptr inbounds i32, i32* %uni.gep1, i64 0
-  %uni.gep3 = getelementptr inbounds i32, i32* %uni.gep2, i64 0
-  %uni.gep4 = getelementptr inbounds i32, i32* %uni.gep3, i64 0
-  %ld.2 = load i32, i32* %uni.gep4, align 4
+  %ld.2 = load i32, ptr %arr2.priv, align 4
 
   ; Single Unit-strided GEP: Profitable.
-  %unit.stride.gep1 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr3.priv, i64 0, i64 %iv1
-  %ld.3 = load i32, i32* %unit.stride.gep1, align 4
+  %unit.stride.gep1 = getelementptr inbounds [1024 x i32], ptr %arr3.priv, i64 0, i64 %iv1
+  %ld.3 = load i32, ptr %unit.stride.gep1, align 4
 
   ; Chain of GEPs: Unprofitable.
-  %unit.stride.gep2 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr4.priv, i64 0, i64 %iv1
-  %uni.gep5 = getelementptr inbounds i32, i32* %unit.stride.gep2, i64 0
-  %uni.gep6 = getelementptr inbounds i32, i32* %uni.gep1, i64 0
-  %ld.4 = load i32, i32* %uni.gep2, align 4
+  %unit.stride.gep2 = getelementptr inbounds [1024 x i32], ptr %arr4.priv, i64 0, i64 %iv1
+  %ld.4 = load i32, ptr %arr2.priv, align 4
 
   ; Pointer-const-step-increment:
-  %uni.gep7 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr5.priv, i64 0, i64 %iv1
-  %unit.stride.gep6 = getelementptr inbounds i32, i32* %uni.gep7, i64 5
-  %unit.stride.gep7 = getelementptr inbounds i32, i32* %uni.gep7, i64 0
-  %ld.5 = load i32, i32* %unit.stride.gep7, align 4
+  %uni.gep7 = getelementptr inbounds [1024 x i32], ptr %arr5.priv, i64 0, i64 %iv1
+  %unit.stride.gep6 = getelementptr inbounds i32, ptr %uni.gep7, i64 5
+  %ld.5 = load i32, ptr %uni.gep7, align 4
 
   %iv1.next = add nuw nsw i64 %iv1, 1
   %cmp = icmp ult i64 %iv1.next, 1024
@@ -262,55 +252,53 @@ define void @test_pointer_induction_escape() {
 ; CHECK-NEXT:  Basic Block: [[BB0]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB2:BB[0-9]+]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB1]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1:%.*]] = phi  [ i64 [[VP_IV1_IND_INIT:%.*]], [[BB2]] ],  [ i64 [[VP_IV1_NEXT:%.*]], [[BB1]] ]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32* [[VP_ARRAYIDX_CURRENT:%.*]] = phi  [ i32* [[VP_ARRAYIDX_CURRENT_IND_INIT:%.*]], [[BB2]] ],  [ i32* [[VP0:%.*]], [[BB1]] ]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32* [[VP_ARRAYIDX_CURRENT1:%.*]] = phi  [ i32* [[VP_ARRAYIDX_CURRENT1_IND_INIT:%.*]], [[BB2]] ],  [ i32* [[VP1:%.*]], [[BB1]] ]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_LD:%.*]] = load i32* [[VP_ARRAYIDX_CURRENT1]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] ptr [[VP_ARRAYIDX_CURRENT:%.*]] = phi  [ ptr [[VP_ARRAYIDX_CURRENT_IND_INIT:%.*]], [[BB2]] ],  [ ptr [[VP0:%.*]], [[BB1]] ]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] ptr [[VP_ARRAYIDX_CURRENT1:%.*]] = phi  [ ptr [[VP_ARRAYIDX_CURRENT1_IND_INIT:%.*]], [[BB2]] ],  [ ptr [[VP1:%.*]], [[BB1]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_LD:%.*]] = load ptr [[VP_ARRAYIDX_CURRENT1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32 addrspace(4)* [[VP_AS_CAST2:%.*]] = addrspacecast i32* [[VP_ARRAYIDX_CURRENT]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i64 [[VP_PTR2INT2:%.*]] = ptrtoint i32 addrspace(4)* [[VP_AS_CAST2]] to i64
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] ptr addrspace(4) [[VP_AS_CAST2:%.*]] = addrspacecast ptr [[VP_ARRAYIDX_CURRENT]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i64 [[VP_PTR2INT2:%.*]] = ptrtoint ptr addrspace(4) [[VP_AS_CAST2]] to i64
 ; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_ICMP:%.*]] = icmp i64 [[VP_PTR2INT2]] i64 [[PTR2INT10:%.*]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32* [[VP_ARRAYIDX_NEXT:%.*]] = getelementptr inbounds i32* [[VP_ARRAYIDX_CURRENT]] i64 1
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32* [[VP_ARRAYIDX_NEXT1:%.*]] = getelementptr inbounds i32* [[VP_ARRAYIDX_CURRENT1]] i64 1
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] ptr [[VP_ARRAYIDX_NEXT:%.*]] = getelementptr inbounds ptr [[VP_ARRAYIDX_CURRENT]] i64 1
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] ptr [[VP_ARRAYIDX_NEXT1:%.*]] = getelementptr inbounds ptr [[VP_ARRAYIDX_CURRENT1]] i64 1
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1_NEXT]] = add i64 [[VP_IV1]] i64 [[VP_IV1_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32* [[VP0]] = getelementptr inbounds i32* [[VP_ARRAYIDX_CURRENT]] i64 [[VP_ARRAYIDX_CURRENT_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32* [[VP1]] = getelementptr inbounds i32* [[VP_ARRAYIDX_CURRENT1]] i64 [[VP_ARRAYIDX_CURRENT1_IND_INIT_STEP:%.*]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] ptr [[VP0]] = getelementptr inbounds ptr [[VP_ARRAYIDX_CURRENT]] i64 [[VP_ARRAYIDX_CURRENT_IND_INIT_STEP:%.*]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] ptr [[VP1]] = getelementptr inbounds ptr [[VP_ARRAYIDX_CURRENT1]] i64 [[VP_ARRAYIDX_CURRENT1_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_ARRAYIDX_CURRENT_IND_FINAL:%.*]] = induction-final{getelementptr} i32* [[ARRAYIDX0:%.*]] i64 1
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_ARRAYIDX_CURRENT1_IND_FINAL:%.*]] = induction-final{getelementptr} i32* [[ARRAYIDX10:%.*]] i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] ptr [[VP_ARRAYIDX_CURRENT_IND_FINAL:%.*]] = induction-final{getelementptr} ptr [[ARRAYIDX0:%.*]] i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] ptr [[VP_ARRAYIDX_CURRENT1_IND_FINAL:%.*]] = induction-final{getelementptr} ptr [[ARRAYIDX10:%.*]] i64 1
 ; CHECK:       SOAUnsafe = arr_e.priv
 ; CHECK-NEXT:  SOASafe = arr_ne.priv Profitable = 0
 ;
   %arr_e.priv = alloca [1024 x i32], align 4
   %arr_ne.priv = alloca [1024 x i32], align 4
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_e.priv, i64 0, i64 0
-  %arrayidx1 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_ne.priv, i64 0, i64 0
-  %arrayidx.end = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_e.priv, i64 0, i64 1023
-  %as.cast1 = addrspacecast i32* %arrayidx.end to i32 addrspace(4)*
-  %ptr2int1 = ptrtoint i32 addrspace(4)* %as.cast1 to i64
+  %arrayidx.end = getelementptr inbounds [1024 x i32], ptr %arr_e.priv, i64 0, i64 1023
+  %as.cast1 = addrspacecast ptr %arrayidx.end to ptr addrspace(4)
+  %ptr2int1 = ptrtoint ptr addrspace(4) %as.cast1 to i64
   br label %simd.begin.region
 
 simd.begin.region:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr_e.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr_ne.priv, i32 0, i32 1024) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr_e.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr_ne.priv, i32 0, i32 1024) ]
   br label %simd.loop
 
 simd.loop:
   %iv1 = phi i64 [ 0, %simd.begin.region ], [ %iv1.next, %simd.loop.end]
-  %arrayidx.current = phi i32* [ %arrayidx, %simd.begin.region], [%arrayidx.next, %simd.loop.end]
-  %arrayidx.current1 = phi i32* [ %arrayidx1, %simd.begin.region], [%arrayidx.next1, %simd.loop.end]
-  %ld = load i32, i32* %arrayidx.current1
+  %arrayidx.current = phi ptr [ %arr_e.priv, %simd.begin.region], [%arrayidx.next, %simd.loop.end]
+  %arrayidx.current1 = phi ptr [ %arr_ne.priv, %simd.begin.region], [%arrayidx.next1, %simd.loop.end]
+  %ld = load i32, ptr %arrayidx.current1
   br label %simd.loop.end
 
 simd.loop.end:
-  %as.cast2 = addrspacecast i32* %arrayidx.current to i32 addrspace(4)*
-  %ptr2int2 = ptrtoint i32 addrspace(4)* %as.cast2 to i64
+  %as.cast2 = addrspacecast ptr %arrayidx.current to ptr addrspace(4)
+  %ptr2int2 = ptrtoint ptr addrspace(4) %as.cast2 to i64
   %icmp = icmp ult i64 %ptr2int2, %ptr2int1
-  %arrayidx.next = getelementptr inbounds i32, i32* %arrayidx.current, i64 1
-  %arrayidx.next1 = getelementptr inbounds i32, i32* %arrayidx.current1, i64 1
+  %arrayidx.next = getelementptr inbounds i32, ptr %arrayidx.current, i64 1
+  %arrayidx.next1 = getelementptr inbounds i32, ptr %arrayidx.current1, i64 1
   %iv1.next = add nuw nsw i64 %iv1, 1
   %cmp = icmp ult i64 %iv1.next, 1024
   br i1 %cmp, label %simd.end.region, label %simd.loop

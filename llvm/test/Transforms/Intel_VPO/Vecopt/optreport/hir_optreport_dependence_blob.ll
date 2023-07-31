@@ -24,13 +24,13 @@
 ; CHECK-NEXT: LOOP END
 
 
-define dso_local i32 @sub(i32* nocapture noundef %p1, i32* nocapture noundef readnone %p2, i32 noundef %n, i32* nocapture noundef readnone %M) local_unnamed_addr #0 !dbg !7 {
+define dso_local i32 @sub(ptr nocapture noundef %p1, ptr nocapture noundef readnone %p2, i32 noundef %n, ptr nocapture noundef readnone %M) local_unnamed_addr #0 !dbg !7 {
 entry:
-  call void @llvm.dbg.value(metadata i32* %p1, metadata !13, metadata !DIExpression()), !dbg !21  ; test2.c:0:0
-  call void @llvm.dbg.value(metadata i32* %p2, metadata !14, metadata !DIExpression()), !dbg !21  ; test2.c:0:0
+  call void @llvm.dbg.value(metadata ptr %p1, metadata !13, metadata !DIExpression()), !dbg !21  ; test2.c:0:0
+  call void @llvm.dbg.value(metadata ptr %p2, metadata !14, metadata !DIExpression()), !dbg !21  ; test2.c:0:0
   call void @llvm.dbg.value(metadata i32 %n, metadata !15, metadata !DIExpression()), !dbg !21  ; test2.c:0:0
-  call void @llvm.dbg.value(metadata i32* %M, metadata !16, metadata !DIExpression()), !dbg !21  ; test2.c:0:0
-  %0 = load i32, i32* %p1, align 4, !dbg !22, !tbaa !23  ; test2.c:3:11
+  call void @llvm.dbg.value(metadata ptr %M, metadata !16, metadata !DIExpression()), !dbg !21  ; test2.c:0:0
+  %0 = load i32, ptr %p1, align 4, !dbg !22, !tbaa !23  ; test2.c:3:11
   call void @llvm.dbg.value(metadata i32 %0, metadata !17, metadata !DIExpression()), !dbg !21  ; test2.c:0:0
   call void @llvm.dbg.value(metadata i32 0, metadata !18, metadata !DIExpression()), !dbg !21  ; test2.c:0:0
   call void @llvm.dbg.value(metadata i32 0, metadata !19, metadata !DIExpression()), !dbg !27  ; test2.c:0:0
@@ -56,10 +56,10 @@ for.body:                                         ; preds = %for.body, %for.body
   call void @llvm.dbg.value(metadata i64 %indvars.iv, metadata !19, metadata !DIExpression()), !dbg !27  ; test2.c:0:0
   call void @llvm.dbg.value(metadata i32 %t1.016, metadata !17, metadata !DIExpression()), !dbg !21  ; test2.c:0:0
   %idxprom = sext i32 %t1.016 to i64, !dbg !34    ; test2.c:11:4
-  %arrayidx = getelementptr inbounds i32, i32* %p1, i64 %idxprom, !dbg !34  ; test2.c:11:4
-  store i32 %t1.016, i32* %arrayidx, align 4, !dbg !35, !tbaa !23  ; test2.c:11:11
-  %arrayidx2 = getelementptr inbounds i32, i32* %p1, i64 %indvars.iv, !dbg !36  ; test2.c:11:23
-  %1 = load i32, i32* %arrayidx2, align 4, !dbg !36, !tbaa !23  ; test2.c:11:23
+  %arrayidx = getelementptr inbounds i32, ptr %p1, i64 %idxprom, !dbg !34  ; test2.c:11:4
+  store i32 %t1.016, ptr %arrayidx, align 4, !dbg !35, !tbaa !23  ; test2.c:11:11
+  %arrayidx2 = getelementptr inbounds i32, ptr %p1, i64 %indvars.iv, !dbg !36  ; test2.c:11:23
+  %1 = load i32, ptr %arrayidx2, align 4, !dbg !36, !tbaa !23  ; test2.c:11:23
   %add = add nsw i32 %1, %t1.016, !dbg !31        ; test2.c:11:20
   call void @llvm.dbg.value(metadata i32 %add, metadata !17, metadata !DIExpression()), !dbg !21  ; test2.c:0:0
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1, !dbg !37  ; test2.c:9:23

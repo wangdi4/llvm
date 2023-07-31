@@ -65,8 +65,8 @@ define i32 @main() local_unnamed_addr #0 {
 ; CHECK-NEXT:     i64 [[VP6:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP7:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     i64 [[VP8:%.*]] = mul i64 -1 i64 [[VP6]]
 ; CHECK-NEXT:     i64 [[VP9:%.*]] = add i64 [[VP8]] i64 8
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [9 x i32]* @a i64 0 i64 [[VP9]]
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr @a i64 0 i64 [[VP9]]
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i32 [[VP10:%.*]] = zext i16 [[VP0]] to i32
 ; CHECK-NEXT:     i32 [[VP11:%.*]] = hir-copy i32 [[VP10]] , OriginPhiId: -1
 ; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp ne i32 [[VP_LOAD]] i32 0
@@ -93,17 +93,17 @@ define i32 @main() local_unnamed_addr #0 {
 ; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:  Id: 0   i32 [[VP5]] -> [[VP17:%.*]] = {%mul10}
 ;
-  %1 = load i64, i64* @time_ago, align 8
+  %1 = load i64, ptr @time_ago, align 8
   %conv1 = trunc i64 %1 to i32
   %conv4 = and i32 %conv1, 65535
-  %m.promoted = load i32, i32* @m, align 4, !tbaa !2
+  %m.promoted = load i32, ptr @m, align 4, !tbaa !2
   br label %2
 
 ; <label>:2:                                      ; preds = %0, %5
   %indvars.iv = phi i64 [ 8, %0 ], [ %indvars.iv.next, %5 ]
   %mul10 = phi i32 [ %m.promoted, %0 ], [ %mul, %5 ]
-  %arrayidx = getelementptr inbounds [9 x i32], [9 x i32]* @a, i64 0, i64 %indvars.iv
-  %3 = load i32, i32* %arrayidx, align 4, !tbaa !6
+  %arrayidx = getelementptr inbounds [9 x i32], ptr @a, i64 0, i64 %indvars.iv
+  %3 = load i32, ptr %arrayidx, align 4, !tbaa !6
   %tobool = icmp eq i32 %3, 0
   br i1 %tobool, label %5, label %4
 
@@ -119,7 +119,7 @@ define i32 @main() local_unnamed_addr #0 {
   br i1 %cmp, label %6, label %2
 
 ; <label>:6:                                      ; preds = %5
-  store i32 %mul, i32* @m, align 4, !tbaa !2
+  store i32 %mul, ptr @m, align 4, !tbaa !2
   ret i32 0
 }
 

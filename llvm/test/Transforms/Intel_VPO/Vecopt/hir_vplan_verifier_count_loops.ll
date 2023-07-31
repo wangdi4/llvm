@@ -9,7 +9,7 @@
 ; Please, enable this check when the support for nested blobs is committed.
 ; TODO-CHECK: vector.body:
 
-define i32 @quant_4x4(i16* noalias nocapture %dct, i16* nocapture readonly %mf, i16* nocapture readonly %bias) {
+define i32 @quant_4x4(ptr noalias nocapture %dct, ptr nocapture readonly %mf, ptr nocapture readonly %bias) {
 entry:
   br label %for.body
 
@@ -22,12 +22,12 @@ for.cond.cleanup:
 for.body:
   %iv = phi i64 [ 0, %entry ], [ %iv.next, %if.end ]
   %nz.039 = phi i32 [ 0, %entry ], [ %or, %if.end ]
-  %idx = getelementptr inbounds i16, i16* %dct, i64 %iv
-  %0 = load i16, i16* %idx
-  %idx2 = getelementptr inbounds i16, i16* %mf, i64 %iv
-  %1 = load i16, i16* %idx2
-  %idx4 = getelementptr inbounds i16, i16* %bias, i64 %iv
-  %2 = load i16, i16* %idx4
+  %idx = getelementptr inbounds i16, ptr %dct, i64 %iv
+  %0 = load i16, ptr %idx
+  %idx2 = getelementptr inbounds i16, ptr %mf, i64 %iv
+  %1 = load i16, ptr %idx2
+  %idx4 = getelementptr inbounds i16, ptr %bias, i64 %iv
+  %2 = load i16, ptr %idx4
   %conv = sext i16 %0 to i32
   %cmp5 = icmp sgt i16 %0, 0
   %conv7 = zext i16 %2 to i32
@@ -52,7 +52,7 @@ if.else:
 
 if.end:
   %coef.0 = phi i16 [ %conv10, %if.then ], [ %conv17, %if.else ]
-  store i16 %coef.0, i16* %idx
+  store i16 %coef.0, ptr %idx
   %conv20 = sext i16 %coef.0 to i32
   %or = or i32 %nz.039, %conv20
   %iv.next = add nuw nsw i64 %iv, 1

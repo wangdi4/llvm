@@ -23,9 +23,9 @@ target triple = "x86_64-unknown-linux-gnu"
 @mbc_int_ = external unnamed_addr global [16 x i8], align 32
 
 ; Function Attrs: nounwind readnone speculatable
-declare i64* @llvm.intel.subscript.p0i64.i64.i64.p0i64.i64(i8, i64, i64, i64*, i64) #0
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #0
 
-define void @bas_geobas_build_(i1 %c1, i64* %p1, i64 %N) local_unnamed_addr #1 {
+define void @bas_geobas_build_(i1 %c1, ptr %p1, i64 %N) local_unnamed_addr #1 {
 ; CHECK-LABEL:  Function: bas_geobas_build_
 ; Main loop
 ; CHECK:             |   + DO i64 i2 = 0, [[LOOP_UB0:%.*]], 8   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
@@ -49,13 +49,13 @@ bb400_endif:                                      ; preds = %alloca_11
   br label %bb433
 
 bb433:                                            ; preds = %bb442_endif, %bb400_endif
-  %"val$[]671_fetch.1074" = load i64, i64* %p1, align 8
+  %"val$[]671_fetch.1074" = load i64, ptr %p1, align 8
   br label %bb437
 
 bb437:                                            ; preds = %bb437, %bb433
   %add.1411544 = phi i64 [ %"val$[]671_fetch.1074", %bb433 ], [ %add.141, %bb437 ]
-  %"val$[]675" = call i64* @llvm.intel.subscript.p0i64.i64.i64.p0i64.i64(i8 0, i64 1, i64 8, i64* elementtype(i64) bitcast ([16 x i8]* @mbc_int_ to i64*), i64 undef)
-  store i64 %N, i64* %"val$[]675", align 8
+  %"val$[]675" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(i64) @mbc_int_, i64 undef)
+  store i64 %N, ptr %"val$[]675", align 8
   %add.141 = add i64 %add.1411544, 1
   %exitcond1552.not = icmp eq i64 %add.141, %N
   br i1 %exitcond1552.not, label %bb442_endif, label %bb437, !llvm.loop !9

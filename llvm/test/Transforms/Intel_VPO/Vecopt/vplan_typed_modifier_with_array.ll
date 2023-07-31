@@ -16,7 +16,7 @@ define void @"test_typed_modifier"(){
   br label %simd.begin.region
 
 simd.begin.region:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([624 x i32]* %1, i32 0, i32 624) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %1, i32 0, i32 624) ]
   br label %simd.loop
 
 simd.loop:
@@ -24,8 +24,7 @@ simd.loop:
   %2 = sext i32 %index to i64
   %add = add nuw i64 %2, %2
   %add1 = trunc i64 %add to i32
-  %gep = getelementptr inbounds [624 x i32], [624 x i32]* %1, i64 0, i64 0
-  store i32 %add1, i32* %gep, align 4
+  store i32 %add1, ptr %1, align 4
   br label %simd.loop.exit
 
 simd.loop.exit:

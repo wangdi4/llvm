@@ -4,14 +4,13 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(<2 x i32>* nocapture readonly %p) {
+define void @foo(ptr nocapture readonly %p) {
 ; CHECK-LABEL: @foo(
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP7:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH]] ], [ [[TMP6:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[P:%.*]], i64 [[UNI_PHI1]]
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <2 x i32>* [[SCALAR_GEP]] to <8 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <8 x i32>, <8 x i32>* [[TMP0]], align 8
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds <2 x i32>, ptr [[P:%.*]], i64 [[UNI_PHI1]]
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <8 x i32>, ptr [[SCALAR_GEP]], align 8
 ; CHECK-NEXT:    [[TMP1:%.*]] = sext <8 x i32> [[WIDE_LOAD]] to <8 x i64>
 ; CHECK-NEXT:    [[TMP2:%.*]] = zext <8 x i32> [[WIDE_LOAD]] to <8 x i64>
 ; CHECK-NEXT:    [[TMP3:%.*]] = trunc <8 x i32> [[WIDE_LOAD]] to <8 x i8>
@@ -28,8 +27,8 @@ entry:
 
 header:
   %iv = phi i64 [ 0, %entry ], [ %iv.next, %header ]
-  %gep = getelementptr inbounds <2 x i32>, <2 x i32>* %p, i64 %iv
-  %ld = load <2 x i32>, <2 x i32>* %gep
+  %gep = getelementptr inbounds <2 x i32>, ptr %p, i64 %iv
+  %ld = load <2 x i32>, ptr %gep
   %sext = sext <2 x i32> %ld to <2 x i64>
   %zext = zext <2 x i32> %ld to <2 x i64>
   %trunc = trunc <2 x i32> %ld to <2 x i8>

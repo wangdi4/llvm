@@ -26,17 +26,17 @@ DIR.OMP.SIMD.2:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ %indvars.iv.next, %omp.inner.for.body ], [ 0, %DIR.OMP.SIMD.1 ]
-  %arrayidx = getelementptr inbounds [256 x i32], [256 x i32]* %b, i64 0, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [256 x i32], ptr %b, i64 0, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx, align 4
   %2 = trunc i64 %indvars.iv to i32
   %call = call i32 @foo(i32 256, i32 %2, i32 %1) #3
-  %arrayidx2 = getelementptr inbounds [256 x i32], [256 x i32]* %a, i64 0, i64 %indvars.iv
-  store i32 %call, i32* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds [256 x i32], ptr %a, i64 0, i64 %indvars.iv
+  store i32 %call, ptr %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 256
   br i1 %exitcond, label %DIR.OMP.END.SIMD.4, label %omp.inner.for.body

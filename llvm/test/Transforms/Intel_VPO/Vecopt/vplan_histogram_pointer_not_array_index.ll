@@ -13,7 +13,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: [VConflict Idiom] Skipped: Non-linear base address is not supported.
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable mustprogress
-define dso_local void @foo(i32** noalias nocapture readonly %B, i32 %TC) local_unnamed_addr #0 {
+define dso_local void @foo(ptr noalias nocapture readonly %B, i32 %TC) local_unnamed_addr #0 {
 entry:
   %cmp6 = icmp sgt i32 %TC, 0
   br i1 %cmp6, label %for.body.preheader, label %for.cond.cleanup
@@ -30,11 +30,11 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i32*, i32** %B, i64 %indvars.iv
-  %0 = load i32*, i32** %arrayidx, align 8
-  %1 = load i32, i32* %0, align 4
+  %arrayidx = getelementptr inbounds ptr, ptr %B, i64 %indvars.iv
+  %0 = load ptr, ptr %arrayidx, align 8
+  %1 = load i32, ptr %0, align 4
   %add = add nsw i32 %1, 100
-  store i32 %add, i32* %0, align 4
+  store i32 %add, ptr %0, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count8
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body

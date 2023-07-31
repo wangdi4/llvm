@@ -9,11 +9,10 @@ define void @foo(ptr nocapture readonly %this, ptr nocapture dereferenceable(4) 
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ARRAYIDX_I:%.*]] = getelementptr inbounds [[CLASS_B:%.*]], ptr [[THIS:%.*]], i64 0, i32 1, i32 0, i64 0
 ; CHECK-NEXT:    [[TMP0:%.*]] = load i32, ptr [[ARRAYIDX_I]], align 4
-; CHECK-NEXT:    [[ARRAYIDX_I14:%.*]] = getelementptr inbounds [[CLASS_B]], ptr [[THIS]], i64 0, i32 0, i32 0, i64 0
 ; CHECK-NEXT:    [[SUB:%.*]] = add i32 [[TMP0]], 1
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [[CLASS_B]], ptr [[THIS]], i64 0, i32 1, i32 0, i64 1
 ; CHECK-NEXT:    [[GEPLOAD:%.*]] = load i32, ptr [[ARRAYIDX]], align 4
-; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, ptr [[ARRAYIDX_I14]], align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, ptr [[THIS]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = insertelement <2 x i32> poison, i32 [[SUB]], i32 0
 ; CHECK-NEXT:    [[TMP3:%.*]] = insertelement <2 x i32> [[TMP2]], i32 [[GEPLOAD]], i32 1
 ; CHECK-NEXT:    [[TMP4:%.*]] = sub <2 x i32> [[TMP3]], [[TMP1]]
@@ -44,8 +43,7 @@ define void @foo(ptr nocapture readonly %this, ptr nocapture dereferenceable(4) 
 entry:
   %arrayidx.i = getelementptr inbounds %class.B, ptr %this, i64 0, i32 1, i32 0, i64 0
   %0 = load i32, ptr %arrayidx.i, align 4
-  %arrayidx.i14 = getelementptr inbounds %class.B, ptr %this, i64 0, i32 0, i32 0, i64 0
-  %1 = load i32, ptr %arrayidx.i14, align 4
+  %1 = load i32, ptr %this, align 4
   %sub = add i32 %0, 1
   %add = sub i32 %sub, %1
   %arrayIdx = getelementptr inbounds %class.B, ptr %this, i64 0, i32 1, i32 0, i64 1

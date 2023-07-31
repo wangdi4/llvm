@@ -34,21 +34,21 @@ define dso_local double @test_user_defined_reduction() local_unnamed_addr #0 {
 DIR.OMP.SIMD.0:
   %linear.iv.ptr = alloca i32, align 4
   %counter.red.ptr = alloca double, align 8
-  store double 0.000000e+00, double* %counter.red.ptr, align 8
+  store double 0.000000e+00, ptr %counter.red.ptr, align 8
   br label %omp.region.entry
 
 omp.region.entry:                                 ; preds = %DIR.OMP.SIMD.0
-  %omp.token = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.UDR:TYPED"(double* %counter.red.ptr, double zeroinitializer, i32 1, i8* null, i8* null, void (double*, double*)* @.omp_combiner., i8* null), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %linear.iv.ptr, i32 0, i32 1, i32 1) ]
+  %omp.token = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.UDR:TYPED"(ptr %counter.red.ptr, double zeroinitializer, i32 1, ptr null, ptr null, ptr @.omp_combiner., ptr null), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %linear.iv.ptr, i32 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.region.entry
-  %counter.red.promoted = load double, double* %counter.red.ptr, align 8
+  %counter.red.promoted = load double, ptr %counter.red.ptr, align 8
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
   %counter = phi double [ %counter.red.promoted, %DIR.OMP.SIMD.1 ], [ %counter.next, %omp.inner.for.body ]
   %iv = phi i32 [ 0, %DIR.OMP.SIMD.1 ], [ %iv.next, %omp.inner.for.body ]
-  store i32 %iv, i32* %linear.iv.ptr, align 4
+  store i32 %iv, ptr %linear.iv.ptr, align 4
 
   %counter.next = fadd fast double %counter, 1.000000e+00
 
@@ -58,7 +58,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
 
 omp..loopexit:                                    ; preds = %omp.inner.for.body
   %counter.lcssa = phi double [ %counter.next, %omp.inner.for.body ]
-  store double %counter.lcssa, double* %counter.red.ptr, align 8
+  store double %counter.lcssa, ptr %counter.red.ptr, align 8
   br label %omp.region.exit
 
 omp.region.exit:                                  ; preds = %omp..loopexit
@@ -76,12 +76,12 @@ declare token @llvm.directive.region.entry() #1
 declare void @llvm.directive.region.exit(token) #1
 
 ; Function Attrs: alwaysinline mustprogress nofree norecurse nosync nounwind uwtable willreturn
-define internal void @.omp_combiner.(double* noalias nocapture %arg, double* noalias nocapture readonly %arg1) #2 {
+define internal void @.omp_combiner.(ptr noalias nocapture %arg, ptr noalias nocapture readonly %arg1) #2 {
 entry:
-  %i = load double, double* %arg1, align 8
-  %i2 = load double, double* %arg, align 8
+  %i = load double, ptr %arg1, align 8
+  %i2 = load double, ptr %arg, align 8
   %add = fadd fast double %i2, %i
-  store double %add, double* %arg, align 8
+  store double %add, ptr %arg, align 8
   ret void
 }
 

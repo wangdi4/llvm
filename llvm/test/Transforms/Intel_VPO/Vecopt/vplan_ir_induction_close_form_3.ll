@@ -3,7 +3,7 @@
 ; latch condition and latch condition is used more than once.
 ; RUN: opt -S < %s -passes=vplan-vec -vplan-force-vf=4 -vplan-entities-dump -vplan-print-after-vpentity-instrs -disable-output  | FileCheck %s
 
-define void  @foo(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i64 %N, i64 %c) local_unnamed_addr #0 {
+define void  @foo(ptr noalias nocapture %A, ptr noalias nocapture readonly %B, i64 %N, i64 %c) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT:  VPlan IR for: foo:for.body
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
@@ -39,15 +39,15 @@ define void  @foo(i32* noalias nocapture %A, i32* noalias nocapture readonly %B,
 ;
 entry:
   %k = alloca i64, align 4
-  store i64 0, i64* %k, align 4
+  store i64 0, ptr %k, align 4
   br label %reg.entry
 
 reg.entry:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:TYPED"(i64* %k, i64 0, i64 1, i64 2) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:TYPED"(ptr %k, i64 0, i64 1, i64 2) ]
   br label %for.body.lr.ph
 
 for.body.lr.ph:
-  %k.iv.b = load i64, i64* %k, align 4
+  %k.iv.b = load i64, ptr %k, align 4
   br label %for.body
 
 for.body:

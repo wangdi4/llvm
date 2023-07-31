@@ -35,12 +35,12 @@ entry:
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* @a, i64 0, i64 %indvars.iv, !intel-tbaa !6
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !6
-  %arrayidx2 = getelementptr inbounds [1024 x i32], [1024 x i32]* @b, i64 0, i64 %indvars.iv, !intel-tbaa !6
-  %1 = load i32, i32* %arrayidx2, align 4, !tbaa !6
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr @a, i64 0, i64 %indvars.iv, !intel-tbaa !6
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !6
+  %arrayidx2 = getelementptr inbounds [1024 x i32], ptr @b, i64 0, i64 %indvars.iv, !intel-tbaa !6
+  %1 = load i32, ptr %arrayidx2, align 4, !tbaa !6
   %add = add nsw i32 %1, %0
-  store i32 %add, i32* %arrayidx2, align 4, !tbaa !6
+  store i32 %add, ptr %arrayidx2, align 4, !tbaa !6
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %cmp = icmp slt i64 %indvars.iv.next, %TC
   br i1 %cmp, label %for.body, label %for.end.loopexit, !llvm.loop !8

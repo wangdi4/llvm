@@ -18,8 +18,8 @@ define void @foo() #0 {
 ; CHECK-NEXT:  vector.body:
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ 0, [[VPLANNEDBB10]] ], [ [[TMP2:%.*]], [[VPLANNEDBB30:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <16 x i32> [ <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>, [[VPLANNEDBB10]] ], [ [[TMP1:%.*]], [[VPLANNEDBB30]] ]
-; CHECK-NEXT:    [[TMP0:%.*]] = load void (<16 x i32>, <16 x i32*>)*, void (<16 x i32>, <16 x i32*>)** poison, align 8
-; CHECK-NEXT:    call void [[TMP0]](<16 x i32> <i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3>, <16 x i32*> undef)
+; CHECK-NEXT:    [[TMP0:%.*]] = load ptr, ptr poison, align 8
+; CHECK-NEXT:    call void [[TMP0]](<16 x i32> <i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3>, <16 x ptr> undef)
 ; CHECK-NEXT:    br label [[VPLANNEDBB30]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB3:
@@ -39,7 +39,7 @@ simd.loop.preheader:
 
 simd.loop:
   %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop.exit ]
-  call void (void (i32, i32 *)* *, i32, i32 *, ...) @__intel_indirect_call.2(void (i32, i32 *)* * poison, i32 3, i32 * undef) #1
+  call void (ptr, i32, ptr, ...) @__intel_indirect_call.2(ptr poison, i32 3, ptr undef) #1
   br label %simd.loop.exit
 
 simd.loop.exit:
@@ -55,7 +55,7 @@ simd.end.region:
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
-declare void @__intel_indirect_call.2(void (i32, i32 *)* *, i32, i32 *, ...)
+declare void @__intel_indirect_call.2(ptr, i32, ptr, ...)
 
 attributes #0 = { "prefer-vector-width"="512" }
 attributes #1 = { "vector-variants"="_ZGVeM16vv___intel_indirect_call_XXX,_ZGVeN16vv___intel_indirect_call_XXX" }

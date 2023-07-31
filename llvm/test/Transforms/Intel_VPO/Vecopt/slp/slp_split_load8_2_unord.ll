@@ -8,7 +8,6 @@ define void @_Z4testP1S(ptr %p) {
 ; CHECK-LABEL: define {{[^@]+}}@_Z4testP1S(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [[STRUCT_S:%.*]], ptr [[P:%.*]], i64 0, i32 1, i64 0
-; CHECK-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds [[STRUCT_S]], ptr [[P]], i64 0, i32 0, i64 0
 ; CHECK-NEXT:    [[ARRAYIDX20:%.*]] = getelementptr inbounds [[STRUCT_S]], ptr [[P]], i64 0, i32 2, i64 4
 ; CHECK-NEXT:    [[ARRAYIDX27:%.*]] = getelementptr inbounds [[STRUCT_S]], ptr [[P]], i64 0, i32 2, i64 12
 ; CHECK-NEXT:    [[TMP0:%.*]] = load <8 x i32>, ptr [[ARRAYIDX]], align 4
@@ -16,13 +15,12 @@ define void @_Z4testP1S(ptr %p) {
 ; CHECK-NEXT:    [[TMP2:%.*]] = load <4 x i32>, ptr [[ARRAYIDX27]], align 4
 ; CHECK-NEXT:    [[SPLITLOADSHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP1]], <4 x i32> [[TMP2]], <8 x i32> <i32 7, i32 3, i32 2, i32 0, i32 4, i32 5, i32 6, i32 1>
 ; CHECK-NEXT:    [[TMP3:%.*]] = add nsw <8 x i32> [[SPLITLOADSHUFFLE]], [[TMP0]]
-; CHECK-NEXT:    store <8 x i32> [[TMP3]], ptr [[ARRAYIDX2]], align 4
+; CHECK-NEXT:    store <8 x i32> [[TMP3]], ptr [[P]], align 4
 ; CHECK-NEXT:    ret void
 ;
 ; COST-LABEL: define {{[^@]+}}@_Z4testP1S(
 ; COST-NEXT:  entry:
 ; COST-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [[STRUCT_S:%.*]], ptr [[P:%.*]], i64 0, i32 1, i64 0
-; COST-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds [[STRUCT_S]], ptr [[P]], i64 0, i32 0, i64 0
 ; COST-NEXT:    [[ARRAYIDX20:%.*]] = getelementptr inbounds [[STRUCT_S]], ptr [[P]], i64 0, i32 2, i64 4
 ; COST-NEXT:    [[ARRAYIDX27:%.*]] = getelementptr inbounds [[STRUCT_S]], ptr [[P]], i64 0, i32 2, i64 12
 ; COST-NEXT:    [[TMP0:%.*]] = load <8 x i32>, ptr [[ARRAYIDX]], align 4
@@ -30,7 +28,7 @@ define void @_Z4testP1S(ptr %p) {
 ; COST-NEXT:    [[TMP2:%.*]] = load <4 x i32>, ptr [[ARRAYIDX27]], align 4
 ; COST-NEXT:    [[SPLITLOADSHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP1]], <4 x i32> [[TMP2]], <8 x i32> <i32 7, i32 3, i32 2, i32 0, i32 4, i32 5, i32 6, i32 1>
 ; COST-NEXT:    [[TMP3:%.*]] = add nsw <8 x i32> [[SPLITLOADSHUFFLE]], [[TMP0]]
-; COST-NEXT:    store <8 x i32> [[TMP3]], ptr [[ARRAYIDX2]], align 4
+; COST-NEXT:    store <8 x i32> [[TMP3]], ptr [[P]], align 4
 ; COST-NEXT:    ret void
 ;
 entry:
@@ -39,8 +37,7 @@ entry:
   %arrayidx1 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 2, i64 15
   %i1 = load i32, ptr %arrayidx1, align 4
   %add = add nsw i32 %i1, %i
-  %arrayidx2 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 0
-  store i32 %add, ptr %arrayidx2, align 4
+  store i32 %add, ptr %p, align 4
   %arrayidx4 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 1, i64 1
   %i2 = load i32, ptr %arrayidx4, align 4
   %arrayidx6 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 2, i64 7
@@ -106,11 +103,10 @@ define void @test_unordered_splits(ptr nocapture %p) {
 ; CHECK-NEXT:    [[P2:%.*]] = alloca [16 x i32], align 16
 ; CHECK-NEXT:    [[G10:%.*]] = getelementptr inbounds [16 x i32], ptr [[P1]], i32 0, i64 4
 ; CHECK-NEXT:    [[G20:%.*]] = getelementptr inbounds [16 x i32], ptr [[P2]], i32 0, i64 12
-; CHECK-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds [[STRUCT_S:%.*]], ptr [[P:%.*]], i64 0, i32 0, i64 0
 ; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x i32>, ptr [[G10]], align 4
 ; CHECK-NEXT:    [[TMP1:%.*]] = load <4 x i32>, ptr [[G20]], align 4
 ; CHECK-NEXT:    [[SPLITLOADSHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP0]], <4 x i32> [[TMP1]], <8 x i32> <i32 1, i32 0, i32 2, i32 3, i32 7, i32 5, i32 6, i32 4>
-; CHECK-NEXT:    store <8 x i32> [[SPLITLOADSHUFFLE]], ptr [[ARRAYIDX2]], align 4
+; CHECK-NEXT:    store <8 x i32> [[SPLITLOADSHUFFLE]], ptr [[P:%.*]], align 4
 ; CHECK-NEXT:    ret void
 ;
 ; COST-LABEL: define {{[^@]+}}@test_unordered_splits(
@@ -119,11 +115,10 @@ define void @test_unordered_splits(ptr nocapture %p) {
 ; COST-NEXT:    [[P2:%.*]] = alloca [16 x i32], align 16
 ; COST-NEXT:    [[G10:%.*]] = getelementptr inbounds [16 x i32], ptr [[P1]], i32 0, i64 4
 ; COST-NEXT:    [[G20:%.*]] = getelementptr inbounds [16 x i32], ptr [[P2]], i32 0, i64 12
-; COST-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds [[STRUCT_S:%.*]], ptr [[P:%.*]], i64 0, i32 0, i64 0
 ; COST-NEXT:    [[TMP0:%.*]] = load <4 x i32>, ptr [[G10]], align 4
 ; COST-NEXT:    [[TMP1:%.*]] = load <4 x i32>, ptr [[G20]], align 4
 ; COST-NEXT:    [[SPLITLOADSHUFFLE:%.*]] = shufflevector <4 x i32> [[TMP0]], <4 x i32> [[TMP1]], <8 x i32> <i32 1, i32 0, i32 2, i32 3, i32 7, i32 5, i32 6, i32 4>
-; COST-NEXT:    store <8 x i32> [[SPLITLOADSHUFFLE]], ptr [[ARRAYIDX2]], align 4
+; COST-NEXT:    store <8 x i32> [[SPLITLOADSHUFFLE]], ptr [[P:%.*]], align 4
 ; COST-NEXT:    ret void
 ;
 entry:
@@ -138,8 +133,7 @@ entry:
   %g22 = getelementptr inbounds [16 x i32], ptr %p2, i32 0, i64 14
   %g23 = getelementptr inbounds [16 x i32], ptr %p2, i32 0, i64 15
   %i1 = load i32, ptr %g11, align 4
-  %arrayidx2 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 0
-  store i32 %i1, ptr %arrayidx2, align 4
+  store i32 %i1, ptr %p, align 4
   %i3 = load i32, ptr %g10, align 4
   %arrayidx9 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 1
   store i32 %i3, ptr %arrayidx9, align 4
@@ -175,7 +169,6 @@ define void @test_cost_splits(ptr nocapture %p) {
 ; CHECK-NEXT:    [[G12:%.*]] = getelementptr inbounds [16 x i32], ptr [[P2]], i32 0, i64 6
 ; CHECK-NEXT:    [[G20:%.*]] = getelementptr inbounds [16 x i32], ptr [[P3]], i32 0, i64 12
 ; CHECK-NEXT:    [[G22:%.*]] = getelementptr inbounds [16 x i32], ptr [[P4]], i32 0, i64 14
-; CHECK-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds [[STRUCT_S:%.*]], ptr [[P:%.*]], i64 0, i32 0, i64 0
 ; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i32>, ptr [[G10]], align 4
 ; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, ptr [[G12]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = load <2 x i32>, ptr [[G20]], align 4
@@ -183,7 +176,7 @@ define void @test_cost_splits(ptr nocapture %p) {
 ; CHECK-NEXT:    [[SPLITLOADSHUFFLE:%.*]] = shufflevector <2 x i32> [[TMP0]], <2 x i32> [[TMP1]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    [[SPLITLOADSHUFFLE1:%.*]] = shufflevector <2 x i32> [[TMP2]], <2 x i32> [[TMP3]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    [[SPLITLOADSHUFFLE2:%.*]] = shufflevector <4 x i32> [[SPLITLOADSHUFFLE]], <4 x i32> [[SPLITLOADSHUFFLE1]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
-; CHECK-NEXT:    store <8 x i32> [[SPLITLOADSHUFFLE2]], ptr [[ARRAYIDX2]], align 4
+; CHECK-NEXT:    store <8 x i32> [[SPLITLOADSHUFFLE2]], ptr [[P:%.*]], align 4
 ; CHECK-NEXT:    ret void
 ;
 ; COST-LABEL: define {{[^@]+}}@test_cost_splits(
@@ -201,8 +194,7 @@ define void @test_cost_splits(ptr nocapture %p) {
 ; COST-NEXT:    [[G22:%.*]] = getelementptr inbounds [16 x i32], ptr [[P4]], i32 0, i64 14
 ; COST-NEXT:    [[G23:%.*]] = getelementptr inbounds [16 x i32], ptr [[P4]], i32 0, i64 15
 ; COST-NEXT:    [[I1:%.*]] = load i32, ptr [[G10]], align 4
-; COST-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds [[STRUCT_S:%.*]], ptr [[P:%.*]], i64 0, i32 0, i64 0
-; COST-NEXT:    store i32 [[I1]], ptr [[ARRAYIDX2]], align 4
+; COST-NEXT:    store i32 [[I1]], ptr [[P:%.*]], align 4
 ; COST-NEXT:    [[I3:%.*]] = load i32, ptr [[G11]], align 4
 ; COST-NEXT:    [[ARRAYIDX9:%.*]] = getelementptr inbounds [[STRUCT_S]], ptr [[P]], i64 0, i32 0, i64 1
 ; COST-NEXT:    store i32 [[I3]], ptr [[ARRAYIDX9]], align 4
@@ -240,8 +232,7 @@ entry:
   %g22 = getelementptr inbounds [16 x i32], ptr %p4, i32 0, i64 14
   %g23 = getelementptr inbounds [16 x i32], ptr %p4, i32 0, i64 15
   %i1 = load i32, ptr %g10, align 4
-  %arrayidx2 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 0
-  store i32 %i1, ptr %arrayidx2, align 4
+  store i32 %i1, ptr %p, align 4
   %i3 = load i32, ptr %g11, align 4
   %arrayidx9 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 1
   store i32 %i3, ptr %arrayidx9, align 4

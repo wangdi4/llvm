@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers -passes=vplan-vec -vplan-enable-soa-phis -vplan-force-vf=2 -vplan-enable-soa -S %s 2>&1 | FileCheck %s
+; RUN: opt -passes=vplan-vec -vplan-enable-soa-phis -vplan-force-vf=2 -vplan-enable-soa -S %s 2>&1 | FileCheck %s
 
 define void @merge_uniform_strided_soa_geps() {
 ; CHECK-LABEL: @merge_uniform_strided_soa_geps(
@@ -61,7 +61,7 @@ bb2:
   %ld.else = load i64, ptr %uni.else, align 4
   br label %simd.check.phi
 simd.check.phi:
-  %phi.mix.uni = phi i64* [%uni.else, %bb2], [%str.if, %bb1]
+  %phi.mix.uni = phi ptr [%uni.else, %bb2], [%str.if, %bb1]
   %ld = load i64, ptr %phi.mix.uni, align 4
   %gep.mix.uni = getelementptr inbounds i64, ptr %phi.mix.uni, i64 %ld
   %ld.phi.derived = load i64, ptr %gep.mix.uni, align 4
@@ -75,4 +75,4 @@ simd.end:
 
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token %0)
-declare dso_local i64 @helper(i64*)
+declare dso_local i64 @helper(ptr)

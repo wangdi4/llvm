@@ -4,7 +4,7 @@
 define void @foo() {
 ; CHECK:      BEGIN REGION { modified }
 ; CHECK-NEXT:       + DO i1 = 0, 159, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; CHECK-NEXT:       |   [[DOTVEC0:%.*]] = inttoptr.<4 x i64>.<4 x i8*>(i1 + <i64 0, i64 1, i64 2, i64 3>)
+; CHECK-NEXT:       |   [[DOTVEC0:%.*]] = inttoptr.<4 x i64>.<4 x ptr>(i1 + <i64 0, i64 1, i64 2, i64 3>)
 ; CHECK-NEXT:       |   [[EXTRACT0:%.*]] = extractelement [[DOTVEC0]],  0
 ; CHECK-NEXT:       |   [[DOTVEC10:%.*]] = (undef >u [[DOTVEC0]]) ? [[DOTVEC0]] : undef
 ; CHECK-NEXT:       + END LOOP
@@ -12,7 +12,7 @@ define void @foo() {
 ; CHECK:      END REGION
 ;
 entry:
-  %0 = load i32, i32* undef
+  %0 = load i32, ptr undef
   %cmp11 = icmp sgt i32 %0, 0
   br i1 %cmp11, label %for.body.preheader, label %for.end
 
@@ -22,19 +22,19 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %g.013 = phi i8* [ undef, %for.body.preheader ], [ %2, %for.body ]
-  %1 = inttoptr i64 %indvars.iv to i8*
-  %cmp1 = icmp ugt i8* undef, %1
-  %2 = select i1 %cmp1, i8* %1, i8* undef
+  %g.013 = phi ptr [ undef, %for.body.preheader ], [ %2, %for.body ]
+  %1 = inttoptr i64 %indvars.iv to ptr
+  %cmp1 = icmp ugt ptr undef, %1
+  %2 = select i1 %cmp1, ptr %1, ptr undef
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count14
   br i1 %exitcond.not, label %for.end.loopexit, label %for.body
 
 for.end.loopexit:                                 ; preds = %for.body
-  %.lcssa = phi i8* [ %2, %for.body ]
+  %.lcssa = phi ptr [ %2, %for.body ]
   br label %for.end
 
 for.end:                                          ; preds = %for.end.loopexit, %entry
-  %g.0.lcssa = phi i8* [ undef, %entry ], [ %.lcssa, %for.end.loopexit ]
+  %g.0.lcssa = phi ptr [ undef, %entry ], [ %.lcssa, %for.end.loopexit ]
   ret void
 }

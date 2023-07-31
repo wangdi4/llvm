@@ -18,8 +18,7 @@ entry:
   br label %DIR.OMP.SIMD.227
 
 DIR.OMP.SIMD.227:                                 ; preds = %for.body
-  %arraydecay = getelementptr inbounds [128 x i32], ptr %a, i64 0, i64 0
-  store ptr %arraydecay, ptr %lp.linear, align 8
+  store ptr %a, ptr %lp.linear, align 8
   %add = add nsw i32 %0, 1
   br label %DIR.OMP.SIMD.1
 

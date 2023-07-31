@@ -6,7 +6,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; RUN: opt -S -mattr=+avx512vl,+avx512cd -vplan-force-vf=4 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-lower-tree-conflict -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF4
 
-define dso_local void @foo(i32* noalias nocapture noundef %A, i32* nocapture noundef readonly %B, i32* noalias nocapture noundef readonly %C, i32* noalias nocapture noundef readonly %D) local_unnamed_addr #0 {
+define dso_local void @foo(ptr noalias nocapture noundef %A, ptr nocapture noundef readonly %B, ptr noalias nocapture noundef readonly %C, ptr noalias nocapture noundef readonly %D) local_unnamed_addr #0 {
 ;
 ;  int A[4], B[4], C[4], D[4];
 ;  for (int i=0; i<4; ++i) {
@@ -35,21 +35,21 @@ define dso_local void @foo(i32* noalias nocapture noundef %A, i32* nocapture nou
 ; CHECK-VF4-EMPTY:
 ; CHECK-VF4-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-VF4-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP4:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP5:%.*]], [[BB3]] ] (SVAOpBits 0->F 1->F )
-; CHECK-VF4-NEXT:     [DA: Div, SVA: (F  )] i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[D0:%.*]] i64 [[VP4]] (SVAOpBits 0->F 1->F 2->F 3->F )
-; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]] (SVAOpBits 0->F )
+; CHECK-VF4-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[D0:%.*]] i64 [[VP4]] (SVAOpBits 0->F 1->F 2->F 3->F )
+; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]] (SVAOpBits 0->F )
 ; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP6:%.*]] = icmp eq i32 [[VP_LOAD]] i32 1 (SVAOpBits 0->V 1->V )
 ; CHECK-VF4-NEXT:     [DA: Uni, SVA: (F  )] br [[BB4:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-VF4-EMPTY:
 ; CHECK-VF4-NEXT:    [[BB4]]: # preds: [[BB2]]
 ; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i1 [[VP7:%.*]] = block-predicate i1 [[VP6]] (SVAOpBits 0->V )
-; CHECK-VF4-NEXT:     [DA: Div, SVA: (F  )] i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP4]] (SVAOpBits 0->F 1->F 2->F 3->F )
-; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]] (SVAOpBits 0->F )
+; CHECK-VF4-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[B0:%.*]] i64 [[VP4]] (SVAOpBits 0->F 1->F 2->F 3->F )
+; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_1]] (SVAOpBits 0->F )
 ; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD_1]] to i64 (SVAOpBits 0->V )
-; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]] (SVAOpBits 0->V 1->V 2->V 3->V )
-; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_2]] (SVAOpBits 0->V )
-; CHECK-VF4-NEXT:     [DA: Div, SVA: (F  )] i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP4]] (SVAOpBits 0->F 1->F 2->F 3->F )
-; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUBSCRIPT_3]] (SVAOpBits 0->F )
-; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP_VCONFLICT_INDEX]] (SVAOpBits 0->V 1->V 2->V 3->V )
+; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]] (SVAOpBits 0->V 1->V 2->V 3->V )
+; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD_2:%.*]] = load ptr [[VP_SUBSCRIPT_2]] (SVAOpBits 0->V )
+; CHECK-VF4-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds ptr [[C0:%.*]] i64 [[VP4]] (SVAOpBits 0->F 1->F 2->F 3->F )
+; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD_3:%.*]] = load ptr [[VP_SUBSCRIPT_3]] (SVAOpBits 0->F )
+; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] ptr [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds ptr [[A0]] i64 [[VP_VCONFLICT_INDEX]] (SVAOpBits 0->V 1->V 2->V 3->V )
 ; CHECK-VF4-NEXT:     [DA: Div, SVA: (   )] i64 [[VP_VPCONFLICT_INTRINSIC:%.*]] = vpconflict-insn i64 [[VP_VCONFLICT_INDEX]] (SVAOpBits 0-> )
 ; CHECK-VF4-NEXT:     [DA: Div, SVA: (   )] i64 [[VP_CTLZ:%.*]] = call i64 [[VP_VPCONFLICT_INTRINSIC]] i1 false llvm.ctlz [x 1] (SVAOpBits 0-> 1-> 2-> )
 ; CHECK-VF4-NEXT:     [DA: Div, SVA: (   )] i64 [[VP9:%.*]] = sub i64 63 i64 [[VP_CTLZ]] (SVAOpBits 0-> 1-> )
@@ -89,7 +89,7 @@ define dso_local void @foo(i32* noalias nocapture noundef %A, i32* nocapture nou
 ; CHECK-VF4-NEXT:     [DA: Div, SVA: (   )] i32 [[VP_FINAL_RESULT:%.*]] = phi  [ i32 [[VP_LOAD_3]], [[BB4]] ],  [ i32 [[VP_VRES_NEXT]], [[BB7]] ] (SVAOpBits 0-> 1-> )
 ; CHECK-VF4-NEXT:     [DA: Div, SVA: (   )] i1 [[VP17:%.*]] = block-predicate i1 [[VP6]] (SVAOpBits 0-> )
 ; CHECK-VF4-NEXT:     [DA: Div, SVA: (   )] i32 [[VP18:%.*]] = add i32 [[VP_LOAD_2]] i32 [[VP_FINAL_RESULT]] (SVAOpBits 0-> 1-> )
-; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP18]] i32* [[VP_SUBSCRIPT_4]] (SVAOpBits 0->V 1->V )
+; CHECK-VF4-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP18]] ptr [[VP_SUBSCRIPT_4]] (SVAOpBits 0->V 1->V )
 ; CHECK-VF4-NEXT:     [DA: Uni, SVA: (   )] br [[BB9:BB[0-9]+]] (SVAOpBits 0-> )
 ; CHECK-VF4-EMPTY:
 ; CHECK-VF4-NEXT:    [[BB9]]: # preds: [[BB5]]
@@ -118,21 +118,21 @@ for.cond.cleanup:                                 ; preds = %for.inc
 
 for.body:                                         ; preds = %entry, %for.inc
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.inc ]
-  %arrayidx = getelementptr inbounds i32, i32* %D, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %D, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %cmp1 = icmp eq i32 %0, 1
   br i1 %cmp1, label %if.then, label %for.inc
 
 if.then:                                          ; preds = %for.body
-  %arrayidx3 = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx3, align 4
+  %arrayidx3 = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx3, align 4
   %idxprom4 = sext i32 %1 to i64
-  %arrayidx5 = getelementptr inbounds i32, i32* %A, i64 %idxprom4
-  %2 = load i32, i32* %arrayidx5, align 4
-  %arrayidx7 = getelementptr inbounds i32, i32* %C, i64 %indvars.iv
-  %3 = load i32, i32* %arrayidx7, align 4
+  %arrayidx5 = getelementptr inbounds i32, ptr %A, i64 %idxprom4
+  %2 = load i32, ptr %arrayidx5, align 4
+  %arrayidx7 = getelementptr inbounds i32, ptr %C, i64 %indvars.iv
+  %3 = load i32, ptr %arrayidx7, align 4
   %add = add nsw i32 %3, %2
-  store i32 %add, i32* %arrayidx5, align 4
+  store i32 %add, ptr %arrayidx5, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then

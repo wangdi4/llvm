@@ -3,7 +3,7 @@
 ; for loop without dedicated exits.
 ; CHECK-LABEL: define void @test_multiple_exits_from_single_block(
 ; CHECK: ret
-define void @test_multiple_exits_from_single_block(i8 %a, i8* %b.ptr) {
+define void @test_multiple_exits_from_single_block(i8 %a, ptr %b.ptr) {
 entry:
   switch i8 %a, label %loop [
     i8 0, label %exit.a
@@ -11,7 +11,7 @@ entry:
   ]
 
 loop:
-  %b = load volatile i8, i8* %b.ptr
+  %b = load volatile i8, ptr %b.ptr
   switch i8 %b, label %loop [
     i8 0, label %exit.a
     i8 1, label %exit.b

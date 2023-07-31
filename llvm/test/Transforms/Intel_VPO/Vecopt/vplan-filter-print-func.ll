@@ -4,7 +4,7 @@
 ; CHECK: VPlan IR for: foo
 ; CHECK-NOT: VPlan IR for: foo2
 
-define void @foo(i32* nocapture %ip, i32 %N) local_unnamed_addr #0 {
+define void @foo(ptr nocapture %ip, i32 %N) local_unnamed_addr #0 {
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %DIR.QUAL.LIST.END.2
@@ -18,9 +18,9 @@ for.body.preheader:                              ; preds = %DIR.QUAL.LIST.END.2
 
 for.body:
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %ip, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds i32, ptr %ip, i64 %indvars.iv
   %0 = trunc i64 %indvars.iv to i32
-  store i32 %0, i32* %arrayidx, align 4
+  store i32 %0, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %zext.trip.cnt
   br i1 %exitcond, label %for.end, label %for.body
@@ -33,7 +33,7 @@ for.cleanup:                              ; preds = %for.end
   ret void
 }
 
-define void @foo2(i32* nocapture %ip, i32 %N) local_unnamed_addr #0 {
+define void @foo2(ptr nocapture %ip, i32 %N) local_unnamed_addr #0 {
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %DIR.QUAL.LIST.END.2
@@ -47,9 +47,9 @@ for.body.preheader:                              ; preds = %DIR.QUAL.LIST.END.2
 
 for.body:
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %ip, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds i32, ptr %ip, i64 %indvars.iv
   %0 = trunc i64 %indvars.iv to i32
-  store i32 %0, i32* %arrayidx, align 4
+  store i32 %0, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %zext.trip.cnt
   br i1 %exitcond, label %for.end, label %for.body

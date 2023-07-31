@@ -22,7 +22,7 @@
 
 declare i64  @llvm.ctlz.i64 (i64, i1) nounwind readnone
 
-define void @ctlz_f64(i32 %n, i64* noalias nocapture readonly %y, i64* noalias nocapture %x) local_unnamed_addr #1 {
+define void @ctlz_f64(i32 %n, ptr noalias nocapture readonly %y, ptr noalias nocapture %x) local_unnamed_addr #1 {
 entry:
   %cmp9 = icmp sgt i32 %n, 0
   br i1 %cmp9, label %for.body.preheader, label %for.end
@@ -32,11 +32,11 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i64, i64* %y, i64 %indvars.iv
-  %0 = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %y, i64 %indvars.iv
+  %0 = load i64, ptr %arrayidx, align 8
   %call = tail call i64 @llvm.ctlz.i64(i64 %0, i1 true) nounwind readnone
-  %arrayidx4 = getelementptr inbounds i64, i64* %x, i64 %indvars.iv
-  store i64 %call, i64* %arrayidx4, align 8
+  %arrayidx4 = getelementptr inbounds i64, ptr %x, i64 %indvars.iv
+  store i64 %call, ptr %arrayidx4, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, %n
@@ -51,7 +51,7 @@ for.end:                                          ; preds = %for.end.loopexit, %
 
 declare i64  @llvm.cttz.i64 (i64, i1) nounwind readnone
 
-define void @cttz_f64(i32 %n, i64* noalias nocapture readonly %y, i64* noalias nocapture %x) local_unnamed_addr #1 {
+define void @cttz_f64(i32 %n, ptr noalias nocapture readonly %y, ptr noalias nocapture %x) local_unnamed_addr #1 {
 entry:
   %cmp9 = icmp sgt i32 %n, 0
   br i1 %cmp9, label %for.body.preheader, label %for.end
@@ -61,11 +61,11 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i64, i64* %y, i64 %indvars.iv
-  %0 = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %y, i64 %indvars.iv
+  %0 = load i64, ptr %arrayidx, align 8
   %call = tail call i64 @llvm.cttz.i64(i64 %0, i1 true) #2 nounwind readnone
-  %arrayidx4 = getelementptr inbounds i64, i64* %x, i64 %indvars.iv
-  store i64 %call, i64* %arrayidx4, align 8
+  %arrayidx4 = getelementptr inbounds i64, ptr %x, i64 %indvars.iv
+  store i64 %call, ptr %arrayidx4, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, %n
@@ -80,7 +80,7 @@ for.end:                                          ; preds = %for.end.loopexit, %
 
 declare double @llvm.powi.f64.i32(double %Val, i32 %power) nounwind readnone
 
-define void @powi_f64(i32 %n, double* noalias nocapture readonly %y, double* noalias nocapture %x, i32 %P) local_unnamed_addr #2 {
+define void @powi_f64(i32 %n, ptr noalias nocapture readonly %y, ptr noalias nocapture %x, i32 %P) local_unnamed_addr #2 {
 entry:
   %cmp9 = icmp sgt i32 %n, 0
   br i1 %cmp9, label %for.body.preheader, label %for.end
@@ -90,11 +90,11 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds double, double* %y, i64 %indvars.iv
-  %0 = load double, double* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds double, ptr %y, i64 %indvars.iv
+  %0 = load double, ptr %arrayidx, align 8
   %call = tail call double @llvm.powi.f64.i32(double %0, i32 %P) #4
-  %arrayidx4 = getelementptr inbounds double, double* %x, i64 %indvars.iv
-  store double %call, double* %arrayidx4, align 8
+  %arrayidx4 = getelementptr inbounds double, ptr %x, i64 %indvars.iv
+  store double %call, ptr %arrayidx4, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, %n
@@ -108,7 +108,7 @@ for.end:                                          ; preds = %for.end.loopexit, %
 }
 
 ; Test for scenario where powi's exponent operand (should be always scalar) is loop variant.
-define void @powi_f64_variant(i32 %n, double* noalias nocapture readonly %y, double* noalias nocapture %x) local_unnamed_addr #2 {
+define void @powi_f64_variant(i32 %n, ptr noalias nocapture readonly %y, ptr noalias nocapture %x) local_unnamed_addr #2 {
 entry:
   %cmp9 = icmp sgt i32 %n, 0
   br i1 %cmp9, label %for.body.preheader, label %for.end
@@ -118,12 +118,12 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds double, double* %y, i64 %indvars.iv
-  %0 = load double, double* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds double, ptr %y, i64 %indvars.iv
+  %0 = load double, ptr %arrayidx, align 8
   %exponent = trunc i64 %indvars.iv to i32
   %call = tail call double @llvm.powi.f64.i32(double %0, i32 %exponent) #4
-  %arrayidx4 = getelementptr inbounds double, double* %x, i64 %indvars.iv
-  store double %call, double* %arrayidx4, align 8
+  %arrayidx4 = getelementptr inbounds double, ptr %x, i64 %indvars.iv
+  store double %call, ptr %arrayidx4, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, %n
@@ -138,15 +138,15 @@ for.end:                                          ; preds = %for.end.loopexit, %
 
 ; Test for scenario where powi's exponent operand (should be always scalar) is loop variant,
 ; but uniform in nature.
-define void @powi_f64_uni_variant(double* noalias nocapture readonly %y, double* noalias nocapture %x, i32* %LP) {
+define void @powi_f64_uni_variant(ptr noalias nocapture readonly %y, ptr noalias nocapture %x, ptr %LP) {
 entry:
   br label %for.body
 
 for.body: ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %entry ]
-  %arrayidx = getelementptr inbounds double, double* %y, i64 %indvars.iv
-  %0 = load double, double* %arrayidx, align 8
-  %P = load i32, i32* %LP, align 4
+  %arrayidx = getelementptr inbounds double, ptr %y, i64 %indvars.iv
+  %0 = load double, ptr %arrayidx, align 8
+  %P = load i32, ptr %LP, align 4
   %call = tail call double @llvm.powi.f64.i32(double %0, i32 %P) #4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv, 99

@@ -19,7 +19,7 @@ entry:
   br label %preheader
 
 preheader:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(<2 x i32>* %xp, <2 x i32> zeroinitializer, i32 1)]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %xp, <2 x i32> zeroinitializer, i32 1)]
   br label %header
 header:
   %iv = phi i32 [ 0, %preheader ], [ %iv.next, %latch ]
@@ -35,7 +35,7 @@ latch:
 
 loopexit:
   %x.lcssa = phi <2 x i32> [%x, %latch]
-  store <2 x i32> %x.lcssa, <2 x i32>* %xp
+  store <2 x i32> %x.lcssa, ptr %xp
   br label %endloop
 
 endloop:

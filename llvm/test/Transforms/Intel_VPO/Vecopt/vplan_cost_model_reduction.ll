@@ -53,10 +53,10 @@ for.body:
   %g.add.merge = phi float [ 42.0E+0, %entry ], [ %g.add.next, %for.body ]
   %g.mul.merge = phi float [ 42.0E+0, %entry ], [ %g.mul.next, %for.body ]
 
-  %idx.i32 = getelementptr inbounds [128 x i32], [128 x i32]* @arr.i32, i32 0, i32 %i.merge
-  %load.i32 = load i32, i32* %idx.i32, align 4
-  %idx.f32 = getelementptr inbounds [128 x float], [128 x float]* @arr.f32, i32 0, i32 %i.merge
-  %load.f32 = load float, float* %idx.f32, align 4
+  %idx.i32 = getelementptr inbounds [128 x i32], ptr @arr.i32, i32 0, i32 %i.merge
+  %load.i32 = load i32, ptr %idx.i32, align 4
+  %idx.f32 = getelementptr inbounds [128 x float], ptr @arr.f32, i32 0, i32 %i.merge
+  %load.f32 = load float, ptr %idx.f32, align 4
   %i.next = add nuw nsw i32 %i.merge, 1
   %exitcond = icmp eq i32 %i.next, 128
 

@@ -6,8 +6,8 @@
 ;     br i1 icmp eq (i8 addrspace(3)* bitcast (i32 addrspace(3)* @testKernel.lint to i8 addrspace(3)*), i8 addrspace(3)* null), ...
 ;     br i1 icmp eq (i8 addrspace(1)* bitcast (i32 addrspace(1)* @gint to i8 addrspace(1)*), i8 addrspace(1)* null), ...
 
-; CHECK:       br i1 icmp eq (i8 addrspace(1)* bitcast (i32 addrspace(1)* @gint to i8 addrspace(1)*), i8 addrspace(1)* null), [[BB1:BB[0-9]+]], [[BB2:BB[0-9]+]]
-; CHECK:       br i1 icmp eq (i8 addrspace(3)* bitcast (i32 addrspace(3)* @testKernel.lint to i8 addrspace(3)*), i8 addrspace(3)* null), [[BB3:BB[0-9]+]], [[BB4:BB[0-9]+]]
+; CHECK:       br i1 icmp eq (ptr addrspace(1) @gint, ptr addrspace(1) null), [[BB1:BB[0-9]+]], [[BB2:BB[0-9]+]]
+; CHECK:       br i1 icmp eq (ptr addrspace(3) @testKernel.lint, ptr addrspace(3) null), [[BB3:BB[0-9]+]], [[BB4:BB[0-9]+]]
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -15,31 +15,31 @@ target triple = "x86_64-pc-linux"
 @gint = addrspace(1) global i32 1
 @testKernel.lint = internal addrspace(3) global i32 undef
 
-define void @_ZGVdN8u_testKernel(i32 addrspace(1)* noalias %results) {
+define void @_ZGVdN8u_testKernel(ptr addrspace(1) noalias %results) {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0)
   br label %simd.begin.region
 
 simd.begin.region:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM:TYPED"(i32 addrspace(1)* %results, i32 0, i32 1) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM:TYPED"(ptr addrspace(1) %results, i32 0, i32 1) ]
   br label %simd.loop
 
 simd.loop:
   %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.exit ]
   %ind_sext = sext i32 %index to i64
   %add = add nuw i64 %ind_sext, %call
-  store i32 2, i32 addrspace(3)* @testKernel.lint
+  store i32 2, ptr addrspace(3) @testKernel.lint
   %rem14 = and i64 %add, 1
   %tobool = icmp eq i64 %rem14, 0
-  %.gint = select i1 %tobool, i32 addrspace(1)* addrspacecast (i32 addrspace(3)* @testKernel.lint to i32 addrspace(1)*), i32 addrspace(1)* @gint
+  %.gint = select i1 %tobool, ptr addrspace(1) addrspacecast (ptr addrspace(3) @testKernel.lint to ptr addrspace(1)), ptr addrspace(1) @gint
   tail call void @_Z7barrierj(i32 2) #5
   br i1 %tobool, label %land.lhs.true13, label %land.lhs.true
 
 land.lhs.true:
-  br i1 icmp eq (i8 addrspace(1)* bitcast (i32 addrspace(1)* @gint to i8 addrspace(1)*), i8 addrspace(1)* null), label %land.end, label %land.rhs
+  br i1 icmp eq (ptr addrspace(1) @gint, ptr addrspace(1) null), label %land.end, label %land.rhs
 
 land.rhs:
-  %0 = load i32, i32 addrspace(1)* %.gint
+  %0 = load i32, ptr addrspace(1) %.gint
   %cmp = icmp eq i32 %0, 1
   %phitmp11 = zext i1 %cmp to i32
   br label %land.end
@@ -47,15 +47,15 @@ land.rhs:
 land.end:
   %1 = phi i32 [ 0, %land.lhs.true ], [ %phitmp11, %land.rhs ]
   %idxprom = and i64 %add, 4294967295
-  %idx = getelementptr inbounds i32, i32 addrspace(1)* %results, i64 %idxprom
-  store i32 %1, i32 addrspace(1)* %idx
+  %idx = getelementptr inbounds i32, ptr addrspace(1) %results, i64 %idxprom
+  store i32 %1, ptr addrspace(1) %idx
   br label %if.end22
 
 land.lhs.true13:
-  br i1 icmp eq (i8 addrspace(3)* bitcast (i32 addrspace(3)* @testKernel.lint to i8 addrspace(3)*), i8 addrspace(3)* null), label %land.end18, label %land.rhs15
+  br i1 icmp eq (ptr addrspace(3) @testKernel.lint, ptr addrspace(3) null), label %land.end18, label %land.rhs15
 
 land.rhs15:
-  %2 = load i32, i32 addrspace(1)* %.gint
+  %2 = load i32, ptr addrspace(1) %.gint
   %cmp16 = icmp eq i32 %2, 2
   %phitmp = zext i1 %cmp16 to i32
   br label %land.end18
@@ -63,8 +63,8 @@ land.rhs15:
 land.end18:
   %3 = phi i32 [ 0, %land.lhs.true13 ], [ %phitmp, %land.rhs15 ]
   %idxprom20 = and i64 %add, 4294967295
-  %idx21 = getelementptr inbounds i32, i32 addrspace(1)* %results, i64 %idxprom20
-  store i32 %3, i32 addrspace(1)* %idx21
+  %idx21 = getelementptr inbounds i32, ptr addrspace(1) %results, i64 %idxprom20
+  store i32 %3, ptr addrspace(1) %idx21
   br label %if.end22
 
 if.end22:

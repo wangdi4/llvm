@@ -46,13 +46,13 @@ define dso_local void @foo(i32 %n) local_unnamed_addr {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1600 x i32]* @a i64 0 i64 [[VP5]]
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1600 x i32]* @b i64 0 i64 [[VP5]]
-; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr @a i64 0 i64 [[VP5]]
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr @b i64 0 i64 [[VP5]]
+; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     i32 [[VP7:%.*]] = add i32 [[VP_LOAD]] i32 [[VP_LOAD_1]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [1600 x i32]* @c i64 0 i64 [[VP5]]
-; CHECK-NEXT:     store i32 [[VP7]] i32* [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr @c i64 0 i64 [[VP5]]
+; CHECK-NEXT:     store i32 [[VP7]] ptr [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 1
 ; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp slt i64 [[VP6]] i64 [[VP4]]
 ; CHECK-NEXT:     br i1 [[VP8]], [[BB2]], [[BB3:BB[0-9]+]]
@@ -69,13 +69,13 @@ entry:
 
 do.body:                                          ; preds = %do.body, %entry
   %indvars.iv = phi i64 [ %indvars.iv.next, %do.body ], [ 0, %entry ]
-  %arrayidx = getelementptr inbounds [1600 x i32], [1600 x i32]* @a, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  %1 = load i32, i32* %arrayidx, align 4, !tbaa !2
-  %arrayidx2 = getelementptr inbounds [1600 x i32], [1600 x i32]* @b, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  %2 = load i32, i32* %arrayidx2, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [1600 x i32], ptr @a, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  %1 = load i32, ptr %arrayidx, align 4, !tbaa !2
+  %arrayidx2 = getelementptr inbounds [1600 x i32], ptr @b, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  %2 = load i32, ptr %arrayidx2, align 4, !tbaa !2
   %add = add nsw i32 %2, %1
-  %arrayidx4 = getelementptr inbounds [1600 x i32], [1600 x i32]* @c, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  store i32 %add, i32* %arrayidx4, align 4, !tbaa !2
+  %arrayidx4 = getelementptr inbounds [1600 x i32], ptr @c, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  store i32 %add, ptr %arrayidx4, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %cmp = icmp slt i64 %indvars.iv.next, %0
   br i1 %cmp, label %do.body, label %do.end

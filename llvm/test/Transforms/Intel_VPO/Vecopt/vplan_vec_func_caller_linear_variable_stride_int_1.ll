@@ -20,7 +20,7 @@ entry:
 }
 
 ; Function Attrs: mustprogress noinline norecurse nounwind uwtable
-define dso_local noundef i32 @main(i32 noundef %argc, i8** nocapture noundef readnone %argv) local_unnamed_addr #1 {
+define dso_local noundef i32 @main(i32 noundef %argc, ptr nocapture noundef readnone %argv) local_unnamed_addr #1 {
 DIR.OMP.SIMD.1:
   %a = alloca [128 x i64], align 16
   br label %DIR.OMP.SIMD.154
@@ -36,8 +36,8 @@ omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %om
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %1 = mul nuw nsw i64 %indvars.iv, 2
   %call = call noundef i64 @_Z3foosl(i16 noundef signext 2, i64 noundef %1)
-  %arrayidx11 = getelementptr inbounds [128 x i64], [128 x i64]* %a, i64 0, i64 %1
-  store i64 %call, i64* %arrayidx11, align 8
+  %arrayidx11 = getelementptr inbounds [128 x i64], ptr %a, i64 0, i64 %1
+  store i64 %call, ptr %arrayidx11, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 64
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.442, label %omp.inner.for.body

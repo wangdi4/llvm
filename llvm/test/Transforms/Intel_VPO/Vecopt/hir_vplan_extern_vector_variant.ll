@@ -3,18 +3,18 @@
 
 ; CHECK-CTYPE-MASK:      %.vec = -1 * i1 + -1 * <i1 false, i1 true, i1 false, i1 true> != 0;
 ; CHECK-NEXT-CTYPE-MASK: %sext = sext.<4 x i1>.<4 x i64>(%.vec);
-; CHECK-NEXT-CTYPE-MASK: @_ZGVdM4vlu__Z26ice_deposition_sublimationPdii(&((<4 x double*>)(%t)[1000 * i1 + 1000 * <i64 0, i64 1, i64 2, i64 3>]),  i1,  3,  %sext)
+; CHECK-NEXT-CTYPE-MASK: @_ZGVdM4vlu__Z26ice_deposition_sublimationPdii(&((<4 x ptr>)(%t)[1000 * i1 + 1000 * <i64 0, i64 1, i64 2, i64 3>]),  i1,  3,  %sext)
 
 ; CHECK-I1-MASK:      %.vec = -1 * i1 + -1 * <i1 false, i1 true, i1 false, i1 true> != 0;
-; CHECK-NEXT-I1-MASK: @_ZGVdM4vlu__Z26ice_deposition_sublimationPdii(&((<4 x double*>)(%t)[1000 * i1 + 1000 * <i64 0, i64 1, i64 2, i64 3>]),  i1,  3,  %.vec)
+; CHECK-NEXT-I1-MASK: @_ZGVdM4vlu__Z26ice_deposition_sublimationPdii(&((<4 x ptr>)(%t)[1000 * i1 + 1000 * <i64 0, i64 1, i64 2, i64 3>]),  i1,  3,  %.vec)
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-declare dso_local void @_Z26ice_deposition_sublimationPdii(double* noundef, i32 noundef, i32 noundef) local_unnamed_addr #1
+declare dso_local void @_Z26ice_deposition_sublimationPdii(ptr noundef, i32 noundef, i32 noundef) local_unnamed_addr #1
 
 ; Function Attrs: mustprogress uwtable
-define dso_local void @_Z3subPd(double* noundef %t) local_unnamed_addr #0 {
+define dso_local void @_Z3subPd(ptr noundef %t) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -27,8 +27,8 @@ for.body:                                         ; preds = %entry, %for.inc
 
 if.then:                                          ; preds = %for.body
   %mul = mul nuw nsw i64 %indvars.iv, 1000
-  %add.ptr = getelementptr inbounds double, double* %t, i64 %mul
-  tail call void @_Z26ice_deposition_sublimationPdii(double* noundef %add.ptr, i32 noundef %0, i32 noundef 3)
+  %add.ptr = getelementptr inbounds double, ptr %t, i64 %mul
+  tail call void @_Z26ice_deposition_sublimationPdii(ptr noundef %add.ptr, i32 noundef %0, i32 noundef 3)
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then

@@ -6,7 +6,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; CHECK-LABEL: define dso_local void @foo(i32* nocapture %A)
+; CHECK-LABEL: define dso_local void @foo(ptr nocapture %A)
 ; CHECK:         vector.body:
 ; CHECK:           br i1 [[EXIT_COND:%.*]], label [[EXIT_BB:%.*]], label %vector.body, !llvm.loop [[VEC_LOOP_ID:!.*]]
 ; CHECK:       [[VEC_LOOP_ID]] = distinct !{[[VEC_LOOP_ID]], [[LOCRANGE_START:!.*]], [[LOCRANGE_END:!.*]], [[IS_VEC_MD:!.*]]}
@@ -15,7 +15,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       [[IS_VEC_MD]] = !{!"llvm.loop.isvectorized", i32 1}
 
 ; Function Attrs: mustprogress nounwind uwtable
-define dso_local void @foo(i32* nocapture %A) local_unnamed_addr {
+define dso_local void @foo(ptr nocapture %A) local_unnamed_addr {
 DIR.OMP.SIMD.113:
   br label %DIR.OMP.SIMD.1
 
@@ -29,8 +29,8 @@ DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %omp.inner.for.body
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %iv.trunc = trunc i64 %indvars.iv to i32
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  store i32 %iv.trunc, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  store i32 %iv.trunc, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body, !llvm.loop !3

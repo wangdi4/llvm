@@ -19,7 +19,7 @@
 ;}
 ;
 ; Function Attrs: norecurse nounwind readonly uwtable
-define dso_local i32 @maxloc(i32 %m, i32* nocapture readonly %ordering) local_unnamed_addr #0 {
+define dso_local i32 @maxloc(i32 %m, ptr nocapture readonly %ordering) local_unnamed_addr #0 {
 entry:
   %cmp25 = icmp sgt i32 %m, 0
   br i1 %cmp25, label %for.body.preheader, label %for.end
@@ -32,8 +32,8 @@ for.body:                                         ; preds = %for.body, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
   %tmp.027 = phi i32 [ 0, %for.body.preheader ], [ %2, %for.body ]
   %b.026 = phi i32 [ -111111111, %for.body.preheader ], [ %b.0., %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %ordering, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds i32, ptr %ordering, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %cmp1 = icmp sgt i32 %0, %b.026
   %b.0. = select i1 %cmp1, i32 %b.026, i32 %0
   %1 = trunc i64 %indvars.iv to i32

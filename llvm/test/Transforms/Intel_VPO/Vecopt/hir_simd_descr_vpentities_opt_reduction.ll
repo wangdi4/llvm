@@ -31,7 +31,7 @@
 ; <23>         (%s)[0] = %s.promoted + 2048;
 ; <24>         @llvm.directive.region.exit(%1); [ DIR.OMP.END.SIMD() ] 
 ; <25>         %5 = (%s)[0];
-; <26>         @llvm.lifetime.end.p0i8(4,  &((i8*)(%s)[0]));
+; <26>         @llvm.lifetime.end.p0(4,  &((i8*)(%s)[0]));
 ; <27>         ret %5;
 ; <0>     END REGION
 
@@ -52,38 +52,37 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local i32 @_Z3foov() local_unnamed_addr {
 omp.inner.for.body.lr.ph:
   %s = alloca i32, align 4
-  %0 = bitcast i32* %s to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %0) #2
-  store i32 0, i32* %s, align 4, !tbaa !2
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %s, i32 0, i32 1) ]
-  %s.promoted = load i32, i32* %s, align 4, !tbaa !2
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %s) #2
+  store i32 0, ptr %s, align 4, !tbaa !2
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %s, i32 0, i32 1) ]
+  %s.promoted = load i32, ptr %s, align 4, !tbaa !2
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %omp.inner.for.body.lr.ph
   %indvars.iv = phi i64 [ %indvars.iv.next, %omp.inner.for.body ], [ 0, %omp.inner.for.body.lr.ph ]
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* @b, i64 0, i64 %indvars.iv, !intel-tbaa !6
-  %2 = load i32, i32* %arrayidx, align 4, !tbaa !6
-  %arrayidx3 = getelementptr inbounds [1024 x i32], [1024 x i32]* @c, i64 0, i64 %indvars.iv, !intel-tbaa !6
-  %3 = load i32, i32* %arrayidx3, align 4, !tbaa !6
-  %mul4 = shl i32 %3, 1
-  %add5 = add nsw i32 %mul4, %2
-  %arrayidx7 = getelementptr inbounds [1024 x i32], [1024 x i32]* @a, i64 0, i64 %indvars.iv, !intel-tbaa !6
-  store i32 %add5, i32* %arrayidx7, align 4, !tbaa !6
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr @b, i64 0, i64 %indvars.iv, !intel-tbaa !6
+  %1 = load i32, ptr %arrayidx, align 4, !tbaa !6
+  %arrayidx3 = getelementptr inbounds [1024 x i32], ptr @c, i64 0, i64 %indvars.iv, !intel-tbaa !6
+  %2 = load i32, ptr %arrayidx3, align 4, !tbaa !6
+  %mul4 = shl i32 %2, 1
+  %add5 = add nsw i32 %mul4, %1
+  %arrayidx7 = getelementptr inbounds [1024 x i32], ptr @a, i64 0, i64 %indvars.iv, !intel-tbaa !6
+  store i32 %add5, ptr %arrayidx7, align 4, !tbaa !6
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body
 
 DIR.OMP.END.SIMD.2:                               ; preds = %omp.inner.for.body
-  %4 = add i32 %s.promoted, 2048
-  store i32 %4, i32* %s, align 4, !tbaa !2
-  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.SIMD"() ]
-  %5 = load i32, i32* %s, align 4, !tbaa !2
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %0) #2
-  ret i32 %5
+  %3 = add i32 %s.promoted, 2048
+  store i32 %3, ptr %s, align 4, !tbaa !2
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
+  %4 = load i32, ptr %s, align 4, !tbaa !2
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %s) #2
+  ret i32 %4
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #1
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #2
@@ -92,7 +91,7 @@ declare token @llvm.directive.region.entry() #2
 declare void @llvm.directive.region.exit(token) #2
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #1
 
 attributes #1 = { argmemonly nounwind }
 attributes #2 = { nounwind }

@@ -51,45 +51,45 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind uwtable
 define dso_local void @kernel() local_unnamed_addr {
 entry:
-  %0 = load i32, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @b, i64 0, i64 0), align 16, !tbaa !2
-  %1 = load i32, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @b, i64 0, i64 1), align 4, !tbaa !2
+  %0 = load i32, ptr @b, align 16, !tbaa !2
+  %1 = load i32, ptr getelementptr inbounds ([20 x i32], ptr @b, i64 0, i64 1), align 4, !tbaa !2
   %add = add nsw i32 %1, %0
-  %2 = load i32, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @b, i64 0, i64 2), align 8, !tbaa !2
+  %2 = load i32, ptr getelementptr inbounds ([20 x i32], ptr @b, i64 0, i64 2), align 8, !tbaa !2
   %add3 = add nsw i32 %add, %2
-  %3 = load i32, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @b, i64 0, i64 3), align 4, !tbaa !2
+  %3 = load i32, ptr getelementptr inbounds ([20 x i32], ptr @b, i64 0, i64 3), align 4, !tbaa !2
   %add5 = add nsw i32 %add3, %3
-  %4 = load i32, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @b, i64 0, i64 4), align 16, !tbaa !2
+  %4 = load i32, ptr getelementptr inbounds ([20 x i32], ptr @b, i64 0, i64 4), align 16, !tbaa !2
   %add7 = add nsw i32 %add5, %4
-  %5 = load i32, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @b, i64 0, i64 5), align 4, !tbaa !2
+  %5 = load i32, ptr getelementptr inbounds ([20 x i32], ptr @b, i64 0, i64 5), align 4, !tbaa !2
   %add9 = add nsw i32 %add7, %5
-  %6 = load i32, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @b, i64 0, i64 6), align 8, !tbaa !2
+  %6 = load i32, ptr getelementptr inbounds ([20 x i32], ptr @b, i64 0, i64 6), align 8, !tbaa !2
   %add11 = add nsw i32 %add9, %6
-  %7 = load i32, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @b, i64 0, i64 7), align 4, !tbaa !2
+  %7 = load i32, ptr getelementptr inbounds ([20 x i32], ptr @b, i64 0, i64 7), align 4, !tbaa !2
   %add13 = add nsw i32 %add11, %7
-  %8 = load i32, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @b, i64 0, i64 8), align 16, !tbaa !2
+  %8 = load i32, ptr getelementptr inbounds ([20 x i32], ptr @b, i64 0, i64 8), align 16, !tbaa !2
   %add15 = add nsw i32 %add13, %8
-  %9 = load i32, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @b, i64 0, i64 9), align 4, !tbaa !2
+  %9 = load i32, ptr getelementptr inbounds ([20 x i32], ptr @b, i64 0, i64 9), align 4, !tbaa !2
   %add17 = add nsw i32 %add15, %9
-  store i32 %add17, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @a, i64 0, i64 0), align 16, !tbaa !2
-  store i32 %add17, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @a, i64 0, i64 1), align 4, !tbaa !2
-  store i32 %add17, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @a, i64 0, i64 2), align 8, !tbaa !2
-  store i32 %add17, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @a, i64 0, i64 3), align 4, !tbaa !2
-  store i32 %add17, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @a, i64 0, i64 4), align 16, !tbaa !2
-  store i32 %add17, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @a, i64 0, i64 5), align 4, !tbaa !2
-  store i32 %add17, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @a, i64 0, i64 6), align 8, !tbaa !2
-  store i32 %add17, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @a, i64 0, i64 7), align 4, !tbaa !2
-  store i32 %add17, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @a, i64 0, i64 8), align 16, !tbaa !2
-  store i32 %add17, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @a, i64 0, i64 9), align 4, !tbaa !2
-  store i32 %add17, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @a, i64 0, i64 10), align 8, !tbaa !2
-  store i32 %add17, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @a, i64 0, i64 11), align 4, !tbaa !2
-  store i32 %add17, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @a, i64 0, i64 12), align 16, !tbaa !2
-  store i32 %add17, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @a, i64 0, i64 13), align 4, !tbaa !2
-  store i32 %add17, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @a, i64 0, i64 14), align 8, !tbaa !2
-  store i32 %add17, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @a, i64 0, i64 15), align 4, !tbaa !2
-  store i32 %add17, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @a, i64 0, i64 16), align 16, !tbaa !2
-  store i32 %add17, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @a, i64 0, i64 17), align 4, !tbaa !2
-  store i32 %add17, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @a, i64 0, i64 18), align 8, !tbaa !2
-  store i32 %add17, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @a, i64 0, i64 19), align 4, !tbaa !2
+  store i32 %add17, ptr @a, align 16, !tbaa !2
+  store i32 %add17, ptr getelementptr inbounds ([20 x i32], ptr @a, i64 0, i64 1), align 4, !tbaa !2
+  store i32 %add17, ptr getelementptr inbounds ([20 x i32], ptr @a, i64 0, i64 2), align 8, !tbaa !2
+  store i32 %add17, ptr getelementptr inbounds ([20 x i32], ptr @a, i64 0, i64 3), align 4, !tbaa !2
+  store i32 %add17, ptr getelementptr inbounds ([20 x i32], ptr @a, i64 0, i64 4), align 16, !tbaa !2
+  store i32 %add17, ptr getelementptr inbounds ([20 x i32], ptr @a, i64 0, i64 5), align 4, !tbaa !2
+  store i32 %add17, ptr getelementptr inbounds ([20 x i32], ptr @a, i64 0, i64 6), align 8, !tbaa !2
+  store i32 %add17, ptr getelementptr inbounds ([20 x i32], ptr @a, i64 0, i64 7), align 4, !tbaa !2
+  store i32 %add17, ptr getelementptr inbounds ([20 x i32], ptr @a, i64 0, i64 8), align 16, !tbaa !2
+  store i32 %add17, ptr getelementptr inbounds ([20 x i32], ptr @a, i64 0, i64 9), align 4, !tbaa !2
+  store i32 %add17, ptr getelementptr inbounds ([20 x i32], ptr @a, i64 0, i64 10), align 8, !tbaa !2
+  store i32 %add17, ptr getelementptr inbounds ([20 x i32], ptr @a, i64 0, i64 11), align 4, !tbaa !2
+  store i32 %add17, ptr getelementptr inbounds ([20 x i32], ptr @a, i64 0, i64 12), align 16, !tbaa !2
+  store i32 %add17, ptr getelementptr inbounds ([20 x i32], ptr @a, i64 0, i64 13), align 4, !tbaa !2
+  store i32 %add17, ptr getelementptr inbounds ([20 x i32], ptr @a, i64 0, i64 14), align 8, !tbaa !2
+  store i32 %add17, ptr getelementptr inbounds ([20 x i32], ptr @a, i64 0, i64 15), align 4, !tbaa !2
+  store i32 %add17, ptr getelementptr inbounds ([20 x i32], ptr @a, i64 0, i64 16), align 16, !tbaa !2
+  store i32 %add17, ptr getelementptr inbounds ([20 x i32], ptr @a, i64 0, i64 17), align 4, !tbaa !2
+  store i32 %add17, ptr getelementptr inbounds ([20 x i32], ptr @a, i64 0, i64 18), align 8, !tbaa !2
+  store i32 %add17, ptr getelementptr inbounds ([20 x i32], ptr @a, i64 0, i64 19), align 4, !tbaa !2
   ret void
 }
 

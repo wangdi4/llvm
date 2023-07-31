@@ -12,12 +12,11 @@ define dso_local void @test() local_unnamed_addr {
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP2:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH]] ], [ [[TMP1:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds [128 x double], [128 x double]* [[PHASE:%.*]], i64 0, i64 [[UNI_PHI]]
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast double* [[SCALAR_GEP]] to <2 x double>*
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x double>, <2 x double>* [[TMP0]], align 16
-; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [128 x double], <2 x [128 x double]*> [[BROADCAST_SPLAT:%.*]], <2 x i64> zeroinitializer, <2 x i64> [[VEC_PHI]]
-; CHECK-NEXT:    [[MM_VECTORGEP5:%.*]] = getelementptr inbounds [128 x double], <2 x [128 x double]*> [[BROADCAST_SPLAT4:%.*]], <2 x i64> zeroinitializer, <2 x i64> [[VEC_PHI]]
-; CHECK-NEXT:    call void @_ZGVbN2vvv_sincos(<2 x double> [[WIDE_LOAD]], <2 x double*> nonnull [[MM_VECTORGEP]], <2 x double*> nonnull [[MM_VECTORGEP5]])
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds [128 x double], ptr [[PHASE:%.*]], i64 0, i64 [[UNI_PHI]]
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x double>, ptr [[SCALAR_GEP]], align 16
+; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [128 x double], <2 x ptr> [[BROADCAST_SPLAT:%.*]], <2 x i64> zeroinitializer, <2 x i64> [[VEC_PHI]]
+; CHECK-NEXT:    [[MM_VECTORGEP5:%.*]] = getelementptr inbounds [128 x double], <2 x ptr> [[BROADCAST_SPLAT4:%.*]], <2 x i64> zeroinitializer, <2 x i64> [[VEC_PHI]]
+; CHECK-NEXT:    call void @_ZGVbN2vvv_sincos(<2 x double> [[WIDE_LOAD]], <2 x ptr> nonnull [[MM_VECTORGEP]], <2 x ptr> nonnull [[MM_VECTORGEP5]])
 ; CHECK-NEXT:    [[TMP1]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw i64 [[UNI_PHI]], 2
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp uge i64 [[TMP2]], 128
@@ -35,11 +34,11 @@ DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.1338
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.1, %omp.inner.for.body
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
-  %arrayidx4 = getelementptr inbounds [128 x double], [128 x double]* %phase, i64 0, i64 %indvars.iv
-  %phase.ld = load double, double* %arrayidx4, align 8
-  %arrayidx6 = getelementptr inbounds [128 x double], [128 x double]* %sinval, i64 0, i64 %indvars.iv
-  %arrayidx8 = getelementptr inbounds [128 x double], [128 x double]* %cosval, i64 0, i64 %indvars.iv
-  call void @sincos(double %phase.ld, double* nonnull %arrayidx6, double* nonnull %arrayidx8)
+  %arrayidx4 = getelementptr inbounds [128 x double], ptr %phase, i64 0, i64 %indvars.iv
+  %phase.ld = load double, ptr %arrayidx4, align 8
+  %arrayidx6 = getelementptr inbounds [128 x double], ptr %sinval, i64 0, i64 %indvars.iv
+  %arrayidx8 = getelementptr inbounds [128 x double], ptr %cosval, i64 0, i64 %indvars.iv
+  call void @sincos(double %phase.ld, ptr nonnull %arrayidx6, ptr nonnull %arrayidx8)
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 128
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body
@@ -56,6 +55,6 @@ declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
 ; Function Attrs: nofree nounwind
-declare dso_local void @sincos(double, double*, double*) local_unnamed_addr #6
+declare dso_local void @sincos(double, ptr, ptr) local_unnamed_addr #6
 
 attributes #6 = { nofree nounwind "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" "vector-variants"="_ZGVbN2vvv_sincos,_ZGVcN4vvv_sincos,_ZGVdN4vvv_sincos,_ZGVeN8vvv_sincos" }

@@ -12,21 +12,21 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: llvm.x86.avx.vpermilvar.ps
 
 ; Function Attrs: mustprogress uwtable
-define dso_local void @_ZN9LAMMPS_NS9Irregular11create_atomEiPiS1_i(i32* noalias nocapture noundef readonly %sizes, i32* noalias nocapture noundef readonly %proclist, i64 %N) local_unnamed_addr #0 align 2 {
+define dso_local void @_ZN9LAMMPS_NS9Irregular11create_atomEiPiS1_i(ptr noalias nocapture noundef readonly %sizes, ptr noalias nocapture noundef readonly %proclist, i64 %N) local_unnamed_addr #0 align 2 {
 entry:
   br label %for.body43
 
 for.body43:                                       ; preds = %for.body43, %entry
   %indvars.iv457 = phi i64 [ 0, %entry ], [ %indvars.iv.next458, %for.body43 ]
-  %arrayidx45 = getelementptr inbounds i32, i32* %sizes, i64 %indvars.iv457
-  %0 = load i32, i32* %arrayidx45, align 4
-  %arrayidx48 = getelementptr inbounds i32, i32* %proclist, i64 %indvars.iv457
-  %1 = load i32, i32* %arrayidx48, align 4
+  %arrayidx45 = getelementptr inbounds i32, ptr %sizes, i64 %indvars.iv457
+  %0 = load i32, ptr %arrayidx45, align 4
+  %arrayidx48 = getelementptr inbounds i32, ptr %proclist, i64 %indvars.iv457
+  %1 = load i32, ptr %arrayidx48, align 4
   %idxprom49 = sext i32 %1 to i64
-  %arrayidx50 = getelementptr inbounds i32, i32* null, i64 %idxprom49
-  %2 = load i32, i32* %arrayidx50, align 4
+  %arrayidx50 = getelementptr inbounds i32, ptr null, i64 %idxprom49
+  %2 = load i32, ptr %arrayidx50, align 4
   %add = add nsw i32 %2, %0
-  store i32 %add, i32* %arrayidx50, align 4
+  store i32 %add, ptr %arrayidx50, align 4
   %indvars.iv.next458 = add nuw nsw i64 %indvars.iv457, 1
   %exitcond460.not = icmp eq i64 %indvars.iv.next458, %N
   br i1 %exitcond460.not, label %for.end53.loopexit, label %for.body43

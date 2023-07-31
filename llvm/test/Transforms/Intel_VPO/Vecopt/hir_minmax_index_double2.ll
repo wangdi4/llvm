@@ -46,9 +46,9 @@ define i32 @main() {
 ; CHECK-NEXT:        + END LOOP
 ; CHECK:       END REGION
 ;
-  %1 = tail call i32 (i32*, i8*, ...) @fscanf(i32* undef, i8* undef)
-  %2 = load i32, i32* @a
-  %3 = load i32, i32* @g
+  %1 = tail call i32 (ptr, ptr, ...) @fscanf(ptr undef, ptr undef)
+  %2 = load i32, ptr @a
+  %3 = load i32, ptr @g
   %4 = icmp slt i32 %3, %2
   br i1 %4, label %5, label %27
 
@@ -78,11 +78,11 @@ define i32 @main() {
 24:                                               ; preds = %8
   %25 = phi i32 [ %16, %8 ]
   %26 = phi i32 [ %20, %8 ]
-  store i32 %2, i32* @g, align 4
+  store i32 %2, ptr @g, align 4
   br label %27
 
 27:
   ret i32 0
 }
 
-declare i32 @fscanf(i32*, i8*, ...)
+declare i32 @fscanf(ptr, ptr, ...)

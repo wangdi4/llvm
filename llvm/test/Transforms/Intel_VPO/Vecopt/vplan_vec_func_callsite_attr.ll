@@ -9,7 +9,6 @@ declare <2 x i64> @_ZGVbN2u_foo(i64 %u)
 define i32 @main() local_unnamed_addr {
 entry:
   %a = alloca [1000 x i64], align 16
-  %0 = bitcast [1000 x i64]* %a to i8*
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:
@@ -23,8 +22,8 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
   %call2 = tail call i64 @foo(i64 3) #0
 ; CHECK: call <2 x i64> @_ZGVbN2u_foo(i64 3)
 ;
-  %arrayidx = getelementptr inbounds [1000 x i64], [1000 x i64]* %a, i64 0, i64 %indvars.iv
-  store i64 %call, i64* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [1000 x i64], ptr %a, i64 0, i64 %indvars.iv
+  store i64 %call, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1000
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body

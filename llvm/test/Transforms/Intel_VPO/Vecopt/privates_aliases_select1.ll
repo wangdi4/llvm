@@ -25,7 +25,7 @@ declare token @llvm.directive.region.entry()
 
 declare void @llvm.directive.region.exit(token)
 
-define void @_ZGVeN16uuu__ZTSZZ4mainENKUlRN2cl4sycl7handlerEE_clES2_E11AtomicTests(i64 %_arg_m_capacity, i64 addrspace(1)* %ptr, i64 addrspace(4)* %alt, i1 zeroext %cmp.i.i) {
+define void @_ZGVeN16uuu__ZTSZZ4mainENKUlRN2cl4sycl7handlerEE_clES2_E11AtomicTests(i64 %_arg_m_capacity, ptr addrspace(1) %ptr, ptr addrspace(4) %alt, i1 zeroext %cmp.i.i) {
 ; CHECK-LABEL:  SOA profitability:
 ; CHECK-NEXT:  SOAUnsafe = [[VP__SROA_0:%.*]] (.sroa.0)
 ;
@@ -34,21 +34,20 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 16), "QUAL.OMP.UNIFORM:TYPED"(i64 addrspace(1)* %ptr, i64 0, i32 1), "QUAL.OMP.UNIFORM"(i1 %cmp.i.i), "QUAL.OMP.UNIFORM:TYPED"(i64 addrspace(4)* %alt, i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"([32 x i64]* %.sroa.0, i64 0, i32 32) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 16), "QUAL.OMP.UNIFORM:TYPED"(ptr addrspace(1) %ptr, i64 0, i32 1), "QUAL.OMP.UNIFORM"(i1 %cmp.i.i), "QUAL.OMP.UNIFORM:TYPED"(ptr addrspace(4) %alt, i64 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr %.sroa.0, i64 0, i32 32) ]
   br label %simd.loop.preheader
 
 simd.loop.preheader:                              ; preds = %simd.begin.region
-  %.sroa.0.0..sroa_cast = addrspacecast [32 x i64]* %.sroa.0 to i64 addrspace(4)*
-  %select = select i1 %cmp.i.i, i64 addrspace(4)* %.sroa.0.0..sroa_cast, i64 addrspace(4)* %alt
+  %.sroa.0.0..sroa_cast = addrspacecast ptr %.sroa.0 to ptr addrspace(4)
+  %select = select i1 %cmp.i.i, ptr addrspace(4) %.sroa.0.0..sroa_cast, ptr addrspace(4) %alt
   br label %simd.loop.header
 
 simd.loop.header:                                 ; preds = %simd.loop.latch, %simd.loop.preheader
   %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop.latch ]
-  %.sroa.gep = getelementptr [32 x i64], [32 x i64]* %.sroa.0, i64 0, i64 0
-  store i64 %_arg_m_capacity, i64* %.sroa.gep, align 8
-  %cond.i.i = load i64, i64 addrspace(4)* %select, align 8
-  %add.ptr.i14 = getelementptr inbounds i64, i64 addrspace(1)* %ptr, i32 %index
-  store i64 %cond.i.i, i64 addrspace(1)* %add.ptr.i14, align 4
+  store i64 %_arg_m_capacity, ptr %.sroa.0, align 8
+  %cond.i.i = load i64, ptr addrspace(4) %select, align 8
+  %add.ptr.i14 = getelementptr inbounds i64, ptr addrspace(1) %ptr, i32 %index
+  store i64 %cond.i.i, ptr addrspace(1) %add.ptr.i14, align 4
   br label %simd.loop.latch
 
 simd.loop.latch:                                  ; preds = %simd.loop.header

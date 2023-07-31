@@ -14,17 +14,16 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @arr = dso_local local_unnamed_addr global [100 x float] zeroinitializer, align 16
 
-define void @foo(<4 x float> %float_vec, float* %arr) {
-; CHECK:  define void @foo(<4 x float> [[FLOAT_VEC0:%.*]], float* [[ARR0:%.*]]) {
+define void @foo(<4 x float> %float_vec, ptr %arr) {
+; CHECK:  define void @foo(<4 x float> [[FLOAT_VEC0:%.*]], ptr [[ARR0:%.*]]) {
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[TMP3:%.*]], [[VECTOR_BODY0:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH0]] ], [ [[TMP2:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = tail call fast float @llvm.vector.reduce.fadd.v4f32(float -0.000000e+00, <4 x float> [[FLOAT_VEC0]])
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x float> poison, float [[TMP0]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <2 x float> [[BROADCAST_SPLATINSERT0]], <2 x float> poison, <2 x i32> zeroinitializer
-; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds float, float* [[ARR0]], i64 [[UNI_PHI0]]
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast float* [[SCALAR_GEP0]] to <2 x float>*
-; CHECK-NEXT:    store <2 x float> [[BROADCAST_SPLAT0]], <2 x float>* [[TMP1]], align 4
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds float, ptr [[ARR0]], i64 [[UNI_PHI0]]
+; CHECK-NEXT:    store <2 x float> [[BROADCAST_SPLAT0]], ptr [[SCALAR_GEP0]], align 4
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI0]], 2
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp uge i64 [[TMP3]], 100
@@ -37,8 +36,8 @@ entry:
 for.body:
   %iv = phi i64 [ 0, %entry ], [ %iv.add, %for.body ]
   %fadd = tail call fast float @llvm.vector.reduce.fadd.v4f32(float -0.000000e+00, <4 x float> %float_vec)
-  %ptridx = getelementptr inbounds float, float* %arr, i64 %iv
-  store float %fadd, float* %ptridx, align 4
+  %ptridx = getelementptr inbounds float, ptr %arr, i64 %iv
+  store float %fadd, ptr %ptridx, align 4
   %iv.add = add nuw nsw i64 %iv, 1
   %exitcond.not = icmp eq i64 %iv.add, 100
   br i1 %exitcond.not, label %for.end, label %for.body
@@ -48,8 +47,8 @@ for.end:
   ret void
 }
 
-define void @foo2(<4 x double> %double_vec, double* %arr) {
-; CHECK:  define void @foo2(<4 x double> [[DOUBLE_VEC0:%.*]], double* [[ARR0:%.*]]) {
+define void @foo2(<4 x double> %double_vec, ptr %arr) {
+; CHECK:  define void @foo2(<4 x double> [[DOUBLE_VEC0:%.*]], ptr [[ARR0:%.*]]) {
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH1:%.*]] ], [ [[TMP7:%.*]], [[VECTOR_BODY1:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH1]] ], [ [[TMP6:%.*]], [[VECTOR_BODY1]] ]
@@ -60,9 +59,8 @@ define void @foo2(<4 x double> %double_vec, double* %arr) {
 ; CHECK-NEXT:    [[TMP2:%.*]] = insertelement <2 x double> undef, double [[TMP1]], i32 0
 ; CHECK-NEXT:    [[TMP3:%.*]] = tail call fast double @llvm.vector.reduce.fadd.v4f64(double [[DOTEXTRACT_1_0]], <4 x double> [[DOUBLE_VEC0]])
 ; CHECK-NEXT:    [[TMP4:%.*]] = insertelement <2 x double> [[TMP2]], double [[TMP3]], i32 1
-; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds double, double* [[ARR0]], i64 [[UNI_PHI0]]
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast double* [[SCALAR_GEP0]] to <2 x double>*
-; CHECK-NEXT:    store <2 x double> [[TMP4]], <2 x double>* [[TMP5]], align 4
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds double, ptr [[ARR0]], i64 [[UNI_PHI0]]
+; CHECK-NEXT:    store <2 x double> [[TMP4]], ptr [[SCALAR_GEP0]], align 4
 ; CHECK-NEXT:    [[TMP6]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP7]] = add nuw nsw i64 [[UNI_PHI0]], 2
 ; CHECK-NEXT:    [[TMP8:%.*]] = icmp uge i64 [[TMP7]], 100
@@ -76,8 +74,8 @@ for.body:
   %iv = phi i64 [ 0, %entry ], [ %iv.add, %for.body ]
   %fpcvt = uitofp i64 %iv to double
   %fadd = tail call fast double @llvm.vector.reduce.fadd.v4f64(double %fpcvt, <4 x double> %double_vec)
-  %ptridx = getelementptr inbounds double, double* %arr, i64 %iv
-  store double %fadd, double* %ptridx, align 4
+  %ptridx = getelementptr inbounds double, ptr %arr, i64 %iv
+  store double %fadd, ptr %ptridx, align 4
   %iv.add = add nuw nsw i64 %iv, 1
   %exitcond.not = icmp eq i64 %iv.add, 100
   br i1 %exitcond.not, label %for.end, label %for.body

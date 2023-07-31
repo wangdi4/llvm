@@ -4,7 +4,7 @@
 ; RUN: opt -S -passes='hir-ssa-deconstruction,hir-vplan-vec,print<hir>'  -vplan-print-after-plain-cfg -vplan-entities-dump -vplan-print-legality -disable-output < %s 2>&1 | FileCheck %s
 
 ; Function Attrs: nounwind uwtable
-define void @test_hir_debug(i32* nocapture readonly %iarr)  {
+define void @test_hir_debug(ptr nocapture readonly %iarr)  {
 ; Check legality dumps
 ; CHECK-LABEL:  HIRLegality Descriptor Lists
 ; CHECK:       HIRLegality PrivatesList:
@@ -26,15 +26,15 @@ define void @test_hir_debug(i32* nocapture readonly %iarr)  {
 ; CHECK:       Private list
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Private tag: InMemory
-; CHECK-NEXT:    Linked values: i32* [[A20]],
-; CHECK-NEXT:   Memory: i32* [[A20]]
+; CHECK-NEXT:    Linked values: ptr [[A20]],
+; CHECK-NEXT:   Memory: ptr [[A20]]
 ;
 entry:
   %a2 = alloca i32, align 4
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(i32* %a2, i32 0, i32 1) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %a2, i32 0, i32 1) ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.SIMD.1
@@ -42,9 +42,9 @@ DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.SIMD.1
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.QUAL.LIST.END.2
   %.omp.iv.05 = phi i64 [ 0, %DIR.QUAL.LIST.END.2 ], [ %add1, %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %iarr, i64 %.omp.iv.05
-  %0 = load i32, i32* %arrayidx, align 4
-  store i32 %0, i32* %a2, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %iarr, i64 %.omp.iv.05
+  %0 = load i32, ptr %arrayidx, align 4
+  store i32 %0, ptr %a2, align 4
   %add1 = add nuw nsw i64 %.omp.iv.05, 1
   %exitcond = icmp eq i64 %add1, 100
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body

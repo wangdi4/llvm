@@ -8,7 +8,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline norecurse nounwind uwtable
-define dso_local void @foo1(i32* nocapture %arr) local_unnamed_addr #0 {
+define dso_local void @foo1(ptr nocapture %arr) local_unnamed_addr #0 {
 ; SKIP-NOT: simd-vectorized
 ; CHECK:    simd-vectorized
 entry:
@@ -20,9 +20,9 @@ preheader:
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %arr, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds i32, ptr %arr, i64 %indvars.iv
   %1 = trunc i64 %indvars.iv to i32
-  store i32 %1, i32* %arrayidx, align 4
+  store i32 %1, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1032
   br i1 %exitcond, label %loopexit, label %for.body, !llvm.loop !6
@@ -36,7 +36,7 @@ for.end:                                          ; preds = %for.body
 }
 
 ; Function Attrs: noinline norecurse nounwind uwtable
-define dso_local void @foo2(i32* nocapture %arr) local_unnamed_addr #0 {
+define dso_local void @foo2(ptr nocapture %arr) local_unnamed_addr #0 {
 ; SKIP-NOT: simd-vectorized
 ; CHECK:    simd-vectorized
 entry:
@@ -48,9 +48,9 @@ preheader:
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %arr, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds i32, ptr %arr, i64 %indvars.iv
   %1 = trunc i64 %indvars.iv to i32
-  store i32 %1, i32* %arrayidx, align 4
+  store i32 %1, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1032
   br i1 %exitcond, label %loopexit, label %for.body, !llvm.loop !11

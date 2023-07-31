@@ -8,7 +8,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; RUN: opt -S -mattr=+avx512vl,+avx512cd -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec' -vplan-print-after-hir-decomposer	-disable-vplan-codegen -disable-output < %s 2>&1 | FileCheck %s
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable mustprogress
-define dso_local void @foo1(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32* noalias nocapture readonly %C, i32 %N) local_unnamed_addr #0 {
+define dso_local void @foo1(ptr noalias nocapture %A, ptr noalias nocapture readonly %B, ptr noalias nocapture readonly %C, i32 %N) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after VPlanHIRDecomposer:
 ; CHECK-NEXT:  VPlan IR for: foo1:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
@@ -26,14 +26,14 @@ define dso_local void @foo1(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP5]]
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[B0:%.*]] i64 [[VP5]]
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
-; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP5]]
-; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_2]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP_VCONFLICT_INDEX]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
+; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[C0:%.*]] i64 [[VP5]]
+; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load ptr [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds ptr [[A0]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_1]] i32 [[VP_LOAD_2]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
@@ -44,7 +44,7 @@ define dso_local void @foo1(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:      i32 [[VP8:%.*]] = add i32 [[VP_LIVE_IN0]] i32 [[VP_LIVE_IN1]]
 ; CHECK-NEXT:      live-out : i32 [[VP8]] = add i32 [[VP_LIVE_IN0]] i32 [[VP_LIVE_IN1]]
 ; CHECK-NEXT:     }
-; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] i32* [[VP_SUBSCRIPT_3]]
+; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] ptr [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 1
 ; CHECK-NEXT:     i1 [[VP9:%.*]] = icmp slt i64 [[VP6]] i64 [[VP4]]
 ; CHECK-NEXT:     br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
@@ -75,22 +75,22 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %idxprom1 = sext i32 %0 to i64
-  %arrayidx2 = getelementptr inbounds i32, i32* %A, i64 %idxprom1
-  %1 = load i32, i32* %arrayidx2, align 4
-  %arrayidx4 = getelementptr inbounds i32, i32* %C, i64 %indvars.iv
-  %2 = load i32, i32* %arrayidx4, align 4
+  %arrayidx2 = getelementptr inbounds i32, ptr %A, i64 %idxprom1
+  %1 = load i32, ptr %arrayidx2, align 4
+  %arrayidx4 = getelementptr inbounds i32, ptr %C, i64 %indvars.iv
+  %2 = load i32, ptr %arrayidx4, align 4
   %add = add nsw i32 %2, %1
-  store i32 %add, i32* %arrayidx2, align 4
+  store i32 %add, ptr %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count16
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body
 }
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable mustprogress
-define dso_local void @foo2(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32* noalias nocapture readonly %C, i32* noalias nocapture readonly %D, i32 %N) local_unnamed_addr #0 {
+define dso_local void @foo2(ptr noalias nocapture %A, ptr noalias nocapture readonly %B, ptr noalias nocapture readonly %C, ptr noalias nocapture readonly %D, i32 %N) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after VPlanHIRDecomposer:
 ; CHECK-NEXT:  VPlan IR for: foo2:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
@@ -109,17 +109,17 @@ define dso_local void @foo2(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i64 [[VP6:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP7:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP6]]
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP6]]
-; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[D0:%.*]] i64 [[VP6]]
-; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[B0:%.*]] i64 [[VP6]]
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[C0:%.*]] i64 [[VP6]]
+; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[D0:%.*]] i64 [[VP6]]
+; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load ptr [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:     i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
-; CHECK-NEXT:     i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUBSCRIPT_3]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
+; CHECK-NEXT:     i32 [[VP_LOAD_3:%.*]] = load ptr [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:     i32 [[VP8:%.*]] = add i32 [[VP_LOAD_1]] i32 [[VP_LOAD_2]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP_VCONFLICT_INDEX]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds ptr [[A0]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_3]] i32 [[VP8]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
@@ -131,7 +131,7 @@ define dso_local void @foo2(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:      i32 [[VP11:%.*]] = mul i32 [[VP10]] i32 100
 ; CHECK-NEXT:      live-out : i32 [[VP11]] = mul i32 [[VP10]] i32 100
 ; CHECK-NEXT:     }
-; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] i32* [[VP_SUBSCRIPT_4]]
+; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] ptr [[VP_SUBSCRIPT_4]]
 ; CHECK-NEXT:     i64 [[VP7]] = add i64 [[VP6]] i64 1
 ; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp slt i64 [[VP7]] i64 [[VP5]]
 ; CHECK-NEXT:     br i1 [[VP12]], [[BB2]], [[BB3:BB[0-9]+]]
@@ -162,26 +162,26 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %idxprom1 = sext i32 %0 to i64
-  %arrayidx2 = getelementptr inbounds i32, i32* %A, i64 %idxprom1
-  %1 = load i32, i32* %arrayidx2, align 4
-  %arrayidx4 = getelementptr inbounds i32, i32* %C, i64 %indvars.iv
-  %2 = load i32, i32* %arrayidx4, align 4
-  %arrayidx6 = getelementptr inbounds i32, i32* %D, i64 %indvars.iv
-  %3 = load i32, i32* %arrayidx6, align 4
+  %arrayidx2 = getelementptr inbounds i32, ptr %A, i64 %idxprom1
+  %1 = load i32, ptr %arrayidx2, align 4
+  %arrayidx4 = getelementptr inbounds i32, ptr %C, i64 %indvars.iv
+  %2 = load i32, ptr %arrayidx4, align 4
+  %arrayidx6 = getelementptr inbounds i32, ptr %D, i64 %indvars.iv
+  %3 = load i32, ptr %arrayidx6, align 4
   %add = add nsw i32 %3, %2
   %div = sdiv i32 %1, %add
   %mul = mul nsw i32 %div, 100
-  store i32 %mul, i32* %arrayidx2, align 4
+  store i32 %mul, ptr %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count19
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body
 }
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable mustprogress
-define dso_local void @foo3(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32* noalias nocapture %C, i32* noalias nocapture %D, i32* noalias nocapture %E, i32 %N) local_unnamed_addr #0 {
+define dso_local void @foo3(ptr noalias nocapture %A, ptr noalias nocapture readonly %B, ptr noalias nocapture %C, ptr noalias nocapture %D, ptr noalias nocapture %E, i32 %N) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after VPlanHIRDecomposer:
 ; CHECK-NEXT:  VPlan IR for: foo3:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
@@ -203,8 +203,8 @@ define dso_local void @foo3(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     i64 [[VP9:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP10:%.*]], [[BB3]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP9]]
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[B0:%.*]] i64 [[VP9]]
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i1 [[VP11:%.*]] = trunc i64 [[VP9]] to i1
 ; CHECK-NEXT:     i1 [[VP12:%.*]] = mul i1 true i1 [[VP11]]
 ; CHECK-NEXT:     i32 [[VP13:%.*]] = zext i1 [[VP12]] to i32
@@ -213,10 +213,10 @@ define dso_local void @foo3(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: [[BB2]]
 ; CHECK-NEXT:       i32 [[VP15:%.*]] = trunc i64 [[VP9]] to i32
-; CHECK-NEXT:       i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[E0:%.*]] i64 [[VP9]]
-; CHECK-NEXT:       store i32 [[VP15]] i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:       i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[D0:%.*]] i64 [[VP9]]
-; CHECK-NEXT:       i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[E0:%.*]] i64 [[VP9]]
+; CHECK-NEXT:       store i32 [[VP15]] ptr [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[D0:%.*]] i64 [[VP9]]
+; CHECK-NEXT:       i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:       i32 [[VP17:%.*]] = add i32 [[VP15]] i32 10
 ; CHECK-NEXT:       i32 [[VP18:%.*]] = hir-copy i32 [[VP17]] , OriginPhiId: -1
 ; CHECK-NEXT:       i32 [[VP19:%.*]] = add i32 [[VP_LOAD_1]] i32 1
@@ -228,11 +228,11 @@ define dso_local void @foo3(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
 ; CHECK-NEXT:       i32 [[VP24:%.*]] = trunc i64 [[VP9]] to i32
 ; CHECK-NEXT:       i32 [[VP25:%.*]] = add i32 [[VP24]] i32 10
-; CHECK-NEXT:       i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[D0]] i64 [[VP9]]
-; CHECK-NEXT:       store i32 [[VP25]] i32* [[VP_SUBSCRIPT_3]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds ptr [[D0]] i64 [[VP9]]
+; CHECK-NEXT:       store i32 [[VP25]] ptr [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:       i32 [[VP29:%.*]] = mul i32 [[VP25]] i32 [[VP24]]
-; CHECK-NEXT:       i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i32* [[E0]] i64 [[VP9]]
-; CHECK-NEXT:       i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_4]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds ptr [[E0]] i64 [[VP9]]
+; CHECK-NEXT:       i32 [[VP_LOAD_2:%.*]] = load ptr [[VP_SUBSCRIPT_4]]
 ; CHECK-NEXT:       i32 [[VP31:%.*]] = hir-copy i32 [[VP24]] , OriginPhiId: -1
 ; CHECK-NEXT:       i32 [[VP32:%.*]] = mul i32 [[VP_LOAD_2]] i32 -1
 ; CHECK-NEXT:       i32 [[VP33:%.*]] = add i32 [[VP32]] i32 [[VP29]]
@@ -242,13 +242,13 @@ define dso_local void @foo3(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB4]], [[BB5]]
 ; CHECK-NEXT:     i32 [[VP35:%.*]] = phi  [ i32 [[VP34]], [[BB4]] ],  [ i32 [[VP23]], [[BB5]] ]
 ; CHECK-NEXT:     i32 [[VP36:%.*]] = phi  [ i32 [[VP31]], [[BB4]] ],  [ i32 [[VP18]], [[BB5]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP9]]
-; CHECK-NEXT:     store i32 [[VP36]] i32* [[VP_SUBSCRIPT_5]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds ptr [[C0:%.*]] i64 [[VP9]]
+; CHECK-NEXT:     store i32 [[VP36]] ptr [[VP_SUBSCRIPT_5]]
 ; CHECK-NEXT:     i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_6:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
-; CHECK-NEXT:     i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUBSCRIPT_6]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_6:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
+; CHECK-NEXT:     i32 [[VP_LOAD_3:%.*]] = load ptr [[VP_SUBSCRIPT_6]]
 ; CHECK-NEXT:     i64 [[VP37:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_7:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP37]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_7:%.*]] = subscript inbounds ptr [[A0]] i64 [[VP37]]
 ; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_3]] i32 [[VP35]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
@@ -259,7 +259,7 @@ define dso_local void @foo3(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:      i32 [[VP38:%.*]] = add i32 [[VP_LIVE_IN0]] i32 [[VP_LIVE_IN1]]
 ; CHECK-NEXT:      live-out : i32 [[VP38]] = add i32 [[VP_LIVE_IN0]] i32 [[VP_LIVE_IN1]]
 ; CHECK-NEXT:     }
-; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] i32* [[VP_SUBSCRIPT_7]]
+; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] ptr [[VP_SUBSCRIPT_7]]
 ; CHECK-NEXT:     i64 [[VP10]] = add i64 [[VP9]] i64 1
 ; CHECK-NEXT:     i1 [[VP39:%.*]] = icmp slt i64 [[VP10]] i64 [[VP8]]
 ; CHECK-NEXT:     br i1 [[VP39]], [[BB2]], [[BB6:BB[0-9]+]]
@@ -302,10 +302,10 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 for.body:                                         ; preds = %for.body.preheader, %if.end
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %if.end ]
   %i.065 = phi i32 [ 0, %for.body.preheader ], [ %inc, %if.end ]
-  %arrayidx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %idxprom1 = sext i32 %0 to i64
-  %arrayidx2 = getelementptr inbounds i32, i32* %A, i64 %idxprom1
+  %arrayidx2 = getelementptr inbounds i32, ptr %A, i64 %idxprom1
   %1 = trunc i64 %indvars.iv to i32
   %rem = and i32 %1, 1
   %cmp3 = icmp eq i32 %rem, 0
@@ -313,21 +313,21 @@ for.body:                                         ; preds = %for.body.preheader,
 
 if.then:                                          ; preds = %for.body
   %add = add nuw nsw i32 %i.065, 10
-  %arrayidx7 = getelementptr inbounds i32, i32* %D, i64 %indvars.iv
+  %arrayidx7 = getelementptr inbounds i32, ptr %D, i64 %indvars.iv
   %2 = add i32 %1, 10
-  store i32 %2, i32* %arrayidx7, align 4
+  store i32 %2, ptr %arrayidx7, align 4
   %mul = mul nsw i32 %add, %1
-  %arrayidx13 = getelementptr inbounds i32, i32* %E, i64 %indvars.iv
-  %3 = load i32, i32* %arrayidx13, align 4
+  %arrayidx13 = getelementptr inbounds i32, ptr %E, i64 %indvars.iv
+  %3 = load i32, ptr %arrayidx13, align 4
   %sub = sub nsw i32 %mul, %3
   br label %if.end
 
 if.else:                                          ; preds = %for.body
   %4 = add i32 %1, 10
-  %arrayidx18 = getelementptr inbounds i32, i32* %E, i64 %indvars.iv
-  store i32 %1, i32* %arrayidx18, align 4
-  %arrayidx22 = getelementptr inbounds i32, i32* %D, i64 %indvars.iv
-  %5 = load i32, i32* %arrayidx22, align 4
+  %arrayidx18 = getelementptr inbounds i32, ptr %E, i64 %indvars.iv
+  store i32 %1, ptr %arrayidx18, align 4
+  %arrayidx22 = getelementptr inbounds i32, ptr %D, i64 %indvars.iv
+  %5 = load i32, ptr %arrayidx22, align 4
   %mul25 = mul nsw i32 %5, %1
   %add26 = add nsw i32 %mul25, %4
   br label %if.end
@@ -335,11 +335,11 @@ if.else:                                          ; preds = %for.body
 if.end:                                           ; preds = %if.else, %if.then
   %.sink = phi i32 [ %1, %if.then ], [ %4, %if.else ]
   %y.0 = phi i32 [ %sub, %if.then ], [ %add26, %if.else ]
-  %6 = getelementptr inbounds i32, i32* %C, i64 %indvars.iv
-  store i32 %.sink, i32* %6, align 4
-  %7 = load i32, i32* %arrayidx2, align 4
+  %6 = getelementptr inbounds i32, ptr %C, i64 %indvars.iv
+  store i32 %.sink, ptr %6, align 4
+  %7 = load i32, ptr %arrayidx2, align 4
   %add29 = add nsw i32 %7, %y.0
-  store i32 %add29, i32* %arrayidx2, align 4
+  store i32 %add29, ptr %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %inc = add nuw nsw i32 %i.065, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count69
@@ -347,7 +347,7 @@ if.end:                                           ; preds = %if.else, %if.then
 }
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable mustprogress
-define dso_local void @foo4(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32* noalias nocapture readonly %C, i32 %N) local_unnamed_addr #0 {
+define dso_local void @foo4(ptr noalias nocapture %A, ptr noalias nocapture readonly %B, ptr noalias nocapture readonly %C, i32 %N) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after VPlanHIRDecomposer:
 ; CHECK-NEXT:  VPlan IR for: foo4:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
@@ -366,8 +366,8 @@ define dso_local void @foo4(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     i64 [[VP6:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP7:%.*]], [[BB3]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP6]]
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[B0:%.*]] i64 [[VP6]]
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i32 [[VP8:%.*]] = trunc i64 [[VP6]] to i32
 ; CHECK-NEXT:     i32 [[VP9:%.*]] = hir-copy i32 [[VP8]] , OriginPhiId: -1
 ; CHECK-NEXT:     i1 [[VP10:%.*]] = trunc i64 [[VP6]] to i1
@@ -377,8 +377,8 @@ define dso_local void @foo4(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     br i1 [[VP13]], [[BB4:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:       i32* [[VP_SUBSCRIPT_C0:%.*]] = subscript inbounds i32* [[C0:%.*]]
-; CHECK-NEXT:       i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_C0]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT_C0:%.*]] = subscript inbounds ptr [[C0:%.*]]
+; CHECK-NEXT:       i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_C0]]
 ; CHECK-NEXT:       i32 [[VP14:%.*]] = trunc i64 [[VP6]] to i32
 ; CHECK-NEXT:       i32 [[VP15:%.*]] = add i32 [[VP_LOAD_1]] i32 [[VP14]]
 ; CHECK-NEXT:       i32 [[VP16:%.*]] = hir-copy i32 [[VP15]] , OriginPhiId: -1
@@ -387,10 +387,10 @@ define dso_local void @foo4(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB4]], [[BB2]]
 ; CHECK-NEXT:     i32 [[VP17:%.*]] = phi  [ i32 [[VP16]], [[BB4]] ],  [ i32 [[VP9]], [[BB2]] ]
 ; CHECK-NEXT:     i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
-; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
+; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     i64 [[VP18:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP18]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[A0]] i64 [[VP18]]
 ; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_2]] i32 [[VP17]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
@@ -401,7 +401,7 @@ define dso_local void @foo4(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:      i32 [[VP19:%.*]] = add i32 [[VP_LIVE_IN0]] i32 [[VP_LIVE_IN1]]
 ; CHECK-NEXT:      live-out : i32 [[VP19]] = add i32 [[VP_LIVE_IN0]] i32 [[VP_LIVE_IN1]]
 ; CHECK-NEXT:     }
-; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] i32* [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] ptr [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:     i64 [[VP7]] = add i64 [[VP6]] i64 1
 ; CHECK-NEXT:     i1 [[VP20:%.*]] = icmp slt i64 [[VP7]] i64 [[VP5]]
 ; CHECK-NEXT:     br i1 [[VP20]], [[BB2]], [[BB5:BB[0-9]+]]
@@ -438,32 +438,32 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body.preheader, %if.end
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %if.end ]
-  %arrayidx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %idxprom1 = sext i32 %0 to i64
-  %arrayidx2 = getelementptr inbounds i32, i32* %A, i64 %idxprom1
+  %arrayidx2 = getelementptr inbounds i32, ptr %A, i64 %idxprom1
   %1 = trunc i64 %indvars.iv to i32
   %rem = and i32 %1, 1
   %cmp3 = icmp eq i32 %rem, 0
   br i1 %cmp3, label %if.end, label %if.else
 
 if.else:                                          ; preds = %for.body
-  %2 = load i32, i32* %C, align 4
+  %2 = load i32, ptr %C, align 4
   %add = add nsw i32 %2, %1
   br label %if.end
 
 if.end:                                           ; preds = %for.body, %if.else
   %y.0 = phi i32 [ %add, %if.else ], [ %1, %for.body ]
-  %3 = load i32, i32* %arrayidx2, align 4
+  %3 = load i32, ptr %arrayidx2, align 4
   %add7 = add nsw i32 %3, %y.0
-  store i32 %add7, i32* %arrayidx2, align 4
+  store i32 %add7, ptr %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count25
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body
 }
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable mustprogress
-define dso_local void @foo5(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32* noalias nocapture readonly %C, i32* noalias nocapture readonly %D, i32* noalias nocapture readonly %E, i32 %N) local_unnamed_addr #0 {
+define dso_local void @foo5(ptr noalias nocapture %A, ptr noalias nocapture readonly %B, ptr noalias nocapture readonly %C, ptr noalias nocapture readonly %D, ptr noalias nocapture readonly %E, i32 %N) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after VPlanHIRDecomposer:
 ; CHECK-NEXT:  VPlan IR for: foo5:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
@@ -483,19 +483,19 @@ define dso_local void @foo5(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i64 [[VP7:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP8:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP7]]
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[B0:%.*]] i64 [[VP7]]
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
-; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_C0:%.*]] = subscript inbounds i32* [[C0:%.*]]
-; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_C0]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[E0:%.*]] i64 2
-; CHECK-NEXT:     i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUBSCRIPT_2]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[D0:%.*]] i64 3
-; CHECK-NEXT:     i32 [[VP_LOAD_4:%.*]] = load i32* [[VP_SUBSCRIPT_3]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
+; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_C0:%.*]] = subscript inbounds ptr [[C0:%.*]]
+; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load ptr [[VP_SUBSCRIPT_C0]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[E0:%.*]] i64 2
+; CHECK-NEXT:     i32 [[VP_LOAD_3:%.*]] = load ptr [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds ptr [[D0:%.*]] i64 3
+; CHECK-NEXT:     i32 [[VP_LOAD_4:%.*]] = load ptr [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:     i32 [[VP9:%.*]] = mul i32 [[VP_LOAD_3]] i32 [[VP_LOAD_2]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP_VCONFLICT_INDEX]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds ptr [[A0]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_1]] i32 [[VP_LOAD_4]] i32 [[VP9]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
@@ -508,7 +508,7 @@ define dso_local void @foo5(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:      i32 [[VP12:%.*]] = add i32 [[VP11]] i32 [[VP_LIVE_IN2]]
 ; CHECK-NEXT:      live-out : i32 [[VP12]] = add i32 [[VP11]] i32 [[VP_LIVE_IN2]]
 ; CHECK-NEXT:     }
-; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] i32* [[VP_SUBSCRIPT_4]]
+; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] ptr [[VP_SUBSCRIPT_4]]
 ; CHECK-NEXT:     i64 [[VP8]] = add i64 [[VP7]] i64 1
 ; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp slt i64 [[VP8]] i64 [[VP6]]
 ; CHECK-NEXT:     br i1 [[VP13]], [[BB2]], [[BB3:BB[0-9]+]]
@@ -524,8 +524,8 @@ entry:
 ;    index = B[i];
 ;    A[index] = A[index] + C[0]*E[2] + D[3];
 ;  }
-  %arrayidx4 = getelementptr inbounds i32, i32* %E, i64 2
-  %arrayidx5 = getelementptr inbounds i32, i32* %D, i64 3
+  %arrayidx4 = getelementptr inbounds i32, ptr %E, i64 2
+  %arrayidx5 = getelementptr inbounds i32, ptr %D, i64 3
   %cmp15 = icmp sgt i32 %N, 0
   br i1 %cmp15, label %for.body.preheader, label %for.cond.cleanup
 
@@ -541,24 +541,24 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %idxprom1 = sext i32 %0 to i64
-  %arrayidx2 = getelementptr inbounds i32, i32* %A, i64 %idxprom1
-  %1 = load i32, i32* %arrayidx2, align 4
-  %2 = load i32, i32* %C, align 4
-  %3 = load i32, i32* %arrayidx4, align 4
+  %arrayidx2 = getelementptr inbounds i32, ptr %A, i64 %idxprom1
+  %1 = load i32, ptr %arrayidx2, align 4
+  %2 = load i32, ptr %C, align 4
+  %3 = load i32, ptr %arrayidx4, align 4
   %mul = mul nsw i32 %3, %2
   %add = add nsw i32 %mul, %1
-  %4 = load i32, i32* %arrayidx5, align 4
+  %4 = load i32, ptr %arrayidx5, align 4
   %add6 = add nsw i32 %add, %4
-  store i32 %add6, i32* %arrayidx2, align 4
+  store i32 %add6, ptr %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count17
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body
 }
 
-define dso_local void @foo6(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32* noalias nocapture %D, i32* noalias nocapture readonly %E, i32 %N) local_unnamed_addr #0 {
+define dso_local void @foo6(ptr noalias nocapture %A, ptr noalias nocapture readonly %B, ptr noalias nocapture %D, ptr noalias nocapture readonly %E, i32 %N) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after VPlanHIRDecomposer:
 ; CHECK-NEXT:  VPlan IR for: foo6:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
@@ -577,17 +577,17 @@ define dso_local void @foo6(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i64 [[VP6:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP7:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP6]]
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[B0:%.*]] i64 [[VP6]]
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
-; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[D0:%.*]] i64 [[VP6]]
-; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
+; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[D0:%.*]] i64 [[VP6]]
+; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load ptr [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:     i32 [[VP8:%.*]] = add i32 [[VP_LOAD_2]] i32 [[TMP0:%.*]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[D0]] i64 [[VP6]]
-; CHECK-NEXT:     store i32 [[VP8]] i32* [[VP_SUBSCRIPT_3]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP_VCONFLICT_INDEX]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds ptr [[D0]] i64 [[VP6]]
+; CHECK-NEXT:     store i32 [[VP8]] ptr [[VP_SUBSCRIPT_3]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds ptr [[A0]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     i32 [[VP_GENERAL_MEM_OPT_CONFLICT:%.*]] = vp-general-mem-opt-conflict i64 [[VP_VCONFLICT_INDEX]] void [[VP_CONFLICT_REGION:%.*]] i32 [[VP_LOAD_1]] i32 [[VP_LOAD_2]] -> VConflictRegion {
 ; CHECK-NEXT:      value : none
 ; CHECK-NEXT:      mask : none
@@ -599,7 +599,7 @@ define dso_local void @foo6(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:      i32 [[VP11:%.*]] = add i32 [[VP10]] i32 [[TMP0]]
 ; CHECK-NEXT:      live-out : i32 [[VP11]] = add i32 [[VP10]] i32 [[TMP0]]
 ; CHECK-NEXT:     }
-; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] i32* [[VP_SUBSCRIPT_4]]
+; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] ptr [[VP_SUBSCRIPT_4]]
 ; CHECK-NEXT:     i64 [[VP7]] = add i64 [[VP6]] i64 1
 ; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp slt i64 [[VP7]] i64 [[VP5]]
 ; CHECK-NEXT:     br i1 [[VP12]], [[BB2]], [[BB3:BB[0-9]+]]
@@ -621,7 +621,7 @@ entry:
   br i1 %cmp25, label %for.body.lr.ph, label %for.cond.cleanup
 
 for.body.lr.ph:                                   ; preds = %entry
-  %0 = load i32, i32* %E, align 4
+  %0 = load i32, ptr %E, align 4
   %wide.trip.count27 = zext i32 %N to i64
   br label %for.body
 
@@ -633,17 +633,17 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body.lr.ph, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx, align 4
   %idxprom1 = sext i32 %1 to i64
-  %arrayidx2 = getelementptr inbounds i32, i32* %A, i64 %idxprom1
-  %2 = load i32, i32* %arrayidx2, align 4
-  %arrayidx4 = getelementptr inbounds i32, i32* %D, i64 %indvars.iv
-  %3 = load i32, i32* %arrayidx4, align 4
+  %arrayidx2 = getelementptr inbounds i32, ptr %A, i64 %idxprom1
+  %2 = load i32, ptr %arrayidx2, align 4
+  %arrayidx4 = getelementptr inbounds i32, ptr %D, i64 %indvars.iv
+  %3 = load i32, ptr %arrayidx4, align 4
   %add = add nsw i32 %0, %3
-  store i32 %add, i32* %arrayidx4, align 4
+  store i32 %add, ptr %arrayidx4, align 4
   %add10 = add nsw i32 %add, %2
-  store i32 %add10, i32* %arrayidx2, align 4
+  store i32 %add10, ptr %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count27
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body

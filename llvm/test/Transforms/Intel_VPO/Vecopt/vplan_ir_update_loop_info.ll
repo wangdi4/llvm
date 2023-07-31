@@ -7,7 +7,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define hidden void @foo(i1 %loop1.top.test, i32* %base) {
+define hidden void @foo(i1 %loop1.top.test, ptr %base) {
 entry:
   br i1 %loop1.top.test, label %DIR.OMP.END.SIMD.6, label %loop1.preheader
 
@@ -43,7 +43,7 @@ loop2.body:
 
 loop2.exit:
   call void @llvm.directive.region.exit(token %tok2) [ "DIR.OMP.END.SIMD"() ]
-  %add.ptr251 = getelementptr inbounds i32, i32* %base, i32 %ncount.priv.4
+  %add.ptr251 = getelementptr inbounds i32, ptr %base, i32 %ncount.priv.4
   br label %loop3.preheader
 
 loop3.preheader:
@@ -52,7 +52,7 @@ loop3.preheader:
 
 loop3.body:
   %loop3.iv = phi i64 [ 0, %loop3.preheader ], [ %loop3.iv.next, %loop3.body ]
-  %gep = getelementptr inbounds i32, i32* %add.ptr251, i64 %loop3.iv
+  %gep = getelementptr inbounds i32, ptr %add.ptr251, i64 %loop3.iv
   %loop3.iv.next = add nuw nsw i64 %loop3.iv, 1
   %loop3.exitcond = icmp eq i64 %loop3.iv.next, 42
   br i1 %loop3.exitcond, label %loop3.exit, label %loop3.body

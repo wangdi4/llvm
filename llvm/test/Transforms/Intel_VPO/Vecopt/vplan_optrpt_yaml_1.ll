@@ -14,22 +14,21 @@
 
 %Struct = type { <3 x i32>, i32 }
 
-define void @foo(%Struct *%a) {
+define void @foo(ptr %a) {
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"()]
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %block ]
-  %base = getelementptr %Struct, %Struct *%a, i64 %indvars.iv
-  %ptr = getelementptr inbounds %Struct, %Struct * %base, i32 0, i32 0
-  %ld = load <3 x i32>, <3 x i32>* %ptr
+  %base = getelementptr %Struct, ptr %a, i64 %indvars.iv
+  %ld = load <3 x i32>, ptr %base
   br label %block
 
 block:
-  %phi = phi <3 x i32>* [ %ptr, %for.body ]
-  store <3 x i32> %ld, <3 x i32>* %phi
-  store <3 x i32> %ld, <3 x i32>* %ptr
+  %phi = phi ptr [ %base, %for.body ]
+  store <3 x i32> %ld, ptr %phi
+  store <3 x i32> %ld, ptr %base
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024

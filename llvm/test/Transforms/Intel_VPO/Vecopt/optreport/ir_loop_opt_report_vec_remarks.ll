@@ -8,7 +8,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define void @foo(i32* nocapture %arr) local_unnamed_addr {
+define void @foo(ptr nocapture %arr) local_unnamed_addr {
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT-NEXT:      remark #15301: SIMD LOOP WAS VECTORIZED
 ; OPTREPORT-NEXT:      remark #15305: vectorization support: vector length {{.*}}
@@ -18,24 +18,23 @@ define void @foo(i32* nocapture %arr) local_unnamed_addr {
 ; CHECK: !llvm.loop [[FOO_LOOP_MD:!.*]]
 entry:
   %i2 = alloca i32, align 4
-  %0 = bitcast i32* %i2 to i8*
-  call void @llvm.lifetime.start(i64 4, i8* nonnull %0) #3
-  store i32 0, i32* %i2, align 4, !tbaa !1
+  call void @llvm.lifetime.start(i64 4, ptr nonnull %i2) #3
+  store i32 0, ptr %i2, align 4, !tbaa !1
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:TYPED"(i32* %i2, i32 0, i32 1, i32 3) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:TYPED"(ptr %i2, i32 0, i32 1, i32 3) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
   %.omp.iv.06 = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %add1, %omp.inner.for.body ]
   call void (...) @baz() #3
-  %1 = load i32, i32* %i2, align 4, !tbaa !1
-  %idxprom = sext i32 %1 to i64
-  %arrayidx = getelementptr inbounds i32, i32* %arr, i64 %idxprom
-  store i32 %1, i32* %arrayidx, align 4, !tbaa !1
-  %inc = add nsw i32 %1, 1
-  store i32 %inc, i32* %i2, align 4, !tbaa !1
+  %0 = load i32, ptr %i2, align 4, !tbaa !1
+  %idxprom = sext i32 %0 to i64
+  %arrayidx = getelementptr inbounds i32, ptr %arr, i64 %idxprom
+  store i32 %0, ptr %arrayidx, align 4, !tbaa !1
+  %inc = add nsw i32 %0, 1
+  store i32 %inc, ptr %i2, align 4, !tbaa !1
   %add1 = add nuw nsw i64 %.omp.iv.06, 1
   %exitcond = icmp eq i64 %add1, 300
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body
@@ -45,11 +44,11 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.body
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %omp.loop.exit
-  call void @llvm.lifetime.end(i64 4, i8* nonnull %0) #3
+  call void @llvm.lifetime.end(i64 4, ptr nonnull %i2) #3
   ret void
 }
 
-define void @test_outer([1024 x [1024 x i64]]* %a) local_unnamed_addr {
+define void @test_outer(ptr %a) local_unnamed_addr {
 ; OPTREPORT-LABEL:  Global optimization report for : test_outer
 ; OPTREPORT-EMPTY:
 ; OPTREPORT-NEXT:  LOOP BEGIN
@@ -101,7 +100,7 @@ exit:
 
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 declare void @baz(...) local_unnamed_addr #2
 
@@ -112,7 +111,7 @@ declare token @llvm.directive.region.entry() #1
 declare void @llvm.directive.region.exit(token) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #1 = { argmemonly nounwind }
 attributes #2 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }

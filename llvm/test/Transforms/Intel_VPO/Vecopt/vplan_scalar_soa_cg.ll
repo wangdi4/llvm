@@ -4,23 +4,22 @@
 ; the input argument is a scalar private and SOA-layout is enabled.
 ; RUN: opt -S -passes=vplan-vec -vplan-enable-soa=true %s | FileCheck %s
 
-declare i32 @test_call(i32*)
+declare i32 @test_call(ptr)
 
 define void @scalar_soa() {
 ; CHECK-LABEL: @scalar_soa(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[PRIV:%.*]] = alloca i32, align 4
 ; CHECK-NEXT:    [[PRIV_VEC:%.*]] = alloca <2 x i32>, align 8
-; CHECK-NEXT:    [[PRIV_VEC_BC:%.*]] = bitcast <2 x i32>* [[PRIV_VEC]] to i32*
-; CHECK-NEXT:    [[PRIV_VEC_BASE_ADDR:%.*]] = getelementptr i32, i32* [[PRIV_VEC_BC]], <2 x i32> <i32 0, i32 1>
-; CHECK-NEXT:    [[PRIV_VEC_BASE_ADDR_EXTRACT_1_:%.*]] = extractelement <2 x i32*> [[PRIV_VEC_BASE_ADDR]], i32 1
-; CHECK-NEXT:    [[PRIV_VEC_BASE_ADDR_EXTRACT_0_:%.*]] = extractelement <2 x i32*> [[PRIV_VEC_BASE_ADDR]], i32 0
+; CHECK-NEXT:    [[PRIV_VEC_BASE_ADDR:%.*]] = getelementptr i32, ptr [[PRIV_VEC]], <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[PRIV_VEC_BASE_ADDR_EXTRACT_1_:%.*]] = extractelement <2 x ptr> [[PRIV_VEC_BASE_ADDR]], i32 1
+; CHECK-NEXT:    [[PRIV_VEC_BASE_ADDR_EXTRACT_0_:%.*]] = extractelement <2 x ptr> [[PRIV_VEC_BASE_ADDR]], i32 0
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP3:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH]] ], [ [[TMP2:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[TMP0:%.*]] = call i32 @test_call(i32* [[PRIV_VEC_BASE_ADDR_EXTRACT_0_]])
-; CHECK-NEXT:    [[TMP1:%.*]] = call i32 @test_call(i32* [[PRIV_VEC_BASE_ADDR_EXTRACT_1_]])
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i32>, <2 x i32>* [[PRIV_VEC]], align 4
+; CHECK-NEXT:    [[TMP0:%.*]] = call i32 @test_call(ptr [[PRIV_VEC_BASE_ADDR_EXTRACT_0_]])
+; CHECK-NEXT:    [[TMP1:%.*]] = call i32 @test_call(ptr [[PRIV_VEC_BASE_ADDR_EXTRACT_1_]])
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i32>, ptr [[PRIV_VEC]], align 4
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI]], 2
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp ult i64 [[TMP3]], 1024
@@ -31,13 +30,13 @@ entry:
   br label %SIMD.BEGIN
 
 SIMD.BEGIN:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 2), "QUAL.OMP.PRIVATE:TYPED"(i32* %priv, i32 0, i32 1) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 2), "QUAL.OMP.PRIVATE:TYPED"(ptr %priv, i32 0, i32 1) ]
   br label %for.body
 
 for.body:
   %indvars.iv = phi i64 [ 0, %SIMD.BEGIN ], [ %indvars.iv.next, %for.body ]
-  %call = call i32 @test_call(i32* %priv)
-  %ld = load i32, i32* %priv
+  %call = call i32 @test_call(ptr %priv)
+  %ld = load i32, ptr %priv
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp ne i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %for.body, label %omp.loop.exit

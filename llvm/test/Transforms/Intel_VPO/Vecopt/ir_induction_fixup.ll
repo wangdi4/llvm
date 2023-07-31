@@ -6,7 +6,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %struct.TypOutputFile = type { [256 x i8], i64, i64 }
 
-@Output = common global %struct.TypOutputFile* null, align 8
+@Output = common global ptr null, align 8
 
 define void @foo() local_unnamed_addr #0 {
 ; CHECK-LABEL: @foo(
@@ -16,12 +16,12 @@ define void @foo() local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[DOT_CRIT_EDGE:%.*]]
 ; CHECK:       ._crit_edge:
 ; CHECK-NEXT:    [[INC_LCSSA:%.*]] = phi i64 [ [[UNI_PHI13]], [[FINAL_MERGE:%.*]] ]
-; CHECK-NEXT:    store i64 [[INC_LCSSA]], i64* [[POS:%.*]], align 8
+; CHECK-NEXT:    store i64 [[INC_LCSSA]], ptr [[POS:%.*]], align 8
 ;
 
-  %1 = load %struct.TypOutputFile*, %struct.TypOutputFile** @Output, align 8
-  %pos = getelementptr inbounds %struct.TypOutputFile, %struct.TypOutputFile* %1, i64 0, i32 1
-  store i64 0, i64* %pos, align 8
+  %1 = load ptr, ptr @Output, align 8
+  %pos = getelementptr inbounds %struct.TypOutputFile, ptr %1, i64 0, i32 1
+  store i64 0, ptr %pos, align 8
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %0
@@ -29,8 +29,8 @@ DIR.OMP.SIMD.1:                                   ; preds = %0
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.SIMD.1
-  %indent = getelementptr inbounds %struct.TypOutputFile, %struct.TypOutputFile* %1, i64 0, i32 2
-  %2 = load i64, i64* %indent, align 8
+  %indent = getelementptr inbounds %struct.TypOutputFile, ptr %1, i64 0, i32 2
+  %2 = load i64, ptr %indent, align 8
   %cmp6 = icmp sgt i64 %2, 0
   br i1 %cmp6, label %.lr.ph.preheader, label %4
 
@@ -41,8 +41,8 @@ DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.SIMD.1
   %3 = phi i64 [ %inc, %.lr.ph ], [ 0, %.lr.ph.preheader ]
   %i.07 = phi i32 [ %inc3, %.lr.ph ], [ 0, %.lr.ph.preheader ]
   %inc = add i64 %3, 1
-  %arrayidx = getelementptr %struct.TypOutputFile, %struct.TypOutputFile* %1, i64 0, i32 0, i64 %3
-  store i8 32, i8* %arrayidx, align 1
+  %arrayidx = getelementptr %struct.TypOutputFile, ptr %1, i64 0, i32 0, i64 %3
+  store i8 32, ptr %arrayidx, align 1
   %inc3 = add i32 %i.07, 1
   %conv = sext i32 %inc3 to i64
   %cmp = icmp slt i64 %conv, %2
@@ -50,7 +50,7 @@ DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.SIMD.1
 
 ._crit_edge:                                      ; preds = %.lr.ph
   %inc.lcssa = phi i64 [ %inc, %.lr.ph ]
-  store i64 %inc.lcssa, i64* %pos, align 8
+  store i64 %inc.lcssa, ptr %pos, align 8
   br label %4
 
 ; <label>:4:                                      ; preds = %._crit_edge, %DIR.QUAL.LIST.END.2

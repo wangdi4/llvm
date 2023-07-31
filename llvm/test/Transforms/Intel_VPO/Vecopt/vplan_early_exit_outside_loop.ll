@@ -14,7 +14,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nofree norecurse nounwind uwtable writeonly
 define dso_local void @fn1() local_unnamed_addr #0 {
 for.body.thread:
-  store i32 0, i32* @a, align 4
+  store i32 0, ptr @a, align 4
   br label %if.then
 
 for.cond:                                         ; preds = %for.body, %if.then

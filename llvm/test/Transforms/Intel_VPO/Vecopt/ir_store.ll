@@ -5,18 +5,17 @@
 ;    ip[i] = i;
 ;}
 
-define void @foo(i32* nocapture %ip, i32 %N) local_unnamed_addr #0 {
+define void @foo(ptr nocapture %ip, i32 %N) local_unnamed_addr #0 {
 ;
-; CHECK:  define void @foo(i32* nocapture [[IP0:%.*]], i32 [[N0:%.*]]) local_unnamed_addr {
+; CHECK:  define void @foo(ptr nocapture [[IP0:%.*]], i32 [[N0:%.*]]) local_unnamed_addr {
 ; CHECK:       for.body.preheader:
 ; CHECK-NEXT:    br label [[VPLANNEDBB0:%.*]]
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VPLANNEDBB20:%.*]] ], [ [[TMP6:%.*]], [[VECTOR_BODY0:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VPLANNEDBB20]] ], [ [[TMP5:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[IP0]], i64 [[UNI_PHI0]]
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, ptr [[IP0]], i64 [[UNI_PHI0]]
 ; CHECK-NEXT:    [[TMP3:%.*]] = trunc <4 x i64> [[VEC_PHI0]] to <4 x i32>
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <4 x i32>*
-; CHECK-NEXT:    store <4 x i32> [[TMP3]], <4 x i32>* [[TMP4]], align 4
+; CHECK-NEXT:    store <4 x i32> [[TMP3]], ptr [[SCALAR_GEP0]], align 4
 ; CHECK-NEXT:    [[TMP5]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP6]] = add nuw nsw i64 [[UNI_PHI0]], 4
 ; CHECK-NEXT:    [[TMP7:%.*]] = icmp uge i64 [[TMP6]], [[TMP2:%.*]]
@@ -42,9 +41,9 @@ for.body.preheader:                              ; preds = %DIR.QUAL.LIST.END.2
 
 for.body:
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %ip, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds i32, ptr %ip, i64 %indvars.iv
   %0 = trunc i64 %indvars.iv to i32
-  store i32 %0, i32* %arrayidx, align 4
+  store i32 %0, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %zext.trip.cnt
   br i1 %exitcond, label %for.end, label %for.body

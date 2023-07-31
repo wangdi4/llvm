@@ -4,21 +4,20 @@
 
 ; RUN: opt -passes=vplan-vec -vplan-force-vf=4 2>&1 < %s -S | FileCheck %s
 
-define void @foo(i32* %src1, i32 %src2, i32* %dest1, i32* %dest2, i32* %dest3) {
+define void @foo(ptr %src1, i32 %src2, ptr %dest1, ptr %dest2, ptr %dest3) {
 ; CHECK-LABEL: @foo(
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP2:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH]] ], [ [[TMP1:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, i32* [[SRC1:%.*]], i64 [[UNI_PHI1]]
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[SCALAR_GEP]] to <4 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i32>, <4 x i32>* [[TMP0]], align 8
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, ptr [[SRC1:%.*]], i64 [[UNI_PHI1]]
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i32>, ptr [[SCALAR_GEP]], align 8
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_3_:%.*]] = extractelement <4 x i32> [[WIDE_LOAD]], i32 3
-; CHECK-NEXT:    store i32 [[WIDE_LOAD_EXTRACT_3_]], i32* [[DEST1:%.*]], align 8
-; CHECK-NEXT:    store i32 [[SRC2:%.*]], i32* [[DEST2:%.*]], align 8
-; CHECK-NEXT:    store volatile i32 [[SRC2]], i32* [[DEST3:%.*]]
-; CHECK-NEXT:    store volatile i32 [[SRC2]], i32* [[DEST3]]
-; CHECK-NEXT:    store volatile i32 [[SRC2]], i32* [[DEST3]]
-; CHECK-NEXT:    store volatile i32 [[SRC2]], i32* [[DEST3]]
+; CHECK-NEXT:    store i32 [[WIDE_LOAD_EXTRACT_3_]], ptr [[DEST1:%.*]], align 8
+; CHECK-NEXT:    store i32 [[SRC2:%.*]], ptr [[DEST2:%.*]], align 8
+; CHECK-NEXT:    store volatile i32 [[SRC2]], ptr [[DEST3:%.*]]
+; CHECK-NEXT:    store volatile i32 [[SRC2]], ptr [[DEST3]]
+; CHECK-NEXT:    store volatile i32 [[SRC2]], ptr [[DEST3]]
+; CHECK-NEXT:    store volatile i32 [[SRC2]], ptr [[DEST3]]
 ; CHECK-NEXT:    [[TMP1]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw i64 [[UNI_PHI1]], 4
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp ult i64 [[TMP2]], 1024
@@ -30,14 +29,14 @@ entry:
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %omp.inner.for.body ]
-  %arrayIdx = getelementptr inbounds i32, i32* %src1, i64 %indvars.iv
-  %load = load i32, i32* %arrayIdx, align 8
+  %arrayIdx = getelementptr inbounds i32, ptr %src1, i64 %indvars.iv
+  %load = load i32, ptr %arrayIdx, align 8
   ; Store divergent value to uniform address
-  store i32 %load, i32* %dest1, align 8
+  store i32 %load, ptr %dest1, align 8
   ; Store uniform value to uniform address
-  store i32 %src2, i32* %dest2, align 8
+  store i32 %src2, ptr %dest2, align 8
   ; Volatile uniform store
-  store volatile i32 %src2, i32* %dest3
+  store volatile i32 %src2, ptr %dest3
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp ne i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %omp.inner.for.body, label %omp.loop.exit

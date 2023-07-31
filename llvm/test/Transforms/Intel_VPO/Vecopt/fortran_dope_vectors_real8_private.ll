@@ -19,7 +19,7 @@
 ; CHECK:  Memory: ptr %"sum_$C1.priv"
 
 ; CHECK:  [[BB1:BB[0-9]+]]
-; CHECK:    ptr [[VP1]] = allocate-priv %"QNCA_a0$double*$rank1$" = type { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, OrigAlign = 8
+; CHECK:    ptr [[VP1]] = allocate-priv %"QNCA_a0$ptr$rank1$" = type { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, OrigAlign = 8
 ; C_HECK:    call i64 72 ptr [[VP1]] ptr @llvm.lifetime.start.p0
 ; CHECK:    i64 [[VP4:%.*]] = call ptr [[VP3:%.*]] ptr [[VP2:%.*]] ptr @_f90_dope_vector_init2
 ; CHECK:    ptr [[VP5:%.*]] = call ptr @llvm.stacksave
@@ -33,7 +33,7 @@
 ; CHECK:  Memory: ptr %"sum_$C1.priv"
 
 ; CHECK:  [[BB1]]
-; CHECK:      [DA: Div] ptr [[VP1]] = allocate-priv %"QNCA_a0$double*$rank1$" = type { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, OrigAlign = 8
+; CHECK:      [DA: Div] ptr [[VP1]] = allocate-priv %"QNCA_a0$ptr$rank1$" = type { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }, OrigAlign = 8
 ; C_HECK:      [DA: Div] call i64 72 ptr [[VP1]] ptr @llvm.lifetime.start.p0 [Serial]
 ; CHECK:      [DA: Div] i64 [[VP4]] = call ptr [[VP3]] ptr [[VP2:%.*]] ptr @_f90_dope_vector_init2 [Serial]
 ; CHECK:      [DA: Uni] ptr [[VP5]] = call ptr @llvm.stacksave
@@ -43,7 +43,7 @@
 
 ; CHECK:       [[BB20]]
 ; CHECK:        [DA: Div] ptr [[VP8:%.*]] = allocate-dv-buffer double i64 [[VP6]], OrigAlign = 8
-; CHECK:        [DA: Div] ptr [[VP9:%.*]] = getelementptr %"QNCA_a0$double*$rank1$", ptr [[VP1]] i32 0 i32 0
+; CHECK:        [DA: Div] ptr [[VP9:%.*]] = getelementptr %"QNCA_a0$ptr$rank1$", ptr [[VP1]] i32 0 i32 0
 ; CHECK:        [DA: Div] store ptr [[VP8]] ptr [[VP9]]
 ; CHECK:        [DA: Uni] br BB21
 ; CHECK:      [DA: Uni] call ptr [[VP5]] ptr @llvm.stackrestore
@@ -53,13 +53,13 @@
 
 ; LLVMIR-LABEL: DIR.OMP.SIMD.2:
 ; LLVMIR-NEXT:   %"sum_$J.linear.iv" = alloca i32, align 4
-; LLVMIR-NEXT:   %"sum_$C1.priv" = alloca %"QNCA_a0$double*$rank1$", align 8
+; LLVMIR-NEXT:   %"sum_$C1.priv" = alloca %"QNCA_a0$ptr$rank1$", align 8
 ; LLVMIR-NEXT:   %"sum_$N_fetch.1" = load double, ptr %"sum_$N", align 1
 ; LLVMIR-NEXT:   %"(i32)sum_$N_fetch.1$" = fptosi double %"sum_$N_fetch.1" to i32
 ; LLVMIR-NEXT:   %.dv.init = call i64 @_f90_dope_vector_init2(ptr nonnull %"sum_$C1.priv", ptr nonnull %"sum_$C1")
 ; LLVMIR-NEXT:   %is.allocated = icmp sgt i64 %.dv.init, 0
-; LLVMIR-NEXT:   %"sum_$C1.priv.vec" = alloca [2 x %"QNCA_a0$double*$rank1$"], align 8
-; LLVMIR-NEXT:   %"sum_$C1.priv.vec.base.addr" = getelementptr %"QNCA_a0$double*$rank1$", ptr %"sum_$C1.priv.vec", <2 x i32> <i32 0, i32 1>
+; LLVMIR-NEXT:   %"sum_$C1.priv.vec" = alloca [2 x %"QNCA_a0$ptr$rank1$"], align 8
+; LLVMIR-NEXT:   %"sum_$C1.priv.vec.base.addr" = getelementptr %"QNCA_a0$ptr$rank1$", ptr %"sum_$C1.priv.vec", <2 x i32> <i32 0, i32 1>
 ; LLVMIR-NEXT:   %"sum_$C1.priv.vec.base.addr.extract.1." = extractelement <2 x ptr> %"sum_$C1.priv.vec.base.addr", i32 1
 ; LLVMIR-NEXT:   %"sum_$C1.priv.vec.base.addr.extract.0." = extractelement <2 x ptr> %"sum_$C1.priv.vec.base.addr", i32 0
 ; LLVMIR-NEXT:   br i1 %is.allocated, label %allocated.then, label %DIR.OMP.SIMD.1
@@ -82,20 +82,20 @@
 ; LLVMIR-NEXT:   %.array.buffer.insert.0 = insertelement <2 x ptr> undef, ptr %.array.buffer.lane.0, i64 0
 ; LLVMIR-NEXT:   %.array.buffer.lane.1 = alloca double, i64 %.extract.0.5, align 8
 ; LLVMIR-NEXT:   %.array.buffer.insert.1 = insertelement <2 x ptr> %.array.buffer.insert.0, ptr %.array.buffer.lane.1, i64 1
-; LLVMIR-NEXT:   %mm_vectorGEP = getelementptr %"QNCA_a0$double*$rank1$", <2 x ptr> %"sum_$C1.priv.vec.base.addr", <2 x i32> zeroinitializer, <2 x i32> zeroinitializer
+; LLVMIR-NEXT:   %mm_vectorGEP = getelementptr %"QNCA_a0$ptr$rank1$", <2 x ptr> %"sum_$C1.priv.vec.base.addr", <2 x i32> zeroinitializer, <2 x i32> zeroinitializer
 ; LLVMIR-NEXT:   call void @llvm.masked.scatter.v2p0.v2p0(<2 x ptr> %.array.buffer.insert.1, <2 x ptr> %mm_vectorGEP, i32 1, <2 x i1> <i1 true, i1 true>)
 ; LLVMIR-NEXT:   br label %VPlannedBB4
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%"QNCA_a0$double*$rank1$" = type { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
+%"QNCA_a0$ptr$rank1$" = type { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
 
 ; Function Attrs: nounwind
 define i32 @sum_(ptr noalias dereferenceable(72) "assumed_shape" "ptrnoalias" %"sum_$C1", ptr noalias nocapture dereferenceable(8) %"sum_$C2", ptr noalias nocapture dereferenceable(8) %"sum_$N", ptr noalias nocapture dereferenceable(8) %"sum_$M") {
 DIR.OMP.SIMD.2:
   %"sum_$J.linear.iv" = alloca i32, align 4
-  %"sum_$C1.priv" = alloca %"QNCA_a0$double*$rank1$", align 8
+  %"sum_$C1.priv" = alloca %"QNCA_a0$ptr$rank1$", align 8
   %"sum_$N_fetch.1" = load double, ptr %"sum_$N", align 1
   %"(i32)sum_$N_fetch.1$" = fptosi double %"sum_$N_fetch.1" to i32
   %.dv.init = call i64 @_f90_dope_vector_init2(ptr nonnull %"sum_$C1.priv", ptr nonnull %"sum_$C1") #0
@@ -104,9 +104,8 @@ DIR.OMP.SIMD.2:
 
 allocated.then:                                   ; preds = %DIR.OMP.SIMD.2
   %"sum_$C1.priv.alloc.num_elements16" = lshr i64 %.dv.init, 3
-  %"sum_$C1.priv.addr0" = getelementptr inbounds %"QNCA_a0$double*$rank1$", ptr %"sum_$C1.priv", i64 0, i32 0
   %"sum_$C1.priv.data" = alloca double, i64 %"sum_$C1.priv.alloc.num_elements16", align 8
-  store ptr %"sum_$C1.priv.data", ptr %"sum_$C1.priv.addr0", align 8
+  store ptr %"sum_$C1.priv.data", ptr %"sum_$C1.priv", align 8
   br label %DIR.OMP.SIMD.1
 
 omp.pdo.body6:                                    ; preds = %DIR.OMP.SIMD.119, %omp.pdo.body6
@@ -122,7 +121,7 @@ DIR.OMP.SIMD.1:                                   ; preds = %allocated.then, %DI
   br i1 %rel.1.not13, label %DIR.OMP.END.SIMD.412, label %DIR.OMP.SIMD.118
 
 DIR.OMP.SIMD.118:                                 ; preds = %DIR.OMP.SIMD.1
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:TYPED.IV"(ptr %"sum_$J.linear.iv", i32 0, i64 1, i32 1), "QUAL.OMP.PRIVATE:F90_DV.TYPED"(ptr %"sum_$C1.priv", %"QNCA_a0$double*$rank1$" zeroinitializer, double 0.000000e+00), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr null, i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr null, i32 0), "QUAL.OMP.LIVEIN"(ptr %"sum_$C2"), "QUAL.OMP.LIVEIN"(ptr %"sum_$M"), "QUAL.OMP.LIVEIN"(ptr %"sum_$N") ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:TYPED.IV"(ptr %"sum_$J.linear.iv", i32 0, i64 1, i32 1), "QUAL.OMP.PRIVATE:F90_DV.TYPED"(ptr %"sum_$C1.priv", %"QNCA_a0$ptr$rank1$" zeroinitializer, double 0.000000e+00), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr null, i32 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr null, i32 0), "QUAL.OMP.LIVEIN"(ptr %"sum_$C2"), "QUAL.OMP.LIVEIN"(ptr %"sum_$M"), "QUAL.OMP.LIVEIN"(ptr %"sum_$N") ]
   br label %DIR.OMP.SIMD.119
 
 DIR.OMP.SIMD.119:                                 ; preds = %DIR.OMP.SIMD.118
@@ -131,9 +130,8 @@ DIR.OMP.SIMD.119:                                 ; preds = %DIR.OMP.SIMD.118
   %mul.1 = fmul reassoc ninf nsz arcp contract afn double %"sum_$N_fetch.8", %"sum_$M_fetch.7"
   %"sum_$C2_fetch.9" = load double, ptr %"sum_$C2", align 1
   %add.3 = fadd reassoc ninf nsz arcp contract afn double %mul.1, %"sum_$C2_fetch.9"
-  %"sum_$C1.addr_a0$" = getelementptr inbounds %"QNCA_a0$double*$rank1$", ptr %"sum_$C1.priv", i64 0, i32 0
-  %"sum_$C1.addr_a0$_fetch.10" = load ptr, ptr %"sum_$C1.addr_a0$", align 8
-  %"sum_$C1.dim_info$.spacing$" = getelementptr inbounds %"QNCA_a0$double*$rank1$", ptr %"sum_$C1.priv", i64 0, i32 6, i64 0, i32 1
+  %"sum_$C1.addr_a0$_fetch.10" = load ptr, ptr %"sum_$C1.priv", align 8
+  %"sum_$C1.dim_info$.spacing$" = getelementptr inbounds %"QNCA_a0$ptr$rank1$", ptr %"sum_$C1.priv", i64 0, i32 6, i64 0, i32 1
   %"sum_$C1.dim_info$.spacing$[]" = call ptr @llvm.intel.subscript.p0.i64.i32.p0.i32(i8 0, i64 0, i32 24, ptr nonnull elementtype(i64) %"sum_$C1.dim_info$.spacing$", i32 0)
   %"sum_$C1.dim_info$.spacing$[]_fetch.11" = load i64, ptr %"sum_$C1.dim_info$.spacing$[]", align 1
   %wide.trip.count = zext i32 %"(i32)sum_$N_fetch.1$" to i64

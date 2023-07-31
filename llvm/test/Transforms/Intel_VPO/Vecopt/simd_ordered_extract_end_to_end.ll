@@ -6,7 +6,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
+define void @var_tripcount(ptr %ip, i32 %n, ptr %x) local_unnamed_addr {
 ; CHECK-LABEL: @var_tripcount(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ENTRY_REGION:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
@@ -19,10 +19,10 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[LATCH:%.*]] ], [ 0, [[FOR_BODY_PREHEADER]] ]
-; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, i32* [[IP:%.*]], i64 [[INDVARS_IV]]
+; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[IP:%.*]], i64 [[INDVARS_IV]]
 ; CHECK-NEXT:    br label [[CODEREPL:%.*]]
 ; CHECK:       codeRepl:
-; CHECK-NEXT:    call void @var_tripcount.ordered.simd.region(i32* [[X:%.*]], i32* [[ARRAYIDX]])
+; CHECK-NEXT:    call void @var_tripcount.ordered.simd.region(ptr [[X:%.*]], ptr [[ARRAYIDX]])
 ; CHECK-NEXT:    br label [[LATCH]]
 ; CHECK:       latch:
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
@@ -50,7 +50,7 @@ for.body.preheader:
 
 for.body:
   %indvars.iv = phi i64 [ %indvars.iv.next, %latch ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i32, i32* %ip, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds i32, ptr %ip, i64 %indvars.iv
   br label %ordered.entry
 
 ordered.entry:
@@ -58,8 +58,8 @@ ordered.entry:
   br label %ordered
 
 ordered:
-  %val = load i32, i32* %x
-  store i32 %val, i32* %arrayidx, align 4
+  %val = load i32, ptr %x
+  store i32 %val, ptr %arrayidx, align 4
   br label %ordered.exit
 
 ordered.exit:

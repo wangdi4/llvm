@@ -23,7 +23,7 @@ entry:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
-%0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(float* %f.lpriv, float zeroinitializer, i32 1)]
+%0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %f.lpriv, float zeroinitializer, i32 1)]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.236
@@ -35,7 +35,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
 
 DIR.OMP.END.SIMD.3:                               ; preds = %omp.inner.for.body
   %add7.lcssa = phi float [ %add7, %omp.inner.for.body ]
-  store float %add7.lcssa, float* %f.lpriv
+  store float %add7.lcssa, ptr %f.lpriv
   br label %DIR.OMP.END.SIMD.337
 
 DIR.OMP.END.SIMD.337:                             ; preds = %DIR.OMP.END.SIMD.3

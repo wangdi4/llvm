@@ -8,7 +8,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %S1 = type { i64, double }
 
-define void @foo(%S1 *%p) {
+define void @foo(ptr %p) {
 ; CHECK: load <8 x i64>, {{.*}}, align 8, !tbaa [[TBAA:!.*]]
 ; CHECK: store <8 x i64> {{.*}}, align 8, !tbaa [[TBAA]]
 ; CHECK-DAG: [[CHAR:!.*]] = !{!"omnipotent char", {{.*}}, i64 0}
@@ -21,16 +21,16 @@ entry:
 header:
   %iv = phi i64 [ 0, %entry ], [ %iv.next, %header ]
 
-  %p.i64 = getelementptr inbounds %S1, %S1* %p, i64 %iv, i32 0
-  %p.double = getelementptr inbounds %S1, %S1* %p, i64 %iv, i32 1
+  %p.i64 = getelementptr inbounds %S1, ptr %p, i64 %iv, i32 0
+  %p.double = getelementptr inbounds %S1, ptr %p, i64 %iv, i32 1
 
-  %ld.i64 = load i64, i64 *%p.i64, !tbaa !4
-  %ld.double = load double, double *%p.double, !tbaa !5
+  %ld.i64 = load i64, ptr %p.i64, !tbaa !4
+  %ld.double = load double, ptr %p.double, !tbaa !5
 
   %cast = sitofp i64 %iv to double
 
-  store i64 %iv, i64 *%p.i64, !tbaa !4
-  store double %cast, double *%p.double, !tbaa !5
+  store i64 %iv, ptr %p.i64, !tbaa !4
+  store double %cast, ptr %p.double, !tbaa !5
 
   %iv.next = add nuw nsw i64 %iv, 1
   %exitcond = icmp eq i64 %iv.next, 128

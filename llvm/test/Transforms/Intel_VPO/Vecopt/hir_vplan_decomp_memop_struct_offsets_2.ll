@@ -30,8 +30,8 @@
 
 ; Check decomposed VPInstructions
 ; CHECK: i64 [[I1:%vp.*]] = phi
-; CHECK: i32* [[ADDR1:%vp.*]] = subscript inbounds %struct.ST* @st1 {i64 0 : i64 0 : i64 824 : %struct.ST*(%struct.ST) (2 1 )} {i64 0 : i64 5 : i64 80 : [10 x [20 x i32]]([20 x i32])} {i64 0 : i64 [[I1]] : i64 4 : [20 x i32](i32)}
-; CHECK-NEXT: store i32 {{%vp.*}} i32* [[ADDR1]]
+; CHECK: ptr [[ADDR1:%vp.*]] = subscript inbounds ptr @st1 {i64 0 : i64 0 : i64 824 : ptr(%struct.ST) (2 1 )} {i64 0 : i64 5 : i64 80 : [10 x [20 x i32]]([20 x i32])} {i64 0 : i64 [[I1]] : i64 4 : [20 x i32](i32)}
+; CHECK-NEXT: store i32 {{%vp.*}} ptr [[ADDR1]]
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -44,14 +44,14 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo() local_unnamed_addr {
 omp.inner.for.body.lr.ph:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %omp.inner.for.body.lr.ph
   %indvars.iv = phi i64 [ %indvars.iv.next, %omp.inner.for.body ], [ 0, %omp.inner.for.body.lr.ph ]
-  %arrayidx = getelementptr inbounds %struct.ST, %struct.ST* @st1, i64 0, i32 2, i32 1, i64 5, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds %struct.ST, ptr @st1, i64 0, i32 2, i32 1, i64 5, i64 %indvars.iv
   %1 = trunc i64 %indvars.iv to i32
-  store i32 %1, i32* %arrayidx, align 4, !tbaa !2
+  store i32 %1, ptr %arrayidx, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 20
   br i1 %exitcond, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body

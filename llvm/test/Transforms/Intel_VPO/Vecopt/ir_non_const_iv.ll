@@ -17,7 +17,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 @inc_x = common global i32 0, align 4
 
-define i32 @foo(i32* noalias nocapture %A, i32 %N, i32 %init)  {
+define i32 @foo(ptr noalias nocapture %A, i32 %N, i32 %init)  {
 ; CHECK-LABEL: @foo(
 ; CHECK:       VPlannedBB2:
 ; CHECK:         [[TMP6:%.*]] = shl i32 [[TMP0:%.*]], 2
@@ -37,7 +37,7 @@ L1:
   br i1 %cmp7, label %for.body.lr.ph, label %for.cond.cleanup
 
 for.body.lr.ph:                                   ; preds = %entry
-  %0 = load i32, i32* @inc_x, align 4
+  %0 = load i32, ptr @inc_x, align 4
   %1 = mul i32 %0, %N
   %wide.trip.count = zext i32 %N to i64
   br label %for.body
@@ -45,8 +45,8 @@ for.body.lr.ph:                                   ; preds = %entry
 for.body:                                         ; preds = %for.body, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
   %x.08 = phi i32 [ %init, %for.body.lr.ph ], [ %add, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  store i32 %x.08, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  store i32 %x.08, ptr %arrayidx, align 4
   %add = add nsw i32 %0, %x.08
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count

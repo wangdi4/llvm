@@ -11,19 +11,19 @@ target datalayout = "e-m:e-p:32:32-i64:32-f64:32-f128:32-n8:16:32-a:0:32-S32"
 target triple = "i586-intel-elfiamcu"
 
 ; Function Attrs: noinline norecurse nounwind
-define void @foo(float* noalias nocapture %a, float* nocapture readonly %b, float* nocapture readonly %c, i32 %N) local_unnamed_addr #0 {
+define void @foo(ptr noalias nocapture %a, ptr nocapture readonly %b, ptr nocapture readonly %c, i32 %N) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %i.09 = phi i32 [ 0, %entry ], [ %inc, %for.body ]
-  %arrayidx = getelementptr inbounds float, float* %b, i32 %i.09
-  %0 = load float, float* %arrayidx, align 4, !tbaa !1
-  %arrayidx1 = getelementptr inbounds float, float* %c, i32 %i.09
-  %1 = load float, float* %arrayidx1, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds float, ptr %b, i32 %i.09
+  %0 = load float, ptr %arrayidx, align 4, !tbaa !1
+  %arrayidx1 = getelementptr inbounds float, ptr %c, i32 %i.09
+  %1 = load float, ptr %arrayidx1, align 4, !tbaa !1
   %add = fadd float %0, %1
-  %arrayidx2 = getelementptr inbounds float, float* %a, i32 %i.09
-  store float %add, float* %arrayidx2, align 4, !tbaa !1
+  %arrayidx2 = getelementptr inbounds float, ptr %a, i32 %i.09
+  store float %add, ptr %arrayidx2, align 4, !tbaa !1
   %inc = add nuw nsw i32 %i.09, 1
   %exitcond = icmp eq i32 %inc, 1024
   br i1 %exitcond, label %for.end, label %for.body

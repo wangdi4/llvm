@@ -38,7 +38,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:  END REGION
 
 ; Function Attrs: argmemonly mustprogress nofree norecurse nosync nounwind readonly willreturn uwtable
-define dso_local void @test1(float* %A) local_unnamed_addr #0 {
+define dso_local void @test1(ptr %A) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -46,7 +46,7 @@ for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %r.014 = phi float [ -1.000000e+00, %entry ], [ %conv1, %for.body ]
   %conv1 = fadd reassoc float %r.014, 4.000000e+00
-  store float %conv1, float* %A, align 4
+  store float %conv1, ptr %A, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body
@@ -90,7 +90,7 @@ for.cond.cleanup:                                 ; preds = %for.body
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
 
-define dso_local void @test2(float* %A, i64 %n) local_unnamed_addr #0 {
+define dso_local void @test2(ptr %A, i64 %n) local_unnamed_addr #0 {
 entry:
   br label %outer.for.body
 
@@ -102,7 +102,7 @@ for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %outer.for.body ], [ %indvars.iv.next, %for.body ]
   %r.014 = phi float [ -1.000000e+00, %outer.for.body ], [ %conv1, %for.body ]
   %conv1 = fadd reassoc float %r.014, 4.000000e+00
-  store float %conv1, float* %A, align 4
+  store float %conv1, ptr %A, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %n
   br i1 %exitcond.not, label %outer.latch, label %for.body

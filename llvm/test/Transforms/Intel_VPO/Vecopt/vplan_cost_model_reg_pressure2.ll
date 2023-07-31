@@ -18,31 +18,31 @@ entry:
 
 for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ld1.0.idx = getelementptr inbounds [1024 x float], [1024 x float]* @arr.float.1, i64 0, i64 %indvars.iv
-  %ld1.1.idx = getelementptr inbounds [1024 x float], [1024 x float]* @arr.float.1, i64 1, i64 %indvars.iv
-  %ld1.2.idx = getelementptr inbounds [1024 x float], [1024 x float]* @arr.float.1, i64 2, i64 %indvars.iv
-  %ld1.3.idx = getelementptr inbounds [1024 x float], [1024 x float]* @arr.float.1, i64 3, i64 %indvars.iv
-  %ld1.4.idx = getelementptr inbounds [1024 x float], [1024 x float]* @arr.float.1, i64 4, i64 %indvars.iv
+  %ld1.0.idx = getelementptr inbounds [1024 x float], ptr @arr.float.1, i64 0, i64 %indvars.iv
+  %ld1.1.idx = getelementptr inbounds [1024 x float], ptr @arr.float.1, i64 1, i64 %indvars.iv
+  %ld1.2.idx = getelementptr inbounds [1024 x float], ptr @arr.float.1, i64 2, i64 %indvars.iv
+  %ld1.3.idx = getelementptr inbounds [1024 x float], ptr @arr.float.1, i64 3, i64 %indvars.iv
+  %ld1.4.idx = getelementptr inbounds [1024 x float], ptr @arr.float.1, i64 4, i64 %indvars.iv
 
-  %ld2.0.idx = getelementptr inbounds [1024 x float], [1024 x float]* @arr.float.2, i64 0, i64 %indvars.iv
-  %ld2.1.idx = getelementptr inbounds [1024 x float], [1024 x float]* @arr.float.2, i64 1, i64 %indvars.iv
-  %ld2.2.idx = getelementptr inbounds [1024 x float], [1024 x float]* @arr.float.2, i64 2, i64 %indvars.iv
-  %ld2.3.idx = getelementptr inbounds [1024 x float], [1024 x float]* @arr.float.2, i64 3, i64 %indvars.iv
-  %ld2.4.idx = getelementptr inbounds [1024 x float], [1024 x float]* @arr.float.2, i64 4, i64 %indvars.iv
+  %ld2.0.idx = getelementptr inbounds [1024 x float], ptr @arr.float.2, i64 0, i64 %indvars.iv
+  %ld2.1.idx = getelementptr inbounds [1024 x float], ptr @arr.float.2, i64 1, i64 %indvars.iv
+  %ld2.2.idx = getelementptr inbounds [1024 x float], ptr @arr.float.2, i64 2, i64 %indvars.iv
+  %ld2.3.idx = getelementptr inbounds [1024 x float], ptr @arr.float.2, i64 3, i64 %indvars.iv
+  %ld2.4.idx = getelementptr inbounds [1024 x float], ptr @arr.float.2, i64 4, i64 %indvars.iv
 
-  %st1.idx = getelementptr inbounds [1024 x float], [1024 x float]* @arr.float.3, i64 0, i64 %indvars.iv
-  %st2.idx = getelementptr inbounds [1024 x float], [1024 x float]* @arr.float.4, i64 0, i64 %indvars.iv
+  %st1.idx = getelementptr inbounds [1024 x float], ptr @arr.float.3, i64 0, i64 %indvars.iv
+  %st2.idx = getelementptr inbounds [1024 x float], ptr @arr.float.4, i64 0, i64 %indvars.iv
 
-  %ld1.0 = load float, float* %ld1.0.idx
-  %ld2.0 = load float, float* %ld2.0.idx
-  %ld1.1 = load float, float* %ld1.1.idx
-  %ld2.1 = load float, float* %ld2.1.idx
-  %ld1.2 = load float, float* %ld1.2.idx
-  %ld2.2 = load float, float* %ld2.2.idx
-  %ld1.3 = load float, float* %ld1.3.idx
-  %ld2.3 = load float, float* %ld2.3.idx
-  %ld1.4 = load float, float* %ld1.4.idx
-  %ld2.4 = load float, float* %ld2.4.idx
+  %ld1.0 = load float, ptr %ld1.0.idx
+  %ld2.0 = load float, ptr %ld2.0.idx
+  %ld1.1 = load float, ptr %ld1.1.idx
+  %ld2.1 = load float, ptr %ld2.1.idx
+  %ld1.2 = load float, ptr %ld1.2.idx
+  %ld2.2 = load float, ptr %ld2.2.idx
+  %ld1.3 = load float, ptr %ld1.3.idx
+  %ld2.3 = load float, ptr %ld2.3.idx
+  %ld1.4 = load float, ptr %ld1.4.idx
+  %ld2.4 = load float, ptr %ld2.4.idx
 
   %val1.0 = fadd float %ld1.0, %ld2.0
   %val2.0 = fsub float %ld1.0, %ld2.0
@@ -86,8 +86,8 @@ for.body:
   %val2.st.7  = fadd float %ld2.4, %val2.st.6
   %val2.st.8  = fadd float %val2.4, %val2.st.7
 
-  store float %val1.st.8, float* %st1.idx
-  store float %val2.st.8, float* %st2.idx
+  store float %val1.st.8, ptr %st1.idx
+  store float %val2.st.8, ptr %st2.idx
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024

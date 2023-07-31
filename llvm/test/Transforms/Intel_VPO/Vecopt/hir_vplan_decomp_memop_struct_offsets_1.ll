@@ -22,8 +22,8 @@
 
 ; Check decomposed VPInstructions
 ; CHECK: i64 [[I1:%vp.*]] = phi
-; CHECK: i32* [[ADDR1:%vp.*]] = subscript inbounds %struct.S1* @s1 {i64 0 : i64 0 : i64 404 : %struct.S1*(%struct.S1) (1 )} {i64 0 : i64 [[I1]] : i64 4 : [100 x i32](i32)}
-; CHECK-NEXT: store i32 {{%vp.*}} i32* [[ADDR1]]
+; CHECK: ptr [[ADDR1:%vp.*]] = subscript inbounds ptr @s1 {i64 0 : i64 0 : i64 404 : ptr(%struct.S1) (1 )} {i64 0 : i64 [[I1]] : i64 4 : [100 x i32](i32)}
+; CHECK-NEXT: store i32 {{%vp.*}} ptr [[ADDR1]]
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -39,9 +39,9 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds %struct.S1, %struct.S1* @s1, i64 0, i32 1, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds %struct.S1, ptr @s1, i64 0, i32 1, i64 %indvars.iv
   %0 = trunc i64 %indvars.iv to i32
-  store i32 %0, i32* %arrayidx, align 4, !tbaa !2
+  store i32 %0, ptr %arrayidx, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond, label %for.end, label %for.body

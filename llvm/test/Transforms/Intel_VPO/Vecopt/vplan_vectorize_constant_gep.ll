@@ -17,7 +17,7 @@ entry:
 
 body:
   %1 = phi i64 [ 0, %entry ], [ %3, %body ]
-  %2 = getelementptr inbounds i8, i8* undef, i64 undef
+  %2 = getelementptr inbounds i8, ptr undef, i64 undef
   %3 = add nsw i64 %1, 1
   %4 = icmp sgt i64 3, %3
   br i1 %4, label %body, label %exit

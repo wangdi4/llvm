@@ -12,7 +12,7 @@
 
 ; This test checks that the loop has <unroll = 2> metadata before unrolling, but marked with <nounroll> metadata after that.
 
-define void @iota(double* nocapture %A) {
+define void @iota(ptr nocapture %A) {
 ;
 ; CHECK: IR Dump Before {{VPlan HIR Vectorizer|vpo::VPlanDriverHIRPass}}
 ; CHECK: + DO i1 = 0, 1048575, 1   <DO_LOOP> <unroll = 2>
@@ -30,8 +30,8 @@ for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %0 = trunc i64 %indvars.iv to i32
   %conv = sitofp i32 %0 to double
-  %arrayidx = getelementptr inbounds double, double* %A, i64 %indvars.iv
-  store double %conv, double* %arrayidx
+  %arrayidx = getelementptr inbounds double, ptr %A, i64 %indvars.iv
+  store double %conv, ptr %arrayidx
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1048576
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body, !llvm.loop !7

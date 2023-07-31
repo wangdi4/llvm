@@ -6,13 +6,13 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent nounwind
-define void @test_fn(i8 addrspace(1)* %src, i8 addrspace(1)* %dst, i8 addrspace(3)* noalias %localBuffer, i32 %copiesPerWorkgroup, i32 %copiesPerWorkItem) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !11 !kernel_arg_buffer_location !11 !kernel_arg_name !12 !vectorized_kernel !13 !no_barrier_path !14 !vectorized_width !15 !scalarized_kernel !16 {
+define void @test_fn(ptr addrspace(1) %src, ptr addrspace(1) %dst, ptr addrspace(3) noalias %localBuffer, i32 %copiesPerWorkgroup, i32 %copiesPerWorkItem) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !11 !kernel_arg_buffer_location !11 !kernel_arg_name !12 !vectorized_kernel !13 !no_barrier_path !14 !vectorized_width !15 !scalarized_kernel !16 {
 entry:
   %conv = sext i32 %copiesPerWorkItem to i64
   %call = tail call i64 @_Z13get_global_idj(i32 0) #4
   %mul = mul i64 %call, %conv
-  %add.ptr = getelementptr inbounds i8, i8 addrspace(1)* %src, i64 %mul
-  tail call void @_Z8prefetchPU3AS1Kcm(i8 addrspace(1)* %add.ptr, i64 %conv) #5
+  %add.ptr = getelementptr inbounds i8, ptr addrspace(1) %src, i64 %mul
+  tail call void @_Z8prefetchPU3AS1Kcm(ptr addrspace(1) %add.ptr, i64 %conv) #5
   %cmp10 = icmp sgt i32 %copiesPerWorkItem, 0
   br i1 %cmp10, label %for.body.lr.ph, label %for.end
 
@@ -30,52 +30,52 @@ for.body:                                         ; preds = %for.body, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph.new ], [ %indvars.iv.next.7, %for.body ]
   %niter = phi i64 [ %unroll_iter, %for.body.lr.ph.new ], [ %niter.nsub.7, %for.body ]
   %add = add i64 %mul, %indvars.iv
-  %arrayidx = getelementptr inbounds i8, i8 addrspace(1)* %src, i64 %add
-  %2 = load i8, i8 addrspace(1)* %arrayidx, align 1, !tbaa !17
-  %arrayidx12 = getelementptr inbounds i8, i8 addrspace(1)* %dst, i64 %add
-  store i8 %2, i8 addrspace(1)* %arrayidx12, align 1, !tbaa !17
+  %arrayidx = getelementptr inbounds i8, ptr addrspace(1) %src, i64 %add
+  %2 = load i8, ptr addrspace(1) %arrayidx, align 1, !tbaa !17
+  %arrayidx12 = getelementptr inbounds i8, ptr addrspace(1) %dst, i64 %add
+  store i8 %2, ptr addrspace(1) %arrayidx12, align 1, !tbaa !17
   %indvars.iv.next = or i64 %indvars.iv, 1
   %add.1 = add i64 %mul, %indvars.iv.next
-  %arrayidx.1 = getelementptr inbounds i8, i8 addrspace(1)* %src, i64 %add.1
-  %3 = load i8, i8 addrspace(1)* %arrayidx.1, align 1, !tbaa !17
-  %arrayidx12.1 = getelementptr inbounds i8, i8 addrspace(1)* %dst, i64 %add.1
-  store i8 %3, i8 addrspace(1)* %arrayidx12.1, align 1, !tbaa !17
+  %arrayidx.1 = getelementptr inbounds i8, ptr addrspace(1) %src, i64 %add.1
+  %3 = load i8, ptr addrspace(1) %arrayidx.1, align 1, !tbaa !17
+  %arrayidx12.1 = getelementptr inbounds i8, ptr addrspace(1) %dst, i64 %add.1
+  store i8 %3, ptr addrspace(1) %arrayidx12.1, align 1, !tbaa !17
   %indvars.iv.next.1 = or i64 %indvars.iv, 2
   %add.2 = add i64 %mul, %indvars.iv.next.1
-  %arrayidx.2 = getelementptr inbounds i8, i8 addrspace(1)* %src, i64 %add.2
-  %4 = load i8, i8 addrspace(1)* %arrayidx.2, align 1, !tbaa !17
-  %arrayidx12.2 = getelementptr inbounds i8, i8 addrspace(1)* %dst, i64 %add.2
-  store i8 %4, i8 addrspace(1)* %arrayidx12.2, align 1, !tbaa !17
+  %arrayidx.2 = getelementptr inbounds i8, ptr addrspace(1) %src, i64 %add.2
+  %4 = load i8, ptr addrspace(1) %arrayidx.2, align 1, !tbaa !17
+  %arrayidx12.2 = getelementptr inbounds i8, ptr addrspace(1) %dst, i64 %add.2
+  store i8 %4, ptr addrspace(1) %arrayidx12.2, align 1, !tbaa !17
   %indvars.iv.next.2 = or i64 %indvars.iv, 3
   %add.3 = add i64 %mul, %indvars.iv.next.2
-  %arrayidx.3 = getelementptr inbounds i8, i8 addrspace(1)* %src, i64 %add.3
-  %5 = load i8, i8 addrspace(1)* %arrayidx.3, align 1, !tbaa !17
-  %arrayidx12.3 = getelementptr inbounds i8, i8 addrspace(1)* %dst, i64 %add.3
-  store i8 %5, i8 addrspace(1)* %arrayidx12.3, align 1, !tbaa !17
+  %arrayidx.3 = getelementptr inbounds i8, ptr addrspace(1) %src, i64 %add.3
+  %5 = load i8, ptr addrspace(1) %arrayidx.3, align 1, !tbaa !17
+  %arrayidx12.3 = getelementptr inbounds i8, ptr addrspace(1) %dst, i64 %add.3
+  store i8 %5, ptr addrspace(1) %arrayidx12.3, align 1, !tbaa !17
   %indvars.iv.next.3 = or i64 %indvars.iv, 4
   %add.4 = add i64 %mul, %indvars.iv.next.3
-  %arrayidx.4 = getelementptr inbounds i8, i8 addrspace(1)* %src, i64 %add.4
-  %6 = load i8, i8 addrspace(1)* %arrayidx.4, align 1, !tbaa !17
-  %arrayidx12.4 = getelementptr inbounds i8, i8 addrspace(1)* %dst, i64 %add.4
-  store i8 %6, i8 addrspace(1)* %arrayidx12.4, align 1, !tbaa !17
+  %arrayidx.4 = getelementptr inbounds i8, ptr addrspace(1) %src, i64 %add.4
+  %6 = load i8, ptr addrspace(1) %arrayidx.4, align 1, !tbaa !17
+  %arrayidx12.4 = getelementptr inbounds i8, ptr addrspace(1) %dst, i64 %add.4
+  store i8 %6, ptr addrspace(1) %arrayidx12.4, align 1, !tbaa !17
   %indvars.iv.next.4 = or i64 %indvars.iv, 5
   %add.5 = add i64 %mul, %indvars.iv.next.4
-  %arrayidx.5 = getelementptr inbounds i8, i8 addrspace(1)* %src, i64 %add.5
-  %7 = load i8, i8 addrspace(1)* %arrayidx.5, align 1, !tbaa !17
-  %arrayidx12.5 = getelementptr inbounds i8, i8 addrspace(1)* %dst, i64 %add.5
-  store i8 %7, i8 addrspace(1)* %arrayidx12.5, align 1, !tbaa !17
+  %arrayidx.5 = getelementptr inbounds i8, ptr addrspace(1) %src, i64 %add.5
+  %7 = load i8, ptr addrspace(1) %arrayidx.5, align 1, !tbaa !17
+  %arrayidx12.5 = getelementptr inbounds i8, ptr addrspace(1) %dst, i64 %add.5
+  store i8 %7, ptr addrspace(1) %arrayidx12.5, align 1, !tbaa !17
   %indvars.iv.next.5 = or i64 %indvars.iv, 6
   %add.6 = add i64 %mul, %indvars.iv.next.5
-  %arrayidx.6 = getelementptr inbounds i8, i8 addrspace(1)* %src, i64 %add.6
-  %8 = load i8, i8 addrspace(1)* %arrayidx.6, align 1, !tbaa !17
-  %arrayidx12.6 = getelementptr inbounds i8, i8 addrspace(1)* %dst, i64 %add.6
-  store i8 %8, i8 addrspace(1)* %arrayidx12.6, align 1, !tbaa !17
+  %arrayidx.6 = getelementptr inbounds i8, ptr addrspace(1) %src, i64 %add.6
+  %8 = load i8, ptr addrspace(1) %arrayidx.6, align 1, !tbaa !17
+  %arrayidx12.6 = getelementptr inbounds i8, ptr addrspace(1) %dst, i64 %add.6
+  store i8 %8, ptr addrspace(1) %arrayidx12.6, align 1, !tbaa !17
   %indvars.iv.next.6 = or i64 %indvars.iv, 7
   %add.7 = add i64 %mul, %indvars.iv.next.6
-  %arrayidx.7 = getelementptr inbounds i8, i8 addrspace(1)* %src, i64 %add.7
-  %9 = load i8, i8 addrspace(1)* %arrayidx.7, align 1, !tbaa !17
-  %arrayidx12.7 = getelementptr inbounds i8, i8 addrspace(1)* %dst, i64 %add.7
-  store i8 %9, i8 addrspace(1)* %arrayidx12.7, align 1, !tbaa !17
+  %arrayidx.7 = getelementptr inbounds i8, ptr addrspace(1) %src, i64 %add.7
+  %9 = load i8, ptr addrspace(1) %arrayidx.7, align 1, !tbaa !17
+  %arrayidx12.7 = getelementptr inbounds i8, ptr addrspace(1) %dst, i64 %add.7
+  store i8 %9, ptr addrspace(1) %arrayidx12.7, align 1, !tbaa !17
   %indvars.iv.next.7 = add nuw nsw i64 %indvars.iv, 8
   %niter.nsub.7 = add i64 %niter, -8
   %niter.ncmp.7 = icmp eq i64 %niter.nsub.7, 0
@@ -90,10 +90,10 @@ for.body.epil:                                    ; preds = %for.cond.for.end_cr
   %indvars.iv.epil = phi i64 [ %indvars.iv.next.epil, %for.body.epil ], [ %indvars.iv.unr, %for.cond.for.end_crit_edge.unr-lcssa ]
   %epil.iter = phi i64 [ %epil.iter.sub, %for.body.epil ], [ %xtraiter, %for.cond.for.end_crit_edge.unr-lcssa ]
   %add.epil = add i64 %mul, %indvars.iv.epil
-  %arrayidx.epil = getelementptr inbounds i8, i8 addrspace(1)* %src, i64 %add.epil
-  %10 = load i8, i8 addrspace(1)* %arrayidx.epil, align 1, !tbaa !17
-  %arrayidx12.epil = getelementptr inbounds i8, i8 addrspace(1)* %dst, i64 %add.epil
-  store i8 %10, i8 addrspace(1)* %arrayidx12.epil, align 1, !tbaa !17
+  %arrayidx.epil = getelementptr inbounds i8, ptr addrspace(1) %src, i64 %add.epil
+  %10 = load i8, ptr addrspace(1) %arrayidx.epil, align 1, !tbaa !17
+  %arrayidx12.epil = getelementptr inbounds i8, ptr addrspace(1) %dst, i64 %add.epil
+  store i8 %10, ptr addrspace(1) %arrayidx12.epil, align 1, !tbaa !17
   %indvars.iv.next.epil = add nuw nsw i64 %indvars.iv.epil, 1
   %epil.iter.sub = add i64 %epil.iter, -1
   %epil.iter.cmp = icmp eq i64 %epil.iter.sub, 0
@@ -104,12 +104,12 @@ for.end:                                          ; preds = %for.cond.for.end_cr
 }
 
 ; Function Attrs: convergent
-declare void @_Z8prefetchPU3AS1Kcm(i8 addrspace(1)*, i64) local_unnamed_addr #1
+declare void @_Z8prefetchPU3AS1Kcm(ptr addrspace(1), i64) local_unnamed_addr #1
 
 ; Function Attrs: convergent nounwind readnone
 declare i64 @_Z13get_global_idj(i32) local_unnamed_addr #2
 
-define [7 x i64] @WG.boundaries.test_fn(i8 addrspace(1)*, i8 addrspace(1)*, i8 addrspace(3)*, i32, i32) !ocl_recommended_vector_length !22 {
+define [7 x i64] @WG.boundaries.test_fn(ptr addrspace(1), ptr addrspace(1), ptr addrspace(3), i32, i32) !ocl_recommended_vector_length !22 {
 entry:
   %5 = call i64 @_Z14get_local_sizej(i32 0)
   %6 = call i64 @get_base_global_id.(i32 0)
@@ -132,13 +132,13 @@ declare i64 @_Z14get_local_sizej(i32)
 declare i64 @get_base_global_id.(i32)
 
 ; Function Attrs: convergent nounwind
-define void @_ZGVdN8uuuuu_test_fn(i8 addrspace(1)* %src, i8 addrspace(1)* %dst, i8 addrspace(3)* noalias %localBuffer, i32 %copiesPerWorkgroup, i32 %copiesPerWorkItem) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !11 !kernel_arg_buffer_location !11 !kernel_arg_name !12 !vectorized_kernel !16 !no_barrier_path !14 !ocl_recommended_vector_length !22 !vectorized_width !22 !vectorization_dimension !23 !scalarized_kernel !4 !can_unite_workgroups !24 {
+define void @_ZGVdN8uuuuu_test_fn(ptr addrspace(1) %src, ptr addrspace(1) %dst, ptr addrspace(3) noalias %localBuffer, i32 %copiesPerWorkgroup, i32 %copiesPerWorkItem) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !11 !kernel_arg_buffer_location !11 !kernel_arg_name !12 !vectorized_kernel !16 !no_barrier_path !14 !ocl_recommended_vector_length !22 !vectorized_width !22 !vectorization_dimension !23 !scalarized_kernel !4 !can_unite_workgroups !24 {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) #4
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM:TYPED"(i8 addrspace(1)* %src, i8 zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(i8 addrspace(1)* %dst, i8 zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(i8 addrspace(3)* %localBuffer, i8 zeroinitializer, i32 1), "QUAL.OMP.UNIFORM"(i32 %copiesPerWorkgroup, i32 %copiesPerWorkItem) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM:TYPED"(ptr addrspace(1) %src, i8 zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr addrspace(1) %dst, i8 zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr addrspace(3) %localBuffer, i8 zeroinitializer, i32 1), "QUAL.OMP.UNIFORM"(i32 %copiesPerWorkgroup, i32 %copiesPerWorkItem) ]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
@@ -147,8 +147,8 @@ simd.loop:                                        ; preds = %simd.loop.exit, %si
   %add1 = add nuw i64 %0, %call
   %conv = sext i32 %copiesPerWorkItem to i64
   %mul = mul i64 %add1, %conv
-  %add.ptr = getelementptr inbounds i8, i8 addrspace(1)* %src, i64 %mul
-  tail call void @_Z8prefetchPU3AS1Kcm(i8 addrspace(1)* %add.ptr, i64 %conv) #5
+  %add.ptr = getelementptr inbounds i8, ptr addrspace(1) %src, i64 %mul
+  tail call void @_Z8prefetchPU3AS1Kcm(ptr addrspace(1) %add.ptr, i64 %conv) #5
   %cmp10 = icmp sgt i32 %copiesPerWorkItem, 0
   br i1 %cmp10, label %for.body.lr.ph, label %for.end
 
@@ -166,52 +166,52 @@ for.body:                                         ; preds = %for.body, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph.new ], [ %indvars.iv.next.7, %for.body ]
   %niter = phi i64 [ %unroll_iter, %for.body.lr.ph.new ], [ %niter.nsub.7, %for.body ]
   %add = add i64 %mul, %indvars.iv
-  %arrayidx = getelementptr inbounds i8, i8 addrspace(1)* %src, i64 %add
-  %3 = load i8, i8 addrspace(1)* %arrayidx, align 1, !tbaa !17
-  %arrayidx12 = getelementptr inbounds i8, i8 addrspace(1)* %dst, i64 %add
-  store i8 %3, i8 addrspace(1)* %arrayidx12, align 1, !tbaa !17
+  %arrayidx = getelementptr inbounds i8, ptr addrspace(1) %src, i64 %add
+  %3 = load i8, ptr addrspace(1) %arrayidx, align 1, !tbaa !17
+  %arrayidx12 = getelementptr inbounds i8, ptr addrspace(1) %dst, i64 %add
+  store i8 %3, ptr addrspace(1) %arrayidx12, align 1, !tbaa !17
   %indvars.iv.next = or i64 %indvars.iv, 1
   %add.1 = add i64 %mul, %indvars.iv.next
-  %arrayidx.1 = getelementptr inbounds i8, i8 addrspace(1)* %src, i64 %add.1
-  %4 = load i8, i8 addrspace(1)* %arrayidx.1, align 1, !tbaa !17
-  %arrayidx12.1 = getelementptr inbounds i8, i8 addrspace(1)* %dst, i64 %add.1
-  store i8 %4, i8 addrspace(1)* %arrayidx12.1, align 1, !tbaa !17
+  %arrayidx.1 = getelementptr inbounds i8, ptr addrspace(1) %src, i64 %add.1
+  %4 = load i8, ptr addrspace(1) %arrayidx.1, align 1, !tbaa !17
+  %arrayidx12.1 = getelementptr inbounds i8, ptr addrspace(1) %dst, i64 %add.1
+  store i8 %4, ptr addrspace(1) %arrayidx12.1, align 1, !tbaa !17
   %indvars.iv.next.1 = or i64 %indvars.iv, 2
   %add.2 = add i64 %mul, %indvars.iv.next.1
-  %arrayidx.2 = getelementptr inbounds i8, i8 addrspace(1)* %src, i64 %add.2
-  %5 = load i8, i8 addrspace(1)* %arrayidx.2, align 1, !tbaa !17
-  %arrayidx12.2 = getelementptr inbounds i8, i8 addrspace(1)* %dst, i64 %add.2
-  store i8 %5, i8 addrspace(1)* %arrayidx12.2, align 1, !tbaa !17
+  %arrayidx.2 = getelementptr inbounds i8, ptr addrspace(1) %src, i64 %add.2
+  %5 = load i8, ptr addrspace(1) %arrayidx.2, align 1, !tbaa !17
+  %arrayidx12.2 = getelementptr inbounds i8, ptr addrspace(1) %dst, i64 %add.2
+  store i8 %5, ptr addrspace(1) %arrayidx12.2, align 1, !tbaa !17
   %indvars.iv.next.2 = or i64 %indvars.iv, 3
   %add.3 = add i64 %mul, %indvars.iv.next.2
-  %arrayidx.3 = getelementptr inbounds i8, i8 addrspace(1)* %src, i64 %add.3
-  %6 = load i8, i8 addrspace(1)* %arrayidx.3, align 1, !tbaa !17
-  %arrayidx12.3 = getelementptr inbounds i8, i8 addrspace(1)* %dst, i64 %add.3
-  store i8 %6, i8 addrspace(1)* %arrayidx12.3, align 1, !tbaa !17
+  %arrayidx.3 = getelementptr inbounds i8, ptr addrspace(1) %src, i64 %add.3
+  %6 = load i8, ptr addrspace(1) %arrayidx.3, align 1, !tbaa !17
+  %arrayidx12.3 = getelementptr inbounds i8, ptr addrspace(1) %dst, i64 %add.3
+  store i8 %6, ptr addrspace(1) %arrayidx12.3, align 1, !tbaa !17
   %indvars.iv.next.3 = or i64 %indvars.iv, 4
   %add.4 = add i64 %mul, %indvars.iv.next.3
-  %arrayidx.4 = getelementptr inbounds i8, i8 addrspace(1)* %src, i64 %add.4
-  %7 = load i8, i8 addrspace(1)* %arrayidx.4, align 1, !tbaa !17
-  %arrayidx12.4 = getelementptr inbounds i8, i8 addrspace(1)* %dst, i64 %add.4
-  store i8 %7, i8 addrspace(1)* %arrayidx12.4, align 1, !tbaa !17
+  %arrayidx.4 = getelementptr inbounds i8, ptr addrspace(1) %src, i64 %add.4
+  %7 = load i8, ptr addrspace(1) %arrayidx.4, align 1, !tbaa !17
+  %arrayidx12.4 = getelementptr inbounds i8, ptr addrspace(1) %dst, i64 %add.4
+  store i8 %7, ptr addrspace(1) %arrayidx12.4, align 1, !tbaa !17
   %indvars.iv.next.4 = or i64 %indvars.iv, 5
   %add.5 = add i64 %mul, %indvars.iv.next.4
-  %arrayidx.5 = getelementptr inbounds i8, i8 addrspace(1)* %src, i64 %add.5
-  %8 = load i8, i8 addrspace(1)* %arrayidx.5, align 1, !tbaa !17
-  %arrayidx12.5 = getelementptr inbounds i8, i8 addrspace(1)* %dst, i64 %add.5
-  store i8 %8, i8 addrspace(1)* %arrayidx12.5, align 1, !tbaa !17
+  %arrayidx.5 = getelementptr inbounds i8, ptr addrspace(1) %src, i64 %add.5
+  %8 = load i8, ptr addrspace(1) %arrayidx.5, align 1, !tbaa !17
+  %arrayidx12.5 = getelementptr inbounds i8, ptr addrspace(1) %dst, i64 %add.5
+  store i8 %8, ptr addrspace(1) %arrayidx12.5, align 1, !tbaa !17
   %indvars.iv.next.5 = or i64 %indvars.iv, 6
   %add.6 = add i64 %mul, %indvars.iv.next.5
-  %arrayidx.6 = getelementptr inbounds i8, i8 addrspace(1)* %src, i64 %add.6
-  %9 = load i8, i8 addrspace(1)* %arrayidx.6, align 1, !tbaa !17
-  %arrayidx12.6 = getelementptr inbounds i8, i8 addrspace(1)* %dst, i64 %add.6
-  store i8 %9, i8 addrspace(1)* %arrayidx12.6, align 1, !tbaa !17
+  %arrayidx.6 = getelementptr inbounds i8, ptr addrspace(1) %src, i64 %add.6
+  %9 = load i8, ptr addrspace(1) %arrayidx.6, align 1, !tbaa !17
+  %arrayidx12.6 = getelementptr inbounds i8, ptr addrspace(1) %dst, i64 %add.6
+  store i8 %9, ptr addrspace(1) %arrayidx12.6, align 1, !tbaa !17
   %indvars.iv.next.6 = or i64 %indvars.iv, 7
   %add.7 = add i64 %mul, %indvars.iv.next.6
-  %arrayidx.7 = getelementptr inbounds i8, i8 addrspace(1)* %src, i64 %add.7
-  %10 = load i8, i8 addrspace(1)* %arrayidx.7, align 1, !tbaa !17
-  %arrayidx12.7 = getelementptr inbounds i8, i8 addrspace(1)* %dst, i64 %add.7
-  store i8 %10, i8 addrspace(1)* %arrayidx12.7, align 1, !tbaa !17
+  %arrayidx.7 = getelementptr inbounds i8, ptr addrspace(1) %src, i64 %add.7
+  %10 = load i8, ptr addrspace(1) %arrayidx.7, align 1, !tbaa !17
+  %arrayidx12.7 = getelementptr inbounds i8, ptr addrspace(1) %dst, i64 %add.7
+  store i8 %10, ptr addrspace(1) %arrayidx12.7, align 1, !tbaa !17
   %indvars.iv.next.7 = add nuw nsw i64 %indvars.iv, 8
   %niter.nsub.7 = add i64 %niter, -8
   %niter.ncmp.7 = icmp eq i64 %niter.nsub.7, 0
@@ -226,10 +226,10 @@ for.body.epil:                                    ; preds = %for.body.epil, %for
   %indvars.iv.epil = phi i64 [ %indvars.iv.next.epil, %for.body.epil ], [ %indvars.iv.unr, %for.cond.for.end_crit_edge.unr-lcssa ]
   %epil.iter = phi i64 [ %epil.iter.sub, %for.body.epil ], [ %xtraiter, %for.cond.for.end_crit_edge.unr-lcssa ]
   %add.epil = add i64 %mul, %indvars.iv.epil
-  %arrayidx.epil = getelementptr inbounds i8, i8 addrspace(1)* %src, i64 %add.epil
-  %11 = load i8, i8 addrspace(1)* %arrayidx.epil, align 1, !tbaa !17
-  %arrayidx12.epil = getelementptr inbounds i8, i8 addrspace(1)* %dst, i64 %add.epil
-  store i8 %11, i8 addrspace(1)* %arrayidx12.epil, align 1, !tbaa !17
+  %arrayidx.epil = getelementptr inbounds i8, ptr addrspace(1) %src, i64 %add.epil
+  %11 = load i8, ptr addrspace(1) %arrayidx.epil, align 1, !tbaa !17
+  %arrayidx12.epil = getelementptr inbounds i8, ptr addrspace(1) %dst, i64 %add.epil
+  store i8 %11, ptr addrspace(1) %arrayidx12.epil, align 1, !tbaa !17
   %indvars.iv.next.epil = add nuw nsw i64 %indvars.iv.epil, 1
   %epil.iter.sub = add i64 %epil.iter, -1
   %epil.iter.cmp = icmp eq i64 %epil.iter.sub, 0
@@ -279,7 +279,7 @@ attributes #5 = { convergent nounwind }
 !1 = !{i32 1, i32 2}
 !2 = !{}
 !3 = !{!"clang version 8.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 73a7cd4b8b270182f03b0d325c3fd4cd6e6dbf56) (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-llvm bee4537ea28bde70841c48e6a4811ac4f86f36d9)"}
-!4 = !{void (i8 addrspace(1)*, i8 addrspace(1)*, i8 addrspace(3)*, i32, i32)* @test_fn}
+!4 = !{ptr @test_fn}
 !5 = !{i32 1, i32 1, i32 3, i32 0, i32 0}
 !6 = !{!"none", !"none", !"none", !"none", !"none"}
 !7 = !{!"char*", !"char*", !"char*", !"int", !"int"}
@@ -288,7 +288,7 @@ attributes #5 = { convergent nounwind }
 !10 = !{i32 0, i32 0, i32 0, i32 0, i32 0}
 !11 = !{!"", !"", !"", !"", !""}
 !12 = !{!"src", !"dst", !"localBuffer", !"copiesPerWorkgroup", !"copiesPerWorkItem"}
-!13 = !{void (i8 addrspace(1)*, i8 addrspace(1)*, i8 addrspace(3)*, i32, i32)* @_ZGVdN8uuuuu_test_fn}
+!13 = !{ptr @_ZGVdN8uuuuu_test_fn}
 !14 = !{i1 true}
 !15 = !{i32 1}
 !16 = !{null}

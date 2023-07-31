@@ -6,7 +6,7 @@
 ; when the original has a specified start value. The unrolled loop should
 ; have one PHI using the VP_RED_INIT value with an initial value, and UF-1 PHIs using
 ; an identity-only reduction-init.
-define i64 @foo(i64* %lp, i64 %init) {
+define i64 @foo(ptr %lp, i64 %init) {
 ; CHECK-LABEL:  VPlan after VPlan loop unrolling:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
 ; CHECK-NEXT:  External Defs Start:
@@ -29,24 +29,24 @@ define i64 @foo(i64* %lp, i64 %init) {
 ; CHECK-NEXT:     [DA: Div] i64 [[VP4:%.*]] = phi  [ i64 [[VP_RED_INIT_PSUM]], [[BB1]] ],  [ i64 [[VP5:%.*]], cloned.[[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP6:%.*]] = phi  [ i64 [[VP_RED_INIT]], [[BB1]] ],  [ i64 [[VP7:%.*]], cloned.[[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP8:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP9:%.*]], cloned.[[BB3]] ]
-; CHECK-NEXT:     [DA: Div] i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64* [[LP0:%.*]] i64 [[VP8]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[LP0:%.*]] i64 [[VP8]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP7]] = add i64 [[VP_LOAD]] i64 [[VP6]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP10:%.*]] = add i64 [[VP8]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP11:%.*]] = icmp slt i64 [[VP10]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br cloned.[[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:     [DA: Div] i64* [[VP12:%.*]] = subscript inbounds i64* [[LP0]] i64 [[VP10]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP13:%.*]] = load i64* [[VP12]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP12:%.*]] = subscript inbounds ptr [[LP0]] i64 [[VP10]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP13:%.*]] = load ptr [[VP12]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP3]] = add i64 [[VP13]] i64 [[VP2]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP14:%.*]] = add i64 [[VP10]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP15:%.*]] = icmp slt i64 [[VP14]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br cloned.[[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB3]]: # preds: cloned.[[BB4]]
-; CHECK-NEXT:     [DA: Div] i64* [[VP16:%.*]] = subscript inbounds i64* [[LP0]] i64 [[VP14]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP17:%.*]] = load i64* [[VP16]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP16:%.*]] = subscript inbounds ptr [[LP0]] i64 [[VP14]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP17:%.*]] = load ptr [[VP16]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP5]] = add i64 [[VP17]] i64 [[VP4]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP9]] = add i64 [[VP14]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP18:%.*]] = icmp slt i64 [[VP9]] i64 [[VP_VECTOR_TRIP_COUNT]]
@@ -73,8 +73,8 @@ entry:
 for.body:                                         ; preds = %entry, %for.body
   %sum.07 = phi i64 [ %init, %entry ], [ %add, %for.body ]
   %l1.06 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
-  %arrayidx = getelementptr inbounds i64, i64* %lp, i64 %l1.06
-  %0 = load i64, i64* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i64, ptr %lp, i64 %l1.06
+  %0 = load i64, ptr %arrayidx, align 4
   %add = add nuw nsw i64 %0, %sum.07
   %inc = add nuw nsw i64 %l1.06, 1
   %exitcond.not = icmp eq i64 %inc, 1024

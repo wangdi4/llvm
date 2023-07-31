@@ -31,7 +31,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind uwtable
 define dso_local void @_Z3foov() local_unnamed_addr #0 {
 entry:
-  %0 = load i32, i32* @N, align 4, !tbaa !2
+  %0 = load i32, ptr @N, align 4, !tbaa !2
   %cmp10 = icmp sgt i32 %0, 0
   br i1 %cmp10, label %for.body.lr.ph, label %for.end
 
@@ -41,12 +41,12 @@ for.body.lr.ph:                                   ; preds = %entry
 
 for.body:                                         ; preds = %for.body.lr.ph, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* @a, i64 0, i64 %indvars.iv, !intel-tbaa !6
-  %2 = load i32, i32* %arrayidx, align 4, !tbaa !6
-  %arrayidx2 = getelementptr inbounds [1024 x i32], [1024 x i32]* @b, i64 0, i64 %indvars.iv, !intel-tbaa !6
-  %3 = load i32, i32* %arrayidx2, align 4, !tbaa !6
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr @a, i64 0, i64 %indvars.iv, !intel-tbaa !6
+  %2 = load i32, ptr %arrayidx, align 4, !tbaa !6
+  %arrayidx2 = getelementptr inbounds [1024 x i32], ptr @b, i64 0, i64 %indvars.iv, !intel-tbaa !6
+  %3 = load i32, ptr %arrayidx2, align 4, !tbaa !6
   %add = add nsw i32 %3, %2
-  store i32 %add, i32* %arrayidx2, align 4, !tbaa !6
+  store i32 %add, ptr %arrayidx2, align 4, !tbaa !6
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %cmp = icmp slt i64 %indvars.iv.next, %1
   br i1 %cmp, label %for.body, label %for.end.loopexit, !llvm.loop !8

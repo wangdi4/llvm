@@ -50,8 +50,8 @@
 ; not legal to vectorize due to backward edge for %ret.029.
 
 ; CHECK: DO i1 = 0, 99, 2
-; CHECK: [[Add:%.*]] = (<2 x double>*)(@p)[0][i1 + <i64 0, i64 1>].0[0]  +  (<2 x double>*)(@p)[0][i1 + <i64 0, i64 1>].0[1];
-; CHECK-NOT: [[WLd:%.*]] = (<6 x double>*)(@p)[0][i1].0[0];
+; CHECK: [[Add:%.*]] = (ptr)(@p)[0][i1 + <i64 0, i64 1>].0[0]  +  (ptr)(@p)[0][i1 + <i64 0, i64 1>].0[1];
+; CHECK-NOT: [[WLd:%.*]] = (ptr)(@p)[0][i1].0[0];
 ; CHECK-NOT: [[V3:%.*]] = shufflevector [[WLd]],  undef,  <i32 2, i32 5>;
 ; CHECK: END LOOP
 
@@ -66,20 +66,20 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local double @_Z13gradient_listv() local_unnamed_addr {
 omp.inner.for.body.lr.ph:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %omp.inner.for.body.lr.ph
   %indvars.iv = phi i64 [ %indvars.iv.next, %omp.inner.for.body ], [ 0, %omp.inner.for.body.lr.ph ]
   %ret.029 = phi double [ %4, %omp.inner.for.body ], [ undef, %omp.inner.for.body.lr.ph ]
-  %arrayidx1 = getelementptr inbounds [100 x %struct.Point], [100 x %struct.Point]* @p, i64 0, i64 %indvars.iv, i32 0, i64 0
-  %1 = load double, double* %arrayidx1, align 8, !tbaa !2
-  %arrayidx5 = getelementptr inbounds [100 x %struct.Point], [100 x %struct.Point]* @p, i64 0, i64 %indvars.iv, i32 0, i64 1
-  %2 = load double, double* %arrayidx5, align 8, !tbaa !2
+  %arrayidx1 = getelementptr inbounds [100 x %struct.Point], ptr @p, i64 0, i64 %indvars.iv, i32 0, i64 0
+  %1 = load double, ptr %arrayidx1, align 8, !tbaa !2
+  %arrayidx5 = getelementptr inbounds [100 x %struct.Point], ptr @p, i64 0, i64 %indvars.iv, i32 0, i64 1
+  %2 = load double, ptr %arrayidx5, align 8, !tbaa !2
   %add6 = fadd double %1, %2
   %add7 = fadd double %ret.029, %add6
-  %arrayidx11 = getelementptr inbounds [100 x %struct.Point], [100 x %struct.Point]* @p, i64 0, i64 %indvars.iv, i32 0, i64 2
-  %3 = load double, double* %arrayidx11, align 8, !tbaa !2
+  %arrayidx11 = getelementptr inbounds [100 x %struct.Point], ptr @p, i64 0, i64 %indvars.iv, i32 0, i64 2
+  %3 = load double, ptr %arrayidx11, align 8, !tbaa !2
   %cmp12 = fcmp ogt double %3, 1.024500e+03
   %add13 = fadd double %3, %add7
   %4 = select i1 %cmp12, double %add13, double %add7

@@ -30,8 +30,8 @@ entry:
 for.body:
   %i.merge = phi i32 [ 0, %entry ], [ %i.next, %for.body ]
   %j.merge = phi i32 [ %j.init, %entry ], [ %j.next, %for.body ]
-  %idx = getelementptr inbounds [128 x i32], [128 x i32]* @arr, i32 0, i32 %i.merge
-  store i32 %j.merge, i32* %idx, align 4
+  %idx = getelementptr inbounds [128 x i32], ptr @arr, i32 0, i32 %i.merge
+  store i32 %j.merge, ptr %idx, align 4
   %i.next = add nuw nsw i32 %i.merge, 1
   %j.next = add nuw nsw i32 %j.merge, %j.step
   %exitcond = icmp eq i32 %i.next, 128

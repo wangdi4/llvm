@@ -4,32 +4,32 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define i32 @linear_iv_test(i32* nocapture %k) {
+define i32 @linear_iv_test(ptr nocapture %k) {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT:  VPlan IR for: linear_iv_test:simd.loop.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     i32* [[VP_K:%.*]] = allocate-priv i32, OrigAlign = 4
+; CHECK-NEXT:     ptr [[VP_K:%.*]] = allocate-priv i32, OrigAlign = 4
 ; CHECK-NEXT:     i64 [[VP_INDEX_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     i64 [[VP_INDEX_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[K0:%.*]]
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[K0:%.*]]
 ; CHECK-NEXT:     i32 [[VP_K_IND_INIT:%.*]] = induction-init{add} i32 [[VP_LOAD]] i32 1
-; CHECK-NEXT:     store i32 [[VP_K_IND_INIT]] i32* [[VP_K]]
+; CHECK-NEXT:     store i32 [[VP_K_IND_INIT]] ptr [[VP_K]]
 ; CHECK-NEXT:     i32 [[VP_K_IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ;
   %sum.red = alloca double, align 8
   br label %simd.begin.region
 simd.begin.region:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() , "QUAL.OMP.REDUCTION.ADD:TYPED"(double* %sum.red, double zeroinitializer, i32 1), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %k, i32 0, i32 1, i32 1)]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() , "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %sum.red, double zeroinitializer, i32 1), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %k, i32 0, i32 1, i32 1)]
   br label %simd.loop
 simd.loop:
   %index = phi i64 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.exit ]
   %add = add i64 %index, 1
   %trunc1 = trunc i64 %add to i32
-  store i32 %trunc1, i32* %k, align 4
+  store i32 %trunc1, ptr %k, align 4
   br label %simd.loop.exit
 simd.loop.exit:                                   ; preds = %simd.loop
   %indvar = add nuw i64 %index, 1

@@ -6,7 +6,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(<3 x i32>* nocapture %ary) {
+define void @foo(ptr nocapture %ary) {
 ;  typedef int32_t v4i32 __attribute__((vector_size(16)));
 ;  v3i32 *ary, t0, t1, t2;
 ;  for (i = 0; i < 2048; i += 2) {
@@ -24,15 +24,15 @@ entry:
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds <3 x i32>, <3 x i32>* %ary, i64 %indvars.iv
-  %0 = load <3 x i32>, <3 x i32>* %arrayidx, align 16
+  %arrayidx = getelementptr inbounds <3 x i32>, ptr %ary, i64 %indvars.iv
+  %0 = load <3 x i32>, ptr %arrayidx, align 16
   %add7 = add nsw <3 x i32> %0, <i32 7, i32 7, i32 7>
   %1 = add nsw i64 %indvars.iv, 1
-  %arrayidx4 = getelementptr inbounds <3 x i32>, <3 x i32>* %ary, i64 %1
-  %2 = load <3 x i32>, <3 x i32>* %arrayidx4, align 16
+  %arrayidx4 = getelementptr inbounds <3 x i32>, ptr %ary, i64 %1
+  %2 = load <3 x i32>, ptr %arrayidx4, align 16
   %add11 = add nsw <3 x i32> %2, <i32 11, i32 11, i32 11>
-  store <3 x i32> %add7, <3 x i32>* %arrayidx, align 16
-  store <3 x i32> %add11, <3 x i32>* %arrayidx4, align 16
+  store <3 x i32> %add7, ptr %arrayidx, align 16
+  store <3 x i32> %add11, ptr %arrayidx4, align 16
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 2
   %cmp = icmp ult i64 %indvars.iv.next, 2048
   br i1 %cmp, label %for.body, label %for.end

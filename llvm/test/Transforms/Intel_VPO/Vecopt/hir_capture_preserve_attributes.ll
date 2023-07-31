@@ -31,16 +31,16 @@
 ; VEC-HIR-NEXT: <{{[0-9]+}}:8>             %red.init.insert = insertelement <4 x i32> undef, i32 undef, i64 0, !dbg !29
 ; VEC-HIR-NEXT: <{{[0-9]+}}:11>             %.copy = call <4 x i32> @llvm.ssa.copy.v4i32(<4 x i32> undef), !dbg !30
 ; VEC-HIR:      <{{[0-9]+}}:8>             + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; VEC-HIR-NEXT: <{{[0-9]+}}:10>            |     %.vec = load <4 x float>, <4 x float>* undef, align 16, !dbg !29
-; VEC-HIR-NEXT: <{{[0-9]+}}:10>            |     %.vec1 = load <4 x float>, <4 x float>* undef, align 16, !dbg !29
+; VEC-HIR-NEXT: <{{[0-9]+}}:10>            |     %.vec = load <4 x float>, ptr undef, align 16, !dbg !29
+; VEC-HIR-NEXT: <{{[0-9]+}}:10>            |     %.vec1 = load <4 x float>, ptr undef, align 16, !dbg !29
 ; VEC-HIR-NEXT: <{{[0-9]+}}:10>            |     %.vec2 = fmul fast <4 x float> undef, undef, !dbg !32
-; VEC-HIR-NEXT: <{{[0-9]+}}:10>            |     store <4 x float> undef, <4 x float>* undef, align 16, !dbg !29
+; VEC-HIR-NEXT: <{{[0-9]+}}:10>            |     store <4 x float> undef, ptr undef, align 16, !dbg !29
 ; VEC-HIR-NEXT: <{{[0-9]+}}:11>            |     %.vec3 = ashr exact <4 x i32> undef, undef, !dbg !30
 ; VEC-HIR-NEXT: <{{[0-9]+}}:11>            |     %.vec4 = fcmp fast true <4 x float> undef, undef, !dbg !30
 ; VEC-HIR-NEXT: <{{[0-9]+}}:11>            |     %.vec5 = add <4 x i32> undef, undef, !dbg !30
 ; VEC-HIR-NEXT: <{{[0-9]+}}:11>            |     %.vec6 = add <4 x i32> undef, undef, !dbg !30
 ; VEC-HIR-NEXT: <{{[0-9]+}}:11>            |     %.vec7 = select fast i1 undef, <4 x float> undef, <4 x float> undef, !dbg !30
-; VEC-HIR-NEXT: <{{[0-9]+}}:11>            |     store <4 x float> undef, <4 x float>* undef, align 16, !dbg !29
+; VEC-HIR-NEXT: <{{[0-9]+}}:11>            |     store <4 x float> undef, ptr undef, align 16, !dbg !29
 ; VEC-HIR-NEXT: <{{[0-9]+}}:8>             |     %.copy8 = call <4 x i32> @llvm.ssa.copy.v4i32(<4 x i32> undef), !dbg !29
 ; VEC-HIR-NEXT: <{{[0-9]+}}:8>             + END LOOP
 ; VEC-HIR:      <{{[0-9]+}}:11>            %vec.reduce = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> undef), !dbg !30
@@ -54,7 +54,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @C = common dso_local local_unnamed_addr global [1024 x float] zeroinitializer, align 16, !dbg !12
 @A = common dso_local local_unnamed_addr global [1024 x float] zeroinitializer, align 16, !dbg !6
 ; Function Attrs: nounwind uwtable
-define dso_local i32 @foo(i32* %uni, i32 %t) local_unnamed_addr #0 !dbg !18 {
+define dso_local i32 @foo(ptr %uni, i32 %t) local_unnamed_addr #0 !dbg !18 {
 loop.ph:
   call void @llvm.dbg.value(metadata i32 0, metadata !22, metadata !DIExpression()), !dbg !27
   call void @llvm.dbg.value(metadata i32 1023, metadata !26, metadata !DIExpression()), !dbg !28
@@ -75,15 +75,15 @@ loop.body:                               ; predggs = %omp.inner.for.body, %DIR.O
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
 ; VPLAN-IR-NEXT:      end of details
 
-  %arrayidx = getelementptr inbounds [1024 x float], [1024 x float]* @B, i64 0, i64 %indvars.iv, !dbg !30, !intel-tbaa !32
-; VPLAN-IR:          float* [[VP8:%.*]] = subscript inbounds [1024 x float]* @B i64 0 i64 [[VP6]]
+  %arrayidx = getelementptr inbounds [1024 x float], ptr @B, i64 0, i64 %indvars.iv, !dbg !30, !intel-tbaa !32
+; VPLAN-IR:          ptr [[VP8:%.*]] = subscript inbounds ptr @B i64 0 i64 [[VP6]]
 ; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:10:12
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
 ; VPLAN-IR-NEXT:      end of details
 
-  %0 = load float, float* %arrayidx, align 4, !dbg !30, !tbaa !32
-; VPLAN-IR:          float [[VP9:%.*]] = load float* [[VP8]]
+  %0 = load float, ptr %arrayidx, align 4, !dbg !30, !tbaa !32
+; VPLAN-IR:          float [[VP9:%.*]] = load ptr [[VP8]]
 ; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:10:12
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
@@ -93,15 +93,15 @@ loop.body:                               ; predggs = %omp.inner.for.body, %DIR.O
 ; VPLAN-IR-NEXT:        <0x{{.*}}> = !{<0x{{.*}}>, <0x{{.*}}>, i64 0}
 ; VPLAN-IR-NEXT:      end of details
 
-  %arrayidx2 = getelementptr inbounds [1024 x float], [1024 x float]* @C, i64 0, i64 %indvars.iv, !dbg !37, !intel-tbaa !32
-; VPLAN-IR:          float* [[VP10:%.*]] = subscript inbounds [1024 x float]* @C i64 0 i64 [[VP6]]
+  %arrayidx2 = getelementptr inbounds [1024 x float], ptr @C, i64 0, i64 %indvars.iv, !dbg !37, !intel-tbaa !32
+; VPLAN-IR:          ptr [[VP10:%.*]] = subscript inbounds ptr @C i64 0 i64 [[VP6]]
 ; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:10:19
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
 ; VPLAN-IR-NEXT:      end of details
 
-  %1 = load float, float* %arrayidx2, align 4, !dbg !37, !tbaa !32
-; VPLAN-IR:          float [[VP11:%.*]] = load float* [[VP10]]
+  %1 = load float, ptr %arrayidx2, align 4, !dbg !37, !tbaa !32
+; VPLAN-IR:          float [[VP11:%.*]] = load ptr [[VP10]]
 ; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:10:19
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
@@ -118,15 +118,15 @@ loop.body:                               ; predggs = %omp.inner.for.body, %DIR.O
 ; VPLAN-IR-NEXT:        FMF: 1, NSW: 0, NUW: 0, Exact: 0
 ; VPLAN-IR-NEXT:      end of details
 
-  %arrayidx5 = getelementptr inbounds [1024 x float], [1024 x float]* @A, i64 0, i64 %indvars.iv, !dbg !39, !intel-tbaa !32
-; VPLAN-IR:          float* [[VP13:%.*]] = subscript inbounds [1024 x float]* @A i64 0 i64 [[VP6]]
+  %arrayidx5 = getelementptr inbounds [1024 x float], ptr @A, i64 0, i64 %indvars.iv, !dbg !39, !intel-tbaa !32
+; VPLAN-IR:          ptr [[VP13:%.*]] = subscript inbounds ptr @A i64 0 i64 [[VP6]]
 ; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:10:5
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
 ; VPLAN-IR-NEXT:      end of details
 
-  store float %mul3, float* %arrayidx5, align 4, !dbg !40, !tbaa !32
-; VPLAN-IR:          store float [[VP12]] float* [[VP13]]
+  store float %mul3, ptr %arrayidx5, align 4, !dbg !40, !tbaa !32
+; VPLAN-IR:          store float [[VP12]] ptr [[VP13]]
 ; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:10:10
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
@@ -184,14 +184,14 @@ loop.body:                               ; predggs = %omp.inner.for.body, %DIR.O
 ; VPLAN-IR-NEXT:        FMF: 1, NSW: 0, NUW: 0, Exact: 0
 ; VPLAN-IR-NEXT:      end of details
 
-  store float %fp.select, float* %arrayidx5, !dbg !41
-; VPLAN-IR:          float* [[VP20:%.*]] = subscript inbounds [1024 x float]* @A i64 0 i64 [[VP6]]
+  store float %fp.select, ptr %arrayidx5, !dbg !41
+; VPLAN-IR:          ptr [[VP20:%.*]] = subscript inbounds ptr @A i64 0 i64 [[VP6]]
 ; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:10:5
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
 ; VPLAN-IR-NEXT:      end of details
 ; VPLAN-IR-EMPTY:
-; VPLAN-IR-NEXT:     store float [[VP19]] float* [[VP20]]
+; VPLAN-IR-NEXT:     store float [[VP19]] ptr [[VP20]]
 ; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:11:5
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0

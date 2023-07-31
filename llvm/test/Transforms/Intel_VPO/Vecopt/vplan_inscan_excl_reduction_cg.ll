@@ -149,7 +149,7 @@ DIR.OMP.END.SCAN.2:                               ; preds = %DIR.OMP.SIMD.126, %
   br label %DIR.VPO.GUARD.MEM.MOTION.3
 
 DIR.VPO.GUARD.MEM.MOTION.3:                       ; preds = %DIR.OMP.END.SCAN.2
-  %guard.start1 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(float* %x.red) ]
+  %guard.start1 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
   br label %DIR.VPO.GUARD.MEM.MOTION.2
 
 DIR.VPO.GUARD.MEM.MOTION.2:                       ; preds = %DIR.VPO.GUARD.MEM.MOTION.3
@@ -178,7 +178,7 @@ DIR.OMP.END.SCAN.4:                               ; preds = %DIR.OMP.SCAN.1
   br label %DIR.OMP.END.SCAN.9.split
 
 DIR.OMP.END.SCAN.9.split:                         ; preds = %DIR.OMP.END.SCAN.4
-  %guard.start2 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(float* %x.red) ]
+  %guard.start2 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
   br label %DIR.OMP.END.SCAN.228
 
 DIR.OMP.END.SCAN.228:                             ; preds = %DIR.OMP.END.SCAN.9.split

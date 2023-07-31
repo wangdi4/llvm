@@ -38,7 +38,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @_Z3fooiiPfS_S_(i32 %n, i32 %m, float* nocapture readonly %A, float* nocapture readonly %B, float* nocapture %C) local_unnamed_addr #0 {
+define dso_local void @_Z3fooiiPfS_S_(i32 %n, i32 %m, ptr nocapture readonly %A, ptr nocapture readonly %B, ptr nocapture %C) local_unnamed_addr #0 {
 ; CHECK-LABEL:  HIRLegality Descriptor Lists
 ; CHECK:       HIRLegality ReductionList:
 ; CHECK-NEXT:  Ref: &(([[SUM_RED0:%.*]])[0])
@@ -71,17 +71,17 @@ for.body:                                         ; preds = %omp.precond.end, %f
   br i1 %cmp4, label %DIR.OMP.SIMD.2, label %omp.precond.end
 
 DIR.OMP.SIMD.2:                                   ; preds = %for.body
-%0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 32), "QUAL.OMP.REDUCTION.ADD:TYPED"(float* %sum.red, float zeroinitializer, i32 1) ]
-  store float 0.000000e+00, float* %sum.red, align 4
+%0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 32), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %sum.red, float zeroinitializer, i32 1) ]
+  store float 0.000000e+00, ptr %sum.red, align 4
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.2
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %1 = phi float [ 0.000000e+00, %DIR.OMP.SIMD.2 ], [ %add10, %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds float, float* %A, i64 %indvars.iv
-  %2 = load float, float* %arrayidx, align 4
-  %arrayidx8 = getelementptr inbounds float, float* %B, i64 %indvars.iv
-  %3 = load float, float* %arrayidx8, align 4
+  %arrayidx = getelementptr inbounds float, ptr %A, i64 %indvars.iv
+  %2 = load float, ptr %arrayidx, align 4
+  %arrayidx8 = getelementptr inbounds float, ptr %B, i64 %indvars.iv
+  %3 = load float, ptr %arrayidx8, align 4
   %mul9 = fmul fast float %2, %3
   %add10 = fadd fast float %1, %mul9
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -90,7 +90,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
 
 omp.inner.for.cond.omp.loop.exit.split_crit_edge.split.split: ; preds = %omp.inner.for.body
   %add10.lcssa = phi float [ %add10, %omp.inner.for.body ]
-  store float %add10.lcssa, float* %sum.red, align 4
+  store float %add10.lcssa, ptr %sum.red, align 4
   %4 = fadd float %add10.lcssa, 0.000000e+00
   %5 = bitcast float %4 to i32
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
@@ -99,10 +99,9 @@ omp.inner.for.cond.omp.loop.exit.split_crit_edge.split.split: ; preds = %omp.inn
 omp.precond.end:                                  ; preds = %omp.inner.for.cond.omp.loop.exit.split_crit_edge.split.split, %for.body
   %sum.sroa.0.1 = phi i32 [ %5, %omp.inner.for.cond.omp.loop.exit.split_crit_edge.split.split ], [ 0, %for.body ]
   %sum.another = phi float [ %4, %omp.inner.for.cond.omp.loop.exit.split_crit_edge.split.split ], [ 0.000000e+00, %for.body ]
-  %arrayidx13 = getelementptr inbounds float, float* %C, i64 %indvars.iv34
-  %6 = bitcast float* %arrayidx13 to i32*
-  store i32 %sum.sroa.0.1, i32* %6, align 4
-  store float %sum.another, float* %sum.red, align 4
+  %arrayidx13 = getelementptr inbounds float, ptr %C, i64 %indvars.iv34
+  store i32 %sum.sroa.0.1, ptr %arrayidx13, align 4
+  store float %sum.another, ptr %sum.red, align 4
   %indvars.iv.next35 = add nuw nsw i64 %indvars.iv34, 1
   %exitcond37 = icmp eq i64 %indvars.iv.next35, %wide.trip.count3638
   br i1 %exitcond37, label %for.cond.cleanup.loopexit, label %for.body

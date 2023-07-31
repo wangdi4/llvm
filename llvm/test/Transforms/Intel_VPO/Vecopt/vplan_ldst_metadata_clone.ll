@@ -4,7 +4,7 @@
 
 ; Check that vectorizer does not crash during cloning of load/store with metadata.
 
-define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) {
+define dso_local void @_Z3fooPii(ptr nocapture %a, i32 %n) {
 ;
 ; CHECK-LABEL:  VPlan after creation during merge:
 ; CHECK-HIR-LABEL:  VPlan after creation during merge:
@@ -14,7 +14,7 @@ entry:
   br i1 %cmp, label %DIR.OMP.SIMD.2, label %omp.precond.end
 
 DIR.OMP.SIMD.2:                                   ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
@@ -23,10 +23,10 @@ DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx, align 4, !alias.scope !0
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx, align 4, !alias.scope !0
   %inc = add nsw i32 %1, 1
-  store i32 %inc, i32* %arrayidx, align 4, !noalias !0
+  store i32 %inc, ptr %arrayidx, align 4, !noalias !0
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %DIR.OMP.END.SIMD.3, label %omp.inner.for.body

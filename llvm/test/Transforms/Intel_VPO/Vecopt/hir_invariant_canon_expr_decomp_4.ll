@@ -40,16 +40,16 @@ define void @foo() {
 ; CHECK-NEXT:  External Defs End:
 ; CHECK:          i64 [[VP7:%.*]] = phi  [ i64 0, {{.*}} ],  [ i64 [[VP8:%.*]], {{.*}} ]
 ; CHECK-NEXT:     i64 [[VP9:%.*]] = add i64 [[VP7]] i64 4
-; CHECK-NEXT:     i64* [[VP10:%.*]] = subscript inbounds [100 x [100 x i64]]* @arr2 i64 0 i64 [[VP6]] i64 [[VP9]]
-; CHECK-NEXT:     i64 [[VP11:%.*]] = load i64* [[VP10]]
+; CHECK-NEXT:     ptr [[VP10:%.*]] = subscript inbounds ptr @arr2 i64 0 i64 [[VP6]] i64 [[VP9]]
+; CHECK-NEXT:     i64 [[VP11:%.*]] = load ptr [[VP10]]
 ; CHECK-NEXT:     i64 [[VP12:%.*]] = add i64 [[VP11]] i64 1111
-; CHECK-NEXT:     i64* [[VP13:%.*]] = subscript inbounds [100 x [100 x i64]]* @arr i64 0 i64 [[VP2]] i64 [[VP7]]
-; CHECK-NEXT:     store i64 [[VP12]] i64* [[VP13]]
-; CHECK-NEXT:     i64* [[VP14:%.*]] = subscript inbounds [100 x [100 x i64]]* @arr4 i64 0 i64 [[I10:%.*]] i64 [[VP7]]
-; CHECK-NEXT:     i64 [[VP15:%.*]] = load i64* [[VP14]]
+; CHECK-NEXT:     ptr [[VP13:%.*]] = subscript inbounds ptr @arr i64 0 i64 [[VP2]] i64 [[VP7]]
+; CHECK-NEXT:     store i64 [[VP12]] ptr [[VP13]]
+; CHECK-NEXT:     ptr [[VP14:%.*]] = subscript inbounds ptr @arr4 i64 0 i64 [[I10:%.*]] i64 [[VP7]]
+; CHECK-NEXT:     i64 [[VP15:%.*]] = load ptr [[VP14]]
 ; CHECK-NEXT:     i64 [[VP16:%.*]] = add i64 [[VP15]] i64 [[I10]]
-; CHECK-NEXT:     i64* [[VP17:%.*]] = subscript inbounds [100 x [100 x i64]]* @arr3 i64 0 i64 [[VP16]] i64 [[VP7]]
-; CHECK-NEXT:     store i64 [[I10]] i64* [[VP17]]
+; CHECK-NEXT:     ptr [[VP17:%.*]] = subscript inbounds ptr @arr3 i64 0 i64 [[VP16]] i64 [[VP7]]
+; CHECK-NEXT:     store i64 [[I10]] ptr [[VP17]]
 ;
 entry:
   br label %for.cond1.preheader
@@ -63,16 +63,16 @@ for.cond1.preheader:                              ; preds = %for.inc14, %entry
 for.body3:                                        ; preds = %for.body3, %for.cond1.preheader
   %i2.029 = phi i64 [ 0, %for.cond1.preheader ], [ %inc, %for.body3 ]
   %add = add nuw nsw i64 %i2.029, 4
-  %arrayidx4 = getelementptr inbounds [100 x [100 x i64]], [100 x [100 x i64]]* @arr2, i64 0, i64 %div, i64 %add
-  %0 = load i64, i64* %arrayidx4, align 8
+  %arrayidx4 = getelementptr inbounds [100 x [100 x i64]], ptr @arr2, i64 0, i64 %div, i64 %add
+  %0 = load i64, ptr %arrayidx4, align 8
   %add5 = add nsw i64 %0, 1111
-  %arrayidx8 = getelementptr inbounds [100 x [100 x i64]], [100 x [100 x i64]]* @arr, i64 0, i64 %add6, i64 %i2.029
-  store i64 %add5, i64* %arrayidx8, align 8
-  %arrayidx10 = getelementptr inbounds [100 x [100 x i64]], [100 x [100 x i64]]* @arr4, i64 0, i64 %i1.030, i64 %i2.029
-  %1 = load i64, i64* %arrayidx10, align 8
+  %arrayidx8 = getelementptr inbounds [100 x [100 x i64]], ptr @arr, i64 0, i64 %add6, i64 %i2.029
+  store i64 %add5, ptr %arrayidx8, align 8
+  %arrayidx10 = getelementptr inbounds [100 x [100 x i64]], ptr @arr4, i64 0, i64 %i1.030, i64 %i2.029
+  %1 = load i64, ptr %arrayidx10, align 8
   %add11 = add nsw i64 %1, %i1.030
-  %arrayidx13 = getelementptr inbounds [100 x [100 x i64]], [100 x [100 x i64]]* @arr3, i64 0, i64 %add11, i64 %i2.029
-  store i64 %i1.030, i64* %arrayidx13, align 8
+  %arrayidx13 = getelementptr inbounds [100 x [100 x i64]], ptr @arr3, i64 0, i64 %add11, i64 %i2.029
+  store i64 %i1.030, ptr %arrayidx13, align 8
   %inc = add nuw nsw i64 %i2.029, 1
   %exitcond = icmp eq i64 %inc, 80
   br i1 %exitcond, label %for.inc14, label %for.body3

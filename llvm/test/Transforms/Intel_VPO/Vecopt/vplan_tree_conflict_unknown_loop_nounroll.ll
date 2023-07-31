@@ -9,20 +9,20 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: UNKNOWN LOOP i1 <MAX_TC_EST = 4>  <LEGAL_MAX_TC = 4> <nounroll> <novectorize>
 
 ; Function Attrs: argmemonly nofree noinline norecurse nosync nounwind uwtable
-define dso_local void @foo(i32* noalias nocapture noundef %a, i32* noalias nocapture noundef readonly %b, i32* noalias nocapture noundef readonly %c) local_unnamed_addr #0 {
+define dso_local void @foo(ptr noalias nocapture noundef %a, ptr noalias nocapture noundef readonly %b, ptr noalias nocapture noundef readonly %c) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i32 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %b, i32 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
-  %arrayidx2 = getelementptr inbounds i32, i32* %a, i32 %0
-  %1 = load i32, i32* %arrayidx2, align 4
-  %arrayidx4 = getelementptr inbounds i32, i32* %c, i32 %indvars.iv
-  %2 = load i32, i32* %arrayidx4, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %b, i32 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds i32, ptr %a, i32 %0
+  %1 = load i32, ptr %arrayidx2, align 4
+  %arrayidx4 = getelementptr inbounds i32, ptr %c, i32 %indvars.iv
+  %2 = load i32, ptr %arrayidx4, align 4
   %add = add nsw i32 %2, %1
-  store i32 %add, i32* %arrayidx2, align 4
+  store i32 %add, ptr %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i32 %indvars.iv, 1
   %exitcond.not = icmp eq i32 %indvars.iv.next, 1020
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body

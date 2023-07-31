@@ -9,7 +9,7 @@
 ; CHECK: Cannot handle array privates yet.
 ; CHECK: VD: Not vectorizing: Cannot prove legality.
 
-; CHECK: %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:NONPOD.TYPED"(%struct.point2d* %vla.priv, %struct.point2d zeroinitializer, i64 %0, %struct.point2d* (%struct.point2d*)* @_ZTS7point2d.omp.def_constr, void (%struct.point2d*)* @_ZTS7point2d.omp.destr), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.LINEAR:IV"(i32* %i.linear.iv, i32 1) ]
+; CHECK: %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:NONPOD.TYPED"(ptr %vla.priv, %struct.point2d zeroinitializer, i64 %0, ptr @_ZTS7point2d.omp.def_constr, ptr @_ZTS7point2d.omp.destr), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null), "QUAL.OMP.LINEAR:IV"(ptr %i.linear.iv, i32 1) ]
 
 ; HIRVEC: VPlan HIR Driver for Function: _Z3fooi
 ; HIRVEC: Cannot handle array privates yet.
@@ -35,25 +35,24 @@ entry:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:NONPOD.TYPED"(%struct.point2d* %vla.priv, %struct.point2d zeroinitializer, i64 %0, %struct.point2d* (%struct.point2d*)* @_ZTS7point2d.omp.def_constr, void (%struct.point2d*)* @_ZTS7point2d.omp.destr), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.LINEAR:IV"(i32* %i.linear.iv, i32 1) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:NONPOD.TYPED"(ptr %vla.priv, %struct.point2d zeroinitializer, i64 %0, ptr @_ZTS7point2d.omp.def_constr, ptr @_ZTS7point2d.omp.destr), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null), "QUAL.OMP.LINEAR:IV"(ptr %i.linear.iv, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
-  %2 = bitcast i32* %i.linear.iv to i8*
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %omp.inner.for.body
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %s.020 = phi i32 [ 0, %DIR.OMP.SIMD.2 ], [ %add7, %omp.inner.for.body ]
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %2)
-  %3 = trunc i64 %indvars.iv to i32
-  %x = getelementptr inbounds %struct.point2d, %struct.point2d* %vla.priv, i64 %indvars.iv, i32 0
-  store i32 %3, i32* %x, align 8
-  %add4 = add nsw i32 %s.020, %3
-  %y = getelementptr inbounds %struct.point2d, %struct.point2d* %vla.priv, i64 %indvars.iv, i32 1
-  %4 = load i32, i32* %y, align 4
-  %add7 = add nsw i32 %add4, %4
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %2)
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %i.linear.iv)
+  %2 = trunc i64 %indvars.iv to i32
+  %x = getelementptr inbounds %struct.point2d, ptr %vla.priv, i64 %indvars.iv, i32 0
+  store i32 %2, ptr %x, align 8
+  %add4 = add nsw i32 %s.020, %2
+  %y = getelementptr inbounds %struct.point2d, ptr %vla.priv, i64 %indvars.iv, i32 1
+  %3 = load i32, ptr %y, align 4
+  %add7 = add nsw i32 %add4, %3
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %i.linear.iv)
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 10
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.4, label %omp.inner.for.body
@@ -64,7 +63,7 @@ DIR.OMP.END.SIMD.4:                               ; preds = %omp.inner.for.body
 }
 
 ; Function Attrs: argmemonly mustprogress nocallback nofree nosync nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture)
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture)
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
@@ -73,13 +72,13 @@ declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
 ; Function Attrs: argmemonly mustprogress nofree norecurse nosync nounwind willreturn writeonly uwtable
-declare %struct.point2d* @_ZTS7point2d.omp.def_constr(%struct.point2d* %0)
+declare ptr @_ZTS7point2d.omp.def_constr(ptr %0)
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind readnone willreturn uwtable
-declare void @_ZTS7point2d.omp.destr(%struct.point2d* %0)
+declare void @_ZTS7point2d.omp.destr(ptr %0)
 
 ; Function Attrs: argmemonly mustprogress nocallback nofree nosync nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture)
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture)
 
 ; Function Attrs: argmemonly nofree nounwind willreturn writeonly
-declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)
+declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i1 immarg)

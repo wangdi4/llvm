@@ -20,7 +20,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly mustprogress nofree norecurse nosync nounwind uwtable
-define dso_local void @_Z3fooPdPA50_dPiii(double* noalias nocapture noundef readonly %A, [50 x double]* nocapture noundef writeonly %B2, i32* noalias nocapture noundef readonly %C, i32 noundef %N, i32 noundef %t) local_unnamed_addr #0 {
+define dso_local void @_Z3fooPdPA50_dPiii(ptr noalias nocapture noundef readonly %A, ptr nocapture noundef writeonly %B2, ptr noalias nocapture noundef readonly %C, i32 noundef %N, i32 noundef %t) local_unnamed_addr #0 {
 entry:
   %cmp15 = icmp sgt i32 %N, 0
   br i1 %cmp15, label %for.body.lr.ph, label %for.cond.cleanup
@@ -39,17 +39,17 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 for.body:                                         ; preds = %for.body.lr.ph, %for.inc
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.inc ]
   %j.016 = phi i32 [ 0, %for.body.lr.ph ], [ %j.1, %for.inc ]
-  %arrayidx = getelementptr inbounds i32, i32* %C, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds i32, ptr %C, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !3
   %cmp1.not = icmp eq i32 %0, 0
   br i1 %cmp1.not, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
-  %arrayidx3 = getelementptr inbounds double, double* %A, i64 %indvars.iv
-  %1 = load double, double* %arrayidx3, align 8, !tbaa !7
+  %arrayidx3 = getelementptr inbounds double, ptr %A, i64 %indvars.iv
+  %1 = load double, ptr %arrayidx3, align 8, !tbaa !7
   %idxprom4 = sext i32 %j.016 to i64
-  %arrayidx7 = getelementptr inbounds [50 x double], [50 x double]* %B2, i64 %idxprom4, i64 %idxprom6
-  store double %1, double* %arrayidx7, align 8, !tbaa !9
+  %arrayidx7 = getelementptr inbounds [50 x double], ptr %B2, i64 %idxprom4, i64 %idxprom6
+  store double %1, ptr %arrayidx7, align 8, !tbaa !9
   %inc = add nsw i32 %j.016, 1
   br label %for.inc
 

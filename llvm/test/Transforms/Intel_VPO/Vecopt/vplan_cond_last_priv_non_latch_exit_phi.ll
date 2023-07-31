@@ -5,7 +5,7 @@
 ; RUN: opt -disable-output %s -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec,print<hir>' -vplan-enable-inmemory-entities -vplan-print-after-vpentity-instrs 2>&1 | FileCheck %s
 ; RUN: opt -disable-output %s -passes=vplan-vec -vplan-print-after-vpentity-instrs 2>&1 | FileCheck %s
 
-define i1 @fuseki(i32 %0, i8* nocapture %board, i64* nocapture %A, i64 %idxprom11.i, i8 %1, i1* %priv) local_unnamed_addr {
+define i1 @fuseki(i32 %0, ptr nocapture %board, ptr nocapture %A, i64 %idxprom11.i, i8 %1, ptr %priv) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK:        i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK:        i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
@@ -18,21 +18,21 @@ entry:
   br label %for.body5.preheader.i
 
 for.body5.preheader.i:                            ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(i1* %priv, i1 zeroinitializer, i32 1) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %priv, i1 zeroinitializer, i32 1) ]
   br label %for.body5.i
 
 for.body5.i:                                      ; preds = %if.end33.i, %for.body5.preheader.i
   %indvars.iv.i = phi i64 [ 0, %for.body5.preheader.i ], [ %indvars.iv.next.i, %if.end33.i ]
   %2 = phi i1 [ true, %for.body5.preheader.i ], [ %4, %if.end33.i ]
   %idxprom.i = and i64 %indvars.iv.i, 1
-  %arrayidx.i = getelementptr inbounds i8, i8* %board, i64 %idxprom.i
-  %a.arrayidx = getelementptr inbounds i64, i64* %A, i64 %idxprom.i
-  %3 = load i8, i8* %arrayidx.i, align 1
+  %arrayidx.i = getelementptr inbounds i8, ptr %board, i64 %idxprom.i
+  %a.arrayidx = getelementptr inbounds i64, ptr %A, i64 %idxprom.i
+  %3 = load i8, ptr %arrayidx.i, align 1
   %cmp14.not.i = icmp eq i8 %3, 0
   br i1 %cmp14.not.i, label %if.end.i, label %if.then.i
 
 if.then.i:                                        ; preds = %for.body5.i
-  store i64 42, i64* %a.arrayidx, align 4
+  store i64 42, ptr %a.arrayidx, align 4
   br label %if.end.i
 
 if.end.i:                                         ; preds = %if.then.i, %for.body5.i
@@ -41,7 +41,7 @@ if.end.i:                                         ; preds = %if.then.i, %for.bod
   br i1 %cmp30.not.i, label %if.end33.i, label %if.then32.i
 
 if.then32.i:                                      ; preds = %if.end.i
-  store i64 4242, i64* %a.arrayidx, align 4
+  store i64 4242, ptr %a.arrayidx, align 4
   br label %if.end33.i
 
 if.end33.i:                                       ; preds = %if.then32.i, %if.end.i
@@ -51,7 +51,7 @@ if.end33.i:                                       ; preds = %if.then32.i, %if.en
 
 for.inc54.i:                                      ; preds = %if.end33.i
   %.lcssa = phi i1 [ %4, %if.end33.i ]
-  store i1 %.lcssa, i1* %priv
+  store i1 %.lcssa, ptr %priv
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   br label %set_symmetries.exit.loopexit
 

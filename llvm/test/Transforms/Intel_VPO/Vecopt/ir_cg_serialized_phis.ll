@@ -3,11 +3,11 @@
 ; StructType via serialization.
 ; RUN: opt -passes=vplan-vec -vplan-force-vf=2 -S < %s | FileCheck %s
 
-define void @foo(i32** %uni) {
+define void @foo(ptr %uni) {
 ; CHECK-LABEL: @foo(
 ; CHECK:       vector.body:
-; CHECK:         [[SERIAL_CMPXCHG:%.*]] = cmpxchg i32* [[TMP0:%.*]], i32 [[TMP1:%.*]], i32 [[TMP2:%.*]] seq_cst seq_cst, align 4
-; CHECK-NEXT:    [[SERIAL_CMPXCHG3:%.*]] = cmpxchg i32* [[TMP0]], i32 [[TMP1]], i32 [[TMP2]] seq_cst seq_cst, align 4
+; CHECK:         [[SERIAL_CMPXCHG:%.*]] = cmpxchg ptr [[TMP0:%.*]], i32 [[TMP1:%.*]], i32 [[TMP2:%.*]] seq_cst seq_cst, align 4
+; CHECK-NEXT:    [[SERIAL_CMPXCHG3:%.*]] = cmpxchg ptr [[TMP0]], i32 [[TMP1]], i32 [[TMP2]] seq_cst seq_cst, align 4
 
 ; CHECK:       VPlannedBB6:
 ; CHECK-NEXT:    [[SERIAL_PHI:%.*]] = phi { i32, i1 } [ [[SERIAL_CMPXCHG]], [[VPLANNEDBB5:%.*]] ], [ [[TMP20:%.*]], [[VPLANNEDBB18:%.*]] ]
@@ -20,14 +20,14 @@ define void @foo(i32** %uni) {
 ; CHECK-NEXT:    [[TMP11:%.*]] = insertelement <2 x i32> [[TMP10]], i32 [[SERIAL_EXTRACTVALUE12]], i32 1
 
 ; CHECK:       pred.cmpxchg.if:
-; CHECK-NEXT:    [[SERIAL_CMPXCHG13:%.*]] = cmpxchg i32* [[TMP16:%.*]], i32 [[SERIAL_EXTRACTVALUE11]], i32 [[DOTEXTRACT_0_:%.*]] seq_cst seq_cst, align 4
+; CHECK-NEXT:    [[SERIAL_CMPXCHG13:%.*]] = cmpxchg ptr [[TMP16:%.*]], i32 [[SERIAL_EXTRACTVALUE11]], i32 [[DOTEXTRACT_0_:%.*]] seq_cst seq_cst, align 4
 ; CHECK-NEXT:    br label [[TMP19:%.*]]
 ; CHECK:       19:
 ; CHECK-NEXT:    [[TMP20]] = phi { i32, i1 } [ undef, [[PRED_LOAD_CONTINUE:%.*]] ], [ [[SERIAL_CMPXCHG13]], [[PRED_CMPXCHG_IF:%.*]] ]
 ; CHECK-NEXT:    br label [[PRED_CMPXCHG_CONTINUE:%.*]]
 
 ; CHECK:       pred.cmpxchg.if24:
-; CHECK-NEXT:    [[SERIAL_CMPXCHG15:%.*]] = cmpxchg i32* [[TMP16]], i32 [[SERIAL_EXTRACTVALUE12]], i32 [[DOTEXTRACT_1_i:%.*]] seq_cst seq_cst, align 4
+; CHECK-NEXT:    [[SERIAL_CMPXCHG15:%.*]] = cmpxchg ptr [[TMP16]], i32 [[SERIAL_EXTRACTVALUE12]], i32 [[DOTEXTRACT_1_i:%.*]] seq_cst seq_cst, align 4
 ; CHECK-NEXT:    br label [[TMP22:%.*]]
 ; CHECK:       22:
 ; CHECK-NEXT:    [[TMP23]] = phi { i32, i1 } [ undef, [[PRED_CMPXCHG_CONTINUE]] ], [ [[SERIAL_CMPXCHG15]], [[PRED_CMPXCHG_IF24:%.*]] ]
@@ -39,10 +39,10 @@ entry:
 
 for.body:
   %iv = phi i64 [ 0, %entry ], [ %iv.next, %for.exit ]
-  %uni.ld = load i32*, i32** %uni, align 8
-  %uni.ld.ld = load i32, i32* %uni.ld, align 4
+  %uni.ld = load ptr, ptr %uni, align 8
+  %uni.ld.ld = load i32, ptr %uni.ld, align 4
   %add = add nsw i32 %uni.ld.ld, 1
-  %xchg1 = cmpxchg i32* %uni.ld, i32 %uni.ld.ld, i32 %add seq_cst seq_cst, align 4
+  %xchg1 = cmpxchg ptr %uni.ld, i32 %uni.ld.ld, i32 %add seq_cst seq_cst, align 4
   %cmp.not = extractvalue { i32, i1 } %xchg1, 1
   br i1 %cmp.not, label %for.exit, label %inner.loop.ph
 
@@ -52,9 +52,9 @@ inner.loop.ph:
 inner.loop:
   %phi = phi { i32, i1 } [ %xchg1, %inner.loop.ph ], [ %xchg.update, %inner.loop ]
   %phi.extract = extractvalue { i32, i1 } %phi, 0
-  %uni.ld.1 = load i32*, i32** %uni, align 8
+  %uni.ld.1 = load ptr, ptr %uni, align 8
   %add.1 = add nsw i32 %phi.extract, 1
-  %xchg.update = cmpxchg i32* %uni.ld.1, i32 %phi.extract, i32 %add.1 seq_cst seq_cst, align 4
+  %xchg.update = cmpxchg ptr %uni.ld.1, i32 %phi.extract, i32 %add.1 seq_cst seq_cst, align 4
   %cmp.not.1 = extractvalue { i32, i1 } %xchg.update, 1
   br i1 %cmp.not.1, label %inner.loop.exit, label %inner.loop
 

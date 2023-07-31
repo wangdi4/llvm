@@ -10,9 +10,9 @@
 ; CHECK-NOT: <16 x i8>
 ; OPTRPTMED: remark #15571: simd loop was not vectorized: loop contains a recurrent computation that could not be identified as an induction or reduction. Try using #pragma omp simd reduction/linear/private to clarify recurrence.
 ;
-define <2 x i64> @foo(<2 x i64>* nocapture %larr, <2 x i64>* %mm) {
+define <2 x i64> @foo(ptr nocapture %larr, ptr %mm) {
 entry:
-  %m1 = load <2 x i64>, <2 x i64>* %mm
+  %m1 = load <2 x i64>, ptr %mm
   br label %b1
 
 b1:
@@ -22,12 +22,12 @@ b1:
 for.body:
   %l1.010 = phi i64 [ 0, %b1 ], [ %inc, %else ]
   %priv_phi = phi <2 x i64> [ %m1, %b1 ], [ %merge, %else ]
-  %arrayidx = getelementptr inbounds <2 x i64>, <2 x i64>* %larr, i64 %l1.010
+  %arrayidx = getelementptr inbounds <2 x i64>, ptr %larr, i64 %l1.010
   %cmp = icmp eq i64 %l1.010, 100
   br i1 %cmp, label %then, label %else
 
 then:
-  %0 = load <2 x i64>, <2 x i64>* %arrayidx, align 8
+  %0 = load <2 x i64>, ptr %arrayidx, align 8
   br label %else
 
 else:
@@ -38,7 +38,7 @@ else:
 
 for.end:
   %lcssa.merge =  phi <2 x i64> [%merge, %else]
-  store <2 x i64> %lcssa.merge, <2 x i64>* %mm
+  store <2 x i64> %lcssa.merge, ptr %mm
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   ret <2 x i64> %lcssa.merge
 }

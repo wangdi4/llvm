@@ -4,23 +4,19 @@
 define void @simple(ptr %a, ptr %b, ptr %c) {
 ; CHECK-LABEL: define {{[^@]+}}@simple(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[GEP_A0:%.*]] = getelementptr i32, ptr [[A:%.*]], i32 0
-; CHECK-NEXT:    [[GEP_B0:%.*]] = getelementptr i32, ptr [[B:%.*]], i32 0
-; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i32>, ptr [[GEP_A0]], align 4
-; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, ptr [[GEP_B0]], align 4
+; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i32>, ptr [[A:%.*]], align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, ptr [[B:%.*]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = add <2 x i32> [[TMP1]], <i32 42, i32 43>
 ; CHECK-NEXT:    [[TMP3:%.*]] = add <2 x i32> [[TMP2]], [[TMP0]]
 ; CHECK-NEXT:    store <2 x i32> [[TMP3]], ptr [[C:%.*]], align 4
 ; CHECK-NEXT:    ret void
 ;
 entry:
-  %gep.a0 = getelementptr i32, ptr %a, i32 0
   %gep.a1 = getelementptr i32, ptr %a, i32 1
-  %gep.b0 = getelementptr i32, ptr %b, i32 0
   %gep.b1 = getelementptr i32, ptr %b, i32 1
-  %a0 = load i32, ptr %gep.a0
+  %a0 = load i32, ptr %a
   %a1 = load i32, ptr %gep.a1
-  %b0 = load i32, ptr %gep.b0
+  %b0 = load i32, ptr %b
   %b1 = load i32, ptr %gep.b1
 
 ;  A0  B0  C1  A1
@@ -45,12 +41,10 @@ entry:
 define void @negative_different_sign_reorder(ptr %a, ptr %b, ptr %c) {
 ; CHECK-LABEL: define {{[^@]+}}@negative_different_sign_reorder(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[GEP_A0:%.*]] = getelementptr i32, ptr [[A:%.*]], i32 0
-; CHECK-NEXT:    [[GEP_B0:%.*]] = getelementptr i32, ptr [[B:%.*]], i32 0
-; CHECK-NEXT:    [[GEP_B1:%.*]] = getelementptr i32, ptr [[B]], i32 1
-; CHECK-NEXT:    [[B0:%.*]] = load i32, ptr [[GEP_B0]], align 4
+; CHECK-NEXT:    [[GEP_B1:%.*]] = getelementptr i32, ptr [[B:%.*]], i32 1
+; CHECK-NEXT:    [[B0:%.*]] = load i32, ptr [[B]], align 4
 ; CHECK-NEXT:    [[B1:%.*]] = load i32, ptr [[GEP_B1]], align 4
-; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i32>, ptr [[GEP_A0]], align 4
+; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i32>, ptr [[A:%.*]], align 4
 ; CHECK-NEXT:    [[TMP1:%.*]] = insertelement <2 x i32> <i32 poison, i32 43>, i32 [[B0]], i32 0
 ; CHECK-NEXT:    [[TMP2:%.*]] = add <2 x i32> [[TMP0]], [[TMP1]]
 ; CHECK-NEXT:    [[TMP3:%.*]] = insertelement <2 x i32> <i32 42, i32 poison>, i32 [[B1]], i32 1
@@ -59,13 +53,11 @@ define void @negative_different_sign_reorder(ptr %a, ptr %b, ptr %c) {
 ; CHECK-NEXT:    ret void
 ;
 entry:
-  %gep.a0 = getelementptr i32, ptr %a, i32 0
   %gep.a1 = getelementptr i32, ptr %a, i32 1
-  %gep.b0 = getelementptr i32, ptr %b, i32 0
   %gep.b1 = getelementptr i32, ptr %b, i32 1
-  %a0 = load i32, ptr %gep.a0
+  %a0 = load i32, ptr %a
   %a1 = load i32, ptr %gep.a1
-  %b0 = load i32, ptr %gep.b0
+  %b0 = load i32, ptr %b
   %b1 = load i32, ptr %gep.b1
 
 ;    A0  B0  C1  A1
@@ -89,23 +81,19 @@ entry:
 define void @wrap_flags_simple(ptr %a, ptr %b, ptr %c) {
 ; CHECK-LABEL: define {{[^@]+}}@wrap_flags_simple(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[GEP_A0:%.*]] = getelementptr i32, ptr [[A:%.*]], i32 0
-; CHECK-NEXT:    [[GEP_B0:%.*]] = getelementptr i32, ptr [[B:%.*]], i32 0
-; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i32>, ptr [[GEP_A0]], align 4
-; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, ptr [[GEP_B0]], align 4
+; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i32>, ptr [[A:%.*]], align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, ptr [[B:%.*]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = add <2 x i32> [[TMP1]], <i32 42, i32 43>
 ; CHECK-NEXT:    [[TMP3:%.*]] = add <2 x i32> [[TMP2]], [[TMP0]]
 ; CHECK-NEXT:    store <2 x i32> [[TMP3]], ptr [[C:%.*]], align 4
 ; CHECK-NEXT:    ret void
 ;
 entry:
-  %gep.a0 = getelementptr i32, ptr %a, i32 0
   %gep.a1 = getelementptr i32, ptr %a, i32 1
-  %gep.b0 = getelementptr i32, ptr %b, i32 0
   %gep.b1 = getelementptr i32, ptr %b, i32 1
-  %a0 = load i32, ptr %gep.a0
+  %a0 = load i32, ptr %a
   %a1 = load i32, ptr %gep.a1
-  %b0 = load i32, ptr %gep.b0
+  %b0 = load i32, ptr %b
   %b1 = load i32, ptr %gep.b1
 
 ;  A0  B0  C1  A1
@@ -130,15 +118,13 @@ entry:
 ; wrap flags issue. Also, reassociation itself requires FMF on both operations,
 ; so we'd have ability to infer something if MultiNodes will ever start
 ; supporting FP.
-define void @fmf_flags_simple(float *%a, float *%b, float *%c) {
+define void @fmf_flags_simple(ptr %a, ptr %b, ptr %c) {
 ; CHECK-LABEL: define {{[^@]+}}@fmf_flags_simple(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[GEP_A0:%.*]] = getelementptr float, ptr [[A:%.*]], i64 0
-; CHECK-NEXT:    [[GEP_B0:%.*]] = getelementptr float, ptr [[B:%.*]], i64 0
-; CHECK-NEXT:    [[GEP_B1:%.*]] = getelementptr float, ptr [[B]], i64 1
-; CHECK-NEXT:    [[B0:%.*]] = load float, ptr [[GEP_B0]], align 4
+; CHECK-NEXT:    [[GEP_B1:%.*]] = getelementptr float, ptr [[B:%.*]], i64 1
+; CHECK-NEXT:    [[B0:%.*]] = load float, ptr [[B]], align 4
 ; CHECK-NEXT:    [[B1:%.*]] = load float, ptr [[GEP_B1]], align 4
-; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x float>, ptr [[GEP_A0]], align 4
+; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x float>, ptr [[A:%.*]], align 4
 ; CHECK-NEXT:    [[TMP1:%.*]] = insertelement <2 x float> <float poison, float 4.300000e+01>, float [[B0]], i32 0
 ; CHECK-NEXT:    [[TMP2:%.*]] = fadd fast <2 x float> [[TMP1]], [[TMP0]]
 ; CHECK-NEXT:    [[TMP3:%.*]] = insertelement <2 x float> <float 4.200000e+01, float poison>, float [[B1]], i32 1
@@ -147,14 +133,12 @@ define void @fmf_flags_simple(float *%a, float *%b, float *%c) {
 ; CHECK-NEXT:    ret void
 ;
 entry:
-  %gep.a0 = getelementptr float, float *%a, i64 0
-  %gep.a1 = getelementptr float, float *%a, i64 1
-  %gep.b0 = getelementptr float, float *%b, i64 0
-  %gep.b1 = getelementptr float, float *%b, i64 1
-  %a0 = load float, float *%gep.a0
-  %a1 = load float, float *%gep.a1
-  %b0 = load float, float *%gep.b0
-  %b1 = load float, float *%gep.b1
+  %gep.a1 = getelementptr float, ptr %a, i64 1
+  %gep.b1 = getelementptr float, ptr %b, i64 1
+  %a0 = load float, ptr %a
+  %a1 = load float, ptr %gep.a1
+  %b0 = load float, ptr %b
+  %b1 = load float, ptr %gep.b1
 
 ;  A0  B0  C1  A1
 ;   \ /     \ /
@@ -168,19 +152,17 @@ entry:
   %lane1.add1 = fadd fast float 43.0, %a1
   %lane1.add2 = fadd fast float %lane1.add1, %b1
 
-  %gep1 = getelementptr inbounds float, float* %c, i64 1
-  store float %lane0.add2, float* %c, align 4
-  store float %lane1.add2, float* %gep1, align 4
+  %gep1 = getelementptr inbounds float, ptr %c, i64 1
+  store float %lane0.add2, ptr %c, align 4
+  store float %lane1.add2, ptr %gep1, align 4
   ret void
 }
 
 define void @wrap_flags_jr33142(ptr %a, ptr %b, ptr %c) {
 ; CHECK-LABEL: define {{[^@]+}}@wrap_flags_jr33142(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[GEP_A0:%.*]] = getelementptr i32, ptr [[A:%.*]], i32 0
-; CHECK-NEXT:    [[GEP_B0:%.*]] = getelementptr i32, ptr [[B:%.*]], i32 0
-; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i32>, ptr [[GEP_A0]], align 4
-; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, ptr [[GEP_B0]], align 4
+; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i32>, ptr [[A:%.*]], align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, ptr [[B:%.*]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = mul nuw nsw <2 x i32> [[TMP0]], <i32 7, i32 7>
 ; CHECK-NEXT:    [[TMP3:%.*]] = add <2 x i32> [[TMP1]], <i32 -1, i32 -1>
 ; CHECK-NEXT:    [[TMP4:%.*]] = add <2 x i32> [[TMP3]], [[TMP2]]
@@ -188,13 +170,11 @@ define void @wrap_flags_jr33142(ptr %a, ptr %b, ptr %c) {
 ; CHECK-NEXT:    ret void
 ;
 entry:
-  %gep.a0 = getelementptr i32, ptr %a, i32 0
   %gep.a1 = getelementptr i32, ptr %a, i32 1
-  %gep.b0 = getelementptr i32, ptr %b, i32 0
   %gep.b1 = getelementptr i32, ptr %b, i32 1
-  %a0 = load i32, ptr %gep.a0
+  %a0 = load i32, ptr %a
   %a1 = load i32, ptr %gep.a1
-  %b0 = load i32, ptr %gep.b0
+  %b0 = load i32, ptr %b
   %b1 = load i32, ptr %gep.b1
 
 ;     A0  7       A1  7
@@ -224,10 +204,8 @@ entry:
 define void @wrap_flags_alt_opcode(ptr %a, ptr %b, ptr %c) {
 ; CHECK-LABEL: define {{[^@]+}}@wrap_flags_alt_opcode(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[GEP_A0:%.*]] = getelementptr i32, ptr [[A:%.*]], i32 0
-; CHECK-NEXT:    [[GEP_B0:%.*]] = getelementptr i32, ptr [[B:%.*]], i32 0
-; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i32>, ptr [[GEP_A0]], align 4
-; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, ptr [[GEP_B0]], align 4
+; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i32>, ptr [[A:%.*]], align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, ptr [[B:%.*]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = add <2 x i32> [[TMP1]], <i32 42, i32 43>
 ; CHECK-NEXT:    [[TMP3:%.*]] = sub <2 x i32> [[TMP1]], <i32 42, i32 43>
 ; CHECK-NEXT:    [[TMP4:%.*]] = shufflevector <2 x i32> [[TMP2]], <2 x i32> [[TMP3]], <2 x i32> <i32 0, i32 3>
@@ -236,13 +214,11 @@ define void @wrap_flags_alt_opcode(ptr %a, ptr %b, ptr %c) {
 ; CHECK-NEXT:    ret void
 ;
 entry:
-  %gep.a0 = getelementptr i32, ptr %a, i32 0
   %gep.a1 = getelementptr i32, ptr %a, i32 1
-  %gep.b0 = getelementptr i32, ptr %b, i32 0
   %gep.b1 = getelementptr i32, ptr %b, i32 1
-  %a0 = load i32, ptr %gep.a0
+  %a0 = load i32, ptr %a
   %a1 = load i32, ptr %gep.a1
-  %b0 = load i32, ptr %gep.b0
+  %b0 = load i32, ptr %b
   %b1 = load i32, ptr %gep.b1
 
 ;  A0  B0  A1  C1

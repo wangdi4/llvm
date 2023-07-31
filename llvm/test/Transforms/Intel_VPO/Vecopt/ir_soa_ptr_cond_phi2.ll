@@ -33,7 +33,7 @@ bb2:
   br label %simd.check.phi
 simd.check.phi:
   ; brr is used unsafely and can't be soa, so arr should be non-soa too
-  %phi.mix.uni = phi i64* [%uni.else, %bb2], [%str.if, %bb1]
+  %phi.mix.uni = phi ptr [%uni.else, %bb2], [%str.if, %bb1]
   %ld = load i64, ptr %phi.mix.uni, align 4
   %gep.mix.uni = getelementptr inbounds i64, ptr %phi.mix.uni, i64 %ld
   %ld.phi.derived = load i64, ptr %gep.mix.uni, align 4
@@ -72,7 +72,7 @@ bb2:
   br label %simd.check.phi
 simd.check.phi:
   ; phi merges private and non-private pointers
-  %phi.mix.uni = phi i64* [%uni.else, %bb2], [%str.if, %bb1]
+  %phi.mix.uni = phi ptr [%uni.else, %bb2], [%str.if, %bb1]
   %ld = load i64, ptr %phi.mix.uni, align 4
   %gep.mix.uni = getelementptr inbounds i64, ptr %phi.mix.uni, i64 %ld
   %ld.phi.derived = load i64, ptr %gep.mix.uni, align 4
@@ -86,4 +86,4 @@ simd.end:
 
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token %0)
-declare dso_local i64 @helper(i64*)
+declare dso_local i64 @helper(ptr)

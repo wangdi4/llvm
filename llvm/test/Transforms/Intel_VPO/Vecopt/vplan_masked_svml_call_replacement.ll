@@ -32,12 +32,12 @@ declare i64 @_Z14get_local_sizej(i32)
 declare i64 @get_base_global_id.(i32)
 
 ; Function Attrs: nounwind
-define void @"_ZGVdN8uuuuuuuu_TSZZ4mainENK3$_0clERN2cl4sycl7handlerEE10VecScalMul"(float addrspace(1)*, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), float addrspace(1)*, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range")) local_unnamed_addr  {
+define void @"_ZGVdN8uuuuuuuu_TSZZ4mainENK3$_0clERN2cl4sycl7handlerEE10VecScalMul"(ptr addrspace(1), ptr byval(%"class.cl::sycl::range"), ptr byval(%"class.cl::sycl::range"), ptr byval(%"class.cl::sycl::range"), ptr addrspace(1), ptr byval(%"class.cl::sycl::range"), ptr byval(%"class.cl::sycl::range"), ptr byval(%"class.cl::sycl::range")) local_unnamed_addr  {
   %9 = call i64 @_Z13get_global_idj(i32 0)
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %8
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM:TYPED"(float addrspace(1)* %0, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(%"class.cl::sycl::range"* %1, %"class.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(%"class.cl::sycl::range"* %2, %"class.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(%"class.cl::sycl::range"* %3, %"class.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(float addrspace(1)* %4, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(%"class.cl::sycl::range"* %5, %"class.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(%"class.cl::sycl::range"* %6, %"class.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(%"class.cl::sycl::range"* %7, %"class.cl::sycl::range" zeroinitializer, i32 1) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM:TYPED"(ptr addrspace(1) %0, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %1, %"class.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %2, %"class.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %3, %"class.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr addrspace(1) %4, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %5, %"class.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %6, %"class.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %7, %"class.cl::sycl::range" zeroinitializer, i32 1) ]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
@@ -45,17 +45,17 @@ simd.loop:                                        ; preds = %simd.loop.exit, %si
   %10 = sext i32 %index to i64
   %add = add nuw i64 %10, %9
   %11 = call i64 @_Z13get_global_idj(i32 1)
-  %12 = getelementptr inbounds float, float addrspace(1)* %0, i64 %add
-  %13 = load float, float addrspace(1)* %12, align 4
+  %12 = getelementptr inbounds float, ptr addrspace(1) %0, i64 %add
+  %13 = load float, ptr addrspace(1) %12, align 4
   %14 = call afn float @_Z4sqrtf(float %13)
-  %15 = getelementptr inbounds float, float addrspace(1)* %4, i64 %add
-  store float %14, float addrspace(1)* %15, align 4
+  %15 = getelementptr inbounds float, ptr addrspace(1) %4, i64 %add
+  store float %14, ptr addrspace(1) %15, align 4
   %16 = urem i64 600, %11
   %17 = icmp eq i64 %16, 1
   br i1 %17, label %18, label %"LP.exit"
 
 18:                                               ; preds = %simd.loop
-  %19 = load float, float addrspace(1)* %12, align 4
+  %19 = load float, ptr addrspace(1) %12, align 4
   %20 = fpext float %19 to double
   %21 = fmul double %20, 1.040000e+01
   %22 = fptrunc double %21 to float
@@ -64,7 +64,7 @@ simd.loop:                                        ; preds = %simd.loop.exit, %si
   %native_expResult = call afn float @_Z10native_expf(float %22)
   %fadd = fadd float %23, %expResult
   %fadd_native = fadd float %fadd, %expResult
-  store float %fadd_native, float addrspace(1)* %15, align 4
+  store float %fadd_native, ptr addrspace(1) %15, align 4
   br label %"LP.exit"
 
 "LP.exit": ; preds = %18, %simd.loop

@@ -33,7 +33,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: mustprogress nounwind uwtable
-define dso_local i32 @_Z3fooiPKi(i32 %len, i32* nocapture readonly %a) local_unnamed_addr #0 {
+define dso_local i32 @_Z3fooiPKi(i32 %len, ptr nocapture readonly %a) local_unnamed_addr #0 {
 entry:
   %cmp4 = icmp ugt i32 %len, 7
   br label %DIR.OMP.SIMD.138

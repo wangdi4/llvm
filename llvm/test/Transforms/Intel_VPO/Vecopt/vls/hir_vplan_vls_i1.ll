@@ -4,7 +4,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i1* noalias %p, i1* noalias %q) {
+define void @foo(ptr noalias %p, ptr noalias %q) {
 entry:
   br label %for.body
 
@@ -13,11 +13,11 @@ for.cond.cleanup:                                 ; preds = %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i1, i1* %q, i64 %indvars.iv
-  %0 = load i1, i1* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i1, ptr %q, i64 %indvars.iv
+  %0 = load i1, ptr %arrayidx, align 4
   %xor = xor i1 %0, 1
-  %arrayidx2 = getelementptr inbounds i1, i1* %p, i64 %indvars.iv
-  store i1 %xor, i1* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds i1, ptr %p, i64 %indvars.iv
+  store i1 %xor, ptr %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 64
   br i1 %exitcond, label %for.cond.cleanup, label %for.body

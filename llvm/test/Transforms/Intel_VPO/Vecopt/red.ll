@@ -5,14 +5,14 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: inlinehint nounwind ssp uwtable
-define hidden fastcc void @"_ZZ41lowerV8I16GeneralSingleInputVectorShuffleRKN4llvm5SDLocENS_3MVTENS_7SDValueENS_15MutableArrayRefIiEERKNS_12X86SubtargetERNS_12SelectionDAGEENK4$_60clENS_8ArrayRefIiEESE_SE_SE_ii"(i32* %AToBInputs.0) unnamed_addr #0 align 2 {
+define hidden fastcc void @"_ZZ41lowerV8I16GeneralSingleInputVectorShuffleRKN4llvm5SDLocENS_3MVTENS_7SDValueENS_15MutableArrayRefIiEERKNS_12X86SubtargetERNS_12SelectionDAGEENK4$_60clENS_8ArrayRefIiEESE_SE_SE_ii"(ptr %AToBInputs.0) unnamed_addr #0 align 2 {
 entry:
-  %gepload20 = load i32, i32* %AToBInputs.0, align 4, !tbaa !1
+  %gepload20 = load i32, ptr %AToBInputs.0, align 4, !tbaa !1
   %0 = shl i32 undef, 1
   %hir.cmp.92 = icmp eq i32 %gepload20, %0
   %1 = zext i1 %hir.cmp.92 to i32
-  %arrayIdx23 = getelementptr inbounds i32, i32* %AToBInputs.0, i64 1
-  %gepload24 = load i32, i32* %arrayIdx23, align 4, !tbaa !1
+  %arrayIdx23 = getelementptr inbounds i32, ptr %AToBInputs.0, i64 1
+  %gepload24 = load i32, ptr %arrayIdx23, align 4, !tbaa !1
   %hir.cmp.15 = icmp eq i32 %gepload24, %0
   %2 = zext i1 %hir.cmp.15 to i32
   %3 = or i32 %0, 1

@@ -8,7 +8,7 @@
 
 @Out = dso_local local_unnamed_addr global [1024 x [1024 x i32]] zeroinitializer, align 16
 
-define dso_local void @_Z11supersampleiiPi(i32 %x, i32 %y, i32* nocapture readonly %a) local_unnamed_addr mustprogress {
+define dso_local void @_Z11supersampleiiPi(i32 %x, i32 %y, ptr nocapture readonly %a) local_unnamed_addr mustprogress {
 entry:
   %add.neg = sub i32 2, %x
   %sub = sub i32 %add.neg, %y
@@ -28,11 +28,11 @@ for.body5:                                        ; preds = %for.cond3.preheader
   br i1 %3, label %for.inc, label %if.end
 
 if.end:                                           ; preds = %for.body5
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %4 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %4 = load i32, ptr %arrayidx, align 4
   %add8 = add nsw i32 %4, %mul
-  %arrayidx12 = getelementptr inbounds [1024 x [1024 x i32]], [1024 x [1024 x i32]]* @Out, i64 0, i64 %indvars.iv36, i64 %indvars.iv
-  store i32 %add8, i32* %arrayidx12, align 4
+  %arrayidx12 = getelementptr inbounds [1024 x [1024 x i32]], ptr @Out, i64 0, i64 %indvars.iv36, i64 %indvars.iv
+  store i32 %add8, ptr %arrayidx12, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body5, %if.end

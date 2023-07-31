@@ -6,7 +6,7 @@
 ; that VPEntity framework doesn't work on the input, while DA relies on it.
 ; XFAIL: *
 
-define dso_local void @test1(i32 *%a) {
+define dso_local void @test1(ptr %a) {
 entry:
   br label %simd.begin
 
@@ -15,7 +15,7 @@ simd.begin:
   br label %preheader
 
 preheader:
-  %0 = load i32, i32* %a, align 4
+  %0 = load i32, ptr %a, align 4
   %idxprom25 = sext i32 %0 to i64
   br label %header
 
@@ -29,10 +29,10 @@ header:
   br label %exiting1
 
 exiting1:
-  %gep = getelementptr inbounds i32, i32* %a, i32 %iv
-  ; CHECK:  Divergent: [Shape: Random] i32* [[VP_GEP:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i32 [[VP_IV]]
-  %ld = load i32, i32* %gep, align 8
-  ; CHECK:  Divergent: [Shape: Random] i32 [[VP_LD:%.*]] = load i32* [[VP_GEP]]
+  %gep = getelementptr inbounds i32, ptr %a, i32 %iv
+  ; CHECK:  Divergent: [Shape: Random] ptr [[VP_GEP:%.*]] = getelementptr inbounds ptr [[A0:%.*]] i32 [[VP_IV]]
+  %ld = load i32, ptr %gep, align 8
+  ; CHECK:  Divergent: [Shape: Random] i32 [[VP_LD:%.*]] = load ptr [[VP_GEP]]
   %cmp1 = icmp ne i32 %ld, 3
   ; CHECK:  Divergent: [Shape: Random] i1 [[VP_CMP1:%.*]] = icmp i32 [[VP_LD]] i32 3
   br i1 %cmp1, label %exiting2, label %loop.exit

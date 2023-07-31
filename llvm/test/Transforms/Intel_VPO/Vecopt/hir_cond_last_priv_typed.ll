@@ -3,7 +3,7 @@
 
 ; RUN: opt -disable-output %s -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec" -vplan-force-vf=4 --vplan-print-after-plain-cfg -vplan-entities-dump 2>&1 | FileCheck %s
 
-define i64 @foo(i64* nocapture %larr, i64* %mm) {
+define i64 @foo(ptr nocapture %larr, ptr %mm) {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK-NEXT:  VPlan IR for: foo:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
@@ -19,26 +19,26 @@ define i64 @foo(i64* nocapture %larr, i64* %mm) {
 ; CHECK:       Private list
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Private tag: InMemory
-; CHECK-NEXT:    Linked values: i64* [[MM0:%.*]],
-; CHECK-NEXT:   Memory: i64* [[MM0]]
+; CHECK-NEXT:    Linked values: ptr [[MM0:%.*]],
+; CHECK-NEXT:   Memory: ptr [[MM0]]
 
 entry:
-  %m1 = load i64, i64* %mm
+  %m1 = load i64, ptr %mm
   br label %b1
 
 b1:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(i64* %mm, i64 0, i32 1) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %mm, i64 0, i32 1) ]
   br label %for.body
 
 for.body:
   %l1.010 = phi i64 [ 0, %b1 ], [ %inc, %else ]
   %priv_phi = phi i64 [ %m1, %b1 ], [ %merge, %else ]
-  %arrayidx = getelementptr inbounds i64, i64* %larr, i64 %l1.010
+  %arrayidx = getelementptr inbounds i64, ptr %larr, i64 %l1.010
   %cmp = icmp eq i64 %l1.010, 100
   br i1 %cmp, label %then, label %else
 
 then:
-  %0 = load i64, i64* %arrayidx, align 8
+  %0 = load i64, ptr %arrayidx, align 8
   br label %else
 
 else:
@@ -49,7 +49,7 @@ else:
 
 for.end:
   %lcssa.merge =  phi i64 [%merge, %else]
-  store i64 %lcssa.merge, i64* %mm
+  store i64 %lcssa.merge, ptr %mm
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   ret i64 %lcssa.merge
 }

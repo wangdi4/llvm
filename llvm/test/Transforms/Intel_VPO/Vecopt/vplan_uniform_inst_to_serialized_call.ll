@@ -15,22 +15,22 @@ declare void @foo(<2 x i64>, i64) #1
 
 declare <2 x i64> @bar(<2 x i64>) nounwind readnone #1
 
-define void @test1(i64 %n, <2 x i64>* %arr) {
+define void @test1(i64 %n, ptr %arr) {
 entry:
   %cmp = icmp sgt i64 %n, 0
   br i1 %cmp, label %for.body.lr.ph, label %exit
 
 for.body.lr.ph:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM:TYPED"(<2 x i64>* %arr, <2 x i64> zeroinitializer, i32 1) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM:TYPED"(ptr %arr, <2 x i64> zeroinitializer, i32 1) ]
   br label %for.body
 
 for.body:
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.latch ]
   %cond = icmp eq i64 %indvars.iv, 42
-  %gep = getelementptr inbounds <2 x i64>, <2 x i64>* %arr, i64 42
-; CHECK:    [[TMP1:%.*]] = getelementptr inbounds <2 x i64>, <2 x i64>* [[ARR:%.*]], i64 42
-  %load.uni = load <2 x i64>, <2 x i64>* %gep
-; CHECK-NEXT:    [[TMP2:%.*]] = load <2 x i64>, <2 x i64>* [[TMP1]]
+  %gep = getelementptr inbounds <2 x i64>, ptr %arr, i64 42
+; CHECK:    [[TMP1:%.*]] = getelementptr inbounds <2 x i64>, ptr [[ARR:%.*]], i64 42
+  %load.uni = load <2 x i64>, ptr %gep
+; CHECK-NEXT:    [[TMP2:%.*]] = load <2 x i64>, ptr [[TMP1]]
   call void @foo(<2 x i64> %load.uni, i64 %indvars.iv)
 ; CHECK-NEXT:    call void @foo(<2 x i64> [[TMP2]], i64 {{%.*}})
 ; CHECK-NEXT:    call void @foo(<2 x i64> [[TMP2]], i64 {{%.*}})
@@ -46,8 +46,8 @@ for.body:
   br i1 %cond, label %if.then, label %for.latch
 
 if.then:
-  %load.uni.pred = load <2 x i64>, <2 x i64>* %gep
-; CHECK:    [[TMP5:%.*]] = load <2 x i64>, <2 x i64>* [[TMP1]]
+  %load.uni.pred = load <2 x i64>, ptr %gep
+; CHECK:    [[TMP5:%.*]] = load <2 x i64>, ptr [[TMP1]]
 ; CHECK:    [[TMP7:%.*]] = phi <2 x i64> [ undef, [[VECTOR_BODY:.*]] ], [ [[TMP5]], [[PRED_LOAD_IF:.*]] ]
   call void @foo(<2 x i64> %load.uni.pred, i64 %indvars.iv)
 ; CHECK:    call void @foo(<2 x i64> [[TMP7]], i64 {{%.*}})

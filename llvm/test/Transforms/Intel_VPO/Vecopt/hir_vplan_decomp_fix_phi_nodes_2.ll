@@ -84,16 +84,16 @@ define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     i32 [[VP0:%.*]] = phi  [ i32 [[T2_0690:%.*]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB3]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i32]* @a i64 0 i64 [[VP2]]
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr @a i64 0 i64 [[VP2]]
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i64 [[VP4:%.*]] = sext i32 [[VP_LOAD]] to i64
 ; CHECK-NEXT:     i1 [[VP5:%.*]] = icmp sgt i64 [[VP2]] i64 [[VP4]]
 ; CHECK-NEXT:     br i1 [[VP5]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: [[BB2]]
 ; CHECK-NEXT:       i64 [[VP6:%.*]] = add i64 [[VP2]] i64 1
-; CHECK-NEXT:       i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i32]* @a i64 0 i64 [[VP6]]
-; CHECK-NEXT:       i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr @a i64 0 i64 [[VP6]]
+; CHECK-NEXT:       i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:       i32 [[VP7:%.*]] = hir-copy i32 [[VP_LOAD_1]] , OriginPhiId: -1
 ; CHECK-NEXT:       br [[BB3]]
 ; CHECK-EMPTY:
@@ -103,8 +103,8 @@ define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB7]]: # preds: [[BB4]]
 ; CHECK-NEXT:         i64 [[VP9:%.*]] = add i64 [[VP2]] i64 134
-; CHECK-NEXT:         i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [1024 x i32]* @a i64 0 i64 [[VP9]]
-; CHECK-NEXT:         i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:         ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr @a i64 0 i64 [[VP9]]
+; CHECK-NEXT:         i32 [[VP_LOAD_2:%.*]] = load ptr [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:         i32 [[VP10:%.*]] = hir-copy i32 [[VP_LOAD_2]] , OriginPhiId: -1
 ; CHECK-NEXT:         i32 [[VP11:%.*]] = hir-copy i32 [[VP_LOAD]] , OriginPhiId: -1
 ; CHECK-NEXT:         br [[BB8:BB[0-9]+]]
@@ -125,20 +125,20 @@ define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; CHECK-NEXT:     i32 [[VP18:%.*]] = phi  [ i32 [[VP17]], [[BB8]] ],  [ i32 [[VP7]], [[BB5]] ]
 ; CHECK-NEXT:     i32 [[VP1]] = phi  [ i32 [[VP16]], [[BB8]] ],  [ i32 [[VP0]], [[BB5]] ]
 ; CHECK-NEXT:     i32 [[VP19:%.*]] = hir-copy i32 [[VP1]] , OriginPhiId: -1
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP2]]
-; CHECK-NEXT:     store i32 [[VP18]] i32* [[VP_SUBSCRIPT_3]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds ptr @b i64 0 i64 [[VP2]]
+; CHECK-NEXT:     store i32 [[VP18]] ptr [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:     i32 [[VP20:%.*]] = mul i32 [[N0:%.*]] i32 2
 ; CHECK-NEXT:     i32 [[VP21:%.*]] = add i32 [[VP18]] i32 [[VP20]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds [1024 x i32]* @c i64 0 i64 [[VP2]]
-; CHECK-NEXT:     store i32 [[VP21]] i32* [[VP_SUBSCRIPT_4]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds [1024 x i32]* @d i64 0 i64 [[VP2]]
-; CHECK-NEXT:     i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUBSCRIPT_5]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds ptr @c i64 0 i64 [[VP2]]
+; CHECK-NEXT:     store i32 [[VP21]] ptr [[VP_SUBSCRIPT_4]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds ptr @d i64 0 i64 [[VP2]]
+; CHECK-NEXT:     i32 [[VP_LOAD_3:%.*]] = load ptr [[VP_SUBSCRIPT_5]]
 ; CHECK-NEXT:     i32 [[VP24:%.*]] = add i32 [[VP21]] i32 [[VP_LOAD_3]]
 ; CHECK-NEXT:     i64 [[VP25:%.*]] = sext i32 [[VP24]] to i64
 ; CHECK-NEXT:     i1 [[VP26:%.*]] = icmp sgt i64 [[VP2]] i64 [[VP25]]
 ; CHECK-NEXT:     i32 [[VP27:%.*]] = select i1 [[VP26]] i32 [[VP18]] i32 [[VP_LOAD_3]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_6:%.*]] = subscript inbounds [1024 x i32]* @d i64 0 i64 [[VP2]]
-; CHECK-NEXT:     store i32 [[VP27]] i32* [[VP_SUBSCRIPT_6]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_6:%.*]] = subscript inbounds ptr @d i64 0 i64 [[VP2]]
+; CHECK-NEXT:     store i32 [[VP27]] ptr [[VP_SUBSCRIPT_6]]
 ; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
 ; CHECK-NEXT:     i1 [[VP28:%.*]] = icmp slt i64 [[VP3]] i64 1024
 ; CHECK-NEXT:     br i1 [[VP28]], [[BB2]], [[BB9:BB[0-9]+]]
@@ -155,15 +155,15 @@ define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; OPTRPTMED: remark #15571: HIR: loop was not vectorized: loop contains a recurrent computation that could not be identified as an induction or reduction. Try using #pragma omp simd reduction/linear/private to clarify recurrence.
 
 omp.inner.for.body.lr.ph:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
   %mul23 = shl nsw i32 %N, 1
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %if.end20, %omp.inner.for.body.lr.ph
   %indvars.iv = phi i64 [ %.pre, %if.end20 ], [ 0, %omp.inner.for.body.lr.ph ]
   %t2.069 = phi i32 [ %t2.2, %if.end20 ], [ undef, %omp.inner.for.body.lr.ph ]
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* @a, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  %1 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr @a, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  %1 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %2 = sext i32 %1 to i64
   %cmp2 = icmp sgt i64 %indvars.iv, %2
   %.pre = add nuw nsw i64 %indvars.iv, 1
@@ -179,8 +179,8 @@ if.then8:                                         ; preds = %if.then
 
 if.else:                                          ; preds = %if.then
   %3 = add nuw nsw i64 %indvars.iv, 134
-  %arrayidx14 = getelementptr inbounds [1024 x i32], [1024 x i32]* @a, i64 0, i64 %3, !intel-tbaa !2
-  %4 = load i32, i32* %arrayidx14, align 4, !tbaa !2
+  %arrayidx14 = getelementptr inbounds [1024 x i32], ptr @a, i64 0, i64 %3, !intel-tbaa !2
+  %4 = load i32, ptr %arrayidx14, align 4, !tbaa !2
   br label %if.end
 
 if.end:                                           ; preds = %if.else, %if.then8
@@ -191,34 +191,34 @@ if.end:                                           ; preds = %if.else, %if.then8
 
 if.else16:                                        ; preds = %omp.inner.for.body
   %5 = add nuw nsw i64 %indvars.iv, 0
-  %arrayidx19 = getelementptr inbounds [1024 x i32], [1024 x i32]* @a, i64 0, i64 %.pre, !intel-tbaa !2
-  %6 = load i32, i32* %arrayidx19, align 4, !tbaa !2
+  %arrayidx19 = getelementptr inbounds [1024 x i32], ptr @a, i64 0, i64 %.pre, !intel-tbaa !2
+  %6 = load i32, ptr %arrayidx19, align 4, !tbaa !2
   br label %if.end20
 
 if.end20:                                         ; preds = %if.else16, %if.end
   %t2.2 = phi i32 [ %t2.069, %if.else16 ], [ %add15, %if.end ]
   %t1.1 = phi i32 [ %6, %if.else16 ], [ %t1.0, %if.end ]
-  %arrayidx22 = getelementptr inbounds [1024 x i32], [1024 x i32]* @b, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  store i32 %t1.1, i32* %arrayidx22, align 4, !tbaa !2
+  %arrayidx22 = getelementptr inbounds [1024 x i32], ptr @b, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  store i32 %t1.1, ptr %arrayidx22, align 4, !tbaa !2
   %add24 = add nsw i32 %t1.1, %mul23
-  %arrayidx26 = getelementptr inbounds [1024 x i32], [1024 x i32]* @c, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  store i32 %add24, i32* %arrayidx26, align 4, !tbaa !2
-  %arrayidx30 = getelementptr inbounds [1024 x i32], [1024 x i32]* @d, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  %7 = load i32, i32* %arrayidx30, align 4, !tbaa !2
+  %arrayidx26 = getelementptr inbounds [1024 x i32], ptr @c, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  store i32 %add24, ptr %arrayidx26, align 4, !tbaa !2
+  %arrayidx30 = getelementptr inbounds [1024 x i32], ptr @d, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  %7 = load i32, ptr %arrayidx30, align 4, !tbaa !2
   %add31 = add nsw i32 %7, %add24
   %8 = sext i32 %add31 to i64
   %cmp32 = icmp sgt i64 %indvars.iv, %8
   %spec.select = select i1 %cmp32, i32 %t1.1, i32 %7
-  store i32 %spec.select, i32* %arrayidx30, align 4, !tbaa !2
+  store i32 %spec.select, ptr %arrayidx30, align 4, !tbaa !2
   %exitcond = icmp eq i64 %.pre, 1024
   br i1 %exitcond, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body
 
 DIR.OMP.END.SIMD.2:                               ; preds = %if.end20
   %t2.2.lcssa = phi i32 [ %t2.2, %if.end20 ]
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
-  %9 = load i32, i32* getelementptr inbounds ([1024 x i32], [1024 x i32]* @b, i64 0, i64 0), align 16, !tbaa !2
-  %10 = load i32, i32* getelementptr inbounds ([1024 x i32], [1024 x i32]* @c, i64 0, i64 0), align 16, !tbaa !2
-  %11 = load i32, i32* getelementptr inbounds ([1024 x i32], [1024 x i32]* @d, i64 0, i64 0), align 16, !tbaa !2
+  %9 = load i32, ptr @b, align 16, !tbaa !2
+  %10 = load i32, ptr @c, align 16, !tbaa !2
+  %11 = load i32, ptr @d, align 16, !tbaa !2
   %add40 = add i32 %9, %t2.2.lcssa
   %add41 = add i32 %add40, %10
   %add42 = add i32 %add41, %11

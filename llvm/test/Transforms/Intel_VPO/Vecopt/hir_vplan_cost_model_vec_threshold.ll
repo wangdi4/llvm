@@ -26,15 +26,15 @@ entry:
 for.body:
   %iv = phi i64 [ 0, %entry ], [ %iv.next, %for.skip ]
 
-  %ld.idx = getelementptr inbounds [1024 x i8], [1024 x i8]* @arr.i8.1, i64 0, i64 %iv
-  %ld.res = load i8, i8* %ld.idx
+  %ld.idx = getelementptr inbounds [1024 x i8], ptr @arr.i8.1, i64 0, i64 %iv
+  %ld.res = load i8, ptr %ld.idx
 
   %cmp.res = icmp eq i8 %ld.res, 0
   br i1 %cmp.res, label %for.skip, label %for.store
 
 for.store:
-  %st.idx = getelementptr inbounds [1024 x i8], [1024 x i8]* @arr.i8.2, i64 0, i64 %iv
-  store i8 %ld.res, i8* %st.idx
+  %st.idx = getelementptr inbounds [1024 x i8], ptr @arr.i8.2, i64 0, i64 %iv
+  store i8 %ld.res, ptr %st.idx
   br label %for.skip
 
 for.skip:

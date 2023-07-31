@@ -8,7 +8,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; RUN: opt -S -mattr=+avx512vl,+avx512cd -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec' -vplan-print-after-optimize-vconflict-idiom -disable-vplan-codegen -disable-output < %s 2>&1 | FileCheck %s
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable mustprogress
-define dso_local void @foo1(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32* noalias nocapture readonly %C, i32 %N) local_unnamed_addr #0 {
+define dso_local void @foo1(ptr noalias nocapture %A, ptr noalias nocapture readonly %B, ptr noalias nocapture readonly %C, i32 %N) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after VPlanOptimizeVConflictIdiom:
 ; CHECK-NEXT:  VPlan IR for: foo1:HIR
 ; CHECK-NEXT:  External Defs Start:
@@ -29,16 +29,16 @@ define dso_local void @foo1(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP5:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP5]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[B0:%.*]] i64 [[VP5]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP5]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_2]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP_VCONFLICT_INDEX]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[C0:%.*]] i64 [[VP5]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD_2:%.*]] = load ptr [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds ptr [[A0]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_TREE_CONFLICT:%.*]] = tree-conflict i64 [[VP_VCONFLICT_INDEX]] i32 [[VP_LOAD_1]] i32 [[VP_LOAD_2]] { Redux Opcode: add }
-; CHECK-NEXT:     [DA: Div] store i32 [[VP_TREE_CONFLICT]] i32* [[VP_SUBSCRIPT_3]]
+; CHECK-NEXT:     [DA: Div] store i32 [[VP_TREE_CONFLICT]] ptr [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP6]] = add i64 [[VP5]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP8:%.*]] = icmp slt i64 [[VP6]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP8]], [[BB2]], [[BB3:BB[0-9]+]]
@@ -73,22 +73,22 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %idxprom1 = sext i32 %0 to i64
-  %arrayidx2 = getelementptr inbounds i32, i32* %A, i64 %idxprom1
-  %1 = load i32, i32* %arrayidx2, align 4
-  %arrayidx4 = getelementptr inbounds i32, i32* %C, i64 %indvars.iv
-  %2 = load i32, i32* %arrayidx4, align 4
+  %arrayidx2 = getelementptr inbounds i32, ptr %A, i64 %idxprom1
+  %1 = load i32, ptr %arrayidx2, align 4
+  %arrayidx4 = getelementptr inbounds i32, ptr %C, i64 %indvars.iv
+  %2 = load i32, ptr %arrayidx4, align 4
   %add = add nsw i32 %2, %1
-  store i32 %add, i32* %arrayidx2, align 4
+  store i32 %add, ptr %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count16
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body
 }
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable mustprogress
-define dso_local void @foo2(float* noalias nocapture %A, i32* noalias nocapture readonly %B, float* noalias nocapture readonly %C, i32 %N) local_unnamed_addr #0 {
+define dso_local void @foo2(ptr noalias nocapture %A, ptr noalias nocapture readonly %B, ptr noalias nocapture readonly %C, i32 %N) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after VPlanOptimizeVConflictIdiom:
 ; CHECK-NEXT:  VPlan IR for: foo2:HIR
 ; CHECK-NEXT:  External Defs Start:
@@ -109,16 +109,16 @@ define dso_local void @foo2(float* noalias nocapture %A, i32* noalias nocapture 
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP5:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP5]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds float* [[C0:%.*]] i64 [[VP5]]
-; CHECK-NEXT:     [DA: Div] float [[VP_LOAD_1:%.*]] = load float* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[B0:%.*]] i64 [[VP5]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[C0:%.*]] i64 [[VP5]]
+; CHECK-NEXT:     [DA: Div] float [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_VCONFLICT_INDEX:%.*]] = sext i32 [[VP_LOAD]] to i64
-; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds float* [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
-; CHECK-NEXT:     [DA: Div] float [[VP_LOAD_2:%.*]] = load float* [[VP_SUBSCRIPT_2]]
-; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds float* [[A0]] i64 [[VP_VCONFLICT_INDEX]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP_VCONFLICT_INDEX]]
+; CHECK-NEXT:     [DA: Div] float [[VP_LOAD_2:%.*]] = load ptr [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds ptr [[A0]] i64 [[VP_VCONFLICT_INDEX]]
 ; CHECK-NEXT:     [DA: Div] float [[VP_TREE_CONFLICT:%.*]] = tree-conflict i64 [[VP_VCONFLICT_INDEX]] float [[VP_LOAD_2]] float [[VP_LOAD_1]] { Redux Opcode: fadd }
-; CHECK-NEXT:     [DA: Div] store float [[VP_TREE_CONFLICT]] float* [[VP_SUBSCRIPT_3]]
+; CHECK-NEXT:     [DA: Div] store float [[VP_TREE_CONFLICT]] ptr [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP6]] = add i64 [[VP5]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP8:%.*]] = icmp slt i64 [[VP6]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP8]], [[BB2]], [[BB3:BB[0-9]+]]
@@ -153,15 +153,15 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %idxprom1 = sext i32 %0 to i64
-  %arrayidx2 = getelementptr inbounds float, float* %A, i64 %idxprom1
-  %1 = load float, float* %arrayidx2, align 4
-  %arrayidx4 = getelementptr inbounds float, float* %C, i64 %indvars.iv
-  %2 = load float, float* %arrayidx4, align 4
+  %arrayidx2 = getelementptr inbounds float, ptr %A, i64 %idxprom1
+  %1 = load float, ptr %arrayidx2, align 4
+  %arrayidx4 = getelementptr inbounds float, ptr %C, i64 %indvars.iv
+  %2 = load float, ptr %arrayidx4, align 4
   %add = fadd fast float %2, %1
-  store float %add, float* %arrayidx2, align 4
+  store float %add, ptr %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count16
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body

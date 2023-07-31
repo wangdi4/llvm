@@ -19,7 +19,7 @@
 ; CHECK:      Basic Block: BB3
 ; CHECK:        Uniform: [Shape: Uniform] i8 [[VP_IND_FINAL:%.*]] = induction-final{add} i8 %c.linear.promoted i8 [[VP_ARG_STEP:%.*]]
 ;
-; CHECK:      define dso_local noundef i32 @_Z3fooPiii(i32* noundef %ptr, i32 noundef %step, i32 noundef %n) local_unnamed_addr {
+; CHECK:      define dso_local noundef i32 @_Z3fooPiii(ptr noundef %ptr, i32 noundef %step, i32 noundef %n) local_unnamed_addr {
 ; CHECK:      VPlannedBB1:                                      ; preds = %VPlannedBB
 ; CHECK-NEXT:   [[VP_BCAST_SPLATINSERT:%.*]] = insertelement <2 x i8> poison, i8 [[VP_STEP:%.*]], i64 0
 ; CHECK-NEXT:   [[VP_BCAST_SPLAT:%.*]] = shufflevector <2 x i8> [[VP_BCAST_SPLATINSERT]], <2 x i8> poison, <2 x i32> zeroinitializer
@@ -37,54 +37,53 @@
 ; CHECK:        [[VP_C_LINEAR]] = add <2 x i8> [[VP_VEC_PHI]], [[VP_STEP_INIT_SPLAT]]
 ;
 ; Function Attrs: mustprogress nounwind uwtable
-define dso_local noundef i32 @_Z3fooPiii(i32* noundef %ptr, i32 noundef %step, i32 noundef %n) local_unnamed_addr #0 {
+define dso_local noundef i32 @_Z3fooPiii(ptr noundef %ptr, i32 noundef %step, i32 noundef %n) local_unnamed_addr #0 {
 entry:
-  %ptr.addr.linear = alloca i32*, align 8
+  %ptr.addr.linear = alloca ptr, align 8
   %c.linear = alloca i8, align 1
   %i.linear.iv = alloca i32, align 4
   %cmp = icmp sgt i32 %n, 0
   br i1 %cmp, label %DIR.OMP.SIMD.1, label %omp.precond.end
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
-  store i32* %ptr, i32** %ptr.addr.linear, align 8
-  store i8 0, i8* %c.linear, align 1
+  store ptr %ptr, ptr %ptr.addr.linear, align 8
+  store i8 0, ptr %c.linear, align 1
   br label %DIR.OMP.SIMD.131
 
 DIR.OMP.SIMD.131:                                 ; preds = %DIR.OMP.SIMD.1
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:PTR_TO_PTR.TYPED"(i32** %ptr.addr.linear, i32 0, i32 1, i32 1), "QUAL.OMP.LINEAR:TYPED"(i8* %c.linear, i32 0, i32 1, i32 %step), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:PTR_TO_PTR.TYPED"(ptr %ptr.addr.linear, i32 0, i32 1, i32 1), "QUAL.OMP.LINEAR:TYPED"(ptr %c.linear, i32 0, i32 1, i32 %step), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.131
-  %1 = bitcast i32* %i.linear.iv to i8*
-  %2 = trunc i32 %step to i8
-  %c.linear.promoted = load i8, i8* %c.linear, align 1
-  %ptr.addr.linear.promoted = load i32*, i32** %ptr.addr.linear, align 8
-  %3 = add nsw i32 %n, -1
-  %4 = zext i32 %3 to i64
-  %5 = add nuw nsw i64 %4, 1
-  %6 = trunc i32 %n to i8
-  %7 = mul i8 %6, %2
+  %1 = trunc i32 %step to i8
+  %c.linear.promoted = load i8, ptr %c.linear, align 1
+  %ptr.addr.linear.promoted = load ptr, ptr %ptr.addr.linear, align 8
+  %2 = add nsw i32 %n, -1
+  %3 = zext i32 %2 to i64
+  %4 = add nuw nsw i64 %3, 1
+  %5 = trunc i32 %n to i8
+  %6 = mul i8 %5, %1
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %omp.inner.for.body
-  %8 = phi i32* [ %ptr.addr.linear.promoted, %DIR.OMP.SIMD.2 ], [ %incdec.ptr, %omp.inner.for.body ]
-  %9 = phi i8 [ %c.linear.promoted, %DIR.OMP.SIMD.2 ], [ %conv7, %omp.inner.for.body ]
+  %7 = phi ptr [ %ptr.addr.linear.promoted, %DIR.OMP.SIMD.2 ], [ %incdec.ptr, %omp.inner.for.body ]
+  %8 = phi i8 [ %c.linear.promoted, %DIR.OMP.SIMD.2 ], [ %conv7, %omp.inner.for.body ]
   %.omp.iv.local.024 = phi i32 [ 0, %DIR.OMP.SIMD.2 ], [ %add8, %omp.inner.for.body ]
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %1)
-  %conv = sext i8 %9 to i32
-  store i32 %conv, i32* %8, align 4
-  %incdec.ptr = getelementptr inbounds i32, i32* %8, i64 1
-  %conv7 = add i8 %9, %2
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %1)
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %i.linear.iv)
+  %conv = sext i8 %8 to i32
+  store i32 %conv, ptr %7, align 4
+  %incdec.ptr = getelementptr inbounds i32, ptr %7, i64 1
+  %conv7 = add i8 %8, %1
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %i.linear.iv)
   %add8 = add nuw nsw i32 %.omp.iv.local.024, 1
   %exitcond.not = icmp eq i32 %add8, %n
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.230, label %omp.inner.for.body
 
 DIR.OMP.END.SIMD.230:                             ; preds = %omp.inner.for.body
-  %scevgep = getelementptr i32, i32* %ptr.addr.linear.promoted, i64 %5
-  %10 = add i8 %c.linear.promoted, %7
-  store i8 %10, i8* %c.linear, align 1
-  store i32* %scevgep, i32** %ptr.addr.linear, align 8
+  %scevgep = getelementptr i32, ptr %ptr.addr.linear.promoted, i64 %4
+  %9 = add i8 %c.linear.promoted, %6
+  store i8 %9, ptr %c.linear, align 1
+  store ptr %scevgep, ptr %ptr.addr.linear, align 8
   br label %DIR.OMP.END.SIMD.3
 
 DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.230
@@ -92,7 +91,7 @@ DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.23
   br label %DIR.OMP.END.SIMD.4
 
 DIR.OMP.END.SIMD.4:                               ; preds = %DIR.OMP.END.SIMD.3
-  %phi.cast = sext i8 %10 to i32
+  %phi.cast = sext i8 %9 to i32
   br label %omp.precond.end
 
 omp.precond.end:                                  ; preds = %DIR.OMP.END.SIMD.4, %entry
@@ -101,5 +100,5 @@ omp.precond.end:                                  ; preds = %DIR.OMP.END.SIMD.4,
 }
 declare token @llvm.directive.region.entry() #1
 declare void @llvm.directive.region.exit(token) #1
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture)
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture)
+declare void @llvm.lifetime.start.p0(i64, ptr nocapture)
+declare void @llvm.lifetime.end.p0(i64, ptr nocapture)
