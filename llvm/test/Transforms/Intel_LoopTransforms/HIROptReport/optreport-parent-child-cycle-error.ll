@@ -56,12 +56,11 @@ bb:
   br i1 %tmp1, label %bb14, label %bb2
 
 bb2:                                              ; preds = %bb
-  %tmp3 = getelementptr inbounds %struct.widget, ptr %arg, i64 0, i32 0
   br label %bb12
 
 bb4:                                              ; preds = %bb12, %bb4
   %tmp5 = phi i32 [ %tmp7, %bb4 ], [ 0, %bb12 ]
-  %tmp6 = load ptr, ptr %tmp3, align 8
+  %tmp6 = load ptr, ptr %arg, align 8
   store i32 0, ptr %tmp6, align 4
   %tmp7 = add nuw nsw i32 %tmp5, 1
   %tmp8 = icmp eq i32 %tmp7, 3

@@ -55,7 +55,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define i32 @foo(i32* noalias nocapture readonly %A, i32** noalias nocapture readonly %B, i32 %N) local_unnamed_addr #0 {
+define i32 @foo(ptr noalias nocapture readonly %A, ptr noalias nocapture readonly %B, i32 %N) local_unnamed_addr #0 {
 entry:
   %cmp18 = icmp sgt i32 %N, 0
   br i1 %cmp18, label %for.body.lr.ph.split.us, label %for.cond.cleanup
@@ -67,15 +67,15 @@ for.body.lr.ph.split.us:                          ; preds = %entry
 for.body.us:                                      ; preds = %for.cond1.for.cond.cleanup3_crit_edge.us, %for.body.lr.ph.split.us
   %indvars.iv25 = phi i64 [ %indvars.iv.next26, %for.cond1.for.cond.cleanup3_crit_edge.us ], [ 0, %for.body.lr.ph.split.us ]
   %sum.019.us = phi i32 [ %add.us.lcssa, %for.cond1.for.cond.cleanup3_crit_edge.us ], [ 0, %for.body.lr.ph.split.us ]
-  %arrayidx11.us = getelementptr inbounds i32*, i32** %B, i64 %indvars.iv25
-  %0 = load i32*, i32** %arrayidx11.us, align 8, !tbaa !2
+  %arrayidx11.us = getelementptr inbounds ptr, ptr %B, i64 %indvars.iv25
+  %0 = load ptr, ptr %arrayidx11.us, align 8, !tbaa !2
   br label %for.body4.us
 
 for.body4.us:                                     ; preds = %for.cond.cleanup8.us, %for.body.us
   %indvars.iv22 = phi i64 [ 0, %for.body.us ], [ %indvars.iv.next23, %for.cond.cleanup8.us ]
   %sum.116.us = phi i32 [ %sum.019.us, %for.body.us ], [ %add.us, %for.cond.cleanup8.us ]
-  %arrayidx.us = getelementptr inbounds i32, i32* %A, i64 %indvars.iv22
-  %1 = load i32, i32* %arrayidx.us, align 4, !tbaa !6
+  %arrayidx.us = getelementptr inbounds i32, ptr %A, i64 %indvars.iv22
+  %1 = load i32, ptr %arrayidx.us, align 4, !tbaa !6
   br label %for.body9.us
 
 for.cond.cleanup8.us:                             ; preds = %for.body9.us
@@ -86,9 +86,9 @@ for.cond.cleanup8.us:                             ; preds = %for.body9.us
 
 for.body9.us:                                     ; preds = %for.body9.us, %for.body4.us
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body9.us ], [ 0, %for.body4.us ]
-  %arrayidx13.us = getelementptr inbounds i32, i32* %0, i64 %indvars.iv
+  %arrayidx13.us = getelementptr inbounds i32, ptr %0, i64 %indvars.iv
   %2 = trunc i64 %indvars.iv to i32
-  store i32 %2, i32* %arrayidx13.us, align 4, !tbaa !6
+  store i32 %2, ptr %arrayidx13.us, align 4, !tbaa !6
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 10
   br i1 %exitcond, label %for.cond.cleanup8.us, label %for.body9.us

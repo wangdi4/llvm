@@ -55,7 +55,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define i32 @foo(i32* noalias nocapture readonly %A, i32** noalias nocapture readonly %B, i32 %N) local_unnamed_addr #0 {
+define i32 @foo(ptr noalias nocapture readonly %A, ptr noalias nocapture readonly %B, i32 %N) local_unnamed_addr #0 {
 entry:
   %cmp18 = icmp sgt i32 %N, 0
   br i1 %cmp18, label %for.body.lr.ph.split.us, label %for.cond.cleanup
@@ -76,9 +76,9 @@ for.cond.cleanup8.us:                             ; preds = %for.body9.us
 
 for.body9.us:                                     ; preds = %for.body9.us, %for.cond1.for.cond.cleanup3_crit_edge.us
   %indvars.iv22 = phi i64 [ %indvars.iv.next23, %for.body9.us ], [ 0, %for.cond1.for.cond.cleanup3_crit_edge.us ]
-  %arrayidx13.us = getelementptr inbounds i32, i32* %2, i64 %indvars.iv22
+  %arrayidx13.us = getelementptr inbounds i32, ptr %2, i64 %indvars.iv22
   %0 = trunc i64 %indvars.iv22 to i32
-  store i32 %0, i32* %arrayidx13.us, align 4, !tbaa !2
+  store i32 %0, ptr %arrayidx13.us, align 4, !tbaa !2
   %indvars.iv.next23 = add nuw nsw i64 %indvars.iv22, 1
   %exitcond24 = icmp eq i64 %indvars.iv.next23, 10
   br i1 %exitcond24, label %for.cond.cleanup8.us, label %for.body9.us
@@ -86,8 +86,8 @@ for.body9.us:                                     ; preds = %for.body9.us, %for.
 for.body4.us:                                     ; preds = %for.body4.us, %for.body.us
   %indvars.iv = phi i64 [ 0, %for.body.us ], [ %indvars.iv.next, %for.body4.us ]
   %sum.115.us = phi i32 [ %sum.019.us, %for.body.us ], [ %add.us, %for.body4.us ]
-  %arrayidx.us = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx.us, align 4, !tbaa !2
+  %arrayidx.us = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx.us, align 4, !tbaa !2
   %add.us = add nsw i32 %1, %sum.115.us
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
@@ -96,8 +96,8 @@ for.body4.us:                                     ; preds = %for.body4.us, %for.
 for.cond1.for.cond.cleanup3_crit_edge.us:         ; preds = %for.body4.us
   %add.us.lcssa = phi i32 [ %add.us, %for.body4.us ]
   %indvars.iv.next.lcssa = phi i64 [ %indvars.iv.next, %for.body4.us ]
-  %arrayidx11.us = getelementptr inbounds i32*, i32** %B, i64 %indvars.iv25
-  %2 = load i32*, i32** %arrayidx11.us, align 8, !tbaa !6
+  %arrayidx11.us = getelementptr inbounds ptr, ptr %B, i64 %indvars.iv25
+  %2 = load ptr, ptr %arrayidx11.us, align 8, !tbaa !6
   br label %for.body9.us
 
 for.cond.cleanup.loopexit:                        ; preds = %for.cond.cleanup8.us

@@ -32,7 +32,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* noalias nocapture %A, i32 %N) local_unnamed_addr #0 {
+define void @foo(ptr noalias nocapture %A, i32 %N) local_unnamed_addr #0 {
 entry:
   %cmp8 = icmp sgt i32 %N, 0
   br i1 %cmp8, label %for.body.lr.ph, label %for.cond.cleanup
@@ -57,9 +57,9 @@ for.cond.cleanup3:                                ; preds = %for.body4
 
 for.body4:                                        ; preds = %for.body4, %for.body
   %indvars.iv = phi i64 [ 0, %for.body ], [ %indvars.iv.next, %for.body4 ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
   %0 = trunc i64 %indvars.iv to i32
-  store i32 %0, i32* %arrayidx, align 4, !tbaa !2
+  store i32 %0, ptr %arrayidx, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 10
   br i1 %exitcond, label %for.cond.cleanup3, label %for.body4

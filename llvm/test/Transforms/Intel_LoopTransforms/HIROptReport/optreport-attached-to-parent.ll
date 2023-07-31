@@ -14,8 +14,6 @@
 
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-opt-report=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 ;
-; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-opt-report=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
-;
 ; OPTREPORT: LOOP BEGIN{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
 ; OPTREPORT-NEXT:         remark #25436: Loop completely unrolled by 10
@@ -36,7 +34,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define i32 @foo(i32** noalias nocapture readonly %B, i32 %N) local_unnamed_addr #0 {
+define i32 @foo(ptr noalias nocapture readonly %B, i32 %N) local_unnamed_addr #0 {
 entry:
   %cmp12 = icmp sgt i32 %N, 0
   br i1 %cmp12, label %for.body.lr.ph, label %for.cond.cleanup
@@ -57,8 +55,8 @@ for.body:                                         ; preds = %for.cond.cleanup4, 
   %indvars.iv15 = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next16, %for.cond.cleanup4 ]
   %sum.013 = phi i32 [ 0, %for.body.lr.ph ], [ %add1, %for.cond.cleanup4 ]
   %indvars.iv.next16 = add nuw nsw i64 %indvars.iv15, 1
-  %arrayidx = getelementptr inbounds i32*, i32** %B, i64 %indvars.iv15
-  %0 = load i32*, i32** %arrayidx, align 8, !tbaa !2
+  %arrayidx = getelementptr inbounds ptr, ptr %B, i64 %indvars.iv15
+  %0 = load ptr, ptr %arrayidx, align 8, !tbaa !2
   br label %for.body5
 
 for.cond.cleanup4:                                ; preds = %for.body5
@@ -69,9 +67,9 @@ for.cond.cleanup4:                                ; preds = %for.body5
 
 for.body5:                                        ; preds = %for.body5, %for.body
   %indvars.iv = phi i64 [ 0, %for.body ], [ %indvars.iv.next, %for.body5 ]
-  %arrayidx7 = getelementptr inbounds i32, i32* %0, i64 %indvars.iv
+  %arrayidx7 = getelementptr inbounds i32, ptr %0, i64 %indvars.iv
   %2 = trunc i64 %indvars.iv to i32
-  store i32 %2, i32* %arrayidx7, align 4, !tbaa !6
+  store i32 %2, ptr %arrayidx7, align 4, !tbaa !6
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 10
   br i1 %exitcond, label %for.cond.cleanup4, label %for.body5

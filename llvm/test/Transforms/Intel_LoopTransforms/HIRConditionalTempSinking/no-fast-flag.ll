@@ -34,8 +34,8 @@ for.body:                                         ; preds = %entry, %for.inc
   %t.02 = phi float [ 0.000000e+00, %entry ], [ %t.1, %for.inc ]
   %i.01 = phi i32 [ 0, %entry ], [ %inc, %for.inc ]
   %idxprom = zext i32 %i.01 to i64
-  %arrayidx = getelementptr inbounds [100 x float], [100 x float]* @A, i64 0, i64 %idxprom
-  %0 = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x float], ptr @A, i64 0, i64 %idxprom
+  %0 = load float, ptr %arrayidx, align 4
   %conv = fpext float %0 to double
   %cmp1 = fcmp ogt double %conv, 5.200000e+00
   br i1 %cmp1, label %if.then, label %if.else
@@ -45,8 +45,8 @@ if.then:                                          ; preds = %for.body
   br label %for.inc
 
 if.else:                                          ; preds = %for.body
-  %arrayidx6 = getelementptr inbounds [100 x float], [100 x float]* @B, i64 0, i64 %idxprom
-  %1 = load float, float* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds [100 x float], ptr @B, i64 0, i64 %idxprom
+  %1 = load float, ptr %arrayidx6, align 4
   %conv7 = fpext float %1 to double
   %cmp8 = fcmp olt double %conv7, 2.300000e+00
   br i1 %cmp8, label %if.then10, label %for.inc

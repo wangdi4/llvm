@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-undo-sinking-for-perfect-loopnest,print<hir>" -hir-details -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-undo-sinking-for-perfect-loopnest,print<hir>" -hir-details -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
 ;
 ; This test checks updating the blob definition levels after undo sinking for perfect loopnest
 ;*** IR Dump Before HIR Sinking For Perfect Loopnest ***
@@ -50,13 +50,13 @@
 ; CHECK:           + DO i64 i1 = 0, 99, 1   <DO_LOOP>
 ; CHECK:           |      %0 = (@B)[0][i1];
 ; CHECK:           |      <LVAL-REG> NON-LINEAR i8 %0
-; CHECK:           |      <RVAL-REG> {al:1}(LINEAR [100 x i8]* @B)[i64 0][LINEAR i64 i1] inbounds  !tbaa !3
-; CHECK:           |         <BLOB> LINEAR [100 x i8]* @B
+; CHECK:           |      <RVAL-REG> {al:1}(LINEAR ptr @B)[i64 0][LINEAR i64 i1] inbounds  !tbaa !3
+; CHECK:           |         <BLOB> LINEAR ptr @B
 ;                  |
 ; CHECK:           |   + DO i64 i2 = 0, 99, 1   <DO_LOOP>
 ; CHECK:           |   |   (@A)[0][i1][i2] = %0;
-; CHECK:           |   |   <LVAL-REG> {al:4}(LINEAR [100 x [100 x i32]]* @A)[i64 0][LINEAR i64 i1][LINEAR i64 i2] inbounds  !tbaa !10
-; CHECK:           |   |      <BLOB> LINEAR [100 x [100 x i32]]* @A
+; CHECK:           |   |   <LVAL-REG> {al:4}(LINEAR ptr @A)[i64 0][LINEAR i64 i1][LINEAR i64 i2] inbounds  !tbaa !10
+; CHECK:           |   |      <BLOB> LINEAR ptr @A
 ; CHECK:           |   |   <RVAL-REG> LINEAR sext.i8.i32(%0){def@1}
 ; CHECK:           |   |      <BLOB> LINEAR i8 %0{def@1}
 ;                  |   |
@@ -74,7 +74,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @A = dso_local local_unnamed_addr global [100 x [100 x i32]] zeroinitializer, align 16
 
 ; Function Attrs: nofree norecurse nounwind uwtable
-define dso_local void @foo(i8* nocapture readnone %a) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture readnone %a) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -83,8 +83,8 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup3
 
 for.body:                                         ; preds = %entry, %for.cond.cleanup3
   %indvars.iv21 = phi i64 [ 0, %entry ], [ %indvars.iv.next22, %for.cond.cleanup3 ]
-  %arrayidx = getelementptr inbounds [100 x i8], [100 x i8]* @B, i64 0, i64 %indvars.iv21, !intel-tbaa !2
-  %0 = load i8, i8* %arrayidx, align 1, !tbaa !2
+  %arrayidx = getelementptr inbounds [100 x i8], ptr @B, i64 0, i64 %indvars.iv21, !intel-tbaa !2
+  %0 = load i8, ptr %arrayidx, align 1, !tbaa !2
   %conv = sext i8 %0 to i32
   br label %for.body4
 
@@ -95,8 +95,8 @@ for.cond.cleanup3:                                ; preds = %for.body4
 
 for.body4:                                        ; preds = %for.body, %for.body4
   %indvars.iv = phi i64 [ 0, %for.body ], [ %indvars.iv.next, %for.body4 ]
-  %arrayidx8 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @A, i64 0, i64 %indvars.iv21, i64 %indvars.iv, !intel-tbaa !8
-  store i32 %conv, i32* %arrayidx8, align 4, !tbaa !8
+  %arrayidx8 = getelementptr inbounds [100 x [100 x i32]], ptr @A, i64 0, i64 %indvars.iv21, i64 %indvars.iv, !intel-tbaa !8
+  store i32 %conv, ptr %arrayidx8, align 4, !tbaa !8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond.not, label %for.cond.cleanup3, label %for.body4, !llvm.loop !12

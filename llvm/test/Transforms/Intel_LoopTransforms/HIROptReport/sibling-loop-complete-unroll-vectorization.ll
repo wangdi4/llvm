@@ -34,18 +34,18 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* noalias nocapture %A, i32* noalias nocapture %B, i32* noalias nocapture readnone %C, i32* noalias nocapture readnone %D, i32* nocapture %G, i32 %N) local_unnamed_addr #0 {
+define void @foo(ptr noalias nocapture %A, ptr noalias nocapture %B, ptr noalias nocapture readnone %C, ptr noalias nocapture readnone %D, ptr nocapture %G, i32 %N) local_unnamed_addr #0 {
   %cmp16 = icmp slt i32 0, %N
   br i1 %cmp16, label %.lr.ph19, label %1
 
 .lr.ph19:                                         ; preds = %0
   %cmp113 = icmp slt i32 0, %N
-  %G.promoted = load i32, i32* %G, align 4, !tbaa !2
+  %G.promoted = load i32, ptr %G, align 4, !tbaa !2
   br label %2
 
 ._crit_edge20:                                    ; preds = %6
   %add.lcssa = phi i32 [ %add, %6 ]
-  store i32 %add.lcssa, i32* %G, align 4, !tbaa !2
+  store i32 %add.lcssa, ptr %G, align 4, !tbaa !2
   br label %1
 
 ; <label>:1:                                      ; preds = %._crit_edge20, %0
@@ -69,8 +69,8 @@ define void @foo(i32* noalias nocapture %A, i32* noalias nocapture %B, i32* noal
 ; <label>:4:                                      ; preds = %.lr.ph, %4
   %i.014 = phi i32 [ 0, %.lr.ph ], [ %inc, %4 ]
   %5 = zext i32 %i.014 to i64
-  %arrayidx = getelementptr inbounds i32, i32* %B, i64 %5
-  store i32 %j.017, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds i32, ptr %B, i64 %5
+  store i32 %j.017, ptr %arrayidx, align 4, !tbaa !2
   %inc = add nuw nsw i32 %i.014, 1
   %cmp1 = icmp slt i32 %inc, %N
   br i1 %cmp1, label %4, label %._crit_edge
@@ -83,8 +83,8 @@ define void @foo(i32* noalias nocapture %A, i32* noalias nocapture %B, i32* noal
 ; <label>:7:                                      ; preds = %3, %7
   %i2.015 = phi i32 [ 0, %3 ], [ %inc6, %7 ]
   %8 = zext i32 %i2.015 to i64
-  %arrayidx5 = getelementptr inbounds i32, i32* %A, i64 %8
-  store i32 %j.017, i32* %arrayidx5, align 4, !tbaa !2
+  %arrayidx5 = getelementptr inbounds i32, ptr %A, i64 %8
+  store i32 %j.017, ptr %arrayidx5, align 4, !tbaa !2
   %inc6 = add nuw nsw i32 %i2.015, 1
   %cmp3 = icmp ult i32 %inc6, 3
   br i1 %cmp3, label %7, label %6
