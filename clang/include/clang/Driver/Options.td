@@ -9210,10 +9210,8 @@ def : CLFlag<"Qmsha512">, Alias<msha512>;
 def : CLFlag<"Qmno-sha512">, Alias<mno_sha512>;
 def : CLFlag<"Qmsm3">, Alias<msm3>;
 def : CLFlag<"Qmno-sm3">, Alias<mno_sm3>;
-#if INTEL_FEATURE_ISA_SM4
 def : CLFlag<"Qmsm4">, Alias<msm4>;
 def : CLFlag<"Qmno-sm4">, Alias<mno_sm4>;
-#endif // INTEL_FEATURE_ISA_SM4
 def : CLFlag<"Qmtbm">, Alias<mtbm>;
 def : CLFlag<"Qmno-tbm">, Alias<mno_tbm>;
 def : CLFlag<"Qmtsxldtrk">, Alias<mtsxldtrk>;
