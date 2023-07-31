@@ -1,7 +1,5 @@
-// REQUIRES: intel_feature_isa_avx_vnni_int16
-
 # RUN: llvm-mc --disassemble %s -triple=i386-unknown-unknown | FileCheck %s --check-prefixes=ATT
-# RUN: llvm-mc --disassemble %s -triple=i386-unknown-unknown -x86-asm-syntax=intel --output-asm-variant=1 | FileCheck %s --check-prefixes=INTEL
+# RUN: llvm-mc --disassemble %s -triple=i386-unknown-unknown --output-asm-variant=1 | FileCheck %s --check-prefixes=INTEL
 
 # ATT:        vpdpwsud %ymm4, %ymm3, %ymm2
 # INTEL:      vpdpwsud ymm2, ymm3, ymm4
