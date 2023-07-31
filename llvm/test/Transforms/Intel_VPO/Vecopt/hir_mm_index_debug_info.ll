@@ -49,10 +49,10 @@ define dso_local i32 @_Z6maxlocl(i64 %m) local_unnamed_addr #0 !dbg !14 {
 ; CHECKHIRPCFG-NEXT:     i64 [[VP9:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP10:%.*]], [[BB2]] ]
 ; CHECKHIRPCFG-NEXT:      DbgLoc:
 ; CHECKHIRPCFG-EMPTY:
-; CHECKHIRPCFG-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1000 x i32]* @ordering i64 0 i64 [[VP9]]
+; CHECKHIRPCFG-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr @ordering i64 0 i64 [[VP9]]
 ; CHECKHIRPCFG-NEXT:      DbgLoc: mm_index.cpp:11:16
 ; CHECKHIRPCFG-EMPTY:
-; CHECKHIRPCFG-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECKHIRPCFG-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECKHIRPCFG-NEXT:      DbgLoc: mm_index.cpp:11:16
 ; CHECKHIRPCFG-EMPTY:
 ; CHECKHIRPCFG-NEXT:     i64 [[VP11:%.*]] = sext i32 [[VP_LOAD]] to i64
@@ -131,10 +131,10 @@ define dso_local i32 @_Z6maxlocl(i64 %m) local_unnamed_addr #0 !dbg !14 {
 ; CHECKHIRVPE-NEXT:     i64 [[VP9:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP10:%.*]], [[BB2]] ]
 ; CHECKHIRVPE-NEXT:      DbgLoc:
 ; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1000 x i32]* @ordering i64 0 i64 [[VP9]]
+; CHECKHIRVPE-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr @ordering i64 0 i64 [[VP9]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:11:16
 ; CHECKHIRVPE-EMPTY:
-; CHECKHIRVPE-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECKHIRVPE-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:11:16
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     i64 [[VP11:%.*]] = sext i32 [[VP_LOAD]] to i64
@@ -202,8 +202,8 @@ for.body:                                         ; preds = %for.body.preheader,
   call void @llvm.dbg.value(metadata i64 %i.027, metadata !26, metadata !DIExpression()), !dbg !27
   call void @llvm.dbg.value(metadata i64 %tmp.026, metadata !25, metadata !DIExpression()), !dbg !27
   call void @llvm.dbg.value(metadata i64 %b.025, metadata !24, metadata !DIExpression()), !dbg !27
-  %arrayidx = getelementptr inbounds [1000 x i32], [1000 x i32]* @ordering, i64 0, i64 %i.027, !dbg !32, !intel-tbaa !34
-  %0 = load i32, i32* %arrayidx, align 4, !dbg !32, !tbaa !34
+  %arrayidx = getelementptr inbounds [1000 x i32], ptr @ordering, i64 0, i64 %i.027, !dbg !32, !intel-tbaa !34
+  %0 = load i32, ptr %arrayidx, align 4, !dbg !32, !tbaa !34
   %conv = sext i32 %0 to i64, !dbg !32
   %cmp1 = icmp slt i64 %b.025, %conv, !dbg !39
   %1 = select i1 %cmp1, i64 %tmp.026, i64 %i.027, !dbg !40

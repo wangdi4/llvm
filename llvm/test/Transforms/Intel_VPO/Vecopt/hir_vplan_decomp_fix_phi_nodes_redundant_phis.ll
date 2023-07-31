@@ -45,25 +45,25 @@ define void @foo(i1 %cond1, i1 %cond2) #2 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     i64 [[VP3:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP4:%.*]], [[BB3]] ]
-; CHECK-NEXT:     i32* [[VP5:%.*]] = hir-copy i32* null , OriginPhiId: -1
+; CHECK-NEXT:     ptr [[VP5:%.*]] = hir-copy ptr null , OriginPhiId: -1
 ; CHECK-NEXT:     br i1 [[VP0]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:       i32* [[VP6:%.*]] = hir-copy i32* null , OriginPhiId: -1
+; CHECK-NEXT:       ptr [[VP6:%.*]] = hir-copy ptr null , OriginPhiId: -1
 ; CHECK-NEXT:       br [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]], [[BB2]]
-; CHECK-NEXT:     i32* [[VP7:%.*]] = phi  [ i32* [[VP6]], [[BB4]] ],  [ i32* [[VP5]], [[BB2]] ]
+; CHECK-NEXT:     ptr [[VP7:%.*]] = phi  [ ptr [[VP6]], [[BB4]] ],  [ ptr [[VP5]], [[BB2]] ]
 ; CHECK-NEXT:     br i1 [[VP2]], [[BB6:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]: # preds: [[BB5]]
-; CHECK-NEXT:       i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* null
-; CHECK-NEXT:       store i32 0 i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr null
+; CHECK-NEXT:       store i32 0 ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:       br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB6]], [[BB5]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[VP7]]
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[VP7]]
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     i64 [[VP4]] = add i64 [[VP3]] i64 1
 ; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp slt i64 [[VP4]] i64 100
 ; CHECK-NEXT:     br i1 [[VP8]], [[BB2]], [[BB7:BB[0-9]+]]
@@ -119,7 +119,7 @@ bb946_endif:                                      ; preds = %bb_new1661_then
   br label %bb950_endif
 
 bb950_endif:                                      ; preds = %bb946_endif, %bb944_endif
-  %fetch.6269 = phi i32* [ null, %bb944_endif ], [ null, %bb946_endif ]
+  %fetch.6269 = phi ptr [ null, %bb944_endif ], [ null, %bb946_endif ]
   br label %bb950_endif.bb956_endif_crit_edge
 
 bb950_endif.bb956_endif_crit_edge:                ; preds = %bb950_endif
@@ -129,13 +129,13 @@ bb956_endif:                                      ; preds = %bb950_endif.bb956_e
   br i1 %cond2, label %bb_new1673_then, label %bb958_endif
 
 bb_new1673_then:                                  ; preds = %bb956_endif
-  store i32 0, i32* null, align 1
+  store i32 0, ptr null, align 1
   br label %bb958_endif
 
 bb958_endif:                                      ; preds = %bb_new1673_then, %bb956_endif
-  %"fetch.6279[]" = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 0, i64 0, i32* nonnull elementtype(i32) null, i64 0)
-  %"fetch.6279[][]" = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 0, i64 0, i32* elementtype(i32) null, i64 0)
-  %"fetch.6279[][]_fetch.6288" = load i32, i32* %fetch.6269, align 1
+  %"fetch.6279[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 0, ptr nonnull elementtype(i32) null, i64 0)
+  %"fetch.6279[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 0, i64 0, ptr elementtype(i32) null, i64 0)
+  %"fetch.6279[][]_fetch.6288" = load i32, ptr %fetch.6269, align 1
   br label %bb960_endif
 
 bb960_endif:                                      ; preds = %bb958_endif
@@ -147,7 +147,7 @@ bb930.loopexit:                                   ; preds = %bb960_endif
 }
 
 ; Function Attrs: nounwind readnone speculatable
-declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i64) #0
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #0
 
 !0 = distinct !{!0, !1}
 !1 = !{!"llvm.loop.vectorize.ivdep_back"}

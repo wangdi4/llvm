@@ -67,13 +67,13 @@ omp.precond.then:                                 ; preds = %entry
 
 omp.inner.for.body:                               ; preds = %omp.precond.then, %omp.inner.for.body
   %iv = phi i64 [ 0, %omp.precond.then ], [ %iv.next, %omp.inner.for.body ]
-  %idx = getelementptr inbounds [1600 x i32], [1600 x i32]* @a, i64 0, i64 %iv
-  %2 = load i32, i32* %idx
-  %idx9 = getelementptr inbounds [1600 x i32], [1600 x i32]* @b, i64 0, i64 %iv
-  %3 = load i32, i32* %idx9
+  %idx = getelementptr inbounds [1600 x i32], ptr @a, i64 0, i64 %iv
+  %2 = load i32, ptr %idx
+  %idx9 = getelementptr inbounds [1600 x i32], ptr @b, i64 0, i64 %iv
+  %3 = load i32, ptr %idx9
   %add10 = add nsw i32 %3, %2
-  %idx12 = getelementptr inbounds [1600 x i32], [1600 x i32]* @c, i64 0, i64 %iv
-  store i32 %add10, i32* %idx12
+  %idx12 = getelementptr inbounds [1600 x i32], ptr @c, i64 0, i64 %iv
+  store i32 %add10, ptr %idx12
   %iv.next = add nuw nsw i64 %iv, 1
   %cmp6 = icmp ult i64 %iv.next, %1
   %iv.in27 = bitcast i64 %iv.next to i64

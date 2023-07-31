@@ -72,8 +72,7 @@ bb:
   %i71 = add nsw i32 %i68, %i52
   %i72 = sub nsw i32 %i52, %i68
   %i73 = add nsw i32 %i71, %i69
-  %i74 = getelementptr inbounds [4 x [4 x i32]], ptr %i, i64 0, i64 0, i64 0
-  store i32 %i73, ptr %i74, align 16
+  store i32 %i73, ptr %i, align 16
   %i75 = sub nsw i32 %i69, %i71
   %i76 = getelementptr inbounds [4 x [4 x i32]], ptr %i, i64 0, i64 0, i64 2
   store i32 %i75, ptr %i76, align 8

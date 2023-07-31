@@ -23,27 +23,27 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* nocapture %ary) {
+define void @foo(ptr nocapture %ary) {
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %ary, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %ary, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %add7 = add nsw i32 %0, 7
   %1 = add nsw i64 %indvars.iv, 1
-  %arrayidx4 = getelementptr inbounds i32, i32* %ary, i64 %1
-  %2 = load i32, i32* %arrayidx4, align 4
+  %arrayidx4 = getelementptr inbounds i32, ptr %ary, i64 %1
+  %2 = load i32, ptr %arrayidx4, align 4
   %add11 = add nsw i32 %2, 11
   %3 = add nsw i64 %indvars.iv, 2
-  %arrayidx8 = getelementptr inbounds i32, i32* %ary, i64 %3
-  %4 = load i32, i32* %arrayidx8, align 4
+  %arrayidx8 = getelementptr inbounds i32, ptr %ary, i64 %3
+  %4 = load i32, ptr %arrayidx8, align 4
   %add12 = add nsw i32 %4, 12
-  store i32 %add7, i32* %arrayidx, align 4
-  store i32 %add11, i32* %arrayidx4, align 4
-  store i32 %add12, i32* %arrayidx8, align 4
+  store i32 %add7, ptr %arrayidx, align 4
+  store i32 %add11, ptr %arrayidx4, align 4
+  store i32 %add12, ptr %arrayidx8, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 3
   %cmp = icmp ult i64 %indvars.iv.next, 3072
   br i1 %cmp, label %for.body, label %for.end

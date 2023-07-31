@@ -45,8 +45,8 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT:   [[BB3]]: # preds: [[BB2]], [[BB11:BB[0-9]+]]
 ; CHECK-NEXT:    i64 [[IV1:%.*]] = phi  [ i64 0, [[BB2]] ],  [ i64 [[IV1_NEXT:%.*]], [[BB11]] ]
-; CHECK-NEXT:    i32* [[GEP:%.*]] = subscript inbounds i32* %arr i64 [[IV1]]
-; CHECK-NEXT:    i32 [[LD:%.*]] = load i32* [[GEP]]
+; CHECK-NEXT:    ptr [[GEP:%.*]] = subscript inbounds ptr %arr i64 [[IV1]]
+; CHECK-NEXT:    i32 [[LD:%.*]] = load ptr [[GEP]]
 ; CHECK-NEXT:    i32 [[COPY0:%.*]] = hir-copy i32 0 , OriginPhiId: -1
 ; CHECK-NEXT:    i1 [[CMP1:%.*]] = icmp eq i32 [[LD]] i32 42
 ; CHECK-NEXT:    br i1 [[CMP1]], [[BB4:BB[0-9]+]], [[BB11]]
@@ -100,7 +100,7 @@ declare token @llvm.directive.region.entry() #2
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #2
 
-define void @foo(i32* %arr) {
+define void @foo(ptr %arr) {
 DIR.OMP.SIMD.1:
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %outer.ph
@@ -110,8 +110,8 @@ outer.ph:                                         ; preds = %DIR.OMP.SIMD.1
 
 outer.body:                                       ; preds = %outer.latch, %outer.ph
   %outer.iv = phi i64 [ 0, %outer.ph ], [ %outer.iv.next, %outer.latch ]
-  %gep = getelementptr inbounds i32, i32* %arr, i64 %outer.iv
-  %ld = load i32, i32* %gep, align 4
+  %gep = getelementptr inbounds i32, ptr %arr, i64 %outer.iv
+  %ld = load i32, ptr %gep, align 4
   %cmp = icmp eq i32 %ld, 42
   br i1 %cmp, label %inner.ph, label %outer.latch
 

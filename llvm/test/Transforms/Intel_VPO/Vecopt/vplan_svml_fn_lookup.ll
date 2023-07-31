@@ -19,7 +19,7 @@ declare float @_Z3logf(float) #0
 ; CHECK-LABEL: @test1(
 ; CHECK: vector.body:
 ; CHECK: {{.*}} = call afn <2 x double> @_Z4sqrtDv2_d({{.*}})
-; CHECK: [[WL:%.*]] = call <2 x float> @llvm.masked.load.v2f32.p0v2f32
+; CHECK: [[WL:%.*]] = call <2 x float> @llvm.masked.load.v2f32.p0
 ; CHECK-NEXT: [[E2:%.*]] = extractelement <2 x float> [[WL]], i32 1
 ; CHECK-NEXT: [[E1:%.*]] = extractelement <2 x float> [[WL]], i32 0
 
@@ -49,8 +49,8 @@ define void @test1(double %t, float %tf, i32 %idx) {
   ;; serialized call to @_Z3logf(), should only be generated when we have
   ;; non-uniform argument to the function-call. In the future when we have the correct
   ;; implementation, we should change the test accordingly.
-  %arrayidx = getelementptr inbounds [1024 x float], [1024 x float]* @arr, i32 0, i32 %index
-  %load = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [1024 x float], ptr @arr, i32 0, i32 %index
+  %load = load float, ptr %arrayidx, align 4
   %pred = call afn float @_Z3logf(float %load)
   br label %omp.body.continue
   omp.body.continue:

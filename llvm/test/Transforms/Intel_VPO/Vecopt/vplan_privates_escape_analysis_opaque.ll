@@ -1,10 +1,10 @@
 ; This test verifies that private-variables escaping into the unknown functions
 ; are not safe for data-layout transformations.
 
-; RUN: opt -S -opaque-pointers -passes=vplan-vec -vplan-enable-masked-variant=0 -vplan-enable-soa -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
+; RUN: opt -S -passes=vplan-vec -vplan-enable-masked-variant=0 -vplan-enable-soa -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
 ; HIR-run.
-; RUN: opt -opaque-pointers -passes=hir-ssa-deconstruction,hir-vplan-vec -vplan-enable-masked-variant=0 -vplan-enable-soa-hir -vplan-dump-soa-info -vplan-enable-hir-private-arrays -disable-output  -disable-vplan-codegen %s 2>&1 | FileCheck %s
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec -vplan-enable-masked-variant=0 -vplan-enable-soa-hir -vplan-dump-soa-info -vplan-enable-hir-private-arrays -disable-output  -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
 ; REQUIRES:asserts
 
@@ -51,16 +51,15 @@ omp.inner.for.body.lr.ph:                         ; preds = %DIR.OMP.SIMD.211
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-  %1 = getelementptr inbounds [1024 x i32], ptr %arr_e.priv, i64 0, i64 0
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.1, %omp.inner.for.body
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
-  %call = call i32 @helper(ptr nonnull %1)
+  %call = call i32 @helper(ptr nonnull %arr_e.priv)
   %arrayidx = getelementptr inbounds [1024 x i32], ptr %arr_e.priv, i64 0, i64 %indvars.iv
   store i32 %call, ptr %arrayidx, align 4
-  %2 = add nuw nsw i64 %indvars.iv, 3
-  %arrayidx3 = getelementptr inbounds [1024 x i32], ptr %arr_e2.priv, i64 0, i64 %2
+  %1 = add nuw nsw i64 %indvars.iv, 3
+  %arrayidx3 = getelementptr inbounds [1024 x i32], ptr %arr_e2.priv, i64 0, i64 %1
   %call4 = call i32 @helper(ptr nonnull %arrayidx3)
   %arrayidx6 = getelementptr inbounds [1024 x i32], ptr %arr_e2.priv, i64 0, i64 %indvars.iv
   store i32 %call4, ptr %arrayidx6, align 4
@@ -77,8 +76,8 @@ DIR.OMP.END.SIMD.2:                               ; preds = %omp.inner.for.cond.
   br label %DIR.OMP.END.SIMD.221
 
 DIR.OMP.END.SIMD.221:                             ; preds = %DIR.OMP.END.SIMD.2
-  %3 = load i32, ptr getelementptr inbounds ([1024 x i32], ptr @arr_e, i64 0, i64 0), align 16
-  ret i32 %3
+  %2 = load i32, ptr @arr_e, align 16
+  ret i32 %2
 }
 
 declare token @llvm.directive.region.entry()

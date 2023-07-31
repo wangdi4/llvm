@@ -1,16 +1,16 @@
 ; This test verifies that a direct load from private alloca is considered profitable.
 
-; RUN: opt -opaque-pointers -passes=vplan-vec -vplan-enable-soa -vplan-dump-soa-info \
+; RUN: opt -passes=vplan-vec -vplan-enable-soa -vplan-dump-soa-info \
 ; RUN: -disable-output -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-declare void @llvm.lifetime.start.p0i8(i64, ptr nocapture)
+declare void @llvm.lifetime.start.p0(i64, ptr nocapture)
 
 declare i64 @_Z13get_global_idj(i32) local_unnamed_addr
 
-declare void @llvm.lifetime.end.p0i8(i64, ptr nocapture)
+declare void @llvm.lifetime.end.p0(i64, ptr nocapture)
 
 define void @_ZGVdN8uuuu_test_fn(ptr addrspace(1) %src) {
 ; CHECK-LABEL:  SOA profitability:
@@ -29,10 +29,10 @@ simd.loop:                                        ; preds = %simd.loop.exit, %si
   %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.exit ]
   %0 = sext i32 %index to i64
   %add = add nuw i64 %0, %call
-  call void @llvm.lifetime.start.p0i8(i64 16, ptr nonnull %sPrivateStorage)
-  %1 = load i8, i8 addrspace(1)* %src, align 4
+  call void @llvm.lifetime.start.p0(i64 16, ptr nonnull %sPrivateStorage)
+  %1 = load i8, ptr addrspace(1) %src, align 4
   store i8 %1, ptr %sPrivateStorage, align 4
-  call void @llvm.lifetime.end.p0i8(i64 16, ptr nonnull %sPrivateStorage)
+  call void @llvm.lifetime.end.p0(i64 16, ptr nonnull %sPrivateStorage)
   br label %simd.loop.exit
 
 simd.loop.exit:                                   ; preds = %simd.loop

@@ -34,7 +34,7 @@ bb6:
 bb7:
   %i8 = phi i64 [ 0, %bb5 ], [ 0, %bb4 ], [ 0, %bb3 ], [ 6, %bb6 ], [ 2, %bb2 ]
   %i9 = phi i64 [ %i, %bb5 ], [ %i, %bb4 ], [ %i, %bb3 ], [ %i, %bb6 ], [ %i, %bb2 ]
-  store i64 %i8, ptr getelementptr ([1 x i64], ptr null, i32 0)
+  store i64 %i8, ptr null
   store i64 %i9, ptr getelementptr ([1 x i64], ptr null, i32 1)
   ret void
 }

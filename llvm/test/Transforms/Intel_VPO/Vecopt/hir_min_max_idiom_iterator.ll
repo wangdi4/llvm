@@ -10,7 +10,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; RUN: opt -S -mattr=+avx512vl,+avx512cd -passes='hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec' -enable-mmindex=1 -disable-nonlinear-mmindex=1 -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -disable-vplan-codegen -disable-output < %s 2>&1 | FileCheck %s
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
-define dso_local void @_Z3foo1PiS_S_S_S_S_S_(i32* noalias nocapture readonly %A, i32* noalias nocapture readonly %B, i32* noalias nocapture %C, i32* noalias nocapture readonly %D, i32* noalias nocapture %E, i32* noalias nocapture readonly %F, i32* noalias nocapture %G) local_unnamed_addr #0 {
+define dso_local void @_Z3foo1PiS_S_S_S_S_S_(ptr noalias nocapture readonly %A, ptr noalias nocapture readonly %B, ptr noalias nocapture %C, ptr noalias nocapture readonly %D, ptr noalias nocapture %E, ptr noalias nocapture readonly %F, ptr noalias nocapture %G) local_unnamed_addr #0 {
 ; CHECK:  Reduction list
 ; CHECK-NEXT:   signed (SIntMin) Start: i32 [[MIN_VALUE1_0590:%.*]] Exit: i32 [[VP10:%.*]]
 ; CHECK-NEXT:    Linked values: i32 [[VP11:%.*]], i32 [[VP10]], i32 [[VP__RED_INIT:%.*]], i32 [[VP__RED_FINAL:%.*]],
@@ -34,11 +34,11 @@ for.cond.cleanup:                                 ; preds = %for.body
   %.lcssa63 = phi i32 [ %6, %for.body ]
   %.lcssa = phi i64 [ %7, %for.body ]
   %sub = add nsw i64 %spec.select.lcssa, -1
-  %ptridx25 = getelementptr inbounds i32, i32* %E, i64 %sub
-  store i32 %spec.select54.lcssa, i32* %ptridx25, align 4
+  %ptridx25 = getelementptr inbounds i32, ptr %E, i64 %sub
+  store i32 %spec.select54.lcssa, ptr %ptridx25, align 4
   %sub26 = add nsw i64 %.lcssa, -3
-  %ptridx27 = getelementptr inbounds i32, i32* %E, i64 %sub26
-  store i32 %.lcssa63, i32* %ptridx27, align 4
+  %ptridx27 = getelementptr inbounds i32, ptr %E, i64 %sub26
+  store i32 %.lcssa63, ptr %ptridx27, align 4
   ret void
 
 for.body:                                         ; preds = %entry, %for.body
@@ -48,29 +48,29 @@ for.body:                                         ; preds = %entry, %for.body
   %index3.056 = phi i64 [ 0, %entry ], [ %7, %for.body ]
   %min_value3.055 = phi i32 [ 0, %entry ], [ %6, %for.body ]
   ; VConflict Idiom
-  %ptridx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %0 = load i32, i32* %ptridx, align 4
+  %ptridx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %0 = load i32, ptr %ptridx, align 4
   %idxprom1 = sext i32 %0 to i64
-  %ptridx2 = getelementptr inbounds i32, i32* %C, i64 %idxprom1
-  %1 = load i32, i32* %ptridx2, align 4
+  %ptridx2 = getelementptr inbounds i32, ptr %C, i64 %idxprom1
+  %1 = load i32, ptr %ptridx2, align 4
   %add = add nsw i32 %1, 2
-  store i32 %add, i32* %ptridx2, align 4
-  %ptridx6 = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %2 = load i32, i32* %ptridx6, align 4
+  store i32 %add, ptr %ptridx2, align 4
+  %ptridx6 = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %2 = load i32, ptr %ptridx6, align 4
   ; Min/Max Idiom
   %cmp7 = icmp slt i32 %2, %min_value1.059
   %spec.select = select i1 %cmp7, i64 %indvars.iv, i64 %index1.058
   %spec.select54 = select i1 %cmp7, i32 %2, i32 %min_value1.059
   ; VConflict Idiom
-  %ptridx11 = getelementptr inbounds i32, i32* %F, i64 %indvars.iv
-  %3 = load i32, i32* %ptridx11, align 4
+  %ptridx11 = getelementptr inbounds i32, ptr %F, i64 %indvars.iv
+  %3 = load i32, ptr %ptridx11, align 4
   %idxprom12 = sext i32 %3 to i64
-  %ptridx13 = getelementptr inbounds i32, i32* %G, i64 %idxprom12
-  %4 = load i32, i32* %ptridx13, align 4
+  %ptridx13 = getelementptr inbounds i32, ptr %G, i64 %idxprom12
+  %4 = load i32, ptr %ptridx13, align 4
   %add14 = add nsw i32 %4, 5
-  store i32 %add14, i32* %ptridx13, align 4
-  %ptridx18 = getelementptr inbounds i32, i32* %D, i64 %indvars.iv
-  %5 = load i32, i32* %ptridx18, align 4
+  store i32 %add14, ptr %ptridx13, align 4
+  %ptridx18 = getelementptr inbounds i32, ptr %D, i64 %indvars.iv
+  %5 = load i32, ptr %ptridx18, align 4
   ; Min/Max Idiom
   %cmp19 = icmp slt i32 %5, %min_value3.055
   %6 = select i1 %cmp19, i32 %5, i32 %min_value3.055
@@ -81,7 +81,7 @@ for.body:                                         ; preds = %entry, %for.body
 }
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
-define dso_local void @_Z3foo2PiS_S_S_S_S_S_(i32* noalias nocapture readonly %A, i32* noalias nocapture readonly %B, i32* noalias nocapture %C, i32* noalias nocapture readonly %D, i32* noalias nocapture %E, i32* noalias nocapture readonly %F, i32* noalias nocapture %G) local_unnamed_addr #0 {
+define dso_local void @_Z3foo2PiS_S_S_S_S_S_(ptr noalias nocapture readonly %A, ptr noalias nocapture readonly %B, ptr noalias nocapture %C, ptr noalias nocapture readonly %D, ptr noalias nocapture %E, ptr noalias nocapture readonly %F, ptr noalias nocapture %G) local_unnamed_addr #0 {
 ; CHECK:  Reduction list
 ; CHECK-NEXT:   signed (SIntMin) Start: i32 [[MIN_VALUE1_0590:%.*]] Exit: i32 [[VP10:%.*]]
 ; CHECK-NEXT:    Linked values: i32 [[VP11:%.*]], i32 [[VP10]], i32 [[VP__RED_INIT:%.*]], i32 [[VP__RED_FINAL:%.*]],
@@ -105,11 +105,11 @@ for.cond.cleanup:                                 ; preds = %for.body
   %.lcssa63 = phi i32 [ %6, %for.body ]
   %.lcssa = phi i64 [ %7, %for.body ]
   %sub = add nsw i64 %spec.select.lcssa, -1
-  %ptridx25 = getelementptr inbounds i32, i32* %E, i64 %sub
-  store i32 %spec.select54.lcssa, i32* %ptridx25, align 4
+  %ptridx25 = getelementptr inbounds i32, ptr %E, i64 %sub
+  store i32 %spec.select54.lcssa, ptr %ptridx25, align 4
   %sub26 = add nsw i64 %.lcssa, -3
-  %ptridx27 = getelementptr inbounds i32, i32* %E, i64 %sub26
-  store i32 %.lcssa63, i32* %ptridx27, align 4
+  %ptridx27 = getelementptr inbounds i32, ptr %E, i64 %sub26
+  store i32 %.lcssa63, ptr %ptridx27, align 4
   ret void
 
 for.body:                                         ; preds = %entry, %for.body
@@ -118,30 +118,30 @@ for.body:                                         ; preds = %entry, %for.body
   %index1.058 = phi i64 [ 0, %entry ], [ %spec.select, %for.body ]
   %index3.056 = phi i64 [ 0, %entry ], [ %7, %for.body ]
   %min_value3.055 = phi i32 [ 0, %entry ], [ %6, %for.body ]
-  %ptridx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %0 = load i32, i32* %ptridx, align 4
+  %ptridx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %0 = load i32, ptr %ptridx, align 4
   ; Min/Max Idiom
   %cmp1 = icmp slt i32 %0, %min_value1.059
   %spec.select = select i1 %cmp1, i64 %indvars.iv, i64 %index1.058
   %spec.select54 = select i1 %cmp1, i32 %0, i32 %min_value1.059
   ; VConflict Idiom
-  %ptridx5 = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %1 = load i32, i32* %ptridx5, align 4
+  %ptridx5 = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %1 = load i32, ptr %ptridx5, align 4
   %idxprom6 = sext i32 %1 to i64
-  %ptridx7 = getelementptr inbounds i32, i32* %C, i64 %idxprom6
-  %2 = load i32, i32* %ptridx7, align 4
+  %ptridx7 = getelementptr inbounds i32, ptr %C, i64 %idxprom6
+  %2 = load i32, ptr %ptridx7, align 4
   %add = add nsw i32 %2, 2
-  store i32 %add, i32* %ptridx7, align 4
+  store i32 %add, ptr %ptridx7, align 4
   ; VConflict Idiom
-  %ptridx11 = getelementptr inbounds i32, i32* %F, i64 %indvars.iv
-  %3 = load i32, i32* %ptridx11, align 4
+  %ptridx11 = getelementptr inbounds i32, ptr %F, i64 %indvars.iv
+  %3 = load i32, ptr %ptridx11, align 4
   %idxprom12 = sext i32 %3 to i64
-  %ptridx13 = getelementptr inbounds i32, i32* %G, i64 %idxprom12
-  %4 = load i32, i32* %ptridx13, align 4
+  %ptridx13 = getelementptr inbounds i32, ptr %G, i64 %idxprom12
+  %4 = load i32, ptr %ptridx13, align 4
   %add14 = add nsw i32 %4, 5
-  store i32 %add14, i32* %ptridx13, align 4
-  %ptridx18 = getelementptr inbounds i32, i32* %D, i64 %indvars.iv
-  %5 = load i32, i32* %ptridx18, align 4
+  store i32 %add14, ptr %ptridx13, align 4
+  %ptridx18 = getelementptr inbounds i32, ptr %D, i64 %indvars.iv
+  %5 = load i32, ptr %ptridx18, align 4
   ; Min/Max Idiom
   %cmp19 = icmp slt i32 %5, %min_value3.055
   %6 = select i1 %cmp19, i32 %5, i32 %min_value3.055
@@ -152,7 +152,7 @@ for.body:                                         ; preds = %entry, %for.body
 }
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
-define dso_local void @_Z3foo3PiS_S_S_S_S_S_(i32* noalias nocapture readonly %A, i32* noalias nocapture readonly %B, i32* noalias nocapture %C, i32* noalias nocapture readonly %D, i32* noalias nocapture %E, i32* noalias nocapture readonly %F, i32* noalias nocapture %G) local_unnamed_addr #0 {
+define dso_local void @_Z3foo3PiS_S_S_S_S_S_(ptr noalias nocapture readonly %A, ptr noalias nocapture readonly %B, ptr noalias nocapture %C, ptr noalias nocapture readonly %D, ptr noalias nocapture %E, ptr noalias nocapture readonly %F, ptr noalias nocapture %G) local_unnamed_addr #0 {
 ; CHECK:  Reduction list
 ; CHECK-NEXT:   signed (SIntMin) Start: i32 [[MIN_VALUE1_0590:%.*]] Exit: i32 [[VP10:%.*]]
 ; CHECK-NEXT:    Linked values: i32 [[VP11:%.*]], i32 [[VP10]], i32 [[VP__RED_INIT:%.*]], i32 [[VP__RED_FINAL:%.*]],
@@ -176,11 +176,11 @@ for.cond.cleanup:                                 ; preds = %for.body
   %.lcssa63 = phi i32 [ %4, %for.body ]
   %.lcssa = phi i64 [ %5, %for.body ]
   %sub = add nsw i64 %spec.select.lcssa, -1
-  %ptridx25 = getelementptr inbounds i32, i32* %E, i64 %sub
-  store i32 %spec.select54.lcssa, i32* %ptridx25, align 4
+  %ptridx25 = getelementptr inbounds i32, ptr %E, i64 %sub
+  store i32 %spec.select54.lcssa, ptr %ptridx25, align 4
   %sub26 = add nsw i64 %.lcssa, -3
-  %ptridx27 = getelementptr inbounds i32, i32* %E, i64 %sub26
-  store i32 %.lcssa63, i32* %ptridx27, align 4
+  %ptridx27 = getelementptr inbounds i32, ptr %E, i64 %sub26
+  store i32 %.lcssa63, ptr %ptridx27, align 4
   ret void
 
 for.body:                                         ; preds = %entry, %for.body
@@ -189,41 +189,41 @@ for.body:                                         ; preds = %entry, %for.body
   %index1.058 = phi i64 [ 0, %entry ], [ %spec.select, %for.body ]
   %index3.056 = phi i64 [ 0, %entry ], [ %5, %for.body ]
   %min_value3.055 = phi i32 [ 0, %entry ], [ %4, %for.body ]
-  %ptridx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %0 = load i32, i32* %ptridx, align 4
+  %ptridx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %0 = load i32, ptr %ptridx, align 4
   ; Min/Max Idiom
   %cmp1 = icmp slt i32 %0, %min_value1.059
   %spec.select = select i1 %cmp1, i64 %indvars.iv, i64 %index1.058
   %spec.select54 = select i1 %cmp1, i32 %0, i32 %min_value1.059
   ; VConflict Idiom
-  %ptridx5 = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %1 = load i32, i32* %ptridx5, align 4
+  %ptridx5 = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %1 = load i32, ptr %ptridx5, align 4
   %idxprom6 = sext i32 %1 to i64
-  %ptridx7 = getelementptr inbounds i32, i32* %C, i64 %idxprom6
-  %2 = load i32, i32* %ptridx7, align 4
+  %ptridx7 = getelementptr inbounds i32, ptr %C, i64 %idxprom6
+  %2 = load i32, ptr %ptridx7, align 4
   %add = add nsw i32 %2, 2
-  store i32 %add, i32* %ptridx7, align 4
-  %ptridx11 = getelementptr inbounds i32, i32* %D, i64 %indvars.iv
-  %3 = load i32, i32* %ptridx11, align 4
+  store i32 %add, ptr %ptridx7, align 4
+  %ptridx11 = getelementptr inbounds i32, ptr %D, i64 %indvars.iv
+  %3 = load i32, ptr %ptridx11, align 4
   ; Min/Max Idiom
   %cmp12 = icmp slt i32 %3, %min_value3.055
   %4 = select i1 %cmp12, i32 %3, i32 %min_value3.055
   %5 = select i1 %cmp12, i64 %indvars.iv, i64 %index3.056
   ; VConflict Idiom
-  %ptridx19 = getelementptr inbounds i32, i32* %F, i64 %indvars.iv
-  %6 = load i32, i32* %ptridx19, align 4
+  %ptridx19 = getelementptr inbounds i32, ptr %F, i64 %indvars.iv
+  %6 = load i32, ptr %ptridx19, align 4
   %idxprom20 = sext i32 %6 to i64
-  %ptridx21 = getelementptr inbounds i32, i32* %G, i64 %idxprom20
-  %7 = load i32, i32* %ptridx21, align 4
+  %ptridx21 = getelementptr inbounds i32, ptr %G, i64 %idxprom20
+  %7 = load i32, ptr %ptridx21, align 4
   %add22 = add nsw i32 %7, 5
-  store i32 %add22, i32* %ptridx21, align 4
+  store i32 %add22, ptr %ptridx21, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body
 }
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
-define dso_local void @_Z3foo4PiS_S_S_S_S_S_(i32* noalias nocapture readonly %A, i32* noalias nocapture readonly %B, i32* noalias nocapture %C, i32* noalias nocapture readonly %D, i32* noalias nocapture %E, i32* noalias nocapture readonly %F, i32* noalias nocapture %G) local_unnamed_addr #0 {
+define dso_local void @_Z3foo4PiS_S_S_S_S_S_(ptr noalias nocapture readonly %A, ptr noalias nocapture readonly %B, ptr noalias nocapture %C, ptr noalias nocapture readonly %D, ptr noalias nocapture %E, ptr noalias nocapture readonly %F, ptr noalias nocapture %G) local_unnamed_addr #0 {
 ; CHECK:  Reduction list
 ; CHECK-NEXT:   signed (SIntMin) Start: i32 [[MIN_VALUE1_0590:%.*]] Exit: i32 [[VP10:%.*]]
 ; CHECK-NEXT:    Linked values: i32 [[VP11:%.*]], i32 [[VP10]], i32 [[VP__RED_INIT:%.*]], i32 [[VP__RED_FINAL:%.*]],
@@ -247,11 +247,11 @@ for.cond.cleanup:                                 ; preds = %for.body
   %.lcssa63 = phi i32 [ %4, %for.body ]
   %.lcssa = phi i64 [ %5, %for.body ]
   %sub = add nsw i64 %spec.select.lcssa, -1
-  %ptridx25 = getelementptr inbounds i32, i32* %E, i64 %sub
-  store i32 %spec.select54.lcssa, i32* %ptridx25, align 4
+  %ptridx25 = getelementptr inbounds i32, ptr %E, i64 %sub
+  store i32 %spec.select54.lcssa, ptr %ptridx25, align 4
   %sub26 = add nsw i64 %.lcssa, -3
-  %ptridx27 = getelementptr inbounds i32, i32* %E, i64 %sub26
-  store i32 %.lcssa63, i32* %ptridx27, align 4
+  %ptridx27 = getelementptr inbounds i32, ptr %E, i64 %sub26
+  store i32 %.lcssa63, ptr %ptridx27, align 4
   ret void
 
 for.body:                                         ; preds = %entry, %for.body
@@ -261,33 +261,33 @@ for.body:                                         ; preds = %entry, %for.body
   %index3.056 = phi i64 [ 0, %entry ], [ %5, %for.body ]
   %min_value3.055 = phi i32 [ 0, %entry ], [ %4, %for.body ]
   ; VConflict Idiom
-  %ptridx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %0 = load i32, i32* %ptridx, align 4
+  %ptridx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %0 = load i32, ptr %ptridx, align 4
   %idxprom1 = sext i32 %0 to i64
-  %ptridx2 = getelementptr inbounds i32, i32* %C, i64 %idxprom1
-  %1 = load i32, i32* %ptridx2, align 4
+  %ptridx2 = getelementptr inbounds i32, ptr %C, i64 %idxprom1
+  %1 = load i32, ptr %ptridx2, align 4
   %add = add nsw i32 %1, 2
-  store i32 %add, i32* %ptridx2, align 4
-  %ptridx6 = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %2 = load i32, i32* %ptridx6, align 4
+  store i32 %add, ptr %ptridx2, align 4
+  %ptridx6 = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %2 = load i32, ptr %ptridx6, align 4
   ; Min/Max Idiom
   %cmp7 = icmp slt i32 %2, %min_value1.059
   %spec.select = select i1 %cmp7, i64 %indvars.iv, i64 %index1.058
   %spec.select54 = select i1 %cmp7, i32 %2, i32 %min_value1.059
-  %ptridx11 = getelementptr inbounds i32, i32* %D, i64 %indvars.iv
-  %3 = load i32, i32* %ptridx11, align 4
+  %ptridx11 = getelementptr inbounds i32, ptr %D, i64 %indvars.iv
+  %3 = load i32, ptr %ptridx11, align 4
   ; Min/Max Idiom
   %cmp12 = icmp slt i32 %3, %min_value3.055
   %4 = select i1 %cmp12, i32 %3, i32 %min_value3.055
   %5 = select i1 %cmp12, i64 %indvars.iv, i64 %index3.056
   ; VConflict Idiom
-  %ptridx19 = getelementptr inbounds i32, i32* %F, i64 %indvars.iv
-  %6 = load i32, i32* %ptridx19, align 4
+  %ptridx19 = getelementptr inbounds i32, ptr %F, i64 %indvars.iv
+  %6 = load i32, ptr %ptridx19, align 4
   %idxprom20 = sext i32 %6 to i64
-  %ptridx21 = getelementptr inbounds i32, i32* %G, i64 %idxprom20
-  %7 = load i32, i32* %ptridx21, align 4
+  %ptridx21 = getelementptr inbounds i32, ptr %G, i64 %idxprom20
+  %7 = load i32, ptr %ptridx21, align 4
   %add22 = add nsw i32 %7, 5
-  store i32 %add22, i32* %ptridx21, align 4
+  store i32 %add22, ptr %ptridx21, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body

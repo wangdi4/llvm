@@ -17,7 +17,7 @@
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: mustprogress nounwind uwtable
-define dso_local void @_Z3fooPiS_S_(i32* nocapture %arr2) local_unnamed_addr #0 {
+define dso_local void @_Z3fooPiS_S_(ptr nocapture %arr2) local_unnamed_addr #0 {
 DIR.OMP.SIMD.129:
   %i.linear.iv = alloca i32, align 4
   br label %DIR.OMP.SIMD.1
@@ -27,15 +27,14 @@ DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.129
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
-  %1 = bitcast i32* %i.linear.iv to i8*
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %omp.inner.for.body
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %indvars.iv.next, %omp.inner.for.body ]
-  %2 = trunc i64 %indvars.iv to i32
-  %mul2 = mul nsw i32 %2, %2
-  %arrayidx4 = getelementptr inbounds i32, i32* %arr2, i64 %indvars.iv
-  store i32 %mul2, i32* %arrayidx4, align 4
+  %1 = trunc i64 %indvars.iv to i32
+  %mul2 = mul nsw i32 %1, %1
+  %arrayidx4 = getelementptr inbounds i32, ptr %arr2, i64 %indvars.iv
+  store i32 %mul2, ptr %arrayidx4, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 66
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body, !llvm.loop !9

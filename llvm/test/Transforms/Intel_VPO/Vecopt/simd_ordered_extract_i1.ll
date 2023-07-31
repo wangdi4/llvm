@@ -7,21 +7,21 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @var_tripcount(i32* %ip, i64 %n) local_unnamed_addr {
+define void @var_tripcount(ptr %ip, i64 %n) local_unnamed_addr {
 ; CHECK-LABEL: @var_tripcount(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[VAL_LOC:%.*]] = alloca i32, align 4
 ; CHECK-NEXT:    [[C_LOC:%.*]] = alloca i8, align 1
-; CHECK-NEXT:    [[ENTRY_REGION:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(i8* [[C_LOC]], i8 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(i32* [[VAL_LOC]], i32 0, i32 1) ]
+; CHECK-NEXT:    [[ENTRY_REGION:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr [[C_LOC]], i8 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr [[VAL_LOC]], i32 0, i32 1) ]
 ; CHECK:       codeRepl:
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 -1, i8* [[C_LOC]])
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i32(i64 -1, i32* [[VAL_LOC]])
-; CHECK-NEXT:    call void @var_tripcount.ordered.simd.region(i32* [[ARRAYIDX:%.*]], i8* [[C_LOC]], i32* [[VAL_LOC]])
-; CHECK-NEXT:    [[C_RELOAD:%.*]] = load i8, i8* [[C_LOC]], align 1
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 -1, ptr [[C_LOC]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 -1, ptr [[VAL_LOC]])
+; CHECK-NEXT:    call void @var_tripcount.ordered.simd.region(ptr [[ARRAYIDX:%.*]], ptr [[C_LOC]], ptr [[VAL_LOC]])
+; CHECK-NEXT:    [[C_RELOAD:%.*]] = load i8, ptr [[C_LOC]], align 1
 ; CHECK-NEXT:    [[TMP0:%.*]] = trunc i8 [[C_RELOAD]] to i1
-; CHECK-NEXT:    [[VAL_RELOAD:%.*]] = load i32, i32* [[VAL_LOC]], align 4
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 -1, i8* [[C_LOC]])
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i32(i64 -1, i32* [[VAL_LOC]])
+; CHECK-NEXT:    [[VAL_RELOAD:%.*]] = load i32, ptr [[VAL_LOC]], align 4
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 -1, ptr [[C_LOC]])
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 -1, ptr [[VAL_LOC]])
 ; CHECK-NEXT:    br label [[PRE_LATCH:%.*]]
 ; CHECK:       pre.latch:
 ; CHECK-NEXT:    br i1 [[TMP0]], label [[LATCH:%.*]], label [[STORE_VAL:%.*]]
@@ -32,7 +32,7 @@ entry:
 
 for.body:
   %indvars.iv = phi i64 [ %indvars.iv.next, %latch ], [ 0, %entry ]
-  %arrayidx = getelementptr inbounds i32, i32* %ip, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds i32, ptr %ip, i64 %indvars.iv
   br label %ordered.entry
 
 ordered.entry:
@@ -40,7 +40,7 @@ ordered.entry:
   br label %ordered
 
 ordered:
-  %val1 = load i32, i32* %arrayidx
+  %val1 = load i32, ptr %arrayidx
   %c = icmp sgt i32 %val1, 2
   br i1 %c, label %ordered.exit, label %inc.val
 
@@ -57,7 +57,7 @@ pre.latch:
   br i1 %c, label %latch, label %store.val
 
 store.val:
-  store i32 %val, i32* %arrayidx, align 4
+  store i32 %val, ptr %arrayidx, align 4
   br label %latch
 
 latch:
@@ -84,10 +84,10 @@ DIR.QUAL.LIST.END.3:
 ; CHECK-NEXT:   %tok.ordered = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(), "QUAL.OMP.ORDERED.SIMD"() ]
 ; CHECK-NEXT:   br label %ordered
 ; CHECK:      ordered:
-; CHECK-NEXT:   %val1 = load i32, i32* %arrayidx, align 4
+; CHECK-NEXT:   %val1 = load i32, ptr %arrayidx, align 4
 ; CHECK-NEXT:   %c = icmp sgt i32 %val1, 2
 ; CHECK-NEXT:   [[TMP1:%.*]] = zext i1 %c to i8
-; CHECK-NEXT:   store i8 [[TMP1]], i8* %c.out, align 1
+; CHECK-NEXT:   store i8 [[TMP1]], ptr %c.out, align 1
 ; CHECK-NEXT:   br i1 %c, label %ordered.exit, label %inc.val
 ;
 

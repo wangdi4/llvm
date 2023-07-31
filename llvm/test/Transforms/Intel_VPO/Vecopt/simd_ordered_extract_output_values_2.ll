@@ -8,14 +8,14 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
+define void @var_tripcount(ptr %ip, i32 %n, ptr %x) local_unnamed_addr {
 ; CHECK-LABEL: @var_tripcount(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[VAL_LOC:%.*]] = alloca i32, align 4
 ; CHECK-NEXT:    br label [[DIR_OMP_SIMD_1:%.*]]
 ; CHECK:       DIR.OMP.SIMD.1:
-; TYPED-NEXT:    [[ENTRY_REGION:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(i32* [[VAL_LOC]], i32 0, i32 1) ]
-; UNTYPED-NEXT:  [[ENTRY_REGION:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"(i32* [[VAL_LOC]]) ]
+; TYPED-NEXT:    [[ENTRY_REGION:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr [[VAL_LOC]], i32 0, i32 1) ]
+; UNTYPED-NEXT:  [[ENTRY_REGION:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"(ptr [[VAL_LOC]]) ]
 ; CHECK-NEXT:    br label [[DIR_QUAL_LIST_END_2:%.*]]
 ; CHECK:       DIR.QUAL.LIST.END.2:
 ; CHECK-NEXT:    [[CMP5:%.*]] = icmp sgt i32 [[N:%.*]], 0
@@ -25,16 +25,16 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[LATCH:%.*]] ], [ 0, [[FOR_BODY_PREHEADER]] ]
-; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, i32* [[IP:%.*]], i64 [[INDVARS_IV]]
+; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[IP:%.*]], i64 [[INDVARS_IV]]
 ; CHECK-NEXT:    br label [[CODEREPL:%.*]]
 ; CHECK:       codeRepl:
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i32(i64 -1, i32* [[VAL_LOC]])
-; CHECK-NEXT:    call void @var_tripcount.ordered.simd.region(i32* [[ARRAYIDX]], i32* [[VAL_LOC]])
-; CHECK-NEXT:    [[VAL_RELOAD:%.*]] = load i32, i32* [[VAL_LOC]], align 4
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i32(i64 -1, i32* [[VAL_LOC]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 -1, ptr [[VAL_LOC]])
+; CHECK-NEXT:    call void @var_tripcount.ordered.simd.region(ptr [[ARRAYIDX]], ptr [[VAL_LOC]])
+; CHECK-NEXT:    [[VAL_RELOAD:%.*]] = load i32, ptr [[VAL_LOC]], align 4
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 -1, ptr [[VAL_LOC]])
 ; CHECK-NEXT:    br label [[BB:%.*]]
 ; CHECK:       bb:
-; CHECK-NEXT:    store i32 [[VAL_RELOAD]], i32* [[ARRAYIDX]], align 4
+; CHECK-NEXT:    store i32 [[VAL_RELOAD]], ptr [[ARRAYIDX]], align 4
 ; CHECK-NEXT:    br label [[LATCH]]
 ; CHECK:       latch:
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
@@ -65,7 +65,7 @@ for.body.preheader:
 
 for.body:
   %indvars.iv = phi i64 [ %indvars.iv.next, %latch ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i32, i32* %ip, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds i32, ptr %ip, i64 %indvars.iv
   br label %ordered.entry
 
 ordered.entry:
@@ -73,7 +73,7 @@ ordered.entry:
   br label %ordered
 
 ordered:
-  %val = load i32, i32* %arrayidx
+  %val = load i32, ptr %arrayidx
   br label %ordered.exit
 
 ordered.exit:
@@ -81,7 +81,7 @@ ordered.exit:
   br label %bb
 
 bb:
-  store i32 %val, i32* %arrayidx, align 4
+  store i32 %val, ptr %arrayidx, align 4
   br label %latch
 
 latch:

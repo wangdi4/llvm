@@ -12,9 +12,9 @@ target triple = "x86_64-unknown-linux-gnu"
 ;  return Sum;
 ;}
 
-define i32 @foo(i32* nocapture readonly %A, i32 %N) {
+define i32 @foo(ptr nocapture readonly %A, i32 %N) {
 ; CHECK-LABEL: @foo(
-; CHECK:         [[TMP0:%.*]] = load i32, i32* %A, align 4
+; CHECK:         [[TMP0:%.*]] = load i32, ptr %A, align 4
 ; CHECK:       VPlannedBB2:
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32> poison, i32 [[TMP0]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT0]], <4 x i32> poison, <4 x i32> zeroinitializer
@@ -31,7 +31,7 @@ entry:
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:
-  %0 = load i32, i32* %A, align 4
+  %0 = load i32, ptr %A, align 4
   %cmp13 = icmp sgt i32 %N, 1
   br i1 %cmp13, label %for.body.ph, label %for.cond.cleanup
 
@@ -42,8 +42,8 @@ for.body.ph:                                 ; preds = %0
 for.body:                                           ; preds = %for.body.ph, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 1, %for.body.ph ]
   %Max.014 = phi i32 [ %.Max.0, %for.body ], [ %0, %for.body.ph ]
-  %arrayidx1 = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx1, align 4
+  %arrayidx1 = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx1, align 4
   %cmp2 = icmp sgt i32 %1, %Max.014
   %.Max.0 = select i1 %cmp2, i32 %1, i32 %Max.014
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1

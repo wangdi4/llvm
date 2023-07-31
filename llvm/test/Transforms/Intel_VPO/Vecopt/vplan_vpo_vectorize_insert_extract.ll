@@ -26,25 +26,25 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent nounwind
-define void @test_int_add2(<2 x i32> addrspace(1)* %srcA, <2 x i32> addrspace(1)* %srcB, <2 x i32> addrspace(1)* %dst) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !kernel_arg_name !12 !vectorized_kernel !13 !no_barrier_path !14 !vectorized_width !15 !scalarized_kernel !16 {
+define void @test_int_add2(ptr addrspace(1) %srcA, ptr addrspace(1) %srcB, ptr addrspace(1) %dst) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !kernel_arg_name !12 !vectorized_kernel !13 !no_barrier_path !14 !vectorized_width !15 !scalarized_kernel !16 {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) #3
   %sext = shl i64 %call, 32
   %idxprom = ashr exact i64 %sext, 32
-  %arrayidx = getelementptr inbounds <2 x i32>, <2 x i32> addrspace(1)* %srcA, i64 %idxprom
-  %0 = load <2 x i32>, <2 x i32> addrspace(1)* %arrayidx, align 8, !tbaa !17
+  %arrayidx = getelementptr inbounds <2 x i32>, ptr addrspace(1) %srcA, i64 %idxprom
+  %0 = load <2 x i32>, ptr addrspace(1) %arrayidx, align 8, !tbaa !17
   %scalar7 = extractelement <2 x i32> %0, i32 0
   %scalar8 = extractelement <2 x i32> %0, i32 1
-  %arrayidx2 = getelementptr inbounds <2 x i32>, <2 x i32> addrspace(1)* %srcB, i64 %idxprom
-  %1 = load <2 x i32>, <2 x i32> addrspace(1)* %arrayidx2, align 8, !tbaa !17
+  %arrayidx2 = getelementptr inbounds <2 x i32>, ptr addrspace(1) %srcB, i64 %idxprom
+  %1 = load <2 x i32>, ptr addrspace(1) %arrayidx2, align 8, !tbaa !17
   %scalar = extractelement <2 x i32> %1, i32 0
   %scalar6 = extractelement <2 x i32> %1, i32 1
   %add9 = add i32 %scalar, %scalar7
   %add10 = add i32 %scalar6, %scalar8
   %assembled.vect = insertelement <2 x i32> undef, i32 %add9, i32 0
   %assembled.vect11 = insertelement <2 x i32> %assembled.vect, i32 %add10, i32 1
-  %arrayidx4 = getelementptr inbounds <2 x i32>, <2 x i32> addrspace(1)* %dst, i64 %idxprom
-  store <2 x i32> %assembled.vect11, <2 x i32> addrspace(1)* %arrayidx4, align 8, !tbaa !17
+  %arrayidx4 = getelementptr inbounds <2 x i32>, ptr addrspace(1) %dst, i64 %idxprom
+  store <2 x i32> %assembled.vect11, ptr addrspace(1) %arrayidx4, align 8, !tbaa !17
   ret void
 }
 
@@ -53,13 +53,13 @@ declare i64 @_Z13get_global_idj(i32) local_unnamed_addr #1
 
 
 ; Function Attrs: convergent nounwind
-define void @_ZGVdN8uuu_test_int_add2(<2 x i32> addrspace(1)* %srcA, <2 x i32> addrspace(1)* %srcB, <2 x i32> addrspace(1)* %dst) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !kernel_arg_name !12 !vectorized_kernel !16 !no_barrier_path !14 !ocl_recommended_vector_length !20 !vectorized_width !20 !vectorization_dimension !21 !scalarized_kernel !4 !can_unite_workgroups !22 {
+define void @_ZGVdN8uuu_test_int_add2(ptr addrspace(1) %srcA, ptr addrspace(1) %srcB, ptr addrspace(1) %dst) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !kernel_arg_name !12 !vectorized_kernel !16 !no_barrier_path !14 !ocl_recommended_vector_length !20 !vectorized_width !20 !vectorization_dimension !21 !scalarized_kernel !4 !can_unite_workgroups !22 {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) #3
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM:TYPED"(<2 x i32> addrspace(1)* %srcA, <2 x i32> zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(<2 x i32> addrspace(1)* %srcB, <2 x i32> zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(<2 x i32> addrspace(1)* %dst, <2 x i32> zeroinitializer, i32 1) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM:TYPED"(ptr addrspace(1) %srcA, <2 x i32> zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr addrspace(1) %srcB, <2 x i32> zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr addrspace(1) %dst, <2 x i32> zeroinitializer, i32 1) ]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
@@ -68,20 +68,20 @@ simd.loop:                                        ; preds = %simd.loop.exit, %si
   %add = add nuw i64 %0, %call
   %sext = shl i64 %add, 32
   %idxprom = ashr exact i64 %sext, 32
-  %arrayidx = getelementptr inbounds <2 x i32>, <2 x i32> addrspace(1)* %srcA, i64 %idxprom
-  %1 = load <2 x i32>, <2 x i32> addrspace(1)* %arrayidx, align 8, !tbaa !17
+  %arrayidx = getelementptr inbounds <2 x i32>, ptr addrspace(1) %srcA, i64 %idxprom
+  %1 = load <2 x i32>, ptr addrspace(1) %arrayidx, align 8, !tbaa !17
   %scalar7 = extractelement <2 x i32> %1, i32 0
   %scalar8 = extractelement <2 x i32> %1, i32 1
-  %arrayidx2 = getelementptr inbounds <2 x i32>, <2 x i32> addrspace(1)* %srcB, i64 %idxprom
-  %2 = load <2 x i32>, <2 x i32> addrspace(1)* %arrayidx2, align 8, !tbaa !17
+  %arrayidx2 = getelementptr inbounds <2 x i32>, ptr addrspace(1) %srcB, i64 %idxprom
+  %2 = load <2 x i32>, ptr addrspace(1) %arrayidx2, align 8, !tbaa !17
   %scalar = extractelement <2 x i32> %2, i32 0
   %scalar6 = extractelement <2 x i32> %2, i32 1
   %add9 = add i32 %scalar, %scalar7
   %add10 = add i32 %scalar6, %scalar8
   %assembled.vect = insertelement <2 x i32> undef, i32 %add9, i32 0
   %assembled.vect11 = insertelement <2 x i32> %assembled.vect, i32 %add10, i32 1
-  %arrayidx4 = getelementptr inbounds <2 x i32>, <2 x i32> addrspace(1)* %dst, i64 %idxprom
-  store <2 x i32> %assembled.vect11, <2 x i32> addrspace(1)* %arrayidx4, align 8, !tbaa !17
+  %arrayidx4 = getelementptr inbounds <2 x i32>, ptr addrspace(1) %dst, i64 %idxprom
+  store <2 x i32> %assembled.vect11, ptr addrspace(1) %arrayidx4, align 8, !tbaa !17
   br label %simd.loop.exit
 
 simd.loop.exit:                                   ; preds = %simd.loop
@@ -108,7 +108,7 @@ declare void @llvm.directive.region.exit(token) #2
 !1 = !{i32 1, i32 2}
 !2 = !{}
 !3 = !{!"clang version 8.0.0 "}
-!4 = !{void (<2 x i32> addrspace(1)*, <2 x i32> addrspace(1)*, <2 x i32> addrspace(1)*)* @test_int_add2}
+!4 = !{ptr @test_int_add2}
 !5 = !{i32 1, i32 1, i32 1}
 !6 = !{!"none", !"none", !"none"}
 !7 = !{!"int2*", !"int2*", !"int2*"}
@@ -117,7 +117,7 @@ declare void @llvm.directive.region.exit(token) #2
 !10 = !{i1 false, i1 false, i1 false}
 !11 = !{i32 0, i32 0, i32 0}
 !12 = !{!"srcA", !"srcB", !"dst"}
-!13 = !{void (<2 x i32> addrspace(1)*, <2 x i32> addrspace(1)*, <2 x i32> addrspace(1)*)* @_ZGVdN8uuu_test_int_add2}
+!13 = !{ptr @_ZGVdN8uuu_test_int_add2}
 !14 = !{i1 true}
 !15 = !{i32 1}
 !16 = !{null}

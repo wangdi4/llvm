@@ -4,7 +4,7 @@
 ; REQUIRES: asserts
 ; RUN: opt -passes=vplan-vec -vplan-print-after-clear-redn-wrap-flags -vplan-dump-details -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
 
-define i32 @foo(i32* noalias nocapture %A, i32* noalias nocapture %B, i32 %inc) {
+define i32 @foo(ptr noalias nocapture %A, ptr noalias nocapture %B, i32 %inc) {
 ;
 ; CHECK-LABEL:  VPlan after clearing wrap flags for reductions:
 ; CHECK-NEXT:  VPlan IR for: foo:loop.#{{[0-9]+}}
@@ -57,10 +57,10 @@ simd.begin:
 loop:
   %iv = phi i64 [0, %simd.begin], [%iv_inc, %loop]
   %redu = phi i32 [0, %simd.begin], [%3, %loop]
-  %gepa = getelementptr inbounds i32, i32* %A, i64 %iv
-  %gepb = getelementptr inbounds i32, i32* %B, i64 %iv
-  %0 = load i32, i32* %gepa
-  %1 = load i32, i32* %gepb
+  %gepa = getelementptr inbounds i32, ptr %A, i64 %iv
+  %gepb = getelementptr inbounds i32, ptr %B, i64 %iv
+  %0 = load i32, ptr %gepa
+  %1 = load i32, ptr %gepb
   %2 = add nuw nsw i32 %redu, %0
   %3 = add nuw nsw i32 %2, %1
   %iv_inc = add nuw nsw i64 %iv, 1

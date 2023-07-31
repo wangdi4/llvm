@@ -63,71 +63,70 @@ omp.inner.for.body.lr.ph:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr_e.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr_ne.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"(i32* %index.lpriv, i32 0, i32 1)]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr_e.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr_ne.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"(ptr %index.lpriv, i32 0, i32 1)]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
   %mul2 = mul nsw i32 %n1, %n1
   %add3 = add nuw i32 %mul2, 3
-  %1 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_e.priv, i64 0, i64 0
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.inc, %DIR.OMP.SIMD.2
   %indvars.iv = phi i64 [ %indvars.iv.next, %omp.inner.for.inc ], [ 0, %DIR.OMP.SIMD.2 ]
-  %2 = trunc i64 %indvars.iv to i32
-  store i32 %2, i32* %index.lpriv, align 4
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr.priv, i64 0, i64 %indvars.iv
-  %3 = load i32, i32* %arrayidx, align 4
-  %cmp1 = icmp sgt i32 %3, 0
+  %1 = trunc i64 %indvars.iv to i32
+  store i32 %1, ptr %index.lpriv, align 4
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr %arr.priv, i64 0, i64 %indvars.iv
+  %2 = load i32, ptr %arrayidx, align 4
+  %cmp1 = icmp sgt i32 %2, 0
   br i1 %cmp1, label %if.then, label %if.end
 
 if.then:                                          ; preds = %omp.inner.for.body
+  %3 = trunc i64 %indvars.iv to i32
+  %add4 = add i32 %add3, %3
   %4 = trunc i64 %indvars.iv to i32
-  %add4 = add i32 %add3, %4
-  %5 = trunc i64 %indvars.iv to i32
-  %add5 = add nsw i32 %5, %n1
+  %add5 = add nsw i32 %4, %n1
   %idxprom6 = sext i32 %add5 to i64
-  %arrayidx7 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr.priv, i64 0, i64 %idxprom6
-  store i32 %add4, i32* %arrayidx7, align 4
+  %arrayidx7 = getelementptr inbounds [1024 x i32], ptr %arr.priv, i64 0, i64 %idxprom6
+  store i32 %add4, ptr %arrayidx7, align 4
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %omp.inner.for.body
   %rem3339 = and i64 %indvars.iv, 1
   %cmp8 = icmp eq i64 %rem3339, 0
-  %6 = trunc i64 %indvars.iv to i32
+  %5 = trunc i64 %indvars.iv to i32
   br i1 %cmp8, label %if.then9, label %if.else
 
 if.then9:                                         ; preds = %if.end
-  %add10 = add nsw i32 %6, %n1
-  %arrayidx12 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_ne.priv, i64 0, i64 %indvars.iv
-  store i32 %add10, i32* %arrayidx12, align 4
+  %add10 = add nsw i32 %5, %n1
+  %arrayidx12 = getelementptr inbounds [1024 x i32], ptr %arr_ne.priv, i64 0, i64 %indvars.iv
+  store i32 %add10, ptr %arrayidx12, align 4
   br label %if.end15
 
 if.else:                                          ; preds = %if.end
-  %sub = sub nsw i32 %6, %n1
-  %arrayidx14 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_ne.priv, i64 0, i64 %indvars.iv
-  store i32 %sub, i32* %arrayidx14, align 4
+  %sub = sub nsw i32 %5, %n1
+  %arrayidx14 = getelementptr inbounds [1024 x i32], ptr %arr_ne.priv, i64 0, i64 %indvars.iv
+  store i32 %sub, ptr %arrayidx14, align 4
   br label %if.end15
 
 if.end15:                                         ; preds = %if.else, %if.then9
-  %7 = trunc i64 %indvars.iv to i32
-  %rem16 = srem i32 %7, %n1
+  %6 = trunc i64 %indvars.iv to i32
+  %rem16 = srem i32 %6, %n1
   %cmp17 = icmp eq i32 %rem16, 1
   br i1 %cmp17, label %if.then18, label %if.else22
 
 if.then18:                                        ; preds = %if.end15
-  %8 = trunc i64 %indvars.iv to i32
-  %sub19 = sub nsw i32 %8, %n1
-  %arrayidx21 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_e.priv, i64 0, i64 %indvars.iv
-  store i32 %sub19, i32* %arrayidx21, align 4
+  %7 = trunc i64 %indvars.iv to i32
+  %sub19 = sub nsw i32 %7, %n1
+  %arrayidx21 = getelementptr inbounds [1024 x i32], ptr %arr_e.priv, i64 0, i64 %indvars.iv
+  store i32 %sub19, ptr %arrayidx21, align 4
   br label %omp.inner.for.inc
 
 if.else22:                                        ; preds = %if.end15
-  %call = call i32 @helper(i32* nonnull %1)
-  %9 = load i32, i32* %index.lpriv, align 4
-  %idxprom23 = sext i32 %9 to i64
-  %arrayidx24 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_e.priv, i64 0, i64 %idxprom23
-  store i32 %call, i32* %arrayidx24, align 4
+  %call = call i32 @helper(ptr nonnull %arr_e.priv)
+  %8 = load i32, ptr %index.lpriv, align 4
+  %idxprom23 = sext i32 %8 to i64
+  %arrayidx24 = getelementptr inbounds [1024 x i32], ptr %arr_e.priv, i64 0, i64 %idxprom23
+  store i32 %call, ptr %arrayidx24, align 4
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %if.else22, %if.then18
@@ -154,16 +153,14 @@ define void @test_unsafe_addrspacecast() {
   %arr_ne.priv = alloca [1024 x i32], align 4
   br label %simd.begin.region
 simd.begin.region:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr_e.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr_ne.priv, i32 0, i32 1024) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr_e.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr_ne.priv, i32 0, i32 1024) ]
   br label %simd.loop
 simd.loop:
   %index = phi i64 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.end ]
-  %uni.gep1 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_e.priv, i64 0, i64 0
-  %uni.gep2 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_ne.priv, i64 0, i64 0
-  %Y = addrspacecast i32* %uni.gep1 to i64 addrspace(2)*
-  %Z = addrspacecast i32* %uni.gep2 to i64 addrspace(2)*
-  %ld = load i32, i32* %uni.gep1
-  %ld1 = load i64, i64 addrspace(2)* %Y
+  %Y = addrspacecast ptr %arr_e.priv to ptr addrspace(2)
+  %Z = addrspacecast ptr %arr_ne.priv to ptr addrspace(2)
+  %ld = load i32, ptr %arr_e.priv
+  %ld1 = load i64, ptr addrspace(2) %Y
   br label %simd.loop.end
 simd.loop.end:
   %indvar = add nuw i64 %index, 1
@@ -182,4 +179,4 @@ declare token @llvm.directive.region.entry()
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)
 
-declare dso_local i32 @helper(i32*) local_unnamed_addr
+declare dso_local i32 @helper(ptr) local_unnamed_addr

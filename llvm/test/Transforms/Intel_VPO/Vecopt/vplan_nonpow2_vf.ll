@@ -22,10 +22,10 @@ entry:
 for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
 
-  %ld.idx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.1, i64 0, i64 %indvars.iv
-  %ld = load i32, i32* %ld.idx
-  %st.idx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.2, i64 0, i64 %indvars.iv
-  store i32 %ld, i32* %st.idx
+  %ld.idx = getelementptr inbounds [1024 x i32], ptr @arr.i32.1, i64 0, i64 %indvars.iv
+  %ld = load i32, ptr %ld.idx
+  %st.idx = getelementptr inbounds [1024 x i32], ptr @arr.i32.2, i64 0, i64 %indvars.iv
+  store i32 %ld, ptr %st.idx
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 103

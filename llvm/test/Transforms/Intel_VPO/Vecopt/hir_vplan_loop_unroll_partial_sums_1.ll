@@ -14,7 +14,7 @@
 ; }
 
 ; Check that multiple float/integer reductions are handled.
-define float @foo(float* %fp, float %finit, i64* %lp, i64 %linit) {
+define float @foo(ptr %fp, float %finit, ptr %lp, i64 %linit) {
 ; CHECK-LABEL:  VPlan after VPlan loop unrolling:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
 ; CHECK-NEXT:  External Defs Start:
@@ -41,22 +41,22 @@ define float @foo(float* %fp, float %finit, i64* %lp, i64 %linit) {
 ; CHECK-NEXT:     [DA: Div] float [[VP8:%.*]] = phi  [ float [[VP_RED_INIT]], [[BB1]] ],  [ float [[VP9:%.*]], cloned.[[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] float [[VP10:%.*]] = phi  [ float [[VP_RED_INIT]], [[BB1]] ],  [ float [[VP11:%.*]], cloned.[[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP12:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP13:%.*]], cloned.[[BB3]] ]
-; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT:%.*]] = subscript inbounds float* [[FP0:%.*]] i64 [[VP12]]
-; CHECK-NEXT:     [DA: Div] float [[VP_LOAD:%.*]] = load float* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[FP0:%.*]] i64 [[VP12]]
+; CHECK-NEXT:     [DA: Div] float [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     [DA: Div] float [[VP11]] = fadd float [[VP_LOAD]] float [[VP10]]
-; CHECK-NEXT:     [DA: Div] i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64* [[LP0:%.*]] i64 [[VP12]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP_LOAD_1:%.*]] = load i64* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[LP0:%.*]] i64 [[VP12]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP7]] = or i64 [[VP_LOAD_1]] i64 [[VP6]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP14:%.*]] = add i64 [[VP12]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP15:%.*]] = icmp slt i64 [[VP14]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br cloned.[[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:     [DA: Div] float* [[VP16:%.*]] = subscript inbounds float* [[FP0]] i64 [[VP14]]
-; CHECK-NEXT:     [DA: Div] float [[VP17:%.*]] = load float* [[VP16]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP16:%.*]] = subscript inbounds ptr [[FP0]] i64 [[VP14]]
+; CHECK-NEXT:     [DA: Div] float [[VP17:%.*]] = load ptr [[VP16]]
 ; CHECK-NEXT:     [DA: Div] float [[VP9]] = fadd float [[VP17]] float [[VP8]]
-; CHECK-NEXT:     [DA: Div] i64* [[VP18:%.*]] = subscript inbounds i64* [[LP0]] i64 [[VP14]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP19:%.*]] = load i64* [[VP18]]
+; CHECK-NEXT:     [DA: Div] ptr [[VP18:%.*]] = subscript inbounds ptr [[LP0]] i64 [[VP14]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP19:%.*]] = load ptr [[VP18]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP5]] = or i64 [[VP19]] i64 [[VP4]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP13]] = add i64 [[VP14]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP20:%.*]] = icmp slt i64 [[VP13]] i64 [[VP_VECTOR_TRIP_COUNT]]
@@ -87,11 +87,11 @@ for.body:                                         ; preds = %entry, %for.body
   %lacc.013 = phi i64 [ %linit, %entry ], [ %or, %for.body ]
   %fsum.012 = phi float [ %finit, %entry ], [ %add, %for.body ]
   %l1.011 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
-  %arrayidx = getelementptr inbounds float, float* %fp, i64 %l1.011
-  %0 = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds float, ptr %fp, i64 %l1.011
+  %0 = load float, ptr %arrayidx, align 4
   %add = fadd fast float %0, %fsum.012
-  %arrayidx1 = getelementptr inbounds i64, i64* %lp, i64 %l1.011
-  %1 = load i64, i64* %arrayidx1, align 8
+  %arrayidx1 = getelementptr inbounds i64, ptr %lp, i64 %l1.011
+  %1 = load i64, ptr %arrayidx1, align 8
   %or = or i64 %1, %lacc.013
   %inc = add nuw nsw i64 %l1.011, 1
   %exitcond.not = icmp eq i64 %inc, 1024

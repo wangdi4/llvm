@@ -41,21 +41,21 @@ entry:
 
 for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ld1.idx = getelementptr inbounds [1024 x double], [1024 x double]* @arr.double.1, i64 0, i64 %indvars.iv
-  %ld2.idx = getelementptr inbounds [1024 x double], [1024 x double]* @arr.double.2, i64 0, i64 %indvars.iv
-  %st1.idx = getelementptr inbounds [1024 x double], [1024 x double]* @arr.double.3, i64 0, i64 %indvars.iv
-  %st2.idx = getelementptr inbounds [1024 x double], [1024 x double]* @arr.double.4, i64 0, i64 %indvars.iv
+  %ld1.idx = getelementptr inbounds [1024 x double], ptr @arr.double.1, i64 0, i64 %indvars.iv
+  %ld2.idx = getelementptr inbounds [1024 x double], ptr @arr.double.2, i64 0, i64 %indvars.iv
+  %st1.idx = getelementptr inbounds [1024 x double], ptr @arr.double.3, i64 0, i64 %indvars.iv
+  %st2.idx = getelementptr inbounds [1024 x double], ptr @arr.double.4, i64 0, i64 %indvars.iv
 
-  %ld1 = load double, double* %ld1.idx
-  %ld2 = load double, double* %ld2.idx
+  %ld1 = load double, ptr %ld1.idx
+  %ld2 = load double, ptr %ld2.idx
 
   %val1 = fadd double %ld1, %ld2
   %val2 = fsub double %ld1, %ld2
   %val3 = fmul double %ld1, %val1
   %val4 = fdiv double %ld2, %val2
 
-  store double %val3, double* %st1.idx
-  store double %val4, double* %st2.idx
+  store double %val3, ptr %st1.idx
+  store double %val4, ptr %st2.idx
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024

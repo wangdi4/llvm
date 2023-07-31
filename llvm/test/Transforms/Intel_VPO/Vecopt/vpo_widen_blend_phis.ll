@@ -17,7 +17,7 @@ target triple = "x86_64-pc-linux"
 ;      |              |
 ;    Latch------------+
 
-define void @test_vec_phi(i1 %flag1, <3 x i32>* %a, <3 x i32>* %b, <3 x i32>* %c) local_unnamed_addr {
+define void @test_vec_phi(i1 %flag1, ptr %a, ptr %b, ptr %c) local_unnamed_addr {
 ; CHECK-LABEL:@test_vec_phi
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
@@ -26,12 +26,12 @@ entry:
 for.body:
 ; CHECK: vector.body
   %indvars.iv = phi i32 [ 0, %entry ], [ %indvars.iv.next, %latch ]
-  %gep1 = getelementptr <3 x i32>, <3 x i32>* %a, i32 %indvars.iv
-  %ld1 = load <3 x i32>, <3 x i32>* %gep1, align 4
-  %gep2 = getelementptr <3 x i32>, <3 x i32>* %b, i32 %indvars.iv
-  %ld2 = load <3 x i32>, <3 x i32>* %gep2, align 4
-  %gep3 = getelementptr <3 x i32>, <3 x i32>* %c, i32 %indvars.iv
-  %ld3 = load <3 x i32>, <3 x i32>* %gep3, align 4
+  %gep1 = getelementptr <3 x i32>, ptr %a, i32 %indvars.iv
+  %ld1 = load <3 x i32>, ptr %gep1, align 4
+  %gep2 = getelementptr <3 x i32>, ptr %b, i32 %indvars.iv
+  %ld2 = load <3 x i32>, ptr %gep2, align 4
+  %gep3 = getelementptr <3 x i32>, ptr %c, i32 %indvars.iv
+  %ld3 = load <3 x i32>, ptr %gep3, align 4
   %add1 = add <3 x i32> %ld2, %ld3
 ; CHECK: [[ADD1:%.*]] = add <6 x i32> [[WMG2:%.*]], [[WMG3:%.*]]
   br i1 %flag1, label %if, label %merge
@@ -59,7 +59,7 @@ for.end:
 
 ;;;;;;;;;;; Test the generation of correct blend-phis.
 
-define void @test_blend_phis(i32* %a, i32 %b, <2 x i32> %avec, <2 x i32> %bvec) local_unnamed_addr {
+define void @test_blend_phis(ptr %a, i32 %b, <2 x i32> %avec, <2 x i32> %bvec) local_unnamed_addr {
 ; CHECK-LABEL:@test_blend_phis
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
@@ -77,9 +77,9 @@ entry:
 for.body:
 ; CHECK: vector.body
   %indvars.iv = phi i32 [ 0, %entry ], [ %indvars.iv.next, %latch ]
-  %gep = getelementptr i32, i32 * %a, i32 %indvars.iv
-  %ld = load i32, i32* %gep, align 4
-; CHECK: [[WIDE_LOAD:%.*]] = load <2 x i32>, <2 x i32>* {{.*}}, align 4
+  %gep = getelementptr i32, ptr %a, i32 %indvars.iv
+  %ld = load i32, ptr %gep, align 4
+; CHECK: [[WIDE_LOAD:%.*]] = load <2 x i32>, ptr {{.*}}, align 4
   %varying = icmp eq i32 %ld,  42
 ; CHECK: [[WIDE_ICMP:%.*]] = icmp eq <2 x i32> [[WIDE_LOAD]], <i32 42, i32 42>
   br label %bb0
@@ -204,16 +204,16 @@ for.end:
 ; the author of the fix deems it appropriate, this function can be dropped.
 
 ; Function Attrs: nounwind
-define void @test_embree(i64 %0, %"GPU_AABB" addrspace(1)* %1) {
+define void @test_embree(i64 %0, ptr addrspace(1) %1) {
   %alloca. = alloca i64
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %4
-%entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM:TYPED"(i64* %alloca., i64 0, i32 1) ]
+%entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM:TYPED"(ptr %alloca., i64 0, i32 1) ]
   br label %simd.loop.preheader
 
 simd.loop.preheader:                              ; preds = %simd.begin.region
-  %load. = load i64, i64* %alloca.
+  %load. = load i64, ptr %alloca.
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.loop.preheader

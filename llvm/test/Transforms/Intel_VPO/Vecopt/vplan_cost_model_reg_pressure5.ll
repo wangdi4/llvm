@@ -33,23 +33,23 @@ for.body:
   %fv7 = phi float [ 0., %entry ], [ %fv7.next, %for.body ]
   %fv8 = phi float [ 0., %entry ], [ %fv8.next, %for.body ]
 
-  %idx1 = getelementptr inbounds [16 x float], [16 x float]* @arr1, i64 0, i64 %iv
-  %idx2 = getelementptr inbounds [16 x float], [16 x float]* @arr2, i64 0, i64 %iv
-  %idx3 = getelementptr inbounds [16 x float], [16 x float]* @arr3, i64 0, i64 %iv
-  %idx4 = getelementptr inbounds [16 x float], [16 x float]* @arr4, i64 0, i64 %iv
-  %idx5 = getelementptr inbounds [16 x float], [16 x float]* @arr5, i64 0, i64 %iv
-  %idx6 = getelementptr inbounds [16 x float], [16 x float]* @arr6, i64 0, i64 %iv
-  %idx7 = getelementptr inbounds [16 x float], [16 x float]* @arr7, i64 0, i64 %iv
-  %idx8 = getelementptr inbounds [16 x float], [16 x float]* @arr8, i64 0, i64 %iv
+  %idx1 = getelementptr inbounds [16 x float], ptr @arr1, i64 0, i64 %iv
+  %idx2 = getelementptr inbounds [16 x float], ptr @arr2, i64 0, i64 %iv
+  %idx3 = getelementptr inbounds [16 x float], ptr @arr3, i64 0, i64 %iv
+  %idx4 = getelementptr inbounds [16 x float], ptr @arr4, i64 0, i64 %iv
+  %idx5 = getelementptr inbounds [16 x float], ptr @arr5, i64 0, i64 %iv
+  %idx6 = getelementptr inbounds [16 x float], ptr @arr6, i64 0, i64 %iv
+  %idx7 = getelementptr inbounds [16 x float], ptr @arr7, i64 0, i64 %iv
+  %idx8 = getelementptr inbounds [16 x float], ptr @arr8, i64 0, i64 %iv
 
-  %ld1 = load float, float* %idx1
-  %ld2 = load float, float* %idx2
-  %ld3 = load float, float* %idx3
-  %ld4 = load float, float* %idx4
-  %ld5 = load float, float* %idx5
-  %ld6 = load float, float* %idx6
-  %ld7 = load float, float* %idx7
-  %ld8 = load float, float* %idx8
+  %ld1 = load float, ptr %idx1
+  %ld2 = load float, ptr %idx2
+  %ld3 = load float, ptr %idx3
+  %ld4 = load float, ptr %idx4
+  %ld5 = load float, ptr %idx5
+  %ld6 = load float, ptr %idx6
+  %ld7 = load float, ptr %idx7
+  %ld8 = load float, ptr %idx8
 
   %v1 = fadd float %ld1, %fv1
   %v2 = fadd float %ld1, %fv2
@@ -60,14 +60,14 @@ for.body:
   %v7 = fadd float %ld1, %fv7
   %v8 = fadd float %ld1, %fv8
 
-  store float %v1, float* %idx1
-  store float %v2, float* %idx2
-  store float %v3, float* %idx3
-  store float %v4, float* %idx4
-  store float %v5, float* %idx5
-  store float %v6, float* %idx6
-  store float %v7, float* %idx7
-  store float %v8, float* %idx8
+  store float %v1, ptr %idx1
+  store float %v2, ptr %idx2
+  store float %v3, ptr %idx3
+  store float %v4, ptr %idx4
+  store float %v5, ptr %idx5
+  store float %v6, ptr %idx6
+  store float %v7, ptr %idx7
+  store float %v8, ptr %idx8
 
   %iv.next = add nuw nsw i64 %iv, 1
   %fv1.next = fadd float %fv1, 1.

@@ -19,12 +19,12 @@ entry:
   ret i64 %add
 }
 
-define dso_local noundef i32 @main(i32 noundef %argc, i8** nocapture noundef readonly %argv) local_unnamed_addr #1 {
+define dso_local noundef i32 @main(i32 noundef %argc, ptr nocapture noundef readonly %argv) local_unnamed_addr #1 {
 entry:
   %a = alloca [128 x i64], align 16
-  %arrayidx1 = getelementptr inbounds i8*, i8** %argv, i64 1
-  %0 = load i8*, i8** %arrayidx1, align 8
-  %call = tail call i64 @atol(i8* nocapture noundef %0) #8
+  %arrayidx1 = getelementptr inbounds ptr, ptr %argv, i64 1
+  %0 = load ptr, ptr %arrayidx1, align 8
+  %call = tail call i64 @atol(ptr nocapture noundef %0) #8
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
@@ -38,8 +38,8 @@ omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.148, %
   %.omp.iv.local.041 = phi i64 [ 0, %DIR.OMP.SIMD.148 ], [ %add9, %omp.inner.for.body ]
   %mul = mul nsw i64 %.omp.iv.local.041, %call
   %call7 = call noundef i64 @_Z3fooll(i64 noundef %call, i64 noundef %mul)
-  %arrayidx8 = getelementptr inbounds [128 x i64], [128 x i64]* %a, i64 0, i64 %mul
-  store i64 %call7, i64* %arrayidx8, align 4
+  %arrayidx8 = getelementptr inbounds [128 x i64], ptr %a, i64 0, i64 %mul
+  store i64 %call7, ptr %arrayidx8, align 4
   %add9 = add nuw nsw i64 %.omp.iv.local.041, 1
   %exitcond.not = icmp eq i64 %add9, 64
   br i1 %exitcond.not, label %omp.inner.for.cond.DIR.OMP.END.SIMD.4.loopexit_crit_edge, label %omp.inner.for.body
@@ -57,6 +57,6 @@ for.cond.cleanup13:                               ; preds = %for.cond.cleanup13
 
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
-declare dso_local i64 @atol(i8* noundef)
+declare dso_local i64 @atol(ptr noundef)
 
 attributes #0 = { "vector-variants"="_ZGVbN8uls0__Z3fooll,_ZGVcN8uls0__Z3fooll,_ZGVdN8uls0__Z3fooll,_ZGVeN8uls0__Z3fooll,_ZGVbM8uls0__Z3fooll,_ZGVcM8uls0__Z3fooll,_ZGVdM8uls0__Z3fooll,_ZGVeM8uls0__Z3fooll" }

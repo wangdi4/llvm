@@ -23,7 +23,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %struct.S = type { i32, i32 }
 
-define void @_Z3fooP1SPii(%struct.S* noalias %out1, i32* %in, i32 %n) {
+define void @_Z3fooP1SPii(ptr noalias %out1, ptr %in, i32 %n) {
 entry:
   %cmp21 = icmp sgt i32 %n, 0
   br i1 %cmp21, label %for.body.preheader, label %for.cond.cleanup
@@ -41,17 +41,17 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 for.body:                                         ; preds = %for.body.preheader, %for.inc
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.inc ]
   %k.022 = phi i32 [ 0, %for.body.preheader ], [ %k.1, %for.inc ]
-  %arrayidx = getelementptr inbounds i32, i32* %in, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %in, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %tobool.not = icmp eq i32 %0, 0
   br i1 %tobool.not, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
   %idxprom3 = sext i32 %k.022 to i64
-  %a = getelementptr inbounds %struct.S, %struct.S* %out1, i64 %idxprom3, i32 0
-  store i32 %0, i32* %a, align 4
-  %b = getelementptr inbounds %struct.S, %struct.S* %out1, i64 %idxprom3, i32 1
-  store i32 %0, i32* %b, align 4
+  %a = getelementptr inbounds %struct.S, ptr %out1, i64 %idxprom3, i32 0
+  store i32 %0, ptr %a, align 4
+  %b = getelementptr inbounds %struct.S, ptr %out1, i64 %idxprom3, i32 1
+  store i32 %0, ptr %b, align 4
   %inc = add nsw i32 %k.022, 1
   br label %for.inc
 

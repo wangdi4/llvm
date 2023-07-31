@@ -34,7 +34,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly mustprogress nofree norecurse nosync nounwind uwtable
-define dso_local double @_Z3fooPdS_S_PiS0_S_i(double* noalias nocapture noundef readonly %A1, double* noalias nocapture noundef readnone %A2, double* noalias nocapture noundef %B, i32* noalias nocapture noundef readonly %C1, i32* noalias nocapture noundef readonly %C2, double* noalias nocapture noundef readnone %C3, i32 noundef %N) local_unnamed_addr #0 {
+define dso_local double @_Z3fooPdS_S_PiS0_S_i(ptr noalias nocapture noundef readonly %A1, ptr noalias nocapture noundef readnone %A2, ptr noalias nocapture noundef %B, ptr noalias nocapture noundef readonly %C1, ptr noalias nocapture noundef readonly %C2, ptr noalias nocapture noundef readnone %C3, i32 noundef %N) local_unnamed_addr #0 {
 entry:
   %cmp30 = icmp sgt i32 %N, 0
   br i1 %cmp30, label %for.body.preheader, label %for.cond.cleanup
@@ -55,31 +55,31 @@ for.body:                                         ; preds = %for.body.preheader,
   %n2.033 = phi i32 [ 0, %for.body.preheader ], [ %n2.1, %for.inc ]
   %n1.032 = phi i32 [ 0, %for.body.preheader ], [ %n1.1, %for.inc ]
   %k.031 = phi i32 [ 0, %for.body.preheader ], [ %k.1, %for.inc ]
-  %arrayidx = getelementptr inbounds i32, i32* %C1, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds i32, ptr %C1, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !3
   %cmp1.not = icmp eq i32 %0, 0
   br i1 %cmp1.not, label %if.else, label %if.then
 
 if.then:                                          ; preds = %for.body
-  %arrayidx3 = getelementptr inbounds double, double* %A1, i64 %indvars.iv
-  %1 = load double, double* %arrayidx3, align 8, !tbaa !7
+  %arrayidx3 = getelementptr inbounds double, ptr %A1, i64 %indvars.iv
+  %1 = load double, ptr %arrayidx3, align 8, !tbaa !7
   %inc = add nsw i32 %k.031, 1
   %idxprom4 = sext i32 %k.031 to i64
-  %arrayidx5 = getelementptr inbounds double, double* %B, i64 %idxprom4
-  store double %1, double* %arrayidx5, align 8, !tbaa !7
+  %arrayidx5 = getelementptr inbounds double, ptr %B, i64 %idxprom4
+  store double %1, ptr %arrayidx5, align 8, !tbaa !7
   br label %for.inc
 
 if.else:                                          ; preds = %for.body
-  %arrayidx7 = getelementptr inbounds i32, i32* %C2, i64 %indvars.iv
-  %2 = load i32, i32* %arrayidx7, align 4, !tbaa !3
+  %arrayidx7 = getelementptr inbounds i32, ptr %C2, i64 %indvars.iv
+  %2 = load i32, ptr %arrayidx7, align 4, !tbaa !3
   %cmp8.not = icmp eq i32 %2, 0
   br i1 %cmp8.not, label %if.else10, label %for.inc
 
 if.else10:                                        ; preds = %if.else
   %inc11 = add nsw i32 %n2.033, 1
   %idxprom12 = sext i32 %n2.033 to i64
-  %arrayidx13 = getelementptr inbounds double, double* %B, i64 %idxprom12
-  %3 = load double, double* %arrayidx13, align 8, !tbaa !7
+  %arrayidx13 = getelementptr inbounds double, ptr %B, i64 %idxprom12
+  %3 = load double, ptr %arrayidx13, align 8, !tbaa !7
   %inc14 = add nsw i32 %n1.032, 1
   br label %for.inc
 

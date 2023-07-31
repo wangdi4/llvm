@@ -8,7 +8,7 @@
 
 ; CHECK: @foo
 
-define internal void @foo(i32* %temp42, i32* %temp44, i32 %ub.new) {
+define internal void @foo(ptr %temp42, ptr %temp44, i32 %ub.new) {
 entry:
   %"target_parallel_do_simd_$I0.linear" = alloca i32
   %temp27 = alloca float
@@ -16,19 +16,17 @@ entry:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %bb8
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %"target_parallel_do_simd_$I0.linear", i32 0, i32 1, i32 1), "QUAL.OMP.PRIVATE:TYPED"(float* %temp27, float 0.000000e+00, i32 1), "QUAL.OMP.PRIVATE:TYPED"(float* %temp, float 0.000000e+00, i32 1) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %"target_parallel_do_simd_$I0.linear", i32 0, i32 1, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr %temp27, float 0.000000e+00, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr %temp, float 0.000000e+00, i32 1) ]
   br label %DIR.OMP.SIMD.11
 
 DIR.OMP.SIMD.11:                                  ; preds = %DIR.OMP.SIMD.1
-  %"(i8*)temp$" = bitcast float* %temp27 to i8*
-  %"(i8*)temp$24" = bitcast float* %temp to i8*
   br label %bb12
 
 bb12:                                             ; preds = %DIR.OMP.SIMD.11, %bb12
   %temp46.local.0 = phi i32 [ %add33, %bb12 ], [ 0, %DIR.OMP.SIMD.11 ]
-  %temp_fetch6 = load i32, i32* %temp42, align 1
-  %temp_fetch8 = load i32, i32* %temp44, align 1
-  call void @myfunc(i8* nonnull %"(i8*)temp$", i8* nonnull %"(i8*)temp$24")
+  %temp_fetch6 = load i32, ptr %temp42, align 1
+  %temp_fetch8 = load i32, ptr %temp44, align 1
+  call void @myfunc(ptr nonnull %temp27, ptr nonnull %temp)
   %add33 = add nuw i32 %temp46.local.0, 1
   %exitcond = icmp eq i32 %temp46.local.0, %ub.new
   br i1 %exitcond, label %DIR.OMP.END.SIMD.2, label %bb12
@@ -39,7 +37,7 @@ DIR.OMP.END.SIMD.2:                               ; preds = %bb12
   %temp_fetch8.lcssa = phi i32 [ %temp_fetch8, %bb12 ]
   %mul12.le = mul nsw i32 %temp_fetch8.lcssa, %temp46.local.0.lcssa
   %add14.le = add nsw i32 %mul12.le, %temp_fetch6.lcssa
-  store i32 %add14.le, i32* %"target_parallel_do_simd_$I0.linear", align 8
+  store i32 %add14.le, ptr %"target_parallel_do_simd_$I0.linear", align 8
   br label %DIR.OMP.END.SIMD.22
 
 DIR.OMP.END.SIMD.22:                              ; preds = %DIR.OMP.END.SIMD.2
@@ -49,4 +47,4 @@ DIR.OMP.END.SIMD.22:                              ; preds = %DIR.OMP.END.SIMD.2
 
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
-declare void @myfunc(i8* nonnull, i8* nonnull)
+declare void @myfunc(ptr nonnull, ptr nonnull)

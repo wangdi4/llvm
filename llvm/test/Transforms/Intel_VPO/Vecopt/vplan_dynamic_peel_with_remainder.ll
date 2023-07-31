@@ -15,18 +15,18 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @test(i64* nocapture %ary) {
+define void @test(ptr nocapture %ary) {
 ; CHECK:       target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 ; CHECK-NEXT:  target triple = "x86_64-unknown-linux-gnu"
 ;
-; CHECK:  define void @test(i64* nocapture [[ARY0:%.*]]) #0 {
+; CHECK:  define void @test(ptr nocapture [[ARY0:%.*]]) #0 {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label %[[PEEL_CHECKZ0:.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  [[PEEL_CHECKZ0]]:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i64*> poison, i64* [[ARY0]], i64 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <4 x i64*> [[BROADCAST_SPLATINSERT0]], <4 x i64*> poison, <4 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP0:%.*]] = ptrtoint <4 x i64*> [[BROADCAST_SPLAT0]] to <4 x i64>
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x ptr> poison, ptr [[ARY0]], i64 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <4 x ptr> [[BROADCAST_SPLATINSERT0]], <4 x ptr> poison, <4 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP0:%.*]] = ptrtoint <4 x ptr> [[BROADCAST_SPLAT0]] to <4 x i64>
 ; CHECK-NEXT:    [[DOTEXTRACT_0_0:%.*]] = extractelement <4 x i64> [[TMP0]], i32 0
 ; CHECK-NEXT:    [[TMP1:%.*]] = udiv i64 [[DOTEXTRACT_0_0]], 8
 ; CHECK-NEXT:    [[TMP2:%.*]] = mul i64 [[TMP1]], 3
@@ -69,9 +69,8 @@ define void @test(i64* nocapture %ary) {
 ; CHECK-NEXT:  vector.body:
 ; CHECK-NEXT:    [[UNI_PHI50:%.*]] = phi i64 [ [[UNI_PHI0]], [[VPLANNEDBB30]] ], [ [[TMP12:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ [[TMP9]], [[VPLANNEDBB30]] ], [ [[TMP11:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i64, i64* [[ARY0]], i64 [[UNI_PHI50]]
-; CHECK-NEXT:    [[TMP10:%.*]] = bitcast i64* [[SCALAR_GEP0]] to <4 x i64>*
-; CHECK-NEXT:    store <4 x i64> [[VEC_PHI0]], <4 x i64>* [[TMP10]], align 8, !intel.preferred_alignment !0
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i64, ptr [[ARY0]], i64 [[UNI_PHI50]]
+; CHECK-NEXT:    store <4 x i64> [[VEC_PHI0]], ptr [[SCALAR_GEP0]], align 8, !intel.preferred_alignment !0
 ; CHECK-NEXT:    [[TMP11]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP12]] = add nuw nsw i64 [[UNI_PHI50]], 4
 ; CHECK-NEXT:    [[TMP13:%.*]] = icmp ult i64 [[TMP12]], [[N_VEC0]]
@@ -105,16 +104,16 @@ define void @test(i64* nocapture %ary) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  for.body:
 ; CHECK-NEXT:    [[INDVARS_IV0:%.*]] = phi i64 [ [[UNI_PHI90]], %[[REMBLK0]] ], [ [[INDVARS_IV_NEXT0]], [[FOR_BODY0]] ]
-; CHECK-NEXT:    [[PTR0:%.*]] = getelementptr inbounds i64, i64* [[ARY0]], i64 [[INDVARS_IV0]]
-; CHECK-NEXT:    store i64 [[INDVARS_IV0]], i64* [[PTR0]], align 8
+; CHECK-NEXT:    [[PTR0:%.*]] = getelementptr inbounds i64, ptr [[ARY0]], i64 [[INDVARS_IV0]]
+; CHECK-NEXT:    store i64 [[INDVARS_IV0]], ptr [[PTR0]], align 8
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1
 ; CHECK-NEXT:    [[CMP0:%.*]] = icmp ult i64 [[INDVARS_IV_NEXT0]], 1027
 ; CHECK-NEXT:    br i1 [[CMP0]], label [[FOR_BODY0]], label [[VPLANNEDBB100]], !llvm.loop !3
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  for.body.sl.clone:
 ; CHECK-NEXT:    [[INDVARS_IV_SL_CLONE0:%.*]] = phi i64 [ 0, %[[PEELBLK0]] ], [ [[INDVARS_IV_NEXT_SL_CLONE0]], [[FOR_BODY_SL_CLONE0]] ]
-; CHECK-NEXT:    [[PTR_SL_CLONE0:%.*]] = getelementptr inbounds i64, i64* [[ARY0]], i64 [[INDVARS_IV_SL_CLONE0]]
-; CHECK-NEXT:    store i64 [[INDVARS_IV_SL_CLONE0]], i64* [[PTR_SL_CLONE0]], align 8
+; CHECK-NEXT:    [[PTR_SL_CLONE0:%.*]] = getelementptr inbounds i64, ptr [[ARY0]], i64 [[INDVARS_IV_SL_CLONE0]]
+; CHECK-NEXT:    store i64 [[INDVARS_IV_SL_CLONE0]], ptr [[PTR_SL_CLONE0]], align 8
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT_SL_CLONE0]] = add nuw nsw i64 [[INDVARS_IV_SL_CLONE0]], 1
 ; CHECK-NEXT:    [[CMP_SL_CLONE0:%.*]] = icmp ult i64 [[INDVARS_IV_NEXT_SL_CLONE0]], [[TMP3]]
 ; CHECK-NEXT:    br i1 [[CMP_SL_CLONE0]], label [[FOR_BODY_SL_CLONE0]], label [[VPLANNEDBB0]], !llvm.loop !5
@@ -129,8 +128,8 @@ entry:
 
 for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ptr = getelementptr inbounds i64, i64* %ary, i64 %indvars.iv
-  store i64 %indvars.iv, i64* %ptr, align 8
+  %ptr = getelementptr inbounds i64, ptr %ary, i64 %indvars.iv
+  store i64 %indvars.iv, ptr %ptr, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %cmp = icmp ult i64 %indvars.iv.next, 1027
   br i1 %cmp, label %for.body, label %for.end

@@ -14,21 +14,18 @@ define void @foo(ptr nocapture readonly %src, i64 %idx) {
 ; CHECK-LABEL: define {{[^@]+}}@foo(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[DST:%.*]] = alloca [64 x i64], align 16
-; CHECK-NEXT:    [[ARRAYIDXA0:%.*]] = getelementptr inbounds i64, ptr [[SRC:%.*]], i64 0
-; CHECK-NEXT:    [[ARRAYIDXB0:%.*]] = getelementptr inbounds i64, ptr [[SRC]], i64 8
-; CHECK-NEXT:    [[ARRAYIDX0:%.*]] = getelementptr inbounds [64 x i64], ptr [[DST]], i64 0, i64 0
-; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i64>, ptr [[ARRAYIDXA0]], align 1
+; CHECK-NEXT:    [[ARRAYIDXB0:%.*]] = getelementptr inbounds i64, ptr [[SRC:%.*]], i64 8
+; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i64>, ptr [[SRC]], align 1
 ; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i64>, ptr [[ARRAYIDXB0]], align 1
 ; CHECK-NEXT:    [[SPLITLOADSHUFFLE:%.*]] = shufflevector <2 x i64> [[TMP0]], <2 x i64> [[TMP1]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-; CHECK-NEXT:    store <4 x i64> [[SPLITLOADSHUFFLE]], ptr [[ARRAYIDX0]], align 16
+; CHECK-NEXT:    store <4 x i64> [[SPLITLOADSHUFFLE]], ptr [[DST]], align 16
 ; CHECK-NEXT:    ret void
 ;
 entry:
   %dst = alloca [64 x i64], align 16
 
 ; Split load A
-  %arrayidxA0 = getelementptr inbounds i64, ptr %src, i64 0
-  %A0 = load i64, ptr %arrayidxA0, align 1
+  %A0 = load i64, ptr %src, align 1
   %arrayidxA1 = getelementptr inbounds i64, ptr %src, i64 1
   %A1 = load i64, ptr %arrayidxA1, align 1
 
@@ -39,8 +36,7 @@ entry:
   %B1 = load i64, ptr %arrayidxB1, align 1
 
 ; 4 consecutive stores:
-  %arrayidx0 = getelementptr inbounds [64 x i64], ptr %dst, i64 0, i64 0
-  store i64 %A0, ptr %arrayidx0, align 16
+  store i64 %A0, ptr %dst, align 16
   %arrayidx1 = getelementptr inbounds [64 x i64], ptr %dst, i64 0, i64 1
   store i64 %A1, ptr %arrayidx1, align 16
   %arrayidx2 = getelementptr inbounds [64 x i64], ptr %dst, i64 0, i64 2

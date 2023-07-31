@@ -3,7 +3,7 @@
 ;
 ; LIT test to check cost modeling of abs VPInstruction.
 ;
-define dso_local void @foo(i64* noalias nocapture %larr, i64* noalias nocapture %larr2) local_unnamed_addr #0 {
+define dso_local void @foo(ptr noalias nocapture %larr, ptr noalias nocapture %larr2) local_unnamed_addr #0 {
 ;
 ; CHECK-LABEL:  Cost Model for VPlan foo:HIR.#{{[0-9]+}} with VF = 4:
 ; CHECK:        Cost 4 for i1 [[VP4:%.*]] = icmp slt i64 [[VP2:%.*]] i64 10
@@ -15,17 +15,17 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %l1.08 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
-  %arrayidx = getelementptr inbounds i64, i64* %larr, i64 %l1.08
-  %arrayidx2 = getelementptr inbounds i64, i64* %larr2, i64 %l1.08
-  %0 = load i64, i64* %arrayidx, align 8
-  %val2 = load i64, i64* %arrayidx2, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %larr, i64 %l1.08
+  %arrayidx2 = getelementptr inbounds i64, ptr %larr2, i64 %l1.08
+  %0 = load i64, ptr %arrayidx, align 8
+  %val2 = load i64, ptr %arrayidx2, align 8
   %cmp = icmp slt i64 %0, 10
   %select = select i1 %cmp, i64 %val2, i64 222
   %1 = icmp slt i64 %0, 0
   %neg = sub nsw i64 0, %0
   %2 = select i1 %1, i64 %neg, i64 %0
   %add = add i64 %select, %2
-  store i64 %add, i64* %arrayidx, align 8
+  store i64 %add, ptr %arrayidx, align 8
   %inc = add nuw nsw i64 %l1.08, 1
   %exitcond = icmp eq i64 %inc, 100
   br i1 %exitcond, label %for.end, label %for.body

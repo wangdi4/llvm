@@ -35,17 +35,17 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @foo(i8* nocapture %a, i8 signext %x) local_unnamed_addr {
+define dso_local void @foo(ptr nocapture %a, i8 signext %x) local_unnamed_addr {
 omp.inner.for.body.lr.ph:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %omp.inner.for.body.lr.ph
   %indvars.iv = phi i64 [ %indvars.iv.next, %omp.inner.for.body ], [ 0, %omp.inner.for.body.lr.ph ]
   %.omp.iv.0 = phi i32 [ %add1, %omp.inner.for.body ], [ 0, %omp.inner.for.body.lr.ph ]
   %conv = trunc i32 %.omp.iv.0 to i8
-  %arrayidx = getelementptr inbounds i8, i8* %a, i64 %indvars.iv
-  store i8 %conv, i8* %arrayidx, align 1, !tbaa !2
+  %arrayidx = getelementptr inbounds i8, ptr %a, i64 %indvars.iv
+  store i8 %conv, ptr %arrayidx, align 1, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %add1 = add nuw nsw i32 %.omp.iv.0, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 2

@@ -62,8 +62,7 @@ loop.body:
   %A.i.real = load float, ptr %arrayidx.realp, align 4
   %arrayidx.imagp = getelementptr inbounds %complex_64bit, ptr %A, i64 %indvars.iv, i32 1
   %A.i.imag = load float, ptr %arrayidx.imagp, align 4
-  %prod.realp = getelementptr inbounds %complex_64bit, ptr %prod, i64 0, i32 0
-  %prod.real = load float, ptr %prod.realp, align 4
+  %prod.real = load float, ptr %prod, align 4
   %prod.imagp = getelementptr inbounds %complex_64bit, ptr %prod, i64 0, i32 1
   %prod.imag = load float, ptr %prod.imagp, align 4
   %mul_ad = fmul fast float %A.i.imag, %prod.real
@@ -72,7 +71,7 @@ loop.body:
   %mul_ac = fmul fast float %A.i.real, %prod.real
   %mul_bd = fmul fast float %prod.imag, %A.i.imag
   %mul_r = fsub fast float %mul_ac, %mul_bd
-  store float %mul_r, ptr %prod.realp, align 4
+  store float %mul_r, ptr %prod, align 4
   store float %mul_i, ptr %prod.imagp, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   br label %end.guard

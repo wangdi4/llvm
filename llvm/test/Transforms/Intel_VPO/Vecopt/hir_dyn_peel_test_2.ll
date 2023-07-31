@@ -8,7 +8,7 @@
 ;               |   (%lp)[i1 + %ptr.diff] = i1;
 ;               + END LOOP
 ;
-define void @foo(i64* %lp, i64 %n1, i64* %lp1, i64* %lp2) {
+define void @foo(ptr %lp, i64 %n1, ptr %lp1, ptr %lp2) {
 ; CHECK-LABEL:  Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  BEGIN REGION { modified }
@@ -19,7 +19,7 @@ define void @foo(i64* %lp, i64 %n1, i64* %lp1, i64* %lp2) {
 ; CHECK-NEXT:        {
 ; CHECK-NEXT:           goto [[MERGE_AFTER_PEEL:.*]];
 ; CHECK-NEXT:        }
-; CHECK-NEXT:        [[DOTVEC10:%.*]] = ptrtoint.<4 x i64*>.<4 x i64>(&((<4 x i64*>)([[LP0:%.*]])[%ptr.diff]))
+; CHECK-NEXT:        [[DOTVEC10:%.*]] = ptrtoint.<4 x ptr>.<4 x i64>(&((<4 x ptr>)([[LP0:%.*]])[%ptr.diff]))
 ; CHECK-NEXT:        [[DOTVEC20:%.*]] = [[DOTVEC10]]  /u  8
 ; CHECK-NEXT:        [[DOTVEC30:%.*]] = [[DOTVEC20]]  *  3
 ; CHECK-NEXT:        [[DOTVEC40:%.*]] = [[DOTVEC30]]  [[U0:%.*]]  4
@@ -33,8 +33,8 @@ define void @foo(i64* %lp, i64 %n1, i64* %lp1, i64* %lp2) {
 ;
 entry:
   %cmp5 = icmp sgt i64 %n1, 0
-  %sub.ptr.lhs.cast = ptrtoint i64* %lp2 to i64
-  %sub.ptr.rhs.cast = ptrtoint i64* %lp1 to i64
+  %sub.ptr.lhs.cast = ptrtoint ptr %lp2 to i64
+  %sub.ptr.rhs.cast = ptrtoint ptr %lp1 to i64
   %sub.ptr.sub = sub i64 %sub.ptr.lhs.cast, %sub.ptr.rhs.cast
   %ptr.diff = ashr exact i64 %sub.ptr.sub, 3
   br i1 %cmp5, label %for.body.preheader, label %for.end
@@ -45,8 +45,8 @@ for.body.preheader:                               ; preds = %entry
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %l1.06 = phi i64 [ %inc, %for.body ], [ 0, %for.body.preheader ]
   %idx = add nuw nsw i64 %l1.06, %ptr.diff
-  %arrayidx = getelementptr inbounds i64, i64* %lp, i64 %idx
-  store i64 %l1.06, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %lp, i64 %idx
+  store i64 %l1.06, ptr %arrayidx, align 8
   %inc = add nuw nsw i64 %l1.06, 1
   %exitcond.not = icmp eq i64 %inc, %n1
   br i1 %exitcond.not, label %for.end.loopexit, label %for.body, !llvm.loop !0

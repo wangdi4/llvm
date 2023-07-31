@@ -32,12 +32,12 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @make_simple_name(i8* %name) local_unnamed_addr #0 {
+define dso_local void @make_simple_name(ptr %name) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK-NEXT:  VPlan IR for: make_simple_name:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%spec.select}
-; CHECK-DAG:     [[VP1:%.*]] = {-1 * ptrtoint.i8*.i64(%name) + ptrtoint.i8*.i64(%spec.select) + -1}
+; CHECK-DAG:     [[VP1:%.*]] = {-1 * ptrtoint.ptr.i64(%name) + ptrtoint.ptr.i64(%spec.select) + -1}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
@@ -50,16 +50,16 @@ define dso_local void @make_simple_name(i8* %name) local_unnamed_addr #0 {
 ; CHECK-NEXT:     i64 [[VP3:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP4:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     i64 [[VP5:%.*]] = mul i64 -1 i64 [[VP3]]
 ; CHECK-NEXT:     i64 [[VP6:%.*]] = add i64 [[VP5]] i64 -1
-; CHECK-NEXT:     i8* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i8* [[SPEC_SELECT0:%.*]] i64 [[VP6]]
-; CHECK-NEXT:     i8 [[VP_LOAD:%.*]] = load i8* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[SPEC_SELECT0:%.*]] i64 [[VP6]]
+; CHECK-NEXT:     i8 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i1 [[VP7:%.*]] = icmp eq i8 [[VP_LOAD]] i8 46
 ; CHECK-NEXT:     br i1 [[VP7]], [[BB4:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
 ; CHECK-NEXT:       i64 [[VP8:%.*]] = mul i64 -1 i64 [[VP3]]
 ; CHECK-NEXT:       i64 [[VP9:%.*]] = add i64 [[VP8]] i64 -1
-; CHECK-NEXT:       i8* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i8* [[SPEC_SELECT0]] i64 [[VP9]]
-; CHECK-NEXT:       store i8 95 i8* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[SPEC_SELECT0]] i64 [[VP9]]
+; CHECK-NEXT:       store i8 95 ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:       br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB4]], [[BB2]]
@@ -74,29 +74,29 @@ define dso_local void @make_simple_name(i8* %name) local_unnamed_addr #0 {
 ; CHECK-NEXT:     br <External Block>
 ;
 entry:
-  %call = tail call i8* @strrchr(i8* %name, i32 46)
-  %cmp = icmp eq i8* %call, null
+  %call = tail call ptr @strrchr(ptr %name, i32 46)
+  %cmp = icmp eq ptr %call, null
   br i1 %cmp, label %cleanup, label %if.end
 
 if.end:                                           ; preds = %entry
-  %cmp1 = icmp eq i8* %call, %name
-  %incdec.ptr = getelementptr inbounds i8, i8* %call, i64 1
-  %spec.select = select i1 %cmp1, i8* %incdec.ptr, i8* %call
+  %cmp1 = icmp eq ptr %call, %name
+  %incdec.ptr = getelementptr inbounds i8, ptr %call, i64 1
+  %spec.select = select i1 %cmp1, ptr %incdec.ptr, ptr %call
   br label %do.body
 
 do.body:                                          ; preds = %do.cond, %if.end
-  %p.1 = phi i8* [ %spec.select, %if.end ], [ %incdec.ptr4, %do.cond ]
-  %incdec.ptr4 = getelementptr inbounds i8, i8* %p.1, i64 -1
-  %0 = load i8, i8* %incdec.ptr4, align 1, !tbaa !2
+  %p.1 = phi ptr [ %spec.select, %if.end ], [ %incdec.ptr4, %do.cond ]
+  %incdec.ptr4 = getelementptr inbounds i8, ptr %p.1, i64 -1
+  %0 = load i8, ptr %incdec.ptr4, align 1, !tbaa !2
   %cmp5 = icmp eq i8 %0, 46
   br i1 %cmp5, label %if.then7, label %do.cond
 
 if.then7:                                         ; preds = %do.body
-  store i8 95, i8* %incdec.ptr4, align 1, !tbaa !2
+  store i8 95, ptr %incdec.ptr4, align 1, !tbaa !2
   br label %do.cond
 
 do.cond:                                          ; preds = %do.body, %if.then7
-  %cmp9 = icmp eq i8* %incdec.ptr4, %name
+  %cmp9 = icmp eq ptr %incdec.ptr4, %name
   br i1 %cmp9, label %cleanup.loopexit, label %do.body
 
 cleanup.loopexit:                                 ; preds = %do.cond
@@ -107,7 +107,7 @@ cleanup:                                          ; preds = %cleanup.loopexit, %
 }
 
 ; Function Attrs: nounwind readonly
-declare dso_local i8* @strrchr(i8*, i32) local_unnamed_addr #1
+declare dso_local ptr @strrchr(ptr, i32) local_unnamed_addr #1
 
 attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind readonly "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }

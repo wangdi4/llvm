@@ -3,7 +3,7 @@
 ; Test for that induction which has updates under conditions is processed correctly
 ; (i.e. induction init/final are processed correctly).
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers -passes=vplan-vec -vplan-force-vf=2 -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-dump-plan-da -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes=vplan-vec -vplan-force-vf=2 -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-dump-plan-da -S < %s 2>&1 | FileCheck %s
 ;
 @x = dso_local global [10 x i32] zeroinitializer, align 16
 define void @foo2(i64 %N) local_unnamed_addr #0 {
@@ -294,10 +294,10 @@ for.body:
   %indvars.iv = phi i64 [ 1, %for.body.lr.ph ], [ %indvars.iv.next, %latch ]
   %k.iv = phi ptr [ %k.iv.b, %for.body.lr.ph ], [ %k.iv.next, %latch ]
   %k1.iv = phi ptr [ %k1.iv.b, %for.body.lr.ph ], [ %k1.iv.next, %latch ]
-  %k2load = load i32*, i32** %k2, align 4
-  %k2val = load i32, i32* %k2load, align 4
-  %x.ptr = getelementptr inbounds [10 x i32], [10 x i32]* @x, i64 0, i64 %indvars.iv
-  store i32 %k2val, i32* %x.ptr, align 4
+  %k2load = load ptr, ptr %k2, align 4
+  %k2val = load i32, ptr %k2load, align 4
+  %x.ptr = getelementptr inbounds [10 x i32], ptr @x, i64 0, i64 %indvars.iv
+  store i32 %k2val, ptr %x.ptr, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %ee = icmp eq i64 %indvars.iv.next, 43
   br i1 %ee, label %then, label %else

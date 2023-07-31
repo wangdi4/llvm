@@ -10,30 +10,30 @@
 
 ; CHECK:                    |   [[TMP1:%.*]] = (%lpp)[i1];
 
-; CHECK:                    |   [[VEC:%.*]] = ptrtoint.<4 x i64*>.<4 x i64>(&((<4 x i64*>)([[TMP1]])[sext.i32.i64([[TMP0]])]));
+; CHECK:                    |   [[VEC:%.*]] = ptrtoint.<4 x ptr>.<4 x i64>(&((<4 x ptr>)([[TMP1]])[sext.i32.i64([[TMP0]])]));
 ; CHECK-NEXT:               |   <LVAL-REG> NON-LINEAR <4 x i64> [[VEC]]
-; CHECK-NEXT:               |   <RVAL-REG> &((<4 x i64*>)(NON-LINEAR <4 x i64*> [[TMP1]])[NON-LINEAR <4 x i64> sext.i32.i64([[TMP0]])]) inbounds
+; CHECK-NEXT:               |   <RVAL-REG> &((<4 x ptr>)(NON-LINEAR <4 x ptr> [[TMP1]])[NON-LINEAR <4 x i64> sext.i32.i64([[TMP0]])]) inbounds
 ; CHECK-NEXT:               |      <BLOB> NON-LINEAR i32 [[TMP0]]
-; CHECK-NEXT:               |      <BLOB> NON-LINEAR i64* [[TMP1]]
+; CHECK-NEXT:               |      <BLOB> NON-LINEAR ptr [[TMP1]]
 ;
-define  void @baz(i64**  %lpp, i32* %off) {
+define  void @baz(ptr  %lpp, ptr %off) {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.end
   %l1.021 = phi i64 [ 0, %entry ], [ %inc9, %for.end ]
-  %arrayidx = getelementptr inbounds i32, i32* %off, i64 %l1.021
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %off, i64 %l1.021
+  %0 = load i32, ptr %arrayidx, align 4
   %conv = sext i32 %0 to i64
-  %arrayidx2 = getelementptr inbounds i64*, i64** %lpp, i64 %l1.021
-  %1 = load i64*, i64** %arrayidx2, align 8
+  %arrayidx2 = getelementptr inbounds ptr, ptr %lpp, i64 %l1.021
+  %1 = load ptr, ptr %arrayidx2, align 8
   br label %for.body6
 
 for.body6:                                        ; preds = %for.body, %for.body6
   %l2.020 = phi i64 [ 0, %for.body ], [ %inc, %for.body6 ]
   %add = add nsw i64 %l2.020, %conv
-  %arrayidx7 = getelementptr inbounds i64, i64* %1, i64 %add
-  store i64 %l2.020, i64* %arrayidx7, align 8
+  %arrayidx7 = getelementptr inbounds i64, ptr %1, i64 %add
+  store i64 %l2.020, ptr %arrayidx7, align 8
   %inc = add nuw nsw i64 %l2.020, 1
   %exitcond.not = icmp eq i64 %inc, 1024
   br i1 %exitcond.not, label %for.end, label %for.body6

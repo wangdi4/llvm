@@ -37,15 +37,15 @@ define void @crash_condition(i64 %c) {
   %t1 = add i64 %c, 2
   %c1 = sub nsw i64 %t1, 1
 
-  %ldC.0 = load i64, ptr getelementptr inbounds ([4 x i64], [4 x i64]* @C, i64 0, i64 0) , align 8
-  %ldC.1 = load i64, ptr getelementptr inbounds ([4 x i64], [4 x i64]* @C, i64 0, i64 1) , align 8
-  %ldC.2 = load i64, ptr getelementptr inbounds ([4 x i64], [4 x i64]* @C, i64 0, i64 2) , align 8
-  %ldC.3 = load i64, ptr getelementptr inbounds ([4 x i64], [4 x i64]* @C, i64 0, i64 3) , align 8
+  %ldC.0 = load i64, ptr @C , align 8
+  %ldC.1 = load i64, ptr getelementptr inbounds ([4 x i64], ptr @C, i64 0, i64 1) , align 8
+  %ldC.2 = load i64, ptr getelementptr inbounds ([4 x i64], ptr @C, i64 0, i64 2) , align 8
+  %ldC.3 = load i64, ptr getelementptr inbounds ([4 x i64], ptr @C, i64 0, i64 3) , align 8
 
-  %ldB.0 = load i64, ptr getelementptr inbounds ([4 x i64], [4 x i64]* @B, i64 0, i64 0) , align 8
-  %ldB.1 = load i64, ptr getelementptr inbounds ([4 x i64], [4 x i64]* @B, i64 0, i64 1) , align 8
-  %ldB.2 = load i64, ptr getelementptr inbounds ([4 x i64], [4 x i64]* @B, i64 0, i64 2) , align 8
-  %ldB.3 = load i64, ptr getelementptr inbounds ([4 x i64], [4 x i64]* @B, i64 0, i64 3) , align 8
+  %ldB.0 = load i64, ptr @B , align 8
+  %ldB.1 = load i64, ptr getelementptr inbounds ([4 x i64], ptr @B, i64 0, i64 1) , align 8
+  %ldB.2 = load i64, ptr getelementptr inbounds ([4 x i64], ptr @B, i64 0, i64 2) , align 8
+  %ldB.3 = load i64, ptr getelementptr inbounds ([4 x i64], ptr @B, i64 0, i64 3) , align 8
 
   %shB.0 = shl i64 %ldB.0, %c0
   %shB.1 = shl i64 %ldB.1, %c1
@@ -62,10 +62,10 @@ define void @crash_condition(i64 %c) {
   %add2 = add i64 %shC.2, %shB.2
   %add3 = add i64 %shC.3, %shB.3
 
-  store i64 %add0, ptr getelementptr inbounds ([4 x i64], [4 x i64]* @A, i64 0, i64 0), align 8
-  store i64 %add1, ptr getelementptr inbounds ([4 x i64], [4 x i64]* @A, i64 0, i64 1), align 8
-  store i64 %add2, ptr getelementptr inbounds ([4 x i64], [4 x i64]* @A, i64 0, i64 2), align 8
-  store i64 %add3, ptr getelementptr inbounds ([4 x i64], [4 x i64]* @A, i64 0, i64 3), align 8
+  store i64 %add0, ptr @A, align 8
+  store i64 %add1, ptr getelementptr inbounds ([4 x i64], ptr @A, i64 0, i64 1), align 8
+  store i64 %add2, ptr getelementptr inbounds ([4 x i64], ptr @A, i64 0, i64 2), align 8
+  store i64 %add3, ptr getelementptr inbounds ([4 x i64], ptr @A, i64 0, i64 3), align 8
 
   ret void
 }

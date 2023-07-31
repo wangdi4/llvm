@@ -3,10 +3,10 @@
 ; Verify that decomposer is able to handle metadata.
 ; IR generated from IR in hir_vplan_decomp_term_refs.ll.
 
-; CHECK: i32 %vp{{[0-9]+}} = load i32* %vp{{[0-9]+}}
+; CHECK: i32 %vp{{[0-9]+}} = load ptr %vp{{[0-9]+}}
 ; CHECK-NEXT: call metadata !"MD.TEST"
-; CHECK-NEXT: i32* %vp{{[0-9]+}} = subscript
-; CHECK-NEXT: store i32 %vp{{[0-9]+}} i32* %vp{{[0-9]+}}
+; CHECK-NEXT: ptr %vp{{[0-9]+}} = subscript
+; CHECK-NEXT: store i32 %vp{{[0-9]+}} ptr %vp{{[0-9]+}}
 
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -22,11 +22,11 @@ entry:
 
 omp.inner.for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds [1600 x i32], [1600 x i32]* @a, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx
+  %arrayidx = getelementptr inbounds [1600 x i32], ptr @a, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx
   call void @llvm.intel.directive(metadata !"MD.TEST")
-  %arrayidx8 = getelementptr inbounds [1600 x i32], [1600 x i32]* @c, i64 0, i64 %indvars.iv
-  store i32 %0, i32* %arrayidx8
+  %arrayidx8 = getelementptr inbounds [1600 x i32], ptr @c, i64 0, i64 %indvars.iv
+  store i32 %0, ptr %arrayidx8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1600
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body

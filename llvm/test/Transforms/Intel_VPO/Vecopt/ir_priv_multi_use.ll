@@ -11,7 +11,7 @@ target triple = "x86_64-pc-linux"
 declare i32 @_Z5isnanf(float) local_unnamed_addr #0
 
 ; Function Attrs: convergent norecurse nounwind
-define dso_local void @_ZGVeN16u_test(i32 addrspace(1)* noalias %intOut) local_unnamed_addr #1 {
+define dso_local void @_ZGVeN16u_test(ptr addrspace(1) noalias %intOut) local_unnamed_addr #1 {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT:  VPlan IR for: _ZGVeN16u_test:simd.loop.#{{[0-9]+}}
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
@@ -33,7 +33,7 @@ define dso_local void @_ZGVeN16u_test(i32 addrspace(1)* noalias %intOut) local_u
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     i32 [[VP_INDEX]] = phi  [ i32 [[VP_INDEX_IND_INIT]], [[BB2]] ],  [ i32 [[VP_INDVAR]], [[BB3]] ]
-; CHECK-NEXT:     i32 [[VP_CALL:%.*]] = call float 0x7FF8000000000000 i32 (float)* @_Z5isnanf
+; CHECK-NEXT:     i32 [[VP_CALL:%.*]] = call float 0x7FF8000000000000 ptr @_Z5isnanf
 ; CHECK-NEXT:     i1 [[VP_TOBOOL_NOT]] = icmp ne i32 [[VP_CALL]] i32 0
 ; CHECK-NEXT:     i32 [[VP_COND]] = zext i1 [[VP_TOBOOL_NOT]] to i32
 ; CHECK-NEXT:     br [[BB3]]
@@ -64,21 +64,21 @@ define dso_local void @_ZGVeN16u_test(i32 addrspace(1)* noalias %intOut) local_u
 ; CHECK:       simd.end.region:
 ; CHECK-NEXT:    [[COND_LCSSA10:%.*]] = phi i32 [ [[UNI_PHI70]], [[FINAL_MERGE0:%.*]] ]
 ; CHECK-NEXT:    [[COND_LCSSA0:%.*]] = phi i32 [ [[UNI_PHI60]], [[FINAL_MERGE0]] ]
-; CHECK-NEXT:    store i32 [[COND_LCSSA0]], i32 addrspace(1)* [[LOAD_INTOUT0:%.*]], align 4
-; CHECK-NEXT:    store i32 [[COND_LCSSA10]], i32 addrspace(1)* [[ARRAYIDX40:%.*]], align 4
+; CHECK-NEXT:    store i32 [[COND_LCSSA0]], ptr addrspace(1) [[LOAD_INTOUT0:%.*]], align 4
+; CHECK-NEXT:    store i32 [[COND_LCSSA10]], ptr addrspace(1) [[ARRAYIDX40:%.*]], align 4
 ;
 entry:
-  %alloca.intOut = alloca i32 addrspace(1)*, align 8
-  store i32 addrspace(1)* %intOut, i32 addrspace(1)** %alloca.intOut, align 8
+  %alloca.intOut = alloca ptr addrspace(1), align 8
+  store ptr addrspace(1) %intOut, ptr %alloca.intOut, align 8
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 16), "QUAL.OMP.UNIFORM:PTR_TO_PTR.TYPED"(i32 addrspace(1)** %alloca.intOut, i32 0, i32 1) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 16), "QUAL.OMP.UNIFORM:PTR_TO_PTR.TYPED"(ptr %alloca.intOut, i32 0, i32 1) ]
   br label %simd.loop.preheader
 
 simd.loop.preheader:                              ; preds = %simd.begin.region
-  %load.intOut = load i32 addrspace(1)*, i32 addrspace(1)** %alloca.intOut, align 8
-  %arrayidx4 = getelementptr inbounds i32, i32 addrspace(1)* %load.intOut, i64 1
+  %load.intOut = load ptr addrspace(1), ptr %alloca.intOut, align 8
+  %arrayidx4 = getelementptr inbounds i32, ptr addrspace(1) %load.intOut, i64 1
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.loop.preheader
@@ -96,8 +96,8 @@ simd.loop.exit:                                   ; preds = %simd.loop
 simd.end.region:                                  ; preds = %simd.loop.exit
   %cond.lcssa1 = phi i32 [ %cond, %simd.loop.exit ]
   %cond.lcssa = phi i32 [ %cond, %simd.loop.exit ]
-  store i32 %cond.lcssa, i32 addrspace(1)* %load.intOut, align 4
-  store i32 %cond.lcssa1, i32 addrspace(1)* %arrayidx4, align 4
+  store i32 %cond.lcssa, ptr addrspace(1) %load.intOut, align 4
+  store i32 %cond.lcssa1, ptr addrspace(1) %arrayidx4, align 4
   br label %DIR.OMP.END.SIMD.1
 
 DIR.OMP.END.SIMD.1:                               ; preds = %simd.end.region

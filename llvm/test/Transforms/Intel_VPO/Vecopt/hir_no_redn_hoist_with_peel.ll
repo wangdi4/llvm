@@ -44,16 +44,16 @@
 ; CHECK-NEXT:  END REGION
 ;
 
-define dso_local noundef i32 @_Z3fooPv(i8* noundef %vperm) local_unnamed_addr #0 {
+define dso_local noundef i32 @_Z3fooPv(ptr noundef %vperm) local_unnamed_addr #0 {
 entry:
-  %0 = ptrtoint i8* %vperm to i64
+  %0 = ptrtoint ptr %vperm to i64
   %add.i = add i64 %0, 15
   %and.i = and i64 %add.i, -16
   %sub2.i = sub i64 -1901, %0
   %1 = add i64 %sub2.i, %and.i
   %cmp.i = icmp ult i64 %1, -2001
-  %2 = inttoptr i64 %and.i to i32*
-  %3 = select i1 %cmp.i, i32* null, i32* %2
+  %2 = inttoptr i64 %and.i to ptr
+  %3 = select i1 %cmp.i, ptr null, ptr %2
   br label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %entry, %for.inc5
@@ -64,8 +64,8 @@ for.cond1.preheader:                              ; preds = %entry, %for.inc5
 for.body3:                                        ; preds = %for.cond1.preheader, %for.body3
   %k.120 = phi i32 [ %k.022, %for.cond1.preheader ], [ %spec.select, %for.body3 ]
   %j.019 = phi i64 [ 1, %for.cond1.preheader ], [ %inc, %for.body3 ]
-  %arrayidx = getelementptr inbounds i32, i32* %3, i64 %j.019
-  %4 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %3, i64 %j.019
+  %4 = load i32, ptr %arrayidx, align 4
   %conv = sext i32 %4 to i64
   %cmp4 = icmp eq i64 %i.021, %conv
   %add = zext i1 %cmp4 to i32

@@ -70,9 +70,8 @@ bb2:                                              ; preds = %bb1, %entry
   %add85 = add i64 %add76, %add190568
   %add83 = add i64 %xor3.i498, %or2.i487
   %add86 = add i64 %add83, %add76
-  %gep0 = getelementptr i64, ptr %p, i32 0
   %gep1 = getelementptr i64, ptr %p, i32 1
-  store i64 %add86, ptr %gep0, align 4
+  store i64 %add86, ptr %p, align 4
   store i64 %add85, ptr %gep1, align 4
   br label %bb3
 

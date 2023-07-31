@@ -11,8 +11,8 @@ source_filename = "ts.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-@arr2p = external local_unnamed_addr global i32*, align 8
-@arr3p = external local_unnamed_addr global i32*, align 8
+@arr2p = external local_unnamed_addr global ptr, align 8
+@arr3p = external local_unnamed_addr global ptr, align 8
 
 ; Function Attrs: norecurse nounwind uwtable
 define void @foo() local_unnamed_addr #0 {
@@ -21,8 +21,8 @@ entry:
   br label %for.body.preheader
 
 for.body.preheader:
-  %0 = load i32*, i32** @arr3p, align 8
-  %1 = load i32*, i32** @arr2p, align 8
+  %0 = load ptr, ptr @arr3p, align 8
+  %1 = load ptr, ptr @arr2p, align 8
   br label %for.body
 
 for.body:                                         ; preds = %for.inc, %for.body.preheader
@@ -33,19 +33,19 @@ for.body:                                         ; preds = %for.inc, %for.body.
   br i1 %tobool, label %if.else, label %if.then
 
 if.then:                                          ; preds = %for.body
-  %arrayidx = getelementptr inbounds i32, i32* %1, i64 %indvars.iv
-  %3 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds i32, ptr %1, i64 %indvars.iv
+  %3 = load i32, ptr %arrayidx, align 4, !tbaa !1
   %4 = trunc i64 %indvars.iv to i32
   %add = add nsw i32 %3, %4
-  store i32 %add, i32* %arrayidx, align 4, !tbaa !1
+  store i32 %add, ptr %arrayidx, align 4, !tbaa !1
   br label %for.inc
 
 if.else:                                          ; preds = %for.body
-  %arrayidx2 = getelementptr inbounds i32, i32* %0, i64 %indvars.iv
-  %5 = load i32, i32* %arrayidx2, align 4, !tbaa !1
+  %arrayidx2 = getelementptr inbounds i32, ptr %0, i64 %indvars.iv
+  %5 = load i32, ptr %arrayidx2, align 4, !tbaa !1
   %6 = trunc i64 %indvars.iv to i32
   %sub = sub nsw i32 %5, %6
-  store i32 %sub, i32* %arrayidx2, align 4, !tbaa !1
+  store i32 %sub, ptr %arrayidx2, align 4, !tbaa !1
   br label %for.inc
 
 for.inc:                                          ; preds = %if.then, %if.else

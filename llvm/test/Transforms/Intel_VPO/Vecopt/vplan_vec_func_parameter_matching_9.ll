@@ -19,11 +19,11 @@ target triple = "x86_64-unknown-linux-gnu"
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
-define dso_local void @_Z3fooPlil(i64* nocapture %a, i32 %i, i64 %x) local_unnamed_addr #0 {
+define dso_local void @_Z3fooPlil(ptr nocapture %a, i32 %i, i64 %x) local_unnamed_addr #0 {
 entry:
   %idxprom = sext i32 %i to i64
-  %ptridx = getelementptr inbounds i64, i64* %a, i64 %idxprom
-  store i64 %x, i64* %ptridx, align 8
+  %ptridx = getelementptr inbounds i64, ptr %a, i64 %idxprom
+  store i64 %x, ptr %ptridx, align 8
   ret void
 }
 
@@ -31,26 +31,24 @@ define dso_local i32 @main() local_unnamed_addr #1 {
 omp.inner.for.body.lr.ph:
   %i.linear.iv = alloca i32, align 4
   %a = alloca [256 x i64], align 16
-  %0 = bitcast [256 x i64]* %a to i8*
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 2), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 2), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
-  %arraydecay = getelementptr inbounds [256 x i64], [256 x i64]* %a, i64 0, i64 0
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %omp.inner.for.body
   %.omp.iv.local.07 = phi i32 [ 0, %DIR.OMP.SIMD.2 ], [ %add1, %omp.inner.for.body ]
-  call void @_Z3fooPlil(i64* nonnull %arraydecay, i32 %.omp.iv.local.07, i64 256) #3
+  call void @_Z3fooPlil(ptr nonnull %a, i32 %.omp.iv.local.07, i64 256) #3
   %add1 = add nuw nsw i32 %.omp.iv.local.07, 1
   %exitcond = icmp eq i32 %add1, 256
   br i1 %exitcond, label %DIR.OMP.END.SIMD.4, label %omp.inner.for.body
 
 DIR.OMP.END.SIMD.4:                               ; preds = %omp.inner.for.body
-  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.SIMD"() ]
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.OMP.END.SIMD.3
 
 DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.4

@@ -53,21 +53,21 @@
 
 ; Check entities dump and VPlan IR
 ; CHECK: Reduction list
-; CHECK: (+) Start: i64* [[V1_START:%.*]]
-; CHECK: Memory: i64* [[V1_START]]
-; CHECK: i64* [[PRIV:%vp.*]] = allocate-priv i64
-; CHECK: i64 [[START_LD:%vp.*]] = load i64* [[V1_START]]
+; CHECK: (+) Start: ptr [[V1_START:%.*]]
+; CHECK: Memory: ptr [[V1_START]]
+; CHECK: ptr [[PRIV:%vp.*]] = allocate-priv i64
+; CHECK: i64 [[START_LD:%vp.*]] = load ptr [[V1_START]]
 ; CHECK: i64 [[INIT:%vp.*]] = reduction-init i64 0 i64 [[START_LD]]
-; CHECK: store i64 [[INIT]] i64* [[PRIV]]
-; CHECK: i64* [[VP_SUBSCRIPT_0:%.*]] = subscript inbounds i64* [[PRIV]]
-; CHECK: i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64* [[PRIV]]
-; CHECK: store i64 {{%vp.*}} i64* [[VP_SUBSCRIPT_1]]
-; CHECK: i64* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i64* [[PRIV]]
-; CHECK: i64* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i64* [[PRIV]]
-; CHECK: store i64 {{%vp.*}} i64* [[VP_SUBSCRIPT_3]]
-; CHECK: i64 [[PRIV_LOAD:%vp.*]] = load i64* [[PRIV]]
+; CHECK: store i64 [[INIT]] ptr [[PRIV]]
+; CHECK: ptr [[VP_SUBSCRIPT_0:%.*]] = subscript inbounds ptr [[PRIV]]
+; CHECK: ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[PRIV]]
+; CHECK: store i64 {{%vp.*}} ptr [[VP_SUBSCRIPT_1]]
+; CHECK: ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[PRIV]]
+; CHECK: ptr [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds ptr [[PRIV]]
+; CHECK: store i64 {{%vp.*}} ptr [[VP_SUBSCRIPT_3]]
+; CHECK: i64 [[PRIV_LOAD:%vp.*]] = load ptr [[PRIV]]
 ; CHECK: i64 [[FINAL:%vp.*]] = reduction-final{u_add} i64 [[PRIV_LOAD]]
-; CHECK: store i64 [[FINAL]] i64* [[V1_START]]
+; CHECK: store i64 [[FINAL]] ptr [[V1_START]]
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -75,41 +75,40 @@ target triple = "x86_64-unknown-linux-gnu"
 @ub = dso_local local_unnamed_addr global [101 x i64] zeroinitializer, align 16
 
 ; Function Attrs: nounwind uwtable
-define dso_local i64 @_Z3foolPl(i64 %n, i64* nocapture %ub) local_unnamed_addr {
+define dso_local i64 @_Z3foolPl(i64 %n, ptr nocapture %ub) local_unnamed_addr {
 entry:
   %ret = alloca i64, align 8
-  %0 = bitcast i64* %ret to i8*
-  call void @llvm.lifetime.start.p0i8(i64 8, i8* nonnull %0) #2
-  store i64 0, i64* %ret, align 8, !tbaa !2
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %ret) #2
+  store i64 0, ptr %ret, align 8, !tbaa !2
   %cmp = icmp sgt i64 %n, 0
   br i1 %cmp, label %DIR.OMP.SIMD.123, label %omp.precond.end
 
 DIR.OMP.SIMD.123:                                 ; preds = %entry
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.REDUCTION.ADD:TYPED"(i64* %ret, i64 0, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %ret, i64 0, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.inc, %DIR.OMP.SIMD.123
   %.omp.iv.0 = phi i64 [ %add14, %omp.inner.for.inc ], [ 0, %DIR.OMP.SIMD.123 ]
-  %arrayidx = getelementptr inbounds i64, i64* %ub, i64 %.omp.iv.0
-  %2 = load i64, i64* %arrayidx, align 8, !tbaa !2
-  %cmp6 = icmp sgt i64 %2, 42
+  %arrayidx = getelementptr inbounds i64, ptr %ub, i64 %.omp.iv.0
+  %1 = load i64, ptr %arrayidx, align 8, !tbaa !2
+  %cmp6 = icmp sgt i64 %1, 42
   br i1 %cmp6, label %if.then, label %if.else
 
 if.then:                                          ; preds = %omp.inner.for.body
-  %3 = load i64, i64* %ret, align 8, !tbaa !2
-  %add8 = add nsw i64 %3, %2
-  store i64 %add8, i64* %ret, align 8, !tbaa !2
-  %add10 = add nsw i64 %2, 5
-  store i64 %add10, i64* %arrayidx, align 8, !tbaa !2
+  %2 = load i64, ptr %ret, align 8, !tbaa !2
+  %add8 = add nsw i64 %2, %1
+  store i64 %add8, ptr %ret, align 8, !tbaa !2
+  %add10 = add nsw i64 %1, 5
+  store i64 %add10, ptr %arrayidx, align 8, !tbaa !2
   br label %omp.inner.for.inc
 
 if.else:                                          ; preds = %omp.inner.for.body
   %sub11 = add nsw i64 %.omp.iv.0, -1
-  %arrayidx12 = getelementptr inbounds i64, i64* %ub, i64 %sub11
-  %4 = load i64, i64* %arrayidx12, align 8, !tbaa !2
-  %5 = load i64, i64* %ret, align 8, !tbaa !2
-  %add13 = add nsw i64 %5, %4
-  store i64 %add13, i64* %ret, align 8, !tbaa !2
+  %arrayidx12 = getelementptr inbounds i64, ptr %ub, i64 %sub11
+  %3 = load i64, ptr %arrayidx12, align 8, !tbaa !2
+  %4 = load i64, ptr %ret, align 8, !tbaa !2
+  %add13 = add nsw i64 %4, %3
+  store i64 %add13, ptr %ret, align 8, !tbaa !2
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %if.else, %if.then
@@ -118,18 +117,18 @@ omp.inner.for.inc:                                ; preds = %if.else, %if.then
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.inc
-  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.SIMD"() ]
-  %.pre = load i64, i64* %ret, align 8, !tbaa !2
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
+  %.pre = load i64, ptr %ret, align 8, !tbaa !2
   br label %omp.precond.end
 
 omp.precond.end:                                  ; preds = %omp.loop.exit, %entry
-  %6 = phi i64 [ %.pre, %omp.loop.exit ], [ 0, %entry ]
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* nonnull %0) #2
-  ret i64 %6
+  %5 = phi i64 [ %.pre, %omp.loop.exit ], [ 0, %entry ]
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %ret) #2
+  ret i64 %5
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64, ptr nocapture) #1
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #2
@@ -138,7 +137,7 @@ declare token @llvm.directive.region.entry() #2
 declare void @llvm.directive.region.exit(token) #2
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0(i64, ptr nocapture) #1
 
 attributes #1 = { argmemonly nounwind }
 attributes #2 = { nounwind }

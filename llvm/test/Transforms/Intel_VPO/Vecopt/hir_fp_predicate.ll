@@ -37,7 +37,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local float @foo(float* nocapture %arr, i32 %n1) local_unnamed_addr #0 {
+define dso_local float @foo(ptr nocapture %arr, i32 %n1) local_unnamed_addr #0 {
 entry:
   %mul = mul nsw i32 %n1, %n1
   %add = add nuw i32 %mul, 3
@@ -46,8 +46,8 @@ entry:
 
 for.body:                                         ; preds = %for.inc, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.inc ]
-  %arrayidx = getelementptr inbounds float, float* %arr, i64 %indvars.iv
-  %1 = load float, float* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds float, ptr %arr, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx, align 4, !tbaa !2
   %cmp1 = fcmp ogt float %1, 0.000000e+00
   br i1 %cmp1, label %if.then, label %for.inc
 
@@ -56,8 +56,8 @@ if.then:                                          ; preds = %for.body
   %add2 = add i32 %add, %2
   %conv = sitofp i32 %add2 to float
   %3 = add nsw i64 %indvars.iv, %0
-  %arrayidx5 = getelementptr inbounds float, float* %arr, i64 %3
-  store float %conv, float* %arrayidx5, align 4, !tbaa !2
+  %arrayidx5 = getelementptr inbounds float, ptr %arr, i64 %3
+  store float %conv, ptr %arrayidx5, align 4, !tbaa !2
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then
@@ -66,7 +66,7 @@ for.inc:                                          ; preds = %for.body, %if.then
   br i1 %exitcond, label %for.end, label %for.body, !llvm.loop !6
 
 for.end:                                          ; preds = %for.inc
-  %4 = load float, float* %arr, align 4, !tbaa !2
+  %4 = load float, ptr %arr, align 4, !tbaa !2
   ret float %4
 }
 

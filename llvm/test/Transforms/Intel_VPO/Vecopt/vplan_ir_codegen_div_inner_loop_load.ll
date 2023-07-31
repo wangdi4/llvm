@@ -12,12 +12,12 @@
 ; CHECK:         br label %[[VPLANNEDBB50:.*]]
 ; CHECK:       [[VPLANNEDBB50]]:
 ; CHECK-NEXT:    [[INNER_UNI_PHI:%.*]] = phi i64 [ [[INNER_IV_ADD:%.*]], %[[PRED_LOAD_CONTINUE:.*]] ], [ 0, %[[VPLANNEDBB40]] ]
-; CHECK:         [[GEP:%.*]] = getelementptr inbounds i64, i64* [[ARR1:%.*]], i64 42
+; CHECK:         [[GEP:%.*]] = getelementptr inbounds i64, ptr [[ARR1:%.*]], i64 42
 ; CHECK-NEXT:    [[BC_MASK:%.*]] = bitcast <2 x i1> [[MASK]] to i2
 ; CHECK-NEXT:    [[NOT_AZ:%.*]] = icmp ne i2 [[BC_MASK]], 0
 ; CHECK-NEXT:    br i1 [[NOT_AZ]], label %[[PRED_LOAD_IF:.*]], label %[[MERGE:.*]]
 ; CHECK:       [[PRED_LOAD_IF]]:
-; CHECK-NEXT:    [[LOAD:%.*]] = load i64, i64* [[GEP]], align 4
+; CHECK-NEXT:    [[LOAD:%.*]] = load i64, ptr [[GEP]], align 4
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT1:%.*]] = insertelement <2 x i64> poison, i64 [[LOAD]], i64 0
 ; CHECK-NEXT:    br label %[[MERGE]]
 ; CHECK:       [[MERGE]]:
@@ -33,19 +33,19 @@ declare token @llvm.directive.region.entry()
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)
 
-define void @test1(float* nocapture %ptr, i64 %n, i64* %arr, i64* %arr1) {
+define void @test1(ptr nocapture %ptr, i64 %n, ptr %arr, ptr %arr1) {
 entry:
   %cmp = icmp sgt i64 %n, 0
   br i1 %cmp, label %for.body.lr.ph, label %exit
 
 for.body.lr.ph:                                   ; preds = %entry
-%tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM:TYPED"(i64* %arr1, i64 0, i32 1), "QUAL.OMP.UNIFORM:TYPED"(i64* %arr, i64 0, i32 1) ]
+%tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM:TYPED"(ptr %arr1, i64 0, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %arr, i64 0, i32 1) ]
   br label %for.body
 
 for.body:                                         ; preds = %for.latch, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.latch ]
-  %outer.gep = getelementptr inbounds i64, i64* %arr, i64 42
-  %outer.load = load i64, i64* %outer.gep
+  %outer.gep = getelementptr inbounds i64, ptr %arr, i64 42
+  %outer.load = load i64, ptr %outer.gep
   %inner.cond = icmp eq i64 %indvars.iv, %outer.load
   br i1 %inner.cond, label %for.body2.preheader, label %for.latch
 
@@ -54,8 +54,8 @@ for.body2.preheader:                              ; preds = %for.body
 
 for.body2:                                        ; preds = %for.body2.preheader, %for.body2
   %indvars.iv2 = phi i64 [ %indvars.iv.next2, %for.body2 ], [ 0, %for.body2.preheader ]
-  %uni.gep = getelementptr inbounds i64, i64* %arr1, i64 42
-  %uni.load = load i64, i64* %uni.gep, align 4
+  %uni.gep = getelementptr inbounds i64, ptr %arr1, i64 42
+  %uni.load = load i64, ptr %uni.gep, align 4
   %use = add i64 %uni.load, %indvars.iv
   %indvars.iv.next2 = add nuw nsw i64 %indvars.iv2, 1
   %exitcond2 = icmp eq i64 %indvars.iv.next2, %n
@@ -81,12 +81,12 @@ exit:                                             ; preds = %for.end, %entry
 ; CHECK-LABEL: @test1_liveout
 ; CHECK:       VPlannedBB5:
 ; CHECK-NEXT:    [[INNER_UNI_PHI:%.*]] = phi i64 [ [[INNER_IV_ADD:%.*]], [[VPLANNEDBB:%.*]] ], [ 0, [[VECTOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i64, i64* [[ARR1:%.*]], i64 42
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i64, ptr [[ARR1:%.*]], i64 42
 ; CHECK-NEXT:    [[BC_MASK:%.*]] = bitcast <2 x i1> [[MASK:%.*]] to i2
 ; CHECK-NEXT:    [[NOT_AZ:%.*]] = icmp ne i2 [[BC_MASK]], 0
 ; CHECK-NEXT:    br i1 [[NOT_AZ]], label %[[PRED_LOAD_IF:.*]], label %[[MERGE:.*]]
 ; CHECK:       [[PRED_LOAD_IF]]:
-; CHECK-NEXT:    [[LOAD:%.*]] = load i64, i64* [[SCALAR_GEP]], align 4
+; CHECK-NEXT:    [[LOAD:%.*]] = load i64, ptr [[SCALAR_GEP]], align 4
 ; CHECK-NEXT:    [[BCAST_INSERT:%.*]] = insertelement <2 x i64> poison, i64 [[LOAD]], i64 0
 ; CHECK-NEXT:    br label %[[MERGE]]
 ; CHECK:       [[MERGE]]:
@@ -96,19 +96,19 @@ exit:                                             ; preds = %for.end, %entry
 ; CHECK-NEXT:    [[BCAST_SHUF:%.*]] = shufflevector <2 x i64> [[MERGE_PHI]], <2 x i64> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[USER:%.*]] = add <2 x i64> [[BCAST_SHUF]], [[VEC_IND:%.*]]
 
-define void @test1_liveout(float* nocapture %ptr, i64 %n, i64* %arr, i64* %arr1) {
+define void @test1_liveout(ptr nocapture %ptr, i64 %n, ptr %arr, ptr %arr1) {
 entry:
   %cmp = icmp sgt i64 %n, 0
   br i1 %cmp, label %for.body.lr.ph, label %exit
 
 for.body.lr.ph:                                   ; preds = %entry
-%tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM:TYPED"(i64* %arr1, i64 0, i32 1), "QUAL.OMP.UNIFORM:TYPED"(i64* %arr, i64 0, i32 1) ]
+%tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.UNIFORM:TYPED"(ptr %arr1, i64 0, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %arr, i64 0, i32 1) ]
   br label %for.body
 
 for.body:                                         ; preds = %for.latch, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.latch ]
-  %outer.gep = getelementptr inbounds i64, i64* %arr, i64 42
-  %outer.load = load i64, i64* %outer.gep
+  %outer.gep = getelementptr inbounds i64, ptr %arr, i64 42
+  %outer.load = load i64, ptr %outer.gep
   %inner.cond = icmp eq i64 %indvars.iv, %outer.load
   br i1 %inner.cond, label %for.body2.preheader, label %for.latch
 
@@ -117,15 +117,15 @@ for.body2.preheader:                              ; preds = %for.body
 
 for.body2:                                        ; preds = %for.body2.preheader, %for.body2
   %indvars.iv2 = phi i64 [ %indvars.iv.next2, %for.body2 ], [ 0, %for.body2.preheader ]
-  %uni.gep = getelementptr inbounds i64, i64* %arr1, i64 42
-  %uni.load = load i64, i64* %uni.gep, align 4
+  %uni.gep = getelementptr inbounds i64, ptr %arr1, i64 42
+  %uni.load = load i64, ptr %uni.gep, align 4
   %use = add i64 %uni.load, %indvars.iv
   %indvars.iv.next2 = add nuw nsw i64 %indvars.iv2, 1
   %exitcond2 = icmp eq i64 %indvars.iv.next2, %n
   br i1 %exitcond2, label %for.latch.loopexit, label %for.body2
 
 for.latch.loopexit:                               ; preds = %for.body2
-  %lcssa.phi = phi i64* [ %uni.gep, %for.body2 ]
+  %lcssa.phi = phi ptr [ %uni.gep, %for.body2 ]
   br label %for.latch
 
 for.latch:                                        ; preds = %for.latch.loopexit, %for.body

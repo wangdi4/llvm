@@ -22,29 +22,28 @@ target triple = "x86_64-unknown-linux-gnu"
 ; OPTREPORT-HIR: remark #15330: HIR: simd loop was not vectorized: the reduction operator is not supported yet
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @foo(float** nocapture readonly %_C) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture readonly %_C) local_unnamed_addr #0 {
 DIR.OMP.SIMD.0:
   %i.linear.iv.ptr = alloca i32, align 4
   %r.red.ptr = alloca i8, align 4
-  store i8 1, i8* %r.red.ptr, align 1
+  store i8 1, ptr %r.red.ptr, align 1
   br label %omp.simd.region.entry
 
 omp.simd.region.entry:                            ; preds = %DIR.OMP.SIMD.0
-%i = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.AND:TYPED"(i8* %r.red.ptr, i8 zeroinitializer, i32 1),  "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv.ptr, i32 0, i32 1, i32 1) ]
+%i = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.AND:TYPED"(ptr %r.red.ptr, i8 zeroinitializer, i32 1),  "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv.ptr, i32 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.simd.region.entry
-  %c.ptr = load float*, float** %_C, align 8
-  %i1 = bitcast i32* %i.linear.iv.ptr to i8*
-  %r.red.promoted = load i8, i8* %r.red.ptr, align 1
+  %c.ptr = load ptr, ptr %_C, align 8
+  %r.red.promoted = load i8, ptr %r.red.ptr, align 1
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
   %iv = phi i32 [ 0, %DIR.OMP.SIMD.1 ], [ %iv.next, %omp.inner.for.body ]
   %red.local = phi i8 [ %r.red.promoted, %DIR.OMP.SIMD.1 ], [ %and, %omp.inner.for.body ]
-  store i32 %iv, i32* %i.linear.iv.ptr, align 4
-  %arrayidx = getelementptr inbounds float, float* %c.ptr, i32 %iv
-  %fval = load float, float* %arrayidx, align 4
+  store i32 %iv, ptr %i.linear.iv.ptr, align 4
+  %arrayidx = getelementptr inbounds float, ptr %c.ptr, i32 %iv
+  %fval = load float, ptr %arrayidx, align 4
   %fcmp = fcmp fast oeq float %fval, 1.000000e+00
   %conv = zext i1 %fcmp to i8
   %and = and i8 %red.local, %conv
@@ -54,7 +53,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
 
 omp.simd.loop.exit:                               ; preds = %omp.inner.for.body
   %and.lcssa = phi i8 [ %and, %omp.inner.for.body ]
-  store i8 %and.lcssa, i8* %r.red.ptr, align 1
+  store i8 %and.lcssa, ptr %r.red.ptr, align 1
   br label %omp.simd.region.exit
 
 omp.simd.region.exit:                             ; preds = %omp.simd.loop.exit

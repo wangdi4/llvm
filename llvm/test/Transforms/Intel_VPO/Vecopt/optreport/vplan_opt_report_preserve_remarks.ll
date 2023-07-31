@@ -38,19 +38,19 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: mustprogress nounwind uwtable
-define dso_local void @_Z3fooPiii(i32* nocapture %arr, i32 %m, i32 %n) local_unnamed_addr #0 !dbg !8 {
+define dso_local void @_Z3fooPiii(ptr nocapture %arr, i32 %m, i32 %n) local_unnamed_addr #0 !dbg !8 {
 entry:
   %i.linear.iv = alloca i32, align 4
-  call void @llvm.dbg.value(metadata i32* %arr, metadata !14, metadata !DIExpression()), !dbg !26
+  call void @llvm.dbg.value(metadata ptr %arr, metadata !14, metadata !DIExpression()), !dbg !26
   call void @llvm.dbg.value(metadata i32 %m, metadata !15, metadata !DIExpression()), !dbg !26
   call void @llvm.dbg.value(metadata i32 %n, metadata !16, metadata !DIExpression()), !dbg !26
   call void @llvm.dbg.value(metadata i32 %m, metadata !17, metadata !DIExpression()), !dbg !27
   call void @llvm.dbg.value(metadata i32 %m, metadata !19, metadata !DIExpression(DW_OP_constu, 1, DW_OP_minus, DW_OP_stack_value)), !dbg !27
   %cmp3.not18 = icmp slt i32 %m, 1
   call void @llvm.dbg.value(metadata i32 %m, metadata !19, metadata !DIExpression(DW_OP_constu, 1, DW_OP_minus, DW_OP_stack_value)), !dbg !27
-  call void @llvm.dbg.declare(metadata i32* undef, metadata !20, metadata !DIExpression()), !dbg !27
-  call void @llvm.dbg.value(metadata i32* undef, metadata !22, metadata !DIExpression(DW_OP_deref)), !dbg !27
-  call void @llvm.dbg.value(metadata i32* undef, metadata !23, metadata !DIExpression(DW_OP_deref)), !dbg !28
+  call void @llvm.dbg.declare(metadata ptr undef, metadata !20, metadata !DIExpression()), !dbg !27
+  call void @llvm.dbg.value(metadata ptr undef, metadata !22, metadata !DIExpression(DW_OP_deref)), !dbg !27
+  call void @llvm.dbg.value(metadata ptr undef, metadata !23, metadata !DIExpression(DW_OP_deref)), !dbg !28
   call void @llvm.dbg.value(metadata i32 %m, metadata !21, metadata !DIExpression(DW_OP_constu, 1, DW_OP_minus, DW_OP_stack_value)), !dbg !27
   call void @llvm.dbg.value(metadata i32 0, metadata !20, metadata !DIExpression()), !dbg !27
   br i1 %cmp3.not18, label %omp.precond.end, label %region.0, !dbg !29
@@ -59,7 +59,7 @@ omp.precond.end:                                  ; preds = %afterloop.49, %entr
   ret void, !dbg !30
 
 region.0:                                         ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ], !dbg !31
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ], !dbg !31
   br label %DIR.OMP.SIMD.1, !dbg !31
 
 DIR.OMP.SIMD.1:                                   ; preds = %region.0
@@ -68,49 +68,48 @@ DIR.OMP.SIMD.1:                                   ; preds = %region.0
 
 loop.49:                                          ; preds = %ifmerge.14, %DIR.OMP.SIMD.1
   %i1.i32.0 = phi i32 [ 0, %DIR.OMP.SIMD.1 ], [ %nextivloop.49, %ifmerge.14 ]
-  %2 = bitcast i32* %i.linear.iv to i8*, !dbg !29
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %2) #3, !dbg !29, !llvm.access.group !32
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %i.linear.iv) #3, !dbg !29, !llvm.access.group !32
   %hir.cmp.21 = icmp ne i32 %i1.i32.0, 0
   br i1 %hir.cmp.21, label %then.21, label %ifmerge.14, !dbg !35
 
 then.21:                                          ; preds = %loop.49
-  %3 = zext i32 %n to i64, !dbg !29
+  %2 = zext i32 %n to i64, !dbg !29
   %hir.cmp.55.not = icmp ult i32 %n, 8, !dbg !36
   br i1 %hir.cmp.55.not, label %ifmerge.55, label %then.55, !dbg !36
 
 then.55:                                          ; preds = %then.21
-  %4 = lshr i64 %3, 3, !dbg !29
-  %5 = add nsw i64 %4, -1, !dbg !36
+  %3 = lshr i64 %2, 3, !dbg !29
+  %4 = add nsw i64 %3, -1, !dbg !36
   br label %loop.54, !dbg !36
 
 loop.54:                                          ; preds = %loop.54, %then.55
   %i2.i64.0 = phi i64 [ 0, %then.55 ], [ %nextivloop.54, %loop.54 ]
-  %6 = shl i64 %i2.i64.0, 3, !dbg !38
-  %7 = getelementptr inbounds i32, i32* %arr, i64 %6, !dbg !38
-  store i32 %i1.i32.0, i32* %7, align 4, !dbg !41, !tbaa !42, !llvm.access.group !32
-  %8 = or i64 %6, 1, !dbg !38
-  %9 = getelementptr inbounds i32, i32* %arr, i64 %8, !dbg !38
-  store i32 %i1.i32.0, i32* %9, align 4, !dbg !41, !tbaa !42, !llvm.access.group !32
-  %10 = or i64 %6, 2, !dbg !38
-  %11 = getelementptr inbounds i32, i32* %arr, i64 %10, !dbg !38
-  store i32 %i1.i32.0, i32* %11, align 4, !dbg !41, !tbaa !42, !llvm.access.group !32
-  %12 = or i64 %6, 3, !dbg !38
-  %13 = getelementptr inbounds i32, i32* %arr, i64 %12, !dbg !38
-  store i32 %i1.i32.0, i32* %13, align 4, !dbg !41, !tbaa !42, !llvm.access.group !32
-  %14 = or i64 %6, 4, !dbg !38
-  %15 = getelementptr inbounds i32, i32* %arr, i64 %14, !dbg !38
-  store i32 %i1.i32.0, i32* %15, align 4, !dbg !41, !tbaa !42, !llvm.access.group !32
-  %16 = or i64 %6, 5, !dbg !38
-  %17 = getelementptr inbounds i32, i32* %arr, i64 %16, !dbg !38
-  store i32 %i1.i32.0, i32* %17, align 4, !dbg !41, !tbaa !42, !llvm.access.group !32
-  %18 = or i64 %6, 6, !dbg !38
-  %19 = getelementptr inbounds i32, i32* %arr, i64 %18, !dbg !38
-  store i32 %i1.i32.0, i32* %19, align 4, !dbg !41, !tbaa !42, !llvm.access.group !32
-  %20 = or i64 %6, 7, !dbg !38
-  %21 = getelementptr inbounds i32, i32* %arr, i64 %20, !dbg !38
-  store i32 %i1.i32.0, i32* %21, align 4, !dbg !41, !tbaa !42, !llvm.access.group !32
+  %5 = shl i64 %i2.i64.0, 3, !dbg !38
+  %6 = getelementptr inbounds i32, ptr %arr, i64 %5, !dbg !38
+  store i32 %i1.i32.0, ptr %6, align 4, !dbg !41, !tbaa !42, !llvm.access.group !32
+  %7 = or i64 %5, 1, !dbg !38
+  %8 = getelementptr inbounds i32, ptr %arr, i64 %7, !dbg !38
+  store i32 %i1.i32.0, ptr %8, align 4, !dbg !41, !tbaa !42, !llvm.access.group !32
+  %9 = or i64 %5, 2, !dbg !38
+  %10 = getelementptr inbounds i32, ptr %arr, i64 %9, !dbg !38
+  store i32 %i1.i32.0, ptr %10, align 4, !dbg !41, !tbaa !42, !llvm.access.group !32
+  %11 = or i64 %5, 3, !dbg !38
+  %12 = getelementptr inbounds i32, ptr %arr, i64 %11, !dbg !38
+  store i32 %i1.i32.0, ptr %12, align 4, !dbg !41, !tbaa !42, !llvm.access.group !32
+  %13 = or i64 %5, 4, !dbg !38
+  %14 = getelementptr inbounds i32, ptr %arr, i64 %13, !dbg !38
+  store i32 %i1.i32.0, ptr %14, align 4, !dbg !41, !tbaa !42, !llvm.access.group !32
+  %15 = or i64 %5, 5, !dbg !38
+  %16 = getelementptr inbounds i32, ptr %arr, i64 %15, !dbg !38
+  store i32 %i1.i32.0, ptr %16, align 4, !dbg !41, !tbaa !42, !llvm.access.group !32
+  %17 = or i64 %5, 6, !dbg !38
+  %18 = getelementptr inbounds i32, ptr %arr, i64 %17, !dbg !38
+  store i32 %i1.i32.0, ptr %18, align 4, !dbg !41, !tbaa !42, !llvm.access.group !32
+  %19 = or i64 %5, 7, !dbg !38
+  %20 = getelementptr inbounds i32, ptr %arr, i64 %19, !dbg !38
+  store i32 %i1.i32.0, ptr %20, align 4, !dbg !41, !tbaa !42, !llvm.access.group !32
   %nextivloop.54 = add nuw nsw i64 %i2.i64.0, 1, !dbg !33
-  %condloop.54.not = icmp eq i64 %i2.i64.0, %5, !dbg !33
+  %condloop.54.not = icmp eq i64 %i2.i64.0, %4, !dbg !33
   br i1 %condloop.54.not, label %ifmerge.55.loopexit, label %loop.54, !dbg !35, !llvm.loop !46
 
 ifmerge.55.loopexit:                              ; preds = %loop.54
@@ -120,7 +119,7 @@ ifmerge.55:                                       ; preds = %ifmerge.55.loopexit
   br label %ifmerge.14
 
 ifmerge.14:                                       ; preds = %NewDefault, %hir.L.84, %loop.49
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %2) #3, !dbg !58, !llvm.access.group !32
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %i.linear.iv) #3, !dbg !58, !llvm.access.group !32
   %nextivloop.49 = add nuw nsw i32 %i1.i32.0, 1, !dbg !59
   %condloop.49.not = icmp eq i32 %i1.i32.0, %1, !dbg !59
   br i1 %condloop.49.not, label %afterloop.49, label %loop.49, !dbg !29, !llvm.loop !60
@@ -134,7 +133,7 @@ afterloop.49:                                     ; preds = %ifmerge.14
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
 
 ; Function Attrs: argmemonly mustprogress nofree nosync nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #2
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #2
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #3
@@ -143,7 +142,7 @@ declare token @llvm.directive.region.entry() #3
 declare void @llvm.directive.region.exit(token) #3
 
 ; Function Attrs: argmemonly mustprogress nofree nosync nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #2
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #2
 
 ; Function Attrs: mustprogress nofree nosync nounwind readnone speculatable willreturn
 declare void @llvm.dbg.value(metadata, metadata, metadata) #1

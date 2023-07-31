@@ -115,7 +115,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree nounwind uwtable
-define void @unit_strided(float* noalias %sinA, float* noalias %cosA, float* noalias %sinB, float* noalias %cosB, i32 %N) local_unnamed_addr #0 {
+define void @unit_strided(ptr noalias %sinA, ptr noalias %cosA, ptr noalias %sinB, ptr noalias %cosB, i32 %N) local_unnamed_addr #0 {
 entry:
   %cmp17 = icmp sgt i32 %N, 0
   br i1 %cmp17, label %for.body.preheader, label %for.cond.cleanup
@@ -134,17 +134,17 @@ for.body:                                         ; preds = %for.inc, %for.body.
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.inc ]
   %0 = trunc i64 %indvars.iv to i32
   %conv = sitofp i32 %0 to float
-  %add.ptr = getelementptr inbounds float, float* %sinA, i64 %indvars.iv
-  %add.ptr2 = getelementptr inbounds float, float* %cosA, i64 %indvars.iv
-  tail call void @sincosf(float %conv, float* %add.ptr, float* %add.ptr2) #3
+  %add.ptr = getelementptr inbounds float, ptr %sinA, i64 %indvars.iv
+  %add.ptr2 = getelementptr inbounds float, ptr %cosA, i64 %indvars.iv
+  tail call void @sincosf(float %conv, ptr %add.ptr, ptr %add.ptr2) #3
   %and = and i32 %0, 1
   %tobool = icmp eq i32 %and, 0
   br i1 %tobool, label %if.then, label %for.inc
 
 if.then:                                          ; preds = %for.body
-  %add.ptr5 = getelementptr inbounds float, float* %sinB, i64 %indvars.iv
-  %add.ptr7 = getelementptr inbounds float, float* %cosB, i64 %indvars.iv
-  tail call void @sincosf(float %conv, float* %add.ptr5, float* %add.ptr7) #3
+  %add.ptr5 = getelementptr inbounds float, ptr %sinB, i64 %indvars.iv
+  %add.ptr7 = getelementptr inbounds float, ptr %cosB, i64 %indvars.iv
+  tail call void @sincosf(float %conv, ptr %add.ptr5, ptr %add.ptr7) #3
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then
@@ -154,7 +154,7 @@ for.inc:                                          ; preds = %for.body, %if.then
 }
 
 ; Function Attrs: nofree nounwind uwtable
-define void @non_unit_strided(float* noalias %sinA, float* noalias %cosA, float* noalias %sinB, float* noalias %cosB, i32 %N) local_unnamed_addr #0 {
+define void @non_unit_strided(ptr noalias %sinA, ptr noalias %cosA, ptr noalias %sinB, ptr noalias %cosB, i32 %N) local_unnamed_addr #0 {
 entry:
   %cmp17 = icmp sgt i32 %N, 0
   br i1 %cmp17, label %for.body.preheader, label %for.cond.cleanup
@@ -174,17 +174,17 @@ for.body:                                         ; preds = %for.inc, %for.body.
   %0 = trunc i64 %indvars.iv to i32
   %conv = sitofp i32 %0 to float
   %1 = shl nuw nsw i64 %indvars.iv, 1
-  %add.ptr = getelementptr inbounds float, float* %sinA, i64 %1
-  %add.ptr3 = getelementptr inbounds float, float* %cosA, i64 %1
-  tail call void @sincosf(float %conv, float* nonnull %add.ptr, float* nonnull %add.ptr3) #3
+  %add.ptr = getelementptr inbounds float, ptr %sinA, i64 %1
+  %add.ptr3 = getelementptr inbounds float, ptr %cosA, i64 %1
+  tail call void @sincosf(float %conv, ptr nonnull %add.ptr, ptr nonnull %add.ptr3) #3
   %and = and i32 %0, 1
   %tobool = icmp eq i32 %and, 0
   br i1 %tobool, label %if.then, label %for.inc
 
 if.then:                                          ; preds = %for.body
-  %add.ptr7 = getelementptr inbounds float, float* %sinB, i64 %1
-  %add.ptr10 = getelementptr inbounds float, float* %cosB, i64 %1
-  tail call void @sincosf(float %conv, float* nonnull %add.ptr7, float* nonnull %add.ptr10) #3
+  %add.ptr7 = getelementptr inbounds float, ptr %sinB, i64 %1
+  %add.ptr10 = getelementptr inbounds float, ptr %cosB, i64 %1
+  tail call void @sincosf(float %conv, ptr nonnull %add.ptr7, ptr nonnull %add.ptr10) #3
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then
@@ -194,7 +194,7 @@ for.inc:                                          ; preds = %for.body, %if.then
 }
 
 ; Function Attrs: nounwind
-declare void @sincosf(float, float*, float*) local_unnamed_addr #2
+declare void @sincosf(float, ptr, ptr) local_unnamed_addr #2
 
 attributes #2 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="true" "use-soft-float"="false" }
 attributes #3 = { nounwind readnone }

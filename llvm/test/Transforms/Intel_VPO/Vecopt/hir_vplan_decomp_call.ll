@@ -18,14 +18,14 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=4 -vplan-print-after-plain-cfg < %s -disable-output 2>&1 | FileCheck %s
 
 
-define void @powi_f64(i32 %n, double* noalias nocapture readonly %y, double* noalias nocapture %x, i32 %P, double %key) local_unnamed_addr #2 {
+define void @powi_f64(i32 %n, ptr noalias nocapture readonly %y, ptr noalias nocapture %x, i32 %P, double %key) local_unnamed_addr #2 {
 ; CHECK-LABEL:  VPlan after importing plain CFG
 ; CHECK:          i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1:BB[0-9]+]] ],  [ i64 [[VP3:%.*]], [[BB3:BB[0-9]+]] ]
-; CHECK-NEXT:     double* [[VP4:%.*]] = subscript inbounds double* [[Y0:%.*]] i64 [[VP2]]
-; CHECK-NEXT:     double [[VP5:%.*]] = load double* [[VP4]]
-; CHECK-NEXT:     double [[VP6:%.*]] = call double [[VP5]] double (double)* @llvm.exp.f64
-; CHECK-NEXT:     double* [[VP7:%.*]] = subscript inbounds double* [[X0:%.*]] i64 [[VP2]]
-; CHECK-NEXT:     store double [[VP6]] double* [[VP7]]
+; CHECK-NEXT:     ptr [[VP4:%.*]] = subscript inbounds ptr [[Y0:%.*]] i64 [[VP2]]
+; CHECK-NEXT:     double [[VP5:%.*]] = load ptr [[VP4]]
+; CHECK-NEXT:     double [[VP6:%.*]] = call double [[VP5]] ptr @llvm.exp.f64
+; CHECK-NEXT:     ptr [[VP7:%.*]] = subscript inbounds ptr [[X0:%.*]] i64 [[VP2]]
+; CHECK-NEXT:     store double [[VP6]] ptr [[VP7]]
 ; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
 ; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp slt i64 [[VP3]] i64 [[VP1:%vp.*]]
 ;
@@ -38,11 +38,11 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds double, double* %y, i64 %indvars.iv
-  %0 = load double, double* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds double, ptr %y, i64 %indvars.iv
+  %0 = load double, ptr %arrayidx, align 8
   %call = tail call fast double @llvm.exp.f64(double %0) #4
-  %arrayidx4 = getelementptr inbounds double, double* %x, i64 %indvars.iv
-  store double %call, double* %arrayidx4, align 8
+  %arrayidx4 = getelementptr inbounds double, ptr %x, i64 %indvars.iv
+  store double %call, ptr %arrayidx4, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, %n

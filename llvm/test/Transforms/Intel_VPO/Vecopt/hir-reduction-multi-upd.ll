@@ -39,7 +39,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local i64 @foo(i64 noundef %n, i64* nocapture noundef %ub) local_unnamed_addr #0 {
+define dso_local i64 @foo(i64 noundef %n, ptr nocapture noundef %ub) local_unnamed_addr #0 {
 ; CHECK-LABEL:  HIRLegality Descriptor Lists
 ; CHECK:       HIRLegality ReductionList:
 ; CHECK-NEXT:  Ref: &(([[RET_RED0:%.*]])[0])
@@ -78,29 +78,29 @@ entry:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
-  store i64 0, i64* %ret.red, align 8
+  store i64 0, ptr %ret.red, align 8
   br label %DIR.OMP.SIMD.146
 
 DIR.OMP.SIMD.146:                                 ; preds = %DIR.OMP.SIMD.1
-%0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.REDUCTION.ADD:TYPED"(i64* %ret.red, i64 0, i32 1), "QUAL.OMP.LINEAR:IV.TYPED"(i64* %i.linear.iv, i64 0, i32 1, i32 1) ]
+%0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %ret.red, i64 0, i32 1), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i64 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.146
-  %ret.red.promoted = load i64, i64* %ret.red, align 8
+  %ret.red.promoted = load i64, ptr %ret.red, align 8
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %omp.inner.for.inc
   %1 = phi i64 [ %ret.red.promoted, %DIR.OMP.SIMD.2 ], [ %4, %omp.inner.for.inc ]
   %.omp.iv.local.037 = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %add20, %omp.inner.for.inc ]
-  %arrayidx = getelementptr inbounds i64, i64* %ub, i64 %.omp.iv.local.037
-  %2 = load i64, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %ub, i64 %.omp.iv.local.037
+  %2 = load i64, ptr %arrayidx, align 8
   %cmp5 = icmp sgt i64 %2, 42
   br i1 %cmp5, label %if.then, label %if.else
 
 if.then:                                          ; preds = %omp.inner.for.body
   %add7 = add nsw i64 %1, %2
   %add9 = add nuw nsw i64 %2, 5
-  store i64 %add9, i64* %arrayidx, align 8
+  store i64 %add9, ptr %arrayidx, align 8
   br label %omp.inner.for.inc
 
 if.else:                                          ; preds = %omp.inner.for.body
@@ -109,13 +109,13 @@ if.else:                                          ; preds = %omp.inner.for.body
 
 if.then12:                                        ; preds = %if.else
   %sub13 = add nsw i64 %1, -10
-  store i64 0, i64* %arrayidx, align 8
+  store i64 0, ptr %arrayidx, align 8
   br label %omp.inner.for.inc
 
 if.else15:                                        ; preds = %if.else
   %sub16 = add nsw i64 %.omp.iv.local.037, -1
-  %arrayidx17 = getelementptr inbounds i64, i64* %ub, i64 %sub16
-  %3 = load i64, i64* %arrayidx17, align 8
+  %arrayidx17 = getelementptr inbounds i64, ptr %ub, i64 %sub16
+  %3 = load i64, ptr %arrayidx17, align 8
   %add18 = add nsw i64 %1, %3
   br label %omp.inner.for.inc
 
@@ -127,8 +127,8 @@ omp.inner.for.inc:                                ; preds = %if.then12, %if.else
 
 DIR.OMP.END.SIMD.2:                               ; preds = %omp.inner.for.inc
   %.lcssa = phi i64 [ %4, %omp.inner.for.inc ]
-  store i64 %n, i64* %i.linear.iv, align 8
-  store i64 %.lcssa, i64* %ret.red, align 8
+  store i64 %n, ptr %i.linear.iv, align 8
+  store i64 %.lcssa, ptr %ret.red, align 8
   br label %DIR.OMP.END.SIMD.3
 
 DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2

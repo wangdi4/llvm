@@ -25,182 +25,167 @@ define dso_local i32 @main() local_unnamed_addr #1 {
 ; CHECK-NEXT:    [[SR:%.*]] = alloca [100 x i32], align 16
 ; CHECK-NEXT:    [[Z:%.*]] = alloca [100 x i32], align 16
 ; CHECK-NEXT:    [[R:%.*]] = alloca [100 x [100 x i32]], align 16
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast [100 x i32]* [[SR]] to i8*
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast [100 x i32]* [[Z]] to i8*
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast [100 x [100 x i32]]* [[R]] to i8*
-; CHECK-NEXT:    call void @llvm.memset.p0i8.i64(i8* nonnull align 16 dereferenceable(40000) [[TMP2]], i8 0, i64 40000, i1 false)
+; CHECK-NEXT:    call void @llvm.memset.p0.i64(ptr nonnull align 16 dereferenceable(40000) [[R]], i8 0, i64 40000, i1 false)
 ; CHECK-NEXT:    [[NK:%.*]] = bitcast i32 0 to i32
 ; CHECK-NEXT:    [[J:%.*]] = bitcast i64 1 to i64
-; CHECK-NEXT:    [[Z_1:%.*]] = getelementptr inbounds [100 x i32], [100 x i32]* [[Z]], i64 0, i64 1
-; CHECK-NEXT:    [[ARRAYIDX110:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 1, i64 [[J]]
+; CHECK-NEXT:    [[Z_1:%.*]] = getelementptr inbounds [100 x i32], ptr [[Z]], i64 0, i64 1
+; CHECK-NEXT:    [[ARRAYIDX110:%.*]] = getelementptr inbounds [100 x [100 x i32]], ptr [[R]], i64 0, i64 1, i64 [[J]]
 ; CHECK-NEXT:    [[NK1:%.*]] = add i32 [[NK]], -1
-; CHECK-NEXT:    store i32 [[NK1]], i32* [[ARRAYIDX110]], align 4
-; CHECK-NEXT:    [[ARRAYIDX112:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 2, i64 1
-; CHECK-NEXT:    [[GEPLOAD113:%.*]] = load i32, i32* [[ARRAYIDX112]], align 4
-; CHECK-NEXT:    [[BC1:%.*]] = bitcast i32* [[Z_1]] to <4 x i32>*
-; CHECK-NEXT:    [[Z_2:%.*]] = getelementptr inbounds [100 x i32], [100 x i32]* [[Z]], i64 0, i64 5
-; CHECK-NEXT:    [[BC3:%.*]] = bitcast i32* [[Z_2]] to <4 x i32>*
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <4 x i32>* [[BC1]] to <8 x i32>*
-; CHECK-NEXT:    [[COALESCEDLOAD:%.*]] = load <8 x i32>, <8 x i32>* [[TMP3]], align 4
+; CHECK-NEXT:    store i32 [[NK1]], ptr [[ARRAYIDX110]], align 4
+; CHECK-NEXT:    [[ARRAYIDX112:%.*]] = getelementptr inbounds [100 x [100 x i32]], ptr [[R]], i64 0, i64 2, i64 1
+; CHECK-NEXT:    [[GEPLOAD113:%.*]] = load i32, ptr [[ARRAYIDX112]], align 4
+; CHECK-NEXT:    [[Z_2:%.*]] = getelementptr inbounds [100 x i32], ptr [[Z]], i64 0, i64 5
+; CHECK-NEXT:    [[COALESCEDLOAD:%.*]] = load <8 x i32>, ptr [[Z_1]], align 4
 ; CHECK-NEXT:    [[LOADCOALESCINGSHUFFLE_:%.*]] = shufflevector <8 x i32> [[COALESCEDLOAD]], <8 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    [[LOADCOALESCINGSHUFFLE_1:%.*]] = shufflevector <8 x i32> [[COALESCEDLOAD]], <8 x i32> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
 ; CHECK-NEXT:    [[WIDE_ADD_1:%.*]] = add <4 x i32> [[LOADCOALESCINGSHUFFLE_]], <i32 -126, i32 -126, i32 -126, i32 -126>
 ; CHECK-NEXT:    [[E1:%.*]] = extractelement <4 x i32> [[WIDE_ADD_1]], i32 0
-; CHECK-NEXT:    [[ARRAYIDX127:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 3, i64 2
-; CHECK-NEXT:    [[ARRAYIDX143:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 4, i64 3
-; CHECK-NEXT:    [[ARRAYIDX159:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 5, i64 4
+; CHECK-NEXT:    [[ARRAYIDX127:%.*]] = getelementptr inbounds [100 x [100 x i32]], ptr [[R]], i64 0, i64 3, i64 2
+; CHECK-NEXT:    [[ARRAYIDX143:%.*]] = getelementptr inbounds [100 x [100 x i32]], ptr [[R]], i64 0, i64 4, i64 3
+; CHECK-NEXT:    [[ARRAYIDX159:%.*]] = getelementptr inbounds [100 x [100 x i32]], ptr [[R]], i64 0, i64 5, i64 4
 ; CHECK-NEXT:    [[MUL1:%.*]] = mul i32 [[GEPLOAD113]], [[E1]]
 ; CHECK-NEXT:    [[E2:%.*]] = extractelement <4 x i32> [[WIDE_ADD_1]], i32 1
-; CHECK-NEXT:    [[GEPLOAD128:%.*]] = load i32, i32* [[ARRAYIDX127]], align 8
+; CHECK-NEXT:    [[GEPLOAD128:%.*]] = load i32, ptr [[ARRAYIDX127]], align 8
 ; CHECK-NEXT:    [[E3:%.*]] = extractelement <4 x i32> [[WIDE_ADD_1]], i32 2
-; CHECK-NEXT:    [[GEPLOAD144:%.*]] = load i32, i32* [[ARRAYIDX143]], align 4
+; CHECK-NEXT:    [[GEPLOAD144:%.*]] = load i32, ptr [[ARRAYIDX143]], align 4
 ; CHECK-NEXT:    [[E4:%.*]] = extractelement <4 x i32> [[WIDE_ADD_1]], i32 3
-; CHECK-NEXT:    [[GEPLOAD160:%.*]] = load i32, i32* [[ARRAYIDX159]], align 16
-; CHECK-NEXT:    store i32 [[MUL1]], i32* [[ARRAYIDX112]], align 4
-; CHECK-NEXT:    [[ARRAYIDX124:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 2, i64 [[J]]
+; CHECK-NEXT:    [[GEPLOAD160:%.*]] = load i32, ptr [[ARRAYIDX159]], align 16
+; CHECK-NEXT:    store i32 [[MUL1]], ptr [[ARRAYIDX112]], align 4
+; CHECK-NEXT:    [[ARRAYIDX124:%.*]] = getelementptr inbounds [100 x [100 x i32]], ptr [[R]], i64 0, i64 2, i64 [[J]]
 ; CHECK-NEXT:    [[NK2:%.*]] = add i32 [[NK]], -2
 ; CHECK-NEXT:    [[MUL2:%.*]] = mul i32 [[GEPLOAD128]], [[E2]]
-; CHECK-NEXT:    [[ARRAYIDX140:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 3, i64 [[J]]
+; CHECK-NEXT:    [[ARRAYIDX140:%.*]] = getelementptr inbounds [100 x [100 x i32]], ptr [[R]], i64 0, i64 3, i64 [[J]]
 ; CHECK-NEXT:    [[NK3:%.*]] = add i32 [[NK]], -3
 ; CHECK-NEXT:    [[MUL3:%.*]] = mul i32 [[GEPLOAD144]], [[E3]]
-; CHECK-NEXT:    [[BC2:%.*]] = bitcast i32* [[Z_1]] to <4 x i32>*
-; CHECK-NEXT:    [[ARRAYIDX156:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 4, i64 [[J]]
+; CHECK-NEXT:    [[ARRAYIDX156:%.*]] = getelementptr inbounds [100 x [100 x i32]], ptr [[R]], i64 0, i64 4, i64 [[J]]
 ; CHECK-NEXT:    [[NK4:%.*]] = add i32 [[NK]], -4
 ; CHECK-NEXT:    [[MUL4:%.*]] = mul i32 [[GEPLOAD160]], [[E4]]
-; CHECK-NEXT:    [[ARRAYIDX172:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 5, i64 [[J]]
+; CHECK-NEXT:    [[ARRAYIDX172:%.*]] = getelementptr inbounds [100 x [100 x i32]], ptr [[R]], i64 0, i64 5, i64 [[J]]
 ; CHECK-NEXT:    [[NK5:%.*]] = add i32 [[NK]], -5
-; CHECK-NEXT:    [[ARRAYIDX175:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 6, i64 5
-; CHECK-NEXT:    store i32 [[NK2]], i32* [[ARRAYIDX124]], align 4
-; CHECK-NEXT:    store i32 [[MUL2]], i32* [[ARRAYIDX127]], align 8
-; CHECK-NEXT:    store i32 [[NK3]], i32* [[ARRAYIDX140]], align 4
-; CHECK-NEXT:    store i32 [[MUL3]], i32* [[ARRAYIDX143]], align 4
-; CHECK-NEXT:    store <4 x i32> [[WIDE_ADD_1]], <4 x i32>* [[BC2]], align 4
-; CHECK-NEXT:    store i32 [[NK4]], i32* [[ARRAYIDX156]], align 4
-; CHECK-NEXT:    store i32 [[MUL4]], i32* [[ARRAYIDX159]], align 16
-; CHECK-NEXT:    store i32 [[NK5]], i32* [[ARRAYIDX172]], align 4
-; CHECK-NEXT:    [[GEPLOAD176:%.*]] = load i32, i32* [[ARRAYIDX175]], align 4
+; CHECK-NEXT:    [[ARRAYIDX175:%.*]] = getelementptr inbounds [100 x [100 x i32]], ptr [[R]], i64 0, i64 6, i64 5
+; CHECK-NEXT:    store i32 [[NK2]], ptr [[ARRAYIDX124]], align 4
+; CHECK-NEXT:    store i32 [[MUL2]], ptr [[ARRAYIDX127]], align 8
+; CHECK-NEXT:    store i32 [[NK3]], ptr [[ARRAYIDX140]], align 4
+; CHECK-NEXT:    store i32 [[MUL3]], ptr [[ARRAYIDX143]], align 4
+; CHECK-NEXT:    store <4 x i32> [[WIDE_ADD_1]], ptr [[Z_1]], align 4
+; CHECK-NEXT:    store i32 [[NK4]], ptr [[ARRAYIDX156]], align 4
+; CHECK-NEXT:    store i32 [[MUL4]], ptr [[ARRAYIDX159]], align 16
+; CHECK-NEXT:    store i32 [[NK5]], ptr [[ARRAYIDX172]], align 4
+; CHECK-NEXT:    [[GEPLOAD176:%.*]] = load i32, ptr [[ARRAYIDX175]], align 4
 ; CHECK-NEXT:    [[WIDE_ADD_2:%.*]] = add <4 x i32> [[LOADCOALESCINGSHUFFLE_1]], <i32 -126, i32 -126, i32 -126, i32 -126>
 ; CHECK-NEXT:    [[E5:%.*]] = extractelement <4 x i32> [[WIDE_ADD_2]], i32 0
 ; CHECK-NEXT:    [[MUL5:%.*]] = mul i32 [[GEPLOAD176]], [[E5]]
-; CHECK-NEXT:    store i32 [[MUL5]], i32* [[ARRAYIDX175]], align 4
-; CHECK-NEXT:    [[ARRAYIDX188:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 6, i64 [[J]]
+; CHECK-NEXT:    store i32 [[MUL5]], ptr [[ARRAYIDX175]], align 4
+; CHECK-NEXT:    [[ARRAYIDX188:%.*]] = getelementptr inbounds [100 x [100 x i32]], ptr [[R]], i64 0, i64 6, i64 [[J]]
 ; CHECK-NEXT:    [[NK6:%.*]] = add i32 [[NK]], -6
-; CHECK-NEXT:    store i32 [[NK6]], i32* [[ARRAYIDX188]], align 4
-; CHECK-NEXT:    [[ARRAYIDX191:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 7, i64 6
-; CHECK-NEXT:    [[GEPLOAD192:%.*]] = load i32, i32* [[ARRAYIDX191]], align 8
+; CHECK-NEXT:    store i32 [[NK6]], ptr [[ARRAYIDX188]], align 4
+; CHECK-NEXT:    [[ARRAYIDX191:%.*]] = getelementptr inbounds [100 x [100 x i32]], ptr [[R]], i64 0, i64 7, i64 6
+; CHECK-NEXT:    [[GEPLOAD192:%.*]] = load i32, ptr [[ARRAYIDX191]], align 8
 ; CHECK-NEXT:    [[E6:%.*]] = extractelement <4 x i32> [[WIDE_ADD_2]], i32 1
 ; CHECK-NEXT:    [[MUL6:%.*]] = mul i32 [[GEPLOAD192]], [[E6]]
-; CHECK-NEXT:    store i32 [[MUL6]], i32* [[ARRAYIDX191]], align 8
-; CHECK-NEXT:    [[ARRAYIDX204:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 7, i64 [[J]]
+; CHECK-NEXT:    store i32 [[MUL6]], ptr [[ARRAYIDX191]], align 8
+; CHECK-NEXT:    [[ARRAYIDX204:%.*]] = getelementptr inbounds [100 x [100 x i32]], ptr [[R]], i64 0, i64 7, i64 [[J]]
 ; CHECK-NEXT:    [[NK7:%.*]] = add i32 [[NK]], -7
-; CHECK-NEXT:    store i32 [[NK7]], i32* [[ARRAYIDX204]], align 4
-; CHECK-NEXT:    [[ARRAYIDX207:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 8, i64 7
-; CHECK-NEXT:    [[GEPLOAD208:%.*]] = load i32, i32* [[ARRAYIDX207]], align 4
+; CHECK-NEXT:    store i32 [[NK7]], ptr [[ARRAYIDX204]], align 4
+; CHECK-NEXT:    [[ARRAYIDX207:%.*]] = getelementptr inbounds [100 x [100 x i32]], ptr [[R]], i64 0, i64 8, i64 7
+; CHECK-NEXT:    [[GEPLOAD208:%.*]] = load i32, ptr [[ARRAYIDX207]], align 4
 ; CHECK-NEXT:    [[E7:%.*]] = extractelement <4 x i32> [[WIDE_ADD_2]], i32 2
 ; CHECK-NEXT:    [[MUL7:%.*]] = mul i32 [[GEPLOAD208]], [[E7]]
-; CHECK-NEXT:    store i32 [[MUL7]], i32* [[ARRAYIDX207]], align 4
-; CHECK-NEXT:    [[BC4:%.*]] = bitcast i32* [[Z_2]] to <4 x i32>*
-; CHECK-NEXT:    store <4 x i32> [[WIDE_ADD_2]], <4 x i32>* [[BC4]], align 4
-; CHECK-NEXT:    [[ARRAYIDX220:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 8, i64 [[J]]
+; CHECK-NEXT:    store i32 [[MUL7]], ptr [[ARRAYIDX207]], align 4
+; CHECK-NEXT:    store <4 x i32> [[WIDE_ADD_2]], ptr [[Z_2]], align 4
+; CHECK-NEXT:    [[ARRAYIDX220:%.*]] = getelementptr inbounds [100 x [100 x i32]], ptr [[R]], i64 0, i64 8, i64 [[J]]
 ; CHECK-NEXT:    [[NK8:%.*]] = add i32 [[NK]], -8
-; CHECK-NEXT:    store i32 [[NK8]], i32* [[ARRAYIDX220]], align 4
-; CHECK-NEXT:    [[ARRAYIDX223:%.*]] = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* [[R]], i64 0, i64 9, i64 8
-; CHECK-NEXT:    [[GEPLOAD224:%.*]] = load i32, i32* [[ARRAYIDX223]], align 16
+; CHECK-NEXT:    store i32 [[NK8]], ptr [[ARRAYIDX220]], align 4
+; CHECK-NEXT:    [[ARRAYIDX223:%.*]] = getelementptr inbounds [100 x [100 x i32]], ptr [[R]], i64 0, i64 9, i64 8
+; CHECK-NEXT:    [[GEPLOAD224:%.*]] = load i32, ptr [[ARRAYIDX223]], align 16
 ; CHECK-NEXT:    [[E8:%.*]] = extractelement <4 x i32> [[WIDE_ADD_2]], i32 3
 ; CHECK-NEXT:    [[MUL8:%.*]] = mul i32 [[GEPLOAD224]], [[E8]]
-; CHECK-NEXT:    store i32 [[MUL8]], i32* [[ARRAYIDX223]], align 16
+; CHECK-NEXT:    store i32 [[MUL8]], ptr [[ARRAYIDX223]], align 16
 ; CHECK-NEXT:    ret i32 0
 ;
 entry:
   %sr = alloca [100 x i32], align 16
   %z = alloca [100 x i32], align 16
   %r = alloca [100 x [100 x i32]], align 16
-  %0 = bitcast [100 x i32]* %sr to i8*
-  %1 = bitcast [100 x i32]* %z to i8*
-  %2 = bitcast [100 x [100 x i32]]* %r to i8*
-  call void @llvm.memset.p0i8.i64(i8* nonnull align 16 dereferenceable(40000) %2, i8 0, i64 40000, i1 false)
+  call void @llvm.memset.p0.i64(ptr nonnull align 16 dereferenceable(40000) %r, i8 0, i64 40000, i1 false)
   %nk = bitcast i32 0 to i32
   %j = bitcast i64 1 to i64
-  %Z_1 = getelementptr inbounds [100 x i32], [100 x i32]* %z, i64 0, i64 1
-  %arrayIdx110 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* %r, i64 0, i64 1, i64 %j
+  %Z_1 = getelementptr inbounds [100 x i32], ptr %z, i64 0, i64 1
+  %arrayIdx110 = getelementptr inbounds [100 x [100 x i32]], ptr %r, i64 0, i64 1, i64 %j
   %nk1 = add i32 %nk, -1
-  store i32 %nk1, i32* %arrayIdx110, align 4
-  %arrayIdx112 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* %r, i64 0, i64 2, i64 1
-  %gepload113 = load i32, i32* %arrayIdx112, align 4
-  %bc1 = bitcast i32* %Z_1 to <4 x i32>*
-  %wide.load.1 = load <4 x i32>, <4 x i32>* %bc1, align 4
+  store i32 %nk1, ptr %arrayIdx110, align 4
+  %arrayIdx112 = getelementptr inbounds [100 x [100 x i32]], ptr %r, i64 0, i64 2, i64 1
+  %gepload113 = load i32, ptr %arrayIdx112, align 4
+  %wide.load.1 = load <4 x i32>, ptr %Z_1, align 4
   %wide.add.1 = add <4 x i32> %wide.load.1, <i32 -126, i32 -126, i32 -126, i32 -126>
   %e1 = extractelement <4 x i32> %wide.add.1, i32 0
   %mul1 = mul i32 %gepload113, %e1
-  store i32 %mul1, i32* %arrayIdx112, align 4
-  %arrayIdx124 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* %r, i64 0, i64 2, i64 %j
+  store i32 %mul1, ptr %arrayIdx112, align 4
+  %arrayIdx124 = getelementptr inbounds [100 x [100 x i32]], ptr %r, i64 0, i64 2, i64 %j
   %nk2 = add i32 %nk, -2
-  store i32 %nk2, i32* %arrayIdx124, align 4
-  %arrayIdx127 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* %r, i64 0, i64 3, i64 2
-  %gepload128 = load i32, i32* %arrayIdx127, align 8
+  store i32 %nk2, ptr %arrayIdx124, align 4
+  %arrayIdx127 = getelementptr inbounds [100 x [100 x i32]], ptr %r, i64 0, i64 3, i64 2
+  %gepload128 = load i32, ptr %arrayIdx127, align 8
   %e2 = extractelement <4 x i32> %wide.add.1, i32 1
   %mul2 = mul i32 %gepload128, %e2
-  store i32 %mul2, i32* %arrayIdx127, align 8
-  %arrayIdx140 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* %r, i64 0, i64 3, i64 %j
+  store i32 %mul2, ptr %arrayIdx127, align 8
+  %arrayIdx140 = getelementptr inbounds [100 x [100 x i32]], ptr %r, i64 0, i64 3, i64 %j
   %nk3 = add i32 %nk, -3
-  store i32 %nk3, i32* %arrayIdx140, align 4
-  %arrayIdx143 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* %r, i64 0, i64 4, i64 3
-  %gepload144 = load i32, i32* %arrayIdx143, align 4
+  store i32 %nk3, ptr %arrayIdx140, align 4
+  %arrayIdx143 = getelementptr inbounds [100 x [100 x i32]], ptr %r, i64 0, i64 4, i64 3
+  %gepload144 = load i32, ptr %arrayIdx143, align 4
   %e3 = extractelement <4 x i32> %wide.add.1, i32 2
   %mul3 = mul i32 %gepload144, %e3
-  store i32 %mul3, i32* %arrayIdx143, align 4
-  %bc2 = bitcast i32* %Z_1 to <4 x i32>*
-  store <4 x i32> %wide.add.1, <4 x i32>* %bc2, align 4
-  %arrayIdx156 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* %r, i64 0, i64 4, i64 %j
+  store i32 %mul3, ptr %arrayIdx143, align 4
+  store <4 x i32> %wide.add.1, ptr %Z_1, align 4
+  %arrayIdx156 = getelementptr inbounds [100 x [100 x i32]], ptr %r, i64 0, i64 4, i64 %j
   %nk4 = add i32 %nk, -4
-  store i32 %nk4, i32* %arrayIdx156, align 4
-  %arrayIdx159 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* %r, i64 0, i64 5, i64 4
-  %gepload160 = load i32, i32* %arrayIdx159, align 16
+  store i32 %nk4, ptr %arrayIdx156, align 4
+  %arrayIdx159 = getelementptr inbounds [100 x [100 x i32]], ptr %r, i64 0, i64 5, i64 4
+  %gepload160 = load i32, ptr %arrayIdx159, align 16
   %e4 = extractelement <4 x i32> %wide.add.1, i32 3
   %mul4 = mul i32 %gepload160, %e4
-  store i32 %mul4, i32* %arrayIdx159, align 16
-  %Z_2 = getelementptr inbounds [100 x i32], [100 x i32]* %z, i64 0, i64 5
-  %arrayIdx172 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* %r, i64 0, i64 5, i64 %j
+  store i32 %mul4, ptr %arrayIdx159, align 16
+  %Z_2 = getelementptr inbounds [100 x i32], ptr %z, i64 0, i64 5
+  %arrayIdx172 = getelementptr inbounds [100 x [100 x i32]], ptr %r, i64 0, i64 5, i64 %j
   %nk5 = add i32 %nk, -5
-  store i32 %nk5, i32* %arrayIdx172, align 4
-  %arrayIdx175 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* %r, i64 0, i64 6, i64 5
-  %gepload176 = load i32, i32* %arrayIdx175, align 4
-  %bc3 = bitcast i32* %Z_2 to <4 x i32>*
-  %wide.load.2 = load <4 x i32>, <4 x i32>* %bc3, align 4
+  store i32 %nk5, ptr %arrayIdx172, align 4
+  %arrayIdx175 = getelementptr inbounds [100 x [100 x i32]], ptr %r, i64 0, i64 6, i64 5
+  %gepload176 = load i32, ptr %arrayIdx175, align 4
+  %wide.load.2 = load <4 x i32>, ptr %Z_2, align 4
   %wide.add.2 = add <4 x i32> %wide.load.2, <i32 -126, i32 -126, i32 -126, i32 -126>
   %e5 = extractelement <4 x i32> %wide.add.2, i32 0
   %mul5 = mul i32 %gepload176, %e5
-  store i32 %mul5, i32* %arrayIdx175, align 4
-  %arrayIdx188 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* %r, i64 0, i64 6, i64 %j
+  store i32 %mul5, ptr %arrayIdx175, align 4
+  %arrayIdx188 = getelementptr inbounds [100 x [100 x i32]], ptr %r, i64 0, i64 6, i64 %j
   %nk6 = add i32 %nk, -6
-  store i32 %nk6, i32* %arrayIdx188, align 4
-  %arrayIdx191 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* %r, i64 0, i64 7, i64 6
-  %gepload192 = load i32, i32* %arrayIdx191, align 8
+  store i32 %nk6, ptr %arrayIdx188, align 4
+  %arrayIdx191 = getelementptr inbounds [100 x [100 x i32]], ptr %r, i64 0, i64 7, i64 6
+  %gepload192 = load i32, ptr %arrayIdx191, align 8
   %e6 = extractelement <4 x i32> %wide.add.2, i32 1
   %mul6 = mul i32 %gepload192, %e6
-  store i32 %mul6, i32* %arrayIdx191, align 8
-  %arrayIdx204 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* %r, i64 0, i64 7, i64 %j
+  store i32 %mul6, ptr %arrayIdx191, align 8
+  %arrayIdx204 = getelementptr inbounds [100 x [100 x i32]], ptr %r, i64 0, i64 7, i64 %j
   %nk7 = add i32 %nk, -7
-  store i32 %nk7, i32* %arrayIdx204, align 4
-  %arrayIdx207 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* %r, i64 0, i64 8, i64 7
-  %gepload208 = load i32, i32* %arrayIdx207, align 4
+  store i32 %nk7, ptr %arrayIdx204, align 4
+  %arrayIdx207 = getelementptr inbounds [100 x [100 x i32]], ptr %r, i64 0, i64 8, i64 7
+  %gepload208 = load i32, ptr %arrayIdx207, align 4
   %e7 = extractelement <4 x i32> %wide.add.2, i32 2
   %mul7 = mul i32 %gepload208, %e7
-  store i32 %mul7, i32* %arrayIdx207, align 4
-  %bc4 = bitcast i32* %Z_2 to <4 x i32>*
-  store <4 x i32> %wide.add.2, <4 x i32>* %bc4, align 4
-  %arrayIdx220 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* %r, i64 0, i64 8, i64 %j
+  store i32 %mul7, ptr %arrayIdx207, align 4
+  store <4 x i32> %wide.add.2, ptr %Z_2, align 4
+  %arrayIdx220 = getelementptr inbounds [100 x [100 x i32]], ptr %r, i64 0, i64 8, i64 %j
   %nk8 = add i32 %nk, -8
-  store i32 %nk8, i32* %arrayIdx220, align 4
-  %arrayIdx223 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* %r, i64 0, i64 9, i64 8
-  %gepload224 = load i32, i32* %arrayIdx223, align 16
+  store i32 %nk8, ptr %arrayIdx220, align 4
+  %arrayIdx223 = getelementptr inbounds [100 x [100 x i32]], ptr %r, i64 0, i64 9, i64 8
+  %gepload224 = load i32, ptr %arrayIdx223, align 16
   %e8 = extractelement <4 x i32> %wide.add.2, i32 3
   %mul8 = mul i32 %gepload224, %e8
-  store i32 %mul8, i32* %arrayIdx223, align 16
+  store i32 %mul8, ptr %arrayIdx223, align 16
   ret i32 0
 }
 
 ; Function Attrs: argmemonly nounwind willreturn writeonly
-declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg) #2
+declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i1 immarg) #2
 
 attributes #1 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="false" "use-soft-float"="false" }

@@ -42,22 +42,22 @@ for.cond1.preheader:                              ; preds = %for.inc25, %DIR.PRA
 
 for.cond4.preheader:                              ; preds = %for.inc22, %for.cond1.preheader
   %indvars.iv45 = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next46, %for.inc22 ]
-  %arrayidx8 = getelementptr inbounds [4096 x [4096 x i32]], [4096 x [4096 x i32]]* @C, i64 0, i64 %indvars.iv48, i64 %indvars.iv45, !intel-tbaa !2
+  %arrayidx8 = getelementptr inbounds [4096 x [4096 x i32]], ptr @C, i64 0, i64 %indvars.iv48, i64 %indvars.iv45, !intel-tbaa !2
   br label %for.body6
 
 for.body6:                                        ; preds = %for.body6, %for.cond4.preheader
   %indvars.iv = phi i64 [ 0, %for.cond4.preheader ], [ %indvars.iv.next, %for.body6 ]
-  %1 = load i32, i32* %arrayidx8, align 4, !tbaa !2
-  %arrayidx12 = getelementptr inbounds [4096 x [4096 x i32]], [4096 x [4096 x i32]]* @A, i64 0, i64 %indvars.iv48, i64 %indvars.iv, !intel-tbaa !2
-  %2 = load i32, i32* %arrayidx12, align 4, !tbaa !2
-  %arrayidx16 = getelementptr inbounds [4096 x [4096 x i32]], [4096 x [4096 x i32]]* @B, i64 0, i64 %indvars.iv, i64 %indvars.iv45, !intel-tbaa !2
-  %3 = load i32, i32* %arrayidx16, align 4, !tbaa !2
+  %1 = load i32, ptr %arrayidx8, align 4, !tbaa !2
+  %arrayidx12 = getelementptr inbounds [4096 x [4096 x i32]], ptr @A, i64 0, i64 %indvars.iv48, i64 %indvars.iv, !intel-tbaa !2
+  %2 = load i32, ptr %arrayidx12, align 4, !tbaa !2
+  %arrayidx16 = getelementptr inbounds [4096 x [4096 x i32]], ptr @B, i64 0, i64 %indvars.iv, i64 %indvars.iv45, !intel-tbaa !2
+  %3 = load i32, ptr %arrayidx16, align 4, !tbaa !2
   %mul = mul nsw i32 %3, %2
   %add = add nsw i32 %mul, %1
-  %arrayidx20 = getelementptr inbounds [4096 x [4096 x i32]], [4096 x [4096 x i32]]* @C, i64 0, i64 %indvars.iv, i64 %indvars.iv45, !intel-tbaa !2
-  %4 = load i32, i32* %arrayidx20, align 4, !tbaa !2
+  %arrayidx20 = getelementptr inbounds [4096 x [4096 x i32]], ptr @C, i64 0, i64 %indvars.iv, i64 %indvars.iv45, !intel-tbaa !2
+  %4 = load i32, ptr %arrayidx20, align 4, !tbaa !2
   %add21 = add nsw i32 %add, %4
-  store i32 %add21, i32* %arrayidx20, align 4, !tbaa !2
+  store i32 %add21, ptr %arrayidx20, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 4096
   br i1 %exitcond, label %for.inc22, label %for.body6

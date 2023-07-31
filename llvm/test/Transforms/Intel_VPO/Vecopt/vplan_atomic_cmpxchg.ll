@@ -2,26 +2,26 @@
 
 ; RUN: opt -S -passes="vplan-vec" -vplan-force-vf=2 %s | FileCheck %s
 
-define void @test_cmpxchg(float* %counter_N0, i32* %op2) {
+define void @test_cmpxchg(ptr %counter_N0, ptr %op2) {
 ;
 ;
-; CHECK:  define void @test_cmpxchg(float* [[COUNTER_N00:%.*]], i32* [[OP20:%.*]]) {
+; CHECK:  define void @test_cmpxchg(ptr [[COUNTER_N00:%.*]], ptr [[OP20:%.*]]) {
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI30:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[TMP6:%.*]], %[[VPLANNEDBB90:.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH0]] ], [ [[TMP5:%.*]], %[[VPLANNEDBB90]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = add <2 x i64> [[VEC_PHI0]], <i64 1, i64 1>
-; CHECK-NEXT:    [[MM_VECTORGEP0:%.*]] = getelementptr i32, <2 x i32*> [[BROADCAST_SPLAT0:%.*]], <2 x i64> [[VEC_PHI0]]
-; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_1_0:%.*]] = extractelement <2 x i32*> [[MM_VECTORGEP0]], i32 1
-; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_0_0:%.*]] = extractelement <2 x i32*> [[MM_VECTORGEP0]], i32 0
-; CHECK-NEXT:    [[MM_VECTORGEP40:%.*]] = getelementptr i32, <2 x i32*> [[BROADCAST_SPLAT0]], <2 x i64> [[TMP0]]
-; CHECK-NEXT:    [[MM_VECTORGEP4_EXTRACT_1_0:%.*]] = extractelement <2 x i32*> [[MM_VECTORGEP40]], i32 1
-; CHECK-NEXT:    [[MM_VECTORGEP4_EXTRACT_0_0:%.*]] = extractelement <2 x i32*> [[MM_VECTORGEP40]], i32 0
-; CHECK-NEXT:    [[TMP1:%.*]] = load atomic i32, i32* [[MM_VECTORGEP_EXTRACT_0_0]] monotonic, align 4
-; CHECK-NEXT:    [[TMP2:%.*]] = load atomic i32, i32* [[MM_VECTORGEP_EXTRACT_1_0]] monotonic, align 4
-; CHECK-NEXT:    [[TMP3:%.*]] = load atomic i32, i32* [[MM_VECTORGEP4_EXTRACT_0_0]] monotonic, align 4
-; CHECK-NEXT:    [[TMP4:%.*]] = load atomic i32, i32* [[MM_VECTORGEP4_EXTRACT_1_0]] monotonic, align 4
-; CHECK-NEXT:    [[SERIAL_CMPXCHG0:%.*]] = cmpxchg i32* [[BC10:%.*]], i32 [[TMP1]], i32 [[TMP3]] monotonic monotonic
-; CHECK-NEXT:    [[SERIAL_CMPXCHG50:%.*]] = cmpxchg i32* [[BC10]], i32 [[TMP2]], i32 [[TMP4]] monotonic monotonic
+; CHECK-NEXT:    [[MM_VECTORGEP0:%.*]] = getelementptr i32, <2 x ptr> [[BROADCAST_SPLAT0:%.*]], <2 x i64> [[VEC_PHI0]]
+; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_1_0:%.*]] = extractelement <2 x ptr> [[MM_VECTORGEP0]], i32 1
+; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_0_0:%.*]] = extractelement <2 x ptr> [[MM_VECTORGEP0]], i32 0
+; CHECK-NEXT:    [[MM_VECTORGEP40:%.*]] = getelementptr i32, <2 x ptr> [[BROADCAST_SPLAT0]], <2 x i64> [[TMP0]]
+; CHECK-NEXT:    [[MM_VECTORGEP4_EXTRACT_1_0:%.*]] = extractelement <2 x ptr> [[MM_VECTORGEP40]], i32 1
+; CHECK-NEXT:    [[MM_VECTORGEP4_EXTRACT_0_0:%.*]] = extractelement <2 x ptr> [[MM_VECTORGEP40]], i32 0
+; CHECK-NEXT:    [[TMP1:%.*]] = load atomic i32, ptr [[MM_VECTORGEP_EXTRACT_0_0]] monotonic, align 4
+; CHECK-NEXT:    [[TMP2:%.*]] = load atomic i32, ptr [[MM_VECTORGEP_EXTRACT_1_0]] monotonic, align 4
+; CHECK-NEXT:    [[TMP3:%.*]] = load atomic i32, ptr [[MM_VECTORGEP4_EXTRACT_0_0]] monotonic, align 4
+; CHECK-NEXT:    [[TMP4:%.*]] = load atomic i32, ptr [[MM_VECTORGEP4_EXTRACT_1_0]] monotonic, align 4
+; CHECK-NEXT:    [[SERIAL_CMPXCHG0:%.*]] = cmpxchg ptr [[BC10:%.*]], i32 [[TMP1]], i32 [[TMP3]] monotonic monotonic
+; CHECK-NEXT:    [[SERIAL_CMPXCHG50:%.*]] = cmpxchg ptr [[BC10]], i32 [[TMP2]], i32 [[TMP4]] monotonic monotonic
 ; CHECK-NEXT:    [[SERIAL_EXTRACTVALUE0:%.*]] = extractvalue { i32, i1 } [[SERIAL_CMPXCHG0]], 0
 ; CHECK-NEXT:    [[SERIAL_EXTRACTVALUE60:%.*]] = extractvalue { i32, i1 } [[SERIAL_CMPXCHG50]], 0
 ; CHECK-NEXT:    [[SERIAL_EXTRACTVALUE70:%.*]] = extractvalue { i32, i1 } [[SERIAL_CMPXCHG0]], 1
@@ -35,7 +35,6 @@ define void @test_cmpxchg(float* %counter_N0, i32* %op2) {
 ; CHECK-NEXT:    br i1 [[TMP7]], label [[VECTOR_BODY0:%.*]], label [[VPLANNEDBB100:%.*]]
 ;
 entry:
-  %bc1 = bitcast float* %counter_N0 to i32*
   br label %simd.begin.region
 simd.begin.region:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"()]
@@ -43,11 +42,11 @@ simd.begin.region:
 simd.loop:
   %iv1 = phi i64 [ 0, %simd.begin.region ], [ %iv1.next, %simd.loop.end]
   %iv2 = add i64 %iv1, 1
-  %gep1 = getelementptr i32, i32* %op2, i64 %iv1
-  %gep2 = getelementptr i32, i32* %op2, i64 %iv2
-  %atomic-load1 = load atomic i32, i32* %gep1 monotonic, align 4
-  %atomic-load2 = load atomic i32, i32* %gep2 monotonic, align 4
-  %xcg = cmpxchg i32* %bc1, i32 %atomic-load1, i32 %atomic-load2 monotonic monotonic
+  %gep1 = getelementptr i32, ptr %op2, i64 %iv1
+  %gep2 = getelementptr i32, ptr %op2, i64 %iv2
+  %atomic-load1 = load atomic i32, ptr %gep1 monotonic, align 4
+  %atomic-load2 = load atomic i32, ptr %gep2 monotonic, align 4
+  %xcg = cmpxchg ptr %counter_N0, i32 %atomic-load1, i32 %atomic-load2 monotonic monotonic
   %e1 = extractvalue { i32, i1 } %xcg, 0
   %e2 = extractvalue { i32, i1 } %xcg, 1
   br label %simd.loop.end

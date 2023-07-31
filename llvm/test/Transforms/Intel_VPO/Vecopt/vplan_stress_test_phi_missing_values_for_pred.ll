@@ -16,7 +16,6 @@ define void @foo(ptr %p, i1 %cond1, i1 %cond2) {
 ; CHECK-NEXT: i1 [[VPPHI2:%.*]] = phi  [ i1 {{%.*}}, [[BB1]] ],  [ i1 false, [[IMBB]] ],  [ i1 false, [[BB2]] ]
 entry:
   %a = alloca [1 x i32], i32 0, align 8
-  %a.sub = getelementptr [1 x i32], ptr %a, i64 0, i64 0
   br label %for.body
 
 for.body:                                         ; preds = %foo.exit, %entry

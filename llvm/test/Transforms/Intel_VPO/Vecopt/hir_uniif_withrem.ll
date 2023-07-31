@@ -78,7 +78,7 @@ bb16_endif:
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.216, label %omp.pdo.body58
 
 DIR.OMP.SIMD.1:
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
   br label %omp.pdo.body58
 
 DIR.OMP.END.SIMD.216:

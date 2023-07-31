@@ -18,10 +18,10 @@ define void @doit() local_unnamed_addr #0 {
 ; CHECK:         br label [[FOR_BODY:%.*]]
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ [[INDVARS_IV_NEXT:%.*]], [[FOR_BODY]] ]
-; CHECK-NEXT:    [[LD_IDX:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.1, i64 0, i64 [[INDVARS_IV]]
-; CHECK-NEXT:    [[LD:%.*]] = load i32, i32* [[LD_IDX]]
-; CHECK-NEXT:    [[ST_IDX:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.2, i64 0, i64 [[INDVARS_IV]]
-; CHECK-NEXT:    store i32 [[LD]], i32* [[ST_IDX]]
+; CHECK-NEXT:    [[LD_IDX:%.*]] = getelementptr inbounds [1024 x i32], ptr @arr.i32.1, i64 0, i64 [[INDVARS_IV]]
+; CHECK-NEXT:    [[LD:%.*]] = load i32, ptr [[LD_IDX]]
+; CHECK-NEXT:    [[ST_IDX:%.*]] = getelementptr inbounds [1024 x i32], ptr @arr.i32.2, i64 0, i64 [[INDVARS_IV]]
+; CHECK-NEXT:    store i32 [[LD]], ptr [[ST_IDX]]
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
 ; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp eq i64 [[INDVARS_IV_NEXT]], 1024
 ; CHECK:         br i1 [[EXITCOND]], label [[FOR_END:%.*]], label [[FOR_BODY]]
@@ -36,10 +36,10 @@ entry:
 for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
 
-  %ld.idx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.1, i64 0, i64 %indvars.iv
-  %ld = load i32, i32* %ld.idx
-  %st.idx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.2, i64 0, i64 %indvars.iv
-  store i32 %ld, i32* %st.idx
+  %ld.idx = getelementptr inbounds [1024 x i32], ptr @arr.i32.1, i64 0, i64 %indvars.iv
+  %ld = load i32, ptr %ld.idx
+  %st.idx = getelementptr inbounds [1024 x i32], ptr @arr.i32.2, i64 0, i64 %indvars.iv
+  store i32 %ld, ptr %st.idx
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024

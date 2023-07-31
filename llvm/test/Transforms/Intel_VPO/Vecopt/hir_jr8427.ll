@@ -30,14 +30,14 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 @c = common dso_local local_unnamed_addr global i32 0, align 4
-@b = common dso_local local_unnamed_addr global i32* null, align 8
+@b = common dso_local local_unnamed_addr global ptr null, align 8
 @a = common dso_local local_unnamed_addr global i32 0, align 4
 
 ; Function Attrs: norecurse nounwind uwtable
 define dso_local i32 @d() local_unnamed_addr #0 {
 entry:
-  store i32 2, i32* @c, align 4, !tbaa !2
-  %0 = load i32*, i32** @b, align 8, !tbaa !6
+  store i32 2, ptr @c, align 4, !tbaa !2
+  %0 = load ptr, ptr @b, align 8, !tbaa !6
   br label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %entry, %for.end
@@ -46,18 +46,18 @@ for.cond1.preheader:                              ; preds = %entry, %for.end
 
 for.body3:                                        ; preds = %for.body3, %for.cond1.preheader
   %e.011 = phi i32 [ 0, %for.cond1.preheader ], [ %inc, %for.body3 ]
-  %1 = load i32, i32* %0, align 4, !tbaa !2
+  %1 = load i32, ptr %0, align 4, !tbaa !2
   %and = and i32 %1, %e.011
   %mul = mul i32 %and, %e.011
   %add = add i32 %mul, %storemerge12
-  store i32 %add, i32* @a, align 4, !tbaa !2
+  store i32 %add, ptr @a, align 4, !tbaa !2
   %inc = add nuw nsw i32 %e.011, 1
   %exitcond = icmp eq i32 %inc, 101
   br i1 %exitcond, label %for.end, label %for.body3
 
 for.end:                                          ; preds = %for.body3
   %add5 = add nuw nsw i32 %storemerge12, 2
-  store i32 %add5, i32* @c, align 4, !tbaa !2
+  store i32 %add5, ptr @c, align 4, !tbaa !2
   %cmp = icmp ult i32 %add5, 1000
   br i1 %cmp, label %for.cond1.preheader, label %for.end6
 

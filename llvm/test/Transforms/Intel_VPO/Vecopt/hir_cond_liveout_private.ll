@@ -4,7 +4,7 @@
 ; Test for loop is not vectorized if there are non-recognized phis. Currently,
 ; the last private phi are not processed correctly.
 ;
-define i64 @foo(i64* nocapture %larr) {
+define i64 @foo(ptr nocapture %larr) {
 ; CHECK: Function: foo
 ; CHECK:         BEGIN REGION { }
 ; CHECK-NOT:           + DO i1 = 0, 99, 4
@@ -17,14 +17,14 @@ entry:
 for.body:                                         ; preds = %for.body, %entry
   %l1.010 = phi i64 [ 0, %entry ], [ %inc, %else ]
   %priv_phi = phi i64 [ 0, %entry ], [ %merge, %else ]
-  %arrayidx = getelementptr inbounds i64, i64* %larr, i64 %l1.010
+  %arrayidx = getelementptr inbounds i64, ptr %larr, i64 %l1.010
   %cmp = icmp eq i64 %l1.010, 100
   br i1 %cmp, label %then, label %else
 
 then:
-  %0 = load i64, i64* %arrayidx, align 8
+  %0 = load i64, ptr %arrayidx, align 8
   %add = add nsw i64 %0, %l1.010
-  store i64 %add, i64* %arrayidx, align 8
+  store i64 %add, ptr %arrayidx, align 8
   br label %else
 
 else:

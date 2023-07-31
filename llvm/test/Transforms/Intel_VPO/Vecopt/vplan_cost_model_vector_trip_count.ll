@@ -27,10 +27,10 @@ entry1:
 
 for1.body:
   %i1.merge = phi i32 [ 0, %entry1 ], [ %i1.next, %for1.body ]
-  %idx1 = getelementptr inbounds [128 x i32], [128 x i32]* @arr, i32 0, i32 %i1.merge
-  %ld1 = load i32, i32* %idx1
+  %idx1 = getelementptr inbounds [128 x i32], ptr @arr, i32 0, i32 %i1.merge
+  %ld1 = load i32, ptr %idx1
   %r1 = add nuw nsw i32 %ld1, 1
-  store i32 %ld1, i32* %idx1
+  store i32 %ld1, ptr %idx1
 
   %i1.next = add nuw nsw i32 %i1.merge, 1
   %exitcond1 = icmp eq i32 %i1.next, 128
@@ -46,10 +46,10 @@ entry2:
 
 for2.body:
   %i2.merge = phi i32 [ 0, %entry2 ], [ %i2.next, %for2.body ]
-  %idx2 = getelementptr inbounds [128 x i32], [128 x i32]* @arr, i32 0, i32 %i2.merge
-  %ld2 = load i32, i32* %idx2
+  %idx2 = getelementptr inbounds [128 x i32], ptr @arr, i32 0, i32 %i2.merge
+  %ld2 = load i32, ptr %idx2
   %r2 = add nuw nsw i32 %ld2, 1
-  store i32 %ld2, i32* %idx2
+  store i32 %ld2, ptr %idx2
 
   %i2.next = add nuw nsw i32 %i2.merge, 1
   %exitcond2 = icmp eq i32 %i2.next, %tc

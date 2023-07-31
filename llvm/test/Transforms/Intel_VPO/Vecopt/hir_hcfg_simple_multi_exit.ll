@@ -16,7 +16,7 @@
 ; <19>      + END LOOP
 
 ; Function Attrs: norecurse nounwind readonly uwtable
-define dso_local i32 @peel_example(i32 %delta2, i32 %len_limit, i32* nocapture readonly %cur) local_unnamed_addr #0 {
+define dso_local i32 @peel_example(i32 %delta2, i32 %len_limit, ptr nocapture readonly %cur) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after initial VPlan transforms:
 ; CHECK-NEXT:  VPlan IR for: peel_example:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
@@ -37,11 +37,11 @@ define dso_local i32 @peel_example(i32 %delta2, i32 %len_limit, i32* nocapture r
 ; CHECK-NEXT:     i32 [[VP7:%.*]] = hir-copy i32 [[VP6]] , OriginPhiId: -1
 ; CHECK-NEXT:     i64 [[VP8:%.*]] = zext i32 [[VP4]] to i64
 ; CHECK-NEXT:     i64 [[VP9:%.*]] = add i64 [[VP2]] i64 [[VP8]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[CUR0:%.*]] i64 [[VP9]]
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[CUR0:%.*]] i64 [[VP9]]
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i64 [[VP11:%.*]] = zext i32 [[VP6]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[CUR0]] i64 [[VP11]]
-; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[CUR0]] i64 [[VP11]]
+; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp ne i32 [[VP_LOAD]] i32 [[VP_LOAD_1]]
 ; CHECK-NEXT:     br i1 [[VP12]], [[BB4:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:
@@ -77,10 +77,10 @@ for.body.lr.ph:
 for.body:
   %len_best.011 = phi i32 [ 1, %for.body.lr.ph ], [ %inc, %for.inc ]
   %idx.ext = zext i32 %len_best.011 to i64
-  %add.ptr = getelementptr inbounds i32, i32* %cur, i64 %idx.ext
-  %add.ptr2 = getelementptr inbounds i32, i32* %add.ptr, i64 %idx.neg
-  %0 = load i32, i32* %add.ptr2
-  %1 = load i32, i32* %add.ptr
+  %add.ptr = getelementptr inbounds i32, ptr %cur, i64 %idx.ext
+  %add.ptr2 = getelementptr inbounds i32, ptr %add.ptr, i64 %idx.neg
+  %0 = load i32, ptr %add.ptr2
+  %1 = load i32, ptr %add.ptr
   %cmp3 = icmp eq i32 %0, %1
   br i1 %cmp3, label %for.inc, label %for.end.loopexit
 

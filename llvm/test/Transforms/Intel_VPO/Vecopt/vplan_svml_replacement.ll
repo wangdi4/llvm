@@ -84,12 +84,12 @@ declare i64 @_Z14get_local_sizej(i32)
 declare i64 @get_base_global_id.(i32)
 
 ; Function Attrs: nounwind
-define void @"_ZGVdN8uuuuuu_TSZZ4mainENK3$_0clERN2cl4sycl7handlerEE10VecScalMul"(float addrspace(1)*, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), float addrspace(1)*, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range"), %"class.cl::sycl::range"* byval(%"class.cl::sycl::range")) {
+define void @"_ZGVdN8uuuuuu_TSZZ4mainENK3$_0clERN2cl4sycl7handlerEE10VecScalMul"(ptr addrspace(1), ptr byval(%"class.cl::sycl::range"), ptr byval(%"class.cl::sycl::range"), ptr addrspace(1), ptr byval(%"class.cl::sycl::range"), ptr byval(%"class.cl::sycl::range")) {
   %7 = call i64 @_Z13get_global_idj(i32 0)
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %6
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM:TYPED"(float addrspace(1)* %0, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(%"class.cl::sycl::range"* %1, %"class.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(%"class.cl::sycl::range"* %2, %"class.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(float addrspace(1)* %3, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(%"class.cl::sycl::range"* %4, %"class.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(%"class.cl::sycl::range"* %5, %"class.cl::sycl::range" zeroinitializer, i32 1) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM:TYPED"(ptr addrspace(1) %0, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %1, %"class.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %2, %"class.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr addrspace(1) %3, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %4, %"class.cl::sycl::range" zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %5, %"class.cl::sycl::range" zeroinitializer, i32 1) ]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
@@ -98,23 +98,23 @@ simd.loop:                                        ; preds = %simd.loop.exit, %si
   %add = add nuw i64 %8, %7
   %sext.i = shl i64 %add, 32
   %9 = ashr exact i64 %sext.i, 32
-  %10 = getelementptr inbounds float, float addrspace(1)* %3, i64 %9
-  %11 = load float, float addrspace(1)* %10, align 4
+  %10 = getelementptr inbounds float, ptr addrspace(1) %3, i64 %9
+  %11 = load float, ptr addrspace(1) %10, align 4
   %12 = call afn float @_Z3expf(float %11)
-  %13 = getelementptr inbounds float, float addrspace(1)* %0, i64 %9
-  store float %12, float addrspace(1)* %13, align 4
-  %14 = load float, float addrspace(1)* %10, align 4
+  %13 = getelementptr inbounds float, ptr addrspace(1) %0, i64 %9
+  store float %12, ptr addrspace(1) %13, align 4
+  %14 = load float, ptr addrspace(1) %10, align 4
   %15 = call afn float @_Z4sqrtf(float %14)
-  store float %15, float addrspace(1)* %13, align 4
-  %16 = load float, float addrspace(1)* %10, align 4
+  store float %15, ptr addrspace(1) %13, align 4
+  %16 = load float, ptr addrspace(1) %10, align 4
   %17 = call afn float @_Z3logf(float %16)
-  store float %17, float addrspace(1)* %13, align 4
-  %18 = load float, float addrspace(1)* %10, align 4
+  store float %17, ptr addrspace(1) %13, align 4
+  %18 = load float, ptr addrspace(1) %10, align 4
   %19 = call afn float @_Z4fmaxff(float %18, float %17)
-  store float %19, float addrspace(1)* %13, align 4
-  %20 = load float, float addrspace(1)* %10, align 4
+  store float %19, ptr addrspace(1) %13, align 4
+  %20 = load float, ptr addrspace(1) %10, align 4
   %21 = call afn float @_Z3madfff(float %20, float %19, float %20)
-  store float %21, float addrspace(1)* %13, align 4
+  store float %21, ptr addrspace(1) %13, align 4
   br label %simd.loop.exit
 
 simd.loop.exit:                                   ; preds = %simd.loop

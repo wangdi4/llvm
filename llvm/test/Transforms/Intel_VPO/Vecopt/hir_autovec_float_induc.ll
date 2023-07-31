@@ -23,7 +23,7 @@
 ; AUTO_VEC: vector.body
 ; AUTO_VEC: store <8 x float>
 
-define void @fp_iv_loop1(float* noalias nocapture %A, i32 %N) #0 {
+define void @fp_iv_loop1(ptr noalias nocapture %A, i32 %N) #0 {
 entry:
   %cmp4 = icmp sgt i32 %N, 0
   br i1 %cmp4, label %for.body.preheader, label %for.end
@@ -34,8 +34,8 @@ for.body.preheader:                               ; preds = %entry
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.preheader ]
   %x.06 = phi float [ %conv1, %for.body ], [ 1.000000e+00, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds float, float* %A, i64 %indvars.iv
-  store float %x.06, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds float, ptr %A, i64 %indvars.iv
+  store float %x.06, ptr %arrayidx, align 4
   %conv1 = fadd float %x.06, 5.000000e-01
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
@@ -63,7 +63,7 @@ for.end:                                          ; preds = %for.end.loopexit, %
 ; AUTO_VEC-NOT: vector.body
 ; AUTO_VEC-NOT: store <{{.*}} x float>
 
-define void @fp_iv_loop2(float* noalias nocapture %A, i32 %N) #1 {
+define void @fp_iv_loop2(ptr noalias nocapture %A, i32 %N) #1 {
 entry:
   %cmp4 = icmp sgt i32 %N, 0
   br i1 %cmp4, label %for.body.preheader, label %for.end
@@ -74,8 +74,8 @@ for.body.preheader:                               ; preds = %entry
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.preheader ]
   %x.06 = phi float [ %conv1, %for.body ], [ 1.000000e+00, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds float, float* %A, i64 %indvars.iv
-  store float %x.06, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds float, ptr %A, i64 %indvars.iv
+  store float %x.06, ptr %arrayidx, align 4
   %conv1 = fadd float %x.06, 5.000000e-01
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
@@ -109,15 +109,15 @@ for.end:                                          ; preds = %for.end.loopexit, %
 ; AUTO_VEC:    [[J_LCSSA:%.*]] = phi double
 ; AUTO_VEC:    ret double [[J_LCSSA]]
 ; end INTEL_CUSTOMIZATION
-define double @external_use_with_fast_math(double* %a, i64 %n) {
+define double @external_use_with_fast_math(ptr %a, i64 %n) {
 entry:
   br label %for.body
 
 for.body:
   %i = phi i64 [ 0, %entry ], [%i.next, %for.body]
   %j = phi double [ 0.0, %entry ], [ %j.next, %for.body ]
-  %tmp0 = getelementptr double, double* %a, i64 %i
-  store double %j, double* %tmp0
+  %tmp0 = getelementptr double, ptr %a, i64 %i
+  store double %j, ptr %tmp0
   %i.next = add i64 %i, 1
   %j.next = fadd fast double %j, 3.0
   %cond = icmp slt i64 %i.next, %n
@@ -150,15 +150,15 @@ for.end:
 ; AUTO_VEC-NEXT:    ret double %[[Res]]
 ; end INTEL_CUSTOMIZATION
 
-define double @external_use_without_fast_math(double* %a, i64 %n) {
+define double @external_use_without_fast_math(ptr %a, i64 %n) {
 entry:
   br label %for.body
 
 for.body:
   %i = phi i64 [ 0, %entry ], [%i.next, %for.body]
   %j = phi double [ 0.0, %entry ], [ %j.next, %for.body ]
-  %tmp0 = getelementptr double, double* %a, i64 %i
-  store double %j, double* %tmp0
+  %tmp0 = getelementptr double, ptr %a, i64 %i
+  store double %j, ptr %tmp0
   %i.next = add i64 %i, 1
   %j.next = fadd double %j, 3.0
   %cond = icmp slt i64 %i.next, %n

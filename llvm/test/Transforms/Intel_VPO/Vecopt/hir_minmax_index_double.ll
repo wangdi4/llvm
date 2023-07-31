@@ -16,7 +16,7 @@ define void @foo() {
 ; CHECK:      END REGION
 ;
 entry:
-  %0 = load double*, double** undef
+  %0 = load ptr, ptr undef
   br label %for.body.preheader
 
 for.body.preheader:
@@ -27,8 +27,8 @@ for.body:
   %retval.sroa.2.0.copyload.sroa.speculate.load.false = phi i64 [ %retval.sroa.2.0.copyload.sroa.speculated, %for.body ], [ -1, %for.body.preheader ]
   %1 = phi double [ %retval.sroa.0.0.copyload.sroa.speculated, %for.body ], [ 0x7FEFFFFFFFFFFFFF, %for.body.preheader ]
   %storemerge7 = phi i64 [ %inc, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds double, double* %0, i64 %storemerge7
-  %2 = load double, double* %arrayidx
+  %arrayidx = getelementptr inbounds double, ptr %0, i64 %storemerge7
+  %2 = load double, ptr %arrayidx
   %cmp = fcmp fast ogt double %1, %2
   %retval.sroa.0.0.copyload.sroa.speculated = select i1 %cmp, double %2, double %1
   %retval.sroa.2.0.copyload.sroa.speculated = select i1 %cmp, i64 %storemerge7, i64 %retval.sroa.2.0.copyload.sroa.speculate.load.false

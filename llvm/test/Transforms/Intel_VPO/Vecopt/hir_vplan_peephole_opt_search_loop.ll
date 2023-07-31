@@ -35,16 +35,16 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct2 = type <{ i32, [4 x i8] }>
 
 ; Function Attrs: uwtable
-define %struct2** @foo(%struct2** %t4, %struct2* %t1, i64 %n) {
+define ptr @foo(ptr %t4, ptr %t1, i64 %n) {
 entry:
   br label %header
 
 header:
   %iv = phi i64 [0, %entry], [%iv.next, %latch]
   %iv.prom = and i64 %iv, 4294967295
-  %gep = getelementptr %struct2*, %struct2 **%t4, i64 %iv.prom
-  %ptr = load %struct2 *, %struct2** %gep
-  %cmp.found = icmp eq %struct2 *%ptr, %t1
+  %gep = getelementptr ptr, ptr %t4, i64 %iv.prom
+  %ptr = load ptr, ptr %gep
+  %cmp.found = icmp eq ptr %ptr, %t1
   br i1 %cmp.found, label %found, label %latch
 
 latch:
@@ -56,10 +56,10 @@ loop.exit:
   br label %exit
 
 found:
-  %lcssa = phi %struct2 ** [ %gep , %header ]
+  %lcssa = phi ptr [ %gep , %header ]
   br label %exit
 
 exit:
-  %val = phi %struct2 ** [ %lcssa, %found ], [ zeroinitializer, %loop.exit ]
-  ret %struct2 ** %val
+  %val = phi ptr [ %lcssa, %found ], [ zeroinitializer, %loop.exit ]
+  ret ptr %val
 }

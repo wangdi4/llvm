@@ -49,38 +49,38 @@ define dso_local i32 @foo() local_unnamed_addr {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     i64 [[VP3:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP4:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [4 x [1024 x i32]]* @A i64 0 i64 0 i64 [[VP3]]
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [4 x [1024 x i32]]* @B i64 0 i64 0 i64 [[VP3]]
-; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr @A i64 0 i64 0 i64 [[VP3]]
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr @B i64 0 i64 0 i64 [[VP3]]
+; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     i32 [[VP5:%.*]] = add i32 [[VP_LOAD_1]] i32 [[VP_LOAD]]
 ; CHECK-NEXT:     i32 [[VP6:%.*]] = add i32 [[VP_LOAD]] i32 [[VP_LOAD_1]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [4 x [1024 x i32]]* @C i64 0 i64 0 i64 [[VP3]]
-; CHECK-NEXT:     store i32 [[VP6]] i32* [[VP_SUBSCRIPT_2]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [4 x [1024 x i32]]* @A i64 0 i64 1 i64 [[VP3]]
-; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load i32* [[VP_SUBSCRIPT_3]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds [4 x [1024 x i32]]* @B i64 0 i64 1 i64 [[VP3]]
-; CHECK-NEXT:     i32 [[VP_LOAD_3:%.*]] = load i32* [[VP_SUBSCRIPT_4]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr @C i64 0 i64 0 i64 [[VP3]]
+; CHECK-NEXT:     store i32 [[VP6]] ptr [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds ptr @A i64 0 i64 1 i64 [[VP3]]
+; CHECK-NEXT:     i32 [[VP_LOAD_2:%.*]] = load ptr [[VP_SUBSCRIPT_3]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds ptr @B i64 0 i64 1 i64 [[VP3]]
+; CHECK-NEXT:     i32 [[VP_LOAD_3:%.*]] = load ptr [[VP_SUBSCRIPT_4]]
 ; CHECK-NEXT:     i32 [[VP7:%.*]] = add i32 [[VP_LOAD_3]] i32 [[VP_LOAD_2]]
 ; CHECK-NEXT:     i32 [[VP8:%.*]] = add i32 [[VP_LOAD_2]] i32 [[VP_LOAD_3]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds [4 x [1024 x i32]]* @C i64 0 i64 1 i64 [[VP3]]
-; CHECK-NEXT:     store i32 [[VP8]] i32* [[VP_SUBSCRIPT_5]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_6:%.*]] = subscript inbounds [4 x [1024 x i32]]* @A i64 0 i64 2 i64 [[VP3]]
-; CHECK-NEXT:     i32 [[VP_LOAD_4:%.*]] = load i32* [[VP_SUBSCRIPT_6]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_7:%.*]] = subscript inbounds [4 x [1024 x i32]]* @B i64 0 i64 2 i64 [[VP3]]
-; CHECK-NEXT:     i32 [[VP_LOAD_5:%.*]] = load i32* [[VP_SUBSCRIPT_7]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds ptr @C i64 0 i64 1 i64 [[VP3]]
+; CHECK-NEXT:     store i32 [[VP8]] ptr [[VP_SUBSCRIPT_5]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_6:%.*]] = subscript inbounds ptr @A i64 0 i64 2 i64 [[VP3]]
+; CHECK-NEXT:     i32 [[VP_LOAD_4:%.*]] = load ptr [[VP_SUBSCRIPT_6]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_7:%.*]] = subscript inbounds ptr @B i64 0 i64 2 i64 [[VP3]]
+; CHECK-NEXT:     i32 [[VP_LOAD_5:%.*]] = load ptr [[VP_SUBSCRIPT_7]]
 ; CHECK-NEXT:     i32 [[VP9:%.*]] = add i32 [[VP_LOAD_5]] i32 [[VP_LOAD_4]]
 ; CHECK-NEXT:     i32 [[VP10:%.*]] = add i32 [[VP_LOAD_4]] i32 [[VP_LOAD_5]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_8:%.*]] = subscript inbounds [4 x [1024 x i32]]* @C i64 0 i64 2 i64 [[VP3]]
-; CHECK-NEXT:     store i32 [[VP10]] i32* [[VP_SUBSCRIPT_8]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_9:%.*]] = subscript inbounds [4 x [1024 x i32]]* @A i64 0 i64 3 i64 [[VP3]]
-; CHECK-NEXT:     i32 [[VP_LOAD_6:%.*]] = load i32* [[VP_SUBSCRIPT_9]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_10:%.*]] = subscript inbounds [4 x [1024 x i32]]* @B i64 0 i64 3 i64 [[VP3]]
-; CHECK-NEXT:     i32 [[VP_LOAD_7:%.*]] = load i32* [[VP_SUBSCRIPT_10]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_8:%.*]] = subscript inbounds ptr @C i64 0 i64 2 i64 [[VP3]]
+; CHECK-NEXT:     store i32 [[VP10]] ptr [[VP_SUBSCRIPT_8]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_9:%.*]] = subscript inbounds ptr @A i64 0 i64 3 i64 [[VP3]]
+; CHECK-NEXT:     i32 [[VP_LOAD_6:%.*]] = load ptr [[VP_SUBSCRIPT_9]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_10:%.*]] = subscript inbounds ptr @B i64 0 i64 3 i64 [[VP3]]
+; CHECK-NEXT:     i32 [[VP_LOAD_7:%.*]] = load ptr [[VP_SUBSCRIPT_10]]
 ; CHECK-NEXT:     i32 [[VP11:%.*]] = add i32 [[VP_LOAD_7]] i32 [[VP_LOAD_6]]
 ; CHECK-NEXT:     i32 [[VP12:%.*]] = add i32 [[VP_LOAD_6]] i32 [[VP_LOAD_7]]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_11:%.*]] = subscript inbounds [4 x [1024 x i32]]* @C i64 0 i64 3 i64 [[VP3]]
-; CHECK-NEXT:     store i32 [[VP12]] i32* [[VP_SUBSCRIPT_11]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_11:%.*]] = subscript inbounds ptr @C i64 0 i64 3 i64 [[VP3]]
+; CHECK-NEXT:     store i32 [[VP12]] ptr [[VP_SUBSCRIPT_11]]
 ; CHECK-NEXT:     i64 [[VP4]] = add i64 [[VP3]] i64 1
 ; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp slt i64 [[VP4]] i64 1024
 ; CHECK-NEXT:     br i1 [[VP13]], [[BB2]], [[BB3:BB[0-9]+]]
@@ -103,13 +103,13 @@ for.cond1.preheader:                              ; preds = %for.inc14, %entry
 
 for.body3:                                        ; preds = %for.body3, %for.cond1.preheader
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body3 ]
-  %arrayidx5 = getelementptr inbounds [4 x [1024 x i32]], [4 x [1024 x i32]]* @A, i64 0, i64 %indvars.iv, i64 %indvars.iv31
-  %0 = load i32, i32* %arrayidx5, align 4
-  %arrayidx9 = getelementptr inbounds [4 x [1024 x i32]], [4 x [1024 x i32]]* @B, i64 0, i64 %indvars.iv, i64 %indvars.iv31
-  %1 = load i32, i32* %arrayidx9, align 4
+  %arrayidx5 = getelementptr inbounds [4 x [1024 x i32]], ptr @A, i64 0, i64 %indvars.iv, i64 %indvars.iv31
+  %0 = load i32, ptr %arrayidx5, align 4
+  %arrayidx9 = getelementptr inbounds [4 x [1024 x i32]], ptr @B, i64 0, i64 %indvars.iv, i64 %indvars.iv31
+  %1 = load i32, ptr %arrayidx9, align 4
   %add = add nsw i32 %1, %0
-  %arrayidx13 = getelementptr inbounds [4 x [1024 x i32]], [4 x [1024 x i32]]* @C, i64 0, i64 %indvars.iv, i64 %indvars.iv31
-  store i32 %add, i32* %arrayidx13, align 4
+  %arrayidx13 = getelementptr inbounds [4 x [1024 x i32]], ptr @C, i64 0, i64 %indvars.iv, i64 %indvars.iv31
+  store i32 %add, ptr %arrayidx13, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 4
   br i1 %exitcond, label %for.inc14, label %for.body3, !llvm.loop !8

@@ -12,26 +12,26 @@ target triple = "x86_64-unknown-linux-gnu"
 @arr = dso_local local_unnamed_addr global [1000 x float] zeroinitializer, align 16
 
 ; Function Attrs: nounwind uwtable
-define dso_local float @foo(float* nocapture readnone %a) local_unnamed_addr #0 {
+define dso_local float @foo(ptr nocapture readnone %a) local_unnamed_addr #0 {
 DIR.OMP.SIMD.122:
   %x.red = alloca float, align 4
   %index.linear.iv = alloca i32, align 4
-  store float 0.000000e+00, float* %x.red, align 4
+  store float 0.000000e+00, ptr %x.red, align 4
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.122
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(float* %x.red, float zeroinitializer, i32 1), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %index.linear.iv, i32 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %x.red, float zeroinitializer, i32 1), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %index.linear.iv, i32 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
-  %x.red.promoted = load float, float* %x.red, align 4, !tbaa !2
+  %x.red.promoted = load float, ptr %x.red, align 4, !tbaa !2
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %omp.inner.for.body
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %1 = phi float [ %x.red.promoted, %DIR.OMP.SIMD.2 ], [ %add1, %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds [1000 x float], [1000 x float]* @arr, i64 0, i64 %indvars.iv, !intel-tbaa !6
-  %2 = load float, float* %arrayidx, align 4, !tbaa !6, !llvm.access.group !8
+  %arrayidx = getelementptr inbounds [1000 x float], ptr @arr, i64 0, i64 %indvars.iv, !intel-tbaa !6
+  %2 = load float, ptr %arrayidx, align 4, !tbaa !6, !llvm.access.group !8
   %add1 = fadd fast float %1, %2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1000

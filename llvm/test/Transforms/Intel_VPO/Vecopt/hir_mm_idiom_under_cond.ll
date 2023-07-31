@@ -22,7 +22,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @rqbr_(double %d, i1 %c1, i1 %c2, double* %a) local_unnamed_addr #0 {
+define dso_local void @rqbr_(double %d, i1 %c1, i1 %c2, ptr %a) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK:  Reduction list
 ; CHECK-NEXT:   (FloatMax) Start: double [[DMAX_025230:%.*]] Exit: double [[VP5:%.*]]
@@ -37,8 +37,8 @@ define dso_local void @rqbr_(double %d, i1 %c1, i1 %c2, double* %a) local_unname
 ;
 ; CHECK:          i64 [[VP9]] = phi  [ i64 [[VP_MONO_IDX_RED_INIT]], [[BB2:BB[0-9]+]] ],  [ i64 [[VP8]], [[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:     double [[VP6]] = phi  [ double [[VP_MINMAX_RED_INIT]], [[BB2]] ],  [ double [[VP5]], [[BB3]] ]
-; CHECK:            double* [[VP_SUBSCRIPT:%.*]] = subscript double* [[A0:%.*]] i64 [[VP12:%.*]]
-; CHECK-NEXT:       double [[VP_LOAD:%.*]] = load double* [[VP_SUBSCRIPT]]
+; CHECK:            ptr [[VP_SUBSCRIPT:%.*]] = subscript ptr [[A0:%.*]] i64 [[VP12:%.*]]
+; CHECK-NEXT:       double [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:       i1 [[VP13:%.*]] = fcmp ogt double [[VP_LOAD]] double [[VP6]]
 ; CHECK-NEXT:       i64 [[VP10]] = select i1 [[VP13]] i64 [[VP12]] i64 [[VP9]]
 ; CHECK-NEXT:       i1 [[VP14:%.*]] = fcmp ogt double [[VP_LOAD]] double [[VP6]]
@@ -72,8 +72,8 @@ if.end282:                                        ; preds = %if.then278
   br label %if.end285
 
 if.end285:                                        ; preds = %if.end282, %for.body271
-  %gep = getelementptr double, double* %a, i64 %indvars.iv2802
-  %v = load double, double* %gep
+  %gep = getelementptr double, ptr %a, i64 %indvars.iv2802
+  %v = load double, ptr %gep
   %cmp286 = fcmp fast ogt double %v, %dmax.02523
   %0 = select i1 %cmp286, i64 %indvars.iv2802, i64 %in.42522
   %1 = select i1 %cmp286, double %v, double %dmax.02523

@@ -8,7 +8,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: Not vectorizing: No VPlans constructed.
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
-define dso_local void @foo1(float* noalias nocapture %A, i32* noalias nocapture readonly %B) local_unnamed_addr #0 {
+define dso_local void @foo1(ptr noalias nocapture %A, ptr noalias nocapture readonly %B) local_unnamed_addr #0 {
 entry:
 ;   for (int i=0; i<N; i++){
 ;     index = B[i];
@@ -18,13 +18,13 @@ entry:
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ptridx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %0 = load i32, i32* %ptridx, align 4
+  %ptridx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %0 = load i32, ptr %ptridx, align 4
   %idxprom1 = sext i32 %0 to i64
-  %ptridx2 = getelementptr inbounds float, float* %A, i64 %idxprom1
-  %1 = load float, float* %ptridx2, align 4
+  %ptridx2 = getelementptr inbounds float, ptr %A, i64 %idxprom1
+  %1 = load float, ptr %ptridx2, align 4
   %sub = fsub fast float 2.000000e+00, %1
-  store float %sub, float* %ptridx2, align 4
+  store float %sub, ptr %ptridx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body
@@ -36,7 +36,7 @@ for.cond.cleanup:                                 ; preds = %for.body
 ; CHECK: Not vectorizing: No VPlans constructed.
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
-define dso_local void @foo2(float* noalias nocapture %A, i32* noalias nocapture readonly %B) local_unnamed_addr #0 {
+define dso_local void @foo2(ptr noalias nocapture %A, ptr noalias nocapture readonly %B) local_unnamed_addr #0 {
 entry:
 ;   for (int i=0; i<N; i++){
 ;     index = B[i];
@@ -46,13 +46,13 @@ entry:
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ptridx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %0 = load i32, i32* %ptridx, align 4
+  %ptridx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %0 = load i32, ptr %ptridx, align 4
   %idxprom1 = sext i32 %0 to i64
-  %ptridx2 = getelementptr inbounds float, float* %A, i64 %idxprom1
-  %1 = load float, float* %ptridx2, align 4
+  %ptridx2 = getelementptr inbounds float, ptr %A, i64 %idxprom1
+  %1 = load float, ptr %ptridx2, align 4
   %sub = fsub float %1, 2.000000e+00
-  store float %sub, float* %ptridx2, align 4
+  store float %sub, ptr %ptridx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body

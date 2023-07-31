@@ -8,18 +8,16 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define float @foo(float* nocapture readonly %a, float* nocapture readonly %b) {
+define float @foo(ptr nocapture readonly %a, ptr nocapture readonly %b) {
 ; CHECK-LABEL: @foo(
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1:%.*]] ], [ [[TMP4:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VPLANNEDBB1]] ], [ [[TMP3:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_PHI3:%.*]] = phi <4 x float> [ <float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00>, [[VPLANNEDBB1]] ], [ [[TMP2:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds float, float* [[A:%.*]], i64 [[UNI_PHI]]
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast float* [[SCALAR_GEP]] to <4 x float>*
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x float>, <4 x float>* [[TMP0]], align 4
-; CHECK-NEXT:    [[SCALAR_GEP4:%.*]] = getelementptr inbounds float, float* [[B:%.*]], i64 [[UNI_PHI]]
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast float* [[SCALAR_GEP4]] to <4 x float>*
-; CHECK-NEXT:    [[WIDE_LOAD5:%.*]] = load <4 x float>, <4 x float>* [[TMP1]], align 4
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds float, ptr [[A:%.*]], i64 [[UNI_PHI]]
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x float>, ptr [[SCALAR_GEP]], align 4
+; CHECK-NEXT:    [[SCALAR_GEP4:%.*]] = getelementptr inbounds float, ptr [[B:%.*]], i64 [[UNI_PHI]]
+; CHECK-NEXT:    [[WIDE_LOAD5:%.*]] = load <4 x float>, ptr [[SCALAR_GEP4]], align 4
 ; CHECK-NEXT:    [[TMP2]] = call <4 x float> @llvm.fmuladd.v4f32(<4 x float> [[WIDE_LOAD]], <4 x float> [[WIDE_LOAD5]], <4 x float> [[VEC_PHI3]])
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP4]] = add nuw nsw i64 [[UNI_PHI]], 4
@@ -36,10 +34,10 @@ entry:
 header:
   %iv = phi i64 [ 0, %entry ], [ %iv.next, %header ]
   %red.phi = phi float [ 0.000000e+00, %entry ], [ %red.next, %header ]
-  %a.gep = getelementptr inbounds float, float* %a, i64 %iv
-  %a.ld = load float, float* %a.gep
-  %b.gep = getelementptr inbounds float, float* %b, i64 %iv
-  %b.ld = load float, float* %b.gep
+  %a.gep = getelementptr inbounds float, ptr %a, i64 %iv
+  %a.ld = load float, ptr %a.gep
+  %b.gep = getelementptr inbounds float, ptr %b, i64 %iv
+  %b.ld = load float, ptr %b.gep
   %red.next = call float @llvm.fmuladd.f32(float %a.ld, float %b.ld, float %red.phi)
   %iv.next = add nuw nsw i64 %iv, 1
   %exitcond = icmp eq i64 %iv.next, 1024

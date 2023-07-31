@@ -25,17 +25,15 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %class.f = type { %"class.f::e" }
 %"class.f::e" = type { %class.b }
-%class.b = type { i32* }
+%class.b = type { ptr }
 
 ; Function Attrs: mustprogress uwtable
-define dso_local noundef i32 @_ZNK1f1lEi(%class.f* noundef nonnull align 8 dereferenceable(8) %this, i32 noundef %0) local_unnamed_addr #0 align 2 {
+define dso_local noundef i32 @_ZNK1f1lEi(ptr noundef nonnull align 8 dereferenceable(8) %this, i32 noundef %0) local_unnamed_addr #0 align 2 {
 entry:
-  %m = getelementptr inbounds %class.f, %class.f* %this, i64 0, i32 0, !intel-tbaa !3
-  %call = tail call noundef i32 @_ZNK1f1e1kEv(%"class.f::e"* noundef nonnull align 8 dereferenceable(8) %m)
+  %call = tail call noundef i32 @_ZNK1f1e1kEv(ptr noundef nonnull align 8 dereferenceable(8) %this)
   %tobool.not25 = icmp ne i32 %call, 0
   call void @llvm.assume(i1 %tobool.not25)
-  %c.i.i = getelementptr inbounds %class.f, %class.f* %this, i64 0, i32 0, i32 0, i32 0, !intel-tbaa !10
-  %1 = load i32*, i32** %c.i.i, align 8, !tbaa !10
+  %1 = load ptr, ptr %this, align 8, !tbaa !10
   %2 = sext i32 %call to i64
   br label %for.body
 
@@ -48,13 +46,13 @@ for.cond10.preheader:                             ; preds = %for.inc
 for.body:                                         ; preds = %entry, %for.inc
   %indvars.iv = phi i64 [ %2, %entry ], [ %indvars.iv.next, %for.inc ]
   %primals.026 = phi i32 [ undef, %entry ], [ %primals.1, %for.inc ]
-  %arrayidx.i.i = getelementptr inbounds i32, i32* %1, i64 %indvars.iv
-  %3 = load i32, i32* %arrayidx.i.i, align 4, !tbaa !11
+  %arrayidx.i.i = getelementptr inbounds i32, ptr %1, i64 %indvars.iv
+  %3 = load i32, ptr %arrayidx.i.i, align 4, !tbaa !11
   %tobool4.not = icmp eq i32 %3, 0
   br i1 %tobool4.not, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
-  %4 = load i32, i32* %1, align 4, !tbaa !11
+  %4 = load i32, ptr %1, align 4, !tbaa !11
   %tobool7.not = icmp eq i32 %4, 0
   br i1 %tobool7.not, label %if.else, label %cleanup.loopexit
 
@@ -76,7 +74,7 @@ cleanup:                                          ; preds = %cleanup.loopexit, %
   ret i32 undef
 }
 
-declare dso_local noundef i32 @_ZNK1f1e1kEv(%"class.f::e"* noundef nonnull align 8 dereferenceable(8)) local_unnamed_addr #1
+declare dso_local noundef i32 @_ZNK1f1e1kEv(ptr noundef nonnull align 8 dereferenceable(8)) local_unnamed_addr #1
 
 ; Function Attrs: inaccessiblememonly nocallback nofree nosync nounwind willreturn
 declare void @llvm.assume(i1 noundef) #2

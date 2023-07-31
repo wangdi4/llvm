@@ -48,14 +48,14 @@ define dso_local float @ifsum1(i32 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     float [[VP5:%.*]] = phi  [ float [[TSUM_0150:%.*]], [[BB1]] ],  [ float [[VP6:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     i64 [[VP7:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP8:%.*]], [[BB3]] ]
-; CHECK-NEXT:     float* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1000 x float]* @B i64 0 i64 [[VP7]]
-; CHECK-NEXT:     float [[VP_LOAD:%.*]] = load float* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr @B i64 0 i64 [[VP7]]
+; CHECK-NEXT:     float [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i1 [[VP9:%.*]] = fcmp ogt float [[VP_LOAD]] float 0.000000e+00
 ; CHECK-NEXT:     br i1 [[VP9]], [[BB4:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:       float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1000 x float]* @C i64 0 i64 [[VP7]]
-; CHECK-NEXT:       float [[VP_LOAD_1:%.*]] = load float* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr @C i64 0 i64 [[VP7]]
+; CHECK-NEXT:       float [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:       float [[VP10:%.*]] = fadd float [[VP_LOAD]] float [[VP_LOAD_1]]
 ; CHECK-NEXT:       float [[VP11:%.*]] = fadd float [[VP5]] float [[VP10]]
 ; CHECK-NEXT:       br [[BB3]]
@@ -94,14 +94,14 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 for.body:                                         ; preds = %for.inc, %for.body.preheader
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.inc ]
   %tsum.015 = phi float [ 0.000000e+00, %for.body.preheader ], [ %tsum.1, %for.inc ]
-  %arrayidx = getelementptr inbounds [1000 x float], [1000 x float]* @B, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  %0 = load float, float* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [1000 x float], ptr @B, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  %0 = load float, ptr %arrayidx, align 4, !tbaa !2
   %cmp1 = fcmp ogt float %0, 0.000000e+00
   br i1 %cmp1, label %if.then, label %for.inc
 
 if.then:                                          ; preds = %for.body
-  %arrayidx5 = getelementptr inbounds [1000 x float], [1000 x float]* @C, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  %1 = load float, float* %arrayidx5, align 4, !tbaa !2
+  %arrayidx5 = getelementptr inbounds [1000 x float], ptr @C, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  %1 = load float, ptr %arrayidx5, align 4, !tbaa !2
   %add = fadd fast float %0, %1
   %add6 = fadd fast float %tsum.015, %add
   br label %for.inc

@@ -4,24 +4,23 @@
 ; CHECK: Vectorization Plan{{.*}} Plain CFG
 ; CHECK-LABEL: @foo(
 ; CHECK: ret
-%struct.S1 = type { i32, %struct.S1* }
+%struct.S1 = type { i32, ptr }
 
 ; Function Attrs: noinline nounwind uwtable
-define void @foo(%struct.S1* %s1p) {
+define void @foo(ptr %s1p) {
 entry:
-  %cmp4 = icmp eq %struct.S1* %s1p, null
+  %cmp4 = icmp eq ptr %s1p, null
   br i1 %cmp4, label %for.end, label %for.body.preheader
 
 for.body.preheader:                               ; preds = %entry
   br label %for.body
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
-  %s1p.addr.05 = phi %struct.S1* [ %0, %for.body ], [ %s1p, %for.body.preheader ]
-  %next = getelementptr inbounds %struct.S1, %struct.S1* %s1p.addr.05, i64 0, i32 1
-  %0 = load %struct.S1*, %struct.S1** %next, align 8
-  %1 = bitcast %struct.S1* %s1p.addr.05 to i8*
-  tail call void @free(i8* %1) #2
-  %cmp = icmp eq %struct.S1* %0, null
+  %s1p.addr.05 = phi ptr [ %0, %for.body ], [ %s1p, %for.body.preheader ]
+  %next = getelementptr inbounds %struct.S1, ptr %s1p.addr.05, i64 0, i32 1
+  %0 = load ptr, ptr %next, align 8
+  tail call void @free(ptr %s1p.addr.05) #2
+  %cmp = icmp eq ptr %0, null
   br i1 %cmp, label %for.end.loopexit, label %for.body
 
 for.end.loopexit:                                 ; preds = %for.body
@@ -32,4 +31,4 @@ for.end:                                          ; preds = %for.end.loopexit, %
 }
 
 ; Function Attrs: nounwind
-declare dso_local void @free(i8* nocapture) local_unnamed_addr #1
+declare dso_local void @free(ptr nocapture) local_unnamed_addr #1

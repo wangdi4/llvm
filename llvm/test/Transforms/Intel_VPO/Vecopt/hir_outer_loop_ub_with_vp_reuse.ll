@@ -11,7 +11,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @arr = dso_local local_unnamed_addr global [128 x [128 x i64]] zeroinitializer, align 16
 
-define dso_local void @foo(i64* nocapture readonly %lp) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture readonly %lp) local_unnamed_addr #0 {
 ;
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK-NEXT:  VPlan IR for: foo:HIR.#{{[0-9]+}}
@@ -27,8 +27,8 @@ define dso_local void @foo(i64* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB3]] ]
-; CHECK-NEXT:     i64* [[VP_SUBSCRIPT_LP0:%.*]] = subscript inbounds i64* [[LP0:%.*]]
-; CHECK-NEXT:     i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT_LP0]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_LP0:%.*]] = subscript inbounds ptr [[LP0:%.*]]
+; CHECK-NEXT:     i64 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT_LP0]]
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB2]]
@@ -38,8 +38,8 @@ define dso_local void @foo(i64* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]], [[BB5]]
 ; CHECK-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 0, [[BB4]] ],  [ i64 [[VP6:%.*]], [[BB5]] ]
 ; CHECK-NEXT:     i64 [[VP7:%.*]] = add i64 [[VP2]] i64 [[VP5]]
-; CHECK-NEXT:     i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [128 x [128 x i64]]* @arr i64 0 i64 [[VP5]] i64 [[VP2]]
-; CHECK-NEXT:     store i64 [[VP7]] i64* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr @arr i64 0 i64 [[VP5]] i64 [[VP2]]
+; CHECK-NEXT:     store i64 [[VP7]] ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 1
 ; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp slt i64 [[VP6]] i64 [[VP4]]
 ; CHECK-NEXT:     br i1 [[VP8]], [[BB5]], [[BB3]]
@@ -61,7 +61,7 @@ entry:
 
 for.body:                                         ; preds = %entry, %for.end
   %l1.020 = phi i64 [ 0, %entry ], [ %inc7, %for.end ]
-  %0 = load i64, i64* %lp, align 8
+  %0 = load i64, ptr %lp, align 8
   %add = add i64 %0, 1
   br label %for.body3.preheader
 
@@ -71,8 +71,8 @@ for.body3.preheader:                              ; preds = %for.body
 for.body3:                                        ; preds = %for.body3.preheader, %for.body3
   %l2.019 = phi i64 [ %inc, %for.body3 ], [ 0, %for.body3.preheader ]
   %add4 = add i64 %l2.019, %l1.020
-  %arrayidx5 = getelementptr inbounds [128 x [128 x i64]], [128 x [128 x i64]]* @arr, i64 0, i64 %l2.019, i64 %l1.020
-  store i64 %add4, i64* %arrayidx5, align 8
+  %arrayidx5 = getelementptr inbounds [128 x [128 x i64]], ptr @arr, i64 0, i64 %l2.019, i64 %l1.020
+  store i64 %add4, ptr %arrayidx5, align 8
   %inc = add nuw i64 %l2.019, 1
   %exitcond.not = icmp eq i64 %inc, %add
   br i1 %exitcond.not, label %for.end.loopexit, label %for.body3

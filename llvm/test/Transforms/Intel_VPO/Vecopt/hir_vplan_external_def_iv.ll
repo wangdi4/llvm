@@ -30,7 +30,7 @@
 ;    i1 %vp1776 = icmp i64 %vp1520 i64 1599
 ;  SUCCESSORS(1):BB7
 
-; CHECK: i32 [[Load:%vp.*]] = load i32* %vp{{[0-9]*}}
+; CHECK: i32 [[Load:%vp.*]] = load ptr %vp{{[0-9]*}}
 ; CHECK: i32 [[Trunc:%vp.*]] = trunc i64 %i1
 ; CHECK: i32 %vp{{[0-9]*}} = mul i32 [[Load]] i32 [[Trunc]]
 
@@ -60,11 +60,11 @@ for.cond.cleanup3:
 
 for.body4:
   %iv = phi i64 [ 0, %for.cond1.preheader ], [ %iv.next, %for.body4 ]
-  %idx6 = getelementptr inbounds [1600 x [1600 x i32]], [1600 x [1600 x i32]]* @b, i64 0, i64 %iv25, i64 %iv, !intel-tbaa !2
-  %1 = load i32, i32* %idx6
+  %idx6 = getelementptr inbounds [1600 x [1600 x i32]], ptr @b, i64 0, i64 %iv25, i64 %iv, !intel-tbaa !2
+  %1 = load i32, ptr %idx6
   %mul = mul nsw i32 %1, %0
-  %idx10 = getelementptr inbounds [1600 x [1600 x i32]], [1600 x [1600 x i32]]* @a, i64 0, i64 %iv25, i64 %iv, !intel-tbaa !2
-  store i32 %mul, i32* %idx10
+  %idx10 = getelementptr inbounds [1600 x [1600 x i32]], ptr @a, i64 0, i64 %iv25, i64 %iv, !intel-tbaa !2
+  store i32 %mul, ptr %idx10
   %iv.next = add nuw nsw i64 %iv, 1
   %exitcond = icmp eq i64 %iv.next, 1600
   br i1 %exitcond, label %for.cond.cleanup3, label %for.body4

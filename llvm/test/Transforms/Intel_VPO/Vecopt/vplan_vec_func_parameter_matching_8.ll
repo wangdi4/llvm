@@ -24,11 +24,10 @@ define dso_local i32 @main() local_unnamed_addr #1 {
 omp.inner.for.body.lr.ph:
   %i.linear.iv = alloca i64, align 8
   %a = alloca [256 x i64], align 16
-  %0 = bitcast [256 x i64]* %a to i8*
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 2), "QUAL.OMP.LINEAR:IV.TYPED"(i64* %i.linear.iv, i64 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 2), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i64 0, i32 1, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.1, %omp.inner.for.body
@@ -41,14 +40,14 @@ omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.1, %om
 ; Since MaxArg for vvl > MaxArg for vlv, then the vvl variant is selected.
 
   %call = call i64 @_Z3foolll(i64 256, i64 %.omp.iv.local.09, i64 %.omp.iv.local.09) #3
-  %arrayidx = getelementptr inbounds [256 x i64], [256 x i64]* %a, i64 0, i64 %.omp.iv.local.09
-  store i64 %call, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds [256 x i64], ptr %a, i64 0, i64 %.omp.iv.local.09
+  store i64 %call, ptr %arrayidx, align 8
   %add1 = add nuw nsw i64 %.omp.iv.local.09, 1
   %exitcond = icmp eq i64 %add1, 256
   br i1 %exitcond, label %DIR.OMP.END.SIMD.4, label %omp.inner.for.body
 
 DIR.OMP.END.SIMD.4:                               ; preds = %omp.inner.for.body
-  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.SIMD"() ]
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.OMP.END.SIMD.2
 
 DIR.OMP.END.SIMD.2:                               ; preds = %DIR.OMP.END.SIMD.4

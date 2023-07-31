@@ -8,14 +8,13 @@
 ; CHECK-PREDICATOR-NOT: {{Divergent.* and}}
 ; CHECK-PREDICATOR-NOT: {{Divergent.* or}}
 
-define void @test_uniform_edge_to_uniform_block(i32* %a, i32 %b) local_unnamed_addr {
+define void @test_uniform_edge_to_uniform_block(ptr %a, i32 %b) local_unnamed_addr {
 ; CHECK-LABEL: @test_uniform_edge_to_uniform_block(
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI3:%.*]] = phi i32 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP10:%.*]], [[VPLANNEDBB9:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i32> [ <i32 0, i32 1>, [[VECTOR_PH]] ], [ [[TMP9:%.*]], [[VPLANNEDBB9]] ]
-; CHECK:         [[SCALAR_GEP:%.*]] = getelementptr i32, i32* [[A:%.*]], i32 [[UNI_PHI3]]
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[SCALAR_GEP]] to <2 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i32>, <2 x i32>* [[TMP0]], align 4
+; CHECK:         [[SCALAR_GEP:%.*]] = getelementptr i32, ptr [[A:%.*]], i32 [[UNI_PHI3]]
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i32>, ptr [[SCALAR_GEP]], align 4
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq i32 [[B:%.*]], 42
 ; CHECK-NEXT:    br label %[[VPLANNEDBB4:.*]]
 ; CHECK:       [[VPLANNEDBB4]]:
@@ -45,8 +44,8 @@ entry:
 ;    Latch----------+
 for.body:
   %indvars.iv = phi i32 [ 0, %entry ], [ %indvars.iv.next, %latch ]
-  %gep = getelementptr i32, i32 *%a, i32 %indvars.iv
-  %ld = load i32, i32* %gep, align 4
+  %gep = getelementptr i32, ptr %a, i32 %indvars.iv
+  %ld = load i32, ptr %gep, align 4
   %uniform = icmp eq i32 %b,  42
   br label %bb0
 

@@ -16,34 +16,32 @@ entry:
   %a = alloca %struct.S, align 8
   %vec.c = alloca <4 x i32>, align 16
   %vec.retval = alloca <4 x i32>, align 16
-  %vec.c.cast = bitcast <4 x i32>* %vec.c to i32*
-  %ret.cast = bitcast <4 x i32>* %vec.retval to i32*
-  store <4 x i32> %c, <4 x i32>* %vec.c, align 16
+  store <4 x i32> %c, ptr %vec.c, align 16
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.PRIVATE:TYPED"(%struct.S* %a, %struct.S zeroinitializer, i32 1) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.PRIVATE:TYPED"(ptr %a, %struct.S zeroinitializer, i32 1) ]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
   %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.exit ]
-  %vec.c.cast.gep = getelementptr i32, i32* %vec.c.cast, i32 %index
-  %vec.c.elem = load i32, i32* %vec.c.cast.gep, align 4
+  %vec.c.cast.gep = getelementptr i32, ptr %vec.c, i32 %index
+  %vec.c.elem = load i32, ptr %vec.c.cast.gep, align 4
   %tobool = icmp eq i32 %vec.c.elem, 0
   br i1 %tobool, label %if.end, label %if.then
 
 if.then:                                          ; preds = %simd.loop
 ; Check that call is generated with mask of <4 x i64> type, with needed conversion
-; CHECK:         [[WIDE_LOAD:%.*]] = load <4 x i32>, <4 x i32>* [[TMP0:%.*]], align 16
+; CHECK:         [[WIDE_LOAD:%.*]] = load <4 x i32>, ptr [[TMP0:%.*]], align 16
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq <4 x i32> [[WIDE_LOAD]], zeroinitializer
 ; CHECK-NEXT:    [[TMP2:%.*]] = xor <4 x i1> [[TMP1]], <i1 true, i1 true, i1 true, i1 true>
 ; CHECK-NEXT:    br label [[VPLANNEDBB4:%.*]]
 ; CHECK:       VPlannedBB3:
 ; CHECK-NEXT:    [[MASKEXT:%.*]] = sext <4 x i1> [[TMP2]] to <4 x i64>
-; CHECK-NEXT:    call void @_ZGVbM4v__Z3fooP1S(<4 x %struct.S*> nonnull [[A_VEC_BASE_ADDR:%.*]], <4 x i64> [[MASKEXT]])
-  call void @_Z3fooP1S(%struct.S* nonnull %a)
-  %k = getelementptr inbounds %struct.S, %struct.S* %a, i64 0, i32 1
-  %.pre = load i32, i32* %k, align 8
+; CHECK-NEXT:    call void @_ZGVbM4v__Z3fooP1S(<4 x ptr> nonnull [[A_VEC_BASE_ADDR:%.*]], <4 x i64> [[MASKEXT]])
+  call void @_Z3fooP1S(ptr nonnull %a)
+  %k = getelementptr inbounds %struct.S, ptr %a, i64 0, i32 1
+  %.pre = load i32, ptr %k, align 8
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %simd.loop
@@ -60,13 +58,13 @@ simd.end.region:                                  ; preds = %simd.loop.exit
   br label %return
 
 return:                                           ; preds = %simd.end.region
-  %vec.ret = load <4 x i32>, <4 x i32>* %vec.retval, align 16
+  %vec.ret = load <4 x i32>, ptr %vec.retval, align 16
   ret <4 x i32> %vec.ret
 }
 
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
-declare dso_local void @_Z3fooP1S(%struct.S*) #2
+declare dso_local void @_Z3fooP1S(ptr) #2
 
 attributes #2 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" "vector-variants"="_ZGVbN4v__Z3fooP1S,_ZGVcN4v__Z3fooP1S,_ZGVdN4v__Z3fooP1S,_ZGVeN4v__Z3fooP1S,_ZGVbM4v__Z3fooP1S,_ZGVcM4v__Z3fooP1S,_ZGVdM4v__Z3fooP1S,_ZGVeM4v__Z3fooP1S" }

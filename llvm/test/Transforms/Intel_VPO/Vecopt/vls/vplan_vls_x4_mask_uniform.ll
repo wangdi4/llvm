@@ -5,7 +5,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* nocapture %ary, i32 %param) {
+define void @foo(ptr nocapture %ary, i32 %param) {
 ;  for (i = 0; i < 1024; i += 4) {
 ;    if (param & 1) {
 ;      t0 = ary[i + 0] + 7;
@@ -40,9 +40,8 @@ define void @foo(i32* nocapture %ary, i32 %param) {
 ; CHECK:       vector.body:
 ; CHECK:         br i1 [[TMP1:%.*]], label [[VPLANNEDBB40:%.*]], label [[VPLANNEDBB50:%.*]]
 ; CHECK:       VPlannedBB5:
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, i32* [[ARY:%.*]], i64 [[UNI_PHI:%.*]]
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[SCALAR_GEP]] to <16 x i32>*
-; CHECK-NEXT:    [[TMP3:%.*]] = load <16 x i32>, <16 x i32>* [[TMP2]], align 4
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, ptr [[ARY:%.*]], i64 [[UNI_PHI:%.*]]
+; CHECK-NEXT:    [[TMP3:%.*]] = load <16 x i32>, ptr [[SCALAR_GEP]], align 4
 ; CHECK-NEXT:    [[TMP4:%.*]] = shufflevector <16 x i32> [[TMP3]], <16 x i32> [[TMP3]], <4 x i32> <i32 0, i32 4, i32 8, i32 12>
 ; CHECK-NEXT:    [[TMP5:%.*]] = shufflevector <16 x i32> [[TMP3]], <16 x i32> [[TMP3]], <4 x i32> <i32 1, i32 5, i32 9, i32 13>
 ; CHECK-NEXT:    [[TMP6:%.*]] = shufflevector <16 x i32> [[TMP3]], <16 x i32> [[TMP3]], <4 x i32> <i32 2, i32 6, i32 10, i32 14>
@@ -59,8 +58,7 @@ define void @foo(i32* nocapture %ary, i32 %param) {
 ; CHECK-NEXT:    [[TMP17:%.*]] = shufflevector <16 x i32> [[TMP15]], <16 x i32> [[TMP16]], <16 x i32> <i32 0, i32 1, i32 16, i32 3, i32 4, i32 5, i32 17, i32 7, i32 8, i32 9, i32 18, i32 11, i32 12, i32 13, i32 19, i32 15>
 ; CHECK-NEXT:    [[TMP18:%.*]] = shufflevector <4 x i32> [[TMP11]], <4 x i32> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP19:%.*]] = shufflevector <16 x i32> [[TMP17]], <16 x i32> [[TMP18]], <16 x i32> <i32 0, i32 1, i32 2, i32 16, i32 4, i32 5, i32 6, i32 17, i32 8, i32 9, i32 10, i32 18, i32 12, i32 13, i32 14, i32 19>
-; CHECK-NEXT:    [[TMP20:%.*]] = bitcast i32* [[SCALAR_GEP]] to <16 x i32>*
-; CHECK-NEXT:    store <16 x i32> [[TMP19]], <16 x i32>* [[TMP20]], align 4
+; CHECK-NEXT:    store <16 x i32> [[TMP19]], ptr [[SCALAR_GEP]], align 4
 ; CHECK-NEXT:    br label [[VPLANNEDBB4:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
@@ -77,25 +75,25 @@ for.body:                                         ; preds = %entry, %for.inc
   br i1 %tobool, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
-  %arrayidx = getelementptr inbounds i32, i32* %ary, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %ary, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %add7 = add nsw i32 %0, 7
   %1 = or i64 %indvars.iv, 1
-  %arrayidx6 = getelementptr inbounds i32, i32* %ary, i64 %1
-  %2 = load i32, i32* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds i32, ptr %ary, i64 %1
+  %2 = load i32, ptr %arrayidx6, align 4
   %add11 = add nsw i32 %2, 11
   %3 = or i64 %indvars.iv, 2
-  %arrayidx10 = getelementptr inbounds i32, i32* %ary, i64 %3
-  %4 = load i32, i32* %arrayidx10, align 4
+  %arrayidx10 = getelementptr inbounds i32, ptr %ary, i64 %3
+  %4 = load i32, ptr %arrayidx10, align 4
   %add12 = add nsw i32 %4, 12
   %5 = or i64 %indvars.iv, 3
-  %arrayidx14 = getelementptr inbounds i32, i32* %ary, i64 %5
-  %6 = load i32, i32* %arrayidx14, align 4
+  %arrayidx14 = getelementptr inbounds i32, ptr %ary, i64 %5
+  %6 = load i32, ptr %arrayidx14, align 4
   %add61 = add nsw i32 %6, 61
-  store i32 %add7, i32* %arrayidx, align 4
-  store i32 %add11, i32* %arrayidx6, align 4
-  store i32 %add12, i32* %arrayidx10, align 4
-  store i32 %add61, i32* %arrayidx14, align 4
+  store i32 %add7, ptr %arrayidx, align 4
+  store i32 %add11, ptr %arrayidx6, align 4
+  store i32 %add12, ptr %arrayidx10, align 4
+  store i32 %add61, ptr %arrayidx14, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then

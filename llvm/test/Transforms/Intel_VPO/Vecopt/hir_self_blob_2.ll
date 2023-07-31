@@ -41,8 +41,8 @@ for.body4:                                        ; preds = %for.body4.preheader
   %add5 = add nsw i32 %add, %rem
   %mul = mul nsw i32 %add5, %3
   %add6 = add nsw i32 %mul, %2
-  %arrayidx8 = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x i32]]* @a, i64 0, i64 %indvars.iv32, i64 %indvars.iv
-  store i32 %add6, i32* %arrayidx8, align 4, !tbaa !2
+  %arrayidx8 = getelementptr inbounds [100 x [100 x i32]], ptr @a, i64 0, i64 %indvars.iv32, i64 %indvars.iv
+  store i32 %add6, ptr %arrayidx8, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %cmp3 = icmp slt i64 %indvars.iv, %1
   br i1 %cmp3, label %for.body4, label %for.inc9.loopexit

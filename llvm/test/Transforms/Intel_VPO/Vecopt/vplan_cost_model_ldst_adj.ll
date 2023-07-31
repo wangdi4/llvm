@@ -6,12 +6,12 @@
 ; REQUIRES: asserts
 ;
 ; DEFAULT: Dynamic peeling selection (1 items)
-; DEFAULT: store i64 %vp{{.*}} i64* %vp{{.*}} profit=0.375
+; DEFAULT: store i64 %vp{{.*}} ptr %vp{{.*}} profit=0.375
 ;
 ; ADJCOST: Dynamic peeling selection (1 items)
-; ADJCOST: store i64 %vp{{.*}} i64* %vp{{.*}} profit=3.75
+; ADJCOST: store i64 %vp{{.*}} ptr %vp{{.*}} profit=3.75
 ;
-define void @foo(i64* %lp, i64 %n1) {
+define void @foo(ptr %lp, i64 %n1) {
 entry:
   %cmp5 = icmp sgt i64 %n1, 0
   br i1 %cmp5, label %for.body.preheader, label %for.end
@@ -21,8 +21,8 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %l1.06 = phi i64 [ %inc, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i64, i64* %lp, i64 %l1.06
-  store i64 %l1.06, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %lp, i64 %l1.06
+  store i64 %l1.06, ptr %arrayidx, align 8
   %inc = add nuw nsw i64 %l1.06, 1
   %exitcond.not = icmp eq i64 %inc, %n1
   br i1 %exitcond.not, label %for.end.loopexit, label %for.body, !llvm.loop !0

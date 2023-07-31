@@ -38,7 +38,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @arr_e = common dso_local local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
 
 ; Function Attrs: noinline nounwind uwtable
-define dso_local i32 @foo(i32 %n1, i32** nocapture %out) local_unnamed_addr {
+define dso_local i32 @foo(i32 %n1, ptr nocapture %out) local_unnamed_addr {
 ; CHECK-LABEL:  SOA profitability:
 ; CHECK-NEXT:  SOASafe = [[VP_INDEX_LPRIV:%.*]] (index.lpriv) Profitable = 1
 ; CHECK-NEXT:  SOAUnsafe = [[VP_ARR_E_PRIV:%.*]] (arr_e.priv)
@@ -54,12 +54,12 @@ omp.inner.for.body.lr.ph:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-%0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr_ne.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr_e.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"(i32* %index.lpriv, i32 0, i32 1)]
+%0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr_ne.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr_e.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"(ptr %index.lpriv, i32 0, i32 1)]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
   %idxprom8 = sext i32 %n1 to i64
-  %arrayidx9 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_e.priv, i64 0, i64 %idxprom8
+  %arrayidx9 = getelementptr inbounds [1024 x i32], ptr %arr_e.priv, i64 0, i64 %idxprom8
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.inc, %DIR.OMP.SIMD.2
@@ -71,14 +71,14 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.inc, 
 
 if.then:                                          ; preds = %omp.inner.for.body
   %add2 = add nsw i32 %1, %n1
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_ne.priv, i64 0, i64 %indvars.iv
-  store i32 %add2, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr %arr_ne.priv, i64 0, i64 %indvars.iv
+  store i32 %add2, ptr %arrayidx, align 4
   br label %if.end
 
 if.else:                                          ; preds = %omp.inner.for.body
   %sub = sub nsw i32 %1, %n1
-  %arrayidx4 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_ne.priv, i64 0, i64 %indvars.iv
-  store i32 %sub, i32* %arrayidx4, align 4
+  %arrayidx4 = getelementptr inbounds [1024 x i32], ptr %arr_ne.priv, i64 0, i64 %indvars.iv
+  store i32 %sub, ptr %arrayidx4, align 4
   br label %if.end
 
 if.end:                                           ; preds = %if.else, %if.then
@@ -88,7 +88,7 @@ if.end:                                           ; preds = %if.else, %if.then
   br i1 %cmp6, label %if.then7, label %omp.inner.for.inc
 
 if.then7:                                         ; preds = %if.end
-  store i32* %arrayidx9, i32** %out, align 8
+  store ptr %arrayidx9, ptr %out, align 8
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %if.then7, %if.end
@@ -97,7 +97,7 @@ omp.inner.for.inc:                                ; preds = %if.then7, %if.end
   br i1 %exitcond, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body
 
 DIR.OMP.END.SIMD.2:                               ; preds = %omp.inner.for.inc
-  store i32 1023, i32* %index.lpriv, align 4
+  store i32 1023, ptr %index.lpriv, align 4
   br label %DIR.OMP.END.SIMD.3
 
 DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2
@@ -106,8 +106,8 @@ DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2
 
 DIR.OMP.END.SIMD.4:                               ; preds = %DIR.OMP.END.SIMD.3
   %idxprom12 = sext i32 %n1 to i64
-  %arrayidx13 = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr_e, i64 0, i64 %idxprom12
-  %3 = load i32, i32* %arrayidx13, align 4
+  %arrayidx13 = getelementptr inbounds [1024 x i32], ptr @arr_e, i64 0, i64 %idxprom12
+  %3 = load i32, ptr %arrayidx13, align 4
   ret i32 %3
 }
 

@@ -8,7 +8,7 @@ target triple = "x86_64-unknown-linux-gnu"
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
-define dso_local void @foo(i64 *%a) local_unnamed_addr {
+define dso_local void @foo(ptr %a) local_unnamed_addr {
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %outer.preheader
@@ -18,8 +18,8 @@ outer.preheader:
 
 outer.header:
   %outer.iv = phi i64 [ %outer.iv.next, %outer.cont ], [ 0, %outer.preheader ]
-  %arrayidx = getelementptr inbounds i64, i64* %a, i64 %outer.iv
-  %ld = load i64, i64* %arrayidx
+  %arrayidx = getelementptr inbounds i64, ptr %a, i64 %outer.iv
+  %ld = load i64, ptr %arrayidx
   %div.cmp = icmp eq i64 %ld, 42
   br i1 %div.cmp, label %inner.preheader, label %outer.cont
 
@@ -38,9 +38,8 @@ inner.exit:
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI3:%.*]] = phi i64 [ [[TMP9:%.*]], %[[VPLANNEDBB10:.*]] ], [ 0, [[VECTOR_PH:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ [[TMP8:%.*]], %[[VPLANNEDBB10]] ], [ <i64 0, i64 1>, [[VECTOR_PH]] ]
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i64, i64* [[A:%.*]], i64 [[UNI_PHI3]]
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i64* [[SCALAR_GEP]] to <2 x i64>*
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i64>, <2 x i64>* [[TMP0]], align 8
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i64, ptr [[A:%.*]], i64 [[UNI_PHI3]]
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i64>, ptr [[SCALAR_GEP]], align 8
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq <2 x i64> [[WIDE_LOAD]], <i64 42, i64 42>
 ; CHECK-NEXT:    br label %[[VPLANNEDBB4:.*]]
 ; CHECK:       [[VPLANNEDBB4]]:

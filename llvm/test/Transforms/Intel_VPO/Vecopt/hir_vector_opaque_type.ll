@@ -11,11 +11,11 @@
 ; END REGION
 
 ; Verify that memref with opaque type is vectorized.
-; VPVAL: <RVAL-REG> LINEAR <2 x %struct.OType*> %b
+; VPVAL: <RVAL-REG> LINEAR <2 x ptr> %b
 
 ; Check broadcast pattern is generated for the opaque type memref after HIR-CG.
-; CHECK:       [[SPLATINSERT:%.*]] = insertelement <2 x %struct.OType*> poison, %struct.OType* %b, i64 0
-; CHECK-NEXT:  [[SPLAT:%.*]] = shufflevector <2 x %struct.OType*> [[SPLATINSERT]], <2 x %struct.OType*> poison, <2 x i32> zeroinitializer
+; CHECK:       [[SPLATINSERT:%.*]] = insertelement <2 x ptr> poison, ptr %b, i64 0
+; CHECK-NEXT:  [[SPLAT:%.*]] = shufflevector <2 x ptr> [[SPLATINSERT]], <2 x ptr> poison, <2 x i32> zeroinitializer
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -23,7 +23,7 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.OType = type opaque
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(%struct.OType** nocapture %a, %struct.OType* %b, i32 %n) local_unnamed_addr {
+define void @foo(ptr nocapture %a, ptr %b, i32 %n) local_unnamed_addr {
 entry:
   %cmp4 = icmp sgt i32 %n, 0
   br i1 %cmp4, label %for.body.preheader, label %for.cond.cleanup
@@ -40,8 +40,8 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body, %for.body.preheader
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds %struct.OType*, %struct.OType** %a, i64 %indvars.iv
-  store %struct.OType* %b, %struct.OType** %arrayidx, align 8
+  %arrayidx = getelementptr inbounds ptr, ptr %a, i64 %indvars.iv
+  store ptr %b, ptr %arrayidx, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.cond.cleanup.loopexit, label %for.body

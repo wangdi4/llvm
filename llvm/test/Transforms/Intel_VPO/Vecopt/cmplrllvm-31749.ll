@@ -19,39 +19,39 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct.ident_t = type { i32, i32, i32, i32, i8* }
-%"class.LAMMPS_NS::IntelBuffers.0" = type { i32, i32, %"class.LAMMPS_NS::LAMMPS"*, %"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t"*, float*, %"struct.LAMMPS_NS::IntelBuffers<float, double>::quat_t"*, %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t"*, i32, i32, i32, i32*, i32*, i32*, i32*, %"struct.LAMMPS_NS::IntelNeighListPtrs"*, i32, i32, float**, float**, i32, i32, float*, float*, float*, float*, i32*, i32*, i32, i32, float*, float*, float*, i32*, i32*, i32*, i32, i32, i32, double*, i32, i32, [48 x i8], [8 x double], [8 x double] }
-%"class.LAMMPS_NS::LAMMPS" = type { %"class.LAMMPS_NS::Memory"*, %"class.LAMMPS_NS::Error"*, %"class.LAMMPS_NS::Universe"*, %"class.LAMMPS_NS::Input"*, %"class.LAMMPS_NS::Atom"*, %"class.LAMMPS_NS::Update"*, %"class.LAMMPS_NS::Neighbor"*, %"class.LAMMPS_NS::Comm"*, %"class.LAMMPS_NS::Domain"*, %"class.LAMMPS_NS::Force"*, %"class.LAMMPS_NS::Modify"*, %"class.LAMMPS_NS::Group"*, %"class.LAMMPS_NS::Output"*, %"class.LAMMPS_NS::Timer"*, i8*, i32, i32, %struct._IO_FILE*, %struct._IO_FILE*, %struct._IO_FILE*, double, i8*, i8*, i8*, i32, i8*, i8***, i32, i32, i8*, i32, %"class.LAMMPS_NS::KokkosLMP"*, %"class.LAMMPS_NS::AtomKokkos"*, %"class.LAMMPS_NS::MemoryKokkos"*, %"class.LAMMPS_NS::Python"*, %"class.LAMMPS_NS::CiteMe"*, %"struct.LAMMPS_NS::package_styles_lists"* }
+%struct.ident_t = type { i32, i32, i32, i32, ptr }
+%"class.LAMMPS_NS::IntelBuffers.0" = type { i32, i32, ptr, ptr, ptr, ptr, ptr, i32, i32, i32, ptr, ptr, ptr, ptr, ptr, i32, i32, ptr, ptr, i32, i32, ptr, ptr, ptr, ptr, ptr, ptr, i32, i32, ptr, ptr, ptr, ptr, ptr, ptr, i32, i32, i32, ptr, i32, i32, [48 x i8], [8 x double], [8 x double] }
+%"class.LAMMPS_NS::LAMMPS" = type { ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, i32, i32, ptr, ptr, ptr, double, ptr, ptr, ptr, i32, ptr, ptr, i32, i32, ptr, i32, ptr, ptr, ptr, ptr, ptr, ptr }
 %"class.LAMMPS_NS::Memory" = type { %"class.LAMMPS_NS::Pointers" }
-%"class.LAMMPS_NS::Pointers" = type { i32 (...)**, %"class.LAMMPS_NS::LAMMPS"*, %"class.LAMMPS_NS::Memory"**, %"class.LAMMPS_NS::Error"**, %"class.LAMMPS_NS::Universe"**, %"class.LAMMPS_NS::Input"**, %"class.LAMMPS_NS::Atom"**, %"class.LAMMPS_NS::Update"**, %"class.LAMMPS_NS::Neighbor"**, %"class.LAMMPS_NS::Comm"**, %"class.LAMMPS_NS::Domain"**, %"class.LAMMPS_NS::Force"**, %"class.LAMMPS_NS::Modify"**, %"class.LAMMPS_NS::Group"**, %"class.LAMMPS_NS::Output"**, %"class.LAMMPS_NS::Timer"**, i32*, %struct._IO_FILE**, %struct._IO_FILE**, %struct._IO_FILE**, %"class.LAMMPS_NS::AtomKokkos"**, %"class.LAMMPS_NS::MemoryKokkos"**, %"class.LAMMPS_NS::Python"** }
+%"class.LAMMPS_NS::Pointers" = type { ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr }
 %"class.LAMMPS_NS::Error" = type <{ %"class.LAMMPS_NS::Pointers", i32, i32, i32, [4 x i8] }>
 %"class.LAMMPS_NS::Universe" = type opaque
 %"class.LAMMPS_NS::Input" = type opaque
-%"class.LAMMPS_NS::Atom" = type { %"class.LAMMPS_NS::Pointers", i8*, %"class.LAMMPS_NS::AtomVec"*, i64, i32, i32, i32, i32, i32, i64, i64, i64, i64, i64, i64, i64, i64, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i8*, i32*, i32*, i32*, i32*, double**, double**, double**, double*, double*, double**, double*, double**, double**, double**, i32*, i32*, i32*, i32*, i32*, i32*, i32*, i32**, i32**, i32, i32*, i32**, i32**, i32*, i32**, i32**, i32**, i32**, i32*, i32**, i32**, i32**, i32**, i32**, i32*, i32**, i32**, i32**, i32**, i32**, double*, double*, double**, double**, double**, double**, i32*, double*, double*, double*, double*, double**, double**, double**, i32*, i32*, double*, double*, double*, double*, double*, double*, double*, i32, double**, double**, double*, double*, double*, double*, i32, double*, i32*, i32**, double*, double**, double**, double*, double*, double*, double*, double*, double*, double*, double*, double**, double*, double*, double*, double*, double*, double*, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, double, %"struct.LAMMPS_NS::Atom::PerAtom"*, i32, i32, i32**, double**, i8**, i8**, i32, i32, i32, %"class.LAMMPS_NS::Molecule"**, double**, double*, i32*, i32, i32, i32, i32*, i32*, i32*, i32, i32, i32, i32, i32, i32, i32, %"class.std::set"*, i32, i64, double, i32*, %"class.std::map.12"*, i32*, i32, i32, i32, i32, i32, i32*, %"struct.LAMMPS_NS::Atom::HashElem"*, i32, i32, i32, i32, i32, i32, i32, i32*, i32*, i32*, double, double, double, [3 x double], [3 x double] }
+%"class.LAMMPS_NS::Atom" = type { %"class.LAMMPS_NS::Pointers", ptr, ptr, i64, i32, i32, i32, i32, i32, i64, i64, i64, i64, i64, i64, i64, i64, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, i32, ptr, ptr, ptr, ptr, ptr, ptr, i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, double, ptr, i32, i32, ptr, ptr, ptr, ptr, i32, i32, i32, ptr, ptr, ptr, ptr, i32, i32, i32, ptr, ptr, ptr, i32, i32, i32, i32, i32, i32, i32, ptr, i32, i64, double, ptr, ptr, ptr, i32, i32, i32, i32, i32, ptr, ptr, i32, i32, i32, i32, i32, i32, i32, ptr, ptr, ptr, double, double, double, [3 x double], [3 x double] }
 %"class.LAMMPS_NS::AtomVec" = type opaque
-%"struct.LAMMPS_NS::Atom::PerAtom" = type { i8*, i8*, i8*, i32*, i32, i32, i32, i32 }
+%"struct.LAMMPS_NS::Atom::PerAtom" = type { ptr, ptr, ptr, ptr, i32, i32, i32, i32 }
 %"class.LAMMPS_NS::Molecule" = type opaque
 %"class.std::set" = type opaque
 %"class.std::map.12" = type opaque
 %"struct.LAMMPS_NS::Atom::HashElem" = type { i32, i32, i32 }
-%"class.LAMMPS_NS::Update" = type { %"class.LAMMPS_NS::Pointers", double, double, double, i64, i32, i32, double, i64, i64, i64, i64, i64, i32, i32, i32, i32, i32, i32, i32, i64, i64, i64, i64, i8*, %"class.LAMMPS_NS::Integrate"*, i8*, %"class.LAMMPS_NS::Min"*, i8*, %"class.std::map.10"*, %"class.std::map.11"* }
+%"class.LAMMPS_NS::Update" = type { %"class.LAMMPS_NS::Pointers", double, double, double, i64, i32, i32, double, i64, i64, i64, i64, i64, i32, i32, i32, i32, i32, i32, i32, i64, i64, i64, i64, ptr, ptr, ptr, ptr, ptr, ptr, ptr }
 %"class.LAMMPS_NS::Integrate" = type opaque
 %"class.LAMMPS_NS::Min" = type opaque
 %"class.std::map.10" = type opaque
 %"class.std::map.11" = type opaque
-%"class.LAMMPS_NS::Neighbor" = type <{ %"class.LAMMPS_NS::Pointers", i32, i32, i32, i32, i32, i32, i32, i32, i32, [4 x i8], double, double, double, double, double**, double**, double*, double*, double, double, double, i32, [4 x i8], double, i64, i64, i64, double*, double*, i32, i32, i32*, i32*, i32**, i32, [4 x i8], i32*, i32*, i32*, i32*, i32, [4 x i8], i32*, i32*, i32*, [4 x i32], i32, i32, i32, i32, %"class.LAMMPS_NS::NeighList"**, %"class.LAMMPS_NS::NeighRequest"**, %"class.LAMMPS_NS::NeighRequest"**, i32, [4 x i8], i32**, i32, [4 x i8], i32**, i32, [4 x i8], i32**, i32, [4 x i8], i32**, i32, i32, i32, i32, i32, [4 x i8], i32*, double*, double**, i32*, i64, i32, i32, i32, i32, i32, i32, i32, i32, i32, [4 x i8], i32*, double, double**, i32, i32, [3 x double], [3 x double], [8 x [3 x double]], [3 x double]*, [2 x double], [2 x double], i32, i32, i32, i32, i32, i32, i32*, i32*, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, %"class.LAMMPS_NS::NBin"* (%"class.LAMMPS_NS::LAMMPS"*)**, i8**, i32*, %"class.LAMMPS_NS::NBin"**, %"class.LAMMPS_NS::NStencil"* (%"class.LAMMPS_NS::LAMMPS"*)**, i8**, i32*, %"class.LAMMPS_NS::NStencil"**, %"class.LAMMPS_NS::NPair"* (%"class.LAMMPS_NS::LAMMPS"*)**, i8**, i32*, %"class.LAMMPS_NS::NPair"**, %"class.LAMMPS_NS::NTopo"*, %"class.LAMMPS_NS::NTopo"*, %"class.LAMMPS_NS::NTopo"*, %"class.LAMMPS_NS::NTopo"*, i32, [4 x i8] }>
-%"class.LAMMPS_NS::NeighList" = type { %"class.LAMMPS_NS::Pointers", i8*, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32*, i32*, i32**, i32, i32, i32, %"class.LAMMPS_NS::MyPage"*, i32, i32, i32*, i32*, i32**, i32, i32, i32*, i32*, i32**, %"class.LAMMPS_NS::MyPage"*, %"class.LAMMPS_NS::MyPage"*, i32*, i32**, %"class.LAMMPS_NS::NeighList"*, %"class.LAMMPS_NS::NeighList"*, %"class.LAMMPS_NS::NeighList"*, %"class.LAMMPS_NS::Fix"*, i32, i32, %"class.LAMMPS_NS::NPair"* }
+%"class.LAMMPS_NS::Neighbor" = type <{ %"class.LAMMPS_NS::Pointers", i32, i32, i32, i32, i32, i32, i32, i32, i32, [4 x i8], double, double, double, double, ptr, ptr, ptr, ptr, double, double, double, i32, [4 x i8], double, i64, i64, i64, ptr, ptr, i32, i32, ptr, ptr, ptr, i32, [4 x i8], ptr, ptr, ptr, ptr, i32, [4 x i8], ptr, ptr, ptr, [4 x i32], i32, i32, i32, i32, ptr, ptr, ptr, i32, [4 x i8], ptr, i32, [4 x i8], ptr, i32, [4 x i8], ptr, i32, [4 x i8], ptr, i32, i32, i32, i32, i32, [4 x i8], ptr, ptr, ptr, ptr, i64, i32, i32, i32, i32, i32, i32, i32, i32, i32, [4 x i8], ptr, double, ptr, i32, i32, [3 x double], [3 x double], [8 x [3 x double]], ptr, [2 x double], [2 x double], i32, i32, i32, i32, i32, i32, ptr, ptr, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, i32, [4 x i8] }>
+%"class.LAMMPS_NS::NeighList" = type { %"class.LAMMPS_NS::Pointers", ptr, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, ptr, ptr, ptr, i32, i32, i32, ptr, i32, i32, ptr, ptr, ptr, i32, i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, i32, i32, ptr }
 %"class.LAMMPS_NS::MyPage" = type opaque
-%"class.LAMMPS_NS::Fix" = type <{ %"class.LAMMPS_NS::Pointers", i8*, i8*, i32, i32, i32, i32, i32, i32, i32, [4 x i8], i64, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32*, i32, [4 x i8], double*, double**, double*, double**, i32, i32, i32, [4 x i8], [6 x double], double*, double**, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, [4 x i8] }>
+%"class.LAMMPS_NS::Fix" = type <{ %"class.LAMMPS_NS::Pointers", ptr, ptr, i32, i32, i32, i32, i32, i32, i32, [4 x i8], i64, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, ptr, i32, [4 x i8], ptr, ptr, ptr, ptr, i32, i32, i32, [4 x i8], [6 x double], ptr, ptr, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, [4 x i8] }>
 %"class.LAMMPS_NS::NPair" = type opaque
-%"class.LAMMPS_NS::NeighRequest" = type { %"class.LAMMPS_NS::Pointers", i32, i8*, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, double, i32, i32*, i32**, i8*, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32 }
+%"class.LAMMPS_NS::NeighRequest" = type { %"class.LAMMPS_NS::Pointers", i32, ptr, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, double, i32, ptr, ptr, ptr, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32 }
 %"class.LAMMPS_NS::NBin" = type opaque
 %"class.LAMMPS_NS::NStencil" = type opaque
 %"class.LAMMPS_NS::NTopo" = type opaque
-%"class.LAMMPS_NS::Comm" = type { %"class.LAMMPS_NS::Pointers", i32, i32, i32, i32, i32, i32, [3 x double], double, double*, double*, i32, i32, i32, i32, i32, i32, [3 x i32], [3 x i32], [3 x i32], [3 x [2 x i32]], double*, double*, double*, i32***, i32, [3 x [2 x double]], double, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, [4 x i8], i8*, i8*, i32, i32, [3 x i32], [3 x i32], i32, [3 x i32], [3 x i32], i32 }
+%"class.LAMMPS_NS::Comm" = type { %"class.LAMMPS_NS::Pointers", i32, i32, i32, i32, i32, i32, [3 x double], double, ptr, ptr, i32, i32, i32, i32, i32, i32, [3 x i32], [3 x i32], [3 x i32], [3 x [2 x i32]], ptr, ptr, ptr, ptr, i32, [3 x [2 x double]], double, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, [4 x i8], ptr, ptr, i32, i32, [3 x i32], [3 x i32], i32, [3 x i32], [3 x i32], i32 }
 %"class.LAMMPS_NS::Domain" = type opaque
-%"class.LAMMPS_NS::Force" = type <{ %"class.LAMMPS_NS::Pointers", double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, i32, i32, i32, [4 x i8], %"class.LAMMPS_NS::Pair"*, i8*, i8*, %"class.LAMMPS_NS::Bond"*, i8*, %"class.LAMMPS_NS::Angle"*, i8*, %"class.LAMMPS_NS::Dihedral"*, i8*, %"class.LAMMPS_NS::Improper"*, i8*, %"class.LAMMPS_NS::KSpace"*, i8*, %"class.std::map.4"*, %"class.std::map.5"*, %"class.std::map.6"*, %"class.std::map.7"*, %"class.std::map.8"*, %"class.std::map.9"*, [4 x double], [4 x double], i32, i32, i32, [4 x i8] }>
-%"class.LAMMPS_NS::Pair" = type <{ %"class.LAMMPS_NS::Pointers", double, double, [6 x double], double*, double**, double**, double, double**, i32**, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, double**, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, double, double, double, double, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, double, double, double*, double*, double*, double*, double*, double*, double*, double*, double*, double*, double*, double*, double*, double*, double*, double*, double*, double*, i32, i32, i32, i32, i32, [4 x i8], double*, i32, [4 x i8], double*, %"class.LAMMPS_NS::NeighList"*, %"class.LAMMPS_NS::NeighList"*, %"class.LAMMPS_NS::NeighList"*, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, %"class.LAMMPS_NS::Compute"**, i32, [4 x i32], i32, i32, i32, double, double, i32, [4 x i8], i8**, i32*, i32**, i32***, i32*, i32, i32, i32, i32, i32, i32, i32, [4 x i8] }>
+%"class.LAMMPS_NS::Force" = type <{ %"class.LAMMPS_NS::Pointers", double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, double, i32, i32, i32, [4 x i8], ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, [4 x double], [4 x double], i32, i32, i32, [4 x i8] }>
+%"class.LAMMPS_NS::Pair" = type <{ %"class.LAMMPS_NS::Pointers", double, double, [6 x double], ptr, ptr, ptr, double, ptr, ptr, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, ptr, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, double, double, double, double, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, double, double, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, i32, i32, i32, i32, i32, [4 x i8], ptr, i32, [4 x i8], ptr, ptr, ptr, ptr, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, ptr, i32, [4 x i32], i32, i32, i32, double, double, i32, [4 x i8], ptr, ptr, ptr, ptr, ptr, i32, i32, i32, i32, i32, i32, i32, [4 x i8] }>
 %"class.LAMMPS_NS::Compute" = type opaque
 %"class.LAMMPS_NS::Bond" = type opaque
 %"class.LAMMPS_NS::Angle" = type opaque
@@ -64,14 +64,14 @@ target triple = "x86_64-unknown-linux-gnu"
 %"class.std::map.7" = type opaque
 %"class.std::map.8" = type opaque
 %"class.std::map.9" = type opaque
-%"class.LAMMPS_NS::Modify" = type { %"class.LAMMPS_NS::Pointers", i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, %"class.LAMMPS_NS::Fix"**, i32*, i32, i32, %"class.LAMMPS_NS::Compute"**, i32*, i32*, i32*, i32*, i32*, i32*, i32*, i32*, i32*, i32*, i32*, i32*, i32*, i32*, i32*, i32*, i32*, i32*, i32*, i32*, i32*, i32*, i32*, i32*, i32*, i32*, i32, i32*, i8**, i8**, i8**, i32*, i8**, i8**, i32*, i32*, i32, %"class.std::map"*, %"class.std::map.3"* }
+%"class.LAMMPS_NS::Modify" = type { %"class.LAMMPS_NS::Pointers", i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, ptr, ptr, i32, i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, i32, ptr, ptr }
 %"class.std::map" = type opaque
 %"class.std::map.3" = type opaque
 %"class.LAMMPS_NS::Group" = type opaque
 %"class.LAMMPS_NS::Output" = type opaque
 %"class.LAMMPS_NS::Timer" = type opaque
-%struct._IO_FILE = type { i32, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, %struct._IO_marker*, %struct._IO_FILE*, i32, i32, i64, i16, i8, [1 x i8], i8*, i64, i8*, i8*, i8*, i8*, i64, i32, [20 x i8] }
-%struct._IO_marker = type { %struct._IO_marker*, %struct._IO_FILE*, i32 }
+%struct._IO_FILE = type { i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, i32, i32, i64, i16, i8, [1 x i8], ptr, i64, ptr, ptr, ptr, ptr, i64, i32, [20 x i8] }
+%struct._IO_marker = type { ptr, ptr, i32 }
 %"class.LAMMPS_NS::KokkosLMP" = type opaque
 %"class.LAMMPS_NS::AtomKokkos" = type opaque
 %"class.LAMMPS_NS::MemoryKokkos" = type opaque
@@ -81,24 +81,24 @@ target triple = "x86_64-unknown-linux-gnu"
 %"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t" = type { float, float, float, i32 }
 %"struct.LAMMPS_NS::IntelBuffers<float, double>::quat_t" = type opaque
 %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t" = type { double, double, double, double }
-%"struct.LAMMPS_NS::IntelNeighListPtrs" = type { i8*, i32*, i32*, i32 }
+%"struct.LAMMPS_NS::IntelNeighListPtrs" = type { ptr, ptr, ptr, i32 }
 %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed1" = type { float, float, float, float }
 %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed2" = type { float, float }
-%"class.LAMMPS_NS::PairLJCutIntel" = type { %"class.LAMMPS_NS::PairLJCut", %"class.LAMMPS_NS::FixIntel"*, i32, i32, [48 x i8], %"class.LAMMPS_NS::PairLJCutIntel::ForceConst", %"class.LAMMPS_NS::PairLJCutIntel::ForceConst.2" }
-%"class.LAMMPS_NS::PairLJCut" = type { %"class.LAMMPS_NS::Pair.base", double, double**, double**, double**, double**, double**, double**, double**, double**, double* }
-%"class.LAMMPS_NS::Pair.base" = type <{ %"class.LAMMPS_NS::Pointers", double, double, [6 x double], double*, double**, double**, double, double**, i32**, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, double**, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, double, double, double, double, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, double, double, double*, double*, double*, double*, double*, double*, double*, double*, double*, double*, double*, double*, double*, double*, double*, double*, double*, double*, i32, i32, i32, i32, i32, [4 x i8], double*, i32, [4 x i8], double*, %"class.LAMMPS_NS::NeighList"*, %"class.LAMMPS_NS::NeighList"*, %"class.LAMMPS_NS::NeighList"*, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, %"class.LAMMPS_NS::Compute"**, i32, [4 x i32], i32, i32, i32, double, double, i32, [4 x i8], i8**, i32*, i32**, i32***, i32*, i32, i32, i32, i32, i32, i32, i32 }>
-%"class.LAMMPS_NS::FixIntel" = type <{ %"class.LAMMPS_NS::Fix.base", [4 x i8], %"class.LAMMPS_NS::IntelBuffers"*, %"class.LAMMPS_NS::IntelBuffers.0"*, %"class.LAMMPS_NS::IntelBuffers.1"*, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, [5 x i32], [60 x i8], [5 x i32], i32, i32, i32, %"struct.LAMMPS_NS::IntelBuffers<float, float>::vec3_acc_t"*, %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t"*, %"struct.LAMMPS_NS::IntelBuffers<double, double>::vec3_acc_t"*, float*, double*, i32, i32, i32, [4 x i8], double, double, double, double, [8 x double], [8 x double], [8 x i8], [1 x double], [56 x i8], [1 x double], i32, i32, i32, [44 x i8] }>
-%"class.LAMMPS_NS::Fix.base" = type <{ %"class.LAMMPS_NS::Pointers", i8*, i8*, i32, i32, i32, i32, i32, i32, i32, [4 x i8], i64, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32*, i32, [4 x i8], double*, double**, double*, double**, i32, i32, i32, [4 x i8], [6 x double], double*, double**, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32 }>
-%"class.LAMMPS_NS::IntelBuffers" = type { i32, i32, %"class.LAMMPS_NS::LAMMPS"*, %"struct.LAMMPS_NS::IntelBuffers<float, float>::atom_t"*, float*, %"struct.LAMMPS_NS::IntelBuffers<float, float>::quat_t"*, %"struct.LAMMPS_NS::IntelBuffers<float, float>::vec3_acc_t"*, i32, i32, i32, i32*, i32*, i32*, i32*, %"struct.LAMMPS_NS::IntelNeighListPtrs"*, i32, i32, float**, float**, i32, i32, float*, float*, float*, float*, i32*, i32*, i32, i32, float*, float*, float*, i32*, i32*, i32*, i32, i32, i32, float*, i32, i32, [48 x i8], [8 x float], [32 x i8], [8 x float], [32 x i8] }
+%"class.LAMMPS_NS::PairLJCutIntel" = type { %"class.LAMMPS_NS::PairLJCut", ptr, i32, i32, [48 x i8], %"class.LAMMPS_NS::PairLJCutIntel::ForceConst", %"class.LAMMPS_NS::PairLJCutIntel::ForceConst.2" }
+%"class.LAMMPS_NS::PairLJCut" = type { %"class.LAMMPS_NS::Pair.base", double, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr }
+%"class.LAMMPS_NS::Pair.base" = type <{ %"class.LAMMPS_NS::Pointers", double, double, [6 x double], ptr, ptr, ptr, double, ptr, ptr, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, ptr, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, double, double, double, double, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, double, double, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, i32, i32, i32, i32, i32, [4 x i8], ptr, i32, [4 x i8], ptr, ptr, ptr, ptr, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, ptr, i32, [4 x i32], i32, i32, i32, double, double, i32, [4 x i8], ptr, ptr, ptr, ptr, ptr, i32, i32, i32, i32, i32, i32, i32 }>
+%"class.LAMMPS_NS::FixIntel" = type <{ %"class.LAMMPS_NS::Fix.base", [4 x i8], ptr, ptr, ptr, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, [5 x i32], [60 x i8], [5 x i32], i32, i32, i32, ptr, ptr, ptr, ptr, ptr, i32, i32, i32, [4 x i8], double, double, double, double, [8 x double], [8 x double], [8 x i8], [1 x double], [56 x i8], [1 x double], i32, i32, i32, [44 x i8] }>
+%"class.LAMMPS_NS::Fix.base" = type <{ %"class.LAMMPS_NS::Pointers", ptr, ptr, i32, i32, i32, i32, i32, i32, i32, [4 x i8], i64, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, ptr, i32, [4 x i8], ptr, ptr, ptr, ptr, i32, i32, i32, [4 x i8], [6 x double], ptr, ptr, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32 }>
+%"class.LAMMPS_NS::IntelBuffers" = type { i32, i32, ptr, ptr, ptr, ptr, ptr, i32, i32, i32, ptr, ptr, ptr, ptr, ptr, i32, i32, ptr, ptr, i32, i32, ptr, ptr, ptr, ptr, ptr, ptr, i32, i32, ptr, ptr, ptr, ptr, ptr, ptr, i32, i32, i32, ptr, i32, i32, [48 x i8], [8 x float], [32 x i8], [8 x float], [32 x i8] }
 %"struct.LAMMPS_NS::IntelBuffers<float, float>::atom_t" = type opaque
 %"struct.LAMMPS_NS::IntelBuffers<float, float>::quat_t" = type opaque
-%"class.LAMMPS_NS::IntelBuffers.1" = type { i32, i32, %"class.LAMMPS_NS::LAMMPS"*, %"struct.LAMMPS_NS::IntelBuffers<double, double>::atom_t"*, double*, %"struct.LAMMPS_NS::IntelBuffers<double, double>::quat_t"*, %"struct.LAMMPS_NS::IntelBuffers<double, double>::vec3_acc_t"*, i32, i32, i32, i32*, i32*, i32*, i32*, %"struct.LAMMPS_NS::IntelNeighListPtrs"*, i32, i32, double**, double**, i32, i32, double*, double*, double*, double*, i32*, i32*, i32, i32, double*, double*, double*, i32*, i32*, i32*, i32, i32, i32, double*, i32, i32, [48 x i8], [8 x double], [8 x double] }
+%"class.LAMMPS_NS::IntelBuffers.1" = type { i32, i32, ptr, ptr, ptr, ptr, ptr, i32, i32, i32, ptr, ptr, ptr, ptr, ptr, i32, i32, ptr, ptr, i32, i32, ptr, ptr, ptr, ptr, ptr, ptr, i32, i32, ptr, ptr, ptr, ptr, ptr, ptr, i32, i32, i32, ptr, i32, i32, [48 x i8], [8 x double], [8 x double] }
 %"struct.LAMMPS_NS::IntelBuffers<double, double>::atom_t" = type opaque
 %"struct.LAMMPS_NS::IntelBuffers<double, double>::quat_t" = type opaque
 %"struct.LAMMPS_NS::IntelBuffers<float, float>::vec3_acc_t" = type opaque
 %"struct.LAMMPS_NS::IntelBuffers<double, double>::vec3_acc_t" = type opaque
-%"class.LAMMPS_NS::PairLJCutIntel::ForceConst" = type { [4 x float], %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed1"**, %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed2"**, i32, i32, %"class.LAMMPS_NS::Memory"*, [16 x i8] }
-%"class.LAMMPS_NS::PairLJCutIntel::ForceConst.2" = type { [4 x double], %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<double>::fc_packed1"**, %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<double>::fc_packed2"**, i32, i32, %"class.LAMMPS_NS::Memory"* }
+%"class.LAMMPS_NS::PairLJCutIntel::ForceConst" = type { [4 x float], ptr, ptr, i32, i32, ptr, [16 x i8] }
+%"class.LAMMPS_NS::PairLJCutIntel::ForceConst.2" = type { [4 x double], ptr, ptr, i32, i32, ptr }
 %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<double>::fc_packed1" = type { double, double, double, double }
 %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<double>::fc_packed2" = type { double, double }
 %struct.fast_red_t.14 = type <{ double, double, double, double, double, double, double }>
@@ -119,10 +119,10 @@ target triple = "x86_64-unknown-linux-gnu"
 declare dso_local i32 @__gxx_personality_v0(...)
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #0
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #0
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #0
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #0
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #1
@@ -134,28 +134,28 @@ declare void @llvm.directive.region.exit(token) #1
 declare dso_local i32 @omp_get_thread_num() local_unnamed_addr #2
 
 ; Function Attrs: argmemonly nofree nounwind willreturn writeonly
-declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg) #3
+declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i1 immarg) #3
 
-declare dso_local void @_ZN9LAMMPS_NS12IntelBuffersIfdE12fdotr_reduceEiiiRdS2_S2_S2_S2_S2_(%"class.LAMMPS_NS::IntelBuffers.0"* nonnull align 64 dereferenceable(448), i32, i32, i32, double* nonnull align 8 dereferenceable(8), double* nonnull align 8 dereferenceable(8), double* nonnull align 8 dereferenceable(8), double* nonnull align 8 dereferenceable(8), double* nonnull align 8 dereferenceable(8), double* nonnull align 8 dereferenceable(8)) local_unnamed_addr #4
+declare dso_local void @_ZN9LAMMPS_NS12IntelBuffersIfdE12fdotr_reduceEiiiRdS2_S2_S2_S2_S2_(ptr nonnull align 64 dereferenceable(448), i32, i32, i32, ptr nonnull align 8 dereferenceable(8), ptr nonnull align 8 dereferenceable(8), ptr nonnull align 8 dereferenceable(8), ptr nonnull align 8 dereferenceable(8), ptr nonnull align 8 dereferenceable(8), ptr nonnull align 8 dereferenceable(8)) local_unnamed_addr #4
 
 ; Function Attrs: convergent nofree nounwind
-declare void @__kmpc_barrier(%struct.ident_t*, i32) local_unnamed_addr #5
+declare void @__kmpc_barrier(ptr, i32) local_unnamed_addr #5
 
 ; Function Attrs: inaccessiblememonly nofree nosync nounwind willreturn
 declare void @llvm.assume(i1 noundef) #6
 
-declare void @__kmpc_atomic_float8_add(%struct.ident_t*, i32, double*, double) local_unnamed_addr
+declare void @__kmpc_atomic_float8_add(ptr, i32, ptr, double) local_unnamed_addr
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind willreturn
-declare hidden void @_ZN9LAMMPS_NS14PairLJCutIntel4evalILi1ELi1ELi1EfdEEviiPNS_12IntelBuffersIT2_T3_EERKNS0_10ForceConstIS3_EEii_tree_reduce_13(i8* nocapture, i8* nocapture readonly) #7
+declare hidden void @_ZN9LAMMPS_NS14PairLJCutIntel4evalILi1ELi1ELi1EfdEEviiPNS_12IntelBuffersIT2_T3_EERKNS0_10ForceConstIS3_EEii_tree_reduce_13(ptr nocapture, ptr nocapture readonly) #7
 
-declare i32 @__kmpc_reduce(%struct.ident_t*, i32, i32, i32, i8*, void (i8*, i8*)*, [8 x i32]*) local_unnamed_addr
+declare i32 @__kmpc_reduce(ptr, i32, i32, i32, ptr, ptr, ptr) local_unnamed_addr
 
 ; Function Attrs: convergent nounwind
-declare void @__kmpc_end_reduce(%struct.ident_t*, i32, [8 x i32]*) local_unnamed_addr #8
+declare void @__kmpc_end_reduce(ptr, i32, ptr) local_unnamed_addr #8
 
 ; Function Attrs: uwtable
-define hidden void @_ZN9LAMMPS_NS14PairLJCutIntel4evalILi1ELi1ELi1EfdEEviiPNS_12IntelBuffersIT2_T3_EERKNS0_10ForceConstIS3_EEii.DIR.OMP.PARALLEL.2(i32* nocapture readonly %tid, i32* nocapture readnone %bid, i32* nocapture readonly %vflag.addr, %"class.LAMMPS_NS::IntelBuffers.0"** nocapture readonly %buffers.addr, i32* nocapture readonly %astart.addr, i32* nocapture readonly %inum, i32* nocapture readonly %minlocal, i32* nocapture readonly %nall, %"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t"** nocapture readonly %x, i32** nocapture readonly %ilist, i32** nocapture readonly %numneigh, i32*** nocapture readonly %firstneigh, float** nocapture readnone %special_lj, %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed1"** nocapture readonly %ljc12o, %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed2"** nocapture readonly %lj34, i32* nocapture readonly %eatom, i32* nocapture readonly %f_stride, %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t"** nocapture readonly %f_start, i32* nocapture readonly %nthreads17, %"class.LAMMPS_NS::PairLJCutIntel"* nocapture readonly %this, double* %oevdwl, double* %ov0, double* %ov1, double* %ov2, double* %ov3, double* %ov4, double* %ov5) #9 personality i32 (...)* @__gxx_personality_v0 {
+define hidden void @_ZN9LAMMPS_NS14PairLJCutIntel4evalILi1ELi1ELi1EfdEEviiPNS_12IntelBuffersIT2_T3_EERKNS0_10ForceConstIS3_EEii.DIR.OMP.PARALLEL.2(ptr nocapture readonly %tid, ptr nocapture readnone %bid, ptr nocapture readonly %vflag.addr, ptr nocapture readonly %buffers.addr, ptr nocapture readonly %astart.addr, ptr nocapture readonly %inum, ptr nocapture readonly %minlocal, ptr nocapture readonly %nall, ptr nocapture readonly %x, ptr nocapture readonly %ilist, ptr nocapture readonly %numneigh, ptr nocapture readonly %firstneigh, ptr nocapture readnone %special_lj, ptr nocapture readonly %ljc12o, ptr nocapture readonly %lj34, ptr nocapture readonly %eatom, ptr nocapture readonly %f_stride, ptr nocapture readonly %f_start, ptr nocapture readonly %nthreads17, ptr nocapture readonly %this, ptr %oevdwl, ptr %ov0, ptr %ov1, ptr %ov2, ptr %ov3, ptr %ov4, ptr %ov5) #9 personality ptr @__gxx_personality_v0 {
 newFuncRoot:
   %fast_red_struct459 = alloca %struct.fast_red_t.14, align 8
   %ov0.red = alloca double, align 8
@@ -176,26 +176,25 @@ newFuncRoot:
   %fytmp.red = alloca double, align 8
   %fxtmp.red = alloca double, align 8
   %jj.linear.iv = alloca i32, align 4
-  %ov5.fast_red = getelementptr inbounds %struct.fast_red_t.14, %struct.fast_red_t.14* %fast_red_struct459, i64 0, i32 6
-  store double 0.000000e+00, double* %ov5.red, align 8
-  %ov4.fast_red = getelementptr inbounds %struct.fast_red_t.14, %struct.fast_red_t.14* %fast_red_struct459, i64 0, i32 5
-  store double 0.000000e+00, double* %ov4.red, align 8
-  %ov3.fast_red = getelementptr inbounds %struct.fast_red_t.14, %struct.fast_red_t.14* %fast_red_struct459, i64 0, i32 4
-  store double 0.000000e+00, double* %ov3.red, align 8
-  %ov2.fast_red = getelementptr inbounds %struct.fast_red_t.14, %struct.fast_red_t.14* %fast_red_struct459, i64 0, i32 3
-  store double 0.000000e+00, double* %ov2.red, align 8
-  %ov1.fast_red = getelementptr inbounds %struct.fast_red_t.14, %struct.fast_red_t.14* %fast_red_struct459, i64 0, i32 2
-  store double 0.000000e+00, double* %ov1.red, align 8
-  %ov0.fast_red = getelementptr inbounds %struct.fast_red_t.14, %struct.fast_red_t.14* %fast_red_struct459, i64 0, i32 1
-  store double 0.000000e+00, double* %ov0.red, align 8
-  %oevdwl.fast_red = getelementptr inbounds %struct.fast_red_t.14, %struct.fast_red_t.14* %fast_red_struct459, i64 0, i32 0
+  %ov5.fast_red = getelementptr inbounds %struct.fast_red_t.14, ptr %fast_red_struct459, i64 0, i32 6
+  store double 0.000000e+00, ptr %ov5.red, align 8
+  %ov4.fast_red = getelementptr inbounds %struct.fast_red_t.14, ptr %fast_red_struct459, i64 0, i32 5
+  store double 0.000000e+00, ptr %ov4.red, align 8
+  %ov3.fast_red = getelementptr inbounds %struct.fast_red_t.14, ptr %fast_red_struct459, i64 0, i32 4
+  store double 0.000000e+00, ptr %ov3.red, align 8
+  %ov2.fast_red = getelementptr inbounds %struct.fast_red_t.14, ptr %fast_red_struct459, i64 0, i32 3
+  store double 0.000000e+00, ptr %ov2.red, align 8
+  %ov1.fast_red = getelementptr inbounds %struct.fast_red_t.14, ptr %fast_red_struct459, i64 0, i32 2
+  store double 0.000000e+00, ptr %ov1.red, align 8
+  %ov0.fast_red = getelementptr inbounds %struct.fast_red_t.14, ptr %fast_red_struct459, i64 0, i32 1
+  store double 0.000000e+00, ptr %ov0.red, align 8
   %call20 = tail call i32 @omp_get_thread_num() #1, !range !4
-  %0 = load i32, i32* %nthreads17, align 4, !tbaa !5, !alias.scope !9, !noalias !12
+  %0 = load i32, ptr %nthreads17, align 4, !tbaa !5, !alias.scope !9, !noalias !12
   %cmp21 = icmp slt i32 %0, 3
   br i1 %cmp21, label %if.then22, label %if.else
 
 if.then22:                                        ; preds = %newFuncRoot
-  %1 = load i32, i32* %inum, align 4, !tbaa !5, !alias.scope !168, !noalias !12
+  %1 = load i32, ptr %inum, align 4, !tbaa !5, !alias.scope !168, !noalias !12
   %phi.cast = sext i32 %0 to i64
   br label %if.end57
 
@@ -208,7 +207,7 @@ if.then24:                                        ; preds = %if.else
   %div118 = lshr i32 %0, 1
   %div25119 = lshr i32 %call20, 1
   %rem26120 = and i32 %call20, 1
-  %3 = load i32, i32* %inum, align 4, !tbaa !5, !alias.scope !170, !noalias !12
+  %3 = load i32, ptr %inum, align 4, !tbaa !5, !alias.scope !170, !noalias !12
   %div27 = sdiv i32 %3, %div118
   %rem28 = srem i32 %3, %div118
   %mul = mul nsw i32 %div27, %div25119
@@ -223,7 +222,7 @@ if.then24:                                        ; preds = %if.else
   br label %if.end57
 
 if.else40:                                        ; preds = %if.else
-  %6 = load i32, i32* %inum, align 4, !tbaa !5, !alias.scope !172, !noalias !12
+  %6 = load i32, ptr %inum, align 4, !tbaa !5, !alias.scope !172, !noalias !12
   %div42 = sdiv i32 %6, %0
   %rem44 = srem i32 %6, %0
   %mul45 = mul nsw i32 %div42, %call20
@@ -246,46 +245,44 @@ if.end57:                                         ; preds = %if.else52, %if.then
   %iifrom.priv.0 = phi i32 [ %call20, %if.then22 ], [ %add39, %if.then24 ], [ %add54, %if.else52 ], [ %add51, %if.then48 ]
   %iip.priv.0 = phi i64 [ %phi.cast, %if.then22 ], [ 2, %if.then24 ], [ 1, %if.else52 ], [ 1, %if.then48 ]
   %iito.priv.2 = phi i32 [ %1, %if.then22 ], [ %iito.priv.0, %if.then24 ], [ %add53, %if.else52 ], [ %add50, %if.then48 ]
-  %7 = load i32, i32* %astart.addr, align 4, !tbaa !5, !alias.scope !174, !noalias !12
-  %8 = load i32, i32* %f_stride, align 4, !tbaa !5, !alias.scope !176, !noalias !12
+  %7 = load i32, ptr %astart.addr, align 4, !tbaa !5, !alias.scope !174, !noalias !12
+  %8 = load i32, ptr %f_stride, align 4, !tbaa !5, !alias.scope !176, !noalias !12
   %mul60 = mul nsw i32 %8, %call20
-  %9 = load i32, i32* %minlocal, align 4, !tbaa !5, !alias.scope !178, !noalias !12
+  %9 = load i32, ptr %minlocal, align 4, !tbaa !5, !alias.scope !178, !noalias !12
   %sub61 = sub nsw i32 %mul60, %9
-  %10 = load %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t"*, %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t"** %f_start, align 8, !tbaa !180, !alias.scope !182, !noalias !12
+  %10 = load ptr, ptr %f_start, align 8, !tbaa !180, !alias.scope !182, !noalias !12
   %idx.ext = sext i32 %sub61 to i64
-  %add.ptr = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t", %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t"* %10, i64 %idx.ext, !intel-tbaa !184
+  %add.ptr = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t", ptr %10, i64 %idx.ext, !intel-tbaa !184
   %idx.ext62 = sext i32 %9 to i64
-  %add.ptr63 = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t", %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t"* %add.ptr, i64 %idx.ext62, !intel-tbaa !184
-  %11 = bitcast %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t"* %add.ptr63 to i8*
+  %add.ptr63 = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t", ptr %add.ptr, i64 %idx.ext62, !intel-tbaa !184
   %conv = sext i32 %8 to i64
   %mul64 = shl nsw i64 %conv, 5
-  tail call void @llvm.memset.p0i8.i64(i8* align 8 %11, i8 0, i64 %mul64, i1 false)
-  %12 = load %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed1"*, %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed1"** %ljc12o, align 8, !tbaa !187, !alias.scope !189, !noalias !12
-  %_onetype = getelementptr inbounds %"class.LAMMPS_NS::PairLJCutIntel", %"class.LAMMPS_NS::PairLJCutIntel"* %this, i64 0, i32 3, !intel-tbaa !191
-  %13 = load i32, i32* %_onetype, align 4, !tbaa !191, !alias.scope !204, !noalias !12
-  %idxprom = sext i32 %13 to i64
-  %cutsq66 = getelementptr inbounds %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed1", %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed1"* %12, i64 %idxprom, i32 0
-  %14 = load float, float* %cutsq66, align 4, !tbaa !206, !alias.scope !208, !noalias !212
-  %lj170 = getelementptr inbounds %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed1", %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed1"* %12, i64 %idxprom, i32 1
-  %15 = load float, float* %lj170, align 4, !tbaa !222, !alias.scope !223, !noalias !212
-  %lj274 = getelementptr inbounds %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed1", %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed1"* %12, i64 %idxprom, i32 2
-  %16 = load float, float* %lj274, align 4, !tbaa !225, !alias.scope !226, !noalias !212
-  %17 = load %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed2"*, %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed2"** %lj34, align 8, !tbaa !228, !alias.scope !230, !noalias !12
-  %lj378 = getelementptr inbounds %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed2", %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed2"* %17, i64 %idxprom, i32 0
-  %18 = load float, float* %lj378, align 4, !tbaa !232, !alias.scope !234, !noalias !236
-  %lj482 = getelementptr inbounds %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed2", %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed2"* %17, i64 %idxprom, i32 1
-  %19 = load float, float* %lj482, align 4, !tbaa !237, !alias.scope !238, !noalias !236
-  %offset86 = getelementptr inbounds %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed1", %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed1"* %12, i64 %idxprom, i32 3
-  %20 = load float, float* %offset86, align 4, !tbaa !240, !alias.scope !241, !noalias !212
-  %21 = bitcast i32* %jj.linear.iv to i8*
+  tail call void @llvm.memset.p0.i64(ptr align 8 %add.ptr63, i8 0, i64 %mul64, i1 false)
+  %11 = load ptr, ptr %ljc12o, align 8, !tbaa !187, !alias.scope !189, !noalias !12
+  %_onetype = getelementptr inbounds %"class.LAMMPS_NS::PairLJCutIntel", ptr %this, i64 0, i32 3, !intel-tbaa !191
+  %12 = load i32, ptr %_onetype, align 4, !tbaa !191, !alias.scope !204, !noalias !12
+  %idxprom = sext i32 %12 to i64
+  %cutsq66 = getelementptr inbounds %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed1", ptr %11, i64 %idxprom, i32 0
+  %13 = load float, ptr %cutsq66, align 4, !tbaa !206, !alias.scope !208, !noalias !212
+  %lj170 = getelementptr inbounds %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed1", ptr %11, i64 %idxprom, i32 1
+  %14 = load float, ptr %lj170, align 4, !tbaa !222, !alias.scope !223, !noalias !212
+  %lj274 = getelementptr inbounds %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed1", ptr %11, i64 %idxprom, i32 2
+  %15 = load float, ptr %lj274, align 4, !tbaa !225, !alias.scope !226, !noalias !212
+  %16 = load ptr, ptr %lj34, align 8, !tbaa !228, !alias.scope !230, !noalias !12
+  %lj378 = getelementptr inbounds %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed2", ptr %16, i64 %idxprom, i32 0
+  %17 = load float, ptr %lj378, align 4, !tbaa !232, !alias.scope !234, !noalias !236
+  %lj482 = getelementptr inbounds %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed2", ptr %16, i64 %idxprom, i32 1
+  %18 = load float, ptr %lj482, align 4, !tbaa !237, !alias.scope !238, !noalias !236
+  %offset86 = getelementptr inbounds %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed1", ptr %11, i64 %idxprom, i32 3
+  %19 = load float, ptr %offset86, align 4, !tbaa !240, !alias.scope !241, !noalias !212
   %cmp87125 = icmp slt i32 %iifrom.priv.0, %iito.priv.2
   br i1 %cmp87125, label %for.body.preheader, label %for.cond.cleanup
 
 for.body.preheader:                               ; preds = %if.end57
   %add59 = add nsw i32 %7, %iito.priv.2
-  %22 = add i32 %iifrom.priv.0, %7
-  %23 = sext i32 %22 to i64
-  %24 = sext i32 %add59 to i64
+  %20 = add i32 %iifrom.priv.0, %7
+  %21 = sext i32 %20 to i64
+  %22 = sext i32 %add59 to i64
   br label %for.body
 
 for.cond.cleanup.loopexit:                        ; preds = %omp.precond.end
@@ -294,306 +291,305 @@ for.cond.cleanup.loopexit:                        ; preds = %omp.precond.end
 
 for.cond.cleanup:                                 ; preds = %for.cond.cleanup.loopexit, %if.end57
   %oevdwl.red.0.lcssa = phi double [ 0.000000e+00, %if.end57 ], [ %add202.lcssa, %for.cond.cleanup.loopexit ]
-  %25 = load i32, i32* %vflag.addr, align 4, !tbaa !5, !alias.scope !243, !noalias !12
-  %cmp204 = icmp eq i32 %25, 2
+  %23 = load i32, ptr %vflag.addr, align 4, !tbaa !5, !alias.scope !243, !noalias !12
+  %cmp204 = icmp eq i32 %23, 2
   br i1 %cmp204, label %land.lhs.true, label %if.end207
 
 for.body:                                         ; preds = %omp.precond.end, %for.body.preheader
-  %indvars.iv138 = phi i64 [ %23, %for.body.preheader ], [ %indvars.iv.next139, %omp.precond.end ]
+  %indvars.iv138 = phi i64 [ %21, %for.body.preheader ], [ %indvars.iv.next139, %omp.precond.end ]
   %oevdwl.red.0126 = phi double [ 0.000000e+00, %for.body.preheader ], [ %add202, %omp.precond.end ]
-  %26 = load i32*, i32** %ilist, align 8, !tbaa !245, !alias.scope !247, !noalias !12
-  %arrayidx89 = getelementptr inbounds i32, i32* %26, i64 %indvars.iv138
-  %27 = load i32, i32* %arrayidx89, align 4, !tbaa !5, !alias.scope !249, !noalias !250
-  %28 = load i32**, i32*** %firstneigh, align 8, !tbaa !254, !alias.scope !256, !noalias !12
-  %idxprom90 = sext i32 %27 to i64
-  %arrayidx91 = getelementptr inbounds i32*, i32** %28, i64 %idxprom90
-  %29 = load i32*, i32** %arrayidx91, align 8, !tbaa !245, !alias.scope !258, !noalias !260
-  %30 = load i32*, i32** %numneigh, align 8, !tbaa !245, !alias.scope !261, !noalias !12
-  %arrayidx93 = getelementptr inbounds i32, i32* %30, i64 %idxprom90
-  %31 = load i32, i32* %arrayidx93, align 4, !tbaa !5, !alias.scope !263, !noalias !264
-  %sub96 = add i32 %31, 15
+  %24 = load ptr, ptr %ilist, align 8, !tbaa !245, !alias.scope !247, !noalias !12
+  %arrayidx89 = getelementptr inbounds i32, ptr %24, i64 %indvars.iv138
+  %25 = load i32, ptr %arrayidx89, align 4, !tbaa !5, !alias.scope !249, !noalias !250
+  %26 = load ptr, ptr %firstneigh, align 8, !tbaa !254, !alias.scope !256, !noalias !12
+  %idxprom90 = sext i32 %25 to i64
+  %arrayidx91 = getelementptr inbounds ptr, ptr %26, i64 %idxprom90
+  %27 = load ptr, ptr %arrayidx91, align 8, !tbaa !245, !alias.scope !258, !noalias !260
+  %28 = load ptr, ptr %numneigh, align 8, !tbaa !245, !alias.scope !261, !noalias !12
+  %arrayidx93 = getelementptr inbounds i32, ptr %28, i64 %idxprom90
+  %29 = load i32, ptr %arrayidx93, align 4, !tbaa !5, !alias.scope !263, !noalias !264
+  %sub96 = add i32 %29, 15
   %and = and i32 %sub96, -16
-  %32 = load %"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t"*, %"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t"** %x, align 8, !tbaa !265, !alias.scope !267, !noalias !12
-  %x100 = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t", %"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t"* %32, i64 %idxprom90, i32 0
-  %33 = load float, float* %x100, align 4, !tbaa !269, !alias.scope !271, !noalias !273
-  %y = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t", %"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t"* %32, i64 %idxprom90, i32 1
-  %34 = load float, float* %y, align 4, !tbaa !274, !alias.scope !275, !noalias !273
-  %z = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t", %"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t"* %32, i64 %idxprom90, i32 2
-  %35 = load float, float* %z, align 4, !tbaa !277, !alias.scope !278, !noalias !273
+  %30 = load ptr, ptr %x, align 8, !tbaa !265, !alias.scope !267, !noalias !12
+  %x100 = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t", ptr %30, i64 %idxprom90, i32 0
+  %31 = load float, ptr %x100, align 4, !tbaa !269, !alias.scope !271, !noalias !273
+  %y = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t", ptr %30, i64 %idxprom90, i32 1
+  %32 = load float, ptr %y, align 4, !tbaa !274, !alias.scope !275, !noalias !273
+  %z = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t", ptr %30, i64 %idxprom90, i32 2
+  %33 = load float, ptr %z, align 4, !tbaa !277, !alias.scope !278, !noalias !273
   %cmp110 = icmp sgt i32 %and, 0
   br i1 %cmp110, label %DIR.OMP.SIMD.1, label %omp.precond.end
 
 DIR.OMP.SIMD.1:                                   ; preds = %for.body
-  store double 0.000000e+00, double* %sv5.red, align 8
-  store double 0.000000e+00, double* %sv4.red, align 8
-  store double 0.000000e+00, double* %sv3.red, align 8
-  store double 0.000000e+00, double* %sv2.red, align 8
-  store double 0.000000e+00, double* %sv1.red, align 8
-  store double 0.000000e+00, double* %sv0.red, align 8
-  store double 0.000000e+00, double* %sevdwl.red, align 8
-  store double 0.000000e+00, double* %fwtmp.red, align 8
-  store double 0.000000e+00, double* %fztmp.red, align 8
-  store double 0.000000e+00, double* %fytmp.red, align 8
-  store double 0.000000e+00, double* %fxtmp.red, align 8
+  store double 0.000000e+00, ptr %sv5.red, align 8
+  store double 0.000000e+00, ptr %sv4.red, align 8
+  store double 0.000000e+00, ptr %sv3.red, align 8
+  store double 0.000000e+00, ptr %sv2.red, align 8
+  store double 0.000000e+00, ptr %sv1.red, align 8
+  store double 0.000000e+00, ptr %sv0.red, align 8
+  store double 0.000000e+00, ptr %sevdwl.red, align 8
+  store double 0.000000e+00, ptr %fwtmp.red, align 8
+  store double 0.000000e+00, ptr %fztmp.red, align 8
+  store double 0.000000e+00, ptr %fytmp.red, align 8
+  store double 0.000000e+00, ptr %fxtmp.red, align 8
   br label %DIR.OMP.SIMD.1146
 
 DIR.OMP.SIMD.1146:                                ; preds = %DIR.OMP.SIMD.1
-  %36 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(double* %fxtmp.red, double zeroinitializer, i32 1), "QUAL.OMP.REDUCTION.ADD:TYPED"(double* %fytmp.red, double zeroinitializer, i32 1), "QUAL.OMP.REDUCTION.ADD:TYPED"(double* %fztmp.red, double zeroinitializer, i32 1), "QUAL.OMP.REDUCTION.ADD:TYPED"(double* %fwtmp.red, double zeroinitializer, i32 1), "QUAL.OMP.REDUCTION.ADD:TYPED"(double* %sevdwl.red, double zeroinitializer, i32 1), "QUAL.OMP.REDUCTION.ADD:TYPED"(double* %sv0.red, double zeroinitializer, i32 1), "QUAL.OMP.REDUCTION.ADD:TYPED"(double* %sv1.red, double zeroinitializer, i32 1), "QUAL.OMP.REDUCTION.ADD:TYPED"(double* %sv2.red, double zeroinitializer, i32 1), "QUAL.OMP.REDUCTION.ADD:TYPED"(double* %sv3.red, double zeroinitializer, i32 1), "QUAL.OMP.REDUCTION.ADD:TYPED"(double* %sv4.red, double zeroinitializer, i32 1), "QUAL.OMP.REDUCTION.ADD:TYPED"(double* %sv5.red, double zeroinitializer, i32 1), "QUAL.OMP.ALIGNED:PTR_TO_PTR"(i32** null, i32 0, i32 64), "QUAL.OMP.ALIGNED:PTR_TO_PTR"(%"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t"** null, %"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t" zeroinitializer, i32 64), "QUAL.OMP.ALIGNED:PTR_TO_PTR"(%"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed1"** null, %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed1" zeroinitializer, i32 64), "QUAL.OMP.ALIGNED:PTR_TO_PTR"(float** null, float zeroinitializer, i32 64), "QUAL.OMP.ALIGNED:PTR_TO_PTR"(%"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t"** null, %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t" zeroinitializer, i32 64), "QUAL.OMP.ALIGNED:PTR_TO_PTR"(%"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed2"** null, %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed2" zeroinitializer, i32 64), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %jj.linear.iv, i32 0, i32 1, i32 1) ]
+  %34 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %fxtmp.red, double zeroinitializer, i32 1), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %fytmp.red, double zeroinitializer, i32 1), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %fztmp.red, double zeroinitializer, i32 1), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %fwtmp.red, double zeroinitializer, i32 1), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %sevdwl.red, double zeroinitializer, i32 1), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %sv0.red, double zeroinitializer, i32 1), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %sv1.red, double zeroinitializer, i32 1), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %sv2.red, double zeroinitializer, i32 1), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %sv3.red, double zeroinitializer, i32 1), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %sv4.red, double zeroinitializer, i32 1), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %sv5.red, double zeroinitializer, i32 1), "QUAL.OMP.ALIGNED:PTR_TO_PTR"(ptr null, i32 0, i32 64), "QUAL.OMP.ALIGNED:PTR_TO_PTR"(ptr null, %"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t" zeroinitializer, i32 64), "QUAL.OMP.ALIGNED:PTR_TO_PTR"(ptr null, %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed1" zeroinitializer, i32 64), "QUAL.OMP.ALIGNED:PTR_TO_PTR"(ptr null, float zeroinitializer, i32 64), "QUAL.OMP.ALIGNED:PTR_TO_PTR"(ptr null, %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t" zeroinitializer, i32 64), "QUAL.OMP.ALIGNED:PTR_TO_PTR"(ptr null, %"struct.LAMMPS_NS::PairLJCutIntel::ForceConst<float>::fc_packed2" zeroinitializer, i32 64), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %jj.linear.iv, i32 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1146
-  call void @llvm.assume(i1 true) [ "align"(i32* %29, i64 64) ], !llvm.access.group !280
-  %37 = load %"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t"*, %"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t"** %x, align 8, !tbaa !265, !alias.scope !281, !noalias !12, !llvm.access.group !280
-  call void @llvm.assume(i1 true) [ "align"(%"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t"* %37, i64 64) ], !llvm.access.group !280
-  call void @llvm.assume(i1 true) [ "align"(%"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t"* %37, i64 64) ], !llvm.access.group !280
-  call void @llvm.assume(i1 true) [ "align"(%"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t"* %37, i64 64) ], !llvm.access.group !280
-  %fxtmp.red.promoted = load double, double* %fxtmp.red, align 8, !tbaa !283, !alias.scope !284, !noalias !285
-  %fytmp.red.promoted = load double, double* %fytmp.red, align 8, !tbaa !283, !alias.scope !286, !noalias !287
-  %fztmp.red.promoted = load double, double* %fztmp.red, align 8, !tbaa !283, !alias.scope !288, !noalias !289
-  %sevdwl.red.promoted = load double, double* %sevdwl.red, align 8, !tbaa !283, !alias.scope !290, !noalias !291
-  %fwtmp.red.promoted = load double, double* %fwtmp.red, align 8, !tbaa !283, !alias.scope !292, !noalias !293
+  call void @llvm.assume(i1 true) [ "align"(ptr %27, i64 64) ], !llvm.access.group !280
+  %35 = load ptr, ptr %x, align 8, !tbaa !265, !alias.scope !281, !noalias !12, !llvm.access.group !280
+  call void @llvm.assume(i1 true) [ "align"(ptr %35, i64 64) ], !llvm.access.group !280
+  call void @llvm.assume(i1 true) [ "align"(ptr %35, i64 64) ], !llvm.access.group !280
+  call void @llvm.assume(i1 true) [ "align"(ptr %35, i64 64) ], !llvm.access.group !280
+  %fxtmp.red.promoted = load double, ptr %fxtmp.red, align 8, !tbaa !283, !alias.scope !284, !noalias !285
+  %fytmp.red.promoted = load double, ptr %fytmp.red, align 8, !tbaa !283, !alias.scope !286, !noalias !287
+  %fztmp.red.promoted = load double, ptr %fztmp.red, align 8, !tbaa !283, !alias.scope !288, !noalias !289
+  %sevdwl.red.promoted = load double, ptr %sevdwl.red, align 8, !tbaa !283, !alias.scope !290, !noalias !291
+  %fwtmp.red.promoted = load double, ptr %fwtmp.red, align 8, !tbaa !283, !alias.scope !292, !noalias !293
   %wide.trip.count141 = zext i32 %and to i64
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %if.end184, %DIR.OMP.SIMD.2
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %indvars.iv.next, %if.end184 ]
-  %38 = phi double [ %fwtmp.red.promoted, %DIR.OMP.SIMD.2 ], [ %52, %if.end184 ]
-  %39 = phi double [ %sevdwl.red.promoted, %DIR.OMP.SIMD.2 ], [ %53, %if.end184 ]
-  %40 = phi double [ %fztmp.red.promoted, %DIR.OMP.SIMD.2 ], [ %54, %if.end184 ]
-  %41 = phi double [ %fytmp.red.promoted, %DIR.OMP.SIMD.2 ], [ %55, %if.end184 ]
-  %42 = phi double [ %fxtmp.red.promoted, %DIR.OMP.SIMD.2 ], [ %56, %if.end184 ]
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %21) #1, !llvm.access.group !280
-  %arrayidx115 = getelementptr inbounds i32, i32* %29, i64 %indvars.iv
-  %43 = load i32, i32* %arrayidx115, align 4, !tbaa !5, !alias.scope !294, !noalias !295, !llvm.access.group !280
-  %idxprom116 = sext i32 %43 to i64
-  %x118 = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t", %"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t"* %37, i64 %idxprom116, i32 0
-  %44 = load float, float* %x118, align 16, !tbaa !269, !alias.scope !296, !noalias !273, !llvm.access.group !280
-  %sub119 = fsub fast float %33, %44
-  %y122 = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t", %"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t"* %37, i64 %idxprom116, i32 1
-  %45 = load float, float* %y122, align 4, !tbaa !274, !alias.scope !298, !noalias !273, !llvm.access.group !280
-  %sub123 = fsub fast float %34, %45
-  %z126 = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t", %"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t"* %37, i64 %idxprom116, i32 2
-  %46 = load float, float* %z126, align 8, !tbaa !277, !alias.scope !300, !noalias !273, !llvm.access.group !280
-  %sub127 = fsub fast float %35, %46
+  %36 = phi double [ %fwtmp.red.promoted, %DIR.OMP.SIMD.2 ], [ %50, %if.end184 ]
+  %37 = phi double [ %sevdwl.red.promoted, %DIR.OMP.SIMD.2 ], [ %51, %if.end184 ]
+  %38 = phi double [ %fztmp.red.promoted, %DIR.OMP.SIMD.2 ], [ %52, %if.end184 ]
+  %39 = phi double [ %fytmp.red.promoted, %DIR.OMP.SIMD.2 ], [ %53, %if.end184 ]
+  %40 = phi double [ %fxtmp.red.promoted, %DIR.OMP.SIMD.2 ], [ %54, %if.end184 ]
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %jj.linear.iv) #1, !llvm.access.group !280
+  %arrayidx115 = getelementptr inbounds i32, ptr %27, i64 %indvars.iv
+  %41 = load i32, ptr %arrayidx115, align 4, !tbaa !5, !alias.scope !294, !noalias !295, !llvm.access.group !280
+  %idxprom116 = sext i32 %41 to i64
+  %x118 = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t", ptr %35, i64 %idxprom116, i32 0
+  %42 = load float, ptr %x118, align 16, !tbaa !269, !alias.scope !296, !noalias !273, !llvm.access.group !280
+  %sub119 = fsub fast float %31, %42
+  %y122 = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t", ptr %35, i64 %idxprom116, i32 1
+  %43 = load float, ptr %y122, align 4, !tbaa !274, !alias.scope !298, !noalias !273, !llvm.access.group !280
+  %sub123 = fsub fast float %32, %43
+  %z126 = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::atom_t", ptr %35, i64 %idxprom116, i32 2
+  %44 = load float, ptr %z126, align 8, !tbaa !277, !alias.scope !300, !noalias !273, !llvm.access.group !280
+  %sub127 = fsub fast float %33, %44
   %mul128 = fmul fast float %sub119, %sub119
   %mul129 = fmul fast float %sub123, %sub123
   %add130 = fadd fast float %mul129, %mul128
   %mul131 = fmul fast float %sub127, %sub127
   %add132 = fadd fast float %add130, %mul131
-  %cmp133 = fcmp fast olt float %add132, %14
+  %cmp133 = fcmp fast olt float %add132, %13
   br i1 %cmp133, label %if.then134, label %if.end184
 
 if.then134:                                       ; preds = %omp.inner.for.body
   %conv137 = fdiv fast float 1.000000e+00, %add132
   %mul138 = fmul fast float %conv137, %conv137
   %mul139 = fmul fast float %mul138, %conv137
-  %mul140 = fmul fast float %mul139, %15
-  %sub141 = fsub fast float %mul140, %16
+  %mul140 = fmul fast float %mul139, %14
+  %sub141 = fsub fast float %mul140, %15
   %mul142 = fmul fast float %mul139, %conv137
   %mul143 = fmul fast float %mul142, %sub141
   %mul144 = fmul fast float %mul143, %sub119
   %conv145 = fpext float %mul144 to double
-  %add146 = fadd fast double %42, %conv145
-  call void @llvm.assume(i1 true) [ "align"(%"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t"* %add.ptr, i64 64) ], !llvm.access.group !280
-  %x150 = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t", %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t"* %add.ptr, i64 %idxprom116, i32 0
-  %47 = load double, double* %x150, align 32, !tbaa !302, !alias.scope !303, !noalias !304, !llvm.access.group !280
-  %sub151 = fsub fast double %47, %conv145
-  store double %sub151, double* %x150, align 32, !tbaa !302, !alias.scope !305, !noalias !306, !llvm.access.group !280
+  %add146 = fadd fast double %40, %conv145
+  call void @llvm.assume(i1 true) [ "align"(ptr %add.ptr, i64 64) ], !llvm.access.group !280
+  %x150 = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t", ptr %add.ptr, i64 %idxprom116, i32 0
+  %45 = load double, ptr %x150, align 32, !tbaa !302, !alias.scope !303, !noalias !304, !llvm.access.group !280
+  %sub151 = fsub fast double %45, %conv145
+  store double %sub151, ptr %x150, align 32, !tbaa !302, !alias.scope !305, !noalias !306, !llvm.access.group !280
   %mul152 = fmul fast float %mul143, %sub123
   %conv153 = fpext float %mul152 to double
-  %add154 = fadd fast double %41, %conv153
-  call void @llvm.assume(i1 true) [ "align"(%"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t"* %add.ptr, i64 64) ], !llvm.access.group !280
-  %y158 = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t", %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t"* %add.ptr, i64 %idxprom116, i32 1
-  %48 = load double, double* %y158, align 8, !tbaa !330, !alias.scope !331, !noalias !332, !llvm.access.group !280
-  %sub159 = fsub fast double %48, %conv153
-  store double %sub159, double* %y158, align 8, !tbaa !330, !alias.scope !333, !noalias !334, !llvm.access.group !280
+  %add154 = fadd fast double %39, %conv153
+  call void @llvm.assume(i1 true) [ "align"(ptr %add.ptr, i64 64) ], !llvm.access.group !280
+  %y158 = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t", ptr %add.ptr, i64 %idxprom116, i32 1
+  %46 = load double, ptr %y158, align 8, !tbaa !330, !alias.scope !331, !noalias !332, !llvm.access.group !280
+  %sub159 = fsub fast double %46, %conv153
+  store double %sub159, ptr %y158, align 8, !tbaa !330, !alias.scope !333, !noalias !334, !llvm.access.group !280
   %mul160 = fmul fast float %mul143, %sub127
   %conv161 = fpext float %mul160 to double
-  %add162 = fadd fast double %40, %conv161
-  call void @llvm.assume(i1 true) [ "align"(%"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t"* %add.ptr, i64 64) ], !llvm.access.group !280
-  %z166 = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t", %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t"* %add.ptr, i64 %idxprom116, i32 2
-  %49 = load double, double* %z166, align 16, !tbaa !335, !alias.scope !336, !noalias !337, !llvm.access.group !280
-  %sub167 = fsub fast double %49, %conv161
-  store double %sub167, double* %z166, align 16, !tbaa !335, !alias.scope !338, !noalias !339, !llvm.access.group !280
-  %mul168 = fmul fast float %mul139, %18
-  %sub169 = fsub fast float %mul168, %19
+  %add162 = fadd fast double %38, %conv161
+  call void @llvm.assume(i1 true) [ "align"(ptr %add.ptr, i64 64) ], !llvm.access.group !280
+  %z166 = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t", ptr %add.ptr, i64 %idxprom116, i32 2
+  %47 = load double, ptr %z166, align 16, !tbaa !335, !alias.scope !336, !noalias !337, !llvm.access.group !280
+  %sub167 = fsub fast double %47, %conv161
+  store double %sub167, ptr %z166, align 16, !tbaa !335, !alias.scope !338, !noalias !339, !llvm.access.group !280
+  %mul168 = fmul fast float %mul139, %17
+  %sub169 = fsub fast float %mul168, %18
   %mul170 = fmul fast float %sub169, %mul139
-  %sub171 = fsub fast float %mul170, %20
+  %sub171 = fsub fast float %mul170, %19
   %conv172 = fpext float %sub171 to double
-  %add173 = fadd fast double %39, %conv172
-  %50 = load i32, i32* %eatom, align 4, !tbaa !5, !alias.scope !340, !noalias !12, !llvm.access.group !280
-  %tobool.not = icmp eq i32 %50, 0
+  %add173 = fadd fast double %37, %conv172
+  %48 = load i32, ptr %eatom, align 4, !tbaa !5, !alias.scope !340, !noalias !12, !llvm.access.group !280
+  %tobool.not = icmp eq i32 %48, 0
   br i1 %tobool.not, label %if.end184, label %if.then174
 
 if.then174:                                       ; preds = %if.then134
   %mul175 = fmul fast float %sub171, 5.000000e-01
   %conv176 = fpext float %mul175 to double
-  %add177 = fadd fast double %38, %conv176
-  call void @llvm.assume(i1 true) [ "align"(%"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t"* %add.ptr, i64 64) ], !llvm.access.group !280
-  %w = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t", %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t"* %add.ptr, i64 %idxprom116, i32 3
-  %51 = load double, double* %w, align 8, !tbaa !341, !alias.scope !342, !noalias !343, !llvm.access.group !280
-  %add182 = fadd fast double %51, %conv176
-  store double %add182, double* %w, align 8, !tbaa !341, !alias.scope !344, !noalias !345, !llvm.access.group !280
+  %add177 = fadd fast double %36, %conv176
+  call void @llvm.assume(i1 true) [ "align"(ptr %add.ptr, i64 64) ], !llvm.access.group !280
+  %w = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t", ptr %add.ptr, i64 %idxprom116, i32 3
+  %49 = load double, ptr %w, align 8, !tbaa !341, !alias.scope !342, !noalias !343, !llvm.access.group !280
+  %add182 = fadd fast double %49, %conv176
+  store double %add182, ptr %w, align 8, !tbaa !341, !alias.scope !344, !noalias !345, !llvm.access.group !280
   br label %if.end184
 
 if.end184:                                        ; preds = %if.then174, %if.then134, %omp.inner.for.body
-  %52 = phi double [ %38, %if.then134 ], [ %add177, %if.then174 ], [ %38, %omp.inner.for.body ]
-  %53 = phi double [ %add173, %if.then134 ], [ %add173, %if.then174 ], [ %39, %omp.inner.for.body ]
-  %54 = phi double [ %add162, %if.then134 ], [ %add162, %if.then174 ], [ %40, %omp.inner.for.body ]
-  %55 = phi double [ %add154, %if.then134 ], [ %add154, %if.then174 ], [ %41, %omp.inner.for.body ]
-  %56 = phi double [ %add146, %if.then134 ], [ %add146, %if.then174 ], [ %42, %omp.inner.for.body ]
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %21) #1, !llvm.access.group !280
+  %50 = phi double [ %36, %if.then134 ], [ %add177, %if.then174 ], [ %36, %omp.inner.for.body ]
+  %51 = phi double [ %add173, %if.then134 ], [ %add173, %if.then174 ], [ %37, %omp.inner.for.body ]
+  %52 = phi double [ %add162, %if.then134 ], [ %add162, %if.then174 ], [ %38, %omp.inner.for.body ]
+  %53 = phi double [ %add154, %if.then134 ], [ %add154, %if.then174 ], [ %39, %omp.inner.for.body ]
+  %54 = phi double [ %add146, %if.then134 ], [ %add146, %if.then174 ], [ %40, %omp.inner.for.body ]
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %jj.linear.iv) #1, !llvm.access.group !280
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count141
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.2140, label %omp.inner.for.body, !llvm.loop !346
 
 DIR.OMP.END.SIMD.2140:                            ; preds = %if.end184
-  %.lcssa154 = phi double [ %52, %if.end184 ]
-  %.lcssa153 = phi double [ %53, %if.end184 ]
-  %.lcssa152 = phi double [ %54, %if.end184 ]
-  %.lcssa151 = phi double [ %55, %if.end184 ]
-  %.lcssa = phi double [ %56, %if.end184 ]
-  store double %.lcssa, double* %fxtmp.red, align 8, !tbaa !283, !alias.scope !284, !noalias !285
-  store double %.lcssa151, double* %fytmp.red, align 8, !tbaa !283, !alias.scope !286, !noalias !287
-  store double %.lcssa152, double* %fztmp.red, align 8, !tbaa !283, !alias.scope !288, !noalias !289
-  store double %.lcssa153, double* %sevdwl.red, align 8, !tbaa !283, !alias.scope !290, !noalias !291
-  store double %.lcssa154, double* %fwtmp.red, align 8, !tbaa !283, !alias.scope !292, !noalias !293
+  %.lcssa154 = phi double [ %50, %if.end184 ]
+  %.lcssa153 = phi double [ %51, %if.end184 ]
+  %.lcssa152 = phi double [ %52, %if.end184 ]
+  %.lcssa151 = phi double [ %53, %if.end184 ]
+  %.lcssa = phi double [ %54, %if.end184 ]
+  store double %.lcssa, ptr %fxtmp.red, align 8, !tbaa !283, !alias.scope !284, !noalias !285
+  store double %.lcssa151, ptr %fytmp.red, align 8, !tbaa !283, !alias.scope !286, !noalias !287
+  store double %.lcssa152, ptr %fztmp.red, align 8, !tbaa !283, !alias.scope !288, !noalias !289
+  store double %.lcssa153, ptr %sevdwl.red, align 8, !tbaa !283, !alias.scope !290, !noalias !291
+  store double %.lcssa154, ptr %fwtmp.red, align 8, !tbaa !283, !alias.scope !292, !noalias !293
   br label %DIR.OMP.END.SIMD.3
 
 DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2140
-  call void @llvm.directive.region.exit(token %36) [ "DIR.OMP.END.SIMD"() ]
+  call void @llvm.directive.region.exit(token %34) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.OMP.END.SIMD.4
 
 DIR.OMP.END.SIMD.4:                               ; preds = %DIR.OMP.END.SIMD.3
-  %57 = fadd double %.lcssa, 0.000000e+00
-  %58 = fadd double %.lcssa151, 0.000000e+00
-  %59 = fadd double %.lcssa152, 0.000000e+00
-  %60 = fadd double %.lcssa154, 0.000000e+00
-  %61 = fadd double %.lcssa153, 0.000000e+00
+  %55 = fadd double %.lcssa, 0.000000e+00
+  %56 = fadd double %.lcssa151, 0.000000e+00
+  %57 = fadd double %.lcssa152, 0.000000e+00
+  %58 = fadd double %.lcssa154, 0.000000e+00
+  %59 = fadd double %.lcssa153, 0.000000e+00
   br label %omp.precond.end
 
 omp.precond.end:                                  ; preds = %DIR.OMP.END.SIMD.4, %for.body
-  %fwtmp.priv.1 = phi double [ 0.000000e+00, %for.body ], [ %60, %DIR.OMP.END.SIMD.4 ]
-  %fxtmp.priv.1 = phi double [ 0.000000e+00, %for.body ], [ %57, %DIR.OMP.END.SIMD.4 ]
-  %fytmp.priv.1 = phi double [ 0.000000e+00, %for.body ], [ %58, %DIR.OMP.END.SIMD.4 ]
-  %fztmp.priv.1 = phi double [ 0.000000e+00, %for.body ], [ %59, %DIR.OMP.END.SIMD.4 ]
-  %sevdwl.priv.1 = phi double [ 0.000000e+00, %for.body ], [ %61, %DIR.OMP.END.SIMD.4 ]
-  %x188 = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t", %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t"* %add.ptr, i64 %idxprom90, i32 0
-  %62 = load double, double* %x188, align 8, !tbaa !302, !alias.scope !349, !noalias !304
-  %add189 = fadd fast double %62, %fxtmp.priv.1
-  store double %add189, double* %x188, align 8, !tbaa !302, !alias.scope !350, !noalias !306
-  %y192 = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t", %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t"* %add.ptr, i64 %idxprom90, i32 1
-  %63 = load double, double* %y192, align 8, !tbaa !330, !alias.scope !351, !noalias !332
-  %add193 = fadd fast double %63, %fytmp.priv.1
-  store double %add193, double* %y192, align 8, !tbaa !330, !alias.scope !352, !noalias !334
-  %z196 = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t", %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t"* %add.ptr, i64 %idxprom90, i32 2
-  %64 = load double, double* %z196, align 8, !tbaa !335, !alias.scope !353, !noalias !337
-  %add197 = fadd fast double %64, %fztmp.priv.1
-  store double %add197, double* %z196, align 8, !tbaa !335, !alias.scope !354, !noalias !339
-  %w200 = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t", %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t"* %add.ptr, i64 %idxprom90, i32 3
-  %65 = load double, double* %w200, align 8, !tbaa !341, !alias.scope !355, !noalias !343
-  %add201 = fadd fast double %65, %fwtmp.priv.1
-  store double %add201, double* %w200, align 8, !tbaa !341, !alias.scope !356, !noalias !345
+  %fwtmp.priv.1 = phi double [ 0.000000e+00, %for.body ], [ %58, %DIR.OMP.END.SIMD.4 ]
+  %fxtmp.priv.1 = phi double [ 0.000000e+00, %for.body ], [ %55, %DIR.OMP.END.SIMD.4 ]
+  %fytmp.priv.1 = phi double [ 0.000000e+00, %for.body ], [ %56, %DIR.OMP.END.SIMD.4 ]
+  %fztmp.priv.1 = phi double [ 0.000000e+00, %for.body ], [ %57, %DIR.OMP.END.SIMD.4 ]
+  %sevdwl.priv.1 = phi double [ 0.000000e+00, %for.body ], [ %59, %DIR.OMP.END.SIMD.4 ]
+  %x188 = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t", ptr %add.ptr, i64 %idxprom90, i32 0
+  %60 = load double, ptr %x188, align 8, !tbaa !302, !alias.scope !349, !noalias !304
+  %add189 = fadd fast double %60, %fxtmp.priv.1
+  store double %add189, ptr %x188, align 8, !tbaa !302, !alias.scope !350, !noalias !306
+  %y192 = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t", ptr %add.ptr, i64 %idxprom90, i32 1
+  %61 = load double, ptr %y192, align 8, !tbaa !330, !alias.scope !351, !noalias !332
+  %add193 = fadd fast double %61, %fytmp.priv.1
+  store double %add193, ptr %y192, align 8, !tbaa !330, !alias.scope !352, !noalias !334
+  %z196 = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t", ptr %add.ptr, i64 %idxprom90, i32 2
+  %62 = load double, ptr %z196, align 8, !tbaa !335, !alias.scope !353, !noalias !337
+  %add197 = fadd fast double %62, %fztmp.priv.1
+  store double %add197, ptr %z196, align 8, !tbaa !335, !alias.scope !354, !noalias !339
+  %w200 = getelementptr inbounds %"struct.LAMMPS_NS::IntelBuffers<float, double>::vec3_acc_t", ptr %add.ptr, i64 %idxprom90, i32 3
+  %63 = load double, ptr %w200, align 8, !tbaa !341, !alias.scope !355, !noalias !343
+  %add201 = fadd fast double %63, %fwtmp.priv.1
+  store double %add201, ptr %w200, align 8, !tbaa !341, !alias.scope !356, !noalias !345
   %add202 = fadd fast double %sevdwl.priv.1, %oevdwl.red.0126
   %indvars.iv.next139 = add i64 %indvars.iv138, %iip.priv.0
-  %cmp87 = icmp slt i64 %indvars.iv.next139, %24
+  %cmp87 = icmp slt i64 %indvars.iv.next139, %22
   br i1 %cmp87, label %for.body, label %for.cond.cleanup.loopexit, !llvm.loop !357
 
 land.lhs.true:                                    ; preds = %for.cond.cleanup
-  %66 = load i32, i32* %nthreads17, align 4, !tbaa !5, !alias.scope !359, !noalias !12
-  %cmp205 = icmp sgt i32 %66, 2
+  %64 = load i32, ptr %nthreads17, align 4, !tbaa !5, !alias.scope !359, !noalias !12
+  %cmp205 = icmp sgt i32 %64, 2
   br i1 %cmp205, label %DIR.OMP.BARRIER.6, label %if.end207
 
 DIR.OMP.BARRIER.6:                                ; preds = %land.lhs.true
   fence acq_rel
-  %my.tid = load i32, i32* %tid, align 4, !alias.scope !360, !noalias !361
-  call void @__kmpc_barrier(%struct.ident_t* nonnull @.kmpc_loc.0.0, i32 %my.tid)
-  %67 = load %"class.LAMMPS_NS::IntelBuffers.0"*, %"class.LAMMPS_NS::IntelBuffers.0"** %buffers.addr, align 8, !tbaa !362, !alias.scope !364, !noalias !12
-  %68 = load i32, i32* %nall, align 4, !tbaa !5, !alias.scope !365, !noalias !12
-  %69 = load i32, i32* %nthreads17, align 4, !tbaa !5, !alias.scope !366, !noalias !12
-  %70 = load i32, i32* %f_stride, align 4, !tbaa !5, !alias.scope !367, !noalias !12
-  call void @_ZN9LAMMPS_NS12IntelBuffersIfdE12fdotr_reduceEiiiRdS2_S2_S2_S2_S2_(%"class.LAMMPS_NS::IntelBuffers.0"* nonnull align 64 dereferenceable(448) %67, i32 %68, i32 %69, i32 %70, double* nonnull align 8 dereferenceable(8) %ov0.red, double* nonnull align 8 dereferenceable(8) %ov1.red, double* nonnull align 8 dereferenceable(8) %ov2.red, double* nonnull align 8 dereferenceable(8) %ov3.red, double* nonnull align 8 dereferenceable(8) %ov4.red, double* nonnull align 8 dereferenceable(8) %ov5.red) #1
+  %my.tid = load i32, ptr %tid, align 4, !alias.scope !360, !noalias !361
+  call void @__kmpc_barrier(ptr nonnull @.kmpc_loc.0.0, i32 %my.tid)
+  %65 = load ptr, ptr %buffers.addr, align 8, !tbaa !362, !alias.scope !364, !noalias !12
+  %66 = load i32, ptr %nall, align 4, !tbaa !5, !alias.scope !365, !noalias !12
+  %67 = load i32, ptr %nthreads17, align 4, !tbaa !5, !alias.scope !366, !noalias !12
+  %68 = load i32, ptr %f_stride, align 4, !tbaa !5, !alias.scope !367, !noalias !12
+  call void @_ZN9LAMMPS_NS12IntelBuffersIfdE12fdotr_reduceEiiiRdS2_S2_S2_S2_S2_(ptr nonnull align 64 dereferenceable(448) %65, i32 %66, i32 %67, i32 %68, ptr nonnull align 8 dereferenceable(8) %ov0.red, ptr nonnull align 8 dereferenceable(8) %ov1.red, ptr nonnull align 8 dereferenceable(8) %ov2.red, ptr nonnull align 8 dereferenceable(8) %ov3.red, ptr nonnull align 8 dereferenceable(8) %ov4.red, ptr nonnull align 8 dereferenceable(8) %ov5.red) #1
   br label %if.end207
 
 if.end207:                                        ; preds = %DIR.OMP.BARRIER.6, %land.lhs.true, %for.cond.cleanup
-  store double %oevdwl.red.0.lcssa, double* %oevdwl.fast_red, align 8
-  %71 = load double, double* %ov0.red, align 8
-  store double %71, double* %ov0.fast_red, align 8
-  %72 = load double, double* %ov1.red, align 8
-  store double %72, double* %ov1.fast_red, align 8
-  %73 = load double, double* %ov2.red, align 8
-  store double %73, double* %ov2.fast_red, align 8
-  %74 = load double, double* %ov3.red, align 8
-  store double %74, double* %ov3.fast_red, align 8
-  %75 = load double, double* %ov4.red, align 8
-  store double %75, double* %ov4.fast_red, align 8
-  %76 = load double, double* %ov5.red, align 8
-  store double %76, double* %ov5.fast_red, align 8
-  %77 = bitcast %struct.fast_red_t.14* %fast_red_struct459 to i8*
-  %my.tid480 = load i32, i32* %tid, align 4
-  %78 = call i32 @__kmpc_reduce(%struct.ident_t* nonnull @.kmpc_loc.0.0.26, i32 %my.tid480, i32 7, i32 56, i8* nonnull %77, void (i8*, i8*)* nonnull @_ZN9LAMMPS_NS14PairLJCutIntel4evalILi1ELi1ELi1EfdEEviiPNS_12IntelBuffersIT2_T3_EERKNS0_10ForceConstIS3_EEii_tree_reduce_13, [8 x i32]* nonnull @.gomp_critical_user_.fast_reduction.AS0.var)
-  switch i32 %78, label %atomic.reduce.exit [
+  store double %oevdwl.red.0.lcssa, ptr %fast_red_struct459, align 8
+  %69 = load double, ptr %ov0.red, align 8
+  store double %69, ptr %ov0.fast_red, align 8
+  %70 = load double, ptr %ov1.red, align 8
+  store double %70, ptr %ov1.fast_red, align 8
+  %71 = load double, ptr %ov2.red, align 8
+  store double %71, ptr %ov2.fast_red, align 8
+  %72 = load double, ptr %ov3.red, align 8
+  store double %72, ptr %ov3.fast_red, align 8
+  %73 = load double, ptr %ov4.red, align 8
+  store double %73, ptr %ov4.fast_red, align 8
+  %74 = load double, ptr %ov5.red, align 8
+  store double %74, ptr %ov5.fast_red, align 8
+  %my.tid480 = load i32, ptr %tid, align 4
+  %75 = call i32 @__kmpc_reduce(ptr nonnull @.kmpc_loc.0.0.26, i32 %my.tid480, i32 7, i32 56, ptr nonnull %fast_red_struct459, ptr nonnull @_ZN9LAMMPS_NS14PairLJCutIntel4evalILi1ELi1ELi1EfdEEviiPNS_12IntelBuffersIT2_T3_EERKNS0_10ForceConstIS3_EEii_tree_reduce_13, ptr nonnull @.gomp_critical_user_.fast_reduction.AS0.var)
+  switch i32 %75, label %atomic.reduce.exit [
   i32 1, label %tree.reduce.exit
   i32 2, label %atomic.reduce
   ]
 
 tree.reduce.exit:                                 ; preds = %if.end207
-  %79 = load double, double* %oevdwl.fast_red, align 8
-  %80 = load double, double* %oevdwl, align 8
+  %76 = load double, ptr %fast_red_struct459, align 8
+  %77 = load double, ptr %oevdwl, align 8
+  %78 = fadd double %76, %77
+  store double %78, ptr %oevdwl, align 8
+  %79 = load double, ptr %ov0.fast_red, align 8
+  %80 = load double, ptr %ov0, align 8
   %81 = fadd double %79, %80
-  store double %81, double* %oevdwl, align 8
-  %82 = load double, double* %ov0.fast_red, align 8
-  %83 = load double, double* %ov0, align 8
+  store double %81, ptr %ov0, align 8
+  %82 = load double, ptr %ov1.fast_red, align 8
+  %83 = load double, ptr %ov1, align 8
   %84 = fadd double %82, %83
-  store double %84, double* %ov0, align 8
-  %85 = load double, double* %ov1.fast_red, align 8
-  %86 = load double, double* %ov1, align 8
+  store double %84, ptr %ov1, align 8
+  %85 = load double, ptr %ov2.fast_red, align 8
+  %86 = load double, ptr %ov2, align 8
   %87 = fadd double %85, %86
-  store double %87, double* %ov1, align 8
-  %88 = load double, double* %ov2.fast_red, align 8
-  %89 = load double, double* %ov2, align 8
+  store double %87, ptr %ov2, align 8
+  %88 = load double, ptr %ov3.fast_red, align 8
+  %89 = load double, ptr %ov3, align 8
   %90 = fadd double %88, %89
-  store double %90, double* %ov2, align 8
-  %91 = load double, double* %ov3.fast_red, align 8
-  %92 = load double, double* %ov3, align 8
+  store double %90, ptr %ov3, align 8
+  %91 = load double, ptr %ov4.fast_red, align 8
+  %92 = load double, ptr %ov4, align 8
   %93 = fadd double %91, %92
-  store double %93, double* %ov3, align 8
-  %94 = load double, double* %ov4.fast_red, align 8
-  %95 = load double, double* %ov4, align 8
+  store double %93, ptr %ov4, align 8
+  %94 = load double, ptr %ov5.fast_red, align 8
+  %95 = load double, ptr %ov5, align 8
   %96 = fadd double %94, %95
-  store double %96, double* %ov4, align 8
-  %97 = load double, double* %ov5.fast_red, align 8
-  %98 = load double, double* %ov5, align 8
-  %99 = fadd double %97, %98
-  store double %99, double* %ov5, align 8
-  %my.tid481 = load i32, i32* %tid, align 4
-  call void @__kmpc_end_reduce(%struct.ident_t* nonnull @.kmpc_loc.0.0.28, i32 %my.tid481, [8 x i32]* nonnull @.gomp_critical_user_.fast_reduction.AS0.var)
+  store double %96, ptr %ov5, align 8
+  %my.tid481 = load i32, ptr %tid, align 4
+  call void @__kmpc_end_reduce(ptr nonnull @.kmpc_loc.0.0.28, i32 %my.tid481, ptr nonnull @.gomp_critical_user_.fast_reduction.AS0.var)
   br label %atomic.reduce.exit
 
 atomic.reduce:                                    ; preds = %if.end207
-  %100 = load double, double* %oevdwl.fast_red, align 8
-  %my.tid473 = load i32, i32* %tid, align 4
-  call void @__kmpc_atomic_float8_add(%struct.ident_t* nonnull @.kmpc_loc.0.0.12, i32 %my.tid473, double* %oevdwl, double %100)
-  %101 = load double, double* %ov0.fast_red, align 8
-  %my.tid474 = load i32, i32* %tid, align 4
-  call void @__kmpc_atomic_float8_add(%struct.ident_t* nonnull @.kmpc_loc.0.0.14, i32 %my.tid474, double* %ov0, double %101)
-  %102 = load double, double* %ov1.fast_red, align 8
-  %my.tid475 = load i32, i32* %tid, align 4
-  call void @__kmpc_atomic_float8_add(%struct.ident_t* nonnull @.kmpc_loc.0.0.16, i32 %my.tid475, double* %ov1, double %102)
-  %103 = load double, double* %ov2.fast_red, align 8
-  %my.tid476 = load i32, i32* %tid, align 4
-  call void @__kmpc_atomic_float8_add(%struct.ident_t* nonnull @.kmpc_loc.0.0.18, i32 %my.tid476, double* %ov2, double %103)
-  %104 = load double, double* %ov3.fast_red, align 8
-  %my.tid477 = load i32, i32* %tid, align 4
-  call void @__kmpc_atomic_float8_add(%struct.ident_t* nonnull @.kmpc_loc.0.0.20, i32 %my.tid477, double* %ov3, double %104)
-  %105 = load double, double* %ov4.fast_red, align 8
-  %my.tid478 = load i32, i32* %tid, align 4
-  call void @__kmpc_atomic_float8_add(%struct.ident_t* nonnull @.kmpc_loc.0.0.22, i32 %my.tid478, double* %ov4, double %105)
-  %106 = load double, double* %ov5.fast_red, align 8
-  %my.tid479 = load i32, i32* %tid, align 4
-  call void @__kmpc_atomic_float8_add(%struct.ident_t* nonnull @.kmpc_loc.0.0.24, i32 %my.tid479, double* %ov5, double %106)
-  %my.tid484 = load i32, i32* %tid, align 4
-  call void @__kmpc_end_reduce(%struct.ident_t* nonnull @.kmpc_loc.0.0.30, i32 %my.tid484, [8 x i32]* nonnull @.gomp_critical_user_.fast_reduction.AS0.var)
+  %97 = load double, ptr %fast_red_struct459, align 8
+  %my.tid473 = load i32, ptr %tid, align 4
+  call void @__kmpc_atomic_float8_add(ptr nonnull @.kmpc_loc.0.0.12, i32 %my.tid473, ptr %oevdwl, double %97)
+  %98 = load double, ptr %ov0.fast_red, align 8
+  %my.tid474 = load i32, ptr %tid, align 4
+  call void @__kmpc_atomic_float8_add(ptr nonnull @.kmpc_loc.0.0.14, i32 %my.tid474, ptr %ov0, double %98)
+  %99 = load double, ptr %ov1.fast_red, align 8
+  %my.tid475 = load i32, ptr %tid, align 4
+  call void @__kmpc_atomic_float8_add(ptr nonnull @.kmpc_loc.0.0.16, i32 %my.tid475, ptr %ov1, double %99)
+  %100 = load double, ptr %ov2.fast_red, align 8
+  %my.tid476 = load i32, ptr %tid, align 4
+  call void @__kmpc_atomic_float8_add(ptr nonnull @.kmpc_loc.0.0.18, i32 %my.tid476, ptr %ov2, double %100)
+  %101 = load double, ptr %ov3.fast_red, align 8
+  %my.tid477 = load i32, ptr %tid, align 4
+  call void @__kmpc_atomic_float8_add(ptr nonnull @.kmpc_loc.0.0.20, i32 %my.tid477, ptr %ov3, double %101)
+  %102 = load double, ptr %ov4.fast_red, align 8
+  %my.tid478 = load i32, ptr %tid, align 4
+  call void @__kmpc_atomic_float8_add(ptr nonnull @.kmpc_loc.0.0.22, i32 %my.tid478, ptr %ov4, double %102)
+  %103 = load double, ptr %ov5.fast_red, align 8
+  %my.tid479 = load i32, ptr %tid, align 4
+  call void @__kmpc_atomic_float8_add(ptr nonnull @.kmpc_loc.0.0.24, i32 %my.tid479, ptr %ov5, double %103)
+  %my.tid484 = load i32, ptr %tid, align 4
+  call void @__kmpc_end_reduce(ptr nonnull @.kmpc_loc.0.0.30, i32 %my.tid484, ptr nonnull @.gomp_critical_user_.fast_reduction.AS0.var)
   br label %atomic.reduce.exit
 
 atomic.reduce.exit:                               ; preds = %atomic.reduce, %tree.reduce.exit, %if.end207

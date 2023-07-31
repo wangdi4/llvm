@@ -21,7 +21,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind uwtable
-define dso_local void @_Z3fooPdPrS_S1_Piii(double* noalias nocapture noundef readonly %A, double** noalias nocapture noundef readonly %B1, double** noalias nocapture noundef readnone %B2, i32* noalias nocapture noundef readonly %C, i32 noundef %N, i32 noundef %t) local_unnamed_addr #0 {
+define dso_local void @_Z3fooPdPrS_S1_Piii(ptr noalias nocapture noundef readonly %A, ptr noalias nocapture noundef readonly %B1, ptr noalias nocapture noundef readnone %B2, ptr noalias nocapture noundef readonly %C, i32 noundef %N, i32 noundef %t) local_unnamed_addr #0 {
 entry:
   %cmp16 = icmp sgt i32 %N, 0
   br i1 %cmp16, label %for.body.preheader, label %for.cond.cleanup
@@ -39,19 +39,19 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 for.body:                                         ; preds = %for.body.preheader, %for.inc
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.inc ]
   %j.017 = phi i32 [ 0, %for.body.preheader ], [ %j.1, %for.inc ]
-  %arrayidx = getelementptr inbounds i32, i32* %C, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds i32, ptr %C, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !3
   %cmp1.not = icmp eq i32 %0, 0
   br i1 %cmp1.not, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
-  %arrayidx3 = getelementptr inbounds double, double* %A, i64 %indvars.iv
-  %1 = load double, double* %arrayidx3, align 8, !tbaa !7
-  %arrayidx5 = getelementptr inbounds double*, double** %B1, i64 %indvars.iv
-  %2 = load double*, double** %arrayidx5, align 8, !tbaa !9
+  %arrayidx3 = getelementptr inbounds double, ptr %A, i64 %indvars.iv
+  %1 = load double, ptr %arrayidx3, align 8, !tbaa !7
+  %arrayidx5 = getelementptr inbounds ptr, ptr %B1, i64 %indvars.iv
+  %2 = load ptr, ptr %arrayidx5, align 8, !tbaa !9
   %idxprom6 = sext i32 %j.017 to i64
-  %arrayidx7 = getelementptr inbounds double, double* %2, i64 %idxprom6
-  store double %1, double* %arrayidx7, align 8, !tbaa !7
+  %arrayidx7 = getelementptr inbounds double, ptr %2, i64 %idxprom6
+  store double %1, ptr %arrayidx7, align 8, !tbaa !7
   %inc = add nsw i32 %j.017, 1
   br label %for.inc
 

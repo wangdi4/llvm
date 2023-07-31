@@ -46,7 +46,7 @@ declare void @llvm.directive.region.exit(token)
 declare void @serial_call_1() nounwind
 declare double @llvm.sqrt.f64(double %val) #1
 
-define void @test(i64 %n, i64* %arr, i64* %arr1) {
+define void @test(i64 %n, ptr %arr, ptr %arr1) {
 entry:
   %cmp = icmp sgt i64 %n, 0
   br i1 %cmp, label %for.body.lr.ph, label %exit

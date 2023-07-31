@@ -13,17 +13,17 @@
 
 declare double @llvm.powi.f64.i16(double %Val, i16 %power) nounwind readnone
 
-define void @powi_f64(double* noalias nocapture readonly %y, i32 %P) local_unnamed_addr #2 {
+define void @powi_f64(ptr noalias nocapture readonly %y, i32 %P) local_unnamed_addr #2 {
 entry:
   %P.CVT = trunc i32 %P to i16
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %entry ]
-  %arrayidx = getelementptr inbounds double, double* %y, i64 %indvars.iv
-  %0 = load double, double* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds double, ptr %y, i64 %indvars.iv
+  %0 = load double, ptr %arrayidx, align 8
   %call = tail call double @llvm.powi.f64.i16(double %0, i16 %P.CVT) #4
-  store double %call, double* %arrayidx, align 8
+  store double %call, ptr %arrayidx, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond, label %for.end.loopexit, label %for.body

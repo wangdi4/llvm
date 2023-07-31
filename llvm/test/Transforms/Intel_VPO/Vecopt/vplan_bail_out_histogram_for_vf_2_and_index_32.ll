@@ -9,7 +9,7 @@ target triple = "i386-unknown-linux-gnu"
 ; RUN: opt -S -mattr=+avx512vl,+avx512cd -passes=hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-optreport-emitter -vplan-force-vf=2 -disable-output -intel-opt-report=high < %s 2>&1 | FileCheck %s --check-prefix=OPTRPTHI
 
 ; Function Attrs: nofree norecurse nosync nounwind mustprogress
-define dso_local void @_Z3fooPiS_i(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32 %TC) local_unnamed_addr #0 {
+define dso_local void @_Z3fooPiS_i(ptr noalias nocapture %A, ptr noalias nocapture readonly %B, i32 %TC) local_unnamed_addr #0 {
 entry:
 ; CHECK: No vectorization factor was found that can satisfy all VConflict idioms in the loop.
 ; OPTRPTHI: remark #15436: loop was not vectorized: No vectorization factor was found that can satisfy all VConflict idioms in the loop.
@@ -28,12 +28,12 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %i.010 = phi i32 [ %inc, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i32, i32* %B, i32 %i.010
-  %0 = load i32, i32* %arrayidx, align 4
-  %arrayidx1 = getelementptr inbounds i32, i32* %A, i32 %0
-  %1 = load i32, i32* %arrayidx1, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %B, i32 %i.010
+  %0 = load i32, ptr %arrayidx, align 4
+  %arrayidx1 = getelementptr inbounds i32, ptr %A, i32 %0
+  %1 = load i32, ptr %arrayidx1, align 4
   %add = add nsw i32 %1, 100
-  store i32 %add, i32* %arrayidx1, align 4
+  store i32 %add, ptr %arrayidx1, align 4
   %inc = add nuw nsw i32 %i.010, 1
   %exitcond.not = icmp eq i32 %inc, %TC
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body

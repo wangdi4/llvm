@@ -14,7 +14,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NO-VCONFLICT: No idioms detected.
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
-define dso_local void @_Z3foo1PfPi(float* nocapture %A, i32* nocapture readonly %B) local_unnamed_addr #0 {
+define dso_local void @_Z3foo1PfPi(ptr nocapture %A, ptr nocapture readonly %B) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -23,11 +23,11 @@ for.cond.cleanup:                                 ; preds = %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ptridx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %0 = load i32, i32* %ptridx, align 4
+  %ptridx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %0 = load i32, ptr %ptridx, align 4
   %idxprom1 = sext i32 %0 to i64
-  %ptridx2 = getelementptr inbounds float, float* %A, i64 %idxprom1
-  %1 = load float, float* %ptridx2, align 4
+  %ptridx2 = getelementptr inbounds float, ptr %A, i64 %idxprom1
+  %1 = load float, ptr %ptridx2, align 4
   %add = fadd fast float %1, 1.000000e+00
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
@@ -53,7 +53,7 @@ for.body:                                         ; preds = %entry, %for.body
 ; CHECK-NO-VCONFLICT: No idioms detected.
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
-define dso_local void @_Z4foo2PiS_S_(i32* nocapture %A, i32* nocapture readonly %B, i32* nocapture %C) local_unnamed_addr #0 {
+define dso_local void @_Z4foo2PiS_S_(ptr nocapture %A, ptr nocapture readonly %B, ptr nocapture %C) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -62,17 +62,17 @@ for.cond.cleanup:                                 ; preds = %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ptridx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %0 = load i32, i32* %ptridx, align 4
+  %ptridx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %0 = load i32, ptr %ptridx, align 4
   %idxprom1 = sext i32 %0 to i64
-  %ptridx2 = getelementptr inbounds i32, i32* %A, i64 %idxprom1
-  %1 = load i32, i32* %ptridx2, align 4
+  %ptridx2 = getelementptr inbounds i32, ptr %A, i64 %idxprom1
+  %1 = load i32, ptr %ptridx2, align 4
   %add = add nsw i32 %1, 2
-  store i32 %add, i32* %ptridx2, align 4
-  %ptridx6 = getelementptr inbounds i32, i32* %C, i64 %idxprom1
-  %2 = load i32, i32* %ptridx6, align 4
+  store i32 %add, ptr %ptridx2, align 4
+  %ptridx6 = getelementptr inbounds i32, ptr %C, i64 %idxprom1
+  %2 = load i32, ptr %ptridx6, align 4
   %add7 = add nsw i32 %2, 3
-  store i32 %add7, i32* %ptridx6, align 4
+  store i32 %add7, ptr %ptridx6, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body
@@ -92,7 +92,7 @@ for.body:                                         ; preds = %entry, %for.body
 ; CHECK-NO-VCONFLICT: No idioms detected.
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
-define dso_local void @_Z4foo3PfPi(float* nocapture %A, i32* nocapture readonly %B) local_unnamed_addr #0 {
+define dso_local void @_Z4foo3PfPi(ptr nocapture %A, ptr nocapture readonly %B) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -101,14 +101,14 @@ for.cond.cleanup:                                 ; preds = %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ptridx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %0 = load i32, i32* %ptridx, align 4
+  %ptridx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %0 = load i32, ptr %ptridx, align 4
   %add = add nsw i32 %0, 2
   %idxprom1 = sext i32 %add to i64
-  %ptridx2 = getelementptr inbounds float, float* %A, i64 %idxprom1
-  %1 = load float, float* %ptridx2, align 4
+  %ptridx2 = getelementptr inbounds float, ptr %A, i64 %idxprom1
+  %1 = load float, ptr %ptridx2, align 4
   %add3 = fadd fast float %1, 2.000000e+00
-  store float %add3, float* %ptridx2, align 4
+  store float %add3, ptr %ptridx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body
@@ -130,7 +130,7 @@ for.body:                                         ; preds = %entry, %for.body
 ; CHECK-NO-VCONFLICT: No idioms detected.
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
-define dso_local void @_Z4foo4PfPi(float* noalias nocapture %A, i32* noalias nocapture readonly %B) local_unnamed_addr #0 {
+define dso_local void @_Z4foo4PfPi(ptr noalias nocapture %A, ptr noalias nocapture readonly %B) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -139,10 +139,10 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup3
 
 for.body:                                         ; preds = %entry, %for.cond.cleanup3
   %indvars.iv22 = phi i64 [ 0, %entry ], [ %indvars.iv.next23, %for.cond.cleanup3 ]
-  %ptridx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv22
-  %0 = load i32, i32* %ptridx, align 4
+  %ptridx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv22
+  %0 = load i32, ptr %ptridx, align 4
   %idxprom7 = sext i32 %0 to i64
-  %ptridx8 = getelementptr inbounds float, float* %A, i64 %idxprom7
+  %ptridx8 = getelementptr inbounds float, ptr %A, i64 %idxprom7
   br label %for.body4
 
 for.cond.cleanup3:                                ; preds = %for.body4
@@ -152,10 +152,10 @@ for.cond.cleanup3:                                ; preds = %for.body4
 
 for.body4:                                        ; preds = %for.body, %for.body4
   %indvars.iv = phi i64 [ 0, %for.body ], [ %indvars.iv.next, %for.body4 ]
-  %ptridx6 = getelementptr inbounds float, float* %A, i64 %indvars.iv
-  %1 = load float, float* %ptridx6, align 4
+  %ptridx6 = getelementptr inbounds float, ptr %A, i64 %indvars.iv
+  %1 = load float, ptr %ptridx6, align 4
   %add = fadd fast float %1, 2.000000e+00
-  store float %add, float* %ptridx8, align 4
+  store float %add, ptr %ptridx8, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond.not, label %for.cond.cleanup3, label %for.body4
@@ -180,7 +180,7 @@ for.body4:                                        ; preds = %for.body, %for.body
 ; CHECK-VCONFLICT: unsafe to vectorize
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
-define dso_local void @_Z4foo5PfPi(float* noalias nocapture %A, i32* noalias nocapture readonly %B) local_unnamed_addr #0 {
+define dso_local void @_Z4foo5PfPi(ptr noalias nocapture %A, ptr noalias nocapture readonly %B) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -189,17 +189,17 @@ for.cond.cleanup:                                 ; preds = %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ptridx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %0 = load i32, i32* %ptridx, align 4
+  %ptridx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %0 = load i32, ptr %ptridx, align 4
   %idxprom1 = sext i32 %0 to i64
-  %ptridx2 = getelementptr inbounds float, float* %A, i64 %idxprom1
-  %1 = load float, float* %ptridx2, align 4
+  %ptridx2 = getelementptr inbounds float, ptr %A, i64 %idxprom1
+  %1 = load float, ptr %ptridx2, align 4
   %add = fadd fast float %1, 2.000000e+00
-  store float %add, float* %ptridx2, align 4
-  %ptridx6 = getelementptr inbounds float, float* %A, i64 %indvars.iv
-  %2 = load float, float* %ptridx6, align 4
+  store float %add, ptr %ptridx2, align 4
+  %ptridx6 = getelementptr inbounds float, ptr %A, i64 %indvars.iv
+  %2 = load float, ptr %ptridx6, align 4
   %add7 = fadd fast float %2, 3.000000e+00
-  store float %add7, float* %ptridx6, align 4
+  store float %add7, ptr %ptridx6, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body
@@ -230,13 +230,13 @@ for.cond.cleanup:                                 ; preds = %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* @L, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr @L, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %idxprom1 = sext i32 %0 to i64
-  %arrayidx2 = getelementptr inbounds [1024 x float], [1024 x float]* @K, i64 0, i64 %idxprom1
-  %1 = load float, float* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds [1024 x float], ptr @K, i64 0, i64 %idxprom1
+  %1 = load float, ptr %arrayidx2, align 4
   %add = fadd fast float %1, 2.000000e+00
-  store float %add, float* %arrayidx2, align 4
+  store float %add, ptr %arrayidx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body
@@ -268,7 +268,7 @@ for.body:                                         ; preds = %entry, %for.body
 ; CHECK-VCONFLICT: unsafe to vectorize
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
-define dso_local void @_Z4foo8PfPi(float* noalias nocapture %A, i32* noalias nocapture readonly %B) local_unnamed_addr #0 {
+define dso_local void @_Z4foo8PfPi(ptr noalias nocapture %A, ptr noalias nocapture readonly %B) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -277,21 +277,21 @@ for.cond.cleanup:                                 ; preds = %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ptridx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %0 = load i32, i32* %ptridx, align 4
+  %ptridx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %0 = load i32, ptr %ptridx, align 4
   %idxprom1 = sext i32 %0 to i64
-  %ptridx2 = getelementptr inbounds float, float* %A, i64 %idxprom1
-  %1 = load float, float* %ptridx2, align 4
+  %ptridx2 = getelementptr inbounds float, ptr %A, i64 %idxprom1
+  %1 = load float, ptr %ptridx2, align 4
   %conv = fptosi float %1 to i32
-  %ptridx4 = getelementptr inbounds float, float* %A, i64 %indvars.iv
-  %2 = load float, float* %ptridx4, align 4
+  %ptridx4 = getelementptr inbounds float, ptr %A, i64 %indvars.iv
+  %2 = load float, ptr %ptridx4, align 4
   %conv5 = fptosi float %2 to i32
   %add = add nsw i32 %conv, 2
   %conv6 = sitofp i32 %add to float
-  store float %conv6, float* %ptridx2, align 4
+  store float %conv6, ptr %ptridx2, align 4
   %add9 = add nsw i32 %conv5, 3
   %conv10 = sitofp i32 %add9 to float
-  store float %conv10, float* %ptridx4, align 4
+  store float %conv10, ptr %ptridx4, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body
@@ -315,7 +315,7 @@ for.body:                                         ; preds = %entry, %for.body
 ; CHECK-VCONFLICT: unsafe to vectorize
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
-define dso_local void @_Z4foo9PfPi(float* noalias nocapture %A, i32* noalias nocapture readonly %B) local_unnamed_addr #0 {
+define dso_local void @_Z4foo9PfPi(ptr noalias nocapture %A, ptr noalias nocapture readonly %B) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -324,16 +324,16 @@ for.cond.cleanup:                                 ; preds = %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ptridx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %0 = load i32, i32* %ptridx, align 4
+  %ptridx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %0 = load i32, ptr %ptridx, align 4
   %idxprom1 = sext i32 %0 to i64
-  %ptridx2 = getelementptr inbounds float, float* %A, i64 %idxprom1
-  %1 = load float, float* %ptridx2, align 4
+  %ptridx2 = getelementptr inbounds float, ptr %A, i64 %idxprom1
+  %1 = load float, ptr %ptridx2, align 4
   %add = fadd fast float %1, 2.000000e+00
-  store float %add, float* %ptridx2, align 4
+  store float %add, ptr %ptridx2, align 4
   %add7 = fadd fast float %1, 5.000000e+00
-  %ptridx9 = getelementptr inbounds float, float* %A, i64 %indvars.iv
-  store float %add7, float* %ptridx9, align 4
+  %ptridx9 = getelementptr inbounds float, ptr %A, i64 %indvars.iv
+  store float %add7, ptr %ptridx9, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body
@@ -352,7 +352,7 @@ for.body:                                         ; preds = %entry, %for.body
 ; CHECK-NO-VCONFLICT: No idioms detected.
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
-define dso_local void @_Z5foo10Pi(i32* nocapture %A) local_unnamed_addr #0 {
+define dso_local void @_Z5foo10Pi(ptr nocapture %A) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -361,13 +361,13 @@ for.cond.cleanup:                                 ; preds = %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ptridx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %0 = load i32, i32* %ptridx, align 4
+  %ptridx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %0 = load i32, ptr %ptridx, align 4
   %idxprom1 = sext i32 %0 to i64
-  %ptridx2 = getelementptr inbounds i32, i32* %A, i64 %idxprom1
-  %1 = load i32, i32* %ptridx2, align 4
+  %ptridx2 = getelementptr inbounds i32, ptr %A, i64 %idxprom1
+  %1 = load i32, ptr %ptridx2, align 4
   %add = add nsw i32 %1, 2
-  store i32 %add, i32* %ptridx2, align 4
+  store i32 %add, ptr %ptridx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body
@@ -398,7 +398,7 @@ for.body:                                         ; preds = %entry, %for.body
 ; CHECK-NO-VCONFLICT: No idioms detected.
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
-define dso_local void @_Z5foo11PiS_ii(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32 %N, i32 %L) local_unnamed_addr #0 {
+define dso_local void @_Z5foo11PiS_ii(ptr noalias nocapture %A, ptr noalias nocapture readonly %B, i32 %N, i32 %L) local_unnamed_addr #0 {
 entry:
   %cmp30 = icmp sgt i32 %N, 0
   br i1 %cmp30, label %for.cond1.preheader.lr.ph, label %for.cond.cleanup
@@ -407,7 +407,7 @@ for.cond1.preheader.lr.ph:                        ; preds = %entry
   %cmp227 = icmp sgt i32 %L, 0
   %0 = add i32 %L, -1
   %idxprom.le = zext i32 %0 to i64
-  %ptridx.le = getelementptr inbounds i32, i32* %B, i64 %idxprom.le
+  %ptridx.le = getelementptr inbounds i32, ptr %B, i64 %idxprom.le
   br label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %for.cond1.preheader.lr.ph, %for.cond.cleanup3
@@ -415,10 +415,10 @@ for.cond1.preheader:                              ; preds = %for.cond1.preheader
   br i1 %cmp227, label %for.body4.preheader, label %for.cond.cleanup3
 
 for.body4.preheader:                              ; preds = %for.cond1.preheader
-  %1 = load i32, i32* %ptridx.le, align 4
+  %1 = load i32, ptr %ptridx.le, align 4
   %idxprom5.le = sext i32 %1 to i64
-  %ptridx6.le = getelementptr inbounds i32, i32* %A, i64 %idxprom5.le
-  %2 = load i32, i32* %ptridx6.le, align 4
+  %ptridx6.le = getelementptr inbounds i32, ptr %A, i64 %idxprom5.le
+  %2 = load i32, ptr %ptridx6.le, align 4
   %add.le = add i32 %1, 2
   %add9.le = add i32 %add.le, %2
   br label %for.cond.cleanup3
@@ -433,8 +433,8 @@ for.cond.cleanup3:                                ; preds = %for.cond1.preheader
   %index.0.lcssa = phi i32 [ %1, %for.body4.preheader ], [ 0, %for.cond1.preheader ]
   %temp2.0.lcssa = phi i32 [ %add9.le, %for.body4.preheader ], [ 0, %for.cond1.preheader ]
   %idxprom10 = sext i32 %index.0.lcssa to i64
-  %ptridx11 = getelementptr inbounds i32, i32* %A, i64 %idxprom10
-  store i32 %temp2.0.lcssa, i32* %ptridx11, align 4
+  %ptridx11 = getelementptr inbounds i32, ptr %A, i64 %idxprom10
+  store i32 %temp2.0.lcssa, ptr %ptridx11, align 4
   %inc13 = add nuw nsw i32 %j.031, 1
   %exitcond.not = icmp eq i32 %inc13, %N
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.cond1.preheader
@@ -468,7 +468,7 @@ attributes #0 = { nofree norecurse nounwind uwtable mustprogress "denormal-fp-ma
 ; CHECK-NO-VCONFLICT: No idioms detected.
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable mustprogress
-define dso_local void @_Z3foo12PfPiS_(float* noalias nocapture %A, i32* nocapture readonly %B, float* noalias nocapture %C) local_unnamed_addr #0 {
+define dso_local void @_Z3foo12PfPiS_(ptr noalias nocapture %A, ptr nocapture readonly %B, ptr noalias nocapture %C) local_unnamed_addr #0 {
 ;
 entry:
   br label %for.body
@@ -478,25 +478,25 @@ for.cond.cleanup:                                 ; preds = %if.end
 
 for.body:                                         ; preds = %entry, %if.end
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %if.end ]
-  %arrayidx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %conv = sitofp i32 %0 to float
-  %arrayidx2 = getelementptr inbounds float, float* %C, i64 %indvars.iv
-  %1 = load float, float* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds float, ptr %C, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx2, align 4
   %cmp3 = fcmp fast olt float %1, %conv
   br i1 %cmp3, label %if.then, label %if.else
 
 if.then:                                          ; preds = %for.body
   %idxprom4 = sext i32 %0 to i64
-  %arrayidx5 = getelementptr inbounds float, float* %A, i64 %idxprom4
-  %2 = load float, float* %arrayidx5, align 4
-  store float %2, float* %arrayidx2, align 4
+  %arrayidx5 = getelementptr inbounds float, ptr %A, i64 %idxprom4
+  %2 = load float, ptr %arrayidx5, align 4
+  store float %2, ptr %arrayidx2, align 4
   br label %if.end
 
 if.else:                                          ; preds = %for.body
   %idxprom10 = sext i32 %0 to i64
-  %arrayidx11 = getelementptr inbounds float, float* %A, i64 %idxprom10
-  store float %1, float* %arrayidx11, align 4
+  %arrayidx11 = getelementptr inbounds float, ptr %A, i64 %idxprom10
+  store float %1, ptr %arrayidx11, align 4
   br label %if.end
 
 if.end:                                           ; preds = %if.else, %if.then
@@ -534,7 +534,7 @@ attributes #0 = { nofree norecurse nosync nounwind uwtable mustprogress "denorma
 ; CHECK-NO-VCONFLICT: No idioms detected.
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable mustprogress
-define dso_local void @_Z3foo13PfPiS_(float* noalias nocapture %A, i32* nocapture readonly %B, float* noalias nocapture %C) local_unnamed_addr #0 {
+define dso_local void @_Z3foo13PfPiS_(ptr noalias nocapture %A, ptr nocapture readonly %B, ptr noalias nocapture %C) local_unnamed_addr #0 {
 ;
 entry:
   br label %for.body
@@ -544,25 +544,25 @@ for.cond.cleanup:                                 ; preds = %if.end
 
 for.body:                                         ; preds = %entry, %if.end
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %if.end ]
-  %arrayidx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %conv = sitofp i32 %0 to float
-  %arrayidx2 = getelementptr inbounds float, float* %C, i64 %indvars.iv
-  %1 = load float, float* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds float, ptr %C, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx2, align 4
   %cmp3 = fcmp fast olt float %1, %conv
   br i1 %cmp3, label %if.then, label %if.else
 
 if.then:                                          ; preds = %for.body
   %idxprom6 = sext i32 %0 to i64
-  %arrayidx7 = getelementptr inbounds float, float* %A, i64 %idxprom6
-  store float %1, float* %arrayidx7, align 4
+  %arrayidx7 = getelementptr inbounds float, ptr %A, i64 %idxprom6
+  store float %1, ptr %arrayidx7, align 4
   br label %if.end
 
 if.else:                                          ; preds = %for.body
   %idxprom8 = sext i32 %0 to i64
-  %arrayidx9 = getelementptr inbounds float, float* %A, i64 %idxprom8
-  %2 = load float, float* %arrayidx9, align 4
-  store float %2, float* %arrayidx2, align 4
+  %arrayidx9 = getelementptr inbounds float, ptr %A, i64 %idxprom8
+  %2 = load float, ptr %arrayidx9, align 4
+  store float %2, ptr %arrayidx2, align 4
   br label %if.end
 
 if.end:                                           ; preds = %if.else, %if.then
@@ -592,7 +592,7 @@ if.end:                                           ; preds = %if.else, %if.then
 ; CHECK-VCONFLICT: unsafe to vectorize
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
-define dso_local void @_Z4foo14PiS_S_(float* noalias nocapture %A, i32* noalias nocapture readonly %B, i32* nocapture %C) local_unnamed_addr #0 {
+define dso_local void @_Z4foo14PiS_S_(ptr noalias nocapture %A, ptr noalias nocapture readonly %B, ptr nocapture %C) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -601,16 +601,16 @@ for.cond.cleanup:                                 ; preds = %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ptridx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %0 = load i32, i32* %ptridx, align 4
+  %ptridx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %0 = load i32, ptr %ptridx, align 4
   %idxprom1 = sext i32 %0 to i64
-  %ptridx2 = getelementptr inbounds float, float* %A, i64 %idxprom1
+  %ptridx2 = getelementptr inbounds float, ptr %A, i64 %idxprom1
   %conv = sitofp i32 %0 to float
   %add = fadd float %conv, 2.
-  store float %add, float* %ptridx2, align 4
-  %1 = load float, float* %ptridx2, align 4
+  store float %add, ptr %ptridx2, align 4
+  %1 = load float, ptr %ptridx2, align 4
   %add2 = fadd float %1, 2.
-  store float %add2, float* %ptridx2, align 4
+  store float %add2, ptr %ptridx2, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body

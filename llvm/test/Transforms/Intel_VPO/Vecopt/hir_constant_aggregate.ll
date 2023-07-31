@@ -20,7 +20,7 @@
 ; CHECK: DO i1 = 0, 15, 1   <DO_LOOP>
 ; CHECK: END LOOP
 ;
-define void @foo(i64* %lp, i64 %l1) {
+define void @foo(ptr %lp, i64 %l1) {
 entry:
   br label %for.header
 

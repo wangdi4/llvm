@@ -6,7 +6,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
+define i32 @foo(ptr nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-LABEL:  Single loop scenario:
 ; CHECK-NEXT:   MainLoop: unmasked, VF=4
 ; CHECK-NEXT:   PeelLoop: none
@@ -32,8 +32,8 @@ define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP4:%.*]] = phi  [ i32 [[VP_RED_INIT]], [[BB1]] ],  [ i32 [[VP5:%.*]], [[BB2]] ] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP6:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP7:%.*]], [[BB2]] ] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP6]] (SVAOpBits 0->F 1->F 2->F 3->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP6]] (SVAOpBits 0->F 1->F 2->F 3->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP5]] = add i32 [[VP_LOAD]] i32 [[VP4]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP7]] = add i64 [[VP6]] i64 [[VP__IND_INIT_STEP]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP8:%.*]] = icmp slt i64 [[VP7]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
@@ -108,8 +108,8 @@ define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
 ; CHECK-NEXT:      [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP4]] = phi  [ i32 [[VP_RED_INIT]], [[BB1]] ],  [ i32 [[VP5]], [[BB2]] ]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP6]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP7]], [[BB2]] ]
-; CHECK-NEXT:       [DA: Div] i32* [[VP_SUBSCRIPT]] = subscript inbounds i32* [[A0]] i64 [[VP6]]
-; CHECK-NEXT:       [DA: Div] i32 [[VP_LOAD]] = load i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:       [DA: Div] ptr [[VP_SUBSCRIPT]] = subscript inbounds ptr [[A0]] i64 [[VP6]]
+; CHECK-NEXT:       [DA: Div] i32 [[VP_LOAD]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP5]] = add i32 [[VP_LOAD]] i32 [[VP4]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP7]] = add i64 [[VP6]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP8]] = icmp slt i64 [[VP7]] i64 [[VP_VECTOR_TRIP_COUNT]]
@@ -164,8 +164,8 @@ entry:
 for.body:                                           ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %entry ]
   %sum.07 = phi i32 [ %add, %for.body ], [ %init, %entry ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %A.i = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %A.i = load i32, ptr %arrayidx, align 4
   %add = add nsw i32 %A.i, %sum.07
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %N

@@ -309,11 +309,10 @@ lp.1247:
 lp.1248:
   %arrayidx = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 1, i64 0
   %n0 = load i32, ptr %arrayidx, align 4
-  %arrayidx1 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 0
-  %n1 = load i32, ptr %arrayidx1, align 4
+  %n1 = load i32, ptr %p, align 4
   %sub = add i32 %n0, 1
   %add = sub i32 %sub, %n1
-  store i32 %add, ptr %arrayidx1, align 4
+  store i32 %add, ptr %p, align 4
   %arrayidx5 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 1, i64 1
   %n2 = load i32, ptr %arrayidx5, align 4
   %arrayidx7 = getelementptr inbounds %struct.S, ptr %p, i64 0, i32 0, i64 1

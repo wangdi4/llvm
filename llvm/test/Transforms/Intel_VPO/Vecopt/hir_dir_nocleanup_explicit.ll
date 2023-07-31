@@ -32,7 +32,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline nounwind uwtable
-define i32* @foo(i64 %n, i32* returned %p) local_unnamed_addr #0 {
+define ptr @foo(i64 %n, ptr returned %p) local_unnamed_addr #0 {
 entry:
   %t4 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %omp.inner.for.body
@@ -40,16 +40,16 @@ entry:
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %omp.inner.for.body ]
   %mul1 = mul nsw i64 %indvars.iv, %n
-  %arrayidx = getelementptr inbounds i32, i32* %p, i64 %mul1
+  %arrayidx = getelementptr inbounds i32, ptr %p, i64 %mul1
   %0 = trunc i64 %indvars.iv to i32
-  store i32 %0, i32* %arrayidx, align 4
+  store i32 %0, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.body
   call void @llvm.directive.region.exit(token %t4) [ "DIR.OMP.END.SIMD"() ]
-  ret i32* %p
+  ret ptr %p
 }
 
 ; Function Attrs: nounwind

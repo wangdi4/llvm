@@ -7,7 +7,7 @@
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @test2(i64* %array) {
+define void @test2(ptr %array) {
 ; SCALAR-PEEL-REMAINDER-LABEL:  Evaluators for VF=2
 ; SCALAR-PEEL-REMAINDER-NEXT:  The peel loop is scalar (dynamic) with estimated trip count 1. The scalar cost is 3(1 x 3).
 ; SCALAR-PEEL-REMAINDER-NEXT:  The main loop is vectorized with vector factor 2. The vector cost is 584151(194717 x 3 + 0).
@@ -55,8 +55,8 @@ preheader:
   br label %header
 header:
   %iv = phi i64 [ 0, %preheader ], [ %iv.next, %latch ]
-  %ptr = getelementptr inbounds i64, i64* %array, i64 %iv
-  store i64 %iv, i64* %ptr, align 8
+  %ptr = getelementptr inbounds i64, ptr %array, i64 %iv
+  store i64 %iv, ptr %ptr, align 8
   br label %latch
 
 latch:

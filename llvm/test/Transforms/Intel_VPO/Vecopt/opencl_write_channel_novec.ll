@@ -11,15 +11,15 @@ target triple = "x86_64-pc-linux"
 %struct.__pipe_internal_buf = type { i32, i32, i32 }
 %struct.labelled_component = type { i32, i16, i16, i32, i8, i8 }
 
-@chan_0 = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 1
-@chan_1 = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4
-@pipe.chan_0 = common addrspace(1) global %opencl.pipe_t addrspace(1)* null, align 4
-@pipe.chan_1 = common addrspace(1) global %opencl.pipe_t addrspace(1)* null, align 4
+@chan_0 = common addrspace(1) global ptr addrspace(1) null, align 1
+@chan_1 = common addrspace(1) global ptr addrspace(1) null, align 4
+@pipe.chan_0 = common addrspace(1) global ptr addrspace(1) null, align 4
+@pipe.chan_1 = common addrspace(1) global ptr addrspace(1) null, align 4
 @pipe.chan_0.bs = common addrspace(1) global [1049152 x i8] zeroinitializer, align 64
 @pipe.chan_1.bs = common addrspace(1) global [16781632 x i8] zeroinitializer, align 64
 
 ; Function Attrs: nounwind
-define void @src_kernel(i8 addrspace(1)* noalias %input, i16 zeroext %image_width, i16 zeroext %image_height) #0 {
+define void @src_kernel(ptr addrspace(1) noalias %input, i16 zeroext %image_width, i16 zeroext %image_height) #0 {
 entry:
   %write.src = alloca i8, align 1
   %conv = zext i16 %image_height to i32
@@ -42,12 +42,12 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
   %.omp.iv.03 = phi i32 [ %add12, %omp.inner.for.body ], [ 0, %omp.precond.then ]
   %pointer.12 = phi i32 [ %inc, %omp.inner.for.body ], [ %pointer.05, %omp.precond.then ]
   %idxprom = sext i32 %pointer.12 to i64
-  %arrayidx = getelementptr inbounds i8, i8 addrspace(1)* %input, i64 %idxprom
-  %0 = load i8, i8 addrspace(1)* %arrayidx, align 1
-  store i8 %0, i8* %write.src, align 1
-  %1 = load %struct.__pipe_t addrspace(1)*, %struct.__pipe_t addrspace(1)* addrspace(1)* bitcast (%opencl.pipe_t addrspace(1)* addrspace(1)* @pipe.chan_0 to %struct.__pipe_t addrspace(1)* addrspace(1)*), align 8
-  %2 = addrspacecast i8* %write.src to i8 addrspace(4)*
-  %3 = call i32 @__write_pipe_2_bl_fpga(%struct.__pipe_t addrspace(1)* %1, i8 addrspace(4)* %2)
+  %arrayidx = getelementptr inbounds i8, ptr addrspace(1) %input, i64 %idxprom
+  %0 = load i8, ptr addrspace(1) %arrayidx, align 1
+  store i8 %0, ptr %write.src, align 1
+  %1 = load ptr addrspace(1), ptr addrspace(1) @pipe.chan_0, align 8
+  %2 = addrspacecast ptr %write.src to ptr addrspace(4)
+  %3 = call i32 @__write_pipe_2_bl_fpga(ptr addrspace(1) %1, ptr addrspace(4) %2)
   %inc = add nsw i32 %pointer.12, 1
   %add12 = add nsw i32 %.omp.iv.03, 1
   %cmp9 = icmp slt i32 %add12, %conv2
@@ -73,10 +73,10 @@ for.end:                                          ; preds = %for.inc, %entry
 }
 
 ; Function Attrs: alwaysinline nounwind
-declare i32 @__read_pipe_2_bl_fpga(%struct.__pipe_t addrspace(1)*, i8 addrspace(4)*) #5
+declare i32 @__read_pipe_2_bl_fpga(ptr addrspace(1), ptr addrspace(4)) #5
 
 ; Function Attrs: alwaysinline nounwind
-declare i32 @__write_pipe_2_bl_fpga(%struct.__pipe_t addrspace(1)*, i8 addrspace(4)*) #5
+declare i32 @__write_pipe_2_bl_fpga(ptr addrspace(1), ptr addrspace(4)) #5
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.intel.directive(metadata) #3

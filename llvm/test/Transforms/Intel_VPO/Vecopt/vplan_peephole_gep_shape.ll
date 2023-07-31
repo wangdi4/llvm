@@ -6,9 +6,9 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i32:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; CHECK: [DA: [Shape: Strided, Stride: i64 8]] i64* [[VP0:%.*]] = subscript
+; CHECK: [DA: [Shape: Strided, Stride: i64 8]] ptr [[VP0:%.*]] = subscript
 
-define void @_foo(i64* %in0, i64 noundef %N) local_unnamed_addr {
+define void @_foo(ptr %in0, i64 noundef %N) local_unnamed_addr {
 entry:
   br label %DIR.OMP.SIMD.1
 
@@ -20,8 +20,8 @@ omp.inner.for.body:
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %c1 = trunc i64 %indvars.iv to i32
   %c2 = zext i32 %c1 to i64
-  %arrayidx6 = getelementptr inbounds i64, i64* %in0, i64 %c2
-  store i64 %c2, i64* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds i64, ptr %in0, i64 %c2
+  store i64 %c2, ptr %arrayidx6, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %N
   br i1 %exitcond.not, label %omp.loopexit, label %omp.inner.for.body

@@ -4,40 +4,36 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define i32 @foo(i32* nocapture readonly %ip) {
+define i32 @foo(ptr nocapture readonly %ip) {
 ; CHECK-LABEL: @foo(
 ; CHECK-NEXT:    [[MIN:%.*]] = alloca i32, align 4
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i32* [[MIN]] to i8*
-; CHECK-NEXT:    store i32 2147483647, i32* [[MIN]], align 4
+; CHECK-NEXT:    store i32 2147483647, ptr [[MIN]], align 4
 ; CHECK-NEXT:    [[MIN_VEC:%.*]] = alloca <4 x i32>, align 16
-; CHECK-NEXT:    [[MIN_VEC_BC:%.*]] = bitcast <4 x i32>* [[MIN_VEC]] to i32*
-; CHECK-NEXT:    [[MIN_VEC_BASE_ADDR:%.*]] = getelementptr i32, i32* [[MIN_VEC_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[MIN_VEC_BASE_ADDR:%.*]] = getelementptr i32, ptr [[MIN_VEC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK:         br label [[DIR_OMP_SIMD_1:%.*]]
 ; CHECK:       DIR.OMP.SIMD.1:
 ; CHECK-NEXT:    br label [[DIR_QUAL_LIST_END_2:%.*]]
 ; CHECK:       DIR.QUAL.LIST.END.2:
-; CHECK-NEXT:    [[DOTPRE:%.*]] = load i32, i32* [[MIN]], align 4
+; CHECK-NEXT:    [[DOTPRE:%.*]] = load i32, ptr [[MIN]], align 4
 ; CHECK-NEXT:    br label [[VPLANNEDBB:%.*]]
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x i32> poison, i32 [[DOTPRE]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
-; CHECK-NEXT:    [[MIN_VEC_BCAST:%.*]] = bitcast i32* [[MIN_VEC1:%.*]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 16, i8* [[MIN_VEC_BCAST]])
-; CHECK-NEXT:    store <4 x i32> [[BROADCAST_SPLAT]], <4 x i32>* [[MIN_VEC]], align 1
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 16, ptr [[MIN_VEC1:%.*]])
+; CHECK-NEXT:    store <4 x i32> [[BROADCAST_SPLAT]], ptr [[MIN_VEC]], align 1
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i32> [ [[BROADCAST_SPLAT]], [[VPLANNEDBB1]] ], [ [[PREDBLEND:%.*]], [[VPLANNEDBB5:%.*]] ]
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP5:%.*]], [[VPLANNEDBB5]] ]
 ; CHECK-NEXT:    [[VEC_PHI3:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VPLANNEDBB1]] ], [ [[TMP4:%.*]], [[VPLANNEDBB5]] ]
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, i32* [[IP:%.*]], i64 [[UNI_PHI]]
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[SCALAR_GEP]] to <4 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i32>, <4 x i32>* [[TMP2]], align 4
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, ptr [[IP:%.*]], i64 [[UNI_PHI]]
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i32>, ptr [[SCALAR_GEP]], align 4
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp sgt <4 x i32> [[VEC_PHI]], [[WIDE_LOAD]]
 ; CHECK-NEXT:    br label [[VPLANNEDBB4:%.*]]
 ; CHECK:       VPlannedBB4:
-; CHECK-NEXT:    call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> [[WIDE_LOAD]], <4 x i32>* [[MIN_VEC]], i32 4, <4 x i1> [[TMP3]])
+; CHECK-NEXT:    call void @llvm.masked.store.v4i32.p0(<4 x i32> [[WIDE_LOAD]], ptr [[MIN_VEC]], i32 4, <4 x i1> [[TMP3]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB5]]
 ; CHECK:       VPlannedBB5:
 ; CHECK-NEXT:    [[PREDBLEND]] = select <4 x i1> [[TMP3]], <4 x i32> [[WIDE_LOAD]], <4 x i32> [[VEC_PHI]]
@@ -47,9 +43,8 @@ define i32 @foo(i32* nocapture readonly %ip) {
 ; CHECK-NEXT:    br i1 [[TMP6]], label [[VPLANNEDBB6:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP0:![0-9]+]]
 ; CHECK:       VPlannedBB6:
 ; CHECK-NEXT:    [[TMP7:%.*]] = call i32 @llvm.vector.reduce.smin.v4i32(<4 x i32> [[PREDBLEND]])
-; CHECK-NEXT:    store i32 [[TMP7]], i32* [[MIN]], align 1
-; CHECK-NEXT:    [[MIN_VEC_BCAST1:%.*]] = bitcast i32* [[MIN_VEC1]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 16, i8* [[MIN_VEC_BCAST1]])
+; CHECK-NEXT:    store i32 [[TMP7]], ptr [[MIN]], align 1
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 16, ptr [[MIN_VEC1]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB7:%.*]]
 ; CHECK:       VPlannedBB7:
 ; CHECK-NEXT:    br label [[FINAL_MERGE:%.*]]
@@ -59,41 +54,40 @@ define i32 @foo(i32* nocapture readonly %ip) {
 ; CHECK-NEXT:    br label [[FOR_END:%.*]]
 ;
   %min = alloca i32, align 4
-  %1 = bitcast i32* %min to i8*
-  store i32 2147483647, i32* %min, align 4
+  store i32 2147483647, ptr %min, align 4
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %0
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MIN:TYPED"(i32* %min, i32 0, i32 1) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MIN:TYPED"(ptr %min, i32 0, i32 1) ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.SIMD.1
-  %.pre = load i32, i32* %min, align 4
+  %.pre = load i32, ptr %min, align 4
   br label %for.body
 
-for.body:                                      ; preds = %6, %DIR.QUAL.LIST.END.2
+for.body:                                      ; preds = %5, %DIR.QUAL.LIST.END.2
   %Tmp = phi i32 [ %.pre, %DIR.QUAL.LIST.END.2 ], [ %Res, %for.inc ]
   %indvars.iv = phi i64 [ 0, %DIR.QUAL.LIST.END.2 ], [ %indvars.iv.next, %for.inc ]
-  %arrayidx = getelementptr inbounds i32, i32* %ip, i64 %indvars.iv
-  %Val = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %ip, i64 %indvars.iv
+  %Val = load i32, ptr %arrayidx, align 4
   %cmp1 = icmp sgt i32 %Tmp, %Val
   br i1 %cmp1, label %if.then, label %for.inc
 
-if.then:                                      ; preds = %2
-  store i32 %Val, i32* %min, align 4
+if.then:                                      ; preds = %1
+  store i32 %Val, ptr %min, align 4
   br label %for.inc
 
-for.inc:                                      ; preds = %5, %2
+for.inc:                                      ; preds = %4, %1
   %Res = phi i32 [ %Val, %if.then ], [ %Tmp, %for.body ]
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %for.end, label %for.body
 
-for.end:                                      ; preds = %6
+for.end:                                      ; preds = %5
   %.lcssa = phi i32 [ %Res, %for.inc ]
   br label %DIR.OMP.END.SIMD.3
 
-DIR.OMP.END.SIMD.3:                               ; preds = %8
+DIR.OMP.END.SIMD.3:                               ; preds = %7
   call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.QUAL.LIST.END.4
 

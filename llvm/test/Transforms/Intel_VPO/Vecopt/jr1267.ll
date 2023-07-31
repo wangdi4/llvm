@@ -21,30 +21,30 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: noinline norecurse nounwind uwtable
 define dso_local i32 @main() local_unnamed_addr #0 {
 entry:
-  store i32 0, i32* @ucw, align 4, !tbaa !2
+  store i32 0, ptr @ucw, align 4, !tbaa !2
   br label %for.body
 
 for.cond9.preheader:                              ; preds = %for.body
-  store i32 1, i32* @ucw, align 4, !tbaa !2
-  %0 = load i64, i64* getelementptr inbounds ([20 x i64], [20 x i64]* @o, i64 0, i64 0), align 16
+  store i32 1, ptr @ucw, align 4, !tbaa !2
+  %0 = load i64, ptr @o, align 16
   %tobool53 = icmp eq i64 %0, 0
-  %1 = load i32, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @x, i64 0, i64 0), align 16
+  %1 = load i32, ptr @x, align 16
   %tobool56 = icmp eq i32 %1, 0
-  %2 = load i32, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @mib, i64 0, i64 0), align 16, !tbaa !6
+  %2 = load i32, ptr @mib, align 16, !tbaa !6
   br label %for.body17.lr.ph
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv117 = phi i64 [ 0, %entry ], [ %indvars.iv.next118, %for.body ]
-  %arrayidx = getelementptr inbounds [20 x i32], [20 x i32]* @d, i64 0, i64 %indvars.iv117, !intel-tbaa !6
-  store i32 5, i32* %arrayidx, align 4, !tbaa !6
-  %arrayidx2 = getelementptr inbounds [20 x i64], [20 x i64]* @o, i64 0, i64 %indvars.iv117, !intel-tbaa !8
-  store i64 4, i64* %arrayidx2, align 8, !tbaa !8
-  %arrayidx4 = getelementptr inbounds [20 x i32], [20 x i32]* @x, i64 0, i64 %indvars.iv117, !intel-tbaa !6
-  store i32 3, i32* %arrayidx4, align 4, !tbaa !6
-  %arrayidx6 = getelementptr inbounds [20 x i32], [20 x i32]* @l, i64 0, i64 %indvars.iv117, !intel-tbaa !6
-  store i32 7, i32* %arrayidx6, align 4, !tbaa !6
-  %arrayidx8 = getelementptr inbounds [20 x i16], [20 x i16]* @w, i64 0, i64 %indvars.iv117, !intel-tbaa !11
-  store i16 1, i16* %arrayidx8, align 2, !tbaa !11
+  %arrayidx = getelementptr inbounds [20 x i32], ptr @d, i64 0, i64 %indvars.iv117, !intel-tbaa !6
+  store i32 5, ptr %arrayidx, align 4, !tbaa !6
+  %arrayidx2 = getelementptr inbounds [20 x i64], ptr @o, i64 0, i64 %indvars.iv117, !intel-tbaa !8
+  store i64 4, ptr %arrayidx2, align 8, !tbaa !8
+  %arrayidx4 = getelementptr inbounds [20 x i32], ptr @x, i64 0, i64 %indvars.iv117, !intel-tbaa !6
+  store i32 3, ptr %arrayidx4, align 4, !tbaa !6
+  %arrayidx6 = getelementptr inbounds [20 x i32], ptr @l, i64 0, i64 %indvars.iv117, !intel-tbaa !6
+  store i32 7, ptr %arrayidx6, align 4, !tbaa !6
+  %arrayidx8 = getelementptr inbounds [20 x i16], ptr @w, i64 0, i64 %indvars.iv117, !intel-tbaa !11
+  store i16 1, ptr %arrayidx8, align 2, !tbaa !11
   %indvars.iv.next118 = add nuw nsw i64 %indvars.iv117, 1
   %exitcond119 = icmp eq i64 %indvars.iv.next118, 20
   br i1 %exitcond119, label %for.cond9.preheader, label %for.body
@@ -52,29 +52,29 @@ for.body:                                         ; preds = %for.body, %entry
 for.body17.lr.ph:                                 ; preds = %for.end77, %for.cond9.preheader
   %indvars.iv113 = phi i64 [ 2, %for.cond9.preheader ], [ %indvars.iv.next114, %for.end77 ]
   %indvars.iv = phi i64 [ 1, %for.cond9.preheader ], [ %indvars.iv.next, %for.end77 ]
-  %arrayidx19 = getelementptr inbounds [20 x i32], [20 x i32]* @x, i64 0, i64 %indvars.iv
+  %arrayidx19 = getelementptr inbounds [20 x i32], ptr @x, i64 0, i64 %indvars.iv
   %3 = add nuw nsw i64 %indvars.iv, 7
-  %arrayidx23 = getelementptr inbounds [20 x i32], [20 x i32]* @mib, i64 0, i64 %3
+  %arrayidx23 = getelementptr inbounds [20 x i32], ptr @mib, i64 0, i64 %3
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 3
-  %arrayidx42 = getelementptr inbounds [20 x i16], [20 x i16]* @w, i64 0, i64 %indvars.iv.next
-  %arrayidx55 = getelementptr inbounds [20 x i32], [20 x i32]* @e, i64 0, i64 %indvars.iv
-  %arrayidx59 = getelementptr inbounds [20 x i32], [20 x i32]* @e, i64 0, i64 %indvars.iv
-  %4 = select i1 %tobool56, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @d, i64 0, i64 0), i32* %arrayidx59
-  %5 = load i32, i32* %arrayidx19, align 4, !tbaa !6
+  %arrayidx42 = getelementptr inbounds [20 x i16], ptr @w, i64 0, i64 %indvars.iv.next
+  %arrayidx55 = getelementptr inbounds [20 x i32], ptr @e, i64 0, i64 %indvars.iv
+  %arrayidx59 = getelementptr inbounds [20 x i32], ptr @e, i64 0, i64 %indvars.iv
+  %4 = select i1 %tobool56, ptr @d, ptr %arrayidx59
+  %5 = load i32, ptr %arrayidx19, align 4, !tbaa !6
   %6 = trunc i64 %indvars.iv to i32
   %7 = add i32 %6, 6
   %add20 = add i32 %7, %5
-  %8 = load i32, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @e, i64 0, i64 0), align 16, !tbaa !6
-  %9 = load i32, i32* getelementptr inbounds ([20 x i32], [20 x i32]* @d, i64 0, i64 0), align 16, !tbaa !6
-  %arrayidx23.promoted = load i32, i32* %arrayidx23, align 4, !tbaa !6
+  %8 = load i32, ptr @e, align 16, !tbaa !6
+  %9 = load i32, ptr @d, align 16, !tbaa !6
+  %arrayidx23.promoted = load i32, ptr %arrayidx23, align 4, !tbaa !6
   br label %for.body17
 
 for.cond46.preheader:                             ; preds = %for.body17
-  store i32 %add24, i32* %arrayidx23, align 4, !tbaa !6
-  %arrayidx26.le = getelementptr inbounds [20 x i32], [20 x i32]* @e, i64 0, i64 %indvars.iv105, !intel-tbaa !6
-  %10 = load i32, i32* %arrayidx26.le, align 4, !tbaa !6
-  %arrayidx29.le = getelementptr inbounds [20 x i32], [20 x i32]* @l, i64 0, i64 %indvars.iv105, !intel-tbaa !6
-  %11 = load i32, i32* %arrayidx29.le, align 4, !tbaa !6
+  store i32 %add24, ptr %arrayidx23, align 4, !tbaa !6
+  %arrayidx26.le = getelementptr inbounds [20 x i32], ptr @e, i64 0, i64 %indvars.iv105, !intel-tbaa !6
+  %10 = load i32, ptr %arrayidx26.le, align 4, !tbaa !6
+  %arrayidx29.le = getelementptr inbounds [20 x i32], ptr @l, i64 0, i64 %indvars.iv105, !intel-tbaa !6
+  %11 = load i32, ptr %arrayidx29.le, align 4, !tbaa !6
   %conv33.le = zext i16 %14 to i32
   %add27 = add i32 %10, %2
   %sub = add i32 %add27, %8
@@ -85,7 +85,7 @@ for.cond46.preheader:                             ; preds = %for.body17
   %and = and i32 %add34, %add37
   %mul = mul i32 %and, %9
   %add38 = sub i32 %sub, %mul
-  %12 = load i16, i16* getelementptr inbounds ([20 x i16], [20 x i16]* @w, i64 0, i64 0), align 16, !tbaa !11
+  %12 = load i16, ptr @w, align 16, !tbaa !11
   %conv50 = zext i16 %12 to i32
   br label %for.body49
 
@@ -93,18 +93,18 @@ for.body17:                                       ; preds = %for.body17, %for.bo
   %add24125 = phi i32 [ %arrayidx23.promoted, %for.body17.lr.ph ], [ %add24, %for.body17 ]
   %indvars.iv105 = phi i64 [ %indvars.iv, %for.body17.lr.ph ], [ %indvars.iv.next106, %for.body17 ]
   %add24 = add i32 %add20, %add24125
-  %arrayidx31 = getelementptr inbounds [20 x i16], [20 x i16]* @w, i64 0, i64 %indvars.iv105, !intel-tbaa !11
-  %13 = load i16, i16* %arrayidx31, align 2, !tbaa !11
-  %14 = load i16, i16* getelementptr inbounds ([20 x i16], [20 x i16]* @w, i64 0, i64 0), align 16, !tbaa !11
-  store i16 0, i16* %arrayidx42, align 2, !tbaa !11
+  %arrayidx31 = getelementptr inbounds [20 x i16], ptr @w, i64 0, i64 %indvars.iv105, !intel-tbaa !11
+  %13 = load i16, ptr %arrayidx31, align 2, !tbaa !11
+  %14 = load i16, ptr @w, align 16, !tbaa !11
+  store i16 0, ptr %arrayidx42, align 2, !tbaa !11
   %indvars.iv.next106 = add nuw nsw i64 %indvars.iv105, 1
   %cmp16 = icmp ult i64 %indvars.iv105, %indvars.iv
   br i1 %cmp16, label %for.body17, label %for.cond46.preheader
 
 for.body49:                                       ; preds = %for.cond46.preheader, %cond.end67
   %indvars.iv107 = phi i64 [ 0, %for.cond46.preheader ], [ %indvars.iv.next108, %cond.end67 ]
-  %arrayidx52 = getelementptr inbounds [20 x i32], [20 x i32]* @d, i64 0, i64 %indvars.iv107, !intel-tbaa !6
-  store i32 %conv50, i32* %arrayidx52, align 4, !tbaa !6
+  %arrayidx52 = getelementptr inbounds [20 x i32], ptr @d, i64 0, i64 %indvars.iv107, !intel-tbaa !6
+  store i32 %conv50, ptr %arrayidx52, align 4, !tbaa !6
   %tobool = icmp eq i64 %indvars.iv107, 0
   br i1 %tobool, label %lor.lhs.false, label %cond.true65
 
@@ -112,12 +112,12 @@ lor.lhs.false:                                    ; preds = %for.body49
   br i1 %tobool53, label %cond.false, label %cond.end
 
 cond.false:                                       ; preds = %lor.lhs.false
-  %15 = load i32, i32* %arrayidx55, align 4, !tbaa !6
+  %15 = load i32, ptr %arrayidx55, align 4, !tbaa !6
   br label %cond.end
 
 cond.end:                                         ; preds = %lor.lhs.false, %cond.false
   %cond = phi i32 [ %15, %cond.false ], [ 0, %lor.lhs.false ]
-  %cond62 = load i32, i32* %4, align 4, !tbaa !6
+  %cond62 = load i32, ptr %4, align 4, !tbaa !6
   %add63 = sub i32 0, %cond62
   %tobool64 = icmp eq i32 %cond, %add63
   br i1 %tobool64, label %cond.end67, label %cond.true65
@@ -128,8 +128,8 @@ cond.true65:                                      ; preds = %cond.end, %for.body
 cond.end67:                                       ; preds = %cond.end, %cond.true65
   %cond68 = phi i32 [ %1, %cond.true65 ], [ 0, %cond.end ]
   %add69 = add i32 %1, %cond68
-  %arrayidx71 = getelementptr inbounds [20 x i32], [20 x i32]* @e, i64 0, i64 %indvars.iv107, !intel-tbaa !6
-  store i32 %add69, i32* %arrayidx71, align 4, !tbaa !6
+  %arrayidx71 = getelementptr inbounds [20 x i32], ptr @e, i64 0, i64 %indvars.iv107, !intel-tbaa !6
+  store i32 %add69, ptr %arrayidx71, align 4, !tbaa !6
   %indvars.iv.next108 = add nuw nsw i64 %indvars.iv107, 1
   %exitcond = icmp eq i64 %indvars.iv.next108, %indvars.iv113
   br i1 %exitcond, label %for.end77, label %for.body49
@@ -140,10 +140,10 @@ for.end77:                                        ; preds = %cond.end67
   br i1 %cmp10, label %for.body17.lr.ph, label %for.end80
 
 for.end80:                                        ; preds = %for.end77
-  store i32 %add38, i32* @ydv, align 4, !tbaa !2
+  store i32 %add38, ptr @ydv, align 4, !tbaa !2
   %16 = trunc i64 %indvars.iv.next108 to i32
-  store i32 %16, i32* @n, align 4, !tbaa !2
-  store i32 10, i32* @ucw, align 4, !tbaa !2
+  store i32 %16, ptr @n, align 4, !tbaa !2
+  store i32 10, ptr @ucw, align 4, !tbaa !2
   ret i32 0
 }
 

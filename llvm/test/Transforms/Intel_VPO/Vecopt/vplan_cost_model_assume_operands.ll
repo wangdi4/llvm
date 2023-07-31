@@ -26,7 +26,7 @@ define void @single_root_fully_contained(i64 %N) local_unnamed_addr {
 
 ; HIR: Cost 0 for i64 [[ADD1:%vp.*]] = add i64 %N i64 {{%vp.*}}
 ; HIR: Cost 0 for i1 [[CMP1:%vp.*]] = icmp ult i64 [[ADD1]] i64 256
-; HIR: Cost 0 for call i1 [[CMP1]] void (i1)* @llvm.assume
+; HIR: Cost 0 for call i1 [[CMP1]] ptr @llvm.assume
 for.preheader:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body
@@ -38,11 +38,11 @@ for.body:
   %offset = add i64 %N, %iv
   ; IR: Cost 0 for i1 [[CMP1:%vp.*]] = icmp ult i64 [[ADD]] i64 256
   %offset.in.bounds = icmp ult i64 %offset, 256
-  ; IR: Cost 0 for call i1 [[CMP1]] void (i1)* @llvm.assume [Serial]
+  ; IR: Cost 0 for call i1 [[CMP1]] ptr @llvm.assume [Serial]
   call void @llvm.assume(i1 %offset.in.bounds)
 
-  %A.elem = getelementptr [256 x i64], [256 x i64]* @A, i64 0, i64 %iv
-  store i64 %iv, i64* %A.elem, align 8
+  %A.elem = getelementptr [256 x i64], ptr @A, i64 0, i64 %iv
+  store i64 %iv, ptr %A.elem, align 8
 
   %iv.next = add nsw i64 %iv, 1
   %exitcond = icmp eq i64 %iv.next, 256
@@ -64,7 +64,7 @@ define void @single_root_not_fully_contained(i64 %N) local_unnamed_addr {
 
 ; HIR: Cost 2 for i64 [[ADD1:%vp.*]] = add i64 %N i64 {{%vp.*}}
 ; HIR: Cost 0 for i1 [[CMP1:%vp.*]] = icmp ult i64 [[ADD1]] i64 256
-; HIR: Cost 0 for call i1 [[CMP1]] void (i1)* @llvm.assume
+; HIR: Cost 0 for call i1 [[CMP1]] ptr @llvm.assume
 for.preheader:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body
@@ -76,11 +76,11 @@ for.body:
   %offset = add i64 %N, %iv
   ; IR: Cost 0 for i1 [[CMP1:%vp.*]] = icmp ult i64 [[ADD]] i64 256
   %offset.in.bounds = icmp ult i64 %offset, 256
-  ; IR: Cost 0 for call i1 [[CMP1]] void (i1)* @llvm.assume [Serial]
+  ; IR: Cost 0 for call i1 [[CMP1]] ptr @llvm.assume [Serial]
   call void @llvm.assume(i1 %offset.in.bounds)
 
-  %A.elem = getelementptr [256 x i64], [256 x i64]* @A, i64 0, i64 %offset
-  store i64 %iv, i64* %A.elem, align 8
+  %A.elem = getelementptr [256 x i64], ptr @A, i64 0, i64 %offset
+  store i64 %iv, ptr %A.elem, align 8
 
   %iv.next = add nsw i64 %iv, 1
   %exitcond = icmp eq i64 %iv.next, 256
@@ -104,11 +104,11 @@ define void @multiple_roots_fully_contained(i64 %N, i64 %N2) local_unnamed_addr 
 
 ; HIR: Cost 0 for i64 [[ADD1:%vp.*]] = add i64 %N i64 {{%vp.*}}
 ; HIR: Cost 0 for i1 [[CMP1:%vp.*]] = icmp ult i64 [[ADD1]] i64 256
-; HIR: Cost 0 for call i1 [[CMP1]] void (i1)* @llvm.assume
+; HIR: Cost 0 for call i1 [[CMP1]] ptr @llvm.assume
 ; HIR: Cost 0 for i64 [[MUL:%vp.*]] = mul i64 %N2 i64 {{%vp.*}}
 ; HIR: Cost 0 for i64 [[ADD2:%vp.*]] = add i64 {{%vp.*}} i64 [[MUL]]
 ; HIR: Cost 0 for i1 [[CMP2:%vp.*]] = icmp slt i64 [[ADD2]] i64 2048
-; HIR: Cost 0 for call i1 [[CMP2]] void (i1)* @llvm.assume
+; HIR: Cost 0 for call i1 [[CMP2]] ptr @llvm.assume
 for.preheader:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body
@@ -120,18 +120,18 @@ for.body:
   %offset = add i64 %N, %iv
   ; IR: Cost 0 for i1 [[CMP1:%vp.*]] = icmp ult i64 [[ADD]] i64 256
   %offset.in.bounds = icmp ult i64 %offset, 256
-  ; IR: Cost 0 for call i1 [[CMP1]] void (i1)* @llvm.assume [Serial]
+  ; IR: Cost 0 for call i1 [[CMP1]] ptr @llvm.assume [Serial]
   call void @llvm.assume(i1 %offset.in.bounds)
 
   ; IR: Cost 0 for i64 [[MUL:%vp.*]] = mul i64 %N2 i64 [[ADD]]
   %offset.mul = mul i64 %N2, %offset
   ; IR: Cost 0 for i1 [[CMP2:%vp.*]] = icmp slt i64 [[MUL]] i64 2048
   %offset.mul.in.bounds = icmp slt i64 %offset.mul, 2048
-  ; IR: Cost 0 for call i1 [[CMP2]] void (i1)* @llvm.assume [Serial]
+  ; IR: Cost 0 for call i1 [[CMP2]] ptr @llvm.assume [Serial]
   call void @llvm.assume(i1 %offset.mul.in.bounds)
 
-  %A.elem = getelementptr [256 x i64], [256 x i64]* @A, i64 0, i64 %iv
-  store i64 %iv, i64* %A.elem, align 8
+  %A.elem = getelementptr [256 x i64], ptr @A, i64 0, i64 %iv
+  store i64 %iv, ptr %A.elem, align 8
 
   %iv.next = add nsw i64 %iv, 1
   %exitcond = icmp eq i64 %iv.next, 256
@@ -155,11 +155,11 @@ define void @multiple_roots_not_fully_contained(i64 %N, i64 %N2) local_unnamed_a
 
 ; HIR: Cost 0 for i64 [[ADD1:%vp.*]] = add i64 %N i64 {{%vp.*}}
 ; HIR: Cost 0 for i1 [[CMP1:%vp.*]] = icmp ult i64 [[ADD1]] i64 256
-; HIR: Cost 0 for call i1 [[CMP1]] void (i1)* @llvm.assume
+; HIR: Cost 0 for call i1 [[CMP1]] ptr @llvm.assume
 ; HIR: Cost 14 for i64 [[MUL:%vp.*]] = mul i64 %N2 i64 {{%vp.*}}
 ; HIR: Cost 2 for i64 [[ADD2:%vp.*]] = add i64 {{%vp.*}} i64 [[MUL]]
 ; HIR: Cost 0 for i1 [[CMP2:%vp.*]] = icmp slt i64 [[ADD2]] i64 2048
-; HIR: Cost 0 for call i1 [[CMP2]] void (i1)* @llvm.assume
+; HIR: Cost 0 for call i1 [[CMP2]] ptr @llvm.assume
 for.preheader:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body
@@ -171,18 +171,18 @@ for.body:
   %offset = add i64 %N, %iv
   ; IR: Cost 0 for i1 [[CMP1:%vp.*]] = icmp ult i64 [[ADD]] i64 256
   %offset.in.bounds = icmp ult i64 %offset, 256
-  ; IR: Cost 0 for call i1 [[CMP1]] void (i1)* @llvm.assume [Serial]
+  ; IR: Cost 0 for call i1 [[CMP1]] ptr @llvm.assume [Serial]
   call void @llvm.assume(i1 %offset.in.bounds)
 
   ; IR: Cost 14 for i64 [[MUL:%vp.*]] = mul i64 %N2 i64 [[ADD]]
   %offset.mul = mul i64 %N2, %offset
   ; IR: Cost 0 for i1 [[CMP2:%vp.*]] = icmp slt i64 [[MUL]] i64 2048
   %offset.mul.in.bounds = icmp slt i64 %offset.mul, 2048
-  ; IR: Cost 0 for call i1 [[CMP2]] void (i1)* @llvm.assume [Serial]
+  ; IR: Cost 0 for call i1 [[CMP2]] ptr @llvm.assume [Serial]
   call void @llvm.assume(i1 %offset.mul.in.bounds)
 
-  %A.elem = getelementptr [256 x i64], [256 x i64]* @A, i64 0, i64 %offset.mul
-  store i64 %iv, i64* %A.elem, align 8
+  %A.elem = getelementptr [256 x i64], ptr @A, i64 0, i64 %offset.mul
+  store i64 %iv, ptr %A.elem, align 8
 
   %iv.next = add nsw i64 %iv, 1
   %exitcond = icmp eq i64 %iv.next, 256

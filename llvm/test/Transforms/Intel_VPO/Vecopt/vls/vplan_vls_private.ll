@@ -20,9 +20,9 @@ define void @foo() {
 ; variable between stores to the buffer:
 ;
 ; CHECK-LABEL: vector.body
-; CHECK:      call void @llvm.masked.scatter.v2i32.v2p0i32
-; CHECK:      call void @llvm.masked.scatter.v2i32.v2p0i32
-; CHECK-NOT:  call void @llvm.masked.scatter.v2i32.v2p0i32
+; CHECK:      call void @llvm.masked.scatter.v2i32.v2p0
+; CHECK:      call void @llvm.masked.scatter.v2i32.v2p0
+; CHECK-NOT:  call void @llvm.masked.scatter.v2i32.v2p0
 ; CHECK-LABEL: VPlannedBB4:
 ;
 entry:
@@ -30,18 +30,18 @@ entry:
   br label %omp.entry
 
 omp.entry:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(i32* %var, i32 0, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %var, i32 0, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:
   %indvars.iv = phi i64 [ %indvars.iv.next, %omp.inner.for.body ], [ 0, %omp.entry ]
   %1 = shl nuw nsw i64 %indvars.iv, 1
-  %arrayidx = getelementptr inbounds [8192 x i32], [8192 x i32]* @buffer, i64 0, i64 %1
-  store i32 8, i32* %arrayidx, align 8
-  store i32 42, i32* %var, align 4
+  %arrayidx = getelementptr inbounds [8192 x i32], ptr @buffer, i64 0, i64 %1
+  store i32 8, ptr %arrayidx, align 8
+  store i32 42, ptr %var, align 4
   %2 = or i64 %1, 1
-  %arrayidx11 = getelementptr inbounds [8192 x i32], [8192 x i32]* @buffer, i64 0, i64 %2
-  store i32 31, i32* %arrayidx11, align 4
+  %arrayidx11 = getelementptr inbounds [8192 x i32], ptr @buffer, i64 0, i64 %2
+  store i32 31, ptr %arrayidx11, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %cmp = icmp ne i64 %indvars.iv.next, 4096
   br i1 %cmp, label %omp.inner.for.body, label %omp.loop.exit
