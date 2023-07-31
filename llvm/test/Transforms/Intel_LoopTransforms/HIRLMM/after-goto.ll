@@ -67,14 +67,14 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %if.end
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %if.end ]
-  %arrayidx = getelementptr inbounds [1000 x i32], [1000 x i32]* @A, i64 0, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [1000 x i32], ptr @A, i64 0, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %cmp1 = icmp sgt i32 %1, 0
   br i1 %cmp1, label %for.end.loopexit, label %if.end
 
 if.end:                                           ; preds = %for.body
   %add = add nsw i32 %1, 1
-  store i32 %add, i32* getelementptr inbounds ([1000 x i32], [1000 x i32]* @C, i64 0, i64 5), align 4, !tbaa !2
+  store i32 %add, ptr getelementptr inbounds ([1000 x i32], ptr @C, i64 0, i64 5), align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %cmp = icmp slt i64 %indvars.iv.next, %0
   br i1 %cmp, label %for.body, label %for.end.loopexit

@@ -72,8 +72,6 @@
 
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-mv-const-ub,print<hir>" -aa-pipeline="basic-aa" -disable-output -hir-details < %s 2>&1 | FileCheck %s
 ;
-; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,print<hir>,hir-mv-const-ub,print<hir>" -aa-pipeline="basic-aa" -disable-output -hir-details < %s 2>&1 | FileCheck %s
-;
 ; CHECK: Function
 ; CHECK: <0> BEGIN REGION
 ; CHECK: DO i32 i2 = 0
@@ -91,13 +89,13 @@ source_filename = "ld-temp.o"
 target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"
 target triple = "i386-unknown-linux-gnu"
 
-%struct.blam = type { [16 x i8], [64 x i8], [16 x i8], [16 x i8], [16 x i8], i16, %struct.wibble, %struct.wibble, i8*, i32, i32, i32 (i8*, i8*)*, i32 (i8*, i8*, i8*)*, i32 (i8*)*, i32 (i8)*, i32 (i8*, i32)*, i32 (i8*, i32)*, i32 ()*, i32 ()*, i32 ()*, i8* (i32, i8*, i32)*, void (i8*, i8*, i32)*, void ()*, void ()*, i32 ()*, void (i32, i8*, i8*)*, i32 (%struct.barney*, i16)*, i32 ()*, %struct.ham* (i8*)*, %struct.ham* (i32)*, i32 (i8*, i32, i8*)* }
+%struct.blam = type { [16 x i8], [64 x i8], [16 x i8], [16 x i8], [16 x i8], i16, %struct.wibble, %struct.wibble, ptr, i32, i32, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr, ptr }
 %struct.wibble = type { i8, i8, i8, i8 }
-%struct.barney = type { i32, i32, i16, i32, i32, i32, i32, i8* }
-%struct.ham = type { [128 x i8], i32, i8*, i32, i32 }
+%struct.barney = type { i32, i32, i16, i32, i32, i32, i32, ptr }
+%struct.ham = type { [128 x i8], i32, ptr, i32, i32 }
 
 @global = external hidden unnamed_addr constant [17 x i8], align 1
-@global.1 = external hidden unnamed_addr global i8*, align 4
+@global.1 = external hidden unnamed_addr global ptr, align 4
 @global.2 = external hidden unnamed_addr constant [29 x i8], align 1
 @global.3 = external hidden unnamed_addr constant [45 x i8], align 1
 @global.4 = external hidden unnamed_addr constant [18 x i8], align 1
@@ -110,43 +108,41 @@ target triple = "i386-unknown-linux-gnu"
 @global.11 = external hidden global %struct.blam, align 4
 
 ; Function Attrs: nounwind
-define hidden i32 @widget(i32 %arg, i32 %arg1, i8** nocapture readonly %arg2) #0 {
+define hidden i32 @widget(i32 %arg, i32 %arg1, ptr nocapture readonly %arg2) #0 {
 bb:
   %tmp = alloca %struct.barney, align 4
-  %tmp3 = bitcast %struct.barney* %tmp to i8*
-  call void @llvm.lifetime.start.p0i8(i64 32, i8* nonnull %tmp3) #4
-  %tmp4 = load i8* (i32, i8*, i32)*, i8* (i32, i8*, i32)** getelementptr inbounds (%struct.blam, %struct.blam* @global.11, i32 0, i32 20), align 4, !tbaa !3
-  %tmp5 = icmp eq i8* (i32, i8*, i32)* %tmp4, @widget.12
+  call void @llvm.lifetime.start.p0(i64 32, ptr nonnull %tmp) #4
+  %tmp4 = load ptr, ptr getelementptr inbounds (%struct.blam, ptr @global.11, i32 0, i32 20), align 4, !tbaa !3
+  %tmp5 = icmp eq ptr %tmp4, @widget.12
   br i1 %tmp5, label %bb6, label %bb8
 
 bb6:                                              ; preds = %bb
-  %tmp7 = call noalias i8* @malloc(i32 32) #4
+  %tmp7 = call noalias ptr @malloc(i32 32) #4
   br label %bb10
 
 bb8:                                              ; preds = %bb
-  %tmp9 = call i8* %tmp4(i32 32, i8* getelementptr inbounds ([17 x i8], [17 x i8]* @global, i32 0, i32 0), i32 243) #4
+  %tmp9 = call ptr %tmp4(i32 32, ptr @global, i32 243) #4
   br label %bb10
 
 bb10:                                             ; preds = %bb8, %bb6
-  %tmp11 = phi i8* [ %tmp7, %bb6 ], [ %tmp9, %bb8 ]
-  store i8* %tmp11, i8** @global.1, align 4, !tbaa !27
-  %tmp12 = icmp eq i8* %tmp11, null
-  %tmp13 = bitcast i8* %tmp11 to i16*
+  %tmp11 = phi ptr [ %tmp7, %bb6 ], [ %tmp9, %bb8 ]
+  store ptr %tmp11, ptr @global.1, align 4, !tbaa !27
+  %tmp12 = icmp eq ptr %tmp11, null
   br i1 %tmp12, label %bb14, label %bb16
 
 bb14:                                             ; preds = %bb10
-  tail call void (i32, i8*, ...) @wibble(i32 8, i8* getelementptr inbounds ([29 x i8], [29 x i8]* @global.2, i32 0, i32 0), i8* getelementptr inbounds ([17 x i8], [17 x i8]* @global, i32 0, i32 0), i32 245) #4
-  %tmp15 = load i16*, i16** bitcast (i8** @global.1 to i16**), align 4, !tbaa !27
+  tail call void (i32, ptr, ...) @wibble(i32 8, ptr @global.2, ptr @global, i32 245) #4
+  %tmp15 = load ptr, ptr @global.1, align 4, !tbaa !27
   br label %bb16
 
 bb16:                                             ; preds = %bb14, %bb10
-  %tmp17 = phi i16* [ %tmp15, %bb14 ], [ %tmp13, %bb10 ]
+  %tmp17 = phi ptr [ %tmp15, %bb14 ], [ %tmp11, %bb10 ]
   %tmp18 = icmp slt i32 %arg1, 2
   br i1 %tmp18, label %bb19, label %bb20
 
 bb19:                                             ; preds = %bb16
-  tail call void (i8*, ...) @wobble.13(i8* getelementptr inbounds ([45 x i8], [45 x i8]* @global.3, i32 0, i32 0), i8* getelementptr inbounds ([18 x i8], [18 x i8]* @global.4, i32 0, i32 0)) #4
-  tail call void (i8*, ...) @wobble.13(i8* getelementptr inbounds ([43 x i8], [43 x i8]* @global.5, i32 0, i32 0), i32 8) #4
+  tail call void (ptr, ...) @wobble.13(ptr @global.3, ptr @global.4) #4
+  tail call void (ptr, ...) @wobble.13(ptr @global.5, i32 8) #4
   br label %bb29
 
 bb20:                                             ; preds = %bb16
@@ -154,20 +150,20 @@ bb20:                                             ; preds = %bb16
   br i1 %tmp21, label %bb28, label %bb22
 
 bb22:                                             ; preds = %bb20
-  %tmp23 = getelementptr inbounds i8*, i8** %arg2, i32 2
-  %tmp24 = load i8*, i8** %tmp23, align 4, !tbaa !29
-  %tmp25 = tail call i32 @strtol(i8* nocapture nonnull %tmp24, i8** null, i32 10) #4
+  %tmp23 = getelementptr inbounds ptr, ptr %arg2, i32 2
+  %tmp24 = load ptr, ptr %tmp23, align 4, !tbaa !29
+  %tmp25 = tail call i32 @strtol(ptr nocapture nonnull %tmp24, ptr null, i32 10) #4
   %tmp26 = trunc i32 %tmp25 to i16
   %tmp27 = icmp eq i16 %tmp26, 0
   br i1 %tmp27, label %bb28, label %bb29
 
 bb28:                                             ; preds = %bb22, %bb20
-  tail call void (i8*, ...) @wobble.13(i8* getelementptr inbounds ([43 x i8], [43 x i8]* @global.5, i32 0, i32 0), i32 8) #4
+  tail call void (ptr, ...) @wobble.13(ptr @global.5, i32 8) #4
   br label %bb29
 
 bb29:                                             ; preds = %bb28, %bb22, %bb19
   %tmp30 = phi i16 [ 8, %bb19 ], [ 8, %bb28 ], [ %tmp26, %bb22 ]
-  %tmp31 = load void ()*, void ()** getelementptr inbounds (%struct.blam, %struct.blam* @global.11, i32 0, i32 23), align 4, !tbaa !31
+  %tmp31 = load ptr, ptr getelementptr inbounds (%struct.blam, ptr @global.11, i32 0, i32 23), align 4, !tbaa !31
   tail call void %tmp31() #4
   %tmp32 = icmp eq i32 %arg, 0
   br i1 %tmp32, label %bb33, label %bb35
@@ -200,12 +196,12 @@ bb45:                                             ; preds = %bb41
 bb46:                                             ; preds = %bb46, %bb45
   %tmp47 = phi i32 [ %tmp58, %bb46 ], [ 0, %bb45 ]
   %tmp48 = phi i32 [ %tmp59, %bb46 ], [ 0, %bb45 ]
-  %tmp49 = getelementptr inbounds [16 x i16], [16 x i16]* @global.6, i32 0, i32 %tmp48
-  %tmp50 = load i16, i16* %tmp49, align 2, !tbaa !32
+  %tmp49 = getelementptr inbounds [16 x i16], ptr @global.6, i32 0, i32 %tmp48
+  %tmp50 = load i16, ptr %tmp49, align 2, !tbaa !32
   %tmp51 = sext i16 %tmp50 to i32
   %tmp52 = add nuw nsw i32 %tmp48, %tmp43
-  %tmp53 = getelementptr inbounds [16 x i16], [16 x i16]* @global.6, i32 0, i32 %tmp52
-  %tmp54 = load i16, i16* %tmp53, align 2, !tbaa !32
+  %tmp53 = getelementptr inbounds [16 x i16], ptr @global.6, i32 0, i32 %tmp52
+  %tmp54 = load i16, ptr %tmp53, align 2, !tbaa !32
   %tmp55 = sext i16 %tmp54 to i32
   %tmp56 = mul nsw i32 %tmp55, %tmp51
   %tmp57 = ashr i32 %tmp56, 4
@@ -222,8 +218,8 @@ bb63:                                             ; preds = %bb61, %bb41
   %tmp64 = phi i32 [ 0, %bb41 ], [ %tmp62, %bb61 ]
   %tmp65 = lshr i32 %tmp64, 16
   %tmp66 = trunc i32 %tmp65 to i16
-  %tmp67 = getelementptr inbounds i16, i16* %tmp17, i32 %tmp43
-  store i16 %tmp66, i16* %tmp67, align 2, !tbaa !32
+  %tmp67 = getelementptr inbounds i16, ptr %tmp17, i32 %tmp43
+  store i16 %tmp66, ptr %tmp67, align 2, !tbaa !32
   %tmp68 = add nuw nsw i32 %tmp43, 1
   %tmp69 = add nsw i32 %tmp42, -1
   %tmp70 = icmp eq i32 %tmp68, %tmp36
@@ -242,13 +238,12 @@ bb75:                                             ; preds = %bb72
 
 bb76:                                             ; preds = %bb75, %bb33
   %tmp77 = phi i32 [ %tmp34, %bb33 ], [ %tmp36, %bb75 ]
-  %tmp78 = load i32 ()*, i32 ()** getelementptr inbounds (%struct.blam, %struct.blam* @global.11, i32 0, i32 24), align 4, !tbaa !33
+  %tmp78 = load ptr, ptr getelementptr inbounds (%struct.blam, ptr @global.11, i32 0, i32 24), align 4, !tbaa !33
   %tmp79 = tail call i32 %tmp78() #4
-  %tmp80 = getelementptr inbounds %struct.barney, %struct.barney* %tmp, i32 0, i32 1
-  store i32 %tmp79, i32* %tmp80, align 4, !tbaa !34
-  %tmp81 = getelementptr inbounds %struct.barney, %struct.barney* %tmp, i32 0, i32 0
-  store i32 %arg, i32* %tmp81, align 4, !tbaa !37
-  %tmp82 = icmp eq i16* %tmp17, null
+  %tmp80 = getelementptr inbounds %struct.barney, ptr %tmp, i32 0, i32 1
+  store i32 %tmp79, ptr %tmp80, align 4, !tbaa !34
+  store i32 %arg, ptr %tmp, align 4, !tbaa !37
+  %tmp82 = icmp eq ptr %tmp17, null
   br i1 %tmp82, label %bb169, label %bb83
 
 bb83:                                             ; preds = %bb76
@@ -259,34 +254,34 @@ bb169:                                            ; preds = %bb161, %bb157, %bb1
 }
 
 ; Function Attrs: nounwind
-declare i32 @strtol(i8* readonly, i8** nocapture, i32) local_unnamed_addr #1
+declare i32 @strtol(ptr readonly, ptr nocapture, i32) local_unnamed_addr #1
 
 ; Function Attrs: nounwind readnone
 declare double @__log10_finite(double) local_unnamed_addr #2
 
 ; Function Attrs: nounwind
-declare noalias i8* @malloc(i32) local_unnamed_addr #1
+declare noalias ptr @malloc(i32) local_unnamed_addr #1
 
 ; Function Attrs: nounwind
-declare hidden noalias i8* @widget.12(i32, i8* nocapture readnone, i32) #0
+declare hidden noalias ptr @widget.12(i32, ptr nocapture readnone, i32) #0
 
 ; Function Attrs: nounwind
-declare hidden i32 @wobble(%struct.barney* nocapture readonly, i16 zeroext) #0
+declare hidden i32 @wobble(ptr nocapture readonly, i16 zeroext) #0
 
 ; Function Attrs: nounwind
-declare hidden void @wobble.13(i8*, ...) unnamed_addr #0
+declare hidden void @wobble.13(ptr, ...) unnamed_addr #0
 
 ; Function Attrs: nounwind
-declare hidden void @baz(i8* nocapture readnone, i8* nocapture readonly, ...) unnamed_addr #0
+declare hidden void @baz(ptr nocapture readnone, ptr nocapture readonly, ...) unnamed_addr #0
 
 ; Function Attrs: nounwind
-declare hidden void @wibble(i32, i8*, ...) unnamed_addr #0
+declare hidden void @wibble(i32, ptr, ...) unnamed_addr #0
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #3
+declare void @llvm.lifetime.start.p0(i64, ptr nocapture) #3
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #3
+declare void @llvm.lifetime.end.p0(i64, ptr nocapture) #3
 
 attributes #0 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="true" "no-jump-tables"="false" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="slm" "target-features"="+aes,+cx16,+fxsr,+mmx,+pclmul,+popcnt,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87" "unsafe-fp-math"="true" "use-soft-float"="false" }
 attributes #1 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="slm" "target-features"="+aes,+cx16,+fxsr,+mmx,+pclmul,+popcnt,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87" "unsafe-fp-math"="true" "use-soft-float"="false" }

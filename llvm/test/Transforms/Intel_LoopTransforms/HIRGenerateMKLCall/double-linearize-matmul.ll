@@ -79,20 +79,20 @@ for.cond1.preheader.i:                            ; preds = %for.inc20.i, %entry
 for.cond4.preheader.i:                            ; preds = %for.inc17.i, %for.cond1.preheader.i
   %indvars.iv7.i = phi i64 [ 0, %for.cond1.preheader.i ], [ %indvars.iv.next8.i, %for.inc17.i ]
   %2 = add nuw nsw i64 %indvars.iv7.i, %1
-  %arrayidx15.i = getelementptr inbounds [250000 x double], [250000 x double]* @C, i64 0, i64 %2
-  %arrayidx15.promoted.i = load double, double* %arrayidx15.i, align 8, !tbaa !2
+  %arrayidx15.i = getelementptr inbounds [250000 x double], ptr @C, i64 0, i64 %2
+  %arrayidx15.promoted.i = load double, ptr %arrayidx15.i, align 8, !tbaa !2
   br label %for.body6.i
 
 for.body6.i:                                      ; preds = %for.body6.i, %for.cond4.preheader.i
   %indvars.iv.i = phi i64 [ 0, %for.cond4.preheader.i ], [ %indvars.iv.next.i, %for.body6.i ]
   %3 = phi double [ %arrayidx15.promoted.i, %for.cond4.preheader.i ], [ %add16.i, %for.body6.i ]
   %4 = add nuw nsw i64 %indvars.iv.i, %0
-  %arrayidx.i = getelementptr inbounds [250000 x double], [250000 x double]* @A, i64 0, i64 %4
-  %5 = load double, double* %arrayidx.i, align 8, !tbaa !2
+  %arrayidx.i = getelementptr inbounds [250000 x double], ptr @A, i64 0, i64 %4
+  %5 = load double, ptr %arrayidx.i, align 8, !tbaa !2
   %6 = mul nuw nsw i64 %indvars.iv.i, 400
   %7 = add nuw nsw i64 %6, %indvars.iv7.i
-  %arrayidx10.i = getelementptr inbounds [250000 x double], [250000 x double]* @B, i64 0, i64 %7
-  %8 = load double, double* %arrayidx10.i, align 8, !tbaa !2
+  %arrayidx10.i = getelementptr inbounds [250000 x double], ptr @B, i64 0, i64 %7
+  %8 = load double, ptr %arrayidx10.i, align 8, !tbaa !2
   %mul11.i = fmul double %5, %8
   %add16.i = fadd double %3, %mul11.i
   %indvars.iv.next.i = add nuw nsw i64 %indvars.iv.i, 1
@@ -101,7 +101,7 @@ for.body6.i:                                      ; preds = %for.body6.i, %for.c
 
 for.inc17.i:                                      ; preds = %for.body6.i
   %add16.i.lcssa = phi double [ %add16.i, %for.body6.i ]
-  store double %add16.i.lcssa, double* %arrayidx15.i, align 8, !tbaa !2
+  store double %add16.i.lcssa, ptr %arrayidx15.i, align 8, !tbaa !2
   %indvars.iv.next8.i = add nuw nsw i64 %indvars.iv7.i, 1
   %exitcond10.i = icmp eq i64 %indvars.iv.next8.i, 400
   br i1 %exitcond10.i, label %for.inc20.i, label %for.cond4.preheader.i

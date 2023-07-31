@@ -40,14 +40,14 @@ entry:
   br label %for.body.preheader
 
 for.body.preheader:                               ; preds = %entry
-  store i64 %n, i64* %bound, align 4
-  %ld = load i64, i64* %bound, align 4
+  store i64 %n, ptr %bound, align 4
+  %ld = load i64, ptr %bound, align 4
   br label %for.body
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv21 = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next22, %for.body ]
-  %arrayidx = getelementptr inbounds [100 x i64], [100 x i64]* @A, i64 0, i64 %indvars.iv21
-  store i64 %indvars.iv21, i64* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x i64], ptr @A, i64 0, i64 %indvars.iv21
+  store i64 %indvars.iv21, ptr %arrayidx, align 4
   %indvars.iv.next22 = add nuw nsw i64 %indvars.iv21, 1
   %exitcond24 = icmp eq i64 %indvars.iv.next22, %ld
   br i1 %exitcond24, label %for.end8, label %for.body

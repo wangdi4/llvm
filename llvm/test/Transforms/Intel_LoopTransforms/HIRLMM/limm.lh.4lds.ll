@@ -82,7 +82,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 ; noalias nocapture
-define i32 @_Z3fooPPiS0_(i32** noalias %A, i32** noalias %B) #0 {
+define i32 @_Z3fooPPiS0_(ptr noalias %A, ptr noalias %B) #0 {
 entry:
   br label %for.body
 
@@ -100,17 +100,17 @@ for.body6.lr.ph:                                  ; preds = %for.body3
 
 for.body6:                                        ; preds = %for.body6.lr.ph, %for.inc
   %j.02 = phi i64 [ 0, %for.body6.lr.ph ], [ %inc, %for.inc ]
-  %arrayidx = getelementptr inbounds i32*, i32** %B, i64 %j.02
-  %0 = load i32*, i32** %arrayidx, align 8
-  %arrayidx7 = getelementptr inbounds i32, i32* %0, i64 %i.03
-  %1 = load i32, i32* %arrayidx7, align 4
+  %arrayidx = getelementptr inbounds ptr, ptr %B, i64 %j.02
+  %0 = load ptr, ptr %arrayidx, align 8
+  %arrayidx7 = getelementptr inbounds i32, ptr %0, i64 %i.03
+  %1 = load i32, ptr %arrayidx7, align 4
   %conv = sext i32 %1 to i64
   %add = add nsw i64 %conv, %k.04
   %conv8 = trunc i64 %add to i32
-  %arrayidx9 = getelementptr inbounds i32*, i32** %A, i64 %i.03
-  %2 = load i32*, i32** %arrayidx9, align 8
-  %arrayidx10 = getelementptr inbounds i32, i32* %2, i64 %j.02
-  store i32 %conv8, i32* %arrayidx10, align 4
+  %arrayidx9 = getelementptr inbounds ptr, ptr %A, i64 %i.03
+  %2 = load ptr, ptr %arrayidx9, align 8
+  %arrayidx10 = getelementptr inbounds i32, ptr %2, i64 %j.02
+  store i32 %conv8, ptr %arrayidx10, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body6
@@ -138,10 +138,10 @@ for.inc14:                                        ; preds = %for.end13
   br i1 %cmp, label %for.body, label %for.end16
 
 for.end16:                                        ; preds = %for.inc14
-  %arrayidx17 = getelementptr inbounds i32*, i32** %A, i64 2
-  %3 = load i32*, i32** %arrayidx17, align 8
-  %arrayidx18 = getelementptr inbounds i32, i32* %3, i64 3
-  %4 = load i32, i32* %arrayidx18, align 4
+  %arrayidx17 = getelementptr inbounds ptr, ptr %A, i64 2
+  %3 = load ptr, ptr %arrayidx17, align 8
+  %arrayidx18 = getelementptr inbounds i32, ptr %3, i64 3
+  %4 = load i32, ptr %arrayidx18, align 4
   ret i32 %4
 }
 

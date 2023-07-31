@@ -22,20 +22,23 @@
 ; CHECK-NOT: call
 
 ; bar's "omp target" must call foo():
-; CHECK-LABEL: @__omp_offloading_806_6ee1ab7_bar_l9
+; CHECK-LABEL: @__omp_offloading_10308_be9325a__Z3bar_l9
 ; CHECK: call spir_func void @foo
 
-; CHECK-LABEL: @__omp_offloading_806_6ee1ab7_foo_l3
+; CHECK-LABEL: @__omp_offloading_10308_be9325a__Z3foo_l3
 
-target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
+target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64"
 target device_triples = "spir64"
 
-; Function Attrs: noinline nounwind optnone uwtable
+; Function Attrs: convergent noinline nounwind optnone
 define hidden spir_func void @foo() #0 {
 entry:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
+
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
+
   ret void
 }
 
@@ -45,28 +48,32 @@ declare token @llvm.directive.region.entry() #1
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #1
 
-; Function Attrs: noinline nounwind optnone uwtable
-define hidden spir_func void @bar() #2 {
+; Function Attrs: convergent noinline nounwind optnone
+define protected spir_func void @bar() #2 {
 entry:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1) ]
-  call spir_func void @foo() #1
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1) ]
+
+  call spir_func void @foo() #3
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
+
   ret void
 }
 
-attributes #0 = { noinline nounwind optnone uwtable "contains-openmp-target"="true" "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="all" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "openmp-target-declare"="true" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { convergent noinline nounwind optnone "approx-func-fp-math"="true" "contains-openmp-target"="true" "frame-pointer"="all" "may-have-openmp-directive"="true" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "openmp-target-declare"="true" "stack-protector-buffer-size"="8" "unsafe-fp-math"="true" }
 attributes #1 = { nounwind }
-attributes #2 = { noinline nounwind optnone uwtable "contains-openmp-target"="true" "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="all" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #2 = { convergent noinline nounwind optnone "approx-func-fp-math"="true" "contains-openmp-target"="true" "frame-pointer"="all" "may-have-openmp-directive"="true" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "unsafe-fp-math"="true" }
+attributes #3 = { convergent nounwind }
 
 !omp_offload.info = !{!0, !1}
-!llvm.module.flags = !{!2}
-!opencl.used.extensions = !{!3}
-!opencl.used.optional.core.features = !{!3}
-!opencl.compiler.options = !{!3}
-!llvm.ident = !{!4}
+!llvm.module.flags = !{!2, !3, !4, !5, !6}
+!opencl.compiler.options = !{!7}
 
-!0 = !{i32 0, i32 2054, i32 116267703, !"foo", i32 3, i32 0, i32 0}
-!1 = !{i32 0, i32 2054, i32 116267703, !"bar", i32 9, i32 1, i32 0}
+!0 = !{i32 0, i32 66312, i32 199832154, !"_Z3bar", i32 9, i32 0, i32 1, i32 0}
+!1 = !{i32 0, i32 66312, i32 199832154, !"_Z3foo", i32 3, i32 0, i32 0, i32 0}
 !2 = !{i32 1, !"wchar_size", i32 4}
-!3 = !{}
-!4 = !{!"clang version 9.0.0"}
+!3 = !{i32 7, !"openmp", i32 51}
+!4 = !{i32 7, !"openmp-device", i32 51}
+!5 = !{i32 8, !"PIC Level", i32 2}
+!6 = !{i32 7, !"frame-pointer", i32 2}
+!7 = !{}

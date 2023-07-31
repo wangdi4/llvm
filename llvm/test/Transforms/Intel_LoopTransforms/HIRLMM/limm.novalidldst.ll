@@ -142,7 +142,7 @@ entry:
 
 for.cond1.preheader:                              ; preds = %for.inc10, %entry
   %indvars.iv29 = phi i64 [ 0, %entry ], [ %indvars.iv.next30, %for.inc10 ]
-  %arrayidx6 = getelementptr inbounds [1000 x i32], [1000 x i32]* @A, i64 0, i64 %indvars.iv29
+  %arrayidx6 = getelementptr inbounds [1000 x i32], ptr @A, i64 0, i64 %indvars.iv29
   br label %for.body3
 
 for.body3:                                        ; preds = %for.inc, %for.cond1.preheader
@@ -154,11 +154,11 @@ for.body3:                                        ; preds = %for.inc, %for.cond1
   br i1 %cmp4, label %if.then, label %for.inc
 
 if.then:                                          ; preds = %for.body3
-  %arrayidx = getelementptr inbounds [1000 x i32], [1000 x i32]* @B, i64 0, i64 %indvars.iv
-  %2 = load i32, i32* %arrayidx, align 4, !tbaa !1
-  %3 = load i32, i32* %arrayidx6, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds [1000 x i32], ptr @B, i64 0, i64 %indvars.iv
+  %2 = load i32, ptr %arrayidx, align 4, !tbaa !1
+  %3 = load i32, ptr %arrayidx6, align 4, !tbaa !1
   %add7 = add nsw i32 %3, %2
-  store i32 %add7, i32* %arrayidx, align 4, !tbaa !1
+  store i32 %add7, ptr %arrayidx, align 4, !tbaa !1
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body3, %if.then
@@ -172,18 +172,18 @@ for.inc10:                                        ; preds = %for.inc
   br i1 %exitcond31, label %for.end12, label %for.cond1.preheader
 
 for.end12:                                        ; preds = %for.inc10
-  %4 = load i32, i32* getelementptr inbounds ([1000 x i32], [1000 x i32]* @A, i64 0, i64 0), align 16, !tbaa !1
-  %5 = load i32, i32* getelementptr inbounds ([1000 x i32], [1000 x i32]* @B, i64 0, i64 1), align 4, !tbaa !1
+  %4 = load i32, ptr @A, align 16, !tbaa !1
+  %5 = load i32, ptr getelementptr inbounds ([1000 x i32], ptr @B, i64 0, i64 1), align 4, !tbaa !1
   %add13 = add i32 %4, 1
   %add14 = add i32 %add13, %5
   ret i32 %add14
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { norecurse nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

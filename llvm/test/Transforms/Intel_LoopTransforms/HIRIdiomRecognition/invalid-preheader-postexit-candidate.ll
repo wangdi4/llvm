@@ -42,27 +42,27 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define dso_local i32 @test() {
 entry:
-  %0 = load float, float* @r, align 4
+  %0 = load float, ptr @r, align 4
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %1 = sub nuw nsw i64 1023, %indvars.iv
-  %arrayidx = getelementptr inbounds [1024 x float], [1024 x float]* @S, i64 0, i64 %1
-  %2 = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [1024 x float], ptr @S, i64 0, i64 %1
+  %2 = load float, ptr %arrayidx, align 4
   %add = fadd fast float %0, %2
-  %arrayidx2 = getelementptr inbounds [1024 x float], [1024 x float]* @R, i64 0, i64 %indvars.iv
-  store float %add, float* %arrayidx2, align 4
-  %arrayidx4 = getelementptr inbounds [1024 x float], [1024 x float]* @T, i64 0, i64 %indvars.iv
-  %3 = load float, float* %arrayidx4, align 4
-  %arrayidx6 = getelementptr inbounds [1024 x float], [1024 x float]* @S, i64 0, i64 %indvars.iv
-  store float %3, float* %arrayidx6, align 4
+  %arrayidx2 = getelementptr inbounds [1024 x float], ptr @R, i64 0, i64 %indvars.iv
+  store float %add, ptr %arrayidx2, align 4
+  %arrayidx4 = getelementptr inbounds [1024 x float], ptr @T, i64 0, i64 %indvars.iv
+  %3 = load float, ptr %arrayidx4, align 4
+  %arrayidx6 = getelementptr inbounds [1024 x float], ptr @S, i64 0, i64 %indvars.iv
+  store float %3, ptr %arrayidx6, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond.not, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body
-  store i32 1024, i32* @i, align 4
+  store i32 1024, ptr @i, align 4
   ret i32 undef
 }
 

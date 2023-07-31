@@ -63,15 +63,15 @@ target triple = "x86_64-unknown-linux-gnu"
 @a = dso_local local_unnamed_addr global [1000 x [1000 x float]] zeroinitializer, align 16
 @b = dso_local local_unnamed_addr global [1000 x float] zeroinitializer, align 16
 @c = dso_local local_unnamed_addr global [1000 x float] zeroinitializer, align 16
-@llvm.global_ctors = appending global [1 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 65535, void ()* @_GLOBAL__sub_I_float_vector_matrix_mul.cpp, i8* null }]
+@llvm.global_ctors = appending global [1 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 65535, ptr @_GLOBAL__sub_I_float_vector_matrix_mul.cpp, ptr null }]
 
-declare dso_local void @_ZNSt8ios_base4InitC1Ev(%"class.std::ios_base::Init"*) unnamed_addr #0
-
-; Function Attrs: nounwind
-declare dso_local void @_ZNSt8ios_base4InitD1Ev(%"class.std::ios_base::Init"*) unnamed_addr #1
+declare dso_local void @_ZNSt8ios_base4InitC1Ev(ptr) unnamed_addr #0
 
 ; Function Attrs: nounwind
-declare dso_local i32 @__cxa_atexit(void (i8*)*, i8*, i8*) local_unnamed_addr #2
+declare dso_local void @_ZNSt8ios_base4InitD1Ev(ptr) unnamed_addr #1
+
+; Function Attrs: nounwind
+declare dso_local i32 @__cxa_atexit(ptr, ptr, ptr) local_unnamed_addr #2
 
 ; Function Attrs: norecurse nounwind uwtable
 define dso_local i32 @main() local_unnamed_addr #3 {
@@ -80,8 +80,8 @@ entry:
 
 for.cond1.preheader:                              ; preds = %for.cond.cleanup3, %entry
   %indvars.iv25 = phi i64 [ 0, %entry ], [ %indvars.iv.next26, %for.cond.cleanup3 ]
-  %arrayidx10 = getelementptr inbounds [1000 x float], [1000 x float]* @c, i64 0, i64 %indvars.iv25, !intel-tbaa !2
-  %arrayidx10.promoted = load float, float* %arrayidx10, align 4, !tbaa !2
+  %arrayidx10 = getelementptr inbounds [1000 x float], ptr @c, i64 0, i64 %indvars.iv25, !intel-tbaa !2
+  %arrayidx10.promoted = load float, ptr %arrayidx10, align 4, !tbaa !2
   br label %for.body4
 
 for.cond.cleanup:                                 ; preds = %for.cond.cleanup3
@@ -89,7 +89,7 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup3
 
 for.cond.cleanup3:                                ; preds = %for.body4
   %add.lcssa = phi float [ %add, %for.body4 ]
-  store float %add.lcssa, float* %arrayidx10, align 4, !tbaa !2
+  store float %add.lcssa, ptr %arrayidx10, align 4, !tbaa !2
   %indvars.iv.next26 = add nuw nsw i64 %indvars.iv25, 1
   %exitcond27 = icmp eq i64 %indvars.iv.next26, 1000
   br i1 %exitcond27, label %for.cond.cleanup, label %for.cond1.preheader
@@ -97,10 +97,10 @@ for.cond.cleanup3:                                ; preds = %for.body4
 for.body4:                                        ; preds = %for.body4, %for.cond1.preheader
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body4 ]
   %add23 = phi float [ %arrayidx10.promoted, %for.cond1.preheader ], [ %add, %for.body4 ]
-  %arrayidx = getelementptr inbounds [1000 x float], [1000 x float]* @b, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  %0 = load float, float* %arrayidx, align 4, !tbaa !2
-  %arrayidx8 = getelementptr inbounds [1000 x [1000 x float]], [1000 x [1000 x float]]* @a, i64 0, i64 %indvars.iv25, i64 %indvars.iv, !intel-tbaa !7
-  %1 = load float, float* %arrayidx8, align 4, !tbaa !7
+  %arrayidx = getelementptr inbounds [1000 x float], ptr @b, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  %0 = load float, ptr %arrayidx, align 4, !tbaa !2
+  %arrayidx8 = getelementptr inbounds [1000 x [1000 x float]], ptr @a, i64 0, i64 %indvars.iv25, i64 %indvars.iv, !intel-tbaa !7
+  %1 = load float, ptr %arrayidx8, align 4, !tbaa !7
   %mul = fmul float %0, %1
   %add = fadd float %add23, %mul
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -111,8 +111,8 @@ for.body4:                                        ; preds = %for.body4, %for.con
 ; Function Attrs: uwtable
 define internal void @_GLOBAL__sub_I_float_vector_matrix_mul.cpp() #4 section ".text.startup" {
 entry:
-  tail call void @_ZNSt8ios_base4InitC1Ev(%"class.std::ios_base::Init"* nonnull @_ZStL8__ioinit)
-  %0 = tail call i32 @__cxa_atexit(void (i8*)* bitcast (void (%"class.std::ios_base::Init"*)* @_ZNSt8ios_base4InitD1Ev to void (i8*)*), i8* getelementptr inbounds (%"class.std::ios_base::Init", %"class.std::ios_base::Init"* @_ZStL8__ioinit, i64 0, i32 0), i8* nonnull @__dso_handle) #2
+  tail call void @_ZNSt8ios_base4InitC1Ev(ptr nonnull @_ZStL8__ioinit)
+  %0 = tail call i32 @__cxa_atexit(ptr @_ZNSt8ios_base4InitD1Ev, ptr @_ZStL8__ioinit, ptr nonnull @__dso_handle) #2
   ret void
 }
 

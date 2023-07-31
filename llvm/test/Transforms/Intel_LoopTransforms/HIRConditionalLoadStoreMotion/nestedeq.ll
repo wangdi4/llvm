@@ -51,7 +51,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define double @nestedeq([64 x double]* %A, double %what, i1 %which) {
+define double @nestedeq(ptr %A, double %what, i1 %which) {
 
 entry:
   br label %L1
@@ -69,17 +69,17 @@ L2:
 
 then:
   %stval.then = fadd double %what, 1.0
-  %stptr.then = getelementptr inbounds [64 x double], [64 x double]* %A, i64 %i, i64 %j
-  store double %stval.then, double* %stptr.then, align 8
-  %ldptr.then = getelementptr inbounds [64 x double], [64 x double]* %A, i64 %i, i64 %j
-  %ldval.then = load double, double* %ldptr.then, align 8
+  %stptr.then = getelementptr inbounds [64 x double], ptr %A, i64 %i, i64 %j
+  store double %stval.then, ptr %stptr.then, align 8
+  %ldptr.then = getelementptr inbounds [64 x double], ptr %A, i64 %i, i64 %j
+  %ldval.then = load double, ptr %ldptr.then, align 8
   br label %L2.latch
 
 else:
-  %stptr.else = getelementptr inbounds [64 x double], [64 x double]* %A, i64 %i, i64 %j
-  store double %what, double* %stptr.else, align 8
-  %ldptr.else = getelementptr inbounds [64 x double], [64 x double]* %A, i64 %i, i64 %j
-  %ldval.else = load double, double* %ldptr.else, align 8
+  %stptr.else = getelementptr inbounds [64 x double], ptr %A, i64 %i, i64 %j
+  store double %what, ptr %stptr.else, align 8
+  %ldptr.else = getelementptr inbounds [64 x double], ptr %A, i64 %i, i64 %j
+  %ldval.else = load double, ptr %ldptr.else, align 8
   %retval.else = fadd double %ldval.else, 1.0
   br label %L2.latch
 

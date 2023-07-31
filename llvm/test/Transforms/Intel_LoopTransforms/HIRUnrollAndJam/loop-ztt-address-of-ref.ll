@@ -29,10 +29,10 @@ entry:
 
 for.body.lr.ph:                                   ; preds = %entry
   %idxprom = sext i32 %s to i64
-  %arrayidx = getelementptr inbounds [10 x i32], [10 x i32]* @A, i64 0, i64 %idxprom
+  %arrayidx = getelementptr inbounds [10 x i32], ptr @A, i64 0, i64 %idxprom
   %idxprom2 = sext i32 %n to i64
-  %arrayidx3 = getelementptr inbounds [10 x i32], [10 x i32]* @A, i64 0, i64 %idxprom2
-  %cmp430 = icmp ult i32* %arrayidx, %arrayidx3
+  %arrayidx3 = getelementptr inbounds [10 x i32], ptr @A, i64 0, i64 %idxprom2
+  %cmp430 = icmp ult ptr %arrayidx, %arrayidx3
   %cmp728 = icmp slt i32 0, %n
   br label %for.body
 
@@ -44,7 +44,7 @@ for.cond6.preheader.preheader:                    ; preds = %for.body
   br label %for.cond6.preheader
 
 for.cond6.preheader:                              ; preds = %for.cond6.preheader.preheader, %for.inc11
-  %p.031 = phi i32* [ %incdec.ptr, %for.inc11 ], [ %arrayidx, %for.cond6.preheader.preheader ]
+  %p.031 = phi ptr [ %incdec.ptr, %for.inc11 ], [ %arrayidx, %for.cond6.preheader.preheader ]
   br i1 %cmp728, label %for.body8.preheader, label %for.inc11
 
 for.body8.preheader:                              ; preds = %for.cond6.preheader
@@ -63,8 +63,8 @@ for.body8:                                        ; preds = %for.body8.preheader
   %i.029 = phi i32 [ %inc, %for.body8 ], [ 0, %for.body8.preheader ]
   %add = add nuw nsw i32 %i.029, %j.034
   %idxprom9 = zext i32 %add to i64
-  %arrayidx10 = getelementptr inbounds i32, i32* %p.031, i64 %idxprom9
-  store i32 %i.029, i32* %arrayidx10, align 4
+  %arrayidx10 = getelementptr inbounds i32, ptr %p.031, i64 %idxprom9
+  store i32 %i.029, ptr %arrayidx10, align 4
   %inc = add nuw nsw i32 %i.029, 1
   %cmp7 = icmp slt i32 %inc, %n
   br i1 %cmp7, label %for.body8, label %for.inc11.loopexit
@@ -73,9 +73,9 @@ for.inc11.loopexit:                               ; preds = %for.body8
   br label %for.inc11
 
 for.inc11:                                        ; preds = %for.inc11.loopexit, %for.cond6.preheader
-  %p.032 = phi i32* [ %p.031, %for.cond6.preheader ], [ %p.031, %for.inc11.loopexit ]
-  %incdec.ptr = getelementptr inbounds i32, i32* %p.032, i64 1
-  %cmp4 = icmp ult i32* %incdec.ptr, %arrayidx3
+  %p.032 = phi ptr [ %p.031, %for.cond6.preheader ], [ %p.031, %for.inc11.loopexit ]
+  %incdec.ptr = getelementptr inbounds i32, ptr %p.032, i64 1
+  %cmp4 = icmp ult ptr %incdec.ptr, %arrayidx3
   br i1 %cmp4, label %for.cond6.preheader, label %for.cond.cleanup.loopexit
 
 for.end15.loopexit:                               ; preds = %for.cond.cleanup

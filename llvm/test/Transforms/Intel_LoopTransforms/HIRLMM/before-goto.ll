@@ -65,10 +65,10 @@ for.cond:                                         ; preds = %for.body
 for.body:                                         ; preds = %for.body.lr.ph, %for.cond
   %i.02 = phi i32 [ 0, %for.body.lr.ph ], [ %i.0, %for.cond ]
   %0 = zext i32 %i.02 to i64
-  %arrayidx = getelementptr inbounds [1000 x i32], [1000 x i32]* @A, i64 0, i64 %0
-  %1 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [1000 x i32], ptr @A, i64 0, i64 %0
+  %1 = load i32, ptr %arrayidx, align 4
   %add = add nsw i32 %1, 1
-  store i32 %add, i32* getelementptr inbounds ([1000 x i32], [1000 x i32]* @C, i64 0, i64 5), align 4
+  store i32 %add, ptr getelementptr inbounds ([1000 x i32], ptr @C, i64 0, i64 5), align 4
   %cmp3 = icmp sgt i32 %1, 0
   %inc = add nuw nsw i32 %i.02, 1
   br i1 %cmp3, label %for.body.for.end_crit_edge, label %for.cond

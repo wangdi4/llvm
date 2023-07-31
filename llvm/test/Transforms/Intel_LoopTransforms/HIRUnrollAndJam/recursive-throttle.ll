@@ -43,17 +43,17 @@ for.body3:                                        ; preds = %for.inc13, %for.con
   br i1 %cmp4, label %for.cond5.preheader, label %for.inc13
 
 for.cond5.preheader:                              ; preds = %for.body3
-  %arrayidx12 = getelementptr inbounds [100 x [100 x float]], [100 x [100 x float]]* @A, i64 0, i64 %i.035, i64 %j.033
-  %arrayidx12.promoted = load float, float* %arrayidx12, align 4
+  %arrayidx12 = getelementptr inbounds [100 x [100 x float]], ptr @A, i64 0, i64 %i.035, i64 %j.033
+  %arrayidx12.promoted = load float, ptr %arrayidx12, align 4
   br label %for.body7
 
 for.body7:                                        ; preds = %for.body7, %for.cond5.preheader
   %0 = phi float [ %arrayidx12.promoted, %for.cond5.preheader ], [ %add, %for.body7 ]
   %k.032 = phi i64 [ 0, %for.cond5.preheader ], [ %inc, %for.body7 ]
-  %arrayidx8 = getelementptr inbounds [100 x [100 x float]], [100 x [100 x float]]* @B, i64 0, i64 %j.033, i64 %k.032
-  %1 = load float, float* %arrayidx8, align 4
-  %arrayidx10 = getelementptr inbounds [100 x [100 x float]], [100 x [100 x float]]* @C, i64 0, i64 %k.032, i64 %j.033
-  %2 = load float, float* %arrayidx10, align 4
+  %arrayidx8 = getelementptr inbounds [100 x [100 x float]], ptr @B, i64 0, i64 %j.033, i64 %k.032
+  %1 = load float, ptr %arrayidx8, align 4
+  %arrayidx10 = getelementptr inbounds [100 x [100 x float]], ptr @C, i64 0, i64 %k.032, i64 %j.033
+  %2 = load float, ptr %arrayidx10, align 4
   %mul = fmul float %1, %2
   %add = fadd float %0, %mul
   %inc = add nuw nsw i64 %k.032, 1
@@ -62,7 +62,7 @@ for.body7:                                        ; preds = %for.body7, %for.con
 
 for.inc13.loopexit:                               ; preds = %for.body7
   %add.lcssa = phi float [ %add, %for.body7 ]
-  store float %add.lcssa, float* %arrayidx12, align 4
+  store float %add.lcssa, ptr %arrayidx12, align 4
   br label %for.inc13
 
 for.inc13:                                        ; preds = %for.inc13.loopexit, %for.body3

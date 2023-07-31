@@ -48,28 +48,26 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @casts(i64* %A, i64* %B, i1 %which) {
+define void @casts(ptr %A, ptr %B, i1 %which) {
 
 entry:
   br label %L1
 
 L1:
   %i = phi i64 [ 0, %entry ], [ %i.next, %L1.latch ]
-  %Ai = getelementptr inbounds i64, i64* %A, i64 %i
-  %Ai32p = bitcast i64* %Ai to i32*
-  %Adoublep = bitcast i64* %Ai to double*
+  %Ai = getelementptr inbounds i64, ptr %A, i64 %i
   br i1 %which, label %then, label %else
 
 then:
-  %Ai32.then = load i32, i32* %Ai32p, align 8
-  store double 1.0, double* %Adoublep, align 8
-  store i32 %Ai32.then, i32* %Ai32p, align 8
+  %Ai32.then = load i32, ptr %Ai, align 8
+  store double 1.0, ptr %Ai, align 8
+  store i32 %Ai32.then, ptr %Ai, align 8
   br label %L1.latch
 
 else:
-  %Ai32.else = load i32, i32* %Ai32p, align 8
-  store double 2.0, double* %Adoublep, align 8
-  store i32 %Ai32.else, i32* %Ai32p, align 8
+  %Ai32.else = load i32, ptr %Ai, align 8
+  store double 2.0, ptr %Ai, align 8
+  store i32 %Ai32.else, ptr %Ai, align 8
   br label %L1.latch
 
 L1.latch:

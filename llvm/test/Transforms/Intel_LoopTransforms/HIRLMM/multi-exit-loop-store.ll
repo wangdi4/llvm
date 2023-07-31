@@ -129,10 +129,10 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nofree norecurse nounwind uwtable
 define dso_local i32 @main() local_unnamed_addr #0 {
 entry:
-  %0 = load i32, i32* @c, align 4
+  %0 = load i32, ptr @c, align 4
   %tobool = icmp eq i32 %0, 0
-  %1 = load i32, i32* @a, align 4
-  %.pre = load i32, i32* @b, align 4, !tbaa !2
+  %1 = load i32, ptr @a, align 4
+  %.pre = load i32, ptr @b, align 4, !tbaa !2
   br label %for.body
 
 for.body:                                         ; preds = %entry, %if.then
@@ -147,14 +147,14 @@ for.cond2.preheader:                              ; preds = %for.body
   br label %for.cond2
 
 sw.bb:                                            ; preds = %for.body
-  store i32 %e.06, i32* @b, align 4, !tbaa !2
+  store i32 %e.06, ptr @b, align 4, !tbaa !2
   br i1 %tobool, label %cleanup, label %if.then
 
 for.cond2:                                        ; preds = %for.cond2.preheader, %for.cond2
   br label %for.cond2
 
 if.then:                                          ; preds = %sw.bb
-  store i32 %1, i32* @b, align 4, !tbaa !2
+  store i32 %1, ptr @b, align 4, !tbaa !2
   %inc = add nuw nsw i32 %e.06, 1
   %exitcond = icmp eq i32 %inc, 4
   %hir.de.ssa.copy0.in = call i32 @llvm.ssa.copy.i32(i32 %1), !in.de.ssa !6

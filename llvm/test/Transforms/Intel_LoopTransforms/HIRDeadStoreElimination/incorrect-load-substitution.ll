@@ -33,22 +33,22 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* %ptr) {
+define void @foo(ptr %ptr) {
 entry:
   br label %outer
 
 outer:                                       ; preds = %latch, %entry
-  store i32 0, i32* %ptr, align 16
+  store i32 0, ptr %ptr, align 16
   br label %inner
 
 inner:                                       ; preds = %inner, %outer
-  store i32 1, i32* %ptr, align 16
+  store i32 1, ptr %ptr, align 16
   %cmp35.not = icmp ugt i64 1, 0
   br i1 %cmp35.not, label %latch, label %inner
 
 latch:                               ; preds = %inner
-  %ld = load i32, i32* %ptr, align 16
-  store i32 2, i32* %ptr, align 16
+  %ld = load i32, ptr %ptr, align 16
+  store i32 2, ptr %ptr, align 16
   %exitcond424.not = icmp eq i64 0, 0
   br i1 %exitcond424.not, label %exit, label %outer
 

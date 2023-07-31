@@ -29,7 +29,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* noalias nocapture %A, i32* nocapture readonly %G, i32 %N) local_unnamed_addr #0 {
+define void @foo(ptr noalias nocapture %A, ptr nocapture readonly %G, i32 %N) local_unnamed_addr #0 {
 entry:
   %cmp27 = icmp sgt i32 %N, 0
   br i1 %cmp27, label %entry.split.us, label %for.cond.cleanup
@@ -40,16 +40,16 @@ entry.split.us:                                   ; preds = %entry
 
 for.body.us:                                      ; preds = %for.cond1.for.cond.cleanup3_crit_edge.us, %entry.split.us
   %indvars.iv11 = phi i64 [ %indvars.iv.next12, %for.cond1.for.cond.cleanup3_crit_edge.us ], [ 0, %entry.split.us ]
-  %arrayidx.us = getelementptr inbounds i32, i32* %G, i64 %indvars.iv11
-  %0 = load i32, i32* %arrayidx.us, align 4, !tbaa !2
+  %arrayidx.us = getelementptr inbounds i32, ptr %G, i64 %indvars.iv11
+  %0 = load i32, ptr %arrayidx.us, align 4, !tbaa !2
   br label %for.body4.us
 
 for.body4.us:                                     ; preds = %for.body4.us, %for.body.us
   %indvars.iv = phi i64 [ 0, %for.body.us ], [ %indvars.iv.next, %for.body4.us ]
-  %arrayidx6.us = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx6.us, align 4, !tbaa !2
+  %arrayidx6.us = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx6.us, align 4, !tbaa !2
   %add.us = add nsw i32 %1, %0
-  store i32 %add.us, i32* %arrayidx6.us, align 4, !tbaa !2
+  store i32 %add.us, ptr %arrayidx6.us, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.cond1.for.cond.cleanup3_crit_edge.us, label %for.body4.us

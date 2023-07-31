@@ -19,7 +19,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @foo(i32* %B) #0 {
+define dso_local void @foo(ptr %B) #0 {
 entry:
   %A = alloca [100 x double], align 16
   br label %for.body
@@ -30,11 +30,11 @@ for.body:                                         ; preds = %entry, %for.inc
   %conv = sitofp i32 %mul to double
   %add = fadd double %conv, 1.000000e+00
   %idxprom = sext i32 %i.01 to i64
-  %arrayidx = getelementptr inbounds [100 x double], [100 x double]* %A, i64 0, i64 %idxprom
-  store double %add, double* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds [100 x double], ptr %A, i64 0, i64 %idxprom
+  store double %add, ptr %arrayidx, align 8
   %idxprom1 = sext i32 %i.01 to i64
-  %ptridx = getelementptr inbounds i32, i32* %B, i64 %idxprom1
-  store i32 %i.01, i32* %ptridx, align 4
+  %ptridx = getelementptr inbounds i32, ptr %B, i64 %idxprom1
+  store i32 %i.01, ptr %ptridx, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body

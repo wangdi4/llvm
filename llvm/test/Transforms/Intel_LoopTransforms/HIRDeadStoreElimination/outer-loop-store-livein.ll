@@ -44,15 +44,15 @@ outer.preheader:                               ; preds = %entry
 
 outer:                                         ; preds = %outer.preheader, %outer
   %indvars.iv21 = phi i64 [ 0, %outer.preheader ], [ %indvars.iv.next22, %latch ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 0
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 0
   %0 = trunc i64 %indvars.iv21 to i32
-  store i32 %0, i32* %arrayidx, align 4
+  store i32 %0, ptr %arrayidx, align 4
   br label %inner
 
 inner:                                        ; preds = %outer, %inner
   %indvars.iv = phi i64 [ 0, %outer ], [ %indvars.iv.next, %inner ]
-  %arrayidx5 = getelementptr inbounds i32, i32* %A, i64 0
-  %ld = load i32, i32* %arrayidx5, align 4
+  %arrayidx5 = getelementptr inbounds i32, ptr %A, i64 0
+  %ld = load i32, ptr %arrayidx5, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond, label %latch, label %inner

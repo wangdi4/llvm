@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" 2>&1 < %s | FileCheck %s
 ;
 ; Source code
 ; #pragma  prefetch *:1:20
@@ -32,17 +32,17 @@
 ; CHECK-NEXT:           |   if (i1 + 20 <=u zext.i32.i64(%N) + -1)
 ; CHECK-NEXT:           |   {
 ; CHECK-NEXT:           |      %Load = (@M)[0][i1 + 20];
-; CHECK-NEXT:           |      @llvm.prefetch.p0i8(&((i8*)(@C)[0][%Load]),  0,  2,  1);
+; CHECK-NEXT:           |      @llvm.prefetch.p0(&((i8*)(@C)[0][%Load]),  0,  2,  1);
 ; CHECK-NEXT:           |   }
-; CHECK-NEXT:           |   @llvm.prefetch.p0i8(&((i8*)(@B)[0][i1 + 20]),  0,  2,  1);
-; CHECK-NEXT:           |   @llvm.prefetch.p0i8(&((i8*)(@M)[0][i1 + 20]),  0,  2,  1);
-; CHECK-NEXT:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 20]),  0,  2,  1);
+; CHECK-NEXT:           |   @llvm.prefetch.p0(&((i8*)(@B)[0][i1 + 20]),  0,  2,  1);
+; CHECK-NEXT:           |   @llvm.prefetch.p0(&((i8*)(@M)[0][i1 + 20]),  0,  2,  1);
+; CHECK-NEXT:           |   @llvm.prefetch.p0(&((i8*)(@A)[0][i1 + 20]),  0,  2,  1);
 ; CHECK-NEXT:           + END LOOP
 ;
 ; CHECK:                ret undef;
 ; CHECK:          END REGION
 ;
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-opt-report=low -force-hir-cg 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-opt-report=low -force-hir-cg 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT
 ;
 ; OPTREPORT:  LOOP BEGIN
 ; OPTREPORT:     remark #25018: Total number of lines prefetched=4
@@ -68,7 +68,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local i32 @foo(i32 %N) local_unnamed_addr #0 {
 entry:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ENABLE"(i32 1), "QUAL.PRAGMA.VAR"(i8* null), "QUAL.PRAGMA.HINT"(i32 1), "QUAL.PRAGMA.DISTANCE"(i32 20) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ENABLE"(i32 1), "QUAL.PRAGMA.VAR"(ptr null), "QUAL.PRAGMA.HINT"(i32 1), "QUAL.PRAGMA.DISTANCE"(i32 20) ]
   %cmp12 = icmp sgt i32 %N, 0
   br i1 %cmp12, label %for.body.preheader, label %for.end
 
@@ -78,16 +78,16 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [1000 x i32], [1000 x i32]* @B, i64 0, i64 %indvars.iv, !intel-tbaa !3
-  %1 = load i32, i32* %arrayidx, align 4, !tbaa !3
-  %arrayidx2 = getelementptr inbounds [1000 x i32], [1000 x i32]* @M, i64 0, i64 %indvars.iv, !intel-tbaa !3
-  %2 = load i32, i32* %arrayidx2, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds [1000 x i32], ptr @B, i64 0, i64 %indvars.iv, !intel-tbaa !3
+  %1 = load i32, ptr %arrayidx, align 4, !tbaa !3
+  %arrayidx2 = getelementptr inbounds [1000 x i32], ptr @M, i64 0, i64 %indvars.iv, !intel-tbaa !3
+  %2 = load i32, ptr %arrayidx2, align 4, !tbaa !3
   %idxprom3 = sext i32 %2 to i64
-  %arrayidx4 = getelementptr inbounds [1000 x i32], [1000 x i32]* @C, i64 0, i64 %idxprom3, !intel-tbaa !3
-  %3 = load i32, i32* %arrayidx4, align 4, !tbaa !3
+  %arrayidx4 = getelementptr inbounds [1000 x i32], ptr @C, i64 0, i64 %idxprom3, !intel-tbaa !3
+  %3 = load i32, ptr %arrayidx4, align 4, !tbaa !3
   %add = add nsw i32 %3, %1
-  %arrayidx6 = getelementptr inbounds [1000 x i32], [1000 x i32]* @A, i64 0, i64 %indvars.iv, !intel-tbaa !3
-  store i32 %add, i32* %arrayidx6, align 4, !tbaa !3
+  %arrayidx6 = getelementptr inbounds [1000 x i32], ptr @A, i64 0, i64 %indvars.iv, !intel-tbaa !3
+  store i32 %add, ptr %arrayidx6, align 4, !tbaa !3
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count14
   br i1 %exitcond.not, label %for.end.loopexit, label %for.body, !llvm.loop !8

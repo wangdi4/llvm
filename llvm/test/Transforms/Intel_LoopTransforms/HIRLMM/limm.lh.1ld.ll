@@ -98,35 +98,35 @@ entry:
 
 for.cond1.preheader:                              ; preds = %for.inc28, %entry
   %indvars.iv49 = phi i64 [ 0, %entry ], [ %indvars.iv.next50, %for.inc28 ]
-  %arrayidx21 = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %indvars.iv49
+  %arrayidx21 = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %indvars.iv49
   br label %for.body3
 
 for.body3:                                        ; preds = %for.inc, %for.cond1.preheader
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.inc ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @B, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @B, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !1
   switch i32 %0, label %sw.default [
     i32 0, label %sw.bb
     i32 1, label %sw.bb11
   ]
 
 sw.bb:                                            ; preds = %for.body3
-  %1 = load i32, i32* %arrayidx21, align 4, !tbaa !1
+  %1 = load i32, ptr %arrayidx21, align 4, !tbaa !1
   %add8 = add i32 %1, 1
-  store i32 %add8, i32* %arrayidx21, align 4, !tbaa !1
+  store i32 %add8, ptr %arrayidx21, align 4, !tbaa !1
   br label %for.inc
 
 sw.bb11:                                          ; preds = %for.body3
-  %2 = load i32, i32* %arrayidx21, align 4, !tbaa !1
+  %2 = load i32, ptr %arrayidx21, align 4, !tbaa !1
   %add17 = add i32 %2, 3
-  store i32 %add17, i32* %arrayidx21, align 4, !tbaa !1
+  store i32 %add17, ptr %arrayidx21, align 4, !tbaa !1
   br label %for.inc
 
 sw.default:                                       ; preds = %for.body3
-  %3 = load i32, i32* %arrayidx21, align 4, !tbaa !1
+  %3 = load i32, ptr %arrayidx21, align 4, !tbaa !1
   %add24 = add i32 %0, 3
   %add25 = add i32 %add24, %3
-  store i32 %add25, i32* %arrayidx21, align 4, !tbaa !1
+  store i32 %add25, ptr %arrayidx21, align 4, !tbaa !1
   br label %for.inc
 
 for.inc:                                          ; preds = %sw.bb, %sw.bb11, %sw.default
@@ -140,18 +140,18 @@ for.inc28:                                        ; preds = %for.inc
   br i1 %exitcond51, label %for.end30, label %for.cond1.preheader
 
 for.end30:                                        ; preds = %for.inc28
-  %4 = load i32, i32* getelementptr inbounds ([100 x i32], [100 x i32]* @A, i64 0, i64 0), align 16, !tbaa !1
-  %5 = load i32, i32* getelementptr inbounds ([100 x i32], [100 x i32]* @B, i64 0, i64 1), align 4, !tbaa !1
+  %4 = load i32, ptr @A, align 16, !tbaa !1
+  %5 = load i32, ptr getelementptr inbounds ([100 x i32], ptr @B, i64 0, i64 1), align 4, !tbaa !1
   %add31 = add i32 %4, 1
   %add32 = add i32 %add31, %5
   ret i32 %add32
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { norecurse nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

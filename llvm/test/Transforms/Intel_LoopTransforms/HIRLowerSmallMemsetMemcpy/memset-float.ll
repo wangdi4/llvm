@@ -5,7 +5,7 @@
 
 ; HIR before optimization:
 ;            BEGIN REGION { }
-;                  @llvm.memset.p0i8.i64(&((i8*)(%dst)[0]),  0,  20,  0);
+;                  @llvm.memset.p0.i64(&((i8*)(%dst)[0]),  0,  20,  0);
 ;                  ret ;
 ;            END REGION
 
@@ -23,15 +23,15 @@
 define void @foo(){
 entry:
   %dst = alloca %struct1, align 4
-  %bc = bitcast %struct1* %dst to i8*
+  %bc = bitcast ptr %dst to ptr
   br label %bb
 
 bb:
-  call void @llvm.memset.p0i8.i64(i8* noundef nonnull align 4 dereferenceable(20) %bc, i8 0, i64 20, i1 false)
+  call void @llvm.memset.p0.i64(ptr noundef nonnull align 4 dereferenceable(20) %bc, i8 0, i64 20, i1 false)
   ret void
 }
 
-declare void @llvm.memset.p0i8.i64(i8* noalias nocapture writeonly, i8, i64, i1 immarg) #7
+declare void @llvm.memset.p0.i64(ptr noalias nocapture writeonly, i8, i64, i1 immarg) #7
 
 
 attributes #7 = { argmemonly nocallback nofree nounwind willreturn writeonly }

@@ -41,16 +41,16 @@ target triple = "x86_64-unknown-linux-gnu"
 @A = dso_local local_unnamed_addr global [100 x i64] zeroinitializer, align 16
 
 ; Function Attrs: nofree norecurse nounwind uwtable writeonly
-define dso_local void @foo(i64* %n) local_unnamed_addr #0 {
+define dso_local void @foo(ptr %n) local_unnamed_addr #0 {
 entry:
   %bound = alloca i64
   br label %for.outer
 
 for.outer:
   %iv.outer = phi i64 [ 0, %entry ], [ %iv.outer.inc, %latch ]
-  %t = load i64, i64* %n
-  store i64 %t, i64* %bound, align 4
-  %ld = load i64, i64* %bound, align 4
+  %t = load i64, ptr %n
+  store i64 %t, ptr %bound, align 4
+  %ld = load i64, ptr %bound, align 4
   %ztt.cmp = icmp sgt i64 %ld, 0
   br i1 %ztt.cmp, label %for.body.preheader, label %latch
 
@@ -59,8 +59,8 @@ for.body.preheader:                               ; preds = %for.outer
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv21 = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next22, %for.body ]
-  %arrayidx = getelementptr inbounds [100 x i64], [100 x i64]* @A, i64 0, i64 %indvars.iv21
-  store i64 %indvars.iv21, i64* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x i64], ptr @A, i64 0, i64 %indvars.iv21
+  store i64 %indvars.iv21, ptr %arrayidx, align 4
   %indvars.iv.next22 = add nuw nsw i64 %indvars.iv21, 1
   %exitcond24 = icmp eq i64 %indvars.iv.next22, %ld
   br i1 %exitcond24, label %for.exit, label %for.body

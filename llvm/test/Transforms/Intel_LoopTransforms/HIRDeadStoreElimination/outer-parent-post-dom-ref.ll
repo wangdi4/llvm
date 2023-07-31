@@ -30,9 +30,9 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local i32 @foo([10 x i32]* %A, i32 %t1, i32 %t2, i32 %t3) {
+define dso_local i32 @foo(ptr %A, i32 %t1, i32 %t2, i32 %t3) {
 entry:
-  %gep5 = getelementptr inbounds [10 x i32], [10 x i32]* %A, i64 0, i64 5
+  %gep5 = getelementptr inbounds [10 x i32], ptr %A, i64 0, i64 5
   br label %outer.loop
 
 outer.loop:
@@ -41,14 +41,14 @@ outer.loop:
 
 loop:
   %iv = phi i32 [ 0, %outer.loop], [ %iv.inc, %loop]
-  store i32 %t1, i32* %gep5, align 4
-  %ld = load i32, i32* %gep5, align 4
+  store i32 %t1, ptr %gep5, align 4
+  %ld = load i32, ptr %gep5, align 4
   %iv.inc = add i32 %iv, 1
   %cmp = icmp eq i32 %iv.inc, 5
   br i1 %cmp, label %latch, label %loop
 
 latch:
-  store i32 10, i32* %gep5, align 4
+  store i32 10, ptr %gep5, align 4
   %iv.outer.inc = add i32 %iv.outer, 1
   %cmp1 = icmp eq i32 %iv.outer.inc, 5
   br i1 %cmp1, label %exit, label %outer.loop
@@ -59,9 +59,9 @@ exit:
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0(i64, ptr nocapture) #1
 
 attributes #1 = { argmemonly nounwind }

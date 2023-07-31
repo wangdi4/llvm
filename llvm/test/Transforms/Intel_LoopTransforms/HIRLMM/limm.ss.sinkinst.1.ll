@@ -80,20 +80,20 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind uwtable
 define dso_local i32 @g() local_unnamed_addr #0 {
 entry:
-  %.pr = load i32, i32* @e, align 4, !tbaa !2
+  %.pr = load i32, ptr @e, align 4, !tbaa !2
   %tobool15 = icmp eq i32 %.pr, 0
   br i1 %tobool15, label %for.end10, label %for.cond1thread-pre-split.lr.ph
 
 for.cond1thread-pre-split.lr.ph:                  ; preds = %entry
-  %b.promoted = load i32, i32* @b, align 4, !tbaa !2
-  %.pr11.pre = load i32, i32* @c, align 4, !tbaa !2
+  %b.promoted = load i32, ptr @b, align 4, !tbaa !2
+  %.pr11.pre = load i32, ptr @c, align 4, !tbaa !2
   br label %for.cond1thread-pre-split
 
 for.cond1thread-pre-split:                        ; preds = %for.cond1thread-pre-split.lr.ph, %for.end8
   %c.promoted = phi i32 [ %.pr11.pre, %for.cond1thread-pre-split.lr.ph ], [ %c.promoted19, %for.end8 ]
   %.pr11 = phi i32 [ %.pr11.pre, %for.cond1thread-pre-split.lr.ph ], [ %.pr1117, %for.end8 ]
   %inc16 = phi i32 [ %.pr, %for.cond1thread-pre-split.lr.ph ], [ %inc, %for.end8 ]
-  %0 = phi i32 [ %b.promoted, %for.cond1thread-pre-split.lr.ph ], [ ptrtoint ([100 x i32]* @f to i32), %for.end8 ]
+  %0 = phi i32 [ %b.promoted, %for.cond1thread-pre-split.lr.ph ], [ ptrtoint (ptr @f to i32), %for.end8 ]
   %tobool213 = icmp eq i32 %.pr11, 0
   br i1 %tobool213, label %for.end8, label %for.cond4.preheader.lr.ph
 
@@ -108,8 +108,8 @@ for.cond4.preheader:                              ; preds = %for.cond4.preheader
 
 for.body5:                                        ; preds = %for.cond4.preheader, %for.body5
   %indvars.iv = phi i64 [ 2, %for.cond4.preheader ], [ %indvars.iv.next, %for.body5 ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @f, i64 0, i64 %indvars.iv, !intel-tbaa !6
-  store i32 %0, i32* %arrayidx, align 4, !tbaa !6
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @f, i64 0, i64 %indvars.iv, !intel-tbaa !6
+  store i32 %0, ptr %arrayidx, align 4, !tbaa !6
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 3
   %cmp = icmp ult i64 %indvars.iv.next, 10
   br i1 %cmp, label %for.body5, label %for.inc6
@@ -122,8 +122,8 @@ for.inc6:                                         ; preds = %for.body5
 for.cond1.for.end8_crit_edge:                     ; preds = %for.inc6
   %3 = add i32 %c.promoted, 2
   %4 = add i32 %3, %2
-  store i32 11, i32* @d, align 4, !tbaa !2
-  store i32 %4, i32* @c, align 4, !tbaa !2
+  store i32 11, ptr @d, align 4, !tbaa !2
+  store i32 %4, ptr @c, align 4, !tbaa !2
   br label %for.end8
 
 for.end8:                                         ; preds = %for.cond1.for.end8_crit_edge, %for.cond1thread-pre-split
@@ -134,8 +134,8 @@ for.end8:                                         ; preds = %for.cond1.for.end8_
   br i1 %tobool, label %for.cond.for.end10_crit_edge, label %for.cond1thread-pre-split
 
 for.cond.for.end10_crit_edge:                     ; preds = %for.end8
-  store i32 ptrtoint ([100 x i32]* @f to i32), i32* @b, align 4, !tbaa !2
-  store i32 0, i32* @e, align 4, !tbaa !2
+  store i32 ptrtoint (ptr @f to i32), ptr @b, align 4, !tbaa !2
+  store i32 0, ptr @e, align 4, !tbaa !2
   br label %for.end10
 
 for.end10:                                        ; preds = %for.cond.for.end10_crit_edge, %entry

@@ -47,7 +47,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* noalias nocapture %A, i32* noalias nocapture %B, i32 %N) local_unnamed_addr #0 {
+define void @foo(ptr noalias nocapture %A, ptr noalias nocapture %B, i32 %N) local_unnamed_addr #0 {
 entry:
   %cmp14 = icmp sgt i32 %N, 0
   br i1 %cmp14, label %if.then.lr.ph, label %for.cond.cleanup
@@ -67,9 +67,9 @@ if.then:                                          ; preds = %for.cond.cleanup9, 
 
 for.body5:                                        ; preds = %for.body5, %if.then
   %indvars.iv = phi i64 [ 0, %if.then ], [ %indvars.iv.next, %for.body5 ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
   %0 = trunc i64 %indvars.iv to i32
-  store i32 %0, i32* %arrayidx, align 4, !tbaa !2
+  store i32 %0, ptr %arrayidx, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 10
   br i1 %exitcond, label %if.end, label %for.body5
@@ -84,9 +84,9 @@ for.cond.cleanup9:                                ; preds = %for.body10
 
 for.body10:                                       ; preds = %for.body10, %if.end
   %indvars.iv16 = phi i64 [ 0, %if.end ], [ %indvars.iv.next17, %for.body10 ]
-  %arrayidx12 = getelementptr inbounds i32, i32* %B, i64 %indvars.iv16
+  %arrayidx12 = getelementptr inbounds i32, ptr %B, i64 %indvars.iv16
   %1 = trunc i64 %indvars.iv16 to i32
-  store i32 %1, i32* %arrayidx12, align 4, !tbaa !2
+  store i32 %1, ptr %arrayidx12, align 4, !tbaa !2
   %indvars.iv.next17 = add nuw nsw i64 %indvars.iv16, 1
   %exitcond18 = icmp eq i64 %indvars.iv.next17, 10
   br i1 %exitcond18, label %for.cond.cleanup9, label %for.body10

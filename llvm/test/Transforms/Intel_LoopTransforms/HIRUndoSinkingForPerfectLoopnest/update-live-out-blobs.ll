@@ -110,7 +110,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
 define dso_local i32 @main() local_unnamed_addr #0 {
 entry:
-  %.pr = load i32, i32* @b, align 4, !tbaa !2
+  %.pr = load i32, ptr @b, align 4, !tbaa !2
   %tobool.not9 = icmp eq i32 %.pr, 0
   br i1 %tobool.not9, label %for.end7, label %for.cond1.preheader.lr.ph
 
@@ -126,27 +126,27 @@ for.cond1.preheader:                              ; preds = %for.cond1.preheader
 for.body2:                                        ; preds = %for.cond1.preheader, %for.body2
   %indvars.iv = phi i64 [ 12, %for.cond1.preheader ], [ %indvars.iv.next, %for.body2 ]
   %2 = add nsw i64 %1, %indvars.iv
-  %arrayidx = getelementptr inbounds [6864 x i32], [6864 x i32]* @d, i64 0, i64 %2, !intel-tbaa !6
-  %3 = load i32, i32* %arrayidx, align 4, !tbaa !6
+  %arrayidx = getelementptr inbounds [6864 x i32], ptr @d, i64 0, i64 %2, !intel-tbaa !6
+  %3 = load i32, ptr %arrayidx, align 4, !tbaa !6
   %xor = xor i32 %3, 4
-  store i32 %xor, i32* %arrayidx, align 4, !tbaa !6
+  store i32 %xor, ptr %arrayidx, align 4, !tbaa !6
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 64
   br i1 %exitcond.not, label %for.inc5, label %for.body2, !llvm.loop !8
 
 for.inc5:                                         ; preds = %for.body2
   %xor.lcssa = phi i32 [ %xor, %for.body2 ]
-  %arrayidx4 = getelementptr inbounds [92 x i64], [92 x i64]* @c, i64 0, i64 %indvars.iv12, !intel-tbaa !10
+  %arrayidx4 = getelementptr inbounds [92 x i64], ptr @c, i64 0, i64 %indvars.iv12, !intel-tbaa !10
   %conv = sext i32 %xor.lcssa to i64
-  store i64 %conv, i64* %arrayidx4, align 8, !tbaa !10
+  store i64 %conv, ptr %arrayidx4, align 8, !tbaa !10
   %indvars.iv.next13 = add nsw i64 %indvars.iv12, 1
   %4 = trunc i64 %indvars.iv.next13 to i32
   %tobool.not = icmp eq i32 %4, 0
   br i1 %tobool.not, label %for.cond.for.end7_crit_edge, label %for.cond1.preheader, !llvm.loop !13
 
 for.cond.for.end7_crit_edge:                      ; preds = %for.inc5
-  store i32 64, i32* @a, align 4, !tbaa !2
-  store i32 0, i32* @b, align 4, !tbaa !2
+  store i32 64, ptr @a, align 4, !tbaa !2
+  store i32 0, ptr @b, align 4, !tbaa !2
   br label %for.end7
 
 for.end7:                                         ; preds = %for.cond.for.end7_crit_edge, %entry

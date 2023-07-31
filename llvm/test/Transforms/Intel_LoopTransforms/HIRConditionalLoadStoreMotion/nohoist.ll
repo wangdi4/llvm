@@ -56,7 +56,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define double @nohoist(double* %A, double %what, i64 %where, i1 %which) {
+define double @nohoist(ptr %A, double %what, i64 %where, i1 %which) {
 
 entry:
   br label %L1
@@ -68,17 +68,17 @@ L1:
 
 then:
   %stval.then = fadd double %what, 1.0
-  %stptr.then = getelementptr inbounds double, double* %A, i64 %where
-  store double %stval.then, double* %stptr.then, align 8
-  %ldptr.then = getelementptr inbounds double, double* %A, i64 %i
-  %ldval.then = load double, double* %ldptr.then, align 8
+  %stptr.then = getelementptr inbounds double, ptr %A, i64 %where
+  store double %stval.then, ptr %stptr.then, align 8
+  %ldptr.then = getelementptr inbounds double, ptr %A, i64 %i
+  %ldval.then = load double, ptr %ldptr.then, align 8
   br label %L1.latch
 
 else:
-  %stptr.else = getelementptr inbounds double, double* %A, i64 %where
-  store double %what, double* %stptr.else, align 8
-  %ldptr.else = getelementptr inbounds double, double* %A, i64 %i
-  %ldval.else = load double, double* %ldptr.else, align 8
+  %stptr.else = getelementptr inbounds double, ptr %A, i64 %where
+  store double %what, ptr %stptr.else, align 8
+  %ldptr.else = getelementptr inbounds double, ptr %A, i64 %i
+  %ldval.else = load double, ptr %ldptr.else, align 8
   %retval.else = fadd double %ldval.else, 1.0
   br label %L1.latch
 

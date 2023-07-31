@@ -30,9 +30,9 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local i32 @main() {
 entry:
   %ax = alloca [50 x i32], align 16
-  %0 = bitcast [50 x i32]* %ax to i8*
-  call void @llvm.memset.p0i8.i64(i8* nonnull align 16 dereferenceable(200) %0, i8 0, i64 200, i1 false)
-  %arrayidx = getelementptr inbounds [50 x i32], [50 x i32]* %ax, i64 0, i64 2
+  %0 = bitcast ptr %ax to ptr
+  call void @llvm.memset.p0.i64(ptr nonnull align 16 dereferenceable(200) %0, i8 0, i64 200, i1 false)
+  %arrayidx = getelementptr inbounds [50 x i32], ptr %ax, i64 0, i64 2
   br label %for.body
 
 for.body:                                         ; preds = %entry, %if.end
@@ -46,8 +46,8 @@ for.body5.preheader:                              ; preds = %for.body
 for.body5:                                        ; preds = %for.body5.preheader, %for.body5
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body5 ], [ 1, %for.body5.preheader ]
   %1 = add nsw i64 %indvars.iv, -1
-  %arrayidx6 = getelementptr inbounds [50 x i32], [50 x i32]* %ax, i64 0, i64 %1
-  store i32 38, i32* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds [50 x i32], ptr %ax, i64 0, i64 %1
+  store i32 38, ptr %arrayidx6, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 3
   %cmp3 = icmp ult i64 %indvars.iv, 16
   br i1 %cmp3, label %for.body5, label %if.end.loopexit
@@ -56,18 +56,18 @@ if.end.loopexit:                                  ; preds = %for.body5
   br label %if.end
 
 if.end:                                           ; preds = %if.end.loopexit, %for.body
-  %2 = load i32, i32* %arrayidx, align 8
+  %2 = load i32, ptr %arrayidx, align 8
   %sub7 = add i32 %2, -1
-  store i32 %sub7, i32* %arrayidx, align 8
+  store i32 %sub7, ptr %arrayidx, align 8
   %indvars.iv.next42 = add nsw i64 %indvars.iv41, -1
-  %arrayidx10 = getelementptr inbounds [50 x i32], [50 x i32]* %ax, i64 0, i64 %indvars.iv.next42
-  %3 = load i32, i32* %arrayidx10, align 4
-  store i32 %3, i32* %arrayidx, align 8
-  %4 = load i32, i32* %arrayidx10, align 4
-  %arrayidx15 = getelementptr inbounds [50 x i32], [50 x i32]* %ax, i64 0, i64 %indvars.iv41
-  %5 = load i32, i32* %arrayidx15, align 4
+  %arrayidx10 = getelementptr inbounds [50 x i32], ptr %ax, i64 0, i64 %indvars.iv.next42
+  %3 = load i32, ptr %arrayidx10, align 4
+  store i32 %3, ptr %arrayidx, align 8
+  %4 = load i32, ptr %arrayidx10, align 4
+  %arrayidx15 = getelementptr inbounds [50 x i32], ptr %ax, i64 0, i64 %indvars.iv41
+  %5 = load i32, ptr %arrayidx15, align 4
   %mul = mul i32 %4, %5
-  store i32 %mul, i32* %arrayidx15, align 4
+  store i32 %mul, ptr %arrayidx15, align 4
   %cmp16 = icmp eq i64 %indvars.iv41, 3
   %cmp = icmp ugt i64 %indvars.iv41, 2
   br i1 %cmp, label %for.body, label %for.cond.cleanup
@@ -76,5 +76,5 @@ for.cond.cleanup:                                 ; preds = %if.end
   ret i32 0
 }
 
-declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)
+declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i1 immarg)
 

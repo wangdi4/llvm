@@ -52,7 +52,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @window1d(double* %A, double*noalias %B) {
+define void @window1d(ptr %A, ptr noalias %B) {
 
 entry:
   br label %L1
@@ -66,12 +66,12 @@ L2:
   %sum = phi double [ 0.0, %L1 ], [ %sum.next, %L2 ]
   %stridesum = phi double [ 0.0, %L1 ], [ %stridesum.next, %L2 ]
   %ij = add nsw nuw i64 %i, %j
-  %Aijptr = getelementptr inbounds double, double* %A, i64 %ij
-  %Aij = load double, double* %Aijptr, align 8
+  %Aijptr = getelementptr inbounds double, ptr %A, i64 %ij
+  %Aij = load double, ptr %Aijptr, align 8
   %sum.next = fadd fast double %sum, %Aij
   %i2j = add nsw nuw i64 %ij, %j
-  %Ai2jptr = getelementptr inbounds double, double* %A, i64 %i2j
-  %Ai2j = load double, double* %Ai2jptr, align 8
+  %Ai2jptr = getelementptr inbounds double, ptr %A, i64 %i2j
+  %Ai2j = load double, ptr %Ai2jptr, align 8
   %stridesum.next = fadd fast double %stridesum, %Ai2j
   %j.next = add nsw nuw i64 %j, 1
   %cond.L2 = icmp ne i64 %j.next, 8
@@ -81,8 +81,8 @@ L1.latch:
   %sum.final = phi double [ %sum.next, %L2 ]
   %stridesum.final = phi double [ %stridesum.next, %L2 ]
   %fullsum = fadd fast double %sum.final, %stridesum.final
-  %Biptr = getelementptr inbounds double, double* %B, i64 %i
-  store double %fullsum, double* %Biptr, align 8
+  %Biptr = getelementptr inbounds double, ptr %B, i64 %i
+  store double %fullsum, ptr %Biptr, align 8
   %i.next = add nsw nuw i64 %i, 1
   %cond.L1 = icmp ne i64 %i.next, 56
   br i1 %cond.L1, label %L1, label %exit

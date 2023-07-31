@@ -26,7 +26,7 @@
 target datalayout = "e-m:e-p:32:32-p270:32:32-p271:32:32-p272:64:64-f64:32:64-f80:32-n8:16:32-S128"
 target triple = "i386-unknown-linux-gnu"
 
-define void @foo(i32* noalias nocapture %A, i32* noalias nocapture readonly %B) #0 {
+define void @foo(ptr noalias nocapture %A, ptr noalias nocapture readonly %B) #0 {
 entry:
   br label %for.body
 
@@ -36,11 +36,11 @@ for.body:                                         ; preds = %entry, %for.inc
   br i1 %cmp1, label %if.then, label %if.else
 
 if.then:                                          ; preds = %for.body
-  %ptridx = getelementptr inbounds i32, i32* %B, i32 %i.019
-  %0 = load i32, i32* %ptridx, align 4
+  %ptridx = getelementptr inbounds i32, ptr %B, i32 %i.019
+  %0 = load i32, ptr %ptridx, align 4
   %add = add nsw i32 %0, 5
-  %ptridx2 = getelementptr inbounds i32, i32* %A, i32 %i.019
-  store i32 %add, i32* %ptridx2, align 4
+  %ptridx2 = getelementptr inbounds i32, ptr %A, i32 %i.019
+  store i32 %add, ptr %ptridx2, align 4
   br label %for.inc
 
 if.else:                                          ; preds = %for.body
@@ -48,11 +48,11 @@ if.else:                                          ; preds = %for.body
   br i1 %cmp3, label %if.then4, label %for.inc
 
 if.then4:                                         ; preds = %if.else
-  %ptridx5 = getelementptr inbounds i32, i32* %B, i32 %i.019
-  %1 = load i32, i32* %ptridx5, align 4
+  %ptridx5 = getelementptr inbounds i32, ptr %B, i32 %i.019
+  %1 = load i32, ptr %ptridx5, align 4
   %add6 = add nsw i32 %1, 15
-  %ptridx7 = getelementptr inbounds i32, i32* %A, i32 %i.019
-  store i32 %add6, i32* %ptridx7, align 4
+  %ptridx7 = getelementptr inbounds i32, ptr %A, i32 %i.019
+  store i32 %add6, ptr %ptridx7, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %if.then, %if.then4, %if.else

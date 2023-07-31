@@ -18,7 +18,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @foo(i32* nocapture %A, i32 %n) {
+define dso_local void @foo(ptr nocapture %A, i32 %n) {
 entry:
   %cmp16 = icmp sgt i32 %n, 0
   br i1 %cmp16, label %for.cond1.preheader.us.preheader, label %for.end6
@@ -34,10 +34,10 @@ for.cond1.preheader.us:                           ; preds = %for.cond1.for.inc4_
 for.body3.us:                                     ; preds = %for.body3.us, %for.cond1.preheader.us
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader.us ], [ %indvars.iv.next, %for.body3.us ]
   %call.us = tail call i32 @bar(i32 %i.017.us) #2
-  %arrayidx.us = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %ld = load i32, i32* %arrayidx.us, align 4
+  %arrayidx.us = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %ld = load i32, ptr %arrayidx.us, align 4
   %add.us = add nsw i32 %ld, %call.us
-  store i32 %add.us, i32* %arrayidx.us, align 4
+  store i32 %add.us, ptr %arrayidx.us, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.cond1.for.inc4_crit_edge.us, label %for.body3.us

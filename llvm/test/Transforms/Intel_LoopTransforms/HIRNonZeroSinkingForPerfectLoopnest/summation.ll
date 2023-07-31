@@ -43,36 +43,36 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree nounwind uwtable
-define void @dgemm_(double* noalias nocapture readonly %"dgemm_$A", double* noalias nocapture readonly %"dgemm_$B", double* noalias nocapture %"dgemm_$C", double* noalias nocapture readnone %"dgemm_$D") local_unnamed_addr #0 {
+define void @dgemm_(ptr noalias nocapture readonly %"dgemm_$A", ptr noalias nocapture readonly %"dgemm_$B", ptr noalias nocapture %"dgemm_$C", ptr noalias nocapture readnone %"dgemm_$D") local_unnamed_addr #0 {
 alloca_0:
   br label %bb3
 
 bb3:                                              ; preds = %bb8, %alloca_0
   %indvars.iv76 = phi i64 [ %indvars.iv.next77, %bb8 ], [ 1, %alloca_0 ]
-  %"dgemm_$B_entry[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 8000, double* elementtype(double) %"dgemm_$B", i64 %indvars.iv76)
-  %"dgemm_$C_entry[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 8000, double* elementtype(double) %"dgemm_$C", i64 %indvars.iv76)
+  %"dgemm_$B_entry[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 8000, ptr elementtype(double) %"dgemm_$B", i64 %indvars.iv76)
+  %"dgemm_$C_entry[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 8000, ptr elementtype(double) %"dgemm_$C", i64 %indvars.iv76)
   br label %bb7
 
 bb7:                                              ; preds = %bb40_endif, %bb3
   %indvars.iv73 = phi i64 [ %indvars.iv.next74, %bb40_endif ], [ 1, %bb3 ]
-  %"dgemm_$B_entry[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"dgemm_$B_entry[]", i64 %indvars.iv73)
-  %"dgemm_$B_entry[][]_fetch" = load double, double* %"dgemm_$B_entry[][]", align 1
+  %"dgemm_$B_entry[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"dgemm_$B_entry[]", i64 %indvars.iv73)
+  %"dgemm_$B_entry[][]_fetch" = load double, ptr %"dgemm_$B_entry[][]", align 1
   %rel = fcmp fast ueq double %"dgemm_$B_entry[][]_fetch", 0.000000e+00
   br i1 %rel, label %bb40_endif, label %bb21.preheader
 
 bb21.preheader:                                   ; preds = %bb7
-  %"dgemm_$A_entry[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 8000, double* elementtype(double) %"dgemm_$A", i64 %indvars.iv73)
+  %"dgemm_$A_entry[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 8000, ptr elementtype(double) %"dgemm_$A", i64 %indvars.iv73)
   br label %bb21
 
 bb21:                                             ; preds = %bb21, %bb21.preheader
   %indvars.iv = phi i64 [ 1, %bb21.preheader ], [ %indvars.iv.next, %bb21 ]
-  %"dgemm_$C_entry[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"dgemm_$C_entry[]", i64 %indvars.iv)
-  %"dgemm_$C_entry[][]_fetch" = load double, double* %"dgemm_$C_entry[][]", align 1
-  %"dgemm_$A_entry[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"dgemm_$A_entry[]", i64 %indvars.iv)
-  %"dgemm_$A_entry[][]_fetch" = load double, double* %"dgemm_$A_entry[][]", align 1
+  %"dgemm_$C_entry[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"dgemm_$C_entry[]", i64 %indvars.iv)
+  %"dgemm_$C_entry[][]_fetch" = load double, ptr %"dgemm_$C_entry[][]", align 1
+  %"dgemm_$A_entry[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"dgemm_$A_entry[]", i64 %indvars.iv)
+  %"dgemm_$A_entry[][]_fetch" = load double, ptr %"dgemm_$A_entry[][]", align 1
   %mul = fmul fast double %"dgemm_$A_entry[][]_fetch", %"dgemm_$B_entry[][]_fetch"
   %add = fadd fast double %mul, %"dgemm_$C_entry[][]_fetch"
-  store double %add, double* %"dgemm_$C_entry[][]", align 1
+  store double %add, ptr %"dgemm_$C_entry[][]", align 1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1001
   br i1 %exitcond, label %bb40_endif.loopexit, label %bb21
@@ -95,7 +95,7 @@ bb1:                                              ; preds = %bb8
 }
 
 ; Function Attrs: nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
 attributes #0 = { nofree nounwind uwtable "intel-lang"="fortran" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+mpx,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
 attributes #1 = { nounwind readnone speculatable }
