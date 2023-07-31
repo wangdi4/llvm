@@ -20,13 +20,17 @@ class Module;
 
 struct UnpredictableProfileLoaderPass
     : PassInfoMixin<UnpredictableProfileLoaderPass> {
+  UnpredictableProfileLoaderPass(StringRef FrequencyProfileFile);
+  UnpredictableProfileLoaderPass();
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &);
-  std::unique_ptr<SampleProfileReader> Reader;
+  std::unique_ptr<SampleProfileReader> FreqReader, MispReader;
   bool loadSampleProfile(Module &M);
   bool addUpredictableMetadata(Module &F);
   bool addUpredictableMetadata(Function &F);
-  ErrorOr<uint64_t> getUnpredictableHint(const FunctionSamples *TopSamples,
-                                         const Instruction *I);
+  ErrorOr<double> getMispredictRatio(const FunctionSamples *FreqSamples,
+                                     const FunctionSamples *MispSamples,
+                                     const Instruction *I);
+  const std::string FrequencyProfileFile;
 };
 
 } // end namespace llvm

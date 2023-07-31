@@ -1,5 +1,5 @@
-; RUN: opt < %s -passes=unpredictable-profile-loader -unpredictable-hints-file=%S/Inputs/mispredict.prof -unpredictable-hints-min-weight=500 -S | FileCheck %s
-; RUN: opt < %s -passes=unpredictable-profile-loader -unpredictable-hints-file=%S/Inputs/mispredict.prof -unpredictable-hints-min-weight=2000 -S | FileCheck --check-prefixes=MIN %s
+; RUN: opt < %s -passes=unpredictable-profile-loader -unpredictable-hints-file=%S/Inputs/mispredict.prof -unpredictable-hints-frequency-profile=%S/Inputs/frequency.prof -unpredictable-hints-min-ratio=0.1 -S | FileCheck %s
+; RUN: opt < %s -passes=unpredictable-profile-loader -unpredictable-hints-file=%S/Inputs/mispredict.prof -unpredictable-hints-frequency-profile=%S/Inputs/frequency.prof -unpredictable-hints-min-ratio=0.5 -S | FileCheck --check-prefixes=MIN %s
 
 ; CHECK-LABEL: @sel_arr
 ; MIN-LABEL:   @sel_arr
