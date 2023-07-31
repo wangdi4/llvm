@@ -1,7 +1,5 @@
 ; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,print<hir-framework>,hir-dead-store-elimination,print<hir-framework>" 2>&1 < %s | FileCheck %s
 ;
-; RUN: opt -opaque-pointers -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,print<hir-framework>,hir-dead-store-elimination,print<hir-framework>" 2>&1 < %s | FileCheck %s
-;
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-dead-store-elimination" -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
 
 ; C Source Code:
@@ -89,15 +87,15 @@ for.body.lr.ph:                                   ; preds = %entry
 
 for.body3.preheader:                              ; preds = %for.body.lr.ph, %for.end
   %indvars.iv25 = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next26, %for.end ]
-  %arrayidx = getelementptr inbounds [50 x i32], [50 x i32]* @A, i64 0, i64 %indvars.iv25
-  store i32 0, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [50 x i32], ptr @A, i64 0, i64 %indvars.iv25
+  store i32 0, ptr %arrayidx, align 4, !tbaa !2
   br label %for.body3
 
 for.body3:                                        ; preds = %for.body3, %for.body3.preheader
   %indvars.iv = phi i64 [ 0, %for.body3.preheader ], [ %indvars.iv.next, %for.body3 ]
   %t.022 = phi i32 [ 0, %for.body3.preheader ], [ %add, %for.body3 ]
-  %arrayidx5 = getelementptr inbounds [50 x i32], [50 x i32]* @B, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx5, align 4, !tbaa !2
+  %arrayidx5 = getelementptr inbounds [50 x i32], ptr @B, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx5, align 4, !tbaa !2
   %add = add nsw i32 %0, %t.022
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
@@ -105,7 +103,7 @@ for.body3:                                        ; preds = %for.body3, %for.bod
 
 for.end:                                          ; preds = %for.body3
   %add.lcssa = phi i32 [ %add, %for.body3 ]
-  store i32 %add.lcssa, i32* %arrayidx, align 4, !tbaa !2
+  store i32 %add.lcssa, ptr %arrayidx, align 4, !tbaa !2
   %indvars.iv.next26 = add nuw nsw i64 %indvars.iv25, 1
   %exitcond28 = icmp eq i64 %indvars.iv.next26, %wide.trip.count
   br i1 %exitcond28, label %for.end10.loopexit, label %for.body3.preheader
@@ -114,7 +112,7 @@ for.end10.loopexit:                               ; preds = %for.end
   br label %for.end10
 
 for.end10:                                        ; preds = %for.end10.loopexit, %entry
-  %1 = load i32, i32* getelementptr inbounds ([50 x i32], [50 x i32]* @A, i64 0, i64 0), align 16, !tbaa !2
+  %1 = load i32, ptr @A, align 16, !tbaa !2
   ret i32 %1
 }
 

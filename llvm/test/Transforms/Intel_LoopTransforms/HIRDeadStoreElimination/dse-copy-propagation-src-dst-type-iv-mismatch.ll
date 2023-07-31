@@ -34,7 +34,7 @@
 ; CHECK:     + END LOOP
 
 
-define dso_local i32 @foo(i32* nocapture %A, i16 %t) {
+define dso_local i32 @foo(ptr nocapture %A, i16 %t) {
 entry:
   %t1 = sext i16 %t to i32
   br label %for.body
@@ -44,10 +44,10 @@ for.body:                                         ; preds = %entry, %for.body
   %i.01 = phi i16 [ 0, %entry ], [ %inc, %for.body ]
   %add16 = add i16 %i.01, %t
   %sxt = sext i16 %add16 to i32
-  store i32 %sxt, i32* %A, align 4
-  %ld = load i32, i32* %A, align 4
+  store i32 %sxt, ptr %A, align 4
+  %ld = load i32, ptr %A, align 4
   %add = add nuw nsw i32 %t.02, %ld
-  store i32 5, i32* %A, align 4
+  store i32 5, ptr %A, align 4
   %inc = add nuw nsw i16 %i.01, 1
   %cmp = icmp ult i16 %inc, 100
   br i1 %cmp, label %for.body, label %for.end

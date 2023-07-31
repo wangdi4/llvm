@@ -21,22 +21,22 @@ source_filename = "test.f"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%struct.ident_t = type { i32, i32, i32, i32, i8* }
+%struct.ident_t = type { i32, i32, i32, i32, ptr }
 
 @.kmpc_loc.0.0 = external hidden unnamed_addr global %struct.ident_t
 @.kmpc_loc.0.0.13 = external hidden unnamed_addr global %struct.ident_t
 
 ; Function Attrs: nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #0
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #0
 
 ; Function Attrs: nofree nounwind
-declare void @__kmpc_for_static_init_4(%struct.ident_t* nocapture readonly, i32, i32, i32* nocapture, i32* nocapture, i32* nocapture, i32* nocapture, i32, i32) local_unnamed_addr #1
+declare void @__kmpc_for_static_init_4(ptr nocapture readonly, i32, i32, ptr nocapture, ptr nocapture, ptr nocapture, ptr nocapture, i32, i32) local_unnamed_addr #1
 
 ; Function Attrs: nofree nounwind
-declare void @__kmpc_for_static_fini(%struct.ident_t* nocapture readonly, i32) local_unnamed_addr #1
+declare void @__kmpc_for_static_fini(ptr nocapture readonly, i32) local_unnamed_addr #1
 
 ; Function Attrs: nofree nounwind uwtable
-define hidden void @rprj3_.DIR.OMP.PARALLEL.LOOP.2200.split205(i32* nocapture readonly %tid, i32* nocapture readnone %bid, double* noalias nocapture writeonly %"rprj3_$S", i64 %"rprj3_$S.array.elements_fetch.17", double* noalias nocapture readonly %"rprj3_$R", i64 %"rprj3_$R.array.elements_fetch.18", i64 %"rprj3_$D1.0.val", i64 %"rprj3_$M1J.0.val", i64 %"rprj3_$D2.0.val", i64 %"rprj3_$M2J.0.val", i64 %"rprj3_$D3.0.val", i64 %omp.pdo.norm.lb.val.zext, i64 %"var$11.val", i64 %"var$12.val", i64 %"var$15.val", i64 %"var$16.val", i64 %omp.pdo.norm.ub.0.val) #2 {
+define hidden void @rprj3_.DIR.OMP.PARALLEL.LOOP.2200.split205(ptr nocapture readonly %tid, ptr nocapture readnone %bid, ptr noalias nocapture writeonly %"rprj3_$S", i64 %"rprj3_$S.array.elements_fetch.17", ptr noalias nocapture readonly %"rprj3_$R", i64 %"rprj3_$R.array.elements_fetch.18", i64 %"rprj3_$D1.0.val", i64 %"rprj3_$M1J.0.val", i64 %"rprj3_$D2.0.val", i64 %"rprj3_$M2J.0.val", i64 %"rprj3_$D3.0.val", i64 %omp.pdo.norm.lb.val.zext, i64 %"var$11.val", i64 %"var$12.val", i64 %"var$15.val", i64 %"var$16.val", i64 %omp.pdo.norm.ub.0.val) #2 {
 DIR.OMP.PARALLEL.LOOP.2:
   %0 = trunc i64 %"rprj3_$M2J.0.val" to i32
   %1 = trunc i64 %"rprj3_$M1J.0.val" to i32
@@ -50,7 +50,7 @@ DIR.OMP.PARALLEL.LOOP.2:
   %lower.bnd = alloca i32, align 4
   %upper.bnd = alloca i32, align 4
   %stride = alloca i32, align 4
-  store i32 0, i32* %is.last, align 4
+  store i32 0, ptr %is.last, align 4
   %rel.23.not203 = icmp sgt i32 0, %2
   br i1 %rel.23.not203, label %DIR.OMP.END.PARALLEL.LOOP.5.loopexit, label %omp.pdo.body29.lr.ph
 
@@ -61,15 +61,15 @@ omp.pdo.body29:                                   ; preds = %omp.pdo.body29.preh
   %mul.5 = shl nuw nsw i32 %7, 1
   %sub.10 = sub nsw i32 %mul.5, %3
   %int_sext18 = sext i32 %sub.10 to i64
-  %"rprj3_$R[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %"var$12.val", double* elementtype(double) %"rprj3_$R", i64 %int_sext18)
+  %"rprj3_$R[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %"var$12.val", ptr elementtype(double) %"rprj3_$R", i64 %int_sext18)
   %sub.18 = add nsw i32 %sub.10, -1
   %int_sext27 = sext i32 %sub.18 to i64
-  %"rprj3_$R[]28" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %"var$12.val", double* elementtype(double) %"rprj3_$R", i64 %int_sext27)
+  %"rprj3_$R[]28" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %"var$12.val", ptr elementtype(double) %"rprj3_$R", i64 %int_sext27)
   %add.14 = add nsw i32 %sub.10, 1
   %int_sext33 = sext i32 %add.14 to i64
-  %"rprj3_$R[]34" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %"var$12.val", double* elementtype(double) %"rprj3_$R", i64 %int_sext33)
+  %"rprj3_$R[]34" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %"var$12.val", ptr elementtype(double) %"rprj3_$R", i64 %int_sext33)
   %int_sext146 = zext i32 %7 to i64
-  %"rprj3_$S[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %"var$16.val", double* elementtype(double) %"rprj3_$S", i64 %int_sext146)
+  %"rprj3_$S[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %"var$16.val", ptr elementtype(double) %"rprj3_$S", i64 %int_sext146)
   br label %bb7
 
 bb7:                                              ; preds = %bb16, %omp.pdo.body29
@@ -82,17 +82,17 @@ bb7:                                              ; preds = %bb16, %omp.pdo.body
 bb11.preheader:                                   ; preds = %bb7
   %sub.15 = add nsw i32 %sub.12, -1
   %int_sext17 = sext i32 %sub.15 to i64, !llfort.type_idx !1
-  %"rprj3_$R[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %"var$11.val", double* elementtype(double) %"rprj3_$R[]", i64 %int_sext17), !llfort.type_idx !2
+  %"rprj3_$R[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %"var$11.val", ptr elementtype(double) %"rprj3_$R[]", i64 %int_sext17), !llfort.type_idx !2
   %add.11 = add nsw i32 %sub.12, 1
   %int_sext20 = sext i32 %add.11 to i64, !llfort.type_idx !1
-  %"rprj3_$R[][]23" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %"var$11.val", double* elementtype(double) %"rprj3_$R[]", i64 %int_sext20), !llfort.type_idx !3
+  %"rprj3_$R[][]23" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %"var$11.val", ptr elementtype(double) %"rprj3_$R[]", i64 %int_sext20), !llfort.type_idx !3
   %int_sext26 = sext i32 %sub.12 to i64, !llfort.type_idx !1
-  %"rprj3_$R[][]29" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %"var$11.val", double* elementtype(double) %"rprj3_$R[]28", i64 %int_sext26), !llfort.type_idx !4
-  %"rprj3_$R[][]35" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %"var$11.val", double* elementtype(double) %"rprj3_$R[]34", i64 %int_sext26), !llfort.type_idx !5
-  %"rprj3_$R[][]42" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %"var$11.val", double* elementtype(double) %"rprj3_$R[]28", i64 %int_sext17), !llfort.type_idx !6
-  %"rprj3_$R[][]48" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %"var$11.val", double* elementtype(double) %"rprj3_$R[]34", i64 %int_sext17), !llfort.type_idx !7
-  %"rprj3_$R[][]54" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %"var$11.val", double* elementtype(double) %"rprj3_$R[]28", i64 %int_sext20), !llfort.type_idx !8
-  %"rprj3_$R[][]60" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %"var$11.val", double* elementtype(double) %"rprj3_$R[]34", i64 %int_sext20), !llfort.type_idx !9
+  %"rprj3_$R[][]29" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %"var$11.val", ptr elementtype(double) %"rprj3_$R[]28", i64 %int_sext26), !llfort.type_idx !4
+  %"rprj3_$R[][]35" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %"var$11.val", ptr elementtype(double) %"rprj3_$R[]34", i64 %int_sext26), !llfort.type_idx !5
+  %"rprj3_$R[][]42" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %"var$11.val", ptr elementtype(double) %"rprj3_$R[]28", i64 %int_sext17), !llfort.type_idx !6
+  %"rprj3_$R[][]48" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %"var$11.val", ptr elementtype(double) %"rprj3_$R[]34", i64 %int_sext17), !llfort.type_idx !7
+  %"rprj3_$R[][]54" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %"var$11.val", ptr elementtype(double) %"rprj3_$R[]28", i64 %int_sext20), !llfort.type_idx !8
+  %"rprj3_$R[][]60" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %"var$11.val", ptr elementtype(double) %"rprj3_$R[]34", i64 %int_sext20), !llfort.type_idx !9
   br label %bb11
 
 bb11:                                             ; preds = %bb11, %bb11.preheader
@@ -101,32 +101,32 @@ bb11:                                             ; preds = %bb11, %bb11.prehead
   %9 = shl i32 %indvars.iv.tr, 1
   %sub.14 = add i32 %9, %11
   %int_sext16 = sext i32 %sub.14 to i64, !llfort.type_idx !1
-  %"rprj3_$R[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"rprj3_$R[][]", i64 %int_sext16), !llfort.type_idx !10
-  %"rprj3_$R[][][]_fetch.46" = load double, double* %"rprj3_$R[][][]", align 1, !tbaa !11, !alias.scope !16, !noalias !19, !llvm.access.group !61, !llfort.type_idx !10
-  %"rprj3_$R[][][]24" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"rprj3_$R[][]23", i64 %int_sext16), !llfort.type_idx !62
-  %"rprj3_$R[][][]_fetch.53" = load double, double* %"rprj3_$R[][][]24", align 1, !tbaa !11, !alias.scope !63, !noalias !19, !llvm.access.group !61, !llfort.type_idx !62
+  %"rprj3_$R[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"rprj3_$R[][]", i64 %int_sext16), !llfort.type_idx !10
+  %"rprj3_$R[][][]_fetch.46" = load double, ptr %"rprj3_$R[][][]", align 1, !tbaa !11, !alias.scope !16, !noalias !19, !llvm.access.group !61, !llfort.type_idx !10
+  %"rprj3_$R[][][]24" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"rprj3_$R[][]23", i64 %int_sext16), !llfort.type_idx !62
+  %"rprj3_$R[][][]_fetch.53" = load double, ptr %"rprj3_$R[][][]24", align 1, !tbaa !11, !alias.scope !63, !noalias !19, !llvm.access.group !61, !llfort.type_idx !62
   %add.12 = fadd fast double %"rprj3_$R[][][]_fetch.53", %"rprj3_$R[][][]_fetch.46"
-  %"rprj3_$R[][][]30" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"rprj3_$R[][]29", i64 %int_sext16), !llfort.type_idx !65
-  %"rprj3_$R[][][]_fetch.60" = load double, double* %"rprj3_$R[][][]30", align 1, !tbaa !11, !alias.scope !66, !noalias !19, !llvm.access.group !61, !llfort.type_idx !65
+  %"rprj3_$R[][][]30" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"rprj3_$R[][]29", i64 %int_sext16), !llfort.type_idx !65
+  %"rprj3_$R[][][]_fetch.60" = load double, ptr %"rprj3_$R[][][]30", align 1, !tbaa !11, !alias.scope !66, !noalias !19, !llvm.access.group !61, !llfort.type_idx !65
   %add.13 = fadd fast double %add.12, %"rprj3_$R[][][]_fetch.60"
-  %"rprj3_$R[][][]36" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"rprj3_$R[][]35", i64 %int_sext16), !llfort.type_idx !68
-  %"rprj3_$R[][][]_fetch.67" = load double, double* %"rprj3_$R[][][]36", align 1, !tbaa !11, !alias.scope !69, !noalias !19, !llvm.access.group !61, !llfort.type_idx !68
+  %"rprj3_$R[][][]36" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"rprj3_$R[][]35", i64 %int_sext16), !llfort.type_idx !68
+  %"rprj3_$R[][][]_fetch.67" = load double, ptr %"rprj3_$R[][][]36", align 1, !tbaa !11, !alias.scope !69, !noalias !19, !llvm.access.group !61, !llfort.type_idx !68
   %add.15 = fadd fast double %add.13, %"rprj3_$R[][][]_fetch.67"
-  %"rprj3_$X1[]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"(double*)rprj3_$X1$", i64 %int_sext16), !llfort.type_idx !71
-  store double %add.15, double* %"rprj3_$X1[]", align 8, !tbaa !72, !alias.scope !74, !noalias !75, !llvm.access.group !61
-  %"rprj3_$R[][][]43" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"rprj3_$R[][]42", i64 %int_sext16), !llfort.type_idx !111
-  %"rprj3_$R[][][]_fetch.75" = load double, double* %"rprj3_$R[][][]43", align 1, !tbaa !11, !alias.scope !112, !noalias !19, !llvm.access.group !61, !llfort.type_idx !111
-  %"rprj3_$R[][][]49" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"rprj3_$R[][]48", i64 %int_sext16), !llfort.type_idx !113
-  %"rprj3_$R[][][]_fetch.82" = load double, double* %"rprj3_$R[][][]49", align 1, !tbaa !11, !alias.scope !114, !noalias !19, !llvm.access.group !61, !llfort.type_idx !113
+  %"rprj3_$X1[]" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"(ptr)rprj3_$X1$", i64 %int_sext16), !llfort.type_idx !71
+  store double %add.15, ptr %"rprj3_$X1[]", align 8, !tbaa !72, !alias.scope !74, !noalias !75, !llvm.access.group !61
+  %"rprj3_$R[][][]43" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"rprj3_$R[][]42", i64 %int_sext16), !llfort.type_idx !111
+  %"rprj3_$R[][][]_fetch.75" = load double, ptr %"rprj3_$R[][][]43", align 1, !tbaa !11, !alias.scope !112, !noalias !19, !llvm.access.group !61, !llfort.type_idx !111
+  %"rprj3_$R[][][]49" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"rprj3_$R[][]48", i64 %int_sext16), !llfort.type_idx !113
+  %"rprj3_$R[][][]_fetch.82" = load double, ptr %"rprj3_$R[][][]49", align 1, !tbaa !11, !alias.scope !114, !noalias !19, !llvm.access.group !61, !llfort.type_idx !113
   %add.17 = fadd fast double %"rprj3_$R[][][]_fetch.82", %"rprj3_$R[][][]_fetch.75"
-  %"rprj3_$R[][][]55" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"rprj3_$R[][]54", i64 %int_sext16), !llfort.type_idx !115
-  %"rprj3_$R[][][]_fetch.89" = load double, double* %"rprj3_$R[][][]55", align 1, !tbaa !11, !alias.scope !116, !noalias !19, !llvm.access.group !61, !llfort.type_idx !115
+  %"rprj3_$R[][][]55" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"rprj3_$R[][]54", i64 %int_sext16), !llfort.type_idx !115
+  %"rprj3_$R[][][]_fetch.89" = load double, ptr %"rprj3_$R[][][]55", align 1, !tbaa !11, !alias.scope !116, !noalias !19, !llvm.access.group !61, !llfort.type_idx !115
   %add.19 = fadd fast double %add.17, %"rprj3_$R[][][]_fetch.89"
-  %"rprj3_$R[][][]61" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"rprj3_$R[][]60", i64 %int_sext16), !llfort.type_idx !117
-  %"rprj3_$R[][][]_fetch.96" = load double, double* %"rprj3_$R[][][]61", align 1, !tbaa !11, !alias.scope !118, !noalias !19, !llvm.access.group !61, !llfort.type_idx !117
+  %"rprj3_$R[][][]61" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"rprj3_$R[][]60", i64 %int_sext16), !llfort.type_idx !117
+  %"rprj3_$R[][][]_fetch.96" = load double, ptr %"rprj3_$R[][][]61", align 1, !tbaa !11, !alias.scope !118, !noalias !19, !llvm.access.group !61, !llfort.type_idx !117
   %add.22 = fadd fast double %add.19, %"rprj3_$R[][][]_fetch.96"
-  %"rprj3_$Y1[]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"(double*)rprj3_$Y1$", i64 %int_sext16), !llfort.type_idx !119
-  store double %add.22, double* %"rprj3_$Y1[]", align 8, !tbaa !120, !alias.scope !122, !noalias !123, !llvm.access.group !61
+  %"rprj3_$Y1[]" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"(ptr)rprj3_$Y1$", i64 %int_sext16), !llfort.type_idx !119
+  store double %add.22, ptr %"rprj3_$Y1[]", align 8, !tbaa !120, !alias.scope !122, !noalias !123, !llvm.access.group !61
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond.not, label %bb12, label %bb11
@@ -135,16 +135,16 @@ bb12:                                             ; preds = %bb11
   br i1 %rel.27, label %bb16, label %bb15.preheader
 
 bb15.preheader:                                   ; preds = %bb12
-  %"rprj3_$R[][]67" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %"var$11.val", double* nonnull elementtype(double) %"rprj3_$R[]28", i64 %int_sext17), !llfort.type_idx !124
-  %"rprj3_$R[][]73" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %"var$11.val", double* nonnull elementtype(double) %"rprj3_$R[]34", i64 %int_sext17), !llfort.type_idx !125
-  %"rprj3_$R[][]79" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %"var$11.val", double* nonnull elementtype(double) %"rprj3_$R[]28", i64 %int_sext20), !llfort.type_idx !126
-  %"rprj3_$R[][]85" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %"var$11.val", double* nonnull elementtype(double) %"rprj3_$R[]34", i64 %int_sext20), !llfort.type_idx !127
-  %"rprj3_$R[][]91" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %"var$11.val", double* nonnull elementtype(double) %"rprj3_$R[]", i64 %int_sext17), !llfort.type_idx !128
-  %"rprj3_$R[][]97" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %"var$11.val", double* nonnull elementtype(double) %"rprj3_$R[]", i64 %int_sext20), !llfort.type_idx !129
-  %"rprj3_$R[][]103" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %"var$11.val", double* nonnull elementtype(double) %"rprj3_$R[]28", i64 %int_sext26), !llfort.type_idx !130
-  %"rprj3_$R[][]109" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %"var$11.val", double* nonnull elementtype(double) %"rprj3_$R[]34", i64 %int_sext26), !llfort.type_idx !131
-  %"rprj3_$R[][]118" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %"var$11.val", double* nonnull elementtype(double) %"rprj3_$R[]", i64 %int_sext26), !llfort.type_idx !132
-  %"rprj3_$S[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %"var$15.val", double* elementtype(double) %"rprj3_$S[]", i64 %indvars.iv9), !llfort.type_idx !133
+  %"rprj3_$R[][]67" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %"var$11.val", ptr nonnull elementtype(double) %"rprj3_$R[]28", i64 %int_sext17), !llfort.type_idx !124
+  %"rprj3_$R[][]73" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %"var$11.val", ptr nonnull elementtype(double) %"rprj3_$R[]34", i64 %int_sext17), !llfort.type_idx !125
+  %"rprj3_$R[][]79" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %"var$11.val", ptr nonnull elementtype(double) %"rprj3_$R[]28", i64 %int_sext20), !llfort.type_idx !126
+  %"rprj3_$R[][]85" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %"var$11.val", ptr nonnull elementtype(double) %"rprj3_$R[]34", i64 %int_sext20), !llfort.type_idx !127
+  %"rprj3_$R[][]91" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %"var$11.val", ptr nonnull elementtype(double) %"rprj3_$R[]", i64 %int_sext17), !llfort.type_idx !128
+  %"rprj3_$R[][]97" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %"var$11.val", ptr nonnull elementtype(double) %"rprj3_$R[]", i64 %int_sext20), !llfort.type_idx !129
+  %"rprj3_$R[][]103" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %"var$11.val", ptr nonnull elementtype(double) %"rprj3_$R[]28", i64 %int_sext26), !llfort.type_idx !130
+  %"rprj3_$R[][]109" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %"var$11.val", ptr nonnull elementtype(double) %"rprj3_$R[]34", i64 %int_sext26), !llfort.type_idx !131
+  %"rprj3_$R[][]118" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %"var$11.val", ptr nonnull elementtype(double) %"rprj3_$R[]", i64 %int_sext26), !llfort.type_idx !132
+  %"rprj3_$S[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %"var$15.val", ptr elementtype(double) %"rprj3_$S[]", i64 %indvars.iv9), !llfort.type_idx !133
   br label %bb15
 
 bb15:                                             ; preds = %bb15, %bb15.preheader
@@ -153,33 +153,33 @@ bb15:                                             ; preds = %bb15, %bb15.prehead
   %10 = shl i32 %indvars.iv4.tr, 1
   %sub.31 = sub nsw i32 %10, %5
   %int_sext63 = sext i32 %sub.31 to i64, !llfort.type_idx !1
-  %"rprj3_$R[][][]68" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"rprj3_$R[][]67", i64 %int_sext63), !llfort.type_idx !134
-  %"rprj3_$R[][][]_fetch.111" = load double, double* %"rprj3_$R[][][]68", align 1, !tbaa !11, !alias.scope !135, !noalias !19, !llvm.access.group !61, !llfort.type_idx !134
-  %"rprj3_$R[][][]74" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"rprj3_$R[][]73", i64 %int_sext63), !llfort.type_idx !136
-  %"rprj3_$R[][][]_fetch.118" = load double, double* %"rprj3_$R[][][]74", align 1, !tbaa !11, !alias.scope !137, !noalias !19, !llvm.access.group !61, !llfort.type_idx !136
-  %"rprj3_$R[][][]80" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"rprj3_$R[][]79", i64 %int_sext63), !llfort.type_idx !138
-  %"rprj3_$R[][][]_fetch.125" = load double, double* %"rprj3_$R[][][]80", align 1, !tbaa !11, !alias.scope !139, !noalias !19, !llvm.access.group !61, !llfort.type_idx !138
-  %"rprj3_$R[][][]86" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"rprj3_$R[][]85", i64 %int_sext63), !llfort.type_idx !140
-  %"rprj3_$R[][][]_fetch.132" = load double, double* %"rprj3_$R[][][]86", align 1, !tbaa !11, !alias.scope !141, !noalias !19, !llvm.access.group !61, !llfort.type_idx !140
-  %"rprj3_$R[][][]92" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"rprj3_$R[][]91", i64 %int_sext63), !llfort.type_idx !142
-  %"rprj3_$R[][][]_fetch.139" = load double, double* %"rprj3_$R[][][]92", align 1, !tbaa !11, !alias.scope !143, !noalias !19, !llvm.access.group !61, !llfort.type_idx !142
-  %"rprj3_$R[][][]98" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"rprj3_$R[][]97", i64 %int_sext63), !llfort.type_idx !144
-  %"rprj3_$R[][][]_fetch.146" = load double, double* %"rprj3_$R[][][]98", align 1, !tbaa !11, !alias.scope !145, !noalias !19, !llvm.access.group !61, !llfort.type_idx !144
-  %"rprj3_$R[][][]104" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"rprj3_$R[][]103", i64 %int_sext63), !llfort.type_idx !146
-  %"rprj3_$R[][][]_fetch.153" = load double, double* %"rprj3_$R[][][]104", align 1, !tbaa !11, !alias.scope !147, !noalias !19, !llvm.access.group !61, !llfort.type_idx !146
-  %"rprj3_$R[][][]110" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"rprj3_$R[][]109", i64 %int_sext63), !llfort.type_idx !148
-  %"rprj3_$R[][][]_fetch.160" = load double, double* %"rprj3_$R[][][]110", align 1, !tbaa !11, !alias.scope !149, !noalias !19, !llvm.access.group !61, !llfort.type_idx !148
-  %"rprj3_$R[][][]119" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"rprj3_$R[][]118", i64 %int_sext63), !llfort.type_idx !150
-  %"rprj3_$R[][][]_fetch.167" = load double, double* %"rprj3_$R[][][]119", align 1, !tbaa !11, !alias.scope !151, !noalias !19, !llvm.access.group !61, !llfort.type_idx !150
+  %"rprj3_$R[][][]68" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"rprj3_$R[][]67", i64 %int_sext63), !llfort.type_idx !134
+  %"rprj3_$R[][][]_fetch.111" = load double, ptr %"rprj3_$R[][][]68", align 1, !tbaa !11, !alias.scope !135, !noalias !19, !llvm.access.group !61, !llfort.type_idx !134
+  %"rprj3_$R[][][]74" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"rprj3_$R[][]73", i64 %int_sext63), !llfort.type_idx !136
+  %"rprj3_$R[][][]_fetch.118" = load double, ptr %"rprj3_$R[][][]74", align 1, !tbaa !11, !alias.scope !137, !noalias !19, !llvm.access.group !61, !llfort.type_idx !136
+  %"rprj3_$R[][][]80" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"rprj3_$R[][]79", i64 %int_sext63), !llfort.type_idx !138
+  %"rprj3_$R[][][]_fetch.125" = load double, ptr %"rprj3_$R[][][]80", align 1, !tbaa !11, !alias.scope !139, !noalias !19, !llvm.access.group !61, !llfort.type_idx !138
+  %"rprj3_$R[][][]86" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"rprj3_$R[][]85", i64 %int_sext63), !llfort.type_idx !140
+  %"rprj3_$R[][][]_fetch.132" = load double, ptr %"rprj3_$R[][][]86", align 1, !tbaa !11, !alias.scope !141, !noalias !19, !llvm.access.group !61, !llfort.type_idx !140
+  %"rprj3_$R[][][]92" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"rprj3_$R[][]91", i64 %int_sext63), !llfort.type_idx !142
+  %"rprj3_$R[][][]_fetch.139" = load double, ptr %"rprj3_$R[][][]92", align 1, !tbaa !11, !alias.scope !143, !noalias !19, !llvm.access.group !61, !llfort.type_idx !142
+  %"rprj3_$R[][][]98" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"rprj3_$R[][]97", i64 %int_sext63), !llfort.type_idx !144
+  %"rprj3_$R[][][]_fetch.146" = load double, ptr %"rprj3_$R[][][]98", align 1, !tbaa !11, !alias.scope !145, !noalias !19, !llvm.access.group !61, !llfort.type_idx !144
+  %"rprj3_$R[][][]104" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"rprj3_$R[][]103", i64 %int_sext63), !llfort.type_idx !146
+  %"rprj3_$R[][][]_fetch.153" = load double, ptr %"rprj3_$R[][][]104", align 1, !tbaa !11, !alias.scope !147, !noalias !19, !llvm.access.group !61, !llfort.type_idx !146
+  %"rprj3_$R[][][]110" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"rprj3_$R[][]109", i64 %int_sext63), !llfort.type_idx !148
+  %"rprj3_$R[][][]_fetch.160" = load double, ptr %"rprj3_$R[][][]110", align 1, !tbaa !11, !alias.scope !149, !noalias !19, !llvm.access.group !61, !llfort.type_idx !148
+  %"rprj3_$R[][][]119" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"rprj3_$R[][]118", i64 %int_sext63), !llfort.type_idx !150
+  %"rprj3_$R[][][]_fetch.167" = load double, ptr %"rprj3_$R[][][]119", align 1, !tbaa !11, !alias.scope !151, !noalias !19, !llvm.access.group !61, !llfort.type_idx !150
   %mul.13 = fmul fast double %"rprj3_$R[][][]_fetch.167", 5.000000e-01
   %sub.38 = add nsw i32 %sub.31, -1
   %int_sext120 = sext i32 %sub.38 to i64, !llfort.type_idx !1
-  %"rprj3_$R[][][]125" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"rprj3_$R[][]118", i64 %int_sext120), !llfort.type_idx !152
-  %"rprj3_$R[][][]_fetch.174" = load double, double* %"rprj3_$R[][][]125", align 1, !tbaa !11, !alias.scope !153, !noalias !19, !llvm.access.group !61, !llfort.type_idx !152
+  %"rprj3_$R[][][]125" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"rprj3_$R[][]118", i64 %int_sext120), !llfort.type_idx !152
+  %"rprj3_$R[][][]_fetch.174" = load double, ptr %"rprj3_$R[][][]125", align 1, !tbaa !11, !alias.scope !153, !noalias !19, !llvm.access.group !61, !llfort.type_idx !152
   %add.36 = add nsw i32 %sub.31, 1
   %int_sext126 = sext i32 %add.36 to i64, !llfort.type_idx !1
-  %"rprj3_$R[][][]131" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"rprj3_$R[][]118", i64 %int_sext126), !llfort.type_idx !154
-  %"rprj3_$R[][][]_fetch.181" = load double, double* %"rprj3_$R[][][]131", align 1, !tbaa !11, !alias.scope !155, !noalias !19, !llvm.access.group !61, !llfort.type_idx !154
+  %"rprj3_$R[][][]131" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"rprj3_$R[][]118", i64 %int_sext126), !llfort.type_idx !154
+  %"rprj3_$R[][][]_fetch.181" = load double, ptr %"rprj3_$R[][][]131", align 1, !tbaa !11, !alias.scope !155, !noalias !19, !llvm.access.group !61, !llfort.type_idx !154
   %add.37 = fadd fast double %"rprj3_$R[][][]_fetch.146", %"rprj3_$R[][][]_fetch.139"
   %add.32 = fadd fast double %add.37, %"rprj3_$R[][][]_fetch.153"
   %add.33 = fadd fast double %add.32, %"rprj3_$R[][][]_fetch.160"
@@ -187,10 +187,10 @@ bb15:                                             ; preds = %bb15, %bb15.prehead
   %add.38 = fadd fast double %add.35, %"rprj3_$R[][][]_fetch.181"
   %mul.14 = fmul fast double %add.38, 2.500000e-01
   %add.39 = fadd fast double %mul.14, %mul.13
-  %"rprj3_$X1[]134" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"(double*)rprj3_$X1$", i64 %int_sext120), !llfort.type_idx !156
-  %"rprj3_$X1[]_fetch.184" = load double, double* %"rprj3_$X1[]134", align 8, !tbaa !72, !alias.scope !157, !noalias !158, !llvm.access.group !61, !llfort.type_idx !159
-  %"rprj3_$X1[]137" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"(double*)rprj3_$X1$", i64 %int_sext126), !llfort.type_idx !160
-  %"rprj3_$X1[]_fetch.186" = load double, double* %"rprj3_$X1[]137", align 8, !tbaa !72, !alias.scope !161, !noalias !158, !llvm.access.group !61, !llfort.type_idx !162
+  %"rprj3_$X1[]134" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"(ptr)rprj3_$X1$", i64 %int_sext120), !llfort.type_idx !156
+  %"rprj3_$X1[]_fetch.184" = load double, ptr %"rprj3_$X1[]134", align 8, !tbaa !72, !alias.scope !157, !noalias !158, !llvm.access.group !61, !llfort.type_idx !159
+  %"rprj3_$X1[]137" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"(ptr)rprj3_$X1$", i64 %int_sext126), !llfort.type_idx !160
+  %"rprj3_$X1[]_fetch.186" = load double, ptr %"rprj3_$X1[]137", align 8, !tbaa !72, !alias.scope !161, !noalias !158, !llvm.access.group !61, !llfort.type_idx !162
   %add.41 = fadd fast double %"rprj3_$R[][][]_fetch.118", %"rprj3_$R[][][]_fetch.111"
   %add.25 = fadd fast double %add.41, %"rprj3_$R[][][]_fetch.125"
   %add.27 = fadd fast double %add.25, %"rprj3_$R[][][]_fetch.132"
@@ -198,15 +198,15 @@ bb15:                                             ; preds = %bb15, %bb15.prehead
   %add.42 = fadd fast double %add.30, %"rprj3_$X1[]_fetch.186"
   %mul.15 = fmul fast double %add.42, 1.250000e-01
   %add.43 = fadd fast double %add.39, %mul.15
-  %"rprj3_$Y1[]140" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"(double*)rprj3_$Y1$", i64 %int_sext120), !llfort.type_idx !163
-  %"rprj3_$Y1[]_fetch.189" = load double, double* %"rprj3_$Y1[]140", align 8, !tbaa !120, !alias.scope !164, !noalias !165, !llvm.access.group !61, !llfort.type_idx !166
-  %"rprj3_$Y1[]143" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"(double*)rprj3_$Y1$", i64 %int_sext126), !llfort.type_idx !167
-  %"rprj3_$Y1[]_fetch.191" = load double, double* %"rprj3_$Y1[]143", align 8, !tbaa !120, !alias.scope !168, !noalias !165, !llvm.access.group !61, !llfort.type_idx !169
+  %"rprj3_$Y1[]140" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"(ptr)rprj3_$Y1$", i64 %int_sext120), !llfort.type_idx !163
+  %"rprj3_$Y1[]_fetch.189" = load double, ptr %"rprj3_$Y1[]140", align 8, !tbaa !120, !alias.scope !164, !noalias !165, !llvm.access.group !61, !llfort.type_idx !166
+  %"rprj3_$Y1[]143" = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"(ptr)rprj3_$Y1$", i64 %int_sext126), !llfort.type_idx !167
+  %"rprj3_$Y1[]_fetch.191" = load double, ptr %"rprj3_$Y1[]143", align 8, !tbaa !120, !alias.scope !168, !noalias !165, !llvm.access.group !61, !llfort.type_idx !169
   %add.45 = fadd fast double %"rprj3_$Y1[]_fetch.191", %"rprj3_$Y1[]_fetch.189"
   %mul.16 = fmul fast double %add.45, 6.250000e-02
   %add.46 = fadd fast double %add.43, %mul.16
-  %"rprj3_$S[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"rprj3_$S[][]", i64 %indvars.iv4), !llfort.type_idx !170
-  store double %add.46, double* %"rprj3_$S[][][]", align 1, !tbaa !171, !alias.scope !173, !noalias !174, !llvm.access.group !61
+  %"rprj3_$S[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %"rprj3_$S[][]", i64 %indvars.iv4), !llfort.type_idx !170
+  store double %add.46, ptr %"rprj3_$S[][][]", align 1, !tbaa !171, !alias.scope !173, !noalias !174, !llvm.access.group !61
   %indvars.iv.next5 = add nuw nsw i64 %indvars.iv4, 1
   %exitcond8.not = icmp eq i64 %indvars.iv.next5, %wide.trip.count7
   br i1 %exitcond8.not, label %bb16.loopexit, label %bb15
@@ -225,13 +225,13 @@ bb8.loopexit:                                     ; preds = %bb16
   br i1 %exitcond18, label %loop.region.exit.loopexit, label %omp.pdo.body29, !llvm.loop !175
 
 omp.pdo.body29.lr.ph:                             ; preds = %DIR.OMP.PARALLEL.LOOP.2
-  %my.tid = load i32, i32* %tid, align 4
-  store i32 0, i32* %lower.bnd, align 4
-  store i32 %2, i32* %upper.bnd, align 4
-  store i32 1, i32* %stride, align 4
-  call void @__kmpc_for_static_init_4(%struct.ident_t* nonnull @.kmpc_loc.0.0, i32 %my.tid, i32 34, i32* nonnull %is.last, i32* nonnull %lower.bnd, i32* nonnull %upper.bnd, i32* nonnull %stride, i32 1, i32 1)
-  %lb.new = load i32, i32* %lower.bnd, align 4, !range !182
-  %ub.new = load i32, i32* %upper.bnd, align 4, !range !182
+  %my.tid = load i32, ptr %tid, align 4
+  store i32 0, ptr %lower.bnd, align 4
+  store i32 %2, ptr %upper.bnd, align 4
+  store i32 1, ptr %stride, align 4
+  call void @__kmpc_for_static_init_4(ptr nonnull @.kmpc_loc.0.0, i32 %my.tid, i32 34, ptr nonnull %is.last, ptr nonnull %lower.bnd, ptr nonnull %upper.bnd, ptr nonnull %stride, i32 1, i32 1)
+  %lb.new = load i32, ptr %lower.bnd, align 4, !range !182
+  %ub.new = load i32, ptr %upper.bnd, align 4, !range !182
   %omp.ztt.not = icmp ugt i32 %lb.new, %ub.new
   br i1 %omp.ztt.not, label %loop.region.exit, label %omp.pdo.body29.preheader
 
@@ -240,8 +240,8 @@ omp.pdo.body29.preheader:                         ; preds = %omp.pdo.body29.lr.p
   %rel.25 = icmp slt i32 %1, 2
   %rel.27 = icmp slt i32 %1, 3
   %11 = xor i32 %5, -1
-  %"(double*)rprj3_$X1$" = getelementptr inbounds [4099 x double], [4099 x double]* %"rprj3_$X1.priv", i64 0, i64 0
-  %"(double*)rprj3_$Y1$" = getelementptr inbounds [4099 x double], [4099 x double]* %"rprj3_$Y1.priv", i64 0, i64 0
+  %"(ptr)rprj3_$X1$" = getelementptr inbounds [4099 x double], ptr %"rprj3_$X1.priv", i64 0, i64 0
+  %"(ptr)rprj3_$Y1$" = getelementptr inbounds [4099 x double], ptr %"rprj3_$Y1.priv", i64 0, i64 0
   br i1 %rel.24, label %loop.region.exit, label %omp.pdo.body29.preheader1
 
 omp.pdo.body29.preheader1:                        ; preds = %omp.pdo.body29.preheader
@@ -258,7 +258,7 @@ loop.region.exit.loopexit:                        ; preds = %bb8.loopexit
   br label %loop.region.exit
 
 loop.region.exit:                                 ; preds = %loop.region.exit.loopexit, %omp.pdo.body29.preheader, %omp.pdo.body29.lr.ph
-  tail call void @__kmpc_for_static_fini(%struct.ident_t* nonnull @.kmpc_loc.0.0.13, i32 %my.tid)
+  tail call void @__kmpc_for_static_fini(ptr nonnull @.kmpc_loc.0.0.13, i32 %my.tid)
   br label %DIR.OMP.END.PARALLEL.LOOP.5.loopexit
 
 DIR.OMP.END.PARALLEL.LOOP.5.loopexit:             ; preds = %loop.region.exit, %DIR.OMP.PARALLEL.LOOP.2

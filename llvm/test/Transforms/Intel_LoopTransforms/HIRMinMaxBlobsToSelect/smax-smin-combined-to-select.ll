@@ -155,7 +155,7 @@
 @mapped = dso_local local_unnamed_addr global [1000 x i32] zeroinitializer
 
 
-define dso_local noundef i32 @_Z17do_upper_or_lowerPfPiS0_i(float* nocapture noundef %res, i32* nocapture noundef %maxchar, i32* nocapture noundef %minchar, i32 noundef %n_res) {
+define dso_local noundef i32 @_Z17do_upper_or_lowerPfPiS0_i(ptr nocapture noundef %res, ptr nocapture noundef %maxchar, ptr nocapture noundef %minchar, i32 noundef %n_res) {
 entry:
   %cmp18 = icmp sgt i32 %n_res, 0
   br i1 %cmp18, label %for.body.preheader, label %for.cond.cleanup
@@ -173,22 +173,22 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [1000 x i32], [1000 x i32]* @mapped, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %maxchar
-  %1 = load i32, i32* %arrayidx
+  %arrayidx = getelementptr inbounds [1000 x i32], ptr @mapped, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %maxchar
+  %1 = load i32, ptr %arrayidx
   %cmp.i = icmp slt i32 %0, %1
   %2 = select i1 %cmp.i, i32 %1, i32 %0
-  store i32 %2, i32* %maxchar
-  %3 = load i32, i32* %arrayidx
-  %4 = load i32, i32* %minchar
+  store i32 %2, ptr %maxchar
+  %3 = load i32, ptr %arrayidx
+  %4 = load i32, ptr %minchar
   %cmp.i16 = icmp slt i32 %3, %4
   %5 = select i1 %cmp.i16, i32 %3, i32 %4
-  store i32 %5, i32* %minchar
+  store i32 %5, ptr %minchar
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx5 = getelementptr inbounds float, float* %res, i64 %indvars.iv
-  %6 = load float, float* %arrayidx5
+  %arrayidx5 = getelementptr inbounds float, ptr %res, i64 %indvars.iv
+  %6 = load float, ptr %arrayidx5
   %conv6 = fadd fast float %6, 1.000000e+00
-  store float %conv6, float* %arrayidx5
+  store float %conv6, ptr %arrayidx5
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body
 }

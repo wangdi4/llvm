@@ -52,7 +52,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @window1d(double* %A, double* %B, double*noalias %C) {
+define void @window1d(ptr %A, ptr %B, ptr noalias %C) {
 
 entry:
   br label %L1
@@ -66,11 +66,11 @@ L2:
   %Asum = phi double [ 0.0, %L1 ], [ %Asum.next, %L2 ]
   %Bsum = phi double [ 0.0, %L1 ], [ %Bsum.next, %L2 ]
   %ij = add nsw nuw i64 %i, %j
-  %Aijptr = getelementptr inbounds double, double* %A, i64 %ij
-  %Aij = load double, double* %Aijptr, align 8
+  %Aijptr = getelementptr inbounds double, ptr %A, i64 %ij
+  %Aij = load double, ptr %Aijptr, align 8
   %Asum.next = fadd fast double %Asum, %Aij
-  %Bijptr = getelementptr inbounds double, double* %B, i64 %ij
-  %Bij = load double, double* %Bijptr, align 8
+  %Bijptr = getelementptr inbounds double, ptr %B, i64 %ij
+  %Bij = load double, ptr %Bijptr, align 8
   %Bsum.next = fsub fast double %Bsum, %Bij
   %j.next = add nsw nuw i64 %j, 1
   %cond.L2 = icmp ne i64 %j.next, 8
@@ -80,8 +80,8 @@ L1.latch:
   %Asum.final = phi double [ %Asum.next, %L2 ]
   %Bsum.final = phi double [ %Bsum.next, %L2 ]
   %prod = fmul fast double %Asum.final, %Bsum.final
-  %Ciptr = getelementptr inbounds double, double* %C, i64 %i
-  store double %prod, double* %Ciptr, align 8
+  %Ciptr = getelementptr inbounds double, ptr %C, i64 %i
+  store double %prod, ptr %Ciptr, align 8
   %i.next = add nsw nuw i64 %i, 1
   %cond.L1 = icmp ne i64 %i.next, 56
   br i1 %cond.L1, label %L1, label %exit

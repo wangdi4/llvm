@@ -35,8 +35,8 @@ entry:
 for.body:                                         ; preds = %entry, %for.inc
   %i.01 = phi i32 [ 0, %entry ], [ %inc, %for.inc ]
   %idxprom = sext i32 %i.01 to i64
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %idxprom
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %idxprom
+  %0 = load i32, ptr %arrayidx, align 4
   switch i32 %0, label %sw.default [
     i32 1, label %sw.bb
     i32 2, label %sw.bb1
@@ -53,8 +53,8 @@ sw.default:                                       ; preds = %for.body
 
 sw.epilog:                                        ; preds = %sw.bb1, %sw.bb
   %idxprom2 = sext i32 %i.01 to i64
-  %arrayidx3 = getelementptr inbounds [100 x i32], [100 x i32]* @B, i64 0, i64 %idxprom2
-  store i32 0, i32* %arrayidx3, align 4
+  %arrayidx3 = getelementptr inbounds [100 x i32], ptr @B, i64 0, i64 %idxprom2
+  store i32 0, ptr %arrayidx3, align 4
   br label %L
 
 L:                                                ; preds = %sw.epilog, %sw.default

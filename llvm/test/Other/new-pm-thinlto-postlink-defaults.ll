@@ -50,7 +50,6 @@
 ; CHECK-POSTLINK-O-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-POSTLINK-O-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
 ; INTEL_CUSTOMIZATION
-; CHECK-O-NEXT: Running pass: UnpredictableProfileLoaderPass
 ; CHECK-O-NEXT: Running pass: AggressiveSpeculationPass
 ; CHECK-O-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-O-NEXT: Running analysis: TargetIRAnalysis

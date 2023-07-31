@@ -22,18 +22,18 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local i32 @foo(i32 %t) {
 entry:
   %A = alloca [10 x i32], align 16
-  %A0 = getelementptr inbounds [10 x i32], [10 x i32]* %A, i64 0, i64 0
-  %subs1 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull elementtype(i32) %A0, i64 2)
-  %subs2 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 20, i32* nonnull elementtype(i32) %subs1, i64 1)
+  %A0 = getelementptr inbounds [10 x i32], ptr %A, i64 0, i64 0
+  %subs1 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(i32) %A0, i64 2)
+  %subs2 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 20, ptr nonnull elementtype(i32) %subs1, i64 1)
   br label %bb
 
 bb:
-  store i32 10, i32* %subs2, align 4
-  %ld = load i32, i32* %subs2, align 4
+  store i32 10, ptr %subs2, align 4
+  %ld = load i32, ptr %subs2, align 4
   ret i32 %ld
 }
 
 ; Function Attrs: nounwind readnone speculatable
-declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i64) #0
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #0
 
 attributes #0 = { nounwind readnone speculatable }

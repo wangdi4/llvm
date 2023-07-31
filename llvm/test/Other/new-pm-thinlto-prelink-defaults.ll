@@ -87,7 +87,6 @@
 ; CHECK-O-NEXT: Running pass: EarlyCSEPass
 ; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-O3-NEXT: Running pass: CallSiteSplittingPass
-; CHECK-O-NEXT: Running pass: UnpredictableProfileLoaderPass ;INTEL
 ; CHECK-O-NEXT: Running pass: AggressiveSpeculationPass on foo ;INTEL
 ; CHECK-O-NEXT: Running pass: OpenMPOptPass
 ; CHECK-O3-NEXT: Running pass: RecursiveFunctionMemoizePass ;INTEL

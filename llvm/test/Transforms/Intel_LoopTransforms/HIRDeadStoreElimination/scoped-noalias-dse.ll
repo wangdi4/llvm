@@ -47,25 +47,25 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define dso_local i32 @main() {
 entry:
-  %call = tail call double* (...) @oops()
+  %call = tail call ptr (...) @oops()
   br label %for.body.i
 
 for.body.i:                                       ; preds = %for.body.i, %entry
   %indvars.iv.i = phi i64 [ 0, %entry ], [ %indvars.iv.next.i, %for.body.i ]
-  %arrayidx.i = getelementptr inbounds [100 x double], [100 x double]* @b, i64 0, i64 %indvars.iv.i, !intel-tbaa !2
-  %t1 = load double, double* %arrayidx.i, align 8, !tbaa !2
+  %arrayidx.i = getelementptr inbounds [100 x double], ptr @b, i64 0, i64 %indvars.iv.i, !intel-tbaa !2
+  %t1 = load double, ptr %arrayidx.i, align 8, !tbaa !2
   %add.i = fadd fast double %t1, 2.000000e+00
-  store double %add.i, double* %arrayidx.i, align 8, !tbaa !2
-  %ptridx.i = getelementptr inbounds double, double* %call, i64 %indvars.iv.i
-  %t2 = load double, double* %ptridx.i, align 8, !tbaa !9
+  store double %add.i, ptr %arrayidx.i, align 8, !tbaa !2
+  %ptridx.i = getelementptr inbounds double, ptr %call, i64 %indvars.iv.i
+  %t2 = load double, ptr %ptridx.i, align 8, !tbaa !9
   %add6.i = fadd fast double %t2, %add.i
-  store double %add6.i, double* %arrayidx.i, align 8, !tbaa !2
+  store double %add6.i, ptr %arrayidx.i, align 8, !tbaa !2
   %indvars.iv.next.i = add nuw nsw i64 %indvars.iv.i, 1
   %exitcond.not.i = icmp eq i64 %indvars.iv.next.i, 30
   br i1 %exitcond.not.i, label %foo.exit, label %for.body.i, !llvm.loop !10
 
 foo.exit:                                         ; preds = %for.body.i
-  %t3 = load double, double* getelementptr inbounds ([100 x double], [100 x double]* @b, i64 0, i64 0), align 16, !tbaa !2
+  %t3 = load double, ptr @b, align 16, !tbaa !2
   %sub = fadd fast double %t3, -4.000000e+00
   %cmp1 = fcmp fast ogt double %sub, 1.000000e-04
   %sub3 = fsub fast double 4.000000e+00, %t3
@@ -74,20 +74,20 @@ foo.exit:                                         ; preds = %for.body.i
   br i1 %or.cond, label %if.then, label %if.else
 
 if.then:                                          ; preds = %foo.exit
-  %puts15 = tail call i32 @puts(i8* nonnull dereferenceable(1) getelementptr inbounds ([12 x i8], [12 x i8]* @str.2, i64 0, i64 0))
+  %puts15 = tail call i32 @puts(ptr nonnull dereferenceable(1) @str.2)
   br label %if.end
 
 if.else:                                          ; preds = %foo.exit
-  %puts = tail call i32 @puts(i8* nonnull dereferenceable(1) getelementptr inbounds ([12 x i8], [12 x i8]* @str, i64 0, i64 0))
+  %puts = tail call i32 @puts(ptr nonnull dereferenceable(1) @str)
   br label %if.end
 
 if.end:                                           ; preds = %if.else, %if.then
   ret i32 0
 }
 
-declare dso_local double* @oops(...)
+declare dso_local ptr @oops(...)
 
-declare noundef i32 @puts(i8* nocapture noundef readonly)
+declare noundef i32 @puts(ptr nocapture noundef readonly)
 
 !llvm.module.flags = !{!0}
 !llvm.ident = !{!1}

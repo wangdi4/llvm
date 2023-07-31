@@ -23,7 +23,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %struct.A = type { i32, i32 }
 
-define dso_local void @foo(%struct.A* nocapture %a, i32 %n) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture %a, i32 %n) local_unnamed_addr #0 {
 entry:
   %cmp8 = icmp sgt i32 %n, 0
   br i1 %cmp8, label %for.body.preheader, label %for.cond.cleanup
@@ -42,8 +42,8 @@ for.body:                                         ; preds = %for.body, %for.body
   %t1 = add nsw i32 %indvars.iv, %n
   %t2 = zext i32 %t1 to i64
   %add1 = add nsw i64 %t2, 1
-  %x = getelementptr inbounds %struct.A, %struct.A* %a, i64 %add1, i32 0
-  store i32 %indvars.iv, i32* %x, align 4
+  %x = getelementptr inbounds %struct.A, ptr %a, i64 %add1, i32 0
+  store i32 %indvars.iv, ptr %x, align 4
   %indvars.iv.next = add nuw nsw i32 %indvars.iv, 1
   %exitcond = icmp eq i32 %indvars.iv.next, %n
   br i1 %exitcond, label %for.cond.cleanup.loopexit, label %for.body

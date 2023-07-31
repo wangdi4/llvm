@@ -24,7 +24,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @A = dso_local local_unnamed_addr global [1000 x [7 x float]] zeroinitializer, align 16
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind uwtable
-define dso_local noundef i32 @_Z3sublPf(i64 noundef %N, float* nocapture noundef %M) local_unnamed_addr {
+define dso_local noundef i32 @_Z3sublPf(i64 noundef %N, ptr nocapture noundef %M) local_unnamed_addr {
 entry:
   %mul = shl nsw i64 %N, 1
   %cmp220 = icmp sgt i64 %mul, 0
@@ -39,12 +39,12 @@ for.body3.preheader:                              ; preds = %for.cond1.preheader
 
 for.body3:                                        ; preds = %for.body3.preheader, %for.body3
   %k.021 = phi i64 [ %inc, %for.body3 ], [ 0, %for.body3.preheader ]
-  %arrayidx4 = getelementptr inbounds [1000 x [7 x float]], [1000 x [7 x float]]* @A, i64 0, i64 %i.022, i64 %k.021
-  %0 = load float, float* %arrayidx4, align 4
-  %arrayidx5 = getelementptr inbounds float, float* %M, i64 %k.021
-  %1 = load float, float* %arrayidx5, align 4
+  %arrayidx4 = getelementptr inbounds [1000 x [7 x float]], ptr @A, i64 0, i64 %i.022, i64 %k.021
+  %0 = load float, ptr %arrayidx4, align 4
+  %arrayidx5 = getelementptr inbounds float, ptr %M, i64 %k.021
+  %1 = load float, ptr %arrayidx5, align 4
   %sub = fsub fast float %1, %0
-  store float %sub, float* %arrayidx5, align 4
+  store float %sub, ptr %arrayidx5, align 4
   %inc = add nuw nsw i64 %k.021, 1
   %exitcond.not = icmp eq i64 %inc, %mul
   br i1 %exitcond.not, label %for.inc6.loopexit, label %for.body3
@@ -58,8 +58,8 @@ for.inc6:                                         ; preds = %for.inc6.loopexit, 
   br i1 %exitcond24.not, label %for.end8, label %for.cond1.preheader
 
 for.end8:                                         ; preds = %for.inc6
-  %arrayidx9 = getelementptr inbounds float, float* %M, i64 %N
-  %2 = load float, float* %arrayidx9, align 4
+  %arrayidx9 = getelementptr inbounds float, ptr %M, i64 %N
+  %2 = load float, ptr %arrayidx9, align 4
   %conv = fptosi float %2 to i32
   ret i32 %conv
 }

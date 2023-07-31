@@ -85,7 +85,7 @@
 
 @mapped = dso_local global [1000 x i32] zeroinitializer, align 16
 
-define dso_local noundef i32 @_Z17do_upper_or_lowerPfPii(float* nocapture noundef %res, i32* nocapture noundef %maxchar, i32 noundef %n_res) {
+define dso_local noundef i32 @_Z17do_upper_or_lowerPfPii(ptr nocapture noundef %res, ptr nocapture noundef %maxchar, i32 noundef %n_res) {
 entry:
   %cmp11 = icmp sgt i32 %n_res, 0
   br i1 %cmp11, label %for.body.preheader, label %for.cond.cleanup
@@ -103,15 +103,15 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [1000 x i32], [1000 x i32]* @mapped, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %maxchar, align 4
+  %arrayidx = getelementptr inbounds [1000 x i32], ptr @mapped, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %maxchar, align 4
   %1 = tail call i32 @llvm.smax.i32(i32 %0, i32 5)
-  store i32 %1, i32* %maxchar, align 4
+  store i32 %1, ptr %maxchar, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx2 = getelementptr inbounds float, float* %res, i64 %indvars.iv
-  %2 = load float, float* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds float, ptr %res, i64 %indvars.iv
+  %2 = load float, ptr %arrayidx2, align 4
   %conv3 = fadd fast float %2, 1.000000e+00
-  store float %conv3, float* %arrayidx2, align 4
+  store float %conv3, ptr %arrayidx2, align 4
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond.not, label %for.cond.cleanup.loopexit, label %for.body
 }

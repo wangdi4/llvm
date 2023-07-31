@@ -1807,8 +1807,10 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 
 #if INTEL_CUSTOMIZATION
   // This should run before AggressiveSpeculation so that the expected IR
-  // annotations are present.
-  MPM.addPass(UnpredictableProfileLoaderPass());
+  // annotations are present. It re-uses the PGOOpt execution frequency
+  // profile to reason about mispredict ratios.
+  if (LoadSampleProfile)
+    MPM.addPass(UnpredictableProfileLoaderPass(PGOOpt->ProfileFile));
   // This may be able to merge call sites, so do it before any inlining which
   // may happen in SampleProfileLoader.
   MPM.addPass(createModuleToFunctionPassAdaptor(AggressiveSpeculationPass()));

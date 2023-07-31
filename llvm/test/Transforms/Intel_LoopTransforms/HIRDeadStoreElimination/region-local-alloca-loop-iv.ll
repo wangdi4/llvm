@@ -31,11 +31,11 @@ entry:
 loop:
   %iv = phi i64 [ 0, %entry], [ %iv.inc, %loop]
   %iv.inc = add i64 %iv, 1
-  %gep = getelementptr inbounds [10 x i32], [10 x i32]* %A, i64 0, i64 %iv
-  %gep1 = getelementptr inbounds [10 x i32], [10 x i32]* %A, i64 0, i64 %iv.inc
-  store i32 %t, i32* %gep, align 4
-  store i32 %t, i32* %gep1, align 4
-  %ld = load i32, i32* %gep, align 4
+  %gep = getelementptr inbounds [10 x i32], ptr %A, i64 0, i64 %iv
+  %gep1 = getelementptr inbounds [10 x i32], ptr %A, i64 0, i64 %iv.inc
+  store i32 %t, ptr %gep, align 4
+  store i32 %t, ptr %gep1, align 4
+  %ld = load i32, ptr %gep, align 4
   %cmp = icmp eq i64 %iv.inc, 5
   br i1 %cmp, label %exit, label %loop
 

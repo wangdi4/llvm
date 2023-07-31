@@ -8,9 +8,13 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This pass reads a sample profile containing mispredict counts rather than
-// execution counts and adds !unpredictable metadata to branch or select
-// instructions with corresponding debug locations.
+// This pass reads a sample profile containing mispredict counts and a sample
+// profile containing execution counts and computes branch mispredict ratios for
+// each conditional instruction. If a sufficiently high mispredict ratio is
+// found !unpredictable metadata is added.
+//
+// Note that this requires that the mispredict and frequency profiles have
+// comparable magnitudes.
 //
 //===----------------------------------------------------------------------===//
 
@@ -33,32 +37,74 @@ static cl::opt<std::string> UnpredictableHintsFile(
     "unpredictable-hints-file",
     cl::desc("Path to the unpredictability hints profile"), cl::Hidden);
 
-static cl::opt<unsigned> MinimumWeight(
-    "unpredictable-hints-min-weight",
-    cl::desc("Absolute minimum profile weight to apply MD_unpredictable from"),
-    cl::init(0), cl::Hidden);
+// Typically this file will be provided via PGOOpt. This option is provided
+// primarily for debugging and testing.
+static cl::opt<std::string>
+    FrequencyProfileOption("unpredictable-hints-frequency-profile",
+                           cl::desc("Path to an execution frequency profile to "
+                                    "use as a baseline for unpredictability"),
+                           cl::Hidden);
+
+// This determines the minimum apparent mispredict ratio which should earn a
+// mispredict metadata annotation.
+static cl::opt<double> MinimumRatio(
+    "unpredictable-hints-min-ratio",
+    cl::desc(
+        "Absolute minimum branch miss ratio to apply MD_unpredictable from"),
+    cl::init(0.2), cl::Hidden);
+
+// This option is useful for dealing with two different sampling frequencies.
+static cl::opt<double>
+    RatioFactor("unpredictable-hints-factor",
+                cl::desc("Multiply all ratios by this factor"), cl::init(1.0),
+                cl::ReallyHidden);
 
 // Lookup samples for an Instruction's corresponding location in a
 // FunctionSamples profile. The count returned is directly from the profile
 // representing the number of samples seen.
-ErrorOr<uint64_t> UnpredictableProfileLoaderPass::getUnpredictableHint(
-    const FunctionSamples *TopSamples, const Instruction *I) {
+ErrorOr<double> UnpredictableProfileLoaderPass::getMispredictRatio(
+    const FunctionSamples *FreqSamples, const FunctionSamples *MispSamples,
+    const Instruction *I) {
 
-  if (const auto &Loc = I->getDebugLoc())
-    if (const ErrorOr<uint64_t> Samples = TopSamples->findSamplesAt(
-            FunctionSamples::getOffset(Loc), Loc->getBaseDiscriminator()))
-      if (uint64_t Count = Samples.get())
-        return Count;
+  const auto &Loc = I->getDebugLoc();
+  if (!Loc)
+    return std::error_code();
 
-  return std::error_code();
+  const ErrorOr<uint64_t> FreqCount = FreqSamples->findSamplesAt(
+      FunctionSamples::getOffset(Loc), Loc->getBaseDiscriminator());
+  if (!FreqCount)
+    return std::error_code();
+
+  const ErrorOr<uint64_t> MispCount = MispSamples->findSamplesAt(
+      FunctionSamples::getOffset(Loc), Loc->getBaseDiscriminator());
+  if (!MispCount)
+    return std::error_code();
+
+  const double Freq = FreqCount.get();
+  if (!Freq)
+    return std::error_code();
+
+  const double Misp = MispCount.get();
+  const double MissRatio = (Misp * RatioFactor) / Freq;
+
+  LLVM_DEBUG(dbgs() << "Computing mispredict ratio of " << format("%0.2f", Misp)
+                    << "/" << format("%0.2f", Freq) << " * "
+                    << format("%0.2f", RatioFactor.getValue()) << " = "
+                    << format("%0.2f", MissRatio) << " for instruction\n"
+                    << *I << "\n");
+  return MissRatio;
 }
 
 // Examine all Select and BranchInsts in a function, adding !unpredictable
 // metadata if they appear in the mispredict profile with sufficient weight.
 bool UnpredictableProfileLoaderPass::addUpredictableMetadata(Function &F) {
 
-  const FunctionSamples *Samples = Reader->getSamplesFor(F);
-  if (!Samples)
+  const FunctionSamples *FreqSamples = FreqReader->getSamplesFor(F);
+  if (!FreqSamples)
+    return false;
+
+  const FunctionSamples *MispSamples = MispReader->getSamplesFor(F);
+  if (!MispSamples)
     return false;
 
   bool MadeChange = false;
@@ -69,18 +115,16 @@ bool UnpredictableProfileLoaderPass::addUpredictableMetadata(Function &F) {
       if (I.hasMetadata(LLVMContext::MD_unpredictable))
         continue;
 
-      const ErrorOr<uint64_t> Hints = getUnpredictableHint(Samples, &I);
-      if (!Hints)
+      const ErrorOr<double> RatioOrError =
+          getMispredictRatio(FreqSamples, MispSamples, &I);
+      if (!RatioOrError)
         continue;
+      const double MissRatio = RatioOrError.get();
 
-      LLVM_DEBUG(dbgs() << "Found a hint that the following instruction is "
-                           "unpredictable with weight "
-                        << Hints.get() << ":\n");
-      LLVM_DEBUG(dbgs() << I << "\n");
-
-      if (Hints.get() < MinimumWeight) {
-        LLVM_DEBUG(dbgs() << "\tWeight " << Hints.get()
-                          << " is below threshold of " << MinimumWeight
+      if (MissRatio < MinimumRatio) {
+        LLVM_DEBUG(dbgs() << "\tRatio " << format("%0.2f", MissRatio)
+                          << " is below threshold of "
+                          << format("%0.2f", MinimumRatio.getValue())
                           << "; ignoring.\n");
         continue;
       }
@@ -107,29 +151,53 @@ bool UnpredictableProfileLoaderPass::addUpredictableMetadata(Module &M) {
 }
 
 bool UnpredictableProfileLoaderPass::loadSampleProfile(Module &M) {
-  if (Reader)
+  if (MispReader && FreqReader)
     return true;
 
-  if (UnpredictableHintsFile.empty())
-    return false;
+  assert(!MispReader && !FreqReader &&
+         "Expected both or neither profile readers");
 
   LLVMContext &Ctx = M.getContext();
   auto FS = vfs::getRealFileSystem();
-  ErrorOr<std::unique_ptr<SampleProfileReader>> ReaderOrErr =
-      SampleProfileReader::create(UnpredictableHintsFile, Ctx, *FS);
-  if (std::error_code EC = ReaderOrErr.getError()) {
-    std::string Msg = "Could not open profile: " + EC.message();
-    Ctx.diagnose(DiagnosticInfoSampleProfile(UnpredictableHintsFile, Msg,
-                                             DiagnosticSeverity::DS_Warning));
-    return false;
-  }
 
-  Reader = std::move(ReaderOrErr.get());
-  Reader->read();
-  LLVM_DEBUG(dbgs() << "Successfully read profile " << UnpredictableHintsFile
-                    << "\n");
+  auto ReadProfile = [&Ctx,
+                      &FS](const std::string ProfileFile,
+                           std::unique_ptr<SampleProfileReader> &ReaderPtr) {
+    if (ProfileFile.empty())
+      return false;
+
+    ErrorOr<std::unique_ptr<SampleProfileReader>> ReaderOrErr =
+        SampleProfileReader::create(ProfileFile, Ctx, *FS);
+    if (std::error_code EC = ReaderOrErr.getError()) {
+      std::string Msg = "Could not open profile: " + EC.message();
+      Ctx.diagnose(DiagnosticInfoSampleProfile(ProfileFile, Msg,
+                                               DiagnosticSeverity::DS_Warning));
+      return false;
+    }
+
+    ReaderPtr = std::move(ReaderOrErr.get());
+    ReaderPtr->read();
+
+    return true;
+  };
+
+  if (!ReadProfile(UnpredictableHintsFile, MispReader))
+    return false;
+
+  if (!ReadProfile(FrequencyProfileFile, FreqReader))
+    return false;
+
   return true;
 }
+
+UnpredictableProfileLoaderPass::UnpredictableProfileLoaderPass()
+    : FrequencyProfileFile(FrequencyProfileOption) {}
+
+UnpredictableProfileLoaderPass::UnpredictableProfileLoaderPass(
+    StringRef PGOProfileFile)
+    : FrequencyProfileFile(FrequencyProfileOption.empty()
+                               ? PGOProfileFile
+                               : FrequencyProfileOption) {}
 
 PreservedAnalyses UnpredictableProfileLoaderPass::run(Module &M,
                                                       ModuleAnalysisManager &) {

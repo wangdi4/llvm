@@ -42,35 +42,31 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @casts(i64* %A, i64* %B, i1 %which) {
+define void @casts(ptr %A, ptr %B, i1 %which) {
 
 entry:
   br label %L1
 
 L1:
   %i = phi i64 [ 0, %entry ], [ %i.next, %L1.latch ]
-  %Ai = getelementptr inbounds i64, i64* %A, i64 %i
-  %Ai32p = bitcast i64* %Ai to i32*
-  %Afloatp = bitcast i64* %Ai to float*
-  %Bi0 = getelementptr inbounds i64, i64* %B, i64 %i
+  %Ai = getelementptr inbounds i64, ptr %A, i64 %i
+  %Bi0 = getelementptr inbounds i64, ptr %B, i64 %i
   %i1 = add nuw nsw i64 %i, 1
-  %Bi1 = getelementptr inbounds i64, i64* %B, i64 %i1
-  %Bi32p = bitcast i64* %Bi1 to i32*
-  %Bfloatp = bitcast i64* %Bi1 to float*
+  %Bi1 = getelementptr inbounds i64, ptr %B, i64 %i1
   br i1 %which, label %then, label %else
 
 then:
-  %Ai32.then = load i32, i32* %Ai32p, align 8
-  %Afloat.then = load float, float* %Afloatp, align 8
-  store i32 %Ai32.then, i32* %Bi32p, align 8
-  store float %Afloat.then, float* %Bfloatp, align 8
+  %Ai32.then = load i32, ptr %Ai, align 8
+  %Afloat.then = load float, ptr %Ai, align 8
+  store i32 %Ai32.then, ptr %Bi1, align 8
+  store float %Afloat.then, ptr %Bi1, align 8
   br label %L1.latch
 
 else:
-  %Ai32.else = load i32, i32* %Ai32p, align 8
-  %Afloat.else = load float, float* %Afloatp, align 8
-  store i32 %Ai32.else, i32* %Bi32p, align 8
-  store float %Afloat.else, float* %Bfloatp, align 8
+  %Ai32.else = load i32, ptr %Ai, align 8
+  %Afloat.else = load float, ptr %Ai, align 8
+  store i32 %Ai32.else, ptr %Bi1, align 8
+  store float %Afloat.else, ptr %Bi1, align 8
   br label %L1.latch
 
 L1.latch:

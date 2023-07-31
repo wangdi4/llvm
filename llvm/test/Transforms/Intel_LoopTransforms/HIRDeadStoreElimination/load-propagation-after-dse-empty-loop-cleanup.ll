@@ -28,7 +28,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* %B) {
+define void @foo(ptr %B) {
 entry:
   %A = alloca [10 x i32], align 16
   br label %loop
@@ -36,15 +36,15 @@ entry:
 loop:
   %iv = phi i64 [ 0, %entry], [ %iv.inc, %latch]
   %iv.inc = add i64 %iv, 1
-  %gepb = getelementptr inbounds i32, i32* %B, i64 %iv
-  %ld1 = load i32, i32* %gepb, align 4
+  %gepb = getelementptr inbounds i32, ptr %B, i64 %iv
+  %ld1 = load i32, ptr %gepb, align 4
   %ld.cmp = icmp ne i32 %ld1, 0
   br i1 %ld.cmp, label %then, label %latch 
 
 then:
   %add = add nsw i32 %ld1, 1
-  %gepa = getelementptr inbounds [10 x i32], [10 x i32]* %A, i64 0, i64 %iv
-  store i32 %add, i32* %gepa, align 4
+  %gepa = getelementptr inbounds [10 x i32], ptr %A, i64 0, i64 %iv
+  store i32 %add, ptr %gepa, align 4
   br label %latch
   
 latch:

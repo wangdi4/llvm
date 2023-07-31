@@ -12,7 +12,7 @@
 ; Check that when prefetchW is enabled, we set 'IsWrite' flag for the previous candidate if there
 ; is any lval ref in the same memory stream, though the previous candidate may not be a lval ref.
 ;
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" -hir-prefetching-skip-non-modified-regions="false" -hir-prefetching-skip-num-memory-streams-check="true" -hir-prefetching-trip-count-threshold=500 -hir-prefetching-num-cachelines-threshold=100 -hir-prefetching-skip-AVX2-check="true" -hir-prefetching-prefetchw="true" 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" -hir-prefetching-skip-non-modified-regions="false" -hir-prefetching-skip-num-memory-streams-check="true" -hir-prefetching-trip-count-threshold=500 -hir-prefetching-num-cachelines-threshold=100 -hir-prefetching-skip-AVX2-check="true" -hir-prefetching-prefetchw="true" 2>&1 < %s | FileCheck %s
 ;
 ;*** IR Dump Before HIR Prefetching (hir-prefetching) ***
 ;Function: foo
@@ -33,8 +33,8 @@
 ; CHECK:           |   %0 = (@A)[0][i1];
 ; CHECK:           |   %2 = (@A)[0][i1 + 5000];
 ; CHECK:           |   (@A)[0][i1 + 1] = %0 + %2;
-; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 40]),  1,  3,  1);
-; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 5040]),  0,  3,  1);
+; CHECK:           |   @llvm.prefetch.p0(&((i8*)(@A)[0][i1 + 40]),  1,  3,  1);
+; CHECK:           |   @llvm.prefetch.p0(&((i8*)(@A)[0][i1 + 5040]),  0,  3,  1);
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION
 ;
@@ -54,15 +54,15 @@ entry:
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [10000 x i32], [10000 x i32]* @A, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [10000 x i32], ptr @A, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %1 = add nuw nsw i64 %indvars.iv, 5000
-  %arrayidx2 = getelementptr inbounds [10000 x i32], [10000 x i32]* @A, i64 0, i64 %1, !intel-tbaa !2
-  %2 = load i32, i32* %arrayidx2, align 4, !tbaa !2
+  %arrayidx2 = getelementptr inbounds [10000 x i32], ptr @A, i64 0, i64 %1, !intel-tbaa !2
+  %2 = load i32, ptr %arrayidx2, align 4, !tbaa !2
   %add3 = add nsw i32 %2, %0
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx6 = getelementptr inbounds [10000 x i32], [10000 x i32]* @A, i64 0, i64 %indvars.iv.next, !intel-tbaa !2
-  store i32 %add3, i32* %arrayidx6, align 4, !tbaa !2
+  %arrayidx6 = getelementptr inbounds [10000 x i32], ptr @A, i64 0, i64 %indvars.iv.next, !intel-tbaa !2
+  store i32 %add3, ptr %arrayidx6, align 4, !tbaa !2
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1000
   br i1 %exitcond.not, label %for.end, label %for.body, !llvm.loop !7
 

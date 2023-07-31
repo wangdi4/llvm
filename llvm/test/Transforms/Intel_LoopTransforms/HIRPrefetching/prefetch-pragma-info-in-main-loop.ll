@@ -1,6 +1,6 @@
 ;Test the prefetching pragma info is in the main loop rather than in the remainder loop
 ;
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-prefetching,print<hir>" -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -vplan-force-vf=4 -hir-details -disable-output < %s 2>&1 | FileCheck %s --check-prefix=MERGED-CFG
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec,hir-prefetching,print<hir>" -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -vplan-force-vf=4 -hir-details -disable-output < %s 2>&1 | FileCheck %s --check-prefix=MERGED-CFG
 ;
 ;*** IR Dump Before HIR Prefetching ***
 ;Function: sub
@@ -35,10 +35,10 @@
 ; MERGED-CFG:         + DO i64 i1 = 0, %loop.ub, 4   <DO_LOOP>  <MAX_TC_EST = 2500>  <LEGAL_MAX_TC = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ; MERGED-CFG:         |   %.vec4 = sitofp.<4 x i32>.<4 x float>(i1 + <i64 0, i64 1, i64 2, i64 3>);
 ; MERGED-CFG:         |   (<4 x float>*)(@A)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][0] = %.vec4;
-; MERGED-CFG:         |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 160][0]),  0,  2,  1);
-; MERGED-CFG:         |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 161][0]),  0,  2,  1);
-; MERGED-CFG:         |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 162][0]),  0,  2,  1);
-; MERGED-CFG:         |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 163][0]),  0,  2,  1);
+; MERGED-CFG:         |   @llvm.prefetch.p0(&((i8*)(@A)[0][i1 + 160][0]),  0,  2,  1);
+; MERGED-CFG:         |   @llvm.prefetch.p0(&((i8*)(@A)[0][i1 + 161][0]),  0,  2,  1);
+; MERGED-CFG:         |   @llvm.prefetch.p0(&((i8*)(@A)[0][i1 + 162][0]),  0,  2,  1);
+; MERGED-CFG:         |   @llvm.prefetch.p0(&((i8*)(@A)[0][i1 + 163][0]),  0,  2,  1);
 ; MERGED-CFG:         + END LOOP
 
 ; MERGED-CFG:         + Loop metadata: !llvm.loop
@@ -57,9 +57,9 @@ target triple = "x86_64-unknown-linux-gnu"
 @A = dso_local global [10000 x [10000 x float]] zeroinitializer, align 16
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @sub(i32* nocapture readnone %M, i32 %N) local_unnamed_addr #0 {
+define dso_local void @sub(ptr nocapture readnone %M, i32 %N) local_unnamed_addr #0 {
 entry:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ENABLE"(i32 1), "QUAL.PRAGMA.VAR"([10000 x [10000 x float]]* @A), "QUAL.PRAGMA.HINT"(i32 1), "QUAL.PRAGMA.DISTANCE"(i32 40) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ENABLE"(i32 1), "QUAL.PRAGMA.VAR"(ptr @A), "QUAL.PRAGMA.HINT"(i32 1), "QUAL.PRAGMA.DISTANCE"(i32 40) ]
   %cmp6 = icmp sgt i32 %N, 0
   br i1 %cmp6, label %for.body.preheader, label %for.end
 
@@ -71,8 +71,8 @@ for.body:                                         ; preds = %for.body.preheader,
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
   %1 = trunc i64 %indvars.iv to i32
   %conv = sitofp i32 %1 to float
-  %arrayidx1 = getelementptr inbounds [10000 x [10000 x float]], [10000 x [10000 x float]]* @A, i64 0, i64 %indvars.iv, i64 0, !intel-tbaa !2
-  store float %conv, float* %arrayidx1, align 16, !tbaa !2
+  %arrayidx1 = getelementptr inbounds [10000 x [10000 x float]], ptr @A, i64 0, i64 %indvars.iv, i64 0, !intel-tbaa !2
+  store float %conv, ptr %arrayidx1, align 16, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count8
   br i1 %exitcond.not, label %for.end.loopexit, label %for.body, !llvm.loop !8

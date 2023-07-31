@@ -18,8 +18,6 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-distribute-loopnest,hir-undo-sinking-for-perfect-loopnest,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-distribute-loopnest,hir-undo-sinking-for-perfect-loopnest" -print-changed -disable-output 2>&1 < %s | FileCheck %s --check-prefix=CHECK-CHANGED
 
-; RUN: opt -opaque-pointers -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-sinking-for-perfect-loopnest,hir-loop-distribute-loopnest,hir-undo-sinking-for-perfect-loopnest,print<hir>" -aa-pipeline="basic-aa" 2>&1 < %s | FileCheck %s
-
 ;*** IR Dump After HIR Sinking For Perfect Loopnest ***
 ;Function: multiply
 ;
@@ -100,14 +98,14 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup3
 
 for.body:                                         ; preds = %for.cond.cleanup3, %entry
   %indvars.iv28 = phi i64 [ 0, %entry ], [ %indvars.iv.next29, %for.cond.cleanup3 ]
-  %arrayidx = getelementptr inbounds [100 x float], [100 x float]* @c, i64 0, i64 %indvars.iv28, !intel-tbaa !2
-  store float 0.000000e+00, float* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [100 x float], ptr @c, i64 0, i64 %indvars.iv28, !intel-tbaa !2
+  store float 0.000000e+00, ptr %arrayidx, align 4, !tbaa !2
   %0 = shl nuw nsw i64 %indvars.iv28, 1
   br label %for.body4
 
 for.cond.cleanup3:                                ; preds = %for.body4
   %add12.lcssa = phi float [ %add12, %for.body4 ]
-  store float %add12.lcssa, float* %arrayidx, align 4, !tbaa !2
+  store float %add12.lcssa, ptr %arrayidx, align 4, !tbaa !2
   %indvars.iv.next29 = add nuw nsw i64 %indvars.iv28, 1
   %exitcond31 = icmp eq i64 %indvars.iv.next29, 100
   br i1 %exitcond31, label %for.cond.cleanup, label %for.body
@@ -116,10 +114,10 @@ for.body4:                                        ; preds = %for.body4, %for.bod
   %indvars.iv = phi i64 [ 0, %for.body ], [ %indvars.iv.next, %for.body4 ]
   %1 = phi float [ 0.000000e+00, %for.body ], [ %add12, %for.body4 ]
   %2 = add nuw nsw i64 %indvars.iv, %0
-  %arrayidx6 = getelementptr inbounds [100 x float], [100 x float]* @a, i64 0, i64 %2, !intel-tbaa !2
-  %3 = load float, float* %arrayidx6, align 4, !tbaa !2
-  %arrayidx8 = getelementptr inbounds [100 x float], [100 x float]* @b, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  %4 = load float, float* %arrayidx8, align 4, !tbaa !2
+  %arrayidx6 = getelementptr inbounds [100 x float], ptr @a, i64 0, i64 %2, !intel-tbaa !2
+  %3 = load float, ptr %arrayidx6, align 4, !tbaa !2
+  %arrayidx8 = getelementptr inbounds [100 x float], ptr @b, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  %4 = load float, ptr %arrayidx8, align 4, !tbaa !2
   %mul9 = fmul float %3, %4
   %add12 = fadd float %1, %mul9
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1

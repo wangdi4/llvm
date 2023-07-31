@@ -60,38 +60,38 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local noalias i8* @sub(float* %A, float* %B, float* %C, i32 %N) local_unnamed_addr #0 {
+define dso_local noalias ptr @sub(ptr %A, ptr %B, ptr %C, i32 %N) local_unnamed_addr #0 {
 entry:
-  %A.addr = alloca float*, align 8
-  %B.addr = alloca float*, align 8
-  %C.addr = alloca float*, align 8
-  store float* %A, float** %A.addr, align 8, !tbaa !2
-  store float* %B, float** %B.addr, align 8, !tbaa !2
-  store float* %C, float** %C.addr, align 8, !tbaa !2
-  %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ENABLE"(i32 0), "QUAL.PRAGMA.VAR"(i8* null), "QUAL.PRAGMA.HINT"(i32 -1), "QUAL.PRAGMA.DISTANCE"(i32 -1)]
+  %A.addr = alloca ptr, align 8
+  %B.addr = alloca ptr, align 8
+  %C.addr = alloca ptr, align 8
+  store ptr %A, ptr %A.addr, align 8, !tbaa !2
+  store ptr %B, ptr %B.addr, align 8, !tbaa !2
+  store ptr %C, ptr %C.addr, align 8, !tbaa !2
+  %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ENABLE"(i32 0), "QUAL.PRAGMA.VAR"(ptr null), "QUAL.PRAGMA.HINT"(i32 -1), "QUAL.PRAGMA.DISTANCE"(i32 -1)]
   %cmp12 = icmp sgt i32 %N, 0
   br i1 %cmp12, label %for.body.lr.ph, label %for.end
 
 for.body.lr.ph:                                   ; preds = %entry
-  %1 = load float*, float** %B.addr, align 8, !tbaa !2
-  %2 = load float*, float** %C.addr, align 8, !tbaa !2
-  %3 = load float*, float** %A.addr, align 8, !tbaa !2
+  %1 = load ptr, ptr %B.addr, align 8, !tbaa !2
+  %2 = load ptr, ptr %C.addr, align 8, !tbaa !2
+  %3 = load ptr, ptr %A.addr, align 8, !tbaa !2
   %wide.trip.count14 = zext i32 %N to i64
   br label %for.body
 
 for.body:                                         ; preds = %for.body.lr.ph, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
-  %ptridx = getelementptr inbounds float, float* %3, i64 %indvars.iv
-  %4 = load float, float* %ptridx, align 4, !tbaa !6
+  %ptridx = getelementptr inbounds float, ptr %3, i64 %indvars.iv
+  %4 = load float, ptr %ptridx, align 4, !tbaa !6
   %conv = fpext float %4 to double
-  %ptridx2 = getelementptr inbounds float, float* %2, i64 %indvars.iv
-  %5 = load float, float* %ptridx2, align 4, !tbaa !6
+  %ptridx2 = getelementptr inbounds float, ptr %2, i64 %indvars.iv
+  %5 = load float, ptr %ptridx2, align 4, !tbaa !6
   %conv3 = fpext float %5 to double
   %mul = fmul fast double %conv3, 2.000000e+00
   %add = fadd fast double %mul, %conv
   %conv4 = fptrunc double %add to float
-  %ptridx6 = getelementptr inbounds float, float* %3, i64 %indvars.iv
-  store float %conv4, float* %ptridx6, align 4, !tbaa !6
+  %ptridx6 = getelementptr inbounds float, ptr %3, i64 %indvars.iv
+  store float %conv4, ptr %ptridx6, align 4, !tbaa !6
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count14
   br i1 %exitcond, label %for.end.loopexit, label %for.body
@@ -101,7 +101,7 @@ for.end.loopexit:                                 ; preds = %for.body
 
 for.end:                                          ; preds = %for.end.loopexit, %entry
   call void @llvm.directive.region.exit(token %0) [ "DIR.PRAGMA.END.PREFETCH_LOOP"() ]
-  ret i8* undef
+  ret ptr undef
 }
 
 ; Function Attrs: nounwind

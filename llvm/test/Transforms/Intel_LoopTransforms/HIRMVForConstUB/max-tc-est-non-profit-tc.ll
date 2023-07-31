@@ -33,7 +33,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @B = dso_local local_unnamed_addr global [1000 x [16 x float]] zeroinitializer, align 16
 
 ; Function Attrs: mustprogress nofree norecurse nosync nounwind uwtable
-define dso_local noundef i32 @sub(i32 noundef %N, float* nocapture noundef %M) local_unnamed_addr {
+define dso_local noundef i32 @sub(i32 noundef %N, ptr nocapture noundef %M) local_unnamed_addr {
 entry:
   %cmp1 = icmp sgt i32 %N, 4
   %cmp324 = icmp slt i32 0, %N
@@ -53,12 +53,12 @@ for.body4.lr.ph:                                  ; preds = %for.cond2.preheader
 for.body4:                                        ; preds = %for.body4.lr.ph, %for.body4
   %j.025 = phi i32 [ 0, %for.body4.lr.ph ], [ %inc, %for.body4 ]
   %idxprom5 = zext i32 %j.025 to i64
-  %arrayidx6 = getelementptr inbounds [1000 x [16 x float]], [1000 x [16 x float]]* @B, i64 0, i64 %idxprom, i64 %idxprom5
-  %0 = load float, float* %arrayidx6, align 4
-  %arrayidx8 = getelementptr inbounds float, float* %M, i64 %idxprom5
-  %1 = load float, float* %arrayidx8, align 4
+  %arrayidx6 = getelementptr inbounds [1000 x [16 x float]], ptr @B, i64 0, i64 %idxprom, i64 %idxprom5
+  %0 = load float, ptr %arrayidx6, align 4
+  %arrayidx8 = getelementptr inbounds float, ptr %M, i64 %idxprom5
+  %1 = load float, ptr %arrayidx8, align 4
   %sub = fsub fast float %1, %0
-  store float %sub, float* %arrayidx8, align 4
+  store float %sub, ptr %arrayidx8, align 4
   %inc = add nuw nsw i32 %j.025, 1
   %cmp3 = icmp slt i32 %inc, %N
   br i1 %cmp3, label %for.body4, label %for.cond2.for.inc9.loopexit_crit_edge
@@ -78,8 +78,8 @@ for.inc9:                                         ; preds = %for.inc9.loopexit, 
 
 for.end11:                                        ; preds = %for.inc9
   %idxprom12 = sext i32 %N to i64
-  %arrayidx13 = getelementptr inbounds float, float* %M, i64 %idxprom12
-  %2 = load float, float* %arrayidx13, align 4
+  %arrayidx13 = getelementptr inbounds float, ptr %M, i64 %idxprom12
+  %2 = load float, ptr %arrayidx13, align 4
   %conv = fptosi float %2 to i32
   ret i32 %conv
 }

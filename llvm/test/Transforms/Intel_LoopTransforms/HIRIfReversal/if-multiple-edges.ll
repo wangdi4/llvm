@@ -37,9 +37,9 @@
 ;        END REGION
 
 ; Function Attrs: nofree nosync nounwind uwtable
-define void @sub_(float* noalias nocapture dereferenceable(4) %"sub_$A", float* noalias nocapture dereferenceable(4) %"sub_$B", float* noalias nocapture dereferenceable(4) %"sub_$C", i32* noalias nocapture readonly dereferenceable(4) %"sub_$N") local_unnamed_addr #0 {
+define void @sub_(ptr noalias nocapture dereferenceable(4) %"sub_$A", ptr noalias nocapture dereferenceable(4) %"sub_$B", ptr noalias nocapture dereferenceable(4) %"sub_$C", ptr noalias nocapture readonly dereferenceable(4) %"sub_$N") local_unnamed_addr #0 {
 alloca_0:
-  %"sub_$N_fetch.1" = load i32, i32* %"sub_$N", align 1, !tbaa !0
+  %"sub_$N_fetch.1" = load i32, ptr %"sub_$N", align 1, !tbaa !0
   %mul.1 = shl i32 %"sub_$N_fetch.1", 1
   %rel.1 = icmp slt i32 %mul.1, 3
   br i1 %rel.1, label %bb3, label %bb2.preheader
@@ -51,30 +51,30 @@ bb2.preheader:                                    ; preds = %alloca_0
 
 bb2:                                              ; preds = %bb2.preheader, %bb6_endif
   %indvars.iv = phi i64 [ 3, %bb2.preheader ], [ %indvars.iv.next, %bb6_endif ]
-  %"sub_$C_entry[]17" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) %"sub_$C", i64 %indvars.iv)
-  %"sub_$C_entry[]_fetch.4" = load float, float* %"sub_$C_entry[]17", align 1, !tbaa !4
+  %"sub_$C_entry[]17" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"sub_$C", i64 %indvars.iv)
+  %"sub_$C_entry[]_fetch.4" = load float, ptr %"sub_$C_entry[]17", align 1, !tbaa !4
   %rel.2 = fcmp reassoc ninf nsz arcp contract afn oeq float %"sub_$C_entry[]_fetch.4", 1.000000e+02
   %1 = add nsw i64 %indvars.iv, -1
-  %"sub_$B_entry[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) %"sub_$B", i64 %indvars.iv)
-  %"sub_$A_entry[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) %"sub_$A", i64 %indvars.iv)
+  %"sub_$B_entry[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"sub_$B", i64 %indvars.iv)
+  %"sub_$A_entry[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"sub_$A", i64 %indvars.iv)
   br i1 %rel.2, label %bb_new3_then, label %bb_new5_else
 
 bb_new3_then:                                     ; preds = %bb2
-  %"sub_$B_entry[]_fetch.6" = load float, float* %"sub_$B_entry[]", align 1, !tbaa !6
-  %"sub_$A_entry[]5" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) %"sub_$A", i64 %1)
-  store float %"sub_$B_entry[]_fetch.6", float* %"sub_$A_entry[]5", align 1, !tbaa !8
-  %"sub_$A_entry[]_fetch.9" = load float, float* %"sub_$A_entry[]", align 1, !tbaa !8
+  %"sub_$B_entry[]_fetch.6" = load float, ptr %"sub_$B_entry[]", align 1, !tbaa !6
+  %"sub_$A_entry[]5" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"sub_$A", i64 %1)
+  store float %"sub_$B_entry[]_fetch.6", ptr %"sub_$A_entry[]5", align 1, !tbaa !8
+  %"sub_$A_entry[]_fetch.9" = load float, ptr %"sub_$A_entry[]", align 1, !tbaa !8
   %2 = add nsw i64 %indvars.iv, -2
-  %"sub_$C_entry[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) %"sub_$C", i64 %2)
-  store float %"sub_$A_entry[]_fetch.9", float* %"sub_$C_entry[]", align 1, !tbaa !4
+  %"sub_$C_entry[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"sub_$C", i64 %2)
+  store float %"sub_$A_entry[]_fetch.9", ptr %"sub_$C_entry[]", align 1, !tbaa !4
   br label %bb6_endif
 
 bb_new5_else:                                     ; preds = %bb2
-  %"sub_$A_entry[]_fetch.12" = load float, float* %"sub_$A_entry[]", align 1, !tbaa !8
-  %"sub_$C_entry[]11" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) %"sub_$C", i64 %1)
-  %"sub_$C_entry[]_fetch.14" = load float, float* %"sub_$C_entry[]11", align 1, !tbaa !4
+  %"sub_$A_entry[]_fetch.12" = load float, ptr %"sub_$A_entry[]", align 1, !tbaa !8
+  %"sub_$C_entry[]11" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"sub_$C", i64 %1)
+  %"sub_$C_entry[]_fetch.14" = load float, ptr %"sub_$C_entry[]11", align 1, !tbaa !4
   %add.1 = fadd reassoc ninf nsz arcp contract afn float %"sub_$A_entry[]_fetch.12", %"sub_$C_entry[]_fetch.14"
-  store float %add.1, float* %"sub_$B_entry[]", align 1, !tbaa !6
+  store float %add.1, ptr %"sub_$B_entry[]", align 1, !tbaa !6
   br label %bb6_endif
 
 bb6_endif:                                        ; preds = %bb_new5_else, %bb_new3_then
@@ -90,7 +90,7 @@ bb3:                                              ; preds = %bb3.loopexit, %allo
 }
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8, i64, i64, float*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
 attributes #0 = { nofree nosync nounwind uwtable "denormal-fp-math"="preserve_sign,preserve_sign" "frame-pointer"="none" "intel-lang"="fortran" "loopopt-pipeline"="full" "min-legal-vector-width"="0" "pre_loopopt" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+crc32,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" }
 attributes #1 = { nofree nosync nounwind readnone speculatable }

@@ -1,7 +1,5 @@
 ; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-framework>,hir-conditional-temp-sinking,print<hir-framework>" 2>&1 < %s | FileCheck %s
 ;
-; RUN: opt -opaque-pointers -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir-framework>,hir-conditional-temp-sinking,print<hir-framework>" 2>&1 < %s | FileCheck %s
-;
 ; Verify that the simple if-else reduction is converted into unconditional reduction after sinking.
 
 ; Before Change-
@@ -39,8 +37,8 @@ for.body:                                         ; preds = %entry, %for.inc
   %t.02 = phi i32 [ 0, %entry ], [ %t.1, %for.inc ]
   %i.01 = phi i32 [ 0, %entry ], [ %inc, %for.inc ]
   %idxprom = sext i32 %i.01 to i64
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %idxprom
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %idxprom
+  %0 = load i32, ptr %arrayidx, align 4
   %cmp1 = icmp sgt i32 %0, 0
   br i1 %cmp1, label %if.then, label %if.else
 

@@ -55,8 +55,8 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local i32 @foo() local_unnamed_addr #0 {
 entry:
   %FETCH.sroa.2 = alloca double, align 16
-  %FETCH.sroa.2.0..sroa_cast37 = bitcast double* %FETCH.sroa.2 to i8*
-  call void @llvm.lifetime.start.p0i8(i64 8, i8* nonnull %FETCH.sroa.2.0..sroa_cast37)
+  %FETCH.sroa.2.0..sroa_cast37 = bitcast ptr %FETCH.sroa.2 to ptr
+  call void @llvm.lifetime.start.p0(i64 8, ptr nonnull %FETCH.sroa.2.0..sroa_cast37)
   br label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %entry, %for.inc12
@@ -65,16 +65,16 @@ for.cond1.preheader:                              ; preds = %entry, %for.inc12
 
 for.body3:                                        ; preds = %for.cond1.preheader, %if.end
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %if.end ]
-  %FETCH.sroa.2.0.FETCH.sroa.2.0.FETCH.sroa.2.0.FETCH.sroa.2.480. = load  double, double* %FETCH.sroa.2, align 16, !tbaa !2
+  %FETCH.sroa.2.0.FETCH.sroa.2.0.FETCH.sroa.2.0.FETCH.sroa.2.480. = load  double, ptr %FETCH.sroa.2, align 16, !tbaa !2
   %fneg = fneg fast double %FETCH.sroa.2.0.FETCH.sroa.2.0.FETCH.sroa.2.0.FETCH.sroa.2.480.
-  %arrayidx6 = getelementptr inbounds [100 x [100 x double]], [100 x [100 x double]]* @HEKMAN, i64 0, i64 %indvars.iv34, i64 %indvars.iv, !intel-tbaa !7
-  %0 = load  double, double* %arrayidx6, align 8, !tbaa !7
+  %arrayidx6 = getelementptr inbounds [100 x [100 x double]], ptr @HEKMAN, i64 0, i64 %indvars.iv34, i64 %indvars.iv, !intel-tbaa !7
+  %0 = load  double, ptr %arrayidx6, align 8, !tbaa !7
   %cmp7 = fcmp fast ult double %0, %fneg
   br i1 %cmp7, label %if.end, label %if.then
 
 if.then:                                          ; preds = %for.body3
-  %arrayidx11 = getelementptr inbounds [100 x [100 x double]], [100 x [100 x double]]* @G, i64 0, i64 %indvars.iv34, i64 %indvars.iv, !intel-tbaa !7
-  store  double 0.000000e+00, double* %arrayidx11, align 8, !tbaa !7
+  %arrayidx11 = getelementptr inbounds [100 x [100 x double]], ptr @G, i64 0, i64 %indvars.iv34, i64 %indvars.iv, !intel-tbaa !7
+  store  double 0.000000e+00, ptr %arrayidx11, align 8, !tbaa !7
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %for.body3
@@ -88,15 +88,15 @@ for.inc12:                                        ; preds = %if.end
   br i1 %exitcond36, label %for.end14, label %for.cond1.preheader, !llvm.loop !12
 
 for.end14:                                        ; preds = %for.inc12
-  call void @llvm.lifetime.end.p0i8(i64 8, i8* nonnull %FETCH.sroa.2.0..sroa_cast37)
+  call void @llvm.lifetime.end.p0(i64 8, ptr nonnull %FETCH.sroa.2.0..sroa_cast37)
   ret i32 0
 }
 
 ; Function Attrs: argmemonly nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #1
 
 attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-jump-tables"="false" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind willreturn }

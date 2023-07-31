@@ -25,7 +25,7 @@ target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"
 target triple = "i386-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind writeonly
-define dso_local void @foo(i32* nocapture %A, i32 %N) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture %A, i32 %N) local_unnamed_addr #0 {
 entry:
   %cmp5 = icmp sgt i32 %N, 0
   br i1 %cmp5, label %for.body.preheader, label %for.end
@@ -35,8 +35,8 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %i.06 = phi i32 [ %inc, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i32 %i.06
-  store i32 %i.06, i32* %arrayidx, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds i32, ptr %A, i32 %i.06
+  store i32 %i.06, ptr %arrayidx, align 4, !tbaa !3
   %inc = add nuw nsw i32 %i.06, 1
   %exitcond = icmp eq i32 %inc, %N
   br i1 %exitcond, label %for.end.loopexit, label %for.body, !llvm.loop !7

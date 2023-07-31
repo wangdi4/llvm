@@ -29,7 +29,7 @@
 ; CHECK-DD: (%A)[1025 * i1 + i2] --> (%B)[1025 * i1 + i2] OUTPUT (* 0)
 
 
-define void @foo(float** noalias nocapture readonly %Ap, float** noalias nocapture readonly %Bp, i32* noalias %iptr) {
+define void @foo(ptr noalias nocapture readonly %Ap, ptr noalias nocapture readonly %Bp, ptr noalias %iptr) {
 entry:
   br label %for.body
 
@@ -38,10 +38,10 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup5
 
 for.body:                                         ; preds = %entry, %for.cond.cleanup5
   %indvars.iv27 = phi i64 [ 0, %entry ], [ %indvars.iv.next28, %for.cond.cleanup5 ]
-  %ptridx = getelementptr inbounds float*, float** %Ap, i64 %indvars.iv27
-  %A = load float*, float** %ptridx, align 8, !alias.scope !6, !noalias !9
-  %ptridx2 = getelementptr inbounds float*, float** %Bp, i64 %indvars.iv27
-  %B = load float*, float** %ptridx2, align 8, !alias.scope !9, !noalias !6
+  %ptridx = getelementptr inbounds ptr, ptr %Ap, i64 %indvars.iv27
+  %A = load ptr, ptr %ptridx, align 8, !alias.scope !6, !noalias !9
+  %ptridx2 = getelementptr inbounds ptr, ptr %Bp, i64 %indvars.iv27
+  %B = load ptr, ptr %ptridx2, align 8, !alias.scope !9, !noalias !6
   br label %for.body6
 
 for.cond.cleanup5:                                ; preds = %for.body6
@@ -53,12 +53,12 @@ for.body6:                                        ; preds = %for.body, %for.body
   %indvars.iv = phi i64 [ 0, %for.body ], [ %indvars.iv.next, %for.body6 ]
   %mul = mul nsw i64 1025, %indvars.iv27
   %add = add nsw i64 %mul, %indvars.iv
-  %ptridx10 = getelementptr inbounds float, float* %A, i64 %add
-  store float 4.000000e+00, float* %ptridx10, align 4, !alias.scope !4, !noalias !1
-  %ptridx8 = getelementptr inbounds float, float* %B, i64 %add
-  store float 5.000000e+00, float* %ptridx8, align 4, !alias.scope !1, !noalias !4
-  %gep = getelementptr inbounds i32, i32* %iptr, i64 %indvars.iv
-  store i32 0, i32* %gep
+  %ptridx10 = getelementptr inbounds float, ptr %A, i64 %add
+  store float 4.000000e+00, ptr %ptridx10, align 4, !alias.scope !4, !noalias !1
+  %ptridx8 = getelementptr inbounds float, ptr %B, i64 %add
+  store float 5.000000e+00, ptr %ptridx8, align 4, !alias.scope !1, !noalias !4
+  %gep = getelementptr inbounds i32, ptr %iptr, i64 %indvars.iv
+  store i32 0, ptr %gep
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond, label %for.cond.cleanup5, label %for.body6

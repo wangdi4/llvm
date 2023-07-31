@@ -108,21 +108,21 @@ for.body3.preheader:                              ; preds = %for.cond1.preheader
 for.body3:                                        ; preds = %for.body3.preheader, %for.inc
   %indvars.iv = phi i64 [ %1, %for.inc ], [ 0, %for.body3.preheader ]
   %cmp4 = icmp ult i64 %indvars.iv, 10
-  %arrayidx = getelementptr inbounds [32 x i32], [32 x i32]* @B, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [32 x i32], ptr @B, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %1 = add nuw nsw i64 %indvars.iv, 1
   br i1 %cmp4, label %if.then, label %for.inc
 
 if.then:                                          ; preds = %for.body3
-  %arrayidx6 = getelementptr inbounds [32 x i32], [32 x i32]* @B, i64 0, i64 %1, !intel-tbaa !2
-  %2 = load i32, i32* %arrayidx6, align 4, !tbaa !2
+  %arrayidx6 = getelementptr inbounds [32 x i32], ptr @B, i64 0, i64 %1, !intel-tbaa !2
+  %2 = load i32, ptr %arrayidx6, align 4, !tbaa !2
   %add7 = add nsw i32 %2, %0
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body3, %if.then
   %.sink = phi i32 [ %add7, %if.then ], [ %0, %for.body3 ]
-  %3 = getelementptr inbounds [32 x i32], [32 x i32]* @A, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  store i32 %.sink, i32* %3, align 4
+  %3 = getelementptr inbounds [32 x i32], ptr @A, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  store i32 %.sink, ptr %3, align 4
   %exitcond = icmp eq i64 %1, %wide.trip.count
   br i1 %exitcond, label %for.inc14.loopexit, label %for.body3, !llvm.loop !7
 

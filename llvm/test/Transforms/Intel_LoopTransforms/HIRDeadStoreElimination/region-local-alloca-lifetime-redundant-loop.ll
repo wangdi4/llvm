@@ -30,7 +30,7 @@ entry:
 loop:
   %iv = phi i32 [ 0, %entry], [ %iv.inc, %loop]
   call void @llvm.lifetime.start.p0(i64 40, ptr nonnull %A)
-  store i32 %t, i32* %gep, align 4
+  store i32 %t, ptr %gep, align 4
   call void @llvm.lifetime.end.p0(i64 40, ptr nonnull %A)
   %iv.inc = add i32 %iv, 1
   %cmp = icmp eq i32 %iv.inc, 5

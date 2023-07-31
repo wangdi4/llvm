@@ -22,10 +22,10 @@
 ; CHECK-NOT: modified
 ; CHECK: DO i1
 
-define void @foo(double %fpinit, i32 %iv.init, i64 %i64.init, i64 %t3, double* %fpptr, i64* %i64ptr) {
+define void @foo(double %fpinit, i32 %iv.init, i64 %i64.init, i64 %t3, ptr %fpptr, ptr %i64ptr) {
 entry:
-  %fpload = load double, double* %fpptr
-  %i64load = load i64, i64* %i64ptr
+  %fpload = load double, ptr %fpptr
+  %i64load = load i64, ptr %i64ptr
   br label %loop
 
 loop:                                             ; preds = %latch, %entry
