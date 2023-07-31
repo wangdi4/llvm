@@ -6426,17 +6426,15 @@ bool X86TTIImpl::isLegalMaskedLoad(Type *DataTy, Align Alignment) {
   if (ScalarTy->isHalfTy() && ST->hasBWI())
     return true;
 
-<<<<<<< HEAD
+  if (ScalarTy->isBFloatTy() && ST->hasBF16())
+    return true;
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
   if (ScalarTy->isBFloatTy() && ST->hasBWI() && ST->hasFP16())
     return true;
 #endif // INTEL_FEATURE_ISA_BF16_BASE
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (ScalarTy->isBFloatTy() && ST->hasBF16())
-    return true;
->>>>>>> f11526b091c489ed0b96538bc91a2e4dcfd9ed4f
 
   if (!ScalarTy->isIntegerTy())
     return false;
