@@ -23,6 +23,7 @@
 ; CHECK-SYCL: Running pass: ResolveMatrixWISlicePass
 ; CHECK: Running pass: DuplicateCalledKernelsPass
 ; CHECK: Running pass: SYCLKernelAnalysisPass
+; CHECK: Running pass: MathFuncSelectPass
 ; CHECK: Running pass: ReqdSubGroupSizePass
 ; CHECK: Running pass: SetVectorizationFactorPass
 ; CHECK-O3: Running pass: VectorVariantLowering
