@@ -54,13 +54,11 @@
 #include "llvm/IR/Value.h"
 #include "llvm/Support/ScopedPrinter.h"
 
-<<<<<<< HEAD
+#include <optional>
+
 #if INTEL_COLLAB
 #include "CGOpenMPRuntime.h"
 #endif // INTEL_COLLAB
-=======
-#include <optional>
->>>>>>> d279d155992125d4c56fcc270b0c440dc8be8b2e
 
 using namespace clang;
 using namespace CodeGen;
@@ -1316,11 +1314,7 @@ void ItaniumCXXABI::emitVirtualObjectDelete(CodeGenFunction &CGF,
     llvm::Value *OffsetPtr = CGF.Builder.CreateConstInBoundsGEP1_64(
         CGF.IntPtrTy, VTable, -2, "complete-offset.ptr");
     llvm::Value *Offset = CGF.Builder.CreateAlignedLoad(CGF.IntPtrTy, OffsetPtr,
-<<<<<<< HEAD
-        CGF.getPointerAlign());
-=======
                                                         CGF.getPointerAlign());
->>>>>>> d279d155992125d4c56fcc270b0c440dc8be8b2e
 
     // Apply the offset.
     llvm::Value *CompletePtr =
