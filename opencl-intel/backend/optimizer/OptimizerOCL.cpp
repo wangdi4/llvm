@@ -428,6 +428,8 @@ void OptimizerOCL::populatePassesPostFailCheck(ModulePassManager &MPM) const {
 
   // Should be called before vectorizer!
   MPM.addPass(InstToFuncCallPass(ISA));
+  // Select math builtin based on required accuracy
+  MPM.addPass(MathFuncSelectPass());
 
   MPM.addPass(DuplicateCalledKernelsPass());
 
