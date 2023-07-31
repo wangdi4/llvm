@@ -680,7 +680,6 @@ typedef struct __tile1024i_str {
 /* end INTEL_CUSTOMIZATION */
 #include <sha512intrin.h>
 #endif
-#endif
 
 /* INTEL_CUSTOMIZATION */
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
