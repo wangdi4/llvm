@@ -29,6 +29,7 @@
 ; CHECK-NEXT: Running analysis: LocalBufferAnalysis
 ; CHECK-NEXT: Running pass: SYCLKernelAnalysisPass
 ; CHECK:      Running pass: InstToFuncCallPass
+; CHECK-NEXT: Running pass: MathFuncSelectPass
 ; CHECK:      Running pass: ReqdSubGroupSizePass
 ; CHECK-NEXT: Running pass: SetVectorizationFactorPass
 ; CHECK:      Running analysis: VFAnalysis

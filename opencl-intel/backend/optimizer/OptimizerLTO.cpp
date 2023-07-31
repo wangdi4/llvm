@@ -322,6 +322,8 @@ void OptimizerLTO::registerOptimizerEarlyCallback(PassBuilder &PB) {
 
     // Should be called before vectorizer!
     MPM.addPass(InstToFuncCallPass(ISA));
+    // Select math builtin based on required accuracy
+    MPM.addPass(MathFuncSelectPass());
 #if INTEL_CUSTOMIZATION
     if (Config.GetTransposeSize() == 1 ||
         (Level == OptimizationLevel::O0 && !SYCLEnableO0Vectorization))
