@@ -3495,13 +3495,13 @@ TARGET_BUILTIN(__builtin_ia32_vcvtneoph2ps256, "V8fV16xC*", "nV:256:", "avxnecon
 #endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
 TARGET_BUILTIN(__builtin_ia32_vcvtneps2bf16128, "V8yV4f", "nV:128:", "avx512bf16,avx512vl|avxneconvert" EXT_FEATURES)
 TARGET_BUILTIN(__builtin_ia32_vcvtneps2bf16256, "V8yV8f", "nV:256:", "avx512bf16,avx512vl|avxneconvert" EXT_FEATURES)
-#undef EXT_FEATURES
-#endif // INTEL_CUSTOMIZATION
 
 // SHA512
-TARGET_BUILTIN(__builtin_ia32_vsha512msg1, "V4ULLiV4ULLiV2ULLi", "nV:256:", "sha512")
-TARGET_BUILTIN(__builtin_ia32_vsha512msg2, "V4ULLiV4ULLiV4ULLi", "nV:256:", "sha512")
-TARGET_BUILTIN(__builtin_ia32_vsha512rnds2, "V4ULLiV4ULLiV4ULLiV2ULLi", "nV:256:", "sha512")
+TARGET_BUILTIN(__builtin_ia32_vsha512msg1, "V4UOiV4UOiV2UOi", "nV:256:", "sha512")
+TARGET_BUILTIN(__builtin_ia32_vsha512msg2, "V4UOiV4UOiV4UOi", "nV:256:", "sha512")
+TARGET_BUILTIN(__builtin_ia32_vsha512rnds2, "V4UOiV4UOiV4UOiV2UOi", "nV:256:", "sha512")
+#undef EXT_FEATURES
+#endif // INTEL_CUSTOMIZATION
 
 TARGET_HEADER_BUILTIN(_InterlockedAnd64,         "WiWiD*Wi", "nh", INTRIN_H, ALL_MS_LANGUAGES, "")
 TARGET_HEADER_BUILTIN(_InterlockedDecrement64,   "WiWiD*",   "nh", INTRIN_H, ALL_MS_LANGUAGES, "")
