@@ -24659,20 +24659,29 @@ SDValue X86TargetLowering::LowerTRUNCATE(SDValue Op, SelectionDAG &DAG) const {
       return DAG.getNode(ISD::CONCAT_VECTORS, DL, VT, Lo, Hi);
     }
 
-    // Pre-AVX512 see if we can make use of PACKSS/PACKUS.
+    // Pre-AVX512 (or prefer-256bit) see if we can make use of PACKSS/PACKUS.
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX256P
-    if (!Subtarget.hasAVX3()) {
+    if (!Subtarget.hasAVX3() ||
+        (InVT.is512BitVector() && VT.is256BitVector()))
 #else  // INTEL_FEATURE_ISA_AVX256P
-    if (!Subtarget.hasAVX512()) {
+    if (!Subtarget.hasAVX512() ||
+        (InVT.is512BitVector() && VT.is256BitVector()))
 #endif // INTEL_FEATURE_ISA_AVX256P
 #endif // INTEL_CUSTOMIZATION
       if (SDValue SignPack =
               LowerTruncateVecPackWithSignBits(VT, In, DL, Subtarget, DAG))
         return SignPack;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256P
+    if (!Subtarget.hasAVX3())
+#else  // INTEL_FEATURE_ISA_AVX256P
+    if (!Subtarget.hasAVX512())
+#endif // INTEL_FEATURE_ISA_AVX256P
+#endif // INTEL_CUSTOMIZATION
+    // Pre-AVX512 see if we can make use of PACKSS/PACKUS.
       return LowerTruncateVecPack(VT, In, DL, Subtarget, DAG);
-    }
 
     // Otherwise let default legalization handle it.
     return SDValue();
