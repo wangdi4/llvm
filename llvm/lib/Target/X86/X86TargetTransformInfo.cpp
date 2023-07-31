@@ -6426,6 +6426,9 @@ bool X86TTIImpl::isLegalMaskedLoad(Type *DataTy, Align Alignment) {
   if (ScalarTy->isHalfTy() && ST->hasBWI())
     return true;
 
+  if (ScalarTy->isBFloatTy() && ST->hasBF16())
+    return true;
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_BF16_BASE
   if (ScalarTy->isBFloatTy() && ST->hasBWI() && ST->hasFP16())
@@ -7283,16 +7286,18 @@ InstructionCost X86TTIImpl::getInterleavedMemoryOpCost(
     bool UseMaskForCond, bool UseMaskForGaps) {
   auto *VecTy = cast<FixedVectorType>(BaseTy);
 
-  auto isSupportedOnAVX512 = [&](Type *VecTy, bool HasBW) {
+  auto isSupportedOnAVX512 = [&](Type *VecTy) {
     Type *EltTy = cast<VectorType>(VecTy)->getElementType();
     if (EltTy->isFloatTy() || EltTy->isDoubleTy() || EltTy->isIntegerTy(64) ||
         EltTy->isIntegerTy(32) || EltTy->isPointerTy())
       return true;
     if (EltTy->isIntegerTy(16) || EltTy->isIntegerTy(8) || EltTy->isHalfTy())
-      return HasBW;
+      return ST->hasBWI();
+    if (EltTy->isBFloatTy())
+      return ST->hasBF16();
     return false;
   };
-  if (ST->hasAVX512() && isSupportedOnAVX512(VecTy, ST->hasBWI()))
+  if (ST->hasAVX512() && isSupportedOnAVX512(VecTy))
     return getInterleavedMemoryOpCostAVX512(
         Opcode, VecTy, Factor, Indices, Alignment,
         AddressSpace, CostKind, UseMaskForCond, UseMaskForGaps);
