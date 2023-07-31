@@ -393,7 +393,11 @@ void ProfileGeneratorBase::updateBodySamplesforFunctionProfile(
   // Use duplication factor to compensated for loop unroll/vectorization.
   // Note that this is only needed when we're taking MAX of the counts at
   // the location instead of SUM.
-  Count *= getDuplicationFactor(LeafLoc.Location.Discriminator);
+#if INTEL_CUSTOMIZATION
+  // With LeadingIPOnly profiles we're taking the SUM.
+  if (!LeadingIPOnly)
+    Count *= getDuplicationFactor(LeafLoc.Location.Discriminator);
+#endif // INTEL_CUSTOMIZATION
 
   ErrorOr<uint64_t> R =
 #if INTEL_CUSTOMIZATION
