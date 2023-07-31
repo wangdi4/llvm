@@ -14,7 +14,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind readonly uwtable
-define dso_local i32 @_Z3fooiPKaPaa(i32 %n, i8* nocapture readonly %a, i8* nocapture readnone %b, i8 signext %val) local_unnamed_addr #0 {
+define dso_local i32 @_Z3fooiPKaPaa(i32 %n, ptr nocapture readonly %a, ptr nocapture readnone %b, i8 signext %val) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after predicator:
 ; CHECK-NEXT:  VPlan IR for: _Z3fooiPKaPaa:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
@@ -31,8 +31,8 @@ define dso_local i32 @_Z3fooiPKaPaa(i32 %n, i8* nocapture readonly %a, i8* nocap
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP4:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP5:%.*]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Uni] i8* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i8* [[A0:%.*]] i64 [[VP4]]
-; CHECK-NEXT:     [DA: Uni] i8 [[VP_LOAD:%.*]] = load i8* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     [DA: Uni] ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP4]]
+; CHECK-NEXT:     [DA: Uni] i8 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP6:%.*]] = icmp ne i8 [[VP_LOAD]] i8 [[VAL0:%.*]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP__NOT:%.*]] = not i1 [[VP6]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP6]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
@@ -76,8 +76,8 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.inc
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.inc ]
-  %arrayidx = getelementptr inbounds i8, i8* %a, i64 %indvars.iv
-  %1 = load i8, i8* %arrayidx, align 1, !tbaa !2
+  %arrayidx = getelementptr inbounds i8, ptr %a, i64 %indvars.iv
+  %1 = load i8, ptr %arrayidx, align 1, !tbaa !2
   %cmp2 = icmp eq i8 %1, %val
   br i1 %cmp2, label %for.inc, label %cleanup.loopexit.split.loop.exit
 

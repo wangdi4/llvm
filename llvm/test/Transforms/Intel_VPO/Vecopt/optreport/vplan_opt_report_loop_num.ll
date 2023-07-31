@@ -26,7 +26,7 @@ declare void @llvm.directive.region.exit(token)
 declare void @serial_call_1() nounwind
 declare double @llvm.sqrt.f64(double %val) #1
 
-define void @test(i64 %n, i64* %arr, i64* %arr1) {
+define void @test(i64 %n, ptr %arr, ptr %arr1) {
 ; CHECK-LABEL:  for : test
 ; CHECK:      LOOP BEGIN
 ; CHECK-NEXT:     remark #15301: SIMD LOOP WAS VECTORIZED
@@ -73,7 +73,7 @@ exit:                                             ; preds = %for.end, %entry
   ret void
 }
 
-define void @test2(i64 %n, i64* %arr, i64* %arr1) {
+define void @test2(i64 %n, ptr %arr, ptr %arr1) {
 ; CHECK-LABEL: for : test2
 ; CHECK:      LOOP BEGIN
 ; CHECK-NEXT:     remark #15301: SIMD LOOP WAS VECTORIZED

@@ -11,14 +11,14 @@ entry:
 for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
 
-  %float.ld.idx = getelementptr inbounds [1024 x float], [1024 x float]* @arr.float.1, i64 0, i64 %indvars.iv
-  %float.ld = load float, float* %float.ld.idx
-  %float2.ld.idx = getelementptr inbounds [1024 x float], [1024 x float]* @arr.float.2, i64 0, i64 %indvars.iv
-  %float2.ld = load float, float* %float2.ld.idx
+  %float.ld.idx = getelementptr inbounds [1024 x float], ptr @arr.float.1, i64 0, i64 %indvars.iv
+  %float.ld = load float, ptr %float.ld.idx
+  %float2.ld.idx = getelementptr inbounds [1024 x float], ptr @arr.float.2, i64 0, i64 %indvars.iv
+  %float2.ld = load float, ptr %float2.ld.idx
 
   %float.add = fadd fast float %float.ld, %float2.ld
-  %float.st.idx = getelementptr inbounds [1024 x float], [1024 x float]* @arr.float.3, i64 0, i64 %indvars.iv
-  store float %float.add, float* %float.st.idx
+  %float.st.idx = getelementptr inbounds [1024 x float], ptr @arr.float.3, i64 0, i64 %indvars.iv
+  store float %float.add, ptr %float.st.idx
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024

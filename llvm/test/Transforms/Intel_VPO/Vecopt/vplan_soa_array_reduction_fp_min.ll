@@ -40,13 +40,11 @@ define float @test(ptr nocapture readonly %A, i64 %N, float %init) {
 ; CHECK-LABEL: define float @test
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[MIN:%.*]] = alloca [9 x float], align 4
-; CHECK-NEXT:    [[MIN_GEP:%.*]] = getelementptr inbounds [9 x float], ptr [[MIN]], i64 0, i64 0
 ; CHECK-NEXT:    [[MIN_SOA_VEC:%.*]] = alloca [9 x <2 x float>], align 8
 ; CHECK-NEXT:    br label [[FILL_MIN:%.*]]
 
 ; CHECK:       VPlannedBB2:
-; CHECK:         [[SOA_SCALAR_GEP:%.*]] = getelementptr inbounds [9 x <2 x float>], ptr [[MIN_SOA_VEC]], i64 0, i64 0
-; CHECK-NEXT:    br label [[ARRAY_REDN_INIT_LOOP:%.*]]
+; CHECK:    br label [[ARRAY_REDN_INIT_LOOP:%.*]]
 ; CHECK:       array.redn.init.loop:
 ; CHECK-NEXT:    [[CUR_ELEM_IDX:%.*]] = phi i64 [ 0, [[VPLANNEDBB2:%.*]] ], [ [[NEXT_ELEM_IDX:%.*]], [[ARRAY_REDN_INIT_LOOP:%.*]] ]
 ; CHECK-NEXT:    [[CUR_ELEM_PTR:%.*]] = getelementptr float, ptr [[MIN_SOA_VEC]], i64 [[CUR_ELEM_IDX]]
@@ -70,17 +68,15 @@ define float @test(ptr nocapture readonly %A, i64 %N, float %init) {
 ;
 entry:
   %min = alloca [9 x float], align 4
-  %min.gep = getelementptr inbounds [9 x float], ptr %min, i64 0, i64 0
   br label %fill.min
 
 fill.min:
-  %arr.begin = getelementptr inbounds [9 x float], ptr %min, i32 0, i32 0
-  %arr.end = getelementptr float, ptr %arr.begin, i32 9
-  %red.init.isempty = icmp eq ptr %arr.begin, %arr.end
+  %arr.end = getelementptr float, ptr %min, i32 9
+  %red.init.isempty = icmp eq ptr %min, %arr.end
   br i1 %red.init.isempty, label %begin.simd.1, label %red.init.body
 
 red.init.body:
-  %red.curr.ptr = phi ptr [ %arr.begin, %fill.min ], [ %red.next.ptr, %red.init.body ]
+  %red.curr.ptr = phi ptr [ %min, %fill.min ], [ %red.next.ptr, %red.init.body ]
   store float %init, ptr %red.curr.ptr, align 4
   %red.next.ptr = getelementptr inbounds float, ptr %red.curr.ptr, i32 1
   %red.init.done = icmp eq ptr %red.next.ptr, %arr.end
@@ -90,7 +86,7 @@ begin.simd.1:
   br label %begin.simd
 
 begin.simd:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MIN:TYPED"(ptr %min.gep, float 0.000000e+00, i32 9) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.MIN:TYPED"(ptr %min, float 0.000000e+00, i32 9) ]
   br label %for.body
 
 for.body:
@@ -101,7 +97,7 @@ for.body:
 
 inner.loop:
   %inner.iv = phi i64 [ 0, %for.body ], [ %inner.iv.next, %inner.loop ]
-  %min.idx = getelementptr inbounds [9 x float], ptr %min.gep, i64 0, i64 %inner.iv
+  %min.idx = getelementptr inbounds [9 x float], ptr %min, i64 0, i64 %inner.iv
   %min.ld = load float, ptr %min.idx, align 4
   %cmp = fcmp fast olt float %A.i, %min.ld
   %select = select fast i1 %cmp, float %A.i, float %min.ld

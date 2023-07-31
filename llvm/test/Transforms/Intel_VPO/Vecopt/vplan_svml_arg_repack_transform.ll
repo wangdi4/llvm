@@ -60,14 +60,13 @@ entry:
 loop:
   %iv = phi i64 [ 0, %entry ], [ %iv.next, %if.merge ]
   %A.idx = getelementptr inbounds %complex_128bit, ptr %A, i64 %iv
-  %A.idx.real = getelementptr %complex_128bit, ptr %A.idx, i64 0, i32 0
   %A.idx.imag = getelementptr %complex_128bit, ptr %A.idx, i64 0, i32 1
-  %A.real = load double, ptr %A.idx.real, align 1
+  %A.real = load double, ptr %A.idx, align 1
   %A.imag = load double, ptr %A.idx.imag, align 1
   %log = tail call fast %complex_128bit @clog(double %A.real, double %A.imag)
   %log.real = extractvalue %complex_128bit %log, 0
   %log.imag = extractvalue %complex_128bit %log, 1
-  store double %log.real, ptr %A.idx.real, align 1
+  store double %log.real, ptr %A.idx, align 1
   store double %log.imag, ptr %A.idx.imag, align 1
   %cond = icmp eq i64 %iv, 42
   br i1 %cond, label %if.then, label %if.merge
@@ -76,7 +75,7 @@ if.then:
   %exp = tail call fast %complex_128bit @cexp(double %A.real, double %A.imag)
   %exp.real = extractvalue %complex_128bit %exp, 0
   %exp.imag = extractvalue %complex_128bit %exp, 1
-  store double %exp.real, ptr %A.idx.real, align 1
+  store double %exp.real, ptr %A.idx, align 1
   store double %exp.imag, ptr %A.idx.imag, align 1
   br label %if.merge
 

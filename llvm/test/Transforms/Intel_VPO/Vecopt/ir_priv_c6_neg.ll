@@ -46,11 +46,11 @@ entry:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(i1* %v1.lpriv, i1 zeroinitializer, i32 1), "QUAL.OMP.LASTPRIVATE:TYPED"(i32* %v2.lpriv, i32 0, i32 1), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %v1.lpriv, i1 zeroinitializer, i32 1), "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %v2.lpriv, i32 0, i32 1), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.131
 
 DIR.OMP.SIMD.131:                                 ; preds = %DIR.OMP.SIMD.1
-  %v2.lpriv.promoted = load i32, i32* %v2.lpriv, align 4
+  %v2.lpriv.promoted = load i32, ptr %v2.lpriv, align 4
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.131, %omp.inner.for.body
@@ -66,8 +66,8 @@ omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.131, %
 DIR.OMP.END.SIMD.228:                             ; preds = %omp.inner.for.body
   %.lcssa33 = phi i32 [ %v2.2, %omp.inner.for.body ]
   %.lcssa = phi i1 [ %v1.2, %omp.inner.for.body ]
-  store i1 %.lcssa, i1* %v1.lpriv, align 1
-  store i32 %.lcssa33, i32* %v2.lpriv, align 4
+  store i1 %.lcssa, ptr %v1.lpriv, align 1
+  store i32 %.lcssa33, ptr %v2.lpriv, align 4
   br label %DIR.OMP.END.SIMD.2
 
 DIR.OMP.END.SIMD.2:                               ; preds = %DIR.OMP.END.SIMD.228

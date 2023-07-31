@@ -12,15 +12,15 @@ target triple = "x86_64-pc-linux"
 @gint = addrspace(1) global i32 1
 @testKernel.lint = internal addrspace(3) global i32 undef
 
-define void @_ZGVdN8u_testKernel(i32 addrspace(1)* noalias %results) {
+define void @_ZGVdN8u_testKernel(ptr addrspace(1) noalias %results) {
 ; MERGE-LABEL:  VPlan after CFG merge before CG:
 ; MERGE-NEXT:  VPlan IR for: _ZGVdN8u_testKernel:simd.loop
 ; MERGE-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; MERGE-NEXT:     [DA: Uni] pushvf VF=8 UF=1
 ; MERGE-NEXT:     [DA: Uni] pushvf VF=8 UF=1
 ; TODO: the two predicates below should be placed after trip check
-; MERGE-NEXT:     [DA: Uni] i1 [[VP__NOT:%.*]] = not i1 icmp eq (i8 addrspace(3)* bitcast (i32 addrspace(3)* @testKernel.lint to i8 addrspace(3)*), i8 addrspace(3)* null)
-; MERGE-NEXT:     [DA: Uni] i1 [[VP__NOT_1:%.*]] = not i1 icmp eq (i8 addrspace(1)* bitcast (i32 addrspace(1)* @gint to i8 addrspace(1)*), i8 addrspace(1)* null)
+; MERGE-NEXT:     [DA: Uni] i1 [[VP__NOT:%.*]] = not i1 icmp eq (ptr addrspace(3) @testKernel.lint, ptr addrspace(3) null)
+; MERGE-NEXT:     [DA: Uni] i1 [[VP__NOT_1:%.*]] = not i1 icmp eq (ptr addrspace(1) @gint, ptr addrspace(1) null)
 ; MERGE-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; MERGE-EMPTY:
 ; MERGE-NEXT:    [[BB1]]: # preds: [[BB0]]
@@ -31,7 +31,7 @@ entry:
   br label %simd.begin.region
 
 simd.begin.region:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM:TYPED"(i32 addrspace(1)* %results, i32 0, i32 1) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.UNIFORM:TYPED"(ptr addrspace(1) %results, i32 0, i32 1) ]
   br label %simd.loop
 
 simd.loop:
@@ -39,11 +39,11 @@ simd.loop:
   %ind_sext = sext i32 %index to i64
   %rem14 = and i64 %ind_sext, 1
   %tobool = icmp eq i64 %rem14, 0
-  %.gint = select i1 %tobool, i32 addrspace(1)* addrspacecast (i32 addrspace(3)* @testKernel.lint to i32 addrspace(1)*), i32 addrspace(1)* @gint
+  %.gint = select i1 %tobool, ptr addrspace(1) addrspacecast (ptr addrspace(3) @testKernel.lint to ptr addrspace(1)), ptr addrspace(1) @gint
   br i1 %tobool, label %land.lhs.true13, label %land.lhs.true
 
 land.lhs.true:
-  br i1 icmp eq (i8 addrspace(1)* bitcast (i32 addrspace(1)* @gint to i8 addrspace(1)*), i8 addrspace(1)* null), label %land.end, label %land.rhs
+  br i1 icmp eq (ptr addrspace(1) @gint, ptr addrspace(1) null), label %land.end, label %land.rhs
 
 land.rhs:
   br label %land.end
@@ -52,7 +52,7 @@ land.end:
   br label %if.end22
 
 land.lhs.true13:
-  br i1 icmp eq (i8 addrspace(3)* bitcast (i32 addrspace(3)* @testKernel.lint to i8 addrspace(3)*), i8 addrspace(3)* null), label %land.end18, label %land.rhs15
+  br i1 icmp eq (ptr addrspace(3) @testKernel.lint, ptr addrspace(3) null), label %land.end18, label %land.rhs15
 
 land.rhs15:
   br label %land.end18

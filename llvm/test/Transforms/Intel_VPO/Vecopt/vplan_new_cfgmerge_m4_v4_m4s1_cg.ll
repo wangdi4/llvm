@@ -8,15 +8,15 @@
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @test_store(i64* nocapture %ary, i32 %c) {
+define void @test_store(ptr nocapture %ary, i32 %c) {
 ;
 ; CHECK-LABEL: @test_store(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[PEEL_CHECKZ30:%.*]]
 ; CHECK:       peel.checkz30:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x i64*> poison, i64* [[ARY:%.*]], i64 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x i64*> [[BROADCAST_SPLATINSERT]], <4 x i64*> poison, <4 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP0:%.*]] = ptrtoint <4 x i64*> [[BROADCAST_SPLAT]] to <4 x i64>
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x ptr> poison, ptr [[ARY:%.*]], i64 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x ptr> [[BROADCAST_SPLATINSERT]], <4 x ptr> poison, <4 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP0:%.*]] = ptrtoint <4 x ptr> [[BROADCAST_SPLAT]] to <4 x i64>
 ; CHECK-NEXT:    [[DOTEXTRACT_0_:%.*]] = extractelement <4 x i64> [[TMP0]], i32 0
 ; CHECK-NEXT:    [[TMP1:%.*]] = udiv i64 [[DOTEXTRACT_0_]], 8
 ; CHECK-NEXT:    [[TMP2:%.*]] = mul i64 [[TMP1]], 3
@@ -44,11 +44,10 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:    [[TMP9:%.*]] = icmp ult <4 x i64> [[VEC_PHI]], [[BROADCAST_SPLAT4]]
 ; CHECK-NEXT:    br label [[VPLANNEDBB5:%.*]]
 ; CHECK:       VPlannedBB5:
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i64, i64* [[ARY]], i64 [[DOTEXTRACT_0_6]]
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i64, ptr [[ARY]], i64 [[DOTEXTRACT_0_6]]
 ; CHECK-NEXT:    [[TMP10:%.*]] = sext <4 x i32> [[BROADCAST_SPLAT8]] to <4 x i64>
 ; CHECK-NEXT:    [[TMP11:%.*]] = add <4 x i64> [[TMP10]], [[TMP8]]
-; CHECK-NEXT:    [[TMP12:%.*]] = bitcast i64* [[SCALAR_GEP]] to <4 x i64>*
-; CHECK-NEXT:    call void @llvm.masked.store.v4i64.p0v4i64(<4 x i64> [[TMP11]], <4 x i64>* [[TMP12]], i32 8, <4 x i1> [[TMP9]])
+; CHECK-NEXT:    call void @llvm.masked.store.v4i64.p0(<4 x i64> [[TMP11]], ptr [[SCALAR_GEP]], i32 8, <4 x i1> [[TMP9]])
 ; CHECK-NEXT:    br label [[NEW_LATCH]]
 ; CHECK:       new_latch:
 ; CHECK-NEXT:    [[TMP13]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
@@ -92,11 +91,10 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI18:%.*]] = phi i64 [ [[UNI_PHI13]], [[VPLANNEDBB16]] ], [ [[TMP27:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_PHI19:%.*]] = phi <4 x i64> [ [[TMP22]], [[VPLANNEDBB16]] ], [ [[TMP26:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[SCALAR_GEP20:%.*]] = getelementptr inbounds i64, i64* [[ARY]], i64 [[UNI_PHI18]]
+; CHECK-NEXT:    [[SCALAR_GEP20:%.*]] = getelementptr inbounds i64, ptr [[ARY]], i64 [[UNI_PHI18]]
 ; CHECK-NEXT:    [[TMP23:%.*]] = sext <4 x i32> [[BROADCAST_SPLAT22]] to <4 x i64>
 ; CHECK-NEXT:    [[TMP24:%.*]] = add <4 x i64> [[TMP23]], [[VEC_PHI19]]
-; CHECK-NEXT:    [[TMP25:%.*]] = bitcast i64* [[SCALAR_GEP20]] to <4 x i64>*
-; CHECK-NEXT:    store <4 x i64> [[TMP24]], <4 x i64>* [[TMP25]], align 8, !intel.preferred_alignment !0
+; CHECK-NEXT:    store <4 x i64> [[TMP24]], ptr [[SCALAR_GEP20]], align 8, !intel.preferred_alignment !0
 ; CHECK-NEXT:    [[TMP26]] = add nuw nsw <4 x i64> [[VEC_PHI19]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP27]] = add nuw nsw i64 [[UNI_PHI18]], 4
 ; CHECK-NEXT:    [[TMP28:%.*]] = icmp ult i64 [[TMP27]], [[N_VEC]]
@@ -132,11 +130,10 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:    [[TMP34:%.*]] = icmp ult <4 x i64> [[VEC_PHI31]], [[BROADCAST_SPLAT35]]
 ; CHECK-NEXT:    br label [[VPLANNEDBB36:%.*]]
 ; CHECK:       VPlannedBB36:
-; CHECK-NEXT:    [[SCALAR_GEP38:%.*]] = getelementptr inbounds i64, i64* [[ARY]], i64 [[DOTEXTRACT_0_37]]
+; CHECK-NEXT:    [[SCALAR_GEP38:%.*]] = getelementptr inbounds i64, ptr [[ARY]], i64 [[DOTEXTRACT_0_37]]
 ; CHECK-NEXT:    [[TMP35:%.*]] = sext <4 x i32> [[BROADCAST_SPLAT40]] to <4 x i64>
 ; CHECK-NEXT:    [[TMP36:%.*]] = add <4 x i64> [[TMP35]], [[TMP33]]
-; CHECK-NEXT:    [[TMP37:%.*]] = bitcast i64* [[SCALAR_GEP38]] to <4 x i64>*
-; CHECK-NEXT:    call void @llvm.masked.store.v4i64.p0v4i64(<4 x i64> [[TMP36]], <4 x i64>* [[TMP37]], i32 8, <4 x i1> [[TMP34]])
+; CHECK-NEXT:    call void @llvm.masked.store.v4i64.p0(<4 x i64> [[TMP36]], ptr [[SCALAR_GEP38]], i32 8, <4 x i1> [[TMP34]])
 ; CHECK-NEXT:    br label [[NEW_LATCH19]]
 ; CHECK:       new_latch19:
 ; CHECK-NEXT:    [[TMP38]] = add nuw nsw <4 x i64> [[VEC_PHI31]], <i64 4, i64 4, i64 4, i64 4>
@@ -154,10 +151,10 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:    br label [[FOR_END:%.*]]
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[UNI_PHI11]], [[REMBLK13]] ], [ [[INDVARS_IV_NEXT]], [[FOR_BODY]] ]
-; CHECK-NEXT:    [[PTR:%.*]] = getelementptr inbounds i64, i64* [[ARY]], i64 [[INDVARS_IV]]
+; CHECK-NEXT:    [[PTR:%.*]] = getelementptr inbounds i64, ptr [[ARY]], i64 [[INDVARS_IV]]
 ; CHECK-NEXT:    [[CC:%.*]] = sext i32 [[C]] to i64
 ; CHECK-NEXT:    [[ADD:%.*]] = add i64 [[CC]], [[INDVARS_IV]]
-; CHECK-NEXT:    store i64 [[ADD]], i64* [[PTR]], align 8
+; CHECK-NEXT:    store i64 [[ADD]], ptr [[PTR]], align 8
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp ult i64 [[INDVARS_IV_NEXT]], 1024
 ; CHECK-NEXT:    br i1 [[CMP]], label [[FOR_BODY]], label [[VPLANNEDBB12]], !llvm.loop [[LOOP3:![0-9]+]]
@@ -170,10 +167,10 @@ entry:
 
 for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ptr = getelementptr inbounds i64, i64* %ary, i64 %indvars.iv
+  %ptr = getelementptr inbounds i64, ptr %ary, i64 %indvars.iv
   %cc = sext i32 %c to i64
   %add = add i64 %cc, %indvars.iv
-  store i64 %add, i64* %ptr, align 8
+  store i64 %add, ptr %ptr, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %cmp = icmp ult i64 %indvars.iv.next, 1024
   br i1 %cmp, label %for.body, label %for.end

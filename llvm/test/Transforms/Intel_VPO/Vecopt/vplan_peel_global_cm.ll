@@ -5,7 +5,7 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @test(i32* %buf1, i32* %buf2, i32* %buf3) {
+define void @test(ptr %buf1, ptr %buf2, ptr %buf3) {
 ; VPLAN-CM-PEELING:  Selecting VF for VPlan test:for.body.#{{[0-9]+}}
 ; VPLAN-CM-PEELING-NEXT:  Cost of Scalar VPlan: 51200
 ; VPLAN-CM-PEELING-NEXT:  '#pragma vector always'/ '#pragma omp simd' is used for the given loop
@@ -63,18 +63,18 @@ define void @test(i32* %buf1, i32* %buf2, i32* %buf3) {
 ; VPLAN-CM-NO-PEELING-NEXT:  Selecting VPlan with VF=4
 ;
 real_entry:
-  %buf1.asInt = ptrtoint i32* %buf1 to i64
-  %buf2.asInt = ptrtoint i32* %buf2 to i64
-  %buf3.asInt = ptrtoint i32* %buf3 to i64
+  %buf1.asInt = ptrtoint ptr %buf1 to i64
+  %buf2.asInt = ptrtoint ptr %buf2 to i64
+  %buf3.asInt = ptrtoint ptr %buf3 to i64
   %tmp1 = and i64 %buf1.asInt, -64
   %tmp2 = and i64 %buf2.asInt, -64
   %tmp3 = and i64 %buf3.asInt, -64
   %ptr1.asInt = or i64 %tmp1, 52
   %ptr2.asInt = or i64 %tmp2, 12
   %ptr3.asInt = or i64 %tmp3, 24
-  %ptr1 = inttoptr i64 %ptr1.asInt to i32*
-  %ptr2 = inttoptr i64 %ptr2.asInt to i32*
-  %ptr3 = inttoptr i64 %ptr3.asInt to i32*
+  %ptr1 = inttoptr i64 %ptr1.asInt to ptr
+  %ptr2 = inttoptr i64 %ptr2.asInt to ptr
+  %ptr3 = inttoptr i64 %ptr3.asInt to ptr
   br label %entry
 
 entry:
@@ -84,12 +84,12 @@ entry:
 for.body:
   %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]
   %count32 = trunc i64 %counter to i32
-  %p1 = getelementptr inbounds i32, i32* %ptr1, i64 %counter
-  %p2 = getelementptr inbounds i32, i32* %ptr2, i64 %counter
-  %p3 = getelementptr inbounds i32, i32* %ptr3, i64 %counter
-  store i32 %count32, i32* %p1
-  store i32 %count32, i32* %p2
-  store i32 %count32, i32* %p3
+  %p1 = getelementptr inbounds i32, ptr %ptr1, i64 %counter
+  %p2 = getelementptr inbounds i32, ptr %ptr2, i64 %counter
+  %p3 = getelementptr inbounds i32, ptr %ptr3, i64 %counter
+  store i32 %count32, ptr %p1
+  store i32 %count32, ptr %p2
+  store i32 %count32, ptr %p3
   %counter.next = add nsw i64 %counter, 1
   %exitcond = icmp sge i64 %counter.next, 10240
   br i1 %exitcond, label %for.end, label %for.body, !llvm.loop !1

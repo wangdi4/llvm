@@ -5,7 +5,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(<4 x i32>* nocapture %ary) {
+define void @foo(ptr nocapture %ary) {
 ;  typedef int32_t v4i32 __attribute__((vector_size(16)));
 ;  v4i32 *ary, t0, t1, t2;
 ;  for (i = 0; i < 3072; i += 3) {
@@ -34,9 +34,8 @@ define void @foo(<4 x i32>* nocapture %ary) {
 ; CHECK-NEXT:   #6 <4 x 128> SStore
 ;
 ; CHECK-LABEL: @foo(
-; CHECK:         [[SCALAR_GEP:%.*]] = getelementptr inbounds <4 x i32>, <4 x i32>* [[ARY:%.*]], i64 [[UNI_PHI:%.*]]
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <4 x i32>* [[SCALAR_GEP]] to <16 x i128>*
-; CHECK-NEXT:    [[VLS_LOAD:%.*]] = call <16 x i128> @llvm.masked.load.v16i128.p0v16i128(<16 x i128>* [[TMP0]], i32 4, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 false, i1 false, i1 false, i1 false>, <16 x i128> poison)
+; CHECK:         [[SCALAR_GEP:%.*]] = getelementptr inbounds <4 x i32>, ptr [[ARY:%.*]], i64 [[UNI_PHI:%.*]]
+; CHECK-NEXT:    [[VLS_LOAD:%.*]] = call <16 x i128> @llvm.masked.load.v16i128.p0(ptr [[SCALAR_GEP]], i32 4, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 false, i1 false, i1 false, i1 false>, <16 x i128> poison)
 ; CHECK-NEXT:    [[TMP1:%.*]] = shufflevector <16 x i128> [[VLS_LOAD]], <16 x i128> [[VLS_LOAD]], <4 x i32> <i32 0, i32 3, i32 6, i32 9>
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast <4 x i128> [[TMP1]] to <16 x i32>
 ; CHECK-NEXT:    [[TMP3:%.*]] = shufflevector <16 x i128> [[VLS_LOAD]], <16 x i128> [[VLS_LOAD]], <4 x i32> <i32 1, i32 4, i32 7, i32 10>
@@ -55,8 +54,7 @@ define void @foo(<4 x i32>* nocapture %ary) {
 ; CHECK-NEXT:    [[TMP16:%.*]] = bitcast <16 x i32> [[TMP9]] to <4 x i128>
 ; CHECK-NEXT:    [[TMP17:%.*]] = shufflevector <4 x i128> [[TMP16]], <4 x i128> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison, i32 poison>
 ; CHECK-NEXT:    [[TMP18:%.*]] = shufflevector <16 x i128> [[TMP15]], <16 x i128> [[TMP17]], <16 x i32> <i32 0, i32 1, i32 16, i32 3, i32 4, i32 17, i32 6, i32 7, i32 18, i32 9, i32 10, i32 19, i32 12, i32 13, i32 14, i32 15>
-; CHECK-NEXT:    [[TMP19:%.*]] = bitcast <4 x i32>* [[SCALAR_GEP]] to <16 x i128>*
-; CHECK-NEXT:    call void @llvm.masked.store.v16i128.p0v16i128(<16 x i128> [[TMP18]], <16 x i128>* [[TMP19]], i32 4, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 false, i1 false, i1 false, i1 false>)
+; CHECK-NEXT:    call void @llvm.masked.store.v16i128.p0(<16 x i128> [[TMP18]], ptr [[SCALAR_GEP]], i32 4, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 false, i1 false, i1 false, i1 false>)
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
@@ -64,20 +62,20 @@ entry:
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds <4 x i32>, <4 x i32>* %ary, i64 %indvars.iv
-  %0 = load <4 x i32>, <4 x i32>* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds <4 x i32>, ptr %ary, i64 %indvars.iv
+  %0 = load <4 x i32>, ptr %arrayidx, align 4
   %add7 = add nsw <4 x i32> %0, <i32 7, i32 7, i32 7, i32 7>
   %1 = add nsw i64 %indvars.iv, 1
-  %arrayidx4 = getelementptr inbounds <4 x i32>, <4 x i32>* %ary, i64 %1
-  %2 = load <4 x i32>, <4 x i32>* %arrayidx4, align 4
+  %arrayidx4 = getelementptr inbounds <4 x i32>, ptr %ary, i64 %1
+  %2 = load <4 x i32>, ptr %arrayidx4, align 4
   %add11 = add nsw <4 x i32> %2, <i32 11, i32 11, i32 11, i32 11>
   %3 = add nsw i64 %indvars.iv, 2
-  %arrayidx8 = getelementptr inbounds <4 x i32>, <4 x i32>* %ary, i64 %3
-  %4 = load <4 x i32>, <4 x i32>* %arrayidx8, align 4
+  %arrayidx8 = getelementptr inbounds <4 x i32>, ptr %ary, i64 %3
+  %4 = load <4 x i32>, ptr %arrayidx8, align 4
   %add12 = add nsw <4 x i32> %4, <i32 12, i32 12, i32 12, i32 12>
-  store <4 x i32> %add7, <4 x i32>* %arrayidx, align 4
-  store <4 x i32> %add11, <4 x i32>* %arrayidx4, align 4
-  store <4 x i32> %add12, <4 x i32>* %arrayidx8, align 4
+  store <4 x i32> %add7, ptr %arrayidx, align 4
+  store <4 x i32> %add11, ptr %arrayidx4, align 4
+  store <4 x i32> %add12, ptr %arrayidx8, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 3
   %cmp = icmp ult i64 %indvars.iv.next, 3072
   br i1 %cmp, label %for.body, label %for.end

@@ -4,24 +4,24 @@
 
 ; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-vplan-vec,print<hir>" -print-after=hir-vplan-vec -vplan-force-vf=16 -debug-only=HIRLegality < %s 2>&1 | FileCheck %s --check-prefix=HIR-CHECK
 
-%"QNCA_a0$i32*$rank2$" = type { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }
+%"QNCA_a0$ptr$rank2$" = type { ptr, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }
 
-define void @sum_(float* %C2ptr, i64* %Nptr, i64* %Mptr) #0 {
+define void @sum_(ptr %C2ptr, ptr %Nptr, ptr %Mptr) #0 {
 ; CHECK:  F90 dope vector privates are not supported.
 ;
-; CHECK:  define void @sum_(float* [[C2PTR0:%.*]], i64* [[NPTR0:%.*]], i64* [[MPTR0:%.*]]) #0 {
+; CHECK:  define void @sum_(ptr [[C2PTR0:%.*]], ptr [[NPTR0:%.*]], ptr [[MPTR0:%.*]]) #0 {
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[LPRIV0:%.*]] = alloca %"QNCA_a0$i32*$rank2$", align 8
-; CHECK-NEXT:    [[N0:%.*]] = load i64, i64* [[NPTR0]], align 1
+; CHECK-NEXT:    [[LPRIV0:%.*]] = alloca %"QNCA_a0$ptr$rank2$", align 8
+; CHECK-NEXT:    [[N0:%.*]] = load i64, ptr [[NPTR0]], align 1
 ; CHECK-NEXT:    br label [[REGION_00:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  region.0:
-; CHECK-NEXT:    [[TOKEN10:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:F90_DV.TYPED"(%"QNCA_a0$i32*$rank2$"* [[LPRIV0]], %"QNCA_a0$i32*$rank2$" zeroinitializer, i32 1) ]
+; CHECK-NEXT:    [[TOKEN10:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:F90_DV.TYPED"(ptr [[LPRIV0]], %"QNCA_a0$ptr$rank2$" zeroinitializer, i32 1) ]
 ; CHECK-NEXT:    br label [[DIR_OMP_SIMD_13780:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.SIMD.1378:
-; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr inbounds %"QNCA_a0$i32*$rank2$", %"QNCA_a0$i32*$rank2$"* [[LPRIV0]], i64 0, i32 6, i64 0, i32 1
-; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr inbounds %"QNCA_a0$i32*$rank2$", %"QNCA_a0$i32*$rank2$"* [[LPRIV0]], i64 0, i32 6, i64 0, i32 0
+; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr inbounds %"QNCA_a0$ptr$rank2$", ptr [[LPRIV0]], i64 0, i32 6, i64 0, i32 1
+; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr inbounds %"QNCA_a0$ptr$rank2$", ptr [[LPRIV0]], i64 0, i32 6, i64 0, i32 0
 ; CHECK-NEXT:    br label [[LOOP_770:%.*]]
 ; CHECK-EMPTY:
 ;
@@ -38,25 +38,25 @@ define void @sum_(float* %C2ptr, i64* %Nptr, i64* %Mptr) #0 {
 ; HIR-CHECK-NEXT: END REGION
 ;
 entry:
-  %lpriv = alloca %"QNCA_a0$i32*$rank2$", align 8
-  %N = load i64, i64* %Nptr, align 1
+  %lpriv = alloca %"QNCA_a0$ptr$rank2$", align 8
+  %N = load i64, ptr %Nptr, align 1
   br label %region.0
 
 region.0:                                         ; preds = %entry
-  %token1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:F90_DV.TYPED"(%"QNCA_a0$i32*$rank2$"* %lpriv, %"QNCA_a0$i32*$rank2$" zeroinitializer, i32 1) ]
+  %token1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:F90_DV.TYPED"(ptr %lpriv, %"QNCA_a0$ptr$rank2$" zeroinitializer, i32 1) ]
   br label %DIR.OMP.SIMD.1378
 
 DIR.OMP.SIMD.1378:                                ; preds = %region.0
-  %0 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", %"QNCA_a0$i32*$rank2$"* %lpriv, i64 0, i32 6, i64 0, i32 1
-  %1 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", %"QNCA_a0$i32*$rank2$"* %lpriv, i64 0, i32 6, i64 0, i32 0
+  %0 = getelementptr inbounds %"QNCA_a0$ptr$rank2$", ptr %lpriv, i64 0, i32 6, i64 0, i32 1
+  %1 = getelementptr inbounds %"QNCA_a0$ptr$rank2$", ptr %lpriv, i64 0, i32 6, i64 0, i32 0
   br label %loop.77
 
 loop.77:                                          ; preds = %ifmerge.28, %DIR.OMP.SIMD.1378
   %i1.i64.0 = phi i64 [ 0, %DIR.OMP.SIMD.1378 ], [ %nextivloop.77, %ifmerge.28 ]
-  %2 = getelementptr inbounds i64, i64* %0, i64 3
-  %gepload52 = load i64, i64* %2, align 8
-  %3 = getelementptr inbounds i64, i64* %1, i64 3
-  %gepload53 = load i64, i64* %3, align 8
+  %2 = getelementptr inbounds i64, ptr %0, i64 3
+  %gepload52 = load i64, ptr %2, align 8
+  %3 = getelementptr inbounds i64, ptr %1, i64 3
+  %gepload53 = load i64, ptr %3, align 8
   br label %ifmerge.28
 
 ifmerge.28:                                       ; preds = %loop.77

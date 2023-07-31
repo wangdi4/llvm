@@ -26,7 +26,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind readonly uwtable
-define dso_local i32 @_Z3fooiPKaPaa(i32 %n, float* nocapture readonly %a, float %start) local_unnamed_addr #0 {
+define dso_local i32 @_Z3fooiPKaPaa(i32 %n, ptr nocapture readonly %a, float %start) local_unnamed_addr #0 {
 entry:
   %cmp8 = icmp sgt i32 %n, 0
   br i1 %cmp8, label %for.body.preheader, label %cleanup
@@ -39,8 +39,8 @@ for.body:                                         ; preds = %for.body.preheader,
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.inc ]
   %fpiv.phi = phi float [ %start, %for.body.preheader ], [ %fpiv.next, %for.inc ]
   %fpiv.next = fadd reassoc float %fpiv.phi, 1.000000e+00
-  %arrayidx = getelementptr inbounds float, float* %a, i64 %indvars.iv
-  %1 = load float, float* %arrayidx, align 1
+  %arrayidx = getelementptr inbounds float, ptr %a, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx, align 1
   %cmp2 = fcmp oeq float %1, %fpiv.next
   br i1 %cmp2, label %for.inc, label %cleanup.loopexit.split.loop.exit
 

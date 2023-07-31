@@ -13,18 +13,18 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @.str = private unnamed_addr constant [8 x i8] c"x = %f\0A\00", align 1
 
-define float @expl_reduction_add(float* nocapture %a) {
+define float @expl_reduction_add(ptr nocapture %a) {
 entry:
   %x = alloca float, align 4
-  store float 0.000000e+00, float* %x, align 4
+  store float 0.000000e+00, ptr %x, align 4
   br label %entry.split
 
 entry.split:                                      ; preds = %entry
-%tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.REDUCTION.ADD:TYPED"(float* %x, float zeroinitializer, i32 1) ]
+%tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %x, float zeroinitializer, i32 1) ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %entry.split
-  %x.promoted = load float, float* %x, align 4
+  %x.promoted = load float, ptr %x, align 4
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %DIR.QUAL.LIST.END.2
@@ -44,10 +44,10 @@ for.end1:                                         ; preds = %for.end
   br label %DIR.QUAL.LIST.END.3
 
 DIR.QUAL.LIST.END.3:                              ; preds = %for.end
-  store float %add.lcssa, float* %x, align 4
+  store float %add.lcssa, ptr %x, align 4
   %conv6 = fpext float %add.lcssa to double
-  %call = call i32 (i8*, ...) @printf(i8* nonnull getelementptr inbounds ([8 x i8], [8 x i8]* @.str, i64 0, i64 0), double %conv6)
-  %x1 = load float, float* %x, align 4
+  %call = call i32 (ptr, ...) @printf(ptr nonnull @.str, double %conv6)
+  %x1 = load float, ptr %x, align 4
   ret float %x1
 }
 
@@ -61,18 +61,18 @@ DIR.QUAL.LIST.END.3:                              ; preds = %for.end
 ; CHECK:       final.merge:
 ; CHECK:         [[UNI_PHI60:%.*]] = phi float [ [[RES]], [[VPLANNEDBB50:.*]] ]
 
-define float @expl_reduction_sub(float* nocapture %a) {
+define float @expl_reduction_sub(ptr nocapture %a) {
 entry:
   %x = alloca float, align 4
-  store float 0.000000e+00, float* %x, align 4
+  store float 0.000000e+00, ptr %x, align 4
   br label %entry.split
 
 entry.split:                                      ; preds = %entry
-%tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.REDUCTION.ADD:TYPED"(float* %x, float zeroinitializer, i32 1) ]
+%tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %x, float zeroinitializer, i32 1) ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %entry.split
-  %x.promoted = load float, float* %x, align 4
+  %x.promoted = load float, ptr %x, align 4
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %DIR.QUAL.LIST.END.2
@@ -92,10 +92,10 @@ for.end1:                                         ; preds = %for.end
   br label %DIR.QUAL.LIST.END.3
 
 DIR.QUAL.LIST.END.3:                              ; preds = %for.end
-  store float %add.lcssa, float* %x, align 4
+  store float %add.lcssa, ptr %x, align 4
   %conv6 = fpext float %add.lcssa to double
-  %call = call i32 (i8*, ...) @printf(i8* nonnull getelementptr inbounds ([8 x i8], [8 x i8]* @.str, i64 0, i64 0), double %conv6)
-  %x1 = load float, float* %x, align 4
+  %call = call i32 (ptr, ...) @printf(ptr nonnull @.str, double %conv6)
+  %x1 = load float, ptr %x, align 4
   ret float %x1
 }
 
@@ -105,6 +105,6 @@ declare token @llvm.directive.region.entry() #1
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.directive.region.exit(token) #1
 
-declare i32 @printf(i8* nocapture readonly, ...)
+declare i32 @printf(ptr nocapture readonly, ...)
 
 attributes #0 = { argmemonly nounwind }

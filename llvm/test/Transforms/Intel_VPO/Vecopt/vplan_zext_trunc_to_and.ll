@@ -21,7 +21,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NOT: trunc
 ; CHECK-NOT: zext
 
-define void @_Z4initPiPli(i32* %in0, i32* %in1, i64* %in2, i128* %in3, i32 noundef %N) local_unnamed_addr {
+define void @_Z4initPiPli(ptr %in0, ptr %in1, ptr %in2, ptr %in3, i32 noundef %N) local_unnamed_addr {
 entry:
   br label %DIR.OMP.SIMD.1
 
@@ -31,17 +31,17 @@ DIR.OMP.SIMD.1:
 
 omp.inner.for.body:
   %indvars.iv = phi i32 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %in1, i32 %indvars.iv
-  %t2 = load i32, i32* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i32, ptr %in1, i32 %indvars.iv
+  %t2 = load i32, ptr %arrayidx, align 8
   %c1 = trunc i32 %t2 to i8
   %c2 = zext i8 %c1 to i32
-  %arrayidx6 = getelementptr inbounds i32, i32* %in0, i32 %indvars.iv
-  store i32 %c2, i32* %arrayidx6, align 4
-  %arrayidx7 = getelementptr inbounds i64, i64* %in2, i32 %indvars.iv
+  %arrayidx6 = getelementptr inbounds i32, ptr %in0, i32 %indvars.iv
+  store i32 %c2, ptr %arrayidx6, align 4
+  %arrayidx7 = getelementptr inbounds i64, ptr %in2, i32 %indvars.iv
   %v = sext i32 %indvars.iv to i64
   %b1 = trunc i64 %v to i35
   %b2 = zext i35 %b1 to i64
-  store i64 %b2, i64* %arrayidx7, align 4
+  store i64 %b2, ptr %arrayidx7, align 4
 ;  %arrayidx8 = getelementptr inbounds i128, i128* %in3, i32 %indvars.iv
 ;  %v2 = sext i32 %indvars.iv to i128
 ;  %b3 = trunc i128 %v2 to i67

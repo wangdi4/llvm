@@ -21,10 +21,10 @@ define dso_local void @foo(i32 %arg0) local_unnamed_addr #0 {
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP2:%.*]] = trunc i64 [[VP0]] to i32
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP3:%.*]] = add i32 [[ARG00:%.*]] i32 [[VP2]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP4:%.*]] = sext i32 [[VP3]] to i64
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i64]* @a i64 0 i64 [[VP4]]
-; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i64]* @b i64 0 i64 [[VP4]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] store i64 [[VP_LOAD]] i64* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr @a i64 0 i64 [[VP4]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr @b i64 0 i64 [[VP4]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 8] store i64 [[VP_LOAD]] ptr [[VP_SUBSCRIPT_1]]
 ;
 entry:
   br label %for.body
@@ -34,10 +34,10 @@ for.body:                                         ; preds = %entry, %for.body
   %indvars.iv.trunc = trunc i64 %indvars.iv to i32
   %indvars.iv.mod = add i32 %arg0, %indvars.iv.trunc
   %indvars.iv.sext = sext i32 %indvars.iv.mod to i64
-  %arrayidx = getelementptr inbounds [1024 x i64], [1024 x i64]* @a, i64 0, i64 %indvars.iv.sext
-  %val = load i64, i64* %arrayidx, align 16
-  %arrayidx2 = getelementptr inbounds [1024 x i64], [1024 x i64]* @b, i64 0, i64 %indvars.iv.sext
-  store i64 %val, i64* %arrayidx2, align 16
+  %arrayidx = getelementptr inbounds [1024 x i64], ptr @a, i64 0, i64 %indvars.iv.sext
+  %val = load i64, ptr %arrayidx, align 16
+  %arrayidx2 = getelementptr inbounds [1024 x i64], ptr @b, i64 0, i64 %indvars.iv.sext
+  store i64 %val, ptr %arrayidx2, align 16
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %cmp = icmp ult i64 %indvars.iv, 1022
   br i1 %cmp, label %for.body, label %for.end

@@ -10,10 +10,10 @@
 ; CHECK: _Z6selectDv4_fS_Dv4_i
 ; CHECK: ret void
 
-define void @test_select_sext(<8 x float> %accumulated_occupancy, float addrspace(2)* %kernel_parameters) #5 {
+define void @test_select_sext(<8 x float> %accumulated_occupancy, ptr addrspace(2) %kernel_parameters) #5 {
 simd.begin.region:
   %vec.accumulated_occupancy = alloca <8 x float>, align 32
-  store <8 x float> %accumulated_occupancy, <8 x float>* %vec.accumulated_occupancy, align 32
+  store <8 x float> %accumulated_occupancy, ptr %vec.accumulated_occupancy, align 32
   br label %DIR.OMP.SIMD.3
 
 DIR.OMP.SIMD.3:                                   ; preds = %simd.begin.region
@@ -21,14 +21,12 @@ DIR.OMP.SIMD.3:                                   ; preds = %simd.begin.region
   br label %DIR.QUAL.LIST.END.1
 
 DIR.QUAL.LIST.END.1:                              ; preds = %DIR.OMP.SIMD.3
-  %weight_occupied = getelementptr inbounds float, float addrspace(2)* %kernel_parameters, i64 0
-  %weight_free2 = getelementptr inbounds float, float addrspace(2)* %kernel_parameters, i64 0
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop, %DIR.QUAL.LIST.END.1
   %indvars.iv = phi i64 [ %indvars.iv.next, %simd.loop ], [ 0, %DIR.QUAL.LIST.END.1 ]
-  %0 = load float, float addrspace(2)* %weight_occupied, align 4
-  %1 = load float, float addrspace(2)* %weight_free2, align 4
+  %0 = load float, ptr addrspace(2) %kernel_parameters, align 4
+  %1 = load float, ptr addrspace(2) %kernel_parameters, align 4
   %cmp = fcmp ogt float %0, 5.000000e-01
   %conv = sext i1 %cmp to i32
   %call4 = tail call afn float @_Z6selectffi(float %0, float %1, i32 %conv) #9

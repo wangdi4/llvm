@@ -6,21 +6,19 @@ define void @foo() {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[RET_LPRIV:%.*]] = alloca i8, align 1
 ; CHECK-NEXT:    [[I_LINEAR_IV:%.*]] = alloca i32, align 4
-; CHECK-NEXT:    [[A_ADDR:%.*]] = alloca i8*, align 8
+; CHECK-NEXT:    [[A_ADDR:%.*]] = alloca ptr, align 8
 ; CHECK-NEXT:    [[DOTCAPTURE_EXPR_0:%.*]] = alloca i32, align 4
 ; CHECK-NEXT:    [[DOTOMP_UB:%.*]] = alloca i32, align 4
-; CHECK-NEXT:    [[TMP0:%.*]] = load i32, i32* [[DOTCAPTURE_EXPR_0]], align 4
+; CHECK-NEXT:    [[TMP0:%.*]] = load i32, ptr [[DOTCAPTURE_EXPR_0]], align 4
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp slt i32 0, [[TMP0]]
 ; CHECK-NEXT:    [[RET_LPRIV_VEC:%.*]] = alloca <4 x i8>, align 4
-; CHECK-NEXT:    [[RET_LPRIV_VEC_BC:%.*]] = bitcast <4 x i8>* [[RET_LPRIV_VEC]] to i8*
-; CHECK-NEXT:    [[RET_LPRIV_VEC_BASE_ADDR:%.*]] = getelementptr i8, i8* [[RET_LPRIV_VEC_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-; CHECK-NEXT:    [[RET_LPRIV_VEC_BASE_ADDR_EXTRACT_0_:%.*]] = extractelement <4 x i8*> [[RET_LPRIV_VEC_BASE_ADDR]], i32 0
+; CHECK-NEXT:    [[RET_LPRIV_VEC_BASE_ADDR:%.*]] = getelementptr i8, ptr [[RET_LPRIV_VEC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[RET_LPRIV_VEC_BASE_ADDR_EXTRACT_0_:%.*]] = extractelement <4 x ptr> [[RET_LPRIV_VEC_BASE_ADDR]], i32 0
 ; CHECK-NEXT:    [[PRIV_IDX_MEM_VEC:%.*]] = alloca <4 x i32>, align 16
-; CHECK-NEXT:    [[PRIV_IDX_MEM_VEC_BC:%.*]] = bitcast <4 x i32>* [[PRIV_IDX_MEM_VEC]] to i32*
-; CHECK-NEXT:    [[PRIV_IDX_MEM_VEC_BASE_ADDR:%.*]] = getelementptr i32, i32* [[PRIV_IDX_MEM_VEC_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[PRIV_IDX_MEM_VEC_BASE_ADDR:%.*]] = getelementptr i32, ptr [[PRIV_IDX_MEM_VEC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    br i1 [[CMP]], label [[DIR_OMP_SIMD_113_SPLIT:%.*]], label [[DIR_OMP_END_SIMD_1:%.*]]
 ; CHECK:       DIR.OMP.SIMD.113.split:
-; CHECK-NEXT:    [[TMP1:%.*]] = load i32, i32* [[DOTOMP_UB]], align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = load i32, ptr [[DOTOMP_UB]], align 4
 ; CHECK-NEXT:    [[CMP415:%.*]] = icmp sle i32 0, [[TMP1]]
 ; CHECK-NEXT:    br i1 [[CMP415]], label [[OMP_INNER_FOR_BODY_LR_PH:%.*]], label [[DIR_OMP_END_SIMD_1]]
 ; CHECK:       omp.inner.for.body.lr.ph:
@@ -34,23 +32,23 @@ define void @foo() {
 ; CHECK:       VPlannedBB1:
 ; CHECK-NEXT:    br label [[VPLANNEDBB2:%.*]]
 ; CHECK:       VPlannedBB2:
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 4, i8* [[RET_LPRIV_VEC_BASE_ADDR_EXTRACT_0_]])
-; CHECK-NEXT:    store <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>, <4 x i32>* [[PRIV_IDX_MEM_VEC]], align 1
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 4, ptr [[RET_LPRIV_VEC_BASE_ADDR_EXTRACT_0_]])
+; CHECK-NEXT:    store <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1>, ptr [[PRIV_IDX_MEM_VEC]], align 1
 ; CHECK-NEXT:    [[TMP5:%.*]] = and i32 [[SMAX]], -4
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i32 [ 0, [[VPLANNEDBB2]] ], [ [[TMP20:%.*]], [[VPLANNEDBB9:%.*]] ]
 ; CHECK-NEXT:    [[UNI_PHI4:%.*]] = phi i32 [ 0, [[VPLANNEDBB2]] ], [ [[TMP18:%.*]], [[VPLANNEDBB9]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VPLANNEDBB2]] ], [ [[TMP17:%.*]], [[VPLANNEDBB9]] ]
-; CHECK-NEXT:    [[TMP6:%.*]] = load i32, i32* [[I_LINEAR_IV]], align 4
-; CHECK-NEXT:    [[TMP7:%.*]] = load i8*, i8** [[A_ADDR]], align 8
-; CHECK-NEXT:    [[TMP8:%.*]] = load i32, i32* [[I_LINEAR_IV]], align 4
+; CHECK-NEXT:    [[TMP6:%.*]] = load i32, ptr [[I_LINEAR_IV]], align 4
+; CHECK-NEXT:    [[TMP7:%.*]] = load ptr, ptr [[A_ADDR]], align 8
+; CHECK-NEXT:    [[TMP8:%.*]] = load i32, ptr [[I_LINEAR_IV]], align 4
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x i32> poison, i32 [[TMP8]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP9:%.*]] = sext <4 x i32> [[BROADCAST_SPLAT]] to <4 x i64>
 ; CHECK-NEXT:    [[DOTEXTRACT_0_:%.*]] = extractelement <4 x i64> [[TMP9]], i32 0
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i8, i8* [[TMP7]], i64 [[DOTEXTRACT_0_]]
-; CHECK-NEXT:    [[TMP10:%.*]] = load i8, i8* [[SCALAR_GEP]], align 1
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i8, ptr [[TMP7]], i64 [[DOTEXTRACT_0_]]
+; CHECK-NEXT:    [[TMP10:%.*]] = load i8, ptr [[SCALAR_GEP]], align 1
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT5:%.*]] = insertelement <4 x i8> poison, i8 [[TMP10]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT6:%.*]] = shufflevector <4 x i8> [[BROADCAST_SPLATINSERT5]], <4 x i8> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP11:%.*]] = sext <4 x i8> [[BROADCAST_SPLAT6]] to <4 x i32>
@@ -58,18 +56,18 @@ define void @foo() {
 ; CHECK-NEXT:    [[TMP12:%.*]] = icmp slt i32 [[TMP6]], [[DOTEXTRACT_0_7]]
 ; CHECK-NEXT:    br i1 [[TMP12]], label [[VPLANNEDBB8:%.*]], label [[VPLANNEDBB9]]
 ; CHECK:       VPlannedBB8:
-; CHECK-NEXT:    [[TMP13:%.*]] = load i8*, i8** [[A_ADDR]], align 8
-; CHECK-NEXT:    [[TMP14:%.*]] = load i32, i32* [[I_LINEAR_IV]], align 4
+; CHECK-NEXT:    [[TMP13:%.*]] = load ptr, ptr [[A_ADDR]], align 8
+; CHECK-NEXT:    [[TMP14:%.*]] = load i32, ptr [[I_LINEAR_IV]], align 4
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT10:%.*]] = insertelement <4 x i32> poison, i32 [[TMP14]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT11:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT10]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP15:%.*]] = sext <4 x i32> [[BROADCAST_SPLAT11]] to <4 x i64>
 ; CHECK-NEXT:    [[DOTEXTRACT_0_12:%.*]] = extractelement <4 x i64> [[TMP15]], i32 0
-; CHECK-NEXT:    [[SCALAR_GEP13:%.*]] = getelementptr inbounds i8, i8* [[TMP13]], i64 [[DOTEXTRACT_0_12]]
-; CHECK-NEXT:    [[TMP16:%.*]] = load i8, i8* [[SCALAR_GEP13]], align 1
+; CHECK-NEXT:    [[SCALAR_GEP13:%.*]] = getelementptr inbounds i8, ptr [[TMP13]], i64 [[DOTEXTRACT_0_12]]
+; CHECK-NEXT:    [[TMP16:%.*]] = load i8, ptr [[SCALAR_GEP13]], align 1
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT14:%.*]] = insertelement <4 x i8> poison, i8 [[TMP16]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT15:%.*]] = shufflevector <4 x i8> [[BROADCAST_SPLATINSERT14]], <4 x i8> poison, <4 x i32> zeroinitializer
-; CHECK-NEXT:    store <4 x i32> [[VEC_PHI]], <4 x i32>* [[PRIV_IDX_MEM_VEC]], align 1
-; CHECK-NEXT:    store <4 x i8> [[BROADCAST_SPLAT15]], <4 x i8>* [[RET_LPRIV_VEC]], align 1
+; CHECK-NEXT:    store <4 x i32> [[VEC_PHI]], ptr [[PRIV_IDX_MEM_VEC]], align 1
+; CHECK-NEXT:    store <4 x i8> [[BROADCAST_SPLAT15]], ptr [[RET_LPRIV_VEC]], align 1
 ; CHECK-NEXT:    br label [[VPLANNEDBB9]]
 ; CHECK:       VPlannedBB9:
 ; CHECK-NEXT:    [[TMP17]] = add nsw <4 x i32> [[VEC_PHI]], <i32 4, i32 4, i32 4, i32 4>
@@ -81,8 +79,8 @@ define void @foo() {
 ; CHECK:       VPlannedBB16:
 ; CHECK-NEXT:    [[TMP22:%.*]] = mul i32 1, [[TMP5]]
 ; CHECK-NEXT:    [[TMP23:%.*]] = add i32 0, [[TMP22]]
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i8>, <4 x i8>* [[RET_LPRIV_VEC]], align 1
-; CHECK-NEXT:    [[WIDE_LOAD17:%.*]] = load <4 x i32>, <4 x i32>* [[PRIV_IDX_MEM_VEC]], align 1
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i8>, ptr [[RET_LPRIV_VEC]], align 1
+; CHECK-NEXT:    [[WIDE_LOAD17:%.*]] = load <4 x i32>, ptr [[PRIV_IDX_MEM_VEC]], align 1
 ; CHECK-NEXT:    [[TMP24:%.*]] = icmp ne <4 x i32> [[WIDE_LOAD17]], <i32 -1, i32 -1, i32 -1, i32 -1>
 ; CHECK-NEXT:    [[TMP25:%.*]] = bitcast <4 x i1> [[TMP24]] to i4
 ; CHECK-NEXT:    [[TMP26:%.*]] = icmp eq i4 [[TMP25]], 0
@@ -95,49 +93,49 @@ define void @foo() {
 ; CHECK-NEXT:    [[TMP28:%.*]] = bitcast <4 x i1> [[PRIV_IDX_CMP]] to i4
 ; CHECK-NEXT:    [[CTTZ:%.*]] = call i4 @llvm.cttz.i4(i4 [[TMP28]], i1 true)
 ; CHECK-NEXT:    [[PRIV_EXTRACT:%.*]] = extractelement <4 x i8> [[WIDE_LOAD]], i4 [[CTTZ]]
-; CHECK-NEXT:    store i8 [[PRIV_EXTRACT]], i8* [[RET_LPRIV]], align 1
+; CHECK-NEXT:    store i8 [[PRIV_EXTRACT]], ptr [[RET_LPRIV]], align 1
 ; CHECK-NEXT:    br label [[VPLANNEDBB18]]
 ; CHECK:       VPlannedBB18:
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 4, i8* [[RET_LPRIV_VEC_BASE_ADDR_EXTRACT_0_]])
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 4, ptr [[RET_LPRIV_VEC_BASE_ADDR_EXTRACT_0_]])
 ;
 entry:
   %ret.lpriv = alloca i8
   %i.linear.iv = alloca i32
-  %a.addr = alloca i8*
+  %a.addr = alloca ptr
   %.capture_expr.0 = alloca i32
   %.omp.ub = alloca i32
-  %0 = load i32, i32* %.capture_expr.0
+  %0 = load i32, ptr %.capture_expr.0
   %cmp = icmp slt i32 0, %0
   br i1 %cmp, label %DIR.OMP.SIMD.113.split, label %DIR.OMP.END.SIMD.1
 
 DIR.OMP.SIMD.113.split:                           ; preds = %entry
-  %1 = load i32, i32* %.omp.ub
+  %1 = load i32, ptr %.omp.ub
   %cmp415 = icmp sle i32 0, %1
   br i1 %cmp415, label %omp.inner.for.body.lr.ph, label %DIR.OMP.END.SIMD.1
 
 omp.inner.for.body.lr.ph:                         ; preds = %DIR.OMP.SIMD.113.split
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL.TYPED"(i8* %ret.lpriv, i8 0, i32 1) ]
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL.TYPED"(ptr %ret.lpriv, i8 0, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %if.end, %omp.inner.for.body.lr.ph
   %.omp.iv.local.016 = phi i32 [ 0, %omp.inner.for.body.lr.ph ], [ %add9, %if.end ]
-  %3 = load i32, i32* %i.linear.iv
-  %4 = load i8*, i8** %a.addr
-  %5 = load i32, i32* %i.linear.iv
+  %3 = load i32, ptr %i.linear.iv
+  %4 = load ptr, ptr %a.addr
+  %5 = load i32, ptr %i.linear.iv
   %idxprom = sext i32 %5 to i64
-  %arrayidx = getelementptr inbounds i8, i8* %4, i64 %idxprom
-  %6 = load i8, i8* %arrayidx
+  %arrayidx = getelementptr inbounds i8, ptr %4, i64 %idxprom
+  %6 = load i8, ptr %arrayidx
   %conv = sext i8 %6 to i32
   %cmp6 = icmp slt i32 %3, %conv
   br i1 %cmp6, label %if.then, label %if.end
 
 if.then:                                          ; preds = %omp.inner.for.body
-  %7 = load i8*, i8** %a.addr
-  %8 = load i32, i32* %i.linear.iv
+  %7 = load ptr, ptr %a.addr
+  %8 = load i32, ptr %i.linear.iv
   %idxprom7 = sext i32 %8 to i64
-  %arrayidx8 = getelementptr inbounds i8, i8* %7, i64 %idxprom7
-  %9 = load i8, i8* %arrayidx8
-  store i8 %9, i8* %ret.lpriv
+  %arrayidx8 = getelementptr inbounds i8, ptr %7, i64 %idxprom7
+  %9 = load i8, ptr %arrayidx8
+  store i8 %9, ptr %ret.lpriv
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %omp.inner.for.body

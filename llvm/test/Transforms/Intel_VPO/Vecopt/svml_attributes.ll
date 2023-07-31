@@ -47,12 +47,12 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @N = common dso_local local_unnamed_addr global i32 0, align 4
 
-define void @test_sinf(float* nocapture %a, float* nocapture readonly %b, i32 %i) #0 {
+define void @test_sinf(ptr nocapture %a, ptr nocapture readonly %b, i32 %i) #0 {
 entry:
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM:TYPED"(float* %a, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(float* %b, float zeroinitializer, i32 1) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM:TYPED"(ptr %a, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %b, float zeroinitializer, i32 1) ]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
@@ -61,11 +61,11 @@ simd.loop:                                        ; preds = %simd.loop.exit, %si
   %stride.mul = mul i32 1, %index
   %stride.cast = sext i32 %stride.mul to i64
   %stride.add = add i64 %idxprom, %stride.cast
-  %arrayidx = getelementptr inbounds float, float* %b, i64 %stride.add
-  %0 = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds float, ptr %b, i64 %stride.add
+  %0 = load float, ptr %arrayidx, align 4
   %call = tail call fast float @sinf(float inreg %0)
-  %arrayidx2 = getelementptr inbounds float, float* %a, i64 %stride.add
-  store float %call, float* %arrayidx2, align 4
+  %arrayidx2 = getelementptr inbounds float, ptr %a, i64 %stride.add
+  store float %call, ptr %arrayidx2, align 4
   br label %simd.loop.exit
 
 simd.loop.exit:                                   ; preds = %simd.loop
@@ -81,12 +81,12 @@ return:                                           ; preds = %simd.end.region
   ret void
 }
 
-define void @test_sin(double* nocapture %a, double* nocapture readonly %b, i32 %i) #0 {
+define void @test_sin(ptr nocapture %a, ptr nocapture readonly %b, i32 %i) #0 {
 entry:
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM:TYPED"(double* %a, double zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(double* %b, double zeroinitializer, i32 1) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM:TYPED"(ptr %a, double zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %b, double zeroinitializer, i32 1) ]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
@@ -95,11 +95,11 @@ simd.loop:                                        ; preds = %simd.loop.exit, %si
   %stride.mul = mul i32 1, %index
   %stride.cast = sext i32 %stride.mul to i64
   %stride.add = add i64 %idxprom, %stride.cast
-  %arrayidx = getelementptr inbounds double, double* %b, i64 %stride.add
-  %0 = load double, double* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds double, ptr %b, i64 %stride.add
+  %0 = load double, ptr %arrayidx, align 8
   %call = tail call fast double @sin(double inreg %0)
-  %arrayidx2 = getelementptr inbounds double, double* %a, i64 %stride.add
-  store double %call, double* %arrayidx2, align 8
+  %arrayidx2 = getelementptr inbounds double, ptr %a, i64 %stride.add
+  store double %call, ptr %arrayidx2, align 8
   br label %simd.loop.exit
 
 simd.loop.exit:                                   ; preds = %simd.loop
@@ -115,9 +115,9 @@ return:                                           ; preds = %simd.end.region
   ret void
 }
 
-define void @test_masked_sinf(float* nocapture readonly %input, float* nocapture readonly %b, float* %a) #0 {
+define void @test_masked_sinf(ptr nocapture readonly %input, ptr nocapture readonly %b, ptr %a) #0 {
 entry:
-  %0 = load i32, i32* @N, align 4
+  %0 = load i32, ptr @N, align 4
   %cmp = icmp sgt i32 %0, 0
   br i1 %cmp, label %DIR.OMP.SIMD.2, label %omp.precond.end
 
@@ -131,17 +131,17 @@ DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
 
 omp.inner.for.body:                               ; preds = %omp.body.continue, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.body.continue ]
-  %arrayidx = getelementptr inbounds float, float* %b, i64 %indvars.iv
-  %2 = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds float, ptr %b, i64 %indvars.iv
+  %2 = load float, ptr %arrayidx, align 4
   %cmp6 = fcmp ogt float %2, 3.000000e+00
   br i1 %cmp6, label %if.then, label %omp.body.continue
 
 if.then:                                          ; preds = %omp.inner.for.body
-  %arrayidx8 = getelementptr inbounds float, float* %input, i64 %indvars.iv
-  %3 = load float, float* %arrayidx8, align 4
-  %arrayidx10 = getelementptr inbounds float, float* %a, i64 %indvars.iv
+  %arrayidx8 = getelementptr inbounds float, ptr %input, i64 %indvars.iv
+  %3 = load float, ptr %arrayidx8, align 4
+  %arrayidx10 = getelementptr inbounds float, ptr %a, i64 %indvars.iv
   %call = tail call fast float @sinf(float inreg %3)
-  store float %call, float* %arrayidx10, align 4
+  store float %call, ptr %arrayidx10, align 4
   br label %omp.body.continue
 
 omp.body.continue:                                ; preds = %omp.inner.for.body, %if.then
@@ -157,9 +157,9 @@ omp.precond.end:                                  ; preds = %DIR.OMP.END.SIMD.3,
   ret void
 }
 
-define void @test_masked_sin(double* nocapture readonly %input, double* nocapture readonly %b, double* %a) #0 {
+define void @test_masked_sin(ptr nocapture readonly %input, ptr nocapture readonly %b, ptr %a) #0 {
 entry:
-  %0 = load i32, i32* @N, align 4
+  %0 = load i32, ptr @N, align 4
   %cmp = icmp sgt i32 %0, 0
   br i1 %cmp, label %DIR.OMP.SIMD.2, label %omp.precond.end
 
@@ -173,17 +173,17 @@ DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
 
 omp.inner.for.body:                               ; preds = %omp.body.continue, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.body.continue ]
-  %arrayidx = getelementptr inbounds double, double* %b, i64 %indvars.iv
-  %2 = load double, double* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds double, ptr %b, i64 %indvars.iv
+  %2 = load double, ptr %arrayidx, align 8
   %cmp6 = fcmp ogt double %2, 3.000000e+00
   br i1 %cmp6, label %if.then, label %omp.body.continue
 
 if.then:                                          ; preds = %omp.inner.for.body
-  %arrayidx8 = getelementptr inbounds double, double* %input, i64 %indvars.iv
-  %3 = load double, double* %arrayidx8, align 8
-  %arrayidx10 = getelementptr inbounds double, double* %a, i64 %indvars.iv
+  %arrayidx8 = getelementptr inbounds double, ptr %input, i64 %indvars.iv
+  %3 = load double, ptr %arrayidx8, align 8
+  %arrayidx10 = getelementptr inbounds double, ptr %a, i64 %indvars.iv
   %call = tail call fast double @sin(double inreg %3)
-  store double %call, double* %arrayidx10, align 8
+  store double %call, ptr %arrayidx10, align 8
   br label %omp.body.continue
 
 omp.body.continue:                                ; preds = %omp.inner.for.body, %if.then
@@ -199,12 +199,12 @@ omp.precond.end:                                  ; preds = %DIR.OMP.END.SIMD.3,
   ret void
 }
 
-define void @test_sincosf(float* noalias nocapture readonly %a, float* noalias %vsin, float* noalias %vcos, i32 %i) #0 {
+define void @test_sincosf(ptr noalias nocapture readonly %a, ptr noalias %vsin, ptr noalias %vcos, i32 %i) #0 {
 entry:
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM:TYPED"(float* %vsin, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(float* %vcos, float zeroinitializer, i32 1) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM:TYPED"(ptr %vsin, float zeroinitializer, i32 1), "QUAL.OMP.UNIFORM:TYPED"(ptr %vcos, float zeroinitializer, i32 1) ]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
@@ -213,11 +213,11 @@ simd.loop:                                        ; preds = %simd.loop.exit, %si
   %stride.mul = mul i32 1, %index
   %stride.cast = sext i32 %stride.mul to i64
   %stride.add = add i64 %idxprom, %stride.cast
-  %arrayidx = getelementptr inbounds float, float* %a, i64 %stride.add
-  %0 = load float, float* %arrayidx, align 4
-  %arrayidx2 = getelementptr inbounds float, float* %vsin, i64 %stride.add
-  %arrayidx4 = getelementptr inbounds float, float* %vcos, i64 %stride.add
-  tail call void @sincosf(float inreg %0, float* nonnull %arrayidx2, float* nonnull %arrayidx4) #3
+  %arrayidx = getelementptr inbounds float, ptr %a, i64 %stride.add
+  %0 = load float, ptr %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds float, ptr %vsin, i64 %stride.add
+  %arrayidx4 = getelementptr inbounds float, ptr %vcos, i64 %stride.add
+  tail call void @sincosf(float inreg %0, ptr nonnull %arrayidx2, ptr nonnull %arrayidx4) #3
   br label %simd.loop.exit
 
 simd.loop.exit:                                   ; preds = %simd.loop
@@ -233,9 +233,9 @@ return:                                           ; preds = %simd.end.region
   ret void
 }
 
-define void @test_masked_sincosf(float* nocapture readonly %input, float* nocapture readonly %b, float* %vsin, float* %vcos) #0 {
+define void @test_masked_sincosf(ptr nocapture readonly %input, ptr nocapture readonly %b, ptr %vsin, ptr %vcos) #0 {
 entry:
-  %0 = load i32, i32* @N, align 4
+  %0 = load i32, ptr @N, align 4
   %cmp = icmp sgt i32 %0, 0
   br i1 %cmp, label %DIR.OMP.SIMD.2, label %omp.precond.end
 
@@ -249,17 +249,17 @@ DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
 
 omp.inner.for.body:                               ; preds = %omp.body.continue, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.body.continue ]
-  %arrayidx = getelementptr inbounds float, float* %b, i64 %indvars.iv
-  %2 = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds float, ptr %b, i64 %indvars.iv
+  %2 = load float, ptr %arrayidx, align 4
   %cmp6 = fcmp ogt float %2, 3.000000e+00
   br i1 %cmp6, label %if.then, label %omp.body.continue
 
 if.then:                                          ; preds = %omp.inner.for.body
-  %arrayidx8 = getelementptr inbounds float, float* %input, i64 %indvars.iv
-  %3 = load float, float* %arrayidx8, align 4
-  %arrayidx10 = getelementptr inbounds float, float* %vsin, i64 %indvars.iv
-  %arrayidx12 = getelementptr inbounds float, float* %vcos, i64 %indvars.iv
-  tail call void @sincosf(float inreg %3, float* nonnull %arrayidx10, float* nonnull %arrayidx12)
+  %arrayidx8 = getelementptr inbounds float, ptr %input, i64 %indvars.iv
+  %3 = load float, ptr %arrayidx8, align 4
+  %arrayidx10 = getelementptr inbounds float, ptr %vsin, i64 %indvars.iv
+  %arrayidx12 = getelementptr inbounds float, ptr %vcos, i64 %indvars.iv
+  tail call void @sincosf(float inreg %3, ptr nonnull %arrayidx10, ptr nonnull %arrayidx12)
   br label %omp.body.continue
 
 omp.body.continue:                                ; preds = %omp.inner.for.body, %if.then
@@ -279,7 +279,7 @@ declare dso_local float @sinf(float) local_unnamed_addr #1
 
 declare dso_local double @sin(double) local_unnamed_addr #1
 
-declare dso_local void @sincosf(float, float*, float*) local_unnamed_addr #1
+declare dso_local void @sincosf(float, ptr, ptr) local_unnamed_addr #1
 
 declare token @llvm.directive.region.entry()
 

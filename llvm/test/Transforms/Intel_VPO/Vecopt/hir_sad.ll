@@ -30,7 +30,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: VPSADBW
 
 ; Function Attrs: norecurse nounwind readonly uwtable
-define i32 @foo(i8* nocapture readonly %pix1, i8* nocapture readonly %pix2) local_unnamed_addr #0 {
+define i32 @foo(ptr nocapture readonly %pix1, ptr nocapture readonly %pix2) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -41,11 +41,11 @@ for.cond.cleanup:                                 ; preds = %for.body
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %i_sum.010 = phi i32 [ 0, %entry ], [ %add, %for.body ]
-  %arrayidx = getelementptr inbounds i8, i8* %pix1, i64 %indvars.iv
-  %0 = load i8, i8* %arrayidx, align 1
+  %arrayidx = getelementptr inbounds i8, ptr %pix1, i64 %indvars.iv
+  %0 = load i8, ptr %arrayidx, align 1
   %conv = zext i8 %0 to i32
-  %arrayidx2 = getelementptr inbounds i8, i8* %pix2, i64 %indvars.iv
-  %1 = load i8, i8* %arrayidx2, align 1
+  %arrayidx2 = getelementptr inbounds i8, ptr %pix2, i64 %indvars.iv
+  %1 = load i8, ptr %arrayidx2, align 1
   %conv3 = zext i8 %1 to i32
   %sub = sub nsw i32 %conv, %conv3
   %ispos = icmp sgt i32 %sub, -1

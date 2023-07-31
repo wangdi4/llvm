@@ -64,32 +64,30 @@ define dso_local i32 @_Z3foov() local_unnamed_addr {
 entry:
   %p0.addr.i = alloca i32, align 4
   %p1.addr.i = alloca i32, align 4
-  %0 = load i32, i32* getelementptr inbounds ([5 x i32], [5 x i32]* @A, i64 0, i64 0), align 16, !tbaa !2
-  %1 = load i32, i32* getelementptr inbounds ([5 x i32], [5 x i32]* @A, i64 0, i64 1), align 4, !tbaa !2
-  %2 = load i32, i32* getelementptr inbounds ([5 x i32], [5 x i32]* @A, i64 0, i64 2), align 8, !tbaa !2
-  %3 = load i32, i32* getelementptr inbounds ([5 x i32], [5 x i32]* @A, i64 0, i64 4), align 16, !tbaa !2
-  %4 = bitcast i32* %p0.addr.i to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %4)
-  %5 = bitcast i32* %p1.addr.i to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %5)
-  store i32 %0, i32* %p0.addr.i, align 4, !tbaa !7
-  store i32 %1, i32* %p1.addr.i, align 4, !tbaa !7
+  %0 = load i32, ptr @A, align 16, !tbaa !2
+  %1 = load i32, ptr getelementptr inbounds ([5 x i32], ptr @A, i64 0, i64 1), align 4, !tbaa !2
+  %2 = load i32, ptr getelementptr inbounds ([5 x i32], ptr @A, i64 0, i64 2), align 8, !tbaa !2
+  %3 = load i32, ptr getelementptr inbounds ([5 x i32], ptr @A, i64 0, i64 4), align 16, !tbaa !2
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %p0.addr.i)
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %p1.addr.i)
+  store i32 %0, ptr %p0.addr.i, align 4, !tbaa !7
+  store i32 %1, ptr %p1.addr.i, align 4, !tbaa !7
   %cmp.i = icmp sgt i32 %2, 0
   br i1 %cmp.i, label %DIR.OMP.SIMD.2, label %_Z3bariiiPii.exit
 
 DIR.OMP.SIMD.2:                                   ; preds = %entry
   %conv.i = trunc i32 %3 to i8
-  %6 = call token @llvm.directive.region.entry() #2 [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %p0.addr.i, i32 0, i32 1), "QUAL.OMP.REDUCTION.ADD:TYPED"(i32* %p1.addr.i, i32 0, i32 1) ]
-  %7 = load i32, i32* getelementptr inbounds ([5 x i32], [5 x i32]* @A, i64 0, i64 3), align 4, !tbaa !7
-  %p0.addr.i.promoted = load i32, i32* %p0.addr.i, align 4, !tbaa !7
-  %p1.addr.i.promoted = load i32, i32* %p1.addr.i, align 4, !tbaa !7
+  %4 = call token @llvm.directive.region.entry() #2 [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %p0.addr.i, i32 0, i32 1), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %p1.addr.i, i32 0, i32 1) ]
+  %5 = load i32, ptr getelementptr inbounds ([5 x i32], ptr @A, i64 0, i64 3), align 4, !tbaa !7
+  %p0.addr.i.promoted = load i32, ptr %p0.addr.i, align 4, !tbaa !7
+  %p1.addr.i.promoted = load i32, ptr %p1.addr.i, align 4, !tbaa !7
   br label %omp.inner.for.body.i
 
 omp.inner.for.body.i:                             ; preds = %omp.inner.for.body.i, %DIR.OMP.SIMD.2
   %add10.i5 = phi i32 [ %add10.i, %omp.inner.for.body.i ], [ %p1.addr.i.promoted, %DIR.OMP.SIMD.2 ]
   %add8.i4 = phi i32 [ %add8.i, %omp.inner.for.body.i ], [ %p0.addr.i.promoted, %DIR.OMP.SIMD.2 ]
   %.omp.iv.i.0 = phi i32 [ %add11.i, %omp.inner.for.body.i ], [ 0, %DIR.OMP.SIMD.2 ]
-  %mul7.i = mul nsw i32 %7, %.omp.iv.i.0
+  %mul7.i = mul nsw i32 %5, %.omp.iv.i.0
   %add8.i = add nsw i32 %add8.i4, %mul7.i
   %mul9.i = shl nuw nsw i32 %.omp.iv.i.0, 1
   %add10.i = add nsw i32 %add10.i5, %mul9.i
@@ -100,24 +98,24 @@ omp.inner.for.body.i:                             ; preds = %omp.inner.for.body.
 omp.loop.exit.i:                                  ; preds = %omp.inner.for.body.i
   %add8.i.lcssa = phi i32 [ %add8.i, %omp.inner.for.body.i ]
   %add10.i.lcssa = phi i32 [ %add10.i, %omp.inner.for.body.i ]
-  store i32 %add8.i.lcssa, i32* %p0.addr.i, align 4, !tbaa !7
-  store i32 %add10.i.lcssa, i32* %p1.addr.i, align 4, !tbaa !7
-  call void @llvm.directive.region.exit(token %6) #2 [ "DIR.OMP.END.SIMD"() ]
-  %.pre = load i32, i32* %p0.addr.i, align 4, !tbaa !7
-  %.pre6 = load i32, i32* %p1.addr.i, align 4, !tbaa !7
+  store i32 %add8.i.lcssa, ptr %p0.addr.i, align 4, !tbaa !7
+  store i32 %add10.i.lcssa, ptr %p1.addr.i, align 4, !tbaa !7
+  call void @llvm.directive.region.exit(token %4) #2 [ "DIR.OMP.END.SIMD"() ]
+  %.pre = load i32, ptr %p0.addr.i, align 4, !tbaa !7
+  %.pre6 = load i32, ptr %p1.addr.i, align 4, !tbaa !7
   br label %_Z3bariiiPii.exit
 
 _Z3bariiiPii.exit:                                ; preds = %entry, %omp.loop.exit.i
-  %8 = phi i32 [ %1, %entry ], [ %.pre6, %omp.loop.exit.i ]
-  %9 = phi i32 [ %0, %entry ], [ %.pre, %omp.loop.exit.i ]
-  %add12.i = add nsw i32 %8, %9
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %4)
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %5)
+  %6 = phi i32 [ %1, %entry ], [ %.pre6, %omp.loop.exit.i ]
+  %7 = phi i32 [ %0, %entry ], [ %.pre, %omp.loop.exit.i ]
+  %add12.i = add nsw i32 %6, %7
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %p0.addr.i)
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %p1.addr.i)
   ret i32 %add12.i
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64, ptr nocapture) #1
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #2
@@ -126,7 +124,7 @@ declare token @llvm.directive.region.entry() #2
 declare void @llvm.directive.region.exit(token) #2
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0(i64, ptr nocapture) #1
 
 attributes #1 = { argmemonly nounwind }
 attributes #2 = { nounwind }

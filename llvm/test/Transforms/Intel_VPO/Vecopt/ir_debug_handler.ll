@@ -12,7 +12,7 @@ declare void @llvm.directive.region.exit(token)
 
 ;CHECK: Bailout signaled on foo
 ;
-define void @foo(double* nocapture %A, i32 %n) local_unnamed_addr {
+define void @foo(ptr nocapture %A, i32 %n) local_unnamed_addr {
 entry:
   %cmp242 = icmp sgt i32 %n, 2
   br label %for.body.lr.ph2

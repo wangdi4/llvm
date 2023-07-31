@@ -12,14 +12,13 @@ define dso_local void @test() local_unnamed_addr {
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP3:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH]] ], [ [[TMP2:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds [128 x float], [128 x float]* [[PHASE:%.*]], i64 0, i64 [[UNI_PHI]]
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast float* [[SCALAR_GEP]] to <4 x float>*
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x float>, <4 x float>* [[TMP0]], align 16
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds [128 x float], ptr [[PHASE:%.*]], i64 0, i64 [[UNI_PHI]]
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x float>, ptr [[SCALAR_GEP]], align 16
 ; CHECK-NEXT:    [[TMP1:%.*]] = call svml_cc { <4 x float>, <4 x float> } @__svml_sincosf4(<4 x float> [[WIDE_LOAD]])
 ; CHECK-NEXT:    [[SINCOS_SIN:%.*]] = extractvalue { <4 x float>, <4 x float> } [[TMP1]], 0
 ; CHECK-NEXT:    [[SINCOS_COS:%.*]] = extractvalue { <4 x float>, <4 x float> } [[TMP1]], 1
-; CHECK-NEXT:    store <4 x float> [[SINCOS_SIN]], <4 x float>* [[SINVAL_VEC:%.*]], align 4
-; CHECK-NEXT:    store <4 x float> [[SINCOS_COS]], <4 x float>* [[COSVAL_VEC:%.*]], align 4
+; CHECK-NEXT:    store <4 x float> [[SINCOS_SIN]], ptr [[SINVAL_VEC:%.*]], align 4
+; CHECK-NEXT:    store <4 x float> [[SINCOS_COS]], ptr [[COSVAL_VEC:%.*]], align 4
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI]], 4
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp uge i64 [[TMP3]], 128
@@ -32,14 +31,14 @@ DIR.OMP.SIMD.1338:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.1338
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(float* %cosval, float 0.000000e+00, i32 1), "QUAL.OMP.PRIVATE:TYPED"(float* %sinval, float 0.000000e+00, i32 1) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %cosval, float 0.000000e+00, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr %sinval, float 0.000000e+00, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.1, %omp.inner.for.body
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
-  %arrayidx4 = getelementptr inbounds [128 x float], [128 x float]* %phase, i64 0, i64 %indvars.iv
-  %phase.ld = load float, float* %arrayidx4, align 4
-  call void @sincosf(float %phase.ld, float* nonnull %sinval, float* nonnull %cosval)
+  %arrayidx4 = getelementptr inbounds [128 x float], ptr %phase, i64 0, i64 %indvars.iv
+  %phase.ld = load float, ptr %arrayidx4, align 4
+  call void @sincosf(float %phase.ld, ptr nonnull %sinval, ptr nonnull %cosval)
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 128
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body
@@ -51,6 +50,6 @@ DIR.OMP.END.SIMD.2:                               ; preds = %omp.inner.for.body
 
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
-declare void @sincosf(float, float*, float*) #8
+declare void @sincosf(float, ptr, ptr) #8
 
 attributes #8 = { nofree nounwind "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="true" "vector-variants"="_ZGVbN4vvv_sincosf,_ZGVcN8vvv_sincosf,_ZGVdN8vvv_sincosf,_ZGVeN16vvv_sincosf" }

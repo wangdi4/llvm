@@ -17,17 +17,17 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: vector.body:
 ; CHECK:   [[IV_PHI:%.*]] = phi i64 [ 0, [[vector_ph:%.*]] ], [ [[IV_NEXT:%.*]], %vector.body ]
 ; CHECK-NOT: {{.*}} = add i64 [[IV_PHI]], {{[0123]}}
-; CHECK: {{.*}} = getelementptr inbounds i64, i64* %ip, i64 [[IV:%.*]]
+; CHECK: {{.*}} = getelementptr inbounds i64, ptr %ip, i64 [[IV:%.*]]
 ; Function Attrs: nounwind uwtable
-define void @foo(i64* nocapture %ip)  {
+define void @foo(ptr nocapture %ip)  {
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %entry
   %.omp.iv.07 = phi i64 [ 0, %entry ], [ %add1, %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds i64, i64* %ip, i64 %.omp.iv.07
-  store i64 %.omp.iv.07, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds i64, ptr %ip, i64 %.omp.iv.07
+  store i64 %.omp.iv.07, ptr %arrayidx, align 8
   %add1 = add nuw nsw i64 %.omp.iv.07, 1
   %exitcond = icmp eq i64 %add1, 1024
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body

@@ -4,9 +4,9 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-declare dso_local i32 (i32, float)** @_ZNKSt5arrayIPFiifELm2EE4dataEv() #2
+declare dso_local ptr @_ZNKSt5arrayIPFiifELm2EE4dataEv() #2
 
-declare i32 @__intel_indirect_call_i32_p0p0f_i32i32f32f(i32 (i32, float)**, ...) #3
+declare i32 @__intel_indirect_call_i32_p0p0f_i32i32f32f(ptr, ...) #3
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #4
@@ -30,8 +30,8 @@ define void @_ZGVbN4_direct() #1 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i32 [[VP_INDEX:%.*]] = phi  [ i32 [[VP_INDEX_IND_INIT]], [[BB1]] ],  [ i32 [[VP_INDVAR:%.*]], [[BB3]] ] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 (i32, float)** [[VP_CALL_I:%.*]] = call _ZGVbN4_ZNKSt5arrayIPFiifELm2EE4dataEv [x 1] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP0:%.*]] = call i32 (i32, float)** [[VP_CALL_I]] i32 5 float 2.000000e+00 _ZGVbM4vv___intel_indirect_call_i32_p0p0f_i32i32f32f [x 1] (SVAOpBits 0->V 1->V 2->V 3->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] ptr [[VP_CALL_I:%.*]] = call _ZGVbN4_ZNKSt5arrayIPFiifELm2EE4dataEv [x 1] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP0:%.*]] = call ptr [[VP_CALL_I]] i32 5 float 2.000000e+00 _ZGVbM4vv___intel_indirect_call_i32_p0p0f_i32i32f32f [x 1] (SVAOpBits 0->V 1->V 2->V 3->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB3]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
@@ -64,8 +64,8 @@ simd.begin.region:                                ; preds = %entry
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
   %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.exit ]
-  %call.i = call i32 (i32, float)** @_ZNKSt5arrayIPFiifELm2EE4dataEv() #2
-  %0 = call i32 (i32 (i32, float)**, ...) @__intel_indirect_call_i32_p0p0f_i32i32f32f(i32 (i32, float)** %call.i, i32 5, float 2.000000e+00) #3
+  %call.i = call ptr @_ZNKSt5arrayIPFiifELm2EE4dataEv() #2
+  %0 = call i32 (ptr, ...) @__intel_indirect_call_i32_p0p0f_i32i32f32f(ptr %call.i, i32 5, float 2.000000e+00) #3
   br label %simd.loop.exit
 
 simd.loop.exit:                                   ; preds = %simd.loop

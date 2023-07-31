@@ -4,7 +4,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i64 *%a, i64 *%b) {
+define void @foo(ptr %a, ptr %b) {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
 ; CHECK-NEXT:  External Defs Start:
@@ -22,10 +22,10 @@ define void @foo(i64 *%a, i64 *%b) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64* [[VP_SUBSCRIPT:%.*]] = subscript i64* [[A0:%.*]] i64 [[VP2]] (SVAOpBits 0->F 1->F 2->F 3->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64* [[B0:%.*]] (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_LOAD_1:%.*]] = load i64* [[VP_SUBSCRIPT_1]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] ptr [[VP_SUBSCRIPT:%.*]] = subscript ptr [[A0:%.*]] i64 [[VP2]] (SVAOpBits 0->F 1->F 2->F 3->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[B0:%.*]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_1]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] <2 x i32> [[VP4:%.*]] = bitcast i64 [[VP_LOAD_1]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] <2 x i32> [[VP5:%.*]] = shufflevector <2 x i32> [[VP4]] <2 x i32> [[VP4]] <2 x i32> <i32 3, i32 0> (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP6:%.*]] = trunc i64 [[VP_LOAD_1]] to i32 (SVAOpBits 0->F )
@@ -51,10 +51,10 @@ entry:
 header:
   %iv = phi i64 [ 0, %entry ], [ %iv.next, %header ]
 
-  %ptr = getelementptr i64, i64 *%a, i64 %iv
-  %ld = load i64, i64 *%ptr
+  %ptr = getelementptr i64, ptr %a, i64 %iv
+  %ld = load i64, ptr %ptr
 
-  %ld.uni = load i64, i64 *%b
+  %ld.uni = load i64, ptr %b
   %vec.uni = bitcast i64 %ld.uni to <2 x i32>
   %shuffle.uni = shufflevector <2 x i32> %vec.uni, <2 x i32> %vec.uni, <2 x i32><i32 3, i32 0>
   %trunc = trunc i64 %ld.uni to i32

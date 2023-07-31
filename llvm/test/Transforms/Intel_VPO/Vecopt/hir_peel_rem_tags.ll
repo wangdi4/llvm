@@ -19,8 +19,8 @@ entry:
 for.body:
   %l1.06 = phi i64 [ %inc, %for.body ], [ 0, %entry ]
   %add = add nuw nsw i64 %l1.06, 1
-  %arrayidx = getelementptr inbounds [1025 x i64], [1025 x i64]* @arr, i64 0, i64 %add
-  store i64 %l1.06, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds [1025 x i64], ptr @arr, i64 0, i64 %add
+  store i64 %l1.06, ptr %arrayidx, align 8
   %inc = add nuw nsw i64 %l1.06, 1
   %exitcond.not = icmp eq i64 %inc, 1024
   br i1 %exitcond.not, label %for.end.loopexit, label %for.body

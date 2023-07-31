@@ -23,10 +23,10 @@ define void @foo-min-max() {
 ; CHECK-NEXT:  Cost Model for Loop preheader [[BB0]] : [[BB1]] for VF = 4 resulted Cost = 0
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
-; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 1 for i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.2 i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 1 for i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:    Cost 0 for ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr @arr.i32.1 i64 0 i64 [[VP0]]
+; CHECK-NEXT:    Cost 1 for i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
+; CHECK-NEXT:    Cost 0 for ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr @arr.i32.2 i64 0 i64 [[VP0]]
+; CHECK-NEXT:    Cost 1 for i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:    Cost 2 for i32 [[VP2:%.*]] = umax i32 [[VP_LOAD_1]] i32 [[VP_LOAD]]
 ; CHECK-NEXT:    Cost 2 for i32 [[VP3:%.*]] = smax i32 [[VP_LOAD_1]] i32 [[VP_LOAD]]
 ; CHECK-NEXT:    Cost 1 for i32 [[VP4:%.*]] = add i32 [[VP2]] i32 [[VP3]]
@@ -34,8 +34,8 @@ define void @foo-min-max() {
 ; CHECK-NEXT:    Cost 1 for i32 [[VP6:%.*]] = add i32 [[VP4]] i32 [[VP5]]
 ; CHECK-NEXT:    Cost 2 for i32 [[VP7:%.*]] = smin i32 [[VP_LOAD]] i32 [[VP_LOAD_1]]
 ; CHECK-NEXT:    Cost 1 for i32 [[VP8:%.*]] = add i32 [[VP6]] i32 [[VP7]]
-; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.3 i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 1 for store i32 [[VP8]] i32* [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:    Cost 0 for ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr @arr.i32.3 i64 0 i64 [[VP0]]
+; CHECK-NEXT:    Cost 1 for store i32 [[VP8]] ptr [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:    Cost 1 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:    Cost 4 for i1 [[VP9:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
@@ -56,10 +56,10 @@ entry:
 
 for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ld1.idx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.1, i64 0, i64 %indvars.iv
-  %ld1 = load i32, i32* %ld1.idx
-  %ld2.idx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.2, i64 0, i64 %indvars.iv
-  %ld2 = load i32, i32* %ld2.idx
+  %ld1.idx = getelementptr inbounds [1024 x i32], ptr @arr.i32.1, i64 0, i64 %indvars.iv
+  %ld1 = load i32, ptr %ld1.idx
+  %ld2.idx = getelementptr inbounds [1024 x i32], ptr @arr.i32.2, i64 0, i64 %indvars.iv
+  %ld2 = load i32, ptr %ld2.idx
 
   %cmp1.res = icmp slt i32 %ld1, %ld2
   %cmp2.res = icmp ult i32 %ld1, %ld2
@@ -75,8 +75,8 @@ for.body:
   %res2 = add nsw nuw i32 %select3.res, %select4.res
   %res  = add nsw nuw i32 %res1, %res2
 
-  %st.idx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.3, i64 0, i64 %indvars.iv
-  store i32 %res, i32* %st.idx
+  %st.idx = getelementptr inbounds [1024 x i32], ptr @arr.i32.3, i64 0, i64 %indvars.iv
+  store i32 %res, ptr %st.idx
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
@@ -103,17 +103,17 @@ define void @foo-uminseq() {
 ; CHECK-NEXT:  Cost Model for Loop preheader [[BB0]] : [[BB1]] for VF = 4 resulted Cost = 0
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
-; CHECK-NEXT:    Cost 0 for float* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x float]* @arr.float.1 i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 1 for float [[VP_LOAD:%.*]] = load float* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:    Cost 0 for float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x float]* @arr.float.2 i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 1 for float [[VP_LOAD_1:%.*]] = load float* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:    Cost 0 for ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr @arr.float.1 i64 0 i64 [[VP0]]
+; CHECK-NEXT:    Cost 1 for float [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
+; CHECK-NEXT:    Cost 0 for ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr @arr.float.2 i64 0 i64 [[VP0]]
+; CHECK-NEXT:    Cost 1 for float [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:    Cost 4 for i1 [[VP2:%.*]] = fcmp oeq float [[VP_LOAD]] float 0.000000e+00
 ; CHECK-NEXT:    Cost 4 for i1 [[VP3:%.*]] = fcmp une float [[VP_LOAD_1]] float 0.000000e+00
 ; CHECK-NEXT:    Cost 8 for i1 [[VP4:%.*]] = umin-seq i1 [[VP2]] i1 [[VP3]]
 ; CHECK-NEXT:    Cost 4 for i1 [[VP5:%.*]] = icmp ne i1 [[VP4]] i1 false
 ; CHECK-NEXT:    Cost 2 for float [[VP6:%.*]] = select i1 [[VP5]] float [[VP_LOAD]] float [[VP_LOAD_1]]
-; CHECK-NEXT:    Cost 0 for float* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [1024 x float]* @arr.float.3 i64 0 i64 [[VP0]]
-; CHECK-NEXT:    Cost 1 for store float [[VP6]] float* [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:    Cost 0 for ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr @arr.float.3 i64 0 i64 [[VP0]]
+; CHECK-NEXT:    Cost 1 for store float [[VP6]] ptr [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:    Cost 1 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:    Cost 4 for i1 [[VP7:%.*]] = icmp slt i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP7]], [[BB2]], [[BB3:BB[0-9]+]]
@@ -134,18 +134,18 @@ entry:
 
 for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ld1.idx = getelementptr inbounds [1024 x float], [1024 x float]* @arr.float.1, i64 0, i64 %indvars.iv
-  %ld1 = load float, float* %ld1.idx
-  %ld2.idx = getelementptr inbounds [1024 x float], [1024 x float]* @arr.float.2, i64 0, i64 %indvars.iv
-  %ld2 = load float, float* %ld2.idx
+  %ld1.idx = getelementptr inbounds [1024 x float], ptr @arr.float.1, i64 0, i64 %indvars.iv
+  %ld1 = load float, ptr %ld1.idx
+  %ld2.idx = getelementptr inbounds [1024 x float], ptr @arr.float.2, i64 0, i64 %indvars.iv
+  %ld2 = load float, ptr %ld2.idx
 
   %cmp1 = fcmp fast oeq float %ld1, 0.000000e+00
   %cmp2 = fcmp fast une float %ld2, 0.000000e+00
   %or.cond = select i1 %cmp1, i1 %cmp2, i1 false
   %select.res = select i1 %or.cond, float %ld1, float %ld2
 
-  %st.idx = getelementptr inbounds [1024 x float], [1024 x float]* @arr.float.3, i64 0, i64 %indvars.iv
-  store float %select.res, float* %st.idx
+  %st.idx = getelementptr inbounds [1024 x float], ptr @arr.float.3, i64 0, i64 %indvars.iv
+  store float %select.res, ptr %st.idx
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024

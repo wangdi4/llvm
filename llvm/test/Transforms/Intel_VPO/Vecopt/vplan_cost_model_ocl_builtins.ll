@@ -11,22 +11,22 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(float* %arg1, float* %arg2, i32* %arg3, float* %dest, i64 %wide.trip.count) {
+define void @foo(ptr %arg1, ptr %arg2, ptr %arg3, ptr %dest, i64 %wide.trip.count) {
 for.preheader:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body
 
 for.body:
   %indvars.iv = phi i64 [ 0, %for.preheader ], [ %indvars.iv.next, %for.body ]
-  %arg1.gep = getelementptr inbounds float, float* %arg1, i64 %indvars.iv
-  %arg1.load = load float, float* %arg1.gep, align 4
-  %arg2.gep = getelementptr inbounds float, float* %arg2, i64 %indvars.iv
-  %arg2.load = load float, float* %arg2.gep, align 4
-  %arg3.gep = getelementptr inbounds i32, i32* %arg3, i64 %indvars.iv
-  %arg3.load = load i32, i32* %arg3.gep, align 4
+  %arg1.gep = getelementptr inbounds float, ptr %arg1, i64 %indvars.iv
+  %arg1.load = load float, ptr %arg1.gep, align 4
+  %arg2.gep = getelementptr inbounds float, ptr %arg2, i64 %indvars.iv
+  %arg2.load = load float, ptr %arg2.gep, align 4
+  %arg3.gep = getelementptr inbounds i32, ptr %arg3, i64 %indvars.iv
+  %arg3.load = load i32, ptr %arg3.gep, align 4
   %call = tail call afn float @_Z6selectffi(float %arg1.load, float %arg2.load, i32 %arg3.load) #9
-  %res.ptr = getelementptr inbounds float, float* %dest, i64 %indvars.iv
-  store float %call, float* %res.ptr, align 4
+  %res.ptr = getelementptr inbounds float, ptr %dest, i64 %indvars.iv
+  store float %call, ptr %res.ptr, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.exit, label %for.body

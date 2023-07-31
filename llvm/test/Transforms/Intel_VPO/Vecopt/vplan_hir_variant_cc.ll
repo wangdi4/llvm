@@ -12,7 +12,7 @@ target triple = "x86_64-unknown-linux-gnu"
 declare fastcc i64 @_Z3fooll(i64 , i64 ) #0 
 
 ; Function Attrs: mustprogress noinline norecurse nounwind uwtable
-define dso_local noundef i32 @main(i32 noundef %argc, i8** nocapture noundef readnone %argv) local_unnamed_addr #1 {
+define dso_local noundef i32 @main(i32 noundef %argc, ptr nocapture noundef readnone %argv) local_unnamed_addr #1 {
 DIR.OMP.SIMD.1:
   %a = alloca [128 x i32], align 16
   br label %DIR.OMP.SIMD.131
@@ -28,8 +28,8 @@ omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %om
   %.omp.iv.local.026 = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %add7, %omp.inner.for.body ]
   %call = call fastcc noundef i64 @_Z3fooll(i64 noundef 1, i64 noundef %.omp.iv.local.026)
   %conv = trunc i64 %call to i32
-  %arrayidx6 = getelementptr inbounds [128 x i32], [128 x i32]* %a, i64 0, i64 %.omp.iv.local.026
-  store i32 %conv, i32* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds [128 x i32], ptr %a, i64 0, i64 %.omp.iv.local.026
+  store i32 %conv, ptr %arrayidx6, align 4
   %add7 = add nuw nsw i64 %.omp.iv.local.026, 1
   %exitcond.not = icmp eq i64 %add7, 128
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body

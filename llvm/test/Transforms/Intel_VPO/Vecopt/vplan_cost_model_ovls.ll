@@ -9,11 +9,11 @@
 ; the dump) and verifies that the first Load of VLS group receive whole Cost
 ; of the group, while consequent group members receive Cost 0.
 
-; CHECK: Cost {{[0-9]*}} for i64 {{.*}} = load i64* {{.*}} *OVLS*({{.*}}) AdjCost: 18
-; CHECK: Cost {{[0-9]*}} for i64 {{.*}} = load i64* {{.*}} *OVLS*({{.*}}) AdjCost: 0
+; CHECK: Cost {{[0-9]*}} for i64 {{.*}} = load ptr {{.*}} *OVLS*({{.*}}) AdjCost: 18
+; CHECK: Cost {{[0-9]*}} for i64 {{.*}} = load ptr {{.*}} *OVLS*({{.*}}) AdjCost: 0
 
 ; OVLS is not a part of lightweight pipeline.
-; LIGHT-NOT: Cost {{[0-9]*}} for i64 {{.*}} = load i64* {{.*}} *OVLS*({{.*}})
+; LIGHT-NOT: Cost {{[0-9]*}} for i64 {{.*}} = load ptr {{.*}} *OVLS*({{.*}})
 
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -26,17 +26,17 @@ entry:
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [1024 x i64], [1024 x i64]* @a, i64 0, i64 %indvars.iv
-  %0 = load i64, i64* %arrayidx, align 16
+  %arrayidx = getelementptr inbounds [1024 x i64], ptr @a, i64 0, i64 %indvars.iv
+  %0 = load i64, ptr %arrayidx, align 16
   %1 = or i64 %indvars.iv, 1
-  %arrayidx2 = getelementptr inbounds [1024 x i64], [1024 x i64]* @a, i64 0, i64 %1
-  %2 = load i64, i64* %arrayidx2, align 8
+  %arrayidx2 = getelementptr inbounds [1024 x i64], ptr @a, i64 0, i64 %1
+  %2 = load i64, ptr %arrayidx2, align 8
   %add3 = add nsw i64 %2, %0
-  %arrayidx6 = getelementptr inbounds [1024 x i64], [1024 x i64]* @b, i64 0, i64 %indvars.iv
-  store i64 %add3, i64* %arrayidx6, align 16
+  %arrayidx6 = getelementptr inbounds [1024 x i64], ptr @b, i64 0, i64 %indvars.iv
+  store i64 %add3, ptr %arrayidx6, align 16
   %sub = sub nsw i64 %0, %2
-  %arrayidx14 = getelementptr inbounds [1024 x i64], [1024 x i64]* @b, i64 0, i64 %1
-  store i64 %sub, i64* %arrayidx14, align 8
+  %arrayidx14 = getelementptr inbounds [1024 x i64], ptr @b, i64 0, i64 %1
+  store i64 %sub, ptr %arrayidx14, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 2
   %cmp = icmp ult i64 %indvars.iv, 1022
   br i1 %cmp, label %for.body, label %for.end

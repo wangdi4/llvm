@@ -8,8 +8,8 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
-; LLVMIR:  define void @var_tripcount(i32* [[IP0:%.*]], i32 [[N0:%.*]], i32* [[X0:%.*]]) local_unnamed_addr {
+define void @var_tripcount(ptr %ip, i32 %n, ptr %x) local_unnamed_addr {
+; LLVMIR:  define void @var_tripcount(ptr [[IP0:%.*]], i32 [[N0:%.*]], ptr [[X0:%.*]]) local_unnamed_addr {
 ; LLVMIR-NEXT:  entry:
 ; LLVMIR-NEXT:    br label [[DIR_QUAL_LIST_END_20:%.*]]
 ; LLVMIR-EMPTY:
@@ -27,8 +27,8 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; LLVMIR-NEXT:    br i1 [[TMP1]], label %[[MERGE_BLK0:.*]], label [[VPLANNEDBB10:%.*]]
 ; LLVMIR-EMPTY:
 ; LLVMIR-NEXT:  VPlannedBB1:
-; LLVMIR-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i32*> poison, i32* [[IP0]], i64 0
-; LLVMIR-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <2 x i32*> [[BROADCAST_SPLATINSERT0]], <2 x i32*> poison, <2 x i32> zeroinitializer
+; LLVMIR-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x ptr> poison, ptr [[IP0]], i64 0
+; LLVMIR-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <2 x ptr> [[BROADCAST_SPLATINSERT0]], <2 x ptr> poison, <2 x i32> zeroinitializer
 ; LLVMIR-NEXT:    br label [[VPLANNEDBB20:%.*]]
 ; LLVMIR-EMPTY:
 ; LLVMIR-NEXT:  VPlannedBB2:
@@ -38,14 +38,14 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; LLVMIR-NEXT:  vector.body:
 ; LLVMIR-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP4:%.*]], [[VPLANNEDBB50:%.*]] ], [ 0, [[VPLANNEDBB20]] ]
 ; LLVMIR-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP3:%.*]], [[VPLANNEDBB50]] ], [ <i64 0, i64 1>, [[VPLANNEDBB20]] ]
-; LLVMIR-NEXT:    [[MM_VECTORGEP0:%.*]] = getelementptr inbounds i32, <2 x i32*> [[BROADCAST_SPLAT0]], <2 x i64> [[VEC_PHI0]]
-; LLVMIR-NEXT:    [[MM_VECTORGEP_EXTRACT_1_0:%.*]] = extractelement <2 x i32*> [[MM_VECTORGEP0]], i32 1
-; LLVMIR-NEXT:    [[MM_VECTORGEP_EXTRACT_0_0:%.*]] = extractelement <2 x i32*> [[MM_VECTORGEP0]], i32 0
+; LLVMIR-NEXT:    [[MM_VECTORGEP0:%.*]] = getelementptr inbounds i32, <2 x ptr> [[BROADCAST_SPLAT0]], <2 x i64> [[VEC_PHI0]]
+; LLVMIR-NEXT:    [[MM_VECTORGEP_EXTRACT_1_0:%.*]] = extractelement <2 x ptr> [[MM_VECTORGEP0]], i32 1
+; LLVMIR-NEXT:    [[MM_VECTORGEP_EXTRACT_0_0:%.*]] = extractelement <2 x ptr> [[MM_VECTORGEP0]], i32 0
 ; LLVMIR-NEXT:    br label [[VPLANNEDBB40:%.*]]
 ; LLVMIR-EMPTY:
 ; LLVMIR-NEXT:  VPlannedBB4:
-; LLVMIR-NEXT:    call void @var_tripcount.ordered.simd.region(i32* [[X0]], i32* [[MM_VECTORGEP_EXTRACT_0_0]])
-; LLVMIR-NEXT:    call void @var_tripcount.ordered.simd.region(i32* [[X0]], i32* [[MM_VECTORGEP_EXTRACT_1_0]])
+; LLVMIR-NEXT:    call void @var_tripcount.ordered.simd.region(ptr [[X0]], ptr [[MM_VECTORGEP_EXTRACT_0_0]])
+; LLVMIR-NEXT:    call void @var_tripcount.ordered.simd.region(ptr [[X0]], ptr [[MM_VECTORGEP_EXTRACT_1_0]])
 ; LLVMIR-NEXT:    br label [[VPLANNEDBB50]]
 ; LLVMIR-EMPTY:
 ; LLVMIR-NEXT:  VPlannedBB5:
@@ -82,11 +82,11 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; LLVMIR-EMPTY:
 ; LLVMIR-NEXT:  for.body:
 ; LLVMIR-NEXT:    [[INDVARS_IV0:%.*]] = phi i64 [ [[INDVARS_IV_NEXT0]], [[LATCH0:%.*]] ], [ [[UNI_PHI90]], %[[REMBLK0]] ]
-; LLVMIR-NEXT:    [[ARRAYIDX0:%.*]] = getelementptr inbounds i32, i32* [[IP0]], i64 [[INDVARS_IV0]]
+; LLVMIR-NEXT:    [[ARRAYIDX0:%.*]] = getelementptr inbounds i32, ptr [[IP0]], i64 [[INDVARS_IV0]]
 ; LLVMIR-NEXT:    br label [[CODEREPL0:%.*]]
 ; LLVMIR-EMPTY:
 ; LLVMIR-NEXT:  codeRepl:
-; LLVMIR-NEXT:    call void @var_tripcount.ordered.simd.region(i32* [[X0]], i32* [[ARRAYIDX0]])
+; LLVMIR-NEXT:    call void @var_tripcount.ordered.simd.region(ptr [[X0]], ptr [[ARRAYIDX0]])
 ; LLVMIR-NEXT:    br label [[LATCH0]]
 ; LLVMIR-EMPTY:
 ; LLVMIR-NEXT:  latch:
@@ -104,7 +104,7 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; LLVMIR-NEXT:    ret void
 ; LLVMIR-NEXT:  }
 ;
-; LLVMIR:  define internal void @var_tripcount.ordered.simd.region(i32* [[X0]], i32* [[ARRAYIDX0]]) #1 {
+; LLVMIR:  define internal void @var_tripcount.ordered.simd.region(ptr [[X0]], ptr [[ARRAYIDX0]]) #1 {
 ; LLVMIR-NEXT:  newFuncRoot:
 ; LLVMIR-NEXT:    br label [[ORDERED_ENTRY0:%.*]]
 ; LLVMIR-EMPTY:
@@ -113,8 +113,8 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; LLVMIR-NEXT:    br label [[ORDERED0:%.*]]
 ; LLVMIR-EMPTY:
 ; LLVMIR-NEXT:  ordered:
-; LLVMIR-NEXT:    [[VAL0:%.*]] = load i32, i32* [[X0]], align 4
-; LLVMIR-NEXT:    store i32 [[VAL0]], i32* [[ARRAYIDX0]], align 4
+; LLVMIR-NEXT:    [[VAL0:%.*]] = load i32, ptr [[X0]], align 4
+; LLVMIR-NEXT:    store i32 [[VAL0]], ptr [[ARRAYIDX0]], align 4
 ; LLVMIR-NEXT:    br label [[ORDERED_EXIT0:%.*]]
 ; LLVMIR-EMPTY:
 ; LLVMIR-NEXT:  ordered.exit:
@@ -125,7 +125,7 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; LLVMIR-NEXT:    ret void
 ; LLVMIR-NEXT:  }
 ;
-; HIR:  define void @var_tripcount(i32* [[IP0:%.*]], i32 [[N0:%.*]], i32* [[X0:%.*]]) local_unnamed_addr {
+; HIR:  define void @var_tripcount(ptr [[IP0:%.*]], i32 [[N0:%.*]], ptr [[X0:%.*]]) local_unnamed_addr {
 ; HIR-NEXT:  entry:
 ; HIR:         br label [[ENTRY_SPLIT0:%.*]]
 ; HIR-EMPTY:
@@ -144,11 +144,11 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; HIR-EMPTY:
 ; HIR-NEXT:  for.body:
 ; HIR-NEXT:    [[INDVARS_IV0:%.*]] = phi i64 [ [[INDVARS_IV_NEXT0:%.*]], [[LATCH0:%.*]] ], [ 0, [[FOR_BODY_PREHEADER0]] ], !in.de.ssa !0
-; HIR-NEXT:    [[ARRAYIDX0:%.*]] = getelementptr inbounds i32, i32* [[IP0]], i64 [[INDVARS_IV0]]
+; HIR-NEXT:    [[ARRAYIDX0:%.*]] = getelementptr inbounds i32, ptr [[IP0]], i64 [[INDVARS_IV0]]
 ; HIR-NEXT:    br label [[CODEREPL0:%.*]]
 ; HIR-EMPTY:
 ; HIR-NEXT:  codeRepl:
-; HIR-NEXT:    call void @var_tripcount.ordered.simd.region(i32* [[X0]], i32* [[ARRAYIDX0]])
+; HIR-NEXT:    call void @var_tripcount.ordered.simd.region(ptr [[X0]], ptr [[ARRAYIDX0]])
 ; HIR-NEXT:    br label [[LATCH0]]
 ; HIR-EMPTY:
 ; HIR-NEXT:  latch:
@@ -171,7 +171,7 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; HIR-NEXT:    ret void
 ; HIR-NEXT:  }
 ;
-; HIR:  define internal void @var_tripcount.ordered.simd.region(i32* [[X0]], i32* [[ARRAYIDX0]]) #1 {
+; HIR:  define internal void @var_tripcount.ordered.simd.region(ptr [[X0]], ptr [[ARRAYIDX0]]) #1 {
 ; HIR-NEXT:  newFuncRoot:
 ; HIR-NEXT:    br label [[ORDERED_ENTRY0:%.*]]
 ; HIR-EMPTY:
@@ -180,8 +180,8 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; HIR-NEXT:    br label [[ORDERED0:%.*]]
 ; HIR-EMPTY:
 ; HIR-NEXT:  ordered:
-; HIR-NEXT:    [[VAL0:%.*]] = load i32, i32* [[X0]], align 4
-; HIR-NEXT:    store i32 [[VAL0]], i32* [[ARRAYIDX0]], align 4
+; HIR-NEXT:    [[VAL0:%.*]] = load i32, ptr [[X0]], align 4
+; HIR-NEXT:    store i32 [[VAL0]], ptr [[ARRAYIDX0]], align 4
 ; HIR-NEXT:    br label [[ORDERED_EXIT0:%.*]]
 ; HIR-EMPTY:
 ; HIR-NEXT:  ordered.exit:
@@ -206,7 +206,7 @@ for.body.preheader:
 
 for.body:
   %indvars.iv = phi i64 [ %indvars.iv.next, %latch ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds i32, i32* %ip, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds i32, ptr %ip, i64 %indvars.iv
   br label %ordered.entry
 
 ordered.entry:
@@ -214,8 +214,8 @@ ordered.entry:
   br label %ordered
 
 ordered:
-  %val = load i32, i32* %x
-  store i32 %val, i32* %arrayidx, align 4
+  %val = load i32, ptr %x
+  store i32 %val, ptr %arrayidx, align 4
   br label %ordered.exit
 
 ordered.exit:

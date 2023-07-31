@@ -24,7 +24,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
   %trunc = trunc i64 %indvars.iv to i12
   %add12 = add i12 %trunc, %k
   %zext = zext i12 %add12 to i64
-  %gep = getelementptr i32, i32* %a, i64 %zext
+  %gep = getelementptr i32, ptr %a, i64 %zext
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1000
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body

@@ -27,28 +27,28 @@ declare token @llvm.directive.region.entry() #0
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #0
 
-define dso_local void @_Z27CQ417746_private_simple_ptrv(i16* %p) local_unnamed_addr #1 {
+define dso_local void @_Z27CQ417746_private_simple_ptrv(ptr %p) local_unnamed_addr #1 {
 ; CHECK:             + DO i1 = 0, 1023, 1   <DO_LOOP> <simd> <vectorize>
 entry:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:
-  %0 = call token @llvm.directive.region.entry() #0 [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"(i16** null)]
+  %0 = call token @llvm.directive.region.entry() #0 [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"(ptr null)]
   br label %omp.inner.for.body.i.i
 
 omp.inner.for.body.i.i:
-  %1 = phi i16* [ %spec.select, %omp.inner.for.body.i.i ], [ %p, %DIR.OMP.SIMD.1 ]
+  %1 = phi ptr [ %spec.select, %omp.inner.for.body.i.i ], [ %p, %DIR.OMP.SIMD.1 ]
   %.omp.iv.i.i.local.021 = phi i32 [ %add4.i.i, %omp.inner.for.body.i.i ], [ 0, %DIR.OMP.SIMD.1 ]
   %cmp3.i.i = icmp eq i32 %.omp.iv.i.i.local.021, 9
   %spec.select.idx = select i1 %cmp3.i.i, i64 4, i64 0
-  %spec.select = getelementptr i16, i16* %1, i64 %spec.select.idx
+  %spec.select = getelementptr i16, ptr %1, i64 %spec.select.idx
   %add4.i.i = add nuw nsw i32 %.omp.iv.i.i.local.021, 1
   %exitcond39 = icmp eq i32 %add4.i.i, 1024
   br i1 %exitcond39, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body.i.i
 
 DIR.OMP.END.SIMD.2:
-  %spec.select.lcssa = phi i16* [ %spec.select, %omp.inner.for.body.i.i ]
-  store i16* %spec.select.lcssa, i16** null, align 8
+  %spec.select.lcssa = phi ptr [ %spec.select, %omp.inner.for.body.i.i ]
+  store ptr %spec.select.lcssa, ptr null, align 8
   br label %DIR.OMP.END.SIMD.243
 
 DIR.OMP.END.SIMD.243:

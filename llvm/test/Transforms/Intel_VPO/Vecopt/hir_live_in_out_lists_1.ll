@@ -34,7 +34,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define i32 @foo(i32* nocapture readonly %A, i32 %N, i32 %Init) {
+define i32 @foo(ptr nocapture readonly %A, i32 %N, i32 %Init) {
 ; CHECK-LABEL:  VPlan after live in/out lists creation:
 ; CHECK-NEXT:  VPlan IR for: foo:HIR
 ; CHECK-NEXT:  External Defs Start:
@@ -73,8 +73,8 @@ define i32 @foo(i32* nocapture readonly %A, i32 %N, i32 %Init) {
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB2]], [[BB0]]
 ; CHECK-NEXT:     i32 [[VP5]] = phi  [ i32 [[VP_RED_INIT]], [[BB2]] ],  [ i32 [[VP4]], [[BB0]] ]
 ; CHECK-NEXT:     i64 [[VP7]] = phi  [ i64 [[VP__IND_INIT]], [[BB2]] ],  [ i64 [[VP6]], [[BB0]] ]
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP7]]
-; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[A0:%.*]] i64 [[VP7]]
+; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i32 [[VP4]] = add i32 [[VP_LOAD]] i32 [[VP5]]
 ; CHECK-NEXT:     i64 [[VP8]] = add i64 [[VP7]] i64 1
 ; CHECK-NEXT:     i64 [[VP6]] = add i64 [[VP7]] i64 [[VP__IND_INIT_STEP]]
@@ -124,8 +124,8 @@ for.body.ph:                                 ; preds = %0
 for.body:                                           ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.ph ]
   %Sum.07 = phi i32 [ %add, %for.body ], [ %Init, %for.body.ph ]
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %A.i = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %A.i = load i32, ptr %arrayidx, align 4
   %add = add nsw i32 %A.i, %Sum.07
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count

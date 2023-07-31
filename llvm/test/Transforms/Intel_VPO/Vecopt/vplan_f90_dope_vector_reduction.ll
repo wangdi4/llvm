@@ -4,17 +4,17 @@
 
 target triple = "x86_64-unknown-linux-gnu"
 
-%"QNCA_a0$i32*$rank1$" = type { i32*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
+%"QNCA_a0$ptr$rank1$" = type { ptr, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
 
 define void @cq417019b_IP_test_() {
 ; CHECK:  F90 dope vector reductions are not supported.
 ;
 ; CHECK:  define void @cq417019b_IP_test_() {
 ; CHECK-NEXT:  alloca_1:
-; CHECK-NEXT:    [[B_35_RED0:%.*]] = alloca %"QNCA_a0$i32*$rank1$", align 8
+; CHECK-NEXT:    [[B_35_RED0:%.*]] = alloca %"QNCA_a0$ptr$rank1$", align 8
 ; CHECK-NEXT:    br label [[BB0:%.*]]
 ; CHECK:       omp.pdo.body62.preheader:
-; CHECK-NEXT:    [[TMP2:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:F90_DV.TYPED"(%"QNCA_a0$i32*$rank1$"* [[B_35_RED0]], %"QNCA_a0$i32*$rank1$" zeroinitializer, i32 1) ]
+; CHECK-NEXT:    [[TMP2:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:F90_DV.TYPED"(ptr [[B_35_RED0]], %"QNCA_a0$ptr$rank1$" zeroinitializer, i32 1) ]
 ; CHECK-NEXT:    br label [[OMP_PDO_BODY620:%.*]]
 ; CHECK:       omp.pdo.cond61.omp.pdo.epilog63_crit_edge:
 ; CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP2]]) [ "DIR.OMP.END.SIMD"() ]
@@ -32,7 +32,7 @@ define void @cq417019b_IP_test_() {
 ; HIR-CHECK-NEXT: END REGION
 ;
 alloca_1:
-  %B.35.red = alloca %"QNCA_a0$i32*$rank1$"
+  %B.35.red = alloca %"QNCA_a0$ptr$rank1$"
   br label %DIR.OMP.LOOP.1.split43
 
 DIR.OMP.LOOP.1.split43:                           ; preds = %alloca_1
@@ -42,12 +42,12 @@ DIR.OMP.LOOP.1.split43:                           ; preds = %alloca_1
   br label %omp.pdo.body62.lr.ph
 
 omp.pdo.body62.lr.ph:                             ; preds = %DIR.OMP.LOOP.1.split43
-  %lb.new = load i64, i64* %lower.bnd
-  %ub.new = load i64, i64* %upper.bnd
+  %lb.new = load i64, ptr %lower.bnd
+  %ub.new = load i64, ptr %upper.bnd
   br label %omp.pdo.body62.preheader
 
 omp.pdo.body62.preheader:                         ; preds = %omp.pdo.body62.lr.ph
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:F90_DV.TYPED"(%"QNCA_a0$i32*$rank1$"* %B.35.red, %"QNCA_a0$i32*$rank1$" zeroinitializer, i32 1) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:F90_DV.TYPED"(ptr %B.35.red, %"QNCA_a0$ptr$rank1$" zeroinitializer, i32 1) ]
   br label %omp.pdo.body62
 
 omp.pdo.body62:                                   ; preds = %omp.pdo.body62.preheader, %loop_exit71
@@ -56,7 +56,7 @@ omp.pdo.body62:                                   ; preds = %omp.pdo.body62.preh
 
 loop_test69:                                      ; preds = %omp.pdo.body62
   %int_sext = trunc i64 %omp.pdo.norm.iv.local.039 to i32
-  store i32 %int_sext, i32* %I.ul.GEP.0.linear
+  store i32 %int_sext, ptr %I.ul.GEP.0.linear
   br label %loop_exit71
 
 loop_exit71:                                      ; preds = %loop_test69

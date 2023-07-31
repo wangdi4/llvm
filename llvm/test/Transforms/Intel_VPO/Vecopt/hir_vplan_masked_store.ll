@@ -20,9 +20,9 @@
 ; If said WRN support is done then vectorization will be done and the IR
 ; will have a masked-store after vectorization:
 ;
-;   call void @llvm.masked.store.v4f32.p0v4f32(<4 x float> %t25., <4 x float>* %19, i32 4, <4 x i1> %t23.6)
+;   call void @llvm.masked.store.v4f32.p0(<4 x float> %t25., <4 x float>* %19, i32 4, <4 x i1> %t23.6)
 ;
-; CHECK: call void @llvm.masked.store.v4f32.p0v4f32({{.*}})
+; CHECK: call void @llvm.masked.store.v4f32.p0({{.*}})
 ;
 
 source_filename = "test2.c"
@@ -34,15 +34,15 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local float @foo(i32 %n1) local_unnamed_addr #0 {
 omp.inner.for.body.lr.ph:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
   %mul2 = mul nsw i32 %n1, %n1
   %add3 = add nuw i32 %mul2, 3
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.inc, %omp.inner.for.body.lr.ph
   %indvars.iv = phi i64 [ %indvars.iv.next, %omp.inner.for.inc ], [ 0, %omp.inner.for.body.lr.ph ]
-  %arrayidx = getelementptr inbounds [1024 x float], [1024 x float]* @arr, i64 0, i64 %indvars.iv
-  %1 = load float, float* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [1024 x float], ptr @arr, i64 0, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx, align 4, !tbaa !2
   %cmp1 = fcmp ogt float %1, 0.000000e+00
   br i1 %cmp1, label %if.then, label %omp.inner.for.inc
 
@@ -52,8 +52,8 @@ if.then:                                          ; preds = %omp.inner.for.body
   %conv = sitofp i32 %add4 to float
   %add5 = add nsw i32 %2, %n1
   %idxprom6 = sext i32 %add5 to i64
-  %arrayidx7 = getelementptr inbounds [1024 x float], [1024 x float]* @arr, i64 0, i64 %idxprom6
-  store float %conv, float* %arrayidx7, align 4, !tbaa !2
+  %arrayidx7 = getelementptr inbounds [1024 x float], ptr @arr, i64 0, i64 %idxprom6
+  store float %conv, ptr %arrayidx7, align 4, !tbaa !2
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %if.then, %omp.inner.for.body
@@ -63,12 +63,12 @@ omp.inner.for.inc:                                ; preds = %if.then, %omp.inner
 
 DIR.OMP.END.SIMD.2:                               ; preds = %omp.inner.for.inc
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
-  %3 = load float, float* getelementptr inbounds ([1024 x float], [1024 x float]* @arr, i64 0, i64 0), align 16, !tbaa !2
+  %3 = load float, ptr @arr, align 16, !tbaa !2
   ret float %3
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64, ptr nocapture) #1
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #2
@@ -77,7 +77,7 @@ declare token @llvm.directive.region.entry() #2
 declare void @llvm.directive.region.exit(token) #2
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0(i64, ptr nocapture) #1
 
 attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87,+avx2" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

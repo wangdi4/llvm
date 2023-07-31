@@ -52,7 +52,7 @@ define void @foo2(i64 %N) local_unnamed_addr #0 {
 ;
 entry:
   %k = alloca i64, align 4
-  store i64 0, i64* %k, align 4
+  store i64 0, ptr %k, align 4
   br label %reg.entry
 
 reg.entry:
@@ -60,7 +60,7 @@ reg.entry:
   br label %for.body.lr.ph
 
 for.body.lr.ph:
-  %k.iv.b = load i64, i64* %k, align 4
+  %k.iv.b = load i64, ptr %k, align 4
   br label %for.body
 
 for.body:

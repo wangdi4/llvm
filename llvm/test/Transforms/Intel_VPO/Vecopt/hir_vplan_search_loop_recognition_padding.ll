@@ -41,8 +41,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define internal zeroext i1 @searchloop(ptr %p) {
 entry:
-  %t0 = tail call ptr @llvm.ptr.annotation.p0(ptr %p, ptr getelementptr inbounds ([15 x i8], ptr @0, i64 0, i64 0), ptr getelementptr inbounds ([10 x i8], ptr @.str, i64 0, i64 0), i32 2, ptr null)
-  %pv1 = bitcast ptr %t0 to ptr
+  %t0 = tail call ptr @llvm.ptr.annotation.p0(ptr %p, ptr @0, ptr @.str, i32 2, ptr null)
   br label %bb2
 
 bb1:
@@ -51,9 +50,9 @@ bb1:
 
 bb2:
   %t4 = phi i64 [ 0, %entry ], [ %t10, %bb1 ]
-  %t5 = getelementptr inbounds i8, ptr %pv1, i64 %t4
+  %t5 = getelementptr inbounds i8, ptr %t0, i64 %t4
   %t6 = load i8, ptr %t5, align 4
-  %t7 = getelementptr inbounds i8, ptr %pv1, i64 %t4
+  %t7 = getelementptr inbounds i8, ptr %t0, i64 %t4
   %t8 = load i8, ptr %t7, align 4
   %t9 = icmp ne i8 %t6, %t8
   %t10 = add nuw nsw i64 %t4, 1

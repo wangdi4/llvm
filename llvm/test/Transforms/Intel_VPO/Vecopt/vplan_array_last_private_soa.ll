@@ -16,9 +16,7 @@ define void @foo() {
 ; CHECK:       VPlannedBB1:
 ; CHECK-NEXT:    br label [[VPLANNEDBB2:%.*]]
 ; CHECK:       VPlannedBB2:
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast [12 x <4 x i16>]* [[B3_I_LPRIV_SOA_VEC]] to <4 x i8>*
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <4 x i8>* [[TMP0]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 96, i8* [[TMP1]])
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 96, ptr [[B3_I_LPRIV_SOA_VEC]])
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i32 [ 0, [[VPLANNEDBB2]] ], [ [[TMP4:%.*]], [[VPLANNEDBB6:%.*]] ]
@@ -26,8 +24,8 @@ define void @foo() {
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i32> [ [[TMP2:%.*]], [[VPLANNEDBB6]] ], [ <i32 0, i32 1, i32 2, i32 3>, [[VPLANNEDBB2]] ]
 ; CHECK-NEXT:    br i1 undef, label [[VPLANNEDBB5:%.*]], label [[VPLANNEDBB6]]
 ; CHECK:       VPlannedBB5:
-; CHECK-NEXT:    [[SOA_SCALAR_GEP:%.*]] = getelementptr inbounds [12 x <4 x i16>], [12 x <4 x i16>]* [[B3_I_LPRIV_SOA_VEC]], i64 0, i64 1
-; CHECK-NEXT:    store <4 x i16> <i16 1, i16 1, i16 1, i16 1>, <4 x i16>* [[SOA_SCALAR_GEP]], align 2
+; CHECK-NEXT:    [[SOA_SCALAR_GEP:%.*]] = getelementptr inbounds [12 x <4 x i16>], ptr [[B3_I_LPRIV_SOA_VEC]], i64 0, i64 1
+; CHECK-NEXT:    store <4 x i16> <i16 1, i16 1, i16 1, i16 1>, ptr [[SOA_SCALAR_GEP]], align 2
 ; CHECK-NEXT:    br label [[VPLANNEDBB6]]
 ; CHECK:       VPlannedBB6:
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <4 x i32> [[VEC_PHI]], <i32 4, i32 4, i32 4, i32 4>
@@ -39,10 +37,10 @@ define void @foo() {
 ; CHECK-NEXT:    br label [[ARRAY_LAST_PRIVATE_LOOP:%.*]]
 ; CHECK:       array.last.private.loop:
 ; CHECK-NEXT:    [[TMP6:%.*]] = phi i64 [ 0, [[VPLANNEDBB7]] ], [ [[TMP10:%.*]], [[ARRAY_LAST_PRIVATE_LOOP]] ]
-; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr [12 x <4 x i16>], [12 x <4 x i16>]* [[B3_I_LPRIV_SOA_VEC]], i64 0, i64 [[TMP6]], i64 3
-; CHECK-NEXT:    [[TMP8:%.*]] = load i16, i16* [[TMP7]], align 2
-; CHECK-NEXT:    [[TMP9:%.*]] = getelementptr [12 x i16], [12 x i16]* [[B3_I_LPRIV]], i64 0, i64 [[TMP6]]
-; CHECK-NEXT:    store i16 [[TMP8]], i16* [[TMP9]], align 2
+; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr [12 x <4 x i16>], ptr [[B3_I_LPRIV_SOA_VEC]], i64 0, i64 [[TMP6]], i64 3
+; CHECK-NEXT:    [[TMP8:%.*]] = load i16, ptr [[TMP7]], align 2
+; CHECK-NEXT:    [[TMP9:%.*]] = getelementptr [12 x i16], ptr [[B3_I_LPRIV]], i64 0, i64 [[TMP6]]
+; CHECK-NEXT:    store i16 [[TMP8]], ptr [[TMP9]], align 2
 ; CHECK-NEXT:    [[TMP10]] = add i64 [[TMP6]], 1
 ; CHECK-NEXT:    [[TMP11:%.*]] = icmp ult i64 [[TMP10]], 12
 ; CHECK-NEXT:    br i1 [[TMP11]], label [[ARRAY_LAST_PRIVATE_LOOP]], label [[ARRAY_LAST_PRIVATE_LOOP_EXIT:%.*]]
@@ -55,7 +53,7 @@ entry:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"([12 x i16]* %b3.i.lpriv, i16 0, i32 12) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %b3.i.lpriv, i16 0, i32 12) ]
   br label %omp.inner.for.body.i
 
 omp.inner.for.body.i:                             ; preds = %omp.body.continue.i, %DIR.OMP.SIMD.112
@@ -63,8 +61,8 @@ omp.inner.for.body.i:                             ; preds = %omp.body.continue.i
   br i1 undef, label %if.then.i, label %omp.body.continue.i
 
 if.then.i:                                        ; preds = %omp.inner.for.body.i
-  %arrayidx.i = getelementptr inbounds [12 x i16], [12 x i16]* %b3.i.lpriv, i64 0, i64 1
-  store i16 1, i16* %arrayidx.i, align 2
+  %arrayidx.i = getelementptr inbounds [12 x i16], ptr %b3.i.lpriv, i64 0, i64 1
+  store i16 1, ptr %arrayidx.i, align 2
   br label %omp.body.continue.i
 
 omp.body.continue.i:                              ; preds = %if.then.i, %omp.inner.for.body.i

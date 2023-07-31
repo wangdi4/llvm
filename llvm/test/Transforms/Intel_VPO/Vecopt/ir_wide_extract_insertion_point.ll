@@ -7,7 +7,7 @@
 
 declare <8 x i16> @_Z3minDv8_tS_(<8 x i16>) local_unnamed_addr
 
-define dso_local void @_ZGVeN16uuuu_kernel_extract_pipelined(i16* %fused_grid, i1 %cmp166.i) local_unnamed_addr #0 {
+define dso_local void @_ZGVeN16uuuu_kernel_extract_pipelined(ptr %fused_grid, i1 %cmp166.i) local_unnamed_addr #0 {
 ; CHECK-LABEL: @_ZGVeN16uuuu_kernel_extract_pipelined(
 ; CHECK:       vector.body:
 ; CHECK:         [[WIDE_INSERT:%.*]] = shufflevector <32 x i16> <i16 poison, i16 -1, i16 -1, i16 -1, i16 -1, i16 -1, i16 -1, i16 -1, i16 poison, i16 -1, i16 -1, i16 -1, i16 -1, i16 -1, i16 -1, i16 -1, i16 poison, i16 -1, i16 -1, i16 -1, i16 -1, i16 -1, i16 -1, i16 -1, i16 poison, i16 -1, i16 -1, i16 -1, i16 -1, i16 -1, i16 -1, i16 -1>, <32 x i16> [[EXTENDED_:%.*]], <32 x i32> <i32 32, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 33, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 34, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 35, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31>
@@ -44,8 +44,8 @@ simd.loop.preheader:                              ; preds = %simd.begin.region
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.loop.preheader
   %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop.exit ]
   %index.ext = sext i32 %index to i64
-  %gep = getelementptr inbounds i16, i16* %fused_grid, i64 %index.ext
-  %conv22.i = load i16, i16* %gep, align 4
+  %gep = getelementptr inbounds i16, ptr %fused_grid, i64 %index.ext
+  %conv22.i = load i16, ptr %gep, align 4
   %cond.i = insertelement <8 x i16> <i16 poison, i16 -1, i16 -1, i16 -1, i16 -1, i16 -1, i16 -1, i16 -1>, i16 %conv22.i, i32 0
   br i1 %cmp166.i, label %if.then168.i, label %if.then174.i
 

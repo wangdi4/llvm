@@ -4,8 +4,8 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i64* nocapture %ptr, i64 %n) local_unnamed_addr #0 {
-; CHECK:  define void @foo(i64* nocapture [[PTR0:%.*]], i64 [[N0:%.*]]) local_unnamed_addr {
+define void @foo(ptr nocapture %ptr, i64 %n) local_unnamed_addr #0 {
+; CHECK:  define void @foo(ptr nocapture [[PTR0:%.*]], i64 [[N0:%.*]]) local_unnamed_addr {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[VPLANNEDBB0:%.*]]
 ; CHECK-EMPTY:

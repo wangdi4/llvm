@@ -23,29 +23,29 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @A = dso_local local_unnamed_addr global [100 x double] zeroinitializer, align 16
 @.source.0.0 = private unnamed_addr constant [22 x i8] c";unknown;unknown;0;0;;"
-@.kmpc_loc.0.0 = private unnamed_addr global { i32, i32, i32, i32, i8* } { i32 0, i32 2, i32 0, i32 0, i8* getelementptr inbounds ([22 x i8], [22 x i8]* @.source.0.0, i32 0, i32 0) }
+@.kmpc_loc.0.0 = private unnamed_addr global { i32, i32, i32, i32, ptr } { i32 0, i32 2, i32 0, i32 0, ptr @.source.0.0 }
 @.source.0.0.1 = private unnamed_addr constant [22 x i8] c";unknown;unknown;0;0;;"
-@.kmpc_loc.0.0.2 = private unnamed_addr global { i32, i32, i32, i32, i8* } { i32 0, i32 2, i32 0, i32 0, i8* getelementptr inbounds ([22 x i8], [22 x i8]* @.source.0.0.1, i32 0, i32 0) }
+@.kmpc_loc.0.0.2 = private unnamed_addr global { i32, i32, i32, i32, ptr } { i32 0, i32 2, i32 0, i32 0, ptr @.source.0.0.1 }
 @.source.0.0.3 = private unnamed_addr constant [22 x i8] c";unknown;unknown;0;0;;"
-@.kmpc_loc.0.0.4 = private unnamed_addr global { i32, i32, i32, i32, i8* } { i32 0, i32 66, i32 0, i32 0, i8* getelementptr inbounds ([22 x i8], [22 x i8]* @.source.0.0.3, i32 0, i32 0) }
+@.kmpc_loc.0.0.4 = private unnamed_addr global { i32, i32, i32, i32, ptr } { i32 0, i32 66, i32 0, i32 0, ptr @.source.0.0.3 }
 @.source.0.0.5 = private unnamed_addr constant [22 x i8] c";unknown;unknown;0;0;;"
-@.kmpc_loc.0.0.6 = private unnamed_addr global { i32, i32, i32, i32, i8* } { i32 0, i32 2, i32 0, i32 0, i8* getelementptr inbounds ([22 x i8], [22 x i8]* @.source.0.0.5, i32 0, i32 0) }
+@.kmpc_loc.0.0.6 = private unnamed_addr global { i32, i32, i32, i32, ptr } { i32 0, i32 2, i32 0, i32 0, ptr @.source.0.0.5 }
 
 ; Function Attrs: norecurse nounwind uwtable
 define dso_local i32 @main() local_unnamed_addr "loopopt-pipeline"="full" {
 omp.inner.for.body.lr.ph:
-  %tid.val = tail call i32 @__kmpc_global_thread_num({ i32, i32, i32, i32, i8* }* nonnull @.kmpc_loc.0.0.6) #1
+  %tid.val = tail call i32 @__kmpc_global_thread_num(ptr nonnull @.kmpc_loc.0.0.6) #1
   %is.last = alloca i32, align 4
-  store i32 0, i32* %is.last, align 4
+  store i32 0, ptr %is.last, align 4
   %lower.bnd = alloca i32, align 4
   %upper.bnd = alloca i32, align 4
   %stride = alloca i32, align 4
-  store i32 0, i32* %lower.bnd, align 4
-  store i32 99, i32* %upper.bnd, align 4
-  store i32 1, i32* %stride, align 4
-  call void @__kmpc_for_static_init_4u({ i32, i32, i32, i32, i8* }* nonnull @.kmpc_loc.0.0, i32 %tid.val, i32 34, i32* nonnull %is.last, i32* nonnull %lower.bnd, i32* nonnull %upper.bnd, i32* nonnull %stride, i32 1, i32 1) #1
-  %lb.new = load i32, i32* %lower.bnd, align 4
-  %ub.new = load i32, i32* %upper.bnd, align 4
+  store i32 0, ptr %lower.bnd, align 4
+  store i32 99, ptr %upper.bnd, align 4
+  store i32 1, ptr %stride, align 4
+  call void @__kmpc_for_static_init_4u(ptr nonnull @.kmpc_loc.0.0, i32 %tid.val, i32 34, ptr nonnull %is.last, ptr nonnull %lower.bnd, ptr nonnull %upper.bnd, ptr nonnull %stride, i32 1, i32 1) #1
+  %lb.new = load i32, ptr %lower.bnd, align 4
+  %ub.new = load i32, ptr %upper.bnd, align 4
   %omp.ztt = icmp ugt i32 %lb.new, %ub.new
   br i1 %omp.ztt, label %DIR.OMP.END.LOOP.2, label %omp.inner.for.body.preheader
 
@@ -56,8 +56,8 @@ omp.inner.for.body.preheader:                     ; preds = %omp.inner.for.body.
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %omp.inner.for.body.preheader
   %.omp.iv.0 = phi i32 [ %add2, %omp.inner.for.body ], [ %lb.new, %omp.inner.for.body.preheader ]
   %idxprom = zext i32 %.omp.iv.0 to i64
-  %arrayidx = getelementptr inbounds [100 x double], [100 x double]* @A, i64 0, i64 %idxprom, !intel-tbaa !2
-  store double 1.234000e+00, double* %arrayidx, align 8, !tbaa !2
+  %arrayidx = getelementptr inbounds [100 x double], ptr @A, i64 0, i64 %idxprom, !intel-tbaa !2
+  store double 1.234000e+00, ptr %arrayidx, align 8, !tbaa !2
   %add2 = add i32 %.omp.iv.0, 1
   %cmp = icmp ugt i32 %add2, %ub.new
   br i1 %cmp, label %omp.inner.for.cond.omp.loop.exit_crit_edge, label %omp.inner.for.body, !llvm.loop !7
@@ -67,8 +67,8 @@ omp.inner.for.cond.omp.loop.exit_crit_edge:       ; preds = %omp.inner.for.body
   br label %DIR.OMP.END.LOOP.2
 
 DIR.OMP.END.LOOP.2:                               ; preds = %omp.inner.for.body.lr.ph, %omp.inner.for.cond.omp.loop.exit_crit_edge
-  call void @__kmpc_for_static_fini({ i32, i32, i32, i32, i8* }* nonnull @.kmpc_loc.0.0.2, i32 %tid.val) #1
-  call void @__kmpc_barrier({ i32, i32, i32, i32, i8* }* nonnull @.kmpc_loc.0.0.4, i32 %tid.val) #1
+  call void @__kmpc_for_static_fini(ptr nonnull @.kmpc_loc.0.0.2, i32 %tid.val) #1
+  call void @__kmpc_barrier(ptr nonnull @.kmpc_loc.0.0.4, i32 %tid.val) #1
   ret i32 0
 }
 
@@ -78,13 +78,13 @@ declare token @llvm.directive.region.entry() #1
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #1
 
-declare void @__kmpc_for_static_init_4u({ i32, i32, i32, i32, i8* }*, i32, i32, i32*, i32*, i32*, i32*, i32, i32) local_unnamed_addr
+declare void @__kmpc_for_static_init_4u(ptr, i32, i32, ptr, ptr, ptr, ptr, i32, i32) local_unnamed_addr
 
-declare void @__kmpc_for_static_fini({ i32, i32, i32, i32, i8* }*, i32) local_unnamed_addr
+declare void @__kmpc_for_static_fini(ptr, i32) local_unnamed_addr
 
-declare void @__kmpc_barrier({ i32, i32, i32, i32, i8* }*, i32) local_unnamed_addr
+declare void @__kmpc_barrier(ptr, i32) local_unnamed_addr
 
-declare i32 @__kmpc_global_thread_num({ i32, i32, i32, i32, i8* }*) local_unnamed_addr
+declare i32 @__kmpc_global_thread_num(ptr) local_unnamed_addr
 
 attributes #1 = { nounwind }
 

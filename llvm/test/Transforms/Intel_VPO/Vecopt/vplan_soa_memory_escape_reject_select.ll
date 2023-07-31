@@ -14,24 +14,23 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @test_unsafe_addrspacecast(i1 zeroext %pred, i32* %ptr) {
+define void @test_unsafe_addrspacecast(i1 zeroext %pred, ptr %ptr) {
 entry:
   %arr.priv = alloca [1024 x i32], align 4
   br label %begin.region
 
 begin.region:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr.priv, i32 0, i32 1024), "QUAL.OMP.UNIFORM"(i1 %pred), "QUAL.OMP.UNIFORM:TYPED"(i32* %ptr, i32 0, i32 1) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr.priv, i32 0, i32 1024), "QUAL.OMP.UNIFORM"(i1 %pred), "QUAL.OMP.UNIFORM:TYPED"(ptr %ptr, i32 0, i32 1) ]
   br label %preheader
 
 preheader:
-  %bitcast = bitcast [1024 x i32]* %arr.priv to i32*
-  %select = select i1 %pred, i32* %bitcast, i32* %ptr
+  %select = select i1 %pred, ptr %arr.priv, ptr %ptr
   br label %header
 
 header:
   %iv = phi i64 [ 0, %preheader ], [ %iv.next, %header ]
-  %gep = getelementptr inbounds i32, i32* %select, i64 %iv
-  %ld = load i32, i32* %gep
+  %gep = getelementptr inbounds i32, ptr %select, i64 %iv
+  %ld = load i32, ptr %gep
   %iv.next = add nsw nuw i64 %iv, 1
   %exitcond = icmp ult i64 %iv.next, 1024
   br i1 %exitcond, label %exit, label %header

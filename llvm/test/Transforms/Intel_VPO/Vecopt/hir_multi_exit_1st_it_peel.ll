@@ -78,7 +78,7 @@
 ; Remainder Loop
 ; CHECK: + DO i1 = 16 * %tgu, %len_limit + -2, 1
 
-define dso_local i32 @peel_example(i32 %delta2, i32 %len_limit, i8* nocapture readonly %cur) local_unnamed_addr #0 {
+define dso_local i32 @peel_example(i32 %delta2, i32 %len_limit, ptr nocapture readonly %cur) local_unnamed_addr #0 {
 entry:
   %cmp12 = icmp eq i32 %len_limit, 1
   br i1 %cmp12, label %for.end, label %for.body.lr.ph
@@ -91,10 +91,10 @@ for.body.lr.ph:
 for.body:
   %len_best.013 = phi i32 [ 1, %for.body.lr.ph ], [ %inc, %for.inc ]
   %idx.ext = zext i32 %len_best.013 to i64
-  %add.ptr = getelementptr inbounds i8, i8* %cur, i64 %idx.ext
-  %add.ptr2 = getelementptr inbounds i8, i8* %add.ptr, i64 %idx.neg
-  %0 = load i8, i8* %add.ptr2
-  %1 = load i8, i8* %add.ptr
+  %add.ptr = getelementptr inbounds i8, ptr %cur, i64 %idx.ext
+  %add.ptr2 = getelementptr inbounds i8, ptr %add.ptr, i64 %idx.neg
+  %0 = load i8, ptr %add.ptr2
+  %1 = load i8, ptr %add.ptr
   %cmp4 = icmp eq i8 %0, %1
   br i1 %cmp4, label %for.inc, label %for.end.loopexit
 

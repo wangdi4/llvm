@@ -5,7 +5,6 @@
 define void @main(ptr %arg, i32 %arg1, i32 %arg2) {
 ; CHECK-LABEL: @main(
 ; CHECK-NEXT:  bb:
-; CHECK-NEXT:    [[T3:%.*]] = getelementptr i32, ptr [[ARG:%.*]], i64 0
 ; CHECK-NEXT:    [[T6:%.*]] = add i32 [[ARG2:%.*]], 42
 ; CHECK-NEXT:    [[TMP0:%.*]] = insertelement <4 x i32> poison, i32 [[ARG2]], i32 0
 ; CHECK-NEXT:    [[TMP1:%.*]] = shufflevector <4 x i32> [[TMP0]], <4 x i32> poison, <4 x i32> zeroinitializer
@@ -17,7 +16,7 @@ define void @main(ptr %arg, i32 %arg1, i32 %arg2) {
 ; CHECK-NEXT:    [[TMP7:%.*]] = add <4 x i32> [[TMP6]], [[TMP5]]
 ; CHECK-NEXT:    [[TMP8:%.*]] = shufflevector <4 x i32> [[TMP5]], <4 x i32> <i32 poison, i32 poison, i32 poison, i32 91>, <4 x i32> <i32 1, i32 2, i32 3, i32 7>
 ; CHECK-NEXT:    [[TMP9:%.*]] = add <4 x i32> [[TMP7]], [[TMP8]]
-; CHECK-NEXT:    store <4 x i32> [[TMP9]], ptr [[T3]], align 16
+; CHECK-NEXT:    store <4 x i32> [[TMP9]], ptr [[ARG:%.*]], align 16
 ; CHECK-NEXT:    ret void
 ;
 bb:
@@ -36,7 +35,6 @@ bb:
 ; MultiNode tried to introduce 91 <->tmp6 reorder which is invalid, because
 ; tmp13/tmp14 are used in other lanes.
   %t = getelementptr i32, ptr %arg, i64 1
-  %t3 = getelementptr i32, ptr %arg, i64 0
   %t4 = getelementptr i32, ptr %arg, i64 2
   %t5 = getelementptr i32, ptr %arg, i64 3
   %t6 = add i32 %arg2, 42
@@ -56,7 +54,7 @@ bb:
   %t20 = add i32 %t19, %t14
   %t21 = add i32 13, %t14
   %t22 = add i32 %t21, 91
-  store i32 %t16, ptr %t3, align 16
+  store i32 %t16, ptr %arg, align 16
   store i32 %t18, ptr %t, align 4
   store i32 %t20, ptr %t4, align 8
   store i32 %t22, ptr %t5, align 4

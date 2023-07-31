@@ -26,13 +26,13 @@ entry:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([100 x i64]* %arr, i64 0, i32 100) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr, i64 0, i32 100) ]
   br label %for.body
 
 for.body:
   %iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %add1, %for.body ]
-  %priv.idx = getelementptr inbounds [100 x i64], [100 x i64]* %arr, i64 0, i64 %n
-  store i64 %iv, i64* %priv.idx, align 4
+  %priv.idx = getelementptr inbounds [100 x i64], ptr %arr, i64 0, i64 %n
+  store i64 %iv, ptr %priv.idx, align 4
   %add1 = add nuw nsw i64 %iv, 1
   %exitcond = icmp eq i64 %add1, 100
   br i1 %exitcond, label %for.exit, label %for.body

@@ -46,8 +46,8 @@ for.body:
   %iv = phi i64 [ 0, %for.preheader ], [ %iv.next, %for.body ]
 
   %offset = add i64 %iv, 1
-  %A.elem = getelementptr [256 x i64], [256 x i64]* @A, i64 0, i64 %offset
-  store i64 %offset, i64* %A.elem, align 8
+  %A.elem = getelementptr [256 x i64], ptr @A, i64 0, i64 %offset
+  store i64 %offset, ptr %A.elem, align 8
 
   %iv.next = add nsw i64 %iv, 1
   %exitcond = icmp eq i64 %iv.next, 250

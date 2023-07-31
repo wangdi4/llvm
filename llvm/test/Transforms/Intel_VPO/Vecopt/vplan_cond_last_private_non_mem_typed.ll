@@ -3,13 +3,12 @@
 
 ; Test for registerized last private with explicit typed markings.
 
-define i64 @foo(i64* nocapture %larr, i64* %mm) {
+define i64 @foo(ptr nocapture %larr, ptr %mm) {
 ; CHECK-LABEL: @foo(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[M1:%.*]] = load i64, i64* [[MM:%.*]], align 4
+; CHECK-NEXT:    [[M1:%.*]] = load i64, ptr [[MM:%.*]], align 4
 ; CHECK-NEXT:    [[MM_VEC:%.*]] = alloca <4 x i64>, align 32
-; CHECK-NEXT:    [[MM_VEC_BC:%.*]] = bitcast <4 x i64>* [[MM_VEC]] to i64*
-; CHECK-NEXT:    [[MM_VEC_BASE_ADDR:%.*]] = getelementptr i64, i64* [[MM_VEC_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[MM_VEC_BASE_ADDR:%.*]] = getelementptr i64, ptr [[MM_VEC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    br label [[B1:%.*]]
 ; CHECK:       b1:
 ; CHECK-NEXT:    br label [[VPLANNEDBB:%.*]]
@@ -24,12 +23,11 @@ define i64 @foo(i64* nocapture %larr, i64* %mm) {
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP3:%.*]], [[VPLANNEDBB6]] ]
 ; CHECK-NEXT:    [[VEC_PHI3:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VPLANNEDBB1]] ], [ [[TMP2:%.*]], [[VPLANNEDBB6]] ]
 ; CHECK-NEXT:    [[VEC_PHI4:%.*]] = phi <4 x i64> [ [[BROADCAST_SPLAT16]], [[VPLANNEDBB1]] ], [ [[PREDBLEND7:%.*]], [[VPLANNEDBB6]] ]
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i64, i64* [[LARR:%.*]], i64 [[UNI_PHI]]
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i64, ptr [[LARR:%.*]], i64 [[UNI_PHI]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp eq <4 x i64> [[VEC_PHI3]], <i64 100, i64 100, i64 100, i64 100>
 ; CHECK-NEXT:    br label [[VPLANNEDBB5:%.*]]
 ; CHECK:       VPlannedBB5:
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i64* [[SCALAR_GEP]] to <4 x i64>*
-; CHECK-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <4 x i64> @llvm.masked.load.v4i64.p0v4i64(<4 x i64>* [[TMP1]], i32 8, <4 x i1> [[TMP0]], <4 x i64> poison)
+; CHECK-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <4 x i64> @llvm.masked.load.v4i64.p0(ptr [[SCALAR_GEP]], i32 8, <4 x i1> [[TMP0]], <4 x i64> poison)
 ; CHECK-NEXT:    br label [[VPLANNEDBB6]]
 ; CHECK:       VPlannedBB6:
 ; CHECK-NEXT:    [[PREDBLEND]] = select <4 x i1> [[TMP0]], <4 x i64> [[VEC_PHI3]], <4 x i64> [[VEC_PHI]]
@@ -63,26 +61,26 @@ define i64 @foo(i64* nocapture %larr, i64* %mm) {
 ; CHECK-NEXT:    br label [[FOR_END:%.*]]
 ; CHECK:       for.end:
 ; CHECK-NEXT:    [[LCSSA_MERGE:%.*]] = phi i64 [ [[UNI_PHI13]], [[FINAL_MERGE]] ]
-; CHECK-NEXT:    store i64 [[LCSSA_MERGE]], i64* [[MM]], align 4
+; CHECK-NEXT:    store i64 [[LCSSA_MERGE]], ptr [[MM]], align 4
 ; CHECK-NEXT:    ret i64 [[LCSSA_MERGE]]
 ;
 entry:
-  %m1 = load i64, i64* %mm
+  %m1 = load i64, ptr %mm
   br label %b1
 
 b1:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(i64* %mm, i64 0, i32 1) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %mm, i64 0, i32 1) ]
   br label %for.body
 
 for.body:
   %l1.010 = phi i64 [ 0, %b1 ], [ %inc, %else ]
   %priv_phi = phi i64 [ %m1, %b1 ], [ %merge, %else ]
-  %arrayidx = getelementptr inbounds i64, i64* %larr, i64 %l1.010
+  %arrayidx = getelementptr inbounds i64, ptr %larr, i64 %l1.010
   %cmp = icmp eq i64 %l1.010, 100
   br i1 %cmp, label %then, label %else
 
 then:
-  %0 = load i64, i64* %arrayidx, align 8
+  %0 = load i64, ptr %arrayidx, align 8
   br label %else
 
 else:
@@ -93,7 +91,7 @@ else:
 
 for.end:
   %lcssa.merge =  phi i64 [%merge, %else]
-  store i64 %lcssa.merge, i64* %mm
+  store i64 %lcssa.merge, ptr %mm
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   ret i64 %lcssa.merge
 }

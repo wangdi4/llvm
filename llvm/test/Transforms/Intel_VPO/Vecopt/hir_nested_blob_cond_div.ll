@@ -29,17 +29,17 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline norecurse nounwind uwtable
 define i32 @main() local_unnamed_addr #0 {
-  %1 = load i64, i64* @time_ago, align 8
+  %1 = load i64, ptr @time_ago, align 8
   %conv1 = trunc i64 %1 to i32
   %conv4 = and i32 %conv1, 65535
-  %m.promoted = load i32, i32* @m, align 4, !tbaa !0
+  %m.promoted = load i32, ptr @m, align 4, !tbaa !0
   br label %2
 
 2:                                                ; preds = %5, %0
   %indvars.iv = phi i64 [ 8, %0 ], [ %indvars.iv.next, %5 ]
   %mul10 = phi i32 [ %m.promoted, %0 ], [ %mul, %5 ]
-  %arrayidx = getelementptr inbounds [9 x i32], [9 x i32]* @a, i64 0, i64 %indvars.iv
-  %3 = load i32, i32* %arrayidx, align 4, !tbaa !4
+  %arrayidx = getelementptr inbounds [9 x i32], ptr @a, i64 0, i64 %indvars.iv
+  %3 = load i32, ptr %arrayidx, align 4, !tbaa !4
   %tobool = icmp eq i32 %3, 0
   br i1 %tobool, label %5, label %4
 
@@ -55,7 +55,7 @@ define i32 @main() local_unnamed_addr #0 {
   br i1 %cmp, label %6, label %2
 
 6:                                                ; preds = %5
-  store i32 %mul, i32* @m, align 4, !tbaa !0
+  store i32 %mul, ptr @m, align 4, !tbaa !0
   ret i32 0
 }
 

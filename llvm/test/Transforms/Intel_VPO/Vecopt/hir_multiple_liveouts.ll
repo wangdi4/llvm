@@ -4,7 +4,7 @@
 
 ; The test crashed during the loop entities importing. Check that CFG is built and entities are in place.
 ;
-define dso_local i32 @main(i32* %x4, [100 x i32]* %u0, i64 %n) local_unnamed_addr #0 {
+define dso_local i32 @main(ptr %x4, ptr %u0, i64 %n) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after initial VPlan transforms:
 ; CHECK-NEXT:  VPlan IR for: main:HIR
 ; CHECK-NEXT:  External Defs Start:
@@ -35,8 +35,8 @@ define dso_local i32 @main(i32* %x4, [100 x i32]* %u0, i64 %n) local_unnamed_add
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
 ; CHECK-NEXT:       i64 [[VP15:%.*]] = add i64 [[VP7]] i64 1
-; CHECK-NEXT:       i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [100 x i32]* [[U00:%.*]] i64 0 i64 [[VP15]]
-; CHECK-NEXT:       i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[U00:%.*]] i64 0 i64 [[VP15]]
+; CHECK-NEXT:       i32 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:       i32 [[VP16:%.*]] = sub i32 [[VP5]] i32 [[VP_LOAD]]
 ; CHECK-NEXT:       i64 [[VP17:%.*]] = add i64 [[VP7]] i64 2
 ; CHECK-NEXT:       i32 [[VP18:%.*]] = trunc i64 [[VP17]] to i32
@@ -67,7 +67,7 @@ define dso_local i32 @main(i32* %x4, [100 x i32]* %u0, i64 %n) local_unnamed_add
 ; CHECK-NEXT:  Id: 2   no underlying for i64 [[VP__IND_FINAL]]
 ;
 preheader:
-  %x4.sroa.0.044 = load i32, i32* %x4
+  %x4.sroa.0.044 = load i32, ptr %x4
   br label %header
 
 header:
@@ -79,8 +79,8 @@ header:
   br i1 %cmp734, label %if.then, label %if.merge
 
 if.then:
-  %arrayidx9 = getelementptr inbounds [100 x i32], [100 x i32]* %u0, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx9, align 4
+  %arrayidx9 = getelementptr inbounds [100 x i32], ptr %u0, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx9, align 4
   %sub10 = sub i32 %x4.sroa.0.140, %0
   %1 = trunc i64 %indvars.iv.next48 to i32
   br label %if.merge

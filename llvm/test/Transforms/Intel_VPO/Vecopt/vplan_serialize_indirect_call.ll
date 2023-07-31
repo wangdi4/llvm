@@ -6,8 +6,8 @@
 ; OPTREPORT-NEXT: remark #15560: Indirect call cannot be vectorized.
 ;
 ; CHECK-LABEL:       vector.body:
-; CHECK:    [[F1:%.*]] = extractelement <2 x i32 (i32)*> [[WIDE_LOAD:%.*]], i32 1
-; CHECK-NEXT:    [[F0:%.*]] = extractelement <2 x i32 (i32)*> [[WIDE_LOAD]], i32 0
+; CHECK:    [[F1:%.*]] = extractelement <2 x ptr> [[WIDE_LOAD:%.*]], i32 1
+; CHECK-NEXT:    [[F0:%.*]] = extractelement <2 x ptr> [[WIDE_LOAD]], i32 0
 ; CHECK:    [[ARG1:%.*]] = extractelement <2 x i32> [[WIDE_LOAD1:%.*]], i32 1
 ; CHECK-NEXT:    [[ARG0:%.*]] = extractelement <2 x i32> [[WIDE_LOAD1]], i32 0
 ; CHECK-NEXT:    [[CALL0:%.*]] = call i32 [[F0]](i32 [[ARG0]])
@@ -19,7 +19,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #2
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #2
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #3
@@ -28,44 +28,43 @@ declare token @llvm.directive.region.entry() #3
 declare void @llvm.directive.region.exit(token) #3
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #2
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #2
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @foo(i32* nocapture %a, i32* nocapture readonly %c, i32 (i32)** nocapture readonly %func, i32 %n) local_unnamed_addr #1 {
+define dso_local void @foo(ptr nocapture %a, ptr nocapture readonly %c, ptr nocapture readonly %func, i32 %n) local_unnamed_addr #1 {
 entry:
   %b.priv = alloca i32, align 4
   %i.lpriv = alloca i32, align 4
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.116
-%0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(i32* %i.lpriv, i32 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(i32* %b.priv, i32 0, i32 1) ]
+%0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %i.lpriv, i32 0, i32 1), "QUAL.OMP.PRIVATE:TYPED"(ptr %b.priv, i32 0, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
-  %1 = bitcast i32* %b.priv to i8*
   %wide.trip.count = sext i32 %n to i64
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.2
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %indvars.iv.next, %omp.inner.for.body ]
-  %2 = trunc i64 %indvars.iv to i32
-  store i32 %2, i32* %i.lpriv, align 4, !tbaa !2
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %1) #3
-  store i32 0, i32* %b.priv, align 4, !tbaa !2
-  %arrayidx = getelementptr inbounds i32 (i32)*, i32 (i32)** %func, i64 %indvars.iv
-  %3 = load i32 (i32)*, i32 (i32)** %arrayidx, align 8, !tbaa !6
-  %arrayidx7 = getelementptr inbounds i32, i32* %c, i64 %indvars.iv
-  %4 = load i32, i32* %arrayidx7, align 4, !tbaa !2
-  %call = call i32 %3(i32 %4) #4
-  %5 = load i32, i32* %b.priv, align 4, !tbaa !2
-  %add8 = add nsw i32 %5, %call
-  %6 = load i32, i32* %i.lpriv, align 4, !tbaa !2
-  %idxprom9 = sext i32 %6 to i64
-  %arrayidx10 = getelementptr inbounds i32, i32* %a, i64 %idxprom9
-  %7 = load i32, i32* %arrayidx10, align 4, !tbaa !2
-  %add11 = add nsw i32 %7, %add8
-  store i32 %add11, i32* %arrayidx10, align 4, !tbaa !2
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %1) #3
+  %1 = trunc i64 %indvars.iv to i32
+  store i32 %1, ptr %i.lpriv, align 4, !tbaa !2
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %b.priv) #3
+  store i32 0, ptr %b.priv, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds ptr, ptr %func, i64 %indvars.iv
+  %2 = load ptr, ptr %arrayidx, align 8, !tbaa !6
+  %arrayidx7 = getelementptr inbounds i32, ptr %c, i64 %indvars.iv
+  %3 = load i32, ptr %arrayidx7, align 4, !tbaa !2
+  %call = call i32 %2(i32 %3) #4
+  %4 = load i32, ptr %b.priv, align 4, !tbaa !2
+  %add8 = add nsw i32 %4, %call
+  %5 = load i32, ptr %i.lpriv, align 4, !tbaa !2
+  %idxprom9 = sext i32 %5 to i64
+  %arrayidx10 = getelementptr inbounds i32, ptr %a, i64 %idxprom9
+  %6 = load i32, ptr %arrayidx10, align 4, !tbaa !2
+  %add11 = add nsw i32 %6, %add8
+  store i32 %add11, ptr %arrayidx10, align 4, !tbaa !2
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %b.priv) #3
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body

@@ -46,22 +46,22 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: noinline nounwind uwtable
 define dso_local void @foo() local_unnamed_addr {
 omp.inner.for.body.lr.ph:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SAFELEN"(i32 4), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SAFELEN"(i32 4), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %omp.inner.for.body.lr.ph
   %indvars.iv = phi i64 [ %indvars.iv.next, %omp.inner.for.body ], [ 0, %omp.inner.for.body.lr.ph ]
   %1 = add nuw nsw i64 %indvars.iv, 4
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* @a, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  %2 = load i32, i32* %arrayidx, align 4, !tbaa !2
-  %arrayidx2 = getelementptr inbounds [1024 x i32], [1024 x i32]* @b, i64 0, i64 %1, !intel-tbaa !2
-  %3 = load i32, i32* %arrayidx2, align 4, !tbaa !2
-  %arrayidx4 = getelementptr inbounds [1024 x i32], [1024 x i32]* @c, i64 0, i64 %1, !intel-tbaa !2
-  %4 = load i32, i32* %arrayidx4, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr @a, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  %2 = load i32, ptr %arrayidx, align 4, !tbaa !2
+  %arrayidx2 = getelementptr inbounds [1024 x i32], ptr @b, i64 0, i64 %1, !intel-tbaa !2
+  %3 = load i32, ptr %arrayidx2, align 4, !tbaa !2
+  %arrayidx4 = getelementptr inbounds [1024 x i32], ptr @c, i64 0, i64 %1, !intel-tbaa !2
+  %4 = load i32, ptr %arrayidx4, align 4, !tbaa !2
   %mul5 = mul nsw i32 %4, %3
   %add6 = add nsw i32 %mul5, %2
-  %arrayidx8 = getelementptr inbounds [1024 x i32], [1024 x i32]* @a, i64 0, i64 %1, !intel-tbaa !2
-  store i32 %add6, i32* %arrayidx8, align 4, !tbaa !2
+  %arrayidx8 = getelementptr inbounds [1024 x i32], ptr @a, i64 0, i64 %1, !intel-tbaa !2
+  store i32 %add6, ptr %arrayidx8, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1020
   br i1 %exitcond, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body

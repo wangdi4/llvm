@@ -9,9 +9,9 @@ target triple = "x86_64-unknown-linux-gnu"
 ;
 ; CHECK: Fatal error signaled on _ZGVbN4_direct
 
-declare i32 @__intel_indirect_call_i32_p0p0f_i32i32f32f(i32 (i32, float)**, ...) #2
+declare i32 @__intel_indirect_call_i32_p0p0f_i32i32f32f(ptr, ...) #2
 
-define void @_ZGVbN4_direct(i32 (i32, float)** %call.i) #1 {
+define void @_ZGVbN4_direct(ptr %call.i) #1 {
 entry:
   br label %simd.begin.region
 
@@ -21,7 +21,7 @@ simd.begin.region:                                ; preds = %entry
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
   %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.exit ]
-  %0 = call i32 (i32 (i32, float)**, ...) @__intel_indirect_call_i32_p0p0f_i32i32f32f(i32 (i32, float)** %call.i, i32 5, float 2.000000e+00) #2
+  %0 = call i32 (ptr, ...) @__intel_indirect_call_i32_p0p0f_i32i32f32f(ptr %call.i, i32 5, float 2.000000e+00) #2
   br label %simd.loop.exit
 
 simd.loop.exit:                                   ; preds = %simd.loop

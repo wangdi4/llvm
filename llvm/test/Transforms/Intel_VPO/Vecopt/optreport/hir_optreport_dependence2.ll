@@ -35,12 +35,12 @@
 @p1 = dso_local local_unnamed_addr global [10 x i32] zeroinitializer, align 16, !dbg !0
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
-define dso_local i32 @sub(i32* nocapture noundef writeonly %p2, i32 noundef %n, i32* nocapture noundef readonly %M) local_unnamed_addr #0 !dbg !14 {
+define dso_local i32 @sub(ptr nocapture noundef writeonly %p2, i32 noundef %n, ptr nocapture noundef readonly %M) local_unnamed_addr #0 !dbg !14 {
 entry:
-  call void @llvm.dbg.value(metadata i32* %p2, metadata !19, metadata !DIExpression()), !dbg !26  ; test2.c:0:0
+  call void @llvm.dbg.value(metadata ptr %p2, metadata !19, metadata !DIExpression()), !dbg !26  ; test2.c:0:0
   call void @llvm.dbg.value(metadata i32 %n, metadata !20, metadata !DIExpression()), !dbg !26  ; test2.c:0:0
-  call void @llvm.dbg.value(metadata i32* %M, metadata !21, metadata !DIExpression()), !dbg !26  ; test2.c:0:0
-  %0 = load i32, i32* getelementptr inbounds ([10 x i32], [10 x i32]* @p1, i64 0, i64 0), align 16, !dbg !27, !tbaa !28  ; test2.c:5:11
+  call void @llvm.dbg.value(metadata ptr %M, metadata !21, metadata !DIExpression()), !dbg !26  ; test2.c:0:0
+  %0 = load i32, ptr @p1, align 16, !dbg !27, !tbaa !28  ; test2.c:5:11
   call void @llvm.dbg.value(metadata i32 %0, metadata !22, metadata !DIExpression()), !dbg !26  ; test2.c:0:0
   call void @llvm.dbg.value(metadata i32 0, metadata !23, metadata !DIExpression()), !dbg !26  ; test2.c:0:0
   call void @llvm.dbg.value(metadata i32 0, metadata !24, metadata !DIExpression()), !dbg !32  ; test2.c:0:0
@@ -65,17 +65,17 @@ for.body:                                         ; preds = %for.body, %for.body
   call void @llvm.dbg.value(metadata i64 %indvars.iv, metadata !24, metadata !DIExpression()), !dbg !32  ; test2.c:0:0
   call void @llvm.dbg.value(metadata i32 %t1.022, metadata !22, metadata !DIExpression()), !dbg !26  ; test2.c:0:0
   %idxprom = sext i32 %t1.022 to i64, !dbg !37    ; test2.c:12:3
-  %arrayidx = getelementptr inbounds [10 x i32], [10 x i32]* @p1, i64 0, i64 %idxprom, !dbg !37, !intel-tbaa !39  ; test2.c:12:3
-  store i32 %t1.022, i32* %arrayidx, align 4, !dbg !41, !tbaa !39  ; test2.c:12:10
-  %arrayidx2 = getelementptr inbounds [10 x i32], [10 x i32]* @p1, i64 0, i64 %indvars.iv, !dbg !42, !intel-tbaa !39  ; test2.c:13:9
-  %1 = load i32, i32* %arrayidx2, align 4, !dbg !42, !tbaa !39  ; test2.c:13:9
+  %arrayidx = getelementptr inbounds [10 x i32], ptr @p1, i64 0, i64 %idxprom, !dbg !37, !intel-tbaa !39  ; test2.c:12:3
+  store i32 %t1.022, ptr %arrayidx, align 4, !dbg !41, !tbaa !39  ; test2.c:12:10
+  %arrayidx2 = getelementptr inbounds [10 x i32], ptr @p1, i64 0, i64 %indvars.iv, !dbg !42, !intel-tbaa !39  ; test2.c:13:9
+  %1 = load i32, ptr %arrayidx2, align 4, !dbg !42, !tbaa !39  ; test2.c:13:9
   %add = add nsw i32 %1, %t1.022, !dbg !43        ; test2.c:13:6
   call void @llvm.dbg.value(metadata i32 %add, metadata !22, metadata !DIExpression()), !dbg !26  ; test2.c:0:0
-  %arrayidx4 = getelementptr inbounds i32, i32* %M, i64 %indvars.iv, !dbg !44  ; test2.c:14:12
-  %2 = load i32, i32* %arrayidx4, align 4, !dbg !44, !tbaa !28  ; test2.c:14:12
+  %arrayidx4 = getelementptr inbounds i32, ptr %M, i64 %indvars.iv, !dbg !44  ; test2.c:14:12
+  %2 = load i32, ptr %arrayidx4, align 4, !dbg !44, !tbaa !28  ; test2.c:14:12
   %idxprom5 = sext i32 %add to i64, !dbg !45      ; test2.c:14:3
-  %arrayidx6 = getelementptr inbounds i32, i32* %p2, i64 %idxprom5, !dbg !45  ; test2.c:14:3
-  store i32 %2, i32* %arrayidx6, align 4, !dbg !46, !tbaa !28  ; test2.c:14:10
+  %arrayidx6 = getelementptr inbounds i32, ptr %p2, i64 %idxprom5, !dbg !45  ; test2.c:14:3
+  store i32 %2, ptr %arrayidx6, align 4, !dbg !46, !tbaa !28  ; test2.c:14:10
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1, !dbg !47  ; test2.c:15:9
   call void @llvm.dbg.value(metadata i64 %indvars.iv.next, metadata !24, metadata !DIExpression()), !dbg !32  ; test2.c:0:0
   call void @llvm.dbg.value(metadata i64 %indvars.iv.next, metadata !22, metadata !DIExpression()), !dbg !26  ; test2.c:0:0

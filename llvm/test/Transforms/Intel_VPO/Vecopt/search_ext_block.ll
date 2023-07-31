@@ -7,7 +7,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree noinline norecurse nounwind uwtable
-define dso_local i64 @foo([100 x i8]* nocapture readonly %arr, i64* noalias nocapture %larr) local_unnamed_addr #0 {
+define dso_local i64 @foo(ptr nocapture readonly %arr, ptr noalias nocapture %larr) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK-NEXT:  VPlan IR for: foo:HIR
 ; CHECK-NEXT:  External Defs Start:
@@ -23,8 +23,8 @@ define dso_local i64 @foo([100 x i8]* nocapture readonly %arr, i64* noalias noca
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     i64 [[VP4:%.*]] = hir-copy i64 [[VP2]] , OriginPhiId: -1
-; CHECK-NEXT:     i8* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [100 x i8]* [[ARR0:%.*]] i64 [[I10:%.*]] i64 [[VP2]]
-; CHECK-NEXT:     i8 [[VP_LOAD:%.*]] = load i8* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[ARR0:%.*]] i64 [[I10:%.*]] i64 [[VP2]]
+; CHECK-NEXT:     i8 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i64 [[VP5:%.*]] = hir-copy i64 [[VP4]] , OriginPhiId: -1
 ; CHECK-NEXT:     i1 [[VP6:%.*]] = icmp ne i8 [[VP_LOAD]] i8 100
 ; CHECK-NEXT:     br i1 [[VP6]], [[BB4:BB[0-9]+]], [[BB3]]
@@ -59,8 +59,8 @@ for.cond1.preheader:                              ; preds = %for.end, %entry
 
 for.body3:                                        ; preds = %for.inc, %for.cond1.preheader
   %l2.019 = phi i64 [ 0, %for.cond1.preheader ], [ %inc, %for.inc ]
-  %arrayidx4 = getelementptr inbounds [100 x i8], [100 x i8]* %arr, i64 %l1.020, i64 %l2.019
-  %0 = load i8, i8* %arrayidx4, align 1, !tbaa !2
+  %arrayidx4 = getelementptr inbounds [100 x i8], ptr %arr, i64 %l1.020, i64 %l2.019
+  %0 = load i8, ptr %arrayidx4, align 1, !tbaa !2
   %cmp5 = icmp eq i8 %0, 100
   br i1 %cmp5, label %for.inc, label %for.end
 
@@ -71,8 +71,8 @@ for.inc:                                          ; preds = %for.body3
 
 for.end:                                          ; preds = %for.inc, %for.body3
   %l2.0.lcssa = phi i64 [ %l2.019, %for.body3 ], [ 100, %for.inc ]
-  %arrayidx7 = getelementptr inbounds i64, i64* %larr, i64 %l1.020
-  store i64 %l2.0.lcssa, i64* %arrayidx7, align 8, !tbaa !8
+  %arrayidx7 = getelementptr inbounds i64, ptr %larr, i64 %l1.020
+  store i64 %l2.0.lcssa, ptr %arrayidx7, align 8, !tbaa !8
   %inc9 = add nuw nsw i64 %l1.020, 1
   %exitcond22 = icmp eq i64 %inc9, 100
   br i1 %exitcond22, label %for.end10, label %for.cond1.preheader, !llvm.loop !10

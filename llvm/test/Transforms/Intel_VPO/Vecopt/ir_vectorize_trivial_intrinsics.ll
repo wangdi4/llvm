@@ -5,16 +5,16 @@
 
 declare double @llvm.powi.f64.i32(double %Val, i32 %power) nounwind readnone
 
-define void @powi_f64(i32 %n, double* noalias nocapture readonly %y, double* noalias nocapture %x, i32 %P) local_unnamed_addr #2 {
+define void @powi_f64(i32 %n, ptr noalias nocapture readonly %y, ptr noalias nocapture %x, i32 %P) local_unnamed_addr #2 {
 ; VEC-PROP-LABEL:  VPlan after CallVecDecisions analysis for merged CFG:
-; VEC-PROP:            [DA: Div] double [[VP2:%.*]] = load double* [[VP_ARRAYIDX:%.*]]
+; VEC-PROP:            [DA: Div] double [[VP2:%.*]] = load ptr [[VP_ARRAYIDX:%.*]]
 ; VEC-PROP-NEXT:       [DA: Div] double [[VP_CALL1:%.*]] = call double [[VP2]] i32 [[P0:%.*]] llvm.powi.v2f64 [x 1]
 ; VEC-PROP:            [DA: Div] i32 [[VP_EXPONENT:%.*]] = trunc i64 [[VP_INDVARS_IV:%.*]] to i32
-; VEC-PROP-NEXT:       [DA: Div] double [[VP_CALL2:%.*]] = call double [[VP2]] i32 [[VP_EXPONENT]] double (double, i32)* @llvm.powi.f64.i32 [Serial]
+; VEC-PROP-NEXT:       [DA: Div] double [[VP_CALL2:%.*]] = call double [[VP2]] i32 [[VP_EXPONENT]] ptr @llvm.powi.f64.i32 [Serial]
 
 ; CG-CHECK-LABEL: @powi_f64(
 ; CG-CHECK:       vector.body:
-; CG-CHECK:         [[WIDE_LOAD:%.*]] = load <2 x double>, <2 x double>* [[PTR:%.*]], align 8
+; CG-CHECK:         [[WIDE_LOAD:%.*]] = load <2 x double>, ptr [[PTR:%.*]], align 8
 ; CG-CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_1_:%.*]] = extractelement <2 x double> [[WIDE_LOAD]], i32 1
 ; CG-CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_0_:%.*]] = extractelement <2 x double> [[WIDE_LOAD]], i32 0
 ; CG-CHECK-NEXT:    [[VEC_CALL:%.*]] = call <2 x double> @llvm.powi.v2f64.i32(<2 x double> [[WIDE_LOAD]], i32 [[P:%.*]])
@@ -36,18 +36,18 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds double, double* %y, i64 %indvars.iv
-  %0 = load double, double* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds double, ptr %y, i64 %indvars.iv
+  %0 = load double, ptr %arrayidx, align 8
 
   ; powi call with loop invariant always scalar operand (can be vectorized).
   %call1 = tail call double @llvm.powi.f64.i32(double %0, i32 %P)
-  %arrayidx4 = getelementptr inbounds double, double* %x, i64 %indvars.iv
-  store double %call1, double* %arrayidx4, align 8
+  %arrayidx4 = getelementptr inbounds double, ptr %x, i64 %indvars.iv
+  store double %call1, ptr %arrayidx4, align 8
 
   ; powi call with loop variant always scalar operand (should be serialized).
   %exponent = trunc i64 %indvars.iv to i32
   %call2 = tail call double @llvm.powi.f64.i32(double %0, i32 %exponent)
-  store double %call2, double* %arrayidx4, align 8
+  store double %call2, ptr %arrayidx4, align 8
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
@@ -64,7 +64,7 @@ for.end:                                          ; preds = %for.end.loopexit, %
 
 declare double @llvm.fmuladd.f64(double %a, double %b, double %c) nounwind readnone
 
-define void @fmuladd_f64(i32 %n, double* %a_arr, double* %b_arr, double* %c_arr) local_unnamed_addr #2 {
+define void @fmuladd_f64(i32 %n, ptr %a_arr, ptr %b_arr, ptr %c_arr) local_unnamed_addr #2 {
 ; VEC-PROP-LABEL:  VPlan after CallVecDecisions analysis for merged CFG:
 ; VEC-PROP:            [DA: Div] double [[VP_CALL1:%.*]] = call double [[VP_A:%.*]] double [[VP_B:%.*]] double [[VP_C:%.*]] llvm.fmuladd.v2f64 [x 1]
 ; VEC-PROP-NEXT:       [DA: Div] i1 [[VP_COND:%.*]] = fcmp oeq double [[VP_CALL1]] double 4.200000e+01
@@ -91,12 +91,12 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %if.merge ], [ 0, %for.body.preheader ]
-  %a_idx = getelementptr inbounds double, double* %a_arr, i64 %indvars.iv
-  %a = load double, double* %a_idx, align 8
-  %b_idx = getelementptr inbounds double, double* %b_arr, i64 %indvars.iv
-  %b = load double, double* %b_idx, align 8
-  %c_idx = getelementptr inbounds double, double* %c_arr, i64 %indvars.iv
-  %c = load double, double* %c_idx, align 8
+  %a_idx = getelementptr inbounds double, ptr %a_arr, i64 %indvars.iv
+  %a = load double, ptr %a_idx, align 8
+  %b_idx = getelementptr inbounds double, ptr %b_arr, i64 %indvars.iv
+  %b = load double, ptr %b_idx, align 8
+  %c_idx = getelementptr inbounds double, ptr %c_arr, i64 %indvars.iv
+  %c = load double, ptr %c_idx, align 8
   ; Unmasked fmuladd call
   %call1 = call double @llvm.fmuladd.f64(double %a, double %b, double %c)
   %cond = fcmp oeq double %call1, 42.0

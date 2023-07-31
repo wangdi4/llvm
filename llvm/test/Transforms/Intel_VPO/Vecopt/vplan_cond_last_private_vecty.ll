@@ -5,13 +5,13 @@
 ; CHECK: Conditional lastprivate of a vector type is not supported
 ; CHECK-NOT: <16 x i8>
 ;
-define void @foo(<8 x i8>* %a) {
+define void @foo(ptr %a) {
 entry:
   %ret.lpriv = alloca <8 x i8>
   br label %0
 
 0:
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL.TYPED"(<8 x i8>* %ret.lpriv, <8 x i8> zeroinitializer, i32 1), "QUAL.OMP.SIMDLEN"(i64 2) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL.TYPED"(ptr %ret.lpriv, <8 x i8> zeroinitializer, i32 1), "QUAL.OMP.SIMDLEN"(i64 2) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:
@@ -20,8 +20,8 @@ omp.inner.for.body:
   br i1 %cmp, label %if.then, label %omp.inner.for.inc
 
 if.then:
-  %2 = load <8 x i8>, <8 x i8>* %a
-  store <8 x i8> %2, <8 x i8>* %ret.lpriv
+  %2 = load <8 x i8>, ptr %a
+  store <8 x i8> %2, ptr %ret.lpriv
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:

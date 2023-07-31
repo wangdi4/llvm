@@ -24,23 +24,23 @@ for.body.preheader:
 
 for.body:                                         ; preds = %for.inc, %for.body.preheader
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.inc ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @arr1, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @arr1, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !1
   %tobool = icmp eq i32 %0, 0
   br i1 %tobool, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
-  %arrayidx2 = getelementptr inbounds [100 x i32], [100 x i32]* @arr2, i64 0, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx2, align 4, !tbaa !1
+  %arrayidx2 = getelementptr inbounds [100 x i32], ptr @arr2, i64 0, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx2, align 4, !tbaa !1
   %tobool3 = icmp eq i32 %1, 0
   br i1 %tobool3, label %for.inc, label %if.then4
 
 if.then4:                                         ; preds = %if.then
-  %arrayidx6 = getelementptr inbounds [100 x i32], [100 x i32]* @arr3, i64 0, i64 %indvars.iv
-  %2 = load i32, i32* %arrayidx6, align 4, !tbaa !1
+  %arrayidx6 = getelementptr inbounds [100 x i32], ptr @arr3, i64 0, i64 %indvars.iv
+  %2 = load i32, ptr %arrayidx6, align 4, !tbaa !1
   %3 = trunc i64 %indvars.iv to i32
   %add = add nsw i32 %2, %3
-  store i32 %add, i32* %arrayidx6, align 4, !tbaa !1
+  store i32 %add, ptr %arrayidx6, align 4, !tbaa !1
   br label %for.inc
 
 for.inc:                                          ; preds = %if.then, %for.body, %if.then4

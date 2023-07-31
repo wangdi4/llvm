@@ -12,13 +12,13 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @f(float* nocapture readonly %a, float* nocapture %b, i32 %n) local_unnamed_addr {
+define dso_local void @f(ptr nocapture readonly %a, ptr nocapture %b, i32 %n) local_unnamed_addr {
 entry:
   %cmp = icmp sgt i32 %n, 0
   br i1 %cmp, label %DIR.OMP.SIMD.2, label %omp.precond.end
 
 DIR.OMP.SIMD.2:                                   ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
@@ -27,11 +27,11 @@ DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds float, float* %a, i64 %indvars.iv
-  %1 = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds float, ptr %a, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx, align 4
   %fneg = fneg float %1
-  %arrayidx7 = getelementptr inbounds float, float* %b, i64 %indvars.iv
-  store float %fneg, float* %arrayidx7, align 4
+  %arrayidx7 = getelementptr inbounds float, ptr %b, i64 %indvars.iv
+  store float %fneg, ptr %arrayidx7, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count19
   br i1 %exitcond, label %DIR.OMP.END.SIMD.3, label %omp.inner.for.body
@@ -45,13 +45,13 @@ omp.precond.end:                                  ; preds = %DIR.OMP.END.SIMD.3,
 }
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @f_revectorize(<2 x float>* nocapture readonly %a, <2 x float>* nocapture %b, i32 %n) local_unnamed_addr {
+define dso_local void @f_revectorize(ptr nocapture readonly %a, ptr nocapture %b, i32 %n) local_unnamed_addr {
 entry:
   %cmp = icmp sgt i32 %n, 0
   br i1 %cmp, label %DIR.OMP.SIMD.2, label %omp.precond.end
 
 DIR.OMP.SIMD.2:                                   ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
@@ -60,11 +60,11 @@ DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.2
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds <2 x float>, <2 x float>* %a, i64 %indvars.iv
-  %1 = load <2 x float>, <2 x float>* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds <2 x float>, ptr %a, i64 %indvars.iv
+  %1 = load <2 x float>, ptr %arrayidx, align 8
   %fneg = fneg <2 x float> %1
-  %arrayidx7 = getelementptr inbounds <2 x float>, <2 x float>* %b, i64 %indvars.iv
-  store <2 x float> %fneg, <2 x float>* %arrayidx7, align 8
+  %arrayidx7 = getelementptr inbounds <2 x float>, ptr %b, i64 %indvars.iv
+  store <2 x float> %fneg, ptr %arrayidx7, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count19
   br i1 %exitcond, label %DIR.OMP.END.SIMD.3, label %omp.inner.for.body

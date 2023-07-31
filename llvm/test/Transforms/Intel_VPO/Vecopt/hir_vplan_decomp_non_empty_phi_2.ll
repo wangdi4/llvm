@@ -25,8 +25,8 @@
 
 ; CHECK: i64 [[IVPhi:%.*]] = phi  [ i64 0, {{BB.*}} ],  [ i64 {{%.*}}, {{BB.*}} ]
 ; CHECK: i32 [[Phi:%.*]] = phi  [ i32 [[IfT1:%.*]], [[ThenBB:BB.*]] ],  [ i32 [[ElseT1:%.*]], [[ElseBB:BB.*]] ]
-; CHECK-NEXT: i32* [[GEP:%vp.*]] = subscript inbounds i32* %b i64 [[IVPhi]]
-; CHECK-NEXT: store i32 [[Phi]] i32* [[GEP]]
+; CHECK-NEXT: ptr [[GEP:%vp.*]] = subscript inbounds ptr %b i64 [[IVPhi]]
+; CHECK-NEXT: store i32 [[Phi]] ptr [[GEP]]
 ; CHECK-NOT: {{%.*}} = phi
 
 
@@ -35,7 +35,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
 
-define dso_local i32 @foo(i32* nocapture readonly %a, i32* nocapture %b, i32 %N) local_unnamed_addr #0 {
+define dso_local i32 @foo(ptr nocapture readonly %a, ptr nocapture %b, i32 %N) local_unnamed_addr #0 {
 entry:
   %cmp19 = icmp sgt i32 %N, 0
   br i1 %cmp19, label %for.body.preheader, label %for.end
@@ -46,22 +46,22 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %if.end, %for.body.preheader
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %.pre, %if.end ]
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %1 = sext i32 %0 to i64
   %cmp1 = icmp sgt i64 %indvars.iv, %1
   %.pre = add nuw nsw i64 %indvars.iv, 1
   br i1 %cmp1, label %if.end, label %if.else
 
 if.else:                                          ; preds = %for.body
-  %arrayidx5 = getelementptr inbounds i32, i32* %a, i64 %.pre
-  %2 = load i32, i32* %arrayidx5, align 4, !tbaa !2
+  %arrayidx5 = getelementptr inbounds i32, ptr %a, i64 %.pre
+  %2 = load i32, ptr %arrayidx5, align 4, !tbaa !2
   br label %if.end
 
 if.end:                                           ; preds = %for.body, %if.else
   %t1.0 = phi i32 [ %2, %if.else ], [ %0, %for.body ]
-  %arrayidx7 = getelementptr inbounds i32, i32* %b, i64 %indvars.iv
-  store i32 %t1.0, i32* %arrayidx7, align 4, !tbaa !2
+  %arrayidx7 = getelementptr inbounds i32, ptr %b, i64 %indvars.iv
+  store i32 %t1.0, ptr %arrayidx7, align 4, !tbaa !2
   %exitcond = icmp eq i64 %.pre, %wide.trip.count
   br i1 %exitcond, label %for.end.loopexit, label %for.body, !llvm.loop !6
 
@@ -69,7 +69,7 @@ for.end.loopexit:                                 ; preds = %if.end
   br label %for.end
 
 for.end:                                          ; preds = %for.end.loopexit, %entry
-  %3 = load i32, i32* %b, align 4, !tbaa !2
+  %3 = load i32, ptr %b, align 4, !tbaa !2
   ret i32 %3
 }
 

@@ -7,15 +7,15 @@
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @test_store(i64* nocapture %ary, i32 %c) {
+define void @test_store(ptr nocapture %ary, i32 %c) {
 ;
 ; CHECK-LABEL: @test_store(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    br label [[PEEL_CHECKZ32:%.*]]
 ; CHECK:       peel.checkz32:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x i64*> poison, i64* [[ARY:%.*]], i64 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x i64*> [[BROADCAST_SPLATINSERT]], <4 x i64*> poison, <4 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP0:%.*]] = ptrtoint <4 x i64*> [[BROADCAST_SPLAT]] to <4 x i64>
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x ptr> poison, ptr [[ARY:%.*]], i64 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x ptr> [[BROADCAST_SPLATINSERT]], <4 x ptr> poison, <4 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP0:%.*]] = ptrtoint <4 x ptr> [[BROADCAST_SPLAT]] to <4 x i64>
 ; CHECK-NEXT:    [[DOTEXTRACT_0_:%.*]] = extractelement <4 x i64> [[TMP0]], i32 0
 ; CHECK-NEXT:    [[TMP1:%.*]] = udiv i64 [[DOTEXTRACT_0_]], 8
 ; CHECK-NEXT:    [[TMP2:%.*]] = mul i64 [[TMP1]], 3
@@ -56,11 +56,10 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI6:%.*]] = phi i64 [ [[UNI_PHI]], [[VPLANNEDBB4]] ], [ [[TMP16:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ [[TMP11]], [[VPLANNEDBB4]] ], [ [[TMP15:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i64, i64* [[ARY]], i64 [[UNI_PHI6]]
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i64, ptr [[ARY]], i64 [[UNI_PHI6]]
 ; CHECK-NEXT:    [[TMP12:%.*]] = sext <4 x i32> [[BROADCAST_SPLAT8]] to <4 x i64>
 ; CHECK-NEXT:    [[TMP13:%.*]] = add <4 x i64> [[TMP12]], [[VEC_PHI]]
-; CHECK-NEXT:    [[TMP14:%.*]] = bitcast i64* [[SCALAR_GEP]] to <4 x i64>*
-; CHECK-NEXT:    store <4 x i64> [[TMP13]], <4 x i64>* [[TMP14]], align 8, !intel.preferred_alignment !0
+; CHECK-NEXT:    store <4 x i64> [[TMP13]], ptr [[SCALAR_GEP]], align 8, !intel.preferred_alignment !0
 ; CHECK-NEXT:    [[TMP15]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP16]] = add nuw nsw i64 [[UNI_PHI6]], 4
 ; CHECK-NEXT:    [[TMP17:%.*]] = icmp ult i64 [[TMP16]], [[N_VEC]]
@@ -95,11 +94,10 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK:       VPlannedBB21:
 ; CHECK-NEXT:    [[UNI_PHI22:%.*]] = phi i64 [ [[UNI_PHI15]], [[VPLANNEDBB17]] ], [ [[TMP26:%.*]], [[VPLANNEDBB21]] ]
 ; CHECK-NEXT:    [[VEC_PHI23:%.*]] = phi <2 x i64> [ [[TMP21]], [[VPLANNEDBB17]] ], [ [[TMP25:%.*]], [[VPLANNEDBB21]] ]
-; CHECK-NEXT:    [[SCALAR_GEP24:%.*]] = getelementptr inbounds i64, i64* [[ARY]], i64 [[UNI_PHI22]]
+; CHECK-NEXT:    [[SCALAR_GEP24:%.*]] = getelementptr inbounds i64, ptr [[ARY]], i64 [[UNI_PHI22]]
 ; CHECK-NEXT:    [[TMP22:%.*]] = sext <2 x i32> [[BROADCAST_SPLAT26]] to <2 x i64>
 ; CHECK-NEXT:    [[TMP23:%.*]] = add <2 x i64> [[TMP22]], [[VEC_PHI23]]
-; CHECK-NEXT:    [[TMP24:%.*]] = bitcast i64* [[SCALAR_GEP24]] to <2 x i64>*
-; CHECK-NEXT:    store <2 x i64> [[TMP23]], <2 x i64>* [[TMP24]], align 8
+; CHECK-NEXT:    store <2 x i64> [[TMP23]], ptr [[SCALAR_GEP24]], align 8
 ; CHECK-NEXT:    [[TMP25]] = add nuw nsw <2 x i64> [[VEC_PHI23]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP26]] = add nuw nsw i64 [[UNI_PHI22]], 2
 ; CHECK-NEXT:    [[TMP27:%.*]] = icmp ult i64 [[TMP26]], [[N_VEC20]]
@@ -131,19 +129,19 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:    br label [[FOR_END:%.*]]
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[UNI_PHI34]], [[REMBLK15]] ], [ [[INDVARS_IV_NEXT]], [[FOR_BODY]] ]
-; CHECK-NEXT:    [[PTR:%.*]] = getelementptr inbounds i64, i64* [[ARY]], i64 [[INDVARS_IV]]
+; CHECK-NEXT:    [[PTR:%.*]] = getelementptr inbounds i64, ptr [[ARY]], i64 [[INDVARS_IV]]
 ; CHECK-NEXT:    [[CC:%.*]] = sext i32 [[C]] to i64
 ; CHECK-NEXT:    [[ADD:%.*]] = add i64 [[CC]], [[INDVARS_IV]]
-; CHECK-NEXT:    store i64 [[ADD]], i64* [[PTR]], align 8
+; CHECK-NEXT:    store i64 [[ADD]], ptr [[PTR]], align 8
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp ult i64 [[INDVARS_IV_NEXT]], 1024
 ; CHECK-NEXT:    br i1 [[CMP]], label [[FOR_BODY]], label [[VPLANNEDBB35]], !llvm.loop [[LOOP3:![0-9]+]]
 ; CHECK:       for.body.sl.clone:
 ; CHECK-NEXT:    [[INDVARS_IV_SL_CLONE:%.*]] = phi i64 [ 0, [[PEELBLK13]] ], [ [[INDVARS_IV_NEXT_SL_CLONE]], [[FOR_BODY_SL_CLONE]] ]
-; CHECK-NEXT:    [[PTR_SL_CLONE:%.*]] = getelementptr inbounds i64, i64* [[ARY]], i64 [[INDVARS_IV_SL_CLONE]]
+; CHECK-NEXT:    [[PTR_SL_CLONE:%.*]] = getelementptr inbounds i64, ptr [[ARY]], i64 [[INDVARS_IV_SL_CLONE]]
 ; CHECK-NEXT:    [[CC_SL_CLONE:%.*]] = sext i32 [[C]] to i64
 ; CHECK-NEXT:    [[ADD_SL_CLONE:%.*]] = add i64 [[CC_SL_CLONE]], [[INDVARS_IV_SL_CLONE]]
-; CHECK-NEXT:    store i64 [[ADD_SL_CLONE]], i64* [[PTR_SL_CLONE]], align 8
+; CHECK-NEXT:    store i64 [[ADD_SL_CLONE]], ptr [[PTR_SL_CLONE]], align 8
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT_SL_CLONE]] = add nuw nsw i64 [[INDVARS_IV_SL_CLONE]], 1
 ; CHECK-NEXT:    [[CMP_SL_CLONE:%.*]] = icmp ult i64 [[INDVARS_IV_NEXT_SL_CLONE]], [[TMP3]]
 ; CHECK-NEXT:    br i1 [[CMP_SL_CLONE]], label [[FOR_BODY_SL_CLONE]], label [[VPLANNEDBB]], !llvm.loop [[LOOP5:![0-9]+]]
@@ -156,10 +154,10 @@ entry:
 
 for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %ptr = getelementptr inbounds i64, i64* %ary, i64 %indvars.iv
+  %ptr = getelementptr inbounds i64, ptr %ary, i64 %indvars.iv
   %cc = sext i32 %c to i64
   %add = add i64 %cc, %indvars.iv
-  store i64 %add, i64* %ptr, align 8
+  store i64 %add, ptr %ptr, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %cmp = icmp ult i64 %indvars.iv.next, 1024
   br i1 %cmp, label %for.body, label %for.end

@@ -12,8 +12,7 @@ declare <4 x i32> @_ZGVbM4v_foo(<4 x i32> , <4 x i1>) #1
 define i32 @main() local_unnamed_addr #1 {
 entry:
   %a = alloca [1000 x i32], align 16
-  %0 = bitcast [1000 x i32]* %a to i8*
-  call void @llvm.lifetime.start(i64 4000, i8* nonnull %0) #5
+  call void @llvm.lifetime.start(i64 4000, ptr nonnull %a) #5
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
@@ -22,15 +21,15 @@ DIR.OMP.SIMD.1:                                   ; preds = %entry
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.1
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
-  %1 = trunc i64 %indvars.iv to i32
+  %0 = trunc i64 %indvars.iv to i32
 ; CHECK-LABEL: main
 ; CHECK-NOT: call i32 @foo
 ; CHECK:   call <4 x i32> @_ZGVbM4v_foo(<4 x i32> [[VECTOR_ARG:%.*]], <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
 ; CHECK-NOT: call i32 @foo
 ; CHECK: omp.inner.for.body
-  %call = tail call i32 @foo(i32 %1)
-  %arrayidx = getelementptr inbounds [1000 x i32], [1000 x i32]* %a, i64 0, i64 %indvars.iv
-  store i32 %call, i32* %arrayidx, align 4
+  %call = tail call i32 @foo(i32 %0)
+  %arrayidx = getelementptr inbounds [1000 x i32], ptr %a, i64 0, i64 %indvars.iv
+  store i32 %call, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1000
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body
@@ -40,16 +39,15 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.body
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %omp.loop.exit
-  %arrayidx2 = getelementptr inbounds [1000 x i32], [1000 x i32]* %a, i64 0, i64 0
-  call void @llvm.lifetime.end(i64 4000, i8* nonnull %0) #5
+  call void @llvm.lifetime.end(i64 4000, ptr nonnull %a) #5
   ret i32 0
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #2
+declare void @llvm.lifetime.start(i64, ptr nocapture) #2
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #2
+declare void @llvm.lifetime.end(i64, ptr nocapture) #2
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #3

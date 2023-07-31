@@ -15,11 +15,10 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind readonly uwtable
-define dso_local i64 @_Z17pixel_hadamard_acPhi(i8* nocapture readonly %pix, i32 %stride) local_unnamed_addr #0 {
+define dso_local i64 @_Z17pixel_hadamard_acPhi(ptr nocapture readonly %pix, i32 %stride) local_unnamed_addr #0 {
 entry:
   %tmp = alloca [32 x i32], align 16
-  %0 = bitcast [32 x i32]* %tmp to i8*
-  call void @llvm.lifetime.start.p0i8(i64 128, i8* nonnull %0) #2
+  call void @llvm.lifetime.start.p0(i64 128, ptr nonnull %tmp) #2
   %idx.ext55 = sext i32 %stride to i64
   br label %for.body61.preheader
 
@@ -33,30 +32,30 @@ for.cond128.preheader:                            ; preds = %for.body61
 for.body61:                                       ; preds = %for.body61.preheader, %for.body61
   %indvars.iv338 = phi i64 [ %indvars.iv.next339, %for.body61 ], [ 0, %for.body61.preheader ]
   %sum4.0332 = phi i32 [ %add123, %for.body61 ], [ 0, %for.body61.preheader ]
-  %1 = shl nsw i64 %indvars.iv338, 2
-  %arrayidx64 = getelementptr inbounds [32 x i32], [32 x i32]* %tmp, i64 0, i64 %1, !intel-tbaa !7
-  %2 = load i32, i32* %arrayidx64, align 16, !tbaa !7
-  %3 = or i64 %1, 1
-  %arrayidx68 = getelementptr inbounds [32 x i32], [32 x i32]* %tmp, i64 0, i64 %3, !intel-tbaa !7
-  %4 = load i32, i32* %arrayidx68, align 4, !tbaa !7
-  %add69 = add i32 %4, %2
-  %sub78 = sub i32 %2, %4
-  %5 = or i64 %1, 2
-  %arrayidx82 = getelementptr inbounds [32 x i32], [32 x i32]* %tmp, i64 0, i64 %5, !intel-tbaa !7
-  %6 = load i32, i32* %arrayidx82, align 8, !tbaa !7
-  %7 = or i64 %1, 3
-  %arrayidx86 = getelementptr inbounds [32 x i32], [32 x i32]* %tmp, i64 0, i64 %7, !intel-tbaa !7
-  %8 = load i32, i32* %arrayidx86, align 4, !tbaa !7
-  %add87 = add i32 %8, %6
-  %sub96 = sub i32 %6, %8
+  %0 = shl nsw i64 %indvars.iv338, 2
+  %arrayidx64 = getelementptr inbounds [32 x i32], ptr %tmp, i64 0, i64 %0, !intel-tbaa !7
+  %1 = load i32, ptr %arrayidx64, align 16, !tbaa !7
+  %2 = or i64 %0, 1
+  %arrayidx68 = getelementptr inbounds [32 x i32], ptr %tmp, i64 0, i64 %2, !intel-tbaa !7
+  %3 = load i32, ptr %arrayidx68, align 4, !tbaa !7
+  %add69 = add i32 %3, %1
+  %sub78 = sub i32 %1, %3
+  %4 = or i64 %0, 2
+  %arrayidx82 = getelementptr inbounds [32 x i32], ptr %tmp, i64 0, i64 %4, !intel-tbaa !7
+  %5 = load i32, ptr %arrayidx82, align 8, !tbaa !7
+  %6 = or i64 %0, 3
+  %arrayidx86 = getelementptr inbounds [32 x i32], ptr %tmp, i64 0, i64 %6, !intel-tbaa !7
+  %7 = load i32, ptr %arrayidx86, align 4, !tbaa !7
+  %add87 = add i32 %7, %5
+  %sub96 = sub i32 %5, %7
   %add97 = add nsw i32 %add87, %add69
   %sub98 = sub nsw i32 %add69, %add87
   %add99 = add nsw i32 %sub96, %sub78
   %sub100 = sub nsw i32 %sub78, %sub96
-  store i32 %add97, i32* %arrayidx64, align 16, !tbaa !7
-  store i32 %add99, i32* %arrayidx68, align 4, !tbaa !7
-  store i32 %sub98, i32* %arrayidx82, align 8, !tbaa !7
-  store i32 %sub100, i32* %arrayidx86, align 4, !tbaa !7
+  store i32 %add97, ptr %arrayidx64, align 16, !tbaa !7
+  store i32 %add99, ptr %arrayidx68, align 4, !tbaa !7
+  store i32 %sub98, ptr %arrayidx82, align 8, !tbaa !7
+  store i32 %sub100, ptr %arrayidx86, align 4, !tbaa !7
   %shr.i = lshr i32 %add97, 15
   %and.i = and i32 %shr.i, 65537
   %mul.i = mul nuw i32 %and.i, 65535
@@ -87,17 +86,16 @@ for.body61:                                       ; preds = %for.body61.preheade
 
 for.cond.cleanup130:                              ; preds = %for.body131
   %add173.lcssa = phi i32 [ %add173, %for.body131 ]
-  %arrayidx177 = getelementptr inbounds [32 x i32], [32 x i32]* %tmp, i64 0, i64 0, !intel-tbaa !7
-  %9 = load i32, i32* %arrayidx177, align 16, !tbaa !7
-  %arrayidx178 = getelementptr inbounds [32 x i32], [32 x i32]* %tmp, i64 0, i64 8, !intel-tbaa !7
-  %10 = load i32, i32* %arrayidx178, align 16, !tbaa !7
-  %add179 = add i32 %10, %9
-  %arrayidx180 = getelementptr inbounds [32 x i32], [32 x i32]* %tmp, i64 0, i64 16, !intel-tbaa !7
-  %11 = load i32, i32* %arrayidx180, align 16, !tbaa !7
-  %add181 = add i32 %add179, %11
-  %arrayidx182 = getelementptr inbounds [32 x i32], [32 x i32]* %tmp, i64 0, i64 24, !intel-tbaa !7
-  %12 = load i32, i32* %arrayidx182, align 16, !tbaa !7
-  %add183 = add i32 %add181, %12
+  %8 = load i32, ptr %tmp, align 16, !tbaa !7
+  %arrayidx178 = getelementptr inbounds [32 x i32], ptr %tmp, i64 0, i64 8, !intel-tbaa !7
+  %9 = load i32, ptr %arrayidx178, align 16, !tbaa !7
+  %add179 = add i32 %9, %8
+  %arrayidx180 = getelementptr inbounds [32 x i32], ptr %tmp, i64 0, i64 16, !intel-tbaa !7
+  %10 = load i32, ptr %arrayidx180, align 16, !tbaa !7
+  %add181 = add i32 %add179, %10
+  %arrayidx182 = getelementptr inbounds [32 x i32], ptr %tmp, i64 0, i64 24, !intel-tbaa !7
+  %11 = load i32, ptr %arrayidx182, align 16, !tbaa !7
+  %add183 = add i32 %add181, %11
   %conv185 = and i32 %add183, 65535
   %conv187 = and i32 %add123.lcssa, 65535
   %shr = lshr i32 %add123.lcssa, 16
@@ -111,27 +109,27 @@ for.cond.cleanup130:                              ; preds = %for.body131
   %shl196 = shl nuw i64 %conv195293, 32
   %conv197 = sext i32 %sub189 to i64
   %add198 = add i64 %shl196, %conv197
-  call void @llvm.lifetime.end.p0i8(i64 128, i8* nonnull %0) #2
+  call void @llvm.lifetime.end.p0(i64 128, ptr nonnull %tmp) #2
   ret i64 %add198
 
 for.body131:                                      ; preds = %for.body131, %for.cond128.preheader
   %indvars.iv = phi i64 [ 0, %for.cond128.preheader ], [ %indvars.iv.next, %for.body131 ]
   %sum8.0329 = phi i32 [ 0, %for.cond128.preheader ], [ %add173, %for.body131 ]
-  %arrayidx134 = getelementptr inbounds [32 x i32], [32 x i32]* %tmp, i64 0, i64 %indvars.iv, !intel-tbaa !7
-  %13 = load i32, i32* %arrayidx134, align 4, !tbaa !7
-  %14 = add nuw nsw i64 %indvars.iv, 8
-  %arrayidx137 = getelementptr inbounds [32 x i32], [32 x i32]* %tmp, i64 0, i64 %14, !intel-tbaa !7
-  %15 = load i32, i32* %arrayidx137, align 4, !tbaa !7
-  %add138 = add i32 %15, %13
-  %sub145 = sub i32 %13, %15
-  %16 = add nuw nsw i64 %indvars.iv, 16
-  %arrayidx149 = getelementptr inbounds [32 x i32], [32 x i32]* %tmp, i64 0, i64 %16, !intel-tbaa !7
-  %17 = load i32, i32* %arrayidx149, align 4, !tbaa !7
-  %18 = add nuw nsw i64 %indvars.iv, 24
-  %arrayidx152 = getelementptr inbounds [32 x i32], [32 x i32]* %tmp, i64 0, i64 %18, !intel-tbaa !7
-  %19 = load i32, i32* %arrayidx152, align 4, !tbaa !7
-  %add153 = add i32 %19, %17
-  %sub161 = sub i32 %17, %19
+  %arrayidx134 = getelementptr inbounds [32 x i32], ptr %tmp, i64 0, i64 %indvars.iv, !intel-tbaa !7
+  %12 = load i32, ptr %arrayidx134, align 4, !tbaa !7
+  %13 = add nuw nsw i64 %indvars.iv, 8
+  %arrayidx137 = getelementptr inbounds [32 x i32], ptr %tmp, i64 0, i64 %13, !intel-tbaa !7
+  %14 = load i32, ptr %arrayidx137, align 4, !tbaa !7
+  %add138 = add i32 %14, %12
+  %sub145 = sub i32 %12, %14
+  %15 = add nuw nsw i64 %indvars.iv, 16
+  %arrayidx149 = getelementptr inbounds [32 x i32], ptr %tmp, i64 0, i64 %15, !intel-tbaa !7
+  %16 = load i32, ptr %arrayidx149, align 4, !tbaa !7
+  %17 = add nuw nsw i64 %indvars.iv, 24
+  %arrayidx152 = getelementptr inbounds [32 x i32], ptr %tmp, i64 0, i64 %17, !intel-tbaa !7
+  %18 = load i32, ptr %arrayidx152, align 4, !tbaa !7
+  %add153 = add i32 %18, %16
+  %sub161 = sub i32 %16, %18
   %add162 = add nsw i32 %add153, %add138
   %sub163 = sub nsw i32 %add138, %add153
   %add164 = add nsw i32 %sub161, %sub145
@@ -166,10 +164,10 @@ for.body131:                                      ; preds = %for.body131, %for.c
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end.p0(i64, ptr nocapture) #1
 
 attributes #0 = { nounwind readonly uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

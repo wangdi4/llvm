@@ -21,16 +21,14 @@ entry:
   br label %preheader
 
 preheader:
-  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr.priv, i32 0, i32 1024) ]
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr.priv, i32 0, i32 1024) ]
   br label %header
 
 header:
   %iv = phi i64 [ 0, %preheader ], [ %iv.next, %header ]
-  %down = bitcast [1024 x i32] *%arr.priv to i8*
-  %gep = getelementptr inbounds i8, i8 *%down, i64 2
-  %up = bitcast i8 *%gep to i32 *
+  %gep = getelementptr inbounds i8, ptr %arr.priv, i64 2
 
-  %ld = load i32, i32* %up
+  %ld = load i32, ptr %gep
 
   %iv.next = add nsw nuw i64 %iv, 1
   %exitcond = icmp ult i64 %iv.next, 1024

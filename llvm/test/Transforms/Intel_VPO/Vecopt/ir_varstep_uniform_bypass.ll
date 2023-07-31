@@ -20,11 +20,11 @@ newFuncRoot:
   br label %DIR.OMP.SIMD.21764
 
 DIR.OMP.SIMD.21764:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LIVEIN"(i32* @data_mp_atom_per_domain_) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LIVEIN"(ptr @data_mp_atom_per_domain_) ]
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:
-  %gepload710 = load i32, i32* @data_mp_atom_per_domain_, align 8
+  %gepload710 = load i32, ptr @data_mp_atom_per_domain_, align 8
   br label %loop.337
 
 loop.337:

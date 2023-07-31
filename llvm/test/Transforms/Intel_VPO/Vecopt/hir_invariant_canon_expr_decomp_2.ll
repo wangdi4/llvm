@@ -39,12 +39,12 @@ define void @foo(i64 %n1, i64 %n2, i64 %n3) {
 ; CHECK-NEXT:     i64 [[VP7:%.*]] = sdiv i64 [[VP6]] i64 9
 ; CHECK-NEXT:     i64 [[VP8:%.*]] = mul i64 [[N30:%.*]] i64 [[VP4]]
 ; CHECK-NEXT:     i64 [[VP9:%.*]] = add i64 [[VP8]] i64 111
-; CHECK-NEXT:     i64* [[VP10:%.*]] = subscript inbounds [100 x i64]* @longarr i64 0 i64 [[VP9]]
-; CHECK-NEXT:     store i64 [[VP7]] i64* [[VP10]]
+; CHECK-NEXT:     ptr [[VP10:%.*]] = subscript inbounds ptr @longarr i64 0 i64 [[VP9]]
+; CHECK-NEXT:     store i64 [[VP7]] ptr [[VP10]]
 ; CHECK-NEXT:     i32 [[VP12:%.*]] = trunc i64 [[VP6]] to i32
 ; CHECK-NEXT:     i64 [[VP13:%.*]] = add i64 [[N30]] i64 [[VP4]]
-; CHECK-NEXT:     i32* [[VP14:%.*]] = subscript inbounds [100 x i32]* @intarr i64 0 i64 [[VP13]]
-; CHECK-NEXT:     store i32 [[VP12]] i32* [[VP14]]
+; CHECK-NEXT:     ptr [[VP14:%.*]] = subscript inbounds ptr @intarr i64 0 i64 [[VP13]]
+; CHECK-NEXT:     store i32 [[VP12]] ptr [[VP14]]
 ;
 entry:
   br label %for.body
@@ -56,12 +56,12 @@ for.body:                                         ; preds = %for.body, %entry
   %div = sdiv i64 %add1, 9
   %mul = mul nsw i64 %i1.017, %n3
   %add2 = add nsw i64 %mul, 111
-  %arrayidx = getelementptr inbounds [100 x i64], [100 x i64]* @longarr, i64 0, i64 %add2
-  store i64 %div, i64* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds [100 x i64], ptr @longarr, i64 0, i64 %add2
+  store i64 %div, ptr %arrayidx, align 8
   %conv = trunc i64 %add1 to i32
   %add3 = add nsw i64 %i1.017, %n3
-  %arrayidx6 = getelementptr inbounds [100 x i32], [100 x i32]* @intarr, i64 0, i64 %add3
-  store i32 %conv, i32* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds [100 x i32], ptr @intarr, i64 0, i64 %add3
+  store i32 %conv, ptr %arrayidx6, align 4
   %inc = add nuw nsw i64 %i1.017, 1
   %exitcond = icmp eq i64 %inc, 100
   br i1 %exitcond, label %for.end, label %for.body

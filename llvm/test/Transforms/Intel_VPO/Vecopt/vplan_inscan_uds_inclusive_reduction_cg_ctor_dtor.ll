@@ -70,8 +70,7 @@ entry:
   br i1 %cmp, label %DIR.OMP.SIMD.236, label %omp.precond.end
 
 DIR.OMP.SIMD.236:                                 ; preds = %entry
-  %x.i.i52 = getelementptr inbounds %struct.Dummy, ptr %red.red, i64 0, i32 0
-  store float 0.000000e+00, ptr %x.i.i52, align 4
+  store float 0.000000e+00, ptr %red.red, align 4
   %y.i.i53 = getelementptr inbounds %struct.Dummy, ptr %red.red, i64 0, i32 1
   store float 0.000000e+00, ptr %y.i.i53, align 4
   br label %DIR.VPO.GUARD.MEM.MOTION.4.lr.ph
@@ -97,10 +96,9 @@ DIR.VPO.GUARD.MEM.MOTION.2:                       ; preds = %DIR.VPO.GUARD.MEM.M
   store i32 %2, ptr %i.linear.iv, align 4
   %arrayidx6 = getelementptr inbounds float, ptr %m_in, i64 %indvars.iv
   %3 = load float, ptr %arrayidx6, align 4
-  %x1.i = getelementptr inbounds %struct.Dummy, ptr %red.red, i64 0, i32 0
-  %4 = load float, ptr %x1.i, align 4
+  %4 = load float, ptr %red.red, align 4
   %add.i = fadd fast float %4, %3
-  store float %add.i, ptr %x1.i, align 4
+  store float %add.i, ptr %red.red, align 4
   %y2.i = getelementptr inbounds %struct.Dummy, ptr %red.red, i64 0, i32 1
   store float %3, ptr %y2.i, align 4
   br label %DIR.VPO.END.GUARD.MEM.MOTION.5
@@ -129,8 +127,7 @@ DIR.VPO.GUARD.MEM.MOTION.11.split:                ; preds = %DIR.OMP.END.SCAN.4
   br label %DIR.VPO.GUARD.MEM.MOTION.5
 
 DIR.VPO.GUARD.MEM.MOTION.5:                       ; preds = %DIR.VPO.GUARD.MEM.MOTION.11.split
-  %x11 = getelementptr inbounds %struct.Dummy, ptr %red.red, i64 0, i32 0
-  %6 = load float, ptr %x11, align 4
+  %6 = load float, ptr %red.red, align 4
   %7 = load i32, ptr %i.linear.iv, align 4
   %idxprom12 = sext i32 %7 to i64
   %arrayidx13 = getelementptr inbounds float, ptr %m_out_vec, i64 %idxprom12
@@ -151,7 +148,7 @@ omp.inner.for.cond.DIR.OMP.END.SIMD.15.loopexit_crit_edge: ; preds = %DIR.VPO.EN
   br label %DIR.OMP.END.SIMD.7
 
 DIR.OMP.END.SIMD.7:                               ; preds = %omp.inner.for.cond.DIR.OMP.END.SIMD.15.loopexit_crit_edge
-  %.fca.0.load = load float, ptr %x.i.i52, align 4
+  %.fca.0.load = load float, ptr %red.red, align 4
   %add.i.i = fadd fast float %.fca.0.load, %0
   br label %omp.precond.end
 

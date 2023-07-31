@@ -3,7 +3,7 @@
 ; Test for that induction which has updates under conditions is processed correctly
 ; (i.e. induction init/final are processed correctly).
 ; REQUIRES: asserts
-; RUN: opt -opaque-pointers -passes=vplan-vec -vplan-force-vf=2 -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-dump-induction-init-details -vplan-dump-plan-da -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes=vplan-vec -vplan-force-vf=2 -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-dump-induction-init-details -vplan-dump-plan-da -S < %s 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: VPlan after insertion of VPEntities instructions:
 ; CHECK:         i64 [[VP_STEP1:%.*]] = inv-scev-wrapper{ (8 * %step) }
@@ -82,47 +82,47 @@
 ;
 define void @foo2(i64 %N, i64 noundef %step) local_unnamed_addr #0 {
 entry:
-  %k = alloca i64*, align 4
-  %k1 = alloca i32*, align 4
-  store i64* null, i64** %k, align 4
-  store i32* null, i32** %k1, align 4
+  %k = alloca ptr, align 4
+  %k1 = alloca ptr, align 4
+  store ptr null, ptr %k, align 4
+  store ptr null, ptr %k1, align 4
   br label %reg.entry
 
 reg.entry:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:PTR_TO_PTR.TYPED"(i64** %k, i32 0, i32 1, i64 %step), "QUAL.OMP.LINEAR:PTR_TO_PTR.TYPED"(i32** %k1, i32 0, i32 1, i64 %step) ]
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LINEAR:PTR_TO_PTR.TYPED"(ptr %k, i32 0, i32 1, i64 %step), "QUAL.OMP.LINEAR:PTR_TO_PTR.TYPED"(ptr %k1, i32 0, i32 1, i64 %step) ]
   br label %for.body.lr.ph
 
 for.body.lr.ph:
-  %k.iv.b = load i64*, i64** %k, align 4
-  %k1.iv.b = load i32*, i32** %k1, align 4
+  %k.iv.b = load ptr, ptr %k, align 4
+  %k1.iv.b = load ptr, ptr %k1, align 4
   br label %for.body
 
 for.body:
   %indvars.iv = phi i64 [ 1, %for.body.lr.ph ], [ %indvars.iv.next, %latch ]
-  %k.iv = phi i64* [ %k.iv.b, %for.body.lr.ph ], [ %k.iv.next, %latch ]
-  %k1.iv = phi i32* [ %k1.iv.b, %for.body.lr.ph ], [ %k1.iv.next, %latch ]
+  %k.iv = phi ptr [ %k.iv.b, %for.body.lr.ph ], [ %k.iv.next, %latch ]
+  %k1.iv = phi ptr [ %k1.iv.b, %for.body.lr.ph ], [ %k1.iv.next, %latch ]
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %ee = icmp eq i64 %indvars.iv.next, 43
   br i1 %ee, label %then, label %else
 
 then:
-  %k.iv.n1 = getelementptr inbounds i64, i64* %k.iv, i64 %step
-  %k1.iv.n1 = getelementptr inbounds i32, i32* %k1.iv, i64 %step
+  %k.iv.n1 = getelementptr inbounds i64, ptr %k.iv, i64 %step
+  %k1.iv.n1 = getelementptr inbounds i32, ptr %k1.iv, i64 %step
   br label %latch
 else:
-  %k.iv.n2 = getelementptr inbounds i64, i64* %k.iv, i64 %step
-  %k1.iv.n2 = getelementptr inbounds i32, i32* %k1.iv, i64 %step
+  %k.iv.n2 = getelementptr inbounds i64, ptr %k.iv, i64 %step
+  %k1.iv.n2 = getelementptr inbounds i32, ptr %k1.iv, i64 %step
   br label %latch
 
 latch:
-  %k.iv.next = phi i64* [%k.iv.n1, %then ], [%k.iv.n2, %else ]
-  %k1.iv.next = phi i32* [%k1.iv.n1, %then ], [%k1.iv.n2, %else ]
+  %k.iv.next = phi ptr [%k.iv.n1, %then ], [%k.iv.n2, %else ]
+  %k1.iv.next = phi ptr [%k1.iv.n1, %then ], [%k1.iv.n2, %else ]
   %exitcond = icmp eq i64 %indvars.iv.next, %N
   br i1 %exitcond, label %for.cond.cleanup.loopexit, label %for.body
 
 for.cond.cleanup.loopexit:
-  %lcssa.k = phi i64* [%k.iv.next, %latch]
-  %lcssa.k1 = phi i32* [%k1.iv.next, %latch]
+  %lcssa.k = phi ptr [%k.iv.next, %latch]
+  %lcssa.k1 = phi ptr [%k1.iv.next, %latch]
   br label %for.cond.cleanup
 
 for.cond.cleanup:

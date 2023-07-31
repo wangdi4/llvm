@@ -15,28 +15,24 @@ entry:
   br label %preheader
 
 preheader:                                      ; preds = %entry
-  %priv1.realp = getelementptr inbounds %complex_128bit, ptr %priv1, i64 0, i32 0
   %priv1.imagp = getelementptr inbounds %complex_128bit, ptr %priv1, i64 0, i32 1
-  %priv2.realp = getelementptr inbounds %complex_128bit, ptr %priv2, i64 0, i32 0
   %priv2.imagp = getelementptr inbounds %complex_128bit, ptr %priv2, i64 0, i32 1
   br label %header
 
 header:                                         ; preds = %preheader, %header
   %iv = phi i64 [ 0, %preheader ], [ %iv.next, %header ]
   %input.ptr = getelementptr inbounds %complex_128bit, ptr %input, i64 %iv
-  %input.realp = getelementptr inbounds %complex_128bit, ptr %input.ptr, i64 0, i32 0
   %input.imagp = getelementptr inbounds %complex_128bit, ptr %input.ptr, i64 0, i32 1
-  %input.real = load double, ptr %input.realp, align 16
+  %input.real = load double, ptr %input.ptr, align 16
   %input.imag = load double, ptr %input.imagp, align 16
-  store double %input.real, ptr %priv2.realp, align 16
+  store double %input.real, ptr %priv2, align 16
   store double %input.imag, ptr %priv2.imagp, align 16
   call void @cexp(ptr nonnull %priv1, ptr nonnull byval(%complex_128bit) %priv2)
-  %priv1.real = load double, ptr %priv1.realp, align 16
+  %priv1.real = load double, ptr %priv1, align 16
   %priv1.imag = load double, ptr %priv1.imagp, align 16
   %output.ptr = getelementptr inbounds %complex_128bit, ptr %output, i64 %iv
-  %output.realp = getelementptr inbounds %complex_128bit, ptr %output.ptr, i64 0, i32 0
   %output.imagp = getelementptr inbounds %complex_128bit, ptr %output.ptr, i64 0, i32 1
-  store double %priv1.real, ptr %output.realp, align 16
+  store double %priv1.real, ptr %output.ptr, align 16
   store double %priv1.imag, ptr %output.imagp, align 16
   %iv.next = add nuw nsw i64 %iv, 1
   %exitcond = icmp eq i64 %iv.next, 1024

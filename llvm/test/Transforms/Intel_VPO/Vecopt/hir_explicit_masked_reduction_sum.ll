@@ -63,14 +63,14 @@ define dso_local float @ifsum1(i32 %N) local_unnamed_addr {
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     float [[VP5]] = phi  [ float [[VP_RED_INIT]], [[BB2]] ],  [ float [[VP4]], [[BB3]] ]
 ; CHECK-NEXT:     i64 [[VP8]] = phi  [ i64 [[VP__IND_INIT]], [[BB2]] ],  [ i64 [[VP7]], [[BB3]] ]
-; CHECK-NEXT:     float* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1000 x float]* @B i64 0 i64 [[VP8]]
-; CHECK-NEXT:     float [[VP_LOAD:%.*]] = load float* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr @B i64 0 i64 [[VP8]]
+; CHECK-NEXT:     float [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT]]
 ; CHECK-NEXT:     i1 [[VP10:%.*]] = fcmp ogt float [[VP_LOAD]] float 0.000000e+00
 ; CHECK-NEXT:     br i1 [[VP10]], [[BB4:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB0]]
-; CHECK-NEXT:       float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1000 x float]* @C i64 0 i64 [[VP8]]
-; CHECK-NEXT:       float [[VP_LOAD_1:%.*]] = load float* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr @C i64 0 i64 [[VP8]]
+; CHECK-NEXT:       float [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:       float [[VP11:%.*]] = fadd float [[VP_LOAD]] float [[VP_LOAD_1]]
 ; CHECK-NEXT:       float [[VP6]] = fadd float [[VP5]] float [[VP11]]
 ; CHECK-NEXT:       br [[BB3]]
@@ -99,13 +99,13 @@ entry:
 
 for.body.preheader:                               ; preds = %entry
   %wide.trip.count = sext i32 %N to i64
-  %tok = call token @llvm.directive.region.entry()[ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(float* %red, float zeroinitializer, i32 1) ]
-  %start = load float, float* %red, align 4
+  %tok = call token @llvm.directive.region.entry()[ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %red, float zeroinitializer, i32 1) ]
+  %start = load float, ptr %red, align 4
   br label %for.body
 
 for.cond.cleanup.loopexit:                        ; preds = %for.inc
   %tsum.1.lcssa = phi float [ %tsum.1, %for.inc ]
-  store float %tsum.1.lcssa, float* %red, align 4
+  store float %tsum.1.lcssa, ptr %red, align 4
   call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
   br label %for.cond.cleanup
 
@@ -116,14 +116,14 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 for.body:                                         ; preds = %for.inc, %for.body.preheader
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.inc ]
   %tsum.015 = phi float [ %start, %for.body.preheader ], [ %tsum.1, %for.inc ]
-  %arrayidx = getelementptr inbounds [1000 x float], [1000 x float]* @B, i64 0, i64 %indvars.iv
-  %0 = load float, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [1000 x float], ptr @B, i64 0, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx, align 4
   %cmp1 = fcmp ogt float %0, 0.000000e+00
   br i1 %cmp1, label %if.then, label %for.inc
 
 if.then:                                          ; preds = %for.body
-  %arrayidx5 = getelementptr inbounds [1000 x float], [1000 x float]* @C, i64 0, i64 %indvars.iv
-  %1 = load float, float* %arrayidx5, align 4
+  %arrayidx5 = getelementptr inbounds [1000 x float], ptr @C, i64 0, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx5, align 4
   %add = fadd fast float %0, %1
   %add6 = fadd fast float %tsum.015, %add
   br label %for.inc

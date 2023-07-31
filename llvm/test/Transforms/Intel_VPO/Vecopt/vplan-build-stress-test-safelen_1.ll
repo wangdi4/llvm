@@ -4,7 +4,7 @@
 ; CHECK: Vectorization Plan{{.*}} Plain CFG
 ; CHECK-LABEL: @foo(
 ; CHECK: ret
-define void @foo(i32* %ip, i32 %n) {
+define void @foo(ptr %ip, i32 %n) {
 entry:
   %cmp = icmp sgt i32 %n, 0
   %wide.trip.count = sext i32 %n to i64
@@ -16,9 +16,9 @@ DIR.OMP.SIMD.112:                                 ; preds = %entry
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.112
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.112 ], [ %indvars.iv.next, %omp.inner.for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %ip, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds i32, ptr %ip, i64 %indvars.iv
   %1 = trunc i64 %indvars.iv to i32
-  store i32 %1, i32* %arrayidx, align 4
+  store i32 %1, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %omp.loop.exit, label %omp.inner.for.body

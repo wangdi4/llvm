@@ -19,9 +19,9 @@
 ;CHECK-NEXT: [MinMax+Index] Skipped: nonlinear rhs disabled (negative coeff at loop level)
 
 ; Function Attrs: norecurse nounwind readonly willreturn mustprogress
-define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unnamed_addr {
+define dso_local i32 @_Z3fooPii(ptr nocapture readonly %a, i32 %n) local_unnamed_addr {
 entry:
-  %0 = load i32, i32* %a, align 4
+  %0 = load i32, ptr %a, align 4
   %cmp14 = icmp sgt i32 %n, 0
   br i1 %cmp14, label %for.body.preheader, label %for.cond.cleanup
 
@@ -43,8 +43,8 @@ for.body:                                         ; preds = %for.body.preheader,
   %i.017 = phi i32 [ %inc, %for.body ], [ 0, %for.body.preheader ]
   %ndx.016 = phi i32 [ %spec.select13, %for.body ], [ 1, %for.body.preheader ]
   %max.015 = phi i32 [ %spec.select, %for.body ], [ %0, %for.body.preheader ]
-  %ptridx1 = getelementptr inbounds i32, i32* %a, i32 %i.017
-  %1 = load i32, i32* %ptridx1, align 4
+  %ptridx1 = getelementptr inbounds i32, ptr %a, i32 %i.017
+  %1 = load i32, ptr %ptridx1, align 4
   %neg_i = mul i32 %i.017, -1
   %cmp2 = icmp sgt i32 %1, %max.015
   %spec.select = select i1 %cmp2, i32 %1, i32 %max.015
@@ -70,9 +70,9 @@ for.body:                                         ; preds = %for.body.preheader,
 ;CHECK-NEXT: [MinMax+Index] Skipped: nonlinear rhs disabled (negative coeff at loop level)
 
 ; Function Attrs: norecurse nounwind readonly willreturn mustprogress
-define dso_local i32 @_Z3foo2Pii(i32* nocapture readonly %a, i32 %n, i32 %k) local_unnamed_addr {
+define dso_local i32 @_Z3foo2Pii(ptr nocapture readonly %a, i32 %n, i32 %k) local_unnamed_addr {
 entry:
-  %0 = load i32, i32* %a, align 4
+  %0 = load i32, ptr %a, align 4
   %cmp14 = icmp sgt i32 %n, 0
   br i1 %cmp14, label %for.body.preheader, label %for.cond.cleanup
 
@@ -94,8 +94,8 @@ for.body:                                         ; preds = %for.body.preheader,
   %i.017 = phi i32 [ %inc, %for.body ], [ 0, %for.body.preheader ]
   %ndx.016 = phi i32 [ %spec.select13, %for.body ], [ 1, %for.body.preheader ]
   %max.015 = phi i32 [ %spec.select, %for.body ], [ %0, %for.body.preheader ]
-  %ptridx1 = getelementptr inbounds i32, i32* %a, i32 %i.017
-  %1 = load i32, i32* %ptridx1, align 4
+  %ptridx1 = getelementptr inbounds i32, ptr %a, i32 %i.017
+  %1 = load i32, ptr %ptridx1, align 4
   %neg_i = mul i32 %i.017, %k
   %neg_2 = mul i32 %neg_i, 2
   %cmp2 = icmp sgt i32 %1, %max.015

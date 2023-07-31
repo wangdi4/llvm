@@ -46,7 +46,7 @@ DIR.OMP.SIMD.134:                                 ; preds = %entry
   %add = add nsw i64 %conv, 10
   %div = sdiv i64 %add, 10
   %conv4 = trunc i64 %div to i32
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
   %cmp735 = icmp slt i32 %conv4, 1
   br i1 %cmp735, label %omp.loop.exit, label %omp.inner.for.body.preheader
 
@@ -58,16 +58,16 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body.
   %1 = trunc i64 %indvars.iv to i32
   %mul = mul i32 %1, 10
   %idxprom = sext i32 %mul to i64
-  %arrayidx = getelementptr inbounds [100000 x i64], [100000 x i64]* @a, i64 0, i64 %idxprom, !intel-tbaa !2
-  %2 = load i64, i64* %arrayidx, align 16, !tbaa !2
+  %arrayidx = getelementptr inbounds [100000 x i64], ptr @a, i64 0, i64 %idxprom, !intel-tbaa !2
+  %2 = load i64, ptr %arrayidx, align 16, !tbaa !2
   %cmp13 = icmp slt i64 %2, %idxprom
   br i1 %cmp13, label %omp.inner.for.inc, label %if.else
 
 if.else:                                          ; preds = %omp.inner.for.body
   %add18 = or i32 %mul, 1
   %idxprom19 = sext i32 %add18 to i64
-  %arrayidx20 = getelementptr inbounds [100000 x i64], [100000 x i64]* @a, i64 0, i64 %idxprom19, !intel-tbaa !2
-  %3 = load i64, i64* %arrayidx20, align 8, !tbaa !2
+  %arrayidx20 = getelementptr inbounds [100000 x i64], ptr @a, i64 0, i64 %idxprom19, !intel-tbaa !2
+  %3 = load i64, ptr %arrayidx20, align 8, !tbaa !2
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %omp.inner.for.body, %if.else

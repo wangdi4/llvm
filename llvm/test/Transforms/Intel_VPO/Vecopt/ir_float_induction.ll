@@ -14,10 +14,10 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @fp_inc = local_unnamed_addr global float 0.000000e+00, align 4
 
-define void @fp_iv_loop(float %init, float* noalias nocapture %A, i32 %N) local_unnamed_addr #0 {
+define void @fp_iv_loop(float %init, ptr noalias nocapture %A, i32 %N) local_unnamed_addr #0 {
 ; CHECK-LABEL: @fp_iv_loop(
 ; CHECK:       for.body.lr.ph:
-; CHECK:    [[TMP0:%.*]] = load float, float* @fp_inc, align 4
+; CHECK:    [[TMP0:%.*]] = load float, ptr @fp_inc, align 4
 ; CHECK:       VPlannedBB2:
 ; CHECK-NEXT:    [[IND_STEP_VEC_SPLATINSERT0:%.*]] = insertelement <4 x float> poison, float [[TMP0]], i64 0
 ; CHECK-NEXT:    [[IND_STEP_VEC_SPLAT0:%.*]] = shufflevector <4 x float> [[IND_STEP_VEC_SPLATINSERT0]], <4 x float> poison, <4 x i32> zeroinitializer
@@ -41,15 +41,15 @@ DIR.QUAL.LIST.END.2:
   br i1 %cmp6, label %for.body.lr.ph, label %for.cond.cleanup
 
 for.body.lr.ph:                                   ; preds = %DIR.QUAL.LIST.END.2
-  %0 = load float, float* @fp_inc, align 4
+  %0 = load float, ptr @fp_inc, align 4
   %wide.trip.count = zext i32 %N to i64
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
   %x.07 = phi float [ %init, %for.body.lr.ph ], [ %sub, %for.body ]
-  %arrayidx = getelementptr inbounds float, float* %A, i64 %indvars.iv
-  store float %x.07, float* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds float, ptr %A, i64 %indvars.iv
+  store float %x.07, ptr %arrayidx, align 4
   %sub = fsub fast float %x.07, %0
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count

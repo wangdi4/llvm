@@ -33,9 +33,8 @@
 
 define i32 @rayobject_bb_intersect_test(ptr nocapture readonly %isec, ptr nocapture readonly %_bb) {
 entry:
-  %arrayidx = getelementptr inbounds %struct.Isect, ptr %isec, i64 0, i32 0, i64 0
 
-  %0 = load float, ptr %arrayidx, align 8
+  %0 = load float, ptr %isec, align 8
   %arrayidx1 = getelementptr inbounds %struct.Isect, ptr %isec, i64 0, i32 6, i64 0
   %1 = load float, ptr %arrayidx1, align 4
   %mul = fmul fast float %1, %0

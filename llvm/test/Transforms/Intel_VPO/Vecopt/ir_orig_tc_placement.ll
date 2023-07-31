@@ -10,8 +10,8 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local i64 @foo(i64* nocapture %larr, i32 %n1) local_unnamed_addr #0 {
-; CHECK:  define dso_local i64 @foo(i64* nocapture [[LARR0:%.*]], i32 [[N10:%.*]]) local_unnamed_addr {
+define dso_local i64 @foo(ptr nocapture %larr, i32 %n1) local_unnamed_addr #0 {
+; CHECK:  define dso_local i64 @foo(ptr nocapture [[LARR0:%.*]], i32 [[N10:%.*]]) local_unnamed_addr {
 ; CHECK:         [[DIV0:%.*]] = sdiv i64 [[TC_0390:%.*]], 2
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    [[TMP0:%.*]] = and i64 [[DIV0]], 4294967292
@@ -37,21 +37,21 @@ for.body:                                         ; preds = %for.body.preheader,
   br i1 %cmp8.not30, label %omp.precond.end, label %omp.inner.for.body.lr.ph
 
 omp.inner.for.body.lr.ph:                         ; preds = %for.body
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR:IV.TYPED"(i64* %l1.linear.iv, i32 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %l1.linear.iv, i32 0, i32 1, i32 1) ]
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body.lr.ph, %omp.inner.for.body
   %.omp.iv.local.031 = phi i64 [ 0, %omp.inner.for.body.lr.ph ], [ %add13, %omp.inner.for.body ]
-  %ptridx = getelementptr inbounds i64, i64* %larr, i64 %.omp.iv.local.031
-  %1 = load i64, i64* %ptridx, align 8
+  %ptridx = getelementptr inbounds i64, ptr %larr, i64 %.omp.iv.local.031
+  %1 = load i64, ptr %ptridx, align 8
   %add11 = add nsw i64 %1, 1
-  store i64 %add11, i64* %ptridx, align 8
+  store i64 %add11, ptr %ptridx, align 8
   %add13 = add nuw nsw i64 %.omp.iv.local.031, 1
   %exitcond.not = icmp eq i64 %add13, %div
   br i1 %exitcond.not, label %omp.inner.for.cond.DIR.OMP.END.SIMD.3.loopexit_crit_edge, label %omp.inner.for.body
 
 omp.inner.for.cond.DIR.OMP.END.SIMD.3.loopexit_crit_edge: ; preds = %omp.inner.for.body
-  store i64 %div, i64* %l1.linear.iv, align 8
+  store i64 %div, ptr %l1.linear.iv, align 8
   br label %DIR.OMP.END.SIMD.1
 
 DIR.OMP.END.SIMD.1:                               ; preds = %omp.inner.for.cond.DIR.OMP.END.SIMD.3.loopexit_crit_edge

@@ -10,7 +10,7 @@
 ;    A[i] += tmp;
 ;  }
 ;}
-define void @foo(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32 %N, i32 %c) local_unnamed_addr #0 {
+define void @foo(ptr noalias nocapture %A, ptr noalias nocapture readonly %B, i32 %N, i32 %c) local_unnamed_addr #0 {
 ; CHECK-LABEL: @foo(
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB2:%.*]] ], [ [[TMP10:%.*]], [[VPLANNEDBB5:%.*]] ]
@@ -18,18 +18,15 @@ define void @foo(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, 
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 1, i64 2, i64 3, i64 4>, [[VPLANNEDBB2]] ], [ [[TMP8:%.*]], [[VPLANNEDBB5]] ]
 ; CHECK-NEXT:    br i1 [[CMP1:%.*]], label [[VPLANNEDBB5]], label [[VPLANNEDBB6:%.*]]
 ; CHECK:       VPlannedBB6:
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, i32* [[B:%.*]], i64 [[UNI_PHI4]]
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i32* [[SCALAR_GEP]] to <4 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i32>, <4 x i32>* [[TMP4]], align 4
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, ptr [[B:%.*]], i64 [[UNI_PHI4]]
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i32>, ptr [[SCALAR_GEP]], align 4
 ; CHECK-NEXT:    br label [[VPLANNEDBB5]]
 ; CHECK:       VPlannedBB5:
 ; CHECK-NEXT:    [[VEC_PHI7:%.*]] = phi <4 x i32> [ [[WIDE_LOAD]], [[VPLANNEDBB6]] ], [ <i32 6, i32 6, i32 6, i32 6>, [[VECTOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[SCALAR_GEP8:%.*]] = getelementptr inbounds i32, i32* [[A:%.*]], i64 [[UNI_PHI4]]
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i32* [[SCALAR_GEP8]] to <4 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD9:%.*]] = load <4 x i32>, <4 x i32>* [[TMP5]], align 4
+; CHECK-NEXT:    [[SCALAR_GEP8:%.*]] = getelementptr inbounds i32, ptr [[A:%.*]], i64 [[UNI_PHI4]]
+; CHECK-NEXT:    [[WIDE_LOAD9:%.*]] = load <4 x i32>, ptr [[SCALAR_GEP8]], align 4
 ; CHECK-NEXT:    [[TMP6:%.*]] = add nsw <4 x i32> [[WIDE_LOAD9]], [[VEC_PHI7]]
-; CHECK-NEXT:    [[TMP7:%.*]] = bitcast i32* [[SCALAR_GEP8]] to <4 x i32>*
-; CHECK-NEXT:    store <4 x i32> [[TMP6]], <4 x i32>* [[TMP7]], align 4
+; CHECK-NEXT:    store <4 x i32> [[TMP6]], ptr [[SCALAR_GEP8]], align 4
 ; CHECK-NEXT:    [[TMP8]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP9]] = add nuw nsw i64 [[UNI_PHI4]], 4
 ; CHECK-NEXT:    [[TMP10]] = add i64 [[UNI_PHI]], 4
@@ -61,16 +58,16 @@ for.body:                                         ; preds = %if.end, %for.body.l
   br i1 %cmp1, label %if.end, label %if.then
 
 if.then:                                          ; preds = %for.body
-  %arrayidx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   br label %if.end
 
 if.end:                                           ; preds = %for.body, %if.then
   %.sink7 = phi i32 [ %0, %if.then ], [ 6, %for.body ]
-  %arrayidx5 = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx5, align 4
+  %arrayidx5 = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx5, align 4
   %add6 = add nsw i32 %1, %.sink7
-  store i32 %add6, i32* %arrayidx5, align 4
+  store i32 %add6, ptr %arrayidx5, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.cond.cleanup.loopexit, label %for.body

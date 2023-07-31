@@ -27,19 +27,18 @@ define dso_local i32 @_Z3foov() local_unnamed_addr {
 ; CHECK-NEXT:    [[TMP20:%.*]] = bitcast <2 x i1> [[TMP12:%.*]] to i2
 ; CHECK-NEXT:    [[CTLZ0:%.*]] = call i2 @llvm.ctlz.i2(i2 [[TMP20]], i1 true)
 ; CHECK-NEXT:    [[TMP21:%.*]] = sub i2 1, [[CTLZ0]]
-; CHECK-NEXT:    [[PRIV_EXTRACT0:%.*]] = extractelement <2 x %struct.str*> [[DOTVEC_BASE_ADDR0:%.*]], i2 [[TMP21]]
-; CHECK-NEXT:    call void @_ZTS3str.omp.copy_assign(%struct.str* [[X_LPRIV0:%.*]], %struct.str* [[PRIV_EXTRACT0]])
+; CHECK-NEXT:    [[PRIV_EXTRACT0:%.*]] = extractelement <2 x ptr> [[DOTVEC_BASE_ADDR0:%.*]], i2 [[TMP21]]
+; CHECK-NEXT:    call void @_ZTS3str.omp.copy_assign(ptr [[X_LPRIV0:%.*]], ptr [[PRIV_EXTRACT0]])
 ;
 DIR.OMP.SIMD.115:
   %x.lpriv = alloca %struct.str, align 4
   %i.linear.iv = alloca i32, align 4
   %x = alloca %struct.str, align 4
-  %0 = bitcast %struct.str* %x to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %0)
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %x)
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.115
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:NONPOD.TYPED"(%struct.str* %x.lpriv, %struct.str zeroinitializer, i32 1, %struct.str* (%struct.str*)* @_ZTS3str.omp.def_constr, void (%struct.str*, %struct.str*)* @_ZTS3str.omp.copy_assign, void (%struct.str*)* @_ZTS3str.omp.destr), "QUAL.OMP.LINEAR:IV.TYPED"(i32* %i.linear.iv, i32 0, i32 1, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:NONPOD.TYPED"(ptr %x.lpriv, %struct.str zeroinitializer, i32 1, ptr @_ZTS3str.omp.def_constr, ptr @_ZTS3str.omp.copy_assign, ptr @_ZTS3str.omp.destr), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %i.linear.iv, i32 0, i32 1, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
@@ -52,24 +51,22 @@ omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %om
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.216, label %omp.inner.for.body
 
 DIR.OMP.END.SIMD.216:                             ; preds = %omp.inner.for.body
-  %a = getelementptr inbounds %struct.str, %struct.str* %x.lpriv, i64 0, i32 0
-  store i32 9999, i32* %a, align 4
+  store i32 9999, ptr %x.lpriv, align 4
   br label %DIR.OMP.END.SIMD.3
 
 DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.216
-  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.SIMD"() ]
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.OMP.END.SIMD.4
 
 DIR.OMP.END.SIMD.4:                               ; preds = %DIR.OMP.END.SIMD.3
-  call void @_ZTS3str.omp.copy_assign(%struct.str* nonnull %x, %struct.str* nonnull %x.lpriv)
-  %a2 = getelementptr inbounds %struct.str, %struct.str* %x, i64 0, i32 0
-  %2 = load i32, i32* %a2, align 4
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %0)
-  ret i32 %2
+  call void @_ZTS3str.omp.copy_assign(ptr nonnull %x, ptr nonnull %x.lpriv)
+  %1 = load i32, ptr %x, align 4
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %x)
+  ret i32 %1
 }
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn mustprogress
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture)
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture)
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
@@ -78,14 +75,14 @@ declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
 ; Function Attrs: nofree norecurse nosync nounwind readnone uwtable willreturn mustprogress
-declare %struct.str* @_ZTS3str.omp.def_constr(%struct.str* readnone returned %0) section ".text.startup"
+declare ptr @_ZTS3str.omp.def_constr(ptr readnone returned %x) section ".text.startup"
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable willreturn mustprogress
-declare void @_ZTS3str.omp.copy_assign(%struct.str* nocapture %0, %struct.str* nocapture readonly %1)
+declare void @_ZTS3str.omp.copy_assign(ptr nocapture %x, ptr nocapture readonly %0)
 
 
 ; Function Attrs: nofree norecurse nosync nounwind readnone uwtable willreturn mustprogress
-declare void @_ZTS3str.omp.destr(%struct.str* nocapture %0) section ".text.startup"
+declare void @_ZTS3str.omp.destr(ptr nocapture %x) section ".text.startup"
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn mustprogress
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture)
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture)

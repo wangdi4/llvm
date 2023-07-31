@@ -1,10 +1,10 @@
 ; This test verifies that private-variables escaping into the unknown functions
 ; are not safe for data-layout transformations.
 
-; RUN: opt -S -opaque-pointers -passes=vplan-vec -vplan-enable-masked-variant=0 -vplan-enable-soa -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
+; RUN: opt -S -passes=vplan-vec -vplan-enable-masked-variant=0 -vplan-enable-soa -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
 ; HIR-run.
-; RUN: opt -opaque-pointers -passes=hir-ssa-deconstruction,hir-vplan-vec -vplan-enable-masked-variant=0 -vplan-enable-soa-hir -vplan-dump-soa-info -vplan-enable-hir-private-arrays -disable-output  -disable-vplan-codegen %s 2>&1 | FileCheck %s
+; RUN: opt -passes=hir-ssa-deconstruction,hir-vplan-vec -vplan-enable-masked-variant=0 -vplan-enable-soa-hir -vplan-dump-soa-info -vplan-enable-hir-private-arrays -disable-output  -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
 ; REQUIRES:asserts
 
@@ -46,29 +46,28 @@ DIR.OMP.SIMD.211:
   br label %omp.inner.for.body.lr.ph
 
 omp.inner.for.body.lr.ph:                         ; preds = %DIR.OMP.SIMD.211
-%0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr_e.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"([1024 x i32]* %arr_e2.priv, i32 0, i32 1024), "QUAL.OMP.LINEAR:IV.TYPED"([1024 x i32]* %index.linear.iv, i32 0, i32 1, i32 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(i8* null, i8 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(i8* null, i8 0) ]
+%0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr_e.priv, i32 0, i32 1024), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr_e2.priv, i32 0, i32 1024), "QUAL.OMP.LINEAR:IV.TYPED"(ptr %index.linear.iv, i32 0, i32 1, i32 1), "QUAL.OMP.NORMALIZED.IV:TYPED"(ptr null, i8 0), "QUAL.OMP.NORMALIZED.UB:TYPED"(ptr null, i8 0) ]
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-  %1 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_e.priv, i64 0, i64 0
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.1, %omp.inner.for.body
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.1 ], [ %indvars.iv.next, %omp.inner.for.body ]
-  %call = call i32 @helper(i32* nonnull %1)
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_e.priv, i64 0, i64 %indvars.iv
-  store i32 %call, i32* %arrayidx, align 4
-  %2 = add nuw nsw i64 %indvars.iv, 3
-  %arrayidx3 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_e2.priv, i64 0, i64 %2
-  %call4 = call i32 @helper(i32* nonnull %arrayidx3)
-  %arrayidx6 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_e2.priv, i64 0, i64 %indvars.iv
-  store i32 %call4, i32* %arrayidx6, align 4
+  %call = call i32 @helper(ptr nonnull %arr_e.priv)
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr %arr_e.priv, i64 0, i64 %indvars.iv
+  store i32 %call, ptr %arrayidx, align 4
+  %1 = add nuw nsw i64 %indvars.iv, 3
+  %arrayidx3 = getelementptr inbounds [1024 x i32], ptr %arr_e2.priv, i64 0, i64 %1
+  %call4 = call i32 @helper(ptr nonnull %arrayidx3)
+  %arrayidx6 = getelementptr inbounds [1024 x i32], ptr %arr_e2.priv, i64 0, i64 %indvars.iv
+  store i32 %call4, ptr %arrayidx6, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond.not, label %omp.inner.for.cond.DIR.OMP.END.SIMD.4.loopexit_crit_edge, label %omp.inner.for.body
 
 omp.inner.for.cond.DIR.OMP.END.SIMD.4.loopexit_crit_edge: ; preds = %omp.inner.for.body
-  store i32 1024, i32* %index.linear.iv, align 4
+  store i32 1024, ptr %index.linear.iv, align 4
   br label %DIR.OMP.END.SIMD.2
 
 DIR.OMP.END.SIMD.2:                               ; preds = %omp.inner.for.cond.DIR.OMP.END.SIMD.4.loopexit_crit_edge
@@ -76,12 +75,12 @@ DIR.OMP.END.SIMD.2:                               ; preds = %omp.inner.for.cond.
   br label %DIR.OMP.END.SIMD.221
 
 DIR.OMP.END.SIMD.221:                             ; preds = %DIR.OMP.END.SIMD.2
-  %3 = load i32, i32* getelementptr inbounds ([1024 x i32], [1024 x i32]* @arr_e, i64 0, i64 0), align 16
-  ret i32 %3
+  %2 = load i32, ptr @arr_e, align 16
+  ret i32 %2
 }
 
 declare token @llvm.directive.region.entry()
 
 declare void @llvm.directive.region.exit(token)
 
-declare dso_local i32 @helper(i32*)
+declare dso_local i32 @helper(ptr)

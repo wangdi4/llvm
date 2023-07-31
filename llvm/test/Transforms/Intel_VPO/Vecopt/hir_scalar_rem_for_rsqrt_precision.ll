@@ -21,7 +21,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:                          DO i1 = {{.*}}, {{.*}}, 1
 ; CHECK:                    END REGION
 ;
-define void @novecrem(double* %darr, i64 %n1) {
+define void @novecrem(ptr %darr, i64 %n1) {
 entry:
   %cmp7 = icmp sgt i64 %n1, 0
   br i1 %cmp7, label %for.body.preheader, label %for.end
@@ -31,11 +31,11 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %l1.08 = phi i64 [ %inc, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds double, double* %darr, i64 %l1.08
-  %0 = load double, double* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds double, ptr %darr, i64 %l1.08
+  %0 = load double, ptr %arrayidx, align 8
   %1 = tail call fast double @llvm.sqrt.f64(double %0) #0
   %div = fdiv fast double 1.000000e+00, %1
-  store double %div, double* %arrayidx, align 8
+  store double %div, ptr %arrayidx, align 8
   %inc = add nuw nsw i64 %l1.08, 1
   %exitcond.not = icmp eq i64 %inc, %n1
   br i1 %exitcond.not, label %for.end.loopexit, label %for.body, !llvm.loop !9
@@ -61,7 +61,7 @@ for.end:                                          ; preds = %for.end.loopexit, %
 ; CHECK:                          DO i1 = {{.*}}, {{.*}}, 8
 ; CHECK:                    END REGION
 ;
-define void @vecrem1(double* %darr, i64 %n1) {
+define void @vecrem1(ptr %darr, i64 %n1) {
 entry:
   %cmp7 = icmp sgt i64 %n1, 0
   br i1 %cmp7, label %for.body.preheader, label %for.end
@@ -71,10 +71,10 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %l1.08 = phi i64 [ %inc, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds double, double* %darr, i64 %l1.08
-  %0 = load double, double* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds double, ptr %darr, i64 %l1.08
+  %0 = load double, ptr %arrayidx, align 8
   %1 = tail call fast double @llvm.sqrt.f64(double %0) #0
-  store double %1, double* %arrayidx, align 8
+  store double %1, ptr %arrayidx, align 8
   %inc = add nuw nsw i64 %l1.08, 1
   %exitcond.not = icmp eq i64 %inc, %n1
   br i1 %exitcond.not, label %for.end.loopexit, label %for.body, !llvm.loop !11
@@ -99,7 +99,7 @@ for.end:                                          ; preds = %for.end.loopexit, %
 ; CHECK:                          DO i1 = {{.*}}, {{.*}}, 8
 ; CHECK:                    END REGION
 ;
-define void @vecrem2(double* %darr, i64 %n1) {
+define void @vecrem2(ptr %darr, i64 %n1) {
 entry:
   %cmp7 = icmp sgt i64 %n1, 0
   br i1 %cmp7, label %for.body.preheader, label %for.end
@@ -109,11 +109,11 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %l1.08 = phi i64 [ %inc, %for.body ], [ 0, %for.body.preheader ]
-  %arrayidx = getelementptr inbounds double, double* %darr, i64 %l1.08
-  %0 = load double, double* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds double, ptr %darr, i64 %l1.08
+  %0 = load double, ptr %arrayidx, align 8
   %1 = tail call fast double @llvm.sqrt.f64(double %0)
   %div = fdiv fast double 1.000000e+00, %1
-  store double %div, double* %arrayidx, align 8
+  store double %div, ptr %arrayidx, align 8
   %inc = add nuw nsw i64 %l1.08, 1
   %exitcond.not = icmp eq i64 %inc, %n1
   br i1 %exitcond.not, label %for.end.loopexit, label %for.body, !llvm.loop !13

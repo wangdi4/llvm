@@ -32,8 +32,8 @@
 ; CHECK-NEXT:     i32 [[VP1]] = phi  [ i32 [[VP__RED_INIT]], [[BB2]] ],  [ i32 [[VP0]], [[BB0]] ]
 ; CHECK-NEXT:     i32 [[VP5]] = phi  [ i32 [[VP__IND_INIT]], [[BB2]] ],  [ i32 [[VP4]], [[BB0]] ]
 ; CHECK-NEXT:     i64 [[VP7:%.*]] = sext i32 [[VP5]] to i64
-; CHECK-NEXT:     i32* [[VP8:%.*]] = subscript inbounds i32* [[ORDERING0:%.*]] i64 [[VP7]]
-; CHECK-NEXT:     i32 [[VP9:%.*]] = load i32* [[VP8]]
+; CHECK-NEXT:     ptr [[VP8:%.*]] = subscript inbounds ptr [[ORDERING0:%.*]] i64 [[VP7]]
+; CHECK-NEXT:     i32 [[VP9:%.*]] = load ptr [[VP8]]
 ; CHECK-NEXT:     i1 [[VP10:%.*]] = icmp sge i32 [[VP9]] i32 [[VP1]]
 ; CHECK-NEXT:     i32 [[VP2]] = select i1 [[VP10]] i32 [[VP5]] i32 [[VP3]]
 ; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp sge i32 [[VP9]] i32 [[VP1]]
@@ -73,7 +73,7 @@
 ;}
 ;
 ; Function Attrs: norecurse nounwind readonly uwtable
-define dso_local i32 @maxloc(i32 %m, i32* nocapture readonly %ordering) local_unnamed_addr #0 {
+define dso_local i32 @maxloc(i32 %m, ptr nocapture readonly %ordering) local_unnamed_addr #0 {
 entry:
   %cmp22 = icmp sgt i32 %m, 0
   br i1 %cmp22, label %for.body.preheader, label %for.end
@@ -86,8 +86,8 @@ for.body:                                         ; preds = %for.body, %for.body
   %indvars.iv = phi i32 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
   %tmp.024 = phi i32 [ 0, %for.body.preheader ], [ %spec.select20, %for.body ]
   %best.023 = phi i32 [ -111111111, %for.body.preheader ], [ %spec.select, %for.body ]
-  %arrayidx = getelementptr inbounds i32, i32* %ordering, i32 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds i32, ptr %ordering, i32 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %cmp1 = icmp sge i32 %0, %best.023
   %spec.select = select i1 %cmp1, i32 %0, i32 %best.023
 ;  %1 = trunc i64 %indvars.iv to i32

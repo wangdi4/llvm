@@ -62,7 +62,7 @@ DIR.VPO.END.GUARD.MEM.MOTION.426:                 ; preds = %DIR.OMP.SIMD.wide_t
   br label %DIR.VPO.GUARD.MEM.MOTION.2
 
 DIR.VPO.GUARD.MEM.MOTION.2:                       ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.426
-  %guard.start1 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(float* %x.red) ]
+  %guard.start1 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.VPO.GUARD.MEM.MOTION.2
@@ -96,7 +96,7 @@ DIR.OMP.END.SCAN.5:                               ; preds = %DIR.OMP.SCAN.4
   br label %DIR.OMP.END.SCAN.9.split
 
 DIR.OMP.END.SCAN.9.split:                         ; preds = DIR.OMP.END.SCAN.5
-  %guard.start2 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(float* %x.red) ]
+  %guard.start2 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red) ]
   br label %DIR.OMP.END.SCAN.695
 
 DIR.OMP.END.SCAN.695:                             ; preds = %DIR.OMP.END.SCAN.9.split
@@ -142,7 +142,7 @@ DIR.VPO.END.GUARD.MEM.MOTION.4260:                ; preds = %DIR.OMP.SIMD.9, %DI
   br label %DIR.VPO.GUARD.MEM.MOTION.20
 
 DIR.VPO.GUARD.MEM.MOTION.20:                      ; preds = %DIR.VPO.END.GUARD.MEM.MOTION.4260
-  %guard.start3 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(float* %x.red74) ]
+  %guard.start3 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red74) ]
   br label %DIR.OMP.END.SCAN.6
 
 DIR.OMP.END.SCAN.6:                               ; preds = %DIR.VPO.GUARD.MEM.MOTION.20
@@ -173,7 +173,7 @@ DIR.OMP.END.SCAN.12:                              ; preds = %DIR.OMP.SCAN.11
   br label %DIR.OMP.END.SCAN.9.split0
 
 DIR.OMP.END.SCAN.9.split0:                        ; preds = %DIR.OMP.END.SCAN.12
-  %guard.start4 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(float* %x.red74) ]
+  %guard.start4 = call token @llvm.directive.region.entry() [ "DIR.VPO.GUARD.MEM.MOTION"(), "QUAL.OMP.LIVEIN"(ptr %x.red74) ]
   br label %DIR.OMP.END.SCAN.13
 
 DIR.OMP.END.SCAN.13:                              ; preds = %DIR.OMP.END.SCAN.9.split0

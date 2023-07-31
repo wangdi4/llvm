@@ -36,68 +36,68 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
-define dso_local void @nesting9(i64********* noalias nocapture noundef readonly %lp0, i64* noalias nocapture noundef readonly %a, i64* noalias nocapture noundef readonly %c) local_unnamed_addr #0 {
+define dso_local void @nesting9(ptr noalias nocapture noundef readonly %lp0, ptr noalias nocapture noundef readonly %a, ptr noalias nocapture noundef readonly %c) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.end55
   %l1.0103 = phi i64 [ 0, %entry ], [ %inc57, %for.end55 ]
-  %arrayidx = getelementptr inbounds i64********, i64********* %lp0, i64 %l1.0103
-  %0 = load i64********, i64********* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds ptr, ptr %lp0, i64 %l1.0103
+  %0 = load ptr, ptr %arrayidx, align 8
   br label %for.body3
 
 for.body3:                                        ; preds = %for.body, %for.end52
   %l2.0102 = phi i64 [ 0, %for.body ], [ %inc54, %for.end52 ]
-  %arrayidx4 = getelementptr inbounds i64*******, i64******** %0, i64 %l2.0102
-  %1 = load i64*******, i64******** %arrayidx4, align 8
+  %arrayidx4 = getelementptr inbounds ptr, ptr %0, i64 %l2.0102
+  %1 = load ptr, ptr %arrayidx4, align 8
   br label %for.body7
 
 for.body7:                                        ; preds = %for.body3, %for.end49
   %l3.0101 = phi i64 [ 0, %for.body3 ], [ %inc51, %for.end49 ]
-  %arrayidx8 = getelementptr inbounds i64******, i64******* %1, i64 %l3.0101
-  %2 = load i64******, i64******* %arrayidx8, align 8
+  %arrayidx8 = getelementptr inbounds ptr, ptr %1, i64 %l3.0101
+  %2 = load ptr, ptr %arrayidx8, align 8
   br label %for.body11
 
 for.body11:                                       ; preds = %for.body7, %for.end46
   %l4.0100 = phi i64 [ 0, %for.body7 ], [ %inc48, %for.end46 ]
-  %arrayidx12 = getelementptr inbounds i64*****, i64****** %2, i64 %l4.0100
-  %3 = load i64*****, i64****** %arrayidx12, align 8
+  %arrayidx12 = getelementptr inbounds ptr, ptr %2, i64 %l4.0100
+  %3 = load ptr, ptr %arrayidx12, align 8
   br label %for.body15
 
 for.body15:                                       ; preds = %for.body11, %for.end43
   %l5.099 = phi i64 [ 0, %for.body11 ], [ %inc45, %for.end43 ]
-  %arrayidx16 = getelementptr inbounds i64****, i64***** %3, i64 %l5.099
-  %4 = load i64****, i64***** %arrayidx16, align 8
+  %arrayidx16 = getelementptr inbounds ptr, ptr %3, i64 %l5.099
+  %4 = load ptr, ptr %arrayidx16, align 8
   br label %for.body19
 
 for.body19:                                       ; preds = %for.body15, %for.end40
   %l6.098 = phi i64 [ 0, %for.body15 ], [ %inc42, %for.end40 ]
-  %arrayidx20 = getelementptr inbounds i64***, i64**** %4, i64 %l6.098
-  %5 = load i64***, i64**** %arrayidx20, align 8
+  %arrayidx20 = getelementptr inbounds ptr, ptr %4, i64 %l6.098
+  %5 = load ptr, ptr %arrayidx20, align 8
   br label %for.body23
 
 for.body23:                                       ; preds = %for.body19, %for.end37
   %l7.097 = phi i64 [ 0, %for.body19 ], [ %inc39, %for.end37 ]
-  %arrayidx24 = getelementptr inbounds i64**, i64*** %5, i64 %l7.097
-  %6 = load i64**, i64*** %arrayidx24, align 8
+  %arrayidx24 = getelementptr inbounds ptr, ptr %5, i64 %l7.097
+  %6 = load ptr, ptr %arrayidx24, align 8
   br label %for.body27
 
 for.body27:                                       ; preds = %for.body23, %for.end
   %l8.096 = phi i64 [ 0, %for.body23 ], [ %inc36, %for.end ]
-  %arrayidx28 = getelementptr inbounds i64*, i64** %6, i64 %l8.096
-  %7 = load i64*, i64** %arrayidx28, align 8
+  %arrayidx28 = getelementptr inbounds ptr, ptr %6, i64 %l8.096
+  %7 = load ptr, ptr %arrayidx28, align 8
   br label %for.body31
 
 for.body31:                                       ; preds = %for.body27, %for.body31
   %l9.095 = phi i64 [ 0, %for.body27 ], [ %inc, %for.body31 ]
-  %arrayidx32 = getelementptr inbounds i64, i64* %c, i64 %l9.095
-  %8 = load i64, i64* %arrayidx32, align 8
-  %arrayidx33 = getelementptr inbounds i64, i64* %a, i64 %l9.095
-  %9 = load i64, i64* %arrayidx33, align 8
-  %arrayidx34 = getelementptr inbounds i64, i64* %7, i64 %9
-  %10 = load i64, i64* %arrayidx34, align 8
+  %arrayidx32 = getelementptr inbounds i64, ptr %c, i64 %l9.095
+  %8 = load i64, ptr %arrayidx32, align 8
+  %arrayidx33 = getelementptr inbounds i64, ptr %a, i64 %l9.095
+  %9 = load i64, ptr %arrayidx33, align 8
+  %arrayidx34 = getelementptr inbounds i64, ptr %7, i64 %9
+  %10 = load i64, ptr %arrayidx34, align 8
   %add = add nsw i64 %10, %8
-  store i64 %add, i64* %arrayidx34, align 8
+  store i64 %add, ptr %arrayidx34, align 8
   %inc = add nuw nsw i64 %l9.095, 1
   %exitcond.not = icmp eq i64 %inc, 100
   br i1 %exitcond.not, label %for.end, label %for.body31
@@ -147,62 +147,62 @@ for.end58:                                        ; preds = %for.end55
 }
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable
-define dso_local void @nesting8(i64******** noalias nocapture noundef readonly %lp0, i64* noalias nocapture noundef readonly %a, i64* noalias nocapture noundef readonly %c) local_unnamed_addr #0 {
+define dso_local void @nesting8(ptr noalias nocapture noundef readonly %lp0, ptr noalias nocapture noundef readonly %a, ptr noalias nocapture noundef readonly %c) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.end48
   %l1.091 = phi i64 [ 0, %entry ], [ %inc50, %for.end48 ]
-  %arrayidx = getelementptr inbounds i64*******, i64******** %lp0, i64 %l1.091
-  %0 = load i64*******, i64******** %arrayidx, align 8
+  %arrayidx = getelementptr inbounds ptr, ptr %lp0, i64 %l1.091
+  %0 = load ptr, ptr %arrayidx, align 8
   br label %for.body3
 
 for.body3:                                        ; preds = %for.body, %for.end45
   %l2.090 = phi i64 [ 0, %for.body ], [ %inc47, %for.end45 ]
-  %arrayidx4 = getelementptr inbounds i64******, i64******* %0, i64 %l2.090
-  %1 = load i64******, i64******* %arrayidx4, align 8
+  %arrayidx4 = getelementptr inbounds ptr, ptr %0, i64 %l2.090
+  %1 = load ptr, ptr %arrayidx4, align 8
   br label %for.body7
 
 for.body7:                                        ; preds = %for.body3, %for.end42
   %l3.089 = phi i64 [ 0, %for.body3 ], [ %inc44, %for.end42 ]
-  %arrayidx8 = getelementptr inbounds i64*****, i64****** %1, i64 %l3.089
-  %2 = load i64*****, i64****** %arrayidx8, align 8
+  %arrayidx8 = getelementptr inbounds ptr, ptr %1, i64 %l3.089
+  %2 = load ptr, ptr %arrayidx8, align 8
   br label %for.body11
 
 for.body11:                                       ; preds = %for.body7, %for.end39
   %l4.088 = phi i64 [ 0, %for.body7 ], [ %inc41, %for.end39 ]
-  %arrayidx12 = getelementptr inbounds i64****, i64***** %2, i64 %l4.088
-  %3 = load i64****, i64***** %arrayidx12, align 8
+  %arrayidx12 = getelementptr inbounds ptr, ptr %2, i64 %l4.088
+  %3 = load ptr, ptr %arrayidx12, align 8
   br label %for.body15
 
 for.body15:                                       ; preds = %for.body11, %for.end36
   %l5.087 = phi i64 [ 0, %for.body11 ], [ %inc38, %for.end36 ]
-  %arrayidx16 = getelementptr inbounds i64***, i64**** %3, i64 %l5.087
-  %4 = load i64***, i64**** %arrayidx16, align 8
+  %arrayidx16 = getelementptr inbounds ptr, ptr %3, i64 %l5.087
+  %4 = load ptr, ptr %arrayidx16, align 8
   br label %for.body19
 
 for.body19:                                       ; preds = %for.body15, %for.end33
   %l6.086 = phi i64 [ 0, %for.body15 ], [ %inc35, %for.end33 ]
-  %arrayidx20 = getelementptr inbounds i64**, i64*** %4, i64 %l6.086
-  %5 = load i64**, i64*** %arrayidx20, align 8
+  %arrayidx20 = getelementptr inbounds ptr, ptr %4, i64 %l6.086
+  %5 = load ptr, ptr %arrayidx20, align 8
   br label %for.body23
 
 for.body23:                                       ; preds = %for.body19, %for.end
   %l7.085 = phi i64 [ 0, %for.body19 ], [ %inc32, %for.end ]
-  %arrayidx24 = getelementptr inbounds i64*, i64** %5, i64 %l7.085
-  %6 = load i64*, i64** %arrayidx24, align 8
+  %arrayidx24 = getelementptr inbounds ptr, ptr %5, i64 %l7.085
+  %6 = load ptr, ptr %arrayidx24, align 8
   br label %for.body27
 
 for.body27:                                       ; preds = %for.body23, %for.body27
   %l8.084 = phi i64 [ 0, %for.body23 ], [ %inc, %for.body27 ]
-  %arrayidx28 = getelementptr inbounds i64, i64* %c, i64 %l8.084
-  %7 = load i64, i64* %arrayidx28, align 8
-  %arrayidx29 = getelementptr inbounds i64, i64* %a, i64 %l8.084
-  %8 = load i64, i64* %arrayidx29, align 8
-  %arrayidx30 = getelementptr inbounds i64, i64* %6, i64 %8
-  %9 = load i64, i64* %arrayidx30, align 8
+  %arrayidx28 = getelementptr inbounds i64, ptr %c, i64 %l8.084
+  %7 = load i64, ptr %arrayidx28, align 8
+  %arrayidx29 = getelementptr inbounds i64, ptr %a, i64 %l8.084
+  %8 = load i64, ptr %arrayidx29, align 8
+  %arrayidx30 = getelementptr inbounds i64, ptr %6, i64 %8
+  %9 = load i64, ptr %arrayidx30, align 8
   %add = add nsw i64 %9, %7
-  store i64 %add, i64* %arrayidx30, align 8
+  store i64 %add, ptr %arrayidx30, align 8
   %inc = add nuw nsw i64 %l8.084, 1
   %exitcond.not = icmp eq i64 %inc, 100
   br i1 %exitcond.not, label %for.end, label %for.body27

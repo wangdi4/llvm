@@ -11,7 +11,7 @@
 ; }
 ;   
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" -S -vplan-force-vf=4 < %s | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" -S -vplan-force-vf=4 -opaque-pointers < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" -S -vplan-force-vf=4 < %s | FileCheck %s
 
 ; CHECK: llvm.masked.gather.v4i32
 ; CHECK-NEXT: store <4 x i32>
@@ -33,10 +33,10 @@ for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %and = and i64 %indvars.iv.next, 3
-  %arrayidx = getelementptr inbounds [10 x i32], [10 x i32]* @sarr, i64 0, i64 %and
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !1
-  %arrayidx2 = getelementptr inbounds [100 x i32], [100 x i32]* @arr, i64 0, i64 %indvars.iv
-  store i32 %0, i32* %arrayidx2, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds [10 x i32], ptr @sarr, i64 0, i64 %and
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !1
+  %arrayidx2 = getelementptr inbounds [100 x i32], ptr @arr, i64 0, i64 %indvars.iv
+  store i32 %0, ptr %arrayidx2, align 4, !tbaa !1
   %exitcond = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond, label %for.end, label %for.body
 

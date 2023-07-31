@@ -19,7 +19,7 @@ entry:
   br label %preheader
 
 preheader:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(<2 x i32>* %x, <2 x i32> zeroinitializer, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:TYPED"(ptr %x, <2 x i32> zeroinitializer, i32 1) ]
   br label %header
 header:
   %iv = phi i32 [ 0, %preheader ], [ %iv.next, %latch ]
@@ -30,7 +30,7 @@ latch:
  %broadcast.insert = insertelement <2 x i32> undef, i32 %iv, i32 0
  %broadcast.splat = shufflevector <2 x i32> %broadcast.insert, <2 x i32> undef, <2 x i32> zeroinitializer
   %xv = add nsw <2 x i32> %broadcast.splat, <i32 1, i32 1>
-  store <2 x i32> %xv, <2 x i32>* %x, align 4
+  store <2 x i32> %xv, ptr %x, align 4
   %bottom_test = icmp eq i32 %iv.next, 128
   br i1 %bottom_test, label %loopexit, label %header
 
@@ -42,7 +42,7 @@ endloop:
   br label %exit
 
 exit:
-  %r = load <2 x i32>, <2 x i32>* %x, align 4
+  %r = load <2 x i32>, ptr %x, align 4
   ret <2 x i32> %r
 }
 

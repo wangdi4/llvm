@@ -20,7 +20,7 @@ entry:
 
 for.cond1.preheader:                              ; preds = %for.end, %entry
   %i.014 = phi i32 [ 17, %entry ], [ %inc, %for.end ]
-  %0 = load i32, i32* @g, align 4, !tbaa !2
+  %0 = load i32, ptr @g, align 4, !tbaa !2
   %tobool = icmp eq i32 %0, 0
   br label %for.body3
 
@@ -29,8 +29,8 @@ for.body3:                                        ; preds = %for.cond1.preheader
   br i1 %tobool, label %lor.rhs, label %lor.end
 
 lor.rhs:                                          ; preds = %for.body3
-  %arrayidx = getelementptr inbounds [64 x i64], [64 x i64]* @a, i64 0, i64 %indvars.iv, !intel-tbaa !6
-  %1 = load i64, i64* %arrayidx, align 8, !tbaa !6
+  %arrayidx = getelementptr inbounds [64 x i64], ptr @a, i64 0, i64 %indvars.iv, !intel-tbaa !6
+  %1 = load i64, ptr %arrayidx, align 8, !tbaa !6
   %tobool4 = icmp ne i64 %1, 0
   br label %lor.end
 
@@ -44,7 +44,7 @@ lor.end:                                          ; preds = %for.body3, %lor.rhs
 for.end:                                          ; preds = %lor.end
   %.lcssa = phi i1 [ %2, %lor.end ]
   %lor.ext.le = zext i1 %.lcssa to i32
-  %call = tail call i32 (i32, ...) bitcast (i32 (...)* @print_int to i32 (i32, ...)*)(i32 %lor.ext.le) #2
+  %call = tail call i32 (i32, ...) @print_int(i32 %lor.ext.le) #2
   %inc = add nuw nsw i32 %i.014, 1
   %exitcond = icmp eq i32 %inc, 47
   br i1 %exitcond, label %for.end6, label %for.cond1.preheader

@@ -36,20 +36,20 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.cond.cleanup3:                                ; preds = %for.body4
   %add.lcssa = phi i32 [ %add, %for.body4 ]
-  %arrayidx9 = getelementptr inbounds [1024 x i32], [1024 x i32]* @c, i64 0, i64 %indvars.iv32
-  store i32 %add.lcssa, i32* %arrayidx9, align 4, !tbaa !2
+  %arrayidx9 = getelementptr inbounds [1024 x i32], ptr @c, i64 0, i64 %indvars.iv32
+  store i32 %add.lcssa, ptr %arrayidx9, align 4, !tbaa !2
   %indvars.iv.next33 = add nuw nsw i64 %indvars.iv32, 1
   %exitcond35 = icmp eq i64 %indvars.iv.next33, %wide.trip.count
   br i1 %exitcond35, label %for.cond.cleanup.loopexit, label %for.body4.preheader
 
 for.body4:                                        ; preds = %for.body4, %for.body4.preheader
   %indvars.iv = phi i64 [ 0, %for.body4.preheader ], [ %indvars.iv.next, %for.body4 ]
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* @a, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [1024 x i32], ptr @a, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %add = add nsw i32 %0, %n
   %add5 = add nsw i32 %add, 1
-  %arrayidx7 = getelementptr inbounds [1024 x i32], [1024 x i32]* @b, i64 0, i64 %indvars.iv
-  store i32 %add5, i32* %arrayidx7, align 4, !tbaa !2
+  %arrayidx7 = getelementptr inbounds [1024 x i32], ptr @b, i64 0, i64 %indvars.iv
+  store i32 %add5, ptr %arrayidx7, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.cond.cleanup3, label %for.body4

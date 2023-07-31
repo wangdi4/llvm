@@ -10,7 +10,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @scratc_ = external unnamed_addr global [524288 x i8], align 32
 
 ; Function Attrs: nounwind readnone speculatable
-declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i64) #0
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #0
 
 define void @fbuild_(i64 %n, i32 %v) local_unnamed_addr #1 {
 ; CHECK:  BEGIN REGION { modified }
@@ -36,8 +36,8 @@ bb377:                                            ; preds = %bb377, %bb373
   %indvars.iv130 = phi i64 [ %indvars.iv, %bb373 ], [ %indvars.iv.next131, %bb377 ]
   %rel.183 = icmp ugt i64 %indvars.iv, 2
   %sub.70 = select i1 %rel.183, double 1.000000e+00, double 0.000000e+00
-  %"val$[]46" = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) bitcast ([524288 x i8]* @scratc_ to i32*), i64 %indvars.iv130)
-  store i32 %v, i32* %"val$[]46", align 4
+  %"val$[]46" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) @scratc_, i64 %indvars.iv130)
+  store i32 %v, ptr %"val$[]46", align 4
   %indvars.iv.next131 = add nuw nsw i64 %indvars.iv130, 1
   %exitcond = icmp eq i64 %indvars.iv.next131, %n
   br i1 %exitcond, label %bb395.preheader, label %bb377

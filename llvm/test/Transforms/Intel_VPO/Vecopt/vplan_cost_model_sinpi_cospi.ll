@@ -15,27 +15,27 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %struct.kValues = type { float, float, float }
 
-define void @foo(%struct.kValues* %src, float* %dest, i64 %wide.trip.count) {
+define void @foo(ptr %src, ptr %dest, i64 %wide.trip.count) {
 for.preheader:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body
 
 for.body:
   %indvars.iv = phi i64 [ 0, %for.preheader ], [ %indvars.iv.next, %for.body ]
-  %Kx = getelementptr inbounds %struct.kValues, %struct.kValues* %src, i64 %indvars.iv, i32 0
-  %Kx.load = load float, float* %Kx, align 4
-  %Ky = getelementptr inbounds %struct.kValues, %struct.kValues* %src, i64 %indvars.iv, i32 1
-  %Ky.load = load float, float* %Ky, align 4
+  %Kx = getelementptr inbounds %struct.kValues, ptr %src, i64 %indvars.iv, i32 0
+  %Kx.load = load float, ptr %Kx, align 4
+  %Ky = getelementptr inbounds %struct.kValues, ptr %src, i64 %indvars.iv, i32 1
+  %Ky.load = load float, ptr %Ky, align 4
   %add28 = fadd fast float %Kx.load, %Ky.load
-  %Kz = getelementptr inbounds %struct.kValues, %struct.kValues* %src, i64 %indvars.iv, i32 2
-  %Kz.load = load float, float* %Kz, align 4
+  %Kz = getelementptr inbounds %struct.kValues, ptr %src, i64 %indvars.iv, i32 2
+  %Kz.load = load float, ptr %Kz, align 4
   %add34 = fadd fast float %add28, %Kz.load
   %mul35.overpi = fmul fast float %add34, 2.000000e+00
   %cos.val = call fast float @cospif(float %mul35.overpi)
   %sin.val = call fast float @sinpif(float %mul35.overpi)
   %res.val = fadd fast float %cos.val, %sin.val
-  %res.ptr = getelementptr inbounds float, float* %dest, i64 %indvars.iv
-  store float %res.val, float* %res.ptr, align 4
+  %res.ptr = getelementptr inbounds float, ptr %dest, i64 %indvars.iv
+  store float %res.val, ptr %res.ptr, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.exit, label %for.body

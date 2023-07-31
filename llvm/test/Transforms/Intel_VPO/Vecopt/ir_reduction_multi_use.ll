@@ -6,7 +6,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define float @expl_reduction_sub(float* nocapture %x2) {
+define float @expl_reduction_sub(ptr nocapture %x2) {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
 ; CHECK-NEXT:  VPlan IR for: expl_reduction_sub:for.body.#{{[0-9]+}}
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
@@ -58,20 +58,20 @@ define float @expl_reduction_sub(float* nocapture %x2) {
 ; CHECK-NEXT:    [[ADD_LCSSA0:%.*]] = phi float [ [[UNI_PHI70]], [[FINAL_MERGE0:%.*]] ]
 ; CHECK-NEXT:    [[ADD_LCSSA10:%.*]] = phi float [ [[UNI_PHI60]], [[FINAL_MERGE0]] ]
 ; CHECK:       DIR.QUAL.LIST.END.3:
-; CHECK-NEXT:    store float [[ADD_LCSSA0]], float* [[X0:%.*]], align 4
-; CHECK-NEXT:    store float [[ADD_LCSSA10]], float* [[X20:%.*]], align 4
+; CHECK-NEXT:    store float [[ADD_LCSSA0]], ptr [[X0:%.*]], align 4
+; CHECK-NEXT:    store float [[ADD_LCSSA10]], ptr [[X20:%.*]], align 4
 ;
 entry:
   %x = alloca float, align 4
-  store float 0.000000e+00, float* %x, align 4
+  store float 0.000000e+00, ptr %x, align 4
   br label %entry.split
 
 entry.split:                                      ; preds = %entry
-%tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.REDUCTION.ADD:TYPED"(float* %x, float zeroinitializer, i32 1) ]
+%tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 8), "QUAL.OMP.REDUCTION.ADD:TYPED"(ptr %x, float zeroinitializer, i32 1) ]
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %entry.split
-  %x.promoted = load float, float* %x, align 4
+  %x.promoted = load float, ptr %x, align 4
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %DIR.QUAL.LIST.END.2
@@ -92,8 +92,8 @@ for.end1:                                         ; preds = %for.end
   br label %DIR.QUAL.LIST.END.3
 
 DIR.QUAL.LIST.END.3:                              ; preds = %for.end
-  store float %add.lcssa, float* %x, align 4
-  store float %add.lcssa1, float* %x2, align 4
+  store float %add.lcssa, ptr %x, align 4
+  store float %add.lcssa1, ptr %x2, align 4
   ret float %add.lcssa
 }
 

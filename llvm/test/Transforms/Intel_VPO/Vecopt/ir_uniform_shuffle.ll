@@ -4,16 +4,15 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i64 *%a, i64 *%b) {
+define void @foo(ptr %a, ptr %b) {
 ; CHECK-LABEL: @foo(
 ; CHECK:         [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP7:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH]] ], [ [[TMP6:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr i64, i64* [[A:%.*]], i64 [[UNI_PHI]]
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i64* [[SCALAR_GEP]] to <4 x i64>*
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i64>, <4 x i64>* [[TMP0]], align 8
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr i64, ptr [[A:%.*]], i64 [[UNI_PHI]]
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i64>, ptr [[SCALAR_GEP]], align 8
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <4 x i64> [[WIDE_LOAD]] to <8 x i32>
 ; CHECK-NEXT:    [[TMP2:%.*]] = shufflevector <8 x i32> [[TMP1]], <8 x i32> [[TMP1]], <8 x i32> <i32 9, i32 0, i32 11, i32 2, i32 13, i32 4, i32 15, i32 6>
-; CHECK-NEXT:    [[TMP3:%.*]] = load i64, i64* [[B:%.*]], align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = load i64, ptr [[B:%.*]], align 8
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i64 [[TMP3]] to <2 x i32>
 ; CHECK-NEXT:    [[TMP5:%.*]] = shufflevector <2 x i32> [[TMP4]], <2 x i32> [[TMP4]], <2 x i32> <i32 3, i32 0>
 ; CHECK-NEXT:    [[TMP6]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
@@ -28,12 +27,12 @@ entry:
 header:
   %iv = phi i64 [ 0, %entry ], [ %iv.next, %header ]
 
-  %ptr = getelementptr i64, i64 *%a, i64 %iv
-  %ld = load i64, i64 *%ptr
+  %ptr = getelementptr i64, ptr %a, i64 %iv
+  %ld = load i64, ptr %ptr
   %vec = bitcast i64 %ld to <2 x i32>
   %shuffle = shufflevector <2 x i32> %vec, <2 x i32> %vec, <2 x i32><i32 3, i32 0>
 
-  %ld.uni = load i64, i64 *%b
+  %ld.uni = load i64, ptr %b
   %vec.uni = bitcast i64 %ld.uni to <2 x i32>
   %shuffle.uni = shufflevector <2 x i32> %vec.uni, <2 x i32> %vec.uni, <2 x i32><i32 3, i32 0>
 

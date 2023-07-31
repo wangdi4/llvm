@@ -55,15 +55,15 @@ define dso_local i64 @_Z3fooPlS_() local_unnamed_addr {
 ;
 omp.inner.for.body.lr.ph:
   %ret.lpriv = alloca i64, align 8
-  store i64 0, i64* %ret.lpriv, align 8
+  store i64 0, ptr %ret.lpriv, align 8
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL.TYPED"(i64* %ret.lpriv, i64 0, i32 1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:CONDITIONAL.TYPED"(ptr %ret.lpriv, i64 0, i32 1) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
-  %ret.lpriv.promoted = load i64, i64* %ret.lpriv, align 8
+  %ret.lpriv.promoted = load i64, ptr %ret.lpriv, align 8
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %cleanup

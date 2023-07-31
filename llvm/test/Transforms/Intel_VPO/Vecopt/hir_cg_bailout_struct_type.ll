@@ -40,10 +40,10 @@ alloca:
 bb5:                                            ; preds = %bb5, %alloca
   %p0 = phi i32 [ 0, %alloca ], [ %add21, %bb5 ]
   %int_sext17 = sext i32 %p0 to i64
-  %pR = getelementptr inbounds [100 x %complex_64bit], [100 x %complex_64bit]* @pR, i32 0, i64 %int_sext17
-  %pR_fetch = load %complex_64bit, %complex_64bit* %pR
-  %pS = getelementptr inbounds [100 x %complex_64bit], [100 x %complex_64bit]* @pS, i32 0, i64 %int_sext17
-  store %complex_64bit %pR_fetch, %complex_64bit* %pS
+  %pR = getelementptr inbounds [100 x %complex_64bit], ptr @pR, i32 0, i64 %int_sext17
+  %pR_fetch = load %complex_64bit, ptr %pR
+  %pS = getelementptr inbounds [100 x %complex_64bit], ptr @pS, i32 0, i64 %int_sext17
+  store %complex_64bit %pR_fetch, ptr %pS
   %add21 = add nsw i32 %p0, 1
   %rel = icmp sle i32 %add21, 5
   br i1 %rel, label %bb5, label %bb1

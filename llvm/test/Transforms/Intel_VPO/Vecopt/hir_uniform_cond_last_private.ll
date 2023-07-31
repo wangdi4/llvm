@@ -13,7 +13,7 @@ declare token @llvm.directive.region.entry() #0
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #0
 
-define void @foo(i1 %cond, i32* %val) #1 {
+define void @foo(i1 %cond, ptr %val) #1 {
 ; CHECK-LABEL: Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  BEGIN REGION { modified }
@@ -81,7 +81,7 @@ merge:                                             ; preds = %if.then, %for.body
 
 DIR.OMP.END.SIMD.2:                               ; preds = %merge
   %priv.lcssa = phi i32 [ %priv.next, %merge ]
-  store i32 %priv.lcssa, i32* %val, align 8
+  store i32 %priv.lcssa, ptr %val, align 8
   br label %DIR.OMP.END.SIMD.224
 
 DIR.OMP.END.SIMD.224:                             ; preds = %DIR.OMP.END.SIMD.2

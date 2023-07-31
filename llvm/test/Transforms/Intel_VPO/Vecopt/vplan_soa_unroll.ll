@@ -35,11 +35,10 @@ define void @baz() {
 ;
 entry:
   %arr.priv = alloca [4 x i64], align 16
-  %arr.priv.gep = getelementptr inbounds [4 x i64], ptr %arr.priv, i64 0, i64 0
   br label %for.ph
 
 for.ph:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr.priv.gep, i64 0, i64 4) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.PRIVATE:TYPED"(ptr %arr.priv, i64 0, i64 4) ]
   br label %for.body
 
 for.body:

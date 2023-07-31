@@ -6,38 +6,38 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ;
-define void @foo(i32* nocapture %ary) {
+define void @foo(ptr nocapture %ary) {
 ; CHECK-LABEL:  Received a request from Client---FORM GROUPS
 ; CHECK-NEXT:    Received a vector of memrefs (3):
-; CHECK-NEXT:    #1 <4 x 32> SStore: store i32 0 i32* [[VP_P0:%.*]]
-; CHECK-NEXT:    #2 <4 x 32> SStore: store i32 1 i32* [[VP_P1:%.*]]
-; CHECK-NEXT:    #3 <4 x 32> SStore: store i32 3 i32* [[VP_P2:%.*]]
+; CHECK-NEXT:    #1 <4 x 32> SStore: store i32 0 ptr [[VP_P0:%.*]]
+; CHECK-NEXT:    #2 <4 x 32> SStore: store i32 1 ptr [[VP_P1:%.*]]
+; CHECK-NEXT:    #3 <4 x 32> SStore: store i32 3 ptr [[VP_P2:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Split the vector memrefs into sub groups of adjacacent memrefs:
 ; CHECK-NEXT:      Distance is (in bytes) from the first memref of the set
 ; CHECK:         Set #1
-; CHECK-NEXT:    #3 <4 x 32> SStore: store i32 3 i32* [[VP_P2]]   Dist: 0
+; CHECK-NEXT:    #3 <4 x 32> SStore: store i32 3 ptr [[VP_P2]]   Dist: 0
 ; CHECK-NEXT:    Set #2
-; CHECK-NEXT:    #2 <4 x 32> SStore: store i32 1 i32* [[VP_P1]]   Dist: 0
+; CHECK-NEXT:    #2 <4 x 32> SStore: store i32 1 ptr [[VP_P1]]   Dist: 0
 ; CHECK-NEXT:    Set #3
-; CHECK-NEXT:    #1 <4 x 32> SStore: store i32 0 i32* [[VP_P0]]   Dist: 0
+; CHECK-NEXT:    #1 <4 x 32> SStore: store i32 0 ptr [[VP_P0]]   Dist: 0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Printing Groups- Total Groups 3
 ; CHECK-NEXT:    Group#1:
 ; CHECK-NEXT:      Vector Length(in bytes): 64
 ; CHECK-NEXT:      AccType: SStore, Stride (in bytes): 48
 ; CHECK-NEXT:      AccessMask(per byte, R to L): 1111
-; CHECK-NEXT:     #3 <4 x 32> SStore: store i32 3 i32* [[VP_P2]]
+; CHECK-NEXT:     #3 <4 x 32> SStore: store i32 3 ptr [[VP_P2]]
 ; CHECK-NEXT:    Group#2:
 ; CHECK-NEXT:      Vector Length(in bytes): 64
 ; CHECK-NEXT:      AccType: SStore, Stride (in bytes): 48
 ; CHECK-NEXT:      AccessMask(per byte, R to L): 1111
-; CHECK-NEXT:     #2 <4 x 32> SStore: store i32 1 i32* [[VP_P1]]
+; CHECK-NEXT:     #2 <4 x 32> SStore: store i32 1 ptr [[VP_P1]]
 ; CHECK-NEXT:    Group#3:
 ; CHECK-NEXT:      Vector Length(in bytes): 64
 ; CHECK-NEXT:      AccType: SStore, Stride (in bytes): 48
 ; CHECK-NEXT:      AccessMask(per byte, R to L): 1111
-; CHECK-NEXT:     #1 <4 x 32> SStore: store i32 0 i32* [[VP_P0]]
+; CHECK-NEXT:     #1 <4 x 32> SStore: store i32 0 ptr [[VP_P0]]
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
@@ -48,21 +48,21 @@ for.body:
   %mul = mul nsw i64 %indvars.iv, 4
 
   ; t0 = ary[4*i + 0];
-  %p0 = getelementptr inbounds i32, i32* %ary, i64 %mul
-  ; %t0 = load i32, i32* %p0, align 4
-  store i32 0, i32* %p0
+  %p0 = getelementptr inbounds i32, ptr %ary, i64 %mul
+  ; %t0 = load i32, ptr %p0, align 4
+  store i32 0, ptr %p0
 
   ; t1 = ary[4*i + 1];
   %i1 = sub nsw i64 %mul, 400
-  %p1 = getelementptr inbounds i32, i32* %ary, i64 %i1
-  ; %t1 = load i32, i32* %p1, align 4
-  store i32 1, i32* %p1
+  %p1 = getelementptr inbounds i32, ptr %ary, i64 %i1
+  ; %t1 = load i32, ptr %p1, align 4
+  store i32 1, ptr %p1
 
   ; t2 = ary[4*i - 1001];
   %i2 = sub nsw i64 %mul, 200
-  %p2 = getelementptr inbounds i32, i32* %ary, i64 %i2
-  ; %t2 = load i32, i32* %p2, align 4
-  store i32 3, i32* %p2
+  %p2 = getelementptr inbounds i32, ptr %ary, i64 %i2
+  ; %t2 = load i32, ptr %p2, align 4
+  store i32 3, ptr %p2
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 3
   %cmp = icmp ult i64 %indvars.iv.next, 3072

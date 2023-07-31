@@ -20,13 +20,13 @@ target triple = "x86_64-unknown-linux-gnu"
 ;    |   (%i87)[-1 * i1 + -1] = 0;
 ;    + END LOOP
 
-define void @Perl_do_open6( i8* %arg1,    i32 %arg5, i8* %i87, i8 *%i85) {
+define void @Perl_do_open6( ptr %arg1,    i32 %arg5, ptr %i87, ptr %i85) {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK-NEXT:  VPlan IR for: Perl_do_open6:HIR.#{{[0-9]+}}
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {@PL_charclass}
 ; CHECK-DAG:     [[VP1:%.*]] = {%i87}
-; CHECK-DAG:     [[VP2:%.*]] = {-1 * umin((-1 + ptrtoint.i8*.i64(%i87)), ptrtoint.i8*.i64(%i85)) + ptrtoint.i8*.i64(%i87) + -1}
+; CHECK-DAG:     [[VP2:%.*]] = {-1 * umin((-1 + ptrtoint.ptr.i64(%i87)), ptrtoint.ptr.i64(%i85)) + ptrtoint.ptr.i64(%i87) + -1}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
@@ -38,15 +38,15 @@ define void @Perl_do_open6( i8* %arg1,    i32 %arg5, i8* %i87, i8 *%i85) {
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:     i64 [[VP4:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP5:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     i64 [[VP6:%.*]] = mul i64 -1 i64 [[VP4]]
-; CHECK-NEXT:     i8* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i8* [[I870:%.*]] i64 [[VP6]]
-; CHECK-NEXT:     i8* [[VP7:%.*]] = hir-copy i8* [[VP_SUBSCRIPT]] , OriginPhiId: -1
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT:%.*]] = subscript inbounds ptr [[I870:%.*]] i64 [[VP6]]
+; CHECK-NEXT:     ptr [[VP7:%.*]] = hir-copy ptr [[VP_SUBSCRIPT]] , OriginPhiId: -1
 ; CHECK-NEXT:     i64 [[VP9:%.*]] = add i64 [[VP6]] i64 -1
-; CHECK-NEXT:     i8* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i8* [[I870]] i64 [[VP9]]
-; CHECK-NEXT:     i8* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i8* [[I870]] i64 [[VP9]]
-; CHECK-NEXT:     i8 [[VP_LOAD:%.*]] = load i8* [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds ptr [[I870]] i64 [[VP9]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds ptr [[I870]] i64 [[VP9]]
+; CHECK-NEXT:     i8 [[VP_LOAD:%.*]] = load ptr [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:     i64 [[VP12:%.*]] = zext i8 [[VP_LOAD]] to i64
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [256 x i32]* @PL_charclass i64 0 i64 [[VP12]]
-; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_3]]
+; CHECK-NEXT:     ptr [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds ptr @PL_charclass i64 0 i64 [[VP12]]
+; CHECK-NEXT:     i32 [[VP_LOAD_1:%.*]] = load ptr [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:     i32 [[VP13:%.*]] = and i32 [[VP_LOAD_1]] i32 17408
 ; CHECK-NEXT:     i1 [[VP14:%.*]] = icmp ne i32 [[VP13]] i32 17408
 ; CHECK-NEXT:     br i1 [[VP14]], [[BB4:BB[0-9]+]], [[BB3]]
@@ -54,8 +54,8 @@ define void @Perl_do_open6( i8* %arg1,    i32 %arg5, i8* %i87, i8 *%i85) {
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:       i64 [[VP15:%.*]] = mul i64 -1 i64 [[VP4]]
 ; CHECK-NEXT:       i64 [[VP16:%.*]] = add i64 [[VP15]] i64 -1
-; CHECK-NEXT:       i8* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i8* [[I870]] i64 [[VP16]]
-; CHECK-NEXT:       store i8 0 i8* [[VP_SUBSCRIPT_4]]
+; CHECK-NEXT:       ptr [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds ptr [[I870]] i64 [[VP16]]
+; CHECK-NEXT:       store i8 0 ptr [[VP_SUBSCRIPT_4]]
 ; CHECK-NEXT:       i64 [[VP5]] = add i64 [[VP4]] i64 1
 ; CHECK-NEXT:       i1 [[VP17:%.*]] = icmp slt i64 [[VP5]] i64 [[VP3]]
 ; CHECK-NEXT:       br i1 [[VP17]], [[BB2]], [[BB5:BB[0-9]+]]
@@ -73,31 +73,31 @@ define void @Perl_do_open6( i8* %arg1,    i32 %arg5, i8* %i87, i8 *%i85) {
 ; CHECK-NEXT:     br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0   i8* [[VP7]] -> [[VP18:%.*]] = {%i91.out}
+; CHECK-NEXT:  Id: 0   ptr [[VP7]] -> [[VP18:%.*]] = {%i91.out}
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Id: 1   i8* [[VP_SUBSCRIPT_1]] -> [[VP19:%.*]] = {%i92}
+; CHECK-NEXT:  Id: 1   ptr [[VP_SUBSCRIPT_1]] -> [[VP19:%.*]] = {%i92}
 ;
 bb89:
   br label %bb90
 
 bb90:
-  %i91 = phi i8* [ %i92, %bb99 ], [ %i87, %bb89 ]
-  %i92 = getelementptr inbounds i8, i8* %i91, i64 -1
-  %i93 = load i8, i8* %i92, align 1
+  %i91 = phi ptr [ %i92, %bb99 ], [ %i87, %bb89 ]
+  %i92 = getelementptr inbounds i8, ptr %i91, i64 -1
+  %i93 = load i8, ptr %i92, align 1
   %i94 = zext i8 %i93 to i64
-  %i95 = getelementptr inbounds [256 x i32], [256 x i32]* @PL_charclass, i64 0, i64 %i94
-  %i96 = load i32, i32* %i95, align 4
+  %i95 = getelementptr inbounds [256 x i32], ptr @PL_charclass, i64 0, i64 %i94
+  %i96 = load i32, ptr %i95, align 4
   %i97 = and i32 %i96, 17408
   %i98 = icmp eq i32 %i97, 17408
   br i1 %i98, label %bb99, label %bb101
 
 bb99:
-  store i8 0, i8* %i92, align 1
-  %i100 = icmp ugt i8* %i92, %i85
+  store i8 0, ptr %i92, align 1
+  %i100 = icmp ugt ptr %i92, %i85
   br i1 %i100, label %bb90, label %bb101
 
 bb101:
-  %i102 = phi i8* [ %i91, %bb90 ], [ %i92, %bb99 ]
+  %i102 = phi ptr [ %i91, %bb90 ], [ %i92, %bb99 ]
   br label %bb103
 
 bb103:

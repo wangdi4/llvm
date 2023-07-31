@@ -3,8 +3,8 @@
 ; RUN: opt %s -passes=vplan-vec -vplan-force-vf=2 -S | FileCheck %s
 
 ; CHECK-LABEL: vector.body:
-; CHECK:         [[F1:%.*]] = extractelement <2 x i32 (i32)*> [[WIDE_MASKED_LOAD:%.*]], i32 1
-; CHECK-NEXT:    [[F0:%.*]] = extractelement <2 x i32 (i32)*> [[WIDE_MASKED_LOAD]], i32 0
+; CHECK:         [[F1:%.*]] = extractelement <2 x ptr> [[WIDE_MASKED_LOAD:%.*]], i32 1
+; CHECK-NEXT:    [[F0:%.*]] = extractelement <2 x ptr> [[WIDE_MASKED_LOAD]], i32 0
 ; CHECK:         [[ARG1:%.*]] = extractelement <2 x i32> [[WIDE_ARGS:%.*]], i32 1
 ; CHECK-NEXT:    [[ARG0:%.*]] = extractelement <2 x i32> [[WIDE_ARGS]], i32 0
 ; CHECK-NEXT:    [[PREDICATE0:%.*]] = extractelement <2 x i1> [[COND:%.*]], i64 0
@@ -31,13 +31,13 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @bar(i32* nocapture readonly %p1, i32 (i32)** nocapture readonly %p2, i32 %n) local_unnamed_addr #0 {
+define dso_local void @bar(ptr nocapture readonly %p1, ptr nocapture readonly %p2, i32 %n) local_unnamed_addr #0 {
 entry:
   %cmp = icmp sgt i32 %n, 0
   br i1 %cmp, label %DIR.OMP.SIMD.1, label %omp.precond.end
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
   br label %DIR.OMP.SIMD.119
 
 DIR.OMP.SIMD.119:                                 ; preds = %DIR.OMP.SIMD.1
@@ -46,14 +46,14 @@ DIR.OMP.SIMD.119:                                 ; preds = %DIR.OMP.SIMD.1
 
 omp.inner.for.body:                               ; preds = %omp.body.continue, %DIR.OMP.SIMD.119
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.119 ], [ %indvars.iv.next, %omp.body.continue ]
-  %arrayidx = getelementptr inbounds i32, i32* %p1, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds i32, ptr %p1, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx, align 4, !tbaa !2
   %cmp6 = icmp sgt i32 %1, %n
   br i1 %cmp6, label %if.then, label %omp.body.continue
 
 if.then:                                          ; preds = %omp.inner.for.body
-  %arrayidx8 = getelementptr inbounds i32 (i32)*, i32 (i32)** %p2, i64 %indvars.iv
-  %2 = load i32 (i32)*, i32 (i32)** %arrayidx8, align 8, !tbaa !6
+  %arrayidx8 = getelementptr inbounds ptr, ptr %p2, i64 %indvars.iv
+  %2 = load ptr, ptr %arrayidx8, align 8, !tbaa !6
   %3 = trunc i64 %indvars.iv to i32
   %call = call i32 %2(i32 %3) #1
   br label %omp.body.continue

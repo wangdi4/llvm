@@ -28,14 +28,12 @@ define void @test(ptr nocapture readonly %p1, ptr nocapture readonly %p2) {
 ; CHECK:       bb39:
 ; CHECK-NEXT:    br i1 undef, label [[BB45:%.*]], label [[BB53:%.*]]
 ; CHECK:       bb45:
-; CHECK-NEXT:    [[I:%.*]] = getelementptr float, ptr [[P1:%.*]], i32 0
-; CHECK-NEXT:    [[I49:%.*]] = getelementptr float, ptr [[P1]], i32 1
-; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x float>, ptr [[I]], align 4
+; CHECK-NEXT:    [[I49:%.*]] = getelementptr float, ptr [[P1:%.*]], i32 1
+; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x float>, ptr [[P1]], align 4
 ; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x float>, ptr [[I49]], align 4
 ; CHECK-NEXT:    [[SPLITLOADSHUFFLE:%.*]] = shufflevector <2 x float> [[TMP0]], <2 x float> [[TMP1]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    br label [[BB63:%.*]]
 ; CHECK:       bb53:
-; CHECK-NEXT:    [[I54:%.*]] = getelementptr float, ptr null, i32 0
 ; CHECK-NEXT:    [[I56:%.*]] = getelementptr float, ptr [[P2:%.*]], i32 1
 ; CHECK-NEXT:    br i1 undef, label [[BB146:%.*]], label [[BB136:%.*]]
 ; CHECK:       bb58:
@@ -45,7 +43,7 @@ define void @test(ptr nocapture readonly %p1, ptr nocapture readonly %p2) {
 ; CHECK-NEXT:    [[TMP3:%.*]] = phi <4 x float> [ [[TMP2]], [[BB58:%.*]] ], [ [[SPLITLOADSHUFFLE]], [[BB45]] ]
 ; CHECK-NEXT:    br label [[BB39]]
 ; CHECK:       bb136:
-; CHECK-NEXT:    [[TMP4:%.*]] = load <2 x float>, ptr [[I54]], align 4
+; CHECK-NEXT:    [[TMP4:%.*]] = load <2 x float>, ptr null, align 4
 ; CHECK-NEXT:    br label [[BB139]]
 ; CHECK:       bb139:
 ; CHECK-NEXT:    [[TMP5:%.*]] = load <2 x float>, ptr [[I56]], align 4
@@ -56,7 +54,7 @@ define void @test(ptr nocapture readonly %p1, ptr nocapture readonly %p2) {
 ; CHECK:       bb146:
 ; CHECK-NEXT:    br i1 undef, label [[BB159:%.*]], label [[BB147]]
 ; CHECK:       bb147:
-; CHECK-NEXT:    [[TMP9:%.*]] = load <2 x float>, ptr [[I54]], align 4
+; CHECK-NEXT:    [[TMP9:%.*]] = load <2 x float>, ptr null, align 4
 ; CHECK-NEXT:    [[TMP10]] = shufflevector <2 x float> [[TMP9]], <2 x float> poison, <4 x i32> <i32 0, i32 1, i32 poison, i32 poison>
 ; CHECK-NEXT:    br i1 undef, label [[BB150]], label [[BB58]]
 ; CHECK:       bb150:
@@ -76,8 +74,7 @@ bb39:                                             ; preds = %bb159, %bb63, %entr
   br i1 undef, label %bb45, label %bb53
 
 bb45:                                             ; preds = %bb39
-  %i = getelementptr float, ptr %p1, i32 0
-  %i46 = load float, ptr %i, align 4
+  %i46 = load float, ptr %p1, align 4
   %i47 = getelementptr float, ptr %p1, i32 1
   %i48 = load float, ptr %i47, align 4
   %i49 = getelementptr float, ptr %p1, i32 1
@@ -87,7 +84,6 @@ bb45:                                             ; preds = %bb39
   br label %bb63
 
 bb53:                                             ; preds = %bb39
-  %i54 = getelementptr float, ptr null, i32 0
   %i55 = getelementptr float, ptr null, i32 1
   %i56 = getelementptr float, ptr %p2, i32 1
   %i57 = getelementptr float, ptr %p2, i32 2
@@ -108,7 +104,7 @@ bb63:                                             ; preds = %bb58, %bb45
   br label %bb39
 
 bb136:                                            ; preds = %bb53
-  %i137 = load float, ptr %i54, align 4
+  %i137 = load float, ptr null, align 4
   %i138 = load float, ptr %i55, align 4
   br label %bb139
 
@@ -121,7 +117,7 @@ bb146:                                            ; preds = %bb139, %bb53
   br i1 undef, label %bb159, label %bb147
 
 bb147:                                            ; preds = %bb146
-  %i148 = load float, ptr %i54, align 4
+  %i148 = load float, ptr null, align 4
   %i149 = load float, ptr %i55, align 4
   br i1 undef, label %bb150, label %bb58
 
