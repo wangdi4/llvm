@@ -195,7 +195,10 @@ public:
 private:
   void setIsConstTC(bool ConstTC) { IsConstTC = ConstTC; }
   void setMainUF(unsigned N) {MainUF = N;}
-  void resetRemainders() { Remainders.clear(); }
+  void resetRemainders() {
+    Remainders.clear();
+    MinProfitableMaskedRemTC = 0;
+  }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Keep it for debug purpose only (used by fromString())
