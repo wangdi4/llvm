@@ -675,25 +675,31 @@ typedef struct __tile1024i_str {
 /* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */
-#if defined(__SHA512_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__SHA512__) || defined(__M_INTRINSIC_PROMOTE__)
+/* end INTEL_CUSTOMIZATION */
 #include <sha512intrin.h>
 #endif
 #endif
 
+/* INTEL_CUSTOMIZATION */
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__SM3__)
+    defined(__SM3__) || defined(__M_INTRINSIC_PROMOTE__)
+/* end INTEL_CUSTOMIZATION */
 #include <sm3intrin.h>
 #endif
 
+/* INTEL_CUSTOMIZATION */
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__SM4__)
+    defined(__SM4__) || defined(__M_INTRINSIC_PROMOTE__)
+/* end INTEL_CUSTOMIZATION */
 #include <sm4intrin.h>
 #endif
 
+/* INTEL_CUSTOMIZATION */
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVXVNNIINT16__)
+    defined(__AVXVNNIINT16__) || defined(__M_INTRINSIC_PROMOTE__)
+/* end INTEL_CUSTOMIZATION */
 #include <avxvnniint16intrin.h>
 #endif
 
