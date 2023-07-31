@@ -7,6 +7,7 @@
 ; SSE-able target, and none is profitable for target w/o SSE.
 
 ; VPLAN-CM-DEF-NOT: Cost decrease due to SLP breaking heuristic is
+; VPLAN-CM-SSE: Cost decrease due to SLP breaking heuristic is 4
 ; VPLAN-CM-SSE: Cost decrease due to SLP breaking heuristic is 8
 ; VPLAN-CM-SSE: Cost decrease due to SLP breaking heuristic is 12
 
@@ -16,6 +17,32 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @b = global [10240 x %struct.rgb_t] zeroinitializer, align 16
 @a = global [10240 x %struct.rgb_t] zeroinitializer, align 16
+
+define void @foo2() {
+entry:
+  br label %for.body
+
+for.body:                                         ; preds = %entry, %for.body
+  %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
+  %r = getelementptr inbounds [10240 x %struct.rgb_t], ptr @b, i64 0, i64 %indvars.iv, i32 0, !intel-tbaa !3
+  %0 = load i32, ptr %r, align 16, !tbaa !3
+  %r3 = getelementptr inbounds [10240 x %struct.rgb_t], ptr @a, i64 0, i64 %indvars.iv, i32 0, !intel-tbaa !3
+  %1 = load i32, ptr %r3, align 16, !tbaa !3
+  %add = add nsw i32 %1, %0
+  store i32 %add, ptr %r3, align 16, !tbaa !3
+  %g = getelementptr inbounds [10240 x %struct.rgb_t], ptr @b, i64 0, i64 %indvars.iv, i32 1, !intel-tbaa !9
+  %2 = load i32, ptr %g, align 4, !tbaa !9
+  %g8 = getelementptr inbounds [10240 x %struct.rgb_t], ptr @a, i64 0, i64 %indvars.iv, i32 1, !intel-tbaa !9
+  %3 = load i32, ptr %g8, align 4, !tbaa !9
+  %add9 = add nsw i32 %3, %2
+  store i32 %add9, ptr %g8, align 4, !tbaa !9
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond.not = icmp eq i64 %indvars.iv.next, 10240
+  br i1 %exitcond.not, label %for.end, label %for.body
+
+for.end:                                          ; preds = %for.body
+  ret void
+}
 
 define void @foo3() {
 entry:

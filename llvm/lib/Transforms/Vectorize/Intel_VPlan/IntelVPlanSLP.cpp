@@ -193,7 +193,8 @@ bool VPlanSlp::areVectorizable(
     // Check that the types and opcodes match for all operands and they are all
     // in the same BB.
     if (Inst->getParent() != Base->getParent() ||
-        Inst->getOpcode() != Base->getOpcode())
+        Inst->getOpcode() != Base->getOpcode() ||
+        Inst->getNumOperands() != Base->getNumOperands())
       continue;
 
     // Special check for load/store value type as we care only about data
@@ -363,7 +364,11 @@ VPInstructionCost VPlanSlp::formAndCostBundles(
   std::function<bool(const VPInstruction *,
                      const VPInstruction *) > Compare,
   SmallVectorImpl<const VPInstruction *> *OutSeed) {
-  unsigned constexpr BundleSizeMin = 3, BundleSizeMax = 8;
+  // We consider 2 <= VLs <= 16. SLP does not support non-power-of-2 VLs yet but
+  // in many cases the code is SLP'ed with power-of-2 VLs after unroll.
+  // TODO: yet to be proven that unroll would be likely to happen and that it
+  // would allow vectorization with VL 4 or higher.
+  unsigned constexpr BundleSizeMin = 2, BundleSizeMax = 16;
   VPInstructionCost Cost = 0;
   unsigned BaseIdx = 0, Idx;
   if (OutSeed)
@@ -465,16 +470,6 @@ VPInstructionCost VPlanSlp::searchSLPPatterns(
 
   // Further take out some 'similar' stores out of 'Seed' array and try to
   // SLP those.
-  //
-  // We don't consider VL = 2 in the current implementation.
-  // TODO: Let cost modelling to decide whether VL = 2 SLP is profitable.
-  //
-  // We do consider VL = 3 although SLP does not support it yet but in many
-  // cases it is SLP'ed with VL = 4 after unroll.
-  // TODO: yet to be proven that unroll would be likely to happen and that it
-  // would allow vectorization with VL 4 or higher.
-  //
-  // Create the longest bundle of 'similar' but less than 8 in length.
   //
   // Two functions of 'similarity' are defined for stores so far.
   // The 1-st function replicates getConstByteDistance semantics, meaning that
