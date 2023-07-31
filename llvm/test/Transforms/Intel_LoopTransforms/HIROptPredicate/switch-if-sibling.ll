@@ -53,7 +53,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @foo(i32* %a, i32 %n, i32 %m) {
+define dso_local void @foo(ptr %a, i32 %n, i32 %m) {
 entry:
   br label %for.body
 

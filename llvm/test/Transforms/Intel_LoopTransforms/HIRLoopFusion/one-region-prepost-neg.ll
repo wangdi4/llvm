@@ -33,7 +33,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline nounwind uwtable
-define void @foo(i32* noalias %p, i32* %q, i32 %n) #0 {
+define void @foo(ptr noalias %p, ptr %q, i32 %n) #0 {
 entry:
   %cmp3 = icmp slt i32 0, %n
   br i1 %cmp3, label %for.body.lr.ph, label %for.end
@@ -43,11 +43,11 @@ for.body.lr.ph:                                   ; preds = %entry
 
 for.body:                                         ; preds = %for.body.lr.ph, %for.inc
   %i.04 = phi i32 [ 0, %for.body.lr.ph ], [ %inc, %for.inc ]
-  %arrayidx = getelementptr inbounds i32, i32* %q, i64 -1
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %q, i64 -1
+  %0 = load i32, ptr %arrayidx, align 4
   %idxprom = sext i32 %i.04 to i64
-  %arrayidx1 = getelementptr inbounds i32, i32* %p, i64 %idxprom
-  store i32 %0, i32* %arrayidx1, align 4
+  %arrayidx1 = getelementptr inbounds i32, ptr %p, i64 %idxprom
+  store i32 %0, ptr %arrayidx1, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body
@@ -70,14 +70,14 @@ for.body5.lr.ph:                                  ; preds = %for.end
 for.body5:                                        ; preds = %for.body5.lr.ph, %for.inc11
   %i2.02 = phi i32 [ 0, %for.body5.lr.ph ], [ %inc12, %for.inc11 ]
   %idxprom6 = sext i32 %i2.02 to i64
-  %arrayidx7 = getelementptr inbounds i32, i32* %p, i64 %idxprom6
-  %1 = load i32, i32* %arrayidx7, align 4
+  %arrayidx7 = getelementptr inbounds i32, ptr %p, i64 %idxprom6
+  %1 = load i32, ptr %arrayidx7, align 4
   %add = add nsw i32 %1, 1
   %idxprom8 = sext i32 %i2.02 to i64
-  %arrayidx9 = getelementptr inbounds i32, i32* %q, i64 %idxprom8
-  store i32 %add, i32* %arrayidx9, align 4
-  %arrayidx10 = getelementptr inbounds i32, i32* %q, i64 0
-  store i32 %x.0.lcssa, i32* %arrayidx10, align 4
+  %arrayidx9 = getelementptr inbounds i32, ptr %q, i64 %idxprom8
+  store i32 %add, ptr %arrayidx9, align 4
+  %arrayidx10 = getelementptr inbounds i32, ptr %q, i64 0
+  store i32 %x.0.lcssa, ptr %arrayidx10, align 4
   br label %for.inc11
 
 for.inc11:                                        ; preds = %for.body5

@@ -134,18 +134,18 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly nofree norecurse nosync nounwind uwtable
-define dso_local void @test(i32* nocapture noundef writeonly %p, i32* nocapture noundef %q, i32* nocapture noundef %a, i32 noundef %n) local_unnamed_addr #0 {
+define dso_local void @test(ptr nocapture noundef writeonly %p, ptr nocapture noundef %q, ptr nocapture noundef %a, i32 noundef %n) local_unnamed_addr #0 {
 entry:
-  %arrayidx28 = getelementptr inbounds i32, i32* %p, i64 20
+  %arrayidx28 = getelementptr inbounds i32, ptr %p, i64 20
   %0 = zext i32 20 to i64
-  %arrayidx3697 = getelementptr inbounds i32, i32* %a, i64 20
-  %arrayidx43 = getelementptr inbounds i32, i32* %q, i64 20
+  %arrayidx3697 = getelementptr inbounds i32, ptr %a, i64 20
+  %arrayidx43 = getelementptr inbounds i32, ptr %q, i64 20
   %1 = add i32 %n, -1
   %2 = add nuw nsw i64 %0, 1
-  %arrayidx4 = getelementptr inbounds i32, i32* %p, i64 %2
-  %arrayidx6 = getelementptr inbounds i32, i32* %a, i64 %0
-  %arrayidx19 = getelementptr inbounds i32, i32* %q, i64 %0
-  %arrayidx23 = getelementptr inbounds i32, i32* %q, i64 %2
+  %arrayidx4 = getelementptr inbounds i32, ptr %p, i64 %2
+  %arrayidx6 = getelementptr inbounds i32, ptr %a, i64 %0
+  %arrayidx19 = getelementptr inbounds i32, ptr %q, i64 %0
+  %arrayidx23 = getelementptr inbounds i32, ptr %q, i64 %2
   br label %for.body
 
 for.cond.cleanup:                                 ; preds = %for.inc
@@ -161,53 +161,53 @@ if.then:                                          ; preds = %for.body
   br i1 %cmp26, label %if.then11, label %if.else17
 
 if.then11:                                        ; preds = %if.then
-  store i32 21, i32* %arrayidx28, align 4, !tbaa !3
-  %3 = load i32, i32* %arrayidx6, align 4, !tbaa !3
+  store i32 21, ptr %arrayidx28, align 4, !tbaa !3
+  %3 = load i32, ptr %arrayidx6, align 4, !tbaa !3
   %add794 = add nsw i32 %3, 1
-  store i32 %add794, i32* %arrayidx6, align 4, !tbaa !3
-  %4 = load i32, i32* %arrayidx19, align 4, !tbaa !3
+  store i32 %add794, ptr %arrayidx6, align 4, !tbaa !3
+  %4 = load i32, ptr %arrayidx19, align 4, !tbaa !3
   %add14 = add nsw i32 %4, 1
-  store i32 %add14, i32* %arrayidx19, align 4, !tbaa !3
+  store i32 %add14, ptr %arrayidx19, align 4, !tbaa !3
   br label %for.inc
 
 if.else17:                                        ; preds = %if.then
-  store i32 %1, i32* %arrayidx4, align 4, !tbaa !3
-  %5 = load i32, i32* %arrayidx6, align 4, !tbaa !3
+  store i32 %1, ptr %arrayidx4, align 4, !tbaa !3
+  %5 = load i32, ptr %arrayidx6, align 4, !tbaa !3
   %add7 = add nsw i32 %5, 1
-  store i32 %add7, i32* %arrayidx6, align 4, !tbaa !3
-  %6 = load i32, i32* %arrayidx19, align 4, !tbaa !3
+  store i32 %add7, ptr %arrayidx6, align 4, !tbaa !3
+  %6 = load i32, ptr %arrayidx19, align 4, !tbaa !3
   %sub20 = add nsw i32 %6, -1
-  store i32 %sub20, i32* %arrayidx23, align 4, !tbaa !3
+  store i32 %sub20, ptr %arrayidx23, align 4, !tbaa !3
   br label %for.inc
 
 if.else25:                                        ; preds = %for.body
   br i1 %cmp26, label %if.then41, label %if.else47
 
 if.then41:                                        ; preds = %if.else25
-  store i32 21, i32* %arrayidx28, align 4, !tbaa !3
-  %7 = load i32, i32* %arrayidx3697, align 4, !tbaa !3
+  store i32 21, ptr %arrayidx28, align 4, !tbaa !3
+  %7 = load i32, ptr %arrayidx3697, align 4, !tbaa !3
   %add3798 = add nsw i32 %7, 5
-  store i32 %add3798, i32* %arrayidx3697, align 4, !tbaa !3
-  %8 = load i32, i32* %arrayidx43, align 4, !tbaa !3
+  store i32 %add3798, ptr %arrayidx3697, align 4, !tbaa !3
+  %8 = load i32, ptr %arrayidx43, align 4, !tbaa !3
   %add44 = add nsw i32 %8, 3
-  store i32 %add44, i32* %arrayidx43, align 4, !tbaa !3
+  store i32 %add44, ptr %arrayidx43, align 4, !tbaa !3
   br label %for.inc
 
 if.else47:                                        ; preds = %if.else25
   %9 = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx33 = getelementptr inbounds i32, i32* %p, i64 %9
+  %arrayidx33 = getelementptr inbounds i32, ptr %p, i64 %9
   %10 = trunc i64 %indvars.iv to i32
   %11 = add i32 %10, -3
-  store i32 %11, i32* %arrayidx33, align 4, !tbaa !3
-  %arrayidx36 = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %12 = load i32, i32* %arrayidx36, align 4, !tbaa !3
+  store i32 %11, ptr %arrayidx33, align 4, !tbaa !3
+  %arrayidx36 = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %12 = load i32, ptr %arrayidx36, align 4, !tbaa !3
   %add37 = add nsw i32 %12, 5
-  store i32 %add37, i32* %arrayidx36, align 4, !tbaa !3
-  %arrayidx49 = getelementptr inbounds i32, i32* %q, i64 %indvars.iv
-  %13 = load i32, i32* %arrayidx49, align 4, !tbaa !3
+  store i32 %add37, ptr %arrayidx36, align 4, !tbaa !3
+  %arrayidx49 = getelementptr inbounds i32, ptr %q, i64 %indvars.iv
+  %13 = load i32, ptr %arrayidx49, align 4, !tbaa !3
   %sub50 = add nsw i32 %13, -5
-  %arrayidx53 = getelementptr inbounds i32, i32* %q, i64 %9
-  store i32 %sub50, i32* %arrayidx53, align 4, !tbaa !3
+  %arrayidx53 = getelementptr inbounds i32, ptr %q, i64 %9
+  store i32 %sub50, ptr %arrayidx53, align 4, !tbaa !3
   br label %for.inc
 
 for.inc:                                          ; preds = %if.else17, %if.then11, %if.else47, %if.then41

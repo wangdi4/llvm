@@ -24,14 +24,14 @@ target triple = "x86_64-unknown-linux-gnu"
 define i32 @main() local_unnamed_addr #0 {
 entry:
   %v_hwpdr = alloca i64, align 8
-  %0 = bitcast i64* %v_hwpdr to i8*
-  call void @llvm.lifetime.start(i64 8, i8* %0) #5
-  %1 = load i16, i16* @g_pnyrestwrqei, align 2, !tbaa !1
+  %0 = bitcast ptr %v_hwpdr to ptr
+  call void @llvm.lifetime.start(i64 8, ptr %0) #5
+  %1 = load i16, ptr @g_pnyrestwrqei, align 2, !tbaa !1
   %conv = zext i16 %1 to i64
-  store i64 %conv, i64* %v_hwpdr, align 8, !tbaa !5
-  call void @_Z4swapRjRm(i32* nonnull dereferenceable(4) @g_krf, i64* nonnull dereferenceable(8) %v_hwpdr)
-  store i64 63, i64* %v_hwpdr, align 8, !tbaa !5
-  %2 = load i16, i16* @g_pnyrestwrqei, align 2, !tbaa !1
+  store i64 %conv, ptr %v_hwpdr, align 8, !tbaa !5
+  call void @_Z4swapRjRm(ptr nonnull dereferenceable(4) @g_krf, ptr nonnull dereferenceable(8) %v_hwpdr)
+  store i64 63, ptr %v_hwpdr, align 8, !tbaa !5
+  %2 = load i16, ptr @g_pnyrestwrqei, align 2, !tbaa !1
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.end131
@@ -41,10 +41,10 @@ for.body:                                         ; preds = %entry, %for.end131
   br i1 %tobool, label %if.else63, label %if.end71
 
 if.else63:                                        ; preds = %for.body
-  %arrayidx67 = getelementptr inbounds [192 x i32], [192 x i32]* @a1_mne, i64 0, i64 %indvars.iv356
-  %4 = load i32, i32* %arrayidx67, align 4, !tbaa !7
+  %arrayidx67 = getelementptr inbounds [192 x i32], ptr @a1_mne, i64 0, i64 %indvars.iv356
+  %4 = load i32, ptr %arrayidx67, align 4, !tbaa !7
   %and68 = and i32 %4, 69
-  store i32 %and68, i32* %arrayidx67, align 4, !tbaa !7
+  store i32 %and68, ptr %arrayidx67, align 4, !tbaa !7
   br label %if.end71
 
 if.end71:                                         ; preds = %for.body, %if.else63
@@ -53,8 +53,8 @@ if.end71:                                         ; preds = %for.body, %if.else6
   br i1 %cmp75329, label %for.end97.preheader, label %for.end131
 
 for.end97.preheader:                              ; preds = %if.end71
-  %arrayidx78 = getelementptr inbounds [192 x [192 x i8]], [192 x [192 x i8]]* @a2_uf, i64 0, i64 %indvars.iv356, i64 %indvars.iv356
-  %arrayidx78.promoted = load i8, i8* %arrayidx78, align 1, !tbaa !9
+  %arrayidx78 = getelementptr inbounds [192 x [192 x i8]], ptr @a2_uf, i64 0, i64 %indvars.iv356, i64 %indvars.iv356
+  %arrayidx78.promoted = load i8, ptr %arrayidx78, align 1, !tbaa !9
   br label %for.end97
 
 for.end97:                                        ; preds = %for.end97.preheader, %for.end115
@@ -67,10 +67,10 @@ for.end97:                                        ; preds = %for.end97.preheader
 
 for.body103:                                      ; preds = %for.body103, %for.end97
   %indvars.iv354 = phi i64 [ 11, %for.end97 ], [ %indvars.iv.next355, %for.body103 ]
-  %arrayidx110 = getelementptr inbounds [192 x [192 x i32]], [192 x [192 x i32]]* @a2_ynbngtbf, i64 0, i64 %indvars.iv354, i64 %indvars.iv358
-  %6 = load i32, i32* %arrayidx110, align 4, !tbaa !7
+  %arrayidx110 = getelementptr inbounds [192 x [192 x i32]], ptr @a2_ynbngtbf, i64 0, i64 %indvars.iv354, i64 %indvars.iv358
+  %6 = load i32, ptr %arrayidx110, align 4, !tbaa !7
   %inc111 = add i32 %6, 1
-  store i32 %inc111, i32* %arrayidx110, align 4, !tbaa !7
+  store i32 %inc111, ptr %arrayidx110, align 4, !tbaa !7
   %indvars.iv.next355 = add nuw nsw i64 %indvars.iv354, 1
   %exitcond = icmp eq i64 %indvars.iv.next355, 64
   br i1 %exitcond, label %for.end115, label %for.body103
@@ -81,8 +81,8 @@ for.end115:                                       ; preds = %for.body103
   br i1 %exitcond360, label %for.cond73.for.end131_crit_edge, label %for.end97
 
 for.cond73.for.end131_crit_edge:                  ; preds = %for.end115
-  store i8 %conv81, i8* %arrayidx78, align 1, !tbaa !9
-  store i32 64, i32* @g_krf, align 4, !tbaa !7
+  store i8 %conv81, ptr %arrayidx78, align 1, !tbaa !9
+  store i32 64, ptr @g_krf, align 4, !tbaa !7
   br label %for.end131
 
 for.end131:                                       ; preds = %for.cond73.for.end131_crit_edge, %if.end71
@@ -92,19 +92,19 @@ for.end131:                                       ; preds = %for.cond73.for.end1
   br i1 %cmp, label %for.body, label %for.end136
 
 for.end136:                                       ; preds = %for.end131
-  store i16 32, i16* @g_pnyrestwrqei, align 2, !tbaa !1
-  store i64 32, i64* %v_hwpdr, align 8, !tbaa !5
+  store i16 32, ptr @g_pnyrestwrqei, align 2, !tbaa !1
+  store i64 32, ptr %v_hwpdr, align 8, !tbaa !5
   call void @_Z6printbm(i64 32)
-  %7 = load i32, i32* @g_krf, align 4, !tbaa !7
+  %7 = load i32, ptr @g_krf, align 4, !tbaa !7
   call void @_Z6printbj(i32 %7)
-  %8 = load i16, i16* @g_pnyrestwrqei, align 2, !tbaa !1
+  %8 = load i16, ptr @g_pnyrestwrqei, align 2, !tbaa !1
   call void @_Z6printbt(i16 zeroext %8)
   br label %for.body143
 
 for.body143:                                      ; preds = %for.end136, %for.body143
   %indvars.iv352 = phi i64 [ 0, %for.end136 ], [ %indvars.iv.next353, %for.body143 ]
-  %arrayidx145 = getelementptr inbounds [192 x i32], [192 x i32]* @a1_mne, i64 0, i64 %indvars.iv352
-  %9 = load i32, i32* %arrayidx145, align 4, !tbaa !7
+  %arrayidx145 = getelementptr inbounds [192 x i32], ptr @a1_mne, i64 0, i64 %indvars.iv352
+  %9 = load i32, ptr %arrayidx145, align 4, !tbaa !7
   call void @_Z6printbj(i32 %9)
   %indvars.iv.next353 = add nuw nsw i64 %indvars.iv352, 1
   %cmp142 = icmp eq i64 %indvars.iv.next353, 192
@@ -112,8 +112,8 @@ for.body143:                                      ; preds = %for.end136, %for.bo
 
 for.body153:                                      ; preds = %for.body143, %for.body153
   %indvars.iv350 = phi i64 [ %indvars.iv.next351, %for.body153 ], [ 0, %for.body143 ]
-  %arrayidx155 = getelementptr inbounds [192 x i32], [192 x i32]* @a1_aszvb, i64 0, i64 %indvars.iv350
-  %10 = load i32, i32* %arrayidx155, align 4, !tbaa !7
+  %arrayidx155 = getelementptr inbounds [192 x i32], ptr @a1_aszvb, i64 0, i64 %indvars.iv350
+  %10 = load i32, ptr %arrayidx155, align 4, !tbaa !7
   call void @_Z6printbj(i32 %10)
   %indvars.iv.next351 = add nuw nsw i64 %indvars.iv350, 1
   %cmp151 = icmp eq i64 %indvars.iv.next351, 192
@@ -121,8 +121,8 @@ for.body153:                                      ; preds = %for.body143, %for.b
 
 for.body163:                                      ; preds = %for.body153, %for.body163
   %indvars.iv348 = phi i64 [ %indvars.iv.next349, %for.body163 ], [ 0, %for.body153 ]
-  %arrayidx165 = getelementptr inbounds [192 x i32], [192 x i32]* @a1_hylg, i64 0, i64 %indvars.iv348
-  %11 = load i32, i32* %arrayidx165, align 4, !tbaa !7
+  %arrayidx165 = getelementptr inbounds [192 x i32], ptr @a1_hylg, i64 0, i64 %indvars.iv348
+  %11 = load i32, ptr %arrayidx165, align 4, !tbaa !7
   call void @_Z6printbj(i32 %11)
   %indvars.iv.next349 = add nuw nsw i64 %indvars.iv348, 1
   %cmp161 = icmp eq i64 %indvars.iv.next349, 192
@@ -139,8 +139,8 @@ for.cond.cleanup176:                              ; preds = %for.body177
 
 for.body177:                                      ; preds = %for.cond174.preheader, %for.body177
   %indvars.iv344 = phi i64 [ 0, %for.cond174.preheader ], [ %indvars.iv.next345, %for.body177 ]
-  %arrayidx181 = getelementptr inbounds [192 x [192 x i32]], [192 x [192 x i32]]* @a2_ynbngtbf, i64 0, i64 %indvars.iv346, i64 %indvars.iv344
-  %12 = load i32, i32* %arrayidx181, align 4, !tbaa !7
+  %arrayidx181 = getelementptr inbounds [192 x [192 x i32]], ptr @a2_ynbngtbf, i64 0, i64 %indvars.iv346, i64 %indvars.iv344
+  %12 = load i32, ptr %arrayidx181, align 4, !tbaa !7
   call void @_Z6printbj(i32 %12)
   %indvars.iv.next345 = add nuw nsw i64 %indvars.iv344, 1
   %cmp175 = icmp eq i64 %indvars.iv.next345, 192
@@ -157,8 +157,8 @@ for.cond.cleanup196:                              ; preds = %for.body197
 
 for.body197:                                      ; preds = %for.cond194.preheader, %for.body197
   %indvars.iv340 = phi i64 [ 0, %for.cond194.preheader ], [ %indvars.iv.next341, %for.body197 ]
-  %arrayidx201 = getelementptr inbounds [192 x [192 x i8]], [192 x [192 x i8]]* @a2_uf, i64 0, i64 %indvars.iv342, i64 %indvars.iv340
-  %13 = load i8, i8* %arrayidx201, align 1, !tbaa !9
+  %arrayidx201 = getelementptr inbounds [192 x [192 x i8]], ptr @a2_uf, i64 0, i64 %indvars.iv342, i64 %indvars.iv340
+  %13 = load i8, ptr %arrayidx201, align 1, !tbaa !9
   call void @_Z6printbh(i8 zeroext %13)
   %indvars.iv.next341 = add nuw nsw i64 %indvars.iv340, 1
   %cmp195 = icmp eq i64 %indvars.iv.next341, 192
@@ -170,7 +170,7 @@ for.cond213.preheader:                            ; preds = %for.cond.cleanup196
 
 for.cond.cleanup210:                              ; preds = %for.cond.cleanup215
   call void @_Z11flushprintbv()
-  call void @llvm.lifetime.end(i64 8, i8* %0) #5
+  call void @llvm.lifetime.end(i64 8, ptr %0) #5
   ret i32 0
 
 for.cond218.preheader:                            ; preds = %for.cond213.preheader, %for.cond.cleanup220
@@ -189,8 +189,8 @@ for.cond.cleanup220:                              ; preds = %for.body221
 
 for.body221:                                      ; preds = %for.cond218.preheader, %for.body221
   %indvars.iv = phi i64 [ 0, %for.cond218.preheader ], [ %indvars.iv.next, %for.body221 ]
-  %arrayidx227 = getelementptr inbounds [192 x [192 x [192 x i32]]], [192 x [192 x [192 x i32]]]* @a3_m, i64 0, i64 %indvars.iv338, i64 %indvars.iv336, i64 %indvars.iv
-  %14 = load i32, i32* %arrayidx227, align 4, !tbaa !7
+  %arrayidx227 = getelementptr inbounds [192 x [192 x [192 x i32]]], ptr @a3_m, i64 0, i64 %indvars.iv338, i64 %indvars.iv336, i64 %indvars.iv
+  %14 = load i32, ptr %arrayidx227, align 4, !tbaa !7
   call void @_Z6printbj(i32 %14)
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %cmp219 = icmp eq i64 %indvars.iv.next, 192
@@ -198,12 +198,12 @@ for.body221:                                      ; preds = %for.cond218.prehead
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
-declare void @_Z4swapRjRm(i32* dereferenceable(4), i64* dereferenceable(8)) local_unnamed_addr #2
+declare void @_Z4swapRjRm(ptr dereferenceable(4), ptr dereferenceable(8)) local_unnamed_addr #2
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 declare void @_Z6printbj(i32) local_unnamed_addr #2
 
@@ -218,7 +218,7 @@ declare void @_Z11flushprintbv() local_unnamed_addr #2
 ; Function Attrs: norecurse nounwind readonly uwtable
 define i32 @_Z7f3_xsoimjj(i64 %v_w, i32 %v_qd, i32 %v_ar) local_unnamed_addr #3 {
 entry:
-  %0 = load i16, i16* @g_pnyrestwrqei, align 2, !tbaa !1
+  %0 = load i16, ptr @g_pnyrestwrqei, align 2, !tbaa !1
   %tobool = icmp eq i16 %0, 0
   %mul8 = mul i64 %v_w, 3
   %conv9 = trunc i64 %mul8 to i32
@@ -229,7 +229,7 @@ entry:
 ; Function Attrs: norecurse nounwind readonly uwtable
 define i32 @_Z4f0_qv() local_unnamed_addr #3 {
 entry:
-  %0 = load i16, i16* @g_pnyrestwrqei, align 2, !tbaa !1
+  %0 = load i16, ptr @g_pnyrestwrqei, align 2, !tbaa !1
   %tobool = icmp eq i16 %0, 0
   %1 = select i1 %tobool, i32 21, i32 4
   ret i32 %1

@@ -25,7 +25,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define i32 @foo(float* nocapture %px, float* nocapture readonly %vy, float* nocapture readonly %cx, i32 %loop, i32 %n) local_unnamed_addr #0 {
+define i32 @foo(ptr nocapture %px, ptr nocapture readonly %vy, ptr nocapture readonly %cx, i32 %loop, i32 %n) local_unnamed_addr #0 {
 entry:
   %cmp54 = icmp slt i32 %loop, 1
   br i1 %cmp54, label %for.cond.cleanup, label %for.body.lr.ph
@@ -70,7 +70,7 @@ for.body8:                                        ; preds = %for.cond.cleanup11,
 
 for.body12.lr.ph:                                 ; preds = %for.body8
   %5 = add nsw i64 %indvars.iv56, %2
-  %arrayidx = getelementptr inbounds float, float* %vy, i64 %5
+  %arrayidx = getelementptr inbounds float, ptr %vy, i64 %5
   %6 = trunc i64 %indvars.iv56 to i32
   br label %for.body12
 
@@ -84,20 +84,20 @@ for.cond.cleanup11:                               ; preds = %for.cond.cleanup11.
 
 for.body12:                                       ; preds = %for.body12, %for.body12.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body12.lr.ph ], [ %indvars.iv.next, %for.body12 ]
-  %7 = load float, float* %arrayidx, align 4
+  %7 = load float, ptr %arrayidx, align 4
   %8 = trunc i64 %indvars.iv to i32
   %mul13 = mul nsw i32 %8, 25
   %add15 = add i32 %mul13, %4
   %9 = zext i32 %add15 to i64
-  %arrayidx17 = getelementptr inbounds float, float* %cx, i64 %9
-  %10 = load float, float* %arrayidx17, align 4
+  %arrayidx17 = getelementptr inbounds float, ptr %cx, i64 %9
+  %10 = load float, ptr %arrayidx17, align 4
   %mul18 = fmul float %7, %10
   %add20 = add nuw nsw i32 %mul13, %6
   %11 = zext i32 %add20 to i64
-  %arrayidx22 = getelementptr inbounds float, float* %px, i64 %11
-  %12 = load float, float* %arrayidx22, align 4
+  %arrayidx22 = getelementptr inbounds float, ptr %px, i64 %11
+  %12 = load float, ptr %arrayidx22, align 4
   %add23 = fadd float %12, %mul18
-  store float %add23, float* %arrayidx22, align 4
+  store float %add23, ptr %arrayidx22, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %0
   br i1 %exitcond, label %for.cond.cleanup11.loopexit, label %for.body12

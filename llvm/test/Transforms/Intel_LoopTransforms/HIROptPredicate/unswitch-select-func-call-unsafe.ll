@@ -79,26 +79,26 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly nofree nosync nounwind uwtable
-define void @loop_merge_compute_(i32* noalias nocapture readonly dereferenceable(4) %"loop_merge_compute_$NPROMA", i32* noalias nocapture readonly dereferenceable(4) %"loop_merge_compute_$NLEV", i32* noalias nocapture readonly dereferenceable(4) %"loop_merge_compute_$NBLK", i32* noalias nocapture readonly dereferenceable(4) %"loop_merge_compute_$I_STARTBLK", i32* noalias nocapture readonly dereferenceable(4) %"loop_merge_compute_$I_ENDBLK", i32* noalias nocapture readonly dereferenceable(4) %"loop_merge_compute_$I_STARTLEV", i32* noalias nocapture readonly dereferenceable(4) %"loop_merge_compute_$I_ENDLEV", i32* noalias nocapture readonly dereferenceable(4) %"loop_merge_compute_$I_STARTIDX", i32* noalias nocapture readonly dereferenceable(4) %"loop_merge_compute_$I_ENDIDX", i32* noalias nocapture readonly dereferenceable(4) %"loop_merge_compute_$BLKIDX", double* noalias nocapture dereferenceable(8) %"loop_merge_compute_$ARRAY") local_unnamed_addr #0 !llfort.type_idx !0 {
+define void @loop_merge_compute_(ptr noalias nocapture readonly dereferenceable(4) %"loop_merge_compute_$NPROMA", ptr noalias nocapture readonly dereferenceable(4) %"loop_merge_compute_$NLEV", ptr noalias nocapture readonly dereferenceable(4) %"loop_merge_compute_$NBLK", ptr noalias nocapture readonly dereferenceable(4) %"loop_merge_compute_$I_STARTBLK", ptr noalias nocapture readonly dereferenceable(4) %"loop_merge_compute_$I_ENDBLK", ptr noalias nocapture readonly dereferenceable(4) %"loop_merge_compute_$I_STARTLEV", ptr noalias nocapture readonly dereferenceable(4) %"loop_merge_compute_$I_ENDLEV", ptr noalias nocapture readonly dereferenceable(4) %"loop_merge_compute_$I_STARTIDX", ptr noalias nocapture readonly dereferenceable(4) %"loop_merge_compute_$I_ENDIDX", ptr noalias nocapture readonly dereferenceable(4) %"loop_merge_compute_$BLKIDX", ptr noalias nocapture dereferenceable(8) %"loop_merge_compute_$ARRAY") local_unnamed_addr #0 !llfort.type_idx !0 {
 alloca_0:
-  %"loop_merge_compute_$NLEV_fetch.1" = load i32, i32* %"loop_merge_compute_$NLEV", align 1, !tbaa !1, !llfort.type_idx !6
-  %"loop_merge_compute_$NPROMA_fetch.3" = load i32, i32* %"loop_merge_compute_$NPROMA", align 1, !tbaa !7, !llfort.type_idx !9
+  %"loop_merge_compute_$NLEV_fetch.1" = load i32, ptr %"loop_merge_compute_$NLEV", align 1, !tbaa !1, !llfort.type_idx !6
+  %"loop_merge_compute_$NPROMA_fetch.3" = load i32, ptr %"loop_merge_compute_$NPROMA", align 1, !tbaa !7, !llfort.type_idx !9
   %int_sext = sext i32 %"loop_merge_compute_$NLEV_fetch.1" to i64, !llfort.type_idx !10
   %mul.1 = shl nsw i64 %int_sext, 2
   %int_sext8 = sext i32 %"loop_merge_compute_$NPROMA_fetch.3" to i64, !llfort.type_idx !10
   %mul.3 = shl nsw i64 %int_sext8, 3
   %mul.4 = mul nsw i64 %mul.3, %int_sext
-  %"loop_merge_compute_$I_STARTBLK_fetch.4" = load i32, i32* %"loop_merge_compute_$I_STARTBLK", align 1, !tbaa !11, !llfort.type_idx !13
-  %"loop_merge_compute_$I_ENDBLK_fetch.5" = load i32, i32* %"loop_merge_compute_$I_ENDBLK", align 1, !tbaa !14, !llfort.type_idx !16
+  %"loop_merge_compute_$I_STARTBLK_fetch.4" = load i32, ptr %"loop_merge_compute_$I_STARTBLK", align 1, !tbaa !11, !llfort.type_idx !13
+  %"loop_merge_compute_$I_ENDBLK_fetch.5" = load i32, ptr %"loop_merge_compute_$I_ENDBLK", align 1, !tbaa !14, !llfort.type_idx !16
   %rel.1 = icmp slt i32 %"loop_merge_compute_$I_ENDBLK_fetch.5", %"loop_merge_compute_$I_STARTBLK_fetch.4"
   br i1 %rel.1, label %bb3, label %bb2.preheader
 
 bb2.preheader:                                    ; preds = %alloca_0
-  %"loop_merge_compute_$I_STARTLEV_fetch.7" = load i32, i32* %"loop_merge_compute_$I_STARTLEV", align 1, !tbaa !17, !llfort.type_idx !19
-  %"loop_merge_compute_$I_ENDLEV_fetch.8" = load i32, i32* %"loop_merge_compute_$I_ENDLEV", align 1, !tbaa !20, !llfort.type_idx !22
+  %"loop_merge_compute_$I_STARTLEV_fetch.7" = load i32, ptr %"loop_merge_compute_$I_STARTLEV", align 1, !tbaa !17, !llfort.type_idx !19
+  %"loop_merge_compute_$I_ENDLEV_fetch.8" = load i32, ptr %"loop_merge_compute_$I_ENDLEV", align 1, !tbaa !20, !llfort.type_idx !22
   %rel.2 = icmp slt i32 %"loop_merge_compute_$I_ENDLEV_fetch.8", %"loop_merge_compute_$I_STARTLEV_fetch.7"
-  %"loop_merge_compute_$I_STARTIDX_fetch.10" = load i32, i32* %"loop_merge_compute_$I_STARTIDX", align 1
-  %"loop_merge_compute_$I_ENDIDX_fetch.11" = load i32, i32* %"loop_merge_compute_$I_ENDIDX", align 1
+  %"loop_merge_compute_$I_STARTIDX_fetch.10" = load i32, ptr %"loop_merge_compute_$I_STARTIDX", align 1
+  %"loop_merge_compute_$I_ENDIDX_fetch.11" = load i32, ptr %"loop_merge_compute_$I_ENDIDX", align 1
   %rel.3 = icmp slt i32 %"loop_merge_compute_$I_ENDIDX_fetch.11", %"loop_merge_compute_$I_STARTIDX_fetch.10"
   %0 = sext i32 %"loop_merge_compute_$I_STARTIDX_fetch.10" to i64
   %1 = add nsw i32 %"loop_merge_compute_$I_ENDIDX_fetch.11", 1
@@ -116,8 +116,8 @@ bb2:                                              ; preds = %bb2.preheader, %bb7
   br i1 %rel.2, label %bb7, label %bb6.preheader
 
 bb6.preheader:                                    ; preds = %bb2
-  %"loop_merge_compute_$BLKIDX[]" = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 %mul.1, i32* nonnull elementtype(i32) %"loop_merge_compute_$BLKIDX", i64 %indvars.iv76)
-  %"loop_merge_compute_$ARRAY[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul.4, double* nonnull elementtype(double) %"loop_merge_compute_$ARRAY", i64 %indvars.iv76)
+  %"loop_merge_compute_$BLKIDX[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul.1, ptr nonnull elementtype(i32) %"loop_merge_compute_$BLKIDX", i64 %indvars.iv76)
+  %"loop_merge_compute_$ARRAY[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %mul.4, ptr nonnull elementtype(double) %"loop_merge_compute_$ARRAY", i64 %indvars.iv76)
   br label %bb6
 
 bb6:                                              ; preds = %bb6.preheader, %bb11
@@ -125,24 +125,24 @@ bb6:                                              ; preds = %bb6.preheader, %bb1
   br i1 %rel.3, label %bb11, label %bb10.preheader
 
 bb10.preheader:                                   ; preds = %bb6
-  %"loop_merge_compute_$BLKIDX[][]" = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull elementtype(i32) %"loop_merge_compute_$BLKIDX[]", i64 %indvars.iv72), !llfort.type_idx !23
-  %"loop_merge_compute_$BLKIDX[][]_fetch.19" = load i32, i32* %"loop_merge_compute_$BLKIDX[][]", align 1, !tbaa !24, !llfort.type_idx !23
+  %"loop_merge_compute_$BLKIDX[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(i32) %"loop_merge_compute_$BLKIDX[]", i64 %indvars.iv72), !llfort.type_idx !23
+  %"loop_merge_compute_$BLKIDX[][]_fetch.19" = load i32, ptr %"loop_merge_compute_$BLKIDX[][]", align 1, !tbaa !24, !llfort.type_idx !23
   %rel.4 = icmp sgt i32 %"loop_merge_compute_$BLKIDX[][]_fetch.19", 0
   %slct.2 = select i1 %rel.4, i32 %"loop_merge_compute_$BLKIDX[][]_fetch.19", i32 1
-  %"loop_merge_compute_$ARRAY[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul.3, double* nonnull elementtype(double) %"loop_merge_compute_$ARRAY[]", i64 %indvars.iv72), !llfort.type_idx !26
+  %"loop_merge_compute_$ARRAY[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul.3, ptr nonnull elementtype(double) %"loop_merge_compute_$ARRAY[]", i64 %indvars.iv72), !llfort.type_idx !26
   %int_sext28 = zext i32 %slct.2 to i64
-  %"loop_merge_compute_$ARRAY[]29" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul.4, double* nonnull elementtype(double) %"loop_merge_compute_$ARRAY", i64 %int_sext28), !llfort.type_idx !27
-  %"loop_merge_compute_$ARRAY[][]30" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul.3, double* nonnull elementtype(double) %"loop_merge_compute_$ARRAY[]29", i64 %indvars.iv72), !llfort.type_idx !28
+  %"loop_merge_compute_$ARRAY[]29" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %mul.4, ptr nonnull elementtype(double) %"loop_merge_compute_$ARRAY", i64 %int_sext28), !llfort.type_idx !27
+  %"loop_merge_compute_$ARRAY[][]30" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul.3, ptr nonnull elementtype(double) %"loop_merge_compute_$ARRAY[]29", i64 %indvars.iv72), !llfort.type_idx !28
   br label %bb10
 
 bb10:                                             ; preds = %bb10.preheader, %bb10
   %indvars.iv = phi i64 [ %0, %bb10.preheader ], [ %indvars.iv.next, %bb10 ]
-  %"loop_merge_compute_$ARRAY[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"loop_merge_compute_$ARRAY[][]", i64 %indvars.iv), !llfort.type_idx !29
-  %"loop_merge_compute_$ARRAY[][][]_fetch.38" = load double, double* %"loop_merge_compute_$ARRAY[][][]", align 1, !tbaa !30, !llfort.type_idx !29
+  %"loop_merge_compute_$ARRAY[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"loop_merge_compute_$ARRAY[][]", i64 %indvars.iv), !llfort.type_idx !29
+  %"loop_merge_compute_$ARRAY[][][]_fetch.38" = load double, ptr %"loop_merge_compute_$ARRAY[][][]", align 1, !tbaa !30, !llfort.type_idx !29
   %add.5 = select reassoc ninf nsz arcp contract afn i1 %rel.4, double %"loop_merge_compute_$ARRAY[][][]_fetch.38", double 0.000000e+00
   call void @foo(double %add.5)
-  %"loop_merge_compute_$ARRAY[][][]31" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"loop_merge_compute_$ARRAY[][]30", i64 %indvars.iv), !llfort.type_idx !32
-  store double %add.5, double* %"loop_merge_compute_$ARRAY[][][]31", align 1, !tbaa !30
+  %"loop_merge_compute_$ARRAY[][][]31" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"loop_merge_compute_$ARRAY[][]30", i64 %indvars.iv), !llfort.type_idx !32
+  store double %add.5, ptr %"loop_merge_compute_$ARRAY[][][]31", align 1, !tbaa !30
   %indvars.iv.next = add nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %bb11.loopexit, label %bb10
@@ -171,10 +171,9 @@ bb3:                                              ; preds = %bb3.loopexit, %allo
 }
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i64) #1
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #1
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #1
 
 declare void @foo(double)
 

@@ -53,8 +53,8 @@ for.body9.preheader:                              ; preds = %for.cond7.preheader
 for.body9:                                        ; preds = %for.body9.preheader, %for.body9
   %i4.037 = phi i64 [ %inc, %for.body9 ], [ 0, %for.body9.preheader ]
   %conv = sitofp i64 %i4.037 to float
-  %arrayidx12 = getelementptr inbounds [100 x [100 x [100 x [100 x float]]]], [100 x [100 x [100 x [100 x float]]]]* @A, i64 0, i64 %i1.045, i64 %i2.042, i64 %i4.037, i64 %i3.039
-  store float %conv, float* %arrayidx12, align 4, !tbaa !1
+  %arrayidx12 = getelementptr inbounds [100 x [100 x [100 x [100 x float]]]], ptr @A, i64 0, i64 %i1.045, i64 %i2.042, i64 %i4.037, i64 %i3.039
+  store float %conv, ptr %arrayidx12, align 4, !tbaa !1
   %inc = add nuw nsw i64 %i4.037, 1
   %exitcond = icmp eq i64 %inc, %n4
   br i1 %exitcond, label %for.inc13.loopexit, label %for.body9
@@ -91,10 +91,10 @@ for.end21:                                        ; preds = %for.end21.loopexit,
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { norecurse nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

@@ -32,21 +32,21 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define hidden fastcc i32 @foo(i32 %i, i32* nocapture readonly %lpears, i32* nocapture readonly %upears, i32** nocapture readonly %pearlist) {
+define hidden fastcc i32 @foo(i32 %i, ptr nocapture readonly %lpears, ptr nocapture readonly %upears, ptr nocapture readonly %pearlist) {
 entry:
   %idxprom = sext i32 %i to i64
-  %arrayidx = getelementptr inbounds i32, i32* %upears, i64 %idxprom
-  %0 = load i32, i32* %arrayidx, align 4
-  %arrayidx2 = getelementptr inbounds i32, i32* %lpears, i64 %idxprom
-  %1 = load i32, i32* %arrayidx2, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %upears, i64 %idxprom
+  %0 = load i32, ptr %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds i32, ptr %lpears, i64 %idxprom
+  %1 = load i32, ptr %arrayidx2, align 4
   %cmp30 = icmp sgt i32 %0, 0
   br i1 %cmp30, label %for.body.lr.ph, label %for.end
 
 for.body.lr.ph:                                   ; preds = %entry
   %add = add nsw i32 %1, %0
-  %arrayidx6 = getelementptr inbounds i32*, i32** %pearlist, i64 %idxprom
-  %2 = load i32*, i32** %arrayidx6, align 8
-  %cmp7 = icmp eq i32* %2, null
+  %arrayidx6 = getelementptr inbounds ptr, ptr %pearlist, i64 %idxprom
+  %2 = load ptr, ptr %arrayidx6, align 8
+  %cmp7 = icmp eq ptr %2, null
   %3 = sext i32 %1 to i64
   %4 = sext i32 %add to i64
   br label %for.body
@@ -57,14 +57,14 @@ for.body:                                         ; preds = %if.end, %for.body.l
   br i1 %cmp7, label %if.then, label %if.end
 
 if.then:                                          ; preds = %for.body
-  %arrayidx9 = getelementptr inbounds i32, i32* %lpears, i64 %indvars.iv
-  %5 = load i32, i32* %arrayidx9, align 4
+  %arrayidx9 = getelementptr inbounds i32, ptr %lpears, i64 %indvars.iv
+  %5 = load i32, ptr %arrayidx9, align 4
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %for.body
   %r.1 = phi i32 [ %5, %if.then ], [ %r.031, %for.body ]
-  %arrayidx13 = getelementptr inbounds i32, i32* %2, i64 %indvars.iv
-  %6 = load i32, i32* %arrayidx13, align 4
+  %arrayidx13 = getelementptr inbounds i32, ptr %2, i64 %indvars.iv
+  %6 = load i32, ptr %arrayidx13, align 4
   %mul = mul nsw i32 %6, 3
   %add14 = add nsw i32 %mul, %r.1
   %indvars.iv.next = add nsw i64 %indvars.iv, 1

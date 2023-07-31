@@ -110,7 +110,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local i32 @sub(i32* nocapture readonly %X, i32 %N, i32 %M, float* nocapture %A) local_unnamed_addr #0 {
+define dso_local i32 @sub(ptr nocapture readonly %X, i32 %N, i32 %M, ptr nocapture %A) local_unnamed_addr #0 {
 entry:
   %cmp25 = icmp sgt i32 %M, 0
   br i1 %cmp25, label %for.body.preheader, label %for.end
@@ -121,10 +121,10 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body, %for.body.preheader
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds float, float* %A, i64 %indvars.iv
-  %0 = load float, float* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds float, ptr %A, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx, align 4, !tbaa !2
   %add = fadd float %0, 1.000000e+00
-  store float %add, float* %arrayidx, align 4, !tbaa !2
+  store float %add, ptr %arrayidx, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.end.loopexit, label %for.body, !llvm.loop !6
@@ -142,25 +142,25 @@ for.end:                                          ; preds = %for.end.loopexit, %
   ]
 
 sw.bb:                                            ; preds = %for.end
-  %arrayidx1 = getelementptr inbounds i32, i32* %X, i64 3
-  %1 = load i32, i32* %arrayidx1, align 4, !tbaa !8
+  %arrayidx1 = getelementptr inbounds i32, ptr %X, i64 3
+  %1 = load i32, ptr %arrayidx1, align 4, !tbaa !8
   %cmp2 = icmp eq i32 %1, 1
   br i1 %cmp2, label %sw.epilog, label %sw.bb3
 
 sw.bb3:                                           ; preds = %sw.bb, %for.end
-  %arrayidx4 = getelementptr inbounds i32, i32* %X, i64 2
-  %2 = load i32, i32* %arrayidx4, align 4, !tbaa !8
+  %arrayidx4 = getelementptr inbounds i32, ptr %X, i64 2
+  %2 = load i32, ptr %arrayidx4, align 4, !tbaa !8
   %cmp5 = icmp eq i32 %2, 1
   br i1 %cmp5, label %sw.epilog, label %sw.bb8
 
 sw.bb8:                                           ; preds = %sw.bb3, %for.end
-  %arrayidx9 = getelementptr inbounds i32, i32* %X, i64 1
-  %3 = load i32, i32* %arrayidx9, align 4, !tbaa !8
+  %arrayidx9 = getelementptr inbounds i32, ptr %X, i64 1
+  %3 = load i32, ptr %arrayidx9, align 4, !tbaa !8
   %cmp10 = icmp eq i32 %3, 1
   br i1 %cmp10, label %sw.epilog, label %sw.bb13
 
 sw.bb13:                                          ; preds = %sw.bb8, %for.end
-  %4 = load i32, i32* %X, align 4, !tbaa !8
+  %4 = load i32, ptr %X, align 4, !tbaa !8
   %cmp15 = icmp eq i32 %4, 1
   br i1 %cmp15, label %sw.epilog, label %sw.default
 

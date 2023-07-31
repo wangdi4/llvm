@@ -58,7 +58,7 @@ target triple = "x86_64-unknown-linux-gnu"
 %"class.std::mersenne_twister_engine" = type { [312 x i64], i64 }
 
 ; Function Attrs: norecurse uwtable
-define dso_local noundef i32 @main(i32 noundef %argc, i8** nocapture noundef readonly %argv) local_unnamed_addr #3 personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) {
+define dso_local noundef i32 @main(i32 noundef %argc, ptr nocapture noundef readonly %argv) local_unnamed_addr #3 personality ptr @__gxx_personality_v0 {
 entry:
   %0 = add i32 %argc, -4
   %1 = icmp ult i32 %0, -2
@@ -72,20 +72,20 @@ if.end:                                           ; preds = %entry
   br i1 %cmp2, label %if.then3, label %if.end5
 
 if.then3:                                         ; preds = %if.end
-  %arrayidx = getelementptr inbounds i8*, i8** %argv, i64 2
-  %2 = load i8*, i8** %arrayidx, align 8, !tbaa !3
-  %call.i = tail call i64 @strtol(i8* nocapture noundef nonnull %2, i8** noundef null, i32 noundef 10) #7
+  %arrayidx = getelementptr inbounds ptr, ptr %argv, i64 2
+  %2 = load ptr, ptr %arrayidx, align 8, !tbaa !3
+  %call.i = tail call i64 @strtol(ptr nocapture noundef nonnull %2, ptr noundef null, i32 noundef 10) #7
   %conv.i = trunc i64 %call.i to i32
   br label %if.end5
 
 if.end5:                                          ; preds = %if.then3, %if.end
   %iters.0 = phi i32 [ %conv.i, %if.then3 ], [ 100, %if.end ]
-  %arrayidx6 = getelementptr inbounds i8*, i8** %argv, i64 1
-  %3 = load i8*, i8** %arrayidx6, align 8, !tbaa !3
-  %call9 = tail call noalias noundef nonnull dereferenceable(2504) i8* @_Znwm(i64 noundef 2504) #8
-  %4 = bitcast i8* %call9 to %class.Random64*
-  %arrayidx.i.i.i = getelementptr inbounds %class.Random64, %class.Random64* %4, i64 0, i32 0, i32 0, i64 0, !intel-tbaa !7
-  store i64 7, i64* %arrayidx.i.i.i, align 8, !tbaa !7
+  %arrayidx6 = getelementptr inbounds ptr, ptr %argv, i64 1
+  %3 = load ptr, ptr %arrayidx6, align 8, !tbaa !3
+  %call9 = tail call noalias noundef nonnull dereferenceable(2504) ptr @_Znwm(i64 noundef 2504) #8
+  %4 = bitcast ptr %call9 to ptr
+  %arrayidx.i.i.i = getelementptr inbounds %class.Random64, ptr %4, i64 0, i32 0, i32 0, i64 0, !intel-tbaa !7
+  store i64 7, ptr %arrayidx.i.i.i, align 8, !tbaa !7
   br label %_ZN8Random64C2Em.exit
 
 for.body.i.i.i:                                   ; preds = %for.body.i.i.i
@@ -98,8 +98,8 @@ for.body.i.i.i:                                   ; preds = %for.body.i.i.i
   %rem.i.i18.i.i.i = urem i16 %rem.i.i.lhs.trunc.i.i.i, 312
   %rem.i.i.zext.i.i.i = zext i16 %rem.i.i18.i.i.i to i64
   %add.i.i.i = add i64 %mul.i.i.i, %rem.i.i.zext.i.i.i
-  %arrayidx7.i.i.i = getelementptr inbounds %class.Random64, %class.Random64* %4, i64 0, i32 0, i32 0, i64 %__i.019.i.i.i, !intel-tbaa !7
-  store i64 %add.i.i.i, i64* %arrayidx7.i.i.i, align 8, !tbaa !7
+  %arrayidx7.i.i.i = getelementptr inbounds %class.Random64, ptr %4, i64 0, i32 0, i32 0, i64 %__i.019.i.i.i, !intel-tbaa !7
+  store i64 %add.i.i.i, ptr %arrayidx7.i.i.i, align 8, !tbaa !7
   %inc.i.i.i = add nuw nsw i64 %__i.019.i.i.i, 1
   %exitcond.not.i.i.i = icmp eq i64 %inc.i.i.i, 312
   br i1 %exitcond.not.i.i.i, label %_ZN8Random64C2Em.exit, label %for.body.i.i.i, !llvm.loop !12
@@ -109,8 +109,8 @@ _ZN8Random64C2Em.exit:                            ; preds = %_ZN8Random64C2Em.ex
   br i1 %cmp1040, label %for.body.lr.ph, label %cleanup
 
 for.body.lr.ph:                                   ; preds = %_ZN8Random64C2Em.exit
-  %arrayidx42.i.i.i = getelementptr inbounds %class.Random64, %class.Random64* %4, i64 0, i32 0, i32 0, i64 311
-  %arrayidx49.i.i.i = getelementptr inbounds %class.Random64, %class.Random64* %4, i64 0, i32 0, i32 0, i64 155
+  %arrayidx42.i.i.i = getelementptr inbounds %class.Random64, ptr %4, i64 0, i32 0, i32 0, i64 311
+  %arrayidx49.i.i.i = getelementptr inbounds %class.Random64, ptr %4, i64 0, i32 0, i32 0, i64 155
   br label %for.body
 
 for.body:                                         ; preds = %for.body.lr.ph, %_ZN8Random644NextEv.exit
@@ -124,31 +124,31 @@ for.body.i.i.i39.preheader:                       ; preds = %for.body
   br label %for.body.i.i.i39
 
 entry.if.end_crit_edge.i.i:                       ; preds = %for.body
-  %arrayidx.phi.trans.insert.i.i = getelementptr inbounds %class.Random64, %class.Random64* %4, i64 0, i32 0, i32 0, i64 %7
-  %.pre.i.i = load i64, i64* %arrayidx.phi.trans.insert.i.i, align 8, !tbaa !14
+  %arrayidx.phi.trans.insert.i.i = getelementptr inbounds %class.Random64, ptr %4, i64 0, i32 0, i32 0, i64 %7
+  %.pre.i.i = load i64, ptr %arrayidx.phi.trans.insert.i.i, align 8, !tbaa !14
   %8 = add nuw nsw i64 %7, 1
   br label %_ZN8Random644NextEv.exit
 
 for.body.i.i.i39:                                 ; preds = %for.body.i.i.i39.preheader, %for.body.i.i.i39
   %9 = phi i64 [ %10, %for.body.i.i.i39 ], [ %6, %for.body.i.i.i39.preheader ]
   %__k.078.i.i.i = phi i64 [ %add.i.i.i34, %for.body.i.i.i39 ], [ 0, %for.body.i.i.i39.preheader ]
-  %arrayidx.i.i.i33 = getelementptr inbounds %class.Random64, %class.Random64* %4, i64 0, i32 0, i32 0, i64 %__k.078.i.i.i, !intel-tbaa !7
+  %arrayidx.i.i.i33 = getelementptr inbounds %class.Random64, ptr %4, i64 0, i32 0, i32 0, i64 %__k.078.i.i.i, !intel-tbaa !7
   %and.i.i.i = and i64 %9, -2147483648
   %add.i.i.i34 = add nuw nsw i64 %__k.078.i.i.i, 1
-  %arrayidx3.i.i.i = getelementptr inbounds %class.Random64, %class.Random64* %4, i64 0, i32 0, i32 0, i64 %add.i.i.i34, !intel-tbaa !7
-  %10 = load i64, i64* %arrayidx3.i.i.i, align 8, !tbaa !7
+  %arrayidx3.i.i.i = getelementptr inbounds %class.Random64, ptr %4, i64 0, i32 0, i32 0, i64 %add.i.i.i34, !intel-tbaa !7
+  %10 = load i64, ptr %arrayidx3.i.i.i, align 8, !tbaa !7
   %and4.i.i.i = and i64 %10, 2147483646
   %or.i.i.i = or i64 %and4.i.i.i, %and.i.i.i
   %add6.i.i.i = add nuw nsw i64 %__k.078.i.i.i, 156
-  %arrayidx7.i.i.i35 = getelementptr inbounds %class.Random64, %class.Random64* %4, i64 0, i32 0, i32 0, i64 %add6.i.i.i, !intel-tbaa !7
-  %11 = load i64, i64* %arrayidx7.i.i.i35, align 8, !tbaa !7
+  %arrayidx7.i.i.i35 = getelementptr inbounds %class.Random64, ptr %4, i64 0, i32 0, i32 0, i64 %add6.i.i.i, !intel-tbaa !7
+  %11 = load i64, ptr %arrayidx7.i.i.i35, align 8, !tbaa !7
   %shr.i.i.i36 = lshr exact i64 %or.i.i.i, 1
   %xor.i.i.i37 = xor i64 %shr.i.i.i36, %11
   %and8.i.i.i = and i64 %10, 1
   %tobool.not.i.i.i = icmp eq i64 %and8.i.i.i, 0
   %cond.i.i.i = select i1 %tobool.not.i.i.i, i64 0, i64 -5403634167711393303
   %xor9.i.i.i = xor i64 %xor.i.i.i37, %cond.i.i.i
-  store i64 %xor9.i.i.i, i64* %arrayidx.i.i.i33, align 8, !tbaa !7
+  store i64 %xor9.i.i.i, ptr %arrayidx.i.i.i33, align 8, !tbaa !7
   %exitcond.not.i.i.i38 = icmp eq i64 %add.i.i.i34, 156
   br i1 %exitcond.not.i.i.i38, label %for.body16.i.i.i.preheader, label %for.body.i.i.i39, !llvm.loop !15
 
@@ -157,41 +157,41 @@ for.body16.i.i.i.preheader:                       ; preds = %for.body.i.i.i39
 
 for.body16.i.i.i:                                 ; preds = %for.body16.i.i.i.preheader, %for.body16.i.i.i
   %__k12.079.i.i.i = phi i64 [ %add22.i.i.i, %for.body16.i.i.i ], [ 156, %for.body16.i.i.i.preheader ]
-  %arrayidx19.i.i.i = getelementptr inbounds %class.Random64, %class.Random64* %4, i64 0, i32 0, i32 0, i64 %__k12.079.i.i.i, !intel-tbaa !7
-  %12 = load i64, i64* %arrayidx19.i.i.i, align 8, !tbaa !7
+  %arrayidx19.i.i.i = getelementptr inbounds %class.Random64, ptr %4, i64 0, i32 0, i32 0, i64 %__k12.079.i.i.i, !intel-tbaa !7
+  %12 = load i64, ptr %arrayidx19.i.i.i, align 8, !tbaa !7
   %and20.i.i.i = and i64 %12, -2147483648
   %add22.i.i.i = add nuw nsw i64 %__k12.079.i.i.i, 1
-  %arrayidx23.i.i.i = getelementptr inbounds %class.Random64, %class.Random64* %4, i64 0, i32 0, i32 0, i64 %add22.i.i.i, !intel-tbaa !7
-  %13 = load i64, i64* %arrayidx23.i.i.i, align 8, !tbaa !7
+  %arrayidx23.i.i.i = getelementptr inbounds %class.Random64, ptr %4, i64 0, i32 0, i32 0, i64 %add22.i.i.i, !intel-tbaa !7
+  %13 = load i64, ptr %arrayidx23.i.i.i, align 8, !tbaa !7
   %and24.i.i.i = and i64 %13, 2147483646
   %or25.i.i.i = or i64 %and24.i.i.i, %and20.i.i.i
   %add27.i.i.i = add nsw i64 %__k12.079.i.i.i, -156
-  %arrayidx28.i.i.i = getelementptr inbounds %class.Random64, %class.Random64* %4, i64 0, i32 0, i32 0, i64 %add27.i.i.i, !intel-tbaa !7
-  %14 = load i64, i64* %arrayidx28.i.i.i, align 8, !tbaa !7
+  %arrayidx28.i.i.i = getelementptr inbounds %class.Random64, ptr %4, i64 0, i32 0, i32 0, i64 %add27.i.i.i, !intel-tbaa !7
+  %14 = load i64, ptr %arrayidx28.i.i.i, align 8, !tbaa !7
   %shr29.i.i.i = lshr exact i64 %or25.i.i.i, 1
   %xor30.i.i.i = xor i64 %shr29.i.i.i, %14
   %and31.i.i.i = and i64 %13, 1
   %tobool32.not.i.i.i = icmp eq i64 %and31.i.i.i, 0
   %cond33.i.i.i = select i1 %tobool32.not.i.i.i, i64 0, i64 -5403634167711393303
   %xor34.i.i.i = xor i64 %xor30.i.i.i, %cond33.i.i.i
-  store i64 %xor34.i.i.i, i64* %arrayidx19.i.i.i, align 8, !tbaa !7
+  store i64 %xor34.i.i.i, ptr %arrayidx19.i.i.i, align 8, !tbaa !7
   %exitcond80.not.i.i.i = icmp eq i64 %add22.i.i.i, 311
   br i1 %exitcond80.not.i.i.i, label %_ZNSt23mersenne_twister_engine.exit.i.i, label %for.body16.i.i.i, !llvm.loop !16
 
 _ZNSt23mersenne_twister_engine.exit.i.i: ; preds = %for.body16.i.i.i
-  %15 = load i64, i64* %arrayidx42.i.i.i, align 8, !tbaa !7
+  %15 = load i64, ptr %arrayidx42.i.i.i, align 8, !tbaa !7
   %and43.i.i.i = and i64 %15, -2147483648
-  %16 = load i64, i64* %arrayidx.i.i.i, align 8, !tbaa !7
+  %16 = load i64, ptr %arrayidx.i.i.i, align 8, !tbaa !7
   %and46.i.i.i = and i64 %16, 2147483646
   %or47.i.i.i = or i64 %and46.i.i.i, %and43.i.i.i
-  %17 = load i64, i64* %arrayidx49.i.i.i, align 8, !tbaa !7
+  %17 = load i64, ptr %arrayidx49.i.i.i, align 8, !tbaa !7
   %shr50.i.i.i = lshr exact i64 %or47.i.i.i, 1
   %xor51.i.i.i = xor i64 %shr50.i.i.i, %17
   %and52.i.i.i = and i64 %16, 1
   %tobool53.not.i.i.i = icmp eq i64 %and52.i.i.i, 0
   %cond54.i.i.i = select i1 %tobool53.not.i.i.i, i64 0, i64 -5403634167711393303
   %xor55.i.i.i = xor i64 %xor51.i.i.i, %cond54.i.i.i
-  store i64 %xor55.i.i.i, i64* %arrayidx42.i.i.i, align 8, !tbaa !7
+  store i64 %xor55.i.i.i, ptr %arrayidx42.i.i.i, align 8, !tbaa !7
   br label %_ZN8Random644NextEv.exit
 
 _ZN8Random644NextEv.exit:                         ; preds = %entry.if.end_crit_edge.i.i, %_ZNSt23mersenne_twister_engine.exit.i.i
@@ -211,12 +211,12 @@ cleanup:                                          ; preds = %cleanup.loopexit, %
 }
 
 ; Function Attrs: nobuiltin allocsize(0)
-declare dso_local noundef nonnull i8* @_Znwm(i64 noundef) local_unnamed_addr #5
+declare dso_local noundef nonnull ptr @_Znwm(i64 noundef) local_unnamed_addr #5
 
 declare dso_local i32 @__gxx_personality_v0(...)
 
 ; Function Attrs: mustprogress nofree nounwind willreturn
-declare dso_local i64 @strtol(i8* noundef readonly, i8** nocapture noundef, i32 noundef) local_unnamed_addr #4
+declare dso_local i64 @strtol(ptr noundef readonly, ptr nocapture noundef, i32 noundef) local_unnamed_addr #4
 
 attributes #0 = { nofree "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "frame-pointer"="none" "loopopt-pipeline"="light" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
 attributes #1 = { nofree nounwind "approx-func-fp-math"="true" "denormal-fp-math"="preserve-sign,preserve-sign" "frame-pointer"="none" "loopopt-pipeline"="light" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }

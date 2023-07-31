@@ -40,7 +40,7 @@
 ; |   %t2680 = %t2704 + -1 * (%t2699 /u 2) + %t2700;
 ; + END LOOP
 
-define void @foo(i8* %t2, i32 %t.in1, i32 %n, i64 %t.in3, i32 %t.in4, i32 %t.in5, i64 %t4) {
+define void @foo(ptr %t2, i32 %t.in1, i32 %n, i64 %t.in3, i32 %t.in4, i32 %t.in5, i64 %t4) {
 entry:
   br label %loop
 
@@ -68,8 +68,8 @@ t2689:                                             ; preds = %t2682
   %t2690 = shl nuw i32 %t2679, 8
   %t2691 = shl i32 %t2680, 8
   %t2692 = add i64 %t2678, 1
-  %t2693 = getelementptr inbounds i8, i8* %t2, i64 %t2678
-  %t2694 = load i8, i8* %t2693, align 1
+  %t2693 = getelementptr inbounds i8, ptr %t2, i64 %t2678
+  %t2694 = load i8, ptr %t2693, align 1
   %t2695 = zext i8 %t2694 to i32
   %t2696 = or i32 %t2691, %t2695
   br label %latch

@@ -56,7 +56,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline nounwind uwtable
-define dso_local void @foo(i32 %n, i32* %a) #0 {
+define dso_local void @foo(i32 %n, ptr %a) #0 {
 entry:
   br label %for.body
 
@@ -71,10 +71,10 @@ if.then:                                          ; preds = %for.body
 for.body4:                                        ; preds = %if.then, %for.inc
   %j.01 = phi i32 [ 0, %if.then ], [ %inc, %for.inc ]
   %idxprom = sext i32 %j.01 to i64
-  %ptridx = getelementptr inbounds i32, i32* %a, i64 %idxprom
-  %0 = load i32, i32* %ptridx, align 4
+  %ptridx = getelementptr inbounds i32, ptr %a, i64 %idxprom
+  %0 = load i32, ptr %ptridx, align 4
   %add = add nsw i32 %0, %j.01
-  store i32 %add, i32* %ptridx, align 4
+  store i32 %add, ptr %ptridx, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body4
@@ -95,10 +95,10 @@ if.then6:                                         ; preds = %if.end
 for.body10:                                       ; preds = %if.then6, %for.inc14
   %j7.02 = phi i32 [ 0, %if.then6 ], [ %inc15, %for.inc14 ]
   %idxprom11 = sext i32 %j7.02 to i64
-  %ptridx12 = getelementptr inbounds i32, i32* %a, i64 %idxprom11
-  %1 = load i32, i32* %ptridx12, align 4
+  %ptridx12 = getelementptr inbounds i32, ptr %a, i64 %idxprom11
+  %1 = load i32, ptr %ptridx12, align 4
   %add13 = add nsw i32 %1, %j7.02
-  store i32 %add13, i32* %ptridx12, align 4
+  store i32 %add13, ptr %ptridx12, align 4
   br label %for.inc14
 
 for.inc14:                                        ; preds = %for.body10
@@ -119,10 +119,10 @@ if.then19:                                        ; preds = %if.end17
 for.body23:                                       ; preds = %if.then19, %for.inc27
   %j20.03 = phi i32 [ 0, %if.then19 ], [ %inc28, %for.inc27 ]
   %idxprom24 = sext i32 %j20.03 to i64
-  %ptridx25 = getelementptr inbounds i32, i32* %a, i64 %idxprom24
-  %2 = load i32, i32* %ptridx25, align 4
+  %ptridx25 = getelementptr inbounds i32, ptr %a, i64 %idxprom24
+  %2 = load i32, ptr %ptridx25, align 4
   %add26 = add nsw i32 %2, %j20.03
-  store i32 %add26, i32* %ptridx25, align 4
+  store i32 %add26, ptr %ptridx25, align 4
   br label %for.inc27
 
 for.inc27:                                        ; preds = %for.body23

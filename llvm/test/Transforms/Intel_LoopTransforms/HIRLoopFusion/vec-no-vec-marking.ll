@@ -59,8 +59,8 @@ for.body11.preheader:                             ; preds = %for.inc6
 
 for.body3:                                        ; preds = %for.body3.preheader, %for.body3
   %indvars.iv75 = phi i64 [ 0, %for.body3.preheader ], [ %indvars.iv.next76, %for.body3 ]
-  %arrayidx5 = getelementptr inbounds [100 x [100 x float]], [100 x [100 x float]]* @a, i64 0, i64 %indvars.iv79, i64 %indvars.iv75
-  store float 5.000000e+00, float* %arrayidx5, align 4
+  %arrayidx5 = getelementptr inbounds [100 x [100 x float]], ptr @a, i64 0, i64 %indvars.iv79, i64 %indvars.iv75
+  store float 5.000000e+00, ptr %arrayidx5, align 4
   %indvars.iv.next76 = add nuw nsw i64 %indvars.iv75, 1
   %exitcond78.not = icmp eq i64 %indvars.iv.next76, %wide.trip.count8183
   br i1 %exitcond78.not, label %for.inc6, label %for.body3
@@ -77,8 +77,8 @@ for.body11:                                       ; preds = %for.body11.preheade
   %indvars.iv71 = phi i64 [ 0, %for.body11.preheader ], [ %indvars.iv.next72, %for.body11 ]
   %0 = trunc i64 %indvars.iv71 to i32
   %conv = sitofp i32 %0 to float
-  %arrayidx13 = getelementptr inbounds [100 x float], [100 x float]* @b, i64 0, i64 %indvars.iv71
-  store float %conv, float* %arrayidx13, align 4
+  %arrayidx13 = getelementptr inbounds [100 x float], ptr @b, i64 0, i64 %indvars.iv71
+  store float %conv, ptr %arrayidx13, align 4
   %indvars.iv.next72 = add nuw nsw i64 %indvars.iv71, 1
   %exitcond74.not = icmp eq i64 %indvars.iv.next72, %wide.trip.count8183
   br i1 %exitcond74.not, label %for.cond21.preheader.preheader, label %for.body11
@@ -89,10 +89,10 @@ for.body24.preheader:                             ; preds = %for.inc34, %for.con
 
 for.body24:                                       ; preds = %for.body24.preheader, %for.body24
   %indvars.iv = phi i64 [ 0, %for.body24.preheader ], [ %indvars.iv.next, %for.body24 ]
-  %arrayidx28 = getelementptr inbounds [100 x [100 x float]], [100 x [100 x float]]* @a, i64 0, i64 %indvars.iv67, i64 %indvars.iv
-  %1 = load float, float* %arrayidx28, align 4
+  %arrayidx28 = getelementptr inbounds [100 x [100 x float]], ptr @a, i64 0, i64 %indvars.iv67, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx28, align 4
   %conv30 = fadd fast float %1, 3.000000e+00
-  store float %conv30, float* %arrayidx28, align 4
+  store float %conv30, ptr %arrayidx28, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count8183
   br i1 %exitcond.not, label %for.inc34, label %for.body24

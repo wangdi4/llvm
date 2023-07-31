@@ -82,15 +82,15 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup3
 
 for.body:                                         ; preds = %for.cond.cleanup3, %entry
   %indvars.iv31 = phi i64 [ 0, %entry ], [ %indvars.iv.next32, %for.cond.cleanup3 ]
-  %arrayidx = getelementptr inbounds [16 x i32], [16 x i32]* @A, i64 0, i64 %indvars.iv31
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [16 x i32], ptr @A, i64 0, i64 %indvars.iv31
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
   br label %for.body4
 
 for.cond.cleanup3:                                ; preds = %for.body4
   %add9.lcssa = phi i32 [ %add9, %for.body4 ]
   %indvars.iv.next32 = add nuw nsw i64 %indvars.iv31, 1
-  %arrayidx12 = getelementptr inbounds [16 x i32], [16 x i32]* @A, i64 0, i64 %indvars.iv.next32
-  store i32 %add9.lcssa, i32* %arrayidx12, align 4, !tbaa !2
+  %arrayidx12 = getelementptr inbounds [16 x i32], ptr @A, i64 0, i64 %indvars.iv.next32
+  store i32 %add9.lcssa, ptr %arrayidx12, align 4, !tbaa !2
   %exitcond33 = icmp eq i64 %indvars.iv.next32, 15
   br i1 %exitcond33, label %for.cond.cleanup, label %for.body
 
@@ -98,8 +98,8 @@ for.body4:                                        ; preds = %for.body4, %for.bod
   %indvars.iv = phi i64 [ 0, %for.body ], [ %indvars.iv.next, %for.body4 ]
   %c.128 = phi i32 [ %0, %for.body ], [ %add9, %for.body4 ]
   %add = add nsw i32 %c.128, 10
-  %arrayidx8 = getelementptr inbounds [16 x [16 x i32]], [16 x [16 x i32]]* @B, i64 0, i64 %indvars.iv, i64 %indvars.iv31
-  %1 = load i32, i32* %arrayidx8, align 4, !tbaa !7
+  %arrayidx8 = getelementptr inbounds [16 x [16 x i32]], ptr @B, i64 0, i64 %indvars.iv, i64 %indvars.iv31
+  %1 = load i32, ptr %arrayidx8, align 4, !tbaa !7
   %add9 = add nsw i32 %add, %1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 16

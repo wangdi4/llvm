@@ -41,7 +41,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define i32 @main() local_unnamed_addr #0 {
 entry:
-  %0 = load i32, i32* getelementptr inbounds ([2000 x i32], [2000 x i32]* @k, i64 0, i64 2), align 8
+  %0 = load i32, ptr getelementptr inbounds ([2000 x i32], ptr @k, i64 0, i64 2), align 8
   %cmp1.i = icmp eq i32 %0, 2
   br label %for.cond.i.preheader
 
@@ -55,8 +55,8 @@ for.body.i:                                       ; preds = %for.inc.i, %for.con
   br i1 %cmp1.i, label %if.then.i, label %for.inc.i
 
 if.then.i:                                        ; preds = %for.body.i
-  %arrayidx.i = getelementptr inbounds [1000 x float], [1000 x float]* @a, i64 0, i64 %indvars.iv
-  %1 = load float, float* %arrayidx.i, align 4
+  %arrayidx.i = getelementptr inbounds [1000 x float], ptr @a, i64 0, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx.i, align 4
   %add.i = fadd float %x.0.i13, %1
   br label %for.inc.i
 
@@ -76,8 +76,8 @@ for.body4.i:                                      ; preds = %for.body4.i.prehead
   br i1 %cmp1.i, label %if.then7.i, label %for.inc12.i
 
 if.then7.i:                                       ; preds = %for.body4.i
-  %arrayidx9.i = getelementptr inbounds [1000 x float], [1000 x float]* @a, i64 0, i64 %indvars.iv17
-  %2 = load float, float* %arrayidx9.i, align 4
+  %arrayidx9.i = getelementptr inbounds [1000 x float], ptr @a, i64 0, i64 %indvars.iv17
+  %2 = load float, ptr %arrayidx9.i, align 4
   %add10.i = fadd float %x.2.i15, %2
   br label %for.inc12.i
 
@@ -100,26 +100,26 @@ for.end:                                          ; preds = %amix5.exit
   br i1 %cmp1, label %if.then, label %if.end
 
 if.then:                                          ; preds = %for.end
-  %call4 = tail call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([21 x i8], [21 x i8]* @.str, i64 0, i64 0), double %phitmp.le)
+  %call4 = tail call i32 (ptr, ...) @printf(ptr @.str, double %phitmp.le)
   tail call void @exit(i32 1) #4
   unreachable
 
 if.end:                                           ; preds = %for.end
-  %call6 = tail call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([11 x i8], [11 x i8]* @.str.1, i64 0, i64 0), double %phitmp.le)
+  %call6 = tail call i32 (ptr, ...) @printf(ptr @.str.1, double %phitmp.le)
   ret i32 0
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: nounwind
-declare i32 @printf(i8* nocapture readonly, ...) local_unnamed_addr #2
+declare i32 @printf(ptr nocapture readonly, ...) local_unnamed_addr #2
 
 ; Function Attrs: noreturn nounwind
 declare void @exit(i32) local_unnamed_addr #3
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

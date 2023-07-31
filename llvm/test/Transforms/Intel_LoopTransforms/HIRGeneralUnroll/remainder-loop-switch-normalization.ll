@@ -30,15 +30,15 @@
 ; CHECK:   (%ptr)[2 * zext.i32.i64((8 * %tgu)) + 12] = 0;
 ; CHECK:   goto L5
 
-define void @foo(i32 %n, i32* %ptr) {
+define void @foo(i32 %n, ptr %ptr) {
 entry:
   br label %loop
 
 loop:                                              ; preds = %loop, %entry
   %iv.64 = phi i64 [ 0, %entry ], [ %iv.64.inc, %loop ]
   %iv.32 = phi i32 [ 1, %entry ], [ %iv.32.inc, %loop ]
-  %gep = getelementptr inbounds i32, i32* %ptr, i64 %iv.64
-  store i32 0, i32* %gep
+  %gep = getelementptr inbounds i32, ptr %ptr, i64 %iv.64
+  store i32 0, ptr %gep
   %iv.64.inc = add nuw nsw i64 %iv.64, 2
   %iv.32.inc = add nuw i32 %iv.32, 1
   %cmp = icmp ne i32 %iv.32.inc, %n

@@ -31,10 +31,10 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define void @foo(i32* nocapture %p, i32* nocapture %q, i64 %n, i64 %d) local_unnamed_addr #0 !dbg !8 {
+define void @foo(ptr nocapture %p, ptr nocapture %q, i64 %n, i64 %d) local_unnamed_addr #0 !dbg !8 {
 entry:
-  call void @llvm.dbg.value(metadata i32* %p, metadata !15, metadata !DIExpression()), !dbg !20
-  call void @llvm.dbg.value(metadata i32* %q, metadata !16, metadata !DIExpression()), !dbg !21
+  call void @llvm.dbg.value(metadata ptr %p, metadata !15, metadata !DIExpression()), !dbg !20
+  call void @llvm.dbg.value(metadata ptr %q, metadata !16, metadata !DIExpression()), !dbg !21
   call void @llvm.dbg.value(metadata i64 %n, metadata !17, metadata !DIExpression()), !dbg !22
   call void @llvm.dbg.value(metadata i64 %d, metadata !18, metadata !DIExpression()), !dbg !23
   call void @llvm.dbg.value(metadata i64 0, metadata !19, metadata !DIExpression()), !dbg !24
@@ -42,7 +42,7 @@ entry:
   br i1 %cmp10, label %for.body.lr.ph, label %for.end, !dbg !28
 
 for.body.lr.ph:                                   ; preds = %entry
-  %arrayidx = getelementptr inbounds i32, i32* %p, i64 %d
+  %arrayidx = getelementptr inbounds i32, ptr %p, i64 %d
   br label %for.body, !dbg !28
 
 for.body:                                         ; preds = %for.inc, %for.body.lr.ph
@@ -53,12 +53,12 @@ for.body:                                         ; preds = %for.inc, %for.body.
   br i1 %cmp1, label %if.then, label %if.else, !dbg !32
 
 if.then:                                          ; preds = %for.body
-  store i32 %conv, i32* %arrayidx, align 4, !dbg !33, !tbaa !35
+  store i32 %conv, ptr %arrayidx, align 4, !dbg !33, !tbaa !35
   br label %for.inc, !dbg !39
 
 if.else:                                          ; preds = %for.body
-  %arrayidx3 = getelementptr inbounds i32, i32* %q, i64 %j.011, !dbg !40
-  store i32 %conv, i32* %arrayidx3, align 4, !dbg !42, !tbaa !35
+  %arrayidx3 = getelementptr inbounds i32, ptr %q, i64 %j.011, !dbg !40
+  store i32 %conv, ptr %arrayidx3, align 4, !dbg !42, !tbaa !35
   br label %for.inc
 
 for.inc:                                          ; preds = %if.then, %if.else

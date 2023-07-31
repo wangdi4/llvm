@@ -58,8 +58,8 @@ if.end:                                           ; preds = %if.then, %for.body
   %1 = trunc i64 %indvars.iv to i32
   %add2 = add nuw nsw i32 %x.0, %1
   %conv = sitofp i32 %add2 to double
-  %arrayidx = getelementptr inbounds [100 x double], [100 x double]* @A, i64 0, i64 %indvars.iv
-  store double %conv, double* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds [100 x double], ptr @A, i64 0, i64 %indvars.iv
+  store double %conv, ptr %arrayidx, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 20
   br i1 %exitcond, label %for.cond.cleanup, label %for.body

@@ -59,7 +59,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline norecurse nounwind uwtable
-define void @foo(i32* nocapture %a, i32 %n, i32 %m) local_unnamed_addr #0 {
+define void @foo(ptr nocapture %a, i32 %n, i32 %m) local_unnamed_addr #0 {
 entry:
   %cmp14 = icmp sgt i32 %n, 0
   br i1 %cmp14, label %for.body.lr.ph, label %for.end24
@@ -72,7 +72,7 @@ for.body.lr.ph:                                   ; preds = %entry
 
 for.body:                                         ; preds = %L, %for.body.lr.ph
   %indvars.iv16 = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next17, %L ]
-  %.pre = getelementptr inbounds i32, i32* %a, i64 %indvars.iv16
+  %.pre = getelementptr inbounds i32, ptr %a, i64 %indvars.iv16
   br i1 %cmp1, label %L, label %for.body4.preheader
 
 for.body4.preheader:                              ; preds = %for.body
@@ -80,25 +80,25 @@ for.body4.preheader:                              ; preds = %for.body
 
 for.body4:                                        ; preds = %for.body4.preheader, %if.end13
   %indvars.iv = phi i64 [ %indvars.iv.next, %if.end13 ], [ 0, %for.body4.preheader ]
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx, align 4
   %inc = add nsw i32 %1, 1
-  store i32 %inc, i32* %arrayidx, align 4
+  store i32 %inc, ptr %arrayidx, align 4
   br i1 %cmp5, label %if.then6, label %if.else
 
 if.then6:                                         ; preds = %for.body4
-  store i32 1, i32* %.pre, align 4
+  store i32 1, ptr %.pre, align 4
   br label %if.end13
 
 if.else:                                          ; preds = %for.body4
-  %2 = load i32, i32* %.pre, align 4
+  %2 = load i32, ptr %.pre, align 4
   %cmp11 = icmp sgt i32 %2, 100
   br i1 %cmp11, label %L.loopexit, label %if.end13
 
 if.end13:                                         ; preds = %if.else, %if.then6
-  %3 = load i32, i32* %arrayidx, align 4
+  %3 = load i32, ptr %arrayidx, align 4
   %inc16 = add nsw i32 %3, 1
-  store i32 %inc16, i32* %arrayidx, align 4
+  store i32 %inc16, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %cmp3 = icmp slt i64 %indvars.iv.next, %0
   br i1 %cmp3, label %for.body4, label %L.loopexit
@@ -107,9 +107,9 @@ L.loopexit:                                       ; preds = %if.end13, %if.else
   br label %L
 
 L:                                                ; preds = %L.loopexit, %for.body
-  %4 = load i32, i32* %.pre, align 4
+  %4 = load i32, ptr %.pre, align 4
   %inc21 = add nsw i32 %4, 1
-  store i32 %inc21, i32* %.pre, align 4
+  store i32 %inc21, ptr %.pre, align 4
   %indvars.iv.next17 = add nuw nsw i64 %indvars.iv16, 1
   %exitcond = icmp eq i64 %indvars.iv.next17, %0
   br i1 %exitcond, label %for.end24.loopexit, label %for.body

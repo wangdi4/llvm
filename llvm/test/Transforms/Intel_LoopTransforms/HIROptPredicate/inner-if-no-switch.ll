@@ -87,22 +87,22 @@ if.inner:
   ]
 
 sw.bb:                                            ; preds = %for.body
-  %arrayidx = getelementptr inbounds i32, i32* %p, i64 %idxprom
+  %arrayidx = getelementptr inbounds i32, ptr %p, i64 %idxprom
   %2 = trunc i64 %idxprom to i32
-  store i32 %2, i32* %arrayidx, align 4
+  store i32 %2, ptr %arrayidx, align 4
   br label %for.inc
 
 sw.bb1:                                           ; preds = %for.body
-  %arrayidx3 = getelementptr inbounds i32, i32* %q, i64 %idxprom
+  %arrayidx3 = getelementptr inbounds i32, ptr %q, i64 %idxprom
   %3 = trunc i64 %idxprom to i32
-  store i32 %3, i32* %arrayidx3, align 4
+  store i32 %3, ptr %arrayidx3, align 4
   br label %for.inc
 
 sw.default:                                       ; preds = %for.body
   %4 = add nuw nsw i64 %idxprom, 1
-  %arrayidx5 = getelementptr inbounds i32, i32* %q, i64 %4
+  %arrayidx5 = getelementptr inbounds i32, ptr %q, i64 %4
   %5 = trunc i64 %idxprom to i32
-  store i32 %5, i32* %arrayidx5, align 4
+  store i32 %5, ptr %arrayidx5, align 4
   br label %for.inc
 
 for.inc:

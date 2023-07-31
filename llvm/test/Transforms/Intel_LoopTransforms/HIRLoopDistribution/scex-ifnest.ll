@@ -96,17 +96,17 @@ if.then:                                          ; preds = %for.body
 if.then4:                                         ; preds = %if.then
   %inc5 = add nsw i32 %y.addr.023, 1
   %idxprom = sext i32 %inc to i64
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @A1, i64 0, i64 %idxprom, !intel-tbaa !3
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !3
-  %arrayidx7 = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %idxprom, !intel-tbaa !3
-  %1 = load i32, i32* %arrayidx7, align 4, !tbaa !3
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @A1, i64 0, i64 %idxprom, !intel-tbaa !3
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !3
+  %arrayidx7 = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %idxprom, !intel-tbaa !3
+  %1 = load i32, ptr %arrayidx7, align 4, !tbaa !3
   %idxprom8 = sext i32 %inc5 to i64
-  %arrayidx9 = getelementptr inbounds [100 x i32], [100 x i32]* @B, i64 0, i64 %idxprom8, !intel-tbaa !3
-  %2 = load i32, i32* %arrayidx9, align 4, !tbaa !3
+  %arrayidx9 = getelementptr inbounds [100 x i32], ptr @B, i64 0, i64 %idxprom8, !intel-tbaa !3
+  %2 = load i32, ptr %arrayidx9, align 4, !tbaa !3
   %mul = mul nsw i32 %2, %1
   %add = add nsw i32 %mul, %0
-  %arrayidx11 = getelementptr inbounds [100 x i32], [100 x i32]* @B1, i64 0, i64 %idxprom, !intel-tbaa !3
-  store i32 %add, i32* %arrayidx11, align 4, !tbaa !3
+  %arrayidx11 = getelementptr inbounds [100 x i32], ptr @B1, i64 0, i64 %idxprom, !intel-tbaa !3
+  store i32 %add, ptr %arrayidx11, align 4, !tbaa !3
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then4, %if.then

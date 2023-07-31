@@ -50,7 +50,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind readonly uwtable
-define float @foo(float* noalias nocapture readonly %A, i32 %n) local_unnamed_addr #0 {
+define float @foo(ptr noalias nocapture readonly %A, i32 %n) local_unnamed_addr #0 {
 entry:
   %mul = shl nsw i32 %n, 1
   %0 = sext i32 %n to i64
@@ -58,7 +58,7 @@ entry:
   br label %for.body
 
 for.cond.cleanup:                                 ; preds = %for.body
-  %2 = load float, float* %A, align 4, !tbaa !1
+  %2 = load float, ptr %A, align 4, !tbaa !1
   %add5 = fadd float %add4, %2
   ret float %add5
 
@@ -66,12 +66,12 @@ for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %s2.019 = phi float [ 0.000000e+00, %entry ], [ %add4, %for.body ]
   %3 = sub nsw i64 %1, %indvars.iv
-  %arrayidx = getelementptr inbounds float, float* %A, i64 %3
-  %4 = load float, float* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds float, ptr %A, i64 %3
+  %4 = load float, ptr %arrayidx, align 4, !tbaa !1
   %add = fadd reassoc float %s2.019, %4
   %5 = sub nsw i64 %0, %indvars.iv
-  %arrayidx3 = getelementptr inbounds float, float* %A, i64 %5
-  %6 = load float, float* %arrayidx3, align 4, !tbaa !1
+  %arrayidx3 = getelementptr inbounds float, ptr %A, i64 %5
+  %6 = load float, ptr %arrayidx3, align 4, !tbaa !1
   %add4 = fadd reassoc float %add, %6
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 11

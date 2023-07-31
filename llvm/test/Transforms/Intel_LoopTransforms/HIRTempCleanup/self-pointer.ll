@@ -28,7 +28,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @foo(i32* readnone %orig, i32** nocapture %a, i32 %n) {
+define void @foo(ptr readnone %orig, ptr nocapture %a, i32 %n) {
 entry:
   %cmp10 = icmp sgt i32 %n, 0
   br i1 %cmp10, label %for.body.preheader, label %for.cond.cleanup
@@ -45,13 +45,13 @@ for.cond.cleanup:
 
 for.body:
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %if.end ]
-  %arrayidx = getelementptr inbounds i32*, i32** %a, i64 %indvars.iv
-  %0 = load i32*, i32** %arrayidx, align 8
-  %cmp1 = icmp eq i32* %0, %orig
+  %arrayidx = getelementptr inbounds ptr, ptr %a, i64 %indvars.iv
+  %0 = load ptr, ptr %arrayidx, align 8
+  %cmp1 = icmp eq ptr %0, %orig
   br i1 %cmp1, label %if.then, label %if.end
 
 if.then:
-  store i32* null, i32** %arrayidx, align 8
+  store ptr null, ptr %arrayidx, align 8
   br label %if.end
 
 if.end:

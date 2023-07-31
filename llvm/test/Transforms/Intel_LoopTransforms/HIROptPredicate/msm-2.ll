@@ -97,7 +97,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind uwtable
 define i32 @main() local_unnamed_addr #0 {
 entry:
-  %0 = load i8, i8* @u, align 1
+  %0 = load i8, ptr @u, align 1
   %tobool16 = icmp eq i8 %0, 0
   br label %for.body
 
@@ -108,8 +108,8 @@ for.body:                                         ; preds = %for.end29, %entry
 
 for.body7:                                        ; preds = %for.body, %for.end
   %indvars.iv48 = phi i64 [ %indvars.iv50, %for.body ], [ %indvars.iv.next49, %for.end ]
-  %arrayidx = getelementptr inbounds [3 x i32], [3 x i32]* @a, i64 0, i64 %indvars.iv48
-  %1 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [3 x i32], ptr @a, i64 0, i64 %indvars.iv48
+  %1 = load i32, ptr %arrayidx, align 4
   %tobool = icmp eq i32 %1, 0
   br label %for.body11
 
@@ -118,8 +118,8 @@ for.body11:                                       ; preds = %for.inc, %for.body7
   br i1 %tobool, label %cond.end, label %cond.true
 
 cond.true:                                        ; preds = %for.body11
-  %arrayidx12 = getelementptr inbounds [3 x i32], [3 x i32]* @a, i64 0, i64 %k.045
-  %2 = load i32, i32* %arrayidx12, align 4
+  %arrayidx12 = getelementptr inbounds [3 x i32], ptr @a, i64 0, i64 %k.045
+  %2 = load i32, ptr %arrayidx12, align 4
   %phitmp = trunc i32 %2 to i8
   br label %cond.end
 
@@ -131,17 +131,17 @@ if.then:                                          ; preds = %cond.end
   br i1 %tobool16, label %cond.end20, label %cond.true17
 
 cond.true17:                                      ; preds = %if.then
-  %arrayidx18 = getelementptr inbounds [3 x i32], [3 x i32]* @a, i64 0, i64 %k.045
-  %3 = load i32, i32* %arrayidx18, align 4
+  %arrayidx18 = getelementptr inbounds [3 x i32], ptr @a, i64 0, i64 %k.045
+  %3 = load i32, ptr %arrayidx18, align 4
   br label %cond.end20
 
 cond.end20:                                       ; preds = %if.then, %cond.true17
   %cond21 = phi i32 [ %3, %cond.true17 ], [ 0, %if.then ]
-  %4 = load i8, i8* @pq, align 1
+  %4 = load i8, ptr @pq, align 1
   %conv22 = zext i8 %4 to i32
   %add = add i32 %cond21, %conv22
   %conv23 = trunc i32 %add to i8
-  store i8 %conv23, i8* @pq, align 1
+  store i8 %conv23, ptr @pq, align 1
   br label %for.inc
 
 for.inc:                                          ; preds = %cond.end, %cond.end20
@@ -163,7 +163,7 @@ for.end29:                                        ; preds = %for.end
 
 for.end34:                                        ; preds = %for.end29
   %cond.lcssa.lcssa.lcssa = phi i8 [ %cond.lcssa.lcssa, %for.end29 ]
-  store i8 %cond.lcssa.lcssa.lcssa, i8* @f, align 1
+  store i8 %cond.lcssa.lcssa.lcssa, ptr @f, align 1
   ret i32 0
 }
 

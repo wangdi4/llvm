@@ -17,7 +17,7 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local i32 @foo(i32* nocapture readonly %p) local_unnamed_addr #0 {
+define dso_local i32 @foo(ptr nocapture readonly %p) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -35,8 +35,8 @@ for.body:                                         ; preds = %for.inc, %entry
 if.then:                                          ; preds = %for.body
   %putchar = tail call i32 @putchar(i32 46)
   %inc = fadd float %r.010, 1.000000e+00
-  %arrayidx = getelementptr inbounds i32, i32* %p, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %p, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %if.then, %for.body

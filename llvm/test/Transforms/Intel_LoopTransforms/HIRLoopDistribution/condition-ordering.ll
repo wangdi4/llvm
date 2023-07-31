@@ -45,30 +45,30 @@ for.cond.cleanup:                                 ; preds = %if.end
 
 for.body:                                         ; preds = %if.end, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %if.end ]
-  %arrayidx = getelementptr inbounds [100 x float], [100 x float]* @A, i64 0, i64 %indvars.iv
-  %0 = load float, float* %arrayidx, align 4
-  %arrayidx2 = getelementptr inbounds [100 x float], [100 x float]* @C, i64 0, i64 %indvars.iv
-  %1 = load float, float* %arrayidx2, align 4
+  %arrayidx = getelementptr inbounds [100 x float], ptr @A, i64 0, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx, align 4
+  %arrayidx2 = getelementptr inbounds [100 x float], ptr @C, i64 0, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx2, align 4
   %add = fadd float %0, %1
   %cmp3 = icmp ult i64 %indvars.iv, 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   br i1 %cmp3, label %if.then, label %if.else
 
 if.then:                                          ; preds = %for.body
-  %arrayidx5 = getelementptr inbounds [100 x float], [100 x float]* @B, i64 0, i64 %indvars.iv
-  store float %add, float* %arrayidx5, align 4
+  %arrayidx5 = getelementptr inbounds [100 x float], ptr @B, i64 0, i64 %indvars.iv
+  store float %add, ptr %arrayidx5, align 4
   br label %if.end
 
 if.else:                                          ; preds = %for.body
   %2 = add nuw nsw i64 %indvars.iv, 200
-  %arrayidx8 = getelementptr inbounds [100 x float], [100 x float]* @B, i64 0, i64 %2
-  store float %add, float* %arrayidx8, align 4
-  %arrayidx11 = getelementptr inbounds [100 x float], [100 x float]* @B, i64 0, i64 %indvars.iv.next
-  %3 = load float, float* %arrayidx11, align 4
+  %arrayidx8 = getelementptr inbounds [100 x float], ptr @B, i64 0, i64 %2
+  store float %add, ptr %arrayidx8, align 4
+  %arrayidx11 = getelementptr inbounds [100 x float], ptr @B, i64 0, i64 %indvars.iv.next
+  %3 = load float, ptr %arrayidx11, align 4
   %add12 = fadd float %3, 1.000000e+01
   %4 = add nuw nsw i64 %indvars.iv, 300
-  %arrayidx15 = getelementptr inbounds [100 x float], [100 x float]* @B, i64 0, i64 %4
-  store float %add12, float* %arrayidx15, align 4
+  %arrayidx15 = getelementptr inbounds [100 x float], ptr @B, i64 0, i64 %4
+  store float %add12, ptr %arrayidx15, align 4
   br label %if.end
 
 if.end:                                           ; preds = %if.else, %if.then

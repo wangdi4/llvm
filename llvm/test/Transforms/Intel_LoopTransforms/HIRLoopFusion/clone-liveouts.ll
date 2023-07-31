@@ -69,13 +69,13 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind uwtable
 define dso_local void @m() local_unnamed_addr #0 {
 entry:
-  %.pr = load i32, i32* @k, align 4
+  %.pr = load i32, ptr @k, align 4
   %tobool47 = icmp eq i32 %.pr, 0
   br i1 %tobool47, label %for.end32, label %for.cond1.preheader.lr.ph
 
 for.cond1.preheader.lr.ph:                        ; preds = %entry
-  %.promoted = load i8, i8* getelementptr inbounds (%struct.anon, %struct.anon* @f, i64 0, i32 0), align 8
-  %h.promoted = load i64, i64* @h, align 8
+  %.promoted = load i8, ptr @f, align 8
+  %h.promoted = load i64, ptr @h, align 8
   %0 = sub i32 -2, %.pr
   %1 = and i32 %0, -2
   %2 = add i32 %.pr, %1
@@ -99,8 +99,8 @@ for.cond3.preheader:                              ; preds = %for.cond1.preheader
 for.body5:                                        ; preds = %for.cond3.preheader, %for.body5
   %indvars.iv = phi i64 [ 1, %for.cond3.preheader ], [ %indvars.iv.next, %for.body5 ]
   %bf.set38 = phi i8 [ %bf.set.lcssa41, %for.cond3.preheader ], [ %bf.set, %for.body5 ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @g, i64 0, i64 %indvars.iv
-  %3 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @g, i64 0, i64 %indvars.iv
+  %3 = load i32, ptr %arrayidx, align 4
   %4 = trunc i32 %3 to i8
   %bf.value = and i8 %4, 15
   %bf.clear = and i8 %bf.set38, -16
@@ -112,10 +112,10 @@ for.body5:                                        ; preds = %for.cond3.preheader
 for.inc9:                                         ; preds = %for.body5
   %.lcssa = phi i32 [ %3, %for.body5 ]
   %bf.set.lcssa = phi i8 [ %bf.set, %for.body5 ]
-  %arrayidx8 = getelementptr inbounds [100 x i32], [100 x i32]* @l, i64 0, i64 %indvars.iv51
+  %arrayidx8 = getelementptr inbounds [100 x i32], ptr @l, i64 0, i64 %indvars.iv51
   %conv636 = shl i32 %.lcssa, 28
   %conv6 = ashr exact i32 %conv636, 28
-  store i32 %conv6, i32* %arrayidx8, align 8
+  store i32 %conv6, ptr %arrayidx8, align 8
   %indvars.iv.next52 = add nuw nsw i64 %indvars.iv51, 2
   %cmp = icmp ult i64 %indvars.iv.next52, 6
   br i1 %cmp, label %for.cond3.preheader, label %for.cond11.preheader
@@ -129,8 +129,8 @@ for.cond15.preheader:                             ; preds = %for.inc27, %for.con
 for.body17:                                       ; preds = %for.cond15.preheader, %for.body17
   %indvars.iv53 = phi i64 [ 1, %for.cond15.preheader ], [ %indvars.iv.next54, %for.body17 ]
   %add2343 = phi i64 [ %add23.lcssa46, %for.cond15.preheader ], [ %add23, %for.body17 ]
-  %arrayidx21 = getelementptr inbounds [100 x i32], [100 x i32]* @g, i64 0, i64 %indvars.iv53
-  %5 = load i32, i32* %arrayidx21, align 4
+  %arrayidx21 = getelementptr inbounds [100 x i32], ptr @g, i64 0, i64 %indvars.iv53
+  %5 = load i32, ptr %arrayidx21, align 4
   %conv22 = sext i32 %5 to i64
   %add23 = add nsw i64 %or, %conv22
   %indvars.iv.next54 = add nuw nsw i64 %indvars.iv53, 1
@@ -157,13 +157,13 @@ for.cond.for.end32_crit_edge:                     ; preds = %for.inc30
   %bf.set.lcssa.lcssa.lcssa = phi i8 [ %bf.set.lcssa.lcssa, %for.inc30 ]
   %6 = add i32 %2, 2
   %conv18 = trunc i64 %add2343.lcssa.lcssa.lcssa to i32
-  store i8 %bf.set.lcssa.lcssa.lcssa, i8* getelementptr inbounds (%struct.anon, %struct.anon* @f, i64 0, i32 0), align 8
-  store i32 0, i32* @j, align 4
-  store i32 6, i32* @i, align 4
-  store i64 %add23.lcssa.lcssa.lcssa, i64* @h, align 8
-  store i32 %conv18, i32* @d, align 4
-  store i32 5, i32* @e, align 4
-  store i32 %6, i32* @k, align 4
+  store i8 %bf.set.lcssa.lcssa.lcssa, ptr @f, align 8
+  store i32 0, ptr @j, align 4
+  store i32 6, ptr @i, align 4
+  store i64 %add23.lcssa.lcssa.lcssa, ptr @h, align 8
+  store i32 %conv18, ptr @d, align 4
+  store i32 5, ptr @e, align 4
+  store i32 %6, ptr @k, align 4
   br label %for.end32
 
 for.end32:                                        ; preds = %for.cond.for.end32_crit_edge, %entry

@@ -68,29 +68,29 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @sub3(i64 %n) {
 entry:
   %cmp14 = icmp sgt i64 %n, 10
-  %.pre = load float, float* getelementptr inbounds ([1000 x [1000 x float]], [1000 x [1000 x float]]* @B, i64 0, i64 10, i64 1), align 4
+  %.pre = load float, ptr getelementptr inbounds ([1000 x [1000 x float]], ptr @B, i64 0, i64 10, i64 1), align 4
   br label %for.body
 
 for.body:                                         ; preds = %for.cond.backedge, %entry
   %0 = phi float [ %.pre, %entry ], [ %3, %for.cond.backedge ]
   %j.052 = phi i64 [ 1, %entry ], [ %add8, %for.cond.backedge ]
-  %arrayidx3 = getelementptr inbounds [1000 x [1000 x float]], [1000 x [1000 x float]]* @C, i64 0, i64 %j.052, i64 10
-  %1 = load float, float* %arrayidx3, align 8
+  %arrayidx3 = getelementptr inbounds [1000 x [1000 x float]], ptr @C, i64 0, i64 %j.052, i64 10
+  %1 = load float, ptr %arrayidx3, align 8
   %add = fadd float %0, %1
-  %arrayidx6 = getelementptr inbounds [1000 x [1000 x float]], [1000 x [1000 x float]]* @B, i64 0, i64 11, i64 %j.052
-  %2 = load float, float* %arrayidx6, align 4
+  %arrayidx6 = getelementptr inbounds [1000 x [1000 x float]], ptr @B, i64 0, i64 11, i64 %j.052
+  %2 = load float, ptr %arrayidx6, align 4
   %add7 = fadd float %add, %2
   %add8 = add nuw nsw i64 %j.052, 1
-  %arrayidx10 = getelementptr inbounds [1000 x [1000 x float]], [1000 x [1000 x float]]* @B, i64 0, i64 10, i64 %add8
-  %3 = load float, float* %arrayidx10, align 4
+  %arrayidx10 = getelementptr inbounds [1000 x [1000 x float]], ptr @B, i64 0, i64 10, i64 %add8
+  %3 = load float, ptr %arrayidx10, align 4
   %add11 = fadd float %add7, %3
-  %arrayidx13 = getelementptr inbounds [1000 x [1000 x float]], [1000 x [1000 x float]]* @A, i64 0, i64 %j.052, i64 10
-  store float %add11, float* %arrayidx13, align 8
+  %arrayidx13 = getelementptr inbounds [1000 x [1000 x float]], ptr @A, i64 0, i64 %j.052, i64 10
+  store float %add11, ptr %arrayidx13, align 8
   br i1 %cmp14, label %if.then, label %if.else
 
 if.then:                                          ; preds = %for.body
-  %arrayidx20 = getelementptr inbounds [1000 x [1000 x float]], [1000 x [1000 x float]]* @B, i64 0, i64 11, i64 %add8
-  store float %add11, float* %arrayidx20, align 4
+  %arrayidx20 = getelementptr inbounds [1000 x [1000 x float]], ptr @B, i64 0, i64 11, i64 %add8
+  store float %add11, ptr %arrayidx20, align 4
   br label %for.cond.backedge
 
 for.cond.backedge:                                ; preds = %if.then, %if.else
@@ -98,22 +98,22 @@ for.cond.backedge:                                ; preds = %if.then, %if.else
   br i1 %exitcond, label %for.end, label %for.body
 
 if.else:                                          ; preds = %for.body
-  %arrayidx24 = getelementptr inbounds [1000 x [1000 x float]], [1000 x [1000 x float]]* @C, i64 0, i64 10, i64 %j.052
-  %4 = load float, float* %arrayidx24, align 4
+  %arrayidx24 = getelementptr inbounds [1000 x [1000 x float]], ptr @C, i64 0, i64 10, i64 %j.052
+  %4 = load float, ptr %arrayidx24, align 4
   %add25 = fadd float %add11, %4
-  store float %add25, float* %arrayidx6, align 4
+  store float %add25, ptr %arrayidx6, align 4
   br label %for.cond.backedge
 
 for.end:                                          ; preds = %for.cond.backedge
-  store float 1.000000e+01, float* getelementptr inbounds ([1000 x [1000 x float]], [1000 x [1000 x float]]* @C, i64 0, i64 10, i64 2), align 8
+  store float 1.000000e+01, ptr getelementptr inbounds ([1000 x [1000 x float]], ptr @C, i64 0, i64 10, i64 2), align 8
   ret void
 }
 
 ; Function Attrs: nounwind argmemonly
-declare void @llvm.lifetime.start(i64, i8* nocapture)
+declare void @llvm.lifetime.start(i64, ptr nocapture)
 
 ; Function Attrs: nounwind argmemonly
-declare void @llvm.lifetime.end(i64, i8* nocapture)
+declare void @llvm.lifetime.end(i64, ptr nocapture)
 
 
 

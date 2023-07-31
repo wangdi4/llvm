@@ -36,7 +36,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i32* nocapture %p, i32* nocapture readnone %q, i64 %n, i64 %d) local_unnamed_addr #0 {
+define void @foo(ptr nocapture %p, ptr nocapture readnone %q, i64 %n, i64 %d) local_unnamed_addr #0 {
 entry:
   %cmp19 = icmp sgt i64 %n, 0
   br i1 %cmp19, label %for.body3.lr.ph.preheader, label %for.end8
@@ -47,7 +47,7 @@ for.body3.lr.ph.preheader:                        ; preds = %entry
 for.body3.lr.ph:                                  ; preds = %for.body3.lr.ph.preheader, %for.inc6
   %j.020 = phi i64 [ %inc7, %for.inc6 ], [ 0, %for.body3.lr.ph.preheader ]
   %cmp4 = icmp eq i64 %j.020, %d
-  %arrayidx = getelementptr inbounds i32, i32* %p, i64 %j.020
+  %arrayidx = getelementptr inbounds i32, ptr %p, i64 %j.020
   br label %for.body3
 
 for.body3:                                        ; preds = %for.inc, %for.body3.lr.ph
@@ -55,11 +55,11 @@ for.body3:                                        ; preds = %for.inc, %for.body3
   br i1 %cmp4, label %if.then, label %for.inc
 
 if.then:                                          ; preds = %for.body3
-  %0 = load i32, i32* %arrayidx, align 4
+  %0 = load i32, ptr %arrayidx, align 4
   %conv16 = zext i32 %0 to i64
   %add = add i64 %conv16, %d
   %conv5 = trunc i64 %add to i32
-  store i32 %conv5, i32* %arrayidx, align 4
+  store i32 %conv5, ptr %arrayidx, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body3, %if.then
@@ -80,10 +80,10 @@ for.end8:                                         ; preds = %for.end8.loopexit, 
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

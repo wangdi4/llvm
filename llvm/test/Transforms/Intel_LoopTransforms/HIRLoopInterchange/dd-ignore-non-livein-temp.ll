@@ -79,31 +79,31 @@ for.cond1.preheader:                              ; preds = %entry, %for.inc77
 
 for.body3:                                        ; preds = %for.cond1.preheader, %if.end
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %if.end ]
-  %arrayidx5 = getelementptr inbounds [1024 x [1024 x double]], [1024 x [1024 x double]]* @B, i64 0, i64 %indvars.iv, i64 %indvars.iv121, !intel-tbaa !3
-  %0 = load double, double* %arrayidx5, align 8, !tbaa !3
+  %arrayidx5 = getelementptr inbounds [1024 x [1024 x double]], ptr @B, i64 0, i64 %indvars.iv, i64 %indvars.iv121, !intel-tbaa !3
+  %0 = load double, ptr %arrayidx5, align 8, !tbaa !3
   %mul = fmul fast double %0, 1.000000e+01
-  %arrayidx9 = getelementptr inbounds [1024 x [1024 x double]], [1024 x [1024 x double]]* @A, i64 0, i64 %indvars.iv, i64 %indvars.iv121, !intel-tbaa !3
+  %arrayidx9 = getelementptr inbounds [1024 x [1024 x double]], ptr @A, i64 0, i64 %indvars.iv, i64 %indvars.iv121, !intel-tbaa !3
   %1 = tail call fast double @llvm.sqrt.f64(double %mul)
   %cmp14 = fcmp fast ogt double %1, 5.000000e+00
   br i1 %cmp14, label %if.then, label %if.end
 
 if.then:                                          ; preds = %for.body3
   %div = fmul fast double %0, 2.000000e-01
-  %arrayidx30 = getelementptr inbounds [1024 x [1024 x double]], [1024 x [1024 x double]]* @C, i64 0, i64 %indvars.iv, i64 %indvars.iv121, !intel-tbaa !3
-  %2 = load double, double* %arrayidx30, align 8, !tbaa !3
+  %arrayidx30 = getelementptr inbounds [1024 x [1024 x double]], ptr @C, i64 0, i64 %indvars.iv, i64 %indvars.iv121, !intel-tbaa !3
+  %2 = load double, ptr %arrayidx30, align 8, !tbaa !3
   %div31 = fdiv fast double %0, %2
   %add = fadd fast double %div31, %div
   %3 = tail call fast double @llvm.sqrt.f64(double %0)
   %factor = fmul fast double %add, %3
   %reass.add = fadd fast double %factor, %0
   %reass.mul = fmul fast double %reass.add, 2.000000e+00
-  store double %reass.mul, double* %arrayidx30, align 8, !tbaa !3
+  store double %reass.mul, ptr %arrayidx30, align 8, !tbaa !3
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %for.body3
   %4 = phi double [ %add, %if.then ], [ %mul, %for.body3 ]
   %add72 = fadd fast double %4, %0
-  store double %add72, double* %arrayidx9, align 8, !tbaa !3
+  store double %add72, ptr %arrayidx9, align 8, !tbaa !3
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond.not, label %for.inc77, label %for.body3, !llvm.loop !9

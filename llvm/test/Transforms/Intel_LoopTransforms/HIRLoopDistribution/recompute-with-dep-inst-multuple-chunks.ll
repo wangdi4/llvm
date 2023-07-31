@@ -59,35 +59,35 @@ declare double @llvm.minnum.f64(double, double) #1
 declare hidden fastcc double @zot(double) unnamed_addr #3
 
 ; Function Attrs: nounwind uwtable
-define hidden fastcc void @wobble(i32* noalias nocapture readonly %arg, i32 %arg1, double* noalias nocapture readonly %arg2, double* noalias nocapture readonly %arg3, double* noalias nocapture %arg4, double* noalias nocapture %arg5, double* noalias nocapture %arg6, double* noalias nocapture %arg7, double* noalias nocapture %arg8, double* noalias nocapture %arg9, double* noalias nocapture %arg10) unnamed_addr #4 {
+define hidden fastcc void @wobble(ptr noalias nocapture readonly %arg, i32 %arg1, ptr noalias nocapture readonly %arg2, ptr noalias nocapture readonly %arg3, ptr noalias nocapture %arg4, ptr noalias nocapture %arg5, ptr noalias nocapture %arg6, ptr noalias nocapture %arg7, ptr noalias nocapture %arg8, ptr noalias nocapture %arg9, ptr noalias nocapture %arg10) unnamed_addr #4 {
 bb:
   br label %bb4371
 
 bb4371:                                           ; preds = %bb4371, %bb
   %tmp4372 = phi i64 [ %tmp4458, %bb4371 ], [ 1, %bb ]
-  %tmp4442 = load double, double* undef, align 1
+  %tmp4442 = load double, ptr undef, align 1
   %tmp4443 = fmul fast double %tmp4442, 5.000000e-01
-  store double undef, double* undef, align 1
-  store double undef, double* undef, align 1
+  store double undef, ptr undef, align 1
+  store double undef, ptr undef, align 1
   %tmp4458 = add nuw nsw i64 %tmp4372, 1
-  store double undef, double* undef, align 1
-  store double undef, double* undef, align 1
-  store double undef, double* undef, align 1
-  store double undef, double* undef, align 1
-  store double undef, double* undef, align 1
-  store double undef, double* undef, align 1
-  %tmp4517 = load double, double* undef, align 1
+  store double undef, ptr undef, align 1
+  store double undef, ptr undef, align 1
+  store double undef, ptr undef, align 1
+  store double undef, ptr undef, align 1
+  store double undef, ptr undef, align 1
+  store double undef, ptr undef, align 1
+  %tmp4517 = load double, ptr undef, align 1
   %tmp4518 = fmul fast double %tmp4517, 5.000000e-01
-  store double undef, double* undef, align 1
-  store double undef, double* undef, align 1
-  store double undef, double* undef, align 1
-  %tmp4561 = load double, double* undef, align 1
+  store double undef, ptr undef, align 1
+  store double undef, ptr undef, align 1
+  store double undef, ptr undef, align 1
+  %tmp4561 = load double, ptr undef, align 1
   %tmp4562 = fmul fast double %tmp4561, 5.000000e-01
-  store double %tmp4562, double* undef, align 1
-  %tmp4565 = load double, double* undef, align 1
+  store double %tmp4562, ptr undef, align 1
+  %tmp4565 = load double, ptr undef, align 1
   %tmp4566 = fmul fast double %tmp4565, 5.000000e-01
-  store double undef, double* undef, align 1
-  %tmp4587 = load double, double* undef, align 1
+  store double undef, ptr undef, align 1
+  %tmp4587 = load double, ptr undef, align 1
   %tmp4588 = fdiv fast double undef, %tmp4587
   %tmp4646 = tail call fast double @llvm.minnum.f64(double undef, double 1.500000e+01)
   %tmp4649 = fadd fast double %tmp4646, 4.000000e+00
@@ -96,8 +96,8 @@ bb4371:                                           ; preds = %bb4371, %bb
   %tmp4655 = fadd fast double %tmp4646, 1.000000e+00
   %tmp4656 = tail call fastcc double @zot(double %tmp4655)
   %tmp4678 = fmul fast double %tmp4650, undef
-  store double undef, double* undef, align 1
-  store double undef, double* undef, align 1
+  store double undef, ptr undef, align 1
+  store double undef, ptr undef, align 1
   %tmp4740 = icmp eq i64 %tmp4458, 27
   br i1 %tmp4740, label %bb4743, label %bb4371
 

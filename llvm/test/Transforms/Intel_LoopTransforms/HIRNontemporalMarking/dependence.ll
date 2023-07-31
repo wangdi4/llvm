@@ -1,4 +1,4 @@
-; RUN: opt -opaque-pointers=0 -enable-intel-advanced-opts -intel-libirc-allowed -S -passes="hir-ssa-deconstruction,hir-nontemporal-marking,print<hir>" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -enable-intel-advanced-opts -intel-libirc-allowed -S -passes="hir-ssa-deconstruction,hir-nontemporal-marking,print<hir>" -aa-pipeline="basic-aa" -hir-details < %s 2>&1 | FileCheck %s
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Check that we will convert to nontemporal correctly in the case of various
@@ -35,7 +35,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; <12>               + END LOOP
 ; <0>          END REGION
 
-define i64 @read_after_write(i64* %dest) "target-features"="+avx512f" {
+define i64 @read_after_write(ptr %dest) "target-features"="+avx512f" {
 ; CHECK-LABEL: read_after_write
 ;      CHECK: BEGIN REGION { }
 ; CHECK-NEXT:       + Ztt: No
@@ -47,14 +47,14 @@ define i64 @read_after_write(i64* %dest) "target-features"="+avx512f" {
 ; CHECK-NEXT:       + Loop metadata: No
 ; CHECK-NEXT:       + DO i64 i1 = 0, 6400000, 1   <DO_LOOP>
 ; CHECK-NEXT:       |   (%dest)[i1] = i1;
-; CHECK-NEXT:       |   <LVAL-REG> {al:8}(LINEAR i64* %dest)[LINEAR i64 i1] inbounds  {sb:11}
-; CHECK-NEXT:       |      <BLOB> LINEAR i64* %dest {sb:8}
+; CHECK-NEXT:       |   <LVAL-REG> {al:8}(LINEAR ptr %dest)[LINEAR i64 i1] inbounds  {sb:11}
+; CHECK-NEXT:       |      <BLOB> LINEAR ptr %dest {sb:8}
 ; CHECK-NEXT:       |   <RVAL-REG> LINEAR i64 i1 {sb:2}
 ; CHECK-NEXT:       |
 ; CHECK-NEXT:       |   %val = (%dest)[i1 + -8];
 ; CHECK-NEXT:       |   <LVAL-REG> NON-LINEAR i64 %val {sb:9}
-; CHECK-NEXT:       |   <RVAL-REG> {al:8}(LINEAR i64* %dest)[LINEAR i64 i1 + -8] inbounds  {sb:11}
-; CHECK-NEXT:       |      <BLOB> LINEAR i64* %dest {sb:8}
+; CHECK-NEXT:       |   <RVAL-REG> {al:8}(LINEAR ptr %dest)[LINEAR i64 i1 + -8] inbounds  {sb:11}
+; CHECK-NEXT:       |      <BLOB> LINEAR ptr %dest {sb:8}
 ; CHECK-NEXT:       |
 ; CHECK-NEXT:       |   %recirc = %val  +  %recirc;
 ; CHECK-NEXT:       |   <LVAL-REG> NON-LINEAR i64 %recirc {sb:3}
@@ -65,17 +65,17 @@ define i64 @read_after_write(i64* %dest) "target-features"="+avx512f" {
 ; CHECK-NEXT: END REGION
 
 entry:
-  %dest.offset = getelementptr inbounds i64, i64* %dest, i64 -8
+  %dest.offset = getelementptr inbounds i64, ptr %dest, i64 -8
   br label %loop
 
 loop:
   %index = phi i64 [ 0, %entry ], [ %index.next, %loop ]
   %recirc = phi i64 [ 0, %entry ], [ %sum, %loop ]
   %index.next = add i64 %index, 1
-  %addr = getelementptr inbounds i64, i64* %dest, i64 %index
-  %addr2 = getelementptr inbounds i64, i64* %dest.offset, i64 %index
-  store i64 %index, i64* %addr, align 8
-  %val = load i64, i64* %addr2, align 8
+  %addr = getelementptr inbounds i64, ptr %dest, i64 %index
+  %addr2 = getelementptr inbounds i64, ptr %dest.offset, i64 %index
+  store i64 %index, ptr %addr, align 8
+  %val = load i64, ptr %addr2, align 8
   %sum = add i64 %val, %recirc
   %cond = icmp eq i64 %index, 6400000
   br i1 %cond, label %exit, label %loop
@@ -84,7 +84,7 @@ exit:
   ret i64 %sum
 }
 
-define void @write_after_write(i64* %dest) "target-features"="+avx512f" {
+define void @write_after_write(ptr %dest) "target-features"="+avx512f" {
 ; CHECK-LABEL: write_after_write
 ;      CHECK: BEGIN REGION { }
 ; CHECK-NEXT:       + Ztt: No
@@ -96,29 +96,29 @@ define void @write_after_write(i64* %dest) "target-features"="+avx512f" {
 ; CHECK-NEXT:       + Loop metadata: No
 ; CHECK-NEXT:       + DO i64 i1 = 0, 6400000, 1   <DO_LOOP>
 ; CHECK-NEXT:       |   (%dest)[i1] = i1;
-; CHECK-NEXT:       |   <LVAL-REG> {al:8}(LINEAR i64* %dest)[LINEAR i64 i1] inbounds  {sb:9}
-; CHECK-NEXT:       |      <BLOB> LINEAR i64* %dest {sb:7}
+; CHECK-NEXT:       |   <LVAL-REG> {al:8}(LINEAR ptr %dest)[LINEAR i64 i1] inbounds  {sb:9}
+; CHECK-NEXT:       |      <BLOB> LINEAR ptr %dest {sb:7}
 ; CHECK-NEXT:       |   <RVAL-REG> LINEAR i64 i1 {sb:2}
 ; CHECK-NEXT:       |
 ; CHECK-NEXT:       |   (%dest)[i1 + -8] = 0;
-; CHECK-NEXT:       |   <LVAL-REG> {al:8}(LINEAR i64* %dest)[LINEAR i64 i1 + -8] inbounds
+; CHECK-NEXT:       |   <LVAL-REG> {al:8}(LINEAR ptr %dest)[LINEAR i64 i1 + -8] inbounds
 ; CHECK-NOT:               !nontemporal
-; CHECK-NEXT:       |      <BLOB> LINEAR i64* %dest {sb:7}
+; CHECK-NEXT:       |      <BLOB> LINEAR ptr %dest {sb:7}
 ; CHECK-NEXT:       |
 ; CHECK-NEXT:       + END LOOP
 ; CHECK-NEXT: END REGION
 
 entry:
-  %dest.offset = getelementptr inbounds i64, i64* %dest, i64 -8
+  %dest.offset = getelementptr inbounds i64, ptr %dest, i64 -8
   br label %loop
 
 loop:
   %index = phi i64 [ 0, %entry ], [ %index.next, %loop ]
   %index.next = add i64 %index, 1
-  %addr = getelementptr inbounds i64, i64* %dest, i64 %index
-  %addr2 = getelementptr inbounds i64, i64* %dest.offset, i64 %index
-  store i64 %index, i64* %addr, align 8
-  store i64 0, i64* %addr2, align 8
+  %addr = getelementptr inbounds i64, ptr %dest, i64 %index
+  %addr2 = getelementptr inbounds i64, ptr %dest.offset, i64 %index
+  store i64 %index, ptr %addr, align 8
+  store i64 0, ptr %addr2, align 8
   %cond = icmp eq i64 %index, 6400000
   br i1 %cond, label %exit, label %loop
 
@@ -126,7 +126,7 @@ exit:
   ret void
 }
 
-define void @write_after_read(i64* %dest) "target-features"="+avx512f" {
+define void @write_after_read(ptr %dest) "target-features"="+avx512f" {
 ; CHECK-LABEL: write_after_read
 ;      CHECK: BEGIN REGION { }
 ; CHECK-NEXT:       + Ztt: No
@@ -139,29 +139,29 @@ define void @write_after_read(i64* %dest) "target-features"="+avx512f" {
 ; CHECK-NEXT:       + DO i64 i1 = 0, 6400000, 1   <DO_LOOP>
 ; CHECK-NEXT:       |   %val = (%dest)[i1];
 ; CHECK-NEXT:       |   <LVAL-REG> NON-LINEAR i64 %val {sb:8}
-; CHECK-NEXT:       |   <RVAL-REG> {al:8}(LINEAR i64* %dest)[LINEAR i64 i1] inbounds  {sb:10}
-; CHECK-NEXT:       |      <BLOB> LINEAR i64* %dest {sb:7}
+; CHECK-NEXT:       |   <RVAL-REG> {al:8}(LINEAR ptr %dest)[LINEAR i64 i1] inbounds  {sb:10}
+; CHECK-NEXT:       |      <BLOB> LINEAR ptr %dest {sb:7}
 ; CHECK-NEXT:       |
 ; CHECK-NEXT:       |   (%dest)[i1 + -8] = %val;
-; CHECK-NEXT:       |   <LVAL-REG> {al:8}(LINEAR i64* %dest)[LINEAR i64 i1 + -8] inbounds
+; CHECK-NEXT:       |   <LVAL-REG> {al:8}(LINEAR ptr %dest)[LINEAR i64 i1 + -8] inbounds
 ; CHECK-NOT:               !nontemporal
-; CHECK-NEXT:       |      <BLOB> LINEAR i64* %dest {sb:7}
+; CHECK-NEXT:       |      <BLOB> LINEAR ptr %dest {sb:7}
 ; CHECK-NEXT:       |   <RVAL-REG> NON-LINEAR i64 %val {sb:8}
 ; CHECK-NEXT:       |
 ; CHECK-NEXT:       + END LOOP
 ; CHECK-NEXT: END REGION
 
 entry:
-  %dest.offset = getelementptr inbounds i64, i64* %dest, i64 -8
+  %dest.offset = getelementptr inbounds i64, ptr %dest, i64 -8
   br label %loop
 
 loop:
   %index = phi i64 [ 0, %entry ], [ %index.next, %loop ]
   %index.next = add i64 %index, 1
-  %addr = getelementptr inbounds i64, i64* %dest, i64 %index
-  %addr2 = getelementptr inbounds i64, i64* %dest.offset, i64 %index
-  %val = load i64, i64* %addr, align 8
-  store i64 %val, i64* %addr2, align 8
+  %addr = getelementptr inbounds i64, ptr %dest, i64 %index
+  %addr2 = getelementptr inbounds i64, ptr %dest.offset, i64 %index
+  %val = load i64, ptr %addr, align 8
+  store i64 %val, ptr %addr2, align 8
   %cond = icmp eq i64 %index, 6400000
   br i1 %cond, label %exit, label %loop
 

@@ -59,7 +59,7 @@
 ; ModuleID = 'new.ll'
 source_filename = "new.ll"
 
-define dso_local void @foo(i32 %t, i32* %A) {
+define dso_local void @foo(i32 %t, ptr %A) {
 entry:
   br label %for.body
 
@@ -72,15 +72,15 @@ for.body:                                         ; preds = %entry, %for.inc
 
 if.then:                                          ; preds = %land.lhs.true
   %idxprom = sext i32 %i.05 to i64
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %idxprom
-  store i32 %i.05, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %idxprom
+  store i32 %i.05, ptr %arrayidx, align 4
   br label %after.if
 
 if.else:
   %idxprom2 = sext i32 %i.05 to i64
-  %arrayidx2 = getelementptr inbounds i32, i32* %A, i64 %idxprom2
+  %arrayidx2 = getelementptr inbounds i32, ptr %A, i64 %idxprom2
   %add2 = add nsw i32 %i.05, 1
-  store i32 %add2, i32* %arrayidx2, align 4
+  store i32 %add2, ptr %arrayidx2, align 4
   br label %after.if
 
 after.if:
@@ -88,16 +88,16 @@ after.if:
 
 if2.then:                                          ; preds = %land.lhs.true
   %idxprom3 = sext i32 %i.05 to i64
-  %arrayidx3 = getelementptr inbounds i32, i32* %A, i64 %idxprom3
+  %arrayidx3 = getelementptr inbounds i32, ptr %A, i64 %idxprom3
   %add3 = add nsw i32 %i.05, 3
-  store i32 %add3, i32* %arrayidx3, align 4
+  store i32 %add3, ptr %arrayidx3, align 4
   br label %for.inc
 
 if2.else:
   %idxprom4 = sext i32 %i.05 to i64
-  %arrayidx4 = getelementptr inbounds i32, i32* %A, i64 %idxprom4
+  %arrayidx4 = getelementptr inbounds i32, ptr %A, i64 %idxprom4
   %add4 = add nsw i32 %i.05, 4
-  store i32 %add4, i32* %arrayidx4, align 4
+  store i32 %add4, ptr %arrayidx4, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %if.end

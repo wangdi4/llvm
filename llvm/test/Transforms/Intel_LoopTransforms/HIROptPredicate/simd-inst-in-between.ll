@@ -60,15 +60,15 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @foo(i32* nocapture %a, i32* nocapture %b, i32* nocapture %c, i32 %n) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture %a, ptr nocapture %b, ptr nocapture %c, i32 %n) local_unnamed_addr #0 {
 entry:
   br label %omp.inner.for.body.lr.ph
 
 omp.inner.for.body.lr.ph:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
-  %ld.b = load i32, i32* %b
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
+  %ld.b = load i32, ptr %b
   %update.b = add i32 3, %ld.b
-  store i32 %update.b, i32* %b
+  store i32 %update.b, ptr %b
   %cmp1 = icmp eq i32 %n, 20
   br label %omp.inner.for.body
 
@@ -77,16 +77,16 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.inc, 
   br i1 %cmp1, label %if.else, label %if.then
 
 if.then:                                          ; preds = %omp.inner.for.body
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
   %1 = trunc i64 %indvars.iv to i32
-  store i32 %1, i32* %arrayidx, align 4
+  store i32 %1, ptr %arrayidx, align 4
   br label %omp.inner.for.inc
 
 if.else:
-  %arrayidx2 = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
+  %arrayidx2 = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
   %2 = trunc i64 %indvars.iv to i32
   %3 = add i32 %2, 3
-  store i32 %3, i32* %arrayidx2, align 4
+  store i32 %3, ptr %arrayidx2, align 4
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %omp.inner.for.body, %if.then
@@ -95,9 +95,9 @@ omp.inner.for.inc:                                ; preds = %omp.inner.for.body,
   br i1 %exitcond, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body
 
 DIR.OMP.END.SIMD.2:                               ; preds = %omp.inner.for.inc
-  %ld.c = load i32, i32* %c
+  %ld.c = load i32, ptr %c
   %update.c = add i32 3, %ld.c
-  store i32 %update.c, i32* %c
+  store i32 %update.c, ptr %c
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.SIMD"() ]
   ret void
 }

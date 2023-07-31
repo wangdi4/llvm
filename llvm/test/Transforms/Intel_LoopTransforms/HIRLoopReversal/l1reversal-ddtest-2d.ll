@@ -484,7 +484,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define i32 @foo([100 x i32]* nocapture %A, [100 x i32]* nocapture readonly %B) #0 {
+define i32 @foo(ptr nocapture %A, ptr nocapture readonly %B) #0 {
 entry:
   br label %for.cond1.preheader
 
@@ -496,11 +496,11 @@ for.cond1.preheader:                              ; preds = %for.inc11, %entry
 for.body3:                                        ; preds = %for.body3, %for.cond1.preheader
   %indvars.iv355 = phi i64 [ 1, %for.cond1.preheader ], [ %indvars.iv.next356, %for.body3 ]
   %1 = add nsw i64 %indvars.iv355, -1
-  %arrayidx6 = getelementptr inbounds [100 x i32], [100 x i32]* %A, i64 %0, i64 %1
-  %2 = load i32, i32* %arrayidx6, align 4, !tbaa !1
+  %arrayidx6 = getelementptr inbounds [100 x i32], ptr %A, i64 %0, i64 %1
+  %2 = load i32, ptr %arrayidx6, align 4, !tbaa !1
   %add = add nsw i32 %2, 1
-  %arrayidx10 = getelementptr inbounds [100 x i32], [100 x i32]* %A, i64 %indvars.iv359, i64 %indvars.iv355
-  store i32 %add, i32* %arrayidx10, align 4, !tbaa !1
+  %arrayidx10 = getelementptr inbounds [100 x i32], ptr %A, i64 %indvars.iv359, i64 %indvars.iv355
+  store i32 %add, ptr %arrayidx10, align 4, !tbaa !1
   %indvars.iv.next356 = add nuw nsw i64 %indvars.iv355, 1
   %exitcond358 = icmp eq i64 %indvars.iv.next356, 11
   br i1 %exitcond358, label %for.inc11, label %for.body3
@@ -517,11 +517,11 @@ for.cond17.preheader:                             ; preds = %for.inc11, %for.inc
 
 for.body19:                                       ; preds = %for.body19, %for.cond17.preheader
   %indvars.iv348 = phi i64 [ 1, %for.cond17.preheader ], [ %indvars.iv.next349, %for.body19 ]
-  %arrayidx24 = getelementptr inbounds [100 x i32], [100 x i32]* %A, i64 %3, i64 %indvars.iv348
-  %4 = load i32, i32* %arrayidx24, align 4, !tbaa !1
+  %arrayidx24 = getelementptr inbounds [100 x i32], ptr %A, i64 %3, i64 %indvars.iv348
+  %4 = load i32, ptr %arrayidx24, align 4, !tbaa !1
   %add25 = add nsw i32 %4, 1
-  %arrayidx29 = getelementptr inbounds [100 x i32], [100 x i32]* %A, i64 %indvars.iv351, i64 %indvars.iv348
-  store i32 %add25, i32* %arrayidx29, align 4, !tbaa !1
+  %arrayidx29 = getelementptr inbounds [100 x i32], ptr %A, i64 %indvars.iv351, i64 %indvars.iv348
+  store i32 %add25, ptr %arrayidx29, align 4, !tbaa !1
   %indvars.iv.next349 = add nuw nsw i64 %indvars.iv348, 1
   %exitcond350 = icmp eq i64 %indvars.iv.next349, 11
   br i1 %exitcond350, label %for.inc33, label %for.body19
@@ -539,11 +539,11 @@ for.cond39.preheader:                             ; preds = %for.inc33, %for.inc
 for.body41:                                       ; preds = %for.body41, %for.cond39.preheader
   %indvars.iv341 = phi i64 [ 1, %for.cond39.preheader ], [ %indvars.iv.next342, %for.body41 ]
   %indvars.iv.next342 = add nuw nsw i64 %indvars.iv341, 1
-  %arrayidx47 = getelementptr inbounds [100 x i32], [100 x i32]* %A, i64 %5, i64 %indvars.iv.next342
-  %6 = load i32, i32* %arrayidx47, align 4, !tbaa !1
+  %arrayidx47 = getelementptr inbounds [100 x i32], ptr %A, i64 %5, i64 %indvars.iv.next342
+  %6 = load i32, ptr %arrayidx47, align 4, !tbaa !1
   %add48 = add nsw i32 %6, 1
-  %arrayidx52 = getelementptr inbounds [100 x i32], [100 x i32]* %A, i64 %indvars.iv344, i64 %indvars.iv341
-  store i32 %add48, i32* %arrayidx52, align 4, !tbaa !1
+  %arrayidx52 = getelementptr inbounds [100 x i32], ptr %A, i64 %indvars.iv344, i64 %indvars.iv341
+  store i32 %add48, ptr %arrayidx52, align 4, !tbaa !1
   %exitcond343 = icmp eq i64 %indvars.iv.next342, 11
   br i1 %exitcond343, label %for.inc56, label %for.body41
 
@@ -554,16 +554,16 @@ for.inc56:                                        ; preds = %for.body41
 
 for.cond62.preheader:                             ; preds = %for.inc56, %for.inc78
   %indvars.iv338 = phi i64 [ %indvars.iv.next339, %for.inc78 ], [ 1, %for.inc56 ]
-  %arrayidx69.phi.trans.insert = getelementptr inbounds [100 x i32], [100 x i32]* %A, i64 %indvars.iv338, i64 0
-  %.pre = load i32, i32* %arrayidx69.phi.trans.insert, align 4, !tbaa !1
+  %arrayidx69.phi.trans.insert = getelementptr inbounds [100 x i32], ptr %A, i64 %indvars.iv338, i64 0
+  %.pre = load i32, ptr %arrayidx69.phi.trans.insert, align 4, !tbaa !1
   br label %for.body64
 
 for.body64:                                       ; preds = %for.body64, %for.cond62.preheader
   %7 = phi i32 [ %.pre, %for.cond62.preheader ], [ %add70, %for.body64 ]
   %indvars.iv334 = phi i64 [ 1, %for.cond62.preheader ], [ %indvars.iv.next335, %for.body64 ]
   %add70 = add nsw i32 %7, 1
-  %arrayidx74 = getelementptr inbounds [100 x i32], [100 x i32]* %A, i64 %indvars.iv338, i64 %indvars.iv334
-  store i32 %add70, i32* %arrayidx74, align 4, !tbaa !1
+  %arrayidx74 = getelementptr inbounds [100 x i32], ptr %A, i64 %indvars.iv338, i64 %indvars.iv334
+  store i32 %add70, ptr %arrayidx74, align 4, !tbaa !1
   %indvars.iv.next335 = add nuw nsw i64 %indvars.iv334, 1
   %exitcond337 = icmp eq i64 %indvars.iv.next335, 11
   br i1 %exitcond337, label %for.inc78, label %for.body64
@@ -579,10 +579,10 @@ for.cond84.preheader:                             ; preds = %for.inc78, %for.inc
 
 for.body86:                                       ; preds = %for.body86, %for.cond84.preheader
   %indvars.iv328 = phi i64 [ 1, %for.cond84.preheader ], [ %indvars.iv.next329, %for.body86 ]
-  %arrayidx90 = getelementptr inbounds [100 x i32], [100 x i32]* %A, i64 %indvars.iv331, i64 %indvars.iv328
-  %8 = load i32, i32* %arrayidx90, align 4, !tbaa !1
+  %arrayidx90 = getelementptr inbounds [100 x i32], ptr %A, i64 %indvars.iv331, i64 %indvars.iv328
+  %8 = load i32, ptr %arrayidx90, align 4, !tbaa !1
   %add91 = add nsw i32 %8, 1
-  store i32 %add91, i32* %arrayidx90, align 4, !tbaa !1
+  store i32 %add91, ptr %arrayidx90, align 4, !tbaa !1
   %indvars.iv.next329 = add nuw nsw i64 %indvars.iv328, 1
   %exitcond330 = icmp eq i64 %indvars.iv.next329, 11
   br i1 %exitcond330, label %for.inc99, label %for.body86
@@ -599,11 +599,11 @@ for.cond105.preheader:                            ; preds = %for.inc99, %for.inc
 for.body107:                                      ; preds = %for.body107, %for.cond105.preheader
   %indvars.iv322 = phi i64 [ 1, %for.cond105.preheader ], [ %indvars.iv.next323, %for.body107 ]
   %indvars.iv.next323 = add nuw nsw i64 %indvars.iv322, 1
-  %arrayidx112 = getelementptr inbounds [100 x i32], [100 x i32]* %A, i64 %indvars.iv325, i64 %indvars.iv.next323
-  %9 = load i32, i32* %arrayidx112, align 4, !tbaa !1
+  %arrayidx112 = getelementptr inbounds [100 x i32], ptr %A, i64 %indvars.iv325, i64 %indvars.iv.next323
+  %9 = load i32, ptr %arrayidx112, align 4, !tbaa !1
   %add113 = add nsw i32 %9, 1
-  %arrayidx117 = getelementptr inbounds [100 x i32], [100 x i32]* %A, i64 %indvars.iv325, i64 %indvars.iv322
-  store i32 %add113, i32* %arrayidx117, align 4, !tbaa !1
+  %arrayidx117 = getelementptr inbounds [100 x i32], ptr %A, i64 %indvars.iv325, i64 %indvars.iv322
+  store i32 %add113, ptr %arrayidx117, align 4, !tbaa !1
   %exitcond324 = icmp eq i64 %indvars.iv.next323, 11
   br i1 %exitcond324, label %for.inc121, label %for.body107
 
@@ -620,11 +620,11 @@ for.cond127.preheader:                            ; preds = %for.inc121, %for.in
 for.body129:                                      ; preds = %for.body129, %for.cond127.preheader
   %indvars.iv315 = phi i64 [ 1, %for.cond127.preheader ], [ %indvars.iv.next316, %for.body129 ]
   %10 = add nsw i64 %indvars.iv315, -1
-  %arrayidx135 = getelementptr inbounds [100 x i32], [100 x i32]* %A, i64 %indvars.iv.next320, i64 %10
-  %11 = load i32, i32* %arrayidx135, align 4, !tbaa !1
+  %arrayidx135 = getelementptr inbounds [100 x i32], ptr %A, i64 %indvars.iv.next320, i64 %10
+  %11 = load i32, ptr %arrayidx135, align 4, !tbaa !1
   %add136 = add nsw i32 %11, 1
-  %arrayidx140 = getelementptr inbounds [100 x i32], [100 x i32]* %A, i64 %indvars.iv319, i64 %indvars.iv315
-  store i32 %add136, i32* %arrayidx140, align 4, !tbaa !1
+  %arrayidx140 = getelementptr inbounds [100 x i32], ptr %A, i64 %indvars.iv319, i64 %indvars.iv315
+  store i32 %add136, ptr %arrayidx140, align 4, !tbaa !1
   %indvars.iv.next316 = add nuw nsw i64 %indvars.iv315, 1
   %exitcond318 = icmp eq i64 %indvars.iv.next316, 11
   br i1 %exitcond318, label %for.inc144, label %for.body129
@@ -640,11 +640,11 @@ for.cond150.preheader:                            ; preds = %for.inc144, %for.in
 
 for.body152:                                      ; preds = %for.body152, %for.cond150.preheader
   %indvars.iv309 = phi i64 [ 1, %for.cond150.preheader ], [ %indvars.iv.next310, %for.body152 ]
-  %arrayidx157 = getelementptr inbounds [100 x i32], [100 x i32]* %A, i64 %indvars.iv.next313, i64 %indvars.iv309
-  %12 = load i32, i32* %arrayidx157, align 4, !tbaa !1
+  %arrayidx157 = getelementptr inbounds [100 x i32], ptr %A, i64 %indvars.iv.next313, i64 %indvars.iv309
+  %12 = load i32, ptr %arrayidx157, align 4, !tbaa !1
   %add158 = add nsw i32 %12, 1
-  %arrayidx162 = getelementptr inbounds [100 x i32], [100 x i32]* %A, i64 %indvars.iv312, i64 %indvars.iv309
-  store i32 %add158, i32* %arrayidx162, align 4, !tbaa !1
+  %arrayidx162 = getelementptr inbounds [100 x i32], ptr %A, i64 %indvars.iv312, i64 %indvars.iv309
+  store i32 %add158, ptr %arrayidx162, align 4, !tbaa !1
   %indvars.iv.next310 = add nuw nsw i64 %indvars.iv309, 1
   %exitcond311 = icmp eq i64 %indvars.iv.next310, 11
   br i1 %exitcond311, label %for.inc166, label %for.body152
@@ -661,11 +661,11 @@ for.cond172.preheader:                            ; preds = %for.inc166, %for.in
 for.body174:                                      ; preds = %for.body174, %for.cond172.preheader
   %indvars.iv = phi i64 [ 1, %for.cond172.preheader ], [ %indvars.iv.next, %for.body174 ]
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx180 = getelementptr inbounds [100 x i32], [100 x i32]* %A, i64 %indvars.iv.next307, i64 %indvars.iv.next
-  %13 = load i32, i32* %arrayidx180, align 4, !tbaa !1
+  %arrayidx180 = getelementptr inbounds [100 x i32], ptr %A, i64 %indvars.iv.next307, i64 %indvars.iv.next
+  %13 = load i32, ptr %arrayidx180, align 4, !tbaa !1
   %add181 = add nsw i32 %13, 1
-  %arrayidx185 = getelementptr inbounds [100 x i32], [100 x i32]* %A, i64 %indvars.iv306, i64 %indvars.iv
-  store i32 %add181, i32* %arrayidx185, align 4, !tbaa !1
+  %arrayidx185 = getelementptr inbounds [100 x i32], ptr %A, i64 %indvars.iv306, i64 %indvars.iv
+  store i32 %add181, ptr %arrayidx185, align 4, !tbaa !1
   %exitcond = icmp eq i64 %indvars.iv.next, 11
   br i1 %exitcond, label %for.inc189, label %for.body174
 
@@ -674,20 +674,20 @@ for.inc189:                                       ; preds = %for.body174
   br i1 %exitcond308, label %for.end191, label %for.cond172.preheader
 
 for.end191:                                       ; preds = %for.inc189
-  %arrayidx193 = getelementptr inbounds [100 x i32], [100 x i32]* %A, i64 1, i64 1
-  %14 = load i32, i32* %arrayidx193, align 4, !tbaa !1
-  %arrayidx195 = getelementptr inbounds [100 x i32], [100 x i32]* %B, i64 1, i64 1
-  %15 = load i32, i32* %arrayidx195, align 4, !tbaa !1
+  %arrayidx193 = getelementptr inbounds [100 x i32], ptr %A, i64 1, i64 1
+  %14 = load i32, ptr %arrayidx193, align 4, !tbaa !1
+  %arrayidx195 = getelementptr inbounds [100 x i32], ptr %B, i64 1, i64 1
+  %15 = load i32, ptr %arrayidx195, align 4, !tbaa !1
   %add196 = add i32 %14, 1
   %add197 = add i32 %add196, %15
   ret i32 %add197
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { norecurse nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

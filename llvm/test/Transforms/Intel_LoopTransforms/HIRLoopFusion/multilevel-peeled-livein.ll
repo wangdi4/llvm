@@ -90,8 +90,8 @@ for.cond.cleanup7:                                ; preds = %for.body8
 for.body8:                                        ; preds = %for.cond5.preheader, %for.body8
   %k.083 = phi i32 [ 0, %for.cond5.preheader ], [ %inc, %for.body8 ]
   %add9 = add nuw nsw i32 %add, %k.083
-  %arrayidx11 = getelementptr inbounds [100 x [100 x [100 x i32]]], [100 x [100 x [100 x i32]]]* @A, i32 0, i32 %i.086, i32 %j.084, i32 %k.083
-  store i32 %add9, i32* %arrayidx11, align 4
+  %arrayidx11 = getelementptr inbounds [100 x [100 x [100 x i32]]], ptr @A, i32 0, i32 %i.086, i32 %j.084, i32 %k.083
+  store i32 %add9, ptr %arrayidx11, align 4
   %inc = add nuw nsw i32 %k.083, 1
   %exitcond89 = icmp eq i32 %inc, 100
   br i1 %exitcond89, label %for.cond.cleanup7, label %for.body8
@@ -123,12 +123,12 @@ for.cond.cleanup31:                               ; preds = %for.body32
 
 for.body32:                                       ; preds = %for.cond29.preheader, %for.body32
   %k28.079 = phi i32 [ 0, %for.cond29.preheader ], [ %inc43, %for.body32 ]
-  %arrayidx35 = getelementptr inbounds [100 x [100 x [100 x i32]]], [100 x [100 x [100 x i32]]]* @A, i32 0, i32 %i18.082, i32 %j23.080, i32 %k28.079
-  %0 = load i32, i32* %arrayidx35, align 4
+  %arrayidx35 = getelementptr inbounds [100 x [100 x [100 x i32]]], ptr @A, i32 0, i32 %i18.082, i32 %j23.080, i32 %k28.079
+  %0 = load i32, ptr %arrayidx35, align 4
   %add37 = add nuw i32 %add36, %k28.079
   %add38 = add i32 %add37, %0
-  %arrayidx41 = getelementptr inbounds [100 x [100 x [100 x i32]]], [100 x [100 x [100 x i32]]]* @B, i32 0, i32 %i18.082, i32 %j23.080, i32 %k28.079
-  store i32 %add38, i32* %arrayidx41, align 4
+  %arrayidx41 = getelementptr inbounds [100 x [100 x [100 x i32]]], ptr @B, i32 0, i32 %i18.082, i32 %j23.080, i32 %k28.079
+  store i32 %add38, ptr %arrayidx41, align 4
   %inc43 = add nuw nsw i32 %k28.079, 1
   %exitcond = icmp eq i32 %inc43, 100
   br i1 %exitcond, label %for.cond.cleanup31, label %for.body32

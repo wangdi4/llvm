@@ -52,7 +52,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i32* nocapture %a, i32 %n, i32 %m) local_unnamed_addr #0 {
+define void @foo(ptr nocapture %a, i32 %n, i32 %m) local_unnamed_addr #0 {
 entry:
   %cmp31 = icmp sgt i32 %n, 0
   br i1 %cmp31, label %for.body.lr.ph, label %cleanup18
@@ -72,15 +72,15 @@ for.body5.preheader:                              ; preds = %for.body
 
 for.body5:                                        ; preds = %for.body5.preheader, %if.end
   %indvars.iv = phi i64 [ %indvars.iv.next, %if.end ], [ 0, %for.body5.preheader ]
-  %arrayidx = getelementptr inbounds i32, i32* %a, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds i32, ptr %a, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %inc = add nsw i32 %0, 1
-  store i32 %inc, i32* %arrayidx, align 4
+  store i32 %inc, ptr %arrayidx, align 4
   br i1 %cmp6, label %L.loopexit, label %if.end
 
 if.end:                                           ; preds = %for.body5
   %inc10 = add nsw i32 %0, 2
-  store i32 %inc10, i32* %arrayidx, align 4
+  store i32 %inc10, ptr %arrayidx, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %cmp3 = icmp slt i64 %indvars.iv, 9
   br i1 %cmp3, label %for.body5, label %L.loopexit
@@ -89,10 +89,10 @@ L.loopexit:                                       ; preds = %for.body5, %if.end
   br label %L
 
 L:                                                ; preds = %L.loopexit, %for.body
-  %arrayidx14 = getelementptr inbounds i32, i32* %a, i64 %indvars.iv33
-  %1 = load i32, i32* %arrayidx14, align 4
+  %arrayidx14 = getelementptr inbounds i32, ptr %a, i64 %indvars.iv33
+  %1 = load i32, ptr %arrayidx14, align 4
   %inc15 = add nsw i32 %1, 1
-  store i32 %inc15, i32* %arrayidx14, align 4
+  store i32 %inc15, ptr %arrayidx14, align 4
   %indvars.iv.next34 = add nuw nsw i64 %indvars.iv33, 1
   %exitcond = icmp eq i64 %indvars.iv.next34, %wide.trip.count
   br i1 %exitcond, label %cleanup18.loopexit, label %for.body

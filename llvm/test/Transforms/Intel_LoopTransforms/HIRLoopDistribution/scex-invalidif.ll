@@ -67,10 +67,10 @@ bb86:                                             ; preds = %bb92_endif, %bb82
   br i1 %rel.61.not, label %bb92_endif, label %bb_new172_then
 
 bb_new172_then:                                   ; preds = %bb86
-  store i8 0, i8* undef, align 1
+  store i8 0, ptr undef, align 1
   call void @for_write_seq_fmt_xmit() #2
-  store i8 1, i8* undef, align 1
-  %fetch.90.pre = load i32, i32* getelementptr inbounds (%"PARAC", %"PARAC"* @parac_mp_paral_, i64 0, i32 3), align 4
+  store i8 1, ptr undef, align 1
+  %fetch.90.pre = load i32, ptr getelementptr inbounds (%"PARAC", ptr @parac_mp_paral_, i64 0, i32 3), align 4
   br label %bb92_endif
 
 bb92_endif:                                       ; preds = %bb_new172_then, %bb86

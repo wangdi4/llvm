@@ -36,7 +36,7 @@ for.body12.i:                                     ; preds = %if.end31.i, %entry
   br i1 %cmp15.i, label %if.else.i, label %if.then16.i
 
 if.then16.i:                                      ; preds = %for.body12.i
-  %t6 = load i32, i32* getelementptr inbounds ([256 x i32], [256 x i32]* @alpha_to, i64 0, i64 8), align 16
+  %t6 = load i32, ptr getelementptr inbounds ([256 x i32], ptr @alpha_to, i64 0, i64 8), align 16
   %xor20.i = shl i32 %t5, 1
   %shl21.i = xor i32 %xor20.i, 256
   %xor22.i = xor i32 %shl21.i, %t6
@@ -48,12 +48,12 @@ if.else.i:                                        ; preds = %for.body12.i
 
 if.end31.i:                                       ; preds = %if.else.i, %if.then16.i
   %xor22.sink.i = phi i32 [ %shl28.i, %if.else.i ], [ %xor22.i, %if.then16.i ]
-  %t7 = getelementptr inbounds [256 x i32], [256 x i32]* @alpha_to, i64 0, i64 %indvars.iv.i
-  store i32 %xor22.sink.i, i32* %t7, align 4
+  %t7 = getelementptr inbounds [256 x i32], ptr @alpha_to, i64 0, i64 %indvars.iv.i
+  store i32 %xor22.sink.i, ptr %t7, align 4
   %idxprom34.i = sext i32 %xor22.sink.i to i64
-  %arrayidx35.i = getelementptr inbounds [256 x i32], [256 x i32]* @index_of, i64 0, i64 %idxprom34.i
+  %arrayidx35.i = getelementptr inbounds [256 x i32], ptr @index_of, i64 0, i64 %idxprom34.i
   %t8 = trunc i64 %indvars.iv.i to i32
-  store i32 %t8, i32* %arrayidx35.i, align 4
+  store i32 %t8, ptr %arrayidx35.i, align 4
   %indvars.iv.next.i = add nuw nsw i64 %indvars.iv.i, 1
   %exitcond.i = icmp eq i64 %indvars.iv.next.i, 255
   br i1 %exitcond.i, label %generate_gf.exit, label %for.body12.i

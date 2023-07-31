@@ -77,12 +77,12 @@ entry:
 
 for.cond1.preheader:                              ; preds = %for.cond.cleanup3, %entry
   %indvars.iv34 = phi i64 [ 0, %entry ], [ %indvars.iv.next35, %for.cond.cleanup3 ]
-  %arrayidx10 = getelementptr inbounds [1000 x i32], [1000 x i32]* @A, i64 0, i64 %indvars.iv34
+  %arrayidx10 = getelementptr inbounds [1000 x i32], ptr @A, i64 0, i64 %indvars.iv34
   br label %for.body4
 
 for.cond.cleanup:                                 ; preds = %for.cond.cleanup3
-  %0 = load i32, i32* getelementptr inbounds ([1000 x i32], [1000 x i32]* @A, i64 0, i64 0), align 16, !tbaa !1
-  %1 = load i32, i32* getelementptr inbounds ([1000 x i32], [1000 x i32]* @B, i64 0, i64 1), align 4, !tbaa !1
+  %0 = load i32, ptr @A, align 16, !tbaa !1
+  %1 = load i32, ptr getelementptr inbounds ([1000 x i32], ptr @B, i64 0, i64 1), align 4, !tbaa !1
   %add19 = add i32 %0, 1
   %add20 = add i32 %add19, %1
   ret i32 %add20
@@ -95,26 +95,26 @@ for.cond.cleanup3:                                ; preds = %for.body4
 for.body4:                                        ; preds = %for.body4, %for.cond1.preheader
   %indvars.iv = phi i64 [ 1, %for.cond1.preheader ], [ %indvars.iv.next, %for.body4 ]
   %2 = add nsw i64 %indvars.iv, -1
-  %arrayidx = getelementptr inbounds [1000 x i32], [1000 x i32]* @A, i64 0, i64 %2
-  %3 = load i32, i32* %arrayidx, align 4, !tbaa !1
-  %arrayidx6 = getelementptr inbounds [1000 x i32], [1000 x i32]* @B, i64 0, i64 %indvars.iv
-  %4 = load i32, i32* %arrayidx6, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds [1000 x i32], ptr @A, i64 0, i64 %2
+  %3 = load i32, ptr %arrayidx, align 4, !tbaa !1
+  %arrayidx6 = getelementptr inbounds [1000 x i32], ptr @B, i64 0, i64 %indvars.iv
+  %4 = load i32, ptr %arrayidx6, align 4, !tbaa !1
   %add = add nsw i32 %4, %3
-  %arrayidx8 = getelementptr inbounds [1000 x i32], [1000 x i32]* @A, i64 0, i64 %indvars.iv
-  store i32 %add, i32* %arrayidx8, align 4, !tbaa !1
-  %5 = load i32, i32* %arrayidx10, align 4, !tbaa !1
+  %arrayidx8 = getelementptr inbounds [1000 x i32], ptr @A, i64 0, i64 %indvars.iv
+  store i32 %add, ptr %arrayidx8, align 4, !tbaa !1
+  %5 = load i32, ptr %arrayidx10, align 4, !tbaa !1
   %add13 = add nsw i32 %5, %add
-  store i32 %add13, i32* %arrayidx10, align 4, !tbaa !1
+  store i32 %add13, ptr %arrayidx10, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 101
   br i1 %exitcond, label %for.cond.cleanup3, label %for.body4
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { norecurse nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

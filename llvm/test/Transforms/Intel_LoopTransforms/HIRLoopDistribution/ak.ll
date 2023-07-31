@@ -59,19 +59,19 @@ for.cond.1.preheader:                             ; preds = %for.inc.23, %entry
 
 for.body.3:                                       ; preds = %for.body.3, %for.cond.1.preheader
   %indvars.iv = phi i64 [ 1, %for.cond.1.preheader ], [ %indvars.iv.next, %for.body.3 ]
-  %arrayidx5 = getelementptr inbounds [100000 x [100000 x float]], [100000 x [100000 x float]]* @B, i64 0, i64 %indvars.iv43, i64 %indvars.iv
-  %0 = load float, float* %arrayidx5, align 4
-  %arrayidx9 = getelementptr inbounds [100000 x [100000 x float]], [100000 x [100000 x float]]* @C, i64 0, i64 %indvars.iv43, i64 %indvars.iv
-  %1 = load float, float* %arrayidx9, align 4
+  %arrayidx5 = getelementptr inbounds [100000 x [100000 x float]], ptr @B, i64 0, i64 %indvars.iv43, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx5, align 4
+  %arrayidx9 = getelementptr inbounds [100000 x [100000 x float]], ptr @C, i64 0, i64 %indvars.iv43, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx9, align 4
   %add = fadd float %0, %1
-  %arrayidx13 = getelementptr inbounds [100000 x [100000 x float]], [100000 x [100000 x float]]* @A, i64 0, i64 %indvars.iv43, i64 %indvars.iv
-  store float %add, float* %arrayidx13, align 4
+  %arrayidx13 = getelementptr inbounds [100000 x [100000 x float]], ptr @A, i64 0, i64 %indvars.iv43, i64 %indvars.iv
+  store float %add, ptr %arrayidx13, align 4
   %2 = add nsw i64 %indvars.iv, -1
-  %arrayidx17 = getelementptr inbounds [100000 x [100000 x float]], [100000 x [100000 x float]]* @A, i64 0, i64 %indvars.iv43, i64 %2
-  %3 = load float, float* %arrayidx17, align 4
+  %arrayidx17 = getelementptr inbounds [100000 x [100000 x float]], ptr @A, i64 0, i64 %indvars.iv43, i64 %2
+  %3 = load float, ptr %arrayidx17, align 4
   %conv18 = fmul float %3, 2.000000e+00
-  %arrayidx22 = getelementptr inbounds [100000 x [100000 x float]], [100000 x [100000 x float]]* @D, i64 0, i64 %indvars.iv43, i64 %indvars.iv
-  store float %conv18, float* %arrayidx22, align 4
+  %arrayidx22 = getelementptr inbounds [100000 x [100000 x float]], ptr @D, i64 0, i64 %indvars.iv43, i64 %indvars.iv
+  store float %conv18, ptr %arrayidx22, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100000
   br i1 %exitcond, label %for.inc.23, label %for.body.3
@@ -88,8 +88,8 @@ for.end.25:                                       ; preds = %for.inc.23
 
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture)
+declare void @llvm.lifetime.start(i64, ptr nocapture)
 
 ; Function Attrs: nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture)
+declare void @llvm.lifetime.end(i64, ptr nocapture)
 

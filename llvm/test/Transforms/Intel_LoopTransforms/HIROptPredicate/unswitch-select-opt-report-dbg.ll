@@ -106,21 +106,21 @@
 ; CHECK:   LOOP END
 
 
-define void @loop_merge_mod_mp_loop_merge_compute_(i32* noalias nocapture readonly dereferenceable(4) %NPROMA, i32* noalias nocapture readonly dereferenceable(4) %NLEV, i32* noalias nocapture readonly dereferenceable(4) %NBLK, i32* noalias nocapture readonly dereferenceable(4) %I_STARTBLK, i32* noalias nocapture readonly dereferenceable(4) %I_ENDBLK, i32* noalias nocapture readonly dereferenceable(4) %I_STARTLEV, i32* noalias nocapture readonly dereferenceable(4) %I_ENDLEV, i32* noalias nocapture readonly dereferenceable(4) %I_STARTIDX, i32* noalias nocapture readonly dereferenceable(4) %I_ENDIDX, i32* noalias nocapture readonly dereferenceable(4) %BLKIDX, double* noalias nocapture dereferenceable(8) %ARRAY) !dbg !141 !llfort.type_idx !178 {
+define void @loop_merge_mod_mp_loop_merge_compute_(ptr noalias nocapture readonly dereferenceable(4) %NPROMA, ptr noalias nocapture readonly dereferenceable(4) %NLEV, ptr noalias nocapture readonly dereferenceable(4) %NBLK, ptr noalias nocapture readonly dereferenceable(4) %I_STARTBLK, ptr noalias nocapture readonly dereferenceable(4) %I_ENDBLK, ptr noalias nocapture readonly dereferenceable(4) %I_STARTLEV, ptr noalias nocapture readonly dereferenceable(4) %I_ENDLEV, ptr noalias nocapture readonly dereferenceable(4) %I_STARTIDX, ptr noalias nocapture readonly dereferenceable(4) %I_ENDIDX, ptr noalias nocapture readonly dereferenceable(4) %BLKIDX, ptr noalias nocapture dereferenceable(8) %ARRAY) !dbg !141 !llfort.type_idx !178 {
 alloca_3:
-  call void @llvm.dbg.declare(metadata i32* %NPROMA, metadata !143, metadata !DIExpression()), !dbg !179
-  call void @llvm.dbg.declare(metadata i32* %NLEV, metadata !144, metadata !DIExpression()), !dbg !180
-  call void @llvm.dbg.declare(metadata i32* %NBLK, metadata !145, metadata !DIExpression()), !dbg !181
-  call void @llvm.dbg.declare(metadata i32* %I_STARTBLK, metadata !146, metadata !DIExpression()), !dbg !182
-  call void @llvm.dbg.declare(metadata i32* %I_ENDBLK, metadata !147, metadata !DIExpression()), !dbg !183
-  call void @llvm.dbg.declare(metadata i32* %I_STARTLEV, metadata !148, metadata !DIExpression()), !dbg !184
-  call void @llvm.dbg.declare(metadata i32* %I_ENDLEV, metadata !149, metadata !DIExpression()), !dbg !185
-  call void @llvm.dbg.declare(metadata i32* %I_STARTIDX, metadata !150, metadata !DIExpression()), !dbg !186
-  call void @llvm.dbg.declare(metadata i32* %I_ENDIDX, metadata !151, metadata !DIExpression()), !dbg !187
-  call void @llvm.dbg.declare(metadata i32* %BLKIDX, metadata !155, metadata !DIExpression()), !dbg !188
-  call void @llvm.dbg.declare(metadata double* %ARRAY, metadata !163, metadata !DIExpression()), !dbg !189
-  %NLEV_fetch.100 = load i32, i32* %NLEV, !dbg !190, !llfort.type_idx !196
-  %NPROMA_fetch.102 = load i32, i32* %NPROMA, !dbg !190, !llfort.type_idx !199
+  call void @llvm.dbg.declare(metadata ptr %NPROMA, metadata !143, metadata !DIExpression()), !dbg !179
+  call void @llvm.dbg.declare(metadata ptr %NLEV, metadata !144, metadata !DIExpression()), !dbg !180
+  call void @llvm.dbg.declare(metadata ptr %NBLK, metadata !145, metadata !DIExpression()), !dbg !181
+  call void @llvm.dbg.declare(metadata ptr %I_STARTBLK, metadata !146, metadata !DIExpression()), !dbg !182
+  call void @llvm.dbg.declare(metadata ptr %I_ENDBLK, metadata !147, metadata !DIExpression()), !dbg !183
+  call void @llvm.dbg.declare(metadata ptr %I_STARTLEV, metadata !148, metadata !DIExpression()), !dbg !184
+  call void @llvm.dbg.declare(metadata ptr %I_ENDLEV, metadata !149, metadata !DIExpression()), !dbg !185
+  call void @llvm.dbg.declare(metadata ptr %I_STARTIDX, metadata !150, metadata !DIExpression()), !dbg !186
+  call void @llvm.dbg.declare(metadata ptr %I_ENDIDX, metadata !151, metadata !DIExpression()), !dbg !187
+  call void @llvm.dbg.declare(metadata ptr %BLKIDX, metadata !155, metadata !DIExpression()), !dbg !188
+  call void @llvm.dbg.declare(metadata ptr %ARRAY, metadata !163, metadata !DIExpression()), !dbg !189
+  %NLEV_fetch.100 = load i32, ptr %NLEV, !dbg !190, !llfort.type_idx !196
+  %NPROMA_fetch.102 = load i32, ptr %NPROMA, !dbg !190, !llfort.type_idx !199
   call void @llvm.dbg.value(metadata i32 %NLEV_fetch.100, metadata !152, metadata !DIExpression(DW_OP_LLVM_convert, 32, DW_ATE_signed, DW_OP_LLVM_convert, 64, DW_ATE_signed, DW_OP_stack_value)), !dbg !200
   call void @llvm.dbg.value(metadata i32 undef, metadata !154, metadata !DIExpression(DW_OP_LLVM_convert, 32, DW_ATE_signed, DW_OP_LLVM_convert, 64, DW_ATE_signed, DW_OP_stack_value)), !dbg !200
   call void @llvm.dbg.value(metadata i32 %NPROMA_fetch.102, metadata !160, metadata !DIExpression(DW_OP_LLVM_convert, 32, DW_ATE_signed, DW_OP_LLVM_convert, 64, DW_ATE_signed, DW_OP_stack_value)), !dbg !200
@@ -131,18 +131,18 @@ alloca_3:
   %int_sext13 = sext i32 %NPROMA_fetch.102 to i64, !dbg !202, !llfort.type_idx !29
   %mul.16 = shl nsw i64 %int_sext13, 3, !dbg !202
   %mul.17 = mul nsw i64 %mul.16, %int_sext5, !dbg !202
-  %I_STARTBLK_fetch.103 = load i32, i32* %I_STARTBLK, !dbg !202, !llfort.type_idx !205
-  %I_ENDBLK_fetch.104 = load i32, i32* %I_ENDBLK, !dbg !202, !llfort.type_idx !208
+  %I_STARTBLK_fetch.103 = load i32, ptr %I_STARTBLK, !dbg !202, !llfort.type_idx !205
+  %I_ENDBLK_fetch.104 = load i32, ptr %I_ENDBLK, !dbg !202, !llfort.type_idx !208
   call void @llvm.dbg.value(metadata i32 %I_STARTBLK_fetch.103, metadata !177, metadata !DIExpression()), !dbg !200
   %rel.25 = icmp slt i32 %I_ENDBLK_fetch.104, %I_STARTBLK_fetch.103, !dbg !202
   br i1 %rel.25, label %bb23, label %bb22.preheader, !dbg !202
 
 bb22.preheader:                                   ; preds = %alloca_3
-  %I_STARTLEV_fetch.106 = load i32, i32* %I_STARTLEV, !dbg !209, !llfort.type_idx !212
-  %I_ENDLEV_fetch.107 = load i32, i32* %I_ENDLEV, !dbg !209, !llfort.type_idx !215
+  %I_STARTLEV_fetch.106 = load i32, ptr %I_STARTLEV, !dbg !209, !llfort.type_idx !212
+  %I_ENDLEV_fetch.107 = load i32, ptr %I_ENDLEV, !dbg !209, !llfort.type_idx !215
   %rel.26 = icmp slt i32 %I_ENDLEV_fetch.107, %I_STARTLEV_fetch.106, !dbg !209
-  %I_STARTIDX_fetch.109 = load i32, i32* %I_STARTIDX, !dbg !216
-  %I_ENDIDX_fetch.110 = load i32, i32* %I_ENDIDX, !dbg !216
+  %I_STARTIDX_fetch.109 = load i32, ptr %I_STARTIDX, !dbg !216
+  %I_ENDIDX_fetch.110 = load i32, ptr %I_ENDIDX, !dbg !216
   %rel.27 = icmp slt i32 %I_ENDIDX_fetch.110, %I_STARTIDX_fetch.109, !dbg !216
   %0 = sext i32 %I_STARTIDX_fetch.109 to i64, !dbg !209
   %1 = add nsw i32 %I_ENDIDX_fetch.110, 1, !dbg !209
@@ -162,8 +162,8 @@ bb22:                                             ; preds = %bb22.preheader, %bb
   br i1 %rel.26, label %bb27, label %bb26.preheader, !dbg !209
 
 bb26.preheader:                                   ; preds = %bb22
-  %"BLKIDX[]" = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 %mul.14, i32* nonnull elementtype(i32) %BLKIDX, i64 %indvars.iv85), !dbg !201
-  %"ARRAY[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul.17, double* nonnull elementtype(double) %ARRAY, i64 %indvars.iv85), !dbg !202
+  %"BLKIDX[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul.14, ptr nonnull elementtype(i32) %BLKIDX, i64 %indvars.iv85), !dbg !201
+  %"ARRAY[]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %mul.17, ptr nonnull elementtype(double) %ARRAY, i64 %indvars.iv85), !dbg !202
   br label %bb26, !dbg !216
 
 bb26:                                             ; preds = %bb26.preheader, %bb31
@@ -173,14 +173,14 @@ bb26:                                             ; preds = %bb26.preheader, %bb
   br i1 %rel.27, label %bb31, label %bb30.preheader, !dbg !216
 
 bb30.preheader:                                   ; preds = %bb26
-  %"BLKIDX[][]" = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull elementtype(i32) %"BLKIDX[]", i64 %indvars.iv81), !dbg !201, !llfort.type_idx !220
-  %"BLKIDX[][]_fetch.118" = load i32, i32* %"BLKIDX[][]", !dbg !201, !llfort.type_idx !220
+  %"BLKIDX[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(i32) %"BLKIDX[]", i64 %indvars.iv81), !dbg !201, !llfort.type_idx !220
+  %"BLKIDX[][]_fetch.118" = load i32, ptr %"BLKIDX[][]", !dbg !201, !llfort.type_idx !220
   %rel.28 = icmp sgt i32 %"BLKIDX[][]_fetch.118", 0, !dbg !223
   %slct.7 = select i1 %rel.28, i32 %"BLKIDX[][]_fetch.118", i32 1, !dbg !224
-  %"ARRAY[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul.16, double* nonnull elementtype(double) %"ARRAY[]", i64 %indvars.iv81), !dbg !202, !llfort.type_idx !225
+  %"ARRAY[][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul.16, ptr nonnull elementtype(double) %"ARRAY[]", i64 %indvars.iv81), !dbg !202, !llfort.type_idx !225
   %int_sext33 = zext i32 %slct.7 to i64, !dbg !226
-  %"ARRAY[]34" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul.17, double* nonnull elementtype(double) %ARRAY, i64 %int_sext33), !dbg !226, !llfort.type_idx !227
-  %"ARRAY[][]35" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul.16, double* nonnull elementtype(double) %"ARRAY[]34", i64 %indvars.iv81), !dbg !226, !llfort.type_idx !228
+  %"ARRAY[]34" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 %mul.17, ptr nonnull elementtype(double) %ARRAY, i64 %int_sext33), !dbg !226, !llfort.type_idx !227
+  %"ARRAY[][]35" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 %mul.16, ptr nonnull elementtype(double) %"ARRAY[]34", i64 %indvars.iv81), !dbg !226, !llfort.type_idx !228
   br label %bb30, !dbg !219
 
 bb30:                                             ; preds = %bb30.preheader, %bb30
@@ -188,8 +188,8 @@ bb30:                                             ; preds = %bb30.preheader, %bb
   call void @llvm.dbg.value(metadata i64 %indvars.iv, metadata !173, metadata !DIExpression()), !dbg !200
   call void @llvm.dbg.value(metadata i32 undef, metadata !174, metadata !DIExpression()), !dbg !200
   call void @llvm.dbg.value(metadata i32 %slct.7, metadata !172, metadata !DIExpression()), !dbg !200
-  %"ARRAY[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"ARRAY[][]", i64 %indvars.iv), !dbg !202, !llfort.type_idx !229
-  %"ARRAY[][][]_fetch.137" = load double, double* %"ARRAY[][][]", !dbg !202, !llfort.type_idx !229
+  %"ARRAY[][][]" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"ARRAY[][]", i64 %indvars.iv), !dbg !202, !llfort.type_idx !229
+  %"ARRAY[][][]_fetch.137" = load double, ptr %"ARRAY[][][]", !dbg !202, !llfort.type_idx !229
   %slct.8 = select i1 %rel.28, double %"ARRAY[][][]_fetch.137", double 0.000000e+00, !dbg !232
   call void @llvm.dbg.value(metadata double %slct.8, metadata !171, metadata !DIExpression()), !dbg !200
   %neg.1 = fneg double %"ARRAY[][][]_fetch.137", !dbg !233
@@ -198,8 +198,8 @@ bb30:                                             ; preds = %bb30.preheader, %bb
   call void @llvm.dbg.value(metadata double %slct.8, metadata !169, metadata !DIExpression()), !dbg !200
   %add.26 = fadd double %slct.8, %slct.9, !dbg !235
   %add.27 = fadd double %slct.8, %add.26, !dbg !226
-  %"ARRAY[][][]36" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull elementtype(double) %"ARRAY[][]35", i64 %indvars.iv), !dbg !226, !llfort.type_idx !236
-  store double %add.27, double* %"ARRAY[][][]36", !dbg !237
+  %"ARRAY[][][]36" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull elementtype(double) %"ARRAY[][]35", i64 %indvars.iv), !dbg !226, !llfort.type_idx !236
+  store double %add.27, ptr %"ARRAY[][][]36", !dbg !237
   %indvars.iv.next = add nsw i64 %indvars.iv, 1, !dbg !219
   call void @llvm.dbg.value(metadata i64 %indvars.iv.next, metadata !173, metadata !DIExpression()), !dbg !200
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count, !dbg !219
@@ -231,10 +231,9 @@ bb23:                                             ; preds = %bb23.loopexit, %all
 }
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i64) #0
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #0
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8, i64, i64, double*, i64) #0
 
 ; Function Attrs: mustprogress nocallback nofree nosync nounwind readnone speculatable willreturn
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #1

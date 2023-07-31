@@ -41,7 +41,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local void @foo([10 x [10 x i32]]* nocapture %a, i32 %n, i32* noalias nocapture %b) local_unnamed_addr #0 {
+define dso_local void @foo(ptr nocapture %a, i32 %n, ptr noalias nocapture %b) local_unnamed_addr #0 {
 entry:
   %conv = sext i32 %n to i64
   %cmp268 = icmp sgt i32 %n, 0
@@ -78,8 +78,8 @@ for.cond26.preheader.us.us.preheader:             ; preds = %for.cond6.for.cond.
 
 for.body11.us.us:                                 ; preds = %for.body11.us.us, %for.cond6.preheader.us.us
   %k.067.us.us = phi i64 [ 0, %for.cond6.preheader.us.us ], [ %inc.us.us, %for.body11.us.us ]
-  %arrayidx14.us.us = getelementptr inbounds [10 x [10 x i32]], [10 x [10 x i32]]* %a, i64 0, i64 %j.069.us.us, i64 %k.067.us.us
-  store i32 %conv12.us.us, i32* %arrayidx14.us.us, align 4
+  %arrayidx14.us.us = getelementptr inbounds [10 x [10 x i32]], ptr %a, i64 0, i64 %j.069.us.us, i64 %k.067.us.us
+  store i32 %conv12.us.us, ptr %arrayidx14.us.us, align 4
   %inc.us.us = add nuw nsw i64 %k.067.us.us, 1
   %exitcond = icmp eq i64 %inc.us.us, %conv
   br i1 %exitcond, label %for.cond6.for.cond.cleanup10_crit_edge.us.us, label %for.body11.us.us
@@ -95,12 +95,12 @@ for.cond26.for.cond.cleanup30_crit_edge.us.us:    ; preds = %for.body31.us.us
 
 for.body31.us.us:                                 ; preds = %for.body31.us.us, %for.cond26.preheader.us.us
   %k25.072.us.us = phi i64 [ 0, %for.cond26.preheader.us.us ], [ %inc38.us.us, %for.body31.us.us ]
-  %arrayidx34.us.us = getelementptr inbounds [10 x [10 x i32]], [10 x [10 x i32]]* %a, i64 0, i64 3, i64 %k25.072.us.us
-  %0 = load i32, i32* %arrayidx34.us.us, align 4
-  %arrayidx35.us.us = getelementptr inbounds i32, i32* %b, i64 %k25.072.us.us
-  %1 = load i32, i32* %arrayidx35.us.us, align 4
+  %arrayidx34.us.us = getelementptr inbounds [10 x [10 x i32]], ptr %a, i64 0, i64 3, i64 %k25.072.us.us
+  %0 = load i32, ptr %arrayidx34.us.us, align 4
+  %arrayidx35.us.us = getelementptr inbounds i32, ptr %b, i64 %k25.072.us.us
+  %1 = load i32, ptr %arrayidx35.us.us, align 4
   %add36.us.us = add nsw i32 %1, %0
-  store i32 %add36.us.us, i32* %arrayidx35.us.us, align 4
+  store i32 %add36.us.us, ptr %arrayidx35.us.us, align 4
   %inc38.us.us = add nuw nsw i64 %k25.072.us.us, 1
   %exitcond115 = icmp eq i64 %inc38.us.us, %conv
   br i1 %exitcond115, label %for.cond26.for.cond.cleanup30_crit_edge.us.us, label %for.body31.us.us

@@ -105,7 +105,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i16* nocapture %p, i32 %wsize, i32 %n) #0 {
+define void @foo(ptr nocapture %p, i32 %wsize, i32 %n) #0 {
 entry:
   %cmp10 = icmp sgt i32 %n, 0
   br i1 %cmp10, label %for.body.preheader, label %for.end
@@ -115,15 +115,15 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %i.012 = phi i32 [ %inc, %for.body ], [ 0, %for.body.preheader ]
-  %p.addr.011 = phi i16* [ %incdec.ptr, %for.body ], [ %p, %for.body.preheader ]
-  %incdec.ptr = getelementptr inbounds i16, i16* %p.addr.011, i64 -1
-  %0 = load i16, i16* %incdec.ptr, align 2, !tbaa !1
+  %p.addr.011 = phi ptr [ %incdec.ptr, %for.body ], [ %p, %for.body.preheader ]
+  %incdec.ptr = getelementptr inbounds i16, ptr %p.addr.011, i64 -1
+  %0 = load i16, ptr %incdec.ptr, align 2, !tbaa !1
   %conv = zext i16 %0 to i32
   %cmp1 = icmp ult i32 %conv, %wsize
   %sub = sub i32 %conv, %wsize
   %1 = trunc i32 %sub to i16
   %conv3 = select i1 %cmp1, i16 0, i16 %1
-  store i16 %conv3, i16* %incdec.ptr, align 2, !tbaa !1
+  store i16 %conv3, ptr %incdec.ptr, align 2, !tbaa !1
   %inc = add nuw nsw i32 %i.012, 1
   %exitcond = icmp eq i32 %inc, %n
   br i1 %exitcond, label %for.end.loopexit, label %for.body
@@ -136,10 +136,10 @@ for.end:                                          ; preds = %for.end.loopexit, %
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 attributes #0 = { norecurse nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

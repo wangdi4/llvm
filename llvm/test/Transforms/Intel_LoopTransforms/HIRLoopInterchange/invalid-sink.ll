@@ -47,23 +47,23 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 for.body4.lr.ph:                                  ; preds = %for.body.lr.ph, %for.cond.cleanup3
   %indvars.iv31 = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next32, %for.cond.cleanup3 ]
   %indvars.iv.next32 = add nuw nsw i64 %indvars.iv31, 1
-  %arrayidx = getelementptr inbounds [1000 x i32], [1000 x i32]* @A, i64 0, i64 %indvars.iv.next32
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [1000 x i32], ptr @A, i64 0, i64 %indvars.iv.next32
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !2
   br label %for.body4
 
 for.cond.cleanup3:                                ; preds = %for.body4
   %add9.lcssa = phi i32 [ %add9, %for.body4 ]
   %1 = add nsw i64 %indvars.iv31, -1
-  %arrayidx11 = getelementptr inbounds [1000 x i32], [1000 x i32]* @A, i64 0, i64 %1
-  store i32 %add9.lcssa, i32* %arrayidx11, align 4, !tbaa !2
+  %arrayidx11 = getelementptr inbounds [1000 x i32], ptr @A, i64 0, i64 %1
+  store i32 %add9.lcssa, ptr %arrayidx11, align 4, !tbaa !2
   %exitcond35 = icmp eq i64 %indvars.iv.next32, %wide.trip.count
   br i1 %exitcond35, label %for.cond.cleanup.loopexit, label %for.body4.lr.ph
 
 for.body4:                                        ; preds = %for.body4, %for.body4.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body4.lr.ph ], [ %indvars.iv.next, %for.body4 ]
   %c.027 = phi i32 [ %0, %for.body4.lr.ph ], [ %add9, %for.body4 ]
-  %arrayidx8 = getelementptr inbounds [1000 x [1000 x i32]], [1000 x [1000 x i32]]* @B, i64 0, i64 %indvars.iv, i64 %indvars.iv31
-  %2 = load i32, i32* %arrayidx8, align 4, !tbaa !7
+  %arrayidx8 = getelementptr inbounds [1000 x [1000 x i32]], ptr @B, i64 0, i64 %indvars.iv, i64 %indvars.iv31
+  %2 = load i32, ptr %arrayidx8, align 4, !tbaa !7
   %add9 = add nsw i32 %2, %c.027
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count

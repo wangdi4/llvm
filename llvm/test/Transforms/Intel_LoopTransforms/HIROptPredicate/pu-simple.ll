@@ -68,7 +68,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i32* nocapture %p, i32* noalias nocapture %q, i32 %n) local_unnamed_addr #0 {
+define void @foo(ptr nocapture %p, ptr noalias nocapture %q, i32 %n) local_unnamed_addr #0 {
 entry:
   %cmp13 = icmp sgt i32 %n, 0
   br i1 %cmp13, label %for.body.lr.ph, label %for.cond.cleanup
@@ -85,7 +85,7 @@ for.cond.cleanup:                                 ; preds = %for.cond.cleanup.lo
 
 for.body:                                         ; preds = %if.end, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %if.end ]
-  %0 = load i32, i32* %p, align 4
+  %0 = load i32, ptr %p, align 4
   %cmp1 = icmp sgt i32 %0, 100
   br i1 %cmp1, label %if.then, label %for.body.if.end_crit_edge
 
@@ -95,15 +95,15 @@ for.body.if.end_crit_edge:                        ; preds = %for.body
   br label %if.end
 
 if.then:                                          ; preds = %for.body
-  %arrayidx2 = getelementptr inbounds i32, i32* %p, i64 %indvars.iv
+  %arrayidx2 = getelementptr inbounds i32, ptr %p, i64 %indvars.iv
   %1 = trunc i64 %indvars.iv to i32
-  store i32 %1, i32* %arrayidx2, align 4
+  store i32 %1, ptr %arrayidx2, align 4
   br label %if.end
 
 if.end:                                           ; preds = %for.body.if.end_crit_edge, %if.then
   %.pre-phi = phi i32 [ %add, %for.body.if.end_crit_edge ], [ %1, %if.then ]
-  %arrayidx4 = getelementptr inbounds i32, i32* %q, i64 %indvars.iv
-  store i32 %.pre-phi, i32* %arrayidx4, align 4
+  %arrayidx4 = getelementptr inbounds i32, ptr %q, i64 %indvars.iv
+  store i32 %.pre-phi, ptr %arrayidx4, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.cond.cleanup.loopexit, label %for.body

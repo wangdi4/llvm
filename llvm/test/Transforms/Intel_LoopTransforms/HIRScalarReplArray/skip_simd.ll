@@ -68,31 +68,31 @@ for.cond.cleanup:                                 ; preds = %for.body
   br label %for.exit
 
 for.exit:
-  %0 = load i32, i32* getelementptr inbounds ([1000 x i32], [1000 x i32]* @A, i64 0, i64 0), align 16, !tbaa !1
-  %1 = load i32, i32* getelementptr inbounds ([1000 x i32], [1000 x i32]* @B, i64 0, i64 1), align 4, !tbaa !1
+  %0 = load i32, ptr @A, align 16, !tbaa !1
+  %1 = load i32, ptr getelementptr inbounds ([1000 x i32], ptr @B, i64 0, i64 1), align 4, !tbaa !1
   %add6 = add i32 %0, 1
   %add7 = add i32 %add6, %1
   ret i32 %add7
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %SIMD.1 ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [1000 x i32], [1000 x i32]* @A, i64 0, i64 %indvars.iv
-  %2 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  %arrayidx = getelementptr inbounds [1000 x i32], ptr @A, i64 0, i64 %indvars.iv
+  %2 = load i32, ptr %arrayidx, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx2 = getelementptr inbounds [1000 x i32], [1000 x i32]* @A, i64 0, i64 %indvars.iv.next
-  %3 = load i32, i32* %arrayidx2, align 4, !tbaa !1
+  %arrayidx2 = getelementptr inbounds [1000 x i32], ptr @A, i64 0, i64 %indvars.iv.next
+  %3 = load i32, ptr %arrayidx2, align 4, !tbaa !1
   %add3 = add nsw i32 %3, %2
-  %arrayidx5 = getelementptr inbounds [1000 x i32], [1000 x i32]* @B, i64 0, i64 %indvars.iv
-  store i32 %add3, i32* %arrayidx5, align 4, !tbaa !1
+  %arrayidx5 = getelementptr inbounds [1000 x i32], ptr @B, i64 0, i64 %indvars.iv
+  store i32 %add3, ptr %arrayidx5, align 4, !tbaa !1
   %exitcond = icmp eq i64 %indvars.iv.next, 101
   br i1 %exitcond, label %for.cond.cleanup, label %for.body
 }
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.start(i64, i8* nocapture) #1
+declare void @llvm.lifetime.start(i64, ptr nocapture) #1
 
 ; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end(i64, i8* nocapture) #1
+declare void @llvm.lifetime.end(i64, ptr nocapture) #1
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()

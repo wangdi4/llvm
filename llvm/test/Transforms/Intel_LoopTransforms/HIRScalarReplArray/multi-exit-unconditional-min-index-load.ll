@@ -31,7 +31,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: argmemonly nofree norecurse nosync nounwind readonly uwtable
-define dso_local i32 @foo(i32* nocapture noundef readonly %A) local_unnamed_addr #0 {
+define dso_local i32 @foo(ptr nocapture noundef readonly %A) local_unnamed_addr #0 {
 entry:
   br label %for.body
 
@@ -42,10 +42,10 @@ for.cond:                                         ; preds = %for.body
 for.body:                                         ; preds = %entry, %for.cond
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.cond ]
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv.next
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !5
-  %arrayidx2 = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx2, align 4, !tbaa !5
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %indvars.iv.next
+  %0 = load i32, ptr %arrayidx, align 4, !tbaa !5
+  %arrayidx2 = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx2, align 4, !tbaa !5
   %cmp3 = icmp eq i32 %0, %1
   br i1 %cmp3, label %for.end.split.loop.exit, label %for.cond, !llvm.loop !3
 

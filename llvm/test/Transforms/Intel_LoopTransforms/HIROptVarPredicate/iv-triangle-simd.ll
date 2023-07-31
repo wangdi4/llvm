@@ -113,7 +113,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: mustprogress nounwind uwtable
-define dso_local void @_Z3fooPKfPfll(float* noalias nocapture readonly %x, float* noalias nocapture writeonly %y, i64 %n, i64 %k) local_unnamed_addr #0 {
+define dso_local void @_Z3fooPKfPfll(ptr noalias nocapture readonly %x, ptr noalias nocapture writeonly %y, i64 %n, i64 %k) local_unnamed_addr #0 {
 entry:
   %a1.red = alloca float, align 4
   %j.linear.iv = alloca i64, align 8
@@ -125,27 +125,27 @@ DIR.OMP.SIMD.1.preheader:                         ; preds = %entry
 
 DIR.OMP.SIMD.1:                                   ; preds = %DIR.OMP.SIMD.1.preheader, %DIR.OMP.END.SIMD.4
   %i.058 = phi i64 [ %inc, %DIR.OMP.END.SIMD.4 ], [ 0, %DIR.OMP.SIMD.1.preheader ]
-  store float 0.000000e+00, float* %a1.red, align 4
+  store float 0.000000e+00, ptr %a1.red, align 4
   br label %DIR.OMP.SIMD.162
 
 DIR.OMP.SIMD.162:                                 ; preds = %DIR.OMP.SIMD.1
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(float* %a1.red), "QUAL.OMP.LINEAR:IV"(i64* %j.linear.iv, i32 1), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.LIVEIN"(i8* null), "QUAL.OMP.LIVEIN:F90_DV"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.REDUCTION.ADD"(ptr %a1.red), "QUAL.OMP.LINEAR:IV"(ptr %j.linear.iv, i32 1), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null), "QUAL.OMP.LIVEIN"(ptr null), "QUAL.OMP.LIVEIN:F90_DV"(ptr null) ]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.162
-  %arrayidx = getelementptr inbounds float, float* %x, i64 %i.058
-  %1 = load float, float* %arrayidx, align 4, !tbaa !4, !llvm.access.group !8
+  %arrayidx = getelementptr inbounds float, ptr %x, i64 %i.058
+  %1 = load float, ptr %arrayidx, align 4, !tbaa !4, !llvm.access.group !8
   %add10 = add nsw i64 %i.058, %k
   %conv14 = fpext float %1 to double
   %mul12 = fmul fast double %conv14, 3.140000e+00
-  %a1.red.promoted = load float, float* %a1.red, align 4, !tbaa !4
+  %a1.red.promoted = load float, ptr %a1.red, align 4, !tbaa !4
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.2, %if.end
   %2 = phi float [ %a1.red.promoted, %DIR.OMP.SIMD.2 ], [ %add18, %if.end ]
   %.omp.iv.local.044 = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %add19, %if.end ]
-  %arrayidx6 = getelementptr inbounds float, float* %x, i64 %.omp.iv.local.044
-  %3 = load float, float* %arrayidx6, align 4, !tbaa !4, !llvm.access.group !8
+  %arrayidx6 = getelementptr inbounds float, ptr %x, i64 %.omp.iv.local.044
+  %3 = load float, ptr %arrayidx6, align 4, !tbaa !4, !llvm.access.group !8
   %sub7 = fsub fast float %1, %3
   %cmp11.not = icmp eq i64 %.omp.iv.local.044, %add10
   br i1 %cmp11.not, label %if.end, label %if.then
@@ -169,8 +169,8 @@ if.end:                                           ; preds = %omp.inner.for.body,
 
 omp.precond.end:                                  ; preds = %if.end
   %add18.lcssa = phi float [ %add18, %if.end ]
-  store i64 %n, i64* %j.linear.iv, align 8, !tbaa !13
-  store float %add18.lcssa, float* %a1.red, align 4, !tbaa !4
+  store i64 %n, ptr %j.linear.iv, align 8, !tbaa !13
+  store float %add18.lcssa, ptr %a1.red, align 4, !tbaa !4
   br label %DIR.OMP.END.SIMD.3
 
 DIR.OMP.END.SIMD.3:                               ; preds = %omp.precond.end
@@ -179,8 +179,8 @@ DIR.OMP.END.SIMD.3:                               ; preds = %omp.precond.end
 
 DIR.OMP.END.SIMD.4:                               ; preds = %DIR.OMP.END.SIMD.3
   %5 = fadd float %add18.lcssa, 0.000000e+00
-  %arrayidx21 = getelementptr inbounds float, float* %y, i64 %i.058
-  store float %5, float* %arrayidx21, align 4, !tbaa !4
+  %arrayidx21 = getelementptr inbounds float, ptr %y, i64 %i.058
+  store float %5, ptr %arrayidx21, align 4, !tbaa !4
   %inc = add nuw nsw i64 %i.058, 1
   %exitcond60.not = icmp eq i64 %inc, %n
   br i1 %exitcond60.not, label %for.end.loopexit, label %DIR.OMP.SIMD.1, !llvm.loop !15

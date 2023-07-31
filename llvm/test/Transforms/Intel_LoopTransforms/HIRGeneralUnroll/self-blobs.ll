@@ -58,22 +58,22 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%"class.xercesc_2_5::BitSet" = type<{%"class.xercesc_2_5::MemoryManager" *, i64*, i32, [4 x i8]}>
-%"class.xercesc_2_5::MemoryManager" = type { i32(...) * * }
+%"class.xercesc_2_5::BitSet" = type<{ptr, ptr, i32, [4 x i8]}>
+%"class.xercesc_2_5::MemoryManager" = type { ptr }
 
-define i32 @_ZNK11xercesc_2_56BitSet4hashEj(%"class.xercesc_2_5::BitSet" * nocapture readonly %this, i32 %hashModulus) align 2 {
+define i32 @_ZNK11xercesc_2_56BitSet4hashEj(ptr nocapture readonly %this, i32 %hashModulus) align 2 {
 entry:
-  %fUnitLen = getelementptr inbounds %"class.xercesc_2_5::BitSet", %"class.xercesc_2_5::BitSet"* %this, i64 0, i32 2
-  %0 = load i32, i32* %fUnitLen, align 8
+  %fUnitLen = getelementptr inbounds %"class.xercesc_2_5::BitSet", ptr %this, i64 0, i32 2
+  %0 = load i32, ptr %fUnitLen, align 8
   %mul.mask = and i32 %0, 536870911
   %cmp11 = icmp eq i32 %mul.mask, 0
   br i1 %cmp11, label %for.cond.cleanup, label %for.body.lr.ph
 
 for.body.lr.ph:                                   ; preds = %entry
-  %fBits = getelementptr inbounds %"class.xercesc_2_5::BitSet", %"class.xercesc_2_5::BitSet"* %this, i64 0, i32 1
-  %1 = bitcast i64** %fBits to i8**
-  %2 = load i8*, i8** %1, align 8
-  %3 = load i8, i8* %2, align 1
+  %fBits = getelementptr inbounds %"class.xercesc_2_5::BitSet", ptr %this, i64 0, i32 1
+  %1 = bitcast ptr %fBits to ptr
+  %2 = load ptr, ptr %1, align 8
+  %3 = load i8, ptr %2, align 1
   %conv3 = zext i8 %3 to i32
   %4 = shl i32 %0, 3
   br label %for.body

@@ -49,13 +49,13 @@ for.cond.cleanup3:                                ; preds = %for.body4
 
 for.body4:                                        ; preds = %for.body4, %for.cond1.preheader
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body4 ]
-  %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %indvars.iv
-  %0 = load i32, i32* %arrayidx, align 4
+  %arrayidx = getelementptr inbounds [100 x i32], ptr @A, i64 0, i64 %indvars.iv
+  %0 = load i32, ptr %arrayidx, align 4
   %1 = add nuw nsw i64 %indvars.iv, %indvars.iv44
   %2 = trunc i64 %1 to i32
   %add5 = add i32 %0, %2
-  %arrayidx7 = getelementptr inbounds [100 x i32], [100 x i32]* @B, i64 0, i64 %indvars.iv
-  store i32 %add5, i32* %arrayidx7, align 4
+  %arrayidx7 = getelementptr inbounds [100 x i32], ptr @B, i64 0, i64 %indvars.iv
+  store i32 %add5, ptr %arrayidx7, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond, label %for.cond.cleanup3, label %for.body4
@@ -67,12 +67,12 @@ for.cond.cleanup11:                               ; preds = %for.body12
 
 for.body12:                                       ; preds = %for.body12, %for.cond.cleanup3
   %indvars.iv41 = phi i64 [ 0, %for.cond.cleanup3 ], [ %indvars.iv.next42, %for.body12 ]
-  %arrayidx14 = getelementptr inbounds [100 x i32], [100 x i32]* @B, i64 0, i64 %indvars.iv41
-  %3 = load i32, i32* %arrayidx14, align 4
+  %arrayidx14 = getelementptr inbounds [100 x i32], ptr @B, i64 0, i64 %indvars.iv41
+  %3 = load i32, ptr %arrayidx14, align 4
   %4 = trunc i64 %indvars.iv41 to i32
   %add15 = add nsw i32 %3, %4
-  %arrayidx17 = getelementptr inbounds [100 x i32], [100 x i32]* @C, i64 0, i64 %indvars.iv41
-  store i32 %add15, i32* %arrayidx17, align 4
+  %arrayidx17 = getelementptr inbounds [100 x i32], ptr @C, i64 0, i64 %indvars.iv41
+  store i32 %add15, ptr %arrayidx17, align 4
   %indvars.iv.next42 = add nuw nsw i64 %indvars.iv41, 1
   %exitcond43 = icmp eq i64 %indvars.iv.next42, 100
   br i1 %exitcond43, label %for.cond.cleanup11, label %for.body12

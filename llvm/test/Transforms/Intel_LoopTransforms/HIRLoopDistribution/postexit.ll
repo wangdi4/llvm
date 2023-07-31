@@ -59,16 +59,16 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind uwtable
 define void @foo(i32 %t4) #0 {
 entry:
-  %0 = load i32, i32* @hpo_lower, align 4, !tbaa !1
-  %1 = load i32, i32* @hpo_upper, align 4, !tbaa !1
-  %2 = load i32, i32* @hpo_prv132, align 4, !tbaa !1
-  %3 = load i32, i32* @hpo_liter, align 4, !tbaa !1
+  %0 = load i32, ptr @hpo_lower, align 4, !tbaa !1
+  %1 = load i32, ptr @hpo_upper, align 4, !tbaa !1
+  %2 = load i32, ptr @hpo_prv132, align 4, !tbaa !1
+  %3 = load i32, ptr @hpo_liter, align 4, !tbaa !1
   %4 = icmp slt i32 %1, %0
   br i1 %4, label %if.end61, label %for.cond3.preheader.lr.ph
 
 for.cond3.preheader.lr.ph:                        ; preds = %entry
-  %5 = load i32, i32* @hpo_prv160, align 4, !tbaa !1
-  %6 = load i32, i32* @hpo_prv103, align 4, !tbaa !1
+  %5 = load i32, ptr @hpo_prv160, align 4, !tbaa !1
+  %6 = load i32, ptr @hpo_prv103, align 4, !tbaa !1
   %cmp7108 = icmp sgt i32 %1, 1
   %add = add i32 %0, -2
   %add9 = add i32 %add, %6
@@ -108,18 +108,18 @@ for.body8:                                        ; preds = %if.end, %for.body8.
   %add11 = add nsw i32 %i3.0109, %t4
   %sub12 = add nsw i32 %add11, -1
   %idxprom = sext i32 %sub12 to i64
-  %arrayidx16 = getelementptr inbounds [32 x [64 x [128 x float]]], [32 x [64 x [128 x float]]]* @t11, i64 0, i64 %idxprom14, i64 %indvars.iv116, i64 %idxprom
-  %12 = load float, float* %arrayidx16, align 4, !tbaa !5
+  %arrayidx16 = getelementptr inbounds [32 x [64 x [128 x float]]], ptr @t11, i64 0, i64 %idxprom14, i64 %indvars.iv116, i64 %idxprom
+  %12 = load float, ptr %arrayidx16, align 4, !tbaa !5
   %sub17 = add nsw i32 %add11, -2
   %idxprom18 = sext i32 %sub17 to i64
-  %arrayidx23 = getelementptr inbounds [32 x [64 x [128 x float]]], [32 x [64 x [128 x float]]]* @t11, i64 0, i64 %idxprom14, i64 %indvars.iv116, i64 %idxprom18
-  %13 = load float, float* %arrayidx23, align 4, !tbaa !5
+  %arrayidx23 = getelementptr inbounds [32 x [64 x [128 x float]]], ptr @t11, i64 0, i64 %idxprom14, i64 %indvars.iv116, i64 %idxprom18
+  %13 = load float, ptr %arrayidx23, align 4, !tbaa !5
   %sub24 = fsub float %12, %13
   %conv25 = fpext float %sub24 to double
   %mul26 = fmul double %mul, %conv25
   %conv27 = fptrunc double %mul26 to float
-  %arrayidx35 = getelementptr inbounds [32 x [64 x [128 x float]]], [32 x [64 x [128 x float]]]* @t15, i64 0, i64 %idxprom14, i64 %indvars.iv116, i64 %idxprom
-  store float %conv27, float* %arrayidx35, align 4, !tbaa !5
+  %arrayidx35 = getelementptr inbounds [32 x [64 x [128 x float]]], ptr @t15, i64 0, i64 %idxprom14, i64 %indvars.iv116, i64 %idxprom
+  store float %conv27, ptr %arrayidx35, align 4, !tbaa !5
   br i1 %cmp36, label %if.then38, label %if.end
 
 if.then38:                                        ; preds = %for.body8
@@ -127,8 +127,8 @@ if.then38:                                        ; preds = %for.body8
   %conv46 = sitofp i32 %14 to double
   %add47 = fadd double %add45, %conv46
   %conv48 = fptrunc double %add47 to float
-  %arrayidx54 = getelementptr inbounds [32 x [64 x [128 x float]]], [32 x [64 x [128 x float]]]* @t12, i64 0, i64 %indvars.iv119, i64 %indvars.iv116, i64 %idxprom
-  store float %conv48, float* %arrayidx54, align 4, !tbaa !5
+  %arrayidx54 = getelementptr inbounds [32 x [64 x [128 x float]]], ptr @t12, i64 0, i64 %indvars.iv119, i64 %indvars.iv116, i64 %idxprom
+  store float %conv48, ptr %arrayidx54, align 4, !tbaa !5
   br label %if.end
 
 if.end:                                           ; preds = %if.then38, %for.body8
@@ -157,7 +157,7 @@ if.end61:                                         ; preds = %for.inc58, %entry
   br i1 %cmp62, label %if.end65, label %if.then64
 
 if.then64:                                        ; preds = %if.end61
-  store i32 %t132.4, i32* @hpo_prv, align 4, !tbaa !1
+  store i32 %t132.4, ptr @hpo_prv, align 4, !tbaa !1
   br label %if.end65
 
 if.end65:                                         ; preds = %if.end61, %if.then64

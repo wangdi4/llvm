@@ -141,23 +141,23 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %if.end18, %for.body.preheader
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %if.end18 ]
-  %arrayidx = getelementptr inbounds [1000 x float], [1000 x float]* @DD, i64 0, i64 %indvars.iv
-  %0 = load float, float* %arrayidx, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [1000 x float], ptr @DD, i64 0, i64 %indvars.iv
+  %0 = load float, ptr %arrayidx, align 4, !tbaa !2
   %cmp1 = fcmp ogt float %0, 1.000000e+00
   br i1 %cmp1, label %if.then, label %if.else
 
 if.then:                                          ; preds = %for.body
-  %arrayidx3 = getelementptr inbounds [1000 x float], [1000 x float]* @b1, i64 0, i64 %indvars.iv
-  %1 = load float, float* %arrayidx3, align 4, !tbaa !2
-  %arrayidx5 = getelementptr inbounds [1000 x float], [1000 x float]* @c1, i64 0, i64 %indvars.iv
-  %2 = load float, float* %arrayidx5, align 4, !tbaa !2
+  %arrayidx3 = getelementptr inbounds [1000 x float], ptr @b1, i64 0, i64 %indvars.iv
+  %1 = load float, ptr %arrayidx3, align 4, !tbaa !2
+  %arrayidx5 = getelementptr inbounds [1000 x float], ptr @c1, i64 0, i64 %indvars.iv
+  %2 = load float, ptr %arrayidx5, align 4, !tbaa !2
   %sub = fsub float %1, %2
-  store float %sub, float* @b2, align 4, !tbaa !7
+  store float %sub, ptr @b2, align 4, !tbaa !7
   %3 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.DISTRIBUTE_POINT"() ]
-  %4 = load float, float* @b2, align 4, !tbaa !7
+  %4 = load float, ptr @b2, align 4, !tbaa !7
   %conv6 = fmul float %4, 5.000000e+00
-  %arrayidx8 = getelementptr inbounds [1000 x float], [1000 x float]* @a1, i64 0, i64 %indvars.iv
-  store float %conv6, float* %arrayidx8, align 4, !tbaa !2
+  %arrayidx8 = getelementptr inbounds [1000 x float], ptr @a1, i64 0, i64 %indvars.iv
+  store float %conv6, ptr %arrayidx8, align 4, !tbaa !2
   call void @llvm.directive.region.exit(token %3) [ "DIR.PRAGMA.END.DISTRIBUTE_POINT"() ]
   br label %if.end18
 
@@ -166,25 +166,25 @@ if.else:                                          ; preds = %for.body
   br i1 %cmp11, label %if.then13, label %if.else17
 
 if.then13:                                        ; preds = %if.else
-  %arrayidx15 = getelementptr inbounds [1000 x float], [1000 x float]* @b1, i64 0, i64 %indvars.iv
-  %5 = load float, float* %arrayidx15, align 4, !tbaa !2
+  %arrayidx15 = getelementptr inbounds [1000 x float], ptr @b1, i64 0, i64 %indvars.iv
+  %5 = load float, ptr %arrayidx15, align 4, !tbaa !2
   %mul16 = fmul float %5, 2.000000e+00
-  store float %mul16, float* @b2, align 4, !tbaa !7
+  store float %mul16, ptr @b2, align 4, !tbaa !7
   br label %if.end18
 
 if.else17:                                        ; preds = %if.else
   %6 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.DISTRIBUTE_POINT"() ]
-  store float 1.230000e+02, float* @b2, align 4, !tbaa !7
+  store float 1.230000e+02, ptr @b2, align 4, !tbaa !7
   call void @llvm.directive.region.exit(token %6) [ "DIR.PRAGMA.END.DISTRIBUTE_POINT"() ]
   br label %if.end18
 
 if.end18:                                         ; preds = %if.then13, %if.else17, %if.then
-  %7 = load float, float* @b2, align 4, !tbaa !7
+  %7 = load float, ptr @b2, align 4, !tbaa !7
   %8 = trunc i64 %indvars.iv to i32
   %conv19 = sitofp i32 %8 to float
   %add = fadd float %7, %conv19
-  %arrayidx21 = getelementptr inbounds [1000 x float], [1000 x float]* @a4, i64 0, i64 %indvars.iv
-  store float %add, float* %arrayidx21, align 4, !tbaa !2
+  %arrayidx21 = getelementptr inbounds [1000 x float], ptr @a4, i64 0, i64 %indvars.iv
+  store float %add, ptr %arrayidx21, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.end.loopexit, label %for.body

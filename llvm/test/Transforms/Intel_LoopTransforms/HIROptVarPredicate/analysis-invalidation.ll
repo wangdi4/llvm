@@ -14,8 +14,8 @@
 ;<4>                |   %d.060 = i1;
 ;<100>              |
 ;<100>              |   + DO i2 = 0, -1 * i1 + 3, 1   <DO_LOOP>  <MAX_TC_EST = 4>
-;<7>                |   |   @llvm.lifetime.start.p0i8(1,  &((%f)[0]));
-;<8>                |   |   @llvm.lifetime.start.p0i8(4,  &((i8*)(%i)[0]));
+;<7>                |   |   @llvm.lifetime.start.p0(1,  &((%f)[0]));
+;<8>                |   |   @llvm.lifetime.start.p0(4,  &((i8*)(%i)[0]));
 ;<10>               |   |   if (i1 + i2 != 0)
 ;<10>               |   |   {
 ;<108>              |   |      %2 = (@b)[0];
@@ -64,8 +64,8 @@
 ;<101>              |   |         + END LOOP
 ;<107>              |   |      }
 ;<10>               |   |   }
-;<84>               |   |   @llvm.lifetime.end.p0i8(4,  &((i8*)(%i)[0]));
-;<85>               |   |   @llvm.lifetime.end.p0i8(1,  &((%f)[0]));
+;<84>               |   |   @llvm.lifetime.end.p0(4,  &((i8*)(%i)[0]));
+;<85>               |   |   @llvm.lifetime.end.p0(1,  &((%f)[0]));
 ;<88>               |   |   %d.060 = i1 + i2 + 1;
 ;<100>              |   + END LOOP
 ;<99>               + END LOOP
@@ -85,7 +85,7 @@ define dso_local i32 @main() local_unnamed_addr {
 entry:
   %f = alloca i8, align 1
   %i = alloca i32, align 4
-  %0 = bitcast i32* %i to i8*
+  %0 = bitcast ptr %i to ptr
   br label %for.body3.preheader
 
 for.body3.preheader:                              ; preds = %for.inc31, %entry
@@ -96,8 +96,8 @@ for.body3.preheader:                              ; preds = %for.inc31, %entry
 
 for.body3:                                        ; preds = %for.body3.preheader, %for.end
   %d.060 = phi i32 [ %inc29, %for.end ], [ %1, %for.body3.preheader ]
-  call void @llvm.lifetime.start.p0i8(i64 1, i8* nonnull %f)
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %0)
+  call void @llvm.lifetime.start.p0(i64 1, ptr nonnull %f)
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %0)
   %tobool = icmp eq i32 %d.060, 0
   br i1 %tobool, label %for.end, label %for.body6.preheader
 
@@ -106,9 +106,9 @@ for.body6.preheader:                              ; preds = %for.body3
 
 for.body6:                                        ; preds = %for.body6.preheader, %for.inc
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.inc ], [ 0, %for.body6.preheader ]
-  %2 = load i32, i32* @b, align 4
+  %2 = load i32, ptr @b, align 4
   %tobool7 = icmp eq i32 %2, 0
-  %3 = load i8, i8* %f, align 1
+  %3 = load i8, ptr %f, align 1
   %tobool9.not = icmp eq i8 %3, 0
   %or.cond53 = select i1 %tobool7, i1 true, i1 %tobool9.not
   br i1 %or.cond53, label %for.inc, label %cond.end
@@ -130,35 +130,35 @@ if.then13:                                        ; preds = %if.then11
   %rem.sext = sext i8 %rem55 to i32
   %mul = mul nsw i32 %d.060, %rem.sext
   %tobool15 = icmp ne i32 %mul, 0
-  %4 = load i32, i32* @a, align 4
+  %4 = load i32, ptr @a, align 4
   %tobool17 = icmp ne i32 %4, 0
   %or.cond35 = select i1 %tobool15, i1 %tobool17, i1 false
   br i1 %or.cond35, label %if.then18, label %if.end19
 
 if.then18:                                        ; preds = %if.then13
   %call = call i32 @_Z6printbj(i32 %d.060)
-  %.pre = load i32, i32* @b, align 4, !tbaa !2
+  %.pre = load i32, ptr @b, align 4, !tbaa !2
   br label %if.end19
 
 if.end19:                                         ; preds = %if.then18, %if.then13
   %5 = phi i32 [ %.pre, %if.then18 ], [ %2, %if.then13 ]
   %6 = sub nsw i64 %indvars.iv, %indvars.iv67
-  %arrayidx = getelementptr inbounds [1 x i32], [1 x i32]* @c, i64 0, i64 %6, !intel-tbaa !6
-  %7 = load i32, i32* %arrayidx, align 4, !tbaa !6
+  %arrayidx = getelementptr inbounds [1 x i32], ptr @c, i64 0, i64 %6, !intel-tbaa !6
+  %7 = load i32, ptr %arrayidx, align 4, !tbaa !6
   %mul20 = mul nsw i32 %5, %7
-  store i32 %mul20, i32* @b, align 4, !tbaa !2
+  store i32 %mul20, ptr @b, align 4, !tbaa !2
   br label %if.end24
 
 if.else:                                          ; preds = %if.then11
   %call21 = call i32 @_Z4copyj(i32 undef)
   %xor = xor i32 %call21, 9
-  %8 = load i32, i32* getelementptr inbounds ([1 x i32], [1 x i32]* @c, i64 2, i64 0), align 4, !tbaa !6
+  %8 = load i32, ptr getelementptr inbounds ([1 x i32], ptr @c, i64 2, i64 0), align 4, !tbaa !6
   %mul22 = mul nsw i32 %8, %xor
-  store i32 %mul22, i32* getelementptr inbounds ([1 x i32], [1 x i32]* @c, i64 2, i64 0), align 4, !tbaa !6
+  store i32 %mul22, ptr getelementptr inbounds ([1 x i32], ptr @c, i64 2, i64 0), align 4, !tbaa !6
   br label %if.end24
 
 if.end24:                                         ; preds = %if.end19, %if.else, %sw.bb
-  %call25 = call i32 @_Z4swapRcRj(i8* nonnull align 1 dereferenceable(1) %f, i32* nonnull align 4 dereferenceable(4) %i)
+  %call25 = call i32 @_Z4swapRcRj(ptr nonnull align 1 dereferenceable(1) %f, ptr nonnull align 4 dereferenceable(4) %i)
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body6, %if.end24, %cond.end
@@ -170,8 +170,8 @@ for.end.loopexit:                                 ; preds = %for.inc
   br label %for.end
 
 for.end:                                          ; preds = %for.end.loopexit, %for.body3
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %0)
-  call void @llvm.lifetime.end.p0i8(i64 1, i8* nonnull %f)
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %0)
+  call void @llvm.lifetime.end.p0(i64 1, ptr nonnull %f)
   %inc29 = add nuw nsw i32 %d.060, 1
   %exitcond66.not = icmp eq i32 %inc29, 4
   br i1 %exitcond66.not, label %for.inc31, label %for.body3, !llvm.loop !10
@@ -186,16 +186,16 @@ for.end33:                                        ; preds = %for.inc31
 }
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture)
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture)
 
 declare dso_local i32 @_Z6printbj(i32) local_unnamed_addr
 
 declare dso_local i32 @_Z4copyj(i32) local_unnamed_addr
 
-declare dso_local i32 @_Z4swapRcRj(i8* nonnull align 1 dereferenceable(1), i32* nonnull align 4 dereferenceable(4)) local_unnamed_addr
+declare dso_local i32 @_Z4swapRcRj(ptr nonnull align 1 dereferenceable(1), ptr nonnull align 4 dereferenceable(4)) local_unnamed_addr
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture)
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture)
 
 !llvm.module.flags = !{!0}
 !llvm.ident = !{!1}

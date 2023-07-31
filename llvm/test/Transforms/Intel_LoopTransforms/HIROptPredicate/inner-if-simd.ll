@@ -52,7 +52,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define dso_local void @foo(i64 %n,ptr %p) {
 entry:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(ptr null), "QUAL.OMP.NORMALIZED.UB"(ptr null) ]
   %1 = trunc i64 %n to i32
   br label %for.body
 

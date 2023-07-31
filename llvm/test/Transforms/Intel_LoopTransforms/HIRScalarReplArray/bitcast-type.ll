@@ -14,9 +14,9 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define dso_local i32 @foo(i32* nocapture readonly %A, float* nocapture %p) local_unnamed_addr #0 {
+define dso_local i32 @foo(ptr nocapture readonly %A, ptr nocapture %p) local_unnamed_addr #0 {
 entry:
-  %.pre = load float, float* %p, align 4, !tbaa !2
+  %.pre = load float, ptr %p, align 4, !tbaa !2
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
@@ -24,14 +24,14 @@ for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %t.012 = phi i32 [ 0, %entry ], [ %add, %for.body ]
   %1 = add nsw i64 %indvars.iv, -1
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %1
-  %2 = load i32, i32* %arrayidx, align 4, !tbaa !6
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 %1
+  %2 = load i32, ptr %arrayidx, align 4, !tbaa !6
   %add = add nsw i32 %2, %t.012
-  %arrayidx2 = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  %3 = bitcast i32* %arrayidx2 to float*
-  %4 = load float, float* %3, align 4, !tbaa !2
+  %arrayidx2 = getelementptr inbounds i32, ptr %A, i64 %indvars.iv
+  %3 = bitcast ptr %arrayidx2 to ptr
+  %4 = load float, ptr %3, align 4, !tbaa !2
   %add3 = fadd float %4, %0
-  store float %add3, float* %p, align 4, !tbaa !2
+  store float %add3, ptr %p, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100
   br i1 %exitcond, label %for.end, label %for.body

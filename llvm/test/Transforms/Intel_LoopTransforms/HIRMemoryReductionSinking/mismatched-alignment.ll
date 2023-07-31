@@ -16,20 +16,20 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @foo(i32* nocapture %A, i32* nocapture %B) {
+define dso_local void @foo(ptr nocapture %A, ptr nocapture %B) {
 entry:
-  %arrayidx = getelementptr inbounds i32, i32* %A, i64 5
+  %arrayidx = getelementptr inbounds i32, ptr %A, i64 5
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %0 = load i32, i32* %arrayidx, align 4
+  %0 = load i32, ptr %arrayidx, align 4
   %add = add nsw i32 %0, 2
-  store i32 %add, i32* %arrayidx, align 4
-  %arrayidx1 = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
-  %1 = load i32, i32* %arrayidx1, align 1
+  store i32 %add, ptr %arrayidx, align 4
+  %arrayidx1 = getelementptr inbounds i32, ptr %B, i64 %indvars.iv
+  %1 = load i32, ptr %arrayidx1, align 1
   %add2 = add nsw i32 %1, 3
-  store i32 %add2, i32* %arrayidx1, align 1
+  store i32 %add2, ptr %arrayidx1, align 1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 50
   br i1 %exitcond, label %for.end, label %for.body
