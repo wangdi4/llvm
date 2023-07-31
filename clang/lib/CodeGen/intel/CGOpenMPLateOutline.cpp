@@ -1932,6 +1932,7 @@ void OpenMPLateOutliner::emitOMPProcBindClause(const OMPProcBindClause *Cl) {
   ClauseEmissionHelper CEH(*this, OMPC_proc_bind);
   switch (Cl->getProcBindKind()) {
   case OMP_PROC_BIND_master:
+  case OMP_PROC_BIND_primary:
     addArg("QUAL.OMP.PROC_BIND.MASTER");
     break;
   case OMP_PROC_BIND_close:
@@ -1940,7 +1941,6 @@ void OpenMPLateOutliner::emitOMPProcBindClause(const OMPProcBindClause *Cl) {
   case OMP_PROC_BIND_spread:
     addArg("QUAL.OMP.PROC_BIND.SPREAD");
     break;
-  case OMP_PROC_BIND_primary: // Not yet implemented
   case OMP_PROC_BIND_default:
     break;
   case OMP_PROC_BIND_unknown:
