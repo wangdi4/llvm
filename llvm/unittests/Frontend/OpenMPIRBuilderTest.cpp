@@ -6092,8 +6092,6 @@ TEST_F(OpenMPIRBuilderTest, registerTargetGlobalVariable) {
               true);
   }
 }
-<<<<<<< HEAD
-=======
 
 TEST_F(OpenMPIRBuilderTest, createGPUOffloadEntry) {
   OpenMPIRBuilder OMPBuilder(*M);
@@ -6137,5 +6135,4 @@ TEST_F(OpenMPIRBuilderTest, createGPUOffloadEntry) {
   EXPECT_TRUE(Fn->hasFnAttribute(Attribute::MustProgress));
 }
 
->>>>>>> 40340cf91ab9c61ec8c77c0a5063d4e5894e9d07
 } // namespace
