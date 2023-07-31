@@ -27,7 +27,7 @@
 class ITy_EVEX_C<bits<8> opcode, Format f, X86TypeInfo typeinfo, DAGOperand op1, DAGOperand op2,
           string mnemonic>
   : ITy_EVEX<opcode, f, typeinfo, (outs), (ins op1:$src1, op2:$src2, cflags:$dcf, ccode:$cond),
-             mnemonic#"${cond}", "$dcf\t{$src2, $src1|$src1, $src2}" , []>, EVEX_B {
+             mnemonic#"${cond}", "$dcf\t{$src2, $src1|$src1, $src2}" , []> {
   // Infer instruction prefixes from type info.
   let isCodeGenOnly = 1;
   let ForceDisassemble = 1;
