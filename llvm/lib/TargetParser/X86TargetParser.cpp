@@ -245,9 +245,7 @@ constexpr FeatureBitset FeaturesLioncoveServer =
 #endif // INTEL_FEATURE_CPU_DMR
 #ifdef ENABLE_CPU_DMR
     FeaturesGraniteRapids |
-#if INTEL_FEATURE_ISA_SM3
     FeatureSM3 |
-#endif // INTEL_FEATURE_ISA_SM3
 #if INTEL_FEATURE_ISA_SM4
     FeatureSM4 |
 #endif // INTEL_FEATURE_ISA_SM4
