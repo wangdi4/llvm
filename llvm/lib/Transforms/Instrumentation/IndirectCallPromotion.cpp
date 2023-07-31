@@ -104,7 +104,6 @@ static cl::opt<bool> ICPLTOMode("icp-lto", cl::init(false), cl::Hidden,
 static cl::opt<bool>
     ICPSamplePGOMode("icp-samplepgo", cl::init(false), cl::Hidden,
                      cl::desc("Run indirect-call promotion in SamplePGO mode"));
-
 // If the option is set to true, only call instructions will be considered for
 // transformation -- invoke instructions will be ignored.
 static cl::opt<bool>
@@ -126,16 +125,10 @@ static cl::opt<bool>
                  cl::desc("Dump IR after transformation happens"));
 
 namespace {
-<<<<<<< HEAD
-// The class for main data structure to promote indirect calls to conditional
-// direct calls.
-class ICallPromotionFunc {
-=======
 
 // Promote indirect calls to conditional direct calls, keeping track of
 // thresholds.
 class IndirectCallPromoter {
->>>>>>> 9ef82be96eefbcc17a4088fbc5510b4def36ea7e
 private:
   Function &F;
 
