@@ -784,6 +784,7 @@ int main() {
     }
   }
 
+<<<<<<< HEAD
   // placeholder accessor exception (4)  // SYCL2020 4.7.6.9
   {
     sycl::queue q;
@@ -819,6 +820,9 @@ int main() {
   }
 
   // SYCL2020 4.9.4.1: calling require() on empty accessor should throw
+=======
+  // SYCL2020 4.9.4.1: calling require() on empty accessor should not throw.
+>>>>>>> 95dca5959a016a103401836f064fdde9bed26d57
   {
     sycl::queue q;
     try {
@@ -826,12 +830,10 @@ int main() {
 
       q.submit([&](sycl::handler &cgh) { cgh.require(acc); });
       q.wait_and_throw();
-      assert(false && "we should not be here, missing exception");
     } catch (sycl::exception &e) {
-      std::cout << "exception received: " << e.what() << std::endl;
-      assert(e.code() == sycl::errc::invalid && "error code should be invalid");
+      assert("Unexpected exception");
     } catch (...) {
-      std::cout << "Some other exception (line " << __LINE__ << ")"
+      std::cout << "Some other unexpected exception (line " << __LINE__ << ")"
                 << std::endl;
       return 1;
     }
