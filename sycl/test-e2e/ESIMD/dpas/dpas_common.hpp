@@ -421,9 +421,16 @@ bool test(queue &Q, bool Print) {
   constexpr int M = RepeatCount;
   constexpr int K = SystolicDepth * OpsPerChannel;
   constexpr int N = ExecSize; // 16 for PVC, 8 for DG2.
-  static_assert(
-      (ExecSize == 8 && (APrec == df || BPrec == df)) || ExecSize == 16,
-      "====> Execution size must be 8 for double and 16 for other types");
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+#ifdef ESIMD_EMBARGO
+  static_assert((APrec != df && BPrec != df) || ExecSize == 8,
+                "====> Execution size must be 8 for double type."));
+#endif // end ESIMD_EMBARGO
+       /* end INTEL_FEATURE_ESIMD_EMBARGO */
+       /* end INTEL_CUSTOMIZATION */
+  static_assert(ExecSize == 8 || ExecSize == 16,
+                "====> Execution size must be 8 (DG2) or 16 (PVC+).");
 
   std::cout << "dpas.8x" << RepeatCount << ": (ExecSize = " << ExecSize
             << "): " << toString(BPrec, APrec) << ", UseSrc0 = " << UseSrc0
