@@ -8873,12 +8873,16 @@ llvm::Constant *CodeGenModule::GetAddrOfRTTIDescriptor(QualType Ty,
   // Return a bogus pointer if RTTI is disabled, unless it's for EH.
   // FIXME: should we even be calling this method if RTTI is disabled
   // and it's not for EH?
+<<<<<<< HEAD
   if ((!ForEH && !getLangOpts().RTTI) || getLangOpts().CUDAIsDevice ||
       (getLangOpts().OpenMP && getLangOpts().OpenMPIsTargetDevice &&
        getTriple().isNVPTX()))
 #if INTEL_COLLAB
     return llvm::Constant::getNullValue(DefaultInt8PtrTy);
 #else // INTEL_COLLAB
+=======
+  if (!shouldEmitRTTI(ForEH))
+>>>>>>> d279d155992125d4c56fcc270b0c440dc8be8b2e
     return llvm::Constant::getNullValue(GlobalsInt8PtrTy);
 #endif // INTEL_COLLAB
 
