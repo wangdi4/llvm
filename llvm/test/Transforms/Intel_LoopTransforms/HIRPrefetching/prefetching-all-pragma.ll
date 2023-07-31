@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" 2>&1 < %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" -hir-prefetching-loads-only 2>&1 < %s | FileCheck %s --check-prefix=CHECK-LOADS-ONLY
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" 2>&1 < %s | FileCheck %s
+; RUN: opt -disable-output -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" -hir-prefetching-loads-only 2>&1 < %s | FileCheck %s --check-prefix=CHECK-LOADS-ONLY
 ;
 ; Source code
 ; float A[1000];
@@ -42,9 +42,9 @@
 ; CHECK-NEXT:           |   %add = %mul4  +  %conv;
 ; CHECK-NEXT:           |   %conv5 = fptrunc.double.float(%add);
 ; CHECK-NEXT:           |   (@A)[0][i1] = %conv5;
-; CHECK-NEXT:           |   @llvm.prefetch.p0i8(&((i8*)(@B)[0][2 * i1 + 40]),  0,  0,  1);
-; CHECK-NEXT:           |   @llvm.prefetch.p0i8(&((i8*)(@C)[0][i1 + 20]),  0,  0,  1);
-; CHECK-NEXT:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 20]),  0,  0,  1);
+; CHECK-NEXT:           |   @llvm.prefetch.p0(&((i8*)(@B)[0][2 * i1 + 40]),  0,  0,  1);
+; CHECK-NEXT:           |   @llvm.prefetch.p0(&((i8*)(@C)[0][i1 + 20]),  0,  0,  1);
+; CHECK-NEXT:           |   @llvm.prefetch.p0(&((i8*)(@A)[0][i1 + 20]),  0,  0,  1);
 ; CHECK-NEXT:           + END LOOP
 ;
 ; CHECK:                ret &((undef)[0]);
@@ -52,8 +52,8 @@
 ;
 
 ; Verify that store (@A)[0][i1] is not prefetched when only loads are enabled.
-; CHECK-LOADS-ONLY: @llvm.prefetch.p0i8(&((i8*)(@B)[0][2 * i1 + 40]),  0,  0,  1);
-; CHECK-LOADS-ONLY: @llvm.prefetch.p0i8(&((i8*)(@C)[0][i1 + 20]),  0,  0,  1);
+; CHECK-LOADS-ONLY: @llvm.prefetch.p0(&((i8*)(@B)[0][2 * i1 + 40]),  0,  0,  1);
+; CHECK-LOADS-ONLY: @llvm.prefetch.p0(&((i8*)(@C)[0][i1 + 20]),  0,  0,  1);
 
 ; CHECK-LOADS-ONLY-NOT: llvm.prefetch.p0i8
 
@@ -68,32 +68,32 @@ target triple = "x86_64-unknown-linux-gnu"
 @B = dso_local global [1000 x float] zeroinitializer, align 16
 
 ; Function Attrs: nounwind uwtable
-define dso_local noalias i8* @sub() local_unnamed_addr #0 {
+define dso_local noalias ptr @sub() local_unnamed_addr #0 {
 entry:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ENABLE"(i32 1), "QUAL.PRAGMA.VAR"(i8* null), "QUAL.PRAGMA.HINT"(i32 3), "QUAL.PRAGMA.DISTANCE"(i32 20)]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ENABLE"(i32 1), "QUAL.PRAGMA.VAR"(ptr null), "QUAL.PRAGMA.HINT"(i32 3), "QUAL.PRAGMA.DISTANCE"(i32 20)]
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %1 = shl nuw nsw i64 %indvars.iv, 1
-  %arrayidx = getelementptr inbounds [1000 x float], [1000 x float]* @B, i64 0, i64 %1, !intel-tbaa !2
-  %2 = load float, float* %arrayidx, align 8, !tbaa !2
+  %arrayidx = getelementptr inbounds [1000 x float], ptr @B, i64 0, i64 %1, !intel-tbaa !2
+  %2 = load float, ptr %arrayidx, align 8, !tbaa !2
   %conv = fpext float %2 to double
-  %arrayidx2 = getelementptr inbounds [1000 x float], [1000 x float]* @C, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  %3 = load float, float* %arrayidx2, align 4, !tbaa !2
+  %arrayidx2 = getelementptr inbounds [1000 x float], ptr @C, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  %3 = load float, ptr %arrayidx2, align 4, !tbaa !2
   %conv3 = fpext float %3 to double
   %mul4 = fmul fast double %conv3, 2.000000e+00
   %add = fadd fast double %mul4, %conv
   %conv5 = fptrunc double %add to float
-  %arrayidx7 = getelementptr inbounds [1000 x float], [1000 x float]* @A, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  store float %conv5, float* %arrayidx7, align 4, !tbaa !2
+  %arrayidx7 = getelementptr inbounds [1000 x float], ptr @A, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  store float %conv5, ptr %arrayidx7, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1000
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.body
   call void @llvm.directive.region.exit(token %0) [ "DIR.PRAGMA.END.PREFETCH_LOOP"() ]
-  ret i8* undef
+  ret ptr undef
 }
 
 ; Function Attrs: nounwind

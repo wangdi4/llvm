@@ -28,17 +28,16 @@
 ; CHECK: Dump After
 
 ; CHECK: + DO i1 = 0, 9, 1   <DO_LOOP>
-; CHECK: |   @llvm.memset.p0i8.i64(&((i8*)(%A)[0][0]),  0,  128,  0);
-; CHECK: |   @llvm.memcpy.p0i8.p0i8.i64(&((i8*)(%dst)[i1]),  &((i8*)(%A)[0][0]),  128,  0);
+; CHECK: |   @llvm.memset.p0.i64(&((i8*)(%A)[0][0]),  0,  128,  0);
+; CHECK: |   @llvm.memcpy.p0.p0.i64(&((i8*)(%dst)[i1]),  &((i8*)(%A)[0][0]),  128,  0);
 ; CHECK: + END LOOP
 
 
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @foo(i32* nocapture noundef writeonly %dst) {
+define dso_local void @foo(ptr nocapture noundef writeonly %dst) {
 entry:
   %A = alloca [320 x i32], align 16
-  %0 = bitcast i32* %dst to i8*
   br label %for.cond1.preheader
 
 for.cond1.preheader:                              ; preds = %entry, %for.inc9
@@ -47,12 +46,12 @@ for.cond1.preheader:                              ; preds = %entry, %for.inc9
 
 for.body3:                                        ; preds = %for.cond1.preheader, %for.body3
   %indvars.iv = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next, %for.body3 ]
-  %arrayidx = getelementptr inbounds [320 x i32], [320 x i32]* %A, i64 0, i64 %indvars.iv
-  store i32 0, i32* %arrayidx, align 4
-  %1 = add nuw nsw i64 %indvars.iv, %indvars.iv24
-  %2 = load i32, i32* %arrayidx, align 4
-  %arrayidx8 = getelementptr inbounds i32, i32* %dst, i64 %1
-  store i32 %2, i32* %arrayidx8, align 4
+  %arrayidx = getelementptr inbounds [320 x i32], ptr %A, i64 0, i64 %indvars.iv
+  store i32 0, ptr %arrayidx, align 4
+  %0 = add nuw nsw i64 %indvars.iv, %indvars.iv24
+  %1 = load i32, ptr %arrayidx, align 4
+  %arrayidx8 = getelementptr inbounds i32, ptr %dst, i64 %0
+  store i32 %1, ptr %arrayidx8, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 32
   br i1 %exitcond.not, label %for.inc9, label %for.body3

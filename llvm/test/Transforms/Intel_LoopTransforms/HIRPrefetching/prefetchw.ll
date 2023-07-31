@@ -1,7 +1,7 @@
 ; Check that RW type of prefetch intrinsic is 1(write) for the indirect store memref @A when
 ; prefetchw is enabled.
 ;
-; RUN: opt -opaque-pointers=0 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" -hir-prefetching-prefetchw=true 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,print<hir>" -hir-prefetching-prefetchw=true 2>&1 < %s | FileCheck %s
 ;
 ; Source code
 ;#pragma  prefetch A:1:40
@@ -37,10 +37,10 @@
 ; CHECK-NEXT:           |   if (i1 + 40 <=u zext.i32.i64(%N) + -1)
 ; CHECK-NEXT:           |   {
 ; CHECK-NEXT:           |      %Load = (%M)[i1 + 40];
-; CHECK-NEXT:           |      @llvm.prefetch.p0i8(&((i8*)(@A)[0][%Load]),  1,  2,  1);
+; CHECK-NEXT:           |      @llvm.prefetch.p0(&((i8*)(@A)[0][%Load]),  1,  2,  1);
 ; CHECK-NEXT:           |   }
-; CHECK-NEXT:           |   @llvm.prefetch.p0i8(&((i8*)(@B)[0][i1 + 32]),  0,  3,  1);
-; CHECK-NEXT:           |   @llvm.prefetch.p0i8(&((i8*)(@C)[0][i1 + 32]),  0,  3,  1);
+; CHECK-NEXT:           |   @llvm.prefetch.p0(&((i8*)(@B)[0][i1 + 32]),  0,  3,  1);
+; CHECK-NEXT:           |   @llvm.prefetch.p0(&((i8*)(@C)[0][i1 + 32]),  0,  3,  1);
 ; CHECK-NEXT:           + END LOOP
 ;
 ; CHECK:                ret ;
@@ -57,9 +57,9 @@ target triple = "x86_64-unknown-linux-gnu"
 @C = dso_local global [100000 x i32] zeroinitializer, align 16
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @foo(i32 %N, i32* nocapture readonly %M) local_unnamed_addr #0 {
+define dso_local void @foo(i32 %N, ptr nocapture readonly %M) local_unnamed_addr #0 {
 entry:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ENABLE"(i32 1), "QUAL.PRAGMA.VAR"([100000 x i32]* @A), "QUAL.PRAGMA.HINT"(i32 1), "QUAL.PRAGMA.DISTANCE"(i32 40), "QUAL.PRAGMA.ENABLE"(i32 1), "QUAL.PRAGMA.VAR"([100000 x i32]* @B), "QUAL.PRAGMA.HINT"(i32 -1), "QUAL.PRAGMA.DISTANCE"(i32 -1), "QUAL.PRAGMA.ENABLE"(i32 1), "QUAL.PRAGMA.VAR"([100000 x i32]* @C), "QUAL.PRAGMA.HINT"(i32 -1), "QUAL.PRAGMA.DISTANCE"(i32 -1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ENABLE"(i32 1), "QUAL.PRAGMA.VAR"(ptr @A), "QUAL.PRAGMA.HINT"(i32 1), "QUAL.PRAGMA.DISTANCE"(i32 40), "QUAL.PRAGMA.ENABLE"(i32 1), "QUAL.PRAGMA.VAR"(ptr @B), "QUAL.PRAGMA.HINT"(i32 -1), "QUAL.PRAGMA.DISTANCE"(i32 -1), "QUAL.PRAGMA.ENABLE"(i32 1), "QUAL.PRAGMA.VAR"(ptr @C), "QUAL.PRAGMA.HINT"(i32 -1), "QUAL.PRAGMA.DISTANCE"(i32 -1) ]
   %cmp11 = icmp sgt i32 %N, 0
   br i1 %cmp11, label %for.body.preheader, label %for.end
 
@@ -69,16 +69,16 @@ for.body.preheader:                               ; preds = %entry
 
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [100000 x i32], [100000 x i32]* @B, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  %1 = load i32, i32* %arrayidx, align 4, !tbaa !2
-  %arrayidx2 = getelementptr inbounds [100000 x i32], [100000 x i32]* @C, i64 0, i64 %indvars.iv, !intel-tbaa !2
-  %2 = load i32, i32* %arrayidx2, align 4, !tbaa !2
+  %arrayidx = getelementptr inbounds [100000 x i32], ptr @B, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  %1 = load i32, ptr %arrayidx, align 4, !tbaa !2
+  %arrayidx2 = getelementptr inbounds [100000 x i32], ptr @C, i64 0, i64 %indvars.iv, !intel-tbaa !2
+  %2 = load i32, ptr %arrayidx2, align 4, !tbaa !2
   %add = add nsw i32 %2, %1
-  %ptridx = getelementptr inbounds i32, i32* %M, i64 %indvars.iv
-  %3 = load i32, i32* %ptridx, align 4, !tbaa !7
+  %ptridx = getelementptr inbounds i32, ptr %M, i64 %indvars.iv
+  %3 = load i32, ptr %ptridx, align 4, !tbaa !7
   %idxprom4 = sext i32 %3 to i64
-  %arrayidx5 = getelementptr inbounds [100000 x i32], [100000 x i32]* @A, i64 0, i64 %idxprom4, !intel-tbaa !2
-  store i32 %add, i32* %arrayidx5, align 4, !tbaa !2
+  %arrayidx5 = getelementptr inbounds [100000 x i32], ptr @A, i64 0, i64 %idxprom4, !intel-tbaa !2
+  store i32 %add, ptr %arrayidx5, align 4, !tbaa !2
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count13
   br i1 %exitcond.not, label %for.end.loopexit, label %for.body, !llvm.loop !8

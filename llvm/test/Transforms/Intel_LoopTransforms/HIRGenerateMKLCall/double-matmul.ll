@@ -81,15 +81,15 @@ target triple = "x86_64-unknown-linux-gnu"
 @a = dso_local local_unnamed_addr global [1024 x [1024 x double]] zeroinitializer, align 16
 @b = dso_local local_unnamed_addr global [1024 x [1024 x double]] zeroinitializer, align 16
 @c = dso_local local_unnamed_addr global [1024 x [1024 x double]] zeroinitializer, align 16
-@llvm.global_ctors = appending global [1 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 65535, void ()* @_GLOBAL__sub_I_double_matmul_only.cpp, i8* null }]
+@llvm.global_ctors = appending global [1 x { i32, ptr, ptr }] [{ i32, ptr, ptr } { i32 65535, ptr @_GLOBAL__sub_I_double_matmul_only.cpp, ptr null }]
 
-declare dso_local void @_ZNSt8ios_base4InitC1Ev(%"class.std::ios_base::Init"*) unnamed_addr #0
-
-; Function Attrs: nounwind
-declare dso_local void @_ZNSt8ios_base4InitD1Ev(%"class.std::ios_base::Init"*) unnamed_addr #1
+declare dso_local void @_ZNSt8ios_base4InitC1Ev(ptr) unnamed_addr #0
 
 ; Function Attrs: nounwind
-declare dso_local i32 @__cxa_atexit(void (i8*)*, i8*, i8*) local_unnamed_addr #2
+declare dso_local void @_ZNSt8ios_base4InitD1Ev(ptr) unnamed_addr #1
+
+; Function Attrs: nounwind
+declare dso_local i32 @__cxa_atexit(ptr, ptr, ptr) local_unnamed_addr #2
 
 ; Function Attrs: norecurse nounwind uwtable
 define dso_local void @_Z8multiplyv() local_unnamed_addr #3 {
@@ -102,17 +102,17 @@ for.cond1.preheader:                              ; preds = %for.inc20, %entry
 
 for.cond4.preheader:                              ; preds = %for.inc17, %for.cond1.preheader
   %indvars.iv38 = phi i64 [ 0, %for.cond1.preheader ], [ %indvars.iv.next39, %for.inc17 ]
-  %arrayidx16 = getelementptr inbounds [1024 x [1024 x double]], [1024 x [1024 x double]]* @c, i64 0, i64 %indvars.iv41, i64 %indvars.iv38, !intel-tbaa !2
-  %arrayidx16.promoted = load double, double* %arrayidx16, align 8, !tbaa !2
+  %arrayidx16 = getelementptr inbounds [1024 x [1024 x double]], ptr @c, i64 0, i64 %indvars.iv41, i64 %indvars.iv38, !intel-tbaa !2
+  %arrayidx16.promoted = load double, ptr %arrayidx16, align 8, !tbaa !2
   br label %for.body6
 
 for.body6:                                        ; preds = %for.body6, %for.cond4.preheader
   %indvars.iv = phi i64 [ 0, %for.cond4.preheader ], [ %indvars.iv.next, %for.body6 ]
   %0 = phi double [ %arrayidx16.promoted, %for.cond4.preheader ], [ %add, %for.body6 ]
-  %arrayidx8 = getelementptr inbounds [1024 x [1024 x double]], [1024 x [1024 x double]]* @a, i64 0, i64 %indvars.iv41, i64 %indvars.iv, !intel-tbaa !2
-  %1 = load double, double* %arrayidx8, align 8, !tbaa !2
-  %arrayidx12 = getelementptr inbounds [1024 x [1024 x double]], [1024 x [1024 x double]]* @b, i64 0, i64 %indvars.iv, i64 %indvars.iv38, !intel-tbaa !2
-  %2 = load double, double* %arrayidx12, align 8, !tbaa !2
+  %arrayidx8 = getelementptr inbounds [1024 x [1024 x double]], ptr @a, i64 0, i64 %indvars.iv41, i64 %indvars.iv, !intel-tbaa !2
+  %1 = load double, ptr %arrayidx8, align 8, !tbaa !2
+  %arrayidx12 = getelementptr inbounds [1024 x [1024 x double]], ptr @b, i64 0, i64 %indvars.iv, i64 %indvars.iv38, !intel-tbaa !2
+  %2 = load double, ptr %arrayidx12, align 8, !tbaa !2
   %mul = fmul double %1, %2
   %add = fadd double %0, %mul
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -121,7 +121,7 @@ for.body6:                                        ; preds = %for.body6, %for.con
 
 for.inc17:                                        ; preds = %for.body6
   %add.lcssa = phi double [ %add, %for.body6 ]
-  store double %add.lcssa, double* %arrayidx16, align 8, !tbaa !2
+  store double %add.lcssa, ptr %arrayidx16, align 8, !tbaa !2
   %indvars.iv.next39 = add nuw nsw i64 %indvars.iv38, 1
   %exitcond40 = icmp eq i64 %indvars.iv.next39, 1024
   br i1 %exitcond40, label %for.inc20, label %for.cond4.preheader
@@ -138,8 +138,8 @@ for.end22:                                        ; preds = %for.inc20
 ; Function Attrs: uwtable
 define internal void @_GLOBAL__sub_I_double_matmul_only.cpp() #4 section ".text.startup" {
 entry:
-  tail call void @_ZNSt8ios_base4InitC1Ev(%"class.std::ios_base::Init"* nonnull @_ZStL8__ioinit)
-  %0 = tail call i32 @__cxa_atexit(void (i8*)* bitcast (void (%"class.std::ios_base::Init"*)* @_ZNSt8ios_base4InitD1Ev to void (i8*)*), i8* getelementptr inbounds (%"class.std::ios_base::Init", %"class.std::ios_base::Init"* @_ZStL8__ioinit, i64 0, i32 0), i8* nonnull @__dso_handle) #2
+  tail call void @_ZNSt8ios_base4InitC1Ev(ptr nonnull @_ZStL8__ioinit)
+  %0 = tail call i32 @__cxa_atexit(ptr @_ZNSt8ios_base4InitD1Ev, ptr @_ZStL8__ioinit, ptr nonnull @__dso_handle) #2
   ret void
 }
 

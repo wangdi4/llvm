@@ -28,7 +28,7 @@
 ;<30>               ret ;
 ;<0>          END REGION
 ;
-; CHECK-NOT:    @llvm.prefetch.p0i8
+; CHECK-NOT:    @llvm.prefetch.p0
 ;
 ; ModuleID = 'all'
 source_filename = "/tmp/ifxApC43i.i"
@@ -40,21 +40,20 @@ target triple = "x86_64-unknown-linux-gnu"
 @xx_ = external unnamed_addr global [4 x i8], align 32
 
 ; Function Attrs: nounwind readnone speculatable
-declare float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8, i64, i64, float*, i64) #0
+declare ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8, i64, i64, ptr, i64) #0
 
 ; Function Attrs: nounwind uwtable
-define void @sub1_(float* noalias nocapture dereferenceable(4) %"sub1_$A", i32* noalias nocapture readonly dereferenceable(4) %"sub1_$N", float* noalias nocapture dereferenceable(4) %"sub1_$B") local_unnamed_addr #1 {
+define void @sub1_(ptr noalias nocapture dereferenceable(4) %"sub1_$A", ptr noalias nocapture readonly dereferenceable(4) %"sub1_$N", ptr noalias nocapture dereferenceable(4) %"sub1_$B") local_unnamed_addr #1 {
 
 entry:
-  %"sub1_$A_entry" = bitcast float* %"sub1_$A" to [100 x float]*
-  %"sub1_$N_fetch.18" = load i32, i32* %"sub1_$N", align 1, !tbaa !0
+  %"sub1_$N_fetch.18" = load i32, ptr %"sub1_$N", align 1, !tbaa !0
   %rel.5 = icmp slt i32 %"sub1_$N_fetch.18", 1
   br i1 %rel.5, label %bb35.loopexit, label %bb35
 bb35.loopexit:
   br label %bb35
 
 bb35:                                             ; preds = %bb35.loopexit, %bb31
-  %t5 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ENABLE"(i32 0), "QUAL.PRAGMA.VAR"([100 x i32]* @"sub1_$JJ"), "QUAL.PRAGMA.HINT"(i32 -1), "QUAL.PRAGMA.DISTANCE"(i32 -1), "QUAL.PRAGMA.ENABLE"(i32 0), "QUAL.PRAGMA.VAR"([100 x float]* %"sub1_$A_entry"), "QUAL.PRAGMA.HINT"(i32 -1), "QUAL.PRAGMA.DISTANCE"(i32 -1) ]
+  %t5 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.PREFETCH_LOOP"(), "QUAL.PRAGMA.ENABLE"(i32 0), "QUAL.PRAGMA.VAR"(ptr @"sub1_$JJ"), "QUAL.PRAGMA.HINT"(i32 -1), "QUAL.PRAGMA.DISTANCE"(i32 -1), "QUAL.PRAGMA.ENABLE"(i32 0), "QUAL.PRAGMA.VAR"(ptr %"sub1_$A"), "QUAL.PRAGMA.HINT"(i32 -1), "QUAL.PRAGMA.DISTANCE"(i32 -1) ]
   br i1 %rel.5, label %bb39, label %bb38.preheader
 
 bb38.preheader:                                   ; preds = %bb35
@@ -64,14 +63,14 @@ bb38.preheader:                                   ; preds = %bb35
 
 bb38:                                             ; preds = %bb38, %bb38.preheader
   %indvars.iv = phi i64 [ 1, %bb38.preheader ], [ %indvars.iv.next, %bb38 ]
-  %"sub1_$JJ[]59" = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) getelementptr inbounds ([100 x i32], [100 x i32]* @"sub1_$JJ", i64 0, i64 0), i64 %indvars.iv)
-  %"sub1_$JJ[]_fetch.86" = load i32, i32* %"sub1_$JJ[]59", align 1, !tbaa !6
+  %"sub1_$JJ[]59" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) @"sub1_$JJ", i64 %indvars.iv)
+  %"sub1_$JJ[]_fetch.86" = load i32, ptr %"sub1_$JJ[]59", align 1, !tbaa !6
   %int_sext60 = sext i32 %"sub1_$JJ[]_fetch.86" to i64
-  %"sub1_$A_entry[]62" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) %"sub1_$A", i64 %int_sext60)
-  %"sub1_$A_entry[]_fetch.88" = load float, float* %"sub1_$A_entry[]62", align 1, !tbaa !10
+  %"sub1_$A_entry[]62" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"sub1_$A", i64 %int_sext60)
+  %"sub1_$A_entry[]_fetch.88" = load float, ptr %"sub1_$A_entry[]62", align 1, !tbaa !10
   %add.22 = fadd reassoc ninf nsz arcp contract afn float %"sub1_$A_entry[]_fetch.88", 1.000000e+00
-  %"sub1_$A_entry[]65" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull elementtype(float) %"sub1_$A", i64 %indvars.iv)
-  store float %add.22, float* %"sub1_$A_entry[]65", align 1, !tbaa !10
+  %"sub1_$A_entry[]65" = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr nonnull elementtype(float) %"sub1_$A", i64 %indvars.iv)
+  store float %add.22, ptr %"sub1_$A_entry[]65", align 1, !tbaa !10
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count134
   br i1 %exitcond, label %bb39.loopexit, label %bb38, !llvm.loop !20
@@ -85,7 +84,6 @@ bb39:                                             ; preds = %bb39.loopexit, %bb3
 }
 
 ; Function Attrs: nounwind readnone speculatable
-declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i64) #0
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #2
