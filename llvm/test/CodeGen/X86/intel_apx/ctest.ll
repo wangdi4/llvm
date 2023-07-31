@@ -7,13 +7,13 @@ define void @ctest8rr_zf(i8 %a, i8 %b) {
 ; CHECK-LABEL: ctest8rr_zf:
 ; CHECK:       # %bb.0: # %bb
 ; CHECK-NEXT:    testb %dil, %dil # encoding: [0x40,0x84,0xff]
-; CHECK-NEXT:    ctesteb {zf} %sil, %dil # encoding: [0x62,0xf4,0x14,0x14,0x84,0xf7]
+; CHECK-NEXT:    ctesteb {zf} %sil, %dil # encoding: [0x62,0xf4,0x14,0x04,0x84,0xf7]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
 ;
 ; NDD-LABEL: ctest8rr_zf:
 ; NDD:       # %bb.0: # %bb
 ; NDD-NEXT:    testb %dil, %dil # encoding: [0x40,0x84,0xff]
-; NDD-NEXT:    ctesteb {zf} %sil, %dil # encoding: [0x62,0xf4,0x14,0x14,0x84,0xf7]
+; NDD-NEXT:    ctesteb {zf} %sil, %dil # encoding: [0x62,0xf4,0x14,0x04,0x84,0xf7]
 ; NDD-NEXT:    retq # encoding: [0xc3]
 bb:
   %cond1 = icmp eq i8 %a, 0
@@ -36,13 +36,13 @@ define void @ctest16rr_sf(i16 %a, i16 %b) {
 ; CHECK-LABEL: ctest16rr_sf:
 ; CHECK:       # %bb.0: # %bb
 ; CHECK-NEXT:    testw %di, %di # encoding: [0x66,0x85,0xff]
-; CHECK-NEXT:    ctestew {sf} %si, %di # encoding: [0x62,0xf4,0x25,0x14,0x85,0xf7]
+; CHECK-NEXT:    ctestew {sf} %si, %di # encoding: [0x62,0xf4,0x25,0x04,0x85,0xf7]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
 ;
 ; NDD-LABEL: ctest16rr_sf:
 ; NDD:       # %bb.0: # %bb
 ; NDD-NEXT:    testw %di, %di # encoding: [0x66,0x85,0xff]
-; NDD-NEXT:    ctestew {sf} %si, %di # encoding: [0x62,0xf4,0x25,0x14,0x85,0xf7]
+; NDD-NEXT:    ctestew {sf} %si, %di # encoding: [0x62,0xf4,0x25,0x04,0x85,0xf7]
 ; NDD-NEXT:    retq # encoding: [0xc3]
 bb:
   %cond1 = icmp ule i16 %a, 0
@@ -66,14 +66,14 @@ define void @ctest32rr_zf(i32 %a, i32 %b) {
 ; CHECK:       # %bb.0: # %bb
 ; CHECK-NEXT:    movb $1, %al # encoding: [0xb0,0x01]
 ; CHECK-NEXT:    testb %al, %al # encoding: [0x84,0xc0]
-; CHECK-NEXT:    ctestel {zf} %esi, %edi # encoding: [0x62,0xf4,0x14,0x14,0x85,0xf7]
+; CHECK-NEXT:    ctestel {zf} %esi, %edi # encoding: [0x62,0xf4,0x14,0x04,0x85,0xf7]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
 ;
 ; NDD-LABEL: ctest32rr_zf:
 ; NDD:       # %bb.0: # %bb
 ; NDD-NEXT:    movb $1, %al # encoding: [0xb0,0x01]
 ; NDD-NEXT:    testb %al, %al # encoding: [0x84,0xc0]
-; NDD-NEXT:    ctestel {zf} %esi, %edi # encoding: [0x62,0xf4,0x14,0x14,0x85,0xf7]
+; NDD-NEXT:    ctestel {zf} %esi, %edi # encoding: [0x62,0xf4,0x14,0x04,0x85,0xf7]
 ; NDD-NEXT:    retq # encoding: [0xc3]
 bb:
   %cond1 = icmp ult i32 %a, 0
@@ -96,13 +96,13 @@ define void @ctest64rr_sf(i64 %a, i64 %b) {
 ; CHECK-LABEL: ctest64rr_sf:
 ; CHECK:       # %bb.0: # %bb
 ; CHECK-NEXT:    testq %rdi, %rdi # encoding: [0x48,0x85,0xff]
-; CHECK-NEXT:    ctestsq {sf} %rsi, %rdi # encoding: [0x62,0xf4,0xa4,0x18,0x85,0xf7]
+; CHECK-NEXT:    ctestsq {sf} %rsi, %rdi # encoding: [0x62,0xf4,0xa4,0x08,0x85,0xf7]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
 ;
 ; NDD-LABEL: ctest64rr_sf:
 ; NDD:       # %bb.0: # %bb
 ; NDD-NEXT:    testq %rdi, %rdi # encoding: [0x48,0x85,0xff]
-; NDD-NEXT:    ctestsq {sf} %rsi, %rdi # encoding: [0x62,0xf4,0xa4,0x18,0x85,0xf7]
+; NDD-NEXT:    ctestsq {sf} %rsi, %rdi # encoding: [0x62,0xf4,0xa4,0x08,0x85,0xf7]
 ; NDD-NEXT:    retq # encoding: [0xc3]
 bb:
   %cond1 = icmp slt i64 %a, 0
@@ -125,13 +125,13 @@ define void @ctest8ri_zf(i8 %a) {
 ; CHECK-LABEL: ctest8ri_zf:
 ; CHECK:       # %bb.0: # %bb
 ; CHECK-NEXT:    testb %dil, %dil # encoding: [0x40,0x84,0xff]
-; CHECK-NEXT:    ctestsb {zf} $123, %dil # encoding: [0x62,0xf4,0x14,0x18,0xf6,0xc7,0x7b]
+; CHECK-NEXT:    ctestsb {zf} $123, %dil # encoding: [0x62,0xf4,0x14,0x08,0xf6,0xc7,0x7b]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
 ;
 ; NDD-LABEL: ctest8ri_zf:
 ; NDD:       # %bb.0: # %bb
 ; NDD-NEXT:    testb %dil, %dil # encoding: [0x40,0x84,0xff]
-; NDD-NEXT:    ctestsb {zf} $123, %dil # encoding: [0x62,0xf4,0x14,0x18,0xf6,0xc7,0x7b]
+; NDD-NEXT:    ctestsb {zf} $123, %dil # encoding: [0x62,0xf4,0x14,0x08,0xf6,0xc7,0x7b]
 ; NDD-NEXT:    retq # encoding: [0xc3]
 bb:
   %cond1 = icmp slt i8 %a, 0
@@ -154,14 +154,14 @@ define void @ctest16ri_sf(i16 %a) {
 ; CHECK-LABEL: ctest16ri_sf:
 ; CHECK:       # %bb.0: # %bb
 ; CHECK-NEXT:    testw %di, %di # encoding: [0x66,0x85,0xff]
-; CHECK-NEXT:    ctestnel {sf} $1234, %edi # encoding: [0x62,0xf4,0x24,0x15,0xf7,0xc7,0xd2,0x04,0x00,0x00]
+; CHECK-NEXT:    ctestnel {sf} $1234, %edi # encoding: [0x62,0xf4,0x24,0x05,0xf7,0xc7,0xd2,0x04,0x00,0x00]
 ; CHECK-NEXT:    # imm = 0x4D2
 ; CHECK-NEXT:    retq # encoding: [0xc3]
 ;
 ; NDD-LABEL: ctest16ri_sf:
 ; NDD:       # %bb.0: # %bb
 ; NDD-NEXT:    testw %di, %di # encoding: [0x66,0x85,0xff]
-; NDD-NEXT:    ctestnel {sf} $1234, %edi # encoding: [0x62,0xf4,0x24,0x15,0xf7,0xc7,0xd2,0x04,0x00,0x00]
+; NDD-NEXT:    ctestnel {sf} $1234, %edi # encoding: [0x62,0xf4,0x24,0x05,0xf7,0xc7,0xd2,0x04,0x00,0x00]
 ; NDD-NEXT:    # imm = 0x4D2
 ; NDD-NEXT:    retq # encoding: [0xc3]
 bb:
@@ -185,14 +185,14 @@ define void @ctest32ri_zf(i32 %a) {
 ; CHECK-LABEL: ctest32ri_zf:
 ; CHECK:       # %bb.0: # %bb
 ; CHECK-NEXT:    testl %edi, %edi # encoding: [0x85,0xff]
-; CHECK-NEXT:    ctestel {zf} $123456, %edi # encoding: [0x62,0xf4,0x14,0x14,0xf7,0xc7,0x40,0xe2,0x01,0x00]
+; CHECK-NEXT:    ctestel {zf} $123456, %edi # encoding: [0x62,0xf4,0x14,0x04,0xf7,0xc7,0x40,0xe2,0x01,0x00]
 ; CHECK-NEXT:    # imm = 0x1E240
 ; CHECK-NEXT:    retq # encoding: [0xc3]
 ;
 ; NDD-LABEL: ctest32ri_zf:
 ; NDD:       # %bb.0: # %bb
 ; NDD-NEXT:    testl %edi, %edi # encoding: [0x85,0xff]
-; NDD-NEXT:    ctestel {zf} $123456, %edi # encoding: [0x62,0xf4,0x14,0x14,0xf7,0xc7,0x40,0xe2,0x01,0x00]
+; NDD-NEXT:    ctestel {zf} $123456, %edi # encoding: [0x62,0xf4,0x14,0x04,0xf7,0xc7,0x40,0xe2,0x01,0x00]
 ; NDD-NEXT:    # imm = 0x1E240
 ; NDD-NEXT:    retq # encoding: [0xc3]
 bb:
@@ -216,14 +216,14 @@ define void @ctest64ri_sf(i64 %a) {
 ; CHECK-LABEL: ctest64ri_sf:
 ; CHECK:       # %bb.0: # %bb
 ; CHECK-NEXT:    cmpq $122, %rdi # encoding: [0x48,0x83,0xff,0x7a]
-; CHECK-NEXT:    ctestlel {sf} $123456, %edi # encoding: [0x62,0xf4,0x24,0x1e,0xf7,0xc7,0x40,0xe2,0x01,0x00]
+; CHECK-NEXT:    ctestlel {sf} $123456, %edi # encoding: [0x62,0xf4,0x24,0x0e,0xf7,0xc7,0x40,0xe2,0x01,0x00]
 ; CHECK-NEXT:    # imm = 0x1E240
 ; CHECK-NEXT:    retq # encoding: [0xc3]
 ;
 ; NDD-LABEL: ctest64ri_sf:
 ; NDD:       # %bb.0: # %bb
 ; NDD-NEXT:    cmpq $122, %rdi # encoding: [0x48,0x83,0xff,0x7a]
-; NDD-NEXT:    ctestlel {sf} $123456, %edi # encoding: [0x62,0xf4,0x24,0x1e,0xf7,0xc7,0x40,0xe2,0x01,0x00]
+; NDD-NEXT:    ctestlel {sf} $123456, %edi # encoding: [0x62,0xf4,0x24,0x0e,0xf7,0xc7,0x40,0xe2,0x01,0x00]
 ; NDD-NEXT:    # imm = 0x1E240
 ; NDD-NEXT:    retq # encoding: [0xc3]
 bb:
@@ -247,13 +247,13 @@ define void @ctest8mr_zf(i8 %a, ptr %ptr) {
 ; CHECK-LABEL: ctest8mr_zf:
 ; CHECK:       # %bb.0: # %bb
 ; CHECK-NEXT:    testb %dil, %dil # encoding: [0x40,0x84,0xff]
-; CHECK-NEXT:    ctesteb {zf} %dil, (%rsi) # encoding: [0x62,0xf4,0x14,0x14,0x84,0x3e]
+; CHECK-NEXT:    ctesteb {zf} %dil, (%rsi) # encoding: [0x62,0xf4,0x14,0x04,0x84,0x3e]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
 ;
 ; NDD-LABEL: ctest8mr_zf:
 ; NDD:       # %bb.0: # %bb
 ; NDD-NEXT:    testb %dil, %dil # encoding: [0x40,0x84,0xff]
-; NDD-NEXT:    ctesteb {zf} %dil, (%rsi) # encoding: [0x62,0xf4,0x14,0x14,0x84,0x3e]
+; NDD-NEXT:    ctesteb {zf} %dil, (%rsi) # encoding: [0x62,0xf4,0x14,0x04,0x84,0x3e]
 ; NDD-NEXT:    retq # encoding: [0xc3]
 bb:
   %b = load i8, ptr %ptr
@@ -277,13 +277,13 @@ define void @ctest16mr_sf(i16 %a, ptr %ptr) {
 ; CHECK-LABEL: ctest16mr_sf:
 ; CHECK:       # %bb.0: # %bb
 ; CHECK-NEXT:    testw %di, %di # encoding: [0x66,0x85,0xff]
-; CHECK-NEXT:    ctestew {sf} %di, (%rsi) # encoding: [0x62,0xf4,0x25,0x14,0x85,0x3e]
+; CHECK-NEXT:    ctestew {sf} %di, (%rsi) # encoding: [0x62,0xf4,0x25,0x04,0x85,0x3e]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
 ;
 ; NDD-LABEL: ctest16mr_sf:
 ; NDD:       # %bb.0: # %bb
 ; NDD-NEXT:    testw %di, %di # encoding: [0x66,0x85,0xff]
-; NDD-NEXT:    ctestew {sf} %di, (%rsi) # encoding: [0x62,0xf4,0x25,0x14,0x85,0x3e]
+; NDD-NEXT:    ctestew {sf} %di, (%rsi) # encoding: [0x62,0xf4,0x25,0x04,0x85,0x3e]
 ; NDD-NEXT:    retq # encoding: [0xc3]
 bb:
   %b = load i16, ptr %ptr
@@ -307,13 +307,13 @@ define void @ctest32mr_zf(i32 %a, ptr %ptr) {
 ; CHECK-LABEL: ctest32mr_zf:
 ; CHECK:       # %bb.0: # %bb
 ; CHECK-NEXT:    testl %edi, %edi # encoding: [0x85,0xff]
-; CHECK-NEXT:    ctestel {zf} %edi, (%rsi) # encoding: [0x62,0xf4,0x14,0x14,0x85,0x3e]
+; CHECK-NEXT:    ctestel {zf} %edi, (%rsi) # encoding: [0x62,0xf4,0x14,0x04,0x85,0x3e]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
 ;
 ; NDD-LABEL: ctest32mr_zf:
 ; NDD:       # %bb.0: # %bb
 ; NDD-NEXT:    testl %edi, %edi # encoding: [0x85,0xff]
-; NDD-NEXT:    ctestel {zf} %edi, (%rsi) # encoding: [0x62,0xf4,0x14,0x14,0x85,0x3e]
+; NDD-NEXT:    ctestel {zf} %edi, (%rsi) # encoding: [0x62,0xf4,0x14,0x04,0x85,0x3e]
 ; NDD-NEXT:    retq # encoding: [0xc3]
 bb:
   %b = load i32, ptr %ptr
@@ -337,13 +337,13 @@ define void @ctest64mr_sf(i64 %a, ptr %ptr) {
 ; CHECK-LABEL: ctest64mr_sf:
 ; CHECK:       # %bb.0: # %bb
 ; CHECK-NEXT:    testq %rdi, %rdi # encoding: [0x48,0x85,0xff]
-; CHECK-NEXT:    ctestnsq {sf} %rdi, (%rsi) # encoding: [0x62,0xf4,0xa4,0x19,0x85,0x3e]
+; CHECK-NEXT:    ctestnsq {sf} %rdi, (%rsi) # encoding: [0x62,0xf4,0xa4,0x09,0x85,0x3e]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
 ;
 ; NDD-LABEL: ctest64mr_sf:
 ; NDD:       # %bb.0: # %bb
 ; NDD-NEXT:    testq %rdi, %rdi # encoding: [0x48,0x85,0xff]
-; NDD-NEXT:    ctestnsq {sf} %rdi, (%rsi) # encoding: [0x62,0xf4,0xa4,0x19,0x85,0x3e]
+; NDD-NEXT:    ctestnsq {sf} %rdi, (%rsi) # encoding: [0x62,0xf4,0xa4,0x09,0x85,0x3e]
 ; NDD-NEXT:    retq # encoding: [0xc3]
 bb:
   %b = load i64, ptr %ptr
@@ -367,13 +367,13 @@ define void @ctest8mi_zf(i8 %a, ptr %ptr) {
 ; CHECK-LABEL: ctest8mi_zf:
 ; CHECK:       # %bb.0: # %bb
 ; CHECK-NEXT:    testb %dil, %dil # encoding: [0x40,0x84,0xff]
-; CHECK-NEXT:    ctesteb {zf} $123, (%rsi) # encoding: [0x62,0xf4,0x14,0x14,0xf6,0x06,0x7b]
+; CHECK-NEXT:    ctesteb {zf} $123, (%rsi) # encoding: [0x62,0xf4,0x14,0x04,0xf6,0x06,0x7b]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
 ;
 ; NDD-LABEL: ctest8mi_zf:
 ; NDD:       # %bb.0: # %bb
 ; NDD-NEXT:    testb %dil, %dil # encoding: [0x40,0x84,0xff]
-; NDD-NEXT:    ctesteb {zf} $123, (%rsi) # encoding: [0x62,0xf4,0x14,0x14,0xf6,0x06,0x7b]
+; NDD-NEXT:    ctesteb {zf} $123, (%rsi) # encoding: [0x62,0xf4,0x14,0x04,0xf6,0x06,0x7b]
 ; NDD-NEXT:    retq # encoding: [0xc3]
 bb:
   %b = load i8, ptr %ptr
@@ -399,7 +399,7 @@ define void @ctest16mi_sf(i16 %a, ptr %ptr) {
 ; CHECK-NEXT:    movzwl (%rsi), %eax # encoding: [0x0f,0xb7,0x06]
 ; CHECK-NEXT:    testw %di, %di # encoding: [0x66,0x85,0xff]
 ; TODO: Could we generate ctestgw {sf} $1234, (%rsi)?
-; CHECK-NEXT:    ctestgl {sf} $1234, %eax # encoding: [0x62,0xf4,0x24,0x1f,0xf7,0xc0,0xd2,0x04,0x00,0x00]
+; CHECK-NEXT:    ctestgl {sf} $1234, %eax # encoding: [0x62,0xf4,0x24,0x0f,0xf7,0xc0,0xd2,0x04,0x00,0x00]
 ; CHECK-NEXT:    # imm = 0x4D2
 ; CHECK-NEXT:    retq # encoding: [0xc3]
 ;
@@ -408,7 +408,7 @@ define void @ctest16mi_sf(i16 %a, ptr %ptr) {
 ; NDD-NEXT:    movzwl (%rsi), %eax # encoding: [0x0f,0xb7,0x06]
 ; NDD-NEXT:    testw %di, %di # encoding: [0x66,0x85,0xff]
 ; TODO: Could we generate ctestgw {sf} $1234, (%rsi)?
-; NDD-NEXT:    ctestgl {sf} $1234, %eax # encoding: [0x62,0xf4,0x24,0x1f,0xf7,0xc0,0xd2,0x04,0x00,0x00]
+; NDD-NEXT:    ctestgl {sf} $1234, %eax # encoding: [0x62,0xf4,0x24,0x0f,0xf7,0xc0,0xd2,0x04,0x00,0x00]
 ; NDD-NEXT:    # imm = 0x4D2
 ; NDD-NEXT:    retq # encoding: [0xc3]
 bb:
@@ -433,14 +433,14 @@ define void @ctest32mi_zf(i32 %a, ptr %ptr) {
 ; CHECK-LABEL: ctest32mi_zf:
 ; CHECK:       # %bb.0: # %bb
 ; CHECK-NEXT:    testl %edi, %edi # encoding: [0x85,0xff]
-; CHECK-NEXT:    ctestel {zf} $123456, (%rsi) # encoding: [0x62,0xf4,0x14,0x14,0xf7,0x06,0x40,0xe2,0x01,0x00]
+; CHECK-NEXT:    ctestel {zf} $123456, (%rsi) # encoding: [0x62,0xf4,0x14,0x04,0xf7,0x06,0x40,0xe2,0x01,0x00]
 ; CHECK-NEXT:    # imm = 0x1E240
 ; CHECK-NEXT:    retq # encoding: [0xc3]
 ;
 ; NDD-LABEL: ctest32mi_zf:
 ; NDD:       # %bb.0: # %bb
 ; NDD-NEXT:    testl %edi, %edi # encoding: [0x85,0xff]
-; NDD-NEXT:    ctestel {zf} $123456, (%rsi) # encoding: [0x62,0xf4,0x14,0x14,0xf7,0x06,0x40,0xe2,0x01,0x00]
+; NDD-NEXT:    ctestel {zf} $123456, (%rsi) # encoding: [0x62,0xf4,0x14,0x04,0xf7,0x06,0x40,0xe2,0x01,0x00]
 ; NDD-NEXT:    # imm = 0x1E240
 ; NDD-NEXT:    retq # encoding: [0xc3]
 bb:
@@ -467,7 +467,7 @@ define void @ctest64mi_sf(i64 %a, ptr %ptr) {
 ; CHECK-NEXT:    movq (%rsi), %rax # encoding: [0x48,0x8b,0x06]
 ; CHECK-NEXT:    testq %rdi, %rdi # encoding: [0x48,0x85,0xff]
 ; TODO: Could we generate ctestlel {sf} $123456, (%rsi)?
-; CHECK-NEXT:    ctestlel {sf} $123456, %eax # encoding: [0x62,0xf4,0x24,0x1e,0xf7,0xc0,0x40,0xe2,0x01,0x00]
+; CHECK-NEXT:    ctestlel {sf} $123456, %eax # encoding: [0x62,0xf4,0x24,0x0e,0xf7,0xc0,0x40,0xe2,0x01,0x00]
 ; CHECK-NEXT:    # imm = 0x1E240
 ; CHECK-NEXT:    retq # encoding: [0xc3]
 ;
@@ -476,7 +476,7 @@ define void @ctest64mi_sf(i64 %a, ptr %ptr) {
 ; NDD-NEXT:    movq (%rsi), %rax # encoding: [0x48,0x8b,0x06]
 ; NDD-NEXT:    testq %rdi, %rdi # encoding: [0x48,0x85,0xff]
 ; TODO: Could we generate ctestlel {sf} $123456, (%rsi)?
-; NDD-NEXT:    ctestlel {sf} $123456, %eax # encoding: [0x62,0xf4,0x24,0x1e,0xf7,0xc0,0x40,0xe2,0x01,0x00]
+; NDD-NEXT:    ctestlel {sf} $123456, %eax # encoding: [0x62,0xf4,0x24,0x0e,0xf7,0xc0,0x40,0xe2,0x01,0x00]
 ; NDD-NEXT:    # imm = 0x1E240
 ; NDD-NEXT:    retq # encoding: [0xc3]
 bb:
@@ -502,7 +502,7 @@ define i8 @ctest8rr_zf_opt(i8 %a, i8 %b, i8* nocapture %c)  {
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    andl %edi, %esi # encoding: [0x21,0xfe]
 ; CHECK-NEXT:    testb %dil, %dil # encoding: [0x40,0x84,0xff]
-; CHECK-NEXT:    ctestneb {zf} %sil, %sil # encoding: [0x62,0xf4,0x14,0x15,0x84,0xf6]
+; CHECK-NEXT:    ctestneb {zf} %sil, %sil # encoding: [0x62,0xf4,0x14,0x05,0x84,0xf6]
 ; CHECK-NEXT:    jle .LBB16_2 # encoding: [0x7e,A]
 ; CHECK-NEXT:    # fixup A - offset: 1, value: .LBB16_2-1, kind: FK_PCRel_1
 ; CHECK-NEXT:  # %bb.1: # %if.then
@@ -515,7 +515,7 @@ define i8 @ctest8rr_zf_opt(i8 %a, i8 %b, i8* nocapture %c)  {
 ; NDD:       # %bb.0: # %entry
 ; NDD-NEXT:    andl %esi, %edi, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x21,0xf7]
 ; NDD-NEXT:    testb %dil, %dil # encoding: [0x40,0x84,0xff]
-; NDD-NEXT:    ctestneb {zf} %al, %al # encoding: [0x62,0xf4,0x14,0x15,0x84,0xc0]
+; NDD-NEXT:    ctestneb {zf} %al, %al # encoding: [0x62,0xf4,0x14,0x05,0x84,0xc0]
 ; NDD-NEXT:    jle .LBB16_2 # encoding: [0x7e,A]
 ; NDD-NEXT:    # fixup A - offset: 1, value: .LBB16_2-1, kind: FK_PCRel_1
 ; NDD-NEXT:  # %bb.1: # %if.then
@@ -543,7 +543,7 @@ define i16 @ctest16rr_sf_opt(i16 %a, i16 %b, i16* nocapture %c)  {
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    andl %edi, %esi # encoding: [0x21,0xfe]
 ; CHECK-NEXT:    testw %di, %di # encoding: [0x66,0x85,0xff]
-; CHECK-NEXT:    ctestsw {sf} %si, %si # encoding: [0x62,0xf4,0x25,0x18,0x85,0xf6]
+; CHECK-NEXT:    ctestsw {sf} %si, %si # encoding: [0x62,0xf4,0x25,0x08,0x85,0xf6]
 ; CHECK-NEXT:    js .LBB17_2 # encoding: [0x78,A]
 ; CHECK-NEXT:    # fixup A - offset: 1, value: .LBB17_2-1, kind: FK_PCRel_1
 ; CHECK-NEXT:  # %bb.1: # %if.then
@@ -556,7 +556,7 @@ define i16 @ctest16rr_sf_opt(i16 %a, i16 %b, i16* nocapture %c)  {
 ; NDD:       # %bb.0: # %entry
 ; NDD-NEXT:    andl %esi, %edi, %eax # encoding: [0x62,0xf4,0x7c,0x18,0x21,0xf7]
 ; NDD-NEXT:    testw %di, %di # encoding: [0x66,0x85,0xff]
-; NDD-NEXT:    ctestsw {sf} %ax, %ax # encoding: [0x62,0xf4,0x25,0x18,0x85,0xc0]
+; NDD-NEXT:    ctestsw {sf} %ax, %ax # encoding: [0x62,0xf4,0x25,0x08,0x85,0xc0]
 ; NDD-NEXT:    js .LBB17_2 # encoding: [0x78,A]
 ; NDD-NEXT:    # fixup A - offset: 1, value: .LBB17_2-1, kind: FK_PCRel_1
 ; NDD-NEXT:  # %bb.1: # %if.then
@@ -583,7 +583,7 @@ define i32 @ctest32rr_zf_opt(i32 %a, i32 %b, i32* nocapture %c)  {
 ; CHECK-LABEL: ctest32rr_zf_opt:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    testl %edi, %edi # encoding: [0x85,0xff]
-; CHECK-NEXT:    ctestnel {zf} %esi, %edi # encoding: [0x62,0xf4,0x14,0x15,0x85,0xf7]
+; CHECK-NEXT:    ctestnel {zf} %esi, %edi # encoding: [0x62,0xf4,0x14,0x05,0x85,0xf7]
 ; CHECK-NEXT:    je .LBB18_2 # encoding: [0x74,A]
 ; CHECK-NEXT:    # fixup A - offset: 1, value: .LBB18_2-1, kind: FK_PCRel_1
 ; CHECK-NEXT:  # %bb.1: # %if.then
@@ -595,7 +595,7 @@ define i32 @ctest32rr_zf_opt(i32 %a, i32 %b, i32* nocapture %c)  {
 ; NDD-LABEL: ctest32rr_zf_opt:
 ; NDD:       # %bb.0: # %entry
 ; NDD-NEXT:    testl %edi, %edi # encoding: [0x85,0xff]
-; NDD-NEXT:    ctestnel {zf} %esi, %edi # encoding: [0x62,0xf4,0x14,0x15,0x85,0xf7]
+; NDD-NEXT:    ctestnel {zf} %esi, %edi # encoding: [0x62,0xf4,0x14,0x05,0x85,0xf7]
 ; NDD-NEXT:    je .LBB18_2 # encoding: [0x74,A]
 ; NDD-NEXT:    # fixup A - offset: 1, value: .LBB18_2-1, kind: FK_PCRel_1
 ; NDD-NEXT:  # %bb.1: # %if.then
@@ -622,7 +622,7 @@ define i64 @ctest64rr_sf_opt(i64 %a, i64 %b, i64* nocapture %c)  {
 ; CHECK-LABEL: ctest64rr_sf_opt:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    testq %rdi, %rdi # encoding: [0x48,0x85,0xff]
-; CHECK-NEXT:    ctestneq {sf} %rsi, %rdi # encoding: [0x62,0xf4,0xa4,0x15,0x85,0xf7]
+; CHECK-NEXT:    ctestneq {sf} %rsi, %rdi # encoding: [0x62,0xf4,0xa4,0x05,0x85,0xf7]
 ; CHECK-NEXT:    js .LBB19_2 # encoding: [0x78,A]
 ; CHECK-NEXT:    # fixup A - offset: 1, value: .LBB19_2-1, kind: FK_PCRel_1
 ; CHECK-NEXT:  # %bb.1: # %if.then
@@ -634,7 +634,7 @@ define i64 @ctest64rr_sf_opt(i64 %a, i64 %b, i64* nocapture %c)  {
 ; NDD-LABEL: ctest64rr_sf_opt:
 ; NDD:       # %bb.0: # %entry
 ; NDD-NEXT:    testq %rdi, %rdi # encoding: [0x48,0x85,0xff]
-; NDD-NEXT:    ctestneq {sf} %rsi, %rdi # encoding: [0x62,0xf4,0xa4,0x15,0x85,0xf7]
+; NDD-NEXT:    ctestneq {sf} %rsi, %rdi # encoding: [0x62,0xf4,0xa4,0x05,0x85,0xf7]
 ; NDD-NEXT:    js .LBB19_2 # encoding: [0x78,A]
 ; NDD-NEXT:    # fixup A - offset: 1, value: .LBB19_2-1, kind: FK_PCRel_1
 ; NDD-NEXT:  # %bb.1: # %if.then
@@ -661,7 +661,7 @@ define i8 @ctest8mr_opt(i8 %a, i8 %b, i8* nocapture %c, i8* %ptr)  {
 ; CHECK-LABEL: ctest8mr_opt:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    testb %dil, %dil # encoding: [0x40,0x84,0xff]
-; CHECK-NEXT:    ctestneb {} %sil, (%rcx) # encoding: [0x62,0xf4,0x04,0x15,0x84,0x31]
+; CHECK-NEXT:    ctestneb {} %sil, (%rcx) # encoding: [0x62,0xf4,0x04,0x05,0x84,0x31]
 ; CHECK-NEXT:    jns .LBB20_2 # encoding: [0x79,A]
 ; CHECK-NEXT:    # fixup A - offset: 1, value: .LBB20_2-1, kind: FK_PCRel_1
 ; CHECK-NEXT:  # %bb.1: # %if.then
@@ -673,7 +673,7 @@ define i8 @ctest8mr_opt(i8 %a, i8 %b, i8* nocapture %c, i8* %ptr)  {
 ; NDD-LABEL: ctest8mr_opt:
 ; NDD:       # %bb.0: # %entry
 ; NDD-NEXT:    testb %dil, %dil # encoding: [0x40,0x84,0xff]
-; NDD-NEXT:    ctestneb {} %sil, (%rcx) # encoding: [0x62,0xf4,0x04,0x15,0x84,0x31]
+; NDD-NEXT:    ctestneb {} %sil, (%rcx) # encoding: [0x62,0xf4,0x04,0x05,0x84,0x31]
 ; NDD-NEXT:    jns .LBB20_2 # encoding: [0x79,A]
 ; NDD-NEXT:    # fixup A - offset: 1, value: .LBB20_2-1, kind: FK_PCRel_1
 ; NDD-NEXT:  # %bb.1: # %if.then
@@ -701,7 +701,7 @@ define i16 @ctest16mr_opt(i16 %a, i16 %b, i16* nocapture %c, i16* %ptr)  {
 ; CHECK-LABEL: ctest16mr_opt:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    testw %di, %di # encoding: [0x66,0x85,0xff]
-; CHECK-NEXT:    ctestnew {} %si, (%rcx) # encoding: [0x62,0xf4,0x05,0x15,0x85,0x31]
+; CHECK-NEXT:    ctestnew {} %si, (%rcx) # encoding: [0x62,0xf4,0x05,0x05,0x85,0x31]
 ; CHECK-NEXT:    jns .LBB21_2 # encoding: [0x79,A]
 ; CHECK-NEXT:    # fixup A - offset: 1, value: .LBB21_2-1, kind: FK_PCRel_1
 ; CHECK-NEXT:  # %bb.1: # %if.then
@@ -713,7 +713,7 @@ define i16 @ctest16mr_opt(i16 %a, i16 %b, i16* nocapture %c, i16* %ptr)  {
 ; NDD-LABEL: ctest16mr_opt:
 ; NDD:       # %bb.0: # %entry
 ; NDD-NEXT:    testw %di, %di # encoding: [0x66,0x85,0xff]
-; NDD-NEXT:    ctestnew {} %si, (%rcx) # encoding: [0x62,0xf4,0x05,0x15,0x85,0x31]
+; NDD-NEXT:    ctestnew {} %si, (%rcx) # encoding: [0x62,0xf4,0x05,0x05,0x85,0x31]
 ; NDD-NEXT:    jns .LBB21_2 # encoding: [0x79,A]
 ; NDD-NEXT:    # fixup A - offset: 1, value: .LBB21_2-1, kind: FK_PCRel_1
 ; NDD-NEXT:  # %bb.1: # %if.then
@@ -741,7 +741,7 @@ define i32 @ctest32mr_opt(i32 %a, i32 %b, i32* nocapture %c, i32* %ptr)  {
 ; CHECK-LABEL: ctest32mr_opt:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    testl %edi, %edi # encoding: [0x85,0xff]
-; CHECK-NEXT:    ctestnel {} %esi, (%rcx) # encoding: [0x62,0xf4,0x04,0x15,0x85,0x31]
+; CHECK-NEXT:    ctestnel {} %esi, (%rcx) # encoding: [0x62,0xf4,0x04,0x05,0x85,0x31]
 ; CHECK-NEXT:    jns .LBB22_2 # encoding: [0x79,A]
 ; CHECK-NEXT:    # fixup A - offset: 1, value: .LBB22_2-1, kind: FK_PCRel_1
 ; CHECK-NEXT:  # %bb.1: # %if.then
@@ -753,7 +753,7 @@ define i32 @ctest32mr_opt(i32 %a, i32 %b, i32* nocapture %c, i32* %ptr)  {
 ; NDD-LABEL: ctest32mr_opt:
 ; NDD:       # %bb.0: # %entry
 ; NDD-NEXT:    testl %edi, %edi # encoding: [0x85,0xff]
-; NDD-NEXT:    ctestnel {} %esi, (%rcx) # encoding: [0x62,0xf4,0x04,0x15,0x85,0x31]
+; NDD-NEXT:    ctestnel {} %esi, (%rcx) # encoding: [0x62,0xf4,0x04,0x05,0x85,0x31]
 ; NDD-NEXT:    jns .LBB22_2 # encoding: [0x79,A]
 ; NDD-NEXT:    # fixup A - offset: 1, value: .LBB22_2-1, kind: FK_PCRel_1
 ; NDD-NEXT:  # %bb.1: # %if.then
@@ -781,7 +781,7 @@ define i64 @ctest64mr_opt(i64 %a, i64 %b, i64* nocapture %c, i64* %ptr)  {
 ; CHECK-LABEL: ctest64mr_opt:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    testq %rdi, %rdi # encoding: [0x48,0x85,0xff]
-; CHECK-NEXT:    ctestneq {} %rsi, (%rcx) # encoding: [0x62,0xf4,0x84,0x15,0x85,0x31]
+; CHECK-NEXT:    ctestneq {} %rsi, (%rcx) # encoding: [0x62,0xf4,0x84,0x05,0x85,0x31]
 ; CHECK-NEXT:    jns .LBB23_2 # encoding: [0x79,A]
 ; CHECK-NEXT:    # fixup A - offset: 1, value: .LBB23_2-1, kind: FK_PCRel_1
 ; CHECK-NEXT:  # %bb.1: # %if.then
@@ -793,7 +793,7 @@ define i64 @ctest64mr_opt(i64 %a, i64 %b, i64* nocapture %c, i64* %ptr)  {
 ; NDD-LABEL: ctest64mr_opt:
 ; NDD:       # %bb.0: # %entry
 ; NDD-NEXT:    testq %rdi, %rdi # encoding: [0x48,0x85,0xff]
-; NDD-NEXT:    ctestneq {} %rsi, (%rcx) # encoding: [0x62,0xf4,0x84,0x15,0x85,0x31]
+; NDD-NEXT:    ctestneq {} %rsi, (%rcx) # encoding: [0x62,0xf4,0x84,0x05,0x85,0x31]
 ; NDD-NEXT:    jns .LBB23_2 # encoding: [0x79,A]
 ; NDD-NEXT:    # fixup A - offset: 1, value: .LBB23_2-1, kind: FK_PCRel_1
 ; NDD-NEXT:  # %bb.1: # %if.then
@@ -821,7 +821,7 @@ define i8 @ctest8ri_opt(i8 %a, i8 %b, i8* nocapture %c)  {
 ; CHECK-LABEL: ctest8ri_opt:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    testb %dil, %dil # encoding: [0x40,0x84,0xff]
-; CHECK-NEXT:    ctestneb {} $123, %sil # encoding: [0x62,0xf4,0x04,0x15,0xf6,0xc6,0x7b]
+; CHECK-NEXT:    ctestneb {} $123, %sil # encoding: [0x62,0xf4,0x04,0x05,0xf6,0xc6,0x7b]
 ; CHECK-NEXT:    jns .LBB24_2 # encoding: [0x79,A]
 ; CHECK-NEXT:    # fixup A - offset: 1, value: .LBB24_2-1, kind: FK_PCRel_1
 ; CHECK-NEXT:  # %bb.1: # %if.then
@@ -833,7 +833,7 @@ define i8 @ctest8ri_opt(i8 %a, i8 %b, i8* nocapture %c)  {
 ; NDD-LABEL: ctest8ri_opt:
 ; NDD:       # %bb.0: # %entry
 ; NDD-NEXT:    testb %dil, %dil # encoding: [0x40,0x84,0xff]
-; NDD-NEXT:    ctestneb {} $123, %sil # encoding: [0x62,0xf4,0x04,0x15,0xf6,0xc6,0x7b]
+; NDD-NEXT:    ctestneb {} $123, %sil # encoding: [0x62,0xf4,0x04,0x05,0xf6,0xc6,0x7b]
 ; NDD-NEXT:    jns .LBB24_2 # encoding: [0x79,A]
 ; NDD-NEXT:    # fixup A - offset: 1, value: .LBB24_2-1, kind: FK_PCRel_1
 ; NDD-NEXT:  # %bb.1: # %if.then
@@ -860,7 +860,7 @@ define i16 @ctest16ri_opt(i16 %a, i16 %b, i16* nocapture %c)  {
 ; CHECK-LABEL: ctest16ri_opt:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    testw %di, %di # encoding: [0x66,0x85,0xff]
-; CHECK-NEXT:    ctestnel {} $1234, %esi # encoding: [0x62,0xf4,0x04,0x15,0xf7,0xc6,0xd2,0x04,0x00,0x00]
+; CHECK-NEXT:    ctestnel {} $1234, %esi # encoding: [0x62,0xf4,0x04,0x05,0xf7,0xc6,0xd2,0x04,0x00,0x00]
 ; CHECK-NEXT:    # imm = 0x4D2
 ; CHECK-NEXT:    jns .LBB25_2 # encoding: [0x79,A]
 ; CHECK-NEXT:    # fixup A - offset: 1, value: .LBB25_2-1, kind: FK_PCRel_1
@@ -873,7 +873,7 @@ define i16 @ctest16ri_opt(i16 %a, i16 %b, i16* nocapture %c)  {
 ; NDD-LABEL: ctest16ri_opt:
 ; NDD:       # %bb.0: # %entry
 ; NDD-NEXT:    testw %di, %di # encoding: [0x66,0x85,0xff]
-; NDD-NEXT:    ctestnel {} $1234, %esi # encoding: [0x62,0xf4,0x04,0x15,0xf7,0xc6,0xd2,0x04,0x00,0x00]
+; NDD-NEXT:    ctestnel {} $1234, %esi # encoding: [0x62,0xf4,0x04,0x05,0xf7,0xc6,0xd2,0x04,0x00,0x00]
 ; NDD-NEXT:    # imm = 0x4D2
 ; NDD-NEXT:    jns .LBB25_2 # encoding: [0x79,A]
 ; NDD-NEXT:    # fixup A - offset: 1, value: .LBB25_2-1, kind: FK_PCRel_1
@@ -901,7 +901,7 @@ define i32 @ctest32ri_opt(i32 %a, i32 %b, i32* nocapture %c)  {
 ; CHECK-LABEL: ctest32ri_opt:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    testl %edi, %edi # encoding: [0x85,0xff]
-; CHECK-NEXT:    ctestnel {} $123456, %esi # encoding: [0x62,0xf4,0x04,0x15,0xf7,0xc6,0x40,0xe2,0x01,0x00]
+; CHECK-NEXT:    ctestnel {} $123456, %esi # encoding: [0x62,0xf4,0x04,0x05,0xf7,0xc6,0x40,0xe2,0x01,0x00]
 ; CHECK-NEXT:    # imm = 0x1E240
 ; CHECK-NEXT:    jns .LBB26_2 # encoding: [0x79,A]
 ; CHECK-NEXT:    # fixup A - offset: 1, value: .LBB26_2-1, kind: FK_PCRel_1
@@ -914,7 +914,7 @@ define i32 @ctest32ri_opt(i32 %a, i32 %b, i32* nocapture %c)  {
 ; NDD-LABEL: ctest32ri_opt:
 ; NDD:       # %bb.0: # %entry
 ; NDD-NEXT:    testl %edi, %edi # encoding: [0x85,0xff]
-; NDD-NEXT:    ctestnel {} $123456, %esi # encoding: [0x62,0xf4,0x04,0x15,0xf7,0xc6,0x40,0xe2,0x01,0x00]
+; NDD-NEXT:    ctestnel {} $123456, %esi # encoding: [0x62,0xf4,0x04,0x05,0xf7,0xc6,0x40,0xe2,0x01,0x00]
 ; NDD-NEXT:    # imm = 0x1E240
 ; NDD-NEXT:    jns .LBB26_2 # encoding: [0x79,A]
 ; NDD-NEXT:    # fixup A - offset: 1, value: .LBB26_2-1, kind: FK_PCRel_1
@@ -942,7 +942,7 @@ define i64 @ctest64ri_opt(i64 %a, i64 %b, i64* nocapture %c)  {
 ; CHECK-LABEL: ctest64ri_opt:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    testq %rdi, %rdi # encoding: [0x48,0x85,0xff]
-; CHECK-NEXT:    ctestnel {} $123456, %esi # encoding: [0x62,0xf4,0x04,0x15,0xf7,0xc6,0x40,0xe2,0x01,0x00]
+; CHECK-NEXT:    ctestnel {} $123456, %esi # encoding: [0x62,0xf4,0x04,0x05,0xf7,0xc6,0x40,0xe2,0x01,0x00]
 ; CHECK-NEXT:    # imm = 0x1E240
 ; CHECK-NEXT:    jns .LBB27_2 # encoding: [0x79,A]
 ; CHECK-NEXT:    # fixup A - offset: 1, value: .LBB27_2-1, kind: FK_PCRel_1
@@ -955,7 +955,7 @@ define i64 @ctest64ri_opt(i64 %a, i64 %b, i64* nocapture %c)  {
 ; NDD-LABEL: ctest64ri_opt:
 ; NDD:       # %bb.0: # %entry
 ; NDD-NEXT:    testq %rdi, %rdi # encoding: [0x48,0x85,0xff]
-; NDD-NEXT:    ctestnel {} $123456, %esi # encoding: [0x62,0xf4,0x04,0x15,0xf7,0xc6,0x40,0xe2,0x01,0x00]
+; NDD-NEXT:    ctestnel {} $123456, %esi # encoding: [0x62,0xf4,0x04,0x05,0xf7,0xc6,0x40,0xe2,0x01,0x00]
 ; NDD-NEXT:    # imm = 0x1E240
 ; NDD-NEXT:    jns .LBB27_2 # encoding: [0x79,A]
 ; NDD-NEXT:    # fixup A - offset: 1, value: .LBB27_2-1, kind: FK_PCRel_1
@@ -983,7 +983,7 @@ define i8 @ctest8mi_opt(i8 %a, i8* %ptr, i8* nocapture %c)  {
 ; CHECK-LABEL: ctest8mi_opt:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    testb %dil, %dil # encoding: [0x40,0x84,0xff]
-; CHECK-NEXT:    ctestneb {} $123, (%rsi) # encoding: [0x62,0xf4,0x04,0x15,0xf6,0x06,0x7b]
+; CHECK-NEXT:    ctestneb {} $123, (%rsi) # encoding: [0x62,0xf4,0x04,0x05,0xf6,0x06,0x7b]
 ; CHECK-NEXT:    jns .LBB28_2 # encoding: [0x79,A]
 ; CHECK-NEXT:    # fixup A - offset: 1, value: .LBB28_2-1, kind: FK_PCRel_1
 ; CHECK-NEXT:  # %bb.1: # %if.then
@@ -996,7 +996,7 @@ define i8 @ctest8mi_opt(i8 %a, i8* %ptr, i8* nocapture %c)  {
 ; NDD:       # %bb.0: # %entry
 ; NDD-NEXT:    andb $123, (%rsi), %al # encoding: [0x62,0xf4,0x7c,0x18,0x80,0x26,0x7b]
 ; NDD-NEXT:    testb %dil, %dil # encoding: [0x40,0x84,0xff]
-; NDD-NEXT:    ctestneb {} %al, %al # encoding: [0x62,0xf4,0x04,0x15,0x84,0xc0]
+; NDD-NEXT:    ctestneb {} %al, %al # encoding: [0x62,0xf4,0x04,0x05,0x84,0xc0]
 ; NDD-NEXT:    jns .LBB28_2 # encoding: [0x79,A]
 ; NDD-NEXT:    # fixup A - offset: 1, value: .LBB28_2-1, kind: FK_PCRel_1
 ; NDD-NEXT:  # %bb.1: # %if.then
@@ -1026,7 +1026,7 @@ define i16 @ctest16mi_opt(i16 %a, i16* %ptr, i16* nocapture %c)  {
 ; CHECK-NEXT:    movzwl (%rsi), %eax # encoding: [0x0f,0xb7,0x06]
 ; CHECK-NEXT:    testw %di, %di # encoding: [0x66,0x85,0xff]
 ; TODO: Could we generate ctestnew {} $1234, (%rsi)?
-; CHECK-NEXT:    ctestnel {} $1234, %eax # encoding: [0x62,0xf4,0x04,0x15,0xf7,0xc0,0xd2,0x04,0x00,0x00]
+; CHECK-NEXT:    ctestnel {} $1234, %eax # encoding: [0x62,0xf4,0x04,0x05,0xf7,0xc0,0xd2,0x04,0x00,0x00]
 ; CHECK-NEXT:    # imm = 0x4D2
 ; CHECK-NEXT:    jns .LBB29_2 # encoding: [0x79,A]
 ; CHECK-NEXT:    # fixup A - offset: 1, value: .LBB29_2-1, kind: FK_PCRel_1
@@ -1041,7 +1041,7 @@ define i16 @ctest16mi_opt(i16 %a, i16* %ptr, i16* nocapture %c)  {
 ; NDD-NEXT:    movzwl (%rsi), %eax # encoding: [0x0f,0xb7,0x06]
 ; NDD-NEXT:    testw %di, %di # encoding: [0x66,0x85,0xff]
 ; TODO: Could we generate ctestnew {} $1234, (%rsi)?
-; NDD-NEXT:    ctestnel {} $1234, %eax # encoding: [0x62,0xf4,0x04,0x15,0xf7,0xc0,0xd2,0x04,0x00,0x00]
+; NDD-NEXT:    ctestnel {} $1234, %eax # encoding: [0x62,0xf4,0x04,0x05,0xf7,0xc0,0xd2,0x04,0x00,0x00]
 ; NDD-NEXT:    # imm = 0x4D2
 ; NDD-NEXT:    jns .LBB29_2 # encoding: [0x79,A]
 ; NDD-NEXT:    # fixup A - offset: 1, value: .LBB29_2-1, kind: FK_PCRel_1
@@ -1072,7 +1072,7 @@ define i32 @ctest32mi_opt(i32 %a, i32* %ptr, i32* nocapture %c)  {
 ; CHECK-NEXT:    movl $123456, %eax # encoding: [0xb8,0x40,0xe2,0x01,0x00]
 ; CHECK-NEXT:    # imm = 0x1E240
 ; CHECK-NEXT:    testl %edi, %edi # encoding: [0x85,0xff]
-; CHECK-NEXT:    ctestnel {} %eax, (%rsi) # encoding: [0x62,0xf4,0x04,0x15,0x85,0x06]
+; CHECK-NEXT:    ctestnel {} %eax, (%rsi) # encoding: [0x62,0xf4,0x04,0x05,0x85,0x06]
 ; CHECK-NEXT:    jns .LBB30_2 # encoding: [0x79,A]
 ; CHECK-NEXT:    # fixup A - offset: 1, value: .LBB30_2-1, kind: FK_PCRel_1
 ; CHECK-NEXT:  # %bb.1: # %if.then
@@ -1086,7 +1086,7 @@ define i32 @ctest32mi_opt(i32 %a, i32* %ptr, i32* nocapture %c)  {
 ; NDD-NEXT:    andl $123456, (%rsi), %eax # encoding: [0x62,0xf4,0x7c,0x18,0x81,0x26,0x40,0xe2,0x01,0x00]
 ; NDD-NEXT:    # imm = 0x1E240
 ; NDD-NEXT:    testl %edi, %edi # encoding: [0x85,0xff]
-; NDD-NEXT:    ctestnel {} %eax, %eax # encoding: [0x62,0xf4,0x04,0x15,0x85,0xc0]
+; NDD-NEXT:    ctestnel {} %eax, %eax # encoding: [0x62,0xf4,0x04,0x05,0x85,0xc0]
 ; NDD-NEXT:    jns .LBB30_2 # encoding: [0x79,A]
 ; NDD-NEXT:    # fixup A - offset: 1, value: .LBB30_2-1, kind: FK_PCRel_1
 ; NDD-NEXT:  # %bb.1: # %if.then
@@ -1116,7 +1116,7 @@ define i64 @ctest64mi_opt(i64 %a, i64* %ptr, i64* nocapture %c)  {
 ; CHECK-NEXT:    movq (%rsi), %rax # encoding: [0x48,0x8b,0x06]
 ; CHECK-NEXT:    testq %rdi, %rdi # encoding: [0x48,0x85,0xff]
 ; TODO: Could we generate ctestnel {} $123456, (%rsi)?
-; CHECK-NEXT:    ctestnel {} $123456, %eax # encoding: [0x62,0xf4,0x04,0x15,0xf7,0xc0,0x40,0xe2,0x01,0x00]
+; CHECK-NEXT:    ctestnel {} $123456, %eax # encoding: [0x62,0xf4,0x04,0x05,0xf7,0xc0,0x40,0xe2,0x01,0x00]
 ; CHECK-NEXT:    # imm = 0x1E240
 ; CHECK-NEXT:    jns .LBB31_2 # encoding: [0x79,A]
 ; CHECK-NEXT:    # fixup A - offset: 1, value: .LBB31_2-1, kind: FK_PCRel_1
@@ -1131,7 +1131,7 @@ define i64 @ctest64mi_opt(i64 %a, i64* %ptr, i64* nocapture %c)  {
 ; NDD-NEXT:    movq (%rsi), %rax # encoding: [0x48,0x8b,0x06]
 ; NDD-NEXT:    testq %rdi, %rdi # encoding: [0x48,0x85,0xff]
 ; TODO: Could we generate ctestnel {} $123456, (%rsi)?
-; NDD-NEXT:    ctestnel {} $123456, %eax # encoding: [0x62,0xf4,0x04,0x15,0xf7,0xc0,0x40,0xe2,0x01,0x00]
+; NDD-NEXT:    ctestnel {} $123456, %eax # encoding: [0x62,0xf4,0x04,0x05,0xf7,0xc0,0x40,0xe2,0x01,0x00]
 ; NDD-NEXT:    # imm = 0x1E240
 ; NDD-NEXT:    jns .LBB31_2 # encoding: [0x79,A]
 ; NDD-NEXT:    # fixup A - offset: 1, value: .LBB31_2-1, kind: FK_PCRel_1
