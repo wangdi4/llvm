@@ -1,5 +1,5 @@
-; RUN: opt -opaque-pointers=0 -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
-; RUN: opt -opaque-pointers=0 -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
+; RUN: opt -bugpoint-enable-legacy-pm -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S %s | FileCheck %s
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S %s | FileCheck %s
 ;
 ; Test src:
 
@@ -13,10 +13,10 @@
 ; or any associated debug metadata, check that a default "unknown"
 ; map-name is used for the map operand.
 ; CHECK: @.mapname = private unnamed_addr constant [23 x i8] c";unknown;unknown;0;0;;\00", align 1
-; CHECK: @.offload_mapnames = private constant [1 x i8*] [i8* getelementptr inbounds ([23 x i8], [23 x i8]* @.mapname, i32 0, i32 0)]
+; CHECK: @.offload_mapnames = private constant [1 x ptr] [ptr @.mapname]
 
 ; Check that tgt_mapper is called using the map-names struct.
-; CHECK:  %{{[^ ]+}} = call i32 @__tgt_target_mapper(%struct.ident_t* @{{[^ ,]+}}, i64 %{{[^ ,]+}}, i8* @{{[^ ,]+}}, i32 1, i8** %{{[^ ,]}}, i8** %{{[^ ,]}}, i64* getelementptr inbounds ([1 x i64], [1 x i64]* @.offload_sizes, i32 0, i32 0), i64* getelementptr inbounds ([1 x i64], [1 x i64]* @.offload_maptypes, i32 0, i32 0), i8** getelementptr inbounds ([1 x i8*], [1 x i8*]* @.offload_mapnames, i32 0, i32 0), i8** null)
+; CHECK:  %{{[^ ]+}} = call i32 @__tgt_target_mapper(ptr @{{[^ ,]+}}, i64 %{{[^ ,]+}}, ptr @{{[^ ,]+}}, i32 1, ptr %{{[^ ,]}}, ptr %{{[^ ,]}}, ptr @.offload_sizes, ptr @.offload_maptypes, ptr @.offload_mapnames, ptr null)
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -27,12 +27,16 @@ target device_triples = "x86_64"
 define hidden i32 @main() #0 !dbg !9 {
 entry:
   %0 = alloca i16, align 2
-  store i16 111, i16* %0, align 2
+  store i16 111, ptr %0, align 2
 
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TO"(i16* %0, i16* %0, i64 2, i64 33, i8* null, i8* null) ], !dbg !16
-  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TARGET"() ], !dbg !16
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(),
+    "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0),
+    "QUAL.OMP.MAP.TO"(ptr %0, ptr %0, i64 2, i64 33, ptr null, ptr null) ] ; MAP type: 33 = 0x21 = TARGET_PARAM (0x20) | TO (0x1)
+, !dbg !13
+  call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TARGET"() ]
+, !dbg !13
 
-  ret i32 0, !dbg !18
+  ret i32 0, !dbg !15
 }
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
@@ -66,9 +70,6 @@ attributes #2 = { nounwind }
 !10 = !DISubroutineType(types: !11)
 !11 = !{!12}
 !12 = !DIBasicType(name: "int", size: 32, encoding: DW_ATE_signed)
-!13 = !DILocalVariable(name: "y", scope: !9, file: !1, line: 2, type: !14)
-!14 = !DIBasicType(name: "short", size: 16, encoding: DW_ATE_signed)
-!15 = !DILocation(line: 2, column: 9, scope: !9)
-!16 = !DILocation(line: 3, column: 1, scope: !17)
-!17 = distinct !DILexicalBlock(scope: !9, file: !1, line: 3, column: 1)
-!18 = !DILocation(line: 5, column: 1, scope: !9)
+!13 = !DILocation(line: 3, column: 1, scope: !14)
+!14 = distinct !DILexicalBlock(scope: !9, file: !1, line: 3, column: 1)
+!15 = !DILocation(line: 5, column: 1, scope: !9)
