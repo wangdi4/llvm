@@ -37,12 +37,16 @@ int clang::hasAttribute(AttributeCommonInfo::Syntax Syntax, const IdentifierInfo
   // attributes. We support those, but not through the typical attribute
   // machinery that goes through TableGen. We support this in all OpenMP modes
   // so long as double square brackets are enabled.
+<<<<<<< HEAD
   if (LangOpts.OpenMP && LangOpts.DoubleSquareBracketAttributes &&
 #if INTEL_COLLAB
       (ScopeName == "omp" || ScopeName == "ompx"))
     return (Name == "directive" || (Name == "sequence" && ScopeName != "ompx"));
 #else // INTEL_COLLAB
       ScopeName == "omp")
+=======
+  if (LangOpts.OpenMP && ScopeName == "omp")
+>>>>>>> 874217f99b99ab3c9026dc3b7bd84cd2beebde6e
     return (Name == "directive" || Name == "sequence") ? 1 : 0;
 #endif // INTEL_COLLAB
 
